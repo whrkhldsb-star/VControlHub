@@ -75,11 +75,7 @@ export async function POST(request: Request) {
 }
 
 export async function PATCH(request: Request) {
-  return withApiRoute(request, { permission: "ticket:manage", rateLimit: GENERAL_WRITE_LIMIT }, async () => {
-    const body = await request.json();
-    const parsed = ticketPatchSchema.safeParse(body);
-    if (!parsed.success) throw new ValidationError("输入校验失败", parsed.error.flatten().fieldErrors);
-    const data = parsed.data;
-    return NextResponse.json({ ticket: await updateTicketStatus({ id: data.id, status: normalizeStatus(data.status), assigneeId: data.assigneeId, priority: normalizePriority(data.priority) }) });
+  return withApiRoute(request, { permission: "ticket:manage", rateLimit: GENERAL_WRITE_LIMIT, bodySchema: ticketPatchSchema }, async ({ body }) => {
+    return NextResponse.json({ ticket: await updateTicketStatus({ id: body.id, status: normalizeStatus(body.status), assigneeId: body.assigneeId, priority: normalizePriority(body.priority) }) });
   });
 }

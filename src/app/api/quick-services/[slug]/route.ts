@@ -4,18 +4,15 @@ import { enqueueQuickServiceJob } from "@/lib/quick-service/job-worker";
 import { withApiRoute } from "@/lib/http/api-guard";
 import { GENERAL_WRITE_LIMIT } from "@/lib/http/rate-limit-presets";
 
-import { ValidationError } from "@/lib/errors";
 const serviceActionSchema = z.object({ action: z.enum(["start", "stop", "sync", "update"]) });
 const uninstallSchema = z.object({ deleteVolumes: z.boolean().optional() }).optional();
 
 export const dynamic = "force-dynamic";
 
 export async function PATCH(request: Request, { params }: { params: Promise<{ slug: string }> }) {
-	return withApiRoute(request, { permission: "docker:manage", rateLimit: GENERAL_WRITE_LIMIT }, async ({ session }) => {
+	return withApiRoute(request, { permission: "docker:manage", rateLimit: GENERAL_WRITE_LIMIT, bodySchema: serviceActionSchema }, async ({ session, body }) => {
 		const { slug } = await params;
-		const parsed = serviceActionSchema.safeParse(await request.json());
-		if (!parsed.success) throw new ValidationError("输入参数无效，支持: start/stop/sync/update");
-		const { action } = parsed.data;
+		const { action } = body;
 		const { job, taskId, reused } = await enqueueQuickServiceJob({
 			title: `QuickService ${action}: ${slug}`,
 			createdBy: session?.userId ?? null,
@@ -33,18 +30,10 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ sl
 	});
 }
 
-async function readOptionalJson(request: Request) {
-	const text = await request.text();
-	if (!text.trim()) return undefined;
-	return JSON.parse(text) as unknown;
-}
-
 export async function DELETE(request: Request, { params }: { params: Promise<{ slug: string }> }) {
-	return withApiRoute(request, { permission: "docker:manage", rateLimit: GENERAL_WRITE_LIMIT, errorMessage: "卸载失败" }, async ({ session }) => {
+	return withApiRoute(request, { permission: "docker:manage", rateLimit: GENERAL_WRITE_LIMIT, errorMessage: "卸载失败", bodySchema: uninstallSchema }, async ({ session, body }) => {
 		const { slug } = await params;
-		const parsed = uninstallSchema.safeParse(await readOptionalJson(request));
-		if (!parsed.success) throw new ValidationError("输入参数无效");
-		const deleteVolumes = parsed.data?.deleteVolumes === true;
+		const deleteVolumes = body?.deleteVolumes === true;
 		const { job, taskId, reused } = await enqueueQuickServiceJob({
 			title: `卸载快捷服务：${slug}`,
 			createdBy: session?.userId ?? null,

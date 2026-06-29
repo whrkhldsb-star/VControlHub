@@ -19,7 +19,7 @@ import { COMMAND_LIMIT } from "@/lib/http/rate-limit-presets";
 import { parseSearchParams } from "@/lib/http/parse-search-params";
 import { createLogger } from "@/lib/logging";
 
-import { AuthError, ValidationError } from "@/lib/errors";
+import { AuthError } from "@/lib/errors";
 const logger = createLogger("api:docker:containers");
 
 const containerActionSchema = z.object({
@@ -215,17 +215,13 @@ export async function POST(req: NextRequest) {
       permission: "docker:manage",
       rateLimit: COMMAND_LIMIT,
       errorMessage: "Docker 操作失败",
+      bodySchema: containerActionSchema,
     },
-    async ({ session }) => {
+    async ({ session, body }) => {
       if (!session)
         throw new AuthError("未认证");
 
-      const parsed = containerActionSchema.safeParse(
-        await req.json().catch(() => null),
-      );
-      if (!parsed.success)
-        throw new ValidationError("输入参数无效");
-      const { id, action } = parsed.data;
+      const { id, action } = body;
 
       // Validate container ID to prevent path traversal
       if (!isValidDockerId(id)) {

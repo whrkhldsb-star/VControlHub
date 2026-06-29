@@ -248,19 +248,13 @@ export async function GET(request: Request) {
 export async function POST(request: Request) {
   return withApiRoute(
     request,
-    { permission: "storage:read", rateLimit: UPLOAD_LIMIT },
-    async ({ session }) => {
+    { permission: "storage:read", rateLimit: UPLOAD_LIMIT, bodySchema: directAccessSchema },
+    async ({ session, body }) => {
       if (!session)
         throw new AuthError("未认证");
-      const parsed = parseDirectAccessJson(await request.json());
-      if (!parsed.success)
-        return NextResponse.json(
-          { error: "缺少 nodeId 或 relativePath" },
-          { status: 400 },
-        );
 
       const payload = await resolveDirectAccessPayload({
-        ...parsed.data,
+        ...body,
         session,
       });
       if (payload instanceof NextResponse) return payload;

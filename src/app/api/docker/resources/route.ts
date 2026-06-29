@@ -3,7 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 
 import { auditUserAction } from "@/lib/audit/service";
-import { AuthError, ValidationError } from "@/lib/errors";
+import { AuthError } from "@/lib/errors";
 import { withApiRoute } from "@/lib/http/api-guard";
 import { COMMAND_LIMIT } from "@/lib/http/rate-limit-presets";
 import { parseSearchParams } from "@/lib/http/parse-search-params";
@@ -116,12 +116,10 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   return withApiRoute(
     req,
-    { permission: "docker:manage", rateLimit: COMMAND_LIMIT, errorMessage: "Docker 资源操作失败" },
-    async ({ session }) => {
+    { permission: "docker:manage", rateLimit: COMMAND_LIMIT, errorMessage: "Docker 资源操作失败", bodySchema: postBodySchema },
+    async ({ session, body: input }) => {
       if (!session) throw new AuthError("未认证");
-      const parsed = postBodySchema.safeParse(await req.json().catch(() => null));
-      if (!parsed.success) throw new ValidationError("输入参数无效");
-      const { type, action, name, driver = "local" } = parsed.data;
+      const { type, action, name, driver = "local" } = input;
 
       const isNetwork = type === "networks";
       const path = isNetwork

@@ -5,7 +5,6 @@ import { probeModelsSchema } from "@/lib/ai/schema";
 import { withApiRoute } from "@/lib/http/api-guard";
 import { GENERAL_WRITE_LIMIT } from "@/lib/http/rate-limit-presets";
 
-import { ValidationError } from "@/lib/errors";
 export const dynamic = "force-dynamic";
 
 export async function POST(request: Request) {
@@ -16,14 +15,10 @@ export async function POST(request: Request) {
       rateLimit: GENERAL_WRITE_LIMIT,
       errorStatus: 400,
       errorMessage: "获取模型列表失败",
+      bodySchema: probeModelsSchema,
     },
-    async () => {
-      const body = await request.json().catch(() => null);
-      const parsed = probeModelsSchema.safeParse(body);
-      if (!parsed.success)
-        throw new ValidationError("输入参数无效");
-
-      const models = await fetchModelsFromCredentials(parsed.data);
+    async ({ body }) => {
+      const models = await fetchModelsFromCredentials(body);
       return NextResponse.json({ models });
     },
   );

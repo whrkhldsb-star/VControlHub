@@ -7,7 +7,7 @@ import { withApiRoute } from "@/lib/http/api-guard";
 import { apiError } from "@/lib/http/api-error";
 import { GENERAL_WRITE_LIMIT } from "@/lib/http/rate-limit-presets";
 
-import { AuthError, ValidationError } from "@/lib/errors";
+import { AuthError } from "@/lib/errors";
 export const dynamic = "force-dynamic";
 
 const rollbackSchema = z.object({
@@ -17,23 +17,26 @@ const rollbackSchema = z.object({
 export async function POST(request: Request, { params }: { params: Promise<{ id: string }> }) {
   return withApiRoute(
     request,
-    { permission: "deploy:run", rateLimit: GENERAL_WRITE_LIMIT, errorMessage: "回滚失败" },
-    async ({ session }) => {
+    {
+      permission: "deploy:run",
+      rateLimit: GENERAL_WRITE_LIMIT,
+      errorMessage: "回滚失败",
+      bodySchema: rollbackSchema,
+    },
+    async ({ session, body }) => {
       if (!session) throw new AuthError("未登录或会话已过期");
       const { id } = await params;
-      const parsed = rollbackSchema.safeParse(await request.json().catch(() => ({})));
-      if (!parsed.success) throw new ValidationError(parsed.error.issues[0]?.message ?? "回滚参数无效");
       try {
         const rollback = await createDeploymentRollbackRun({
           sourceRunId: id,
           requesterId: session.userId,
-          reason: parsed.data.reason,
+          reason: body.reason,
         });
         auditUserAction(session.userId, "deployment.rollback", {
           sourceRunId: id,
           rollbackId: rollback.id,
           commandRequestId: rollback.commandRequestId,
-          reason: parsed.data.reason ?? null,
+          reason: body.reason ?? null,
         });
         return NextResponse.json({ rollback }, { status: 201 });
       } catch (error) {

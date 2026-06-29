@@ -84,6 +84,7 @@ export async function POST(request: Request) {
 	return withApiRoute(request, {
 		permission: "docker:manage",
 		rateLimit: GENERAL_WRITE_LIMIT,
+		bodySchema: installSchema,
 		onError(error) {
 			const message = error instanceof Error ? error.message : "安装失败";
 			const isPortError = message.includes("端口") && message.includes("占用");
@@ -92,10 +93,8 @@ export async function POST(request: Request) {
 				{ status: isPortError ? 409 : 500 },
 			);
 		},
-	}, async ({ session }) => {
-		const parsed = installSchema.safeParse(await request.json());
-		if (!parsed.success) throw new ValidationError("输入参数无效");
-		const { slug, customPort } = parsed.data;
+	}, async ({ session, body }) => {
+		const { slug, customPort } = body;
 
 		// First try local catalog
 		let template = SERVICE_CATALOG.find((t) => t.slug === slug);

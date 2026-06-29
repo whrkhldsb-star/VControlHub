@@ -9,7 +9,6 @@ import { createConversationSchema } from "@/lib/ai/schema";
 import { withApiRoute } from "@/lib/http/api-guard";
 import { GENERAL_WRITE_LIMIT } from "@/lib/http/rate-limit-presets";
 
-import { ValidationError } from "@/lib/errors";
 export const dynamic = "force-dynamic";
 
 export async function GET(request: Request) {
@@ -37,20 +36,17 @@ export async function POST(request: Request) {
       permission: "ai:chat",
       rateLimit: GENERAL_WRITE_LIMIT,
       errorMessage: "创建失败",
+      bodySchema: createConversationSchema,
     },
-    async ({ session }) => {
+    async ({ session, body }) => {
       if (!session)
         return NextResponse.json(
           { error: "未登录或会话已过期" },
           { status: 401 },
         );
-      const body = await request.json().catch(() => null);
-      const parsed = createConversationSchema.safeParse(body);
-      if (!parsed.success)
-        throw new ValidationError("输入参数无效");
 
       const conv = await createConversation({
-        ...parsed.data,
+        ...body,
         createdBy: session.userId,
       });
       return NextResponse.json(

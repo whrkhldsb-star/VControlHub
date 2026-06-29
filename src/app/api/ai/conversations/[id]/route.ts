@@ -11,7 +11,6 @@ import { updateConversationSchema } from "@/lib/ai/schema";
 import { withApiRoute } from "@/lib/http/api-guard";
 import { GENERAL_WRITE_LIMIT } from "@/lib/http/rate-limit-presets";
 
-import { ValidationError } from "@/lib/errors";
 export const dynamic = "force-dynamic";
 
 export async function GET(
@@ -45,27 +44,24 @@ export async function PATCH(
       rateLimit: GENERAL_WRITE_LIMIT,
       errorMessage: "更新失败",
       errorStatus: 400,
+      bodySchema: updateConversationSchema,
     },
-    async ({ session }) => {
+    async ({ session, body }) => {
       if (!session)
         return NextResponse.json(
           { error: "未登录或会话已过期" },
           { status: 401 },
         );
       const { id } = await params;
-      const body = await request.json().catch(() => null);
-      const parsed = updateConversationSchema.safeParse(body);
-      if (!parsed.success)
-        throw new ValidationError("输入参数无效");
 
       // Special action: clear all messages in the conversation
-      if (parsed.data.clearMessages) {
+      if (body.clearMessages) {
         await clearConversationMessages(id, session.userId);
         const conv = await getConversationById(id, session.userId);
         return NextResponse.json({ conversation: serializeConversation(conv) });
       }
 
-      const conv = await updateConversation(id, session.userId, parsed.data);
+      const conv = await updateConversation(id, session.userId, body);
       return NextResponse.json({
         conversation: {
           ...conv,

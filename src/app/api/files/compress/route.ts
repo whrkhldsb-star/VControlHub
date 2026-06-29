@@ -25,22 +25,13 @@ export async function POST(request: NextRequest) {
       permission: "storage:write",
       rateLimit: GENERAL_WRITE_LIMIT,
       errorMessage: "压缩失败",
+      bodySchema: compressFilesBodySchema,
     },
-    async ({ session }) => {
+    async ({ session, body }) => {
       if (!session) throw new AuthError("未授权");
 
-      let rawBody: unknown;
-      try {
-        rawBody = await request.json();
-      } catch {
-        throw new ValidationError("无效请求体");
-      }
-
-      const parsed = compressFilesBodySchema.safeParse(rawBody);
-      if (!parsed.success) throw new ValidationError("输入参数无效");
-
-      const { storageNodeId, relativePaths, targetDir } = parsed.data;
-      const outputName = normalizeArchiveName(parsed.data.outputName);
+      const { storageNodeId, relativePaths, targetDir } = body;
+      const outputName = normalizeArchiveName(body.outputName);
       const targetRelativeDir = normalizeDir(targetDir ?? path.posix.dirname(relativePaths[0] ?? ""));
       const outputRelativePath = path.posix.join(targetRelativeDir, outputName);
 

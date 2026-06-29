@@ -28,8 +28,12 @@ function resolveRequestOrigin(request: NextRequest) {
 export async function POST(request: NextRequest) {
   return withApiRoute(
     request,
-    { permission: "server:ssh", rateLimit: GENERAL_WRITE_LIMIT },
-    async ({ session }) => {
+    {
+      permission: "server:ssh",
+      rateLimit: GENERAL_WRITE_LIMIT,
+      bodySchema: requestSchema,
+    },
+    async ({ session, body }) => {
       if (!session)
         throw new AuthError("未认证");
 
@@ -41,21 +45,11 @@ export async function POST(request: NextRequest) {
         );
       }
 
-      const parsed = requestSchema.safeParse(
-        await request.json().catch(() => null),
-      );
-      if (!parsed.success) {
-        return NextResponse.json(
-          { error: "Invalid WebSocket token request" },
-          { status: 400 },
-        );
-      }
-
       const token = createSshWsHandshakeToken({
         userId: session.userId,
-        serverId: parsed.data.serverId,
+        serverId: body.serverId,
         origin: resolveRequestOrigin(request),
-        sessionId: parsed.data.sessionToken,
+        sessionId: body.sessionToken,
         secret,
         ttlMs: HANDSHAKE_TTL_MS,
       });

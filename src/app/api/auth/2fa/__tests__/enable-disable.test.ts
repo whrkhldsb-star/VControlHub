@@ -19,18 +19,34 @@ const { requireSessionMock, verifyTotpMock, prismaMock } = vi.hoisted(() => ({
 vi.mock("@/lib/http/api-guard", () => ({
   withApiRoute: async (
     request: Request,
-    opts: { requireAuth?: boolean; errorMessage?: string },
-    handler: (ctx: { session: { userId: string } | null }) => Promise<Response>,
+    opts: { requireAuth?: boolean; errorMessage?: string; bodySchema?: { safeParse: (v: unknown) => { success: true; data: unknown } | { success: false; error: { issues: Array<{ message: string }> } } } },
+    handler: (ctx: { session: { userId: string } | null; body: unknown }) => Promise<Response>,
   ) => {
     try {
+      let body: unknown = undefined;
+      if (opts.bodySchema) {
+        let raw: unknown = undefined;
+        try {
+          raw = await request.clone().json();
+        } catch {
+          const { ValidationError } = await import("@/lib/errors");
+          throw new ValidationError("请求体不是合法的 JSON");
+        }
+        const parsed = opts.bodySchema.safeParse(raw);
+        if (!parsed.success) {
+          const { ValidationError } = await import("@/lib/errors");
+          throw new ValidationError(parsed.error.issues[0]?.message ?? "参数无效");
+        }
+        body = parsed.data;
+      }
       if (opts.requireAuth) {
         const session = requireSessionMock(request);
         if (!session) {
           return new Response(JSON.stringify({ error: "未登录或会话已过期" }), { status: 401 });
         }
-        return await handler({ session });
+        return await handler({ session, body });
       }
-      return await handler({ session: null });
+      return await handler({ session: null, body });
     } catch (e) {
       // Mirror the real `withApiRoute` catch: route handlers now throw
       // `AppError` subclasses instead of returning `NextResponse.json({...})`,

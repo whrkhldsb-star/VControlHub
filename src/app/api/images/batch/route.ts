@@ -28,19 +28,15 @@ export async function POST(request: Request) {
       requireAuth: true,
       rateLimit: IMAGE_UPLOAD_LIMIT,
       errorMessage: "批量操作失败",
+      bodySchema: batchSchema,
     },
-    async ({ session }) => {
+    async ({ session, body }) => {
       if (!session)
         return NextResponse.json(
           { error: "未登录或会话已过期" },
           { status: 401 },
         );
-      const parsed = batchSchema.safeParse(
-        await request.json().catch(() => null),
-      );
-      if (!parsed.success)
-        throw new ValidationError("输入参数无效");
-      const { action, ids, album } = parsed.data;
+      const { action, ids, album } = body;
 
       const canManageImages =
         sessionHasPermission(session, "storage:delete") ||

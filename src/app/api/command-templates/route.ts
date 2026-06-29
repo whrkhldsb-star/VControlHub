@@ -34,13 +34,7 @@ export async function GET(request: Request) {
 }
 
 export async function POST(request: Request) {
-	return withApiRoute(request, { permission: "command:create", rateLimit: GENERAL_WRITE_LIMIT, errorStatus: 400, errorMessage: "创建失败" }, async ({ session }) => {
-		const rawBody = await request.json();
-		const parsed = createCommandTemplateSchema.safeParse(rawBody);
-		if (!parsed.success) {
-			throw new ValidationError("输入参数无效");
-		}
-		const body = parsed.data;
+	return withApiRoute(request, { permission: "command:create", rateLimit: GENERAL_WRITE_LIMIT, errorStatus: 400, errorMessage: "创建失败", bodySchema: createCommandTemplateSchema }, async ({ session, body }) => {
 		const template = await createTemplate({
 			name: body.name, description: body.description, command: body.command, rollbackCommand: body.rollbackCommand,
 			tags: body.tags, createdById: session?.userId ?? "",
@@ -51,13 +45,8 @@ export async function POST(request: Request) {
 }
 
 export async function PATCH(request: Request) {
-	return withApiRoute(request, { permission: "command:create", rateLimit: GENERAL_WRITE_LIMIT, errorStatus: 400, errorMessage: "更新失败" }, async ({ session }) => {
-		const rawBody = await request.json();
-		const parsed = updateCommandTemplateSchema.safeParse(rawBody);
-		if (!parsed.success) {
-			throw new ValidationError("输入参数无效");
-		}
-		const { id, ...updates } = parsed.data;
+	return withApiRoute(request, { permission: "command:create", rateLimit: GENERAL_WRITE_LIMIT, errorStatus: 400, errorMessage: "更新失败", bodySchema: updateCommandTemplateSchema }, async ({ session, body }) => {
+		const { id, ...updates } = body;
 		const result = await updateTemplate(id, updates);
 		auditUserAction(session?.userId ?? "", "command_template.update", auditTemplateDetail(result));
 		return NextResponse.json({ template: result });

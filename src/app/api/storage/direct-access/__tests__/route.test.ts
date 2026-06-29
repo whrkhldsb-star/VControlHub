@@ -76,7 +76,8 @@ describe("/api/storage/direct-access", () => {
     expect(response.status).toBe(400);
     expect(prismaMock.storageNode.findUnique).not.toHaveBeenCalled();
     await expect(response.json()).resolves.toMatchObject({
-      error: "缺少 nodeId 或 relativePath",
+      code: "VALIDATION_FAILED",
+      error: expect.stringContaining("relativePath"),
     });
   });
 

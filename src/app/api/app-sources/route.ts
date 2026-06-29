@@ -120,6 +120,7 @@ export async function POST(request: Request) {
     {
       permission: "user:manage",
       rateLimit: GENERAL_WRITE_LIMIT,
+      bodySchema: addSourceSchema,
       onError: (error) => {
         const msg = error instanceof Error ? error.message : "添加源失败";
         if (msg.includes("Unique")) {
@@ -128,23 +129,13 @@ export async function POST(request: Request) {
         throw new AppError({ code: "INTERNAL_ERROR", message: msg, status: 500 });
       },
     },
-    async () => {
-      const parsed = addSourceSchema.safeParse(
-        await request.json().catch(() => null),
-      );
-      if (!parsed.success) {
-        return NextResponse.json(
-          { error: "输入参数无效", details: parsed.error.flatten() },
-          { status: 400 },
-        );
-      }
-
+    async ({ body }) => {
       const source = await prisma.appSource.create({
         data: {
-          name: parsed.data.name,
-          displayName: parsed.data.displayName,
-          url: normalizePublicHttpUrl(parsed.data.url),
-          type: parsed.data.type,
+          name: body.name,
+          displayName: body.displayName,
+          url: normalizePublicHttpUrl(body.url),
+          type: body.type,
         },
       });
 
@@ -175,23 +166,12 @@ export async function PATCH(request: Request) {
       permission: "user:manage",
       rateLimit: GENERAL_WRITE_LIMIT,
       errorMessage: "操作失败",
+      bodySchema: updateSchema,
     },
-    async () => {
-      const parsed = updateSchema.safeParse(
-        await request.json().catch(() => null),
-      );
-      if (!parsed.success) {
-        return NextResponse.json(
-          { error: "输入参数无效", details: parsed.error.flatten() },
-          { status: 400 },
-        );
-      }
-
-      const data = parsed.data;
-
-      if (data.action === "sync") {
-        if (data.sourceId) {
-          const result = await syncSource(data.sourceId);
+    async ({ body }) => {
+      if (body.action === "sync") {
+        if (body.sourceId) {
+          const result = await syncSource(body.sourceId);
           return NextResponse.json({ result });
         }
         const results = await syncAllSources();
@@ -199,8 +179,8 @@ export async function PATCH(request: Request) {
       }
 
       await prisma.appSource.update({
-        where: { id: data.sourceId },
-        data: { enabled: data.enabled },
+        where: { id: body.sourceId },
+        data: { enabled: body.enabled },
       });
       return NextResponse.json({ ok: true });
     },

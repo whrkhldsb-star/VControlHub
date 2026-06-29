@@ -39,19 +39,15 @@ export async function POST(request: Request) {
       permission: "storage:read",
       rateLimit: IMAGE_UPLOAD_LIMIT,
       errorMessage: "从云盘发布失败",
+      bodySchema: publishSchema,
     },
-    async ({ session }) => {
+    async ({ session, body }) => {
       if (!session)
         return NextResponse.json(
           { error: "未登录或会话已过期" },
           { status: 401 },
         );
-      const parsed = publishSchema.safeParse(
-        await request.json().catch(() => null),
-      );
-      if (!parsed.success)
-        throw new ValidationError("输入参数无效");
-      const { storageNodeId, relativePath, filename, album } = parsed.data;
+      const { storageNodeId, relativePath, filename, album } = body;
 
       // Verify the storage node exists and is accessible
       const storageNode = await prisma.storageNode.findUnique({

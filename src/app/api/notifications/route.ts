@@ -19,13 +19,18 @@ const postSchema = z.object({
   ids: z.array(z.string()).min(1),
 });
 
-const patchSchema = z.discriminatedUnion("action", [
-  z.object({ action: z.literal("markAllAsRead") }),
-  z.object({
-    action: z.literal("markAsRead"),
-    notificationId: z.string().min(1),
-  }),
-  z.object({ action: z.literal("delete"), notificationId: z.string().min(1) }),
+const patchSchema = z.union([
+  z.discriminatedUnion("action", [
+    z.object({ action: z.literal("markAllAsRead") }),
+    z.object({
+      action: z.literal("markAsRead"),
+      notificationId: z.string().min(1),
+    }),
+    z.object({ action: z.literal("delete"), notificationId: z.string().min(1) }),
+  ]),
+  // Legacy format support
+  z.object({ markAllAsRead: z.literal(true) }),
+  z.object({ notificationId: z.string().min(1) }),
 ]);
 
 export async function GET(request: Request) {
@@ -51,39 +56,31 @@ export async function PATCH(request: Request) {
       requireAuth: true,
       rateLimit: GENERAL_WRITE_LIMIT,
       errorMessage: "操作失败",
+      bodySchema: patchSchema,
     },
-    async ({ session }) => {
+    async ({ session, body }) => {
       if (!session)
         throw new AuthError("未认证");
-      const body = await request.json().catch(() => null);
 
       // Legacy format support
-      if (body?.markAllAsRead) {
+      if ("markAllAsRead" in body) {
         await markAllAsRead(session.userId);
         return NextResponse.json({ success: true });
       }
-      if (body?.notificationId) {
+      if (!("action" in body) && "notificationId" in body) {
         await markAsRead(body.notificationId, session.userId);
         return NextResponse.json({ success: true });
       }
 
-      // New discriminated union format
-      const parsed = patchSchema.safeParse(body);
-      if (!parsed.success)
-        return NextResponse.json(
-          { error: "无效请求", details: parsed.error.flatten() },
-          { status: 400 },
-        );
-
-      switch (parsed.data.action) {
+      switch (body.action) {
         case "markAllAsRead":
           await markAllAsRead(session.userId);
           break;
         case "markAsRead":
-          await markAsRead(parsed.data.notificationId, session.userId);
+          await markAsRead(body.notificationId, session.userId);
           break;
         case "delete":
-          await deleteNotification(parsed.data.notificationId, session.userId);
+          await deleteNotification(body.notificationId, session.userId);
           break;
       }
 

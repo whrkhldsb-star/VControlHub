@@ -53,31 +53,13 @@ export async function POST(request: Request) {
 
   return withApiRoute(
     request,
-    { permission: "ai:chat", errorMessage: t("apiAiChat.errorMessage", locale) },
-    async ({ session }) => {
+    { permission: "ai:chat", errorMessage: t("apiAiChat.errorMessage", locale), bodySchema: chatRequestSchema },
+    async ({ session, body }) => {
       if (!session)
         return NextResponse.json(
           { error: t("apiAiChat.unauthorized", locale) },
           { status: 401 },
         );
-
-      let body: {
-        conversationId: string;
-        content: string;
-        imageUrls?: string[];
-        imageBase64?: Array<{ mimeType: string; data: string }>;
-        fileAttachments?: Array<{ name: string; content: string }>;
-      };
-      try {
-        body = await request.json();
-      } catch {
-        throw new ValidationError(t("apiAiChat.invalidRequest", locale));
-      }
-
-      const parsed = chatRequestSchema.safeParse(body);
-      if (!parsed.success) {
-        throw new ValidationError(t("apiAiChat.invalidInput", locale));
-      }
 
       if (!body.conversationId || !body.content?.trim()) {
         throw new ValidationError(t("apiAiChat.missingParams", locale));

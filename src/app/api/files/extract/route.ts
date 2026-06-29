@@ -37,24 +37,12 @@ export async function POST(request: NextRequest) {
       permission: "storage:write",
       rateLimit: GENERAL_WRITE_LIMIT,
       errorMessage: "解压失败",
+      bodySchema: postSchema,
     },
-    async ({ session }) => {
+    async ({ session, body }) => {
       if (!session)
         throw new AuthError("未授权");
 
-      let rawBody: unknown;
-      try {
-        rawBody = await request.json();
-      } catch {
-        throw new ValidationError("无效请求体");
-      }
-
-      const parsed = postSchema.safeParse(rawBody);
-      if (!parsed.success) {
-        throw new ValidationError("输入参数无效");
-      }
-
-      const body = parsed.data;
       const driver = body.driver ?? "LOCAL";
       const name = body.name ?? "archive";
       const nodeId = body.storageNodeId ?? body.serverId;

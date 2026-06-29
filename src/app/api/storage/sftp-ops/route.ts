@@ -145,21 +145,7 @@ export const dynamic = "force-dynamic";
 // and is re-imported above for downstream call-sites.
 const postSchema = sftpOpsBodySchema;
 
-async function handlePost(request: Request, session: SessionPayload) {
-  let rawBody: unknown;
-  try {
-    rawBody = await request.json();
-  } catch {
-    throw new ValidationError("无效的请求体");
-  }
-
-  const zodResult = postSchema.safeParse(rawBody);
-  if (!zodResult.success) {
-    throw new ValidationError("输入参数无效");
-  }
-
-  const body: SftpOpsBody = rawBody as SftpOpsBody;
-
+async function handlePost(body: SftpOpsBody, session: SessionPayload) {
   const { action, nodeId, path: remotePath } = body;
 
   if (!nodeId) {
@@ -478,11 +464,12 @@ export async function POST(request: Request) {
       requireAuth: true,
       rateLimit: GENERAL_WRITE_LIMIT,
       errorMessage: "远端文件操作失败",
+      bodySchema: postSchema,
     },
-    async ({ session }) => {
+    async ({ session, body }) => {
       if (!session)
         throw new AuthError("未认证");
-      return handlePost(request, session);
+      return handlePost(body, session);
     },
   );
 }

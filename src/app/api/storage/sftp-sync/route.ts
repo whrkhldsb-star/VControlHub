@@ -31,27 +31,17 @@ const sftpSyncSchema = sftpSyncBodySchema;
 export async function POST(request: Request) {
   return withApiRoute(
     request,
-    { permission: "storage:write", rateLimit: GENERAL_WRITE_LIMIT },
-    async ({ session }) => {
+    { permission: "storage:write", rateLimit: GENERAL_WRITE_LIMIT, bodySchema: sftpSyncSchema },
+    async ({ session, body }) => {
       if (!session)
         throw new AuthError("未认证");
 
-      let rawBody: unknown;
-      try {
-        rawBody = await request.json();
-      } catch {
-        throw new ValidationError("无效的请求体");
-      }
-
-      const parsed = sftpSyncSchema.safeParse(rawBody);
-      if (!parsed.success)
-        throw new ValidationError("输入参数无效");
       const {
         nodeId,
         remotePath,
         recursive = false,
         maxDepth = 1,
-      } = parsed.data;
+      } = body;
 
       const node = await getSftpSyncNode(nodeId);
       if (!node) {

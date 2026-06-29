@@ -51,7 +51,12 @@ function syncRequest(body: Record<string, unknown>, search = "") {
 describe("/api/storage/sftp-sync", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    withApiRouteMock.mockImplementation(async (_request, _options, handler) => handler({ session }));
+    withApiRouteMock.mockImplementation(async (request, options, handler) => {
+      const body = options.bodySchema
+        ? options.bodySchema.parse(await request.clone().json())
+        : undefined;
+      return handler({ session, body });
+    });
     assertStorageAccessMock.mockResolvedValue({ allowed: true });
     getSftpSyncNodeMock.mockResolvedValue(node);
     enqueueJobMock.mockResolvedValue({ id: "job_1", status: "PENDING" });

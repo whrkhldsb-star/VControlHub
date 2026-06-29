@@ -17,7 +17,7 @@ import { hostedActionDecisionSchema } from "@/lib/ai/schema";
 import { withApiRoute } from "@/lib/http/api-guard";
 import { GENERAL_WRITE_LIMIT } from "@/lib/http/rate-limit-presets";
 
-import { AuthError, ValidationError } from "@/lib/errors";
+import { AuthError } from "@/lib/errors";
 export const dynamic = "force-dynamic";
 
 export async function PATCH(
@@ -31,19 +31,14 @@ export async function PATCH(
       rateLimit: GENERAL_WRITE_LIMIT,
       errorStatus: 400,
       errorMessage: "操作失败",
+      bodySchema: hostedActionDecisionSchema,
     },
-    async ({ session }) => {
+    async ({ session, body }) => {
       if (!session)
         throw new AuthError("未认证");
       const { id } = await params;
 
-      const body = await request.json().catch(() => null);
-      const parsed = hostedActionDecisionSchema.safeParse(body);
-      if (!parsed.success) {
-        throw new ValidationError("输入参数无效");
-      }
-
-      if (parsed.data.action === "confirm") {
+      if (body.action === "confirm") {
         await confirmHostedAction(id, session);
         const { prisma } = await import("@/lib/db");
         const action = await prisma.aiHostedAction.findUnique({
@@ -52,7 +47,7 @@ export async function PATCH(
         return NextResponse.json({ success: true, action });
       }
 
-      if (parsed.data.action === "approve") {
+      if (body.action === "approve") {
         await approveHostedAction(id, session);
         const { prisma } = await import("@/lib/db");
         const action = await prisma.aiHostedAction.findUnique({
@@ -64,7 +59,7 @@ export async function PATCH(
       const result = await rejectHostedAction(
         id,
         session,
-        parsed.data.reason,
+        body.reason,
       );
       return NextResponse.json({ success: true, action: result });
     },

@@ -95,7 +95,8 @@ describe("/api/files/editable/[id]", () => {
 
     expect(response.status).toBe(400);
     await expect(response.json()).resolves.toMatchObject({
-      error: "文件超过 512 KB，暂不支持在线编辑",
+      code: "VALIDATION_FAILED",
+      error: expect.stringContaining("文件超过 512 KB，暂不支持在线编辑"),
     });
     expect(saveDraftMock).not.toHaveBeenCalled();
   });

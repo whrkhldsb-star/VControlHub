@@ -33,15 +33,10 @@ export async function GET(request: Request) {
 export async function PATCH(request: Request) {
   return withApiRoute(
     request,
-    { permission: "playbook:manage", rateLimit: GENERAL_WRITE_LIMIT, errorStatus: 400, errorMessage: "更新失败" },
-    async ({ session }) => {
-      const rawBody = await request.json();
-      const parsed = updatePlaybookSchema.safeParse(rawBody);
-      if (!parsed.success) {
-        throw new ValidationError("输入参数无效");
-      }
+    { permission: "playbook:manage", rateLimit: GENERAL_WRITE_LIMIT, errorStatus: 400, errorMessage: "更新失败", bodySchema: updatePlaybookSchema },
+    async ({ session, body }) => {
       const updatedById = session?.userId ?? "";
-      const playbook = await updatePlaybook(parsed.data, updatedById);
+      const playbook = await updatePlaybook(body, updatedById);
       return NextResponse.json({ playbook });
     },
   );

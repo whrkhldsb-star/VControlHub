@@ -20,9 +20,18 @@ const { prismaMock, syncMock, listMock } = vi.hoisted(() => ({
 
 vi.mock("@/lib/db", () => ({ prisma: prismaMock }));
 vi.mock("@/lib/http/api-guard", () => ({
-  withApiRoute: vi.fn(async (_request, _options, handler) =>
-    handler({ session: { userId: "u_admin" } }),
-  ),
+  withApiRoute: vi.fn(async (request, options, handler) => {
+    let body: unknown = undefined;
+    if (options.bodySchema) {
+      const raw = await request.clone().json().catch(() => undefined);
+      const parsed = options.bodySchema.safeParse(raw);
+      if (!parsed.success) {
+        return new Response(JSON.stringify({ error: "输入参数无效" }), { status: 400 });
+      }
+      body = parsed.data;
+    }
+    return handler({ session: { userId: "u_admin" }, body });
+  }),
 }));
 vi.mock("@/lib/quick-service/app-source-sync", () => ({
   getRemoteApps: syncMock.getRemoteApps,

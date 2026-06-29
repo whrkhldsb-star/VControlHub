@@ -38,25 +38,18 @@ export async function PUT(
       rateLimit: GENERAL_WRITE_LIMIT,
       errorStatus: 400,
       errorMessage: "保存文件失败",
+      bodySchema: saveEditableFileBodySchema,
     },
-    async ({ session }) => {
+    async ({ session, body }) => {
       if (!session) throw new AuthError("未认证");
       const { id } = await params;
-      const body = await request.json().catch(() => ({}));
-      const parsed = saveEditableFileBodySchema.safeParse(body);
-      if (!parsed.success) {
-        return NextResponse.json(
-          { error: parsed.error.issues[0]?.message ?? "文件内容无效" },
-          { status: 400 },
-        );
-      }
 
       const result = await saveLocalEditableFileDraft({
         fileEntryId: id,
-        content: parsed.data.content,
+        content: body.content,
         session,
-        expectedUpdatedAt: parsed.data.expectedUpdatedAt,
-        expectedLastModifiedMs: parsed.data.expectedLastModifiedMs,
+        expectedUpdatedAt: body.expectedUpdatedAt,
+        expectedLastModifiedMs: body.expectedLastModifiedMs,
       });
       return NextResponse.json({ success: true, file: result });
     },

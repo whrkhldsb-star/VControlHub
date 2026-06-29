@@ -12,7 +12,7 @@ import {
 import { withApiRoute } from "@/lib/http/api-guard";
 import { GENERAL_WRITE_LIMIT } from "@/lib/http/rate-limit-presets";
 
-import { AuthError, ValidationError } from "@/lib/errors";
+import { AuthError } from "@/lib/errors";
 export const dynamic = "force-dynamic";
 
 function maskProvider(provider: Awaited<ReturnType<typeof getProviderById>>) {
@@ -75,20 +75,16 @@ export async function PATCH(
       rateLimit: GENERAL_WRITE_LIMIT,
       errorStatus: 400,
       errorMessage: "更新失败",
+      bodySchema: updateProviderSchema,
     },
-    async ({ session }) => {
+    async ({ session, body }) => {
       if (!session)
         throw new AuthError("未认证");
       const { id } = await params;
-      const body = await request.json().catch(() => null);
-      const parsed = updateProviderSchema.safeParse(body);
-      if (!parsed.success) {
-        throw new ValidationError("输入参数无效");
-      }
 
       const updateBody = {
-        ...parsed.data,
-        ...parseAvailableModels(parsed.data),
+        ...body,
+        ...parseAvailableModels(body),
       };
       const provider = await updateProvider(id, session.userId, updateBody);
       return NextResponse.json({ provider: maskProvider(provider) });

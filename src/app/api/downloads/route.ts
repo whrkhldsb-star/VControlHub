@@ -167,22 +167,12 @@ export async function POST(request: Request) {
       permission: "storage:write",
       rateLimit: GENERAL_WRITE_LIMIT,
       errorMessage: t("apiDownloads.createTaskFailed", "zh"),
+      bodySchema: postDownloadSchema,
     },
-    async ({ session }) => {
+    async ({ session, body }) => {
       const locale = await getServerLocale();
       if (!session)
         throw new AuthError(t("apiDownloads.unauthorized", locale));
-      const body = await request.json();
-      const parsed = postDownloadSchema.safeParse(body);
-      if (!parsed.success) {
-        return NextResponse.json(
-          {
-            error: t("apiDownloads.invalidInput", locale),
-            details: parsed.error.flatten().fieldErrors,
-          },
-          { status: 400 },
-        );
-      }
       const {
         url,
         serverId,
@@ -192,7 +182,7 @@ export async function POST(request: Request) {
         maxSpeedKb,
         isBatch,
         batchUrls,
-      } = parsed.data;
+      } = body;
 
       const allUrls = isBatch && batchUrls?.length ? batchUrls : [url];
       // Batch mode semantics:
@@ -569,23 +559,13 @@ export async function PATCH(request: Request) {
       permission: "storage:write",
       rateLimit: GENERAL_WRITE_LIMIT,
       errorMessage: t("apiDownloads.operationFailed", "zh"),
+      bodySchema: patchDownloadSchema,
     },
-    async ({ session }) => {
+    async ({ session, body }) => {
       const locale = await getServerLocale();
       if (!session)
         throw new AuthError(t("apiDownloads.unauthorized", locale));
-      const body = await request.json();
-      const parsed = patchDownloadSchema.safeParse(body);
-      if (!parsed.success) {
-        return NextResponse.json(
-          {
-            error: t("apiDownloads.invalidInput", locale),
-            details: parsed.error.flatten().fieldErrors,
-          },
-          { status: 400 },
-        );
-      }
-      const { taskId, action, maxSpeedKb, globalMaxSpeedKb } = parsed.data;
+      const { taskId, action, maxSpeedKb, globalMaxSpeedKb } = body;
 
       // Global speed limit
       if (globalMaxSpeedKb !== undefined) {

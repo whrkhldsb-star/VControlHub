@@ -9,7 +9,7 @@ import { createProviderSchema } from "@/lib/ai/schema";
 import { withApiRoute } from "@/lib/http/api-guard";
 import { GENERAL_WRITE_LIMIT } from "@/lib/http/rate-limit-presets";
 
-import { AuthError, ValidationError } from "@/lib/errors";
+import { AuthError } from "@/lib/errors";
 export const dynamic = "force-dynamic";
 
 function parseModels(data: { availableModels?: string[]; models?: string }) {
@@ -31,20 +31,14 @@ export async function GET(request: Request) {
 export async function POST(request: Request) {
   return withApiRoute(
     request,
-    { permission: "ai:manage", rateLimit: GENERAL_WRITE_LIMIT },
-    async ({ session }) => {
+    { permission: "ai:manage", rateLimit: GENERAL_WRITE_LIMIT, bodySchema: createProviderSchema },
+    async ({ session, body }) => {
       if (!session)
         throw new AuthError("未认证");
 
-      const body = await request.json().catch(() => null);
-      const parsed = createProviderSchema.safeParse(body);
-      if (!parsed.success) {
-        throw new ValidationError("输入参数无效");
-      }
-
       const provider = await createProvider({
-        ...parsed.data,
-        availableModels: parseModels(parsed.data),
+        ...body,
+        availableModels: parseModels(body),
         createdBy: session.userId,
       });
       return NextResponse.json(

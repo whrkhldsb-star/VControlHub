@@ -20,20 +20,16 @@ export async function POST(request: Request) {
       requireAuth: true,
       rateLimit: GENERAL_WRITE_LIMIT,
       errorMessage: "禁用两步验证失败",
+      bodySchema: disableSchema,
     },
-    async ({ session }) => {
+    async ({ session, body }) => {
       if (!session)
         return NextResponse.json(
           { error: "未登录或会话已过期" },
           { status: 401 },
         );
 
-      const parsed = disableSchema.safeParse(
-        await request.json().catch(() => null),
-      );
-      if (!parsed.success)
-        throw new ValidationError("输入参数无效");
-      const { code } = parsed.data;
+      const { code } = body;
 
       const user = await prisma.user.findUnique({
         where: { id: session.userId },

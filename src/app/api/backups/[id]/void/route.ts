@@ -5,16 +5,22 @@ import { voidBackupRecord } from "@/lib/backup/service";
 import { withApiRoute } from "@/lib/http/api-guard";
 import { GENERAL_WRITE_LIMIT } from "@/lib/http/rate-limit-presets";
 
-import { ValidationError } from "@/lib/errors";
 export const dynamic = "force-dynamic";
 
 export async function POST(request: Request, { params }: { params: Promise<{ id: string }> }) {
-  return withApiRoute(request, { permission: "backup:create", rateLimit: GENERAL_WRITE_LIMIT, errorStatus: 500, errorMessage: "操作失败" }, async () => {
-    const { id } = await params;
-    const body = await request.json().catch(() => ({}));
-    const parsed = voidBackupSchema.safeParse(body);
-    if (!parsed.success) throw new ValidationError(parsed.error.issues[0]?.message ?? "作废参数无效");
-    const backup = await voidBackupRecord({ id, reason: parsed.data.reason });
-    return NextResponse.json({ backup });
-  });
+  return withApiRoute(
+    request,
+    {
+      permission: "backup:create",
+      rateLimit: GENERAL_WRITE_LIMIT,
+      errorStatus: 500,
+      errorMessage: "操作失败",
+      bodySchema: voidBackupSchema,
+    },
+    async ({ body }) => {
+      const { id } = await params;
+      const backup = await voidBackupRecord({ id, reason: body.reason });
+      return NextResponse.json({ backup });
+    },
+  );
 }

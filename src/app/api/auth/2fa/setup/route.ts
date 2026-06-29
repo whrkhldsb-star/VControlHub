@@ -11,7 +11,6 @@ import { prisma } from "@/lib/db";
 import { withApiRoute } from "@/lib/http/api-guard";
 import { GENERAL_WRITE_LIMIT } from "@/lib/http/rate-limit-presets";
 
-import { ValidationError } from "@/lib/errors";
 const setupSchema = z.object({
   code: z.string().min(1),
   secret: z.string().min(1),
@@ -58,27 +57,23 @@ export async function POST(request: Request) {
   );
 }
 
-export async function PUT(request: Request) {
+export function PUT(request: Request) {
   return withApiRoute(
     request,
     {
       requireAuth: true,
       rateLimit: GENERAL_WRITE_LIMIT,
       errorMessage: "验证失败",
+      bodySchema: setupSchema,
     },
-    async ({ session }) => {
+    async ({ session, body }) => {
       if (!session)
         return NextResponse.json(
           { error: "未登录或会话已过期" },
           { status: 401 },
         );
 
-      const parsed = setupSchema.safeParse(
-        await request.json().catch(() => null),
-      );
-      if (!parsed.success)
-        throw new ValidationError("输入参数无效");
-      const { code, secret } = parsed.data;
+      const { code, secret } = body;
       const valid = verifyTOTP({ token: code, secret });
       return NextResponse.json({ valid });
     },

@@ -7,7 +7,7 @@ import { prisma } from "@/lib/db";
 import { withApiRoute } from "@/lib/http/api-guard";
 import { GENERAL_WRITE_LIMIT } from "@/lib/http/rate-limit-presets";
 import { parseSearchParams } from "@/lib/http/parse-search-params";
-import { AuthError, NotFoundError, ValidationError } from "@/lib/errors";
+import { AuthError, NotFoundError } from "@/lib/errors";
 import {
   getStorageAccessUsage,
   parseNullableBigIntInput,
@@ -178,19 +178,14 @@ export async function PATCH(request: Request) {
       permission: "user:manage",
       rateLimit: GENERAL_WRITE_LIMIT,
       errorMessage: "操作失败",
+      bodySchema: patchPermissionsSchema,
     },
-    async ({ session }) => {
+    async ({ session, body: parsedData }) => {
       if (!session)
         throw new AuthError("未认证");
 
-      const parsed = patchPermissionsSchema.safeParse(
-        await request.json().catch(() => null),
-      );
-      if (!parsed.success)
-        throw new ValidationError("输入参数无效");
-
       // Prevent self-modification of permissions (privilege escalation).
-      if (parsed.data.userId === session.userId) {
+      if (parsedData.userId === session.userId) {
         return NextResponse.json(
           { error: "不能修改自己的权限" },
           { status: 403 },
@@ -198,25 +193,25 @@ export async function PATCH(request: Request) {
       }
 
       const targetUser = await prisma.user.findUnique({
-        where: { id: parsed.data.userId },
+        where: { id: parsedData.userId },
         select: { id: true, username: true },
       });
       if (!targetUser) {
         throw new NotFoundError("用户不存在");
       }
 
-      const roleKeys = Array.isArray(parsed.data.roleKeys)
-        ? Array.from(new Set(parsed.data.roleKeys.map(String).filter(Boolean)))
+      const roleKeys = Array.isArray(parsedData.roleKeys)
+        ? Array.from(new Set(parsedData.roleKeys.map(String).filter(Boolean)))
         : undefined;
-      const permissionKeys = Array.isArray(parsed.data.permissionKeys)
+      const permissionKeys = Array.isArray(parsedData.permissionKeys)
         ? Array.from(
             new Set(
-              parsed.data.permissionKeys.map(String).filter(isPermissionKey),
+              parsedData.permissionKeys.map(String).filter(isPermissionKey),
             ),
           )
         : undefined;
-      const storageAccess = Array.isArray(parsed.data.storageAccess)
-        ? parsed.data.storageAccess
+      const storageAccess = Array.isArray(parsedData.storageAccess)
+        ? parsedData.storageAccess
         : undefined;
 
       await prisma.$transaction(async (tx) => {
@@ -227,12 +222,12 @@ export async function PATCH(request: Request) {
             take: roleKeys.length,
           });
           await tx.userRole.deleteMany({
-            where: { userId: parsed.data.userId },
+            where: { userId: parsedData.userId },
           });
           if (roles.length > 0) {
             await tx.userRole.createMany({
               data: roles.map((role) => ({
-                userId: parsed.data.userId,
+                userId: parsedData.userId,
                 roleId: role.id,
               })),
               skipDuplicates: true,
@@ -241,7 +236,7 @@ export async function PATCH(request: Request) {
         }
 
         if (permissionKeys) {
-          const customRoleKey = `user:${parsed.data.userId}:custom`;
+          const customRoleKey = `user:${parsedData.userId}:custom`;
           const customRole = await tx.role.upsert({
             where: { key: customRoleKey },
             update: {
@@ -274,18 +269,18 @@ export async function PATCH(request: Request) {
           await tx.userRole.upsert({
             where: {
               userId_roleId: {
-                userId: parsed.data.userId,
+                userId: parsedData.userId,
                 roleId: customRole.id,
               },
             },
             update: {},
-            create: { userId: parsed.data.userId, roleId: customRole.id },
+            create: { userId: parsedData.userId, roleId: customRole.id },
           });
         }
 
         if (storageAccess) {
           await tx.userStorageAccess.deleteMany({
-            where: { userId: parsed.data.userId },
+            where: { userId: parsedData.userId },
           });
           const validNodeIds = new Set(
             (await tx.storageNode.findMany({ select: { id: true }, take: 500 })).map(
@@ -294,7 +289,7 @@ export async function PATCH(request: Request) {
           );
           const rows = storageAccess
             .map((grant) => ({
-              userId: parsed.data.userId,
+              userId: parsedData.userId,
               storageNodeId: String(grant.storageNodeId ?? ""),
               pathPrefix: normalizePathPrefix(grant.pathPrefix),
               canRead: grant.canRead ?? true,
