@@ -32,16 +32,16 @@ export function ToggleChip({
 }) {
 	const activeCls =
 		tone === "warn"
-			? "bg-amber-500/20 text-amber-300"
-			: "bg-cyan-500/20 text-cyan-300";
-	const inactiveCls = "bg-slate-700/50 text-slate-400 hover:bg-slate-700";
+			? "bg-[var(--warning-bg)] text-[var(--warning)] border-[var(--warning-border)]"
+			: "bg-[var(--accent-bg)] text-[var(--accent)] border-[var(--accent-border)]";
+	const inactiveCls = "bg-[var(--surface-elevated)] text-[var(--text-muted)] hover:bg-[var(--surface-elevated)] hover:text-[var(--text-secondary)] border-[var(--border)]";
 	return (
 		<button
 			type="button"
 			onClick={onClick}
 			aria-pressed={active}
 			aria-label={ariaLabel}
-			className={`rounded-full px-3 py-1.5 transition ${active ? activeCls : inactiveCls}`}
+			className={`rounded-full border px-3 py-1.5 transition ${active ? activeCls : inactiveCls}`}
 		>
 			{children}
 		</button>
@@ -81,7 +81,7 @@ export function PageHeader({ eyebrow, title, description, children, className = 
 			<div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
 				<div>
 					{eyebrow ? (
-						<p data-page-eyebrow className="mb-2 text-xs font-semibold uppercase tracking-[0.3em] text-cyan-300">
+						<p data-page-eyebrow className="mb-2 text-xs font-semibold uppercase tracking-[0.3em] text-[var(--accent)]">
 							{eyebrow}
 						</p>
 					) : null}
@@ -96,9 +96,9 @@ export function PageHeader({ eyebrow, title, description, children, className = 
 
 /* ── Card ───────────────────────────────────────────────────────────── */
 
-export function Card({ children }: { children: ReactNode }) {
+export function Card({ children, className }: { children: ReactNode; className?: string }) {
 	return (
-		<div data-card className="bg-white/[0.02]">{children}</div>
+		<div data-card className={className}>{children}</div>
 	);
 }
 
@@ -134,10 +134,10 @@ export function EmptyState({
 /* ── StatCard ───────────────────────────────────────────────────────── */
 
 const ACCENT_COLORS = {
-	cyan: { value: "text-cyan-300", detail: "text-cyan-400/70" },
-	amber: { value: "text-amber-300", detail: "text-amber-400/70" },
-	rose: { value: "text-rose-300", detail: "text-rose-400/70" },
-	emerald: { value: "text-emerald-200", detail: "text-emerald-300/70" },
+	cyan: { value: "text-[var(--accent)]", detail: "text-[var(--text-muted)]" },
+	amber: { value: "text-[var(--warning)]", detail: "text-[var(--text-muted)]" },
+	rose: { value: "text-[var(--danger)]", detail: "text-[var(--text-muted)]" },
+	emerald: { value: "text-[var(--success)]", detail: "text-[var(--text-muted)]" },
 } as const;
 
 type AccentColor = keyof typeof ACCENT_COLORS;
@@ -157,18 +157,18 @@ export function StatCard({
 }) {
 	const c = accent && accentColor ? ACCENT_COLORS[accentColor] : null;
 	return (
-		<article data-card className="bg-white/[0.03] hover:bg-white/[0.05] transition-colors duration-150">
-			<div className="text-xs font-medium text-slate-500 uppercase tracking-wider">
+		<article data-card className="bg-[var(--surface)] hover:bg-[var(--surface-elevated)] transition-colors duration-150">
+			<div className="text-xs font-medium text-[var(--text-muted)] uppercase tracking-wider">
 				{label}
 			</div>
 			<div
-				className={`mt-1.5 text-2xl font-semibold ${c ? c.value : "text-white"}`}
+				className={`mt-1.5 text-2xl font-semibold tabular-nums ${c ? c.value : "text-[var(--text-primary)]"}`}
 			>
 				{value}
 			</div>
 			{detail && (
 				<p
-					className={`mt-0.5 text-[11px] ${c ? c.detail : "text-slate-500"}`}
+					className={`mt-0.5 text-[11px] ${c ? c.detail : "text-[var(--text-muted)]"}`}
 				>
 					{detail}
 				</p>
@@ -182,7 +182,7 @@ export function StatCard({
 export function PermissionDenied() {
 	return (
 		<PageShell>
-			<div className="text-center text-slate-400">缺少权限</div>
+			<div className="text-center text-[var(--text-muted)]">缺少权限</div>
 		</PageShell>
 	);
 }

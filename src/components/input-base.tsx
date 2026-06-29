@@ -10,7 +10,7 @@
 import { forwardRef } from "react";
 
 const BASE =
-	"w-full rounded-lg border border-white/[0.06] bg-white/[0.04] text-sm text-white outline-none transition-colors placeholder:text-white/20 focus:border-cyan-400/30 focus:bg-white/[0.06] disabled:opacity-50 light:border-slate-200 light:bg-white light:text-slate-900 light:placeholder:text-slate-400 light:focus:border-cyan-500/50";
+	"w-full rounded-lg border bg-[var(--input-bg)] text-sm text-[var(--text-primary)] outline-none transition-colors placeholder:text-[var(--text-muted)] focus:border-[var(--input-border-focus)] focus:shadow-[0_0_0_3px_var(--accent-bg)] disabled:opacity-50";
 
 const SIZE = {
 	sm: "px-3 py-1.5",

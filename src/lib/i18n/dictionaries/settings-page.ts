@@ -15,6 +15,8 @@ export const zh: Record<string, string> = {
 	"settingsPage.unified.eyebrow": "个性化设置",
 	"settingsPage.unified.title": "设置",
 
+	"settingsClient.saveSuccess": "设置已保存。",
+	"settingsClient.saveFailed": "保存失败",
 	"settingsClient.categoryNav": "设置分类导航",
 	"settingsClient.collapse": "折叠",
 	"settingsClient.expand": "展开",
@@ -262,6 +264,7 @@ export const en: Record<string, string> = {
 	"settingsPage.unified.categoryDescription": "Find settings by personal preferences, account security, platform, notifications, runtime, backups, and AI Ops.",
 	"settingsPage.unified.categoryTitle": "Settings Categories",
 	"settingsPage.unified.description": "Personal habits, interface behavior, account security, and platform-level parameters are managed from one place.",
+	"settingsPage.unified.eyebrow": "Personalized settings",
 	"settingsPage.unified.title": "Settings",
 	"settingsClient.saveSuccess": "Settings saved.",
 	"settingsClient.saveFailed": "Save failed",

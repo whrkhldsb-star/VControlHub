@@ -55,7 +55,7 @@ function SidebarControls() {
 			<button
 				type="button"
 				onClick={openGlobalSearch}
-				className="flex h-11 w-11 items-center justify-center rounded-lg text-slate-400 transition hover:bg-white/[0.06] hover:text-slate-200 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan-300"
+				className={`flex h-11 w-11 items-center justify-center rounded-lg text-[var(--text-muted)] transition hover:bg-[var(--surface-elevated)] hover:text-[var(--text-primary)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--accent)]`}
 				aria-label={t("search.dialog") === "search.dialog" ? "全局搜索" : t("search.dialog")}
 				aria-keyshortcuts="Control+K Meta+K"
 			>
@@ -102,13 +102,13 @@ export function AppSidebar({
 				key={item.href}
 				href={item.href}
 				onClick={() => setMobileOpen(false)}
-					className={`flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm transition-colors duration-150 ${
+				className={`flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm transition-colors duration-150 ${
 					active
-						? "bg-cyan-400/[0.10] text-cyan-100 shadow-[inset_0_0_0_1px_rgba(34,211,238,0.16)] font-medium"
-						: "text-slate-400 hover:bg-white/[0.04] hover:text-slate-200"
+						? "bg-[var(--sidebar-active)] text-[var(--sidebar-active-fg)] font-medium"
+						: "text-[var(--text-muted)] hover:bg-[var(--sidebar-hover)] hover:text-[var(--text-secondary)]"
 				}`}
 			>
-				<span className={active ? "text-cyan-400" : "text-slate-500"}>{item.icon}</span>
+				<span className={active ? "text-[var(--accent)]" : "text-[var(--text-muted)]"}>{item.icon}</span>
 				<span className="min-w-0 flex-1 truncate" title={t(item.labelKey) === item.labelKey ? item.fallbackLabel : t(item.labelKey)}>{t(item.labelKey) === item.labelKey ? item.fallbackLabel : t(item.labelKey)}</span>
 			</Link>
 		);
@@ -116,14 +116,14 @@ export function AppSidebar({
 
 	const nav = (
 		<nav className="flex h-full flex-col" data-i18n-skip>
-			<div className="border-b border-white/[0.06] px-5 py-5">
+			<div className="border-b border-[var(--sidebar-border)] px-5 py-5">
 				<div className="flex items-center gap-2.5">
-					<div className="flex h-9 w-9 items-center justify-center rounded-lg bg-cyan-400/15 text-cyan-300 shadow-[inset_0_0_0_1px_rgba(34,211,238,0.20)]">
+					<div className="flex h-9 w-9 items-center justify-center rounded-lg bg-[var(--accent-bg)] text-[var(--accent)] border border-[var(--accent-border)]">
 						<svg className="h-4.5 w-4.5" fill="currentColor" viewBox="0 0 20 20"><path d="M10.394 2.08a1 1 0 00-.788 0l-7 3a1 1 0 000 1.84L5.25 8.05 4.646 12.2a1 1 0 00.476 1.006l4.5 2.706a1 1 0 001.056 0l4.5-2.706a1 1 0 00.476-1.006L14.95 8.05l2.644-1.228a1 1 0 000-1.84l-7-3zM10 4.08l5.106 2.19L10 8.49 4.894 6.27 10 4.08z" /></svg>
 					</div>
 					<div className="min-w-0">
-						<div className="truncate text-base font-semibold tracking-tight text-white">{getAppName()}</div>
-						<p className="mt-0.5 truncate text-[11px] leading-none text-slate-500">{getPublicLabel()}</p>
+						<div className="truncate text-base font-semibold tracking-tight text-[var(--text-primary)]">{getAppName()}</div>
+						<p className="mt-0.5 truncate text-[11px] leading-none text-[var(--text-muted)]">{getPublicLabel()}</p>
 					</div>
 				</div>
 			</div>
@@ -133,27 +133,27 @@ export function AppSidebar({
 
 				{visibleSystemNav.length > 0 && (
 					<>
-						<div className="px-3 pb-1 pt-4 text-[10px] font-medium uppercase tracking-[0.2em] text-slate-600">
-							{t("nav.system") === "nav.system" ? "系统管理" : t("nav.system")}
-						</div>
+						<div className="px-3 pb-1 pt-4 text-[10px] font-medium uppercase tracking-[0.2em] text-[var(--text-disabled)]">
+								{t("nav.system") === "nav.system" ? "系统管理" : t("nav.system")}
+							</div>
 						{visibleSystemNav.map(renderNavLink)}
 					</>
 				)}
 
 				{quickServices.length > 0 && (
 					<>
-						<div className="px-3 pb-1 pt-4 text-[10px] font-medium uppercase tracking-[0.2em] text-slate-600">
-							{t("nav.quickservice") === "nav.quickservice" ? "快捷服务" : t("nav.quickservice")}
-						</div>
-						{quickServices.map((item) => (
-							<a
-								key={item.slug}
-								href={item.path}
-								target="_blank"
-								rel="noopener noreferrer"
-								onClick={() => setMobileOpen(false)}
-								className="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm text-slate-400 transition-colors duration-150 hover:bg-white/[0.04] hover:text-slate-200"
-							>
+						<div className="px-3 pb-1 pt-4 text-[10px] font-medium uppercase tracking-[0.2em] text-[var(--text-disabled)]">
+								{t("nav.quickservice") === "nav.quickservice" ? "快捷服务" : t("nav.quickservice")}
+							</div>
+							{quickServices.map((item) => (
+								<a
+									key={item.slug}
+									href={item.path}
+									target="_blank"
+									rel="noopener noreferrer"
+									onClick={() => setMobileOpen(false)}
+									className="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm text-[var(--text-muted)] transition-colors duration-150 hover:bg-[var(--sidebar-hover)] hover:text-[var(--text-secondary)]"
+								>
 								<span className="shrink-0 text-[18px] leading-none">{item.icon}</span>
 								<span className="min-w-0 flex-1 truncate" title={item.name}>{item.name}</span>
 								<IconExternal />
@@ -163,9 +163,9 @@ export function AppSidebar({
 				)}
 			</div>
 
-			<div className="space-y-1 border-t border-white/[0.06] px-3 py-3">
-				<div className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm text-slate-400">
-					<div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-slate-800 text-[11px] font-semibold uppercase text-cyan-400">
+			<div className="space-y-1 border-t border-[var(--sidebar-border)] px-3 py-3">
+				<div className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm text-[var(--text-muted)]">
+					<div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-[var(--surface-elevated)] text-[11px] font-semibold uppercase text-[var(--accent)]">
 						{iconInitial}
 					</div>
 					<span className="min-w-0 flex-1 truncate" title={username}>{username}</span>
@@ -176,7 +176,7 @@ export function AppSidebar({
 						setPasswordModalOpen(true);
 						setMobileOpen(false);
 					}}
-					className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm text-slate-400 transition-colors duration-150 hover:bg-white/[0.04] hover:text-slate-200"
+					className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm text-[var(--text-muted)] transition-colors duration-150 hover:bg-[var(--sidebar-hover)] hover:text-[var(--text-secondary)]"
 				>
 					<IconKey />
 					<span>{t("auth.change-password") === "auth.change-password" ? "修改密码" : t("auth.change-password")}</span>
@@ -192,7 +192,7 @@ export function AppSidebar({
 		<>
 			<button
 				onClick={() => setMobileOpen(true)}
-				className="fixed left-4 top-4 z-50 rounded-lg border border-white/10 bg-slate-950/90 p-2.5 text-slate-200 backdrop-blur transition hover:bg-white/10 lg:hidden"
+				className="fixed left-4 top-4 z-50 rounded-lg border border-[var(--border)] bg-[var(--surface)] p-2.5 text-[var(--text-secondary)] backdrop-blur transition hover:bg-[var(--surface-elevated)] lg:hidden"
 				aria-label={t("nav.openMenu") === "nav.openMenu" ? "打开导航菜单" : t("nav.openMenu")}
 			>
 				<svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -209,14 +209,14 @@ export function AppSidebar({
 
 			<aside
 				inert={!mobileOpen}
-				className={`fixed inset-y-0 left-0 z-50 w-[min(18rem,86vw)] transform border-r border-white/[0.06] bg-slate-950 transition-transform duration-200 lg:hidden ${
+				className={`fixed inset-y-0 left-0 z-50 w-[min(18rem,86vw)] transform border-r border-[var(--sidebar-border)] bg-[var(--sidebar-bg)] transition-transform duration-200 lg:hidden ${
 					mobileOpen ? "translate-x-0" : "-translate-x-full"
 				}`}
 			>
 				{nav}
 			</aside>
 
-			<aside className="hidden h-screen w-72 shrink-0 border-r border-white/[0.06] bg-[var(--sidebar-bg)] lg:sticky lg:top-0 lg:flex">
+			<aside className="hidden h-screen w-72 shrink-0 border-r border-[var(--sidebar-border)] bg-[var(--sidebar-bg)] lg:sticky lg:top-0 lg:flex">
 				{nav}
 			</aside>
 

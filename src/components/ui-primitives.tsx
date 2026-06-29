@@ -1,0 +1,391 @@
+/**
+ * VControlHub UI Primitives — 统一组件库
+ *
+ * 基于 globals.css 中的 design token 体系 (data-* 属性 hooks)，
+ * 提供类型安全的 React 组件封装，消除页面间样式不一致。
+ *
+ * 设计原则：
+ *  - 所有颜色通过 CSS 变量 (var(--*)) 或 data-tone/data-state 属性驱动
+ *  - 不使用硬编码 Tailwind 颜色类 (cyan-400, slate-500 等)
+ *  - 组件可组合、可扩展，通过 className prop 支持覆写
+ *  - 暗色/浅色双主题自动适配
+ */
+
+import type {
+	HTMLAttributes,
+	ReactNode,
+	ButtonHTMLAttributes,
+	TableHTMLAttributes,
+	ThHTMLAttributes,
+	TdHTMLAttributes,
+} from "react";
+
+/* ════════════════════════════════════════════════════════════════
+ * Badge — 语义状态徽章
+ * 使用 data-tone 属性，CSS 中已定义 accent/success/warning/danger/neutral
+ * 以及 cyan/emerald/rose/amber/sky/blue/violet 原色调
+ * ════════════════════════════════════════════════════════════════ */
+
+export type BadgeTone =
+	| "accent"
+	| "success"
+	| "warning"
+	| "danger"
+	| "neutral"
+	| "cyan"
+	| "emerald"
+	| "rose"
+	| "amber"
+	| "sky"
+	| "blue"
+	| "violet";
+
+const TONE_TEXT: Record<BadgeTone, string> = {
+	accent: "text-[var(--accent)]",
+	success: "text-[var(--success)]",
+	warning: "text-[var(--warning)]",
+	danger: "text-[var(--danger)]",
+	neutral: "text-[var(--text-muted)]",
+	cyan: "text-[var(--accent)]",
+	emerald: "text-[var(--success)]",
+	rose: "text-[var(--danger)]",
+	amber: "text-[var(--warning)]",
+	sky: "text-[var(--accent)]",
+	blue: "text-[var(--accent)]",
+	violet: "text-[var(--accent)]",
+};
+
+const TONE_BORDER: Record<BadgeTone, string> = {
+	accent: "border-[var(--accent-border)]",
+	success: "border-[var(--success-border)]",
+	warning: "border-[var(--warning-border)]",
+	danger: "border-[var(--danger-border)]",
+	neutral: "border-[var(--border)]",
+	cyan: "border-[var(--accent-border)]",
+	emerald: "border-[var(--success-border)]",
+	rose: "border-[var(--danger-border)]",
+	amber: "border-[var(--warning-border)]",
+	sky: "border-[var(--accent-border)]",
+	blue: "border-[var(--accent-border)]",
+	violet: "border-[var(--accent-border)]",
+};
+
+export function Badge({
+	tone = "neutral",
+	children,
+	className,
+	...rest
+}: {
+	tone?: BadgeTone;
+	children: ReactNode;
+} & HTMLAttributes<HTMLSpanElement>) {
+	return (
+		<span
+			data-tone={tone}
+			className={`inline-flex items-center gap-1 rounded-full border ${TONE_BORDER[tone]} ${TONE_TEXT[tone]} px-2.5 py-0.5 text-xs font-semibold tracking-wide ${className ?? ""}`}
+			{...rest}
+		>
+			{children}
+		</span>
+	);
+}
+
+/* ════════════════════════════════════════════════════════════════
+ * Card — 统一卡片容器（带变体）
+ * 使用 data-card 属性，CSS 中已定义圆角/边框/背景/hover
+ * ════════════════════════════════════════════════════════════════ */
+
+export type CardVariant = "default" | "elevated" | "outline" | "interactive";
+
+export function Card({
+	variant = "default",
+	children,
+	className,
+	...rest
+}: {
+	variant?: CardVariant;
+	children: ReactNode;
+} & HTMLAttributes<HTMLDivElement>) {
+	const variantCls = {
+		default: "",
+		elevated: "shadow-[var(--shadow-md)]",
+		outline: "bg-transparent",
+		interactive:
+			"cursor-pointer hover:-translate-y-0.5 hover:shadow-[var(--shadow-lg)] hover:border-[var(--border-strong)]",
+	}[variant];
+
+	return (
+		<div
+			data-card
+			className={`${variantCls} ${className ?? ""}`}
+			{...rest}
+		>
+			{children}
+		</div>
+	);
+}
+
+/* ════════════════════════════════════════════════════════════════
+ * Spinner — 加载旋转器
+ * 纯 CSS 动画，使用 var(--accent) 主色
+ * ════════════════════════════════════════════════════════════════ */
+
+export function Spinner({
+	size = "md",
+	className,
+}: {
+	size?: "sm" | "md" | "lg";
+	className?: string;
+}) {
+	const sizeCls = {
+		sm: "h-4 w-4 border-2",
+		md: "h-6 w-6 border-2",
+		lg: "h-8 w-8 border-3",
+	}[size];
+
+	return (
+		<span
+			className={`inline-block animate-spin rounded-full border-current border-t-transparent text-[var(--accent)] ${sizeCls} ${className ?? ""}`}
+			role="status"
+			aria-label="Loading"
+		/>
+	);
+}
+
+/* ════════════════════════════════════════════════════════════════
+ * ProgressBar — 进度条
+ * 使用 var(--accent) 填充色，支持语义色调
+ * ════════════════════════════════════════════════════════════════ */
+
+export function ProgressBar({
+	value,
+	max = 100,
+	tone = "accent",
+	className,
+}: {
+	value: number;
+	max?: number;
+	tone?: BadgeTone;
+	className?: string;
+}) {
+	const pct = Math.min(100, Math.max(0, (value / max) * 100));
+	const colorVar = {
+		accent: "var(--accent)",
+		success: "var(--success)",
+		warning: "var(--warning)",
+		danger: "var(--danger)",
+		neutral: "var(--text-muted)",
+		cyan: "var(--accent)",
+		emerald: "var(--success)",
+		rose: "var(--danger)",
+		amber: "var(--warning)",
+		sky: "var(--accent)",
+		blue: "var(--accent)",
+		violet: "var(--accent)",
+	}[tone];
+
+	return (
+		<div
+			className={`h-2 w-full overflow-hidden rounded-full bg-[var(--surface-elevated)] ${className ?? ""}`}
+			role="progressbar"
+			aria-valuenow={value}
+			aria-valuemax={max}
+		>
+			<div
+				className="h-full rounded-full transition-all duration-300 ease-out"
+				style={{ width: `${pct}%`, backgroundColor: colorVar }}
+			/>
+		</div>
+	);
+}
+
+/* ════════════════════════════════════════════════════════════════
+ * Table primitives — 统一表格组件
+ * CSS 中已定义 table/th/td 样式 (S9, G 节)
+ * ════════════════════════════════════════════════════════════════ */
+
+export function Table({ children, className, ...rest }: { children: ReactNode } & TableHTMLAttributes<HTMLTableElement>) {
+	return (
+		<div className="overflow-x-auto rounded-[var(--radius-lg)] border border-[var(--border)]">
+			<table className={`w-full ${className ?? ""}`} {...rest}>
+				{children}
+			</table>
+		</div>
+	);
+}
+
+export function THead({ children, ...rest }: { children: ReactNode } & HTMLAttributes<HTMLTableSectionElement>) {
+	return <thead {...rest}>{children}</thead>;
+}
+
+export function TBody({ children, ...rest }: { children: ReactNode } & HTMLAttributes<HTMLTableSectionElement>) {
+	return <tbody {...rest}>{children}</tbody>;
+}
+
+export function TR({ children, className, ...rest }: { children: ReactNode } & HTMLAttributes<HTMLTableRowElement>) {
+	return (
+		<tr className={`transition-colors hover:bg-[var(--surface-elevated)] ${className ?? ""}`} {...rest}>
+			{children}
+		</tr>
+	);
+}
+
+export function TH({ children, className, ...rest }: { children: ReactNode } & ThHTMLAttributes<HTMLTableCellElement>) {
+	return <th className={className} {...rest}>{children}</th>;
+}
+
+export function TD({ children, className, ...rest }: { children: ReactNode } & TdHTMLAttributes<HTMLTableCellElement>) {
+	return <td className={className} {...rest}>{children}</td>;
+}
+
+/* ════════════════════════════════════════════════════════════════
+ * Tabs — 标签页导航
+ * 使用 role="tab"，CSS 中已定义选中态样式 (P6)
+ * ════════════════════════════════════════════════════════════════ */
+
+export function TabList({ children, className }: { children: ReactNode; className?: string }) {
+	return (
+		<div
+			role="tablist"
+			className={`flex gap-1 border-b border-[var(--border-subtle)] ${className ?? ""}`}
+		>
+			{children}
+		</div>
+	);
+}
+
+export function Tab({
+	active,
+	onClick,
+	children,
+	className,
+	...rest
+}: {
+	active: boolean;
+	onClick: () => void;
+	children: ReactNode;
+} & Omit<ButtonHTMLAttributes<HTMLButtonElement>, "onClick" | "children">) {
+	return (
+		<button
+			type="button"
+			role="tab"
+			aria-selected={active}
+			onClick={onClick}
+			className={`rounded-t-lg border-b-2 px-4 py-2.5 text-sm font-medium transition-colors ${
+				active
+					? "border-[var(--accent)] text-[var(--text-primary)]"
+					: "border-transparent text-[var(--text-muted)] hover:text-[var(--text-secondary)] hover:bg-[var(--surface-elevated)]"
+			} ${className ?? ""}`}
+			{...rest}
+		>
+			{children}
+		</button>
+	);
+}
+
+/* ════════════════════════════════════════════════════════════════
+ * ModalShell — 模态弹窗外壳
+ * CSS 中已定义 [role="dialog"] 样式 (S4, H)
+ * ════════════════════════════════════════════════════════════════ */
+
+export function ModalShell({
+	open,
+	onClose,
+	children,
+	className,
+	labelledBy,
+}: {
+	open: boolean;
+	onClose: () => void;
+	children: ReactNode;
+	className?: string;
+	labelledBy?: string;
+}) {
+	if (!open) return null;
+	return (
+		<div
+			className="fixed inset-0 z-[var(--z-modal)] flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm"
+			onClick={onClose}
+		>
+			<div
+				role="dialog"
+				aria-modal="true"
+				aria-labelledby={labelledBy}
+				className={`relative max-h-[90vh] w-full max-w-lg overflow-y-auto ${className ?? ""}`}
+				onClick={(e) => e.stopPropagation()}
+			>
+				{children}
+			</div>
+		</div>
+	);
+}
+
+/* ════════════════════════════════════════════════════════════════
+ * Divider — 分割线
+ * CSS 中已定义 hr/border-t/border-b 颜色 (10)
+ * ════════════════════════════════════════════════════════════════ */
+
+export function Divider({ className, vertical }: { className?: string; vertical?: boolean }) {
+	if (vertical) {
+		return <div className={`h-full w-px bg-[var(--border-subtle)] ${className ?? ""}`} />;
+	}
+	return <hr className={`border-0 border-t border-[var(--border-subtle)] ${className ?? ""}`} />;
+}
+
+/* ════════════════════════════════════════════════════════════════
+ * IconButton — 图标按钮
+ * 统一 sidebar/toolbar 中反复出现的 icon-only button 模式
+ * ════════════════════════════════════════════════════════════════ */
+
+export function IconButton({
+	children,
+	className,
+	variant = "ghost",
+	...rest
+}: {
+	children: ReactNode;
+	variant?: "ghost" | "accent" | "danger";
+} & ButtonHTMLAttributes<HTMLButtonElement>) {
+	const variantCls = {
+		ghost: "text-[var(--text-muted)] hover:bg-[var(--surface-elevated)] hover:text-[var(--text-primary)]",
+		accent: "text-[var(--accent)] hover:bg-[var(--accent-bg)]",
+		danger: "text-[var(--text-secondary)] hover:bg-[var(--danger-bg)] hover:text-[var(--danger)]",
+	}[variant];
+
+	return (
+		<button
+			type="button"
+			className={`flex h-9 w-9 items-center justify-center rounded-lg transition-colors ${variantCls} ${className ?? ""}`}
+			{...rest}
+		>
+			{children}
+		</button>
+	);
+}
+
+/* ════════════════════════════════════════════════════════════════
+ * SectionTitle — 区块标题
+ * 统一页面内 section 标题的视觉层级
+ * ════════════════════════════════════════════════════════════════ */
+
+export function SectionTitle({
+	children,
+	description,
+	action,
+	className,
+}: {
+	children: ReactNode;
+	description?: ReactNode;
+	action?: ReactNode;
+	className?: string;
+}) {
+	return (
+		<div className={`flex items-center justify-between gap-4 ${className ?? ""}`}>
+			<div>
+				<h2 className="text-lg font-semibold tracking-tight text-[var(--text-primary)]">{children}</h2>
+				{description ? <p className="mt-0.5 text-sm text-[var(--text-muted)]">{description}</p> : null}
+			</div>
+			{action ? <div className="shrink-0">{action}</div> : null}
+		</div>
+	);
+}

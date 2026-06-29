@@ -1912,3 +1912,153 @@ html.light { --surface-root: #f8fafc; }
 	outline: none;
 	box-shadow: 0 0 0 3px var(--color-action-ring);
 }
+
+/* ============================================================
+ * 精修第 9 轮：UI 架构升级 — 新增 primitives CSS + 美化增强
+ * 基于 ui-primitives.tsx 组件库，补齐 data-* 钩子样式
+ * ============================================================ */
+
+/* T1. Spinner 旋转器 — 纯 CSS 动画 */
+@keyframes ui-spin {
+	to { transform: rotate(360deg); }
+}
+.animate-spin {
+	animation: ui-spin 0.7s linear infinite;
+}
+
+/* T2. Card 变体增强 */
+[data-card] {
+	position: relative;
+}
+[data-card].bg-transparent {
+	background-color: transparent !important;
+}
+/* Interactive card hover 微抬效果 */
+[data-card].cursor-pointer:hover {
+	transform: translateY(-2px);
+	box-shadow: var(--shadow-lg);
+	border-color: var(--border-strong);
+}
+
+/* T3. ProgressBar 填充动画 — 从 0 渐入 */
+@keyframes progress-fill {
+	from { width: 0%; }
+}
+[data-progressbar] > * {
+	animation: progress-fill 0.4s ease-out;
+}
+
+/* T4. Table wrapper 圆角裁切 */
+[data-card] table,
+.table-wrapper {
+	overflow: hidden;
+	border-radius: var(--radius-lg);
+}
+
+/* T5. Tabs 底部高亮线过渡 */
+[role="tab"] {
+	position: relative;
+}
+[role="tab"][aria-selected="true"]::after {
+	content: '';
+	position: absolute;
+	bottom: -1px;
+	left: 0;
+	right: 0;
+	height: 2px;
+	background: var(--accent);
+	border-radius: 2px 2px 0 0;
+}
+
+/* T6. Modal 弹窗入场动画 */
+@keyframes modal-enter {
+	from { opacity: 0; transform: scale(0.96) translateY(8px); }
+	to { opacity: 1; transform: scale(1) translateY(0); }
+}
+[role="dialog"] {
+	animation: modal-enter 0.18s ease-out;
+}
+
+/* T7. Modal 遮罩入场 */
+@keyframes overlay-enter {
+	from { opacity: 0; }
+	to { opacity: 1; }
+}
+.fixed.inset-0.z-\[var\(--z-modal\)\] {
+	animation: overlay-enter 0.15s ease-out;
+}
+
+/* T8. IconButton 统一 */
+button[class*="h-9"][class*="w-9"][class*="items-center"][class*="justify-center"][class*="rounded-lg"] {
+	flex-shrink: 0;
+}
+
+/* T9. SectionTitle 标题与操作区响应式 */
+@media (max-width: 640px) {
+	[data-section-title] {
+		flex-direction: column;
+		align-items: flex-start;
+	}
+}
+
+/* T10. 卡片内嵌微渐变 — 顶部高光 */
+[data-card]::before {
+	content: '';
+	position: absolute;
+	top: 0;
+	left: 0;
+	right: 0;
+	height: 1px;
+	background: linear-gradient(90deg, transparent, var(--border-subtle), transparent);
+	pointer-events: none;
+}
+[data-card].bg-transparent::before {
+	display: none;
+}
+
+/* T11. 浅色模式卡片顶部高光增强 */
+html.light [data-card]::before {
+	background: linear-gradient(90deg, transparent, var(--border), transparent);
+}
+
+/* T12. 侧边栏活跃链接左边缘指示条 */
+aside nav a[aria-current="page"]::before,
+aside nav a.active::before {
+	content: '';
+	position: absolute;
+	left: 0;
+	top: 50%;
+	transform: translateY(-50%);
+	height: 60%;
+	width: 3px;
+	background: var(--accent);
+	border-radius: 0 3px 3px 0;
+}
+aside nav a {
+	position: relative;
+}
+
+/* T13. Badge hover 微交互 — 仅可交互 badge */
+[data-tone]:is(button, a) {
+	transition: background-color 0.15s, border-color 0.15s, color 0.15s;
+}
+[data-tone]:is(button, a):hover {
+	transform: none;
+}
+
+/* T14. 表格行 hover 渐变效果 */
+tbody tr {
+	transition: background-color 0.12s;
+}
+
+/* T15. 统一 focus-visible 环 — 补齐 tab/badge/button */
+[role="tab"]:focus-visible,
+[data-tone]:is(button, a):focus-visible {
+	outline: 2px solid var(--focus-ring);
+	outline-offset: 2px;
+}
+
+/* T16. 卡片悬停时顶部高光增强 */
+[data-card]:hover::before {
+	background: linear-gradient(90deg, transparent, var(--border-strong), transparent);
+}

@@ -72,26 +72,30 @@ export function ImagePreviewModal({
 					<div className="flex flex-wrap items-center justify-end gap-2">
 						<button
 							onClick={() => onCopyLink(image.publicUrl)}
-							className="min-h-11 rounded-lg bg-cyan-500/20 px-3 py-1.5 text-xs text-cyan-300 hover:bg-cyan-500/30"
+							data-tone="cyan"
+							className="min-h-11 rounded-lg border border-[var(--accent-border)] px-3 py-1.5 text-xs text-[var(--accent)] hover:bg-[var(--accent-bg)]"
 						>
 							复制外链
 						</button>
 						<button
 							onClick={() => onCopyMarkdown(image)}
-							className="min-h-11 rounded-lg bg-green-500/20 px-3 py-1.5 text-xs text-green-300 hover:bg-green-500/30"
+							data-tone="emerald"
+							className="min-h-11 rounded-lg border border-[var(--success-border)] px-3 py-1.5 text-xs text-[var(--success)] hover:bg-[var(--success-bg)]"
 						>
 							Markdown
 						</button>
 						<button
 							onClick={() => onCopyHTML(image)}
-							className="min-h-11 rounded-lg bg-orange-500/20 px-3 py-1.5 text-xs text-orange-300 hover:bg-orange-500/30"
+							data-tone="amber"
+							className="min-h-11 rounded-lg border border-[var(--warning-border)] px-3 py-1.5 text-xs text-[var(--warning)] hover:bg-[var(--warning-bg)]"
 						>
 							HTML
 						</button>
 						{canDelete && (
 							<button
 								onClick={() => onRequestDelete(image)}
-								className="min-h-11 rounded-lg bg-rose-500/20 px-3 py-1.5 text-xs text-rose-300 hover:bg-rose-500/30"
+								data-tone="rose"
+								className="min-h-11 rounded-lg border border-[var(--danger-border)] px-3 py-1.5 text-xs text-[var(--danger)] hover:bg-[var(--danger-bg)]"
 							>
 								删除
 							</button>

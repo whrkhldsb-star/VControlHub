@@ -374,11 +374,12 @@ export function QuickServicesClient({ canManage }: { canManage: boolean }) {
 				<div className="rounded-2xl border border-white/[0.06] bg-white/[0.025] p-4">
 					<div className="flex items-start justify-between gap-3">
 						<div>
-							<p className="text-xs uppercase tracking-[0.2em] text-cyan-300/70">{t("qsPage.runningOverview")}</p>
-							<h2 className="mt-1 text-base font-semibold text-white">{runningItems.length > 0 ? t("qsPage.runningOnlineCount").replace("{count}", String(runningItems.length)) : t("qsPage.noRunningServicesYet")}</h2>
-						</div>
-						<button type="button" onClick={() => setTab(nextAction.tab)}
-							className={`rounded-full border px-3 py-1.5 text-xs transition ${nextAction.tone === "rose" ? "border-rose-400/30 bg-rose-400/10 text-rose-100 hover:bg-rose-400/15" : nextAction.tone === "emerald" ? "border-emerald-400/30 bg-emerald-400/10 text-emerald-100 hover:bg-emerald-400/15" : "border-cyan-400/30 bg-cyan-400/10 text-cyan-100 hover:bg-cyan-400/15"}`}
+							<p className="text-xs uppercase tracking-[0.2em] text-[var(--text-muted)]">{t("qsPage.runningOverview")}</p>
+							<h2 className="mt-1 text-base font-semibold text-[var(--text-primary)]">{runningItems.length > 0 ? t("qsPage.runningOnlineCount").replace("{count}", String(runningItems.length)) : t("qsPage.noRunningServicesYet")}</h2>
+							</div>
+							<button type="button" onClick={() => setTab(nextAction.tab)}
+							data-tone={nextAction.tone === "rose" ? "rose" : nextAction.tone === "emerald" ? "emerald" : "cyan"}
+							className={`rounded-full border px-3 py-1.5 text-xs transition ${nextAction.tone === "rose" ? "border-[var(--danger-border)] text-[var(--danger)] hover:bg-[var(--danger-bg)]" : nextAction.tone === "emerald" ? "border-[var(--success-border)] text-[var(--success)] hover:bg-[var(--success-bg)]" : "border-[var(--accent-border)] text-[var(--accent)] hover:bg-[var(--accent-bg)]"}`}
 						>
 							{nextAction.label}
 						</button>

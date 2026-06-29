@@ -290,7 +290,8 @@ export default async function MediaPlayerPage({
                   {item.tags.map((tag) => (
                     <span
                       key={tag}
-                      className="rounded-full bg-cyan-400/10 px-2.5 py-1 text-xs text-cyan-300"
+                      data-tone="cyan"
+                      className="rounded-full border border-[var(--accent-border)] px-2.5 py-1 text-xs text-[var(--accent)]"
                     >
                       {tag}
                     </span>

@@ -299,9 +299,9 @@ export function MediaItemCard({ item, canManage }: { item: MediaItem; canManage:
 			{canManage && (
 				<div className="mt-2 flex flex-wrap items-center gap-1">
 					{tags.map((tag) => (
-						<span key={tag} className="inline-flex items-center gap-1 rounded-full bg-cyan-400/10 px-2 py-0.5 text-[10px] text-cyan-300">
+						<span key={tag} data-tone="cyan" className="inline-flex items-center gap-1 rounded-full border border-[var(--accent-border)] px-2 py-0.5 text-[10px] text-[var(--accent)]">
 							<Link href={`/media?tag=${encodeURIComponent(tag)}`} className="hover:underline">#{tag}</Link>
-							<button type="button" onClick={() => removeTag(tag)} className="text-cyan-400/50 hover:text-cyan-300 light:hover:text-cyan-700">×</button>
+							<button type="button" onClick={() => removeTag(tag)} className="text-[var(--text-muted)] hover:text-[var(--accent)]">×</button>
 						</span>
 					))}
 					{showTagInput ? (
@@ -336,7 +336,7 @@ export function MediaItemCard({ item, canManage }: { item: MediaItem; canManage:
 			{!canManage && tags.length > 0 && (
 				<div className="mt-2 flex flex-wrap items-center gap-1">
 					{tags.map((tag) => (
-						<Link key={tag} href={`/media?tag=${encodeURIComponent(tag)}`} className="rounded-full bg-cyan-400/10 px-2 py-0.5 text-[10px] text-cyan-300 hover:underline">#{tag}</Link>
+						<Link key={tag} href={`/media?tag=${encodeURIComponent(tag)}`} data-tone="cyan" className="rounded-full border border-[var(--accent-border)] px-2 py-0.5 text-[10px] text-[var(--accent)] hover:underline">#{tag}</Link>
 					))}
 				</div>
 			)}

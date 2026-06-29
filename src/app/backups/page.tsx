@@ -148,8 +148,8 @@ export default async function BackupsPage() {
 						<div className="mt-4 grid gap-3 text-xs text-slate-300 md:grid-cols-2">
 							<p>
 								<span
-									data-tone={offsite.enabled ? "emerald" : "slate"}
-									className={`mr-2 rounded-full px-2 py-0.5 text-xs ${offsite.enabled ? "bg-emerald-400/15 text-emerald-100" : "bg-slate-400/15 text-slate-300"}`}
+									data-tone={offsite.enabled ? "emerald" : "neutral"}
+									className="mr-2 rounded-full border px-2 py-0.5 text-xs"
 								>
 									{offsite.enabled ? t("backupsPage.offsite.status.enabled") : t("backupsPage.offsite.status.disabled")}
 								</span>

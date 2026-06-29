@@ -163,7 +163,7 @@ const _data = await csrfFetch("/api/users/permissions", {
               <h4 className="font-medium text-white">{t("usersPerm.section.roles")}</h4>
               <div className="mt-3 flex flex-wrap gap-2">
                 {payload.roles.map((role) => (
-                  <button key={role.key} type="button" onClick={() => setRoleKeys((current) => toggle(current, role.key))} className={`rounded-full border px-3 py-1.5 text-xs ${roleKeys.includes(role.key) ? "border-cyan-400/40 bg-cyan-400/15 text-cyan-100" : "border-white/10 bg-white/5 text-slate-400"}`}>{role.name}</button>
+                  <button key={role.key} type="button" onClick={() => setRoleKeys((current) => toggle(current, role.key))} data-tone={roleKeys.includes(role.key) ? "cyan" : undefined} className={`rounded-full border px-3 py-1.5 text-xs ${roleKeys.includes(role.key) ? "border-[var(--accent-border)] text-[var(--accent)]" : "border-[var(--border)] text-[var(--text-muted)] hover:bg-[var(--surface-elevated)]"}`}>{role.name}</button>
                 ))}
               </div>
             </section>
@@ -187,7 +187,7 @@ const _data = await csrfFetch("/api/users/permissions", {
                   <h4 className="font-medium text-white">{t("usersPerm.section.grants")}</h4>
                   <p className="mt-1 text-xs text-slate-400">{t("usersPerm.grants.hint")}</p>
                 </div>
-                <button type="button" onClick={addGrant} data-tone="emerald" className="rounded-full border border-emerald-400/30 px-3 py-1.5 text-xs text-emerald-100 hover:bg-emerald-400/20">{t("usersPerm.action.addGrant")}</button>
+                <button type="button" onClick={addGrant} data-tone="emerald" className="rounded-full border border-[var(--success-border)] px-3 py-1.5 text-xs text-[var(--success)] hover:bg-[var(--success-bg)]">{t("usersPerm.action.addGrant")}</button>
               </div>
               <div className="mt-4 space-y-3">
                 {grants.length === 0 ? <EmptyState>{t("usersPerm.grants.empty")}</EmptyState> : grants.map((grant, index) => {

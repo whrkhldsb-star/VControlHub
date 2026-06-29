@@ -288,7 +288,7 @@ export function MediaImageUploadPanel() {
 											.replace("{total}", String(chunkedProgress.totalChunks))
 											.replace("{pct}", String(chunkedProgress.percent))
 										: item.message}
-										{isChunked ? <span className="ml-2 inline-block rounded bg-emerald-500/20 px-1.5 py-0.5 text-[10px] text-emerald-100">{t("mediaUploadPanel.chunkedBadge")}</span> : null}
+										{isChunked ? <span data-tone="emerald" className="ml-2 inline-block rounded border border-[var(--success-border)] px-1.5 py-0.5 text-[10px] text-[var(--success)]">{t("mediaUploadPanel.chunkedBadge")}</span> : null}
 									</span>
 									<span>{statusBadgeLabel(t, item.status)}</span>
 								</div>
