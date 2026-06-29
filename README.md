@@ -345,7 +345,7 @@ make logs SERVICE_PREFIX=vcontrolhub
 | 测试      | 9/10       | 2456 tests pass / 1 skipped，tsc + lint 0 错误                                                    |
 | i18n      | 9/10       | 141 useI18n()，76 字典文件，197 light: 全语义（0 冗余）                                           |
 | 前端 UX   | 8/10       | 5 个功能页侧边栏入口已补齐；AI 客户端响应式已优化                                               |
-| 架构      | 8/10       | 29 处 findMany 仍未显式 take（精扫订正），108/108 路由全部走 TR-034 统一错误格式                              |
+| 架构      | 8/10       | 34 处 findMany 仍未显式 take（精扫订正），108/108 路由全部走 TR-034 统一错误格式                              |
 | 运维      | 9/10       | systemd + caddy + smoke + 双 build 全套完整                                                       |
 | **综合**  | **8.6/10** | **结构健康，剩余均为 P2/P3 改善项**                                                               |
 
@@ -355,13 +355,14 @@ make logs SERVICE_PREFIX=vcontrolhub
 
 ### P1 — 阻塞或核心
 
-- [ ] **后台任务业务迁移与并发控制**（TR-001）— 命令/部署/下载/定时任务补 durable worker，全局/按节点并发上限，可观测日志流。 `[架构]`
-- [ ] **Direct Gateway 传输边界**（TR-002）— TLS 反代 / VPN / 防火墙默认部署或更细可达性探测。 `[架构]`
+> 当前无未完成 P1。TR-001（后台任务 durable worker + 全局/按用户/按节点并发上限 + JobEvent 可观测日志流 + 单一注册表 + SIGTERM 优雅停机 + `/api/admin/workers` 健康检查）与 TR-002（Direct Gateway TLS 加固 + UI 风险 banner + 启动期公网暴露探测）已全部落地；详见 `git log --grep="TR-001\|TR-002"`。
+>
+> 2026-06-29 修补：commit 8ec51ae（Sentry 集成）误覆盖 `src/instrumentation.ts`，回归性删除 `startWorkerLifecycle / verifyAdminPasswordConsistency / scheduleDirectGatewayExposureProbe / bigint-patch` 四处 bootstrap 调用。**生产服务靠旧编译产物仍在跑，但下次 `next build` 会丢失全部 worker / TR-051 校验 / TR-002 R4 探针**。已在 c3b1da3 恢复源文件并通过 tsc + 359 测试文件 + build。
 
 ### P2 — 用户体验与工程规范
 
 - [ ] **快捷服务剩余增强**（TR-011）— 失败回滚、真实配置变更 diff/回滚记录、Direct Gateway 边界加固。 `[功能]`
-- [ ] **`findMany` 显式上界继续收敛** — 经精扫仍有 29 处 findMany 未显式 `take`（多数有 `where` 限定但缺数量上界），主要分布：`src/lib/ai/hosted-service.ts` ×3、`src/lib/storage/*` ×6、`src/lib/settings/service.ts` ×2、`src/app/api/search/route.ts` ×2、其余分散 12 个 service。逐处评估是否需补 `take` 防止数据量增长。 `[架构]`
+- [ ] **`findMany` 显式上界继续收敛** — 精扫 34 处 findMany 未显式 `take`（funnel: 提取每个 findMany 调用的 args 块判 `take` 关键字）。主要分布：`src/lib/storage/*` ×8、`src/lib/{ai,command,cost,scheduled-task}/*` 各 ×3、`src/lib/{server,settings,share-link}/*` 各 ×2、其余分散 9 个 service ×1。逐处评估是否需补 `take` 防止数据量增长。 `[架构]`
 - [ ] **`zod bodySchema/querySchema` 全面迁移**（TR-037 续）— 已完成 4 个纯 JSON 写路由；剩余约 53 条混合 FormData/JSON + wantsHtml/wantsJson 分叉写路由需逐条评估迁移到声明式校验。 `[安全/可维护性]`
 - [ ] **SSH 多 Tab / 多会话** — 同时连接多台 VPS，标签页切换。 `[功能]`
 - [ ] **SSH 内文件传输** — 终端会话内直接拖拽上传/下载（SFTP over SSH）。 `[功能]`
