@@ -362,7 +362,7 @@ make logs SERVICE_PREFIX=vcontrolhub
 ### P2 — 用户体验与工程规范
 
 - [ ] **快捷服务剩余增强**（TR-011）— 失败回滚、真实配置变更 diff/回滚记录、Direct Gateway 边界加固。 `[功能]`
-- [ ] **`findMany` 显式上界继续收敛** — 精扫剩余 21 处 findMany 未显式 `take`（funnel: 提取每个 findMany 调用 args 块判 `take` 关键字；本轮已完成 storage 子模块 8 处加上界 take，commit ?? ）。剩余分布：`src/lib/{ai,command,cost,scheduled-task}/*` 各 ×3、`src/lib/{server,settings,share-link}/*` 各 ×2、其余分散 9 个 service ×1。逐处评估是否需补 `take` 防止数据量增长。**可分给弱模型**：剩余 21 处多为单 service 文件局部加 take，机械化适合 glm4.7 等。 `[架构]`
+- [ ] **`findMany` 显式上界继续收敛** — 精扫剩余 21 处 findMany 未显式 `take`（funnel: 提取每个 findMany 调用 args 块判 `take` 关键字；本轮已完成 storage 子模块 8 处加上界 take，commit 7ca982d）。剩余分布：`src/lib/{ai,command,cost,scheduled-task}/*` 各 ×3、`src/lib/{server,settings,share-link}/*` 各 ×2、其余分散 9 个 service ×1。逐处评估是否需补 `take` 防止数据量增长。**可分给弱模型**：剩余 21 处多为单 service 文件局部加 take，机械化适合 glm4.7 等。 `[架构]`
 - [ ] **`zod bodySchema/querySchema` 全面迁移**（TR-037 续）— 已完成 4 个纯 JSON 写路由；剩余约 53 条混合 FormData/JSON + wantsHtml/wantsJson 分叉写路由需逐条评估迁移到声明式校验。 `[安全/可维护性]`
 - [ ] **SSH 多 Tab / 多会话** — 同时连接多台 VPS，标签页切换。 `[功能]`
 - [ ] **SSH 内文件传输** — 终端会话内直接拖拽上传/下载（SFTP over SSH）。 `[功能]`
