@@ -332,7 +332,7 @@ make logs SERVICE_PREFIX=vcontrolhub
 
 ## 🔬 全量代码审查（2026-06-24）
 
-**审查范围**：152,300 行 TypeScript/TSX，108 API 路由，46 页面，53 数据模型，348 测试文件。
+**审查范围**：152,300 行 TypeScript/TSX，108 API 路由，46 页面，53 数据模型，359 测试文件。
 **方法**：静态 grep 信号 + 架构分析 + verify 链（tsc + lint + i18n:key-check + 2394 passed / 1 skipped + build + build:runtime）全通过 + 浏览器实地走查（dashboard / servers / quick-services）。
 
 ### ✅ 现状健康评估
@@ -342,246 +342,71 @@ make logs SERVICE_PREFIX=vcontrolhub
 | 代码质量  | 9/10       | 0 `@ts-ignore`，0 循环依赖，0 prisma 在 client                                                    |
 | 认证/授权 | 10/10      | 108/108 路由覆盖，4 个豁免全合理（login/share/2fa/openapi）                                       |
 | 安全      | 8/10       | DOMPurify 全覆盖，CSRF 防护，AES-256 加密；5 个 postcss moderate vuln（Next.js 内置，无法单独升） |
-| 测试      | 9/10       | 2394 tests pass / 1 skipped，tsc + lint 0 错误                                                    |
+| 测试      | 9/10       | 2456 tests pass / 1 skipped，tsc + lint 0 错误                                                    |
 | i18n      | 9/10       | 141 useI18n()，76 字典文件，197 light: 全语义（0 冗余）                                           |
-| 前端 UX   | 8/10       | 5 个功能页侧边栏入口已补齐；AI 客户端仍待响应式优化                                               |
-| 架构      | 8/10       | 97 findMany 无 take 分页保护，108/108 路由全部走 TR-034 统一错误格式                              |
+| 前端 UX   | 8/10       | 5 个功能页侧边栏入口已补齐；AI 客户端响应式已优化                                               |
+| 架构      | 8/10       | 29 处 findMany 仍未显式 take（精扫订正），108/108 路由全部走 TR-034 统一错误格式                              |
 | 运维      | 9/10       | systemd + caddy + smoke + 双 build 全套完整                                                       |
 | **综合**  | **8.6/10** | **结构健康，剩余均为 P2/P3 改善项**                                                               |
 
-### 🚧 现有问题（按优先级）
+## 📋 待办清单（统一）
 
-**P1 — 功能逻辑不完善**
+> 整合原"现有问题 / 任务追踪 / 下一步升级方向 / 功能完善建议 / UI 美化 / 前端可维护性 / 性能优化 / 安全加固 / 依赖升级"九节而成。已完成项已直接删除，仅保留未完成或部分完成的真待办。每条尾部 `[tag]` 标注类别。
 
-- [x] **CSRF 真漏洞 (P0) 已封堵** ✅ — 之前 `/api/auth/signout` 被 proxy 显式 exempt，第三方网站可通过 `<form action="/api/auth/signout" method="POST">` 触发用户登出（CSRF on auth endpoint）。本轮：从 exempt 列表移除 signout，`SignOutButton` 改写为 `csrfFetch + useTransition`（不再用 native form POST），新增 2 个 proxy CSRF 回归测试。剩余 exempt 仅 `/api/login` + `/api/auth/2fa/verify-login`（pre-session，无 csrf cookie 可取）。
-- [x] **审批中心批量审批 (P1)** ✅ — 新增 `BatchReviewToolbar` 客户端组件：pending 卡片左上加 checkbox + 全选栏 + sticky 底部操作栏（批量备注 + 批量批准/批量拒绝）；新增 `batchReviewCommandAction` server action（id dedup / 空选 guard / 每条 try-catch 不互相阻塞 / 聚合摘要消息 / 失败混合用例正确分流）；新增 7 个 action 单元测试（全选/dedup/部分失败/全失败/拒绝路径）全 pass。
-- [x] **`/traffic` 流量页面走势图 (P1)** ✅ — 新增纯 SVG `<TrafficSparkline>` 双线面图（RX cyan + TX emerald），客户端 60 样本滚动窗口（≈30 min / 30s 间隔），窗口自适应 max(rx,tx) 共享 Y 轴，切换网卡自动重置，iface 变更时历史不混杂数据；0 新依赖，i18n 中英双语 label 已补齐；7 个单元测试全 pass。
-- [x] **`/monitoring` SSE 实时推送 (P1)** ✅ — 新增 `GET /api/monitoring/stream` SSE 端点（ReadableStream + 每条 try/catch + keep-alive + abort 信号清理）；客户端 `EventSource` 替代 `setInterval` 轮询，SSE 断连自动回退 HTTP polling（graceful degradation）；autoRefresh 默认开启（SSE 零额外开销）；连接状态指示器（绿色脉冲 `SSE` badge）；4 个 SSE route 单元测试全 pass。
+### P1 — 阻塞或核心
 
-**P2 — UI 直观性与一致性（已审计澄清）**
+- [ ] **后台任务业务迁移与并发控制**（TR-001）— 命令/部署/下载/定时任务补 durable worker，全局/按节点并发上限，可观测日志流。 `[架构]`
+- [ ] **Direct Gateway 传输边界**（TR-002）— TLS 反代 / VPN / 防火墙默认部署或更细可达性探测。 `[架构]`
 
-- [x] **按钮色彩体系收敛 (P1)** ✅ — 新增 `--color-action` / `--color-action-hover` / `--color-action-bg/border/ring` token (dark + light)，配 `[data-action-button][data-variant=primary|outline|ghost]` utility 和 `<ActionButton>` 共用组件，`SubmitButton` 默认走 token；其余 cyan-300/400/500/600 散落用法属"渐进迁移"长尾任务，新代码请用 `<ActionButton>` 而非手写 cyan utility。
-- [x] **4 个核心页面"缺 PageHeader"实为假阳性** ✅ — `/ai` 是聊天 UI（自定义 chat header），`/storage` 仅 redirect 到 /files，`/media` 与 `/image-bed` 已具备 eyebrow/title/description 三元素（自定义 hero header，未用 PageHeader 组件名）。无需补齐。
-- [x] **PageHeader description 已全量覆盖** ✅ — 真实 grep 仅 3 处缺失（preferences / traffic 把 desc 摆在外部 `<p>`、tickets/[id] 真缺），已合并到 `description` prop / 补 i18n（commit 1461c14）。
-- [x] **10 种硬编码十六进制颜色合理保留** ✅ — 全部为 xterm 主题/PWA manifest/SVG 占位/sparkline 数据色/gradient stops 等不可 token 化场景；如需进一步抽象可后续单独审视。
+### P2 — 用户体验与工程规范
 
-**P2 — 工程规范**
+- [ ] **快捷服务剩余增强**（TR-011）— 失败回滚、真实配置变更 diff/回滚记录、Direct Gateway 边界加固。 `[功能]`
+- [ ] **`findMany` 显式上界继续收敛** — 经精扫仍有 29 处 findMany 未显式 `take`（多数有 `where` 限定但缺数量上界），主要分布：`src/lib/ai/hosted-service.ts` ×3、`src/lib/storage/*` ×6、`src/lib/settings/service.ts` ×2、`src/app/api/search/route.ts` ×2、其余分散 12 个 service。逐处评估是否需补 `take` 防止数据量增长。 `[架构]`
+- [ ] **`zod bodySchema/querySchema` 全面迁移**（TR-037 续）— 已完成 4 个纯 JSON 写路由；剩余约 53 条混合 FormData/JSON + wantsHtml/wantsJson 分叉写路由需逐条评估迁移到声明式校验。 `[安全/可维护性]`
+- [ ] **SSH 多 Tab / 多会话** — 同时连接多台 VPS，标签页切换。 `[功能]`
+- [ ] **SSH 内文件传输** — 终端会话内直接拖拽上传/下载（SFTP over SSH）。 `[功能]`
+- [ ] **历史可用率图表** — 公开状态页补 90 天 uptime 热力图 / SLA 统计。 `[功能]`
+- [ ] **Playbook 步骤拖拽排序** — `@dnd-kit` 实现步骤顺序拖拽（当前为表单式编辑，742 行）。 `[功能]`
+- [ ] **备份定时自动备份** — 当前 `BackupRecord` 模型仅手动触发，可借通用 `ScheduledTask` 跑 backup 脚本，但缺一等公民配置 UI / cron 字段；建议要么新增 `BackupSchedule` 模型，要么在 backup 页内联挂接 ScheduledTask 创建器。 `[功能]`
 
-- [x] **`findMany` 显式上界收敛** ✅ — users / users-permissions 的 `where: { in: [...] }` 查询已按输入数组长度补 `take`；SFTP / files / storage 目录子项更新补 `take: 10_000` 防止超大目录一次性无界读取；相关 users + permissions + sftp-ops 测试已同步通过。
+### P3 — 长期愿景与渐进式改善
 
-**P3 — 长期改善**
+- [ ] **自动化工作流**（TR-023）— 条件触发、告警联动、步骤编排。 `[功能]`
+- [ ] **多租户 / 团队空间**（TR-030）。 `[架构]`
+- [ ] **成本追踪完善**（TR-031）— `/cost-summary` 页面已落地，待接入自动采集数据源。 `[功能]`
+- [ ] **智能运维 AI 完善**（TR-032）— `/ai-ops` 页面已落地，待丰富推荐执行逻辑。 `[功能]`
+- [ ] **PWA 离线支持和集成市场**（TR-033）— Service Worker 基础已就绪（`public/sw.js`），待完善离线体验。 `[功能]`
+- [ ] **按钮 cyan 散落用法渐进收敛** — 已有 `<ActionButton>` + `--color-action*` token 体系；存量代码中散落的 `cyan-300/400/500/600` 手写 utility 仍属长尾迁移任务，新代码请直接使用 `<ActionButton>` 而非手写 cyan utility。 `[UI]`
+- [ ] **文字 opacity 进一步合并** — 当前主干保留 `/10`/`/20`/`/30`/`/50`/`/60`/`/70`/`/80` 七档语义；如视觉一致性允许，可继续向 4 档收敛（low/mid/high/full）。 `[UI]`
+- [ ] **10 种硬编码十六进制颜色** — 全部为 xterm 主题 / PWA manifest / SVG 占位 / sparkline 数据色 / gradient stops 等不可 token 化场景，如需进一步抽象可后续单独审视。 `[UI]`
 
-- [x] **`p-5`/`p-7` 奇数间距收敛** ✅ — 全局 `[data-card]`/`article` padding `1.25rem`→`1rem`（p-5→p-4）；31 处 `[data-card]` 上冗余 `p-5` 类全部删除（由全局规则统一输出）；4 处 `<article>` 上冗余 `p-5` 同步删除；2 处 `p-7` 改为 `p-6` + `sm:p-8`（登录卡片升至标准档）。当前 `p-5` 只保留在对话框/模态框等非 data-card 场景（合理外部 padding），`p-7` 全仓清零。353 test files / 2423 tests pass + full verify pass。
-- [x] **AI 客户端响应式断点 (P1)** ✅ — sub-component 早已响应式（sidebar `max-md:` drawer + provider-panel `max-sm:` 抽屉 + settings-panel `md:grid-cols-4`），ai-client.tsx 主体仅 3 处真痛点已修：messages 容器 `px-3 py-3 sm:px-4 sm:py-4`、user/assistant bubble `max-w-[88%] sm:max-w-[80%] px-3 py-2 sm:px-4 sm:py-2.5`（手机宽度下 bubble 不再过窄）。
-- [x] **`zod bodySchema/querySchema` 覆盖率提升** ✅ — 已对 4 个纯 JSON 写路由补 `bodySchema`：`/api/preferences` PUT、`/api/scheduled-tasks` POST + PATCH、`/api/notifications` POST。剩余约 53 条写路由大部分为混合 FormData/JSON + wantsHtml/wantsJson 分叉路由，需逐条评估不适合批量 bodySchema 化。详见 commit。
-- [ ] **5 项 moderate npm 安全漏洞** — postcss XSS（GHSA-qx2v-qp2m-jg93）在 Next.js 内置依赖链，待官方升级。
-- [x] **qa-reports 空状态友好引导** ✅ — `reports.length === 0` 时显示 📋 icon + 主文案 + hint 文案（提示 worker / `/alert-rules` 触发），与 filter empty 区分。
+### P3 — 性能 / 包体积
 
-## 📋 任务追踪
+- [ ] **API 响应缓存继续推广** — `src/lib/cache.ts` 的 `withCacheHeaders()` 已用于 `/api/dashboard/analytics` 与 `/api/status`；其余只读端点可按"登录态短缓存 / 公开长缓存"模式继续接入。 `[性能]`
+- [ ] **更多低变动页面改 ISR** — 已有 `/snippets`、`/announcements`、`/api-tokens`、`/shares` 四页改为 `revalidate = 60`；其余仍是 `force-dynamic` 的页面可逐页评估是否值得 ISR 化。 `[性能]`
 
-完整 TR 编号与历史见 `git log`。当前未完成项：
+### P3 — 安全 / 依赖
 
-- [ ] **后台任务业务迁移与并发控制**（TR-001）— 命令/部署/下载/定时任务补 durable worker，全局/按节点并发上限，可观测日志流。
-- [ ] **Direct Gateway 传输边界**（TR-002）— TLS 反代 / VPN / 防火墙默认部署或更细可达性探测。
-- [ ] **快捷服务剩余增强**（TR-011）— 失败回滚、真实配置变更 diff/回滚记录、Direct Gateway 边界加固。
-
-## 🗺️ 下一步升级方向
-
-按 P 级排序。已完成项已从本节移除。
-
-### P1 — 阻塞性
-
-- [ ] **后台任务业务迁移与并发控制**（TR-001）— 命令/部署/下载/定时任务补 durable worker，全局/按节点并发上限，可观测日志流。
-- [ ] **Direct Gateway 传输边界**（TR-002）— TLS 反代 / VPN / 防火墙默认部署或更细可达性探测。
-
-### P2 — 用户体验和可运营性
-
-- [ ] **快捷服务剩余增强**（TR-011）— 失败回滚、真实配置变更 diff/回滚记录、Direct Gateway 边界加固。
-- [x] **统一操作反馈模型推广**（TR-026）✅ — snippets 编辑保存 / playbooks toggle+delete+create / deployments rollback+resend 已全部补齐 `addToast()` 成功/失败反馈；rollback/resend 按钮 6 处硬编码中文已 i18n 化（+14 deployments 字典 key zh+en）；`useCallback` 依赖数组已修；rollback 测试已补 `I18nProvider` + `ToastProvider` 包裹。
-
-### P3 — 长期愿景
-
-- [ ] **自动化工作流**（TR-023）— 条件触发、告警联动、步骤编排。
-- [ ] **多租户 / 团队空间**（TR-030）。
-- [ ] **成本追踪完善**（TR-031）— `/cost-summary` 页面已落地，待接入自动采集数据源。
-- [ ] **智能运维 AI 完善**（TR-032）— `/ai-ops` 页面已落地，待丰富推荐执行逻辑。
-- [ ] **PWA 离线支持和集成市场**（TR-033）— Service Worker 基础已就绪（`public/sw.js`），待完善离线体验。
-- [ ] **zod bodySchema/querySchema 全面迁移**（TR-037 续）— 约 80 条路由待迁移到声明式校验。
+- [ ] **5 项 moderate npm 安全漏洞** — postcss XSS（GHSA-qx2v-qp2m-jg93）在 Next.js 内置依赖链，待官方升级。 `[安全/依赖]`
+- [ ] **同大版本依赖小升** — `npm update` 即可：`@tailwindcss/postcss` 4.3.0 → 4.3.1、`@types/react` 19.2.15 → 19.2.17、`@vitejs/plugin-react` 6.0.2 → 6.0.3、`cron-parser` 5.5.0 → 5.6.0、`otplib` 13.4.0 → 13.4.1、`tsx` 4.22.3 → 4.22.4、`vitest` 4.1.7 → 4.1.9。 `[依赖]`
+- [ ] **跨大版本依赖（需验证）** — `typescript` 5.9 → 6.0（breaking, 升前跑全量 tsc）、`eslint` 9 → 10（配置格式变化）、`@types/node` 20 → 26（API 类型变化）、`undici` 7 → 8（Next.js 锁定，不要单独升）。 `[依赖]`
 
 ---
 
-## 💡 功能完善建议（代码审查 2026-06-24）
+### 🧱 长期路线图（参考方向，非具体待办）
 
-基于代码扫描确认的缺口，按模块列出。
-
-### SSH 终端
-
-- [x] **终端内搜索** ✅ — 已接入 `@xterm/addon-search`，支持关键词高亮定位、上一个/下一个、清除搜索。
-- [x] **命令历史面板** ✅ — 已展示本次会话历史命令，支持点击复用。
-- [ ] **多 Tab / 多会话** — 同时连接多台 VPS，标签页切换
-- [ ] **SSH 内文件传输** — 终端会话内直接拖拽上传/下载（SFTP over SSH）
-
-### 文件管理
-
-- [x] **批量压缩** — 文件列表批量选择后可创建 `.tar.gz`；新增 `/api/files/compress` 本地存储安全路由，使用 `tar --null -T` 避免文件名注入，完成权限校验、冲突检测、FileEntry 索引与前端批量工具栏接入
-- [x] **在线解压** — 已验证现有 `/api/files/extract` + 压缩包预览页入口：安全支持 `.gz` 解压并索引输出；`.zip`/`.tar`/`.tar.gz`/`.7z`/`.rar` 因符号链接/硬链接穿越风险保持受控拒绝，只提供在线查看/下载
-
-### 监控与告警
-
-- [x] **VPS 监控历史图表** ✅ — `/api/health?historyFor=...&hours=...` 已提供 24h/7d 历史读取，`health-dashboard-client` 里每个节点已可展开 24h 趋势面板（CPU/内存/磁盘），数据源来自 `MetricSnapshot` 持久化采样，重启后趋势可继续查。
-- [x] **流量历史趋势存储** ✅ — `TrafficSnapshot` 持久化表已新增，`/api/traffic/summary` 会把当前网卡采样写入 DB，`/api/traffic/history` 可按 `iface` / 24h / 7d 读取历史点，`/traffic` 页面新增 24h/7d 趋势切换与持久化历史展示；页面保留实时内存窗口用于当前会话即时反馈。
-- [x] **告警指标扩展** — 新增 `network_in`、`network_out`、`load_avg`、`swap_usage`（API route zod enum + evaluateAlerts switch + 前端选项 + i18n 中英文）
-- [x] **复合告警条件** — `durationSeconds` 字段已实现持续时长判定（如 "CPU > 80% 且持续 5 分钟"才触发，评估器先记录 lastMatchedAt，未满 duration 则 continue）
-- [x] **告警恢复通知** — 指标恢复正常时也发送通知（`alert_resolved` 类型，复用告警规则的通知渠道，L97-130 service-alerts.ts）
-
-### 备份
-
-- [x] **定时自动备份** — Cron 表达式配置（当前无 schedule 实现，只能手动触发）
-- [x] **备份保留策略 UI** ✅ — `RetentionButton` 已支持 `olderThanDays` 和 `keepLatestPerType` 参数，可配置清理策略。
-- [x] **备份完整性校验** ✅ — 备份完成后计算并保存 SHA256 checksum。
-
-### 分享链接
-
-- [x] **访问密码保护** — 访问分享链接需输入密码（`passwordHash` 字段 + `resolveShareToken` 校验 + 落地页密码输入组件）
-
-### 全局搜索
-
-- [x] **动态内容搜索** ✅ — 全局搜索已接入 `/api/search`，实时返回服务器名称、Playbook 标题、快捷服务名结果。
-
-### Docker 管理
-
-- [x] **Docker 网络/Volume 管理** — 新增 `/api/docker/resources`，支持 Network/Volume 列表、inspect、创建、删除；复用本机 Docker socket 边界、`docker:manage` 权限、操作审计和前端 Docker 资源面板确认删除流程
-
-### 通知中心
-
-- [x] **补充通知类型** ✅ — 新增 `backup_completed`、`backup_failed`、`login_alert`（异常登录）、`cron_failed`、`playbook_failed` 五种类型及对应 helper。
-
-### API Token
-
-- [x] **细粒度 scope** ✅ — 已有 `read`、`server:read`、`storage:read`、`health:read`、`status:read`、`image:read`、`image:write` 等 7 种 scope（见 `ALLOWED_API_TOKEN_SCOPES`）。
-- [x] **scope 勾选 UI** ✅ — 创建 Token 时已有权限勾选界面（复选框列表）。
-
-### 公开状态页
-
-- [x] **故障/维护公告** — 健康页面顶部新增 `ActiveIncidentsBanner`，自动拉取 `level: incident/maintenance` 且未过期的公告并展示；支持逐条关闭；info 级公告不显示，保持状态页聚焦异常
-- [ ] **历史可用率图表** — 90 天 uptime 热力图 / SLA 统计
-
-### Playbook
-
-- [ ] **步骤拖拽排序** — `@dnd-kit` 实现步骤顺序拖拽（当前为表单式编辑，742 行）
-
-### AI 助手
-
-- [x] **补充 AI 工具调用** — 新增 `list_backups`、`run_playbook`、`query_traffic`、`manage_cron`（hosted-tools.ts 4 项工具定义 + HostedActionType 扩展）
-
-### 定时任务
-
-- [x] **失败原因持久化** ✅ — `ScheduledTask.lastResult` 字段已存在并在 `recordTaskRun()` 中写入。
-- [x] **失败告警通知** — 任务连续失败 2 次后触发告警渠道通知（`task_consecutive_failed` 类型，`recordTaskRun` 检测连续失败后通知创建者）
+- **测试覆盖率提升** — 当前 lines 74.88% / branches 59.93%，CI 阈值 lines/statements/functions 70%、branches 55%；可随测试补齐逐步收紧。
+- **组件文档持续维护** — `src/components/README.md` 已建立；新增共享组件时同步追加说明。
+- **AI 客户端工具扩展** — 已有 4 项新工具（`list_backups` / `run_playbook` / `query_traffic` / `manage_cron`），可继续扩展 hosted-tools 覆盖更多运维场景。
 
 ---
 
-## 🎨 UI 美化待办（代码审查 2026-06-24）
+### ⚠️ 审计订正（防止重复误报）
 
-基于静态分析 + 浏览器走查确认，按影响大小排列。
+> 以下结论由前几轮审计反复确认，避免后续重复列入"待做"。
 
-### 🟠 设计一致性
-
-- [x] **按钮主色已全局收敛** — Docker / Image Bed 已迁移至 `--accent` / `--accent-bg` / `--accent-border` / `--accent-hover` token；全代码库 `bg-blue-500/10\|20` 零残留。后续新组件直接用 `var(--accent*)` 即可。
-- [x] **圆角已收敛到 3 档** — bare `rounded` 和 `rounded-md` 共 188 处机械化批量替换为 `rounded-lg`；当前规范：卡片 `rounded-xl`，小控件 `rounded-lg`，badge/胶囊按钮 `rounded-full`。`rounded-2xl` 保留作为 hero 大圆角。
-- [x] **Input 样式已通过 `INPUT_CLS` 常量方案解决** — `src/lib/styles.ts` 提供 `INPUT_CLS`（标准表单）、`INPUT_DARK_CLS`（深色背景）、`INPUT_ERROR_CLS`（错误态）三个集中管理的 className，已覆盖 11 个文件的 input/textarea/select 样式，改样式只需改一处。**不再需要 InputBase 组件**，当前方案比组件更轻量，无需额外 props 传递。
-
-### 🟡 细节打磨
-
-- [x] **Loading skeleton 已全覆盖数据密集页** — 新增 `DeploymentsPageSkeleton` / `DownloadsPageSkeleton` / `QuickServicesPageSkeleton` 三个结构化骨架屏（src/components/skeleton.tsx），分别覆盖 `/deployments`、`/downloads`、`/quick-services` 的 `loading.tsx`。
-- [x] **文字 opacity 档位已收敛一轮** — 先将少量可安全统一的 `/75` 文案说明档位收敛到 `/80`；当前代码仍保留 `/50`、`/60`、`/70`、`/80` 四档主干，后续只在视觉一致性明确的点继续合并。
-
----
-
-## 🔧 前端可维护性改进方向（代码审查 2026-06-24）
-
-**已完成：** ✅ CSS 语义 token（`--color-action/danger/radius-card/control`）| ✅ `InputBase` 组件 | ✅ `global-error.tsx` 迁移 Tailwind | ✅ `transition-all` 主要场景已改 | ✅ `/servers`、`/files`、`/health` 专属骨架屏 | ✅ `/playbooks` 空状态 CTA | ✅ `cn()` 工具函数 (`src/lib/cn.ts` + clsx) | ✅ 共享样式常量 (`src/lib/styles.ts`：INPUT_CLS / TABLE_TH_CLS / CHIP_CLS 等) | ✅ z-index token (`--z-toast:60 / --z-popover:70 / --z-modal:100`) | ✅ `--surface-root` token + 9 处 magic hex 色替换 | ✅ eyebrow 汉化 | ✅ quick-services 三卡等宽 | ✅ AI 输入区 icon-only 可访问名称
-
-**待做：**
-
-- [x] **超大 Client 组件拆分 (R31)** ✅ — `file-list-client.tsx`(1314→345)、`settings-client.tsx`(1228→431)、`ai-client.tsx`(1030→361) 三大 mega-component 共减少 2435 行集中代码，下沉到 19 个职责单一的 sibling 组件 / hook（files 模块 7 子文件 + 1 hook；settings 模块 4 子文件；ai 模块 4 子组件 + 6 hooks + 1 export 工具）。全量 2456 tests 绿，tsc 通过，无行为回归。
-- [x] **`ChangePasswordModal` 中文硬编码已全部消除** — 10 处密码字段 label/description、取消按钮、SubmitButton pendingLabel/children、显示/隐藏切换文案均改用 `t("changePassword.*")` / `t("common.*")`；字典 `common.ts` 新增 10 个 key（zh+en 双语言）；`PasswordField` 内联组件补 `useI18n()` hook。切英文后表单主体全英文。
-- [x] **`FileUploadDropzone` 上传状态/错误文案已接入 i18n** — 路径校验 reason 改为 typed code + `fileUploadDropzone.pathError.*`，上传队列、toast summary、placeholder、dropzone 提示、状态枚举均改为 `tr(...)`；新增英文回归测试覆盖上传成功与客户端路径校验，切 EN 后不再显示中文上传状态。
-
-- [x] **文字 opacity 收敛** — 采用方案二宽松收敛：保留 `/10`/`/20`/`/30`/`/50`/`/60`/`/70`/`/80` 语义档，清零非测试代码中的低频异常档 `/15`/`/25`/`/35`/`/40`/`/45`/`/55`/`/75`/`/90`/`/95`；`/82` 已核实为测试 IP 地址误报而非 opacity
-- [x] **设置与偏好已合并** — `/settings` 现在承载统一设置页，`/preferences` 保留兼容重定向到 `#personal-preferences`；页面顶部新增分类导航，个人偏好与系统设置按分组展示，便于快速查找和跳转。
-- [x] **组件文档已补齐** — 新增 `src/components/README.md`，列出布局、表单、导航、反馈、媒体/存储、Skeleton 等共享组件的用途、关键 props 与约定；同时说明 `InputBase` 与 `src/lib/styles.ts` 常量方案的边界，避免后续再重复发明输入框样式。
-
----
-
-## ⚡ 性能优化方向（代码审查 2026-06-24）
-
-**当前基线**：Next.js 进程内存占用约 276MB，1.1G node_modules，所有页面均为 `force-dynamic`（无缓存）。
-
-### P1 — 对低内存主机影响最大
-
-- [x] **N+1 查询消除已审计** ✅ — 精扫 29 处 for-of + prisma 模式：21 处为扫描误报（prisma 调用在循环外部或为文件系统操作），4 处为 non-uniform per-item writes 已标 `N+1 acceptable`（relativePath 计算 / AI tool-call 依赖执行结果 / media upsert 无批量 API），1 处已修：`job/service.ts` 的 `recordJobEvent` 循环改为 `createMany` 批量插入。剩余 3 处 acceptable upsert/create 无 Prisma 批量 API 可替代。
-- [x] **`findMany` 已全量补 `take` 上界** ✅ — 所有 API 路由及 service 层 findMany 均已补显式 `take`（permissions 6处/analytics 4处 等），防止数据量增长时全表加载。
-- [x] **4 个低变动页面已改为 ISR** ✅ — `/snippets`、`/announcements`、`/api-tokens`、`/shares` 从 `force-dynamic` 改为 `revalidate = 60`，减少每次请求的 DB 压力；数据变更后最多 60 秒自动刷新。其余页面仍保持 `force-dynamic`（数据实时性要求高）。
-
-### P2 — 内存占用优化
-
-- [x] **`effect` / `@electric-sql` 包已确认为 Prisma 传递依赖** ✅ — 两者均为 `prisma@7.8.0` 的 transitive dependency，不在 `package.json` 顶层，无法直接移除。详见底部审计订正节。
-- [x] **Worker 轮询频率已可配置** ✅ — 命令执行 worker `COMMAND_EXECUTION_INTERVAL_MS`（默认 2s）、下载 worker `DOWNLOAD_EXECUTION_INTERVAL_MS`（默认 5s）均改为环境变量可调。低流量实例可设 5s/10s 降低 CPU 占用。
-- [x] **API 响应缓存已接入关键只读端点** — `src/lib/cache.ts` 的 `withCacheHeaders()` 已用于 `/api/dashboard/analytics` 与 `/api/status`；登录态统计使用 private short-lived cache，公开状态摘要使用 public long-lived cache，降低重复刷新时的 DB 压力。
-
-### P3 — 包体积 / 启动优化
-
-- [x] **`lucide-react` 40MB 已移除** ✅ — 项目仅 5 处 import（snippets/shares/announcements/media×2），全部替换为 `src/components/icons.tsx` 内联 SVG 图标组件（21 图标，与 lucide API 一致的 `size`/`className`/`fill` props）；`npm remove lucide-react` 后 node_modules 减少 ~40MB；`next.config.ts` 已清理 `optimizePackageImports` 条目。
-- [x] **Prisma `connection_limit` 已配置** ✅ — `src/lib/db.ts` 在 `getPrismaAdapter()` 中新增 `connection_limit` 参数注入（与 `pool_max` 同级逻辑），默认值 10（`DB_CONNECTION_LIMIT` 环境变量可覆盖）；`config.db.connectionLimit` getter + 2 个单元测试已补齐。低内存主机设 `DB_CONNECTION_LIMIT=5` 即可防止连接耗尽。
-- [x] **缩略图路由已延迟加载 `sharp`** — `/api/media/[id]/thumbnail` 移除模块顶层 `import sharp`，仅在真正生成图片缩略图时 `await import("sharp")`，避免非缩略图请求/冷启动阶段提前加载 33MB native 包。
-
----
-
-## 🔐 安全加固方向（代码审查 2026-06-24）
-
-- [x] **CI 覆盖率报告与基础门禁已接入** — CI 已接入 `npm run test:coverage`（`@vitest/coverage-v8` + `coverage/` artifact），Vitest 配置当前基线约 lines 74.88% / statements 72.20% / functions 71.42% / branches 59.93%，并设置基础阈值 lines/statements/functions 70%、branches 55%；后续可随测试补齐逐步收紧。
-- [x] **APM / 错误监控** — Sentry 接入完成：`@sentry/nextjs` 安装，服务端 `instrumentation.ts` 初始化 + 客户端 `SentryProvider` 懒加载，`SENTRY_DSN` 未设即静默不启用，环境变量 `SENTRY_DSN` / `SENTRY_TRACES_SAMPLE_RATE` / `SENTRY_RELEASE` 可配
-
-### ⚠️ 误报订正（**审计订正**）
-
-> 代码审查曾建议给 `csrf_token` cookie 加 `HttpOnly` 标志。**这是审计假阳性**：
-
-- `csrf_token` 走 **Double-Submit Cookie 模式**（`src/lib/auth/csrf.ts` + `src/lib/auth/csrf-client.ts`），client 端必须通过 `document.cookie` 读 token 再注入 `X-CSRF-Token` header（见 `useCsrfToken()` hook）。**加 `HttpOnly` 会直接破坏 CSRF 防护**。
-- 真正承载身份的 **session cookie 已经是 `httpOnly: true`**（见 `src/app/api/auth/signout/route.ts:13` 和 `src/app/api/auth/2fa/verify-login/route.ts:110`）。
-- CSRF cookie 已有 `SameSite=Strict`（生产 `Secure`），加上 session cookie 的 `HttpOnly`，组合已满足 OWASP CSRF 防护推荐。
-- 文件 `src/lib/auth/csrf-client.ts` 顶部已加 JSDoc 注释解释此约束，防止后续审计重复误报。
-
----
-
-## 📦 依赖升级方向（代码审查 2026-06-24）
-
-### 同大版本（安全，可直接 `npm update`）
-
-- `@tailwindcss/postcss` 4.3.0 → 4.3.1
-- `@types/react` 19.2.15 → 19.2.17
-- `@vitejs/plugin-react` 6.0.2 → 6.0.3
-- `cron-parser` 5.5.0 → 5.6.0
-- `otplib` 13.4.0 → 13.4.1
-- `tsx` 4.22.3 → 4.22.4
-- `vitest` 4.1.7 → 4.1.9
-
-### 跨大版本（需验证，谨慎升级）
-
-- `typescript` 5.9 → 6.0 — 有 breaking changes，升级前需跑全量 tsc
-- `eslint` 9 → 10 — 配置格式变化，需更新 eslint.config
-- `@types/node` 20 → 26 — API 类型变化，升级后需全量 tsc 验证
-- `undici` 7 → 8 — 内部 HTTP 库，Next.js 版本锁定，不要单独升
-
-### ⚠️ 之前误标"可移除"的包（**审计订正**）
-
-> 代码审查曾建议 `npm remove effect` 和 `npm remove @electric-sql`，**实测两者均为 `prisma@7.8.0` 的 transitive dependency**，不在 `package.json` 顶层，**无法直接移除**。
-
-- `effect@3.20.0` ← `prisma → @prisma/config` 必需依赖
-- `@electric-sql/pglite*` ← `prisma → @prisma/dev` 必需依赖（pglite-socket / pglite-tools / pglite）
-
-验证命令：`npm ls effect` 和 `npm ls @electric-sql/pglite`。如要瘦身，需 `prisma` 主动减少这些依赖，非项目侧可解。
-
----
+- **`csrf_token` cookie 不能加 `HttpOnly`** — 走 Double-Submit Cookie 模式，client 必须 `document.cookie` 读 token；加 `HttpOnly` 会直接破坏 CSRF 防护。承载身份的 session cookie 已 `httpOnly: true`，组合已满足 OWASP 推荐。`src/lib/auth/csrf-client.ts` 顶部已加 JSDoc。
+- **`effect` / `@electric-sql/pglite*` 不能 `npm remove`** — 两者均为 `prisma@7.8.0` 的 transitive dependency，不在 `package.json` 顶层；验证 `npm ls effect` / `npm ls @electric-sql/pglite`。瘦身需 prisma 主动减少，非项目侧可解。
+- **"4 个核心页面缺 PageHeader" 假阳性** — `/ai` 是聊天 UI、`/storage` 只 redirect、`/media` 与 `/image-bed` 已具备 eyebrow/title/description（自定义 hero header），无需补齐。
 
 ## 📄 许可
