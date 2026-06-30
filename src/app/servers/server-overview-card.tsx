@@ -189,7 +189,7 @@ export function ServerOverviewCard({
               {server.name}
             </h2>
           </div>
-          <p className="mt-1 truncate text-[11px] text-slate-500">
+          <p className="mt-1 truncate text-[11px] text-slate-500" title={`${server.username}@${server.host}:${server.port}`}>
             {server.username}@{server.host}:{server.port}
           </p>
         </div>

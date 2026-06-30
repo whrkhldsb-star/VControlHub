@@ -33,11 +33,26 @@ function Card({ title, children }: { title: string; children: React.ReactNode })
 /** Key-value row — extracted to module top to avoid re-creation on every render */
 function Row({ label, value }: { label: string; value: string }) {
   return (
-    <div className="flex items-center justify-between py-1.5">
-      <span className="text-xs text-slate-500">{label}</span>
-      <span className="font-mono text-xs text-white">{value}</span>
+    <div className="flex items-start justify-between gap-3 py-1.5">
+      <span className="shrink-0 text-xs text-slate-500">{label}</span>
+      <span className="min-w-0 break-words text-right font-mono text-xs text-white">{value}</span>
     </div>
   );
+}
+
+/** Format an ISO timestamp into a readable local datetime; fall back to raw on parse failure. */
+function formatTimestamp(value: string): string {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value;
+  return date.toLocaleString(undefined, {
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hour12: false,
+  });
 }
 
 export default function MonitoringPage({ canManage: _canManage }: { canManage: boolean }) {
@@ -221,7 +236,7 @@ export default function MonitoringPage({ canManage: _canManage }: { canManage: b
         </Card>
 
         <Card title={t("monitoringPage.card.cpu")}>
-          <Row label={t("monitoringPage.field.model")} value={stats.cpu.model.split("").slice(0, 3).join("")} />
+          <Row label={t("monitoringPage.field.model")} value={stats.cpu.model} />
           <Row label={t("monitoringPage.field.cores")} value={String(stats.cpu.cores)} />
           <Row label={t("monitoringPage.field.usage")} value={stats.cpu.usage} />
           <Row label={t("monitoringPage.field.load")} value={stats.cpu.loadAvg.join(" /")} />
@@ -289,7 +304,7 @@ export default function MonitoringPage({ canManage: _canManage }: { canManage: b
       </Card>
 
       <p className="mt-4 text-[10px] text-slate-600">
-        {t("monitoringPage.lastUpdated").replace("{timestamp}", stats.timestamp)}
+        {t("monitoringPage.lastUpdated").replace("{timestamp}", formatTimestamp(stats.timestamp))}
       </p>
     </PageShell>
   );

@@ -801,6 +801,7 @@ html[data-locale="en"] [data-page-eyebrow] {
 :root .text-slate-400 { color: var(--text-secondary); }
 :root .text-slate-500 { color: var(--text-muted); }
 :root .text-slate-600 { color: var(--text-muted); }
+:root .text-slate-700 { color: var(--text-muted); }
 
 /* G. 表格优化 */
 :root table { width: 100%; }
