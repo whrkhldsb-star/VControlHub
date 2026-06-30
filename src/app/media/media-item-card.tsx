@@ -240,7 +240,7 @@ export function MediaItemCard({ item, canManage }: { item: MediaItem; canManage:
 				<div className="min-w-0 flex-1">
 					<div className="flex items-center gap-1.5">
 						<span>{item.mediaType === "image" ? "🖼" : item.mediaType === "audio" ? "🎵" : "🎬"}</span>
-						<span className="truncate text-sm font-medium text-white">{item.name}</span>
+						<span className="truncate text-sm font-medium text-white" title={item.name}>{item.name}</span>
 					</div>
 					<p className="mt-1 truncate text-[11px] text-slate-500" title={item.relativePath}>📂 {item.relativePath}</p>
 					<div className="mt-1.5 flex flex-wrap items-center gap-x-2 text-[10px] text-slate-500">

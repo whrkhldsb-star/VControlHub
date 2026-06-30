@@ -470,7 +470,7 @@ export default function ImageBedPage({ canWrite, canDelete }: { canWrite: boolea
 					<div className="mt-3 space-y-1 text-xs">
 						{uploadProgress.queue.map((item, index) => (
 							<div key={`${item.name}-${index}`} className="flex items-center justify-between gap-3">
-								<span className="truncate">{item.name} · {item.message}</span>
+								<span className="truncate" title={`${item.name} · ${item.message}`}>{item.name} · {item.message}</span>
 								<span className={item.status === "success" ? "text-emerald-300" : item.status === "error" || item.status === "skipped" ? "text-rose-300" : item.status === "uploading" ? "text-cyan-300" : "text-slate-500"}>
 									{item.status === "success" ? t("imageBedPage.progress.status.success") : item.status === "error" || item.status === "skipped" ? t("imageBedPage.progress.status.error") : item.status === "uploading" ? t("imageBedPage.progress.status.uploading") : t("imageBedPage.progress.status.pending")}
 								</span>

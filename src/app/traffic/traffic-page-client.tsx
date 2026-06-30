@@ -104,7 +104,10 @@ function groupHistory(points: TrafficHistoryPoint[], scope: "24h" | "7d") {
   }
   const daily = new Map<string, TrafficHistoryPoint[]>();
   for (const point of points) {
-    const day = new Date(point.t).toISOString().slice(0, 10);
+    const d = new Date(point.t);
+    // Group by LOCAL calendar date (not UTC) so day boundaries match the
+    // viewer's timezone — otherwise points after 16:00 UTC land on the wrong day for UTC+8.
+    const day = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
     const list = daily.get(day) ?? [];
     list.push(point);
     daily.set(day, list);

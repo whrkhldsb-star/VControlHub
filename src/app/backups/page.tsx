@@ -73,7 +73,7 @@ export default async function BackupsPage() {
 				</div>
 				<div className="mt-4 grid gap-3 md:grid-cols-3">
 					{(["DATABASE", "FILES", "FULL"] as const).map((type) => (
-						<div key={type} className="rounded-lg border border-white/[0.06] bg-black/10 p-3/50">
+						<div key={type} className="rounded-lg border border-white/[0.06] bg-black/10 p-3">
 							<p className="text-xs font-semibold text-cyan-200">{type}</p>
 							<p className="mt-1 text-sm text-white">{t("backupsPage.overview.typeSummary").replace("{count}", String(summary.byType[type].count)).replace("{size}", formatBackupSize(summary.byType[type].sizeBytes))}</p>
 						</div>

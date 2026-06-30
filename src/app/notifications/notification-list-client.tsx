@@ -126,8 +126,8 @@ export function NotificationListClient({ initialNotifications, initialUnreadCoun
 					<div className="flex items-start gap-3">
 						<span className="text-lg mt-0.5 shrink-0" aria-hidden="true">{typeIcon[n.type] ?? "🔔"}</span>
 						<div className="flex-1 min-w-0">
-							<div className="flex items-center gap-2">
-								<h3 className={`text-sm font-medium truncate ${n.isRead ? "text-slate-400" : "text-white"}`}>{n.title}</h3>
+							<div className="flex items-center gap-2 min-w-0">
+								<h3 className={`text-sm font-medium truncate ${n.isRead ? "text-slate-400" : "text-white"}`} title={n.title}>{n.title}</h3>
 								{!n.isRead && <div className="h-1.5 w-1.5 rounded-full bg-cyan-400 shrink-0 light:bg-cyan-600" aria-label={t("notificationsPage.unreadBadge")} />}
 							</div>
 							<p className="mt-1 text-xs text-slate-500 leading-relaxed">{n.message}</p>
