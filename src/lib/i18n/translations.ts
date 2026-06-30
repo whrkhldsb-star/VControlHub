@@ -74,6 +74,7 @@ import { zh as serversZh, en as serversEn } from "./dictionaries/servers";
 import { zh as serverspageZh, en as serverspageEn } from "./dictionaries/servers-page";
 import { zh as serversreloadapiZh, en as serversreloadapiEn } from "./dictionaries/servers-reload-api";
 import { zh as serversdetectosapiZh, en as serversdetectosapiEn } from "./dictionaries/servers-detect-os-api";
+import { zh as vpsbackupapiZh, en as vpsbackupapiEn } from "./dictionaries/vps-backup-api";
 import { zh as serversfileproxyapiZh, en as serversfileproxyapiEn } from "./dictionaries/servers-file-proxy-api";
 import { zh as sharepageZh, en as sharepageEn } from "./dictionaries/share-page";
 import { zh as sharesZh, en as sharesEn } from "./dictionaries/shares";
@@ -152,6 +153,7 @@ const zh: Record<string, string> = {
 	...serverspageZh,
 	...serversreloadapiZh,
 	...serversdetectosapiZh,
+	...vpsbackupapiZh,
 	...serversfileproxyapiZh,
 	...sharepageZh,
 	...sharesZh,
@@ -232,6 +234,7 @@ const en: Record<string, string> = {
 	...serverspageEn,
 	...serversreloadapiEn,
 	...serversdetectosapiEn,
+	...vpsbackupapiEn,
 	...serversfileproxyapiEn,
 	...sharepageEn,
 	...sharesEn,

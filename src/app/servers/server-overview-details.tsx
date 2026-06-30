@@ -21,6 +21,7 @@ import { useState, type ReactNode } from "react";
 
 import { useI18n } from "@/lib/i18n/use-locale";
 import { ServerCardActions } from "./server-card-actions";
+import { VpsBackupSection } from "./vps-backup-section";
 import { getDirectGatewayRepairAdvice, getDirectGatewayHealthyNote } from "./direct-gateway-advice";
 
 export type ServerOverviewDetailsServer = {
@@ -432,7 +433,20 @@ export function ServerOverviewDetails({
 						osDialect={server.osDialect}
 						osInfo={server.osInfo}
 					/>
-				</div>
+					</div>
+					{/* TR-043: VPS Remote Backup */}
+					{canManageServers ? (
+					<div className="mt-4">
+						<div className="mb-2 text-xs font-semibold uppercase tracking-wider text-[var(--text-muted)]">
+							{t("vpsBackup.sectionTitle")}
+						</div>
+						<VpsBackupSection
+							serverId={server.id}
+							sessionToken={sessionToken}
+							canManage={canManageServers}
+						/>
+					</div>
+					) : null}
 				{canManageServers || canUseSshTerminal ? (
 					<div className="mt-3">
 						<ServerCardActions

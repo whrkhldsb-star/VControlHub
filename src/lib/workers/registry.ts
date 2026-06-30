@@ -30,6 +30,8 @@ import { startSftpSyncJobWorker, stopSftpSyncJobWorkerForTests } from "@/lib/sto
 import { startSftpStaleInventoryWorker, stopSftpStaleInventoryWorkerForTests } from "@/lib/storage/sftp-stale-inventory-job";
 import { startOperationTaskRetentionWorker, stopOperationTaskRetentionWorkerForTests } from "@/lib/operation-task/retention-worker";
 import { startCostSnapshotWorker, stopCostSnapshotWorkerForTests } from "@/lib/cost/snapshot-worker";
+import { startVpsBackupJobWorker, stopVpsBackupForTests } from "@/lib/backup/vps-backup-job-worker";
+import { startVpsBackupScheduleWorker, stopVpsBackupScheduleForTests } from "@/lib/backup/vps-backup-schedule-worker";
 
 export type WorkerId =
   | "ai-ops-scan"
@@ -44,7 +46,9 @@ export type WorkerId =
   | "scheduled-task"
   | "sftp-sync"
   | "sftp-stale-inventory"
-  | "operation-task-retention";
+  | "operation-task-retention"
+  | "vps-backup"
+  | "vps-backup-schedule";
 
 export type WorkerStatus = {
   id: WorkerId;
@@ -91,6 +95,8 @@ function getRegistryState(): Record<WorkerId, { started: boolean }> {
       "sftp-sync": { started: false },
       "sftp-stale-inventory": { started: false },
       "operation-task-retention": { started: false },
+      "vps-backup": { started: false },
+      "vps-backup-schedule": { started: false },
     };
   }
   return g.__vcontrolhubWorkerRegistry;
@@ -241,6 +247,31 @@ const AI_OPS_SCAN: WorkerSpec = {
   stop: () => stopAiOpsScanWorkerForTests(),
 };
 
+const VPS_BACKUP: WorkerSpec = {
+  id: "vps-backup",
+  // TR-043: SSH exec → SFTP download → checksum → offsite upload
+  label: "VPS 远程备份",
+  jobType: "vps-backup.create",
+  start: () => {
+    startVpsBackupJobWorker();
+    return Promise.resolve();
+  },
+  stop: () => stopVpsBackupForTests(),
+};
+
+const VPS_BACKUP_SCHEDULE: WorkerSpec = {
+  id: "vps-backup-schedule",
+  // TR-043: 60s tick — finds due VpsBackupSchedule rows, creates PENDING
+  // VpsBackupRecord + enqueues vps-backup.create durable job
+  label: "VPS 远程备份计划调度",
+  jobType: "vps-backup-schedule.tick",
+  start: () => {
+    startVpsBackupScheduleWorker();
+    return Promise.resolve();
+  },
+  stop: () => stopVpsBackupScheduleForTests(),
+};
+
 export const WORKER_REGISTRY: readonly WorkerSpec[] = Object.freeze([
   AI_OPS_SCAN,
   ALERT_EVALUATION,
@@ -255,6 +286,8 @@ export const WORKER_REGISTRY: readonly WorkerSpec[] = Object.freeze([
   SFTP_SYNC,
   SFTP_STALE_INVENTORY,
   OPERATION_TASK_RETENTION,
+  VPS_BACKUP,
+  VPS_BACKUP_SCHEDULE,
 ]);
 
 /**

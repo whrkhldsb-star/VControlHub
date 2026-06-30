@@ -47,6 +47,9 @@ export const LEASE_PRESETS_MS: Record<string, number> = {
 	"download-execution": 150 * 60 * 1000,
 	// TR-006: 跨来源裁剪历史 5min lease 足够 (pruneOperationTaskHistory 大型实例 30s-1min)
 	"operation-task-retention": 5 * 60 * 1000,
+	// TR-043: VPS remote backup — SSH exec + SFTP download can take up to 10min
+	"vps-backup": 30 * 60 * 1000,
+	"vps-backup-schedule": 5 * 60 * 1000,
 };
 
 /** Minimum safety floor: 任何 worker 的 lease 不少于 30s (太短会让长任务被误回收) */

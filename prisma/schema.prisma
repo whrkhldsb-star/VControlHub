@@ -92,6 +92,8 @@ model User {
   shareLinks             ShareLink[]
   backupRecords          BackupRecord[]
   backupSchedules        BackupSchedule[]
+  vpsBackupSchedules     VpsBackupSchedule[]
+  vpsBackupRecords       VpsBackupRecord[]
   deploymentRuns         DeploymentRun[]
   deploymentRollbackRuns DeploymentRollbackRun[]
   snippets               Snippet[]
@@ -195,6 +197,8 @@ model Server {
   osInfo          String? // TR-041: /etc/os-release 原始摘要（distro name + version）
   hostedActions   AiHostedAction[]
   fileProxies     ServerFileProxy[]
+  vpsBackupSchedules VpsBackupSchedule[]
+  vpsBackupRecords   VpsBackupRecord[]
 
   @@index([host, port])
   @@index([enabled])
@@ -785,6 +789,75 @@ model BackupSchedule {
 
   @@index([status, nextRunAt])
   @@map("backup_schedules")
+}
+
+// TR-043: VPS remote backup — schedules and records for backing up
+// remote VPS nodes via SSH exec (tar/mysqldump/pg_dump/docker) + SFTP
+// download. Distinct from BackupSchedule/BackupRecord which are
+// host-local (VControlHub self-backup via deploy/backup.sh).
+model VpsBackupSchedule {
+  id             String   @id @default(cuid())
+  serverId       String
+  name           String
+  cronExpression String
+  // Preset type: "nginx-config" | "mysql" | "postgres" | "docker-volumes"
+  // | "website-files" | "custom"
+  backupType     String
+  // Custom paths for backupType="custom"; empty for preset types.
+  paths          String[]
+  note           String?
+  retentionDays  Int?
+  // "ACTIVE" | "PAUSED" — plain string convention (no enum migration churn)
+  status         String   @default("ACTIVE")
+  createdById    String?
+  lastRunAt      DateTime?
+  nextRunAt      DateTime?
+  lastResult     String?
+  runCount       Int      @default(0)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  server   Server             @relation(fields: [serverId], references: [id], onDelete: Cascade)
+  creator  User?              @relation(fields: [createdById], references: [id], onDelete: SetNull)
+  records  VpsBackupRecord[]
+
+  @@index([status, nextRunAt])
+  @@index([serverId])
+  @@map("vps_backup_schedules")
+}
+
+model VpsBackupRecord {
+  id              String    @id @default(cuid())
+  // null for manual (ad-hoc) triggers; non-null for scheduled runs
+  scheduleId      String?
+  serverId        String
+  backupType      String
+  // PENDING | RUNNING | COMPLETED | FAILED — plain string convention
+  status          String    @default("PENDING")
+  // Path on remote VPS where the backup archive was created (before SFTP download)
+  remotePath      String?
+  // Local storage path after SFTP download (relative to storage root)
+  localPath       String?
+  fileSize        String?   // BigInt stored as String
+  checksumSha256  String?
+  errorMessage    String?
+  createdBy       String?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  completedAt     DateTime?
+  // TR-009: best-effort offsite S3 upload status
+  offsiteKey        String?
+  offsiteUploadedAt DateTime?
+  offsiteSize       String?
+
+  schedule VpsBackupSchedule? @relation(fields: [scheduleId], references: [id], onDelete: SetNull)
+  server   Server             @relation(fields: [serverId], references: [id], onDelete: Cascade)
+  creator  User?              @relation(fields: [createdBy], references: [id], onDelete: SetNull)
+
+  @@index([status, createdAt])
+  @@index([serverId])
+  @@index([scheduleId])
+  @@map("vps_backup_records")
 }
 
 model DeploymentRun {
