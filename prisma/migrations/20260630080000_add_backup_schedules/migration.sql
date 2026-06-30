@@ -27,4 +27,4 @@ CREATE TABLE "backup_schedules" (
 
 CREATE INDEX "backup_schedules_status_nextRunAt_idx" ON "backup_schedules"("status", "nextRunAt");
 
-ALTER TABLE "backup_schedules" ADD CONSTRAINT "backup_schedules_createdById_fkey" FOREIGN KEY ("createdById") REFERENCES "users"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+ALTER TABLE "backup_schedules" ADD CONSTRAINT "backup_schedules_createdById_fkey" FOREIGN KEY ("createdById") REFERENCES "User"("id") ON DELETE SET NULL ON UPDATE CASCADE;
