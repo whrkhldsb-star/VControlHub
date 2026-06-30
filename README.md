@@ -423,23 +423,16 @@ make logs SERVICE_PREFIX=vcontrolhub
 
 ### P1 — 阻塞或核心
 
-> 当前无未完成 P1。TR-001（后台任务 durable worker + 全局/按用户/按节点并发上限 + JobEvent 可观测日志流 + 单一注册表 + SIGTERM 优雅停机 + `/api/admin/workers` 健康检查）与 TR-002（Direct Gateway TLS 加固 + UI 风险 banner + 启动期公网暴露探测）已全部落地；详见 `git log --grep="TR-001\|TR-002"`。
->
-> 2026-06-29 修补：commit 8ec51ae（Sentry 集成）误覆盖 `src/instrumentation.ts`，回归性删除 `startWorkerLifecycle / verifyAdminPasswordConsistency / scheduleDirectGatewayExposureProbe / bigint-patch` 四处 bootstrap 调用。**生产服务靠旧编译产物仍在跑，但下次 `next build` 会丢失全部 worker / TR-051 校验 / TR-002 R4 探针**。已在 c3b1da3 恢复源文件并通过 tsc + 359 测试文件 + build。
+> 当前无未完成 P1。
 
 ### P2 — 用户体验与工程规范
 
-- [ ] **快捷服务剩余增强**（TR-011）— 失败回滚、真实配置变更 diff/回滚记录、Direct Gateway 边界加固。 `[功能]`
-- [x] **`findMany` 显式上界全面收敛** — funnel 精扫 27 处 findMany（storage 8 + ai/command/cost/job/notification/playbook/quick-service/runtime-settings/scheduled-task/server/settings/share-link/status/system-health/upload 19），逐处接入 hard `take` 上界。Bounds 按 call-site 业务量级估算：bounded entity（storage node / ssh key / server / playbook / setting）= 500；session / job sweep / target = 1000；cost entry / SFTP stale scan = 10_000。commit 7ca982d + ab072e1。 `[架构]`
-- [x] **`zod bodySchema/querySchema` 全面迁移**（TR-037 续）— 本轮将 AI、playbook、command-template、backup restore/void、Docker、downloads、files、images、notifications、quick-services、storage SFTP/direct-access、users permissions 等写路由批量迁到 `withApiRoute({ bodySchema })`；2026-06-30 续推 6 路由（commands/settings/tickets/api-tokens/backups/deployments）+ alert-rules POST/PATCH（union schema for toggle/test/update）。当前 app/api 共 75 处 `bodySchema` + 13 处 `querySchema`。剩余 `request.json()` 仅 1 处 `auth/2fa/verify-login`（自定义 rate-limit + cookie 流，README §认证/授权 已列豁免）；`tickets/[id]` 行号 14 仅注释提及非实际调用。**TR-037 视为完成**。 `[安全/可维护性]`
-- [x] **SSH 多 Tab / 多会话**（TR-039）— 从单 modal 升级为多 tab 终端管理器。新建 `SshTerminalProvider` context（全局状态提升，每个 server card 调用 `openTerminal()` 而非管理自己的 modal）+ `SshTerminalManager`（tab bar + 状态指示灯 🟢🟡🔴 + Ctrl/Cmd+Tab 键盘切换）+ `SshTerminalPanel`（从旧 modal 抽取的单 tab terminal 逻辑）。切换 tab 时用 CSS `display:none` 隐藏而非卸载——保持 WS + xterm.js 实例存活，切回时自动 refit。WS proxy 已支持多连接（MAX_WS_CONNECTIONS 限制），无需后端改动。旧 `SshTerminalModal` 保留供测试兼容。 `[功能]`
-- [x] **SSH 内文件传输**（TR-040）— 终端面板内 SFTP 文件管理器。新建 `sftp-service.ts`（SSH SFTP 子系统封装：list/upload/download/delete/mkdir/rename，stream pipe 零拷贝上传下载，路径安全 sanitize），6 个 API 路由 `/api/servers/[id]/sftp/`（list/mkdir/rename 走 zod bodySchema，download/delete 走 querySchema，upload 走 multipart + enforceApiGuard 手动鉴权 + 100MB 上限 + XMLHttpRequest 进度条）。前端 `SshFileManager` 组件：面包屑导航 + 拖拽上传 + 下载/删除/重命名/新建文件夹 + 双击进入目录。集成到 `SshTerminalPanel` 的"📁 文件"toggle 按钮。20 新测试。 `[功能]`
-- [ ] **历史可用率图表** — 公开状态页补 90 天 uptime 热力图 / SLA 统计。 `[功能]`
-- [ ] **Playbook 步骤拖拽排序** — `@dnd-kit` 实现步骤顺序拖拽（当前为表单式编辑，742 行）。 `[功能]`
-- [x] **备份定时自动备份**（TR-038）— 新建一等公民 `BackupSchedule` Prisma 模型（cron + backupType + note + retentionDays + status + run tracking），配套 `backup-schedule.tick` durable job worker（60s tick，CAS claim 防多 worker 重复分发，创建 PENDING BackupRecord + enqueue `backup.create` job 复用已有 backup-job-worker 本地执行）。API 路由 `/api/backup-schedules` GET/POST/PATCH/DELETE（TR-037 bodySchema + union schema for toggle/update）。UI 重写 `schedule-backup-form.tsx`（去掉旧 ScheduledTask workaround 的 VPS serverIds 选择，加 note/retentionDays 字段 + schedule 列表 toggle/delete）。38 新测试全通过。旧 `buildScheduledBackupCommand` 函数保留（pure function，测试仍覆盖）。**注意：此备份为 VControlHub 自身备份**（database=pg_dump、files=storage+uploads+downloads+logs、full=含 prisma+public+package），不是 VPS 端备份。 `[功能/架构]`
 - [ ] **VPS OS 方言适配层**（TR-041）— 当前所有 VPS 操作（快捷服务、命令模板、playbook 步骤、SFTP 路径默认值）均假设 Debian/Ubuntu 系（apt、systemd、/etc/、/var/）。需建立 OS 方言抽象层支持 CentOS/RHEL/Rocky（dnf/yum）、Alpine（apk、OpenRC）、Arch（pacman）、SUSE（zypper）等。**方案**：① 新建 `src/lib/ssh/os-dialect.ts` 定义 `OsDialect` 类型（`packageManager: apt|dnf|yum|apk|pacman|zypper`、`serviceManager: systemd|openrc|sysvinit`、`configPaths: { nginx, sshd, fail2ban, ... }`、`defaultShell: string`、`sudoPattern: string`）；② SSH 连接时通过 `uname -a` + `/etc/os-release` 自动探测并缓存到 Server 记录的 `osDialect` 字段（需 Prisma migration）；③ 快捷服务脚本、命令模板、playbook 步骤引用 `osDialect.packageManager` 等变量而非硬编码 `apt-get`；④ UI 在 server 详情页展示已探测的 OS + 方言，支持手动覆盖；⑤ 新增 `/api/servers/[id]/detect-os` 路由触发探测。**预期改动量**：os-dialect.ts ~200 行 + 探测逻辑 ~80 行 + 现有快捷服务/模板/playbook 脚本中 ~30 处 `apt-get` 替换为变量引用 + Prisma migration + UI 探测状态展示。 `[功能/架构]`
-- [ ] **系统配置导出 / 导入**（TR-042）— 将 VControlHub 完整配置导出为可移植文件，在新机器安装好后导入即可恢复全部配置（不含密码/密钥等敏感信息，需重新配置）。**方案**：① 新建 `src/lib/system/export-service.ts`，从 Prisma 导出以下表为 JSON：`Server`（含 SSH 配置但密码/密钥字段置 null）、`CommandTemplate`、`QuickService`、`Playbook` + `PlaybookStep`、`BackupSchedule`、`AlertRule`、`NotificationChannel`、`Settings`、`User`（仅 username + role，不含 password hash）、`Role` + `Permission`；② 导出格式 `.vch.json`（gzip 压缩，含 schema 版本 + 导出时间 + 来源域名）；③ 新建 `src/lib/system/import-service.ts`，读取 `.vch.json` → zod 校验 schema → 事务性 upsert（按依赖顺序：Role → User → Server → CommandTemplate → QuickService → Playbook → ...）；④ API 路由 `/api/system/export`（GET，下载文件）+ `/api/system/import`（POST，multipart 上传）；⑤ UI：设置页新增"数据迁移"区块，导出按钮 + 导入拖拽区 + 导入预览（显示将创建/更新多少条记录）+ 确认导入；⑥ 安全：导出文件不含密钥，导入后需手动重新填写各 server 的 SSH 密码/密钥；导入操作需 admin 权限 + 审计日志记录。**预期改动量**：export-service.ts ~250 行 + import-service.ts ~300 行 + 2 API 路由 + UI 组件 ~200 行 + zod schema ~100 行。 `[功能/架构]`
 - [ ] **VPS 远程备份**（TR-043）— 通过 SSH 在远端 VPS 执行备份（tar/mysqldump/pg_dump/docker volume），将备份文件 SFTP 拉回 VControlHub 存储。**与 TR-038 区别**：TR-038 是 VControlHub 自身备份（本地 pg_dump + tar），TR-043 是对用户纳管的 VPS 节点做远程备份。**可行性：高**——现有积木齐全：`execRemoteCommand()` 远程执行 + `downloadFile()` SFTP 拉文件 + `BackupRecord`/`BackupSchedule` 调度模型 + durable job worker 模式。**方案**：① 新建 Prisma 模型 `VpsBackupSchedule`（serverId + name + cron + backupType + paths[] + note + retentionDays + status）+ `VpsBackupRecord`（scheduleId + serverId + status + remotePath + localPath + fileSize + checksum + errorMessage + timestamps）；② 预设备份模板：`nginx-config`（/etc/nginx/）、`mysql`（mysqldump --all-databases）、`postgres`（pg_dumpall）、`docker-volumes`（docker run --rm -v /var/lib/docker/volumes:/data alpine tar czf - /data）、`website-files`（/var/www/）、`custom`（用户自定义路径列表）；③ 新建 `src/lib/backup/vps-backup-job-worker.ts`：SSH exec 远程打包 → SFTP download 到 VControlHub `/storage/vps-backups/{serverId}/` → SSH exec 清理远端临时文件 → 计算 sha256 + 记录 VpsBackupRecord；④ API 路由 `/api/servers/[id]/vps-backups` GET（列表）+ POST（手动触发）+ `/api/vps-backup-schedules` CRUD；⑤ UI：server 详情页新增"远程备份"tab — 模板选择 + 自定义路径 + 定时配置 + 备份历史列表 + 下载/删除；⑥ 安全：远端临时文件用 `mktemp -d` + trap cleanup，SSH 命令注入防护（路径白名单 + sanitize），备份文件权限 600；⑦ 存储策略：VPS 备份文件存本地 + 可选 S3 异地上传（复用 TR-009 offsite 逻辑）。**预期改动量**：vps-backup-job-worker.ts ~350 行 + 2 Prisma 模型 + migration + 4 API 路由 + UI ~300 行 + 预设模板 ~150 行 + 测试 ~200 行。 `[功能/架构]`
+- [ ] **系统配置导出 / 导入**（TR-042）— 将 VControlHub 完整配置导出为可移植文件，在新机器安装好后导入即可恢复全部配置（不含密码/密钥等敏感信息，需重新配置）。**方案**：① 新建 `src/lib/system/export-service.ts`，从 Prisma 导出以下表为 JSON：`Server`（含 SSH 配置但密码/密钥字段置 null）、`CommandTemplate`、`QuickService`、`Playbook` + `PlaybookStep`、`BackupSchedule`、`AlertRule`、`NotificationChannel`、`Settings`、`User`（仅 username + role，不含 password hash）、`Role` + `Permission`；② 导出格式 `.vch.json`（gzip 压缩，含 schema 版本 + 导出时间 + 来源域名）；③ 新建 `src/lib/system/import-service.ts`，读取 `.vch.json` → zod 校验 schema → 事务性 upsert（按依赖顺序：Role → User → Server → CommandTemplate → QuickService → Playbook → ...）；④ API 路由 `/api/system/export`（GET，下载文件）+ `/api/system/import`（POST，multipart 上传）；⑤ UI：设置页新增"数据迁移"区块，导出按钮 + 导入拖拽区 + 导入预览（显示将创建/更新多少条记录）+ 确认导入；⑥ 安全：导出文件不含密钥，导入后需手动重新填写各 server 的 SSH 密码/密钥；导入操作需 admin 权限 + 审计日志记录。**预期改动量**：export-service.ts ~250 行 + import-service.ts ~300 行 + 2 API 路由 + UI 组件 ~200 行 + zod schema ~100 行。 `[功能/架构]`
+- [ ] **快捷服务剩余增强**（TR-011）— 失败回滚、真实配置变更 diff/回滚记录、Direct Gateway 边界加固。 `[功能]`
+- [ ] **Playbook 步骤拖拽排序** — `@dnd-kit` 实现步骤顺序拖拽（当前为表单式编辑，742 行）。 `[功能]`
+- [ ] **历史可用率图表** — 公开状态页补 90 天 uptime 热力图 / SLA 统计。 `[功能]`
 
 ### P3 — 长期愿景与渐进式改善
 
@@ -448,10 +441,10 @@ make logs SERVICE_PREFIX=vcontrolhub
 - [ ] **成本追踪完善**（TR-031）— `/cost-summary` 页面已落地，待接入自动采集数据源。 `[功能]`
 - [ ] **智能运维 AI 完善**（TR-032）— `/ai-ops` 页面已落地，待丰富推荐执行逻辑。 `[功能]`
 - [ ] **PWA 离线支持和集成市场**（TR-033）— Service Worker 基础已就绪（`public/sw.js`），待完善离线体验。 `[功能]`
-- [ ] **按钮 cyan 散落用法渐进收敛** — 已有 `<ActionButton>` + `--color-action*` token 体系；存量代码中散落的 `cyan-300/400/500/600` 手写 utility 仍属长尾迁移任务，新代码请直接使用 `<ActionButton>` 而非手写 cyan utility。 `[UI]`
-- [ ] **文字 opacity 进一步合并** — 当前主干保留 `/10`/`/20`/`/30`/`/50`/`/60`/`/70`/`/80` 七档语义；如视觉一致性允许，可继续向 4 档收敛（low/mid/high/full）。 `[UI]`
-- [ ] **硬编码 hex 颜色** — 全部为 xterm 主题 / PWA manifest / SVG 占位 / sparkline 数据色 / gradient stops 等不可 token 化场景，如需进一步抽象可后续单独审视。 `[UI]`
 - [ ] **浅色模式残留 Q-layer 依赖** — R35-R36 已将 159 文件 ~1500 处硬编码深色背景/border/text 替换为 CSS 变量，但仍有 311 处 `text-white/text-slate-*` 及 531 处 `bg-white/hover:bg-white/border-white/` 保持原样（由 globals.css Q-layer L274-400 + L1571-1599 通配符映射兜底）。**当前无可见 bug**，但理想状态是继续逐文件替换彻底消除 Q-layer 依赖。风险/收益比低，适合分批渐进。 `[UI]`
+- [ ] **按钮 cyan 散落用法渐进收敛** — 已有 `<ActionButton>` + `--color-action*` token 体系；存量代码中散落的 `cyan-300/400/500/600` 手写 utility 仍属长尾迁移任务，新代码请直接使用 `<ActionButton>` 而非手写 cyan utility。 `[UI]`
+- [ ] **硬编码 hex 颜色** — 全部为 xterm 主题 / PWA manifest / SVG 占位 / sparkline 数据色 / gradient stops 等不可 token 化场景，如需进一步抽象可后续单独审视。 `[UI]`
+- [ ] **文字 opacity 进一步合并** — 当前主干保留 `/10`/`/20`/`/30`/`/50`/`/60`/`/70`/`/80` 七档语义；如视觉一致性允许，可继续向 4 档收敛（low/mid/high/full）。 `[UI]`
 - [ ] **`bg-white/[0.01/0.025/0.045]` 三个极低透明度缺 Q-layer 显式规则** — 已有 `[class*="bg-white/\\[0.0"]` 通配符兜底（L1572），浅色模式不会出问题，但如需更精确映射可补 `html.light .bg-white/[0.01/0.025/0.045]` 显式规则。 `[UI]`
 - [ ] **`divide-white/` 残留 9 处** — 未替换为 `divide-[var(--border)]`，浅色下由 Q-layer 通配符覆盖但不如直接 token 化清晰。 `[UI]`
 
@@ -462,9 +455,9 @@ make logs SERVICE_PREFIX=vcontrolhub
 
 ### P3 — 安全 / 依赖
 
+- [ ] **跨大版本依赖（需验证）** — `typescript` 5.9 → 6.0（breaking, 升前跑全量 tsc）、`eslint` 9 → 10（配置格式变化）、`@types/node` 20 → 26（API 类型变化）、`undici` 7 → 8（Next.js 锁定，不要单独升）。 `[依赖]`
 - [ ] **5 项 moderate npm 安全漏洞** — postcss XSS（GHSA-qx2v-qp2m-jg93）在 Next.js 内置依赖链，待官方升级。 `[安全/依赖]`
 - [ ] **同大版本依赖小升** — `npm update` 即可：`@tailwindcss/postcss` 4.3.0 → 4.3.1、`@types/react` 19.2.15 → 19.2.17、`@vitejs/plugin-react` 6.0.2 → 6.0.3、`cron-parser` 5.5.0 → 5.6.0、`otplib` 13.4.0 → 13.4.1、`tsx` 4.22.3 → 4.22.4、`vitest` 4.1.7 → 4.1.9。 `[依赖]`
-- [ ] **跨大版本依赖（需验证）** — `typescript` 5.9 → 6.0（breaking, 升前跑全量 tsc）、`eslint` 9 → 10（配置格式变化）、`@types/node` 20 → 26（API 类型变化）、`undici` 7 → 8（Next.js 锁定，不要单独升）。 `[依赖]`
 
 ---
 
