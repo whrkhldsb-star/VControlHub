@@ -222,16 +222,21 @@ function SparkBars({ points, color, locale: _locale = "zh" }: { points: Array<{ 
   };
   return (
     <div className="mt-4 flex h-24 items-end gap-1" aria-label={t("dashboardAnalytics.trendChart")}>
-      {points.map((point, index) => (
+      {points.map((point, index) => {
+        // Thin out labels: show at most ~7 labels to prevent truncation on dense charts
+        const labelInterval = Math.ceil(points.length / 7);
+        const showLabel = index % labelInterval === 0 || index === points.length - 1;
+        return (
         <div key={`${point.label}-${index}`} className="flex min-w-0 flex-1 flex-col items-center gap-1">
           <div
             className={`w-full rounded-t ${colors[color]}`}
             style={{ height: `${Math.max(6, (point.value / max) * 88)}px` }}
             title={`${point.label}: ${point.value}`}
           />
-          <span className="max-w-full truncate text-[10px] text-[var(--text-muted)]">{point.label}</span>
+          <span className="whitespace-nowrap text-[10px] text-[var(--text-muted)]">{showLabel ? point.label : ""}</span>
         </div>
-      ))}
+        );
+      })}
     </div>
   );
 }
@@ -244,9 +249,12 @@ function StackedDownloadBars({ points, locale: _locale = "zh" }: { points: Downl
   );
   return (
     <div className="mt-4 flex h-24 items-end gap-1" aria-label={t("dashboardAnalytics.downloadTrend")}>
-      {points.map((point) => {
+      {points.map((point, index) => {
         const total = point.completed + point.failed + point.running + point.pending;
         const height = Math.max(6, (total / max) * 88);
+        // Thin out labels: show at most ~7 labels to prevent truncation on dense charts
+        const labelInterval = Math.ceil(points.length / 7);
+        const showLabel = index % labelInterval === 0 || index === points.length - 1;
         return (
           <div key={point.date} className="flex min-w-0 flex-1 flex-col items-center gap-1">
             <div className="flex w-full flex-col justify-end overflow-hidden rounded-t bg-white/5" style={{ height: `${height}px` }} title={`${point.date}: ${total}`}>
@@ -255,7 +263,7 @@ function StackedDownloadBars({ points, locale: _locale = "zh" }: { points: Downl
               <Segment value={point.pending} total={total} className="bg-amber-400/70" />
               <Segment value={point.completed} total={total} className="bg-emerald-400/70" />
             </div>
-            <span className="max-w-full truncate text-[10px] text-[var(--text-muted)]">{formatShortDate(point.date)}</span>
+            <span className="whitespace-nowrap text-[10px] text-[var(--text-muted)]">{showLabel ? formatShortDate(point.date) : ""}</span>
           </div>
         );
       })}
