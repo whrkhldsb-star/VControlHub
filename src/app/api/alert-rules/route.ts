@@ -106,32 +106,25 @@ function wantsHtml(request: Request) {
 }
 
 async function parseBody(request: Request) {
-  const contentType = request.headers.get("content-type") ?? "";
-  if (
-    contentType.includes("application/x-www-form-urlencoded") ||
-    contentType.includes("multipart/form-data")
-  ) {
-    const form = await request.formData();
-    return {
-      name: String(form.get("name") ?? ""),
-      metric: String(form.get("metric") ?? ""),
-      operator: String(form.get("operator") ?? ""),
-      threshold: String(form.get("threshold") ?? ""),
-      durationSeconds: form.get("durationSeconds")
-        ? String(form.get("durationSeconds"))
-        : undefined,
-      serverIds: form.getAll("serverIds").map(String).filter(Boolean),
-      notifyChannels: form.getAll("notifyChannels").map(String).filter(Boolean),
-      webhookUrl: form.get("webhookUrl")
-        ? String(form.get("webhookUrl"))
-        : null,
-      cooldownMinutes: form.get("cooldownMinutes")
-        ? String(form.get("cooldownMinutes"))
-        : undefined,
-      silenceWindows: form.getAll("silenceWindows").map(String).map((value) => value.trim()).filter(Boolean),
-    };
-  }
-  return request.json().catch(() => null);
+  const form = await request.formData();
+  return {
+    name: String(form.get("name") ?? ""),
+    metric: String(form.get("metric") ?? ""),
+    operator: String(form.get("operator") ?? ""),
+    threshold: String(form.get("threshold") ?? ""),
+    durationSeconds: form.get("durationSeconds")
+      ? String(form.get("durationSeconds"))
+      : undefined,
+    serverIds: form.getAll("serverIds").map(String).filter(Boolean),
+    notifyChannels: form.getAll("notifyChannels").map(String).filter(Boolean),
+    webhookUrl: form.get("webhookUrl")
+      ? String(form.get("webhookUrl"))
+      : null,
+    cooldownMinutes: form.get("cooldownMinutes")
+      ? String(form.get("cooldownMinutes"))
+      : undefined,
+    silenceWindows: form.getAll("silenceWindows").map(String).map((value) => value.trim()).filter(Boolean),
+  };
 }
 
 function auditRuleDetail(rule: {
