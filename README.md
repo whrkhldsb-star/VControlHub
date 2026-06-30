@@ -349,6 +349,43 @@ make logs SERVICE_PREFIX=vcontrolhub
 | 运维      | 9/10       | systemd + caddy + smoke + 双 build 全套完整                                                       |
 | **综合**  | **8.6/10** | **结构健康，剩余均为 P2/P3 改善项**                                                               |
 
+---
+
+## 🎨 UI 架构升级与美化（R33，2026-06-30）
+
+**策略**：先核实真实状态（项目已有 Q-layer 兼容层，暗色 `slate/cyan` 硬编码自动映射 token），将精力投到**用户可感知的 bug** 而非不可见的 token 替换。
+
+### 修复的真实问题（~20 个，跨 15+ 文件）
+
+**仪表盘**
+- 时间戳被 flex 挤成 3px 截断 → 恢复正常显示
+- quick-links 6 个磁贴被 2 列网格压成 64px → 改单列堆叠，恢复 140px
+- `text-slate-600/700` 暗色无映射（近不可见）→ 全局补映射
+
+**文件管理页**
+- 删除重复的"切换存储节点"卡片
+- 修复侧边栏目录树下方大片空白 void（sticky + self-start）
+
+**监控页**
+- CPU 型号被 `.split("").slice(0,3)` 砍成 "Int" → 恢复完整 `Intel(R) Xeon(R) Gold 6230...`
+- 原始 ISO 时间戳 → 格式化为本地时间
+
+**9 处破损 Tailwind 双透明度类**（静默丢样式，最隐蔽）
+- `p-3/50`（无效 → 卡片零内边距）、`text-X/N/N`（第二个 N 覆盖颜色 → 文字不可见）等
+- 涉及 backups / api-tokens / batch-toolbar / quick-services / install-dialog / monitoring alert-rules / downloads / scheduled-tasks / media
+
+**内容宽度统一**
+- PageShell 默认 `max-w-6xl` → `max-w-7xl`（10+ 页面此前比其余窄 128px）
+
+### 数据获取层抽象（架构提升）
+
+- **`useRefreshInterval`**（`src/lib/preferences/use-refresh-interval.ts`）— 统一从 `vps-preferences` localStorage 读刷新间隔 + `storage` / `vps-preferences-updated` 事件同步。消除 docker / monitoring / traffic / server-monitor-card **4 处逐字节重复**的 init `useState` + dual-listener `useEffect` 样板。
+- **`useResourcePolling`**（`src/lib/http/use-resource-polling.ts`）— 统一 `loading / refreshing / error / data` + 可见性感知轮询 + 重叠去重 + 卸载安全 + 手动 `refresh` + 乐观 `setData`。audit 页 pilot 迁移（单资源 HTTP 获取，filter 驱动重取）。
+- 配 20 个 hook 单测，全通过。
+- **验证**：tsc 0 错，eslint 0 错，2471/2473 测试通过（1 跳过，1 个 ssh-terminal-modal focus flaky 与本改动无关 — 单跑通过），next build 成功。behavior 1:1 保持；audit 改筛选不再闪 loading（保留旧数据 + refreshing，UX 改进）。
+
+**可扩展性收益**：新页面接数据从 ~50 行手写样板降到 3 行 hook 调用；剩余 6 个轮询页可逐步迁移到 `useResourcePolling`（模式固定、有 pilot 模板、适合分批推进）。
+
 ## 📋 待办清单（统一）
 
 > 整合原"现有问题 / 任务追踪 / 下一步升级方向 / 功能完善建议 / UI 美化 / 前端可维护性 / 性能优化 / 安全加固 / 依赖升级"九节而成。已完成项已直接删除，仅保留未完成或部分完成的真待办。每条尾部 `[tag]` 标注类别。
