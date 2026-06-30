@@ -59,7 +59,7 @@ export function PageShell({
 	maxW?: string;
 }) {
 	return (
-		<div className="min-h-screen bg-[var(--page-bg)] text-[var(--text-primary)]">
+		<div className="min-h-screen [background:var(--page-bg)] text-[var(--text-primary)]">
 			<div className={`mx-auto ${maxW} px-4 py-8 sm:px-6 sm:py-10 lg:px-10`}>{children}</div>
 		</div>
 	);
