@@ -52,10 +52,10 @@ export function ToggleChip({
 
 export function PageShell({
 	children,
-	maxW = "max-w-6xl",
+	maxW = "max-w-7xl",
 }: {
 	children: ReactNode;
-	/** Tailwind max-width class – defaults to "max-w-6xl" */
+	/** Tailwind max-width class – defaults to "max-w-7xl" */
 	maxW?: string;
 }) {
 	return (

@@ -240,7 +240,7 @@ export default function DockerPage() {
 	const scopeSocketText = t("dockerPage.scope.socket").replace("{path}", socketPath);
 
 	return (
-		<PageShell>
+		<PageShell maxW="max-w-7xl">
 			<PageHeader eyebrow={t("dockerPage.eyebrow")} title={t("dockerPage.title")} description={t("dockerPage.desc")} />
 			<section
 				aria-labelledby="docker-scope-title"
