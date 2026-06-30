@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef } from "react";
 import { useI18n } from "@/lib/i18n/use-locale";
 import { useDialogFocus } from "@/lib/a11y/use-dialog-focus";
 import { SshTerminalPanel, type TerminalStatus } from "@/components/ssh-terminal-panel";
@@ -71,23 +71,18 @@ export function SshTerminalManager({
 	if (tabs.length === 0) return null;
 
 	return (
-		<div
-			className="fixed inset-0 z-50 flex items-stretch justify-center overflow-y-auto bg-black/80 p-2 backdrop-blur-sm sm:items-center sm:p-4"
-			onClick={onClose}
-		>
+		<div className="pointer-events-none fixed inset-x-2 bottom-2 z-50 flex justify-end sm:inset-x-4 sm:bottom-4">
 			<div
 				ref={dialogRef}
-				role="dialog"
+				role="region"
 				data-ssh-terminal-dialog="true"
-				aria-modal="true"
 				aria-labelledby="ssh-terminal-manager-title"
 				style={{
 					backgroundColor: "var(--surface)",
 					borderColor: "var(--border)",
 					color: "var(--text-primary)",
 				}}
-				className="my-auto flex max-h-none min-h-0 w-full max-w-6xl flex-col rounded-2xl border border-white/10 bg-slate-900 text-white shadow-2xl sm:max-h-[94vh] sm:rounded-3xl"
-				onClick={(e) => e.stopPropagation()}
+				className="pointer-events-auto flex max-h-[78vh] min-h-0 w-full max-w-5xl flex-col rounded-2xl border border-white/10 bg-slate-900 text-white shadow-2xl sm:max-h-[82vh] sm:rounded-3xl"
 			>
 				{/* Title bar + tab bar */}
 				<div className="flex items-center justify-between border-b border-white/10 px-4 py-3">

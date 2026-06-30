@@ -251,16 +251,43 @@ export function ServerOverviewCard({
       </div>
 
       {expanded ? (
-        <ServerOverviewDetailsLazy
-          server={server}
-          sessionToken={sessionToken}
-          canManageServers={canManageServers}
-          canUseSshTerminal={canUseSshTerminal}
-          directLabel={directLabel}
-          detailsId={detailsId}
-          diagnosticRun={diagnosticRun}
-          onRunRealtimeDiagnostics={runRealtimeDiagnostics}
-        />
+        <div className="fixed inset-0 z-40 flex items-start justify-center overflow-y-auto bg-black/55 px-3 py-6 backdrop-blur-sm sm:px-6" onClick={() => setExpanded(false)}>
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby={`${detailsId}-title`}
+            className="w-full max-w-5xl rounded-3xl border border-[var(--border)] bg-[var(--surface)] p-4 text-[var(--text-primary)] shadow-2xl sm:p-5"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="mb-3 flex items-center justify-between gap-3 border-b border-[var(--border)] pb-3">
+              <div className="min-w-0">
+                <p className="text-[11px] uppercase tracking-[0.22em] text-[var(--text-muted)]">VPS Detail</p>
+                <h3 id={`${detailsId}-title`} className="truncate text-base font-semibold text-[var(--text-primary)]">
+                  {server.name}
+                </h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setExpanded(false)}
+                className="shrink-0 rounded-full border border-[var(--border)] bg-white/[0.04] px-3 py-1.5 text-xs text-[var(--text-secondary)] transition hover:bg-white/[0.08]"
+              >
+                {t("serverOverviewCard.collapseDetails")}
+              </button>
+            </div>
+            <div className="max-h-[78vh] overflow-y-auto pr-1">
+              <ServerOverviewDetailsLazy
+                server={server}
+                sessionToken={sessionToken}
+                canManageServers={canManageServers}
+                canUseSshTerminal={canUseSshTerminal}
+                directLabel={directLabel}
+                detailsId={detailsId}
+                diagnosticRun={diagnosticRun}
+                onRunRealtimeDiagnostics={runRealtimeDiagnostics}
+              />
+            </div>
+          </div>
+        </div>
       ) : null}
     </article>
   );

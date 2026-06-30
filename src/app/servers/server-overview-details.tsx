@@ -19,6 +19,7 @@
 import Link from "next/link";
 import { useState, type ReactNode } from "react";
 
+import { csrfFetch } from "@/lib/auth/csrf-client";
 import { useI18n } from "@/lib/i18n/use-locale";
 import { ServerCardActions } from "./server-card-actions";
 import { VpsBackupSection } from "./vps-backup-section";
@@ -115,7 +116,7 @@ function OsDialectSection({
 		setDetecting(true);
 		setError(null);
 		try {
-			const res = await fetch(`/api/servers/${encodeURIComponent(serverId)}/detect-os`, { method: "POST" });
+			const res = await csrfFetch<Response>(`/api/servers/${encodeURIComponent(serverId)}/detect-os`, { method: "POST", raw: true });
 			const data = await res.json();
 			if (!res.ok) {
 				setError(data.error || "Detection failed");
@@ -442,7 +443,6 @@ export function ServerOverviewDetails({
 						</div>
 						<VpsBackupSection
 							serverId={server.id}
-							sessionToken={sessionToken}
 							canManage={canManageServers}
 						/>
 					</div>

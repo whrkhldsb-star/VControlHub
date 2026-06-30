@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 
+import { csrfFetch } from "@/lib/auth/csrf-client";
 import { useI18n } from "@/lib/i18n/use-locale";
 
 type BackupSchedule = {
@@ -59,11 +60,9 @@ function formatDuration(ms: string | null): string {
 
 export function VpsBackupSection({
 	serverId,
-	sessionToken,
 	canManage,
 }: {
 	serverId: string;
-	sessionToken: string;
 	canManage: boolean;
 }) {
 	const { t, locale } = useI18n();
@@ -86,12 +85,8 @@ export function VpsBackupSection({
 	const fetchAll = useCallback(async () => {
 		try {
 			const [schedRes, recRes] = await Promise.all([
-				fetch(`/api/servers/${serverId}/vps-backup/schedules`, {
-					headers: { Cookie: `session=${sessionToken}` },
-				}),
-				fetch(`/api/servers/${serverId}/vps-backup/records`, {
-					headers: { Cookie: `session=${sessionToken}` },
-				}),
+				fetch(`/api/servers/${serverId}/vps-backup/schedules`),
+				fetch(`/api/servers/${serverId}/vps-backup/records`),
 			]);
 			if (!schedRes.ok || !recRes.ok) throw new Error("Failed to fetch");
 			const [schedData, recData] = await Promise.all([
@@ -105,7 +100,7 @@ export function VpsBackupSection({
 		} finally {
 			setLoading(false);
 		}
-	}, [serverId, sessionToken]);
+	}, [serverId]);
 
 	useEffect(() => {
 		// Initial data fetch — setState happens inside async callback, not synchronously
@@ -116,13 +111,10 @@ export function VpsBackupSection({
 	const handleTrigger = async (backupType: string) => {
 		setTriggering(backupType);
 		try {
-			const res = await fetch(`/api/servers/${serverId}/vps-backup/records`, {
+			const res = await csrfFetch<Response>(`/api/servers/${serverId}/vps-backup/records`, {
 				method: "POST",
-				headers: {
-					"Content-Type": "application/json",
-					Cookie: `session=${sessionToken}`,
-				},
 				body: JSON.stringify({ backupType }),
+				raw: true,
 			});
 			if (!res.ok) {
 				const data = await res.json().catch(() => ({}));
@@ -139,12 +131,8 @@ export function VpsBackupSection({
 
 	const handleCreate = async () => {
 		try {
-			const res = await fetch(`/api/servers/${serverId}/vps-backup/schedules`, {
+			const res = await csrfFetch<Response>(`/api/servers/${serverId}/vps-backup/schedules`, {
 				method: "POST",
-				headers: {
-					"Content-Type": "application/json",
-					Cookie: `session=${sessionToken}`,
-				},
 				body: JSON.stringify({
 					name: createForm.name,
 					cronExpression: createForm.cronExpression,
@@ -154,6 +142,7 @@ export function VpsBackupSection({
 						? parseInt(createForm.retentionDays)
 						: undefined,
 				}),
+				raw: true,
 			});
 			if (!res.ok) {
 				const data = await res.json().catch(() => ({}));
@@ -176,9 +165,8 @@ export function VpsBackupSection({
 
 	const handleDeleteSchedule = async (scheduleId: string) => {
 		try {
-			await fetch(`/api/servers/${serverId}/vps-backup/schedules/${scheduleId}`, {
+			await csrfFetch(`/api/servers/${serverId}/vps-backup/schedules/${scheduleId}`, {
 				method: "DELETE",
-				headers: { Cookie: `session=${sessionToken}` },
 			});
 			await fetchAll();
 		} catch (err) {
@@ -188,9 +176,8 @@ export function VpsBackupSection({
 
 	const handleDeleteRecord = async (recordId: string) => {
 		try {
-			await fetch(`/api/servers/${serverId}/vps-backup/records/${recordId}`, {
+			await csrfFetch(`/api/servers/${serverId}/vps-backup/records/${recordId}`, {
 				method: "DELETE",
-				headers: { Cookie: `session=${sessionToken}` },
 			});
 			await fetchAll();
 		} catch (err) {

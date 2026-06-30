@@ -221,13 +221,22 @@ describe("ServersPage", () => {
 
   it("runs realtime diagnostics from the server card and renders monitor results", async () => {
     const user = userEvent.setup();
-    const fetchMock = vi.fn().mockResolvedValueOnce({
-      ok: true,
-      json: async () => ({
-        cpu: { usagePercent: 12.5 },
-        memory: { usagePercent: 48.2 },
-        disk: [{ mount: "/", usagePercent: 71 }],
-      }),
+    const fetchMock = vi.fn().mockImplementation(async (input) => {
+      const url = typeof input === "string" ? input : input instanceof URL ? input.toString() : input.url;
+      if (url.includes("/vps-backup/schedules")) {
+        return { ok: true, json: async () => ({ schedules: [] }) };
+      }
+      if (url.includes("/vps-backup/records")) {
+        return { ok: true, json: async () => ({ records: [] }) };
+      }
+      return {
+        ok: true,
+        json: async () => ({
+          cpu: { usagePercent: 12.5 },
+          memory: { usagePercent: 48.2 },
+          disk: [{ mount: "/", usagePercent: 71 }],
+        }),
+      };
     });
     vi.stubGlobal("fetch", fetchMock);
     serviceMocks.listServerProfilesMock.mockResolvedValueOnce([defaultServer]);
@@ -247,9 +256,18 @@ describe("ServersPage", () => {
 
   it("shows realtime diagnostic failures without hiding the guidance", async () => {
     const user = userEvent.setup();
-    vi.stubGlobal("fetch", vi.fn().mockResolvedValueOnce({
-      ok: true,
-      json: async () => ({ error: "连接失败: timeout" }),
+    vi.stubGlobal("fetch", vi.fn().mockImplementation(async (input) => {
+      const url = typeof input === "string" ? input : input instanceof URL ? input.toString() : input.url;
+      if (url.includes("/vps-backup/schedules")) {
+        return { ok: true, json: async () => ({ schedules: [] }) };
+      }
+      if (url.includes("/vps-backup/records")) {
+        return { ok: true, json: async () => ({ records: [] }) };
+      }
+      return {
+        ok: true,
+        json: async () => ({ error: "连接失败: timeout" }),
+      };
     }));
     serviceMocks.listServerProfilesMock.mockResolvedValueOnce([defaultServer]);
 
