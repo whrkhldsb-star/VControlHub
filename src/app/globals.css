@@ -1580,12 +1580,19 @@ html.light [class*="bg-gray-9"][class*="/"] {
 }
 
 /* R5. 深色模式也收敛 light-card 类：透明白面板保持同一 surface 层级。 */
-:root .bg-white\/\[0\.01\],
-:root .bg-white\/\[0\.015\],
-:root .bg-white\/\[0\.02\],
-:root .bg-white\/\[0\.025\],
-:root .bg-white\/\[0\.03\] {
+:root .bg-white\\/\\[0\\.01\\],
+:root .bg-white\\/\\[0\\.015\\],
+:root .bg-white\\/\\[0\\.02\\],
+:root .bg-white\\/\\[0\\.025\\],
+:root .bg-white\\/\\[0\\.03\\] {
 	background-color: var(--surface) !important;
+}
+
+/* R5.1 浅色模式：显式规则映射三个极低透明度值（README P3 待办） */
+html.light .bg-white\\/\\[0\\.01\\],
+html.light .bg-white\\/\\[0\\.025\\],
+html.light .bg-white\\/\\[0\\.045\\] {
+	background-color: var(--surface-elevated) !important;
 }
 
 /* R6. 浅色模式：通知/全局搜索/移动导航这类浮层统一用白底卡片，不残留深灰。 */

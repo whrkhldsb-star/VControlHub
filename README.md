@@ -406,7 +406,7 @@ make logs SERVICE_PREFIX=vcontrolhub
 - [ ] **按钮 cyan 散落用法渐进收敛** — 已有 `<ActionButton>` + `--color-action*` token 体系；存量代码中散落的 `cyan-300/400/500/600` 手写 utility 仍属长尾迁移任务，新代码请直接使用 `<ActionButton>` 而非手写 cyan utility。 `[UI]`
 - [ ] **硬编码 hex 颜色** — 全部为 xterm 主题 / PWA manifest / SVG 占位 / sparkline 数据色 / gradient stops 等不可 token 化场景，如需进一步抽象可后续单独审视。 `[UI]`
 - [ ] **文字 opacity 进一步合并** — 当前主干保留 `/10`/`/20`/`/30`/`/50`/`/60`/`/70`/`/80` 七档语义；如视觉一致性允许，可继续向 4 档收敛（low/mid/high/full）。 `[UI]`
-- [ ] **`bg-white/[0.01/0.025/0.045]` 三个极低透明度缺 Q-layer 显式规则** — 已有 `[class*="bg-white/\\[0.0"]` 通配符兜底（L1572），浅色模式不会出问题，但如需更精确映射可补 `html.light .bg-white/[0.01/0.025/0.045]` 显式规则。 `[UI]`
+- [x] **`bg-white/[0.01/0.025/0.045]` 三个极低透明度缺 Q-layer 显式规则** — 已在 `globals.css` L1592-1596 补齐 `html.light` 显式规则。 `[UI]`
 - [ ] **`divide-white/` 残留 9 处** — 未替换为 `divide-[var(--border)]`，浅色下由 Q-layer 通配符覆盖但不如直接 token 化清晰。 `[UI]`
 
 ### P3 — 性能 / 包体积
