@@ -10,122 +10,158 @@ const render = (ui: React.ReactElement) => renderWithLocale(ui, { locale: "zh" }
 const refreshMock = vi.fn();
 
 vi.mock("@/lib/auth/csrf-client", () => ({
-	csrfFetch: vi.fn(),
+  csrfFetch: vi.fn(),
 }));
 
 vi.mock("next/navigation", () => ({
-	useRouter: () => ({ refresh: refreshMock }),
+  useRouter: () => ({ refresh: refreshMock }),
 }));
 
 import { csrfFetch } from "@/lib/auth/csrf-client";
 
 const runtimeDefaults = {
-	"runtime.commandExecutionTimeoutMs": "300000",
-	"runtime.commandOutputLimitBytes": "262144",
-	"runtime.commandStaleRunningAfterMs": "600000",
-	"runtime.commandExecutionHeartbeatMs": "60000",
-	"runtime.commandReconcileIntervalMs": "60000",
-	"runtime.sftpSyncDirectoryTimeoutMs": "60000",
-	"runtime.sshWsHeartbeatIntervalMs": "25000",
-	"runtime.sshIdleTimeoutSec": "0",
-	"runtime.operationTaskListLimit": "100",
-	"runtime.aiProviderListLimit": "100",
-	"runtime.aiConversationListLimit": "200",
+  "runtime.commandExecutionTimeoutMs": "300000",
+  "runtime.commandOutputLimitBytes": "262144",
+  "runtime.commandStaleRunningAfterMs": "600000",
+  "runtime.commandExecutionHeartbeatMs": "60000",
+  "runtime.commandReconcileIntervalMs": "60000",
+  "runtime.sftpSyncDirectoryTimeoutMs": "60000",
+  "runtime.sshWsHeartbeatIntervalMs": "25000",
+  "runtime.sshIdleTimeoutSec": "0",
+  "runtime.operationTaskListLimit": "100",
+  "runtime.aiProviderListLimit": "100",
+  "runtime.aiConversationListLimit": "200",
 };
 
 const serverPrefs = {
-	defaultPage: "/",
-	dashboardWidgets: ["quick-links", "analytics", "audit-log"],
-	notificationsEnabled: true,
-	notificationSound: true,
-	autoRefreshInterval: 30,
-	autoProbeEnabled: true,
-	autoProbeIntervalSec: 60,
+  defaultPage: "/",
+  dashboardWidgets: ["quick-links", "analytics", "audit-log"],
+  notificationsEnabled: true,
+  notificationSound: true,
+  autoRefreshInterval: 30,
+  autoProbeEnabled: true,
+  autoProbeIntervalSec: 60,
 };
 
 describe("UnifiedSettingsPageClient", () => {
-	beforeEach(() => {
-		vi.mocked(csrfFetch).mockReset();
-		refreshMock.mockReset();
-		localStorage.clear();
-		vi.useRealTimers();
-		vi.mocked(csrfFetch).mockImplementation(async (url, init) => {
-			if (String(url) === "/api/preferences") {
-				return init ? serverPrefs : serverPrefs;
-			}
-			if (String(url) === "/api/settings") {
-				return { success: true };
-			}
-			return {};
-		});
-	});
+  beforeEach(() => {
+    vi.mocked(csrfFetch).mockReset();
+    refreshMock.mockReset();
+    localStorage.clear();
+    // Clear any leftover hash from previous tests
+    if (typeof window !== "undefined") {
+      window.history.replaceState(null, "", window.location.pathname);
+    }
+    vi.useRealTimers();
+    vi.mocked(csrfFetch).mockImplementation(async (url, init) => {
+      if (String(url) === "/api/preferences") {
+        return init ? serverPrefs : serverPrefs;
+      }
+      if (String(url) === "/api/settings") {
+        return { success: true };
+      }
+      return {};
+    });
+  });
 
-	it("combines personal preferences and admin system settings into one categorized settings page", async () => {
-		render(
-			<UnifiedSettingsPageClient
-				settings={{ "platform.name": "VControlHub", "platform.logo": "", ...runtimeDefaults }}
-				canManage
-			/>,
-		);
+  it("renders tabbed settings page with personal preferences visible by default", async () => {
+    render(
+      <UnifiedSettingsPageClient
+        settings={{ "platform.name": "VControlHub", "platform.logo": "", ...runtimeDefaults }}
+        canManage
+      />,
+    );
 
-		expect(screen.getByRole("heading", { name: "设置" })).toBeInTheDocument();
-		expect(screen.getByText("个人使用习惯、界面行为、账户安全与平台级参数集中在一个入口中管理。"))
-			.toBeInTheDocument();
-		expect(screen.getByText("个性化设置")).toBeInTheDocument();
-		const categoryNav = screen.getByRole("navigation", { name: "设置分类导航" });
-		expect(categoryNav).toBeInTheDocument();
-		expect(categoryNav).toHaveAttribute("data-card");
-		expect(screen.getByRole("button", { name: "全部展开" })).toBeInTheDocument();
-		expect(screen.getByRole("button", { name: "全部折叠" })).toBeInTheDocument();
-		expect(screen.getByRole("link", { name: /个人偏好/ })).toHaveAttribute("href", "#personal-preferences");
-		expect(screen.getByRole("link", { name: /默认页面/ })).toHaveAttribute("href", "#preferences-default-page");
-		expect(screen.getByRole("link", { name: /平台信息/ })).toHaveAttribute("href", "#platform");
-		expect(await screen.findByRole("button", { name: "服务器管理" })).toBeInTheDocument();
-		const defaultPageSection = screen.getByRole("heading", { name: "默认页面" }).closest("section");
-		expect(defaultPageSection).toHaveAttribute("id", "preferences-default-page");
-		expect(defaultPageSection).toHaveAttribute("data-card");
-		expect(within(defaultPageSection!).getByText("个人偏好")).toBeInTheDocument();
-		expect(within(defaultPageSection!).getByText("登录后入口")).toBeInTheDocument();
-		expect(screen.getByRole("heading", { name: /运行参数/ })).toBeInTheDocument();
-	});
+    // Page header
+    expect(screen.getByRole("heading", { name: "设置" })).toBeInTheDocument();
+    expect(screen.getByText("个人使用习惯、界面行为、账户安全与平台级参数集中在一个入口中管理。"))
+      .toBeInTheDocument();
 
-	it("keeps preference saves separate from platform setting saves inside the unified page", async () => {
-		const user = userEvent.setup();
-		render(
-			<UnifiedSettingsPageClient
-				settings={{ "platform.name": "旧名称", "platform.logo": "", ...runtimeDefaults }}
-				canManage
-			/>,
-		);
+    // Tab bar with 4 tabs
+    expect(screen.getByRole("tab", { name: /个人偏好/ })).toBeInTheDocument();
+    expect(screen.getByRole("tab", { name: /安全与账户/ })).toBeInTheDocument();
+    expect(screen.getByRole("tab", { name: /通知与集成/ })).toBeInTheDocument();
+    expect(screen.getByRole("tab", { name: /高级配置/ })).toBeInTheDocument();
 
-		await user.click(await screen.findByRole("button", { name: "服务器管理" }));
-		expect(await screen.findByRole("status")).toHaveTextContent("设置已保存");
-		expect(csrfFetch).toHaveBeenCalledWith("/api/preferences", expect.objectContaining({
-			method: "PUT",
-			body: expect.stringContaining('"defaultPage":"/servers"'),
-		}));
+    // Personal preferences content is visible by default
+    expect(await screen.findByRole("button", { name: "服务器管理" })).toBeInTheDocument();
+    expect(screen.getByRole("switch", { name: "启用通知" })).toBeInTheDocument();
+  });
 
-		const input = screen.getByLabelText("平台名称");
-		await user.clear(input);
-		await user.type(input, "新平台名称");
-		const platformSection = screen.getByRole("heading", { name: /平台信息/ }).closest("section");
-		await user.click(within(platformSection!).getByRole("button", { name: "保存" }));
+  it("keeps preference saves separate from platform setting saves across tabs", async () => {
+    const user = userEvent.setup();
+    render(
+      <UnifiedSettingsPageClient
+        settings={{ "platform.name": "旧名称", "platform.logo": "", ...runtimeDefaults }}
+        canManage
+      />,
+    );
 
-		await waitFor(() => {
-			expect(csrfFetch).toHaveBeenCalledWith("/api/settings", expect.objectContaining({
-				method: "PATCH",
-				body: JSON.stringify({ "platform.name": "新平台名称", "platform.logo": "" }),
-			}));
-		});
-	});
+    // ── Tab 1: Personal preferences ──
+    await user.click(await screen.findByRole("button", { name: "服务器管理" }));
+    expect(await screen.findByRole("status")).toHaveTextContent("设置已保存");
+    expect(csrfFetch).toHaveBeenCalledWith("/api/preferences", expect.objectContaining({
+      method: "PUT",
+      body: expect.stringContaining('"defaultPage":"/servers"'),
+    }));
 
-	it("shows non-admin operators their personal preferences without system setting edit controls", async () => {
-		render(<UnifiedSettingsPageClient settings={{}} canManage={false} />);
+    // ── Tab 2: Security & Account (contains platform info) ──
+    await user.click(screen.getByRole("tab", { name: /安全与账户/ }));
 
-		expect(await screen.findByRole("button", { name: "仪表盘" })).toBeInTheDocument();
-		expect(screen.getByRole("switch", { name: "启用通知" })).toBeInTheDocument();
-		expect(screen.getByText("当前角色无系统设置权限")).toBeInTheDocument();
-		expect(screen.queryByLabelText("平台名称")).not.toBeInTheDocument();
-		expect(screen.getByText("个性化设置")).toBeInTheDocument();
-	});
+    const input = await screen.findByLabelText("平台名称");
+    await user.clear(input);
+    await user.type(input, "新平台名称");
+    const platformSection = screen.getByRole("heading", { name: /平台信息/ }).closest("section");
+    await user.click(within(platformSection!).getByRole("button", { name: "保存" }));
+
+    await waitFor(() => {
+      expect(csrfFetch).toHaveBeenCalledWith("/api/settings", expect.objectContaining({
+        method: "PATCH",
+        body: JSON.stringify({ "platform.name": "新平台名称", "platform.logo": "" }),
+      }));
+    });
+  });
+
+  it("shows non-admin operators their personal preferences without system setting edit controls", async () => {
+    render(<UnifiedSettingsPageClient settings={{}} canManage={false} />);
+
+    // Personal preferences are visible
+    expect(await screen.findByRole("button", { name: "仪表盘" })).toBeInTheDocument();
+    expect(screen.getByRole("switch", { name: "启用通知" })).toBeInTheDocument();
+
+    // System settings tabs show no-permission message
+    await userEvent.click(screen.getByRole("tab", { name: /安全与账户/ }));
+    expect(screen.getByText("当前角色无系统设置权限")).toBeInTheDocument();
+    expect(screen.queryByLabelText("平台名称")).not.toBeInTheDocument();
+
+    // Personal tab still has content
+    expect(screen.getByText("个性化设置")).toBeInTheDocument();
+  });
+
+  it("switches tabs and shows section counts in tab badges", async () => {
+    render(
+      <UnifiedSettingsPageClient
+        settings={{ "platform.name": "VControlHub", "platform.logo": "", ...runtimeDefaults }}
+        canManage
+      />,
+    );
+
+    // Each tab should have a count badge
+    const personalTab = screen.getByRole("tab", { name: /个人偏好/ });
+    const securityTab = screen.getByRole("tab", { name: /安全与账户/ });
+    const notificationsTab = screen.getByRole("tab", { name: /通知与集成/ });
+    const advancedTab = screen.getByRole("tab", { name: /高级配置/ });
+
+    expect(personalTab).toHaveAttribute("aria-selected", "true");
+    expect(securityTab).toHaveAttribute("aria-selected", "false");
+
+    // Switch to notifications tab
+    await userEvent.click(notificationsTab);
+    expect(notificationsTab).toHaveAttribute("aria-selected", "true");
+    expect(personalTab).toHaveAttribute("aria-selected", "false");
+
+    // Switch to advanced tab
+    await userEvent.click(advancedTab);
+    expect(advancedTab).toHaveAttribute("aria-selected", "true");
+  });
 });

@@ -60,6 +60,8 @@ type Props = {
   canManage: boolean;
   twoFactorEnabled?: boolean;
   showCategoryNav?: boolean;
+  /** When set, only sections whose id is in this array are rendered. */
+  visibleSectionIds?: string[];
 };
 
 export function SettingsClient({
@@ -69,6 +71,7 @@ export function SettingsClient({
   canManage,
   twoFactorEnabled = false,
   showCategoryNav = true,
+  visibleSectionIds,
 }: Props) {
   const { t } = useI18n();
   // Translated schema (title/description/helper/badge/saveMessage/
@@ -290,21 +293,25 @@ export function SettingsClient({
 
   if (!canManage) {
     return (
-      <div className="rounded-xl border border-dashed border-white/[0.08] bg-white/[0.02] p-12 text-center">
+      <div className="rounded-xl border border-dashed border-[var(--border)] bg-[var(--surface-elevated)] p-12 text-center">
         <div className="text-4xl mb-3">🔒</div>
-        <p className="text-sm text-slate-500">
+        <p className="text-sm text-[var(--text-muted)]">
           {t("settingsClient.noPermission")}
         </p>
       </div>
     );
   }
 
+  const visibleSchema = visibleSectionIds
+    ? schema.filter((s) => visibleSectionIds.includes(s.id))
+    : schema;
+
   return (
     <div className="space-y-6">
       {error && (
         <div
           role="alert"
-          className="rounded-lg bg-rose-500/[0.08] border border-rose-400/20 px-4 py-3 text-sm text-rose-200"
+          className="rounded-lg border border-[var(--danger-border)] bg-[var(--danger-bg)] px-4 py-3 text-sm text-[var(--danger)]"
         >
           {error}
         </div>
@@ -312,7 +319,7 @@ export function SettingsClient({
       {saved && (
         <div
           role="status"
-          className="rounded-lg bg-emerald-500/[0.08] border border-emerald-400/20 px-4 py-3 text-sm text-emerald-200"
+          className="rounded-lg border border-[var(--success-border)] bg-[var(--success-bg)] px-4 py-3 text-sm text-[var(--success)]"
         >
           {t("settingsClient.savedWithMessage")}
           {savedMessage ? ` — ${savedMessage}` : ""}
@@ -328,10 +335,10 @@ export function SettingsClient({
         >
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div>
-              <h2 className="text-sm font-semibold text-white">
+              <h2 className="text-sm font-semibold text-[var(--text-primary)]">
                 {t("settingsClient.categoryTitle")}
               </h2>
-              <p className="mt-0.5 text-xs text-slate-500">
+              <p className="mt-0.5 text-xs text-[var(--text-muted)]">
                 {t("settingsClient.categoryDescription")}
               </p>
             </div>
@@ -339,14 +346,14 @@ export function SettingsClient({
               <button
                 type="button"
                 onClick={expandAll}
-                className="rounded-lg border border-white/[0.06] bg-white/[0.02] px-3 py-1.5 text-xs text-slate-300 transition hover:bg-white/[0.05] hover:text-white"
+                className="rounded-lg border border-[var(--border)] bg-[var(--surface-elevated)] px-3 py-1.5 text-xs text-[var(--text-secondary)] transition hover:bg-[var(--surface-hover)] hover:text-[var(--text-primary)]"
               >
                 {t("settingsClient.expandAll")}
               </button>
               <button
                 type="button"
                 onClick={collapseAll}
-                className="rounded-lg border border-white/[0.06] bg-white/[0.02] px-3 py-1.5 text-xs text-slate-300 transition hover:bg-white/[0.05] hover:text-white"
+                className="rounded-lg border border-[var(--border)] bg-[var(--surface-elevated)] px-3 py-1.5 text-xs text-[var(--text-secondary)] transition hover:bg-[var(--surface-hover)] hover:text-[var(--text-primary)]"
               >
                 {t("settingsClient.collapseAll")}
               </button>
@@ -360,21 +367,21 @@ export function SettingsClient({
                 onClick={() =>
                   setOpenSections((prev) => ({ ...prev, [item.id]: true }))
                 }
-                className="group flex items-center gap-2 rounded-lg border border-white/[0.06] bg-white/[0.01] px-3 py-2 text-xs transition hover:border-cyan-400/30 hover:bg-cyan-500/[0.05]"
+                className="group flex items-center gap-2 rounded-lg border border-[var(--border)] bg-[var(--surface)] px-3 py-2 text-xs transition hover:border-[var(--accent-border)] hover:bg-[var(--accent-bg)]"
               >
                 <span className="text-base" aria-hidden>
                   {item.icon}
                 </span>
                 <span className="flex-1 min-w-0">
-                  <span className="block font-semibold text-white truncate">
+                  <span className="block font-semibold text-[var(--text-primary)] truncate">
                     {item.title}
                   </span>
-                  <span className="block text-[11px] text-slate-500 truncate">
+                  <span className="block text-[11px] text-[var(--text-muted)] truncate">
                     {item.subtitle}
                   </span>
                 </span>
                 <span
-                  className="text-cyan-300 opacity-0 transition group-hover:opacity-100"
+                  className="text-[var(--accent)] opacity-0 transition group-hover:opacity-100"
                   aria-hidden
                 >
                   →
@@ -385,7 +392,7 @@ export function SettingsClient({
         </nav>
       )}
 
-      {schema.map((section) => (
+      {visibleSchema.map((section) => (
         <SchemaDrivenSection
           key={section.id}
           section={section}

@@ -8,6 +8,19 @@
  * via the standard `useI18n().t(...)` API.
  */
 export const zh: Record<string, string> = {
+	// ── Tab labels (super-category grouping) ──
+	"settingsPage.tab.personal": "个人偏好",
+	"settingsPage.tab.personal.desc": "默认页面、仪表盘组件、通知、刷新",
+	"settingsPage.tab.security": "安全与账户",
+	"settingsPage.tab.security.desc": "二次验证、平台信息、密码策略",
+	"settingsPage.tab.notifications": "通知与集成",
+	"settingsPage.tab.notifications.desc": "邮件告警、Telegram 推送",
+	"settingsPage.tab.advanced": "高级配置",
+	"settingsPage.tab.advanced.desc": "运行参数、备份、AI 运维",
+	"settingsPage.tab.expandAll": "展开全部",
+	"settingsPage.tab.collapseAll": "折叠全部",
+	"settingsPage.tab.sectionCount": "{count} 项",
+
 	// ── Legacy keys preserved from earlier rounds (UI strings + risk + restore + diff table + audit metadata) ──
 	"settingsPage.unified.categoryDescription": "按个人偏好、账户安全、平台、通知、运行参数、备份与 AI 运维分类查找。",
 	"settingsPage.unified.categoryTitle": "设置分类",
@@ -260,6 +273,19 @@ export const zh: Record<string, string> = {
 };
 
 export const en: Record<string, string> = {
+	// ── Tab labels (super-category grouping) ──
+	"settingsPage.tab.personal": "Personal",
+	"settingsPage.tab.personal.desc": "Default page, dashboard widgets, notifications, refresh",
+	"settingsPage.tab.security": "Security & Account",
+	"settingsPage.tab.security.desc": "2FA, platform info, password policy",
+	"settingsPage.tab.notifications": "Notifications",
+	"settingsPage.tab.notifications.desc": "Email alerts, Telegram push",
+	"settingsPage.tab.advanced": "Advanced",
+	"settingsPage.tab.advanced.desc": "Runtime, backups, AI ops",
+	"settingsPage.tab.expandAll": "Expand all",
+	"settingsPage.tab.collapseAll": "Collapse all",
+	"settingsPage.tab.sectionCount": "{count} items",
+
 	// ── Legacy keys preserved from earlier rounds ──
 	"settingsPage.unified.categoryDescription": "Find settings by personal preferences, account security, platform, notifications, runtime, backups, and AI Ops.",
 	"settingsPage.unified.categoryTitle": "Settings Categories",

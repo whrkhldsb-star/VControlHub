@@ -62,10 +62,10 @@ export function latestSectionMetadata(
 }
 
 const BADGE_COLOR_CLASSES: Record<BadgeTone, string> = {
-  cyan: "bg-cyan-500/[0.12] text-cyan-200 border-cyan-400/30",
-  emerald: "bg-emerald-500/[0.12] text-emerald-200 border-emerald-400/30",
-  amber: "bg-amber-500/[0.12] text-amber-200 border-amber-400/30",
-  slate: "bg-slate-500/[0.12] text-slate-300 border-slate-400/30",
+  cyan: "bg-[var(--accent-bg)] text-[var(--accent)] border-[var(--accent-border)]",
+  emerald: "bg-[var(--success-bg)] text-[var(--success)] border-[var(--success-border)]",
+  amber: "bg-[var(--warning-bg)] text-[var(--warning)] border-[var(--warning-border)]",
+  slate: "bg-[var(--surface-elevated)] text-[var(--text-muted)] border-[var(--border)]",
 };
 
 type CollapsibleSectionProps = {
@@ -102,19 +102,19 @@ export function CollapsibleSection({
     <section id={id} className="scroll-mt-24" data-card>
       <details open={open} onToggle={onToggle} className="group">
         <summary
-          className="cursor-pointer list-none p-5 transition hover:bg-white/[0.02] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-cyan-300 rounded-xl"
+          className="cursor-pointer list-none p-5 transition hover:bg-[var(--surface-hover)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-[var(--accent)] rounded-xl"
           aria-label={`${open ? t("settingsClient.collapse") : t("settingsClient.expand")} ${title} ${t("settingsClient.sectionSuffix")}`}
         >
           <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
             <div className="flex items-start gap-3 min-w-0 flex-1">
               <span
                 aria-hidden
-                className="mt-0.5 inline-flex h-6 w-6 items-center justify-center rounded-lg text-slate-400 transition group-open:rotate-90"
+                className="mt-0.5 inline-flex h-6 w-6 items-center justify-center rounded-lg text-[var(--text-muted)] transition group-open:rotate-90"
               >
                 ▶
               </span>
               <div className="min-w-0 flex-1">
-                <h2 className="text-lg font-semibold text-white flex items-center gap-2 flex-wrap">
+                <h2 className="text-lg font-semibold text-[var(--text-primary)] flex items-center gap-2 flex-wrap">
                   <span aria-hidden>{icon}</span>
                   <span>{title}</span>
                   {badge && (
@@ -125,7 +125,7 @@ export function CollapsibleSection({
                     </span>
                   )}
                 </h2>
-                <p className="mt-1 text-xs text-slate-500">{description}</p>
+                <p className="mt-1 text-xs text-[var(--text-muted)]">{description}</p>
               </div>
             </div>
             {headerExtra && (
@@ -161,7 +161,7 @@ export function AuditSummary({
   return (
     <div
       data-tone="amber"
-      className="rounded-lg border border-amber-400/20 px-3 py-2 text-xs text-amber-100 light:border-amber-200 light:bg-amber-50"
+      className="rounded-lg border border-[var(--warning-border)] bg-[var(--warning-bg)] px-3 py-2 text-xs text-[var(--warning)]"
     >
       <p className="font-semibold">{t("settingsClient.recentlyUpdated")}</p>
       <p>
@@ -276,7 +276,7 @@ export function SchemaDrivenSection({
           {section.noticeBanner && (
             <div
               data-tone="cyan"
-              className="rounded-lg border border-cyan-400/20 px-3 py-2 text-xs text-cyan-100 light:border-cyan-200 light:bg-cyan-50"
+              className="rounded-lg border border-[var(--accent-border)] bg-[var(--accent-bg)] px-3 py-2 text-xs text-[var(--accent)]"
             >
               {section.noticeBanner}
             </div>

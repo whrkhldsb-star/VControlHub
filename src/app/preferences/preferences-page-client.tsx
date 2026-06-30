@@ -74,14 +74,14 @@ function Section({
 		<section id={summaryId} className="scroll-mt-24" data-card>
 			<div className="p-5 space-y-4">
 				<div className="flex flex-col gap-1">
-					<div className="flex items-center gap-2 text-[11px] font-medium uppercase tracking-wide text-slate-500">
+					<div className="flex items-center gap-2 text-[11px] font-medium uppercase tracking-wide text-[var(--text-muted)]">
 						<span>{t("preferencesPage.group.personal")}</span>
 					</div>
-					<h2 className="text-lg font-semibold text-white flex items-center gap-2 flex-wrap">
+					<h2 className="text-lg font-semibold text-[var(--text-primary)] flex items-center gap-2 flex-wrap">
 						{summary?.icon && <span aria-hidden>{summary.icon}</span>}
 						<span>{title}</span>
 					</h2>
-					{subtitle && <p className="text-xs text-slate-500">{subtitle}</p>}
+					{subtitle && <p className="text-xs text-[var(--text-muted)]">{subtitle}</p>}
 				</div>
 				<div className="space-y-4">{children}</div>
 			</div>
@@ -157,7 +157,7 @@ function Toggle({ label, checked, onChange }: { label: string; checked: boolean;
 				aria-checked={checked}
 				aria-labelledby={sanitizedId}
 				onClick={() => onChange(!checked)}
-				className={`relative w-10 h-5 rounded-full transition focus:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950 ${checked ? "bg-cyan-500" : "bg-slate-700"}`}
+				className={`relative w-10 h-5 rounded-full transition focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--surface-root)] ${checked ? "bg-[var(--accent)]" : "bg-[var(--border-strong)]"}`}
 			>
 				<span aria-hidden="true" className={`absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white transition ${checked ? "translate-x-5" : ""}`} />
 			</button>
@@ -280,10 +280,10 @@ export function PreferencesSettingsContent({
 		<>
 			{showHeader && <PageHeader eyebrow={t("preferencesPage.eyebrow")} title={t("preferencesPage.title")} description={t("preferencesPage.desc")} />}
 			{saved && (
-				<div role="status" className="mb-4 text-xs text-emerald-400 bg-emerald-500/10 rounded-lg px-4 py-2">{t("preferencesPage.status.saved")}</div>
+				<div role="status" className="mb-4 text-xs text-[var(--success)] bg-[var(--success-bg)] border border-[var(--success-border)] rounded-lg px-4 py-2">{t("preferencesPage.status.saved")}</div>
 			)}
 			{error && (
-				<div role="alert" className="mb-4 text-xs text-rose-300 bg-rose-500/10 rounded-lg px-4 py-2">{error}</div>
+				<div role="alert" className="mb-4 text-xs text-[var(--danger)] bg-[var(--danger-bg)] border border-[var(--danger-border)] rounded-lg px-4 py-2">{error}</div>
 			)}
 
 			<div id="personal-preferences" className="space-y-4 max-w-2xl scroll-mt-24">
@@ -295,8 +295,8 @@ export function PreferencesSettingsContent({
 								onClick={() => save({ ...prefs, defaultPage: value })}
 								className={`px-3 py-2 text-xs rounded-lg border transition ${
 									prefs.defaultPage === value
-										? "border-cyan-500/50 bg-cyan-500/10 text-cyan-400"
-										: "border-white/[0.06] bg-white/[0.02] text-slate-400 hover:bg-white/[0.04]"
+											? "border-[var(--accent-border)] bg-[var(--accent-bg)] text-[var(--accent)]"
+											: "border-[var(--border)] bg-[var(--surface)] text-[var(--text-muted)] hover:bg-[var(--surface-hover)]"
 								}`}
 							>
 								{pageLabel(t, value)}
@@ -331,15 +331,15 @@ export function PreferencesSettingsContent({
 								onClick={() => save({ ...prefs, autoRefreshInterval: opt.value })}
 								className={`px-3 py-1.5 text-xs rounded-lg border transition ${
 									prefs.autoRefreshInterval === opt.value
-										? "border-cyan-500/50 bg-cyan-500/10 text-cyan-400"
-										: "border-white/[0.06] bg-white/[0.02] text-slate-400 hover:bg-white/[0.04]"
+										? "border-[var(--accent-border)] bg-[var(--accent-bg)] text-[var(--accent)]"
+										: "border-[var(--border)] bg-[var(--surface)] text-[var(--text-muted)] hover:bg-[var(--surface-hover)]"
 								}`}
 							>
 								{opt.label}
 							</button>
 						))}
 					</div>
-					<p className="text-[11px] text-slate-500">{t("preferencesPage.hint.autoRefresh")}</p>
+					<p className="text-[11px] text-[var(--text-muted)]">{t("preferencesPage.hint.autoRefresh")}</p>
 				</Section>
 
 				<Section summaryId="preferences-auto-probe">
@@ -356,15 +356,15 @@ export function PreferencesSettingsContent({
 								disabled={!prefs.autoProbeEnabled}
 								className={`px-3 py-1.5 text-xs rounded-lg border transition ${
 									prefs.autoProbeIntervalSec === opt.value
-										? "border-cyan-500/50 bg-cyan-500/10 text-cyan-400"
-										: "border-white/[0.06] bg-white/[0.02] text-slate-400 hover:bg-white/[0.04]"
+										? "border-[var(--accent-border)] bg-[var(--accent-bg)] text-[var(--accent)]"
+										: "border-[var(--border)] bg-[var(--surface)] text-[var(--text-muted)] hover:bg-[var(--surface-hover)]"
 								} disabled:opacity-50 disabled:cursor-not-allowed`}
 							>
 								{opt.label}
 							</button>
 						))}
 					</div>
-					<p className="text-[11px] text-slate-500">
+					<p className="text-[11px] text-[var(--text-muted)]">
 						{t("preferencesPage.hint.autoProbe")}
 					</p>
 				</Section>
@@ -373,7 +373,7 @@ export function PreferencesSettingsContent({
 	);
 
 	if (loading) {
-		const loadingContent = <div className="text-sm text-slate-500">{t("preferencesPage.loading")}</div>;
+		const loadingContent = <div className="text-sm text-[var(--text-muted)]">{t("preferencesPage.loading")}</div>;
 		return wrapInShell ? <PageShell>{loadingContent}</PageShell> : loadingContent;
 	}
 

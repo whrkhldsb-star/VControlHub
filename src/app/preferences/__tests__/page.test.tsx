@@ -66,7 +66,7 @@ describe("PreferencesPage", () => {
 
 		render(wrap(<PreferencesPageClient />));
 
-		expect(screen.getByRole("button", { name: "文件管理" })).toHaveClass("border-cyan-500/50");
+		expect(screen.getByRole("button", { name: "文件管理" })).toHaveClass("border-[var(--accent-border)]");
 		expect(screen.getByRole("switch", { name: "服务器状态" })).toHaveAttribute("aria-checked", "true");
 		expect(screen.getByRole("switch", { name: "快捷入口" })).toHaveAttribute("aria-checked", "false");
 	});
@@ -127,15 +127,15 @@ describe("PreferencesPage", () => {
 
 		render(wrap(<PreferencesPageClient />));
 
-		expect(screen.getByRole("button", { name: "文件管理" })).toHaveClass("border-cyan-500/50");
+		expect(screen.getByRole("button", { name: "文件管理" })).toHaveClass("border-[var(--accent-border)]");
 		await user.click(screen.getByRole("button", { name: "服务器管理" }));
 		expect(await screen.findByRole("status")).toHaveTextContent("设置已保存");
 
 		resolveInitialLoad?.(serverPrefs);
 		await waitFor(() => {
-			expect(screen.getByRole("button", { name: "服务器管理" })).toHaveClass("border-cyan-500/50");
+			expect(screen.getByRole("button", { name: "服务器管理" })).toHaveClass("border-[var(--accent-border)]");
 		});
-		expect(screen.getByRole("button", { name: "仪表盘" })).not.toHaveClass("border-cyan-500/50");
+		expect(screen.getByRole("button", { name: "仪表盘" })).not.toHaveClass("border-[var(--accent-border)]");
 		expect(JSON.parse(localStorage.getItem("vps-preferences") || "{}").defaultPage).toBe("/servers");
 		expect(dispatchSpy).toHaveBeenCalledWith(expect.objectContaining({ type: "vps-preferences-updated" }));
 	});
@@ -170,7 +170,7 @@ describe("PreferencesPage", () => {
 		expect(await screen.findByRole("heading", { name: /VPS 自动探测/ })).toBeInTheDocument();
 		const toggle = screen.getByRole("switch", { name: "进入 VPS 管理时自动探测节点状态" }) as HTMLButtonElement;
 		expect(toggle).toHaveAttribute("aria-checked", "true");
-		expect(screen.getByRole("button", { name: "1 分钟" })).toHaveClass("border-cyan-500/50");
+		expect(screen.getByRole("button", { name: "1 分钟" })).toHaveClass("border-[var(--accent-border)]");
 	});
 
 	it("disables the auto-probe interval picker when 自动探测 is off", async () => {
