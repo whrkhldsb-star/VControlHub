@@ -1,7 +1,7 @@
 import { getPublicStatus } from "@/lib/status/service";
 import { getServerLocale, t } from "@/lib/i18n/translations";
 
-export const dynamic = "force-dynamic";
+export const revalidate = 60;
 
 export default async function Page() {
   const status = await getPublicStatus();

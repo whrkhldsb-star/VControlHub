@@ -2,7 +2,7 @@ import { sessionHasPermission } from "@/lib/auth/authorization";
 import { requirePagePermission } from "@/lib/auth/page-guard";
 import ImageBedPageClient from "./image-bed-page-client";
 
-export const dynamic = "force-dynamic";
+export const revalidate = 60;
 
 export default async function ImageBedPage() {
 	const session = await requirePagePermission("image:read");
