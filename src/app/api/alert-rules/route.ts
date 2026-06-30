@@ -88,6 +88,19 @@ const updateAlertRuleSchema = alertRuleSchemaBase
   .extend({ id: z.string().trim().min(1) })
   .superRefine(requireWebhookUrlWhenEnabled);
 
+/* ── TR-037 P2: PATCH union schema (toggle / test / update) ─────── */
+const toggleAlertRuleSchema = z.object({
+  toggleId: z.string().trim().min(1),
+});
+const testAlertRuleSchema = z.object({
+  testId: z.string().trim().min(1),
+});
+const patchAlertRuleSchema = z.union([
+  toggleAlertRuleSchema,
+  testAlertRuleSchema,
+  updateAlertRuleSchema,
+]);
+
 function wantsHtml(request: Request) {
   return request.headers.get("accept")?.includes("text/html") ?? false;
 }
@@ -149,30 +162,38 @@ export async function GET(request: Request) {
 }
 
 export async function POST(request: Request) {
+  const contentType = request.headers.get("content-type") ?? "";
+  const isFormSubmission =
+    contentType.includes("application/x-www-form-urlencoded") ||
+    contentType.includes("multipart/form-data");
+  const options = {
+    permission: "notification:manage" as const,
+    rateLimit: GENERAL_WRITE_LIMIT,
+    errorStatus: 400,
+    errorMessage: "创建失败",
+    ...(isFormSubmission ? {} : { bodySchema: alertRuleSchema }),
+  };
   return withApiRoute(
     request,
-    { permission: "notification:manage", rateLimit: GENERAL_WRITE_LIMIT },
-    async ({ session }) => {
+    options,
+    async ({ session, body }) => {
       if (!session)
         throw new AuthError("未认证");
-      try {
-        const input = alertRuleSchema.parse(await parseBody(request));
-        const rule = await createAlertRule(input);
-        auditUserAction(
-          session.userId,
-          "alert_rule.create",
-          auditRuleDetail(rule),
-        );
-        if (wantsHtml(request)) {
-          return NextResponse.redirect(new URL("/alert-rules", request.url), {
-            status: 303,
-          });
-        }
-        return NextResponse.json({ rule }, { status: 201 });
-      } catch (err) {
-        const message = err instanceof Error ? err.message : "创建失败";
-        throw new ValidationError(message);
+      const input = isFormSubmission
+        ? alertRuleSchema.parse(await parseBody(request))
+        : body;
+      const rule = await createAlertRule(input);
+      auditUserAction(
+        session.userId,
+        "alert_rule.create",
+        auditRuleDetail(rule),
+      );
+      if (wantsHtml(request)) {
+        return NextResponse.redirect(new URL("/alert-rules", request.url), {
+          status: 303,
+        });
       }
+      return NextResponse.json({ rule }, { status: 201 });
     },
   );
 }
@@ -180,42 +201,41 @@ export async function POST(request: Request) {
 export async function PATCH(request: Request) {
   return withApiRoute(
     request,
-    { permission: "notification:manage", rateLimit: GENERAL_WRITE_LIMIT },
-    async ({ session }) => {
+    {
+      permission: "notification:manage",
+      rateLimit: GENERAL_WRITE_LIMIT,
+      errorStatus: 400,
+      errorMessage: "更新失败",
+      bodySchema: patchAlertRuleSchema,
+    },
+    async ({ session, body }) => {
       if (!session)
         throw new AuthError("未认证");
-      try {
-        const body = await request.json().catch(() => null);
-        if (body?.toggleId) {
-          const result = await toggleAlertRule(String(body.toggleId));
-          auditUserAction(session.userId, "alert_rule.toggle", {
-            ruleId: String(body.toggleId),
-            enabled: Boolean(result.enabled),
-          });
-          return NextResponse.json({ rule: result });
-        }
-        if (body?.testId) {
-          const result = await testAlertRule(String(body.testId));
-          auditUserAction(session.userId, "alert_rule.test", {
-            ruleId: result.rule.id,
-            name: result.rule.name,
-            channels: result.deliveries.map((delivery) => delivery.channel),
-            statuses: result.deliveries.map((delivery) => delivery.status),
-          });
-          return NextResponse.json(result);
-        }
-        const input = updateAlertRuleSchema.parse(body);
-        const result = await updateAlertRule(input.id, input);
-        auditUserAction(
-          session.userId,
-          "alert_rule.update",
-          auditRuleDetail(result),
-        );
+      if ("toggleId" in body) {
+        const result = await toggleAlertRule(body.toggleId);
+        auditUserAction(session.userId, "alert_rule.toggle", {
+          ruleId: body.toggleId,
+          enabled: Boolean(result.enabled),
+        });
         return NextResponse.json({ rule: result });
-      } catch (err) {
-        const message = err instanceof Error ? err.message : "更新失败";
-        throw new ValidationError(message);
       }
+      if ("testId" in body) {
+        const result = await testAlertRule(body.testId);
+        auditUserAction(session.userId, "alert_rule.test", {
+          ruleId: result.rule.id,
+          name: result.rule.name,
+          channels: result.deliveries.map((delivery) => delivery.channel),
+          statuses: result.deliveries.map((delivery) => delivery.status),
+        });
+        return NextResponse.json(result);
+      }
+      const result = await updateAlertRule(body.id, body);
+      auditUserAction(
+        session.userId,
+        "alert_rule.update",
+        auditRuleDetail(result),
+      );
+      return NextResponse.json({ rule: result });
     },
   );
 }
