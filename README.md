@@ -351,11 +351,11 @@ make logs SERVICE_PREFIX=vcontrolhub
 
 ---
 
-## 🎨 UI 架构升级与美化（R33，2026-06-30）
+## 🎨 UI 架构升级与美化（R33–R36，2026-06-30）
 
 **策略**：先核实真实状态（项目已有 Q-layer 兼容层，暗色 `slate/cyan` 硬编码自动映射 token），将精力投到**用户可感知的 bug** 而非不可见的 token 替换。
 
-### 修复的真实问题（~20 个，跨 15+ 文件）
+### R33：真实 bug 修复（~20 个，跨 15+ 文件）
 
 **仪表盘**
 - 时间戳被 flex 挤成 3px 截断 → 恢复正常显示
@@ -376,6 +376,37 @@ make logs SERVICE_PREFIX=vcontrolhub
 
 **内容宽度统一**
 - PageShell 默认 `max-w-6xl` → `max-w-7xl`（10+ 页面此前比其余窄 128px）
+
+### R35–R36：硬编码深色背景全量清除（159 文件，~1500 处替换）
+
+**问题**：~160 个 `.tsx` 文件中硬编码 `bg-slate-950/900/800`、`border-white/[0.0X]`、`text-white/slate-XXX`，浅色模式下渲染出深蓝/深黑底 + 黑字（不可读）。
+
+**方案**：逐类替换为 CSS 变量（随主题色自动切换）：
+| 旧写法 | 新写法 | 适用场景 |
+|---|---|---|
+| `bg-slate-950` (solid, 后接 `px-`) | `bg-[var(--input-bg)]` | 输入框/textarea/select |
+| `bg-slate-950` (solid, 后接 `p-5/6`) | `bg-[var(--modal-bg)]` | Modal/Dialog 内容面板 |
+| `bg-slate-950/20-60` | `bg-[var(--surface-subtle)]` | 代码块、日志区、信息面板 |
+| `bg-slate-950/90-95` | `bg-[var(--modal-bg)]` | 底部导航栏、toast |
+| `bg-slate-900` (solid) | `bg-[var(--surface)]` | Section 背景、卡片 |
+| `bg-slate-900/40-70` | `bg-[var(--surface-subtle)]` | 子面板、权限项 |
+| `bg-slate-800` (solid + semi) | `bg-[var(--surface-hover)]` | Hover 态、进度条轨道 |
+| `border-white/[0.03-0.08]` | `border-[var(--border)]` | 全部边框 |
+| `border-slate-600/700` | `border-[var(--border)]` | 全部边框 |
+| `text-white` | `text-[var(--text-primary)]` | 标题/正文 |
+| `text-slate-100-300` | `text-[var(--text-primary/secondary)]` | 正文/次要文字 |
+| `text-slate-400-500` | `text-[var(--text-muted)]` | 辅助信息 |
+| `divide-white/[0.06]` | `divide-[var(--border)]` | 分割线 |
+
+**排除项**（保持原样）：
+- `ssh-terminal-modal.tsx`：终端模拟器刻意深色
+- Modal overlay `bg-slate-950/70`/`/75`：半透明遮罩，两种模式通用
+- 独立错误页（not-found/offline/status/share token）
+- 代码预览组件（text/markdown/csv-preview + find-bar）
+- Toggle 开关球 `bg-white`（滑块白色合理）
+- Loading dots `bg-white`（3 个点合理）
+
+**验证**：tsc 0 错，next build 成功，部署恢复 200 OK，浅色模式浏览器实测 dashboard/servers/settings/storage/image-bed 均正常。
 
 ### 数据获取层抽象（架构提升）
 
@@ -416,7 +447,10 @@ make logs SERVICE_PREFIX=vcontrolhub
 - [ ] **PWA 离线支持和集成市场**（TR-033）— Service Worker 基础已就绪（`public/sw.js`），待完善离线体验。 `[功能]`
 - [ ] **按钮 cyan 散落用法渐进收敛** — 已有 `<ActionButton>` + `--color-action*` token 体系；存量代码中散落的 `cyan-300/400/500/600` 手写 utility 仍属长尾迁移任务，新代码请直接使用 `<ActionButton>` 而非手写 cyan utility。 `[UI]`
 - [ ] **文字 opacity 进一步合并** — 当前主干保留 `/10`/`/20`/`/30`/`/50`/`/60`/`/70`/`/80` 七档语义；如视觉一致性允许，可继续向 4 档收敛（low/mid/high/full）。 `[UI]`
-- [ ] **10 种硬编码十六进制颜色** — 全部为 xterm 主题 / PWA manifest / SVG 占位 / sparkline 数据色 / gradient stops 等不可 token 化场景，如需进一步抽象可后续单独审视。 `[UI]`
+- [ ] **硬编码 hex 颜色** — 全部为 xterm 主题 / PWA manifest / SVG 占位 / sparkline 数据色 / gradient stops 等不可 token 化场景，如需进一步抽象可后续单独审视。 `[UI]`
+- [ ] **浅色模式残留 Q-layer 依赖** — R35-R36 已将 159 文件 ~1500 处硬编码深色背景/border/text 替换为 CSS 变量，但仍有 311 处 `text-white/text-slate-*` 及 531 处 `bg-white/hover:bg-white/border-white/` 保持原样（由 globals.css Q-layer L274-400 + L1571-1599 通配符映射兜底）。**当前无可见 bug**，但理想状态是继续逐文件替换彻底消除 Q-layer 依赖。风险/收益比低，适合分批渐进。 `[UI]`
+- [ ] **`bg-white/[0.01/0.025/0.045]` 三个极低透明度缺 Q-layer 显式规则** — 已有 `[class*="bg-white/\\[0.0"]` 通配符兜底（L1572），浅色模式不会出问题，但如需更精确映射可补 `html.light .bg-white/[0.01/0.025/0.045]` 显式规则。 `[UI]`
+- [ ] **`divide-white/` 残留 9 处** — 未替换为 `divide-[var(--border)]`，浅色下由 Q-layer 通配符覆盖但不如直接 token 化清晰。 `[UI]`
 
 ### P3 — 性能 / 包体积
 
