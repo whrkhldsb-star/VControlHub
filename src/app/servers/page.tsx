@@ -15,6 +15,7 @@ import { SshKeyCreateForm } from "./ssh-key-create-form";
 import { ServerTabLayout } from "./server-tab-layout";
 import { ServerOverviewCard } from "./server-overview-card";
 import { AutoProbeProvider } from "./auto-probe-context";
+import { SshTerminalProvider } from "./ssh-terminal-context";
 
 export const dynamic = "force-dynamic";
 
@@ -69,6 +70,7 @@ export default async function ServersPage() {
 				<p className="mt-1 text-xs text-[var(--text-muted)]">{t("serversPage.statusPriority.desc")}</p>
 			</section>
 
+			<SshTerminalProvider>
 			<AutoProbeProvider>
 			<ServerTabLayout
 				nodesPanel={
@@ -107,7 +109,8 @@ export default async function ServersPage() {
 				}
 			/>
 			</AutoProbeProvider>
-		</PageShell>
+			</SshTerminalProvider>
+			</PageShell>
 	);
 }
 

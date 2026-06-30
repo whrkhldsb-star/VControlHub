@@ -56,6 +56,12 @@ export const zh: Record<string, string> = {
 
 	// Side panel — quick commands (⚡ 快捷命令)
 	"sshTerminalModal.quickCommandsTitle": "⚡ 快捷命令",
+
+	// Multi-tab manager (TR-039)
+	"sshTerminalManager.title": "SSH 终端",
+	"sshTerminalManager.tabsSuffix": "个标签",
+	"sshTerminalManager.closeTab": "关闭 {serverName} 标签",
+	"sshTerminalManager.newTab": "新建标签",
 };
 
 export const en: Record<string, string> = {
@@ -102,4 +108,10 @@ export const en: Record<string, string> = {
 
 	// Side panel — quick commands (⚡ Quick commands)
 	"sshTerminalModal.quickCommandsTitle": "⚡ Quick commands",
+
+	// Multi-tab manager (TR-039)
+	"sshTerminalManager.title": "SSH Terminal",
+	"sshTerminalManager.tabsSuffix": "tabs",
+	"sshTerminalManager.closeTab": "Close {serverName} tab",
+	"sshTerminalManager.newTab": "New tab",
 };

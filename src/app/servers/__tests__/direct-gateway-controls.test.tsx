@@ -69,8 +69,12 @@ vi.mock("@/components/submit-button", () => ({
     </button>
   ) }));
 
-vi.mock("@/components/ssh-terminal-modal", () => ({
-  SshTerminalModal: () => <div data-testid="ssh-terminal-modal" /> }));
+vi.mock("../ssh-terminal-context", () => ({
+  useSshTerminal: () => ({
+    openTerminal: vi.fn(),
+    isOpen: false,
+  }),
+}));
 
 describe("server direct gateway controls", () => {
   beforeEach(() => {

@@ -4,7 +4,7 @@ import { useActionState, useState } from "react";
 import { useRouter } from "next/navigation";
 
 import { SubmitButton } from "@/components/submit-button";
-import { SshTerminalModal } from "@/components/ssh-terminal-modal";
+import { useSshTerminal } from "./ssh-terminal-context";
 import { useI18n } from "@/lib/i18n/use-locale";
 
 import {
@@ -77,8 +77,8 @@ export function ServerCardActions({
     updateServerAction,
     initialState,
   );
-  const [showTerminal, setShowTerminal] = useState(false);
   const [showEdit, setShowEdit] = useState(false);
+  const { openTerminal } = useSshTerminal();
 
   const isConfirming =
     deleteState.relatedStorageCount !== undefined &&
@@ -88,7 +88,7 @@ export function ServerCardActions({
 
   const handleOpenTerminal = () => {
     onSshConnect?.();
-    setShowTerminal(true);
+    openTerminal({ serverId, serverName, host: `${host}:${port}`, sessionToken });
   };
 
   return (
@@ -410,15 +410,6 @@ export function ServerCardActions({
           </form>
         ) : null}
       </div>
-      {showTerminal ? (
-        <SshTerminalModal
-          serverId={serverId}
-          serverName={serverName}
-          host={`${host}:${port}`}
-          sessionToken={sessionToken}
-          onClose={() => setShowTerminal(false)}
-        />
-      ) : null}
     </>
   );
 }
