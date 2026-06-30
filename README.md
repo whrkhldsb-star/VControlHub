@@ -407,7 +407,7 @@ make logs SERVICE_PREFIX=vcontrolhub
 - [ ] **硬编码 hex 颜色** — 全部为 xterm 主题 / PWA manifest / SVG 占位 / sparkline 数据色 / gradient stops 等不可 token 化场景，如需进一步抽象可后续单独审视。 `[UI]`
 - [ ] **文字 opacity 进一步合并** — 当前主干保留 `/10`/`/20`/`/30`/`/50`/`/60`/`/70`/`/80` 七档语义；如视觉一致性允许，可继续向 4 档收敛（low/mid/high/full）。 `[UI]`
 - [x] **`bg-white/[0.01/0.025/0.045]` 三个极低透明度缺 Q-layer 显式规则** — 已在 `globals.css` L1592-1596 补齐 `html.light` 显式规则。 `[UI]`
-- [ ] **`divide-white/` 残留 9 处** — 未替换为 `divide-[var(--border)]`，浅色下由 Q-layer 通配符覆盖但不如直接 token 化清晰。 `[UI]`
+- [x] **`divide-white/` 残留 9 处** — 已全部补齐 `light:divide-slate-200` 显式规则。 `[UI]`
 
 ### P3 — 性能 / 包体积
 

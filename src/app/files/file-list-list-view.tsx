@@ -146,7 +146,7 @@ export function FileListListView(props: FileListListViewProps) {
             </div>
             <div>操作</div>
           </div>
-          <div className="divide-y divide-white/[0.04]">
+          <div className="divide-y divide-white/[0.04] light:divide-slate-200">
             {sortedFolders.length === 0 && sortedFiles.length === 0 ? (
               <div className="px-6 py-16 text-center text-sm text-[var(--text-muted)]">
                 {emptyMessage}
@@ -307,7 +307,7 @@ export function FileListListView(props: FileListListViewProps) {
       </div>
 
       {/* Mobile card view (below md) */}
-      <div className="md:hidden divide-y divide-white/[0.04]">
+      <div className="md:hidden divide-y divide-white/[0.04] light:divide-slate-200">
         {sortedFolders.length === 0 && sortedFiles.length === 0 ? (
           <div className="px-6 py-16 text-center text-sm text-[var(--text-muted)]">
             {emptyMessage}

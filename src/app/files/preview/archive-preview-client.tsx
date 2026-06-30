@@ -116,7 +116,7 @@ export function ArchivePreviewClient({
 						<div>{t("archivePreview.table.name")}</div>
 						<div className="text-right">{t("archivePreview.table.size")}</div>
 					</div>
-					<div className="divide-y divide-white/[0.04] max-h-[50vh] overflow-y-auto">
+					<div className="divide-y divide-white/[0.04] light:divide-slate-200 max-h-[50vh] overflow-y-auto">
 						{entries.map((entry, i) => (
 							<div
 								key={`${entry.name}-${i}`}

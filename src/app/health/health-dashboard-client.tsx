@@ -419,7 +419,7 @@ export function HealthDashboardClient({ serverCount, initialSystemHealth }: Prop
 									<th className="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">{copy.ui.details}</th>
 								</tr>
 							</thead>
-							<tbody className="divide-y divide-white/[0.04]">
+							<tbody className="divide-y divide-white/[0.04] light:divide-slate-200">
 								{Array.from({ length: skeletonRowCount }).map((_, i) => (
 									<tr key={i} className="animate-pulse">
 										<td className="px-4 py-4"><div className="h-3 w-32 rounded-lg bg-white/[0.06]" /></td>

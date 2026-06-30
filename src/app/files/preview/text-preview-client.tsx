@@ -847,8 +847,8 @@ export function TextPreviewClient({
 					<div className="mt-3 max-h-72 overflow-auto rounded-xl border border-white/[0.08] bg-slate-950/80">
 						{diffRows.length === 0 ? (
 							<p className="px-3 py-2 text-xs text-slate-400">{t("textPreview.diffEmpty")}</p>
-							) : (
-							<ul className="divide-y divide-white/[0.06]">
+						) : (
+							<ul className="divide-y divide-white/[0.06] light:divide-slate-200">
 								{diffRows.slice(0, 80).map((row) => (
 									<li key={`${row.line}-${row.kind}`} className="grid gap-1 px-3 py-2 text-xs md:grid-cols-[80px_1fr_1fr]">
 										<span className="font-mono text-slate-500">L{row.line} · {row.kind === "added" ? t("textPreview.diffKind.added") : row.kind === "removed" ? t("textPreview.diffKind.removed") : t("textPreview.diffKind.changed")}</span>

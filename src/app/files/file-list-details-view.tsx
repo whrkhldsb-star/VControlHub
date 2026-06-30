@@ -67,7 +67,7 @@ export function FileListDetailsView({
   folderCanWrite,
 }: FileListDetailsViewProps) {
   return (
-    <div className="divide-y divide-white/[0.04]">
+    <div className="divide-y divide-white/[0.04] light:divide-slate-200">
       {sortedFolders.length === 0 && sortedFiles.length === 0 ? (
         <div className="px-6 py-16 text-center">
           <p className="text-sm text-[var(--text-muted)]">{emptyMessage}</p>
