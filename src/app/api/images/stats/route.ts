@@ -7,6 +7,7 @@ import { NextResponse } from "next/server";
 import { sessionHasPermission } from "@/lib/auth/authorization";
 import { prisma } from "@/lib/db";
 import { withApiRoute } from "@/lib/http/api-guard";
+import { withCacheHeaders, CachePresets } from "@/lib/cache";
 
 export const dynamic = "force-dynamic";
 
@@ -71,13 +72,16 @@ export async function GET(request: Request) {
         sizeBytes: album._sum.sizeBytes || 0,
       }));
 
-      return NextResponse.json({
-        totalCount,
-        totalSizeBytes,
-        totalSizeMB: Math.round((totalSizeBytes / 1024 / 1024) * 100) / 100,
-        albums,
-        uploadTrend,
-      });
+      return withCacheHeaders(
+        NextResponse.json({
+          totalCount,
+          totalSizeBytes,
+          totalSizeMB: Math.round((totalSizeBytes / 1024 / 1024) * 100) / 100,
+          albums,
+          uploadTrend,
+        }),
+        CachePresets.shortLived,
+      );
     },
   );
 }

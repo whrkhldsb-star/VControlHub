@@ -10,6 +10,7 @@ import {
 import { auditUserAction } from "@/lib/audit/service";
 import { withApiRoute } from "@/lib/http/api-guard";
 import { GENERAL_WRITE_LIMIT } from "@/lib/http/rate-limit-presets";
+import { withCacheHeaders, CachePresets } from "@/lib/cache";
 
 import { AuthError } from "@/lib/errors";
 import { idQuerySchema, parseSearchParams } from "@/lib/http/parse-search-params";
@@ -71,7 +72,10 @@ export async function GET(request: Request) {
     async ({ session }) => {
       if (!session)
         throw new AuthError("未认证");
-      return NextResponse.json({ tokens: await listApiTokens(session.userId) });
+      return withCacheHeaders(
+        NextResponse.json({ tokens: await listApiTokens(session.userId) }),
+        CachePresets.shortLived,
+      );
     },
   );
 }

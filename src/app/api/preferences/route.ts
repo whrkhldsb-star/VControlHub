@@ -11,6 +11,7 @@ import { prisma } from "@/lib/db";
 import { withApiRoute } from "@/lib/http/api-guard";
 import { GENERAL_WRITE_LIMIT } from "@/lib/http/rate-limit-presets";
 import { defaultUserPreferences, normalizeUserPreferences } from "@/lib/preferences/user-preferences";
+import { withCacheHeaders, CachePresets } from "@/lib/cache";
 
 import { AuthError, ValidationError } from "@/lib/errors";
 const prefsSchema = z.object({
@@ -45,7 +46,7 @@ export async function GET(request: Request) {
           })
         : defaultPreferences;
 
-      return NextResponse.json(prefs);
+      return withCacheHeaders(NextResponse.json(prefs), CachePresets.shortLived);
     },
   );
 }
