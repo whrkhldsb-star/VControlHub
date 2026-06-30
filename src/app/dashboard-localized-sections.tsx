@@ -38,8 +38,8 @@ export function DashboardLocalizedHeader({ username }: { username: string }) {
   const currentUser = useLocalizedText("dashboard.current-user", "当前用户");
   return (
     <header className="mb-8">
-      <h1 className="text-3xl font-semibold tracking-tight text-white">{title}</h1>
-      <p className="mt-1.5 text-sm text-slate-500">{currentUser}: {username}</p>
+      <h1 className="text-3xl font-semibold tracking-tight text-[var(--text-primary)]">{title}</h1>
+      <p className="mt-1.5 text-sm text-[var(--text-muted)]">{currentUser}: {username}</p>
     </header>
   );
 }
@@ -57,12 +57,12 @@ export function DashboardServerHero({ summary }: { summary: DashboardServerSumma
   const sshLabel = useLocalizedText("dashboard.ssh-key-bound", "SSH 密钥绑定");
 
   return (
-    <section data-dashboard-widget="server-status" data-tone="cyan" className="mb-8 rounded-2xl border border-cyan-400/15 p-5">
+    <section data-dashboard-widget="server-status" data-tone="cyan" className="mb-8 rounded-2xl border border-[var(--color-action-border)] p-5">
       <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
         <div>
-          <p className="text-xs uppercase tracking-[0.22em] text-cyan-300">{eyebrow}</p>
-          <h2 className="mt-2 text-2xl font-semibold text-white">{summary.enabled} {onlineSuffix}</h2>
-          <p className="mt-1 text-sm text-slate-400">
+          <p className="text-xs uppercase tracking-[0.22em] text-[var(--color-action)]">{eyebrow}</p>
+          <h2 className="mt-2 text-2xl font-semibold text-[var(--text-primary)]">{summary.enabled} {onlineSuffix}</h2>
+          <p className="mt-1 text-sm text-[var(--text-secondary)]">
             {managedPrefix} {summary.total} {managedSuffix}, {summary.sshKey} {sshSuffix}, {summary.directGateway} {gatewaySuffix}.
           </p>
         </div>
@@ -102,7 +102,7 @@ export function DashboardStatsSection({ storage, queue }: { storage: DashboardSt
   return (
     <section className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(0,0.85fr)]">
       <div data-card className="p-4">
-        <h2 className="text-sm font-medium text-white">{coreTitle}</h2>
+        <h2 className="text-sm font-medium text-[var(--text-primary)]">{coreTitle}</h2>
         <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-2">
           <StatCard label={vpsNodes} value={String(storage.serverTotal)} accent={false} />
           <StatCard label={enabledNodes} value={String(storage.serverEnabled)} accent={false} />
@@ -111,7 +111,7 @@ export function DashboardStatsSection({ storage, queue }: { storage: DashboardSt
         </div>
       </div>
       <div data-card className="p-4">
-        <h2 className="text-sm font-medium text-white">{queueTitle}</h2>
+        <h2 className="text-sm font-medium text-[var(--text-primary)]">{queueTitle}</h2>
         <div className="mt-3 grid gap-3 sm:grid-cols-2 xl:grid-cols-1">
           <StatCard label={pending} value={String(queue.pendingApprovals)} accent={queue.pendingApprovals > 0} accentColor="amber" />
           <StatCard label={downloads} value={downloadValue} accent={queue.downloads.running > 0} accentColor="cyan" detail={downloadDetail} />
@@ -189,7 +189,7 @@ export function DashboardRecentActivity({ recentRequests, recentAuditLogs }: { r
   return (
     <section data-dashboard-widget="audit-log" className="mt-8 grid gap-6 lg:grid-cols-2">
       <div>
-        <h2 className="mb-4 text-lg font-semibold text-white">{approvalsTitle}</h2>
+        <h2 className="mb-4 text-lg font-semibold text-[var(--text-primary)]">{approvalsTitle}</h2>
         {recentRequests.length === 0 ? (
           <EmptyState text={noRequests} />
         ) : (
@@ -198,8 +198,8 @@ export function DashboardRecentActivity({ recentRequests, recentAuditLogs }: { r
               <article data-card key={request.id} className="p-4 hover:bg-white/[0.04]">
                 <div className="flex flex-wrap items-center justify-between gap-2">
                   <div className="min-w-0 flex-1">
-                    <h3 className="text-sm font-medium text-white truncate">{request.title}</h3>
-                    <p className="mt-0.5 text-xs text-slate-500">
+                    <h3 className="text-sm font-medium text-[var(--text-primary)] truncate">{request.title}</h3>
+                    <p className="mt-0.5 text-xs text-[var(--text-muted)]">
                       {request.requester.displayName || request.requester.username}
                       {request.isAssistantInitiated ? ` · ${assistant}` : ` · ${user}`}
                     </p>
@@ -209,7 +209,7 @@ export function DashboardRecentActivity({ recentRequests, recentAuditLogs }: { r
                     <Badge color="slate">{targetPrefix} {request.targetCount} {targetSuffix}</Badge>
                   </div>
                 </div>
-                <p className="mt-2.5 rounded-lg border border-white/[0.04] bg-slate-950/60 px-3 py-1.5 font-mono text-xs text-cyan-100/80">{request.command}</p>
+                <p className="mt-2.5 rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-subtle)] px-3 py-1.5 font-mono text-xs text-[var(--color-action)]">{request.command}</p>
               </article>
             ))}
           </div>
@@ -217,8 +217,8 @@ export function DashboardRecentActivity({ recentRequests, recentAuditLogs }: { r
       </div>
       <div>
         <div className="mb-4 flex items-center justify-between">
-          <h2 className="text-lg font-semibold text-white">{auditTitle}</h2>
-          <Link href="/audit" className="text-xs text-cyan-400/80 transition-colors hover:text-cyan-300">{viewAll}</Link>
+          <h2 className="text-lg font-semibold text-[var(--text-primary)]">{auditTitle}</h2>
+          <Link href="/audit" className="text-xs text-[var(--color-action)] transition-colors hover:text-[var(--color-action-hover)]">{viewAll}</Link>
         </div>
         {recentAuditLogs.length === 0 ? (
           <EmptyState text={noAudit} />
@@ -228,8 +228,8 @@ export function DashboardRecentActivity({ recentRequests, recentAuditLogs }: { r
               <div key={log.id} className="rounded-lg border border-white/[0.04] bg-white/[0.02] px-3.5 py-2.5 transition-colors duration-150 hover:bg-white/[0.04]">
                 <div className="flex items-center gap-2 text-xs">
                   <Badge color={log.severity === "WARNING" ? "amber" : log.severity === "CRITICAL" ? "rose" : "slate"}>{log.action}</Badge>
-                  <span className="truncate text-slate-500">{log.actor?.displayName ?? log.actor?.username ?? (log.actorType === "SYSTEM" ? "系统" : log.actorType)}</span>
-                  <time className="ml-auto shrink-0 text-slate-600" dateTime={log.createdAt} suppressHydrationWarning>{log.formattedCreatedAt}</time>
+                  <span className="min-w-0 flex-1 truncate text-[var(--text-muted)]">{log.actor?.displayName ?? log.actor?.username ?? (log.actorType === "SYSTEM" ? "系统" : log.actorType)}</span>
+                  <time className="shrink-0 whitespace-nowrap text-[var(--text-muted)]" dateTime={log.createdAt} suppressHydrationWarning>{log.formattedCreatedAt}</time>
                 </div>
               </div>
             ))}
@@ -241,12 +241,12 @@ export function DashboardRecentActivity({ recentRequests, recentAuditLogs }: { r
 }
 
 function QuickLink({ href, title, desc, icon, badge, badgeColor }: { href: string; title: string; desc: string; icon: React.ReactNode; badge?: string; badgeColor?: "cyan" | "amber" }) {
-  const badgeBg = badgeColor === "cyan" ? "bg-cyan-400/10 border-cyan-400/20 text-cyan-200" : "bg-amber-400/10 border-amber-400/20 text-amber-200";
+  const badgeBg = badgeColor === "cyan" ? "border-[var(--color-action-border)] bg-[var(--color-action-bg)] text-[var(--color-action)]" : "border-[var(--warning-border)] bg-[var(--warning-bg)] text-[var(--warning)]";
   return (
- <Link data-card href={href} className="group transition-colors duration-150 hover:border-cyan-400/20 hover:bg-cyan-400/[0.04]">
-      <div className="text-slate-400 transition-colors duration-150 group-hover:text-cyan-300">{icon}</div>
-      <div className="mt-3 text-sm font-medium text-white">{title}</div>
-      <p className="mt-1 text-xs text-slate-500">{desc}</p>
+ <Link data-card href={href} className="group transition-colors duration-150 hover:border-[var(--color-action-border)] hover:bg-[var(--color-action-bg)]">
+      <div className="text-[var(--text-secondary)] transition-colors duration-150 group-hover:text-[var(--color-action)]">{icon}</div>
+      <div className="mt-3 text-sm font-medium text-[var(--text-primary)]">{title}</div>
+      <p className="mt-1 text-xs text-[var(--text-muted)]">{desc}</p>
       {badge && <span className={`mt-2.5 inline-block rounded-full border px-2.5 py-0.5 text-[11px] font-medium ${badgeBg}`}>{badge}</span>}
     </Link>
   );
@@ -254,10 +254,10 @@ function QuickLink({ href, title, desc, icon, badge, badgeColor }: { href: strin
 
 function Badge({ color, children }: { color: "amber" | "emerald" | "rose" | "slate"; children: React.ReactNode }) {
   const styles = {
-    amber: "border-amber-400/20 bg-amber-400/10 text-amber-200",
-    emerald: "border-emerald-400/20 bg-emerald-400/10 text-emerald-200",
-    rose: "border-rose-400/20 bg-rose-400/10 text-rose-200",
-    slate: "border-white/10 bg-white/5 text-slate-300",
+    amber: "border-[var(--warning-border)] bg-[var(--warning-bg)] text-[var(--warning)]",
+    emerald: "border-[var(--success-border)] bg-[var(--success-bg)] text-[var(--success)]",
+    rose: "border-[var(--danger-border)] bg-[var(--danger-bg)] text-[var(--danger)]",
+    slate: "border-[var(--border)] bg-[var(--surface-elevated)] text-[var(--text-secondary)]",
   };
   return <span className={`inline-flex items-center rounded-full border px-2 py-0.5 text-[11px] font-medium ${styles[color]}`}>{children}</span>;
 }
