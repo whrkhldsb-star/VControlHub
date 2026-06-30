@@ -205,7 +205,7 @@ export function AlertRuleListClient({ rules: initialRules, servers, canManage }:
 							<li key={`${delivery.channel}-${index}`} className="flex flex-wrap gap-2 text-xs">
 								<span className="font-mono uppercase">{delivery.channel}</span>
 								<span>{deliveryStatusLabel(t, delivery.status)}</span>
-								<span className="text-cyan-100/70/70">{delivery.message}</span>
+								<span className="text-cyan-100/70">{delivery.message}</span>
 							</li>
 						))}
 					</ul>

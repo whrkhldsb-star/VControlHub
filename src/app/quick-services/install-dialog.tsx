@@ -190,7 +190,7 @@ export function InstallDialog({
 
 					<div data-tone="cyan" className="rounded-xl border border-cyan-400/15 p-3 text-xs text-cyan-100">
 						<div className="font-semibold">{t("qsPage.configPreviewTitle")}</div>
-						<div className="mt-2 grid gap-1.5 text-cyan-100/80/75">
+						<div className="mt-2 grid gap-1.5 text-cyan-100/80">
 							<span>{t("qsPage.imageLabel").replace("{image}", open.image ?? t("qsPage.imagePending"))}</span>
 							<span>
 								{t("qsPage.containerPortLabel").replace("{container}", String(containerPort ?? t("qsPage.containerPortDash"))).replace("{host}", customPort || String(open.defaultPort))}

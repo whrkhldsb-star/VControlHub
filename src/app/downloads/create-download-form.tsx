@@ -242,7 +242,7 @@ export function CreateDownloadForm({
 				<p className="font-medium">
 					完成后的“下载文件”按钮和文件管理使用同一套访问策略。
 				</p>
-				<p className="mt-1 text-cyan-100/70/70">
+				<p className="mt-1 text-cyan-100/70">
 					{t("downloadsPage.form.transportInfo")}
 				</p>
 			</div>

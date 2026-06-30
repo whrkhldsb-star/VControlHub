@@ -74,7 +74,7 @@ export function FileBatchToolbar({
             批量操作完成，{progress.errors.length + moveProgress.errors.length}{" "}
             个失败
           </p>
-          <ul className="mt-1 max-h-28 overflow-y-auto text-xs text-amber-100/80/80">
+          <ul className="mt-1 max-h-28 overflow-y-auto text-xs text-amber-100/80">
             {[...progress.errors, ...moveProgress.errors].map((error) => (
               <li key={error}>• {error}</li>
             ))}

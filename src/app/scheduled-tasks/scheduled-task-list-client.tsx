@@ -168,7 +168,7 @@ export function ScheduledTaskListClient({ tasks: initialTasks, servers, canCreat
 										</span>
 									</div>
 									<p className="mt-1 text-xs text-slate-500">Cron: <code className="text-cyan-300/70 font-mono">{task.cronExpression}</code> — {task.cronDescription}</p>
-									<div className="mt-2.5 rounded-lg bg-slate-950/60 px-3 py-1.5 font-mono text-xs text-cyan-100/80/80 border border-white/[0.04]">
+									<div className="mt-2.5 rounded-lg bg-slate-950/60 px-3 py-1.5 font-mono text-xs text-cyan-100/80 border border-white/[0.04]">
 										{task.command}
 									</div>
 									{task.reason && <p className="mt-1.5 text-xs text-slate-500">{t("scheduledTasksPage.reason").replace("{reason}", task.reason)}</p>}

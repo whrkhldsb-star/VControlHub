@@ -167,7 +167,7 @@ export default function MonitoringPage({ canManage: _canManage }: { canManage: b
       <PageShell>
         <div data-tone="rose" className="rounded-2xl border border-rose-500/20 p-5 text-sm text-rose-100">
           <h1 className="mb-2 text-xl font-semibold text-rose-50">{t("monitoringPage.errorTitle")}</h1>
-          <p className="text-rose-100/80/80">{errorMessage ?? t("monitoringPage.errorUnavailable")}</p>
+          <p className="text-rose-100/80">{errorMessage ?? t("monitoringPage.errorUnavailable")}</p>
           <button
             type="button"
             onClick={fetchStats}

@@ -346,7 +346,7 @@ export function QuickServicesClient({ canManage }: { canManage: boolean }) {
 			{dockerStatus && !dockerStatus.available ? (
 				<div data-tone="amber" className="rounded-2xl border border-amber-400/25 p-4 text-sm text-amber-100">
 					<div className="font-medium">{t("qsPage.dockerNotReadyTitle")}</div>
-					<p className="mt-1 text-xs text-amber-100/75/75">{dockerStatus.message}</p>
+					<p className="mt-1 text-xs text-amber-100/75">{dockerStatus.message}</p>
 					{dockerStatus.installHint ? <p data-code-surface="true" className="mt-2 rounded-lg border border-amber-300/20 bg-slate-950/50 px-3 py-2 font-mono text-xs text-amber-50">{dockerStatus.installHint}</p> : null}
 				</div>
 			) : null}
