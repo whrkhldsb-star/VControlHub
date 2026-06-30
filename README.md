@@ -7,7 +7,7 @@
 [![Next.js](https://img.shields.io/badge/Next.js-16-black?logo=next.js)](https://nextjs.org/)
 [![React](https://img.shields.io/badge/React-19-61DAFB?logo=react.dev)](https://react.dev/)
 [![PostgreSQL](https://img.shields.io/badge/PostgreSQL-15-336791?logo=postgresql)](https://www.postgresql.org/)
-[![Prisma](https://img.shields.io/badge/Prisma-7-2D3748?logo=prisma.io)](https://www.prisma.org/)
+[![Prisma](https://img.shields.io/badge/Prisma-7.7-2D3748?logo=prisma.io)](https://www.prisma.org/)
 [![Docker](https://img.shields.io/badge/Docker-Ready-2496ED?logo=docker.com)](https://www.docker.com/)
 [![License](https://img.shields.io/badge/License-Private-red)]()
 
@@ -28,7 +28,8 @@
 ### 🖧 服务器管理
 
 - **多节点纳管** — 添加/管理多台 VPS，SSH 密钥认证
-- **浏览器 SSH 终端** — WebSocket 实时终端，安全连接任意节点
+- **多 Tab SSH 终端** — WebSocket 实时终端，支持多 tab 多会话并行连接，Ctrl/Cmd+Tab 切换，状态指示灯实时反馈
+- **SFTP 文件传输** — 终端面板内嵌 SFTP 文件管理器，拖拽上传/下载/删除/重命名/新建文件夹，面包屑导航
 - **批量命令** — 服务器多选 + 批量 SSH 命令执行
 - **审批流执行** — 敏感操作需管理员审批后才执行，全程审计
 
@@ -56,8 +57,9 @@
 ### 🤖 AI 助手
 
 - **多模型支持** — OpenAI / Anthropic / 本地模型自由切换
-- **内置工具调用** — AI 可直接查询服务器状态、执行诊断
+- **内置工具调用** — 13 项 hosted tools：服务器状态/日志/Docker/服务管理/命令执行/配置修改/Docker 部署/备份列表/Playbook 运行/流量查询/Cron 管理
 - **对话历史** — 多轮对话管理 + 上下文保持
+- **智能运维** — `/ai-ops` 页面提供 AI 驱动的运维建议与自动诊断
 
 ### 🔐 安全与权限
 
@@ -72,13 +74,16 @@
 
 - **定时任务** — Cron 风格调度 + 执行日志
 - **命令模板** — 可复用的 SSH 命令模板库
-- **数据备份** — 一键数据库备份 + 恢复
+- **Playbook 编排** — 多步骤命令编排，变量替换，条件执行
+- **数据备份** — 数据库 / 文件 / 全量三种备份模式，支持定时自动备份（cron 调度 + 保留策略）+ 异地 S3 上传
 - **部署管理** — 版本导出 + 最近部署重发（真实回滚待补齐）
+- **成本追踪** — 资源成本汇总与趋势分析
+- **智能运维** — AI 驱动的运维建议与自动诊断
 
 ### 🎨 用户体验
 
-- **深色主题** — 默认暗色 UI，护眼舒适
-- **多语言** — 中文 / 英文切换
+- **深色 / 浅色主题** — 默认暗色 UI，Q-layer 兼容层自动映射旧硬编码到 CSS 变量，支持浅色模式
+- **多语言** — 中文 / 英文切换，76 字典文件全覆盖
 - **响应式布局** — 适配桌面和平板
 - **全局搜索** — 快速跳转任意功能模块
 
@@ -90,7 +95,7 @@
 | ------------ | ------------------ | -------------------------------------------------------------- |
 | 仪表盘       | `/`                | 系统概览 + 统计卡片 + 趋势图                                   |
 | VPS 管理     | `/servers`         | 节点纳管、SSH 密钥、命令分发                                   |
-| SSH 终端     | 弹窗               | 浏览器内 WebSocket 实时终端                                    |
+| SSH 终端     | 多 Tab 终端管理器  | 浏览器内 WebSocket 实时终端，多 tab 并行 + SFTP 文件管理       |
 | 文件管理     | `/files`           | 多节点文件浏览/上传/下载/解压，支持可搜索节点下拉切换          |
 | 云盘存储     | `/storage`         | 本地/SFTP 存储节点管理与同步                                   |
 | 应用商店     | `/quick-services`  | 精选商店 / 社区推荐 / 已安装 / 应用源                          |
@@ -99,13 +104,17 @@
 | 告警规则     | `/alert-rules`     | 自定义监控告警                                                 |
 | 通知         | `/notifications`   | 站内消息中心                                                   |
 | AI 助手      | `/ai`              | 多模型 AI 对话 + 工具调用，高风险操作需确认                    |
+| 智能运维     | `/ai-ops`          | AI 驱动的运维建议与诊断                                        |
 | 命令模板     | `/templates`       | 可复用 SSH/部署模板，提交后进入部署/审批记录                   |
+| Playbook     | `/playbooks`       | 多步骤命令编排，变量替换                                       |
 | 定时任务     | `/scheduled-tasks` | Cron 调度 + 执行日志                                           |
-| 备份         | `/backups`         | 数据库备份/恢复                                                |
+| 备份         | `/backups`         | 数据库/文件/全量备份 + 恢复 + 定时备份调度                     |
 | 部署         | `/deployments`     | 应用部署运行记录、版本导出与最近部署重发（不是快照级真实回滚） |
 | 下载中心     | `/downloads`       | Aria2 任务管理                                                 |
 | 图床外链中心 | `/image-bed`       | 已发布图片外链复制、来源审计与兼容发布                         |
 | 媒体         | `/media`           | 在线媒体浏览                                                   |
+| 成本追踪     | `/cost-summary`    | 资源成本汇总与趋势分析                                         |
+| 公开状态页   | `/status`          | 公开服务健康状态                                               |
 | 工单         | `/tickets`         | 内部工单系统                                                   |
 | 公告         | `/announcements`   | 站内公告管理                                                   |
 | 分享         | `/shares`          | 文件分享链接                                                   |
@@ -161,7 +170,7 @@ sudo /opt/vcontrolhub/deploy/install.sh --show-credentials
 # 1. 克隆代码
 git clone https://github.com/whrkhldsb-star/VControlHub.git /opt/vcontrolhub
 
-# 2. 首次运行（自动安装 Node.js 22、PostgreSQL 15、Apache 等依赖）
+# 2. 首次运行（自动安装 Node.js 22、PostgreSQL 15、Caddy 等依赖）
 sudo APP_DIR=/opt/vcontrolhub /opt/vcontrolhub/deploy/install.sh
 
 # 3. 编辑环境变量后再次运行
@@ -199,13 +208,13 @@ sudo APP_NAME="MyCloud" APP_SLUG=mycloud SITE_NAME="My Cloud Platform" \
 | 框架     | Next.js (App Router)                        | 16.2.6   |
 | UI       | React + Tailwind CSS                        | 19 / 4   |
 | 数据库   | PostgreSQL + Prisma                         | 15 / 7.7 |
-| 认证     | lucia-auth + bcrypt                         | —        |
+| 认证     | 自定义 Session + bcryptjs                   | —        |
 | SSH      | ssh2 + WebSocket                            | 1.17     |
 | 下载     | Aria2 JSON-RPC                              | —        |
 | 反向代理 | Caddy (自动HTTPS) / Apache                  | —        |
 | 进程管理 | systemd                                     | —        |
 | 容器     | Docker (应用商店)                           | —        |
-| 代码量   | **~79,700 行** TypeScript/TSX（`src` 扫描） | —        |
+| 代码量   | **~163,800 行** TypeScript/TSX（`src` 扫描） | —        |
 
 ---
 
@@ -213,7 +222,7 @@ sudo APP_NAME="MyCloud" APP_SLUG=mycloud SITE_NAME="My Cloud Platform" \
 
 ```
 ├── src/
-│   ├── app/                    # Next.js App Router (39 页面 + 75 API)
+│   ├── app/                    # Next.js App Router (46 页面 + 122 API)
 │   │   ├── api/                # API Routes (RESTful)
 │   │   ├── servers/            # VPS 管理
 │   │   ├── files/              # 文件管理
@@ -221,27 +230,33 @@ sudo APP_NAME="MyCloud" APP_SLUG=mycloud SITE_NAME="My Cloud Platform" \
 │   │   ├── monitoring/         # 监控面板
 │   │   ├── ai/                 # AI 助手
 │   │   └── ...                 # 其他功能模块
-│   ├── components/             # 共享 UI 组件
+│   ├── components/             # 共享 UI 组件 (29 个)
 │   └── lib/                    # 业务逻辑 + 工具库
-│       ├── auth/               # 认证 & 权限
+│       ├── auth/               # 认证 & 权限（自定义 Session + bcryptjs + RBAC）
+│       ├── ssh/                # SSH 客户端 + SFTP 服务
 │       ├── quick-service/      # 应用商店引擎
 │       ├── ai/                 # AI 服务 + 工具
+│       ├── backup/             # 备份 job worker + 调度
+│       ├── i18n/               # 国际化（76 字典文件）
 │       ├── storage/            # 分布式存储
-│       ├── rate-limit-store.ts # 限流存储
 │       └── ...                 # 其他模块
 ├── deploy/                     # 部署脚本 & 配置模板
-│   ├── install.sh              # 一键安装/升级
+│   ├── bootstrap.sh            # fresh server 一行安装入口
+│   ├── install.sh              # 一键安装/升级核心脚本
 │   ├── upgrade.sh              # 升级（含备份+自检）
+│   ├── setup.sh                # 环境初始化（Node.js/PG/Caddy）
 │   ├── package.sh              # 打发布压缩包
 │   ├── check.sh                # 部署健康检查
 │   ├── preflight.sh            # 部署前校验
-│   ├── backup.sh               # 数据库备份
+│   ├── verify-assets.sh        # 部署模板/资产校验（无需 live install）
+│   ├── fakeroot-install-check.sh  # 安装回归测试（不修改宿主）
+│   ├── backup.sh               # 备份包装脚本（database/files/full）
 │   ├── smoke-test.sh           # 冒烟测试
 │   ├── systemd/                # systemd 服务模板
 │   ├── Caddyfile.example       # Caddy 配置示例
 │   ├── apache-next-proxy.example.conf  # Apache 配置示例
 │   └── env.production.example  # 环境变量模板
-├── prisma/                     # 数据库 Schema (43 模型) + 迁移
+├── prisma/                     # 数据库 Schema (55 模型) + 迁移
 ├── scripts/                    # 运维脚本
 └── public/                     # 静态资源
 ```
@@ -293,9 +308,12 @@ make logs SERVICE_PREFIX=vcontrolhub
 | ---------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
 | `deploy/bootstrap.sh`  | fresh server 一行安装入口，负责拉取仓库并调用安装脚本                                                                                            |
 | `deploy/install.sh`    | 一键安装/重装/升级核心脚本，生成环境变量、构建、写 systemd 和反代                                                                                |
+| `deploy/setup.sh`      | 环境初始化（Node.js/PostgreSQL/Caddy 安装）                                                                                                       |
 | `deploy/upgrade.sh`    | 升级入口，默认升级前备份并在完成后自检                                                                                                           |
 | `deploy/check.sh`      | 不泄密的部署健康检查，可选 `RUN_NPM_CHECKS=1` 执行完整 npm 门禁                                                                                  |
 | `deploy/smoke-test.sh` | 线上冒烟测试，覆盖 systemd、端口、Caddy、登录页、静态资源和 SSH-WS                                                                               |
+| `deploy/verify-assets.sh` | 验证部署模板/资产完整性，无需 live install                                                                                                    |
+| `deploy/fakeroot-install-check.sh` | 安装流程回归测试，不修改宿主服务                                                                                                         |
 | `deploy/package.sh`    | 生成不含运行数据/密钥的发布压缩包                                                                                                                |
 | `deploy.sh`            | 修源 owner → 清 `.next` → 以 `vcontrolhub` 用户 build → chown `.next` → 重启服务 → smoke-test 一条龙（避免 root 跑 build 导致 service 启动失败） |
 
@@ -321,101 +339,44 @@ make logs SERVICE_PREFIX=vcontrolhub
 | 指标            | 数量                                             |
 | --------------- | ------------------------------------------------ |
 | 功能页面        | 46                                               |
-| API 端点        | 108（withApiRoute 全覆盖，4 个特殊路径合理豁免） |
-| 数据模型        | 53                                               |
-| UI 组件         | 27                                               |
-| 代码行数        | ~152,300（src 扫描）                             |
-| 测试            | 348 文件 / 2395 tests（2394 pass / 1 skipped）   |
-| Docker 应用模板 | 44 (本地) + 187 (社区)                           |
+| API 端点        | 122（withApiRoute 113 个，9 个特殊路径合理豁免） |
+| 数据模型        | 55                                               |
+| UI 组件         | 29                                               |
+| 代码行数        | ~163,800（src 扫描）                             |
+| 测试            | 358 文件 / ~2,470 tests                          |
+| Docker 应用模板 | 44 (本地) + 社区源实时同步                       |
+| i18n            | 142 useI18n() 调用点，76 字典文件，195 light: 语义 |
 
 ---
 
-## 🔬 全量代码审查（2026-06-24）
+## 🔬 全量代码审查（2026-06-30）
 
-**审查范围**：152,300 行 TypeScript/TSX，108 API 路由，46 页面，53 数据模型，359 测试文件。
-**方法**：静态 grep 信号 + 架构分析 + verify 链（tsc + lint + i18n:key-check + 2394 passed / 1 skipped + build + build:runtime）全通过 + 浏览器实地走查（dashboard / servers / quick-services）。
+**审查范围**：~163,800 行 TypeScript/TSX，122 API 路由，46 页面，55 数据模型，358 测试文件。
+**方法**：静态 grep 信号 + 架构分析 + verify 链（tsc + lint + i18n:key-check + 测试全通过 + build + build:runtime）+ 浏览器实地走查。
 
 ### ✅ 现状健康评估
 
-| 维度      | 评分       | 说明                                                                                              |
-| --------- | ---------- | ------------------------------------------------------------------------------------------------- |
-| 代码质量  | 9/10       | 0 `@ts-ignore`，0 循环依赖，0 prisma 在 client                                                    |
-| 认证/授权 | 10/10      | 108/108 路由覆盖，4 个豁免全合理（login/share/2fa/openapi）                                       |
-| 安全      | 8/10       | DOMPurify 全覆盖，CSRF 防护，AES-256 加密；5 个 postcss moderate vuln（Next.js 内置，无法单独升） |
-| 测试      | 9/10       | 2456 tests pass / 1 skipped，tsc + lint 0 错误                                                    |
-| i18n      | 9/10       | 141 useI18n()，76 字典文件，197 light: 全语义（0 冗余）                                           |
-| 前端 UX   | 8/10       | 5 个功能页侧边栏入口已补齐；AI 客户端响应式已优化                                               |
-| 架构      | 9/10       | findMany take 上界全部接线（storage 8 处 + 业务层 19 处，27/27 done），108/108 路由全部走 TR-034 统一错误格式                              |
-| 运维      | 9/10       | systemd + caddy + smoke + 双 build 全套完整                                                       |
-| **综合**  | **8.6/10** | **结构健康，剩余均为 P2/P3 改善项**                                                               |
+| 维度      | 评分       | 说明                                                                                                    |
+| --------- | ---------- | ------------------------------------------------------------------------------------------------------- |
+| 代码质量  | 9/10       | 0 `@ts-ignore`，0 循环依赖，0 prisma 在 client                                                          |
+| 认证/授权 | 10/10      | 122 路由覆盖，9 个豁免全合理（login/share/2fa/openapi/sftp-upload 等特殊流）                            |
+| 安全      | 8/10       | DOMPurify 全覆盖，CSRF 防护，AES-256 加密；5 个 postcss moderate vuln（Next.js 内置，无法单独升）        |
+| 测试      | 9/10       | 358 文件 / ~2,470 tests pass，tsc + lint 0 错误                                                          |
+| i18n      | 9/10       | 142 useI18n()，76 字典文件，195 light: 全语义                                                            |
+| 前端 UX   | 8/10       | 多 Tab SSH 终端 + SFTP 文件管理 + 浅色模式 Q-layer 兼容层                                                |
+| 架构      | 9/10       | findMany take 上界全部接线（27/27），122 路由全部走 TR-034 统一错误格式，durable job worker + 定时调度   |
+| 运维      | 9/10       | systemd + caddy + smoke + 双 build 全套完整 + 定时备份调度 + 异地 S3                                    |
+| **综合**  | **8.8/10** | **结构健康，剩余均为 P2/P3 改善项**                                                                     |
 
 ---
 
-## 🎨 UI 架构升级与美化（R33–R36，2026-06-30）
+## 🎨 UI 架构升级摘要
 
-**策略**：先核实真实状态（项目已有 Q-layer 兼容层，暗色 `slate/cyan` 硬编码自动映射 token），将精力投到**用户可感知的 bug** 而非不可见的 token 替换。
+**浅色模式 Q-layer 兼容层**（globals.css L274-400 + L1571-1599）：通配符映射旧 `slate/cyan/white` 硬编码到 CSS 变量，实现深色 → 浅色自动切换。R35-R36 已将 159 文件 ~1500 处硬编码替换为显式 CSS 变量，残留由 Q-layer 兜底，**当前无可见 bug**。
 
-### R33：真实 bug 修复（~20 个，跨 15+ 文件）
+**真实 bug 修复**（R33）：仪表盘时间戳截断、quick-links 磁贴压缩、CPU 型号被 `split` 截断、9 处 Tailwind 双透明度类静默丢样式、PageShell 内容宽度统一 `max-w-7xl`。
 
-**仪表盘**
-- 时间戳被 flex 挤成 3px 截断 → 恢复正常显示
-- quick-links 6 个磁贴被 2 列网格压成 64px → 改单列堆叠，恢复 140px
-- `text-slate-600/700` 暗色无映射（近不可见）→ 全局补映射
-
-**文件管理页**
-- 删除重复的"切换存储节点"卡片
-- 修复侧边栏目录树下方大片空白 void（sticky + self-start）
-
-**监控页**
-- CPU 型号被 `.split("").slice(0,3)` 砍成 "Int" → 恢复完整 `Intel(R) Xeon(R) Gold 6230...`
-- 原始 ISO 时间戳 → 格式化为本地时间
-
-**9 处破损 Tailwind 双透明度类**（静默丢样式，最隐蔽）
-- `p-3/50`（无效 → 卡片零内边距）、`text-X/N/N`（第二个 N 覆盖颜色 → 文字不可见）等
-- 涉及 backups / api-tokens / batch-toolbar / quick-services / install-dialog / monitoring alert-rules / downloads / scheduled-tasks / media
-
-**内容宽度统一**
-- PageShell 默认 `max-w-6xl` → `max-w-7xl`（10+ 页面此前比其余窄 128px）
-
-### R35–R36：硬编码深色背景全量清除（159 文件，~1500 处替换）
-
-**问题**：~160 个 `.tsx` 文件中硬编码 `bg-slate-950/900/800`、`border-white/[0.0X]`、`text-white/slate-XXX`，浅色模式下渲染出深蓝/深黑底 + 黑字（不可读）。
-
-**方案**：逐类替换为 CSS 变量（随主题色自动切换）：
-| 旧写法 | 新写法 | 适用场景 |
-|---|---|---|
-| `bg-slate-950` (solid, 后接 `px-`) | `bg-[var(--input-bg)]` | 输入框/textarea/select |
-| `bg-slate-950` (solid, 后接 `p-5/6`) | `bg-[var(--modal-bg)]` | Modal/Dialog 内容面板 |
-| `bg-slate-950/20-60` | `bg-[var(--surface-subtle)]` | 代码块、日志区、信息面板 |
-| `bg-slate-950/90-95` | `bg-[var(--modal-bg)]` | 底部导航栏、toast |
-| `bg-slate-900` (solid) | `bg-[var(--surface)]` | Section 背景、卡片 |
-| `bg-slate-900/40-70` | `bg-[var(--surface-subtle)]` | 子面板、权限项 |
-| `bg-slate-800` (solid + semi) | `bg-[var(--surface-hover)]` | Hover 态、进度条轨道 |
-| `border-white/[0.03-0.08]` | `border-[var(--border)]` | 全部边框 |
-| `border-slate-600/700` | `border-[var(--border)]` | 全部边框 |
-| `text-white` | `text-[var(--text-primary)]` | 标题/正文 |
-| `text-slate-100-300` | `text-[var(--text-primary/secondary)]` | 正文/次要文字 |
-| `text-slate-400-500` | `text-[var(--text-muted)]` | 辅助信息 |
-| `divide-white/[0.06]` | `divide-[var(--border)]` | 分割线 |
-
-**排除项**（保持原样）：
-- `ssh-terminal-modal.tsx`：终端模拟器刻意深色
-- Modal overlay `bg-slate-950/70`/`/75`：半透明遮罩，两种模式通用
-- 独立错误页（not-found/offline/status/share token）
-- 代码预览组件（text/markdown/csv-preview + find-bar）
-- Toggle 开关球 `bg-white`（滑块白色合理）
-- Loading dots `bg-white`（3 个点合理）
-
-**验证**：tsc 0 错，next build 成功，部署恢复 200 OK，浅色模式浏览器实测 dashboard/servers/settings/storage/image-bed 均正常。
-
-### 数据获取层抽象（架构提升）
-
-- **`useRefreshInterval`**（`src/lib/preferences/use-refresh-interval.ts`）— 统一从 `vps-preferences` localStorage 读刷新间隔 + `storage` / `vps-preferences-updated` 事件同步。消除 docker / monitoring / traffic / server-monitor-card **4 处逐字节重复**的 init `useState` + dual-listener `useEffect` 样板。
-- **`useResourcePolling`**（`src/lib/http/use-resource-polling.ts`）— 统一 `loading / refreshing / error / data` + 可见性感知轮询 + 重叠去重 + 卸载安全 + 手动 `refresh` + 乐观 `setData`。audit 页 pilot 迁移（单资源 HTTP 获取，filter 驱动重取）。
-- 配 20 个 hook 单测，全通过。
-- **验证**：tsc 0 错，eslint 0 错，2471/2473 测试通过（1 跳过，1 个 ssh-terminal-modal focus flaky 与本改动无关 — 单跑通过），next build 成功。behavior 1:1 保持；audit 改筛选不再闪 loading（保留旧数据 + refreshing，UX 改进）。
-
-**可扩展性收益**：新页面接数据从 ~50 行手写样板降到 3 行 hook 调用；剩余 6 个轮询页可逐步迁移到 `useResourcePolling`（模式固定、有 pilot 模板、适合分批推进）。
+**数据获取层抽象**：`useRefreshInterval` 消除 4 处重复轮询样板；`useResourcePolling` 统一 loading/refreshing/error/data + 可见性感知轮询 + 重叠去重，audit 页 pilot 迁移完成。新页面接数据从 ~50 行手写样板降到 3 行 hook 调用。
 
 ## 📋 待办清单（统一）
 
@@ -465,7 +426,7 @@ make logs SERVICE_PREFIX=vcontrolhub
 
 - **测试覆盖率提升** — 当前 lines 74.88% / branches 59.93%，CI 阈值 lines/statements/functions 70%、branches 55%；可随测试补齐逐步收紧。
 - **组件文档持续维护** — `src/components/README.md` 已建立；新增共享组件时同步追加说明。
-- **AI 客户端工具扩展** — 已有 4 项新工具（`list_backups` / `run_playbook` / `query_traffic` / `manage_cron`），可继续扩展 hosted-tools 覆盖更多运维场景。
+- **AI 客户端工具扩展** — 已有 13 项 hosted tools（`list_servers` / `get_server_status` / `read_server_logs` / `list_docker_containers` / `check_service_status` / `execute_command` / `restart_service` / `modify_config` / `deploy_docker` / `list_backups` / `run_playbook` / `query_traffic` / `manage_cron`），可继续扩展覆盖更多运维场景。
 
 ---
 
