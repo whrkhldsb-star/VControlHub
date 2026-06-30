@@ -124,9 +124,8 @@ describe("BackupsPage", () => {
     expect(screen.getByText(/建议：优先确认 BACKUP_DIR 或 \/var\/backups\/<slug> 是可写目录/)).toBeInTheDocument();
     expect(screen.getByText("readonly path")).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "创建定时备份" })).toBeInTheDocument();
-    expect(screen.getByText(/选择备份类型、Cron 与执行节点后/)).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "创建定时备份" })).toBeInTheDocument();
-    expect(screen.getByText("主节点")).toBeInTheDocument();
+    expect(screen.getByText(/选择备份类型与 Cron 表达式后/)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "创建备份计划" })).toBeInTheDocument();
 
     expect(screen.getByText(/deploy\/backup\.sh 'backups\/database\.sql\.gz'/)).toBeInTheDocument();
     expect(screen.getByText(/deploy\/backup\.sh --files 'backups\/files\.tar\.gz'/)).toBeInTheDocument();

@@ -62,6 +62,21 @@ export const zh: Record<string, string> = {
 	"sshTerminalManager.tabsSuffix": "个标签",
 	"sshTerminalManager.closeTab": "关闭 {serverName} 标签",
 	"sshTerminalManager.newTab": "新建标签",
+
+	// File manager (SFTP)
+	"sshFileManager.toggle": "📁 文件",
+	"sshFileManager.title": "远程文件",
+	"sshFileManager.upload": "上传",
+	"sshFileManager.download": "下载",
+	"sshFileManager.delete": "删除",
+	"sshFileManager.rename": "重命名",
+	"sshFileManager.newFolder": "新建文件夹",
+	"sshFileManager.folderName": "文件夹名称…",
+	"sshFileManager.dropHere": "拖放文件到此处上传",
+	"sshFileManager.dragHint": "拖放文件到此处上传",
+	"sshFileManager.loading": "加载中…",
+	"sshFileManager.empty": "空目录",
+	"sshFileManager.confirmDelete": "确定删除 {name}？",
 };
 
 export const en: Record<string, string> = {
@@ -114,4 +129,19 @@ export const en: Record<string, string> = {
 	"sshTerminalManager.tabsSuffix": "tabs",
 	"sshTerminalManager.closeTab": "Close {serverName} tab",
 	"sshTerminalManager.newTab": "New tab",
+
+	// File manager (SFTP)
+	"sshFileManager.toggle": "📁 Files",
+	"sshFileManager.title": "Remote Files",
+	"sshFileManager.upload": "Upload",
+	"sshFileManager.download": "Download",
+	"sshFileManager.delete": "Delete",
+	"sshFileManager.rename": "Rename",
+	"sshFileManager.newFolder": "New Folder",
+	"sshFileManager.folderName": "Folder name…",
+	"sshFileManager.dropHere": "Drop files here to upload",
+	"sshFileManager.dragHint": "Drop files here to upload",
+	"sshFileManager.loading": "Loading…",
+	"sshFileManager.empty": "Empty directory",
+	"sshFileManager.confirmDelete": "Delete {name}?",
 };

@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { csrfFetch } from "@/lib/auth/csrf-client";
 import { buildSshWebSocketUrl } from "@/components/ssh-terminal-url";
 import { useI18n } from "@/lib/i18n/use-locale";
+import { SshFileManager } from "@/components/ssh-file-manager";
 
 /* ------------------------------------------------------------------ */
 /* SshTerminalPanel — single-tab terminal logic (extracted from modal) */
@@ -50,6 +51,7 @@ export function SshTerminalPanel({ serverId, serverName, host, sessionToken, vis
 	const [errorMsg, setErrorMsg] = useState<string>("");
 	const [reconnectKey, setReconnectKey] = useState(0);
 	const [showSidePanel, setShowSidePanel] = useState(false);
+	const [showFileManager, setShowFileManager] = useState(false);
 	const [terminalSearch, setTerminalSearch] = useState("");
 	const [commandHistory, setCommandHistory] = useState<string[]>([]);
 	const [favoriteCommands, setFavoriteCommands] = useState<string[]>(() => {
@@ -360,6 +362,14 @@ export function SshTerminalPanel({ serverId, serverName, host, sessionToken, vis
 					>
 						{t("sshTerminalModal.panelToggle")}
 					</button>
+					<button
+						type="button"
+						onClick={() => setShowFileManager(!showFileManager)}
+						aria-expanded={showFileManager}
+						className={`min-h-9 rounded-full border px-3 py-1 text-xs transition ${showFileManager ? "border-cyan-400/30 bg-cyan-400/10 text-cyan-100" : "border-white/10 bg-white/5 text-slate-300 hover:bg-white/10"}`}
+					>
+						{t("sshFileManager.toggle")}
+					</button>
 					{(status === "error" || status === "closed") && (
 						<button
 							type="button"
@@ -414,7 +424,10 @@ export function SshTerminalPanel({ serverId, serverName, host, sessionToken, vis
 						className="h-[clamp(280px,52vh,520px)] w-full overflow-hidden rounded-xl border border-white/10 bg-[var(--surface-root)] lg:h-full lg:min-h-[350px]"
 					/>
 				</div>
-				{showSidePanel && (
+				{showFileManager && (
+				<SshFileManager serverId={serverId} visible={showFileManager} />
+			)}
+			{showSidePanel && (
 					<div className="flex max-h-[50vh] w-full shrink-0 flex-col gap-3 overflow-y-auto lg:ml-3 lg:max-h-none lg:w-56">
 						<section className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-3">
 							<h4 className="mb-2 text-xs font-medium text-white/60">{t("sshTerminalModal.favoritesTitle")}</h4>
