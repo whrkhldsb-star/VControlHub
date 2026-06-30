@@ -436,7 +436,7 @@ make logs SERVICE_PREFIX=vcontrolhub
 - [ ] **SSH 内文件传输** — 终端会话内直接拖拽上传/下载（SFTP over SSH）。 `[功能]`
 - [ ] **历史可用率图表** — 公开状态页补 90 天 uptime 热力图 / SLA 统计。 `[功能]`
 - [ ] **Playbook 步骤拖拽排序** — `@dnd-kit` 实现步骤顺序拖拽（当前为表单式编辑，742 行）。 `[功能]`
-- [ ] **备份定时自动备份** — 当前 `BackupRecord` 模型仅手动触发，可借通用 `ScheduledTask` 跑 backup 脚本，但缺一等公民配置 UI / cron 字段；建议要么新增 `BackupSchedule` 模型，要么在 backup 页内联挂接 ScheduledTask 创建器。 `[功能]`
+- [x] **备份定时自动备份**（TR-038）— 新建一等公民 `BackupSchedule` Prisma 模型（cron + backupType + note + retentionDays + status + run tracking），配套 `backup-schedule.tick` durable job worker（60s tick，CAS claim 防多 worker 重复分发，创建 PENDING BackupRecord + enqueue `backup.create` job 复用已有 backup-job-worker 本地执行）。API 路由 `/api/backup-schedules` GET/POST/PATCH/DELETE（TR-037 bodySchema + union schema for toggle/update）。UI 重写 `schedule-backup-form.tsx`（去掉旧 ScheduledTask workaround 的 VPS serverIds 选择，加 note/retentionDays 字段 + schedule 列表 toggle/delete）。38 新测试全通过。旧 `buildScheduledBackupCommand` 函数保留（pure function，测试仍覆盖）。 `[功能/架构]`
 
 ### P3 — 长期愿景与渐进式改善
 

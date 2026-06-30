@@ -91,6 +91,7 @@ model User {
   syncJobs               SyncJob[]
   shareLinks             ShareLink[]
   backupRecords          BackupRecord[]
+  backupSchedules        BackupSchedule[]
   deploymentRuns         DeploymentRun[]
   deploymentRollbackRuns DeploymentRollbackRun[]
   snippets               Snippet[]
@@ -744,6 +745,44 @@ model BackupRecord {
   @@index([status, createdAt])
   @@index([offsiteUploadedAt])
   @@map("backup_records")
+}
+
+// TR-038: First-class backup schedules. Previously the only way to "schedule"
+// a backup was to wrap the local backup shell command in a generic
+// ScheduledTask row — but ScheduledTask dispatches via createCommandRequest
+// (remote SSH to VPS targets), while `deploy/backup.sh` only exists on the
+// VControlHub host. The workaround was architecturally broken.
+//
+// BackupSchedule is a dedicated model: cron + backupType + note +
+// optional retention. The schedule tick worker creates a PENDING
+// BackupRecord and enqueues a `backup.create` durable job, which the
+// existing backup-job-worker picks up and runs locally via
+// runExistingBackupRecord. No serverIds — backups are host-local.
+model BackupSchedule {
+  id             String   @id @default(cuid())
+  name           String
+  cronExpression String
+  // "DATABASE" | "FILES" | "FULL" — validated at the service layer via isBackupType
+  backupType     String
+  note           String?
+  // Optional: auto-prune backups of this type older than N days after each
+  // successful run. null = no auto-retention (operator runs retention manually).
+  retentionDays  Int?
+  // "ACTIVE" | "PAUSED" | "DISABLED" — plain string (not enum) to mirror
+  // BackupRecord.status convention and avoid enum migration churn.
+  status         String   @default("ACTIVE")
+  createdById    String?
+  lastRunAt      DateTime?
+  nextRunAt      DateTime?
+  lastResult     String?
+  runCount       Int      @default(0)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  creator User? @relation(fields: [createdById], references: [id], onDelete: SetNull)
+
+  @@index([status, nextRunAt])
+  @@map("backup_schedules")
 }
 
 model DeploymentRun {

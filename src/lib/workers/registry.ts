@@ -20,6 +20,7 @@
 import { startAlertEvaluationWorker, stopAlertEvaluationWorkerForTests } from "@/lib/health/alert-worker";
 import { startAiOpsScanWorker, stopAiOpsScanWorkerForTests } from "@/lib/ai/ops/scan-worker";
 import { startBackupJobWorker, stopBackupJobWorkerForTests } from "@/lib/backup/job-worker";
+import { startBackupScheduleWorker, stopBackupScheduleWorkerForTests } from "@/lib/backup/schedule-worker";
 import { startCommandExecutionWorker, stopCommandExecutionWorkerForTests } from "@/lib/command/execution-worker";
 import { startCommandMaintenanceWorker, stopCommandMaintenanceWorkerForTests } from "@/lib/command/worker";
 import { startDownloadJobWorker, stopDownloadJobWorkerForTests } from "@/lib/downloads/execution-worker";
@@ -34,6 +35,7 @@ export type WorkerId =
   | "ai-ops-scan"
   | "alert-evaluation"
   | "backup"
+  | "backup-schedule"
   | "command-execution"
   | "command-maintenance"
   | "cost-snapshot"
@@ -79,6 +81,7 @@ function getRegistryState(): Record<WorkerId, { started: boolean }> {
       "ai-ops-scan": { started: false },
       "alert-evaluation": { started: false },
       backup: { started: false },
+      "backup-schedule": { started: false },
       "command-execution": { started: false },
       "command-maintenance": { started: false },
       "cost-snapshot": { started: false },
@@ -117,6 +120,20 @@ const BACKUP: WorkerSpec = {
     return Promise.resolve();
   },
   stop: () => stopBackupJobWorkerForTests(),
+};
+
+const BACKUP_SCHEDULE: WorkerSpec = {
+  id: "backup-schedule",
+  // TR-038: 60s tick — finds due BackupSchedule rows, creates PENDING
+  // BackupRecord + enqueues backup.create durable job (picked up by the
+  // `backup` worker above). Separated from `backup` so schedule dispatch
+  // (lightweight DB writes) doesn't block on backup execution (heavy bash).
+  label: "备份计划调度",
+  jobType: "backup-schedule.tick",
+  start: async () => {
+    await startBackupScheduleWorker();
+  },
+  stop: () => stopBackupScheduleWorkerForTests(),
 };
 
 const COMMAND_EXECUTION: WorkerSpec = {
@@ -228,6 +245,7 @@ export const WORKER_REGISTRY: readonly WorkerSpec[] = Object.freeze([
   AI_OPS_SCAN,
   ALERT_EVALUATION,
   BACKUP,
+  BACKUP_SCHEDULE,
   COMMAND_EXECUTION,
   COMMAND_MAINTENANCE,
   COST_SNAPSHOT,

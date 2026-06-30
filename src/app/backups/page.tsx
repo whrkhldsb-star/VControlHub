@@ -1,9 +1,8 @@
 import { requireSession } from "@/lib/auth/require-session";
 import { sessionHasPermission } from "@/lib/auth/authorization";
-import { buildBackupRestoreCommand, buildPortableBackupCommand, buildScheduledBackupCommand, formatBackupSize, isBackupType, listBackupRecords, summarizeBackupPolicy } from "@/lib/backup/service";
+import { buildBackupRestoreCommand, buildPortableBackupCommand, formatBackupSize, isBackupType, listBackupRecords, summarizeBackupPolicy } from "@/lib/backup/service";
 import { config } from "@/lib/config/env";
 import { t } from "@/lib/i18n/translations";
-import { listServerProfiles } from "@/lib/server/service";
 import { PageShell, EmptyState, PageHeader } from "@/components/page-shell";
 import { CreateBackupForm } from "./create-backup-form";
 import { ScheduleBackupForm } from "./schedule-backup-form";
@@ -24,18 +23,11 @@ export default async function BackupsPage() {
 	if (!sessionHasPermission(session, "backup:read")) return <PageShell><EmptyState text={t("backupsPage.noPermission")} /></PageShell>;
 	const canCreate = sessionHasPermission(session, "backup:create");
 	const canRestore = sessionHasPermission(session, "backup:restore");
-	const [backups, servers, offsite] = await Promise.all([
+	const [backups, offsite] = await Promise.all([
 		listBackupRecords(),
-		listServerProfiles(),
 		loadOffsiteConfig().catch(() => null),
 	]);
 	const summary = summarizeBackupPolicy(backups);
-	const serverOptions = servers.map((server) => ({ id: server.id, name: server.name, enabled: server.enabled }));
-	const scheduledCommandByType = {
-		DATABASE: buildScheduledBackupCommand({ projectRoot, type: "DATABASE" }),
-		FILES: buildScheduledBackupCommand({ projectRoot, type: "FILES" }),
-		FULL: buildScheduledBackupCommand({ projectRoot, type: "FULL" }),
-	};
 	return (
 		<PageShell>
 			<PageHeader eyebrow={t("backupsPage.eyebrow")} title={t("backupsPage.title")} description={t("backupsPage.description")} />
@@ -173,7 +165,7 @@ export default async function BackupsPage() {
 				<section data-card className="mb-6 ">
 					<h2 className="text-sm font-semibold text-[var(--text-primary)]">{t("backupsPage.schedule.title")}</h2>
 					<p className="mt-1 text-xs text-[var(--text-muted)]">{t("backupsPage.schedule.description")}</p>
-					<ScheduleBackupForm servers={serverOptions} commandByType={scheduledCommandByType} />
+					<ScheduleBackupForm />
 				</section>
 			)}
 

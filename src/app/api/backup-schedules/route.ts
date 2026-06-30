@@ -1,0 +1,64 @@
+import { NextResponse } from "next/server";
+
+import { withApiRoute } from "@/lib/http/api-guard";
+import { GENERAL_WRITE_LIMIT } from "@/lib/http/rate-limit-presets";
+import {
+  createBackupSchedule,
+  listBackupSchedules,
+  toggleBackupSchedule,
+  updateBackupSchedule,
+} from "@/lib/backup/schedule-service";
+import { createBackupScheduleSchema, patchBackupScheduleSchema } from "@/lib/backup/schedule-schema";
+
+export const dynamic = "force-dynamic";
+
+export async function GET(request: Request) {
+  return withApiRoute(request, { permission: "backup:read" }, async () => {
+    return NextResponse.json({ schedules: await listBackupSchedules() });
+  });
+}
+
+export async function POST(request: Request) {
+  return withApiRoute(
+    request,
+    {
+      permission: "backup:create",
+      rateLimit: GENERAL_WRITE_LIMIT,
+      errorStatus: 400,
+      errorMessage: "创建备份计划失败",
+      bodySchema: createBackupScheduleSchema,
+    },
+    async ({ session, body }) => {
+      // The bodySchema enforces shape; createBackupSchedule re-validates
+      // cron + backupType + retention at the service layer for defense in
+      // depth (service is also callable from the worker/tests).
+      const schedule = await createBackupSchedule({
+        ...body,
+        createdById: session?.userId,
+      });
+      return NextResponse.json({ schedule }, { status: 201 });
+    },
+  );
+}
+
+export async function PATCH(request: Request) {
+  return withApiRoute(
+    request,
+    {
+      permission: "backup:create",
+      rateLimit: GENERAL_WRITE_LIMIT,
+      errorStatus: 400,
+      errorMessage: "更新备份计划失败",
+      bodySchema: patchBackupScheduleSchema,
+    },
+    async ({ body }) => {
+      if ("toggleId" in body) {
+        const result = await toggleBackupSchedule(body.toggleId);
+        return NextResponse.json({ schedule: result });
+      }
+      const { id, ...updates } = body;
+      const result = await updateBackupSchedule(id, updates);
+      return NextResponse.json({ schedule: result });
+    },
+  );
+}
