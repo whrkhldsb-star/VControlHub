@@ -418,7 +418,7 @@ make logs SERVICE_PREFIX=vcontrolhub
 
 - [ ] **跨大版本依赖（需验证）** — `typescript` 5.9 → 6.0（breaking, 升前跑全量 tsc）、`eslint` 9 → 10（配置格式变化）、`@types/node` 20 → 26（API 类型变化）、`undici` 7 → 8（Next.js 锁定，不要单独升）。 `[依赖]`
 - [ ] **5 项 moderate npm 安全漏洞** — postcss XSS（GHSA-qx2v-qp2m-jg93）在 Next.js 内置依赖链，待官方升级。 `[安全/依赖]`
-- [ ] **同大版本依赖小升** — `npm update` 即可：`@tailwindcss/postcss` 4.3.0 → 4.3.1、`@types/react` 19.2.15 → 19.2.17、`@vitejs/plugin-react` 6.0.2 → 6.0.3、`cron-parser` 5.5.0 → 5.6.0、`otplib` 13.4.0 → 13.4.1、`tsx` 4.22.3 → 4.22.4、`vitest` 4.1.7 → 4.1.9。 `[依赖]`
+- [x] **同大版本依赖小升** — 所有包已为最新版本：@tailwindcss/postcss@4.3.2、@types/react@19.2.17、@vitejs/plugin-react@6.0.3、cron-parser@5.6.1、otplib@13.4.1、tsx@4.22.4、vitest@4.1.9。 `[依赖]`
 
 ---
 
