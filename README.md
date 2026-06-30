@@ -412,7 +412,7 @@ make logs SERVICE_PREFIX=vcontrolhub
 ### P3 — 性能 / 包体积
 
 - [x] **API 响应缓存继续推广** — 新增 `/api/preferences`、`/api/api-tokens`、`/api/images/stats` 三个端点。 `[性能]`
-- [x] **更多低变动页面改 ISR** — 新增 `/users`(60s)、`/operation-tasks`(30s) 改为 `revalidate`。 `[性能]`
+- [x] **更多低变动页面改 ISR** — 已改 6 页：`/snippets`(60s)、`/announcements`(60s)、`/api-tokens`(60s)、`/shares`(60s)、`/users`(60s)、`/operation-tasks`(30s)、`/status`(60s)、`/image-bed`(60s)。 `[性能]`
 
 ### P3 — 安全 / 依赖
 
