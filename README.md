@@ -412,7 +412,7 @@ make logs SERVICE_PREFIX=vcontrolhub
 ### P3 — 性能 / 包体积
 
 - [ ] **API 响应缓存继续推广** — `src/lib/cache.ts` 的 `withCacheHeaders()` 已用于 `/api/dashboard/analytics` 与 `/api/status`；其余只读端点可按"登录态短缓存 / 公开长缓存"模式继续接入。 `[性能]`
-- [ ] **更多低变动页面改 ISR** — 已有 `/snippets`、`/announcements`、`/api-tokens`、`/shares` 四页改为 `revalidate = 60`；其余仍是 `force-dynamic` 的页面可逐页评估是否值得 ISR 化。 `[性能]`
+- [x] **更多低变动页面改 ISR** — 新增 `/users`(60s)、`/operation-tasks`(30s) 改为 `revalidate`。 `[性能]`
 
 ### P3 — 安全 / 依赖
 

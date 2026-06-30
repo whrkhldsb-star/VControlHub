@@ -4,7 +4,7 @@ import { listOperationTaskResult } from "@/lib/operation-task/service";
 import { OperationTaskListClient } from "./operation-task-list-client";
 import { PageShell, EmptyState, PageHeader } from "@/components/page-shell";
 
-export const dynamic = "force-dynamic";
+export const revalidate = 30;
 
 export default async function OperationTasksPage() {
 	const session = await requireSession("/operation-tasks");
