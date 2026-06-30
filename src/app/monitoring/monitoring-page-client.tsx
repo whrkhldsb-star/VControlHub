@@ -3,7 +3,8 @@
 import { useCallback, useEffect, useState } from "react";
 import { PageShell, PageHeader } from "@/components/page-shell";
 import { csrfFetch } from "@/lib/auth/csrf-client";
-import { getRefreshIntervalFromStorage, getRefreshIntervalLabel } from "@/lib/preferences/refresh-interval";
+import { getRefreshIntervalLabel } from "@/lib/preferences/refresh-interval";
+import { useRefreshInterval } from "@/lib/preferences/use-refresh-interval";
 import { useI18n } from "@/lib/i18n/use-locale";
 
 interface Stats {
@@ -63,9 +64,7 @@ export default function MonitoringPage({ canManage: _canManage }: { canManage: b
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [autoRefresh, setAutoRefresh] = useState(true); // default on — SSE is cheaper than polling
   const [sseConnected, setSseConnected] = useState(false);
-  const [refreshIntervalSeconds, setRefreshIntervalSeconds] = useState(() =>
-    typeof window === "undefined" ? 30 : getRefreshIntervalFromStorage(window.localStorage, 30),
-  );
+  const refreshIntervalSeconds = useRefreshInterval(30);
 
   const getMonitoringErrorMessage = useCallback((error: unknown): string => {
     if (error instanceof Error && error.message.trim()) return error.message;
@@ -91,17 +90,6 @@ export default function MonitoringPage({ canManage: _canManage }: { canManage: b
     }
   }, [getMonitoringErrorMessage, t]);
 
-  useEffect(() => {
-    const onStorage = () => setRefreshIntervalSeconds(getRefreshIntervalFromStorage(globalThis.localStorage, 30));
-    window.addEventListener("storage", onStorage);
-    window.addEventListener("vps-preferences-updated", onStorage);
-    return () => {
-      window.removeEventListener("storage", onStorage);
-      window.removeEventListener("vps-preferences-updated", onStorage);
-    };
-  }, []);
-
-  // Initial fetch — need at least one HTTP snapshot for the loading state.
   useEffect(() => {
     const timer = window.setTimeout(() => { void fetchStats(); }, 0);
     return () => window.clearTimeout(timer);

@@ -4,7 +4,8 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { PageShell, PageHeader } from "@/components/page-shell";
 import { csrfFetch } from "@/lib/auth/csrf-client";
 import { useDialogFocus } from "@/lib/a11y/use-dialog-focus";
-import { getRefreshIntervalFromStorage, getRefreshIntervalLabel } from "@/lib/preferences/refresh-interval";
+import { getRefreshIntervalLabel } from "@/lib/preferences/refresh-interval";
+import { useRefreshInterval } from "@/lib/preferences/use-refresh-interval";
 import { useI18n } from "@/lib/i18n/use-locale";
 import { DockerResourcesPanel } from "./docker-resources-panel";
 
@@ -89,9 +90,7 @@ export default function DockerPage() {
 	const [stats, setStats] = useState<Record<string, ContainerStats>>({});
 	const [statsAutoRefresh, setStatsAutoRefresh] = useState(false);
 	const [pendingRemoval, setPendingRemoval] = useState<Container | null>(null);
-	const [refreshIntervalSeconds, setRefreshIntervalSeconds] = useState(() =>
-		typeof window === "undefined" ? 30 : getRefreshIntervalFromStorage(window.localStorage, 30),
-	);
+	const refreshIntervalSeconds = useRefreshInterval(30);
 	const [grouped, setGrouped] = useState<ComposeGroup[]>([]);
 	const [ungrouped, setUngrouped] = useState<Container[]>([]);
 	const [dockerScope, setDockerScope] = useState<DockerScope | null>(null);
@@ -204,16 +203,6 @@ export default function DockerPage() {
 	}, [fetchContainers]);
 
 	const runningContainers = useMemo(() => containers.filter((container) => container.State === "running").slice(0, 12), [containers]);
-
-	useEffect(() => {
-		const onStorage = () => setRefreshIntervalSeconds(getRefreshIntervalFromStorage(globalThis.localStorage, 30));
-		window.addEventListener("storage", onStorage);
-		window.addEventListener("vps-preferences-updated", onStorage);
-		return () => {
-			window.removeEventListener("storage", onStorage);
-			window.removeEventListener("vps-preferences-updated", onStorage);
-		};
-	}, []);
 
 	useEffect(() => {
 		for (const container of runningContainers) {

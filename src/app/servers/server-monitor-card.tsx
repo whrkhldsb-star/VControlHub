@@ -2,7 +2,8 @@
 
 import { useEffect, useState, useCallback } from "react";
 import { csrfFetch } from "@/lib/auth/csrf-client";
-import { getRefreshIntervalFromStorage, getRefreshIntervalLabel } from "@/lib/preferences/refresh-interval";
+import { getRefreshIntervalLabel } from "@/lib/preferences/refresh-interval";
+import { useRefreshInterval } from "@/lib/preferences/use-refresh-interval";
 
 /* ── Types ────────────────────────────────────────────────── */
 
@@ -78,9 +79,7 @@ export function ServerMonitorCard({ serverId }: Props) {
 	const [metrics, setMetrics] = useState<Metrics | null>(null);
 	const [error, setError] = useState<string | null>(null);
 	const [loading, setLoading] = useState(true);
-	const [refreshIntervalSeconds, setRefreshIntervalSeconds] = useState(() =>
-		typeof window === "undefined" ? 30 : getRefreshIntervalFromStorage(window.localStorage, 30),
-	);
+	const refreshIntervalSeconds = useRefreshInterval(30);
 
 	const fetchMetrics = useCallback(async () => {
 	try {
@@ -99,16 +98,6 @@ export function ServerMonitorCard({ serverId }: Props) {
 			setLoading(false);
 		}
 	}, [serverId]);
-
-	useEffect(() => {
-		const onStorage = () => setRefreshIntervalSeconds(getRefreshIntervalFromStorage(globalThis.localStorage, 30));
-		window.addEventListener("storage", onStorage);
-		window.addEventListener("vps-preferences-updated", onStorage);
-		return () => {
-			window.removeEventListener("storage", onStorage);
-			window.removeEventListener("vps-preferences-updated", onStorage);
-		};
-	}, []);
 
 	useEffect(() => {
 		const timer = window.setTimeout(() => { void fetchMetrics(); }, 0);

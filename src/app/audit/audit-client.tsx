@@ -1,8 +1,9 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useCallback } from "react";
 import { csrfFetch } from "@/lib/auth/csrf-client";
 import { EmptyState } from "@/components/page-shell";
+import { useResourcePolling } from "@/lib/http/use-resource-polling";
 import { useI18n } from "@/lib/i18n/use-locale";
 
 type AuditLog = {
@@ -69,37 +70,29 @@ function getErrorMessage(error: unknown, fallback: string): string {
 
 export function AuditLogClient({ initialActionFilter = "" }: AuditLogClientProps) {
   const { t, locale } = useI18n();
-  const [data, setData] = useState<AuditListResponse | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
   const [page, setPage] = useState(1);
   const [severityFilter, setSeverityFilter] = useState("");
   const [actionFilter, setActionFilter] = useState(initialActionFilter);
   const [searchQuery, setSearchQuery] = useState("");
 
-  const fetchLogs = useCallback(async () => {
-    setLoading(true);
-    try {
-      const params = new URLSearchParams({ page: String(page), pageSize: "50" });
-      if (severityFilter) params.set("severity", severityFilter);
-      if (actionFilter) params.set("action", actionFilter);
-      if (searchQuery.trim()) params.set("search", searchQuery.trim());
-      const json = await csrfFetch(`/api/audit?${params}`);
-      setData(json as AuditListResponse);
-      setError(null);
-    } catch (error) {
-      setError(getErrorMessage(error, t("audit.loadFailed")));
-    } finally {
-      setLoading(false);
-    }
-  }, [page, severityFilter, actionFilter, searchQuery, t]);
+  const fetchAudit = useCallback(async (): Promise<AuditListResponse> => {
+    const params = new URLSearchParams({ page: String(page), pageSize: "50" });
+    if (severityFilter) params.set("severity", severityFilter);
+    if (actionFilter) params.set("action", actionFilter);
+    if (searchQuery.trim()) params.set("search", searchQuery.trim());
+    return (await csrfFetch(`/api/audit?${params}`)) as AuditListResponse;
+  }, [page, severityFilter, actionFilter, searchQuery]);
 
-	/* eslint-disable react-hooks/set-state-in-effect */
-	useEffect(() => {
-		fetchLogs();
-		// eslint-disable-next-line react-hooks/exhaustive-deps
-	}, [page, severityFilter, actionFilter, searchQuery]);
-	/* eslint-enable react-hooks/set-state-in-effect */
+  const getAuditErrorMessage = useCallback(
+    (error: unknown) => getErrorMessage(error, t("audit.loadFailed")),
+    [t],
+  );
+
+  const { data, loading, error, refresh: fetchLogs } = useResourcePolling<AuditListResponse>({
+    fetcher: fetchAudit,
+    intervalSeconds: 0,
+    getErrorMessage: getAuditErrorMessage,
+  });
 
   return (
     <div>

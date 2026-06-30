@@ -4,7 +4,8 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { PageShell, PageHeader } from "@/components/page-shell";
 import { csrfFetch } from "@/lib/auth/csrf-client";
-import { getRefreshIntervalFromStorage, getRefreshIntervalLabel } from "@/lib/preferences/refresh-interval";
+import { getRefreshIntervalLabel } from "@/lib/preferences/refresh-interval";
+import { useRefreshInterval } from "@/lib/preferences/use-refresh-interval";
 import { useI18n } from "@/lib/i18n/use-locale";
 import { TrafficSparkline, type TrafficSample } from "./traffic-sparkline";
 
@@ -124,9 +125,7 @@ export default function TrafficPage({ canManage: _canManage }: { canManage: bool
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [autoRefresh, setAutoRefresh] = useState(true);
-  const [refreshIntervalSeconds, setRefreshIntervalSeconds] = useState(() =>
-    typeof window === "undefined" ? 30 : getRefreshIntervalFromStorage(window.localStorage, 30),
-  );
+  const refreshIntervalSeconds = useRefreshInterval(30);
   const [history, setHistory] = useState<TrafficSample[]>([]);
   const [history7d, setHistory7d] = useState<TrafficHistoryPoint[]>([]);
   const [historyScope, setHistoryScope] = useState<"24h" | "7d">("24h");
@@ -193,16 +192,6 @@ export default function TrafficPage({ canManage: _canManage }: { canManage: bool
     } finally {
       setRemoteLoading(false);
     }
-  }, []);
-
-  useEffect(() => {
-    const onStorage = () => setRefreshIntervalSeconds(getRefreshIntervalFromStorage(globalThis.localStorage, 30));
-    window.addEventListener("storage", onStorage);
-    window.addEventListener("vps-preferences-updated", onStorage);
-    return () => {
-      window.removeEventListener("storage", onStorage);
-      window.removeEventListener("vps-preferences-updated", onStorage);
-    };
   }, []);
 
   useEffect(() => {
