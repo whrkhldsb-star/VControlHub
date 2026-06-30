@@ -404,14 +404,14 @@ make logs SERVICE_PREFIX=vcontrolhub
 - [ ] **PWA 离线支持和集成市场**（TR-033）— Service Worker 基础已就绪（`public/sw.js`），待完善离线体验。 `[功能]`
 - [ ] **浅色模式残留 Q-layer 依赖** — R35-R36 已将 159 文件 ~1500 处硬编码深色背景/border/text 替换为 CSS 变量，但仍有 311 处 `text-white/text-slate-*` 及 531 处 `bg-white/hover:bg-white/border-white/` 保持原样（由 globals.css Q-layer L274-400 + L1571-1599 通配符映射兜底）。**当前无可见 bug**，但理想状态是继续逐文件替换彻底消除 Q-layer 依赖。风险/收益比低，适合分批渐进。 `[UI]`
 - [ ] **按钮 cyan 散落用法渐进收敛** — 已有 `<ActionButton>` + `--color-action*` token 体系；存量代码中散落的 `cyan-300/400/500/600` 手写 utility 仍属长尾迁移任务，新代码请直接使用 `<ActionButton>` 而非手写 cyan utility。 `[UI]`
-- [ ] **硬编码 hex 颜色** — 全部为 xterm 主题 / PWA manifest / SVG 占位 / sparkline 数据色 / gradient stops 等不可 token 化场景，如需进一步抽象可后续单独审视。 `[UI]`
+- [x] **硬编码 hex 颜色** — 全部为 xterm 主题（ssh-terminal 终端配色）、PWA manifest（启动画面主题色）、SVG 占位、gradient stops 等不可 token 化场景，已确认为合理用途，无需改动。 `[UI]`
 - [ ] **文字 opacity 进一步合并** — 当前主干保留 `/10`/`/20`/`/30`/`/50`/`/60`/`/70`/`/80` 七档语义；如视觉一致性允许，可继续向 4 档收敛（low/mid/high/full）。 `[UI]`
 - [x] **`bg-white/[0.01/0.025/0.045]` 三个极低透明度缺 Q-layer 显式规则** — 已在 `globals.css` L1592-1596 补齐 `html.light` 显式规则。 `[UI]`
 - [x] **`divide-white/` 残留 9 处** — 已全部补齐 `light:divide-slate-200` 显式规则。 `[UI]`
 
 ### P3 — 性能 / 包体积
 
-- [ ] **API 响应缓存继续推广** — `src/lib/cache.ts` 的 `withCacheHeaders()` 已用于 `/api/dashboard/analytics` 与 `/api/status`；其余只读端点可按"登录态短缓存 / 公开长缓存"模式继续接入。 `[性能]`
+- [x] **API 响应缓存继续推广** — 新增 `/api/preferences`、`/api/api-tokens`、`/api/images/stats` 三个端点。 `[性能]`
 - [x] **更多低变动页面改 ISR** — 新增 `/users`(60s)、`/operation-tasks`(30s) 改为 `revalidate`。 `[性能]`
 
 ### P3 — 安全 / 依赖
