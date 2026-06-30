@@ -264,14 +264,14 @@ export function QuickServicesClient({ canManage }: { canManage: boolean }) {
 		await actions.doDeleteSource(id);
 	};
 
-	if (loading) return <div className="text-sm text-slate-500 py-12 text-center">{t("qsPage.loading")}</div>;
+	if (loading) return <div className="text-sm text-[var(--text-muted)] py-12 text-center">{t("qsPage.loading")}</div>;
 	if (error) return <div className="text-sm text-rose-400 py-12 text-center">{error}</div>;
 
 	if (!canManage) {
 		return (
-			<div className="rounded-xl border border-dashed border-white/[0.08] bg-white/[0.02] p-12 text-center">
+			<div className="rounded-xl border border-dashed border-[var(--border)] bg-white/[0.02] p-12 text-center">
 				<div className="text-4xl mb-3">🔒</div>
-				<p className="text-sm text-slate-500">{t("qsPage.permissionDenied")}</p>
+				<p className="text-sm text-[var(--text-muted)]">{t("qsPage.permissionDenied")}</p>
 			</div>
 		);
 	}
@@ -347,7 +347,7 @@ export function QuickServicesClient({ canManage }: { canManage: boolean }) {
 				<div data-tone="amber" className="rounded-2xl border border-amber-400/25 p-4 text-sm text-amber-100">
 					<div className="font-medium">{t("qsPage.dockerNotReadyTitle")}</div>
 					<p className="mt-1 text-xs text-amber-100/75">{dockerStatus.message}</p>
-					{dockerStatus.installHint ? <p data-code-surface="true" className="mt-2 rounded-lg border border-amber-300/20 bg-slate-950/50 px-3 py-2 font-mono text-xs text-amber-50">{dockerStatus.installHint}</p> : null}
+					{dockerStatus.installHint ? <p data-code-surface="true" className="mt-2 rounded-lg border border-amber-300/20 bg-[var(--surface-subtle)] px-3 py-2 font-mono text-xs text-amber-50">{dockerStatus.installHint}</p> : null}
 				</div>
 			) : null}
 
@@ -371,7 +371,7 @@ export function QuickServicesClient({ canManage }: { canManage: boolean }) {
 			</div>
 
 			<section className="grid gap-3 lg:grid-cols-3">
-				<div className="rounded-2xl border border-white/[0.06] bg-white/[0.025] p-4">
+				<div className="rounded-2xl border border-[var(--border)] bg-white/[0.025] p-4">
 					<div className="flex items-start justify-between gap-3">
 						<div>
 							<p className="text-xs uppercase tracking-[0.2em] text-[var(--text-muted)]">{t("qsPage.runningOverview")}</p>
@@ -390,30 +390,30 @@ export function QuickServicesClient({ canManage }: { canManage: boolean }) {
 							return (
 								<a key={item.slug} href={access?.url ?? "#"} target="_blank" rel="noreferrer" aria-disabled={!access} aria-label={access ? t("qsPage.accessEntry").replace("{name}", item.name).replace("{label}", access.label) : t("qsPage.accessEntryUnconfigured").replace("{name}", item.name)} data-tone="emerald" className="rounded-xl border border-emerald-400/15 p-3 transition hover:bg-emerald-400/[0.1]">
 									<div className="flex items-center justify-between gap-2">
-										<span className="truncate text-sm font-medium text-white">{item.icon} {item.name}</span>
+										<span className="truncate text-sm font-medium text-[var(--text-primary)]">{item.icon} {item.name}</span>
 										<span className="text-[10px] text-emerald-200">:{item.port ?? item.defaultPort}</span>
 									</div>
-									<p className="mt-1 truncate text-[11px] text-slate-400">{access?.url ?? `${accessHostLabel}:${item.port ?? item.defaultPort}`}</p>
+									<p className="mt-1 truncate text-[11px] text-[var(--text-muted)]">{access?.url ?? `${accessHostLabel}:${item.port ?? item.defaultPort}`}</p>
 									{access ? <p className="mt-2 text-[10px] font-medium text-amber-200">{access.label}</p> : null}
 								</a>
 							);
 						})}
-						{runningItems.length === 0 && <p className="text-sm text-slate-500">{t("qsPage.recommendedHint")}</p>}
+						{runningItems.length === 0 && <p className="text-sm text-[var(--text-muted)]">{t("qsPage.recommendedHint")}</p>}
 					</div>
 				</div>
-				<div className="rounded-2xl border border-white/[0.06] bg-white/[0.025] p-4">
-					<p className="text-xs uppercase tracking-[0.2em] text-slate-500">{t("qsPage.portsLabel")}</p>
-					<h3 className="mt-1 text-base font-semibold text-white">{t("qsPage.listeningPortsCount").replace("{count}", String(usedPorts.length))}</h3>
-					<p className="mt-2 text-sm leading-6 text-slate-400">{t("qsPage.portsHint")}</p>
+				<div className="rounded-2xl border border-[var(--border)] bg-white/[0.025] p-4">
+					<p className="text-xs uppercase tracking-[0.2em] text-[var(--text-muted)]">{t("qsPage.portsLabel")}</p>
+					<h3 className="mt-1 text-base font-semibold text-[var(--text-primary)]">{t("qsPage.listeningPortsCount").replace("{count}", String(usedPorts.length))}</h3>
+					<p className="mt-2 text-sm leading-6 text-[var(--text-muted)]">{t("qsPage.portsHint")}</p>
 					<div className="mt-3 flex flex-wrap gap-1.5">
-						{usedPorts.slice(0, 8).map((port) => <span key={port} className="rounded-full border border-white/[0.08] px-2 py-0.5 text-[10px] text-slate-400">{port}</span>)}
+						{usedPorts.slice(0, 8).map((port) => <span key={port} className="rounded-full border border-[var(--border)] px-2 py-0.5 text-[10px] text-[var(--text-muted)]">{port}</span>)}
 					</div>
 				</div>
-				<div className="rounded-2xl border border-white/[0.06] bg-white/[0.025] p-4">
-					<p className="text-xs uppercase tracking-[0.2em] text-slate-500">{t("qsPage.sourcesLabel")}</p>
-					<h3 className="mt-1 text-base font-semibold text-white">{t("qsPage.sourcesEnabledCount").replace("{enabled}", String(sources.filter((s) => s.enabled).length)).replace("{total}", String(sources.length))}</h3>
-					<p className="mt-2 text-sm leading-6 text-slate-400">{lastSyncedSource ? t("qsPage.lastSynced").replace("{name}", lastSyncedSource.displayName) : t("qsPage.noSyncRecord")}</p>
-					<button type="button" onClick={() => setTab("sources")} className={`mt-3 rounded-lg border px-3 py-1.5 text-xs transition ${staleSources.length > 0 ? "border-amber-400/30 bg-amber-400/10 text-amber-100 hover:bg-amber-400/15" : "border-white/[0.08] text-slate-300 hover:bg-white/[0.06]"}`}>
+				<div className="rounded-2xl border border-[var(--border)] bg-white/[0.025] p-4">
+					<p className="text-xs uppercase tracking-[0.2em] text-[var(--text-muted)]">{t("qsPage.sourcesLabel")}</p>
+					<h3 className="mt-1 text-base font-semibold text-[var(--text-primary)]">{t("qsPage.sourcesEnabledCount").replace("{enabled}", String(sources.filter((s) => s.enabled).length)).replace("{total}", String(sources.length))}</h3>
+					<p className="mt-2 text-sm leading-6 text-[var(--text-muted)]">{lastSyncedSource ? t("qsPage.lastSynced").replace("{name}", lastSyncedSource.displayName) : t("qsPage.noSyncRecord")}</p>
+					<button type="button" onClick={() => setTab("sources")} className={`mt-3 rounded-lg border px-3 py-1.5 text-xs transition ${staleSources.length > 0 ? "border-amber-400/30 bg-amber-400/10 text-amber-100 hover:bg-amber-400/15" : "border-[var(--border)] text-[var(--text-secondary)] hover:bg-white/[0.06]"}`}>
 						{staleSources.length > 0 ? t("qsPage.handleStaleSources").replace("{count}", String(staleSources.length)) : t("qsPage.manageSources")}
 					</button>
 				</div>
@@ -421,7 +421,7 @@ export function QuickServicesClient({ canManage }: { canManage: boolean }) {
 
 			{/* Search bar */}
 			<div className="space-y-1.5">
-				<label htmlFor="quick-service-search" className="block text-xs font-medium text-slate-400">
+				<label htmlFor="quick-service-search" className="block text-xs font-medium text-[var(--text-muted)]">
 					{t("qsPage.searchLabel")}
 				</label>
 				<div className="relative">
@@ -431,10 +431,10 @@ export function QuickServicesClient({ canManage }: { canManage: boolean }) {
 						value={search}
 						onChange={(e) => setSearch(e.target.value)}
 						placeholder={t("qsPage.searchPlaceholder")}
-						data-card className="w-full  px-4 py-2.5 text-sm text-white placeholder-slate-500 outline-none focus:border-cyan-400/40 transition"
+						data-card className="w-full  px-4 py-2.5 text-sm text-[var(--text-primary)] placeholder-slate-500 outline-none focus:border-cyan-400/40 transition"
 					/>
 					{search && (
-						<button onClick={() => setSearch("")} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-white light:hover:text-slate-900 text-xs">
+						<button onClick={() => setSearch("")} className="absolute right-3 top-1/2 -translate-y-1/2 text-[var(--text-muted)] hover:text-[var(--text-primary)] light:hover:text-slate-900 text-xs">
 							✕
 						</button>
 					)}
@@ -445,8 +445,8 @@ export function QuickServicesClient({ canManage }: { canManage: boolean }) {
 				<section data-tone="cyan" className="space-y-3 rounded-2xl border border-cyan-400/20 p-4">
 					<div className="flex items-center justify-between gap-3">
 						<div>
-							<h2 className="text-sm font-semibold text-white">{t("qsPage.recommendedHeader")}</h2>
-							<p className="mt-1 text-xs text-slate-400">{t("qsPage.recommendedSubheader")}</p>
+							<h2 className="text-sm font-semibold text-[var(--text-primary)]">{t("qsPage.recommendedHeader")}</h2>
+							<p className="mt-1 text-xs text-[var(--text-muted)]">{t("qsPage.recommendedSubheader")}</p>
 						</div>
 						<span className="rounded-full border border-cyan-400/20 px-2 py-1 text-[11px] text-cyan-200">{t("qsPage.mvpPriority")}</span>
 					</div>
@@ -472,16 +472,16 @@ export function QuickServicesClient({ canManage }: { canManage: boolean }) {
 
 			{/* Tab bar */}
 			<div data-card className="flex flex-wrap gap-1  p-1 w-fit">
-				<button onClick={() => setTab("store")} className={`px-4 py-2 rounded-lg text-sm font-medium transition ${tab === "store" ? "bg-cyan-500/20 text-cyan-300 light:bg-cyan-100" : "text-slate-400 hover:text-white light:hover:bg-slate-100 light:hover:text-slate-900"}`}>
+				<button onClick={() => setTab("store")} className={`px-4 py-2 rounded-lg text-sm font-medium transition ${tab === "store" ? "bg-cyan-500/20 text-cyan-300 light:bg-cyan-100" : "text-[var(--text-muted)] hover:text-[var(--text-primary)] light:hover:bg-slate-100 light:hover:text-slate-900"}`}>
 					{t("qsPage.tabStore").replace("{count}", String(localAvailable.length))}
 				</button>
-				<button onClick={() => setTab("community")} className={`px-4 py-2 rounded-lg text-sm font-medium transition ${tab === "community" ? "bg-violet-500/20 text-violet-300 light:bg-violet-100" : "text-slate-400 hover:text-white light:hover:bg-slate-100 light:hover:text-slate-900"}`}>
+				<button onClick={() => setTab("community")} className={`px-4 py-2 rounded-lg text-sm font-medium transition ${tab === "community" ? "bg-violet-500/20 text-violet-300 light:bg-violet-100" : "text-[var(--text-muted)] hover:text-[var(--text-primary)] light:hover:bg-slate-100 light:hover:text-slate-900"}`}>
 					{t("qsPage.tabCommunity").replace("{count}", String(remoteAvailable.length))}
 				</button>
-				<button onClick={() => setTab("installed")} className={`px-4 py-2 rounded-lg text-sm font-medium transition ${tab === "installed" ? "bg-cyan-500/20 text-cyan-300 light:bg-cyan-100" : "text-slate-400 hover:text-white light:hover:bg-slate-100 light:hover:text-slate-900"}`}>
+				<button onClick={() => setTab("installed")} className={`px-4 py-2 rounded-lg text-sm font-medium transition ${tab === "installed" ? "bg-cyan-500/20 text-cyan-300 light:bg-cyan-100" : "text-[var(--text-muted)] hover:text-[var(--text-primary)] light:hover:bg-slate-100 light:hover:text-slate-900"}`}>
 					{t("qsPage.tabInstalled").replace("{count}", String(installed.length))}
 				</button>
-				<button onClick={() => setTab("sources")} className={`px-4 py-2 rounded-lg text-sm font-medium transition ${tab === "sources" ? "bg-amber-500/20 text-amber-300 light:bg-amber-100" : "text-slate-400 hover:text-white light:hover:bg-slate-100 light:hover:text-slate-900"}`}>
+				<button onClick={() => setTab("sources")} className={`px-4 py-2 rounded-lg text-sm font-medium transition ${tab === "sources" ? "bg-amber-500/20 text-amber-300 light:bg-amber-100" : "text-[var(--text-muted)] hover:text-[var(--text-primary)] light:hover:bg-slate-100 light:hover:text-slate-900"}`}>
 					{t("qsPage.tabSources").replace("{count}", String(sources.length))}
 				</button>
 			</div>
@@ -592,7 +592,7 @@ function SummaryPill({ label, value, tone }: { label: string; value: number; ton
 	return (
 		<div className={`rounded-xl border p-4 ${toneClass}`}>
 			<div className="text-[11px] uppercase tracking-wider text-current/70">{label}</div>
-			<div className="mt-1 text-2xl font-semibold text-white">{value}</div>
+			<div className="mt-1 text-2xl font-semibold text-[var(--text-primary)]">{value}</div>
 		</div>
 	);
 }

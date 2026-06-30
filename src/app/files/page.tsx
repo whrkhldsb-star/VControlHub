@@ -221,7 +221,7 @@ export default async function FilesPage({ searchParams }: FilesPageProps) {
         title={t("filesPage.title", locale)}
         description={t("filesPage.description", locale)}
       >
-        <div className="flex flex-wrap gap-2 text-xs text-slate-400">
+        <div className="flex flex-wrap gap-2 text-xs text-[var(--text-muted)]">
           <Link
             href="/audit"
             className="rounded-full border border-[var(--border)] bg-white/[0.03] px-3 py-1.5 transition hover:bg-white/[0.06]"
@@ -245,34 +245,34 @@ export default async function FilesPage({ searchParams }: FilesPageProps) {
 
       <section className="grid gap-3 sm:grid-cols-4 mb-8">
         <article data-card className=" p-4 hover:bg-white/[0.05] transition-colors duration-150">
-          <div className="text-xs font-medium text-slate-500 uppercase tracking-wider">
+          <div className="text-xs font-medium text-[var(--text-muted)] uppercase tracking-wider">
             {t("filesPage.statTotalNodes", locale)}
           </div>
-          <div className="mt-1.5 text-2xl font-semibold text-white">
+          <div className="mt-1.5 text-2xl font-semibold text-[var(--text-primary)]">
             {storage.stats.totalNodes}
           </div>
         </article>
         <article data-card className=" p-4 hover:bg-white/[0.05] transition-colors duration-150">
-          <div className="text-xs font-medium text-slate-500 uppercase tracking-wider">
+          <div className="text-xs font-medium text-[var(--text-muted)] uppercase tracking-wider">
             {t("filesPage.statActiveFiles", locale)}
           </div>
-          <div className="mt-1.5 text-2xl font-semibold text-white">
+          <div className="mt-1.5 text-2xl font-semibold text-[var(--text-primary)]">
             {storage.stats.totalEntries}
           </div>
         </article>
         <article data-card className=" p-4 hover:bg-white/[0.05] transition-colors duration-150">
-          <div className="text-xs font-medium text-slate-500 uppercase tracking-wider">
+          <div className="text-xs font-medium text-[var(--text-muted)] uppercase tracking-wider">
             {t("filesPage.statCurrentDirectory", locale)}
           </div>
-          <div className="mt-1.5 text-2xl font-semibold text-white">
+          <div className="mt-1.5 text-2xl font-semibold text-[var(--text-primary)]">
             {totalItems}
           </div>
         </article>
         <article data-card className=" p-4 hover:bg-white/[0.05] transition-colors duration-150">
-          <div className="text-xs font-medium text-slate-500 uppercase tracking-wider">
+          <div className="text-xs font-medium text-[var(--text-muted)] uppercase tracking-wider">
             {t("filesPage.statRecycleBin", locale)}
           </div>
-          <div className="mt-1.5 text-2xl font-semibold text-white">
+          <div className="mt-1.5 text-2xl font-semibold text-[var(--text-primary)]">
             {storage.stats.deletedEntries}
           </div>
         </article>
@@ -283,8 +283,8 @@ export default async function FilesPage({ searchParams }: FilesPageProps) {
           href="/files?scope=all"
           data-tone="cyan" className="rounded-xl border border-cyan-400/20 p-4 transition hover:bg-cyan-400/[0.1]"
         >
-          <div className="text-sm font-semibold text-white">{t("filesPage.globalSearchTitle", locale)}</div>
-          <p className="mt-1.5 text-sm leading-6 text-slate-300">
+          <div className="text-sm font-semibold text-[var(--text-primary)]">{t("filesPage.globalSearchTitle", locale)}</div>
+          <p className="mt-1.5 text-sm leading-6 text-[var(--text-secondary)]">
             {t("filesPage.globalSearchDesc", locale)}
           </p>
           <div className="mt-3 text-xs text-cyan-200">{t("filesPage.globalSearchCta", locale)}</div>
@@ -293,21 +293,21 @@ export default async function FilesPage({ searchParams }: FilesPageProps) {
           href="/files?scope=current"
           data-card className=" p-4 transition hover:bg-white/[0.06]"
         >
-          <div className="text-sm font-semibold text-white">{t("filesPage.currentSearchTitle", locale)}</div>
-          <p className="mt-1.5 text-sm leading-6 text-slate-300">
+          <div className="text-sm font-semibold text-[var(--text-primary)]">{t("filesPage.currentSearchTitle", locale)}</div>
+          <p className="mt-1.5 text-sm leading-6 text-[var(--text-secondary)]">
             {t("filesPage.currentSearchDesc", locale)}
           </p>
-          <div className="mt-3 text-xs text-slate-400">{t("filesPage.currentSearchCta", locale)}</div>
+          <div className="mt-3 text-xs text-[var(--text-muted)]">{t("filesPage.currentSearchCta", locale)}</div>
         </Link>
         <Link
           href="/files?tab=recycle"
           data-card className=" p-4 transition hover:bg-white/[0.06]"
         >
-          <div className="text-sm font-semibold text-white">{t("filesPage.recycleTitle", locale)}</div>
-          <p className="mt-1.5 text-sm leading-6 text-slate-300">
+          <div className="text-sm font-semibold text-[var(--text-primary)]">{t("filesPage.recycleTitle", locale)}</div>
+          <p className="mt-1.5 text-sm leading-6 text-[var(--text-secondary)]">
             {t("filesPage.recycleDesc", locale)}
           </p>
-          <div className="mt-3 text-xs text-slate-400">{t("filesPage.recycleCta", locale)}</div>
+          <div className="mt-3 text-xs text-[var(--text-muted)]">{t("filesPage.recycleCta", locale)}</div>
         </Link>
       </section>
 

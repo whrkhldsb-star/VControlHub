@@ -257,11 +257,11 @@ export function GlobalSearch({
 				role="dialog"
 				aria-modal="true"
 				aria-label={t("search.dialog")}
-				className="w-full max-w-lg mx-4 bg-slate-950 border border-white/[0.08] rounded-2xl shadow-2xl overflow-hidden"
+				className="w-full max-w-lg mx-4 bg-[var(--modal-bg)] border border-[var(--border)] rounded-2xl shadow-2xl overflow-hidden"
 				onClick={(e) => e.stopPropagation()}
-			>
-				<div className="flex items-center px-4 border-b border-white/[0.06]">
-					<svg className="w-4 h-4 text-slate-500 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+				>
+				<div className="flex items-center px-4 border-b border-[var(--border)]">
+					<svg className="w-4 h-4 text-[var(--text-muted)] shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
 						<path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
 					</svg>
 					<input
@@ -271,7 +271,7 @@ export function GlobalSearch({
 						aria-label={t("search.input-label")}
 						aria-expanded="true"
 						aria-controls="global-search-results"
-						aria-activedescendant={filtered[selectedIndex] ? `global-search-result-${selectedIndex}`: undefined} aria-autocomplete="list" value={query} onChange={(e) => setQuery(e.target.value)} onKeyDown={handleKeyDown} placeholder={t("search.placeholder")} className="flex-1 bg-transparent px-3 py-3.5 text-sm text-white placeholder-slate-600 focus:outline-none" /> <kbd className="text-[10px] text-slate-600 bg-white/[0.05] rounded px-1.5 py-0.5">ESC</kbd> </div> <ul id="global-search-results" role="listbox" className="max-h-72 overflow-y-auto py-2"> {filtered.length === 0 && ( <li className="px-4 py-6 text-center text-sm text-slate-600">{t("search.no-results")}</li> )} {filtered.map((item, i) => ( <li key={item.href + item.label} id={`global-search-result-${i}`} role="option" aria-selected={i === selectedIndex}>
+						aria-activedescendant={filtered[selectedIndex] ? `global-search-result-${selectedIndex}`: undefined} aria-autocomplete="list" value={query} onChange={(e) => setQuery(e.target.value)} onKeyDown={handleKeyDown} placeholder={t("search.placeholder")} className="flex-1 bg-transparent px-3 py-3.5 text-sm text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus:outline-none" /> <kbd className="text-[10px] text-[var(--text-muted)] bg-[var(--surface-hover)] rounded px-1.5 py-0.5">ESC</kbd> </div> <ul id="global-search-results" role="listbox" className="max-h-72 overflow-y-auto py-2"> {filtered.length === 0 && ( <li className="px-4 py-6 text-center text-sm text-[var(--text-muted)]">{t("search.no-results")}</li> )} {filtered.map((item, i) => ( <li key={item.href + item.label} id={`global-search-result-${i}`} role="option" aria-selected={i === selectedIndex}>
 							<button
 								onClick={() => navigate(item)}
 								className={`w-full flex items-center gap-3 px-4 py-2.5 text-sm transition ${
@@ -280,12 +280,12 @@ export function GlobalSearch({
 							>
 								<span className="text-base">{item.icon}</span>
 								<span className="flex-1 text-left">{item.label}</span>
-								<span className="text-[10px] text-slate-600">{item.category}</span>
+								<span className="text-[10px] text-[var(--text-muted)]">{item.category}</span>
 							</button>
 						</li>
 					))}
 				</ul>
-				<div className="border-t border-white/[0.06] px-4 py-2 flex items-center gap-4 text-[10px] text-slate-600">
+				<div className="border-t border-white/[0.06] px-4 py-2 flex items-center gap-4 text-[10px] text-[var(--text-muted)]">
 					<span>{t("search.shortcut-select")}</span>
 					<span>{t("search.shortcut-confirm")}</span>
 					<span>{t("search.shortcut-close")}</span>

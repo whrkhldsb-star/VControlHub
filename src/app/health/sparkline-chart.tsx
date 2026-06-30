@@ -21,7 +21,7 @@ export type SparklineChartProps = {
 
 export function SparklineChart({ data, locale }: SparklineChartProps) {
 	const labels = locale === "zh" ? { memory: "内存", disk: "磁盘", localeCode: "zh-CN" } : { memory: "Memory", disk: "Disk", localeCode: "en-US" };
-	if (data.length === 0) return <div className="text-xs text-slate-500">{locale === "zh" ? "暂无历史数据" : "No history data yet"}</div>;
+	if (data.length === 0) return <div className="text-xs text-[var(--text-muted)]">{locale === "zh" ? "暂无历史数据" : "No history data yet"}</div>;
 
 	const W = 700;
 	const H = 200;

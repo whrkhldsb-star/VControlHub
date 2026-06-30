@@ -134,7 +134,7 @@ export default async function MediaPlayerPage({
           <div className="flex min-w-0 flex-wrap items-center gap-3">
             <Link
               href={returnHref}
-              className="rounded-full border border-white/10 px-4 py-2 text-sm text-slate-200 hover:border-cyan-400/50 hover:bg-white/5 light:hover:bg-white"
+              className="rounded-full border border-[var(--border)] px-4 py-2 text-sm text-[var(--text-secondary)] hover:border-cyan-400/50 hover:bg-white/5 light:hover:bg-white"
             >
               ← {t("mediaPage.player.backToLibrary", locale)}
             </Link>
@@ -142,7 +142,7 @@ export default async function MediaPlayerPage({
               <p className="text-xs font-semibold uppercase tracking-[0.3em] text-cyan-300">
                 {t("mediaPage.player.eyebrow", locale)}
               </p>
-              <h1 className="truncate text-xl font-semibold text-white">
+              <h1 className="truncate text-xl font-semibold text-[var(--text-primary)]">
                 {item.name}
               </h1>
             </div>
@@ -157,7 +157,7 @@ export default async function MediaPlayerPage({
             </a>
             <Link
               href={sourceHref}
-              className="inline-flex items-center gap-1.5 rounded-full border border-white/10 px-4 py-2 text-slate-200 hover:bg-white/5 light:hover:bg-white"
+              className="inline-flex items-center gap-1.5 rounded-full border border-[var(--border)] px-4 py-2 text-[var(--text-secondary)] hover:bg-white/5 light:hover:bg-white"
             >
               <FolderOpen size={16} /> {t("mediaPage.player.openSource", locale)}
             </Link>
@@ -166,7 +166,7 @@ export default async function MediaPlayerPage({
 
         <section className="grid flex-1 gap-5 lg:grid-cols-[minmax(0,1fr)_320px]">
           <div className="space-y-3">
-            <div className="flex min-h-[55vh] items-center justify-center rounded-3xl border border-white/10 bg-slate-950/70 p-4">
+            <div className="flex min-h-[55vh] items-center justify-center rounded-3xl border border-[var(--border)] bg-slate-950/70 p-4">
               {isImage ? (
                 // eslint-disable-next-line @next/next/no-img-element
                 <img
@@ -196,37 +196,37 @@ export default async function MediaPlayerPage({
               {previousItem ? (
                 <Link
                   href={`/media/${encodeURIComponent(previousItem.id)}?from=${navigationFrom}`}
-                  className="rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-3 text-sm text-slate-200 transition hover:bg-white/[0.06]"
+                  className="rounded-2xl border border-[var(--border)] bg-white/[0.03] px-4 py-3 text-sm text-[var(--text-secondary)] transition hover:bg-white/[0.06]"
                 >
-                  <span className="block text-xs text-slate-500">{t("mediaPage.player.previousLabel", locale)}</span>
+                  <span className="block text-xs text-[var(--text-muted)]">{t("mediaPage.player.previousLabel", locale)}</span>
                   <span className="mt-1 block truncate font-medium">
                     {previousItem.name}
                   </span>
                 </Link>
               ) : (
-                <span className="rounded-2xl border border-white/10 px-4 py-3 text-sm text-slate-500">
+                <span className="rounded-2xl border border-[var(--border)] px-4 py-3 text-sm text-[var(--text-muted)]">
                   {t("mediaPage.player.isFirst", locale)}
                 </span>
               )}
               {nextItem ? (
                 <Link
                   href={`/media/${encodeURIComponent(nextItem.id)}?from=${navigationFrom}`}
-                  className="rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-3 text-right text-sm text-slate-200 transition hover:bg-white/[0.06]"
+                  className="rounded-2xl border border-[var(--border)] bg-white/[0.03] px-4 py-3 text-right text-sm text-[var(--text-secondary)] transition hover:bg-white/[0.06]"
                 >
-                  <span className="block text-xs text-slate-500">{t("mediaPage.player.nextLabel", locale)}</span>
+                  <span className="block text-xs text-[var(--text-muted)]">{t("mediaPage.player.nextLabel", locale)}</span>
                   <span className="mt-1 block truncate font-medium">
                     {nextItem.name}
                   </span>
                 </Link>
               ) : (
-                <span className="rounded-2xl border border-white/10 px-4 py-3 text-right text-sm text-slate-500">
+                <span className="rounded-2xl border border-[var(--border)] px-4 py-3 text-right text-sm text-[var(--text-muted)]">
                   {t("mediaPage.player.isLast", locale)}
                 </span>
               )}
             </nav>
           </div>
 
-          <aside className="rounded-3xl border border-white/10 bg-white/[0.03] p-5">
+          <aside className="rounded-3xl border border-[var(--border)] bg-white/[0.03] p-5">
             <div className="mb-4 flex items-center gap-2">
               <span className="text-3xl">
                 {item.mediaType === "image"
@@ -236,10 +236,10 @@ export default async function MediaPlayerPage({
                     : "🎬"}
               </span>
               <div>
-                <p className="text-sm font-medium text-white">
+                <p className="text-sm font-medium text-[var(--text-primary)]">
                   {mediaKindLabel}
                 </p>
-                <p className="text-xs text-slate-500">
+                <p className="text-xs text-[var(--text-muted)]">
                   {item.mimeType || t("mediaPage.player.mimeUnknown", locale)}
                 </p>
               </div>
@@ -254,28 +254,28 @@ export default async function MediaPlayerPage({
 
             <dl className="space-y-3 text-sm">
               <div>
-                <dt className="text-xs uppercase tracking-wide text-slate-500">
+                <dt className="text-xs uppercase tracking-wide text-[var(--text-muted)]">
                   {t("mediaPage.player.sizeLabel", locale)}
                 </dt>
-                <dd className="mt-1 text-slate-200">
+                <dd className="mt-1 text-[var(--text-secondary)]">
                   {formatSize(locale, item.size)}
                 </dd>
               </div>
               <div>
-                <dt className="text-xs uppercase tracking-wide text-slate-500">
+                <dt className="text-xs uppercase tracking-wide text-[var(--text-muted)]">
                   {t("mediaPage.player.storageLabel", locale)}
                 </dt>
-                <dd className="mt-1 text-slate-200">
+                <dd className="mt-1 text-[var(--text-secondary)]">
                   {item.storageNode?.server?.name ??
                     item.storageNode?.name ??
                     t("mediaPage.player.storageUnknown", locale)}
                 </dd>
               </div>
               <div>
-                <dt className="text-xs uppercase tracking-wide text-slate-500">
+                <dt className="text-xs uppercase tracking-wide text-[var(--text-muted)]">
                   {t("mediaPage.player.pathLabel", locale)}
                 </dt>
-                <dd className="mt-1 break-all rounded-2xl bg-black/20 p-3 font-mono text-xs text-slate-300">
+                <dd className="mt-1 break-all rounded-2xl bg-black/20 p-3 font-mono text-xs text-[var(--text-secondary)]">
                   {item.relativePath}
                 </dd>
               </div>
@@ -283,7 +283,7 @@ export default async function MediaPlayerPage({
 
             {item.tags.length > 0 ? (
               <div className="mt-5">
-                <div className="mb-2 inline-flex items-center gap-1 text-xs uppercase tracking-wide text-slate-500">
+                <div className="mb-2 inline-flex items-center gap-1 text-xs uppercase tracking-wide text-[var(--text-muted)]">
                   <Tag size={12} /> {t("mediaPage.player.tagsLabel", locale)}
                 </div>
                 <div className="flex flex-wrap gap-1.5">

@@ -41,8 +41,8 @@ export function CommandCreateForm({
 	return (
 		<form action={formAction} data-card className="grid gap-4 ">
 			<div>
-				<h2 className="text-lg font-semibold text-white">{t("serversPage.command.title")}</h2>
-				<p className="mt-1 text-xs text-slate-500">{t("serversPage.command.desc")}</p>
+				<h2 className="text-lg font-semibold text-[var(--text-primary)]">{t("serversPage.command.title")}</h2>
+				<p className="mt-1 text-xs text-[var(--text-muted)]">{t("serversPage.command.desc")}</p>
 			</div>
 
 			{state.error && <div className="rounded-lg bg-rose-500/[0.08] border border-rose-400/20 px-3.5 py-2.5 text-sm text-rose-200">{state.error}</div>}
@@ -50,17 +50,17 @@ export function CommandCreateForm({
 
 			<div className="space-y-1.5">
 				<label className="text-xs font-medium text-white/50 tracking-wide" htmlFor="cmdTitle">{t("serversPage.command.titleLabel")}</label>
-				<input id="cmdTitle" name="title" type="text" required placeholder={t("serversPage.command.titlePlaceholder")} className="w-full rounded-lg border border-white/[0.06] bg-white/[0.04] px-3.5 py-2.5 text-sm text-white outline-none transition placeholder:text-white/20 focus:border-cyan-400/30 focus:bg-white/[0.06]" />
+				<input id="cmdTitle" name="title" type="text" required placeholder={t("serversPage.command.titlePlaceholder")} className="w-full rounded-lg border border-[var(--border)] bg-white/[0.04] px-3.5 py-2.5 text-sm text-[var(--text-primary)] outline-none transition placeholder:text-white/20 focus:border-cyan-400/30 focus:bg-white/[0.06]" />
 			</div>
 
 			<div className="space-y-1.5">
 				<label className="text-xs font-medium text-white/50 tracking-wide" htmlFor="cmdCommand">{t("serversPage.command.bodyLabel")}</label>
-				<textarea id="cmdCommand" name="command" rows={4} required placeholder="df -h" className="w-full rounded-lg border border-white/[0.06] bg-white/[0.04] px-3.5 py-2.5 text-sm text-white font-mono outline-none transition placeholder:text-white/20 focus:border-cyan-400/30 focus:bg-white/[0.06] resize-y" />
+				<textarea id="cmdCommand" name="command" rows={4} required placeholder="df -h" className="w-full rounded-lg border border-[var(--border)] bg-white/[0.04] px-3.5 py-2.5 text-sm text-[var(--text-primary)] font-mono outline-none transition placeholder:text-white/20 focus:border-cyan-400/30 focus:bg-white/[0.06] resize-y" />
 			</div>
 
 			<div className="space-y-1.5">
 				<label className="text-xs font-medium text-white/50 tracking-wide" htmlFor="cmdReason">{t("serversPage.command.reasonLabel")}</label>
-				<textarea id="cmdReason" name="reason" rows={2} placeholder="可选" className="w-full rounded-lg border border-white/[0.06] bg-white/[0.04] px-3.5 py-2.5 text-sm text-white outline-none transition placeholder:text-white/20 focus:border-cyan-400/30 focus:bg-white/[0.06] resize-y" />
+				<textarea id="cmdReason" name="reason" rows={2} placeholder="可选" className="w-full rounded-lg border border-[var(--border)] bg-white/[0.04] px-3.5 py-2.5 text-sm text-[var(--text-primary)] outline-none transition placeholder:text-white/20 focus:border-cyan-400/30 focus:bg-white/[0.06] resize-y" />
 			</div>
 
 			<div className="space-y-2">
@@ -71,7 +71,7 @@ export function CommandCreateForm({
 					</button>
 				</div>
 				{servers.length === 0 ? (
-					<p className="text-xs text-slate-500">{t("serversPage.command.noAvailableNodes")}</p>
+					<p className="text-xs text-[var(--text-muted)]">{t("serversPage.command.noAvailableNodes")}</p>
 				) : (
 					<div className="grid gap-1.5 sm:grid-cols-2">
 						{servers.map((server) => (
@@ -79,10 +79,10 @@ export function CommandCreateForm({
 								key={server.id}
 								className={`flex items-center gap-2.5 rounded-lg border px-3 py-2 text-sm cursor-pointer transition ${
 									!server.enabled
-										?"border-white/[0.04] bg-white/[0.01] text-slate-600 cursor-not-allowed opacity-50"
+										?"border-[var(--border)] bg-white/[0.01] text-[var(--text-muted)] cursor-not-allowed opacity-50"
 										: selectedServerIds.has(server.id)
-											?"border-cyan-400/20 bg-cyan-400/[0.06] text-white"
-											:"border-white/[0.06] bg-white/[0.03] text-[var(--text-secondary)] hover:bg-white/[0.05]"
+											?"border-cyan-400/20 bg-cyan-400/[0.06] text-[var(--text-primary)]"
+											:"border-[var(--border)] bg-white/[0.03] text-[var(--text-secondary)] hover:bg-white/[0.05]"
 								}`}
 							>
 								<input
@@ -95,7 +95,7 @@ export function CommandCreateForm({
 									className="accent-cyan-400"
 								/>
 								<span>{server.name}</span>
-								<span className="ml-auto text-[11px] text-slate-500">{server.host}</span>
+								<span className="ml-auto text-[11px] text-[var(--text-muted)]">{server.host}</span>
 							</label>
 						))}
 					</div>

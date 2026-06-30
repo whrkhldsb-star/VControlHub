@@ -15,8 +15,8 @@ export function OfficePreviewClient({
 		<div className="flex flex-col items-center gap-4 py-12 text-center text-[var(--text-secondary)]">
 			<span className="text-6xl">📝</span>
 			<div className="space-y-2">
-				<p className="text-lg text-slate-200">{t("officePreview.title")}</p>
-				<p className="max-w-xl text-sm text-slate-500">{t("officePreview.desc")}</p>
+				<p className="text-lg text-[var(--text-secondary)]">{t("officePreview.title")}</p>
+				<p className="max-w-xl text-sm text-[var(--text-muted)]">{t("officePreview.desc")}</p>
 			</div>
 			<a
 				href={href.includes("?") ? `${href}&download=1` : `${href}?download=1`}
@@ -26,7 +26,7 @@ export function OfficePreviewClient({
 			>
 				{t("officePreview.download")}
 			</a>
-			<p className="text-xs text-slate-600" title={name}>
+			<p className="text-xs text-[var(--text-muted)]" title={name}>
 				{t("officePreview.fileName").replace("{name}", name)}
 			</p>
 		</div>

@@ -76,8 +76,8 @@ export type ServerOverviewDetailsProps = {
 function InfoRow({ label, value }: { label: string; value: string }) {
 	return (
 		<div className="flex items-baseline gap-3">
-			<span className="w-[88px] shrink-0 text-xs text-slate-500">{label}</span>
-			<span className="truncate text-sm text-white">{value}</span>
+			<span className="w-[88px] shrink-0 text-xs text-[var(--text-muted)]">{label}</span>
+			<span className="truncate text-sm text-[var(--text-primary)]">{value}</span>
 		</div>
 	);
 }
@@ -174,7 +174,7 @@ function DirectGatewayAdviceList({
 							className={
 								item.priority === "primary"
 									? `rounded border px-1.5 py-0.5 text-[10px] uppercase tracking-wide ${adviceBadgeClass(item.tone)}`
-									: "rounded border border-slate-300/20 bg-slate-300/10 px-1.5 py-0.5 text-[10px] uppercase tracking-wide text-slate-200 light:border-slate-400/30"
+									: "rounded border border-slate-300/20 bg-slate-300/10 px-1.5 py-0.5 text-[10px] uppercase tracking-wide text-[var(--text-secondary)] light:border-slate-400/30"
 							}
 						>
 							{item.priority === "primary" ? t("serverOverviewDetails.recommendation") : t("serverOverviewDetails.reference")}
@@ -190,7 +190,7 @@ function DirectGatewayAdviceList({
 							</Link>
 						) : null}
 					</div>
-					<p className="mt-1 text-[11px] leading-5 text-slate-400">
+					<p className="mt-1 text-[11px] leading-5 text-[var(--text-muted)]">
 						{item.detail}
 					</p>
 				</li>
@@ -284,9 +284,9 @@ export function ServerOverviewDetails({
 			id={detailsId}
 			role="region"
 			aria-label={`${server.name} ${t("serverOverviewDetails.vpsDetails")}`}
-			className="mt-4 space-y-3 border-t border-white/[0.06] pt-4"
+			className="mt-4 space-y-3 border-t border-[var(--border)] pt-4"
 		>
-			<section className="rounded-lg border border-white/[0.04] bg-slate-950/40 p-3">
+			<section className="rounded-lg border border-[var(--border)] bg-[var(--surface-subtle)] p-3">
 				<h3 className="mb-3 text-sm font-medium text-white/80">{t("serverOverviewDetails.section.connectionStatus")}</h3>
 				<div className="grid gap-2 text-sm">
 					<InfoRow label={t("serverOverviewDetails.connectionType")} value={server.connectionTypeLabel} />
@@ -300,12 +300,12 @@ export function ServerOverviewDetails({
 				</div>
 				<p
 					data-tone="cyan"
-					className="mt-3 rounded-lg border border-cyan-400/10 p-2 text-[11px] leading-5 text-slate-500 light:border-cyan-700/15 light:bg-cyan-50"
+					className="mt-3 rounded-lg border border-cyan-400/10 p-2 text-[11px] leading-5 text-[var(--text-muted)] light:border-cyan-700/15 light:bg-cyan-50"
 				>
 					{t("serverOverviewDetails.banner.description")}
 				</p>
 				{server.sshKey?.fingerprint ? (
-					<p className="mt-2 truncate text-[11px] text-slate-600">
+					<p className="mt-2 truncate text-[11px] text-[var(--text-muted)]">
 						{t("serverOverviewDetails.fingerprintPrefix")}{server.sshKey.fingerprint}
 					</p>
 				) : null}
@@ -314,7 +314,7 @@ export function ServerOverviewDetails({
 						{(server.tags ?? []).map((tag) => (
 							<span
 								key={tag}
-								className="rounded-lg border border-white/[0.06] bg-white/[0.04] px-2 py-0.5 text-[11px] text-slate-400"
+								className="rounded-lg border border-[var(--border)] bg-white/[0.04] px-2 py-0.5 text-[11px] text-[var(--text-muted)]"
 							>
 								#{tag}
 							</span>
@@ -323,7 +323,7 @@ export function ServerOverviewDetails({
 				) : null}
 			</section>
 
-			<section className="rounded-lg border border-white/[0.04] bg-slate-950/40 p-3">
+			<section className="rounded-lg border border-[var(--border)] bg-[var(--surface-subtle)] p-3">
 				<h3 className="mb-3 text-sm font-medium text-white/80">{t("serverOverviewDetails.section.operationsResources")}</h3>
 				<div className="space-y-2 text-sm">
 					<InfoRow
@@ -363,7 +363,7 @@ export function ServerOverviewDetails({
 				<div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
 					<div>
 						<h3 className="text-sm font-medium text-cyan-100">{t("serverOverviewDetails.diagnosticsNext")}</h3>
-						<p className="mt-1 text-[11px] leading-5 text-slate-400">
+						<p className="mt-1 text-[11px] leading-5 text-[var(--text-muted)]">
 							{t("serverOverviewDetails.diagnosticsDescription")}
 						</p>
 					</div>
@@ -374,11 +374,11 @@ export function ServerOverviewDetails({
 						{t("serverOverviewDetails.viewMonitorJson")}
 					</Link>
 				</div>
-				<div className="mt-3 rounded-lg border border-white/[0.05] bg-slate-950/35 p-3">
+				<div className="mt-3 rounded-lg border border-[var(--border)] bg-[var(--surface-subtle)] p-3">
 					<div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
 						<div>
-							<div className="text-xs font-medium text-white">{t("serverOverviewDetails.realtimeProbe")}</div>
-							<p className="mt-1 text-[11px] leading-5 text-slate-500">
+							<div className="text-xs font-medium text-[var(--text-primary)]">{t("serverOverviewDetails.realtimeProbe")}</div>
+							<p className="mt-1 text-[11px] leading-5 text-[var(--text-muted)]">
 								{t("serverOverviewDetails.realtimeProbeDescription")}
 							</p>
 						</div>
@@ -414,17 +414,17 @@ export function ServerOverviewDetails({
 					{diagnosticItems.map((item) => (
 						<div
 							key={item.label}
-							className="rounded-lg border border-white/[0.05] bg-slate-950/35 p-3"
+							className="rounded-lg border border-[var(--border)] bg-[var(--surface-subtle)] p-3"
 						>
 							<div className="flex items-center justify-between gap-2">
-								<span className="text-xs font-medium text-white">{item.label}</span>
+								<span className="text-xs font-medium text-[var(--text-primary)]">{item.label}</span>
 								<span
 									className={`rounded-full border px-2 py-0.5 text-[10px] ${statusToneClass(item.tone)}`}
 								>
 									{item.status}
 								</span>
 							</div>
-							<div className="mt-2 text-[11px] leading-5 text-slate-500">
+							<div className="mt-2 text-[11px] leading-5 text-[var(--text-muted)]">
 								{item.detail}
 							</div>
 							{item.href ? (
@@ -440,26 +440,26 @@ export function ServerOverviewDetails({
 				</div>
 			</section>
 
-			<section className="rounded-lg border border-white/[0.04] bg-slate-950/40 p-3">
+			<section className="rounded-lg border border-[var(--border)] bg-[var(--surface-subtle)] p-3">
 				<h3 className="mb-3 text-sm font-medium text-white/80">{t("serverOverviewDetails.latestCommands")}</h3>
 				{server.latestCommands.length === 0 ? (
-					<p className="text-xs text-slate-500">{t("serverOverviewDetails.noCommandRecords")}</p>
+					<p className="text-xs text-[var(--text-muted)]">{t("serverOverviewDetails.noCommandRecords")}</p>
 				) : (
 					<div className="space-y-2">
 						{server.latestCommands.map((command) => (
 							<div
 								key={command.id}
-								className="rounded-lg border border-white/[0.04] bg-white/[0.02] p-3"
+								className="rounded-lg border border-[var(--border)] bg-white/[0.02] p-3"
 							>
 								<div className="flex items-center justify-between gap-2">
-									<span className="truncate text-sm font-medium text-white">
+									<span className="truncate text-sm font-medium text-[var(--text-primary)]">
 										{command.title}
 									</span>
-									<span className="shrink-0 text-[11px] text-slate-500">
+									<span className="shrink-0 text-[11px] text-[var(--text-muted)]">
 										{command.initiatedByType === "ASSISTANT" ? t("serverOverviewDetails.assistant") : t("serverOverviewDetails.user")}
 									</span>
 								</div>
-								<div className="mt-1 text-[11px] text-slate-500">
+								<div className="mt-1 text-[11px] text-[var(--text-muted)]">
 									{command.requestStatus} · {command.targetStatus}
 								</div>
 							</div>

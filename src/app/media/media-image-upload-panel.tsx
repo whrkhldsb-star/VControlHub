@@ -247,27 +247,27 @@ export function MediaImageUploadPanel() {
 			</div>
 
 			<div className="mt-3 grid gap-2 md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
-				<div className="text-xs text-emerald-100/80">
+				<div className="text-xs text-[var(--text-secondary)]">
 					<label htmlFor="media-image-storage-node" className="block">{t("mediaUploadPanel.storageNodeLabel")}</label>
-					<select id="media-image-storage-node" value={storageNodeId} onChange={(e) => setStorageNodeId(e.target.value)} onFocus={() => { if (!nodesLoaded && !loadingNodes) void loadNodes(); }} className="mt-1 w-full rounded-lg border border-emerald-300/20 bg-slate-900/60 px-3 py-2 text-sm text-white outline-none focus:border-emerald-300 light:border-emerald-200">
+					<select id="media-image-storage-node" value={storageNodeId} onChange={(e) => setStorageNodeId(e.target.value)} onFocus={() => { if (!nodesLoaded && !loadingNodes) void loadNodes(); }} className="mt-1 w-full rounded-lg border border-emerald-300/20 dark:border-emerald-300/20 bg-[var(--input-bg)] px-3 py-2 text-sm text-[var(--text-primary)] outline-none focus:border-emerald-400 light:border-emerald-300">
 						<option value="">{t("mediaUploadPanel.defaultStorage")}</option>
 						{nodes.map((node) => (
 							<option key={node.id} value={node.id}>{node.name}{node.driver ? ` · ${node.driver}` : ""}{node.serverName ? ` · ${node.serverName}` : ""}</option>
 						))}
 					</select>
 				</div>
-				<div className="text-xs text-emerald-100/80">
+				<div className="text-xs text-[var(--text-secondary)]">
 					<label htmlFor="media-image-target-path" className="block">{t("mediaUploadPanel.targetPathLabel")}</label>
-					<input id="media-image-target-path" value={targetPath} onChange={(e) => setTargetPath(e.target.value)} placeholder={t("mediaUploadPanel.targetPathPlaceholder")} className="mt-1 w-full rounded-lg border border-emerald-300/20 bg-slate-900/60 px-3 py-2 text-sm text-white outline-none placeholder:text-slate-500 focus:border-emerald-300 light:border-emerald-200" />
+					<input id="media-image-target-path" value={targetPath} onChange={(e) => setTargetPath(e.target.value)} placeholder={t("mediaUploadPanel.targetPathPlaceholder")} className="mt-1 w-full rounded-lg border border-emerald-300/20 dark:border-emerald-300/20 bg-[var(--input-bg)] px-3 py-2 text-sm text-[var(--text-primary)] outline-none placeholder:text-slate-500 focus:border-emerald-400 light:border-emerald-300" />
 				</div>
 			</div>
 
-			<p className="mt-2 text-[11px] text-emerald-100/60">{t("mediaUploadPanel.chunkedSizeHint")}</p>
+			<p className="mt-2 text-[11px] text-[var(--text-muted)]">{t("mediaUploadPanel.chunkedSizeHint")}</p>
 
 			<input ref={fileInputRef} type="file" accept="image/*" multiple className="hidden" onChange={(e) => e.target.files && void uploadFiles(e.target.files)} />
 
 			{progress ? (
-				<div role="status" aria-label={t("mediaUploadPanel.progressAria")} className="mt-3 rounded-xl border border-emerald-300/20 bg-slate-950/40 p-3 text-xs text-emerald-100">
+				<div role="status" aria-label={t("mediaUploadPanel.progressAria")} className="mt-3 rounded-xl border border-emerald-300/20 dark:border-emerald-300/20 bg-[var(--surface-subtle)] p-3 text-xs text-[var(--text-secondary)]">
 					<div className="flex justify-between gap-3">
 						<span>{uploading
 							? t("mediaUploadPanel.progressCurrent").replace("{current}", String(progress.current)).replace("{total}", String(progress.total))

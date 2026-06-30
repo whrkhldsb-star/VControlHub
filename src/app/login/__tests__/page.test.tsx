@@ -31,15 +31,15 @@ describe("LoginPage", () => {
 
 		const main = container.querySelector("main");
 		expect(main).toHaveClass("bg-[var(--surface-root)]");
-		expect(main).toHaveClass("text-white");
+		expect(main).toHaveClass("text-[var(--text-primary)]");
 		// R2: 冗余 light: 修饰符已删, light 主题可读性由 globals.css Q 层接管
 		// (Q5b border-slate-* → var(--border), Q6 text-cyan-100 → var(--text-primary) 等)
 		// 此处断言 dark 默认底色未变, light 主题不依赖源码 light: 修饰符
 
 		const username = screen.getByLabelText("用户名");
 		expect(username.className).toContain("bg-white/[0.04]");
-		expect(username.className).toContain("text-white");
-		// globals.css Q17 将深色 input 的 text-white 强制映射到 var(--text-primary)，
+		expect(username.className).toContain("text-[var(--text-primary)]");
+		// globals.css Q17 将深色 input 的 text-[var(--text-primary)] 强制映射到 var(--text-primary)，
 		// 因此不需要 light:text-* 类也能保证浅色主题下的可读性
 		});
 

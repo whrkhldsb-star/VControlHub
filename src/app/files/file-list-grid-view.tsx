@@ -70,11 +70,11 @@ export function FileListGridView({
             fill="none"
             stroke="currentColor"
             strokeWidth="1.5"
-            className="mx-auto mb-3 text-slate-600"
+            className="mx-auto mb-3 text-[var(--text-muted)]"
           >
             <path d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z" />
           </svg>
-          <p className="text-sm text-slate-400">{emptyMessage}</p>
+          <p className="text-sm text-[var(--text-muted)]">{emptyMessage}</p>
         </div>
       ) : null}
 
@@ -85,7 +85,7 @@ export function FileListGridView({
           type="button"
           onClick={() => navigateToFolder(folder.path)}
           data-testid="folder-card"
-          className="group flex min-h-[156px] flex-col items-center gap-3 rounded-xl border border-white/[0.06] bg-slate-900/80 p-5 text-center transition-colors duration-150 hover:border-amber-400/30 hover:bg-amber-400/[0.04]"
+          className="group flex min-h-[156px] flex-col items-center gap-3 rounded-xl border border-[var(--border)] bg-[var(--surface)] p-5 text-center transition-colors duration-150 hover:border-amber-400/30 hover:bg-amber-400/[0.04]"
         >
           <div
             className="rounded-xl bg-amber-400/10 p-3 transition-colors group-hover:bg-amber-400/20"
@@ -93,10 +93,10 @@ export function FileListGridView({
           >
             <FileTypeIcon entry={{ entryType: "DIRECTORY" }} size={36} />
           </div>
-          <span className="w-full truncate text-sm font-medium text-cyan-100 group-hover:text-white light:hover:text-slate-900 transition">
+          <span className="w-full truncate text-sm font-medium text-cyan-100 group-hover:text-[var(--text-primary)] light:hover:text-slate-900 transition">
             {folder.displayName ?? folder.name}
           </span>
-          <span className="text-xs text-slate-500">
+          <span className="text-xs text-[var(--text-muted)]">
             {folder.fileCount + folder.folderCount} 项
           </span>
         </button>
@@ -113,7 +113,7 @@ export function FileListGridView({
         return (
           <div
             key={entry.id}
-            className={`group relative flex flex-col rounded-2xl border border-white/[0.06] bg-slate-900/80 text-center transition-colors duration-200 hover:border-cyan-400/20 hover:shadow-lg hover:shadow-cyan-400/5 overflow-hidden ${isChecked ? "ring-2 ring-cyan-400/50 bg-cyan-400/[0.04] light:bg-cyan-50" : ""}`}
+            className={`group relative flex flex-col rounded-2xl border border-[var(--border)] bg-[var(--surface)] text-center transition-colors duration-200 hover:border-cyan-400/20 hover:shadow-lg hover:shadow-cyan-400/5 overflow-hidden ${isChecked ? "ring-2 ring-cyan-400/50 bg-cyan-400/[0.04] light:bg-cyan-50" : ""}`}
           >
             {/* Selection checkbox */}
             <div className="absolute top-2 left-2 z-20">
@@ -123,7 +123,7 @@ export function FileListGridView({
                   checked={effectiveSelectedIdSet.has(entry.id)}
                   onChange={() => toggleOne(entry.id)}
                   aria-label={`选择 ${entry.name}`}
-                  className="h-4 w-4 rounded-lg border-white/20 bg-slate-900 text-cyan-400 focus:ring-cyan-400/50"
+                  className="h-4 w-4 rounded-lg border-[var(--border)] bg-[var(--surface)] text-cyan-400 focus:ring-cyan-400/50"
                 />
               ) : null}
             </div>
@@ -133,7 +133,7 @@ export function FileListGridView({
               {thumbUrl ? (
                 <div
                   data-testid="file-thumbnail-overlay"
-                  className="w-full h-28 rounded-xl overflow-hidden border border-white/[0.06]"
+                  className="w-full h-28 rounded-xl overflow-hidden border border-[var(--border)]"
                 >
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img
@@ -157,16 +157,16 @@ export function FileListGridView({
               {entry.previewable && entryCanRead(entry) ? (
                 <Link
                   href={previewHref}
-                  className="w-full truncate text-sm font-medium text-white hover:text-cyan-100 transition"
+                  className="w-full truncate text-sm font-medium text-[var(--text-primary)] hover:text-cyan-100 transition"
                 >
                   {entry.name}
                 </Link>
               ) : (
-                <span className="w-full truncate text-sm font-medium text-white">
+                <span className="w-full truncate text-sm font-medium text-[var(--text-primary)]">
                   {entry.name}
                 </span>
               )}
-              <div className="mt-1 flex items-center justify-center gap-2 text-xs text-slate-500">
+              <div className="mt-1 flex items-center justify-center gap-2 text-xs text-[var(--text-muted)]">
                 <span>{entry.sizeLabel}</span>
                 <span className="text-slate-700">·</span>
                 <span className="truncate">{entry.storageNode.name}</span>
@@ -174,7 +174,7 @@ export function FileListGridView({
             </div>
 
             {/* Action bar */}
-            <div className="flex items-center justify-center gap-1 px-3 py-3 border-t border-white/[0.04] bg-slate-950/40">
+            <div className="flex items-center justify-center gap-1 px-3 py-3 border-t border-[var(--border)] bg-[var(--surface-subtle)]">
               <FileRowActions
                 entry={entry}
                 downloadUrl={downloadUrl}

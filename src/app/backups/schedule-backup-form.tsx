@@ -89,7 +89,7 @@ export function ScheduleBackupForm({ servers, commandByType }: Props) {
       <div className="grid gap-3 md:grid-cols-[180px_1fr]">
         <div className="space-y-1.5">
           <label htmlFor={scheduleBackupTypeSelectId} className="block text-xs font-medium text-[var(--text-secondary)]">{t("common.backupType")}</label>
-          <select id={scheduleBackupTypeSelectId} value={type} onChange={(event) => setType(event.target.value as BackupType)} className="block w-full rounded-lg border border-white/[0.08] bg-slate-950 px-3 py-2 text-sm text-slate-100">
+          <select id={scheduleBackupTypeSelectId} value={type} onChange={(event) => setType(event.target.value as BackupType)} className="block w-full rounded-lg border border-[var(--border)] bg-[var(--input-bg)] px-3 py-2 text-sm text-[var(--text-primary)]">
             <option value="DATABASE">{t("common.databaseBackup")}</option>
             <option value="FILES">{t("common.fileBackup")}</option>
             <option value="FULL">{t("common.fullBackup")}</option>
@@ -97,11 +97,11 @@ export function ScheduleBackupForm({ servers, commandByType }: Props) {
         </div>
         <div className="space-y-1.5">
           <label htmlFor={scheduleCronInputId} className="block text-xs font-medium text-[var(--text-secondary)]">{t("common.cronExpression")}</label>
-          <input id={scheduleCronInputId} value={cronExpression} onChange={(event) => setCronExpression(event.target.value)} required placeholder="0 3 * * *" className="block w-full rounded-lg border border-white/[0.08] bg-slate-950 px-3 py-2 text-sm font-mono text-slate-100" />
+          <input id={scheduleCronInputId} value={cronExpression} onChange={(event) => setCronExpression(event.target.value)} required placeholder="0 3 * * *" className="block w-full rounded-lg border border-[var(--border)] bg-[var(--input-bg)] px-3 py-2 text-sm font-mono text-[var(--text-primary)]" />
         </div>
       </div>
       <p data-tone="cyan" className="rounded-lg border border-cyan-400/10 px-3 py-2 text-xs text-cyan-100">{t("common.preview")}{cronPreview}</p>
-      <code className="block overflow-auto rounded-lg border border-white/[0.06] bg-slate-950/70 p-3 font-mono text-xs text-slate-300">{command}</code>
+      <code className="block overflow-auto rounded-lg border border-[var(--border)] bg-slate-950/70 p-3 font-mono text-xs text-[var(--text-secondary)]">{command}</code>
       <div className="space-y-2">
         <p className="text-xs font-medium text-[var(--text-secondary)]">{t("backupsPage.schedule.executeOn")}</p>
         {enabledServers.length === 0 ? (
@@ -109,7 +109,7 @@ export function ScheduleBackupForm({ servers, commandByType }: Props) {
         ) : (
           <div className="grid gap-2 sm:grid-cols-2">
             {enabledServers.map((server) => (
-              <label key={server.id} className="flex items-center gap-2 rounded-lg border border-white/[0.08] bg-white/[0.03] px-3 py-2 text-sm text-slate-200">
+              <label key={server.id} className="flex items-center gap-2 rounded-lg border border-[var(--border)] bg-white/[0.03] px-3 py-2 text-sm text-[var(--text-secondary)]">
                 <input type="checkbox" checked={selectedServerIds.has(server.id)} onChange={() => toggleServer(server.id)} className="accent-cyan-400" />
                 <span>{server.name}</span>
               </label>

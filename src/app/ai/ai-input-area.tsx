@@ -55,7 +55,7 @@ export function AiInputArea({
   const enableVision = activeConv?.enableVision ?? false;
 
   return (
-    <div className="px-4 py-3 border-t border-white/[0.06] bg-slate-950/30">
+    <div className="px-4 py-3 border-t border-[var(--border)] bg-[var(--surface-subtle)]">
       {/* File rejection toast */}
       {fileRejectionMsg && (
         <div className="mb-2 px-3 py-2 rounded-lg bg-rose-500/10 border border-rose-500/20 text-xs text-rose-300 flex items-center gap-2 animate-in fade-in slide-in-from-bottom-2 duration-300">
@@ -71,7 +71,7 @@ export function AiInputArea({
         <button
           onClick={() => fileInputRef.current?.click()}
           disabled={streaming}
-          className="h-10 w-10 rounded-xl bg-white/[0.04] text-[var(--text-secondary)] flex items-center justify-center hover:bg-white/[0.08] hover:text-slate-200 light:hover:text-slate-800 transition disabled:opacity-30"
+          className="h-10 w-10 rounded-xl bg-white/[0.04] text-[var(--text-secondary)] flex items-center justify-center hover:bg-white/[0.08] hover:text-[var(--text-secondary)] light:hover:text-slate-800 transition disabled:opacity-30"
           aria-label={t("aiPage.uploadFileTitle").replace("{types}", formatAllowedTypes(currentModelCaps))}
           title={t("aiPage.uploadFileTitle").replace("{types}", formatAllowedTypes(currentModelCaps))}
         >
@@ -109,7 +109,7 @@ export function AiInputArea({
           }
           rows={1}
           disabled={streaming}
-          className="flex-1 bg-black/30 border border-[var(--border)] rounded-xl px-4 py-2.5 text-sm text-white placeholder-slate-600 resize-none focus:outline-none focus:border-cyan-400/30 transition disabled:opacity-50"
+          className="flex-1 bg-black/30 border border-[var(--border)] rounded-xl px-4 py-2.5 text-sm text-[var(--text-primary)] placeholder-slate-600 resize-none focus:outline-none focus:border-cyan-400/30 transition disabled:opacity-50"
           style={{ maxHeight: "120px" }}
           onInput={(e) => {
             const el = e.currentTarget;

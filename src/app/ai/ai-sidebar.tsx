@@ -36,10 +36,10 @@ export function AiSidebar({
         />
       )}
       {showSidebar && (
-        <div className="w-64 flex-shrink-0 border-r border-white/[0.06] bg-slate-950/50 flex flex-col max-md:absolute max-md:inset-y-0 max-md:left-0 max-md:z-40 max-md:w-72">
+        <div className="w-64 flex-shrink-0 border-r border-[var(--border)] bg-[var(--surface-subtle)] flex flex-col max-md:absolute max-md:inset-y-0 max-md:left-0 max-md:z-40 max-md:w-72">
           {/* Header */}
-          <div className="px-4 py-3 border-b border-white/[0.06] flex items-center justify-between">
-            <h2 className="text-sm font-semibold text-white">{t("aiPage.sidebarTitle")}</h2>
+          <div className="px-4 py-3 border-b border-[var(--border)] flex items-center justify-between">
+            <h2 className="text-sm font-semibold text-[var(--text-primary)]">{t("aiPage.sidebarTitle")}</h2>
             <button
               onClick={onNewConv}
               className="h-7 px-2.5 rounded-lg bg-cyan-500/20 text-cyan-300 text-xs font-medium hover:bg-cyan-500/30 transition"
@@ -59,7 +59,7 @@ export function AiSidebar({
                 className={`group flex items-center gap-2 rounded-lg px-3 py-2 cursor-pointer transition ${
  activeConvId === conv.id
  ?"bg-cyan-400/[0.08] text-cyan-100"
- :"text-[var(--text-secondary)] hover:bg-white/[0.04] hover:text-slate-200 light:hover:text-slate-800"
+ :"text-[var(--text-secondary)] hover:bg-white/[0.04] hover:text-[var(--text-secondary)] light:hover:text-slate-800"
  }`}
                 onClick={() => onSelectConv(conv.id)}
               >
@@ -84,10 +84,10 @@ export function AiSidebar({
           </div>
 
           {/* Bottom actions */}
-          <div className="border-t border-white/[0.06] p-2 space-y-1">
+          <div className="border-t border-[var(--border)] p-2 space-y-1">
             <button
               onClick={onToggleProviders}
-              className="w-full flex items-center gap-2 rounded-lg px-3 py-2 text-xs text-[var(--text-secondary)] hover:bg-white/[0.04] hover:text-slate-200 light:hover:text-slate-800 transition"
+              className="w-full flex items-center gap-2 rounded-lg px-3 py-2 text-xs text-[var(--text-secondary)] hover:bg-white/[0.04] hover:text-[var(--text-secondary)] light:hover:text-slate-800 transition"
             >
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.857L8 16H6v2H4v2H2v-2.586l7.44-7.44A6 6 0 0121 9z" />
@@ -96,7 +96,7 @@ export function AiSidebar({
             </button>
             <button
               onClick={() => onToggleSidebar(false)}
-              className="w-full flex items-center gap-2 rounded-lg px-3 py-2 text-xs text-[var(--text-secondary)] hover:bg-white/[0.04] hover:text-slate-200 light:hover:text-slate-800 transition lg:hidden"
+              className="w-full flex items-center gap-2 rounded-lg px-3 py-2 text-xs text-[var(--text-secondary)] hover:bg-white/[0.04] hover:text-[var(--text-secondary)] light:hover:text-slate-800 transition lg:hidden"
             >
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M11 19l-7-7 7-7m8 14l-7-7 7-7" />
@@ -110,7 +110,7 @@ export function AiSidebar({
       {!showSidebar && (
         <button
           onClick={() => onToggleSidebar(true)}
-          className="absolute top-4 left-4 z-50 lg:hidden rounded-xl border border-[var(--border)] bg-slate-950/90 p-2.5 text-slate-200 backdrop-blur hover:bg-white/10 transition"
+          className="absolute top-4 left-4 z-50 lg:hidden rounded-xl border border-[var(--border)] bg-[var(--modal-bg)] p-2.5 text-[var(--text-secondary)] backdrop-blur hover:bg-white/10 transition"
           aria-label={t("aiPage.openSidebar")}
         >
           <svg width="20" height="20" viewBox="0 0 20 20" fill="none">

@@ -21,23 +21,23 @@ export function StorageNodeCreateForm({
   const isSftp = driver === "SFTP";
 
   return (
-    <form action={formAction} className="grid gap-4 rounded-3xl border border-[var(--border)] bg-slate-900/60 p-6">
+    <form action={formAction} className="grid gap-4 rounded-3xl border border-[var(--border)] bg-[var(--surface)] p-6">
       <div>
-        <h2 className="text-xl font-semibold text-white">{t("storagePage.form.createTitle")}</h2>
+        <h2 className="text-xl font-semibold text-[var(--text-primary)]">{t("storagePage.form.createTitle")}</h2>
         <p className="mt-2 text-sm text-[var(--text-secondary)]">{t("storagePage.form.createDescription")}</p>
       </div>
 
       <div className="grid gap-4 md:grid-cols-2">
         <label className="grid gap-2 text-sm text-[var(--text-secondary)]">
           <span>{t("storagePage.form.fieldName")}</span>
-          <input name="name" required className="rounded-2xl border border-[var(--border)] bg-slate-950 px-4 py-3 text-white" />
+          <input name="name" required className="rounded-2xl border border-[var(--border)] bg-[var(--input-bg)] px-4 py-3 text-[var(--text-primary)]" />
         </label>
         <label className="grid gap-2 text-sm text-[var(--text-secondary)]">
           <span>{t("storagePage.form.fieldDriver")}</span>
           <select
             name="driver"
             defaultValue="LOCAL"
-            className="rounded-2xl border border-[var(--border)] bg-slate-950 px-4 py-3 text-white"
+            className="rounded-2xl border border-[var(--border)] bg-[var(--input-bg)] px-4 py-3 text-[var(--text-primary)]"
             onChange={(e) => setDriver(e.target.value)}
           >
             <option value="LOCAL">LOCAL</option>
@@ -46,13 +46,13 @@ export function StorageNodeCreateForm({
         </label>
         <label className="grid gap-2 text-sm text-[var(--text-secondary)] md:col-span-2">
           <span>{t("storagePage.form.fieldBasePath")}</span>
-          <input name="basePath" required className="rounded-2xl border border-[var(--border)] bg-slate-950 px-4 py-3 text-white" placeholder={t("storagePage.form.basePathPlaceholder")} />
+          <input name="basePath" required className="rounded-2xl border border-[var(--border)] bg-[var(--input-bg)] px-4 py-3 text-[var(--text-primary)]" placeholder={t("storagePage.form.basePathPlaceholder")} />
         </label>
         {isSftp ? (
           <>
             <label className="grid gap-2 text-sm text-[var(--text-secondary)]">
               <span>{t("storagePage.form.fieldBindVps")} <span className="text-rose-400">{t("storagePage.form.fieldBindVpsRequired")}</span></span>
-              <select name="serverId" className="rounded-2xl border border-rose-400/40 bg-slate-950 px-4 py-3 text-white">
+              <select name="serverId" className="rounded-2xl border border-rose-400/40 bg-[var(--input-bg)] px-4 py-3 text-[var(--text-primary)]">
                 <option value="">{t("storagePage.form.optionNotBound")}</option>
                 {servers.map((server) => (
                   <option key={server.id} value={server.id}>{server.name} · {server.host}</option>
@@ -61,19 +61,19 @@ export function StorageNodeCreateForm({
             </label>
             <label className="grid gap-2 text-sm text-[var(--text-secondary)]">
               <span>{t("storagePage.form.fieldRemoteHost")} <span className="text-rose-400">{t("storagePage.form.fieldRemoteHostRequired")}</span></span>
-              <input name="host" className="rounded-2xl border border-rose-400/40 bg-slate-950 px-4 py-3 text-white" placeholder={t("storagePage.form.hostPlaceholder")} />
+              <input name="host" className="rounded-2xl border border-rose-400/40 bg-[var(--input-bg)] px-4 py-3 text-[var(--text-primary)]" placeholder={t("storagePage.form.hostPlaceholder")} />
             </label>
             <label className="grid gap-2 text-sm text-[var(--text-secondary)]">
               <span>{t("storagePage.form.fieldPort")}</span>
-              <input name="port" type="number" min={1} max={65535} defaultValue={22} className="rounded-2xl border border-[var(--border)] bg-slate-950 px-4 py-3 text-white" />
+              <input name="port" type="number" min={1} max={65535} defaultValue={22} className="rounded-2xl border border-[var(--border)] bg-[var(--input-bg)] px-4 py-3 text-[var(--text-primary)]" />
             </label>
             <label className="grid gap-2 text-sm text-[var(--text-secondary)]">
               <span>{t("storagePage.form.fieldUsername")}</span>
-              <input name="username" defaultValue="root" className="rounded-2xl border border-[var(--border)] bg-slate-950 px-4 py-3 text-white" />
+              <input name="username" defaultValue="root" className="rounded-2xl border border-[var(--border)] bg-[var(--input-bg)] px-4 py-3 text-[var(--text-primary)]" />
             </label>
             <label className="grid gap-2 text-sm text-[var(--text-secondary)] md:col-span-2">
               <span>{t("storagePage.form.fieldAccessMode")}</span>
-              <select name="directAccessMode" defaultValue="PROXY" className="rounded-2xl border border-[var(--border)] bg-slate-950 px-4 py-3 text-white">
+              <select name="directAccessMode" defaultValue="PROXY" className="rounded-2xl border border-[var(--border)] bg-[var(--input-bg)] px-4 py-3 text-[var(--text-primary)]">
                 <option value="PROXY">{t("storagePage.form.accessModeProxy")}</option>
                 <option value="DIRECT">{t("storagePage.form.accessModeDirect")}</option>
                 <option value="AUTO">{t("storagePage.form.accessModeAuto")}</option>
@@ -81,11 +81,11 @@ export function StorageNodeCreateForm({
             </label>
             <label className="grid gap-2 text-sm text-[var(--text-secondary)]">
               <span>{t("storagePage.form.fieldPublicBaseUrl")}</span>
-              <input name="publicBaseUrl" type="url" className="rounded-2xl border border-[var(--border)] bg-slate-950 px-4 py-3 text-white" placeholder={t("storagePage.form.publicBaseUrlPlaceholder")} />
+              <input name="publicBaseUrl" type="url" className="rounded-2xl border border-[var(--border)] bg-[var(--input-bg)] px-4 py-3 text-[var(--text-primary)]" placeholder={t("storagePage.form.publicBaseUrlPlaceholder")} />
             </label>
             <label className="grid gap-2 text-sm text-[var(--text-secondary)]">
               <span>{t("storagePage.form.fieldDirectExpiresSeconds")}</span>
-              <input name="directAccessExpiresSeconds" type="number" min={60} max={86400} defaultValue={300} className="rounded-2xl border border-[var(--border)] bg-slate-950 px-4 py-3 text-white" />
+              <input name="directAccessExpiresSeconds" type="number" min={60} max={86400} defaultValue={300} className="rounded-2xl border border-[var(--border)] bg-[var(--input-bg)] px-4 py-3 text-[var(--text-primary)]" />
             </label>
           </>
         ) : null}

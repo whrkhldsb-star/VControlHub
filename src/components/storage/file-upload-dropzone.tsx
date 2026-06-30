@@ -338,10 +338,10 @@ export function FileUploadDropzone({
   }
 
   return (
-    <section className="rounded-3xl border border-[var(--border)] bg-slate-900/60 p-6">
+    <section className="rounded-3xl border border-[var(--border)] bg-[var(--surface)] p-6">
       <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <h2 className="text-2xl font-semibold text-white">{title}</h2>
+          <h2 className="text-2xl font-semibold text-[var(--text-primary)]">{title}</h2>
           <p className="text-sm text-[var(--text-secondary)]">{description}</p>
         </div>
       </div>
@@ -356,7 +356,7 @@ export function FileUploadDropzone({
               aria-label={tr("fileUploadDropzone.uploadToNode")}
               value={selectedNodeId}
               onChange={(event) => setSelectedNodeId(event.currentTarget.value)}
-              className="rounded-2xl border border-[var(--border)] bg-slate-950 px-4 py-3 text-white"
+              className="rounded-2xl border border-[var(--border)] bg-[var(--input-bg)] px-4 py-3 text-[var(--text-primary)]"
             >
               <option value="">
                 {tr("fileUploadDropzone.selectStorageNode")}
@@ -377,7 +377,7 @@ export function FileUploadDropzone({
             value={effectiveRelativeDir}
             readOnly={uploadDir !== undefined || !allowNodeSelection}
             onChange={(event) => setRelativeDir(event.currentTarget.value)}
-            className="rounded-2xl border border-[var(--border)] bg-slate-950 px-4 py-3 text-white read-only:cursor-not-allowed read-only:opacity-80"
+            className="rounded-2xl border border-[var(--border)] bg-[var(--input-bg)] px-4 py-3 text-[var(--text-primary)] read-only:cursor-not-allowed read-only:opacity-80"
             placeholder={tr("fileUploadDropzone.pathPlaceholder")}
           />
         </label>
@@ -419,9 +419,9 @@ export function FileUploadDropzone({
         className={`mt-5 flex min-h-40 w-full flex-col items-center justify-center rounded-3xl border border-dashed px-6 py-8 text-center transition ${
           uploadEnabled
             ? dragActive
-              ? "border-cyan-300 bg-cyan-400/10 text-cyan-100"
-              : "border-white/10 bg-white/5 text-slate-100 hover:border-cyan-400/50"
-            : "cursor-not-allowed border-[var(--border)] bg-slate-950/60 text-slate-500"
+              ? "border-cyan-300 bg-cyan-400/10 text-cyan-100 dark:text-cyan-100"
+              : "border-[var(--border)] bg-[var(--surface-hover)] text-[var(--text-primary)] hover:border-[var(--color-action)]/50"
+            : "cursor-not-allowed border-[var(--border)] bg-[var(--surface-subtle)] text-[var(--text-muted)]"
         }`}
       >
         <span className="text-base font-medium">{submitLabel}</span>
@@ -460,7 +460,7 @@ export function FileUploadDropzone({
       ) : null}
 
       {queue.length > 0 ? (
-        <div className="mt-3 space-y-1 rounded-2xl border border-[var(--border)] bg-slate-950/50 p-3 text-xs text-[var(--text-secondary)]">
+        <div className="mt-3 space-y-1 rounded-2xl border border-[var(--border)] bg-[var(--surface-subtle)] p-3 text-xs text-[var(--text-secondary)]">
           {queue.map((item, index) => (
             <div
               key={`${item.name}-${index}`}

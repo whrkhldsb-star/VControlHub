@@ -32,10 +32,10 @@ function ServerOverviewDetailsStub() {
 	return (
 		<div
 			aria-hidden
-			className="mt-4 space-y-3 border-t border-white/[0.06] pt-4"
+			className="mt-4 space-y-3 border-t border-[var(--border)] pt-4"
 		>
-			<div className="h-24 w-full animate-pulse rounded-lg border border-white/[0.04] bg-slate-950/40" />
-			<div className="h-24 w-full animate-pulse rounded-lg border border-white/[0.04] bg-slate-950/40" />
+			<div className="h-24 w-full animate-pulse rounded-lg border border-[var(--border)] bg-[var(--surface-subtle)]" />
+			<div className="h-24 w-full animate-pulse rounded-lg border border-[var(--border)] bg-[var(--surface-subtle)]" />
 			<div className="h-32 w-full animate-pulse rounded-lg border border-cyan-400/10 bg-cyan-400/[0.035]" />
 		</div>
 	);

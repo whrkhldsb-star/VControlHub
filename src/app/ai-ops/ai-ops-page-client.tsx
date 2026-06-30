@@ -42,17 +42,17 @@ type Props = {
 };
 
 const cardClass =
-	"rounded-2xl border border-white/[0.06] bg-white/[0.04] p-5";
+	"rounded-2xl border border-[var(--border)] bg-white/[0.04] p-5";
 const labelClass =
-	"text-xs font-medium text-slate-300 tracking-wide";
+	"text-xs font-medium text-[var(--text-secondary)] tracking-wide";
 const selectClass =
-	"rounded-lg border border-white/[0.08] bg-white/[0.04] px-3 py-2 text-sm text-white outline-none focus:border-cyan-400/30";
+	"rounded-lg border border-[var(--border)] bg-white/[0.04] px-3 py-2 text-sm text-[var(--text-primary)] outline-none focus:border-cyan-400/30";
 const inputClass =
-	"w-full rounded-lg border border-white/[0.06] bg-white/[0.04] px-3.5 py-2.5 text-sm text-white outline-none transition placeholder:text-white/20 focus:border-cyan-400/30";
+	"w-full rounded-lg border border-[var(--border)] bg-white/[0.04] px-3.5 py-2.5 text-sm text-[var(--text-primary)] outline-none transition placeholder:text-white/20 focus:border-cyan-400/30";
 const buttonPrimary =
 	"rounded-lg bg-cyan-500/80 hover:bg-cyan-500 px-4 py-2 text-sm font-medium text-slate-900 transition disabled:opacity-50 disabled:cursor-not-allowed";
 const buttonGhost =
-	"rounded-lg border border-white/[0.08] bg-white/[0.02] hover:bg-white/[0.06] px-4 py-2 text-sm text-white/80 transition";
+	"rounded-lg border border-[var(--border)] bg-white/[0.02] hover:bg-white/[0.06] px-4 py-2 text-sm text-white/80 transition";
 const buttonDanger =
 	"rounded-lg border border-rose-500/30 bg-rose-500/10 hover:bg-rose-500/20 px-3 py-1.5 text-xs text-rose-200 transition";
 
@@ -265,7 +265,7 @@ export function AiOpsPageClient({
 						<div className={`${labelClass} opacity-60`}>
 							{t("aiOpsPage.summary.total")}
 						</div>
-						<div className="mt-1 text-2xl font-semibold text-white">
+						<div className="mt-1 text-2xl font-semibold text-[var(--text-primary)]">
 							{summary.total}
 						</div>
 					</div>
@@ -528,9 +528,9 @@ export function AiOpsPageClient({
 									{selectedLog.findings.map((f) => (
 										<li
 											key={f.id}
-											className="rounded-lg border border-white/[0.06] bg-white/[0.02] p-3"
+											className="rounded-lg border border-[var(--border)] bg-white/[0.02] p-3"
 										>
-											<div className="font-medium text-white">{f.title}</div>
+											<div className="font-medium text-[var(--text-primary)]">{f.title}</div>
 											<div className="text-xs text-white/50">
 												{t(`aiOpsPage.severity.${f.severity}`)}
 											</div>
@@ -558,10 +558,10 @@ export function AiOpsPageClient({
 										return (
 											<li
 												key={action.id}
-												className="flex items-start justify-between gap-3 rounded-lg border border-white/[0.06] bg-white/[0.02] p-3"
+												className="flex items-start justify-between gap-3 rounded-lg border border-[var(--border)] bg-white/[0.02] p-3"
 											>
 												<div>
-													<div className="font-medium text-white">
+													<div className="font-medium text-[var(--text-primary)]">
 														{action.action}
 													</div>
 													<div className="text-xs text-white/50">

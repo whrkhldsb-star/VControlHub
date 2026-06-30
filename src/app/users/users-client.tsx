@@ -162,38 +162,38 @@ export function UserManagementClient({ canManage = false }: { canManage?: boolea
 
       {/* Create form */}
       {showCreateForm && (
-        <div className="mb-6 rounded-2xl border border-[var(--border)] bg-slate-900/60 p-6 space-y-4">
+        <div className="mb-6 rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-6 space-y-4">
           <div className="grid gap-4 sm:grid-cols-2">
             <div>
-              <label className="block text-sm text-slate-400 mb-1" htmlFor="createUserUsername">{t("usersPage.form.username")}</label>
+              <label className="block text-sm text-[var(--text-muted)] mb-1" htmlFor="createUserUsername">{t("usersPage.form.username")}</label>
               <input
                 id="createUserUsername"
                 type="text"
                 value={createForm.username}
                 onChange={(e) => setCreateForm((p) => ({ ...p, username: e.target.value }))}
-                className="w-full rounded-2xl border border-[var(--border)] bg-slate-950 px-4 py-2 text-sm text-white focus:border-cyan-400/50 focus:outline-none"
+                className="w-full rounded-2xl border border-[var(--border)] bg-[var(--input-bg)] px-4 py-2 text-sm text-[var(--text-primary)] focus:border-cyan-400/50 focus:outline-none"
                 placeholder={t("usersPage.form.usernamePlaceholder")}
               />
             </div>
             <div>
-              <label className="block text-sm text-slate-400 mb-1" htmlFor="createUserDisplayName">{t("usersPage.form.displayName")}</label>
+              <label className="block text-sm text-[var(--text-muted)] mb-1" htmlFor="createUserDisplayName">{t("usersPage.form.displayName")}</label>
               <input
                 id="createUserDisplayName"
                 type="text"
                 value={createForm.displayName}
                 onChange={(e) => setCreateForm((p) => ({ ...p, displayName: e.target.value }))}
-                className="w-full rounded-2xl border border-[var(--border)] bg-slate-950 px-4 py-2 text-sm text-white focus:border-cyan-400/50 focus:outline-none"
+                className="w-full rounded-2xl border border-[var(--border)] bg-[var(--input-bg)] px-4 py-2 text-sm text-[var(--text-primary)] focus:border-cyan-400/50 focus:outline-none"
                 placeholder={t("usersPage.form.displayNamePlaceholder")}
               />
             </div>
             <div className="sm:col-span-2">
-              <label className="block text-sm text-slate-400 mb-1" htmlFor="createUserPassword">{t("usersPage.form.password")}</label>
+              <label className="block text-sm text-[var(--text-muted)] mb-1" htmlFor="createUserPassword">{t("usersPage.form.password")}</label>
               <input
                 id="createUserPassword"
                 type="password"
                 value={createForm.password}
                 onChange={(e) => setCreateForm((p) => ({ ...p, password: e.target.value }))}
-                className="w-full rounded-2xl border border-[var(--border)] bg-slate-950 px-4 py-2 text-sm text-white focus:border-cyan-400/50 focus:outline-none"
+                className="w-full rounded-2xl border border-[var(--border)] bg-[var(--input-bg)] px-4 py-2 text-sm text-[var(--text-primary)] focus:border-cyan-400/50 focus:outline-none"
                 placeholder={t("usersPage.form.passwordPlaceholder")}
               />
             </div>
@@ -232,7 +232,7 @@ export function UserManagementClient({ canManage = false }: { canManage?: boolea
 
       {/* User list */}
       <div className="overflow-hidden rounded-2xl border border-[var(--border)]">
-        <div className="divide-y divide-white/5 bg-slate-950/40">
+        <div className="divide-y divide-[var(--border)] bg-[var(--surface-subtle)]">
           {loading ? (
             <EmptyState>{t("usersPage.loading")}</EmptyState>
           ) : loadFailed ? (

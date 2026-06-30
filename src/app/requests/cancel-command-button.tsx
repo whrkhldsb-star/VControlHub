@@ -60,19 +60,19 @@ export function CancelCommandButton({ commandRequestId, commandTitle }: Props) {
 
       {open && (
         <div role="dialog" aria-modal="true" aria-labelledby={`cancel-command-${commandRequestId}-title`} className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 px-4 py-6">
-          <div className="w-full max-w-md rounded-2xl border border-white/10 bg-slate-950 p-5 shadow-2xl">
-            <h3 id={`cancel-command-${commandRequestId}-title`} className="text-lg font-semibold text-white">{t("requestsPage.cancel.confirmTitle")}</h3>
+          <div className="w-full max-w-md rounded-2xl border border-[var(--border)] bg-[var(--modal-bg)] p-5 shadow-2xl">
+            <h3 id={`cancel-command-${commandRequestId}-title`} className="text-lg font-semibold text-[var(--text-primary)]">{t("requestsPage.cancel.confirmTitle")}</h3>
             <p className="mt-2 text-sm text-[var(--text-secondary)]">
               {t("requestsPage.cancel.confirmBody").replace("{title}", commandTitle)}
             </p>
-            <label htmlFor={`cancel-command-${commandRequestId}-reason`} className="mt-4 block text-sm font-medium text-slate-200">
+            <label htmlFor={`cancel-command-${commandRequestId}-reason`} className="mt-4 block text-sm font-medium text-[var(--text-secondary)]">
               {t("requestsPage.cancel.reasonLabel")}
             </label>
             <textarea
               id={`cancel-command-${commandRequestId}-reason`}
               value={reason}
               onChange={(event) => setReason(event.target.value)}
-              className="mt-2 min-h-20 w-full rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2 text-sm text-white outline-none focus:border-rose-300"
+              className="mt-2 min-h-20 w-full rounded-xl border border-[var(--border)] bg-white/[0.03] px-3 py-2 text-sm text-[var(--text-primary)] outline-none focus:border-rose-300"
               placeholder={t("requestsPage.cancel.reasonPlaceholder")}
             />
             <div className="mt-5 flex flex-col gap-2 sm:flex-row sm:justify-end">
@@ -83,7 +83,7 @@ export function CancelCommandButton({ commandRequestId, commandTitle }: Props) {
                   setOpen(false);
                   setError(null);
                 }}
-                className="rounded-xl border border-white/10 px-4 py-2 text-sm text-slate-300 transition hover:bg-white/5 disabled:opacity-50"
+                className="rounded-xl border border-[var(--border)] px-4 py-2 text-sm text-[var(--text-secondary)] transition hover:bg-white/5 disabled:opacity-50"
               >
                 {t("requestsPage.cancel.keep")}
               </button>
@@ -91,7 +91,7 @@ export function CancelCommandButton({ commandRequestId, commandTitle }: Props) {
                 type="button"
                 disabled={pending}
                 onClick={submit}
-                className="rounded-xl bg-rose-500 px-4 py-2 text-sm font-medium text-white transition hover:bg-rose-400 disabled:opacity-50"
+                className="rounded-xl bg-rose-500 px-4 py-2 text-sm font-medium text-[var(--text-primary)] transition hover:bg-rose-400 disabled:opacity-50"
               >
                 {pending ? t("requestsPage.cancel.pending") : t("requestsPage.cancel.confirm")}
               </button>

@@ -72,7 +72,7 @@ export function CreateShareForm({ nodes }: { nodes: StorageNode[] }) {
       {!open ? (
         <button
           onClick={() => setOpen(true)}
-          className="rounded-lg bg-cyan-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-cyan-500"
+          className="rounded-lg bg-cyan-600 px-4 py-2 text-sm font-medium text-[var(--text-primary)] transition hover:bg-cyan-500"
         >
           {t("sharesPage.create.title")}
         </button>
@@ -80,10 +80,10 @@ export function CreateShareForm({ nodes }: { nodes: StorageNode[] }) {
  <div data-card className=" ">
           <div className="flex items-center justify-between mb-4">
             <div>
-              <h3 className="text-sm font-semibold text-white">{t("sharesPage.create.advancedTitle")}</h3>
-              <p className="mt-1 text-xs text-slate-500">{t("sharesPage.create.desc")}</p>
+              <h3 className="text-sm font-semibold text-[var(--text-primary)]">{t("sharesPage.create.advancedTitle")}</h3>
+              <p className="mt-1 text-xs text-[var(--text-muted)]">{t("sharesPage.create.desc")}</p>
             </div>
-            <button onClick={() => { setOpen(false); setResult(null); setError(""); }} className="text-xs text-slate-500 hover:text-slate-300">收起</button>
+            <button onClick={() => { setOpen(false); setResult(null); setError(""); }} className="text-xs text-[var(--text-muted)] hover:text-[var(--text-secondary)]">收起</button>
           </div>
 
           <div className="grid gap-3 sm:grid-cols-2">
@@ -133,14 +133,14 @@ export function CreateShareForm({ nodes }: { nodes: StorageNode[] }) {
                   {copied ? t("sharesPage.create.copied") : t("sharesPage.create.copy")}
                 </button>
               </div>
-              <p className="mt-1 text-[10px] text-slate-500">{t("sharesPage.create.tokenWarning")}，数据库仅存储哈希，无法再次查看。</p>
+              <p className="mt-1 text-[10px] text-[var(--text-muted)]">{t("sharesPage.create.tokenWarning")}，数据库仅存储哈希，无法再次查看。</p>
             </div>
           )}
 
           <button
             onClick={handleCreate}
             disabled={saving || !nodeId || !path.trim()}
-            className="mt-4 rounded-lg bg-cyan-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-cyan-500 disabled:opacity-40"
+            className="mt-4 rounded-lg bg-cyan-600 px-4 py-2 text-sm font-medium text-[var(--text-primary)] transition hover:bg-cyan-500 disabled:opacity-40"
           >
             {saving ? t("sharesPage.create.submitting") : t("sharesPage.create.submit")}
           </button>

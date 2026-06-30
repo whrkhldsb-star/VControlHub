@@ -95,7 +95,7 @@ export function BatchReviewToolbar({
 		return (
 			<div className="relative">
 				<label
-					className="absolute left-2 top-2 z-10 flex h-6 w-6 cursor-pointer items-center justify-center rounded border border-[var(--border)] bg-slate-950/80 hover:bg-slate-900"
+					className="absolute left-2 top-2 z-10 flex h-6 w-6 cursor-pointer items-center justify-center rounded border border-[var(--border)] bg-[var(--modal-bg)] hover:bg-[var(--surface)]"
 					aria-label={`选择 ${id}`}
 				>
 					<input
@@ -116,7 +116,7 @@ export function BatchReviewToolbar({
 
 	return (
 		<div className="space-y-3" data-batch-review>
-			<div className="flex flex-wrap items-center gap-3 rounded-lg border border-white/[0.06] bg-white/[0.02] px-3 py-2 text-sm">
+			<div className="flex flex-wrap items-center gap-3 rounded-lg border border-[var(--border)] bg-white/[0.02] px-3 py-2 text-sm">
 				<label className="inline-flex items-center gap-2 cursor-pointer">
 					<input
 						type="checkbox"
@@ -149,7 +149,7 @@ export function BatchReviewToolbar({
 			{someSelected && (
 				<form
 					action={formAction}
-					className="sticky bottom-3 z-20 flex flex-col gap-2 rounded-xl border border-cyan-400/30 bg-slate-950/95 p-3 shadow-2xl backdrop-blur sm:flex-row sm:items-center sm:gap-3"
+					className="sticky bottom-3 z-20 flex flex-col gap-2 rounded-xl border border-cyan-400/30 bg-[var(--modal-bg)] p-3 shadow-2xl backdrop-blur sm:flex-row sm:items-center sm:gap-3"
 					aria-label="批量审批操作栏"
 				>
 					{Array.from(selected).map((id) => (
@@ -165,7 +165,7 @@ export function BatchReviewToolbar({
 						value={comment}
 						onChange={(e) => setComment(e.target.value)}
 						placeholder="批量审批备注（选填，将应用到全部 N 条）"
-						className="flex-1 rounded-lg border border-[var(--border)] bg-black/30 px-3 py-2 text-sm text-white outline-none focus:border-cyan-400/40"
+						className="flex-1 rounded-lg border border-[var(--border)] bg-black/30 px-3 py-2 text-sm text-[var(--text-primary)] outline-none focus:border-cyan-400/40"
 					/>
 					<button
 						type="submit"

@@ -108,7 +108,7 @@ export function AuditLogClient({ initialActionFilter = "" }: AuditLogClientProps
             }}
             placeholder={t("audit.search-placeholder")}
             aria-label={t("audit.search-placeholder")}
-            className="min-w-[240px] flex-1 rounded-2xl border border-[var(--border)] bg-slate-950 px-4 py-2 text-sm text-white placeholder:text-slate-500 focus:border-cyan-400/50 focus:outline-none"
+            className="min-w-[240px] flex-1 rounded-2xl border border-[var(--border)] bg-[var(--input-bg)] px-4 py-2 text-sm text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus:border-cyan-400/50 focus:outline-none"
           />
           <button
             type="button"
@@ -124,7 +124,7 @@ export function AuditLogClient({ initialActionFilter = "" }: AuditLogClientProps
               setSearchQuery("");
               setPage(1);
             }}
-            className="rounded-full border border-[var(--border)] bg-white/5 px-4 py-2 text-sm text-slate-300 transition hover:bg-white/10"
+            className="rounded-full border border-[var(--border)] bg-white/5 px-4 py-2 text-sm text-[var(--text-secondary)] transition hover:bg-white/10"
           >
             {t("common.clear")}
           </button>
@@ -137,7 +137,7 @@ export function AuditLogClient({ initialActionFilter = "" }: AuditLogClientProps
               setPage(1);
             }}
             aria-label={t("audit.filterBySeverity")}
-            className="rounded-2xl border border-[var(--border)] bg-slate-950 px-4 py-2 text-sm text-white focus:border-cyan-400/50 focus:outline-none"
+            className="rounded-2xl border border-[var(--border)] bg-[var(--input-bg)] px-4 py-2 text-sm text-[var(--text-primary)] focus:border-cyan-400/50 focus:outline-none"
           >
             <option value="">{t("audit.all-severities")}</option>
             <option value="INFO">INFO</option>
@@ -151,7 +151,7 @@ export function AuditLogClient({ initialActionFilter = "" }: AuditLogClientProps
               setPage(1);
             }}
             aria-label={t("audit.filterByAction")}
-            className="rounded-2xl border border-[var(--border)] bg-slate-950 px-4 py-2 text-sm text-white focus:border-cyan-400/50 focus:outline-none"
+            className="rounded-2xl border border-[var(--border)] bg-[var(--input-bg)] px-4 py-2 text-sm text-[var(--text-primary)] focus:border-cyan-400/50 focus:outline-none"
           >
             <option value="">{t("audit.all-types")}</option>
             <option value="auth.login">{t("audit.action.auth.login")}</option>
@@ -194,7 +194,7 @@ export function AuditLogClient({ initialActionFilter = "" }: AuditLogClientProps
                 setPage(1);
               }}
               data-tone={actionFilter === action ? "accent" : undefined}
-              className={`rounded-full border px-3 py-1 text-xs transition ${actionFilter === action ? "" : "border-white/10 bg-white/5 text-slate-300 hover:bg-white/10"}`}
+              className={`rounded-full border px-3 py-1 text-xs transition ${actionFilter === action ? "" : "border-[var(--border)] bg-white/5 text-[var(--text-secondary)] hover:bg-white/10"}`}
             >
               {formatAction(action, t)}
             </button>
@@ -212,7 +212,7 @@ export function AuditLogClient({ initialActionFilter = "" }: AuditLogClientProps
       <div className="overflow-hidden rounded-2xl border border-[var(--border)]">
         {/* Desktop */}
         <div className="hidden md:block">
-          <div className="grid grid-cols-[140px_100px_120px_minmax(0,1.5fr)_minmax(0,2fr)_160px] bg-white/5 px-4 py-3 text-xs uppercase tracking-[0.2em] text-slate-400">
+          <div className="grid grid-cols-[140px_100px_120px_minmax(0,1.5fr)_minmax(0,2fr)_160px] bg-white/5 px-4 py-3 text-xs uppercase tracking-[0.2em] text-[var(--text-muted)]">
             <div>{t("audit.header.time")}</div>
             <div>{t("audit.header.level")}</div>
             <div>{t("audit.header.type")}</div>
@@ -220,7 +220,7 @@ export function AuditLogClient({ initialActionFilter = "" }: AuditLogClientProps
             <div>{t("audit.details")}</div>
             <div>{t("audit.source")}</div>
           </div>
-          <div className="divide-y divide-white/5 bg-slate-950/40">
+          <div className="divide-y divide-[var(--border)] bg-[var(--surface-subtle)]">
             {loading ? (
               <EmptyState>{t("audit.loading")}</EmptyState>
             ) : error && !data ? (
@@ -230,7 +230,7 @@ export function AuditLogClient({ initialActionFilter = "" }: AuditLogClientProps
             ) : (
               data.logs.map((log) => (
                 <div key={log.id} className="grid grid-cols-[140px_100px_120px_minmax(0,1.5fr)_minmax(0,2fr)_160px] items-center gap-4 px-4 py-3 text-sm">
-                  <div className="text-xs text-slate-400">
+                  <div className="text-xs text-[var(--text-muted)]">
                     {new Date(log.createdAt).toLocaleString(locale === "zh" ? "zh-CN" : "en-US", { month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit" })}
                   </div>
                   <div>
@@ -238,14 +238,14 @@ export function AuditLogClient({ initialActionFilter = "" }: AuditLogClientProps
                       {log.severity}
                     </span>
                   </div>
-                  <div className="text-white">{formatAction(log.action, t)}</div>
-                  <div className="text-slate-300 truncate">
+                  <div className="text-[var(--text-primary)]">{formatAction(log.action, t)}</div>
+                  <div className="text-[var(--text-secondary)] truncate">
                     {log.actor ? (log.actor.displayName ?? log.actor.username) : log.actorType}
                   </div>
-                  <div className="text-xs text-slate-400 truncate font-mono">
+                  <div className="text-xs text-[var(--text-muted)] truncate font-mono">
                     {Object.entries(log.detail).map(([k, v]) => `${k}=${String(v)}`).join(", ")}
                   </div>
-                  <div className="text-xs text-slate-500">{log.actorType}</div>
+                  <div className="text-xs text-[var(--text-muted)]">{log.actorType}</div>
                 </div>
               ))
             )}
@@ -253,7 +253,7 @@ export function AuditLogClient({ initialActionFilter = "" }: AuditLogClientProps
         </div>
 
         {/* Mobile */}
-        <div className="md:hidden divide-y divide-white/5 bg-slate-950/40">
+        <div className="md:hidden divide-y divide-[var(--border)] bg-[var(--surface-subtle)]">
           {loading ? (
             <EmptyState>{t("audit.loading")}</EmptyState>
           ) : error ? (
@@ -264,15 +264,15 @@ export function AuditLogClient({ initialActionFilter = "" }: AuditLogClientProps
             data.logs.map((log) => (
               <div key={log.id} className="px-4 py-3 space-y-2">
                 <div className="flex items-center justify-between">
-                  <span className="text-white text-sm">{formatAction(log.action, t)}</span>
+                  <span className="text-[var(--text-primary)] text-sm">{formatAction(log.action, t)}</span>
                   <span data-tone={severityTone(log.severity)} className="rounded-full border px-2 py-0.5 text-[10px] font-medium">
                     {log.severity}
                   </span>
                 </div>
-                <div className="text-xs text-slate-400">
+                <div className="text-xs text-[var(--text-muted)]">
                   {log.actor ? (log.actor.displayName ?? log.actor.username) : log.actorType} · {new Date(log.createdAt).toLocaleString(locale === "zh" ? "zh-CN" : "en-US")}
                 </div>
-                <div className="text-xs text-slate-500 font-mono truncate">
+                <div className="text-xs text-[var(--text-muted)] font-mono truncate">
                   {Object.entries(log.detail).map(([k, v]) => `${k}=${String(v)}`).join(", ")}
                 </div>
               </div>
@@ -288,11 +288,11 @@ export function AuditLogClient({ initialActionFilter = "" }: AuditLogClientProps
             type="button"
             disabled={page <= 1}
             onClick={() => setPage((p) => Math.max(1, p - 1))}
-            className="rounded-full border border-[var(--border)] bg-white/5 px-4 py-2 text-sm text-slate-300 transition hover:bg-white/10 disabled:opacity-30"
+            className="rounded-full border border-[var(--border)] bg-white/5 px-4 py-2 text-sm text-[var(--text-secondary)] transition hover:bg-white/10 disabled:opacity-30"
           >
             {t("audit.pagination.prev")}
           </button>
-          <span className="text-sm text-slate-400">
+          <span className="text-sm text-[var(--text-muted)]">
             {t("audit.pagination.info")
               .replace("{page}", String(data.page))
               .replace("{totalPages}", String(data.totalPages))
@@ -302,7 +302,7 @@ export function AuditLogClient({ initialActionFilter = "" }: AuditLogClientProps
             type="button"
             disabled={page >= data.totalPages}
             onClick={() => setPage((p) => p + 1)}
-            className="rounded-full border border-[var(--border)] bg-white/5 px-4 py-2 text-sm text-slate-300 transition hover:bg-white/10 disabled:opacity-30"
+            className="rounded-full border border-[var(--border)] bg-white/5 px-4 py-2 text-sm text-[var(--text-secondary)] transition hover:bg-white/10 disabled:opacity-30"
           >
             {t("audit.pagination.next")}
           </button>

@@ -275,7 +275,7 @@ export function FileListClient({
     <>
       <FileListToasts toasts={toasts} onDismiss={dismissToast} />
 
-      <div className="mt-6 overflow-x-auto rounded-2xl border border-white/[0.08]">
+      <div className="mt-6 overflow-x-auto rounded-2xl border border-[var(--border)]">
         <FileListToolbar
           itemCount={sortedFolders.length + sortedFiles.length}
           selectedCount={selectedCount}

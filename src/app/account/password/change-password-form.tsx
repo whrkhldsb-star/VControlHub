@@ -39,10 +39,10 @@ export function ChangePasswordForm() {
 	}, [state.success, router, searchParams]);
 
 	return (
-		<form action={formAction} className="grid gap-4 rounded-3xl border border-[var(--border)] bg-slate-900/60 p-6">
+		<form action={formAction} className="grid gap-4 rounded-3xl border border-[var(--border)] bg-[var(--surface)] p-6">
 			<input type="text" name="username" autoComplete="username" className="hidden" tabIndex={-1} aria-hidden="true" />
 			<div>
-				<h2 className="text-xl font-semibold text-white">{t("common.editPassword")}</h2>
+				<h2 className="text-xl font-semibold text-[var(--text-primary)]">{t("common.editPassword")}</h2>
 				<p className="mt-2 text-sm text-[var(--text-secondary)]">
 					{t("accountPasswordPage.formDescription")}
 				</p>
@@ -118,14 +118,14 @@ function PasswordField({ label, name, autoComplete, placeholder }: PasswordField
   return (
     <div className="grid gap-2 text-sm text-[var(--text-secondary)]">
       <label htmlFor={inputId}>{label}</label>
-      <div className="flex overflow-hidden rounded-2xl border border-[var(--border)] bg-slate-950 focus-within:border-cyan-400/60">
+      <div className="flex overflow-hidden rounded-2xl border border-[var(--border)] bg-[var(--input-bg)] focus-within:border-cyan-400/60">
         <input
           id={inputId}
           name={name}
           type={visible ? "text" : "password"}
           required
           autoComplete={autoComplete}
-          className="min-w-0 flex-1 bg-transparent px-4 py-3 text-white outline-none"
+          className="min-w-0 flex-1 bg-transparent px-4 py-3 text-[var(--text-primary)] outline-none"
           placeholder={placeholder}
         />
         <button

@@ -37,13 +37,13 @@ export default async function SharePage({
   }
 
   return (
-    <main className="flex min-h-screen items-center justify-center bg-slate-950 px-4 py-16 text-slate-100">
-      <div className="w-full max-w-3xl rounded-2xl border border-white/[0.08] bg-white/[0.03] p-8 shadow-2xl">
+    <main className="flex min-h-screen items-center justify-center bg-[var(--input-bg)] px-4 py-16 text-[var(--text-primary)]">
+      <div className="w-full max-w-3xl rounded-2xl border border-[var(--border)] bg-white/[0.03] p-8 shadow-2xl">
         <div className="mb-6 text-center">
           <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-cyan-500/10 text-2xl">
             {errorMessage ? "🔒" : share?.entryType === "DIRECTORY" ? "📁" : "📦"}
           </div>
-          <h1 className="text-lg font-semibold text-white">
+          <h1 className="text-lg font-semibold text-[var(--text-primary)]">
             {errorMessage ? t("sharePage.errorTitle", locale) : share?.entryType === "DIRECTORY" ? t("sharePage.directoryTitle", locale) : t("sharePage.fileTitle", locale)}
           </h1>
         </div>
@@ -63,8 +63,8 @@ export default async function SharePage({
               />
             )}
 
-            <div className="rounded-lg border border-white/[0.06] bg-white/[0.02] p-4">
-              <p className="break-all text-base font-medium text-white">
+            <div className="rounded-lg border border-[var(--border)] bg-white/[0.02] p-4">
+              <p className="break-all text-base font-medium text-[var(--text-primary)]">
                 {share.name || share.path}
               </p>
               <dl className="mt-3 grid gap-1.5 text-xs text-[var(--text-secondary)] sm:grid-cols-2">
@@ -101,7 +101,7 @@ export default async function SharePage({
             {!share.hasPassword && share.entryType !== "DIRECTORY" && (
               <a
                 href={`/api/share/${encodeURIComponent(token)}`}
-                className="block rounded-lg bg-cyan-600 px-4 py-3 text-center text-sm font-medium text-white transition hover:bg-cyan-500"
+                className="block rounded-lg bg-cyan-600 px-4 py-3 text-center text-sm font-medium text-[var(--text-primary)] transition hover:bg-cyan-500"
               >
                 {t("sharePage.downloadFile", locale)}
               </a>
@@ -111,8 +111,8 @@ export default async function SharePage({
               <div data-card className=" p-4">
                 <div className="mb-3 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                   <div>
-                    <h2 className="text-sm font-semibold text-white">{t("sharePage.downloadable", locale)}</h2>
-                    <span className="text-xs text-slate-500">{t("sharePage.maxIndexed", locale)}</span>
+                    <h2 className="text-sm font-semibold text-[var(--text-primary)]">{t("sharePage.downloadable", locale)}</h2>
+                    <span className="text-xs text-[var(--text-muted)]">{t("sharePage.maxIndexed", locale)}</span>
                   </div>
                   {!share.hasPassword && (
                     <a
@@ -128,17 +128,17 @@ export default async function SharePage({
                     {t("sharePage.noFiles", locale)}
                   </div>
                 ) : (
-                  <div className="divide-y divide-white/[0.06] light:divide-slate-200">
+                  <div className="divide-y divide-[var(--border)] light:divide-slate-200">
                     {files.map((file) => (
                       <div key={file.id} className="flex items-center justify-between gap-3 py-3">
                         <div className="min-w-0">
-                          <div className="truncate text-sm font-medium text-white">{file.name}</div>
-                          <div className="truncate text-xs text-slate-500" title={file.relativePath}>{file.relativePath} · {formatSize(locale, file.size)}</div>
+                          <div className="truncate text-sm font-medium text-[var(--text-primary)]">{file.name}</div>
+                          <div className="truncate text-xs text-[var(--text-muted)]" title={file.relativePath}>{file.relativePath} · {formatSize(locale, file.size)}</div>
                         </div>
                         {!share.hasPassword && (
                           <a
                             href={`/api/share/${encodeURIComponent(token)}?path=${encodeURIComponent(file.relativePath)}`}
-                            className="shrink-0 rounded-lg bg-cyan-600 px-3 py-1.5 text-xs font-medium text-white transition hover:bg-cyan-500"
+                            className="shrink-0 rounded-lg bg-cyan-600 px-3 py-1.5 text-xs font-medium text-[var(--text-primary)] transition hover:bg-cyan-500"
                           >
                             {t("sharePage.download", locale)}
                           </a>
@@ -153,7 +153,7 @@ export default async function SharePage({
         ) : null}
 
         <div className="mt-6 text-center">
-          <Link href="/" className="text-xs text-slate-500 transition hover:text-slate-300 light:hover:text-slate-700">
+          <Link href="/" className="text-xs text-[var(--text-muted)] transition hover:text-[var(--text-secondary)] light:hover:text-slate-700">
             {t("sharePage.brand", locale)}
           </Link>
         </div>

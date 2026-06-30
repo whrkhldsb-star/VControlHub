@@ -34,7 +34,7 @@ export default async function RequestsPage() {
 			description={t("requestsPage.desc", locale)}
 		>
 				<div data-card className="px-4 py-3 text-xs text-[var(--text-secondary)]">
-					<div className="font-medium text-slate-200">{t("requestsPage.workflowNote.title", locale)}</div>
+					<div className="font-medium text-[var(--text-secondary)]">{t("requestsPage.workflowNote.title", locale)}</div>
 					<div className="mt-1">{t("requestsPage.workflowNote.desc", locale)}</div>
 				</div>
 			</PageHeader>
@@ -51,8 +51,8 @@ export default async function RequestsPage() {
 				<section aria-labelledby="ai-approval-heading" className="space-y-3">
 					<div className="flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
 						<div>
-							<h2 id="ai-approval-heading" className="text-xl font-semibold text-white">{t("requestsPage.ai.title", locale)}</h2>
-							<p className="mt-1 text-sm text-slate-500">{t("requestsPage.ai.desc", locale)}</p>
+							<h2 id="ai-approval-heading" className="text-xl font-semibold text-[var(--text-primary)]">{t("requestsPage.ai.title", locale)}</h2>
+							<p className="mt-1 text-sm text-[var(--text-muted)]">{t("requestsPage.ai.desc", locale)}</p>
 						</div>
 						<span data-tone="cyan" className="rounded-full border border-cyan-400/20 px-3 py-1 text-xs text-cyan-200">{t("requestsPage.ai.scopeBadge", locale)}</span>
 					</div>
@@ -68,8 +68,8 @@ export default async function RequestsPage() {
 				<section aria-labelledby="command-approval-heading" className="space-y-3">
 					<div className="flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
 						<div>
-							<h2 id="command-approval-heading" className="text-xl font-semibold text-white">{t("requestsPage.cmd.title", locale)}</h2>
-							<p className="mt-1 text-sm text-slate-500">{t("requestsPage.cmd.desc", locale)}</p>
+							<h2 id="command-approval-heading" className="text-xl font-semibold text-[var(--text-primary)]">{t("requestsPage.cmd.title", locale)}</h2>
+							<p className="mt-1 text-sm text-[var(--text-muted)]">{t("requestsPage.cmd.desc", locale)}</p>
 						</div>
 						<span data-tone="amber" className="rounded-full border border-amber-400/20 px-3 py-1 text-xs text-amber-200">{t("requestsPage.cmd.scopeBadge", locale)}</span>
 					</div>
@@ -91,19 +91,19 @@ export default async function RequestsPage() {
 								<div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
 									<div className="min-w-0 flex-1">
 										<div className="flex flex-wrap items-center gap-2">
-											<h3 className="text-lg font-semibold text-white">{request.title}</h3>
+											<h3 className="text-lg font-semibold text-[var(--text-primary)]">{request.title}</h3>
 											<ApprovalBadge status={request.approvalStateLabel} />
 											<InitiatorBadge assistant={request.isAssistantInitiated} />
 										</div>
 										{canApprove ? (
-											<p className="mt-2.5 rounded-lg bg-slate-950/60 px-3 py-2 font-mono text-xs text-cyan-100/80 border border-white/[0.04]">{request.command}</p>
+											<p className="mt-2.5 rounded-lg bg-[var(--surface-subtle)] px-3 py-2 font-mono text-xs text-cyan-100/80 border border-[var(--border)]">{request.command}</p>
 										) : (
-											<p className="mt-2.5 rounded-lg bg-slate-950/60 px-3 py-2 font-mono text-xs text-slate-500 border border-white/[0.04]">{t("requestsPage.card.approvalOnly", locale)}</p>
+											<p className="mt-2.5 rounded-lg bg-[var(--surface-subtle)] px-3 py-2 font-mono text-xs text-[var(--text-muted)] border border-[var(--border)]">{t("requestsPage.card.approvalOnly", locale)}</p>
 										)}
 										{request.reason && <p className="mt-2 text-sm text-[var(--text-secondary)]">{t("requestsPage.card.reason", locale)}{request.reason}</p>}
-										<p className="mt-1 text-[11px] text-slate-600">{t("requestsPage.card.requester", locale)}{request.requester.displayName || request.requester.username}</p>
+										<p className="mt-1 text-[11px] text-[var(--text-muted)]">{t("requestsPage.card.requester", locale)}{request.requester.displayName || request.requester.username}</p>
 										</div>
-										<div className="rounded-lg border border-white/[0.06] bg-white/[0.03] px-3 py-2 text-xs text-[var(--text-secondary)] shrink-0">
+										<div className="rounded-lg border border-[var(--border)] bg-white/[0.03] px-3 py-2 text-xs text-[var(--text-secondary)] shrink-0">
 										{t("requestsPage.card.targetCount", locale).replace("{count}", String(request.targets.length))}
 										</div>
 								</div>
@@ -113,8 +113,8 @@ export default async function RequestsPage() {
 										<div className="space-y-1.5">
 											{request.targets.map((target: (typeof request.targets)[number]) => (
 												<InfoItem key={target.id}>
-													<div className="text-sm font-medium text-white">{target.server.name}</div>
-													<div className="text-[11px] text-slate-500">{target.server.host}:{target.server.port} · {target.status}</div>
+													<div className="text-sm font-medium text-[var(--text-primary)]">{target.server.name}</div>
+													<div className="text-[11px] text-[var(--text-muted)]">{target.server.host}:{target.server.port} · {target.status}</div>
 												</InfoItem>
 											))}
 										</div>
@@ -126,13 +126,13 @@ export default async function RequestsPage() {
 												<div className={`font-medium ${request.latestApproval.approved ? "text-emerald-300" : "text-rose-300"}`}>
 													{request.latestApproval.approved ? "已批准" : "已拒绝"}
 												</div>
-												<div className="mt-1 text-[11px] text-slate-500">
+												<div className="mt-1 text-[11px] text-[var(--text-muted)]">
 													{request.latestApproval.approver.displayName || request.latestApproval.approver.username}
 												</div>
 												{request.latestApproval.comment && <div className="mt-1.5 text-xs text-[var(--text-secondary)]">{request.latestApproval.comment}</div>}
 											</InfoItem>
 										) : (
-											<p className="text-xs text-slate-500">{t("requestsPage.card.latestApprovalEmpty", locale)}</p>
+											<p className="text-xs text-[var(--text-muted)]">{t("requestsPage.card.latestApprovalEmpty", locale)}</p>
 										)}
 									</InfoSection>
 
@@ -142,12 +142,12 @@ export default async function RequestsPage() {
 												{request.executionLogs.map((log: (typeof request.executionLogs)[number], index: number) => (
 													<InfoItem key={log.id ?? `${request.id}-log-${index}`} className="text-xs text-[var(--text-secondary)]">
 														<div>{log.summary}</div>
-														{log.createdAt && <div className="mt-1 text-[11px] text-slate-600">{new Date(log.createdAt).toLocaleString("zh-CN")}</div>}
+														{log.createdAt && <div className="mt-1 text-[11px] text-[var(--text-muted)]">{new Date(log.createdAt).toLocaleString("zh-CN")}</div>}
 													</InfoItem>
 												))}
 											</div>
 										) : (
-											<p className="text-xs text-slate-500">{t("requestsPage.card.executionLogsEmpty", locale)}</p>
+											<p className="text-xs text-[var(--text-muted)]">{t("requestsPage.card.executionLogsEmpty", locale)}</p>
 										)}
 									</InfoSection>
 								</div>
@@ -178,7 +178,7 @@ function ApprovalBadge({ status }: { status: string }) {
 		已拒绝: "border-rose-400/20 text-rose-200",
 	};
 	const tone = toneMap[status];
-	const style = styleMap[status] ?? "border-white/10 text-slate-300";
+	const style = styleMap[status] ?? "border-[var(--border)] text-[var(--text-secondary)]";
 	return (
 		<span
 			data-tone={tone}
@@ -194,7 +194,7 @@ function InitiatorBadge({ assistant }: { assistant: boolean }) {
 		<span
 			data-tone={assistant ? "accent" : "neutral"}
 			className={`inline-flex items-center rounded-full border px-2 py-0.5 text-[11px] font-medium ${
-				assistant ? "border-cyan-400/20 text-cyan-200" : "border-white/10 text-slate-400"
+				assistant ? "border-cyan-400/20 text-cyan-200" : "border-[var(--border)] text-[var(--text-muted)]"
 			}`}
 		>
 			{assistant ? "助手授权" : "用户审批"}
@@ -204,7 +204,7 @@ function InitiatorBadge({ assistant }: { assistant: boolean }) {
 
 function InfoSection({ title, children }: { title: string; children: ReactNode }) {
 	return (
-		<section className="rounded-lg border border-white/[0.04] bg-slate-950/40 p-4">
+		<section className="rounded-lg border border-[var(--border)] bg-[var(--surface-subtle)] p-4">
 			<h4 className="text-xs font-medium text-white/60 uppercase tracking-wider mb-3">{title}</h4>
 			{children}
 		</section>
@@ -213,7 +213,7 @@ function InfoSection({ title, children }: { title: string; children: ReactNode }
 
 function InfoItem({ children, className }: { children: ReactNode; className?: string }) {
 	return (
-		<div className={`rounded-lg bg-white/[0.03] border border-white/[0.04] px-3 py-2 ${className ?? ""}`}>
+		<div className={`rounded-lg bg-white/[0.03] border border-[var(--border)] px-3 py-2 ${className ?? ""}`}>
 			{children}
 		</div>
 	);

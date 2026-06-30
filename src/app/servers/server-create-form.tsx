@@ -48,7 +48,7 @@ function ConnectionTypeFields({
               className={`flex-1 rounded-lg border px-3.5 py-2 text-sm transition ${
  connectionType === type
  ?"border-cyan-400/20 bg-cyan-400/[0.06] text-cyan-100 font-medium"
- :"border-white/[0.06] bg-white/[0.03] text-[var(--text-secondary)] hover:bg-white/[0.05]"
+ :"border-[var(--border)] bg-white/[0.03] text-[var(--text-secondary)] hover:bg-white/[0.05]"
  }`}
             >
               {type === "SSH_KEY" ? t("serversPage.create.sshKey") : t("serversPage.create.password")}
@@ -71,7 +71,7 @@ function ConnectionTypeFields({
               id="sshKeyId"
               name="sshKeyId"
               required
-              className="w-full rounded-lg border border-white/[0.06] bg-white/[0.04] px-3.5 py-2.5 text-sm text-white outline-none transition focus:border-cyan-400/30 focus:bg-white/[0.06]"
+              className="w-full rounded-lg border border-[var(--border)] bg-white/[0.04] px-3.5 py-2.5 text-sm text-[var(--text-primary)] outline-none transition focus:border-cyan-400/30 focus:bg-white/[0.06]"
             >
               <option value="">{t("serversPage.create.selectKey")}</option>
               {sshKeys.map((key) => (
@@ -95,7 +95,7 @@ function ConnectionTypeFields({
               type="text"
               defaultValue="root"
               placeholder="root"
-              className="w-full rounded-lg border border-white/[0.06] bg-white/[0.04] px-3.5 py-2.5 text-sm text-white outline-none transition placeholder:text-white/20 focus:border-cyan-400/30 focus:bg-white/[0.06]"
+              className="w-full rounded-lg border border-[var(--border)] bg-white/[0.04] px-3.5 py-2.5 text-sm text-[var(--text-primary)] outline-none transition placeholder:text-white/20 focus:border-cyan-400/30 focus:bg-white/[0.06]"
             />
           </div>
         </div>
@@ -115,7 +115,7 @@ function ConnectionTypeFields({
               type="text"
               defaultValue="root"
               placeholder="root"
-              className="w-full rounded-lg border border-white/[0.06] bg-white/[0.04] px-3.5 py-2.5 text-sm text-white outline-none transition placeholder:text-white/20 focus:border-cyan-400/30 focus:bg-white/[0.06]"
+              className="w-full rounded-lg border border-[var(--border)] bg-white/[0.04] px-3.5 py-2.5 text-sm text-[var(--text-primary)] outline-none transition placeholder:text-white/20 focus:border-cyan-400/30 focus:bg-white/[0.06]"
             />
           </div>
           <div className="space-y-1.5">
@@ -133,9 +133,9 @@ function ConnectionTypeFields({
               defaultValue=""
               autoComplete="new-password"
               placeholder={t("serversPage.create.passwordPlaceholder")}
-              className="w-full rounded-lg border border-white/[0.06] bg-white/[0.04] px-3.5 py-2.5 text-sm text-white outline-none transition placeholder:text-white/20 focus:border-cyan-400/30 focus:bg-white/[0.06]"
+              className="w-full rounded-lg border border-[var(--border)] bg-white/[0.04] px-3.5 py-2.5 text-sm text-[var(--text-primary)] outline-none transition placeholder:text-white/20 focus:border-cyan-400/30 focus:bg-white/[0.06]"
             />
-            <p className="text-[11px] text-slate-500">
+            <p className="text-[11px] text-[var(--text-muted)]">
               密码不会预填；请手动输入目标 VPS 当前 SSH 密码。
             </p>
           </div>
@@ -164,8 +164,8 @@ export function ServerCreateForm({
  data-card className="grid gap-4 "
     >
       <div>
-        <h2 className="text-lg font-semibold text-white">{t("serversPage.create.title")}</h2>
-        <p className="mt-1 text-xs text-slate-500">
+        <h2 className="text-lg font-semibold text-[var(--text-primary)]">{t("serversPage.create.title")}</h2>
+        <p className="mt-1 text-xs text-[var(--text-muted)]">
           录入 SSH 密钥、IP 与端口完成纳管
         </p>
       </div>
@@ -195,7 +195,7 @@ export function ServerCreateForm({
             type="text"
             required
             placeholder={t("serversPage.create.namePlaceholder")}
-            className="w-full rounded-lg border border-white/[0.06] bg-white/[0.04] px-3.5 py-2.5 text-sm text-white outline-none transition placeholder:text-white/20 focus:border-cyan-400/30 focus:bg-white/[0.06]"
+            className="w-full rounded-lg border border-[var(--border)] bg-white/[0.04] px-3.5 py-2.5 text-sm text-[var(--text-primary)] outline-none transition placeholder:text-white/20 focus:border-cyan-400/30 focus:bg-white/[0.06]"
           />
         </div>
         <div className="space-y-1.5">
@@ -210,7 +210,7 @@ export function ServerCreateForm({
             name="description"
             type="text"
             placeholder={t("serversPage.create.descriptionPlaceholder")}
-            className="w-full rounded-lg border border-white/[0.06] bg-white/[0.04] px-3.5 py-2.5 text-sm text-white outline-none transition placeholder:text-white/20 focus:border-cyan-400/30 focus:bg-white/[0.06]"
+            className="w-full rounded-lg border border-[var(--border)] bg-white/[0.04] px-3.5 py-2.5 text-sm text-[var(--text-primary)] outline-none transition placeholder:text-white/20 focus:border-cyan-400/30 focus:bg-white/[0.06]"
           />
         </div>
       </div>
@@ -229,7 +229,7 @@ export function ServerCreateForm({
             type="text"
             required
             placeholder="1.2.3.4"
-            className="w-full rounded-lg border border-white/[0.06] bg-white/[0.04] px-3.5 py-2.5 text-sm text-white outline-none transition placeholder:text-white/20 focus:border-cyan-400/30 focus:bg-white/[0.06]"
+            className="w-full rounded-lg border border-[var(--border)] bg-white/[0.04] px-3.5 py-2.5 text-sm text-[var(--text-primary)] outline-none transition placeholder:text-white/20 focus:border-cyan-400/30 focus:bg-white/[0.06]"
           />
         </div>
         <div className="space-y-1.5">
@@ -246,7 +246,7 @@ export function ServerCreateForm({
             defaultValue={22}
             min={1}
             max={65535}
-            className="w-full rounded-lg border border-white/[0.06] bg-white/[0.04] px-3.5 py-2.5 text-sm text-white outline-none transition focus:border-cyan-400/30 focus:bg-white/[0.06]"
+            className="w-full rounded-lg border border-[var(--border)] bg-white/[0.04] px-3.5 py-2.5 text-sm text-[var(--text-primary)] outline-none transition focus:border-cyan-400/30 focus:bg-white/[0.06]"
           />
         </div>
       </div>
@@ -266,19 +266,19 @@ export function ServerCreateForm({
           type="text"
           defaultValue={t("serversPage.create.storagePathDefault")}
           placeholder="/root/drive"
-          className="w-full rounded-lg border border-white/[0.06] bg-white/[0.04] px-3.5 py-2.5 text-sm text-white outline-none transition placeholder:text-white/20 focus:border-cyan-400/30 focus:bg-white/[0.06]"
+          className="w-full rounded-lg border border-[var(--border)] bg-white/[0.04] px-3.5 py-2.5 text-sm text-[var(--text-primary)] outline-none transition placeholder:text-white/20 focus:border-cyan-400/30 focus:bg-white/[0.06]"
         />
-        <p className="mt-1 text-xs text-slate-500">
+        <p className="mt-1 text-xs text-[var(--text-muted)]">
           {t("serversPage.create.storagePathDesc")} <code className="text-cyan-300">/root/drive</code>，可按需修改。
         </p>
       </div>
 
-      <label data-tone="cyan" className="rounded-xl border border-cyan-400/20 p-4 text-sm text-slate-200">
+      <label data-tone="cyan" className="rounded-xl border border-cyan-400/20 p-4 text-sm text-[var(--text-secondary)]">
         <div className="flex items-start gap-3">
           <input
             name="enableDirectGateway"
             type="checkbox"
-            className="mt-1 h-4 w-4 rounded-lg border-cyan-400/40 bg-slate-950"
+            className="mt-1 h-4 w-4 rounded-lg border-cyan-400/40 bg-[var(--input-bg)]"
           />
           <div>
             <div className="font-medium text-cyan-100">{t("serversPage.create.directGateway.title")}</div>
@@ -286,7 +286,7 @@ export function ServerCreateForm({
               默认使用网站服务器中转；勾选后会通过 SSH 安装 VControlHub Direct
               Gateway 微服务。
             </p>
-            <p className="mt-1 text-xs text-slate-500">
+            <p className="mt-1 text-xs text-[var(--text-muted)]">
               {t("serversPage.create.directGateway.note")}
             </p>
           </div>
@@ -305,7 +305,7 @@ export function ServerCreateForm({
           name="tags"
           type="text"
           placeholder={t("serversPage.create.tagsPlaceholder")}
-          className="w-full rounded-lg border border-white/[0.06] bg-white/[0.04] px-3.5 py-2.5 text-sm text-white outline-none transition placeholder:text-white/20 focus:border-cyan-400/30 focus:bg-white/[0.06]"
+          className="w-full rounded-lg border border-[var(--border)] bg-white/[0.04] px-3.5 py-2.5 text-sm text-[var(--text-primary)] outline-none transition placeholder:text-white/20 focus:border-cyan-400/30 focus:bg-white/[0.06]"
         />
       </div>
 

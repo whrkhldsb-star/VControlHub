@@ -39,7 +39,7 @@ export function ShareRowActions({
 	}
 
 	if (revoked) {
-		return <span className="text-xs text-slate-500">已撤销</span>;
+		return <span className="text-xs text-[var(--text-muted)]">已撤销</span>;
 	}
 
 	return (
@@ -64,7 +64,7 @@ export function ShareRowActions({
 						setError(null);
 					}}
 					disabled={busy}
-					className="min-h-11 min-w-11 rounded-lg border border-[var(--border)] bg-white/5 px-2.5 py-1 text-xs text-slate-300 transition hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-50"
+					className="min-h-11 min-w-11 rounded-lg border border-[var(--border)] bg-white/5 px-2.5 py-1 text-xs text-[var(--text-secondary)] transition hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-50"
 				>
 					取消
 				</button>

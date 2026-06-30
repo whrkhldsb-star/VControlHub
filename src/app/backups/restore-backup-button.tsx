@@ -79,11 +79,11 @@ export function RestoreBackupButton({ backupId, backupType, disabled = false }: 
             aria-modal="true"
             aria-labelledby="restore-backup-title"
             aria-describedby="restore-backup-description"
-            className="mx-0 w-full max-w-md rounded-t-2xl border border-rose-400/30 bg-slate-950 p-5 shadow-2xl shadow-black/30 sm:mx-4 sm:rounded-2xl"
+            className="mx-0 w-full max-w-md rounded-t-2xl border border-rose-400/30 bg-[var(--modal-bg)] p-5 shadow-2xl shadow-black/30 sm:mx-4 sm:rounded-2xl"
           >
-            <h3 id="restore-backup-title" className="text-base font-semibold text-white">{t("backupsPage.restore.confirmTitle")}</h3>
+            <h3 id="restore-backup-title" className="text-base font-semibold text-[var(--text-primary)]">{t("backupsPage.restore.confirmTitle")}</h3>
             <p id="restore-backup-description" className="mt-2 text-sm leading-6 text-[var(--text-secondary)]">
-              恢复 <span className="font-semibold text-white">{backupType}</span> 备份会覆盖当前数据/文件。请输入 <span className="font-mono font-semibold text-rose-200">{CONFIRM_TEXT}</span> 后继续。
+              恢复 <span className="font-semibold text-[var(--text-primary)]">{backupType}</span> 备份会覆盖当前数据/文件。请输入 <span className="font-mono font-semibold text-rose-200">{CONFIRM_TEXT}</span> 后继续。
             </p>
             <label className="mt-4 grid gap-1 text-sm text-[var(--text-secondary)]">
               输入 RESTORE 确认恢复
@@ -91,7 +91,7 @@ export function RestoreBackupButton({ backupId, backupType, disabled = false }: 
                 value={confirmText}
                 onChange={(event) => setConfirmText(event.target.value)}
                 autoFocus
-                className="min-h-11 rounded-xl border border-[var(--border)] bg-white/[0.04] px-3 py-2 text-sm text-white outline-none placeholder:text-slate-600 focus:border-rose-300/60"
+                className="min-h-11 rounded-xl border border-[var(--border)] bg-white/[0.04] px-3 py-2 text-sm text-[var(--text-primary)] outline-none placeholder:text-[var(--text-muted)] focus:border-rose-300/60"
                 placeholder={CONFIRM_TEXT}
               />
             </label>

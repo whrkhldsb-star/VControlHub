@@ -57,7 +57,7 @@ function getHealthPresentation(status: string | null | undefined, t: (k: string)
 		case "UNHEALTHY":
 			return { label: t("storagePage.list.error"), className: "border-rose-400/30 bg-rose-400/10 text-rose-100" };
 		default:
-			return { label: t("storagePage.list.unchecked"), className: "border-slate-400/30 bg-slate-400/10 text-slate-200" };
+			return { label: t("storagePage.list.unchecked"), className: "border-slate-400/30 bg-slate-400/10 text-[var(--text-secondary)]" };
 	}
 }
 
@@ -99,8 +99,8 @@ function StorageNodeCard({
 		<article className="rounded-2xl border border-[var(--border)] bg-white/5">
 			<div className="flex items-start justify-between gap-3">
 				<div>
-					<h3 className="text-lg font-medium text-white">{node.name}</h3>
-					<p className="mt-2 text-sm leading-7 text-slate-300">{node.connectionSummary}</p>
+					<h3 className="text-lg font-medium text-[var(--text-primary)]">{node.name}</h3>
+					<p className="mt-2 text-sm leading-7 text-[var(--text-secondary)]">{node.connectionSummary}</p>
 				</div>
 				<div className="flex items-center gap-2">
 					<span data-tone="emerald" className="rounded-full border border-emerald-400/30 px-3 py-1 text-xs text-emerald-100">
@@ -132,12 +132,12 @@ function StorageNodeCard({
 					node.directAccess.description
 				)}
 			</p>
-			<div className="mt-4 rounded-2xl border border-[var(--border)] bg-slate-950/40 p-4 text-sm text-slate-300">
+			<div className="mt-4 rounded-2xl border border-[var(--border)] bg-[var(--surface-subtle)] p-4 text-sm text-[var(--text-secondary)]">
 				<div className="flex flex-wrap items-center justify-between gap-3">
 					<div className="flex flex-wrap items-center gap-2">
 						<span className={`rounded-full border px-3 py-1 text-xs ${health.className}`}>{health.label}</span> <span>{t("storagePage.list.lastChecked")}：{formatHealthTime(node.lastHealthCheckAt, locale)}</span> {node.lastHealthLatencyMs != null ? <span>{node.lastHealthLatencyMs} ms</span> : null} </div> {canManageNodes ? ( <button type="button" onClick={handleHealthCheck} disabled={isPending} className="rounded-full border border-sky-400/30 bg-sky-400/10 px-3 py-1 text-xs font-medium text-sky-100 transition hover:bg-sky-400/20 disabled:cursor-not-allowed disabled:opacity-60" > {isPending ?"检测中..." :"立即检测"} </button> ) : null} </div> {node.lastHealthError ? <p className="mt-2 text-xs text-amber-200">{node.lastHealthError}</p> : null} {message ? <p className={`mt-2 text-xs ${message.ok ? "text-emerald-200" : "text-rose-200"}`}>{message.text}</p> : null}
 			</div>
-			<p className="mt-2 text-xs text-slate-400">{t("storagePage.list.registeredFiles").replace("{count}", String(node.fileCount))}</p>
+			<p className="mt-2 text-xs text-[var(--text-muted)]">{t("storagePage.list.registeredFiles").replace("{count}", String(node.fileCount))}</p>
 
 		{editing ? (
 			<div className="mt-4">

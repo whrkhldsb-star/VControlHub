@@ -88,35 +88,35 @@ export function ConfigPreviewDialog({
 				className="mx-0 w-full max-w-lg rounded-t-2xl border border-cyan-400/20 bg-[var(--surface-root)] p-6 shadow-2xl sm:mx-4 sm:rounded-2xl"
 				onClick={(e) => e.stopPropagation()}
 			>
-				<h3 className="text-lg font-semibold text-white mb-2">{title}</h3>
-				<p className="text-sm leading-6 text-slate-300">
+				<h3 className="text-lg font-semibold text-[var(--text-primary)] mb-2">{title}</h3>
+				<p className="text-sm leading-6 text-[var(--text-secondary)]">
 					{body}{suffix}
 				</p>
-				<div data-card className="mt-4 grid gap-2  p-3 text-xs text-slate-300">
+				<div data-card className="mt-4 grid gap-2  p-3 text-xs text-[var(--text-secondary)]">
 					<div>
-						<span className="text-slate-500">{fieldService}</span>
+						<span className="text-[var(--text-muted)]">{fieldService}</span>
 						{item.name} ({item.slug})
 					</div>
 					<div>
-						<span className="text-slate-500">{fieldImage}</span>
+						<span className="text-[var(--text-muted)]">{fieldImage}</span>
 						{item.image}
 					</div>
 					<div>
-						<span className="text-slate-500">{fieldPort}</span>
+						<span className="text-[var(--text-muted)]">{fieldPort}</span>
 						{portMapping.replace("{container}", String(getPrimaryContainerPort(item))).replace("{host}", String(port))}
 					</div>
 					<div>
-						<span className="text-slate-500">{fieldExtraPort}</span>
+						<span className="text-[var(--text-muted)]">{fieldExtraPort}</span>
 						{(item.extraPorts ?? []).length > 0
 							? item.extraPorts!.map((p) => portEntryTpl.replace("{container}", String(p.container)).replace("{host}", String(p.host))).join(portSep)
 							: noneLabel}
 					</div>
 					<div>
-						<span className="text-slate-500">{fieldEnv}</span>
+						<span className="text-[var(--text-muted)]">{fieldEnv}</span>
 						{envCountTpl.replace("{count}", String(envCount))}
 					</div>
 					<div>
-						<span className="text-slate-500">{fieldVolume}</span>
+						<span className="text-[var(--text-muted)]">{fieldVolume}</span>
 						{volumeList.length > 0
 							? volumeList.map((v) => volumeEntryTpl.replace("{host}", v.host).replace("{container}", v.container)).join(volumeSep)
 							: noneLabel}
@@ -129,7 +129,7 @@ export function ConfigPreviewDialog({
 					<button
 						type="button"
 						onClick={onCancel}
-						className="min-h-11 rounded-lg border border-white/[0.1] px-4 py-2 text-xs text-slate-400 hover:bg-white/[0.04] transition"
+						className="min-h-11 rounded-lg border border-white/[0.1] px-4 py-2 text-xs text-[var(--text-muted)] hover:bg-white/[0.04] transition"
 					>
 						{cancelLabel}
 					</button>

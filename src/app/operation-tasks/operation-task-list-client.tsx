@@ -124,35 +124,35 @@ export function OperationTaskListClient({ initialTasks, initialSourceSummary = [
           <p className="mt-1 text-xs text-slate-500">{t("operationTasksPage.recentTasksHint")}</p>
         </div>
         <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
-          <label className="text-xs font-medium text-slate-400">
+          <label className="text-xs font-medium text-[var(--text-muted)]">
             <span className="mb-1 block">{t("operationTasksPage.filter.status")}</span>
-            <select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value as typeof statusFilter)} className="min-w-32 rounded-lg border border-white/[0.08] bg-slate-950 px-3 py-2 text-sm text-slate-100">
+            <select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value as typeof statusFilter)} className="min-w-32 rounded-lg border border-[var(--border)] bg-[var(--input-bg)] px-3 py-2 text-sm text-[var(--text-primary)]">
               {statusFilters.map((filter) => <option key={filter.value} value={filter.value}>{filter.label}</option>)}
             </select>
           </label>
-          <label className="text-xs font-medium text-slate-400">
+          <label className="text-xs font-medium text-[var(--text-muted)]">
             <span className="mb-1 block">{t("operationTasksPage.filter.taskType")}</span>
-            <select value={taskTypeFilter} onChange={(event) => setTaskTypeFilter(event.target.value)} className="min-w-44 rounded-lg border border-white/[0.08] bg-slate-950 px-3 py-2 text-sm text-slate-100">
+            <select value={taskTypeFilter} onChange={(event) => setTaskTypeFilter(event.target.value)} className="min-w-44 rounded-lg border border-[var(--border)] bg-[var(--input-bg)] px-3 py-2 text-sm text-[var(--text-primary)]">
               <option value="all">{t("operationTasksPage.filter.allTypes")}</option>
               {taskTypeOptions.map((taskType) => <option key={taskType} value={taskType}>{taskType}</option>)}
             </select>
           </label>
-          <label className="text-xs font-medium text-slate-400">
+          <label className="text-xs font-medium text-[var(--text-muted)]">
             <span className="mb-1 block">{t("operationTasksPage.filter.sort")}</span>
-            <select value={sort} onChange={(event) => setSort(event.target.value as typeof sort)} className="min-w-36 rounded-lg border border-white/[0.08] bg-slate-950 px-3 py-2 text-sm text-slate-100">
+            <select value={sort} onChange={(event) => setSort(event.target.value as typeof sort)} className="min-w-36 rounded-lg border border-[var(--border)] bg-[var(--input-bg)] px-3 py-2 text-sm text-[var(--text-primary)]">
               {sortOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
             </select>
           </label>
-          <button onClick={refresh} disabled={refreshing} className="rounded-lg border border-white/[0.08] px-3 py-2 text-xs text-slate-300 hover:bg-white/[0.05] disabled:opacity-50">{refreshing ? t("operationTasks.action.refreshing") : t("operationTasks.action.applyFilter")}</button>
+          <button onClick={refresh} disabled={refreshing} className="rounded-lg border border-[var(--border)] px-3 py-2 text-xs text-[var(--text-secondary)] hover:bg-[var(--surface-hover)] disabled:opacity-50">{refreshing ? t("operationTasks.action.refreshing") : t("operationTasks.action.applyFilter")}</button>
           <a href={getExportPath(statusFilter, taskTypeFilter, sort)} data-tone="accent" className="rounded-lg border px-3 py-2 text-xs font-medium">{t("operationTasksPage.export.csv")}</a>
         </div>
       </div>
-      <div className="divide-y divide-white/[0.06]">
+      <div className="divide-y divide-[var(--border)]">
         {tasks.length === 0 ? <EmptyState text={t("operationTasks.tasks.empty")} /> : tasks.map((task) => <div key={task.id} className="flex flex-col gap-3 px-5 py-4 sm:flex-row sm:items-start sm:justify-between">
-          <div className="min-w-0 flex-1"><div className="flex flex-wrap items-center gap-2"><span className="rounded-lg bg-white/[0.05] px-2 py-1 text-xs text-slate-400">{getSourceLabels(t)[task.source] ?? task.source}</span><span data-tone={statusTone[task.status] ?? "neutral"} className="rounded-lg border px-2 py-1 text-xs font-medium">{task.status}</span>{task.taskType && <span className="rounded-lg border border-white/[0.08] px-2 py-1 text-xs text-slate-400">{task.taskType}</span>}{task.foldedCount && task.foldedCount > 1 && <span className="rounded-lg border border-indigo-400/20 bg-indigo-400/10 px-2 py-1 text-xs text-indigo-200">{t("operationTasksPage.folded").replace("{count}", String(task.foldedCount))}</span>}{task.workerId && <span title={task.workerHeartbeatAt ? `最近心跳：${new Date(task.workerHeartbeatAt).toLocaleString("zh-CN")}` : t("operationTasksPage.worker.noHeartbeat")} data-tone="accent" className="rounded-lg border px-2 py-1 text-xs font-medium">worker {task.workerId}</span>}</div><h3 className="mt-2 truncate text-sm font-medium text-white">{task.title}</h3><p className="mt-1 text-xs text-slate-500">{new Date(task.createdAt).toLocaleString("zh-CN")} {task.actor ? ` · ${task.actor}` : ""} {task.progress ? ` · ${task.progress}` : ""}</p>{task.logPreview && task.logPreview.length > 0 && <div aria-label={`最近日志：${task.title}`} className="mt-3 rounded-lg border border-white/[0.06] bg-slate-950/60 px-3 py-2"><div className="text-[11px] font-medium uppercase tracking-[0.2em] text-slate-500">{t("operationTasksPage.logs.recent")}</div><ul className="mt-2 space-y-1 text-xs text-slate-300">{task.logPreview.map((line, index) => <li key={`${task.id}-log-${index}`} className="break-words font-mono">{line}</li>)}</ul></div>}</div>
+          <div className="min-w-0 flex-1"><div className="flex flex-wrap items-center gap-2"><span className="rounded-lg bg-[var(--surface-hover)] px-2 py-1 text-xs text-[var(--text-muted)]">{getSourceLabels(t)[task.source] ?? task.source}</span><span data-tone={statusTone[task.status] ?? "neutral"} className="rounded-lg border px-2 py-1 text-xs font-medium">{task.status}</span>{task.taskType && <span className="rounded-lg border border-[var(--border)] px-2 py-1 text-xs text-[var(--text-muted)]">{task.taskType}</span>}{task.foldedCount && task.foldedCount > 1 && <span className="rounded-lg border border-indigo-400/20 bg-indigo-400/10 px-2 py-1 text-xs text-indigo-200 dark:text-indigo-200">{t("operationTasksPage.folded").replace("{count}", String(task.foldedCount))}</span>}{task.workerId && <span title={task.workerHeartbeatAt ? `最近心跳：${new Date(task.workerHeartbeatAt).toLocaleString("zh-CN")}` : t("operationTasksPage.worker.noHeartbeat")} data-tone="accent" className="rounded-lg border px-2 py-1 text-xs font-medium">worker {task.workerId}</span>}</div><h3 className="mt-2 truncate text-sm font-medium text-[var(--text-primary)]">{task.title}</h3><p className="mt-1 text-xs text-[var(--text-muted)]">{new Date(task.createdAt).toLocaleString("zh-CN")} {task.actor ? ` · ${task.actor}` : ""} {task.progress ? ` · ${task.progress}` : ""}</p>{task.logPreview && task.logPreview.length > 0 && <div aria-label={`最近日志：${task.title}`} className="mt-3 rounded-lg border border-[var(--border)] bg-[var(--surface-subtle)] px-3 py-2"><div className="text-[11px] font-medium uppercase tracking-[0.2em] text-[var(--text-muted)]">{t("operationTasksPage.logs.recent")}</div><ul className="mt-2 space-y-1 text-xs text-[var(--text-secondary)]">{task.logPreview.map((line, index) => <li key={`${task.id}-log-${index}`} className="break-words font-mono">{line}</li>)}</ul></div>}</div>
           <div className="flex flex-col items-end gap-2">
             {task.source === "job" && task.eventCount && task.eventCount > 0 ? (
-              <button type="button" onClick={() => setEventsJobId(task.sourceId)} className="text-xs text-cyan-300 hover:text-cyan-200">
+              <button type="button" onClick={() => setEventsJobId(task.sourceId)} className="text-xs text-[var(--color-action)] hover:opacity-80">
                 {t("operationTasksPage.task.viewEvents").replace("{count}", String(task.eventCount))}
               </button>
             ) : null}

@@ -59,14 +59,14 @@ export function FileMoreActions({
         aria-label={`${t("fileMoreActions.more")} ${entry.name}`}
         className={
           compact
-            ? "inline-flex h-8 w-8 cursor-pointer list-none items-center justify-center rounded-lg border border-white/10 bg-white/5 text-slate-200 transition hover:bg-white/10 hover:text-white light:hover:bg-slate-100 [&::-webkit-details-marker]:hidden"
-            : "inline-flex cursor-pointer list-none items-center gap-1.5 rounded-lg border border-white/10 bg-white/5 px-2.5 py-1.5 text-xs text-slate-200 transition hover:bg-white/10 hover:text-white light:hover:bg-slate-100 [&::-webkit-details-marker]:hidden"
+            ? "inline-flex h-8 w-8 cursor-pointer list-none items-center justify-center rounded-lg border border-[var(--border)] bg-white/5 text-[var(--text-secondary)] transition hover:bg-white/10 hover:text-[var(--text-primary)] light:hover:bg-slate-100 [&::-webkit-details-marker]:hidden"
+            : "inline-flex cursor-pointer list-none items-center gap-1.5 rounded-lg border border-[var(--border)] bg-white/5 px-2.5 py-1.5 text-xs text-[var(--text-secondary)] transition hover:bg-white/10 hover:text-[var(--text-primary)] light:hover:bg-slate-100 [&::-webkit-details-marker]:hidden"
         }
       >
         <span aria-hidden="true">⋯</span>
         {compact ? null : <span>{t("fileMoreActions.more")}</span>}
       </summary>
-      <div className="absolute right-0 top-9 z-40 flex min-w-44 flex-col gap-1 rounded-2xl border border-white/10 bg-slate-950/95 p-2 text-left shadow-2xl shadow-slate-950/40 light:shadow-slate-200/70">
+      <div className="absolute right-0 top-9 z-40 flex min-w-44 flex-col gap-1 rounded-2xl border border-[var(--border)] bg-[var(--modal-bg)] p-2 text-left shadow-2xl shadow-slate-950/40 light:shadow-slate-200/70">
         {canShare && entryCanRead(entry) ? (
           <ShareFileButton entry={entry} compact variant="menu" onNotify={onNotify} />
         ) : null}

@@ -324,19 +324,19 @@ export function PlaybookListClient({ playbooks: initial, runsByPlaybook: initial
 						role="dialog"
 						aria-modal="true"
 						aria-labelledby="delete-playbook-title"
-						className="w-full max-w-md rounded-2xl border border-rose-400/25 bg-slate-950 p-6 shadow-[0_24px_100px_rgba(244,63,94,0.16)]"
-					>
-						<h2 id="delete-playbook-title" className="text-lg font-semibold text-white">
+						className="w-full max-w-md rounded-2xl border border-rose-400/25 bg-[var(--modal-bg)] p-6 shadow-[0_24px_100px_rgba(244,63,94,0.16)]"
+						>
+						<h2 id="delete-playbook-title" className="text-lg font-semibold text-[var(--text-primary)]">
 							{t("playbooksPage.delete.title")}
 						</h2>
-						<p className="mt-3 text-sm leading-6 text-slate-300">
+						<p className="mt-3 text-sm leading-6 text-[var(--text-secondary)]">
 							{t("playbooksPage.delete.confirm").replace("{name}", pendingDelete.name)}
 						</p>
 						<div className="mt-6 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
 							<button
 								type="button"
 								onClick={() => setPendingDelete(null)}
-								className="min-h-11 rounded-xl border border-white/[0.08] px-4 py-2 text-sm font-medium text-slate-200 hover:bg-white/[0.06]"
+								className="min-h-11 rounded-xl border border-[var(--border)] px-4 py-2 text-sm font-medium text-[var(--text-secondary)] hover:bg-[var(--surface-hover)]"
 							>
 								{t("playbooksPage.delete.cancel")}
 							</button>

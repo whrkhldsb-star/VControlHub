@@ -12,7 +12,7 @@ const statusTone: Record<string, string> = {
 	OPEN: "border-cyan-400/30 bg-cyan-400/10 text-cyan-100",
 	IN_PROGRESS: "border-amber-400/30 bg-amber-400/10 text-amber-100",
 	RESOLVED: "border-emerald-400/30 bg-emerald-400/10 text-emerald-100",
-	CLOSED: "border-slate-400/30 bg-slate-400/10 text-slate-300",
+	CLOSED: "border-slate-400/30 bg-slate-400/10 text-[var(--text-secondary)]",
 };
 
 function priorityLabel(locale: Locale, key: string): string {
@@ -36,16 +36,16 @@ export default async function Page() {
 			{canCreate && <div className="mb-6"><CreateTicketForm locale={locale} /></div>}
 
 			<section data-card className="">
-				<div className="border-b border-white/[0.06] px-5 py-4 text-sm font-semibold text-white">{t("ticketsPage.listHeader", locale).replace("{count}", String(tickets.length))}</div>
-				<div className="divide-y divide-white/[0.06]">
+				<div className="border-b border-[var(--border)] px-5 py-4 text-sm font-semibold text-[var(--text-primary)]">{t("ticketsPage.listHeader", locale).replace("{count}", String(tickets.length))}</div>
+				<div className="divide-y divide-[var(--border)]">
 					{tickets.length === 0 ? <EmptyState text={t("ticketsPage.empty", locale)} /> : tickets.map((ticket) => (
-						<Link key={ticket.id} href={`/tickets/${ticket.id}`} className="block px-5 py-4 transition hover:bg-white/[0.02]"> <div className="flex items-center justify-between gap-3"> <h3 className="text-sm font-medium text-white">{ticket.title}</h3> <div className="flex items-center gap-2"> <span className="text-xs text-slate-500">{priorityLabel(locale, ticket.priority)}</span> <span className={`rounded-full border px-2.5 py-1 text-xs ${statusTone[ticket.status] ?? "border-white/[0.08] text-slate-400"}`}>
+						<Link key={ticket.id} href={`/tickets/${ticket.id}`} className="block px-5 py-4 transition hover:bg-white/[0.02]"> <div className="flex items-center justify-between gap-3"> <h3 className="text-sm font-medium text-[var(--text-primary)]">{ticket.title}</h3> <div className="flex items-center gap-2"> <span className="text-xs text-[var(--text-muted)]">{priorityLabel(locale, ticket.priority)}</span> <span className={`rounded-full border px-2.5 py-1 text-xs ${statusTone[ticket.status] ?? "border-[var(--border)] text-[var(--text-muted)]"}`}>
 											{statusLabel(locale, ticket.status)}
 										</span>
 									</div>
 									</div>
-									<p className="mt-1.5 text-xs text-slate-400 line-clamp-2">{ticket.description}</p>
-									<div className="mt-2 flex flex-wrap gap-x-3 text-xs text-slate-500">
+									<p className="mt-1.5 text-xs text-[var(--text-muted)] line-clamp-2">{ticket.description}</p>
+									<div className="mt-2 flex flex-wrap gap-x-3 text-xs text-[var(--text-muted)]">
 										{ticket.creator && <span>{t("ticketsPage.creator", locale).replace("{name}", ticket.creator.displayName || ticket.creator.username)}</span>}
 										{ticket.assignee && <span>{t("ticketsPage.assignee", locale).replace("{name}", ticket.assignee.displayName || ticket.assignee.username)}</span>}
 										<span>{t("ticketsPage.createdAt", locale).replace("{time}", new Date(ticket.createdAt).toLocaleString(locale === "zh" ? "zh-CN" : "en-US"))}</span>

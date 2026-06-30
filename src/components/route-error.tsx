@@ -46,10 +46,10 @@ export function RouteError({
 				</svg>
 			</div>
 			<div className="space-y-2">
-				<h2 className="text-lg font-semibold text-white">{resolvedTitle}</h2>
+				<h2 className="text-lg font-semibold text-[var(--text-primary)]">{resolvedTitle}</h2>
 				<p className="max-w-lg text-sm leading-6 text-[var(--text-secondary)]">{error.message || resolvedDescription}</p>
 				{error.digest ? (
-					<p className="rounded-full border border-[var(--border)] bg-white/[0.03] px-3 py-1 text-xs text-slate-500">
+					<p className="rounded-full border border-[var(--border)] bg-white/[0.03] px-3 py-1 text-xs text-[var(--text-muted)]">
 						{t("error.digest-label")} {error.digest}
 					</p>
 				) : null}
@@ -57,7 +57,7 @@ export function RouteError({
 			<div className="flex flex-wrap justify-center gap-2">
 				<button
 					onClick={reset}
-					className="rounded-lg bg-cyan-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-cyan-500 focus:outline-none focus:ring-2 focus:ring-cyan-400/40"
+					className="rounded-lg bg-cyan-600 px-4 py-2 text-sm font-medium text-[var(--text-primary)] transition-colors hover:bg-cyan-500 focus:outline-none focus:ring-2 focus:ring-cyan-400/40"
 				>
 					{t("common.retry")}
 				</button>
@@ -67,13 +67,13 @@ export function RouteError({
 							window.location.reload();
 						}
 					}}
-					className="rounded-lg border border-[var(--border)] bg-white/[0.03] px-4 py-2 text-sm font-medium text-slate-200 transition-colors hover:bg-white/[0.06]"
+					className="rounded-lg border border-[var(--border)] bg-white/[0.03] px-4 py-2 text-sm font-medium text-[var(--text-secondary)] transition-colors hover:bg-white/[0.06]"
 				>
 					{t("error.hard-refresh")}
 				</button>
 				<a
 					href="/health"
-					className="rounded-lg border border-[var(--border)] bg-white/[0.03] px-4 py-2 text-sm font-medium text-slate-200 transition-colors hover:bg-white/[0.06]"
+					className="rounded-lg border border-[var(--border)] bg-white/[0.03] px-4 py-2 text-sm font-medium text-[var(--text-secondary)] transition-colors hover:bg-white/[0.06]"
 				>
 					{t("error.health-check")}
 				</a>

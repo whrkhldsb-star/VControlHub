@@ -46,7 +46,7 @@ export function FieldRenderer({
   if (field.type === "switch") {
     return (
       <div className="flex items-center justify-between gap-3">
-        <span className="text-sm text-slate-300">{field.label}</span>
+        <span className="text-sm text-[var(--text-secondary)]">{field.label}</span>
         <SwitchField
           label={field.label}
           riskLevel={field.riskLevel}
@@ -109,11 +109,11 @@ function RuntimeSummaryPanel({
   return (
     <div
       id={id}
-      className="rounded-lg border border-white/[0.06] bg-slate-950/30 px-2.5 py-2 text-[11px] leading-5 text-slate-300"
+      className="rounded-lg border border-[var(--border)] bg-[var(--surface-subtle)] px-2.5 py-2 text-[11px] leading-5 text-[var(--text-secondary)]"
     >
       <p>
         {t("settingsClient.runtimeValueLabel")}
-        <strong className="text-white">{summary.value}</strong> {summary.unit} ·{" "}
+        <strong className="text-[var(--text-primary)]">{summary.value}</strong> {summary.unit} ·{" "}
         {t("settingsClient.runtimeSourceLabel")}
         {summary.sourceLabel}
       </p>
@@ -186,14 +186,14 @@ export function SelectField({
     <div
       className={`space-y-1.5 rounded-lg border p-3 transition ${
         disabled
-          ? "border-white/[0.04] bg-slate-950/20 opacity-70 light:bg-slate-100/80"
+          ? "border-[var(--border)] bg-[var(--surface-subtle)] opacity-70 light:bg-slate-100/80"
           : "border-transparent bg-white/[0.01]"
       }`}
     >
       <div className="flex items-center justify-between gap-2">
         <label
           htmlFor={inputId}
-          className="flex flex-1 items-center gap-1.5 text-xs font-semibold text-white tracking-wide"
+          className="flex flex-1 items-center gap-1.5 text-xs font-semibold text-[var(--text-primary)] tracking-wide"
         >
           {field.label}
         </label>
@@ -212,17 +212,17 @@ export function SelectField({
         onBlur={() => onHighRiskBlur(normalizedValue)}
         disabled={disabled}
         aria-describedby={describedBy}
-        className="w-full rounded-lg border border-white/[0.06] bg-white/[0.04] px-3.5 py-2.5 text-sm text-white outline-none transition focus:border-cyan-400/30 disabled:cursor-not-allowed disabled:border-white/[0.03] disabled:bg-slate-900/50 disabled:text-slate-500 light:disabled:border-slate-200 light:disabled:bg-slate-100 light:disabled:text-slate-500"
+        className="w-full rounded-lg border border-[var(--border)] bg-white/[0.04] px-3.5 py-2.5 text-sm text-[var(--text-primary)] outline-none transition focus:border-cyan-400/30 disabled:cursor-not-allowed disabled:border-[var(--border)] disabled:bg-[var(--surface-subtle)] disabled:text-[var(--text-muted)] light:disabled:border-slate-200 light:disabled:bg-slate-100 light:disabled:text-[var(--text-muted)]"
       >
         {options.map((opt) => (
-          <option key={opt.value} value={opt.value} className="bg-slate-900 text-white">
+          <option key={opt.value} value={opt.value} className="bg-[var(--surface)] text-[var(--text-primary)]">
             {opt.label}
           </option>
         ))}
       </select>
       {showHighRiskWarning && <HighRiskBlurWarning id={warningId} />}
       {helperText && (
-        <p id={helperId} className="text-xs text-white">
+        <p id={helperId} className="text-xs text-[var(--text-primary)]">
           {helperText}
         </p>
       )}
@@ -259,14 +259,14 @@ export function InputField({
     <div
       className={`space-y-1.5 rounded-lg border p-3 transition ${
         disabled
-          ? "border-white/[0.04] bg-slate-950/20 opacity-70 light:bg-slate-100/80"
+          ? "border-[var(--border)] bg-[var(--surface-subtle)] opacity-70 light:bg-slate-100/80"
           : "border-transparent bg-white/[0.01]"
       }`}
     >
       <div className="flex items-center justify-between gap-2">
         <label
           htmlFor={inputId}
-          className="flex flex-1 items-center gap-1.5 text-xs font-semibold text-white tracking-wide"
+          className="flex flex-1 items-center gap-1.5 text-xs font-semibold text-[var(--text-primary)] tracking-wide"
         >
           {field.label}
         </label>
@@ -288,11 +288,11 @@ export function InputField({
         autoComplete={field.autoComplete}
         disabled={disabled}
         aria-describedby={describedBy}
-        className="w-full rounded-lg border border-white/[0.06] bg-white/[0.04] px-3.5 py-2.5 text-sm text-white outline-none transition placeholder:text-white/20 focus:border-cyan-400/30 disabled:cursor-not-allowed disabled:border-white/[0.03] disabled:bg-slate-900/50 disabled:text-slate-500 disabled:placeholder:text-white/10 light:disabled:border-slate-200 light:disabled:bg-slate-100 light:disabled:text-slate-500 light:disabled:placeholder:text-slate-300"
+        className="w-full rounded-lg border border-[var(--border)] bg-white/[0.04] px-3.5 py-2.5 text-sm text-[var(--text-primary)] outline-none transition placeholder:text-white/20 focus:border-cyan-400/30 disabled:cursor-not-allowed disabled:border-[var(--border)] disabled:bg-[var(--surface-subtle)] disabled:text-[var(--text-muted)] disabled:placeholder:text-white/10 light:disabled:border-slate-200 light:disabled:bg-slate-100 light:disabled:text-[var(--text-muted)] light:disabled:placeholder:text-[var(--text-secondary)]"
       />
       {showHighRiskWarning && <HighRiskBlurWarning id={warningId} />}
       {helperText && (
-        <p id={helperId} className="text-xs text-white">
+        <p id={helperId} className="text-xs text-[var(--text-primary)]">
           {helperText}
         </p>
       )}
@@ -319,14 +319,14 @@ export function TextAreaField({
     <div
       className={`space-y-1.5 rounded-lg border p-3 transition ${
         disabled
-          ? "border-white/[0.04] bg-slate-950/20 opacity-70"
+          ? "border-[var(--border)] bg-[var(--surface-subtle)] opacity-70"
           : "border-transparent bg-white/[0.01]"
       }`}
     >
       <div className="flex items-center justify-between gap-2">
         <label
           htmlFor={inputId}
-          className="flex flex-1 items-center gap-1.5 text-xs font-semibold text-white tracking-wide"
+          className="flex flex-1 items-center gap-1.5 text-xs font-semibold text-[var(--text-primary)] tracking-wide"
         >
           {field.label}
         </label>
@@ -351,11 +351,11 @@ export function TextAreaField({
             .join(" ") || undefined
         }
         rows={4}
-        className="w-full rounded-lg border border-white/[0.06] bg-white/[0.04] px-3.5 py-2.5 text-sm text-white outline-none transition placeholder:text-white/20 focus:border-cyan-400/30 disabled:cursor-not-allowed"
+        className="w-full rounded-lg border border-[var(--border)] bg-white/[0.04] px-3.5 py-2.5 text-sm text-[var(--text-primary)] outline-none transition placeholder:text-white/20 focus:border-cyan-400/30 disabled:cursor-not-allowed"
       />
       {showHighRiskWarning && <HighRiskBlurWarning id={warningId} />}
       {helperText && (
-        <p id={helperId} className="text-xs text-white">
+        <p id={helperId} className="text-xs text-[var(--text-primary)]">
           {helperText}
         </p>
       )}
@@ -376,7 +376,7 @@ export function SwitchField({
 }) {
   return (
     <div className="flex items-center justify-between gap-3">
-      <span className="flex items-center gap-1.5 text-sm text-slate-300">
+      <span className="flex items-center gap-1.5 text-sm text-[var(--text-secondary)]">
         {label}
         <FieldRiskBadge level={riskLevel} />
       </span>

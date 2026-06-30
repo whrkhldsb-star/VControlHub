@@ -31,7 +31,7 @@ function AiSettingsPanelStub() {
 	return (
 		<div
 			aria-hidden
-			className="mt-2 h-40 w-full animate-pulse rounded-2xl border border-slate-700/30 bg-slate-900/30"
+			className="mt-2 h-40 w-full animate-pulse rounded-2xl border border-[var(--border)] bg-[var(--surface-subtle)]"
 		/>
 	);
 }

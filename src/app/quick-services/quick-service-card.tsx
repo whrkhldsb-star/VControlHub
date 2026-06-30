@@ -18,10 +18,10 @@ import { buildQuickServiceAccessDescriptor } from "@/lib/quick-service/access-ur
 import { useI18n } from "@/lib/i18n/use-locale";
 
 const statusColor: Record<string, string> = {
-	available: "text-slate-500",
+	available: "text-[var(--text-muted)]",
 	installing: "text-amber-400",
 	running: "text-emerald-400",
-	stopped: "text-slate-400",
+	stopped: "text-[var(--text-muted)]",
 	error: "text-rose-400",
 };
 
@@ -92,8 +92,8 @@ export function ServiceCard({
 				<div className="flex items-center gap-2.5">
 					<span className="text-2xl">{item.icon}</span>
 					<div>
-						<h3 className="text-sm font-semibold text-white leading-tight">{item.name}</h3>
-						<p className="text-xs text-slate-500 mt-0.5">{item.image}</p>
+						<h3 className="text-sm font-semibold text-[var(--text-primary)] leading-tight">{item.name}</h3>
+						<p className="text-xs text-[var(--text-muted)] mt-0.5">{item.image}</p>
 					</div>
 				</div>
 				<div className="flex items-center gap-1.5">
@@ -102,17 +102,17 @@ export function ServiceCard({
 							{item.source}
 						</span>
 					)}
-					<span className={`text-[10px] font-medium px-1.5 py-0.5 rounded-full border ${statusColor[item.status] ?? "text-slate-500"} ${item.status === "running" ? "border-emerald-400/20 bg-emerald-500/[0.06]" : item.status === "error" ? "border-rose-400/20 bg-rose-500/[0.06]" : "border-white/[0.06]"}`}>
+					<span className={`text-[10px] font-medium px-1.5 py-0.5 rounded-full border ${statusColor[item.status] ?? "text-[var(--text-muted)]"} ${item.status === "running" ? "border-emerald-400/20 bg-emerald-500/[0.06]" : item.status === "error" ? "border-rose-400/20 bg-rose-500/[0.06]" : "border-[var(--border)]"}`}>
 						{(statusLabelKeys[item.status] && t(statusLabelKeys[item.status] as string)) || item.status}
 					</span>
 				</div>
 			</div>
 
 			{/* Description */}
-			<p className="text-xs text-slate-400 leading-relaxed line-clamp-2">{item.description}</p>
+			<p className="text-xs text-[var(--text-muted)] leading-relaxed line-clamp-2">{item.description}</p>
 
 			{/* Meta */}
-			<div className="flex items-center gap-3 text-[10px] text-slate-500">
+			<div className="flex items-center gap-3 text-[10px] text-[var(--text-muted)]">
 				<span>{t("qsPage.portLabel").replace("{port}", String(displayPort))}</span>
 				{item.path && <span>{t("qsPage.pathLabel").replace("{path}", item.path)}</span>}
 				{item.monthlyPulls != null && <span>{t("qsPage.monthlyPulls").replace("{pulls}", (item.monthlyPulls / 1000).toFixed(0))}</span>}
@@ -134,17 +134,17 @@ export function ServiceCard({
 				{tab === "installed" && (
 					<>
 						{item.status === "running" && access && (
-							<a href={access.url} target="_blank" rel="noreferrer" aria-label={t("qsPage.accessAria").replace("{name}", item.name).replace("{label}", access.label)} title={access.description} className="rounded-lg bg-emerald-500 px-3 py-1.5 text-xs font-semibold text-white hover:bg-emerald-400 transition">
+							<a href={access.url} target="_blank" rel="noreferrer" aria-label={t("qsPage.accessAria").replace("{name}", item.name).replace("{label}", access.label)} title={access.description} className="rounded-lg bg-emerald-500 px-3 py-1.5 text-xs font-semibold text-[var(--text-primary)] hover:bg-emerald-400 transition">
 								{t("qsPage.access")}
 							</a>
 						)}
 						{item.status === "running" && (
-							<button onClick={onStop} disabled={busy} className="rounded-lg border border-white/[0.1] px-3 py-1.5 text-xs text-slate-300 hover:bg-white/[0.06] transition disabled:opacity-50">
+							<button onClick={onStop} disabled={busy} className="rounded-lg border border-white/[0.1] px-3 py-1.5 text-xs text-[var(--text-secondary)] hover:bg-white/[0.06] transition disabled:opacity-50">
 								{busy ? t("qsPage.busy") : t("qsPage.stop")}
 							</button>
 						)}
 						{item.status === "stopped" && (
-							<button onClick={onStart} disabled={busy} className="rounded-lg bg-emerald-500 px-3 py-1.5 text-xs font-semibold text-white hover:bg-emerald-400 transition disabled:opacity-50">
+							<button onClick={onStart} disabled={busy} className="rounded-lg bg-emerald-500 px-3 py-1.5 text-xs font-semibold text-[var(--text-primary)] hover:bg-emerald-400 transition disabled:opacity-50">
 								{busy ? t("qsPage.busy") : t("qsPage.start")}
 							</button>
 						)}
@@ -152,7 +152,7 @@ export function ServiceCard({
 							<span className="text-xs text-amber-400 animate-pulse">{t("qsPage.pullingImage")}</span>
 						)}
 						{item.status === "error" && (
-							<button onClick={onSync} disabled={busy} className="rounded-lg border border-white/[0.1] px-3 py-1.5 text-xs text-slate-300 hover:bg-white/[0.06] transition disabled:opacity-50">
+							<button onClick={onSync} disabled={busy} className="rounded-lg border border-white/[0.1] px-3 py-1.5 text-xs text-[var(--text-secondary)] hover:bg-white/[0.06] transition disabled:opacity-50">
 								{t("qsPage.refreshStatus")}
 							</button>
 						)}

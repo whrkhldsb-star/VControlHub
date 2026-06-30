@@ -46,7 +46,7 @@ export function ActiveIncidentsBanner() {
   function levelColor(level: string) {
     if (level === "incident") return "border-amber-500/30 bg-amber-500/10";
     if (level === "maintenance") return "border-cyan-500/30 bg-cyan-500/10";
-    return "border-white/[0.06] bg-white/[0.03]";
+    return "border-[var(--border)] bg-white/[0.03]";
   }
 
   function levelLabel(level: string) {
@@ -62,11 +62,11 @@ export function ActiveIncidentsBanner() {
           <div className="flex items-start justify-between gap-3">
             <div className="min-w-0">
               <div className="flex items-center gap-2">
-                <span className="text-xs font-medium text-white">{levelLabel(item.level)}</span>
-                <h3 className="truncate text-sm font-semibold text-white">{item.title}</h3>
+                <span className="text-xs font-medium text-[var(--text-primary)]">{levelLabel(item.level)}</span>
+                <h3 className="truncate text-sm font-semibold text-[var(--text-primary)]">{item.title}</h3>
               </div>
-              <p className="mt-1.5 line-clamp-3 text-sm leading-6 text-slate-300">{item.body}</p>
-              <p className="mt-1 text-xs text-slate-500">
+              <p className="mt-1.5 line-clamp-3 text-sm leading-6 text-[var(--text-secondary)]">{item.body}</p>
+              <p className="mt-1 text-xs text-[var(--text-muted)]">
                 开始: {new Date(item.startsAt).toLocaleString()}
                 {item.expiresAt ? ` · 预计结束: ${new Date(item.expiresAt).toLocaleString()}` : ""}
               </p>
@@ -75,7 +75,7 @@ export function ActiveIncidentsBanner() {
               type="button"
               aria-label={`关闭通知 ${item.title}`}
               onClick={() => setDismissed((prev) => new Set(prev).add(item.id))}
-              className="shrink-0 text-xs text-slate-500 hover:text-white"
+              className="shrink-0 text-xs text-[var(--text-muted)] hover:text-[var(--text-primary)]"
             >
               ✕
             </button>

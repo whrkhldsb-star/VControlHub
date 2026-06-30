@@ -108,13 +108,13 @@ export function SourcesPanel({ sources, actions, onRequestDeleteSource }: Source
 
 	return (
 		<div className="space-y-4">
-			<div className="rounded-2xl border border-white/[0.06] bg-white/[0.025] p-4 space-y-4">
+			<div className="rounded-2xl border border-[var(--border)] bg-white/[0.025] p-4 space-y-4">
 				<div className="flex items-center justify-between gap-3">
 					<div>
-						<p className="text-xs uppercase tracking-[0.2em] text-slate-500">{t("quickServicesPage.sources.header")}</p>
-						<p className="mt-1 text-sm text-slate-400">{t("quickServicesPage.sources.headerDesc")}</p>
+						<p className="text-xs uppercase tracking-[0.2em] text-[var(--text-muted)]">{t("quickServicesPage.sources.header")}</p>
+						<p className="mt-1 text-sm text-[var(--text-muted)]">{t("quickServicesPage.sources.headerDesc")}</p>
 					</div>
-					<span className="rounded-full border border-white/[0.08] px-2 py-1 text-[10px] text-slate-500">{t("quickServicesPage.sources.tapToFill")}</span>
+					<span className="rounded-full border border-[var(--border)] px-2 py-1 text-[10px] text-[var(--text-muted)]">{t("quickServicesPage.sources.tapToFill")}</span>
 				</div>
 				<div className="grid gap-3 sm:grid-cols-3">
 					{getSourcePresets(t).map((preset) => {
@@ -124,43 +124,43 @@ export function SourcesPanel({ sources, actions, onRequestDeleteSource }: Source
 								key={preset.key}
 								type="button"
 								onClick={() => applySourcePreset(preset.key as SourcePresetKey)}
-								className={`rounded-xl border p-3 text-left transition ${active ? "border-cyan-400/30 bg-cyan-400/10 text-cyan-100" : "border-white/[0.08] bg-white/[0.03] text-slate-300 hover:bg-white/[0.06] light:hover:bg-white"}`}
+								className={`rounded-xl border p-3 text-left transition ${active ? "border-cyan-400/30 bg-cyan-400/10 text-cyan-100" : "border-[var(--border)] bg-white/[0.03] text-[var(--text-secondary)] hover:bg-white/[0.06] light:hover:bg-white"}`}
 							>
 								<div className="flex items-center justify-between gap-2">
-									<span className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">{preset.badge}</span>
-									<span className={`rounded-full border px-2 py-0.5 text-[10px] ${active ? "border-cyan-400/30 text-cyan-100" : "border-white/[0.08] text-slate-500"}`}>{preset.type}</span>
+									<span className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--text-muted)]">{preset.badge}</span>
+									<span className={`rounded-full border px-2 py-0.5 text-[10px] ${active ? "border-cyan-400/30 text-cyan-100" : "border-[var(--border)] text-[var(--text-muted)]"}`}>{preset.type}</span>
 								</div>
-								<h4 className="mt-2 text-sm font-semibold text-white">{preset.label}</h4>
-								<p className="mt-1 text-xs leading-5 text-slate-400">{preset.description}</p>
+								<h4 className="mt-2 text-sm font-semibold text-[var(--text-primary)]">{preset.label}</h4>
+								<p className="mt-1 text-xs leading-5 text-[var(--text-muted)]">{preset.description}</p>
 							</button>
 						);
 					})}
 				</div>
 				<div className="grid gap-3 md:grid-cols-2">
 					<label className="space-y-1">
-						<span className="text-xs text-slate-400">{t("quickServicesPage.sources.name")}</span>
+						<span className="text-xs text-[var(--text-muted)]">{t("quickServicesPage.sources.name")}</span>
 						<input
 							value={newSourceName}
 							onChange={(e) => setNewSourceName(e.target.value)}
-							className="w-full rounded-lg border border-white/[0.08] bg-white/[0.04] px-3 py-2 text-sm text-white outline-none focus:border-cyan-400/40"
+							className="w-full rounded-lg border border-[var(--border)] bg-white/[0.04] px-3 py-2 text-sm text-[var(--text-primary)] outline-none focus:border-cyan-400/40"
 							placeholder="linuxserver"
 						/>
 					</label>
 					<label className="space-y-1">
-						<span className="text-xs text-slate-400">{t("quickServicesPage.sources.displayName")}</span>
+						<span className="text-xs text-[var(--text-muted)]">{t("quickServicesPage.sources.displayName")}</span>
 						<input
 							value={newSourceDisplayName}
 							onChange={(e) => setNewSourceDisplayName(e.target.value)}
-							className="w-full rounded-lg border border-white/[0.08] bg-white/[0.04] px-3 py-2 text-sm text-white outline-none focus:border-cyan-400/40"
+							className="w-full rounded-lg border border-[var(--border)] bg-white/[0.04] px-3 py-2 text-sm text-[var(--text-primary)] outline-none focus:border-cyan-400/40"
 							placeholder="LinuxServer.io"
 						/>
 					</label>
 					<label className="space-y-1 md:col-span-2">
-						<span className="text-xs text-slate-400">{t("quickServicesPage.sources.url")}</span>
+						<span className="text-xs text-[var(--text-muted)]">{t("quickServicesPage.sources.url")}</span>
 						<input
 							value={newSourceUrl}
 							onChange={(e) => setNewSourceUrl(e.target.value)}
-							className="w-full rounded-lg border border-white/[0.08] bg-white/[0.04] px-3 py-2 text-sm text-white outline-none focus:border-cyan-400/40"
+							className="w-full rounded-lg border border-[var(--border)] bg-white/[0.04] px-3 py-2 text-sm text-[var(--text-primary)] outline-none focus:border-cyan-400/40"
 							placeholder="https://..."
 						/>
 					</label>
@@ -172,7 +172,7 @@ export function SourcesPanel({ sources, actions, onRequestDeleteSource }: Source
 								key={type}
 								type="button"
 								onClick={() => setNewSourceType(type)}
-								className={`rounded-lg border px-3 py-1.5 text-xs transition ${newSourceType === type ? "border-violet-400/30 bg-violet-400/10 text-violet-100" : "border-white/[0.08] text-slate-300 hover:bg-white/[0.06]"}`}
+								className={`rounded-lg border px-3 py-1.5 text-xs transition ${newSourceType === type ? "border-violet-400/30 bg-violet-400/10 text-violet-100" : "border-[var(--border)] text-[var(--text-secondary)] hover:bg-white/[0.06]"}`}
 							>
 								{type}
 							</button>
@@ -188,7 +188,7 @@ export function SourcesPanel({ sources, actions, onRequestDeleteSource }: Source
 				</div>
 			</div>
 			<div className="flex items-center justify-between">
-				<p className="text-xs text-slate-500">{t("quickServicesPage.sources.manageDesc")}，同步后可在「社区推荐」中一键安装</p>
+				<p className="text-xs text-[var(--text-muted)]">{t("quickServicesPage.sources.manageDesc")}，同步后可在「社区推荐」中一键安装</p>
 				<button
 					type="button"
 					onClick={() => actions.doSync()}
@@ -209,12 +209,12 @@ export function SourcesPanel({ sources, actions, onRequestDeleteSource }: Source
 						<div className="flex items-center gap-3">
 							<span className="text-lg">{src.type === "linuxserver" ? "🐧" : src.type === "github" ? "🐙" : "📡"}</span>
 							<div>
-								<h3 className="text-sm font-semibold text-white">{src.displayName}</h3>
-								<p className="text-xs text-slate-500 mt-0.5">{src.url}</p>
+								<h3 className="text-sm font-semibold text-[var(--text-primary)]">{src.displayName}</h3>
+								<p className="text-xs text-[var(--text-muted)] mt-0.5">{src.url}</p>
 							</div>
 						</div>
 						<div className="flex items-center gap-2">
-							<span className={`text-[10px] px-2 py-0.5 rounded-full border ${src.enabled ? "border-emerald-400/20 bg-emerald-500/[0.06] text-emerald-400" : "border-white/[0.06] text-slate-500"}`}>
+							<span className={`text-[10px] px-2 py-0.5 rounded-full border ${src.enabled ? "border-emerald-400/20 bg-emerald-500/[0.06] text-emerald-400" : "border-[var(--border)] text-[var(--text-muted)]"}`}>
 								{src.enabled ? t("quickServicesPage.sources.status.enabled") : t("quickServicesPage.sources.status.disabled")}
 							</span>
 							{src.lastSyncStatus && (
@@ -224,7 +224,7 @@ export function SourcesPanel({ sources, actions, onRequestDeleteSource }: Source
 							)}
 						</div>
 					</div>
-					<div className="flex items-center gap-3 text-[10px] text-slate-500">
+					<div className="flex items-center gap-3 text-[10px] text-[var(--text-muted)]">
 						<span>{t("quickServicesPage.sources.type") + ": " + src.type}</span>
 						<span>{t("quickServicesPage.sources.syncCount") + ": " + String(src.syncCount)}</span>
 						{src.lastSyncAt && <span>{t("quickServicesPage.sources.lastSyncAt") + ": " + new Date(src.lastSyncAt).toLocaleString()}</span>}
@@ -237,7 +237,7 @@ export function SourcesPanel({ sources, actions, onRequestDeleteSource }: Source
 							type="button"
 							onClick={() => actions.doSync(src.id)}
 							disabled={actions.syncing !== null}
-							className="rounded-lg border border-white/[0.1] px-3 py-1.5 text-xs text-slate-300 hover:bg-white/[0.06] transition disabled:opacity-50"
+							className="rounded-lg border border-white/[0.1] px-3 py-1.5 text-xs text-[var(--text-secondary)] hover:bg-white/[0.06] transition disabled:opacity-50"
 						>
 							{actions.syncing === src.id ? "同步中…" : t("quickServicesPage.sources.syncNow")}
 						</button>

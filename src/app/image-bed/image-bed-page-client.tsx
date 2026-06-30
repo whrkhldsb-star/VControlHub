@@ -337,17 +337,17 @@ export default function ImageBedPage({ canWrite, canDelete }: { canWrite: boolea
 					role="region"
 					aria-label={t("imageBedPage.batch.region")}
 					data-testid="image-bed-batch-bar"
-					className="sticky bottom-16 z-30 -mx-4 mt-3 flex flex-wrap items-center gap-2 border-y border-slate-700 bg-slate-900/95 p-3 backdrop-blur-sm md:static md:bottom-auto md:z-auto md:mx-0 md:gap-3 md:rounded-xl md:border md:bg-slate-800/50 md:p-3 md:backdrop-blur-0 light:md:bg-slate-100/50"
-				>
-					<span className="text-xs text-slate-400">{t("imageBedPage.batch.selected").replace("{count}", String(selectedIds.size))}</span>
-					<button onClick={selectAll} className="min-h-11 rounded-lg px-3 text-xs bg-slate-700 text-slate-300 hover:bg-slate-600 transition">
+					className="sticky bottom-16 z-30 -mx-4 mt-3 flex flex-wrap items-center gap-2 border-y border-[var(--border)] bg-[var(--modal-bg)]/95 p-3 backdrop-blur-sm md:static md:bottom-auto md:z-auto md:mx-0 md:gap-3 md:rounded-xl md:border md:bg-[var(--surface)] md:p-3 md:backdrop-blur-0"
+					>
+					<span className="text-xs text-[var(--text-muted)]">{t("imageBedPage.batch.selected").replace("{count}", String(selectedIds.size))}</span>
+					<button onClick={selectAll} className="min-h-11 rounded-lg px-3 text-xs bg-[var(--surface-hover)] text-[var(--text-secondary)] hover:bg-[var(--surface-elevated)] transition">
 						{selectedIds.size === images.length ? t("imageBedPage.batch.deselectAll") : t("imageBedPage.batch.selectAll")}
 					</button>
 					{canDelete && (
 						<button onClick={requestBatchDelete} disabled={selectedIds.size === 0} className="min-h-11 rounded-lg px-3 text-xs bg-rose-500/20 text-rose-300 hover:bg-rose-500/30 transition disabled:opacity-30">{t("imageBedPage.batch.delete")}</button>
 					)}
 					<div className="flex items-center gap-1">
-						<input type="text" value={batchAlbum} onChange={(e) => setBatchAlbum(e.target.value)} placeholder={t("imageBedPage.batch.albumPlaceholder")} aria-label={t("imageBedPage.batch.albumLabel")} className="min-h-11 bg-slate-900/50 border border-slate-600 rounded-lg px-2 py-1 text-xs text-slate-200 w-28 focus:outline-none focus:border-cyan-400/50" />
+						<input type="text" value={batchAlbum} onChange={(e) => setBatchAlbum(e.target.value)} placeholder={t("imageBedPage.batch.albumPlaceholder")} aria-label={t("imageBedPage.batch.albumLabel")} className="min-h-11 bg-[var(--input-bg)] border border-[var(--border)] rounded-lg px-2 py-1 text-xs text-[var(--text-primary)] w-28 focus:outline-none focus:border-cyan-400/50" />
 						<button onClick={() => runBatchAction("moveAlbum")} disabled={selectedIds.size === 0 || !batchAlbum} className="min-h-11 rounded-lg px-3 text-xs bg-cyan-500/20 text-cyan-300 hover:bg-cyan-500/30 transition disabled:opacity-30">{t("imageBedPage.batch.move")}</button>
 					</div>
 					<button onClick={() => runBatchAction("togglePublic")} disabled={selectedIds.size === 0} className="min-h-11 rounded-lg px-3 text-xs bg-green-500/20 text-green-300 hover:bg-green-500/30 transition disabled:opacity-30">{t("imageBedPage.batch.togglePublic")}</button>
@@ -358,25 +358,25 @@ export default function ImageBedPage({ canWrite, canDelete }: { canWrite: boolea
 			{showStats && stats && (
 			<div className="mt-3 p-4 bg-[var(--surface-elevated)] border border-[var(--border)] rounded-xl">
 					<div className="flex items-center justify-between mb-3">
-						<h3 className="text-sm font-semibold text-white">{t("imageBedPage.stats.title")}</h3>
-						<button onClick={() => setShowStats(false)} className="text-slate-500 hover:text-slate-300 text-sm">✕</button>
-					</div>
-					<div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
-						<div className="bg-slate-900/50 rounded-lg p-3">
-							<div className="text-xs text-slate-500">{t("imageBedPage.stats.totalCount")}</div>
-							<div className="text-xl font-bold text-white">{stats.totalCount}</div>
+						<h3 className="text-sm font-semibold text-[var(--text-primary)]">{t("imageBedPage.stats.title")}</h3>
+							<button onClick={() => setShowStats(false)} className="text-[var(--text-muted)] hover:text-[var(--text-secondary)] text-sm">✕</button>
 						</div>
-						<div className="bg-slate-900/50 rounded-lg p-3">
-							<div className="text-xs text-slate-500">{t("imageBedPage.stats.totalSize")}</div>
-							<div className="text-xl font-bold text-white">{stats.totalSizeMB} MB</div>
-						</div>
-						<div className="bg-slate-900/50 rounded-lg p-3">
-							<div className="text-xs text-slate-500">{t("imageBedPage.stats.albumCount")}</div>
-							<div className="text-xl font-bold text-white">{stats.albums.length}</div>
-						</div>
-						<div className="bg-slate-900/50 rounded-lg p-3">
-							<div className="text-xs text-slate-500">{t("imageBedPage.stats.recent7d")}</div>
-							<div className="text-xl font-bold text-white">{stats.uploadTrend.reduce((s, t) => s + t.count, 0)}</div>
+						<div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
+							<div className="bg-[var(--surface-subtle)] rounded-lg p-3">
+								<div className="text-xs text-[var(--text-muted)]">{t("imageBedPage.stats.totalCount")}</div>
+								<div className="text-xl font-bold text-[var(--text-primary)]">{stats.totalCount}</div>
+							</div>
+							<div className="bg-[var(--surface-subtle)] rounded-lg p-3">
+								<div className="text-xs text-[var(--text-muted)]">{t("imageBedPage.stats.totalSize")}</div>
+								<div className="text-xl font-bold text-[var(--text-primary)]">{stats.totalSizeMB} MB</div>
+							</div>
+							<div className="bg-[var(--surface-subtle)] rounded-lg p-3">
+								<div className="text-xs text-[var(--text-muted)]">{t("imageBedPage.stats.albumCount")}</div>
+								<div className="text-xl font-bold text-[var(--text-primary)]">{stats.albums.length}</div>
+							</div>
+							<div className="bg-[var(--surface-subtle)] rounded-lg p-3">
+								<div className="text-xs text-[var(--text-muted)]">{t("imageBedPage.stats.recent7d")}</div>
+								<div className="text-xl font-bold text-[var(--text-primary)]">{stats.uploadTrend.reduce((s, t) => s + t.count, 0)}</div>
 						</div>
 					</div>
 					{stats.uploadTrend.length > 0 && (
@@ -390,7 +390,7 @@ export default function ImageBedPage({ canWrite, canDelete }: { canWrite: boolea
 										<div key={t.date} className="flex-1 flex flex-col items-center gap-0.5" title={`${t.date}: ${t.count} 张`}>
 											<div className="text-[9px] text-slate-500">{t.count}</div>
 											<div className="w-full bg-cyan-500/60 rounded-t" style={{ height: `${height}%` }} />
-											<div className="text-[8px] text-slate-600">{t.date.slice(5)}</div>
+											<div className="text-[8px] text-[var(--text-muted)]">{t.date.slice(5)}</div>
 										</div>
 									);
 								})}
@@ -445,7 +445,7 @@ export default function ImageBedPage({ canWrite, canDelete }: { canWrite: boolea
 					onClick={() => fileInputRef.current?.click()}
 					className={`
 						mt-4 border-2 border-dashed rounded-xl p-8 text-center cursor-pointer transition-colors
-						${dragOver ? "border-cyan-400 bg-cyan-400/5 light:bg-cyan-50" : "border-slate-700 hover:border-slate-500 bg-slate-900/50 light:hover:border-slate-400"}
+						${dragOver ? "border-cyan-400 bg-cyan-400/5 light:bg-cyan-50" : "border-[var(--border)] hover:border-[var(--border)] bg-[var(--surface-subtle)] light:hover:border-[var(--border)]"}
 						${uploading ? "opacity-50 pointer-events-none" : ""}
 					`}
 				>
@@ -459,7 +459,7 @@ export default function ImageBedPage({ canWrite, canDelete }: { canWrite: boolea
 
 			{/* Upload Progress */}
 			{uploadProgress && (
-				<div role="status" aria-label={t("imageBedPage.progress.region")} className="mt-3 rounded-xl border border-[var(--border)] bg-slate-900/70 p-4 text-sm text-slate-300">
+				<div role="status" aria-label={t("imageBedPage.progress.region")} className="mt-3 rounded-xl border border-[var(--border)] bg-[var(--surface-subtle)] p-4 text-sm text-slate-300">
 					<div className="flex items-center justify-between gap-3">
 						<span>{uploading ? t("imageBedPage.progress.current").replace("{current}", String(uploadProgress.current)).replace("{total}", String(uploadProgress.total)) : t("imageBedPage.progress.completed").replace("{success}", String(uploadProgress.success)).replace("{total}", String(uploadProgress.total))}</span>
 						<span className="text-xs text-slate-500">{t("imageBedPage.progress.success").replace("{success}", String(uploadProgress.success)).replace("{failure}", String(uploadProgress.failure))}</span>
@@ -546,7 +546,7 @@ export default function ImageBedPage({ canWrite, canDelete }: { canWrite: boolea
 							<div className="flex items-center justify-between mt-1">
 								<span className="text-[10px] text-slate-500">{formatSize(img.sizeBytes)} · {formatDate(img.createdAt)}</span>
 								<div className="flex items-center gap-1">
-									{img.album && <span className="text-[10px] text-slate-600 bg-slate-800 px-1.5 py-0.5 rounded-lg">{img.album}</span>}
+									{img.album && <span className="text-[10px] text-[var(--text-muted)] bg-[var(--surface-hover)] px-1.5 py-0.5 rounded-lg">{img.album}</span>}
 									<span className={`text-[9px] px-1 py-0.5 rounded-lg ${img.isPublic ? "bg-green-500/10 text-green-500" : "bg-slate-700 text-slate-500"}`}>
 										{img.isPublic ? t("imageBedPage.image.public") : t("imageBedPage.image.private")}
 									</span>
@@ -560,9 +560,9 @@ export default function ImageBedPage({ canWrite, canDelete }: { canWrite: boolea
 			{/* Pagination */}
 			{totalPages > 1 && (
 				<div className="mt-6 flex items-center justify-center gap-2">
-					<button onClick={() => fetchImages(page - 1)} disabled={page <= 1} className="px-3 py-1.5 text-sm bg-slate-800 text-slate-300 rounded-lg disabled:opacity-30 hover:bg-slate-700 light:hover:bg-slate-200 transition">{t("imageBedPage.pagination.prev")}</button>
+					<button onClick={() => fetchImages(page - 1)} disabled={page <= 1} className="px-3 py-1.5 text-sm bg-[var(--surface-hover)] text-[var(--text-secondary)] rounded-lg disabled:opacity-30 hover:bg-[var(--surface-hover)] light:hover:bg-slate-200 transition">{t("imageBedPage.pagination.prev")}</button>
 					<span className="text-sm text-slate-400">{page} / {totalPages}</span>
-					<button onClick={() => fetchImages(page + 1)} disabled={page >= totalPages} className="px-3 py-1.5 text-sm bg-slate-800 text-slate-300 rounded-lg disabled:opacity-30 hover:bg-slate-700 light:hover:bg-slate-200 transition">{t("imageBedPage.pagination.next")}</button>
+					<button onClick={() => fetchImages(page + 1)} disabled={page >= totalPages} className="px-3 py-1.5 text-sm bg-[var(--surface-hover)] text-[var(--text-secondary)] rounded-lg disabled:opacity-30 hover:bg-[var(--surface-hover)] light:hover:bg-slate-200 transition">{t("imageBedPage.pagination.next")}</button>
 				</div>
 			)}
 
@@ -581,7 +581,7 @@ export default function ImageBedPage({ canWrite, canDelete }: { canWrite: boolea
 			{/* Publish from Storage Modal */}
 			{showPublishModal && (
 				<div className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4" onClick={() => setShowPublishModal(false)}>
-					<div className="bg-slate-900 border border-slate-700 rounded-xl p-6 w-full max-w-md" onClick={(e) => e.stopPropagation()}>
+					<div className="bg-[var(--modal-bg)] border border-[var(--border)] rounded-xl p-6 w-full max-w-md" onClick={(e) => e.stopPropagation()}>
 						<h3 className="text-lg font-semibold text-white mb-4">{t("imageBedPage.publishFromStorage.title")}</h3>
 						<div className="space-y-3">
 							<div>
@@ -618,7 +618,7 @@ export default function ImageBedPage({ canWrite, canDelete }: { canWrite: boolea
 						role="dialog"
 						aria-modal="true"
 						aria-label={pendingDelete.type === "single" ? t("imageBedPage.delete.ariaLabel.single") : t("imageBedPage.delete.ariaLabel.batch")}
-						className="bg-slate-900 border border-rose-500/20 rounded-xl p-6 w-full max-w-md shadow-2xl"
+						className="bg-[var(--modal-bg)] border border-rose-500/20 rounded-xl p-6 w-full max-w-md shadow-2xl"
 						onClick={(e) => e.stopPropagation()}
 					>
 						<h3 className="text-lg font-semibold text-white mb-2">{pendingDelete.type === "single" ? t("imageBedPage.delete.title.single") : t("imageBedPage.delete.title.batch")}</h3>
@@ -639,7 +639,7 @@ export default function ImageBedPage({ canWrite, canDelete }: { canWrite: boolea
 
 			{/* Toast */}
 			{toast && (
-				<div role={toast.includes("失败") || toast.includes("出错") || toast.includes("超过") ? "alert" : "status"} className="fixed bottom-6 right-6 bg-slate-800 border border-slate-700 text-sm text-slate-200 px-4 py-2.5 rounded-xl shadow-lg z-50 animate-fade-in">
+				<div role={toast.includes("失败") || toast.includes("出错") || toast.includes("超过") ? "alert" : "status"} className="fixed bottom-6 right-6 bg-[var(--modal-bg)] border border-[var(--border)] text-sm text-slate-200 px-4 py-2.5 rounded-xl shadow-lg z-50 animate-fade-in">
 					{toast}
 				</div>
 			)}

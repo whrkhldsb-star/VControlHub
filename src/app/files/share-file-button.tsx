@@ -87,7 +87,7 @@ export function ShareFileButton({
         ) : null}
       </button>
       {shareUrl || error ? (
-        <div className="absolute right-0 top-10 z-30 w-72 rounded-xl border border-white/10 bg-slate-950 p-3 text-left text-xs shadow-xl">
+        <div className="absolute right-0 top-10 z-30 w-72 rounded-xl border border-[var(--border)] bg-[var(--modal-bg)] p-3 text-left text-xs shadow-xl">
           {error ? (
             <p className="text-rose-300">{error}</p>
           ) : null}
@@ -96,7 +96,7 @@ export function ShareFileButton({
               <p className="font-medium text-emerald-200">
                 分享链接已生成{copied ? "并复制" : ""}
               </p>
-              <code className="block break-all rounded-lg bg-white/[0.04] p-2 text-slate-300">
+              <code className="block break-all rounded-lg bg-white/[0.04] p-2 text-[var(--text-secondary)]">
                 {shareUrl}
               </code>
               <button

@@ -100,8 +100,8 @@ export function DownloadActionLink({
       rel={downloadUrl.startsWith("/") ? undefined : "noopener noreferrer"}
       className={
         compact
-          ? "inline-flex items-center justify-center w-8 h-8 rounded-lg border border-white/10 bg-white/5 text-slate-200 transition hover:bg-white/10 hover:text-white"
-          : "inline-flex items-center gap-1.5 rounded-lg border border-white/10 bg-white/5 px-2.5 py-1.5 text-xs text-slate-200 transition hover:bg-white/10 hover:text-white"
+          ? "inline-flex items-center justify-center w-8 h-8 rounded-lg border border-[var(--border)] bg-white/5 text-[var(--text-secondary)] transition hover:bg-white/10 hover:text-[var(--text-primary)]"
+          : "inline-flex items-center gap-1.5 rounded-lg border border-[var(--border)] bg-white/5 px-2.5 py-1.5 text-xs text-[var(--text-secondary)] transition hover:bg-white/10 hover:text-[var(--text-primary)]"
       }
     >
       <DownloadIcon />
@@ -138,8 +138,8 @@ export function FolderDownloadActionLink({
       download
       className={
         compact
-          ? "inline-flex items-center justify-center w-8 h-8 rounded-lg border border-white/10 bg-white/5 text-slate-200 transition hover:bg-white/10 hover:text-white"
-          : "inline-flex items-center gap-1.5 rounded-lg border border-white/10 bg-white/5 px-3 py-1.5 text-xs font-medium text-slate-200 transition hover:bg-white/10 hover:text-white"
+          ? "inline-flex items-center justify-center w-8 h-8 rounded-lg border border-[var(--border)] bg-white/5 text-[var(--text-secondary)] transition hover:bg-white/10 hover:text-[var(--text-primary)]"
+          : "inline-flex items-center gap-1.5 rounded-lg border border-[var(--border)] bg-white/5 px-3 py-1.5 text-xs font-medium text-[var(--text-secondary)] transition hover:bg-white/10 hover:text-[var(--text-primary)]"
       }
     >
       <DownloadIcon />

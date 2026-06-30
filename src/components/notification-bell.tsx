@@ -176,20 +176,20 @@ export function NotificationBell() {
 					role="dialog"
 					aria-modal="false"
 					aria-labelledby="notification-popover-title"
-					className="absolute bottom-full left-0 mb-2 w-80 rounded-xl border border-white/[0.12] bg-slate-950/98 backdrop-blur-xl shadow-2xl z-50 max-h-[60vh] overflow-y-auto"
-				>
-					<div className="sticky top-0 bg-slate-950/95 backdrop-blur border-b border-white/[0.06] px-4 py-3 flex items-center justify-between">
-						<span id="notification-popover-title" className="text-sm font-medium text-white">{notificationLabel}</span>
+					className="absolute bottom-full left-0 mb-2 w-80 rounded-xl border border-[var(--border)] bg-[var(--modal-bg)] backdrop-blur-xl shadow-2xl z-50 max-h-[60vh] overflow-y-auto"
+					>
+					<div className="sticky top-0 bg-[var(--modal-bg)] backdrop-blur border-b border-[var(--border)] px-4 py-3 flex items-center justify-between">
+						<span id="notification-popover-title" className="text-sm font-medium text-[var(--text-primary)]">{notificationLabel}</span>
 						<div className="flex items-center gap-2">
 							{wsConnected ? (
-								<span className="text-[10px] text-emerald-400/70">{realtimeLabel}</span>
+								<span className="text-[10px] text-emerald-600 dark:text-emerald-400/70">{realtimeLabel}</span>
 							) : refreshIntervalSeconds <= 0 ? (
-								<span className="text-[10px] text-slate-500">{manualLabel}</span>
+								<span className="text-[10px] text-[var(--text-muted)]">{manualLabel}</span>
 							) : (
-								<span className="text-[10px] text-slate-500">{pollingPrefix} {getRefreshIntervalLabel(refreshIntervalSeconds)}</span>
+								<span className="text-[10px] text-[var(--text-muted)]">{pollingPrefix} {getRefreshIntervalLabel(refreshIntervalSeconds)}</span>
 							)}
 							{effectiveUnread > 0 && (
-								<button onClick={markAllRead} className="text-[11px] text-cyan-400/80 hover:text-cyan-300 transition">
+								<button onClick={markAllRead} className="text-[11px] text-[var(--color-action)] hover:opacity-80 transition">
 									{markAllReadLabel}
 								</button>
 							)}
@@ -212,15 +212,15 @@ export function NotificationBell() {
 									>
 										<div className="flex items-center gap-2">
 											{!n.isRead && <div className="h-1.5 w-1.5 rounded-full bg-cyan-400 shrink-0" />}
-											<span className={`text-xs font-medium truncate ${n.isRead ? "text-[var(--text-secondary)]" : "text-white"}`}>{n.title}</span>
-										</div>
-										<p className="mt-1 text-[11px] text-slate-500 truncate">{n.message}</p>
+											<span className={`text-xs font-medium truncate ${n.isRead ? "text-[var(--text-secondary)]" : "text-[var(--text-primary)]"}`}>{n.title}</span>
+											</div>
+											<p className="mt-1 text-[11px] text-[var(--text-muted)] truncate">{n.message}</p>
 									</Link>
 								</li>
 							))}
 						</ul>
 					) : null}
-					<div className="sticky bottom-0 border-t border-white/[0.06] bg-slate-950/95">
+					<div className="sticky bottom-0 border-t border-[var(--border)] bg-[var(--modal-bg)]">
 						<Link href="/notifications" className="block px-4 py-2.5 text-center text-xs text-cyan-400/80 hover:text-cyan-300 transition light:hover:text-cyan-800">
 							{viewAllLabel}
 						</Link>

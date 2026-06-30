@@ -64,7 +64,7 @@ export function TrafficSparkline({
 	if (samples.length < 2) {
 		return (
 			<div
-				className="flex items-center justify-center rounded-xl border border-dashed border-white/[0.08] bg-black/20 text-xs text-slate-500"
+				className="flex items-center justify-center rounded-xl border border-dashed border-[var(--border)] bg-black/20 text-xs text-[var(--text-muted)]"
 				style={{ height }}
 				data-traffic-sparkline-empty
 			>
@@ -101,7 +101,7 @@ export function TrafficSparkline({
 	};
 
 	return (
-		<div className="rounded-xl border border-white/[0.06] bg-black/20 p-3" data-traffic-sparkline>
+		<div className="rounded-xl border border-[var(--border)] bg-black/20 p-3" data-traffic-sparkline>
 			<div className="mb-2 flex items-center justify-between text-[11px]">
 				<div className="flex items-center gap-3">
 					<span className="inline-flex items-center gap-1.5 text-cyan-300">
@@ -113,7 +113,7 @@ export function TrafficSparkline({
 						{labels.tx ?? "TX"} {formatRate(last.tx)}
 					</span>
 				</div>
-				<span className="text-slate-500">
+				<span className="text-[var(--text-muted)]">
 					{labels.windowHint?.replace("{count}", String(samples.length)) ??
 						`${samples.length} 个样本`}
 				</span>

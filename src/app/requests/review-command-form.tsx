@@ -14,11 +14,11 @@ export function ReviewCommandForm({ commandRequestId }: { commandRequestId: stri
   const [state, formAction] = useActionState(reviewCommandAction, initialState);
 
   return (
-    <form action={formAction} className="mt-4 rounded-lg border border-white/[0.06] bg-white/[0.03] p-4 text-sm text-[var(--text-secondary)]">
+    <form action={formAction} className="mt-4 rounded-lg border border-[var(--border)] bg-white/[0.03] p-4 text-sm text-[var(--text-secondary)]">
       <input type="hidden" name="commandRequestId" value={commandRequestId} />
       <label className="grid gap-2">
         <span className="text-[var(--text-secondary)]">{t("requestsPage.review.commentLabel")}</span>
-        <textarea name="comment" rows={2} className="rounded-2xl border border-[var(--border)] bg-slate-950 px-4 py-3 text-white outline-none ring-0" placeholder={t("requestsPage.review.commentPlaceholder")} />
+        <textarea name="comment" rows={2} className="rounded-2xl border border-[var(--border)] bg-[var(--input-bg)] px-4 py-3 text-[var(--text-primary)] outline-none ring-0" placeholder={t("requestsPage.review.commentPlaceholder")} />
       </label>
 
       {state.error ? <div data-tone="rose" className="mt-3 rounded-2xl border border-rose-400/30 px-4 py-3 text-rose-100">{state.error}</div> : null}
@@ -33,7 +33,7 @@ export function ReviewCommandForm({ commandRequestId }: { commandRequestId: stri
         >
           <span>{t("requestsPage.review.approve")}</span>
         </SubmitButton>
-        <button type="submit" name="decision" value="reject" className="rounded-2xl border border-[var(--border)] px-4 py-2 text-sm font-medium text-white transition hover:bg-white/10">
+        <button type="submit" name="decision" value="reject" className="rounded-2xl border border-[var(--border)] px-4 py-2 text-sm font-medium text-[var(--text-primary)] transition hover:bg-white/10">
           {t("requestsPage.review.reject")}
         </button>
       </div>

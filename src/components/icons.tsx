@@ -4,7 +4,7 @@
  * Each icon accepts `size` (number, default 24), `className`, `fill`, and
  * any other SVG attributes so they can be used exactly like the lucide originals:
  *
- *     <Pencil size={14} className="text-slate-500" />
+ *     <Pencil size={14} className="text-[var(--text-muted)]" />
  *     <Star size={18} fill="currentColor" className="text-amber-400" />
  */
 

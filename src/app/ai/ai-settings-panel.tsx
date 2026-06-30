@@ -52,18 +52,18 @@ export function AiSettingsPanel({
   );
 
   return (
-    <div className="border-b border-white/[0.06] bg-slate-950/50 p-4 max-h-[50vh] overflow-y-auto">
+    <div className="border-b border-[var(--border)] bg-[var(--surface-subtle)] p-4 max-h-[50vh] overflow-y-auto">
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         {/* Model selector */}
         <div className="col-span-2 md:col-span-2 relative">
-          <label className="text-[10px] text-slate-500 uppercase tracking-wider">
+          <label className="text-[10px] text-[var(--text-muted)] uppercase tracking-wider">
             {t("aiPage.model")}
             {modelsLoading && <span className="ml-2 text-cyan-400 animate-pulse">{t("aiPage.loading")}</span>}
           </label>
           <div className="relative mt-1">
             <button
               onClick={() => setModelDropdownOpen(!modelDropdownOpen)}
-              className="w-full flex items-center justify-between bg-black/30 border border-[var(--border)] rounded-lg px-2.5 py-1.5 text-xs text-white hover:border-cyan-400/30 transition"
+              className="w-full flex items-center justify-between bg-black/30 border border-[var(--border)] rounded-lg px-2.5 py-1.5 text-xs text-[var(--text-primary)] hover:border-cyan-400/30 transition"
             >
               <span className="truncate flex items-center gap-1.5">
                 {settingsForm.model}
@@ -71,8 +71,8 @@ export function AiSettingsPanel({
                   <span className="text-[9px] text-cyan-400 bg-cyan-400/10 px-1 py-0.5 rounded-lg">👁</span>
                 )}
               </span>
-              <svg className={`w-3.5 h-3.5 text-slate-500 transition-transform ${modelDropdownOpen ? "rotate-180" : ""}`} fill="none" stroke="currentColor" viewBox="0 0 24 24"> <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /> </svg> </button> {modelDropdownOpen && ( <div className="absolute z-50 top-full left-0 right-0 mt-1 bg-slate-900 border border-[var(--border)] rounded-lg shadow-xl max-h-60 overflow-hidden flex flex-col"> <div className="p-2 border-b border-white/5"> <input value={modelSearch} onChange={(e) => setModelSearch(e.target.value)} placeholder={t("aiPage.searchModel")} aria-label={t("aiPage.searchModelAria")} className="w-full bg-black/30 border border-white/5 rounded-lg px-2 py-1 text-xs text-white placeholder-slate-600 focus:outline-none focus:border-cyan-400/30" autoFocus /> </div> <div className="overflow-y-auto max-h-48"> {filteredModels.length === 0 && !modelsLoading && ( <div className="px-3 py-4 text-xs text-slate-500 text-center"> {t("aiPage.noModels")} <button onClick={onRefreshModels} className="ml-2 text-cyan-400 hover:text-cyan-300 light:hover:text-cyan-700" > {t("aiPage.refresh")} </button> </div> )} {filteredModels.map((m) => ( <button key={m.id} onClick={() => { setSettingsForm((f) => ({ ...f, model: m.id, enableVision: m.vision ? true : f.enableVision, })); setModelDropdownOpen(false); setModelSearch(""); }} className={`w-full text-left px-3 py-2 text-xs hover:bg-white/[0.04] transition flex items-center gap-2 ${
-                        settingsForm.model === m.id ? "text-cyan-300 bg-cyan-400/[0.06]" : "text-white"
+              <svg className={`w-3.5 h-3.5 text-[var(--text-muted)] transition-transform ${modelDropdownOpen ? "rotate-180" : ""}`} fill="none" stroke="currentColor" viewBox="0 0 24 24"> <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /> </svg> </button> {modelDropdownOpen && ( <div className="absolute z-50 top-full left-0 right-0 mt-1 bg-[var(--surface)] border border-[var(--border)] rounded-lg shadow-xl max-h-60 overflow-hidden flex flex-col"> <div className="p-2 border-b border-white/5"> <input value={modelSearch} onChange={(e) => setModelSearch(e.target.value)} placeholder={t("aiPage.searchModel")} aria-label={t("aiPage.searchModelAria")} className="w-full bg-black/30 border border-white/5 rounded-lg px-2 py-1 text-xs text-[var(--text-primary)] placeholder-slate-600 focus:outline-none focus:border-cyan-400/30" autoFocus /> </div> <div className="overflow-y-auto max-h-48"> {filteredModels.length === 0 && !modelsLoading && ( <div className="px-3 py-4 text-xs text-[var(--text-muted)] text-center"> {t("aiPage.noModels")} <button onClick={onRefreshModels} className="ml-2 text-cyan-400 hover:text-cyan-300 light:hover:text-cyan-700" > {t("aiPage.refresh")} </button> </div> )} {filteredModels.map((m) => ( <button key={m.id} onClick={() => { setSettingsForm((f) => ({ ...f, model: m.id, enableVision: m.vision ? true : f.enableVision, })); setModelDropdownOpen(false); setModelSearch(""); }} className={`w-full text-left px-3 py-2 text-xs hover:bg-white/[0.04] transition flex items-center gap-2 ${
+                        settingsForm.model === m.id ? "text-cyan-300 bg-cyan-400/[0.06]" : "text-[var(--text-primary)]"
                       }`}
                     >
                       <span className="truncate flex-1">{m.id}</span>
@@ -91,12 +91,12 @@ export function AiSettingsPanel({
                         )}
                       </span>
                       {m.context_length && (
-                        <span className="text-[9px] text-slate-600 flex-shrink-0">
+                        <span className="text-[9px] text-[var(--text-muted)] flex-shrink-0">
                           {(m.context_length / 1000).toFixed(0)}k
                         </span>
                       )}
                       {m.owned_by && (
-                        <span className="text-[9px] text-slate-600 flex-shrink-0 truncate max-w-[60px]">
+                        <span className="text-[9px] text-[var(--text-muted)] flex-shrink-0 truncate max-w-[60px]">
                           {m.owned_by}
                         </span>
                       )}
@@ -118,7 +118,7 @@ export function AiSettingsPanel({
                       }}
                       placeholder={t("aiPage.manualModelIdPlaceholder")}
                       aria-label={t("aiPage.manualModelIdAria")}
-                      className="flex-1 bg-black/30 border border-white/5 rounded-lg px-2 py-1 text-xs text-white placeholder-slate-600 focus:outline-none"
+                      className="flex-1 bg-black/30 border border-white/5 rounded-lg px-2 py-1 text-xs text-[var(--text-primary)] placeholder-slate-600 focus:outline-none"
                     />
                     <button
                       onClick={() => {
@@ -141,7 +141,7 @@ export function AiSettingsPanel({
 
         {/* Temperature slider */}
         <div>
-          <label htmlFor="ai-setting-temperature" className="text-[10px] text-slate-500 uppercase tracking-wider">
+          <label htmlFor="ai-setting-temperature" className="text-[10px] text-[var(--text-muted)] uppercase tracking-wider">
             Temperature <span className="text-cyan-400/70">{settingsForm.temperature.toFixed(2)}</span>
           </label>
           <div className="mt-1 flex items-center gap-2">
@@ -160,14 +160,14 @@ export function AiSettingsPanel({
 
         {/* Max Tokens */}
         <div>
-          <label htmlFor="ai-setting-max-tokens" className="text-[10px] text-slate-500 uppercase tracking-wider">
+          <label htmlFor="ai-setting-max-tokens" className="text-[10px] text-[var(--text-muted)] uppercase tracking-wider">
             Max Tokens
           </label>
           <select
             id="ai-setting-max-tokens"
             value={settingsForm.maxTokens}
             onChange={(e) => setSettingsForm((f) => ({ ...f, maxTokens: parseInt(e.target.value) }))}
-            className="w-full mt-1 bg-black/30 border border-[var(--border)] rounded-lg px-2.5 py-1.5 text-xs text-white"
+            className="w-full mt-1 bg-black/30 border border-[var(--border)] rounded-lg px-2.5 py-1.5 text-xs text-[var(--text-primary)]"
           >
             {[512, 1024, 2048, 4096, 8192, 16384, 32768, 65536, 128000].map((v) => (
               <option key={v} value={v}>{v.toLocaleString()}</option>
@@ -177,7 +177,7 @@ export function AiSettingsPanel({
 
         {/* Top P slider */}
         <div>
-          <label htmlFor="ai-setting-top-p" className="text-[10px] text-slate-500 uppercase tracking-wider">
+          <label htmlFor="ai-setting-top-p" className="text-[10px] text-[var(--text-muted)] uppercase tracking-wider">
             Top P <span className="text-cyan-400/70">{settingsForm.topP.toFixed(2)}</span>
           </label>
           <div className="mt-1 flex items-center gap-2">
@@ -196,7 +196,7 @@ export function AiSettingsPanel({
 
         {/* Frequency Penalty slider */}
         <div>
-          <label htmlFor="ai-setting-freq-pen" className="text-[10px] text-slate-500 uppercase tracking-wider">
+          <label htmlFor="ai-setting-freq-pen" className="text-[10px] text-[var(--text-muted)] uppercase tracking-wider">
             {t("aiPage.frequencyPenalty")} <span className="text-cyan-400/70">{settingsForm.frequencyPenalty.toFixed(2)}</span>
           </label>
           <div className="mt-1 flex items-center gap-2">
@@ -215,7 +215,7 @@ export function AiSettingsPanel({
 
         {/* Presence Penalty slider */}
         <div>
-          <label htmlFor="ai-setting-pres-pen" className="text-[10px] text-slate-500 uppercase tracking-wider">
+          <label htmlFor="ai-setting-pres-pen" className="text-[10px] text-[var(--text-muted)] uppercase tracking-wider">
             {t("aiPage.presencePenalty")} <span className="text-cyan-400/70">{settingsForm.presencePenalty.toFixed(2)}</span>
           </label>
           <div className="mt-1 flex items-center gap-2">
@@ -239,7 +239,7 @@ export function AiSettingsPanel({
               type="checkbox"
               checked={settingsForm.enableVision}
               onChange={(e) => setSettingsForm((f) => ({ ...f, enableVision: e.target.checked }))}
-              className="rounded-lg border-white/20 bg-black/30 text-cyan-400 focus:ring-cyan-400/30"
+              className="rounded-lg border-[var(--border)] bg-black/30 text-cyan-400 focus:ring-cyan-400/30"
             />
             <span className="text-xs text-[var(--text-secondary)]">
               {t("aiPage.visionToggle")}
@@ -257,7 +257,7 @@ export function AiSettingsPanel({
  type="checkbox"
  checked={settingsForm.hostingEnabled}
  onChange={(e) => setSettingsForm((f) => ({ ...f, hostingEnabled: e.target.checked }))}
- className="rounded-lg border-white/20 bg-black/30 text-amber-400 focus:ring-amber-400/30"
+ className="rounded-lg border-[var(--border)] bg-black/30 text-amber-400 focus:ring-amber-400/30"
  />
  <span className="text-xs text-[var(--text-secondary)]">
  {t("aiPage.hostedMode")}
@@ -279,14 +279,14 @@ export function AiSettingsPanel({
 
       {/* System prompt */}
       <div className="mt-3">
-        <label className="text-[10px] text-slate-500 uppercase tracking-wider" htmlFor="ai-setting-system-prompt">{t("aiPage.systemPromptLabel")}</label>
+        <label className="text-[10px] text-[var(--text-muted)] uppercase tracking-wider" htmlFor="ai-setting-system-prompt">{t("aiPage.systemPromptLabel")}</label>
         <textarea
           id="ai-setting-system-prompt"
           value={settingsForm.systemPrompt}
           onChange={(e) => setSettingsForm((f) => ({ ...f, systemPrompt: e.target.value }))}
           rows={2}
           placeholder={t("aiPage.systemPromptPlaceholder")}
-          className="w-full mt-1 bg-black/30 border border-[var(--border)] rounded-lg px-2.5 py-1.5 text-xs text-white placeholder-slate-600 resize-none focus:outline-none focus:border-cyan-400/30"
+          className="w-full mt-1 bg-black/30 border border-[var(--border)] rounded-lg px-2.5 py-1.5 text-xs text-[var(--text-primary)] placeholder-slate-600 resize-none focus:outline-none focus:border-cyan-400/30"
         />
       </div>
     </div>

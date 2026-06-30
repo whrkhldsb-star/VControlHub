@@ -45,39 +45,39 @@ export function CreateAnnouncementForm() {
 
 	return (
 		<form onSubmit={handleSubmit} data-card className=" space-y-4">
-			<h2 className="text-sm font-semibold text-white">{t("announcementsPage.create.title")}</h2>
-			{error && <p className="text-xs text-rose-400">{error}</p>}
+			<h2 className="text-sm font-semibold text-[var(--text-primary)]">{t("announcementsPage.create.title")}</h2>
+			{error && <p className="text-xs text-rose-500 dark:text-rose-400">{error}</p>}
 			<div className="grid gap-3 md:grid-cols-2">
 				<div className="grid gap-1.5">
 					<label htmlFor={titleId} className="text-xs font-medium text-[var(--text-secondary)]">{t("announcementsPage.create.titleLabel")}</label>
-					<input id={titleId} name="title" required aria-describedby={`${titleId}-hint`} className="rounded-lg border border-white/[0.08] bg-slate-950 px-3 py-2 text-sm text-slate-100 placeholder:text-slate-600" />
-					<p id={`${titleId}-hint`} className="text-[11px] text-slate-500">{t("announcementsPage.create.titleHint")}</p>
+					<input id={titleId} name="title" required aria-describedby={`${titleId}-hint`} className="rounded-lg border border-[var(--border)] bg-[var(--input-bg)] px-3 py-2 text-sm text-[var(--text-primary)] placeholder:text-[var(--text-muted)]" />
+					<p id={`${titleId}-hint`} className="text-[11px] text-[var(--text-muted)]">{t("announcementsPage.create.titleHint")}</p>
 				</div>
 				<div className="grid gap-1.5">
 					<label htmlFor={typeId} className="text-xs font-medium text-[var(--text-secondary)]">{t("announcementsPage.create.typeLabel")}</label>
-					<select id={typeId} name="type" defaultValue="info" className="rounded-lg border border-white/[0.08] bg-slate-950 px-3 py-2 text-sm text-slate-100">
+					<select id={typeId} name="type" defaultValue="info" className="rounded-lg border border-[var(--border)] bg-[var(--input-bg)] px-3 py-2 text-sm text-[var(--text-primary)]">
 						<option value="info">{t("announcementsPage.create.type.info")}</option>
 						<option value="warning">{t("announcementsPage.create.type.warning")}</option>
 						<option value="urgent">{t("announcementsPage.level.urgent")}</option>
 					</select>
-					<p className="text-[11px] text-slate-500">{t("announcementsPage.create.typeHint")}</p>
+					<p className="text-[11px] text-[var(--text-muted)]">{t("announcementsPage.create.typeHint")}</p>
 				</div>
 			</div>
 			<div className="grid gap-1.5">
 				<label htmlFor={contentId} className="text-xs font-medium text-[var(--text-secondary)]">{t("announcementsPage.create.contentLabel")}</label>
-				<textarea id={contentId} name="content" required rows={3} aria-describedby={`${contentId}-hint`} className="rounded-lg border border-white/[0.08] bg-slate-950 px-3 py-2 text-sm text-slate-100 placeholder:text-slate-600 resize-y" />
-				<p id={`${contentId}-hint`} className="text-[11px] text-slate-500">{t("announcementsPage.create.contentHint")}</p>
+				<textarea id={contentId} name="content" required rows={3} aria-describedby={`${contentId}-hint`} className="rounded-lg border border-[var(--border)] bg-[var(--input-bg)] px-3 py-2 text-sm text-[var(--text-primary)] placeholder:text-[var(--text-muted)] resize-y" />
+				<p id={`${contentId}-hint`} className="text-[11px] text-[var(--text-muted)]">{t("announcementsPage.create.contentHint")}</p>
 			</div>
 			<div className="grid gap-3 md:grid-cols-2">
 				<div className="grid gap-1.5">
 					<label htmlFor={startsAtId} className="text-xs font-medium text-[var(--text-secondary)]">{t("announcementsPage.create.startsAtLabel")}</label>
-					<input id={startsAtId} type="datetime-local" name="startsAt" aria-describedby={`${startsAtId}-hint`} className="rounded-lg border border-white/[0.08] bg-slate-950 px-3 py-2 text-sm text-slate-100" />
-					<p id={`${startsAtId}-hint`} className="text-[11px] text-slate-500">{t("announcementsPage.create.startsAtHint")}</p>
+					<input id={startsAtId} type="datetime-local" name="startsAt" aria-describedby={`${startsAtId}-hint`} className="rounded-lg border border-[var(--border)] bg-[var(--input-bg)] px-3 py-2 text-sm text-[var(--text-primary)]" />
+					<p id={`${startsAtId}-hint`} className="text-[11px] text-[var(--text-muted)]">{t("announcementsPage.create.startsAtHint")}</p>
 				</div>
 				<div className="grid gap-1.5">
 					<label htmlFor={expiresAtId} className="text-xs font-medium text-[var(--text-secondary)]">{t("common.expiration")}</label>
-					<input id={expiresAtId} type="datetime-local" name="expiresAt" aria-describedby={`${expiresAtId}-hint`} className="rounded-lg border border-white/[0.08] bg-slate-950 px-3 py-2 text-sm text-slate-100" />
-					<p id={`${expiresAtId}-hint`} className="text-[11px] text-slate-500">{t("announcementsPage.create.expiresAtHint")}</p>
+					<input id={expiresAtId} type="datetime-local" name="expiresAt" aria-describedby={`${expiresAtId}-hint`} className="rounded-lg border border-[var(--border)] bg-[var(--input-bg)] px-3 py-2 text-sm text-[var(--text-primary)]" />
+					<p id={`${expiresAtId}-hint`} className="text-[11px] text-[var(--text-muted)]">{t("announcementsPage.create.expiresAtHint")}</p>
 				</div>
 			</div>
 			<button disabled={loading} className="w-fit rounded-lg bg-cyan-400 px-4 py-2 text-sm font-semibold text-slate-950 disabled:cursor-not-allowed disabled:opacity-60">

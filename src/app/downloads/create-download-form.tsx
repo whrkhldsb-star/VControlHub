@@ -88,7 +88,7 @@ export function CreateDownloadForm({
 
 	return (
 		<div data-card className="mb-6 space-y-4">
-			<h3 className="text-lg font-semibold text-white">{t("downloadsPage.form.title")}</h3>
+			<h3 className="text-lg font-semibold text-[var(--text-primary)]">{t("downloadsPage.form.title")}</h3>
 
 			{/* Batch mode toggle */}
 			<div className="flex items-center gap-3">
@@ -98,12 +98,12 @@ export function CreateDownloadForm({
 					className={`rounded-lg border px-3 py-1.5 text-xs transition ${
 						form.batchMode
 							? "border-cyan-400/30 bg-cyan-400/10 text-cyan-200"
-							: "border-white/[0.06] bg-white/[0.02] text-slate-500 hover:bg-white/[0.05]"
+							: "border-[var(--border)] bg-white/[0.02] text-[var(--text-muted)] hover:bg-white/[0.05]"
 					}`}
 				>
 					📋 批量模式
 				</button>
-				{form.batchMode && <span className="text-xs text-slate-500">{t("downloadsPage.form.batchHint")}</span>}
+				{form.batchMode && <span className="text-xs text-[var(--text-muted)]">{t("downloadsPage.form.batchHint")}</span>}
 			</div>
 
 			{form.batchMode ? (
@@ -120,9 +120,9 @@ export function CreateDownloadForm({
 						onChange={(e) => onFormChange({ ...form, batchText: e.target.value })}
 						rows={6}
 						placeholder={"https://example.com/file1.zip\nhttps://example.com/file2.zip\nhttps://example.com/file3.iso"}
-						className="w-full rounded-lg border border-white/[0.06] bg-white/[0.04] px-3.5 py-2.5 text-sm text-white font-mono outline-none focus:border-cyan-400/30 placeholder:text-white/20 resize-y"
+						className="w-full rounded-lg border border-[var(--border)] bg-white/[0.04] px-3.5 py-2.5 text-sm text-[var(--text-primary)] font-mono outline-none focus:border-cyan-400/30 placeholder:text-white/20 resize-y"
 					/>
-					<p className="text-[11px] text-slate-500">
+					<p className="text-[11px] text-[var(--text-muted)]">
 						{t("downloadsPage.form.batchNotice")}
 					</p>
 					{batchModeError && <p className="text-[11px] text-rose-300">{batchModeError}</p>}
@@ -141,9 +141,9 @@ export function CreateDownloadForm({
 						value={form.url}
 						onChange={(e) => onFormChange({ ...form, url: e.target.value })}
 						placeholder={t("downloadsPage.form.linkPlaceholder")}
-						className="w-full rounded-lg border border-white/[0.06] bg-white/[0.04] px-3.5 py-2.5 text-sm text-white outline-none focus:border-cyan-400/30 placeholder:text-white/20"
+						className="w-full rounded-lg border border-[var(--border)] bg-white/[0.04] px-3.5 py-2.5 text-sm text-[var(--text-primary)] outline-none focus:border-cyan-400/30 placeholder:text-white/20"
 					/>
-					{form.url && <p className="text-[11px] text-slate-500">{urlTypeLabel(form.url, t)}</p>}
+					{form.url && <p className="text-[11px] text-[var(--text-muted)]">{urlTypeLabel(form.url, t)}</p>}
 				</div>
 			)}
 
@@ -154,7 +154,7 @@ export function CreateDownloadForm({
 						id="downloadServer"
 						value={form.serverId}
 						onChange={(e) => onServerChange(e.target.value)}
-						className="w-full rounded-lg border border-white/[0.06] bg-white/[0.04] px-3.5 py-2.5 text-sm text-white outline-none focus:border-cyan-400/30"
+						className="w-full rounded-lg border border-[var(--border)] bg-white/[0.04] px-3.5 py-2.5 text-sm text-[var(--text-primary)] outline-none focus:border-cyan-400/30"
 					>
 						{servers.map((s) => (
 							<option key={s.id} value={s.id}>
@@ -182,7 +182,7 @@ export function CreateDownloadForm({
 						value={form.targetPath}
 						onChange={(e) => onFormChange({ ...form, targetPath: e.target.value })}
 						placeholder="/root/downloads"
-						className="w-full rounded-lg border border-white/[0.06] bg-white/[0.04] px-3.5 py-2.5 text-sm text-white outline-none focus:border-cyan-400/30 placeholder:text-white/20"
+						className="w-full rounded-lg border border-[var(--border)] bg-white/[0.04] px-3.5 py-2.5 text-sm text-[var(--text-primary)] outline-none focus:border-cyan-400/30 placeholder:text-white/20"
 					/>
 				</div>
 			</div>
@@ -195,7 +195,7 @@ export function CreateDownloadForm({
 						value={form.fileName}
 						onChange={(e) => onFormChange({ ...form, fileName: e.target.value })}
 						placeholder={t("downloadsPage.form.savePathPlaceholder")}
-						className="w-full rounded-lg border border-white/[0.06] bg-white/[0.04] px-3.5 py-2.5 text-sm text-white outline-none focus:border-cyan-400/30 placeholder:text-white/20"
+						className="w-full rounded-lg border border-[var(--border)] bg-white/[0.04] px-3.5 py-2.5 text-sm text-[var(--text-primary)] outline-none focus:border-cyan-400/30 placeholder:text-white/20"
 					/>
 				</div>
 				<div className="space-y-1.5">
@@ -204,7 +204,7 @@ export function CreateDownloadForm({
 						id="downloadCategory"
 						value={form.category}
 						onChange={(e) => onFormChange({ ...form, category: e.target.value })}
-						className="w-full rounded-lg border border-white/[0.06] bg-white/[0.04] px-3.5 py-2.5 text-sm text-white outline-none focus:border-cyan-400/30"
+						className="w-full rounded-lg border border-[var(--border)] bg-white/[0.04] px-3.5 py-2.5 text-sm text-[var(--text-primary)] outline-none focus:border-cyan-400/30"
 					>
 						{getCategories(t).map((c) => (
 							<option key={c.value} value={c.value}>
@@ -221,7 +221,7 @@ export function CreateDownloadForm({
 						onChange={(e) => onFormChange({ ...form, maxSpeedKb: e.target.value })}
 						type="number"
 						placeholder={t("downloadsPage.form.speedLimitPlaceholder")}
-						className="w-full rounded-lg border border-white/[0.06] bg-white/[0.04] px-3.5 py-2.5 text-sm text-white outline-none focus:border-cyan-400/30 placeholder:text-white/20"
+						className="w-full rounded-lg border border-[var(--border)] bg-white/[0.04] px-3.5 py-2.5 text-sm text-[var(--text-primary)] outline-none focus:border-cyan-400/30 placeholder:text-white/20"
 					/>
 				</div>
 			</div>

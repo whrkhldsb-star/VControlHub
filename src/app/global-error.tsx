@@ -27,11 +27,11 @@ export default function GlobalError({
 						页面遇到了意外错误，请尝试刷新。如果问题持续出现，请联系管理员。
 					</p>
 					{error.digest && (
-						<p className="mb-4 text-xs text-slate-500">错误标识: {error.digest}</p>
+						<p className="mb-4 text-xs text-[var(--text-muted)]">错误标识: {error.digest}</p>
 					)}
 					<button
 						onClick={reset}
-						className="rounded-lg bg-[var(--color-action)] px-7 py-2.5 text-sm font-medium text-white transition-colors hover:bg-[var(--color-action-hover)]"
+						className="rounded-lg bg-[var(--color-action)] px-7 py-2.5 text-sm font-medium text-[var(--text-primary)] transition-colors hover:bg-[var(--color-action-hover)]"
 					>
 						重试
 					</button>

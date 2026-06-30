@@ -314,7 +314,7 @@ const statusToneClasses: Record<string, { bg: string; text: string; dot: string 
 const unknownTone = statusToneClasses.unknown!;
 
 function usageColor(val: number | undefined, warn = 80, crit = 95): string {
-	if (val === undefined) return "text-slate-600";
+	if (val === undefined) return "text-[var(--text-muted)]";
 	if (val >= crit) return "text-rose-300";
 	if (val >= warn) return "text-amber-300";
 	return "text-emerald-300";
@@ -652,10 +652,10 @@ function SummaryCard({ label, value, color }: { label: string; value: number | s
 }
 
 function UsageCell({ value }: { value: number | undefined }) {
-	if (value === undefined) return <span className="text-xs text-slate-600">—</span>;
+	if (value === undefined) return <span className="text-xs text-[var(--text-muted)]">—</span>;
 	return (
 		<div className="flex items-center gap-2 min-w-[100px]">
-			<div className="flex-1 h-1.5 rounded-full bg-slate-800 overflow-hidden">
+			<div className="flex-1 h-1.5 rounded-full bg-[var(--surface-hover)] overflow-hidden">
 				<div className={`h-full rounded-full ${usageBarColor(value)} transition-[width]`} style={{ width: `${Math.min(100, value)}%` }} />
 			</div>
 			<span className={`text-xs font-mono tabular-nums w-12 text-right ${usageColor(value)}`}>

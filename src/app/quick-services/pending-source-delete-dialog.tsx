@@ -34,22 +34,22 @@ export function PendingSourceDeleteDialog({
 				className="mx-0 w-full max-w-md rounded-t-2xl border border-rose-400/20 bg-[var(--surface-root)] p-6 shadow-2xl sm:mx-4 sm:rounded-2xl"
 				onClick={(e) => e.stopPropagation()}
 			>
-				<h3 className="text-lg font-semibold text-white mb-2">{t("qsPage.deleteSourceTitle")}</h3>
-				<p className="text-sm leading-6 text-slate-300">
+				<h3 className="text-lg font-semibold text-[var(--text-primary)] mb-2">{t("qsPage.deleteSourceTitle")}</h3>
+				<p className="text-sm leading-6 text-[var(--text-secondary)]">
 					{t("qsPage.deleteSourceBody").replace("{name}", pending.displayName)}
 				</p>
 				<div className="mt-6 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
 					<button
 						type="button"
 						onClick={onCancel}
-						className="min-h-11 rounded-lg border border-white/[0.1] px-4 py-2 text-xs text-slate-400 hover:bg-white/[0.04] transition"
+						className="min-h-11 rounded-lg border border-white/[0.1] px-4 py-2 text-xs text-[var(--text-muted)] hover:bg-white/[0.04] transition"
 					>
 						{t("qsPage.cancel")}
 					</button>
 					<button
 						type="button"
 						onClick={onConfirm}
-						className="min-h-11 rounded-lg bg-rose-500 px-4 py-2 text-xs font-semibold text-white hover:bg-rose-400 transition"
+						className="min-h-11 rounded-lg bg-rose-500 px-4 py-2 text-xs font-semibold text-[var(--text-primary)] hover:bg-rose-400 transition"
 					>
 						{t("qsPage.confirmDelete")}
 					</button>

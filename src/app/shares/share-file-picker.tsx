@@ -233,7 +233,7 @@ export function ShareFilePicker({ nodes }: { nodes: StorageNode[] }) {
 							setSelected({});
 							setResults([]);
 						}}
-						className="rounded-xl border border-white/10 bg-slate-950/70 px-3 py-2 text-sm text-white outline-none"
+						className="rounded-xl border border-[var(--border)] bg-[var(--input-bg)] px-3 py-2 text-sm text-[var(--text-primary)] outline-none"
 					>
 						{nodes.map((node) => (
 							<option key={node.id} value={node.id}>{node.name}{node.driver ? ` · ${node.driver}` : ""}</option>
@@ -242,7 +242,7 @@ export function ShareFilePicker({ nodes }: { nodes: StorageNode[] }) {
 					<button
 						type="button"
 						onClick={() => void loadFiles()}
-						className="min-h-11 inline-flex items-center gap-2 rounded-xl border border-white/10 px-3 py-2 text-sm text-slate-300 hover:bg-white/10 light:hover:bg-slate-50"
+						className="min-h-11 inline-flex items-center gap-2 rounded-xl border border-[var(--border)] px-3 py-2 text-sm text-[var(--text-secondary)] hover:bg-[var(--surface-hover)]"
 					>
 						<RefreshCw size={15} className={loading ? "animate-spin" : ""} /> {copyText.refresh}
 					</button>
@@ -290,7 +290,7 @@ export function ShareFilePicker({ nodes }: { nodes: StorageNode[] }) {
 											<span className="truncate">{folder.name}</span>
 										</button>
 										<span className="text-xs text-slate-500">{copyText.folder}</span>
-										<span className="text-xs text-slate-600">—</span>
+										<span className="text-xs text-[var(--text-muted)]">—</span>
 									</div>
 								);
 							})}
@@ -318,7 +318,7 @@ export function ShareFilePicker({ nodes }: { nodes: StorageNode[] }) {
 					)}
 				</div>
 
-				<aside className="rounded-xl border border-white/[0.08] bg-slate-950/35 p-4">
+				<aside className="rounded-xl border border-[var(--border)] bg-[var(--surface-subtle)] p-4">
 					<div className="flex items-center justify-between gap-3">
 						<div>
 							<h3 className="text-sm font-semibold text-white">{copyText.selectedPrefix} {selectedItems.length} {copyText.selectedSuffix}</h3>

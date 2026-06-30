@@ -119,7 +119,7 @@ export function ApiTokenManagerClient({ initialTokens, allowedScopes }: Props) {
               {t("apiTokensPage.plaintext.copy")}
             </button>
           </div>
-          <code className="mt-4 block overflow-x-auto rounded-xl border border-amber-200/20 bg-slate-950/70 p-3 font-mono text-xs text-amber-100">{createdPlaintext}</code>
+          <code className="mt-4 block overflow-x-auto rounded-xl border border-amber-200/20 bg-[var(--surface-subtle)] p-3 font-mono text-xs text-amber-600 dark:text-amber-100">{createdPlaintext}</code>
         </section>
       )}
 
@@ -185,9 +185,9 @@ export function ApiTokenManagerClient({ initialTokens, allowedScopes }: Props) {
                         {token.scopes.map((scope) => <span key={scope} className="rounded-lg border border-white/[0.06] bg-white/[0.04] px-2 py-0.5 font-mono text-[11px] text-slate-400">{scope}</span>)}
                       </div>
                       <dl className="mt-3 grid gap-2 text-xs text-slate-500 sm:grid-cols-3">
-                        <div><dt className="text-slate-600">{t("apiTokensPage.list.createdAt")}</dt><dd>{formatDate(token.createdAt)}</dd></div>
-                        <div><dt className="text-slate-600">{t("apiTokensPage.list.expiresAt")}</dt><dd>{formatDate(token.expiresAt)}</dd></div>
-                        <div><dt className="text-slate-600">{t("apiTokensPage.list.lastUsedAt")}</dt><dd>{formatDate(token.lastUsedAt)}</dd></div>
+                        <div><dt className="text-[var(--text-muted)]">{t("apiTokensPage.list.createdAt")}</dt><dd>{formatDate(token.createdAt)}</dd></div>
+                        <div><dt className="text-[var(--text-muted)]">{t("apiTokensPage.list.expiresAt")}</dt><dd>{formatDate(token.expiresAt)}</dd></div>
+                        <div><dt className="text-[var(--text-muted)]">{t("apiTokensPage.list.lastUsedAt")}</dt><dd>{formatDate(token.lastUsedAt)}</dd></div>
                       </dl>
                     </div>
                     {!token.revokedAt && (
@@ -204,13 +204,13 @@ export function ApiTokenManagerClient({ initialTokens, allowedScopes }: Props) {
       </section>
       {tokenPendingRevoke && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 px-4 backdrop-blur-sm" role="presentation">
-          <section role="dialog" aria-modal="true" aria-labelledby="revoke-api-token-title" className="w-full max-w-md rounded-2xl border border-rose-400/25 bg-slate-950 p-6 shadow-[0_24px_100px_rgba(244,63,94,0.16)]">
-            <h2 id="revoke-api-token-title" className="text-lg font-semibold text-white">{t("apiTokensPage.revoke.confirmTitle")}</h2>
-            <p className="mt-3 text-sm leading-6 text-slate-300">
+          <section role="dialog" aria-modal="true" aria-labelledby="revoke-api-token-title" className="w-full max-w-md rounded-2xl border border-rose-400/25 bg-[var(--modal-bg)] p-6 shadow-[0_24px_100px_rgba(244,63,94,0.16)]">
+            <h2 id="revoke-api-token-title" className="text-lg font-semibold text-[var(--text-primary)]">{t("apiTokensPage.revoke.confirmTitle")}</h2>
+            <p className="mt-3 text-sm leading-6 text-[var(--text-secondary)]">
               {t("apiTokensPage.revoke.confirmBody").replace("{name}", tokenPendingRevoke.name)}
             </p>
             <div className="mt-6 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
-              <button type="button" onClick={() => setTokenPendingRevoke(null)} className="rounded-xl border border-white/[0.08] px-4 py-2 text-sm font-medium text-slate-200 hover:bg-white/[0.06]">
+              <button type="button" onClick={() => setTokenPendingRevoke(null)} className="rounded-xl border border-[var(--border)] px-4 py-2 text-sm font-medium text-[var(--text-secondary)] hover:bg-[var(--surface-hover)]">
                 {t("apiTokensPage.revoke.cancel")}
               </button>
               <button type="button" onClick={() => revokeToken(tokenPendingRevoke)} className="rounded-xl bg-rose-500 px-4 py-2 text-sm font-semibold text-white hover:bg-rose-400">

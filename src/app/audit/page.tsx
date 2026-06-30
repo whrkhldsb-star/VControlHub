@@ -59,7 +59,7 @@ export default async function AuditPage({ searchParams }: AuditPageProps) {
 							</div>
 							<div className="grid gap-3 lg:grid-cols-[1.2fr_1fr]">
 								<div data-tone="rose" className="rounded-xl border border-rose-400/20 p-4">
-									<h2 className="text-sm font-semibold text-white">高风险动作监控</h2>
+									<h2 className="text-sm font-semibold text-[var(--text-primary)]">高风险动作监控</h2>
 									<p className="mt-2 text-sm leading-6 text-[var(--text-secondary)]">已重点跟踪命令执行、文件删除、服务器删除、权限变更、容器重启和令牌创建。当前 WARNING 占比 {warningRatio}% ，CRITICAL 占比 {criticalRatio}% ，异常增多时优先从下方日志按动作筛选复核。</p>
 					<div className="mt-4 flex flex-wrap gap-2">
 						{HIGH_RISK_ACTIONS.slice(0, 4).map((action) => (
@@ -74,10 +74,10 @@ export default async function AuditPage({ searchParams }: AuditPageProps) {
 					</div>
 								</div>
 								<div className="rounded-xl border border-[var(--border)] bg-white/[0.03] p-4">
-									<h2 className="text-sm font-semibold text-white">最常见动作</h2>
+									<h2 className="text-sm font-semibold text-[var(--text-primary)]">最常见动作</h2>
 									<div className="mt-3 space-y-2">
 										{topActions.length === 0 ? (
-											<p className="text-sm text-slate-500">暂无动作统计。</p>
+											<p className="text-sm text-[var(--text-muted)]">暂无动作统计。</p>
 										) : topActions.map(([action, count]) => (
 											<div key={action} className="flex items-center justify-between gap-3 text-sm">
 												<span className="truncate text-[var(--text-secondary)]">{action}</span>

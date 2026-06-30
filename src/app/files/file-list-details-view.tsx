@@ -70,7 +70,7 @@ export function FileListDetailsView({
     <div className="divide-y divide-white/[0.04]">
       {sortedFolders.length === 0 && sortedFiles.length === 0 ? (
         <div className="px-6 py-16 text-center">
-          <p className="text-sm text-slate-400">{emptyMessage}</p>
+          <p className="text-sm text-[var(--text-muted)]">{emptyMessage}</p>
         </div>
       ) : null}
 
@@ -89,11 +89,11 @@ export function FileListDetailsView({
             <button
               type="button"
               onClick={() => navigateToFolder(folder.path)}
-              className="truncate font-medium text-cyan-100 hover:text-white light:hover:text-slate-900 transition text-left text-sm"
+              className="truncate font-medium text-cyan-100 hover:text-[var(--text-primary)] light:hover:text-slate-900 transition text-left text-sm"
             >
               {folder.displayName ?? folder.name}
             </button>
-            <div className="mt-1 flex flex-wrap gap-x-4 gap-y-1 text-xs text-slate-500">
+            <div className="mt-1 flex flex-wrap gap-x-4 gap-y-1 text-xs text-[var(--text-muted)]">
               <span>目录</span>
               <span>{folder.fileCount + folder.folderCount} 项</span>
             </div>
@@ -169,13 +169,13 @@ export function FileListDetailsView({
                   checked={effectiveSelectedIdSet.has(entry.id)}
                   onChange={() => toggleOne(entry.id)}
                   aria-label={`选择 ${entry.name}`}
-                  className="h-4 w-4 rounded-lg border-white/20 bg-slate-900 text-cyan-400 focus:ring-cyan-400/50"
+                  className="h-4 w-4 rounded-lg border-[var(--border)] bg-[var(--surface)] text-cyan-400 focus:ring-cyan-400/50"
                 />
               ) : null}
             </div>
 
             {/* Thumbnail or colored icon */}
-            <div className="shrink-0 w-12 h-12 rounded-xl border border-white/[0.06] bg-slate-900/80 overflow-hidden flex items-center justify-center">
+            <div className="shrink-0 w-12 h-12 rounded-xl border border-[var(--border)] bg-[var(--surface)] overflow-hidden flex items-center justify-center">
               {thumbUrl ? (
                 /* eslint-disable-next-line @next/next/no-img-element */
                 <img
@@ -197,17 +197,17 @@ export function FileListDetailsView({
                 {entry.previewable && entryCanRead(entry) ? (
                   <Link
                     href={previewHref}
-                    className="truncate font-medium text-white hover:text-cyan-100 transition text-sm"
+                    className="truncate font-medium text-[var(--text-primary)] hover:text-cyan-100 transition text-sm"
                   >
                     {entry.name}
                   </Link>
                 ) : (
-                  <span className="truncate font-medium text-white text-sm">
+                  <span className="truncate font-medium text-[var(--text-primary)] text-sm">
                     {entry.name}
                   </span>
                 )}
               </div>
-              <div className="mt-1 flex flex-wrap gap-x-4 gap-y-1 text-xs text-slate-500">
+              <div className="mt-1 flex flex-wrap gap-x-4 gap-y-1 text-xs text-[var(--text-muted)]">
                 <span>{entry.sizeLabel}</span>
                 <span>{entry.storageNode.name}</span>
                 {entry.updatedAt ? (

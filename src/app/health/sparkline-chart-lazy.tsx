@@ -31,7 +31,7 @@ function SparklineChartStub() {
 	return (
 		<div
 			aria-hidden
-			className="h-[220px] w-full animate-pulse rounded-lg bg-slate-800/40"
+			className="h-[220px] w-full animate-pulse rounded-lg bg-[var(--surface-hover)]"
 		/>
 	);
 }

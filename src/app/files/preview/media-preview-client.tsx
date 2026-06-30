@@ -42,7 +42,7 @@ export function MediaPreviewClient({
 			) : null}
 
 			{driver === "SFTP" ? (
-				<span className="text-xs text-slate-500">{t("mediaPreview.sftpNote")}</span>
+				<span className="text-xs text-[var(--text-muted)]">{t("mediaPreview.sftpNote")}</span>
 			) : null}
 		</div>
 	);

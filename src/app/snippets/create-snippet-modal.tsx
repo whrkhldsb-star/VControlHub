@@ -66,15 +66,15 @@ export function CreateSnippetModal({
         role="dialog"
         aria-modal="true"
         aria-labelledby="create-snippet-title"
-        className="w-full max-w-lg rounded-2xl border border-white/10 bg-[var(--modal-bg)] p-6 shadow-2xl"
+        className="w-full max-w-lg rounded-2xl border border-[var(--border)] bg-[var(--modal-bg)] p-6 shadow-2xl"
       >
-        <h3 id="create-snippet-title" className="text-lg font-semibold text-white">
+        <h3 id="create-snippet-title" className="text-lg font-semibold text-[var(--text-primary)]">
           {t("snippetsPage.modal.createTitle")}
         </h3>
 
         <div className="mt-4 space-y-3">
           <div>
-            <label htmlFor="create-snippet-title-input" className="block text-xs text-slate-400">
+            <label htmlFor="create-snippet-title-input" className="block text-xs text-[var(--text-muted)]">
               {t("snippetsPage.modal.field.title")}
             </label>
             <input
@@ -87,7 +87,7 @@ export function CreateSnippetModal({
             />
           </div>
           <div>
-            <label htmlFor="create-snippet-language-input" className="block text-xs text-slate-400">
+            <label htmlFor="create-snippet-language-input" className="block text-xs text-[var(--text-muted)]">
               {t("snippetsPage.modal.field.language")}
             </label>
             <input
@@ -100,7 +100,7 @@ export function CreateSnippetModal({
             />
           </div>
           <div>
-            <label htmlFor="create-snippet-description-input" className="block text-xs text-slate-400">
+            <label htmlFor="create-snippet-description-input" className="block text-xs text-[var(--text-muted)]">
               {t("snippetsPage.modal.field.description")}
             </label>
             <input
@@ -113,7 +113,7 @@ export function CreateSnippetModal({
             />
           </div>
           <div>
-            <label htmlFor="create-snippet-tags-input" className="block text-xs text-slate-400">
+            <label htmlFor="create-snippet-tags-input" className="block text-xs text-[var(--text-muted)]">
               {t("snippetsPage.modal.field.tags")}
             </label>
             <input
@@ -126,7 +126,7 @@ export function CreateSnippetModal({
             />
           </div>
           <div>
-            <label htmlFor="create-snippet-content-input" className="block text-xs text-slate-400">
+            <label htmlFor="create-snippet-content-input" className="block text-xs text-[var(--text-muted)]">
               {t("snippetsPage.modal.field.content")}
             </label>
             <textarea
@@ -138,12 +138,12 @@ export function CreateSnippetModal({
               className="mt-1 w-full rounded-lg border px-3 py-2 font-mono text-xs outline-none"
             />
           </div>
-          <label className="flex items-center gap-2 text-sm text-slate-400">
+          <label className="flex items-center gap-2 text-sm text-[var(--text-muted)]">
             <input
               type="checkbox"
               checked={isPrivate}
               onChange={(e) => setIsPrivate(e.target.checked)}
-              className="rounded-lg border-white/20"
+              className="rounded-lg border-[var(--border)]"
             />
             {t("snippetsPage.modal.field.private")}
           </label>
@@ -154,14 +154,14 @@ export function CreateSnippetModal({
         <div className="mt-5 flex justify-end gap-3">
           <button
             onClick={onClose}
-            className="min-h-11 rounded-lg border border-white/10 px-4 py-2 text-sm text-slate-400 transition hover:bg-white/5"
+            className="min-h-11 rounded-lg border border-[var(--border)] px-4 py-2 text-sm text-[var(--text-muted)] transition hover:bg-white/5"
           >
             {t("snippetsPage.modal.action.cancel")}
           </button>
           <button
             onClick={handleCreate}
             disabled={saving || !title.trim() || !content.trim()}
-            className="min-h-11 rounded-lg bg-cyan-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-cyan-500 disabled:opacity-40"
+            className="min-h-11 rounded-lg bg-cyan-600 px-4 py-2 text-sm font-medium text-[var(--text-primary)] transition hover:bg-cyan-500 disabled:opacity-40"
           >
             {saving ? t("snippetsPage.modal.action.creating") : t("snippetsPage.modal.action.create")}
           </button>

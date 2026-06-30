@@ -110,7 +110,7 @@ export function ArchivePreviewClient({
 			) : null}
 
 			{entries && entries.length > 0 ? (
-				<div className="rounded-2xl border border-[var(--border)] bg-slate-950/50 overflow-hidden">
+				<div className="rounded-2xl border border-[var(--border)] bg-[var(--surface-subtle)] overflow-hidden">
 					<div className="grid grid-cols-[auto_minmax(0,2fr)_100px] gap-4 bg-white/5 px-4 py-2.5 text-xs uppercase tracking-wider text-[var(--text-secondary)] font-medium">
 						<div />
 						<div>{t("archivePreview.table.name")}</div>
@@ -122,19 +122,19 @@ export function ArchivePreviewClient({
 								key={`${entry.name}-${i}`}
 								className="grid grid-cols-[auto_minmax(0,2fr)_100px] gap-4 items-center px-4 py-2 text-sm hover:bg-white/[0.02] transition"
 							>
-								<div className="text-slate-500">
+								<div className="text-[var(--text-muted)]">
 									{entry.isDirectory ? (
 										<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z"/></svg>
 									) : (
 										<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
 									)}
 								</div>
-								<div className="truncate text-white">{entry.name}</div>
+								<div className="truncate text-[var(--text-primary)]">{entry.name}</div>
 								<div className="text-right text-[var(--text-secondary)] text-xs">{entry.isDirectory ? t("archivePreview.entryType.directory") : formatSize(entry.size)}</div>
 							</div>
 						))}
 					</div>
-					<div className="px-4 py-2 text-xs text-slate-500 border-t border-white/[0.04]">
+					<div className="px-4 py-2 text-xs text-[var(--text-muted)] border-t border-[var(--border)]">
 						{t("archivePreview.totalItems").replace("{count}", String(entries.length))}
 					</div>
 				</div>

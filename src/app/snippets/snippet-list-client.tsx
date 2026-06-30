@@ -95,7 +95,7 @@ export function SnippetList({ snippets: initial }: { snippets: Snippet[] }) {
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder={t("snippetsPage.titlePlaceholder")}
-            className="w-full rounded-lg border border-[var(--border)] bg-white/[0.04] pl-9 pr-4 py-2 text-sm text-white outline-none placeholder:text-slate-600"
+            className="w-full rounded-lg border border-[var(--border)] bg-white/[0.04] pl-9 pr-4 py-2 text-sm text-white outline-none placeholder:text-[var(--text-muted)]"
           />
         </div>
         <select
@@ -146,7 +146,7 @@ export function SnippetList({ snippets: initial }: { snippets: Snippet[] }) {
               </div>
             </div>
             {s.description && <p className="mt-1 text-xs text-slate-500">{s.description}</p>}
-            <pre className="mt-3 max-h-48 overflow-auto rounded-lg border border-white/[0.06] bg-slate-950/70 p-3 font-mono text-xs text-slate-300">{s.content}</pre>
+            <pre className="mt-3 max-h-48 overflow-auto rounded-lg border border-[var(--border)] bg-[var(--surface-subtle)] p-3 font-mono text-xs text-[var(--text-secondary)]">{s.content}</pre>
           </div>
         ))}
         {filtered.length === 0 && (
@@ -176,14 +176,14 @@ export function SnippetList({ snippets: initial }: { snippets: Snippet[] }) {
 
       {pendingDelete && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 p-4 backdrop-blur-sm" role="presentation">
-          <div role="dialog" aria-modal="true" aria-labelledby="delete-snippet-title" className="w-full max-w-md rounded-2xl border border-white/[0.08] bg-slate-950 p-5 shadow-2xl shadow-black/30">
-            <h3 id="delete-snippet-title" className="text-base font-semibold text-white">{t("snippetsPage.deleteDialog.title")}</h3>
-            <p className="mt-2 text-sm leading-6 text-slate-400">
+          <div role="dialog" aria-modal="true" aria-labelledby="delete-snippet-title" className="w-full max-w-md rounded-2xl border border-[var(--border)] bg-[var(--modal-bg)] p-5 shadow-2xl shadow-black/30">
+            <h3 id="delete-snippet-title" className="text-base font-semibold text-[var(--text-primary)]">{t("snippetsPage.deleteDialog.title")}</h3>
+            <p className="mt-2 text-sm leading-6 text-[var(--text-muted)]">
               {t("snippetsPage.deleteDialog.body").replace("{title}", pendingDelete.title)}
             </p>
-            {deleteError && <p role="alert" className="mt-3 text-xs text-rose-300">{deleteError}</p>}
+            {deleteError && <p role="alert" className="mt-3 text-xs text-rose-400 dark:text-rose-300">{deleteError}</p>}
             <div className="mt-5 flex justify-end gap-2">
-              <button type="button" disabled={deleteBusy} onClick={() => { setPendingDelete(null); setDeleteError(null); }} data-card className="min-h-11 px-4 py-2 text-sm text-slate-300 transition hover:bg-white/[0.06] disabled:opacity-50">
+              <button type="button" disabled={deleteBusy} onClick={() => { setPendingDelete(null); setDeleteError(null); }} data-card className="min-h-11 px-4 py-2 text-sm text-[var(--text-secondary)] transition hover:bg-[var(--surface-hover)] disabled:opacity-50">
                 {t("snippetsPage.deleteDialog.cancel")}
               </button>
               <button type="button" disabled={deleteBusy} onClick={handleDelete} data-tone="rose" className="min-h-11 rounded-xl border border-rose-400/30 px-4 py-2 text-sm font-medium text-rose-100 transition hover:bg-rose-500/25 disabled:opacity-50">

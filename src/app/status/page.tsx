@@ -8,7 +8,7 @@ export default async function Page() {
   const locale = await getServerLocale();
 
   return (
-    <main className="min-h-screen bg-slate-950 text-slate-100">
+    <main className="min-h-screen bg-slate-950 text-[var(--text-primary)]">
       <div className="mx-auto max-w-3xl px-6 py-14">
         <h1 className="text-3xl font-semibold">{t("statusPage.title", locale)}</h1>
         <p className="mt-2 text-sm text-[var(--text-secondary)]">
@@ -24,7 +24,7 @@ export default async function Page() {
             }`} />
             <span className="text-lg font-medium">{t("statusPage.overallLabel", locale)}{status.summary.overall === "healthy" ? "正常" : status.summary.overall === "warning" ? "警告" : "异常"}</span>
           </div>
-          <p className="mt-2 text-xs text-slate-500">
+          <p className="mt-2 text-xs text-[var(--text-muted)]">
             {t("statusPage.updatedAt", locale)}{new Date(status.generatedAt).toLocaleString("zh-CN")}
           </p>
         </div>
@@ -38,7 +38,7 @@ export default async function Page() {
                     c.status === "healthy" ? "bg-emerald-400" :
                     c.status === "warning" ? "bg-amber-400" :
                     "bg-rose-400"
-                  }`} /> <b className="text-sm text-white">{c.label}</b> </div> <span className={`text-xs ${
+                  }`} /> <b className="text-sm text-[var(--text-primary)]">{c.label}</b> </div> <span className={`text-xs ${
                   c.status === "healthy" ? "text-emerald-400" :
                   c.status === "warning" ? "text-amber-400" :
                   "text-rose-400"
@@ -51,7 +51,7 @@ export default async function Page() {
           ))}
         </div>
 
-        <p className="mt-8 text-center text-xs text-slate-600">
+        <p className="mt-8 text-center text-xs text-[var(--text-muted)]">
           VControlHub · {new Date().getFullYear()}
         </p>
       </div>

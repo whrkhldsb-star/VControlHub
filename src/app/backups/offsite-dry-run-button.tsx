@@ -84,7 +84,7 @@ export function OffsiteDryRunButton() {
 function StateView({ state }: { state: DryRunState }) {
 	if (state.kind === "idle") return null;
 	if (state.kind === "running") {
-		return <p className="text-xs text-slate-500">{t("backupsPage.offsite.dryRunning")}</p>;
+		return <p className="text-xs text-[var(--text-muted)]">{t("backupsPage.offsite.dryRunning")}</p>;
 	}
 	if (state.kind === "ok") {
 		return (

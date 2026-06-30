@@ -327,7 +327,7 @@ export function DashboardPreferenceClient({
 				/>
 			) : null}
 			{isEditing ? (
-				<p className="mt-2 text-center text-[11px] text-slate-500">
+				<p className="mt-2 text-center text-[11px] text-[var(--text-muted)]">
 					{t("dashboard.customize-drag-tip")}
 				</p>
 			) : null}

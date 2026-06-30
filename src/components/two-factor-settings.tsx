@@ -132,9 +132,9 @@ export function TwoFactorSettings({ enabled }: { enabled: boolean }) {
 						height={200}
 						unoptimized
 					/>
-					<div className="bg-slate-900 rounded-lg p-3">
-						<p className="text-[10px] text-slate-500 mb-1">{t("auth.2fa-secret-label")}</p>
-						<code className="text-xs text-cyan-400 break-all select-all">{secret}</code>
+					<div className="bg-[var(--surface-subtle)] rounded-lg p-3 border border-[var(--border)]">
+						<p className="text-[10px] text-[var(--text-muted)] mb-1">{t("auth.2fa-secret-label")}</p>
+						<code className="text-xs text-[var(--color-action)] break-all select-all">{secret}</code>
 					</div>
 					<p className="text-xs text-[var(--text-secondary)]">
 						{t("auth.2fa-enter-code-instruction")}

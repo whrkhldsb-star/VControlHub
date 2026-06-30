@@ -105,46 +105,46 @@ export function DeploymentLaunchForm({ templates, servers }: { templates: Deploy
 						name="templateId"
 						value={templateId}
 						onChange={(event) => setTemplateId(event.target.value)}
-						className="rounded-lg border border-white/[0.08] bg-slate-950 px-3 py-2 text-sm text-slate-100"
+						className="rounded-lg border border-[var(--border)] bg-[var(--input-bg)] px-3 py-2 text-sm text-[var(--text-primary)]"
 					>
 						{templates.map((template) => <option key={template.id} value={template.id}>{template.name}</option>)}
 					</select>
 				</label>
 				<label className="grid gap-1.5 text-xs font-medium text-[var(--text-secondary)]">
 					部署原因
-					<input name="reason" maxLength={500} placeholder={t("deploymentsPage.launch.reasonPlaceholder")} className="rounded-lg border border-white/[0.08] bg-slate-950 px-3 py-2 text-sm text-slate-100 placeholder:text-slate-600" />
+					<input name="reason" maxLength={500} placeholder={t("deploymentsPage.launch.reasonPlaceholder")} className="rounded-lg border border-[var(--border)] bg-[var(--input-bg)] px-3 py-2 text-sm text-[var(--text-primary)] placeholder:text-[var(--text-muted)]" />
 				</label>
 			</div>
 
-			{selectedTemplate?.description && <p className="text-xs text-slate-500">{selectedTemplate.description}</p>}
+			{selectedTemplate?.description && <p className="text-xs text-[var(--text-muted)]">{selectedTemplate.description}</p>}
 
 			{variables.length > 0 ? (
 				<div data-tone="cyan" className="rounded-xl border border-cyan-400/20 p-4 light:border-cyan-200 light:bg-cyan-50">
 					<div className="mb-3 flex items-center justify-between gap-3">
-						<h3 className="text-sm font-semibold text-white">{t("deploymentsPage.launch.variablesTitle")}</h3>
-						<span className="text-xs text-slate-500">{t("deploymentsPage.launch.variablesHint")}</span>
+						<h3 className="text-sm font-semibold text-[var(--text-primary)]">{t("deploymentsPage.launch.variablesTitle")}</h3>
+						<span className="text-xs text-[var(--text-muted)]">{t("deploymentsPage.launch.variablesHint")}</span>
 					</div>
 					<div className="grid gap-3 md:grid-cols-2">
 						{variables.map((name) => (
 							<label key={name} className="grid gap-1.5 text-xs font-medium text-[var(--text-secondary)]">
 								{name}
-								<input name={`variables.${name}`} required placeholder={`填写 ${name}`} className="rounded-lg border border-white/[0.08] bg-slate-950 px-3 py-2 text-sm text-slate-100 placeholder:text-slate-600" />
+								<input name={`variables.${name}`} required placeholder={`填写 ${name}`} className="rounded-lg border border-[var(--border)] bg-[var(--input-bg)] px-3 py-2 text-sm text-[var(--text-primary)] placeholder:text-[var(--text-muted)]" />
 							</label>
 						))}
 					</div>
 				</div>
 			) : (
-				<p className="rounded-xl border border-white/[0.06] bg-slate-950/60 px-4 py-3 text-xs text-slate-400">{t("deploymentsPage.launch.noVariables")}</p>
+				<p className="rounded-xl border border-[var(--border)] bg-[var(--surface-subtle)] px-4 py-3 text-xs text-[var(--text-muted)]">{t("deploymentsPage.launch.noVariables")}</p>
 			)}
 
 			<div>
 				<div className="mb-2 flex items-center justify-between gap-3">
-					<h3 className="text-sm font-semibold text-white">{t("deploymentsPage.launch.targetVpsTitle")}</h3>
-					<span className="text-xs text-slate-500">{t("deploymentsPage.launch.targetVpsHint")}</span>
+					<h3 className="text-sm font-semibold text-[var(--text-primary)]">{t("deploymentsPage.launch.targetVpsTitle")}</h3>
+					<span className="text-xs text-[var(--text-muted)]">{t("deploymentsPage.launch.targetVpsHint")}</span>
 				</div>
 				<div className="grid gap-2 md:grid-cols-2">
 					{servers.map((server) => (
-						<label key={server.id} className="flex items-center gap-2 rounded-lg border border-white/[0.06] bg-white/[0.03] px-3 py-2 text-xs text-slate-300">
+						<label key={server.id} className="flex items-center gap-2 rounded-lg border border-[var(--border)] bg-white/[0.03] px-3 py-2 text-xs text-[var(--text-secondary)]">
 							<input type="checkbox" name="serverIds" value={server.id} />
 							<span>{server.name} · {server.username}@{server.host}</span>
 						</label>
@@ -152,9 +152,9 @@ export function DeploymentLaunchForm({ templates, servers }: { templates: Deploy
 				</div>
 			</div>
 
-			<details className="rounded-xl border border-white/[0.06] bg-slate-950/60 p-3">
+			<details className="rounded-xl border border-[var(--border)] bg-[var(--surface-subtle)] p-3">
 				<summary className="cursor-pointer text-xs font-medium text-[var(--text-secondary)]">{t("deploymentsPage.launch.previewCommand")}</summary>
-				<code className="mt-3 block max-h-40 overflow-auto whitespace-pre-wrap rounded-lg border border-white/[0.06] bg-slate-950/70 p-3 font-mono text-xs text-slate-300">{previewCommand(selectedTemplate, variables, t)}</code>
+				<code className="mt-3 block max-h-40 overflow-auto whitespace-pre-wrap rounded-lg border border-[var(--border)] bg-slate-950/70 p-3 font-mono text-xs text-[var(--text-secondary)]">{previewCommand(selectedTemplate, variables, t)}</code>
 			</details>
 
 			{error && <p className="text-xs text-rose-300">{error}</p>}

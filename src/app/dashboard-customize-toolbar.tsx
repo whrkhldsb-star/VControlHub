@@ -54,7 +54,7 @@ export function DashboardCustomizeToolbar({
 				<button
 					type="button"
 					onClick={onEnterEdit}
-					className="rounded-lg border border-[var(--border)] bg-white/5 px-3 py-1.5 text-xs text-slate-300 transition hover:bg-white/10"
+					className="rounded-lg border border-[var(--border)] bg-white/5 px-3 py-1.5 text-xs text-[var(--text-secondary)] transition hover:bg-white/10"
 					aria-label={t("dashboard.customize-edit")}
 				>
 					{t("dashboard.customize-edit")}
@@ -84,7 +84,7 @@ export function DashboardCustomizeToolbar({
 							data-testid={`toggle-widget-${id}`}
 							className={`rounded-lg border px-2.5 py-1 text-[11px] transition ${
 								hidden
-									? "border-slate-600/40 bg-slate-800/30 text-slate-500 line-through"
+									? "border-[var(--border)] bg-[var(--surface-hover)] text-[var(--text-muted)] line-through"
 									: "border-emerald-500/40 bg-emerald-500/10 text-emerald-200"
 							}`}
 						>
@@ -98,7 +98,7 @@ export function DashboardCustomizeToolbar({
 				<button
 					type="button"
 					onClick={onReset}
-					className="rounded-lg border border-slate-600/40 bg-slate-800/30 px-3 py-1.5 text-xs text-slate-300 transition hover:bg-slate-700/40"
+					className="rounded-lg border border-[var(--border)] bg-[var(--surface-hover)] px-3 py-1.5 text-xs text-[var(--text-secondary)] transition hover:bg-slate-700/40"
 				>
 					{t("dashboard.customize-reset")}
 				</button>
@@ -106,7 +106,7 @@ export function DashboardCustomizeToolbar({
 					type="button"
 					onClick={onExitEdit}
 					data-testid="customize-done"
-					className="rounded-lg bg-[var(--color-action)] px-3 py-1.5 text-xs text-white transition-colors hover:bg-[var(--color-action-hover)]"
+					className="rounded-lg bg-[var(--color-action)] px-3 py-1.5 text-xs text-[var(--text-primary)] transition-colors hover:bg-[var(--color-action-hover)]"
 				>
 					{t("dashboard.customize-done")}
 				</button>

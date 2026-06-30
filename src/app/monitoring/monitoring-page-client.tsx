@@ -25,7 +25,7 @@ interface Stats {
 function Card({ title, children }: { title: string; children: React.ReactNode }) {
   return (
  <div data-card className="">
-      <h3 className="mb-3 text-xs font-medium text-slate-400">{title}</h3>
+      <h3 className="mb-3 text-xs font-medium text-[var(--text-muted)]">{title}</h3>
       {children}
     </div>
   );
@@ -35,8 +35,8 @@ function Card({ title, children }: { title: string; children: React.ReactNode })
 function Row({ label, value }: { label: string; value: string }) {
   return (
     <div className="flex items-start justify-between gap-3 py-1.5">
-      <span className="shrink-0 text-xs text-slate-500">{label}</span>
-      <span className="min-w-0 break-words text-right font-mono text-xs text-white">{value}</span>
+      <span className="shrink-0 text-xs text-[var(--text-muted)]">{label}</span>
+      <span className="min-w-0 break-words text-right font-mono text-xs text-[var(--text-primary)]">{value}</span>
     </div>
   );
 }
@@ -145,7 +145,7 @@ export default function MonitoringPage({ canManage: _canManage }: { canManage: b
   if (loading) {
     return (
       <PageShell>
-        <div className="text-sm text-slate-500">{t("monitoringPage.loading")}</div>
+        <div className="text-sm text-[var(--text-muted)]">{t("monitoringPage.loading")}</div>
       </PageShell>
     );
   }
@@ -160,7 +160,7 @@ export default function MonitoringPage({ canManage: _canManage }: { canManage: b
             type="button"
             onClick={fetchStats}
             disabled={refreshing}
-            className="mt-4 rounded-lg bg-rose-500 px-4 py-2 text-xs font-semibold text-white transition hover:bg-rose-400 disabled:cursor-not-allowed disabled:opacity-60"
+            className="mt-4 rounded-lg bg-rose-500 px-4 py-2 text-xs font-semibold text-[var(--text-primary)] transition hover:bg-rose-400 disabled:cursor-not-allowed disabled:opacity-60"
           >
             {refreshing ? t("monitoringPage.retrying") : t("monitoringPage.retry")}
           </button>
@@ -204,7 +204,7 @@ export default function MonitoringPage({ canManage: _canManage }: { canManage: b
           type="button"
           onClick={() => setAutoRefresh(!autoRefresh)}
           disabled={refreshIntervalSeconds <= 0}
-          className={`rounded-lg px-3 py-1.5 text-xs font-medium transition disabled:cursor-not-allowed disabled:opacity-50 ${autoRefresh ?"bg-emerald-500/10 text-emerald-400" :"bg-slate-700/50 light:bg-slate-200/50 text-slate-400"}`}
+          className={`rounded-lg px-3 py-1.5 text-xs font-medium transition disabled:cursor-not-allowed disabled:opacity-50 ${autoRefresh ?"bg-emerald-500/10 text-emerald-400" :"bg-slate-700/50 light:bg-slate-200/50 text-[var(--text-muted)]"}`}
         >
           {autoRefreshLabel}
         </button>
@@ -235,11 +235,11 @@ export default function MonitoringPage({ canManage: _canManage }: { canManage: b
           <Row label={t("monitoringPage.field.used")} value={stats.memory.used} />
           <Row label={t("monitoringPage.field.free")} value={stats.memory.free} />
           <div className="mt-2">
-            <div className="mb-1 flex justify-between text-[10px] text-slate-500">
+            <div className="mb-1 flex justify-between text-[10px] text-[var(--text-muted)]">
               <span>{t("monitoringPage.field.usage")}</span>
               <span>{stats.memory.usagePercent}%</span>
             </div>
-            <div className="h-1.5 overflow-hidden rounded-full bg-slate-800">
+            <div className="h-1.5 overflow-hidden rounded-full bg-[var(--surface-hover)]">
               <div
                 className="h-full rounded-full bg-cyan-500 transition-[width]"
                 style={{ width: `${stats.memory.usagePercent}%` }}
@@ -255,8 +255,8 @@ export default function MonitoringPage({ canManage: _canManage }: { canManage: b
         <Card title={t("monitoringPage.card.network")}>
           {stats.network.length > 0 ? stats.network.map((n) => (
             <div key={n.iface} className="py-1.5">
-              <div className="font-mono text-xs text-white">{n.iface}</div>
-              <div className="text-[10px] text-slate-500">↓ {n.rx} ↑ {n.tx}</div>
+              <div className="font-mono text-xs text-[var(--text-primary)]">{n.iface}</div>
+              <div className="text-[10px] text-[var(--text-muted)]">↓ {n.rx} ↑ {n.tx}</div>
             </div>
           )) : <Row label={t("monitoringPage.field.noData")} value="-" />}
         </Card>
@@ -270,7 +270,7 @@ export default function MonitoringPage({ canManage: _canManage }: { canManage: b
         <div className="overflow-x-auto">
           <table className="w-full text-xs">
             <thead>
-              <tr className="border-b border-white/[0.06] text-slate-500">
+              <tr className="border-b border-[var(--border)] text-[var(--text-muted)]">
                 <th className="py-2 text-left">PID</th>
                 <th className="py-2 text-right">CPU%</th>
                 <th className="py-2 text-right">MEM%</th>
@@ -279,11 +279,11 @@ export default function MonitoringPage({ canManage: _canManage }: { canManage: b
             </thead>
             <tbody>
               {stats.topProcesses.map((p) => (
-                <tr key={p.pid} className="border-b border-white/[0.03]">
-                  <td className="py-1.5 font-mono text-slate-400">{p.pid}</td>
+                <tr key={p.pid} className="border-b border-[var(--border)]">
+                  <td className="py-1.5 font-mono text-[var(--text-muted)]">{p.pid}</td>
                   <td className="py-1.5 text-right text-amber-400">{p.cpu}</td>
                   <td className="py-1.5 text-right text-cyan-400">{p.mem}</td>
-                  <td className="max-w-[200px] truncate py-1.5 pl-4 text-white">{p.cmd}</td>
+                  <td className="max-w-[200px] truncate py-1.5 pl-4 text-[var(--text-primary)]">{p.cmd}</td>
                 </tr>
               ))}
             </tbody>
@@ -291,7 +291,7 @@ export default function MonitoringPage({ canManage: _canManage }: { canManage: b
         </div>
       </Card>
 
-      <p className="mt-4 text-[10px] text-slate-600">
+      <p className="mt-4 text-[10px] text-[var(--text-muted)]">
         {t("monitoringPage.lastUpdated").replace("{timestamp}", formatTimestamp(stats.timestamp))}
       </p>
     </PageShell>

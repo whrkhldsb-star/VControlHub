@@ -140,15 +140,15 @@ export function InstallDialog({
 			onClick={onClose}
 		>
 			<div
-				className="w-full max-w-md mx-4 rounded-2xl border border-white/[0.08] bg-[var(--surface-root)] p-6 shadow-2xl"
+				className="w-full max-w-md mx-4 rounded-2xl border border-[var(--border)] bg-[var(--surface-root)] p-6 shadow-2xl"
 				onClick={(e) => e.stopPropagation()}
 			>
-				<h3 className="text-lg font-semibold text-white mb-1">{t("qsPage.installTitle").replace("{name}", open.name)}</h3>
-				<p className="text-xs text-slate-500 mb-4">{t("qsPage.installSubtitle")}</p>
+				<h3 className="text-lg font-semibold text-[var(--text-primary)] mb-1">{t("qsPage.installTitle").replace("{name}", open.name)}</h3>
+				<p className="text-xs text-[var(--text-muted)] mb-4">{t("qsPage.installSubtitle")}</p>
 
 				<div className="space-y-3">
 					<label className="block">
-						<span className="text-xs text-slate-400 mb-1 block">{t("qsPage.portNumberLabel")}</span>
+						<span className="text-xs text-[var(--text-muted)] mb-1 block">{t("qsPage.portNumberLabel")}</span>
 						<div className="relative">
 							<input
 								type="number"
@@ -156,12 +156,12 @@ export function InstallDialog({
 								max={65535}
 								value={customPort}
 								onChange={(e) => handlePortInput(e.target.value)}
-								className={`w-full rounded-lg border bg-white/[0.04] px-4 py-2.5 text-sm text-white placeholder-slate-600 outline-none transition ${
+								className={`w-full rounded-lg border bg-white/[0.04] px-4 py-2.5 text-sm text-[var(--text-primary)] placeholder-slate-600 outline-none transition ${
 									portCheck
 										? portCheck.available
 											? "border-emerald-400/40 focus:border-emerald-400"
 											: "border-rose-400/40 focus:border-rose-400"
-										: "border-white/[0.08] focus:border-cyan-400"
+										: "border-[var(--border)] focus:border-cyan-400"
 								}`}
 								placeholder="1-65535"
 							/>
@@ -200,7 +200,7 @@ export function InstallDialog({
 						</div>
 					</div>
 
-					<div className="flex items-center gap-2 text-[10px] text-slate-500">
+					<div className="flex items-center gap-2 text-[10px] text-[var(--text-muted)]">
 						<span>{t("qsPage.recommendedPort").replace("{port}", String(open.defaultPort))}</span>
 						<button
 							type="button"
@@ -216,7 +216,7 @@ export function InstallDialog({
 					<button
 						type="button"
 						onClick={onClose}
-						className="rounded-lg border border-white/[0.1] px-4 py-2 text-xs text-slate-400 hover:bg-white/[0.04] transition"
+						className="rounded-lg border border-white/[0.1] px-4 py-2 text-xs text-[var(--text-muted)] hover:bg-white/[0.04] transition"
 					>
 						{t("qsPage.cancel")}
 					</button>

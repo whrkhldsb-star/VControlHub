@@ -221,8 +221,8 @@ export function DeploymentExportPanel() {
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <p className="text-xs font-semibold uppercase tracking-[0.2em] text-cyan-200/70">Portable Export</p>
-          <h2 className="mt-1 text-sm font-semibold text-white">{t("deploymentsPage.export.title")}</h2>
-          <p className="mt-1 text-xs text-slate-500">
+          <h2 className="mt-1 text-sm font-semibold text-[var(--text-primary)]">{t("deploymentsPage.export.title")}</h2>
+          <p className="mt-1 text-xs text-[var(--text-muted)]">
             {t("deploymentsPage.export.desc")}
           </p>
         </div>
@@ -238,7 +238,7 @@ export function DeploymentExportPanel() {
             value={domain}
             onChange={(event) => setDomain(event.target.value)}
             placeholder="console.example.com"
-            className="rounded-lg border border-white/[0.08] bg-slate-950 px-3 py-2 text-sm text-slate-100 placeholder:text-slate-600"
+            className="rounded-lg border border-[var(--border)] bg-[var(--input-bg)] px-3 py-2 text-sm text-[var(--text-primary)] placeholder:text-[var(--text-muted)]"
           />
         </label>
         <label className="grid gap-1.5 text-xs font-medium text-[var(--text-secondary)]">
@@ -247,7 +247,7 @@ export function DeploymentExportPanel() {
             value={appName}
             onChange={(event) => setAppName(event.target.value)}
             placeholder="vcontrolhub"
-            className="rounded-lg border border-white/[0.08] bg-slate-950 px-3 py-2 text-sm text-slate-100 placeholder:text-slate-600"
+            className="rounded-lg border border-[var(--border)] bg-[var(--input-bg)] px-3 py-2 text-sm text-[var(--text-primary)] placeholder:text-[var(--text-muted)]"
           />
         </label>
         <button
@@ -268,8 +268,8 @@ export function DeploymentExportPanel() {
         <div data-tone="cyan" className="mt-4 rounded-xl border border-cyan-400/20 p-4 light:bg-cyan-50">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div>
-              <h3 className="text-sm font-semibold text-white">{result.name ?? "portable deployment"}</h3>
-              <p className="mt-1 text-xs text-slate-500">
+              <h3 className="text-sm font-semibold text-[var(--text-primary)]">{result.name ?? "portable deployment"}</h3>
+              <p className="mt-1 text-xs text-[var(--text-muted)]">
                 {t("deploymentsPage.export.summary").replace("{domain}", result.manifest?.domain ?? "example.com").replace("{count}", String(fileCount)).replace("{size}", (totalSize / 1024).toFixed(1))}
               </p>
             </div>
@@ -327,11 +327,11 @@ function DeploymentExportTree({ tree, activePath, onSelect }: TreeProps) {
   return (
     <div
       data-testid="deploy-export-tree"
-      className="rounded-lg border border-white/[0.06] bg-black/30 p-3 font-mono text-xs text-[var(--text-secondary)]"
+      className="rounded-lg border border-[var(--border)] bg-black/30 p-3 font-mono text-xs text-[var(--text-secondary)]"
     >
       <p className="mb-2 text-[10px] font-semibold uppercase tracking-[0.2em] text-cyan-200/70">{t("deploymentsPage.export.fileTree")}</p>
       {tree.length === 0 ? (
-        <p className="text-xs text-slate-500">{t("deploymentsPage.export.noFiles")}</p>
+        <p className="text-xs text-[var(--text-muted)]">{t("deploymentsPage.export.noFiles")}</p>
       ) : (
         <ul className="space-y-1">
           {tree.map((node) => (
@@ -366,7 +366,7 @@ function TreeRow({
       <li>
         <div className="flex items-center gap-1" style={{ paddingLeft: depth * 12 }}>
           <span aria-hidden>📁</span>
-          <span className="font-semibold text-slate-200">{node.name || "/"}</span>
+          <span className="font-semibold text-[var(--text-secondary)]">{node.name || "/"}</span>
         </div>
         {node.children.length > 0 && (
           <ul className="mt-1 space-y-1">
@@ -428,7 +428,7 @@ function DeploymentFilePreview({
   const { t } = useI18n();
   if (fileNames.length === 0 || !activePath) {
     return (
-      <div className="rounded-lg border border-white/[0.06] bg-black/20 p-3 text-xs text-slate-500">
+      <div className="rounded-lg border border-[var(--border)] bg-black/20 p-3 text-xs text-[var(--text-muted)]">
         {t("deploymentsPage.export.emptyExport")}
       </div>
     );
@@ -444,7 +444,7 @@ function DeploymentFilePreview({
           data-testid="deploy-export-file-select"
           value={activePath}
           onChange={(event) => onSelect(event.target.value)}
-          className="flex-1 rounded-lg border border-white/[0.08] bg-slate-950 px-2 py-1 text-xs text-slate-100"
+          className="flex-1 rounded-lg border border-[var(--border)] bg-[var(--input-bg)] px-2 py-1 text-xs text-[var(--text-primary)]"
         >
           {fileNames.map((name) => (
             <option key={name} value={name}>
@@ -464,14 +464,14 @@ function DeploymentFilePreview({
           type="button"
           data-testid="deploy-export-download-active"
           onClick={() => onDownload(activePath, content)}
-          className="rounded-lg border border-white/[0.08] px-2 py-1 text-xs text-[var(--text-secondary)] hover:border-cyan-300/40"
+          className="rounded-lg border border-[var(--border)] px-2 py-1 text-xs text-[var(--text-secondary)] hover:border-cyan-300/40"
         >
           {t("deploymentsPage.export.downloadFile")}
         </button>
       </div>
       <pre
         data-testid="deploy-export-preview"
-        className="max-h-72 overflow-auto rounded-lg border border-white/[0.06] bg-slate-950/70 p-3 text-xs text-slate-200"
+        className="max-h-72 overflow-auto rounded-lg border border-[var(--border)] bg-slate-950/70 p-3 text-xs text-[var(--text-secondary)]"
       >
         <code>{content}</code>
       </pre>

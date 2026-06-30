@@ -31,13 +31,13 @@ export function FileListToasts({ toasts, onDismiss }: FileListToastsProps) {
           className={[
             "flex items-start justify-between gap-3 rounded-2xl border px-4 py-3 text-sm shadow-2xl backdrop-blur-xl",
             toast.type === "success"
-              ? "border-emerald-300/40 bg-emerald-500/95 text-white shadow-emerald-950/30"
+              ? "border-emerald-300/40 bg-emerald-500/95 text-[var(--text-primary)] shadow-emerald-950/30"
               : "",
             toast.type === "error"
-              ? "border-rose-300/40 bg-rose-500/95 text-white shadow-rose-950/30"
+              ? "border-rose-300/40 bg-rose-500/95 text-[var(--text-primary)] shadow-rose-950/30"
               : "",
             toast.type === "info"
-              ? "border-cyan-300/40 bg-cyan-500/95 text-white shadow-cyan-950/30"
+              ? "border-cyan-300/40 bg-cyan-500/95 text-[var(--text-primary)] shadow-cyan-950/30"
               : "",
           ].join(" ")}
         >
@@ -45,7 +45,7 @@ export function FileListToasts({ toasts, onDismiss }: FileListToastsProps) {
           <button
             type="button"
             onClick={() => onDismiss(toast.id)}
-            className="rounded-full px-1.5 text-white/80 hover:bg-white/10 hover:text-white"
+            className="rounded-full px-1.5 text-white/80 hover:bg-white/10 hover:text-[var(--text-primary)]"
             aria-label={t("fileListClient.closeNotice")}
           >
             ×

@@ -143,14 +143,14 @@ export function JobEventsDialog({ jobId, open, onClose }: JobEventsDialogProps) 
         aria-modal="true"
         aria-labelledby="job-events-dialog-title"
         onClick={(event) => event.stopPropagation()}
-        className="w-full max-w-3xl rounded-2xl border border-white/[0.08] bg-slate-950/98 shadow-2xl"
+        className="w-full max-w-3xl rounded-2xl border border-[var(--border)] bg-[var(--modal-bg)] shadow-2xl"
       >
-        <div className="flex items-center justify-between border-b border-white/[0.06] px-5 py-4">
+        <div className="flex items-center justify-between border-b border-[var(--border)] px-5 py-4">
           <div>
-            <h2 id="job-events-dialog-title" className="text-sm font-semibold text-white">
+            <h2 id="job-events-dialog-title" className="text-sm font-semibold text-[var(--text-primary)]">
               {t("jobEventsDialog.title")}
             </h2>
-            <p className="mt-1 text-xs text-slate-500">
+            <p className="mt-1 text-xs text-[var(--text-muted)]">
               {t("jobEventsDialog.subtitle").replace("{id}", jobId)}
             </p>
           </div>
@@ -159,7 +159,7 @@ export function JobEventsDialog({ jobId, open, onClose }: JobEventsDialogProps) 
             type="button"
             onClick={onClose}
             aria-label={t("jobEventsDialog.closeAria")}
-            className="rounded-lg border border-white/[0.08] px-3 py-1.5 text-xs text-slate-300 hover:bg-white/[0.05]"
+            className="rounded-lg border border-[var(--border)] px-3 py-1.5 text-xs text-[var(--text-secondary)] hover:bg-[var(--surface-hover)]"
           >
             {t("jobEventsDialog.close")}
           </button>
@@ -200,9 +200,9 @@ export function JobEventsDialog({ jobId, open, onClose }: JobEventsDialogProps) 
                         </span>
                       ) : null}
                     </div>
-                    <p className="mt-1 break-words text-slate-300">{event.message}</p>
+                    <p className="mt-1 break-words text-[var(--text-secondary)]">{event.message}</p>
                     {summary ? (
-                      <pre className="mt-1 max-h-32 overflow-auto rounded-lg bg-slate-950/80 px-2 py-1 text-[10px] text-slate-400">
+                      <pre className="mt-1 max-h-32 overflow-auto rounded-lg bg-[var(--surface-subtle)] px-2 py-1 text-[10px] text-[var(--text-muted)]">
                         {summary}
                       </pre>
                     ) : null}

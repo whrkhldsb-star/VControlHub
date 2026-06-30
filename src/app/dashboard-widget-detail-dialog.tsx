@@ -95,12 +95,12 @@ export function DashboardWidgetDetailDialog({
 		>
 			<div
 				ref={dialogRef}
-				className="relative max-h-[88vh] w-full max-w-3xl overflow-auto rounded-2xl border border-[var(--border)] bg-slate-900/95 p-6 shadow-2xl"
-			>
+				className="relative max-h-[88vh] w-full max-w-3xl overflow-auto rounded-2xl border border-[var(--border)] bg-[var(--modal-bg)] p-6 shadow-2xl"
+				>
 				<div className="mb-4 flex items-center justify-between">
 					<h2
 						id="dashboard-widget-detail-title"
-						className="text-lg font-semibold text-white"
+						className="text-lg font-semibold text-[var(--text-primary)]"
 					>
 						{DASHBOARD_WIDGET_LABELS[openId]}
 					</h2>
@@ -109,7 +109,7 @@ export function DashboardWidgetDetailDialog({
 						type="button"
 						onClick={onClose}
 						aria-label={t("dashboard.widget-detail-close")}
-						className="rounded-lg border border-slate-600/40 bg-slate-800/40 px-3 py-1.5 text-sm text-slate-200 transition hover:bg-slate-700/50"
+						className="rounded-lg border border-[var(--border)] bg-[var(--surface-elevated)] px-3 py-1.5 text-sm text-[var(--text-secondary)] transition hover:bg-[var(--surface-hover)]"
 					>
 						{t("dashboard.widget-detail-close")}
 					</button>

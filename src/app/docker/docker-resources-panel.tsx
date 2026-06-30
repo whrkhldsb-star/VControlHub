@@ -114,16 +114,16 @@ export function DockerResourcesPanel() {
   function renderList(type: ResourceType, items: Array<DockerNetwork | DockerVolume>) {
     return (
       <div className="space-y-2">
-        {items.length === 0 ? <p className="text-xs text-slate-500">暂无 {type === "networks" ? "Network" : "Volume"}</p> : null}
+        {items.length === 0 ? <p className="text-xs text-[var(--text-muted)]">暂无 {type === "networks" ? "Network" : "Volume"}</p> : null}
         {items.map((item) => {
           const itemName = resourceName(item);
           const key = `${type}:${itemName}`;
           return (
-            <div key={key} className="rounded-xl border border-white/[0.06] bg-black/20 p-3">
+            <div key={key} className="rounded-xl border border-[var(--border)] bg-black/20 p-3">
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <div className="min-w-0">
-                  <p className="truncate text-sm font-medium text-white">{itemName}</p>
-                  <p className="mt-1 truncate text-xs text-slate-500">{resourceMeta(item)}</p>
+                  <p className="truncate text-sm font-medium text-[var(--text-primary)]">{itemName}</p>
+                  <p className="mt-1 truncate text-xs text-[var(--text-muted)]">{resourceMeta(item)}</p>
                 </div>
                 <div className="flex items-center gap-2">
                   <button type="button" aria-label={`Inspect ${type === "networks" ? "Network" : "Volume"} ${itemName}`} onClick={() => inspectResource(type, itemName)} disabled={busyKey === `inspect:${key}`} className="min-h-10 rounded-lg bg-cyan-500/10 px-3 py-1 text-xs text-cyan-300 transition hover:bg-cyan-500/20 disabled:opacity-50">Inspect</button>
@@ -141,23 +141,23 @@ export function DockerResourcesPanel() {
     <section data-card className="mb-6 p-4">
       <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h2 className="text-sm font-semibold text-white">Docker Network / Volume</h2>
-          <p className="mt-1 text-xs text-slate-500">管理本机 Docker socket 上的网络与数据卷。</p>
+          <h2 className="text-sm font-semibold text-[var(--text-primary)]">Docker Network / Volume</h2>
+          <p className="mt-1 text-xs text-[var(--text-muted)]">管理本机 Docker socket 上的网络与数据卷。</p>
         </div>
-        <button type="button" onClick={() => void fetchResources()} disabled={loading} className="min-h-11 rounded-lg bg-slate-700/50 px-3 py-1.5 text-xs text-slate-300 transition hover:bg-slate-700 disabled:opacity-50">{loading ? "刷新中..." : "刷新资源"}</button>
+        <button type="button" onClick={() => void fetchResources()} disabled={loading} className="min-h-11 rounded-lg bg-slate-700/50 px-3 py-1.5 text-xs text-[var(--text-secondary)] transition hover:bg-[var(--surface-hover)] disabled:opacity-50">{loading ? "刷新中..." : "刷新资源"}</button>
       </div>
       {error ? <div className="mb-4 rounded-lg bg-rose-500/10 px-3 py-2 text-sm text-rose-300">{error}</div> : null}
       <div className="mb-4 flex flex-wrap items-end gap-2">
-        <select value={activeType} onChange={(event) => setActiveType(event.currentTarget.value as ResourceType)} className="min-h-11 rounded-lg border border-white/[0.08] bg-slate-950 px-3 text-sm text-white"><option value="networks">Network</option><option value="volumes">Volume</option></select>
-        <input value={name} onChange={(event) => setName(event.currentTarget.value)} placeholder="名称" className="min-h-11 rounded-lg border border-white/[0.08] bg-slate-950 px-3 text-sm text-white placeholder:text-slate-500" />
-        <input value={driver} onChange={(event) => setDriver(event.currentTarget.value)} placeholder="driver" className="min-h-11 w-28 rounded-lg border border-white/[0.08] bg-slate-950 px-3 text-sm text-white placeholder:text-slate-500" />
+        <select value={activeType} onChange={(event) => setActiveType(event.currentTarget.value as ResourceType)} className="min-h-11 rounded-lg border border-[var(--border)] bg-[var(--input-bg)] px-3 text-sm text-[var(--text-primary)]"><option value="networks">Network</option><option value="volumes">Volume</option></select>
+        <input value={name} onChange={(event) => setName(event.currentTarget.value)} placeholder="名称" className="min-h-11 rounded-lg border border-[var(--border)] bg-[var(--input-bg)] px-3 text-sm text-[var(--text-primary)] placeholder:text-[var(--text-muted)]" />
+        <input value={driver} onChange={(event) => setDriver(event.currentTarget.value)} placeholder="driver" className="min-h-11 w-28 rounded-lg border border-[var(--border)] bg-[var(--input-bg)] px-3 text-sm text-[var(--text-primary)] placeholder:text-[var(--text-muted)]" />
         <button type="button" onClick={() => void createResource()} disabled={!name.trim() || Boolean(busyKey)} data-tone="accent" className="min-h-11 rounded-lg border px-4 py-2 text-sm font-medium transition disabled:opacity-50">创建</button>
       </div>
       <div className="grid gap-4 lg:grid-cols-2">
-        <div><h3 className="mb-2 text-xs font-medium uppercase tracking-wide text-slate-500">Networks ({networks.length})</h3>{renderList("networks", networks)}</div>
-        <div><h3 className="mb-2 text-xs font-medium uppercase tracking-wide text-slate-500">Volumes ({volumes.length})</h3>{renderList("volumes", volumes)}</div>
+        <div><h3 className="mb-2 text-xs font-medium uppercase tracking-wide text-[var(--text-muted)]">Networks ({networks.length})</h3>{renderList("networks", networks)}</div>
+        <div><h3 className="mb-2 text-xs font-medium uppercase tracking-wide text-[var(--text-muted)]">Volumes ({volumes.length})</h3>{renderList("volumes", volumes)}</div>
       </div>
-      {detail ? <div className="mt-4 rounded-xl border border-white/[0.08] bg-black/50 p-3"><div className="mb-2 flex items-center justify-between gap-3"><h3 className="text-sm font-medium text-white">{detail.title}</h3><button type="button" onClick={() => setDetail(null)} className="text-xs text-slate-400 hover:text-white">关闭</button></div><pre className="max-h-72 overflow-auto whitespace-pre-wrap text-xs text-slate-300">{detail.json}</pre></div> : null}
+      {detail ? <div className="mt-4 rounded-xl border border-[var(--border)] bg-black/50 p-3"><div className="mb-2 flex items-center justify-between gap-3"><h3 className="text-sm font-medium text-[var(--text-primary)]">{detail.title}</h3><button type="button" onClick={() => setDetail(null)} className="text-xs text-[var(--text-muted)] hover:text-[var(--text-primary)]">关闭</button></div><pre className="max-h-72 overflow-auto whitespace-pre-wrap text-xs text-[var(--text-secondary)]">{detail.json}</pre></div> : null}
     </section>
   );
 }

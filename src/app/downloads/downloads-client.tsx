@@ -42,7 +42,7 @@ const statusBadge: Record<string, string> = {
 	RUNNING: "border-cyan-400/30 bg-cyan-400/10 text-cyan-100",
 	COMPLETED: "border-emerald-400/30 bg-emerald-400/10 text-emerald-100",
 	FAILED: "border-rose-400/30 bg-rose-400/10 text-rose-100",
-	CANCELLED: "border-slate-400/30 bg-slate-400/10 text-slate-100",
+	CANCELLED: "border-slate-400/30 bg-slate-400/10 text-[var(--text-primary)]",
 };
 
 function getStatusLabel(t: (k: string) => string): Record<string, string> {
@@ -302,33 +302,33 @@ export function DownloadsClient({ servers, canManage, canManageNode }: { servers
 			{globalStat && (
 				<div data-card className="mb-6 p-4 flex flex-wrap items-center gap-6 text-sm">
 					<div>
-						<span className="text-slate-500">{t("downloadsPage.stats.globalSpeed")}</span>
+						<span className="text-[var(--text-muted)]">{t("downloadsPage.stats.globalSpeed")}</span>
 						<span className="ml-2 text-cyan-300 font-mono">{formatSpeed(globalStat.downloadSpeed)}</span>
 					</div>
 					<div>
-						<span className="text-slate-500">{t("downloadsPage.stats.active")}</span>
-						<span className="ml-2 text-white font-medium">{globalStat.numActive}</span>
+						<span className="text-[var(--text-muted)]">{t("downloadsPage.stats.active")}</span>
+						<span className="ml-2 text-[var(--text-primary)] font-medium">{globalStat.numActive}</span>
 					</div>
 					<div>
-						<span className="text-slate-500">{t("downloadsPage.stats.pending")}</span>
+						<span className="text-[var(--text-muted)]">{t("downloadsPage.stats.pending")}</span>
 						<span className="ml-2 text-amber-200">{globalStat.numWaiting}</span>
 					</div>
 					<div className="ml-auto flex items-center gap-2">
-						<span className="text-xs text-slate-500">{t("downloadsPage.stats.globalLimit")}</span>
+						<span className="text-xs text-[var(--text-muted)]">{t("downloadsPage.stats.globalLimit")}</span>
 						{canManageNode ? [0, 1024, 5120, 10240].map((kb) => (
 							<button key={kb} onClick={() => handleGlobalSpeedLimit(kb)}
-								className="rounded-lg border border-white/[0.06] bg-white/[0.03] px-2 py-1 text-[11px] text-slate-400 hover:bg-white/[0.06] transition"
+								className="rounded-lg border border-[var(--border)] bg-white/[0.03] px-2 py-1 text-[11px] text-[var(--text-muted)] hover:bg-white/[0.06] transition"
 							>
 								{kb === 0 ? t("downloadsPage.stats.unlimited") : `${kb >= 1024 ? (kb / 1024) + "M" : kb + "K"}`}
 							</button>
-						)) : <span className="text-xs text-slate-600">{t("downloadsPage.stats.needPermission")}</span>}
+						)) : <span className="text-xs text-[var(--text-muted)]">{t("downloadsPage.stats.needPermission")}</span>}
 					</div>
 				</div>
 			)}
 
 			{/* Quick Stats */}
 			{!globalStat && (runningCount > 0 || pendingCount > 0) && (
-				<div className="mb-4 flex gap-3 text-xs text-slate-500">
+				<div className="mb-4 flex gap-3 text-xs text-[var(--text-muted)]">
 					{runningCount > 0 && <span className="text-cyan-300">{t("downloadsPage.stats.runningCount").replace("${count}", String(runningCount))}</span>}
 					{pendingCount > 0 && <span className="text-amber-300">{t("downloadsPage.stats.pendingCount").replace("${count}", String(pendingCount))}</span>}
 				</div>
@@ -340,7 +340,7 @@ export function DownloadsClient({ servers, canManage, canManageNode }: { servers
 					{["ALL", "RUNNING", "COMPLETED", "FAILED", "CANCELLED"].map((f) => (
 						<button key={f} type="button" onClick={() => setFilter(f)}
 							className={`rounded-full border px-3 py-1.5 text-xs transition ${
-								filter === f ? "border-cyan-400/30 bg-cyan-400/10 text-cyan-100" : "border-white/10 bg-white/5 text-slate-400 hover:text-white"
+								filter === f ? "border-cyan-400/30 bg-cyan-400/10 text-cyan-100" : "border-[var(--border)] bg-white/5 text-[var(--text-muted)] hover:text-[var(--text-primary)]"
 							}`}
 						>
 							{f === "ALL" ? t("downloadsPage.filter.all") : getStatusLabel(t)[f]}
@@ -350,7 +350,7 @@ export function DownloadsClient({ servers, canManage, canManageNode }: { servers
 					{categories.map((c) => (
 						<button key={c.value} type="button" onClick={() => setCategoryFilter(categoryFilter === c.value ? null : c.value)}
 							className={`rounded-full border px-2.5 py-1 text-[11px] transition ${
-								categoryFilter === c.value ? "border-cyan-400/30 bg-cyan-400/10 text-cyan-100" : "border-white/[0.06] bg-white/[0.02] text-slate-500 hover:bg-white/[0.05]"
+								categoryFilter === c.value ? "border-cyan-400/30 bg-cyan-400/10 text-cyan-100" : "border-[var(--border)] bg-white/[0.02] text-[var(--text-muted)] hover:bg-white/[0.05]"
 							}`}
 						>
 							{c.icon} {c.label}
@@ -387,9 +387,9 @@ export function DownloadsClient({ servers, canManage, canManageNode }: { servers
 			{loading ? (
 				<EmptyState>{t("downloadsPage.loading")}</EmptyState>
 			) : filteredTasks.length === 0 && message?.type !== "error" ? (
-			<div data-empty-state className="rounded-xl border border-dashed border-white/[0.08] bg-white/[0.02]">
+			<div data-empty-state className="rounded-xl border border-dashed border-[var(--border)] bg-white/[0.02]">
 				<div className="text-4xl mb-3">⬇️</div>
-				<p className="text-sm text-slate-500">{filter === "ALL" ? t("downloadsPage.empty") : t("downloadsPage.emptyFilter").replace("${status}", getStatusLabel(t)[filter] ?? "")}</p>
+				<p className="text-sm text-[var(--text-muted)]">{filter === "ALL" ? t("downloadsPage.empty") : t("downloadsPage.emptyFilter").replace("${status}", getStatusLabel(t)[filter] ?? "")}</p>
 			</div>
 		) : (
 			<div className="space-y-2.5">
@@ -402,19 +402,19 @@ export function DownloadsClient({ servers, canManage, canManageNode }: { servers
 								<span className={`rounded-full border px-2 py-0.5 text-[10px] font-medium ${statusBadge[task.status] ?? ""}`}>
 									{getStatusLabel(t)[task.status] ?? task.status}
 								</span>
-								<span className="text-[11px] text-slate-500">{urlTypeLabel(task.url, t)}</span>
+								<span className="text-[11px] text-[var(--text-muted)]">{urlTypeLabel(task.url, t)}</span>
 								{task.relayMode && <span data-tone="amber" className="rounded-full border border-amber-400/20 px-2 py-0.5 text-[10px] text-amber-100">中转</span>}
-									{task.category && <span className="text-[11px] text-slate-500">{categoryIcon[task.category] ?? "📦"} {task.category}</span>}
+									{task.category && <span className="text-[11px] text-[var(--text-muted)]">{categoryIcon[task.category] ?? "📦"} {task.category}</span>}
 									{task.isBatch && <span data-tone="cyan" className="rounded-full border border-cyan-400/20 px-2 py-0.5 text-[10px] text-cyan-100">批量</span>}
 								</div>
 
 								{/* URL */}
-								<div className="text-sm text-white font-mono break-all leading-relaxed">{task.url.length > 120 ? task.url.slice(0, 117) + "…" : task.url}</div>
+								<div className="text-sm text-[var(--text-primary)] font-mono break-all leading-relaxed">{task.url.length > 120 ? task.url.slice(0, 117) + "…" : task.url}</div>
 
 								{/* Progress bar */}
 								{task.status === "RUNNING" && task.totalBytes && parseInt(task.totalBytes) > 0 && (
 									<div className="mt-2.5">
-										<div className="flex items-center justify-between text-[11px] text-slate-500 mb-1">
+										<div className="flex items-center justify-between text-[11px] text-[var(--text-muted)] mb-1">
 											<span>{formatBytes(task.completedBytes)} / {formatBytes(task.totalBytes)}</span>
 											<span>{pct}% · {formatSpeed(task.downloadSpeed)}</span>
 										</div>
@@ -427,7 +427,7 @@ export function DownloadsClient({ servers, canManage, canManageNode }: { servers
 								)}
 
 								{/* Meta info */}
-								<div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-slate-500">
+								<div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-[var(--text-muted)]">
 									<span>🖥 {task.server.name}</span>
 									<span>📂 {task.targetPath}</span>
 									{task.fileSize && <span>📦 {formatBytes(task.fileSize)}</span>}
@@ -451,12 +451,12 @@ export function DownloadsClient({ servers, canManage, canManageNode }: { servers
 										</button>
 									)}
 									{task.status === "RUNNING" && task.aria2Gid && canManage && (
-										<span className="flex items-center gap-1 text-xs text-slate-400">
+										<span className="flex items-center gap-1 text-xs text-[var(--text-muted)]">
 											<label htmlFor={`limit-${task.id}`}>{t("downloadsPage.action.limit")}</label>
 											<input id={`limit-${task.id}`} type="number" min={0} step={1024} placeholder="KB/s"
 												defaultValue={task.maxSpeedKb ?? ""}
 												onBlur={(e) => { const v = parseInt(e.target.value); if (!isNaN(v) && v >= 0) handleAction(task.id, `limit:${v}`); }}
-												className="w-16 bg-[var(--input-bg)] border-[var(--input-border)] rounded-lg px-1.5 py-0.5 text-xs text-slate-300 focus:outline-none focus:border-cyan-400/50"
+												className="w-16 bg-[var(--input-bg)] border-[var(--input-border)] rounded-lg px-1.5 py-0.5 text-xs text-[var(--text-secondary)] focus:outline-none focus:border-cyan-400/50"
 											/>
 										</span>
 									)}
@@ -476,7 +476,7 @@ export function DownloadsClient({ servers, canManage, canManageNode }: { servers
 									)}
 									{canManage && (
 										<button type="button" onClick={() => handleAction(task.id, "refresh")}
-											className="rounded-lg border border-white/[0.06] bg-white/[0.02] px-3 py-1.5 text-xs text-slate-400 hover:bg-white/[0.05] transition"
+											className="rounded-lg border border-[var(--border)] bg-white/[0.02] px-3 py-1.5 text-xs text-[var(--text-muted)] hover:bg-white/[0.05] transition"
 										>
 											{t("downloadsPage.action.refresh")}
 										</button>

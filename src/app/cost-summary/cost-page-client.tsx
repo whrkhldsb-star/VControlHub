@@ -27,14 +27,14 @@ type Props = {
 
 const CATEGORIES: CostCategory[] = ["vps", "bandwidth", "storage", "other"];
 
-const cardClass = "rounded-2xl border border-white/[0.06] bg-white/[0.04] p-5";
-const labelClass = "text-xs font-medium text-slate-300 tracking-wide";
+const cardClass = "rounded-2xl border border-[var(--border)] bg-white/[0.04] p-5";
+const labelClass = "text-xs font-medium text-[var(--text-secondary)] tracking-wide";
 const inputClass =
-	"w-full rounded-lg border border-white/[0.06] bg-white/[0.04] px-3.5 py-2.5 text-sm text-white outline-none transition placeholder:text-white/20 focus:border-cyan-400/30";
+	"w-full rounded-lg border border-[var(--border)] bg-white/[0.04] px-3.5 py-2.5 text-sm text-[var(--text-primary)] outline-none transition placeholder:text-white/20 focus:border-cyan-400/30";
 const buttonPrimary =
 	"rounded-lg bg-cyan-500/80 hover:bg-cyan-500 px-4 py-2 text-sm font-medium text-slate-900 transition disabled:opacity-50 disabled:cursor-not-allowed";
 const buttonGhost =
-	"rounded-lg border border-white/[0.08] bg-white/[0.02] hover:bg-white/[0.06] px-4 py-2 text-sm text-white/80 transition";
+	"rounded-lg border border-[var(--border)] bg-white/[0.02] hover:bg-white/[0.06] px-4 py-2 text-sm text-white/80 transition";
 const buttonDanger =
 	"rounded-lg border border-rose-500/30 bg-rose-500/10 hover:bg-rose-500/20 px-3 py-1.5 text-xs text-rose-200 transition";
 
@@ -278,7 +278,7 @@ export function CostPageClient({
 			{/* Summary card */}
 			<section className={cardClass}>
 				<div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-					<h2 className="text-lg font-semibold text-white">
+					<h2 className="text-lg font-semibold text-[var(--text-primary)]">
 						{t("costPage.summary.title")}
 					</h2>
 					<div className="flex flex-wrap gap-2">
@@ -315,7 +315,7 @@ export function CostPageClient({
 							<div className="text-xs uppercase tracking-wide text-white/50">
 								{t("costPage.summary.total")}
 							</div>
-							<div className="mt-1 text-3xl font-semibold text-white">
+							<div className="mt-1 text-3xl font-semibold text-[var(--text-primary)]">
 								{formatAmount(summary.totalAmount, summary.currency, localeTag)}
 							</div>
 							<div className="mt-1 text-xs text-white/50">
@@ -328,7 +328,7 @@ export function CostPageClient({
 							<div className="text-xs uppercase tracking-wide text-white/50">
 								{t("costPage.summary.entryCount")}
 							</div>
-							<div className="mt-1 text-3xl font-semibold text-white">
+							<div className="mt-1 text-3xl font-semibold text-[var(--text-primary)]">
 								{summary.entryCount}
 							</div>
 						</div>
@@ -354,7 +354,7 @@ export function CostPageClient({
 			{/* Trend (mini sparkline area) */}
 			{trend.length > 1 ? (
 				<section className={cardClass}>
-					<h2 className="mb-3 text-base font-semibold text-white">
+					<h2 className="mb-3 text-base font-semibold text-[var(--text-primary)]">
 						{t("costPage.snapshot.title")}
 					</h2>
 					<svg
@@ -388,7 +388,7 @@ export function CostPageClient({
 			{/* Entries list + new entry button */}
 			<section className={cardClass}>
 				<div className="mb-3 flex items-center justify-between">
-					<h2 className="text-base font-semibold text-white">
+					<h2 className="text-base font-semibold text-[var(--text-primary)]">
 						{t("costPage.list.title")}
 					</h2>
 					<div className="flex gap-2">
@@ -409,7 +409,7 @@ export function CostPageClient({
 					<div className="overflow-x-auto">
 						<table className="w-full text-sm text-white/80">
 							<thead>
-								<tr className="border-b border-white/[0.06] text-left text-xs uppercase tracking-wide text-white/50">
+								<tr className="border-b border-[var(--border)] text-left text-xs uppercase tracking-wide text-white/50">
 									<th className="px-3 py-2">{t("costPage.list.column.date")}</th>
 									<th className="px-3 py-2">{t("costPage.list.column.category")}</th>
 									<th className="px-3 py-2">{t("costPage.list.column.provider")}</th>
@@ -420,7 +420,7 @@ export function CostPageClient({
 							</thead>
 							<tbody>
 								{entries.map((e) => (
-									<tr key={e.id} className="border-b border-white/[0.04]">
+									<tr key={e.id} className="border-b border-[var(--border)]">
 										<td className="px-3 py-2 font-mono text-xs">{e.effectiveDate}</td>
 										<td className="px-3 py-2">{t(`costPage.category.${e.category}`)}</td>
 										<td className="px-3 py-2">{e.provider}</td>
@@ -473,7 +473,7 @@ export function CostPageClient({
 					aria-modal="true"
 				>
 					<div className={`${cardClass} w-full max-w-md space-y-4`}>
-						<h3 className="text-base font-semibold text-white">
+						<h3 className="text-base font-semibold text-[var(--text-primary)]">
 							{editingId ? t("costPage.form.editTitle") : t("costPage.form.title")}
 						</h3>
 						<div>
@@ -594,7 +594,7 @@ export function CostPageClient({
 					aria-modal="true"
 				>
 					<div className={`${cardClass} w-full max-w-sm space-y-4`}>
-						<h3 className="text-base font-semibold text-white">
+						<h3 className="text-base font-semibold text-[var(--text-primary)]">
 							{t("costPage.delete.title")}
 						</h3>
 						<p className="text-sm text-white/70">

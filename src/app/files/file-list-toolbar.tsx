@@ -25,8 +25,8 @@ export function FileListToolbar({
 }: FileListToolbarProps) {
   const { t } = useI18n();
   return (
-    <div className="flex items-center justify-between bg-white/[0.03] px-5 py-2.5 border-b border-white/[0.06]">
-      <div className="flex items-center gap-2 text-sm text-slate-400">
+    <div className="flex items-center justify-between bg-white/[0.03] px-5 py-2.5 border-b border-[var(--border)]">
+      <div className="flex items-center gap-2 text-sm text-[var(--text-muted)]">
         <span>{itemCount} 项</span>
         {selectedCount > 0 ? (
           <span className="text-cyan-300 font-medium">
@@ -34,7 +34,7 @@ export function FileListToolbar({
           </span>
         ) : null}
       </div>
-      <div className="flex items-center gap-1 rounded-xl border border-white/[0.06] bg-slate-950/80 p-1">
+      <div className="flex items-center gap-1 rounded-xl border border-[var(--border)] bg-[var(--modal-bg)]/80 p-1">
         <button
           type="button"
           onClick={() => onChangeViewMode("list")}
@@ -44,7 +44,7 @@ export function FileListToolbar({
           className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium transition ${
             viewMode === "list"
               ? "bg-cyan-400/20 text-cyan-100 border border-cyan-400/30 shadow-sm shadow-cyan-400/10"
-              : "text-slate-400 hover:text-white hover:bg-white/5 border border-transparent"
+              : "text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:bg-white/5 border border-transparent"
           }`}
         >
           <svg
@@ -75,7 +75,7 @@ export function FileListToolbar({
           className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium transition ${
             viewMode === "grid"
               ? "bg-cyan-400/20 text-cyan-100 border border-cyan-400/30 shadow-sm shadow-cyan-400/10"
-              : "text-slate-400 hover:text-white hover:bg-white/5 border border-transparent"
+              : "text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:bg-white/5 border border-transparent"
           }`}
         >
           <svg
@@ -104,7 +104,7 @@ export function FileListToolbar({
           className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium transition ${
             viewMode === "details"
               ? "bg-cyan-400/20 text-cyan-100 border border-cyan-400/30 shadow-sm shadow-cyan-400/10"
-              : "text-slate-400 hover:text-white hover:bg-white/5 border border-transparent"
+              : "text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:bg-white/5 border border-transparent"
           }`}
         >
           <svg

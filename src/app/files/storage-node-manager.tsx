@@ -39,10 +39,10 @@ export function StorageNodeManager({
 	const sftpCount = nodes.filter((n) => n.driver === "SFTP").length;
 
 	return (
-		<section id="storage-nodes" className="scroll-mt-24 rounded-3xl border border-[var(--border)] bg-slate-900/60 p-6">
+		<section id="storage-nodes" className="scroll-mt-24 rounded-3xl border border-[var(--border)] bg-[var(--surface)] p-6">
 			<div className="flex items-center justify-between gap-4">
 				<div>
-					<h2 className="text-2xl font-semibold text-white">存储节点</h2>
+					<h2 className="text-2xl font-semibold text-[var(--text-primary)]">存储节点</h2>
 					<p className="mt-2 text-sm leading-7 text-[var(--text-secondary)]">
 						{nodes.length} 个节点 · 本机 {localCount} · SFTP {sftpCount}
 					</p>

@@ -38,7 +38,7 @@ export function AiAttachmentsPreview({
   return (
     <>
       {hasAnyPreview && (
-        <div className="px-4 pb-1.5 border-t border-white/[0.03] bg-slate-950/20">
+        <div className="px-4 pb-1.5 border-t border-[var(--border)] bg-[var(--surface-subtle)]">
           <div className="flex flex-wrap gap-2 py-2">
             {imageUrls.map((url, i) => (
               <div key={`url-${i}`} className="relative group">
@@ -55,7 +55,7 @@ export function AiAttachmentsPreview({
                   onClick={() =>
                     setImageUrls((prev) => prev.filter((_, j) => j !== i))
                   }
-                  className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-rose-500 text-white text-[8px] flex items-center justify-center opacity-0 group-hover:opacity-100 transition"
+                  className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-rose-500 text-[var(--text-primary)] text-[8px] flex items-center justify-center opacity-0 group-hover:opacity-100 transition"
                 >
                   ×
                 </button>
@@ -93,7 +93,7 @@ export function AiAttachmentsPreview({
                       </span>
                     ) : (
                       <svg
-                        className="w-4 h-4 text-slate-500"
+                        className="w-4 h-4 text-[var(--text-muted)]"
                         fill="none"
                         stroke="currentColor"
                         viewBox="0 0 24 24"
@@ -106,7 +106,7 @@ export function AiAttachmentsPreview({
                         />
                       </svg>
                     )}
-                    <span className="text-[7px] text-slate-500 truncate max-w-[44px] mt-0.5">
+                    <span className="text-[7px] text-[var(--text-muted)] truncate max-w-[44px] mt-0.5">
                       {file.name}
                     </span>
                   </div>
@@ -115,7 +115,7 @@ export function AiAttachmentsPreview({
                   onClick={() =>
                     setFileAttachments((prev) => prev.filter((_, j) => j !== i))
                   }
-                  className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-rose-500 text-white text-[8px] flex items-center justify-center opacity-0 group-hover:opacity-100 transition"
+                  className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-rose-500 text-[var(--text-primary)] text-[8px] flex items-center justify-center opacity-0 group-hover:opacity-100 transition"
                 >
                   ×
                 </button>
@@ -133,7 +133,7 @@ export function AiAttachmentsPreview({
               onChange={(e) => setImageUrlInput(e.target.value)}
               placeholder={t("aiPage.imageUrlPlaceholder")}
               aria-label={t("aiPage.imageUrlAria")}
-              className="flex-1 bg-black/20 border border-white/5 rounded-lg px-3 py-1.5 text-xs text-white placeholder-slate-600"
+              className="flex-1 bg-black/20 border border-white/5 rounded-lg px-3 py-1.5 text-xs text-[var(--text-primary)] placeholder-slate-600"
               onKeyDown={(e) => {
                 if (e.key === "Enter" && imageUrlInput.trim()) {
                   setImageUrls((prev) => [...prev, imageUrlInput.trim()]);

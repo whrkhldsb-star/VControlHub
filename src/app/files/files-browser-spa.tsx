@@ -231,7 +231,7 @@ function NodeFilterSelect({
           value={query}
           onChange={(event) => setQuery(event.currentTarget.value)}
           placeholder={t("filesBrowserSpa.searchPlaceholder")}
-          className="w-full rounded-2xl border border-white/10 bg-slate-950 px-3 py-2 text-sm text-white placeholder:text-slate-500 focus:border-cyan-400/50 focus:outline-none"
+          className="w-full rounded-2xl border border-[var(--border)] bg-[var(--input-bg)] px-3 py-2 text-sm text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus:border-cyan-400/50 focus:outline-none"
         />
       </div>
       <div className="space-y-1">
@@ -242,7 +242,7 @@ function NodeFilterSelect({
           id={selectInputId}
           value={value}
           onChange={(event) => onChange(event.currentTarget.value)}
-          className="w-full rounded-2xl border border-cyan-400/30 bg-slate-950 px-3 py-2 text-sm text-white focus:border-cyan-400/50 focus:outline-none light:border-cyan-500/40"
+          className="w-full rounded-2xl border border-cyan-400/30 bg-[var(--input-bg)] px-3 py-2 text-sm text-[var(--text-primary)] focus:border-cyan-400/50 focus:outline-none light:border-cyan-500/40"
         >
           <option value="">{t("filesBrowserSpa.allNodesOption")}</option>
           {filteredNodes.map((node) => (
@@ -317,7 +317,7 @@ function FolderTreeClient({
       className={
         depth === 0
           ? "mt-3 space-y-1"
-          : "mt-1 space-y-1 border-l border-white/10 pl-3"
+          : "mt-1 space-y-1 border-l border-[var(--border)] pl-3"
       }
     >
       {children.map((child) => {
@@ -331,7 +331,7 @@ function FolderTreeClient({
               className={`flex items-center gap-1 rounded-2xl transition ${
                 isCurrent
                   ? "bg-cyan-400/10 text-cyan-100"
-                  : "text-slate-300 hover:bg-white/5 hover:text-white"
+                  : "text-[var(--text-secondary)] hover:bg-white/5 hover:text-[var(--text-primary)]"
               }`}
             >
               <button
@@ -345,7 +345,7 @@ function FolderTreeClient({
                     : t("filesBrowserSpa.openChild").replace("{name}", child.displayName ?? child.name)
                 }
                 aria-expanded={hasChildren ? isExpanded : undefined}
-                className="grid h-8 w-8 flex-none place-items-center rounded-xl text-xs text-[var(--text-secondary)] hover:bg-white/10 hover:text-white light:hover:text-slate-900"
+                className="grid h-8 w-8 flex-none place-items-center rounded-xl text-xs text-[var(--text-secondary)] hover:bg-white/10 hover:text-[var(--text-primary)] light:hover:text-slate-900"
               >
                 {hasChildren ? (isExpanded ? "▾" : "▸") : "•"}
               </button>
@@ -361,7 +361,7 @@ function FolderTreeClient({
                 </span>
                 <span
                   aria-hidden="true"
-                  className="ml-3 flex-none text-xs text-slate-500"
+                  className="ml-3 flex-none text-xs text-[var(--text-muted)]"
                 >
                   {child.fileCount + child.folderCount}
                 </span>
@@ -408,7 +408,7 @@ function BreadcrumbsClient({
       <button
         type="button"
         onClick={() => onNavigate("")}
-        className="rounded-full border border-[var(--border)] px-3 py-1.5 text-slate-200 hover:bg-white/5"
+        className="rounded-full border border-[var(--border)] px-3 py-1.5 text-[var(--text-secondary)] hover:bg-white/5"
       >
         {t("filesBrowserSpa.allFiles")}
       </button>
@@ -427,7 +427,7 @@ function BreadcrumbsClient({
               <button
                 type="button"
                 onClick={() => onNavigate(nextPath)}
-                className="rounded-full border border-[var(--border)] px-3 py-1.5 text-slate-200 hover:bg-white/5"
+                className="rounded-full border border-[var(--border)] px-3 py-1.5 text-[var(--text-secondary)] hover:bg-white/5"
               >
                 {displaySegment}
               </button>
@@ -526,7 +526,7 @@ export function FilesBrowserSpa({
         onClick={() => setMobileSidebarOpen((value) => !value)}
         aria-expanded={mobileSidebarOpen}
         aria-controls="files-browser-sidebar"
-        className="flex min-h-11 w-full items-center justify-between rounded-2xl border border-[var(--border)] bg-slate-900/60 px-4 py-2 text-sm font-medium text-white hover:bg-slate-800/60 light:bg-slate-100 light:hover:bg-slate-200/60 xl:hidden"
+        className="flex min-h-11 w-full items-center justify-between rounded-2xl border border-[var(--border)] bg-[var(--surface)] px-4 py-2 text-sm font-medium text-[var(--text-primary)] hover:bg-[var(--surface-hover)] light:bg-slate-100 light:hover:bg-slate-200/60 xl:hidden"
       >
         <span>{mobileSidebarOpen ? t("filesBrowserSpa.collapseDirectoryTree") : t("filesBrowserSpa.expandDirectoryTree")}</span>
         <span aria-hidden="true" className="text-xs">
@@ -537,13 +537,13 @@ export function FilesBrowserSpa({
       <aside
         id="files-browser-sidebar"
         aria-label={t("filesBrowserSpa.sidebarAria")}
-        className={`min-w-[280px] self-start rounded-3xl border border-[var(--border)] bg-slate-900/60 p-6 xl:sticky xl:top-6 ${
+        className={`min-w-[280px] self-start rounded-3xl border border-[var(--border)] bg-[var(--surface)] p-6 xl:sticky xl:top-6 ${
           mobileSidebarOpen ? "block" : "hidden xl:block"
         }`}
       >
         <div className="flex items-center justify-between gap-3">
           <div>
-            <h2 className="text-2xl font-semibold text-white">{t("filesBrowserSpa.directoryTree")}</h2>
+            <h2 className="text-2xl font-semibold text-[var(--text-primary)]">{t("filesBrowserSpa.directoryTree")}</h2>
             <p className="mt-2 text-sm leading-7 text-[var(--text-secondary)]">
               {t("filesBrowserSpa.hierarchyDescription")}
             </p>
@@ -566,7 +566,7 @@ export function FilesBrowserSpa({
           </div>
         ) : null}
 
-        <div className="mt-5 max-h-[28rem] overflow-x-auto overflow-y-auto rounded-2xl border border-[var(--border)] bg-slate-950/50 p-4 pr-2">
+        <div className="mt-5 max-h-[28rem] overflow-x-auto overflow-y-auto rounded-2xl border border-[var(--border)] bg-[var(--surface-subtle)] p-4 pr-2">
           <button
             type="button"
             onClick={() => handleTreeNavigate("")}
@@ -597,10 +597,10 @@ export function FilesBrowserSpa({
       {/* Main content area */}
       <section className="space-y-8">
         {/* Search + Toolbar */}
-        <article className="rounded-3xl border border-[var(--border)] bg-slate-900/60 p-6">
+        <article className="rounded-3xl border border-[var(--border)] bg-[var(--surface)] p-6">
           <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
             <div>
-              <h2 className="text-2xl font-semibold text-white">
+              <h2 className="text-2xl font-semibold text-[var(--text-primary)]">
                 {currentPathDisplay.title}
                 {loading ? (
                   <span className="ml-2 text-sm text-cyan-300 animate-pulse">
@@ -644,7 +644,7 @@ export function FilesBrowserSpa({
                         ? t("filesBrowserSpa.searchAllFiles")
                         : t("filesBrowserSpa.searchCurrentFolder")
                     }
-                    className="rounded-2xl border border-[var(--border)] bg-slate-950 px-4 py-2.5 text-sm text-white placeholder:text-slate-500 focus:border-cyan-400/50 focus:outline-none"
+                    className="rounded-2xl border border-[var(--border)] bg-[var(--input-bg)] px-4 py-2.5 text-sm text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus:border-cyan-400/50 focus:outline-none"
                   />
                 </div>
                 <button
@@ -680,7 +680,7 @@ export function FilesBrowserSpa({
           <div data-tone="cyan" className="mt-6 rounded-3xl border border-cyan-400/20 p-5">
             <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
               <div>
-                <h3 className="text-xl font-semibold text-white">
+                <h3 className="text-xl font-semibold text-[var(--text-primary)]">
                   {t("filesBrowserSpa.currentDirectoryOps")}
                 </h3>
                 <p className="mt-2 text-sm text-[var(--text-secondary)]">

@@ -120,7 +120,7 @@ export function ServerCardActions({
               value={directGateway.enabled ? "false" : "true"}
             />
             <div className="space-y-1" role="status" aria-live="polite">
-              <div className="text-xs font-medium text-slate-200">
+              <div className="text-xs font-medium text-[var(--text-secondary)]">
                 {t("serverCardActions.directGateway.statusPrefix").replace("{status}", directGateway.statusLabel)}
               </div>
               {directGateway.publicUrl ? (
@@ -128,17 +128,17 @@ export function ServerCardActions({
                   href={directGateway.publicUrl}
                   target="_blank"
                   rel="noreferrer"
-                  className="block break-all text-xs font-medium text-cyan-100 underline decoration-cyan-300/50 underline-offset-2 hover:text-white light:hover:text-slate-900 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan-300 light:hover:text-cyan-950"
+                  className="block break-all text-xs font-medium text-cyan-100 underline decoration-cyan-300/50 underline-offset-2 hover:text-[var(--text-primary)] light:hover:text-slate-900 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan-300 light:hover:text-cyan-950"
                 >
                   {directGateway.publicUrl}
                 </a>
               ) : (
-                <div className="text-[11px] text-slate-500">
+                <div className="text-[11px] text-[var(--text-muted)]">
                   {t("serverCardActions.directGateway.relayHint")}
                 </div>
               )}
             </div>
-            <div className="rounded-xl border border-white/10 bg-slate-950/30 p-3 text-[11px] leading-5 text-slate-400 light:border-cyan-700/15">
+            <div className="rounded-xl border border-[var(--border)] bg-[var(--surface-subtle)] p-3 text-[11px] leading-5 text-[var(--text-muted)] light:border-cyan-700/15">
               {directGateway.enabled ? (
                 <>
                   <p className="font-medium text-cyan-100">
@@ -186,7 +186,7 @@ export function ServerCardActions({
           <button
             type="button"
             onClick={() => setShowEdit((value) => !value)}
-            className="w-full rounded-2xl border border-[var(--border)] bg-white/5 px-4 py-2 text-sm font-medium text-slate-200 transition hover:bg-white/10"
+            className="w-full rounded-2xl border border-[var(--border)] bg-white/5 px-4 py-2 text-sm font-medium text-[var(--text-secondary)] transition hover:bg-white/10"
           >
             {showEdit ? t("serverCardActions.edit.toggleHide") : t("serverCardActions.edit.toggleShow")}
           </button>
@@ -196,12 +196,12 @@ export function ServerCardActions({
           <form
             action={editAction}
             aria-label={t("serverCardActions.edit.formAria")}
-            className="space-y-3 rounded-2xl border border-white/10 bg-white/[0.03] p-3"
+            className="space-y-3 rounded-2xl border border-[var(--border)] bg-white/[0.03] p-3"
           >
             <input type="hidden" name="serverId" value={serverId} />
             <input type="hidden" name="connectionType" value={connectionType} />
             <label
-              className="block text-xs text-slate-400"
+              className="block text-xs text-[var(--text-muted)]"
               htmlFor={`edit-name-${serverId}`}
             >
               {t("serverCardActions.edit.name")}
@@ -211,10 +211,10 @@ export function ServerCardActions({
               name="name"
               type="text"
               defaultValue={serverName}
-              className="w-full rounded-lg border border-white/10 bg-slate-950/60 px-3 py-2 text-sm text-white"
+              className="w-full rounded-lg border border-[var(--border)] bg-[var(--surface-subtle)] px-3 py-2 text-sm text-[var(--text-primary)]"
             />
             <label
-              className="block text-xs text-slate-400"
+              className="block text-xs text-[var(--text-muted)]"
               htmlFor={`edit-host-${serverId}`}
             >
               {t("serverCardActions.edit.host")}
@@ -224,10 +224,10 @@ export function ServerCardActions({
               name="host"
               type="text"
               defaultValue={host}
-              className="w-full rounded-lg border border-white/10 bg-slate-950/60 px-3 py-2 text-sm text-white"
+              className="w-full rounded-lg border border-[var(--border)] bg-[var(--surface-subtle)] px-3 py-2 text-sm text-[var(--text-primary)]"
             />
             <label
-              className="block text-xs text-slate-400"
+              className="block text-xs text-[var(--text-muted)]"
               htmlFor={`edit-port-${serverId}`}
             >
               {t("serverCardActions.edit.port")}
@@ -239,10 +239,10 @@ export function ServerCardActions({
               min={1}
               max={65535}
               defaultValue={port}
-              className="w-full rounded-lg border border-white/10 bg-slate-950/60 px-3 py-2 text-sm text-white"
+              className="w-full rounded-lg border border-[var(--border)] bg-[var(--surface-subtle)] px-3 py-2 text-sm text-[var(--text-primary)]"
             />
             <label
-              className="block text-xs text-slate-400"
+              className="block text-xs text-[var(--text-muted)]"
               htmlFor={`edit-username-${serverId}`}
             >
               {t("serverCardActions.edit.username")}
@@ -252,12 +252,12 @@ export function ServerCardActions({
               name="username"
               type="text"
               defaultValue={username}
-              className="w-full rounded-lg border border-white/10 bg-slate-950/60 px-3 py-2 text-sm text-white"
+              className="w-full rounded-lg border border-[var(--border)] bg-[var(--surface-subtle)] px-3 py-2 text-sm text-[var(--text-primary)]"
             />
             {connectionType === "PASSWORD" ? (
               <>
                 <label
-                  className="block text-xs text-slate-400"
+                  className="block text-xs text-[var(--text-muted)]"
                   htmlFor={`edit-password-${serverId}`}
                 >
                   {t("serverCardActions.edit.password")}
@@ -268,12 +268,12 @@ export function ServerCardActions({
                   type="password"
                   defaultValue=""
                   autoComplete="new-password"
-                  className="w-full rounded-lg border border-white/10 bg-slate-950/60 px-3 py-2 text-sm text-white"
+                  className="w-full rounded-lg border border-[var(--border)] bg-[var(--surface-subtle)] px-3 py-2 text-sm text-[var(--text-primary)]"
                 />
               </>
             ) : null}
             <label
-              className="block text-xs text-slate-400"
+              className="block text-xs text-[var(--text-muted)]"
               htmlFor={`edit-description-${serverId}`}
             >
               {t("serverCardActions.edit.description")}
@@ -283,10 +283,10 @@ export function ServerCardActions({
               name="description"
               defaultValue={description ?? ""}
               rows={2}
-              className="w-full rounded-lg border border-white/10 bg-slate-950/60 px-3 py-2 text-sm text-white"
+              className="w-full rounded-lg border border-[var(--border)] bg-[var(--surface-subtle)] px-3 py-2 text-sm text-[var(--text-primary)]"
             />
             <label
-              className="block text-xs text-slate-400"
+              className="block text-xs text-[var(--text-muted)]"
               htmlFor={`edit-tags-${serverId}`}
             >
               {t("serverCardActions.edit.tags")}
@@ -296,7 +296,7 @@ export function ServerCardActions({
               name="tags"
               type="text"
               defaultValue={(tags ?? []).join(",")}
-              className="w-full rounded-lg border border-white/10 bg-slate-950/60 px-3 py-2 text-sm text-white"
+              className="w-full rounded-lg border border-[var(--border)] bg-[var(--surface-subtle)] px-3 py-2 text-sm text-[var(--text-primary)]"
             />
             <SubmitButton
               pendingLabel={t("serverCardActions.edit.pending")}
@@ -373,7 +373,7 @@ export function ServerCardActions({
                   name="confirmName"
                   type="text"
                   autoComplete="off"
-                  className="w-full rounded-lg border border-rose-400/30 bg-slate-950/60 px-3 py-2 text-sm text-white placeholder:text-slate-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-rose-300"
+                  className="w-full rounded-lg border border-rose-400/30 bg-[var(--surface-subtle)] px-3 py-2 text-sm text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-rose-300"
                 />
                 <div className="flex gap-2">
                   <SubmitButton
@@ -385,7 +385,7 @@ export function ServerCardActions({
                   <button
                     type="button"
                     onClick={() => router.refresh()}
-                    className="flex-1 rounded-2xl border border-white/10 bg-white/5 px-4 py-2 text-sm font-medium text-slate-300 transition hover:bg-white/10 light:hover:bg-slate-100"
+                    className="flex-1 rounded-2xl border border-[var(--border)] bg-white/5 px-4 py-2 text-sm font-medium text-[var(--text-secondary)] transition hover:bg-white/10 light:hover:bg-slate-100"
                   >
                     {t("serverCardActions.delete.cancel")}
                   </button>

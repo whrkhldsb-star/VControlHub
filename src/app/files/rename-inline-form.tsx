@@ -121,7 +121,7 @@ export function RenameInlineForm({
           maxLength={255}
           pattern={String.raw`^[^\s/\\:*?"<>|]+$`}
           placeholder={t("renameInlineForm.inputPlaceholder")}
-          className="rounded-2xl border border-[var(--border)] bg-slate-950 px-4 py-2 text-sm text-white placeholder:text-slate-500"
+          className="rounded-2xl border border-[var(--border)] bg-[var(--input-bg)] px-4 py-2 text-sm text-[var(--text-primary)] placeholder:text-[var(--text-muted)]"
         />
       </label>
       {newName.trim() && newName !== currentName ? (

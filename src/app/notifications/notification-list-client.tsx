@@ -119,7 +119,7 @@ export function NotificationListClient({ initialNotifications, initialUnreadCoun
 					key={n.id}
 					className={`group rounded-xl border p-4 transition-colors duration-150 focus-within:ring-2 focus-within:ring-cyan-300/60 light:focus-within:ring-cyan-600/50 ${
 						n.isRead
-							? "border-white/[0.04] bg-white/[0.01] hover:bg-white/[0.03] light:hover:bg-slate-50"
+							? "border-[var(--border)] bg-white/[0.01] hover:bg-white/[0.03] light:hover:bg-slate-50"
 							: "border-cyan-400/20 bg-cyan-400/[0.04] hover:bg-cyan-400/[0.06] light:border-cyan-600/30 light:bg-cyan-50 light:hover:bg-cyan-100/70"
 					}`}
 				>
@@ -127,23 +127,23 @@ export function NotificationListClient({ initialNotifications, initialUnreadCoun
 						<span className="text-lg mt-0.5 shrink-0" aria-hidden="true">{typeIcon[n.type] ?? "🔔"}</span>
 						<div className="flex-1 min-w-0">
 							<div className="flex items-center gap-2 min-w-0">
-								<h3 className={`text-sm font-medium truncate ${n.isRead ? "text-slate-400" : "text-white"}`} title={n.title}>{n.title}</h3>
+								<h3 className={`text-sm font-medium truncate ${n.isRead ? "text-[var(--text-muted)]" : "text-[var(--text-primary)]"}`} title={n.title}>{n.title}</h3>
 								{!n.isRead && <div className="h-1.5 w-1.5 rounded-full bg-cyan-400 shrink-0 light:bg-cyan-600" aria-label={t("notificationsPage.unreadBadge")} />}
 							</div>
-							<p className="mt-1 text-xs text-slate-500 leading-relaxed">{n.message}</p>
+							<p className="mt-1 text-xs text-[var(--text-muted)] leading-relaxed">{n.message}</p>
 							<div className="mt-2 flex flex-wrap items-center gap-3 text-[11px]">
-								<span className="text-slate-600">{timeAgo(n.createdAt, t)}</span>
+								<span className="text-[var(--text-muted)]">{timeAgo(n.createdAt, t)}</span>
 								{n.actionUrl && (
 									<Link href={getSafeNotificationActionUrl(n.actionUrl)} className="rounded-lg px-1 py-0.5 text-cyan-400/70 transition hover:text-cyan-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-300 light:hover:text-cyan-800 light:focus-visible:ring-cyan-600">
 										{t("notificationsPage.action.view")}
 									</Link>
 								)}
 								{!n.isRead && (
-									<button onClick={() => markOneRead(n.id)} className="rounded-lg px-1 py-0.5 text-slate-500 transition hover:text-slate-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-300 light:hover:text-slate-900 light:focus-visible:ring-cyan-600">
+									<button onClick={() => markOneRead(n.id)} className="rounded-lg px-1 py-0.5 text-[var(--text-muted)] transition hover:text-[var(--text-secondary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-300 light:hover:text-slate-900 light:focus-visible:ring-cyan-600">
 										{t("notificationsPage.action.markOne")}
 									</button>
 								)}
-								<button onClick={() => deleteOne(n.id)} className="rounded-lg px-1 py-0.5 text-slate-600 opacity-100 transition hover:text-rose-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-300 light:hover:text-rose-700 light:focus-visible:ring-rose-600 sm:opacity-0 sm:group-hover:opacity-100 sm:group-focus-within:opacity-100">
+								<button onClick={() => deleteOne(n.id)} className="rounded-lg px-1 py-0.5 text-[var(--text-muted)] opacity-100 transition hover:text-rose-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-300 light:hover:text-rose-700 light:focus-visible:ring-rose-600 sm:opacity-0 sm:group-hover:opacity-100 sm:group-focus-within:opacity-100">
 									{t("notificationsPage.action.delete")}
 								</button>
 							</div>

@@ -101,7 +101,7 @@ export function AnnouncementList({
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder={t("announcementsPage.search.placeholder")}
-            className="w-full rounded-lg border border-[var(--border)] bg-white/[0.04] pl-9 pr-4 py-2 text-sm text-white outline-none placeholder:text-slate-600"
+            className="w-full rounded-lg border border-[var(--border)] bg-white/[0.04] pl-9 pr-4 py-2 text-sm text-white outline-none placeholder:text-[var(--text-muted)]"
           />
         </div>
         <select
@@ -166,12 +166,12 @@ export function AnnouncementList({
 
       {pendingDelete && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 p-4 backdrop-blur-sm" role="presentation">
-          <div role="dialog" aria-modal="true" aria-labelledby="delete-announcement-title" className="w-full max-w-md rounded-2xl border border-white/[0.08] bg-slate-950 p-5 shadow-2xl shadow-black/30">
-            <h3 id="delete-announcement-title" className="text-base font-semibold text-white">{t("announcementsPage.delete.title")}</h3>
-            <p className="mt-2 text-sm leading-6 text-slate-400">{t("announcementsPage.delete.confirm").replace("{title}", pendingDelete.title)}</p>
-            {deleteError && <p role="alert" className="mt-3 text-xs text-rose-300">{deleteError}</p>}
+          <div role="dialog" aria-modal="true" aria-labelledby="delete-announcement-title" className="w-full max-w-md rounded-2xl border border-[var(--border)] bg-[var(--modal-bg)] p-5 shadow-2xl shadow-black/30">
+            <h3 id="delete-announcement-title" className="text-base font-semibold text-[var(--text-primary)]">{t("announcementsPage.delete.title")}</h3>
+            <p className="mt-2 text-sm leading-6 text-[var(--text-muted)]">{t("announcementsPage.delete.confirm").replace("{title}", pendingDelete.title)}</p>
+            {deleteError && <p role="alert" className="mt-3 text-xs text-rose-400 dark:text-rose-300">{deleteError}</p>}
             <div className="mt-5 flex justify-end gap-2">
-              <button type="button" disabled={deleteBusy} onClick={() => { setPendingDelete(null); setDeleteError(null); }} data-card className=" px-4 py-2 text-sm text-slate-300 transition hover:bg-white/[0.06] disabled:opacity-50">
+              <button type="button" disabled={deleteBusy} onClick={() => { setPendingDelete(null); setDeleteError(null); }} data-card className=" px-4 py-2 text-sm text-[var(--text-secondary)] transition hover:bg-[var(--surface-hover)] disabled:opacity-50">
                 {t("announcementsPage.delete.cancel")}
               </button>
               <button type="button" disabled={deleteBusy} onClick={handleDelete} data-tone="rose" className="rounded-xl border border-rose-400/30 px-4 py-2 text-sm font-medium text-rose-100 transition hover:bg-rose-500/25 disabled:opacity-50">

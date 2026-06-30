@@ -54,7 +54,7 @@ export function SortIcon({
 			type="button"
 			onClick={() => onToggle(col)}
 			aria-label={`按${label}排序`}
-			className="inline-flex items-center gap-1 hover:text-white light:hover:text-slate-900 transition"
+			className="inline-flex items-center gap-1 hover:text-[var(--text-primary)] light:hover:text-slate-900 transition"
 		>
 			{active ? (sortDir === "asc" ? "↑" : "↓") : "↕"}
 		</button>

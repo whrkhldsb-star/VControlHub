@@ -81,41 +81,41 @@ export default async function QaReportDetailPage({ params }: Params) {
 			</PageHeader>
 			<div className="space-y-5">
 				<section data-card className="">
-					<dl className="grid gap-3 text-xs text-slate-400 sm:grid-cols-2">
+					<dl className="grid gap-3 text-xs text-[var(--text-muted)] sm:grid-cols-2">
 						<div>
-							<dt className="font-semibold uppercase tracking-[0.2em] text-slate-500">{t("qaReportsPage.detail.finishedAt")}</dt>
-							<dd className="mt-1 text-sm text-white">{formatTime(detail.finishedAt)}</dd>
+							<dt className="font-semibold uppercase tracking-[0.2em] text-[var(--text-muted)]">{t("qaReportsPage.detail.finishedAt")}</dt>
+							<dd className="mt-1 text-sm text-[var(--text-primary)]">{formatTime(detail.finishedAt)}</dd>
 						</div>
 						{detail.startedAt ? (
 							<div>
-								<dt className="font-semibold uppercase tracking-[0.2em] text-slate-500">{t("qaReportsPage.detail.startedAt")}</dt>
-								<dd className="mt-1 text-sm text-white">{formatTime(detail.startedAt)}</dd>
+								<dt className="font-semibold uppercase tracking-[0.2em] text-[var(--text-muted)]">{t("qaReportsPage.detail.startedAt")}</dt>
+								<dd className="mt-1 text-sm text-[var(--text-primary)]">{formatTime(detail.startedAt)}</dd>
 							</div>
 						) : null}
 						<div>
-							<dt className="font-semibold uppercase tracking-[0.2em] text-slate-500">{t("qaReportsPage.detail.status")}</dt>
-							<dd className="mt-1 text-sm text-white">{detail.status}</dd>
+							<dt className="font-semibold uppercase tracking-[0.2em] text-[var(--text-muted)]">{t("qaReportsPage.detail.status")}</dt>
+							<dd className="mt-1 text-sm text-[var(--text-primary)]">{detail.status}</dd>
 						</div>
 						<div>
-							<dt className="font-semibold uppercase tracking-[0.2em] text-slate-500">{t("qaReportsPage.detail.evidenceCount")}</dt>
-							<dd className="mt-1 text-sm text-white">{detail.evidence.length}</dd>
+							<dt className="font-semibold uppercase tracking-[0.2em] text-[var(--text-muted)]">{t("qaReportsPage.detail.evidenceCount")}</dt>
+							<dd className="mt-1 text-sm text-[var(--text-primary)]">{detail.evidence.length}</dd>
 						</div>
 					</dl>
-					<p className="mt-4 text-sm text-slate-300">{detail.summary}</p>
+					<p className="mt-4 text-sm text-[var(--text-secondary)]">{detail.summary}</p>
 				</section>
 				{detail.evidence.length > 0 ? (
 					<section data-card>
-						<div className="border-b border-white/[0.06] px-5 py-4">
-							<h2 className="text-sm font-semibold text-white">{t("qaReportsPage.detail.evidenceTitle")}</h2>
-							<p className="mt-1 text-xs text-slate-500">{t("qaReportsPage.detail.evidenceDesc")}</p>
+						<div className="border-b border-[var(--border)] px-5 py-4">
+							<h2 className="text-sm font-semibold text-[var(--text-primary)]">{t("qaReportsPage.detail.evidenceTitle")}</h2>
+							<p className="mt-1 text-xs text-[var(--text-muted)]">{t("qaReportsPage.detail.evidenceDesc")}</p>
 						</div>
-						<ul className="divide-y divide-white/[0.06]">
+						<ul className="divide-y divide-[var(--border)]">
 							{detail.evidence.map((row, index) => (
 								<li key={`${detail.id}-evidence-${index}`} className="px-5 py-4">
 									<div className="text-[11px] font-semibold uppercase tracking-[0.2em] text-cyan-300">
 										{row.command || t("qaReportsPage.detail.noCommand")}
 									</div>
-									<pre className="mt-2 whitespace-pre-wrap break-words text-xs text-slate-300 font-mono">
+									<pre className="mt-2 whitespace-pre-wrap break-words text-xs text-[var(--text-secondary)] font-mono">
 										{row.result || t("qaReportsPage.detail.noResult")}
 									</pre>
 								</li>
@@ -125,23 +125,23 @@ export default async function QaReportDetailPage({ params }: Params) {
 				) : null}
 				{detail.changeContract ? (
 					<section data-card>
-						<div className="border-b border-white/[0.06] px-5 py-4">
-							<h2 className="text-sm font-semibold text-white">{t("qaReportsPage.detail.changeContract")}</h2>
-							<p className="mt-1 text-xs text-slate-500">{t("qaReportsPage.detail.changeContractDesc")}</p>
+						<div className="border-b border-[var(--border)] px-5 py-4">
+							<h2 className="text-sm font-semibold text-[var(--text-primary)]">{t("qaReportsPage.detail.changeContract")}</h2>
+							<p className="mt-1 text-xs text-[var(--text-muted)]">{t("qaReportsPage.detail.changeContractDesc")}</p>
 						</div>
-						<div className="space-y-3 px-5 py-4 text-sm text-slate-300">
+						<div className="space-y-3 px-5 py-4 text-sm text-[var(--text-secondary)]">
 							{detail.changeContract.commit ? (
 								<div>
-									<div className="text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-500">{t("qaReportsPage.detail.commit")}</div>
+									<div className="text-[11px] font-semibold uppercase tracking-[0.2em] text-[var(--text-muted)]">{t("qaReportsPage.detail.commit")}</div>
 									<div className="mt-1 font-mono text-xs text-cyan-200">{detail.changeContract.commit}</div>
 								</div>
 							) : null}
 							{detail.changeContract.files && detail.changeContract.files.length > 0 ? (
 								<div>
-									<div className="text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-500">
+									<div className="text-[11px] font-semibold uppercase tracking-[0.2em] text-[var(--text-muted)]">
 										{t("qaReportsPage.detail.filesCount").replace("{n}", String(detail.changeContract.files.length))}
 									</div>
-									<ul className="mt-1 space-y-1 font-mono text-xs text-slate-300">
+									<ul className="mt-1 space-y-1 font-mono text-xs text-[var(--text-secondary)]">
 										{detail.changeContract.files.map((file) => (
 											<li key={file}>{file}</li>
 										))}
@@ -150,8 +150,8 @@ export default async function QaReportDetailPage({ params }: Params) {
 							) : null}
 							{detail.changeContract.notes ? (
 								<div>
-									<div className="text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-500">{t("qaReportsPage.detail.notes")}</div>
-									<p className="mt-1 text-xs text-slate-300">{detail.changeContract.notes}</p>
+									<div className="text-[11px] font-semibold uppercase tracking-[0.2em] text-[var(--text-muted)]">{t("qaReportsPage.detail.notes")}</div>
+									<p className="mt-1 text-xs text-[var(--text-secondary)]">{detail.changeContract.notes}</p>
 								</div>
 							) : null}
 						</div>
@@ -159,8 +159,8 @@ export default async function QaReportDetailPage({ params }: Params) {
 				) : null}
 				{detail.next ? (
 					<section data-card className="">
-						<h2 className="text-sm font-semibold text-white">{t("qaReportsPage.detail.next")}</h2>
-						<p className="mt-2 text-sm text-slate-300">{detail.next}</p>
+						<h2 className="text-sm font-semibold text-[var(--text-primary)]">{t("qaReportsPage.detail.next")}</h2>
+						<p className="mt-2 text-sm text-[var(--text-secondary)]">{detail.next}</p>
 					</section>
 				) : null}
 			</div>

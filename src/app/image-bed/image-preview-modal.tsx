@@ -104,7 +104,7 @@ export function ImagePreviewModal({
 				</div>
 				<button
 					onClick={onClose}
-					className="absolute -top-3 -right-3 w-8 h-8 bg-slate-800 text-slate-300 rounded-full flex items-center justify-center hover:bg-slate-700 light:hover:bg-slate-200 text-lg"
+					className="absolute -top-3 -right-3 w-8 h-8 bg-[var(--surface-elevated)] text-[var(--text-secondary)] rounded-full flex items-center justify-center hover:bg-[var(--surface-hover)] text-lg"
 					aria-label="关闭预览"
 				>
 					✕

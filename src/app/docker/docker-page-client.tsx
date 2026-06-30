@@ -73,7 +73,7 @@ function stateLabel(t: (key: string) => string, state: string): string {
 
 const stateColors: Record<string, string> = {
 	running: "bg-emerald-500/10 text-emerald-400",
-	exited: "bg-slate-700/50 text-slate-400",
+	exited: "bg-slate-700/50 text-[var(--text-muted)]",
 	paused: "bg-amber-500/10 text-amber-400",
 	created: "bg-[var(--accent-bg)] text-[var(--accent)]",
 	restarting: "bg-orange-500/10 text-orange-400",
@@ -243,11 +243,11 @@ export default function DockerPage() {
 					{scopeSocketText}
 				</p>
 			</section>
-			<div className="flex flex-wrap items-center gap-3 text-xs text-slate-500 mb-6">
+			<div className="flex flex-wrap items-center gap-3 text-xs text-[var(--text-muted)] mb-6">
 				<span>{t("dockerPage.toolbar.compose")}</span>
-				<span className="text-slate-600">·</span>
+				<span className="text-[var(--text-muted)]">·</span>
 				<span>{t("dockerPage.toolbar.groupCount").replace("{count}", String(projectCount))}</span>
-				<span className="text-slate-600">·</span>
+				<span className="text-[var(--text-muted)]">·</span>
 				<span>{t("dockerPage.toolbar.ungroupedCount").replace("{count}", String(ungrouped.length))}</span>
 			</div>
 			<div className="flex flex-wrap items-center gap-3 mb-6">
@@ -271,7 +271,7 @@ export default function DockerPage() {
 				<button
 					onClick={() => setStatsAutoRefresh((v) => !v)}
 					disabled={refreshIntervalSeconds <= 0 || runningContainers.length === 0}
-					className={`min-h-11 px-3 py-1.5 text-xs font-medium rounded-lg transition disabled:cursor-not-allowed disabled:opacity-50 ${statsAutoRefresh ? "bg-emerald-500/10 text-emerald-300" : "bg-slate-700/50 text-slate-400"}`}
+					className={`min-h-11 px-3 py-1.5 text-xs font-medium rounded-lg transition disabled:cursor-not-allowed disabled:opacity-50 ${statsAutoRefresh ? "bg-emerald-500/10 text-emerald-300" : "bg-slate-700/50 text-[var(--text-muted)]"}`}
 				>
 					{statsAutoRefresh
 						? t("dockerPage.autoRefreshOn").replace("{label}", refreshLabel)
@@ -286,7 +286,7 @@ export default function DockerPage() {
 			<DockerResourcesPanel />
 
 			{loading ? (
-				<div className="text-sm text-slate-500">{t("dockerPage.loading")}</div>
+				<div className="text-sm text-[var(--text-muted)]">{t("dockerPage.loading")}</div>
 			) : containers.length === 0 ? (
 				<div data-empty-state className="bg-white/[0.02]">
 					{t("dockerPage.empty")}
@@ -296,24 +296,24 @@ export default function DockerPage() {
 					{grouped.map((group) => (
 						<section key={group.project} data-card className="p-4">
 							<div className="mb-3">
-								<h2 className="text-sm font-medium text-white">{group.project}</h2>
-								<p className="text-[11px] text-slate-500">{t("dockerPage.group.subtitle").replace("{count}", String(group.containers.length))}</p>
+								<h2 className="text-sm font-medium text-[var(--text-primary)]">{group.project}</h2>
+								<p className="text-[11px] text-[var(--text-muted)]">{t("dockerPage.group.subtitle").replace("{count}", String(group.containers.length))}</p>
 							</div>
 							<div className="space-y-3">
 								{group.containers.map((c) => {
 									const stat = stats[c.Id];
 									return (
-										<div key={c.Id} className="rounded-lg border border-white/[0.06] bg-black/20 p-4">
+										<div key={c.Id} className="rounded-lg border border-[var(--border)] bg-black/20 p-4">
 											<div className="flex items-center justify-between gap-3 mb-2">
 												<div className="flex items-center gap-3 min-w-0">
-													<span className={`text-[10px] px-2 py-0.5 rounded-full font-medium ${stateColors[c.State] || "bg-slate-700/50 text-slate-400"}`}>
+													<span className={`text-[10px] px-2 py-0.5 rounded-full font-medium ${stateColors[c.State] || "bg-slate-700/50 text-[var(--text-muted)]"}`}>
 														{stateLabel(t, c.State)}
 													</span>
-													<span className="text-sm font-medium text-white truncate">{(c.Names?.[0] || c.Id?.slice(0, 12)).replace(/^\//, "")}</span>
+													<span className="text-sm font-medium text-[var(--text-primary)] truncate">{(c.Names?.[0] || c.Id?.slice(0, 12)).replace(/^\//, "")}</span>
 												</div>
-												<span className="text-[10px] text-slate-500 truncate ml-3">{c.Image}</span>
+												<span className="text-[10px] text-[var(--text-muted)] truncate ml-3">{c.Image}</span>
 											</div>
-											<div className="flex flex-wrap items-center gap-2 text-[11px] text-slate-500 mb-3">
+											<div className="flex flex-wrap items-center gap-2 text-[11px] text-[var(--text-muted)] mb-3">
 												<span>{c.Status}</span>
 												{c.Labels?.["com.docker.compose.service"] ? <span>{t("dockerPage.label.service").replace("{name}", c.Labels["com.docker.compose.service"])}</span> : null}
 												{c.Labels?.["com.docker.compose.version"] ? <span>{t("dockerPage.label.version").replace("{version}", c.Labels["com.docker.compose.version"])}</span> : null}
@@ -333,10 +333,10 @@ export default function DockerPage() {
 												{c.State === "running" && (
 													<>
 														<button onClick={() => handleAction(c, "stop")} disabled={actionLoading === c.Id} className="min-h-11 px-2.5 py-1 text-[10px] bg-amber-500/10 text-amber-400 rounded-lg hover:bg-amber-500/20 transition disabled:opacity-50">{t("dockerPage.action.stop")}</button>
-														<button onClick={() => handleAction(c, "restart")} disabled={actionLoading === c.Id} className="min-h-11 px-2.5 py-1 text-[10px] bg-[var(--accent-bg)] text-[var(--accent)] rounded-lg hover:bg-[var(--accent-hover)] hover:text-white transition disabled:opacity-50">{t("dockerPage.action.restart")}</button>
+														<button onClick={() => handleAction(c, "restart")} disabled={actionLoading === c.Id} className="min-h-11 px-2.5 py-1 text-[10px] bg-[var(--accent-bg)] text-[var(--accent)] rounded-lg hover:bg-[var(--accent-hover)] hover:text-[var(--text-primary)] transition disabled:opacity-50">{t("dockerPage.action.restart")}</button>
 													</>
 												)}
-												<button onClick={() => fetchLogs(c.Id)} className="min-h-11 px-2.5 py-1 text-[10px] bg-slate-700/50 light:bg-slate-200/50 text-[var(--text-secondary)] rounded-lg hover:bg-slate-700 light:hover:bg-slate-200 transition">{t("dockerPage.action.logs")}</button>
+												<button onClick={() => fetchLogs(c.Id)} className="min-h-11 px-2.5 py-1 text-[10px] bg-slate-700/50 light:bg-slate-200/50 text-[var(--text-secondary)] rounded-lg hover:bg-[var(--surface-hover)] light:hover:bg-slate-200 transition">{t("dockerPage.action.logs")}</button>
 												<button onClick={() => requestRemoval(c)} disabled={actionLoading === c.Id} className="min-h-11 px-2.5 py-1 text-[10px] bg-rose-500/10 text-rose-400 rounded-lg hover:bg-rose-500/20 transition disabled:opacity-50">{t("dockerPage.action.remove")}</button>
 											</div>
 										</div>
@@ -348,20 +348,20 @@ export default function DockerPage() {
 
 					{ungrouped.length > 0 && (
 						<section data-card className="p-4">
-							<h2 className="text-sm font-medium text-white mb-3">{t("dockerPage.ungrouped.title")}</h2>
+							<h2 className="text-sm font-medium text-[var(--text-primary)] mb-3">{t("dockerPage.ungrouped.title")}</h2>
 							<div className="space-y-3">
 								{ungrouped.map((c) => (
-									<div key={c.Id} className="rounded-lg border border-white/[0.06] bg-black/20 p-4">
+									<div key={c.Id} className="rounded-lg border border-[var(--border)] bg-black/20 p-4">
 										<div className="flex items-center justify-between gap-3 mb-2">
 											<div className="flex items-center gap-3 min-w-0">
-												<span className={`text-[10px] px-2 py-0.5 rounded-full font-medium ${stateColors[c.State] || "bg-slate-700/50 text-slate-400"}`}>
+												<span className={`text-[10px] px-2 py-0.5 rounded-full font-medium ${stateColors[c.State] || "bg-slate-700/50 text-[var(--text-muted)]"}`}>
 													{stateLabel(t, c.State)}
 												</span>
-												<span className="text-sm font-medium text-white truncate">{(c.Names?.[0] || c.Id?.slice(0, 12)).replace(/^\//, "")}</span>
+												<span className="text-sm font-medium text-[var(--text-primary)] truncate">{(c.Names?.[0] || c.Id?.slice(0, 12)).replace(/^\//, "")}</span>
 											</div>
-											<span className="text-[10px] text-slate-500 truncate ml-3">{c.Image}</span>
+											<span className="text-[10px] text-[var(--text-muted)] truncate ml-3">{c.Image}</span>
 										</div>
-										<div className="flex flex-wrap items-center gap-2 text-[11px] text-slate-500 mb-3">
+										<div className="flex flex-wrap items-center gap-2 text-[11px] text-[var(--text-muted)] mb-3">
 											<span>{c.Status}</span>
 										</div>
 										<div className="flex flex-wrap items-center gap-2">
@@ -369,10 +369,10 @@ export default function DockerPage() {
 											{c.State === "running" && (
 												<>
 													<button onClick={() => handleAction(c, "stop")} disabled={actionLoading === c.Id} className="min-h-11 px-2.5 py-1 text-[10px] bg-amber-500/10 text-amber-400 rounded-lg hover:bg-amber-500/20 transition disabled:opacity-50">{t("dockerPage.action.stop")}</button>
-													<button onClick={() => handleAction(c, "restart")} disabled={actionLoading === c.Id} className="min-h-11 px-2.5 py-1 text-[10px] bg-[var(--accent-bg)] text-[var(--accent)] rounded-lg hover:bg-[var(--accent-hover)] hover:text-white transition disabled:opacity-50">{t("dockerPage.action.restart")}</button>
+													<button onClick={() => handleAction(c, "restart")} disabled={actionLoading === c.Id} className="min-h-11 px-2.5 py-1 text-[10px] bg-[var(--accent-bg)] text-[var(--accent)] rounded-lg hover:bg-[var(--accent-hover)] hover:text-[var(--text-primary)] transition disabled:opacity-50">{t("dockerPage.action.restart")}</button>
 												</>
 											)}
-											<button onClick={() => fetchLogs(c.Id)} className="min-h-11 px-2.5 py-1 text-[10px] bg-slate-700/50 light:bg-slate-200/50 text-[var(--text-secondary)] rounded-lg hover:bg-slate-700 light:hover:bg-slate-200 transition">{t("dockerPage.action.logs")}</button>
+											<button onClick={() => fetchLogs(c.Id)} className="min-h-11 px-2.5 py-1 text-[10px] bg-slate-700/50 light:bg-slate-200/50 text-[var(--text-secondary)] rounded-lg hover:bg-[var(--surface-hover)] light:hover:bg-slate-200 transition">{t("dockerPage.action.logs")}</button>
 											<button onClick={() => requestRemoval(c)} disabled={actionLoading === c.Id} className="min-h-11 px-2.5 py-1 text-[10px] bg-rose-500/10 text-rose-400 rounded-lg hover:bg-rose-500/20 transition disabled:opacity-50">{t("dockerPage.action.remove")}</button>
 										</div>
 									</div>
@@ -390,10 +390,10 @@ export default function DockerPage() {
 						role="dialog"
 						aria-modal="true"
 						aria-labelledby="docker-remove-confirm-title"
-						className="w-full max-w-md mx-0 rounded-t-2xl border border-rose-400/20 bg-slate-950 p-5 shadow-2xl sm:mx-4 sm:rounded-2xl"
+						className="w-full max-w-md mx-0 rounded-t-2xl border border-rose-400/20 bg-[var(--modal-bg)] p-5 shadow-2xl sm:mx-4 sm:rounded-2xl"
 						onClick={(event) => event.stopPropagation()}
 					>
-						<h3 id="docker-remove-confirm-title" className="text-base font-semibold text-white">{t("dockerPage.removeDialog.title")}</h3>
+						<h3 id="docker-remove-confirm-title" className="text-base font-semibold text-[var(--text-primary)]">{t("dockerPage.removeDialog.title")}</h3>
 						<p className="mt-3 text-sm text-[var(--text-secondary)]">
 							{t("dockerPage.removeDialog.confirm").replace("{name}", getContainerName(t, pendingRemoval))}
 						</p>
@@ -402,7 +402,7 @@ export default function DockerPage() {
 								ref={removeCancelButtonRef}
 								type="button"
 								onClick={closeRemovalDialog}
-								className="min-h-11 rounded-lg border border-white/[0.08] px-3 py-1.5 text-xs text-[var(--text-secondary)] transition hover:bg-white/[0.06]"
+								className="min-h-11 rounded-lg border border-[var(--border)] px-3 py-1.5 text-xs text-[var(--text-secondary)] transition hover:bg-white/[0.06]"
 							>
 								{t("dockerPage.removeDialog.cancel")}
 							</button>
@@ -427,17 +427,17 @@ export default function DockerPage() {
 						aria-modal="true"
 						aria-labelledby="docker-logs-dialog-title"
 						tabIndex={-1}
-						className="flex w-full max-w-2xl mx-0 max-h-[92vh] flex-col rounded-t-2xl border border-white/[0.08] bg-slate-950 p-5 shadow-2xl sm:mx-4 sm:max-h-[80vh] sm:rounded-2xl"
+						className="flex w-full max-w-2xl mx-0 max-h-[92vh] flex-col rounded-t-2xl border border-[var(--border)] bg-[var(--modal-bg)] p-5 shadow-2xl sm:mx-4 sm:max-h-[80vh] sm:rounded-2xl"
 						onClick={(e) => e.stopPropagation()}
 					>
 						<div className="flex items-center justify-between mb-3">
-							<h3 id="docker-logs-dialog-title" className="text-sm font-medium text-white">{t("dockerPage.logsDialog.title").replace("{id}", logsId.slice(0, 12))}</h3>
+							<h3 id="docker-logs-dialog-title" className="text-sm font-medium text-[var(--text-primary)]">{t("dockerPage.logsDialog.title").replace("{id}", logsId.slice(0, 12))}</h3>
 							<button
 								ref={logsCloseButtonRef}
 								type="button"
 								onClick={closeLogsDialog}
 								aria-label={t("dockerPage.logsDialog.closeAria")}
-								className="min-h-11 min-w-11 rounded-lg p-1 text-slate-500 transition hover:bg-white/[0.06] hover:text-slate-300 light:hover:bg-slate-100 light:hover:text-slate-700 focus:outline-none focus:ring-2 focus:ring-cyan-400/70"
+								className="min-h-11 min-w-11 rounded-lg p-1 text-[var(--text-muted)] transition hover:bg-white/[0.06] hover:text-[var(--text-secondary)] light:hover:bg-slate-100 light:hover:text-slate-700 focus:outline-none focus:ring-2 focus:ring-cyan-400/70"
 							>
 								<svg className="w-5 h-5" aria-hidden="true" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
 							</button>

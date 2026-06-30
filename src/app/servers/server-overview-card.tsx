@@ -71,7 +71,7 @@ export function ServerOverviewCard({
   if (!server.enabled) {
     listHealthLabel = t("serverOverviewCard.disabled");
     listHealthToneClass =
-      "border-slate-400/20 bg-slate-400/10 text-slate-400";
+      "border-slate-400/20 bg-slate-400/10 text-[var(--text-muted)]";
     listHealthDescription =
       t("serverOverviewCard.disabledDescription");
   } else if (diagnosticRun.status === "loading") {
@@ -185,11 +185,11 @@ export function ServerOverviewCard({
               className={`h-2 w-2 shrink-0 rounded-full ${server.enabled ? "bg-emerald-400" : "bg-slate-500"}`}
               aria-hidden="true"
             />
-            <h2 className="truncate text-sm font-semibold text-white">
+            <h2 className="truncate text-sm font-semibold text-[var(--text-primary)]">
               {server.name}
             </h2>
           </div>
-          <p className="mt-1 truncate text-[11px] text-slate-500" title={`${server.username}@${server.host}:${server.port}`}>
+          <p className="mt-1 truncate text-[11px] text-[var(--text-muted)]" title={`${server.username}@${server.host}:${server.port}`}>
             {server.username}@{server.host}:{server.port}
           </p>
         </div>
@@ -203,7 +203,7 @@ export function ServerOverviewCard({
         </span>
       </div>
 
-      <div className="mt-3 grid grid-cols-2 gap-2 text-[11px] text-slate-400">
+      <div className="mt-3 grid grid-cols-2 gap-2 text-[11px] text-[var(--text-muted)]">
         <CompactField label={t("serverOverviewCard.connection")} value={server.connectionTypeLabel} />
         <CompactField
           label={t("serverOverviewCard.key")}
@@ -215,7 +215,7 @@ export function ServerOverviewCard({
           value={`${server.pendingCommandCount} ${t("serverOverviewCard.itemsCount")}`}
         />
       </div>
-      <p data-tone="amber" className="mt-2 rounded-lg border border-amber-400/10 px-2 py-1.5 text-[11px] leading-5 text-slate-500 light:border-amber-700/15 light:bg-amber-50">
+      <p data-tone="amber" className="mt-2 rounded-lg border border-amber-400/10 px-2 py-1.5 text-[11px] leading-5 text-[var(--text-muted)] light:border-amber-700/15 light:bg-amber-50">
         {listHealthDescription}
       </p>
 
@@ -241,7 +241,7 @@ export function ServerOverviewCard({
           onClick={() => setExpanded((value) => !value)}
           aria-expanded={expanded}
           aria-controls={detailsId}
-          className="rounded-full border border-white/[0.08] bg-white/[0.04] px-3 py-1 text-xs text-slate-200 transition hover:bg-white/[0.08] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan-300 light:hover:bg-slate-100"
+          className="rounded-full border border-[var(--border)] bg-white/[0.04] px-3 py-1 text-xs text-[var(--text-secondary)] transition hover:bg-white/[0.08] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan-300 light:hover:bg-slate-100"
         >
           {expanded ? t("serverOverviewCard.collapseDetails") : t("serverOverviewCard.viewDetails")}
         </button>
@@ -265,9 +265,9 @@ export function ServerOverviewCard({
 
 function CompactField({ label, value }: { label: string; value: string }) {
   return (
-    <div className="min-w-0 rounded-lg border border-white/[0.04] bg-slate-950/30 px-2 py-1.5">
-      <div className="text-[10px] text-slate-600">{label}</div>
-      <div className="truncate text-[11px] text-slate-200">{value}</div>
+    <div className="min-w-0 rounded-lg border border-[var(--border)] bg-[var(--surface-subtle)] px-2 py-1.5">
+      <div className="text-[10px] text-[var(--text-muted)]">{label}</div>
+      <div className="truncate text-[11px] text-[var(--text-secondary)]">{value}</div>
     </div>
   );
 }

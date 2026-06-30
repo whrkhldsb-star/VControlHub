@@ -26,7 +26,7 @@ export function CreateBackupForm() {
     <form ref={formRef} action={formAction} className="mt-4 grid gap-3 md:grid-cols-[180px_1fr_auto] md:items-end">
       <div className="grid gap-1.5">
         <label htmlFor={backupTypeSelectId} className="text-xs font-medium text-[var(--text-secondary)]">{t("common.backupType")}</label>
-        <select id={backupTypeSelectId} name="type" defaultValue="DATABASE" className="rounded-lg border border-white/[0.08] bg-slate-950 px-3 py-2 text-sm text-slate-100">
+        <select id={backupTypeSelectId} name="type" defaultValue="DATABASE" className="rounded-lg border border-[var(--border)] bg-[var(--input-bg)] px-3 py-2 text-sm text-[var(--text-primary)]">
           <option value="DATABASE">{t("common.databaseBackup")}</option>
           <option value="FILES">{t("common.fileBackup")}</option>
           <option value="FULL">{t("common.fullBackup")}</option>
@@ -34,7 +34,7 @@ export function CreateBackupForm() {
       </div>
       <div className="grid gap-1.5">
         <label htmlFor={backupNoteInputId} className="text-xs font-medium text-[var(--text-secondary)]">{t("common.backupNote")}</label>
-        <input id={backupNoteInputId} name="note" maxLength={500} placeholder={t("common.backupNotePlaceholder")} className="rounded-lg border border-white/[0.08] bg-slate-950 px-3 py-2 text-sm text-slate-100 placeholder:text-slate-600" />
+        <input id={backupNoteInputId} name="note" maxLength={500} placeholder={t("common.backupNotePlaceholder")} className="rounded-lg border border-[var(--border)] bg-[var(--input-bg)] px-3 py-2 text-sm text-[var(--text-primary)] placeholder:text-[var(--text-muted)]" />
       </div>
       <button disabled={pending} className="rounded-lg bg-cyan-400 px-4 py-2 text-sm font-semibold text-slate-950 disabled:cursor-not-allowed disabled:opacity-60">
         {pending ? t("common.executing") : t("common.createAndExecute")}

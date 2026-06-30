@@ -35,11 +35,11 @@ export function AiRenameDialog({
         role="dialog"
         aria-modal="true"
         aria-labelledby="rename-conversation-title"
-        className="w-full max-w-sm rounded-2xl border border-[var(--border)] bg-slate-950 p-5 shadow-2xl"
+        className="w-full max-w-sm rounded-2xl border border-[var(--border)] bg-[var(--modal-bg)] p-5 shadow-2xl"
       >
         <h3
           id="rename-conversation-title"
-          className="text-sm font-semibold text-white"
+          className="text-sm font-semibold text-[var(--text-primary)]"
         >
           {t("aiPage.renameTitle")}
         </h3>
@@ -53,7 +53,7 @@ export function AiRenameDialog({
             value={title}
             onChange={(event) => onChangeTitle(event.target.value)}
             autoFocus
-            className="rounded-xl border border-[var(--border)] bg-white/[0.04] px-3 py-2 text-sm text-white outline-none placeholder:text-slate-600 focus:border-cyan-300/60"
+            className="rounded-xl border border-[var(--border)] bg-white/[0.04] px-3 py-2 text-sm text-[var(--text-primary)] outline-none placeholder:text-[var(--text-muted)] focus:border-cyan-300/60"
             placeholder={t("aiPage.newTitlePlaceholder")}
           />
         </label>

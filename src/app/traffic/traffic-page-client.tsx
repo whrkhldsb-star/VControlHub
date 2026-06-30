@@ -67,7 +67,7 @@ type TrafficHistoryPoint = TrafficSample & {
 
 function Card({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <section className="rounded-2xl border border-white/[0.06] bg-white/[0.02] p-5">
+    <section className="rounded-2xl border border-[var(--border)] bg-white/[0.02] p-5">
       <h2 className="mb-4 text-sm font-medium text-[var(--text-secondary)]">{title}</h2>
       {children}
     </section>
@@ -228,7 +228,7 @@ export default function TrafficPage({ canManage: _canManage }: { canManage: bool
         </div>
         <div className="flex items-center gap-2">
           <button onClick={() => fetchSummary()} className="rounded-lg bg-cyan-500/10 px-3 py-1.5 text-xs font-medium text-cyan-300 hover:bg-cyan-500/20">{t("trafficPage.refresh")}</button>
-          <button onClick={() => setAutoRefresh((v) => !v)} disabled={refreshIntervalSeconds <= 0} className={`rounded-lg px-3 py-1.5 text-xs font-medium disabled:cursor-not-allowed disabled:opacity-50 ${autoRefresh ? "bg-emerald-500/10 text-emerald-300" : "bg-slate-700/60 text-slate-300"}`}>
+          <button onClick={() => setAutoRefresh((v) => !v)} disabled={refreshIntervalSeconds <= 0} className={`rounded-lg px-3 py-1.5 text-xs font-medium disabled:cursor-not-allowed disabled:opacity-50 ${autoRefresh ? "bg-emerald-500/10 text-emerald-300" : "bg-slate-700/60 text-[var(--text-secondary)]"}`}>
             {autoRefresh
               ? t("trafficPage.autoRefreshOn").replace("{label}", refreshLabel)
               : refreshIntervalSeconds <= 0
@@ -241,24 +241,24 @@ export default function TrafficPage({ canManage: _canManage }: { canManage: bool
       {error && <div className="mb-4 rounded-lg bg-rose-500/10 px-4 py-3 text-sm text-rose-300">{error}</div>}
 
       <div className="mb-5 flex flex-wrap items-center gap-2">
-        <button type="button" onClick={() => { setHistoryScope("24h"); void fetchHistory("24h"); }} className={`rounded-lg px-3 py-1.5 text-xs font-medium ${historyScope === "24h" ? "bg-cyan-500/15 text-cyan-200" : "bg-white/[0.04] text-slate-300"}`}>24h</button>
-        <button type="button" onClick={() => { setHistoryScope("7d"); void fetchHistory("7d"); }} className={`rounded-lg px-3 py-1.5 text-xs font-medium ${historyScope === "7d" ? "bg-cyan-500/15 text-cyan-200" : "bg-white/[0.04] text-slate-300"}`}>7d</button>
-        <span className="text-xs text-slate-500">{historyScope === "24h" ? t("trafficPage.historyHint24h") : t("trafficPage.historyHint7d")}</span>
+        <button type="button" onClick={() => { setHistoryScope("24h"); void fetchHistory("24h"); }} className={`rounded-lg px-3 py-1.5 text-xs font-medium ${historyScope === "24h" ? "bg-cyan-500/15 text-cyan-200" : "bg-white/[0.04] text-[var(--text-secondary)]"}`}>24h</button>
+        <button type="button" onClick={() => { setHistoryScope("7d"); void fetchHistory("7d"); }} className={`rounded-lg px-3 py-1.5 text-xs font-medium ${historyScope === "7d" ? "bg-cyan-500/15 text-cyan-200" : "bg-white/[0.04] text-[var(--text-secondary)]"}`}>7d</button>
+        <span className="text-xs text-[var(--text-muted)]">{historyScope === "24h" ? t("trafficPage.historyHint24h") : t("trafficPage.historyHint7d")}</span>
       </div>
 
       <div className="space-y-5">
         <Card title={t("trafficPage.card.realtime")}>
           {loading && !summary ? (
-            <div className="text-sm text-slate-500">{t("trafficPage.loading")}</div>
+            <div className="text-sm text-[var(--text-muted)]">{t("trafficPage.loading")}</div>
           ) : summary ? (
             <>
               <div className="mb-4 flex flex-wrap items-center gap-3">
-                <label className="text-xs text-slate-500" htmlFor="trafficIface">{t("trafficPage.iface.label")}</label>
-                <select id="trafficIface" value={selectedIface} onChange={(e) => setSelectedIface(e.target.value)} className="rounded-lg border border-white/[0.08] bg-slate-950 px-3 py-1.5 text-xs text-slate-200">
+                <label className="text-xs text-[var(--text-muted)]" htmlFor="trafficIface">{t("trafficPage.iface.label")}</label>
+                <select id="trafficIface" value={selectedIface} onChange={(e) => setSelectedIface(e.target.value)} className="rounded-lg border border-[var(--border)] bg-[var(--input-bg)] px-3 py-1.5 text-xs text-[var(--text-secondary)]">
                   <option value="">{t("trafficPage.iface.auto")}</option>
                   {summary.currentServer.interfaces.map((item) => <option key={item.iface} value={item.iface}>{item.iface}</option>)}
                 </select>
-                <span className="text-[11px] text-slate-600">{t("trafficPage.lastUpdated").replace("{date}", new Date(summary.timestamp).toLocaleString("zh-CN"))}</span>
+                <span className="text-[11px] text-[var(--text-muted)]">{t("trafficPage.lastUpdated").replace("{date}", new Date(summary.timestamp).toLocaleString("zh-CN"))}</span>
               </div>
               {primary ? (
                 <>
@@ -278,12 +278,12 @@ export default function TrafficPage({ canManage: _canManage }: { canManage: bool
                         }}
                       />
                     ) : (
-                      <div className="rounded-xl border border-white/[0.06] bg-black/20 p-3">
+                      <div className="rounded-xl border border-[var(--border)] bg-black/20 p-3">
                         {persistedTrend && persistedTrend.size > 0 ? (
                           <div className="space-y-4">
                             {Array.from(persistedTrend.entries()).map(([key, points]) => (
                               <div key={key}>
-                                <div className="mb-2 text-xs text-slate-400">{key}</div>
+                                <div className="mb-2 text-xs text-[var(--text-muted)]">{key}</div>
                                 <TrafficSparkline
                                   samples={points.map((point) => ({ t: new Date(point.t).getTime(), rx: point.rx, tx: point.tx }))}
                                   labels={{
@@ -297,30 +297,30 @@ export default function TrafficPage({ canManage: _canManage }: { canManage: bool
                             ))}
                           </div>
                         ) : (
-                          <div className="text-sm text-slate-500">{t("trafficPage.chart.emptyHistory")}</div>
+                          <div className="text-sm text-[var(--text-muted)]">{t("trafficPage.chart.emptyHistory")}</div>
                         )}
                       </div>
                     )}
                   </div>
                   <div className="mt-4 grid grid-cols-1 gap-3 text-xs text-[var(--text-secondary)] md:grid-cols-2">
-                    <div className="rounded-xl bg-black/20 p-3 light:ring-1 light:ring-slate-200">{t("trafficPage.rxTotal").replace("{value}", primary.rxLabel)}<span className="font-mono text-slate-100"> </span></div>
-                    <div className="rounded-xl bg-black/20 p-3 light:ring-1 light:ring-slate-200">{t("trafficPage.txTotal").replace("{value}", primary.txLabel)}<span className="font-mono text-slate-100"> </span></div>
+                    <div className="rounded-xl bg-black/20 p-3 light:ring-1 light:ring-slate-200">{t("trafficPage.rxTotal").replace("{value}", primary.rxLabel)}<span className="font-mono text-[var(--text-primary)]"> </span></div>
+                    <div className="rounded-xl bg-black/20 p-3 light:ring-1 light:ring-slate-200">{t("trafficPage.txTotal").replace("{value}", primary.txLabel)}<span className="font-mono text-[var(--text-primary)]"> </span></div>
                   </div>
                 </>
-              ) : <div className="text-sm text-slate-500">{t("trafficPage.noIface")}</div>}
+              ) : <div className="text-sm text-[var(--text-muted)]">{t("trafficPage.noIface")}</div>}
             </>
           ) : null}
         </Card>
 
         <Card title={t("trafficPage.card.detail")}>
           {loading && !summary ? (
-            <div className="text-sm text-slate-500">{t("trafficPage.loading")}</div>
+            <div className="text-sm text-[var(--text-muted)]">{t("trafficPage.loading")}</div>
           ) : summary ? (
             <div className="overflow-x-auto">
               <table className="w-full text-xs">
-                <thead className="text-slate-500"><tr><th className="py-2 text-left">{t("trafficPage.th.iface")}</th><th className="text-right">{t("trafficPage.th.rxRate")}</th><th className="text-right">{t("trafficPage.th.txRate")}</th><th className="text-right">{t("trafficPage.th.rxTotal")}</th><th className="text-right">{t("trafficPage.th.txTotal")}</th></tr></thead>
+                <thead className="text-[var(--text-muted)]"><tr><th className="py-2 text-left">{t("trafficPage.th.iface")}</th><th className="text-right">{t("trafficPage.th.rxRate")}</th><th className="text-right">{t("trafficPage.th.txRate")}</th><th className="text-right">{t("trafficPage.th.rxTotal")}</th><th className="text-right">{t("trafficPage.th.txTotal")}</th></tr></thead>
                 <tbody>
-                  {summary.currentServer.interfaces.map((item) => <tr key={item.iface} className="border-t border-white/[0.04]"><td className="py-2 font-mono text-white">{item.iface}</td><td className="text-right text-cyan-300">{item.rxRateLabel}</td><td className="text-right text-emerald-300">{item.txRateLabel}</td><td className="text-right text-[var(--text-secondary)]">{item.rxLabel}</td><td className="text-right text-[var(--text-secondary)]">{item.txLabel}</td></tr>)}
+                  {summary.currentServer.interfaces.map((item) => <tr key={item.iface} className="border-t border-[var(--border)]"><td className="py-2 font-mono text-[var(--text-primary)]">{item.iface}</td><td className="text-right text-cyan-300">{item.rxRateLabel}</td><td className="text-right text-emerald-300">{item.txRateLabel}</td><td className="text-right text-[var(--text-secondary)]">{item.rxLabel}</td><td className="text-right text-[var(--text-secondary)]">{item.txLabel}</td></tr>)}
                 </tbody>
               </table>
             </div>
@@ -329,27 +329,27 @@ export default function TrafficPage({ canManage: _canManage }: { canManage: bool
 
         <Card title={t("trafficPage.card.remote")}>
           {remoteLoading && !remoteServers ? (
-            <div className="flex items-center gap-2 text-sm text-slate-500">
+            <div className="flex items-center gap-2 text-sm text-[var(--text-muted)]">
               <span className="h-2 w-2 animate-pulse rounded-full bg-cyan-400" />
               {t("trafficPage.remoteSampling")}
             </div>
           ) : (remoteServers ?? []).length === 0 ? (
-            <div className="text-sm text-slate-500">{t("trafficPage.noRemote")}</div>
+            <div className="text-sm text-[var(--text-muted)]">{t("trafficPage.noRemote")}</div>
           ) : (
             <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
               {(remoteServers ?? []).map((node) => (
-                <div key={node.serverId} className="rounded-xl border border-white/[0.05] bg-black/20 p-4">
+                <div key={node.serverId} className="rounded-xl border border-[var(--border)] bg-black/20 p-4">
                   <div className="flex items-center justify-between gap-3">
                     <div>
-                      <div className="text-sm font-medium text-white">{node.serverName}</div>
-                      <div className="mt-1 text-[11px] text-slate-500">{node.host}</div>
+                      <div className="text-sm font-medium text-[var(--text-primary)]">{node.serverName}</div>
+                      <div className="mt-1 text-[11px] text-[var(--text-muted)]">{node.host}</div>
                     </div>
                     {node.error ? (
                       <span className="rounded-full bg-rose-500/10 px-2 py-0.5 text-[10px] text-rose-300">{t("trafficPage.badge.samplingFailed")}</span>
                     ) : node.primaryInterface ? (
                       <span className="rounded-full bg-emerald-500/10 px-2 py-0.5 text-[10px] text-emerald-300">{t("trafficPage.badge.onlineIface").replace("{iface}", node.primaryInterface.iface)}</span>
                     ) : (
-                      <span className="rounded-full bg-slate-500/10 px-2 py-0.5 text-[10px] text-slate-300">{t("trafficPage.badge.noIface")}</span>
+                      <span className="rounded-full bg-slate-500/10 px-2 py-0.5 text-[10px] text-[var(--text-secondary)]">{t("trafficPage.badge.noIface")}</span>
                     )}
                   </div>
                   {node.error ? (
@@ -367,12 +367,12 @@ export default function TrafficPage({ canManage: _canManage }: { canManage: bool
                         </div>
                       </div>
                       <div className="mt-2 grid grid-cols-2 gap-2 text-[11px] text-[var(--text-secondary)]">
-                        <div>{t("trafficPage.rxTotal").replace("{value}", node.primaryInterface.rxLabel)}<span className="font-mono text-slate-200"> </span></div>
-                        <div>{t("trafficPage.txTotal").replace("{value}", node.primaryInterface.txLabel)}<span className="font-mono text-slate-200"> </span></div>
+                        <div>{t("trafficPage.rxTotal").replace("{value}", node.primaryInterface.rxLabel)}<span className="font-mono text-[var(--text-secondary)]"> </span></div>
+                        <div>{t("trafficPage.txTotal").replace("{value}", node.primaryInterface.txLabel)}<span className="font-mono text-[var(--text-secondary)]"> </span></div>
                       </div>
                     </>
                   ) : (
-                    <div className="mt-3 text-[11px] text-slate-500">{t("trafficPage.noPrimaryIface")}</div>
+                    <div className="mt-3 text-[11px] text-[var(--text-muted)]">{t("trafficPage.noPrimaryIface")}</div>
                   )}
                 </div>
               ))}

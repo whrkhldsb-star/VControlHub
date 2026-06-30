@@ -15,8 +15,8 @@ export function SshKeyCreateForm() {
 	return (
 		<form action={formAction} data-card className="grid gap-4 ">
 			<div>
-				<h2 className="text-lg font-semibold text-white">添加 SSH 密钥</h2>
-				<p className="mt-1 text-xs text-slate-500">用于节点纳管的 SSH 密钥对</p>
+				<h2 className="text-lg font-semibold text-[var(--text-primary)]">添加 SSH 密钥</h2>
+				<p className="mt-1 text-xs text-[var(--text-muted)]">用于节点纳管的 SSH 密钥对</p>
 			</div>
 
 			{state.error && <div className="rounded-lg bg-rose-500/[0.08] border border-rose-400/20 px-3.5 py-2.5 text-sm text-rose-200">{state.error}</div>}
@@ -24,12 +24,12 @@ export function SshKeyCreateForm() {
 
 			<div className="space-y-1.5">
 				<label className="text-xs font-medium text-white/50 tracking-wide" htmlFor="sshKeyName">名称</label>
-				<input id="sshKeyName" name="name" type="text" required placeholder="例如 prod-key" className="w-full rounded-lg border border-white/[0.06] bg-white/[0.04] px-3.5 py-2.5 text-sm text-white outline-none transition placeholder:text-white/20 focus:border-cyan-400/30 focus:bg-white/[0.06]" />
+				<input id="sshKeyName" name="name" type="text" required placeholder="例如 prod-key" className="w-full rounded-lg border border-[var(--border)] bg-white/[0.04] px-3.5 py-2.5 text-sm text-[var(--text-primary)] outline-none transition placeholder:text-white/20 focus:border-cyan-400/30 focus:bg-white/[0.06]" />
 			</div>
 
 			<div className="space-y-1.5">
 				<label className="text-xs font-medium text-white/50 tracking-wide" htmlFor="sshKeyDesc">描述</label>
-				<input id="sshKeyDesc" name="description" type="text" placeholder="可选" className="w-full rounded-lg border border-white/[0.06] bg-white/[0.04] px-3.5 py-2.5 text-sm text-white outline-none transition placeholder:text-white/20 focus:border-cyan-400/30 focus:bg-white/[0.06]" />
+				<input id="sshKeyDesc" name="description" type="text" placeholder="可选" className="w-full rounded-lg border border-[var(--border)] bg-white/[0.04] px-3.5 py-2.5 text-sm text-[var(--text-primary)] outline-none transition placeholder:text-white/20 focus:border-cyan-400/30 focus:bg-white/[0.06]" />
 			</div>
 
 			<div data-tone="cyan" className="rounded-lg border border-cyan-400/15 px-3.5 py-2.5 text-xs leading-relaxed text-cyan-100/80">
@@ -38,12 +38,12 @@ export function SshKeyCreateForm() {
 
 			<div className="space-y-1.5">
 				<label className="text-xs font-medium text-white/50 tracking-wide" htmlFor="privateKey">私钥</label>
-				<textarea id="privateKey" name="privateKey" rows={4} placeholder="粘贴 SSH 私钥内容；如果上传 .ppk 可留空" className="w-full rounded-lg border border-white/[0.06] bg-white/[0.04] px-3.5 py-2.5 text-sm text-white font-mono outline-none transition placeholder:text-white/20 focus:border-cyan-400/30 focus:bg-white/[0.06] resize-y" />
+				<textarea id="privateKey" name="privateKey" rows={4} placeholder="粘贴 SSH 私钥内容；如果上传 .ppk 可留空" className="w-full rounded-lg border border-[var(--border)] bg-white/[0.04] px-3.5 py-2.5 text-sm text-[var(--text-primary)] font-mono outline-none transition placeholder:text-white/20 focus:border-cyan-400/30 focus:bg-white/[0.06] resize-y" />
 			</div>
 
 			<div className="space-y-1.5">
 				<label className="text-xs font-medium text-white/50 tracking-wide" htmlFor="publicKey">公钥</label>
-				<textarea id="publicKey" name="publicKey" rows={2} placeholder="ssh-rsa AAAA..." className="w-full rounded-lg border border-white/[0.06] bg-white/[0.04] px-3.5 py-2.5 text-sm text-white font-mono outline-none transition placeholder:text-white/20 focus:border-cyan-400/30 focus:bg-white/[0.06] resize-y" />
+				<textarea id="publicKey" name="publicKey" rows={2} placeholder="ssh-rsa AAAA..." className="w-full rounded-lg border border-[var(--border)] bg-white/[0.04] px-3.5 py-2.5 text-sm text-[var(--text-primary)] font-mono outline-none transition placeholder:text-white/20 focus:border-cyan-400/30 focus:bg-white/[0.06] resize-y" />
 			</div>
 
 			<div className="space-y-1.5">
@@ -62,7 +62,7 @@ export function SshKeyCreateForm() {
 							}}
 						/>
 					</label>
-					{selectedPpkFileName && <span className="text-xs text-slate-500">已选择: {selectedPpkFileName}</span>}
+					{selectedPpkFileName && <span className="text-xs text-[var(--text-muted)]">已选择: {selectedPpkFileName}</span>}
 				</div>
 			</div>
 

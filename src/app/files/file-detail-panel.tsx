@@ -57,17 +57,17 @@ export function FileDetailPanel({
   const { t } = useI18n();
   return (
     <div
-      className="fixed inset-0 z-50 flex justify-end bg-slate-950/60 p-3 backdrop-blur-sm"
+      className="fixed inset-0 z-50 flex justify-end bg-[var(--surface-subtle)] p-3 backdrop-blur-sm"
       role="dialog"
       aria-modal="true"
       aria-labelledby="file-detail-panel-title"
       onClick={onClose}
     >
       <aside
-        className="flex h-full w-full max-w-xl flex-col overflow-hidden rounded-3xl border border-white/10 bg-slate-950 text-slate-100 shadow-2xl"
+        className="flex h-full w-full max-w-xl flex-col overflow-hidden rounded-3xl border border-[var(--border)] bg-[var(--modal-bg)] text-[var(--text-primary)] shadow-2xl"
         onClick={(event) => event.stopPropagation()}
       >
-        <div className="flex items-start justify-between gap-4 border-b border-white/10 px-5 py-4">
+        <div className="flex items-start justify-between gap-4 border-b border-[var(--border)] px-5 py-4">
           <div className="min-w-0">
             <p className="text-xs font-medium uppercase tracking-[0.2em] text-violet-300">
               {t("common.fileDetails")}
@@ -78,39 +78,39 @@ export function FileDetailPanel({
             >
               {detailEntry.name}
             </h2>
-            <p className="mt-1 truncate text-xs text-slate-500">
+            <p className="mt-1 truncate text-xs text-[var(--text-muted)]">
               {detailEntry.relativePath}
             </p>
           </div>
           <button
             type="button"
             onClick={onClose}
-            className="rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-xs text-slate-300 transition hover:bg-white/10"
+            className="rounded-full border border-[var(--border)] bg-white/5 px-3 py-1.5 text-xs text-[var(--text-secondary)] transition hover:bg-white/10"
           >
             关闭
           </button>
         </div>
         <div className="flex-1 space-y-5 overflow-y-auto px-5 py-5">
-          <div className="rounded-2xl border border-white/[0.06] bg-white/[0.03] p-4">
+          <div className="rounded-2xl border border-[var(--border)] bg-white/[0.03] p-4">
             <div className="grid gap-3 text-sm sm:grid-cols-2">
               <div>
-                <p className="text-xs text-slate-500">{t("fileDetailPanel.storageNode")}</p>
+                <p className="text-xs text-[var(--text-muted)]">{t("fileDetailPanel.storageNode")}</p>
                 <p className="mt-1 font-medium">
                   {detailEntry.storageNode.name}
                 </p>
               </div>
               <div>
-                <p className="text-xs text-slate-500">{t("fileDetailPanel.driver")}</p>
+                <p className="text-xs text-[var(--text-muted)]">{t("fileDetailPanel.driver")}</p>
                 <p className="mt-1 font-medium">
                   {detailEntry.storageNode.driver}
                 </p>
               </div>
               <div>
-                <p className="text-xs text-slate-500">{t("fileDetailPanel.size")}</p>
+                <p className="text-xs text-[var(--text-muted)]">{t("fileDetailPanel.size")}</p>
                 <p className="mt-1 font-medium">{detailEntry.sizeLabel}</p>
               </div>
               <div>
-                <p className="text-xs text-slate-500">{t("fileDetailPanel.modified")}</p>
+                <p className="text-xs text-[var(--text-muted)]">{t("fileDetailPanel.modified")}</p>
                 <p className="mt-1 font-medium">
                   {detailEntry.updatedAt
                     ? formatDate(detailEntry.updatedAt)
@@ -118,7 +118,7 @@ export function FileDetailPanel({
                 </p>
               </div>
               <div className="sm:col-span-2">
-                <p className="text-xs text-slate-500">{t("fileDetailPanel.accessMode")}</p>
+                <p className="text-xs text-[var(--text-muted)]">{t("fileDetailPanel.accessMode")}</p>
                 <p className="mt-1 font-medium">
                   {detailEntry.directAccess.description}
                 </p>
@@ -127,7 +127,7 @@ export function FileDetailPanel({
           </div>
 
           <div>
-            <h3 className="text-sm font-semibold text-slate-200">
+            <h3 className="text-sm font-semibold text-[var(--text-secondary)]">
               快捷操作
             </h3>
             <div className="mt-3 grid gap-2 sm:grid-cols-2">
@@ -143,7 +143,7 @@ export function FileDetailPanel({
                 <Link
                   href={buildForcedDownloadHref(detailEntry)}
                   download
-                  className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm font-medium text-slate-200 transition hover:bg-white/10"
+                  className="rounded-2xl border border-[var(--border)] bg-white/5 px-4 py-3 text-sm font-medium text-[var(--text-secondary)] transition hover:bg-white/10"
                 >
                   下载文件
                 </Link>
@@ -165,7 +165,7 @@ export function FileDetailPanel({
           </div>
 
           <div>
-            <h3 className="text-sm font-semibold text-slate-200">
+            <h3 className="text-sm font-semibold text-[var(--text-secondary)]">
               管理操作
             </h3>
             <div className="mt-3 flex flex-wrap gap-2">

@@ -55,7 +55,7 @@ export function RetentionButton({ olderThan30Days, totalRecords }: Props) {
   return (
     <form onSubmit={handleSubmit} className="grid gap-2">
       <div className="flex flex-wrap items-end gap-2">
-        <label className="grid gap-1 text-xs text-slate-500">
+        <label className="grid gap-1 text-xs text-[var(--text-muted)]">
           <span>{t("backupsPage.retention.daysLabel")}</span>
           <input
             type="number"
@@ -63,11 +63,11 @@ export function RetentionButton({ olderThan30Days, totalRecords }: Props) {
             max={3650}
             value={olderThanDays}
             onChange={(event) => setOlderThanDays(Math.max(1, Math.min(3650, Number(event.target.value) || MIN_OLDER_THAN_DAYS)))}
-            className="w-24 rounded-lg border border-white/[0.08] bg-black/20 px-2 py-1 text-sm text-white/70"
+            className="w-24 rounded-lg border border-[var(--border)] bg-black/20 px-2 py-1 text-sm text-white/70"
             disabled={pending}
           />
         </label>
-        <label className="grid gap-1 text-xs text-slate-500">
+        <label className="grid gap-1 text-xs text-[var(--text-muted)]">
           <span>{t("backupsPage.retention.keepLatestLabel")}</span>
           <input
             type="number"
@@ -75,7 +75,7 @@ export function RetentionButton({ olderThan30Days, totalRecords }: Props) {
             max={1000}
             value={keepLatestPerType}
             onChange={(event) => setKeepLatestPerType(Math.max(0, Math.min(1000, Number(event.target.value) || 0)))}
-            className="w-24 rounded-lg border border-white/[0.08] bg-black/20 px-2 py-1 text-sm text-white/70"
+            className="w-24 rounded-lg border border-[var(--border)] bg-black/20 px-2 py-1 text-sm text-white/70"
             disabled={pending}
           />
         </label>
@@ -87,7 +87,7 @@ export function RetentionButton({ olderThan30Days, totalRecords }: Props) {
           {pending ? t("backupsPage.retention.pending") : t("backupsPage.retention.submit")}
         </button>
       </div>
-      <p className="text-xs text-slate-500">
+      <p className="text-xs text-[var(--text-muted)]">
         {t("backupsPage.retention.matchInfo")
           .replace("{total}", String(totalRecords))
           .replace("{older}", String(olderThan30Days))

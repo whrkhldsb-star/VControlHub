@@ -22,7 +22,7 @@ export function AiEmptyState({
 }: Props) {
   const { t } = useI18n();
   return (
-    <div className="flex-1 flex flex-col items-center justify-center px-6 text-center text-slate-600">
+    <div className="flex-1 flex flex-col items-center justify-center px-6 text-center text-[var(--text-muted)]">
       <svg
         className="mb-4 h-16 w-16 opacity-20"
         fill="none"
@@ -38,10 +38,10 @@ export function AiEmptyState({
       </svg>
       {!hasProviders ? (
         <>
-          <p className="text-sm font-medium text-slate-300">
+          <p className="text-sm font-medium text-[var(--text-secondary)]">
             {t("aiPage.emptyNoProvider")}
           </p>
-          <p className="mt-2 max-w-md text-xs leading-5 text-slate-500">
+          <p className="mt-2 max-w-md text-xs leading-5 text-[var(--text-muted)]">
             {t("aiPage.emptyNoProviderHint")}
           </p>
           <button

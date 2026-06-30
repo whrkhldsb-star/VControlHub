@@ -145,22 +145,22 @@ const _data = await csrfFetch("/api/users/permissions", {
   };
 
   return (
-    <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-950/80 p-4 backdrop-blur">
-      <div className="mx-auto max-w-5xl rounded-3xl border border-[var(--border)] bg-slate-950 p-6 shadow-2xl shadow-cyan-950/40">
+    <div className="fixed inset-0 z-50 overflow-y-auto bg-black/60 p-4 backdrop-blur">
+      <div className="mx-auto max-w-5xl rounded-3xl border border-[var(--border)] bg-[var(--modal-bg)] p-6 shadow-2xl shadow-cyan-950/40">
         <div className="mb-5 flex items-start justify-between gap-4">
           <div>
-            <p className="text-xs uppercase tracking-[0.3em] text-cyan-300/70">{t("usersPerm.title")}</p>
-            <h3 className="mt-1 text-xl font-semibold text-white">{payload?.user.displayName ?? username}</h3>
-            <p className="mt-1 text-sm text-slate-400">{t("usersPerm.desc")}</p>
+            <p className="text-xs uppercase tracking-[0.3em] text-[var(--color-action)]/70">{t("usersPerm.title")}</p>
+            <h3 className="mt-1 text-xl font-semibold text-[var(--text-primary)]">{payload?.user.displayName ?? username}</h3>
+            <p className="mt-1 text-sm text-[var(--text-muted)]">{t("usersPerm.desc")}</p>
           </div>
-          <button type="button" onClick={onClose} className="rounded-full border border-[var(--border)] px-3 py-1.5 text-sm text-slate-300 hover:bg-white/10">{t("usersPerm.action.close")}</button>
+          <button type="button" onClick={onClose} className="rounded-full border border-[var(--border)] px-3 py-1.5 text-sm text-[var(--text-secondary)] hover:bg-[var(--surface-hover)]">{t("usersPerm.action.close")}</button>
         </div>
 
         {message && <div className={`mb-4 rounded-2xl border px-4 py-3 text-sm ${message.type === "success" ? "border-emerald-400/30 bg-emerald-400/10 text-emerald-100" : "border-rose-400/30 bg-rose-400/10 text-rose-100"}`}>{message.text}</div>}
         {loading || !payload ? <EmptyState>{t("usersPerm.loading")}</EmptyState> : (
           <div className="space-y-6">
-            <section className="rounded-2xl border border-[var(--border)] bg-white/[0.03] p-4">
-              <h4 className="font-medium text-white">{t("usersPerm.section.roles")}</h4>
+            <section className="rounded-2xl border border-[var(--border)] bg-[var(--surface-subtle)] p-4">
+              <h4 className="font-medium text-[var(--text-primary)]">{t("usersPerm.section.roles")}</h4>
               <div className="mt-3 flex flex-wrap gap-2">
                 {payload.roles.map((role) => (
                   <button key={role.key} type="button" onClick={() => setRoleKeys((current) => toggle(current, role.key))} data-tone={roleKeys.includes(role.key) ? "cyan" : undefined} className={`rounded-full border px-3 py-1.5 text-xs ${roleKeys.includes(role.key) ? "border-[var(--accent-border)] text-[var(--accent)]" : "border-[var(--border)] text-[var(--text-muted)] hover:bg-[var(--surface-elevated)]"}`}>{role.name}</button>
@@ -168,24 +168,24 @@ const _data = await csrfFetch("/api/users/permissions", {
               </div>
             </section>
 
-            <section className="rounded-2xl border border-[var(--border)] bg-white/[0.03] p-4">
-              <h4 className="font-medium text-white">{t("usersPerm.section.perms")}</h4>
+            <section className="rounded-2xl border border-[var(--border)] bg-[var(--surface-subtle)] p-4">
+              <h4 className="font-medium text-[var(--text-primary)]">{t("usersPerm.section.perms")}</h4>
               <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
                 {payload.permissions.map((permission) => (
-                  <label key={permission.key} className="flex items-center gap-2 rounded-xl border border-[var(--border)] bg-slate-950/60 px-3 py-2 text-sm text-slate-200">
+                  <label key={permission.key} className="flex items-center gap-2 rounded-xl border border-[var(--border)] bg-[var(--input-bg)] px-3 py-2 text-sm text-[var(--text-secondary)]">
                     <input type="checkbox" checked={permissionKeys.includes(permission.key)} onChange={() => setPermissionKeys((current) => toggle(current, permission.key))} />
                     <span>{permission.name || permission.key}</span>
-                    <span className="text-xs text-slate-500">{permission.key}</span>
+                    <span className="text-xs text-[var(--text-muted)]">{permission.key}</span>
                   </label>
                 ))}
               </div>
             </section>
 
-            <section className="rounded-2xl border border-[var(--border)] bg-white/[0.03] p-4">
+            <section className="rounded-2xl border border-[var(--border)] bg-[var(--surface-subtle)] p-4">
               <div className="flex items-center justify-between gap-3">
                 <div>
-                  <h4 className="font-medium text-white">{t("usersPerm.section.grants")}</h4>
-                  <p className="mt-1 text-xs text-slate-400">{t("usersPerm.grants.hint")}</p>
+                  <h4 className="font-medium text-[var(--text-primary)]">{t("usersPerm.section.grants")}</h4>
+                  <p className="mt-1 text-xs text-[var(--text-muted)]">{t("usersPerm.grants.hint")}</p>
                 </div>
                 <button type="button" onClick={addGrant} data-tone="emerald" className="rounded-full border border-[var(--success-border)] px-3 py-1.5 text-xs text-[var(--success)] hover:bg-[var(--success-bg)]">{t("usersPerm.action.addGrant")}</button>
               </div>
@@ -193,18 +193,18 @@ const _data = await csrfFetch("/api/users/permissions", {
                 {grants.length === 0 ? <EmptyState>{t("usersPerm.grants.empty")}</EmptyState> : grants.map((grant, index) => {
                   const node = storageNodeMap.get(grant.storageNodeId);
                   return (
-                    <div key={`${grant.storageNodeId}-${index}`} className="rounded-2xl border border-[var(--border)] bg-slate-950/70 p-4">
+                    <div key={`${grant.storageNodeId}-${index}`} className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-4">
                       <div className="grid gap-3 lg:grid-cols-[1.2fr_1fr_1fr_1fr_auto]">
                         <label className="sr-only" htmlFor={`grantNode-${index}`}>{t("usersPerm.grants.node")}</label>
-                        <select id={`grantNode-${index}`} value={grant.storageNodeId} onChange={(e) => updateGrant(index, { storageNodeId: e.target.value })} className="rounded-xl border border-[var(--border)] bg-slate-950 px-3 py-2 text-sm text-white">
+                        <select id={`grantNode-${index}`} value={grant.storageNodeId} onChange={(e) => updateGrant(index, { storageNodeId: e.target.value })} className="rounded-xl border border-[var(--border)] bg-[var(--input-bg)] px-3 py-2 text-sm text-[var(--text-primary)]">
                           {payload.storageNodes.map((item) => <option key={item.id} value={item.id}>{item.name} · {item.driver}</option>)}
                         </select>
                         <label className="sr-only" htmlFor={`grantPath-${index}`}>{t("usersPerm.grants.path")}</label>
-                        <input id={`grantPath-${index}`} value={grant.pathPrefix} onChange={(e) => updateGrant(index, { pathPrefix: e.target.value })} placeholder={t("usersPerm.grants.pathPlaceholder")} className="rounded-xl border border-[var(--border)] bg-slate-950 px-3 py-2 text-sm text-white" />
+                        <input id={`grantPath-${index}`} value={grant.pathPrefix} onChange={(e) => updateGrant(index, { pathPrefix: e.target.value })} placeholder={t("usersPerm.grants.pathPlaceholder")} className="rounded-xl border border-[var(--border)] bg-[var(--input-bg)] px-3 py-2 text-sm text-[var(--text-primary)]" />
                         <label className="sr-only" htmlFor={`grantQuota-${index}`}>{t("usersPerm.grants.quota")}</label>
-                        <input id={`grantQuota-${index}`} value={grant.quotaBytes ?? ""} onChange={(e) => updateGrant(index, { quotaBytes: e.target.value })} placeholder={t("usersPerm.grants.quotaPlaceholder")} className="rounded-xl border border-[var(--border)] bg-slate-950 px-3 py-2 text-sm text-white" />
+                        <input id={`grantQuota-${index}`} value={grant.quotaBytes ?? ""} onChange={(e) => updateGrant(index, { quotaBytes: e.target.value })} placeholder={t("usersPerm.grants.quotaPlaceholder")} className="rounded-xl border border-[var(--border)] bg-[var(--input-bg)] px-3 py-2 text-sm text-[var(--text-primary)]" />
                         <label className="sr-only" htmlFor={`grantMaxFile-${index}`}>{t("usersPerm.grants.maxFile")}</label>
-                        <input id={`grantMaxFile-${index}`} value={grant.maxFileBytes ?? ""} onChange={(e) => updateGrant(index, { maxFileBytes: e.target.value })} placeholder={t("usersPerm.grants.maxFilePlaceholder")} className="rounded-xl border border-[var(--border)] bg-slate-950 px-3 py-2 text-sm text-white" />
+                        <input id={`grantMaxFile-${index}`} value={grant.maxFileBytes ?? ""} onChange={(e) => updateGrant(index, { maxFileBytes: e.target.value })} placeholder={t("usersPerm.grants.maxFilePlaceholder")} className="rounded-xl border border-[var(--border)] bg-[var(--input-bg)] px-3 py-2 text-sm text-[var(--text-primary)]" />
                         <button type="button" onClick={() => setGrants((current) => current.filter((_, i) => i !== index))} className="rounded-xl border border-rose-400/30 px-3 py-2 text-xs text-rose-100 hover:bg-rose-400/10">{t("usersPerm.action.delete")}</button>
                       </div>
                       <div className="mt-3 flex flex-wrap items-center gap-4 text-xs text-slate-300">

@@ -50,14 +50,14 @@ export default function RootError({
 				{error.message || t("error.unknown")}
 			</p>
 			{error.digest && (
-				<p className="mb-4 text-xs text-slate-500">
+				<p className="mb-4 text-xs text-[var(--text-muted)]">
 					{t("error.digest-label")} {error.digest}
 				</p>
 			)}
 			<div className="mt-5 flex justify-center gap-3">
 				<button
 					onClick={reset}
-					className="cursor-pointer rounded-lg border-none bg-[var(--color-action)] px-6 py-2 text-sm text-white transition-colors hover:bg-[var(--color-action-hover)]"
+					className="cursor-pointer rounded-lg border-none bg-[var(--color-action)] px-6 py-2 text-sm text-[var(--text-primary)] transition-colors hover:bg-[var(--color-action-hover)]"
 				>
 					{t("common.retry")}
 				</button>

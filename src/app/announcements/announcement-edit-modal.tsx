@@ -51,12 +51,12 @@ export function AnnouncementEditModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
-      <div className="w-full max-w-lg rounded-2xl border border-white/10 bg-[var(--modal-bg)] p-6 shadow-2xl">
-        <h3 className="text-lg font-semibold text-white">{t("announcementsPage.edit.title")}</h3>
+      <div className="w-full max-w-lg rounded-2xl border border-[var(--border)] bg-[var(--modal-bg)] p-6 shadow-2xl">
+        <h3 className="text-lg font-semibold text-[var(--text-primary)]">{t("announcementsPage.edit.title")}</h3>
 
         <div className="mt-4 space-y-3">
           <div>
-            <label className="block text-xs text-slate-400" htmlFor="announcementTitle">{t("announcementsPage.edit.titleLabel")}</label>
+            <label className="block text-xs text-[var(--text-muted)]" htmlFor="announcementTitle">{t("announcementsPage.edit.titleLabel")}</label>
             <input
               id="announcementTitle"
               value={title}
@@ -66,7 +66,7 @@ export function AnnouncementEditModal({
             />
           </div>
           <div>
-            <label className="block text-xs text-slate-400" htmlFor="announcementLevel">{t("common.level")}</label>
+            <label className="block text-xs text-[var(--text-muted)]" htmlFor="announcementLevel">{t("common.level")}</label>
             <select
               id="announcementLevel"
               value={level}
@@ -80,7 +80,7 @@ export function AnnouncementEditModal({
             </select>
           </div>
           <div>
-            <label className="block text-xs text-slate-400" htmlFor="announcementContent">{t("announcementsPage.edit.content")}</label>
+            <label className="block text-xs text-[var(--text-muted)]" htmlFor="announcementContent">{t("announcementsPage.edit.content")}</label>
             <textarea
               id="announcementContent"
               value={content}
@@ -90,12 +90,12 @@ export function AnnouncementEditModal({
               className="mt-1 w-full rounded-lg border px-3 py-2 text-sm outline-none"
             />
           </div>
-          <label className="flex items-center gap-2 text-sm text-slate-400">
+          <label className="flex items-center gap-2 text-sm text-[var(--text-muted)]">
             <input
               type="checkbox"
               checked={pinned}
               onChange={(e) => setPinned(e.target.checked)}
-              className="rounded-lg border-white/20"
+              className="rounded-lg border-[var(--border)]"
             />
             {t("common.pinned")}
           </label>
@@ -106,14 +106,14 @@ export function AnnouncementEditModal({
         <div className="mt-5 flex justify-end gap-3">
           <button
             onClick={onClose}
-            className="rounded-lg border border-white/10 px-4 py-2 text-sm text-slate-400 transition hover:bg-white/5"
+            className="rounded-lg border border-[var(--border)] px-4 py-2 text-sm text-[var(--text-muted)] transition hover:bg-white/5"
           >
             取消
           </button>
           <button
             onClick={handleSave}
             disabled={saving || !title.trim() || !content.trim()}
-            className="rounded-lg bg-cyan-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-cyan-500 disabled:opacity-40"
+            className="rounded-lg bg-cyan-600 px-4 py-2 text-sm font-medium text-[var(--text-primary)] transition hover:bg-cyan-500 disabled:opacity-40"
           >
             {saving ? t("announcementsPage.edit.saving") : t("announcementsPage.edit.submit")}
           </button>

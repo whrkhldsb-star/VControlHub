@@ -89,7 +89,7 @@ export function FileListListView(props: FileListListViewProps) {
       {/* Desktop table view (md+) */}
       <div className="hidden overflow-x-auto md:block" data-testid="file-table-scroll">
         <div className="min-w-[1180px]" data-testid="file-table-inner">
-          <div className="grid grid-cols-[44px_44px_minmax(280px,2.6fr)_120px_170px_160px_minmax(240px,auto)] items-center gap-3 bg-white/5 px-5 py-3 text-xs uppercase tracking-[0.15em] text-slate-400 font-medium">
+          <div className="grid grid-cols-[44px_44px_minmax(280px,2.6fr)_120px_170px_160px_minmax(240px,auto)] items-center gap-3 bg-white/5 px-5 py-3 text-xs uppercase tracking-[0.15em] text-[var(--text-muted)] font-medium">
             <div>
               <input
                 type="checkbox"
@@ -148,7 +148,7 @@ export function FileListListView(props: FileListListViewProps) {
           </div>
           <div className="divide-y divide-white/[0.04]">
             {sortedFolders.length === 0 && sortedFiles.length === 0 ? (
-              <div className="px-6 py-16 text-center text-sm text-slate-400">
+              <div className="px-6 py-16 text-center text-sm text-[var(--text-muted)]">
                 {emptyMessage}
               </div>
             ) : null}
@@ -178,13 +178,13 @@ export function FileListListView(props: FileListListViewProps) {
                     {folder.displayName ?? folder.name}
                   </button>
                 </div>
-                <div className="text-slate-500">
+                <div className="text-[var(--text-muted)]">
                   {folder.fileCount + folder.folderCount} 项
                 </div>
-                <div className="truncate text-xs text-slate-400">
+                <div className="truncate text-xs text-[var(--text-muted)]">
                   {folder.sourceValues[0] ?? "—"}
                 </div>
-                <div className="text-xs text-slate-500">—</div>
+                <div className="text-xs text-[var(--text-muted)]">—</div>
                 <div className="flex flex-wrap gap-1">
                   <button
                     type="button"
@@ -252,7 +252,7 @@ export function FileListListView(props: FileListListViewProps) {
                         checked={effectiveSelectedIdSet.has(entry.id)}
                         onChange={() => toggleOne(entry.id)}
                         aria-label={`选择 ${entry.name}`}
-                        className="h-4 w-4 rounded-lg border-white/20 bg-slate-900 text-cyan-400 focus:ring-cyan-400/50"
+                        className="h-4 w-4 rounded-lg border-[var(--border)] bg-[var(--surface)] text-cyan-400 focus:ring-cyan-400/50"
                       />
                     ) : null}
                   </div>
@@ -263,24 +263,24 @@ export function FileListListView(props: FileListListViewProps) {
                     {entry.previewable && entryCanRead(entry) ? (
                       <Link
                         href={previewHref}
-                        className="truncate font-medium text-white hover:text-cyan-100 transition"
+                        className="truncate font-medium text-[var(--text-primary)] hover:text-cyan-100 transition"
                       >
                         {entry.name}
                       </Link>
                     ) : (
-                      <span className="truncate font-medium text-white">
+                      <span className="truncate font-medium text-[var(--text-primary)]">
                         {entry.name}
                       </span>
                     )}
-                    <p className="mt-0.5 truncate text-xs text-slate-600">
+                    <p className="mt-0.5 truncate text-xs text-[var(--text-muted)]">
                       {entry.relativePath}
                     </p>
                   </div>
-                  <div className="text-slate-300">{entry.sizeLabel}</div>
-                  <div className="text-slate-400 truncate text-xs">
+                  <div className="text-[var(--text-secondary)]">{entry.sizeLabel}</div>
+                  <div className="text-[var(--text-muted)] truncate text-xs">
                     {entry.storageNode.name}
                   </div>
-                  <div className="text-slate-500 text-xs">
+                  <div className="text-[var(--text-muted)] text-xs">
                     {entry.updatedAt ? formatDate(entry.updatedAt) : "—"}
                   </div>
                   <div className="flex flex-wrap gap-1">
@@ -309,7 +309,7 @@ export function FileListListView(props: FileListListViewProps) {
       {/* Mobile card view (below md) */}
       <div className="md:hidden divide-y divide-white/[0.04]">
         {sortedFolders.length === 0 && sortedFiles.length === 0 ? (
-          <div className="px-6 py-16 text-center text-sm text-slate-400">
+          <div className="px-6 py-16 text-center text-sm text-[var(--text-muted)]">
             {emptyMessage}
           </div>
         ) : null}
@@ -331,7 +331,7 @@ export function FileListListView(props: FileListListViewProps) {
                 >
                   {folder.displayName ?? folder.name}
                 </button>
-                <div className="mt-0.5 text-xs text-slate-500">
+                <div className="mt-0.5 text-xs text-[var(--text-muted)]">
                   {folder.fileCount + folder.folderCount} 项
                 </div>
               </div>
@@ -395,7 +395,7 @@ export function FileListListView(props: FileListListViewProps) {
                     checked={effectiveSelectedIdSet.has(entry.id)}
                     onChange={() => toggleOne(entry.id)}
                     aria-label={`选择 ${entry.name}`}
-                    className="mt-2 h-4 w-4 rounded-lg border-white/20 bg-slate-900 text-cyan-400 focus:ring-cyan-400/50"
+                    className="mt-2 h-4 w-4 rounded-lg border-[var(--border)] bg-[var(--surface)] text-cyan-400 focus:ring-cyan-400/50"
                   />
                 ) : null}
                 <div className="shrink-0 mt-0.5 rounded-lg bg-white/[0.03] p-1">
@@ -405,16 +405,16 @@ export function FileListListView(props: FileListListViewProps) {
                   {entry.previewable && entryCanRead(entry) ? (
                     <Link
                       href={previewHref}
-                      className="truncate font-medium text-white text-sm hover:text-cyan-100 transition"
+                      className="truncate font-medium text-[var(--text-primary)] text-sm hover:text-cyan-100 transition"
                     >
                       {entry.name}
                     </Link>
                   ) : (
-                    <span className="truncate font-medium text-white text-sm">
+                    <span className="truncate font-medium text-[var(--text-primary)] text-sm">
                       {entry.name}
                     </span>
                   )}
-                  <div className="mt-1 flex flex-wrap gap-x-3 gap-y-1 text-xs text-slate-500">
+                  <div className="mt-1 flex flex-wrap gap-x-3 gap-y-1 text-xs text-[var(--text-muted)]">
                     <span>{entry.sizeLabel}</span>
                     <span>{entry.storageNode.name}</span>
                     {entry.updatedAt ? (

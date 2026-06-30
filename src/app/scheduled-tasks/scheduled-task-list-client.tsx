@@ -167,19 +167,19 @@ export function ScheduledTaskListClient({ tasks: initialTasks, servers, canCreat
 											{statusLabelFor(task.status, t)}
 										</span>
 									</div>
-									<p className="mt-1 text-xs text-slate-500">Cron: <code className="text-cyan-300/70 font-mono">{task.cronExpression}</code> — {task.cronDescription}</p>
-									<div className="mt-2.5 rounded-lg bg-slate-950/60 px-3 py-1.5 font-mono text-xs text-cyan-100/80 border border-white/[0.04]">
+									<p className="mt-1 text-xs text-[var(--text-muted)]">Cron: <code className="text-[var(--color-action)] font-mono">{task.cronExpression}</code> — {task.cronDescription}</p>
+									<div className="mt-2.5 rounded-lg bg-[var(--surface-subtle)] px-3 py-1.5 font-mono text-xs text-[var(--color-action)] border border-[var(--border)]">
 										{task.command}
 									</div>
-									{task.reason && <p className="mt-1.5 text-xs text-slate-500">{t("scheduledTasksPage.reason").replace("{reason}", task.reason)}</p>}
-									<div className="mt-3 grid grid-cols-2 gap-2 text-xs text-slate-500">
+									{task.reason && <p className="mt-1.5 text-xs text-[var(--text-muted)]">{t("scheduledTasksPage.reason").replace("{reason}", task.reason)}</p>}
+									<div className="mt-3 grid grid-cols-2 gap-2 text-xs text-[var(--text-muted)]">
 										<div>{t("scheduledTasksPage.targetNodes").replace("{count}", String(task.serverIds.length))}</div>
 										<div>{t("scheduledTasksPage.runCount").replace("{count}", String(task.runCount))}</div>
 										<div>{t("scheduledTasksPage.lastRun").replace("{time}", formatTime(task.lastRunAt))}</div>
 										<div>{t("scheduledTasksPage.nextRun").replace("{time}", formatTime(task.nextRunAt))}</div>
 									</div>
-									<div className="mt-3 rounded-lg border border-white/[0.05] bg-slate-950/40 px-3 py-2 text-[11px] text-slate-400">
-										<div className="mb-1 font-medium text-slate-300">{t("scheduledTasksPage.recentLogs")}</div>
+									<div className="mt-3 rounded-lg border border-[var(--border)] bg-[var(--surface-subtle)] px-3 py-2 text-[11px] text-[var(--text-muted)]">
+										<div className="mb-1 font-medium text-[var(--text-secondary)]">{t("scheduledTasksPage.recentLogs")}</div>
 										<div className="whitespace-pre-wrap break-words">{task.lastResult || t("scheduledTasks.empty.lastResult")}</div>
 									</div>
 								</div>
@@ -219,13 +219,13 @@ export function ScheduledTaskListClient({ tasks: initialTasks, servers, canCreat
 			)}
 			{taskPendingDelete && (
 				<div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 px-4 backdrop-blur-sm" role="presentation">
-					<section role="dialog" aria-modal="true" aria-labelledby="delete-scheduled-task-title" className="w-full max-w-md rounded-2xl border border-rose-400/25 bg-slate-950 p-6 shadow-[0_24px_100px_rgba(244,63,94,0.16)]">
-						<h2 id="delete-scheduled-task-title" className="text-lg font-semibold text-white">{t("scheduledTasksPage.delete.title")}</h2>
-						<p className="mt-3 text-sm leading-6 text-slate-300">
-							{t("scheduledTasksPage.delete.desc").split("{name}")[0]}<strong className="font-semibold text-white">{taskPendingDelete.name}</strong>{t("scheduledTasksPage.delete.desc").split("{name}")[1]}任务入口追踪。
+					<section role="dialog" aria-modal="true" aria-labelledby="delete-scheduled-task-title" className="w-full max-w-md rounded-2xl border border-rose-400/25 bg-[var(--modal-bg)] p-6 shadow-[0_24px_100px_rgba(244,63,94,0.16)]">
+						<h2 id="delete-scheduled-task-title" className="text-lg font-semibold text-[var(--text-primary)]">{t("scheduledTasksPage.delete.title")}</h2>
+						<p className="mt-3 text-sm leading-6 text-[var(--text-secondary)]">
+							{t("scheduledTasksPage.delete.desc").split("{name}")[0]}<strong className="font-semibold text-[var(--text-primary)]">{taskPendingDelete.name}</strong>{t("scheduledTasksPage.delete.desc").split("{name}")[1]}任务入口追踪。
 						</p>
 						<div className="mt-6 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
-							<button type="button" onClick={() => setTaskPendingDelete(null)} className="min-h-11 rounded-xl border border-white/[0.08] px-4 py-2 text-sm font-medium text-slate-200 hover:bg-white/[0.06]">
+							<button type="button" onClick={() => setTaskPendingDelete(null)} className="min-h-11 rounded-xl border border-[var(--border)] px-4 py-2 text-sm font-medium text-[var(--text-secondary)] hover:bg-[var(--surface-hover)]">
 								取消
 							</button>
 							<button type="button" onClick={() => deleteTask(taskPendingDelete)} className="min-h-11 rounded-xl bg-rose-500 px-4 py-2 text-sm font-semibold text-white hover:bg-rose-400">

@@ -125,10 +125,10 @@ export default function ApiDocsPage() {
 								value={query}
 								onChange={(event) => setQuery(event.target.value)}
 								placeholder={t("apiDocsPage.searchPlaceholder")}
-								className="h-10 w-full rounded-lg border border-white/[0.08] bg-slate-950/40 px-3 text-sm text-white placeholder:text-slate-500"
+								className="h-10 w-full rounded-lg border border-[var(--border)] bg-[var(--input-bg)] px-3 text-sm text-[var(--text-primary)] placeholder:text-slate-500"
 							/>
 						</label>
-						<div className="text-sm text-slate-400">
+						<div className="text-sm text-[var(--text-muted)]">
 							{spec
 								? t("apiDocsPage.summaryCount")
 									.replace("{count}", String(filtered.length))
@@ -145,21 +145,21 @@ export default function ApiDocsPage() {
 				) : null}
 
 				{!spec && !error ? (
-					<div className="rounded-2xl border border-white/[0.06] bg-white/[0.02] p-8 text-sm text-slate-400">{t("apiDocsPage.loading")}</div>
+					<div className="rounded-2xl border border-[var(--border)] bg-[var(--surface-subtle)] p-8 text-sm text-[var(--text-muted)]">{t("apiDocsPage.loading")}</div>
 				) : null}
 
 				{grouped.map(([tag, tagEntries]) => (
-					<section key={tag} className="overflow-hidden rounded-2xl border border-white/[0.06] bg-white/[0.02]">
-						<div className="border-b border-white/[0.06] px-4 py-3 sm:px-5">
-							<div className="flex flex-wrap items-center justify-between gap-2">
-								<div>
-									<h2 className="text-base font-semibold text-white">{tag}</h2>
-									{tagDescriptions.get(tag) ? <p className="mt-1 text-xs text-slate-500">{tagDescriptions.get(tag)}</p> : null}
-								</div>
-								<span className="rounded-full border border-white/[0.08] bg-white/[0.04] px-2.5 py-1 text-xs text-slate-400">{t("apiDocsPage.tagCount").replace("{count}", String(tagEntries.length))}</span>
+					<section key={tag} className="overflow-hidden rounded-2xl border border-[var(--border)] bg-[var(--surface)]">
+							<div className="border-b border-[var(--border)] px-4 py-3 sm:px-5">
+								<div className="flex flex-wrap items-center justify-between gap-2">
+									<div>
+										<h2 className="text-base font-semibold text-[var(--text-primary)]">{tag}</h2>
+										{tagDescriptions.get(tag) ? <p className="mt-1 text-xs text-[var(--text-muted)]">{tagDescriptions.get(tag)}</p> : null}
+									</div>
+									<span className="rounded-full border border-[var(--border)] bg-[var(--surface-hover)] px-2.5 py-1 text-xs text-[var(--text-muted)]">{t("apiDocsPage.tagCount").replace("{count}", String(tagEntries.length))}</span>
 							</div>
 						</div>
-						<div className="divide-y divide-white/[0.06]">
+						<div className="divide-y divide-[var(--border)]">
 							{tagEntries.map((entry) => (
 								<article key={`${entry.method}-${entry.path}`} className="px-4 py-4 sm:px-5">
 									<div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
@@ -168,15 +168,15 @@ export default function ApiDocsPage() {
 												<span className={`rounded-lg border px-2 py-1 font-mono text-xs font-semibold uppercase ${methodStyles[entry.method] ?? "border-slate-400/25 bg-slate-400/10 text-slate-200"}`}>
 													{entry.method}
 												</span>
-												<code className="break-all rounded-lg bg-slate-950/60 px-2 py-1 font-mono text-sm text-cyan-100">/api{entry.path}</code>
-											</div>
-											<h3 className="mt-3 text-sm font-medium text-white">{entry.operation.summary ?? t("apiDocsPage.tag.untagged")}</h3>
-											{entry.operation.description ? <p className="mt-1 text-sm text-slate-400">{entry.operation.description}</p> : null}
-										</div>
-										<div className="flex flex-wrap gap-2 text-xs text-slate-500 lg:justify-end">
-											{entry.operation.parameters?.length ? <span className="rounded-full bg-white/[0.04] px-2 py-1">{t("apiDocsPage.paramCount").replace("{count}", String(entry.operation.parameters.length))}</span> : null}
-											{entry.operation.requestBody ? <span className="rounded-full bg-white/[0.04] px-2 py-1">{t("apiDocsPage.label.requestBody")}</span> : null}
-											{entry.operation.responses ? <span className="rounded-full bg-white/[0.04] px-2 py-1">{t("apiDocsPage.label.responses")} {Object.keys(entry.operation.responses).join("/")}</span> : null}
+												<code className="break-all rounded-lg bg-[var(--surface-subtle)] px-2 py-1 font-mono text-sm text-[var(--color-action)]">/api{entry.path}</code>
+												</div>
+												<h3 className="mt-3 text-sm font-medium text-[var(--text-primary)]">{entry.operation.summary ?? t("apiDocsPage.tag.untagged")}</h3>
+												{entry.operation.description ? <p className="mt-1 text-sm text-[var(--text-muted)]">{entry.operation.description}</p> : null}
+												</div>
+												<div className="flex flex-wrap gap-2 text-xs text-[var(--text-muted)] lg:justify-end">
+												{entry.operation.parameters?.length ? <span className="rounded-full bg-[var(--surface-hover)] px-2 py-1">{t("apiDocsPage.paramCount").replace("{count}", String(entry.operation.parameters.length))}</span> : null}
+												{entry.operation.requestBody ? <span className="rounded-full bg-[var(--surface-hover)] px-2 py-1">{t("apiDocsPage.label.requestBody")}</span> : null}
+												{entry.operation.responses ? <span className="rounded-full bg-[var(--surface-hover)] px-2 py-1">{t("apiDocsPage.label.responses")} {Object.keys(entry.operation.responses).join("/")}</span> : null}
 										</div>
 									</div>
 								</article>

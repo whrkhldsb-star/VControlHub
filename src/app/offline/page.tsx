@@ -56,12 +56,12 @@ export default function OfflinePage() {
           {t("pwa.offline.title")}
         </h1>
 
-        <p className="text-sm leading-relaxed text-slate-600 dark:text-slate-400">
+        <p className="text-sm leading-relaxed text-[var(--text-muted)] dark:text-slate-400">
           {t("pwa.offline.description")}
         </p>
 
         <div className="pt-2">
-          <h2 className="text-xs uppercase tracking-wider text-slate-500 dark:text-slate-500 mb-3">
+          <h2 className="text-xs uppercase tracking-wider text-[var(--text-muted)] dark:text-slate-500 mb-3">
             {t("pwa.offline.cachedRoutes")}
           </h2>
           <ul className="grid grid-cols-2 gap-2 text-sm" role="list">
@@ -69,7 +69,7 @@ export default function OfflinePage() {
               <li key={route.href}>
                 <a
                   href={route.href}
-                  className="block rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 px-3 py-2 hover:border-slate-300 dark:hover:border-slate-700 transition-colors"
+                  className="block rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 px-3 py-2 hover:border-slate-300 dark:hover:border-[var(--border)] transition-colors"
                 >
                   {t(route.labelKey)}
                 </a>
@@ -81,7 +81,7 @@ export default function OfflinePage() {
         <div className="pt-4 border-t border-slate-200 dark:border-slate-800">
           <a
             href="/dashboard"
-            className="inline-flex items-center justify-center min-h-11 px-5 rounded-lg bg-slate-900 dark:bg-slate-100 text-white dark:text-slate-900 text-sm font-medium hover:opacity-90 transition-opacity"
+            className="inline-flex items-center justify-center min-h-11 px-5 rounded-lg bg-[var(--surface)] dark:bg-slate-100 text-[var(--text-primary)] dark:text-slate-900 text-sm font-medium hover:opacity-90 transition-opacity"
           >
             {t("pwa.offline.retry")}
           </a>

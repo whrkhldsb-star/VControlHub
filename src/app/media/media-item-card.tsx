@@ -126,7 +126,7 @@ function MediaCover({ item, sourceHref, t }: { item: MediaItem; sourceHref: stri
 	) : fallback;
 
 	return (
-		<a href={sourceHref ?? fileHref ?? "#"} className="relative block aspect-[4/3] overflow-hidden rounded-xl border border-white/[0.06] bg-slate-950/60" aria-label={t("mediaItemCard.previewAriaLabel").replace("{name}", item.name).replace("{type}", mediaTypeLabel(item.mediaType, t))}>
+		<a href={sourceHref ?? fileHref ?? "#"} className="relative block aspect-[4/3] overflow-hidden rounded-xl border border-[var(--border)] bg-[var(--surface-subtle)]" aria-label={t("mediaItemCard.previewAriaLabel").replace("{name}", item.name).replace("{type}", mediaTypeLabel(item.mediaType, t))}>
 			{visual}
 			{typeBadge}
 			{item.mediaType !== "audio" && (
@@ -251,7 +251,7 @@ export function MediaItemCard({ item, canManage }: { item: MediaItem; canManage:
 					<button
 						type="button"
 						onClick={toggleFav}
-						className={`shrink-0 rounded p-1 transition ${fav ? "text-amber-400 hover:text-amber-300" : "text-slate-600 hover:text-amber-400 opacity-0 group-hover:opacity-100"}`}
+						className={`shrink-0 rounded p-1 transition ${fav ? "text-amber-400 hover:text-amber-300" : "text-[var(--text-muted)] hover:text-amber-400 opacity-0 group-hover:opacity-100"}`}
 						title={fav ? t("mediaItemCard.favoriteRemove") : t("mediaItemCard.favoriteAdd")}
 					>
 						<Star size={16} fill={fav ? "currentColor" : "none"} />
@@ -318,7 +318,7 @@ export function MediaItemCard({ item, canManage }: { item: MediaItem; canManage:
 								else setShowTagInput(false);
 							}}
 							aria-label={t("mediaItemCard.newTagAriaLabel")}
-							className="w-20 rounded-full bg-white/[0.06] px-2 py-0.5 text-[10px] text-white outline-none placeholder:text-slate-600"
+							className="w-20 rounded-full bg-white/[0.06] px-2 py-0.5 text-[10px] text-white outline-none placeholder:text-[var(--text-muted)]"
 							placeholder={t("mediaItemCard.newTagPlaceholder")}
 						/>
 					) : (

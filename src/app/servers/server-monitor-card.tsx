@@ -64,10 +64,10 @@ function ProgressBar({ value, max = 100, className = "" }: { value: number; max?
 function MetricRow({ label, value, unit, pct }: { label: string; value: string; unit?: string; pct?: number }) {
 	return (
 		<div className="flex items-center justify-between gap-2 text-xs">
-			<span className="text-slate-500 shrink-0">{label}</span>
+			<span className="text-[var(--text-muted)] shrink-0">{label}</span>
 			{pct !== undefined && <ProgressBar value={pct} className="flex-1 min-w-[40px]" />}
 			<span className={`font-mono tabular-nums ${pct !== undefined ? usageTextColor(pct) : "text-white/80"}`}>
-				{value}{unit && <span className="text-slate-600 ml-0.5">{unit}</span>}
+				{value}{unit && <span className="text-[var(--text-muted)] ml-0.5">{unit}</span>}
 			</span>
 		</div>
 	);
@@ -148,23 +148,23 @@ export function ServerMonitorCard({ serverId }: Props) {
 				<h4 className="text-xs font-medium text-white/60 uppercase tracking-wider">实时监控</h4>
 				<div className="flex items-center gap-1.5">
 					<div className="h-1.5 w-1.5 rounded-full bg-emerald-400 shadow-[0_0_4px_rgba(52,211,153,0.5)] animate-pulse" />
-					<span className="text-[10px] text-slate-600">{new Date(metrics.timestamp).toLocaleTimeString("zh-CN")}</span>
+					<span className="text-[10px] text-[var(--text-muted)]">{new Date(metrics.timestamp).toLocaleTimeString("zh-CN")}</span>
 					<span className="text-[10px] text-slate-700">· {getRefreshIntervalLabel(refreshIntervalSeconds)}</span>
 				</div>
 			</div>
 
 			{/* CPU */}
 			<div className="space-y-1.5">
-				<div className="flex items-center justify-between text-[11px] text-slate-500">
+				<div className="flex items-center justify-between text-[11px] text-[var(--text-muted)]">
 					<span>CPU</span>
-					<span className="text-slate-600">{cpu.cores} 核</span>
+					<span className="text-[var(--text-muted)]">{cpu.cores} 核</span>
 				</div>
 				<ProgressBar value={cpu.usagePercent} />
 				<div className="flex items-center justify-between">
 					<span className={`text-sm font-semibold tabular-nums ${usageTextColor(cpu.usagePercent)}`}>
 						{cpu.usagePercent.toFixed(1)}%
 					</span>
-					<span className="text-[10px] text-slate-600 font-mono">
+					<span className="text-[10px] text-[var(--text-muted)] font-mono">
 						负载 {cpu.loadAvg[0].toFixed(2)} / {cpu.loadAvg[1].toFixed(2)} / {cpu.loadAvg[2].toFixed(2)}
 					</span>
 				</div>
@@ -172,9 +172,9 @@ export function ServerMonitorCard({ serverId }: Props) {
 
 			{/* Memory */}
 			<div className="space-y-1.5">
-				<div className="flex items-center justify-between text-[11px] text-slate-500">
+				<div className="flex items-center justify-between text-[11px] text-[var(--text-muted)]">
 					<span>内存</span>
-					<span className="text-slate-600">{memory.usedMb} / {memory.totalMb} MB</span>
+					<span className="text-[var(--text-muted)]">{memory.usedMb} / {memory.totalMb} MB</span>
 				</div>
 				<ProgressBar value={memory.usagePercent} />
 				<span className={`text-sm font-semibold tabular-nums ${usageTextColor(memory.usagePercent)}`}>
@@ -185,7 +185,7 @@ export function ServerMonitorCard({ serverId }: Props) {
 			{/* Disk */}
 			{disk.length > 0 && (
 				<div className="space-y-1.5">
-					<span className="text-[11px] text-slate-500">磁盘</span>
+					<span className="text-[11px] text-[var(--text-muted)]">磁盘</span>
 					{disk.map((d) => (
 						<MetricRow
 							key={d.mount}
@@ -200,10 +200,10 @@ export function ServerMonitorCard({ serverId }: Props) {
 			{/* Network */}
 			{network.length > 0 && (
 				<div className="space-y-1.5">
-					<span className="text-[11px] text-slate-500">网络流量</span>
+					<span className="text-[11px] text-[var(--text-muted)]">网络流量</span>
 					{network.map((n) => (
 						<div key={n.iface} className="flex items-center justify-between text-xs text-[var(--text-secondary)]">
-							<span className="text-slate-500">{n.iface}</span>
+							<span className="text-[var(--text-muted)]">{n.iface}</span>
 							<span className="font-mono text-[11px]">
 								↓{formatBytes(n.rxBytes)} ↑{formatBytes(n.txBytes)}
 							</span>
@@ -214,7 +214,7 @@ export function ServerMonitorCard({ serverId }: Props) {
 
 			{/* Uptime */}
 			{uptime && (
-				<div className="pt-1 border-t border-white/[0.04] text-[11px] text-slate-600">
+				<div className="pt-1 border-t border-[var(--border)] text-[11px] text-[var(--text-muted)]">
 					运行 {uptime}
 				</div>
 			)}

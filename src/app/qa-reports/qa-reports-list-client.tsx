@@ -25,15 +25,15 @@ function kindLabel(t: (key: string) => string, kind: Exclude<KindFilter, "all">)
 const toneToCardClass: Record<QaReportTrendCard["tone"], string> = {
 	success: "border-emerald-400/30 text-emerald-200",
 	warn: "border-amber-400/30 text-amber-200",
-	neutral: "border-white/[0.08] text-slate-300",
+	neutral: "border-[var(--border)] text-[var(--text-secondary)]",
 	info: "border-cyan-400/30 text-cyan-200",
 };
 
 const toneToValueClass: Record<QaReportTrendCard["tone"], string> = {
 	success: "text-emerald-100",
 	warn: "text-amber-100",
-	neutral: "text-slate-200",
-	info: "text-white",
+	neutral: "text-[var(--text-secondary)]",
+	info: "text-[var(--text-primary)]",
 };
 
 const MAX_DAILY_BAR_HEIGHT = 56; // px, the tallest possible bar in the mini chart
@@ -55,7 +55,7 @@ function statusToneClass(status: string): string {
 	if (lower.includes("fail") || lower.includes("error")) return "text-rose-300 border-rose-400/30";
 	if (lower.includes("run") || lower.includes("deploy")) return "text-cyan-300 border-cyan-400/30";
 	if (lower.includes("complete") || lower.includes("resolved")) return "text-emerald-300 border-emerald-400/30";
-	return "text-slate-300 border-white/[0.08]";
+	return "text-[var(--text-secondary)] border-[var(--border)]";
 }
 
 function kindAccent(kind: QaReportSummary["kind"]): string {
@@ -95,14 +95,14 @@ function TrendSection({ trends }: TrendSectionProps) {
 	return (
 		<section aria-label={t("qaReportsPage.maintenanceTrendAria")} data-card className="p-4">
 			<div className="flex flex-col gap-1">
-				<h2 className="text-sm font-semibold text-white">{t("qaReportsPage.maintenanceTrendTitle")}</h2>
-				<p className="text-xs text-slate-500">{t("qaReportsPage.maintenanceTrendDesc")}</p>
+				<h2 className="text-sm font-semibold text-[var(--text-primary)]">{t("qaReportsPage.maintenanceTrendTitle")}</h2>
+				<p className="text-xs text-[var(--text-muted)]">{t("qaReportsPage.maintenanceTrendDesc")}</p>
 			</div>
 			{trends.cards.length === 0 &&
 			trends.dailyBuckets.length === 0 &&
 			trends.moduleCoverage.length === 0 &&
 			trends.recentRuns.length === 0 ? (
-				<p className="mt-4 text-xs text-slate-500">{t("qaReportsPage.maintenanceTrendEmpty")}</p>
+				<p className="mt-4 text-xs text-[var(--text-muted)]">{t("qaReportsPage.maintenanceTrendEmpty")}</p>
 			) : null}
 			<div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
 				{trends.cards.map((card) => (
@@ -111,15 +111,15 @@ function TrendSection({ trends }: TrendSectionProps) {
 						data-card
 						className={`rounded-xl border bg-white/[0.02] p-4 ${toneToCardClass[card.tone]}`}
 					>
-						<div className="text-xs text-slate-500">{card.label}</div>
+						<div className="text-xs text-[var(--text-muted)]">{card.label}</div>
 						<div className={`mt-2 text-2xl font-semibold ${toneToValueClass[card.tone]}`}>{card.value}</div>
-						{card.caption ? <p className="mt-1 text-[11px] text-slate-500">{card.caption}</p> : null}
+						{card.caption ? <p className="mt-1 text-[11px] text-[var(--text-muted)]">{card.caption}</p> : null}
 					</div>
 				))}
 			</div>
 			{trends.dailyBuckets.length > 0 ? (
 				<div className="mt-5">
-					<div className="mb-2 flex items-center justify-between text-xs text-slate-500">
+					<div className="mb-2 flex items-center justify-between text-xs text-[var(--text-muted)]">
 						<span>{t("qaReportsPage.dailyTickHeader")}</span>
 						<span>{t("qaReportsPage.dailyTickPeak").replace("{n}", String(dailyMax))}</span>
 					</div>
@@ -136,7 +136,7 @@ function TrendSection({ trends }: TrendSectionProps) {
 							return (
 								<div key={bucket.day} className="flex flex-1 flex-col items-center gap-1">
 									<div
-										className="flex w-full max-w-[40px] flex-col-reverse overflow-hidden rounded-lg border border-white/[0.08] bg-white/[0.03]"
+										className="flex w-full max-w-[40px] flex-col-reverse overflow-hidden rounded-lg border border-[var(--border)] bg-white/[0.03]"
 										style={{ height: `${MAX_DAILY_BAR_HEIGHT}px` }}
 										title={t("qaReportsPage.dailyTickTitle")
 											.replace("{day}", bucket.day)
@@ -150,8 +150,8 @@ function TrendSection({ trends }: TrendSectionProps) {
 											style={{ height: `${Math.max(0, totalHeight - successHeight)}px` }}
 										/>
 									</div>
-									<div className="text-[10px] text-slate-500">{formatDayShort(bucket.day)}</div>
-									<div className="text-[10px] text-slate-400">{bucket.total}</div>
+									<div className="text-[10px] text-[var(--text-muted)]">{formatDayShort(bucket.day)}</div>
+									<div className="text-[10px] text-[var(--text-muted)]">{bucket.total}</div>
 								</div>
 							);
 						})}
@@ -160,15 +160,15 @@ function TrendSection({ trends }: TrendSectionProps) {
 			) : null}
 			{topModules.length > 0 ? (
 				<div className="mt-5">
-					<div className="mb-2 text-xs text-slate-500">{t("qaReportsPage.moduleCoverageHeader")}</div>
+					<div className="mb-2 text-xs text-[var(--text-muted)]">{t("qaReportsPage.moduleCoverageHeader")}</div>
 					<ul className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
 						{topModules.map((row) => (
 							<li
 								key={row.module}
-								className="flex items-center justify-between rounded-lg border border-white/[0.06] bg-white/[0.02] px-3 py-2 text-xs"
+								className="flex items-center justify-between rounded-lg border border-[var(--border)] bg-white/[0.02] px-3 py-2 text-xs"
 							>
-								<span className="truncate text-slate-200">{row.module}</span>
-								<span className="ml-2 shrink-0 text-slate-500">
+								<span className="truncate text-[var(--text-secondary)]">{row.module}</span>
+								<span className="ml-2 shrink-0 text-[var(--text-muted)]">
 									{t("qaReportsPage.moduleCoverageItem")
 										.replace("{n}", String(row.visitCount))
 										.replace(
@@ -183,10 +183,10 @@ function TrendSection({ trends }: TrendSectionProps) {
 			) : null}
 			{recentRuns.length > 0 ? (
 				<div className="mt-5">
-					<div className="mb-2 text-xs text-slate-500">
+					<div className="mb-2 text-xs text-[var(--text-muted)]">
 						{t("qaReportsPage.recentRunsHeader").replace("{n}", String(recentRuns.length))}
 					</div>
-					<ul className="divide-y divide-white/[0.06] rounded-lg border border-white/[0.06]">
+					<ul className="divide-y divide-[var(--border)] rounded-lg border border-[var(--border)]">
 						{recentRuns.map((run, index) => (
 							<RecentRunRow key={`${run.timestamp}-${index}`} run={run} />
 						))}
@@ -205,12 +205,12 @@ function RecentRunRow({ run }: { run: QaReportTrendRecentRun }) {
 		<li className="flex flex-col gap-1 px-3 py-2 sm:flex-row sm:items-start sm:justify-between sm:gap-3">
 			<div className="min-w-0 flex-1">
 				<div className="flex flex-wrap items-center gap-2 text-xs">
-					<span className="text-slate-200">{run.module}</span>
+					<span className="text-[var(--text-secondary)]">{run.module}</span>
 					<span className={`rounded-lg border px-2 py-0.5 text-[10px] ${accent}`}>{run.result}</span>
 				</div>
-				<p className="mt-1 text-[11px] text-slate-400">{run.summary}</p>
+				<p className="mt-1 text-[11px] text-[var(--text-muted)]">{run.summary}</p>
 			</div>
-			<div className="shrink-0 text-[11px] text-slate-500">{formatTime(run.timestamp)}</div>
+			<div className="shrink-0 text-[11px] text-[var(--text-muted)]">{formatTime(run.timestamp)}</div>
 		</li>
 	);
 }
@@ -273,10 +273,10 @@ export function QaReportsListClient({
 			<section aria-label={t("qaReportsPage.summaryAria")} data-card className="p-4">
 				<div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
 					<div>
-						<h2 className="text-sm font-semibold text-white">{t("qaReportsPage.summaryTitle")}</h2>
-						<p className="mt-1 text-xs text-slate-500">{t("qaReportsPage.summaryDesc")}</p>
+						<h2 className="text-sm font-semibold text-[var(--text-primary)]">{t("qaReportsPage.summaryTitle")}</h2>
+						<p className="mt-1 text-xs text-[var(--text-muted)]">{t("qaReportsPage.summaryDesc")}</p>
 					</div>
-					<div className="flex flex-col items-end gap-1 text-xs text-slate-500">
+					<div className="flex flex-col items-end gap-1 text-xs text-[var(--text-muted)]">
 						<div>
 							{updatedAt
 								? t("qaReportsPage.summaryUpdatedAt").replace("{time}", formatTime(updatedAt))
@@ -286,7 +286,7 @@ export function QaReportsListClient({
 							type="button"
 							onClick={refresh}
 							disabled={refreshing}
-							className="rounded-lg border border-white/[0.08] px-3 py-1.5 text-xs text-slate-300 hover:bg-white/[0.05] disabled:opacity-50"
+							className="rounded-lg border border-[var(--border)] px-3 py-1.5 text-xs text-[var(--text-secondary)] hover:bg-white/[0.05] disabled:opacity-50"
 						>
 							{refreshing ? t("qaReportsPage.refreshing") : t("qaReportsPage.refreshReadHermes")}
 						</button>
@@ -300,18 +300,18 @@ export function QaReportsListClient({
 						[t("qaReportsPage.qaLoop"), totals.qaRuns],
 					].map(([label, value]) => (
 						<div key={String(label)} data-card className="p-4">
-							<div className="text-xs text-slate-500">{String(label)}</div>
-							<div className="mt-2 text-2xl font-semibold text-white">{String(value)}</div>
+							<div className="text-xs text-[var(--text-muted)]">{String(label)}</div>
+							<div className="mt-2 text-2xl font-semibold text-[var(--text-primary)]">{String(value)}</div>
 						</div>
 					))}
 				</div>
 			</section>
 			<TrendSection trends={trends} />
 			<section aria-label={t("qaReportsPage.listAria")} data-card>
-				<div className="flex flex-col gap-3 border-b border-white/[0.06] px-5 py-4 lg:flex-row lg:items-center lg:justify-between">
+				<div className="flex flex-col gap-3 border-b border-[var(--border)] px-5 py-4 lg:flex-row lg:items-center lg:justify-between">
 					<div>
-						<h2 className="text-sm font-semibold text-white">{t("qaReportsPage.listTitle")}</h2>
-						<p className="mt-1 text-xs text-slate-500">{t("qaReportsPage.listDesc")}</p>
+						<h2 className="text-sm font-semibold text-[var(--text-primary)]">{t("qaReportsPage.listTitle")}</h2>
+						<p className="mt-1 text-xs text-[var(--text-muted)]">{t("qaReportsPage.listDesc")}</p>
 					</div>
 					<div
 						className="flex flex-wrap items-center gap-2"
@@ -352,7 +352,7 @@ export function QaReportsListClient({
 						)}
 					</div>
 				) : (
-					<ul className="divide-y divide-white/[0.06]">
+					<ul className="divide-y divide-[var(--border)]">
 						{filtered.map((report) => (
 							<li key={report.id} className="px-5 py-4">
 								<div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
@@ -370,12 +370,12 @@ export function QaReportsListClient({
 												{report.status}
 											</span>
 											{report.evidenceCount > 0 ? (
-												<span className="rounded-lg border border-white/[0.08] px-2 py-1 text-xs text-slate-400">
+												<span className="rounded-lg border border-[var(--border)] px-2 py-1 text-xs text-[var(--text-muted)]">
 													{t("qaReportsPage.evidenceCount").replace("{n}", String(report.evidenceCount))}
 												</span>
 											) : null}
 										</div>
-										<h3 className="mt-2 text-sm font-medium text-white">
+										<h3 className="mt-2 text-sm font-medium text-[var(--text-primary)]">
 											<Link
 												href={`/qa-reports/${encodeURIComponent(report.id)}`}
 												className="hover:underline"
@@ -383,8 +383,8 @@ export function QaReportsListClient({
 												{report.title}
 											</Link>
 										</h3>
-										<p className="mt-1 text-xs text-slate-500">{formatTime(report.finishedAt)}</p>
-										<p className="mt-2 text-sm text-slate-300">{report.summary}</p>
+										<p className="mt-1 text-xs text-[var(--text-muted)]">{formatTime(report.finishedAt)}</p>
+										<p className="mt-2 text-sm text-[var(--text-secondary)]">{report.summary}</p>
 									</div>
 									<div className="flex flex-col items-end gap-2">
 										<Link
