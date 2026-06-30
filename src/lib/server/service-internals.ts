@@ -58,6 +58,9 @@ export type ServerWithRelations = {
   commandTargets?: ServerCommandTarget[];
   publicUrl?: string | null;
   fileProxyPort?: number | null;
+  // TR-041: OS dialect adaptation layer
+  osDialect?: string | null;
+  osInfo?: string | null;
 };
 
 export type ServerCommandTargetRow = ServerCommandTarget;
@@ -290,5 +293,8 @@ export function enrichServer(server: ServerWithRelations) {
       targetStatus: target.status,
       createdAt: serializeDate(target.commandRequest.createdAt),
     })),
+    // TR-041: OS dialect info for UI display + dialect-aware command generation
+    osDialect: server.osDialect ?? null,
+    osInfo: server.osInfo ?? null,
   };
 }

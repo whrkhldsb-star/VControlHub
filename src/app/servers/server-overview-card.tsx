@@ -44,6 +44,9 @@ type ServerOverviewCardProps = {
       publicUrl: string | null;
       port: number;
     } | null;
+    // TR-041: OS dialect + info
+    osDialect?: string | null;
+    osInfo?: string | null;
   };
   sessionToken: string;
   canManageServers: boolean;

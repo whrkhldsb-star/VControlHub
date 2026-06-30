@@ -28,6 +28,7 @@ import { withApiRoute } from "@/lib/http/api-guard";
 import { GENERAL_WRITE_LIMIT } from "@/lib/http/rate-limit-presets";
 import { createLogger } from "@/lib/logging";
 import { buildSshParamsFromServer, execRemoteCommand } from "@/lib/ssh/client";
+import { deserializeDialect, serviceCommand, type OsDialect } from "@/lib/ssh/os-dialect";
 import { getServerLocale, t } from "@/lib/i18n/translations";
 
 export const dynamic = "force-dynamic";
@@ -60,10 +61,15 @@ const reloadBodySchema = z.discriminatedUnion("kind", [
 
 type ReloadBody = z.infer<typeof reloadBodySchema>;
 
-function buildCommand(body: ReloadBody): string {
+function buildCommand(body: ReloadBody, dialect: OsDialect): string {
   if (body.kind === "systemd") {
-    // 先尝试 reload（不重启进程），如果 unit 不支持 reload 会失败但不影响数据
-    return `sudo -n systemctl reload '${body.unit.replace(/'/g, "'\\''")}' || sudo -n systemctl restart '${body.unit.replace(/'/g, "'\\''")}'`;
+    // TR-041: 使用方言感知的 serviceCommand 替代硬编码 systemctl
+    // systemd kind 始终用 reload → fallback restart 语义
+    if (dialect.serviceManager === "systemd") {
+      return serviceCommand("systemd", "reload", body.unit, dialect.sudoPattern);
+    }
+    // 非 systemd（openrc/sysvinit）不支持 reload 语义，直接 restart
+    return serviceCommand(dialect.serviceManager, "restart", body.unit, dialect.sudoPattern);
   }
   const cd = `cd ${body.projectDir}`;
   const up = body.service
@@ -84,6 +90,7 @@ type ServerRow = {
   sshKeyId: string | null;
   password: string | null;
   sshKey: { privateKey: string } | null;
+  osDialect: string | null;
 };
 
 async function loadServer(id: string): Promise<ServerRow | null> {
@@ -97,6 +104,7 @@ async function loadServer(id: string): Promise<ServerRow | null> {
       sshKeyId: true,
       password: true,
       sshKey: { select: { privateKey: true } },
+      osDialect: true,
     },
   });
   return (server as ServerRow | null) ?? null;
@@ -130,7 +138,8 @@ export async function POST(
         return Response.json({ error: t("apiServersReload.serverNotFound", locale) }, { status: 404 });
       }
 
-      const command = buildCommand(body);
+      const dialect = deserializeDialect(server.osDialect);
+      const command = buildCommand(body, dialect);
       const commandTimeout = timeoutFor(body);
 
       // audit 前置记录 (input 摘要，不含密码 / 完整密钥)

@@ -63,6 +63,7 @@ function mockServer(overrides: Partial<{
   username: string;
   password: string | null;
   sshKey: { privateKey: string } | null;
+  osDialect: string | null;
 }> = {}) {
   serverFindUniqueMock.mockResolvedValueOnce({
     id: "srv_1",
@@ -71,6 +72,7 @@ function mockServer(overrides: Partial<{
     username: "root",
     password: null,
     sshKey: { privateKey: "PRIVATE_KEY_BLOB" },
+    osDialect: null, // TR-041: null = not detected, defaults to Debian/systemd
     ...overrides,
   });
   buildSshParamsFromServerMock.mockResolvedValueOnce({
@@ -107,14 +109,15 @@ describe("POST /api/servers/[id]/reload", () => {
     await expect(response.json()).resolves.toMatchObject({
       success: true,
       exitCode: 0,
-      command: expect.stringContaining("systemctl reload 'nginx'"),
+      // TR-041: dialect-aware command uses serviceCommand() — systemd reload with restart fallback
+      command: expect.stringContaining("systemctl reload nginx"),
     });
     expect(execRemoteCommandMock).toHaveBeenCalledWith(
       expect.objectContaining({
         host: "203.0.113.10",
         port: 22,
         username: "root",
-        command: expect.stringContaining("systemctl reload 'nginx'"),
+        command: expect.stringContaining("systemctl reload nginx"),
         timeout: 30_000,
       }),
     );

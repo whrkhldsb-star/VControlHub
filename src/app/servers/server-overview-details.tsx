@@ -17,7 +17,7 @@
 "use client";
 
 import Link from "next/link";
-import type { ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 
 import { useI18n } from "@/lib/i18n/use-locale";
 import { ServerCardActions } from "./server-card-actions";
@@ -56,6 +56,9 @@ export type ServerOverviewDetailsServer = {
 		bindAddress?: string | null;
 		publicProtocol?: "http" | "https" | "unknown" | null;
 	} | null;
+	// TR-041: OS dialect + info for display and dialect-aware operations
+	osDialect?: string | null;
+	osInfo?: string | null;
 };
 
 export type ServerOverviewDetailsProps = {
@@ -90,6 +93,93 @@ function statusToneClass(tone: "success" | "warning" | "info") {
 		return "border-amber-400/25 bg-amber-400/10 text-amber-200 light:border-amber-700/20 light:bg-amber-50";
 	}
 	return "border-sky-400/25 bg-sky-400/10 text-sky-200 light:border-sky-700/20 light:bg-sky-50";
+}
+
+// TR-041: OS dialect display + detect button
+function OsDialectSection({
+	serverId,
+	osDialect,
+	osInfo,
+}: {
+	serverId: string;
+	osDialect: string | null | undefined;
+	osInfo: string | null | undefined;
+}) {
+	const { t } = useI18n();
+	const [detecting, setDetecting] = useState(false);
+	const [result, setResult] = useState<{ osInfo: string; dialect: { packageManager: string; serviceManager: string; distroName: string } | null } | null>(null);
+	const [error, setError] = useState<string | null>(null);
+
+	async function handleDetect() {
+		setDetecting(true);
+		setError(null);
+		try {
+			const res = await fetch(`/api/servers/${encodeURIComponent(serverId)}/detect-os`, { method: "POST" });
+			const data = await res.json();
+			if (!res.ok) {
+				setError(data.error || "Detection failed");
+				return;
+			}
+			setResult({ osInfo: data.osInfo, dialect: data.dialect });
+		} catch {
+			setError("Network error");
+		} finally {
+			setDetecting(false);
+		}
+	}
+
+	const displayInfo = result?.osInfo ?? osInfo;
+	const displayDialect = result?.dialect;
+	const hasDialect = displayDialect || osDialect;
+
+	let parsedDialect: { packageManager?: string; serviceManager?: string; distroName?: string } | null = null;
+	if (!displayDialect && osDialect) {
+		try {
+			parsedDialect = JSON.parse(osDialect);
+		} catch {
+			// ignore parse errors
+		}
+	}
+	const pm = displayDialect?.packageManager ?? parsedDialect?.packageManager;
+	const sm = displayDialect?.serviceManager ?? parsedDialect?.serviceManager;
+
+	return (
+		<div className="mt-2 rounded-lg border border-[var(--border)] bg-white/[0.02] p-2.5">
+			<div className="flex items-center justify-between gap-2">
+				<div className="min-w-0 flex-1">
+					<span className="text-[11px] text-[var(--text-muted)]">{t("serverOverviewDetails.osDialect")}</span>
+					<p className="mt-0.5 truncate text-sm text-[var(--text-primary)]">
+						{displayInfo || t("serverOverviewDetails.osNotDetected")}
+					</p>
+				</div>
+				<button
+					type="button"
+					onClick={handleDetect}
+					disabled={detecting}
+					className="shrink-0 rounded-lg border border-cyan-300/25 bg-cyan-300/10 px-2.5 py-1 text-[11px] text-cyan-100 transition hover:bg-cyan-300/15 disabled:opacity-50 light:border-cyan-700/20"
+				>
+					{detecting ? t("serverOverviewDetails.detecting") : t("serverOverviewDetails.detectOs")}
+				</button>
+			</div>
+			{error ? (
+				<p className="mt-1.5 text-[11px] text-rose-300">{error}</p>
+			) : null}
+			{hasDialect && (pm || sm) ? (
+				<div className="mt-1.5 flex flex-wrap gap-1.5">
+					{pm ? (
+						<span className="rounded border border-[var(--border)] bg-white/[0.04] px-1.5 py-0.5 text-[10px] text-[var(--text-muted)]">
+							{t("serverOverviewDetails.packageManager")}: {pm}
+						</span>
+					) : null}
+					{sm ? (
+						<span className="rounded border border-[var(--border)] bg-white/[0.04] px-1.5 py-0.5 text-[10px] text-[var(--text-muted)]">
+							{t("serverOverviewDetails.serviceManager")}: {sm}
+						</span>
+					) : null}
+				</div>
+			) : null}
+		</div>
+	);
 }
 
 // TR-002 R3: advice 项的 tone 决定背景与边框；emerald=safe / amber=warning / rose=danger
@@ -337,6 +427,11 @@ export function ServerOverviewDetails({
 					<InfoRow label={t("serverOverviewDetails.directMode")} value={directLabel} />
 					<InfoRow label={t("serverOverviewDetails.totalCommandTargets")} value={String(server.targetCount)} />
 					<InfoRow label={t("serverOverviewDetails.connectionSummary")} value={server.connectionSummary} />
+					<OsDialectSection
+						serverId={server.id}
+						osDialect={server.osDialect}
+						osInfo={server.osInfo}
+					/>
 				</div>
 				{canManageServers || canUseSshTerminal ? (
 					<div className="mt-3">

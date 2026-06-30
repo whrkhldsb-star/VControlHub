@@ -205,6 +205,12 @@ export const zh: Record<string, string> = {
 	"directGatewayAdvice.hrefLabel.approvalCenter": "打开审批中心",
 	"directGatewayHealthyNote.withPublicUrl": "当前已配置为 {status}，公网入口 {url} 可被签名链接调用。",
 	"directGatewayHealthyNote.relayFallback": "当前为 {status}，文件下载和媒体播放会回退到网站服务器中转。",
+	"serverOverviewDetails.osDialect": "操作系统",
+	"serverOverviewDetails.osNotDetected": "未探测",
+	"serverOverviewDetails.detectOs": "探测 OS",
+	"serverOverviewDetails.detecting": "探测中…",
+	"serverOverviewDetails.packageManager": "包管理",
+	"serverOverviewDetails.serviceManager": "服务管理",
 };
 
 export const en: Record<string, string> = {
@@ -407,4 +413,10 @@ export const en: Record<string, string> = {
 	"directGatewayAdvice.hrefLabel.approvalCenter": "Open approval center",
 	"directGatewayHealthyNote.withPublicUrl": "Currently {status}, public entry {url} is reachable via signed links.",
 	"directGatewayHealthyNote.relayFallback": "Currently {status}; file downloads and media playback fall back to website relay.",
+	"serverOverviewDetails.osDialect": "Operating System",
+	"serverOverviewDetails.osNotDetected": "Not detected",
+	"serverOverviewDetails.detectOs": "Detect OS",
+	"serverOverviewDetails.detecting": "Detecting…",
+	"serverOverviewDetails.packageManager": "Package Mgr",
+	"serverOverviewDetails.serviceManager": "Service Mgr",
 };

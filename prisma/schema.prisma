@@ -191,6 +191,8 @@ model Server {
   targetSyncs     SyncJob[]            @relation("TargetSyncs")
   publicUrl       String? // 目标服务器公网访问地址（直连模式）
   fileProxyPort   Int                  @default(0) // 文件代理端口（0=未启用）
+  osDialect       String? // TR-041: JSON 序列化的 OsDialect（包管理器/服务管理器/路径等）
+  osInfo          String? // TR-041: /etc/os-release 原始摘要（distro name + version）
   hostedActions   AiHostedAction[]
   fileProxies     ServerFileProxy[]
 

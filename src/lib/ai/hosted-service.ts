@@ -13,6 +13,7 @@ import { createCommandRequest } from "@/lib/command/service";
 import { prisma } from "@/lib/db";
 import { BusinessError, ForbiddenError, NotFoundError } from "@/lib/errors";
 import { decryptServerPassword, decryptSshPrivateKey } from "@/lib/ssh/ssh-key-crypto";
+import { deserializeDialect, serviceCommand, type OsDialect } from "@/lib/ssh/os-dialect";
 import { getToolByName, type HostedActionType, type HostedTool } from "./hosted-tools";
 
 // ── 类型 ──────────────────────────────────────────────────
@@ -87,7 +88,13 @@ async function createAssistantCommandRequest(input: {
   userId: string;
   serverId: string;
 }) {
-  const command = buildCommand(input.tool.actionType, input.args);
+  // TR-041: 加载 server 的 osDialect 以支持方言感知命令生成
+  const server = await prisma.server.findUnique({
+    where: { id: input.serverId },
+    select: { osDialect: true },
+  });
+  const dialect = server?.osDialect ? deserializeDialect(server.osDialect) : undefined;
+  const command = buildCommand(input.tool.actionType, input.args, dialect);
   if (!command) {
     throw new BusinessError("AI 操作参数无效，无法生成可审批命令");
   }
@@ -185,7 +192,8 @@ export async function executeSafeAction(
     return { success: false, data: null, error: "未指定服务器" };
   }
 
-  // 获取服务器连接信息
+  // 获取服务器连接信息 + OS 方言 (TR-041)
+  // Prisma include 返回所有标量字段（含 osDialect）+ 关联的 sshKey
   const server = await prisma.server.findUnique({
     where: { id: action.serverId },
     include: { sshKey: true },
@@ -219,7 +227,8 @@ export async function executeSafeAction(
           resolve({ success: false, data: null, error: "不支持的操作类型" });
           return;
         }
-        const command = buildCommand(action.actionType, action.params);
+        const dialect = server.osDialect ? deserializeDialect(server.osDialect) : undefined;
+        const command = buildCommand(action.actionType, action.params, dialect);
         if (!command) {
           sshClient.end();
           resolve({ success: false, data: null, error: "不支持的操作类型" });
@@ -351,7 +360,9 @@ function normalizeEnvVars(value: unknown): string | null {
   }
 }
 
-export function buildCommand(actionType: HostedActionType, params: Record<string, unknown>): string | null {
+export function buildCommand(actionType: HostedActionType, params: Record<string, unknown>, dialect?: OsDialect): string | null {
+  const sm = dialect?.serviceManager ?? "systemd";
+  const sudo = dialect?.sudoPattern ?? "sudo -n";
   switch (actionType) {
     case "get_status":
       return "echo '=== UPTIME ===' && uptime && echo '=== MEMORY ===' && free -h && echo '=== DISK ===' && df -h / && echo '=== CPU ===' && top -bn1 | head -5";
@@ -377,13 +388,13 @@ export function buildCommand(actionType: HostedActionType, params: Record<string
     case "check_service_status": {
       const svc = normalizeIdentifier(params.serviceName);
       if (!svc) return null;
-      return `systemctl status ${svc} --no-pager -l`;
+      return serviceCommand(sm, "status", svc, sudo);
     }
 
     case "restart_service": {
       const svc = normalizeIdentifier(params.serviceName);
       if (!svc) return null;
-      return `systemctl restart ${svc} && systemctl status ${svc} --no-pager -l`;
+      return `${serviceCommand(sm, "restart", svc, sudo)} && ${serviceCommand(sm, "status", svc, sudo)}`;
     }
 
     case "modify_config": {
