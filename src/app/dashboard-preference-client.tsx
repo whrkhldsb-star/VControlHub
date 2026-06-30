@@ -260,8 +260,8 @@ export function DashboardPreferenceClient({
 				ref={gridRef}
 				className={
 					isEditing
-						? "grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-2"
-						: "grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-2"
+						? "grid grid-cols-1 gap-4"
+						: "grid grid-cols-1 gap-4"
 				}
 				data-dashboard-edit={isEditing ? "true" : "false"}
 				onClick={(e) => {
