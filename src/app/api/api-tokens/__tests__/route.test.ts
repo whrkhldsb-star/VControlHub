@@ -99,19 +99,19 @@ describe("/api/api-tokens", () => {
     expect(mocks.createApiToken).not.toHaveBeenCalled();
   });
 
-  it("rejects expiry dates in the past", async () => {
+  it("rejects malformed JSON token creation with the shared bodySchema error envelope", async () => {
     const req = new Request("http://local/api/api-tokens", {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({
-        name: "cli",
-        scopes: ["read"],
-        expiresAt: "2020-01-01T00:00:00.000Z",
-      }),
+      body: "{not-json",
     });
+
     const res = await route.POST(req);
+
     expect(res.status).toBe(400);
+    expect(await res.json()).toMatchObject({ error: "请求体不是合法的 JSON" });
     expect(mocks.createApiToken).not.toHaveBeenCalled();
+    expect(mocks.auditUserAction).not.toHaveBeenCalled();
   });
 
   it("creates a token, returns plaintext once, and writes audit metadata without the token", async () => {

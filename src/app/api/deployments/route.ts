@@ -47,53 +47,49 @@ function redirectToDeploymentsWithError(request: Request, message?: string) {
 }
 
 async function readRequestBody(request: Request) {
-  const contentType = request.headers.get("content-type") || "";
-  if (
-    contentType.includes("application/x-www-form-urlencoded") ||
-    contentType.includes("multipart/form-data")
-  ) {
-    const formData = await request.formData();
-    const variablesJson = formData.get("variablesJson");
-    let variables: Record<string, string> = {};
-    if (typeof variablesJson === "string" && variablesJson.trim()) {
-      try {
-        variables = JSON.parse(variablesJson) as Record<string, string>;
-      } catch {
-        variables = {};
-      }
+  const formData = await request.formData();
+  const variablesJson = formData.get("variablesJson");
+  let variables: Record<string, string> = {};
+  if (typeof variablesJson === "string" && variablesJson.trim()) {
+    try {
+      variables = JSON.parse(variablesJson) as Record<string, string>;
+    } catch {
+      variables = {};
     }
-    for (const [key, value] of formData.entries()) {
-      if (!key.startsWith("variables.") || typeof value !== "string") continue;
-      const name = key.slice("variables.".length).trim();
-      if (name) variables[name] = value;
-    }
-    return {
-      templateId: formData.get("templateId"),
-      serverIds: formData.getAll("serverIds"),
-      variables,
-      reason: formData.get("reason") || undefined,
-    };
   }
-  return request.json().catch(() => ({}));
+  for (const [key, value] of formData.entries()) {
+    if (!key.startsWith("variables.") || typeof value !== "string") continue;
+    const name = key.slice("variables.".length).trim();
+    if (name) variables[name] = value;
+  }
+  return {
+    templateId: formData.get("templateId"),
+    serverIds: formData.getAll("serverIds"),
+    variables,
+    reason: formData.get("reason") || undefined,
+  };
 }
 
 export async function POST(request: Request) {
+  const contentType = request.headers.get("content-type") || "";
+  const isFormSubmission = contentType.includes("application/x-www-form-urlencoded") || contentType.includes("multipart/form-data");
+  const options = {
+    permission: "deploy:run" as const,
+    rateLimit: GENERAL_WRITE_LIMIT,
+    errorMessage: "操作失败",
+    ...(isFormSubmission ? {} : { bodySchema: createDeploymentSchema }),
+  };
   return withApiRoute(
     request,
-    {
-      permission: "deploy:run",
-      rateLimit: GENERAL_WRITE_LIMIT,
-      errorMessage: "操作失败",
-    },
-    async ({ session }) => {
+    options,
+    async ({ session, body }) => {
       if (!session)
         return NextResponse.json(
           { error: "未登录或会话已过期" },
           { status: 401 },
         );
       try {
-        const body = await readRequestBody(request);
-        const parsed = createDeploymentSchema.safeParse(body);
+        const parsed = isFormSubmission ? createDeploymentSchema.safeParse(await readRequestBody(request)) : { success: true as const, data: body };
         if (!parsed.success) {
           const message = parsed.error.issues[0]?.message ?? "部署参数无效";
           if (wantsHtmlResponse(request))

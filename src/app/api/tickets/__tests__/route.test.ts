@@ -103,6 +103,19 @@ describe("/api/tickets", () => {
     expect(mocks.createTicket).not.toHaveBeenCalled();
   });
 
+  it("rejects malformed ticket POST JSON with the shared bodySchema error envelope", async () => {
+    const response = await route.POST(new Request("http://local/api/tickets", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: "{not-json",
+    }));
+
+    expect(response.status).toBe(400);
+    expect(await response.json()).toMatchObject({ error: "请求体不是合法的 JSON" });
+    expect(mocks.createTicket).not.toHaveBeenCalled();
+    expect(mocks.addTicketComment).not.toHaveBeenCalled();
+  });
+
   it("blocks comments on tickets the caller cannot access", async () => {
     mocks.canViewTicket.mockResolvedValue(false);
 

@@ -54,12 +54,21 @@ describe("/api/backups", () => {
     expect(mocks.runBackupRecord).toHaveBeenCalledWith({ type: "FULL", createdBy: "u1", note: "before upgrade" });
   });
 
-  it("rejects invalid backup type instead of silently defaulting", async () => {
-    const req = new Request("http://local/api/backups", { method: "POST", body: JSON.stringify({ type: "ROOT" }) });
+  it("rejects malformed backup JSON with the shared bodySchema error envelope", async () => {
+    const req = new Request("http://local/api/backups", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: "{not-json",
+    });
+
     const res = await route.POST(req);
+
     expect(res.status).toBe(400);
+    expect(await res.json()).toMatchObject({ error: "请求体不是合法的 JSON" });
+    expect(mocks.createBackupRecord).not.toHaveBeenCalled();
     expect(mocks.runBackupRecord).not.toHaveBeenCalled();
   });
+
   it("accepts browser form submissions and redirects back to backups page", async () => {
     const req = new Request("http://local/api/backups", {
       method: "POST",

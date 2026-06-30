@@ -32,23 +32,16 @@ function wantsHtml(request: Request) {
 }
 
 async function parseCreateBody(request: Request) {
-  const contentType = request.headers.get("content-type") ?? "";
-  if (
-    contentType.includes("application/x-www-form-urlencoded") ||
-    contentType.includes("multipart/form-data")
-  ) {
-    const form = await request.formData();
-    const scopes = form
-      .getAll("scopes")
-      .map(String)
-      .flatMap((value) => value.split(","));
-    return {
-      name: String(form.get("name") ?? ""),
-      scopes: scopes.length > 0 ? scopes : undefined,
-      expiresAt: form.get("expiresAt") ? String(form.get("expiresAt")) : null,
-    };
-  }
-  return request.json().catch(() => null);
+  const form = await request.formData();
+  const scopes = form
+    .getAll("scopes")
+    .map(String)
+    .flatMap((value) => value.split(","));
+  return {
+    name: String(form.get("name") ?? ""),
+    scopes: scopes.length > 0 ? scopes : undefined,
+    expiresAt: form.get("expiresAt") ? String(form.get("expiresAt")) : null,
+  };
 }
 
 function validateScopes(scopes: string[]) {
@@ -84,19 +77,23 @@ export async function GET(request: Request) {
 }
 
 export async function POST(request: Request) {
+  const contentType = request.headers.get("content-type") ?? "";
+  const isFormSubmission = contentType.includes("application/x-www-form-urlencoded") || contentType.includes("multipart/form-data");
+  const options = {
+    permission: "api-token:manage" as const,
+    rateLimit: GENERAL_WRITE_LIMIT,
+    errorStatus: 400,
+    errorMessage: "创建 Token 失败",
+    ...(isFormSubmission ? {} : { bodySchema: createTokenSchema }),
+  };
   return withApiRoute(
     request,
-    {
-      permission: "api-token:manage",
-      rateLimit: GENERAL_WRITE_LIMIT,
-      errorStatus: 400,
-      errorMessage: "创建 Token 失败",
-    },
-    async ({ session }) => {
+    options,
+    async ({ session, body }) => {
       if (!session)
         throw new AuthError("未认证");
 
-      const parsed = createTokenSchema.parse(await parseCreateBody(request));
+      const parsed = isFormSubmission ? createTokenSchema.parse(await parseCreateBody(request)) : body;
       const scopes = validateScopes(parsed.scopes);
       const expiresAt = parseExpiresAt(parsed.expiresAt);
       const result = await createApiToken({

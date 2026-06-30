@@ -74,14 +74,15 @@ describe("/api/settings audit coverage", () => {
     expect(JSON.stringify(mocks.auditUserAction.mock.calls)).not.toContain("控制台");
   });
 
-  it("does not write an audit entry when only masked sentinel values are submitted", async () => {
+  it("rejects malformed JSON with the shared bodySchema error envelope", async () => {
     const response = await route.PATCH(new Request("http://local/api/settings", {
       method: "PATCH",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ "smtp.pass": "***" }),
+      body: "{not-json",
     }));
 
-    expect(response.status).toBe(200);
+    expect(response.status).toBe(400);
+    expect(await response.json()).toMatchObject({ error: "请求体不是合法的 JSON" });
     expect(mocks.setManySettings).not.toHaveBeenCalled();
     expect(mocks.auditUserAction).not.toHaveBeenCalled();
   });

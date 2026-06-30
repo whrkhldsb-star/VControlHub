@@ -137,7 +137,7 @@ describe("/api/commands audit coverage", () => {
     expect(mocks.createCommandRequest).toHaveBeenCalledWith(expect.objectContaining({ submissionMode: "assistant" }));
   });
 
-  it("does not audit invalid command submissions", async () => {
+  it("rejects schema-invalid command submissions before reaching service code", async () => {
     const response = await route.POST(new Request("http://local/api/commands", {
       method: "POST",
       headers: { "content-type": "application/json" },
@@ -145,6 +145,7 @@ describe("/api/commands audit coverage", () => {
     }));
 
     expect(response.status).toBe(400);
+    expect(await response.json()).toMatchObject({ code: "VALIDATION_FAILED" });
     expect(mocks.createCommandRequest).not.toHaveBeenCalled();
     expect(mocks.auditUserAction).not.toHaveBeenCalled();
   });

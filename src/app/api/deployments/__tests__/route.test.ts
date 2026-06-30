@@ -58,6 +58,21 @@ describe("/api/deployments", () => {
     expect(mocks.createDeploymentRunFromTemplate).not.toHaveBeenCalled();
   });
 
+  it("rejects malformed deployment JSON with the shared bodySchema error envelope", async () => {
+    const req = new Request("http://local/api/deployments", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: "{not-json",
+    });
+
+    const res = await route.POST(req);
+
+    expect(res.status).toBe(400);
+    expect(await res.json()).toMatchObject({ error: "请求体不是合法的 JSON" });
+    expect(mocks.createDeploymentRunFromTemplate).not.toHaveBeenCalled();
+    expect(mocks.auditUserAction).not.toHaveBeenCalled();
+  });
+
   it("passes normalized deployment input to the service", async () => {
     const req = new Request("http://local/api/deployments", {
       method: "POST",

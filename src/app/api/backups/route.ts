@@ -23,21 +23,25 @@ export async function GET(request: Request) {
 }
 
 async function readRequestBody(request: Request) {
-  const contentType = request.headers.get("content-type") || "";
-  if (contentType.includes("application/x-www-form-urlencoded") || contentType.includes("multipart/form-data")) {
-    const formData = await request.formData();
-    return {
-      type: formData.get("type"),
-      note: formData.get("note") || undefined,
-    };
-  }
-  return request.json().catch(() => ({}));
+  const formData = await request.formData();
+  return {
+    type: formData.get("type"),
+    note: formData.get("note") || undefined,
+  };
 }
 
 export async function POST(request: Request) {
-  return withApiRoute(request, { permission: "backup:create", rateLimit: GENERAL_WRITE_LIMIT, errorStatus: 500, errorMessage: "操作失败" }, async ({ session }) => {
-    const body = await readRequestBody(request);
-    const parsed = createBackupSchema.safeParse(body);
+  const contentType = request.headers.get("content-type") || "";
+  const isFormSubmission = contentType.includes("application/x-www-form-urlencoded") || contentType.includes("multipart/form-data");
+  const options = {
+    permission: "backup:create" as const,
+    rateLimit: GENERAL_WRITE_LIMIT,
+    errorStatus: 500,
+    errorMessage: "操作失败",
+    ...(isFormSubmission ? {} : { bodySchema: createBackupSchema }),
+  };
+  return withApiRoute(request, options, async ({ session, body }) => {
+    const parsed = isFormSubmission ? createBackupSchema.safeParse(await readRequestBody(request)) : { success: true as const, data: body };
     if (!parsed.success) throw new ValidationError(parsed.error.issues[0]?.message ?? "备份参数无效");
     const { wait } = parseSearchParams(
       request,

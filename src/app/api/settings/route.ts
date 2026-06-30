@@ -146,17 +146,9 @@ export async function GET(request: Request) {
 /* ── PATCH ────────────────────────────────────────────────── */
 
 export async function PATCH(request: Request) {
-	return withApiRoute(request, { permission: "user:manage", rateLimit: GENERAL_WRITE_LIMIT, errorStatus: 400, errorMessage: "保存失败" }, async ({ session }) => {
-		const body = await request.json();
-
+	return withApiRoute(request, { permission: "user:manage", rateLimit: GENERAL_WRITE_LIMIT, errorStatus: 400, errorMessage: "保存失败", bodySchema: patchBodySchema }, async ({ session, body }) => {
 		// 1. Validate the body is a string→string record
-		const parsed = patchBodySchema.safeParse(body);
-		if (!parsed.success) {
-			return NextResponse.json(
-				{ error: "请求格式错误", details: parsed.error.flatten() },
-				{ status: 400 }
-			);
-		}
+		const parsed = { data: body };
 
 		// 2. Filter entries: reject keys not in whitelist, skip sentinel values, normalize supported value types.
 		const entries: Array<{ key: string; value: string }> = [];
