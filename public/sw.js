@@ -26,7 +26,7 @@
  * activate() can clear stale entries.
  */
 
-const CACHE_VERSION = "vch-shell-v1";
+const CACHE_VERSION = "vch-shell-v2";
 const SHELL_CACHE = `${CACHE_VERSION}-shell`;
 const RUNTIME_CACHE = `${CACHE_VERSION}-runtime`;
 
