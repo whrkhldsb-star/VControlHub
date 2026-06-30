@@ -431,7 +431,7 @@ make logs SERVICE_PREFIX=vcontrolhub
 
 - [ ] **快捷服务剩余增强**（TR-011）— 失败回滚、真实配置变更 diff/回滚记录、Direct Gateway 边界加固。 `[功能]`
 - [x] **`findMany` 显式上界全面收敛** — funnel 精扫 27 处 findMany（storage 8 + ai/command/cost/job/notification/playbook/quick-service/runtime-settings/scheduled-task/server/settings/share-link/status/system-health/upload 19），逐处接入 hard `take` 上界。Bounds 按 call-site 业务量级估算：bounded entity（storage node / ssh key / server / playbook / setting）= 500；session / job sweep / target = 1000；cost entry / SFTP stale scan = 10_000。commit 7ca982d + ab072e1。 `[架构]`
-- [ ] **`zod bodySchema/querySchema` 全面迁移**（TR-037 续）— 本轮将 AI、playbook、command-template、backup restore/void、Docker、downloads、files、images、notifications、quick-services、storage SFTP/direct-access、users permissions 等写路由批量迁到 `withApiRoute({ bodySchema })`；当前 app/api 共 63 处 `bodySchema` + 8 处 `querySchema`。剩余 `request.json()` 候选主要是 FormData/HTML redirect、legacy union、session 注入或逐 entry 校验路由，需逐条保守迁移。 `[安全/可维护性]`
+- [x] **`zod bodySchema/querySchema` 全面迁移**（TR-037 续）— 本轮将 AI、playbook、command-template、backup restore/void、Docker、downloads、files、images、notifications、quick-services、storage SFTP/direct-access、users permissions 等写路由批量迁到 `withApiRoute({ bodySchema })`；2026-06-30 续推 6 路由（commands/settings/tickets/api-tokens/backups/deployments）+ alert-rules POST/PATCH（union schema for toggle/test/update）。当前 app/api 共 75 处 `bodySchema` + 13 处 `querySchema`。剩余 `request.json()` 仅 1 处 `auth/2fa/verify-login`（自定义 rate-limit + cookie 流，README §认证/授权 已列豁免）；`tickets/[id]` 行号 14 仅注释提及非实际调用。**TR-037 视为完成**。 `[安全/可维护性]`
 - [ ] **SSH 多 Tab / 多会话** — 同时连接多台 VPS，标签页切换。 `[功能]`
 - [ ] **SSH 内文件传输** — 终端会话内直接拖拽上传/下载（SFTP over SSH）。 `[功能]`
 - [ ] **历史可用率图表** — 公开状态页补 90 天 uptime 热力图 / SLA 统计。 `[功能]`
