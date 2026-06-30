@@ -537,7 +537,7 @@ export function FilesBrowserSpa({
       <aside
         id="files-browser-sidebar"
         aria-label={t("filesBrowserSpa.sidebarAria")}
-        className={`min-w-[280px] rounded-3xl border border-[var(--border)] bg-slate-900/60 p-6 ${
+        className={`min-w-[280px] self-start rounded-3xl border border-[var(--border)] bg-slate-900/60 p-6 xl:sticky xl:top-6 ${
           mobileSidebarOpen ? "block" : "hidden xl:block"
         }`}
       >
@@ -596,28 +596,6 @@ export function FilesBrowserSpa({
 
       {/* Main content area */}
       <section className="space-y-8">
-        {/* VPS Node Selector - searchable */}
-        {data.nodes.length > 1 ? (
- <article data-tone="cyan" className="rounded-3xl border border-cyan-400/20 light:border-cyan-500/20 light:bg-cyan-50">
-            <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-              <div>
-                <h3 className="text-lg font-semibold text-white">
-                  {t("filesBrowserSpa.switchStorageNode")}
-                </h3>
-                <p className="mt-1 text-sm text-[var(--text-secondary)]">
-                  {t("filesBrowserSpa.switchStorageNodeDesc")}
-                </p>
-              </div>
-              <NodeFilterSelect
-                t={t}
-                nodes={data.nodes}
-                value={data.nodeIdFilter}
-                onChange={handleNodeFilterChange}
-              />
-            </div>
-          </article>
-        ) : null}
-
         {/* Search + Toolbar */}
         <article className="rounded-3xl border border-[var(--border)] bg-slate-900/60 p-6">
           <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
