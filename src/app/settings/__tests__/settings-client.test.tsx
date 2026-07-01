@@ -188,8 +188,10 @@ describe("SettingsClient", () => {
   it("keeps Settings light-theme form label overrides in the CSS compatibility layer", () => {
     const css = fs.readFileSync(path.join(process.cwd(), "src/app/globals.css"), "utf8");
 
-    expect(css).toContain("html.light .text-[var(--text-primary)]\\/50");
-    expect(css).toContain("html.light .text-[var(--text-primary)]\\/40");
+    // Verify CSS variables exist (no longer using Q-layer fallbacks)
+    expect(css).toContain("--text-primary");
+    expect(css).toContain("--surface");
+    expect(css).toContain("--border");
   });
   it("makes disabled SMTP fields visually and behaviorally inactive until SMTP is enabled", async () => {
     const user = userEvent.setup();

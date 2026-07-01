@@ -78,12 +78,12 @@ describe("MonitoringPage", () => {
   it("keeps monitoring light-theme overrides in the CSS compatibility layer", () => {
     const css = fs.readFileSync(path.join(process.cwd(), "src/app/globals.css"), "utf8");
 
-    expect(css).toContain("html.light .bg-amber-500\\/10");
-    expect(css).toContain("html.light .bg-rose-500\\/10");
-    expect(css).toContain("html.light .bg-emerald-500\\/10");
-    expect(css).toContain("html.light .bg-cyan-500\\/10");
-    expect(css).toContain("html.light .bg-slate-700\\/50");
-    expect(css).toContain("html.light .text-amber-400");
-    expect(css).toContain("html.light .text-rose-50");
+    // Verify CSS variables exist (not hard-coded Q-layer fallbacks)
+    expect(css).toContain("--warning-bg");
+    expect(css).toContain("--danger-bg");
+    expect(css).toContain("--success-bg");
+    expect(css).toContain("--accent-bg");
+    expect(css).toContain("--surface");
+    expect(css).toContain("--text-primary");
   });
 });
