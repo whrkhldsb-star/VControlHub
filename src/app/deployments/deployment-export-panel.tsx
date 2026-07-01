@@ -252,7 +252,7 @@ export function DeploymentExportPanel() {
         </label>
         <button
           disabled={pending}
-          className="rounded-lg bg-[var(--color-action-bg)] px-4 py-2 text-sm font-semibold text-slate-950 transition hover:bg-[var(--color-action-bg)] disabled:cursor-not-allowed disabled:opacity-60"
+          className="rounded-lg bg-[var(--color-action-bg)] px-4 py-2 text-sm font-semibold text-[var(--color-action-fg)] transition hover:bg-[var(--color-action-bg)] disabled:cursor-not-allowed disabled:opacity-60"
         >
           {pending ? t("deploymentsPage.export.generating") : t("deploymentsPage.export.generate")}
         </button>
@@ -327,7 +327,7 @@ function DeploymentExportTree({ tree, activePath, onSelect }: TreeProps) {
   return (
     <div
       data-testid="deploy-export-tree"
-      className="rounded-lg border border-[var(--border)] bg-black/30 p-3 font-mono text-xs text-[var(--text-secondary)]"
+      className="rounded-lg border border-[var(--border)] bg-[var(--input-bg)] p-3 font-mono text-xs text-[var(--text-secondary)]"
     >
       <p className="mb-2 text-[10px] font-semibold uppercase tracking-[0.2em] text-[var(--text-secondary)]/70">{t("deploymentsPage.export.fileTree")}</p>
       {tree.length === 0 ? (
@@ -428,7 +428,7 @@ function DeploymentFilePreview({
   const { t } = useI18n();
   if (fileNames.length === 0 || !activePath) {
     return (
-      <div className="rounded-lg border border-[var(--border)] bg-black/20 p-3 text-xs text-[var(--text-muted)]">
+      <div className="rounded-lg border border-[var(--border)] bg-[var(--input-bg)] p-3 text-xs text-[var(--text-muted)]">
         {t("deploymentsPage.export.emptyExport")}
       </div>
     );

@@ -14,7 +14,7 @@ export function ThemeToggle() {
 		<button
 			type="button"
 			onClick={toggleTheme}
-			className="relative flex h-11 w-11 items-center justify-center rounded-lg text-[var(--text-muted)] transition hover:bg-white/[0.06] hover:text-[var(--text-secondary)] light:hover:text-[var(--text-muted)] light:hover:bg-slate-100 light:hover:text-slate-950"
+			className="relative flex h-11 w-11 items-center justify-center rounded-lg text-[var(--text-muted)] transition hover:bg-white/[0.06] hover:text-[var(--text-secondary)] light:hover:text-[var(--text-muted)] light:hover:bg-slate-100 light:hover:text-[var(--color-action-fg)]"
 			aria-label={label}
 			title={label}
 		>

@@ -165,14 +165,14 @@ export function BatchReviewToolbar({
 						value={comment}
 						onChange={(e) => setComment(e.target.value)}
 						placeholder="批量审批备注（选填，将应用到全部 N 条）"
-						className="flex-1 rounded-lg border border-[var(--border)] bg-black/30 px-3 py-2 text-sm text-[var(--text-primary)] outline-none focus:border-[var(--color-action-border)]/40"
+						className="flex-1 rounded-lg border border-[var(--border)] bg-[var(--input-bg)] px-3 py-2 text-sm text-[var(--text-primary)] outline-none focus:border-[var(--color-action-border)]/40"
 					/>
 					<button
 						type="submit"
 						name="decision"
 						value="approve"
 						disabled={isPending}
-						className="rounded-lg bg-emerald-500 px-4 py-2 text-sm font-medium text-slate-950 transition hover:bg-emerald-400 disabled:cursor-not-allowed disabled:opacity-60"
+						className="rounded-lg bg-emerald-500 px-4 py-2 text-sm font-medium text-[var(--color-action-fg)] transition hover:bg-emerald-400 disabled:cursor-not-allowed disabled:opacity-60"
 					>
 						{isPending ? "处理中..." : `批量批准（${selected.size}）`}
 					</button>

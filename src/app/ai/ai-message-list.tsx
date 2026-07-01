@@ -119,7 +119,7 @@ export function AiMessageList({
                 <summary className="text-[10px] text-[var(--text-muted)] cursor-pointer hover:text-[var(--text-muted)]">
                   {t("aiPage.thinkingProcess")}
                 </summary>
-                <div className="mt-1 p-2 bg-black/20 rounded-lg text-xs text-[var(--text-muted)] whitespace-pre-wrap">
+                <div className="mt-1 p-2 bg-[var(--input-bg)] rounded-lg text-xs text-[var(--text-muted)] whitespace-pre-wrap">
                   {msg.reasoningContent}
                 </div>
               </details>
@@ -225,7 +225,7 @@ export function AiMessageList({
                 <summary className="text-[10px] text-[var(--color-action)]/60 cursor-pointer">
                   {t("aiPage.thinking")}
                 </summary>
-                <div className="mt-1 p-2 bg-black/20 rounded-lg text-xs text-[var(--text-muted)] whitespace-pre-wrap">
+                <div className="mt-1 p-2 bg-[var(--input-bg)] rounded-lg text-xs text-[var(--text-muted)] whitespace-pre-wrap">
                   {streamReasoning}
                 </div>
               </details>
@@ -262,7 +262,7 @@ export function AiMessageList({
             {pendingApprovals.map((approval) => (
               <div
                 key={approval.actionId}
-                className="flex items-center justify-between bg-black/30 rounded-lg p-2.5"
+                className="flex items-center justify-between bg-[var(--input-bg)] rounded-lg p-2.5"
               >
                 <div className="flex-1 min-w-0">
                   <div className="text-sm text-[var(--text-primary)] font-medium">

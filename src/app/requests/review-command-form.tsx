@@ -29,7 +29,7 @@ export function ReviewCommandForm({ commandRequestId }: { commandRequestId: stri
           pendingLabel="处理中..."
           name="decision"
           value="approve"
-          className="rounded-2xl bg-emerald-500 px-4 py-2 text-sm font-medium text-slate-950 transition hover:bg-emerald-400 disabled:cursor-not-allowed disabled:opacity-60"
+          className="rounded-2xl bg-emerald-500 px-4 py-2 text-sm font-medium text-[var(--color-action-fg)] transition hover:bg-emerald-400 disabled:cursor-not-allowed disabled:opacity-60"
         >
           <span>{t("requestsPage.review.approve")}</span>
         </SubmitButton>

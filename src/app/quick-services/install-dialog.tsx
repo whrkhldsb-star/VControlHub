@@ -224,7 +224,7 @@ export function InstallDialog({
 						type="button"
 						onClick={handleAdvance}
 						disabled={advanceDisabled}
-						className="rounded-lg bg-[var(--color-action)] px-4 py-2 text-xs font-semibold text-slate-950 hover:bg-[var(--color-action-bg)] transition disabled:opacity-40 disabled:cursor-not-allowed"
+						className="rounded-lg bg-[var(--color-action)] px-4 py-2 text-xs font-semibold text-[var(--color-action-fg)] hover:bg-[var(--color-action-bg)] transition disabled:opacity-40 disabled:cursor-not-allowed"
 					>
 						{t("qsPage.confirmInstall")}
 					</button>

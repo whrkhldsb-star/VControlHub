@@ -38,7 +38,7 @@ export default function OfflinePage() {
 
   return (
     <main
-      className="min-h-screen flex flex-col items-center justify-center px-6 py-16 bg-slate-50 text-slate-900 dark:bg-[var(--surface)] dark:text-[var(--text-primary)]"
+      className="min-h-screen flex flex-col items-center justify-center px-6 py-16 bg-slate-50 text-[var(--color-action-fg)] dark:bg-[var(--surface)] dark:text-[var(--text-primary)]"
       aria-labelledby="offline-title"
     >
       <div className="max-w-md w-full text-center space-y-6">
@@ -81,7 +81,7 @@ export default function OfflinePage() {
         <div className="pt-4 border-t border-slate-200 dark:border-slate-800">
           <a
             href="/dashboard"
-            className="inline-flex items-center justify-center min-h-11 px-5 rounded-lg bg-[var(--surface)] dark:bg-slate-100 text-[var(--text-primary)] dark:text-slate-900 text-sm font-medium hover:opacity-90 transition-opacity"
+            className="inline-flex items-center justify-center min-h-11 px-5 rounded-lg bg-[var(--surface)] dark:bg-slate-100 text-[var(--text-primary)] dark:text-[var(--color-action-fg)] text-sm font-medium hover:opacity-90 transition-opacity"
           >
             {t("pwa.offline.retry")}
           </a>

@@ -763,3 +763,26 @@ tbody tr {
 		mask-image: none;
 	}
 }
+
+/* ── Global option element styling (dark/light) ── */
+option {
+	background: var(--surface);
+	color: var(--text-primary);
+}
+
+/* ── Light mode status color overrides ── */
+/* Fix 200/300 tone colors that are invisible on light backgrounds */
+html.light .text-rose-200 { color: #e11d48; }
+html.light .text-rose-300 { color: #be123c; }
+html.light .text-emerald-200 { color: #059669; }
+html.light .text-emerald-300 { color: #047857; }
+html.light .text-amber-200 { color: #d97706; }
+html.light .text-amber-300 { color: #b45309; }
+html.light .text-sky-200 { color: #0284c7; }
+html.light .text-sky-300 { color: #0369a1; }
+html.light .text-slate-200 { color: #1e293b; }
+html.light .text-slate-300 { color: #334155; }
+html.light .text-slate-400 { color: #475569; }
+
+/* ── Light mode input placeholder overrides ── */
+html.light .placeholder\:text-slate-600::placeholder { color: #94a3b8; }

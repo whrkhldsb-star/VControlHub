@@ -275,7 +275,7 @@ export default async function MediaPlayerPage({
                 <dt className="text-xs uppercase tracking-wide text-[var(--text-muted)]">
                   {t("mediaPage.player.pathLabel", locale)}
                 </dt>
-                <dd className="mt-1 break-all rounded-2xl bg-black/20 p-3 font-mono text-xs text-[var(--text-secondary)]">
+                <dd className="mt-1 break-all rounded-2xl bg-[var(--input-bg)] p-3 font-mono text-xs text-[var(--text-secondary)]">
                   {item.relativePath}
                 </dd>
               </div>

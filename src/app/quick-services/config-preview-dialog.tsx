@@ -136,7 +136,7 @@ export function ConfigPreviewDialog({
 					<button
 						type="button"
 						onClick={onConfirm}
-						className="min-h-11 rounded-lg bg-[var(--color-action)] px-4 py-2 text-xs font-semibold text-slate-950 hover:bg-[var(--color-action-bg)] transition"
+						className="min-h-11 rounded-lg bg-[var(--color-action)] px-4 py-2 text-xs font-semibold text-[var(--color-action-fg)] hover:bg-[var(--color-action-bg)] transition"
 					>
 						{confirmLabel}
 					</button>

@@ -278,7 +278,7 @@ export default function TrafficPage({ canManage: _canManage }: { canManage: bool
                         }}
                       />
                     ) : (
-                      <div className="rounded-xl border border-[var(--border)] bg-black/20 p-3">
+                      <div className="rounded-xl border border-[var(--border)] bg-[var(--input-bg)] p-3">
                         {persistedTrend && persistedTrend.size > 0 ? (
                           <div className="space-y-4">
                             {Array.from(persistedTrend.entries()).map(([key, points]) => (
@@ -303,8 +303,8 @@ export default function TrafficPage({ canManage: _canManage }: { canManage: bool
                     )}
                   </div>
                   <div className="mt-4 grid grid-cols-1 gap-3 text-xs text-[var(--text-secondary)] md:grid-cols-2">
-                    <div className="rounded-xl bg-black/20 p-3 light:ring-1 light:ring-slate-200">{t("trafficPage.rxTotal").replace("{value}", primary.rxLabel)}<span className="font-mono text-[var(--text-primary)]"> </span></div>
-                    <div className="rounded-xl bg-black/20 p-3 light:ring-1 light:ring-slate-200">{t("trafficPage.txTotal").replace("{value}", primary.txLabel)}<span className="font-mono text-[var(--text-primary)]"> </span></div>
+                    <div className="rounded-xl bg-[var(--input-bg)] p-3 light:ring-1 light:ring-slate-200">{t("trafficPage.rxTotal").replace("{value}", primary.rxLabel)}<span className="font-mono text-[var(--text-primary)]"> </span></div>
+                    <div className="rounded-xl bg-[var(--input-bg)] p-3 light:ring-1 light:ring-slate-200">{t("trafficPage.txTotal").replace("{value}", primary.txLabel)}<span className="font-mono text-[var(--text-primary)]"> </span></div>
                   </div>
                 </>
               ) : <div className="text-sm text-[var(--text-muted)]">{t("trafficPage.noIface")}</div>}
@@ -338,7 +338,7 @@ export default function TrafficPage({ canManage: _canManage }: { canManage: bool
           ) : (
             <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
               {(remoteServers ?? []).map((node) => (
-                <div key={node.serverId} className="rounded-xl border border-[var(--border)] bg-black/20 p-4">
+                <div key={node.serverId} className="rounded-xl border border-[var(--border)] bg-[var(--input-bg)] p-4">
                   <div className="flex items-center justify-between gap-3">
                     <div>
                       <div className="text-sm font-medium text-[var(--text-primary)]">{node.serverName}</div>

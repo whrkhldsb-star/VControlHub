@@ -486,7 +486,7 @@ function CreateRuleForm({ servers, playbooks, onClose }: { servers: ServerOption
 			</div>
 
 			<div className="flex gap-3 pt-2">
-				<button type="submit" disabled={submitting} className="rounded-2xl bg-[var(--color-action)] px-5 py-2 text-sm font-medium text-slate-950 transition hover:bg-[var(--color-action-bg)] disabled:opacity-60">
+				<button type="submit" disabled={submitting} className="rounded-2xl bg-[var(--color-action)] px-5 py-2 text-sm font-medium text-[var(--color-action-fg)] transition hover:bg-[var(--color-action-bg)] disabled:opacity-60">
 					{submitting ? t("alertRulesPage.createForm.submitting") : t("alertRulesPage.createForm.submit")}
 				</button>
 				<button type="button" onClick={onClose} className="rounded-2xl border border-[var(--border)] px-5 py-2 text-sm text-[var(--text-secondary)] hover:bg-[var(--surface)]/10 transition">

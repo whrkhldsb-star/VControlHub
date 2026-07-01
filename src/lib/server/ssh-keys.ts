@@ -26,7 +26,34 @@ import { PPKError, parseFromString } from "ppk-to-openssh";
 
 import { prisma } from "@/lib/db";
 import { ValidationError } from "@/lib/errors";
-import { encryptSshPrivateKey } from "@/lib/ssh/ssh-key-crypto";
+import { encryptSshPrivateKey, encryptSshKeyPassphrase } from "@/lib/ssh/ssh-key-crypto";
+
+/** Detect SSH private key format from content */
+function detectKeyFormat(content: string): "ppk" | "openssh" | "unknown" {
+  const trimmed = content.trim();
+  if (trimmed.startsWith("PuTTY-User-Key-File")) return "ppk";
+  if (trimmed.startsWith("-----BEGIN ") && trimmed.includes("PRIVATE KEY-----")) return "openssh";
+  return "unknown";
+}
+
+/** Validate OpenSSH/PEM private key has a proper header */
+function validateOpenSshPrivateKey(key: string): void {
+  const trimmed = key.trim();
+  if (!trimmed.startsWith("-----BEGIN ")) {
+    throw new ValidationError("私钥格式无效：OpenSSH/PEM 私钥应以 -----BEGIN 开头。");
+  }
+  if (!trimmed.includes("PRIVATE KEY-----")) {
+    throw new ValidationError("私钥格式无效：缺少 PRIVATE KEY 标记。");
+  }
+  if (!trimmed.includes("-----END ")) {
+    throw new ValidationError("私钥格式无效：缺少结束标记 -----END。");
+  }
+}
+
+/** Derive a fingerprint from a private key as fallback */
+function computeSshPublicKeyFingerprintFromPrivate(privateKey: string): string {
+  return `SHA256:${createHash("sha256").update(privateKey.trim()).digest("base64").replace(/=+$/g, "")}`;
+}
 
 export async function listSshKeys() {
   return prisma.sshKey.findMany({
@@ -71,23 +98,54 @@ async function normalizeImportedSshKey(input: {
   ppkPassphrase?: string | null;
   privateKeyEncryptionMode?: SshPrivateKeyEncryptionMode;
   privateKeyOutputPassphrase?: string | null;
+  passphrase?: string | null;
 }) {
-  const ppkContent = input.ppkContent?.trim();
+  const uploadedContent = input.ppkContent?.trim();
   const manualPrivateKey = input.privateKey?.trim() || null;
+  const passphrase = input.passphrase?.trim() || null;
 
-  if (!ppkContent) {
+  if (!uploadedContent) {
     const publicKey = normalizeAuthorizedKey(input.publicKey ?? "");
-    if (!publicKey) {
-      throw new ValidationError("SSH 公钥不能为空，或请上传 .ppk 私钥文件自动提取。 ");
+    if (!publicKey && !manualPrivateKey) {
+      throw new ValidationError("SSH 公钥不能为空，或请上传密钥文件自动提取。");
     }
-
+    if (manualPrivateKey && manualPrivateKey.startsWith("-----BEGIN")) {
+      validateOpenSshPrivateKey(manualPrivateKey);
+    }
     return {
-      publicKey,
+      publicKey: publicKey || "",
       privateKey: manualPrivateKey,
-      fingerprint: computeSshPublicKeyFingerprint(publicKey),
+      passphrase,
+      fingerprint: publicKey
+        ? computeSshPublicKeyFingerprint(publicKey)
+        : manualPrivateKey
+          ? computeSshPublicKeyFingerprintFromPrivate(manualPrivateKey)
+          : "",
     };
   }
 
+  const format = detectKeyFormat(uploadedContent);
+
+  if (format === "openssh") {
+    validateOpenSshPrivateKey(uploadedContent);
+    const publicKey = normalizeAuthorizedKey(input.publicKey ?? "");
+    return {
+      publicKey: publicKey || "",
+      privateKey: uploadedContent,
+      passphrase,
+      fingerprint: publicKey
+        ? computeSshPublicKeyFingerprint(publicKey)
+        : computeSshPublicKeyFingerprintFromPrivate(uploadedContent),
+    };
+  }
+
+  if (format === "unknown") {
+    throw new ValidationError(
+      "无法识别密钥文件格式。支持 PuTTY .ppk、OpenSSH、PEM (PKCS#1/PKCS#8/SEC1) 格式。",
+    );
+  }
+
+  // PPK format — existing conversion flow
   const inputPassphrase = input.ppkPassphrase?.trim() ?? "";
   const encryptionMode = input.privateKeyEncryptionMode ?? "none";
   const outputPassphrase = input.privateKeyOutputPassphrase?.trim() ?? "";
@@ -103,8 +161,8 @@ async function normalizeImportedSshKey(input: {
   try {
     const parsed =
       encryptionMode === "none"
-        ? await parseFromString(ppkContent, inputPassphrase)
-        : await parseFromString(ppkContent, inputPassphrase, {
+        ? await parseFromString(uploadedContent, inputPassphrase)
+        : await parseFromString(uploadedContent, inputPassphrase, {
             encrypt: true,
             outputPassphrase:
               encryptionMode === "same-as-ppk"
@@ -115,6 +173,7 @@ async function normalizeImportedSshKey(input: {
     return {
       publicKey: normalizeAuthorizedKey(parsed.publicKey),
       privateKey: parsed.privateKey.trim(),
+      passphrase: null,
       fingerprint:
         parsed.fingerprint || computeSshPublicKeyFingerprint(parsed.publicKey),
     };
@@ -147,6 +206,7 @@ export async function createSshKey(input: {
   ppkPassphrase?: string | null;
   privateKeyEncryptionMode?: SshPrivateKeyEncryptionMode;
   privateKeyOutputPassphrase?: string | null;
+  passphrase?: string | null;
   description?: string | null;
   createdById?: string | null;
 }) {
@@ -157,13 +217,20 @@ export async function createSshKey(input: {
 
   const normalizedKey = await normalizeImportedSshKey(input);
 
+  if (!normalizedKey.fingerprint) {
+    throw new ValidationError("无法计算密钥指纹，请检查密钥内容是否完整。");
+  }
+
   return prisma.sshKey.create({
     data: {
       name,
       fingerprint: normalizedKey.fingerprint,
-      publicKey: normalizedKey.publicKey,
+      publicKey: normalizedKey.publicKey || "",
       privateKey: normalizedKey.privateKey
         ? encryptSshPrivateKey(normalizedKey.privateKey)
+        : null,
+      passphrase: normalizedKey.passphrase
+        ? encryptSshKeyPassphrase(normalizedKey.passphrase)
         : null,
       description,
       createdById: input.createdById ?? null,

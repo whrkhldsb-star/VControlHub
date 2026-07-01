@@ -303,7 +303,7 @@ export default function DockerPage() {
 								{group.containers.map((c) => {
 									const stat = stats[c.Id];
 									return (
-										<div key={c.Id} className="rounded-lg border border-[var(--border)] bg-black/20 p-4">
+										<div key={c.Id} className="rounded-lg border border-[var(--border)] bg-[var(--input-bg)] p-4">
 											<div className="flex items-center justify-between gap-3 mb-2">
 												<div className="flex items-center gap-3 min-w-0">
 													<span className={`text-[10px] px-2 py-0.5 rounded-full font-medium ${stateColors[c.State] || "bg-[var(--surface-hover)]/50 text-[var(--text-muted)]"}`}>
@@ -351,7 +351,7 @@ export default function DockerPage() {
 							<h2 className="text-sm font-medium text-[var(--text-primary)] mb-3">{t("dockerPage.ungrouped.title")}</h2>
 							<div className="space-y-3">
 								{ungrouped.map((c) => (
-									<div key={c.Id} className="rounded-lg border border-[var(--border)] bg-black/20 p-4">
+									<div key={c.Id} className="rounded-lg border border-[var(--border)] bg-[var(--input-bg)] p-4">
 										<div className="flex items-center justify-between gap-3 mb-2">
 											<div className="flex items-center gap-3 min-w-0">
 												<span className={`text-[10px] px-2 py-0.5 rounded-full font-medium ${stateColors[c.State] || "bg-[var(--surface-hover)]/50 text-[var(--text-muted)]"}`}>

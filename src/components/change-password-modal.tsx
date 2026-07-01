@@ -51,7 +51,7 @@ export function ChangePasswordModal({ open, onClose }: { open: boolean; onClose:
 					<button
 						type="button"
 						onClick={onClose}
-						className="rounded-xl p-2 text-[var(--text-secondary)] hover:bg-white/5 hover:text-white light:hover:text-slate-900 transition"
+						className="rounded-xl p-2 text-[var(--text-secondary)] hover:bg-white/5 hover:text-white light:hover:text-[var(--color-action-fg)] transition"
 						aria-label={closeModalLabel}
 					>
 						<svg width="18" height="18" viewBox="0 0 18 18" fill="none" xmlns="http://www.w3.org/2000/svg">

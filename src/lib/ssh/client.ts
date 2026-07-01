@@ -1,14 +1,15 @@
 import { Client, type ConnectConfig } from "ssh2";
 import type { SFTPWrapper } from "ssh2";
 import { BusinessError } from "@/lib/errors";
-import { decryptServerPassword, decryptSshPrivateKey } from "@/lib/ssh/ssh-key-crypto";
+import { decryptServerPassword, decryptSshPrivateKey, decryptSshKeyPassphrase } from "@/lib/ssh/ssh-key-crypto";
 
 export type SshConnectionParams = {
- host: string;
- port: number;
- username: string;
- privateKey?: string;
- password?: string;
+  host: string;
+  port: number;
+  username: string;
+  privateKey?: string;
+  passphrase?: string;
+  password?: string;
 };
 
 export type SftpListEntry = {
@@ -30,7 +31,8 @@ function createSshConfig(input: SshConnectionParams): ConnectConfig {
  };
 
  if (input.privateKey) {
-  config.privateKey = input.privateKey;
+   config.privateKey = input.privateKey;
+   if (input.passphrase) config.passphrase = input.passphrase;
  } else if (input.password) {
   config.password = input.password;
  }
@@ -330,12 +332,15 @@ export async function buildSshParamsFromServer(server: {
  username: string;
  sshKeyId: string | null;
  password: string | null;
-}, sshKey?: { privateKey: string | null } | null): Promise<SshConnectionParams> {
- return {
- host: server.host,
- port: server.port,
- username: server.username,
- ...(sshKey?.privateKey ? { privateKey: decryptSshPrivateKey(sshKey.privateKey) } : {}),
- ...(server.password ? { password: decryptServerPassword(server.password) } : {}),
- };
+}, sshKey?: { privateKey: string | null; passphrase?: string | null } | null): Promise<SshConnectionParams> {
+  return {
+    host: server.host,
+    port: server.port,
+    username: server.username,
+    ...(sshKey?.privateKey ? {
+      privateKey: decryptSshPrivateKey(sshKey.privateKey),
+      ...(sshKey.passphrase ? { passphrase: decryptSshKeyPassphrase(sshKey.passphrase) } : {}),
+    } : {}),
+    ...(server.password ? { password: decryptServerPassword(server.password) } : {}),
+  };
 }

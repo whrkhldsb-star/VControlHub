@@ -80,7 +80,7 @@ export function CreateAnnouncementForm() {
 					<p id={`${expiresAtId}-hint`} className="text-[11px] text-[var(--text-muted)]">{t("announcementsPage.create.expiresAtHint")}</p>
 				</div>
 			</div>
-			<button disabled={loading} className="w-fit rounded-lg bg-[var(--color-action-bg)] px-4 py-2 text-sm font-semibold text-slate-950 disabled:cursor-not-allowed disabled:opacity-60">
+			<button disabled={loading} className="w-fit rounded-lg bg-[var(--color-action-bg)] px-4 py-2 text-sm font-semibold text-[var(--color-action-fg)] disabled:cursor-not-allowed disabled:opacity-60">
 				{loading ? t("announcementsPage.create.submitting") : t("announcementsPage.create.submit")}
 			</button>
 		</form>

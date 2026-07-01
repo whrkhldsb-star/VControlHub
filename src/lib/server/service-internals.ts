@@ -95,6 +95,7 @@ export type ServerProfileRow = Prisma.ServerGetPayload<{
         fingerprint: true;
         publicKey: true;
         privateKey: true;
+        passphrase: true;
         createdAt: true;
       };
     };
@@ -211,7 +212,7 @@ export async function verifyServerSshConnectivity(
     ServerWithRelations,
     "host" | "port" | "username" | "password" | "connectionType" | "sshKeyId"
   > & {
-    sshKey?: { privateKey?: string | null } | null;
+    sshKey?: { privateKey?: string | null; passphrase?: string | null } | null;
   },
 ) {
   if (isLocalHostLiteral(normalized.host)) return;
@@ -220,7 +221,7 @@ export async function verifyServerSshConnectivity(
     const ssh = await buildSshParamsFromServer(
       serverLike as ServerWithRelations,
       serverLike.sshKey
-        ? { privateKey: serverLike.sshKey.privateKey ?? null }
+        ? { privateKey: serverLike.sshKey.privateKey ?? null, passphrase: serverLike.sshKey.passphrase ?? null }
         : null,
     );
     const result = await execRemoteCommand({

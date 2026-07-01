@@ -181,7 +181,7 @@ export function SourcesPanel({ sources, actions, onRequestDeleteSource }: Source
 					<button
 						type="button"
 						onClick={doAddSource}
-						className="rounded-lg bg-[var(--color-action)] px-4 py-2 text-xs font-semibold text-slate-950 hover:bg-[var(--color-action-bg)] transition"
+						className="rounded-lg bg-[var(--color-action)] px-4 py-2 text-xs font-semibold text-[var(--color-action-fg)] hover:bg-[var(--color-action-bg)] transition"
 					>
 						添加源
 					</button>
@@ -193,7 +193,7 @@ export function SourcesPanel({ sources, actions, onRequestDeleteSource }: Source
 					type="button"
 					onClick={() => actions.doSync()}
 					disabled={actions.syncing !== null}
-					className="rounded-lg bg-[var(--color-action)] px-4 py-2 text-xs font-semibold text-slate-950 hover:bg-[var(--color-action-bg)] transition disabled:opacity-40"
+					className="rounded-lg bg-[var(--color-action)] px-4 py-2 text-xs font-semibold text-[var(--color-action-fg)] hover:bg-[var(--color-action-bg)] transition disabled:opacity-40"
 				>
 					{actions.syncing === "all" ? t("quickServicesPage.sources.syncing") : t("quickServicesPage.sources.syncAll")}
 				</button>

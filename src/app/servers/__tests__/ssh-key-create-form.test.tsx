@@ -28,6 +28,6 @@ describe("SshKeyCreateForm", () => {
 		render(<SshKeyCreateForm />);
 
 		expect(screen.getByLabelText("私钥")).not.toBeRequired();
-		expect(screen.getByText("PuTTY .ppk 上传")).toBeInTheDocument();
+		expect(screen.getByText("密钥文件上传")).toBeInTheDocument();
 	});
 });

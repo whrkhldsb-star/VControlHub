@@ -13,7 +13,7 @@ import { WebSocketServer, WebSocket } from "ws";
 import { Client } from "ssh2";
 import { prisma } from "@/lib/db";
 import { config } from "@/lib/config/env";
-import { decryptServerPassword, decryptSshPrivateKey } from "@/lib/ssh/ssh-key-crypto";
+import { decryptServerPassword, decryptSshPrivateKey, decryptSshKeyPassphrase } from "@/lib/ssh/ssh-key-crypto";
 
 import { canUseSshTerminal } from "./lib/auth/ssh-access";
 import { getAppSlug } from "./lib/branding";
@@ -153,7 +153,7 @@ async function resolveServerConnection(serverId: string) {
    enabled: true,
    connectionType: true,
    password: true,
-   sshKey: { select: { privateKey: true } },
+   sshKey: { select: { privateKey: true, passphrase: true } },
   },
  });
  if (!srv || !srv.enabled) return null;
@@ -167,6 +167,7 @@ async function resolveServerConnection(serverId: string) {
   username: srv.username,
   connectionType: srv.connectionType,
 	privateKey: srv.connectionType === "SSH_KEY" ? decryptSshPrivateKey(srv.sshKey!.privateKey ?? "") : undefined,
+	passphrase: srv.connectionType === "SSH_KEY" && srv.sshKey?.passphrase ? decryptSshKeyPassphrase(srv.sshKey.passphrase) : undefined,
 	password: srv.connectionType === "PASSWORD" ? decryptServerPassword(srv.password ?? "") : undefined,
  };
 }
@@ -397,7 +398,7 @@ wss.on("connection", async (ws, req) => {
  host: connParams.host,
  port: connParams.port,
  username: connParams.username,
- ...(connParams.connectionType === "SSH_KEY" ? { privateKey: connParams.privateKey } : { password: connParams.password }),
+ ...(connParams.connectionType === "SSH_KEY" ? { privateKey: connParams.privateKey, ...(connParams.passphrase ? { passphrase: connParams.passphrase } : {}) } : { password: connParams.password }),
  readyTimeout: 15000,
  timeout: 10000,
  keepaliveInterval: terminalRuntimeConfig.sshKeepaliveIntervalMs,

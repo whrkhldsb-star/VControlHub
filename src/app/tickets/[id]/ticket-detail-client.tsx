@@ -120,7 +120,7 @@ export function TicketDetailClient({ initial, canManage, locale: _locale }: Tick
           </div>
         </div>
 
-        <div className="mt-4 rounded-lg border border-[var(--border)]/[0.04] bg-black/20 p-4">
+        <div className="mt-4 rounded-lg border border-[var(--border)]/[0.04] bg-[var(--input-bg)] p-4">
           <p className="whitespace-pre-wrap text-sm text-[var(--text-secondary)]">{ticket.description}</p>
         </div>
 
@@ -171,7 +171,7 @@ export function TicketDetailClient({ initial, canManage, locale: _locale }: Tick
         ) : (
           <div className="space-y-4">
             {ticket.comments.map((c) => (
-              <div key={c.id} className="rounded-lg border border-[var(--border)]/[0.04] bg-black/20 p-4">
+              <div key={c.id} className="rounded-lg border border-[var(--border)]/[0.04] bg-[var(--input-bg)] p-4">
                 <div className="flex items-center justify-between mb-2">
                   <span className="text-sm font-medium text-[var(--text-primary)]">{c.author.displayName || c.author.username}</span>
                   <span className="text-xs text-[var(--text-muted)]">{new Date(c.createdAt).toLocaleString("zh-CN")}</span>

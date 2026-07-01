@@ -195,6 +195,7 @@ model SshKey {
   fingerprint String   @unique
   publicKey   String
   privateKey  String?
+  passphrase  String?
   description String?
   createdById String?
   createdAt   DateTime @default(now())

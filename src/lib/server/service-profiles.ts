@@ -45,7 +45,7 @@ export async function createServerProfile(input: CreateServerInput) {
         name: true,
         fingerprint: true,
         publicKey: true,
-        privateKey: true,
+        privateKey: true, passphrase: true,
         createdAt: true,
       },
     });
@@ -111,7 +111,7 @@ export async function createServerProfile(input: CreateServerInput) {
           name: true,
           fingerprint: true,
           publicKey: true,
-          privateKey: true,
+          privateKey: true, passphrase: true,
           createdAt: true,
         },
       },
@@ -211,7 +211,7 @@ export async function createServerProfile(input: CreateServerInput) {
           name: true,
           fingerprint: true,
           publicKey: true,
-          privateKey: true,
+          privateKey: true, passphrase: true,
           createdAt: true,
         },
       },
@@ -268,7 +268,7 @@ export async function updateServerProfile(
           name: true,
           fingerprint: true,
           publicKey: true,
-          privateKey: true,
+          privateKey: true, passphrase: true,
           createdAt: true,
         },
       },
@@ -345,7 +345,7 @@ export async function updateServerProfile(
         name: true,
         fingerprint: true,
         publicKey: true,
-        privateKey: true,
+        privateKey: true, passphrase: true,
         createdAt: true,
       },
     });
@@ -410,7 +410,7 @@ export async function updateServerProfile(
           name: true,
           fingerprint: true,
           publicKey: true,
-          privateKey: true,
+          privateKey: true, passphrase: true,
           createdAt: true,
         },
       },
@@ -464,7 +464,7 @@ export async function deleteServerProfile(serverId: string) {
   const current = await prisma.server.findUnique({
     where: { id: serverId },
     include: {
-      sshKey: { select: { privateKey: true } },
+      sshKey: { select: { privateKey: true, passphrase: true } },
       storageNode: {
         select: {
           id: true,
@@ -514,7 +514,7 @@ export async function listServerProfiles(teamId?: string | null) {
           name: true,
           fingerprint: true,
           publicKey: true,
-          privateKey: true,
+          privateKey: true, passphrase: true,
           createdAt: true,
         },
       },

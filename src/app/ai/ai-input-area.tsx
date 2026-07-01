@@ -109,7 +109,7 @@ export function AiInputArea({
           }
           rows={1}
           disabled={streaming}
-          className="flex-1 bg-black/30 border border-[var(--border)] rounded-xl px-4 py-2.5 text-sm text-[var(--text-primary)] placeholder-slate-600 resize-none focus:outline-none focus:border-[var(--color-action-border)]/30 transition disabled:opacity-50"
+          className="flex-1 bg-[var(--input-bg)] border border-[var(--border)] rounded-xl px-4 py-2.5 text-sm text-[var(--text-primary)] placeholder-slate-600 resize-none focus:outline-none focus:border-[var(--color-action-border)]/30 transition disabled:opacity-50"
           style={{ maxHeight: "120px" }}
           onInput={(e) => {
             const el = e.currentTarget;

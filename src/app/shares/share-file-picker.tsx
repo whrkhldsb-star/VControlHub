@@ -338,7 +338,7 @@ export function ShareFilePicker({ nodes }: { nodes: StorageNode[] }) {
 						type="button"
 						onClick={() => void createShares()}
 						disabled={creating || selectedItems.length === 0}
-						className="min-h-11 mt-4 inline-flex w-full items-center justify-center gap-2 rounded-xl bg-[var(--color-action)] px-4 py-2.5 text-sm font-semibold text-slate-950 transition hover:bg-[var(--color-action-bg)] disabled:cursor-not-allowed disabled:opacity-50"
+						className="min-h-11 mt-4 inline-flex w-full items-center justify-center gap-2 rounded-xl bg-[var(--color-action)] px-4 py-2.5 text-sm font-semibold text-[var(--color-action-fg)] transition hover:bg-[var(--color-action-bg)] disabled:cursor-not-allowed disabled:opacity-50"
 					>
 						{creating ? <Loader2 size={16} className="animate-spin" /> : <Share2 size={16} />}
 						{creating ? copyText.creating : copyText.create}

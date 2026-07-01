@@ -12,7 +12,7 @@ import { Client } from "ssh2";
 import type { Stats, FileEntryWithStats } from "ssh2";
 import { Readable, Writable, PassThrough } from "node:stream";
 import { prisma } from "@/lib/db";
-import { decryptServerPassword, decryptSshPrivateKey } from "@/lib/ssh/ssh-key-crypto";
+import { decryptServerPassword, decryptSshPrivateKey, decryptSshKeyPassphrase } from "@/lib/ssh/ssh-key-crypto";
 import { createLogger } from "@/lib/logging";
 
 const logger = createLogger("sftp-service");
@@ -48,6 +48,7 @@ type ResolvedConnection = {
   username: string;
   connectionType: string;
   privateKey?: string;
+  passphrase?: string;
   password?: string;
 };
 
@@ -99,7 +100,7 @@ async function resolveServerConnection(serverId: string): Promise<ResolvedConnec
       enabled: true,
       connectionType: true,
       password: true,
-      sshKey: { select: { privateKey: true } },
+      sshKey: { select: { privateKey: true, passphrase: true } },
     },
   });
 
@@ -120,8 +121,12 @@ async function resolveServerConnection(serverId: string): Promise<ResolvedConnec
     username: srv.username,
     connectionType: srv.connectionType,
     privateKey:
-      srv.connectionType === "SSH_KEY"
+      srv.connectionType === "SSH_KEY" && srv.sshKey?.privateKey
         ? decryptSshPrivateKey(srv.sshKey!.privateKey ?? "")
+        : undefined,
+    passphrase:
+      srv.connectionType === "SSH_KEY" && srv.sshKey?.passphrase
+        ? decryptSshKeyPassphrase(srv.sshKey!.passphrase)
         : undefined,
     password:
       srv.connectionType === "PASSWORD"
@@ -177,7 +182,7 @@ async function openSftpSession(serverId: string): Promise<SftpSession> {
       port: conn.port,
       username: conn.username,
       ...(conn.connectionType === "SSH_KEY"
-        ? { privateKey: conn.privateKey }
+        ? { privateKey: conn.privateKey, ...(conn.passphrase ? { passphrase: conn.passphrase } : {}) }
         : { password: conn.password }),
       readyTimeout: 15000,
       keepaliveInterval: 5000,

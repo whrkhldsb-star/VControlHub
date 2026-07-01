@@ -10,15 +10,15 @@ export const INPUT_CLS =
 
 /** 错误状态输入框 — 9 处 */
 export const INPUT_ERROR_CLS =
-	"rounded-lg bg-rose-500/[0.08] border border-rose-400/20 px-3.5 py-2.5 text-sm text-rose-200";
+	"rounded-lg bg-rose-500/[0.08] border border-rose-400/20 px-3.5 py-2.5 text-sm text-rose-200 light:text-rose-600";
 
 /** 表格 thead 单元格 — 14 处 */
 export const TABLE_TH_CLS =
-	"px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider";
+	"px-4 py-3 text-left text-xs font-medium text-[var(--text-muted)] uppercase tracking-wider";
 
 /** 旧式深色输入框（bg-slate-950，部分表单使用）— 16 处 */
 export const INPUT_DARK_CLS =
-	"rounded-2xl border border-[var(--border)] bg-slate-950 px-4 py-3 text-white";
+	"rounded-2xl border border-[var(--border)] bg-slate-950 px-4 py-3 text-white light:bg-white light:text-slate-900 light:border-slate-200";
 
 /** 胶囊/标签按钮（filter chips 等）— 8 处 */
 export const CHIP_CLS =

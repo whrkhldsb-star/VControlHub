@@ -252,7 +252,7 @@ export function CreateDownloadForm({
 					type="button"
 					onClick={onSubmit}
 					disabled={submitting || Boolean(batchModeError) || !form.serverId}
-					className="rounded-2xl bg-[var(--color-action)] px-5 py-2 text-sm font-medium text-slate-950 transition hover:bg-[var(--color-action-bg)] disabled:opacity-60"
+					className="rounded-2xl bg-[var(--color-action)] px-5 py-2 text-sm font-medium text-[var(--color-action-fg)] transition hover:bg-[var(--color-action-bg)] disabled:opacity-60"
 				>
 					{submitting ? t("downloadsPage.form.submitting") : t("downloadsPage.form.submit")}
 				</button>

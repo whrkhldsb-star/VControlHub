@@ -119,7 +119,7 @@ export function DockerResourcesPanel() {
           const itemName = resourceName(item);
           const key = `${type}:${itemName}`;
           return (
-            <div key={key} className="rounded-xl border border-[var(--border)] bg-black/20 p-3">
+            <div key={key} className="rounded-xl border border-[var(--border)] bg-[var(--input-bg)] p-3">
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <div className="min-w-0">
                   <p className="truncate text-sm font-medium text-[var(--text-primary)]">{itemName}</p>

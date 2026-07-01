@@ -230,7 +230,7 @@ function DeployButton({ template, servers, onDeploy, loading }: {
 		return (
 			<button
 				onClick={() => setOpen(true)}
-				className="min-h-11 rounded-lg bg-[var(--color-action)]/80 px-3 py-1 text-[11px] font-medium text-slate-950 hover:bg-[var(--color-action-bg)] transition"
+				className="min-h-11 rounded-lg bg-[var(--color-action)]/80 px-3 py-1 text-[11px] font-medium text-[var(--color-action-fg)] hover:bg-[var(--color-action-bg)] transition"
 			>
 				{t("templatesPage.action.deploy")}
 			</button>
@@ -270,7 +270,7 @@ function DeployButton({ template, servers, onDeploy, loading }: {
 				<button
 					onClick={() => onDeploy(template, [...selectedIds], vars)}
 					disabled={loading || selectedIds.size === 0}
-					className="min-h-11 rounded-lg bg-[var(--color-action)] px-3 py-1 text-[11px] font-medium text-slate-950 hover:bg-[var(--color-action-bg)] disabled:opacity-60 transition"
+					className="min-h-11 rounded-lg bg-[var(--color-action)] px-3 py-1 text-[11px] font-medium text-[var(--color-action-fg)] hover:bg-[var(--color-action-bg)] disabled:opacity-60 transition"
 				>
 					{loading ? t("templatesPage.action.submitting") : t("templatesPage.action.submit")}
 				</button>
@@ -343,7 +343,7 @@ function CreateTemplateForm({ onClose }: { onClose: () => void }) {
 				<input id={`${createFormId}-tags`} value={tags} onChange={(e) => setTags(e.target.value)} placeholder={t("templatesPage.create.tagsPlaceholder")} className="w-full rounded-lg border border-[var(--border)] bg-[var(--surface)]/[0.04] px-3.5 py-2.5 text-sm text-[var(--text-primary)] outline-none transition placeholder:text-[var(--text-primary)]/30 focus:border-[var(--color-action-border)]/30" />
 			</div>
 			<div className="flex gap-3 pt-2">
-				<button type="submit" disabled={submitting} className="min-h-11 rounded-2xl bg-[var(--color-action)] px-5 py-2 text-sm font-medium text-slate-950 transition hover:bg-[var(--color-action-bg)] disabled:opacity-60">
+				<button type="submit" disabled={submitting} className="min-h-11 rounded-2xl bg-[var(--color-action)] px-5 py-2 text-sm font-medium text-[var(--color-action-fg)] transition hover:bg-[var(--color-action-bg)] disabled:opacity-60">
 					{submitting ? t("templatesPage.create.submitting") : t("templatesPage.create.submit")}
 				</button>
 				<button type="button" onClick={onClose} className="min-h-11 rounded-2xl border border-[var(--border)] px-5 py-2 text-sm text-[var(--text-secondary)] hover:bg-[var(--surface)]/10 transition">

@@ -30,7 +30,7 @@ export const renderInline = (text: string): React.ReactNode[] => {
  codeParts.forEach((cp, ci) => {
  if (cp.startsWith("`") && cp.endsWith("`")) {
  result.push(
- <code key={`c-${ci}`} className="bg-black/30 px-1.5 py-0.5 rounded text-[var(--color-action)] text-xs">
+ <code key={`c-${ci}`} className="bg-[var(--input-bg)] px-1.5 py-0.5 rounded text-[var(--color-action)] text-xs">
  {cp.slice(1, -1)}
  </code>
  );
@@ -105,7 +105,7 @@ export const renderContent = (content: string) => {
  <thead>
  <tr>
  {tableRows[0]?.map((cell, ci) => (
- <th key={ci} className="border border-[var(--border)] px-2 py-1 text-left text-[var(--color-action)]/80 bg-black/20">{renderInline(cell)}</th>
+ <th key={ci} className="border border-[var(--border)] px-2 py-1 text-left text-[var(--color-action)]/80 bg-[var(--input-bg)]">{renderInline(cell)}</th>
  ))}
  </tr>
  </thead>

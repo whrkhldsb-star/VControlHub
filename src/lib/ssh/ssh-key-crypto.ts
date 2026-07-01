@@ -61,6 +61,22 @@ export function decryptSshPrivateKey(storedKey: string): string {
 	return storedKey;
 }
 
+/** Encrypt an SSH key passphrase before database storage. */
+export function encryptSshKeyPassphrase(plain: string): string {
+	return encrypt(plain);
+}
+
+/**
+ * Decrypt an SSH key passphrase retrieved from the database.
+ * Returns undefined if no passphrase is stored.
+ * Legacy plain-text passphrases pass through unchanged.
+ */
+export function decryptSshKeyPassphrase(stored: string | null | undefined): string | undefined {
+	if (!stored) return undefined;
+	if (isEncrypted(stored)) return decrypt(stored);
+	return stored;
+}
+
 /**
  * Type-safe wrapper: decrypt the privateKey field of an SSH key object
  * if present and encrypted.

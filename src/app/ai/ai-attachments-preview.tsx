@@ -74,7 +74,7 @@ export function AiAttachmentsPreview({
                     className="w-12 h-12 rounded object-cover border border-[var(--border)]"
                   />
                 ) : (
-                  <div className="w-12 h-12 rounded border border-[var(--border)] bg-black/30 flex flex-col items-center justify-center">
+                  <div className="w-12 h-12 rounded border border-[var(--border)] bg-[var(--input-bg)] flex flex-col items-center justify-center">
                     {file.mimeType.startsWith("video/") ? (
                       <span className="text-base" title={t("aiPage.videoFileTitle")}>
                         🎬
@@ -133,7 +133,7 @@ export function AiAttachmentsPreview({
               onChange={(e) => setImageUrlInput(e.target.value)}
               placeholder={t("aiPage.imageUrlPlaceholder")}
               aria-label={t("aiPage.imageUrlAria")}
-              className="flex-1 bg-black/20 border border-[var(--border)]/10 rounded-lg px-3 py-1.5 text-xs text-[var(--text-primary)] placeholder-slate-600"
+              className="flex-1 bg-[var(--input-bg)] border border-[var(--border)]/10 rounded-lg px-3 py-1.5 text-xs text-[var(--text-primary)] placeholder-slate-600"
               onKeyDown={(e) => {
                 if (e.key === "Enter" && imageUrlInput.trim()) {
                   setImageUrls((prev) => [...prev, imageUrlInput.trim()]);

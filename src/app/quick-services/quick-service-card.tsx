@@ -127,7 +127,7 @@ export function ServiceCard({
 			{/* Actions */}
 			<div className="flex items-center gap-2 mt-auto pt-1">
 				{tab !== "installed" && item.status === "available" && (
-					<button onClick={onInstall} disabled={busy} className={`rounded-lg px-3.5 py-1.5 text-xs font-semibold text-slate-950 transition disabled:opacity-50 ${isRemote ? "bg-violet-500 hover:bg-violet-400" : "bg-[var(--color-action)] hover:bg-[var(--color-action-bg)]"}`}>
+					<button onClick={onInstall} disabled={busy} className={`rounded-lg px-3.5 py-1.5 text-xs font-semibold text-[var(--color-action-fg)] transition disabled:opacity-50 ${isRemote ? "bg-violet-500 hover:bg-violet-400" : "bg-[var(--color-action)] hover:bg-[var(--color-action-bg)]"}`}>
 						{busy ? t("qsPage.installingLabel") : t("qsPage.installNow")}
 					</button>
 				)}

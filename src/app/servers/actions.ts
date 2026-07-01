@@ -141,10 +141,10 @@ export async function createSshKeyAction(
   const session = await requirePermission("server:write");
 
   try {
-    const uploadedPpk = formData.get("ppkFile");
+    const uploadedFile = formData.get("ppkFile");
     const ppkContent =
-      uploadedPpk instanceof File && uploadedPpk.size > 0
-        ? await uploadedPpk.text()
+      uploadedFile instanceof File && uploadedFile.size > 0
+        ? await uploadedFile.text()
         : null;
 
     await createSshKey({
@@ -153,6 +153,7 @@ export async function createSshKeyAction(
       privateKey: String(formData.get("privateKey") ?? "") || null,
       ppkContent,
       ppkPassphrase: String(formData.get("ppkPassphrase") ?? "") || null,
+      passphrase: String(formData.get("passphrase") ?? "") || null,
       privateKeyEncryptionMode: (String(
         formData.get("privateKeyEncryptionMode") ?? "none",
       ) || "none") as "none" | "same-as-ppk" | "custom",

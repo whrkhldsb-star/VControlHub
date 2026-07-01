@@ -189,7 +189,7 @@ export function ScheduleBackupForm() {
 				{retentionDays && (
 					<p className="text-xs text-[var(--text-muted)]">{t("backupsPage.schedule.retentionHint")}</p>
 				)}
-				<button type="submit" disabled={submitting} className="rounded-lg bg-[var(--color-action-bg)] px-4 py-2 text-sm font-semibold text-slate-950 disabled:cursor-not-allowed disabled:opacity-60">
+				<button type="submit" disabled={submitting} className="rounded-lg bg-[var(--color-action-bg)] px-4 py-2 text-sm font-semibold text-[var(--color-action-fg)] disabled:cursor-not-allowed disabled:opacity-60">
 					{submitting ? t("backupsPage.schedule.submitting") : t("backupsPage.schedule.submit")}
 				</button>
 				{message && <p role="status" className={`text-xs ${message.type === "ok" ? "text-emerald-300" : "text-rose-300"}`}>{message.text}</p>}

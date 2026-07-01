@@ -145,7 +145,7 @@ export function SaveButtonWithDiff({
           className={`rounded-2xl px-5 py-2 text-sm font-medium transition disabled:opacity-60 ${
             highCount > 0
               ? "bg-rose-500 text-[var(--text-primary)] hover:bg-rose-400 light:bg-rose-600 light:hover:bg-rose-500"
-              : "bg-[var(--color-action)] text-slate-950 hover:bg-[var(--color-action-bg)]"
+              : "bg-[var(--color-action)] text-[var(--color-action-fg)] hover:bg-[var(--color-action-bg)]"
           }`}
         >
           {saving ? t("settingsClient.saving") : t("settingsClient.save")}
