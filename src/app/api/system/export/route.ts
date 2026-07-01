@@ -1,0 +1,38 @@
+/**
+ * TR-042: 系统配置导出 API
+ * GET /api/system/export → 下载 .vch.json
+ */
+
+import { NextResponse } from "next/server";
+
+import { withApiRoute } from "@/lib/http/api-guard";
+import { auditUserAction } from "@/lib/audit/service";
+import { buildExportFile, getExportSummary } from "@/lib/system/export-service";
+
+export const dynamic = "force-dynamic";
+
+export async function GET(request: Request) {
+  return withApiRoute(request, { permission: "user:manage" }, async ({ session }) => {
+    const url = new URL(request.url);
+    const sourceDomain = url.host || "unknown";
+    const file = await buildExportFile(sourceDomain);
+    const summary = getExportSummary(file);
+
+    auditUserAction(session?.userId ?? "", "system.export", {
+      sourceDomain,
+      recordCounts: summary,
+    });
+
+    const json = JSON.stringify(file, null, 2);
+    const timestamp = new Date().toISOString().slice(0, 19).replace(/[:T]/g, "-");
+    const filename = `vch-config-${timestamp}.json`;
+
+    return new NextResponse(json, {
+      status: 200,
+      headers: {
+        "Content-Type": "application/json; charset=utf-8",
+        "Content-Disposition": `attachment; filename="${filename}"`,
+      },
+    });
+  });
+}

@@ -1,12 +1,18 @@
 "use client";
 
-import { useCallback, useEffect, useRef } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useI18n } from "@/lib/i18n/use-locale";
-import { useDialogFocus } from "@/lib/a11y/use-dialog-focus";
 import { SshTerminalPanel, type TerminalStatus } from "@/components/ssh-terminal-panel";
 
 /* ------------------------------------------------------------------ */
-/* SshTerminalManager — multi-tab SSH terminal modal                  */
+/* SshTerminalManager — multi-tab SSH terminal floating workbench     */
+/*                                                                    */
+/* Key design decisions (TR-042 follow-up):                            */
+/* - NOT a modal dialog: no focus trap, no backdrop, no Escape=close  */
+/* - Minimizable: collapses to a small pill at bottom-right           */
+/* - Non-blocking: pointer-events-none on wrapper, page stays alive   */
+/* - Escape closes the active tab (not all tabs)                      */
+/* - All terminal WebSockets stay alive even when minimized          */
 /* ------------------------------------------------------------------ */
 
 export type SshTerminalTab = {
@@ -27,7 +33,7 @@ export type SshTerminalManagerProps = {
 	onTabSelect: (index: number) => void;
 	/** Called when the user closes a tab. */
 	onTabClose: (index: number) => void;
-	/** Called when the manager modal is closed (close button or backdrop). */
+	/** Called when the manager is closed (close button). */
 	onClose: () => void;
 	/** Called when a tab's status changes (for parent state sync). */
 	onStatusChange: (index: number, status: TerminalStatus) => void;
@@ -42,13 +48,12 @@ export function SshTerminalManager({
 	onStatusChange,
 }: SshTerminalManagerProps) {
 	const { t } = useI18n();
-	const closeButtonRef = useRef<HTMLButtonElement>(null);
-	const dialogRef = useDialogFocus<HTMLDivElement>({
-		open: true,
-		onClose,
-		initialFocusRef: closeButtonRef,
-	});
+	const [minimized, setMinimized] = useState(false);
 
+	// ── Keyboard shortcuts ──────────────────────────────────────
+	// Escape → close active tab (NOT all tabs)
+	// Ctrl/Cmd+Tab → cycle tabs
+	// Ctrl/Cmd+M → toggle minimize
 	const handleKeyDown = useCallback(
 		(e: KeyboardEvent) => {
 			// Ctrl/Cmd+Tab to cycle tabs
@@ -58,9 +63,25 @@ export function SshTerminalManager({
 					? (activeTabIndex - 1 + tabs.length) % tabs.length
 					: (activeTabIndex + 1) % tabs.length;
 				onTabSelect(next);
+				return;
+			}
+
+			// Ctrl/Cmd+M to toggle minimize
+			if ((e.ctrlKey || e.metaKey) && e.key === "m") {
+				e.preventDefault();
+				setMinimized((m) => !m);
+				return;
+			}
+
+			// Escape: close active tab only if expanded
+			if (e.key === "Escape" && !minimized) {
+				e.preventDefault();
+				if (tabs.length > 0) {
+					onTabClose(activeTabIndex);
+				}
 			}
 		},
-		[activeTabIndex, tabs.length, onTabSelect],
+		[activeTabIndex, tabs.length, onTabSelect, onTabClose, minimized],
 	);
 
 	useEffect(() => {
@@ -70,10 +91,37 @@ export function SshTerminalManager({
 
 	if (tabs.length === 0) return null;
 
+	const connectedCount = tabs.filter((tab) => tab.status === "connected").length;
+
+	// ── Minimized: small floating pill at bottom-right ──────────
+	if (minimized) {
+		return (
+			<div className="pointer-events-none fixed inset-x-2 bottom-2 z-50 flex justify-end sm:inset-x-4 sm:bottom-4">
+				<button
+					type="button"
+					onClick={() => setMinimized(false)}
+					className="pointer-events-auto flex items-center gap-2 rounded-full border border-white/10 bg-slate-900 px-4 py-2.5 text-xs text-white shadow-2xl transition hover:bg-slate-800"
+					aria-label={t("sshTerminalManager.title")}
+				>
+					<span className="flex h-2 w-2 rounded-full bg-emerald-400" aria-hidden />
+					<span className="font-medium">
+						{tabs.length} {t("sshTerminalManager.tabsSuffix")}
+					</span>
+					{connectedCount > 0 && (
+						<span className="text-emerald-400">
+							{connectedCount} ●
+						</span>
+					)}
+					<span className="text-slate-400">⤢ {t("sshTerminalManager.expand")}</span>
+				</button>
+			</div>
+		);
+	}
+
+	// ── Expanded: floating workbench panel at bottom-right ──────
 	return (
 		<div className="pointer-events-none fixed inset-x-2 bottom-2 z-50 flex justify-end sm:inset-x-4 sm:bottom-4">
 			<div
-				ref={dialogRef}
 				role="region"
 				data-ssh-terminal-dialog="true"
 				aria-labelledby="ssh-terminal-manager-title"
@@ -82,10 +130,10 @@ export function SshTerminalManager({
 					borderColor: "var(--border)",
 					color: "var(--text-primary)",
 				}}
-				className="pointer-events-auto flex max-h-[78vh] min-h-0 w-full max-w-5xl flex-col rounded-2xl border border-white/10 bg-slate-900 text-white shadow-2xl sm:max-h-[82vh] sm:rounded-3xl"
+				className="pointer-events-auto flex max-h-[72vh] min-h-0 w-full max-w-5xl flex-col rounded-2xl border border-white/10 bg-slate-900 text-white shadow-2xl sm:rounded-3xl"
 			>
-				{/* Title bar + tab bar */}
-				<div className="flex items-center justify-between border-b border-white/10 px-4 py-3">
+				{/* Title bar + tab bar + controls */}
+				<div className="flex items-center justify-between border-b border-white/10 px-4 py-2.5">
 					<div className="flex items-center gap-2">
 						<h3 id="ssh-terminal-manager-title" className="text-sm font-semibold text-white">
 							{t("sshTerminalManager.title")}
@@ -94,15 +142,28 @@ export function SshTerminalManager({
 							{tabs.length} {t("sshTerminalManager.tabsSuffix")}
 						</span>
 					</div>
-					<button
-						ref={closeButtonRef}
-						type="button"
-						onClick={onClose}
-						aria-label={t("sshTerminalModal.ariaClose")}
-						className="min-h-11 min-w-11 rounded-full border border-white/10 bg-white/5 px-4 py-1.5 text-xs text-slate-300 transition hover:bg-white/10"
-					>
-						{t("sshTerminalModal.close")}
-					</button>
+					<div className="flex items-center gap-1">
+						{/* Minimize button */}
+						<button
+							type="button"
+							onClick={() => setMinimized(true)}
+							aria-label={t("sshTerminalManager.minimize")}
+							className="min-h-9 min-w-9 rounded-lg border border-white/10 bg-white/5 px-3 py-1.5 text-xs text-slate-300 transition hover:bg-white/10"
+							title={t("sshTerminalManager.minimize")}
+						>
+							▬
+						</button>
+						{/* Close all button */}
+						<button
+							type="button"
+							onClick={onClose}
+							aria-label={t("sshTerminalModal.ariaClose")}
+							className="min-h-9 min-w-9 rounded-lg border border-white/10 bg-white/5 px-3 py-1.5 text-xs text-slate-300 transition hover:bg-white/10"
+							title={t("sshTerminalModal.close")}
+						>
+							✕
+						</button>
+					</div>
 				</div>
 
 				{/* Tab bar */}
@@ -113,8 +174,8 @@ export function SshTerminalManager({
 							tab.status === "connected"
 								? "bg-emerald-400"
 								: tab.status === "connecting"
-								? "bg-amber-400"
-								: "bg-rose-400";
+									? "bg-amber-400"
+									: "bg-rose-400";
 						return (
 							<div
 								key={tab.id}

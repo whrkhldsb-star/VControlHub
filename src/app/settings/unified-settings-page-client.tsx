@@ -7,6 +7,7 @@ import type { SettingUpdateMetadata } from "@/lib/settings/service";
 import { useI18n } from "@/lib/i18n/use-locale";
 import { PreferencesSettingsContent } from "../preferences/preferences-page-client";
 import { SettingsClient } from "./settings-client";
+import { SystemConfigSection } from "./system-config-section";
 
 type Props = {
   settings: Record<string, string>;

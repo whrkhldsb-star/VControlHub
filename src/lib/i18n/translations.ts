@@ -91,6 +91,7 @@ import { zh as usersZh, en as usersEn } from "./dictionaries/users";
 import { zh as userspageZh, en as userspageEn } from "./dictionaries/users-page";
 import { zh as userspermZh, en as userspermEn } from "./dictionaries/users-perm";
 import { zh as storagepageZh, en as storagepageEn } from "./dictionaries/storage-page";
+import { zh as systemconfigZh, en as systemconfigEn } from "./dictionaries/system-config";
 
 const zh: Record<string, string> = {
 	...accountpasswordpageZh,
@@ -171,6 +172,7 @@ const zh: Record<string, string> = {
 	...userspageZh,
 	...userspermZh,
 	...storagepageZh,
+	...systemconfigZh,
 };
 
 const en: Record<string, string> = {
@@ -252,6 +254,7 @@ const en: Record<string, string> = {
 	...userspageEn,
 	...userspermEn,
 	...storagepageEn,
+	...systemconfigEn,
 };
 
 export const translations: Record<Locale, Record<string, string>> = {
