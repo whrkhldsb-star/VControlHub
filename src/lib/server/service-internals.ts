@@ -61,6 +61,12 @@ export type ServerWithRelations = {
   // TR-041: OS dialect adaptation layer
   osDialect?: string | null;
   osInfo?: string | null;
+  // TR-031: monthly VPS cost auto-sync settings
+  costAutoSync?: boolean;
+  costMonthlyAmount?: Prisma.Decimal | null;
+  costCurrency?: string;
+  costProvider?: string | null;
+  costLastSyncedAt?: Date | string | null;
   // TR-030: multi-tenancy resource scoping
   teamId?: string | null;
 };
@@ -133,6 +139,15 @@ export function buildServerConnectionTypeLabel(
   connectionType: "SSH_KEY" | "PASSWORD",
 ) {
   return connectionType === "SSH_KEY" ? "SSH 密钥" : "密码";
+}
+
+const SERVER_COST_CURRENCIES = ["CNY", "USD", "EUR", "JPY", "HKD"] as const;
+type ServerCostCurrency = (typeof SERVER_COST_CURRENCIES)[number];
+
+function normalizeServerCostCurrency(value: string | null | undefined): ServerCostCurrency {
+  return SERVER_COST_CURRENCIES.includes(value as ServerCostCurrency)
+    ? (value as ServerCostCurrency)
+    : "CNY";
 }
 
 export function getErrorMessage(error: unknown) {
@@ -298,6 +313,11 @@ export function enrichServer(server: ServerWithRelations) {
     // TR-041: OS dialect info for UI display + dialect-aware command generation
     osDialect: server.osDialect ?? null,
     osInfo: server.osInfo ?? null,
+    costAutoSync: server.costAutoSync ?? false,
+    costMonthlyAmount: server.costMonthlyAmount?.toFixed(2) ?? null,
+    costCurrency: normalizeServerCostCurrency(server.costCurrency),
+    costProvider: server.costProvider ?? null,
+    costLastSyncedAt: server.costLastSyncedAt ? serializeDate(server.costLastSyncedAt) : null,
     // TR-030: multi-tenancy resource scoping
     teamId: server.teamId ?? null,
   };

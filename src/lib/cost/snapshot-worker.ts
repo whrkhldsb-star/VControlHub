@@ -30,7 +30,7 @@ import {
 	COST_CATEGORY_VALUES,
 	type CostCategory,
 } from "./types";
-import { upsertDailySnapshot } from "./service";
+import { syncServerMonthlyCosts, upsertDailySnapshot } from "./service";
 
 const logger = createLogger("cost-snapshot-worker");
 
@@ -145,8 +145,9 @@ export async function runCostSnapshotWorkerOnce(reason = "manual"): Promise<bool
 		try {
 			await heartbeatJob(job.id, COST_SNAPSHOT_WORKER_ID, {
 				leaseMs: COST_SNAPSHOT_LEASE_MS,
-				progress: "正在聚合当日成本",
+				progress: "正在同步 VPS 月费并聚合当日成本",
 			});
+			const monthlySync = await syncServerMonthlyCosts();
 			const today = new Date();
 			const payload = await buildTodaySnapshot(today);
 			const snapshot = await upsertDailySnapshot(payload);
@@ -155,6 +156,11 @@ export async function runCostSnapshotWorkerOnce(reason = "manual"): Promise<bool
 				snapshotDate: snapshot.snapshotDate,
 				totalAmount: snapshot.totalAmount,
 				entryCount: snapshot.entryCount,
+				monthlySync: {
+					month: monthlySync.month,
+					synced: monthlySync.synced,
+					skipped: monthlySync.skipped,
+				},
 				reason,
 			});
 			logger.info("Cost daily snapshot written", {

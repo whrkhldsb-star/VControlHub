@@ -59,6 +59,12 @@ export const zh: Record<string, string> = {
 	"serversPage.create.storagePathDefault": "/root/drive",
 
 	"serversPage.create.storagePathDesc": "VPS 上的默认存储目录",
+	"serversPage.create.costAutoSync": "纳入成本自动同步",
+	"serversPage.create.costHint": "填写月费后，成本追踪会按月自动生成 VPS 月费条目；为空则只保留手动录入。",
+	"serversPage.create.costMonthlyAmount": "月费",
+	"serversPage.create.costCurrency": "币种",
+	"serversPage.create.costProvider": "账单提供方",
+	"serversPage.create.costProviderPlaceholder": "留空使用节点名称",
 
 	"serversPage.create.submit": "保存并校验连接",
 
@@ -171,6 +177,13 @@ export const zh: Record<string, string> = {
 	"serverCardActions.edit.password": "新密码（留空保持不变）",
 	"serverCardActions.edit.description": "描述",
 	"serverCardActions.edit.tags": "标签",
+	"serverCardActions.edit.costAutoSync": "纳入成本自动同步",
+	"serverCardActions.edit.costHint": "成本追踪会按月同步该节点 VPS 月费，并幂等更新自动条目。",
+	"serverCardActions.edit.costMonthlyAmount": "VPS 月费",
+	"serverCardActions.edit.costCurrency": "成本币种",
+	"serverCardActions.edit.costProvider": "账单提供方",
+	"serverCardActions.edit.costProviderPlaceholder": "留空使用节点名称",
+	"serverCardActions.edit.costLastSynced": "最近同步：{time}",
 	"serverCardActions.edit.pending": "校验中...",
 	"serverCardActions.edit.submit": "保存并校验连接",
 	"serverCardActions.toggle.pending": "处理中...",
@@ -286,6 +299,12 @@ export const en: Record<string, string> = {
 	"serversPage.create.storagePathDefault": "/root/drive",
 
 	"serversPage.create.storagePathDesc": "Default storage directory on the VPS",
+	"serversPage.create.costAutoSync": "Include in automatic cost sync",
+	"serversPage.create.costHint": "When monthly cost is filled in, cost tracking creates an idempotent VPS cost entry each month; leave blank for manual-only tracking.",
+	"serversPage.create.costMonthlyAmount": "Monthly cost",
+	"serversPage.create.costCurrency": "Currency",
+	"serversPage.create.costProvider": "Billing provider",
+	"serversPage.create.costProviderPlaceholder": "Leave blank to use node name",
 
 	"serversPage.create.submit": "Save and verify connection",
 
@@ -398,6 +417,13 @@ export const en: Record<string, string> = {
 	"serverCardActions.edit.password": "New password (leave empty to keep current)",
 	"serverCardActions.edit.description": "Description",
 	"serverCardActions.edit.tags": "Tags",
+	"serverCardActions.edit.costAutoSync": "Include in automatic cost sync",
+	"serverCardActions.edit.costHint": "Cost tracking will sync this node's VPS monthly cost and idempotently update the automatic entry.",
+	"serverCardActions.edit.costMonthlyAmount": "VPS monthly cost",
+	"serverCardActions.edit.costCurrency": "Cost currency",
+	"serverCardActions.edit.costProvider": "Billing provider",
+	"serverCardActions.edit.costProviderPlaceholder": "Leave blank to use node name",
+	"serverCardActions.edit.costLastSynced": "Last synced: {time}",
 	"serverCardActions.edit.pending": "Validating…",
 	"serverCardActions.edit.submit": "Save and validate connection",
 	"serverCardActions.toggle.pending": "Processing…",

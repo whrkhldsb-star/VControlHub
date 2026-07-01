@@ -22,6 +22,8 @@ export interface CostEntryRecord {
 	effectiveDate: string; // ISO date YYYY-MM-DD
 	notes: string | null;
 	createdById: string | null;
+	sourceType: string | null;
+	sourceRef: string | null;
 	createdAt: string; // ISO timestamp
 	updatedAt: string; // ISO timestamp
 }

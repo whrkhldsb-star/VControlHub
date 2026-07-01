@@ -16,6 +16,8 @@ type CostEntryRow = {
 	effectiveDate: Date;
 	notes: string | null;
 	createdById: string | null;
+	sourceType: string | null;
+	sourceRef: string | null;
 	createdAt: Date;
 	updatedAt: Date;
 };
@@ -29,15 +31,29 @@ type CostSnapshotRow = {
 	createdAt: Date;
 };
 
+type ServerRow = {
+	id: string;
+	name: string;
+	host: string;
+	enabled: boolean;
+	costAutoSync: boolean;
+	costMonthlyAmount: { toFixed: (digits?: number) => string } | null;
+	costCurrency: string;
+	costProvider: string | null;
+	costLastSyncedAt: Date | null;
+};
+
 const store = {
 	entries: new Map<string, CostEntryRow>(),
 	snapshots: new Map<string, CostSnapshotRow>(), // key = snapshotDate.toISOString()
+	servers: new Map<string, ServerRow>(),
 	seq: 0,
 };
 
 function resetStore() {
 	store.entries.clear();
 	store.snapshots.clear();
+	store.servers.clear();
 	store.seq = 0;
 }
 
@@ -104,6 +120,24 @@ function makePrismaMock() {
 				store.entries.delete(where.id);
 				return cur;
 			}),
+			upsert: vi.fn(async ({ where, create, update }: { where: { sourceType_sourceRef_effectiveDate: { sourceType: string; sourceRef: string; effectiveDate: Date } }; create: Omit<CostEntryRow, "id" | "createdAt" | "updatedAt">; update: Partial<CostEntryRow> }) => {
+				const key = `${where.sourceType_sourceRef_effectiveDate.sourceType}:${where.sourceType_sourceRef_effectiveDate.sourceRef}:${where.sourceType_sourceRef_effectiveDate.effectiveDate.toISOString()}`;
+				const existing = Array.from(store.entries.values()).find((row) => `${row.sourceType}:${row.sourceRef}:${row.effectiveDate.toISOString()}` === key);
+				if (existing) {
+					const next = { ...existing, ...update, updatedAt: new Date("2026-06-03T00:00:00Z") } as CostEntryRow;
+					store.entries.set(existing.id, next);
+					return next;
+				}
+				store.seq += 1;
+				const row: CostEntryRow = {
+					...create,
+					id: `entry_${store.seq}`,
+					createdAt: new Date("2026-06-01T00:00:00Z"),
+					updatedAt: new Date("2026-06-01T00:00:00Z"),
+				};
+				store.entries.set(row.id, row);
+				return row;
+			}),
 		},
 		costSnapshot: {
 			findMany: vi.fn(
@@ -150,6 +184,22 @@ function makePrismaMock() {
 				},
 			),
 		},
+		server: {
+			findMany: vi.fn(async ({ where }: { where?: { enabled?: boolean; costAutoSync?: boolean; costMonthlyAmount?: { not: null } } }) => {
+				let rows = Array.from(store.servers.values());
+				if (where?.enabled !== undefined) rows = rows.filter((row) => row.enabled === where.enabled);
+				if (where?.costAutoSync !== undefined) rows = rows.filter((row) => row.costAutoSync === where.costAutoSync);
+				if (where?.costMonthlyAmount?.not === null) rows = rows.filter((row) => row.costMonthlyAmount !== null);
+				return rows.slice(0, 1000);
+			}),
+			update: vi.fn(async ({ where, data }: { where: { id: string }; data: Partial<ServerRow> }) => {
+				const current = store.servers.get(where.id);
+				if (!current) throw new Error(`Server not found: ${where.id}`);
+				const next = { ...current, ...data };
+				store.servers.set(where.id, next);
+				return next;
+			}),
+		},
 		$transaction: vi.fn(async (arg: unknown) => {
 			// Tests don't use $transaction directly; the service uses it only
 			// for upsert which we've already mocked. Return identity passthrough.
@@ -170,6 +220,7 @@ import {
 	listCostEntries,
 	summarizeMonth,
 	listRecentSnapshots,
+	syncServerMonthlyCosts,
 	upsertDailySnapshot,
 } from "../service";
 import { prisma } from "@/lib/db";
@@ -392,6 +443,66 @@ describe("snapshot writer + reader", () => {
 		});
 		const recent = await listRecentSnapshots(10);
 		expect(recent.map((r) => r.snapshotDate)).toEqual(["2026-06-15", "2026-06-10"]);
+	});
+});
+
+describe("syncServerMonthlyCosts", () => {
+	it("upserts enabled server monthly costs idempotently", async () => {
+		store.servers.set("srv_1", {
+			id: "srv_1",
+			name: "hk-prod",
+			host: "203.0.113.10",
+			enabled: true,
+			costAutoSync: true,
+			costMonthlyAmount: { toFixed: () => "88.50" },
+			costCurrency: "CNY",
+			costProvider: "Linode",
+			costLastSyncedAt: null,
+		});
+		const first = await syncServerMonthlyCosts("2026-06");
+		expect(first.synced).toBe(1);
+		expect(first.entries[0]?.sourceType).toBe("server_monthly");
+		expect(first.entries[0]?.sourceRef).toBe("srv_1");
+		expect(first.entries[0]?.effectiveDate).toBe("2026-06-01");
+
+		store.servers.set("srv_1", {
+			...store.servers.get("srv_1")!,
+			costMonthlyAmount: { toFixed: () => "99.00" },
+		});
+		const second = await syncServerMonthlyCosts("2026-06");
+		expect(second.synced).toBe(1);
+		expect(second.entries[0]?.id).toBe(first.entries[0]?.id);
+		expect(second.entries[0]?.amount).toBe("99.00");
+		expect(Array.from(store.entries.values()).filter((row) => row.sourceType === "server_monthly")).toHaveLength(1);
+		expect(store.servers.get("srv_1")?.costLastSyncedAt).toBeInstanceOf(Date);
+	});
+
+	it("skips disabled or unconfigured servers", async () => {
+		store.servers.set("disabled", {
+			id: "disabled",
+			name: "disabled",
+			host: "203.0.113.11",
+			enabled: false,
+			costAutoSync: true,
+			costMonthlyAmount: { toFixed: () => "10.00" },
+			costCurrency: "CNY",
+			costProvider: null,
+			costLastSyncedAt: null,
+		});
+		store.servers.set("manual", {
+			id: "manual",
+			name: "manual",
+			host: "203.0.113.12",
+			enabled: true,
+			costAutoSync: false,
+			costMonthlyAmount: { toFixed: () => "10.00" },
+			costCurrency: "CNY",
+			costProvider: null,
+			costLastSyncedAt: null,
+		});
+		const result = await syncServerMonthlyCosts("2026-06");
+		expect(result.synced).toBe(0);
+		expect(result.entries).toHaveLength(0);
 	});
 });
 

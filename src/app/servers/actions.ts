@@ -47,6 +47,10 @@ export async function createServerAction(
     const directGatewayProtocol =
       formData.get("directGatewayProtocol") === "https" ? "https" : "http";
     const storagePath = String(formData.get("storagePath") ?? "/root/drive");
+    const costAutoSync = formData.get("costAutoSync") === "on";
+    const costMonthlyAmount = String(formData.get("costMonthlyAmount") ?? "");
+    const costCurrency = String(formData.get("costCurrency") ?? "CNY") as "CNY" | "USD" | "EUR" | "JPY" | "HKD";
+    const costProvider = String(formData.get("costProvider") ?? "");
 
     const created = await createServerProfile({
       name,
@@ -61,6 +65,10 @@ export async function createServerAction(
       enableDirectGateway,
       directGatewayProtocol,
       storagePath,
+      costAutoSync,
+      costMonthlyAmount,
+      costCurrency,
+      costProvider,
     });
 
     revalidatePath("/");
@@ -107,6 +115,10 @@ export async function updateServerAction(
         connectionType === "PASSWORD" && password ? password : undefined,
       description: String(formData.get("description") ?? ""),
       tags: parseTags(String(formData.get("tags") ?? "")),
+      costAutoSync: formData.get("costAutoSync") === "on",
+      costMonthlyAmount: String(formData.get("costMonthlyAmount") ?? ""),
+      costCurrency: String(formData.get("costCurrency") ?? "CNY") as "CNY" | "USD" | "EUR" | "JPY" | "HKD",
+      costProvider: String(formData.get("costProvider") ?? ""),
     });
 
     revalidatePath("/");

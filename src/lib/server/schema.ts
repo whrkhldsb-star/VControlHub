@@ -48,6 +48,16 @@ export const createServerSchema = z
       .min(1, "存储路径不能为空")
       .max(500, "路径过长")
       .default("/root/drive"),
+    costAutoSync: z.boolean().optional().default(false),
+    costMonthlyAmount: z
+      .string()
+      .trim()
+      .regex(/^\d+(\.\d{1,2})?$/u, "月费必须是数字, 最多 2 位小数")
+      .optional()
+      .or(z.literal(""))
+      .transform((value) => value || undefined),
+    costCurrency: z.enum(["CNY", "USD", "EUR", "JPY", "HKD"]).optional().default("CNY"),
+    costProvider: z.string().trim().max(128, "账单提供方最多 128 个字符").optional().transform((value) => value || undefined),
   })
   .refine(
     (data) => {

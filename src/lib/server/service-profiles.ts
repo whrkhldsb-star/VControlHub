@@ -1,3 +1,4 @@
+import { Prisma } from "@prisma/client";
 import { mkdir } from "node:fs/promises";
 
 import { prisma } from "@/lib/db";
@@ -70,6 +71,11 @@ export async function createServerProfile(input: CreateServerInput) {
         ? encryptServerPasswordIfPlain(normalized.password)
         : null,
     sshKey: normalized.connectionType === "SSH_KEY" ? validatedSshKey : null,
+    costAutoSync: normalized.costAutoSync,
+    costMonthlyAmount: normalized.costMonthlyAmount ? new Prisma.Decimal(normalized.costMonthlyAmount) : null,
+    costCurrency: normalized.costCurrency,
+    costProvider: normalized.costProvider,
+    costLastSyncedAt: null,
     storageNode: null,
     commandTargets: [],
     createdAt: new Date(),
@@ -92,6 +98,10 @@ export async function createServerProfile(input: CreateServerInput) {
         normalized.connectionType === "PASSWORD" && normalized.password
           ? encryptServerPasswordIfPlain(normalized.password)
           : null,
+      costAutoSync: normalized.costAutoSync,
+      costMonthlyAmount: normalized.costMonthlyAmount ? new Prisma.Decimal(normalized.costMonthlyAmount) : null,
+      costCurrency: normalized.costCurrency,
+      costProvider: normalized.costProvider,
       enabled: true,
     },
     include: {
@@ -305,6 +315,13 @@ export async function updateServerProfile(
     password: input.password ?? current.password ?? undefined,
     tags: input.tags ?? current.tags,
     description: input.description ?? current.description,
+    costAutoSync: input.costAutoSync ?? current.costAutoSync,
+    costMonthlyAmount:
+      input.costMonthlyAmount !== undefined
+        ? input.costMonthlyAmount
+        : current.costMonthlyAmount?.toFixed(2),
+    costCurrency: input.costCurrency ?? (current.costCurrency as "CNY" | "USD" | "EUR" | "JPY" | "HKD"),
+    costProvider: input.costProvider ?? current.costProvider,
   });
 
   let updateSshKey: {
@@ -379,6 +396,10 @@ export async function updateServerProfile(
           : null,
       description: normalized.description,
       tags: normalized.tags,
+      costAutoSync: normalized.costAutoSync,
+      costMonthlyAmount: normalized.costMonthlyAmount ? new Prisma.Decimal(normalized.costMonthlyAmount) : null,
+      costCurrency: normalized.costCurrency,
+      costProvider: normalized.costProvider,
       enabled:
         typeof input.enabled === "boolean" ? input.enabled : current.enabled,
     },

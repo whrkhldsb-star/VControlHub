@@ -9,6 +9,10 @@ export type ServerInput = {
   tags?: string[];
   description?: string | null;
   storagePath?: string;
+  costAutoSync?: boolean;
+  costMonthlyAmount?: string;
+  costCurrency?: "CNY" | "USD" | "EUR" | "JPY" | "HKD";
+  costProvider?: string | null;
 };
 
 export type NormalizedServerInput = {
@@ -22,6 +26,10 @@ export type NormalizedServerInput = {
   tags: string[];
   description: string | null;
   storagePath: string;
+  costAutoSync: boolean;
+  costMonthlyAmount: string | null;
+  costCurrency: "CNY" | "USD" | "EUR" | "JPY" | "HKD";
+  costProvider: string | null;
 };
 
 export function normalizeServerInput(
@@ -40,6 +48,10 @@ export function normalizeServerInput(
     ),
     description: input.description?.trim() || null,
     storagePath: input.storagePath?.trim() || "/root/drive",
+    costAutoSync: Boolean(input.costAutoSync),
+    costMonthlyAmount: input.costMonthlyAmount?.trim() || null,
+    costCurrency: input.costCurrency ?? "CNY",
+    costProvider: input.costProvider?.trim() || null,
   };
 }
 

@@ -7,6 +7,7 @@ const { mocks } = vi.hoisted(() => ({
 	mocks: {
 		requireApiPermission: vi.fn(),
 		listRecentSnapshots: vi.fn(),
+		syncServerMonthlyCosts: vi.fn(),
 	},
 }));
 
@@ -19,6 +20,7 @@ vi.mock("@/lib/cost/service", async (importOriginal) => {
 	return {
 		...actual,
 		listRecentSnapshots: mocks.listRecentSnapshots,
+		syncServerMonthlyCosts: mocks.syncServerMonthlyCosts,
 	};
 });
 
@@ -45,6 +47,7 @@ describe("/api/cost/snapshots", () => {
 		vi.clearAllMocks();
 		mocks.requireApiPermission.mockResolvedValue({ session });
 		mocks.listRecentSnapshots.mockResolvedValue(SAMPLE);
+		mocks.syncServerMonthlyCosts.mockResolvedValue({ month: "2026-06", synced: 2, skipped: 1, entries: [] });
 	});
 
 	it("GET requires cost:read and returns the snapshot list", async () => {
@@ -77,5 +80,32 @@ describe("/api/cost/snapshots", () => {
 		);
 		const res = await route.GET(new Request("http://local/api/cost/snapshots"));
 		expect(res.status).toBe(403);
+	});
+
+	it("POST requires cost:manage and syncs server monthly costs", async () => {
+		const res = await route.POST(
+			new Request("http://local/api/cost/snapshots", {
+				method: "POST",
+				headers: { "content-type": "application/json" },
+				body: JSON.stringify({ month: "2026-06" }),
+			}),
+		);
+		expect(res.status).toBe(200);
+		expect(mocks.requireApiPermission).toHaveBeenCalledWith("cost:manage");
+		expect(mocks.syncServerMonthlyCosts).toHaveBeenCalledWith("2026-06");
+		const body = await res.json();
+		expect(body.result.synced).toBe(2);
+	});
+
+	it("POST rejects malformed month", async () => {
+		const res = await route.POST(
+			new Request("http://local/api/cost/snapshots", {
+				method: "POST",
+				headers: { "content-type": "application/json" },
+				body: JSON.stringify({ month: "2026-99" }),
+			}),
+		);
+		expect(res.status).toBe(400);
+		expect(mocks.syncServerMonthlyCosts).not.toHaveBeenCalled();
 	});
 });

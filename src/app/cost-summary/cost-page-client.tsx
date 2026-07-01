@@ -98,6 +98,7 @@ export function CostPageClient({
 	const [editingId, setEditingId] = useState<string | null>(null);
 	const [form, setForm] = useState(emptyForm());
 	const [saving, setSaving] = useState(false);
+	const [syncingSources, setSyncingSources] = useState(false);
 	const [deletingId, setDeletingId] = useState<string | null>(null);
 	const [confirmDelete, setConfirmDelete] = useState<{ id: string; provider: string; amount: string } | null>(null);
 
@@ -154,6 +155,38 @@ export function CostPageClient({
 	const refreshAll = useCallback(async () => {
 		await Promise.all([fetchSummary(month, currency), fetchEntries(), fetchSnapshots()]);
 	}, [fetchSummary, fetchEntries, fetchSnapshots, month, currency]);
+
+	const syncServerCosts = useCallback(async () => {
+		if (!canManage) return;
+		setSyncingSources(true);
+		try {
+			const res = await csrfFetch<Response>("/api/cost/snapshots", {
+				method: "POST",
+				headers: { "content-type": "application/json" },
+				body: JSON.stringify({ month }),
+				raw: true,
+			});
+			if (!res.ok) {
+				const err = await res.json().catch(() => ({}));
+				throw new Error(err.message ?? `HTTP ${res.status}`);
+			}
+			const data = (await res.json()) as { result: { synced: number; skipped: number } };
+			addToast(
+				"success",
+				t("costPage.actions.syncSourcesDone")
+					.replace("{synced}", String(data.result.synced))
+					.replace("{skipped}", String(data.result.skipped)),
+			);
+			await refreshAll();
+		} catch (err) {
+			addToast(
+				"error",
+				`${t("costPage.actions.syncSourcesError")}: ${err instanceof Error ? err.message : String(err)}`,
+			);
+		} finally {
+			setSyncingSources(false);
+		}
+	}, [addToast, canManage, month, refreshAll, t]);
 
 	const onChangeMonth = useCallback(
 		async (m: string) => {
@@ -395,6 +428,11 @@ export function CostPageClient({
 						<button type="button" className={buttonGhost} onClick={refreshAll}>
 							{t("costPage.actions.refresh")}
 						</button>
+						{canManage ? (
+							<button type="button" className={buttonGhost} onClick={syncServerCosts} disabled={syncingSources}>
+								{syncingSources ? t("costPage.actions.syncingSources") : t("costPage.actions.syncSources")}
+							</button>
+						) : null}
 						{canManage ? (
 							<button type="button" className={buttonPrimary} onClick={openCreate}>
 								{t("costPage.actions.newEntry")}

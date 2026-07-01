@@ -47,6 +47,12 @@ type ServerOverviewCardProps = {
     // TR-041: OS dialect + info
     osDialect?: string | null;
     osInfo?: string | null;
+    // TR-031: monthly VPS cost auto-sync settings
+    costAutoSync?: boolean;
+    costMonthlyAmount?: string | null;
+    costCurrency?: "CNY" | "USD" | "EUR" | "JPY" | "HKD";
+    costProvider?: string | null;
+    costLastSyncedAt?: string | null;
   };
   sessionToken: string;
   canManageServers: boolean;

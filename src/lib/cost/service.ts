@@ -77,6 +77,8 @@ function toRecord(entry: {
 	effectiveDate: Date;
 	notes: string | null;
 	createdById: string | null;
+	sourceType: string | null;
+	sourceRef: string | null;
 	createdAt: Date;
 	updatedAt: Date;
 }): CostEntryRecord {
@@ -89,6 +91,8 @@ function toRecord(entry: {
 		effectiveDate: isoDateOnly(entry.effectiveDate),
 		notes: entry.notes,
 		createdById: entry.createdById,
+		sourceType: entry.sourceType,
+		sourceRef: entry.sourceRef,
 		createdAt: entry.createdAt.toISOString(),
 		updatedAt: entry.updatedAt.toISOString(),
 	};
@@ -145,6 +149,8 @@ export async function createCostEntry(
 			currency: parsed.currency ?? DEFAULT_CURRENCY,
 			effectiveDate: new Date(`${parsed.effectiveDate}T00:00:00Z`),
 			notes: parsed.notes ?? null,
+			sourceType: "manual",
+			sourceRef: null,
 			createdById: createdById ?? null,
 		},
 	});
@@ -262,6 +268,83 @@ export async function listRecentSnapshots(limit = 30): Promise<DailySnapshot[]> 
 			entryCount: r.entryCount,
 		};
 	});
+}
+
+function currentMonthUtc(): string {
+	return new Date().toISOString().slice(0, 7);
+}
+
+export interface ServerMonthlyCostSyncResult {
+	month: string;
+	synced: number;
+	skipped: number;
+	entries: CostEntryRecord[];
+}
+
+export async function syncServerMonthlyCosts(
+	month = currentMonthUtc(),
+): Promise<ServerMonthlyCostSyncResult> {
+	const effectiveDate = startOfMonthUtc(month);
+	const servers = await prisma.server.findMany({
+		where: {
+			enabled: true,
+			costAutoSync: true,
+			costMonthlyAmount: { not: null },
+		},
+		select: {
+			id: true,
+			name: true,
+			host: true,
+			costMonthlyAmount: true,
+			costCurrency: true,
+			costProvider: true,
+		},
+		take: 1000,
+	});
+
+	const entries: CostEntryRecord[] = [];
+	let skipped = 0;
+	for (const server of servers) {
+		const amount = server.costMonthlyAmount?.toFixed(2);
+		if (!amount || Number(amount) <= 0) {
+			skipped += 1;
+			continue;
+		}
+		const provider = server.costProvider?.trim() || server.name;
+		const entry = await prisma.costEntry.upsert({
+			where: {
+				sourceType_sourceRef_effectiveDate: {
+					sourceType: "server_monthly",
+					sourceRef: server.id,
+					effectiveDate,
+				},
+			},
+			create: {
+				category: "vps",
+				provider,
+				amount: new Prisma.Decimal(amount),
+				currency: server.costCurrency,
+				effectiveDate,
+				notes: `自动采集：${server.name} (${server.host}) ${month} VPS 月费`,
+				sourceType: "server_monthly",
+				sourceRef: server.id,
+				createdById: null,
+			},
+			update: {
+				provider,
+				amount: new Prisma.Decimal(amount),
+				currency: server.costCurrency,
+				notes: `自动采集：${server.name} (${server.host}) ${month} VPS 月费`,
+			},
+		});
+		await prisma.server.update({
+			where: { id: server.id },
+			data: { costLastSyncedAt: new Date() },
+		});
+		entries.push(toRecord(entry));
+	}
+
+	return { month, synced: entries.length, skipped, entries };
 }
 
 /* ── Snapshot writer (called by daily snapshot worker) ─────── */

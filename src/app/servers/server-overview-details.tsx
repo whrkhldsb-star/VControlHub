@@ -61,6 +61,12 @@ export type ServerOverviewDetailsServer = {
 	// TR-041: OS dialect + info for display and dialect-aware operations
 	osDialect?: string | null;
 	osInfo?: string | null;
+	// TR-031: monthly VPS cost auto-sync settings
+	costAutoSync?: boolean;
+	costMonthlyAmount?: string | null;
+	costCurrency?: "CNY" | "USD" | "EUR" | "JPY" | "HKD";
+	costProvider?: string | null;
+	costLastSyncedAt?: string | null;
 };
 
 export type ServerOverviewDetailsProps = {
@@ -462,6 +468,11 @@ export function ServerOverviewDetails({
 							connectionType={server.connectionType}
 							description={server.description}
 							tags={server.tags}
+							costAutoSync={server.costAutoSync}
+							costMonthlyAmount={server.costMonthlyAmount}
+							costCurrency={server.costCurrency}
+							costProvider={server.costProvider}
+							costLastSyncedAt={server.costLastSyncedAt}
 							directGateway={server.directGateway ?? undefined}
 						/>
 					</div>

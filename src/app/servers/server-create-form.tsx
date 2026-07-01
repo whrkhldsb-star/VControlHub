@@ -251,6 +251,62 @@ export function ServerCreateForm({
         </div>
       </div>
 
+      <div className="space-y-3 rounded-xl border border-[var(--border)] bg-[var(--surface)]/[0.04] p-4">
+        <label className="flex items-start gap-3 text-sm text-[var(--text-secondary)]">
+          <input
+            name="costAutoSync"
+            type="checkbox"
+            className="mt-1 h-4 w-4 rounded-lg border-[var(--border)] bg-[var(--input-bg)]"
+          />
+          <span>
+            <span className="block font-medium text-[var(--text-primary)]">{t("serversPage.create.costAutoSync")}</span>
+            <span className="text-xs text-[var(--text-muted)]">{t("serversPage.create.costHint")}</span>
+          </span>
+        </label>
+        <div className="grid gap-3 sm:grid-cols-[1fr_120px]">
+          <div className="space-y-1.5">
+            <label className="text-xs font-medium text-[var(--text-primary)]/70 tracking-wide" htmlFor="serverCostMonthlyAmount">
+              {t("serversPage.create.costMonthlyAmount")}
+            </label>
+            <input
+              id="serverCostMonthlyAmount"
+              name="costMonthlyAmount"
+              type="text"
+              inputMode="decimal"
+              placeholder="0.00"
+              className="w-full rounded-lg border border-[var(--border)] bg-[var(--surface)]/[0.04] px-3.5 py-2.5 text-sm text-[var(--text-primary)] outline-none transition placeholder:text-[var(--text-primary)]/30 focus:border-[var(--color-action-border)]/30 focus:bg-[var(--surface)]/[0.10]"
+            />
+          </div>
+          <div className="space-y-1.5">
+            <label className="text-xs font-medium text-[var(--text-primary)]/70 tracking-wide" htmlFor="serverCostCurrency">
+              {t("serversPage.create.costCurrency")}
+            </label>
+            <select
+              id="serverCostCurrency"
+              name="costCurrency"
+              defaultValue="CNY"
+              className="w-full rounded-lg border border-[var(--border)] bg-[var(--surface)]/[0.04] px-3.5 py-2.5 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--color-action-border)]/30 focus:bg-[var(--surface)]/[0.10]"
+            >
+              {(["CNY", "USD", "EUR", "JPY", "HKD"] as const).map((currency) => (
+                <option key={currency} value={currency}>{currency}</option>
+              ))}
+            </select>
+          </div>
+        </div>
+        <div className="space-y-1.5">
+          <label className="text-xs font-medium text-[var(--text-primary)]/70 tracking-wide" htmlFor="serverCostProvider">
+            {t("serversPage.create.costProvider")}
+          </label>
+          <input
+            id="serverCostProvider"
+            name="costProvider"
+            type="text"
+            placeholder={t("serversPage.create.costProviderPlaceholder")}
+            className="w-full rounded-lg border border-[var(--border)] bg-[var(--surface)]/[0.04] px-3.5 py-2.5 text-sm text-[var(--text-primary)] outline-none transition placeholder:text-[var(--text-primary)]/30 focus:border-[var(--color-action-border)]/30 focus:bg-[var(--surface)]/[0.10]"
+          />
+        </div>
+      </div>
+
       <ConnectionTypeFields sshKeys={sshKeys} />
 
       <div className="space-y-1.5">
