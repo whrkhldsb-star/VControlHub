@@ -114,7 +114,7 @@ export function SaveButtonWithDiff({
                 ? "border-rose-400/30 bg-rose-400/10 text-rose-200 hover:bg-rose-400/15 light:border-rose-700/30 light:bg-rose-50 light:text-rose-800"
                 : mediumCount > 0
                   ? "border-amber-400/30 bg-amber-400/10 text-amber-200 hover:bg-amber-400/15 light:border-amber-700/30 light:bg-amber-50 light:text-amber-800"
-                  : "border-cyan-400/30 bg-cyan-400/10 text-[var(--text-secondary)] hover:bg-cyan-400/15 light:border-cyan-700/30 light:bg-cyan-50 light:text-cyan-800"
+                  : "border-[var(--color-action-border)]/30 bg-[var(--color-action-bg)]/10 text-[var(--text-secondary)] hover:bg-[var(--color-action-bg)]/15 light:border-[var(--color-action-border)]/30 light:bg-[var(--color-action-bg)] light:text-[var(--color-action-strong)]"
             }`}
           >
             <span aria-hidden>{expanded ? "▾" : "▸"}</span>
@@ -145,7 +145,7 @@ export function SaveButtonWithDiff({
           className={`rounded-2xl px-5 py-2 text-sm font-medium transition disabled:opacity-60 ${
             highCount > 0
               ? "bg-rose-500 text-[var(--text-primary)] hover:bg-rose-400 light:bg-rose-600 light:hover:bg-rose-500"
-              : "bg-cyan-500 text-slate-950 hover:bg-cyan-400"
+              : "bg-[var(--color-action)] text-slate-950 hover:bg-[var(--color-action-bg)]"
           }`}
         >
           {saving ? t("settingsClient.saving") : t("settingsClient.save")}
@@ -159,7 +159,7 @@ export function SaveButtonWithDiff({
           className="overflow-hidden rounded-lg border border-[var(--border)] bg-[var(--surface)]/[0.04] light:bg-slate-50"
         >
           <table className="w-full text-xs">
-            <thead className="border-b border-[var(--border)] bg-[var(--surface)]/[0.04] text-left text-[11px] uppercase tracking-wide text-[var(--text-muted)] light:bg-slate-100/70">
+            <thead className="border-b border-[var(--border)] bg-[var(--surface)]/[0.04] text-left text-[11px] uppercase tracking-wide text-[var(--text-muted)] light:bg-[var(--surface)]/70">
               <tr>
                 <th className="px-3 py-2 font-medium">{t("settingsClient.diffTableField")}</th>
                 <th className="px-3 py-2 font-medium">{t("settingsClient.diffTableOriginal")}</th>
@@ -179,7 +179,7 @@ export function SaveButtonWithDiff({
                   <td className="px-3 py-2 text-[var(--text-muted)] line-through">
                     {renderDiffValue(change.oldValue, t)}
                   </td>
-                  <td className="px-3 py-2 text-[var(--text-primary)] light:text-cyan-800">
+                  <td className="px-3 py-2 text-[var(--text-primary)] light:text-[var(--color-action-strong)]">
                     {renderDiffValue(change.newValue, t)}
                   </td>
                   <td className="px-3 py-2">

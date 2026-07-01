@@ -24,26 +24,26 @@ export function SshKeyCreateForm() {
 
 			<div className="space-y-1.5">
 				<label className="text-xs font-medium text-[var(--text-primary)]/70 tracking-wide" htmlFor="sshKeyName">名称</label>
-				<input id="sshKeyName" name="name" type="text" required placeholder="例如 prod-key" className="w-full rounded-lg border border-[var(--border)] bg-[var(--surface)]/[0.04] px-3.5 py-2.5 text-sm text-[var(--text-primary)] outline-none transition placeholder:text-[var(--text-primary)]/30 focus:border-cyan-400/30 focus:bg-[var(--surface)]/[0.10]" />
+				<input id="sshKeyName" name="name" type="text" required placeholder="例如 prod-key" className="w-full rounded-lg border border-[var(--border)] bg-[var(--surface)]/[0.04] px-3.5 py-2.5 text-sm text-[var(--text-primary)] outline-none transition placeholder:text-[var(--text-primary)]/30 focus:border-[var(--color-action-border)]/30 focus:bg-[var(--surface)]/[0.10]" />
 			</div>
 
 			<div className="space-y-1.5">
 				<label className="text-xs font-medium text-[var(--text-primary)]/70 tracking-wide" htmlFor="sshKeyDesc">描述</label>
-				<input id="sshKeyDesc" name="description" type="text" placeholder="可选" className="w-full rounded-lg border border-[var(--border)] bg-[var(--surface)]/[0.04] px-3.5 py-2.5 text-sm text-[var(--text-primary)] outline-none transition placeholder:text-[var(--text-primary)]/30 focus:border-cyan-400/30 focus:bg-[var(--surface)]/[0.10]" />
+				<input id="sshKeyDesc" name="description" type="text" placeholder="可选" className="w-full rounded-lg border border-[var(--border)] bg-[var(--surface)]/[0.04] px-3.5 py-2.5 text-sm text-[var(--text-primary)] outline-none transition placeholder:text-[var(--text-primary)]/30 focus:border-[var(--color-action-border)]/30 focus:bg-[var(--surface)]/[0.10]" />
 			</div>
 
-			<div data-tone="cyan" className="rounded-lg border border-cyan-400/15 px-3.5 py-2.5 text-xs leading-relaxed text-[var(--text-primary)]">
+			<div data-tone="cyan" className="rounded-lg border border-[var(--color-action-border)]/15 px-3.5 py-2.5 text-xs leading-relaxed text-[var(--text-primary)]">
 				可直接粘贴 OpenSSH 私钥，也可以只上传 PuTTY .ppk 文件；上传 .ppk 时后端会自动转换并提取公钥。
 			</div>
 
 			<div className="space-y-1.5">
 				<label className="text-xs font-medium text-[var(--text-primary)]/70 tracking-wide" htmlFor="privateKey">私钥</label>
-				<textarea id="privateKey" name="privateKey" rows={4} placeholder="粘贴 SSH 私钥内容；如果上传 .ppk 可留空" className="w-full rounded-lg border border-[var(--border)] bg-[var(--surface)]/[0.04] px-3.5 py-2.5 text-sm text-[var(--text-primary)] font-mono outline-none transition placeholder:text-[var(--text-primary)]/30 focus:border-cyan-400/30 focus:bg-[var(--surface)]/[0.10] resize-y" />
+				<textarea id="privateKey" name="privateKey" rows={4} placeholder="粘贴 SSH 私钥内容；如果上传 .ppk 可留空" className="w-full rounded-lg border border-[var(--border)] bg-[var(--surface)]/[0.04] px-3.5 py-2.5 text-sm text-[var(--text-primary)] font-mono outline-none transition placeholder:text-[var(--text-primary)]/30 focus:border-[var(--color-action-border)]/30 focus:bg-[var(--surface)]/[0.10] resize-y" />
 			</div>
 
 			<div className="space-y-1.5">
 				<label className="text-xs font-medium text-[var(--text-primary)]/70 tracking-wide" htmlFor="publicKey">公钥</label>
-				<textarea id="publicKey" name="publicKey" rows={2} placeholder="ssh-rsa AAAA..." className="w-full rounded-lg border border-[var(--border)] bg-[var(--surface)]/[0.04] px-3.5 py-2.5 text-sm text-[var(--text-primary)] font-mono outline-none transition placeholder:text-[var(--text-primary)]/30 focus:border-cyan-400/30 focus:bg-[var(--surface)]/[0.10] resize-y" />
+				<textarea id="publicKey" name="publicKey" rows={2} placeholder="ssh-rsa AAAA..." className="w-full rounded-lg border border-[var(--border)] bg-[var(--surface)]/[0.04] px-3.5 py-2.5 text-sm text-[var(--text-primary)] font-mono outline-none transition placeholder:text-[var(--text-primary)]/30 focus:border-[var(--color-action-border)]/30 focus:bg-[var(--surface)]/[0.10] resize-y" />
 			</div>
 
 			<div className="space-y-1.5">

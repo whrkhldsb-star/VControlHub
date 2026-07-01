@@ -65,7 +65,7 @@ export default async function ServersPage() {
 				<StatCard label={t("serversPage.stat.enabled")} value={String(enabledCount)} accent={enabledCount > 0} />
 				<StatCard label={t("serversPage.stat.storage")} value={String(storageCount)} accent={storageCount > 0} />
 			</section>
-			<section data-tone="cyan" className="mb-4 rounded-xl border border-cyan-400/15 p-4">
+			<section data-tone="cyan" className="mb-4 rounded-xl border border-[var(--color-action-border)]/15 p-4">
 				<h2 className="text-sm font-medium text-[var(--text-primary)]">{t("serversPage.statusPriority.title")}</h2>
 				<p className="mt-1 text-xs text-[var(--text-muted)]">{t("serversPage.statusPriority.desc")}</p>
 			</section>

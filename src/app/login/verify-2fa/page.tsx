@@ -37,8 +37,8 @@ export default async function Verify2faPage({ searchParams }: Verify2faPageProps
 			<div className="relative w-full max-w-md px-6">
 				<div className="rounded-2xl bg-[var(--surface)]/[0.04] p-6 shadow-[0_0_0_1px_rgba(255,255,255,0.06),0_30px_60px_rgba(0,0,0,0.4)] backdrop-blur-xl sm:p-8">
 					<div className="mb-7">
-						<div className="mb-3 flex h-12 w-12 items-center justify-center rounded-xl bg-cyan-500/10">
-							<svg className="h-6 w-6 text-cyan-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+						<div className="mb-3 flex h-12 w-12 items-center justify-center rounded-xl bg-[var(--color-action)]/10">
+							<svg className="h-6 w-6 text-[var(--color-action)]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
 								<path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
 							</svg>
 						</div>
@@ -51,7 +51,7 @@ export default async function Verify2faPage({ searchParams }: Verify2faPageProps
 					<div className="mt-5 border-t border-[var(--border)] pt-4">
 						<a
 							href="/login"
-							className="text-xs text-[var(--text-primary)]/30 transition-colors hover:text-[var(--text-primary)] light:hover:text-slate-900/50"
+							className="text-xs text-[var(--text-primary)]/30 transition-colors hover:text-[var(--text-primary)] light:hover:text-[var(--text-primary)]/50"
 						>
 							{t("login.verify2faBackToLogin")}
 						</a>

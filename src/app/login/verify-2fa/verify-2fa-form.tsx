@@ -124,7 +124,7 @@ if (data.success) {
 			<button
 				type="submit"
 				disabled={submitting || digits.some((d) => !d)}
-				className="w-full rounded-xl bg-gradient-to-r from-cyan-400 to-blue-500 px-4 py-3 text-sm font-medium text-[var(--text-primary)] shadow-[0_0_0_1px_rgba(34,211,238,0.2),0_8px_20px_rgba(34,211,238,0.15)] transition-[filter,box-shadow] duration-150 hover:brightness-110 hover:shadow-[0_0_0_1px_rgba(34,211,238,0.3),0_12px_28px_rgba(34,211,238,0.25)] focus:outline-none focus:ring-2 focus:ring-cyan-400/40 disabled:opacity-50 disabled:hover:brightness-100"
+				className="w-full rounded-xl bg-gradient-to-r from-[var(--color-action)] to-blue-500 px-4 py-3 text-sm font-medium text-[var(--text-primary)] shadow-[0_0_0_1px_rgba(34,211,238,0.2),0_8px_20px_rgba(34,211,238,0.15)] transition-[filter,box-shadow] duration-150 hover:brightness-110 hover:shadow-[0_0_0_1px_rgba(34,211,238,0.3),0_12px_28px_rgba(34,211,238,0.25)] focus:outline-none focus:ring-2 focus:ring-[var(--color-action-ring)]/40 disabled:opacity-50 disabled:hover:brightness-100"
 			>
 				{submitting ? "验证中..." : "验证"}
 			</button>

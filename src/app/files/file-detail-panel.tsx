@@ -134,7 +134,7 @@ export function FileDetailPanel({
               {detailEntry.previewable && entryCanRead(detailEntry) ? (
                 <Link
                   href={getPreviewHref(detailEntry)}
-                  data-tone="cyan" className="rounded-2xl border border-cyan-400/30 px-4 py-3 text-sm font-medium text-[var(--text-primary)] transition hover:bg-cyan-500/20"
+                  data-tone="cyan" className="rounded-2xl border border-[var(--color-action-border)]/30 px-4 py-3 text-sm font-medium text-[var(--text-primary)] transition hover:bg-[var(--color-action)]/20"
                 >
                   预览 / 在线编辑
                 </Link>

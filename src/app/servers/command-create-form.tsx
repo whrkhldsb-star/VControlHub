@@ -50,23 +50,23 @@ export function CommandCreateForm({
 
 			<div className="space-y-1.5">
 				<label className="text-xs font-medium text-[var(--text-primary)]/70 tracking-wide" htmlFor="cmdTitle">{t("serversPage.command.titleLabel")}</label>
-				<input id="cmdTitle" name="title" type="text" required placeholder={t("serversPage.command.titlePlaceholder")} className="w-full rounded-lg border border-[var(--border)] bg-[var(--surface)]/[0.04] px-3.5 py-2.5 text-sm text-[var(--text-primary)] outline-none transition placeholder:text-[var(--text-primary)]/30 focus:border-cyan-400/30 focus:bg-[var(--surface)]/[0.10]" />
+				<input id="cmdTitle" name="title" type="text" required placeholder={t("serversPage.command.titlePlaceholder")} className="w-full rounded-lg border border-[var(--border)] bg-[var(--surface)]/[0.04] px-3.5 py-2.5 text-sm text-[var(--text-primary)] outline-none transition placeholder:text-[var(--text-primary)]/30 focus:border-[var(--color-action-border)]/30 focus:bg-[var(--surface)]/[0.10]" />
 			</div>
 
 			<div className="space-y-1.5">
 				<label className="text-xs font-medium text-[var(--text-primary)]/70 tracking-wide" htmlFor="cmdCommand">{t("serversPage.command.bodyLabel")}</label>
-				<textarea id="cmdCommand" name="command" rows={4} required placeholder="df -h" className="w-full rounded-lg border border-[var(--border)] bg-[var(--surface)]/[0.04] px-3.5 py-2.5 text-sm text-[var(--text-primary)] font-mono outline-none transition placeholder:text-[var(--text-primary)]/30 focus:border-cyan-400/30 focus:bg-[var(--surface)]/[0.10] resize-y" />
+				<textarea id="cmdCommand" name="command" rows={4} required placeholder="df -h" className="w-full rounded-lg border border-[var(--border)] bg-[var(--surface)]/[0.04] px-3.5 py-2.5 text-sm text-[var(--text-primary)] font-mono outline-none transition placeholder:text-[var(--text-primary)]/30 focus:border-[var(--color-action-border)]/30 focus:bg-[var(--surface)]/[0.10] resize-y" />
 			</div>
 
 			<div className="space-y-1.5">
 				<label className="text-xs font-medium text-[var(--text-primary)]/70 tracking-wide" htmlFor="cmdReason">{t("serversPage.command.reasonLabel")}</label>
-				<textarea id="cmdReason" name="reason" rows={2} placeholder="可选" className="w-full rounded-lg border border-[var(--border)] bg-[var(--surface)]/[0.04] px-3.5 py-2.5 text-sm text-[var(--text-primary)] outline-none transition placeholder:text-[var(--text-primary)]/30 focus:border-cyan-400/30 focus:bg-[var(--surface)]/[0.10] resize-y" />
+				<textarea id="cmdReason" name="reason" rows={2} placeholder="可选" className="w-full rounded-lg border border-[var(--border)] bg-[var(--surface)]/[0.04] px-3.5 py-2.5 text-sm text-[var(--text-primary)] outline-none transition placeholder:text-[var(--text-primary)]/30 focus:border-[var(--color-action-border)]/30 focus:bg-[var(--surface)]/[0.10] resize-y" />
 			</div>
 
 			<div className="space-y-2">
 				<div className="flex items-center justify-between">
 					<label className="text-xs font-medium text-[var(--text-primary)]/70 tracking-wide">{t("serversPage.command.targetNodes")}</label>
-					<button type="button" onClick={selectAll} className="text-xs text-cyan-400/70 hover:text-cyan-300 light:hover:text-cyan-700 transition">
+					<button type="button" onClick={selectAll} className="text-xs text-[var(--color-action)]/70 hover:text-[var(--color-action)] light:hover:text-[var(--color-action-strong)] transition">
 						{selectedServerIds.size === enabledServerIds.length ? t("serversPage.command.deselectAll") : t("serversPage.command.selectAllEnabled")}
 					</button>
 				</div>
@@ -81,7 +81,7 @@ export function CommandCreateForm({
 									!server.enabled
 										?"border-[var(--border)] bg-[var(--surface)]/[0.04] text-[var(--text-muted)] cursor-not-allowed opacity-50"
 										: selectedServerIds.has(server.id)
-											?"border-cyan-400/20 bg-cyan-400/[0.10] text-[var(--text-primary)]"
+											?"border-[var(--color-action-border)]/20 bg-[var(--color-action-bg)]/[0.10] text-[var(--text-primary)]"
 											:"border-[var(--border)] bg-[var(--surface)]/[0.04] text-[var(--text-secondary)] hover:bg-[var(--surface)]/[0.10]"
 								}`}
 							>
@@ -92,7 +92,7 @@ export function CommandCreateForm({
 									checked={selectedServerIds.has(server.id)}
 									disabled={!server.enabled}
 									onChange={() => toggleServer(server.id)}
-									className="accent-cyan-400"
+									className="accent-[var(--color-action)]"
 								/>
 								<span>{server.name}</span>
 								<span className="ml-auto text-[11px] text-[var(--text-muted)]">{server.host}</span>

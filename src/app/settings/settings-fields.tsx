@@ -186,7 +186,7 @@ export function SelectField({
     <div
       className={`space-y-1.5 rounded-lg border p-3 transition ${
         disabled
-          ? "border-[var(--border)] bg-[var(--surface-subtle)] opacity-70 light:bg-slate-100/80"
+          ? "border-[var(--border)] bg-[var(--surface-subtle)] opacity-70 light:bg-[var(--surface)]/80"
           : "border-transparent bg-[var(--surface)]/[0.04]"
       }`}
     >
@@ -212,7 +212,7 @@ export function SelectField({
         onBlur={() => onHighRiskBlur(normalizedValue)}
         disabled={disabled}
         aria-describedby={describedBy}
-        className="w-full rounded-lg border border-[var(--border)] bg-[var(--surface)]/[0.04] px-3.5 py-2.5 text-sm text-[var(--text-primary)] outline-none transition focus:border-cyan-400/30 disabled:cursor-not-allowed disabled:border-[var(--border)] disabled:bg-[var(--surface-subtle)] disabled:text-[var(--text-muted)] light:disabled:border-slate-200 light:disabled:bg-slate-100 light:disabled:text-[var(--text-muted)]"
+        className="w-full rounded-lg border border-[var(--border)] bg-[var(--surface)]/[0.04] px-3.5 py-2.5 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--color-action-border)]/30 disabled:cursor-not-allowed disabled:border-[var(--border)] disabled:bg-[var(--surface-subtle)] disabled:text-[var(--text-muted)] light:disabled:border-slate-200 light:disabled:bg-slate-100 light:disabled:text-[var(--text-muted)]"
       >
         {options.map((opt) => (
           <option key={opt.value} value={opt.value} className="bg-[var(--surface)] text-[var(--text-primary)]">
@@ -259,7 +259,7 @@ export function InputField({
     <div
       className={`space-y-1.5 rounded-lg border p-3 transition ${
         disabled
-          ? "border-[var(--border)] bg-[var(--surface-subtle)] opacity-70 light:bg-slate-100/80"
+          ? "border-[var(--border)] bg-[var(--surface-subtle)] opacity-70 light:bg-[var(--surface)]/80"
           : "border-transparent bg-[var(--surface)]/[0.04]"
       }`}
     >
@@ -288,7 +288,7 @@ export function InputField({
         autoComplete={field.autoComplete}
         disabled={disabled}
         aria-describedby={describedBy}
-        className="w-full rounded-lg border border-[var(--border)] bg-[var(--surface)]/[0.04] px-3.5 py-2.5 text-sm text-[var(--text-primary)] outline-none transition placeholder:text-[var(--text-primary)]/30 focus:border-cyan-400/30 disabled:cursor-not-allowed disabled:border-[var(--border)] disabled:bg-[var(--surface-subtle)] disabled:text-[var(--text-muted)] disabled:placeholder:text-[var(--text-primary)]/10 light:disabled:border-slate-200 light:disabled:bg-slate-100 light:disabled:text-[var(--text-muted)] light:disabled:placeholder:text-[var(--text-secondary)]"
+        className="w-full rounded-lg border border-[var(--border)] bg-[var(--surface)]/[0.04] px-3.5 py-2.5 text-sm text-[var(--text-primary)] outline-none transition placeholder:text-[var(--text-primary)]/30 focus:border-[var(--color-action-border)]/30 disabled:cursor-not-allowed disabled:border-[var(--border)] disabled:bg-[var(--surface-subtle)] disabled:text-[var(--text-muted)] disabled:placeholder:text-[var(--text-primary)]/10 light:disabled:border-slate-200 light:disabled:bg-slate-100 light:disabled:text-[var(--text-muted)] light:disabled:placeholder:text-[var(--text-secondary)]"
       />
       {showHighRiskWarning && <HighRiskBlurWarning id={warningId} />}
       {helperText && (
@@ -351,7 +351,7 @@ export function TextAreaField({
             .join(" ") || undefined
         }
         rows={4}
-        className="w-full rounded-lg border border-[var(--border)] bg-[var(--surface)]/[0.04] px-3.5 py-2.5 text-sm text-[var(--text-primary)] outline-none transition placeholder:text-[var(--text-primary)]/30 focus:border-cyan-400/30 disabled:cursor-not-allowed"
+        className="w-full rounded-lg border border-[var(--border)] bg-[var(--surface)]/[0.04] px-3.5 py-2.5 text-sm text-[var(--text-primary)] outline-none transition placeholder:text-[var(--text-primary)]/30 focus:border-[var(--color-action-border)]/30 disabled:cursor-not-allowed"
       />
       {showHighRiskWarning && <HighRiskBlurWarning id={warningId} />}
       {helperText && (
@@ -386,7 +386,7 @@ export function SwitchField({
         aria-checked={value}
         aria-label={label}
         onClick={() => onChange(!value)}
-        className={`relative w-10 h-5 rounded-full transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan-300 ${value ? "bg-cyan-500" : "bg-slate-700"}`}
+        className={`relative w-10 h-5 rounded-full transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-action)] ${value ? "bg-[var(--color-action)]" : "bg-[var(--surface-hover)]"}`}
       >
         <span
           className={`absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-[var(--surface)] shadow transition-transform ${value ? "translate-x-5" : ""}`}

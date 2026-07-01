@@ -158,7 +158,7 @@ function OsDialectSection({
 					type="button"
 					onClick={handleDetect}
 					disabled={detecting}
-					className="shrink-0 rounded-lg border border-cyan-300/25 bg-cyan-300/10 px-2.5 py-1 text-[11px] text-[var(--text-primary)] transition hover:bg-cyan-300/15 disabled:opacity-50 light:border-cyan-700/20"
+					className="shrink-0 rounded-lg border border-[var(--color-action-border)]/25 bg-[var(--color-action-bg)]/10 px-2.5 py-1 text-[11px] text-[var(--text-primary)] transition hover:bg-[var(--color-action-bg)]/15 disabled:opacity-50 light:border-[var(--color-action-border)]/20"
 				>
 					{detecting ? t("serverOverviewDetails.detecting") : t("serverOverviewDetails.detectOs")}
 				</button>
@@ -275,7 +275,7 @@ function DirectGatewayAdviceList({
 						{item.href && item.hrefLabel ? (
 							<Link
 								href={item.href}
-								className="ml-auto text-[var(--text-secondary)] underline-offset-4 hover:underline light:text-cyan-700"
+								className="ml-auto text-[var(--text-secondary)] underline-offset-4 hover:underline light:text-[var(--color-action-strong)]"
 								aria-label={item.hrefLabel}
 							>
 								{item.hrefLabel}
@@ -392,7 +392,7 @@ export function ServerOverviewDetails({
 				</div>
 				<p
 					data-tone="cyan"
-					className="mt-3 rounded-lg border border-cyan-400/10 p-2 text-[11px] leading-5 text-[var(--text-muted)] light:border-cyan-700/15 light:bg-cyan-50"
+					className="mt-3 rounded-lg border border-[var(--color-action-border)]/10 p-2 text-[11px] leading-5 text-[var(--text-muted)] light:border-[var(--color-action-border)]/15 light:bg-[var(--color-action-bg)]"
 				>
 					{t("serverOverviewDetails.banner.description")}
 				</p>
@@ -468,7 +468,7 @@ export function ServerOverviewDetails({
 				) : null}
 			</section>
 
-			<section className="rounded-lg border border-cyan-400/10 bg-cyan-400/[0.035] p-3 light:border-cyan-700/15 light:bg-cyan-50">
+			<section className="rounded-lg border border-[var(--color-action-border)]/10 bg-[var(--color-action-bg)]/[0.035] p-3 light:border-[var(--color-action-border)]/15 light:bg-[var(--color-action-bg)]">
 				<div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
 					<div>
 						<h3 className="text-sm font-medium text-[var(--text-primary)]">{t("serverOverviewDetails.diagnosticsNext")}</h3>
@@ -478,7 +478,7 @@ export function ServerOverviewDetails({
 					</div>
 					<Link
 						href={`/api/servers/monitor?serverId=${encodeURIComponent(server.id)}`}
-						className="inline-flex shrink-0 items-center justify-center rounded-lg border border-cyan-300/25 bg-cyan-300/10 px-3 py-1.5 text-xs text-[var(--text-primary)] transition hover:bg-cyan-300/15 light:border-cyan-700/20"
+						className="inline-flex shrink-0 items-center justify-center rounded-lg border border-[var(--color-action-border)]/25 bg-[var(--color-action-bg)]/10 px-3 py-1.5 text-xs text-[var(--text-primary)] transition hover:bg-[var(--color-action-bg)]/15 light:border-[var(--color-action-border)]/20"
 					>
 						{t("serverOverviewDetails.viewMonitorJson")}
 					</Link>

@@ -58,27 +58,27 @@ export function AiSettingsPanel({
         <div className="col-span-2 md:col-span-2 relative">
           <label className="text-[10px] text-[var(--text-muted)] uppercase tracking-wider">
             {t("aiPage.model")}
-            {modelsLoading && <span className="ml-2 text-cyan-400 animate-pulse">{t("aiPage.loading")}</span>}
+            {modelsLoading && <span className="ml-2 text-[var(--color-action)] animate-pulse">{t("aiPage.loading")}</span>}
           </label>
           <div className="relative mt-1">
             <button
               onClick={() => setModelDropdownOpen(!modelDropdownOpen)}
-              className="w-full flex items-center justify-between bg-black/30 border border-[var(--border)] rounded-lg px-2.5 py-1.5 text-xs text-[var(--text-primary)] hover:border-cyan-400/30 transition"
+              className="w-full flex items-center justify-between bg-black/30 border border-[var(--border)] rounded-lg px-2.5 py-1.5 text-xs text-[var(--text-primary)] hover:border-[var(--color-action-border)]/30 transition"
             >
               <span className="truncate flex items-center gap-1.5">
                 {settingsForm.model}
                 {currentModelSupportsVision && (
-                  <span className="text-[9px] text-cyan-400 bg-cyan-400/10 px-1 py-0.5 rounded-lg">👁</span>
+                  <span className="text-[9px] text-[var(--color-action)] bg-[var(--color-action-bg)]/10 px-1 py-0.5 rounded-lg">👁</span>
                 )}
               </span>
-              <svg className={`w-3.5 h-3.5 text-[var(--text-muted)] transition-transform ${modelDropdownOpen ? "rotate-180" : ""}`} fill="none" stroke="currentColor" viewBox="0 0 24 24"> <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /> </svg> </button> {modelDropdownOpen && ( <div className="absolute z-50 top-full left-0 right-0 mt-1 bg-[var(--surface)] border border-[var(--border)] rounded-lg shadow-xl max-h-60 overflow-hidden flex flex-col"> <div className="p-2 border-b border-[var(--border)]/10"> <input value={modelSearch} onChange={(e) => setModelSearch(e.target.value)} placeholder={t("aiPage.searchModel")} aria-label={t("aiPage.searchModelAria")} className="w-full bg-black/30 border border-[var(--border)]/10 rounded-lg px-2 py-1 text-xs text-[var(--text-primary)] placeholder-slate-600 focus:outline-none focus:border-cyan-400/30" autoFocus /> </div> <div className="overflow-y-auto max-h-48"> {filteredModels.length === 0 && !modelsLoading && ( <div className="px-3 py-4 text-xs text-[var(--text-muted)] text-center"> {t("aiPage.noModels")} <button onClick={onRefreshModels} className="ml-2 text-cyan-400 hover:text-cyan-300 light:hover:text-cyan-700" > {t("aiPage.refresh")} </button> </div> )} {filteredModels.map((m) => ( <button key={m.id} onClick={() => { setSettingsForm((f) => ({ ...f, model: m.id, enableVision: m.vision ? true : f.enableVision, })); setModelDropdownOpen(false); setModelSearch(""); }} className={`w-full text-left px-3 py-2 text-xs hover:bg-[var(--surface)]/[0.04] transition flex items-center gap-2 ${
-                        settingsForm.model === m.id ? "text-cyan-300 bg-cyan-400/[0.10]" : "text-[var(--text-primary)]"
+              <svg className={`w-3.5 h-3.5 text-[var(--text-muted)] transition-transform ${modelDropdownOpen ? "rotate-180" : ""}`} fill="none" stroke="currentColor" viewBox="0 0 24 24"> <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /> </svg> </button> {modelDropdownOpen && ( <div className="absolute z-50 top-full left-0 right-0 mt-1 bg-[var(--surface)] border border-[var(--border)] rounded-lg shadow-xl max-h-60 overflow-hidden flex flex-col"> <div className="p-2 border-b border-[var(--border)]/10"> <input value={modelSearch} onChange={(e) => setModelSearch(e.target.value)} placeholder={t("aiPage.searchModel")} aria-label={t("aiPage.searchModelAria")} className="w-full bg-black/30 border border-[var(--border)]/10 rounded-lg px-2 py-1 text-xs text-[var(--text-primary)] placeholder-slate-600 focus:outline-none focus:border-[var(--color-action-border)]/30" autoFocus /> </div> <div className="overflow-y-auto max-h-48"> {filteredModels.length === 0 && !modelsLoading && ( <div className="px-3 py-4 text-xs text-[var(--text-muted)] text-center"> {t("aiPage.noModels")} <button onClick={onRefreshModels} className="ml-2 text-[var(--color-action)] hover:text-[var(--color-action)] light:hover:text-[var(--color-action-strong)]" > {t("aiPage.refresh")} </button> </div> )} {filteredModels.map((m) => ( <button key={m.id} onClick={() => { setSettingsForm((f) => ({ ...f, model: m.id, enableVision: m.vision ? true : f.enableVision, })); setModelDropdownOpen(false); setModelSearch(""); }} className={`w-full text-left px-3 py-2 text-xs hover:bg-[var(--surface)]/[0.04] transition flex items-center gap-2 ${
+                        settingsForm.model === m.id ? "text-[var(--color-action)] bg-[var(--color-action-bg)]/[0.10]" : "text-[var(--text-primary)]"
                       }`}
                     >
                       <span className="truncate flex-1">{m.id}</span>
                       <span className="flex items-center gap-0.5 flex-shrink-0">
                         {(m.capabilities?.vision || m.vision) && (
-                          <span className="text-[9px] text-cyan-400/60" title={t("aiPage.visionCap")}>👁</span>
+                          <span className="text-[9px] text-[var(--color-action)]/60" title={t("aiPage.visionCap")}>👁</span>
                         )}
                         {m.capabilities?.video && (
                           <span className="text-[9px] text-blue-400/60" title={t("aiPage.videoCapSetting")}>🎬</span>
@@ -128,7 +128,7 @@ export function AiSettingsPanel({
                           setModelSearch("");
                         }
                       }}
-                      className="px-2 py-1 text-[10px] bg-cyan-500/20 text-cyan-300 rounded-lg hover:bg-cyan-500/30"
+                      className="px-2 py-1 text-[10px] bg-[var(--color-action)]/20 text-[var(--color-action)] rounded-lg hover:bg-[var(--color-action)]/30"
                     >
                       {t("aiPage.apply")}
                     </button>
@@ -142,7 +142,7 @@ export function AiSettingsPanel({
         {/* Temperature slider */}
         <div>
           <label htmlFor="ai-setting-temperature" className="text-[10px] text-[var(--text-muted)] uppercase tracking-wider">
-            Temperature <span className="text-cyan-400/70">{settingsForm.temperature.toFixed(2)}</span>
+            Temperature <span className="text-[var(--color-action)]/70">{settingsForm.temperature.toFixed(2)}</span>
           </label>
           <div className="mt-1 flex items-center gap-2">
             <input
@@ -153,7 +153,7 @@ export function AiSettingsPanel({
               step={0.01}
               value={settingsForm.temperature}
               onChange={(e) => setSettingsForm((f) => ({ ...f, temperature: parseFloat(e.target.value) }))}
-              className="flex-1 h-1.5 bg-[var(--surface)]/10 rounded-full appearance-none cursor-pointer accent-cyan-400 [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-3 [&::-webkit-slider-thumb]:h-3 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-cyan-400"
+              className="flex-1 h-1.5 bg-[var(--surface)]/10 rounded-full appearance-none cursor-pointer accent-[var(--color-action)] [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-3 [&::-webkit-slider-thumb]:h-3 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-[var(--color-action-bg)]"
             />
           </div>
         </div>
@@ -178,7 +178,7 @@ export function AiSettingsPanel({
         {/* Top P slider */}
         <div>
           <label htmlFor="ai-setting-top-p" className="text-[10px] text-[var(--text-muted)] uppercase tracking-wider">
-            Top P <span className="text-cyan-400/70">{settingsForm.topP.toFixed(2)}</span>
+            Top P <span className="text-[var(--color-action)]/70">{settingsForm.topP.toFixed(2)}</span>
           </label>
           <div className="mt-1 flex items-center gap-2">
             <input
@@ -189,7 +189,7 @@ export function AiSettingsPanel({
               step={0.01}
               value={settingsForm.topP}
               onChange={(e) => setSettingsForm((f) => ({ ...f, topP: parseFloat(e.target.value) }))}
-              className="flex-1 h-1.5 bg-[var(--surface)]/10 rounded-full appearance-none cursor-pointer accent-cyan-400 [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-3 [&::-webkit-slider-thumb]:h-3 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-cyan-400"
+              className="flex-1 h-1.5 bg-[var(--surface)]/10 rounded-full appearance-none cursor-pointer accent-[var(--color-action)] [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-3 [&::-webkit-slider-thumb]:h-3 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-[var(--color-action-bg)]"
             />
           </div>
         </div>
@@ -197,7 +197,7 @@ export function AiSettingsPanel({
         {/* Frequency Penalty slider */}
         <div>
           <label htmlFor="ai-setting-freq-pen" className="text-[10px] text-[var(--text-muted)] uppercase tracking-wider">
-            {t("aiPage.frequencyPenalty")} <span className="text-cyan-400/70">{settingsForm.frequencyPenalty.toFixed(2)}</span>
+            {t("aiPage.frequencyPenalty")} <span className="text-[var(--color-action)]/70">{settingsForm.frequencyPenalty.toFixed(2)}</span>
           </label>
           <div className="mt-1 flex items-center gap-2">
             <input
@@ -208,7 +208,7 @@ export function AiSettingsPanel({
               step={0.01}
               value={settingsForm.frequencyPenalty}
               onChange={(e) => setSettingsForm((f) => ({ ...f, frequencyPenalty: parseFloat(e.target.value) }))}
-              className="flex-1 h-1.5 bg-[var(--surface)]/10 rounded-full appearance-none cursor-pointer accent-cyan-400 [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-3 [&::-webkit-slider-thumb]:h-3 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-cyan-400"
+              className="flex-1 h-1.5 bg-[var(--surface)]/10 rounded-full appearance-none cursor-pointer accent-[var(--color-action)] [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-3 [&::-webkit-slider-thumb]:h-3 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-[var(--color-action-bg)]"
             />
           </div>
         </div>
@@ -216,7 +216,7 @@ export function AiSettingsPanel({
         {/* Presence Penalty slider */}
         <div>
           <label htmlFor="ai-setting-pres-pen" className="text-[10px] text-[var(--text-muted)] uppercase tracking-wider">
-            {t("aiPage.presencePenalty")} <span className="text-cyan-400/70">{settingsForm.presencePenalty.toFixed(2)}</span>
+            {t("aiPage.presencePenalty")} <span className="text-[var(--color-action)]/70">{settingsForm.presencePenalty.toFixed(2)}</span>
           </label>
           <div className="mt-1 flex items-center gap-2">
             <input
@@ -227,7 +227,7 @@ export function AiSettingsPanel({
               step={0.01}
               value={settingsForm.presencePenalty}
               onChange={(e) => setSettingsForm((f) => ({ ...f, presencePenalty: parseFloat(e.target.value) }))}
-              className="flex-1 h-1.5 bg-[var(--surface)]/10 rounded-full appearance-none cursor-pointer accent-cyan-400 [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-3 [&::-webkit-slider-thumb]:h-3 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-cyan-400"
+              className="flex-1 h-1.5 bg-[var(--surface)]/10 rounded-full appearance-none cursor-pointer accent-[var(--color-action)] [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-3 [&::-webkit-slider-thumb]:h-3 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-[var(--color-action-bg)]"
             />
           </div>
         </div>
@@ -239,12 +239,12 @@ export function AiSettingsPanel({
               type="checkbox"
               checked={settingsForm.enableVision}
               onChange={(e) => setSettingsForm((f) => ({ ...f, enableVision: e.target.checked }))}
-              className="rounded-lg border-[var(--border)] bg-black/30 text-cyan-400 focus:ring-cyan-400/30"
+              className="rounded-lg border-[var(--border)] bg-black/30 text-[var(--color-action)] focus:ring-[var(--color-action-ring)]/30"
             />
             <span className="text-xs text-[var(--text-secondary)]">
               {t("aiPage.visionToggle")}
               {currentModelSupportsVision && (
-                <span className="text-[9px] text-cyan-400/60 ml-1">{t("aiPage.recommended")}</span>
+                <span className="text-[9px] text-[var(--color-action)]/60 ml-1">{t("aiPage.recommended")}</span>
               )}
             </span>
  </label>
@@ -270,7 +270,7 @@ export function AiSettingsPanel({
         <div className="flex items-end gap-2">
           <button
             onClick={onSaveSettings}
-            className="h-7 px-3 rounded-lg bg-cyan-500/20 text-cyan-300 text-xs font-medium hover:bg-cyan-500/30 transition"
+            className="h-7 px-3 rounded-lg bg-[var(--color-action)]/20 text-[var(--color-action)] text-xs font-medium hover:bg-[var(--color-action)]/30 transition"
           >
             {t("aiPage.saveSettings")}
           </button>
@@ -286,7 +286,7 @@ export function AiSettingsPanel({
           onChange={(e) => setSettingsForm((f) => ({ ...f, systemPrompt: e.target.value }))}
           rows={2}
           placeholder={t("aiPage.systemPromptPlaceholder")}
-          className="w-full mt-1 bg-black/30 border border-[var(--border)] rounded-lg px-2.5 py-1.5 text-xs text-[var(--text-primary)] placeholder-slate-600 resize-none focus:outline-none focus:border-cyan-400/30"
+          className="w-full mt-1 bg-black/30 border border-[var(--border)] rounded-lg px-2.5 py-1.5 text-xs text-[var(--text-primary)] placeholder-slate-600 resize-none focus:outline-none focus:border-[var(--color-action-border)]/30"
         />
       </div>
     </div>

@@ -26,7 +26,7 @@ const toneToCardClass: Record<QaReportTrendCard["tone"], string> = {
 	success: "border-emerald-400/30 text-emerald-200",
 	warn: "border-amber-400/30 text-amber-200",
 	neutral: "border-[var(--border)] text-[var(--text-secondary)]",
-	info: "border-cyan-400/30 text-[var(--text-secondary)]",
+	info: "border-[var(--color-action-border)]/30 text-[var(--text-secondary)]",
 };
 
 const toneToValueClass: Record<QaReportTrendCard["tone"], string> = {
@@ -53,13 +53,13 @@ function formatDayShort(day: string): string {
 function statusToneClass(status: string): string {
 	const lower = status.toLowerCase();
 	if (lower.includes("fail") || lower.includes("error")) return "text-rose-300 border-rose-400/30";
-	if (lower.includes("run") || lower.includes("deploy")) return "text-cyan-300 border-cyan-400/30";
+	if (lower.includes("run") || lower.includes("deploy")) return "text-[var(--color-action)] border-[var(--color-action-border)]/30";
 	if (lower.includes("complete") || lower.includes("resolved")) return "text-emerald-300 border-emerald-400/30";
 	return "text-[var(--text-secondary)] border-[var(--border)]";
 }
 
 function kindAccent(kind: QaReportSummary["kind"]): string {
-	if (kind === "slice") return "bg-cyan-500/15 text-[var(--text-secondary)] border-cyan-400/20";
+	if (kind === "slice") return "bg-[var(--color-action)]/15 text-[var(--text-secondary)] border-[var(--color-action-border)]/20";
 	if (kind === "blocker") return "bg-amber-500/15 text-amber-200 border-amber-400/20";
 	return "bg-indigo-500/15 text-indigo-200 border-indigo-400/20";
 }
@@ -389,7 +389,7 @@ export function QaReportsListClient({
 									<div className="flex flex-col items-end gap-2">
 										<Link
 											href={`/qa-reports/${encodeURIComponent(report.id)}`}
-											className="text-xs text-cyan-300 hover:text-[var(--text-secondary)]"
+											className="text-xs text-[var(--color-action)] hover:text-[var(--text-secondary)]"
 										>
 											{t("qaReportsPage.viewDetail")}
 										</Link>

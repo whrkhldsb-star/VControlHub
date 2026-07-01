@@ -108,7 +108,7 @@ export function AuditLogClient({ initialActionFilter = "" }: AuditLogClientProps
             }}
             placeholder={t("audit.search-placeholder")}
             aria-label={t("audit.search-placeholder")}
-            className="min-w-[240px] flex-1 rounded-2xl border border-[var(--border)] bg-[var(--input-bg)] px-4 py-2 text-sm text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus:border-cyan-400/50 focus:outline-none"
+            className="min-w-[240px] flex-1 rounded-2xl border border-[var(--border)] bg-[var(--input-bg)] px-4 py-2 text-sm text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus:border-[var(--color-action-border)]/50 focus:outline-none"
           />
           <button
             type="button"
@@ -137,7 +137,7 @@ export function AuditLogClient({ initialActionFilter = "" }: AuditLogClientProps
               setPage(1);
             }}
             aria-label={t("audit.filterBySeverity")}
-            className="rounded-2xl border border-[var(--border)] bg-[var(--input-bg)] px-4 py-2 text-sm text-[var(--text-primary)] focus:border-cyan-400/50 focus:outline-none"
+            className="rounded-2xl border border-[var(--border)] bg-[var(--input-bg)] px-4 py-2 text-sm text-[var(--text-primary)] focus:border-[var(--color-action-border)]/50 focus:outline-none"
           >
             <option value="">{t("audit.all-severities")}</option>
             <option value="INFO">INFO</option>
@@ -151,7 +151,7 @@ export function AuditLogClient({ initialActionFilter = "" }: AuditLogClientProps
               setPage(1);
             }}
             aria-label={t("audit.filterByAction")}
-            className="rounded-2xl border border-[var(--border)] bg-[var(--input-bg)] px-4 py-2 text-sm text-[var(--text-primary)] focus:border-cyan-400/50 focus:outline-none"
+            className="rounded-2xl border border-[var(--border)] bg-[var(--input-bg)] px-4 py-2 text-sm text-[var(--text-primary)] focus:border-[var(--color-action-border)]/50 focus:outline-none"
           >
             <option value="">{t("audit.all-types")}</option>
             <option value="auth.login">{t("audit.action.auth.login")}</option>

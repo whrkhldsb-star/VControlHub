@@ -161,13 +161,13 @@ export function InstallDialog({
 										? portCheck.available
 											? "border-emerald-400/40 focus:border-emerald-400"
 											: "border-rose-400/40 focus:border-rose-400"
-										: "border-[var(--border)] focus:border-cyan-400"
+										: "border-[var(--border)] focus:border-[var(--color-action-border)]"
 								}`}
 								placeholder="1-65535"
 							/>
 							{portCheck?.checking && (
 								<div className="absolute right-3 top-1/2 -translate-y-1/2">
-									<div className="w-4 h-4 border-2 border-cyan-400/30 border-t-cyan-400 rounded-full animate-spin" />
+									<div className="w-4 h-4 border-2 border-[var(--color-action-border)]/30 border-t-[var(--color-action)] rounded-full animate-spin" />
 								</div>
 							)}
 							{portCheck && !portCheck.checking && (
@@ -188,7 +188,7 @@ export function InstallDialog({
 						</div>
 					)}
 
-					<div data-tone="cyan" className="rounded-xl border border-cyan-400/15 p-3 text-xs text-[var(--text-primary)]">
+					<div data-tone="cyan" className="rounded-xl border border-[var(--color-action-border)]/15 p-3 text-xs text-[var(--text-primary)]">
 						<div className="font-semibold">{t("qsPage.configPreviewTitle")}</div>
 						<div className="mt-2 grid gap-1.5 text-[var(--text-primary)]">
 							<span>{t("qsPage.imageLabel").replace("{image}", open.image ?? t("qsPage.imagePending"))}</span>
@@ -205,7 +205,7 @@ export function InstallDialog({
 						<button
 							type="button"
 							onClick={handleAutoAllocate}
-							className="text-cyan-400/70 hover:text-cyan-300 underline underline-offset-2"
+							className="text-[var(--color-action)]/70 hover:text-[var(--color-action)] underline underline-offset-2"
 						>
 							{t("qsPage.autoAssign")}
 						</button>
@@ -224,7 +224,7 @@ export function InstallDialog({
 						type="button"
 						onClick={handleAdvance}
 						disabled={advanceDisabled}
-						className="rounded-lg bg-cyan-500 px-4 py-2 text-xs font-semibold text-slate-950 hover:bg-cyan-400 transition disabled:opacity-40 disabled:cursor-not-allowed"
+						className="rounded-lg bg-[var(--color-action)] px-4 py-2 text-xs font-semibold text-slate-950 hover:bg-[var(--color-action-bg)] transition disabled:opacity-40 disabled:cursor-not-allowed"
 					>
 						{t("qsPage.confirmInstall")}
 					</button>

@@ -281,7 +281,7 @@ export default async function FilesPage({ searchParams }: FilesPageProps) {
       <section className="mb-8 grid gap-3 lg:grid-cols-3">
         <Link
           href="/files?scope=all"
-          data-tone="cyan" className="rounded-xl border border-cyan-400/20 p-4 transition hover:bg-cyan-400/[0.1]"
+          data-tone="cyan" className="rounded-xl border border-[var(--color-action-border)]/20 p-4 transition hover:bg-[var(--color-action-bg)]/[0.1]"
         >
           <div className="text-sm font-semibold text-[var(--text-primary)]">{t("filesPage.globalSearchTitle", locale)}</div>
           <p className="mt-1.5 text-sm leading-6 text-[var(--text-secondary)]">

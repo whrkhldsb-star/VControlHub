@@ -93,7 +93,7 @@ export function FileListGridView({
           >
             <FileTypeIcon entry={{ entryType: "DIRECTORY" }} size={36} />
           </div>
-          <span className="w-full truncate text-sm font-medium text-[var(--text-primary)] group-hover:text-[var(--text-primary)] light:hover:text-slate-900 transition">
+          <span className="w-full truncate text-sm font-medium text-[var(--text-primary)] group-hover:text-[var(--text-primary)] light:hover:text-[var(--text-primary)] transition">
             {folder.displayName ?? folder.name}
           </span>
           <span className="text-xs text-[var(--text-muted)]">
@@ -113,7 +113,7 @@ export function FileListGridView({
         return (
           <div
             key={entry.id}
-            className={`group relative flex flex-col rounded-2xl border border-[var(--border)] bg-[var(--surface)] text-center transition-colors duration-200 hover:border-cyan-400/20 hover:shadow-lg hover:shadow-cyan-400/5 overflow-hidden ${isChecked ? "ring-2 ring-cyan-400/50 bg-cyan-400/[0.04] light:bg-cyan-50" : ""}`}
+            className={`group relative flex flex-col rounded-2xl border border-[var(--border)] bg-[var(--surface)] text-center transition-colors duration-200 hover:border-[var(--color-action-border)]/20 hover:shadow-lg hover:shadow-[var(--color-action)]/5 overflow-hidden ${isChecked ? "ring-2 ring-[var(--color-action-ring)] bg-[var(--color-action-bg)]/[0.04] light:bg-[var(--color-action-bg)]" : ""}`}
           >
             {/* Selection checkbox */}
             <div className="absolute top-2 left-2 z-20">
@@ -123,7 +123,7 @@ export function FileListGridView({
                   checked={effectiveSelectedIdSet.has(entry.id)}
                   onChange={() => toggleOne(entry.id)}
                   aria-label={`选择 ${entry.name}`}
-                  className="h-4 w-4 rounded-lg border-[var(--border)] bg-[var(--surface)] text-cyan-400 focus:ring-cyan-400/50"
+                  className="h-4 w-4 rounded-lg border-[var(--border)] bg-[var(--surface)] text-[var(--color-action)] focus:ring-[var(--color-action-ring)]/50"
                 />
               ) : null}
             </div>

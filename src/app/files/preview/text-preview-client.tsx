@@ -182,13 +182,13 @@ function getRules(lang: string): { regex: RegExp; replace: string }[] {
 		case "toml":
 			return [
 				commentRule("#"),
-				{ regex: /^(\s*[\w.-]+)(\s*[:=]\s*)/gm, replace: '<span class="text-cyan-400">$1</span>$2' },
+				{ regex: /^(\s*[\w.-]+)(\s*[:=]\s*)/gm, replace: '<span class="text-[var(--color-action)]">$1</span>$2' },
 				...common,
 			];
 		case "env":
 			return [
 				commentRule("#"),
-				{ regex: /^(\s*[\w.-]+)(=)/gm, replace: '<span class="text-cyan-400">$1</span><span class="text-[var(--text-muted)]">=</span>' },
+				{ regex: /^(\s*[\w.-]+)(=)/gm, replace: '<span class="text-[var(--color-action)]">$1</span><span class="text-[var(--text-muted)]">=</span>' },
 				...common,
 			];
 		case "html":
@@ -196,13 +196,13 @@ function getRules(lang: string): { regex: RegExp; replace: string }[] {
 			return [
 				commentRule("<!--"),
 				{ regex: /(&lt;\/?[\w.-]+)/g, replace: '<span class="text-blue-400">$1</span>' },
-				{ regex: /(\s[\w.-]+)(=)/g, replace: '<span class="text-cyan-300">$1</span><span class="text-[var(--text-muted)]">=</span>' },
+				{ regex: /(\s[\w.-]+)(=)/g, replace: '<span class="text-[var(--color-action)]">$1</span><span class="text-[var(--text-muted)]">=</span>' },
 				strRule,
 			];
 		case "css":
 			return [
 				commentRule("/*"),
-				{ regex: /([.#]?[\w-]+)\s*\{/g, replace: '<span class="text-cyan-300">$1</span> {' },
+				{ regex: /([.#]?[\w-]+)\s*\{/g, replace: '<span class="text-[var(--color-action)]">$1</span> {' },
 				{ regex: /([\w-]+)(\s*:)/g, replace: '<span class="text-[var(--text-primary)]">$1</span>$2' },
 				strRule,
 			];
@@ -246,7 +246,7 @@ function getRules(lang: string): { regex: RegExp; replace: string }[] {
 function highlightJson(line: string): string {
 	let escaped = escapeHtml(line);
 	// keys
-	escaped = escaped.replace(/^\s*(&quot;[^&]+?&quot;)\s*(:)/, '<span class="text-cyan-400">$1</span><span class="text-[var(--text-muted)]">:</span>');
+	escaped = escaped.replace(/^\s*(&quot;[^&]+?&quot;)\s*(:)/, '<span class="text-[var(--color-action)]">$1</span><span class="text-[var(--text-muted)]">:</span>');
 	// string values
 	escaped = escaped.replace(/:\s*(&quot;[^&]*?&quot;)([,\s}]*)$/, ': <span class="text-emerald-400">$1</span>$2');
 	// standalone strings in arrays
@@ -760,7 +760,7 @@ export function TextPreviewClient({
 										setReloadMessage("");
 									}}
 									disabled={saveStatus === "saving" || saveStatus === "reloading"}
-									className="rounded-lg border border-slate-700 bg-[var(--surface)] px-3 py-1.5 text-xs text-[var(--text-secondary)] hover:bg-slate-700 light:hover:bg-slate-200 disabled:opacity-50"
+									className="rounded-lg border border-slate-700 bg-[var(--surface)] px-3 py-1.5 text-xs text-[var(--text-secondary)] hover:bg-[var(--surface-hover)] light:hover:bg-slate-200 disabled:opacity-50"
 								>
 									{t("textPreview.button.cancel")}
 								</button>
@@ -769,7 +769,7 @@ export function TextPreviewClient({
 									onClick={() => setEditorFind({ open: true, query: "", total: 0, current: 0 })}
 									aria-label={t("textPreview.editor.findToggle")}
 									title={t("textPreview.editor.findToggle")}
-									className="rounded-lg border border-slate-700 bg-[var(--surface)] px-3 py-1.5 text-xs text-[var(--text-secondary)] hover:bg-slate-700 light:hover:bg-slate-200"
+									className="rounded-lg border border-slate-700 bg-[var(--surface)] px-3 py-1.5 text-xs text-[var(--text-secondary)] hover:bg-[var(--surface-hover)] light:hover:bg-slate-200"
 								>
 									🔍
 								</button>
@@ -778,7 +778,7 @@ export function TextPreviewClient({
 							<button
 								type="button"
 								onClick={() => setEditMode(true)}
-								data-tone="cyan" className="rounded-lg border border-cyan-400/30 px-3 py-1.5 text-xs text-[var(--text-primary)] hover:bg-cyan-400/20"
+								data-tone="cyan" className="rounded-lg border border-[var(--color-action-border)]/30 px-3 py-1.5 text-xs text-[var(--text-primary)] hover:bg-[var(--color-action-bg)]/20"
 							>
 								{t("textPreview.button.edit")}
 							</button>
@@ -903,7 +903,7 @@ export function TextPreviewClient({
 								disabled={editorFind.total === 0}
 								aria-label={t("textPreview.editor.findPrev")}
 								title={t("textPreview.editor.findPrev")}
-								className="rounded-lg border border-slate-700 bg-[var(--surface)] px-2 py-1 text-xs text-[var(--text-secondary)] hover:bg-slate-700 disabled:opacity-40"
+								className="rounded-lg border border-slate-700 bg-[var(--surface)] px-2 py-1 text-xs text-[var(--text-secondary)] hover:bg-[var(--surface-hover)] disabled:opacity-40"
 							>
 								↑
 							</button>
@@ -913,7 +913,7 @@ export function TextPreviewClient({
 								disabled={editorFind.total === 0}
 								aria-label={t("textPreview.editor.findNext")}
 								title={t("textPreview.editor.findNext")}
-								className="rounded-lg border border-slate-700 bg-[var(--surface)] px-2 py-1 text-xs text-[var(--text-secondary)] hover:bg-slate-700 disabled:opacity-40"
+								className="rounded-lg border border-slate-700 bg-[var(--surface)] px-2 py-1 text-xs text-[var(--text-secondary)] hover:bg-[var(--surface-hover)] disabled:opacity-40"
 							>
 								↓
 							</button>
@@ -922,7 +922,7 @@ export function TextPreviewClient({
 								onClick={closeEditorFind}
 								aria-label={t("textPreview.editor.findClose")}
 								title={t("textPreview.editor.findClose")}
-								className="rounded-lg border border-slate-700 bg-[var(--surface)] px-2 py-1 text-xs text-[var(--text-secondary)] hover:bg-slate-700"
+								className="rounded-lg border border-slate-700 bg-[var(--surface)] px-2 py-1 text-xs text-[var(--text-secondary)] hover:bg-[var(--surface-hover)]"
 							>
 								✕
 							</button>
@@ -930,7 +930,7 @@ export function TextPreviewClient({
 					) : null}
 					<div
 						title={t("textPreview.editor.indentHint")}
-						className="flex min-h-[70vh] overflow-hidden rounded-2xl border border-cyan-400/30 bg-[var(--surface)] font-mono text-sm leading-relaxed text-[var(--text-primary)] focus-within:border-cyan-300"
+						className="flex min-h-[70vh] overflow-hidden rounded-2xl border border-[var(--color-action-border)]/30 bg-[var(--surface)] font-mono text-sm leading-relaxed text-[var(--text-primary)] focus-within:border-[var(--color-action-border)]"
 					>
 						<div
 							ref={gutterRef}

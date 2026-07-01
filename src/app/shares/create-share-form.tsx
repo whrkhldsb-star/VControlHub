@@ -72,7 +72,7 @@ export function CreateShareForm({ nodes }: { nodes: StorageNode[] }) {
       {!open ? (
         <button
           onClick={() => setOpen(true)}
-          className="rounded-lg bg-cyan-600 px-4 py-2 text-sm font-medium text-[var(--text-primary)] transition hover:bg-cyan-500"
+          className="rounded-lg bg-[var(--color-action-strong)] px-4 py-2 text-sm font-medium text-[var(--text-primary)] transition hover:bg-[var(--color-action)]"
         >
           {t("sharesPage.create.title")}
         </button>
@@ -140,7 +140,7 @@ export function CreateShareForm({ nodes }: { nodes: StorageNode[] }) {
           <button
             onClick={handleCreate}
             disabled={saving || !nodeId || !path.trim()}
-            className="mt-4 rounded-lg bg-cyan-600 px-4 py-2 text-sm font-medium text-[var(--text-primary)] transition hover:bg-cyan-500 disabled:opacity-40"
+            className="mt-4 rounded-lg bg-[var(--color-action-strong)] px-4 py-2 text-sm font-medium text-[var(--text-primary)] transition hover:bg-[var(--color-action)] disabled:opacity-40"
           >
             {saving ? t("sharesPage.create.submitting") : t("sharesPage.create.submit")}
           </button>

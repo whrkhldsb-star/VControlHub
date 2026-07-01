@@ -178,7 +178,7 @@ export function TeamWorkspaceSection({ canManage }: { canManage: boolean }) {
 	return (
 		<section id="team-workspaces" data-card className="space-y-4 p-5">
 			<div>
-				<p className="text-xs font-semibold uppercase tracking-[0.3em] text-cyan-300/80">Team Spaces</p>
+				<p className="text-xs font-semibold uppercase tracking-[0.3em] text-[var(--color-action)]/80">Team Spaces</p>
 				<h2 className="mt-1 text-xl font-semibold text-[var(--text-primary)]">团队空间</h2>
 				<p className="mt-1 text-sm text-[var(--text-secondary)]">多租户资源隔离：创建团队、切换当前团队，维护成员并管理服务器归属。切换团队后服务器列表按团队过滤。</p>
 			</div>

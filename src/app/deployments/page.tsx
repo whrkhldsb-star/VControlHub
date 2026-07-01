@@ -14,7 +14,7 @@ export const dynamic = "force-dynamic";
 function deploymentStatusTone(status: string) {
 	if (["COMPLETED", "SUCCESS", "SUCCEEDED"].includes(status)) return "border-emerald-400/30 bg-emerald-400/10 text-emerald-100";
 	if (["FAILED", "CANCELLED", "REJECTED"].includes(status)) return "border-rose-400/30 bg-rose-400/10 text-rose-100";
-	if (["RUNNING", "APPROVED"].includes(status)) return "border-cyan-400/30 bg-cyan-400/10 text-[var(--text-primary)]";
+	if (["RUNNING", "APPROVED"].includes(status)) return "border-[var(--color-action-border)]/30 bg-[var(--color-action-bg)]/10 text-[var(--text-primary)]";
 	return "border-amber-400/30 bg-amber-400/10 text-amber-100";
 }
 
@@ -41,7 +41,7 @@ export default async function DeploymentsPage({ searchParams }: { searchParams?:
 			<PageHeader eyebrow={tr("deploymentsPage.page.eyebrow")} title={tr("deploymentsPage.page.title")} description={tr("deploymentsPage.page.description")} />
 
 			{/* How it works */}
-			<section data-tone="cyan" className="mb-6 rounded-xl border border-cyan-400/20 p-5">
+			<section data-tone="cyan" className="mb-6 rounded-xl border border-[var(--color-action-border)]/20 p-5">
 				<h2 className="text-sm font-semibold text-[var(--text-primary)] mb-3">{tr("deploymentsPage.page.howItWorks.title")}</h2>
 				<div className="grid gap-2 text-xs text-[var(--text-secondary)] md:grid-cols-5">
 					<div className="rounded-lg border border-[var(--border)] bg-black/20 p-3 text-center">

@@ -64,7 +64,7 @@ type Props = {
 };
 
 const fieldLabelClass = "text-xs font-medium text-[var(--text-secondary)] tracking-wide";
-const fieldInputClass = "w-full rounded-lg border border-[var(--border)] bg-[var(--surface-elevated)] px-3.5 py-2.5 text-sm text-[var(--text-primary)] outline-none transition placeholder:text-[var(--text-muted)] focus:border-cyan-400/30";
+const fieldInputClass = "w-full rounded-lg border border-[var(--border)] bg-[var(--surface-elevated)] px-3.5 py-2.5 text-sm text-[var(--text-primary)] outline-none transition placeholder:text-[var(--text-muted)] focus:border-[var(--color-action-border)]/30";
 const monoFieldInputClass = `${fieldInputClass} font-mono`;
 
 function stepTypeLabel(t: (k: string) => string, type: StepType): string {
@@ -516,7 +516,7 @@ function CreatePlaybookForm({ onClose }: { onClose: () => void }) {
 							key={opt}
 							className={`min-h-11 flex items-center gap-2 rounded-lg border px-3 py-2 text-sm cursor-pointer transition ${
 								triggerType === opt
-									? "border-cyan-400/20 bg-cyan-400/[0.10] text-[var(--text-primary)]"
+									? "border-[var(--color-action-border)]/20 bg-[var(--color-action-bg)]/[0.10] text-[var(--text-primary)]"
 									: "border-[var(--border)] bg-[var(--surface)] text-[var(--text-secondary)] hover:bg-[var(--surface-hover)]"
 							}`}
 						>
@@ -526,7 +526,7 @@ function CreatePlaybookForm({ onClose }: { onClose: () => void }) {
 								value={opt}
 								checked={triggerType === opt}
 								onChange={() => setTriggerType(opt)}
-								className="accent-cyan-400"
+								className="accent-[var(--color-action)]"
 							/>
 							<span>{opt === "cron" ? t("playbooksPage.createForm.triggerCron") : t("playbooksPage.createForm.triggerMetric")}</span>
 						</label>
@@ -634,7 +634,7 @@ function CreatePlaybookForm({ onClose }: { onClose: () => void }) {
 					type="checkbox"
 					checked={enabled}
 					onChange={(e) => setEnabled(e.target.checked)}
-					className="accent-cyan-400"
+					className="accent-[var(--color-action)]"
 				/>
 				{t("playbooksPage.createForm.enabled")}
 			</label>
@@ -643,7 +643,7 @@ function CreatePlaybookForm({ onClose }: { onClose: () => void }) {
 				<button
 					type="submit"
 					disabled={submitting}
-					className="min-h-11 rounded-2xl bg-cyan-500 px-5 py-2 text-sm font-medium text-[var(--text-primary)] transition hover:bg-cyan-400 disabled:opacity-60"
+					className="min-h-11 rounded-2xl bg-[var(--color-action)] px-5 py-2 text-sm font-medium text-[var(--text-primary)] transition hover:bg-[var(--color-action-bg)] disabled:opacity-60"
 				>
 					{submitting ? t("playbooksPage.createForm.submitting") : t("playbooksPage.createForm.submit")}
 				</button>
@@ -687,7 +687,7 @@ function SortableStepCard({
 			style={style}
 			data-card
 			data-testid={`playbook-step-${step.id}`}
-			className={`p-3 space-y-2 ${isDragging ? "relative z-10 opacity-80 ring-2 ring-cyan-400/40" : ""}`}
+			className={`p-3 space-y-2 ${isDragging ? "relative z-10 opacity-80 ring-2 ring-[var(--color-action-ring)]" : ""}`}
 		>
 			<div className="flex items-center gap-2">
 				<button

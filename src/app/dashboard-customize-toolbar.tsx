@@ -98,7 +98,7 @@ export function DashboardCustomizeToolbar({
 				<button
 					type="button"
 					onClick={onReset}
-					className="rounded-lg border border-[var(--border)] bg-[var(--surface-hover)] px-3 py-1.5 text-xs text-[var(--text-secondary)] transition hover:bg-slate-700/40"
+					className="rounded-lg border border-[var(--border)] bg-[var(--surface-hover)] px-3 py-1.5 text-xs text-[var(--text-secondary)] transition hover:bg-[var(--surface-hover)]/40"
 				>
 					{t("dashboard.customize-reset")}
 				</button>

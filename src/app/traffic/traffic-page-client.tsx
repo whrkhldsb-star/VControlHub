@@ -75,7 +75,7 @@ function Card({ title, children }: { title: string; children: React.ReactNode })
 }
 
 function RateBadge({ label, value, color }: { label: string; value: string; color: "cyan" | "emerald" }) {
-  const styles = color === "cyan" ? "bg-cyan-500/10 text-cyan-300" : "bg-emerald-500/10 text-emerald-300";
+  const styles = color === "cyan" ? "bg-[var(--color-action)]/10 text-[var(--color-action)]" : "bg-emerald-500/10 text-emerald-300";
   return (
     <div className={`rounded-xl px-4 py-3 ${styles}`}>
       <div className="text-[11px] opacity-70">{label}</div>
@@ -227,8 +227,8 @@ export default function TrafficPage({ canManage: _canManage }: { canManage: bool
           <PageHeader eyebrow={t("trafficPage.eyebrow")} title={t("trafficPage.title")} description={t("trafficPage.desc")} />
         </div>
         <div className="flex items-center gap-2">
-          <button onClick={() => fetchSummary()} className="rounded-lg bg-cyan-500/10 px-3 py-1.5 text-xs font-medium text-cyan-300 hover:bg-cyan-500/20">{t("trafficPage.refresh")}</button>
-          <button onClick={() => setAutoRefresh((v) => !v)} disabled={refreshIntervalSeconds <= 0} className={`rounded-lg px-3 py-1.5 text-xs font-medium disabled:cursor-not-allowed disabled:opacity-50 ${autoRefresh ? "bg-emerald-500/10 text-emerald-300" : "bg-slate-700/60 text-[var(--text-secondary)]"}`}>
+          <button onClick={() => fetchSummary()} className="rounded-lg bg-[var(--color-action)]/10 px-3 py-1.5 text-xs font-medium text-[var(--color-action)] hover:bg-[var(--color-action)]/20">{t("trafficPage.refresh")}</button>
+          <button onClick={() => setAutoRefresh((v) => !v)} disabled={refreshIntervalSeconds <= 0} className={`rounded-lg px-3 py-1.5 text-xs font-medium disabled:cursor-not-allowed disabled:opacity-50 ${autoRefresh ? "bg-emerald-500/10 text-emerald-300" : "bg-[var(--surface-hover)]/60 text-[var(--text-secondary)]"}`}>
             {autoRefresh
               ? t("trafficPage.autoRefreshOn").replace("{label}", refreshLabel)
               : refreshIntervalSeconds <= 0
@@ -241,8 +241,8 @@ export default function TrafficPage({ canManage: _canManage }: { canManage: bool
       {error && <div className="mb-4 rounded-lg bg-rose-500/10 px-4 py-3 text-sm text-rose-300">{error}</div>}
 
       <div className="mb-5 flex flex-wrap items-center gap-2">
-        <button type="button" onClick={() => { setHistoryScope("24h"); void fetchHistory("24h"); }} className={`rounded-lg px-3 py-1.5 text-xs font-medium ${historyScope === "24h" ? "bg-cyan-500/15 text-[var(--text-secondary)]" : "bg-[var(--surface)]/[0.04] text-[var(--text-secondary)]"}`}>24h</button>
-        <button type="button" onClick={() => { setHistoryScope("7d"); void fetchHistory("7d"); }} className={`rounded-lg px-3 py-1.5 text-xs font-medium ${historyScope === "7d" ? "bg-cyan-500/15 text-[var(--text-secondary)]" : "bg-[var(--surface)]/[0.04] text-[var(--text-secondary)]"}`}>7d</button>
+        <button type="button" onClick={() => { setHistoryScope("24h"); void fetchHistory("24h"); }} className={`rounded-lg px-3 py-1.5 text-xs font-medium ${historyScope === "24h" ? "bg-[var(--color-action)]/15 text-[var(--text-secondary)]" : "bg-[var(--surface)]/[0.04] text-[var(--text-secondary)]"}`}>24h</button>
+        <button type="button" onClick={() => { setHistoryScope("7d"); void fetchHistory("7d"); }} className={`rounded-lg px-3 py-1.5 text-xs font-medium ${historyScope === "7d" ? "bg-[var(--color-action)]/15 text-[var(--text-secondary)]" : "bg-[var(--surface)]/[0.04] text-[var(--text-secondary)]"}`}>7d</button>
         <span className="text-xs text-[var(--text-muted)]">{historyScope === "24h" ? t("trafficPage.historyHint24h") : t("trafficPage.historyHint7d")}</span>
       </div>
 
@@ -320,7 +320,7 @@ export default function TrafficPage({ canManage: _canManage }: { canManage: bool
               <table className="w-full text-xs">
                 <thead className="text-[var(--text-muted)]"><tr><th className="py-2 text-left">{t("trafficPage.th.iface")}</th><th className="text-right">{t("trafficPage.th.rxRate")}</th><th className="text-right">{t("trafficPage.th.txRate")}</th><th className="text-right">{t("trafficPage.th.rxTotal")}</th><th className="text-right">{t("trafficPage.th.txTotal")}</th></tr></thead>
                 <tbody>
-                  {summary.currentServer.interfaces.map((item) => <tr key={item.iface} className="border-t border-[var(--border)]"><td className="py-2 font-mono text-[var(--text-primary)]">{item.iface}</td><td className="text-right text-cyan-300">{item.rxRateLabel}</td><td className="text-right text-emerald-300">{item.txRateLabel}</td><td className="text-right text-[var(--text-secondary)]">{item.rxLabel}</td><td className="text-right text-[var(--text-secondary)]">{item.txLabel}</td></tr>)}
+                  {summary.currentServer.interfaces.map((item) => <tr key={item.iface} className="border-t border-[var(--border)]"><td className="py-2 font-mono text-[var(--text-primary)]">{item.iface}</td><td className="text-right text-[var(--color-action)]">{item.rxRateLabel}</td><td className="text-right text-emerald-300">{item.txRateLabel}</td><td className="text-right text-[var(--text-secondary)]">{item.rxLabel}</td><td className="text-right text-[var(--text-secondary)]">{item.txLabel}</td></tr>)}
                 </tbody>
               </table>
             </div>
@@ -330,7 +330,7 @@ export default function TrafficPage({ canManage: _canManage }: { canManage: bool
         <Card title={t("trafficPage.card.remote")}>
           {remoteLoading && !remoteServers ? (
             <div className="flex items-center gap-2 text-sm text-[var(--text-muted)]">
-              <span className="h-2 w-2 animate-pulse rounded-full bg-cyan-400" />
+              <span className="h-2 w-2 animate-pulse rounded-full bg-[var(--color-action-bg)]" />
               {t("trafficPage.remoteSampling")}
             </div>
           ) : (remoteServers ?? []).length === 0 ? (
@@ -357,7 +357,7 @@ export default function TrafficPage({ canManage: _canManage }: { canManage: bool
                   ) : node.primaryInterface ? (
                     <>
                       <div className="mt-3 grid grid-cols-2 gap-2">
-                        <div className="rounded-lg bg-cyan-500/10 px-3 py-2 text-cyan-300">
+                        <div className="rounded-lg bg-[var(--color-action)]/10 px-3 py-2 text-[var(--color-action)]">
                           <div className="text-[10px] opacity-70">{t("trafficPage.rxShort")}</div>
                           <div className="text-sm font-semibold tabular-nums">{node.primaryInterface.rxRateLabel}</div>
                         </div>

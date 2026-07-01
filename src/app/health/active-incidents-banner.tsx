@@ -45,7 +45,7 @@ export function ActiveIncidentsBanner() {
 
   function levelColor(level: string) {
     if (level === "incident") return "border-amber-500/30 bg-amber-500/10";
-    if (level === "maintenance") return "border-cyan-500/30 bg-cyan-500/10";
+    if (level === "maintenance") return "border-[var(--color-action-border)]/30 bg-[var(--color-action)]/10";
     return "border-[var(--border)] bg-[var(--surface)]/[0.04]";
   }
 

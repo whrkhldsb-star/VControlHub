@@ -544,7 +544,7 @@ export function HealthDashboardClient({ serverCount, initialSystemHealth }: Prop
 							onClick={() => setAutoRefresh(!autoRefresh)}
 							disabled={refreshIntervalSeconds <= 0}
 							aria-label={copy.ui.toggleAutoRefreshAria}
-							className={`relative h-4 w-8 min-h-11 min-w-11 rounded-full transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${autoRefresh ? "bg-cyan-500" : "bg-[var(--surface)]"}`}
+							className={`relative h-4 w-8 min-h-11 min-w-11 rounded-full transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${autoRefresh ? "bg-[var(--color-action)]" : "bg-[var(--surface)]"}`}
 							>
 							<span className={`absolute left-1/2 top-1/2 h-3 w-3 -translate-x-1/2 -translate-y-1/2 rounded-full bg-[var(--text-primary)] shadow transition-transform ${autoRefresh ? "translate-x-2" : "-translate-x-3"}`} />
 							</button>

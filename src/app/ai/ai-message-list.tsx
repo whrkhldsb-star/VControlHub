@@ -91,7 +91,7 @@ export function AiMessageList({
           className={`flex gap-3 ${msg.role === "user" ? "justify-end" : ""}`}
         >
           {msg.role !== "user" && (
-            <div className="flex-shrink-0 w-7 h-7 rounded-lg bg-gradient-to-br from-cyan-400 to-blue-500 flex items-center justify-center">
+            <div className="flex-shrink-0 w-7 h-7 rounded-lg bg-gradient-to-br from-[var(--color-action)] to-blue-500 flex items-center justify-center">
               <svg
                 className="w-4 h-4 text-[var(--text-primary)]"
                 fill="none"
@@ -110,7 +110,7 @@ export function AiMessageList({
           <div
             className={`max-w-[88%] sm:max-w-[80%] rounded-2xl px-3 py-2 sm:px-4 sm:py-2.5 text-sm leading-relaxed ${
               msg.role === "user"
-                ? "bg-cyan-500/15 text-[var(--text-primary)]"
+                ? "bg-[var(--color-action)]/15 text-[var(--text-primary)]"
                 : "bg-[var(--surface)]/[0.04] text-[var(--text-secondary)]"
             }`}
           >
@@ -174,7 +174,7 @@ export function AiMessageList({
                   setTimeout(() => setCopyFeedback(null), 2000);
                 }
               }}
-              className="mt-1.5 text-[10px] text-[var(--text-muted)] hover:text-cyan-400 transition flex items-center gap-1"
+              className="mt-1.5 text-[10px] text-[var(--text-muted)] hover:text-[var(--color-action)] transition flex items-center gap-1"
             >
               <svg
                 className="w-3 h-3"
@@ -195,7 +195,7 @@ export function AiMessageList({
             </button>
           </div>
           {msg.role === "user" && (
-            <div className="flex-shrink-0 w-7 h-7 rounded-lg bg-slate-700 flex items-center justify-center text-[11px] font-semibold text-cyan-400 uppercase">
+            <div className="flex-shrink-0 w-7 h-7 rounded-lg bg-[var(--surface-hover)] flex items-center justify-center text-[11px] font-semibold text-[var(--color-action)] uppercase">
               U
             </div>
           )}
@@ -204,7 +204,7 @@ export function AiMessageList({
 
       {streaming && streamContent && (
         <div className="flex gap-3">
-          <div className="flex-shrink-0 w-7 h-7 rounded-lg bg-gradient-to-br from-cyan-400 to-blue-500 flex items-center justify-center">
+          <div className="flex-shrink-0 w-7 h-7 rounded-lg bg-gradient-to-br from-[var(--color-action)] to-blue-500 flex items-center justify-center">
             <svg
               className="w-4 h-4 text-[var(--text-primary)] animate-pulse"
               fill="none"
@@ -222,7 +222,7 @@ export function AiMessageList({
           <div className="max-w-[88%] sm:max-w-[80%] rounded-2xl px-3 py-2 sm:px-4 sm:py-2.5 bg-[var(--surface)]/[0.04] text-[var(--text-secondary)] text-sm leading-relaxed">
             {streamReasoning && (
               <details open className="mb-2">
-                <summary className="text-[10px] text-cyan-400/60 cursor-pointer">
+                <summary className="text-[10px] text-[var(--color-action)]/60 cursor-pointer">
                   {t("aiPage.thinking")}
                 </summary>
                 <div className="mt-1 p-2 bg-black/20 rounded-lg text-xs text-[var(--text-muted)] whitespace-pre-wrap">
@@ -236,7 +236,7 @@ export function AiMessageList({
       )}
       {streaming && !streamContent && !streamReasoning && (
         <div className="flex gap-3">
-          <div className="flex-shrink-0 w-7 h-7 rounded-lg bg-gradient-to-br from-cyan-400 to-blue-500 flex items-center justify-center">
+          <div className="flex-shrink-0 w-7 h-7 rounded-lg bg-gradient-to-br from-[var(--color-action)] to-blue-500 flex items-center justify-center">
             <div className="flex gap-0.5">
               <span className="w-1 h-1 bg-[var(--surface)] rounded-full animate-bounce [animation-delay:0ms]" />
               <span className="w-1 h-1 bg-[var(--surface)] rounded-full animate-bounce [animation-delay:150ms]" />

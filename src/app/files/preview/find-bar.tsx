@@ -46,7 +46,7 @@ export function FindBar({
 					value={searchQuery}
 					onChange={(e) => onSearchQueryChange(e.target.value)}
 					placeholder="输入关键词"
-					className="w-36 rounded-lg border border-slate-700 bg-[var(--surface)] px-2 py-1 text-xs text-[var(--text-secondary)] placeholder:text-[var(--text-muted)] focus:border-cyan-500/50 focus:outline-none"
+					className="w-36 rounded-lg border border-slate-700 bg-[var(--surface)] px-2 py-1 text-xs text-[var(--text-secondary)] placeholder:text-[var(--text-muted)] focus:border-[var(--color-action-border)]/50 focus:outline-none"
 				/>
 			</div>
 			<div className="flex items-end gap-1">
@@ -65,13 +65,13 @@ export function FindBar({
 						onChange={(e) => onJumpLineChange(e.target.value)}
 						onKeyDown={(e) => e.key === "Enter" && onJumpToLine()}
 						placeholder="如 42"
-						className="w-24 rounded-lg border border-slate-700 bg-[var(--surface)] px-2 py-1 text-xs text-[var(--text-secondary)] placeholder:text-[var(--text-muted)] focus:border-cyan-500/50 focus:outline-none"
+						className="w-24 rounded-lg border border-slate-700 bg-[var(--surface)] px-2 py-1 text-xs text-[var(--text-secondary)] placeholder:text-[var(--text-muted)] focus:border-[var(--color-action-border)]/50 focus:outline-none"
 					/>
 				</div>
 				<button
 					type="button"
 					onClick={onJumpToLine}
-					className="rounded-lg border border-slate-700 bg-[var(--surface)] px-2 py-1 text-xs text-[var(--text-secondary)] hover:bg-slate-700 light:hover:bg-slate-200"
+					className="rounded-lg border border-slate-700 bg-[var(--surface)] px-2 py-1 text-xs text-[var(--text-secondary)] hover:bg-[var(--surface-hover)] light:hover:bg-slate-200"
 				>
 					跳转
 				</button>

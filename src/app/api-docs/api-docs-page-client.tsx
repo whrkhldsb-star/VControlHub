@@ -27,7 +27,7 @@ type ApiEntry = {
 
 const methodStyles: Record<string, string> = {
 	get: "border-emerald-400/25 bg-emerald-400/10 text-emerald-200",
-	post: "border-cyan-400/25 bg-cyan-400/10 text-[var(--text-secondary)]",
+	post: "border-[var(--color-action-border)]/25 bg-[var(--color-action-bg)]/10 text-[var(--text-secondary)]",
 	put: "border-amber-400/25 bg-amber-400/10 text-amber-200",
 	patch: "border-violet-400/25 bg-violet-400/10 text-violet-200",
 	delete: "border-rose-400/25 bg-rose-400/10 text-rose-200",
@@ -101,7 +101,7 @@ export default function ApiDocsPage() {
 			<div className="mx-auto max-w-7xl space-y-6">
 				<header className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
 					<div>
-						<p data-page-eyebrow className="text-xs font-semibold uppercase tracking-[0.3em] text-cyan-300">OpenAPI</p>
+						<p data-page-eyebrow className="text-xs font-semibold uppercase tracking-[0.3em] text-[var(--color-action)]">OpenAPI</p>
 						<h1 className="mt-2 text-3xl font-semibold tracking-tight text-[var(--text-primary)]">{t("apiDocsPage.title")}</h1>
 						<p className="mt-1.5 max-w-2xl text-sm text-[var(--text-muted)]">
 							{spec?.info?.description ?? t("apiDocsPage.description")}
@@ -111,7 +111,7 @@ export default function ApiDocsPage() {
 						href="/api/docs/openapi.json"
 						target="_blank"
 						rel="noreferrer"
-						data-tone="cyan" className="inline-flex h-10 items-center justify-center rounded-lg border border-cyan-400/25 px-4 text-sm font-medium text-[var(--text-primary)] transition hover:bg-cyan-400/15"
+						data-tone="cyan" className="inline-flex h-10 items-center justify-center rounded-lg border border-[var(--color-action-border)]/25 px-4 text-sm font-medium text-[var(--text-primary)] transition hover:bg-[var(--color-action-bg)]/15"
 					>
 						OpenAPI JSON
 					</a>

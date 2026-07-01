@@ -156,7 +156,7 @@ export function OperationTaskListClient({ initialTasks, initialSourceSummary = [
                 {t("operationTasksPage.task.viewEvents").replace("{count}", String(task.eventCount))}
               </button>
             ) : null}
-            {task.href && <Link href={task.href} className="text-xs text-cyan-300 hover:text-[var(--text-secondary)]">{t("operationTasksPage.task.viewSource")}</Link>}
+            {task.href && <Link href={task.href} className="text-xs text-[var(--color-action)] hover:text-[var(--text-secondary)]">{t("operationTasksPage.task.viewSource")}</Link>}
           </div>
         </div>)}
       </div>

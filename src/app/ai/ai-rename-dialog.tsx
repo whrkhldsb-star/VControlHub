@@ -53,7 +53,7 @@ export function AiRenameDialog({
             value={title}
             onChange={(event) => onChangeTitle(event.target.value)}
             autoFocus
-            className="rounded-xl border border-[var(--border)] bg-[var(--surface)]/[0.04] px-3 py-2 text-sm text-[var(--text-primary)] outline-none placeholder:text-[var(--text-muted)] focus:border-cyan-300/60"
+            className="rounded-xl border border-[var(--border)] bg-[var(--surface)]/[0.04] px-3 py-2 text-sm text-[var(--text-primary)] outline-none placeholder:text-[var(--text-muted)] focus:border-[var(--color-action-border)]/60"
             placeholder={t("aiPage.newTitlePlaceholder")}
           />
         </label>
@@ -75,7 +75,7 @@ export function AiRenameDialog({
             type="button"
             disabled={busy || !title.trim()}
             onClick={onConfirm}
-            className="rounded-xl bg-cyan-500/20 px-3 py-2 text-xs font-medium text-[var(--text-secondary)] transition hover:bg-cyan-500/30 disabled:opacity-50"
+            className="rounded-xl bg-[var(--color-action)]/20 px-3 py-2 text-xs font-medium text-[var(--text-secondary)] transition hover:bg-[var(--color-action)]/30 disabled:opacity-50"
           >
             {busy ? t("aiPage.savingLabel") : t("aiPage.saveTitleLabel")}
           </button>

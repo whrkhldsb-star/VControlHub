@@ -119,7 +119,7 @@ export function DeploymentLaunchForm({ templates, servers }: { templates: Deploy
 			{selectedTemplate?.description && <p className="text-xs text-[var(--text-muted)]">{selectedTemplate.description}</p>}
 
 			{variables.length > 0 ? (
-				<div data-tone="cyan" className="rounded-xl border border-cyan-400/20 p-4 light:border-cyan-200 light:bg-cyan-50">
+				<div data-tone="cyan" className="rounded-xl border border-[var(--color-action-border)]/20 p-4 light:border-[var(--color-action-border)] light:bg-[var(--color-action-bg)]">
 					<div className="mb-3 flex items-center justify-between gap-3">
 						<h3 className="text-sm font-semibold text-[var(--text-primary)]">{t("deploymentsPage.launch.variablesTitle")}</h3>
 						<span className="text-xs text-[var(--text-muted)]">{t("deploymentsPage.launch.variablesHint")}</span>
@@ -158,7 +158,7 @@ export function DeploymentLaunchForm({ templates, servers }: { templates: Deploy
 			</details>
 
 			{error && <p className="text-xs text-rose-300">{error}</p>}
-			<button disabled={pending} className="w-fit rounded-lg bg-cyan-400 px-4 py-2 text-sm font-semibold text-slate-950 transition hover:bg-cyan-300 disabled:cursor-not-allowed disabled:opacity-60">{pending ? t("deploymentsPage.launch.submitting") : t("deploymentsPage.launch.submit")}</button>
+			<button disabled={pending} className="w-fit rounded-lg bg-[var(--color-action-bg)] px-4 py-2 text-sm font-semibold text-slate-950 transition hover:bg-[var(--color-action-bg)] disabled:cursor-not-allowed disabled:opacity-60">{pending ? t("deploymentsPage.launch.submitting") : t("deploymentsPage.launch.submit")}</button>
 		</form>
 	);
 }

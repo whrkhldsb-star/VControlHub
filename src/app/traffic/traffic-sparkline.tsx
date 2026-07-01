@@ -104,8 +104,8 @@ export function TrafficSparkline({
 		<div className="rounded-xl border border-[var(--border)] bg-black/20 p-3" data-traffic-sparkline>
 			<div className="mb-2 flex items-center justify-between text-[11px]">
 				<div className="flex items-center gap-3">
-					<span className="inline-flex items-center gap-1.5 text-cyan-300">
-						<span className="inline-block h-2 w-2 rounded-full bg-cyan-400" />
+					<span className="inline-flex items-center gap-1.5 text-[var(--color-action)]">
+						<span className="inline-block h-2 w-2 rounded-full bg-[var(--color-action-bg)]" />
 						{labels.rx ?? "RX"} {formatRate(last.rx)}
 					</span>
 					<span className="inline-flex items-center gap-1.5 text-emerald-300">

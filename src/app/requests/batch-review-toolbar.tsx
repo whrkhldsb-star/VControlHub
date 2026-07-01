@@ -100,7 +100,7 @@ export function BatchReviewToolbar({
 				>
 					<input
 						type="checkbox"
-						className="h-3.5 w-3.5 accent-cyan-400"
+						className="h-3.5 w-3.5 accent-[var(--color-action)]"
 						checked={selected.has(id)}
 						onChange={() => toggleOne(id)}
 					/>
@@ -120,7 +120,7 @@ export function BatchReviewToolbar({
 				<label className="inline-flex items-center gap-2 cursor-pointer">
 					<input
 						type="checkbox"
-						className="h-4 w-4 accent-cyan-400"
+						className="h-4 w-4 accent-[var(--color-action)]"
 						checked={allSelected}
 						onChange={toggleAll}
 						aria-label="全选待审批"
@@ -130,7 +130,7 @@ export function BatchReviewToolbar({
 					</span>
 				</label>
 				{someSelected && (
-					<span className="text-cyan-300">已选 {selected.size} 条</span>
+					<span className="text-[var(--color-action)]">已选 {selected.size} 条</span>
 				)}
 				{state.success && (
 					<span data-tone="emerald" className="text-emerald-300">
@@ -149,7 +149,7 @@ export function BatchReviewToolbar({
 			{someSelected && (
 				<form
 					action={formAction}
-					className="sticky bottom-3 z-20 flex flex-col gap-2 rounded-xl border border-cyan-400/30 bg-[var(--modal-bg)] p-3 shadow-2xl backdrop-blur sm:flex-row sm:items-center sm:gap-3"
+					className="sticky bottom-3 z-20 flex flex-col gap-2 rounded-xl border border-[var(--color-action-border)]/30 bg-[var(--modal-bg)] p-3 shadow-2xl backdrop-blur sm:flex-row sm:items-center sm:gap-3"
 					aria-label="批量审批操作栏"
 				>
 					{Array.from(selected).map((id) => (
@@ -165,7 +165,7 @@ export function BatchReviewToolbar({
 						value={comment}
 						onChange={(e) => setComment(e.target.value)}
 						placeholder="批量审批备注（选填，将应用到全部 N 条）"
-						className="flex-1 rounded-lg border border-[var(--border)] bg-black/30 px-3 py-2 text-sm text-[var(--text-primary)] outline-none focus:border-cyan-400/40"
+						className="flex-1 rounded-lg border border-[var(--border)] bg-black/30 px-3 py-2 text-sm text-[var(--text-primary)] outline-none focus:border-[var(--color-action-border)]/40"
 					/>
 					<button
 						type="submit"

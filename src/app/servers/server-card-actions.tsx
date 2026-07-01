@@ -100,7 +100,7 @@ export function ServerCardActions({
             type="button"
             onClick={handleOpenTerminal}
             aria-label={t("serverCardActions.sshTerminalAria").replace("{name}", serverName)}
-            data-tone="cyan" className="flex w-full items-center justify-center gap-2 rounded-2xl border border-cyan-400/30 px-4 py-2 text-sm font-medium text-[var(--text-primary)] transition hover:bg-cyan-400/20 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan-300 light:border-cyan-700/30 light:bg-cyan-50 light:hover:bg-cyan-100"
+            data-tone="cyan" className="flex w-full items-center justify-center gap-2 rounded-2xl border border-[var(--color-action-border)]/30 px-4 py-2 text-sm font-medium text-[var(--text-primary)] transition hover:bg-[var(--color-action-bg)]/20 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-action)] light:border-[var(--color-action-border)]/30 light:bg-[var(--color-action-bg)] light:hover:bg-[var(--color-action-bg)]"
           >
             <span aria-hidden="true">💻</span>
             <span>{t("serverCardActions.sshTerminalButton")}</span>
@@ -111,7 +111,7 @@ export function ServerCardActions({
           <form
             action={directAction}
             aria-label={t("serverCardActions.directGateway.formAria")}
-            data-tone="cyan" className="space-y-3 rounded-2xl border border-cyan-400/20 p-3 light:border-cyan-700/20 light:bg-cyan-50/80"
+            data-tone="cyan" className="space-y-3 rounded-2xl border border-[var(--color-action-border)]/20 p-3 light:border-[var(--color-action-border)]/20 light:bg-[var(--color-action-bg)]/80"
           >
             <input type="hidden" name="serverId" value={serverId} />
             <input
@@ -131,7 +131,7 @@ export function ServerCardActions({
                   id={`direct-gateway-protocol-${serverId}`}
                   name="directGatewayProtocol"
                   defaultValue="http"
-                  className="w-full rounded-lg border border-cyan-400/20 bg-[var(--surface-subtle)] px-3 py-2 text-xs text-[var(--text-primary)]"
+                  className="w-full rounded-lg border border-[var(--color-action-border)]/20 bg-[var(--surface-subtle)] px-3 py-2 text-xs text-[var(--text-primary)]"
                 >
                   <option value="http">{t("serverCardActions.directGateway.protocolHttp")}</option>
                   <option value="https">{t("serverCardActions.directGateway.protocolHttps")}</option>
@@ -147,7 +147,7 @@ export function ServerCardActions({
                   href={directGateway.publicUrl}
                   target="_blank"
                   rel="noreferrer"
-                  className="block break-all text-xs font-medium text-[var(--text-primary)] underline decoration-cyan-300/50 underline-offset-2 hover:text-[var(--text-primary)] light:hover:text-slate-900 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan-300 light:hover:text-cyan-950"
+                  className="block break-all text-xs font-medium text-[var(--text-primary)] underline decoration-[var(--color-action)]/30 underline-offset-2 hover:text-[var(--text-primary)] light:hover:text-[var(--text-primary)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-action)] light:hover:text-[var(--color-action-strong)]"
                 >
                   {directGateway.publicUrl}
                 </a>
@@ -157,7 +157,7 @@ export function ServerCardActions({
                 </div>
               )}
             </div>
-            <div className="rounded-xl border border-[var(--border)] bg-[var(--surface-subtle)] p-3 text-[11px] leading-5 text-[var(--text-muted)] light:border-cyan-700/15">
+            <div className="rounded-xl border border-[var(--border)] bg-[var(--surface-subtle)] p-3 text-[11px] leading-5 text-[var(--text-muted)] light:border-[var(--color-action-border)]/15">
               {directGateway.enabled ? (
                 <>
                   <p className="font-medium text-[var(--text-primary)]">
@@ -182,7 +182,7 @@ export function ServerCardActions({
               pendingLabel={
                 directGateway.enabled ? t("serverCardActions.directGateway.pendingDisable") : t("serverCardActions.directGateway.pendingEnable")
               }
-              data-tone="cyan" className="w-full rounded-2xl border border-cyan-400/30 px-4 py-2 text-sm font-medium text-[var(--text-primary)] transition hover:bg-cyan-400/20 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan-300 light:border-cyan-700/30 light:bg-cyan-100 light:hover:bg-cyan-200"
+              data-tone="cyan" className="w-full rounded-2xl border border-[var(--color-action-border)]/30 px-4 py-2 text-sm font-medium text-[var(--text-primary)] transition hover:bg-[var(--color-action-bg)]/20 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-action)] light:border-[var(--color-action-border)]/30 light:bg-[var(--color-action-bg)] light:hover:bg-[var(--color-action-bg)]"
             >
               {directGateway.enabled
                 ? t("serverCardActions.directGateway.disableLabel")
@@ -339,7 +339,7 @@ export function ServerCardActions({
             <input type="hidden" name="serverId" value={serverId} />
             <SubmitButton
               pendingLabel={t("serverCardActions.toggle.pending")}
-              data-tone="cyan" className="w-full rounded-2xl border border-cyan-400/30 px-4 py-2 text-sm font-medium text-[var(--text-primary)] transition hover:bg-cyan-400/20 light:border-cyan-700/30 light:bg-cyan-50 light:hover:bg-cyan-100"
+              data-tone="cyan" className="w-full rounded-2xl border border-[var(--color-action-border)]/30 px-4 py-2 text-sm font-medium text-[var(--text-primary)] transition hover:bg-[var(--color-action-bg)]/20 light:border-[var(--color-action-border)]/30 light:bg-[var(--color-action-bg)] light:hover:bg-[var(--color-action-bg)]"
             >
               {enabled ? t("serverCardActions.toggle.disable") : t("serverCardActions.toggle.enable")}
             </SubmitButton>

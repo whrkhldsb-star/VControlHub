@@ -132,11 +132,11 @@ export function ApiTokenManagerClient({ initialTokens, allowedScopes }: Props) {
           <div className="grid gap-4 lg:grid-cols-[1.2fr_0.8fr]">
             <label className="space-y-1.5">
               <span className="text-xs font-medium tracking-wide text-[var(--text-primary)]/70">{t("apiTokensPage.create.nameLabel")}</span>
-              <input value={name} onChange={(event) => setName(event.target.value)} required maxLength={80} placeholder={t("apiTokensPage.create.namePlaceholder")} data-card className="w-full  px-3.5 py-2.5 text-sm text-[var(--text-primary)] outline-none placeholder:text-[var(--text-primary)]/30 focus:border-cyan-400/30" />
+              <input value={name} onChange={(event) => setName(event.target.value)} required maxLength={80} placeholder={t("apiTokensPage.create.namePlaceholder")} data-card className="w-full  px-3.5 py-2.5 text-sm text-[var(--text-primary)] outline-none placeholder:text-[var(--text-primary)]/30 focus:border-[var(--color-action-border)]/30" />
             </label>
             <label className="space-y-1.5">
               <span className="text-xs font-medium tracking-wide text-[var(--text-primary)]/70">{t("apiTokensPage.create.expiresLabel")}</span>
-              <input type="datetime-local" value={expiresAt} onChange={(event) => setExpiresAt(event.target.value)} data-card className="w-full  px-3.5 py-2.5 text-sm text-[var(--text-primary)] outline-none focus:border-cyan-400/30" />
+              <input type="datetime-local" value={expiresAt} onChange={(event) => setExpiresAt(event.target.value)} data-card className="w-full  px-3.5 py-2.5 text-sm text-[var(--text-primary)] outline-none focus:border-[var(--color-action-border)]/30" />
             </label>
           </div>
 
@@ -144,8 +144,8 @@ export function ApiTokenManagerClient({ initialTokens, allowedScopes }: Props) {
             <div className="text-xs font-medium tracking-wide text-[var(--text-primary)]/70">{t("apiTokensPage.create.scopesLabel")}</div>
             <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
               {allowedScopes.map((scope) => (
-                <label key={scope} aria-label={scope} className={`flex cursor-pointer items-center gap-2 rounded-xl border px-3 py-2 text-sm transition ${selectedScopes.includes(scope) ? "border-cyan-400/30 bg-cyan-400/10 text-[var(--text-primary)]" : "border-[var(--border)]/[0.10] bg-[var(--surface)]/[0.04] text-[var(--text-secondary)] hover:bg-[var(--surface)]/[0.10]"}`}>
-                  <input type="checkbox" checked={selectedScopes.includes(scope)} onChange={() => toggleScope(scope)} className="h-4 w-4 accent-cyan-400" />
+                <label key={scope} aria-label={scope} className={`flex cursor-pointer items-center gap-2 rounded-xl border px-3 py-2 text-sm transition ${selectedScopes.includes(scope) ? "border-[var(--color-action-border)]/30 bg-[var(--color-action-bg)]/10 text-[var(--text-primary)]" : "border-[var(--border)]/[0.10] bg-[var(--surface)]/[0.04] text-[var(--text-secondary)] hover:bg-[var(--surface)]/[0.10]"}`}>
+                  <input type="checkbox" checked={selectedScopes.includes(scope)} onChange={() => toggleScope(scope)} className="h-4 w-4 accent-[var(--color-action)]" />
                   <span className="font-mono text-xs">{scope}</span>
                   <span className="text-xs text-[var(--text-muted)]">{scopeLabel(t, scope)}</span>
                 </label>
@@ -154,7 +154,7 @@ export function ApiTokenManagerClient({ initialTokens, allowedScopes }: Props) {
           </div>
 
           <div>
-            <button type="submit" disabled={submitting} className="rounded-2xl bg-cyan-500 px-5 py-2.5 text-sm font-semibold text-slate-950 transition hover:bg-cyan-400 disabled:opacity-60">
+            <button type="submit" disabled={submitting} className="rounded-2xl bg-[var(--color-action)] px-5 py-2.5 text-sm font-semibold text-slate-950 transition hover:bg-[var(--color-action-bg)] disabled:opacity-60">
               {submitting ? t("apiTokensPage.create.submitting") : t("apiTokensPage.create.submit")}
             </button>
           </div>

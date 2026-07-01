@@ -112,7 +112,7 @@ function StorageNodeCard({
 								type="button"
 								onClick={() => setEditing((prev) => !prev)}
 								title={editing ? t("storagePage.list.collapse") : t("storagePage.list.edit")}
-								data-tone="cyan" className="inline-flex items-center justify-center w-11 h-11 rounded-lg border border-cyan-400/30 text-[var(--text-primary)] transition hover:bg-cyan-400/20"
+								data-tone="cyan" className="inline-flex items-center justify-center w-11 h-11 rounded-lg border border-[var(--color-action-border)]/30 text-[var(--text-primary)] transition hover:bg-[var(--color-action-bg)]/20"
 							>
 								<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/><path d="m15 5 4 4"/></svg>
 							</button>
@@ -125,7 +125,7 @@ function StorageNodeCard({
 			</div>
 			<p className="mt-3 text-sm text-[var(--text-primary)]">
 				{node.directAccess.href ? (
-					<a href={node.directAccess.href} target="_blank" rel="noopener noreferrer" className="underline decoration-cyan-400/40 underline-offset-2 hover:text-[var(--text-primary)]">
+					<a href={node.directAccess.href} target="_blank" rel="noopener noreferrer" className="underline decoration-[var(--color-action)]/30 underline-offset-2 hover:text-[var(--text-primary)]">
 						{node.directAccess.description}
 					</a>
 				) : (

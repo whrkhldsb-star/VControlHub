@@ -146,7 +146,7 @@ const _data = await csrfFetch("/api/users/permissions", {
 
   return (
     <div className="fixed inset-0 z-50 overflow-y-auto bg-black/60 p-4 backdrop-blur">
-      <div className="mx-auto max-w-5xl rounded-3xl border border-[var(--border)] bg-[var(--modal-bg)] p-6 shadow-2xl shadow-cyan-950/40">
+      <div className="mx-auto max-w-5xl rounded-3xl border border-[var(--border)] bg-[var(--modal-bg)] p-6 shadow-2xl shadow-[var(--color-action)]/40">
         <div className="mb-5 flex items-start justify-between gap-4">
           <div>
             <p className="text-xs uppercase tracking-[0.3em] text-[var(--color-action)]/70">{t("usersPerm.title")}</p>
@@ -222,7 +222,7 @@ const _data = await csrfFetch("/api/users/permissions", {
 
             <div className="flex justify-end gap-3">
               <button type="button" onClick={onClose} className="rounded-full border border-[var(--border)] px-5 py-2 text-sm text-[var(--text-secondary)] hover:bg-[var(--surface)]/10">{t("usersPerm.action.cancel")}</button>
-              <button type="button" onClick={save} disabled={saving} data-tone="cyan" className="rounded-full border border-cyan-400/30 px-5 py-2 text-sm font-medium text-[var(--text-primary)] hover:bg-cyan-400/20 disabled:opacity-50">{saving ? t("usersPerm.action.saving") : t("usersPerm.action.save")}</button>
+              <button type="button" onClick={save} disabled={saving} data-tone="cyan" className="rounded-full border border-[var(--color-action-border)]/30 px-5 py-2 text-sm font-medium text-[var(--text-primary)] hover:bg-[var(--color-action-bg)]/20 disabled:opacity-50">{saving ? t("usersPerm.action.saving") : t("usersPerm.action.save")}</button>
             </div>
           </div>
         )}

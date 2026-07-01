@@ -60,7 +60,7 @@ export function AiConfirmDialog({
             className={`rounded-xl px-3 py-2 text-xs font-medium transition disabled:opacity-50 ${
  danger
  ?"bg-rose-500/20 text-rose-200 hover:bg-rose-500/30"
- :"bg-cyan-500/20 text-[var(--text-secondary)] hover:bg-cyan-500/30"
+ :"bg-[var(--color-action)]/20 text-[var(--text-secondary)] hover:bg-[var(--color-action)]/30"
  }`}
           >
             {busy ? t("aiPage.processing") : confirmLabel}

@@ -36,7 +36,7 @@ export function SearchScopeToggle({
 				onClick={(e) => handleClick("current", e)}
 				className={`rounded-full px-4 py-1.5 text-xs font-medium transition ${
 					scope ==="current"
-						?"border border-cyan-400/30 bg-cyan-400/10 text-[var(--text-primary)]"
+						?"border border-[var(--color-action-border)]/30 bg-[var(--color-action-bg)]/10 text-[var(--text-primary)]"
 						:"text-[var(--text-secondary)] hover:text-[var(--text-secondary)] light:hover:text-slate-800"
 				}`}
 			>
@@ -47,7 +47,7 @@ export function SearchScopeToggle({
 				onClick={(e) => handleClick("all", e)}
 				className={`rounded-full px-4 py-1.5 text-xs font-medium transition ${
 					scope ==="all"
-						?"border border-cyan-400/30 bg-cyan-400/10 text-[var(--text-primary)]"
+						?"border border-[var(--color-action-border)]/30 bg-[var(--color-action-bg)]/10 text-[var(--text-primary)]"
 						:"text-[var(--text-secondary)] hover:text-[var(--text-secondary)] light:hover:text-slate-800"
 				}`}
 			>

@@ -58,7 +58,7 @@ export function BatchServerActionPanel({ servers, enabledCount }: BatchServerAct
 				<span>已选中：{selectedServers.length} 台</span>
 				<span className="text-[var(--text-muted)]">·</span>
 				<span>其中启用 {enabledSelectedCount} 台，停用 {disabledSelectedCount} 台</span>
-				{someSelected ? <span className="text-cyan-300">当前为部分选择</span> : null}
+				{someSelected ? <span className="text-[var(--color-action)]">当前为部分选择</span> : null}
 			</div>
 
 			<div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
@@ -68,7 +68,7 @@ export function BatchServerActionPanel({ servers, enabledCount }: BatchServerAct
 							type="checkbox"
 							checked={selectedIds.includes(server.id)}
 							onChange={(event) => updateSelection(server.id, event.target.checked)}
-							className="h-4 w-4 rounded-lg border-[var(--border)] bg-[var(--input-bg)] text-cyan-400 focus:ring-cyan-400"
+							className="h-4 w-4 rounded-lg border-[var(--border)] bg-[var(--input-bg)] text-[var(--color-action)] focus:ring-[var(--color-action-ring)]"
 						/>
 						<div className="min-w-0">
 							<div className="truncate font-medium text-[var(--text-primary)]">{server.name}</div>

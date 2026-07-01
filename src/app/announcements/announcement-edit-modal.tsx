@@ -113,7 +113,7 @@ export function AnnouncementEditModal({
           <button
             onClick={handleSave}
             disabled={saving || !title.trim() || !content.trim()}
-            className="rounded-lg bg-cyan-600 px-4 py-2 text-sm font-medium text-[var(--text-primary)] transition hover:bg-cyan-500 disabled:opacity-40"
+            className="rounded-lg bg-[var(--color-action-strong)] px-4 py-2 text-sm font-medium text-[var(--text-primary)] transition hover:bg-[var(--color-action)] disabled:opacity-40"
           >
             {saving ? t("announcementsPage.edit.saving") : t("announcementsPage.edit.submit")}
           </button>

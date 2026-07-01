@@ -9,7 +9,7 @@ import { getServerLocale, t, type Locale } from "@/lib/i18n/translations";
 export const dynamic = "force-dynamic";
 
 const statusTone: Record<string, string> = {
-	OPEN: "border-cyan-400/30 bg-cyan-400/10 text-[var(--text-primary)]",
+	OPEN: "border-[var(--color-action-border)]/30 bg-[var(--color-action-bg)]/10 text-[var(--text-primary)]",
 	IN_PROGRESS: "border-amber-400/30 bg-amber-400/10 text-amber-100",
 	RESOLVED: "border-emerald-400/30 bg-emerald-400/10 text-emerald-100",
 	CLOSED: "border-slate-400/30 bg-slate-400/10 text-[var(--text-secondary)]",

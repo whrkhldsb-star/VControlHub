@@ -12,7 +12,7 @@ export default function NotFoundPage() {
 				<Link
 					href="/"
 					data-tone="cyan"
-					className="mt-6 inline-block rounded-full border border-cyan-400/30 px-6 py-2.5 text-sm font-medium text-[var(--text-primary)] transition hover:bg-cyan-400/20"
+					className="mt-6 inline-block rounded-full border border-[var(--color-action-border)]/30 px-6 py-2.5 text-sm font-medium text-[var(--text-primary)] transition hover:bg-[var(--color-action-bg)]/20"
 				>
 					{t("notFound.returnHome")}
 				</Link>

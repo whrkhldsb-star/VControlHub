@@ -190,7 +190,7 @@ export function FileRowActions({
           title={previewAction.title}
           aria-label={previewAction.label}
           data-tone="cyan"
-          className="inline-flex items-center justify-center w-8 h-8 rounded-lg border border-cyan-400/30 text-[var(--text-primary)] transition hover:bg-cyan-500/20"
+          className="inline-flex items-center justify-center w-8 h-8 rounded-lg border border-[var(--color-action-border)]/30 text-[var(--text-primary)] transition hover:bg-[var(--color-action)]/20"
         >
           <PreviewIcon />
         </Link>

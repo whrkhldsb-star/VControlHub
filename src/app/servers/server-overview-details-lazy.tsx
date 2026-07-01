@@ -36,7 +36,7 @@ function ServerOverviewDetailsStub() {
 		>
 			<div className="h-24 w-full animate-pulse rounded-lg border border-[var(--border)] bg-[var(--surface-subtle)]" />
 			<div className="h-24 w-full animate-pulse rounded-lg border border-[var(--border)] bg-[var(--surface-subtle)]" />
-			<div className="h-32 w-full animate-pulse rounded-lg border border-cyan-400/10 bg-cyan-400/[0.035]" />
+			<div className="h-32 w-full animate-pulse rounded-lg border border-[var(--color-action-border)]/10 bg-[var(--color-action-bg)]/[0.035]" />
 		</div>
 	);
 }

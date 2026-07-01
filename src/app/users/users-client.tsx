@@ -171,7 +171,7 @@ export function UserManagementClient({ canManage = false }: { canManage?: boolea
                 type="text"
                 value={createForm.username}
                 onChange={(e) => setCreateForm((p) => ({ ...p, username: e.target.value }))}
-                className="w-full rounded-2xl border border-[var(--border)] bg-[var(--input-bg)] px-4 py-2 text-sm text-[var(--text-primary)] focus:border-cyan-400/50 focus:outline-none"
+                className="w-full rounded-2xl border border-[var(--border)] bg-[var(--input-bg)] px-4 py-2 text-sm text-[var(--text-primary)] focus:border-[var(--color-action-border)]/50 focus:outline-none"
                 placeholder={t("usersPage.form.usernamePlaceholder")}
               />
             </div>
@@ -182,7 +182,7 @@ export function UserManagementClient({ canManage = false }: { canManage?: boolea
                 type="text"
                 value={createForm.displayName}
                 onChange={(e) => setCreateForm((p) => ({ ...p, displayName: e.target.value }))}
-                className="w-full rounded-2xl border border-[var(--border)] bg-[var(--input-bg)] px-4 py-2 text-sm text-[var(--text-primary)] focus:border-cyan-400/50 focus:outline-none"
+                className="w-full rounded-2xl border border-[var(--border)] bg-[var(--input-bg)] px-4 py-2 text-sm text-[var(--text-primary)] focus:border-[var(--color-action-border)]/50 focus:outline-none"
                 placeholder={t("usersPage.form.displayNamePlaceholder")}
               />
             </div>
@@ -193,7 +193,7 @@ export function UserManagementClient({ canManage = false }: { canManage?: boolea
                 type="password"
                 value={createForm.password}
                 onChange={(e) => setCreateForm((p) => ({ ...p, password: e.target.value }))}
-                className="w-full rounded-2xl border border-[var(--border)] bg-[var(--input-bg)] px-4 py-2 text-sm text-[var(--text-primary)] focus:border-cyan-400/50 focus:outline-none"
+                className="w-full rounded-2xl border border-[var(--border)] bg-[var(--input-bg)] px-4 py-2 text-sm text-[var(--text-primary)] focus:border-[var(--color-action-border)]/50 focus:outline-none"
                 placeholder={t("usersPage.form.passwordPlaceholder")}
               />
             </div>

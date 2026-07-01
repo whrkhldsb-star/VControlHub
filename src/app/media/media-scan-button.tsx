@@ -53,7 +53,7 @@ export function MediaScanButton() {
         type="button"
         onClick={handleScan}
         disabled={disabled}
-        className="rounded-xl border border-cyan-400/50 bg-cyan-400/10 px-4 py-2 text-sm font-medium text-[var(--text-primary)] transition hover:border-cyan-300 hover:bg-cyan-400/20 disabled:cursor-not-allowed disabled:opacity-60"
+        className="rounded-xl border border-[var(--color-action-border)]/50 bg-[var(--color-action-bg)]/10 px-4 py-2 text-sm font-medium text-[var(--text-primary)] transition hover:border-[var(--color-action-border)] hover:bg-[var(--color-action-bg)]/20 disabled:cursor-not-allowed disabled:opacity-60"
       >
         {isScanning ? t("mediaScanButton.scanning") : t("mediaScanButton.idle")}
       </button>

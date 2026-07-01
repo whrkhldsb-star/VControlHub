@@ -36,7 +36,7 @@ export function CreateBackupForm() {
         <label htmlFor={backupNoteInputId} className="text-xs font-medium text-[var(--text-secondary)]">{t("common.backupNote")}</label>
         <input id={backupNoteInputId} name="note" maxLength={500} placeholder={t("common.backupNotePlaceholder")} className="rounded-lg border border-[var(--border)] bg-[var(--input-bg)] px-3 py-2 text-sm text-[var(--text-primary)] placeholder:text-[var(--text-muted)]" />
       </div>
-      <button disabled={pending} className="rounded-lg bg-cyan-400 px-4 py-2 text-sm font-semibold text-slate-950 disabled:cursor-not-allowed disabled:opacity-60">
+      <button disabled={pending} className="rounded-lg bg-[var(--color-action-bg)] px-4 py-2 text-sm font-semibold text-slate-950 disabled:cursor-not-allowed disabled:opacity-60">
         {pending ? t("common.executing") : t("common.createAndExecute")}
       </button>
       {state.error && <p className="md:col-span-3 text-xs text-rose-300">{state.error}</p>}

@@ -114,7 +114,7 @@ export function MoveInlineForm({
           required
           minLength={1}
           placeholder={currentDir || "目标路径"}
-          className="rounded-2xl border border-[var(--border)] bg-[var(--input-bg)] px-3 py-1.5 text-xs text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus:border-cyan-400/50 focus:outline-none"
+          className="rounded-2xl border border-[var(--border)] bg-[var(--input-bg)] px-3 py-1.5 text-xs text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus:border-[var(--color-action-border)]/50 focus:outline-none"
         />
       </label>
       <span className="text-xs text-[var(--text-secondary)]">
@@ -123,7 +123,7 @@ export function MoveInlineForm({
       <button
         type="submit"
         disabled={!targetDir.trim() || targetDir.trim() === currentDir}
-        data-tone="cyan" className="rounded-full border border-cyan-400/30 px-3 py-1.5 text-xs font-medium text-[var(--text-primary)] transition hover:bg-cyan-400/20 disabled:cursor-not-allowed disabled:opacity-50"
+        data-tone="cyan" className="rounded-full border border-[var(--color-action-border)]/30 px-3 py-1.5 text-xs font-medium text-[var(--text-primary)] transition hover:bg-[var(--color-action-bg)]/20 disabled:cursor-not-allowed disabled:opacity-50"
       >
         确认
       </button>

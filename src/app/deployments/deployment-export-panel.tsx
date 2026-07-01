@@ -252,7 +252,7 @@ export function DeploymentExportPanel() {
         </label>
         <button
           disabled={pending}
-          className="rounded-lg bg-cyan-400 px-4 py-2 text-sm font-semibold text-slate-950 transition hover:bg-cyan-300 disabled:cursor-not-allowed disabled:opacity-60"
+          className="rounded-lg bg-[var(--color-action-bg)] px-4 py-2 text-sm font-semibold text-slate-950 transition hover:bg-[var(--color-action-bg)] disabled:cursor-not-allowed disabled:opacity-60"
         >
           {pending ? t("deploymentsPage.export.generating") : t("deploymentsPage.export.generate")}
         </button>
@@ -265,7 +265,7 @@ export function DeploymentExportPanel() {
       )}
 
       {result && (
-        <div data-tone="cyan" className="mt-4 rounded-xl border border-cyan-400/20 p-4 light:bg-cyan-50">
+        <div data-tone="cyan" className="mt-4 rounded-xl border border-[var(--color-action-border)]/20 p-4 light:bg-[var(--color-action-bg)]">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div>
               <h3 className="text-sm font-semibold text-[var(--text-primary)]">{result.name ?? "portable deployment"}</h3>
@@ -278,7 +278,7 @@ export function DeploymentExportPanel() {
               onClick={handleZipDownload}
               disabled={zipPending || !result.id}
               data-testid="deploy-export-zip"
-              className="rounded-lg border border-cyan-300/40 px-3 py-1.5 text-xs font-semibold text-[var(--text-primary)] transition hover:bg-cyan-300/10 disabled:cursor-not-allowed disabled:opacity-60"
+              className="rounded-lg border border-[var(--color-action-border)]/40 px-3 py-1.5 text-xs font-semibold text-[var(--text-primary)] transition hover:bg-[var(--color-action-bg)]/10 disabled:cursor-not-allowed disabled:opacity-60"
             >
               {zipPending ? t("deploymentsPage.export.packaging") : t("deploymentsPage.export.downloadZip")}
             </button>
@@ -393,7 +393,7 @@ function TreeRow({
         data-testid={`deploy-export-file-${node.fullPath}`}
         className={`flex w-full items-center gap-1 rounded-lg px-1 py-0.5 text-left transition ${
           isActive
-            ? "bg-cyan-300/20 text-[var(--text-primary)]"
+            ? "bg-[var(--color-action-bg)]/20 text-[var(--text-primary)]"
             : "hover:bg-[var(--surface)]/[0.04] text-[var(--text-secondary)]"
         }`}
         style={{ paddingLeft: depth * 12 }}
@@ -456,7 +456,7 @@ function DeploymentFilePreview({
           type="button"
           data-testid="deploy-export-rollback"
           onClick={() => onCopy(content, activePath)}
-          className="rounded-lg border border-cyan-300/40 px-2 py-1 text-xs text-[var(--text-primary)] hover:bg-cyan-300/10"
+          className="rounded-lg border border-[var(--color-action-border)]/40 px-2 py-1 text-xs text-[var(--text-primary)] hover:bg-[var(--color-action-bg)]/10"
         >
           {justCopied ? t("deploymentsPage.export.copied") : t("deploymentsPage.export.copyRollback")}
         </button>
@@ -464,7 +464,7 @@ function DeploymentFilePreview({
           type="button"
           data-testid="deploy-export-download-active"
           onClick={() => onDownload(activePath, content)}
-          className="rounded-lg border border-[var(--border)] px-2 py-1 text-xs text-[var(--text-secondary)] hover:border-cyan-300/40"
+          className="rounded-lg border border-[var(--border)] px-2 py-1 text-xs text-[var(--text-secondary)] hover:border-[var(--color-action-border)]/40"
         >
           {t("deploymentsPage.export.downloadFile")}
         </button>

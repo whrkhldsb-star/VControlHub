@@ -215,7 +215,7 @@ function NodeFilterSelect({
           <button
             type="button"
             onClick={() => onChange("")}
-            className="text-cyan-300 hover:text-[var(--text-primary)] light:hover:text-cyan-700 light:hover:text-cyan-900"
+            className="text-[var(--color-action)] hover:text-[var(--text-primary)] light:hover:text-[var(--color-action-strong)] light:hover:text-[var(--color-action-strong)]"
           >
             {t("filesBrowserSpa.clear")}
           </button>
@@ -231,7 +231,7 @@ function NodeFilterSelect({
           value={query}
           onChange={(event) => setQuery(event.currentTarget.value)}
           placeholder={t("filesBrowserSpa.searchPlaceholder")}
-          className="w-full rounded-2xl border border-[var(--border)] bg-[var(--input-bg)] px-3 py-2 text-sm text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus:border-cyan-400/50 focus:outline-none"
+          className="w-full rounded-2xl border border-[var(--border)] bg-[var(--input-bg)] px-3 py-2 text-sm text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus:border-[var(--color-action-border)]/50 focus:outline-none"
         />
       </div>
       <div className="space-y-1">
@@ -242,7 +242,7 @@ function NodeFilterSelect({
           id={selectInputId}
           value={value}
           onChange={(event) => onChange(event.currentTarget.value)}
-          className="w-full rounded-2xl border border-cyan-400/30 bg-[var(--input-bg)] px-3 py-2 text-sm text-[var(--text-primary)] focus:border-cyan-400/50 focus:outline-none light:border-cyan-500/40"
+          className="w-full rounded-2xl border border-[var(--color-action-border)]/30 bg-[var(--input-bg)] px-3 py-2 text-sm text-[var(--text-primary)] focus:border-[var(--color-action-border)]/50 focus:outline-none light:border-[var(--color-action-border)]/40"
         >
           <option value="">{t("filesBrowserSpa.allNodesOption")}</option>
           {filteredNodes.map((node) => (
@@ -330,7 +330,7 @@ function FolderTreeClient({
             <div
               className={`flex items-center gap-1 rounded-2xl transition ${
                 isCurrent
-                  ? "bg-cyan-400/10 text-[var(--text-primary)]"
+                  ? "bg-[var(--color-action-bg)]/10 text-[var(--text-primary)]"
                   : "text-[var(--text-secondary)] hover:bg-[var(--surface)]/10 hover:text-[var(--text-primary)]"
               }`}
             >
@@ -345,7 +345,7 @@ function FolderTreeClient({
                     : t("filesBrowserSpa.openChild").replace("{name}", child.displayName ?? child.name)
                 }
                 aria-expanded={hasChildren ? isExpanded : undefined}
-                className="grid h-8 w-8 flex-none place-items-center rounded-xl text-xs text-[var(--text-secondary)] hover:bg-[var(--surface)]/10 hover:text-[var(--text-primary)] light:hover:text-slate-900"
+                className="grid h-8 w-8 flex-none place-items-center rounded-xl text-xs text-[var(--text-secondary)] hover:bg-[var(--surface)]/10 hover:text-[var(--text-primary)] light:hover:text-[var(--text-primary)]"
               >
                 {hasChildren ? (isExpanded ? "▾" : "▸") : "•"}
               </button>
@@ -420,7 +420,7 @@ function BreadcrumbsClient({
           <span key={nextPath} className="flex items-center gap-2">
             <span>/</span>
             {isLast ? (
-              <span data-tone="cyan" className="rounded-full border border-cyan-400/30 px-3 py-1.5 text-[var(--text-primary)]">
+              <span data-tone="cyan" className="rounded-full border border-[var(--color-action-border)]/30 px-3 py-1.5 text-[var(--text-primary)]">
                 {displaySegment}
               </span>
             ) : (
@@ -526,7 +526,7 @@ export function FilesBrowserSpa({
         onClick={() => setMobileSidebarOpen((value) => !value)}
         aria-expanded={mobileSidebarOpen}
         aria-controls="files-browser-sidebar"
-        className="flex min-h-11 w-full items-center justify-between rounded-2xl border border-[var(--border)] bg-[var(--surface)] px-4 py-2 text-sm font-medium text-[var(--text-primary)] hover:bg-[var(--surface-hover)] light:bg-slate-100 light:hover:bg-slate-200/60 xl:hidden"
+        className="flex min-h-11 w-full items-center justify-between rounded-2xl border border-[var(--border)] bg-[var(--surface)] px-4 py-2 text-sm font-medium text-[var(--text-primary)] hover:bg-[var(--surface-hover)] light:bg-[var(--surface)] light:hover:bg-slate-200/60 xl:hidden"
       >
         <span>{mobileSidebarOpen ? t("filesBrowserSpa.collapseDirectoryTree") : t("filesBrowserSpa.expandDirectoryTree")}</span>
         <span aria-hidden="true" className="text-xs">
@@ -572,7 +572,7 @@ export function FilesBrowserSpa({
             onClick={() => handleTreeNavigate("")}
             className={`flex min-h-11 w-full items-center justify-between rounded-2xl px-3 py-2 text-left text-sm ${
               data.currentPath === ""
-                ? "bg-cyan-400/10 text-[var(--text-primary)]"
+                ? "bg-[var(--color-action-bg)]/10 text-[var(--text-primary)]"
                 : "text-[var(--text-primary)] hover:bg-[var(--surface)]/10"
             }`}
           >
@@ -603,7 +603,7 @@ export function FilesBrowserSpa({
               <h2 className="text-2xl font-semibold text-[var(--text-primary)]">
                 {currentPathDisplay.title}
                 {loading ? (
-                  <span className="ml-2 text-sm text-cyan-300 animate-pulse">
+                  <span className="ml-2 text-sm text-[var(--color-action)] animate-pulse">
                     {t("filesBrowserSpa.loading")}
                   </span>
                 ) : null}
@@ -644,12 +644,12 @@ export function FilesBrowserSpa({
                         ? t("filesBrowserSpa.searchAllFiles")
                         : t("filesBrowserSpa.searchCurrentFolder")
                     }
-                    className="rounded-2xl border border-[var(--border)] bg-[var(--input-bg)] px-4 py-2.5 text-sm text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus:border-cyan-400/50 focus:outline-none"
+                    className="rounded-2xl border border-[var(--border)] bg-[var(--input-bg)] px-4 py-2.5 text-sm text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus:border-[var(--color-action-border)]/50 focus:outline-none"
                   />
                 </div>
                 <button
                   type="submit"
-                  data-tone="cyan" className="rounded-full border border-cyan-400/30 px-5 py-2.5 text-sm font-medium text-[var(--text-primary)] transition hover:bg-cyan-400/20"
+                  data-tone="cyan" className="rounded-full border border-[var(--color-action-border)]/30 px-5 py-2.5 text-sm font-medium text-[var(--text-primary)] transition hover:bg-[var(--color-action-bg)]/20"
                 >
                   {t("filesBrowserSpa.searchLabel")}
                 </button>
@@ -677,7 +677,7 @@ export function FilesBrowserSpa({
             ) : null}
           </form>
 
-          <div data-tone="cyan" className="mt-6 rounded-3xl border border-cyan-400/20 p-5">
+          <div data-tone="cyan" className="mt-6 rounded-3xl border border-[var(--color-action-border)]/20 p-5">
             <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
               <div>
                 <h3 className="text-xl font-semibold text-[var(--text-primary)]">

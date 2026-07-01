@@ -29,7 +29,7 @@ export function FileListToolbar({
       <div className="flex items-center gap-2 text-sm text-[var(--text-muted)]">
         <span>{itemCount} 项</span>
         {selectedCount > 0 ? (
-          <span className="text-cyan-300 font-medium">
+          <span className="text-[var(--color-action)] font-medium">
             · 已选 {selectedCount} 个
           </span>
         ) : null}
@@ -43,7 +43,7 @@ export function FileListToolbar({
           aria-pressed={viewMode === "list"}
           className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium transition ${
             viewMode === "list"
-              ? "bg-cyan-400/20 text-[var(--text-primary)] border border-cyan-400/30 shadow-sm shadow-cyan-400/10"
+              ? "bg-[var(--color-action-bg)]/20 text-[var(--text-primary)] border border-[var(--color-action-border)]/30 shadow-sm shadow-[var(--color-action)]/10"
               : "text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:bg-[var(--surface)]/10 border border-transparent"
           }`}
         >
@@ -74,7 +74,7 @@ export function FileListToolbar({
           aria-pressed={viewMode === "grid"}
           className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium transition ${
             viewMode === "grid"
-              ? "bg-cyan-400/20 text-[var(--text-primary)] border border-cyan-400/30 shadow-sm shadow-cyan-400/10"
+              ? "bg-[var(--color-action-bg)]/20 text-[var(--text-primary)] border border-[var(--color-action-border)]/30 shadow-sm shadow-[var(--color-action)]/10"
               : "text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:bg-[var(--surface)]/10 border border-transparent"
           }`}
         >
@@ -103,7 +103,7 @@ export function FileListToolbar({
           aria-pressed={viewMode === "details"}
           className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium transition ${
             viewMode === "details"
-              ? "bg-cyan-400/20 text-[var(--text-primary)] border border-cyan-400/30 shadow-sm shadow-cyan-400/10"
+              ? "bg-[var(--color-action-bg)]/20 text-[var(--text-primary)] border border-[var(--color-action-border)]/30 shadow-sm shadow-[var(--color-action)]/10"
               : "text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:bg-[var(--surface)]/10 border border-transparent"
           }`}
         >

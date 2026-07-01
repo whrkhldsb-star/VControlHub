@@ -30,7 +30,7 @@ export function SharePasswordGate({ token, label, placeholder, submitLabel }: Sh
         />
         <a
           href={url}
-          className="shrink-0 rounded-lg bg-cyan-600 px-4 py-2 text-center text-sm font-medium text-[var(--text-primary)] transition hover:bg-cyan-500 disabled:opacity-40"
+          className="shrink-0 rounded-lg bg-[var(--color-action-strong)] px-4 py-2 text-center text-sm font-medium text-[var(--text-primary)] transition hover:bg-[var(--color-action)] disabled:opacity-40"
           aria-disabled={!pw}
           onClick={(e) => { if (!pw) e.preventDefault(); }}
         >

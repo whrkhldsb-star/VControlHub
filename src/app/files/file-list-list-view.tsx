@@ -100,7 +100,7 @@ export function FileListListView(props: FileListListViewProps) {
                 onChange={toggleAll}
                 disabled={visibleFilesCount === 0}
                 aria-label={t("fileListClient.selectAllFiles")}
-                className="rounded-lg h-4 w-4 accent-cyan-400"
+                className="rounded-lg h-4 w-4 accent-[var(--color-action)]"
               />
             </div>
             <div />
@@ -163,7 +163,7 @@ export function FileListListView(props: FileListListViewProps) {
                     type="checkbox"
                     disabled
                     aria-label={t("fileListClient.selectFolderDisabled")}
-                    className="rounded-lg h-4 w-4 accent-cyan-400 opacity-30"
+                    className="rounded-lg h-4 w-4 accent-[var(--color-action)] opacity-30"
                   />
                 </div>
                 <div className="flex justify-center">
@@ -190,7 +190,7 @@ export function FileListListView(props: FileListListViewProps) {
                     type="button"
                     onClick={() => navigateToFolder(folder.path)}
                     data-tone="cyan"
-                    className="inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium border border-cyan-400/25 text-[var(--text-secondary)] hover:bg-cyan-500/20 transition"
+                    className="inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium border border-[var(--color-action-border)]/25 text-[var(--text-secondary)] hover:bg-[var(--color-action)]/20 transition"
                   >
                     <svg
                       width="12"
@@ -243,7 +243,7 @@ export function FileListListView(props: FileListListViewProps) {
               return (
                 <div
                   key={entry.id}
-                  className={`grid grid-cols-[44px_44px_minmax(280px,2.6fr)_120px_170px_160px_minmax(240px,auto)] items-center gap-3 px-5 py-3 text-sm hover:bg-[var(--surface)]/[0.04] transition ${isChecked ? "bg-cyan-400/[0.04]" : ""}`}
+                  className={`grid grid-cols-[44px_44px_minmax(280px,2.6fr)_120px_170px_160px_minmax(240px,auto)] items-center gap-3 px-5 py-3 text-sm hover:bg-[var(--surface)]/[0.04] transition ${isChecked ? "bg-[var(--color-action-bg)]/[0.04]" : ""}`}
                 >
                   <div>
                     {entryCanWrite(entry) || entryCanDelete(entry) ? (
@@ -252,7 +252,7 @@ export function FileListListView(props: FileListListViewProps) {
                         checked={effectiveSelectedIdSet.has(entry.id)}
                         onChange={() => toggleOne(entry.id)}
                         aria-label={`选择 ${entry.name}`}
-                        className="h-4 w-4 rounded-lg border-[var(--border)] bg-[var(--surface)] text-cyan-400 focus:ring-cyan-400/50"
+                        className="h-4 w-4 rounded-lg border-[var(--border)] bg-[var(--surface)] text-[var(--color-action)] focus:ring-[var(--color-action-ring)]/50"
                       />
                     ) : null}
                   </div>
@@ -339,7 +339,7 @@ export function FileListListView(props: FileListListViewProps) {
                 type="button"
                 onClick={() => navigateToFolder(folder.path)}
                 data-tone="cyan"
-                className="shrink-0 inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium border border-cyan-400/25 text-[var(--text-secondary)] hover:bg-cyan-500/20 transition"
+                className="shrink-0 inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium border border-[var(--color-action-border)]/25 text-[var(--text-secondary)] hover:bg-[var(--color-action)]/20 transition"
               >
                 打开
               </button>
@@ -386,7 +386,7 @@ export function FileListListView(props: FileListListViewProps) {
           return (
             <div
               key={entry.id}
-              className={`px-4 py-3 ${isChecked ? "bg-cyan-400/[0.04]" : ""}`}
+              className={`px-4 py-3 ${isChecked ? "bg-[var(--color-action-bg)]/[0.04]" : ""}`}
             >
               <div className="flex items-start gap-3">
                 {entryCanWrite(entry) || entryCanDelete(entry) ? (
@@ -395,7 +395,7 @@ export function FileListListView(props: FileListListViewProps) {
                     checked={effectiveSelectedIdSet.has(entry.id)}
                     onChange={() => toggleOne(entry.id)}
                     aria-label={`选择 ${entry.name}`}
-                    className="mt-2 h-4 w-4 rounded-lg border-[var(--border)] bg-[var(--surface)] text-cyan-400 focus:ring-cyan-400/50"
+                    className="mt-2 h-4 w-4 rounded-lg border-[var(--border)] bg-[var(--surface)] text-[var(--color-action)] focus:ring-[var(--color-action-ring)]/50"
                   />
                 ) : null}
                 <div className="shrink-0 mt-0.5 rounded-lg bg-[var(--surface)]/[0.04] p-1">

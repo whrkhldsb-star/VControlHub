@@ -216,7 +216,7 @@ function SparkBars({ points, color, locale: _locale = "zh" }: { points: Array<{ 
   const { t } = useI18n();
   const max = Math.max(1, ...points.map((point) => point.value));
   const colors = {
-    cyan: "bg-cyan-400/70",
+    cyan: "bg-[var(--color-action-bg)]/70",
     violet: "bg-violet-400/70",
     pink: "bg-pink-400/70",
   };
@@ -259,7 +259,7 @@ function StackedDownloadBars({ points, locale: _locale = "zh" }: { points: Downl
           <div key={point.date} className="flex min-w-0 flex-1 flex-col items-center gap-1">
             <div className="flex w-full flex-col justify-end overflow-hidden rounded-t bg-[var(--surface)]/10" style={{ height: `${height}px` }} title={`${point.date}: ${total}`}>
               <Segment value={point.failed} total={total} className="bg-rose-400/70" />
-              <Segment value={point.running} total={total} className="bg-cyan-400/70" />
+              <Segment value={point.running} total={total} className="bg-[var(--color-action-bg)]/70" />
               <Segment value={point.pending} total={total} className="bg-amber-400/70" />
               <Segment value={point.completed} total={total} className="bg-emerald-400/70" />
             </div>
@@ -280,7 +280,7 @@ function MiniStat({ label, value, color }: { label: string; value: number; color
   const colors = {
     emerald: "text-emerald-200 border-emerald-400/20 bg-emerald-400/10",
     rose: "text-rose-200 border-rose-400/20 bg-rose-400/10",
-    cyan: "text-[var(--text-secondary)] border-cyan-400/20 bg-cyan-400/10",
+    cyan: "text-[var(--text-secondary)] border-[var(--color-action-border)]/20 bg-[var(--color-action-bg)]/10",
     amber: "text-amber-200 border-amber-400/20 bg-amber-400/10",
   };
   return (

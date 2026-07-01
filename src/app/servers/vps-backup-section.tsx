@@ -248,7 +248,7 @@ export function VpsBackupSection({
 						<button
 							type="button"
 							onClick={() => setShowCreate(!showCreate)}
-							className="rounded-lg border border-cyan-400/20 bg-cyan-400/10 px-2.5 py-1 text-xs text-[var(--text-secondary)] transition-colors hover:bg-cyan-400/20"
+							className="rounded-lg border border-[var(--color-action-border)]/20 bg-[var(--color-action-bg)]/10 px-2.5 py-1 text-xs text-[var(--text-secondary)] transition-colors hover:bg-[var(--color-action-bg)]/20"
 						>
 							{showCreate ? "✕" : `+ ${t("vpsBackup.addSchedule")}`}
 						</button>
@@ -303,7 +303,7 @@ export function VpsBackupSection({
 								type="button"
 								onClick={handleCreate}
 								disabled={!createForm.name.trim()}
-								className="rounded-lg bg-cyan-500/80 px-4 py-1.5 text-sm font-medium text-[var(--text-primary)] transition-colors hover:bg-cyan-500 disabled:cursor-not-allowed disabled:opacity-50"
+								className="rounded-lg bg-[var(--color-action)]/80 px-4 py-1.5 text-sm font-medium text-[var(--text-primary)] transition-colors hover:bg-[var(--color-action)] disabled:cursor-not-allowed disabled:opacity-50"
 							>
 								{t("vpsBackup.create")}
 							</button>
@@ -397,7 +397,7 @@ export function VpsBackupSection({
 									{r.status === "COMPLETED" && r.localPath ? (
 										<a
 											href={`/api/servers/${serverId}/vps-backup/records/${r.id}/download`}
-											className="rounded text-xs text-cyan-300/80 transition-colors hover:text-cyan-300"
+											className="rounded text-xs text-[var(--color-action)]/80 transition-colors hover:text-[var(--color-action)]"
 										>
 											⬇
 										</a>

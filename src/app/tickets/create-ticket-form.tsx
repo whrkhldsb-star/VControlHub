@@ -52,7 +52,7 @@ export function CreateTicketForm(_props: Props = {}) {
 				{t("ticketsPage.form.label.description")}
 				<textarea name="description" required rows={4} placeholder={t("ticketsPage.form.description")} className="rounded-lg border border-[var(--border)] bg-[var(--input-bg)] px-3 py-2 text-sm text-[var(--text-primary)] placeholder:text-[var(--text-muted)] resize-y" />
 			</label>
-			<button disabled={pending} className="w-fit rounded-lg bg-cyan-400 px-4 py-2 text-sm font-semibold text-slate-950 disabled:cursor-not-allowed disabled:opacity-60">
+			<button disabled={pending} className="w-fit rounded-lg bg-[var(--color-action-bg)] px-4 py-2 text-sm font-semibold text-slate-950 disabled:cursor-not-allowed disabled:opacity-60">
 				{pending ? t("ticketsPage.form.submitting") : t("ticketsPage.form.submit")}
 			</button>
 		</form>

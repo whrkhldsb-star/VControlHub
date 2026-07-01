@@ -109,7 +109,7 @@ export function AiInputArea({
           }
           rows={1}
           disabled={streaming}
-          className="flex-1 bg-black/30 border border-[var(--border)] rounded-xl px-4 py-2.5 text-sm text-[var(--text-primary)] placeholder-slate-600 resize-none focus:outline-none focus:border-cyan-400/30 transition disabled:opacity-50"
+          className="flex-1 bg-black/30 border border-[var(--border)] rounded-xl px-4 py-2.5 text-sm text-[var(--text-primary)] placeholder-slate-600 resize-none focus:outline-none focus:border-[var(--color-action-border)]/30 transition disabled:opacity-50"
           style={{ maxHeight: "120px" }}
           onInput={(e) => {
             const el = e.currentTarget;
@@ -120,7 +120,7 @@ export function AiInputArea({
         <button
           onClick={handleSend}
           disabled={streaming || (!input.trim() && fileAttachments.length === 0)}
-          className="h-10 w-10 rounded-xl bg-cyan-500/20 text-cyan-300 flex items-center justify-center hover:bg-cyan-500/30 transition disabled:opacity-30 disabled:cursor-not-allowed"
+          className="h-10 w-10 rounded-xl bg-[var(--color-action)]/20 text-[var(--color-action)] flex items-center justify-center hover:bg-[var(--color-action)]/30 transition disabled:opacity-30 disabled:cursor-not-allowed"
           aria-label={t("aiPage.sendAria")}
         >
           <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">

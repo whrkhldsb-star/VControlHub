@@ -47,7 +47,7 @@ export function AiEmptyState({
           <button
             type="button"
             onClick={onOpenProviders}
-            className="mt-5 h-9 rounded-xl bg-cyan-500/20 px-4 text-sm font-medium text-cyan-300 transition hover:bg-cyan-500/30"
+            className="mt-5 h-9 rounded-xl bg-[var(--color-action)]/20 px-4 text-sm font-medium text-[var(--color-action)] transition hover:bg-[var(--color-action)]/30"
           >
             {t("aiPage.configProviders")}
           </button>
@@ -58,7 +58,7 @@ export function AiEmptyState({
           <button
             type="button"
             onClick={onNewConv}
-            className="h-9 rounded-xl bg-cyan-500/20 px-4 text-sm font-medium text-cyan-300 transition hover:bg-cyan-500/30"
+            className="h-9 rounded-xl bg-[var(--color-action)]/20 px-4 text-sm font-medium text-[var(--color-action)] transition hover:bg-[var(--color-action)]/30"
           >
             {t("aiPage.newConversation")}
           </button>

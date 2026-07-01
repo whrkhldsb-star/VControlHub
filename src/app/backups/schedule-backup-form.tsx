@@ -156,7 +156,7 @@ export function ScheduleBackupForm() {
 	return (
 		<div className="mt-4 space-y-4">
 			{/* Create form */}
-			<form onSubmit={createSchedule} data-tone="cyan" className="space-y-4 rounded-xl border border-cyan-400/10 p-4">
+			<form onSubmit={createSchedule} data-tone="cyan" className="space-y-4 rounded-xl border border-[var(--color-action-border)]/10 p-4">
 				<div className="grid gap-3 md:grid-cols-[180px_1fr]">
 					<div className="space-y-1.5">
 						<label htmlFor="schedule-backup-name" className="block text-xs font-medium text-[var(--text-secondary)]">{t("backupsPage.records.title")}</label>
@@ -181,7 +181,7 @@ export function ScheduleBackupForm() {
 						<input id="schedule-backup-retention" type="number" min={1} max={3650} value={retentionDays} onChange={(e) => setRetentionDays(e.target.value)} placeholder={t("backupsPage.schedule.retentionPlaceholder")} className="block w-full rounded-lg border border-[var(--border)] bg-[var(--input-bg)] px-3 py-2 text-sm text-[var(--text-primary)]" />
 					</div>
 				</div>
-				<p data-tone="cyan" className="rounded-lg border border-cyan-400/10 px-3 py-2 text-xs text-[var(--text-primary)]">{t("common.preview")}{cronPreview}</p>
+				<p data-tone="cyan" className="rounded-lg border border-[var(--color-action-border)]/10 px-3 py-2 text-xs text-[var(--text-primary)]">{t("common.preview")}{cronPreview}</p>
 				<div className="space-y-1.5">
 					<label htmlFor="schedule-backup-note" className="block text-xs font-medium text-[var(--text-secondary)]">{t("backupsPage.schedule.noteLabel")}</label>
 					<input id="schedule-backup-note" value={note} onChange={(e) => setNote(e.target.value)} placeholder={t("backupsPage.schedule.notePlaceholder")} className="block w-full rounded-lg border border-[var(--border)] bg-[var(--input-bg)] px-3 py-2 text-sm text-[var(--text-primary)]" />
@@ -189,7 +189,7 @@ export function ScheduleBackupForm() {
 				{retentionDays && (
 					<p className="text-xs text-[var(--text-muted)]">{t("backupsPage.schedule.retentionHint")}</p>
 				)}
-				<button type="submit" disabled={submitting} className="rounded-lg bg-cyan-400 px-4 py-2 text-sm font-semibold text-slate-950 disabled:cursor-not-allowed disabled:opacity-60">
+				<button type="submit" disabled={submitting} className="rounded-lg bg-[var(--color-action-bg)] px-4 py-2 text-sm font-semibold text-slate-950 disabled:cursor-not-allowed disabled:opacity-60">
 					{submitting ? t("backupsPage.schedule.submitting") : t("backupsPage.schedule.submit")}
 				</button>
 				{message && <p role="status" className={`text-xs ${message.type === "ok" ? "text-emerald-300" : "text-rose-300"}`}>{message.text}</p>}

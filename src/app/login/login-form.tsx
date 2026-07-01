@@ -7,7 +7,7 @@ type LoginFormProps = {
 };
 
 const fieldClassName =
-	"w-full rounded-2xl border border-[var(--border)] bg-[var(--surface)]/[0.04] px-4 py-3 text-sm text-[var(--text-primary)] shadow-[0_0_0_1px_rgba(255,255,255,0.05)] outline-none transition-colors duration-150 placeholder:text-[var(--text-primary)]/30 focus:border-cyan-400/50 focus:bg-[var(--surface)]/[0.10] focus:ring-4 focus:ring-cyan-400/10 light:border-slate-300 light:bg-slate-50 light:text-slate-900 light:placeholder:text-[var(--text-muted)] light:focus:border-cyan-500/70 light:focus:bg-[var(--surface)] light:focus:ring-cyan-500/10";
+	"w-full rounded-2xl border border-[var(--border)] bg-[var(--surface)]/[0.04] px-4 py-3 text-sm text-[var(--text-primary)] shadow-[0_0_0_1px_rgba(255,255,255,0.05)] outline-none transition-colors duration-150 placeholder:text-[var(--text-primary)]/30 focus:border-[var(--color-action-border)]/50 focus:bg-[var(--surface)]/[0.10] focus:ring-4 focus:ring-[var(--color-action-ring)]/10 light:border-slate-300 light:bg-slate-50 light:text-slate-900 light:placeholder:text-[var(--text-muted)] light:focus:border-[var(--color-action-border)]/70 light:focus:bg-[var(--surface)] light:focus:ring-[var(--color-action-ring)]/10";
 
 export function LoginForm({ nextPath, error, locale }: LoginFormProps) {
 	return (
@@ -47,7 +47,7 @@ export function LoginForm({ nextPath, error, locale }: LoginFormProps) {
 				<input
 					type="checkbox"
 					name="remember"
-					className="h-4 w-4 rounded-lg border-[var(--border)] bg-[var(--surface)]/[0.10] text-cyan-400 focus:ring-cyan-400/40 light:focus:ring-cyan-500/30"
+					className="h-4 w-4 rounded-lg border-[var(--border)] bg-[var(--surface)]/[0.10] text-[var(--color-action)] focus:ring-[var(--color-action-ring)]/40 light:focus:ring-[var(--color-action-ring)]/30"
 				/>
 			</label>
 
@@ -59,7 +59,7 @@ export function LoginForm({ nextPath, error, locale }: LoginFormProps) {
 
 			<button
 				type="submit"
-				className="w-full rounded-2xl bg-gradient-to-r from-cyan-400 to-blue-500 px-4 py-3 text-sm font-semibold text-[var(--text-primary)] shadow-[0_0_0_1px_rgba(34,211,238,0.2),0_8px_20px_rgba(34,211,238,0.15)] transition-[filter,box-shadow] duration-150 hover:brightness-110 hover:shadow-[0_0_0_1px_rgba(34,211,238,0.3),0_12px_28px_rgba(34,211,238,0.25)] focus:outline-none focus:ring-4 focus:ring-cyan-400/40 light:from-cyan-500 light:to-blue-600 light:shadow-[0_12px_28px_rgba(14,116,144,0.22)] light:hover:shadow-[0_16px_34px_rgba(14,116,144,0.28)] light:focus:ring-cyan-500/20"
+				className="w-full rounded-2xl bg-gradient-to-r from-[var(--color-action)] to-blue-500 px-4 py-3 text-sm font-semibold text-[var(--text-primary)] shadow-[0_0_0_1px_rgba(34,211,238,0.2),0_8px_20px_rgba(34,211,238,0.15)] transition-[filter,box-shadow] duration-150 hover:brightness-110 hover:shadow-[0_0_0_1px_rgba(34,211,238,0.3),0_12px_28px_rgba(34,211,238,0.25)] focus:outline-none focus:ring-4 focus:ring-[var(--color-action-ring)]/40 light:from-[var(--color-action-hover)] light:to-blue-600 light:shadow-[0_12px_28px_rgba(14,116,144,0.22)] light:hover:shadow-[0_16px_34px_rgba(14,116,144,0.28)] light:focus:ring-[var(--color-action-ring)]/20"
 			>
 				{t("login.form.submit", locale)}
 			</button>

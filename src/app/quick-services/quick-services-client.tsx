@@ -431,10 +431,10 @@ export function QuickServicesClient({ canManage }: { canManage: boolean }) {
 						value={search}
 						onChange={(e) => setSearch(e.target.value)}
 						placeholder={t("qsPage.searchPlaceholder")}
-						data-card className="w-full  px-4 py-2.5 text-sm text-[var(--text-primary)] placeholder-slate-500 outline-none focus:border-cyan-400/40 transition"
+						data-card className="w-full  px-4 py-2.5 text-sm text-[var(--text-primary)] placeholder-slate-500 outline-none focus:border-[var(--color-action-border)]/40 transition"
 					/>
 					{search && (
-						<button onClick={() => setSearch("")} className="absolute right-3 top-1/2 -translate-y-1/2 text-[var(--text-muted)] hover:text-[var(--text-primary)] light:hover:text-slate-900 text-xs">
+						<button onClick={() => setSearch("")} className="absolute right-3 top-1/2 -translate-y-1/2 text-[var(--text-muted)] hover:text-[var(--text-primary)] light:hover:text-[var(--text-primary)] text-xs">
 							✕
 						</button>
 					)}
@@ -442,13 +442,13 @@ export function QuickServicesClient({ canManage }: { canManage: boolean }) {
 			</div>
 
 			{tab === "store" && !search && recommendedItems.length > 0 && (
-				<section data-tone="cyan" className="space-y-3 rounded-2xl border border-cyan-400/20 p-4">
+				<section data-tone="cyan" className="space-y-3 rounded-2xl border border-[var(--color-action-border)]/20 p-4">
 					<div className="flex items-center justify-between gap-3">
 						<div>
 							<h2 className="text-sm font-semibold text-[var(--text-primary)]">{t("qsPage.recommendedHeader")}</h2>
 							<p className="mt-1 text-xs text-[var(--text-muted)]">{t("qsPage.recommendedSubheader")}</p>
 						</div>
-						<span className="rounded-full border border-cyan-400/20 px-2 py-1 text-[11px] text-[var(--text-secondary)]">{t("qsPage.mvpPriority")}</span>
+						<span className="rounded-full border border-[var(--color-action-border)]/20 px-2 py-1 text-[11px] text-[var(--text-secondary)]">{t("qsPage.mvpPriority")}</span>
 					</div>
 					<div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
 						{recommendedItems.map((item) => (
@@ -472,16 +472,16 @@ export function QuickServicesClient({ canManage }: { canManage: boolean }) {
 
 			{/* Tab bar */}
 			<div data-card className="flex flex-wrap gap-1  p-1 w-fit">
-				<button onClick={() => setTab("store")} className={`px-4 py-2 rounded-lg text-sm font-medium transition ${tab === "store" ? "bg-cyan-500/20 text-cyan-300 light:bg-cyan-100" : "text-[var(--text-muted)] hover:text-[var(--text-primary)] light:hover:bg-slate-100 light:hover:text-slate-900"}`}>
+				<button onClick={() => setTab("store")} className={`px-4 py-2 rounded-lg text-sm font-medium transition ${tab === "store" ? "bg-[var(--color-action)]/20 text-[var(--color-action)] light:bg-[var(--color-action-bg)]" : "text-[var(--text-muted)] hover:text-[var(--text-primary)] light:hover:bg-slate-100 light:hover:text-[var(--text-primary)]"}`}>
 					{t("qsPage.tabStore").replace("{count}", String(localAvailable.length))}
 				</button>
-				<button onClick={() => setTab("community")} className={`px-4 py-2 rounded-lg text-sm font-medium transition ${tab === "community" ? "bg-violet-500/20 text-violet-300 light:bg-violet-100" : "text-[var(--text-muted)] hover:text-[var(--text-primary)] light:hover:bg-slate-100 light:hover:text-slate-900"}`}>
+				<button onClick={() => setTab("community")} className={`px-4 py-2 rounded-lg text-sm font-medium transition ${tab === "community" ? "bg-violet-500/20 text-violet-300 light:bg-violet-100" : "text-[var(--text-muted)] hover:text-[var(--text-primary)] light:hover:bg-slate-100 light:hover:text-[var(--text-primary)]"}`}>
 					{t("qsPage.tabCommunity").replace("{count}", String(remoteAvailable.length))}
 				</button>
-				<button onClick={() => setTab("installed")} className={`px-4 py-2 rounded-lg text-sm font-medium transition ${tab === "installed" ? "bg-cyan-500/20 text-cyan-300 light:bg-cyan-100" : "text-[var(--text-muted)] hover:text-[var(--text-primary)] light:hover:bg-slate-100 light:hover:text-slate-900"}`}>
+				<button onClick={() => setTab("installed")} className={`px-4 py-2 rounded-lg text-sm font-medium transition ${tab === "installed" ? "bg-[var(--color-action)]/20 text-[var(--color-action)] light:bg-[var(--color-action-bg)]" : "text-[var(--text-muted)] hover:text-[var(--text-primary)] light:hover:bg-slate-100 light:hover:text-[var(--text-primary)]"}`}>
 					{t("qsPage.tabInstalled").replace("{count}", String(installed.length))}
 				</button>
-				<button onClick={() => setTab("sources")} className={`px-4 py-2 rounded-lg text-sm font-medium transition ${tab === "sources" ? "bg-amber-500/20 text-amber-300 light:bg-amber-100" : "text-[var(--text-muted)] hover:text-[var(--text-primary)] light:hover:bg-slate-100 light:hover:text-slate-900"}`}>
+				<button onClick={() => setTab("sources")} className={`px-4 py-2 rounded-lg text-sm font-medium transition ${tab === "sources" ? "bg-amber-500/20 text-amber-300 light:bg-amber-100" : "text-[var(--text-muted)] hover:text-[var(--text-primary)] light:hover:bg-slate-100 light:hover:text-[var(--text-primary)]"}`}>
 					{t("qsPage.tabSources").replace("{count}", String(sources.length))}
 				</button>
 			</div>
@@ -586,7 +586,7 @@ function SummaryPill({ label, value, tone }: { label: string; value: number; ton
 		emerald: "border-emerald-400/20 bg-emerald-500/[0.10] text-emerald-200",
 		amber: "border-amber-400/20 bg-amber-500/[0.10] text-amber-200",
 		rose: "border-rose-400/20 bg-rose-500/[0.10] text-rose-200",
-		cyan: "border-cyan-400/20 bg-cyan-500/[0.10] text-[var(--text-secondary)]",
+		cyan: "border-[var(--color-action-border)]/20 bg-[var(--color-action)]/[0.10] text-[var(--text-secondary)]",
 	}[tone];
 
 	return (

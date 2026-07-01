@@ -164,7 +164,7 @@ export function FileBatchToolbar({
                 onChange={(e) => setMoveTargetDir(e.currentTarget.value)}
                 placeholder={currentPath || "目标路径"}
                 aria-label="批量移动目标路径"
-                className="w-40 rounded-2xl border border-[var(--border)] bg-[var(--input-bg)] px-3 py-1.5 text-sm text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus:border-cyan-400/50 focus:outline-none"
+                className="w-40 rounded-2xl border border-[var(--border)] bg-[var(--input-bg)] px-3 py-1.5 text-sm text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus:border-[var(--color-action-border)]/50 focus:outline-none"
               />
               {moveProgress.total > 0 ? (
                 <span className="text-sm text-[var(--text-secondary)]">
@@ -215,7 +215,7 @@ export function FileBatchToolbar({
                   type="button"
                   onClick={onCompressSelected}
                   data-tone="cyan"
-                  className="rounded-full border border-cyan-400/30 px-4 py-2 text-sm font-medium text-[var(--text-primary)] transition hover:bg-cyan-400/20"
+                  className="rounded-full border border-[var(--color-action-border)]/30 px-4 py-2 text-sm font-medium text-[var(--text-primary)] transition hover:bg-[var(--color-action-bg)]/20"
                 >
                   批量压缩
                 </button>

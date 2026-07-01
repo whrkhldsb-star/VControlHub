@@ -92,7 +92,7 @@ export function ChangePasswordForm() {
 							const safeNext = nextPath && nextPath.startsWith("/") && !nextPath.startsWith("//") ? nextPath : "/";
 							router.push(safeNext);
 						}}
-						className="rounded-2xl border border-cyan-400/40 px-4 py-2 text-sm text-[var(--text-primary)] transition hover:bg-cyan-500/10 focus:outline-none focus:ring-2 focus:ring-cyan-400"
+						className="rounded-2xl border border-[var(--color-action-border)]/40 px-4 py-2 text-sm text-[var(--text-primary)] transition hover:bg-[var(--color-action)]/10 focus:outline-none focus:ring-2 focus:ring-[var(--color-action-ring)]"
 					>
 						{t("accountPasswordPage.redirectNow")}
 					</button>
@@ -118,7 +118,7 @@ function PasswordField({ label, name, autoComplete, placeholder }: PasswordField
   return (
     <div className="grid gap-2 text-sm text-[var(--text-secondary)]">
       <label htmlFor={inputId}>{label}</label>
-      <div className="flex overflow-hidden rounded-2xl border border-[var(--border)] bg-[var(--input-bg)] focus-within:border-cyan-400/60">
+      <div className="flex overflow-hidden rounded-2xl border border-[var(--border)] bg-[var(--input-bg)] focus-within:border-[var(--color-action-border)]/60">
         <input
           id={inputId}
           name={name}
@@ -133,7 +133,7 @@ function PasswordField({ label, name, autoComplete, placeholder }: PasswordField
           aria-label={`${visible ? t("accountPasswordPage.toggle.hide") : t("accountPasswordPage.toggle.show")}${label}`}
           aria-pressed={visible}
           onClick={() => setVisible((current) => !current)}
-          className="border-l border-[var(--border)] px-4 text-xs font-medium text-[var(--text-secondary)] transition hover:bg-[var(--surface)]/10 hover:text-[var(--text-primary)] light:hover:text-cyan-900 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-cyan-400"
+          className="border-l border-[var(--border)] px-4 text-xs font-medium text-[var(--text-secondary)] transition hover:bg-[var(--surface)]/10 hover:text-[var(--text-primary)] light:hover:text-[var(--color-action-strong)] focus:outline-none focus:ring-2 focus:ring-inset focus:ring-[var(--color-action-ring)]"
         >
           {visible ? t("accountPasswordPage.toggle.hide") : t("accountPasswordPage.toggle.show")}
         </button>

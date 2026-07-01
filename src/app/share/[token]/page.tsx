@@ -40,7 +40,7 @@ export default async function SharePage({
     <main className="flex min-h-screen items-center justify-center bg-[var(--input-bg)] px-4 py-16 text-[var(--text-primary)]">
       <div className="w-full max-w-3xl rounded-2xl border border-[var(--border)] bg-[var(--surface)]/[0.04] p-8 shadow-2xl">
         <div className="mb-6 text-center">
-          <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-cyan-500/10 text-2xl">
+          <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-[var(--color-action)]/10 text-2xl">
             {errorMessage ? "🔒" : share?.entryType === "DIRECTORY" ? "📁" : "📦"}
           </div>
           <h1 className="text-lg font-semibold text-[var(--text-primary)]">
@@ -101,7 +101,7 @@ export default async function SharePage({
             {!share.hasPassword && share.entryType !== "DIRECTORY" && (
               <a
                 href={`/api/share/${encodeURIComponent(token)}`}
-                className="block rounded-lg bg-cyan-600 px-4 py-3 text-center text-sm font-medium text-[var(--text-primary)] transition hover:bg-cyan-500"
+                className="block rounded-lg bg-[var(--color-action-strong)] px-4 py-3 text-center text-sm font-medium text-[var(--text-primary)] transition hover:bg-[var(--color-action)]"
               >
                 {t("sharePage.downloadFile", locale)}
               </a>
@@ -117,7 +117,7 @@ export default async function SharePage({
                   {!share.hasPassword && (
                     <a
                       href={`/api/share/${encodeURIComponent(token)}?archive=1`}
-                      className="shrink-0 rounded-lg border border-cyan-400/40 px-3 py-1.5 text-center text-xs font-medium text-[var(--text-primary)] transition hover:bg-cyan-500/10"
+                      className="shrink-0 rounded-lg border border-[var(--color-action-border)]/40 px-3 py-1.5 text-center text-xs font-medium text-[var(--text-primary)] transition hover:bg-[var(--color-action)]/10"
                     >
                       {t("sharePage.downloadDirectory", locale)}
                     </a>
@@ -138,7 +138,7 @@ export default async function SharePage({
                         {!share.hasPassword && (
                           <a
                             href={`/api/share/${encodeURIComponent(token)}?path=${encodeURIComponent(file.relativePath)}`}
-                            className="shrink-0 rounded-lg bg-cyan-600 px-3 py-1.5 text-xs font-medium text-[var(--text-primary)] transition hover:bg-cyan-500"
+                            className="shrink-0 rounded-lg bg-[var(--color-action-strong)] px-3 py-1.5 text-xs font-medium text-[var(--text-primary)] transition hover:bg-[var(--color-action)]"
                           >
                             {t("sharePage.download", locale)}
                           </a>

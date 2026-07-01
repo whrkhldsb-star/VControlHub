@@ -38,13 +38,13 @@ function formatBytes(bytes: number): string {
 function usageColor(pct: number): string {
 	if (pct >= 90) return "bg-rose-400";
 	if (pct >= 70) return "bg-amber-400";
-	return "bg-cyan-400";
+	return "bg-[var(--color-action-bg)]";
 }
 
 function usageTextColor(pct: number): string {
 	if (pct >= 90) return "text-rose-300";
 	if (pct >= 70) return "text-amber-300";
-	return "text-cyan-300";
+	return "text-[var(--color-action)]";
 }
 
 /* ── Sub-components ───────────────────────────────────────── */

@@ -196,7 +196,7 @@ export default function MonitoringPage({ canManage: _canManage }: { canManage: b
           type="button"
           onClick={fetchStats}
           disabled={refreshing}
-          className="rounded-lg bg-cyan-500/10 px-3 py-1.5 text-xs font-medium text-cyan-400 transition hover:bg-cyan-500/20 disabled:cursor-not-allowed disabled:opacity-60"
+          className="rounded-lg bg-[var(--color-action)]/10 px-3 py-1.5 text-xs font-medium text-[var(--color-action)] transition hover:bg-[var(--color-action)]/20 disabled:cursor-not-allowed disabled:opacity-60"
         >
           {refreshing ? t("monitoringPage.refreshing") : t("monitoringPage.refresh")}
         </button>
@@ -204,7 +204,7 @@ export default function MonitoringPage({ canManage: _canManage }: { canManage: b
           type="button"
           onClick={() => setAutoRefresh(!autoRefresh)}
           disabled={refreshIntervalSeconds <= 0}
-          className={`rounded-lg px-3 py-1.5 text-xs font-medium transition disabled:cursor-not-allowed disabled:opacity-50 ${autoRefresh ?"bg-emerald-500/10 text-emerald-400" :"bg-slate-700/50 light:bg-slate-200/50 text-[var(--text-muted)]"}`}
+          className={`rounded-lg px-3 py-1.5 text-xs font-medium transition disabled:cursor-not-allowed disabled:opacity-50 ${autoRefresh ?"bg-emerald-500/10 text-emerald-400" :"bg-[var(--surface-hover)]/50 light:bg-slate-200/50 text-[var(--text-muted)]"}`}
         >
           {autoRefreshLabel}
         </button>
@@ -241,7 +241,7 @@ export default function MonitoringPage({ canManage: _canManage }: { canManage: b
             </div>
             <div className="h-1.5 overflow-hidden rounded-full bg-[var(--surface-hover)]">
               <div
-                className="h-full rounded-full bg-cyan-500 transition-[width]"
+                className="h-full rounded-full bg-[var(--color-action)] transition-[width]"
                 style={{ width: `${stats.memory.usagePercent}%` }}
               />
             </div>
@@ -282,7 +282,7 @@ export default function MonitoringPage({ canManage: _canManage }: { canManage: b
                 <tr key={p.pid} className="border-b border-[var(--border)]">
                   <td className="py-1.5 font-mono text-[var(--text-muted)]">{p.pid}</td>
                   <td className="py-1.5 text-right text-amber-400">{p.cpu}</td>
-                  <td className="py-1.5 text-right text-cyan-400">{p.mem}</td>
+                  <td className="py-1.5 text-right text-[var(--color-action)]">{p.mem}</td>
                   <td className="max-w-[200px] truncate py-1.5 pl-4 text-[var(--text-primary)]">{p.cmd}</td>
                 </tr>
               ))}

@@ -42,7 +42,7 @@ export function AiSidebar({
             <h2 className="text-sm font-semibold text-[var(--text-primary)]">{t("aiPage.sidebarTitle")}</h2>
             <button
               onClick={onNewConv}
-              className="h-7 px-2.5 rounded-lg bg-cyan-500/20 text-cyan-300 text-xs font-medium hover:bg-cyan-500/30 transition"
+              className="h-7 px-2.5 rounded-lg bg-[var(--color-action)]/20 text-[var(--color-action)] text-xs font-medium hover:bg-[var(--color-action)]/30 transition"
             >
               {t("aiPage.newConversation")}
             </button>
@@ -58,7 +58,7 @@ export function AiSidebar({
                 key={conv.id}
                 className={`group flex items-center gap-2 rounded-lg px-3 py-2 cursor-pointer transition ${
  activeConvId === conv.id
- ?"bg-cyan-400/[0.10] text-[var(--text-primary)]"
+ ?"bg-[var(--color-action-bg)]/[0.10] text-[var(--text-primary)]"
  :"text-[var(--text-secondary)] hover:bg-[var(--surface)]/[0.04] hover:text-[var(--text-secondary)] light:hover:text-slate-800"
  }`}
                 onClick={() => onSelectConv(conv.id)}

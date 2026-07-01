@@ -104,7 +104,7 @@ export default async function FilePreviewPage({ searchParams }: PreviewPageProps
 					<div className="flex items-center gap-3">
 						<a
 							href="/files"
-							className="rounded-full border border-[var(--border)] px-4 py-2 text-sm text-[var(--text-secondary)] hover:border-cyan-400/50 hover:bg-[var(--surface)]/10"
+							className="rounded-full border border-[var(--border)] px-4 py-2 text-sm text-[var(--text-secondary)] hover:border-[var(--color-action-border)]/50 hover:bg-[var(--surface)]/10"
 						>
 							← 返回文件
 						</a>

@@ -134,12 +134,12 @@ export default async function MediaPlayerPage({
           <div className="flex min-w-0 flex-wrap items-center gap-3">
             <Link
               href={returnHref}
-              className="rounded-full border border-[var(--border)] px-4 py-2 text-sm text-[var(--text-secondary)] hover:border-cyan-400/50 hover:bg-[var(--surface)]/10 light:hover:bg-[var(--surface)]"
+              className="rounded-full border border-[var(--border)] px-4 py-2 text-sm text-[var(--text-secondary)] hover:border-[var(--color-action-border)]/50 hover:bg-[var(--surface)]/10 light:hover:bg-[var(--surface)]"
             >
               ← {t("mediaPage.player.backToLibrary", locale)}
             </Link>
             <div className="min-w-0">
-              <p className="text-xs font-semibold uppercase tracking-[0.3em] text-cyan-300">
+              <p className="text-xs font-semibold uppercase tracking-[0.3em] text-[var(--color-action)]">
                 {t("mediaPage.player.eyebrow", locale)}
               </p>
               <h1 className="truncate text-xl font-semibold text-[var(--text-primary)]">

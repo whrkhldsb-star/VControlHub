@@ -58,7 +58,7 @@ export default async function QaReportDetailPage({ params }: Params) {
 					title={t("qaReportsPage.detail.notFound")}
 					description={t("qaReportsPage.detail.notFoundDesc").replace("{id}", id)}
 				>
-					<Link href="/qa-reports" className="text-xs text-cyan-300 hover:text-[var(--text-secondary)]">
+					<Link href="/qa-reports" className="text-xs text-[var(--color-action)] hover:text-[var(--text-secondary)]">
 						{t("qaReportsPage.detail.backToList")}
 					</Link>
 				</PageHeader>
@@ -75,7 +75,7 @@ export default async function QaReportDetailPage({ params }: Params) {
 					.replace("{sourceId}", detail.sourceId)
 					.replace("{status}", detail.status)}
 			>
-				<Link href="/qa-reports" className="text-xs text-cyan-300 hover:text-[var(--text-secondary)]">
+				<Link href="/qa-reports" className="text-xs text-[var(--color-action)] hover:text-[var(--text-secondary)]">
 					{t("qaReportsPage.detail.backToList")}
 				</Link>
 			</PageHeader>
@@ -112,7 +112,7 @@ export default async function QaReportDetailPage({ params }: Params) {
 						<ul className="divide-y divide-[var(--border)]">
 							{detail.evidence.map((row, index) => (
 								<li key={`${detail.id}-evidence-${index}`} className="px-5 py-4">
-									<div className="text-[11px] font-semibold uppercase tracking-[0.2em] text-cyan-300">
+									<div className="text-[11px] font-semibold uppercase tracking-[0.2em] text-[var(--color-action)]">
 										{row.command || t("qaReportsPage.detail.noCommand")}
 									</div>
 									<pre className="mt-2 whitespace-pre-wrap break-words text-xs text-[var(--text-secondary)] font-mono">

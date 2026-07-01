@@ -21,7 +21,7 @@ interface TicketDetailClientProps {
 }
 
 const STATUS_TONE: Record<string, string> = {
-  OPEN: "border-cyan-400/30 bg-cyan-400/10 text-[var(--text-primary)]",
+  OPEN: "border-[var(--color-action-border)]/30 bg-[var(--color-action-bg)]/10 text-[var(--text-primary)]",
   IN_PROGRESS: "border-amber-400/30 bg-amber-400/10 text-amber-100",
   RESOLVED: "border-emerald-400/30 bg-emerald-400/10 text-emerald-100",
   CLOSED: "border-slate-400/30 bg-slate-400/10 text-[var(--text-secondary)]",
@@ -189,7 +189,7 @@ export function TicketDetailClient({ initial, canManage, locale: _locale }: Tick
             rows={3}
             className="w-full rounded-lg border border-[var(--border)] bg-[var(--surface)]/[0.04] px-4 py-3 text-sm text-[var(--text-primary)] outline-none placeholder:text-[var(--text-muted)] resize-none" />
           <button onClick={addComment} disabled={saving || !comment.trim()}
-            className="mt-2 rounded-lg bg-cyan-600 px-4 py-2 text-sm font-medium text-[var(--text-primary)] transition hover:bg-cyan-500 disabled:opacity-40">
+            className="mt-2 rounded-lg bg-[var(--color-action-strong)] px-4 py-2 text-sm font-medium text-[var(--text-primary)] transition hover:bg-[var(--color-action)] disabled:opacity-40">
             {saving ? t("ticketsDetail.commentSubmitting") : t("ticketsDetail.commentSubmit")}
           </button>
         </div>

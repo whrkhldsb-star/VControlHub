@@ -134,10 +134,10 @@ export function CsvPreviewClient({ href }: { href: string }) {
 			<div className="overflow-auto rounded-2xl border border-[var(--border)]">
 				<table className="w-full text-sm">
 					<thead>
-						<tr className="bg-[var(--surface)] light:bg-slate-100/80">
+						<tr className="bg-[var(--surface)] light:bg-[var(--surface)]/80">
 							<th className="px-3 py-2 text-left text-xs font-medium text-[var(--text-secondary)] border-b border-slate-700 w-12">#</th>
 							{header.map((col, i) => (
-								<th key={i} className="px-3 py-2 text-left text-xs font-medium text-cyan-300 border-b border-slate-700 whitespace-nowrap">{col || t("csvPreview.colIndex").replace("{index}", String(i + 1))}</th>
+								<th key={i} className="px-3 py-2 text-left text-xs font-medium text-[var(--color-action)] border-b border-slate-700 whitespace-nowrap">{col || t("csvPreview.colIndex").replace("{index}", String(i + 1))}</th>
 							))}
 						</tr>
 					</thead>

@@ -157,7 +157,7 @@ export function SnippetEditModal({
           <button
             onClick={handleSave}
             disabled={saving || !title.trim() || !content.trim()}
-            className="min-h-11 rounded-lg bg-cyan-600 px-4 py-2 text-sm font-medium text-[var(--text-primary)] transition hover:bg-cyan-500 disabled:opacity-40"
+            className="min-h-11 rounded-lg bg-[var(--color-action-strong)] px-4 py-2 text-sm font-medium text-[var(--text-primary)] transition hover:bg-[var(--color-action)] disabled:opacity-40"
           >
             {saving ? t("snippetsPage.modal.action.saving") : t("snippetsPage.modal.action.save")}
           </button>

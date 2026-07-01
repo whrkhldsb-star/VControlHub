@@ -18,7 +18,7 @@ async function getAllUptimeData() {
 }
 
 function getColorClass(uptime: number) {
-  if (uptime === 0) return "bg-slate-700";
+  if (uptime === 0) return "bg-[var(--surface-hover)]";
   if (uptime >= 99) return "bg-emerald-500";
   if (uptime >= 95) return "bg-emerald-400";
   if (uptime >= 90) return "bg-amber-400";

@@ -126,7 +126,7 @@ export function DockerResourcesPanel() {
                   <p className="mt-1 truncate text-xs text-[var(--text-muted)]">{resourceMeta(item)}</p>
                 </div>
                 <div className="flex items-center gap-2">
-                  <button type="button" aria-label={`Inspect ${type === "networks" ? "Network" : "Volume"} ${itemName}`} onClick={() => inspectResource(type, itemName)} disabled={busyKey === `inspect:${key}`} className="min-h-10 rounded-lg bg-cyan-500/10 px-3 py-1 text-xs text-cyan-300 transition hover:bg-cyan-500/20 disabled:opacity-50">Inspect</button>
+                  <button type="button" aria-label={`Inspect ${type === "networks" ? "Network" : "Volume"} ${itemName}`} onClick={() => inspectResource(type, itemName)} disabled={busyKey === `inspect:${key}`} className="min-h-10 rounded-lg bg-[var(--color-action)]/10 px-3 py-1 text-xs text-[var(--color-action)] transition hover:bg-[var(--color-action)]/20 disabled:opacity-50">Inspect</button>
                   <button type="button" aria-label={`删除 ${type === "networks" ? "Network" : "Volume"} ${itemName}`} onClick={() => deleteResource(type, itemName)} disabled={busyKey === `delete:${key}`} className="min-h-10 rounded-lg bg-rose-500/10 px-3 py-1 text-xs text-rose-300 transition hover:bg-rose-500/20 disabled:opacity-50">删除</button>
                 </div>
               </div>
@@ -144,7 +144,7 @@ export function DockerResourcesPanel() {
           <h2 className="text-sm font-semibold text-[var(--text-primary)]">Docker Network / Volume</h2>
           <p className="mt-1 text-xs text-[var(--text-muted)]">管理本机 Docker socket 上的网络与数据卷。</p>
         </div>
-        <button type="button" onClick={() => void fetchResources()} disabled={loading} className="min-h-11 rounded-lg bg-slate-700/50 px-3 py-1.5 text-xs text-[var(--text-secondary)] transition hover:bg-[var(--surface-hover)] disabled:opacity-50">{loading ? "刷新中..." : "刷新资源"}</button>
+        <button type="button" onClick={() => void fetchResources()} disabled={loading} className="min-h-11 rounded-lg bg-[var(--surface-hover)]/50 px-3 py-1.5 text-xs text-[var(--text-secondary)] transition hover:bg-[var(--surface-hover)] disabled:opacity-50">{loading ? "刷新中..." : "刷新资源"}</button>
       </div>
       {error ? <div className="mb-4 rounded-lg bg-rose-500/10 px-3 py-2 text-sm text-rose-300">{error}</div> : null}
       <div className="mb-4 flex flex-wrap items-end gap-2">

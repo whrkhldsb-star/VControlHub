@@ -127,7 +127,7 @@ export function ServiceCard({
 			{/* Actions */}
 			<div className="flex items-center gap-2 mt-auto pt-1">
 				{tab !== "installed" && item.status === "available" && (
-					<button onClick={onInstall} disabled={busy} className={`rounded-lg px-3.5 py-1.5 text-xs font-semibold text-slate-950 transition disabled:opacity-50 ${isRemote ? "bg-violet-500 hover:bg-violet-400" : "bg-cyan-500 hover:bg-cyan-400"}`}>
+					<button onClick={onInstall} disabled={busy} className={`rounded-lg px-3.5 py-1.5 text-xs font-semibold text-slate-950 transition disabled:opacity-50 ${isRemote ? "bg-violet-500 hover:bg-violet-400" : "bg-[var(--color-action)] hover:bg-[var(--color-action-bg)]"}`}>
 						{busy ? t("qsPage.installingLabel") : t("qsPage.installNow")}
 					</button>
 				)}
@@ -157,7 +157,7 @@ export function ServiceCard({
 							</button>
 						)}
 						{(item.status === "running" || item.status === "stopped" || item.status === "error") && (
-							<button onClick={onUpdate} disabled={busy} className="rounded-lg border border-cyan-400/25 px-3 py-1.5 text-xs text-[var(--text-secondary)] hover:bg-cyan-500/[0.10] transition disabled:opacity-50">
+							<button onClick={onUpdate} disabled={busy} className="rounded-lg border border-[var(--color-action-border)]/25 px-3 py-1.5 text-xs text-[var(--text-secondary)] hover:bg-[var(--color-action)]/[0.10] transition disabled:opacity-50">
 								{busy ? t("qsPage.busy") : t("qsPage.update")}
 							</button>
 						)}

@@ -233,7 +233,7 @@ export function MediaItemCard({ item, canManage }: { item: MediaItem; canManage:
 		: null;
 
 	return (
-		<div className="group overflow-hidden rounded-2xl border border-[var(--border)]/[0.07] bg-[var(--surface)]/[0.04] p-3 transition hover:-translate-y-0.5 hover:border-cyan-300/25 hover:bg-[var(--surface)]/[0.045] light:shadow-sm light:hover:border-cyan-200 light:hover:shadow-md">
+		<div className="group overflow-hidden rounded-2xl border border-[var(--border)]/[0.07] bg-[var(--surface)]/[0.04] p-3 transition hover:-translate-y-0.5 hover:border-[var(--color-action-border)]/25 hover:bg-[var(--surface)]/[0.045] light:shadow-sm light:hover:border-[var(--color-action-border)] light:hover:shadow-md">
 			<MediaCover item={item} sourceHref={previewHref} t={t} />
 
 			<div className="mt-3 flex items-start justify-between gap-2">
@@ -262,7 +262,7 @@ export function MediaItemCard({ item, canManage }: { item: MediaItem; canManage:
 
 			<div className="mt-3 flex flex-wrap gap-2 text-xs">
 				{previewHref ? (
-					<a href={previewHref} data-tone="cyan" className="inline-flex items-center gap-1 rounded-lg border border-cyan-400/25 px-2.5 py-1.5 text-[var(--text-secondary)] hover:bg-cyan-400/20">
+					<a href={previewHref} data-tone="cyan" className="inline-flex items-center gap-1 rounded-lg border border-[var(--color-action-border)]/25 px-2.5 py-1.5 text-[var(--text-secondary)] hover:bg-[var(--color-action-bg)]/20">
 						<Eye size={13} /> {t("mediaItemCard.previewButton")}
 					</a>
 				) : null}
@@ -325,7 +325,7 @@ export function MediaItemCard({ item, canManage }: { item: MediaItem; canManage:
 						<button
 							type="button"
 							onClick={() => setShowTagInput(true)}
-							className="inline-flex items-center gap-0.5 rounded-full border border-dashed border-[var(--border)] px-2 py-0.5 text-[10px] text-[var(--text-muted)] opacity-0 transition group-hover:opacity-100 hover:border-cyan-400/30 hover:text-cyan-400"
+							className="inline-flex items-center gap-0.5 rounded-full border border-dashed border-[var(--border)] px-2 py-0.5 text-[10px] text-[var(--text-muted)] opacity-0 transition group-hover:opacity-100 hover:border-[var(--color-action-border)]/30 hover:text-[var(--color-action)]"
 						>
 							<Tag size={10} /> {t("mediaItemCard.addTag")}
 						</button>

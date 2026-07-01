@@ -109,7 +109,7 @@ export function NotificationListClient({ initialNotifications, initialUnreadCoun
 			)}
 			{unreadCount > 0 && (
 				<div className="flex justify-end">
-					<button onClick={markAllRead} className="rounded-lg px-1.5 py-1 text-xs text-cyan-400/80 transition hover:text-cyan-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-300 light:hover:text-cyan-800 light:focus-visible:ring-cyan-600">
+					<button onClick={markAllRead} className="rounded-lg px-1.5 py-1 text-xs text-[var(--color-action)]/80 transition hover:text-[var(--color-action)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-action-ring)] light:hover:text-[var(--color-action-strong)] light:focus-visible:ring-[var(--color-action-ring)]">
 						{t("notificationsPage.action.markAll")}
 					</button>
 				</div>
@@ -117,10 +117,10 @@ export function NotificationListClient({ initialNotifications, initialUnreadCoun
 			{notifications.map((n) => (
 				<article
 					key={n.id}
-					className={`group rounded-xl border p-4 transition-colors duration-150 focus-within:ring-2 focus-within:ring-cyan-300/60 light:focus-within:ring-cyan-600/50 ${
+					className={`group rounded-xl border p-4 transition-colors duration-150 focus-within:ring-2 focus-within:ring-[var(--color-action-ring)] light:focus-within:ring-[var(--color-action-ring)] ${
 						n.isRead
 							? "border-[var(--border)] bg-[var(--surface)]/[0.04] hover:bg-[var(--surface)]/[0.04] light:hover:bg-slate-50"
-							: "border-cyan-400/20 bg-cyan-400/[0.04] hover:bg-cyan-400/[0.10] light:border-cyan-600/30 light:bg-cyan-50 light:hover:bg-cyan-100/70"
+							: "border-[var(--color-action-border)]/20 bg-[var(--color-action-bg)]/[0.04] hover:bg-[var(--color-action-bg)]/[0.10] light:border-[var(--color-action-border)]/30 light:bg-[var(--color-action-bg)] light:hover:bg-[var(--color-action-bg)]/70"
 					}`}
 				>
 					<div className="flex items-start gap-3">
@@ -128,18 +128,18 @@ export function NotificationListClient({ initialNotifications, initialUnreadCoun
 						<div className="flex-1 min-w-0">
 							<div className="flex items-center gap-2 min-w-0">
 								<h3 className={`text-sm font-medium truncate ${n.isRead ? "text-[var(--text-muted)]" : "text-[var(--text-primary)]"}`} title={n.title}>{n.title}</h3>
-								{!n.isRead && <div className="h-1.5 w-1.5 rounded-full bg-cyan-400 shrink-0 light:bg-cyan-600" aria-label={t("notificationsPage.unreadBadge")} />}
+								{!n.isRead && <div className="h-1.5 w-1.5 rounded-full bg-[var(--color-action-bg)] shrink-0 light:bg-[var(--color-action-strong)]" aria-label={t("notificationsPage.unreadBadge")} />}
 							</div>
 							<p className="mt-1 text-xs text-[var(--text-muted)] leading-relaxed">{n.message}</p>
 							<div className="mt-2 flex flex-wrap items-center gap-3 text-[11px]">
 								<span className="text-[var(--text-muted)]">{timeAgo(n.createdAt, t)}</span>
 								{n.actionUrl && (
-									<Link href={getSafeNotificationActionUrl(n.actionUrl)} className="rounded-lg px-1 py-0.5 text-cyan-400/70 transition hover:text-cyan-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-300 light:hover:text-cyan-800 light:focus-visible:ring-cyan-600">
+									<Link href={getSafeNotificationActionUrl(n.actionUrl)} className="rounded-lg px-1 py-0.5 text-[var(--color-action)]/70 transition hover:text-[var(--color-action)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-action-ring)] light:hover:text-[var(--color-action-strong)] light:focus-visible:ring-[var(--color-action-ring)]">
 										{t("notificationsPage.action.view")}
 									</Link>
 								)}
 								{!n.isRead && (
-									<button onClick={() => markOneRead(n.id)} className="rounded-lg px-1 py-0.5 text-[var(--text-muted)] transition hover:text-[var(--text-secondary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-300 light:hover:text-slate-900 light:focus-visible:ring-cyan-600">
+									<button onClick={() => markOneRead(n.id)} className="rounded-lg px-1 py-0.5 text-[var(--text-muted)] transition hover:text-[var(--text-secondary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-action-ring)] light:hover:text-[var(--text-primary)] light:focus-visible:ring-[var(--color-action-ring)]">
 										{t("notificationsPage.action.markOne")}
 									</button>
 								)}

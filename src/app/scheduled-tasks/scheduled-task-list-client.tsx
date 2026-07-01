@@ -49,7 +49,7 @@ function matchesTask(task: Task, query: string) {
 }
 
 const fieldLabelClass = "text-xs font-medium text-[var(--text-secondary)] tracking-wide";
-const fieldInputClass = "w-full rounded-lg border border-[var(--border)]/[0.10] bg-[var(--surface)]/[0.04] px-3.5 py-2.5 text-sm text-[var(--text-primary)] outline-none transition placeholder:text-[var(--text-primary)]/30 focus:border-cyan-400/30";
+const fieldInputClass = "w-full rounded-lg border border-[var(--border)]/[0.10] bg-[var(--surface)]/[0.04] px-3.5 py-2.5 text-sm text-[var(--text-primary)] outline-none transition placeholder:text-[var(--text-primary)]/30 focus:border-[var(--color-action-border)]/30";
 const monoFieldInputClass = `${fieldInputClass} font-mono`;
 
 function describeCronPreview(expr: string, t: (key: string) => string) {
@@ -133,7 +133,7 @@ export function ScheduledTaskListClient({ tasks: initialTasks, servers, canCreat
 						value={searchQuery}
 						onChange={(e) => setSearchQuery(e.target.value)}
 						placeholder={t("scheduledTasks.searchPlaceholder")}
-						data-card className="w-full min-w-[18rem]  px-3.5 py-2 text-sm text-[var(--text-primary)] outline-none placeholder:text-[var(--text-primary)]/30 focus:border-cyan-400/40"
+						data-card className="w-full min-w-[18rem]  px-3.5 py-2 text-sm text-[var(--text-primary)] outline-none placeholder:text-[var(--text-primary)]/30 focus:border-[var(--color-action-border)]/40"
 					/>
 				</div>
 				{canCreate && !showCreate && (
@@ -308,7 +308,7 @@ function CreateTaskForm({ servers, onClose }: { servers: ServerOption[]; onClose
 			<div className="space-y-1.5">
 				<label htmlFor="scheduled-task-cron" className={fieldLabelClass}>Cron 表达式</label>
 				<input id="scheduled-task-cron" value={cronExpression} onChange={(e) => setCron(e.target.value)} required placeholder="0 3 * * *" className={monoFieldInputClass} />
-				<p data-tone="cyan" className="rounded-lg border border-cyan-400/10 px-3 py-2 text-xs text-[var(--text-primary)]">预览：{cronPreview}</p>
+				<p data-tone="cyan" className="rounded-lg border border-[var(--color-action-border)]/10 px-3 py-2 text-xs text-[var(--text-primary)]">预览：{cronPreview}</p>
 				<div className="flex flex-wrap gap-1.5">
 					{presetCrons.map((p) => (
 						<button key={p.expr} type="button" onClick={() => setCron(p.expr)}
@@ -340,9 +340,9 @@ function CreateTaskForm({ servers, onClose }: { servers: ServerOption[]; onClose
 					<div className="grid gap-1.5 sm:grid-cols-2" role="group" aria-labelledby="scheduled-task-target-nodes-label">
 						{enabledServers.map((s) => (
 							<label key={s.id} className={`min-h-11 flex items-center gap-2 rounded-lg border px-3 py-2 text-sm cursor-pointer transition ${
-								selectedServerIds.has(s.id) ? "border-cyan-400/20 bg-cyan-400/[0.10] text-[var(--text-primary)]" : "border-[var(--border)]/[0.10] bg-[var(--surface)]/[0.04] text-[var(--text-secondary)] hover:bg-[var(--surface)]/[0.10]"
+								selectedServerIds.has(s.id) ? "border-[var(--color-action-border)]/20 bg-[var(--color-action-bg)]/[0.10] text-[var(--text-primary)]" : "border-[var(--border)]/[0.10] bg-[var(--surface)]/[0.04] text-[var(--text-secondary)] hover:bg-[var(--surface)]/[0.10]"
 							}`}>
-								<input type="checkbox" checked={selectedServerIds.has(s.id)} onChange={() => toggleServer(s.id)} className="accent-cyan-400" />
+								<input type="checkbox" checked={selectedServerIds.has(s.id)} onChange={() => toggleServer(s.id)} className="accent-[var(--color-action)]" />
 								<span>{s.name}</span>
 							</label>
 						))}
@@ -351,7 +351,7 @@ function CreateTaskForm({ servers, onClose }: { servers: ServerOption[]; onClose
 			)}
 
 			<div className="flex gap-3 pt-2">
-				<button type="submit" disabled={submitting} className="min-h-11 rounded-2xl bg-cyan-500 px-5 py-2 text-sm font-medium text-slate-950 transition hover:bg-cyan-400 disabled:opacity-60">
+				<button type="submit" disabled={submitting} className="min-h-11 rounded-2xl bg-[var(--color-action)] px-5 py-2 text-sm font-medium text-slate-950 transition hover:bg-[var(--color-action-bg)] disabled:opacity-60">
 					{submitting ? t("scheduledTasks.submit.creating") : t("scheduledTasks.submit.create")}
 				</button>
 				<button type="button" onClick={onClose} className="min-h-11 rounded-2xl border border-[var(--border)] px-5 py-2 text-sm text-[var(--text-secondary)] hover:bg-[var(--surface)]/10 transition">

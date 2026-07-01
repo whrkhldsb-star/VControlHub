@@ -67,10 +67,10 @@ export default async function Page({ searchParams }: { searchParams?: Promise<Me
 
   return (
     <PageShell>
-      <header className="mb-6 overflow-hidden rounded-3xl border border-[var(--border)] bg-[radial-gradient(circle_at_top_left,rgba(34,211,238,0.18),transparent_36%),linear-gradient(135deg,rgba(15,23,42,0.95),rgba(2,6,23,0.88))] p-6 shadow-2xl shadow-cyan-950/20 light:bg-[radial-gradient(circle_at_top_left,rgba(14,165,233,0.16),transparent_34%),linear-gradient(135deg,#ffffff,#f8fafc)] light:shadow-slate-200/60">
+      <header className="mb-6 overflow-hidden rounded-3xl border border-[var(--border)] bg-[radial-gradient(circle_at_top_left,rgba(34,211,238,0.18),transparent_36%),linear-gradient(135deg,rgba(15,23,42,0.95),rgba(2,6,23,0.88))] p-6 shadow-2xl shadow-[var(--color-action)]/20 light:bg-[radial-gradient(circle_at_top_left,rgba(14,165,233,0.16),transparent_34%),linear-gradient(135deg,#ffffff,#f8fafc)] light:shadow-[var(--border)]/30">
         <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
           <div>
-            <p data-page-eyebrow className="text-xs font-semibold uppercase tracking-[0.3em] text-cyan-300">{t("mediaPage.eyebrow", locale)}</p>
+            <p data-page-eyebrow className="text-xs font-semibold uppercase tracking-[0.3em] text-[var(--color-action)]">{t("mediaPage.eyebrow", locale)}</p>
             <h1 className="mt-2 text-3xl font-semibold tracking-tight text-[var(--text-primary)]">{t("mediaPage.title", locale)}</h1>
             <p className="mt-2 max-w-2xl text-sm leading-6 text-[var(--text-secondary)]">{t("mediaPage.desc", locale)}</p>
           </div>
@@ -86,7 +86,7 @@ export default async function Page({ searchParams }: { searchParams?: Promise<Me
         <div className="rounded-2xl border border-[var(--border)]/[0.07] bg-[var(--surface)]/[0.04] p-4">
           <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
             <div>
-              <p className="text-xs font-semibold uppercase tracking-[0.22em] text-cyan-300/70">{t("mediaPage.workspace.label", locale)}</p>
+              <p className="text-xs font-semibold uppercase tracking-[0.22em] text-[var(--color-action)]/70">{t("mediaPage.workspace.label", locale)}</p>
               <h2 className="mt-1 text-xl font-semibold text-[var(--text-primary)]">{modeTitleText}</h2>
               <p className="mt-1 text-sm text-[var(--text-muted)]">{modeDescriptionText}</p>
             </div>
@@ -96,12 +96,12 @@ export default async function Page({ searchParams }: { searchParams?: Promise<Me
                   {t("mediaPage.linkHub.label", locale)}
                 </Link>
               ) : null}
-              <span data-tone="cyan" className="inline-flex items-center rounded-full border border-cyan-400/20 px-3 py-1.5 text-[var(--text-secondary)]">{t("mediaPage.viewCount", locale).replace("{count}", String(media.length))}</span>
+              <span data-tone="cyan" className="inline-flex items-center rounded-full border border-[var(--color-action-border)]/20 px-3 py-1.5 text-[var(--text-secondary)]">{t("mediaPage.viewCount", locale).replace("{count}", String(media.length))}</span>
             </div>
           </div>
 
           <div role="tablist" aria-label={t("mediaPage.aria.mediaType", locale)} className="mt-4 grid gap-2 text-sm sm:grid-cols-4">
-            <FilterLink href={mediaHref({ favorite, q, tag })} active={!mediaType} activeClassName="border-cyan-400/45 bg-cyan-400/20 text-[var(--text-primary)]" inactiveClassName="border-[var(--border)] bg-[var(--surface)]/[0.04] text-[var(--text-secondary)] hover:bg-[var(--surface)]/[0.10]" className="rounded-2xl border px-4 py-3 transition">
+            <FilterLink href={mediaHref({ favorite, q, tag })} active={!mediaType} activeClassName="border-[var(--color-action-border)]/45 bg-[var(--color-action-bg)]/20 text-[var(--text-primary)]" inactiveClassName="border-[var(--border)] bg-[var(--surface)]/[0.04] text-[var(--text-secondary)] hover:bg-[var(--surface)]/[0.10]" className="rounded-2xl border px-4 py-3 transition">
               <span className="block text-base">{t("mediaPage.filter.allTab", locale)}</span><span className="text-xs opacity-70">{t("mediaPage.filter.allCount", locale).replace("{count}", String(totalCount))}</span>
             </FilterLink>
             <FilterLink href={toggleTypeHref(filters, "image")} active={mediaType === "image"} activeClassName="border-blue-400/55 bg-blue-400/20 text-blue-100" inactiveClassName="border-blue-400/20 bg-blue-400/[0.10] text-blue-200 hover:bg-blue-400/10" className="rounded-2xl border px-4 py-3 transition" title={mediaType === "image" ? t("mediaPage.filter.titleToggleOffType", locale).replace("{type}", typeLabel(locale, "image")) : t("mediaPage.filter.titleOnlyType", locale).replace("{type}", typeLabel(locale, "image"))}>
@@ -119,9 +119,9 @@ export default async function Page({ searchParams }: { searchParams?: Promise<Me
         <aside className="rounded-2xl border border-[var(--border)]/[0.07] bg-[var(--surface)]/[0.04] p-4">
           <h2 className="text-sm font-semibold text-[var(--text-primary)]">{t("mediaPage.flow.title", locale)}</h2>
           <ol className="mt-3 space-y-3 text-sm text-[var(--text-muted)]">
-            <li className="flex gap-3"><span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-cyan-400/15 text-xs text-[var(--text-secondary)]">1</span><span>{t("mediaPage.flow.step1", locale)}</span></li>
-            <li className="flex gap-3"><span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-cyan-400/15 text-xs text-[var(--text-secondary)]">2</span><span>{t("mediaPage.flow.step2", locale)}</span></li>
-            <li className="flex gap-3"><span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-cyan-400/15 text-xs text-[var(--text-secondary)]">3</span><span>{t("mediaPage.flow.step3", locale)}</span></li>
+            <li className="flex gap-3"><span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-[var(--color-action-bg)]/15 text-xs text-[var(--text-secondary)]">1</span><span>{t("mediaPage.flow.step1", locale)}</span></li>
+            <li className="flex gap-3"><span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-[var(--color-action-bg)]/15 text-xs text-[var(--text-secondary)]">2</span><span>{t("mediaPage.flow.step2", locale)}</span></li>
+            <li className="flex gap-3"><span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-[var(--color-action-bg)]/15 text-xs text-[var(--text-secondary)]">3</span><span>{t("mediaPage.flow.step3", locale)}</span></li>
           </ol>
         </aside>
       </section>
@@ -140,10 +140,10 @@ export default async function Page({ searchParams }: { searchParams?: Promise<Me
             name="q"
             defaultValue={q ?? ""}
             placeholder={t("mediaPage.search.placeholder", locale)}
-            className="w-full rounded-xl border border-[var(--border)] bg-[var(--surface)]/[0.04] px-3 py-2 text-sm text-[var(--text-primary)] outline-none placeholder:text-[var(--text-muted)] focus:border-cyan-400/50"
+            className="w-full rounded-xl border border-[var(--border)] bg-[var(--surface)]/[0.04] px-3 py-2 text-sm text-[var(--text-primary)] outline-none placeholder:text-[var(--text-muted)] focus:border-[var(--color-action-border)]/50"
           />
         </div>
-        <button type="submit" className="rounded-xl bg-cyan-600 px-4 py-2 text-sm font-medium text-[var(--text-primary)] transition hover:bg-cyan-500">{t("mediaPage.search.submit", locale)}</button>
+        <button type="submit" className="rounded-xl bg-[var(--color-action-strong)] px-4 py-2 text-sm font-medium text-[var(--text-primary)] transition hover:bg-[var(--color-action)]">{t("mediaPage.search.submit", locale)}</button>
         {(q || tag || mediaType || favorite) && (
           <FilterLink href="/media" active={false} activeClassName="" inactiveClassName="rounded-xl border border-[var(--border)] px-3 py-2 text-sm text-[var(--text-muted)] transition hover:bg-[var(--surface)]/10">
             {t("mediaPage.search.clearFilters", locale)}
@@ -166,7 +166,7 @@ export default async function Page({ searchParams }: { searchParams?: Promise<Me
                 key={entry.tag}
                 href={toggleTagHref(filters, entry.tag)}
                 active={tag === entry.tag}
-                activeClassName="border-cyan-400/40 bg-cyan-400/20 text-[var(--text-primary)]"
+                activeClassName="border-[var(--color-action-border)]/40 bg-[var(--color-action-bg)]/20 text-[var(--text-primary)]"
                 inactiveClassName="border-[var(--border)] bg-[var(--surface)]/[0.04] text-[var(--text-secondary)] hover:bg-[var(--surface)]/[0.10]"
                 className="rounded-full border px-2.5 py-1 transition"
                 title={tag === entry.tag ? t("mediaPage.tagFilter.titleToggleOff", locale).replace("{tag}", entry.tag) : t("mediaPage.tagFilter.titleApply", locale).replace("{tag}", entry.tag)}
