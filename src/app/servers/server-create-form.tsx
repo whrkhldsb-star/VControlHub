@@ -289,6 +289,18 @@ export function ServerCreateForm({
             <p className="mt-1 text-xs text-[var(--text-muted)]">
               {t("serversPage.create.directGateway.note")}
             </p>
+            <label className="mt-3 block text-xs font-medium text-white/50" htmlFor="directGatewayProtocol">
+              {t("serversPage.create.directGateway.protocol")}
+            </label>
+            <select
+              id="directGatewayProtocol"
+              name="directGatewayProtocol"
+              defaultValue="http"
+              className="mt-1 w-full rounded-lg border border-cyan-400/20 bg-[var(--surface-subtle)] px-3 py-2 text-xs text-[var(--text-primary)]"
+            >
+              <option value="http">{t("serversPage.create.directGateway.protocolHttp")}</option>
+              <option value="https">{t("serversPage.create.directGateway.protocolHttps")}</option>
+            </select>
           </div>
         </div>
       </label>

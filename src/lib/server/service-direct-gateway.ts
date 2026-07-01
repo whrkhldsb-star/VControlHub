@@ -45,6 +45,7 @@ export async function applyServerDirectGatewayState(input: {
   serverId: string;
   enabled: boolean;
   bestEffort?: boolean;
+  publicProtocol?: "http" | "https";
   // TR-002: Direct Gateway 监听地址，默认 127.0.0.1（仅本机可访问）。
   // 显式传 "0.0.0.0" 才监听全部接口，需 UI 风险提示 (TLS/VPN/防火墙任一)。
   bindAddress?: string;
@@ -95,6 +96,7 @@ export async function applyServerDirectGatewayState(input: {
   const publicBaseUrl = buildDirectGatewayPublicBaseUrl({
     host: server.host,
     port: DIRECT_GATEWAY_DEFAULT_PORT,
+    protocol: input.publicProtocol ?? "http",
   });
   let cleanupSkipped = false;
   let errorMessage: string | null = null;
@@ -178,6 +180,11 @@ export async function applyServerDirectGatewayState(input: {
 export async function setServerDirectGatewayEnabled(
   serverId: string,
   enabled: boolean,
+  options: { publicProtocol?: "http" | "https" } = {},
 ) {
-  return applyServerDirectGatewayState({ serverId, enabled });
+  return applyServerDirectGatewayState({
+    serverId,
+    enabled,
+    publicProtocol: options.publicProtocol,
+  });
 }

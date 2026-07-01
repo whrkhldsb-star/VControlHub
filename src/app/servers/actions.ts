@@ -44,6 +44,8 @@ export async function createServerAction(
     const description = String(formData.get("description") ?? "");
     const tags = parseTags(String(formData.get("tags") ?? ""));
     const enableDirectGateway = formData.get("enableDirectGateway") === "on";
+    const directGatewayProtocol =
+      formData.get("directGatewayProtocol") === "https" ? "https" : "http";
     const storagePath = String(formData.get("storagePath") ?? "/root/drive");
 
     const created = await createServerProfile({
@@ -57,6 +59,7 @@ export async function createServerAction(
       description,
       tags,
       enableDirectGateway,
+      directGatewayProtocol,
       storagePath,
     });
 
@@ -188,7 +191,11 @@ export async function toggleDirectGatewayAction(
   try {
     const serverId = String(formData.get("serverId") ?? "");
     const enabled = formData.get("enabledDirectGateway") === "true";
-    await setServerDirectGatewayEnabled(serverId, enabled);
+    const directGatewayProtocol =
+      formData.get("directGatewayProtocol") === "https" ? "https" : "http";
+    await setServerDirectGatewayEnabled(serverId, enabled, {
+      publicProtocol: directGatewayProtocol,
+    });
     revalidatePath("/");
     revalidatePath("/servers");
     revalidatePath("/storage");

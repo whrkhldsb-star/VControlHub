@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import crypto from "node:crypto";
 
 const { requireApiPermissionMock, assertStorageAccessMock, prismaMock } =
@@ -39,6 +39,11 @@ function directNode(overrides: Record<string, unknown> = {}) {
 
 describe("/api/storage/direct-access", () => {
   process.env.STORAGE_DIRECT_ACCESS_SECRET = "test-secret";
+
+  beforeEach(() => {
+    vi.unstubAllGlobals();
+  });
+
   it("returns 403 when the session lacks storage read permission", async () => {
     vi.clearAllMocks();
     requireApiPermissionMock.mockResolvedValueOnce(
@@ -253,8 +258,10 @@ describe("/api/storage/direct-access", () => {
     });
   });
 
-  it("redirects GET requests to the generated storage-server URL for file-list links", async () => {
+  it("redirects GET requests to the generated storage-server URL for file-list links when AUTO health is healthy", async () => {
     vi.clearAllMocks();
+    const fetchMock = vi.fn().mockResolvedValue(new Response("ok", { status: 200 }));
+    vi.stubGlobal("fetch", fetchMock);
     requireApiPermissionMock.mockResolvedValueOnce({
       session: { userId: "u_1", username: "admin" },
     });
@@ -285,6 +292,34 @@ describe("/api/storage/direct-access", () => {
       .update(`/media/movies/demo file.mp4.${expires}`)
       .digest("hex");
     expect(redirectedUrl.searchParams.get("signature")).toBe(expectedSignature);
+    expect(fetchMock).toHaveBeenCalledWith(new URL("https://cdn.example.com/__vch_health"), expect.objectContaining({ method: "GET" }));
+  });
+
+  it("falls back to managed SFTP when AUTO direct gateway health is unavailable", async () => {
+    vi.clearAllMocks();
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response("nope", { status: 503 })));
+    requireApiPermissionMock.mockResolvedValueOnce({
+      session: { userId: "u_1", username: "admin" },
+    });
+    assertStorageAccessMock.mockResolvedValueOnce({ allowed: true });
+    prismaMock.storageNode.findUnique.mockResolvedValueOnce(
+      directNode({
+        directAccessMode: "AUTO",
+        publicBaseUrl: "https://cdn.example.com/media",
+        directAccessExpiresSeconds: 600,
+      }),
+    );
+
+    const response = await GET(
+      new Request(
+        "https://app.example.com/api/storage/direct-access?nodeId=node_1&path=movies%2Fdemo.mp4",
+      ),
+    );
+
+    expect(response.status).toBe(302);
+    expect(response.headers.get("location")).toBe(
+      "/api/storage/sftp-download?nodeId=node_1&path=movies%2Fdemo.mp4",
+    );
   });
 
   it("redirects GET requests to the managed SFTP fallback when direct access is unavailable", async () => {

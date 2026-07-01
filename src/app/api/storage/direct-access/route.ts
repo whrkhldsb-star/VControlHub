@@ -38,6 +38,8 @@ type DirectAccessPayload =
       expiresSeconds: number;
     };
 
+const DIRECT_GATEWAY_HEALTH_TIMEOUT_MS = 1500;
+
 function fallbackUrl(nodeId: string, relativePath: string) {
   const params = new URLSearchParams({ nodeId, path: relativePath });
   return `/api/storage/sftp-download?${params.toString()}`;
@@ -114,6 +116,27 @@ function buildSignedDirectUrl(input: {
   return url.toString();
 }
 
+async function isDirectGatewayHealthy(publicBaseUrl: string) {
+  const healthUrl = new URL(
+    "/__vch_health",
+    publicBaseUrl.endsWith("/") ? publicBaseUrl : `${publicBaseUrl}/`,
+  );
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), DIRECT_GATEWAY_HEALTH_TIMEOUT_MS);
+  try {
+    const response = await fetch(healthUrl, {
+      method: "GET",
+      redirect: "manual",
+      signal: controller.signal,
+    });
+    return response.status === 200;
+  } catch {
+    return false;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 async function resolveDirectAccessPayload(input: {
   nodeId: string;
   relativePath: string;
@@ -166,6 +189,12 @@ async function resolveDirectAccessPayload(input: {
       try {
         const publicBaseUrl = normalizePublicBaseUrl(node.publicBaseUrl);
         if (publicBaseUrl) {
+          if (node.directAccessMode === "AUTO") {
+            const healthy = await isDirectGatewayHealthy(publicBaseUrl);
+            if (!healthy) {
+              return { mode: "managed-download", fallbackUrl: fallback };
+            }
+          }
           return {
             mode: "direct-url",
             url: buildSignedDirectUrl({

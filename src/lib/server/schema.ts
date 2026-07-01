@@ -41,6 +41,7 @@ export const createServerSchema = z
       .transform((value) => value || undefined),
     tags: z.array(serverTagSchema).max(20, "标签最多 20 个").default([]),
     enableDirectGateway: z.boolean().optional().default(false),
+    directGatewayProtocol: z.enum(["http", "https"]).optional().default("http"),
     storagePath: z
       .string()
       .trim()

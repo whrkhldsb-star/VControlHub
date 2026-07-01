@@ -67,6 +67,9 @@ export const zh: Record<string, string> = {
 	"serversPage.create.directGateway.title": "启用目标服务器直连",
 
 	"serversPage.create.directGateway.note": "启用后对上传、下载、在线浏览/播放全局生效；之后也可在服务器管理面板切回中转并删除服务。",
+	"serversPage.create.directGateway.protocol": "直连公网协议",
+	"serversPage.create.directGateway.protocolHttp": "HTTP（默认）",
+	"serversPage.create.directGateway.protocolHttps": "HTTPS（需目标端 TLS/反代）",
 
 	"serverOverviewDetails.sshInteractive": "SSH 交互连接",
 	"serverOverviewDetails.verifiable": "可验证",
@@ -155,6 +158,9 @@ export const zh: Record<string, string> = {
 	"serverCardActions.directGateway.pendingEnable": "安装服务中...",
 	"serverCardActions.directGateway.disableLabel": "切回网站中转并删除直连服务",
 	"serverCardActions.directGateway.enableLabel": "启用目标直连",
+	"serverCardActions.directGateway.protocol": "直连公网协议",
+	"serverCardActions.directGateway.protocolHttp": "HTTP（默认）",
+	"serverCardActions.directGateway.protocolHttps": "HTTPS（需目标端 TLS/反代）",
 	"serverCardActions.edit.toggleShow": "编辑节点",
 	"serverCardActions.edit.toggleHide": "收起编辑",
 	"serverCardActions.edit.formAria": "编辑 VPS 节点",
@@ -288,6 +294,9 @@ export const en: Record<string, string> = {
 	"serversPage.create.directGateway.title": "Enable target server direct access",
 
 	"serversPage.create.directGateway.note": "Once enabled, upload, download and online viewing/streaming will use direct access globally. You can switch back to relay later from the server management panel.",
+	"serversPage.create.directGateway.protocol": "Direct public protocol",
+	"serversPage.create.directGateway.protocolHttp": "HTTP (default)",
+	"serversPage.create.directGateway.protocolHttps": "HTTPS (requires target TLS/reverse proxy)",
 
 	"serverOverviewDetails.sshInteractive": "SSH interactive connection",
 	"serverOverviewDetails.verifiable": "Verifiable",
@@ -376,6 +385,9 @@ export const en: Record<string, string> = {
 	"serverCardActions.directGateway.pendingEnable": "Installing service…",
 	"serverCardActions.directGateway.disableLabel": "Switch back to relay and remove direct service",
 	"serverCardActions.directGateway.enableLabel": "Enable target direct access",
+	"serverCardActions.directGateway.protocol": "Direct public protocol",
+	"serverCardActions.directGateway.protocolHttp": "HTTP (default)",
+	"serverCardActions.directGateway.protocolHttps": "HTTPS (requires target TLS/reverse proxy)",
 	"serverCardActions.edit.toggleShow": "Edit node",
 	"serverCardActions.edit.toggleHide": "Collapse edit",
 	"serverCardActions.edit.formAria": "Edit VPS node",

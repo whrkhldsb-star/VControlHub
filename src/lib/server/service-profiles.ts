@@ -182,6 +182,7 @@ export async function createServerProfile(input: CreateServerInput) {
       serverId: server.id,
       enabled: true,
       bestEffort: true,
+      publicProtocol: payload.directGatewayProtocol,
     });
     if (!directResult.enabled) {
       onboardingWarnings.push(
