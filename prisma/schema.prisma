@@ -199,6 +199,7 @@ model Server {
   fileProxies     ServerFileProxy[]
   vpsBackupSchedules VpsBackupSchedule[]
   vpsBackupRecords   VpsBackupRecord[]
+  uptimeSnapshots    ServerUptimeSnapshot[]
 
   @@index([host, port])
   @@index([enabled])
@@ -1433,4 +1434,21 @@ enum MediaUploadSessionStatus {
   COMPLETED
   CANCELLED
   FAILED
+}
+
+model ServerUptimeSnapshot {
+  id            String   @id @default(cuid())
+  serverId      String
+  date          DateTime // 当天开始时间 (UTC 00:00:00)
+  uptimePercent Float    // 当天可用率 (0-100)
+  onlineMinutes Int      // 当天在线分钟数 (0-1440)
+  offlineMinutes Int     // 当天离线分钟数 (0-1440)
+  checkCount    Int      // 当天检查次数
+  createdAt     DateTime @default(now())
+
+  server Server @relation(fields: [serverId], references: [id], onDelete: Cascade)
+
+  @@unique([serverId, date])
+  @@index([serverId, date])
+  @@map("server_uptime_snapshots")
 }
