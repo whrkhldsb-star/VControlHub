@@ -233,7 +233,7 @@ export function MediaItemCard({ item, canManage }: { item: MediaItem; canManage:
 		: null;
 
 	return (
-		<div className="group overflow-hidden rounded-2xl border border-[var(--border)]/[0.07] bg-[var(--surface)]/[0.03] p-3 transition hover:-translate-y-0.5 hover:border-cyan-300/25 hover:bg-[var(--surface)]/[0.045] light:shadow-sm light:hover:border-cyan-200 light:hover:shadow-md">
+		<div className="group overflow-hidden rounded-2xl border border-[var(--border)]/[0.07] bg-[var(--surface)]/[0.04] p-3 transition hover:-translate-y-0.5 hover:border-cyan-300/25 hover:bg-[var(--surface)]/[0.045] light:shadow-sm light:hover:border-cyan-200 light:hover:shadow-md">
 			<MediaCover item={item} sourceHref={previewHref} t={t} />
 
 			<div className="mt-3 flex items-start justify-between gap-2">
@@ -318,7 +318,7 @@ export function MediaItemCard({ item, canManage }: { item: MediaItem; canManage:
 								else setShowTagInput(false);
 							}}
 							aria-label={t("mediaItemCard.newTagAriaLabel")}
-							className="w-20 rounded-full bg-[var(--surface)]/[0.06] px-2 py-0.5 text-[10px] text-[var(--text-primary)] outline-none placeholder:text-[var(--text-muted)]"
+							className="w-20 rounded-full bg-[var(--surface)]/[0.10] px-2 py-0.5 text-[10px] text-[var(--text-primary)] outline-none placeholder:text-[var(--text-muted)]"
 							placeholder={t("mediaItemCard.newTagPlaceholder")}
 						/>
 					) : (

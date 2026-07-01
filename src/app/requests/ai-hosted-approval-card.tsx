@@ -91,7 +91,7 @@ export function AiHostedApprovalCard({ action }: AiHostedApprovalCardProps) {
             type="button"
             disabled={disabled}
             onClick={() => review("reject")}
-            className="rounded-lg border border-[var(--border)] bg-[var(--surface)]/[0.03] px-3 py-2 text-xs font-medium text-[var(--text-secondary)] transition hover:bg-[var(--surface)]/[0.08] disabled:cursor-not-allowed disabled:opacity-60"
+            className="rounded-lg border border-[var(--border)] bg-[var(--surface)]/[0.04] px-3 py-2 text-xs font-medium text-[var(--text-secondary)] transition hover:bg-[var(--surface)]/[0.10] disabled:cursor-not-allowed disabled:opacity-60"
           >
             {status === "rejecting" ? t("aiHostedApproval.rejecting") : status === "rejected" ? t("aiHostedApproval.rejected") : t("aiHostedApproval.reject")}
           </button>

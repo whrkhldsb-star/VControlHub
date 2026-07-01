@@ -146,7 +146,7 @@ function OsDialectSection({
 	const sm = displayDialect?.serviceManager ?? parsedDialect?.serviceManager;
 
 	return (
-		<div className="mt-2 rounded-lg border border-[var(--border)] bg-[var(--surface)]/[0.02] p-2.5">
+		<div className="mt-2 rounded-lg border border-[var(--border)] bg-[var(--surface)]/[0.04] p-2.5">
 			<div className="flex items-center justify-between gap-2">
 				<div className="min-w-0 flex-1">
 					<span className="text-[11px] text-[var(--text-muted)]">{t("serverOverviewDetails.osDialect")}</span>
@@ -187,10 +187,10 @@ function OsDialectSection({
 // TR-002 R3: advice 项的 tone 决定背景与边框；emerald=safe / amber=warning / rose=danger
 function adviceToneClass(tone: "emerald" | "amber" | "rose" | undefined) {
 	if (tone === "emerald") {
-		return "border-emerald-400/20 bg-emerald-400/[0.05] light:border-emerald-700/20 light:bg-emerald-50/60";
+		return "border-emerald-400/20 bg-emerald-400/[0.10] light:border-emerald-700/20 light:bg-emerald-50/60";
 	}
 	if (tone === "rose") {
-		return "border-rose-400/20 bg-rose-400/[0.05] light:border-rose-700/20 light:bg-rose-50/60";
+		return "border-rose-400/20 bg-rose-400/[0.10] light:border-rose-700/20 light:bg-rose-50/60";
 	}
 	// amber (default) 与原版一致
 	return "border-amber-400/15 light:border-amber-700/20 light:bg-amber-50/60";
@@ -379,7 +379,7 @@ export function ServerOverviewDetails({
 			className="mt-4 space-y-3 border-t border-[var(--border)] pt-4"
 		>
 			<section className="rounded-lg border border-[var(--border)] bg-[var(--surface-subtle)] p-3">
-				<h3 className="mb-3 text-sm font-medium text-[var(--text-primary)]/80">{t("serverOverviewDetails.section.connectionStatus")}</h3>
+				<h3 className="mb-3 text-sm font-medium text-[var(--text-primary)]">{t("serverOverviewDetails.section.connectionStatus")}</h3>
 				<div className="grid gap-2 text-sm">
 					<InfoRow label={t("serverOverviewDetails.connectionType")} value={server.connectionTypeLabel} />
 					<InfoRow label={t("serverOverviewDetails.username")} value={server.username} />
@@ -416,7 +416,7 @@ export function ServerOverviewDetails({
 			</section>
 
 			<section className="rounded-lg border border-[var(--border)] bg-[var(--surface-subtle)] p-3">
-				<h3 className="mb-3 text-sm font-medium text-[var(--text-primary)]/80">{t("serverOverviewDetails.section.operationsResources")}</h3>
+				<h3 className="mb-3 text-sm font-medium text-[var(--text-primary)]">{t("serverOverviewDetails.section.operationsResources")}</h3>
 				<div className="space-y-2 text-sm">
 					<InfoRow
 						label={t("serverOverviewDetails.relatedStorage")}
@@ -550,7 +550,7 @@ export function ServerOverviewDetails({
 			</section>
 
 			<section className="rounded-lg border border-[var(--border)] bg-[var(--surface-subtle)] p-3">
-				<h3 className="mb-3 text-sm font-medium text-[var(--text-primary)]/80">{t("serverOverviewDetails.latestCommands")}</h3>
+				<h3 className="mb-3 text-sm font-medium text-[var(--text-primary)]">{t("serverOverviewDetails.latestCommands")}</h3>
 				{server.latestCommands.length === 0 ? (
 					<p className="text-xs text-[var(--text-muted)]">{t("serverOverviewDetails.noCommandRecords")}</p>
 				) : (
@@ -558,7 +558,7 @@ export function ServerOverviewDetails({
 						{server.latestCommands.map((command) => (
 							<div
 								key={command.id}
-								className="rounded-lg border border-[var(--border)] bg-[var(--surface)]/[0.02] p-3"
+								className="rounded-lg border border-[var(--border)] bg-[var(--surface)]/[0.04] p-3"
 							>
 								<div className="flex items-center justify-between gap-2">
 									<span className="truncate text-sm font-medium text-[var(--text-primary)]">

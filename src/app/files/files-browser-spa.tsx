@@ -331,7 +331,7 @@ function FolderTreeClient({
               className={`flex items-center gap-1 rounded-2xl transition ${
                 isCurrent
                   ? "bg-cyan-400/10 text-[var(--text-primary)]"
-                  : "text-[var(--text-secondary)] hover:bg-[var(--surface)]/5 hover:text-[var(--text-primary)]"
+                  : "text-[var(--text-secondary)] hover:bg-[var(--surface)]/10 hover:text-[var(--text-primary)]"
               }`}
             >
               <button
@@ -408,7 +408,7 @@ function BreadcrumbsClient({
       <button
         type="button"
         onClick={() => onNavigate("")}
-        className="rounded-full border border-[var(--border)] px-3 py-1.5 text-[var(--text-secondary)] hover:bg-[var(--surface)]/5"
+        className="rounded-full border border-[var(--border)] px-3 py-1.5 text-[var(--text-secondary)] hover:bg-[var(--surface)]/10"
       >
         {t("filesBrowserSpa.allFiles")}
       </button>
@@ -427,7 +427,7 @@ function BreadcrumbsClient({
               <button
                 type="button"
                 onClick={() => onNavigate(nextPath)}
-                className="rounded-full border border-[var(--border)] px-3 py-1.5 text-[var(--text-secondary)] hover:bg-[var(--surface)]/5"
+                className="rounded-full border border-[var(--border)] px-3 py-1.5 text-[var(--text-secondary)] hover:bg-[var(--surface)]/10"
               >
                 {displaySegment}
               </button>
@@ -573,7 +573,7 @@ export function FilesBrowserSpa({
             className={`flex min-h-11 w-full items-center justify-between rounded-2xl px-3 py-2 text-left text-sm ${
               data.currentPath === ""
                 ? "bg-cyan-400/10 text-[var(--text-primary)]"
-                : "text-[var(--text-primary)] hover:bg-[var(--surface)]/5"
+                : "text-[var(--text-primary)] hover:bg-[var(--surface)]/10"
             }`}
           >
             <span>{t("filesBrowserSpa.allFiles")}</span>
@@ -660,7 +660,7 @@ export function FilesBrowserSpa({
                       setSearchInput("");
                       fetchFiles(data.currentPath);
                     }}
-                    className="rounded-full border border-[var(--border)] bg-[var(--surface)]/5 px-5 py-2.5 text-sm font-medium text-[var(--text-secondary)] transition hover:bg-[var(--surface)]/10"
+                    className="rounded-full border border-[var(--border)] bg-[var(--surface)]/10 px-5 py-2.5 text-sm font-medium text-[var(--text-secondary)] transition hover:bg-[var(--surface)]/10"
                   >
                     {t("filesBrowserSpa.clear")}
                   </button>
@@ -741,7 +741,7 @@ export function FilesBrowserSpa({
                         ? t("filesBrowserSpa.cannotCreateFolderNoPermission")
                         : t("filesBrowserSpa.cannotCreateFolderNoNode")
                     }
-                    className="cursor-not-allowed rounded-full border border-[var(--border)] bg-[var(--surface)]/5 px-4 py-2 text-sm font-medium text-[var(--text-secondary)]"
+                    className="cursor-not-allowed rounded-full border border-[var(--border)] bg-[var(--surface)]/10 px-4 py-2 text-sm font-medium text-[var(--text-secondary)]"
                   >
                     {t("filesBrowserSpa.createFolder")}
                   </button>

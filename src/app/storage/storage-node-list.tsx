@@ -96,7 +96,7 @@ function StorageNodeCard({
 	}
 
 	return (
-		<article className="rounded-2xl border border-[var(--border)] bg-[var(--surface)]/5">
+		<article className="rounded-2xl border border-[var(--border)] bg-[var(--surface)]/10">
 			<div className="flex items-start justify-between gap-3">
 				<div>
 					<h3 className="text-lg font-medium text-[var(--text-primary)]">{node.name}</h3>

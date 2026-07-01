@@ -225,7 +225,7 @@ export function DashboardRecentActivity({ recentRequests, recentAuditLogs }: { r
         ) : (
           <div className="space-y-1.5">
             {recentAuditLogs.map((log) => (
-              <div key={log.id} className="rounded-lg border border-[var(--border)] bg-[var(--surface)]/[0.02] px-3.5 py-2.5 transition-colors duration-150 hover:bg-[var(--surface)]/[0.04]">
+              <div key={log.id} className="rounded-lg border border-[var(--border)] bg-[var(--surface)]/[0.04] px-3.5 py-2.5 transition-colors duration-150 hover:bg-[var(--surface)]/[0.04]">
                 <div className="flex items-center gap-2 text-xs">
                   <Badge color={log.severity === "WARNING" ? "amber" : log.severity === "CRITICAL" ? "rose" : "slate"}>{log.action}</Badge>
                   <span className="min-w-0 flex-1 truncate text-[var(--text-muted)]">{log.actor?.displayName ?? log.actor?.username ?? (log.actorType === "SYSTEM" ? "系统" : log.actorType)}</span>

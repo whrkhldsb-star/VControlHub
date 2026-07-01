@@ -209,7 +209,7 @@ export function UserManagementClient({ canManage = false }: { canManage?: boolea
                   className={`rounded-full border px-3 py-1.5 text-xs transition ${
                     createForm.roleKeys.includes(key)
                       ? ""
-                      : "border-[var(--border)]/10 bg-[var(--surface)]/5 text-[var(--text-muted)]"
+                      : "border-[var(--border)]/10 bg-[var(--surface)]/10 text-[var(--text-muted)]"
                   }`}
                   data-tone={createForm.roleKeys.includes(key) ? roleBadgeTone(key) : undefined}
                 >

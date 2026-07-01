@@ -317,7 +317,7 @@ export function DownloadsClient({ servers, canManage, canManageNode }: { servers
 						<span className="text-xs text-[var(--text-muted)]">{t("downloadsPage.stats.globalLimit")}</span>
 						{canManageNode ? [0, 1024, 5120, 10240].map((kb) => (
 							<button key={kb} onClick={() => handleGlobalSpeedLimit(kb)}
-								className="rounded-lg border border-[var(--border)] bg-[var(--surface)]/[0.03] px-2 py-1 text-[11px] text-[var(--text-muted)] hover:bg-[var(--surface)]/[0.06] transition"
+								className="rounded-lg border border-[var(--border)] bg-[var(--surface)]/[0.04] px-2 py-1 text-[11px] text-[var(--text-muted)] hover:bg-[var(--surface)]/[0.10] transition"
 							>
 								{kb === 0 ? t("downloadsPage.stats.unlimited") : `${kb >= 1024 ? (kb / 1024) + "M" : kb + "K"}`}
 							</button>
@@ -340,7 +340,7 @@ export function DownloadsClient({ servers, canManage, canManageNode }: { servers
 					{["ALL", "RUNNING", "COMPLETED", "FAILED", "CANCELLED"].map((f) => (
 						<button key={f} type="button" onClick={() => setFilter(f)}
 							className={`rounded-full border px-3 py-1.5 text-xs transition ${
-								filter === f ? "border-cyan-400/30 bg-cyan-400/10 text-[var(--text-primary)]" : "border-[var(--border)] bg-[var(--surface)]/5 text-[var(--text-muted)] hover:text-[var(--text-primary)]"
+								filter === f ? "border-cyan-400/30 bg-cyan-400/10 text-[var(--text-primary)]" : "border-[var(--border)] bg-[var(--surface)]/10 text-[var(--text-muted)] hover:text-[var(--text-primary)]"
 							}`}
 						>
 							{f === "ALL" ? t("downloadsPage.filter.all") : getStatusLabel(t)[f]}
@@ -350,7 +350,7 @@ export function DownloadsClient({ servers, canManage, canManageNode }: { servers
 					{categories.map((c) => (
 						<button key={c.value} type="button" onClick={() => setCategoryFilter(categoryFilter === c.value ? null : c.value)}
 							className={`rounded-full border px-2.5 py-1 text-[11px] transition ${
-								categoryFilter === c.value ? "border-cyan-400/30 bg-cyan-400/10 text-[var(--text-primary)]" : "border-[var(--border)] bg-[var(--surface)]/[0.02] text-[var(--text-muted)] hover:bg-[var(--surface)]/[0.05]"
+								categoryFilter === c.value ? "border-cyan-400/30 bg-cyan-400/10 text-[var(--text-primary)]" : "border-[var(--border)] bg-[var(--surface)]/[0.04] text-[var(--text-muted)] hover:bg-[var(--surface)]/[0.10]"
 							}`}
 						>
 							{c.icon} {c.label}
@@ -387,7 +387,7 @@ export function DownloadsClient({ servers, canManage, canManageNode }: { servers
 			{loading ? (
 				<EmptyState>{t("downloadsPage.loading")}</EmptyState>
 			) : filteredTasks.length === 0 && message?.type !== "error" ? (
-			<div data-empty-state className="rounded-xl border border-dashed border-[var(--border)] bg-[var(--surface)]/[0.02]">
+			<div data-empty-state className="rounded-xl border border-dashed border-[var(--border)] bg-[var(--surface)]/[0.04]">
 				<div className="text-4xl mb-3">⬇️</div>
 				<p className="text-sm text-[var(--text-muted)]">{filter === "ALL" ? t("downloadsPage.empty") : t("downloadsPage.emptyFilter").replace("${status}", getStatusLabel(t)[filter] ?? "")}</p>
 			</div>
@@ -418,7 +418,7 @@ export function DownloadsClient({ servers, canManage, canManageNode }: { servers
 											<span>{formatBytes(task.completedBytes)} / {formatBytes(task.totalBytes)}</span>
 											<span>{pct}% · {formatSpeed(task.downloadSpeed)}</span>
 										</div>
-										<div className="h-1.5 rounded-full bg-[var(--surface)]/[0.06] overflow-hidden">
+										<div className="h-1.5 rounded-full bg-[var(--surface)]/[0.10] overflow-hidden">
 											<div className="h-full rounded-full bg-gradient-to-r from-cyan-500 to-cyan-400 transition-[width] duration-500"
 												style={{ width: `${pct}%` }}
 											/>
@@ -476,7 +476,7 @@ export function DownloadsClient({ servers, canManage, canManageNode }: { servers
 									)}
 									{canManage && (
 										<button type="button" onClick={() => handleAction(task.id, "refresh")}
-											className="rounded-lg border border-[var(--border)] bg-[var(--surface)]/[0.02] px-3 py-1.5 text-xs text-[var(--text-muted)] hover:bg-[var(--surface)]/[0.05] transition"
+											className="rounded-lg border border-[var(--border)] bg-[var(--surface)]/[0.04] px-3 py-1.5 text-xs text-[var(--text-muted)] hover:bg-[var(--surface)]/[0.10] transition"
 										>
 											{t("downloadsPage.action.refresh")}
 										</button>

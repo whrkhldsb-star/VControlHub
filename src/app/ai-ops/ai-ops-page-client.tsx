@@ -48,11 +48,11 @@ const labelClass =
 const selectClass =
 	"rounded-lg border border-[var(--border)] bg-[var(--surface)]/[0.04] px-3 py-2 text-sm text-[var(--text-primary)] outline-none focus:border-cyan-400/30";
 const inputClass =
-	"w-full rounded-lg border border-[var(--border)] bg-[var(--surface)]/[0.04] px-3.5 py-2.5 text-sm text-[var(--text-primary)] outline-none transition placeholder:text-[var(--text-primary)]/20 focus:border-cyan-400/30";
+	"w-full rounded-lg border border-[var(--border)] bg-[var(--surface)]/[0.04] px-3.5 py-2.5 text-sm text-[var(--text-primary)] outline-none transition placeholder:text-[var(--text-primary)]/30 focus:border-cyan-400/30";
 const buttonPrimary =
 	"rounded-lg bg-cyan-500/80 hover:bg-cyan-500 px-4 py-2 text-sm font-medium text-slate-900 transition disabled:opacity-50 disabled:cursor-not-allowed";
 const buttonGhost =
-	"rounded-lg border border-[var(--border)] bg-[var(--surface)]/[0.02] hover:bg-[var(--surface)]/[0.06] px-4 py-2 text-sm text-[var(--text-primary)]/80 transition";
+	"rounded-lg border border-[var(--border)] bg-[var(--surface)]/[0.04] hover:bg-[var(--surface)]/[0.10] px-4 py-2 text-sm text-[var(--text-primary)] transition";
 const buttonDanger =
 	"rounded-lg border border-rose-500/30 bg-rose-500/10 hover:bg-rose-500/20 px-3 py-1.5 text-xs text-rose-200 transition";
 
@@ -307,7 +307,7 @@ export function AiOpsPageClient({
 						<div className={`${labelClass} opacity-60`}>
 							{t("aiOpsPage.summary.byStatus")}
 						</div>
-						<div className="mt-1 text-sm text-[var(--text-primary)]/80">
+						<div className="mt-1 text-sm text-[var(--text-primary)]">
 							{Object.entries(summary.byStatus)
 								.map(([k, v]) => `${k}=${v}`)
 								.join(" · ") || "—"}
@@ -317,7 +317,7 @@ export function AiOpsPageClient({
 						<div className={`${labelClass} opacity-60`}>
 							{t("aiOpsPage.summary.byMode")}
 						</div>
-						<div className="mt-1 text-sm text-[var(--text-primary)]/80">
+						<div className="mt-1 text-sm text-[var(--text-primary)]">
 							{Object.entries(summary.byMode)
 								.map(([k, v]) => `${k}=${v}`)
 								.join(" · ") || "—"}
@@ -327,7 +327,7 @@ export function AiOpsPageClient({
 						<div className={`${labelClass} opacity-60`}>
 							{t("aiOpsPage.summary.lastScanAt")}
 						</div>
-						<div className="mt-1 text-sm text-[var(--text-primary)]/80">
+						<div className="mt-1 text-sm text-[var(--text-primary)]">
 							{formatTime(summary.lastScanAt, t("aiOpsPage.summary.never"))}
 						</div>
 					</div>
@@ -335,7 +335,7 @@ export function AiOpsPageClient({
 						<div className={`${labelClass} opacity-60`}>
 							{t("aiOpsPage.summary.lastErrorAt")}
 						</div>
-						<div className="mt-1 text-sm text-[var(--text-primary)]/80">
+						<div className="mt-1 text-sm text-[var(--text-primary)]">
 							{formatTime(summary.lastErrorAt, t("aiOpsPage.summary.never"))}
 						</div>
 					</div>
@@ -429,7 +429,7 @@ export function AiOpsPageClient({
 								<option value="autonomous">{t("aiOpsPage.mode.autonomous")}</option>
 							</select>
 						) : (
-							<span className="text-sm text-[var(--text-primary)]/80">
+							<span className="text-sm text-[var(--text-primary)]">
 								{settings.mode === "autonomous"
 									? t("aiOpsPage.mode.autonomous")
 									: t("aiOpsPage.mode.recommendation")}
@@ -447,7 +447,7 @@ export function AiOpsPageClient({
 								onChange={(e) => setEditingProvider(e.target.value)}
 							/>
 						) : (
-							<span className="text-sm text-[var(--text-primary)]/80">
+							<span className="text-sm text-[var(--text-primary)]">
 								{editingProvider.trim() || t("aiOpsPage.settings.notConfigured")}
 							</span>
 						)}
@@ -472,13 +472,13 @@ export function AiOpsPageClient({
 			<section aria-label="ai-ops-logs" className={cardClass}>
 				<h2 className={`${labelClass} mb-4`}>{t("aiOpsPage.table.actions")}</h2>
 				{logs.length === 0 ? (
-					<div className="text-sm text-[var(--text-primary)]/60">
+					<div className="text-sm text-[var(--text-primary)]/70">
 						{t("aiOpsPage.actions.empty")}
 					</div>
 				) : (
 					<div className="overflow-x-auto">
-						<table className="w-full text-left text-sm text-[var(--text-primary)]/80">
-							<thead className="text-xs uppercase tracking-wide text-[var(--text-primary)]/50">
+						<table className="w-full text-left text-sm text-[var(--text-primary)]">
+							<thead className="text-xs uppercase tracking-wide text-[var(--text-primary)]/70">
 								<tr>
 									<th className="py-2">{t("aiOpsPage.table.time")}</th>
 									<th className="py-2">{t("aiOpsPage.table.mode")}</th>
@@ -497,7 +497,7 @@ export function AiOpsPageClient({
 										className={
 											selectedLogId === log.id
 												? "bg-cyan-500/10"
-												: "hover:bg-[var(--surface)]/[0.03]"
+												: "hover:bg-[var(--surface)]/[0.04]"
 										}
 									>
 										<td className="py-2 pr-3 font-mono text-xs text-[var(--text-primary)]/70">
@@ -554,18 +554,18 @@ export function AiOpsPageClient({
 								{t("aiOpsPage.detail.findings")}
 							</h3>
 							{selectedLog.findings.length === 0 ? (
-								<div className="text-sm text-[var(--text-primary)]/60">
+								<div className="text-sm text-[var(--text-primary)]/70">
 									{t("aiOpsPage.detail.findingsEmpty")}
 								</div>
 							) : (
-								<ul className="space-y-2 text-sm text-[var(--text-primary)]/80">
+								<ul className="space-y-2 text-sm text-[var(--text-primary)]">
 									{selectedLog.findings.map((f) => (
 										<li
 											key={f.id}
-											className="rounded-lg border border-[var(--border)] bg-[var(--surface)]/[0.02] p-3"
+											className="rounded-lg border border-[var(--border)] bg-[var(--surface)]/[0.04] p-3"
 										>
 											<div className="font-medium text-[var(--text-primary)]">{f.title}</div>
-											<div className="text-xs text-[var(--text-primary)]/50">
+											<div className="text-xs text-[var(--text-primary)]/70">
 												{t(`aiOpsPage.severity.${f.severity}`)}
 											</div>
 											<div className="mt-1 text-xs text-[var(--text-primary)]/70">{f.body}</div>
@@ -579,11 +579,11 @@ export function AiOpsPageClient({
 								{t("aiOpsPage.detail.recommendedActions")}
 							</h3>
 							{selectedLog.actions.length === 0 ? (
-								<div className="text-sm text-[var(--text-primary)]/60">
+								<div className="text-sm text-[var(--text-primary)]/70">
 									{t("aiOpsPage.detail.recommendedActionsEmpty")}
 								</div>
 							) : (
-								<ul className="space-y-2 text-sm text-[var(--text-primary)]/80">
+								<ul className="space-y-2 text-sm text-[var(--text-primary)]">
 									{selectedLog.actions.map((action) => {
 										const recommendation = isRecommendationAction(action)
 											? action
@@ -592,13 +592,13 @@ export function AiOpsPageClient({
 										return (
 											<li
 												key={action.id}
-												className="flex items-start justify-between gap-3 rounded-lg border border-[var(--border)] bg-[var(--surface)]/[0.02] p-3"
+												className="flex items-start justify-between gap-3 rounded-lg border border-[var(--border)] bg-[var(--surface)]/[0.04] p-3"
 											>
 												<div>
 													<div className="font-medium text-[var(--text-primary)]">
 														{action.action}
 													</div>
-													<div className="text-xs text-[var(--text-primary)]/50">
+													<div className="text-xs text-[var(--text-primary)]/70">
 														{t(`aiOpsPage.risk.${action.risk}`)}
 													</div>
 													{recommendation?.reason && (

@@ -67,7 +67,7 @@ export function AiRenameDialog({
             type="button"
             disabled={busy}
             onClick={onCancel}
-            className="rounded-xl border border-[var(--border)] px-3 py-2 text-xs text-[var(--text-secondary)] transition hover:bg-[var(--surface)]/5 disabled:opacity-50"
+            className="rounded-xl border border-[var(--border)] px-3 py-2 text-xs text-[var(--text-secondary)] transition hover:bg-[var(--surface)]/10 disabled:opacity-50"
           >
             {t("aiPage.cancel")}
           </button>

@@ -143,7 +143,7 @@ function HighRiskBlurWarning({ id }: { id: string }) {
       id={id}
       role="alert"
       data-testid="high-risk-blur-warning"
-      className="rounded-lg border border-rose-400/30 bg-rose-500/[0.08] px-2.5 py-1.5 text-[11px] leading-5 text-rose-100 light:border-rose-300/40 light:bg-rose-50 light:text-rose-800"
+      className="rounded-lg border border-rose-400/30 bg-rose-500/[0.10] px-2.5 py-1.5 text-[11px] leading-5 text-rose-100 light:border-rose-300/40 light:bg-rose-50 light:text-rose-800"
     >
       <span aria-hidden className="mr-1">
         ⚠
@@ -187,7 +187,7 @@ export function SelectField({
       className={`space-y-1.5 rounded-lg border p-3 transition ${
         disabled
           ? "border-[var(--border)] bg-[var(--surface-subtle)] opacity-70 light:bg-slate-100/80"
-          : "border-transparent bg-[var(--surface)]/[0.01]"
+          : "border-transparent bg-[var(--surface)]/[0.04]"
       }`}
     >
       <div className="flex items-center justify-between gap-2">
@@ -260,7 +260,7 @@ export function InputField({
       className={`space-y-1.5 rounded-lg border p-3 transition ${
         disabled
           ? "border-[var(--border)] bg-[var(--surface-subtle)] opacity-70 light:bg-slate-100/80"
-          : "border-transparent bg-[var(--surface)]/[0.01]"
+          : "border-transparent bg-[var(--surface)]/[0.04]"
       }`}
     >
       <div className="flex items-center justify-between gap-2">
@@ -288,7 +288,7 @@ export function InputField({
         autoComplete={field.autoComplete}
         disabled={disabled}
         aria-describedby={describedBy}
-        className="w-full rounded-lg border border-[var(--border)] bg-[var(--surface)]/[0.04] px-3.5 py-2.5 text-sm text-[var(--text-primary)] outline-none transition placeholder:text-[var(--text-primary)]/20 focus:border-cyan-400/30 disabled:cursor-not-allowed disabled:border-[var(--border)] disabled:bg-[var(--surface-subtle)] disabled:text-[var(--text-muted)] disabled:placeholder:text-[var(--text-primary)]/10 light:disabled:border-slate-200 light:disabled:bg-slate-100 light:disabled:text-[var(--text-muted)] light:disabled:placeholder:text-[var(--text-secondary)]"
+        className="w-full rounded-lg border border-[var(--border)] bg-[var(--surface)]/[0.04] px-3.5 py-2.5 text-sm text-[var(--text-primary)] outline-none transition placeholder:text-[var(--text-primary)]/30 focus:border-cyan-400/30 disabled:cursor-not-allowed disabled:border-[var(--border)] disabled:bg-[var(--surface-subtle)] disabled:text-[var(--text-muted)] disabled:placeholder:text-[var(--text-primary)]/10 light:disabled:border-slate-200 light:disabled:bg-slate-100 light:disabled:text-[var(--text-muted)] light:disabled:placeholder:text-[var(--text-secondary)]"
       />
       {showHighRiskWarning && <HighRiskBlurWarning id={warningId} />}
       {helperText && (
@@ -320,7 +320,7 @@ export function TextAreaField({
       className={`space-y-1.5 rounded-lg border p-3 transition ${
         disabled
           ? "border-[var(--border)] bg-[var(--surface-subtle)] opacity-70"
-          : "border-transparent bg-[var(--surface)]/[0.01]"
+          : "border-transparent bg-[var(--surface)]/[0.04]"
       }`}
     >
       <div className="flex items-center justify-between gap-2">
@@ -351,7 +351,7 @@ export function TextAreaField({
             .join(" ") || undefined
         }
         rows={4}
-        className="w-full rounded-lg border border-[var(--border)] bg-[var(--surface)]/[0.04] px-3.5 py-2.5 text-sm text-[var(--text-primary)] outline-none transition placeholder:text-[var(--text-primary)]/20 focus:border-cyan-400/30 disabled:cursor-not-allowed"
+        className="w-full rounded-lg border border-[var(--border)] bg-[var(--surface)]/[0.04] px-3.5 py-2.5 text-sm text-[var(--text-primary)] outline-none transition placeholder:text-[var(--text-primary)]/30 focus:border-cyan-400/30 disabled:cursor-not-allowed"
       />
       {showHighRiskWarning && <HighRiskBlurWarning id={warningId} />}
       {helperText && (

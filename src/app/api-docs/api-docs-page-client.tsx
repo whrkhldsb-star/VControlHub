@@ -117,7 +117,7 @@ export default function ApiDocsPage() {
 					</a>
 				</header>
 
-				<section className="rounded-2xl border border-[var(--border)]/[0.06] bg-[var(--surface)]/[0.02] p-4 shadow-lg">
+				<section className="rounded-2xl border border-[var(--border)]/[0.10] bg-[var(--surface)]/[0.04] p-4 shadow-lg">
 					<div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_auto] md:items-center">
 						<label className="block">
 							<span className="sr-only">{t("apiDocsPage.searchAria")}</span>

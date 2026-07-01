@@ -111,7 +111,7 @@ export function ArchivePreviewClient({
 
 			{entries && entries.length > 0 ? (
 				<div className="rounded-2xl border border-[var(--border)] bg-[var(--surface-subtle)] overflow-hidden">
-					<div className="grid grid-cols-[auto_minmax(0,2fr)_100px] gap-4 bg-[var(--surface)]/5 px-4 py-2.5 text-xs uppercase tracking-wider text-[var(--text-secondary)] font-medium">
+					<div className="grid grid-cols-[auto_minmax(0,2fr)_100px] gap-4 bg-[var(--surface)]/10 px-4 py-2.5 text-xs uppercase tracking-wider text-[var(--text-secondary)] font-medium">
 						<div />
 						<div>{t("archivePreview.table.name")}</div>
 						<div className="text-right">{t("archivePreview.table.size")}</div>
@@ -120,7 +120,7 @@ export function ArchivePreviewClient({
 						{entries.map((entry, i) => (
 							<div
 								key={`${entry.name}-${i}`}
-								className="grid grid-cols-[auto_minmax(0,2fr)_100px] gap-4 items-center px-4 py-2 text-sm hover:bg-[var(--surface)]/[0.02] transition"
+								className="grid grid-cols-[auto_minmax(0,2fr)_100px] gap-4 items-center px-4 py-2 text-sm hover:bg-[var(--surface)]/[0.04] transition"
 							>
 								<div className="text-[var(--text-muted)]">
 									{entry.isDirectory ? (

@@ -92,7 +92,7 @@ export default async function BackupsPage() {
 									<span className="rounded-full bg-rose-400/15 px-2 py-0.5 text-xs text-rose-100">{t("backupsPage.failures.itemCount").replace("{count}", String(item.count))}</span>
 								</div>
 								{item.latestRecordPath && <p className="mt-2 text-xs text-[var(--text-muted)]">{t("backupsPage.failures.latestRecord").replace("{path}", item.latestRecordPath)}</p>}
-								<p className="mt-2 rounded-lg border border-[var(--border)] bg-black/10 px-2 py-1.5 text-xs text-[var(--text-secondary)]/60">{t("backupsPage.failures.remediation").replace("{remediation}", item.remediation)}</p>
+								<p className="mt-2 rounded-lg border border-[var(--border)] bg-black/10 px-2 py-1.5 text-xs text-[var(--text-secondary)]/70">{t("backupsPage.failures.remediation").replace("{remediation}", item.remediation)}</p>
 								{item.latestMessage && <p className="mt-1 line-clamp-2 text-xs text-[var(--text-muted)]">{item.latestMessage}</p>}
 							</div>
 						))}

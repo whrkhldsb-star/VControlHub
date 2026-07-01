@@ -98,7 +98,7 @@ export function CreateDownloadForm({
 					className={`rounded-lg border px-3 py-1.5 text-xs transition ${
 						form.batchMode
 							? "border-cyan-400/30 bg-cyan-400/10 text-[var(--text-secondary)]"
-							: "border-[var(--border)] bg-[var(--surface)]/[0.02] text-[var(--text-muted)] hover:bg-[var(--surface)]/[0.05]"
+							: "border-[var(--border)] bg-[var(--surface)]/[0.04] text-[var(--text-muted)] hover:bg-[var(--surface)]/[0.10]"
 					}`}
 				>
 					📋 批量模式
@@ -110,7 +110,7 @@ export function CreateDownloadForm({
 				<div className="space-y-1.5">
 					<label
 						htmlFor="download-batch-links"
-						className="text-xs font-medium text-[var(--text-primary)]/50 tracking-wide"
+						className="text-xs font-medium text-[var(--text-primary)]/70 tracking-wide"
 					>
 						下载链接（每行一个）
 					</label>
@@ -120,7 +120,7 @@ export function CreateDownloadForm({
 						onChange={(e) => onFormChange({ ...form, batchText: e.target.value })}
 						rows={6}
 						placeholder={"https://example.com/file1.zip\nhttps://example.com/file2.zip\nhttps://example.com/file3.iso"}
-						className="w-full rounded-lg border border-[var(--border)] bg-[var(--surface)]/[0.04] px-3.5 py-2.5 text-sm text-[var(--text-primary)] font-mono outline-none focus:border-cyan-400/30 placeholder:text-[var(--text-primary)]/20 resize-y"
+						className="w-full rounded-lg border border-[var(--border)] bg-[var(--surface)]/[0.04] px-3.5 py-2.5 text-sm text-[var(--text-primary)] font-mono outline-none focus:border-cyan-400/30 placeholder:text-[var(--text-primary)]/30 resize-y"
 					/>
 					<p className="text-[11px] text-[var(--text-muted)]">
 						{t("downloadsPage.form.batchNotice")}
@@ -131,7 +131,7 @@ export function CreateDownloadForm({
 				<div className="space-y-1.5">
 					<label
 						htmlFor="download-url"
-						className="text-xs font-medium text-[var(--text-primary)]/50 tracking-wide"
+						className="text-xs font-medium text-[var(--text-primary)]/70 tracking-wide"
 					>
 						下载链接
 					</label>
@@ -141,7 +141,7 @@ export function CreateDownloadForm({
 						value={form.url}
 						onChange={(e) => onFormChange({ ...form, url: e.target.value })}
 						placeholder={t("downloadsPage.form.linkPlaceholder")}
-						className="w-full rounded-lg border border-[var(--border)] bg-[var(--surface)]/[0.04] px-3.5 py-2.5 text-sm text-[var(--text-primary)] outline-none focus:border-cyan-400/30 placeholder:text-[var(--text-primary)]/20"
+						className="w-full rounded-lg border border-[var(--border)] bg-[var(--surface)]/[0.04] px-3.5 py-2.5 text-sm text-[var(--text-primary)] outline-none focus:border-cyan-400/30 placeholder:text-[var(--text-primary)]/30"
 					/>
 					{form.url && <p className="text-[11px] text-[var(--text-muted)]">{urlTypeLabel(form.url, t)}</p>}
 				</div>
@@ -149,7 +149,7 @@ export function CreateDownloadForm({
 
 			<div className="grid gap-4 sm:grid-cols-2">
 				<div className="space-y-1.5">
-					<label className="text-xs font-medium text-[var(--text-primary)]/50 tracking-wide" htmlFor="downloadServer">{t("downloadsPage.form.targetVps")}</label>
+					<label className="text-xs font-medium text-[var(--text-primary)]/70 tracking-wide" htmlFor="downloadServer">{t("downloadsPage.form.targetVps")}</label>
 					<select
 						id="downloadServer"
 						value={form.serverId}
@@ -166,8 +166,8 @@ export function CreateDownloadForm({
 						<div
 							className={`rounded-lg border px-3 py-2 text-[11px] leading-5 ${
 								selectedServer.accessTransport === "direct"
-									? "border-emerald-400/20 bg-emerald-400/[0.06] text-emerald-100"
-									: "border-amber-400/20 bg-amber-400/[0.06] text-amber-100"
+									? "border-emerald-400/20 bg-emerald-400/[0.10] text-emerald-100"
+									: "border-amber-400/20 bg-amber-400/[0.10] text-amber-100"
 							}`}
 						>
 							<div className="font-medium">{selectedServer.accessStatusLabel}</div>
@@ -176,30 +176,30 @@ export function CreateDownloadForm({
 					)}
 				</div>
 				<div className="space-y-1.5">
-					<label className="text-xs font-medium text-[var(--text-primary)]/50 tracking-wide" htmlFor="downloadTargetPath">{t("downloadsPage.form.savePath")}</label>
+					<label className="text-xs font-medium text-[var(--text-primary)]/70 tracking-wide" htmlFor="downloadTargetPath">{t("downloadsPage.form.savePath")}</label>
 					<input
 						id="downloadTargetPath"
 						value={form.targetPath}
 						onChange={(e) => onFormChange({ ...form, targetPath: e.target.value })}
 						placeholder="/root/downloads"
-						className="w-full rounded-lg border border-[var(--border)] bg-[var(--surface)]/[0.04] px-3.5 py-2.5 text-sm text-[var(--text-primary)] outline-none focus:border-cyan-400/30 placeholder:text-[var(--text-primary)]/20"
+						className="w-full rounded-lg border border-[var(--border)] bg-[var(--surface)]/[0.04] px-3.5 py-2.5 text-sm text-[var(--text-primary)] outline-none focus:border-cyan-400/30 placeholder:text-[var(--text-primary)]/30"
 					/>
 				</div>
 			</div>
 
 			<div className="grid gap-4 sm:grid-cols-3">
 				<div className="space-y-1.5">
-					<label className="text-xs font-medium text-[var(--text-primary)]/50 tracking-wide" htmlFor="downloadFileName">{t("common.filenameOptional")}</label>
+					<label className="text-xs font-medium text-[var(--text-primary)]/70 tracking-wide" htmlFor="downloadFileName">{t("common.filenameOptional")}</label>
 					<input
 						id="downloadFileName"
 						value={form.fileName}
 						onChange={(e) => onFormChange({ ...form, fileName: e.target.value })}
 						placeholder={t("downloadsPage.form.savePathPlaceholder")}
-						className="w-full rounded-lg border border-[var(--border)] bg-[var(--surface)]/[0.04] px-3.5 py-2.5 text-sm text-[var(--text-primary)] outline-none focus:border-cyan-400/30 placeholder:text-[var(--text-primary)]/20"
+						className="w-full rounded-lg border border-[var(--border)] bg-[var(--surface)]/[0.04] px-3.5 py-2.5 text-sm text-[var(--text-primary)] outline-none focus:border-cyan-400/30 placeholder:text-[var(--text-primary)]/30"
 					/>
 				</div>
 				<div className="space-y-1.5">
-					<label className="text-xs font-medium text-[var(--text-primary)]/50 tracking-wide" htmlFor="downloadCategory">{t("downloadsPage.form.category")}</label>
+					<label className="text-xs font-medium text-[var(--text-primary)]/70 tracking-wide" htmlFor="downloadCategory">{t("downloadsPage.form.category")}</label>
 					<select
 						id="downloadCategory"
 						value={form.category}
@@ -214,14 +214,14 @@ export function CreateDownloadForm({
 					</select>
 				</div>
 				<div className="space-y-1.5">
-					<label className="text-xs font-medium text-[var(--text-primary)]/50 tracking-wide" htmlFor="downloadMaxSpeed">{t("downloadsPage.form.speedLimit")}</label>
+					<label className="text-xs font-medium text-[var(--text-primary)]/70 tracking-wide" htmlFor="downloadMaxSpeed">{t("downloadsPage.form.speedLimit")}</label>
 					<input
 						id="downloadMaxSpeed"
 						value={form.maxSpeedKb}
 						onChange={(e) => onFormChange({ ...form, maxSpeedKb: e.target.value })}
 						type="number"
 						placeholder={t("downloadsPage.form.speedLimitPlaceholder")}
-						className="w-full rounded-lg border border-[var(--border)] bg-[var(--surface)]/[0.04] px-3.5 py-2.5 text-sm text-[var(--text-primary)] outline-none focus:border-cyan-400/30 placeholder:text-[var(--text-primary)]/20"
+						className="w-full rounded-lg border border-[var(--border)] bg-[var(--surface)]/[0.04] px-3.5 py-2.5 text-sm text-[var(--text-primary)] outline-none focus:border-cyan-400/30 placeholder:text-[var(--text-primary)]/30"
 					/>
 				</div>
 			</div>

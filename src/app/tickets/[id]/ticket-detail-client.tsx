@@ -153,7 +153,7 @@ export function TicketDetailClient({ initial, canManage, locale: _locale }: Tick
           <div className="flex flex-wrap gap-2">
             {TRANSITIONS[ticket.status]!.map((s) => (
               <button key={s} onClick={() => updateStatus(s)} disabled={saving}
-                className="rounded-lg border border-[var(--border)] bg-[var(--surface)]/[0.04] px-4 py-2 text-sm text-[var(--text-primary)] hover:bg-[var(--surface)]/[0.08] transition-colors disabled:opacity-40">
+                className="rounded-lg border border-[var(--border)] bg-[var(--surface)]/[0.04] px-4 py-2 text-sm text-[var(--text-primary)] hover:bg-[var(--surface)]/[0.10] transition-colors disabled:opacity-40">
                 {t("ticketsDetail.transitionTo").replace("{status}", statusLabel(t, s))}
               </button>
             ))}

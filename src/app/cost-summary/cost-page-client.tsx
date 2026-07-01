@@ -30,11 +30,11 @@ const CATEGORIES: CostCategory[] = ["vps", "bandwidth", "storage", "other"];
 const cardClass = "rounded-2xl border border-[var(--border)] bg-[var(--surface)]/[0.04] p-5";
 const labelClass = "text-xs font-medium text-[var(--text-secondary)] tracking-wide";
 const inputClass =
-	"w-full rounded-lg border border-[var(--border)] bg-[var(--surface)]/[0.04] px-3.5 py-2.5 text-sm text-[var(--text-primary)] outline-none transition placeholder:text-[var(--text-primary)]/20 focus:border-cyan-400/30";
+	"w-full rounded-lg border border-[var(--border)] bg-[var(--surface)]/[0.04] px-3.5 py-2.5 text-sm text-[var(--text-primary)] outline-none transition placeholder:text-[var(--text-primary)]/30 focus:border-cyan-400/30";
 const buttonPrimary =
 	"rounded-lg bg-cyan-500/80 hover:bg-cyan-500 px-4 py-2 text-sm font-medium text-slate-900 transition disabled:opacity-50 disabled:cursor-not-allowed";
 const buttonGhost =
-	"rounded-lg border border-[var(--border)] bg-[var(--surface)]/[0.02] hover:bg-[var(--surface)]/[0.06] px-4 py-2 text-sm text-[var(--text-primary)]/80 transition";
+	"rounded-lg border border-[var(--border)] bg-[var(--surface)]/[0.04] hover:bg-[var(--surface)]/[0.10] px-4 py-2 text-sm text-[var(--text-primary)] transition";
 const buttonDanger =
 	"rounded-lg border border-rose-500/30 bg-rose-500/10 hover:bg-rose-500/20 px-3 py-1.5 text-xs text-rose-200 transition";
 
@@ -312,20 +312,20 @@ export function CostPageClient({
 				{summary ? (
 					<div className="grid grid-cols-1 gap-4 md:grid-cols-3">
 						<div>
-							<div className="text-xs uppercase tracking-wide text-[var(--text-primary)]/50">
+							<div className="text-xs uppercase tracking-wide text-[var(--text-primary)]/70">
 								{t("costPage.summary.total")}
 							</div>
 							<div className="mt-1 text-3xl font-semibold text-[var(--text-primary)]">
 								{formatAmount(summary.totalAmount, summary.currency, localeTag)}
 							</div>
-							<div className="mt-1 text-xs text-[var(--text-primary)]/50">
+							<div className="mt-1 text-xs text-[var(--text-primary)]/70">
 								{t("costPage.summary.range")
 									.replace("{start}", summary.rangeStart)
 									.replace("{end}", summary.rangeEnd)}
 							</div>
 						</div>
 						<div>
-							<div className="text-xs uppercase tracking-wide text-[var(--text-primary)]/50">
+							<div className="text-xs uppercase tracking-wide text-[var(--text-primary)]/70">
 								{t("costPage.summary.entryCount")}
 							</div>
 							<div className="mt-1 text-3xl font-semibold text-[var(--text-primary)]">
@@ -333,11 +333,11 @@ export function CostPageClient({
 							</div>
 						</div>
 						<div className="space-y-1">
-							<div className="text-xs uppercase tracking-wide text-[var(--text-primary)]/50">
+							<div className="text-xs uppercase tracking-wide text-[var(--text-primary)]/70">
 								{t("costPage.summary.title")}
 							</div>
 							{CATEGORIES.map((c) => (
-								<div key={c} className="flex justify-between text-sm text-[var(--text-primary)]/80">
+								<div key={c} className="flex justify-between text-sm text-[var(--text-primary)]">
 									<span>{t(`costPage.category.${c}`)}</span>
 									<span className="font-mono">
 										{formatAmount(summary.byCategory[c] ?? "0.00", summary.currency, localeTag)}
@@ -347,7 +347,7 @@ export function CostPageClient({
 						</div>
 					</div>
 				) : (
-					<div className="text-sm text-[var(--text-primary)]/50">{t("costPage.summary.noData")}</div>
+					<div className="text-sm text-[var(--text-primary)]/70">{t("costPage.summary.noData")}</div>
 				)}
 			</section>
 
@@ -407,9 +407,9 @@ export function CostPageClient({
 					<EmptyState text={t("costPage.list.empty")} variant="boxed" />
 				) : (
 					<div className="overflow-x-auto">
-						<table className="w-full text-sm text-[var(--text-primary)]/80">
+						<table className="w-full text-sm text-[var(--text-primary)]">
 							<thead>
-								<tr className="border-b border-[var(--border)] text-left text-xs uppercase tracking-wide text-[var(--text-primary)]/50">
+								<tr className="border-b border-[var(--border)] text-left text-xs uppercase tracking-wide text-[var(--text-primary)]/70">
 									<th className="px-3 py-2">{t("costPage.list.column.date")}</th>
 									<th className="px-3 py-2">{t("costPage.list.column.category")}</th>
 									<th className="px-3 py-2">{t("costPage.list.column.provider")}</th>
@@ -427,7 +427,7 @@ export function CostPageClient({
 										<td className="px-3 py-2 text-right font-mono">
 											{formatAmount(e.amount, e.currency, localeTag)}
 										</td>
-										<td className="px-3 py-2 text-[var(--text-primary)]/60">{e.notes ?? "—"}</td>
+										<td className="px-3 py-2 text-[var(--text-primary)]/70">{e.notes ?? "—"}</td>
 										{canManage ? (
 											<td className="px-3 py-2 text-right">
 												<div className="flex justify-end gap-2">

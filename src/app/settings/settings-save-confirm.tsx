@@ -156,10 +156,10 @@ export function SaveButtonWithDiff({
           data-component="diff-table"
           role="region"
           aria-label="未保存的修改"
-          className="overflow-hidden rounded-lg border border-[var(--border)] bg-[var(--surface)]/[0.02] light:bg-slate-50"
+          className="overflow-hidden rounded-lg border border-[var(--border)] bg-[var(--surface)]/[0.04] light:bg-slate-50"
         >
           <table className="w-full text-xs">
-            <thead className="border-b border-[var(--border)] bg-[var(--surface)]/[0.02] text-left text-[11px] uppercase tracking-wide text-[var(--text-muted)] light:bg-slate-100/70">
+            <thead className="border-b border-[var(--border)] bg-[var(--surface)]/[0.04] text-left text-[11px] uppercase tracking-wide text-[var(--text-muted)] light:bg-slate-100/70">
               <tr>
                 <th className="px-3 py-2 font-medium">{t("settingsClient.diffTableField")}</th>
                 <th className="px-3 py-2 font-medium">{t("settingsClient.diffTableOriginal")}</th>
@@ -250,7 +250,7 @@ export function HighRiskConfirmModal({
           {changes.map((change) => (
             <li
               key={change.key}
-              className="rounded-lg border border-rose-400/20 bg-rose-500/[0.06] p-3 text-xs light:border-rose-200 light:bg-rose-50"
+              className="rounded-lg border border-rose-400/20 bg-rose-500/[0.10] p-3 text-xs light:border-rose-200 light:bg-rose-50"
             >
               <div className="flex items-center justify-between gap-2">
                 <span className="font-mono text-[11px] text-[var(--text-primary)]">{change.label}</span>
@@ -279,7 +279,7 @@ export function HighRiskConfirmModal({
             onClick={onCancel}
             disabled={busy}
             data-action="cancel"
-            className="rounded-lg border border-[var(--border)] bg-[var(--surface)]/[0.02] px-4 py-1.5 text-xs text-[var(--text-secondary)] transition hover:bg-[var(--surface)]/[0.05] hover:text-[var(--text-primary)] disabled:opacity-50 light:text-slate-700 light:hover:bg-slate-50"
+            className="rounded-lg border border-[var(--border)] bg-[var(--surface)]/[0.04] px-4 py-1.5 text-xs text-[var(--text-secondary)] transition hover:bg-[var(--surface)]/[0.10] hover:text-[var(--text-primary)] disabled:opacity-50 light:text-slate-700 light:hover:bg-slate-50"
           >
             {t("settingsClient.confirmCancel")}
           </button>

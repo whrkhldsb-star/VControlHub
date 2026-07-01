@@ -269,7 +269,7 @@ export function QuickServicesClient({ canManage }: { canManage: boolean }) {
 
 	if (!canManage) {
 		return (
-			<div className="rounded-xl border border-dashed border-[var(--border)] bg-[var(--surface)]/[0.02] p-12 text-center">
+			<div className="rounded-xl border border-dashed border-[var(--border)] bg-[var(--surface)]/[0.04] p-12 text-center">
 				<div className="text-4xl mb-3">🔒</div>
 				<p className="text-sm text-[var(--text-muted)]">{t("qsPage.permissionDenied")}</p>
 			</div>
@@ -353,7 +353,7 @@ export function QuickServicesClient({ canManage }: { canManage: boolean }) {
 
 			{/* Message */}
 			{actions.message && (
-				<div role={actions.message.type === "ok" ? "status" : "alert"} className={`rounded-lg px-4 py-3 text-sm ${actions.message.type === "ok" ? "bg-emerald-500/[0.08] border border-emerald-400/20 text-emerald-200" : "bg-rose-500/[0.08] border border-rose-400/20 text-rose-200"}`}>
+				<div role={actions.message.type === "ok" ? "status" : "alert"} className={`rounded-lg px-4 py-3 text-sm ${actions.message.type === "ok" ? "bg-emerald-500/[0.10] border border-emerald-400/20 text-emerald-200" : "bg-rose-500/[0.10] border border-rose-400/20 text-rose-200"}`}>
 					<span>{actions.message.text}</span>
 					{actions.message.taskId ? (
 						<Link href="/operation-tasks" className="ml-3 inline-flex rounded-lg border border-current/30 px-2 py-1 text-xs font-semibold hover:bg-[var(--surface)]/10 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-current">
@@ -413,7 +413,7 @@ export function QuickServicesClient({ canManage }: { canManage: boolean }) {
 					<p className="text-xs uppercase tracking-[0.2em] text-[var(--text-muted)]">{t("qsPage.sourcesLabel")}</p>
 					<h3 className="mt-1 text-base font-semibold text-[var(--text-primary)]">{t("qsPage.sourcesEnabledCount").replace("{enabled}", String(sources.filter((s) => s.enabled).length)).replace("{total}", String(sources.length))}</h3>
 					<p className="mt-2 text-sm leading-6 text-[var(--text-muted)]">{lastSyncedSource ? t("qsPage.lastSynced").replace("{name}", lastSyncedSource.displayName) : t("qsPage.noSyncRecord")}</p>
-					<button type="button" onClick={() => setTab("sources")} className={`mt-3 rounded-lg border px-3 py-1.5 text-xs transition ${staleSources.length > 0 ? "border-amber-400/30 bg-amber-400/10 text-amber-100 hover:bg-amber-400/15" : "border-[var(--border)] text-[var(--text-secondary)] hover:bg-[var(--surface)]/[0.06]"}`}>
+					<button type="button" onClick={() => setTab("sources")} className={`mt-3 rounded-lg border px-3 py-1.5 text-xs transition ${staleSources.length > 0 ? "border-amber-400/30 bg-amber-400/10 text-amber-100 hover:bg-amber-400/15" : "border-[var(--border)] text-[var(--text-secondary)] hover:bg-[var(--surface)]/[0.10]"}`}>
 						{staleSources.length > 0 ? t("qsPage.handleStaleSources").replace("{count}", String(staleSources.length)) : t("qsPage.manageSources")}
 					</button>
 				</div>
@@ -583,10 +583,10 @@ export function QuickServicesClient({ canManage }: { canManage: boolean }) {
 
 function SummaryPill({ label, value, tone }: { label: string; value: number; tone: "emerald" | "amber" | "rose" | "cyan" }) {
 	const toneClass = {
-		emerald: "border-emerald-400/20 bg-emerald-500/[0.06] text-emerald-200",
-		amber: "border-amber-400/20 bg-amber-500/[0.06] text-amber-200",
-		rose: "border-rose-400/20 bg-rose-500/[0.06] text-rose-200",
-		cyan: "border-cyan-400/20 bg-cyan-500/[0.06] text-[var(--text-secondary)]",
+		emerald: "border-emerald-400/20 bg-emerald-500/[0.10] text-emerald-200",
+		amber: "border-amber-400/20 bg-amber-500/[0.10] text-amber-200",
+		rose: "border-rose-400/20 bg-rose-500/[0.10] text-rose-200",
+		cyan: "border-cyan-400/20 bg-cyan-500/[0.10] text-[var(--text-secondary)]",
 	}[tone];
 
 	return (

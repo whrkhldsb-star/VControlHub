@@ -190,7 +190,7 @@ export function VpsBackupSection({
 
 	if (loading) {
 		return (
-			<div className="rounded-xl border border-[var(--border)] bg-[var(--surface)]/[0.02] p-3">
+			<div className="rounded-xl border border-[var(--border)] bg-[var(--surface)]/[0.04] p-3">
 				<div className="text-sm text-[var(--text-muted)]">
 					{t("vpsBackup.loading")}
 				</div>
@@ -214,7 +214,7 @@ export function VpsBackupSection({
 			) : null}
 
 			{/* Manual trigger */}
-			<div className="rounded-xl border border-[var(--border)] bg-[var(--surface)]/[0.02] p-3">
+			<div className="rounded-xl border border-[var(--border)] bg-[var(--surface)]/[0.04] p-3">
 				<div className="mb-2 text-sm font-medium text-[var(--text-secondary)]">
 					{t("vpsBackup.manualTrigger")}
 				</div>
@@ -225,7 +225,7 @@ export function VpsBackupSection({
 							type="button"
 							disabled={triggering !== null}
 							onClick={() => handleTrigger(preset)}
-							className="rounded-lg border border-[var(--border)] bg-[var(--surface)]/[0.04] px-3 py-1.5 text-xs text-[var(--text-secondary)] transition-colors hover:bg-[var(--surface)]/[0.08] disabled:cursor-not-allowed disabled:opacity-50"
+							className="rounded-lg border border-[var(--border)] bg-[var(--surface)]/[0.04] px-3 py-1.5 text-xs text-[var(--text-secondary)] transition-colors hover:bg-[var(--surface)]/[0.10] disabled:cursor-not-allowed disabled:opacity-50"
 						>
 							{triggering === preset ? (
 								<span className="animate-pulse">⏳ {presetLabel(preset)}</span>
@@ -238,7 +238,7 @@ export function VpsBackupSection({
 			</div>
 
 			{/* Schedules */}
-			<div className="rounded-xl border border-[var(--border)] bg-[var(--surface)]/[0.02] p-3">
+			<div className="rounded-xl border border-[var(--border)] bg-[var(--surface)]/[0.04] p-3">
 				<div className="mb-2 flex items-center justify-between">
 					<div className="text-sm font-medium text-[var(--text-secondary)]">
 						{t("vpsBackup.schedules")}
@@ -256,7 +256,7 @@ export function VpsBackupSection({
 				</div>
 
 				{showCreate ? (
-					<div className="mb-3 space-y-2 rounded-lg border border-[var(--border)] bg-[var(--surface)]/[0.03] p-3">
+					<div className="mb-3 space-y-2 rounded-lg border border-[var(--border)] bg-[var(--surface)]/[0.04] p-3">
 						<input
 							type="text"
 							placeholder={t("vpsBackup.scheduleName")}
@@ -320,7 +320,7 @@ export function VpsBackupSection({
 						{schedules.map((s) => (
 							<div
 								key={s.id}
-								className="flex items-center justify-between rounded-lg border border-[var(--border)] bg-[var(--surface)]/[0.02] px-3 py-2"
+								className="flex items-center justify-between rounded-lg border border-[var(--border)] bg-[var(--surface)]/[0.04] px-3 py-2"
 							>
 								<div className="min-w-0">
 									<div className="truncate text-sm text-[var(--text-primary)]">{s.name}</div>
@@ -346,7 +346,7 @@ export function VpsBackupSection({
 			</div>
 
 			{/* Records */}
-			<div className="rounded-xl border border-[var(--border)] bg-[var(--surface)]/[0.02] p-3">
+			<div className="rounded-xl border border-[var(--border)] bg-[var(--surface)]/[0.04] p-3">
 				<div className="mb-2 text-sm font-medium text-[var(--text-secondary)]">
 					{t("vpsBackup.records")}
 					<span className="ml-1.5 text-xs text-[var(--text-muted)]">({records.length})</span>
@@ -360,7 +360,7 @@ export function VpsBackupSection({
 						{records.map((r) => (
 							<div
 								key={r.id}
-								className="flex items-start justify-between rounded-lg border border-[var(--border)] bg-[var(--surface)]/[0.02] px-3 py-2"
+								className="flex items-start justify-between rounded-lg border border-[var(--border)] bg-[var(--surface)]/[0.04] px-3 py-2"
 							>
 								<div className="min-w-0 flex-1">
 									<div className="flex items-center gap-2">

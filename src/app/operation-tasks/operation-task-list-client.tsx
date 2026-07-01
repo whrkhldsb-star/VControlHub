@@ -96,7 +96,7 @@ export function OperationTaskListClient({ initialTasks, initialSourceSummary = [
         <div className="text-xs text-[var(--text-muted)]">{t("operationTasksPage.summary.totalCount").replace("{count}", String(tasks.length))}</div>
       </div>
       {sourceSummary.length === 0 ? <p className="mt-3 text-sm text-[var(--text-muted)]">{t("operationTasks.summary.noSources")}</p> : <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-        {sourceSummary.map((item) => <div key={item.source} className="rounded-lg border border-[var(--border)]/[0.06] bg-[var(--surface)]/[0.03] px-3 py-3">
+        {sourceSummary.map((item) => <div key={item.source} className="rounded-lg border border-[var(--border)]/[0.10] bg-[var(--surface)]/[0.04] px-3 py-3">
           <div className="flex items-center justify-between gap-3"><span className="text-sm font-medium text-[var(--text-primary)]">{getSourceLabels(t)[item.source] ?? item.source}</span><span className="text-xs text-[var(--text-muted)]">{t("operationTasksPage.summary.grandTotal").replace("{count}", String(item.total))}</span></div>
           <div className="mt-2 flex flex-wrap gap-2 text-xs text-[var(--text-secondary)]"><span>{t("operationTasksPage.summary.needProcess").replace("{count}", String(item.attention))}</span><span>{t("operationTasksPage.summary.failed").replace("{count}", String(item.failed))}</span><span>{t("operationTasksPage.summary.running").replace("{count}", String(item.running))}</span><span>{t("operationTasksPage.summary.pending").replace("{count}", String(item.pending))}</span></div>
         </div>)}
@@ -118,7 +118,7 @@ export function OperationTaskListClient({ initialTasks, initialSourceSummary = [
       </div>}
     </section>
     <div data-card className="">
-      <div className="flex flex-col gap-4 border-b border-[var(--border)]/[0.06] px-5 py-4 lg:flex-row lg:items-end lg:justify-between">
+      <div className="flex flex-col gap-4 border-b border-[var(--border)]/[0.10] px-5 py-4 lg:flex-row lg:items-end lg:justify-between">
         <div>
           <h2 className="text-sm font-semibold text-[var(--text-primary)]">{t("operationTasksPage.recentTasks")}</h2>
           <p className="mt-1 text-xs text-[var(--text-muted)]">{t("operationTasksPage.recentTasksHint")}</p>

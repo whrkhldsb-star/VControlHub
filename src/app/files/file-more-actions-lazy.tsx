@@ -34,8 +34,8 @@ function FileMoreActionsStub({ compact = false }: { compact?: boolean }) {
       aria-hidden
       className={
         compact
-          ? "inline-flex h-8 w-8 items-center justify-center rounded-lg border border-[var(--border)] bg-[var(--surface)]/5 text-[var(--text-muted)]"
-          : "inline-flex items-center gap-1.5 rounded-lg border border-[var(--border)] bg-[var(--surface)]/5 px-2.5 py-1.5 text-xs text-[var(--text-muted)]"
+          ? "inline-flex h-8 w-8 items-center justify-center rounded-lg border border-[var(--border)] bg-[var(--surface)]/10 text-[var(--text-muted)]"
+          : "inline-flex items-center gap-1.5 rounded-lg border border-[var(--border)] bg-[var(--surface)]/10 px-2.5 py-1.5 text-xs text-[var(--text-muted)]"
       }
     >
       ⋯

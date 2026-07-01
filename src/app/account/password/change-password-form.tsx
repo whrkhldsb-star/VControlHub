@@ -133,7 +133,7 @@ function PasswordField({ label, name, autoComplete, placeholder }: PasswordField
           aria-label={`${visible ? t("accountPasswordPage.toggle.hide") : t("accountPasswordPage.toggle.show")}${label}`}
           aria-pressed={visible}
           onClick={() => setVisible((current) => !current)}
-          className="border-l border-[var(--border)] px-4 text-xs font-medium text-[var(--text-secondary)] transition hover:bg-[var(--surface)]/5 hover:text-[var(--text-primary)] light:hover:text-cyan-900 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-cyan-400"
+          className="border-l border-[var(--border)] px-4 text-xs font-medium text-[var(--text-secondary)] transition hover:bg-[var(--surface)]/10 hover:text-[var(--text-primary)] light:hover:text-cyan-900 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-cyan-400"
         >
           {visible ? t("accountPasswordPage.toggle.hide") : t("accountPasswordPage.toggle.show")}
         </button>

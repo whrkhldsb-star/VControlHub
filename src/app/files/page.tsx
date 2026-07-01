@@ -224,19 +224,19 @@ export default async function FilesPage({ searchParams }: FilesPageProps) {
         <div className="flex flex-wrap gap-2 text-xs text-[var(--text-muted)]">
           <Link
             href="/audit"
-            className="rounded-full border border-[var(--border)] bg-[var(--surface)]/[0.03] px-3 py-1.5 transition hover:bg-[var(--surface)]/[0.06]"
+            className="rounded-full border border-[var(--border)] bg-[var(--surface)]/[0.04] px-3 py-1.5 transition hover:bg-[var(--surface)]/[0.10]"
           >
             {t("filesPage.linkAuditLog", locale)}
           </Link>
           <Link
             href="/health"
-            className="rounded-full border border-[var(--border)] bg-[var(--surface)]/[0.03] px-3 py-1.5 transition hover:bg-[var(--surface)]/[0.06]"
+            className="rounded-full border border-[var(--border)] bg-[var(--surface)]/[0.04] px-3 py-1.5 transition hover:bg-[var(--surface)]/[0.10]"
           >
             {t("filesPage.linkHealthCheck", locale)}
           </Link>
           <Link
             href="/servers"
-            className="rounded-full border border-[var(--border)] bg-[var(--surface)]/[0.03] px-3 py-1.5 transition hover:bg-[var(--surface)]/[0.06]"
+            className="rounded-full border border-[var(--border)] bg-[var(--surface)]/[0.04] px-3 py-1.5 transition hover:bg-[var(--surface)]/[0.10]"
           >
             {t("filesPage.linkServers", locale)}
           </Link>
@@ -244,7 +244,7 @@ export default async function FilesPage({ searchParams }: FilesPageProps) {
       </PageHeader>
 
       <section className="grid gap-3 sm:grid-cols-4 mb-8">
-        <article data-card className=" p-4 hover:bg-[var(--surface)]/[0.05] transition-colors duration-150">
+        <article data-card className=" p-4 hover:bg-[var(--surface)]/[0.10] transition-colors duration-150">
           <div className="text-xs font-medium text-[var(--text-muted)] uppercase tracking-wider">
             {t("filesPage.statTotalNodes", locale)}
           </div>
@@ -252,7 +252,7 @@ export default async function FilesPage({ searchParams }: FilesPageProps) {
             {storage.stats.totalNodes}
           </div>
         </article>
-        <article data-card className=" p-4 hover:bg-[var(--surface)]/[0.05] transition-colors duration-150">
+        <article data-card className=" p-4 hover:bg-[var(--surface)]/[0.10] transition-colors duration-150">
           <div className="text-xs font-medium text-[var(--text-muted)] uppercase tracking-wider">
             {t("filesPage.statActiveFiles", locale)}
           </div>
@@ -260,7 +260,7 @@ export default async function FilesPage({ searchParams }: FilesPageProps) {
             {storage.stats.totalEntries}
           </div>
         </article>
-        <article data-card className=" p-4 hover:bg-[var(--surface)]/[0.05] transition-colors duration-150">
+        <article data-card className=" p-4 hover:bg-[var(--surface)]/[0.10] transition-colors duration-150">
           <div className="text-xs font-medium text-[var(--text-muted)] uppercase tracking-wider">
             {t("filesPage.statCurrentDirectory", locale)}
           </div>
@@ -268,7 +268,7 @@ export default async function FilesPage({ searchParams }: FilesPageProps) {
             {totalItems}
           </div>
         </article>
-        <article data-card className=" p-4 hover:bg-[var(--surface)]/[0.05] transition-colors duration-150">
+        <article data-card className=" p-4 hover:bg-[var(--surface)]/[0.10] transition-colors duration-150">
           <div className="text-xs font-medium text-[var(--text-muted)] uppercase tracking-wider">
             {t("filesPage.statRecycleBin", locale)}
           </div>
@@ -291,7 +291,7 @@ export default async function FilesPage({ searchParams }: FilesPageProps) {
         </Link>
         <Link
           href="/files?scope=current"
-          data-card className=" p-4 transition hover:bg-[var(--surface)]/[0.06]"
+          data-card className=" p-4 transition hover:bg-[var(--surface)]/[0.10]"
         >
           <div className="text-sm font-semibold text-[var(--text-primary)]">{t("filesPage.currentSearchTitle", locale)}</div>
           <p className="mt-1.5 text-sm leading-6 text-[var(--text-secondary)]">
@@ -301,7 +301,7 @@ export default async function FilesPage({ searchParams }: FilesPageProps) {
         </Link>
         <Link
           href="/files?tab=recycle"
-          data-card className=" p-4 transition hover:bg-[var(--surface)]/[0.06]"
+          data-card className=" p-4 transition hover:bg-[var(--surface)]/[0.10]"
         >
           <div className="text-sm font-semibold text-[var(--text-primary)]">{t("filesPage.recycleTitle", locale)}</div>
           <p className="mt-1.5 text-sm leading-6 text-[var(--text-secondary)]">

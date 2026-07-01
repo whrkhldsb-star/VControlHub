@@ -205,7 +205,7 @@ export function ServerCardActions({
           <button
             type="button"
             onClick={() => setShowEdit((value) => !value)}
-            className="w-full rounded-2xl border border-[var(--border)] bg-[var(--surface)]/5 px-4 py-2 text-sm font-medium text-[var(--text-secondary)] transition hover:bg-[var(--surface)]/10"
+            className="w-full rounded-2xl border border-[var(--border)] bg-[var(--surface)]/10 px-4 py-2 text-sm font-medium text-[var(--text-secondary)] transition hover:bg-[var(--surface)]/10"
           >
             {showEdit ? t("serverCardActions.edit.toggleHide") : t("serverCardActions.edit.toggleShow")}
           </button>
@@ -215,7 +215,7 @@ export function ServerCardActions({
           <form
             action={editAction}
             aria-label={t("serverCardActions.edit.formAria")}
-            className="space-y-3 rounded-2xl border border-[var(--border)] bg-[var(--surface)]/[0.03] p-3"
+            className="space-y-3 rounded-2xl border border-[var(--border)] bg-[var(--surface)]/[0.04] p-3"
           >
             <input type="hidden" name="serverId" value={serverId} />
             <input type="hidden" name="connectionType" value={connectionType} />
@@ -404,7 +404,7 @@ export function ServerCardActions({
                   <button
                     type="button"
                     onClick={() => router.refresh()}
-                    className="flex-1 rounded-2xl border border-[var(--border)] bg-[var(--surface)]/5 px-4 py-2 text-sm font-medium text-[var(--text-secondary)] transition hover:bg-[var(--surface)]/10 light:hover:bg-slate-100"
+                    className="flex-1 rounded-2xl border border-[var(--border)] bg-[var(--surface)]/10 px-4 py-2 text-sm font-medium text-[var(--text-secondary)] transition hover:bg-[var(--surface)]/10 light:hover:bg-slate-100"
                   >
                     {t("serverCardActions.delete.cancel")}
                   </button>

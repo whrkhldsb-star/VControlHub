@@ -205,7 +205,7 @@ export function PlaybookListClient({ playbooks: initial, runsByPlaybook: initial
 	return (
 		<div className="space-y-6">
 			{actionError && (
-				<div role="alert" className="rounded-lg bg-rose-500/[0.08] border border-rose-400/20 px-3.5 py-2.5 text-sm text-rose-200">
+				<div role="alert" className="rounded-lg bg-rose-500/[0.10] border border-rose-400/20 px-3.5 py-2.5 text-sm text-rose-200">
 					{actionError}
 				</div>
 			)}
@@ -458,7 +458,7 @@ function CreatePlaybookForm({ onClose }: { onClose: () => void }) {
 		<form onSubmit={handleSubmit} data-card className="space-y-4">
 			<h3 className="text-lg font-semibold text-[var(--text-primary)]">{t("playbooksPage.createForm.title")}</h3>
 			{error && (
-				<div role="alert" className="rounded-lg bg-rose-500/[0.08] border border-rose-400/20 px-3.5 py-2.5 text-sm text-rose-200">
+				<div role="alert" className="rounded-lg bg-rose-500/[0.10] border border-rose-400/20 px-3.5 py-2.5 text-sm text-rose-200">
 					{error}
 				</div>
 			)}
@@ -516,7 +516,7 @@ function CreatePlaybookForm({ onClose }: { onClose: () => void }) {
 							key={opt}
 							className={`min-h-11 flex items-center gap-2 rounded-lg border px-3 py-2 text-sm cursor-pointer transition ${
 								triggerType === opt
-									? "border-cyan-400/20 bg-cyan-400/[0.06] text-[var(--text-primary)]"
+									? "border-cyan-400/20 bg-cyan-400/[0.10] text-[var(--text-primary)]"
 									: "border-[var(--border)] bg-[var(--surface)] text-[var(--text-secondary)] hover:bg-[var(--surface-hover)]"
 							}`}
 						>

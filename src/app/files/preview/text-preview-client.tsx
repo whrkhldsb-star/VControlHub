@@ -813,7 +813,7 @@ export function TextPreviewClient({
 								type="button"
 								onClick={() => setShowDiffReview(false)}
 								disabled={saveStatus === "saving" || saveStatus === "reloading"}
-								className="rounded-lg border border-slate-600/60 bg-[var(--surface)]/40 px-3 py-1.5 text-xs text-[var(--text-primary)] disabled:opacity-50"
+								className="rounded-lg border border-slate-600/60 bg-[var(--surface)]/70 px-3 py-1.5 text-xs text-[var(--text-primary)] disabled:opacity-50"
 							>
 								{t("textPreview.button.backToEdit")}
 							</button>
@@ -844,11 +844,11 @@ export function TextPreviewClient({
 							) : null}
 						</div>
 					</div>
-					<div className="mt-3 max-h-72 overflow-auto rounded-xl border border-[var(--border)]/[0.08] bg-[var(--surface)]/80">
+					<div className="mt-3 max-h-72 overflow-auto rounded-xl border border-[var(--border)]/[0.10] bg-[var(--surface)]">
 						{diffRows.length === 0 ? (
 							<p className="px-3 py-2 text-xs text-[var(--text-secondary)]">{t("textPreview.diffEmpty")}</p>
 						) : (
-							<ul className="divide-y divide-white/[0.06] light:divide-slate-200">
+							<ul className="divide-y divide-white/[0.10] light:divide-slate-200">
 								{diffRows.slice(0, 80).map((row) => (
 									<li key={`${row.line}-${row.kind}`} className="grid gap-1 px-3 py-2 text-xs md:grid-cols-[80px_1fr_1fr]">
 										<span className="font-mono text-[var(--text-muted)]">L{row.line} · {row.kind === "added" ? t("textPreview.diffKind.added") : row.kind === "removed" ? t("textPreview.diffKind.removed") : t("textPreview.diffKind.changed")}</span>
@@ -870,7 +870,7 @@ export function TextPreviewClient({
 							role="search"
 							aria-label={t("textPreview.editor.findToggle")}
 							data-testid="editor-find-bar"
-							className="flex flex-wrap items-center gap-2 rounded-lg border border-amber-400/30 bg-[var(--surface)]/60 px-3 py-2"
+							className="flex flex-wrap items-center gap-2 rounded-lg border border-amber-400/30 bg-[var(--surface)]/70 px-3 py-2"
 						>
 							<input
 								ref={editorFindInputRef}
@@ -936,7 +936,7 @@ export function TextPreviewClient({
 							ref={gutterRef}
 							aria-hidden
 							data-testid="editor-line-gutter"
-							className="select-none overflow-hidden border-r border-[var(--border)]/[0.06] bg-[var(--surface)]/60 px-2 py-4 text-right text-[var(--text-muted)]"
+							className="select-none overflow-hidden border-r border-[var(--border)]/[0.10] bg-[var(--surface)]/70 px-2 py-4 text-right text-[var(--text-muted)]"
 							style={{ minWidth: "3rem" }}
 						>
 							{Array.from({ length: draft.split("\n").length }, (_, i) => (

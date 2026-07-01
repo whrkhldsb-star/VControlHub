@@ -109,7 +109,7 @@ export function ApiTokenManagerClient({ initialTokens, allowedScopes }: Props) {
       </div>
 
       {createdPlaintext && (
-        <section className="rounded-2xl border border-amber-300/25 bg-amber-300/[0.08] p-5 shadow-[0_20px_80px_rgba(251,191,36,0.08)]">
+        <section className="rounded-2xl border border-amber-300/25 bg-amber-300/[0.10] p-5 shadow-[0_20px_80px_rgba(251,191,36,0.08)]">
           <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
             <div>
               <h2 className="text-base font-semibold text-amber-100">{t("apiTokensPage.plaintext.heading")}</h2>
@@ -125,26 +125,26 @@ export function ApiTokenManagerClient({ initialTokens, allowedScopes }: Props) {
 
       {error && <div data-tone="rose" className="rounded-xl border border-rose-400/25 px-4 py-3 text-sm text-rose-100">{error}</div>}
 
-      <section className="rounded-2xl border border-[var(--border)]/[0.06] bg-[var(--surface)]/[0.02] p-5">
+      <section className="rounded-2xl border border-[var(--border)]/[0.10] bg-[var(--surface)]/[0.04] p-5">
         <h2 className="text-lg font-semibold text-[var(--text-primary)]">{t("apiTokensPage.create.heading")}</h2>
         <p className="mt-1 text-sm text-[var(--text-muted)]">{t("apiTokensPage.create.note")}</p>
         <form onSubmit={createToken} className="mt-5 grid gap-4">
           <div className="grid gap-4 lg:grid-cols-[1.2fr_0.8fr]">
             <label className="space-y-1.5">
-              <span className="text-xs font-medium tracking-wide text-[var(--text-primary)]/50">{t("apiTokensPage.create.nameLabel")}</span>
-              <input value={name} onChange={(event) => setName(event.target.value)} required maxLength={80} placeholder={t("apiTokensPage.create.namePlaceholder")} data-card className="w-full  px-3.5 py-2.5 text-sm text-[var(--text-primary)] outline-none placeholder:text-[var(--text-primary)]/20 focus:border-cyan-400/30" />
+              <span className="text-xs font-medium tracking-wide text-[var(--text-primary)]/70">{t("apiTokensPage.create.nameLabel")}</span>
+              <input value={name} onChange={(event) => setName(event.target.value)} required maxLength={80} placeholder={t("apiTokensPage.create.namePlaceholder")} data-card className="w-full  px-3.5 py-2.5 text-sm text-[var(--text-primary)] outline-none placeholder:text-[var(--text-primary)]/30 focus:border-cyan-400/30" />
             </label>
             <label className="space-y-1.5">
-              <span className="text-xs font-medium tracking-wide text-[var(--text-primary)]/50">{t("apiTokensPage.create.expiresLabel")}</span>
+              <span className="text-xs font-medium tracking-wide text-[var(--text-primary)]/70">{t("apiTokensPage.create.expiresLabel")}</span>
               <input type="datetime-local" value={expiresAt} onChange={(event) => setExpiresAt(event.target.value)} data-card className="w-full  px-3.5 py-2.5 text-sm text-[var(--text-primary)] outline-none focus:border-cyan-400/30" />
             </label>
           </div>
 
           <div className="space-y-2">
-            <div className="text-xs font-medium tracking-wide text-[var(--text-primary)]/50">{t("apiTokensPage.create.scopesLabel")}</div>
+            <div className="text-xs font-medium tracking-wide text-[var(--text-primary)]/70">{t("apiTokensPage.create.scopesLabel")}</div>
             <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
               {allowedScopes.map((scope) => (
-                <label key={scope} aria-label={scope} className={`flex cursor-pointer items-center gap-2 rounded-xl border px-3 py-2 text-sm transition ${selectedScopes.includes(scope) ? "border-cyan-400/30 bg-cyan-400/10 text-[var(--text-primary)]" : "border-[var(--border)]/[0.06] bg-[var(--surface)]/[0.03] text-[var(--text-secondary)] hover:bg-[var(--surface)]/[0.05]"}`}>
+                <label key={scope} aria-label={scope} className={`flex cursor-pointer items-center gap-2 rounded-xl border px-3 py-2 text-sm transition ${selectedScopes.includes(scope) ? "border-cyan-400/30 bg-cyan-400/10 text-[var(--text-primary)]" : "border-[var(--border)]/[0.10] bg-[var(--surface)]/[0.04] text-[var(--text-secondary)] hover:bg-[var(--surface)]/[0.10]"}`}>
                   <input type="checkbox" checked={selectedScopes.includes(scope)} onChange={() => toggleScope(scope)} className="h-4 w-4 accent-cyan-400" />
                   <span className="font-mono text-xs">{scope}</span>
                   <span className="text-xs text-[var(--text-muted)]">{scopeLabel(t, scope)}</span>
@@ -173,7 +173,7 @@ export function ApiTokenManagerClient({ initialTokens, allowedScopes }: Props) {
             {tokens.map((token) => {
               const status = tokenStatus(t, token);
               return (
- <article key={token.id} className="rounded-2xl border border-[var(--border)]/[0.06] bg-[var(--surface)]/[0.02]">
+ <article key={token.id} className="rounded-2xl border border-[var(--border)]/[0.10] bg-[var(--surface)]/[0.04]">
                   <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
                     <div className="min-w-0">
                       <div className="flex flex-wrap items-center gap-2">
@@ -182,7 +182,7 @@ export function ApiTokenManagerClient({ initialTokens, allowedScopes }: Props) {
                       </div>
                       <p className="mt-2 font-mono text-xs text-[var(--text-secondary)]">{token.tokenPrefix}…{token.tokenSuffix}</p>
                       <div className="mt-3 flex flex-wrap gap-1.5">
-                        {token.scopes.map((scope) => <span key={scope} className="rounded-lg border border-[var(--border)]/[0.06] bg-[var(--surface)]/[0.04] px-2 py-0.5 font-mono text-[11px] text-[var(--text-secondary)]">{scope}</span>)}
+                        {token.scopes.map((scope) => <span key={scope} className="rounded-lg border border-[var(--border)]/[0.10] bg-[var(--surface)]/[0.04] px-2 py-0.5 font-mono text-[11px] text-[var(--text-secondary)]">{scope}</span>)}
                       </div>
                       <dl className="mt-3 grid gap-2 text-xs text-[var(--text-muted)] sm:grid-cols-3">
                         <div><dt className="text-[var(--text-muted)]">{t("apiTokensPage.list.createdAt")}</dt><dd>{formatDate(token.createdAt)}</dd></div>

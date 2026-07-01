@@ -49,7 +49,7 @@ function matchesTask(task: Task, query: string) {
 }
 
 const fieldLabelClass = "text-xs font-medium text-[var(--text-secondary)] tracking-wide";
-const fieldInputClass = "w-full rounded-lg border border-[var(--border)]/[0.06] bg-[var(--surface)]/[0.04] px-3.5 py-2.5 text-sm text-[var(--text-primary)] outline-none transition placeholder:text-[var(--text-primary)]/20 focus:border-cyan-400/30";
+const fieldInputClass = "w-full rounded-lg border border-[var(--border)]/[0.10] bg-[var(--surface)]/[0.04] px-3.5 py-2.5 text-sm text-[var(--text-primary)] outline-none transition placeholder:text-[var(--text-primary)]/30 focus:border-cyan-400/30";
 const monoFieldInputClass = `${fieldInputClass} font-mono`;
 
 function describeCronPreview(expr: string, t: (key: string) => string) {
@@ -123,7 +123,7 @@ export function ScheduledTaskListClient({ tasks: initialTasks, servers, canCreat
 
 	return (
 		<div className="space-y-6">
-			{actionError && <div role="alert" className="rounded-lg bg-rose-500/[0.08] border border-rose-400/20 px-3.5 py-2.5 text-sm text-rose-200">{actionError}</div>}
+			{actionError && <div role="alert" className="rounded-lg bg-rose-500/[0.10] border border-rose-400/20 px-3.5 py-2.5 text-sm text-rose-200">{actionError}</div>}
 			<div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
 				<div className="space-y-1">
 					<label htmlFor="scheduled-task-log-search" className="text-xs font-medium text-[var(--text-secondary)]">{t("scheduledTasksPage.search.label")}</label>
@@ -133,7 +133,7 @@ export function ScheduledTaskListClient({ tasks: initialTasks, servers, canCreat
 						value={searchQuery}
 						onChange={(e) => setSearchQuery(e.target.value)}
 						placeholder={t("scheduledTasks.searchPlaceholder")}
-						data-card className="w-full min-w-[18rem]  px-3.5 py-2 text-sm text-[var(--text-primary)] outline-none placeholder:text-[var(--text-primary)]/20 focus:border-cyan-400/40"
+						data-card className="w-full min-w-[18rem]  px-3.5 py-2 text-sm text-[var(--text-primary)] outline-none placeholder:text-[var(--text-primary)]/30 focus:border-cyan-400/40"
 					/>
 				</div>
 				{canCreate && !showCreate && (
@@ -298,7 +298,7 @@ function CreateTaskForm({ servers, onClose }: { servers: ServerOption[]; onClose
 	return (
 		<form onSubmit={handleSubmit} data-card className=" space-y-4">
 			<h3 className="text-lg font-semibold text-[var(--text-primary)]">创建定时任务</h3>
-			{error && <div role="alert" className="rounded-lg bg-rose-500/[0.08] border border-rose-400/20 px-3.5 py-2.5 text-sm text-rose-200">{error}</div>}
+			{error && <div role="alert" className="rounded-lg bg-rose-500/[0.10] border border-rose-400/20 px-3.5 py-2.5 text-sm text-rose-200">{error}</div>}
 
 			<div className="space-y-1.5">
 				<label htmlFor="scheduled-task-name" className={fieldLabelClass}>任务名称</label>
@@ -315,7 +315,7 @@ function CreateTaskForm({ servers, onClose }: { servers: ServerOption[]; onClose
 							className={`min-h-11 rounded-lg border px-2.5 py-1 text-[11px] transition ${
 								cronExpression === p.expr
 									? "border-[var(--accent-border)] bg-[var(--accent-bg)] text-[var(--accent)]"
-									: "border-[var(--border)]/[0.06] bg-[var(--surface)]/[0.02] text-[var(--text-muted)] hover:bg-[var(--surface)]/[0.04]"
+									: "border-[var(--border)]/[0.10] bg-[var(--surface)]/[0.04] text-[var(--text-muted)] hover:bg-[var(--surface)]/[0.04]"
 							}`}
 						>
 							{p.label}
@@ -340,7 +340,7 @@ function CreateTaskForm({ servers, onClose }: { servers: ServerOption[]; onClose
 					<div className="grid gap-1.5 sm:grid-cols-2" role="group" aria-labelledby="scheduled-task-target-nodes-label">
 						{enabledServers.map((s) => (
 							<label key={s.id} className={`min-h-11 flex items-center gap-2 rounded-lg border px-3 py-2 text-sm cursor-pointer transition ${
-								selectedServerIds.has(s.id) ? "border-cyan-400/20 bg-cyan-400/[0.06] text-[var(--text-primary)]" : "border-[var(--border)]/[0.06] bg-[var(--surface)]/[0.03] text-[var(--text-secondary)] hover:bg-[var(--surface)]/[0.05]"
+								selectedServerIds.has(s.id) ? "border-cyan-400/20 bg-cyan-400/[0.10] text-[var(--text-primary)]" : "border-[var(--border)]/[0.10] bg-[var(--surface)]/[0.04] text-[var(--text-secondary)] hover:bg-[var(--surface)]/[0.10]"
 							}`}>
 								<input type="checkbox" checked={selectedServerIds.has(s.id)} onChange={() => toggleServer(s.id)} className="accent-cyan-400" />
 								<span>{s.name}</span>

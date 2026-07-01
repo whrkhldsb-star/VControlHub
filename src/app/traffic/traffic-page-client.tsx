@@ -67,7 +67,7 @@ type TrafficHistoryPoint = TrafficSample & {
 
 function Card({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <section className="rounded-2xl border border-[var(--border)] bg-[var(--surface)]/[0.02] p-5">
+    <section className="rounded-2xl border border-[var(--border)] bg-[var(--surface)]/[0.04] p-5">
       <h2 className="mb-4 text-sm font-medium text-[var(--text-secondary)]">{title}</h2>
       {children}
     </section>

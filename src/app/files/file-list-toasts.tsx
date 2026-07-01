@@ -45,7 +45,7 @@ export function FileListToasts({ toasts, onDismiss }: FileListToastsProps) {
           <button
             type="button"
             onClick={() => onDismiss(toast.id)}
-            className="rounded-full px-1.5 text-[var(--text-primary)]/80 hover:bg-[var(--surface)]/10 hover:text-[var(--text-primary)]"
+            className="rounded-full px-1.5 text-[var(--text-primary)] hover:bg-[var(--surface)]/10 hover:text-[var(--text-primary)]"
             aria-label={t("fileListClient.closeNotice")}
           >
             ×

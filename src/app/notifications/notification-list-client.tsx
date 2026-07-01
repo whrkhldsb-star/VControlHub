@@ -119,8 +119,8 @@ export function NotificationListClient({ initialNotifications, initialUnreadCoun
 					key={n.id}
 					className={`group rounded-xl border p-4 transition-colors duration-150 focus-within:ring-2 focus-within:ring-cyan-300/60 light:focus-within:ring-cyan-600/50 ${
 						n.isRead
-							? "border-[var(--border)] bg-[var(--surface)]/[0.01] hover:bg-[var(--surface)]/[0.03] light:hover:bg-slate-50"
-							: "border-cyan-400/20 bg-cyan-400/[0.04] hover:bg-cyan-400/[0.06] light:border-cyan-600/30 light:bg-cyan-50 light:hover:bg-cyan-100/70"
+							? "border-[var(--border)] bg-[var(--surface)]/[0.04] hover:bg-[var(--surface)]/[0.04] light:hover:bg-slate-50"
+							: "border-cyan-400/20 bg-cyan-400/[0.04] hover:bg-cyan-400/[0.10] light:border-cyan-600/30 light:bg-cyan-50 light:hover:bg-cyan-100/70"
 					}`}
 				>
 					<div className="flex items-start gap-3">

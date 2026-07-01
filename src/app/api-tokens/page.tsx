@@ -24,7 +24,7 @@ export default async function Page() {
 	return (
 		<PageShell>
 			<PageHeader eyebrow={t("apiTokensPage.eyebrow", locale)} title={t("apiTokensPage.title", locale)} description={t("apiTokensPage.desc", locale)}>
-				<div className="rounded-2xl border border-[var(--border)] bg-[var(--surface)]/[0.03] px-4 py-3 text-xs text-[var(--text-muted)]">
+				<div className="rounded-2xl border border-[var(--border)] bg-[var(--surface)]/[0.04] px-4 py-3 text-xs text-[var(--text-muted)]">
 					{t("apiTokensPage.hint", locale)}
 				</div>
 			</PageHeader>

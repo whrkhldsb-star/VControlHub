@@ -183,14 +183,14 @@ export function InstallDialog({
 					</label>
 
 					{portCheck && !portCheck.available && portCheck.usedBy && (
-						<div className="text-xs text-rose-300/80 bg-rose-500/[0.06] rounded-lg px-3 py-2 border border-rose-400/10">
+						<div className="text-xs text-rose-300/80 bg-rose-500/[0.10] rounded-lg px-3 py-2 border border-rose-400/10">
 							{t("qsPage.portInUseDetail").replace("{usedBy}", portCheck.usedBy)}
 						</div>
 					)}
 
 					<div data-tone="cyan" className="rounded-xl border border-cyan-400/15 p-3 text-xs text-[var(--text-primary)]">
 						<div className="font-semibold">{t("qsPage.configPreviewTitle")}</div>
-						<div className="mt-2 grid gap-1.5 text-[var(--text-primary)]/80">
+						<div className="mt-2 grid gap-1.5 text-[var(--text-primary)]">
 							<span>{t("qsPage.imageLabel").replace("{image}", open.image ?? t("qsPage.imagePending"))}</span>
 							<span>
 								{t("qsPage.containerPortLabel").replace("{container}", String(containerPort ?? t("qsPage.containerPortDash"))).replace("{host}", customPort || String(open.defaultPort))}

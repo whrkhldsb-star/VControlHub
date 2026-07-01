@@ -58,7 +58,7 @@ export function AiSidebar({
                 key={conv.id}
                 className={`group flex items-center gap-2 rounded-lg px-3 py-2 cursor-pointer transition ${
  activeConvId === conv.id
- ?"bg-cyan-400/[0.08] text-[var(--text-primary)]"
+ ?"bg-cyan-400/[0.10] text-[var(--text-primary)]"
  :"text-[var(--text-secondary)] hover:bg-[var(--surface)]/[0.04] hover:text-[var(--text-secondary)] light:hover:text-slate-800"
  }`}
                 onClick={() => onSelectConv(conv.id)}

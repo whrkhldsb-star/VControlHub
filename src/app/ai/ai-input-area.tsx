@@ -71,7 +71,7 @@ export function AiInputArea({
         <button
           onClick={() => fileInputRef.current?.click()}
           disabled={streaming}
-          className="h-10 w-10 rounded-xl bg-[var(--surface)]/[0.04] text-[var(--text-secondary)] flex items-center justify-center hover:bg-[var(--surface)]/[0.08] hover:text-[var(--text-secondary)] light:hover:text-slate-800 transition disabled:opacity-30"
+          className="h-10 w-10 rounded-xl bg-[var(--surface)]/[0.04] text-[var(--text-secondary)] flex items-center justify-center hover:bg-[var(--surface)]/[0.10] hover:text-[var(--text-secondary)] light:hover:text-slate-800 transition disabled:opacity-30"
           aria-label={t("aiPage.uploadFileTitle").replace("{types}", formatAllowedTypes(currentModelCaps))}
           title={t("aiPage.uploadFileTitle").replace("{types}", formatAllowedTypes(currentModelCaps))}
         >

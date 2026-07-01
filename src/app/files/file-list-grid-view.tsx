@@ -146,7 +146,7 @@ export function FileListGridView({
                   />
                 </div>
               ) : (
-                <div className="rounded-xl bg-[var(--surface)]/[0.03] p-4">
+                <div className="rounded-xl bg-[var(--surface)]/[0.04] p-4">
                   <FileTypeIcon entry={entry} size={44} />
                 </div>
               )}

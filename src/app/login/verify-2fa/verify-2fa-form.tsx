@@ -110,13 +110,13 @@ if (data.success) {
 						disabled={submitting}
 						autoFocus={i === 0}
 						aria-label={`验证码第 ${i + 1} 位`}
-						className="h-14 w-12 rounded-xl bg-[var(--surface)]/[0.04] text-center text-xl font-semibold text-[var(--text-primary)] shadow-[0_0_0_1px_rgba(255,255,255,0.07)] outline-none transition-[box-shadow,background-color] duration-150 placeholder:text-[var(--text-primary)]/20 focus:bg-[var(--surface)]/[0.06] focus:shadow-[0_0_0_1px_rgba(34,211,238,0.3),0_0_0_4px_rgba(34,211,238,0.08)] disabled:opacity-50"
+						className="h-14 w-12 rounded-xl bg-[var(--surface)]/[0.04] text-center text-xl font-semibold text-[var(--text-primary)] shadow-[0_0_0_1px_rgba(255,255,255,0.07)] outline-none transition-[box-shadow,background-color] duration-150 placeholder:text-[var(--text-primary)]/30 focus:bg-[var(--surface)]/[0.10] focus:shadow-[0_0_0_1px_rgba(34,211,238,0.3),0_0_0_4px_rgba(34,211,238,0.08)] disabled:opacity-50"
 					/>
 				))}
 			</div>
 
 			{errorMsg ? (
-				<div className="rounded-xl bg-rose-500/[0.08] px-4 py-2.5 text-sm text-rose-200 shadow-[0_0_0_1px_rgba(251,113,133,0.15)]">
+				<div className="rounded-xl bg-rose-500/[0.10] px-4 py-2.5 text-sm text-rose-200 shadow-[0_0_0_1px_rgba(251,113,133,0.15)]">
 					{errorMsg}
 				</div>
 			) : null}

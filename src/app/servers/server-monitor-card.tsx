@@ -52,7 +52,7 @@ function usageTextColor(pct: number): string {
 function ProgressBar({ value, max = 100, className = "" }: { value: number; max?: number; className?: string }) {
 	const pct = Math.min(100, Math.max(0, (value / max) * 100));
 	return (
-		<div className={`h-1.5 rounded-full bg-[var(--surface)]/[0.06] overflow-hidden ${className}`}>
+		<div className={`h-1.5 rounded-full bg-[var(--surface)]/[0.10] overflow-hidden ${className}`}>
 			<div
 				className={`h-full rounded-full transition-[width] duration-700 ${usageColor(pct)}`}
 				style={{ width: `${pct}%` }}
@@ -66,7 +66,7 @@ function MetricRow({ label, value, unit, pct }: { label: string; value: string; 
 		<div className="flex items-center justify-between gap-2 text-xs">
 			<span className="text-[var(--text-muted)] shrink-0">{label}</span>
 			{pct !== undefined && <ProgressBar value={pct} className="flex-1 min-w-[40px]" />}
-			<span className={`font-mono tabular-nums ${pct !== undefined ? usageTextColor(pct) : "text-[var(--text-primary)]/80"}`}>
+			<span className={`font-mono tabular-nums ${pct !== undefined ? usageTextColor(pct) : "text-[var(--text-primary)]"}`}>
 				{value}{unit && <span className="text-[var(--text-muted)] ml-0.5">{unit}</span>}
 			</span>
 		</div>
@@ -112,10 +112,10 @@ export function ServerMonitorCard({ serverId }: Props) {
 	if (loading) {
 		return (
 			<div data-card className=" p-4 space-y-2 animate-pulse">
-				<div className="h-3 w-24 bg-[var(--surface)]/[0.06] rounded-lg" />
-				<div className="h-3 w-full bg-[var(--surface)]/[0.06] rounded-lg" />
-				<div className="h-3 w-full bg-[var(--surface)]/[0.06] rounded-lg" />
-				<div className="h-3 w-3/4 bg-[var(--surface)]/[0.06] rounded-lg" />
+				<div className="h-3 w-24 bg-[var(--surface)]/[0.10] rounded-lg" />
+				<div className="h-3 w-full bg-[var(--surface)]/[0.10] rounded-lg" />
+				<div className="h-3 w-full bg-[var(--surface)]/[0.10] rounded-lg" />
+				<div className="h-3 w-3/4 bg-[var(--surface)]/[0.10] rounded-lg" />
 			</div>
 		);
 	}
@@ -145,7 +145,7 @@ export function ServerMonitorCard({ serverId }: Props) {
 		<div data-card className=" p-4 space-y-3">
 			{/* Header */}
 			<div className="flex items-center justify-between">
-				<h4 className="text-xs font-medium text-[var(--text-primary)]/60 uppercase tracking-wider">实时监控</h4>
+				<h4 className="text-xs font-medium text-[var(--text-primary)]/70 uppercase tracking-wider">实时监控</h4>
 				<div className="flex items-center gap-1.5">
 					<div className="h-1.5 w-1.5 rounded-full bg-emerald-400 shadow-[0_0_4px_rgba(52,211,153,0.5)] animate-pulse" />
 					<span className="text-[10px] text-[var(--text-muted)]">{new Date(metrics.timestamp).toLocaleTimeString("zh-CN")}</span>

@@ -64,7 +64,7 @@ export function ShareRowActions({
 						setError(null);
 					}}
 					disabled={busy}
-					className="min-h-11 min-w-11 rounded-lg border border-[var(--border)] bg-[var(--surface)]/5 px-2.5 py-1 text-xs text-[var(--text-secondary)] transition hover:bg-[var(--surface)]/10 disabled:cursor-not-allowed disabled:opacity-50"
+					className="min-h-11 min-w-11 rounded-lg border border-[var(--border)] bg-[var(--surface)]/10 px-2.5 py-1 text-xs text-[var(--text-secondary)] transition hover:bg-[var(--surface)]/10 disabled:cursor-not-allowed disabled:opacity-50"
 				>
 					取消
 				</button>

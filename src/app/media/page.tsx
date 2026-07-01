@@ -74,7 +74,7 @@ export default async function Page({ searchParams }: { searchParams?: Promise<Me
             <h1 className="mt-2 text-3xl font-semibold tracking-tight text-[var(--text-primary)]">{t("mediaPage.title", locale)}</h1>
             <p className="mt-2 max-w-2xl text-sm leading-6 text-[var(--text-secondary)]">{t("mediaPage.desc", locale)}</p>
           </div>
-          <div className="grid min-w-[260px] grid-cols-3 gap-2 rounded-2xl border border-[var(--border)] bg-[var(--surface)]/[0.05] p-2 text-center">
+          <div className="grid min-w-[260px] grid-cols-3 gap-2 rounded-2xl border border-[var(--border)] bg-[var(--surface)]/[0.10] p-2 text-center">
             <div className="rounded-xl bg-blue-400/10 px-3 py-2"><div className="text-lg font-semibold text-blue-100 light:text-blue-900">{imageCount}</div><div className="text-[10px] text-blue-200/70 light:text-blue-700">{t("mediaPage.stat.image", locale)}</div></div>
             <div className="rounded-xl bg-purple-400/10 px-3 py-2"><div className="text-lg font-semibold text-purple-100 light:text-purple-900">{videoCount}</div><div className="text-[10px] text-purple-200/70 light:text-purple-700">{t("mediaPage.stat.video", locale)}</div></div>
             <div className="rounded-xl bg-emerald-400/10 px-3 py-2"><div className="text-lg font-semibold text-emerald-100 light:text-emerald-900">{audioCount}</div><div className="text-[10px] text-emerald-200/70 light:text-emerald-700">{t("mediaPage.stat.audio", locale)}</div></div>
@@ -83,7 +83,7 @@ export default async function Page({ searchParams }: { searchParams?: Promise<Me
       </header>
 
       <section className="mb-5 grid gap-3 lg:grid-cols-[1.2fr_0.8fr]">
-        <div className="rounded-2xl border border-[var(--border)]/[0.07] bg-[var(--surface)]/[0.03] p-4">
+        <div className="rounded-2xl border border-[var(--border)]/[0.07] bg-[var(--surface)]/[0.04] p-4">
           <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
             <div>
               <p className="text-xs font-semibold uppercase tracking-[0.22em] text-cyan-300/70">{t("mediaPage.workspace.label", locale)}</p>
@@ -101,22 +101,22 @@ export default async function Page({ searchParams }: { searchParams?: Promise<Me
           </div>
 
           <div role="tablist" aria-label={t("mediaPage.aria.mediaType", locale)} className="mt-4 grid gap-2 text-sm sm:grid-cols-4">
-            <FilterLink href={mediaHref({ favorite, q, tag })} active={!mediaType} activeClassName="border-cyan-400/45 bg-cyan-400/20 text-[var(--text-primary)]" inactiveClassName="border-[var(--border)] bg-[var(--surface)]/[0.03] text-[var(--text-secondary)] hover:bg-[var(--surface)]/[0.06]" className="rounded-2xl border px-4 py-3 transition">
+            <FilterLink href={mediaHref({ favorite, q, tag })} active={!mediaType} activeClassName="border-cyan-400/45 bg-cyan-400/20 text-[var(--text-primary)]" inactiveClassName="border-[var(--border)] bg-[var(--surface)]/[0.04] text-[var(--text-secondary)] hover:bg-[var(--surface)]/[0.10]" className="rounded-2xl border px-4 py-3 transition">
               <span className="block text-base">{t("mediaPage.filter.allTab", locale)}</span><span className="text-xs opacity-70">{t("mediaPage.filter.allCount", locale).replace("{count}", String(totalCount))}</span>
             </FilterLink>
-            <FilterLink href={toggleTypeHref(filters, "image")} active={mediaType === "image"} activeClassName="border-blue-400/55 bg-blue-400/20 text-blue-100" inactiveClassName="border-blue-400/20 bg-blue-400/[0.06] text-blue-200 hover:bg-blue-400/10" className="rounded-2xl border px-4 py-3 transition" title={mediaType === "image" ? t("mediaPage.filter.titleToggleOffType", locale).replace("{type}", typeLabel(locale, "image")) : t("mediaPage.filter.titleOnlyType", locale).replace("{type}", typeLabel(locale, "image"))}>
+            <FilterLink href={toggleTypeHref(filters, "image")} active={mediaType === "image"} activeClassName="border-blue-400/55 bg-blue-400/20 text-blue-100" inactiveClassName="border-blue-400/20 bg-blue-400/[0.10] text-blue-200 hover:bg-blue-400/10" className="rounded-2xl border px-4 py-3 transition" title={mediaType === "image" ? t("mediaPage.filter.titleToggleOffType", locale).replace("{type}", typeLabel(locale, "image")) : t("mediaPage.filter.titleOnlyType", locale).replace("{type}", typeLabel(locale, "image"))}>
               <span className="flex items-center justify-between"><span>{t("mediaPage.filter.imageTab", locale)}</span><span>{imageCount}</span></span><span className="mt-1 block text-xs opacity-70">{t("mediaPage.filter.imageDesc", locale)} {mediaType === "image" ? t("mediaPage.filter.toggleOff", locale) : ""}</span>
             </FilterLink>
-            <FilterLink href={toggleTypeHref(filters, "video")} active={mediaType === "video"} activeClassName="border-purple-400/55 bg-purple-400/20 text-purple-100 light:text-purple-900" inactiveClassName="border-purple-400/20 bg-purple-400/[0.06] text-purple-200 light:text-purple-800 hover:bg-purple-400/10" className="rounded-2xl border px-4 py-3 transition" title={mediaType === "video" ? t("mediaPage.filter.titleToggleOffType", locale).replace("{type}", typeLabel(locale, "video")) : t("mediaPage.filter.titleOnlyType", locale).replace("{type}", typeLabel(locale, "video"))}>
+            <FilterLink href={toggleTypeHref(filters, "video")} active={mediaType === "video"} activeClassName="border-purple-400/55 bg-purple-400/20 text-purple-100 light:text-purple-900" inactiveClassName="border-purple-400/20 bg-purple-400/[0.10] text-purple-200 light:text-purple-800 hover:bg-purple-400/10" className="rounded-2xl border px-4 py-3 transition" title={mediaType === "video" ? t("mediaPage.filter.titleToggleOffType", locale).replace("{type}", typeLabel(locale, "video")) : t("mediaPage.filter.titleOnlyType", locale).replace("{type}", typeLabel(locale, "video"))}>
               <span className="flex items-center justify-between"><span>{t("mediaPage.filter.videoTab", locale)}</span><span>{videoCount}</span></span><span className="mt-1 block text-xs opacity-70">{t("mediaPage.filter.videoDesc", locale)} {mediaType === "video" ? t("mediaPage.filter.toggleOff", locale) : ""}</span>
             </FilterLink>
-            <FilterLink href={toggleTypeHref(filters, "audio")} active={mediaType === "audio"} activeClassName="border-emerald-400/55 bg-emerald-400/20 text-emerald-100" inactiveClassName="border-emerald-400/20 bg-emerald-400/[0.06] text-emerald-200 hover:bg-emerald-400/10" className="rounded-2xl border px-4 py-3 transition" title={mediaType === "audio" ? t("mediaPage.filter.titleToggleOffType", locale).replace("{type}", typeLabel(locale, "audio")) : t("mediaPage.filter.titleOnlyType", locale).replace("{type}", typeLabel(locale, "audio"))}>
+            <FilterLink href={toggleTypeHref(filters, "audio")} active={mediaType === "audio"} activeClassName="border-emerald-400/55 bg-emerald-400/20 text-emerald-100" inactiveClassName="border-emerald-400/20 bg-emerald-400/[0.10] text-emerald-200 hover:bg-emerald-400/10" className="rounded-2xl border px-4 py-3 transition" title={mediaType === "audio" ? t("mediaPage.filter.titleToggleOffType", locale).replace("{type}", typeLabel(locale, "audio")) : t("mediaPage.filter.titleOnlyType", locale).replace("{type}", typeLabel(locale, "audio"))}>
               <span className="flex items-center justify-between"><span>{t("mediaPage.filter.audioTab", locale)}</span><span>{audioCount}</span></span><span className="mt-1 block text-xs opacity-70">{t("mediaPage.filter.audioDesc", locale)} {mediaType === "audio" ? t("mediaPage.filter.toggleOff", locale) : ""}</span>
             </FilterLink>
           </div>
         </div>
 
-        <aside className="rounded-2xl border border-[var(--border)]/[0.07] bg-[var(--surface)]/[0.03] p-4">
+        <aside className="rounded-2xl border border-[var(--border)]/[0.07] bg-[var(--surface)]/[0.04] p-4">
           <h2 className="text-sm font-semibold text-[var(--text-primary)]">{t("mediaPage.flow.title", locale)}</h2>
           <ol className="mt-3 space-y-3 text-sm text-[var(--text-muted)]">
             <li className="flex gap-3"><span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-cyan-400/15 text-xs text-[var(--text-secondary)]">1</span><span>{t("mediaPage.flow.step1", locale)}</span></li>
@@ -145,14 +145,14 @@ export default async function Page({ searchParams }: { searchParams?: Promise<Me
         </div>
         <button type="submit" className="rounded-xl bg-cyan-600 px-4 py-2 text-sm font-medium text-[var(--text-primary)] transition hover:bg-cyan-500">{t("mediaPage.search.submit", locale)}</button>
         {(q || tag || mediaType || favorite) && (
-          <FilterLink href="/media" active={false} activeClassName="" inactiveClassName="rounded-xl border border-[var(--border)] px-3 py-2 text-sm text-[var(--text-muted)] transition hover:bg-[var(--surface)]/5">
+          <FilterLink href="/media" active={false} activeClassName="" inactiveClassName="rounded-xl border border-[var(--border)] px-3 py-2 text-sm text-[var(--text-muted)] transition hover:bg-[var(--surface)]/10">
             {t("mediaPage.search.clearFilters", locale)}
           </FilterLink>
         )}
       </form>
 
       <div className="mb-4 flex flex-wrap items-center gap-2 text-xs">
-        <FilterLink href={toggleFavoriteHref(filters)} active={favorite === true} activeClassName="border-amber-400/40 bg-amber-400/20 text-amber-100" inactiveClassName="border-amber-400/20 bg-amber-400/[0.06] text-amber-200 hover:bg-amber-400/10" className="rounded-full border px-3 py-1 transition" title={favorite ? t("mediaPage.filter.titleToggleOffFav", locale) : t("mediaPage.filter.titleOnlyFav", locale)}>
+        <FilterLink href={toggleFavoriteHref(filters)} active={favorite === true} activeClassName="border-amber-400/40 bg-amber-400/20 text-amber-100" inactiveClassName="border-amber-400/20 bg-amber-400/[0.10] text-amber-200 hover:bg-amber-400/10" className="rounded-full border px-3 py-1 transition" title={favorite ? t("mediaPage.filter.titleToggleOffFav", locale) : t("mediaPage.filter.titleOnlyFav", locale)}>
           {t("mediaPage.favoriteFilter", locale).replace("{count}", String(favCount))}
         </FilterLink>
       </div>
@@ -167,7 +167,7 @@ export default async function Page({ searchParams }: { searchParams?: Promise<Me
                 href={toggleTagHref(filters, entry.tag)}
                 active={tag === entry.tag}
                 activeClassName="border-cyan-400/40 bg-cyan-400/20 text-[var(--text-primary)]"
-                inactiveClassName="border-[var(--border)] bg-[var(--surface)]/[0.03] text-[var(--text-secondary)] hover:bg-[var(--surface)]/[0.06]"
+                inactiveClassName="border-[var(--border)] bg-[var(--surface)]/[0.04] text-[var(--text-secondary)] hover:bg-[var(--surface)]/[0.10]"
                 className="rounded-full border px-2.5 py-1 transition"
                 title={tag === entry.tag ? t("mediaPage.tagFilter.titleToggleOff", locale).replace("{tag}", entry.tag) : t("mediaPage.tagFilter.titleApply", locale).replace("{tag}", entry.tag)}
               >

@@ -46,7 +46,7 @@ export function ServerTabLayout({
 								className={`rounded-xl border px-4 py-3 text-left transition-colors duration-150 ${
 									activePanel === action.key
 										?"border-cyan-400/25 bg-cyan-400/10 text-[var(--text-primary)] shadow-[0_0_0_1px_rgba(34,211,238,0.1)]"
-										:"border-[var(--border)] bg-[var(--surface)]/[0.03] text-[var(--text-secondary)] hover:bg-[var(--surface)]/[0.06]"
+										:"border-[var(--border)] bg-[var(--surface)]/[0.04] text-[var(--text-secondary)] hover:bg-[var(--surface)]/[0.10]"
 								} ${disabled ?"cursor-not-allowed opacity-45" :""}`}
 							>
 								<div className="text-sm font-medium">{action.label}</div>

@@ -91,7 +91,7 @@ export function TemplateListClient({ templates: initialTemplates, servers, canCr
 							<button
 								type="button"
 								onClick={() => setTemplatePendingDelete(null)}
-								data-card className="min-h-11 px-4 py-2 text-sm text-[var(--text-secondary)] transition hover:bg-[var(--surface)]/[0.06]"
+								data-card className="min-h-11 px-4 py-2 text-sm text-[var(--text-secondary)] transition hover:bg-[var(--surface)]/[0.10]"
 							>
 								{t("templatesPage.delete.cancel")}
 							</button>
@@ -115,7 +115,7 @@ export function TemplateListClient({ templates: initialTemplates, servers, canCr
 						<button
 							onClick={() => setFilterTag(null)}
 							data-tone={!filterTag ? "accent" : undefined}
-							className={`rounded-lg border px-2 py-0.5 text-[11px] transition ${!filterTag ? "" : "border-[var(--border)] bg-[var(--surface)]/[0.02] text-[var(--text-muted)] hover:bg-[var(--surface)]/[0.05]"}`}
+							className={`rounded-lg border px-2 py-0.5 text-[11px] transition ${!filterTag ? "" : "border-[var(--border)] bg-[var(--surface)]/[0.04] text-[var(--text-muted)] hover:bg-[var(--surface)]/[0.10]"}`}
 						>
 							{t("templatesPage.filter.all")}
 						</button>
@@ -124,7 +124,7 @@ export function TemplateListClient({ templates: initialTemplates, servers, canCr
 								key={tag}
 								onClick={() => setFilterTag(filterTag === tag ? null : tag)}
 								data-tone={filterTag === tag ? "accent" : undefined}
-								className={`rounded-lg border px-2 py-0.5 text-[11px] transition ${filterTag === tag ? "" : "border-[var(--border)] bg-[var(--surface)]/[0.02] text-[var(--text-muted)] hover:bg-[var(--surface)]/[0.05]"}`}
+								className={`rounded-lg border px-2 py-0.5 text-[11px] transition ${filterTag === tag ? "" : "border-[var(--border)] bg-[var(--surface)]/[0.04] text-[var(--text-muted)] hover:bg-[var(--surface)]/[0.10]"}`}
 							>
 								#{tag}
 							</button>
@@ -252,13 +252,13 @@ function DeployButton({ template, servers, onDeploy, loading }: {
 							value={vars[v] ?? ""}
 							onChange={(e) => setVars((prev) => ({ ...prev, [v]: e.target.value }))}
 							placeholder={`{{${v}}}`}
-							className="flex-1 rounded-lg border border-[var(--border)] bg-[var(--surface)]/[0.04] px-2 py-1 text-[11px] text-[var(--text-primary)] font-mono outline-none placeholder:text-[var(--text-primary)]/20 focus:border-cyan-400/30"
+							className="flex-1 rounded-lg border border-[var(--border)] bg-[var(--surface)]/[0.04] px-2 py-1 text-[11px] text-[var(--text-primary)] font-mono outline-none placeholder:text-[var(--text-primary)]/30 focus:border-cyan-400/30"
 						/>
 					</div>
 			)})}
 			<div className="flex flex-wrap gap-1">
 				{enabledServers.map((s) => (
-					<label key={s.id} className={`flex items-center gap-1.5 rounded-lg border px-2 py-1 text-[11px] cursor-pointer transition ${selectedIds.has(s.id) ? "border-cyan-400/20 bg-cyan-400/[0.06] text-[var(--text-primary)]" : "border-[var(--border)] bg-[var(--surface)]/[0.03] text-[var(--text-muted)]"}`}>
+					<label key={s.id} className={`flex items-center gap-1.5 rounded-lg border px-2 py-1 text-[11px] cursor-pointer transition ${selectedIds.has(s.id) ? "border-cyan-400/20 bg-cyan-400/[0.10] text-[var(--text-primary)]" : "border-[var(--border)] bg-[var(--surface)]/[0.04] text-[var(--text-muted)]"}`}>
 						<input type="checkbox" checked={selectedIds.has(s.id)} onChange={() => {
 							setSelectedIds((prev) => { const n = new Set(prev); if (n.has(s.id)) n.delete(s.id); else n.add(s.id); return n; });
 						}} className="accent-cyan-400" />
@@ -274,7 +274,7 @@ function DeployButton({ template, servers, onDeploy, loading }: {
 				>
 					{loading ? t("templatesPage.action.submitting") : t("templatesPage.action.submit")}
 				</button>
-				<button onClick={() => setOpen(false)} className="min-h-11 rounded-lg border border-[var(--border)] bg-[var(--surface)]/[0.03] px-3 py-1 text-[11px] text-[var(--text-muted)] hover:bg-[var(--surface)]/[0.06] transition">
+				<button onClick={() => setOpen(false)} className="min-h-11 rounded-lg border border-[var(--border)] bg-[var(--surface)]/[0.04] px-3 py-1 text-[11px] text-[var(--text-muted)] hover:bg-[var(--surface)]/[0.10] transition">
 					{t("templatesPage.action.cancel")}
 				</button>
 			</div>
@@ -319,28 +319,28 @@ function CreateTemplateForm({ onClose }: { onClose: () => void }) {
 	return (
 		<form onSubmit={handleSubmit} data-card className=" space-y-4">
 			<h3 className="text-lg font-semibold text-[var(--text-primary)]">{t("templatesPage.create.title")}</h3>
-			{error && <div className="rounded-lg bg-rose-500/[0.08] border border-rose-400/20 px-3.5 py-2.5 text-sm text-rose-200">{error}</div>}
+			{error && <div className="rounded-lg bg-rose-500/[0.10] border border-rose-400/20 px-3.5 py-2.5 text-sm text-rose-200">{error}</div>}
 			<div className="space-y-1.5">
-				<label htmlFor={`${createFormId}-name`} className="text-xs font-medium text-[var(--text-primary)]/50 tracking-wide">{t("templatesPage.create.nameLabel")}</label>
-				<input id={`${createFormId}-name`} value={name} onChange={(e) => setName(e.target.value)} required placeholder={t("templatesPage.create.namePlaceholder")} className="w-full rounded-lg border border-[var(--border)] bg-[var(--surface)]/[0.04] px-3.5 py-2.5 text-sm text-[var(--text-primary)] outline-none transition placeholder:text-[var(--text-primary)]/20 focus:border-cyan-400/30" />
+				<label htmlFor={`${createFormId}-name`} className="text-xs font-medium text-[var(--text-primary)]/70 tracking-wide">{t("templatesPage.create.nameLabel")}</label>
+				<input id={`${createFormId}-name`} value={name} onChange={(e) => setName(e.target.value)} required placeholder={t("templatesPage.create.namePlaceholder")} className="w-full rounded-lg border border-[var(--border)] bg-[var(--surface)]/[0.04] px-3.5 py-2.5 text-sm text-[var(--text-primary)] outline-none transition placeholder:text-[var(--text-primary)]/30 focus:border-cyan-400/30" />
 			</div>
 			<div className="space-y-1.5">
-				<label htmlFor={`${createFormId}-description`} className="text-xs font-medium text-[var(--text-primary)]/50 tracking-wide">{t("templatesPage.create.descLabel")}</label>
-				<input id={`${createFormId}-description`} value={description} onChange={(e) => setDescription(e.target.value)} placeholder={t("templatesPage.create.descPlaceholder")} className="w-full rounded-lg border border-[var(--border)] bg-[var(--surface)]/[0.04] px-3.5 py-2.5 text-sm text-[var(--text-primary)] outline-none transition placeholder:text-[var(--text-primary)]/20 focus:border-cyan-400/30" />
+				<label htmlFor={`${createFormId}-description`} className="text-xs font-medium text-[var(--text-primary)]/70 tracking-wide">{t("templatesPage.create.descLabel")}</label>
+				<input id={`${createFormId}-description`} value={description} onChange={(e) => setDescription(e.target.value)} placeholder={t("templatesPage.create.descPlaceholder")} className="w-full rounded-lg border border-[var(--border)] bg-[var(--surface)]/[0.04] px-3.5 py-2.5 text-sm text-[var(--text-primary)] outline-none transition placeholder:text-[var(--text-primary)]/30 focus:border-cyan-400/30" />
 			</div>
 			<div className="space-y-1.5">
-				<label htmlFor={`${createFormId}-command`} className="text-xs font-medium text-[var(--text-primary)]/50 tracking-wide">{t("templatesPage.create.commandLabel")}</label>
-				<textarea id={`${createFormId}-command`} value={command} onChange={(e) => setCommand(e.target.value)} required rows={3} placeholder={t("templatesPage.create.commandPlaceholder")} className="w-full rounded-lg border border-[var(--border)] bg-[var(--surface)]/[0.04] px-3.5 py-2.5 text-sm text-[var(--text-primary)] font-mono outline-none transition placeholder:text-[var(--text-primary)]/20 focus:border-cyan-400/30 resize-y" />
+				<label htmlFor={`${createFormId}-command`} className="text-xs font-medium text-[var(--text-primary)]/70 tracking-wide">{t("templatesPage.create.commandLabel")}</label>
+				<textarea id={`${createFormId}-command`} value={command} onChange={(e) => setCommand(e.target.value)} required rows={3} placeholder={t("templatesPage.create.commandPlaceholder")} className="w-full rounded-lg border border-[var(--border)] bg-[var(--surface)]/[0.04] px-3.5 py-2.5 text-sm text-[var(--text-primary)] font-mono outline-none transition placeholder:text-[var(--text-primary)]/30 focus:border-cyan-400/30 resize-y" />
 				<p className="text-[11px] text-[var(--text-muted)]">{t("templatesPage.create.commandHint")}</p>
 			</div>
 			<div className="space-y-1.5">
-				<label htmlFor={`${createFormId}-rollback-command`} className="text-xs font-medium text-[var(--text-primary)]/50 tracking-wide">{t("templatesPage.create.rollbackLabel")}</label>
-				<textarea id={`${createFormId}-rollback-command`} value={rollbackCommand} onChange={(e) => setRollbackCommand(e.target.value)} rows={3} placeholder={t("templatesPage.create.rollbackPlaceholder")} data-tone="emerald" className="w-full rounded-lg border border-emerald-400/20 px-3.5 py-2.5 text-sm text-[var(--text-primary)] light:border-emerald-200 light:bg-emerald-50 font-mono outline-none transition placeholder:text-[var(--text-primary)]/20 focus:border-emerald-400/40 resize-y" />
+				<label htmlFor={`${createFormId}-rollback-command`} className="text-xs font-medium text-[var(--text-primary)]/70 tracking-wide">{t("templatesPage.create.rollbackLabel")}</label>
+				<textarea id={`${createFormId}-rollback-command`} value={rollbackCommand} onChange={(e) => setRollbackCommand(e.target.value)} rows={3} placeholder={t("templatesPage.create.rollbackPlaceholder")} data-tone="emerald" className="w-full rounded-lg border border-emerald-400/20 px-3.5 py-2.5 text-sm text-[var(--text-primary)] light:border-emerald-200 light:bg-emerald-50 font-mono outline-none transition placeholder:text-[var(--text-primary)]/30 focus:border-emerald-400/40 resize-y" />
 				<p className="text-[11px] text-[var(--text-muted)]">{t("templatesPage.create.rollbackHint")}</p>
 			</div>
 			<div className="space-y-1.5">
-				<label htmlFor={`${createFormId}-tags`} className="text-xs font-medium text-[var(--text-primary)]/50 tracking-wide">{t("templatesPage.create.tagsLabel")}</label>
-				<input id={`${createFormId}-tags`} value={tags} onChange={(e) => setTags(e.target.value)} placeholder={t("templatesPage.create.tagsPlaceholder")} className="w-full rounded-lg border border-[var(--border)] bg-[var(--surface)]/[0.04] px-3.5 py-2.5 text-sm text-[var(--text-primary)] outline-none transition placeholder:text-[var(--text-primary)]/20 focus:border-cyan-400/30" />
+				<label htmlFor={`${createFormId}-tags`} className="text-xs font-medium text-[var(--text-primary)]/70 tracking-wide">{t("templatesPage.create.tagsLabel")}</label>
+				<input id={`${createFormId}-tags`} value={tags} onChange={(e) => setTags(e.target.value)} placeholder={t("templatesPage.create.tagsPlaceholder")} className="w-full rounded-lg border border-[var(--border)] bg-[var(--surface)]/[0.04] px-3.5 py-2.5 text-sm text-[var(--text-primary)] outline-none transition placeholder:text-[var(--text-primary)]/30 focus:border-cyan-400/30" />
 			</div>
 			<div className="flex gap-3 pt-2">
 				<button type="submit" disabled={submitting} className="min-h-11 rounded-2xl bg-cyan-500 px-5 py-2 text-sm font-medium text-slate-950 transition hover:bg-cyan-400 disabled:opacity-60">
