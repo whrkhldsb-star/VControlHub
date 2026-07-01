@@ -21,13 +21,13 @@ interface TicketDetailClientProps {
 }
 
 const STATUS_TONE: Record<string, string> = {
-  OPEN: "border-cyan-400/30 bg-cyan-400/10 text-cyan-100",
+  OPEN: "border-cyan-400/30 bg-cyan-400/10 text-[var(--text-primary)]",
   IN_PROGRESS: "border-amber-400/30 bg-amber-400/10 text-amber-100",
   RESOLVED: "border-emerald-400/30 bg-emerald-400/10 text-emerald-100",
-  CLOSED: "border-slate-400/30 bg-slate-400/10 text-slate-300",
+  CLOSED: "border-slate-400/30 bg-slate-400/10 text-[var(--text-secondary)]",
 };
 const PRIORITY_TONE: Record<string, string> = {
-  LOW: "text-slate-400", NORMAL: "text-slate-300", HIGH: "text-amber-400", URGENT: "text-rose-400",
+  LOW: "text-[var(--text-secondary)]", NORMAL: "text-[var(--text-secondary)]", HIGH: "text-amber-400", URGENT: "text-rose-400",
 };
 
 function statusLabel(t: (k: string) => string, status: string): string {
@@ -96,14 +96,14 @@ export function TicketDetailClient({ initial, canManage, locale: _locale }: Tick
 
   return (
     <div data-card className="space-y-6">
-      <Link href="/tickets" className="inline-flex items-center gap-1 text-xs text-slate-500 hover:text-slate-300 light:hover:text-slate-700 transition-colors">
+      <Link href="/tickets" className="inline-flex items-center gap-1 text-xs text-[var(--text-muted)] hover:text-[var(--text-secondary)] light:hover:text-slate-700 transition-colors">
         {t("ticketsDetail.backToList")}
       </Link>
       {/* Ticket header */}
       <div className="p-6">
         <div className="flex items-start justify-between gap-4">
           <div>
-            <h1 className="text-xl font-semibold text-white">{ticket.title}</h1>
+            <h1 className="text-xl font-semibold text-[var(--text-primary)]">{ticket.title}</h1>
             <div className="mt-2 flex flex-wrap items-center gap-2">
               <span className={`rounded-full border px-2.5 py-1 text-xs ${STATUS_TONE[ticket.status] ?? ""}`}>
                 {statusLabel(t, ticket.status)}
@@ -113,25 +113,25 @@ export function TicketDetailClient({ initial, canManage, locale: _locale }: Tick
               </span>
             </div>
           </div>
-          <div className="text-right text-xs text-slate-500">
+          <div className="text-right text-xs text-[var(--text-muted)]">
             <p>{t("ticketsDetail.createdAt").replace("{time}", new Date(ticket.createdAt).toLocaleString("zh-CN"))}</p>
             <p>{t("ticketsDetail.updatedAt").replace("{time}", new Date(ticket.updatedAt).toLocaleString("zh-CN"))}</p>
             {ticket.closedAt && <p>{t("ticketsDetail.closedAt").replace("{time}", new Date(ticket.closedAt).toLocaleString("zh-CN"))}</p>}
           </div>
         </div>
 
-        <div className="mt-4 rounded-lg border border-white/[0.04] bg-black/20 p-4">
-          <p className="whitespace-pre-wrap text-sm text-slate-300">{ticket.description}</p>
+        <div className="mt-4 rounded-lg border border-[var(--border)]/[0.04] bg-black/20 p-4">
+          <p className="whitespace-pre-wrap text-sm text-[var(--text-secondary)]">{ticket.description}</p>
         </div>
 
-        <div className="mt-4 flex flex-wrap gap-x-4 text-xs text-slate-500">
+        <div className="mt-4 flex flex-wrap gap-x-4 text-xs text-[var(--text-muted)]">
           <span>{t("ticketsDetail.creator").replace("{name}", ticket.creator.displayName || ticket.creator.username)}</span>
           {ticket.assignee && <span>{t("ticketsDetail.assignee").replace("{name}", ticket.assignee.displayName || ticket.assignee.username)}</span>}
         </div>
 
         {canManage && (
           <div className="mt-3 flex items-center gap-2 text-xs">
-            <span className="text-slate-500 shrink-0">{t("ticketsDetail.assignTo")}</span>
+            <span className="text-[var(--text-muted)] shrink-0">{t("ticketsDetail.assignTo")}</span>
             <select
               value={assigneeId}
               onChange={(e) => { setAssigneeId(e.target.value); void updateAssignee(e.target.value); }}
@@ -149,11 +149,11 @@ export function TicketDetailClient({ initial, canManage, locale: _locale }: Tick
       {/* Status transitions */}
       {canManage && (TRANSITIONS[ticket.status]?.length ?? 0) > 0 && (
  <div data-card className="">
-          <h3 className="text-sm font-medium text-white mb-3">{t("ticketsDetail.transitionsTitle")}</h3>
+          <h3 className="text-sm font-medium text-[var(--text-primary)] mb-3">{t("ticketsDetail.transitionsTitle")}</h3>
           <div className="flex flex-wrap gap-2">
             {TRANSITIONS[ticket.status]!.map((s) => (
               <button key={s} onClick={() => updateStatus(s)} disabled={saving}
-                className="rounded-lg border border-[var(--border)] bg-white/[0.04] px-4 py-2 text-sm text-white hover:bg-white/[0.08] transition-colors disabled:opacity-40">
+                className="rounded-lg border border-[var(--border)] bg-[var(--surface)]/[0.04] px-4 py-2 text-sm text-[var(--text-primary)] hover:bg-[var(--surface)]/[0.08] transition-colors disabled:opacity-40">
                 {t("ticketsDetail.transitionTo").replace("{status}", statusLabel(t, s))}
               </button>
             ))}
@@ -165,18 +165,18 @@ export function TicketDetailClient({ initial, canManage, locale: _locale }: Tick
 
       {/* Comments */}
  <div data-card className="">
-        <h3 className="text-sm font-medium text-white mb-4">{t("ticketsDetail.commentsTitle").replace("{count}", String(ticket.comments.length))}</h3>
+        <h3 className="text-sm font-medium text-[var(--text-primary)] mb-4">{t("ticketsDetail.commentsTitle").replace("{count}", String(ticket.comments.length))}</h3>
         {ticket.comments.length === 0 ? (
-          <p className="text-sm text-slate-500">{t("ticketsDetail.commentsEmpty")}</p>
+          <p className="text-sm text-[var(--text-muted)]">{t("ticketsDetail.commentsEmpty")}</p>
         ) : (
           <div className="space-y-4">
             {ticket.comments.map((c) => (
-              <div key={c.id} className="rounded-lg border border-white/[0.04] bg-black/20 p-4">
+              <div key={c.id} className="rounded-lg border border-[var(--border)]/[0.04] bg-black/20 p-4">
                 <div className="flex items-center justify-between mb-2">
-                  <span className="text-sm font-medium text-white">{c.author.displayName || c.author.username}</span>
-                  <span className="text-xs text-slate-500">{new Date(c.createdAt).toLocaleString("zh-CN")}</span>
+                  <span className="text-sm font-medium text-[var(--text-primary)]">{c.author.displayName || c.author.username}</span>
+                  <span className="text-xs text-[var(--text-muted)]">{new Date(c.createdAt).toLocaleString("zh-CN")}</span>
                 </div>
-                <p className="whitespace-pre-wrap text-sm text-slate-300">{c.body}</p>
+                <p className="whitespace-pre-wrap text-sm text-[var(--text-secondary)]">{c.body}</p>
               </div>
             ))}
           </div>
@@ -187,9 +187,9 @@ export function TicketDetailClient({ initial, canManage, locale: _locale }: Tick
           <label htmlFor="ticketComment" className="sr-only">{t("ticketsDetail.commentAria")}</label>
           <textarea id="ticketComment" value={comment} onChange={(e) => setComment(e.target.value)} placeholder={t("ticketsDetail.commentPlaceholder")}
             rows={3}
-            className="w-full rounded-lg border border-[var(--border)] bg-white/[0.04] px-4 py-3 text-sm text-white outline-none placeholder:text-[var(--text-muted)] resize-none" />
+            className="w-full rounded-lg border border-[var(--border)] bg-[var(--surface)]/[0.04] px-4 py-3 text-sm text-[var(--text-primary)] outline-none placeholder:text-[var(--text-muted)] resize-none" />
           <button onClick={addComment} disabled={saving || !comment.trim()}
-            className="mt-2 rounded-lg bg-cyan-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-cyan-500 disabled:opacity-40">
+            className="mt-2 rounded-lg bg-cyan-600 px-4 py-2 text-sm font-medium text-[var(--text-primary)] transition hover:bg-cyan-500 disabled:opacity-40">
             {saving ? t("ticketsDetail.commentSubmitting") : t("ticketsDetail.commentSubmit")}
           </button>
         </div>

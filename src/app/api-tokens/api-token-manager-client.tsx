@@ -125,29 +125,29 @@ export function ApiTokenManagerClient({ initialTokens, allowedScopes }: Props) {
 
       {error && <div data-tone="rose" className="rounded-xl border border-rose-400/25 px-4 py-3 text-sm text-rose-100">{error}</div>}
 
-      <section className="rounded-2xl border border-white/[0.06] bg-white/[0.02] p-5">
-        <h2 className="text-lg font-semibold text-white">{t("apiTokensPage.create.heading")}</h2>
-        <p className="mt-1 text-sm text-slate-500">{t("apiTokensPage.create.note")}</p>
+      <section className="rounded-2xl border border-[var(--border)]/[0.06] bg-[var(--surface)]/[0.02] p-5">
+        <h2 className="text-lg font-semibold text-[var(--text-primary)]">{t("apiTokensPage.create.heading")}</h2>
+        <p className="mt-1 text-sm text-[var(--text-muted)]">{t("apiTokensPage.create.note")}</p>
         <form onSubmit={createToken} className="mt-5 grid gap-4">
           <div className="grid gap-4 lg:grid-cols-[1.2fr_0.8fr]">
             <label className="space-y-1.5">
-              <span className="text-xs font-medium tracking-wide text-white/50">{t("apiTokensPage.create.nameLabel")}</span>
-              <input value={name} onChange={(event) => setName(event.target.value)} required maxLength={80} placeholder={t("apiTokensPage.create.namePlaceholder")} data-card className="w-full  px-3.5 py-2.5 text-sm text-white outline-none placeholder:text-white/20 focus:border-cyan-400/30" />
+              <span className="text-xs font-medium tracking-wide text-[var(--text-primary)]/50">{t("apiTokensPage.create.nameLabel")}</span>
+              <input value={name} onChange={(event) => setName(event.target.value)} required maxLength={80} placeholder={t("apiTokensPage.create.namePlaceholder")} data-card className="w-full  px-3.5 py-2.5 text-sm text-[var(--text-primary)] outline-none placeholder:text-[var(--text-primary)]/20 focus:border-cyan-400/30" />
             </label>
             <label className="space-y-1.5">
-              <span className="text-xs font-medium tracking-wide text-white/50">{t("apiTokensPage.create.expiresLabel")}</span>
-              <input type="datetime-local" value={expiresAt} onChange={(event) => setExpiresAt(event.target.value)} data-card className="w-full  px-3.5 py-2.5 text-sm text-white outline-none focus:border-cyan-400/30" />
+              <span className="text-xs font-medium tracking-wide text-[var(--text-primary)]/50">{t("apiTokensPage.create.expiresLabel")}</span>
+              <input type="datetime-local" value={expiresAt} onChange={(event) => setExpiresAt(event.target.value)} data-card className="w-full  px-3.5 py-2.5 text-sm text-[var(--text-primary)] outline-none focus:border-cyan-400/30" />
             </label>
           </div>
 
           <div className="space-y-2">
-            <div className="text-xs font-medium tracking-wide text-white/50">{t("apiTokensPage.create.scopesLabel")}</div>
+            <div className="text-xs font-medium tracking-wide text-[var(--text-primary)]/50">{t("apiTokensPage.create.scopesLabel")}</div>
             <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
               {allowedScopes.map((scope) => (
-                <label key={scope} aria-label={scope} className={`flex cursor-pointer items-center gap-2 rounded-xl border px-3 py-2 text-sm transition ${selectedScopes.includes(scope) ? "border-cyan-400/30 bg-cyan-400/10 text-cyan-100" : "border-white/[0.06] bg-white/[0.03] text-slate-400 hover:bg-white/[0.05]"}`}>
+                <label key={scope} aria-label={scope} className={`flex cursor-pointer items-center gap-2 rounded-xl border px-3 py-2 text-sm transition ${selectedScopes.includes(scope) ? "border-cyan-400/30 bg-cyan-400/10 text-[var(--text-primary)]" : "border-[var(--border)]/[0.06] bg-[var(--surface)]/[0.03] text-[var(--text-secondary)] hover:bg-[var(--surface)]/[0.05]"}`}>
                   <input type="checkbox" checked={selectedScopes.includes(scope)} onChange={() => toggleScope(scope)} className="h-4 w-4 accent-cyan-400" />
                   <span className="font-mono text-xs">{scope}</span>
-                  <span className="text-xs text-slate-500">{scopeLabel(t, scope)}</span>
+                  <span className="text-xs text-[var(--text-muted)]">{scopeLabel(t, scope)}</span>
                 </label>
               ))}
             </div>
@@ -163,8 +163,8 @@ export function ApiTokenManagerClient({ initialTokens, allowedScopes }: Props) {
 
       <section className="space-y-3">
         <div className="flex items-center justify-between">
-          <h2 className="text-lg font-semibold text-white">{t("apiTokensPage.list.heading")}</h2>
-          <p className="text-xs text-slate-500">{t("apiTokensPage.list.note")}</p>
+          <h2 className="text-lg font-semibold text-[var(--text-primary)]">{t("apiTokensPage.list.heading")}</h2>
+          <p className="text-xs text-[var(--text-muted)]">{t("apiTokensPage.list.note")}</p>
         </div>
         {tokens.length === 0 ? (
           <EmptyState text={t("apiTokensPage.list.empty")} variant="boxed" />
@@ -173,18 +173,18 @@ export function ApiTokenManagerClient({ initialTokens, allowedScopes }: Props) {
             {tokens.map((token) => {
               const status = tokenStatus(t, token);
               return (
- <article key={token.id} className="rounded-2xl border border-white/[0.06] bg-white/[0.02]">
+ <article key={token.id} className="rounded-2xl border border-[var(--border)]/[0.06] bg-[var(--surface)]/[0.02]">
                   <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
                     <div className="min-w-0">
                       <div className="flex flex-wrap items-center gap-2">
-                        <h3 className="text-base font-semibold text-white">{token.name}</h3>
+                        <h3 className="text-base font-semibold text-[var(--text-primary)]">{token.name}</h3>
                         <span className={`rounded-full border px-2 py-0.5 text-[11px] ${status.className}`}>{status.label}</span>
                       </div>
-                      <p className="mt-2 font-mono text-xs text-slate-400">{token.tokenPrefix}…{token.tokenSuffix}</p>
+                      <p className="mt-2 font-mono text-xs text-[var(--text-secondary)]">{token.tokenPrefix}…{token.tokenSuffix}</p>
                       <div className="mt-3 flex flex-wrap gap-1.5">
-                        {token.scopes.map((scope) => <span key={scope} className="rounded-lg border border-white/[0.06] bg-white/[0.04] px-2 py-0.5 font-mono text-[11px] text-slate-400">{scope}</span>)}
+                        {token.scopes.map((scope) => <span key={scope} className="rounded-lg border border-[var(--border)]/[0.06] bg-[var(--surface)]/[0.04] px-2 py-0.5 font-mono text-[11px] text-[var(--text-secondary)]">{scope}</span>)}
                       </div>
-                      <dl className="mt-3 grid gap-2 text-xs text-slate-500 sm:grid-cols-3">
+                      <dl className="mt-3 grid gap-2 text-xs text-[var(--text-muted)] sm:grid-cols-3">
                         <div><dt className="text-[var(--text-muted)]">{t("apiTokensPage.list.createdAt")}</dt><dd>{formatDate(token.createdAt)}</dd></div>
                         <div><dt className="text-[var(--text-muted)]">{t("apiTokensPage.list.expiresAt")}</dt><dd>{formatDate(token.expiresAt)}</dd></div>
                         <div><dt className="text-[var(--text-muted)]">{t("apiTokensPage.list.lastUsedAt")}</dt><dd>{formatDate(token.lastUsedAt)}</dd></div>
@@ -203,7 +203,7 @@ export function ApiTokenManagerClient({ initialTokens, allowedScopes }: Props) {
         )}
       </section>
       {tokenPendingRevoke && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 px-4 backdrop-blur-sm" role="presentation">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-[var(--surface)]/70 px-4 backdrop-blur-sm" role="presentation">
           <section role="dialog" aria-modal="true" aria-labelledby="revoke-api-token-title" className="w-full max-w-md rounded-2xl border border-rose-400/25 bg-[var(--modal-bg)] p-6 shadow-[0_24px_100px_rgba(244,63,94,0.16)]">
             <h2 id="revoke-api-token-title" className="text-lg font-semibold text-[var(--text-primary)]">{t("apiTokensPage.revoke.confirmTitle")}</h2>
             <p className="mt-3 text-sm leading-6 text-[var(--text-secondary)]">
@@ -213,7 +213,7 @@ export function ApiTokenManagerClient({ initialTokens, allowedScopes }: Props) {
               <button type="button" onClick={() => setTokenPendingRevoke(null)} className="rounded-xl border border-[var(--border)] px-4 py-2 text-sm font-medium text-[var(--text-secondary)] hover:bg-[var(--surface-hover)]">
                 {t("apiTokensPage.revoke.cancel")}
               </button>
-              <button type="button" onClick={() => revokeToken(tokenPendingRevoke)} className="rounded-xl bg-rose-500 px-4 py-2 text-sm font-semibold text-white hover:bg-rose-400">
+              <button type="button" onClick={() => revokeToken(tokenPendingRevoke)} className="rounded-xl bg-rose-500 px-4 py-2 text-sm font-semibold text-[var(--text-primary)] hover:bg-rose-400">
                 {t("apiTokensPage.revoke.confirm")}
               </button>
             </div>

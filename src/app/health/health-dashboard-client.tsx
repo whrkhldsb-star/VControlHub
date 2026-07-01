@@ -309,7 +309,7 @@ const statusToneClasses: Record<string, { bg: string; text: string; dot: string 
 	warning: { bg: "border-amber-400/20 bg-amber-400/10", text: "text-amber-200", dot: "bg-amber-400" },
 	critical: { bg: "border-rose-400/20 bg-rose-400/10", text: "text-rose-200", dot: "bg-rose-400" },
 	offline: { bg: "border-slate-400/20 bg-slate-400/10", text: "text-slate-200", dot: "bg-slate-500" },
-	unknown: { bg: "border-slate-400/20 bg-slate-400/10", text: "text-slate-400", dot: "bg-slate-600" },
+	unknown: { bg: "border-slate-400/20 bg-slate-400/10", text: "text-[var(--text-secondary)]", dot: "bg-slate-600" },
 };
 const unknownTone = statusToneClasses.unknown!;
 
@@ -321,7 +321,7 @@ function usageColor(val: number | undefined, warn = 80, crit = 95): string {
 }
 
 function usageBarColor(val: number | undefined, warn = 80, crit = 95): string {
-	if (val === undefined) return "bg-slate-700";
+	if (val === undefined) return "bg-[var(--surface)]";
 	if (val >= crit) return "bg-rose-500";
 	if (val >= warn) return "bg-amber-500";
 	return "bg-emerald-500";
@@ -373,17 +373,17 @@ export function HealthDashboardClient({ serverCount, initialSystemHealth }: Prop
 		return (
 			<div className="space-y-6" aria-busy="true" aria-live="polite">
 				{/* 系统自检骨架卡 */}
-				<section className="space-y-3 rounded-2xl border border-[var(--border)] bg-white/[0.03] p-4" aria-label={copy.ui.selfCheck}>
+				<section className="space-y-3 rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-4" aria-label={copy.ui.selfCheck}>
 					<div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
 						<div className="min-w-0">
-							<p className="text-xs uppercase tracking-[0.25em] text-cyan-300/70">{copy.ui.selfCheck}</p>
-							<h2 className="mt-1 text-lg font-semibold text-white">{copy.ui.repairSuggestions}</h2>
-							<p className="mt-1 text-xs text-slate-400">{copy.ui.collectingMetrics}</p>
+							<p className="text-xs uppercase tracking-[0.25em] text-[var(--text-muted)]">{copy.ui.selfCheck}</p>
+							<h2 className="mt-1 text-lg font-semibold text-[var(--text-primary)]">{copy.ui.repairSuggestions}</h2>
+							<p className="mt-1 text-xs text-[var(--text-secondary)]">{copy.ui.collectingMetrics}</p>
 						</div>
 					</div>
 					<div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
 						{[1, 2, 3].map((i) => (
-							<div key={i} className="animate-pulse rounded-xl border border-white/[0.06] bg-white/[0.02] p-4 h-24" />
+							<div key={i} className="animate-pulse rounded-xl border border-white/[0.06] bg-[var(--surface)] p-4 h-24" />
 						))}
 					</div>
 				</section>
@@ -397,9 +397,9 @@ export function HealthDashboardClient({ serverCount, initialSystemHealth }: Prop
 				</section>
 				{/* 工具行 — 占位但禁用刷新按钮 */}
 				<div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-					<div className="text-xs text-slate-500">{copy.ui.lastRefresh}: —</div>
+					<div className="text-xs text-[var(--text-muted)]">{copy.ui.lastRefresh}: —</div>
 					<div className="flex flex-wrap items-center gap-3">
-						<button type="button" disabled className="min-h-11 inline-flex items-center rounded-lg border border-white/[0.06] bg-white/[0.03] px-3 text-xs text-slate-500 opacity-60">
+						<button type="button" disabled className="min-h-11 inline-flex items-center rounded-lg border border-white/[0.06] bg-[var(--surface)] px-3 text-xs text-[var(--text-muted)] opacity-60">
 							{copy.ui.refreshing}
 						</button>
 					</div>
@@ -409,26 +409,26 @@ export function HealthDashboardClient({ serverCount, initialSystemHealth }: Prop
 					<div className="overflow-x-auto">
 						<table className="w-full text-sm">
 							<thead>
-								<tr className="border-b border-white/[0.06] bg-white/[0.02]">
-									<th className="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">{copy.ui.node}</th>
-									<th className="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">{copy.ui.status}</th>
-									<th className="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">CPU</th>
-									<th className="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">{copy.ui.memory}</th>
-									<th className="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">{copy.ui.disk}</th>
-									<th className="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">{copy.ui.uptime}</th>
-									<th className="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">{copy.ui.details}</th>
+								<tr className="border-b border-white/[0.06] bg-[var(--surface)]">
+									<th className="px-4 py-3 text-left text-xs font-medium text-[var(--text-muted)] uppercase tracking-wider">{copy.ui.node}</th>
+									<th className="px-4 py-3 text-left text-xs font-medium text-[var(--text-muted)] uppercase tracking-wider">{copy.ui.status}</th>
+									<th className="px-4 py-3 text-left text-xs font-medium text-[var(--text-muted)] uppercase tracking-wider">CPU</th>
+									<th className="px-4 py-3 text-left text-xs font-medium text-[var(--text-muted)] uppercase tracking-wider">{copy.ui.memory}</th>
+									<th className="px-4 py-3 text-left text-xs font-medium text-[var(--text-muted)] uppercase tracking-wider">{copy.ui.disk}</th>
+									<th className="px-4 py-3 text-left text-xs font-medium text-[var(--text-muted)] uppercase tracking-wider">{copy.ui.uptime}</th>
+									<th className="px-4 py-3 text-left text-xs font-medium text-[var(--text-muted)] uppercase tracking-wider">{copy.ui.details}</th>
 								</tr>
 							</thead>
 							<tbody className="divide-y divide-white/[0.04] light:divide-slate-200">
 								{Array.from({ length: skeletonRowCount }).map((_, i) => (
 									<tr key={i} className="animate-pulse">
-										<td className="px-4 py-4"><div className="h-3 w-32 rounded-lg bg-white/[0.06]" /></td>
-										<td className="px-4 py-4"><div className="h-3 w-12 rounded-lg bg-white/[0.06]" /></td>
-										<td className="px-4 py-4"><div className="h-3 w-16 rounded-lg bg-white/[0.06]" /></td>
-										<td className="px-4 py-4"><div className="h-3 w-16 rounded-lg bg-white/[0.06]" /></td>
-										<td className="px-4 py-4"><div className="h-3 w-16 rounded-lg bg-white/[0.06]" /></td>
-										<td className="px-4 py-4"><div className="h-3 w-20 rounded-lg bg-white/[0.06]" /></td>
-										<td className="px-4 py-4"><div className="h-3 w-8 rounded-lg bg-white/[0.06]" /></td>
+										<td className="px-4 py-4"><div className="h-3 w-32 rounded-lg bg-[var(--surface-elevated)]" /></td>
+										<td className="px-4 py-4"><div className="h-3 w-12 rounded-lg bg-[var(--surface-elevated)]" /></td>
+										<td className="px-4 py-4"><div className="h-3 w-16 rounded-lg bg-[var(--surface-elevated)]" /></td>
+										<td className="px-4 py-4"><div className="h-3 w-16 rounded-lg bg-[var(--surface-elevated)]" /></td>
+										<td className="px-4 py-4"><div className="h-3 w-16 rounded-lg bg-[var(--surface-elevated)]" /></td>
+										<td className="px-4 py-4"><div className="h-3 w-20 rounded-lg bg-[var(--surface-elevated)]" /></td>
+										<td className="px-4 py-4"><div className="h-3 w-8 rounded-lg bg-[var(--surface-elevated)]" /></td>
 									</tr>
 								))}
 							</tbody>
@@ -467,34 +467,34 @@ export function HealthDashboardClient({ serverCount, initialSystemHealth }: Prop
 			)}
 			{systemHealth && (
 				<>
-					<section className="space-y-3 rounded-2xl border border-[var(--border)] bg-white/[0.03] p-4">
-			<div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-				<div className="min-w-0">
-					<p className="text-xs uppercase tracking-[0.25em] text-cyan-300/70">{copy.ui.selfCheck}</p>
-					<h2 className="mt-1 text-lg font-semibold text-white">{copy.ui.repairSuggestions}</h2>
-					<p className="mt-1 text-xs text-slate-400">
-						{copy.ui.checksSummary(systemHealth.summary)}
-					</p>
-				</div>
-				<div className="flex flex-wrap gap-2 text-xs text-slate-400">
-					<Link href="/audit" className="min-h-11 inline-flex items-center rounded-full border border-[var(--border)] bg-white/[0.03] px-3 transition hover:bg-white/[0.06]">{copy.ui.auditLog}</Link>
-					<Link href="/" className="min-h-11 inline-flex items-center rounded-full border border-[var(--border)] bg-white/[0.03] px-3 transition hover:bg-white/[0.06]">{copy.ui.home}</Link>
-				</div>
-			</div>
+					<section className="space-y-3 rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-4">
+					<div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+					<div className="min-w-0">
+						<p className="text-xs uppercase tracking-[0.25em] text-[var(--text-muted)]">{copy.ui.selfCheck}</p>
+						<h2 className="mt-1 text-lg font-semibold text-[var(--text-primary)]">{copy.ui.repairSuggestions}</h2>
+						<p className="mt-1 text-xs text-[var(--text-secondary)]">
+							{copy.ui.checksSummary(systemHealth.summary)}
+						</p>
+					</div>
+					<div className="flex flex-wrap gap-2 text-xs text-[var(--text-secondary)]">
+						<Link href="/audit" className="min-h-11 inline-flex items-center rounded-full border border-[var(--border)] bg-[var(--surface)] px-3 transition hover:bg-[var(--sidebar-hover)]">{copy.ui.auditLog}</Link>
+						<Link href="/" className="min-h-11 inline-flex items-center rounded-full border border-[var(--border)] bg-[var(--surface)] px-3 transition hover:bg-[var(--sidebar-hover)]">{copy.ui.home}</Link>
+					</div>
+					</div>
 						<div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
 							{repairSuggestions(systemHealth.summary, locale).map((item) => {
 								const tone = repairToneClasses[item.status];
 								return (
 									<article key={item.id} className={`rounded-xl border ${tone.border} ${tone.bg} p-4`}>
 										<div className="flex items-center justify-between gap-3">
-											<h3 className="text-sm font-semibold text-white">{item.label}</h3>
+											<h3 className="text-sm font-semibold text-[var(--text-primary)]">{item.label}</h3>
 											<span className={`rounded-full border px-2 py-0.5 text-[10px] ${tone.badge}`}>{item.status}</span>
 										</div>
-										<p className="mt-2 text-sm leading-6 text-slate-300">{item.description}</p>
-									<p className="mt-3 text-xs text-slate-400">{copy.ui.suggestedAction}{item.href ? <Link href={item.href} className="text-cyan-200 transition hover:text-cyan-100">{item.action}</Link> : item.action}</p>
-								</article>
-							);
-						})}
+										<p className="mt-2 text-sm leading-6 text-[var(--text-secondary)]">{item.description}</p>
+										<p className="mt-3 text-xs text-[var(--text-secondary)]">{copy.ui.suggestedAction}{item.href ? <Link href={item.href} className="text-[var(--text-secondary)] transition hover:text-[var(--text-primary)]">{item.action}</Link> : item.action}</p>
+									</article>
+								);
+								})}
 						</div>
 						<div className="grid gap-2 md:grid-cols-2">
 							{systemHealth.checks.map((check) => {
@@ -502,14 +502,14 @@ export function HealthDashboardClient({ serverCount, initialSystemHealth }: Prop
 								return (
 									<div key={check.id} className={`rounded-xl border ${sc.bg} p-3`}>
 										<div className="flex items-center justify-between gap-3">
-											<div className="text-sm font-medium text-white">{translateSystemHealthText(check.label, locale)}</div>
+											<div className="text-sm font-medium text-[var(--text-primary)]">{translateSystemHealthText(check.label, locale)}</div>
 											<span className={`rounded-full border px-2 py-0.5 text-[10px] ${sc.text}`}>{copy.statusLabels[check.status] ?? check.status}</span>
 										</div>
-										<p className="mt-1 text-xs text-slate-300">{translateSystemHealthText(check.message, locale)}</p>
-										{check.detail && <p className="mt-1 break-all text-[11px] text-slate-500">{translateSystemHealthText(check.detail, locale)}</p>}
+										<p className="mt-1 text-xs text-[var(--text-secondary)]">{translateSystemHealthText(check.message, locale)}</p>
+										{check.detail && <p className="mt-1 break-all text-[11px] text-[var(--text-muted)]">{translateSystemHealthText(check.detail, locale)}</p>}
 									</div>
 								);
-							})}
+								})}
 						</div>
 					</section>
 				</>
@@ -523,7 +523,7 @@ export function HealthDashboardClient({ serverCount, initialSystemHealth }: Prop
 				<SummaryCard label={copy.summaryCards.offline} value={offline} color="slate" />
 			</section>
 			<div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-				<div className="text-xs text-slate-500">
+				<div className="text-xs text-[var(--text-muted)]">
 					{copy.ui.lastRefresh}: {lastRefresh || "—"}
 					{overview.critical > 0 ? ` · ${copy.ui.overallCritical}` : overview.warning > 0 ? ` · ${copy.ui.overallWarning}` : ` · ${copy.ui.overallHealthy}`}
 				</div>
@@ -533,22 +533,22 @@ export function HealthDashboardClient({ serverCount, initialSystemHealth }: Prop
 						onClick={fetchHealth}
 						disabled={isRefreshing}
 						aria-label={copy.ui.refreshAria}
-						className="min-h-11 inline-flex items-center rounded-lg border border-white/[0.06] bg-white/[0.03] px-3 text-xs text-slate-300 hover:bg-white/[0.06] transition disabled:cursor-not-allowed disabled:opacity-60"
-					>
+						className="min-h-11 inline-flex items-center rounded-lg border border-white/[0.06] bg-[var(--surface)] px-3 text-xs text-[var(--text-secondary)] hover:bg-[var(--sidebar-hover)] transition disabled:cursor-not-allowed disabled:opacity-60"
+						>
 						{isRefreshing ? copy.ui.refreshing : copy.ui.refresh}
-					</button>
-					<label className="flex min-h-11 items-center gap-2 text-xs text-slate-400">
+						</button>
+						<label className="flex min-h-11 items-center gap-2 text-xs text-[var(--text-secondary)]">
 						<span>{copy.ui.autoRefresh}</span>
 						<button
 							type="button"
 							onClick={() => setAutoRefresh(!autoRefresh)}
 							disabled={refreshIntervalSeconds <= 0}
 							aria-label={copy.ui.toggleAutoRefreshAria}
-							className={`relative h-4 w-8 min-h-11 min-w-11 rounded-full transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${autoRefresh ? "bg-cyan-500" : "bg-slate-700"}`}
-						>
-							<span className={`absolute left-1/2 top-1/2 h-3 w-3 -translate-x-1/2 -translate-y-1/2 rounded-full bg-white shadow transition-transform ${autoRefresh ? "translate-x-2" : "-translate-x-3"}`} />
-						</button>
-						<span>{refreshIntervalSeconds <= 0 ? copy.ui.autoRefreshOff : autoRefresh ? copy.ui.autoRefreshEvery(getRefreshIntervalLabel(refreshIntervalSeconds)) : copy.ui.autoRefreshPaused(getRefreshIntervalLabel(refreshIntervalSeconds))}</span>
+							className={`relative h-4 w-8 min-h-11 min-w-11 rounded-full transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${autoRefresh ? "bg-cyan-500" : "bg-[var(--surface)]"}`}
+							>
+							<span className={`absolute left-1/2 top-1/2 h-3 w-3 -translate-x-1/2 -translate-y-1/2 rounded-full bg-[var(--text-primary)] shadow transition-transform ${autoRefresh ? "translate-x-2" : "-translate-x-3"}`} />
+							</button>
+							<span>{refreshIntervalSeconds <= 0 ? copy.ui.autoRefreshOff : autoRefresh ? copy.ui.autoRefreshEvery(getRefreshIntervalLabel(refreshIntervalSeconds)) : copy.ui.autoRefreshPaused(getRefreshIntervalLabel(refreshIntervalSeconds))}</span>
 					</label>
 				</div>
 			</div>
@@ -558,14 +558,14 @@ export function HealthDashboardClient({ serverCount, initialSystemHealth }: Prop
 				<div className="overflow-x-auto">
 					<table className="w-full text-sm">
 						<thead>
-							<tr className="border-b border-white/[0.06] bg-white/[0.02]">
-								<th className="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">{copy.ui.node}</th>
-								<th className="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">{copy.ui.status}</th>
-								<th className="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">CPU</th>
-								<th className="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">{copy.ui.memory}</th>
-								<th className="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">{copy.ui.disk}</th>
-								<th className="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">{copy.ui.uptime}</th>
-								<th className="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">{copy.ui.details}</th>
+							<tr className="border-b border-white/[0.06] bg-[var(--surface)]">
+								<th className="px-4 py-3 text-left text-xs font-medium text-[var(--text-muted)] uppercase tracking-wider">{copy.ui.node}</th>
+								<th className="px-4 py-3 text-left text-xs font-medium text-[var(--text-muted)] uppercase tracking-wider">{copy.ui.status}</th>
+								<th className="px-4 py-3 text-left text-xs font-medium text-[var(--text-muted)] uppercase tracking-wider">CPU</th>
+								<th className="px-4 py-3 text-left text-xs font-medium text-[var(--text-muted)] uppercase tracking-wider">{copy.ui.memory}</th>
+								<th className="px-4 py-3 text-left text-xs font-medium text-[var(--text-muted)] uppercase tracking-wider">{copy.ui.disk}</th>
+								<th className="px-4 py-3 text-left text-xs font-medium text-[var(--text-muted)] uppercase tracking-wider">{copy.ui.uptime}</th>
+								<th className="px-4 py-3 text-left text-xs font-medium text-[var(--text-muted)] uppercase tracking-wider">{copy.ui.details}</th>
 							</tr>
 						</thead>
 						<tbody className="divide-y divide-white/[0.04]">
@@ -577,8 +577,8 @@ export function HealthDashboardClient({ serverCount, initialSystemHealth }: Prop
 											<div className="flex items-center gap-2">
 												<div className={`h-2 w-2 rounded-full ${sc.dot} shrink-0`} />
 												<div>
-													<div className="font-medium text-white">{server.serverName}</div>
-													<div className="text-[11px] text-slate-500">{server.host}</div>
+													<div className="font-medium text-[var(--text-primary)]">{server.serverName}</div>
+													<div className="text-[11px] text-[var(--text-muted)]">{server.host}</div>
 												</div>
 											</div>
 										</td>
@@ -596,13 +596,13 @@ export function HealthDashboardClient({ serverCount, initialSystemHealth }: Prop
 										<td className="px-4 py-3">
 											<UsageCell value={server.diskMax} />
 										</td>
-										<td className="px-4 py-3 text-xs text-slate-500">
+										<td className="px-4 py-3 text-xs text-[var(--text-muted)]">
 											{server.uptime ?? "—"}
 										</td>
 										<td className="px-4 py-3">
 											<button
 												onClick={() => toggleExpand(server.serverId)}
-												className="text-[11px] text-cyan-400/70 hover:text-cyan-300 transition"
+												className="text-[11px] text-[var(--text-muted)] hover:text-[var(--text-secondary)] transition"
 											>
 												{expandedServer === server.serverId ? copy.ui.collapse : copy.ui.trend}
 											</button>
@@ -618,7 +618,7 @@ export function HealthDashboardClient({ serverCount, initialSystemHealth }: Prop
 			{/* Expanded trend section */}
 			{expandedServer && (history[expandedServer] || historyErrors[expandedServer]) && (
 				<section data-card className=" ">
-					<h3 className="text-sm font-medium text-white/80 mb-4">
+					<h3 className="text-sm font-medium text-[var(--text-secondary)] mb-4">
 						{copy.ui.trendHeading(overview.servers.find((s) => s.serverId === expandedServer)?.serverName ?? "")}
 					</h3>
 					{historyErrors[expandedServer] ? (
@@ -638,15 +638,15 @@ export function HealthDashboardClient({ serverCount, initialSystemHealth }: Prop
 
 function SummaryCard({ label, value, color }: { label: string; value: number | string; color: string }) {
 	const colorMap: Record<string, string> = {
-		slate: "text-white",
+		slate: "text-[var(--text-primary)]",
 		emerald: "text-emerald-300",
 		amber: "text-amber-300",
 		rose: "text-rose-300",
 	};
 	return (
 		<article data-card className=" p-4">
-			<div className="text-xs font-medium text-slate-500 uppercase tracking-wider">{label}</div>
-			<div className={`mt-1.5 text-2xl sm:text-3xl font-semibold ${colorMap[color] ?? "text-white"}`}>{value}</div>
+			<div className="text-xs font-medium text-[var(--text-muted)] uppercase tracking-wider">{label}</div>
+			<div className={`mt-1.5 text-2xl sm:text-3xl font-semibold ${colorMap[color] ?? "text-[var(--text-primary)]"}`}>{value}</div>
 		</article>
 	);
 }

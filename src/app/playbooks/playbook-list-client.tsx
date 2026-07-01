@@ -63,8 +63,8 @@ type Props = {
 	canRun: boolean;
 };
 
-const fieldLabelClass = "text-xs font-medium text-slate-300 tracking-wide";
-const fieldInputClass = "w-full rounded-lg border border-white/[0.06] bg-white/[0.04] px-3.5 py-2.5 text-sm text-white outline-none transition placeholder:text-white/20 focus:border-cyan-400/30";
+const fieldLabelClass = "text-xs font-medium text-[var(--text-secondary)] tracking-wide";
+const fieldInputClass = "w-full rounded-lg border border-[var(--border)] bg-[var(--surface-elevated)] px-3.5 py-2.5 text-sm text-[var(--text-primary)] outline-none transition placeholder:text-[var(--text-muted)] focus:border-cyan-400/30";
 const monoFieldInputClass = `${fieldInputClass} font-mono`;
 
 function stepTypeLabel(t: (k: string) => string, type: StepType): string {
@@ -247,11 +247,11 @@ export function PlaybookListClient({ playbooks: initial, runsByPlaybook: initial
 						const isDeleting = busyAction === `delete:${playbook.id}`;
 						const playbookRuns = runs(playbook.id);
 						return (
-							<article key={playbook.id} data-card className="hover:bg-white/[0.04] transition-colors duration-150">
+							<article key={playbook.id} data-card className="hover:bg-[var(--surface-elevated)] transition-colors duration-150">
 								<div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
 									<div className="min-w-0 flex-1">
 										<div className="flex flex-wrap items-center gap-2.5">
-											<h2 className="text-lg font-semibold text-white">{playbook.name}</h2>
+											<h2 className="text-lg font-semibold text-[var(--text-primary)]">{playbook.name}</h2>
 											<span
 												data-tone={playbook.enabled ? "success" : "neutral"}
 												className="inline-flex items-center rounded-full border px-2 py-0.5 text-[11px] font-medium"
@@ -263,25 +263,25 @@ export function PlaybookListClient({ playbooks: initial, runsByPlaybook: initial
 											</span>
 										</div>
 										{playbook.description && (
-											<p className="mt-1 text-xs text-slate-400">{playbook.description}</p>
+											<p className="mt-1 text-xs text-[var(--text-secondary)]">{playbook.description}</p>
 										)}
-										<div className="mt-2 text-xs text-slate-500">
+										<div className="mt-2 text-xs text-[var(--text-muted)]">
 											{t("playbooksPage.stepsAndCreatedAt").replace("{count}", String(playbook.steps.length)).replace("{time}", formatTime(playbook.createdAt))}
 										</div>
 										<details className="mt-3">
-											<summary className="cursor-pointer text-xs text-slate-400 hover:text-slate-200">
+											<summary className="cursor-pointer text-xs text-[var(--text-secondary)] hover:text-[var(--text-primary)]">
 												{t("playbooksPage.runHistory").replace("{count}", String(playbookRuns.length))}
 											</summary>
 											<div className="mt-2 space-y-1.5">
 												{playbookRuns.length === 0 ? (
-													<p className="text-xs text-slate-500">{t("playbooksPage.runHistory.empty")}</p>
+													<p className="text-xs text-[var(--text-muted)]">{t("playbooksPage.runHistory.empty")}</p>
 												) : (
 													playbookRuns.map((r) => (
-														<div key={r.id} className="flex items-center gap-2 text-xs text-slate-300">
+														<div key={r.id} className="flex items-center gap-2 text-xs text-[var(--text-secondary)]">
 															<span data-tone={r.status === "failed" ? "danger" : r.status === "completed" ? "success" : "neutral"} className="rounded-full border px-1.5 py-0.5 text-[10px]">
 																{statusLabelFor(t, r.status)}{r.dryRun ? " · dry-run" : ""}
 															</span>
-															<span className="text-slate-500">{formatTime(r.startedAt)}</span>
+															<span className="text-[var(--text-muted)]">{formatTime(r.startedAt)}</span>
 															{r.errorMessage && <span className="text-rose-300 truncate">{r.errorMessage}</span>}
 														</div>
 													))
@@ -343,7 +343,7 @@ export function PlaybookListClient({ playbooks: initial, runsByPlaybook: initial
 			)}
 
 			{pendingDelete && (
-				<div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 px-4 backdrop-blur-sm" role="presentation">
+				<div className="fixed inset-0 z-50 flex items-center justify-center bg-[var(--surface)] px-4 backdrop-blur-sm" role="presentation">
 					<section
 						role="dialog"
 						aria-modal="true"
@@ -368,7 +368,7 @@ export function PlaybookListClient({ playbooks: initial, runsByPlaybook: initial
 								type="button"
 								onClick={() => handleDelete(pendingDelete)}
 								disabled={busyAction === `delete:${pendingDelete.id}`}
-								className="min-h-11 rounded-xl bg-rose-500 px-4 py-2 text-sm font-semibold text-white hover:bg-rose-400 disabled:opacity-50"
+								className="min-h-11 rounded-xl bg-rose-500 px-4 py-2 text-sm font-semibold text-[var(--text-primary)] hover:bg-rose-400 disabled:opacity-50"
 							>
 								{busyAction === `delete:${pendingDelete.id}`
 									? t("playbooksPage.action.deleting")
@@ -456,7 +456,7 @@ function CreatePlaybookForm({ onClose }: { onClose: () => void }) {
 
 	return (
 		<form onSubmit={handleSubmit} data-card className="space-y-4">
-			<h3 className="text-lg font-semibold text-white">{t("playbooksPage.createForm.title")}</h3>
+			<h3 className="text-lg font-semibold text-[var(--text-primary)]">{t("playbooksPage.createForm.title")}</h3>
 			{error && (
 				<div role="alert" className="rounded-lg bg-rose-500/[0.08] border border-rose-400/20 px-3.5 py-2.5 text-sm text-rose-200">
 					{error}
@@ -516,8 +516,8 @@ function CreatePlaybookForm({ onClose }: { onClose: () => void }) {
 							key={opt}
 							className={`min-h-11 flex items-center gap-2 rounded-lg border px-3 py-2 text-sm cursor-pointer transition ${
 								triggerType === opt
-									? "border-cyan-400/20 bg-cyan-400/[0.06] text-white"
-									: "border-white/[0.06] bg-white/[0.03] text-slate-300 hover:bg-white/[0.05]"
+									? "border-cyan-400/20 bg-cyan-400/[0.06] text-[var(--text-primary)]"
+									: "border-[var(--border)] bg-[var(--surface)] text-[var(--text-secondary)] hover:bg-[var(--surface-hover)]"
 							}`}
 						>
 							<input
@@ -629,7 +629,7 @@ function CreatePlaybookForm({ onClose }: { onClose: () => void }) {
 				</DndContext>
 			</div>
 
-			<label className="flex items-center gap-2 text-sm text-slate-300">
+			<label className="flex items-center gap-2 text-sm text-[var(--text-secondary)]">
 				<input
 					type="checkbox"
 					checked={enabled}
@@ -643,14 +643,14 @@ function CreatePlaybookForm({ onClose }: { onClose: () => void }) {
 				<button
 					type="submit"
 					disabled={submitting}
-					className="min-h-11 rounded-2xl bg-cyan-500 px-5 py-2 text-sm font-medium text-slate-950 transition hover:bg-cyan-400 disabled:opacity-60"
+					className="min-h-11 rounded-2xl bg-cyan-500 px-5 py-2 text-sm font-medium text-[var(--text-primary)] transition hover:bg-cyan-400 disabled:opacity-60"
 				>
 					{submitting ? t("playbooksPage.createForm.submitting") : t("playbooksPage.createForm.submit")}
 				</button>
 				<button
 					type="button"
 					onClick={onClose}
-					className="min-h-11 rounded-2xl border border-[var(--border)] px-5 py-2 text-sm text-slate-300 hover:bg-white/10 transition"
+					className="min-h-11 rounded-2xl border border-[var(--border)] px-5 py-2 text-sm text-[var(--text-secondary)] hover:bg-[var(--surface-hover)] transition"
 				>
 					{t("playbooksPage.createForm.cancel")}
 				</button>
@@ -692,7 +692,7 @@ function SortableStepCard({
 			<div className="flex items-center gap-2">
 				<button
 					type="button"
-					className="min-h-9 cursor-grab rounded-lg border border-white/[0.08] px-2 py-1 text-xs text-slate-400 transition hover:bg-white/[0.06] active:cursor-grabbing"
+					className="min-h-9 cursor-grab rounded-lg border border-[var(--border)] px-2 py-1 text-xs text-[var(--text-secondary)] transition hover:bg-[var(--surface-elevated)] active:cursor-grabbing"
 					aria-label={t("playbooksPage.createForm.dragHandleAria").replace("{index}", String(index + 1))}
 					{...attributes}
 					{...listeners}
@@ -736,7 +736,7 @@ function SortableStepCard({
 			<StepConfigEditor step={step} onConfigChange={(p) => onConfigChange(step.id, p)} />
 			<div className="grid gap-2 md:grid-cols-2">
 				<div className="space-y-1">
-					<label className="text-[11px] text-slate-400">{t("playbooksPage.createForm.retry")}</label>
+					<label className="text-[11px] text-[var(--text-secondary)]">{t("playbooksPage.createForm.retry")}</label>
 					<input
 						type="number"
 						min={0}
@@ -747,7 +747,7 @@ function SortableStepCard({
 					/>
 				</div>
 				<div className="space-y-1">
-					<label className="text-[11px] text-slate-400">{t("playbooksPage.createForm.timeoutSec")}</label>
+					<label className="text-[11px] text-[var(--text-secondary)]">{t("playbooksPage.createForm.timeoutSec")}</label>
 					<input
 						type="number"
 						min={1}
@@ -774,7 +774,7 @@ function StepConfigEditor({
 	if (step.type === "run_command") {
 		return (
 			<div className="space-y-1.5">
-				<label className="text-[11px] text-slate-400">command</label>
+				<label className="text-[11px] text-[var(--text-secondary)]">command</label>
 				<textarea
 					value={String(cfg.command ?? "")}
 					onChange={(e) => onConfigChange({ command: e.target.value })}
@@ -782,26 +782,26 @@ function StepConfigEditor({
 					placeholder="docker compose up -d"
 					className={`${monoFieldInputClass} resize-y`}
 				/>
-				<p className="text-[10px] text-slate-500">{t("playbooksPage.createForm.runCommandHint")}</p>
+				<p className="text-[10px] text-[var(--text-muted)]">{t("playbooksPage.createForm.runCommandHint")}</p>
 			</div>
 		);
 	}
 	if (step.type === "send_notification") {
 		return (
 			<div className="space-y-1.5">
-				<label className="text-[11px] text-slate-400">recipientUserId</label>
+				<label className="text-[11px] text-[var(--text-secondary)]">recipientUserId</label>
 				<input
 					value={String(cfg.recipientUserId ?? "")}
 					onChange={(e) => onConfigChange({ recipientUserId: e.target.value })}
 					className={fieldInputClass}
 				/>
-				<label className="text-[11px] text-slate-400">subject</label>
+				<label className="text-[11px] text-[var(--text-secondary)]">subject</label>
 				<input
 					value={String(cfg.subject ?? "")}
 					onChange={(e) => onConfigChange({ subject: e.target.value })}
 					className={fieldInputClass}
 				/>
-				<label className="text-[11px] text-slate-400">body</label>
+				<label className="text-[11px] text-[var(--text-secondary)]">body</label>
 				<textarea
 					value={String(cfg.body ?? "")}
 					onChange={(e) => onConfigChange({ body: e.target.value })}
@@ -813,14 +813,14 @@ function StepConfigEditor({
 	}
 	return (
 		<div className="space-y-1.5">
-			<label className="text-[11px] text-slate-400">url</label>
+			<label className="text-[11px] text-[var(--text-secondary)]">url</label>
 			<input
 				value={String(cfg.url ?? "")}
 				onChange={(e) => onConfigChange({ url: e.target.value })}
 				placeholder="https://example.com/hook"
 				className={fieldInputClass}
 			/>
-			<label className="text-[11px] text-slate-400">method</label>
+			<label className="text-[11px] text-[var(--text-secondary)]">method</label>
 			<select
 				value={String(cfg.method ?? "POST")}
 				onChange={(e) => onConfigChange({ method: e.target.value })}
@@ -832,7 +832,7 @@ function StepConfigEditor({
 					</option>
 				))}
 			</select>
-			<label className="text-[11px] text-slate-400">body (JSON, optional)</label>
+			<label className="text-[11px] text-[var(--text-secondary)]">body (JSON, optional)</label>
 			<textarea
 				value={String(cfg.body ?? "")}
 				onChange={(e) => onConfigChange({ body: e.target.value })}

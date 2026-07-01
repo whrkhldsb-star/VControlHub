@@ -277,39 +277,39 @@ export default function ImageBedPage({ canWrite, canDelete }: { canWrite: boolea
 
 	return (
 		<PageShell>
-			<div className="mb-5 overflow-hidden rounded-3xl border border-white/[0.08] bg-[radial-gradient(circle_at_top_left,rgba(16,185,129,0.18),transparent_34%),linear-gradient(135deg,rgba(15,23,42,0.96),rgba(2,6,23,0.9))] p-6 shadow-2xl shadow-emerald-950/20 light:bg-[radial-gradient(circle_at_top_left,rgba(16,185,129,0.14),transparent_34%),linear-gradient(135deg,#ffffff,#f8fafc)] light:shadow-slate-200/70">
+			<div className="mb-5 overflow-hidden rounded-3xl border border-[var(--border)]/[0.08] bg-[radial-gradient(circle_at_top_left,rgba(16,185,129,0.18),transparent_34%),linear-gradient(135deg,rgba(15,23,42,0.96),rgba(2,6,23,0.9))] p-6 shadow-2xl shadow-emerald-950/20 light:bg-[radial-gradient(circle_at_top_left,rgba(16,185,129,0.14),transparent_34%),linear-gradient(135deg,#ffffff,#f8fafc)] light:shadow-slate-200/70">
 				<div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
 					<div>
 						<p data-page-eyebrow className="text-xs font-semibold uppercase tracking-[0.3em] text-cyan-300">{t("imageBedPage.hero.eyebrow")}</p>
 						<h1 className="mt-2 text-3xl font-semibold tracking-tight text-[var(--text-primary)]">{t("imageBedPage.hero.title")}</h1>
-						<p className="mt-2 max-w-2xl text-sm leading-6 text-slate-300">{t("imageBedPage.hero.desc")}</p>
+						<p className="mt-2 max-w-2xl text-sm leading-6 text-[var(--text-secondary)]">{t("imageBedPage.hero.desc")}</p>
 					</div>
 					<div className="flex flex-wrap items-center gap-2 text-xs">
-						<Link href="/media?type=image" className="rounded-xl bg-emerald-500 px-4 py-2 font-medium text-white transition hover:bg-emerald-400">{t("imageBedPage.hero.openMedia")}</Link>
-						{canWrite && <button onClick={() => { fetchStorageNodes(); setShowPublishModal(true); }} className="rounded-xl border border-[var(--accent-border)] bg-[var(--accent-bg)] px-4 py-2 font-medium text-[var(--accent)] transition hover:bg-[var(--accent-hover)] hover:text-white">{t("imageBedPage.hero.publishFromStorage")}</button>}
+						<Link href="/media?type=image" className="rounded-xl bg-emerald-500 px-4 py-2 font-medium text-[var(--text-primary)] transition hover:bg-emerald-400">{t("imageBedPage.hero.openMedia")}</Link>
+						{canWrite && <button onClick={() => { fetchStorageNodes(); setShowPublishModal(true); }} className="rounded-xl border border-[var(--accent-border)] bg-[var(--accent-bg)] px-4 py-2 font-medium text-[var(--accent)] transition hover:bg-[var(--accent-hover)] hover:text-[var(--text-primary)]">{t("imageBedPage.hero.publishFromStorage")}</button>}
 					</div>
 				</div>
 				<div className="mt-5 grid gap-2 text-xs sm:grid-cols-3">
-					<div className="rounded-2xl border border-white/[0.08] bg-white/[0.05] p-3"><div className="text-lg font-semibold text-white">{total}</div><div className="text-slate-400">{t("imageBedPage.stat.total")}</div></div>
-					<div className="rounded-2xl border border-white/[0.08] bg-white/[0.05] p-3"><div className="text-lg font-semibold text-white">{images.filter((img) => img.storageNodeId && img.relativePath).length}</div><div className="text-slate-400">{t("imageBedPage.stat.traceable")}</div></div>
-					<div className="rounded-2xl border border-white/[0.08] bg-white/[0.05] p-3"><div className="text-lg font-semibold text-white">{images.filter((img) => img.isPublic).length}</div><div className="text-slate-400">{t("imageBedPage.stat.publicOnPage")}</div></div>
+					<div className="rounded-2xl border border-[var(--border)]/[0.08] bg-[var(--surface-elevated)] p-3"><div className="text-lg font-semibold text-[var(--text-primary)]">{total}</div><div className="text-[var(--text-secondary)]">{t("imageBedPage.stat.total")}</div></div>
+					<div className="rounded-2xl border border-[var(--border)]/[0.08] bg-[var(--surface-elevated)] p-3"><div className="text-lg font-semibold text-[var(--text-primary)]">{images.filter((img) => img.storageNodeId && img.relativePath).length}</div><div className="text-[var(--text-secondary)]">{t("imageBedPage.stat.traceable")}</div></div>
+					<div className="rounded-2xl border border-[var(--border)]/[0.08] bg-[var(--surface-elevated)] p-3"><div className="text-lg font-semibold text-[var(--text-primary)]">{images.filter((img) => img.isPublic).length}</div><div className="text-[var(--text-secondary)]">{t("imageBedPage.stat.publicOnPage")}</div></div>
 				</div>
 			</div>
 
 			<div className="mb-5 grid gap-3 lg:grid-cols-[1.1fr_0.9fr]">
-				<div className="rounded-2xl border border-white/[0.07] bg-white/[0.03] p-4">
-					<h2 className="text-sm font-semibold text-white">{t("imageBedPage.publish.title")}</h2>
+				<div className="rounded-2xl border border-[var(--border)]/[0.07] bg-[var(--surface)] p-4">
+					<h2 className="text-sm font-semibold text-[var(--text-primary)]">{t("imageBedPage.publish.title")}</h2>
 					<div className="mt-3 grid gap-2 text-sm sm:grid-cols-3">
-						<Link href="/media?type=image" data-tone="emerald" className="rounded-2xl border border-emerald-400/25 p-3 text-emerald-100 transition hover:bg-emerald-400/15"><span className="block text-lg">{t("imageBedPage.publish.media.title")}</span><span className="mt-1 block text-xs opacity-75">{t("imageBedPage.publish.media.desc")}</span></Link>
-						<button type="button" onClick={() => { fetchStorageNodes(); setShowPublishModal(true); }} className="rounded-2xl border border-blue-400/25 bg-blue-400/10 p-3 text-left text-blue-100 transition hover:bg-blue-400/15"><span className="block text-lg">{t("imageBedPage.publish.storage.title")}</span><span className="mt-1 block text-xs opacity-75">{t("imageBedPage.publish.storage.desc")}</span></button>
-						<button type="button" onClick={() => setShowLegacyUpload((value) => !value)} data-tone="amber" className="rounded-2xl border border-amber-400/20 p-3 text-left text-amber-100 transition hover:bg-amber-400/15"><span className="block text-lg">{t("imageBedPage.publish.legacy.title")}</span><span className="mt-1 block text-xs opacity-75">{t("imageBedPage.publish.legacy.desc")}</span></button>
+						<Link href="/media?type=image" data-tone="emerald" className="rounded-2xl border border-emerald-400/25 p-3 text-[var(--text-primary)] transition hover:bg-emerald-400/15"><span className="block text-lg">{t("imageBedPage.publish.media.title")}</span><span className="mt-1 block text-xs opacity-75">{t("imageBedPage.publish.media.desc")}</span></Link>
+						<button type="button" onClick={() => { fetchStorageNodes(); setShowPublishModal(true); }} className="rounded-2xl border border-blue-400/25 bg-blue-400/10 p-3 text-left text-[var(--text-primary)] transition hover:bg-blue-400/15"><span className="block text-lg">{t("imageBedPage.publish.storage.title")}</span><span className="mt-1 block text-xs opacity-75">{t("imageBedPage.publish.storage.desc")}</span></button>
+						<button type="button" onClick={() => setShowLegacyUpload((value) => !value)} data-tone="amber" className="rounded-2xl border border-amber-400/20 p-3 text-left text-[var(--text-primary)] transition hover:bg-amber-400/15"><span className="block text-lg">{t("imageBedPage.publish.legacy.title")}</span><span className="mt-1 block text-xs opacity-75">{t("imageBedPage.publish.legacy.desc")}</span></button>
 					</div>
 				</div>
-				<div className="rounded-2xl border border-white/[0.07] bg-white/[0.03] p-4">
+				<div className="rounded-2xl border border-[var(--border)]/[0.07] bg-[var(--surface)] p-4">
 					<div className="flex items-center justify-between gap-2">
 						<div>
-							<h2 className="text-sm font-semibold text-white">{t("imageBedPage.manage.title")}</h2>
-							<p className="mt-1 text-xs text-slate-500">{t("imageBedPage.manage.desc")}</p>
+							<h2 className="text-sm font-semibold text-[var(--text-primary)]">{t("imageBedPage.manage.title")}</h2>
+							<p className="mt-1 text-xs text-[var(--text-muted)]">{t("imageBedPage.manage.desc")}</p>
 						</div>
 						<button onClick={fetchStats} className="rounded-lg bg-purple-500/10 px-3 py-1.5 text-xs text-purple-300 transition hover:bg-purple-500/20 light:text-purple-700">{t("imageBedPage.manage.stats")}</button>
 					</div>
@@ -381,14 +381,14 @@ export default function ImageBedPage({ canWrite, canDelete }: { canWrite: boolea
 					</div>
 					{stats.uploadTrend.length > 0 && (
 						<div className="mb-3">
-							<div className="text-xs text-slate-400 mb-1">{t("imageBedPage.stats.trend7d")}</div>
+							<div className="text-xs text-[var(--text-secondary)] mb-1">{t("imageBedPage.stats.trend7d")}</div>
 							<div className="flex items-end gap-1 h-16">
 								{stats.uploadTrend.map((t) => {
 									const maxCount = Math.max(...stats.uploadTrend.map((x) => x.count), 1);
 									const height = Math.max((t.count / maxCount) * 100, 8);
 									return (
 										<div key={t.date} className="flex-1 flex flex-col items-center gap-0.5" title={`${t.date}: ${t.count} 张`}>
-											<div className="text-[9px] text-slate-500">{t.count}</div>
+											<div className="text-[9px] text-[var(--text-muted)]">{t.count}</div>
 											<div className="w-full bg-cyan-500/60 rounded-t" style={{ height: `${height}%` }} />
 											<div className="text-[8px] text-[var(--text-muted)]">{t.date.slice(5)}</div>
 										</div>
@@ -399,12 +399,12 @@ export default function ImageBedPage({ canWrite, canDelete }: { canWrite: boolea
 					)}
 					{stats.albums.length > 0 && (
 						<div>
-							<div className="text-xs text-slate-400 mb-1">{t("imageBedPage.stats.albumDist")}</div>
+							<div className="text-xs text-[var(--text-secondary)] mb-1">{t("imageBedPage.stats.albumDist")}</div>
 							<div className="space-y-1">
 								{stats.albums.slice(0, 5).map((a) => (
 									<div key={a.album} className="flex items-center justify-between text-xs">
-										<span className="text-slate-300">{a.album}</span>
-										<span className="text-slate-500">{a.count} 张 · {formatSize(a.sizeBytes)}</span>
+										<span className="text-[var(--text-secondary)]">{a.album}</span>
+										<span className="text-[var(--text-muted)]">{a.count} 张 · {formatSize(a.sizeBytes)}</span>
 									</div>
 								))}
 							</div>
@@ -418,24 +418,24 @@ export default function ImageBedPage({ canWrite, canDelete }: { canWrite: boolea
 				<div data-tone="amber" className="mt-4 rounded-xl border border-amber-400/20 p-4 light:border-amber-200 light:bg-amber-50">
 					<div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
 						<div>
-							<h2 className="text-sm font-semibold text-amber-100">{t("imageBedPage.legacy.title")}</h2>
-							<p className="mt-1 text-xs text-amber-100/70">{t("imageBedPage.legacy.desc")}</p>
+							<h2 className="text-sm font-semibold text-[var(--text-primary)]">{t("imageBedPage.legacy.title")}</h2>
+							<p className="mt-1 text-xs text-[var(--text-primary)]/70">{t("imageBedPage.legacy.desc")}</p>
 						</div>
-						<Link href="/media?type=image" className="inline-flex items-center justify-center rounded-lg bg-emerald-500 px-4 py-2 text-xs font-medium text-white transition hover:bg-emerald-400">{t("imageBedPage.legacy.openMedia")}</Link>
+						<Link href="/media?type=image" className="inline-flex items-center justify-center rounded-lg bg-emerald-500 px-4 py-2 text-xs font-medium text-[var(--text-primary)] transition hover:bg-emerald-400">{t("imageBedPage.legacy.openMedia")}</Link>
 					</div>
 				</div>
 			)}
 			{showLegacyUpload && canWrite && (
 			<>
 				<div className="mt-2 flex items-center gap-2 text-xs">
-					<span className="text-slate-500">{t("imageBedPage.legacy.uploadTo")}</span>
+					<span className="text-[var(--text-muted)]">{t("imageBedPage.legacy.uploadTo")}</span>
 					<label className="sr-only" htmlFor="imageBedLegacyNode">{t("imageBedPage.legacy.nodeLabel")}</label>
-					<select id="imageBedLegacyNode" value={publishForm.storageNodeId} onChange={(e) => setPublishForm(pf => ({ ...pf, storageNodeId: e.target.value }))} onClick={(e) => e.stopPropagation()} className="bg-[var(--input-bg)] border border-[var(--input-border)] rounded-lg px-2 py-1 text-xs text-slate-300 focus:outline-none focus:border-cyan-400/50">
+					<select id="imageBedLegacyNode" value={publishForm.storageNodeId} onChange={(e) => setPublishForm(pf => ({ ...pf, storageNodeId: e.target.value }))} onClick={(e) => e.stopPropagation()} className="bg-[var(--input-bg)] border border-[var(--input-border)] rounded-lg px-2 py-1 text-xs text-[var(--text-secondary)] focus:outline-none focus:border-cyan-400/50">
 						<option value="">{t("imageBedPage.legacy.defaultNode")}</option>
 						{storageNodes.map(n => <option key={n.id} value={n.id}>{n.name}</option>)}
 					</select>
 					<label className="sr-only" htmlFor="imageBedLegacyPath">{t("imageBedPage.legacy.pathLabel")}</label>
-					<input id="imageBedLegacyPath" type="text" value={publishForm.relativePath} onChange={(e) => setPublishForm(pf => ({ ...pf, relativePath: e.target.value }))} onClick={(e) => e.stopPropagation()} placeholder={t("imageBedPage.legacy.pathPlaceholder")} className="bg-[var(--input-bg)] border border-[var(--input-border)] rounded-lg px-2 py-1 text-xs text-slate-300 w-32 focus:outline-none focus:border-cyan-400/50" />
+					<input id="imageBedLegacyPath" type="text" value={publishForm.relativePath} onChange={(e) => setPublishForm(pf => ({ ...pf, relativePath: e.target.value }))} onClick={(e) => e.stopPropagation()} placeholder={t("imageBedPage.legacy.pathPlaceholder")} className="bg-[var(--input-bg)] border border-[var(--input-border)] rounded-lg px-2 py-1 text-xs text-[var(--text-secondary)] w-32 focus:outline-none focus:border-cyan-400/50" />
 					{!storageNodes.length && <button onClick={(e) => { e.stopPropagation(); fetchStorageNodes(); }} className="text-cyan-400 hover:underline">{t("imageBedPage.legacy.loadNodes")}</button>}
 				</div>
 				<div
@@ -451,27 +451,27 @@ export default function ImageBedPage({ canWrite, canDelete }: { canWrite: boolea
 				>
 					<input ref={fileInputRef} type="file" accept="image/*" multiple className="hidden" onChange={(e) => e.target.files && handleUpload(e.target.files)} />
 					<div className="text-4xl mb-2">📤</div>
-					<div className="text-sm text-slate-300 font-medium">{uploading ? t("imageBedPage.legacy.uploading") : t("imageBedPage.legacy.dropHint")}</div>
-					<div className="text-xs text-slate-500 mt-1">{t("imageBedPage.legacy.fileTypes")}</div>
+					<div className="text-sm text-[var(--text-secondary)] font-medium">{uploading ? t("imageBedPage.legacy.uploading") : t("imageBedPage.legacy.dropHint")}</div>
+					<div className="text-xs text-[var(--text-muted)] mt-1">{t("imageBedPage.legacy.fileTypes")}</div>
 				</div>
 			</>
 			)}
 
 			{/* Upload Progress */}
 			{uploadProgress && (
-				<div role="status" aria-label={t("imageBedPage.progress.region")} className="mt-3 rounded-xl border border-[var(--border)] bg-[var(--surface-subtle)] p-4 text-sm text-slate-300">
+				<div role="status" aria-label={t("imageBedPage.progress.region")} className="mt-3 rounded-xl border border-[var(--border)] bg-[var(--surface-subtle)] p-4 text-sm text-[var(--text-secondary)]">
 					<div className="flex items-center justify-between gap-3">
 						<span>{uploading ? t("imageBedPage.progress.current").replace("{current}", String(uploadProgress.current)).replace("{total}", String(uploadProgress.total)) : t("imageBedPage.progress.completed").replace("{success}", String(uploadProgress.success)).replace("{total}", String(uploadProgress.total))}</span>
-						<span className="text-xs text-slate-500">{t("imageBedPage.progress.success").replace("{success}", String(uploadProgress.success)).replace("{failure}", String(uploadProgress.failure))}</span>
+						<span className="text-xs text-[var(--text-muted)]">{t("imageBedPage.progress.success").replace("{success}", String(uploadProgress.success)).replace("{failure}", String(uploadProgress.failure))}</span>
 					</div>
-					<div className="mt-2 h-1.5 overflow-hidden rounded-full bg-white/10">
+					<div className="mt-2 h-1.5 overflow-hidden rounded-full bg-[var(--surface-elevated)]">
 						<div className="h-full rounded-full bg-cyan-400 transition-[width]" style={{ width: `${Math.round(((uploadProgress.success + uploadProgress.failure) / Math.max(uploadProgress.total, 1)) * 100)}%` }} />
 					</div>
 					<div className="mt-3 space-y-1 text-xs">
 						{uploadProgress.queue.map((item, index) => (
 							<div key={`${item.name}-${index}`} className="flex items-center justify-between gap-3">
 								<span className="truncate" title={`${item.name} · ${item.message}`}>{item.name} · {item.message}</span>
-								<span className={item.status === "success" ? "text-emerald-300" : item.status === "error" || item.status === "skipped" ? "text-rose-300" : item.status === "uploading" ? "text-cyan-300" : "text-slate-500"}>
+								<span className={item.status === "success" ? "text-emerald-300" : item.status === "error" || item.status === "skipped" ? "text-rose-300" : item.status === "uploading" ? "text-cyan-300" : "text-[var(--text-muted)]"}>
 									{item.status === "success" ? t("imageBedPage.progress.status.success") : item.status === "error" || item.status === "skipped" ? t("imageBedPage.progress.status.error") : item.status === "uploading" ? t("imageBedPage.progress.status.uploading") : t("imageBedPage.progress.status.pending")}
 								</span>
 							</div>
@@ -490,11 +490,11 @@ export default function ImageBedPage({ canWrite, canDelete }: { canWrite: boolea
 						value={search}
 						onChange={(e) => setSearch(e.target.value)}
 						onKeyDown={(e) => e.key === "Enter" && fetchImages(1)}
-						className="min-h-11 w-full rounded-lg border-[var(--input-border)] bg-[var(--input-bg)] px-3 py-2 text-sm text-slate-200 placeholder:text-slate-500 focus:outline-none focus:border-cyan-400/50 sm:w-72"
+						className="min-h-11 w-full rounded-lg border-[var(--input-border)] bg-[var(--input-bg)] px-3 py-2 text-sm text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus:outline-none focus:border-cyan-400/50 sm:w-72"
 					/>
 				</label>
 				<button onClick={() => fetchImages(1)} className="min-h-11 rounded-lg bg-cyan-500/10 px-4 py-2 text-sm text-cyan-400 hover:bg-cyan-500/20 transition">{t("imageBedPage.search.submit")}</button>
-				<button onClick={() => { setSearch(""); fetchImages(1); }} className="min-h-11 rounded-lg px-4 py-2 text-sm text-slate-400 hover:text-slate-200 light:hover:text-slate-800 transition">{t("imageBedPage.search.reset")}</button>
+				<button onClick={() => { setSearch(""); fetchImages(1); }} className="min-h-11 rounded-lg px-4 py-2 text-sm text-[var(--text-secondary)] hover:text-[var(--text-primary)] light:hover:text-slate-800 transition">{t("imageBedPage.search.reset")}</button>
 			</div>
 
 			{/* Image Grid */}
@@ -512,7 +512,7 @@ export default function ImageBedPage({ canWrite, canDelete }: { canWrite: boolea
 								{batchMode && (
 									<div
 										onClick={(e) => { e.stopPropagation(); toggleSelect(img.id); }}
-										className={`absolute top-2 left-2 z-10 w-6 h-6 rounded-lg border-2 flex items-center justify-center cursor-pointer transition ${selectedIds.has(img.id) ? "bg-cyan-500 border-cyan-400 text-white" : "bg-black/50 border-slate-500 hover:border-slate-300"}`}
+										className={`absolute top-2 left-2 z-10 w-6 h-6 rounded-lg border-2 flex items-center justify-center cursor-pointer transition ${selectedIds.has(img.id) ? "bg-cyan-500 border-cyan-400 text-[var(--text-primary)]" : "bg-black/50 border-slate-500 hover:border-slate-300"}`}
 									>
 										{selectedIds.has(img.id) && "✓"}
 									</div>
@@ -541,13 +541,13 @@ export default function ImageBedPage({ canWrite, canDelete }: { canWrite: boolea
 									</div>
 								)}
 							</div>
-							<div className="text-xs text-slate-300 truncate" title={img.filename}>{img.filename}</div>
-							<div className="mt-1 truncate text-[10px] text-slate-500" title={formatPublishSource(img)}>{t("imageBedPage.image.source") + formatPublishSource(img)}</div>
+							<div className="text-xs text-[var(--text-secondary)] truncate" title={img.filename}>{img.filename}</div>
+							<div className="mt-1 truncate text-[10px] text-[var(--text-muted)]" title={formatPublishSource(img)}>{t("imageBedPage.image.source") + formatPublishSource(img)}</div>
 							<div className="flex items-center justify-between mt-1">
-								<span className="text-[10px] text-slate-500">{formatSize(img.sizeBytes)} · {formatDate(img.createdAt)}</span>
+								<span className="text-[10px] text-[var(--text-muted)]">{formatSize(img.sizeBytes)} · {formatDate(img.createdAt)}</span>
 								<div className="flex items-center gap-1">
 									{img.album && <span className="text-[10px] text-[var(--text-muted)] bg-[var(--surface-hover)] px-1.5 py-0.5 rounded-lg">{img.album}</span>}
-									<span className={`text-[9px] px-1 py-0.5 rounded-lg ${img.isPublic ? "bg-green-500/10 text-green-500" : "bg-slate-700 text-slate-500"}`}>
+									<span className={`text-[9px] px-1 py-0.5 rounded-lg ${img.isPublic ? "bg-green-500/10 text-green-500" : "bg-slate-700 text-[var(--text-muted)]"}`}>
 										{img.isPublic ? t("imageBedPage.image.public") : t("imageBedPage.image.private")}
 									</span>
 								</div>
@@ -561,7 +561,7 @@ export default function ImageBedPage({ canWrite, canDelete }: { canWrite: boolea
 			{totalPages > 1 && (
 				<div className="mt-6 flex items-center justify-center gap-2">
 					<button onClick={() => fetchImages(page - 1)} disabled={page <= 1} className="px-3 py-1.5 text-sm bg-[var(--surface-hover)] text-[var(--text-secondary)] rounded-lg disabled:opacity-30 hover:bg-[var(--surface-hover)] light:hover:bg-slate-200 transition">{t("imageBedPage.pagination.prev")}</button>
-					<span className="text-sm text-slate-400">{page} / {totalPages}</span>
+					<span className="text-sm text-[var(--text-secondary)]">{page} / {totalPages}</span>
 					<button onClick={() => fetchImages(page + 1)} disabled={page >= totalPages} className="px-3 py-1.5 text-sm bg-[var(--surface-hover)] text-[var(--text-secondary)] rounded-lg disabled:opacity-30 hover:bg-[var(--surface-hover)] light:hover:bg-slate-200 transition">{t("imageBedPage.pagination.next")}</button>
 				</div>
 			)}
@@ -582,31 +582,31 @@ export default function ImageBedPage({ canWrite, canDelete }: { canWrite: boolea
 			{showPublishModal && (
 				<div className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4" onClick={() => setShowPublishModal(false)}>
 					<div className="bg-[var(--modal-bg)] border border-[var(--border)] rounded-xl p-6 w-full max-w-md" onClick={(e) => e.stopPropagation()}>
-						<h3 className="text-lg font-semibold text-white mb-4">{t("imageBedPage.publishFromStorage.title")}</h3>
+						<h3 className="text-lg font-semibold text-[var(--text-primary)] mb-4">{t("imageBedPage.publishFromStorage.title")}</h3>
 						<div className="space-y-3">
 							<div>
-								<label className="text-xs text-slate-400 mb-1 block" htmlFor="imageBedPublishNode">{t("imageBedPage.publishFromStorage.node")}</label>
-								<select id="imageBedPublishNode" value={publishForm.storageNodeId} onChange={(e) => setPublishForm({ ...publishForm, storageNodeId: e.target.value })} className="w-full bg-[var(--input-bg)] border border-[var(--input-border)] rounded-lg px-3 py-2 text-sm text-slate-200 focus:outline-none focus:border-cyan-400/50">
+								<label className="text-xs text-[var(--text-secondary)] mb-1 block" htmlFor="imageBedPublishNode">{t("imageBedPage.publishFromStorage.node")}</label>
+								<select id="imageBedPublishNode" value={publishForm.storageNodeId} onChange={(e) => setPublishForm({ ...publishForm, storageNodeId: e.target.value })} className="w-full bg-[var(--input-bg)] border border-[var(--input-border)] rounded-lg px-3 py-2 text-sm text-[var(--text-primary)] focus:outline-none focus:border-cyan-400/50">
 									<option value="">{t("imageBedPage.publishFromStorage.nodePlaceholder")}</option>
 									{storageNodes.map((n) => <option key={n.id} value={n.id}>{n.name}</option>)}
 								</select>
 							</div>
 							<div>
-								<label className="text-xs text-slate-400 mb-1 block" htmlFor="imageBedPublishPath">{t("imageBedPage.publishFromStorage.path")}</label>
-								<input id="imageBedPublishPath" type="text" value={publishForm.relativePath} onChange={(e) => setPublishForm({ ...publishForm, relativePath: e.target.value })} placeholder="e.g. images/photo.png" className="w-full bg-[var(--input-bg)] border border-[var(--input-border)] rounded-lg px-3 py-2 text-sm text-slate-200 placeholder:text-slate-500 focus:outline-none focus:border-cyan-400/50" />
+								<label className="text-xs text-[var(--text-secondary)] mb-1 block" htmlFor="imageBedPublishPath">{t("imageBedPage.publishFromStorage.path")}</label>
+								<input id="imageBedPublishPath" type="text" value={publishForm.relativePath} onChange={(e) => setPublishForm({ ...publishForm, relativePath: e.target.value })} placeholder="e.g. images/photo.png" className="w-full bg-[var(--input-bg)] border border-[var(--input-border)] rounded-lg px-3 py-2 text-sm text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus:outline-none focus:border-cyan-400/50" />
 							</div>
 							<div>
-								<label className="text-xs text-slate-400 mb-1 block" htmlFor="imageBedPublishFilename">{t("imageBedPage.publishFromStorage.filename")}</label>
-								<input id="imageBedPublishFilename" type="text" value={publishForm.filename} onChange={(e) => setPublishForm({ ...publishForm, filename: e.target.value })} placeholder={t("imageBedPage.publishFromStorage.filenamePlaceholder")} className="w-full bg-[var(--input-bg)] border border-[var(--input-border)] rounded-lg px-3 py-2 text-sm text-slate-200 placeholder:text-slate-500 focus:outline-none focus:border-cyan-400/50" />
+								<label className="text-xs text-[var(--text-secondary)] mb-1 block" htmlFor="imageBedPublishFilename">{t("imageBedPage.publishFromStorage.filename")}</label>
+								<input id="imageBedPublishFilename" type="text" value={publishForm.filename} onChange={(e) => setPublishForm({ ...publishForm, filename: e.target.value })} placeholder={t("imageBedPage.publishFromStorage.filenamePlaceholder")} className="w-full bg-[var(--input-bg)] border border-[var(--input-border)] rounded-lg px-3 py-2 text-sm text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus:outline-none focus:border-cyan-400/50" />
 							</div>
 							<div>
-								<label className="text-xs text-slate-400 mb-1 block" htmlFor="imageBedPublishAlbum">{t("imageBedPage.publishFromStorage.album")}</label>
-								<input id="imageBedPublishAlbum" type="text" value={publishForm.album} onChange={(e) => setPublishForm({ ...publishForm, album: e.target.value })} placeholder={t("imageBedPage.publishFromStorage.albumPlaceholder")} className="w-full bg-[var(--input-bg)] border border-[var(--input-border)] rounded-lg px-3 py-2 text-sm text-slate-200 placeholder:text-slate-500 focus:outline-none focus:border-cyan-400/50" />
+								<label className="text-xs text-[var(--text-secondary)] mb-1 block" htmlFor="imageBedPublishAlbum">{t("imageBedPage.publishFromStorage.album")}</label>
+								<input id="imageBedPublishAlbum" type="text" value={publishForm.album} onChange={(e) => setPublishForm({ ...publishForm, album: e.target.value })} placeholder={t("imageBedPage.publishFromStorage.albumPlaceholder")} className="w-full bg-[var(--input-bg)] border border-[var(--input-border)] rounded-lg px-3 py-2 text-sm text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus:outline-none focus:border-cyan-400/50" />
 							</div>
 						</div>
 						<div className="mt-5 flex items-center justify-end gap-2">
-							<button onClick={() => setShowPublishModal(false)} className="px-4 py-2 text-sm text-slate-400 hover:text-slate-200 light:hover:text-slate-800 transition">{t("imageBedPage.publishFromStorage.cancel")}</button>
-							<button onClick={handlePublishFromStorage} disabled={!publishForm.storageNodeId || !publishForm.relativePath} className="px-4 py-2 text-sm bg-cyan-600 text-white rounded-lg hover:bg-cyan-500 transition disabled:opacity-30">{t("imageBedPage.publishFromStorage.submit")}</button>
+							<button onClick={() => setShowPublishModal(false)} className="px-4 py-2 text-sm text-[var(--text-secondary)] hover:text-[var(--text-primary)] light:hover:text-slate-800 transition">{t("imageBedPage.publishFromStorage.cancel")}</button>
+							<button onClick={handlePublishFromStorage} disabled={!publishForm.storageNodeId || !publishForm.relativePath} className="px-4 py-2 text-sm bg-cyan-600 text-[var(--text-primary)] rounded-lg hover:bg-cyan-500 transition disabled:opacity-30">{t("imageBedPage.publishFromStorage.submit")}</button>
 						</div>
 					</div>
 				</div>
@@ -621,8 +621,8 @@ export default function ImageBedPage({ canWrite, canDelete }: { canWrite: boolea
 						className="bg-[var(--modal-bg)] border border-rose-500/20 rounded-xl p-6 w-full max-w-md shadow-2xl"
 						onClick={(e) => e.stopPropagation()}
 					>
-						<h3 className="text-lg font-semibold text-white mb-2">{pendingDelete.type === "single" ? t("imageBedPage.delete.title.single") : t("imageBedPage.delete.title.batch")}</h3>
-						<p className="text-sm leading-6 text-slate-300">
+						<h3 className="text-lg font-semibold text-[var(--text-primary)] mb-2">{pendingDelete.type === "single" ? t("imageBedPage.delete.title.single") : t("imageBedPage.delete.title.batch")}</h3>
+						<p className="text-sm leading-6 text-[var(--text-secondary)]">
 							{pendingDelete.type === "single" ? (
 								<>{t("imageBedPage.delete.desc.single") + pendingDelete.filename + "，图片外链将失效。"}</>
 							) : (
@@ -630,8 +630,8 @@ export default function ImageBedPage({ canWrite, canDelete }: { canWrite: boolea
 							)}
 						</p>
 						<div className="mt-6 flex items-center justify-end gap-2">
-							<button type="button" onClick={() => setPendingDelete(null)} className="px-4 py-2 text-sm text-slate-400 hover:text-slate-200 light:hover:text-slate-800 transition">{t("imageBedPage.delete.cancel")}</button>
-							<button type="button" onClick={confirmDelete} disabled={deleting} className="px-4 py-2 text-sm bg-rose-600 text-white rounded-lg hover:bg-rose-500 transition disabled:opacity-50">{deleting ? "删除中..." : "确认删除"}</button>
+							<button type="button" onClick={() => setPendingDelete(null)} className="px-4 py-2 text-sm text-[var(--text-secondary)] hover:text-[var(--text-primary)] light:hover:text-slate-800 transition">{t("imageBedPage.delete.cancel")}</button>
+							<button type="button" onClick={confirmDelete} disabled={deleting} className="px-4 py-2 text-sm bg-rose-600 text-[var(--text-primary)] rounded-lg hover:bg-rose-500 transition disabled:opacity-50">{deleting ? "删除中..." : "确认删除"}</button>
 						</div>
 					</div>
 				</div>
@@ -639,7 +639,7 @@ export default function ImageBedPage({ canWrite, canDelete }: { canWrite: boolea
 
 			{/* Toast */}
 			{toast && (
-				<div role={toast.includes("失败") || toast.includes("出错") || toast.includes("超过") ? "alert" : "status"} className="fixed bottom-6 right-6 bg-[var(--modal-bg)] border border-[var(--border)] text-sm text-slate-200 px-4 py-2.5 rounded-xl shadow-lg z-50 animate-fade-in">
+				<div role={toast.includes("失败") || toast.includes("出错") || toast.includes("超过") ? "alert" : "status"} className="fixed bottom-6 right-6 bg-[var(--modal-bg)] border border-[var(--border)] text-sm text-[var(--text-primary)] px-4 py-2.5 rounded-xl shadow-lg z-50 animate-fade-in">
 					{toast}
 				</div>
 			)}

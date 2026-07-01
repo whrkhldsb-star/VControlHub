@@ -141,7 +141,7 @@ function highlightLine(line: string, lang: string): string {
 function getRules(lang: string): { regex: RegExp; replace: string }[] {
 	const commentRule = (prefix: string) => ({
 		regex: new RegExp(`(${escapeRegex(escapeHtml(prefix))}.*)$`),
-		replace: '<span class="text-slate-500 italic">$1</span>',
+		replace: '<span class="text-[var(--text-muted)] italic">$1</span>',
 	});
 	
 	const jsKeywords = "break|case|catch|class|const|continue|debugger|default|delete|do|else|export|extends|finally|for|from|function|if|import|in|instanceof|let|new|of|return|static|super|switch|this|throw|try|typeof|var|void|while|with|yield|async|await|interface|type|enum|implements|declare|namespace|module|as|readonly|abstract|override|private|protected|public";
@@ -188,7 +188,7 @@ function getRules(lang: string): { regex: RegExp; replace: string }[] {
 		case "env":
 			return [
 				commentRule("#"),
-				{ regex: /^(\s*[\w.-]+)(=)/gm, replace: '<span class="text-cyan-400">$1</span><span class="text-slate-500">=</span>' },
+				{ regex: /^(\s*[\w.-]+)(=)/gm, replace: '<span class="text-cyan-400">$1</span><span class="text-[var(--text-muted)]">=</span>' },
 				...common,
 			];
 		case "html":
@@ -196,14 +196,14 @@ function getRules(lang: string): { regex: RegExp; replace: string }[] {
 			return [
 				commentRule("<!--"),
 				{ regex: /(&lt;\/?[\w.-]+)/g, replace: '<span class="text-blue-400">$1</span>' },
-				{ regex: /(\s[\w.-]+)(=)/g, replace: '<span class="text-cyan-300">$1</span><span class="text-slate-500">=</span>' },
+				{ regex: /(\s[\w.-]+)(=)/g, replace: '<span class="text-cyan-300">$1</span><span class="text-[var(--text-muted)]">=</span>' },
 				strRule,
 			];
 		case "css":
 			return [
 				commentRule("/*"),
 				{ regex: /([.#]?[\w-]+)\s*\{/g, replace: '<span class="text-cyan-300">$1</span> {' },
-				{ regex: /([\w-]+)(\s*:)/g, replace: '<span class="text-white">$1</span>$2' },
+				{ regex: /([\w-]+)(\s*:)/g, replace: '<span class="text-[var(--text-primary)]">$1</span>$2' },
 				strRule,
 			];
 		case "sql":
@@ -246,7 +246,7 @@ function getRules(lang: string): { regex: RegExp; replace: string }[] {
 function highlightJson(line: string): string {
 	let escaped = escapeHtml(line);
 	// keys
-	escaped = escaped.replace(/^\s*(&quot;[^&]+?&quot;)\s*(:)/, '<span class="text-cyan-400">$1</span><span class="text-slate-500">:</span>');
+	escaped = escaped.replace(/^\s*(&quot;[^&]+?&quot;)\s*(:)/, '<span class="text-cyan-400">$1</span><span class="text-[var(--text-muted)]">:</span>');
 	// string values
 	escaped = escaped.replace(/:\s*(&quot;[^&]*?&quot;)([,\s}]*)$/, ': <span class="text-emerald-400">$1</span>$2');
 	// standalone strings in arrays
@@ -702,7 +702,7 @@ export function TextPreviewClient({
 				<span className="rounded-full bg-blue-400/10 px-3 py-1 text-xs font-medium text-blue-300 border border-blue-400/30">
 					{langLabel(t, lang)}
 				</span>
-				<span className="text-xs text-slate-500">{t("textPreview.linesCount").replace("{count}", String(totalLines))}</span>
+				<span className="text-xs text-[var(--text-muted)]">{t("textPreview.linesCount").replace("{count}", String(totalLines))}</span>
 				{canEdit ? (
 					<span data-tone="emerald" className="rounded-full border border-emerald-400/30 px-3 py-1 text-xs text-emerald-200">
 						{t("textPreview.editHint")}
@@ -760,7 +760,7 @@ export function TextPreviewClient({
 										setReloadMessage("");
 									}}
 									disabled={saveStatus === "saving" || saveStatus === "reloading"}
-									className="rounded-lg border border-slate-700 bg-slate-800 px-3 py-1.5 text-xs text-[var(--text-secondary)] hover:bg-slate-700 light:hover:bg-slate-200 disabled:opacity-50"
+									className="rounded-lg border border-slate-700 bg-[var(--surface)] px-3 py-1.5 text-xs text-[var(--text-secondary)] hover:bg-slate-700 light:hover:bg-slate-200 disabled:opacity-50"
 								>
 									{t("textPreview.button.cancel")}
 								</button>
@@ -769,7 +769,7 @@ export function TextPreviewClient({
 									onClick={() => setEditorFind({ open: true, query: "", total: 0, current: 0 })}
 									aria-label={t("textPreview.editor.findToggle")}
 									title={t("textPreview.editor.findToggle")}
-									className="rounded-lg border border-slate-700 bg-slate-800 px-3 py-1.5 text-xs text-[var(--text-secondary)] hover:bg-slate-700 light:hover:bg-slate-200"
+									className="rounded-lg border border-slate-700 bg-[var(--surface)] px-3 py-1.5 text-xs text-[var(--text-secondary)] hover:bg-slate-700 light:hover:bg-slate-200"
 								>
 									🔍
 								</button>
@@ -778,7 +778,7 @@ export function TextPreviewClient({
 							<button
 								type="button"
 								onClick={() => setEditMode(true)}
-								data-tone="cyan" className="rounded-lg border border-cyan-400/30 px-3 py-1.5 text-xs text-cyan-100 hover:bg-cyan-400/20"
+								data-tone="cyan" className="rounded-lg border border-cyan-400/30 px-3 py-1.5 text-xs text-[var(--text-primary)] hover:bg-cyan-400/20"
 							>
 								{t("textPreview.button.edit")}
 							</button>
@@ -813,7 +813,7 @@ export function TextPreviewClient({
 								type="button"
 								onClick={() => setShowDiffReview(false)}
 								disabled={saveStatus === "saving" || saveStatus === "reloading"}
-								className="rounded-lg border border-slate-600/60 bg-slate-900/40 px-3 py-1.5 text-xs text-slate-200 disabled:opacity-50"
+								className="rounded-lg border border-slate-600/60 bg-[var(--surface)]/40 px-3 py-1.5 text-xs text-[var(--text-primary)] disabled:opacity-50"
 							>
 								{t("textPreview.button.backToEdit")}
 							</button>
@@ -844,19 +844,19 @@ export function TextPreviewClient({
 							) : null}
 						</div>
 					</div>
-					<div className="mt-3 max-h-72 overflow-auto rounded-xl border border-white/[0.08] bg-slate-950/80">
+					<div className="mt-3 max-h-72 overflow-auto rounded-xl border border-[var(--border)]/[0.08] bg-[var(--surface)]/80">
 						{diffRows.length === 0 ? (
-							<p className="px-3 py-2 text-xs text-slate-400">{t("textPreview.diffEmpty")}</p>
+							<p className="px-3 py-2 text-xs text-[var(--text-secondary)]">{t("textPreview.diffEmpty")}</p>
 						) : (
 							<ul className="divide-y divide-white/[0.06] light:divide-slate-200">
 								{diffRows.slice(0, 80).map((row) => (
 									<li key={`${row.line}-${row.kind}`} className="grid gap-1 px-3 py-2 text-xs md:grid-cols-[80px_1fr_1fr]">
-										<span className="font-mono text-slate-500">L{row.line} · {row.kind === "added" ? t("textPreview.diffKind.added") : row.kind === "removed" ? t("textPreview.diffKind.removed") : t("textPreview.diffKind.changed")}</span>
+										<span className="font-mono text-[var(--text-muted)]">L{row.line} · {row.kind === "added" ? t("textPreview.diffKind.added") : row.kind === "removed" ? t("textPreview.diffKind.removed") : t("textPreview.diffKind.changed")}</span>
 										<code className="min-h-5 whitespace-pre-wrap break-all rounded-lg bg-rose-500/10 px-2 py-1 text-rose-200">- {row.before}</code>
 										<code className="min-h-5 whitespace-pre-wrap break-all rounded-lg bg-emerald-500/10 px-2 py-1 text-emerald-200">+ {row.after}</code>
 									</li>
 								))}
-								{diffRows.length > 80 ? <li className="px-3 py-2 text-xs text-slate-500">{t("textPreview.diffMore").replace("{count}", String(diffRows.length - 80))}</li> : null}
+								{diffRows.length > 80 ? <li className="px-3 py-2 text-xs text-[var(--text-muted)]">{t("textPreview.diffMore").replace("{count}", String(diffRows.length - 80))}</li> : null}
 							</ul>
 						)}
 					</div>
@@ -870,7 +870,7 @@ export function TextPreviewClient({
 							role="search"
 							aria-label={t("textPreview.editor.findToggle")}
 							data-testid="editor-find-bar"
-							className="flex flex-wrap items-center gap-2 rounded-lg border border-amber-400/30 bg-slate-900/60 px-3 py-2"
+							className="flex flex-wrap items-center gap-2 rounded-lg border border-amber-400/30 bg-[var(--surface)]/60 px-3 py-2"
 						>
 							<input
 								ref={editorFindInputRef}
@@ -885,9 +885,9 @@ export function TextPreviewClient({
 								}}
 								placeholder={t("textPreview.editor.findPlaceholder")}
 								aria-label={t("textPreview.editor.findPlaceholder")}
-								className="w-48 rounded-lg border border-slate-700 bg-slate-950 px-2 py-1 text-xs text-[var(--text-secondary)] placeholder:text-slate-600 focus:border-amber-300 focus:outline-none"
+								className="w-48 rounded-lg border border-slate-700 bg-[var(--surface)] px-2 py-1 text-xs text-[var(--text-secondary)] placeholder:text-[var(--text-muted)] focus:border-amber-300 focus:outline-none"
 							/>
-							<span className="text-xs text-slate-400" data-testid="editor-find-count">
+							<span className="text-xs text-[var(--text-secondary)]" data-testid="editor-find-count">
 								{editorFind.query === ""
 									? ""
 									: editorFind.total === 0
@@ -903,7 +903,7 @@ export function TextPreviewClient({
 								disabled={editorFind.total === 0}
 								aria-label={t("textPreview.editor.findPrev")}
 								title={t("textPreview.editor.findPrev")}
-								className="rounded-lg border border-slate-700 bg-slate-800 px-2 py-1 text-xs text-[var(--text-secondary)] hover:bg-slate-700 disabled:opacity-40"
+								className="rounded-lg border border-slate-700 bg-[var(--surface)] px-2 py-1 text-xs text-[var(--text-secondary)] hover:bg-slate-700 disabled:opacity-40"
 							>
 								↑
 							</button>
@@ -913,7 +913,7 @@ export function TextPreviewClient({
 								disabled={editorFind.total === 0}
 								aria-label={t("textPreview.editor.findNext")}
 								title={t("textPreview.editor.findNext")}
-								className="rounded-lg border border-slate-700 bg-slate-800 px-2 py-1 text-xs text-[var(--text-secondary)] hover:bg-slate-700 disabled:opacity-40"
+								className="rounded-lg border border-slate-700 bg-[var(--surface)] px-2 py-1 text-xs text-[var(--text-secondary)] hover:bg-slate-700 disabled:opacity-40"
 							>
 								↓
 							</button>
@@ -922,7 +922,7 @@ export function TextPreviewClient({
 								onClick={closeEditorFind}
 								aria-label={t("textPreview.editor.findClose")}
 								title={t("textPreview.editor.findClose")}
-								className="rounded-lg border border-slate-700 bg-slate-800 px-2 py-1 text-xs text-[var(--text-secondary)] hover:bg-slate-700"
+								className="rounded-lg border border-slate-700 bg-[var(--surface)] px-2 py-1 text-xs text-[var(--text-secondary)] hover:bg-slate-700"
 							>
 								✕
 							</button>
@@ -930,13 +930,13 @@ export function TextPreviewClient({
 					) : null}
 					<div
 						title={t("textPreview.editor.indentHint")}
-						className="flex min-h-[70vh] overflow-hidden rounded-2xl border border-cyan-400/30 bg-slate-950 font-mono text-sm leading-relaxed text-slate-100 focus-within:border-cyan-300"
+						className="flex min-h-[70vh] overflow-hidden rounded-2xl border border-cyan-400/30 bg-[var(--surface)] font-mono text-sm leading-relaxed text-[var(--text-primary)] focus-within:border-cyan-300"
 					>
 						<div
 							ref={gutterRef}
 							aria-hidden
 							data-testid="editor-line-gutter"
-							className="select-none overflow-hidden border-r border-white/[0.06] bg-slate-900/60 px-2 py-4 text-right text-slate-500"
+							className="select-none overflow-hidden border-r border-[var(--border)]/[0.06] bg-[var(--surface)]/60 px-2 py-4 text-right text-[var(--text-muted)]"
 							style={{ minWidth: "3rem" }}
 						>
 							{Array.from({ length: draft.split("\n").length }, (_, i) => (
@@ -955,13 +955,13 @@ export function TextPreviewClient({
 							onClick={() => showDiffReview && setShowDiffReview(false)}
 							onScroll={handleEditorScroll}
 							onKeyDown={handleEditorKeyDown}
-							className="min-h-[70vh] w-full resize-none bg-slate-950 p-4 font-mono text-sm leading-relaxed text-slate-100 outline-none"
+							className="min-h-[70vh] w-full resize-none bg-[var(--surface)] p-4 font-mono text-sm leading-relaxed text-[var(--text-primary)] outline-none"
 							spellCheck={false}
 						/>
 					</div>
 				</div>
 			) : (
-				<div ref={containerRef} className="overflow-auto rounded-2xl bg-slate-950 p-4 text-sm leading-relaxed max-h-[75vh]">
+				<div ref={containerRef} className="overflow-auto rounded-2xl bg-[var(--surface)] p-4 text-sm leading-relaxed max-h-[75vh]">
 					<pre className="font-mono text-[var(--text-secondary)]">
 						<code>
 							{lines.map((line, i) => {
@@ -974,7 +974,7 @@ export function TextPreviewClient({
 										ref={(el) => { if (el) lineRef.current.set(i, el); }}
 										className="flex transition-colors duration-500"
 									>
-										<span className="mr-4 inline-block w-12 select-none text-right text-slate-600 shrink-0">
+										<span className="mr-4 inline-block w-12 select-none text-right text-[var(--text-muted)] shrink-0">
 											{i + 1}
 										</span>
 										<span className="whitespace-pre-wrap break-all" dangerouslySetInnerHTML={{ __html: html }} />

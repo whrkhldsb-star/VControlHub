@@ -213,12 +213,12 @@ export function ShareFilePicker({ nodes }: { nodes: StorageNode[] }) {
 	};
 
 	return (
-		<section data-i18n-skip className="rounded-2xl border border-white/[0.08] bg-white/[0.03] p-4 shadow-[0_18px_60px_rgba(2,6,23,0.22)] light:shadow-[0_18px_50px_rgba(15,23,42,0.08)]">
+		<section data-i18n-skip className="rounded-2xl border border-[var(--border)]/[0.08] bg-[var(--surface)]/[0.03] p-4 shadow-[0_18px_60px_rgba(2,6,23,0.22)] light:shadow-[0_18px_50px_rgba(15,23,42,0.08)]">
 			<div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
 				<div>
 					<p className="text-xs font-semibold uppercase tracking-[0.22em] text-cyan-300">{copyText.eyebrow}</p>
-					<h2 className="mt-1 text-xl font-semibold text-white">{copyText.title}</h2>
-					<p className="mt-1 max-w-2xl text-sm text-slate-500">
+					<h2 className="mt-1 text-xl font-semibold text-[var(--text-primary)]">{copyText.title}</h2>
+					<p className="mt-1 max-w-2xl text-sm text-[var(--text-muted)]">
 						{copyText.description}
 					</p>
 				</div>
@@ -249,12 +249,12 @@ export function ShareFilePicker({ nodes }: { nodes: StorageNode[] }) {
 				</div>
 			</div>
 
-			<div className="mt-4 flex flex-wrap items-center gap-2 text-xs text-slate-500">
-				<button type="button" onClick={() => setPath("")} className="min-h-11 min-w-11 rounded-full border border-white/10 px-2.5 py-1 hover:text-cyan-200 light:hover:text-cyan-700">{copyText.root}</button>
+			<div className="mt-4 flex flex-wrap items-center gap-2 text-xs text-[var(--text-muted)]">
+				<button type="button" onClick={() => setPath("")} className="min-h-11 min-w-11 rounded-full border border-[var(--border)]/10 px-2.5 py-1 hover:text-[var(--text-secondary)] light:hover:text-cyan-700">{copyText.root}</button>
 				{breadcrumb.map((segment, index) => (
 					<span key={`${segment}-${index}`} className="inline-flex items-center gap-2">
 						<ChevronRight size={12} />
-						<button type="button" onClick={() => jumpToCrumb(index)} className="min-h-11 min-w-11 rounded-full border border-white/10 px-2.5 py-1 hover:text-cyan-200 light:hover:text-cyan-700">{segment}</button>
+						<button type="button" onClick={() => jumpToCrumb(index)} className="min-h-11 min-w-11 rounded-full border border-[var(--border)]/10 px-2.5 py-1 hover:text-[var(--text-secondary)] light:hover:text-cyan-700">{segment}</button>
 					</span>
 				))}
 			</div>
@@ -263,15 +263,15 @@ export function ShareFilePicker({ nodes }: { nodes: StorageNode[] }) {
 			{data?.syncWarning ? <p data-tone="amber" className="mt-3 rounded-xl border border-amber-400/20 px-3 py-2 text-sm text-amber-200">{data.syncWarning}</p> : null}
 
 			<div className="mt-4 grid gap-4 lg:grid-cols-[minmax(0,1fr)_20rem]">
-				<div className="overflow-hidden rounded-xl border border-white/[0.08]">
-					<div className="grid grid-cols-[2rem_minmax(0,1fr)_8rem_6rem] gap-2 border-b border-white/[0.06] bg-white/[0.03] px-3 py-2 text-xs font-medium uppercase tracking-wide text-slate-500">
+				<div className="overflow-hidden rounded-xl border border-[var(--border)]/[0.08]">
+					<div className="grid grid-cols-[2rem_minmax(0,1fr)_8rem_6rem] gap-2 border-b border-[var(--border)]/[0.06] bg-[var(--surface)]/[0.03] px-3 py-2 text-xs font-medium uppercase tracking-wide text-[var(--text-muted)]">
 						<span />
 						<span>{copyText.name}</span>
 						<span>{copyText.type}</span>
 						<span>{copyText.size}</span>
 					</div>
 					{loading ? (
-						<div className="flex items-center justify-center gap-2 p-8 text-sm text-slate-500"><Loader2 size={16} className="animate-spin" /> {copyText.loading}</div>
+						<div className="flex items-center justify-center gap-2 p-8 text-sm text-[var(--text-muted)]"><Loader2 size={16} className="animate-spin" /> {copyText.loading}</div>
 					) : (data?.folders.length || data?.files.length) ? (
 						<div className="divide-y divide-white/[0.06] light:divide-slate-200">
 							{data?.folders.map((folder) => {
@@ -283,13 +283,13 @@ export function ShareFilePicker({ nodes }: { nodes: StorageNode[] }) {
 									entryType: "DIRECTORY",
 								};
 								return (
-									<div key={item.key} className="grid grid-cols-[2rem_minmax(0,1fr)_8rem_6rem] items-center gap-2 px-3 py-2.5 text-sm hover:bg-white/[0.04] light:hover:bg-slate-50">
+									<div key={item.key} className="grid grid-cols-[2rem_minmax(0,1fr)_8rem_6rem] items-center gap-2 px-3 py-2.5 text-sm hover:bg-[var(--surface)]/[0.04] light:hover:bg-slate-50">
 										<input type="checkbox" checked={Boolean(selected[item.key])} onChange={() => toggleSelection(item)} className="h-4 w-4 accent-cyan-500" aria-label={`${copyText.selectFolder} ${folder.name}`} />
-										<button type="button" onClick={() => openFolder(folder)} className="min-h-11 flex min-w-0 items-center gap-2 text-left text-slate-200 hover:text-cyan-200 light:hover:text-cyan-700">
+										<button type="button" onClick={() => openFolder(folder)} className="min-h-11 flex min-w-0 items-center gap-2 text-left text-[var(--text-primary)] hover:text-[var(--text-secondary)] light:hover:text-cyan-700">
 											<Folder size={17} className="shrink-0 text-cyan-300" />
 											<span className="truncate">{folder.name}</span>
 										</button>
-										<span className="text-xs text-slate-500">{copyText.folder}</span>
+										<span className="text-xs text-[var(--text-muted)]">{copyText.folder}</span>
 										<span className="text-xs text-[var(--text-muted)]">—</span>
 									</div>
 								);
@@ -304,11 +304,11 @@ export function ShareFilePicker({ nodes }: { nodes: StorageNode[] }) {
 									sizeLabel: file.sizeLabel,
 								};
 								return (
-									<label key={item.key} className="grid grid-cols-[2rem_minmax(0,1fr)_8rem_6rem] items-center gap-2 px-3 py-2.5 text-sm hover:bg-white/[0.04] light:hover:bg-slate-50">
+									<label key={item.key} className="grid grid-cols-[2rem_minmax(0,1fr)_8rem_6rem] items-center gap-2 px-3 py-2.5 text-sm hover:bg-[var(--surface)]/[0.04] light:hover:bg-slate-50">
 										<input type="checkbox" checked={Boolean(selected[item.key])} onChange={() => toggleSelection(item)} className="h-4 w-4 accent-cyan-500" aria-label={`${copyText.selectFile} ${file.name}`} />
-										<span className="flex min-w-0 items-center gap-2 text-slate-200"><File size={16} className="shrink-0 text-slate-400" /><span className="truncate">{file.name}</span></span>
-										<span className="text-xs text-slate-500">{copyText.file}</span>
-										<span className="truncate text-xs text-slate-500">{file.sizeLabel ?? "—"}</span>
+										<span className="flex min-w-0 items-center gap-2 text-[var(--text-primary)]"><File size={16} className="shrink-0 text-[var(--text-secondary)]" /><span className="truncate">{file.name}</span></span>
+										<span className="text-xs text-[var(--text-muted)]">{copyText.file}</span>
+										<span className="truncate text-xs text-[var(--text-muted)]">{file.sizeLabel ?? "—"}</span>
 									</label>
 								);
 							})}
@@ -321,18 +321,18 @@ export function ShareFilePicker({ nodes }: { nodes: StorageNode[] }) {
 				<aside className="rounded-xl border border-[var(--border)] bg-[var(--surface-subtle)] p-4">
 					<div className="flex items-center justify-between gap-3">
 						<div>
-							<h3 className="text-sm font-semibold text-white">{copyText.selectedPrefix} {selectedItems.length} {copyText.selectedSuffix}</h3>
-							<p className="mt-1 text-xs text-slate-500">{copyText.selectedHint}</p>
+							<h3 className="text-sm font-semibold text-[var(--text-primary)]">{copyText.selectedPrefix} {selectedItems.length} {copyText.selectedSuffix}</h3>
+							<p className="mt-1 text-xs text-[var(--text-muted)]">{copyText.selectedHint}</p>
 						</div>
-						<button type="button" onClick={() => setSelected({})} className="min-h-11 min-w-11 text-xs text-slate-500 hover:text-slate-200 light:hover:text-slate-700">{copyText.clear}</button>
+						<button type="button" onClick={() => setSelected({})} className="min-h-11 min-w-11 text-xs text-[var(--text-muted)] hover:text-[var(--text-primary)] light:hover:text-slate-700">{copyText.clear}</button>
 					</div>
 					<div className="mt-3 max-h-48 space-y-2 overflow-auto pr-1">
 						{selectedItems.length ? selectedItems.map((item) => (
-							<div key={item.key} className="rounded-lg border border-white/[0.07] bg-white/[0.03] px-3 py-2 text-xs">
-								<div className="truncate font-medium text-slate-200">{item.name}</div>
-								<div className="mt-0.5 truncate text-slate-500">{item.entryType === "DIRECTORY" ? copyText.folder : copyText.file} · {item.path}</div>
+							<div key={item.key} className="rounded-lg border border-[var(--border)]/[0.07] bg-[var(--surface)]/[0.03] px-3 py-2 text-xs">
+								<div className="truncate font-medium text-[var(--text-primary)]">{item.name}</div>
+								<div className="mt-0.5 truncate text-[var(--text-muted)]">{item.entryType === "DIRECTORY" ? copyText.folder : copyText.file} · {item.path}</div>
 							</div>
-						)) : <p className="rounded-lg border border-dashed border-white/[0.08] p-4 text-center text-xs text-slate-500">{copyText.selectedEmpty}</p>}
+						)) : <p className="rounded-lg border border-dashed border-[var(--border)]/[0.08] p-4 text-center text-xs text-[var(--text-muted)]">{copyText.selectedEmpty}</p>}
 					</div>
 					<button
 						type="button"

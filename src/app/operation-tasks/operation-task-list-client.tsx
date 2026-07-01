@@ -85,43 +85,43 @@ export function OperationTaskListClient({ initialTasks, initialSourceSummary = [
   return <div className="space-y-5">
     {error && <div role="alert" data-tone="rose" className="rounded-xl border border-rose-400/20 px-4 py-3 text-sm text-rose-100">{error}</div>}
     <div className="grid gap-3 sm:grid-cols-4">
-      {[["running", t("operationTasks.filter.running")],["pending", t("operationTasks.filter.pending")],["failed", t("operationTasks.filter.failed")],["completed", t("operationTasks.filter.completed")]].map(([key,label]) => <div key={key} data-card className=" p-4"><div className="text-xs text-slate-500">{label}</div><div className="mt-2 text-2xl font-semibold text-white">{counts[key as OperationTaskStatus] ?? 0}</div></div>)}
+      {[["running", t("operationTasks.filter.running")],["pending", t("operationTasks.filter.pending")],["failed", t("operationTasks.filter.failed")],["completed", t("operationTasks.filter.completed")]].map(([key,label]) => <div key={key} data-card className=" p-4"><div className="text-xs text-[var(--text-muted)]">{label}</div><div className="mt-2 text-2xl font-semibold text-[var(--text-primary)]">{counts[key as OperationTaskStatus] ?? 0}</div></div>)}
     </div>
     <section aria-label={t("operationTasks.summary.sourceGroup")} data-card className="p-4">
       <div className="flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <h2 className="text-sm font-semibold text-white">{t("operationTasks.summary.sourceGroup")}</h2>
-          <p className="mt-1 text-xs text-slate-500">{t("operationTasks.summary.sourceGroupDesc")}</p>
+          <h2 className="text-sm font-semibold text-[var(--text-primary)]">{t("operationTasks.summary.sourceGroup")}</h2>
+          <p className="mt-1 text-xs text-[var(--text-muted)]">{t("operationTasks.summary.sourceGroupDesc")}</p>
         </div>
-        <div className="text-xs text-slate-500">{t("operationTasksPage.summary.totalCount").replace("{count}", String(tasks.length))}</div>
+        <div className="text-xs text-[var(--text-muted)]">{t("operationTasksPage.summary.totalCount").replace("{count}", String(tasks.length))}</div>
       </div>
-      {sourceSummary.length === 0 ? <p className="mt-3 text-sm text-slate-500">{t("operationTasks.summary.noSources")}</p> : <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-        {sourceSummary.map((item) => <div key={item.source} className="rounded-lg border border-white/[0.06] bg-white/[0.03] px-3 py-3">
-          <div className="flex items-center justify-between gap-3"><span className="text-sm font-medium text-white">{getSourceLabels(t)[item.source] ?? item.source}</span><span className="text-xs text-slate-500">{t("operationTasksPage.summary.grandTotal").replace("{count}", String(item.total))}</span></div>
-          <div className="mt-2 flex flex-wrap gap-2 text-xs text-slate-400"><span>{t("operationTasksPage.summary.needProcess").replace("{count}", String(item.attention))}</span><span>{t("operationTasksPage.summary.failed").replace("{count}", String(item.failed))}</span><span>{t("operationTasksPage.summary.running").replace("{count}", String(item.running))}</span><span>{t("operationTasksPage.summary.pending").replace("{count}", String(item.pending))}</span></div>
+      {sourceSummary.length === 0 ? <p className="mt-3 text-sm text-[var(--text-muted)]">{t("operationTasks.summary.noSources")}</p> : <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+        {sourceSummary.map((item) => <div key={item.source} className="rounded-lg border border-[var(--border)]/[0.06] bg-[var(--surface)]/[0.03] px-3 py-3">
+          <div className="flex items-center justify-between gap-3"><span className="text-sm font-medium text-[var(--text-primary)]">{getSourceLabels(t)[item.source] ?? item.source}</span><span className="text-xs text-[var(--text-muted)]">{t("operationTasksPage.summary.grandTotal").replace("{count}", String(item.total))}</span></div>
+          <div className="mt-2 flex flex-wrap gap-2 text-xs text-[var(--text-secondary)]"><span>{t("operationTasksPage.summary.needProcess").replace("{count}", String(item.attention))}</span><span>{t("operationTasksPage.summary.failed").replace("{count}", String(item.failed))}</span><span>{t("operationTasksPage.summary.running").replace("{count}", String(item.running))}</span><span>{t("operationTasksPage.summary.pending").replace("{count}", String(item.pending))}</span></div>
         </div>)}
       </div>}
     </section>
     <section aria-label={t("operationTasks.summary.failureGroup")} data-tone="rose" className="rounded-xl border border-rose-400/15 p-4">
       <div className="flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <h2 className="text-sm font-semibold text-white">{t("operationTasks.summary.failureGroup")}</h2>
-          <p className="mt-1 text-xs text-slate-500">{t("operationTasksPage.failures.desc")}</p>
+          <h2 className="text-sm font-semibold text-[var(--text-primary)]">{t("operationTasks.summary.failureGroup")}</h2>
+          <p className="mt-1 text-xs text-[var(--text-muted)]">{t("operationTasksPage.failures.desc")}</p>
         </div>
-        <div className="text-xs text-slate-500">{t("operationTasksPage.failures.totalCount").replace("{count}", String(failureSummary.reduce((total, item) => total + item.total, 0)))}</div>
+        <div className="text-xs text-[var(--text-muted)]">{t("operationTasksPage.failures.totalCount").replace("{count}", String(failureSummary.reduce((total, item) => total + item.total, 0)))}</div>
       </div>
-      {failureSummary.length === 0 ? <p className="mt-3 text-sm text-slate-500">{t("operationTasks.summary.noFailures")}</p> : <div className="mt-4 grid gap-3 lg:grid-cols-2">
+      {failureSummary.length === 0 ? <p className="mt-3 text-sm text-[var(--text-muted)]">{t("operationTasks.summary.noFailures")}</p> : <div className="mt-4 grid gap-3 lg:grid-cols-2">
         {failureSummary.map((item) => <div key={item.reason} data-tone="rose" className="rounded-lg border border-rose-400/15 px-3 py-3">
-          <div className="flex flex-wrap items-center justify-between gap-2"><span className="text-sm font-medium text-white">{item.reason}</span><span data-tone="danger" className="rounded-lg border px-2 py-1 text-xs font-medium">{t("operationTasksPage.failures.itemCount").replace("{count}", String(item.total))}</span></div>
-          <p className="mt-2 text-xs text-slate-500">{t("operationTasksPage.failures.sourceAndLatest").replace("{sources}", item.sources.map((source) => getSourceLabels(t)[source] ?? source).join("、")).replace("{title}", item.latestTitle)}</p>
+          <div className="flex flex-wrap items-center justify-between gap-2"><span className="text-sm font-medium text-[var(--text-primary)]">{item.reason}</span><span data-tone="danger" className="rounded-lg border px-2 py-1 text-xs font-medium">{t("operationTasksPage.failures.itemCount").replace("{count}", String(item.total))}</span></div>
+          <p className="mt-2 text-xs text-[var(--text-muted)]">{t("operationTasksPage.failures.sourceAndLatest").replace("{sources}", item.sources.map((source) => getSourceLabels(t)[source] ?? source).join("、")).replace("{title}", item.latestTitle)}</p>
         </div>)}
       </div>}
     </section>
     <div data-card className="">
-      <div className="flex flex-col gap-4 border-b border-white/[0.06] px-5 py-4 lg:flex-row lg:items-end lg:justify-between">
+      <div className="flex flex-col gap-4 border-b border-[var(--border)]/[0.06] px-5 py-4 lg:flex-row lg:items-end lg:justify-between">
         <div>
-          <h2 className="text-sm font-semibold text-white">{t("operationTasksPage.recentTasks")}</h2>
-          <p className="mt-1 text-xs text-slate-500">{t("operationTasksPage.recentTasksHint")}</p>
+          <h2 className="text-sm font-semibold text-[var(--text-primary)]">{t("operationTasksPage.recentTasks")}</h2>
+          <p className="mt-1 text-xs text-[var(--text-muted)]">{t("operationTasksPage.recentTasksHint")}</p>
         </div>
         <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
           <label className="text-xs font-medium text-[var(--text-muted)]">
@@ -156,7 +156,7 @@ export function OperationTaskListClient({ initialTasks, initialSourceSummary = [
                 {t("operationTasksPage.task.viewEvents").replace("{count}", String(task.eventCount))}
               </button>
             ) : null}
-            {task.href && <Link href={task.href} className="text-xs text-cyan-300 hover:text-cyan-200">{t("operationTasksPage.task.viewSource")}</Link>}
+            {task.href && <Link href={task.href} className="text-xs text-cyan-300 hover:text-[var(--text-secondary)]">{t("operationTasksPage.task.viewSource")}</Link>}
           </div>
         </div>)}
       </div>
