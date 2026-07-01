@@ -36,6 +36,7 @@ import {
 	validateTemplate,
 	withServiceOperationLock,
 	writeQuickServiceAudit,
+	type QuickServiceSnapshot,
 	__internals,
 } from "./service-internals";
 import type { ServiceTemplate } from "./types";
@@ -43,6 +44,35 @@ import type { ServiceTemplate } from "./types";
 const runFile = promisify(execFile);
 
 const { normalizeVolumeEndpoint, splitContainerPathAndOptions, mkdirSync, rmSync, DOCKER_SOCKET, TRUSTED_HOST_MOUNTS } = __internals;
+
+async function rollbackInstallToSnapshot(slug: string, before: QuickServiceSnapshot | null, error: string) {
+	if (!before) {
+		try {
+			await prisma.quickService.delete({ where: { slug } });
+		} catch {
+			await prisma.quickService.update({ where: { slug }, data: { status: "error", error } }).catch(() => {});
+		}
+		return { status: "deleted", reason: "fresh-install-failed" };
+	}
+
+	await prisma.quickService.update({
+		where: { slug },
+		data: {
+			status: before.status,
+			port: before.port,
+			containerId: before.containerId,
+			image: before.image,
+			path: before.path,
+			internalPort: before.internalPort,
+			extraPortsJson: before.extraPortsJson,
+			command: before.command,
+			envJson: before.envJson,
+			volumesJson: before.volumesJson,
+			error: before.error ?? null,
+		},
+	});
+	return { ...before, rollbackReason: "restore-previous-service-row" };
+}
 
 export interface InstallOptions {
 	template: ServiceTemplate;
@@ -190,27 +220,30 @@ async function installServiceUnlocked(opts: InstallOptions) {
 		throw new BusinessError(`安装失败: ${msg}`);
 	}
 
-	startDockerContainer(svc.id, template, hostPort, { userId, credentials: installNoticeCredentials, notes: installNoticeNotes }).catch(async (err) => {
+	try {
+		await startDockerContainer(svc.id, template, hostPort, { userId, credentials: installNoticeCredentials, notes: installNoticeNotes });
+	} catch (err) {
 		let msg = dockerErrorMessage(err);
 		try {
 			dockerExecSync(["rm", "-f", safeContainerName(template.slug)], 15_000);
 		} catch (cleanupErr) {
 			msg = `${msg}; 清理残留容器失败: ${dockerErrorMessage(cleanupErr)}`;
 		}
-		await prisma.quickService.update({ where: { id: svc.id }, data: { status: "error", error: msg } });
+		const rollback = await rollbackInstallToSnapshot(template.slug, before, msg.slice(0, 500));
 		await writeQuickServiceAudit({
 			userId,
 			action: "install",
 			slug: template.slug,
 			status: "failed",
-			detail: { image: template.image, port: hostPort, error: msg.slice(0, 500), phase: "container-start" },
+			detail: { image: template.image, port: hostPort, error: msg.slice(0, 500), phase: "container-start", rollback: typeof rollback.status === "string" ? rollback.status : "restored" },
 			diff: {
 				before,
-				after: { status: "error", port: hostPort, error: msg.slice(0, 500) },
+				after: rollback,
 			},
 		});
 		await notifyQuickServiceInstallFailure(userId, template, msg);
-	});
+		throw new BusinessError(`安装失败: ${msg}`);
+	}
 
 	return { ...svc, port: hostPort };
 }

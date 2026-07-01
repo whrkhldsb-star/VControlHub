@@ -205,6 +205,20 @@ export type QuickServiceDiff = {
 	after?: Record<string, unknown> | null;
 };
 
+export type QuickServiceSnapshot = {
+	status: string;
+	port: number;
+	containerId: string | null;
+	image: string;
+	path: string;
+	internalPort: number | null;
+	extraPortsJson: string;
+	command: string | null;
+	envJson: string;
+	volumesJson: string;
+	error?: string;
+};
+
 export async function writeQuickServiceAudit(input: {
 	userId?: string | null;
 	action: "install" | "start" | "stop" | "sync" | "update" | "uninstall";
@@ -241,11 +255,23 @@ export async function writeQuickServiceAudit(input: {
  * audit log can render a real "before/after" diff. Returns null for new
  * slugs that have never been installed.
  */
-export async function captureQuickServiceSnapshot(slug: string): Promise<Record<string, unknown> | null> {
+export async function captureQuickServiceSnapshot(slug: string): Promise<QuickServiceSnapshot | null> {
 	try {
 		const row = await prisma.quickService.findUnique({
 			where: { slug },
-			select: { status: true, port: true, containerId: true, image: true, error: true },
+			select: {
+				status: true,
+				port: true,
+				containerId: true,
+				image: true,
+				path: true,
+				internalPort: true,
+				extraPortsJson: true,
+				command: true,
+				envJson: true,
+				volumesJson: true,
+				error: true,
+			},
 		});
 		if (!row) return null;
 		return {
@@ -253,6 +279,12 @@ export async function captureQuickServiceSnapshot(slug: string): Promise<Record<
 			port: row.port,
 			containerId: row.containerId,
 			image: row.image,
+			path: row.path,
+			internalPort: row.internalPort,
+			extraPortsJson: row.extraPortsJson,
+			command: row.command,
+			envJson: row.envJson,
+			volumesJson: row.volumesJson,
 			...(row.error ? { error: row.error } : {}),
 		};
 	} catch {

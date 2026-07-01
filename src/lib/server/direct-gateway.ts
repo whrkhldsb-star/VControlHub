@@ -183,6 +183,18 @@ if __name__ == "__main__":
 `;
 }
 
+function assertSafeDirectGatewayRoot(rootPath: string) {
+  const trimmed = rootPath.trim();
+  if (!trimmed.startsWith("/") || trimmed.includes("\0")) {
+    throw new Error("Direct Gateway rootPath must be an absolute path");
+  }
+  const normalized = trimmed.replace(/\/+$/, "") || "/";
+  if (normalized === "/" || normalized.includes("/../") || normalized.endsWith("/..") || normalized.includes("/./") || normalized.endsWith("/.")) {
+    throw new Error("Direct Gateway rootPath is outside the allowed file boundary");
+  }
+  return normalized;
+}
+
 export function buildInstallDirectGatewayCommand(input: {
   rootPath: string;
   secret: string;
@@ -191,16 +203,17 @@ export function buildInstallDirectGatewayCommand(input: {
 }) {
   const port = input.port ?? DIRECT_GATEWAY_DEFAULT_PORT;
   const bind = input.bindAddress ?? DIRECT_GATEWAY_BIND_DEFAULT;
+  const rootPath = assertSafeDirectGatewayRoot(input.rootPath);
   const source = pythonGatewaySource();
   return `set -eu
 install -d -m 0755 /opt/vcontrolhub-direct
-install -d -m 0755 ${shellQuote(input.rootPath)}
+install -d -m 0755 ${shellQuote(rootPath)}
 cat > /opt/vcontrolhub-direct/server.py <<'VCH_DIRECT_PY'
 ${source}
 VCH_DIRECT_PY
 chmod 0755 /opt/vcontrolhub-direct/server.py
 cat > /etc/vcontrolhub-direct.env <<VCH_DIRECT_ENV
-DIRECT_ROOT=${shellQuote(input.rootPath)}
+DIRECT_ROOT=${shellQuote(rootPath)}
 DIRECT_SECRET=${shellQuote(input.secret)}
 DIRECT_PORT=${port}
 DIRECT_BIND=${shellQuote(bind)}
@@ -223,7 +236,7 @@ RestartSec=3
 NoNewPrivileges=true
 PrivateTmp=true
 ProtectSystem=full
-ReadWritePaths=/opt/vcontrolhub-direct ${input.rootPath}
+ReadWritePaths=/opt/vcontrolhub-direct ${rootPath}
 
 [Install]
 WantedBy=multi-user.target

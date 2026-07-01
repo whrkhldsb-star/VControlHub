@@ -160,28 +160,33 @@ describe("quick service docker lifecycle", () => {
 		expect(dockerArgs).toContain("/var/run/docker.sock:/var/run/docker.sock");
 	});
 
-	it("cleans up a failed install container attempt and records the error state", async () => {
+	it("rolls back a failed fresh install container attempt and records the error state", async () => {
+		prismaMock.quickService.findUnique.mockResolvedValueOnce(null);
 		prismaMock.quickService.upsert.mockResolvedValueOnce({ id: "svc-failed-install", slug: "demo", port: 12345 });
-		prismaMock.quickService.update.mockResolvedValueOnce({});
+		prismaMock.quickService.delete.mockResolvedValueOnce({});
 		execFileMock.mockImplementationOnce((_file: string, _args: string[], _opts: unknown, cb: (error: Error | null, result?: { stdout: string; stderr: string }) => void) => {
 			cb(Object.assign(new Error("docker run failed"), { stderr: "image pull denied" }));
 			return {};
 		});
 
-		await installService({ template, userId: "user-1", customPort: 12345 });
-		await vi.waitFor(() => {
-			expect(prismaMock.quickService.update).toHaveBeenCalledWith({
-				where: { id: "svc-failed-install" },
-				data: { status: "error", error: expect.stringContaining("image pull denied") },
-			});
-		});
+		await expect(installService({ template, userId: "user-1", customPort: 12345 })).rejects.toThrow("安装失败: image pull denied");
+
 		expect(execFileSyncMock).toHaveBeenCalledWith("docker", ["rm", "-f", "qs-demo"], expect.objectContaining({ timeout: 15_000, encoding: "utf8" }));
-		expect(execFileSyncMock).toHaveBeenCalledTimes(5);
+		expect(prismaMock.quickService.delete).toHaveBeenCalledWith({ where: { slug: "demo" } });
+		expect(writeAuditLogMock).toHaveBeenCalledWith(expect.objectContaining({
+			action: "quick_service.install.failed",
+			detail: expect.objectContaining({
+				phase: "container-start",
+				rollback: "deleted",
+				diff: expect.objectContaining({ after: expect.objectContaining({ status: "deleted" }) }),
+			}),
+		}));
 	});
 
 	it("keeps failed install cleanup best-effort when removing the partial container also fails", async () => {
+		prismaMock.quickService.findUnique.mockResolvedValueOnce(null);
 		prismaMock.quickService.upsert.mockResolvedValueOnce({ id: "svc-cleanup-failed", slug: "demo", port: 12345 });
-		prismaMock.quickService.update.mockResolvedValueOnce({});
+		prismaMock.quickService.delete.mockResolvedValueOnce({});
 		execFileMock.mockImplementationOnce((_file: string, _args: string[], _opts: unknown, cb: (error: Error | null, result?: { stdout: string; stderr: string }) => void) => {
 			cb(new Error("network timeout"));
 			return {};
@@ -191,13 +196,66 @@ describe("quick service docker lifecycle", () => {
 			return "";
 		});
 
-		await installService({ template, userId: "user-1", customPort: 12345 });
-		await vi.waitFor(() => {
-			expect(prismaMock.quickService.update).toHaveBeenCalledWith({
-				where: { id: "svc-cleanup-failed" },
-				data: { status: "error", error: expect.stringContaining("清理残留容器失败") },
-			});
+		await expect(installService({ template, userId: "user-1", customPort: 12345 })).rejects.toThrow("清理残留容器失败");
+		expect(prismaMock.quickService.delete).toHaveBeenCalledWith({ where: { slug: "demo" } });
+		expect(writeAuditLogMock).toHaveBeenCalledWith(expect.objectContaining({
+			action: "quick_service.install.failed",
+			detail: expect.objectContaining({ error: expect.stringContaining("清理残留容器失败"), rollback: "deleted" }),
+		}));
+	});
+
+	it("restores the previous service config when reinstalling over an existing row fails", async () => {
+		const before = {
+			id: "svc-existing",
+			slug: "demo",
+			status: "running",
+			port: 18080,
+			containerId: "oldcontainer1",
+			image: "example/demo:old",
+			path: "/old/",
+			internalPort: 8080,
+			extraPortsJson: JSON.stringify([{ host: 19090, container: 9090 }]),
+			command: "serve --old",
+			envJson: JSON.stringify({ OLD: "1" }),
+			volumesJson: JSON.stringify([{ host: "/opt/old", container: "/data" }]),
+			error: null,
+		};
+		prismaMock.quickService.findUnique.mockResolvedValueOnce(before);
+		prismaMock.quickService.upsert.mockResolvedValueOnce({ id: "svc-existing", slug: "demo", port: 12345 });
+		execFileMock.mockImplementationOnce((_file: string, _args: string[], _opts: unknown, cb: (error: Error | null, result?: { stdout: string; stderr: string }) => void) => {
+			cb(Object.assign(new Error("docker run failed"), { stderr: "image pull denied" }));
+			return {};
 		});
+		prismaMock.quickService.update.mockResolvedValueOnce({});
+
+		await expect(installService({ template, userId: "user-1", customPort: 12345 })).rejects.toThrow("安装失败");
+
+		expect(prismaMock.quickService.update).toHaveBeenCalledWith({
+			where: { slug: "demo" },
+			data: expect.objectContaining({
+				status: "running",
+				port: 18080,
+				containerId: "oldcontainer1",
+				image: "example/demo:old",
+				path: "/old/",
+				internalPort: 8080,
+				extraPortsJson: before.extraPortsJson,
+				command: "serve --old",
+				envJson: before.envJson,
+				volumesJson: before.volumesJson,
+				error: null,
+			}),
+		});
+		expect(writeAuditLogMock).toHaveBeenCalledWith(expect.objectContaining({
+			action: "quick_service.install.failed",
+			detail: expect.objectContaining({
+				rollback: "running",
+				diff: expect.objectContaining({
+					before: expect.objectContaining({ image: "example/demo:old", envJson: before.envJson }),
+					after: expect.objectContaining({ image: "example/demo:old", rollbackReason: "restore-previous-service-row" }),
+				}),
+			}),
+		}));
 	});
 
 	it("keeps the DB record and marks uninstall errors when docker removal fails", async () => {

@@ -160,6 +160,18 @@ describe("TR-002 direct gateway TLS hardening", () => {
     expect(command).toContain("DIRECT_BIND='0.0.0.0'");
     expect(command).toContain("Environment=DIRECT_BIND=0.0.0.0");
   });
+
+  it("rejects unsafe Direct Gateway roots before generating install commands", () => {
+    for (const rootPath of ["/", "relative/path", "/data/../etc", "/data/./media"]) {
+      expect(() => buildInstallDirectGatewayCommand({ rootPath, secret: "direct-secret" })).toThrow(/rootPath|file boundary/);
+    }
+  });
+
+  it("normalizes trailing slashes in Direct Gateway root boundaries", () => {
+    const command = buildInstallDirectGatewayCommand({ rootPath: "/data/media///", secret: "direct-secret" });
+    expect(command).toContain("DIRECT_ROOT='/data/media'");
+    expect(command).toContain("ReadWritePaths=/opt/vcontrolhub-direct /data/media");
+  });
 });
 
 // TR-002 R3: protocol derivation from publicUrl
