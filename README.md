@@ -398,7 +398,7 @@ make logs SERVICE_PREFIX=vcontrolhub
 ### P3 — 长期愿景与渐进式改善
 
 - [ ] **自动化工作流**（TR-023）— 条件触发、告警联动、步骤编排。 `[功能]`
-- [ ] **多租户 / 团队空间**（TR-030）。 `[架构]`
+- [x] **多租户 / 团队空间**（TR-030）— ✅ 已实现（本提交）。新增 `Team` / `TeamMember` 模型与 `User.currentTeamId`，迁移 `20260701023000_add_team_workspaces` 已应用并生成 Prisma Client；新增团队空间 service + API：`GET/POST /api/teams`、`POST /api/teams/switch`、`POST /api/teams/[id]/members`，支持团队创建、成员添加/角色更新、当前团队切换与审计记录。设置页个人 tab 新增 `TeamWorkspaceSection`，展示团队、成员、当前团队和管理表单。新增 `src/lib/team/__tests__/service.test.ts` 覆盖创建、切换权限和成员 upsert；`tsc --noEmit` 通过。当前为多租户基础骨架，后续资源级隔离可在 Team 基础上逐表接入。 `[架构]`
 - [ ] **成本追踪完善**（TR-031）— `/cost-summary` 页面已落地，待接入自动采集数据源。 `[功能]`
 - [ ] **智能运维 AI 完善**（TR-032）— `/ai-ops` 页面已落地，待丰富推荐执行逻辑。 `[功能]`
 - [ ] **PWA 离线支持和集成市场**（TR-033）— Service Worker 基础已就绪（`public/sw.js`），待完善离线体验。 `[功能]`

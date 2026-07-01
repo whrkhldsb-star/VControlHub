@@ -1,0 +1,20 @@
+import { z } from "zod";
+
+export const createTeamSchema = z.object({
+	name: z.string().trim().min(1, "团队名称不能为空").max(80),
+	slug: z.string().trim().min(1).max(64).regex(/^[a-z0-9][a-z0-9-]*$/, "团队标识只能包含小写字母、数字和连字符").optional(),
+	description: z.string().trim().max(300).optional().nullable(),
+});
+
+export const switchTeamSchema = z.object({
+	teamId: z.string().trim().min(1),
+});
+
+export const addTeamMemberSchema = z.object({
+	username: z.string().trim().min(1),
+	role: z.enum(["admin", "member"]).default("member"),
+});
+
+export type CreateTeamInput = z.infer<typeof createTeamSchema>;
+export type SwitchTeamInput = z.infer<typeof switchTeamSchema>;
+export type AddTeamMemberInput = z.infer<typeof addTeamMemberSchema>;

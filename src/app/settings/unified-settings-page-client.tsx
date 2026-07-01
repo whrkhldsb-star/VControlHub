@@ -8,6 +8,7 @@ import { useI18n } from "@/lib/i18n/use-locale";
 import { PreferencesSettingsContent } from "../preferences/preferences-page-client";
 import { SettingsClient } from "./settings-client";
 import { SystemConfigSection } from "./system-config-section";
+import { TeamWorkspaceSection } from "./team-workspace-section";
 
 type Props = {
   settings: Record<string, string>;
@@ -191,7 +192,10 @@ export function UnifiedSettingsPageClient({
 
       {/* ── Tab content ─────────────────────────────────────────── */}
       {activeTab === "personal" && (
-        <PreferencesSettingsContent showHeader={false} wrapInShell={false} />
+        <div className="space-y-6">
+          <PreferencesSettingsContent showHeader={false} wrapInShell={false} />
+          <TeamWorkspaceSection canManage={canManage} />
+        </div>
       )}
 
       {/* SettingsClient stays mounted across system-settings tabs.

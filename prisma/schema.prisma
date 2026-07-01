@@ -110,11 +110,44 @@ model User {
   aiHostedRequests       AiHostedAction[]        @relation("AiHostedRequester")
   aiHostedApprovals      AiHostedAction[]        @relation("AiHostedApprover")
   costEntries            CostEntry[]             @relation("CostEntryCreatedBy")
-  aiOpsLogs              AiOpsLog[]              @relation("AiOpsLogTriggeredBy")
+  aiOpsLogs              AiOpsLog[]             @relation("AiOpsLogTriggeredBy")
   mediaUploadSessions    MediaUploadSession[]
+  ownedTeams             Team[]                  @relation("TeamOwner")
+  teamMemberships        TeamMember[]
+  currentTeamId          String?
+  currentTeam            Team?                   @relation("UserCurrentTeam", fields: [currentTeamId], references: [id], onDelete: SetNull)
   twoFactorEnabled       Boolean                 @default(false)
   twoFactorSecret        String?
   preferences            Json?
+}
+
+model Team {
+  id          String       @id @default(cuid())
+  slug        String       @unique
+  name        String
+  description String?
+  ownerId     String?
+  owner       User?        @relation("TeamOwner", fields: [ownerId], references: [id], onDelete: SetNull)
+  members     TeamMember[]
+  currentFor  User[]       @relation("UserCurrentTeam")
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+
+  @@index([ownerId])
+  @@map("teams")
+}
+
+model TeamMember {
+  teamId   String
+  userId   String
+  role     String   @default("member") // owner|admin|member
+  joinedAt DateTime @default(now())
+  team     Team     @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([teamId, userId])
+  @@index([userId])
+  @@map("team_members")
 }
 
 model Role {
