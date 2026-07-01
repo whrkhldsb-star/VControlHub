@@ -42,6 +42,9 @@ function resetStore() {
 
 function makePrismaMock() {
 	return {
+		alertRule: {
+			count: vi.fn(async () => 3),
+		},
 		aiOpsLog: {
 			create: vi.fn(
 				async ({ data }: { data: Omit<AiOpsLogRow, "id" | "createdAt" | "updatedAt"> }) => {
@@ -116,6 +119,10 @@ vi.mock("@/lib/job/service", () => ({
 	completeJob: vi.fn(),
 	failJob: vi.fn(),
 	heartbeatJob: vi.fn(),
+}));
+
+vi.mock("@/lib/health/service-alerts", () => ({
+	evaluateAlerts: vi.fn(async () => ({ evaluated: true })),
 }));
 
 import {
@@ -275,6 +282,7 @@ describe("executeRecommendation — mode-aware action gating", () => {
 		expect(result.ok).toBe(true);
 		expect(result.executed).toBe(true);
 		expect(result.action?.action).toBe(safe);
+		expect(result.action?.result).toMatch(/告警规则评估/);
 	});
 
 	it("refuses forceAutonomous when action is not in the safe-set", async () => {

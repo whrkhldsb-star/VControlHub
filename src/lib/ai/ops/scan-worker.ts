@@ -37,6 +37,7 @@ import {
 	type AiOpsRecommendedAction,
 } from "./types";
 import { createAiOpsLog, completeScan } from "./service";
+import { executeAiOpsAction } from "./action-executor";
 
 const logger = createLogger("ai-ops-scan-worker");
 
@@ -186,9 +187,8 @@ function buildScan(
 				id: `${s.id}.autonomous`,
 				action: "alert.evaluate",
 				risk: "low" as const,
-				executed: true,
-				executedAt: new Date().toISOString(),
-				result: "已触发告警评估 (autonomous mode 模拟)",
+				executed: false,
+				result: "等待自主执行器处理",
 			}));
 		return {
 			findings,
@@ -244,7 +244,18 @@ export async function runAiOpsScanWorkerOnce(reason = "manual"): Promise<boolean
 			});
 
 			const signals = await collectSystemHealthSignals();
-			const { findings, actions, status } = buildScan(mode, signals);
+			const { findings, actions: plannedActions, status } = buildScan(mode, signals);
+			const actions = mode === "autonomous"
+				? await Promise.all(
+					(plannedActions as AiOpsExecutedAction[]).map((action) =>
+						executeAiOpsAction({
+							id: action.id,
+							action: action.action,
+							risk: action.risk,
+						}),
+					)
+				)
+				: plannedActions;
 
 			const completed = await completeScan({
 				logId: log.id,

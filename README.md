@@ -400,7 +400,7 @@ make logs SERVICE_PREFIX=vcontrolhub
 - [ ] **自动化工作流**（TR-023）— 条件触发、告警联动、步骤编排。 `[功能]`
 - [x] **多租户 / 团队空间**（TR-030）— ✅ 已实现（本提交）。新增 `Team` / `TeamMember` 模型与 `User.currentTeamId`，迁移 `20260701023000_add_team_workspaces` 已应用并生成 Prisma Client；新增团队空间 service + API：`GET/POST /api/teams`、`POST /api/teams/switch`、`POST /api/teams/[id]/members`，支持团队创建、成员添加/角色更新、当前团队切换与审计记录。设置页个人 tab 新增 `TeamWorkspaceSection`，展示团队、成员、当前团队和管理表单。新增 `src/lib/team/__tests__/service.test.ts` 覆盖创建、切换权限和成员 upsert；`tsc --noEmit` 通过。当前为多租户基础骨架，后续资源级隔离可在 Team 基础上逐表接入。 `[架构]`
 - [ ] **成本追踪完善**（TR-031）— `/cost-summary` 页面已落地，待接入自动采集数据源。 `[功能]`
-- [ ] **智能运维 AI 完善**（TR-032）— `/ai-ops` 页面已落地，待丰富推荐执行逻辑。 `[功能]`
+- [x] **智能运维 AI 完善**（TR-032）— ✅ 已实现（本提交）。`/ai-ops` 推荐执行逻辑从占位模拟改为显式安全动作执行器：新增 `src/lib/ai/ops/action-executor.ts`，`executeRecommendation()` 保持 `AI_OPS_SAFE_AUTONOMOUS_ACTIONS` 白名单校验后再执行；`alert.evaluate` 真实调用现有告警评估逻辑并写回可审计执行结果，未携带必要 payload 的安全动作（低风险 Playbook、备份元数据快照、陈旧缓存清理）不再假装成功，而是记录未执行原因。autonomous 扫描会先生成计划动作，再通过执行器落地安全动作。17 个目标测试 + `tsc --noEmit` 通过。 `[功能]`
 - [ ] **PWA 离线支持和集成市场**（TR-033）— Service Worker 基础已就绪（`public/sw.js`），待完善离线体验。 `[功能]`
 - [ ] **浅色模式残留 Q-layer 依赖** — R35-R36 已将 159 文件 ~1500 处硬编码深色背景/border/text 替换为 CSS 变量，但仍有 311 处 `text-white/text-slate-*` 及 531 处 `bg-white/hover:bg-white/border-white/` 保持原样（由 globals.css Q-layer L274-400 + L1571-1599 通配符映射兜底）。**当前无可见 bug**，但理想状态是继续逐文件替换彻底消除 Q-layer 依赖。风险/收益比低，适合分批渐进。 `[UI]`
 - [ ] **按钮 cyan 散落用法渐进收敛** — 已有 `<ActionButton>` + `--color-action*` token 体系；存量代码中散落的 `cyan-300/400/500/600` 手写 utility 仍属长尾迁移任务，新代码请直接使用 `<ActionButton>` 而非手写 cyan utility。 `[UI]`

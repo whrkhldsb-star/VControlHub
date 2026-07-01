@@ -41,6 +41,7 @@ import type {
 	AiOpsTriggerType,
 } from "./types";
 import { AI_OPS_SAFE_AUTONOMOUS_ACTIONS } from "./types";
+import { executeAiOpsAction } from "./action-executor";
 
 const DEFAULT_LIST_LIMIT = 50;
 const MAX_LIST_LIMIT = 200;
@@ -252,16 +253,13 @@ export async function executeRecommendation(
 		};
 	}
 
-	const executed: AiOpsExecutedAction = {
+	const executed = await executeAiOpsAction({
 		id: match.id,
 		action: match.action,
 		risk: match.risk,
-		executed: true,
-		executedAt: new Date().toISOString(),
-		result: "已执行 (autonomous mode 模拟; 真实副作用由后续工作流落地)",
-	};
+	});
 	const updatedActions: AiOpsExecutedAction[] = (log.mode === "autonomous"
-		? (actions as AiOpsExecutedAction[])
+		? (actions as AiOpsExecutedAction[]).filter((a) => a.id !== match.id)
 		: []
 	).concat(executed);
 
@@ -272,7 +270,9 @@ export async function executeRecommendation(
 		},
 	});
 
-	return { ok: true, executed: true, action: executed };
+	return executed.executed
+		? { ok: true, executed: true, action: executed }
+		: { ok: true, executed: false, errorMessage: executed.errorMessage, action: executed };
 }
 
 export interface AiOpsSummary {

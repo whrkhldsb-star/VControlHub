@@ -34,6 +34,10 @@ vi.mock("@/lib/job/service", () => ({
 	failJob: jobMocks.failJob,
 }));
 
+vi.mock("@/lib/health/service-alerts", () => ({
+	evaluateAlerts: vi.fn(async () => ({ evaluated: true })),
+}));
+
 vi.mock("@/lib/db", () => ({
 	prisma: {
 		job: {
