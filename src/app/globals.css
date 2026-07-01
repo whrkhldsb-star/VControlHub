@@ -786,3 +786,190 @@ html.light .text-slate-400 { color: #475569; }
 
 /* ── Light mode input placeholder overrides ── */
 html.light .placeholder\:text-slate-600::placeholder { color: #94a3b8; }
+
+/* ============================================================
+ * UI Overhaul: Comprehensive light-mode overrides
+ * Fixes: toast visibility, bg-white/[0.0X], border-white/[0.0X],
+ * text-white, text-slate-500, bg-*-900, rounded-full buttons
+ * ============================================================ */
+
+/* Light mode 100-level text colors */
+html.light .text-emerald-100 { color: #059669; }
+html.light .text-rose-100 { color: #be123c; }
+html.light .text-amber-100 { color: #b45309; }
+html.light .text-sky-100 { color: #0369a1; }
+html.light .text-cyan-100 { color: #0e7490; }
+
+/* Light mode 500-level text */
+html.light .text-slate-500 { color: #64748b; }
+
+/* Light mode placeholder text */
+html.light .placeholder\:text-slate-400::placeholder { color: #94a3b8; }
+html.light .placeholder\:text-white\/20::placeholder { color: #94a3b8; }
+html.light .placeholder\:text-white\/30::placeholder { color: #94a3b8; }
+
+/* Light mode 900-level bg → surface */
+html.light .bg-emerald-900\/90, html.light .bg-emerald-900\/80, html.light .bg-emerald-900 { background-color: var(--surface) !important; }
+html.light .bg-rose-900\/90, html.light .bg-rose-900\/80, html.light .bg-rose-900 { background-color: var(--surface) !important; }
+html.light .bg-amber-900\/90, html.light .bg-amber-900\/80, html.light .bg-amber-900 { background-color: var(--surface) !important; }
+
+/* Light mode bg-white/[0.0X] → surface-elevated */
+html.light .bg-white\/\[0\.02\], html.light .bg-white\/\[0\.03\], html.light .bg-white\/\[0\.04\],
+html.light .bg-white\/\[0\.05\], html.light .bg-white\/\[0\.06\], html.light .bg-white\/\[0\.08\],
+html.light .bg-white\/5, html.light .bg-white\/10 {
+	background-color: var(--surface-elevated) !important;
+}
+
+/* Light mode border-white/[0.0X] → border */
+html.light .border-white\/\[0\.04\], html.light .border-white\/\[0\.06\], html.light .border-white\/\[0\.08\],
+html.light .border-white\/\[0\.1\], html.light .border-white\/\[0\.12\],
+html.light .border-white\/5, html.light .border-white\/10 {
+	border-color: var(--border) !important;
+}
+
+/* Light mode hover:bg-white/[0.0X] → surface-hover */
+html.light .hover\:bg-white\/\[0\.03\]:hover, html.light .hover\:bg-white\/\[0\.04\]:hover,
+html.light .hover\:bg-white\/\[0\.06\]:hover, html.light .hover\:bg-white\/5:hover,
+html.light .hover\:bg-white\/10:hover {
+	background-color: var(--surface-hover) !important;
+}
+
+/* Light mode text-white → text-primary */
+html.light .text-white { color: var(--text-primary) !important; }
+html.light .text-white\/60 { color: var(--text-secondary) !important; }
+html.light .text-white\/70 { color: var(--text-secondary) !important; }
+html.light .text-white\/80 { color: var(--text-primary) !important; }
+
+/* Light mode bg-slate-900 → surface */
+html.light .bg-slate-900 { background-color: var(--surface) !important; }
+
+/* Light mode semantic bg tints */
+html.light .bg-rose-400\/10 { background-color: var(--danger-bg) !important; }
+html.light .bg-rose-400\/20 { background-color: var(--danger-bg) !important; }
+html.light .bg-emerald-400\/10 { background-color: var(--success-bg) !important; }
+html.light .bg-sky-400\/10 { background-color: var(--info-bg) !important; }
+html.light .bg-sky-400\/20 { background-color: var(--info-bg) !important; }
+
+/* Light mode semantic text overrides (100-level) */
+html.light .text-rose-100 { color: var(--danger) !important; }
+html.light .text-emerald-100 { color: var(--success) !important; }
+html.light .text-amber-100 { color: var(--warning) !important; }
+html.light .text-sky-100 { color: var(--accent) !important; }
+
+/* Action buttons: rounded-full → rounded-lg for consistency */
+button[class*="rounded-full"][class*="border"][class*="px-4"],
+button[class*="rounded-full"][class*="border"][class*="px-5"] {
+	border-radius: var(--radius-md) !important;
+}
+
+/* Dark mode: text-white → text-primary for consistency */
+:root .text-white { color: var(--text-primary); }
+:root .text-white\/60 { color: var(--text-secondary); }
+:root .text-white\/70 { color: var(--text-secondary); }
+:root .text-white\/80 { color: var(--text-primary); }
+
+/* Dark mode: bg-white/[0.0X] → surface variants */
+:root .bg-white\/\[0\.02\] { background-color: var(--surface-subtle); }
+:root .bg-white\/\[0\.03\] { background-color: var(--surface); }
+:root .bg-white\/\[0\.04\] { background-color: var(--surface); }
+:root .bg-white\/\[0\.05\] { background-color: var(--surface-elevated); }
+
+/* Dark mode: border-white/[0.0X] → border-subtle */
+:root .border-white\/\[0\.04\], :root .border-white\/\[0\.06\] { border-color: var(--border-subtle); }
+:root .border-white\/\[0\.08\], :root .border-white\/\[0\.1\] { border-color: var(--border); }
+
+/* Dark mode: hover:bg-white/[0.0X] → surface-hover */
+:root .hover\:bg-white\/\[0\.03\]:hover { background-color: var(--surface-elevated); }
+:root .hover\:bg-white\/\[0\.04\]:hover { background-color: var(--surface-elevated); }
+:root .hover\:bg-white\/\[0\.06\]:hover { background-color: var(--surface-hover); }
+:root .hover\:bg-white\/5:hover { background-color: var(--surface-elevated); }
+:root .hover\:bg-white\/10:hover { background-color: var(--surface-hover); }
+
+/* Dark mode: text-slate-300/400/500 → text tokens */
+:root .text-slate-300 { color: var(--text-secondary); }
+:root .text-slate-400 { color: var(--text-muted); }
+:root .text-slate-500 { color: var(--text-muted); }
+
+/* Dark mode: bg-slate-900 → surface */
+:root .bg-slate-900 { background-color: var(--surface); }
+
+/* Broader rounded-full button fix: any action button with px-3+ and py-1.5+ */
+button[class*="rounded-full"][class*="border"][class*="px-3"][class*="py-1\.5"],
+button[class*="rounded-full"][class*="border"][class*="px-3"][class*="py-2"],
+button[class*="rounded-full"][class*="border"][class*="px-2"][class*="py-1"] {
+	border-radius: var(--radius-md) !important;
+}
+
+/* Dark mode: text-rose-100/emerald-100/amber-100 → semantic tokens */
+:root .text-rose-100 { color: #fda4af; }
+:root .text-emerald-100 { color: #86efac; }
+:root .text-amber-100 { color: #fde68a; }
+:root .text-sky-100 { color: #bae6fd; }
+:root .text-cyan-100 { color: #a5f3fc; }
+
+/* Dark mode: bg-rose-500/5, bg-emerald-500/5 → semantic bg */
+:root .bg-rose-500\/5 { background-color: var(--danger-bg); }
+:root .bg-emerald-500\/5 { background-color: var(--success-bg); }
+:root .bg-amber-200\/10 { background-color: var(--warning-bg); }
+:root .bg-amber-200\/20 { background-color: var(--warning-bg); }
+
+/* Light mode: bg-rose-500/5, bg-emerald-500/5 → semantic bg */
+html.light .bg-rose-500\/5 { background-color: var(--danger-bg) !important; }
+html.light .bg-emerald-500\/5 { background-color: var(--success-bg) !important; }
+html.light .bg-amber-200\/10 { background-color: var(--warning-bg) !important; }
+html.light .bg-amber-200\/20 { background-color: var(--warning-bg) !important; }
+html.light .border-amber-200\/25 { border-color: var(--warning-border) !important; }
+html.light .border-amber-200\/20 { border-color: var(--warning-border) !important; }
+
+/* Dark mode: border-amber-200 → warning border */
+:root .border-amber-200\/25 { border-color: var(--warning-border); }
+:root .border-amber-200\/20 { border-color: var(--warning-border); }
+
+/* Light mode: text-amber-600 → warning token */
+html.light .text-amber-600 { color: var(--warning) !important; }
+
+/* Dark mode: bg-rose-500/25 → danger-bg */
+:root .bg-rose-500\/25 { background-color: var(--danger-bg); }
+:root .hover\:bg-rose-500\/25:hover { background-color: var(--danger-bg); }
+:root .hover\:bg-rose-400\/20:hover { background-color: var(--danger-bg); }
+:root .hover\:bg-emerald-400\/20:hover { background-color: var(--success-bg); }
+:root .hover\:bg-amber-400\/10:hover { background-color: var(--warning-bg); }
+:root .hover\:bg-sky-400\/20:hover { background-color: var(--info-bg); }
+
+/* Light mode hover overrides for semantic colors */
+html.light .hover\:bg-rose-500\/25:hover { background-color: var(--danger-bg) !important; }
+html.light .hover\:bg-rose-400\/20:hover { background-color: var(--danger-bg) !important; }
+html.light .hover\:bg-emerald-400\/20:hover { background-color: var(--success-bg) !important; }
+html.light .hover\:bg-amber-400\/10:hover { background-color: var(--warning-bg) !important; }
+html.light .hover\:bg-sky-400\/20:hover { background-color: var(--info-bg) !important; }
+
+/* ============================================================
+ * 200-level status color overrides for light mode
+ * text-emerald-200/amber-200/rose-200/cyan-200 are used as
+ * status indicators throughout the app. In dark mode they're
+ * fine (light pastels on dark bg). In light mode they're
+ * invisible — map to darker semantic tokens.
+ * ============================================================ */
+html.light .text-emerald-200 { color: #059669 !important; }
+html.light .text-rose-200 { color: #e11d48 !important; }
+html.light .text-amber-200 { color: #d97706 !important; }
+html.light .text-cyan-200 { color: #0891b2 !important; }
+html.light .text-emerald-200\/70 { color: #059669 !important; }
+html.light .text-rose-200\/70 { color: #e11d48 !important; }
+html.light .text-amber-200\/70 { color: #d97706 !important; }
+html.light .text-amber-200\/75 { color: #d97706 !important; }
+html.light .text-rose-200\/60 { color: #e11d48 !important; }
+html.light .text-emerald-200\/60 { color: #059669 !important; }
+
+/* 200-level bg tints in light mode */
+html.light .bg-emerald-400\/10, html.light .bg-emerald-400\/20 { background-color: var(--success-bg) !important; }
+html.light .bg-amber-400\/10, html.light .bg-amber-400\/20 { background-color: var(--warning-bg) !important; }
+html.light .bg-rose-400\/10, html.light .bg-rose-400\/20 { background-color: var(--danger-bg) !important; }
+
+/* 200-level border tints in light mode */
+html.light .border-emerald-400\/20, html.light .border-emerald-400\/30 { border-color: var(--success-border) !important; }
+html.light .border-amber-400\/20, html.light .border-amber-400\/30, html.light .border-amber-400\/40 { border-color: var(--warning-border) !important; }
+html.light .border-rose-400\/20, html.light .border-rose-400\/30 { border-color: var(--danger-border) !important; }
+
+/* Light mode: text-amber-600 already dark enough, leave as-is */
+/* Light mode: text-rose-600/700 already dark enough */

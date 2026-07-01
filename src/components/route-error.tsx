@@ -49,7 +49,7 @@ export function RouteError({
 				<h2 className="text-lg font-semibold text-[var(--text-primary)]">{resolvedTitle}</h2>
 				<p className="max-w-lg text-sm leading-6 text-[var(--text-secondary)]">{error.message || resolvedDescription}</p>
 				{error.digest ? (
-					<p className="rounded-full border border-[var(--border)] bg-white/[0.03] px-3 py-1 text-xs text-[var(--text-muted)]">
+					<p className="rounded-full border border-[var(--border)] bg-[var(--surface-elevated)] px-3 py-1 text-xs text-[var(--text-muted)]">
 						{t("error.digest-label")} {error.digest}
 					</p>
 				) : null}
@@ -67,13 +67,13 @@ export function RouteError({
 							window.location.reload();
 						}
 					}}
-					className="rounded-lg border border-[var(--border)] bg-white/[0.03] px-4 py-2 text-sm font-medium text-[var(--text-secondary)] transition-colors hover:bg-white/[0.06]"
+					className="rounded-lg border border-[var(--border)] bg-[var(--surface-elevated)] px-4 py-2 text-sm font-medium text-[var(--text-secondary)] transition-colors hover:bg-[var(--surface-hover)]"
 				>
 					{t("error.hard-refresh")}
 				</button>
 				<a
 					href="/health"
-					className="rounded-lg border border-[var(--border)] bg-white/[0.03] px-4 py-2 text-sm font-medium text-[var(--text-secondary)] transition-colors hover:bg-white/[0.06]"
+					className="rounded-lg border border-[var(--border)] bg-[var(--surface-elevated)] px-4 py-2 text-sm font-medium text-[var(--text-secondary)] transition-colors hover:bg-[var(--surface-hover)]"
 				>
 					{t("error.health-check")}
 				</a>

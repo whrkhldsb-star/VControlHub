@@ -250,11 +250,11 @@ export function ShareFilePicker({ nodes }: { nodes: StorageNode[] }) {
 			</div>
 
 			<div className="mt-4 flex flex-wrap items-center gap-2 text-xs text-[var(--text-muted)]">
-				<button type="button" onClick={() => setPath("")} className="min-h-11 min-w-11 rounded-full border border-[var(--border)]/10 px-2.5 py-1 hover:text-[var(--text-secondary)] light:hover:text-[var(--color-action-strong)]">{copyText.root}</button>
+				<button type="button" onClick={() => setPath("")} className="min-h-11 min-w-11 rounded-lg border border-[var(--border)]/10 px-2.5 py-1 hover:text-[var(--text-secondary)] light:hover:text-[var(--color-action-strong)]">{copyText.root}</button>
 				{breadcrumb.map((segment, index) => (
 					<span key={`${segment}-${index}`} className="inline-flex items-center gap-2">
 						<ChevronRight size={12} />
-						<button type="button" onClick={() => jumpToCrumb(index)} className="min-h-11 min-w-11 rounded-full border border-[var(--border)]/10 px-2.5 py-1 hover:text-[var(--text-secondary)] light:hover:text-[var(--color-action-strong)]">{segment}</button>
+						<button type="button" onClick={() => jumpToCrumb(index)} className="min-h-11 min-w-11 rounded-lg border border-[var(--border)]/10 px-2.5 py-1 hover:text-[var(--text-secondary)] light:hover:text-[var(--color-action-strong)]">{segment}</button>
 					</span>
 				))}
 			</div>

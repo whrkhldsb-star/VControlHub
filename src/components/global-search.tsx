@@ -275,7 +275,7 @@ export function GlobalSearch({
 							<button
 								onClick={() => navigate(item)}
 								className={`w-full flex items-center gap-3 px-4 py-2.5 text-sm transition ${
-									i === selectedIndex ?"bg-white/[0.06] text-white" :"text-[var(--text-secondary)] hover:bg-white/[0.03]"
+									i === selectedIndex ?"bg-[var(--surface-elevated)] text-[var(--text-primary)]" :"text-[var(--text-secondary)] hover:bg-[var(--surface-elevated)]"
 								}`}
 							>
 								<span className="text-base">{item.icon}</span>
@@ -285,7 +285,7 @@ export function GlobalSearch({
 						</li>
 					))}
 				</ul>
-				<div className="border-t border-white/[0.06] px-4 py-2 flex items-center gap-4 text-[10px] text-[var(--text-muted)]">
+				<div className="border-t border-[var(--border-subtle)] px-4 py-2 flex items-center gap-4 text-[10px] text-[var(--text-muted)]">
 					<span>{t("search.shortcut-select")}</span>
 					<span>{t("search.shortcut-confirm")}</span>
 					<span>{t("search.shortcut-close")}</span>

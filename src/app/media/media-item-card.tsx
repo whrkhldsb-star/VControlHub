@@ -106,7 +106,7 @@ function MediaCover({ item, sourceHref, t }: { item: MediaItem; sourceHref: stri
 	const thumbHref = `/api/media/${encodeURIComponent(item.id)}/thumbnail`;
 	const coverClass = "absolute inset-0 h-full w-full object-cover transition duration-300 group-hover:scale-105";
 	const typeBadge = (
-		<span className="absolute left-2 top-2 z-10 rounded-full border border-black/10 bg-black/50 px-2 py-0.5 text-[10px] font-medium text-[var(--text-primary)] backdrop-blur light:border-[var(--border)]/30">
+		<span className="absolute left-2 top-2 z-10 rounded-lg border border-black/10 bg-black/50 px-2 py-0.5 text-[10px] font-medium text-[var(--text-primary)] backdrop-blur light:border-[var(--border)]/30">
 			{mediaTypeLabel(item.mediaType, t)}
 		</span>
 	);
@@ -132,7 +132,7 @@ function MediaCover({ item, sourceHref, t }: { item: MediaItem; sourceHref: stri
 			{item.mediaType !== "audio" && (
 				<div className="pointer-events-none absolute inset-x-0 bottom-0 h-16 bg-gradient-to-t from-black/70 to-transparent" />
 			)}
-			<div className="absolute bottom-2 right-2 rounded-full border border-[var(--border)]/10 bg-black/50 px-2 py-0.5 text-[10px] text-[var(--text-primary)] backdrop-blur">
+			<div className="absolute bottom-2 right-2 rounded-lg border border-[var(--border)]/10 bg-black/50 px-2 py-0.5 text-[10px] text-[var(--text-primary)] backdrop-blur">
 				{formatSize(item.size, t)}
 			</div>
 		</a>
@@ -299,7 +299,7 @@ export function MediaItemCard({ item, canManage }: { item: MediaItem; canManage:
 			{canManage && (
 				<div className="mt-2 flex flex-wrap items-center gap-1">
 					{tags.map((tag) => (
-						<span key={tag} data-tone="cyan" className="inline-flex items-center gap-1 rounded-full border border-[var(--accent-border)] px-2 py-0.5 text-[10px] text-[var(--accent)]">
+						<span key={tag} data-tone="cyan" className="inline-flex items-center gap-1 rounded-lg border border-[var(--accent-border)] px-2 py-0.5 text-[10px] text-[var(--accent)]">
 							<Link href={`/media?tag=${encodeURIComponent(tag)}`} className="hover:underline">#{tag}</Link>
 							<button type="button" onClick={() => removeTag(tag)} className="text-[var(--text-muted)] hover:text-[var(--accent)]">×</button>
 						</span>
@@ -325,7 +325,7 @@ export function MediaItemCard({ item, canManage }: { item: MediaItem; canManage:
 						<button
 							type="button"
 							onClick={() => setShowTagInput(true)}
-							className="inline-flex items-center gap-0.5 rounded-full border border-dashed border-[var(--border)] px-2 py-0.5 text-[10px] text-[var(--text-muted)] opacity-0 transition group-hover:opacity-100 hover:border-[var(--color-action-border)]/30 hover:text-[var(--color-action)]"
+							className="inline-flex items-center gap-0.5 rounded-lg border border-dashed border-[var(--border)] px-2 py-0.5 text-[10px] text-[var(--text-muted)] opacity-0 transition group-hover:opacity-100 hover:border-[var(--color-action-border)]/30 hover:text-[var(--color-action)]"
 						>
 							<Tag size={10} /> {t("mediaItemCard.addTag")}
 						</button>
@@ -336,7 +336,7 @@ export function MediaItemCard({ item, canManage }: { item: MediaItem; canManage:
 			{!canManage && tags.length > 0 && (
 				<div className="mt-2 flex flex-wrap items-center gap-1">
 					{tags.map((tag) => (
-						<Link key={tag} href={`/media?tag=${encodeURIComponent(tag)}`} data-tone="cyan" className="rounded-full border border-[var(--accent-border)] px-2 py-0.5 text-[10px] text-[var(--accent)] hover:underline">#{tag}</Link>
+						<Link key={tag} href={`/media?tag=${encodeURIComponent(tag)}`} data-tone="cyan" className="rounded-lg border border-[var(--accent-border)] px-2 py-0.5 text-[10px] text-[var(--accent)] hover:underline">#{tag}</Link>
 					))}
 				</div>
 			)}

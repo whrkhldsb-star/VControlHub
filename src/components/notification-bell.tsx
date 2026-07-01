@@ -150,7 +150,7 @@ export function NotificationBell() {
 		<div className="relative" ref={panelRef}>
 			<button
 				onClick={togglePanel}
-				className="relative flex items-center justify-center w-11 h-11 rounded-lg text-[var(--text-secondary)] hover:text-slate-200 light:hover:text-slate-800 hover:bg-white/[0.06] transition"
+				className="relative flex items-center justify-center w-11 h-11 rounded-lg text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--surface-elevated)] transition"
 				aria-label={notificationLabel}
 				aria-haspopup="dialog"
 				aria-expanded={isOpen}
@@ -208,7 +208,7 @@ export function NotificationBell() {
 								<li key={n.id}>
 									<Link
 										href={getSafeNotificationActionUrl(n.actionUrl)}
-										className={`block px-4 py-3 hover:bg-white/[0.04] transition light:hover:bg-slate-100 ${n.isRead ? "opacity-70" : ""}`}
+										className={`block px-4 py-3 hover:bg-[var(--surface-elevated)] transition ${n.isRead ? "opacity-70" : ""}`}
 									>
 										<div className="flex items-center gap-2">
 											{!n.isRead && <div className="h-1.5 w-1.5 rounded-full bg-[var(--color-action-bg)] shrink-0" />}

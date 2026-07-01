@@ -224,19 +224,19 @@ export default async function FilesPage({ searchParams }: FilesPageProps) {
         <div className="flex flex-wrap gap-2 text-xs text-[var(--text-muted)]">
           <Link
             href="/audit"
-            className="rounded-full border border-[var(--border)] bg-[var(--surface)]/[0.04] px-3 py-1.5 transition hover:bg-[var(--surface)]/[0.10]"
+            className="rounded-lg border border-[var(--border)] bg-[var(--surface)]/[0.04] px-3 py-1.5 transition hover:bg-[var(--surface)]/[0.10]"
           >
             {t("filesPage.linkAuditLog", locale)}
           </Link>
           <Link
             href="/health"
-            className="rounded-full border border-[var(--border)] bg-[var(--surface)]/[0.04] px-3 py-1.5 transition hover:bg-[var(--surface)]/[0.10]"
+            className="rounded-lg border border-[var(--border)] bg-[var(--surface)]/[0.04] px-3 py-1.5 transition hover:bg-[var(--surface)]/[0.10]"
           >
             {t("filesPage.linkHealthCheck", locale)}
           </Link>
           <Link
             href="/servers"
-            className="rounded-full border border-[var(--border)] bg-[var(--surface)]/[0.04] px-3 py-1.5 transition hover:bg-[var(--surface)]/[0.10]"
+            className="rounded-lg border border-[var(--border)] bg-[var(--surface)]/[0.04] px-3 py-1.5 transition hover:bg-[var(--surface)]/[0.10]"
           >
             {t("filesPage.linkServers", locale)}
           </Link>

@@ -123,12 +123,12 @@ export function SnippetList({ snippets: initial }: { snippets: Snippet[] }) {
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
                 <b className="text-sm text-[var(--text-primary)]">{s.title}</b>
-                <span className="rounded-full border border-[var(--border)] bg-[var(--surface-elevated)] px-2 py-0.5 text-[10px] text-[var(--text-muted)]">{s.language}</span>
+                <span className="rounded-lg border border-[var(--border)] bg-[var(--surface-elevated)] px-2 py-0.5 text-[10px] text-[var(--text-muted)]">{s.language}</span>
                 {s.isPrivate && <span className="text-[10px] text-[var(--warning)]">{t("snippetsPage.private")}</span>}
                 {s.tags.length > 0 && (
                   <div className="flex flex-wrap gap-1">
                     {s.tags.map((tag) => (
-                      <span key={tag} data-tone="cyan" className="rounded-full border border-[var(--accent-border)] px-2 py-0.5 text-[10px] text-[var(--accent)]">{tag}</span>
+                      <span key={tag} data-tone="cyan" className="rounded-lg border border-[var(--accent-border)] px-2 py-0.5 text-[10px] text-[var(--accent)]">{tag}</span>
                     ))}
                   </div>
                 )}

@@ -477,7 +477,7 @@ export function FileUploadDropzone({
                       ? "text-rose-200"
                       : item.status === "uploading"
                         ? "text-[var(--color-action-fg)]"
-                        : "text-slate-400"
+                        : "text-[var(--text-muted)]"
                 }
               >
                 {tr(`fileUploadDropzone.status.${item.status}`)}

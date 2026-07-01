@@ -104,12 +104,12 @@ export default async function FilePreviewPage({ searchParams }: PreviewPageProps
 					<div className="flex items-center gap-3">
 						<a
 							href="/files"
-							className="rounded-full border border-[var(--border)] px-4 py-2 text-sm text-[var(--text-secondary)] hover:border-[var(--color-action-border)]/50 hover:bg-[var(--surface)]/10"
+							className="rounded-lg border border-[var(--border)] px-4 py-2 text-sm text-[var(--text-secondary)] hover:border-[var(--color-action-border)]/50 hover:bg-[var(--surface)]/10"
 						>
 							← 返回文件
 						</a>
 						<h1 className="truncate text-xl font-semibold text-[var(--text-primary)]">{name}</h1>
-						<span className="rounded-full border border-[var(--border)] bg-[var(--surface)] px-3 py-1 text-xs text-[var(--text-secondary)]">
+						<span className="rounded-lg border border-[var(--border)] bg-[var(--surface)] px-3 py-1 text-xs text-[var(--text-secondary)]">
 							{driver}
 						</span>
 					</div>
@@ -117,7 +117,7 @@ export default async function FilePreviewPage({ searchParams }: PreviewPageProps
 						<a
 							href={downloadUrl}
 							data-tone="accent"
-							className="rounded-full border px-4 py-2 text-sm"
+							className="rounded-lg border px-4 py-2 text-sm"
 						>
 							⬇ 下载
 						</a>
@@ -180,7 +180,7 @@ export default async function FilePreviewPage({ searchParams }: PreviewPageProps
 								<a
 									href={downloadUrl}
 									data-tone="accent"
-							className="rounded-full border px-4 py-2 text-sm"
+							className="rounded-lg border px-4 py-2 text-sm"
 								>
 									⬇ 下载后查看
 								</a>

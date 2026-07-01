@@ -134,7 +134,7 @@ export default async function MediaPlayerPage({
           <div className="flex min-w-0 flex-wrap items-center gap-3">
             <Link
               href={returnHref}
-              className="rounded-full border border-[var(--border)] px-4 py-2 text-sm text-[var(--text-secondary)] hover:border-[var(--color-action-border)]/50 hover:bg-[var(--surface)]/10 light:hover:bg-[var(--surface)]"
+              className="rounded-lg border border-[var(--border)] px-4 py-2 text-sm text-[var(--text-secondary)] hover:border-[var(--color-action-border)]/50 hover:bg-[var(--surface)]/10 light:hover:bg-[var(--surface)]"
             >
               ← {t("mediaPage.player.backToLibrary", locale)}
             </Link>
@@ -157,7 +157,7 @@ export default async function MediaPlayerPage({
             </a>
             <Link
               href={sourceHref}
-              className="inline-flex items-center gap-1.5 rounded-full border border-[var(--border)] px-4 py-2 text-[var(--text-secondary)] hover:bg-[var(--surface)]/10 light:hover:bg-[var(--surface)]"
+              className="inline-flex items-center gap-1.5 rounded-lg border border-[var(--border)] px-4 py-2 text-[var(--text-secondary)] hover:bg-[var(--surface)]/10 light:hover:bg-[var(--surface)]"
             >
               <FolderOpen size={16} /> {t("mediaPage.player.openSource", locale)}
             </Link>
@@ -291,7 +291,7 @@ export default async function MediaPlayerPage({
                     <span
                       key={tag}
                       data-tone="cyan"
-                      className="rounded-full border border-[var(--accent-border)] px-2.5 py-1 text-xs text-[var(--accent)]"
+                      className="rounded-lg border border-[var(--accent-border)] px-2.5 py-1 text-xs text-[var(--accent)]"
                     >
                       {tag}
                     </span>

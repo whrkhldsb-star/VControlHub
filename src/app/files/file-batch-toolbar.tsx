@@ -105,7 +105,7 @@ export function FileBatchToolbar({
                 type="button"
                 onClick={onConfirmDelete}
                 disabled={isPending}
-                data-tone="rose" className="rounded-full border border-rose-400/30 px-4 py-2 text-sm font-medium text-rose-100 transition hover:bg-rose-400/20 disabled:opacity-50"
+                data-tone="rose" className="rounded-lg border border-rose-400/30 px-4 py-2 text-sm font-medium text-rose-100 transition hover:bg-rose-400/20 disabled:opacity-50"
               >
                 确认删除
               </button>
@@ -113,7 +113,7 @@ export function FileBatchToolbar({
                 type="button"
                 onClick={() => setBatchAction("none")}
                 disabled={isPending}
-                className="rounded-full border border-[var(--border)] bg-[var(--surface)]/10 px-4 py-2 text-sm font-medium text-[var(--text-secondary)] transition hover:bg-[var(--surface)]/10 disabled:opacity-50"
+                className="rounded-lg border border-[var(--border)] bg-[var(--surface)]/10 px-4 py-2 text-sm font-medium text-[var(--text-secondary)] transition hover:bg-[var(--surface)]/10 disabled:opacity-50"
               >
                 取消
               </button>
@@ -181,7 +181,7 @@ export function FileBatchToolbar({
                   !moveTargetDir.trim() || isPending || moveProgress.done > 0
                 }
                 data-tone="accent"
-                className="rounded-full border px-4 py-2 text-sm font-medium transition disabled:cursor-not-allowed disabled:opacity-50"
+                className="rounded-lg border px-4 py-2 text-sm font-medium transition disabled:cursor-not-allowed disabled:opacity-50"
               >
                 确认移动
               </button>
@@ -193,7 +193,7 @@ export function FileBatchToolbar({
                   setMoveProgress({ done: 0, total: 0, errors: [] });
                 }}
                 disabled={isPending && moveProgress.done > 0}
-                className="rounded-full border border-[var(--border)] bg-[var(--surface)]/10 px-4 py-2 text-sm font-medium text-[var(--text-secondary)] transition hover:bg-[var(--surface)]/10 disabled:opacity-50"
+                className="rounded-lg border border-[var(--border)] bg-[var(--surface)]/10 px-4 py-2 text-sm font-medium text-[var(--text-secondary)] transition hover:bg-[var(--surface)]/10 disabled:opacity-50"
               >
                 取消
               </button>
@@ -206,7 +206,7 @@ export function FileBatchToolbar({
               <button
                 type="button"
                 onClick={onClearSelection}
-                className="rounded-full border border-[var(--border)] bg-[var(--surface)]/10 px-4 py-2 text-sm font-medium text-[var(--text-secondary)] transition hover:bg-[var(--surface)]/10"
+                className="rounded-lg border border-[var(--border)] bg-[var(--surface)]/10 px-4 py-2 text-sm font-medium text-[var(--text-secondary)] transition hover:bg-[var(--surface)]/10"
               >
                 取消选择
               </button>
@@ -215,7 +215,7 @@ export function FileBatchToolbar({
                   type="button"
                   onClick={onCompressSelected}
                   data-tone="cyan"
-                  className="rounded-full border border-[var(--color-action-border)]/30 px-4 py-2 text-sm font-medium text-[var(--text-primary)] transition hover:bg-[var(--color-action-bg)]/20"
+                  className="rounded-lg border border-[var(--color-action-border)]/30 px-4 py-2 text-sm font-medium text-[var(--text-primary)] transition hover:bg-[var(--color-action-bg)]/20"
                 >
                   批量压缩
                 </button>
@@ -224,7 +224,7 @@ export function FileBatchToolbar({
                 <button
                   type="button"
                   onClick={() => setBatchAction("confirm-delete")}
-                  data-tone="rose" className="rounded-full border border-rose-400/30 px-4 py-2 text-sm font-medium text-rose-100 transition hover:bg-rose-400/20"
+                  data-tone="rose" className="rounded-lg border border-rose-400/30 px-4 py-2 text-sm font-medium text-rose-100 transition hover:bg-rose-400/20"
                 >
                   批量删除
                 </button>
@@ -238,7 +238,7 @@ export function FileBatchToolbar({
                     setBatchAction("moving");
                   }}
                   data-tone="accent"
-                  className="rounded-full border px-4 py-2 text-sm font-medium transition"
+                  className="rounded-lg border px-4 py-2 text-sm font-medium transition"
                 >
                   批量移动
                 </button>

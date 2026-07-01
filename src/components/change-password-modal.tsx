@@ -51,7 +51,7 @@ export function ChangePasswordModal({ open, onClose }: { open: boolean; onClose:
 					<button
 						type="button"
 						onClick={onClose}
-						className="rounded-xl p-2 text-[var(--text-secondary)] hover:bg-white/5 hover:text-white light:hover:text-[var(--color-action-fg)] transition"
+						className="rounded-xl p-2 text-[var(--text-secondary)] hover:bg-[var(--surface-elevated)] hover:text-[var(--text-primary)] light:hover:text-[var(--color-action-fg)] transition"
 						aria-label={closeModalLabel}
 					>
 						<svg width="18" height="18" viewBox="0 0 18 18" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -96,7 +96,7 @@ export function ChangePasswordModal({ open, onClose }: { open: boolean; onClose:
 						<button
 							type="button"
 							onClick={onClose}
-							className="rounded-2xl border border-[var(--border)] px-5 py-2.5 text-sm text-[var(--text-secondary)] hover:bg-white/5 transition"
+							className="rounded-2xl border border-[var(--border)] px-5 py-2.5 text-sm text-[var(--text-secondary)] hover:bg-[var(--surface-elevated)] transition"
 						>
 							{t("common.cancel")}
 						</button>
@@ -125,19 +125,19 @@ function PasswordField({ label, name, autoComplete, description }: PasswordField
 					required
 					autoComplete={autoComplete}
 					aria-describedby={descriptionId}
-					className="min-w-0 flex-1 bg-transparent px-4 py-3 text-white outline-none"
+					className="min-w-0 flex-1 bg-transparent px-4 py-3 text-[var(--text-primary)] outline-none"
 				/>
 				<button
 					type="button"
 					aria-label={`${visible ? t("changePassword.hide") : t("changePassword.show")}${label}`}
 					aria-pressed={visible}
 					onClick={() => setVisible((current) => !current)}
-					className="border-l border-[var(--border)] px-4 text-xs font-medium text-[var(--color-action-fg)] transition hover:bg-white/5 hover:text-[var(--color-action-fg)] light:hover:text-[var(--color-action-strong)] focus:outline-none focus:ring-2 focus:ring-inset focus:ring-[var(--color-action-ring)]"
+					className="border-l border-[var(--border)] px-4 text-xs font-medium text-[var(--color-action-fg)] transition hover:bg-[var(--surface-elevated)] hover:text-[var(--color-action-fg)] light:hover:text-[var(--color-action-strong)] focus:outline-none focus:ring-2 focus:ring-inset focus:ring-[var(--color-action-ring)]"
 				>
 					{visible ? t("changePassword.hide") : t("changePassword.show")}
 				</button>
 			</div>
-			<p id={descriptionId} className="text-[11px] text-slate-500">{description}</p>
+			<p id={descriptionId} className="text-[11px] text-[var(--text-muted)]">{description}</p>
 		</div>
 	);
 }

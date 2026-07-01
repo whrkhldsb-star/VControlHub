@@ -61,8 +61,8 @@ export function AiHostedApprovalCard({ action }: AiHostedApprovalCardProps) {
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-2">
             <h3 className="text-base font-semibold text-[var(--text-primary)]">{action.actionName}</h3>
-            <span data-tone="cyan" className="rounded-full border border-[var(--color-action-border)]/20 px-2 py-0.5 text-[11px] font-medium text-[var(--text-secondary)]">{t("aiHostedApproval.badge")}</span>
-            <span data-tone="amber" className="rounded-full border border-amber-400/20 px-2 py-0.5 text-[11px] font-medium text-amber-200">{riskLabel(t, action.riskLevel)}</span>
+            <span data-tone="cyan" className="rounded-lg border border-[var(--color-action-border)]/20 px-2 py-0.5 text-[11px] font-medium text-[var(--text-secondary)]">{t("aiHostedApproval.badge")}</span>
+            <span data-tone="amber" className="rounded-lg border border-amber-400/20 px-2 py-0.5 text-[11px] font-medium text-amber-200">{riskLabel(t, action.riskLevel)}</span>
           </div>
           <p className="mt-1 text-xs text-[var(--text-secondary)]">{t("aiHostedApproval.description")}</p>
           <div className="mt-3 grid gap-2 text-xs text-[var(--text-secondary)] sm:grid-cols-2">

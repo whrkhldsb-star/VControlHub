@@ -31,7 +31,7 @@ export function MobileNav() {
 							key={tab.href}
 							href={tab.href}
 							className={`flex min-w-14 flex-col items-center gap-0.5 rounded-lg px-2 py-1 transition ${
-								active ?"text-[var(--color-action)]" :"text-slate-500"
+								active ?"text-[var(--color-action)]" :"text-[var(--text-muted)]"
 							}`}
 						>
 							<span className="[&>svg]:h-5 [&>svg]:w-5">{tab.icon}</span>
@@ -39,7 +39,7 @@ export function MobileNav() {
 						</Link>
 					);
 				})}
-				<div className="ml-1 flex items-center gap-1 border-l border-white/[0.06] pl-2">
+				<div className="ml-1 flex items-center gap-1 border-l border-[var(--border-subtle)] pl-2">
 					<LanguageToggle compact />
 					<ThemeToggle />
 				</div>

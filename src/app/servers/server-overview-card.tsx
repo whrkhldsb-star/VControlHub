@@ -250,7 +250,7 @@ export function ServerOverviewCard({
           onClick={() => setExpanded((value) => !value)}
           aria-expanded={expanded}
           aria-controls={detailsId}
-          className="rounded-full border border-[var(--border)] bg-[var(--surface)]/[0.04] px-3 py-1 text-xs text-[var(--text-secondary)] transition hover:bg-[var(--surface)]/[0.10] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-action)] light:hover:bg-slate-100"
+          className="rounded-lg border border-[var(--border)] bg-[var(--surface)]/[0.04] px-3 py-1 text-xs text-[var(--text-secondary)] transition hover:bg-[var(--surface)]/[0.10] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-action)] light:hover:bg-slate-100"
         >
           {expanded ? t("serverOverviewCard.collapseDetails") : t("serverOverviewCard.viewDetails")}
         </button>
@@ -275,7 +275,7 @@ export function ServerOverviewCard({
               <button
                 type="button"
                 onClick={() => setExpanded(false)}
-                className="shrink-0 rounded-full border border-[var(--border)] bg-[var(--surface)]/[0.04] px-3 py-1.5 text-xs text-[var(--text-secondary)] transition hover:bg-[var(--surface)]/[0.10]"
+                className="shrink-0 rounded-lg border border-[var(--border)] bg-[var(--surface)]/[0.04] px-3 py-1.5 text-xs text-[var(--text-secondary)] transition hover:bg-[var(--surface)]/[0.10]"
               >
                 {t("serverOverviewCard.collapseDetails")}
               </button>

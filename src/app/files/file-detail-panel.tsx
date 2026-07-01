@@ -85,7 +85,7 @@ export function FileDetailPanel({
           <button
             type="button"
             onClick={onClose}
-            className="rounded-full border border-[var(--border)] bg-[var(--surface)]/10 px-3 py-1.5 text-xs text-[var(--text-secondary)] transition hover:bg-[var(--surface)]/10"
+            className="rounded-lg border border-[var(--border)] bg-[var(--surface)]/10 px-3 py-1.5 text-xs text-[var(--text-secondary)] transition hover:bg-[var(--surface)]/10"
           >
             关闭
           </button>

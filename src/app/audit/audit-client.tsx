@@ -124,7 +124,7 @@ export function AuditLogClient({ initialActionFilter = "" }: AuditLogClientProps
               setSearchQuery("");
               setPage(1);
             }}
-            className="rounded-full border border-[var(--border)] bg-[var(--surface)]/10 px-4 py-2 text-sm text-[var(--text-secondary)] transition hover:bg-[var(--surface)]/10"
+            className="rounded-lg border border-[var(--border)] bg-[var(--surface)]/10 px-4 py-2 text-sm text-[var(--text-secondary)] transition hover:bg-[var(--surface)]/10"
           >
             {t("common.clear")}
           </button>
@@ -179,7 +179,7 @@ export function AuditLogClient({ initialActionFilter = "" }: AuditLogClientProps
               if (searchQuery.trim()) params.set("search", searchQuery.trim());
               window.open(`/api/audit/export?${params.toString()}`, "_self");
             }}
-            className="rounded-full border border-[var(--border)] bg-[var(--surface)]/[0.04] px-4 py-2 text-sm text-[var(--text-secondary)] transition hover:bg-[var(--surface)]/10"
+            className="rounded-lg border border-[var(--border)] bg-[var(--surface)]/[0.04] px-4 py-2 text-sm text-[var(--text-secondary)] transition hover:bg-[var(--surface)]/10"
           >
             {t("audit.exportCsv")}
           </button>
@@ -288,7 +288,7 @@ export function AuditLogClient({ initialActionFilter = "" }: AuditLogClientProps
             type="button"
             disabled={page <= 1}
             onClick={() => setPage((p) => Math.max(1, p - 1))}
-            className="rounded-full border border-[var(--border)] bg-[var(--surface)]/10 px-4 py-2 text-sm text-[var(--text-secondary)] transition hover:bg-[var(--surface)]/10 disabled:opacity-30"
+            className="rounded-lg border border-[var(--border)] bg-[var(--surface)]/10 px-4 py-2 text-sm text-[var(--text-secondary)] transition hover:bg-[var(--surface)]/10 disabled:opacity-30"
           >
             {t("audit.pagination.prev")}
           </button>
@@ -302,7 +302,7 @@ export function AuditLogClient({ initialActionFilter = "" }: AuditLogClientProps
             type="button"
             disabled={page >= data.totalPages}
             onClick={() => setPage((p) => p + 1)}
-            className="rounded-full border border-[var(--border)] bg-[var(--surface)]/10 px-4 py-2 text-sm text-[var(--text-secondary)] transition hover:bg-[var(--surface)]/10 disabled:opacity-30"
+            className="rounded-lg border border-[var(--border)] bg-[var(--surface)]/10 px-4 py-2 text-sm text-[var(--text-secondary)] transition hover:bg-[var(--surface)]/10 disabled:opacity-30"
           >
             {t("audit.pagination.next")}
           </button>

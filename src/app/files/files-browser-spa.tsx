@@ -408,7 +408,7 @@ function BreadcrumbsClient({
       <button
         type="button"
         onClick={() => onNavigate("")}
-        className="rounded-full border border-[var(--border)] px-3 py-1.5 text-[var(--text-secondary)] hover:bg-[var(--surface)]/10"
+        className="rounded-lg border border-[var(--border)] px-3 py-1.5 text-[var(--text-secondary)] hover:bg-[var(--surface)]/10"
       >
         {t("filesBrowserSpa.allFiles")}
       </button>
@@ -420,14 +420,14 @@ function BreadcrumbsClient({
           <span key={nextPath} className="flex items-center gap-2">
             <span>/</span>
             {isLast ? (
-              <span data-tone="cyan" className="rounded-full border border-[var(--color-action-border)]/30 px-3 py-1.5 text-[var(--text-primary)]">
+              <span data-tone="cyan" className="rounded-lg border border-[var(--color-action-border)]/30 px-3 py-1.5 text-[var(--text-primary)]">
                 {displaySegment}
               </span>
             ) : (
               <button
                 type="button"
                 onClick={() => onNavigate(nextPath)}
-                className="rounded-full border border-[var(--border)] px-3 py-1.5 text-[var(--text-secondary)] hover:bg-[var(--surface)]/10"
+                className="rounded-lg border border-[var(--border)] px-3 py-1.5 text-[var(--text-secondary)] hover:bg-[var(--surface)]/10"
               >
                 {displaySegment}
               </button>
@@ -649,7 +649,7 @@ export function FilesBrowserSpa({
                 </div>
                 <button
                   type="submit"
-                  data-tone="cyan" className="rounded-full border border-[var(--color-action-border)]/30 px-5 py-2.5 text-sm font-medium text-[var(--text-primary)] transition hover:bg-[var(--color-action-bg)]/20"
+                  data-tone="cyan" className="rounded-lg border border-[var(--color-action-border)]/30 px-5 py-2.5 text-sm font-medium text-[var(--text-primary)] transition hover:bg-[var(--color-action-bg)]/20"
                 >
                   {t("filesBrowserSpa.searchLabel")}
                 </button>
@@ -660,7 +660,7 @@ export function FilesBrowserSpa({
                       setSearchInput("");
                       fetchFiles(data.currentPath);
                     }}
-                    className="rounded-full border border-[var(--border)] bg-[var(--surface)]/10 px-5 py-2.5 text-sm font-medium text-[var(--text-secondary)] transition hover:bg-[var(--surface)]/10"
+                    className="rounded-lg border border-[var(--border)] bg-[var(--surface)]/10 px-5 py-2.5 text-sm font-medium text-[var(--text-secondary)] transition hover:bg-[var(--surface)]/10"
                   >
                     {t("filesBrowserSpa.clear")}
                   </button>
@@ -704,7 +704,7 @@ export function FilesBrowserSpa({
                     )
                   }
                   disabled={loading}
-                  data-tone="emerald" className="rounded-full border border-emerald-400/30 px-4 py-2 text-sm font-medium text-emerald-100 transition hover:bg-emerald-400/20 disabled:cursor-not-allowed disabled:opacity-60"
+                  data-tone="emerald" className="rounded-lg border border-emerald-400/30 px-4 py-2 text-sm font-medium text-emerald-100 transition hover:bg-emerald-400/20 disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   {loading ? t("filesBrowserSpa.refreshing") : `↻ ${refreshLabel}`}
                 </button>
@@ -712,7 +712,7 @@ export function FilesBrowserSpa({
                   <a
                     href="#upload-section"
                     data-tone="accent"
-                    className="rounded-full border px-4 py-2 text-sm font-medium transition"
+                    className="rounded-lg border px-4 py-2 text-sm font-medium transition"
                   >
                     {t("filesBrowserSpa.uploadFiles")}
                   </a>
@@ -741,7 +741,7 @@ export function FilesBrowserSpa({
                         ? t("filesBrowserSpa.cannotCreateFolderNoPermission")
                         : t("filesBrowserSpa.cannotCreateFolderNoNode")
                     }
-                    className="cursor-not-allowed rounded-full border border-[var(--border)] bg-[var(--surface)]/10 px-4 py-2 text-sm font-medium text-[var(--text-secondary)]"
+                    className="cursor-not-allowed rounded-lg border border-[var(--border)] bg-[var(--surface)]/10 px-4 py-2 text-sm font-medium text-[var(--text-secondary)]"
                   >
                     {t("filesBrowserSpa.createFolder")}
                   </button>

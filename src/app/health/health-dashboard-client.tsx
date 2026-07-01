@@ -305,10 +305,10 @@ const repairToneClasses: Record<SystemHealthStatus, { border: string; bg: string
 /* ── Status helpers ───────────────────────────────────────── */
 
 const statusToneClasses: Record<string, { bg: string; text: string; dot: string }> = {
-	healthy: { bg: "border-emerald-400/20 bg-emerald-400/10", text: "text-emerald-200", dot: "bg-emerald-400" },
-	warning: { bg: "border-amber-400/20 bg-amber-400/10", text: "text-amber-200", dot: "bg-amber-400" },
-	critical: { bg: "border-rose-400/20 bg-rose-400/10", text: "text-rose-200", dot: "bg-rose-400" },
-	offline: { bg: "border-slate-400/20 bg-slate-400/10", text: "text-slate-200", dot: "bg-slate-500" },
+	healthy: { bg: "border-emerald-400/20 bg-emerald-400/10", text: "text-[var(--success)]", dot: "bg-emerald-400" },
+	warning: { bg: "border-amber-400/20 bg-amber-400/10", text: "text-[var(--warning)]", dot: "bg-amber-400" },
+	critical: { bg: "border-rose-400/20 bg-rose-400/10", text: "text-[var(--danger)]", dot: "bg-rose-400" },
+	offline: { bg: "border-slate-400/20 bg-slate-400/10", text: "text-[var(--text-secondary)]", dot: "bg-slate-500" },
 	unknown: { bg: "border-slate-400/20 bg-slate-400/10", text: "text-[var(--text-secondary)]", dot: "bg-slate-600" },
 };
 const unknownTone = statusToneClasses.unknown!;
@@ -477,8 +477,8 @@ export function HealthDashboardClient({ serverCount, initialSystemHealth }: Prop
 						</p>
 					</div>
 					<div className="flex flex-wrap gap-2 text-xs text-[var(--text-secondary)]">
-						<Link href="/audit" className="min-h-11 inline-flex items-center rounded-full border border-[var(--border)] bg-[var(--surface)] px-3 transition hover:bg-[var(--sidebar-hover)]">{copy.ui.auditLog}</Link>
-						<Link href="/" className="min-h-11 inline-flex items-center rounded-full border border-[var(--border)] bg-[var(--surface)] px-3 transition hover:bg-[var(--sidebar-hover)]">{copy.ui.home}</Link>
+						<Link href="/audit" className="min-h-11 inline-flex items-center rounded-lg border border-[var(--border)] bg-[var(--surface)] px-3 transition hover:bg-[var(--sidebar-hover)]">{copy.ui.auditLog}</Link>
+						<Link href="/" className="min-h-11 inline-flex items-center rounded-lg border border-[var(--border)] bg-[var(--surface)] px-3 transition hover:bg-[var(--sidebar-hover)]">{copy.ui.home}</Link>
 					</div>
 					</div>
 						<div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
@@ -572,7 +572,7 @@ export function HealthDashboardClient({ serverCount, initialSystemHealth }: Prop
 							{overview.servers.map((server) => {
 								const sc = statusToneClasses[server.status] ?? unknownTone;
 								return (
-									<tr key={server.serverId} className={`hover:bg-white/[0.04] transition ${server.status === "critical" ? "bg-rose-500/[0.04]" : ""}`}>
+									<tr key={server.serverId} className={`hover:bg-[var(--surface-elevated)] transition ${server.status === "critical" ? "bg-[var(--danger-bg)]" : ""}`}>
 										<td className="px-4 py-3">
 											<div className="flex items-center gap-2">
 												<div className={`h-2 w-2 rounded-full ${sc.dot} shrink-0`} />

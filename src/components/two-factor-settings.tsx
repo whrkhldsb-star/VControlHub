@@ -78,10 +78,10 @@ export function TwoFactorSettings({ enabled }: { enabled: boolean }) {
 	};
 
 	return (
-		<div className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-5">
+		<div className="rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-subtle)] p-5">
 			<div className="flex items-center justify-between mb-4">
-				<h3 className="text-sm font-medium text-white">{t("auth.2fa-section-title")}</h3>
-				<span className={`text-xs px-2 py-0.5 rounded-full ${enabled ? "bg-emerald-500/10 text-emerald-400" : "bg-[var(--surface-hover)]/50 text-slate-400"}`}>
+				<h3 className="text-sm font-medium text-[var(--text-primary)]">{t("auth.2fa-section-title")}</h3>
+				<span className={`text-xs px-2 py-0.5 rounded-full ${enabled ? "bg-emerald-500/10 text-emerald-400" : "bg-[var(--surface-hover)]/50 text-[var(--text-muted)]"}`}>
 					{enabled ? t("auth.2fa-enabled") : t("auth.2fa-disabled")}
 				</span>
 			</div>
@@ -127,7 +127,7 @@ export function TwoFactorSettings({ enabled }: { enabled: boolean }) {
 					<Image
 						src={`https://chart.googleapis.com/chart?chs=200x200&cht=qr&chl=${encodeURIComponent(otpauthUrl)}`}
 						alt="2FA QR Code"
-						className="mx-auto rounded-lg border border-white/[0.06]"
+						className="mx-auto rounded-lg border border-[var(--border-subtle)]"
 						width={200}
 						height={200}
 						unoptimized
@@ -150,7 +150,7 @@ export function TwoFactorSettings({ enabled }: { enabled: boolean }) {
 							value={code}
 							onChange={(e) => setCode(e.target.value.replace(/\D/g, ""))}
 							placeholder="000000"
-							className="flex-1 px-3 py-2 text-sm bg-white/[0.05] border border-white/[0.1] rounded-lg text-white placeholder-slate-600 focus:border-[var(--color-action-border)]/50 focus:outline-none"
+							className="flex-1 px-3 py-2 text-sm bg-[var(--surface-elevated)] border border-[var(--border)] rounded-lg text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus:border-[var(--color-action-border)]/50 focus:outline-none"
 						/>
 						<button
 							onClick={handleVerify}
@@ -162,7 +162,7 @@ export function TwoFactorSettings({ enabled }: { enabled: boolean }) {
 					</div>
 					<button
 						onClick={() => { setStep("idle"); setCode(""); setError(""); }}
-						className="text-xs text-slate-500 hover:text-slate-300 transition"
+						className="text-xs text-[var(--text-muted)] hover:text-[var(--text-secondary)] transition"
 					>
 						{t("auth.2fa-cancel")}
 					</button>
@@ -183,7 +183,7 @@ export function TwoFactorSettings({ enabled }: { enabled: boolean }) {
 							value={code}
 							onChange={(e) => setCode(e.target.value.replace(/\D/g, ""))}
 							placeholder="000000"
-							className="flex-1 px-3 py-2 text-sm bg-white/[0.05] border border-white/[0.1] rounded-lg text-white placeholder-slate-600 focus:border-[var(--color-action-border)]/50 focus:outline-none"
+							className="flex-1 px-3 py-2 text-sm bg-[var(--surface-elevated)] border border-[var(--border)] rounded-lg text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus:border-[var(--color-action-border)]/50 focus:outline-none"
 						/>
 						<button
 							onClick={handleDisable}
@@ -195,7 +195,7 @@ export function TwoFactorSettings({ enabled }: { enabled: boolean }) {
 					</div>
 					<button
 						onClick={() => { setStep("idle"); setCode(""); setError(""); }}
-						className="text-xs text-slate-500 hover:text-slate-300 transition"
+						className="text-xs text-[var(--text-muted)] hover:text-[var(--text-secondary)] transition"
 					>
 						{t("auth.2fa-cancel")}
 					</button>

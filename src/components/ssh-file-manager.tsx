@@ -329,7 +329,7 @@ export function SshFileManager({ serverId, visible }: SshFileManagerProps) {
           <button
             type="button"
             onClick={() => setShowMkdir(!showMkdir)}
-            className="ml-auto min-h-9 rounded-full border border-[var(--border-subtle)] light:border-slate-200 px-2 py-0.5 text-xs text-[var(--text-secondary)] light:text-slate-600 transition hover:bg-[var(--surface-elevated)] light:hover:bg-[var(--surface-hover)]/50"
+            className="ml-auto min-h-9 rounded-full border border-[var(--border-subtle)] light:border-slate-200 px-2 py-0.5 text-xs text-[var(--text-secondary)] light:text-[var(--text-muted)] transition hover:bg-[var(--surface-elevated)] light:hover:bg-[var(--surface-hover)]/50"
             aria-label={t("sshFileManager.newFolder")}
             title={t("sshFileManager.newFolder")}
           >
@@ -361,7 +361,7 @@ export function SshFileManager({ serverId, visible }: SshFileManagerProps) {
           <button
             type="button"
             onClick={() => navigateToBreadcrumb(-1)}
-            className="rounded px-1.5 py-0.5 text-slate-400 transition hover:bg-white/[0.06] hover:text-[var(--color-action-fg)]"
+            className="rounded px-1.5 py-0.5 text-[var(--text-muted)] transition hover:bg-[var(--surface-hover)] hover:text-[var(--color-action-fg)]"
           >
             /
           </button>
@@ -370,12 +370,12 @@ export function SshFileManager({ serverId, visible }: SshFileManagerProps) {
               <button
                 type="button"
                 onClick={() => navigateToBreadcrumb(i)}
-                className="rounded px-1.5 py-0.5 text-slate-400 transition hover:bg-white/[0.06] hover:text-[var(--color-action-fg)]"
+                className="rounded px-1.5 py-0.5 text-[var(--text-muted)] transition hover:bg-[var(--surface-hover)] hover:text-[var(--color-action-fg)]"
               >
                 {crumb}
               </button>
               {i < breadcrumbs.length - 1 && (
-                <span className="text-slate-700">/</span>
+                <span className="text-[var(--text-muted)]">/</span>
               )}
             </span>
           ))}
@@ -389,7 +389,7 @@ export function SshFileManager({ serverId, visible }: SshFileManagerProps) {
               onChange={(e) => setMkdirName(e.target.value)}
               onKeyDown={(e) => e.key === "Enter" && handleMkdir()}
               placeholder={t("sshFileManager.folderName")}
-              className="min-h-9 min-w-0 flex-1 rounded-lg border border-white/[0.06] bg-white/[0.04] px-3 py-1 text-xs text-white outline-none placeholder:text-white/20 focus:border-[var(--color-action-border)]/30"
+              className="min-h-9 min-w-0 flex-1 rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-elevated)] px-3 py-1 text-xs text-[var(--text-primary)] outline-none placeholder:text-[var(--text-muted)] focus:border-[var(--color-action-border)]/30"
               autoFocus
             />
             <button
@@ -401,7 +401,7 @@ export function SshFileManager({ serverId, visible }: SshFileManagerProps) {
             </button>
             <button
               onClick={() => { setShowMkdir(false); setMkdirName(""); }}
-              className="min-h-9 min-w-9 shrink-0 rounded-lg border border-white/10 px-2 text-xs text-slate-400 transition hover:bg-white/10"
+              className="min-h-9 min-w-9 shrink-0 rounded-lg border border-[var(--border)] px-2 text-xs text-[var(--text-muted)] transition hover:bg-[var(--surface-hover)]"
             >
               ✕
             </button>
@@ -418,14 +418,14 @@ export function SshFileManager({ serverId, visible }: SshFileManagerProps) {
 
       {/* Upload progress */}
       {uploads.length > 0 && (
-        <div className="space-y-1 rounded-xl border border-white/[0.06] bg-white/[0.02] p-2">
+        <div className="space-y-1 rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-subtle)] p-2">
           {uploads.map((u, i) => (
             <div key={i} className="flex items-center gap-2 text-xs">
-              <span className={`min-w-16 shrink-0 truncate ${u.status === "error" ? "text-rose-300" : u.status === "done" ? "text-emerald-300" : "text-slate-300"}`}>
+              <span className={`min-w-16 shrink-0 truncate ${u.status === "error" ? "text-rose-300" : u.status === "done" ? "text-emerald-300" : "text-[var(--text-secondary)]"}`}>
                 {u.fileName}
               </span>
               {u.status === "uploading" && (
-                <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-white/10">
+                <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-[var(--surface-hover)]">
                   <div
                     className="h-full bg-[var(--color-action-bg)] transition-all"
                     style={{ width: `${u.percent}%` }}
@@ -444,7 +444,7 @@ export function SshFileManager({ serverId, visible }: SshFileManagerProps) {
         className={`flex-1 overflow-y-auto rounded-xl border p-2 transition ${
           dragOver
             ? "border-[var(--color-action-border)]/40 bg-[var(--color-action-bg)]/5"
-            : "border-white/[0.06] bg-white/[0.02]"
+            : "border-[var(--border-subtle)] bg-[var(--surface-subtle)]"
         }`}
         onDragOver={onDragOver}
         onDragLeave={onDragLeave}
@@ -458,13 +458,13 @@ export function SshFileManager({ serverId, visible }: SshFileManagerProps) {
         )}
 
         {!dragOver && loading && (
-          <div className="flex h-full items-center justify-center text-xs text-slate-500">
+          <div className="flex h-full items-center justify-center text-xs text-[var(--text-muted)]">
             {t("sshFileManager.loading")}
           </div>
         )}
 
         {!dragOver && !loading && entries.length === 0 && !error && (
-          <div className="flex h-full items-center justify-center text-xs text-slate-600">
+          <div className="flex h-full items-center justify-center text-xs text-[var(--text-muted)]">
             {t("sshFileManager.empty")}
           </div>
         )}
@@ -472,8 +472,8 @@ export function SshFileManager({ serverId, visible }: SshFileManagerProps) {
         {!dragOver && !loading && entries.map((entry) => (
           <div
             key={entry.name}
-            className={`group flex items-center gap-2 rounded-lg px-2 py-1.5 text-xs transition hover:bg-white/[0.06] ${
-              selectedEntry === entry.name ? "bg-white/[0.08]" : ""
+            className={`group flex items-center gap-2 rounded-lg px-2 py-1.5 text-xs transition hover:bg-[var(--surface-hover)] ${
+              selectedEntry === entry.name ? "bg-[var(--surface-elevated)]" : ""
             }`}
             onClick={() => setSelectedEntry(entry.name)}
             onDoubleClick={() => {
@@ -493,7 +493,7 @@ export function SshFileManager({ serverId, visible }: SshFileManagerProps) {
                     if (e.key === "Enter") handleRename();
                     if (e.key === "Escape") { setRenameTarget(null); setRenameValue(""); }
                   }}
-                  className="min-h-7 min-w-0 flex-1 rounded border border-[var(--color-action-border)]/30 bg-white/[0.06] px-2 text-xs text-white outline-none"
+                  className="min-h-7 min-w-0 flex-1 rounded border border-[var(--color-action-border)]/30 bg-[var(--surface-hover)] px-2 text-xs text-[var(--text-primary)] outline-none"
                   autoFocus
                   onClick={(e) => e.stopPropagation()}
                 />
@@ -503,27 +503,27 @@ export function SshFileManager({ serverId, visible }: SshFileManagerProps) {
                 >✓</button>
                 <button
                   onClick={(e) => { e.stopPropagation(); setRenameTarget(null); setRenameValue(""); }}
-                  className="text-slate-400 hover:text-slate-300"
+                  className="text-[var(--text-muted)] hover:text-[var(--text-secondary)]"
                 >✕</button>
               </div>
             ) : (
-              <span className={`min-w-0 flex-1 truncate ${entry.isDirectory ? "text-white" : "text-slate-300"}`}>
+              <span className={`min-w-0 flex-1 truncate ${entry.isDirectory ? "text-[var(--text-primary)]" : "text-[var(--text-secondary)]"}`}>
                 {entry.name}
               </span>
             )}
             {renameTarget !== entry.name && (
               <>
-                <span className="shrink-0 text-[10px] text-slate-600">
+                <span className="shrink-0 text-[10px] text-[var(--text-muted)]">
                   {entry.isFile ? formatSize(entry.size) : ""}
                 </span>
-                <span className="hidden shrink-0 text-[10px] text-slate-700 lg:block">
+                <span className="hidden shrink-0 text-[10px] text-[var(--text-muted)] lg:block">
                   {formatDate(entry.modifyTime)}
                 </span>
                 {/* Action buttons */}
                 {entry.isFile && (
                   <button
                     onClick={(e) => { e.stopPropagation(); handleDownload(entry); }}
-                    className="shrink-0 text-slate-500 opacity-0 transition hover:text-[var(--color-action)] group-hover:opacity-100"
+                    className="shrink-0 text-[var(--text-muted)] opacity-0 transition hover:text-[var(--color-action)] group-hover:opacity-100"
                     aria-label={t("sshFileManager.download")}
                     title={t("sshFileManager.download")}
                   >⬇</button>
@@ -534,14 +534,14 @@ export function SshFileManager({ serverId, visible }: SshFileManagerProps) {
                     setRenameTarget(entry.name);
                     setRenameValue(entry.name);
                   }}
-                  className="shrink-0 text-slate-500 opacity-0 transition hover:text-[var(--color-action)] group-hover:opacity-100"
+                  className="shrink-0 text-[var(--text-muted)] opacity-0 transition hover:text-[var(--color-action)] group-hover:opacity-100"
                   aria-label={t("sshFileManager.rename")}
                   title={t("sshFileManager.rename")}
                 >✎</button>
                 {entry.isFile && (
                   <button
                     onClick={(e) => { e.stopPropagation(); handleDelete(entry); }}
-                    className="shrink-0 text-slate-500 opacity-0 transition hover:text-rose-300 group-hover:opacity-100"
+                    className="shrink-0 text-[var(--text-muted)] opacity-0 transition hover:text-rose-300 group-hover:opacity-100"
                     aria-label={t("sshFileManager.delete")}
                     title={t("sshFileManager.delete")}
                   >🗑</button>
@@ -552,7 +552,7 @@ export function SshFileManager({ serverId, visible }: SshFileManagerProps) {
         ))}
 
         {!dragOver && !loading && entries.length > 0 && (
-          <div className="mt-2 border-t border-white/[0.06] pt-1 text-center text-[10px] text-slate-700">
+          <div className="mt-2 border-t border-[var(--border-subtle)] pt-1 text-center text-[10px] text-[var(--text-muted)]">
             {t("sshFileManager.dragHint")}
           </div>
         )}

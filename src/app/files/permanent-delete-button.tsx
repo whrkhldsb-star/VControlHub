@@ -34,7 +34,7 @@ export function PermanentDeleteButton({
       <button
         type="button"
         onClick={() => setConfirming(true)}
-        data-tone="rose" className="rounded-full border border-rose-400/30 px-4 py-2 text-sm font-medium text-rose-100 transition hover:bg-rose-400/20"
+        data-tone="rose" className="rounded-lg border border-rose-400/30 px-4 py-2 text-sm font-medium text-rose-100 transition hover:bg-rose-400/20"
       >
         永久删除
       </button>
@@ -49,14 +49,14 @@ export function PermanentDeleteButton({
       </span>
       <button
         type="submit"
-        data-tone="rose" className="rounded-full border border-rose-400/30 px-4 py-2 text-sm font-medium text-rose-100 transition hover:bg-rose-400/20"
+        data-tone="rose" className="rounded-lg border border-rose-400/30 px-4 py-2 text-sm font-medium text-rose-100 transition hover:bg-rose-400/20"
       >
         确认
       </button>
       <button
         type="button"
         onClick={handleCancel}
-        className="rounded-full border border-[var(--border)] bg-[var(--surface)]/10 px-4 py-2 text-sm font-medium text-[var(--text-secondary)] transition hover:bg-[var(--surface)]/10"
+        className="rounded-lg border border-[var(--border)] bg-[var(--surface)]/10 px-4 py-2 text-sm font-medium text-[var(--text-secondary)] transition hover:bg-[var(--surface)]/10"
       >
         取消
       </button>

@@ -156,7 +156,7 @@ export default function ApiDocsPage() {
 										<h2 className="text-base font-semibold text-[var(--text-primary)]">{tag}</h2>
 										{tagDescriptions.get(tag) ? <p className="mt-1 text-xs text-[var(--text-muted)]">{tagDescriptions.get(tag)}</p> : null}
 									</div>
-									<span className="rounded-full border border-[var(--border)] bg-[var(--surface-hover)] px-2.5 py-1 text-xs text-[var(--text-muted)]">{t("apiDocsPage.tagCount").replace("{count}", String(tagEntries.length))}</span>
+									<span className="rounded-lg border border-[var(--border)] bg-[var(--surface-hover)] px-2.5 py-1 text-xs text-[var(--text-muted)]">{t("apiDocsPage.tagCount").replace("{count}", String(tagEntries.length))}</span>
 							</div>
 						</div>
 						<div className="divide-y divide-[var(--border)]">

@@ -320,7 +320,7 @@ export function MarkdownPreviewClient({ href }: { href: string }) {
 		<div className="overflow-auto rounded-2xl bg-[var(--surface)] p-4">
 			{/* Label */}
 			<div className="mb-3 flex items-center gap-2">
-				<span data-tone="cyan" className="rounded-full border border-[var(--color-action-border)]/30 px-3 py-1 text-xs text-[var(--color-action)]">
+				<span data-tone="cyan" className="rounded-lg border border-[var(--color-action-border)]/30 px-3 py-1 text-xs text-[var(--color-action)]">
 					{t("markdownPreview.title")}
 				</span>
 			</div>

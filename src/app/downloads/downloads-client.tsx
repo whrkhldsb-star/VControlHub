@@ -403,9 +403,9 @@ export function DownloadsClient({ servers, canManage, canManageNode }: { servers
 									{getStatusLabel(t)[task.status] ?? task.status}
 								</span>
 								<span className="text-[11px] text-[var(--text-muted)]">{urlTypeLabel(task.url, t)}</span>
-								{task.relayMode && <span data-tone="amber" className="rounded-full border border-amber-400/20 px-2 py-0.5 text-[10px] text-amber-100">中转</span>}
+								{task.relayMode && <span data-tone="amber" className="rounded-lg border border-amber-400/20 px-2 py-0.5 text-[10px] text-amber-100">中转</span>}
 									{task.category && <span className="text-[11px] text-[var(--text-muted)]">{categoryIcon[task.category] ?? "📦"} {task.category}</span>}
-									{task.isBatch && <span data-tone="cyan" className="rounded-full border border-[var(--color-action-border)]/20 px-2 py-0.5 text-[10px] text-[var(--text-primary)]">批量</span>}
+									{task.isBatch && <span data-tone="cyan" className="rounded-lg border border-[var(--color-action-border)]/20 px-2 py-0.5 text-[10px] text-[var(--text-primary)]">批量</span>}
 								</div>
 
 								{/* URL */}

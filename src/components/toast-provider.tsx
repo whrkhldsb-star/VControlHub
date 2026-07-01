@@ -27,6 +27,37 @@ export function useToast() {
 
 let toastCounter = 0;
 
+/** Toast styling — uses CSS variables for full dark/light theme support */
+const TOAST_STYLES: Record<ToastType, { container: string; icon: string }> = {
+  success: {
+    container:
+      "border-[var(--success-border)] bg-[var(--surface)] text-[var(--success)] shadow-lg",
+    icon: "text-[var(--success)]",
+  },
+  error: {
+    container:
+      "border-[var(--danger-border)] bg-[var(--surface)] text-[var(--danger)] shadow-lg",
+    icon: "text-[var(--danger)]",
+  },
+  warning: {
+    container:
+      "border-[var(--warning-border)] bg-[var(--surface)] text-[var(--warning)] shadow-lg",
+    icon: "text-[var(--warning)]",
+  },
+  info: {
+    container:
+      "border-[var(--accent-border)] bg-[var(--surface)] text-[var(--accent)] shadow-lg",
+    icon: "text-[var(--accent)]",
+  },
+};
+
+const TOAST_ICONS: Record<ToastType, string> = {
+  success: "✓",
+  error: "✕",
+  warning: "⚠",
+  info: "ℹ",
+};
+
 export function ToastProvider({ children }: { children: ReactNode }) {
   const [toasts, setToasts] = useState<Toast[]>([]);
 
@@ -51,33 +82,29 @@ export function ToastProvider({ children }: { children: ReactNode }) {
     <ToastContext.Provider value={{ toasts, addToast, removeToast }}>
       {children}
       {/* Toast container */}
-      <div className="fixed bottom-4 right-4 z-[100] flex flex-col gap-2 pointer-events-none">
-        {toasts.map((toast) => (
-          <div
-            key={toast.id}
-            className={`pointer-events-auto flex items-center gap-3 rounded-2xl border px-5 py-3 text-sm shadow-2xl backdrop-blur transition-[opacity,transform,background-color,border-color,color] animate-in slide-in-from-right ${
- toast.type ==="success"
- ?"border-emerald-400/30 bg-emerald-900/90 text-emerald-100"
- : toast.type ==="error"
- ?"border-rose-400/30 bg-rose-900/90 text-rose-100"
- : toast.type ==="warning"
- ?"border-amber-400/30 bg-amber-900/90 text-amber-100"
- :"border-[var(--color-action-border)]/30 bg-[var(--color-action-strong)]/90 text-[var(--color-action-fg)]"
- }`}
-          >
-            <span className="text-lg">
-              {toast.type === "success" ? "✓" : toast.type === "error" ? "✕" : toast.type === "warning" ? "⚠" : "ℹ"}
-            </span>
-            <span>{toast.message}</span>
-            <button
-              type="button"
-              onClick={() => removeToast(toast.id)}
-              className="ml-2 text-current/50 hover:text-current transition"
+      <div className="fixed bottom-4 right-4 z-[var(--z-toast,60)] flex flex-col gap-2 pointer-events-none">
+        {toasts.map((toast) => {
+          const style = TOAST_STYLES[toast.type];
+          return (
+            <div
+              key={toast.id}
+              className={`pointer-events-auto flex items-center gap-3 rounded-xl border px-4 py-3 text-sm backdrop-blur-md transition-all duration-300 animate-in slide-in-from-right ${style.container}`}
             >
-              ✕
-            </button>
-          </div>
-        ))}
+              <span className={`text-base font-bold ${style.icon}`}>
+                {TOAST_ICONS[toast.type]}
+              </span>
+              <span className="text-[var(--text-primary)]">{toast.message}</span>
+              <button
+                type="button"
+                onClick={() => removeToast(toast.id)}
+                className="ml-1 text-[var(--text-muted)] transition hover:text-[var(--text-primary)]"
+                aria-label="Close"
+              >
+                ✕
+              </button>
+            </div>
+          );
+        })}
       </div>
     </ToastContext.Provider>
   );

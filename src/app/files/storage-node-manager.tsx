@@ -51,7 +51,7 @@ export function StorageNodeManager({
 					type="button"
 					onClick={() => setExpanded((prev) => !prev)}
 					data-tone="accent"
-					className="rounded-full border px-4 py-2 text-sm font-medium transition"
+					className="rounded-lg border px-4 py-2 text-sm font-medium transition"
 				>
 					{expanded ? "收起" : "展开"}
 				</button>

@@ -74,7 +74,7 @@ export function CreateFolderForm({
         type="button"
         onClick={handleToggle}
         data-tone="accent"
-        className="rounded-full border px-4 py-2 text-sm font-medium transition"
+        className="rounded-lg border px-4 py-2 text-sm font-medium transition"
       >
         {t("common.newFolder")}
       </button>
@@ -127,14 +127,14 @@ export function CreateFolderForm({
         type="submit"
         disabled={!folderName.trim()}
         data-tone="accent"
-        className="rounded-full border px-4 py-2 text-sm font-medium transition disabled:cursor-not-allowed disabled:opacity-50"
+        className="rounded-lg border px-4 py-2 text-sm font-medium transition disabled:cursor-not-allowed disabled:opacity-50"
       >
         创建
       </button>
       <button
         type="button"
         onClick={handleCancel}
-        className="rounded-full border border-[var(--border)] bg-[var(--surface)]/10 px-4 py-2 text-sm font-medium text-[var(--text-secondary)] transition hover:bg-[var(--surface)]/10"
+        className="rounded-lg border border-[var(--border)] bg-[var(--surface)]/10 px-4 py-2 text-sm font-medium text-[var(--text-secondary)] transition hover:bg-[var(--surface)]/10"
       >
         取消
       </button>

@@ -54,7 +54,7 @@ export default async function RequestsPage() {
 							<h2 id="ai-approval-heading" className="text-xl font-semibold text-[var(--text-primary)]">{t("requestsPage.ai.title", locale)}</h2>
 							<p className="mt-1 text-sm text-[var(--text-muted)]">{t("requestsPage.ai.desc", locale)}</p>
 						</div>
-						<span data-tone="cyan" className="rounded-full border border-[var(--color-action-border)]/20 px-3 py-1 text-xs text-[var(--text-secondary)]">{t("requestsPage.ai.scopeBadge", locale)}</span>
+						<span data-tone="cyan" className="rounded-lg border border-[var(--color-action-border)]/20 px-3 py-1 text-xs text-[var(--text-secondary)]">{t("requestsPage.ai.scopeBadge", locale)}</span>
 					</div>
 					{aiActions.length === 0 ? (
 						<EmptyState text={t("requestsPage.ai.empty", locale)} variant="boxed" />
@@ -71,7 +71,7 @@ export default async function RequestsPage() {
 							<h2 id="command-approval-heading" className="text-xl font-semibold text-[var(--text-primary)]">{t("requestsPage.cmd.title", locale)}</h2>
 							<p className="mt-1 text-sm text-[var(--text-muted)]">{t("requestsPage.cmd.desc", locale)}</p>
 						</div>
-						<span data-tone="amber" className="rounded-full border border-amber-400/20 px-3 py-1 text-xs text-amber-200">{t("requestsPage.cmd.scopeBadge", locale)}</span>
+						<span data-tone="amber" className="rounded-lg border border-amber-400/20 px-3 py-1 text-xs text-amber-200">{t("requestsPage.cmd.scopeBadge", locale)}</span>
 					</div>
 
 					{requests.length === 0 ? (

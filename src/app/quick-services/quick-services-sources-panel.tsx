@@ -114,7 +114,7 @@ export function SourcesPanel({ sources, actions, onRequestDeleteSource }: Source
 						<p className="text-xs uppercase tracking-[0.2em] text-[var(--text-muted)]">{t("quickServicesPage.sources.header")}</p>
 						<p className="mt-1 text-sm text-[var(--text-muted)]">{t("quickServicesPage.sources.headerDesc")}</p>
 					</div>
-					<span className="rounded-full border border-[var(--border)] px-2 py-1 text-[10px] text-[var(--text-muted)]">{t("quickServicesPage.sources.tapToFill")}</span>
+					<span className="rounded-lg border border-[var(--border)] px-2 py-1 text-[10px] text-[var(--text-muted)]">{t("quickServicesPage.sources.tapToFill")}</span>
 				</div>
 				<div className="grid gap-3 sm:grid-cols-3">
 					{getSourcePresets(t).map((preset) => {

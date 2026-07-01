@@ -92,11 +92,11 @@ export default async function Page({ searchParams }: { searchParams?: Promise<Me
             </div>
             <div className="flex flex-wrap gap-2 text-xs">
               {mediaType === "image" ? (
-                <Link href="/image-bed" data-tone="emerald" className="inline-flex items-center gap-1 rounded-full border border-emerald-400/30 px-3 py-1.5 font-medium text-emerald-200 transition hover:bg-emerald-400/20">
+                <Link href="/image-bed" data-tone="emerald" className="inline-flex items-center gap-1 rounded-lg border border-emerald-400/30 px-3 py-1.5 font-medium text-emerald-200 transition hover:bg-emerald-400/20">
                   {t("mediaPage.linkHub.label", locale)}
                 </Link>
               ) : null}
-              <span data-tone="cyan" className="inline-flex items-center rounded-full border border-[var(--color-action-border)]/20 px-3 py-1.5 text-[var(--text-secondary)]">{t("mediaPage.viewCount", locale).replace("{count}", String(media.length))}</span>
+              <span data-tone="cyan" className="inline-flex items-center rounded-lg border border-[var(--color-action-border)]/20 px-3 py-1.5 text-[var(--text-secondary)]">{t("mediaPage.viewCount", locale).replace("{count}", String(media.length))}</span>
             </div>
           </div>
 
@@ -152,7 +152,7 @@ export default async function Page({ searchParams }: { searchParams?: Promise<Me
       </form>
 
       <div className="mb-4 flex flex-wrap items-center gap-2 text-xs">
-        <FilterLink href={toggleFavoriteHref(filters)} active={favorite === true} activeClassName="border-amber-400/40 bg-amber-400/20 text-amber-100" inactiveClassName="border-amber-400/20 bg-amber-400/[0.10] text-amber-200 hover:bg-amber-400/10" className="rounded-full border px-3 py-1 transition" title={favorite ? t("mediaPage.filter.titleToggleOffFav", locale) : t("mediaPage.filter.titleOnlyFav", locale)}>
+        <FilterLink href={toggleFavoriteHref(filters)} active={favorite === true} activeClassName="border-amber-400/40 bg-amber-400/20 text-[var(--warning)]" inactiveClassName="border-amber-400/20 bg-amber-400/[0.10] text-[var(--warning)] hover:bg-amber-400/10" className="rounded-full border px-3 py-1 transition" title={favorite ? t("mediaPage.filter.titleToggleOffFav", locale) : t("mediaPage.filter.titleOnlyFav", locale)}>
           {t("mediaPage.favoriteFilter", locale).replace("{count}", String(favCount))}
         </FilterLink>
       </div>
@@ -207,7 +207,7 @@ export default async function Page({ searchParams }: { searchParams?: Promise<Me
           <div className="mb-3 flex items-center gap-2">
             <span className="text-lg">🖥️</span>
             <h2 className="text-sm font-semibold text-[var(--text-primary)]">{serverName}</h2>
-            <span className="rounded-full border border-[var(--border)] px-2 py-0.5 text-[10px] text-[var(--text-muted)]">{t("mediaPage.itemCount", locale).replace("{count}", String(items.length))}</span>
+            <span className="rounded-lg border border-[var(--border)] px-2 py-0.5 text-[10px] text-[var(--text-muted)]">{t("mediaPage.itemCount", locale).replace("{count}", String(items.length))}</span>
           </div>
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
             {items.map((m) => (

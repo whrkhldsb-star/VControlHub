@@ -153,7 +153,7 @@ export function UserManagementClient({ canManage = false }: { canManage?: boolea
             type="button"
             onClick={() => setShowCreateForm(!showCreateForm)}
             data-tone="accent"
-            className="rounded-full border px-4 py-2 text-sm transition"
+            className="rounded-lg border px-4 py-2 text-sm transition"
           >
             {showCreateForm ? t("usersPage.action.cancel") : t("usersPage.action.create")}
           </button>
@@ -223,7 +223,7 @@ export function UserManagementClient({ canManage = false }: { canManage?: boolea
             onClick={handleCreate}
             disabled={creating || !createForm.username || !createForm.password}
             data-tone="accent"
-            className="rounded-full border px-6 py-2 text-sm font-medium transition disabled:opacity-50"
+            className="rounded-lg border px-6 py-2 text-sm font-medium transition disabled:opacity-50"
           >
             {creating ? t("usersPage.action.creating") : t("usersPage.action.confirm")}
           </button>
@@ -245,7 +245,7 @@ export function UserManagementClient({ canManage = false }: { canManage?: boolea
                 <div className="min-w-0">
                   <div className="flex items-center gap-3">
                     <span className="text-[var(--text-primary)] font-medium">{user.displayName ?? user.username}</span>
-                    <span data-tone={statusTone(user.status)} className="rounded-full border px-2 py-0.5 text-[10px] font-medium">
+                    <span data-tone={statusTone(user.status)} className="rounded-lg border px-2 py-0.5 text-[10px] font-medium">
                       {statusLabel(user.status, t)}
                     </span>
                   </div>
@@ -256,7 +256,7 @@ export function UserManagementClient({ canManage = false }: { canManage?: boolea
                   </div>
                   <div className="mt-2 flex flex-wrap gap-1.5">
                     {user.roles.map((role) => (
-                      <span key={role.key} data-tone={roleBadgeTone(role.key)} className="rounded-full border px-2 py-0.5 text-[10px] font-medium">
+                      <span key={role.key} data-tone={roleBadgeTone(role.key)} className="rounded-lg border px-2 py-0.5 text-[10px] font-medium">
                         {t(`usersPage.role.${role.key}`)}
                       </span>
                     ))}
@@ -269,7 +269,7 @@ export function UserManagementClient({ canManage = false }: { canManage?: boolea
                         type="button"
                         onClick={() => setEditingPermissionsUser(user)}
                         data-tone="accent"
-                        className="rounded-full border px-3 py-1.5 text-xs transition"
+                        className="rounded-lg border px-3 py-1.5 text-xs transition"
                       >
                         {t("usersPage.action.permissions")}
                       </button>
@@ -278,7 +278,7 @@ export function UserManagementClient({ canManage = false }: { canManage?: boolea
                           type="button"
                           onClick={() => handleToggleStatus(user.id, user.status, user.username)}
                           data-tone="danger"
-                          className="rounded-full border px-3 py-1.5 text-xs transition"
+                          className="rounded-lg border px-3 py-1.5 text-xs transition"
                         >
                           {t("usersPage.action.disable")}
                         </button>
@@ -287,7 +287,7 @@ export function UserManagementClient({ canManage = false }: { canManage?: boolea
                           type="button"
                           onClick={() => handleToggleStatus(user.id, user.status, user.username)}
                           data-tone="success"
-                          className="rounded-full border px-3 py-1.5 text-xs transition"
+                          className="rounded-lg border px-3 py-1.5 text-xs transition"
                         >
                           {t("usersPage.action.enable")}
                         </button>

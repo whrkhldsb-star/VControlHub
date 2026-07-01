@@ -30,7 +30,7 @@ export function SearchScopeToggle({
 	);
 
 	return (
-		<div className="flex gap-1 rounded-full border border-[var(--border)] bg-[var(--surface-subtle)] p-1">
+		<div className="flex gap-1 rounded-lg border border-[var(--border)] bg-[var(--surface-subtle)] p-1">
 			<button
 				type="button"
 				onClick={(e) => handleClick("current", e)}

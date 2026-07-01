@@ -704,7 +704,7 @@ export function TextPreviewClient({
 				</span>
 				<span className="text-xs text-[var(--text-muted)]">{t("textPreview.linesCount").replace("{count}", String(totalLines))}</span>
 				{canEdit ? (
-					<span data-tone="emerald" className="rounded-full border border-emerald-400/30 px-3 py-1 text-xs text-emerald-200">
+					<span data-tone="emerald" className="rounded-lg border border-emerald-400/30 px-3 py-1 text-xs text-emerald-200">
 						{t("textPreview.editHint")}
 					</span>
 				) : null}

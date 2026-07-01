@@ -98,7 +98,7 @@ export function ServiceCard({
 				</div>
 				<div className="flex items-center gap-1.5">
 					{isRemote && (
-						<span className="text-[10px] px-1.5 py-0.5 rounded-full border border-violet-400/20 bg-violet-500/[0.10] text-violet-400">
+						<span className="text-[10px] px-1.5 py-0.5 rounded-lg border border-violet-400/20 bg-violet-500/[0.10] text-violet-400">
 							{item.source}
 						</span>
 					)}
