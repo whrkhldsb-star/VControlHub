@@ -1,6 +1,23 @@
 "use client";
 
 import { useCallback, useState } from "react";
+import {
+	DndContext,
+	KeyboardSensor,
+	PointerSensor,
+	closestCenter,
+	type DragEndEvent,
+	useSensor,
+	useSensors,
+} from "@dnd-kit/core";
+import {
+	SortableContext,
+	arrayMove,
+	sortableKeyboardCoordinates,
+	useSortable,
+	verticalListSortingStrategy,
+} from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
 import { csrfFetch } from "@/lib/auth/csrf-client";
 import { useI18n } from "@/lib/i18n/use-locale";
 import { useToast } from "@/components/toast-provider";
@@ -92,6 +109,13 @@ function makeNewStep(): SerializedStep {
 		retry: 0,
 		timeoutSec: 60,
 	};
+}
+
+export function reorderSteps(steps: SerializedStep[], activeId: string, overId: string) {
+	const oldIndex = steps.findIndex((step) => step.id === activeId);
+	const newIndex = steps.findIndex((step) => step.id === overId);
+	if (oldIndex < 0 || newIndex < 0 || oldIndex === newIndex) return steps;
+	return arrayMove(steps, oldIndex, newIndex);
 }
 
 export function PlaybookListClient({ playbooks: initial, runsByPlaybook: initialRuns, canManage, canRun }: Props) {
@@ -382,6 +406,15 @@ function CreatePlaybookForm({ onClose }: { onClose: () => void }) {
 		setSteps((prev) =>
 			prev.map((s) => (s.id === id ? { ...s, config: { ...s.config, ...patch } } : s)),
 		);
+	const sensors = useSensors(
+		useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
+		useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
+	);
+	const handleStepDragEnd = (event: DragEndEvent) => {
+		const { active, over } = event;
+		if (!over || active.id === over.id) return;
+		setSteps((prev) => reorderSteps(prev, String(active.id), String(over.id)));
+	};
 
 	const handleSubmit = async (e: React.FormEvent) => {
 		e.preventDefault();
@@ -577,73 +610,23 @@ function CreatePlaybookForm({ onClose }: { onClose: () => void }) {
 						{t("playbooksPage.createForm.addStep")}
 					</button>
 				</div>
-				<div className="space-y-2">
-					{steps.map((step, idx) => (
-						<div key={step.id} data-card className="p-3 space-y-2">
-							<div className="flex items-center gap-2">
-								<span className="text-xs text-slate-500">#{idx + 1}</span>
-								<input
-									aria-label={t("playbooksPage.createForm.stepName")}
-									value={step.name}
-									onChange={(e) => updateStep(step.id, { name: e.target.value })}
-									placeholder={t("playbooksPage.createForm.stepNamePlaceholder")}
-									className={`${fieldInputClass} flex-1`}
-									required
+				<DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleStepDragEnd}>
+					<SortableContext items={steps.map((step) => step.id)} strategy={verticalListSortingStrategy}>
+						<div className="space-y-2" aria-label={t("playbooksPage.createForm.stepsSortableRegion")}>
+							{steps.map((step, idx) => (
+								<SortableStepCard
+									key={step.id}
+									step={step}
+									index={idx}
+									stepCount={steps.length}
+									onRemove={removeStep}
+									onUpdate={updateStep}
+									onConfigChange={updateStepConfig}
 								/>
-								<select
-									aria-label="step type"
-									value={step.type}
-									onChange={(e) => {
-										const newType = e.target.value as StepType;
-										updateStep(step.id, { type: newType, config: defaultConfigFor(newType) });
-									}}
-									className={fieldInputClass}
-								>
-									{(["run_command", "send_notification", "call_webhook"] as StepType[]).map((tp) => (
-										<option key={tp} value={tp}>
-											{stepTypeLabel(t, tp)}
-										</option>
-									))}
-								</select>
-								{steps.length > 1 && (
-									<button
-										type="button"
-										onClick={() => removeStep(step.id)}
-										data-tone="danger"
-										className="min-h-9 rounded-lg border px-2 py-1 text-xs"
-									>
-										×
-									</button>
-								)}
-							</div>
-							<StepConfigEditor step={step} onConfigChange={(p) => updateStepConfig(step.id, p)} />
-							<div className="grid gap-2 md:grid-cols-2">
-								<div className="space-y-1">
-									<label className="text-[11px] text-slate-400">{t("playbooksPage.createForm.retry")}</label>
-									<input
-										type="number"
-										min={0}
-										max={5}
-										value={step.retry}
-										onChange={(e) => updateStep(step.id, { retry: Number(e.target.value) })}
-										className={fieldInputClass}
-									/>
-								</div>
-								<div className="space-y-1">
-									<label className="text-[11px] text-slate-400">{t("playbooksPage.createForm.timeoutSec")}</label>
-									<input
-										type="number"
-										min={1}
-										max={3600}
-										value={step.timeoutSec}
-										onChange={(e) => updateStep(step.id, { timeoutSec: Number(e.target.value) })}
-										className={fieldInputClass}
-									/>
-								</div>
-							</div>
+							))}
 						</div>
-					))}
-				</div>
+					</SortableContext>
+				</DndContext>
 			</div>
 
 			<label className="flex items-center gap-2 text-sm text-slate-300">
@@ -673,6 +656,109 @@ function CreatePlaybookForm({ onClose }: { onClose: () => void }) {
 				</button>
 			</div>
 		</form>
+	);
+}
+
+function SortableStepCard({
+	step,
+	index,
+	stepCount,
+	onRemove,
+	onUpdate,
+	onConfigChange,
+}: {
+	step: SerializedStep;
+	index: number;
+	stepCount: number;
+	onRemove: (id: string) => void;
+	onUpdate: (id: string, patch: Partial<SerializedStep>) => void;
+	onConfigChange: (id: string, patch: Record<string, unknown>) => void;
+}) {
+	const { t } = useI18n();
+	const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: step.id });
+	const style = {
+		transform: CSS.Transform.toString(transform),
+		transition,
+	};
+
+	return (
+		<div
+			ref={setNodeRef}
+			style={style}
+			data-card
+			data-testid={`playbook-step-${step.id}`}
+			className={`p-3 space-y-2 ${isDragging ? "relative z-10 opacity-80 ring-2 ring-cyan-400/40" : ""}`}
+		>
+			<div className="flex items-center gap-2">
+				<button
+					type="button"
+					className="min-h-9 cursor-grab rounded-lg border border-white/[0.08] px-2 py-1 text-xs text-slate-400 transition hover:bg-white/[0.06] active:cursor-grabbing"
+					aria-label={t("playbooksPage.createForm.dragHandleAria").replace("{index}", String(index + 1))}
+					{...attributes}
+					{...listeners}
+				>
+					☰ #{index + 1}
+				</button>
+				<input
+					aria-label={t("playbooksPage.createForm.stepName")}
+					value={step.name}
+					onChange={(e) => onUpdate(step.id, { name: e.target.value })}
+					placeholder={t("playbooksPage.createForm.stepNamePlaceholder")}
+					className={`${fieldInputClass} flex-1`}
+					required
+				/>
+				<select
+					aria-label="step type"
+					value={step.type}
+					onChange={(e) => {
+						const newType = e.target.value as StepType;
+						onUpdate(step.id, { type: newType, config: defaultConfigFor(newType) });
+					}}
+					className={fieldInputClass}
+				>
+					{(["run_command", "send_notification", "call_webhook"] as StepType[]).map((tp) => (
+						<option key={tp} value={tp}>
+							{stepTypeLabel(t, tp)}
+						</option>
+					))}
+				</select>
+				{stepCount > 1 && (
+					<button
+						type="button"
+						onClick={() => onRemove(step.id)}
+						data-tone="danger"
+						className="min-h-9 rounded-lg border px-2 py-1 text-xs"
+					>
+						×
+					</button>
+				)}
+			</div>
+			<StepConfigEditor step={step} onConfigChange={(p) => onConfigChange(step.id, p)} />
+			<div className="grid gap-2 md:grid-cols-2">
+				<div className="space-y-1">
+					<label className="text-[11px] text-slate-400">{t("playbooksPage.createForm.retry")}</label>
+					<input
+						type="number"
+						min={0}
+						max={5}
+						value={step.retry}
+						onChange={(e) => onUpdate(step.id, { retry: Number(e.target.value) })}
+						className={fieldInputClass}
+					/>
+				</div>
+				<div className="space-y-1">
+					<label className="text-[11px] text-slate-400">{t("playbooksPage.createForm.timeoutSec")}</label>
+					<input
+						type="number"
+						min={1}
+						max={3600}
+						value={step.timeoutSec}
+						onChange={(e) => onUpdate(step.id, { timeoutSec: Number(e.target.value) })}
+						className={fieldInputClass}
+					/>
+				</div>
+			</div>
+		</div>
 	);
 }
 
