@@ -114,7 +114,7 @@ export function DashboardWidgetDetailDialog({
 						{t("dashboard.widget-detail-close")}
 					</button>
 				</div>
-				<div className="dashboard-widget-detail-body text-sm text-slate-200">
+				<div className="dashboard-widget-detail-body text-sm text-[var(--text-primary)]">
 					{widgetEl ? (
 						// Render a clone of the live widget so the user sees
 						// the same content as on the dashboard. We strip the
@@ -122,7 +122,7 @@ export function DashboardWidgetDetailDialog({
 						// make sure hidden widgets can still be inspected.
 						<WidgetClone host={widgetEl} />
 						) : (
-						<p className="text-slate-400">{t("common.noContent")}</p>
+						<p className="text-[var(--text-secondary)]">{t("common.noContent")}</p>
 						)}
 				</div>
 			</div>

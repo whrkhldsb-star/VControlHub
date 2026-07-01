@@ -90,36 +90,36 @@ export function AnnouncementList({
         <div className="relative flex-1">
           <label
             htmlFor="announcements-search"
-            className="mb-1 block text-xs font-medium text-slate-400"
+            className="mb-1 block text-xs font-medium text-[var(--text-secondary)]"
           >
             {t("announcementsPage.search.label")}
           </label>
-          <Search size={14} className="absolute left-3 top-[2.35rem] text-slate-500" />
+          <Search size={14} className="absolute left-3 top-[2.35rem] text-[var(--text-muted)]" />
           <input
             id="announcements-search"
             type="search"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder={t("announcementsPage.search.placeholder")}
-            className="w-full rounded-lg border border-[var(--border)] bg-white/[0.04] pl-9 pr-4 py-2 text-sm text-white outline-none placeholder:text-[var(--text-muted)]"
+            className="w-full rounded-lg border border-[var(--border)] bg-[var(--surface)]/[0.04] pl-9 pr-4 py-2 text-sm text-[var(--text-primary)] outline-none placeholder:text-[var(--text-muted)]"
           />
         </div>
         <select
           value={levelFilter}
           onChange={(e) => setLevelFilter(e.target.value)}
           aria-label={t("announcementsPage.filter.label")}
-          className="rounded-lg border border-[var(--border)] bg-white/[0.04] px-3 py-2 text-sm text-white outline-none"
+          className="rounded-lg border border-[var(--border)] bg-[var(--surface)]/[0.04] px-3 py-2 text-sm text-[var(--text-primary)] outline-none"
         >
           {levels.map((l) => (
             <option key={l} value={l}>{l === "ALL" ? t("announcementsPage.filter.all") : levelLabel(t, l)}</option>
           ))}
         </select>
-        <span className="text-xs text-slate-500">{t("announcementsPage.count").replace("{count}", String(filtered.length))}</span>
+        <span className="text-xs text-[var(--text-muted)]">{t("announcementsPage.count").replace("{count}", String(filtered.length))}</span>
       </div>
 
       <div className="grid gap-4">
         {filtered.length === 0 ? (
-          <div data-card className=" p-8 text-center text-sm text-slate-500">
+          <div data-card className=" p-8 text-center text-sm text-[var(--text-muted)]">
             {items.length === 0 ? t("announcementsPage.empty") : t("announcementsPage.emptyFiltered")}
           </div>
         ) : (
@@ -129,27 +129,27 @@ export function AnnouncementList({
                 <div>
                   <div className="flex items-center gap-2">
                     {a.pinned && <span className="text-xs text-amber-400">{t("common.pinned")}</span>}
-                    <span className="text-xs text-slate-500">{levelLabel(t, a.level)}</span>
+                    <span className="text-xs text-[var(--text-muted)]">{levelLabel(t, a.level)}</span>
                   </div>
-                  <h2 className="mt-1 text-base font-semibold text-white">{a.title}</h2>
+                  <h2 className="mt-1 text-base font-semibold text-[var(--text-primary)]">{a.title}</h2>
                 </div>
                 <div className="flex items-center gap-2">
-                  <span className="text-xs text-slate-500 whitespace-nowrap">{new Date(a.startsAt).toLocaleDateString("en-US")}</span>
+                  <span className="text-xs text-[var(--text-muted)] whitespace-nowrap">{new Date(a.startsAt).toLocaleDateString("en-US")}</span>
                   {canManage && (
                     <div className="flex items-center gap-1 opacity-0 transition group-hover:opacity-100">
-                      <button onClick={() => setEditing(a)} title={t("announcementsPage.action.edit")} className="rounded-lg p-1.5 text-slate-500 hover:bg-white/10 hover:text-cyan-400">
+                      <button onClick={() => setEditing(a)} title={t("announcementsPage.action.edit")} className="rounded-lg p-1.5 text-[var(--text-muted)] hover:bg-[var(--surface)]/10 hover:text-cyan-400">
                         <Pencil size={14} />
                       </button>
-                      <button onClick={() => { setPendingDelete(a); setDeleteError(null); }} title={t("announcementsPage.action.delete")} aria-label={t("announcementsPage.action.deleteAria").replace("{title}", a.title)} className="rounded-lg p-1.5 text-slate-500 hover:bg-white/10 hover:text-rose-400">
+                      <button onClick={() => { setPendingDelete(a); setDeleteError(null); }} title={t("announcementsPage.action.delete")} aria-label={t("announcementsPage.action.deleteAria").replace("{title}", a.title)} className="rounded-lg p-1.5 text-[var(--text-muted)] hover:bg-[var(--surface)]/10 hover:text-rose-400">
                         <Trash2 size={14} />
                       </button>
                     </div>
                   )}
                 </div>
               </div>
-              <p className="mt-3 text-sm text-slate-300 whitespace-pre-wrap leading-relaxed">{a.body}</p>
+              <p className="mt-3 text-sm text-[var(--text-secondary)] whitespace-pre-wrap leading-relaxed">{a.body}</p>
               {a.expiresAt && (
-                <p className="mt-3 text-xs text-slate-500">{t("common.validUntil")} {new Date(a.expiresAt).toLocaleString("en-US")}</p>
+                <p className="mt-3 text-xs text-[var(--text-muted)]">{t("common.validUntil")} {new Date(a.expiresAt).toLocaleString("en-US")}</p>
               )}
             </div>
           ))
@@ -165,7 +165,7 @@ export function AnnouncementList({
       )}
 
       {pendingDelete && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 p-4 backdrop-blur-sm" role="presentation">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-[var(--surface)]/70 p-4 backdrop-blur-sm" role="presentation">
           <div role="dialog" aria-modal="true" aria-labelledby="delete-announcement-title" className="w-full max-w-md rounded-2xl border border-[var(--border)] bg-[var(--modal-bg)] p-5 shadow-2xl shadow-black/30">
             <h3 id="delete-announcement-title" className="text-base font-semibold text-[var(--text-primary)]">{t("announcementsPage.delete.title")}</h3>
             <p className="mt-2 text-sm leading-6 text-[var(--text-muted)]">{t("announcementsPage.delete.confirm").replace("{title}", pendingDelete.title)}</p>

@@ -159,7 +159,7 @@ function Toggle({ label, checked, onChange }: { label: string; checked: boolean;
 				onClick={() => onChange(!checked)}
 				className={`relative w-10 h-5 rounded-full transition focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--surface-root)] ${checked ? "bg-[var(--accent)]" : "bg-[var(--border-strong)]"}`}
 			>
-				<span aria-hidden="true" className={`absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white transition ${checked ? "translate-x-5" : ""}`} />
+				<span aria-hidden="true" className={`absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-[var(--surface)] transition ${checked ? "translate-x-5" : ""}`} />
 			</button>
 		</div>
 	);

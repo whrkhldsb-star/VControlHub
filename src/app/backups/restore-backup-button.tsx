@@ -73,7 +73,7 @@ export function RestoreBackupButton({ backupId, backupType, disabled = false }: 
       {message && <p className="text-xs text-emerald-300">{message}</p>}
       {error && <p className="text-xs text-rose-300">{error}</p>}
       {confirmOpen && (
-        <div className="fixed inset-0 z-50 flex items-end justify-center overflow-y-auto bg-slate-950/75 p-0 backdrop-blur-sm sm:items-center sm:p-4" role="presentation">
+        <div className="fixed inset-0 z-50 flex items-end justify-center overflow-y-auto bg-[var(--surface)]/75 p-0 backdrop-blur-sm sm:items-center sm:p-4" role="presentation">
           <div
             role="dialog"
             aria-modal="true"
@@ -91,7 +91,7 @@ export function RestoreBackupButton({ backupId, backupType, disabled = false }: 
                 value={confirmText}
                 onChange={(event) => setConfirmText(event.target.value)}
                 autoFocus
-                className="min-h-11 rounded-xl border border-[var(--border)] bg-white/[0.04] px-3 py-2 text-sm text-[var(--text-primary)] outline-none placeholder:text-[var(--text-muted)] focus:border-rose-300/60"
+                className="min-h-11 rounded-xl border border-[var(--border)] bg-[var(--surface)]/[0.04] px-3 py-2 text-sm text-[var(--text-primary)] outline-none placeholder:text-[var(--text-muted)] focus:border-rose-300/60"
                 placeholder={CONFIRM_TEXT}
               />
             </label>
@@ -105,7 +105,7 @@ export function RestoreBackupButton({ backupId, backupType, disabled = false }: 
                   setConfirmText("");
                   setError(null);
                 }}
-                className="min-h-11 rounded-xl border border-[var(--border)] px-4 py-2 text-sm text-[var(--text-secondary)] transition hover:bg-white/5 disabled:opacity-50"
+                className="min-h-11 rounded-xl border border-[var(--border)] px-4 py-2 text-sm text-[var(--text-secondary)] transition hover:bg-[var(--surface)]/5 disabled:opacity-50"
               >
                 取消
               </button>

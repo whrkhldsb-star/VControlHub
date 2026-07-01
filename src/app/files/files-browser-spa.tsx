@@ -215,7 +215,7 @@ function NodeFilterSelect({
           <button
             type="button"
             onClick={() => onChange("")}
-            className="text-cyan-300 hover:text-cyan-100 light:hover:text-cyan-700 light:hover:text-cyan-900"
+            className="text-cyan-300 hover:text-[var(--text-primary)] light:hover:text-cyan-700 light:hover:text-cyan-900"
           >
             {t("filesBrowserSpa.clear")}
           </button>
@@ -330,8 +330,8 @@ function FolderTreeClient({
             <div
               className={`flex items-center gap-1 rounded-2xl transition ${
                 isCurrent
-                  ? "bg-cyan-400/10 text-cyan-100"
-                  : "text-[var(--text-secondary)] hover:bg-white/5 hover:text-[var(--text-primary)]"
+                  ? "bg-cyan-400/10 text-[var(--text-primary)]"
+                  : "text-[var(--text-secondary)] hover:bg-[var(--surface)]/5 hover:text-[var(--text-primary)]"
               }`}
             >
               <button
@@ -345,7 +345,7 @@ function FolderTreeClient({
                     : t("filesBrowserSpa.openChild").replace("{name}", child.displayName ?? child.name)
                 }
                 aria-expanded={hasChildren ? isExpanded : undefined}
-                className="grid h-8 w-8 flex-none place-items-center rounded-xl text-xs text-[var(--text-secondary)] hover:bg-white/10 hover:text-[var(--text-primary)] light:hover:text-slate-900"
+                className="grid h-8 w-8 flex-none place-items-center rounded-xl text-xs text-[var(--text-secondary)] hover:bg-[var(--surface)]/10 hover:text-[var(--text-primary)] light:hover:text-slate-900"
               >
                 {hasChildren ? (isExpanded ? "▾" : "▸") : "•"}
               </button>
@@ -408,7 +408,7 @@ function BreadcrumbsClient({
       <button
         type="button"
         onClick={() => onNavigate("")}
-        className="rounded-full border border-[var(--border)] px-3 py-1.5 text-[var(--text-secondary)] hover:bg-white/5"
+        className="rounded-full border border-[var(--border)] px-3 py-1.5 text-[var(--text-secondary)] hover:bg-[var(--surface)]/5"
       >
         {t("filesBrowserSpa.allFiles")}
       </button>
@@ -420,14 +420,14 @@ function BreadcrumbsClient({
           <span key={nextPath} className="flex items-center gap-2">
             <span>/</span>
             {isLast ? (
-              <span data-tone="cyan" className="rounded-full border border-cyan-400/30 px-3 py-1.5 text-cyan-100">
+              <span data-tone="cyan" className="rounded-full border border-cyan-400/30 px-3 py-1.5 text-[var(--text-primary)]">
                 {displaySegment}
               </span>
             ) : (
               <button
                 type="button"
                 onClick={() => onNavigate(nextPath)}
-                className="rounded-full border border-[var(--border)] px-3 py-1.5 text-[var(--text-secondary)] hover:bg-white/5"
+                className="rounded-full border border-[var(--border)] px-3 py-1.5 text-[var(--text-secondary)] hover:bg-[var(--surface)]/5"
               >
                 {displaySegment}
               </button>
@@ -572,12 +572,12 @@ export function FilesBrowserSpa({
             onClick={() => handleTreeNavigate("")}
             className={`flex min-h-11 w-full items-center justify-between rounded-2xl px-3 py-2 text-left text-sm ${
               data.currentPath === ""
-                ? "bg-cyan-400/10 text-cyan-100"
-                : "text-cyan-100 hover:bg-white/5"
+                ? "bg-cyan-400/10 text-[var(--text-primary)]"
+                : "text-[var(--text-primary)] hover:bg-[var(--surface)]/5"
             }`}
           >
             <span>{t("filesBrowserSpa.allFiles")}</span>
-            <span className="text-xs text-cyan-200/70">
+            <span className="text-xs text-[var(--text-secondary)]/70">
               {data.stats.totalEntries}
             </span>
           </button>
@@ -649,7 +649,7 @@ export function FilesBrowserSpa({
                 </div>
                 <button
                   type="submit"
-                  data-tone="cyan" className="rounded-full border border-cyan-400/30 px-5 py-2.5 text-sm font-medium text-cyan-100 transition hover:bg-cyan-400/20"
+                  data-tone="cyan" className="rounded-full border border-cyan-400/30 px-5 py-2.5 text-sm font-medium text-[var(--text-primary)] transition hover:bg-cyan-400/20"
                 >
                   {t("filesBrowserSpa.searchLabel")}
                 </button>
@@ -660,7 +660,7 @@ export function FilesBrowserSpa({
                       setSearchInput("");
                       fetchFiles(data.currentPath);
                     }}
-                    className="rounded-full border border-[var(--border)] bg-white/5 px-5 py-2.5 text-sm font-medium text-[var(--text-secondary)] transition hover:bg-white/10"
+                    className="rounded-full border border-[var(--border)] bg-[var(--surface)]/5 px-5 py-2.5 text-sm font-medium text-[var(--text-secondary)] transition hover:bg-[var(--surface)]/10"
                   >
                     {t("filesBrowserSpa.clear")}
                   </button>
@@ -741,7 +741,7 @@ export function FilesBrowserSpa({
                         ? t("filesBrowserSpa.cannotCreateFolderNoPermission")
                         : t("filesBrowserSpa.cannotCreateFolderNoNode")
                     }
-                    className="cursor-not-allowed rounded-full border border-[var(--border)] bg-white/5 px-4 py-2 text-sm font-medium text-[var(--text-secondary)]"
+                    className="cursor-not-allowed rounded-full border border-[var(--border)] bg-[var(--surface)]/5 px-4 py-2 text-sm font-medium text-[var(--text-secondary)]"
                   >
                     {t("filesBrowserSpa.createFolder")}
                   </button>

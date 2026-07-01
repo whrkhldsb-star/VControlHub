@@ -64,8 +64,8 @@ export function ImagePreviewModal({
 				/>
 				<div className="mt-3 flex items-center justify-between gap-2">
 					<div>
-						<div className="text-sm text-white font-medium">{image.filename}</div>
-						<div className="text-xs text-slate-400 mt-1">
+						<div className="text-sm text-[var(--text-primary)] font-medium">{image.filename}</div>
+						<div className="text-xs text-[var(--text-secondary)] mt-1">
 							{formatSize(image.sizeBytes)} · {image.mimeType}
 						</div>
 					</div>

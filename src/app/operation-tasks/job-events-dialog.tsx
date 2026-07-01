@@ -171,10 +171,10 @@ export function JobEventsDialog({ jobId, open, onClose }: JobEventsDialogProps) 
             </div>
           ) : null}
           {loading && events.length === 0 ? (
-            <p className="text-sm text-slate-500">{t("jobEventsDialog.loading")}</p>
+            <p className="text-sm text-[var(--text-muted)]">{t("jobEventsDialog.loading")}</p>
           ) : null}
           {!loading && !error && events.length === 0 ? (
-            <p className="text-sm text-slate-500">{t("jobEventsDialog.empty")}</p>
+            <p className="text-sm text-[var(--text-muted)]">{t("jobEventsDialog.empty")}</p>
           ) : null}
           {events.length > 0 ? (
             <ol className="space-y-2">
@@ -186,16 +186,16 @@ export function JobEventsDialog({ jobId, open, onClose }: JobEventsDialogProps) 
                   <li
                     key={event.id}
                     data-tone={tone}
-                    className="rounded-lg border border-white/[0.06] bg-white/[0.02] px-3 py-2 text-xs text-slate-200"
+                    className="rounded-lg border border-[var(--border)]/[0.06] bg-[var(--surface)]/[0.02] px-3 py-2 text-xs text-[var(--text-primary)]"
                   >
                     <div className="flex flex-wrap items-center gap-2">
-                      <span className="font-medium text-white">{typeLabel}</span>
+                      <span className="font-medium text-[var(--text-primary)]">{typeLabel}</span>
                       <span data-tone={tone} className="rounded-lg border px-1.5 py-0.5 text-[10px] font-medium">
                         {levelLabels[tone]}
                       </span>
-                      <span className="text-slate-500">{formatTime(event.createdAt)}</span>
+                      <span className="text-[var(--text-muted)]">{formatTime(event.createdAt)}</span>
                       {event.workerId ? (
-                        <span className="font-mono text-[10px] text-slate-500" title={t("jobEventsDialog.workerIdTitle")}>
+                        <span className="font-mono text-[10px] text-[var(--text-muted)]" title={t("jobEventsDialog.workerIdTitle")}>
                           {event.workerId}
                         </span>
                       ) : null}
@@ -212,14 +212,14 @@ export function JobEventsDialog({ jobId, open, onClose }: JobEventsDialogProps) 
             </ol>
           ) : null}
         </div>
-        <div className="flex items-center justify-between border-t border-white/[0.06] px-5 py-3 text-xs text-slate-500">
+        <div className="flex items-center justify-between border-t border-[var(--border)]/[0.06] px-5 py-3 text-xs text-[var(--text-muted)]">
           <span>{t("jobEventsDialog.totalCount").replace("{count}", String(events.length)).replace("{more}", hasMore ? t("jobEventsDialog.moreSuffix") : "")}</span>
           <div className="flex gap-2">
             <button
               type="button"
               onClick={() => void load(false)}
               disabled={loading}
-              className="rounded-lg border border-white/[0.08] px-3 py-1.5 text-slate-300 hover:bg-white/[0.05] disabled:opacity-50"
+              className="rounded-lg border border-[var(--border)]/[0.08] px-3 py-1.5 text-[var(--text-secondary)] hover:bg-[var(--surface)]/[0.05] disabled:opacity-50"
             >
               {t("jobEventsDialog.refresh")}
             </button>
@@ -228,7 +228,7 @@ export function JobEventsDialog({ jobId, open, onClose }: JobEventsDialogProps) 
                 type="button"
                 onClick={() => void load(true)}
                 disabled={loading}
-                className="rounded-lg border border-white/[0.08] px-3 py-1.5 text-slate-300 hover:bg-white/[0.05] disabled:opacity-50"
+                className="rounded-lg border border-[var(--border)]/[0.08] px-3 py-1.5 text-[var(--text-secondary)] hover:bg-[var(--surface)]/[0.05] disabled:opacity-50"
               >
                 {t("jobEventsDialog.loadMore")}
               </button>

@@ -26,7 +26,7 @@ export default async function HealthPage() {
 	return (
 		<main className="p-6">
 			<PageHeader eyebrow="Health Center" title={t("healthPage.title")} description={t("healthPage.description")} className="mb-6">
-				<div className="rounded-full border border-[var(--border)] bg-white/[0.03] px-4 py-2 text-sm text-[var(--text-secondary)]">
+				<div className="rounded-full border border-[var(--border)] bg-[var(--surface)]/[0.03] px-4 py-2 text-sm text-[var(--text-secondary)]">
 					{t("healthPage.serverCount").replace("{count}", String(servers.length))}
 				</div>
 			</PageHeader>

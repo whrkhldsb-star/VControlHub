@@ -29,7 +29,7 @@ function AiInputAreaStub() {
 			aria-hidden
 			className="px-4 py-3 border-t border-[var(--border)] bg-[var(--surface-subtle)]"
 		>
-			<div className="h-10 w-full animate-pulse rounded-xl bg-white/[0.04]" />
+			<div className="h-10 w-full animate-pulse rounded-xl bg-[var(--surface)]/[0.04]" />
 		</div>
 	);
 }

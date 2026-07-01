@@ -269,7 +269,7 @@ export function QuickServicesClient({ canManage }: { canManage: boolean }) {
 
 	if (!canManage) {
 		return (
-			<div className="rounded-xl border border-dashed border-[var(--border)] bg-white/[0.02] p-12 text-center">
+			<div className="rounded-xl border border-dashed border-[var(--border)] bg-[var(--surface)]/[0.02] p-12 text-center">
 				<div className="text-4xl mb-3">🔒</div>
 				<p className="text-sm text-[var(--text-muted)]">{t("qsPage.permissionDenied")}</p>
 			</div>
@@ -356,7 +356,7 @@ export function QuickServicesClient({ canManage }: { canManage: boolean }) {
 				<div role={actions.message.type === "ok" ? "status" : "alert"} className={`rounded-lg px-4 py-3 text-sm ${actions.message.type === "ok" ? "bg-emerald-500/[0.08] border border-emerald-400/20 text-emerald-200" : "bg-rose-500/[0.08] border border-rose-400/20 text-rose-200"}`}>
 					<span>{actions.message.text}</span>
 					{actions.message.taskId ? (
-						<Link href="/operation-tasks" className="ml-3 inline-flex rounded-lg border border-current/30 px-2 py-1 text-xs font-semibold hover:bg-white/10 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-current">
+						<Link href="/operation-tasks" className="ml-3 inline-flex rounded-lg border border-current/30 px-2 py-1 text-xs font-semibold hover:bg-[var(--surface)]/10 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-current">
 							{t("qsPage.viewTaskCenter")}
 						</Link>
 					) : null}
@@ -371,7 +371,7 @@ export function QuickServicesClient({ canManage }: { canManage: boolean }) {
 			</div>
 
 			<section className="grid gap-3 lg:grid-cols-3">
-				<div className="rounded-2xl border border-[var(--border)] bg-white/[0.025] p-4">
+				<div className="rounded-2xl border border-[var(--border)] bg-[var(--surface)]/[0.025] p-4">
 					<div className="flex items-start justify-between gap-3">
 						<div>
 							<p className="text-xs uppercase tracking-[0.2em] text-[var(--text-muted)]">{t("qsPage.runningOverview")}</p>
@@ -401,7 +401,7 @@ export function QuickServicesClient({ canManage }: { canManage: boolean }) {
 						{runningItems.length === 0 && <p className="text-sm text-[var(--text-muted)]">{t("qsPage.recommendedHint")}</p>}
 					</div>
 				</div>
-				<div className="rounded-2xl border border-[var(--border)] bg-white/[0.025] p-4">
+				<div className="rounded-2xl border border-[var(--border)] bg-[var(--surface)]/[0.025] p-4">
 					<p className="text-xs uppercase tracking-[0.2em] text-[var(--text-muted)]">{t("qsPage.portsLabel")}</p>
 					<h3 className="mt-1 text-base font-semibold text-[var(--text-primary)]">{t("qsPage.listeningPortsCount").replace("{count}", String(usedPorts.length))}</h3>
 					<p className="mt-2 text-sm leading-6 text-[var(--text-muted)]">{t("qsPage.portsHint")}</p>
@@ -409,11 +409,11 @@ export function QuickServicesClient({ canManage }: { canManage: boolean }) {
 						{usedPorts.slice(0, 8).map((port) => <span key={port} className="rounded-full border border-[var(--border)] px-2 py-0.5 text-[10px] text-[var(--text-muted)]">{port}</span>)}
 					</div>
 				</div>
-				<div className="rounded-2xl border border-[var(--border)] bg-white/[0.025] p-4">
+				<div className="rounded-2xl border border-[var(--border)] bg-[var(--surface)]/[0.025] p-4">
 					<p className="text-xs uppercase tracking-[0.2em] text-[var(--text-muted)]">{t("qsPage.sourcesLabel")}</p>
 					<h3 className="mt-1 text-base font-semibold text-[var(--text-primary)]">{t("qsPage.sourcesEnabledCount").replace("{enabled}", String(sources.filter((s) => s.enabled).length)).replace("{total}", String(sources.length))}</h3>
 					<p className="mt-2 text-sm leading-6 text-[var(--text-muted)]">{lastSyncedSource ? t("qsPage.lastSynced").replace("{name}", lastSyncedSource.displayName) : t("qsPage.noSyncRecord")}</p>
-					<button type="button" onClick={() => setTab("sources")} className={`mt-3 rounded-lg border px-3 py-1.5 text-xs transition ${staleSources.length > 0 ? "border-amber-400/30 bg-amber-400/10 text-amber-100 hover:bg-amber-400/15" : "border-[var(--border)] text-[var(--text-secondary)] hover:bg-white/[0.06]"}`}>
+					<button type="button" onClick={() => setTab("sources")} className={`mt-3 rounded-lg border px-3 py-1.5 text-xs transition ${staleSources.length > 0 ? "border-amber-400/30 bg-amber-400/10 text-amber-100 hover:bg-amber-400/15" : "border-[var(--border)] text-[var(--text-secondary)] hover:bg-[var(--surface)]/[0.06]"}`}>
 						{staleSources.length > 0 ? t("qsPage.handleStaleSources").replace("{count}", String(staleSources.length)) : t("qsPage.manageSources")}
 					</button>
 				</div>
@@ -448,7 +448,7 @@ export function QuickServicesClient({ canManage }: { canManage: boolean }) {
 							<h2 className="text-sm font-semibold text-[var(--text-primary)]">{t("qsPage.recommendedHeader")}</h2>
 							<p className="mt-1 text-xs text-[var(--text-muted)]">{t("qsPage.recommendedSubheader")}</p>
 						</div>
-						<span className="rounded-full border border-cyan-400/20 px-2 py-1 text-[11px] text-cyan-200">{t("qsPage.mvpPriority")}</span>
+						<span className="rounded-full border border-cyan-400/20 px-2 py-1 text-[11px] text-[var(--text-secondary)]">{t("qsPage.mvpPriority")}</span>
 					</div>
 					<div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
 						{recommendedItems.map((item) => (
@@ -505,7 +505,7 @@ export function QuickServicesClient({ canManage }: { canManage: boolean }) {
 				if (items.length === 0) return null;
 				return (
 					<div key={cat} className="space-y-3">
-						<h2 className="text-sm font-semibold text-white/70 tracking-wide">{categoryLabels[cat] ?? cat}</h2>
+						<h2 className="text-sm font-semibold text-[var(--text-primary)]/70 tracking-wide">{categoryLabels[cat] ?? cat}</h2>
 						<div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
 							{items.map((item) => (
 								<ServiceCard
@@ -586,7 +586,7 @@ function SummaryPill({ label, value, tone }: { label: string; value: number; ton
 		emerald: "border-emerald-400/20 bg-emerald-500/[0.06] text-emerald-200",
 		amber: "border-amber-400/20 bg-amber-500/[0.06] text-amber-200",
 		rose: "border-rose-400/20 bg-rose-500/[0.06] text-rose-200",
-		cyan: "border-cyan-400/20 bg-cyan-500/[0.06] text-cyan-200",
+		cyan: "border-cyan-400/20 bg-cyan-500/[0.06] text-[var(--text-secondary)]",
 	}[tone];
 
 	return (

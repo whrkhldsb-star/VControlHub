@@ -170,7 +170,7 @@ export function SystemConfigSection() {
         <button
           onClick={handleExport}
           disabled={exporting}
-          className="px-4 py-2 text-sm rounded-md bg-[var(--accent)] text-white hover:opacity-90 disabled:opacity-50 transition"
+          className="px-4 py-2 text-sm rounded-md bg-[var(--accent)] text-[var(--text-primary)] hover:opacity-90 disabled:opacity-50 transition"
         >
           {exporting ? t("systemConfig.export.exporting") : t("systemConfig.export.button")}
         </button>
@@ -198,7 +198,7 @@ export function SystemConfigSection() {
             onChange={handleFileSelect}
             className="block w-full text-sm text-[var(--text-secondary)]
               file:mr-3 file:py-1.5 file:px-4 file:rounded-md
-              file:border-0 file:bg-[var(--accent)] file:text-white
+              file:border-0 file:bg-[var(--accent)] file:text-[var(--text-primary)]
               hover:file:opacity-90 cursor-pointer"
           />
           {selectedFileName && (
@@ -279,7 +279,7 @@ export function SystemConfigSection() {
             <button
               onClick={handleExecute}
               disabled={executing || preview.totalRecords === 0}
-              className="px-4 py-2 text-sm rounded-md bg-[var(--accent)] text-white hover:opacity-90 disabled:opacity-50 transition mt-2"
+              className="px-4 py-2 text-sm rounded-md bg-[var(--accent)] text-[var(--text-primary)] hover:opacity-90 disabled:opacity-50 transition mt-2"
             >
               {executing ? t("systemConfig.import.executing") : t("systemConfig.import.executeButton")}
             </button>

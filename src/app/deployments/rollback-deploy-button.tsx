@@ -72,7 +72,7 @@ export function RollbackDeployButton({ runId, templateName, disabled = false }: 
             setError(null);
           }}
           disabled={pending}
-          className="rounded-lg border border-[var(--border)] bg-white/5 px-3 py-1.5 text-xs font-medium text-[var(--text-secondary)] transition hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-60"
+          className="rounded-lg border border-[var(--border)] bg-[var(--surface)]/5 px-3 py-1.5 text-xs font-medium text-[var(--text-secondary)] transition hover:bg-[var(--surface)]/10 disabled:cursor-not-allowed disabled:opacity-60"
         >
           {t("common.cancel")}
         </button>

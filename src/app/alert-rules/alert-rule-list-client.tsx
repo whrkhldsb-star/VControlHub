@@ -147,7 +147,7 @@ export function AlertRuleListClient({ rules: initialRules, servers, canManage }:
 	return (
 		<div className="space-y-6">
 			{rulePendingDelete && (
-				<div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 p-4 backdrop-blur-sm" role="dialog" aria-modal="true" aria-labelledby="delete-alert-rule-title">
+				<div className="fixed inset-0 z-50 flex items-center justify-center bg-[var(--surface)]/70 p-4 backdrop-blur-sm" role="dialog" aria-modal="true" aria-labelledby="delete-alert-rule-title">
 					<div className="w-full max-w-md rounded-2xl border border-[var(--border)] bg-[var(--modal-bg)] p-5 shadow-2xl shadow-black/30">
 						<h3 id="delete-alert-rule-title" className="text-base font-semibold text-[var(--text-primary)]">{t("alertRulesPage.delete.title")}</h3>
 						<p className="mt-2 text-sm text-[var(--text-muted)]">
@@ -157,7 +157,7 @@ export function AlertRuleListClient({ rules: initialRules, servers, canManage }:
 							<button
 								type="button"
 								onClick={() => setRulePendingDelete(null)}
-								data-card className=" px-4 py-2 text-sm text-[var(--text-secondary)] transition hover:bg-white/[0.06]"
+								data-card className=" px-4 py-2 text-sm text-[var(--text-secondary)] transition hover:bg-[var(--surface)]/[0.06]"
 							>
 								{t("alertRulesPage.delete.cancel")}
 							</button>
@@ -175,7 +175,7 @@ export function AlertRuleListClient({ rules: initialRules, servers, canManage }:
 			)}
 			<div className="flex items-center gap-3 flex-wrap">
 				{canManage && !showCreate && (
-					<button onClick={() => setShowCreate(true)} data-tone="cyan" className="rounded-2xl border border-cyan-400/30 px-5 py-2.5 text-sm font-medium text-cyan-100 hover:bg-cyan-400/20 transition">
+					<button onClick={() => setShowCreate(true)} data-tone="cyan" className="rounded-2xl border border-cyan-400/30 px-5 py-2.5 text-sm font-medium text-[var(--text-primary)] hover:bg-cyan-400/20 transition">
 						{t("alertRulesPage.create")}
 					</button>
 				)}
@@ -184,7 +184,7 @@ export function AlertRuleListClient({ rules: initialRules, servers, canManage }:
 						type="button"
 						onClick={triggerNow}
 						disabled={busyAction === "trigger"}
-						className="rounded-2xl border border-[var(--border)] bg-white/[0.03] px-5 py-2.5 text-sm text-[var(--text-secondary)] hover:bg-white/[0.06] transition disabled:cursor-not-allowed disabled:opacity-60"
+						className="rounded-2xl border border-[var(--border)] bg-[var(--surface)]/[0.03] px-5 py-2.5 text-sm text-[var(--text-secondary)] hover:bg-[var(--surface)]/[0.06] transition disabled:cursor-not-allowed disabled:opacity-60"
 					>
 						{busyAction === "trigger" ? t("alertRulesPage.triggering") : t("alertRulesPage.triggerNow")}
 					</button>
@@ -198,14 +198,14 @@ export function AlertRuleListClient({ rules: initialRules, servers, canManage }:
 			)}
 
 			{testResult && (
-				<div role="status" data-tone="cyan" className="rounded-xl border border-cyan-400/20 px-4 py-3 text-sm text-cyan-100">
+				<div role="status" data-tone="cyan" className="rounded-xl border border-cyan-400/20 px-4 py-3 text-sm text-[var(--text-primary)]">
 					<p className="font-medium">{t("alertRulesPage.testResult").replace("{ruleName}", testResult.ruleName)}</p>
 					<ul className="mt-2 space-y-1">
 						{testResult.deliveries.map((delivery, index) => (
 							<li key={`${delivery.channel}-${index}`} className="flex flex-wrap gap-2 text-xs">
 								<span className="font-mono uppercase">{delivery.channel}</span>
 								<span>{deliveryStatusLabel(t, delivery.status)}</span>
-								<span className="text-cyan-100/70">{delivery.message}</span>
+								<span className="text-[var(--text-primary)]/70">{delivery.message}</span>
 							</li>
 						))}
 					</ul>
@@ -223,14 +223,14 @@ export function AlertRuleListClient({ rules: initialRules, servers, canManage }:
 			) : (
 				<div className="space-y-3">
 					{rules.map((rule) => (
-						<article key={rule.id} className={`rounded-xl border bg-white/[0.02] transition-colors duration-150 ${rule.enabled ? "border-[var(--border)] hover:bg-white/[0.04]" : "border-[var(--border)] opacity-60"}`}>
+						<article key={rule.id} className={`rounded-xl border bg-[var(--surface)]/[0.02] transition-colors duration-150 ${rule.enabled ? "border-[var(--border)] hover:bg-[var(--surface)]/[0.04]" : "border-[var(--border)] opacity-60"}`}>
 							<div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
 								<div>
 									<h2 className="text-lg font-semibold text-[var(--text-primary)]">{rule.name}</h2>
 									<p className="mt-1 text-xs text-[var(--text-muted)]">
 										{t("alertRulesPage.condition.when")} <span className="text-cyan-300/80">{metricLabel(t, rule.metric)}</span>{" "}
 										{rule.metric !== "server_offline" && <>
-											<span className="text-white/70">{operatorLabel(t, rule.operator)}</span>{" "}
+											<span className="text-[var(--text-primary)]/70">{operatorLabel(t, rule.operator)}</span>{" "}
 											<span className="text-amber-300 font-mono">{rule.threshold}%</span>
 										</>}
 										{rule.durationSeconds > 0 && <span className="text-[var(--text-muted)]">{t("alertRulesPage.condition.duration").replace("{seconds}", String(rule.durationSeconds))}</span>}
@@ -238,7 +238,7 @@ export function AlertRuleListClient({ rules: initialRules, servers, canManage }:
 									</p>
 									<div className="mt-2 flex flex-wrap gap-1.5">
 										{rule.notifyChannels.map((ch) => (
-											<span key={ch} className="rounded-lg border border-[var(--border)] bg-white/[0.04] px-1.5 py-0.5 text-[10px] text-[var(--text-muted)]">
+											<span key={ch} className="rounded-lg border border-[var(--border)] bg-[var(--surface)]/[0.04] px-1.5 py-0.5 text-[10px] text-[var(--text-muted)]">
 												{channelLabel(t, ch)}
 											</span>
 										))}
@@ -248,7 +248,7 @@ export function AlertRuleListClient({ rules: initialRules, servers, canManage }:
 							</span>
 						)}
 						{rule.cooldownMinutes > 0 && (
-							<span className="rounded-lg border border-[var(--border)] bg-white/[0.04] px-1.5 py-0.5 text-[10px] text-[var(--text-muted)]">
+							<span className="rounded-lg border border-[var(--border)] bg-[var(--surface)]/[0.04] px-1.5 py-0.5 text-[10px] text-[var(--text-muted)]">
 								{t("alertRulesPage.badge.cooldown").replace("{minutes}", String(rule.cooldownMinutes))}
 							</span>
 						)}
@@ -278,7 +278,7 @@ export function AlertRuleListClient({ rules: initialRules, servers, canManage }:
 						<button
 							onClick={() => testRule(rule)}
 							disabled={busyAction === `test:${rule.id}`}
-							data-tone="cyan" className="rounded-2xl border border-cyan-400/30 px-4 py-2 text-xs font-medium text-cyan-100 hover:bg-cyan-400/20 transition disabled:cursor-not-allowed disabled:opacity-60"
+							data-tone="cyan" className="rounded-2xl border border-cyan-400/30 px-4 py-2 text-xs font-medium text-[var(--text-primary)] hover:bg-cyan-400/20 transition disabled:cursor-not-allowed disabled:opacity-60"
 						>
 							{busyAction === `test:${rule.id}` ? t("alertRulesPage.action.sending") : t("alertRulesPage.action.testSend")}
 						</button>
@@ -361,14 +361,14 @@ function CreateRuleForm({ servers, onClose }: { servers: ServerOption[]; onClose
 			{error && <div className="rounded-lg bg-rose-500/[0.08] border border-rose-400/20 px-3.5 py-2.5 text-sm text-rose-200">{error}</div>}
 
 			<div className="space-y-1.5">
-				<label className="text-xs font-medium text-white/50 tracking-wide" htmlFor="alertRuleName">{t("alertRulesPage.createForm.name")}</label>
-				<input id="alertRuleName" value={name} onChange={(e) => setName(e.target.value)} required placeholder={t("alertRulesPage.createForm.namePlaceholder")} className="w-full rounded-lg border border-[var(--border)] bg-white/[0.04] px-3.5 py-2.5 text-sm text-[var(--text-primary)] outline-none transition placeholder:text-white/20 focus:border-cyan-400/30" />
+				<label className="text-xs font-medium text-[var(--text-primary)]/50 tracking-wide" htmlFor="alertRuleName">{t("alertRulesPage.createForm.name")}</label>
+				<input id="alertRuleName" value={name} onChange={(e) => setName(e.target.value)} required placeholder={t("alertRulesPage.createForm.namePlaceholder")} className="w-full rounded-lg border border-[var(--border)] bg-[var(--surface)]/[0.04] px-3.5 py-2.5 text-sm text-[var(--text-primary)] outline-none transition placeholder:text-[var(--text-primary)]/20 focus:border-cyan-400/30" />
 			</div>
 
 			<div className="grid gap-3 sm:grid-cols-3">
 				<div className="space-y-1.5">
-					<label className="text-xs font-medium text-white/50 tracking-wide" htmlFor="alertRuleMetric">{t("alertRulesPage.createForm.metric")}</label>
-					<select id="alertRuleMetric" value={metric} onChange={(e) => setMetric(e.target.value)} className="w-full rounded-lg border border-[var(--border)] bg-white/[0.04] px-3 py-2.5 text-sm text-[var(--text-primary)] outline-none">
+					<label className="text-xs font-medium text-[var(--text-primary)]/50 tracking-wide" htmlFor="alertRuleMetric">{t("alertRulesPage.createForm.metric")}</label>
+					<select id="alertRuleMetric" value={metric} onChange={(e) => setMetric(e.target.value)} className="w-full rounded-lg border border-[var(--border)] bg-[var(--surface)]/[0.04] px-3 py-2.5 text-sm text-[var(--text-primary)] outline-none">
 							<option value="cpu_usage">{t("alertRulesPage.createForm.metric.cpu_usage")}</option>
 							<option value="mem_usage">{t("alertRulesPage.createForm.metric.mem_usage")}</option>
 							<option value="disk_usage">{t("alertRulesPage.createForm.metric.disk_usage")}</option>
@@ -380,8 +380,8 @@ function CreateRuleForm({ servers, onClose }: { servers: ServerOption[]; onClose
 					</select>
 				</div>
 				{metric !== "server_offline" && <div className="space-y-1.5">
-					<label className="text-xs font-medium text-white/50 tracking-wide" htmlFor="alertRuleOperator">{t("alertRulesPage.createForm.operator")}</label>
-					<select id="alertRuleOperator" value={operator} onChange={(e) => setOperator(e.target.value)} className="w-full rounded-lg border border-[var(--border)] bg-white/[0.04] px-3 py-2.5 text-sm text-[var(--text-primary)] outline-none">
+					<label className="text-xs font-medium text-[var(--text-primary)]/50 tracking-wide" htmlFor="alertRuleOperator">{t("alertRulesPage.createForm.operator")}</label>
+					<select id="alertRuleOperator" value={operator} onChange={(e) => setOperator(e.target.value)} className="w-full rounded-lg border border-[var(--border)] bg-[var(--surface)]/[0.04] px-3 py-2.5 text-sm text-[var(--text-primary)] outline-none">
 							<option value="gt">{t("alertRulesPage.createForm.operator.gt")}</option>
 							<option value="gte">{t("alertRulesPage.createForm.operator.gte")}</option>
 							<option value="lt">{t("alertRulesPage.createForm.operator.lt")}</option>
@@ -389,27 +389,27 @@ function CreateRuleForm({ servers, onClose }: { servers: ServerOption[]; onClose
 					</select>
 				</div>}
 				{metric !== "server_offline" && <div className="space-y-1.5">
-					<label className="text-xs font-medium text-white/50 tracking-wide" htmlFor="alertThreshold">{t("alertRulesPage.createForm.threshold")}</label>
-					<input id="alertThreshold" type="number" value={threshold} onChange={(e) => setThreshold(Number(e.target.value))} min={0} max={100} className="w-full rounded-lg border border-[var(--border)] bg-white/[0.04] px-3 py-2.5 text-sm text-[var(--text-primary)] font-mono outline-none focus:border-cyan-400/30" />
+					<label className="text-xs font-medium text-[var(--text-primary)]/50 tracking-wide" htmlFor="alertThreshold">{t("alertRulesPage.createForm.threshold")}</label>
+					<input id="alertThreshold" type="number" value={threshold} onChange={(e) => setThreshold(Number(e.target.value))} min={0} max={100} className="w-full rounded-lg border border-[var(--border)] bg-[var(--surface)]/[0.04] px-3 py-2.5 text-sm text-[var(--text-primary)] font-mono outline-none focus:border-cyan-400/30" />
 				</div>}
 			</div>
 
 			<div className="grid gap-3 sm:grid-cols-2">
 				<div className="space-y-1.5">
-					<label className="text-xs font-medium text-white/50 tracking-wide" htmlFor="alertDurationSeconds">{t("alertRulesPage.createForm.duration")}</label>
-					<input id="alertDurationSeconds" type="number" value={durationSeconds} onChange={(e) => setDurationSeconds(Number(e.target.value))} min={0} className="w-full rounded-lg border border-[var(--border)] bg-white/[0.04] px-3.5 py-2.5 text-sm text-[var(--text-primary)] font-mono outline-none focus:border-cyan-400/30" />
+					<label className="text-xs font-medium text-[var(--text-primary)]/50 tracking-wide" htmlFor="alertDurationSeconds">{t("alertRulesPage.createForm.duration")}</label>
+					<input id="alertDurationSeconds" type="number" value={durationSeconds} onChange={(e) => setDurationSeconds(Number(e.target.value))} min={0} className="w-full rounded-lg border border-[var(--border)] bg-[var(--surface)]/[0.04] px-3.5 py-2.5 text-sm text-[var(--text-primary)] font-mono outline-none focus:border-cyan-400/30" />
 					<p className="text-xs text-[var(--text-muted)]">{t("alertRulesPage.createForm.durationHint")}</p>
 				</div>
 				<div className="space-y-1.5">
-					<label className="text-xs font-medium text-white/50 tracking-wide">{t("alertRulesPage.createForm.targetNodes")}</label>
-					<div className="flex flex-wrap gap-1.5 rounded-lg border border-[var(--border)] bg-white/[0.02] p-2">
+					<label className="text-xs font-medium text-[var(--text-primary)]/50 tracking-wide">{t("alertRulesPage.createForm.targetNodes")}</label>
+					<div className="flex flex-wrap gap-1.5 rounded-lg border border-[var(--border)] bg-[var(--surface)]/[0.02] p-2">
 						{servers.length === 0 ? (
 							<span className="text-xs text-[var(--text-muted)]">{t("alertRulesPage.createForm.noNodes")}</span>
 						) : (
 							<>
-								<button type="button" onClick={() => setSelectedServerIds([])} className={`rounded-lg border px-2.5 py-1 text-[11px] transition ${selectedServerIds.length === 0 ? "border-cyan-400/30 bg-cyan-400/10 text-cyan-200" : "border-[var(--border)] bg-white/[0.03] text-[var(--text-muted)]"}`}>{t("alertRulesPage.createForm.allNodes")}</button>
+								<button type="button" onClick={() => setSelectedServerIds([])} className={`rounded-lg border px-2.5 py-1 text-[11px] transition ${selectedServerIds.length === 0 ? "border-cyan-400/30 bg-cyan-400/10 text-[var(--text-secondary)]" : "border-[var(--border)] bg-[var(--surface)]/[0.03] text-[var(--text-muted)]"}`}>{t("alertRulesPage.createForm.allNodes")}</button>
 								{servers.map((server) => (
-									<button key={server.id} type="button" onClick={() => toggleServer(server.id)} className={`rounded-lg border px-2.5 py-1 text-[11px] transition ${selectedServerIds.includes(server.id) ? "border-cyan-400/30 bg-cyan-400/10 text-cyan-200" : "border-[var(--border)] bg-white/[0.03] text-[var(--text-muted)] hover:bg-white/[0.05]"}`}>
+									<button key={server.id} type="button" onClick={() => toggleServer(server.id)} className={`rounded-lg border px-2.5 py-1 text-[11px] transition ${selectedServerIds.includes(server.id) ? "border-cyan-400/30 bg-cyan-400/10 text-[var(--text-secondary)]" : "border-[var(--border)] bg-[var(--surface)]/[0.03] text-[var(--text-muted)] hover:bg-[var(--surface)]/[0.05]"}`}>
 											{server.name}
 									</button>
 								))}
@@ -420,7 +420,7 @@ function CreateRuleForm({ servers, onClose }: { servers: ServerOption[]; onClose
 			</div>
 
 			<div className="space-y-1.5">
-				<label className="text-xs font-medium text-white/50 tracking-wide">{t("alertRulesPage.createForm.channels")}</label>
+				<label className="text-xs font-medium text-[var(--text-primary)]/50 tracking-wide">{t("alertRulesPage.createForm.channels")}</label>
 				<div className="flex flex-wrap gap-2">
 					{[
 						{ key: "in_app", i18nKey: "alertRulesPage.createForm.channel.in_app" },
@@ -429,7 +429,7 @@ function CreateRuleForm({ servers, onClose }: { servers: ServerOption[]; onClose
 						{ key: "webhook", i18nKey: "alertRulesPage.createForm.channel.webhook" },
 					].map(({ key, i18nKey }) => (
 						<button key={key} type="button" onClick={() => toggleChannel(key)}
-							className={`rounded-lg border px-3 py-1.5 text-xs font-medium transition ${channels.includes(key) ? "border-cyan-400/30 bg-cyan-400/10 text-cyan-200" : "border-[var(--border)] bg-white/[0.03] text-[var(--text-muted)] hover:bg-white/[0.05]"}`}
+							className={`rounded-lg border px-3 py-1.5 text-xs font-medium transition ${channels.includes(key) ? "border-cyan-400/30 bg-cyan-400/10 text-[var(--text-secondary)]" : "border-[var(--border)] bg-[var(--surface)]/[0.03] text-[var(--text-muted)] hover:bg-[var(--surface)]/[0.05]"}`}
 						>
 								{t(i18nKey)}
 						</button>
@@ -439,19 +439,19 @@ function CreateRuleForm({ servers, onClose }: { servers: ServerOption[]; onClose
 
 			{channels.includes("webhook") && (
 				<div className="space-y-1.5">
-					<label className="text-xs font-medium text-white/50 tracking-wide" htmlFor="alertRuleWebhookUrl">{t("alertRulesPage.createForm.webhookUrl")}</label>
-					<input id="alertRuleWebhookUrl" value={webhookUrl} onChange={(e) => setWebhookUrl(e.target.value)} placeholder="https://hooks.example.com/..." className="w-full rounded-lg border border-[var(--border)] bg-white/[0.04] px-3.5 py-2.5 text-sm text-[var(--text-primary)] font-mono outline-none transition placeholder:text-white/20 focus:border-cyan-400/30" />
+					<label className="text-xs font-medium text-[var(--text-primary)]/50 tracking-wide" htmlFor="alertRuleWebhookUrl">{t("alertRulesPage.createForm.webhookUrl")}</label>
+					<input id="alertRuleWebhookUrl" value={webhookUrl} onChange={(e) => setWebhookUrl(e.target.value)} placeholder="https://hooks.example.com/..." className="w-full rounded-lg border border-[var(--border)] bg-[var(--surface)]/[0.04] px-3.5 py-2.5 text-sm text-[var(--text-primary)] font-mono outline-none transition placeholder:text-[var(--text-primary)]/20 focus:border-cyan-400/30" />
 				</div>
 			)}
 
 			<div className="space-y-1.5">
-				<label className="text-xs font-medium text-white/50 tracking-wide" htmlFor="alertRuleCooldown">{t("alertRulesPage.createForm.cooldown")}</label>
-				<input id="alertRuleCooldown" type="number" value={cooldown} onChange={(e) => setCooldown(Number(e.target.value))} min={1} className="w-full rounded-lg border border-[var(--border)] bg-white/[0.04] px-3.5 py-2.5 text-sm text-[var(--text-primary)] font-mono outline-none focus:border-cyan-400/30 w-32" />
+				<label className="text-xs font-medium text-[var(--text-primary)]/50 tracking-wide" htmlFor="alertRuleCooldown">{t("alertRulesPage.createForm.cooldown")}</label>
+				<input id="alertRuleCooldown" type="number" value={cooldown} onChange={(e) => setCooldown(Number(e.target.value))} min={1} className="w-full rounded-lg border border-[var(--border)] bg-[var(--surface)]/[0.04] px-3.5 py-2.5 text-sm text-[var(--text-primary)] font-mono outline-none focus:border-cyan-400/30 w-32" />
 			</div>
 
 			<div className="space-y-1.5">
-				<label className="text-xs font-medium text-white/50 tracking-wide" htmlFor="alertSilenceWindows">{t("alertRulesPage.createForm.silenceWindows")}</label>
-				<textarea id="alertSilenceWindows" value={silenceWindowsText} onChange={(e) => setSilenceWindowsText(e.target.value)} rows={2} placeholder={t("alertRulesPage.createForm.silenceWindowsPlaceholder")} className="w-full rounded-lg border border-[var(--border)] bg-white/[0.04] px-3.5 py-2.5 text-sm text-[var(--text-primary)] font-mono outline-none transition placeholder:text-white/20 focus:border-cyan-400/30" />
+				<label className="text-xs font-medium text-[var(--text-primary)]/50 tracking-wide" htmlFor="alertSilenceWindows">{t("alertRulesPage.createForm.silenceWindows")}</label>
+				<textarea id="alertSilenceWindows" value={silenceWindowsText} onChange={(e) => setSilenceWindowsText(e.target.value)} rows={2} placeholder={t("alertRulesPage.createForm.silenceWindowsPlaceholder")} className="w-full rounded-lg border border-[var(--border)] bg-[var(--surface)]/[0.04] px-3.5 py-2.5 text-sm text-[var(--text-primary)] font-mono outline-none transition placeholder:text-[var(--text-primary)]/20 focus:border-cyan-400/30" />
 				<p className="text-xs text-[var(--text-muted)]">{t("alertRulesPage.createForm.silenceWindowsHint")}</p>
 			</div>
 
@@ -459,7 +459,7 @@ function CreateRuleForm({ servers, onClose }: { servers: ServerOption[]; onClose
 				<button type="submit" disabled={submitting} className="rounded-2xl bg-cyan-500 px-5 py-2 text-sm font-medium text-slate-950 transition hover:bg-cyan-400 disabled:opacity-60">
 					{submitting ? t("alertRulesPage.createForm.submitting") : t("alertRulesPage.createForm.submit")}
 				</button>
-				<button type="button" onClick={onClose} className="rounded-2xl border border-[var(--border)] px-5 py-2 text-sm text-[var(--text-secondary)] hover:bg-white/10 transition">
+				<button type="button" onClick={onClose} className="rounded-2xl border border-[var(--border)] px-5 py-2 text-sm text-[var(--text-secondary)] hover:bg-[var(--surface)]/10 transition">
 					{t("alertRulesPage.createForm.cancel")}
 				</button>
 			</div>

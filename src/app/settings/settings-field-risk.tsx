@@ -92,7 +92,7 @@ export function FieldRollbackButton({
         "{label}",
         field.label,
       )}
-      className="inline-flex items-center gap-0.5 rounded border border-[var(--border)] bg-white/[0.02] px-1.5 py-0.5 text-[10px] font-medium text-[var(--text-secondary)] transition hover:border-cyan-400/30 hover:bg-cyan-400/[0.06] hover:text-cyan-200 disabled:cursor-not-allowed disabled:opacity-40 light:bg-slate-50 light:hover:border-cyan-500/40 light:hover:text-cyan-700"
+      className="inline-flex items-center gap-0.5 rounded border border-[var(--border)] bg-[var(--surface)]/[0.02] px-1.5 py-0.5 text-[10px] font-medium text-[var(--text-secondary)] transition hover:border-cyan-400/30 hover:bg-cyan-400/[0.06] hover:text-[var(--text-secondary)] disabled:cursor-not-allowed disabled:opacity-40 light:bg-slate-50 light:hover:border-cyan-500/40 light:hover:text-cyan-700"
     >
       <span aria-hidden>↺</span>
       <span className="sr-only">{t("settingsClient.fieldDefaultSr")}</span>

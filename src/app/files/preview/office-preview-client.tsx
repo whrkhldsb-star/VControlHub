@@ -22,7 +22,7 @@ export function OfficePreviewClient({
 				href={href.includes("?") ? `${href}&download=1` : `${href}?download=1`}
 				download
 				data-tone="cyan"
-				className="rounded-xl border border-cyan-400/30 px-5 py-2.5 text-sm font-medium text-cyan-100 transition hover:bg-cyan-400/20"
+				className="rounded-xl border border-cyan-400/30 px-5 py-2.5 text-sm font-medium text-[var(--text-primary)] transition hover:bg-cyan-400/20"
 			>
 				{t("officePreview.download")}
 			</a>

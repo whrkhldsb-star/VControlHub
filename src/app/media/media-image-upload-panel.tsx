@@ -240,7 +240,7 @@ export function MediaImageUploadPanel() {
 					<button type="button" onClick={loadNodes} disabled={loadingNodes} className="rounded-lg border border-emerald-300/30 px-3 py-2 text-emerald-100 transition hover:bg-emerald-400/10 disabled:opacity-60">
 						{loadingNodes ? t("mediaUploadPanel.loadingNodes") : nodesLoaded ? t("mediaUploadPanel.refreshNodes") : t("mediaUploadPanel.loadNodes")}
 					</button>
-					<button type="button" onClick={() => fileInputRef.current?.click()} disabled={uploading} className="rounded-lg bg-emerald-500 px-4 py-2 font-medium text-white transition hover:bg-emerald-400 disabled:opacity-60">
+					<button type="button" onClick={() => fileInputRef.current?.click()} disabled={uploading} className="rounded-lg bg-emerald-500 px-4 py-2 font-medium text-[var(--text-primary)] transition hover:bg-emerald-400 disabled:opacity-60">
 						{uploading ? t("mediaUploadPanel.uploading") : t("mediaUploadPanel.chooseFiles")}
 					</button>
 				</div>
@@ -258,7 +258,7 @@ export function MediaImageUploadPanel() {
 				</div>
 				<div className="text-xs text-[var(--text-secondary)]">
 					<label htmlFor="media-image-target-path" className="block">{t("mediaUploadPanel.targetPathLabel")}</label>
-					<input id="media-image-target-path" value={targetPath} onChange={(e) => setTargetPath(e.target.value)} placeholder={t("mediaUploadPanel.targetPathPlaceholder")} className="mt-1 w-full rounded-lg border border-emerald-300/20 dark:border-emerald-300/20 bg-[var(--input-bg)] px-3 py-2 text-sm text-[var(--text-primary)] outline-none placeholder:text-slate-500 focus:border-emerald-400 light:border-emerald-300" />
+					<input id="media-image-target-path" value={targetPath} onChange={(e) => setTargetPath(e.target.value)} placeholder={t("mediaUploadPanel.targetPathPlaceholder")} className="mt-1 w-full rounded-lg border border-emerald-300/20 dark:border-emerald-300/20 bg-[var(--input-bg)] px-3 py-2 text-sm text-[var(--text-primary)] outline-none placeholder:text-[var(--text-muted)] focus:border-emerald-400 light:border-emerald-300" />
 				</div>
 			</div>
 

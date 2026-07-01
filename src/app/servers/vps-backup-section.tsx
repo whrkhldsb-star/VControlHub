@@ -190,7 +190,7 @@ export function VpsBackupSection({
 
 	if (loading) {
 		return (
-			<div className="rounded-xl border border-[var(--border)] bg-white/[0.02] p-3">
+			<div className="rounded-xl border border-[var(--border)] bg-[var(--surface)]/[0.02] p-3">
 				<div className="text-sm text-[var(--text-muted)]">
 					{t("vpsBackup.loading")}
 				</div>
@@ -214,7 +214,7 @@ export function VpsBackupSection({
 			) : null}
 
 			{/* Manual trigger */}
-			<div className="rounded-xl border border-[var(--border)] bg-white/[0.02] p-3">
+			<div className="rounded-xl border border-[var(--border)] bg-[var(--surface)]/[0.02] p-3">
 				<div className="mb-2 text-sm font-medium text-[var(--text-secondary)]">
 					{t("vpsBackup.manualTrigger")}
 				</div>
@@ -225,7 +225,7 @@ export function VpsBackupSection({
 							type="button"
 							disabled={triggering !== null}
 							onClick={() => handleTrigger(preset)}
-							className="rounded-lg border border-[var(--border)] bg-white/[0.04] px-3 py-1.5 text-xs text-[var(--text-secondary)] transition-colors hover:bg-white/[0.08] disabled:cursor-not-allowed disabled:opacity-50"
+							className="rounded-lg border border-[var(--border)] bg-[var(--surface)]/[0.04] px-3 py-1.5 text-xs text-[var(--text-secondary)] transition-colors hover:bg-[var(--surface)]/[0.08] disabled:cursor-not-allowed disabled:opacity-50"
 						>
 							{triggering === preset ? (
 								<span className="animate-pulse">⏳ {presetLabel(preset)}</span>
@@ -238,7 +238,7 @@ export function VpsBackupSection({
 			</div>
 
 			{/* Schedules */}
-			<div className="rounded-xl border border-[var(--border)] bg-white/[0.02] p-3">
+			<div className="rounded-xl border border-[var(--border)] bg-[var(--surface)]/[0.02] p-3">
 				<div className="mb-2 flex items-center justify-between">
 					<div className="text-sm font-medium text-[var(--text-secondary)]">
 						{t("vpsBackup.schedules")}
@@ -248,7 +248,7 @@ export function VpsBackupSection({
 						<button
 							type="button"
 							onClick={() => setShowCreate(!showCreate)}
-							className="rounded-lg border border-cyan-400/20 bg-cyan-400/10 px-2.5 py-1 text-xs text-cyan-200 transition-colors hover:bg-cyan-400/20"
+							className="rounded-lg border border-cyan-400/20 bg-cyan-400/10 px-2.5 py-1 text-xs text-[var(--text-secondary)] transition-colors hover:bg-cyan-400/20"
 						>
 							{showCreate ? "✕" : `+ ${t("vpsBackup.addSchedule")}`}
 						</button>
@@ -256,19 +256,19 @@ export function VpsBackupSection({
 				</div>
 
 				{showCreate ? (
-					<div className="mb-3 space-y-2 rounded-lg border border-[var(--border)] bg-white/[0.03] p-3">
+					<div className="mb-3 space-y-2 rounded-lg border border-[var(--border)] bg-[var(--surface)]/[0.03] p-3">
 						<input
 							type="text"
 							placeholder={t("vpsBackup.scheduleName")}
 							value={createForm.name}
 							onChange={(e) => setCreateForm({ ...createForm, name: e.target.value })}
-							className="w-full rounded-lg border border-[var(--border)] bg-white/[0.04] px-3 py-1.5 text-sm text-[var(--text-primary)] placeholder:text-[var(--text-muted)]"
+							className="w-full rounded-lg border border-[var(--border)] bg-[var(--surface)]/[0.04] px-3 py-1.5 text-sm text-[var(--text-primary)] placeholder:text-[var(--text-muted)]"
 						/>
 						<div className="grid grid-cols-2 gap-2">
 							<select
 								value={createForm.backupType}
 								onChange={(e) => setCreateForm({ ...createForm, backupType: e.target.value })}
-								className="rounded-lg border border-[var(--border)] bg-white/[0.04] px-3 py-1.5 text-sm text-[var(--text-primary)]"
+								className="rounded-lg border border-[var(--border)] bg-[var(--surface)]/[0.04] px-3 py-1.5 text-sm text-[var(--text-primary)]"
 							>
 								{PRESET_OPTIONS.map((p) => (
 									<option key={p} value={p}>{presetLabel(p)}</option>
@@ -279,7 +279,7 @@ export function VpsBackupSection({
 								placeholder="0 3 * * *"
 								value={createForm.cronExpression}
 								onChange={(e) => setCreateForm({ ...createForm, cronExpression: e.target.value })}
-								className="rounded-lg border border-[var(--border)] bg-white/[0.04] px-3 py-1.5 text-sm text-[var(--text-primary)] placeholder:text-[var(--text-muted)]"
+								className="rounded-lg border border-[var(--border)] bg-[var(--surface)]/[0.04] px-3 py-1.5 text-sm text-[var(--text-primary)] placeholder:text-[var(--text-muted)]"
 							/>
 						</div>
 						<textarea
@@ -287,7 +287,7 @@ export function VpsBackupSection({
 							value={createForm.paths}
 							onChange={(e) => setCreateForm({ ...createForm, paths: e.target.value })}
 							rows={2}
-							className="w-full rounded-lg border border-[var(--border)] bg-white/[0.04] px-3 py-1.5 text-sm text-[var(--text-primary)] placeholder:text-[var(--text-muted)]"
+							className="w-full rounded-lg border border-[var(--border)] bg-[var(--surface)]/[0.04] px-3 py-1.5 text-sm text-[var(--text-primary)] placeholder:text-[var(--text-muted)]"
 						/>
 						<div className="flex items-center gap-2">
 							<input
@@ -297,13 +297,13 @@ export function VpsBackupSection({
 								placeholder={t("vpsBackup.retentionDays")}
 								value={createForm.retentionDays}
 								onChange={(e) => setCreateForm({ ...createForm, retentionDays: e.target.value })}
-								className="w-24 rounded-lg border border-[var(--border)] bg-white/[0.04] px-3 py-1.5 text-sm text-[var(--text-primary)]"
+								className="w-24 rounded-lg border border-[var(--border)] bg-[var(--surface)]/[0.04] px-3 py-1.5 text-sm text-[var(--text-primary)]"
 							/>
 							<button
 								type="button"
 								onClick={handleCreate}
 								disabled={!createForm.name.trim()}
-								className="rounded-lg bg-cyan-500/80 px-4 py-1.5 text-sm font-medium text-white transition-colors hover:bg-cyan-500 disabled:cursor-not-allowed disabled:opacity-50"
+								className="rounded-lg bg-cyan-500/80 px-4 py-1.5 text-sm font-medium text-[var(--text-primary)] transition-colors hover:bg-cyan-500 disabled:cursor-not-allowed disabled:opacity-50"
 							>
 								{t("vpsBackup.create")}
 							</button>
@@ -320,7 +320,7 @@ export function VpsBackupSection({
 						{schedules.map((s) => (
 							<div
 								key={s.id}
-								className="flex items-center justify-between rounded-lg border border-[var(--border)] bg-white/[0.02] px-3 py-2"
+								className="flex items-center justify-between rounded-lg border border-[var(--border)] bg-[var(--surface)]/[0.02] px-3 py-2"
 							>
 								<div className="min-w-0">
 									<div className="truncate text-sm text-[var(--text-primary)]">{s.name}</div>
@@ -346,7 +346,7 @@ export function VpsBackupSection({
 			</div>
 
 			{/* Records */}
-			<div className="rounded-xl border border-[var(--border)] bg-white/[0.02] p-3">
+			<div className="rounded-xl border border-[var(--border)] bg-[var(--surface)]/[0.02] p-3">
 				<div className="mb-2 text-sm font-medium text-[var(--text-secondary)]">
 					{t("vpsBackup.records")}
 					<span className="ml-1.5 text-xs text-[var(--text-muted)]">({records.length})</span>
@@ -360,7 +360,7 @@ export function VpsBackupSection({
 						{records.map((r) => (
 							<div
 								key={r.id}
-								className="flex items-start justify-between rounded-lg border border-[var(--border)] bg-white/[0.02] px-3 py-2"
+								className="flex items-start justify-between rounded-lg border border-[var(--border)] bg-[var(--surface)]/[0.02] px-3 py-2"
 							>
 								<div className="min-w-0 flex-1">
 									<div className="flex items-center gap-2">

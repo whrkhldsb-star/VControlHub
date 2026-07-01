@@ -38,7 +38,7 @@ export default async function SharePage({
 
   return (
     <main className="flex min-h-screen items-center justify-center bg-[var(--input-bg)] px-4 py-16 text-[var(--text-primary)]">
-      <div className="w-full max-w-3xl rounded-2xl border border-[var(--border)] bg-white/[0.03] p-8 shadow-2xl">
+      <div className="w-full max-w-3xl rounded-2xl border border-[var(--border)] bg-[var(--surface)]/[0.03] p-8 shadow-2xl">
         <div className="mb-6 text-center">
           <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-cyan-500/10 text-2xl">
             {errorMessage ? "🔒" : share?.entryType === "DIRECTORY" ? "📁" : "📦"}
@@ -63,7 +63,7 @@ export default async function SharePage({
               />
             )}
 
-            <div className="rounded-lg border border-[var(--border)] bg-white/[0.02] p-4">
+            <div className="rounded-lg border border-[var(--border)] bg-[var(--surface)]/[0.02] p-4">
               <p className="break-all text-base font-medium text-[var(--text-primary)]">
                 {share.name || share.path}
               </p>
@@ -117,7 +117,7 @@ export default async function SharePage({
                   {!share.hasPassword && (
                     <a
                       href={`/api/share/${encodeURIComponent(token)}?archive=1`}
-                      className="shrink-0 rounded-lg border border-cyan-400/40 px-3 py-1.5 text-center text-xs font-medium text-cyan-100 transition hover:bg-cyan-500/10"
+                      className="shrink-0 rounded-lg border border-cyan-400/40 px-3 py-1.5 text-center text-xs font-medium text-[var(--text-primary)] transition hover:bg-cyan-500/10"
                     >
                       {t("sharePage.downloadDirectory", locale)}
                     </a>

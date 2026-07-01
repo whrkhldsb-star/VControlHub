@@ -40,7 +40,7 @@ export function RetryBackupRecordButton({ backupId, status }: Props) {
         type="button"
         disabled={disabled}
         onClick={handleRetry}
-        className="w-fit rounded-lg border border-cyan-300/40 px-3 py-1.5 text-xs font-semibold text-cyan-100 transition hover:bg-cyan-300/10 disabled:cursor-not-allowed disabled:opacity-50"
+        className="w-fit rounded-lg border border-cyan-300/40 px-3 py-1.5 text-xs font-semibold text-[var(--text-primary)] transition hover:bg-cyan-300/10 disabled:cursor-not-allowed disabled:opacity-50"
       >
         {pending ? "正在排队..." : "重试备份"}
       </button>

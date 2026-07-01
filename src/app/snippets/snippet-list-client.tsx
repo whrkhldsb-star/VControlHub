@@ -84,34 +84,34 @@ export function SnippetList({ snippets: initial }: { snippets: Snippet[] }) {
         <div className="relative flex-1">
           <label
             htmlFor="snippets-search"
-            className="mb-1 block text-xs font-medium text-slate-400"
+            className="mb-1 block text-xs font-medium text-[var(--text-secondary)]"
           >
             {t("snippetsPage.search")}
           </label>
-          <Search size={14} className="absolute left-3 top-[2.15rem] text-slate-500" />
+          <Search size={14} className="absolute left-3 top-[2.15rem] text-[var(--text-muted)]" />
           <input
             id="snippets-search"
             type="search"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder={t("snippetsPage.titlePlaceholder")}
-            className="w-full rounded-lg border border-[var(--border)] bg-white/[0.04] pl-9 pr-4 py-2 text-sm text-white outline-none placeholder:text-[var(--text-muted)]"
+            className="w-full rounded-lg border border-[var(--border)] bg-[var(--surface)]/[0.04] pl-9 pr-4 py-2 text-sm text-[var(--text-primary)] outline-none placeholder:text-[var(--text-muted)]"
           />
         </div>
         <select
           value={langFilter}
           onChange={(e) => setLangFilter(e.target.value)}
           aria-label={t("snippetsPage.filter.placeholder")}
-          className="rounded-lg border border-[var(--border)] bg-white/[0.04] px-3 py-2 text-sm text-white outline-none"
+          className="rounded-lg border border-[var(--border)] bg-[var(--surface)]/[0.04] px-3 py-2 text-sm text-[var(--text-primary)] outline-none"
         >
           {languages.map((l) => (
             <option key={l} value={l}>{l === "ALL" ? t("snippetsPage.filter.allLanguages") : l}</option>
           ))}
         </select>
-        <span className="text-xs text-slate-500">{t("snippetsPage.count").replace("{count}", String(filtered.length))}</span>
+        <span className="text-xs text-[var(--text-muted)]">{t("snippetsPage.count").replace("{count}", String(filtered.length))}</span>
         <button
           onClick={() => setCreating(true)}
-          className="min-h-11 inline-flex items-center gap-1.5 rounded-lg bg-cyan-600 px-3 py-2 text-sm font-medium text-white transition hover:bg-cyan-500"
+          className="min-h-11 inline-flex items-center gap-1.5 rounded-lg bg-cyan-600 px-3 py-2 text-sm font-medium text-[var(--text-primary)] transition hover:bg-cyan-500"
         >
           <Plus size={14} /> {t("snippetsPage.new")}
         </button>
@@ -119,10 +119,10 @@ export function SnippetList({ snippets: initial }: { snippets: Snippet[] }) {
 
       <div className="grid gap-3">
         {filtered.map((s) => (
-          <div key={s.id} data-card className="group  p-4 transition hover:border-white/[0.12] light:hover:border-slate-300">
+          <div key={s.id} data-card className="group  p-4 transition hover:border-[var(--border)]/[0.12] light:hover:border-slate-300">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
-                <b className="text-sm text-white">{s.title}</b>
+                <b className="text-sm text-[var(--text-primary)]">{s.title}</b>
                 <span className="rounded-full border border-[var(--border)] bg-[var(--surface-elevated)] px-2 py-0.5 text-[10px] text-[var(--text-muted)]">{s.language}</span>
                 {s.isPrivate && <span className="text-[10px] text-[var(--warning)]">{t("snippetsPage.private")}</span>}
                 {s.tags.length > 0 && (
@@ -134,23 +134,23 @@ export function SnippetList({ snippets: initial }: { snippets: Snippet[] }) {
                 )}
               </div>
               <div className="flex items-center gap-1 opacity-100 transition sm:opacity-0 sm:group-hover:opacity-100 sm:group-focus-within:opacity-100">
-                <button onClick={() => handleCopy(s.content, s.id)} title={t("snippetsPage.action.copy")} className="min-h-11 min-w-11 rounded-lg p-1.5 text-slate-500 hover:bg-white/10 hover:text-cyan-400 light:hover:bg-slate-100">
+                <button onClick={() => handleCopy(s.content, s.id)} title={t("snippetsPage.action.copy")} className="min-h-11 min-w-11 rounded-lg p-1.5 text-[var(--text-muted)] hover:bg-[var(--surface)]/10 hover:text-cyan-400 light:hover:bg-slate-100">
                   {copiedId === s.id ? <Check size={14} /> : <Copy size={14} />}
                 </button>
-                <button onClick={() => setEditing(s)} title={t("snippetsPage.action.edit")} className="min-h-11 min-w-11 rounded-lg p-1.5 text-slate-500 hover:bg-white/10 hover:text-cyan-400 light:hover:bg-slate-100">
+                <button onClick={() => setEditing(s)} title={t("snippetsPage.action.edit")} className="min-h-11 min-w-11 rounded-lg p-1.5 text-[var(--text-muted)] hover:bg-[var(--surface)]/10 hover:text-cyan-400 light:hover:bg-slate-100">
                   <Pencil size={14} />
                 </button>
-                <button onClick={() => { setPendingDelete(s); setDeleteError(null); }} title={t("snippetsPage.action.delete")} aria-label={t("snippetsPage.deleteDialog.title") + " " + s.title} className="min-h-11 min-w-11 rounded-lg p-1.5 text-slate-500 hover:bg-white/10 hover:text-rose-400 light:hover:bg-slate-100">
+                <button onClick={() => { setPendingDelete(s); setDeleteError(null); }} title={t("snippetsPage.action.delete")} aria-label={t("snippetsPage.deleteDialog.title") + " " + s.title} className="min-h-11 min-w-11 rounded-lg p-1.5 text-[var(--text-muted)] hover:bg-[var(--surface)]/10 hover:text-rose-400 light:hover:bg-slate-100">
                   <Trash2 size={14} />
                 </button>
               </div>
             </div>
-            {s.description && <p className="mt-1 text-xs text-slate-500">{s.description}</p>}
+            {s.description && <p className="mt-1 text-xs text-[var(--text-muted)]">{s.description}</p>}
             <pre className="mt-3 max-h-48 overflow-auto rounded-lg border border-[var(--border)] bg-[var(--surface-subtle)] p-3 font-mono text-xs text-[var(--text-secondary)]">{s.content}</pre>
           </div>
         ))}
         {filtered.length === 0 && (
-          <div data-card className=" p-8 text-center text-sm text-slate-500">
+          <div data-card className=" p-8 text-center text-sm text-[var(--text-muted)]">
             {items.length === 0 ? t("snippetsPage.empty") : t("snippetsPage.noMatch")}
           </div>
         )}
@@ -175,7 +175,7 @@ export function SnippetList({ snippets: initial }: { snippets: Snippet[] }) {
       )}
 
       {pendingDelete && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 p-4 backdrop-blur-sm" role="presentation">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-[var(--surface)]/70 p-4 backdrop-blur-sm" role="presentation">
           <div role="dialog" aria-modal="true" aria-labelledby="delete-snippet-title" className="w-full max-w-md rounded-2xl border border-[var(--border)] bg-[var(--modal-bg)] p-5 shadow-2xl shadow-black/30">
             <h3 id="delete-snippet-title" className="text-base font-semibold text-[var(--text-primary)]">{t("snippetsPage.deleteDialog.title")}</h3>
             <p className="mt-2 text-sm leading-6 text-[var(--text-muted)]">

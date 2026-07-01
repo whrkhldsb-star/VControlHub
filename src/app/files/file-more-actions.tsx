@@ -59,8 +59,8 @@ export function FileMoreActions({
         aria-label={`${t("fileMoreActions.more")} ${entry.name}`}
         className={
           compact
-            ? "inline-flex h-8 w-8 cursor-pointer list-none items-center justify-center rounded-lg border border-[var(--border)] bg-white/5 text-[var(--text-secondary)] transition hover:bg-white/10 hover:text-[var(--text-primary)] light:hover:bg-slate-100 [&::-webkit-details-marker]:hidden"
-            : "inline-flex cursor-pointer list-none items-center gap-1.5 rounded-lg border border-[var(--border)] bg-white/5 px-2.5 py-1.5 text-xs text-[var(--text-secondary)] transition hover:bg-white/10 hover:text-[var(--text-primary)] light:hover:bg-slate-100 [&::-webkit-details-marker]:hidden"
+            ? "inline-flex h-8 w-8 cursor-pointer list-none items-center justify-center rounded-lg border border-[var(--border)] bg-[var(--surface)]/5 text-[var(--text-secondary)] transition hover:bg-[var(--surface)]/10 hover:text-[var(--text-primary)] light:hover:bg-slate-100 [&::-webkit-details-marker]:hidden"
+            : "inline-flex cursor-pointer list-none items-center gap-1.5 rounded-lg border border-[var(--border)] bg-[var(--surface)]/5 px-2.5 py-1.5 text-xs text-[var(--text-secondary)] transition hover:bg-[var(--surface)]/10 hover:text-[var(--text-primary)] light:hover:bg-slate-100 [&::-webkit-details-marker]:hidden"
         }
       >
         <span aria-hidden="true">⋯</span>

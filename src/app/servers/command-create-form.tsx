@@ -49,23 +49,23 @@ export function CommandCreateForm({
 			{state.success && <div className="rounded-lg bg-emerald-500/[0.08] border border-emerald-400/20 px-3.5 py-2.5 text-sm text-emerald-200">{state.success}</div>}
 
 			<div className="space-y-1.5">
-				<label className="text-xs font-medium text-white/50 tracking-wide" htmlFor="cmdTitle">{t("serversPage.command.titleLabel")}</label>
-				<input id="cmdTitle" name="title" type="text" required placeholder={t("serversPage.command.titlePlaceholder")} className="w-full rounded-lg border border-[var(--border)] bg-white/[0.04] px-3.5 py-2.5 text-sm text-[var(--text-primary)] outline-none transition placeholder:text-white/20 focus:border-cyan-400/30 focus:bg-white/[0.06]" />
+				<label className="text-xs font-medium text-[var(--text-primary)]/50 tracking-wide" htmlFor="cmdTitle">{t("serversPage.command.titleLabel")}</label>
+				<input id="cmdTitle" name="title" type="text" required placeholder={t("serversPage.command.titlePlaceholder")} className="w-full rounded-lg border border-[var(--border)] bg-[var(--surface)]/[0.04] px-3.5 py-2.5 text-sm text-[var(--text-primary)] outline-none transition placeholder:text-[var(--text-primary)]/20 focus:border-cyan-400/30 focus:bg-[var(--surface)]/[0.06]" />
 			</div>
 
 			<div className="space-y-1.5">
-				<label className="text-xs font-medium text-white/50 tracking-wide" htmlFor="cmdCommand">{t("serversPage.command.bodyLabel")}</label>
-				<textarea id="cmdCommand" name="command" rows={4} required placeholder="df -h" className="w-full rounded-lg border border-[var(--border)] bg-white/[0.04] px-3.5 py-2.5 text-sm text-[var(--text-primary)] font-mono outline-none transition placeholder:text-white/20 focus:border-cyan-400/30 focus:bg-white/[0.06] resize-y" />
+				<label className="text-xs font-medium text-[var(--text-primary)]/50 tracking-wide" htmlFor="cmdCommand">{t("serversPage.command.bodyLabel")}</label>
+				<textarea id="cmdCommand" name="command" rows={4} required placeholder="df -h" className="w-full rounded-lg border border-[var(--border)] bg-[var(--surface)]/[0.04] px-3.5 py-2.5 text-sm text-[var(--text-primary)] font-mono outline-none transition placeholder:text-[var(--text-primary)]/20 focus:border-cyan-400/30 focus:bg-[var(--surface)]/[0.06] resize-y" />
 			</div>
 
 			<div className="space-y-1.5">
-				<label className="text-xs font-medium text-white/50 tracking-wide" htmlFor="cmdReason">{t("serversPage.command.reasonLabel")}</label>
-				<textarea id="cmdReason" name="reason" rows={2} placeholder="可选" className="w-full rounded-lg border border-[var(--border)] bg-white/[0.04] px-3.5 py-2.5 text-sm text-[var(--text-primary)] outline-none transition placeholder:text-white/20 focus:border-cyan-400/30 focus:bg-white/[0.06] resize-y" />
+				<label className="text-xs font-medium text-[var(--text-primary)]/50 tracking-wide" htmlFor="cmdReason">{t("serversPage.command.reasonLabel")}</label>
+				<textarea id="cmdReason" name="reason" rows={2} placeholder="可选" className="w-full rounded-lg border border-[var(--border)] bg-[var(--surface)]/[0.04] px-3.5 py-2.5 text-sm text-[var(--text-primary)] outline-none transition placeholder:text-[var(--text-primary)]/20 focus:border-cyan-400/30 focus:bg-[var(--surface)]/[0.06] resize-y" />
 			</div>
 
 			<div className="space-y-2">
 				<div className="flex items-center justify-between">
-					<label className="text-xs font-medium text-white/50 tracking-wide">{t("serversPage.command.targetNodes")}</label>
+					<label className="text-xs font-medium text-[var(--text-primary)]/50 tracking-wide">{t("serversPage.command.targetNodes")}</label>
 					<button type="button" onClick={selectAll} className="text-xs text-cyan-400/70 hover:text-cyan-300 light:hover:text-cyan-700 transition">
 						{selectedServerIds.size === enabledServerIds.length ? t("serversPage.command.deselectAll") : t("serversPage.command.selectAllEnabled")}
 					</button>
@@ -79,10 +79,10 @@ export function CommandCreateForm({
 								key={server.id}
 								className={`flex items-center gap-2.5 rounded-lg border px-3 py-2 text-sm cursor-pointer transition ${
 									!server.enabled
-										?"border-[var(--border)] bg-white/[0.01] text-[var(--text-muted)] cursor-not-allowed opacity-50"
+										?"border-[var(--border)] bg-[var(--surface)]/[0.01] text-[var(--text-muted)] cursor-not-allowed opacity-50"
 										: selectedServerIds.has(server.id)
 											?"border-cyan-400/20 bg-cyan-400/[0.06] text-[var(--text-primary)]"
-											:"border-[var(--border)] bg-white/[0.03] text-[var(--text-secondary)] hover:bg-white/[0.05]"
+											:"border-[var(--border)] bg-[var(--surface)]/[0.03] text-[var(--text-secondary)] hover:bg-[var(--surface)]/[0.05]"
 								}`}
 							>
 								<input

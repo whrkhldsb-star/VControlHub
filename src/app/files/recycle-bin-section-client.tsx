@@ -63,7 +63,7 @@ export function RecycleBinSectionClient({
 				<div className="min-w-[860px]">
 					{/* Desktop table view (md+) */}
 					<div className="hidden md:block">
-						<div className="grid grid-cols-[minmax(260px,2fr)_120px_120px_minmax(220px,1fr)_200px] bg-white/5 px-4 py-3 text-xs uppercase tracking-[0.2em] text-[var(--text-muted)]">
+						<div className="grid grid-cols-[minmax(260px,2fr)_120px_120px_minmax(220px,1fr)_200px] bg-[var(--surface)]/5 px-4 py-3 text-xs uppercase tracking-[0.2em] text-[var(--text-muted)]">
 							<div>{t("recycleBinSection.table.name")}</div>
 							<div>{t("recycleBinSection.table.type")}</div>
 							<div>{t("recycleBinSection.table.size")}</div>

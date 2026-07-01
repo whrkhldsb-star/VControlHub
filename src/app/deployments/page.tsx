@@ -14,7 +14,7 @@ export const dynamic = "force-dynamic";
 function deploymentStatusTone(status: string) {
 	if (["COMPLETED", "SUCCESS", "SUCCEEDED"].includes(status)) return "border-emerald-400/30 bg-emerald-400/10 text-emerald-100";
 	if (["FAILED", "CANCELLED", "REJECTED"].includes(status)) return "border-rose-400/30 bg-rose-400/10 text-rose-100";
-	if (["RUNNING", "APPROVED"].includes(status)) return "border-cyan-400/30 bg-cyan-400/10 text-cyan-100";
+	if (["RUNNING", "APPROVED"].includes(status)) return "border-cyan-400/30 bg-cyan-400/10 text-[var(--text-primary)]";
 	return "border-amber-400/30 bg-amber-400/10 text-amber-100";
 }
 
@@ -95,7 +95,7 @@ export default async function DeploymentsPage({ searchParams }: { searchParams?:
 						</div>
 						<span className={`rounded-full border px-2.5 py-1 text-xs ${deploymentStatusTone(latestRun.status)}`}>{latestRun.status}</span>
 					</div>
-					<code className="mt-4 block max-h-24 overflow-auto rounded-lg border border-[var(--border)] bg-slate-950/70 p-3 font-mono text-xs text-[var(--text-secondary)]">{latestRun.snapshot?.rollbackCommand || tr("deploymentsPage.page.latestDeploy.noRollback")}</code>
+					<code className="mt-4 block max-h-24 overflow-auto rounded-lg border border-[var(--border)] bg-[var(--surface)]/70 p-3 font-mono text-xs text-[var(--text-secondary)]">{latestRun.snapshot?.rollbackCommand || tr("deploymentsPage.page.latestDeploy.noRollback")}</code>
 					<div className="mt-4 flex flex-wrap items-center gap-3">
 						<RollbackDeployButton runId={latestRun.id} templateName={latestRun.template.name} disabled={!latestRun.snapshot?.rollbackCommand} />
 						<ResendDeployButton
@@ -121,7 +121,7 @@ export default async function DeploymentsPage({ searchParams }: { searchParams?:
 								</div>
 								<span className={`rounded-lg border px-2 py-1 text-xs ${deploymentStatusTone(r.status)}`}>{r.status}</span>
 							</div>
-							<code className="mt-3 block overflow-auto rounded-lg border border-[var(--border)] bg-slate-950/70 p-3 font-mono text-xs text-[var(--text-secondary)]">{r.renderedCommand}</code>
+							<code className="mt-3 block overflow-auto rounded-lg border border-[var(--border)] bg-[var(--surface)]/70 p-3 font-mono text-xs text-[var(--text-secondary)]">{r.renderedCommand}</code>
 							{r.snapshot?.rollbackCommand && <code data-tone="emerald" className="mt-2 block overflow-auto rounded-lg border border-emerald-400/20 p-3 font-mono text-xs text-emerald-100 light:border-emerald-200 light:bg-emerald-50">{tr("deploymentsPage.page.runsSection.rollback")}{r.snapshot.rollbackCommand}</code>}
 							{r.rollbackAttempts?.length > 0 && (
 								<div data-tone="emerald" className="mt-2 rounded-lg border border-emerald-400/20 px-3 py-2 text-xs text-emerald-100">

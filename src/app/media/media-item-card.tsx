@@ -106,15 +106,15 @@ function MediaCover({ item, sourceHref, t }: { item: MediaItem; sourceHref: stri
 	const thumbHref = `/api/media/${encodeURIComponent(item.id)}/thumbnail`;
 	const coverClass = "absolute inset-0 h-full w-full object-cover transition duration-300 group-hover:scale-105";
 	const typeBadge = (
-		<span className="absolute left-2 top-2 z-10 rounded-full border border-black/10 bg-black/50 px-2 py-0.5 text-[10px] font-medium text-white backdrop-blur light:border-white/30">
+		<span className="absolute left-2 top-2 z-10 rounded-full border border-black/10 bg-black/50 px-2 py-0.5 text-[10px] font-medium text-[var(--text-primary)] backdrop-blur light:border-[var(--border)]/30">
 			{mediaTypeLabel(item.mediaType, t)}
 		</span>
 	);
 	const icon = item.mediaType === "audio" ? <Music2 size={32} /> : item.mediaType === "video" ? <Video size={32} /> : <ImageIcon size={32} />;
 
 	const fallback = (
-		<div className="absolute inset-0 flex flex-col items-center justify-center gap-2 bg-[radial-gradient(circle_at_top,rgba(34,211,238,0.24),transparent_45%),linear-gradient(135deg,rgba(15,23,42,0.96),rgba(30,41,59,0.88))] text-slate-200 light:bg-[radial-gradient(circle_at_top,rgba(14,165,233,0.18),transparent_45%),linear-gradient(135deg,#e2e8f0,#f8fafc)]">
-			<div className="rounded-2xl border border-white/10 bg-white/10 p-3 shadow-inner">{icon}</div>
+		<div className="absolute inset-0 flex flex-col items-center justify-center gap-2 bg-[radial-gradient(circle_at_top,rgba(34,211,238,0.24),transparent_45%),linear-gradient(135deg,rgba(15,23,42,0.96),rgba(30,41,59,0.88))] text-[var(--text-primary)] light:bg-[radial-gradient(circle_at_top,rgba(14,165,233,0.18),transparent_45%),linear-gradient(135deg,#e2e8f0,#f8fafc)]">
+			<div className="rounded-2xl border border-[var(--border)]/10 bg-[var(--surface)]/10 p-3 shadow-inner">{icon}</div>
 			<span className="text-xs font-medium">{mediaTypeLabel(item.mediaType, t)}{t("mediaItemCard.typePreview")}</span>
 		</div>
 	);
@@ -132,7 +132,7 @@ function MediaCover({ item, sourceHref, t }: { item: MediaItem; sourceHref: stri
 			{item.mediaType !== "audio" && (
 				<div className="pointer-events-none absolute inset-x-0 bottom-0 h-16 bg-gradient-to-t from-black/70 to-transparent" />
 			)}
-			<div className="absolute bottom-2 right-2 rounded-full border border-white/10 bg-black/50 px-2 py-0.5 text-[10px] text-white backdrop-blur">
+			<div className="absolute bottom-2 right-2 rounded-full border border-[var(--border)]/10 bg-black/50 px-2 py-0.5 text-[10px] text-[var(--text-primary)] backdrop-blur">
 				{formatSize(item.size, t)}
 			</div>
 		</a>
@@ -233,17 +233,17 @@ export function MediaItemCard({ item, canManage }: { item: MediaItem; canManage:
 		: null;
 
 	return (
-		<div className="group overflow-hidden rounded-2xl border border-white/[0.07] bg-white/[0.03] p-3 transition hover:-translate-y-0.5 hover:border-cyan-300/25 hover:bg-white/[0.045] light:shadow-sm light:hover:border-cyan-200 light:hover:shadow-md">
+		<div className="group overflow-hidden rounded-2xl border border-[var(--border)]/[0.07] bg-[var(--surface)]/[0.03] p-3 transition hover:-translate-y-0.5 hover:border-cyan-300/25 hover:bg-[var(--surface)]/[0.045] light:shadow-sm light:hover:border-cyan-200 light:hover:shadow-md">
 			<MediaCover item={item} sourceHref={previewHref} t={t} />
 
 			<div className="mt-3 flex items-start justify-between gap-2">
 				<div className="min-w-0 flex-1">
 					<div className="flex items-center gap-1.5">
 						<span>{item.mediaType === "image" ? "🖼" : item.mediaType === "audio" ? "🎵" : "🎬"}</span>
-						<span className="truncate text-sm font-medium text-white" title={item.name}>{item.name}</span>
+						<span className="truncate text-sm font-medium text-[var(--text-primary)]" title={item.name}>{item.name}</span>
 					</div>
-					<p className="mt-1 truncate text-[11px] text-slate-500" title={item.relativePath}>📂 {item.relativePath}</p>
-					<div className="mt-1.5 flex flex-wrap items-center gap-x-2 text-[10px] text-slate-500">
+					<p className="mt-1 truncate text-[11px] text-[var(--text-muted)]" title={item.relativePath}>📂 {item.relativePath}</p>
+					<div className="mt-1.5 flex flex-wrap items-center gap-x-2 text-[10px] text-[var(--text-muted)]">
 						<span>💾 {storageLabel(item, t)}</span>
 					</div>
 				</div>
@@ -262,17 +262,17 @@ export function MediaItemCard({ item, canManage }: { item: MediaItem; canManage:
 
 			<div className="mt-3 flex flex-wrap gap-2 text-xs">
 				{previewHref ? (
-					<a href={previewHref} data-tone="cyan" className="inline-flex items-center gap-1 rounded-lg border border-cyan-400/25 px-2.5 py-1.5 text-cyan-200 hover:bg-cyan-400/20">
+					<a href={previewHref} data-tone="cyan" className="inline-flex items-center gap-1 rounded-lg border border-cyan-400/25 px-2.5 py-1.5 text-[var(--text-secondary)] hover:bg-cyan-400/20">
 						<Eye size={13} /> {t("mediaItemCard.previewButton")}
 					</a>
 				) : null}
 				{downloadHref ? (
-					<a href={downloadHref} className="inline-flex items-center gap-1 rounded-lg border border-white/10 px-2.5 py-1.5 text-slate-300 hover:bg-white/10 light:hover:bg-white">
+					<a href={downloadHref} className="inline-flex items-center gap-1 rounded-lg border border-[var(--border)]/10 px-2.5 py-1.5 text-[var(--text-secondary)] hover:bg-[var(--surface)]/10 light:hover:bg-[var(--surface)]">
 						<Download size={13} /> {t("mediaItemCard.downloadButton")}
 					</a>
 				) : null}
 				{sourceHref ? (
-					<a href={sourceHref} className="inline-flex items-center gap-1 rounded-lg border border-white/10 px-2.5 py-1.5 text-slate-300 hover:bg-white/10 light:hover:bg-white">
+					<a href={sourceHref} className="inline-flex items-center gap-1 rounded-lg border border-[var(--border)]/10 px-2.5 py-1.5 text-[var(--text-secondary)] hover:bg-[var(--surface)]/10 light:hover:bg-[var(--surface)]">
 						<FolderOpen size={13} /> {t("mediaItemCard.sourceFileButton")}
 					</a>
 				) : null}
@@ -318,14 +318,14 @@ export function MediaItemCard({ item, canManage }: { item: MediaItem; canManage:
 								else setShowTagInput(false);
 							}}
 							aria-label={t("mediaItemCard.newTagAriaLabel")}
-							className="w-20 rounded-full bg-white/[0.06] px-2 py-0.5 text-[10px] text-white outline-none placeholder:text-[var(--text-muted)]"
+							className="w-20 rounded-full bg-[var(--surface)]/[0.06] px-2 py-0.5 text-[10px] text-[var(--text-primary)] outline-none placeholder:text-[var(--text-muted)]"
 							placeholder={t("mediaItemCard.newTagPlaceholder")}
 						/>
 					) : (
 						<button
 							type="button"
 							onClick={() => setShowTagInput(true)}
-							className="inline-flex items-center gap-0.5 rounded-full border border-dashed border-[var(--border)] px-2 py-0.5 text-[10px] text-slate-500 opacity-0 transition group-hover:opacity-100 hover:border-cyan-400/30 hover:text-cyan-400"
+							className="inline-flex items-center gap-0.5 rounded-full border border-dashed border-[var(--border)] px-2 py-0.5 text-[10px] text-[var(--text-muted)] opacity-0 transition group-hover:opacity-100 hover:border-cyan-400/30 hover:text-cyan-400"
 						>
 							<Tag size={10} /> {t("mediaItemCard.addTag")}
 						</button>

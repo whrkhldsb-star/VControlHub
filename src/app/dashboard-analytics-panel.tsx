@@ -205,7 +205,7 @@ function MetricLine({ label, value, color }: { label: string; value: number; col
         <span>{label}</span>
         <span>{value}%</span>
       </div>
-      <div className="h-2 rounded-full bg-white/5">
+      <div className="h-2 rounded-full bg-[var(--surface)]/5">
         <div className={`h-full rounded-full ${colors[color]}`} style={{ width: `${value}%` }} />
       </div>
     </div>
@@ -257,7 +257,7 @@ function StackedDownloadBars({ points, locale: _locale = "zh" }: { points: Downl
         const showLabel = index % labelInterval === 0 || index === points.length - 1;
         return (
           <div key={point.date} className="flex min-w-0 flex-1 flex-col items-center gap-1">
-            <div className="flex w-full flex-col justify-end overflow-hidden rounded-t bg-white/5" style={{ height: `${height}px` }} title={`${point.date}: ${total}`}>
+            <div className="flex w-full flex-col justify-end overflow-hidden rounded-t bg-[var(--surface)]/5" style={{ height: `${height}px` }} title={`${point.date}: ${total}`}>
               <Segment value={point.failed} total={total} className="bg-rose-400/70" />
               <Segment value={point.running} total={total} className="bg-cyan-400/70" />
               <Segment value={point.pending} total={total} className="bg-amber-400/70" />
@@ -280,7 +280,7 @@ function MiniStat({ label, value, color }: { label: string; value: number; color
   const colors = {
     emerald: "text-emerald-200 border-emerald-400/20 bg-emerald-400/10",
     rose: "text-rose-200 border-rose-400/20 bg-rose-400/10",
-    cyan: "text-cyan-200 border-cyan-400/20 bg-cyan-400/10",
+    cyan: "text-[var(--text-secondary)] border-cyan-400/20 bg-cyan-400/10",
     amber: "text-amber-200 border-amber-400/20 bg-amber-400/10",
   };
   return (

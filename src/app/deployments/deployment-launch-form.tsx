@@ -144,7 +144,7 @@ export function DeploymentLaunchForm({ templates, servers }: { templates: Deploy
 				</div>
 				<div className="grid gap-2 md:grid-cols-2">
 					{servers.map((server) => (
-						<label key={server.id} className="flex items-center gap-2 rounded-lg border border-[var(--border)] bg-white/[0.03] px-3 py-2 text-xs text-[var(--text-secondary)]">
+						<label key={server.id} className="flex items-center gap-2 rounded-lg border border-[var(--border)] bg-[var(--surface)]/[0.03] px-3 py-2 text-xs text-[var(--text-secondary)]">
 							<input type="checkbox" name="serverIds" value={server.id} />
 							<span>{server.name} · {server.username}@{server.host}</span>
 						</label>
@@ -154,7 +154,7 @@ export function DeploymentLaunchForm({ templates, servers }: { templates: Deploy
 
 			<details className="rounded-xl border border-[var(--border)] bg-[var(--surface-subtle)] p-3">
 				<summary className="cursor-pointer text-xs font-medium text-[var(--text-secondary)]">{t("deploymentsPage.launch.previewCommand")}</summary>
-				<code className="mt-3 block max-h-40 overflow-auto whitespace-pre-wrap rounded-lg border border-[var(--border)] bg-slate-950/70 p-3 font-mono text-xs text-[var(--text-secondary)]">{previewCommand(selectedTemplate, variables, t)}</code>
+				<code className="mt-3 block max-h-40 overflow-auto whitespace-pre-wrap rounded-lg border border-[var(--border)] bg-[var(--surface)]/70 p-3 font-mono text-xs text-[var(--text-secondary)]">{previewCommand(selectedTemplate, variables, t)}</code>
 			</details>
 
 			{error && <p className="text-xs text-rose-300">{error}</p>}

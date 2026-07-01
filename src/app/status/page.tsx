@@ -32,7 +32,7 @@ export default async function Page() {
   const uptimeData = await getAllUptimeData();
 
   return (
-    <main className="min-h-screen bg-slate-950 text-[var(--text-primary)]">
+    <main className="min-h-screen bg-[var(--surface)] text-[var(--text-primary)]">
       <div className="mx-auto max-w-5xl px-6 py-14">
         <h1 className="text-3xl font-semibold">{t("statusPage.title", locale)}</h1>
         <p className="mt-2 text-sm text-[var(--text-secondary)]">

@@ -66,7 +66,7 @@ export default async function BackupsPage() {
 				<div className="mt-4 grid gap-3 md:grid-cols-3">
 					{(["DATABASE", "FILES", "FULL"] as const).map((type) => (
 						<div key={type} className="rounded-lg border border-[var(--border)] bg-black/10 p-3">
-							<p className="text-xs font-semibold text-cyan-200">{type}</p>
+							<p className="text-xs font-semibold text-[var(--text-secondary)]">{type}</p>
 							<p className="mt-1 text-sm text-[var(--text-primary)]">{t("backupsPage.overview.typeSummary").replace("{count}", String(summary.byType[type].count)).replace("{size}", formatBackupSize(summary.byType[type].sizeBytes))}</p>
 						</div>
 					))}
@@ -92,7 +92,7 @@ export default async function BackupsPage() {
 									<span className="rounded-full bg-rose-400/15 px-2 py-0.5 text-xs text-rose-100">{t("backupsPage.failures.itemCount").replace("{count}", String(item.count))}</span>
 								</div>
 								{item.latestRecordPath && <p className="mt-2 text-xs text-[var(--text-muted)]">{t("backupsPage.failures.latestRecord").replace("{path}", item.latestRecordPath)}</p>}
-								<p className="mt-2 rounded-lg border border-[var(--border)] bg-black/10 px-2 py-1.5 text-xs text-slate-300/60">{t("backupsPage.failures.remediation").replace("{remediation}", item.remediation)}</p>
+								<p className="mt-2 rounded-lg border border-[var(--border)] bg-black/10 px-2 py-1.5 text-xs text-[var(--text-secondary)]/60">{t("backupsPage.failures.remediation").replace("{remediation}", item.remediation)}</p>
 								{item.latestMessage && <p className="mt-1 line-clamp-2 text-xs text-[var(--text-muted)]">{item.latestMessage}</p>}
 							</div>
 						))}
@@ -131,7 +131,7 @@ export default async function BackupsPage() {
 						</div>
 						<a
 							href="/settings#offsite"
-							className="rounded-lg border border-[var(--border)] px-2 py-1 text-xs text-[var(--text-muted)] transition hover:border-white/[0.16] hover:text-[var(--text-secondary)]"
+							className="rounded-lg border border-[var(--border)] px-2 py-1 text-xs text-[var(--text-muted)] transition hover:border-[var(--border)]/[0.16] hover:text-[var(--text-secondary)]"
 						>
 							{t("backupsPage.offsite.openSettings")}
 						</a>
@@ -192,8 +192,8 @@ export default async function BackupsPage() {
 							{b.note && <p className="mt-2 text-xs text-[var(--text-muted)]">{b.note}</p>}
 							{canRestore && (
 								<div className="mt-3 grid gap-2">
-									<code className="block overflow-auto rounded-lg border border-[var(--border)] bg-slate-950/70 p-3 font-mono text-xs text-[var(--text-secondary)]">{buildPortableBackupCommand({ projectRoot, outputPath: b.filePath, type: isBackupType(b.type) ? b.type : undefined })}</code>
-									<code className="block overflow-auto rounded-lg border border-[var(--border)] bg-slate-950/70 p-3 font-mono text-xs text-[var(--text-secondary)]">{buildBackupRestoreCommand({ projectRoot, backupPath: b.filePath, type: isBackupType(b.type) ? b.type : undefined })}</code>
+									<code className="block overflow-auto rounded-lg border border-[var(--border)] bg-[var(--surface)]/70 p-3 font-mono text-xs text-[var(--text-secondary)]">{buildPortableBackupCommand({ projectRoot, outputPath: b.filePath, type: isBackupType(b.type) ? b.type : undefined })}</code>
+									<code className="block overflow-auto rounded-lg border border-[var(--border)] bg-[var(--surface)]/70 p-3 font-mono text-xs text-[var(--text-secondary)]">{buildBackupRestoreCommand({ projectRoot, backupPath: b.filePath, type: isBackupType(b.type) ? b.type : undefined })}</code>
 									<RestoreBackupButton backupId={b.id} backupType={b.type} disabled={b.status !== "COMPLETED"} />
 									{b.status !== "COMPLETED" && <p className="text-xs text-[var(--text-muted)]">{t("backupsPage.records.restoreHint")}</p>}
 								</div>

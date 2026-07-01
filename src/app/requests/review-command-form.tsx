@@ -14,7 +14,7 @@ export function ReviewCommandForm({ commandRequestId }: { commandRequestId: stri
   const [state, formAction] = useActionState(reviewCommandAction, initialState);
 
   return (
-    <form action={formAction} className="mt-4 rounded-lg border border-[var(--border)] bg-white/[0.03] p-4 text-sm text-[var(--text-secondary)]">
+    <form action={formAction} className="mt-4 rounded-lg border border-[var(--border)] bg-[var(--surface)]/[0.03] p-4 text-sm text-[var(--text-secondary)]">
       <input type="hidden" name="commandRequestId" value={commandRequestId} />
       <label className="grid gap-2">
         <span className="text-[var(--text-secondary)]">{t("requestsPage.review.commentLabel")}</span>
@@ -33,7 +33,7 @@ export function ReviewCommandForm({ commandRequestId }: { commandRequestId: stri
         >
           <span>{t("requestsPage.review.approve")}</span>
         </SubmitButton>
-        <button type="submit" name="decision" value="reject" className="rounded-2xl border border-[var(--border)] px-4 py-2 text-sm font-medium text-[var(--text-primary)] transition hover:bg-white/10">
+        <button type="submit" name="decision" value="reject" className="rounded-2xl border border-[var(--border)] px-4 py-2 text-sm font-medium text-[var(--text-primary)] transition hover:bg-[var(--surface)]/10">
           {t("requestsPage.review.reject")}
         </button>
       </div>

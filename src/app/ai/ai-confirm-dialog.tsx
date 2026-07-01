@@ -49,7 +49,7 @@ export function AiConfirmDialog({
             type="button"
             onClick={onCancel}
             disabled={busy}
-            className="rounded-xl border border-[var(--border)] px-3 py-2 text-xs text-[var(--text-secondary)] transition hover:bg-white/5 disabled:opacity-50"
+            className="rounded-xl border border-[var(--border)] px-3 py-2 text-xs text-[var(--text-secondary)] transition hover:bg-[var(--surface)]/5 disabled:opacity-50"
           >
             {t("aiPage.cancel")}
           </button>
@@ -60,7 +60,7 @@ export function AiConfirmDialog({
             className={`rounded-xl px-3 py-2 text-xs font-medium transition disabled:opacity-50 ${
  danger
  ?"bg-rose-500/20 text-rose-200 hover:bg-rose-500/30"
- :"bg-cyan-500/20 text-cyan-200 hover:bg-cyan-500/30"
+ :"bg-cyan-500/20 text-[var(--text-secondary)] hover:bg-cyan-500/30"
  }`}
           >
             {busy ? t("aiPage.processing") : confirmLabel}
