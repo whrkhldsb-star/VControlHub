@@ -176,15 +176,15 @@ export function TeamWorkspaceSection({ canManage }: { canManage: boolean }) {
 	}
 
 	return (
-		<section id="team-workspaces" data-card className="space-y-4 p-5">
+		<section id="team-workspaces" data-card className="rounded-xl border border-[var(--border)] bg-[var(--surface)] space-y-4 p-5">
 			<div>
 				<p className="text-xs font-semibold uppercase tracking-[0.3em] text-[var(--color-action)]/80">Team Spaces</p>
 				<h2 className="mt-1 text-xl font-semibold text-[var(--text-primary)]">团队空间</h2>
 				<p className="mt-1 text-sm text-[var(--text-secondary)]">多租户资源隔离：创建团队、切换当前团队，维护成员并管理服务器归属。切换团队后服务器列表按团队过滤。</p>
 			</div>
 
-			{error && <div role="alert" className="rounded-xl border border-rose-400/20 bg-rose-500/10 px-3 py-2 text-sm text-rose-200">{error}</div>}
-			{message && <div className="rounded-xl border border-emerald-400/20 bg-emerald-500/10 px-3 py-2 text-sm text-emerald-200">{message}</div>}
+			{error && <div role="alert" className="rounded-xl border border-rose-400/20 bg-rose-500/10 px-3 py-2 text-sm text-rose-200 light:text-rose-600">{error}</div>}
+			{message && <div className="rounded-xl border border-emerald-400/20 bg-emerald-500/10 px-3 py-2 text-sm text-emerald-200 light:text-emerald-600">{message}</div>}
 
 			{loading ? (
 				<p className="text-sm text-[var(--text-muted)]">加载团队空间中…</p>
@@ -219,12 +219,12 @@ export function TeamWorkspaceSection({ canManage }: { canManage: boolean }) {
 										</button>
 									)}
 									{canManage && editingTeamId === team.id && (
-										<button type="button" disabled={busy} onClick={() => saveEditTeam(team.id)} className="min-h-9 rounded-xl border border-[var(--border)] px-3 py-1 text-xs text-emerald-300 disabled:opacity-60">
+										<button type="button" disabled={busy} onClick={() => saveEditTeam(team.id)} className="min-h-9 rounded-xl border border-[var(--border)] px-3 py-1 text-xs text-emerald-300 light:text-emerald-600 disabled:opacity-60">
 											保存
 										</button>
 									)}
 									{canManage && (
-										<button type="button" disabled={busy} onClick={() => deleteTeamSpace(team.id, team.name)} className="min-h-9 rounded-xl border border-rose-400/30 px-3 py-1 text-xs text-rose-300 disabled:opacity-60">
+										<button type="button" disabled={busy} onClick={() => deleteTeamSpace(team.id, team.name)} className="min-h-9 rounded-xl border border-rose-400/30 px-3 py-1 text-xs text-rose-300 light:text-rose-600 disabled:opacity-60">
 											删除
 										</button>
 									)}
@@ -237,7 +237,7 @@ export function TeamWorkspaceSection({ canManage }: { canManage: boolean }) {
 										<span className="flex items-center gap-2">
 											<span className="text-[var(--text-muted)]">{member.role}</span>
 											{canManage && member.role !== "owner" && (
-												<button type="button" disabled={busy} onClick={() => removeMember(team.id, member.user.id, member.user.displayName || member.user.username)} className="text-rose-400/70 hover:text-rose-400 disabled:opacity-60">
+												<button type="button" disabled={busy} onClick={() => removeMember(team.id, member.user.id, member.user.displayName || member.user.username)} className="text-rose-400/70 hover:text-rose-400 light:text-rose-500 light:hover:text-rose-600 disabled:opacity-60">
 													✕
 												</button>
 											)}
@@ -259,7 +259,7 @@ export function TeamWorkspaceSection({ canManage }: { canManage: boolean }) {
 						<h3 className="text-sm font-semibold text-[var(--text-primary)]">创建团队空间</h3>
 						<input value={name} onChange={(e) => setName(e.target.value)} placeholder="团队名称" className="w-full rounded-xl border border-[var(--border)] bg-[var(--surface)] px-3 py-2 text-sm" />
 						<input value={slug} onChange={(e) => setSlug(e.target.value)} placeholder="slug（可选，例如 ops-team）" className="w-full rounded-xl border border-[var(--border)] bg-[var(--surface)] px-3 py-2 text-sm" />
-						<button type="button" disabled={busy || !name.trim()} onClick={createTeam} data-tone="accent" className="min-h-10 rounded-xl border px-4 py-2 text-sm disabled:opacity-60">创建团队</button>
+						<button type="button" disabled={busy || !name.trim()} onClick={createTeam} data-tone="accent" className="min-h-10 rounded-xl bg-[var(--accent)] text-[var(--color-action-fg)] px-4 py-2 text-sm font-medium disabled:opacity-60 hover:opacity-90 transition">创建团队</button>
 					</div>
 					<div className="space-y-2">
 						<h3 className="text-sm font-semibold text-[var(--text-primary)]">添加成员</h3>
@@ -271,7 +271,7 @@ export function TeamWorkspaceSection({ canManage }: { canManage: boolean }) {
 							<option value="member">member</option>
 							<option value="admin">admin</option>
 						</select>
-						<button type="button" disabled={busy || !targetTeamId || !memberUsername.trim()} onClick={addMember} data-tone="accent" className="min-h-10 rounded-xl border px-4 py-2 text-sm disabled:opacity-60">添加/更新成员</button>
+						<button type="button" disabled={busy || !targetTeamId || !memberUsername.trim()} onClick={addMember} data-tone="accent" className="min-h-10 rounded-xl bg-[var(--accent)] text-[var(--color-action-fg)] px-4 py-2 text-sm font-medium disabled:opacity-60 hover:opacity-90 transition">添加/更新成员</button>
 					</div>
 				</div>
 			)}

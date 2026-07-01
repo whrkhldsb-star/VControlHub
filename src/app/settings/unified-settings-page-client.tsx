@@ -212,6 +212,7 @@ export function UnifiedSettingsPageClient({
           showCategoryNav={false}
           visibleSectionIds={visibleSectionIds}
         />
+        {activeTab === "advanced" && canManage && <SystemConfigSection />}
       </div>
     </div>
   );

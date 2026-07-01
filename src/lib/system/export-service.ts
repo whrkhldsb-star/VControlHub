@@ -46,19 +46,19 @@ async function exportRolePermissions() {
   }));
 }
 
-async function exportUsers() {
+export type ExportMode = "standard" | "full";
+
+async function exportUsers(mode: ExportMode) {
   const rows = await prisma.user.findMany({ orderBy: { username: "asc" } });
   return rows.map((r) => ({
     id: r.id,
     username: r.username,
     displayName: r.displayName,
-    // 脱敏：密码哈希置空
-    passwordHash: null as null,
+    passwordHash: mode === "full" ? r.passwordHash : null,
     status: r.status,
     mustChangePassword: r.mustChangePassword,
     twoFactorEnabled: r.twoFactorEnabled,
-    // 脱敏：2FA secret 置空
-    twoFactorSecret: null as null,
+    twoFactorSecret: mode === "full" ? r.twoFactorSecret : null,
     preferences: r.preferences,
     createdAt: dateToISO(r.createdAt)!,
   }));
@@ -73,22 +73,22 @@ async function exportUserRoles() {
   }));
 }
 
-async function exportSshKeys() {
+async function exportSshKeys(mode: ExportMode) {
   const rows = await prisma.sshKey.findMany({ orderBy: { name: "asc" } });
   return rows.map((r) => ({
     id: r.id,
     name: r.name,
     fingerprint: r.fingerprint,
     publicKey: r.publicKey,
-    // 脱敏：私钥置空
-    privateKey: null as null,
+    privateKey: mode === "full" ? r.privateKey : null,
+    passphrase: mode === "full" ? r.passphrase : null,
     description: r.description,
     createdById: r.createdById,
     createdAt: dateToISO(r.createdAt)!,
   }));
 }
 
-async function exportServers() {
+async function exportServers(mode: ExportMode) {
   const rows = await prisma.server.findMany({ orderBy: { name: "asc" } });
   return rows.map((r) => ({
     id: r.id,
@@ -97,8 +97,7 @@ async function exportServers() {
     port: r.port,
     username: r.username,
     sshKeyId: r.sshKeyId,
-    // 脱敏：密码置空
-    password: null as null,
+    password: mode === "full" ? r.password : null,
     description: r.description,
     tags: r.tags,
     enabled: r.enabled,
@@ -220,23 +219,21 @@ async function exportAlertRules() {
   }));
 }
 
-async function exportSettings() {
+async function exportSettings(mode: ExportMode) {
   const rows = await prisma.setting.findMany({ orderBy: { key: "asc" } });
   return rows.map((r) => ({
     key: r.key,
-    // 脱敏：敏感 key 的值清空
-    value: isSensitiveSettingKey(r.key) ? "" : r.value,
+    value: mode === "full" ? r.value : (isSensitiveSettingKey(r.key) ? "" : r.value),
   }));
 }
 
-async function exportAiProviders() {
+async function exportAiProviders(mode: ExportMode) {
   const rows = await prisma.aiProvider.findMany({ orderBy: { name: "asc" } });
   return rows.map((r) => ({
     id: r.id,
     name: r.name,
     type: r.type,
-    // 脱敏：API key 置空
-    apiKey: null as null,
+    apiKey: mode === "full" ? r.apiKey : null,
     baseUrl: r.baseUrl,
     defaultModel: r.defaultModel,
     availableModels: r.availableModels,
@@ -281,7 +278,7 @@ async function exportSnippets() {
 
 // ── 主导出函数 ────────────────────────────────────────────
 
-export async function buildExportFile(sourceDomain: string): Promise<ExportFile> {
+export async function buildExportFile(sourceDomain: string, mode: ExportMode = "standard"): Promise<ExportFile> {
   const [
     permissions,
     roles,
@@ -304,18 +301,18 @@ export async function buildExportFile(sourceDomain: string): Promise<ExportFile>
     exportPermissions(),
     exportRoles(),
     exportRolePermissions(),
-    exportUsers(),
+    exportUsers(mode),
     exportUserRoles(),
-    exportSshKeys(),
-    exportServers(),
+    exportSshKeys(mode),
+    exportServers(mode),
     exportStorageNodes(),
     exportUserStorageAccess(),
     exportCommandTemplates(),
     exportQuickServices(),
     exportPlaybooks(),
     exportAlertRules(),
-    exportSettings(),
-    exportAiProviders(),
+    exportSettings(mode),
+    exportAiProviders(mode),
     exportAnnouncements(),
     exportSnippets(),
   ]);
@@ -324,6 +321,7 @@ export async function buildExportFile(sourceDomain: string): Promise<ExportFile>
     schemaVersion: EXPORT_SCHEMA_VERSION,
     exportedAt: new Date().toISOString(),
     sourceDomain,
+    exportMode: mode,
     tables: {
       permissions,
       roles,

@@ -9,6 +9,11 @@ export const zh: Record<string, string> = {
   "systemConfig.export.button": "下载配置快照",
   "systemConfig.export.exporting": "导出中…",
   "systemConfig.export.hint": "导出所有配置表（用户、服务器、模板、Playbook 等），敏感字段（密码、私钥、API Key）会自动剥离。",
+  "systemConfig.export.modeStandard": "标准导出（脱敏）",
+  "systemConfig.export.modeStandardHint": "敏感字段（密码、私钥、API Key）自动剥离，导入后需手动重新配置",
+  "systemConfig.export.modeFull": "完整导出（含密钥）",
+  "systemConfig.export.modeFullHint": "包含所有密码、私钥、API Key 等敏感信息，导入后即可直接使用，无需重新配置",
+  "systemConfig.export.fullWarning": "完整导出包含所有敏感凭据（密码哈希、SSH 私钥、服务器密码、API Key），请妥善保管此文件，切勿泄露",
   "systemConfig.export.success": "配置快照已下载",
   "systemConfig.export.error": "导出失败",
 
@@ -48,6 +53,11 @@ export const en: Record<string, string> = {
   "systemConfig.export.button": "Download Config Snapshot",
   "systemConfig.export.exporting": "Exporting…",
   "systemConfig.export.hint": "Exports all config tables (users, servers, templates, playbooks, etc.). Sensitive fields (passwords, private keys, API keys) are automatically stripped.",
+  "systemConfig.export.modeStandard": "Standard (Sanitized)",
+  "systemConfig.export.modeStandardHint": "Sensitive fields (passwords, private keys, API keys) are stripped. Must reconfigure after import.",
+  "systemConfig.export.modeFull": "Full (Includes Secrets)",
+  "systemConfig.export.modeFullHint": "Includes all passwords, private keys, API keys. Imported instance works immediately without reconfiguration.",
+  "systemConfig.export.fullWarning": "Full export contains all sensitive credentials (password hashes, SSH private keys, server passwords, API keys). Keep this file secure and never share it.",
   "systemConfig.export.success": "Config snapshot downloaded",
   "systemConfig.export.error": "Export failed",
 

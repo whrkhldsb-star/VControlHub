@@ -128,7 +128,7 @@ function RuntimeSummaryPanel({
         {summary.unit}
       </p>
       {summary.requiresRestart && (
-        <p className="font-medium text-amber-200">
+        <p className="font-medium text-amber-200 light:text-amber-700">
           {t("settingsClient.runtimeRestartWarning")}
         </p>
       )}

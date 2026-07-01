@@ -267,21 +267,26 @@ export async function previewImport(
     totalRecords += create + update;
   }
 
-  // 安全警告
-  if (t.users.length > 0) {
-    warnings.push("用户密码哈希已剥离，导入后需重新设置密码");
-  }
-  if (t.sshKeys.length > 0) {
-    warnings.push("SSH 私钥已剥离，导入后需重新上传或粘贴私钥");
-  }
-  if (t.servers.length > 0) {
-    warnings.push("服务器密码已剥离，导入后需重新填写（或使用 SSH 密钥）");
-  }
-  if (t.aiProviders.length > 0) {
-    warnings.push("AI 提供者 API Key 已剥离，导入后需重新填写");
-  }
-  if (t.settings.some((s) => s.value === "")) {
-    warnings.push("部分敏感系统设置值已清空，导入后需重新配置");
+  // 安全警告 — only show for standard mode (full mode includes secrets)
+  const isFullMode = file.exportMode === "full";
+  if (!isFullMode) {
+    if (t.users.length > 0) {
+      warnings.push("用户密码哈希已剥离，导入后需重新设置密码");
+    }
+    if (t.sshKeys.length > 0) {
+      warnings.push("SSH 私钥已剥离，导入后需重新上传或粘贴私钥");
+    }
+    if (t.servers.length > 0) {
+      warnings.push("服务器密码已剥离，导入后需重新填写（或使用 SSH 密钥）");
+    }
+    if (t.aiProviders.length > 0) {
+      warnings.push("AI 提供者 API Key 已剥离，导入后需重新填写");
+    }
+    if (t.settings.some((s) => s.value === "")) {
+      warnings.push("部分敏感系统设置值已清空，导入后需重新配置");
+    }
+  } else {
+    warnings.push("⚠ 此文件为完整导出模式，包含密码、密钥等敏感信息，请妥善保管");
   }
 
   return { summary, warnings, totalRecords };
@@ -361,11 +366,13 @@ export async function executeImport(
               data: {
                 username: r.username,
                 displayName: r.displayName,
-                // passwordHash 保持原值不变（不覆盖为 null）
+                // In full mode, restore password hash; otherwise keep existing
+                ...(r.passwordHash ? { passwordHash: r.passwordHash } : {}),
                 status: r.status as never,
                 mustChangePassword: r.mustChangePassword,
                 twoFactorEnabled: r.twoFactorEnabled,
-                // twoFactorSecret 不覆盖
+                // In full mode, restore 2FA secret; otherwise keep existing
+                ...(r.twoFactorSecret !== null ? { twoFactorSecret: r.twoFactorSecret } : {}),
               },
             });
             updated++;
@@ -376,11 +383,12 @@ export async function executeImport(
               id: r.id,
               username: r.username,
               displayName: r.displayName,
-              passwordHash: "DISABLED_IMPORT_RESET", // 导入后必须重设密码
+              // Full mode: restore actual hash; Standard: force password reset
+              passwordHash: r.passwordHash ?? "DISABLED_IMPORT_RESET",
               status: r.status as never,
-              mustChangePassword: true, // 强制下次登录改密码
-              twoFactorEnabled: false,
-              twoFactorSecret: null,
+              mustChangePassword: r.passwordHash ? r.mustChangePassword : true,
+              twoFactorEnabled: r.twoFactorEnabled,
+              twoFactorSecret: r.twoFactorSecret,
               preferences: r.preferences as Prisma.InputJsonValue | undefined,
             },
           });
@@ -424,7 +432,9 @@ export async function executeImport(
               name: r.name,
               fingerprint: r.fingerprint,
               publicKey: r.publicKey,
-              // privateKey 不覆盖（保留现有值）
+              // Full mode: restore private key + passphrase; Standard: keep existing
+              ...(r.privateKey ? { privateKey: r.privateKey } : {}),
+              ...(r.passphrase !== null && r.passphrase !== undefined ? { passphrase: r.passphrase } : {}),
               description: r.description,
             },
           });
@@ -437,7 +447,8 @@ export async function executeImport(
             name: r.name,
             fingerprint: r.fingerprint,
             publicKey: r.publicKey,
-            privateKey: null, // 导入的密钥无私钥
+            privateKey: r.privateKey,
+            passphrase: r.passphrase,
             description: r.description,
           },
         });
@@ -457,7 +468,8 @@ export async function executeImport(
               host: r.host,
               port: r.port,
               username: r.username,
-              // password 不覆盖
+              // Full mode: restore password; Standard: keep existing
+              ...(r.password ? { password: r.password } : {}),
               sshKeyId: r.sshKeyId,
               description: r.description,
               tags: r.tags,
@@ -480,7 +492,8 @@ export async function executeImport(
             port: r.port,
             username: r.username,
             sshKeyId: r.sshKeyId,
-            password: null, // 导入的服务器无密码
+            // Full mode: restore actual password; Standard: null
+            password: r.password,
             description: r.description,
             tags: r.tags,
             enabled: r.enabled,
@@ -782,7 +795,8 @@ export async function executeImport(
             data: {
               name: r.name,
               type: r.type as never,
-              // apiKey 不覆盖（保留现有值）
+              // Full mode: restore apiKey; Standard: keep existing
+              ...(r.apiKey ? { apiKey: r.apiKey } : {}),
               baseUrl: r.baseUrl,
               defaultModel: r.defaultModel,
               availableModels: r.availableModels,
@@ -800,7 +814,7 @@ export async function executeImport(
               id: r.id,
               name: r.name,
               type: r.type as never,
-              apiKey: "", // 导入后需手动填写
+              apiKey: r.apiKey ?? "",
               baseUrl: r.baseUrl,
               defaultModel: r.defaultModel,
               availableModels: r.availableModels,

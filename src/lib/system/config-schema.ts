@@ -51,13 +51,13 @@ const userExportSchema = z.object({
   id: z.string(),
   username: z.string(),
   displayName: z.string().nullable(),
-  // passwordHash 脱敏 → null
-  passwordHash: z.null(),
+  // passwordHash: null in standard mode, actual hash in full mode
+  passwordHash: z.string().nullable(),
   status: z.string(),
   mustChangePassword: z.boolean(),
   twoFactorEnabled: z.boolean(),
-  // twoFactorSecret 脱敏 → null
-  twoFactorSecret: z.null(),
+  // twoFactorSecret: null in standard mode, actual secret in full mode
+  twoFactorSecret: z.string().nullable(),
   preferences: z.unknown().nullable(),
   createdAt: z.string(),
 });
@@ -73,8 +73,9 @@ const sshKeyExportSchema = z.object({
   name: z.string(),
   fingerprint: z.string(),
   publicKey: z.string(),
-  // privateKey 脱敏 → null
-  privateKey: z.null(),
+  // privateKey: null in standard mode, actual key in full mode
+  privateKey: z.string().nullable(),
+  passphrase: z.string().nullable(),
   description: z.string().nullable(),
   createdById: z.string().nullable(),
   createdAt: z.string(),
@@ -87,8 +88,8 @@ const serverExportSchema = z.object({
   port: z.number(),
   username: z.string(),
   sshKeyId: z.string().nullable(),
-  // password 脱敏 → null
-  password: z.null(),
+  // password: null in standard mode, actual password in full mode
+  password: z.string().nullable(),
   description: z.string().nullable(),
   tags: z.array(z.string()),
   enabled: z.boolean(),
@@ -201,8 +202,8 @@ const aiProviderExportSchema = z.object({
   id: z.string(),
   name: z.string(),
   type: z.string(),
-  // apiKey 脱敏 → null
-  apiKey: z.null(),
+  // apiKey: null in standard mode, actual key in full mode
+  apiKey: z.string().nullable(),
   baseUrl: z.string(),
   defaultModel: z.string(),
   availableModels: z.string(),
@@ -244,6 +245,7 @@ export const exportFileSchema = z.object({
   schemaVersion: z.literal(EXPORT_SCHEMA_VERSION),
   exportedAt: z.string(),
   sourceDomain: z.string(),
+  exportMode: z.enum(["standard", "full"]).optional(),
   tables: z.object({
     permissions: z.array(permissionSchema),
     roles: z.array(roleSchema),
