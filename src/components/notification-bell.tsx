@@ -221,7 +221,7 @@ export function NotificationBell() {
 						</ul>
 					) : null}
 					<div className="sticky bottom-0 border-t border-[var(--border)] bg-[var(--modal-bg)]">
-						<Link href="/notifications" className="block px-4 py-2.5 text-center text-xs text-[var(--color-action)]/80 hover:text-[var(--color-action)] transition light:hover:text-cyan-800">
+						<Link href="/notifications" className="block px-4 py-2.5 text-center text-xs text-[var(--color-action)]/80 hover:text-[var(--color-action)] transition light:hover:text-[var(--color-action-strong)]">
 							{viewAllLabel}
 						</Link>
 					</div>

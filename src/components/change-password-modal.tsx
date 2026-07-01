@@ -132,7 +132,7 @@ function PasswordField({ label, name, autoComplete, description }: PasswordField
 					aria-label={`${visible ? t("changePassword.hide") : t("changePassword.show")}${label}`}
 					aria-pressed={visible}
 					onClick={() => setVisible((current) => !current)}
-					className="border-l border-[var(--border)] px-4 text-xs font-medium text-cyan-200 transition hover:bg-white/5 hover:text-[var(--color-action-fg)] light:hover:text-cyan-900 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-[var(--color-action-ring)]"
+					className="border-l border-[var(--border)] px-4 text-xs font-medium text-[var(--color-action-fg)] transition hover:bg-white/5 hover:text-[var(--color-action-fg)] light:hover:text-[var(--color-action-strong)] focus:outline-none focus:ring-2 focus:ring-inset focus:ring-[var(--color-action-ring)]"
 				>
 					{visible ? t("changePassword.hide") : t("changePassword.show")}
 				</button>

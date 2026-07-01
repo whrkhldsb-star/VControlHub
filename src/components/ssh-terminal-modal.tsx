@@ -456,7 +456,7 @@ export function SshTerminalModal({ serverId, serverName, host, sessionToken, onC
 										placeholder={t("sshTerminalModal.favoritesPlaceholder")}
 										className="min-h-11 min-w-0 flex-1 rounded-lg border border-white/[0.06] bg-white/[0.04] px-3 py-1 text-[13px] font-mono text-white outline-none placeholder:text-white/20 focus:border-[var(--color-action-border)]/30"
 									/>
-									<button onClick={addFavorite} aria-label={t("sshTerminalModal.favoritesAdd")} data-tone="cyan" className="min-h-11 min-w-11 shrink-0 rounded-lg border border-[var(--color-action-border)]/20 px-2 py-1 text-[13px] text-cyan-200 transition hover:bg-[var(--color-action-bg)]/20">
+									<button onClick={addFavorite} aria-label={t("sshTerminalModal.favoritesAdd")} data-tone="cyan" className="min-h-11 min-w-11 shrink-0 rounded-lg border border-[var(--color-action-border)]/20 px-2 py-1 text-[13px] text-[var(--color-action-fg)] transition hover:bg-[var(--color-action-bg)]/20">
 										+
 									</button>
 								</div>

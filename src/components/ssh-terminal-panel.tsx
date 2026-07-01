@@ -441,7 +441,7 @@ export function SshTerminalPanel({ serverId, serverName, host, sessionToken, vis
 									placeholder={t("sshTerminalModal.favoritesPlaceholder")}
 									className="min-h-11 min-w-0 flex-1 rounded-lg border border-[var(--border-subtle)] light:border-slate-200/60 bg-[var(--surface-subtle)] light:bg-slate-100/40 px-3 py-1 text-[13px] font-mono text-[var(--text-primary)] light:text-slate-900 outline-none placeholder:text-[var(--text-muted)]/20 light:placeholder:text-slate-400/20 focus:border-[var(--color-action-border)]/30"
 									/>
-									<button onClick={addFavorite} aria-label={t("sshTerminalModal.favoritesAdd")} data-tone="cyan" className="min-h-11 min-w-11 shrink-0 rounded-lg border border-[var(--color-action-border)]/20 px-2 py-1 text-[13px] text-cyan-200 transition hover:bg-[var(--color-action-bg)]/20">+</button>
+									<button onClick={addFavorite} aria-label={t("sshTerminalModal.favoritesAdd")} data-tone="cyan" className="min-h-11 min-w-11 shrink-0 rounded-lg border border-[var(--color-action-border)]/20 px-2 py-1 text-[13px] text-[var(--color-action-fg)] transition hover:bg-[var(--color-action-bg)]/20">+</button>
 							</div>
 							{favoriteCommands.length === 0 ? (
 								<p className="text-[10px] text-slate-600">{t("sshTerminalModal.favoritesEmpty")}</p>

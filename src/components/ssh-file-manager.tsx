@@ -361,7 +361,7 @@ export function SshFileManager({ serverId, visible }: SshFileManagerProps) {
           <button
             type="button"
             onClick={() => navigateToBreadcrumb(-1)}
-            className="rounded px-1.5 py-0.5 text-slate-400 transition hover:bg-white/[0.06] hover:text-cyan-200"
+            className="rounded px-1.5 py-0.5 text-slate-400 transition hover:bg-white/[0.06] hover:text-[var(--color-action-fg)]"
           >
             /
           </button>
@@ -370,7 +370,7 @@ export function SshFileManager({ serverId, visible }: SshFileManagerProps) {
               <button
                 type="button"
                 onClick={() => navigateToBreadcrumb(i)}
-                className="rounded px-1.5 py-0.5 text-slate-400 transition hover:bg-white/[0.06] hover:text-cyan-200"
+                className="rounded px-1.5 py-0.5 text-slate-400 transition hover:bg-white/[0.06] hover:text-[var(--color-action-fg)]"
               >
                 {crumb}
               </button>
@@ -395,7 +395,7 @@ export function SshFileManager({ serverId, visible }: SshFileManagerProps) {
             <button
               onClick={handleMkdir}
               data-tone="cyan"
-              className="min-h-9 min-w-9 shrink-0 rounded-lg border border-[var(--color-action-border)]/20 px-2 text-xs text-cyan-200 transition hover:bg-[var(--color-action-bg)]/20"
+              className="min-h-9 min-w-9 shrink-0 rounded-lg border border-[var(--color-action-border)]/20 px-2 text-xs text-[var(--color-action-fg)] transition hover:bg-[var(--color-action-bg)]/20"
             >
               ✓
             </button>
@@ -452,7 +452,7 @@ export function SshFileManager({ serverId, visible }: SshFileManagerProps) {
         style={{ minHeight: "200px" }}
       >
         {dragOver && (
-          <div className="flex h-full items-center justify-center text-sm text-cyan-200">
+          <div className="flex h-full items-center justify-center text-sm text-[var(--color-action-fg)]">
             📥 {t("sshFileManager.dropHere")}
           </div>
         )}
@@ -499,7 +499,7 @@ export function SshFileManager({ serverId, visible }: SshFileManagerProps) {
                 />
                 <button
                   onClick={(e) => { e.stopPropagation(); handleRename(); }}
-                  className="text-[var(--color-action)] hover:text-cyan-200"
+                  className="text-[var(--color-action)] hover:text-[var(--color-action-fg)]"
                 >✓</button>
                 <button
                   onClick={(e) => { e.stopPropagation(); setRenameTarget(null); setRenameValue(""); }}

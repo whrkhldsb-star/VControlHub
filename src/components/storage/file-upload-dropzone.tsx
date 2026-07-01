@@ -476,7 +476,7 @@ export function FileUploadDropzone({
                     : item.status === "error"
                       ? "text-rose-200"
                       : item.status === "uploading"
-                        ? "text-cyan-200"
+                        ? "text-[var(--color-action-fg)]"
                         : "text-slate-400"
                 }
               >
