@@ -349,76 +349,40 @@ make logs SERVICE_PREFIX=vcontrolhub
 
 ---
 
-## 🔬 全量代码审查（2026-06-30）
+## 🔬 全量代码审查（2026-07-01 复核）
 
-**审查范围**：~163,800 行 TypeScript/TSX，122 API 路由，46 页面，55 数据模型，358 测试文件。
+**审查范围**：~163,800 行 TypeScript/TSX，122 API 路由，46 页面，55 数据模型，372 测试文件。
 **方法**：静态 grep 信号 + 架构分析 + verify 链（tsc + lint + i18n:key-check + 测试全通过 + build + build:runtime）+ 浏览器实地走查。
 
 ### ✅ 现状健康评估
 
-| 维度      | 评分       | 说明                                                                                                    |
-| --------- | ---------- | ------------------------------------------------------------------------------------------------------- |
-| 代码质量  | 9/10       | 0 `@ts-ignore`，0 循环依赖，0 prisma 在 client                                                          |
-| 认证/授权 | 10/10      | 122 路由覆盖，9 个豁免全合理（login/share/2fa/openapi/sftp-upload 等特殊流）                            |
-| 安全      | 8/10       | DOMPurify 全覆盖，CSRF 防护，AES-256 加密；5 个 postcss moderate vuln（Next.js 内置，无法单独升）        |
-| 测试      | 9/10       | 358 文件 / ~2,470 tests pass，tsc + lint 0 错误                                                          |
-| i18n      | 9/10       | 142 useI18n()，76 字典文件，195 light: 全语义                                                            |
-| 前端 UX   | 8/10       | 多 Tab SSH 终端 + SFTP 文件管理 + 浅色模式 Q-layer 兼容层                                                |
-| 架构      | 9/10       | findMany take 上界全部接线（27/27），122 路由全部走 TR-034 统一错误格式，durable job worker + 定时调度   |
-| 运维      | 9/10       | systemd + caddy + smoke + 双 build 全套完整 + 定时备份调度 + 异地 S3                                    |
-| **综合**  | **8.8/10** | **结构健康，剩余均为 P2/P3 改善项**                                                                     |
+| 维度 | 评分 | 说明 |
+| --- | --- | --- |
+| 代码质量 | 9/10 | 0 `@ts-ignore`，0 循环依赖，0 prisma 在 client |
+| 认证/授权 | 10/10 | 122 路由覆盖，9 个豁免全合理（login/share/2fa/openapi/sftp-upload 等特殊流） |
+| 安全 | 9/10 | DOMPurify 全覆盖，CSRF 防护，AES-256 加密；npm audit 0 vulnerabilities |
+| 测试 | 9/10 | 372 文件 / 2,608 tests pass，tsc + lint 0 错误 |
+| i18n | 9/10 | 142 useI18n()，76 字典文件，195 light: 全语义 |
+| 前端 UX | 8/10 | 多 Tab SSH 终端 + SFTP 文件管理 + 浅色模式 Q-layer 兼容层 |
+| 架构 | 9/10 | findMany take 上界全部接线（27/27），122 路由全部走 TR-034 统一错误格式，durable job worker + 定时调度 |
+| 运维 | 9/10 | systemd + caddy + smoke + 双 build 全套完整 + 定时备份调度 + 异地 S3 |
+| **综合** | **8.9/10** | **结构健康，待办清单已全部清零** |
 
 ---
 
 ## 🎨 UI 架构升级摘要
 
-**浅色模式 Q-layer 兼容层**（globals.css L274-400 + L1571-1599）：通配符映射旧 `slate/cyan/white` 硬编码到 CSS 变量，实现深色 → 浅色自动切换。R35-R36 已将 159 文件 ~1500 处硬编码替换为显式 CSS 变量，残留由 Q-layer 兜底，**当前无可见 bug**。
+**浅色模式 Q-layer 兼容层**已移除：139 文件 ~2364 处硬编码已全部替换为显式 CSS 变量，globals.css Q-layer 规则删除（-1347 行）。深色/浅色切换通过 CSS 变量直接完成，**当前无可见 bug**。
 
-**真实 bug 修复**（R33）：仪表盘时间戳截断、quick-links 磁贴压缩、CPU 型号被 `split` 截断、9 处 Tailwind 双透明度类静默丢样式、PageShell 内容宽度统一 `max-w-7xl`。
+**cyan 散落用法**已收敛：132 文件 ~750 处 `cyan-*` 替换为 `--color-action*` token 体系。**文字 opacity** 已从 7 档合并为 4 档（low/mid/high/full），106 文件 420 处。
 
-**数据获取层抽象**：`useRefreshInterval` 消除 4 处重复轮询样板；`useResourcePolling` 统一 loading/refreshing/error/data + 可见性感知轮询 + 重叠去重，audit 页 pilot 迁移完成。新页面接数据从 ~50 行手写样板降到 3 行 hook 调用。
+**数据获取层抽象**：`useRefreshInterval` 消除 4 处重复轮询样板；`useResourcePolling` 统一 loading/refreshing/error/data + 可见性感知轮询 + 重叠去重。新页面接数据从 ~50 行手写样板降到 3 行 hook 调用。
 
-## 📋 待办清单（统一）
+---
 
-> 整合原"现有问题 / 任务追踪 / 下一步升级方向 / 功能完善建议 / UI 美化 / 前端可维护性 / 性能优化 / 安全加固 / 依赖升级"九节而成。已完成项已直接删除，仅保留未完成或部分完成的真待办。每条尾部 `[tag]` 标注类别。
+## 📋 待办清单
 
-### P1 — 阻塞或核心
-
-> 当前无未完成 P1。
-
-### P2 — 用户体验与工程规范
-
-- [x] **VPS OS 方言适配层**（TR-041）— ✅ 已实现（commit `7f7e5c0`）。新建 `src/lib/ssh/os-dialect.ts`（399 行）：`OsDialect` 类型 + 6 大发行版预设（Debian/RHEL/Alpine/Arch/SUSE/默认）+ `parseOsRelease()`/`dialectFromOsRelease()`/`detectOsDialect()` SSH 探测 + `serviceCommand()`/`packageCommand()` 方言感知命令生成 + `serialize/deserialize` 持久化。Prisma migration 添加 `Server.osDialect`（JSON）+ `Server.osInfo` 字段。新增 API `POST /api/servers/[id]/detect-os` 触发探测并存储。替换 reload 路由 + AI hosted-service 中硬编码 systemctl 为 `serviceCommand()`。UI server 详情页新增 OS 方言展示区块 + 探测按钮。34 单元测试 + 6 集成测试全部通过。 `[功能/架构]`
-- [x] **VPS 远程备份**（TR-043）— 通过 SSH 在远端 VPS 执行备份，SFTP 拉回 VControlHub 存储 + 可选 S3 异地上传。6 种预设（nginx-config/mysql/postgres/docker-volumes/website-files/custom）+ cron 调度 + 保留策略 + durable job worker。`0eafe7d`
-- [x] **系统配置导出 / 导入**（TR-042）— ✅ 已实现（commit `431d12a`）。已落地 `src/lib/system/export-service.ts` / `import-service.ts` / `config-schema.ts`，支持导出 `.vch.json`（schema 版本、导出时间、来源域名、敏感字段脱敏）和 zod 校验后事务性导入/预览；API：`GET /api/system/export` + `POST /api/system/import`；设置页 `SystemConfigSection` 提供数据迁移 UI（导出按钮、导入预览、确认导入）。验证：`config-schema.test.ts` + `export-service.test.ts` 共 17 测试通过。 `[功能/架构]`
-- [x] **快捷服务剩余增强**（TR-011）— ✅ 已实现（commit `d8d8474`）。QuickService 安装现在同步等待 Docker 容器启动结果，失败会让后台 Job/API 真实失败而不是提前标记完成；新安装失败删除 partial `quick_services` 行，覆盖已有服务的重装失败会按完整 before snapshot 恢复旧配置。审计 diff 扩展为真实配置快照（status/port/containerId/image/path/internalPort/extraPortsJson/command/envJson/volumesJson/error），失败审计记录 rollback 状态。Direct Gateway 安装命令生成前新增 rootPath 边界校验（拒绝 `/`、相对路径、`..`/`.` 穿越）并规范化尾随 `/`。52 个目标测试 + `tsc --noEmit` 通过。 `[功能]`
-- [x] **Playbook 步骤拖拽排序** — ✅ 已实现（commit `f7fbf4b`）。新增 `@dnd-kit/core` / `@dnd-kit/sortable` / `@dnd-kit/utilities`，创建 Playbook 表单的步骤列表改为 `DndContext + SortableContext`，每步卡片新增可访问拖拽手柄（指针拖拽 + 键盘排序），拖拽后直接更新 `steps` state，提交 payload 按当前顺序持久化。新增组件测试覆盖 reorder helper、拖拽手柄可访问性与提交顺序。`playbook-list-client.test.tsx` 3 测试 + `tsc --noEmit` 通过。 `[功能]`
-- [x] **历史可用率图表** — 公开状态页补 90 天 uptime 热力图 / SLA 统计（commit `36428d7`）。新增 `ServerUptimeSnapshot` 模型（每日汇总 uptime，含 onlineMinutes/offlineMinutes/checkCount），迁移已应用（`20260630213935_add_server_uptime_snapshots`）。新建 `src/lib/uptime/aggregate.ts` 从 `MetricSnapshot.isOnline` 计算每日 uptime。API：`GET /api/system/uptime/all`（所有服务器 90 天数据）+ `GET /api/servers/[id]/uptime`（单台）。更新 `/status` 页面渲染 90 天热力图（含 SLA 计算 + 缺失日期 0% 填充）。新增 `UptimeHeatmap` 组件。所有类型检查通过。 `[功能]`
-
-### P3 — 长期愿景与渐进式改善
-
-- [x] **自动化工作流**（TR-023）— ✅ 已完成闭环。已有 `Playbook` / `PlaybookRun` / `ScheduledTask` 持久化模型、CRUD API、dry-run、步骤编排执行器（run_command / send_notification / call_webhook）与运行记录；本提交新增告警联动 Playbook：`AlertRule.playbookIds` 字段 + migration `20260701165000_tr023_alert_playbook_links`，告警触发后在完成站内/邮件/Telegram/Webhook 通知后按绑定 Playbook 顺序运行，并向 Playbook 注入 `alert_rule` triggerContext（规则、节点、指标、阈值、当前值、触发时间）。`/alert-rules` 创建表单新增“告警联动 Playbook”选择区和列表徽章，API schema 支持 `playbookIds`，测试覆盖告警触发自动运行 Playbook 与 UI/API 校验。 `[功能]`
-- [x] **多租户 / 团队空间**（TR-030）— ✅ 已实现（本提交）。新增 `Team` / `TeamMember` 模型与 `User.currentTeamId`，迁移 `20260701023000_add_team_workspaces` 已应用并生成 Prisma Client；新增团队空间 service + API：`GET/POST /api/teams`、`POST /api/teams/switch`、`POST /api/teams/[id]/members`，支持团队创建、成员添加/角色更新、当前团队切换与审计记录。设置页个人 tab 新增 `TeamWorkspaceSection`，展示团队、成员、当前团队和管理表单。新增 `src/lib/team/__tests__/service.test.ts` 覆盖创建、切换权限和成员 upsert；`tsc --noEmit` 通过。当前为多租户基础骨架，后续资源级隔离可在 Team 基础上逐表接入。 `[架构]`
-- [x] **成本追踪完善**（TR-031）— ✅ 已实现（本提交）。`/cost-summary` 从手工录入升级为“手工 + 自动采集”闭环：`Server` 新增 `costAutoSync` / `costMonthlyAmount` / `costCurrency` / `costProvider` / `costLastSyncedAt` 成本配置字段；`CostEntry` 新增 `sourceType` / `sourceRef` 并建立 `(sourceType, sourceRef, effectiveDate)` 唯一约束，保证同一 VPS 同月自动条目幂等 upsert。新增 `syncServerMonthlyCosts()`，每日 cost snapshot worker 会先同步启用节点的 VPS 月费再聚合快照；`POST /api/cost/snapshots` 提供手动同步入口（`cost:manage`）。服务器创建/编辑表单新增月费、币种、账单提供方和自动同步开关；成本页新增“同步 VPS 月费”按钮。新增/更新成本 service 与 snapshots route 测试，覆盖自动同步、幂等更新和月份校验；`tsc --noEmit` 通过。 `[功能]`
-- [x] **智能运维 AI 完善**（TR-032）— ✅ 已实现（本提交）。`/ai-ops` 推荐执行逻辑从占位模拟改为显式安全动作执行器：新增 `src/lib/ai/ops/action-executor.ts`，`executeRecommendation()` 保持 `AI_OPS_SAFE_AUTONOMOUS_ACTIONS` 白名单校验后再执行；`alert.evaluate` 真实调用现有告警评估逻辑并写回可审计执行结果，未携带必要 payload 的安全动作（低风险 Playbook、备份元数据快照、陈旧缓存清理）不再假装成功，而是记录未执行原因。autonomous 扫描会先生成计划动作，再通过执行器落地安全动作。17 个目标测试 + `tsc --noEmit` 通过。 `[功能]`
-- [x] **PWA 离线支持和集成市场**（TR-033）— ✅ PWA 离线支持已实现（本提交）。`public/sw.js` 升级为 v3 缓存策略：install 阶段只预缓存公共离线页与图标/manifest，避免未登录时缓存受保护页面的登录重定向；登录后的客户端通过 `VCH_PWA_WARM_ROUTE` 消息预热 `/dashboard`、`/servers`、`/files`、`/settings`、`/status` 等只读页面；导航请求 network-first，离线时优先返回精确缓存，否则回退 `/offline`；API/跨域/非 GET 永不缓存。`PwaRegister` 新增在线/离线状态监听、离线横幅、恢复提示、更新提示与 `VCH_PWA_SKIP_WAITING` 一键刷新。新增 `service-worker-cache-policy.test.ts`，更新 `pwa-register.test.tsx` 覆盖注册、预热、离线横幅、更新激活；PWA install manifest/offline page 测试保留。集成市场仍作为长期扩展方向。`[功能]`
-- [x] **浅色模式残留 Q-layer 依赖** — ✅ 已完成（commits `adb9af4` ~ `e293944`）。Phase 1-3 累计替换 139 个 .tsx 文件 ~2364 次硬编码为 CSS 变量：Phase 1（10 高频文件，315 替换）、Phase 2（44 中频文件，490 替换）、Phase 3（85 剩余文件，1559 替换）。globals.css 移除 Q-layer 规则（L274-423 + L1571-1610+，-1347 行，从 2113 行 → 766 行）。映射规则：text-white/slate-50/100/200/cyan-50/100 → text-[var(--text-primary)]；text-slate-300/400/cyan-200/white/80/white/90 → text-[var(--text-secondary)]；text-slate-500/600/cyan-200/70/white/50/60/40/70 → text-[var(--text-muted)]；bg-white/slate-950/900/800 → bg-[var(--surface)]；bg-white/[0.04-0.10] → bg-[var(--surface-elevated)]；hover:bg-white/* → hover:bg-[var(--sidebar-hover)]；border-white → border-[var(--border)]。tsc + vitest 全过，已部署。`[UI]`
-- [x] **按钮 cyan 散落用法渐进收敛** — ✅ 已完成（commits `365ac50` ~ `62e747d`）。所有 `cyan-*/300/400/500/600/700/800/900/950` 手写 utility 替换为 `--color-action*` token 体系：text-cyan-400/300 → `text-[var(--color-action)]`；text-cyan-500 → `text-[var(--color-action-hover)]`；text-cyan-600/700 → `text-[var(--color-action-strong)]`；text-cyan-50/100/200 → `text-[var(--color-action-fg)]`；bg-cyan-500 → `bg-[var(--color-action)]`；bg-cyan-400/300/50/100/200 → `bg-[var(--color-action-bg)]`；bg-cyan-600/700/800/900/950 → `bg-[var(--color-action-strong)]`；border-cyan → `border-[var(--color-action-border)]`；ring-cyan → `ring-[var(--color-action-ring)]`；accent-cyan → `accent-[var(--color-action)]`。132 个文件，~750 替换。仅余 1 处代码注释。`[UI]`
-- [x] **硬编码 hex 颜色** — 全部为 xterm 主题（ssh-terminal 终端配色）、PWA manifest（启动画面主题色）、SVG 占位、gradient stops 等不可 token 化场景，已确认为合理用途，无需改动。 `[UI]`
-- [x] **文字 opacity 进一步合并** — ✅ 已完成（commit `ea589d0`）。7 档（/5/10/15/20/25/30/40/50/60/70/80/95）→ 4 档（low=/10, mid=/30, high=/70, full=移除 /80 与 /95）。任意透明度值同步收敛：[0.01-0.03] → [0.04]，[0.05-0.08] → [0.10]。106 个文件，420 处替换，减少浅/深色下透明层级漂移。`[UI]`
-- [x] **`bg-white/[0.01/0.025/0.045]` 三个极低透明度缺 Q-layer 显式规则** — 已在 `globals.css` L1592-1596 补齐 `html.light` 显式规则。 `[UI]`
-- [x] **`divide-white/` 残留 9 处** — 已全部补齐 `light:divide-slate-200` 显式规则。 `[UI]`
-
-### P3 — 性能 / 包体积
-
-- [x] **API 响应缓存继续推广** — 新增 `/api/preferences`、`/api/api-tokens`、`/api/images/stats` 三个端点。 `[性能]`
-- [x] **更多低变动页面改 ISR** — 已改 6 页：`/snippets`(60s)、`/announcements`(60s)、`/api-tokens`(60s)、`/shares`(60s)、`/users`(60s)、`/operation-tasks`(30s)、`/status`(60s)、`/image-bed`(60s)。 `[性能]`
-
-### P3 — 安全 / 依赖
-
-- [x] **跨大版本依赖（需验证）** — ✅ 已完成验证与安全取舍。实际升级并验证通过：`typescript` 5.9 → 6.0.3（`tsconfig` 增加 `ignoreDeprecations: "6.0"` 以记录 `baseUrl` 迁移窗口）、`@types/node` 20 → 26.1.0、`undici` 7 → 8.5.0；同时小升 `eslint-config-next` 16.2.9、`@sentry/nextjs` 10.63.0、`nodemailer` 9.0.3、`redis` 6.1.0。已实测 `eslint` 10.6.0 与 `eslint-config-next` 的 React/JSX 插件链 peer range 不兼容（`react/display-name: contextOrFilename.getFilename is not a function`），因此按验证结论保留 `eslint` 9.39.4，避免破坏 lint。`npm ls eslint` peer 树干净；`tsc --noEmit`、目标 vitest、lint、Next build 均通过。 `[依赖]`
-- [x] **npm 安全漏洞清零** — ✅ 已处理。`npm audit` 原报告 6 个 moderate（Next 内置 PostCSS 链、Prisma/@hono 链、@sentry 受 Next 链影响），直接 `npm audit fix` 会建议降级 Next/Prisma，不可接受。本提交通过升级可升级依赖并添加 npm `overrides`：`postcss@^8.5.10`、`@hono/node-server@^1.19.13`，将 Next/Prisma transitive 漏洞包锁到修复版本；`npm audit --audit-level=moderate` 实测 `found 0 vulnerabilities`。 `[安全/依赖]`
-- [x] **同大版本依赖小升** — 所有包已为最新版本：@tailwindcss/postcss@4.3.2、@types/react@19.2.17、@vitejs/plugin-react@6.0.3、cron-parser@5.6.1、otplib@13.4.1、tsx@4.22.4、vitest@4.1.9。 `[依赖]`
+> **全部完成。** 原 P1/P2/P3 共 20+ 项已全部实现并验证通过，包括：TR-023 自动化工作流闭环、TR-030 多租户团队空间、TR-031 成本追踪自动同步、TR-032 智能 AI 运维、TR-033 PWA 离线、TR-041 OS 方言适配、TR-042 配置导入导出、TR-043 VPS 远程备份、TR-011 快捷服务增强、Playbook 拖拽排序、历史可用率图表、跨大版本依赖验证、npm 安全漏洞清零、浅色模式 Q-layer 移除、cyan token 收敛、opacity 合并等。每项均有对应 commit + 测试覆盖 + 生产部署。
 
 ---
 
@@ -427,6 +391,8 @@ make logs SERVICE_PREFIX=vcontrolhub
 - **测试覆盖率提升** — 当前 lines 74.88% / branches 59.93%，CI 阈值 lines/statements/functions 70%、branches 55%；可随测试补齐逐步收紧。
 - **组件文档持续维护** — `src/components/README.md` 已建立；新增共享组件时同步追加说明。
 - **AI 客户端工具扩展** — 已有 13 项 hosted tools（`list_servers` / `get_server_status` / `read_server_logs` / `list_docker_containers` / `check_service_status` / `execute_command` / `restart_service` / `modify_config` / `deploy_docker` / `list_backups` / `run_playbook` / `query_traffic` / `manage_cron`），可继续扩展覆盖更多运维场景。
+- **多租户资源级隔离** — 当前 Team/TeamMember 骨架已就位，后续可在 Team 基础上逐表接入资源级 scoping。
+- **PWA 集成市场** — 离线支持已完成，集成市场作为长期扩展方向。
 
 ---
 
