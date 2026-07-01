@@ -211,7 +211,7 @@ export function NotificationBell() {
 										className={`block px-4 py-3 hover:bg-white/[0.04] transition light:hover:bg-slate-100 ${n.isRead ? "opacity-70" : ""}`}
 									>
 										<div className="flex items-center gap-2">
-											{!n.isRead && <div className="h-1.5 w-1.5 rounded-full bg-cyan-400 shrink-0" />}
+											{!n.isRead && <div className="h-1.5 w-1.5 rounded-full bg-[var(--color-action-bg)] shrink-0" />}
 											<span className={`text-xs font-medium truncate ${n.isRead ? "text-[var(--text-secondary)]" : "text-[var(--text-primary)]"}`}>{n.title}</span>
 											</div>
 											<p className="mt-1 text-[11px] text-[var(--text-muted)] truncate">{n.message}</p>
@@ -221,7 +221,7 @@ export function NotificationBell() {
 						</ul>
 					) : null}
 					<div className="sticky bottom-0 border-t border-[var(--border)] bg-[var(--modal-bg)]">
-						<Link href="/notifications" className="block px-4 py-2.5 text-center text-xs text-cyan-400/80 hover:text-cyan-300 transition light:hover:text-cyan-800">
+						<Link href="/notifications" className="block px-4 py-2.5 text-center text-xs text-[var(--color-action)]/80 hover:text-[var(--color-action)] transition light:hover:text-cyan-800">
 							{viewAllLabel}
 						</Link>
 					</div>

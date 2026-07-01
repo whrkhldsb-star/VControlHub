@@ -383,7 +383,7 @@ export function SshTerminalModal({ serverId, serverName, host, sessionToken, onC
 							type="button"
 							onClick={() => setShowSidePanel(!showSidePanel)}
 							aria-expanded={showSidePanel}
-							className={`min-h-11 min-w-11 rounded-full border px-4 py-1.5 text-xs transition ${showSidePanel ? "border-cyan-400/30 bg-cyan-400/10 text-cyan-100 light:border-cyan-500/40 light:bg-cyan-500/15" : "border-white/10 bg-white/5 text-slate-300 hover:bg-white/10 light:hover:bg-slate-200"}`}
+							className={`min-h-11 min-w-11 rounded-full border px-4 py-1.5 text-xs transition ${showSidePanel ? "border-[var(--color-action-border)]/30 bg-[var(--color-action-bg)]/10 text-[var(--color-action-fg)] light:border-[var(--color-action-border)]/40 light:bg-[var(--color-action)]/15" : "border-white/10 bg-white/5 text-slate-300 hover:bg-white/10 light:hover:bg-slate-200"}`}
 							title={t("sshTerminalModal.panelToggleTitle")}
 							>
 							{t("sshTerminalModal.panelToggle")}
@@ -392,7 +392,7 @@ export function SshTerminalModal({ serverId, serverName, host, sessionToken, onC
 							<button
 								type="button"
 								onClick={handleReconnect}
-								data-tone="cyan" className="min-h-11 min-w-11 rounded-full border border-cyan-400/30 px-4 py-1.5 text-xs text-cyan-100 transition hover:bg-cyan-400/20 light:border-cyan-500/40 light:bg-cyan-500/15 light:hover:bg-cyan-500/25"
+								data-tone="cyan" className="min-h-11 min-w-11 rounded-full border border-[var(--color-action-border)]/30 px-4 py-1.5 text-xs text-[var(--color-action-fg)] transition hover:bg-[var(--color-action-bg)]/20 light:border-[var(--color-action-border)]/40 light:bg-[var(--color-action)]/15 light:hover:bg-[var(--color-action)]/25"
 							>
 								{t("sshTerminalModal.reconnect")}
 							</button>
@@ -428,10 +428,10 @@ export function SshTerminalModal({ serverId, serverName, host, sessionToken, onC
 									if (event.key === "Escape") clearTerminalSearch();
 								}}
 								placeholder={t("sshTerminalModal.searchPlaceholder")}
-								className="min-h-10 min-w-[180px] flex-1 rounded-xl border border-white/[0.06] bg-white/[0.04] px-3 py-2 text-sm text-white outline-none placeholder:text-white/20 focus:border-cyan-400/30"
+								className="min-h-10 min-w-[180px] flex-1 rounded-xl border border-white/[0.06] bg-white/[0.04] px-3 py-2 text-sm text-white outline-none placeholder:text-white/20 focus:border-[var(--color-action-border)]/30"
 							/>
 							<button type="button" onClick={() => searchTerminal("previous")} className="min-h-10 rounded-xl border border-white/[0.08] px-3 text-xs text-slate-200 hover:bg-white/[0.06]">{t("sshTerminalModal.searchPrevious")}</button>
-							<button type="button" onClick={() => searchTerminal("next")} data-tone="cyan" className="min-h-10 rounded-xl border border-cyan-400/20 px-3 text-xs text-cyan-100 hover:bg-cyan-400/20">{t("sshTerminalModal.searchNext")}</button>
+							<button type="button" onClick={() => searchTerminal("next")} data-tone="cyan" className="min-h-10 rounded-xl border border-[var(--color-action-border)]/20 px-3 text-xs text-[var(--color-action-fg)] hover:bg-[var(--color-action-bg)]/20">{t("sshTerminalModal.searchNext")}</button>
 							<button type="button" onClick={clearTerminalSearch} className="min-h-10 rounded-xl border border-white/[0.08] px-3 text-xs text-slate-400 hover:bg-white/[0.06]">{t("sshTerminalModal.searchClear")}</button>
 						</div>
 						<div
@@ -454,9 +454,9 @@ export function SshTerminalModal({ serverId, serverName, host, sessionToken, onC
 										onChange={(e) => setNewFavorite(e.target.value)}
 										onKeyDown={(e) => e.key === "Enter" && addFavorite()}
 										placeholder={t("sshTerminalModal.favoritesPlaceholder")}
-										className="min-h-11 min-w-0 flex-1 rounded-lg border border-white/[0.06] bg-white/[0.04] px-3 py-1 text-[13px] font-mono text-white outline-none placeholder:text-white/20 focus:border-cyan-400/30"
+										className="min-h-11 min-w-0 flex-1 rounded-lg border border-white/[0.06] bg-white/[0.04] px-3 py-1 text-[13px] font-mono text-white outline-none placeholder:text-white/20 focus:border-[var(--color-action-border)]/30"
 									/>
-									<button onClick={addFavorite} aria-label={t("sshTerminalModal.favoritesAdd")} data-tone="cyan" className="min-h-11 min-w-11 shrink-0 rounded-lg border border-cyan-400/20 px-2 py-1 text-[13px] text-cyan-200 transition hover:bg-cyan-400/20">
+									<button onClick={addFavorite} aria-label={t("sshTerminalModal.favoritesAdd")} data-tone="cyan" className="min-h-11 min-w-11 shrink-0 rounded-lg border border-[var(--color-action-border)]/20 px-2 py-1 text-[13px] text-cyan-200 transition hover:bg-[var(--color-action-bg)]/20">
 										+
 									</button>
 								</div>
@@ -468,7 +468,7 @@ export function SshTerminalModal({ serverId, serverName, host, sessionToken, onC
 											<div key={cmd} className="group flex items-center gap-1">
 												<button
 													onClick={() => sendCommand(cmd)}
-													className="min-h-11 min-w-0 flex-1 truncate rounded-lg px-3 py-1 text-left text-[12px] font-mono text-cyan-100/80 transition hover:bg-white/[0.06]"
+													className="min-h-11 min-w-0 flex-1 truncate rounded-lg px-3 py-1 text-left text-[12px] font-mono text-[var(--color-action-fg)]/80 transition hover:bg-white/[0.06]"
 													title={cmd}
 												>
 													{cmd}
@@ -496,7 +496,7 @@ export function SshTerminalModal({ serverId, serverName, host, sessionToken, onC
 											<button
 												key={`${cmd}-${i}`}
 												onClick={() => sendCommand(cmd)}
-												className="min-h-11 block w-full truncate rounded-lg px-3 py-1 text-left text-[12px] font-mono text-[var(--text-secondary)] transition hover:bg-white/[0.06] hover:text-cyan-100/80"
+												className="min-h-11 block w-full truncate rounded-lg px-3 py-1 text-left text-[12px] font-mono text-[var(--text-secondary)] transition hover:bg-white/[0.06] hover:text-[var(--color-action-fg)]/80"
 												title={cmd}
 											>
 												{cmd}
@@ -513,7 +513,7 @@ export function SshTerminalModal({ serverId, serverName, host, sessionToken, onC
 										<button
 											key={cmd}
 											onClick={() => sendCommand(cmd)}
-											className="min-h-11 block w-full truncate rounded-lg px-3 py-1 text-left text-[12px] font-mono text-slate-500 transition hover:bg-white/[0.06] hover:text-cyan-100/80"
+											className="min-h-11 block w-full truncate rounded-lg px-3 py-1 text-left text-[12px] font-mono text-slate-500 transition hover:bg-white/[0.06] hover:text-[var(--color-action-fg)]/80"
 											title={cmd}
 										>
 											{cmd}

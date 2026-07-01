@@ -329,7 +329,7 @@ export function SshFileManager({ serverId, visible }: SshFileManagerProps) {
           <button
             type="button"
             onClick={() => setShowMkdir(!showMkdir)}
-            className="ml-auto min-h-9 rounded-full border border-[var(--border-subtle)] light:border-slate-200 px-2 py-0.5 text-xs text-[var(--text-secondary)] light:text-slate-600 transition hover:bg-[var(--surface-elevated)] light:hover:bg-slate-700/50"
+            className="ml-auto min-h-9 rounded-full border border-[var(--border-subtle)] light:border-slate-200 px-2 py-0.5 text-xs text-[var(--text-secondary)] light:text-slate-600 transition hover:bg-[var(--surface-elevated)] light:hover:bg-[var(--surface-hover)]/50"
             aria-label={t("sshFileManager.newFolder")}
             title={t("sshFileManager.newFolder")}
           >
@@ -338,7 +338,7 @@ export function SshFileManager({ serverId, visible }: SshFileManagerProps) {
           <button
             type="button"
             onClick={() => fileInputRef.current?.click()}
-            className="min-h-9 rounded-full border border-cyan-400/20 px-2 py-0.5 text-xs text-cyan-100 transition hover:bg-cyan-400/20"
+            className="min-h-9 rounded-full border border-[var(--color-action-border)]/20 px-2 py-0.5 text-xs text-[var(--color-action-fg)] transition hover:bg-[var(--color-action-bg)]/20"
           >
             {t("sshFileManager.upload")}
           </button>
@@ -389,13 +389,13 @@ export function SshFileManager({ serverId, visible }: SshFileManagerProps) {
               onChange={(e) => setMkdirName(e.target.value)}
               onKeyDown={(e) => e.key === "Enter" && handleMkdir()}
               placeholder={t("sshFileManager.folderName")}
-              className="min-h-9 min-w-0 flex-1 rounded-lg border border-white/[0.06] bg-white/[0.04] px-3 py-1 text-xs text-white outline-none placeholder:text-white/20 focus:border-cyan-400/30"
+              className="min-h-9 min-w-0 flex-1 rounded-lg border border-white/[0.06] bg-white/[0.04] px-3 py-1 text-xs text-white outline-none placeholder:text-white/20 focus:border-[var(--color-action-border)]/30"
               autoFocus
             />
             <button
               onClick={handleMkdir}
               data-tone="cyan"
-              className="min-h-9 min-w-9 shrink-0 rounded-lg border border-cyan-400/20 px-2 text-xs text-cyan-200 transition hover:bg-cyan-400/20"
+              className="min-h-9 min-w-9 shrink-0 rounded-lg border border-[var(--color-action-border)]/20 px-2 text-xs text-cyan-200 transition hover:bg-[var(--color-action-bg)]/20"
             >
               ✓
             </button>
@@ -427,7 +427,7 @@ export function SshFileManager({ serverId, visible }: SshFileManagerProps) {
               {u.status === "uploading" && (
                 <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-white/10">
                   <div
-                    className="h-full bg-cyan-400 transition-all"
+                    className="h-full bg-[var(--color-action-bg)] transition-all"
                     style={{ width: `${u.percent}%` }}
                   />
                 </div>
@@ -443,7 +443,7 @@ export function SshFileManager({ serverId, visible }: SshFileManagerProps) {
       <div
         className={`flex-1 overflow-y-auto rounded-xl border p-2 transition ${
           dragOver
-            ? "border-cyan-400/40 bg-cyan-400/5"
+            ? "border-[var(--color-action-border)]/40 bg-[var(--color-action-bg)]/5"
             : "border-white/[0.06] bg-white/[0.02]"
         }`}
         onDragOver={onDragOver}
@@ -493,13 +493,13 @@ export function SshFileManager({ serverId, visible }: SshFileManagerProps) {
                     if (e.key === "Enter") handleRename();
                     if (e.key === "Escape") { setRenameTarget(null); setRenameValue(""); }
                   }}
-                  className="min-h-7 min-w-0 flex-1 rounded border border-cyan-400/30 bg-white/[0.06] px-2 text-xs text-white outline-none"
+                  className="min-h-7 min-w-0 flex-1 rounded border border-[var(--color-action-border)]/30 bg-white/[0.06] px-2 text-xs text-white outline-none"
                   autoFocus
                   onClick={(e) => e.stopPropagation()}
                 />
                 <button
                   onClick={(e) => { e.stopPropagation(); handleRename(); }}
-                  className="text-cyan-300 hover:text-cyan-200"
+                  className="text-[var(--color-action)] hover:text-cyan-200"
                 >✓</button>
                 <button
                   onClick={(e) => { e.stopPropagation(); setRenameTarget(null); setRenameValue(""); }}
@@ -523,7 +523,7 @@ export function SshFileManager({ serverId, visible }: SshFileManagerProps) {
                 {entry.isFile && (
                   <button
                     onClick={(e) => { e.stopPropagation(); handleDownload(entry); }}
-                    className="shrink-0 text-slate-500 opacity-0 transition hover:text-cyan-300 group-hover:opacity-100"
+                    className="shrink-0 text-slate-500 opacity-0 transition hover:text-[var(--color-action)] group-hover:opacity-100"
                     aria-label={t("sshFileManager.download")}
                     title={t("sshFileManager.download")}
                   >⬇</button>
@@ -534,7 +534,7 @@ export function SshFileManager({ serverId, visible }: SshFileManagerProps) {
                     setRenameTarget(entry.name);
                     setRenameValue(entry.name);
                   }}
-                  className="shrink-0 text-slate-500 opacity-0 transition hover:text-cyan-300 group-hover:opacity-100"
+                  className="shrink-0 text-slate-500 opacity-0 transition hover:text-[var(--color-action)] group-hover:opacity-100"
                   aria-label={t("sshFileManager.rename")}
                   title={t("sshFileManager.rename")}
                 >✎</button>

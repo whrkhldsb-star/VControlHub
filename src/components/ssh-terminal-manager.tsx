@@ -147,7 +147,7 @@ export function SshTerminalManager({
 							type="button"
 							onClick={() => setMinimized(true)}
 							aria-label={t("sshTerminalManager.minimize")}
-							className="min-h-9 min-w-9 rounded-lg border border-[var(--border-subtle)] light:border-slate-200 bg-[var(--surface-subtle)] light:bg-slate-800/50 px-3 py-1.5 text-xs text-[var(--text-secondary)] light:text-slate-600 transition hover:bg-[var(--surface-elevated)] light:hover:bg-slate-700/50"
+							className="min-h-9 min-w-9 rounded-lg border border-[var(--border-subtle)] light:border-slate-200 bg-[var(--surface-subtle)] light:bg-slate-800/50 px-3 py-1.5 text-xs text-[var(--text-secondary)] light:text-slate-600 transition hover:bg-[var(--surface-elevated)] light:hover:bg-[var(--surface-hover)]/50"
 							title={t("sshTerminalManager.minimize")}
 						>
 							▬
@@ -157,7 +157,7 @@ export function SshTerminalManager({
 							type="button"
 							onClick={onClose}
 							aria-label={t("sshTerminalModal.ariaClose")}
-							className="min-h-9 min-w-9 rounded-lg border border-[var(--border-subtle)] light:border-slate-200 bg-[var(--surface-subtle)] light:bg-slate-800/50 px-3 py-1.5 text-xs text-[var(--text-secondary)] light:text-slate-600 transition hover:bg-[var(--surface-elevated)] light:hover:bg-slate-700/50"
+							className="min-h-9 min-w-9 rounded-lg border border-[var(--border-subtle)] light:border-slate-200 bg-[var(--surface-subtle)] light:bg-slate-800/50 px-3 py-1.5 text-xs text-[var(--text-secondary)] light:text-slate-600 transition hover:bg-[var(--surface-elevated)] light:hover:bg-[var(--surface-hover)]/50"
 							title={t("sshTerminalModal.close")}
 						>
 							✕
@@ -184,7 +184,7 @@ export function SshTerminalManager({
 								onClick={() => onTabSelect(i)}
 								className={`group flex cursor-pointer items-center gap-2 rounded-lg px-3 py-2 text-xs transition ${
 									isActive
-										? "bg-[var(--surface-elevated)] light:bg-slate-700 text-[var(--text-primary)] light:text-slate-900"
+										? "bg-[var(--surface-elevated)] light:bg-[var(--surface-hover)] text-[var(--text-primary)] light:text-slate-900"
 										: "text-[var(--text-muted)] hover:bg-[var(--surface-subtle)] light:hover:bg-slate-600 hover:text-[var(--text-secondary)] light:hover:text-slate-700"
 								}`}
 							>
@@ -197,7 +197,7 @@ export function SshTerminalManager({
 										onTabClose(i);
 									}}
 									aria-label={t("sshTerminalManager.closeTab").replace("{serverName}", tab.serverName)}
-									className="ml-1 shrink-0 rounded p-0.5 text-[var(--text-muted)] opacity-0 transition hover:bg-[var(--surface-elevated)] light:hover:bg-slate-700 hover:text-rose-300 group-hover:opacity-100"
+									className="ml-1 shrink-0 rounded p-0.5 text-[var(--text-muted)] opacity-0 transition hover:bg-[var(--surface-elevated)] light:hover:bg-[var(--surface-hover)] hover:text-rose-300 group-hover:opacity-100"
 								>
 									✕
 								</button>

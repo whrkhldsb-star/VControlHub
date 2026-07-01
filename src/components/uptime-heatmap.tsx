@@ -57,7 +57,7 @@ export function UptimeHeatmap({ data, serverName }: UptimeHeatmapProps) {
   }, [normalizedData]);
 
   const getColorClass = (uptime: number) => {
-    if (uptime === 0 || uptime === null || uptime === undefined) return "bg-slate-700";
+    if (uptime === 0 || uptime === null || uptime === undefined) return "bg-[var(--surface-hover)]";
     if (uptime >= 99) return "bg-emerald-500";
     if (uptime >= 95) return "bg-emerald-400";
     if (uptime >= 90) return "bg-amber-400";

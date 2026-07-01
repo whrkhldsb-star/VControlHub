@@ -7,7 +7,7 @@ import type { ButtonHTMLAttributes, ReactNode } from "react";
  *
  * Styling lives in globals.css under `[data-action-button]`. This component
  * is the canonical primary CTA for the app — use it instead of hand-rolled
- * `bg-cyan-500 hover:bg-cyan-400 …` strings so theme changes propagate
+ * `bg-[var(--color-action)] hover:bg-[var(--color-action-bg)] …` strings so theme changes propagate
  * everywhere with one token edit.
  *
  * Variants:

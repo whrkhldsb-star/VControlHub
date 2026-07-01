@@ -57,7 +57,7 @@ export function RouteError({
 			<div className="flex flex-wrap justify-center gap-2">
 				<button
 					onClick={reset}
-					className="rounded-lg bg-cyan-600 px-4 py-2 text-sm font-medium text-[var(--text-primary)] transition-colors hover:bg-cyan-500 focus:outline-none focus:ring-2 focus:ring-cyan-400/40"
+					className="rounded-lg bg-[var(--color-action-strong)] px-4 py-2 text-sm font-medium text-[var(--text-primary)] transition-colors hover:bg-[var(--color-action)] focus:outline-none focus:ring-2 focus:ring-[var(--color-action-ring)]"
 				>
 					{t("common.retry")}
 				</button>

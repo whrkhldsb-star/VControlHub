@@ -62,7 +62,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
  ?"border-rose-400/30 bg-rose-900/90 text-rose-100"
  : toast.type ==="warning"
  ?"border-amber-400/30 bg-amber-900/90 text-amber-100"
- :"border-cyan-400/30 bg-cyan-900/90 text-cyan-100"
+ :"border-[var(--color-action-border)]/30 bg-cyan-900/90 text-[var(--color-action-fg)]"
  }`}
           >
             <span className="text-lg">

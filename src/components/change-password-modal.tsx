@@ -117,7 +117,7 @@ function PasswordField({ label, name, autoComplete, description }: PasswordField
 	return (
 		<div className="grid gap-2 text-sm text-[var(--text-secondary)]">
 			<label htmlFor={inputId}>{label}</label>
-			<div className="flex overflow-hidden rounded-2xl border border-[var(--border)] bg-[var(--input-bg)] focus-within:border-cyan-400/60">
+			<div className="flex overflow-hidden rounded-2xl border border-[var(--border)] bg-[var(--input-bg)] focus-within:border-[var(--color-action-border)]/60">
 				<input
 					id={inputId}
 					name={name}
@@ -132,7 +132,7 @@ function PasswordField({ label, name, autoComplete, description }: PasswordField
 					aria-label={`${visible ? t("changePassword.hide") : t("changePassword.show")}${label}`}
 					aria-pressed={visible}
 					onClick={() => setVisible((current) => !current)}
-					className="border-l border-[var(--border)] px-4 text-xs font-medium text-cyan-200 transition hover:bg-white/5 hover:text-cyan-100 light:hover:text-cyan-900 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-cyan-400"
+					className="border-l border-[var(--border)] px-4 text-xs font-medium text-cyan-200 transition hover:bg-white/5 hover:text-[var(--color-action-fg)] light:hover:text-cyan-900 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-[var(--color-action-ring)]"
 				>
 					{visible ? t("changePassword.hide") : t("changePassword.show")}
 				</button>

@@ -6,7 +6,7 @@
 
 /** 标准表单输入框（input/textarea/select）— 11 处 */
 export const INPUT_CLS =
-	"w-full rounded-lg border border-white/[0.06] bg-white/[0.04] px-3.5 py-2.5 text-sm text-white outline-none transition-colors placeholder:text-white/20 focus:border-cyan-400/30 focus:bg-white/[0.06] disabled:opacity-50 light:border-slate-200 light:bg-white light:text-slate-900 light:placeholder:text-slate-400 light:focus:border-cyan-500/50";
+	"w-full rounded-lg border border-white/[0.06] bg-white/[0.04] px-3.5 py-2.5 text-sm text-white outline-none transition-colors placeholder:text-white/20 focus:border-[var(--color-action-border)]/30 focus:bg-white/[0.06] disabled:opacity-50 light:border-slate-200 light:bg-white light:text-slate-900 light:placeholder:text-slate-400 light:focus:border-[var(--color-action-border)]/50";
 
 /** 错误状态输入框 — 9 处 */
 export const INPUT_ERROR_CLS =
