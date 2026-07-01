@@ -38,6 +38,7 @@ export async function login(_prevState: LoginActionState | null, formData: FormD
     username: user.username,
     roles: user.roles,
     mustChangePassword: user.mustChangePassword,
+    currentTeamId: user.currentTeamId,
   });
 
   const cookieStore = await cookies();

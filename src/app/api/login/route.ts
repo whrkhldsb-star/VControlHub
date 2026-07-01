@@ -112,6 +112,7 @@ export async function POST(request: Request) {
 				username: user.username,
 				roles: user.roles,
 				mustChangePassword: user.mustChangePassword,
+				currentTeamId: user.currentTeamId,
 			});
 			const requestUrl = new URL(request.url);
 			const params = new URLSearchParams({ next: nextPath });
@@ -133,6 +134,7 @@ export async function POST(request: Request) {
 			username: user.username,
 			roles: user.roles,
 			mustChangePassword: user.mustChangePassword,
+			currentTeamId: user.currentTeamId,
 		}, { remember: rememberSession });
 
 		const requestUrl = new URL(request.url);

@@ -78,6 +78,7 @@ export type SessionPayload = {
   username: string;
   roles: RoleKey[];
   mustChangePassword: boolean;
+  currentTeamId: string | null;
 };
 
 type SessionTokenEnvelope = SessionPayload & {
@@ -176,6 +177,7 @@ export async function verifySessionToken(token: string) {
      username: true,
      status: true,
      mustChangePassword: true,
+     currentTeamId: true,
      roles: { select: { role: { select: { key: true } } } },
    },
  });
@@ -193,6 +195,7 @@ export async function verifySessionToken(token: string) {
  username: user.username,
  roles,
  mustChangePassword: user.mustChangePassword,
+ currentTeamId: user.currentTeamId,
  } satisfies SessionPayload;
 }
 
@@ -256,6 +259,7 @@ export async function verifyPending2faToken(token: string): Promise<SessionPaylo
 			username: payload.username,
 			roles: payload.roles,
 			mustChangePassword: payload.mustChangePassword,
+			currentTeamId: payload.currentTeamId ?? null,
 		};
 	} catch {
 		return null;

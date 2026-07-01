@@ -21,6 +21,7 @@ const baseSession = {
   username: "alice",
   roles: ["operator"],
   mustChangePassword: false,
+  currentTeamId: null,
 } satisfies SessionPayload;
 
 describe("storage access control", () => {

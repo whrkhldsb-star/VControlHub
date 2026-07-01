@@ -482,8 +482,9 @@ export async function deleteServerProfile(serverId: string) {
     : { deleted: true };
 }
 
-export async function listServerProfiles() {
+export async function listServerProfiles(teamId?: string | null) {
   const servers = await prisma.server.findMany({
+    where: teamId === undefined ? undefined : { teamId: teamId ?? null },
     orderBy: { createdAt: "desc" },
     include: {
       sshKey: {

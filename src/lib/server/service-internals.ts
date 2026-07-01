@@ -61,6 +61,8 @@ export type ServerWithRelations = {
   // TR-041: OS dialect adaptation layer
   osDialect?: string | null;
   osInfo?: string | null;
+  // TR-030: multi-tenancy resource scoping
+  teamId?: string | null;
 };
 
 export type ServerCommandTargetRow = ServerCommandTarget;
@@ -296,5 +298,7 @@ export function enrichServer(server: ServerWithRelations) {
     // TR-041: OS dialect info for UI display + dialect-aware command generation
     osDialect: server.osDialect ?? null,
     osInfo: server.osInfo ?? null,
+    // TR-030: multi-tenancy resource scoping
+    teamId: server.teamId ?? null,
   };
 }

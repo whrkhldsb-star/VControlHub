@@ -36,6 +36,7 @@ export const aiOpsRecommendedActionSchema = z.object({
 	risk: z.enum(["low", "medium", "high"]),
 	requiresApproval: z.boolean().default(true),
 	reason: z.string().max(1000).optional(),
+	approved: z.boolean().optional(),
 });
 
 export const aiOpsExecutedActionSchema = z.object({
@@ -58,6 +59,11 @@ export const triggerAiOpsScanSchema = z.object({
 export const executeRecommendationSchema = z.object({
 	actionId: z.string().min(1, "actionId 不能为空"),
 	forceAutonomous: z.boolean().optional(),
+});
+
+/** Schema for the body of an "approve recommendation" call. */
+export const approveRecommendationSchema = z.object({
+	actionId: z.string().min(1, "actionId 不能为空"),
 });
 
 /** Schema for the body of a "set mode" settings call.

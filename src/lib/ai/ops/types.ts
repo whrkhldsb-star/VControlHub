@@ -60,6 +60,8 @@ export interface AiOpsRecommendedAction {
 	risk: "low" | "medium" | "high";
 	requiresApproval: boolean;
 	reason?: string;
+	/** Set to true after an admin approves this recommendation for execution. */
+	approved?: boolean;
 }
 
 /** Autonomous execution record (mode=autonomous) — already executed or attempted. */

@@ -31,6 +31,10 @@ export function TeamWorkspaceSection({ canManage }: { canManage: boolean }) {
 	const [busy, setBusy] = useState(false);
 	const [message, setMessage] = useState<string | null>(null);
 	const [error, setError] = useState<string | null>(null);
+	// Edit state
+	const [editingTeamId, setEditingTeamId] = useState<string | null>(null);
+	const [editName, setEditName] = useState("");
+	const [editDesc, setEditDesc] = useState("");
 
 	async function refresh() {
 		setLoading(true);
@@ -82,8 +86,9 @@ export function TeamWorkspaceSection({ canManage }: { canManage: boolean }) {
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify({ teamId }),
 			});
-			setCurrentTeamId(teamId);
-			setMessage("当前团队空间已切换");
+			setMessage("当前团队空间已切换，正在刷新页面…");
+			// Reload to update server list and other team-scoped resources
+			setTimeout(() => window.location.reload(), 800);
 		} catch (err) {
 			setError(err instanceof Error ? err.message : "切换团队空间失败");
 		} finally {
@@ -112,12 +117,70 @@ export function TeamWorkspaceSection({ canManage }: { canManage: boolean }) {
 		}
 	}
 
+	async function removeMember(teamId: string, userId: string, memberName: string) {
+		if (!confirm(`确定移除成员「${memberName}」？`)) return;
+		setBusy(true);
+		setError(null);
+		setMessage(null);
+		try {
+			await csrfFetch(`/api/teams/${teamId}/members/${userId}`, { method: "DELETE" });
+			setMessage("成员已移除");
+			await refresh();
+		} catch (err) {
+			setError(err instanceof Error ? err.message : "移除成员失败");
+		} finally {
+			setBusy(false);
+		}
+	}
+
+	async function startEditTeam(team: TeamDto) {
+		setEditingTeamId(team.id);
+		setEditName(team.name);
+		setEditDesc(team.description ?? "");
+	}
+
+	async function saveEditTeam(teamId: string) {
+		setBusy(true);
+		setError(null);
+		setMessage(null);
+		try {
+			await csrfFetch(`/api/teams/${teamId}`, {
+				method: "PATCH",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify({ name: editName, description: editDesc || null }),
+			});
+			setEditingTeamId(null);
+			setMessage("团队信息已更新");
+			await refresh();
+		} catch (err) {
+			setError(err instanceof Error ? err.message : "更新团队失败");
+		} finally {
+			setBusy(false);
+		}
+	}
+
+	async function deleteTeamSpace(teamId: string, teamName: string) {
+		if (!confirm(`确定删除团队「${teamName}」？此操作不可撤销，团队下的服务器将变为未分配状态。`)) return;
+		setBusy(true);
+		setError(null);
+		setMessage(null);
+		try {
+			await csrfFetch(`/api/teams/${teamId}`, { method: "DELETE" });
+			setMessage("团队已删除");
+			await refresh();
+		} catch (err) {
+			setError(err instanceof Error ? err.message : "删除团队失败");
+		} finally {
+			setBusy(false);
+		}
+	}
+
 	return (
 		<section id="team-workspaces" data-card className="space-y-4 p-5">
 			<div>
 				<p className="text-xs font-semibold uppercase tracking-[0.3em] text-cyan-300/80">Team Spaces</p>
 				<h2 className="mt-1 text-xl font-semibold text-[var(--text-primary)]">团队空间</h2>
-				<p className="mt-1 text-sm text-[var(--text-secondary)]">多租户基础骨架：创建团队、切换当前团队，并维护团队成员。资源级隔离可在此基础上逐表接入。</p>
+				<p className="mt-1 text-sm text-[var(--text-secondary)]">多租户资源隔离：创建团队、切换当前团队，维护成员并管理服务器归属。切换团队后服务器列表按团队过滤。</p>
 			</div>
 
 			{error && <div role="alert" className="rounded-xl border border-rose-400/20 bg-rose-500/10 px-3 py-2 text-sm text-rose-200">{error}</div>}
@@ -132,21 +195,58 @@ export function TeamWorkspaceSection({ canManage }: { canManage: boolean }) {
 					{teams.map((team) => (
 						<article key={team.id} className="rounded-2xl border border-[var(--border-subtle)] bg-[var(--surface-subtle)] p-4">
 							<div className="flex items-start justify-between gap-3">
-								<div>
-									<h3 className="font-semibold text-[var(--text-primary)]">{team.name}</h3>
-									<p className="text-xs text-[var(--text-muted)]">/{team.slug} · {team.members.length} 成员</p>
+								<div className="flex-1">
+									{editingTeamId === team.id ? (
+										<div className="space-y-1">
+											<input value={editName} onChange={(e) => setEditName(e.target.value)} className="w-full rounded-lg border border-[var(--border)] bg-[var(--surface)] px-2 py-1 text-sm" />
+											<input value={editDesc} onChange={(e) => setEditDesc(e.target.value)} placeholder="描述（可选）" className="w-full rounded-lg border border-[var(--border)] bg-[var(--surface)] px-2 py-1 text-xs" />
+										</div>
+									) : (
+										<>
+											<h3 className="font-semibold text-[var(--text-primary)]">{team.name}</h3>
+											<p className="text-xs text-[var(--text-muted)]">/{team.slug} · {team.members.length} 成员</p>
+											{team.description && <p className="mt-1 text-xs text-[var(--text-secondary)]">{team.description}</p>}
+										</>
+									)}
 								</div>
-								<button type="button" disabled={busy || currentTeamId === team.id} onClick={() => switchTeam(team.id)} className="min-h-9 rounded-xl border border-[var(--border)] px-3 py-1 text-xs text-[var(--text-secondary)] disabled:opacity-60">
-									{currentTeamId === team.id ? "当前团队" : "切换"}
-								</button>
+								<div className="flex flex-col gap-1">
+									<button type="button" disabled={busy || currentTeamId === team.id} onClick={() => switchTeam(team.id)} className="min-h-9 rounded-xl border border-[var(--border)] px-3 py-1 text-xs text-[var(--text-secondary)] disabled:opacity-60">
+										{currentTeamId === team.id ? "当前团队" : "切换"}
+									</button>
+									{canManage && editingTeamId !== team.id && (
+										<button type="button" disabled={busy} onClick={() => startEditTeam(team)} className="min-h-9 rounded-xl border border-[var(--border)] px-3 py-1 text-xs text-[var(--text-secondary)] disabled:opacity-60">
+											编辑
+										</button>
+									)}
+									{canManage && editingTeamId === team.id && (
+										<button type="button" disabled={busy} onClick={() => saveEditTeam(team.id)} className="min-h-9 rounded-xl border border-[var(--border)] px-3 py-1 text-xs text-emerald-300 disabled:opacity-60">
+											保存
+										</button>
+									)}
+									{canManage && (
+										<button type="button" disabled={busy} onClick={() => deleteTeamSpace(team.id, team.name)} className="min-h-9 rounded-xl border border-rose-400/30 px-3 py-1 text-xs text-rose-300 disabled:opacity-60">
+											删除
+										</button>
+									)}
+								</div>
 							</div>
 							<ul className="mt-3 space-y-1 text-xs text-[var(--text-secondary)]">
-								{team.members.slice(0, 6).map((member) => (
-									<li key={member.user.id} className="flex justify-between gap-2">
+								{team.members.slice(0, 10).map((member) => (
+									<li key={member.user.id} className="flex items-center justify-between gap-2">
 										<span>{member.user.displayName || member.user.username}</span>
-										<span className="text-[var(--text-muted)]">{member.role}</span>
+										<span className="flex items-center gap-2">
+											<span className="text-[var(--text-muted)]">{member.role}</span>
+											{canManage && member.role !== "owner" && (
+												<button type="button" disabled={busy} onClick={() => removeMember(team.id, member.user.id, member.user.displayName || member.user.username)} className="text-rose-400/70 hover:text-rose-400 disabled:opacity-60">
+													✕
+												</button>
+											)}
+										</span>
 									</li>
 								))}
+								{team.members.length > 10 && (
+									<li className="text-[var(--text-muted)]">…还有 {team.members.length - 10} 名成员</li>
+								)}
 							</ul>
 						</article>
 					))}

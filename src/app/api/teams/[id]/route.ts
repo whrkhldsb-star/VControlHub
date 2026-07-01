@@ -1,0 +1,32 @@
+import { NextResponse } from "next/server";
+
+import { withApiRoute } from "@/lib/http/api-guard";
+import { GENERAL_WRITE_LIMIT } from "@/lib/http/rate-limit-presets";
+import { updateTeamSchema } from "@/lib/team/schema";
+import { updateTeam, deleteTeam } from "@/lib/team/service";
+
+export const dynamic = "force-dynamic";
+
+export async function PATCH(request: Request, { params }: { params: Promise<{ id: string }> }) {
+	return withApiRoute(
+		request,
+		{ requireAuth: true, rateLimit: GENERAL_WRITE_LIMIT, bodySchema: updateTeamSchema, errorMessage: "更新团队失败" },
+		async ({ session, body }) => {
+			const { id } = await params;
+			const team = await updateTeam(id, body, session!);
+			return NextResponse.json({ success: true, team });
+		},
+	);
+}
+
+export async function DELETE(request: Request, { params }: { params: Promise<{ id: string }> }) {
+	return withApiRoute(
+		request,
+		{ requireAuth: true, rateLimit: GENERAL_WRITE_LIMIT, errorMessage: "删除团队失败" },
+		async ({ session }) => {
+			const { id } = await params;
+			await deleteTeam(id, session!);
+			return NextResponse.json({ success: true });
+		},
+	);
+}

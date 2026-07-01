@@ -20,7 +20,7 @@ describe("share link service", () => {
     mockPrisma.shareLink.create.mockImplementation(async ({ data }: any) => ({ id: "share1", ...data, createdAt: new Date(), updatedAt: new Date() }));
 
     const result = await createShareLink({
-      session: { userId: "u1", username: "alice", roles: ["storage_manager"], mustChangePassword: false },
+      session: { userId: "u1", username: "alice", roles: ["storage_manager"], mustChangePassword: false, currentTeamId: null },
       storageNodeId: "node1",
       path: "docs/report.pdf",
       entryType: "FILE",

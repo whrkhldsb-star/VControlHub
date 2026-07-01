@@ -47,6 +47,7 @@ describe("login action", () => {
 		twoFactorEnabled: false,
 		twoFactorSecret: null,
 		status: "PENDING_PASSWORD_RESET",
+		currentTeamId: null,
 		roles: ["admin"],
 		permissions: ["command:execute"],
 		preferences: {
@@ -82,6 +83,7 @@ describe("login action", () => {
 		twoFactorEnabled: false,
 		twoFactorSecret: null,
 		status: "ACTIVE",
+		currentTeamId: null,
 		roles: ["admin"],
 		permissions: ["command:execute"],
 		preferences: {

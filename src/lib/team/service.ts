@@ -3,7 +3,7 @@ import { ForbiddenError, NotFoundError, ValidationError } from "@/lib/errors";
 import type { SessionPayload } from "@/lib/auth/session";
 import { sessionHasPermission } from "@/lib/auth/authorization";
 import { auditUserAction } from "@/lib/audit/service";
-import type { AddTeamMemberInput, CreateTeamInput } from "./schema";
+import type { AddTeamMemberInput, CreateTeamInput, UpdateTeamInput } from "./schema";
 
 export type TeamRole = "owner" | "admin" | "member";
 
@@ -27,9 +27,9 @@ async function uniqueTeamSlug(base: string) {
 }
 
 export async function listTeamsForSession(session: SessionPayload) {
-	const canManageUsers = sessionHasPermission(session, "user:manage");
+	const canManageAll = sessionHasPermission(session, "team:manage");
 	const teams = await prisma.team.findMany({
-		where: canManageUsers ? undefined : { members: { some: { userId: session.userId } } },
+		where: canManageAll ? undefined : { members: { some: { userId: session.userId } } },
 		orderBy: [{ createdAt: "asc" }],
 		select: {
 			id: true,
@@ -56,8 +56,8 @@ export async function listTeamsForSession(session: SessionPayload) {
 }
 
 export async function createTeam(input: CreateTeamInput, session: SessionPayload) {
-	if (!sessionHasPermission(session, "user:manage")) {
-		throw new ForbiddenError("缺少团队空间管理权限");
+	if (!sessionHasPermission(session, "team:create")) {
+		throw new ForbiddenError("缺少创建团队空间的权限");
 	}
 	const baseSlug = input.slug?.trim() || slugifyTeamName(input.name);
 	const slug = await uniqueTeamSlug(baseSlug);
@@ -79,7 +79,7 @@ export async function createTeam(input: CreateTeamInput, session: SessionPayload
 }
 
 async function assertCanManageTeam(session: SessionPayload, teamId: string) {
-	if (sessionHasPermission(session, "user:manage")) return;
+	if (sessionHasPermission(session, "team:manage")) return;
 	const membership = await prisma.teamMember.findUnique({
 		where: { teamId_userId: { teamId, userId: session.userId } },
 		select: { role: true },
@@ -114,4 +114,100 @@ export async function addTeamMember(teamId: string, input: AddTeamMemberInput, s
 	});
 	auditUserAction(session.userId, "team.member.upsert", { teamId, teamSlug: team.slug, username: user.username, role: input.role });
 	return member;
+}
+
+export async function removeTeamMember(teamId: string, userId: string, session: SessionPayload) {
+	await assertCanManageTeam(session, teamId);
+	const team = await prisma.team.findUnique({
+		where: { id: teamId },
+		select: { id: true, slug: true, ownerId: true },
+	});
+	if (!team) throw new NotFoundError("团队空间不存在");
+
+	// Prevent removing the team owner
+	if (team.ownerId === userId) {
+		throw new ForbiddenError("不能移除团队所有者，请先转让所有权");
+	}
+
+	// Prevent removing the last owner
+	const membership = await prisma.teamMember.findUnique({
+		where: { teamId_userId: { teamId, userId } },
+		select: { role: true },
+	});
+	if (!membership) throw new NotFoundError("该用户不是团队成员");
+	if (membership.role === "owner") {
+		const ownerCount = await prisma.teamMember.count({ where: { teamId, role: "owner" } });
+		if (ownerCount <= 1) {
+			throw new ForbiddenError("不能移除最后一个所有者，请先转让所有权");
+		}
+	}
+
+	await prisma.teamMember.delete({ where: { teamId_userId: { teamId, userId } } });
+
+	// If the removed user's currentTeamId was this team, clear it
+	await prisma.user.updateMany({
+		where: { id: userId, currentTeamId: teamId },
+		data: { currentTeamId: null },
+	});
+
+	auditUserAction(session.userId, "team.member.remove", { teamId, teamSlug: team.slug, removedUserId: userId });
+	return { removed: true };
+}
+
+export async function updateTeam(teamId: string, input: UpdateTeamInput, session: SessionPayload) {
+	await assertCanManageTeam(session, teamId);
+	const team = await prisma.team.findUnique({ where: { id: teamId }, select: { id: true, slug: true } });
+	if (!team) throw new NotFoundError("团队空间不存在");
+
+	const data: { name?: string; description?: string | null } = {};
+	if (input.name !== undefined) data.name = input.name.trim();
+	if (input.description !== undefined) data.description = input.description?.trim() || null;
+
+	const updated = await prisma.team.update({
+		where: { id: teamId },
+		data,
+		select: { id: true, slug: true, name: true, description: true },
+	});
+
+	auditUserAction(session.userId, "team.update", { teamId, teamSlug: team.slug, fields: Object.keys(data) });
+	return updated;
+}
+
+export async function deleteTeam(teamId: string, session: SessionPayload) {
+	// Only team:manage (global admin) or team owner can delete
+	if (!sessionHasPermission(session, "team:manage")) {
+		const membership = await prisma.teamMember.findUnique({
+			where: { teamId_userId: { teamId, userId: session.userId } },
+			select: { role: true },
+		});
+		if (!membership || membership.role !== "owner") {
+			throw new ForbiddenError("只有管理员或团队所有者可以删除团队");
+		}
+	}
+
+	const team = await prisma.team.findUnique({
+		where: { id: teamId },
+		select: { id: true, slug: true, name: true },
+	});
+	if (!team) throw new NotFoundError("团队空间不存在");
+
+	await prisma.$transaction(async (tx) => {
+		// Clear currentTeamId for users pointing to this team
+		await tx.user.updateMany({
+			where: { currentTeamId: teamId },
+			data: { currentTeamId: null },
+		});
+		// Null out teamId on servers belonging to this team
+		await tx.server.updateMany({
+			where: { teamId },
+			data: { teamId: null },
+		});
+		// Delete team members (cascade)
+		await tx.teamMember.deleteMany({ where: { teamId } });
+		// Delete the team
+		await tx.team.delete({ where: { id: teamId } });
+	});
+
+	auditUserAction(session.userId, "team.delete", { teamId, teamSlug: team.slug, teamName: team.name });
+	return { deleted: true };
 }

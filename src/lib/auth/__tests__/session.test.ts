@@ -56,6 +56,7 @@ describe("session auth helpers", () => {
       username: "admin",
       status: "ACTIVE",
       mustChangePassword: false,
+      currentTeamId: null,
       roles: [{ role: { key: "viewer" } }],
     } as any);
     const token = await createSessionToken({
@@ -63,6 +64,7 @@ describe("session auth helpers", () => {
       username: "admin",
       roles: ["admin"],
       mustChangePassword: true,
+      currentTeamId: null,
     });
 
     await expect(verifySessionToken(token)).resolves.toMatchObject({
@@ -70,6 +72,7 @@ describe("session auth helpers", () => {
       username: "admin",
       roles: ["viewer"],
       mustChangePassword: false,
+      currentTeamId: null,
     });
   });
 
@@ -79,9 +82,10 @@ describe("session auth helpers", () => {
       username: "admin",
       status: "DISABLED",
       mustChangePassword: false,
+      currentTeamId: null,
       roles: [{ role: { key: "admin" } }],
     } as any);
-    const token = await createSessionToken({ userId: "u_1", username: "admin", roles: ["admin"], mustChangePassword: false });
+    const token = await createSessionToken({ userId: "u_1", username: "admin", roles: ["admin"], mustChangePassword: false, currentTeamId: null });
 
     await expect(verifySessionToken(token)).rejects.toThrow("disabled");
   });

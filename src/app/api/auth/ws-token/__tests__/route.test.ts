@@ -41,6 +41,7 @@ describe("POST /api/auth/ws-token", () => {
         username: "alice",
         roles: ["admin"],
         mustChangePassword: false,
+        currentTeamId: null,
       },
     });
 
@@ -74,6 +75,7 @@ describe("POST /api/auth/ws-token", () => {
         username: "alice",
         roles: ["admin"],
         mustChangePassword: false,
+        currentTeamId: null,
       },
     });
 

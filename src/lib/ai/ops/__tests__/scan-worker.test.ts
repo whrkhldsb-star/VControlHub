@@ -12,6 +12,11 @@ const {
 	alertCountMock,
 	commandFailureCountMock,
 	playbookFailureCountMock,
+	serverCountMock,
+	backupFailureCountMock,
+	aiOpsLogCountMock,
+	aiOpsLogDeleteManyMock,
+	pruneJobsMock,
 } = vi.hoisted(() => ({
 	jobMocks: {
 		enqueueJob: vi.fn(),
@@ -24,6 +29,11 @@ const {
 	alertCountMock: vi.fn(),
 	commandFailureCountMock: vi.fn(),
 	playbookFailureCountMock: vi.fn(),
+	serverCountMock: vi.fn(),
+	backupFailureCountMock: vi.fn(),
+	aiOpsLogCountMock: vi.fn(),
+	aiOpsLogDeleteManyMock: vi.fn(),
+	pruneJobsMock: vi.fn(),
 }));
 
 vi.mock("@/lib/job/service", () => ({
@@ -32,16 +42,25 @@ vi.mock("@/lib/job/service", () => ({
 	heartbeatJob: jobMocks.heartbeatJob,
 	completeJob: jobMocks.completeJob,
 	failJob: jobMocks.failJob,
+	pruneCompletedJobsByType: pruneJobsMock,
 }));
 
 vi.mock("@/lib/health/service-alerts", () => ({
 	evaluateAlerts: vi.fn(async () => ({ evaluated: true })),
 }));
 
+vi.mock("@/lib/settings/service", () => ({
+	getSetting: vi.fn(async () => null),
+}));
+
 vi.mock("@/lib/db", () => ({
 	prisma: {
 		job: {
 			findFirst: jobMocks.findFirst,
+			count: vi.fn(async () => 0),
+		},
+		systemConfig: {
+			findUnique: vi.fn(async () => null),
 		},
 		alertRule: {
 			count: alertCountMock,
@@ -51,6 +70,12 @@ vi.mock("@/lib/db", () => ({
 		},
 		playbookRun: {
 			count: playbookFailureCountMock,
+		},
+		server: {
+			count: serverCountMock,
+		},
+		backupRecord: {
+			count: backupFailureCountMock,
 		},
 		aiOpsLog: {
 			create: vi.fn(({ data }: { data: Record<string, unknown> }) => {
@@ -95,9 +120,11 @@ vi.mock("@/lib/db", () => ({
 					updatedAt: new Date(),
 				}),
 			),
-		},
-	},
-}));
+			count: aiOpsLogCountMock,
+			deleteMany: aiOpsLogDeleteManyMock,
+			},
+			},
+			}));
 
 import {
 	runAiOpsScanWorkerOnce,
@@ -124,6 +151,16 @@ beforeEach(() => {
 	commandFailureCountMock.mockResolvedValue(0);
 	playbookFailureCountMock.mockReset();
 	playbackFailureCountMockResolveSafe(playbookFailureCountMock);
+	serverCountMock.mockReset();
+	serverCountMock.mockResolvedValue(0);
+	backupFailureCountMock.mockReset();
+	backupFailureCountMock.mockResolvedValue(0);
+	aiOpsLogCountMock.mockReset();
+	aiOpsLogCountMock.mockResolvedValue(0);
+	aiOpsLogDeleteManyMock.mockReset();
+	aiOpsLogDeleteManyMock.mockResolvedValue({ count: 0 });
+	pruneJobsMock.mockReset();
+	pruneJobsMock.mockResolvedValue({ pruned: 0 });
 });
 
 function playbackFailureCountMockResolveSafe(mock: ReturnType<typeof vi.fn>) {

@@ -251,6 +251,40 @@ export function AiOpsPageClient({
 		[canManage, canAutonomous, addToast, t, reload],
 	);
 
+	const approveAction = useCallback(
+		async (logId: string, actionId: string) => {
+			if (!canManage) return;
+			setExecuting(actionId);
+			try {
+				const res = await csrfFetch<Response>(
+					`/api/ai/ops/logs/${encodeURIComponent(logId)}/approve`,
+					{
+						method: "POST",
+						headers: { "content-type": "application/json" },
+						body: JSON.stringify({ actionId }),
+						raw: true,
+					},
+				);
+				if (!res.ok) throw new Error(`status=${res.status}`);
+				const body = (await res.json()) as {
+					result: { ok: boolean; errorMessage?: string };
+				};
+				addToast(
+					body.result.ok ? "success" : "error",
+					body.result.ok
+						? "已审批, 可点击执行"
+						: (body.result.errorMessage ?? "审批失败"),
+				);
+				await reload();
+			} catch (error) {
+				addToast("error", `审批失败: ${String(error)}`);
+			} finally {
+				setExecuting(null);
+			}
+		},
+		[canManage, addToast, reload],
+	);
+
 	const selectedLog = useMemo(
 		() => logs.find((l) => l.id === selectedLogId) ?? null,
 		[logs, selectedLogId],
@@ -580,7 +614,21 @@ export function AiOpsPageClient({
 												</div>
 												{recommendation && canManage && (
 													<div className="flex flex-col gap-1">
-														{recommendation.requiresApproval ? (
+														{recommendation.requiresApproval && !recommendation.approved ? (
+															<button
+																type="button"
+																className={buttonPrimary}
+																disabled={executing === action.id}
+																onClick={() =>
+																	void approveAction(
+																		selectedLog.id,
+																		action.id,
+																	)
+																}
+															>
+																{t("aiOpsPage.actions.approve")}
+															</button>
+														) : recommendation.requiresApproval && recommendation.approved ? (
 															<button
 																type="button"
 																className={buttonPrimary}
@@ -593,7 +641,7 @@ export function AiOpsPageClient({
 																	)
 																}
 															>
-																{t("aiOpsPage.actions.approve")}
+																{t("aiOpsPage.actions.execute")}
 															</button>
 														) : (
 															<button

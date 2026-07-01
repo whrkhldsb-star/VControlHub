@@ -7,6 +7,7 @@
  */
 import { prisma } from "@/lib/db";
 import { evaluateAlerts } from "@/lib/health/service-alerts";
+import { pruneCompletedJobsByType } from "@/lib/job/service";
 
 import { AI_OPS_SAFE_AUTONOMOUS_ACTIONS, type AiOpsExecutedAction } from "./types";
 
@@ -35,8 +36,10 @@ function unsupportedAction(input: ActionInput, reason: string): AiOpsExecutedAct
  * Supported real side effects:
  * - `alert.evaluate`: runs the same alert evaluation logic used by the durable
  *   alert worker. This may update alert rule match/trigger timestamps and send
- *   configured notifications, so it is intentionally the only v1 action that
- *   performs external effects.
+ *   configured notifications.
+ * - `cache.purge:stale`: prunes old completed jobs from the durable job queue,
+ *   keeping only the most recent 25 per type. This directly addresses the
+ *   "stale job accumulation" signal.
  *
  * Safe-set entries that still need domain-specific payloads are recorded as
  * non-executed with an explicit reason rather than silently faking success.
@@ -61,12 +64,48 @@ export async function executeAiOpsAction(input: ActionInput): Promise<AiOpsExecu
 					result: `已执行告警规则评估${suffix}`,
 				};
 			}
+			case "cache.purge:stale": {
+				// Prune completed jobs across all types, keeping latest 25 per type.
+				// Also prune old AI ops logs (keep latest 100).
+				const jobTypes = await prisma.job
+					.findMany({ select: { type: true }, distinct: ["type"], take: 20 })
+					.catch(() => [] as { type: string }[]);
+
+				let totalPruned = 0;
+				for (const { type } of jobTypes) {
+					const result = await pruneCompletedJobsByType({ type, keepLatest: 25 }).catch(() => ({ count: 0 }));
+					totalPruned += result.count;
+				}
+
+				// Also prune old AI ops logs (keep latest 100)
+				const oldLogs = await prisma.aiOpsLog
+					.findMany({
+						select: { id: true },
+						orderBy: { createdAt: "desc" },
+						take: 100,
+					})
+					.catch(() => []);
+				if (oldLogs.length > 0) {
+					const keepIds = oldLogs.map((l) => l.id);
+					const deleted = await prisma.aiOpsLog
+						.deleteMany({ where: { id: { notIn: keepIds } } })
+						.catch(() => ({ count: 0 }));
+					totalPruned += deleted.count;
+				}
+
+				return {
+					id: input.id,
+					action: input.action,
+					risk: input.risk,
+					executed: true,
+					executedAt: new Date().toISOString(),
+					result: `已清理 ${totalPruned} 条陈旧记录（含任务队列和运维日志）`,
+				};
+			}
 			case "playbook.run:low_risk":
 				return unsupportedAction(input, "低风险 Playbook 执行需要 playbookId/serverId payload，当前推荐项未携带可执行参数");
 			case "backup.snapshot:metadata_only":
 				return unsupportedAction(input, "元数据快照需要目标备份域 payload，当前推荐项未携带可执行参数");
-			case "cache.purge:stale":
-				return unsupportedAction(input, "陈旧缓存清理暂无统一缓存后端绑定，已跳过");
 			default:
 				return unsupportedAction(input, `未知安全动作 ${input.action}`);
 		}

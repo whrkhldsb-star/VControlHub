@@ -130,6 +130,7 @@ model Team {
   owner       User?        @relation("TeamOwner", fields: [ownerId], references: [id], onDelete: SetNull)
   members     TeamMember[]
   currentFor  User[]       @relation("UserCurrentTeam")
+  servers     Server[]     @relation("TeamServers")
   createdAt   DateTime     @default(now())
   updatedAt   DateTime     @updatedAt
 
@@ -228,6 +229,8 @@ model Server {
   fileProxyPort   Int                  @default(0) // 文件代理端口（0=未启用）
   osDialect       String? // TR-041: JSON 序列化的 OsDialect（包管理器/服务管理器/路径等）
   osInfo          String? // TR-041: /etc/os-release 原始摘要（distro name + version）
+  teamId          String? // TR-030: 多租户资源隔离
+  team            Team?   @relation("TeamServers", fields: [teamId], references: [id], onDelete: SetNull)
   hostedActions   AiHostedAction[]
   fileProxies     ServerFileProxy[]
   vpsBackupSchedules VpsBackupSchedule[]
@@ -236,6 +239,7 @@ model Server {
 
   @@index([host, port])
   @@index([enabled])
+  @@index([teamId])
   @@map("servers")
 }
 

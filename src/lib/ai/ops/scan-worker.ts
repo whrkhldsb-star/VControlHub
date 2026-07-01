@@ -24,8 +24,10 @@ import {
 	enqueueJob,
 	failJob,
 	heartbeatJob,
+	pruneCompletedJobsByType,
 } from "@/lib/job/service";
 import { createLogger } from "@/lib/logging";
+import { getSetting } from "@/lib/settings/service";
 
 import {
 	AI_OPS_DEFAULT_SCHEDULE_HOUR,
@@ -87,11 +89,9 @@ async function enqueueScanJob(reason: string) {
 	});
 }
 
-function readModeFromSettings(): AiOpsMode {
-	// The default mode is hard-coded for the worker; the UI can override
-	// by enqueuing a manual scan with a different mode.
-	void AI_OPS_DEFAULT_SCHEDULE_HOUR;
-	return "recommendation";
+async function readModeFromSettings(): Promise<AiOpsMode> {
+	const mode = await getSetting("ai.ops.mode").catch(() => "recommendation");
+	return mode === "autonomous" ? "autonomous" : "recommendation";
 }
 
 interface SystemHealthSignal {
@@ -110,15 +110,15 @@ interface SystemHealthSignal {
 async function collectSystemHealthSignals(): Promise<SystemHealthSignal[]> {
 	const signals: SystemHealthSignal[] = [];
 
-	const [alertCount, recentFailures, playbookFailures] = await Promise.all([
+	const since24h = new Date(Date.now() - 24 * 60 * 60 * 1000);
+
+	const [alertCount, recentFailures, playbookFailures, offlineServers, backupFailures, staleJobs] = await Promise.all([
 		prisma.alertRule.count({ where: { enabled: true } }),
 		prisma.commandRequest
 			.count({
 				where: {
 					status: "FAILED",
-					createdAt: {
-						gte: new Date(Date.now() - 24 * 60 * 60 * 1000),
-					},
+					createdAt: { gte: since24h },
 				},
 			})
 			.catch(() => 0),
@@ -126,9 +126,29 @@ async function collectSystemHealthSignals(): Promise<SystemHealthSignal[]> {
 			.count({
 				where: {
 					status: "failed",
-					createdAt: {
-						gte: new Date(Date.now() - 24 * 60 * 60 * 1000),
-					},
+					createdAt: { gte: since24h },
+				},
+			})
+			.catch(() => 0),
+		// Servers that are enabled (potential connectivity issues require runtime checks)
+		prisma.server
+			.count({ where: { enabled: true } })
+			.catch(() => 0),
+		// Backup records that failed in the last 24h
+		prisma.backupRecord
+			.count({
+				where: {
+					status: "FAILED",
+					createdAt: { gte: since24h },
+				},
+			})
+			.catch(() => 0),
+		// Stale completed jobs older than 7 days
+		prisma.job
+			.count({
+				where: {
+					status: "COMPLETED",
+					updatedAt: { lt: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000) },
 				},
 			})
 			.catch(() => 0),
@@ -161,6 +181,85 @@ async function collectSystemHealthSignals(): Promise<SystemHealthSignal[]> {
 			source: "playbook.run",
 		});
 	}
+	if (offlineServers > 0) {
+		signals.push({
+			id: "server.offline",
+			severity: "critical",
+			title: "服务器离线",
+			body: `${offlineServers} 台已启用服务器处于离线状态, 请检查网络或 SSH 连接。`,
+			source: "server.status",
+		});
+	}
+	if (backupFailures > 0) {
+		signals.push({
+			id: "backup.failure",
+			severity: "warning",
+			title: "备份失败",
+			body: `近 24 小时有 ${backupFailures} 次备份失败, 建议检查存储空间或凭据。`,
+			source: "backup.records",
+		});
+	}
+	if (staleJobs > 100) {
+		signals.push({
+			id: "job.stale-accumulation",
+			severity: "info",
+			title: "陈旧任务堆积",
+			body: `${staleJobs} 条已完成任务超过 7 天未清理, 建议执行缓存清理。`,
+			source: "job.queue",
+		});
+	}
+
+	// Check latest metric snapshots for resource pressure
+	try {
+		const recentMetrics = await prisma.metricSnapshot.findMany({
+			where: { createdAt: { gte: new Date(Date.now() - 30 * 60 * 1000) } },
+			select: { serverId: true, cpuUsage: true, memUsage: true, diskUsage: true, isOnline: true },
+			orderBy: { createdAt: "desc" },
+			take: 500,
+		});
+		// Deduplicate by serverId — keep the most recent snapshot per server
+		const seen = new Set<string>();
+		let highCpuCount = 0;
+		let highMemCount = 0;
+		let highDiskCount = 0;
+		for (const m of recentMetrics) {
+			if (seen.has(m.serverId)) continue;
+			seen.add(m.serverId);
+			if (m.cpuUsage > 85) highCpuCount++;
+			if (m.memUsage > 90) highMemCount++;
+			if (m.diskUsage > 85) highDiskCount++;
+		}
+		if (highCpuCount > 0) {
+			signals.push({
+				id: "resource.high-cpu",
+				severity: "warning",
+				title: "CPU 使用率过高",
+				body: `${highCpuCount} 台服务器 CPU 使用率超过 85%, 建议检查进程或扩容。`,
+				source: "metric.cpu",
+			});
+		}
+		if (highMemCount > 0) {
+			signals.push({
+				id: "resource.high-mem",
+				severity: "warning",
+				title: "内存使用率过高",
+				body: `${highMemCount} 台服务器内存使用率超过 90%, 可能影响服务稳定性。`,
+				source: "metric.memory",
+			});
+		}
+		if (highDiskCount > 0) {
+			signals.push({
+				id: "resource.high-disk",
+				severity: "critical",
+				title: "磁盘空间不足",
+				body: `${highDiskCount} 台服务器磁盘使用率超过 85%, 存在写满风险。`,
+				source: "metric.disk",
+			});
+		}
+	} catch {
+		// metricSnapshot table may not have recent data; skip silently
+	}
+
 	return signals;
 }
 
@@ -197,13 +296,22 @@ function buildScan(
 		};
 	}
 
-	const actions: AiOpsRecommendedAction[] = signals.map((s) => ({
-		id: `${s.id}.reco`,
-		action: s.severity === "critical" ? "command.execute:diagnose" : "alert.evaluate",
-		risk: s.severity === "critical" ? ("high" as const) : ("low" as const),
-		requiresApproval: s.severity === "critical",
-		reason: s.body,
-	}));
+	const actions: AiOpsRecommendedAction[] = signals.map((s) => {
+		// Map signal source to an actionable recommendation.
+		// Critical signals → alert.evaluate with high risk + requires approval
+		// Info signals about stale jobs → cache.purge:stale (safe, no approval)
+		// Warning signals → alert.evaluate with low risk (safe, no approval)
+		const isStaleJobSignal = s.id === "job.stale-accumulation";
+		const action = isStaleJobSignal ? "cache.purge:stale" : "alert.evaluate";
+		const risk = s.severity === "critical" ? ("high" as const) : ("low" as const);
+		return {
+			id: `${s.id}.reco`,
+			action,
+			risk,
+			requiresApproval: s.severity === "critical",
+			reason: s.body,
+		};
+	});
 	return {
 		findings,
 		actions,
@@ -235,7 +343,7 @@ export async function runAiOpsScanWorkerOnce(reason = "manual"): Promise<boolean
 				progress: "正在收集系统健康信号",
 			});
 
-			const mode = readModeFromSettings();
+			const mode = await readModeFromSettings();
 			const log = await createAiOpsLog({
 				triggerType: reason === "interval" || reason === "startup" ? "scheduled" : "manual",
 				mode,
@@ -280,6 +388,34 @@ export async function runAiOpsScanWorkerOnce(reason = "manual"): Promise<boolean
 				findingCount: findings.length,
 				actionCount: actions.length,
 			});
+
+			// Retention: prune old AI ops logs (keep latest 200)
+			try {
+				const oldLogs = await prisma.aiOpsLog.findMany({
+					select: { id: true },
+					orderBy: { createdAt: "desc" },
+					take: 200,
+				});
+				if (oldLogs.length === 200) {
+					const keepIds = oldLogs.map((l) => l.id);
+					const result = await prisma.aiOpsLog.deleteMany({
+						where: { id: { notIn: keepIds } },
+					});
+					if (result.count > 0) {
+						logger.info("AI ops log retention pruned old logs", { pruned: result.count });
+					}
+				}
+			} catch {
+				// Retention is best-effort; don't fail the scan
+			}
+
+			// Also prune old completed scan jobs (keep latest 25)
+			try {
+				await pruneCompletedJobsByType({ type: AI_OPS_SCAN_JOB_TYPE, keepLatest: 25 });
+			} catch {
+				// best-effort
+			}
+
 			return true;
 		} catch (error) {
 			const message =

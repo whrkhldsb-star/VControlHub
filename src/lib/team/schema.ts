@@ -15,6 +15,12 @@ export const addTeamMemberSchema = z.object({
 	role: z.enum(["admin", "member"]).default("member"),
 });
 
+export const updateTeamSchema = z.object({
+	name: z.string().trim().min(1, "团队名称不能为空").max(80).optional(),
+	description: z.string().trim().max(300).optional().nullable(),
+});
+
 export type CreateTeamInput = z.infer<typeof createTeamSchema>;
 export type SwitchTeamInput = z.infer<typeof switchTeamSchema>;
 export type AddTeamMemberInput = z.infer<typeof addTeamMemberSchema>;
+export type UpdateTeamInput = z.infer<typeof updateTeamSchema>;

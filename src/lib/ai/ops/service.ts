@@ -221,6 +221,48 @@ export interface ExecuteRecommendationResult {
 	action?: AiOpsExecutedAction;
 }
 
+/**
+ * Approve a recommendation for execution. After approval, the action can be
+ * executed without forceAutonomous. This provides the "approve → execute"
+ * workflow that the UI "审批" button needs.
+ */
+export async function approveRecommendation(input: {
+	logId: string;
+	actionId: string;
+}): Promise<{ ok: boolean; errorMessage?: string }> {
+	const log = await prisma.aiOpsLog.findUnique({ where: { id: input.logId } });
+	if (!log) {
+		return { ok: false, errorMessage: "日志不存在" };
+	}
+	const actions = parseActions(log.actions, log.mode as AiOpsMode);
+	const match = actions.find(
+		(a) => (a as { id: string }).id === input.actionId,
+	) as AiOpsRecommendedAction | undefined;
+	if (!match) {
+		return { ok: false, errorMessage: "推荐项不存在" };
+	}
+	if (!match.requiresApproval) {
+		return { ok: false, errorMessage: "该推荐项无需审批" };
+	}
+
+	// Mark the action as approved, preserving all other actions
+	const updatedActions = actions.map((a) => {
+		if ((a as { id: string }).id === input.actionId) {
+			return { ...a, approved: true } as AiOpsRecommendedAction;
+		}
+		return a;
+	});
+
+	await prisma.aiOpsLog.update({
+		where: { id: log.id },
+		data: {
+			actions: updatedActions as unknown as Prisma.InputJsonValue,
+		},
+	});
+
+	return { ok: true };
+}
+
 export async function executeRecommendation(
 	input: ExecuteRecommendationInput,
 ): Promise<ExecuteRecommendationResult> {
@@ -238,7 +280,7 @@ export async function executeRecommendation(
 
 	const safeSet = new Set<string>(AI_OPS_SAFE_AUTONOMOUS_ACTIONS);
 	const isSafe = safeSet.has(match.action);
-	if (!input.forceAutonomous && match.requiresApproval) {
+	if (!input.forceAutonomous && match.requiresApproval && !match.approved) {
 		return {
 			ok: true,
 			executed: false,
@@ -258,9 +300,10 @@ export async function executeRecommendation(
 		action: match.action,
 		risk: match.risk,
 	});
-	const updatedActions: AiOpsExecutedAction[] = (log.mode === "autonomous"
-		? (actions as AiOpsExecutedAction[]).filter((a) => a.id !== match.id)
-		: []
+	const updatedActions: (AiOpsRecommendedAction | AiOpsExecutedAction)[] = (
+		log.mode === "autonomous"
+			? (actions as AiOpsExecutedAction[]).filter((a) => a.id !== match.id)
+			: (actions as AiOpsRecommendedAction[]).filter((a) => a.id !== match.id)
 	).concat(executed);
 
 	await prisma.aiOpsLog.update({

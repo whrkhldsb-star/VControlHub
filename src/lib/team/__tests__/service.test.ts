@@ -16,8 +16,8 @@ vi.mock("@/lib/audit/service", () => ({ auditUserAction: auditUserActionMock }))
 
 const { createTeam, switchCurrentTeam, addTeamMember } = await import("../service");
 
-const adminSession: SessionPayload = { userId: "u_admin", username: "admin", roles: ["admin"], mustChangePassword: false };
-const viewerSession: SessionPayload = { userId: "u_viewer", username: "viewer", roles: ["viewer"], mustChangePassword: false };
+const adminSession: SessionPayload = { userId: "u_admin", username: "admin", roles: ["admin"], mustChangePassword: false, currentTeamId: null };
+const viewerSession: SessionPayload = { userId: "u_viewer", username: "viewer", roles: ["viewer"], mustChangePassword: false, currentTeamId: null };
 
 describe("team workspace service", () => {
 	beforeEach(() => {

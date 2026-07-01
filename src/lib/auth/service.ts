@@ -18,6 +18,7 @@ export type AuthenticatedUser = {
  roles: RoleKey[];
  permissions: Permission[];
  preferences: UserPreferences;
+ currentTeamId: string | null;
 };
 
 export type ChangePasswordResult = {
@@ -75,6 +76,7 @@ export async function authenticateUser(input: LoginInput): Promise<Authenticated
  roles: roleKeys,
  permissions: collectPermissions(roleKeys),
  preferences: normalizeUserPreferences(user.preferences),
+ currentTeamId: user.currentTeamId,
  };
 }
 
