@@ -322,14 +322,14 @@ export function SshFileManager({ serverId, visible }: SshFileManagerProps) {
       data-testid={`ssh-file-manager-${serverId}`}
     >
       {/* Header + breadcrumbs */}
-      <div className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-3">
+      <div className="rounded-xl border border-[var(--border-subtle)] light:border-slate-200/60 bg-[var(--surface-subtle)] light:bg-slate-50/50 p-3">
         <div className="mb-2 flex items-center gap-2">
-          <span className="text-sm font-medium text-white" aria-hidden="true">📁</span>
-          <span className="text-sm font-medium text-white">{t("sshFileManager.title")}</span>
+          <span className="text-sm font-medium text-[var(--text-primary)] light:text-slate-900" aria-hidden="true">📁</span>
+          <span className="text-sm font-medium text-[var(--text-primary)] light:text-slate-900">{t("sshFileManager.title")}</span>
           <button
             type="button"
             onClick={() => setShowMkdir(!showMkdir)}
-            className="ml-auto min-h-9 rounded-full border border-white/10 px-2 py-0.5 text-xs text-slate-300 transition hover:bg-white/10"
+            className="ml-auto min-h-9 rounded-full border border-[var(--border-subtle)] light:border-slate-200 px-2 py-0.5 text-xs text-[var(--text-secondary)] light:text-slate-600 transition hover:bg-[var(--surface-elevated)] light:hover:bg-slate-700/50"
             aria-label={t("sshFileManager.newFolder")}
             title={t("sshFileManager.newFolder")}
           >
