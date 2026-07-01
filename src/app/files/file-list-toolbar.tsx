@@ -25,7 +25,7 @@ export function FileListToolbar({
 }: FileListToolbarProps) {
   const { t } = useI18n();
   return (
-    <div className="flex items-center justify-between bg-white/[0.03] px-5 py-2.5 border-b border-[var(--border)]">
+    <div className="flex items-center justify-between bg-[var(--surface)]/[0.03] px-5 py-2.5 border-b border-[var(--border)]">
       <div className="flex items-center gap-2 text-sm text-[var(--text-muted)]">
         <span>{itemCount} 项</span>
         {selectedCount > 0 ? (
@@ -43,8 +43,8 @@ export function FileListToolbar({
           aria-pressed={viewMode === "list"}
           className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium transition ${
             viewMode === "list"
-              ? "bg-cyan-400/20 text-cyan-100 border border-cyan-400/30 shadow-sm shadow-cyan-400/10"
-              : "text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:bg-white/5 border border-transparent"
+              ? "bg-cyan-400/20 text-[var(--text-primary)] border border-cyan-400/30 shadow-sm shadow-cyan-400/10"
+              : "text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:bg-[var(--surface)]/5 border border-transparent"
           }`}
         >
           <svg
@@ -74,8 +74,8 @@ export function FileListToolbar({
           aria-pressed={viewMode === "grid"}
           className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium transition ${
             viewMode === "grid"
-              ? "bg-cyan-400/20 text-cyan-100 border border-cyan-400/30 shadow-sm shadow-cyan-400/10"
-              : "text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:bg-white/5 border border-transparent"
+              ? "bg-cyan-400/20 text-[var(--text-primary)] border border-cyan-400/30 shadow-sm shadow-cyan-400/10"
+              : "text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:bg-[var(--surface)]/5 border border-transparent"
           }`}
         >
           <svg
@@ -103,8 +103,8 @@ export function FileListToolbar({
           aria-pressed={viewMode === "details"}
           className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium transition ${
             viewMode === "details"
-              ? "bg-cyan-400/20 text-cyan-100 border border-cyan-400/30 shadow-sm shadow-cyan-400/10"
-              : "text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:bg-white/5 border border-transparent"
+              ? "bg-cyan-400/20 text-[var(--text-primary)] border border-cyan-400/30 shadow-sm shadow-cyan-400/10"
+              : "text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:bg-[var(--surface)]/5 border border-transparent"
           }`}
         >
           <svg

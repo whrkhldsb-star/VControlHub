@@ -110,8 +110,8 @@ export function AiMessageList({
           <div
             className={`max-w-[88%] sm:max-w-[80%] rounded-2xl px-3 py-2 sm:px-4 sm:py-2.5 text-sm leading-relaxed ${
               msg.role === "user"
-                ? "bg-cyan-500/15 text-cyan-50"
-                : "bg-white/[0.04] text-[var(--text-secondary)]"
+                ? "bg-cyan-500/15 text-[var(--text-primary)]"
+                : "bg-[var(--surface)]/[0.04] text-[var(--text-secondary)]"
             }`}
           >
             {msg.reasoningContent && (
@@ -219,7 +219,7 @@ export function AiMessageList({
               />
             </svg>
           </div>
-          <div className="max-w-[88%] sm:max-w-[80%] rounded-2xl px-3 py-2 sm:px-4 sm:py-2.5 bg-white/[0.04] text-[var(--text-secondary)] text-sm leading-relaxed">
+          <div className="max-w-[88%] sm:max-w-[80%] rounded-2xl px-3 py-2 sm:px-4 sm:py-2.5 bg-[var(--surface)]/[0.04] text-[var(--text-secondary)] text-sm leading-relaxed">
             {streamReasoning && (
               <details open className="mb-2">
                 <summary className="text-[10px] text-cyan-400/60 cursor-pointer">
@@ -238,12 +238,12 @@ export function AiMessageList({
         <div className="flex gap-3">
           <div className="flex-shrink-0 w-7 h-7 rounded-lg bg-gradient-to-br from-cyan-400 to-blue-500 flex items-center justify-center">
             <div className="flex gap-0.5">
-              <span className="w-1 h-1 bg-white rounded-full animate-bounce [animation-delay:0ms]" />
-              <span className="w-1 h-1 bg-white rounded-full animate-bounce [animation-delay:150ms]" />
-              <span className="w-1 h-1 bg-white rounded-full animate-bounce [animation-delay:300ms]" />
+              <span className="w-1 h-1 bg-[var(--surface)] rounded-full animate-bounce [animation-delay:0ms]" />
+              <span className="w-1 h-1 bg-[var(--surface)] rounded-full animate-bounce [animation-delay:150ms]" />
+              <span className="w-1 h-1 bg-[var(--surface)] rounded-full animate-bounce [animation-delay:300ms]" />
             </div>
           </div>
-          <div className="rounded-2xl px-4 py-2.5 bg-white/[0.04] text-[var(--text-muted)] text-sm">
+          <div className="rounded-2xl px-4 py-2.5 bg-[var(--surface)]/[0.04] text-[var(--text-muted)] text-sm">
             {t("aiPage.thinkingDetail")}
           </div>
         </div>

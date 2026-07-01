@@ -85,13 +85,13 @@ export function FileDetailPanel({
           <button
             type="button"
             onClick={onClose}
-            className="rounded-full border border-[var(--border)] bg-white/5 px-3 py-1.5 text-xs text-[var(--text-secondary)] transition hover:bg-white/10"
+            className="rounded-full border border-[var(--border)] bg-[var(--surface)]/5 px-3 py-1.5 text-xs text-[var(--text-secondary)] transition hover:bg-[var(--surface)]/10"
           >
             关闭
           </button>
         </div>
         <div className="flex-1 space-y-5 overflow-y-auto px-5 py-5">
-          <div className="rounded-2xl border border-[var(--border)] bg-white/[0.03] p-4">
+          <div className="rounded-2xl border border-[var(--border)] bg-[var(--surface)]/[0.03] p-4">
             <div className="grid gap-3 text-sm sm:grid-cols-2">
               <div>
                 <p className="text-xs text-[var(--text-muted)]">{t("fileDetailPanel.storageNode")}</p>
@@ -134,7 +134,7 @@ export function FileDetailPanel({
               {detailEntry.previewable && entryCanRead(detailEntry) ? (
                 <Link
                   href={getPreviewHref(detailEntry)}
-                  data-tone="cyan" className="rounded-2xl border border-cyan-400/30 px-4 py-3 text-sm font-medium text-cyan-100 transition hover:bg-cyan-500/20"
+                  data-tone="cyan" className="rounded-2xl border border-cyan-400/30 px-4 py-3 text-sm font-medium text-[var(--text-primary)] transition hover:bg-cyan-500/20"
                 >
                   预览 / 在线编辑
                 </Link>
@@ -143,7 +143,7 @@ export function FileDetailPanel({
                 <Link
                   href={buildForcedDownloadHref(detailEntry)}
                   download
-                  className="rounded-2xl border border-[var(--border)] bg-white/5 px-4 py-3 text-sm font-medium text-[var(--text-secondary)] transition hover:bg-white/10"
+                  className="rounded-2xl border border-[var(--border)] bg-[var(--surface)]/5 px-4 py-3 text-sm font-medium text-[var(--text-secondary)] transition hover:bg-[var(--surface)]/10"
                 >
                   下载文件
                 </Link>

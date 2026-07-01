@@ -27,7 +27,7 @@ type ApiEntry = {
 
 const methodStyles: Record<string, string> = {
 	get: "border-emerald-400/25 bg-emerald-400/10 text-emerald-200",
-	post: "border-cyan-400/25 bg-cyan-400/10 text-cyan-200",
+	post: "border-cyan-400/25 bg-cyan-400/10 text-[var(--text-secondary)]",
 	put: "border-amber-400/25 bg-amber-400/10 text-amber-200",
 	patch: "border-violet-400/25 bg-violet-400/10 text-violet-200",
 	delete: "border-rose-400/25 bg-rose-400/10 text-rose-200",
@@ -111,13 +111,13 @@ export default function ApiDocsPage() {
 						href="/api/docs/openapi.json"
 						target="_blank"
 						rel="noreferrer"
-						data-tone="cyan" className="inline-flex h-10 items-center justify-center rounded-lg border border-cyan-400/25 px-4 text-sm font-medium text-cyan-100 transition hover:bg-cyan-400/15"
+						data-tone="cyan" className="inline-flex h-10 items-center justify-center rounded-lg border border-cyan-400/25 px-4 text-sm font-medium text-[var(--text-primary)] transition hover:bg-cyan-400/15"
 					>
 						OpenAPI JSON
 					</a>
 				</header>
 
-				<section className="rounded-2xl border border-white/[0.06] bg-white/[0.02] p-4 shadow-lg">
+				<section className="rounded-2xl border border-[var(--border)]/[0.06] bg-[var(--surface)]/[0.02] p-4 shadow-lg">
 					<div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_auto] md:items-center">
 						<label className="block">
 							<span className="sr-only">{t("apiDocsPage.searchAria")}</span>
@@ -125,7 +125,7 @@ export default function ApiDocsPage() {
 								value={query}
 								onChange={(event) => setQuery(event.target.value)}
 								placeholder={t("apiDocsPage.searchPlaceholder")}
-								className="h-10 w-full rounded-lg border border-[var(--border)] bg-[var(--input-bg)] px-3 text-sm text-[var(--text-primary)] placeholder:text-slate-500"
+								className="h-10 w-full rounded-lg border border-[var(--border)] bg-[var(--input-bg)] px-3 text-sm text-[var(--text-primary)] placeholder:text-[var(--text-muted)]"
 							/>
 						</label>
 						<div className="text-sm text-[var(--text-muted)]">
@@ -165,7 +165,7 @@ export default function ApiDocsPage() {
 									<div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
 										<div className="min-w-0 flex-1">
 											<div className="flex flex-wrap items-center gap-2">
-												<span className={`rounded-lg border px-2 py-1 font-mono text-xs font-semibold uppercase ${methodStyles[entry.method] ?? "border-slate-400/25 bg-slate-400/10 text-slate-200"}`}>
+												<span className={`rounded-lg border px-2 py-1 font-mono text-xs font-semibold uppercase ${methodStyles[entry.method] ?? "border-slate-400/25 bg-slate-400/10 text-[var(--text-primary)]"}`}>
 													{entry.method}
 												</span>
 												<code className="break-all rounded-lg bg-[var(--surface-subtle)] px-2 py-1 font-mono text-sm text-[var(--color-action)]">/api{entry.path}</code>

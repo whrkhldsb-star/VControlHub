@@ -100,7 +100,7 @@ export function ServerCardActions({
             type="button"
             onClick={handleOpenTerminal}
             aria-label={t("serverCardActions.sshTerminalAria").replace("{name}", serverName)}
-            data-tone="cyan" className="flex w-full items-center justify-center gap-2 rounded-2xl border border-cyan-400/30 px-4 py-2 text-sm font-medium text-cyan-100 transition hover:bg-cyan-400/20 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan-300 light:border-cyan-700/30 light:bg-cyan-50 light:hover:bg-cyan-100"
+            data-tone="cyan" className="flex w-full items-center justify-center gap-2 rounded-2xl border border-cyan-400/30 px-4 py-2 text-sm font-medium text-[var(--text-primary)] transition hover:bg-cyan-400/20 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan-300 light:border-cyan-700/30 light:bg-cyan-50 light:hover:bg-cyan-100"
           >
             <span aria-hidden="true">💻</span>
             <span>{t("serverCardActions.sshTerminalButton")}</span>
@@ -147,7 +147,7 @@ export function ServerCardActions({
                   href={directGateway.publicUrl}
                   target="_blank"
                   rel="noreferrer"
-                  className="block break-all text-xs font-medium text-cyan-100 underline decoration-cyan-300/50 underline-offset-2 hover:text-[var(--text-primary)] light:hover:text-slate-900 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan-300 light:hover:text-cyan-950"
+                  className="block break-all text-xs font-medium text-[var(--text-primary)] underline decoration-cyan-300/50 underline-offset-2 hover:text-[var(--text-primary)] light:hover:text-slate-900 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan-300 light:hover:text-cyan-950"
                 >
                   {directGateway.publicUrl}
                 </a>
@@ -160,7 +160,7 @@ export function ServerCardActions({
             <div className="rounded-xl border border-[var(--border)] bg-[var(--surface-subtle)] p-3 text-[11px] leading-5 text-[var(--text-muted)] light:border-cyan-700/15">
               {directGateway.enabled ? (
                 <>
-                  <p className="font-medium text-cyan-100">
+                  <p className="font-medium text-[var(--text-primary)]">
                     {t("serverCardActions.directGateway.enabledTitle")}
                   </p>
                   <p>
@@ -169,7 +169,7 @@ export function ServerCardActions({
                 </>
               ) : (
                 <>
-                  <p className="font-medium text-cyan-100">
+                  <p className="font-medium text-[var(--text-primary)]">
                     {t("serverCardActions.directGateway.disabledTitle")}
                   </p>
                   <p>
@@ -182,7 +182,7 @@ export function ServerCardActions({
               pendingLabel={
                 directGateway.enabled ? t("serverCardActions.directGateway.pendingDisable") : t("serverCardActions.directGateway.pendingEnable")
               }
-              data-tone="cyan" className="w-full rounded-2xl border border-cyan-400/30 px-4 py-2 text-sm font-medium text-cyan-100 transition hover:bg-cyan-400/20 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan-300 light:border-cyan-700/30 light:bg-cyan-100 light:hover:bg-cyan-200"
+              data-tone="cyan" className="w-full rounded-2xl border border-cyan-400/30 px-4 py-2 text-sm font-medium text-[var(--text-primary)] transition hover:bg-cyan-400/20 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan-300 light:border-cyan-700/30 light:bg-cyan-100 light:hover:bg-cyan-200"
             >
               {directGateway.enabled
                 ? t("serverCardActions.directGateway.disableLabel")
@@ -205,7 +205,7 @@ export function ServerCardActions({
           <button
             type="button"
             onClick={() => setShowEdit((value) => !value)}
-            className="w-full rounded-2xl border border-[var(--border)] bg-white/5 px-4 py-2 text-sm font-medium text-[var(--text-secondary)] transition hover:bg-white/10"
+            className="w-full rounded-2xl border border-[var(--border)] bg-[var(--surface)]/5 px-4 py-2 text-sm font-medium text-[var(--text-secondary)] transition hover:bg-[var(--surface)]/10"
           >
             {showEdit ? t("serverCardActions.edit.toggleHide") : t("serverCardActions.edit.toggleShow")}
           </button>
@@ -215,7 +215,7 @@ export function ServerCardActions({
           <form
             action={editAction}
             aria-label={t("serverCardActions.edit.formAria")}
-            className="space-y-3 rounded-2xl border border-[var(--border)] bg-white/[0.03] p-3"
+            className="space-y-3 rounded-2xl border border-[var(--border)] bg-[var(--surface)]/[0.03] p-3"
           >
             <input type="hidden" name="serverId" value={serverId} />
             <input type="hidden" name="connectionType" value={connectionType} />
@@ -339,7 +339,7 @@ export function ServerCardActions({
             <input type="hidden" name="serverId" value={serverId} />
             <SubmitButton
               pendingLabel={t("serverCardActions.toggle.pending")}
-              data-tone="cyan" className="w-full rounded-2xl border border-cyan-400/30 px-4 py-2 text-sm font-medium text-cyan-100 transition hover:bg-cyan-400/20 light:border-cyan-700/30 light:bg-cyan-50 light:hover:bg-cyan-100"
+              data-tone="cyan" className="w-full rounded-2xl border border-cyan-400/30 px-4 py-2 text-sm font-medium text-[var(--text-primary)] transition hover:bg-cyan-400/20 light:border-cyan-700/30 light:bg-cyan-50 light:hover:bg-cyan-100"
             >
               {enabled ? t("serverCardActions.toggle.disable") : t("serverCardActions.toggle.enable")}
             </SubmitButton>
@@ -404,7 +404,7 @@ export function ServerCardActions({
                   <button
                     type="button"
                     onClick={() => router.refresh()}
-                    className="flex-1 rounded-2xl border border-[var(--border)] bg-white/5 px-4 py-2 text-sm font-medium text-[var(--text-secondary)] transition hover:bg-white/10 light:hover:bg-slate-100"
+                    className="flex-1 rounded-2xl border border-[var(--border)] bg-[var(--surface)]/5 px-4 py-2 text-sm font-medium text-[var(--text-secondary)] transition hover:bg-[var(--surface)]/10 light:hover:bg-slate-100"
                   >
                     {t("serverCardActions.delete.cancel")}
                   </button>

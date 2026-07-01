@@ -147,7 +147,7 @@ export function UserManagementClient({ canManage = false }: { canManage?: boolea
 
       {/* Create button */}
       <div className="mb-6 flex items-center justify-between">
-        <h2 className="text-lg font-medium text-white">{t("usersPage.title2")}</h2>
+        <h2 className="text-lg font-medium text-[var(--text-primary)]">{t("usersPage.title2")}</h2>
         {canManage ? (
           <button
             type="button"
@@ -199,7 +199,7 @@ export function UserManagementClient({ canManage = false }: { canManage?: boolea
             </div>
           </div>
           <div>
-            <label className="block text-sm text-slate-400 mb-2">{t("usersPage.form.roles")}</label>
+            <label className="block text-sm text-[var(--text-secondary)] mb-2">{t("usersPage.form.roles")}</label>
             <div className="flex flex-wrap gap-2">
               {ROLE_KEYS.map((key) => (
                 <button
@@ -209,7 +209,7 @@ export function UserManagementClient({ canManage = false }: { canManage?: boolea
                   className={`rounded-full border px-3 py-1.5 text-xs transition ${
                     createForm.roleKeys.includes(key)
                       ? ""
-                      : "border-white/10 bg-white/5 text-slate-500"
+                      : "border-[var(--border)]/10 bg-[var(--surface)]/5 text-[var(--text-muted)]"
                   }`}
                   data-tone={createForm.roleKeys.includes(key) ? roleBadgeTone(key) : undefined}
                 >
@@ -236,7 +236,7 @@ export function UserManagementClient({ canManage = false }: { canManage?: boolea
           {loading ? (
             <EmptyState>{t("usersPage.loading")}</EmptyState>
           ) : loadFailed ? (
-            <div className="px-4 py-10 text-sm text-slate-400">{t("usersPage.loadFailedHint")}</div>
+            <div className="px-4 py-10 text-sm text-[var(--text-secondary)]">{t("usersPage.loadFailedHint")}</div>
           ) : users.length === 0 ? (
             <EmptyState>{t("usersPage.empty")}</EmptyState>
           ) : (
@@ -244,12 +244,12 @@ export function UserManagementClient({ canManage = false }: { canManage?: boolea
               <div key={user.id} className="px-4 py-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <div className="min-w-0">
                   <div className="flex items-center gap-3">
-                    <span className="text-white font-medium">{user.displayName ?? user.username}</span>
+                    <span className="text-[var(--text-primary)] font-medium">{user.displayName ?? user.username}</span>
                     <span data-tone={statusTone(user.status)} className="rounded-full border px-2 py-0.5 text-[10px] font-medium">
                       {statusLabel(user.status, t)}
                     </span>
                   </div>
-                  <div className="mt-1 flex items-center gap-2 text-xs text-slate-400">
+                  <div className="mt-1 flex items-center gap-2 text-xs text-[var(--text-secondary)]">
                     <span>@{user.username}</span>
                     <span>·</span>
                     <span>{new Date(user.createdAt).toLocaleDateString(locale === "zh" ? "zh-CN" : "en-US")}</span>
@@ -294,7 +294,7 @@ export function UserManagementClient({ canManage = false }: { canManage?: boolea
                       )}
                     </>
                   ) : (
-                    <span className="text-xs text-slate-500">{t("usersPage.action.readonly")}</span>
+                    <span className="text-xs text-[var(--text-muted)]">{t("usersPage.action.readonly")}</span>
                   )}
                 </div>
               </div>

@@ -7,7 +7,7 @@ type LoginFormProps = {
 };
 
 const fieldClassName =
-	"w-full rounded-2xl border border-[var(--border)] bg-white/[0.04] px-4 py-3 text-sm text-[var(--text-primary)] shadow-[0_0_0_1px_rgba(255,255,255,0.05)] outline-none transition-colors duration-150 placeholder:text-white/20 focus:border-cyan-400/50 focus:bg-white/[0.06] focus:ring-4 focus:ring-cyan-400/10 light:border-slate-300 light:bg-slate-50 light:text-slate-900 light:placeholder:text-[var(--text-muted)] light:focus:border-cyan-500/70 light:focus:bg-white light:focus:ring-cyan-500/10";
+	"w-full rounded-2xl border border-[var(--border)] bg-[var(--surface)]/[0.04] px-4 py-3 text-sm text-[var(--text-primary)] shadow-[0_0_0_1px_rgba(255,255,255,0.05)] outline-none transition-colors duration-150 placeholder:text-[var(--text-primary)]/20 focus:border-cyan-400/50 focus:bg-[var(--surface)]/[0.06] focus:ring-4 focus:ring-cyan-400/10 light:border-slate-300 light:bg-slate-50 light:text-slate-900 light:placeholder:text-[var(--text-muted)] light:focus:border-cyan-500/70 light:focus:bg-[var(--surface)] light:focus:ring-cyan-500/10";
 
 export function LoginForm({ nextPath, error, locale }: LoginFormProps) {
 	return (
@@ -42,12 +42,12 @@ export function LoginForm({ nextPath, error, locale }: LoginFormProps) {
 				/>
 			</div>
 
-			<label className="flex items-center justify-between gap-3 rounded-2xl border border-[var(--border)] bg-white/[0.025] px-3.5 py-2.5 text-xs font-medium text-[var(--text-primary)] shadow-[0_0_0_1px_rgba(255,255,255,0.03)] light:border-slate-200/80 light:shadow-sm">
+			<label className="flex items-center justify-between gap-3 rounded-2xl border border-[var(--border)] bg-[var(--surface)]/[0.025] px-3.5 py-2.5 text-xs font-medium text-[var(--text-primary)] shadow-[0_0_0_1px_rgba(255,255,255,0.03)] light:border-slate-200/80 light:shadow-sm">
 				<span>{t("login.form.remember", locale)}</span>
 				<input
 					type="checkbox"
 					name="remember"
-					className="h-4 w-4 rounded-lg border-[var(--border)] bg-white/[0.06] text-cyan-400 focus:ring-cyan-400/40 light:focus:ring-cyan-500/30"
+					className="h-4 w-4 rounded-lg border-[var(--border)] bg-[var(--surface)]/[0.06] text-cyan-400 focus:ring-cyan-400/40 light:focus:ring-cyan-500/30"
 				/>
 			</label>
 

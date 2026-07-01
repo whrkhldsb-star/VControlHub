@@ -158,11 +158,11 @@ export function AiProviderPanel({
             <div className="space-y-2">
               <h4 className="text-xs text-[var(--text-muted)] uppercase tracking-wider">{t("aiPage.addedProviders")}</h4>
               {providers.map((p) => (
-                <div key={p.id} className="flex items-center gap-3 p-3 rounded-xl bg-black/30 border border-white/5 max-sm:flex-col max-sm:items-stretch">
+                <div key={p.id} className="flex items-center gap-3 p-3 rounded-xl bg-black/30 border border-[var(--border)]/5 max-sm:flex-col max-sm:items-stretch">
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 flex-wrap">
                       <span className="text-sm text-[var(--text-primary)] font-medium">{p.name}</span>
-                      <span className="text-[10px] text-[var(--text-muted)] bg-white/5 px-1.5 py-0.5 rounded-lg">
+                      <span className="text-[10px] text-[var(--text-muted)] bg-[var(--surface)]/5 px-1.5 py-0.5 rounded-lg">
                         {PROVIDER_TYPES[p.type] || p.type}
                       </span>
                       {p.isDefault && <span className="text-[10px] text-cyan-400 bg-cyan-400/10 px-1.5 py-0.5 rounded-lg">{t("common.default")}</span>}
@@ -209,7 +209,7 @@ export function AiProviderPanel({
           {editForm ? (
             <div data-tone="cyan" className="space-y-3 rounded-xl border border-cyan-400/20 p-3">
               <div className="flex items-center justify-between gap-3">
-                <h4 className="text-xs text-cyan-200 uppercase tracking-wider">{t("aiPage.editProviderTitle")}</h4>
+                <h4 className="text-xs text-[var(--text-secondary)] uppercase tracking-wider">{t("aiPage.editProviderTitle")}</h4>
                 <button type="button" onClick={cancelEditing} className="text-xs text-[var(--text-secondary)] hover:text-[var(--text-secondary)] light:hover:text-slate-800">{t("aiPage.cancelEditing")}</button>
               </div>
               <div className="grid grid-cols-2 gap-3 max-sm:grid-cols-1">

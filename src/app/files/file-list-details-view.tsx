@@ -78,7 +78,7 @@ export function FileListDetailsView({
       {sortedFolders.map((folder) => (
         <div
           key={folder.path}
-          className="flex items-center gap-4 px-5 py-4 hover:bg-white/[0.03] transition group"
+          className="flex items-center gap-4 px-5 py-4 hover:bg-[var(--surface)]/[0.03] transition group"
         >
           <div className="shrink-0">
             <div className="rounded-xl bg-amber-400/10 p-2">
@@ -89,7 +89,7 @@ export function FileListDetailsView({
             <button
               type="button"
               onClick={() => navigateToFolder(folder.path)}
-              className="truncate font-medium text-cyan-100 hover:text-[var(--text-primary)] light:hover:text-slate-900 transition text-left text-sm"
+              className="truncate font-medium text-[var(--text-primary)] hover:text-[var(--text-primary)] light:hover:text-slate-900 transition text-left text-sm"
             >
               {folder.displayName ?? folder.name}
             </button>
@@ -103,7 +103,7 @@ export function FileListDetailsView({
               type="button"
               onClick={() => navigateToFolder(folder.path)}
               data-tone="cyan"
-              className="inline-flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-medium border border-cyan-400/30 text-cyan-100 hover:bg-cyan-500/25 hover:border-cyan-400/50 transition"
+              className="inline-flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-medium border border-cyan-400/30 text-[var(--text-primary)] hover:bg-cyan-500/25 hover:border-cyan-400/50 transition"
             >
               <svg
                 width="14"
@@ -159,7 +159,7 @@ export function FileListDetailsView({
         return (
           <div
             key={entry.id}
-            className={`flex items-center gap-4 px-5 py-4 hover:bg-white/[0.03] transition ${isChecked ? "bg-cyan-400/[0.04]" : ""}`}
+            className={`flex items-center gap-4 px-5 py-4 hover:bg-[var(--surface)]/[0.03] transition ${isChecked ? "bg-cyan-400/[0.04]" : ""}`}
           >
             {/* Checkbox */}
             <div className="shrink-0">
@@ -197,7 +197,7 @@ export function FileListDetailsView({
                 {entry.previewable && entryCanRead(entry) ? (
                   <Link
                     href={previewHref}
-                    className="truncate font-medium text-[var(--text-primary)] hover:text-cyan-100 transition text-sm"
+                    className="truncate font-medium text-[var(--text-primary)] hover:text-[var(--text-primary)] transition text-sm"
                   >
                     {entry.name}
                   </Link>

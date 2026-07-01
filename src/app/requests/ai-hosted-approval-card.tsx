@@ -61,14 +61,14 @@ export function AiHostedApprovalCard({ action }: AiHostedApprovalCardProps) {
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-2">
             <h3 className="text-base font-semibold text-[var(--text-primary)]">{action.actionName}</h3>
-            <span data-tone="cyan" className="rounded-full border border-cyan-400/20 px-2 py-0.5 text-[11px] font-medium text-cyan-200">{t("aiHostedApproval.badge")}</span>
+            <span data-tone="cyan" className="rounded-full border border-cyan-400/20 px-2 py-0.5 text-[11px] font-medium text-[var(--text-secondary)]">{t("aiHostedApproval.badge")}</span>
             <span data-tone="amber" className="rounded-full border border-amber-400/20 px-2 py-0.5 text-[11px] font-medium text-amber-200">{riskLabel(t, action.riskLevel)}</span>
           </div>
           <p className="mt-1 text-xs text-[var(--text-secondary)]">{t("aiHostedApproval.description")}</p>
           <div className="mt-3 grid gap-2 text-xs text-[var(--text-secondary)] sm:grid-cols-2">
             <div className="rounded-lg border border-[var(--border)] bg-[var(--surface-subtle)] px-3 py-2">
               <div className="text-[10px] uppercase tracking-wider text-[var(--text-muted)]">{t("aiHostedApproval.actionType")}</div>
-              <div className="mt-1 font-mono text-cyan-100">{action.actionType}</div>
+              <div className="mt-1 font-mono text-[var(--text-primary)]">{action.actionType}</div>
             </div>
             <div className="rounded-lg border border-[var(--border)] bg-[var(--surface-subtle)] px-3 py-2">
               <div className="text-[10px] uppercase tracking-wider text-[var(--text-muted)]">{t("aiHostedApproval.targetVps")}</div>
@@ -91,7 +91,7 @@ export function AiHostedApprovalCard({ action }: AiHostedApprovalCardProps) {
             type="button"
             disabled={disabled}
             onClick={() => review("reject")}
-            className="rounded-lg border border-[var(--border)] bg-white/[0.03] px-3 py-2 text-xs font-medium text-[var(--text-secondary)] transition hover:bg-white/[0.08] disabled:cursor-not-allowed disabled:opacity-60"
+            className="rounded-lg border border-[var(--border)] bg-[var(--surface)]/[0.03] px-3 py-2 text-xs font-medium text-[var(--text-secondary)] transition hover:bg-[var(--surface)]/[0.08] disabled:cursor-not-allowed disabled:opacity-60"
           >
             {status === "rejecting" ? t("aiHostedApproval.rejecting") : status === "rejected" ? t("aiHostedApproval.rejected") : t("aiHostedApproval.reject")}
           </button>

@@ -134,7 +134,7 @@ export default async function MediaPlayerPage({
           <div className="flex min-w-0 flex-wrap items-center gap-3">
             <Link
               href={returnHref}
-              className="rounded-full border border-[var(--border)] px-4 py-2 text-sm text-[var(--text-secondary)] hover:border-cyan-400/50 hover:bg-white/5 light:hover:bg-white"
+              className="rounded-full border border-[var(--border)] px-4 py-2 text-sm text-[var(--text-secondary)] hover:border-cyan-400/50 hover:bg-[var(--surface)]/5 light:hover:bg-[var(--surface)]"
             >
               ← {t("mediaPage.player.backToLibrary", locale)}
             </Link>
@@ -157,7 +157,7 @@ export default async function MediaPlayerPage({
             </a>
             <Link
               href={sourceHref}
-              className="inline-flex items-center gap-1.5 rounded-full border border-[var(--border)] px-4 py-2 text-[var(--text-secondary)] hover:bg-white/5 light:hover:bg-white"
+              className="inline-flex items-center gap-1.5 rounded-full border border-[var(--border)] px-4 py-2 text-[var(--text-secondary)] hover:bg-[var(--surface)]/5 light:hover:bg-[var(--surface)]"
             >
               <FolderOpen size={16} /> {t("mediaPage.player.openSource", locale)}
             </Link>
@@ -166,7 +166,7 @@ export default async function MediaPlayerPage({
 
         <section className="grid flex-1 gap-5 lg:grid-cols-[minmax(0,1fr)_320px]">
           <div className="space-y-3">
-            <div className="flex min-h-[55vh] items-center justify-center rounded-3xl border border-[var(--border)] bg-slate-950/70 p-4">
+            <div className="flex min-h-[55vh] items-center justify-center rounded-3xl border border-[var(--border)] bg-[var(--surface)]/70 p-4">
               {isImage ? (
                 // eslint-disable-next-line @next/next/no-img-element
                 <img
@@ -196,7 +196,7 @@ export default async function MediaPlayerPage({
               {previousItem ? (
                 <Link
                   href={`/media/${encodeURIComponent(previousItem.id)}?from=${navigationFrom}`}
-                  className="rounded-2xl border border-[var(--border)] bg-white/[0.03] px-4 py-3 text-sm text-[var(--text-secondary)] transition hover:bg-white/[0.06]"
+                  className="rounded-2xl border border-[var(--border)] bg-[var(--surface)]/[0.03] px-4 py-3 text-sm text-[var(--text-secondary)] transition hover:bg-[var(--surface)]/[0.06]"
                 >
                   <span className="block text-xs text-[var(--text-muted)]">{t("mediaPage.player.previousLabel", locale)}</span>
                   <span className="mt-1 block truncate font-medium">
@@ -211,7 +211,7 @@ export default async function MediaPlayerPage({
               {nextItem ? (
                 <Link
                   href={`/media/${encodeURIComponent(nextItem.id)}?from=${navigationFrom}`}
-                  className="rounded-2xl border border-[var(--border)] bg-white/[0.03] px-4 py-3 text-right text-sm text-[var(--text-secondary)] transition hover:bg-white/[0.06]"
+                  className="rounded-2xl border border-[var(--border)] bg-[var(--surface)]/[0.03] px-4 py-3 text-right text-sm text-[var(--text-secondary)] transition hover:bg-[var(--surface)]/[0.06]"
                 >
                   <span className="block text-xs text-[var(--text-muted)]">{t("mediaPage.player.nextLabel", locale)}</span>
                   <span className="mt-1 block truncate font-medium">
@@ -226,7 +226,7 @@ export default async function MediaPlayerPage({
             </nav>
           </div>
 
-          <aside className="rounded-3xl border border-[var(--border)] bg-white/[0.03] p-5">
+          <aside className="rounded-3xl border border-[var(--border)] bg-[var(--surface)]/[0.03] p-5">
             <div className="mb-4 flex items-center gap-2">
               <span className="text-3xl">
                 {item.mediaType === "image"

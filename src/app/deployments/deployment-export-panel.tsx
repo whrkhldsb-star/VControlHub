@@ -220,7 +220,7 @@ export function DeploymentExportPanel() {
  <section data-card className="mb-6 ">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <p className="text-xs font-semibold uppercase tracking-[0.2em] text-cyan-200/70">Portable Export</p>
+          <p className="text-xs font-semibold uppercase tracking-[0.2em] text-[var(--text-secondary)]/70">Portable Export</p>
           <h2 className="mt-1 text-sm font-semibold text-[var(--text-primary)]">{t("deploymentsPage.export.title")}</h2>
           <p className="mt-1 text-xs text-[var(--text-muted)]">
             {t("deploymentsPage.export.desc")}
@@ -278,7 +278,7 @@ export function DeploymentExportPanel() {
               onClick={handleZipDownload}
               disabled={zipPending || !result.id}
               data-testid="deploy-export-zip"
-              className="rounded-lg border border-cyan-300/40 px-3 py-1.5 text-xs font-semibold text-cyan-100 transition hover:bg-cyan-300/10 disabled:cursor-not-allowed disabled:opacity-60"
+              className="rounded-lg border border-cyan-300/40 px-3 py-1.5 text-xs font-semibold text-[var(--text-primary)] transition hover:bg-cyan-300/10 disabled:cursor-not-allowed disabled:opacity-60"
             >
               {zipPending ? t("deploymentsPage.export.packaging") : t("deploymentsPage.export.downloadZip")}
             </button>
@@ -329,7 +329,7 @@ function DeploymentExportTree({ tree, activePath, onSelect }: TreeProps) {
       data-testid="deploy-export-tree"
       className="rounded-lg border border-[var(--border)] bg-black/30 p-3 font-mono text-xs text-[var(--text-secondary)]"
     >
-      <p className="mb-2 text-[10px] font-semibold uppercase tracking-[0.2em] text-cyan-200/70">{t("deploymentsPage.export.fileTree")}</p>
+      <p className="mb-2 text-[10px] font-semibold uppercase tracking-[0.2em] text-[var(--text-secondary)]/70">{t("deploymentsPage.export.fileTree")}</p>
       {tree.length === 0 ? (
         <p className="text-xs text-[var(--text-muted)]">{t("deploymentsPage.export.noFiles")}</p>
       ) : (
@@ -393,14 +393,14 @@ function TreeRow({
         data-testid={`deploy-export-file-${node.fullPath}`}
         className={`flex w-full items-center gap-1 rounded-lg px-1 py-0.5 text-left transition ${
           isActive
-            ? "bg-cyan-300/20 text-cyan-100"
-            : "hover:bg-white/[0.04] text-[var(--text-secondary)]"
+            ? "bg-cyan-300/20 text-[var(--text-primary)]"
+            : "hover:bg-[var(--surface)]/[0.04] text-[var(--text-secondary)]"
         }`}
         style={{ paddingLeft: depth * 12 }}
       >
         <span aria-hidden>📄</span>
         <span className="truncate">{node.name}</span>
-        {isActive ? <span className="ml-auto text-[10px] text-cyan-200">{t("deploymentsPage.export.viewing")}</span> : null}
+        {isActive ? <span className="ml-auto text-[10px] text-[var(--text-secondary)]">{t("deploymentsPage.export.viewing")}</span> : null}
       </button>
     </li>
   );
@@ -437,7 +437,7 @@ function DeploymentFilePreview({
   return (
     <div className="flex flex-col gap-2">
       <div className="flex flex-wrap items-center gap-2">
-        <label className="text-[10px] font-semibold uppercase tracking-[0.2em] text-cyan-200/70">
+        <label className="text-[10px] font-semibold uppercase tracking-[0.2em] text-[var(--text-secondary)]/70">
           {t("deploymentsPage.export.rollbackFile")}
         </label>
         <select
@@ -456,7 +456,7 @@ function DeploymentFilePreview({
           type="button"
           data-testid="deploy-export-rollback"
           onClick={() => onCopy(content, activePath)}
-          className="rounded-lg border border-cyan-300/40 px-2 py-1 text-xs text-cyan-100 hover:bg-cyan-300/10"
+          className="rounded-lg border border-cyan-300/40 px-2 py-1 text-xs text-[var(--text-primary)] hover:bg-cyan-300/10"
         >
           {justCopied ? t("deploymentsPage.export.copied") : t("deploymentsPage.export.copyRollback")}
         </button>
@@ -471,7 +471,7 @@ function DeploymentFilePreview({
       </div>
       <pre
         data-testid="deploy-export-preview"
-        className="max-h-72 overflow-auto rounded-lg border border-[var(--border)] bg-slate-950/70 p-3 text-xs text-[var(--text-secondary)]"
+        className="max-h-72 overflow-auto rounded-lg border border-[var(--border)] bg-[var(--surface)]/70 p-3 text-xs text-[var(--text-secondary)]"
       >
         <code>{content}</code>
       </pre>

@@ -146,7 +146,7 @@ function OsDialectSection({
 	const sm = displayDialect?.serviceManager ?? parsedDialect?.serviceManager;
 
 	return (
-		<div className="mt-2 rounded-lg border border-[var(--border)] bg-white/[0.02] p-2.5">
+		<div className="mt-2 rounded-lg border border-[var(--border)] bg-[var(--surface)]/[0.02] p-2.5">
 			<div className="flex items-center justify-between gap-2">
 				<div className="min-w-0 flex-1">
 					<span className="text-[11px] text-[var(--text-muted)]">{t("serverOverviewDetails.osDialect")}</span>
@@ -158,7 +158,7 @@ function OsDialectSection({
 					type="button"
 					onClick={handleDetect}
 					disabled={detecting}
-					className="shrink-0 rounded-lg border border-cyan-300/25 bg-cyan-300/10 px-2.5 py-1 text-[11px] text-cyan-100 transition hover:bg-cyan-300/15 disabled:opacity-50 light:border-cyan-700/20"
+					className="shrink-0 rounded-lg border border-cyan-300/25 bg-cyan-300/10 px-2.5 py-1 text-[11px] text-[var(--text-primary)] transition hover:bg-cyan-300/15 disabled:opacity-50 light:border-cyan-700/20"
 				>
 					{detecting ? t("serverOverviewDetails.detecting") : t("serverOverviewDetails.detectOs")}
 				</button>
@@ -169,12 +169,12 @@ function OsDialectSection({
 			{hasDialect && (pm || sm) ? (
 				<div className="mt-1.5 flex flex-wrap gap-1.5">
 					{pm ? (
-						<span className="rounded border border-[var(--border)] bg-white/[0.04] px-1.5 py-0.5 text-[10px] text-[var(--text-muted)]">
+						<span className="rounded border border-[var(--border)] bg-[var(--surface)]/[0.04] px-1.5 py-0.5 text-[10px] text-[var(--text-muted)]">
 							{t("serverOverviewDetails.packageManager")}: {pm}
 						</span>
 					) : null}
 					{sm ? (
-						<span className="rounded border border-[var(--border)] bg-white/[0.04] px-1.5 py-0.5 text-[10px] text-[var(--text-muted)]">
+						<span className="rounded border border-[var(--border)] bg-[var(--surface)]/[0.04] px-1.5 py-0.5 text-[10px] text-[var(--text-muted)]">
 							{t("serverOverviewDetails.serviceManager")}: {sm}
 						</span>
 					) : null}
@@ -275,7 +275,7 @@ function DirectGatewayAdviceList({
 						{item.href && item.hrefLabel ? (
 							<Link
 								href={item.href}
-								className="ml-auto text-cyan-200 underline-offset-4 hover:underline light:text-cyan-700"
+								className="ml-auto text-[var(--text-secondary)] underline-offset-4 hover:underline light:text-cyan-700"
 								aria-label={item.hrefLabel}
 							>
 								{item.hrefLabel}
@@ -379,7 +379,7 @@ export function ServerOverviewDetails({
 			className="mt-4 space-y-3 border-t border-[var(--border)] pt-4"
 		>
 			<section className="rounded-lg border border-[var(--border)] bg-[var(--surface-subtle)] p-3">
-				<h3 className="mb-3 text-sm font-medium text-white/80">{t("serverOverviewDetails.section.connectionStatus")}</h3>
+				<h3 className="mb-3 text-sm font-medium text-[var(--text-primary)]/80">{t("serverOverviewDetails.section.connectionStatus")}</h3>
 				<div className="grid gap-2 text-sm">
 					<InfoRow label={t("serverOverviewDetails.connectionType")} value={server.connectionTypeLabel} />
 					<InfoRow label={t("serverOverviewDetails.username")} value={server.username} />
@@ -406,7 +406,7 @@ export function ServerOverviewDetails({
 						{(server.tags ?? []).map((tag) => (
 							<span
 								key={tag}
-								className="rounded-lg border border-[var(--border)] bg-white/[0.04] px-2 py-0.5 text-[11px] text-[var(--text-muted)]"
+								className="rounded-lg border border-[var(--border)] bg-[var(--surface)]/[0.04] px-2 py-0.5 text-[11px] text-[var(--text-muted)]"
 							>
 								#{tag}
 							</span>
@@ -416,7 +416,7 @@ export function ServerOverviewDetails({
 			</section>
 
 			<section className="rounded-lg border border-[var(--border)] bg-[var(--surface-subtle)] p-3">
-				<h3 className="mb-3 text-sm font-medium text-white/80">{t("serverOverviewDetails.section.operationsResources")}</h3>
+				<h3 className="mb-3 text-sm font-medium text-[var(--text-primary)]/80">{t("serverOverviewDetails.section.operationsResources")}</h3>
 				<div className="space-y-2 text-sm">
 					<InfoRow
 						label={t("serverOverviewDetails.relatedStorage")}
@@ -471,14 +471,14 @@ export function ServerOverviewDetails({
 			<section className="rounded-lg border border-cyan-400/10 bg-cyan-400/[0.035] p-3 light:border-cyan-700/15 light:bg-cyan-50">
 				<div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
 					<div>
-						<h3 className="text-sm font-medium text-cyan-100">{t("serverOverviewDetails.diagnosticsNext")}</h3>
+						<h3 className="text-sm font-medium text-[var(--text-primary)]">{t("serverOverviewDetails.diagnosticsNext")}</h3>
 						<p className="mt-1 text-[11px] leading-5 text-[var(--text-muted)]">
 							{t("serverOverviewDetails.diagnosticsDescription")}
 						</p>
 					</div>
 					<Link
 						href={`/api/servers/monitor?serverId=${encodeURIComponent(server.id)}`}
-						className="inline-flex shrink-0 items-center justify-center rounded-lg border border-cyan-300/25 bg-cyan-300/10 px-3 py-1.5 text-xs text-cyan-100 transition hover:bg-cyan-300/15 light:border-cyan-700/20"
+						className="inline-flex shrink-0 items-center justify-center rounded-lg border border-cyan-300/25 bg-cyan-300/10 px-3 py-1.5 text-xs text-[var(--text-primary)] transition hover:bg-cyan-300/15 light:border-cyan-700/20"
 					>
 						{t("serverOverviewDetails.viewMonitorJson")}
 					</Link>
@@ -539,7 +539,7 @@ export function ServerOverviewDetails({
 							{item.href ? (
 								<Link
 									href={item.href}
-									className="mt-2 inline-flex text-[11px] font-medium text-cyan-200 underline-offset-4 hover:underline"
+									className="mt-2 inline-flex text-[11px] font-medium text-[var(--text-secondary)] underline-offset-4 hover:underline"
 								>
 									{t("serverOverviewDetails.openRelatedEntry")}
 								</Link>
@@ -550,7 +550,7 @@ export function ServerOverviewDetails({
 			</section>
 
 			<section className="rounded-lg border border-[var(--border)] bg-[var(--surface-subtle)] p-3">
-				<h3 className="mb-3 text-sm font-medium text-white/80">{t("serverOverviewDetails.latestCommands")}</h3>
+				<h3 className="mb-3 text-sm font-medium text-[var(--text-primary)]/80">{t("serverOverviewDetails.latestCommands")}</h3>
 				{server.latestCommands.length === 0 ? (
 					<p className="text-xs text-[var(--text-muted)]">{t("serverOverviewDetails.noCommandRecords")}</p>
 				) : (
@@ -558,7 +558,7 @@ export function ServerOverviewDetails({
 						{server.latestCommands.map((command) => (
 							<div
 								key={command.id}
-								className="rounded-lg border border-[var(--border)] bg-white/[0.02] p-3"
+								className="rounded-lg border border-[var(--border)] bg-[var(--surface)]/[0.02] p-3"
 							>
 								<div className="flex items-center justify-between gap-2">
 									<span className="truncate text-sm font-medium text-[var(--text-primary)]">

@@ -54,7 +54,7 @@ export default async function RequestsPage() {
 							<h2 id="ai-approval-heading" className="text-xl font-semibold text-[var(--text-primary)]">{t("requestsPage.ai.title", locale)}</h2>
 							<p className="mt-1 text-sm text-[var(--text-muted)]">{t("requestsPage.ai.desc", locale)}</p>
 						</div>
-						<span data-tone="cyan" className="rounded-full border border-cyan-400/20 px-3 py-1 text-xs text-cyan-200">{t("requestsPage.ai.scopeBadge", locale)}</span>
+						<span data-tone="cyan" className="rounded-full border border-cyan-400/20 px-3 py-1 text-xs text-[var(--text-secondary)]">{t("requestsPage.ai.scopeBadge", locale)}</span>
 					</div>
 					{aiActions.length === 0 ? (
 						<EmptyState text={t("requestsPage.ai.empty", locale)} variant="boxed" />
@@ -87,7 +87,7 @@ export default async function RequestsPage() {
 							}
 						>
 							{requests.map((request) => (
-								<article key={request.id} data-id={request.id} data-card className=" hover:bg-white/[0.04] transition-colors duration-150">
+								<article key={request.id} data-id={request.id} data-card className=" hover:bg-[var(--surface)]/[0.04] transition-colors duration-150">
 								<div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
 									<div className="min-w-0 flex-1">
 										<div className="flex flex-wrap items-center gap-2">
@@ -96,14 +96,14 @@ export default async function RequestsPage() {
 											<InitiatorBadge assistant={request.isAssistantInitiated} />
 										</div>
 										{canApprove ? (
-											<p className="mt-2.5 rounded-lg bg-[var(--surface-subtle)] px-3 py-2 font-mono text-xs text-cyan-100/80 border border-[var(--border)]">{request.command}</p>
+											<p className="mt-2.5 rounded-lg bg-[var(--surface-subtle)] px-3 py-2 font-mono text-xs text-[var(--text-primary)]/80 border border-[var(--border)]">{request.command}</p>
 										) : (
 											<p className="mt-2.5 rounded-lg bg-[var(--surface-subtle)] px-3 py-2 font-mono text-xs text-[var(--text-muted)] border border-[var(--border)]">{t("requestsPage.card.approvalOnly", locale)}</p>
 										)}
 										{request.reason && <p className="mt-2 text-sm text-[var(--text-secondary)]">{t("requestsPage.card.reason", locale)}{request.reason}</p>}
 										<p className="mt-1 text-[11px] text-[var(--text-muted)]">{t("requestsPage.card.requester", locale)}{request.requester.displayName || request.requester.username}</p>
 										</div>
-										<div className="rounded-lg border border-[var(--border)] bg-white/[0.03] px-3 py-2 text-xs text-[var(--text-secondary)] shrink-0">
+										<div className="rounded-lg border border-[var(--border)] bg-[var(--surface)]/[0.03] px-3 py-2 text-xs text-[var(--text-secondary)] shrink-0">
 										{t("requestsPage.card.targetCount", locale).replace("{count}", String(request.targets.length))}
 										</div>
 								</div>
@@ -194,7 +194,7 @@ function InitiatorBadge({ assistant }: { assistant: boolean }) {
 		<span
 			data-tone={assistant ? "accent" : "neutral"}
 			className={`inline-flex items-center rounded-full border px-2 py-0.5 text-[11px] font-medium ${
-				assistant ? "border-cyan-400/20 text-cyan-200" : "border-[var(--border)] text-[var(--text-muted)]"
+				assistant ? "border-cyan-400/20 text-[var(--text-secondary)]" : "border-[var(--border)] text-[var(--text-muted)]"
 			}`}
 		>
 			{assistant ? "助手授权" : "用户审批"}
@@ -205,7 +205,7 @@ function InitiatorBadge({ assistant }: { assistant: boolean }) {
 function InfoSection({ title, children }: { title: string; children: ReactNode }) {
 	return (
 		<section className="rounded-lg border border-[var(--border)] bg-[var(--surface-subtle)] p-4">
-			<h4 className="text-xs font-medium text-white/60 uppercase tracking-wider mb-3">{title}</h4>
+			<h4 className="text-xs font-medium text-[var(--text-primary)]/60 uppercase tracking-wider mb-3">{title}</h4>
 			{children}
 		</section>
 	);
@@ -213,7 +213,7 @@ function InfoSection({ title, children }: { title: string; children: ReactNode }
 
 function InfoItem({ children, className }: { children: ReactNode; className?: string }) {
 	return (
-		<div className={`rounded-lg bg-white/[0.03] border border-[var(--border)] px-3 py-2 ${className ?? ""}`}>
+		<div className={`rounded-lg bg-[var(--surface)]/[0.03] border border-[var(--border)] px-3 py-2 ${className ?? ""}`}>
 			{children}
 		</div>
 	);

@@ -207,12 +207,12 @@ const _data = await csrfFetch("/api/users/permissions", {
                         <input id={`grantMaxFile-${index}`} value={grant.maxFileBytes ?? ""} onChange={(e) => updateGrant(index, { maxFileBytes: e.target.value })} placeholder={t("usersPerm.grants.maxFilePlaceholder")} className="rounded-xl border border-[var(--border)] bg-[var(--input-bg)] px-3 py-2 text-sm text-[var(--text-primary)]" />
                         <button type="button" onClick={() => setGrants((current) => current.filter((_, i) => i !== index))} className="rounded-xl border border-rose-400/30 px-3 py-2 text-xs text-rose-100 hover:bg-rose-400/10">{t("usersPerm.action.delete")}</button>
                       </div>
-                      <div className="mt-3 flex flex-wrap items-center gap-4 text-xs text-slate-300">
+                      <div className="mt-3 flex flex-wrap items-center gap-4 text-xs text-[var(--text-secondary)]">
                         <label><input type="checkbox" checked={grant.canRead} onChange={(e) => updateGrant(index, { canRead: e.target.checked })} /> {t("usersPerm.grants.read")}</label>
                         <label><input type="checkbox" checked={grant.canWrite} onChange={(e) => updateGrant(index, { canWrite: e.target.checked })} /> {t("usersPerm.grants.write")}</label>
                         <label><input type="checkbox" checked={grant.canDelete} onChange={(e) => updateGrant(index, { canDelete: e.target.checked })} /> {t("usersPerm.grants.delete")}</label>
                         <span>{t("usersPerm.grants.used").replace("{value}", formatBytes(grant.usedBytes, t))}</span>
-                        {node && <span className="text-slate-500">{t("usersPerm.grants.basePath").replace("{path}", node.basePath)}</span>}
+                        {node && <span className="text-[var(--text-muted)]">{t("usersPerm.grants.basePath").replace("{path}", node.basePath)}</span>}
                       </div>
                     </div>
                   );
@@ -221,8 +221,8 @@ const _data = await csrfFetch("/api/users/permissions", {
             </section>
 
             <div className="flex justify-end gap-3">
-              <button type="button" onClick={onClose} className="rounded-full border border-[var(--border)] px-5 py-2 text-sm text-slate-300 hover:bg-white/10">{t("usersPerm.action.cancel")}</button>
-              <button type="button" onClick={save} disabled={saving} data-tone="cyan" className="rounded-full border border-cyan-400/30 px-5 py-2 text-sm font-medium text-cyan-100 hover:bg-cyan-400/20 disabled:opacity-50">{saving ? t("usersPerm.action.saving") : t("usersPerm.action.save")}</button>
+              <button type="button" onClick={onClose} className="rounded-full border border-[var(--border)] px-5 py-2 text-sm text-[var(--text-secondary)] hover:bg-[var(--surface)]/10">{t("usersPerm.action.cancel")}</button>
+              <button type="button" onClick={save} disabled={saving} data-tone="cyan" className="rounded-full border border-cyan-400/30 px-5 py-2 text-sm font-medium text-[var(--text-primary)] hover:bg-cyan-400/20 disabled:opacity-50">{saving ? t("usersPerm.action.saving") : t("usersPerm.action.save")}</button>
             </div>
           </div>
         )}

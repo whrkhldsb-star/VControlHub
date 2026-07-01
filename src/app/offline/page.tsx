@@ -38,7 +38,7 @@ export default function OfflinePage() {
 
   return (
     <main
-      className="min-h-screen flex flex-col items-center justify-center px-6 py-16 bg-slate-50 text-slate-900 dark:bg-slate-950 dark:text-slate-100"
+      className="min-h-screen flex flex-col items-center justify-center px-6 py-16 bg-slate-50 text-slate-900 dark:bg-[var(--surface)] dark:text-[var(--text-primary)]"
       aria-labelledby="offline-title"
     >
       <div className="max-w-md w-full text-center space-y-6">
@@ -56,12 +56,12 @@ export default function OfflinePage() {
           {t("pwa.offline.title")}
         </h1>
 
-        <p className="text-sm leading-relaxed text-[var(--text-muted)] dark:text-slate-400">
+        <p className="text-sm leading-relaxed text-[var(--text-muted)] dark:text-[var(--text-secondary)]">
           {t("pwa.offline.description")}
         </p>
 
         <div className="pt-2">
-          <h2 className="text-xs uppercase tracking-wider text-[var(--text-muted)] dark:text-slate-500 mb-3">
+          <h2 className="text-xs uppercase tracking-wider text-[var(--text-muted)] dark:text-[var(--text-muted)] mb-3">
             {t("pwa.offline.cachedRoutes")}
           </h2>
           <ul className="grid grid-cols-2 gap-2 text-sm" role="list">
@@ -69,7 +69,7 @@ export default function OfflinePage() {
               <li key={route.href}>
                 <a
                   href={route.href}
-                  className="block rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 px-3 py-2 hover:border-slate-300 dark:hover:border-[var(--border)] transition-colors"
+                  className="block rounded-lg border border-slate-200 dark:border-slate-800 bg-[var(--surface)] dark:bg-[var(--surface)] px-3 py-2 hover:border-slate-300 dark:hover:border-[var(--border)] transition-colors"
                 >
                   {t(route.labelKey)}
                 </a>

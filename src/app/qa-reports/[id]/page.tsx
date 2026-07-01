@@ -58,7 +58,7 @@ export default async function QaReportDetailPage({ params }: Params) {
 					title={t("qaReportsPage.detail.notFound")}
 					description={t("qaReportsPage.detail.notFoundDesc").replace("{id}", id)}
 				>
-					<Link href="/qa-reports" className="text-xs text-cyan-300 hover:text-cyan-200">
+					<Link href="/qa-reports" className="text-xs text-cyan-300 hover:text-[var(--text-secondary)]">
 						{t("qaReportsPage.detail.backToList")}
 					</Link>
 				</PageHeader>
@@ -75,7 +75,7 @@ export default async function QaReportDetailPage({ params }: Params) {
 					.replace("{sourceId}", detail.sourceId)
 					.replace("{status}", detail.status)}
 			>
-				<Link href="/qa-reports" className="text-xs text-cyan-300 hover:text-cyan-200">
+				<Link href="/qa-reports" className="text-xs text-cyan-300 hover:text-[var(--text-secondary)]">
 					{t("qaReportsPage.detail.backToList")}
 				</Link>
 			</PageHeader>
@@ -133,7 +133,7 @@ export default async function QaReportDetailPage({ params }: Params) {
 							{detail.changeContract.commit ? (
 								<div>
 									<div className="text-[11px] font-semibold uppercase tracking-[0.2em] text-[var(--text-muted)]">{t("qaReportsPage.detail.commit")}</div>
-									<div className="mt-1 font-mono text-xs text-cyan-200">{detail.changeContract.commit}</div>
+									<div className="mt-1 font-mono text-xs text-[var(--text-secondary)]">{detail.changeContract.commit}</div>
 								</div>
 							) : null}
 							{detail.changeContract.files && detail.changeContract.files.length > 0 ? (

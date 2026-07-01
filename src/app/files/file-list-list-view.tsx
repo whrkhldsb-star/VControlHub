@@ -89,7 +89,7 @@ export function FileListListView(props: FileListListViewProps) {
       {/* Desktop table view (md+) */}
       <div className="hidden overflow-x-auto md:block" data-testid="file-table-scroll">
         <div className="min-w-[1180px]" data-testid="file-table-inner">
-          <div className="grid grid-cols-[44px_44px_minmax(280px,2.6fr)_120px_170px_160px_minmax(240px,auto)] items-center gap-3 bg-white/5 px-5 py-3 text-xs uppercase tracking-[0.15em] text-[var(--text-muted)] font-medium">
+          <div className="grid grid-cols-[44px_44px_minmax(280px,2.6fr)_120px_170px_160px_minmax(240px,auto)] items-center gap-3 bg-[var(--surface)]/5 px-5 py-3 text-xs uppercase tracking-[0.15em] text-[var(--text-muted)] font-medium">
             <div>
               <input
                 type="checkbox"
@@ -156,7 +156,7 @@ export function FileListListView(props: FileListListViewProps) {
             {sortedFolders.map((folder) => (
               <div
                 key={folder.path}
-                className="grid grid-cols-[44px_44px_minmax(280px,2.6fr)_120px_170px_160px_minmax(240px,auto)] items-center gap-3 px-5 py-3 text-sm hover:bg-white/[0.02] transition"
+                className="grid grid-cols-[44px_44px_minmax(280px,2.6fr)_120px_170px_160px_minmax(240px,auto)] items-center gap-3 px-5 py-3 text-sm hover:bg-[var(--surface)]/[0.02] transition"
               >
                 <div>
                   <input
@@ -173,7 +173,7 @@ export function FileListListView(props: FileListListViewProps) {
                   <button
                     type="button"
                     onClick={() => navigateToFolder(folder.path)}
-                    className="truncate font-medium text-cyan-100 hover:text-cyan-50 text-left"
+                    className="truncate font-medium text-[var(--text-primary)] hover:text-[var(--text-primary)] text-left"
                   >
                     {folder.displayName ?? folder.name}
                   </button>
@@ -190,7 +190,7 @@ export function FileListListView(props: FileListListViewProps) {
                     type="button"
                     onClick={() => navigateToFolder(folder.path)}
                     data-tone="cyan"
-                    className="inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium border border-cyan-400/25 text-cyan-200 hover:bg-cyan-500/20 transition"
+                    className="inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium border border-cyan-400/25 text-[var(--text-secondary)] hover:bg-cyan-500/20 transition"
                   >
                     <svg
                       width="12"
@@ -243,7 +243,7 @@ export function FileListListView(props: FileListListViewProps) {
               return (
                 <div
                   key={entry.id}
-                  className={`grid grid-cols-[44px_44px_minmax(280px,2.6fr)_120px_170px_160px_minmax(240px,auto)] items-center gap-3 px-5 py-3 text-sm hover:bg-white/[0.02] transition ${isChecked ? "bg-cyan-400/[0.04]" : ""}`}
+                  className={`grid grid-cols-[44px_44px_minmax(280px,2.6fr)_120px_170px_160px_minmax(240px,auto)] items-center gap-3 px-5 py-3 text-sm hover:bg-[var(--surface)]/[0.02] transition ${isChecked ? "bg-cyan-400/[0.04]" : ""}`}
                 >
                   <div>
                     {entryCanWrite(entry) || entryCanDelete(entry) ? (
@@ -263,7 +263,7 @@ export function FileListListView(props: FileListListViewProps) {
                     {entry.previewable && entryCanRead(entry) ? (
                       <Link
                         href={previewHref}
-                        className="truncate font-medium text-[var(--text-primary)] hover:text-cyan-100 transition"
+                        className="truncate font-medium text-[var(--text-primary)] hover:text-[var(--text-primary)] transition"
                       >
                         {entry.name}
                       </Link>
@@ -317,7 +317,7 @@ export function FileListListView(props: FileListListViewProps) {
         {sortedFolders.map((folder) => (
           <div
             key={folder.path}
-            className="px-4 py-3 hover:bg-white/[0.02] transition"
+            className="px-4 py-3 hover:bg-[var(--surface)]/[0.02] transition"
           >
             <div className="flex items-center gap-3">
               <div className="rounded-lg bg-amber-400/10 p-1.5">
@@ -327,7 +327,7 @@ export function FileListListView(props: FileListListViewProps) {
                 <button
                   type="button"
                   onClick={() => navigateToFolder(folder.path)}
-                  className="truncate font-medium text-cyan-100 hover:text-cyan-50 text-left text-sm"
+                  className="truncate font-medium text-[var(--text-primary)] hover:text-[var(--text-primary)] text-left text-sm"
                 >
                   {folder.displayName ?? folder.name}
                 </button>
@@ -339,7 +339,7 @@ export function FileListListView(props: FileListListViewProps) {
                 type="button"
                 onClick={() => navigateToFolder(folder.path)}
                 data-tone="cyan"
-                className="shrink-0 inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium border border-cyan-400/25 text-cyan-200 hover:bg-cyan-500/20 transition"
+                className="shrink-0 inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium border border-cyan-400/25 text-[var(--text-secondary)] hover:bg-cyan-500/20 transition"
               >
                 打开
               </button>
@@ -398,14 +398,14 @@ export function FileListListView(props: FileListListViewProps) {
                     className="mt-2 h-4 w-4 rounded-lg border-[var(--border)] bg-[var(--surface)] text-cyan-400 focus:ring-cyan-400/50"
                   />
                 ) : null}
-                <div className="shrink-0 mt-0.5 rounded-lg bg-white/[0.03] p-1">
+                <div className="shrink-0 mt-0.5 rounded-lg bg-[var(--surface)]/[0.03] p-1">
                   <FileTypeIcon entry={entry} size={22} />
                 </div>
                 <div className="min-w-0 flex-1">
                   {entry.previewable && entryCanRead(entry) ? (
                     <Link
                       href={previewHref}
-                      className="truncate font-medium text-[var(--text-primary)] text-sm hover:text-cyan-100 transition"
+                      className="truncate font-medium text-[var(--text-primary)] text-sm hover:text-[var(--text-primary)] transition"
                     >
                       {entry.name}
                     </Link>

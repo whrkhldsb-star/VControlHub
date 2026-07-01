@@ -92,7 +92,7 @@ export function ChangePasswordForm() {
 							const safeNext = nextPath && nextPath.startsWith("/") && !nextPath.startsWith("//") ? nextPath : "/";
 							router.push(safeNext);
 						}}
-						className="rounded-2xl border border-cyan-400/40 px-4 py-2 text-sm text-cyan-100 transition hover:bg-cyan-500/10 focus:outline-none focus:ring-2 focus:ring-cyan-400"
+						className="rounded-2xl border border-cyan-400/40 px-4 py-2 text-sm text-[var(--text-primary)] transition hover:bg-cyan-500/10 focus:outline-none focus:ring-2 focus:ring-cyan-400"
 					>
 						{t("accountPasswordPage.redirectNow")}
 					</button>
@@ -133,7 +133,7 @@ function PasswordField({ label, name, autoComplete, placeholder }: PasswordField
           aria-label={`${visible ? t("accountPasswordPage.toggle.hide") : t("accountPasswordPage.toggle.show")}${label}`}
           aria-pressed={visible}
           onClick={() => setVisible((current) => !current)}
-          className="border-l border-[var(--border)] px-4 text-xs font-medium text-cyan-200 transition hover:bg-white/5 hover:text-cyan-100 light:hover:text-cyan-900 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-cyan-400"
+          className="border-l border-[var(--border)] px-4 text-xs font-medium text-[var(--text-secondary)] transition hover:bg-[var(--surface)]/5 hover:text-[var(--text-primary)] light:hover:text-cyan-900 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-cyan-400"
         >
           {visible ? t("accountPasswordPage.toggle.hide") : t("accountPasswordPage.toggle.show")}
         </button>

@@ -26,7 +26,7 @@ const toneToCardClass: Record<QaReportTrendCard["tone"], string> = {
 	success: "border-emerald-400/30 text-emerald-200",
 	warn: "border-amber-400/30 text-amber-200",
 	neutral: "border-[var(--border)] text-[var(--text-secondary)]",
-	info: "border-cyan-400/30 text-cyan-200",
+	info: "border-cyan-400/30 text-[var(--text-secondary)]",
 };
 
 const toneToValueClass: Record<QaReportTrendCard["tone"], string> = {
@@ -59,7 +59,7 @@ function statusToneClass(status: string): string {
 }
 
 function kindAccent(kind: QaReportSummary["kind"]): string {
-	if (kind === "slice") return "bg-cyan-500/15 text-cyan-200 border-cyan-400/20";
+	if (kind === "slice") return "bg-cyan-500/15 text-[var(--text-secondary)] border-cyan-400/20";
 	if (kind === "blocker") return "bg-amber-500/15 text-amber-200 border-amber-400/20";
 	return "bg-indigo-500/15 text-indigo-200 border-indigo-400/20";
 }
@@ -109,7 +109,7 @@ function TrendSection({ trends }: TrendSectionProps) {
 					<div
 						key={card.id}
 						data-card
-						className={`rounded-xl border bg-white/[0.02] p-4 ${toneToCardClass[card.tone]}`}
+						className={`rounded-xl border bg-[var(--surface)]/[0.02] p-4 ${toneToCardClass[card.tone]}`}
 					>
 						<div className="text-xs text-[var(--text-muted)]">{card.label}</div>
 						<div className={`mt-2 text-2xl font-semibold ${toneToValueClass[card.tone]}`}>{card.value}</div>
@@ -136,7 +136,7 @@ function TrendSection({ trends }: TrendSectionProps) {
 							return (
 								<div key={bucket.day} className="flex flex-1 flex-col items-center gap-1">
 									<div
-										className="flex w-full max-w-[40px] flex-col-reverse overflow-hidden rounded-lg border border-[var(--border)] bg-white/[0.03]"
+										className="flex w-full max-w-[40px] flex-col-reverse overflow-hidden rounded-lg border border-[var(--border)] bg-[var(--surface)]/[0.03]"
 										style={{ height: `${MAX_DAILY_BAR_HEIGHT}px` }}
 										title={t("qaReportsPage.dailyTickTitle")
 											.replace("{day}", bucket.day)
@@ -165,7 +165,7 @@ function TrendSection({ trends }: TrendSectionProps) {
 						{topModules.map((row) => (
 							<li
 								key={row.module}
-								className="flex items-center justify-between rounded-lg border border-[var(--border)] bg-white/[0.02] px-3 py-2 text-xs"
+								className="flex items-center justify-between rounded-lg border border-[var(--border)] bg-[var(--surface)]/[0.02] px-3 py-2 text-xs"
 							>
 								<span className="truncate text-[var(--text-secondary)]">{row.module}</span>
 								<span className="ml-2 shrink-0 text-[var(--text-muted)]">
@@ -286,7 +286,7 @@ export function QaReportsListClient({
 							type="button"
 							onClick={refresh}
 							disabled={refreshing}
-							className="rounded-lg border border-[var(--border)] px-3 py-1.5 text-xs text-[var(--text-secondary)] hover:bg-white/[0.05] disabled:opacity-50"
+							className="rounded-lg border border-[var(--border)] px-3 py-1.5 text-xs text-[var(--text-secondary)] hover:bg-[var(--surface)]/[0.05] disabled:opacity-50"
 						>
 							{refreshing ? t("qaReportsPage.refreshing") : t("qaReportsPage.refreshReadHermes")}
 						</button>
@@ -389,7 +389,7 @@ export function QaReportsListClient({
 									<div className="flex flex-col items-end gap-2">
 										<Link
 											href={`/qa-reports/${encodeURIComponent(report.id)}`}
-											className="text-xs text-cyan-300 hover:text-cyan-200"
+											className="text-xs text-cyan-300 hover:text-[var(--text-secondary)]"
 										>
 											{t("qaReportsPage.viewDetail")}
 										</Link>

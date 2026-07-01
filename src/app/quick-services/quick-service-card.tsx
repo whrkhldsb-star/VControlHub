@@ -86,7 +86,7 @@ export function ServiceCard({
 	const isRemote = item.source !== "local";
 
 	return (
-		<div data-card className=" p-4 flex flex-col gap-3 hover:border-white/[0.12] transition light:hover:border-slate-300">
+		<div data-card className=" p-4 flex flex-col gap-3 hover:border-[var(--border)]/[0.12] transition light:hover:border-slate-300">
 			{/* Header */}
 			<div className="flex items-start justify-between">
 				<div className="flex items-center gap-2.5">
@@ -139,7 +139,7 @@ export function ServiceCard({
 							</a>
 						)}
 						{item.status === "running" && (
-							<button onClick={onStop} disabled={busy} className="rounded-lg border border-white/[0.1] px-3 py-1.5 text-xs text-[var(--text-secondary)] hover:bg-white/[0.06] transition disabled:opacity-50">
+							<button onClick={onStop} disabled={busy} className="rounded-lg border border-[var(--border)]/[0.1] px-3 py-1.5 text-xs text-[var(--text-secondary)] hover:bg-[var(--surface)]/[0.06] transition disabled:opacity-50">
 								{busy ? t("qsPage.busy") : t("qsPage.stop")}
 							</button>
 						)}
@@ -152,12 +152,12 @@ export function ServiceCard({
 							<span className="text-xs text-amber-400 animate-pulse">{t("qsPage.pullingImage")}</span>
 						)}
 						{item.status === "error" && (
-							<button onClick={onSync} disabled={busy} className="rounded-lg border border-white/[0.1] px-3 py-1.5 text-xs text-[var(--text-secondary)] hover:bg-white/[0.06] transition disabled:opacity-50">
+							<button onClick={onSync} disabled={busy} className="rounded-lg border border-[var(--border)]/[0.1] px-3 py-1.5 text-xs text-[var(--text-secondary)] hover:bg-[var(--surface)]/[0.06] transition disabled:opacity-50">
 								{t("qsPage.refreshStatus")}
 							</button>
 						)}
 						{(item.status === "running" || item.status === "stopped" || item.status === "error") && (
-							<button onClick={onUpdate} disabled={busy} className="rounded-lg border border-cyan-400/25 px-3 py-1.5 text-xs text-cyan-200 hover:bg-cyan-500/[0.08] transition disabled:opacity-50">
+							<button onClick={onUpdate} disabled={busy} className="rounded-lg border border-cyan-400/25 px-3 py-1.5 text-xs text-[var(--text-secondary)] hover:bg-cyan-500/[0.08] transition disabled:opacity-50">
 								{busy ? t("qsPage.busy") : t("qsPage.update")}
 							</button>
 						)}

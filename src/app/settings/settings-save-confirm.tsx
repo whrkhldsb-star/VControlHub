@@ -114,7 +114,7 @@ export function SaveButtonWithDiff({
                 ? "border-rose-400/30 bg-rose-400/10 text-rose-200 hover:bg-rose-400/15 light:border-rose-700/30 light:bg-rose-50 light:text-rose-800"
                 : mediumCount > 0
                   ? "border-amber-400/30 bg-amber-400/10 text-amber-200 hover:bg-amber-400/15 light:border-amber-700/30 light:bg-amber-50 light:text-amber-800"
-                  : "border-cyan-400/30 bg-cyan-400/10 text-cyan-200 hover:bg-cyan-400/15 light:border-cyan-700/30 light:bg-cyan-50 light:text-cyan-800"
+                  : "border-cyan-400/30 bg-cyan-400/10 text-[var(--text-secondary)] hover:bg-cyan-400/15 light:border-cyan-700/30 light:bg-cyan-50 light:text-cyan-800"
             }`}
           >
             <span aria-hidden>{expanded ? "▾" : "▸"}</span>
@@ -156,10 +156,10 @@ export function SaveButtonWithDiff({
           data-component="diff-table"
           role="region"
           aria-label="未保存的修改"
-          className="overflow-hidden rounded-lg border border-[var(--border)] bg-white/[0.02] light:bg-slate-50"
+          className="overflow-hidden rounded-lg border border-[var(--border)] bg-[var(--surface)]/[0.02] light:bg-slate-50"
         >
           <table className="w-full text-xs">
-            <thead className="border-b border-[var(--border)] bg-white/[0.02] text-left text-[11px] uppercase tracking-wide text-[var(--text-muted)] light:bg-slate-100/70">
+            <thead className="border-b border-[var(--border)] bg-[var(--surface)]/[0.02] text-left text-[11px] uppercase tracking-wide text-[var(--text-muted)] light:bg-slate-100/70">
               <tr>
                 <th className="px-3 py-2 font-medium">{t("settingsClient.diffTableField")}</th>
                 <th className="px-3 py-2 font-medium">{t("settingsClient.diffTableOriginal")}</th>
@@ -179,7 +179,7 @@ export function SaveButtonWithDiff({
                   <td className="px-3 py-2 text-[var(--text-muted)] line-through">
                     {renderDiffValue(change.oldValue, t)}
                   </td>
-                  <td className="px-3 py-2 text-cyan-100 light:text-cyan-800">
+                  <td className="px-3 py-2 text-[var(--text-primary)] light:text-cyan-800">
                     {renderDiffValue(change.newValue, t)}
                   </td>
                   <td className="px-3 py-2">
@@ -231,7 +231,7 @@ export function HighRiskConfirmModal({
       aria-labelledby="high-risk-confirm-title"
       data-component="high-risk-confirm-modal"
       data-testid="high-risk-confirm-modal"
-      className="rounded-2xl border border-[var(--border)] bg-[var(--modal-bg)] p-0 text-[var(--text-primary)] shadow-2xl backdrop:bg-slate-950/70 light:backdrop:bg-[var(--surface)]"
+      className="rounded-2xl border border-[var(--border)] bg-[var(--modal-bg)] p-0 text-[var(--text-primary)] shadow-2xl backdrop:bg-[var(--surface)]/70 light:backdrop:bg-[var(--surface)]"
     >
       <div className="w-[min(560px,90vw)] p-5">
         <h2
@@ -279,7 +279,7 @@ export function HighRiskConfirmModal({
             onClick={onCancel}
             disabled={busy}
             data-action="cancel"
-            className="rounded-lg border border-[var(--border)] bg-white/[0.02] px-4 py-1.5 text-xs text-[var(--text-secondary)] transition hover:bg-white/[0.05] hover:text-[var(--text-primary)] disabled:opacity-50 light:text-slate-700 light:hover:bg-slate-50"
+            className="rounded-lg border border-[var(--border)] bg-[var(--surface)]/[0.02] px-4 py-1.5 text-xs text-[var(--text-secondary)] transition hover:bg-[var(--surface)]/[0.05] hover:text-[var(--text-primary)] disabled:opacity-50 light:text-slate-700 light:hover:bg-slate-50"
           >
             {t("settingsClient.confirmCancel")}
           </button>

@@ -67,7 +67,7 @@ type TrafficHistoryPoint = TrafficSample & {
 
 function Card({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <section className="rounded-2xl border border-[var(--border)] bg-white/[0.02] p-5">
+    <section className="rounded-2xl border border-[var(--border)] bg-[var(--surface)]/[0.02] p-5">
       <h2 className="mb-4 text-sm font-medium text-[var(--text-secondary)]">{title}</h2>
       {children}
     </section>
@@ -241,8 +241,8 @@ export default function TrafficPage({ canManage: _canManage }: { canManage: bool
       {error && <div className="mb-4 rounded-lg bg-rose-500/10 px-4 py-3 text-sm text-rose-300">{error}</div>}
 
       <div className="mb-5 flex flex-wrap items-center gap-2">
-        <button type="button" onClick={() => { setHistoryScope("24h"); void fetchHistory("24h"); }} className={`rounded-lg px-3 py-1.5 text-xs font-medium ${historyScope === "24h" ? "bg-cyan-500/15 text-cyan-200" : "bg-white/[0.04] text-[var(--text-secondary)]"}`}>24h</button>
-        <button type="button" onClick={() => { setHistoryScope("7d"); void fetchHistory("7d"); }} className={`rounded-lg px-3 py-1.5 text-xs font-medium ${historyScope === "7d" ? "bg-cyan-500/15 text-cyan-200" : "bg-white/[0.04] text-[var(--text-secondary)]"}`}>7d</button>
+        <button type="button" onClick={() => { setHistoryScope("24h"); void fetchHistory("24h"); }} className={`rounded-lg px-3 py-1.5 text-xs font-medium ${historyScope === "24h" ? "bg-cyan-500/15 text-[var(--text-secondary)]" : "bg-[var(--surface)]/[0.04] text-[var(--text-secondary)]"}`}>24h</button>
+        <button type="button" onClick={() => { setHistoryScope("7d"); void fetchHistory("7d"); }} className={`rounded-lg px-3 py-1.5 text-xs font-medium ${historyScope === "7d" ? "bg-cyan-500/15 text-[var(--text-secondary)]" : "bg-[var(--surface)]/[0.04] text-[var(--text-secondary)]"}`}>7d</button>
         <span className="text-xs text-[var(--text-muted)]">{historyScope === "24h" ? t("trafficPage.historyHint24h") : t("trafficPage.historyHint7d")}</span>
       </div>
 

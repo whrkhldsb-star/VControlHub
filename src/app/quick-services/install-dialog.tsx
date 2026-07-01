@@ -156,7 +156,7 @@ export function InstallDialog({
 								max={65535}
 								value={customPort}
 								onChange={(e) => handlePortInput(e.target.value)}
-								className={`w-full rounded-lg border bg-white/[0.04] px-4 py-2.5 text-sm text-[var(--text-primary)] placeholder-slate-600 outline-none transition ${
+								className={`w-full rounded-lg border bg-[var(--surface)]/[0.04] px-4 py-2.5 text-sm text-[var(--text-primary)] placeholder-slate-600 outline-none transition ${
 									portCheck
 										? portCheck.available
 											? "border-emerald-400/40 focus:border-emerald-400"
@@ -188,9 +188,9 @@ export function InstallDialog({
 						</div>
 					)}
 
-					<div data-tone="cyan" className="rounded-xl border border-cyan-400/15 p-3 text-xs text-cyan-100">
+					<div data-tone="cyan" className="rounded-xl border border-cyan-400/15 p-3 text-xs text-[var(--text-primary)]">
 						<div className="font-semibold">{t("qsPage.configPreviewTitle")}</div>
-						<div className="mt-2 grid gap-1.5 text-cyan-100/80">
+						<div className="mt-2 grid gap-1.5 text-[var(--text-primary)]/80">
 							<span>{t("qsPage.imageLabel").replace("{image}", open.image ?? t("qsPage.imagePending"))}</span>
 							<span>
 								{t("qsPage.containerPortLabel").replace("{container}", String(containerPort ?? t("qsPage.containerPortDash"))).replace("{host}", customPort || String(open.defaultPort))}
@@ -216,7 +216,7 @@ export function InstallDialog({
 					<button
 						type="button"
 						onClick={onClose}
-						className="rounded-lg border border-white/[0.1] px-4 py-2 text-xs text-[var(--text-muted)] hover:bg-white/[0.04] transition"
+						className="rounded-lg border border-[var(--border)]/[0.1] px-4 py-2 text-xs text-[var(--text-muted)] hover:bg-[var(--surface)]/[0.04] transition"
 					>
 						{t("qsPage.cancel")}
 					</button>

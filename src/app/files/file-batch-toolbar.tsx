@@ -113,7 +113,7 @@ export function FileBatchToolbar({
                 type="button"
                 onClick={() => setBatchAction("none")}
                 disabled={isPending}
-                className="rounded-full border border-[var(--border)] bg-white/5 px-4 py-2 text-sm font-medium text-[var(--text-secondary)] transition hover:bg-white/10 disabled:opacity-50"
+                className="rounded-full border border-[var(--border)] bg-[var(--surface)]/5 px-4 py-2 text-sm font-medium text-[var(--text-secondary)] transition hover:bg-[var(--surface)]/10 disabled:opacity-50"
               >
                 取消
               </button>
@@ -124,7 +124,7 @@ export function FileBatchToolbar({
                 已删除 {progress.done}/{progress.total} 个
               </span>
               {progress.done < progress.total ? (
-                <div className="h-2 w-24 overflow-hidden rounded-full bg-white/10">
+                <div className="h-2 w-24 overflow-hidden rounded-full bg-[var(--surface)]/10">
                   <div
                     className="h-full rounded-full bg-rose-400 transition-[width]"
                     style={{
@@ -141,7 +141,7 @@ export function FileBatchToolbar({
             </>
           ) : batchAction === "compressing" ? (
             <>
-              <span className="text-sm text-cyan-200">
+              <span className="text-sm text-[var(--text-secondary)]">
                 正在创建压缩包...
               </span>
               {progress.total > 0 ? (
@@ -167,7 +167,7 @@ export function FileBatchToolbar({
                 className="w-40 rounded-2xl border border-[var(--border)] bg-[var(--input-bg)] px-3 py-1.5 text-sm text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus:border-cyan-400/50 focus:outline-none"
               />
               {moveProgress.total > 0 ? (
-                <span className="text-sm text-cyan-200">
+                <span className="text-sm text-[var(--text-secondary)]">
                   已移动 {moveProgress.done}/{moveProgress.total} 个
                   {moveProgress.errors.length > 0
                     ? `（${moveProgress.errors.length} 个失败）`
@@ -193,7 +193,7 @@ export function FileBatchToolbar({
                   setMoveProgress({ done: 0, total: 0, errors: [] });
                 }}
                 disabled={isPending && moveProgress.done > 0}
-                className="rounded-full border border-[var(--border)] bg-white/5 px-4 py-2 text-sm font-medium text-[var(--text-secondary)] transition hover:bg-white/10 disabled:opacity-50"
+                className="rounded-full border border-[var(--border)] bg-[var(--surface)]/5 px-4 py-2 text-sm font-medium text-[var(--text-secondary)] transition hover:bg-[var(--surface)]/10 disabled:opacity-50"
               >
                 取消
               </button>
@@ -206,7 +206,7 @@ export function FileBatchToolbar({
               <button
                 type="button"
                 onClick={onClearSelection}
-                className="rounded-full border border-[var(--border)] bg-white/5 px-4 py-2 text-sm font-medium text-[var(--text-secondary)] transition hover:bg-white/10"
+                className="rounded-full border border-[var(--border)] bg-[var(--surface)]/5 px-4 py-2 text-sm font-medium text-[var(--text-secondary)] transition hover:bg-[var(--surface)]/10"
               >
                 取消选择
               </button>
@@ -215,7 +215,7 @@ export function FileBatchToolbar({
                   type="button"
                   onClick={onCompressSelected}
                   data-tone="cyan"
-                  className="rounded-full border border-cyan-400/30 px-4 py-2 text-sm font-medium text-cyan-100 transition hover:bg-cyan-400/20"
+                  className="rounded-full border border-cyan-400/30 px-4 py-2 text-sm font-medium text-[var(--text-primary)] transition hover:bg-cyan-400/20"
                 >
                   批量压缩
                 </button>

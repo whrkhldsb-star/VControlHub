@@ -93,7 +93,7 @@ export function FileListGridView({
           >
             <FileTypeIcon entry={{ entryType: "DIRECTORY" }} size={36} />
           </div>
-          <span className="w-full truncate text-sm font-medium text-cyan-100 group-hover:text-[var(--text-primary)] light:hover:text-slate-900 transition">
+          <span className="w-full truncate text-sm font-medium text-[var(--text-primary)] group-hover:text-[var(--text-primary)] light:hover:text-slate-900 transition">
             {folder.displayName ?? folder.name}
           </span>
           <span className="text-xs text-[var(--text-muted)]">
@@ -146,7 +146,7 @@ export function FileListGridView({
                   />
                 </div>
               ) : (
-                <div className="rounded-xl bg-white/[0.03] p-4">
+                <div className="rounded-xl bg-[var(--surface)]/[0.03] p-4">
                   <FileTypeIcon entry={entry} size={44} />
                 </div>
               )}
@@ -157,7 +157,7 @@ export function FileListGridView({
               {entry.previewable && entryCanRead(entry) ? (
                 <Link
                   href={previewHref}
-                  className="w-full truncate text-sm font-medium text-[var(--text-primary)] hover:text-cyan-100 transition"
+                  className="w-full truncate text-sm font-medium text-[var(--text-primary)] hover:text-[var(--text-primary)] transition"
                 >
                   {entry.name}
                 </Link>

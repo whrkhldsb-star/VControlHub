@@ -51,7 +51,7 @@ export function AiChatHeader({
       <div className="flex items-center gap-1.5">
         <button
           onClick={onToggleSettings}
-          className="h-7 px-2.5 rounded-lg text-xs text-[var(--text-secondary)] hover:bg-white/[0.04] hover:text-[var(--text-secondary)] light:hover:text-slate-800 transition"
+          className="h-7 px-2.5 rounded-lg text-xs text-[var(--text-secondary)] hover:bg-[var(--surface)]/[0.04] hover:text-[var(--text-secondary)] light:hover:text-slate-800 transition"
         >
           {t("aiPage.settings")}
         </button>
@@ -64,13 +64,13 @@ export function AiChatHeader({
         </button>
         <button
           onClick={onRenameConv}
-          className="h-7 px-2.5 rounded-lg text-xs text-[var(--text-secondary)] hover:bg-white/[0.04] hover:text-[var(--text-secondary)] light:hover:text-slate-800 transition"
+          className="h-7 px-2.5 rounded-lg text-xs text-[var(--text-secondary)] hover:bg-[var(--surface)]/[0.04] hover:text-[var(--text-secondary)] light:hover:text-slate-800 transition"
         >
           {t("aiPage.rename")}
         </button>
         <button
           onClick={onExportConv}
-          className="h-7 px-2.5 rounded-lg text-xs text-[var(--text-secondary)] hover:bg-white/[0.04] hover:text-[var(--text-secondary)] light:hover:text-slate-800 transition"
+          className="h-7 px-2.5 rounded-lg text-xs text-[var(--text-secondary)] hover:bg-[var(--surface)]/[0.04] hover:text-[var(--text-secondary)] light:hover:text-slate-800 transition"
           title={t("aiPage.exportTitle")}
         >
           {t("aiPage.export")}

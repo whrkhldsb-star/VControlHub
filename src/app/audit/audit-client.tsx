@@ -124,7 +124,7 @@ export function AuditLogClient({ initialActionFilter = "" }: AuditLogClientProps
               setSearchQuery("");
               setPage(1);
             }}
-            className="rounded-full border border-[var(--border)] bg-white/5 px-4 py-2 text-sm text-[var(--text-secondary)] transition hover:bg-white/10"
+            className="rounded-full border border-[var(--border)] bg-[var(--surface)]/5 px-4 py-2 text-sm text-[var(--text-secondary)] transition hover:bg-[var(--surface)]/10"
           >
             {t("common.clear")}
           </button>
@@ -179,7 +179,7 @@ export function AuditLogClient({ initialActionFilter = "" }: AuditLogClientProps
               if (searchQuery.trim()) params.set("search", searchQuery.trim());
               window.open(`/api/audit/export?${params.toString()}`, "_self");
             }}
-            className="rounded-full border border-[var(--border)] bg-white/[0.03] px-4 py-2 text-sm text-[var(--text-secondary)] transition hover:bg-white/10"
+            className="rounded-full border border-[var(--border)] bg-[var(--surface)]/[0.03] px-4 py-2 text-sm text-[var(--text-secondary)] transition hover:bg-[var(--surface)]/10"
           >
             {t("audit.exportCsv")}
           </button>
@@ -194,7 +194,7 @@ export function AuditLogClient({ initialActionFilter = "" }: AuditLogClientProps
                 setPage(1);
               }}
               data-tone={actionFilter === action ? "accent" : undefined}
-              className={`rounded-full border px-3 py-1 text-xs transition ${actionFilter === action ? "" : "border-[var(--border)] bg-white/5 text-[var(--text-secondary)] hover:bg-white/10"}`}
+              className={`rounded-full border px-3 py-1 text-xs transition ${actionFilter === action ? "" : "border-[var(--border)] bg-[var(--surface)]/5 text-[var(--text-secondary)] hover:bg-[var(--surface)]/10"}`}
             >
               {formatAction(action, t)}
             </button>
@@ -212,7 +212,7 @@ export function AuditLogClient({ initialActionFilter = "" }: AuditLogClientProps
       <div className="overflow-hidden rounded-2xl border border-[var(--border)]">
         {/* Desktop */}
         <div className="hidden md:block">
-          <div className="grid grid-cols-[140px_100px_120px_minmax(0,1.5fr)_minmax(0,2fr)_160px] bg-white/5 px-4 py-3 text-xs uppercase tracking-[0.2em] text-[var(--text-muted)]">
+          <div className="grid grid-cols-[140px_100px_120px_minmax(0,1.5fr)_minmax(0,2fr)_160px] bg-[var(--surface)]/5 px-4 py-3 text-xs uppercase tracking-[0.2em] text-[var(--text-muted)]">
             <div>{t("audit.header.time")}</div>
             <div>{t("audit.header.level")}</div>
             <div>{t("audit.header.type")}</div>
@@ -288,7 +288,7 @@ export function AuditLogClient({ initialActionFilter = "" }: AuditLogClientProps
             type="button"
             disabled={page <= 1}
             onClick={() => setPage((p) => Math.max(1, p - 1))}
-            className="rounded-full border border-[var(--border)] bg-white/5 px-4 py-2 text-sm text-[var(--text-secondary)] transition hover:bg-white/10 disabled:opacity-30"
+            className="rounded-full border border-[var(--border)] bg-[var(--surface)]/5 px-4 py-2 text-sm text-[var(--text-secondary)] transition hover:bg-[var(--surface)]/10 disabled:opacity-30"
           >
             {t("audit.pagination.prev")}
           </button>
@@ -302,7 +302,7 @@ export function AuditLogClient({ initialActionFilter = "" }: AuditLogClientProps
             type="button"
             disabled={page >= data.totalPages}
             onClick={() => setPage((p) => p + 1)}
-            className="rounded-full border border-[var(--border)] bg-white/5 px-4 py-2 text-sm text-[var(--text-secondary)] transition hover:bg-white/10 disabled:opacity-30"
+            className="rounded-full border border-[var(--border)] bg-[var(--surface)]/5 px-4 py-2 text-sm text-[var(--text-secondary)] transition hover:bg-[var(--surface)]/10 disabled:opacity-30"
           >
             {t("audit.pagination.next")}
           </button>

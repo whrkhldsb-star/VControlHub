@@ -108,7 +108,7 @@ export function SourcesPanel({ sources, actions, onRequestDeleteSource }: Source
 
 	return (
 		<div className="space-y-4">
-			<div className="rounded-2xl border border-[var(--border)] bg-white/[0.025] p-4 space-y-4">
+			<div className="rounded-2xl border border-[var(--border)] bg-[var(--surface)]/[0.025] p-4 space-y-4">
 				<div className="flex items-center justify-between gap-3">
 					<div>
 						<p className="text-xs uppercase tracking-[0.2em] text-[var(--text-muted)]">{t("quickServicesPage.sources.header")}</p>
@@ -124,11 +124,11 @@ export function SourcesPanel({ sources, actions, onRequestDeleteSource }: Source
 								key={preset.key}
 								type="button"
 								onClick={() => applySourcePreset(preset.key as SourcePresetKey)}
-								className={`rounded-xl border p-3 text-left transition ${active ? "border-cyan-400/30 bg-cyan-400/10 text-cyan-100" : "border-[var(--border)] bg-white/[0.03] text-[var(--text-secondary)] hover:bg-white/[0.06] light:hover:bg-white"}`}
+								className={`rounded-xl border p-3 text-left transition ${active ? "border-cyan-400/30 bg-cyan-400/10 text-[var(--text-primary)]" : "border-[var(--border)] bg-[var(--surface)]/[0.03] text-[var(--text-secondary)] hover:bg-[var(--surface)]/[0.06] light:hover:bg-[var(--surface)]"}`}
 							>
 								<div className="flex items-center justify-between gap-2">
 									<span className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--text-muted)]">{preset.badge}</span>
-									<span className={`rounded-full border px-2 py-0.5 text-[10px] ${active ? "border-cyan-400/30 text-cyan-100" : "border-[var(--border)] text-[var(--text-muted)]"}`}>{preset.type}</span>
+									<span className={`rounded-full border px-2 py-0.5 text-[10px] ${active ? "border-cyan-400/30 text-[var(--text-primary)]" : "border-[var(--border)] text-[var(--text-muted)]"}`}>{preset.type}</span>
 								</div>
 								<h4 className="mt-2 text-sm font-semibold text-[var(--text-primary)]">{preset.label}</h4>
 								<p className="mt-1 text-xs leading-5 text-[var(--text-muted)]">{preset.description}</p>
@@ -142,7 +142,7 @@ export function SourcesPanel({ sources, actions, onRequestDeleteSource }: Source
 						<input
 							value={newSourceName}
 							onChange={(e) => setNewSourceName(e.target.value)}
-							className="w-full rounded-lg border border-[var(--border)] bg-white/[0.04] px-3 py-2 text-sm text-[var(--text-primary)] outline-none focus:border-cyan-400/40"
+							className="w-full rounded-lg border border-[var(--border)] bg-[var(--surface)]/[0.04] px-3 py-2 text-sm text-[var(--text-primary)] outline-none focus:border-cyan-400/40"
 							placeholder="linuxserver"
 						/>
 					</label>
@@ -151,7 +151,7 @@ export function SourcesPanel({ sources, actions, onRequestDeleteSource }: Source
 						<input
 							value={newSourceDisplayName}
 							onChange={(e) => setNewSourceDisplayName(e.target.value)}
-							className="w-full rounded-lg border border-[var(--border)] bg-white/[0.04] px-3 py-2 text-sm text-[var(--text-primary)] outline-none focus:border-cyan-400/40"
+							className="w-full rounded-lg border border-[var(--border)] bg-[var(--surface)]/[0.04] px-3 py-2 text-sm text-[var(--text-primary)] outline-none focus:border-cyan-400/40"
 							placeholder="LinuxServer.io"
 						/>
 					</label>
@@ -160,7 +160,7 @@ export function SourcesPanel({ sources, actions, onRequestDeleteSource }: Source
 						<input
 							value={newSourceUrl}
 							onChange={(e) => setNewSourceUrl(e.target.value)}
-							className="w-full rounded-lg border border-[var(--border)] bg-white/[0.04] px-3 py-2 text-sm text-[var(--text-primary)] outline-none focus:border-cyan-400/40"
+							className="w-full rounded-lg border border-[var(--border)] bg-[var(--surface)]/[0.04] px-3 py-2 text-sm text-[var(--text-primary)] outline-none focus:border-cyan-400/40"
 							placeholder="https://..."
 						/>
 					</label>
@@ -172,7 +172,7 @@ export function SourcesPanel({ sources, actions, onRequestDeleteSource }: Source
 								key={type}
 								type="button"
 								onClick={() => setNewSourceType(type)}
-								className={`rounded-lg border px-3 py-1.5 text-xs transition ${newSourceType === type ? "border-violet-400/30 bg-violet-400/10 text-violet-100" : "border-[var(--border)] text-[var(--text-secondary)] hover:bg-white/[0.06]"}`}
+								className={`rounded-lg border px-3 py-1.5 text-xs transition ${newSourceType === type ? "border-violet-400/30 bg-violet-400/10 text-violet-100" : "border-[var(--border)] text-[var(--text-secondary)] hover:bg-[var(--surface)]/[0.06]"}`}
 							>
 								{type}
 							</button>
@@ -237,7 +237,7 @@ export function SourcesPanel({ sources, actions, onRequestDeleteSource }: Source
 							type="button"
 							onClick={() => actions.doSync(src.id)}
 							disabled={actions.syncing !== null}
-							className="rounded-lg border border-white/[0.1] px-3 py-1.5 text-xs text-[var(--text-secondary)] hover:bg-white/[0.06] transition disabled:opacity-50"
+							className="rounded-lg border border-[var(--border)]/[0.1] px-3 py-1.5 text-xs text-[var(--text-secondary)] hover:bg-[var(--surface)]/[0.06] transition disabled:opacity-50"
 						>
 							{actions.syncing === src.id ? "同步中…" : t("quickServicesPage.sources.syncNow")}
 						</button>
