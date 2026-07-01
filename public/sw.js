@@ -1,45 +1,36 @@
-/* VControlHub service worker — TR-033 PWA (route b, next-pwa equivalent).
- *
- * Why a hand-rolled service worker instead of next-pwa:
- * - The VControlHub app uses Next.js 16 App Router, where the official
- *   PWA story is `app/manifest.ts` + a hand-written `public/sw.js` (see
- *   node_modules/next/dist/docs/01-app/02-guides/progressive-web-apps.md).
- *   The `next-pwa` community package requires Webpack-specific config
- *   and is not the canonical path on Next 16.
- * - We only need a small, well-defined offline experience: pre-cache the
- *   app shell + four read-only routes, network-first for navigations,
- *   cache-first for static assets. Workbox would be overkill.
+/* VControlHub service worker — TR-033 PWA offline support.
  *
  * Caching strategy:
- * - On install: pre-cache the offline page + four read-only routes.
- * - On activate: clean up old cache versions.
- * - On fetch:
- *   1. Navigation requests → try network first; on failure serve the
- *      cached version of the requested page if present, otherwise fall
- *      back to the cached `/offline` page.
- *   2. Same-origin static assets (/_next/static/, /icon*, /manifest*)
- *      → cache-first.
- *   3. Same-origin API requests → always network, never cache.
- *   4. Cross-origin requests → always network, never cache.
- *
- * Versioning: bump CACHE_VERSION when the cache shape changes so
- * activate() can clear stale entries.
+ * - Install: pre-cache only public/offline-safe assets. Protected pages are
+ *   deliberately NOT pre-cached during install, because unauthenticated install
+ *   fetches can cache login redirects instead of the real page.
+ * - Client message VCH_PWA_WARM_ROUTE: after the app is running with a valid
+ *   session, warm selected read-only routes into the runtime cache.
+ * - Navigation: network-first. If the network fails, serve the exact cached
+ *   navigation response when available; otherwise serve /offline.
+ * - Static assets: cache-first.
+ * - API/cross-origin/non-GET: never cache.
  */
 
-const CACHE_VERSION = "vch-shell-v2";
+const CACHE_VERSION = "vch-shell-v3";
 const SHELL_CACHE = `${CACHE_VERSION}-shell`;
 const RUNTIME_CACHE = `${CACHE_VERSION}-runtime`;
 
 const PRECACHE_URLS = [
 	"/offline",
-	"/dashboard",
-	"/servers",
-	"/files",
-	"/settings",
 	"/icon-192x192.png",
 	"/icon.png",
 	"/manifest.webmanifest",
 ];
+
+const WARMABLE_ROUTES = new Set([
+	"/dashboard",
+	"/servers",
+	"/files",
+	"/settings",
+	"/status",
+	"/notifications",
+]);
 
 self.addEventListener("install", (event) => {
 	event.waitUntil(
@@ -57,7 +48,7 @@ self.addEventListener("activate", (event) => {
 			.then((keys) =>
 				Promise.all(
 					keys
-						.filter((key) => key !== SHELL_CACHE && key !== RUNTIME_CACHE && !key.startsWith(CACHE_VERSION))
+						.filter((key) => key !== SHELL_CACHE && key !== RUNTIME_CACHE)
 						.map((key) => caches.delete(key)),
 				),
 			)
@@ -78,6 +69,44 @@ function isStaticAsset(url) {
 	);
 }
 
+function isCacheablePageResponse(response) {
+	const contentType = response.headers.get("content-type") || "";
+	return response.ok && contentType.includes("text/html") && response.type !== "opaqueredirect";
+}
+
+async function warmRoute(pathname) {
+	if (!WARMABLE_ROUTES.has(pathname)) return { ok: false, reason: "route_not_warmable" };
+	const request = new Request(pathname, {
+		method: "GET",
+		credentials: "include",
+		headers: { Accept: "text/html" },
+	});
+	const response = await fetch(request);
+	if (!isCacheablePageResponse(response)) {
+		return { ok: false, reason: `not_cacheable_${response.status}` };
+	}
+	const cache = await caches.open(RUNTIME_CACHE);
+	await cache.put(request, response.clone());
+	return { ok: true, pathname };
+}
+
+self.addEventListener("message", (event) => {
+	const data = event.data || {};
+	if (data.type === "VCH_PWA_SKIP_WAITING") {
+		event.waitUntil(self.skipWaiting());
+		return;
+	}
+	if (data.type === "VCH_PWA_CLEAR_CACHES") {
+		event.waitUntil(
+			caches.keys().then((keys) => Promise.all(keys.map((key) => caches.delete(key)))),
+		);
+		return;
+	}
+	if (data.type === "VCH_PWA_WARM_ROUTE") {
+		event.waitUntil(warmRoute(data.pathname).catch(() => ({ ok: false, reason: "warm_failed" })));
+	}
+});
+
 self.addEventListener("fetch", (event) => {
 	const { request } = event;
 	if (request.method !== "GET") return;
@@ -95,8 +124,10 @@ self.addEventListener("fetch", (event) => {
 		event.respondWith(
 			fetch(request)
 				.then((response) => {
-					const copy = response.clone();
-					caches.open(RUNTIME_CACHE).then((cache) => cache.put(request, copy)).catch(() => undefined);
+					if (isCacheablePageResponse(response)) {
+						const copy = response.clone();
+						caches.open(RUNTIME_CACHE).then((cache) => cache.put(request, copy)).catch(() => undefined);
+					}
 					return response;
 				})
 				.catch(async () => {
@@ -115,8 +146,10 @@ self.addEventListener("fetch", (event) => {
 			caches.match(request).then((cached) => {
 				if (cached) return cached;
 				return fetch(request).then((response) => {
-					const copy = response.clone();
-					caches.open(RUNTIME_CACHE).then((cache) => cache.put(request, copy)).catch(() => undefined);
+					if (response.ok) {
+						const copy = response.clone();
+						caches.open(RUNTIME_CACHE).then((cache) => cache.put(request, copy)).catch(() => undefined);
+					}
 					return response;
 				});
 			}),
