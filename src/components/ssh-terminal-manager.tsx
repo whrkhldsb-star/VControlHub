@@ -90,7 +90,6 @@ export function SshTerminalManager({
 	}, [handleKeyDown]);
 
 	if (tabs.length === 0) return null;
-
 	const connectedCount = tabs.filter((tab) => tab.status === "connected").length;
 
 	// ── Minimized: small floating pill at bottom-right ──────────
@@ -100,7 +99,7 @@ export function SshTerminalManager({
 				<button
 					type="button"
 					onClick={() => setMinimized(false)}
-					className="pointer-events-auto flex items-center gap-2 rounded-full border border-white/10 bg-slate-900 px-4 py-2.5 text-xs text-white shadow-2xl transition hover:bg-slate-800"
+					className="pointer-events-auto flex items-center gap-2 rounded-full border border-[var(--border-subtle)] light:border-slate-200 bg-[var(--surface)] px-4 py-2.5 text-xs text-[var(--text-primary)] light:text-slate-900 shadow-2xl transition hover:bg-[var(--surface-elevated)] light:hover:bg-slate-800"
 					aria-label={t("sshTerminalManager.title")}
 				>
 					<span className="flex h-2 w-2 rounded-full bg-emerald-400" aria-hidden />
@@ -112,7 +111,7 @@ export function SshTerminalManager({
 							{connectedCount} ●
 						</span>
 					)}
-					<span className="text-slate-400">⤢ {t("sshTerminalManager.expand")}</span>
+					<span className="text-[var(--text-muted)]">⤢ {t("sshTerminalManager.expand")}</span>
 				</button>
 			</div>
 		);
@@ -130,15 +129,15 @@ export function SshTerminalManager({
 					borderColor: "var(--border)",
 					color: "var(--text-primary)",
 				}}
-				className="pointer-events-auto flex max-h-[72vh] min-h-0 w-full max-w-5xl flex-col rounded-2xl border border-white/10 bg-slate-900 text-white shadow-2xl sm:rounded-3xl"
+				className="pointer-events-auto flex max-h-[72vh] min-h-0 w-full max-w-5xl flex-col rounded-2xl border border-[var(--border-subtle)] light:border-slate-200 bg-[var(--surface)] text-[var(--text-primary)] light:text-slate-900 shadow-2xl sm:rounded-3xl"
 			>
 				{/* Title bar + tab bar + controls */}
-				<div className="flex items-center justify-between border-b border-white/10 px-4 py-2.5">
+				<div className="flex items-center justify-between border-b border-[var(--border-subtle)] light:border-slate-200 px-4 py-2.5">
 					<div className="flex items-center gap-2">
-						<h3 id="ssh-terminal-manager-title" className="text-sm font-semibold text-white">
+						<h3 id="ssh-terminal-manager-title" className="text-sm font-semibold text-[var(--text-primary)] light:text-slate-900">
 							{t("sshTerminalManager.title")}
 						</h3>
-						<span className="rounded-full bg-white/10 px-2 py-0.5 text-xs text-slate-300">
+						<span className="rounded-full bg-[var(--surface-subtle)] light:bg-slate-800 px-2 py-0.5 text-xs text-[var(--text-secondary)] light:text-slate-600">
 							{tabs.length} {t("sshTerminalManager.tabsSuffix")}
 						</span>
 					</div>
@@ -148,7 +147,7 @@ export function SshTerminalManager({
 							type="button"
 							onClick={() => setMinimized(true)}
 							aria-label={t("sshTerminalManager.minimize")}
-							className="min-h-9 min-w-9 rounded-lg border border-white/10 bg-white/5 px-3 py-1.5 text-xs text-slate-300 transition hover:bg-white/10"
+							className="min-h-9 min-w-9 rounded-lg border border-[var(--border-subtle)] light:border-slate-200 bg-[var(--surface-subtle)] light:bg-slate-800/50 px-3 py-1.5 text-xs text-[var(--text-secondary)] light:text-slate-600 transition hover:bg-[var(--surface-elevated)] light:hover:bg-slate-700/50"
 							title={t("sshTerminalManager.minimize")}
 						>
 							▬
@@ -158,7 +157,7 @@ export function SshTerminalManager({
 							type="button"
 							onClick={onClose}
 							aria-label={t("sshTerminalModal.ariaClose")}
-							className="min-h-9 min-w-9 rounded-lg border border-white/10 bg-white/5 px-3 py-1.5 text-xs text-slate-300 transition hover:bg-white/10"
+							className="min-h-9 min-w-9 rounded-lg border border-[var(--border-subtle)] light:border-slate-200 bg-[var(--surface-subtle)] light:bg-slate-800/50 px-3 py-1.5 text-xs text-[var(--text-secondary)] light:text-slate-600 transition hover:bg-[var(--surface-elevated)] light:hover:bg-slate-700/50"
 							title={t("sshTerminalModal.close")}
 						>
 							✕
@@ -167,7 +166,7 @@ export function SshTerminalManager({
 				</div>
 
 				{/* Tab bar */}
-				<div className="flex items-stretch gap-0.5 overflow-x-auto border-b border-white/10 bg-black/20 px-2 py-1" role="tablist">
+				<div className="flex items-stretch gap-0.5 overflow-x-auto border-b border-[var(--border-subtle)] light:border-slate-200 bg-[var(--surface-subtle)] light:bg-slate-100 px-2 py-1" role="tablist">
 					{tabs.map((tab, i) => {
 						const isActive = i === activeTabIndex;
 						const statusColor =
@@ -185,8 +184,8 @@ export function SshTerminalManager({
 								onClick={() => onTabSelect(i)}
 								className={`group flex cursor-pointer items-center gap-2 rounded-lg px-3 py-2 text-xs transition ${
 									isActive
-										? "bg-white/10 text-white"
-										: "text-slate-400 hover:bg-white/5 hover:text-slate-200"
+										? "bg-[var(--surface-elevated)] light:bg-slate-700 text-[var(--text-primary)] light:text-slate-900"
+										: "text-[var(--text-muted)] hover:bg-[var(--surface-subtle)] light:hover:bg-slate-600 hover:text-[var(--text-secondary)] light:hover:text-slate-700"
 								}`}
 							>
 								<span className={`h-2 w-2 shrink-0 rounded-full ${statusColor}`} aria-hidden="true" />
@@ -198,7 +197,7 @@ export function SshTerminalManager({
 										onTabClose(i);
 									}}
 									aria-label={t("sshTerminalManager.closeTab").replace("{serverName}", tab.serverName)}
-									className="ml-1 shrink-0 rounded p-0.5 text-slate-500 opacity-0 transition hover:bg-white/10 hover:text-rose-300 group-hover:opacity-100"
+									className="ml-1 shrink-0 rounded p-0.5 text-[var(--text-muted)] opacity-0 transition hover:bg-[var(--surface-elevated)] light:hover:bg-slate-700 hover:text-rose-300 group-hover:opacity-100"
 								>
 									✕
 								</button>
