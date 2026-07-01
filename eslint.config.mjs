@@ -28,7 +28,7 @@ const eslintConfig = defineConfig([
     },
   },
   {
-    files: ["scripts/**/*.cjs"],
+    files: ["scripts/**/*.cjs", "prisma/migrations/**/*.js"],
     rules: { "@typescript-eslint/no-require-imports": "off" },
   },
   // csrfFetch intentionally uses `any` as generic default — it's a flexible fetch wrapper

@@ -16,6 +16,7 @@ export type CreateAlertRuleInput = {
 	serverIds?: string[];
 	notifyChannels?: string[];
 	webhookUrl?: string;
+	playbookIds?: string[];
 	cooldownMinutes?: number;
 	silenceWindows?: string[];
 	enabled?: boolean;
@@ -38,6 +39,7 @@ export async function createAlertRule(input: CreateAlertRuleInput) {
 			serverIds: input.serverIds ?? [],
 			notifyChannels: input.notifyChannels ?? ["in_app"],
 			webhookUrl: input.webhookUrl ?? null,
+			playbookIds: input.playbookIds ?? [],
 			cooldownMinutes: input.cooldownMinutes ?? 30,
 			silenceWindows: input.silenceWindows ?? [],
 			enabled: input.enabled ?? true,
@@ -55,6 +57,7 @@ export async function updateAlertRule(id: string, input: Partial<CreateAlertRule
 	if (input.serverIds !== undefined) data.serverIds = input.serverIds;
 	if (input.notifyChannels !== undefined) data.notifyChannels = input.notifyChannels;
 	if (input.webhookUrl !== undefined) data.webhookUrl = input.webhookUrl;
+	if (input.playbookIds !== undefined) data.playbookIds = input.playbookIds;
 	if (input.cooldownMinutes !== undefined) data.cooldownMinutes = input.cooldownMinutes;
 	if (input.silenceWindows !== undefined) data.silenceWindows = input.silenceWindows;
 	if (input.enabled !== undefined) data.enabled = input.enabled;

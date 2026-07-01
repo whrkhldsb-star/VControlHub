@@ -34,6 +34,9 @@ vi.mock("@/lib/alert/service", () => ({
 vi.mock("@/lib/server/service", () => ({
 	listServerProfiles: vi.fn(async () => []),
 }));
+vi.mock("@/lib/playbook/service", () => ({
+	listPlaybooks: vi.fn(async () => []),
+}));
 vi.mock("@/lib/i18n/translations", async (importOriginal) => {
 	const actual = await importOriginal<typeof import("@/lib/i18n/translations")>();
 	return {
@@ -84,6 +87,7 @@ describe("alert rules client", () => {
 					threshold: 91,
 					durationSeconds: 0,
 					serverIds: [],
+					playbookIds: [],
 					notifyChannels: ["in_app"],
 					cooldownMinutes: 30,
 					silenceWindows: ["22:00-08:00"],

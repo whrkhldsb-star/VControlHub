@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const { prismaMock, collectServerMetricsMock, tcpProbeMock, createNotificationMock, fetchWebhookSafelyMock, sendAlertEmailMock, sendAlertTelegramMock } = vi.hoisted(() => ({
+const { prismaMock, collectServerMetricsMock, tcpProbeMock, createNotificationMock, fetchWebhookSafelyMock, sendAlertEmailMock, sendAlertTelegramMock, runPlaybookMock } = vi.hoisted(() => ({
 	prismaMock: {
 		server: {
 			findMany: vi.fn(),
@@ -23,6 +23,7 @@ const { prismaMock, collectServerMetricsMock, tcpProbeMock, createNotificationMo
 	fetchWebhookSafelyMock: vi.fn(),
 	sendAlertEmailMock: vi.fn(),
 	sendAlertTelegramMock: vi.fn(),
+	runPlaybookMock: vi.fn(),
 }));
 
 vi.mock("@/lib/db", () => ({ prisma: prismaMock }));
@@ -34,6 +35,7 @@ vi.mock("@/lib/notification/service", () => ({ createNotification: createNotific
 vi.mock("@/lib/notification/email", () => ({ sendAlertEmail: sendAlertEmailMock }));
 vi.mock("@/lib/notification/telegram", () => ({ sendAlertTelegram: sendAlertTelegramMock }));
 vi.mock("@/lib/security/webhook-url", () => ({ fetchWebhookSafely: fetchWebhookSafelyMock }));
+vi.mock("@/lib/playbook/service", () => ({ runPlaybook: runPlaybookMock }));
 
 import { evaluateAlerts, isNowInAlertSilenceWindow } from "../service";
 
@@ -63,6 +65,7 @@ describe("evaluateAlerts", () => {
 		fetchWebhookSafelyMock.mockResolvedValue({ ok: true });
 		sendAlertEmailMock.mockResolvedValue({ accepted: ["ops@example.com"], rejected: [] });
 		sendAlertTelegramMock.mockResolvedValue({ accepted: [{ chatId: "100200300", messageId: 1 }], rejected: [] });
+	runPlaybookMock.mockResolvedValue({ id: "run1", status: "completed" });
 	});
 
 	it("does not trigger rules with durationSeconds until the condition is sustained", async () => {
@@ -123,6 +126,50 @@ describe("evaluateAlerts", () => {
 		expect(prismaMock.alertRule.update).toHaveBeenCalledWith({
 			where: { id: "rule1" },
 			data: expect.objectContaining({ lastTriggeredAt: new Date("2026-05-25T00:01:01.000Z") }),
+		});
+	});
+
+	it("runs linked playbooks with alert context when a rule triggers", async () => {
+		vi.useFakeTimers();
+		vi.setSystemTime(new Date("2026-05-25T00:01:30.000Z"));
+		prismaMock.alertRule.findMany.mockResolvedValue([
+			{
+				id: "rule_auto",
+				name: "CPU automation",
+				metric: "cpu_usage",
+				threshold: 80,
+				operator: "gte",
+				durationSeconds: 0,
+				enabled: true,
+				lastTriggeredAt: null,
+				lastMatchedAt: null,
+				cooldownMinutes: 0,
+				silenceWindows: [],
+				serverIds: [],
+				notifyChannels: ["in_app"],
+				playbookIds: ["pb_restart", "pb_notify"],
+				webhookUrl: null,
+			},
+		]);
+		collectServerMetricsMock.mockResolvedValue(cpuMetrics(95));
+
+		await evaluateAlerts();
+
+		expect(runPlaybookMock).toHaveBeenCalledTimes(2);
+		expect(runPlaybookMock).toHaveBeenCalledWith(expect.objectContaining({
+			playbookId: "pb_restart",
+			dryRun: false,
+			triggerContext: expect.objectContaining({
+				type: "alert_rule",
+				alertRuleId: "rule_auto",
+				serverId: "srv1",
+				metric: "cpu_usage",
+				value: 95,
+			}),
+		}));
+		expect(prismaMock.alertRule.update).toHaveBeenCalledWith({
+			where: { id: "rule_auto" },
+			data: expect.objectContaining({ lastTriggeredAt: new Date("2026-05-25T00:01:30.000Z") }),
 		});
 	});
 

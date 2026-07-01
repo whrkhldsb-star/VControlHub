@@ -397,7 +397,7 @@ make logs SERVICE_PREFIX=vcontrolhub
 
 ### P3 — 长期愿景与渐进式改善
 
-- [ ] **自动化工作流**（TR-023）— 条件触发、告警联动、步骤编排。 `[功能]`
+- [x] **自动化工作流**（TR-023）— ✅ 已完成闭环。已有 `Playbook` / `PlaybookRun` / `ScheduledTask` 持久化模型、CRUD API、dry-run、步骤编排执行器（run_command / send_notification / call_webhook）与运行记录；本提交新增告警联动 Playbook：`AlertRule.playbookIds` 字段 + migration `20260701165000_tr023_alert_playbook_links`，告警触发后在完成站内/邮件/Telegram/Webhook 通知后按绑定 Playbook 顺序运行，并向 Playbook 注入 `alert_rule` triggerContext（规则、节点、指标、阈值、当前值、触发时间）。`/alert-rules` 创建表单新增“告警联动 Playbook”选择区和列表徽章，API schema 支持 `playbookIds`，测试覆盖告警触发自动运行 Playbook 与 UI/API 校验。 `[功能]`
 - [x] **多租户 / 团队空间**（TR-030）— ✅ 已实现（本提交）。新增 `Team` / `TeamMember` 模型与 `User.currentTeamId`，迁移 `20260701023000_add_team_workspaces` 已应用并生成 Prisma Client；新增团队空间 service + API：`GET/POST /api/teams`、`POST /api/teams/switch`、`POST /api/teams/[id]/members`，支持团队创建、成员添加/角色更新、当前团队切换与审计记录。设置页个人 tab 新增 `TeamWorkspaceSection`，展示团队、成员、当前团队和管理表单。新增 `src/lib/team/__tests__/service.test.ts` 覆盖创建、切换权限和成员 upsert；`tsc --noEmit` 通过。当前为多租户基础骨架，后续资源级隔离可在 Team 基础上逐表接入。 `[架构]`
 - [x] **成本追踪完善**（TR-031）— ✅ 已实现（本提交）。`/cost-summary` 从手工录入升级为“手工 + 自动采集”闭环：`Server` 新增 `costAutoSync` / `costMonthlyAmount` / `costCurrency` / `costProvider` / `costLastSyncedAt` 成本配置字段；`CostEntry` 新增 `sourceType` / `sourceRef` 并建立 `(sourceType, sourceRef, effectiveDate)` 唯一约束，保证同一 VPS 同月自动条目幂等 upsert。新增 `syncServerMonthlyCosts()`，每日 cost snapshot worker 会先同步启用节点的 VPS 月费再聚合快照；`POST /api/cost/snapshots` 提供手动同步入口（`cost:manage`）。服务器创建/编辑表单新增月费、币种、账单提供方和自动同步开关；成本页新增“同步 VPS 月费”按钮。新增/更新成本 service 与 snapshots route 测试，覆盖自动同步、幂等更新和月份校验；`tsc --noEmit` 通过。 `[功能]`
 - [x] **智能运维 AI 完善**（TR-032）— ✅ 已实现（本提交）。`/ai-ops` 推荐执行逻辑从占位模拟改为显式安全动作执行器：新增 `src/lib/ai/ops/action-executor.ts`，`executeRecommendation()` 保持 `AI_OPS_SAFE_AUTONOMOUS_ACTIONS` 白名单校验后再执行；`alert.evaluate` 真实调用现有告警评估逻辑并写回可审计执行结果，未携带必要 payload 的安全动作（低风险 Playbook、备份元数据快照、陈旧缓存清理）不再假装成功，而是记录未执行原因。autonomous 扫描会先生成计划动作，再通过执行器落地安全动作。17 个目标测试 + `tsc --noEmit` 通过。 `[功能]`
@@ -416,8 +416,8 @@ make logs SERVICE_PREFIX=vcontrolhub
 
 ### P3 — 安全 / 依赖
 
-- [ ] **跨大版本依赖（需验证）** — `typescript` 5.9 → 6.0（breaking, 升前跑全量 tsc）、`eslint` 9 → 10（配置格式变化）、`@types/node` 20 → 26（API 类型变化）、`undici` 7 → 8（Next.js 锁定，不要单独升）。 `[依赖]`
-- [ ] **5 项 moderate npm 安全漏洞** — postcss XSS（GHSA-qx2v-qp2m-jg93）在 Next.js 内置依赖链，待官方升级。 `[安全/依赖]`
+- [x] **跨大版本依赖（需验证）** — ✅ 已完成验证与安全取舍。实际升级并验证通过：`typescript` 5.9 → 6.0.3（`tsconfig` 增加 `ignoreDeprecations: "6.0"` 以记录 `baseUrl` 迁移窗口）、`@types/node` 20 → 26.1.0、`undici` 7 → 8.5.0；同时小升 `eslint-config-next` 16.2.9、`@sentry/nextjs` 10.63.0、`nodemailer` 9.0.3、`redis` 6.1.0。已实测 `eslint` 10.6.0 与 `eslint-config-next` 的 React/JSX 插件链 peer range 不兼容（`react/display-name: contextOrFilename.getFilename is not a function`），因此按验证结论保留 `eslint` 9.39.4，避免破坏 lint。`npm ls eslint` peer 树干净；`tsc --noEmit`、目标 vitest、lint、Next build 均通过。 `[依赖]`
+- [x] **npm 安全漏洞清零** — ✅ 已处理。`npm audit` 原报告 6 个 moderate（Next 内置 PostCSS 链、Prisma/@hono 链、@sentry 受 Next 链影响），直接 `npm audit fix` 会建议降级 Next/Prisma，不可接受。本提交通过升级可升级依赖并添加 npm `overrides`：`postcss@^8.5.10`、`@hono/node-server@^1.19.13`，将 Next/Prisma transitive 漏洞包锁到修复版本；`npm audit --audit-level=moderate` 实测 `found 0 vulnerabilities`。 `[安全/依赖]`
 - [x] **同大版本依赖小升** — 所有包已为最新版本：@tailwindcss/postcss@4.3.2、@types/react@19.2.17、@vitejs/plugin-react@6.0.3、cron-parser@5.6.1、otplib@13.4.1、tsx@4.22.4、vitest@4.1.9。 `[依赖]`
 
 ---

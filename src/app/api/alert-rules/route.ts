@@ -30,7 +30,7 @@ const metrics = [
   "swap_usage",
 ] as const;
 const operators = ["gt", "gte", "lt", "lte", "eq"] as const;
-const channels = ["in_app", "email", "webhook"] as const;
+const channels = ["in_app", "email", "telegram", "webhook"] as const;
 const silenceWindowSchema = z
   .string()
   .trim()
@@ -44,6 +44,7 @@ const alertRuleSchemaBase = z.object({
   durationSeconds: z.coerce.number().int().min(0).max(86_400).optional(),
   serverIds: z.array(z.string().trim().min(1)).default([]),
   notifyChannels: z.array(z.enum(channels)).default(["in_app"]),
+  playbookIds: z.array(z.string().trim().min(1)).default([]),
   webhookUrl: z.preprocess(
     (value) => {
       if (typeof value !== "string" || !value.trim()) return undefined;
@@ -117,6 +118,7 @@ async function parseBody(request: Request) {
       : undefined,
     serverIds: form.getAll("serverIds").map(String).filter(Boolean),
     notifyChannels: form.getAll("notifyChannels").map(String).filter(Boolean),
+    playbookIds: form.getAll("playbookIds").map(String).filter(Boolean),
     webhookUrl: form.get("webhookUrl")
       ? String(form.get("webhookUrl"))
       : null,
@@ -132,6 +134,7 @@ function auditRuleDetail(rule: {
   name?: string;
   metric?: string;
   notifyChannels?: string[];
+  playbookIds?: string[];
   webhookUrl?: string | null;
 }) {
   return {
@@ -139,6 +142,7 @@ function auditRuleDetail(rule: {
     name: rule.name ?? null,
     metric: rule.metric ?? null,
     notifyChannels: rule.notifyChannels ?? [],
+    playbookIds: rule.playbookIds ?? [],
     webhookConfigured: Boolean(rule.webhookUrl),
   };
 }

@@ -10,6 +10,7 @@ type AlertRule = {
 	id: string; name: string; metric: string; operator: string;
 	threshold: number; durationSeconds: number; serverIds: string[];
 	notifyChannels: string[]; webhookConfigured: boolean;
+	playbookIds?: string[];
 	cooldownMinutes: number; enabled: boolean;
 	silenceWindows?: string[];
 	lastTriggeredAt: string | null; createdAt: string;
@@ -22,10 +23,12 @@ type TestDelivery = {
 };
 
 type ServerOption = { id: string; name: string };
+type PlaybookOption = { id: string; name: string; enabled: boolean };
 
 type Props = {
 	rules: AlertRule[];
 	servers: ServerOption[];
+	playbooks?: PlaybookOption[];
 	canManage: boolean;
 };
 
@@ -51,7 +54,7 @@ function deliveryStatusLabel(t: (key: string) => string, status: TestDelivery["s
 	return t(`alertRulesPage.delivery.${status}`);
 }
 
-export function AlertRuleListClient({ rules: initialRules, servers, canManage }: Props) {
+export function AlertRuleListClient({ rules: initialRules, servers, playbooks = [], canManage }: Props) {
 	const { t } = useI18n();
 	const { addToast } = useToast();
 	const [rules, setRules] = useState(initialRules);
@@ -213,7 +216,7 @@ export function AlertRuleListClient({ rules: initialRules, servers, canManage }:
 			)}
 
 			{showCreate && (
-				<CreateRuleForm servers={servers} onClose={() => { setShowCreate(false); refresh(); }} />
+				<CreateRuleForm servers={servers} playbooks={playbooks} onClose={() => { setShowCreate(false); refresh(); }} />
 			)}
 
 			{rules.length === 0 ? (
@@ -255,6 +258,11 @@ export function AlertRuleListClient({ rules: initialRules, servers, canManage }:
 						{(rule.silenceWindows?.length ?? 0) > 0 && (
 							<span className="rounded-lg border border-violet-400/20 bg-violet-400/10 px-1.5 py-0.5 text-[10px] text-violet-200">
 								{t("alertRulesPage.badge.silence").replace("{windows}", rule.silenceWindows?.join("、") ?? "")}
+							</span>
+						)}
+						{(rule.playbookIds?.length ?? 0) > 0 && (
+							<span className="rounded-lg border border-[var(--color-action-border)]/20 bg-[var(--color-action-bg)]/10 px-1.5 py-0.5 text-[10px] text-[var(--color-action)]">
+								{t("alertRulesPage.badge.playbooks").replace("{count}", String(rule.playbookIds?.length ?? 0))}
 							</span>
 						)}
 									</div>
@@ -302,7 +310,7 @@ export function AlertRuleListClient({ rules: initialRules, servers, canManage }:
 
 /* ── Create form ──────────────────────────────────────────── */
 
-function CreateRuleForm({ servers, onClose }: { servers: ServerOption[]; onClose: () => void }) {
+function CreateRuleForm({ servers, playbooks, onClose }: { servers: ServerOption[]; playbooks: PlaybookOption[]; onClose: () => void }) {
 	const { t } = useI18n();
 	const [name, setName] = useState("");
 	const [metric, setMetric] = useState("cpu_usage");
@@ -310,6 +318,7 @@ function CreateRuleForm({ servers, onClose }: { servers: ServerOption[]; onClose
 	const [threshold, setThreshold] = useState(85);
 	const [durationSeconds, setDurationSeconds] = useState(0);
 	const [selectedServerIds, setSelectedServerIds] = useState<string[]>([]);
+	const [selectedPlaybookIds, setSelectedPlaybookIds] = useState<string[]>([]);
 	const [cooldown, setCooldown] = useState(30);
 	const [silenceWindowsText, setSilenceWindowsText] = useState("");
 	const [channels, setChannels] = useState<string[]>(["in_app"]);
@@ -323,6 +332,10 @@ function CreateRuleForm({ servers, onClose }: { servers: ServerOption[]; onClose
 
 	const toggleServer = (serverId: string) => {
 		setSelectedServerIds((prev) => prev.includes(serverId) ? prev.filter((id) => id !== serverId) : [...prev, serverId]);
+	};
+
+	const togglePlaybook = (playbookId: string) => {
+		setSelectedPlaybookIds((prev) => prev.includes(playbookId) ? prev.filter((id) => id !== playbookId) : [...prev, playbookId]);
 	};
 
 	const handleSubmit = async (e: React.FormEvent) => {
@@ -341,6 +354,7 @@ function CreateRuleForm({ servers, onClose }: { servers: ServerOption[]; onClose
 					threshold,
 					durationSeconds,
 					serverIds: selectedServerIds,
+					playbookIds: selectedPlaybookIds,
 					notifyChannels: channels,
 					cooldownMinutes: cooldown,
 					silenceWindows,
@@ -416,6 +430,22 @@ function CreateRuleForm({ servers, onClose }: { servers: ServerOption[]; onClose
 							</>
 						)}
 					</div>
+				</div>
+			</div>
+
+			<div className="space-y-1.5 rounded-xl border border-[var(--border)] bg-[var(--surface)]/[0.04] p-3">
+				<label className="text-xs font-medium text-[var(--text-primary)]/70 tracking-wide">{t("alertRulesPage.createForm.playbooks")}</label>
+				<p className="text-xs text-[var(--text-muted)]">{t("alertRulesPage.createForm.playbooksHint")}</p>
+				<div className="mt-2 flex flex-wrap gap-1.5">
+					{playbooks.length === 0 ? (
+						<span className="text-xs text-[var(--text-muted)]">{t("alertRulesPage.createForm.noPlaybooks")}</span>
+					) : (
+						playbooks.map((playbook) => (
+							<button key={playbook.id} type="button" onClick={() => togglePlaybook(playbook.id)} disabled={!playbook.enabled} className={`rounded-lg border px-2.5 py-1 text-[11px] transition disabled:cursor-not-allowed disabled:opacity-50 ${selectedPlaybookIds.includes(playbook.id) ? "border-[var(--color-action-border)]/30 bg-[var(--color-action-bg)]/10 text-[var(--text-secondary)]" : "border-[var(--border)] bg-[var(--surface)]/[0.04] text-[var(--text-muted)] hover:bg-[var(--surface)]/[0.10]"}`}>
+								{playbook.name}{!playbook.enabled ? ` · ${t("alertRulesPage.createForm.playbookDisabled")}` : ""}
+							</button>
+						))
+					)}
 				</div>
 			</div>
 

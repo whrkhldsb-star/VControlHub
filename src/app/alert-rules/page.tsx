@@ -2,6 +2,7 @@ import { requireSession } from "@/lib/auth/require-session";
 import { sessionHasPermission } from "@/lib/auth/authorization";
 import { listAlertRules } from "@/lib/alert/service";
 import { listServerProfiles } from "@/lib/server/service";
+import { listPlaybooks } from "@/lib/playbook/service";
 import { getServerLocale, t } from "@/lib/i18n/translations";
 
 import { AlertRuleListClient } from "./alert-rule-list-client";
@@ -14,15 +15,17 @@ export default async function AlertRulesPage() {
 	const canManage = sessionHasPermission(session, "notification:manage");
 	const locale = await getServerLocale();
 
-	const [rules, servers] = await Promise.all([
+	const [rules, servers, playbooks] = await Promise.all([
 		canManage ? listAlertRules() : Promise.resolve([]),
 		listServerProfiles(),
+		canManage ? listPlaybooks() : Promise.resolve([]),
 	]);
 
 	const serialized = rules.map((r) => ({
 		id: r.id, name: r.name, metric: r.metric, operator: r.operator,
 		threshold: r.threshold, durationSeconds: r.durationSeconds,
 		serverIds: r.serverIds, notifyChannels: r.notifyChannels,
+		playbookIds: r.playbookIds ?? [],
 		webhookConfigured: Boolean(r.webhookUrl), cooldownMinutes: r.cooldownMinutes,
 		silenceWindows: r.silenceWindows ?? [],
 		enabled: r.enabled, lastTriggeredAt: r.lastTriggeredAt?.toISOString() ?? null,
@@ -30,6 +33,7 @@ export default async function AlertRulesPage() {
 	}));
 
 	const serverOptions = servers.map((s) => ({ id: s.id, name: s.name }));
+	const playbookOptions = playbooks.map((p) => ({ id: p.id, name: p.name, enabled: p.enabled }));
 
 	return (
 		<PageShell maxW="max-w-7xl">
@@ -38,7 +42,7 @@ export default async function AlertRulesPage() {
 				title={t("alertRulesPage.title", locale)}
 				description={t("alertRulesPage.desc", locale)}
 			/>
-			<AlertRuleListClient rules={serialized} servers={serverOptions} canManage={canManage} />
+			<AlertRuleListClient rules={serialized} servers={serverOptions} playbooks={playbookOptions} canManage={canManage} />
 		</PageShell>
 	);
 }

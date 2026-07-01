@@ -25,6 +25,7 @@ describe("RBAC defaults", () => {
       "share:read",
       "storage:read",
       "task:read",
+      "team:read",
       "ticket:create",
       "ticket:read",
       "user:read",

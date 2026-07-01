@@ -51,6 +51,9 @@ vi.mock("@/lib/db", () => ({
 		costEntry: {
 			findMany: findManyMock,
 		},
+		server: {
+			findMany: findManyMock,
+		},
 	},
 }));
 

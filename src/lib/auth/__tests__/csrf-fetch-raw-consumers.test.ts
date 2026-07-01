@@ -24,8 +24,8 @@ describe("csrfFetch Response consumers", () => {
 		);
 
 		expect(counts).toEqual({
-			"src/app/ai-ops/ai-ops-page-client.tsx": 5,
-			"src/app/cost-summary/cost-page-client.tsx": 5,
+			"src/app/ai-ops/ai-ops-page-client.tsx": 6,
+			"src/app/cost-summary/cost-page-client.tsx": 6,
 			"src/app/backups/offsite-dry-run-button.tsx": 1,
 		});
 	});

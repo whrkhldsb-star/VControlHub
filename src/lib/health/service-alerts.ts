@@ -13,6 +13,7 @@ import { sendAlertEmail } from "@/lib/notification/email";
 import { sendAlertTelegram } from "@/lib/notification/telegram";
 import { createNotification } from "@/lib/notification/service";
 import { fetchWebhookSafely } from "@/lib/security/webhook-url";
+import { runPlaybook } from "@/lib/playbook/service";
 
 import { collectAllHealth } from "./service-collect";
 import { isNowInAlertSilenceWindow } from "./service-types";
@@ -34,6 +35,7 @@ export async function evaluateAlerts() {
 			silenceWindows: true,
 			serverIds: true,
 			notifyChannels: true,
+			playbookIds: true,
 			webhookUrl: true,
 		},
 		take: 200,
@@ -247,6 +249,29 @@ export async function evaluateAlerts() {
 					});
 				} catch {
 					/* telegram best-effort */
+				}
+			}
+
+			for (const playbookId of rule.playbookIds ?? []) {
+				try {
+					await runPlaybook({
+						playbookId,
+						dryRun: false,
+						triggerContext: {
+							type: "alert_rule",
+							alertRuleId: rule.id,
+							alertRuleName: rule.name,
+							serverId: server.serverId,
+							serverName: server.serverName,
+							metric: rule.metric,
+							operator: rule.operator,
+							threshold: rule.threshold,
+							value,
+							triggeredAt: now.toISOString(),
+						},
+					});
+				} catch {
+					/* playbook automation is best-effort; notification already fired */
 				}
 			}
 
