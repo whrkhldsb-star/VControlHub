@@ -343,56 +343,82 @@ make logs SERVICE_PREFIX=vcontrolhub
 | 数据模型        | 55                                               |
 | UI 组件         | 29                                               |
 | 代码行数        | ~163,800（src 扫描）                             |
-| 测试            | 358 文件 / ~2,470 tests                          |
+| 测试            | 365 文件 / ~2,470 tests                          |
 | Docker 应用模板 | 44 (本地) + 社区源实时同步                       |
 | i18n            | 142 useI18n() 调用点，76 字典文件，195 light: 语义 |
 
 ---
 
-## 🔬 全量代码审查（2026-07-01 复核）
+## 🔬 全量代码审查（2026-07-02 新一轮深度审计）
 
-**审查范围**：~163,800 行 TypeScript/TSX，122 API 路由，46 页面，55 数据模型，372 测试文件。
-**方法**：静态 grep 信号 + 架构分析 + verify 链（tsc + lint + i18n:key-check + 测试全通过 + build + build:runtime）+ 浏览器实地走查。
+**审查范围**：~163,800 行 TypeScript/TSX，122 API 路由，46 页面，55 数据模型，1176 源文件，365 测试文件。
+**方法**：三路并行子代理（后端安全 / 前端 UX / 架构基础设施）+ 交叉验证 grep 扫描 + 依赖审计 + Prisma schema 分析 + CI/CD 审查。
 
-### ✅ 现状健康评估
+### 📊 现状健康评估（订正版）
 
 | 维度 | 评分 | 说明 |
 | --- | --- | --- |
-| 代码质量 | 9/10 | 0 `@ts-ignore`，0 循环依赖，0 prisma 在 client |
-| 认证/授权 | 10/10 | 122 路由覆盖，9 个豁免全合理（login/share/2fa/openapi/sftp-upload 等特殊流） |
-| 安全 | 9/10 | DOMPurify 全覆盖，CSRF 防护，AES-256 加密；npm audit 0 vulnerabilities |
-| 测试 | 9/10 | 372 文件 / 2,608 tests pass，tsc + lint 0 错误 |
-| i18n | 9/10 | 142 useI18n()，76 字典文件，195 light: 全语义 |
-| 前端 UX | 8/10 | 多 Tab SSH 终端 + SFTP 文件管理 + 浅色模式 Q-layer 兼容层 |
-| 架构 | 9/10 | findMany take 上界全部接线（27/27），122 路由全部走 TR-034 统一错误格式，durable job worker + 定时调度 |
-| 运维 | 9/10 | systemd + caddy + smoke + 双 build 全套完整 + 定时备份调度 + 异地 S3 |
-| **综合** | **8.9/10** | **结构健康，待办清单已全部清零** |
+| 代码质量 | 7/10 | 0 `@ts-ignore`，0 循环依赖；但 7 处 `any` 类型、6 处 `eslint-disable`、12 个文件 >500 行需拆分 |
+| 认证/授权 | 9/10 | 122 路由覆盖，9 个豁免合理；1 个客户端页面（`/offline`）无服务端 guard（可接受） |
+| 安全 | 9/10 | DOMPurify 全覆盖，CSRF 防护，AES-256 加密；npm audit 0 vulnerabilities；6 处 `window.confirm` 需替换为无障碍弹窗 |
+| 测试 | 6/10 | 365 文件 / ~2,470 tests pass；但 67 个 API 路由无测试、184 个 lib 文件无测试、17/29 组件无测试 |
+| i18n | 5/10 | 142 useI18n() 调用点 + 76 字典文件；但 **13 个文件含大量硬编码中文**（health-dashboard 92 处、settings/field-schema 194 处、share-row-actions 0% i18n） |
+| 前端 UX | 6/10 | 11 个路由缺 error.tsx + loading.tsx；0 处 React.memo；30+ 图标按钮缺 aria-label；278 处硬编码色彩类 |
+| 架构 | 6/10 | **131 处 findMany 无 take 上界**（README 旧称 27/27 已接线，实际偏差大）；30+ 外键缺 @@index；45 个 @relation 无 onDelete 级联 |
+| 运维 | 8/10 | systemd + caddy + smoke + 双 build 完整；CI 缺 build:runtime 步骤；无端到端测试 |
+| **综合** | **6.7/10** | **结构基本健康，但存在大量可操作的优化空间** |
 
 ---
 
-## 🎨 UI 架构升级摘要
+## 📋 优化升级待办清单（2026-07-02 审计）
 
-**浅色模式 Q-layer 兼容层**已移除：139 文件 ~2364 处硬编码已全部替换为显式 CSS 变量，globals.css Q-layer 规则删除（-1347 行）。深色/浅色切换通过 CSS 变量直接完成，**当前无可见 bug**。
+### 🔴 P1 — 高优先级（影响用户体验或数据完整性）
 
-**cyan 散落用法**已收敛：132 文件 ~750 处 `cyan-*` 替换为 `--color-action*` token 体系。**文字 opacity** 已从 7 档合并为 4 档（low/mid/high/full），106 文件 420 处。
+| # | 问题 | 涉及文件 | 严重度 | 建议修复 |
+| --- | --- | --- | --- | --- |
+| 1 | **i18n 硬编码中文：health-dashboard** — 92 处 `zh:/en:` 双语对象未走 i18n 字典 | `src/app/health/health-dashboard-client.tsx` | Critical | 提取 healthCopy 对象到 `i18n/health-page.ts` 字典文件 |
+| 2 | **i18n 硬编码中文：global-error** — 全中文页面，`html lang="zh-CN"` 硬编码 | `src/app/global-error.tsx` | Critical | 全局错误页无法用 useI18n，应双语并列显示或通过 cookie 检测 locale |
+| 3 | **i18n 硬编码中文：share-row-actions** — 无 useI18n 导入，10+ 处硬编码 | `src/app/shares/share-row-actions.tsx` | Critical | 接入 useI18n + 添加 `i18n/shares-page.ts` 字典 key |
+| 4 | **i18n 硬编码中文：scheduled-tasks** — 13 处表单标签和按钮文案 | `src/app/scheduled-tasks/scheduled-task-list-client.tsx` | High | 接入 useI18n |
+| 5 | **i18n 硬编码中文：docker-resources** — 10+ 处含 `window.confirm("确认删除...")` | `src/app/docker/docker-resources-panel.tsx` | High | 接入 useI18n + 替换 confirm |
+| 6 | **i18n 硬编码中文：team-workspace** — 15+ 处含 `confirm("确定删除团队...")` | `src/app/settings/team-workspace-section.tsx` | High | 接入 useI18n + 替换 confirm |
+| 7 | **i18n 硬编码中文：settings/field-schema** — 194 处中文（最大硬编码源） | `src/app/settings/field-schema.ts` | High | 提取到 i18n 字典 |
+| 8 | **i18n 硬编码中文：notification-bell** — 用 `locale === "zh" ?` 而非 i18n key | `src/components/notification-bell.tsx` | High | 迁移到 useI18n |
+| 9 | **i18n 硬编码中文：global-search** — 30+ 处中文 fallback label | `src/components/global-search.tsx` | High | 迁移到 useI18n |
+| 10 | **缺少 error.tsx：11 个路由** — 未捕获错误显示空白页 | `qa-reports/`, `qa-reports/[id]/`, `media/[id]/`, `tickets/[id]/`, `dashboard/`, `cost-summary/`, `ai-ops/`, `traffic/`, `share/[token]/`, `login/verify-2fa/`, `offline/` | High | 每个路由添加 `error.tsx` 错误边界 |
+| 11 | **缺少 loading.tsx：同 11 个路由** — 数据加载时显示空白 | 同上 | High | 每个路由添加 `loading.tsx` 骨架屏 |
+| 12 | **window.confirm 替换** — 6 处用原生 confirm 而非无障碍弹窗 | `docker-resources-panel.tsx`, `team-workspace-section.tsx`, `downloads-client.tsx`, `schedule-backup-form.tsx`, `ssh-file-manager.tsx` | High | 替换为项目已有的 `pendingDelete` + modal 模式 |
 
-**数据获取层抽象**：`useRefreshInterval` 消除 4 处重复轮询样板；`useResourcePolling` 统一 loading/refreshing/error/data + 可见性感知轮询 + 重叠去重。新页面接数据从 ~50 行手写样板降到 3 行 hook 调用。
+### 🟡 P2 — 中优先级（架构优化与性能提升）
 
----
+| # | 问题 | 涉及文件 | 建议修复 |
+| --- | --- | --- | --- |
+| 13 | **findMany 无 take 上界：131 处** — README 旧称 27/27 已接线，实际 131 处无 take | `src/app/api/images/`, `src/app/storage/actions.ts`, `src/app/api/users/`, `src/app/api/system/uptime/` 等 | 按优先级分批添加 `take` 上界：用户列表 50、管理列表 200、内部批处理 500 |
+| 14 | **外键缺 @@index：30+ 列** — 查询涉及外键 WHERE/JOIN 时全表扫描 | `prisma/schema.prisma` — TeamMember(team, user), UserRole(user, role), RolePermission(role, permission), CommandApproval(commandRequest, approver), FileEntry(storageNode), Notification(user), DownloadTask(server), ApiToken(creator), Ticket(creator) 等 | 添加 `@@index([fkField])`，用 `npx prisma db push` 应用 |
+| 15 | **@relation 无 onDelete：45 个** — 删除父记录时可能留下孤儿行或报错 | `prisma/schema.prisma` — FileEntry→StorageNode, Notification→User, DownloadTask→Server, AiMessage→Conversation 等 | 按业务语义添加 `onDelete: Cascade`（子记录随父删除）或 `onDelete: SetNull`（保留但置空） |
+| 16 | **N+1 查询：import-service** — 10+ 个 `for-of + await prisma.upsert` 循环 | `src/lib/system/import-service.ts` | 改用 `createMany({ skipDuplicates: true })` + 批量 update |
+| 17 | **N+1 查询：images/batch** — 循环内逐条 `await deleteImageVariants()` | `src/app/api/images/batch/route.ts:66` | 改用 `Promise.allSettled()` 并行删除 |
+| 18 | **React.memo 缺失：0 处** — 列表项组件无记忆化，轮询时全量重渲染 | `notifications/`, `downloads/`, `operation-tasks/`, `snippets/`, `announcements/`, `playbooks/` 等 10+ 列表页 | 提取列表项组件 + `React.memo` 包装 |
+| 19 | **硬编码色彩类：278 处** — emerald/rose/amber 未用 `data-tone` | `src/components/` + `src/app/` 广泛分布 | 迁移到 `data-tone="emerald|rose|amber"` 语义属性 |
+| 20 | **aria-label 缺失：30+ 按钮** — 图标按钮无无障碍标签 | `notification-bell.tsx`, `downloads-client.tsx`, `docker-page-client.tsx`, `operation-task-list-client.tsx` 等 | 添加 `aria-label` 属性 |
+| 21 | **SVG 缺原生 width/height：~15 处** — CSS 加载失败时图标尺寸崩溃 | `language-toggle.tsx`, `global-search.tsx`, `notification-bell.tsx`, `theme-toggle.tsx`, `nav-items.tsx`, `ai/ai-message-list.tsx` 等 | 添加 `width`/`height` HTML 属性 |
+| 22 | **大文件拆分：12 个 >500 行** | `text-preview-client.tsx`(990), `playbook-list-client.tsx`(844), `files-browser-spa.tsx`(827), `ai-ops-page-client.tsx`(699), `health-dashboard-client.tsx`(674), `cost-page-client.tsx`(668), `image-bed-page-client.tsx`(653), `quick-services-client.tsx`(598), `server-overview-details.tsx`(592), `downloads-client.tsx`(565), `ssh-file-manager.tsx`(562), `ssh-terminal-modal.tsx`(530) | 按功能拆分为子组件 |
+| 23 | **CI 缺 build:runtime 步骤** — CI 只跑 `npm run build`，不验证 runtime bundle | `.github/workflows/ci.yml` | 添加 `npm run build:runtime` 步骤 |
+| 24 | **any 类型：7 处** — 非 test 代码中的 `any` | `src/app/status/page.tsx`(4处), `src/app/api/system/uptime/all/route.ts`(2处), `src/app/api/servers/[id]/uptime/route.ts`(1处), `src/lib/uptime/aggregate.ts`(1处) | 定义正确的 TypeScript 接口 |
 
-## 📋 待办清单
+### 🟢 P3 — 低优先级（技术债务与依赖更新）
 
-> **全部完成。** 原 P1/P2/P3 共 20+ 项已全部实现并验证通过，包括：TR-023 自动化工作流闭环、TR-030 多租户团队空间、TR-031 成本追踪自动同步、TR-032 智能 AI 运维、TR-033 PWA 离线、TR-041 OS 方言适配、TR-042 配置导入导出、TR-043 VPS 远程备份、TR-011 快捷服务增强、Playbook 拖拽排序、历史可用率图表、跨大版本依赖验证、npm 安全漏洞清零、浅色模式 Q-layer 移除、cyan token 收敛、opacity 合并等。每项均有对应 commit + 测试覆盖 + 生产部署。
-
----
-
-### 🧱 长期路线图（参考方向，非具体待办）
-
-- **测试覆盖率提升** — 当前 lines 74.88% / branches 59.93%，CI 阈值 lines/statements/functions 70%、branches 55%；可随测试补齐逐步收紧。
-- **组件文档持续维护** — `src/components/README.md` 已建立；新增共享组件时同步追加说明。
-- **AI 客户端工具扩展** — 已有 13 项 hosted tools（`list_servers` / `get_server_status` / `read_server_logs` / `list_docker_containers` / `check_service_status` / `execute_command` / `restart_service` / `modify_config` / `deploy_docker` / `list_backups` / `run_playbook` / `query_traffic` / `manage_cron`），可继续扩展覆盖更多运维场景。
-- **多租户资源级隔离** — 当前 Team/TeamMember 骨架已就位，后续可在 Team 基础上逐表接入资源级 scoping。
-- **PWA 集成市场** — 离线支持已完成，集成市场作为长期扩展方向。
+| # | 问题 | 涉及文件 | 建议修复 |
+| --- | --- | --- | --- |
+| 25 | **测试覆盖空白：67 API 路由无测试** | `src/app/api/ai/**` (17个), `src/app/api/auth/2fa/**` (4个), `src/app/api/playbooks/**` (4个), `src/app/api/backup-schedules/**`, `src/app/api/deployments/[id]/rollback/`, `src/app/api/audit/**` 等 | 按关键路径优先补测：auth/2FA → AI → playbooks → backup → audit |
+| 26 | **测试覆盖空白：184 lib 文件无测试** | `src/lib/auth/**` (11个), `src/lib/backup/**` (8个), `src/lib/ai/**` (8个) 等 | 优先补测 auth、backup、SSH 相关模块 |
+| 27 | **测试覆盖空白：17/29 组件无测试** | `ui-primitives.tsx`, `page-shell.tsx`, `global-search.tsx`, `ssh-file-manager.tsx`, `ssh-terminal-panel.tsx`, `notification-bell.tsx` 等 | 优先补测 ui-primitives 和 page-shell |
+| 28 | **依赖更新可用** | `package.json` | eslint 9→10(大版本), next 16.2.9→16.2.10(补丁), react 19.2.4→19.2.7(补丁), sharp 0.34→0.35(小版本) — 建议先跑补丁版本 |
+| 29 | **i18n 字典文件命名不一致** — 7 组重复前缀 | `servers-page.ts` + `servers.ts`, `docker-page.ts` + `docker.ts`, `monitoring-page.ts` + `monitoring.ts` 等 | 合并为每功能域单文件 |
+| 30 | **models 缺 @@map()** — 20 个模型表名为 PascalCase | `prisma/schema.prisma` — User, Role, Permission, SshKey, StorageNode, FileEntry, Playbook 等 | 添加 `@@map("snake_case_name")` 统一表名规范 |
+| 31 | **dark: 无 light: 配对：15 处** | `notification-bell.tsx`, `snippet-list-client.tsx`, `operation-task-list-client.tsx`, `offline/page.tsx` 等 | 替换为项目 `light:` 前缀或 CSS 变量 |
+| 32 | **dompurify 未 code-split** — 客户端组件直接导入 | `src/app/files/preview/text-preview-client.tsx`, `markdown-preview-client.tsx` | 改用 `next/dynamic` 懒加载 |
+| 33 | **无端到端测试** — 仅有单元/集成测试 | 项目级别 | 可引入 Playwright 覆盖关键用户流程（登录→服务器管理→文件操作） |
 
 ---
 
@@ -403,5 +429,8 @@ make logs SERVICE_PREFIX=vcontrolhub
 - **`csrf_token` cookie 不能加 `HttpOnly`** — 走 Double-Submit Cookie 模式，client 必须 `document.cookie` 读 token；加 `HttpOnly` 会直接破坏 CSRF 防护。承载身份的 session cookie 已 `httpOnly: true`，组合已满足 OWASP 推荐。`src/lib/auth/csrf-client.ts` 顶部已加 JSDoc。
 - **`effect` / `@electric-sql/pglite*` 不能 `npm remove`** — 两者均为 `prisma@7.8.0` 的 transitive dependency，不在 `package.json` 顶层；验证 `npm ls effect` / `npm ls @electric-sql/pglite`。瘦身需 prisma 主动减少，非项目侧可解。
 - **"4 个核心页面缺 PageHeader" 假阳性** — `/ai` 是聊天 UI、`/storage` 只 redirect、`/media` 与 `/image-bed` 已具备 eyebrow/title/description（自定义 hero header），无需补齐。
+- **`/offline` 是客户端页面无服务端 guard** — 合理设计：离线页需在无网络时渲染，不能依赖服务端 session。
+- **`bg-black/60` modal 背景在浅色模式下也合理** — 黑色半透明遮罩在深色/浅色主题下均为通用模式，无需额外适配。
+- **`window.confirm` 中 ssh-file-manager 和 backups 已用 i18n key** — 但仍应替换为无障碍弹窗组件（P1-#12）。
 
 ## 📄 许可
