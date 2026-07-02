@@ -15,186 +15,11 @@ type SystemHealthSummary = { total: number; healthy: number; warning: number; cr
 
 type Props = { serverCount: number; initialSystemHealth?: SystemHealthReport | null };
 
-type HealthCopy = {
-	statusLabels: Record<string, string>;
-	summaryCards: { total: string; online: string; warning: string; critical: string; offline: string };
-	ui: {
-		selfCheck: string;
-		collectingMetrics: string;
-		repairSuggestions: string;
-		checksSummary: (summary: SystemHealthSummary) => string;
-		auditLog: string;
-		home: string;
-		suggestedAction: string;
-		lastRefresh: string;
-		overallCritical: string;
-		overallWarning: string;
-		overallHealthy: string;
-		refreshAria: string;
-		refreshing: string;
-		refresh: string;
-		autoRefresh: string;
-		toggleAutoRefreshAria: string;
-		autoRefreshOff: string;
-		autoRefreshEvery: (label: string) => string;
-		autoRefreshPaused: (label: string) => string;
-		healthUnavailable: string;
-		retrying: string;
-		retryLoad: string;
-		node: string;
-		status: string;
-		memory: string;
-		disk: string;
-		uptime: string;
-		details: string;
-		collapse: string;
-		trend: string;
-		trendHeading: (name: string) => string;
-	};
-	repair: Record<string, Pick<RepairSuggestion, "label" | "description" | "action" | "descriptionCritical" | "descriptionWarning">>;
-};
-
-const healthCopy: Record<"zh" | "en", HealthCopy> = {
-	zh: {
-		statusLabels: { healthy: "正常", warning: "警告", critical: "严重", offline: "离线", unknown: "未知" },
-		summaryCards: { total: "节点总数", online: "在线正常", warning: "性能警告", critical: "严重告警", offline: "离线/停用" },
-		ui: {
-			selfCheck: "系统自检",
-			collectingMetrics: "正在采集自检指标…",
-			repairSuggestions: "修复建议",
-			checksSummary: (summary) => `${summary.total} 项检查 · ${summary.healthy} 正常 · ${summary.warning} 警告 · ${summary.critical} 严重`,
-			auditLog: "看审计日志",
-			home: "回到首页",
-			suggestedAction: "建议动作：",
-			lastRefresh: "上次刷新",
-			overallCritical: "有严重告警",
-			overallWarning: "有警告项",
-			overallHealthy: "当前整体正常",
-			refreshAria: "刷新健康状态",
-			refreshing: "正在刷新...",
-			refresh: "🔄 刷新",
-			autoRefresh: "自动刷新",
-			toggleAutoRefreshAria: "切换健康状态自动刷新",
-			autoRefreshOff: "已关闭",
-			autoRefreshEvery: (label) => `每 ${label}`,
-			autoRefreshPaused: (label) => `已暂停 · ${label}`,
-			healthUnavailable: "健康状态暂不可用",
-			retrying: "正在重试...",
-			retryLoad: "重试加载健康状态",
-			node: "节点",
-			status: "状态",
-			memory: "内存",
-			disk: "磁盘",
-			uptime: "运行时间",
-			details: "详情",
-			collapse: "收起 ▲",
-			trend: "趋势 ▼",
-			trendHeading: (name) => `${name} — 过去 24h 趋势`,
-		},
-		repair: {
-			db: {
-				label: "检查数据库连接",
-				description: "数据库状态正常，可继续关注业务层告警。",
-				descriptionCritical: "优先确认数据库与环境变量是否正常，必要时重载服务并检查日志。",
-				action: "验证 DATABASE_URL、数据库进程和 Prisma 连接",
-			},
-			runtime: {
-				label: "确认运行目录",
-				description: "运行目录基线已就绪。",
-				descriptionWarning: "部署目录或缓存目录可能缺失，建议补齐并复查权限。",
-				action: "检查 storage / uploads / downloads / backups / logs / tmp",
-			},
-			services: {
-				label: "核对核心服务",
-				description: "核心服务在线，可继续检查业务功能。",
-				descriptionCritical: "优先确认 Next.js、SSH WS 与 Caddy 是否都在运行。",
-				action: "验证 vcontrolhub-next.service / vcontrolhub-ssh-ws.service / caddy.service",
-			},
-			git: {
-				label: "核对 GitHub 同步",
-				description: "本地提交与 origin/main 保持一致。",
-				descriptionWarning: "本地与远端可能不同步，建议确认最近推送是否完成。",
-				action: "比对本地 HEAD 与 origin/main",
-			},
-			audit: {
-				label: "复查审计高风险动作",
-				description: "可快速查看最近的命令执行、删除、权限和令牌操作。",
-				descriptionCritical: "系统已经出现严重告警，建议结合审计页先锁定最近的高风险操作。",
-				action: "查看 command.execute / storage.file_delete / api_token.create",
-			},
-		},
-		},
-	en: {
-		statusLabels: { healthy: "Healthy", warning: "Warning", critical: "Critical", offline: "Offline", unknown: "Unknown" },
-		summaryCards: { total: "Total Nodes", online: "Online Healthy", warning: "Performance Warnings", critical: "Critical Alerts", offline: "Offline/Disabled" },
-		ui: {
-			selfCheck: "System Self-check",
-			collectingMetrics: "Collecting self-check metrics…",
-			repairSuggestions: "Repair Suggestions",
-			checksSummary: (summary) => `${summary.total} checks · ${summary.healthy} healthy · ${summary.warning} warnings · ${summary.critical} critical`,
-			auditLog: "View Audit Log",
-			home: "Back Home",
-			suggestedAction: "Suggested action: ",
-			lastRefresh: "Last refresh",
-			overallCritical: "critical alerts present",
-			overallWarning: "warnings present",
-			overallHealthy: "overall healthy",
-			refreshAria: "Refresh health status",
-			refreshing: "Refreshing...",
-			refresh: "🔄 Refresh",
-			autoRefresh: "Auto refresh",
-			toggleAutoRefreshAria: "Toggle health auto refresh",
-			autoRefreshOff: "Off",
-			autoRefreshEvery: (label) => `Every ${label}`,
-			autoRefreshPaused: (label) => `Paused · ${label}`,
-			healthUnavailable: "Health status is temporarily unavailable",
-			retrying: "Retrying...",
-			retryLoad: "Retry loading health status",
-			node: "Node",
-			status: "Status",
-			memory: "Memory",
-			disk: "Disk",
-			uptime: "Uptime",
-			details: "Details",
-			collapse: "Collapse ▲",
-			trend: "Trend ▼",
-			trendHeading: (name) => `${name} — last 24h trend`,
-		},
-		repair: {
-			db: {
-				label: "Check database connection",
-				description: "Database checks are healthy; continue watching business-level alerts.",
-				descriptionCritical: "First confirm the database and environment variables, then reload services and inspect logs if needed.",
-				action: "Verify DATABASE_URL, database process, and Prisma connectivity",
-			},
-			runtime: {
-				label: "Confirm runtime directories",
-				description: "Runtime directory baseline is ready.",
-				descriptionWarning: "Deployment or cache directories may be missing; create them and recheck ownership.",
-				action: "Check storage / uploads / downloads / backups / logs / tmp",
-			},
-			services: {
-				label: "Verify core services",
-				description: "Core services are online; continue checking product workflows.",
-				descriptionCritical: "First confirm Next.js, SSH WS, and Caddy are all running.",
-				action: "Verify vcontrolhub-next.service / vcontrolhub-ssh-ws.service / caddy.service",
-			},
-			git: {
-				label: "Check GitHub sync",
-				description: "Local commits match origin/main.",
-				descriptionWarning: "Local and remote refs may differ; confirm the latest push completed.",
-				action: "Compare local HEAD with origin/main",
-			},
-			audit: {
-				label: "Review high-risk audit actions",
-				description: "Quickly inspect recent command execution, deletion, permission, and token actions.",
-				descriptionCritical: "Critical alerts are present; use the audit page to identify recent high-risk operations first.",
-				action: "Open command.execute / storage.file_delete / api_token.create",
-			},
-		},
-		},
-};
-
+/**
+ * Translates server-returned Chinese health-check labels/messages to English.
+ * The server-side health check returns Chinese strings (it doesn't know the
+ * client locale), so we translate them client-side via regex matching.
+ */
 function translateSystemHealthText(value: string, locale: "zh" | "en") {
 	if (locale !== "en") return value;
 	return value
@@ -242,53 +67,54 @@ type RepairSuggestion = {
 	href?: string;
 };
 
-const repairSuggestions = (summary: SystemHealthSummary | null | undefined, locale: "zh" | "en"): RepairSuggestion[] => {
+type TFunc = (key: string) => string;
+
+const repairSuggestions = (summary: SystemHealthSummary | null | undefined, t: TFunc): RepairSuggestion[] => {
 	if (!summary) return [];
-	const copy = healthCopy[locale];
 	return [
 		{
 			id: "db",
-			label: copy.repair.db!.label,
-			action: copy.repair.db!.action,
+			label: t("healthPage.repair.db.label"),
+			action: t("healthPage.repair.db.action"),
 			description: summary.critical > 0
-				? copy.repair.db!.descriptionCritical ?? copy.repair.db!.description
-				: copy.repair.db!.description,
+				? t("healthPage.repair.db.descriptionCritical")
+				: t("healthPage.repair.db.description"),
 			status: summary.critical > 0 ? "critical" : "healthy",
 		},
 		{
 			id: "runtime",
-			label: copy.repair.runtime!.label,
-			action: copy.repair.runtime!.action,
+			label: t("healthPage.repair.runtime.label"),
+			action: t("healthPage.repair.runtime.action"),
 			description: summary.warning > 0
-				? copy.repair.runtime!.descriptionWarning ?? copy.repair.runtime!.description
-				: copy.repair.runtime!.description,
+				? t("healthPage.repair.runtime.descriptionWarning")
+				: t("healthPage.repair.runtime.description"),
 			status: summary.warning > 0 ? "warning" : "healthy",
 		},
 		{
 			id: "services",
-			label: copy.repair.services!.label,
-			action: copy.repair.services!.action,
+			label: t("healthPage.repair.services.label"),
+			action: t("healthPage.repair.services.action"),
 			description: summary.critical > 0
-				? copy.repair.services!.descriptionCritical ?? copy.repair.services!.description
-				: copy.repair.services!.description,
+				? t("healthPage.repair.services.descriptionCritical")
+				: t("healthPage.repair.services.description"),
 			status: summary.critical > 0 ? "critical" : "healthy",
 		},
 		{
 			id: "git",
-			label: copy.repair.git!.label,
-			action: copy.repair.git!.action,
+			label: t("healthPage.repair.git.label"),
+			action: t("healthPage.repair.git.action"),
 			description: summary.warning > 0
-				? copy.repair.git!.descriptionWarning ?? copy.repair.git!.description
-				: copy.repair.git!.description,
+				? t("healthPage.repair.git.descriptionWarning")
+				: t("healthPage.repair.git.description"),
 			status: summary.warning > 0 ? "warning" : "healthy",
 		},
 		{
 			id: "audit",
-			label: copy.repair.audit!.label,
-			action: copy.repair.audit!.action,
+			label: t("healthPage.repair.audit.label"),
+			action: t("healthPage.repair.audit.action"),
 			description: summary.critical > 0
-				? copy.repair.audit!.descriptionCritical ?? copy.repair.audit!.description
-				: copy.repair.audit!.description,
+				? t("healthPage.repair.audit.descriptionCritical")
+				: t("healthPage.repair.audit.description"),
 			href: "/audit?action=command.execute",
 			status: summary.critical > 0 ? "critical" : "warning",
 		},
@@ -330,8 +156,7 @@ function usageBarColor(val: number | undefined, warn = 80, crit = 95): string {
 /* ── Component ────────────────────────────────────────────── */
 
 export function HealthDashboardClient({ serverCount, initialSystemHealth }: Props) {
-	const { locale } = useI18n();
-	const copy = healthCopy[locale];
+	const { locale, t } = useI18n();
 	const browserLocale = locale === "zh" ? "zh-CN" : "en-US";
 	const {
 		overview,
@@ -366,6 +191,13 @@ export function HealthDashboardClient({ serverCount, initialSystemHealth }: Prop
 		}
 	};
 
+	/** Template-string helper: replaces {placeholder} tokens in t() output. */
+	const tt = (key: string, vars?: Record<string, string | number>) => {
+		let s = t(key);
+		if (vars) for (const [k, v] of Object.entries(vars)) s = s.replace(`{${k}}`, String(v));
+		return s;
+	};
+
 	if (loading) {
 		// 骨架立即渲染：5 个概览卡用 "—" 占位 + 节点表骨架行（按 serverCount 数量）+ 系统自检骨架。
 		// 概览数据由 /api/health 拉到后替换；自检数据由 /api/system-health 拉到后替换。
@@ -373,12 +205,12 @@ export function HealthDashboardClient({ serverCount, initialSystemHealth }: Prop
 		return (
 			<div className="space-y-6" aria-busy="true" aria-live="polite">
 				{/* 系统自检骨架卡 */}
-				<section className="space-y-3 rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-4" aria-label={copy.ui.selfCheck}>
+				<section className="space-y-3 rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-4" aria-label={t("healthPage.ui.selfCheck")}>
 					<div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
 						<div className="min-w-0">
-							<p className="text-xs uppercase tracking-[0.25em] text-[var(--text-muted)]">{copy.ui.selfCheck}</p>
-							<h2 className="mt-1 text-lg font-semibold text-[var(--text-primary)]">{copy.ui.repairSuggestions}</h2>
-							<p className="mt-1 text-xs text-[var(--text-secondary)]">{copy.ui.collectingMetrics}</p>
+							<p className="text-xs uppercase tracking-[0.25em] text-[var(--text-muted)]">{t("healthPage.ui.selfCheck")}</p>
+							<h2 className="mt-1 text-lg font-semibold text-[var(--text-primary)]">{t("healthPage.ui.repairSuggestions")}</h2>
+							<p className="mt-1 text-xs text-[var(--text-secondary)]">{t("healthPage.ui.collectingMetrics")}</p>
 						</div>
 					</div>
 					<div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
@@ -389,18 +221,18 @@ export function HealthDashboardClient({ serverCount, initialSystemHealth }: Prop
 				</section>
 				{/* 概览数字卡（5 列）— 立即出现，数字位用 — 占位 */}
 				<section className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
-					<SummaryCard label={copy.summaryCards.total} value={serverCount > 0 ? serverCount : "—"} color="slate" />
-					<SummaryCard label={copy.summaryCards.online} value="—" color="emerald" />
-					<SummaryCard label={copy.summaryCards.warning} value="—" color="amber" />
-					<SummaryCard label={copy.summaryCards.critical} value="—" color="rose" />
-					<SummaryCard label={copy.summaryCards.offline} value="—" color="slate" />
+					<SummaryCard label={t("healthPage.summary.total")} value={serverCount > 0 ? serverCount : "—"} color="slate" />
+					<SummaryCard label={t("healthPage.summary.online")} value="—" color="emerald" />
+					<SummaryCard label={t("healthPage.summary.warning")} value="—" color="amber" />
+					<SummaryCard label={t("healthPage.summary.critical")} value="—" color="rose" />
+					<SummaryCard label={t("healthPage.summary.offline")} value="—" color="slate" />
 				</section>
 				{/* 工具行 — 占位但禁用刷新按钮 */}
 				<div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-					<div className="text-xs text-[var(--text-muted)]">{copy.ui.lastRefresh}: —</div>
+					<div className="text-xs text-[var(--text-muted)]">{t("healthPage.ui.lastRefresh")}: —</div>
 					<div className="flex flex-wrap items-center gap-3">
 						<button type="button" disabled className="min-h-11 inline-flex items-center rounded-lg border border-white/[0.10] bg-[var(--surface)] px-3 text-xs text-[var(--text-muted)] opacity-60">
-							{copy.ui.refreshing}
+							{t("healthPage.ui.refreshing")}
 						</button>
 					</div>
 				</div>
@@ -410,13 +242,13 @@ export function HealthDashboardClient({ serverCount, initialSystemHealth }: Prop
 						<table className="w-full text-sm">
 							<thead>
 								<tr className="border-b border-white/[0.10] bg-[var(--surface)]">
-									<th className="px-4 py-3 text-left text-xs font-medium text-[var(--text-muted)] uppercase tracking-wider">{copy.ui.node}</th>
-									<th className="px-4 py-3 text-left text-xs font-medium text-[var(--text-muted)] uppercase tracking-wider">{copy.ui.status}</th>
+									<th className="px-4 py-3 text-left text-xs font-medium text-[var(--text-muted)] uppercase tracking-wider">{t("healthPage.ui.node")}</th>
+									<th className="px-4 py-3 text-left text-xs font-medium text-[var(--text-muted)] uppercase tracking-wider">{t("healthPage.ui.status")}</th>
 									<th className="px-4 py-3 text-left text-xs font-medium text-[var(--text-muted)] uppercase tracking-wider">CPU</th>
-									<th className="px-4 py-3 text-left text-xs font-medium text-[var(--text-muted)] uppercase tracking-wider">{copy.ui.memory}</th>
-									<th className="px-4 py-3 text-left text-xs font-medium text-[var(--text-muted)] uppercase tracking-wider">{copy.ui.disk}</th>
-									<th className="px-4 py-3 text-left text-xs font-medium text-[var(--text-muted)] uppercase tracking-wider">{copy.ui.uptime}</th>
-									<th className="px-4 py-3 text-left text-xs font-medium text-[var(--text-muted)] uppercase tracking-wider">{copy.ui.details}</th>
+									<th className="px-4 py-3 text-left text-xs font-medium text-[var(--text-muted)] uppercase tracking-wider">{t("healthPage.ui.memory")}</th>
+									<th className="px-4 py-3 text-left text-xs font-medium text-[var(--text-muted)] uppercase tracking-wider">{t("healthPage.ui.disk")}</th>
+									<th className="px-4 py-3 text-left text-xs font-medium text-[var(--text-muted)] uppercase tracking-wider">{t("healthPage.ui.uptime")}</th>
+									<th className="px-4 py-3 text-left text-xs font-medium text-[var(--text-muted)] uppercase tracking-wider">{t("healthPage.ui.details")}</th>
 								</tr>
 							</thead>
 							<tbody className="divide-y divide-white/[0.04] light:divide-slate-200">
@@ -442,14 +274,14 @@ export function HealthDashboardClient({ serverCount, initialSystemHealth }: Prop
 	if (!overview) {
 		return (
 			<div data-tone="rose" className="rounded-xl border border-rose-400/20 p-4 text-sm text-rose-100" role="alert">
-				<div>{loadError ?? copy.ui.healthUnavailable}</div>
+				<div>{loadError ?? t("healthPage.ui.healthUnavailable")}</div>
 				<button
 					type="button"
 					onClick={fetchHealth}
 					disabled={isRefreshing}
 					className="mt-3 rounded-lg border border-rose-300/40 px-3 py-1.5 text-xs transition hover:bg-rose-300/10 disabled:cursor-not-allowed disabled:opacity-60"
 				>
-					{isRefreshing ? copy.ui.retrying : copy.ui.retryLoad}
+					{isRefreshing ? t("healthPage.ui.retrying") : t("healthPage.ui.retryLoad")}
 				</button>
 			</div>
 		);
@@ -470,19 +302,19 @@ export function HealthDashboardClient({ serverCount, initialSystemHealth }: Prop
 					<section className="space-y-3 rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-4">
 					<div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
 					<div className="min-w-0">
-						<p className="text-xs uppercase tracking-[0.25em] text-[var(--text-muted)]">{copy.ui.selfCheck}</p>
-						<h2 className="mt-1 text-lg font-semibold text-[var(--text-primary)]">{copy.ui.repairSuggestions}</h2>
+						<p className="text-xs uppercase tracking-[0.25em] text-[var(--text-muted)]">{t("healthPage.ui.selfCheck")}</p>
+						<h2 className="mt-1 text-lg font-semibold text-[var(--text-primary)]">{t("healthPage.ui.repairSuggestions")}</h2>
 						<p className="mt-1 text-xs text-[var(--text-secondary)]">
-							{copy.ui.checksSummary(systemHealth.summary)}
+							{tt("healthPage.ui.checksSummary", systemHealth.summary)}
 						</p>
 					</div>
 					<div className="flex flex-wrap gap-2 text-xs text-[var(--text-secondary)]">
-						<Link href="/audit" className="min-h-11 inline-flex items-center rounded-lg border border-[var(--border)] bg-[var(--surface)] px-3 transition hover:bg-[var(--sidebar-hover)]">{copy.ui.auditLog}</Link>
-						<Link href="/" className="min-h-11 inline-flex items-center rounded-lg border border-[var(--border)] bg-[var(--surface)] px-3 transition hover:bg-[var(--sidebar-hover)]">{copy.ui.home}</Link>
+						<Link href="/audit" className="min-h-11 inline-flex items-center rounded-lg border border-[var(--border)] bg-[var(--surface)] px-3 transition hover:bg-[var(--sidebar-hover)]">{t("healthPage.ui.auditLog")}</Link>
+						<Link href="/" className="min-h-11 inline-flex items-center rounded-lg border border-[var(--border)] bg-[var(--surface)] px-3 transition hover:bg-[var(--sidebar-hover)]">{t("healthPage.ui.home")}</Link>
 					</div>
 					</div>
 						<div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
-							{repairSuggestions(systemHealth.summary, locale).map((item) => {
+							{repairSuggestions(systemHealth.summary, t).map((item) => {
 								const tone = repairToneClasses[item.status];
 								return (
 									<article key={item.id} className={`rounded-xl border ${tone.border} ${tone.bg} p-4`}>
@@ -491,10 +323,10 @@ export function HealthDashboardClient({ serverCount, initialSystemHealth }: Prop
 											<span className={`rounded-full border px-2 py-0.5 text-[10px] ${tone.badge}`}>{item.status}</span>
 										</div>
 										<p className="mt-2 text-sm leading-6 text-[var(--text-secondary)]">{item.description}</p>
-										<p className="mt-3 text-xs text-[var(--text-secondary)]">{copy.ui.suggestedAction}{item.href ? <Link href={item.href} className="text-[var(--text-secondary)] transition hover:text-[var(--text-primary)]">{item.action}</Link> : item.action}</p>
+										<p className="mt-3 text-xs text-[var(--text-secondary)]">{t("healthPage.ui.suggestedAction")}{item.href ? <Link href={item.href} className="text-[var(--text-secondary)] transition hover:text-[var(--text-primary)]">{item.action}</Link> : item.action}</p>
 									</article>
 								);
-								})}
+							})}
 						</div>
 						<div className="grid gap-2 md:grid-cols-2">
 							{systemHealth.checks.map((check) => {
@@ -503,52 +335,52 @@ export function HealthDashboardClient({ serverCount, initialSystemHealth }: Prop
 									<div key={check.id} className={`rounded-xl border ${sc.bg} p-3`}>
 										<div className="flex items-center justify-between gap-3">
 											<div className="text-sm font-medium text-[var(--text-primary)]">{translateSystemHealthText(check.label, locale)}</div>
-											<span className={`rounded-full border px-2 py-0.5 text-[10px] ${sc.text}`}>{copy.statusLabels[check.status] ?? check.status}</span>
+											<span className={`rounded-full border px-2 py-0.5 text-[10px] ${sc.text}`}>{t("healthPage.status." + check.status)}</span>
 										</div>
 										<p className="mt-1 text-xs text-[var(--text-secondary)]">{translateSystemHealthText(check.message, locale)}</p>
 										{check.detail && <p className="mt-1 break-all text-[11px] text-[var(--text-muted)]">{translateSystemHealthText(check.detail, locale)}</p>}
 									</div>
 								);
-								})}
+							})}
 						</div>
 					</section>
 				</>
 			)}
 
 			<section className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
-				<SummaryCard label={copy.summaryCards.total} value={total} color="slate" />
-				<SummaryCard label={copy.summaryCards.online} value={online} color="emerald" />
-				<SummaryCard label={copy.summaryCards.warning} value={warning} color="amber" />
-				<SummaryCard label={copy.summaryCards.critical} value={critical} color="rose" />
-				<SummaryCard label={copy.summaryCards.offline} value={offline} color="slate" />
+				<SummaryCard label={t("healthPage.summary.total")} value={total} color="slate" />
+				<SummaryCard label={t("healthPage.summary.online")} value={online} color="emerald" />
+				<SummaryCard label={t("healthPage.summary.warning")} value={warning} color="amber" />
+				<SummaryCard label={t("healthPage.summary.critical")} value={critical} color="rose" />
+				<SummaryCard label={t("healthPage.summary.offline")} value={offline} color="slate" />
 			</section>
 			<div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
 				<div className="text-xs text-[var(--text-muted)]">
-					{copy.ui.lastRefresh}: {lastRefresh || "—"}
-					{overview.critical > 0 ? ` · ${copy.ui.overallCritical}` : overview.warning > 0 ? ` · ${copy.ui.overallWarning}` : ` · ${copy.ui.overallHealthy}`}
+					{t("healthPage.ui.lastRefresh")}: {lastRefresh || "—"}
+					{overview.critical > 0 ? ` · ${t("healthPage.ui.overallCritical")}` : overview.warning > 0 ? ` · ${t("healthPage.ui.overallWarning")}` : ` · ${t("healthPage.ui.overallHealthy")}`}
 				</div>
 				<div className="flex flex-wrap items-center gap-3">
 					<button
 						type="button"
 						onClick={fetchHealth}
 						disabled={isRefreshing}
-						aria-label={copy.ui.refreshAria}
+						aria-label={t("healthPage.ui.refreshAria")}
 						className="min-h-11 inline-flex items-center rounded-lg border border-white/[0.10] bg-[var(--surface)] px-3 text-xs text-[var(--text-secondary)] hover:bg-[var(--sidebar-hover)] transition disabled:cursor-not-allowed disabled:opacity-60"
-						>
-						{isRefreshing ? copy.ui.refreshing : copy.ui.refresh}
-						</button>
+					>
+						{isRefreshing ? t("healthPage.ui.refreshing") : t("healthPage.ui.refresh")}
+					</button>
 						<label className="flex min-h-11 items-center gap-2 text-xs text-[var(--text-secondary)]">
-						<span>{copy.ui.autoRefresh}</span>
+						<span>{t("healthPage.ui.autoRefresh")}</span>
 						<button
 							type="button"
 							onClick={() => setAutoRefresh(!autoRefresh)}
 							disabled={refreshIntervalSeconds <= 0}
-							aria-label={copy.ui.toggleAutoRefreshAria}
+							aria-label={t("healthPage.ui.toggleAutoRefreshAria")}
 							className={`relative h-4 w-8 min-h-11 min-w-11 rounded-full transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${autoRefresh ? "bg-[var(--color-action)]" : "bg-[var(--surface)]"}`}
-							>
+						>
 							<span className={`absolute left-1/2 top-1/2 h-3 w-3 -translate-x-1/2 -translate-y-1/2 rounded-full bg-[var(--text-primary)] shadow transition-transform ${autoRefresh ? "translate-x-2" : "-translate-x-3"}`} />
-							</button>
-							<span>{refreshIntervalSeconds <= 0 ? copy.ui.autoRefreshOff : autoRefresh ? copy.ui.autoRefreshEvery(getRefreshIntervalLabel(refreshIntervalSeconds)) : copy.ui.autoRefreshPaused(getRefreshIntervalLabel(refreshIntervalSeconds))}</span>
+						</button>
+						<span>{refreshIntervalSeconds <= 0 ? t("healthPage.ui.autoRefreshOff") : autoRefresh ? tt("healthPage.ui.autoRefreshEvery", { label: getRefreshIntervalLabel(refreshIntervalSeconds) }) : tt("healthPage.ui.autoRefreshPaused", { label: getRefreshIntervalLabel(refreshIntervalSeconds) })}</span>
 					</label>
 				</div>
 			</div>
@@ -559,13 +391,13 @@ export function HealthDashboardClient({ serverCount, initialSystemHealth }: Prop
 					<table className="w-full text-sm">
 						<thead>
 							<tr className="border-b border-white/[0.10] bg-[var(--surface)]">
-								<th className="px-4 py-3 text-left text-xs font-medium text-[var(--text-muted)] uppercase tracking-wider">{copy.ui.node}</th>
-								<th className="px-4 py-3 text-left text-xs font-medium text-[var(--text-muted)] uppercase tracking-wider">{copy.ui.status}</th>
+								<th className="px-4 py-3 text-left text-xs font-medium text-[var(--text-muted)] uppercase tracking-wider">{t("healthPage.ui.node")}</th>
+								<th className="px-4 py-3 text-left text-xs font-medium text-[var(--text-muted)] uppercase tracking-wider">{t("healthPage.ui.status")}</th>
 								<th className="px-4 py-3 text-left text-xs font-medium text-[var(--text-muted)] uppercase tracking-wider">CPU</th>
-								<th className="px-4 py-3 text-left text-xs font-medium text-[var(--text-muted)] uppercase tracking-wider">{copy.ui.memory}</th>
-								<th className="px-4 py-3 text-left text-xs font-medium text-[var(--text-muted)] uppercase tracking-wider">{copy.ui.disk}</th>
-								<th className="px-4 py-3 text-left text-xs font-medium text-[var(--text-muted)] uppercase tracking-wider">{copy.ui.uptime}</th>
-								<th className="px-4 py-3 text-left text-xs font-medium text-[var(--text-muted)] uppercase tracking-wider">{copy.ui.details}</th>
+								<th className="px-4 py-3 text-left text-xs font-medium text-[var(--text-muted)] uppercase tracking-wider">{t("healthPage.ui.memory")}</th>
+								<th className="px-4 py-3 text-left text-xs font-medium text-[var(--text-muted)] uppercase tracking-wider">{t("healthPage.ui.disk")}</th>
+								<th className="px-4 py-3 text-left text-xs font-medium text-[var(--text-muted)] uppercase tracking-wider">{t("healthPage.ui.uptime")}</th>
+								<th className="px-4 py-3 text-left text-xs font-medium text-[var(--text-muted)] uppercase tracking-wider">{t("healthPage.ui.details")}</th>
 							</tr>
 						</thead>
 						<tbody className="divide-y divide-white/[0.04]">
@@ -584,7 +416,7 @@ export function HealthDashboardClient({ serverCount, initialSystemHealth }: Prop
 										</td>
 										<td className="px-4 py-3">
 											<span className={`inline-flex items-center rounded-full border px-2 py-0.5 text-[11px] font-medium ${sc.bg} ${sc.text}`}>
-												{copy.statusLabels[server.status] ?? server.status}
+												{t("healthPage.status." + server.status)}
 											</span>
 										</td>
 										<td className="px-4 py-3">
@@ -604,7 +436,7 @@ export function HealthDashboardClient({ serverCount, initialSystemHealth }: Prop
 												onClick={() => toggleExpand(server.serverId)}
 												className="text-[11px] text-[var(--text-muted)] hover:text-[var(--text-secondary)] transition"
 											>
-												{expandedServer === server.serverId ? copy.ui.collapse : copy.ui.trend}
+												{expandedServer === server.serverId ? t("healthPage.ui.collapse") : t("healthPage.ui.trend")}
 											</button>
 										</td>
 									</tr>
@@ -619,7 +451,7 @@ export function HealthDashboardClient({ serverCount, initialSystemHealth }: Prop
 			{expandedServer && (history[expandedServer] || historyErrors[expandedServer]) && (
 				<section data-card className=" ">
 					<h3 className="text-sm font-medium text-[var(--text-secondary)] mb-4">
-						{copy.ui.trendHeading(overview.servers.find((s) => s.serverId === expandedServer)?.serverName ?? "")}
+						{tt("healthPage.ui.trendHeading", { name: overview.servers.find((s) => s.serverId === expandedServer)?.serverName ?? "" })}
 					</h3>
 					{historyErrors[expandedServer] ? (
 						<div role="alert" data-tone="rose" className="rounded-lg border border-rose-400/20 p-3 text-sm text-rose-100">
@@ -671,4 +503,3 @@ function UsageCell({ value }: { value: number | undefined }) {
 // component definition in a sibling file lets webpack split it into its
 // own chunk so the trend expansion can fetch the SVG on first click
 // instead of pulling it into the initial /health bundle.
-
