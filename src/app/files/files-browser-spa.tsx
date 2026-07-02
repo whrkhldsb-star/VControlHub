@@ -356,7 +356,7 @@ function FolderTreeClient({
                 aria-label={child.name}
                 className="flex min-w-0 flex-1 items-center justify-between px-2 py-2 text-left text-sm"
               >
-                <span className="truncate">
+                <span className="truncate" title={child.displayName ?? child.name}>
                   📁 {child.displayName ?? child.name}
                 </span>
                 <span
@@ -519,7 +519,7 @@ export function FilesBrowserSpa({
   );
 
   return (
-    <section className="mt-8 grid gap-8 xl:grid-cols-[320px_minmax(0,1fr)]">
+    <section className="mt-8 grid min-w-0 gap-8 xl:grid-cols-[360px_minmax(0,1fr)]">
       {/* Mobile-only sidebar toggle (hidden on xl+) */}
       <button
         type="button"
@@ -537,7 +537,7 @@ export function FilesBrowserSpa({
       <aside
         id="files-browser-sidebar"
         aria-label={t("filesBrowserSpa.sidebarAria")}
-        className={`min-w-[280px] self-start rounded-3xl border border-[var(--border)] bg-[var(--surface)] p-6 xl:sticky xl:top-6 ${
+        className={`w-full min-w-0 self-start rounded-3xl border border-[var(--border)] bg-[var(--surface)] p-6 xl:sticky xl:top-6 ${
           mobileSidebarOpen ? "block" : "hidden xl:block"
         }`}
       >
@@ -595,7 +595,7 @@ export function FilesBrowserSpa({
       </aside>
 
       {/* Main content area */}
-      <section className="space-y-8">
+      <section className="min-w-0 space-y-8">
         {/* Search + Toolbar */}
         <article className="rounded-3xl border border-[var(--border)] bg-[var(--surface)] p-6">
           <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">

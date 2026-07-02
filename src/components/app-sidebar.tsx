@@ -218,7 +218,8 @@ export function AppSidebar({
 				{nav}
 			</aside>
 
-			<aside className="hidden h-screen w-72 shrink-0 overflow-hidden border-r border-[var(--sidebar-border)] bg-[var(--sidebar-bg)] lg:sticky lg:top-0 lg:flex">
+			<div className="hidden w-72 shrink-0 bg-[var(--sidebar-bg)] lg:block" aria-hidden="true" />
+			<aside className="hidden h-screen w-72 shrink-0 overflow-hidden border-r border-[var(--sidebar-border)] bg-[var(--sidebar-bg)] lg:fixed lg:inset-y-0 lg:left-0 lg:z-40 lg:flex">
 				{nav}
 			</aside>
 

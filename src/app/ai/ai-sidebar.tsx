@@ -36,7 +36,7 @@ export function AiSidebar({
         />
       )}
       {showSidebar && (
-        <div className="w-64 flex-shrink-0 border-r border-[var(--border)] bg-[var(--surface-subtle)] flex flex-col max-md:absolute max-md:inset-y-0 max-md:left-0 max-md:z-40 max-md:w-72">
+        <div className="w-64 flex-shrink-0 border-r border-[var(--border)] bg-[var(--surface-subtle)] flex flex-col max-md:fixed max-md:inset-y-0 max-md:left-0 max-md:z-40 max-md:w-72">
           {/* Header */}
           <div className="px-4 py-3 border-b border-[var(--border)] flex items-center justify-between">
             <h2 className="text-sm font-semibold text-[var(--text-primary)]">{t("aiPage.sidebarTitle")}</h2>
@@ -110,7 +110,7 @@ export function AiSidebar({
       {!showSidebar && (
         <button
           onClick={() => onToggleSidebar(true)}
-          className="absolute top-4 left-4 z-50 lg:hidden rounded-xl border border-[var(--border)] bg-[var(--modal-bg)] p-2.5 text-[var(--text-secondary)] backdrop-blur hover:bg-[var(--surface)]/10 transition"
+          className="hidden"
           aria-label={t("aiPage.openSidebar")}
         >
           <svg width="20" height="20" viewBox="0 0 20 20" fill="none">

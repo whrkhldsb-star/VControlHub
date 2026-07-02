@@ -20,9 +20,9 @@ export function MobileNav() {
 		<nav
 			aria-label="移动端底部导航"
 			data-i18n-skip
-			className="fixed bottom-0 left-0 right-0 z-50 overflow-x-auto border-t border-[var(--border)] bg-[var(--modal-bg)]/95 px-2 pb-[calc(0.5rem+env(safe-area-inset-bottom))] pt-2 backdrop-blur-xl md:hidden max-[360px]:px-1"
+			className="fixed bottom-0 left-0 right-0 z-50 overflow-hidden border-t border-[var(--border)] bg-[var(--modal-bg)] px-1 pb-[calc(0.35rem+env(safe-area-inset-bottom))] pt-1.5 shadow-[0_-16px_40px_rgba(0,0,0,0.28)] md:hidden"
 		>
-			<div className="flex min-w-max items-center justify-around gap-1">
+			<div className="grid w-full grid-cols-[repeat(5,minmax(0,1fr))_auto] items-center gap-0.5">
 				{mobileNavItems.map((tab) => {
 					const active = tab.href === "/" ? pathname === "/" : pathname.startsWith(tab.href);
 					const label = t(tab.labelKey) === tab.labelKey ? tab.fallbackLabel : t(tab.labelKey);
@@ -30,16 +30,16 @@ export function MobileNav() {
 						<Link
 							key={tab.href}
 							href={tab.href}
-							className={`flex min-w-14 flex-col items-center gap-0.5 rounded-lg px-2 py-1 transition ${
+							className={`flex min-w-0 flex-col items-center gap-0.5 rounded-lg px-1 py-0.5 transition ${
 								active ?"text-[var(--color-action)]" :"text-[var(--text-muted)]"
 							}`}
 						>
 							<span className="[&>svg]:h-5 [&>svg]:w-5">{tab.icon}</span>
-							<span className="text-[10px] leading-tight">{label}</span>
+							<span className="text-[10px] leading-tight max-[420px]:sr-only">{label}</span>
 						</Link>
 					);
 				})}
-				<div className="ml-1 flex items-center gap-1 border-l border-[var(--border-subtle)] pl-2">
+				<div className="ml-0 flex items-center gap-0.5 border-l border-[var(--border-subtle)] pl-1">
 					<LanguageToggle compact />
 					<ThemeToggle />
 				</div>

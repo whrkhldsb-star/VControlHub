@@ -144,7 +144,7 @@ export function UnifiedSettingsPageClient({
         aria-label={t("settingsClient.categoryNav")}
       >
         <nav
-          className="flex gap-1 overflow-x-auto rounded-xl border border-[var(--border)] bg-[var(--surface)] p-1.5 backdrop-blur-sm"
+          className="grid grid-cols-2 gap-1 rounded-xl border border-[var(--border)] bg-[var(--surface)] p-1.5 backdrop-blur-sm md:flex md:overflow-x-auto"
           data-card
         >
           {tabs.map((tab) => {
@@ -156,7 +156,7 @@ export function UnifiedSettingsPageClient({
                 role="tab"
                 aria-selected={isActive}
                 onClick={() => handleTabClick(tab.id)}
-                className={`group relative flex items-center gap-2.5 rounded-lg px-3.5 py-2.5 text-sm font-medium transition whitespace-nowrap ${
+                className={`group relative flex min-w-0 items-center gap-2 rounded-lg px-2.5 py-2.5 text-left text-sm font-medium transition md:gap-2.5 md:px-3.5 md:whitespace-nowrap ${
                   isActive
                     ? "bg-[var(--accent-bg)] text-[var(--accent)]"
                     : "text-[var(--text-secondary)] hover:bg-[var(--surface-hover)] hover:text-[var(--text-primary)]"
@@ -165,10 +165,10 @@ export function UnifiedSettingsPageClient({
                 <span className="text-base" aria-hidden>
                   {tab.icon}
                 </span>
-                <span className="flex flex-col items-start leading-tight">
-                  <span>{t(tab.labelKey)}</span>
+                <span className="flex min-w-0 flex-1 flex-col items-start leading-tight">
+                  <span className="truncate">{t(tab.labelKey)}</span>
                   <span
-                    className={`text-[10px] font-normal ${
+                    className={`hidden truncate text-[10px] font-normal sm:block ${
                       isActive ? "text-[var(--accent)] opacity-70" : "text-[var(--text-muted)]"
                     }`}
                   >
@@ -176,7 +176,7 @@ export function UnifiedSettingsPageClient({
                   </span>
                 </span>
                 <span
-                  className={`ml-1 inline-flex h-5 min-w-5 items-center justify-center rounded-full px-1.5 text-[10px] font-semibold ${
+                  className={`ml-auto inline-flex h-5 min-w-5 shrink-0 items-center justify-center rounded-full px-1.5 text-[10px] font-semibold ${
                     isActive
                       ? "bg-[var(--accent)] text-[var(--surface-root)]"
                       : "bg-[var(--surface-elevated)] text-[var(--text-muted)]"

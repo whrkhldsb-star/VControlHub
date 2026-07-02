@@ -176,6 +176,7 @@ html.light {
 }
 
 html, body {
+	min-height: 100%;
 	background: var(--page-bg);
 	background-attachment: fixed;
 	color: var(--foreground);
@@ -184,6 +185,45 @@ html, body {
 	-webkit-font-smoothing: antialiased;
 	-moz-osx-font-smoothing: grayscale;
 	transition: background-color 0.2s, color 0.2s;
+}
+
+body {
+	background-color: var(--background);
+}
+
+body > main {
+	background: var(--page-bg);
+}
+
+/* Tailwind opacity modifiers do not work reliably with hex CSS variables like
+   bg-[var(--surface)]/[0.04]. Normalize those legacy utility strings to real
+   semantic surfaces so light mode keeps visible cards, hover states and inputs. */
+:root .bg-\[var\(--surface\)\]\/\[0\.025\],
+:root .bg-\[var\(--surface\)\]\/\[0\.04\],
+:root .bg-\[var\(--surface\)\]\/\[0\.05\] {
+	background-color: var(--surface-elevated) !important;
+}
+
+:root .bg-\[var\(--surface\)\]\/\[0\.10\],
+:root .bg-\[var\(--surface\)\]\/10,
+:root .hover\:bg-\[var\(--surface\)\]\/\[0\.04\]:hover,
+:root .hover\:bg-\[var\(--surface\)\]\/\[0\.10\]:hover,
+:root .hover\:bg-\[var\(--surface\)\]\/10:hover {
+	background-color: var(--surface-hover) !important;
+}
+
+:root .bg-\[var\(--color-action-bg\)\]\/\[0\.04\],
+:root .bg-\[var\(--color-action-bg\)\]\/\[0\.10\],
+:root .bg-\[var\(--color-action-bg\)\]\/10,
+:root .hover\:bg-\[var\(--color-action-bg\)\]\/\[0\.10\]:hover {
+	background-color: var(--color-action-bg) !important;
+}
+
+@media (min-width: 1024px) {
+	body:has(> aside),
+	body:has(> div[aria-hidden="true"] + aside) {
+		background: linear-gradient(90deg, var(--sidebar-bg) 0 18rem, var(--page-bg) 18rem 100%);
+	}
 }
 
 /* Scrollbars */

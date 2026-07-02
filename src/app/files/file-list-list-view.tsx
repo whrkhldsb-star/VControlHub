@@ -87,7 +87,7 @@ export function FileListListView(props: FileListListViewProps) {
   return (
     <>
       {/* Desktop table view (md+) */}
-      <div className="hidden overflow-x-auto md:block" data-testid="file-table-scroll">
+      <div className="hidden overflow-x-auto rounded-b-2xl border-t border-[var(--border)] md:block" data-testid="file-table-scroll">
         <div className="min-w-[1180px]" data-testid="file-table-inner">
           <div className="grid grid-cols-[44px_44px_minmax(280px,2.6fr)_120px_170px_160px_minmax(240px,auto)] items-center gap-3 bg-[var(--surface)]/10 px-5 py-3 text-xs uppercase tracking-[0.15em] text-[var(--text-muted)] font-medium">
             <div>
@@ -174,6 +174,7 @@ export function FileListListView(props: FileListListViewProps) {
                     type="button"
                     onClick={() => navigateToFolder(folder.path)}
                     className="truncate font-medium text-[var(--text-primary)] hover:text-[var(--text-primary)] text-left"
+                    title={folder.displayName ?? folder.name}
                   >
                     {folder.displayName ?? folder.name}
                   </button>
@@ -181,7 +182,7 @@ export function FileListListView(props: FileListListViewProps) {
                 <div className="text-[var(--text-muted)]">
                   {folder.fileCount + folder.folderCount} 项
                 </div>
-                <div className="truncate text-xs text-[var(--text-muted)]">
+                <div className="truncate text-xs text-[var(--text-muted)]" title={folder.sourceValues[0] ?? "—"}>
                   {folder.sourceValues[0] ?? "—"}
                 </div>
                 <div className="text-xs text-[var(--text-muted)]">—</div>
@@ -264,20 +265,21 @@ export function FileListListView(props: FileListListViewProps) {
                       <Link
                         href={previewHref}
                         className="truncate font-medium text-[var(--text-primary)] hover:text-[var(--text-primary)] transition"
+                        title={entry.name}
                       >
                         {entry.name}
                       </Link>
                     ) : (
-                      <span className="truncate font-medium text-[var(--text-primary)]">
+                      <span className="truncate font-medium text-[var(--text-primary)]" title={entry.name}>
                         {entry.name}
                       </span>
                     )}
-                    <p className="mt-0.5 truncate text-xs text-[var(--text-muted)]">
+                    <p className="mt-0.5 truncate text-xs text-[var(--text-muted)]" title={entry.relativePath}>
                       {entry.relativePath}
                     </p>
                   </div>
                   <div className="text-[var(--text-secondary)]">{entry.sizeLabel}</div>
-                  <div className="text-[var(--text-muted)] truncate text-xs">
+                  <div className="text-[var(--text-muted)] truncate text-xs" title={entry.storageNode.name}>
                     {entry.storageNode.name}
                   </div>
                   <div className="text-[var(--text-muted)] text-xs">

@@ -72,7 +72,7 @@ export function AiClient({
   const [imageUrlInput, setImageUrlInput] = useState("");
   const [showProviders, setShowProviders] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
-  const [showSidebar, setShowSidebar] = useState(true);
+  const [showSidebar, setShowSidebar] = useState(false);
   const [modelList, setModelList] = useState<ModelInfo[]>([]);
   const [modelsLoading, setModelsLoading] = useState(false);
   const [modelDropdownOpen, setModelDropdownOpen] = useState(false);
@@ -128,6 +128,11 @@ export function AiClient({
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, streamContent, streamReasoning]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    setShowSidebar(window.matchMedia("(min-width: 768px)").matches);
+  }, []);
 
   // Fetch models when provider changes
   const fetchModels = useCallback(async (providerId: string) => {
@@ -216,7 +221,7 @@ export function AiClient({
     });
 
   return (
-    <div className="flex h-[calc(100vh-0px)] overflow-hidden">
+    <div className="flex h-[calc(100vh-5.5rem)] overflow-hidden pt-16 md:h-screen md:pt-0">
       {confirm.copy && (
         <AiConfirmDialog
           open
