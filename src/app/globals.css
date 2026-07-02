@@ -973,3 +973,133 @@ html.light .border-rose-400\/20, html.light .border-rose-400\/30 { border-color:
 
 /* Light mode: text-amber-600 already dark enough, leave as-is */
 /* Light mode: text-rose-600/700 already dark enough */
+
+/* ============================================================
+ * Sidebar thin scrollbar
+ * ============================================================ */
+aside nav .overflow-y-auto {
+	scrollbar-width: thin;
+	scrollbar-color: var(--scrollbar-thumb) transparent;
+}
+aside nav .overflow-y-auto::-webkit-scrollbar {
+	width: 4px;
+}
+aside nav .overflow-y-auto::-webkit-scrollbar-track {
+	background: transparent;
+}
+aside nav .overflow-y-auto::-webkit-scrollbar-thumb {
+	background: var(--scrollbar-thumb);
+	border-radius: 4px;
+	border: none;
+}
+aside nav .overflow-y-auto::-webkit-scrollbar-thumb:hover {
+	background: var(--scrollbar-thumb-hover);
+}
+
+/* ============================================================
+ * Sidebar bottom section: prevent overflow
+ * ============================================================ */
+aside .border-t {
+	min-width: 0;
+	overflow: hidden;
+}
+
+/* ============================================================
+ * Improve sidebar nav link active indicator
+ * ============================================================ */
+:root a[class*="sidebar-active"] {
+	position: relative;
+}
+:root a[class*="sidebar-active"]::before {
+	content: '';
+	position: absolute;
+	left: 0;
+	top: 50%;
+	transform: translateY(-50%);
+	width: 3px;
+	height: 60%;
+	border-radius: 0 3px 3px 0;
+	background: var(--accent);
+}
+
+/* ============================================================
+ * Button border-radius normalization
+ * All buttons should use --radius-control (0.5rem = 8px)
+ * regardless of the rounded-* class applied
+ * ============================================================ */
+button[class*="rounded-2xl"],
+a[class*="rounded-2xl"][class*="px-"][class*="py-"]:not([class*="card"]),
+button[class*="rounded-xl"][class*="px-"][class*="py-"]:not([class*="icon"]):not([class*="h-9"][class*="w-9"]) {
+	border-radius: var(--radius-control) !important;
+}
+
+/* ============================================================
+ * Form input height consistency
+ * Ensure all text inputs have consistent min-height
+ * ============================================================ */
+input[type="text"]:not([class*="h-4"]):not([class*="h-5"]):not([class*="h-6"]),
+input[type="password"]:not([class*="h-4"]):not([class*="h-5"]):not([class*="h-6"]),
+input[type="email"]:not([class*="h-4"]):not([class*="h-5"]):not([class*="h-6"]),
+input[type="number"]:not([class*="h-4"]):not([class*="h-5"]):not([class*="h-6"]),
+input[type="url"]:not([class*="h-4"]):not([class*="h-5"]):not([class*="h-6"]),
+select:not([class*="h-4"]):not([class*="h-5"]):not([class*="h-6"]),
+textarea:not([class*="h-4"]):not([class*="h-5"]):not([class*="h-6"]) {
+	min-height: 2.5rem;
+}
+
+/* ============================================================
+ * Section spacing consistency
+ * Ensure consistent vertical rhythm between sections
+ * ============================================================ */
+:root main section + section {
+	margin-top: 1.5rem;
+}
+
+/* ============================================================
+ * 50-level text color overrides for light mode
+ * text-amber-50/rose-50/emerald-50 are near-white, invisible
+ * on light backgrounds
+ * ============================================================ */
+html.light .text-amber-50 { color: #92400e !important; }
+html.light .text-rose-50 { color: #9f1239 !important; }
+html.light .text-emerald-50 { color: #064e3b !important; }
+html.light .text-sky-50 { color: #0c4a6e !important; }
+
+/* ============================================================
+ * 950-level bg overrides for light mode
+ * bg-amber-950/bg-rose-950 are near-black, too dark for light
+ * ============================================================ */
+html.light .bg-amber-950\/30, html.light .bg-amber-950\/90 { background-color: var(--warning-bg) !important; }
+html.light .bg-rose-950\/30 { background-color: var(--danger-bg) !important; }
+
+/* ============================================================
+ * var(--surface)/[0.04] → surface-elevated
+ * Old opacity pattern that's invisible in light mode
+ * ============================================================ */
+html.light [class*="var\\(--surface\\)\\]/\\[0\\.04"] {
+	background-color: var(--surface-elevated) !important;
+}
+html.light [class*="var\\(--surface\\)\\]/\\[0\\.10"] {
+	background-color: var(--surface-hover) !important;
+}
+
+/* ============================================================
+ * 300-level border overrides for light mode
+ * border-amber-300/rose-300 are too light on white bg
+ * ============================================================ */
+html.light .border-amber-300\/40 { border-color: var(--warning-border) !important; }
+html.light .border-amber-300\/20 { border-color: var(--warning-border) !important; }
+html.light .border-rose-300\/40 { border-color: var(--danger-border) !important; }
+html.light .hover\:bg-amber-300\/10:hover { background-color: var(--warning-bg) !important; }
+
+/* ============================================================
+ * 500-level semantic bg/border for light mode
+ * ============================================================ */
+html.light .bg-amber-500\/10 { background-color: var(--warning-bg) !important; }
+html.light .bg-rose-500\/10 { background-color: var(--danger-bg) !important; }
+html.light .bg-emerald-500\/10 { background-color: var(--success-bg) !important; }
+html.light .border-amber-500\/30 { border-color: var(--warning-border) !important; }
+html.light .border-rose-500\/20, html.light .border-rose-500\/30 { border-color: var(--danger-border) !important; }
+html.light .border-emerald-500\/30, html.light .border-emerald-500\/40 { border-color: var(--success-border) !important; }
+html.light .hover\:bg-rose-500\/20:hover { background-color: var(--danger-bg) !important; }
+html.light .hover\:bg-emerald-500\/10:hover { background-color: var(--success-bg) !important; }

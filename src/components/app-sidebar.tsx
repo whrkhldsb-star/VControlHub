@@ -51,7 +51,7 @@ function SidebarControls() {
 	};
 
 	return (
-		<div className="ml-auto flex items-center gap-1">
+		<div className="flex items-center gap-1">
 			<button
 				type="button"
 				onClick={openGlobalSearch}
@@ -102,7 +102,7 @@ export function AppSidebar({
 				key={item.href}
 				href={item.href}
 				onClick={() => setMobileOpen(false)}
-				className={`flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm transition-colors duration-150 ${
+				className={`flex min-w-0 items-center gap-3 rounded-lg px-3 py-2.5 text-sm transition-colors duration-150 ${
 					active
 						? "bg-[var(--sidebar-active)] text-[var(--sidebar-active-fg)] font-medium"
 						: "text-[var(--text-muted)] hover:bg-[var(--sidebar-hover)] hover:text-[var(--text-secondary)]"
@@ -115,7 +115,7 @@ export function AppSidebar({
 	};
 
 	const nav = (
-		<nav className="flex h-full flex-col" data-i18n-skip>
+		<nav className="flex h-full w-full flex-col overflow-hidden" data-i18n-skip>
 			<div className="border-b border-[var(--sidebar-border)] px-5 py-5">
 				<div className="flex items-center gap-2.5">
 					<div className="flex h-9 w-9 items-center justify-center rounded-lg bg-[var(--accent-bg)] text-[var(--accent)] border border-[var(--accent-border)]">
@@ -128,7 +128,7 @@ export function AppSidebar({
 				</div>
 			</div>
 
-			<div className="flex-1 space-y-0.5 overflow-y-auto overflow-x-hidden px-3 py-4">
+			<div className="min-w-0 flex-1 space-y-0.5 overflow-y-auto overflow-x-hidden px-3 py-4">
 				{visibleMainNav.map(renderNavLink)}
 
 				{visibleSystemNav.length > 0 && (
@@ -164,11 +164,13 @@ export function AppSidebar({
 			</div>
 
 			<div className="space-y-1 border-t border-[var(--sidebar-border)] px-3 py-3">
-				<div className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm text-[var(--text-muted)]">
+				<div className="flex items-center gap-1 rounded-lg px-2 py-2 text-sm text-[var(--text-muted)]">
 					<div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-[var(--surface-elevated)] text-[11px] font-semibold uppercase text-[var(--accent)]">
 						{iconInitial}
 					</div>
-					<span className="min-w-0 flex-1 truncate" title={username}>{username}</span>
+					<span className="min-w-0 flex-1 truncate text-xs" title={username}>{username}</span>
+				</div>
+				<div className="flex items-center justify-around px-1 py-1">
 					<SidebarControls />
 				</div>
 				<button
@@ -216,7 +218,7 @@ export function AppSidebar({
 				{nav}
 			</aside>
 
-			<aside className="hidden h-screen w-72 shrink-0 border-r border-[var(--sidebar-border)] bg-[var(--sidebar-bg)] lg:sticky lg:top-0 lg:flex">
+			<aside className="hidden h-screen w-72 shrink-0 overflow-hidden border-r border-[var(--sidebar-border)] bg-[var(--sidebar-bg)] lg:sticky lg:top-0 lg:flex">
 				{nav}
 			</aside>
 
