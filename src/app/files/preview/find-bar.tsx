@@ -16,6 +16,8 @@
  */
 "use client";
 
+import { useI18n } from "@/lib/i18n/use-locale";
+
 export interface FindBarProps {
 	searchQuery: string;
 	onSearchQueryChange: (next: string) => void;
@@ -31,6 +33,7 @@ export function FindBar({
 	onJumpLineChange,
 	onJumpToLine,
 }: FindBarProps) {
+	const { t } = useI18n();
 	return (
 		<>
 			<div className="flex flex-col gap-1">
@@ -38,14 +41,14 @@ export function FindBar({
 					htmlFor="text-preview-search"
 					className="text-[11px] font-medium text-[var(--text-secondary)]"
 				>
-					搜索文本
+					{t("textPreview.find.searchLabel")}
 				</label>
 				<input
 					id="text-preview-search"
 					type="text"
 					value={searchQuery}
 					onChange={(e) => onSearchQueryChange(e.target.value)}
-					placeholder="输入关键词"
+					placeholder={t("textPreview.find.searchPlaceholder")}
 					className="w-36 rounded-lg border border-slate-700 bg-[var(--surface)] px-2 py-1 text-xs text-[var(--text-secondary)] placeholder:text-[var(--text-muted)] focus:border-[var(--color-action-border)]/50 focus:outline-none"
 				/>
 			</div>
@@ -55,7 +58,7 @@ export function FindBar({
 						htmlFor="text-preview-jump-line"
 						className="text-[11px] font-medium text-[var(--text-secondary)]"
 					>
-						跳转行号
+						{t("textPreview.find.jumpLabel")}
 					</label>
 					<input
 						id="text-preview-jump-line"
@@ -64,7 +67,7 @@ export function FindBar({
 						value={jumpLine}
 						onChange={(e) => onJumpLineChange(e.target.value)}
 						onKeyDown={(e) => e.key === "Enter" && onJumpToLine()}
-						placeholder="如 42"
+						placeholder={t("textPreview.find.jumpPlaceholder")}
 						className="w-24 rounded-lg border border-slate-700 bg-[var(--surface)] px-2 py-1 text-xs text-[var(--text-secondary)] placeholder:text-[var(--text-muted)] focus:border-[var(--color-action-border)]/50 focus:outline-none"
 					/>
 				</div>
@@ -73,7 +76,7 @@ export function FindBar({
 					onClick={onJumpToLine}
 					className="rounded-lg border border-slate-700 bg-[var(--surface)] px-2 py-1 text-xs text-[var(--text-secondary)] hover:bg-[var(--surface-hover)] light:hover:bg-slate-200"
 				>
-					跳转
+					{t("textPreview.find.jumpButton")}
 				</button>
 			</div>
 		</>

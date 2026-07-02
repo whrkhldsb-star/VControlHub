@@ -1,4 +1,4 @@
-import { screen } from "@testing-library/react";
+import { act, screen } from "@testing-library/react";
 import { renderWithI18n as render } from "@/lib/i18n/__tests__/test-helpers";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -117,7 +117,7 @@ describe("DownloadsClient", () => {
 
     expect(await screen.findByRole("alert")).toHaveTextContent("目标路径不可写");
     expect(screen.getByRole("heading", { name: "新建下载任务" })).toBeInTheDocument();
-    expect(screen.getByText("完成后的“下载文件”按钮和文件管理使用同一套访问策略。")).toBeInTheDocument();
+    expect(screen.getByText("完成后的「下载文件」按钮和文件管理使用同一套访问策略。")).toBeInTheDocument();
     expect(screen.getByText("当前：中转")).toBeInTheDocument();
     expect(screen.getByDisplayValue("https://example.com/a.iso")).toBeInTheDocument();
   });
@@ -185,6 +185,53 @@ describe("DownloadsClient", () => {
     expect(screen.queryByText("https://example.com/a.iso")).not.toBeInTheDocument();
     expect(screen.getByRole("status")).toHaveTextContent("任务记录已删除");
     confirmSpy.mockRestore();
+  });
+
+
+  it("prevents duplicate retry submissions while a retry is in flight", async () => {
+    const actor = userEvent.setup();
+    let resolveRetry!: (value: unknown) => void;
+    const failedTask = { ...runningTask, status: "FAILED", aria2Gid: null, errorMessage: "boom" };
+    vi.mocked(csrfFetch)
+      .mockResolvedValueOnce({ tasks: [failedTask], globalStat: null })
+      .mockImplementationOnce(() => new Promise((resolve) => { resolveRetry = resolve; }));
+
+    render(<DownloadsClient servers={servers} canManage canManageNode />);
+
+    expect(await screen.findByText("https://example.com/a.iso")).toBeInTheDocument();
+    const retryButton = screen.getByRole("button", { name: "↻ 重试" });
+    await actor.click(retryButton);
+    expect(await screen.findByRole("button", { name: "重试中…" })).toBeDisabled();
+    await actor.click(screen.getByRole("button", { name: "重试中…" }));
+    expect(vi.mocked(csrfFetch)).toHaveBeenCalledTimes(2);
+    await act(async () => { resolveRetry({ success: true }); });
+  });
+
+  it("shows immediate download feedback and suppresses duplicate download clicks", async () => {
+    const actor = userEvent.setup();
+    const completedTask = {
+      ...runningTask,
+      status: "COMPLETED",
+      aria2Gid: null,
+      downloadAccess: {
+        mode: "managed-download",
+        transport: "relay" as const,
+        href: "/api/storage/local?nodeId=store_1&path=downloads%2Fa.iso&download=1",
+        fallbackHref: null,
+        label: "下载文件",
+        statusLabel: "当前：中转",
+        description: "relay",
+      },
+      server: { ...runningTask.server, storageNode: null },
+    };
+    vi.mocked(csrfFetch).mockResolvedValueOnce({ tasks: [completedTask], globalStat: null });
+
+    render(<DownloadsClient servers={servers} canManage canManageNode />);
+
+    const downloadLink = await screen.findByRole("link", { name: "⬇ 下载文件" });
+    const firstClick = await actor.click(downloadLink);
+    void firstClick;
+    expect(screen.getByRole("link", { name: "正在下载…" })).toBeInTheDocument();
   });
 
   it("prevents mixed HTTP and magnet batch submissions on the client", async () => {

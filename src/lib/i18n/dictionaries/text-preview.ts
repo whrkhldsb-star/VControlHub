@@ -52,6 +52,17 @@ export const zh: Record<string, string> = {
 	"textPreview.type.log": "日志",
 	"textPreview.type.makefile": "Makefile",
 	"textPreview.type.text": "文本",
+	"textPreview.find.searchLabel": "搜索文本",
+	"textPreview.find.searchPlaceholder": "输入关键词",
+	"textPreview.find.jumpLabel": "跳转行号",
+	"textPreview.find.jumpPlaceholder": "如 42",
+	"textPreview.find.jumpButton": "跳转",
+	"textPreview.preview.unknownFile": "未知文件",
+	"textPreview.preview.backToFiles": "← 返回文件",
+	"textPreview.preview.download": "⬇ 下载",
+	"textPreview.preview.largeWarning": "⚠ 文件较大（{size} MB），预览可能较慢。建议直接下载后查看。",
+	"textPreview.preview.unsupported": "此文件类型暂不支持在线预览",
+	"textPreview.preview.downloadToView": "⬇ 下载后查看",
 };
 
 export const en: Record<string, string> = {
@@ -101,4 +112,15 @@ export const en: Record<string, string> = {
 	"textPreview.type.log": "Log",
 	"textPreview.type.makefile": "Makefile",
 	"textPreview.type.text": "Text",
+	"textPreview.find.searchLabel": "Search text",
+	"textPreview.find.searchPlaceholder": "Enter keyword",
+	"textPreview.find.jumpLabel": "Jump to line",
+	"textPreview.find.jumpPlaceholder": "e.g. 42",
+	"textPreview.find.jumpButton": "Jump",
+	"textPreview.preview.unknownFile": "Unknown file",
+	"textPreview.preview.backToFiles": "← Back to files",
+	"textPreview.preview.download": "⬇ Download",
+	"textPreview.preview.largeWarning": "⚠ Large file ({size} MB); preview may be slow. Downloading it first is recommended.",
+	"textPreview.preview.unsupported": "This file type does not support online preview yet",
+	"textPreview.preview.downloadToView": "⬇ Download to view",
 };

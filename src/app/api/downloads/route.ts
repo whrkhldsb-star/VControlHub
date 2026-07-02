@@ -29,6 +29,7 @@ import {
   mapAria2Status,
   buildProgressText,
   isMagnetLink,
+  indexDownloadedFileEntry,
 } from "@/lib/downloads/helpers";
 import { buildDirectAccessStrategy } from "@/lib/storage/service";
 import { cleanupTemp } from "@/lib/downloads/execution";
@@ -70,6 +71,7 @@ function taskCompletedFileRelativePath(task: {
 }
 
 function taskDownloadAccess(task: {
+  locale?: import("@/lib/i18n/translations").Locale;
   url: string;
   status: string;
   targetPath: string | null;
@@ -90,6 +92,7 @@ function taskDownloadAccess(task: {
 }) {
   if (task.status !== "COMPLETED") return null;
   const storageNode = task.server?.storageNode;
+  const locale = task.locale ?? "zh";
   const relativePath = taskCompletedFileRelativePath(task);
   if (!storageNode || !relativePath) return null;
 
@@ -110,6 +113,15 @@ function taskDownloadAccess(task: {
   if (!href) return null;
 
   const isDirect = strategy.mode === "direct-url";
+  const host = storageNode.host ?? "unknown";
+  const port = storageNode.port ?? 22;
+  const description = storageNode.driver !== "SFTP"
+    ? t("downloadsPage.access.localDesc", locale)
+    : isDirect
+      ? t(storageNode.directAccessMode === "AUTO" ? "downloadsPage.access.directAutoDesc" : "downloadsPage.access.directModeDesc", locale)
+        .replace("{host}", host)
+        .replace("{port}", String(port))
+      : t("downloadsPage.access.relayDesc", locale).replace("{host}", host).replace("{port}", String(port));
   return {
     mode: strategy.mode,
     transport: isDirect ? "direct" as const : "relay" as const,
@@ -117,9 +129,9 @@ function taskDownloadAccess(task: {
     fallbackHref: "fallbackHref" in strategy && strategy.fallbackHref
       ? `${strategy.fallbackHref}${strategy.fallbackHref.includes("?") ? "&" : "?"}download=1`
       : null,
-    label: t("apiDownloads.label", "zh"),
-    statusLabel: isDirect ? t("apiDownloads.statusLabelDirect", "zh") : t("apiDownloads.statusLabelRelay", "zh"),
-    description: strategy.description,
+    label: t("apiDownloads.label", locale),
+    statusLabel: isDirect ? t("apiDownloads.statusLabelDirect", locale) : t("apiDownloads.statusLabelRelay", locale),
+    description,
   };
 }
 
@@ -526,7 +538,7 @@ export async function GET(request: Request) {
         fileSize: t.fileSize ?? null,
         isBatch: t.isBatch ?? false,
         batchUrls: t.batchUrls ?? null,
-        downloadAccess: taskDownloadAccess(t),
+        downloadAccess: taskDownloadAccess({ ...t, locale }),
       }));
 
       let globalStat = null;
@@ -676,6 +688,7 @@ export async function PATCH(request: Request) {
           });
           const downloadAccess = taskDownloadAccess({
             ...task,
+            locale,
             status: newStatus,
             fileName: task.fileName ?? null,
             relayMode: task.relayMode ?? null,
@@ -719,6 +732,7 @@ export async function PATCH(request: Request) {
               "  status=$(cat " + shellQuote(exitFile) + " 2>/dev/null || echo 1)",
               "  if [ \"$status\" = \"0\" ]; then echo COMPLETED; else echo FAILED; fi",
               `  ${statSnippet}`,
+              outputPath ? `  echo ${shellQuote(outputPath)}` : "  echo",
               `elif kill -0 ${task.pid} 2>/dev/null; then`,
               "  echo RUNNING",
               "  echo 0",
@@ -732,26 +746,39 @@ export async function PATCH(request: Request) {
               command: probeCommand,
               timeout: 10000,
             });
-            const [remoteState, sizeLine] = stdout.trim().split(/\r?\n/);
+            const [remoteState, sizeLine, resolvedPathLine] = stdout.trim().split(/\r?\n/);
             if (remoteState === "COMPLETED") {
               const size = /^\d+$/.test(sizeLine ?? "") ? sizeLine : null;
+              const resolvedFileName =
+                task.fileName ||
+                (resolvedPathLine ? resolvedPathLine.split("/").filter(Boolean).pop() ?? null : null) ||
+                deriveDownloadFileNameFromUrl(task.url);
               const data = {
                 status: "COMPLETED" as const,
                 progress: t("apiDownloads.completed", locale),
+                ...(resolvedFileName && !task.fileName ? { fileName: resolvedFileName } : {}),
                 ...(size
                   ? { fileSize: size, totalBytes: size, completedBytes: size }
                   : {}),
               };
+              await indexDownloadedFileEntry({
+                storageNode: task.server.storageNode,
+                targetPath: task.targetPath,
+                fileName: resolvedFileName,
+                size: size ? BigInt(size) : null,
+              });
               await prisma.downloadTask.update({ where: { id: taskId }, data });
               const downloadAccess = taskDownloadAccess({
                 ...task,
+                locale,
                 status: data.status,
-                fileName: task.fileName ?? null,
+                fileName: resolvedFileName,
                 relayMode: task.relayMode ?? null,
               });
               return NextResponse.json({
                 status: data.status,
                 progress: data.progress,
+                ...(resolvedFileName ? { fileName: resolvedFileName } : {}),
                 ...(size
                   ? { fileSize: size, totalBytes: size, completedBytes: size }
                   : {}),

@@ -6,6 +6,7 @@ import { MarkdownPreviewClient } from "./markdown-preview-client";
 import { CsvPreviewClient } from "./csv-preview-client";
 import { OfficePreviewClient } from "./office-preview-client";
 import { ArchivePreviewClient } from "./archive-preview-client";
+import { getServerLocale, t } from "@/lib/i18n/translations";
 
 export const dynamic = "force-dynamic";
 
@@ -51,10 +52,11 @@ function detectByExtension(name: string): { isMarkdown: boolean; isCsv: boolean;
 
 export default async function FilePreviewPage({ searchParams }: PreviewPageProps) {
 	await requireSession();
+	const locale = await getServerLocale();
 
 	const params = await searchParams;
 	const href = params?.href ?? "";
-	const name = params?.name ?? "未知文件";
+	const name = params?.name ?? t("textPreview.preview.unknownFile", locale);
 	const mimeType = params?.type ?? "";
 	const driver = params?.driver ?? "LOCAL";
 	const size = params?.size ? Number(params.size) : 0;
@@ -106,7 +108,7 @@ export default async function FilePreviewPage({ searchParams }: PreviewPageProps
 							href="/files"
 							className="rounded-lg border border-[var(--border)] px-4 py-2 text-sm text-[var(--text-secondary)] hover:border-[var(--color-action-border)]/50 hover:bg-[var(--surface)]/10"
 						>
-							← 返回文件
+							{t("textPreview.preview.backToFiles", locale)}
 						</a>
 						<h1 className="truncate text-xl font-semibold text-[var(--text-primary)]">{name}</h1>
 						<span className="rounded-lg border border-[var(--border)] bg-[var(--surface)] px-3 py-1 text-xs text-[var(--text-secondary)]">
@@ -119,7 +121,7 @@ export default async function FilePreviewPage({ searchParams }: PreviewPageProps
 							data-tone="accent"
 							className="rounded-lg border px-4 py-2 text-sm"
 						>
-							⬇ 下载
+							{t("textPreview.preview.download", locale)}
 						</a>
 					) : null}
 			</div>
@@ -127,7 +129,7 @@ export default async function FilePreviewPage({ searchParams }: PreviewPageProps
 				{/* Large file warning */}
 				{largeTextWarning ? (
 					<div data-tone="amber" className="mb-4 rounded-2xl border border-amber-400/30 px-4 py-3 text-sm text-amber-200">
-						⚠ 文件较大（{(size / 1024 / 1024).toFixed(1)} MB），预览可能较慢。建议直接下载后查看。
+						{t("textPreview.preview.largeWarning", locale).replace("{size}", (size / 1024 / 1024).toFixed(1))}
 					</div>
 				) : null}
 
@@ -175,14 +177,14 @@ export default async function FilePreviewPage({ searchParams }: PreviewPageProps
 					) : (
 						<div className="flex flex-col items-center gap-4 py-16 text-[var(--text-secondary)]">
 							<span className="text-6xl">📄</span>
-							<p>此文件类型暂不支持在线预览</p>
+							<p>{t("textPreview.preview.unsupported", locale)}</p>
 							{downloadUrl ? (
 								<a
 									href={downloadUrl}
 									data-tone="accent"
 							className="rounded-lg border px-4 py-2 text-sm"
 								>
-									⬇ 下载后查看
+									{t("textPreview.preview.downloadToView", locale)}
 								</a>
 							) : null}
 						</div>

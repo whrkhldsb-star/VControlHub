@@ -101,7 +101,7 @@ export function CreateDownloadForm({
 							: "border-[var(--border)] bg-[var(--surface)]/[0.04] text-[var(--text-muted)] hover:bg-[var(--surface)]/[0.10]"
 					}`}
 				>
-					📋 批量模式
+					{t("downloadsPage.form.batchMode")}
 				</button>
 				{form.batchMode && <span className="text-xs text-[var(--text-muted)]">{t("downloadsPage.form.batchHint")}</span>}
 			</div>
@@ -112,7 +112,7 @@ export function CreateDownloadForm({
 						htmlFor="download-batch-links"
 						className="text-xs font-medium text-[var(--text-primary)]/70 tracking-wide"
 					>
-						下载链接（每行一个）
+						{t("downloadsPage.form.linkLabel.batch")}
 					</label>
 					<textarea
 						id="download-batch-links"
@@ -133,7 +133,7 @@ export function CreateDownloadForm({
 						htmlFor="download-url"
 						className="text-xs font-medium text-[var(--text-primary)]/70 tracking-wide"
 					>
-						下载链接
+						{t("downloadsPage.form.linkLabel.single")}
 					</label>
 					<input
 						id="download-url"
@@ -240,7 +240,7 @@ export function CreateDownloadForm({
 				className="rounded-xl border border-[var(--color-action-border)]/15 px-4 py-3 text-xs leading-5 text-[var(--text-primary)]"
 			>
 				<p className="font-medium">
-					完成后的“下载文件”按钮和文件管理使用同一套访问策略。
+					{t("downloadsPage.form.postSubmit")}
 				</p>
 				<p className="mt-1 text-[var(--text-primary)]/70">
 					{t("downloadsPage.form.transportInfo")}

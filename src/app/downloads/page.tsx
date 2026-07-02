@@ -4,17 +4,19 @@ import { prisma } from "@/lib/db";
 import { buildDirectAccessStrategy } from "@/lib/storage/service";
 import { DownloadsClient } from "./downloads-client";
 import { PageShell, PageHeader, EmptyState } from "@/components/page-shell";
+import { getServerLocale, t } from "@/lib/i18n/translations";
 
 export const dynamic = "force-dynamic";
 
 export default async function DownloadsPage() {
 	const session = await requireSession("/downloads");
+	const locale = await getServerLocale();
 	const canManage = sessionHasPermission(session, "storage:write");
 	const canManageNode = sessionHasPermission(session, "storage:manage-node");
 	const canRead = sessionHasPermission(session, "storage:read");
 
 	if (!canRead) {
-		return <PageShell maxW="max-w-7xl"><EmptyState text="你没有下载管理的权限。" variant="boxed" /></PageShell>;
+		return <PageShell maxW="max-w-7xl"><EmptyState text={t("downloadsPage.permissionDenied", locale)} variant="boxed" /></PageShell>;
 	}
 
 	const servers = await prisma.server.findMany({
@@ -45,6 +47,16 @@ export default async function DownloadsPage() {
 			directAccessExpiresSeconds: s.storageNode?.directAccessExpiresSeconds,
 		});
 		const isDirect = strategy.mode === "direct-url";
+		const host = s.storageNode?.host ?? s.host;
+		const port = s.storageNode?.port ?? 22;
+		const accessDescription = s.storageNode?.driver === "LOCAL"
+			? t("downloadsPage.access.localDesc", locale)
+			: isDirect
+				? t(s.storageNode?.directAccessMode === "AUTO" ? "downloadsPage.access.directAutoDesc" : "downloadsPage.access.directModeDesc", locale)
+					.replace("{host}", host)
+					.replace("{port}", String(port))
+				: t("downloadsPage.access.relayDesc", locale).replace("{host}", host).replace("{port}", String(port));
+		void strategy;
 		return {
 			id: s.id,
 			name: s.name,
@@ -54,17 +66,17 @@ export default async function DownloadsPage() {
 			directAccessMode: s.storageNode?.directAccessMode ?? "PROXY",
 			directAccessAvailable: isDirect,
 			accessTransport: isDirect ? "direct" as const : "relay" as const,
-			accessStatusLabel: isDirect ? "当前：直连" : "当前：中转",
-			accessDescription: strategy.description,
+			accessStatusLabel: isDirect ? t("downloadsPage.access.direct", locale) : t("downloadsPage.access.relay", locale),
+			accessDescription,
 		};
 	});
 
 	return (
 		<PageShell maxW="max-w-7xl">
 			<PageHeader
-				eyebrow="Transfer"
-				title="远程下载"
-				description="输入 URL 或磁力链接，下载到指定 VPS 的存储路径"
+				eyebrow={t("downloadsPage.header.eyebrow", locale)}
+				title={t("downloadsPage.header.title", locale)}
+				description={t("downloadsPage.header.description", locale)}
 			/>
 			<DownloadsClient servers={serverList} canManage={canManage} canManageNode={canManageNode} />
 		</PageShell>

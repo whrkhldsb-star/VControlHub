@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, type MouseEvent } from "react";
 import { csrfFetch } from "@/lib/auth/csrf-client";
 import { EmptyState } from "@/components/page-shell";
 import { useI18n } from "@/lib/i18n/use-locale";
@@ -59,14 +59,16 @@ const categoryIcon: Record<string, string> = {
 	video: "🎬", music: "🎵", software: "💿", document: "📄", image: "🖼️", other: "📦",
 };
 
-const categories = [
-	{ value: "", label: "未分类", icon: "📦" },
-	{ value: "video", label: "影视", icon: "🎬" },
-	{ value: "music", label: "音乐", icon: "🎵" },
-	{ value: "software", label: "软件", icon: "💿" },
-	{ value: "document", label: "文档", icon: "📄" },
-	{ value: "image", label: "图片", icon: "🖼️" },
-];
+function getCategories(t: (k: string) => string) {
+	return [
+		{ value: "", label: t("downloadsPage.form.category.uncategorized"), icon: "📦" },
+		{ value: "video", label: t("downloadsPage.form.category.video"), icon: "🎬" },
+		{ value: "music", label: t("downloadsPage.form.category.music"), icon: "🎵" },
+		{ value: "software", label: t("downloadsPage.form.category.software"), icon: "💿" },
+		{ value: "document", label: t("downloadsPage.form.category.document"), icon: "📄" },
+		{ value: "image", label: t("downloadsPage.form.category.image"), icon: "🖼️" },
+	];
+}
 
 function urlTypeLabel(url: string, t: (k: string) => string) {
 	if (url.startsWith("magnet:?")) return t("downloadsPage.linkType.magnet");
@@ -123,6 +125,8 @@ export function DownloadsClient({ servers, canManage, canManageNode }: { servers
 		fileName: "", category: "", maxSpeedKb: "", batchMode: false, batchText: "",
 	});
 	const [submitting, setSubmitting] = useState(false);
+	const [busyActions, setBusyActions] = useState<Record<string, string>>({});
+	const [downloadingIds, setDownloadingIds] = useState<Record<string, boolean>>({});
 
 	const fetchTasks = useCallback(async () => {
 		try {
@@ -197,6 +201,9 @@ export function DownloadsClient({ servers, canManage, canManageNode }: { servers
 	};
 
 	const handleAction = async (taskId: string, action: string) => {
+		const busyKey = `${taskId}:${action.startsWith("limit:") ? "limit" : action}`;
+		if (busyActions[busyKey]) return;
+		setBusyActions((current) => ({ ...current, [busyKey]: action }));
 		setMessage(null);
 		try {
 			if (action === "cancel") {
@@ -264,6 +271,12 @@ export function DownloadsClient({ servers, canManage, canManageNode }: { servers
 			}
 		} catch (error) {
 			setMessage({ type: "error", text: getErrorMessage(error, t("downloadsPage.error.taskOp")) });
+		} finally {
+			setBusyActions((current) => {
+				const next = { ...current };
+				delete next[busyKey];
+				return next;
+			});
 		}
 	};
 
@@ -278,6 +291,22 @@ export function DownloadsClient({ servers, canManage, canManageNode }: { servers
 		} catch (error) {
 			setMessage({ type: "error", text: getErrorMessage(error, t("downloadsPage.error.globalSpeed")) });
 		}
+	};
+
+	const categories = getCategories(t);
+	const handleDownloadClick = (taskId: string) => (event: MouseEvent<HTMLAnchorElement>) => {
+		if (downloadingIds[taskId]) {
+			event.preventDefault();
+			return;
+		}
+		setDownloadingIds((current) => ({ ...current, [taskId]: true }));
+		window.setTimeout(() => {
+			setDownloadingIds((current) => {
+				const next = { ...current };
+				delete next[taskId];
+				return next;
+			});
+		}, 4000);
 	};
 
 	const filteredTasks = tasks
@@ -403,9 +432,9 @@ export function DownloadsClient({ servers, canManage, canManageNode }: { servers
 									{getStatusLabel(t)[task.status] ?? task.status}
 								</span>
 								<span className="text-[11px] text-[var(--text-muted)]">{urlTypeLabel(task.url, t)}</span>
-								{task.relayMode && <span data-tone="amber" className="rounded-lg border border-amber-400/20 px-2 py-0.5 text-[10px] text-amber-100">中转</span>}
+								{task.relayMode && <span data-tone="amber" className="rounded-lg border border-amber-400/20 px-2 py-0.5 text-[10px] text-amber-100">{t("downloadsPage.badge.relay")}</span>}
 									{task.category && <span className="text-[11px] text-[var(--text-muted)]">{categoryIcon[task.category] ?? "📦"} {task.category}</span>}
-									{task.isBatch && <span data-tone="cyan" className="rounded-lg border border-[var(--color-action-border)]/20 px-2 py-0.5 text-[10px] text-[var(--text-primary)]">批量</span>}
+									{task.isBatch && <span data-tone="cyan" className="rounded-lg border border-[var(--color-action-border)]/20 px-2 py-0.5 text-[10px] text-[var(--text-primary)]">{t("downloadsPage.badge.batch")}</span>}
 								</div>
 
 								{/* URL */}
@@ -432,7 +461,7 @@ export function DownloadsClient({ servers, canManage, canManageNode }: { servers
 									<span>📂 {task.targetPath}</span>
 									{task.fileSize && <span>📦 {formatBytes(task.fileSize)}</span>}
 									{task.downloadAccess && <span title={task.downloadAccess.description}>🔁 {task.downloadAccess.statusLabel}</span>}
-									<span>🕒 {new Date(task.createdAt).toLocaleString("zh-CN")}</span>
+									<span>🕒 {new Date(task.createdAt).toLocaleString()}</span>
 									{task.creator && <span>👤 {task.creator.displayName ?? task.creator.username}</span>}
 								</div>
 
@@ -478,15 +507,16 @@ export function DownloadsClient({ servers, canManage, canManageNode }: { servers
 										<button type="button" onClick={() => handleAction(task.id, "refresh")}
 											className="rounded-lg border border-[var(--border)] bg-[var(--surface)]/[0.04] px-3 py-1.5 text-xs text-[var(--text-muted)] hover:bg-[var(--surface)]/[0.10] transition"
 										>
-											{t("downloadsPage.action.refresh")}
+											{busyActions[`${task.id}:refresh`] ? t("downloadsPage.action.refreshing") : t("downloadsPage.action.refresh")}
 										</button>
 									)}
 									{task.downloadAccess && (
 										<a href={task.downloadAccess.href}
+							onClick={handleDownloadClick(task.id)}
 											data-tone="cyan" className="rounded-lg border border-[var(--color-action-border)]/25 px-3 py-1.5 text-xs font-medium text-[var(--text-primary)] hover:bg-[var(--color-action-bg)]/20 transition"
 											title={task.downloadAccess.description}
 										>
-											⬇ {task.downloadAccess.label}
+											{downloadingIds[task.id] ? t("downloadsPage.action.downloading") : t("downloadsPage.action.downloadFile")}
 										</a>
 									)}
 									{task.status === "COMPLETED" && task.server.storageNode && (() => {
@@ -507,11 +537,11 @@ export function DownloadsClient({ servers, canManage, canManageNode }: { servers
 									);
 								})()}
 								{(task.status === "FAILED" || task.status === "CANCELLED") && canManage && (
-									<button type="button" onClick={() => handleAction(task.id, "retry")}
+									<button type="button" onClick={() => handleAction(task.id, "retry")} disabled={Boolean(busyActions[`${task.id}:retry`])}
 										data-tone="cyan" className="rounded-lg border border-[var(--color-action-border)]/20 px-3 py-1.5 text-xs text-[var(--text-primary)] hover:bg-[var(--color-action-bg)]/10 transition"
 										title={t("downloadsPage.action.retryTitle")}
 									>
-										{t("downloadsPage.action.retry")}
+										{busyActions[`${task.id}:retry`] ? t("downloadsPage.action.retrying") : t("downloadsPage.action.retry")}
 									</button>
 								)}
 								{(task.status === "COMPLETED" || task.status === "FAILED" || task.status === "CANCELLED") && canManage && (
