@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback, type MouseEvent } from "react";
+import { useState, useEffect, useCallback, useRef, type MouseEvent } from "react";
 import { csrfFetch } from "@/lib/auth/csrf-client";
 import { EmptyState } from "@/components/page-shell";
 import { useI18n } from "@/lib/i18n/use-locale";
@@ -126,6 +126,7 @@ export function DownloadsClient({ servers, canManage, canManageNode }: { servers
 	});
 	const [submitting, setSubmitting] = useState(false);
 	const [busyActions, setBusyActions] = useState<Record<string, string>>({});
+	const busyActionRef = useRef<Set<string>>(new Set());
 	const [downloadingIds, setDownloadingIds] = useState<Record<string, boolean>>({});
 
 	const fetchTasks = useCallback(async () => {
@@ -202,7 +203,8 @@ export function DownloadsClient({ servers, canManage, canManageNode }: { servers
 
 	const handleAction = async (taskId: string, action: string) => {
 		const busyKey = `${taskId}:${action.startsWith("limit:") ? "limit" : action}`;
-		if (busyActions[busyKey]) return;
+		if (busyActionRef.current.has(busyKey)) return;
+		busyActionRef.current.add(busyKey);
 		setBusyActions((current) => ({ ...current, [busyKey]: action }));
 		setMessage(null);
 		try {
@@ -272,6 +274,7 @@ export function DownloadsClient({ servers, canManage, canManageNode }: { servers
 		} catch (error) {
 			setMessage({ type: "error", text: getErrorMessage(error, t("downloadsPage.error.taskOp")) });
 		} finally {
+			busyActionRef.current.delete(busyKey);
 			setBusyActions((current) => {
 				const next = { ...current };
 				delete next[busyKey];
