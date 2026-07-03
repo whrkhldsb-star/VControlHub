@@ -139,6 +139,12 @@ const statusToneClasses: Record<string, { bg: string; text: string; dot: string 
 };
 const unknownTone = statusToneClasses.unknown!;
 
+type HealthStatusKey = keyof typeof statusToneClasses;
+
+function statusLabelKey(status: string): `healthPage.status.${HealthStatusKey}` {
+	return `healthPage.status.${status in statusToneClasses ? (status as HealthStatusKey) : "unknown"}`;
+}
+
 function usageColor(val: number | undefined, warn = 80, crit = 95): string {
 	if (val === undefined) return "text-[var(--text-muted)]";
 	if (val >= crit) return "text-rose-300";
@@ -335,7 +341,7 @@ export function HealthDashboardClient({ serverCount, initialSystemHealth }: Prop
 									<div key={check.id} className={`rounded-xl border ${sc.bg} p-3`}>
 										<div className="flex items-center justify-between gap-3">
 											<div className="text-sm font-medium text-[var(--text-primary)]">{translateSystemHealthText(check.label, locale)}</div>
-											<span className={`rounded-full border px-2 py-0.5 text-[10px] ${sc.text}`}>{t("healthPage.status." + check.status)}</span>
+											<span className={`rounded-full border px-2 py-0.5 text-[10px] ${sc.text}`}>{t(statusLabelKey(check.status))}</span>
 										</div>
 										<p className="mt-1 text-xs text-[var(--text-secondary)]">{translateSystemHealthText(check.message, locale)}</p>
 										{check.detail && <p className="mt-1 break-all text-[11px] text-[var(--text-muted)]">{translateSystemHealthText(check.detail, locale)}</p>}
@@ -416,7 +422,7 @@ export function HealthDashboardClient({ serverCount, initialSystemHealth }: Prop
 										</td>
 										<td className="px-4 py-3">
 											<span className={`inline-flex items-center rounded-full border px-2 py-0.5 text-[11px] font-medium ${sc.bg} ${sc.text}`}>
-												{t("healthPage.status." + server.status)}
+												{t(statusLabelKey(server.status))}
 											</span>
 										</td>
 										<td className="px-4 py-3">

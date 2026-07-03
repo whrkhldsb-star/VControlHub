@@ -206,6 +206,7 @@ export function VpsBackupSection({
 					<button
 						type="button"
 						className="ml-2 text-red-200 underline"
+						aria-label={t("common.close")}
 						onClick={() => setError(null)}
 					>
 						✕
@@ -248,6 +249,7 @@ export function VpsBackupSection({
 						<button
 							type="button"
 							onClick={() => setShowCreate(!showCreate)}
+							aria-label={showCreate ? t("common.close") : t("vpsBackup.addSchedule")}
 							className="rounded-lg border border-[var(--color-action-border)]/20 bg-[var(--color-action-bg)]/10 px-2.5 py-1 text-xs text-[var(--text-secondary)] transition-colors hover:bg-[var(--color-action-bg)]/20"
 						>
 							{showCreate ? "✕" : `+ ${t("vpsBackup.addSchedule")}`}

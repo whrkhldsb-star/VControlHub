@@ -141,7 +141,7 @@ export function UserManagementClient({ canManage = false }: { canManage?: boolea
             : "border-[var(--danger-border)] bg-[var(--danger-bg)] text-[var(--danger)]"
         }`}>
           {message.text}
-          <button type="button" onClick={() => setMessage(null)} className="ml-3 text-current/50 hover:text-current">✕</button>
+          <button type="button" onClick={() => setMessage(null)} aria-label={t("common.close")} className="ml-3 text-current/50 hover:text-current">✕</button>
         </div>
       )}
 

@@ -2,35 +2,6 @@
 
 import { useState, useEffect, useMemo } from "react";
 import { useI18n } from "@/lib/i18n/use-locale";
-import createDOMPurify from "dompurify";
-import type { Config } from "dompurify";
-
-const MARKDOWN_SANITIZE_CONFIG: Config = {
-	ALLOWED_TAGS: [
-		"h1", "h2", "h3", "h4", "h5", "h6", "p", "br", "hr",
-		"strong", "em", "code", "pre", "a",
-		"ul", "ol", "li", "blockquote",
-		"table", "thead", "tbody", "tr", "th", "td",
-	],
-	ALLOWED_ATTR: ["href", "target", "rel", "class"],
-	ALLOW_DATA_ATTR: false,
-};
-
-function purifyHtml(html: string, config: Config): string {
-	const purifier = typeof createDOMPurify.sanitize === "function"
-		? createDOMPurify
-		: typeof window !== "undefined"
-			? createDOMPurify(window)
-			: null;
-
-	return purifier?.sanitize(html, config) ?? html;
-}
-
-/** Sanitize HTML to prevent XSS while preserving safe formatting elements */
-export function sanitizeHtml(html: string): string {
-	return purifyHtml(html, MARKDOWN_SANITIZE_CONFIG);
-}
-
 type PreviewState = { loading: true } | { loading: false; content: string | null; error: string | null };
 
 /**
@@ -270,6 +241,15 @@ function parseTableAligns(line: string): string[] {
 export function MarkdownPreviewClient({ href }: { href: string }) {
 	const { t } = useI18n();
 	const [state, setState] = useState<PreviewState>({ loading: true });
+	const [sanitizeFn, setSanitizeFn] = useState<((html: string) => string) | null>(null);
+
+	useEffect(() => {
+		let cancelled = false;
+		import("@/lib/sanitize/html-sanitizer").then((m) => {
+			if (!cancelled) setSanitizeFn(() => m.sanitizeHtml);
+		});
+		return () => { cancelled = true; };
+	}, []);
 
 	useEffect(() => {
 		let cancelled = false;
@@ -297,7 +277,10 @@ export function MarkdownPreviewClient({ href }: { href: string }) {
 		};
 	}, [href, t]);
 
-	const html = useMemo(() => sanitizeHtml(renderMarkdown((state as { content?: string }).content ?? "")), [state]);
+	const html = useMemo(
+		() => sanitizeFn ? sanitizeFn(renderMarkdown((state as { content?: string }).content ?? "")) : "",
+		[state, sanitizeFn]
+	);
 
 	if (state.loading) {
 		return (
@@ -312,6 +295,14 @@ export function MarkdownPreviewClient({ href }: { href: string }) {
 			<div className="flex flex-col items-center gap-3 py-16 text-rose-300">
 				<span className="text-3xl">⚠️</span>
 				<p className="text-sm">{state.error}</p>
+			</div>
+		);
+	}
+
+	if (!sanitizeFn) {
+		return (
+			<div className="flex items-center justify-center py-16 text-[var(--text-secondary)]">
+				<span className="animate-pulse text-sm">{t("markdownPreview.loading")}</span>
 			</div>
 		);
 	}

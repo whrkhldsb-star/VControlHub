@@ -11,7 +11,7 @@ import { prisma } from "@/lib/db";
 import { verifyPending2faToken, createSessionToken, getSessionCookieName, getPending2faCookieName } from "@/lib/auth/session";
 import { generateCsrfToken, getCsrfCookieName } from "@/lib/auth/csrf";
 import { auditUserAction, auditSystemAction } from "@/lib/audit/service";
-import { checkRateLimit, getClientIp, LOGIN_RATE_LIMIT } from "@/lib/rate-limit";
+import { checkRateLimitAsync, getClientIp, LOGIN_RATE_LIMIT } from "@/lib/rate-limit";
 import { apiCatch, apiError } from "@/lib/http/api-error";
 
 const verifyLoginSchema = z.object({ code: z.string().min(1) });
@@ -20,7 +20,7 @@ export async function POST(request: Request) {
 	try {
 		// Rate limit 2FA attempts
 		const clientIp = getClientIp(request);
-		const rateCheck = checkRateLimit(clientIp, LOGIN_RATE_LIMIT);
+		const rateCheck = await checkRateLimitAsync(clientIp, LOGIN_RATE_LIMIT);
 		if (!rateCheck.allowed) {
 			return apiError({
 				code: "RATE_LIMITED",

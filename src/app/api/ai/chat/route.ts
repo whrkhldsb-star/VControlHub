@@ -6,7 +6,7 @@ import {
 } from "@/lib/ai/service";
 import { chatRequestSchema } from "@/lib/ai/schema";
 import { withApiRoute } from "@/lib/http/api-guard";
-import { checkRateLimit, getClientIp } from "@/lib/rate-limit";
+import { checkRateLimitAsync, getClientIp } from "@/lib/rate-limit";
 import { prisma } from "@/lib/db";
 import { getOpenAIToolsFormat } from "@/lib/ai/hosted-tools";
 import { AppError, NotFoundError, ValidationError } from "@/lib/errors";
@@ -40,7 +40,7 @@ type HistoryMessage = {
 
 export async function POST(request: Request) {
   const locale = await getServerLocale();
-  const rl = checkRateLimit(getClientIp(request), AI_CHAT_LIMIT);
+  const rl = await checkRateLimitAsync(getClientIp(request), AI_CHAT_LIMIT);
   if (!rl.allowed) {
     return NextResponse.json(
       { error: t("apiAiChat.rateLimited", locale) },

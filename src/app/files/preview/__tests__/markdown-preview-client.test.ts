@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
-import { renderMarkdown, sanitizeHtml } from "../markdown-preview-client";
+import { renderMarkdown } from "../markdown-preview-client";
+import { sanitizeHtml } from "@/lib/sanitize/html-sanitizer";
 
 describe("markdown preview sanitization", () => {
 	it("escapes inline raw HTML before rendering markdown", () => {

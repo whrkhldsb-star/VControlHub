@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import { getDirectGatewayHealthyNote, getDirectGatewayRepairAdvice } from "../direct-gateway-advice";
 
-import { zh as dict } from "@/lib/i18n/dictionaries/servers-page";
+import { zh as dict } from "@/lib/i18n/dictionaries/servers";
 
 /**
  * Mock `t(key)` that resolves keys against the zh dictionary, falling back to

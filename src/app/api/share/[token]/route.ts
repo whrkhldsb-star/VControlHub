@@ -1,6 +1,7 @@
 import { createReadStream } from "node:fs";
 import { stat } from "node:fs/promises";
 import path from "node:path";
+import { guessContentType } from "@/lib/http/mime-types";
 import { Client, type ConnectConfig } from "ssh2";
 import { z } from "zod";
 
@@ -23,24 +24,6 @@ import { resolveStorageSshCredentials } from "@/lib/storage/ssh-credentials";
 import { apiError } from "@/lib/http/api-error";
 import { getServerLocale, t } from "@/lib/i18n/translations";
 export const dynamic = "force-dynamic";
-
-function guessContentType(fileName: string): string {
-	const ext = path.extname(fileName).toLowerCase();
-	if ([".jpg", ".jpeg"].includes(ext)) return "image/jpeg";
-	if (ext === ".png") return "image/png";
-	if (ext === ".webp") return "image/webp";
-	if (ext === ".gif") return "image/gif";
-	if (ext === ".svg") return "image/svg+xml";
-	if (ext === ".mp4") return "video/mp4";
-	if (ext === ".webm") return "video/webm";
-	if (ext === ".mp3") return "audio/mpeg";
-	if (ext === ".m4a") return "audio/mp4";
-	if (ext === ".flac") return "audio/flac";
-	if (ext === ".wav") return "audio/wav";
-	if (ext === ".pdf") return "application/pdf";
-	if (ext === ".txt") return "text/plain; charset=utf-8";
-	return "application/octet-stream";
-}
 
 async function openSftpFile(client: Client, remotePath: string) {
 	return new Promise<{ stream: import("stream").Readable; size: number }>((resolve, reject) => {

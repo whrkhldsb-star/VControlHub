@@ -302,7 +302,7 @@ export function MediaItemCard({ item, canManage }: { item: MediaItem; canManage:
 					{tags.map((tag) => (
 						<span key={tag} data-tone="cyan" className="inline-flex items-center gap-1 rounded-lg border border-[var(--accent-border)] px-2 py-0.5 text-[10px] text-[var(--accent)]">
 							<Link href={`/media?tag=${encodeURIComponent(tag)}`} className="hover:underline">#{tag}</Link>
-							<button type="button" onClick={() => removeTag(tag)} className="text-[var(--text-muted)] hover:text-[var(--accent)]">×</button>
+							<button type="button" onClick={() => removeTag(tag)} aria-label={t("common.delete")} className="text-[var(--text-muted)] hover:text-[var(--accent)]">×</button>
 						</span>
 					))}
 					{showTagInput ? (

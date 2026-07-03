@@ -31,6 +31,7 @@ export async function listTeamsForSession(session: SessionPayload) {
 	const teams = await prisma.team.findMany({
 		where: canManageAll ? undefined : { members: { some: { userId: session.userId } } },
 		orderBy: [{ createdAt: "asc" }],
+		take: 200,
 		select: {
 			id: true,
 			slug: true,

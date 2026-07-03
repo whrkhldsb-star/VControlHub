@@ -13,6 +13,7 @@ export async function listVpsBackupSchedules(serverId?: string) {
 	return prisma.vpsBackupSchedule.findMany({
 		where: serverId ? { serverId } : undefined,
 		orderBy: { createdAt: "desc" },
+		take: 500,
 		include: {
 			server: { select: { id: true, name: true, host: true } },
 			_count: { select: { records: true } },

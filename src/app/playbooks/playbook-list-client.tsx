@@ -726,6 +726,7 @@ function SortableStepCard({
 					<button
 						type="button"
 						onClick={() => onRemove(step.id)}
+						aria-label={t("playbooksPage.action.delete")}
 						data-tone="danger"
 						className="min-h-9 rounded-lg border px-2 py-1 text-xs"
 					>

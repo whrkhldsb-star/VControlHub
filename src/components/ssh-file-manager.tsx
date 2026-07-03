@@ -395,6 +395,7 @@ export function SshFileManager({ serverId, visible }: SshFileManagerProps) {
             />
             <button
               onClick={handleMkdir}
+              aria-label={t("common.confirm")}
               data-tone="cyan"
               className="min-h-9 min-w-9 shrink-0 rounded-lg border border-[var(--color-action-border)]/20 px-2 text-xs text-[var(--color-action-fg)] transition hover:bg-[var(--color-action-bg)]/20"
             >
@@ -402,6 +403,7 @@ export function SshFileManager({ serverId, visible }: SshFileManagerProps) {
             </button>
             <button
               onClick={() => { setShowMkdir(false); setMkdirName(""); }}
+              aria-label={t("common.cancel")}
               className="min-h-9 min-w-9 shrink-0 rounded-lg border border-[var(--border)] px-2 text-xs text-[var(--text-muted)] transition hover:bg-[var(--surface-hover)]"
             >
               ✕
@@ -500,10 +502,12 @@ export function SshFileManager({ serverId, visible }: SshFileManagerProps) {
                 />
                 <button
                   onClick={(e) => { e.stopPropagation(); handleRename(); }}
+                  aria-label={t("common.confirm")}
                   className="text-[var(--color-action)] hover:text-[var(--color-action-fg)]"
                 >✓</button>
                 <button
                   onClick={(e) => { e.stopPropagation(); setRenameTarget(null); setRenameValue(""); }}
+                  aria-label={t("common.cancel")}
                   className="text-[var(--text-muted)] hover:text-[var(--text-secondary)]"
                 >✕</button>
               </div>

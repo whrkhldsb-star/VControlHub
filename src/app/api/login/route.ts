@@ -5,7 +5,7 @@ import { authenticateUser } from "@/lib/auth/service";
 import { createSessionToken, getSessionCookieName, createPending2faToken, getPending2faCookieName, getConfiguredSessionTtlSeconds } from "@/lib/auth/session";
 import { auditUserAction, auditSystemAction } from "@/lib/audit/service";
 import { createLogger } from "@/lib/logging";
-import { checkRateLimit, getClientIp, LOGIN_RATE_LIMIT, LOGIN_SLOW_RATE_LIMIT, isAccountLocked, recordLoginFailure, clearLoginFailure } from "@/lib/rate-limit";
+import { checkRateLimitAsync, getClientIp, LOGIN_RATE_LIMIT, LOGIN_SLOW_RATE_LIMIT, isAccountLocked, recordLoginFailure, clearLoginFailure } from "@/lib/rate-limit";
 import { generateCsrfToken, getCsrfCookieName } from "@/lib/auth/csrf";
 
 const logger = createLogger("api:login");
@@ -32,8 +32,8 @@ export async function POST(request: Request) {
 	try {
 		// Rate limiting — check both fast and slow windows
 		const clientIp = getClientIp(request);
-		const fastCheck = checkRateLimit(clientIp, LOGIN_RATE_LIMIT);
-		const slowCheck = checkRateLimit(clientIp, LOGIN_SLOW_RATE_LIMIT);
+		const fastCheck = await checkRateLimitAsync(clientIp, LOGIN_RATE_LIMIT);
+		const slowCheck = await checkRateLimitAsync(clientIp, LOGIN_SLOW_RATE_LIMIT);
 
 		if (!fastCheck.allowed || !slowCheck.allowed) {
 			const retryAfter = !fastCheck.allowed

@@ -2,8 +2,14 @@ import { JobStatus, Prisma } from "@prisma/client";
 
 import { prisma } from "@/lib/db";
 import { config } from "@/lib/config/env";
-
+import { createLogger } from "@/lib/logging";
 import { recordJobEvent } from "./events";
+
+const logger = createLogger("job:service");
+
+function safeRecordJobEvent(input: Parameters<typeof recordJobEvent>[0]) {
+  recordJobEvent(input).catch((err) => logger.error("recordJobEvent failed", err));
+}
 
 export type JobPayload = Prisma.InputJsonValue;
 export type JobResult = Prisma.InputJsonValue;
@@ -64,7 +70,7 @@ export async function enqueueJob(input: EnqueueJobInput) {
   });
   // TR-001 T13a: surface an "enqueued" event so the timeline starts at the
   // moment the job was scheduled (not only when a worker later claims it).
-  void recordJobEvent({
+  safeRecordJobEvent({
     jobId: job.id,
     type: "enqueued",
     message: `任务入队 (type=${job.type}, priority=${job.priority})`,
@@ -170,7 +176,7 @@ export async function claimNextJob(options: ClaimJobOptions) {
     // TR-001 T13a: persist a "claimed" event so the operation-tasks center can
     // surface when a worker picked up the job. Recorded outside the transaction
     // so an event-write failure can't roll back the actual claim.
-    void recordJobEvent({
+    safeRecordJobEvent({
       jobId: claimedJob.id,
       type: "claimed",
       message: `后台执行器 ${options.workerId} 认领任务`,
@@ -201,7 +207,7 @@ export async function heartbeatJob(jobId: string, workerId: string, options: { l
   // the progress string — silent lease extensions (the common case) stay quiet
   // to avoid burying the timeline under duplicate rows.
   if (result.count > 0 && options.progress) {
-    void recordJobEvent({
+    safeRecordJobEvent({
       jobId,
       type: "heartbeat",
       message: options.progress,
@@ -226,7 +232,7 @@ export async function completeJob(jobId: string, workerId: string, result?: JobR
   });
   // TR-001 T13a: surface a "completed" event for the timeline.
   if (updated.count > 0) {
-    void recordJobEvent({
+    safeRecordJobEvent({
       jobId,
       type: "completed",
       message: "任务已完成",
@@ -257,7 +263,7 @@ export async function failJob(jobId: string, workerId: string, errorMessage: str
   });
   // TR-001 T13a: surface a "failed" / "retrying" event for the timeline.
   if (updated.count > 0) {
-    void recordJobEvent({
+    safeRecordJobEvent({
       jobId,
       type: canRetry ? "retrying" : "failed",
       message: errorMessage.slice(0, 2000),
@@ -286,7 +292,7 @@ export async function cancelJob(jobId: string) {
   // TR-001 T13a: surface a "cancelled" event when the cancellation actually
   // moved the row out of PENDING/RUNNING.
   if (updated.count > 0) {
-    void recordJobEvent({
+    safeRecordJobEvent({
       jobId,
       type: "cancelled",
       message: "任务已取消",

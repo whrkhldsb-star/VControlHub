@@ -23,6 +23,7 @@ vi.mock("@/lib/audit/service", () => ({
 }));
 vi.mock("@/lib/rate-limit", () => ({
   checkRateLimit: vi.fn(() => ({ allowed: true, retryAfterMs: 0 })),
+  checkRateLimitAsync: vi.fn(async () => ({ allowed: true, retryAfterMs: 0 })),
   getClientIp: vi.fn(() => "127.0.0.1"),
   LOGIN_RATE_LIMIT: { windowMs: 1, max: 10 },
   LOGIN_SLOW_RATE_LIMIT: { windowMs: 1, max: 100 },

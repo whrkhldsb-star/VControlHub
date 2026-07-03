@@ -1,33 +1,9 @@
 "use client";
 
 import { useState, useEffect, useRef, useCallback, useMemo, useReducer } from "react";
-import createDOMPurify from "dompurify";
-import type { Config } from "dompurify";
-
 import { csrfFetch } from "@/lib/auth/csrf-client";
 import { useI18n } from "@/lib/i18n/use-locale";
 import { FindBarLazy } from "./find-bar-lazy";
-
-const HIGHLIGHT_SANITIZE_CONFIG: Config = {
-	ALLOWED_TAGS: ["span", "br"],
-	ALLOWED_ATTR: ["class"],
-	ALLOW_DATA_ATTR: false,
-};
-
-function purifyHtml(html: string, config: Config): string {
-	const purifier = typeof createDOMPurify.sanitize === "function"
-		? createDOMPurify
-		: typeof window !== "undefined"
-			? createDOMPurify(window)
-			: null;
-
-	return purifier?.sanitize(html, config) ?? html;
-}
-
-/** Sanitize syntax-highlighted HTML — allow span tags for color classes */
-function sanitizeHighlightHtml(html: string): string {
-	return purifyHtml(html, HIGHLIGHT_SANITIZE_CONFIG);
-}
 
 type PreviewState = { loading: true } | { loading: false; content: string | null; error: string | null };
 type PreviewMetaState = {
@@ -320,6 +296,16 @@ export function TextPreviewClient({
 }) {
 	const { t } = useI18n();
 	const [state, setState] = useState<PreviewState>({ loading: true });
+	const [sanitizeHighlight, setSanitizeHighlight] = useState<((html: string) => string) | null>(null);
+
+	useEffect(() => {
+		let cancelled = false;
+		import("@/lib/sanitize/html-sanitizer").then((m) => {
+			if (!cancelled) setSanitizeHighlight(() => m.sanitizeHighlightHtml);
+		});
+		return () => { cancelled = true; };
+	}, []);
+
 	const [loadVersion, resetForLoad] = useReducer((value: number) => value + 1, 0);
 	const [searchQuery, setSearchQuery] = useState("");
 	const [jumpLine, setJumpLine] = useState("");
@@ -682,6 +668,14 @@ export function TextPreviewClient({
 		);
 	}
 
+	if (!sanitizeHighlight) {
+		return (
+			<div className="flex items-center justify-center py-16 text-[var(--text-secondary)]">
+				<span className="animate-pulse text-sm">{t("textPreview.loading")}</span>
+			</div>
+		);
+	}
+
 	const lines = currentContent.split("\n");
 	const totalLines = lines.length;
 	const hasUnsavedChanges = draft !== currentContent;
@@ -967,7 +961,7 @@ export function TextPreviewClient({
 							{lines.map((line, i) => {
 								let html = highlightLine(line, lang);
 								html = highlightSearch(html);
-								html = sanitizeHighlightHtml(html);
+								html = sanitizeHighlight(html);
 								return (
 									<div
 										key={i}

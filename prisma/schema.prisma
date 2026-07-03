@@ -119,6 +119,8 @@ model User {
   twoFactorEnabled       Boolean                 @default(false)
   twoFactorSecret        String?
   preferences            Json?
+
+  @@map("users")
 }
 
 model Team {
@@ -160,6 +162,8 @@ model Role {
   updatedAt   DateTime         @updatedAt
   permissions RolePermission[]
   users       UserRole[]
+
+  @@map("roles")
 }
 
 model Permission {
@@ -168,6 +172,8 @@ model Permission {
   name        String
   description String?
   roles       RolePermission[]
+
+  @@map("permissions")
 }
 
 model UserRole {
@@ -178,6 +184,8 @@ model UserRole {
   role       Role     @relation(fields: [roleId], references: [id], onDelete: Cascade)
 
   @@id([userId, roleId])
+  @@index([roleId])
+  @@map("user_roles")
 }
 
 model RolePermission {
@@ -187,6 +195,8 @@ model RolePermission {
   permission   Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
 
   @@id([roleId, permissionId])
+  @@index([permissionId])
+  @@map("role_permissions")
 }
 
 model SshKey {
@@ -202,6 +212,9 @@ model SshKey {
   updatedAt   DateTime @updatedAt
   createdBy   User?    @relation("SshKeyCreator", fields: [createdById], references: [id], onDelete: SetNull)
   servers     Server[]
+
+  @@index([createdById])
+  @@map("ssh_keys")
 }
 
 model Server {
@@ -283,6 +296,10 @@ model CommandApproval {
   createdAt        DateTime       @default(now())
   commandRequest   CommandRequest @relation(fields: [commandRequestId], references: [id], onDelete: Cascade)
   approver         User           @relation(fields: [approverId], references: [id], onDelete: Cascade)
+
+  @@index([commandRequestId])
+  @@index([approverId])
+  @@map("command_approvals")
 }
 
 model CommandTarget {
@@ -299,6 +316,7 @@ model CommandTarget {
   server           Server               @relation(fields: [serverId], references: [id], onDelete: Cascade)
 
   @@index([serverId, status])
+  @@index([commandRequestId])
   @@map("command_targets")
 }
 
@@ -309,6 +327,10 @@ model ExecutionLog {
   summary          String
   createdAt        DateTime       @default(now())
   commandRequest   CommandRequest @relation(fields: [commandRequestId], references: [id], onDelete: Cascade)
+
+  @@index([commandRequestId])
+  @@index([serverId])
+  @@map("execution_logs")
 }
 
 model StorageNode {
@@ -337,6 +359,8 @@ model StorageNode {
   imageUploads               ImageUpload[]
   mediaItems                 MediaItem[]
   mediaUploadSessions        MediaUploadSession[]
+
+  @@map("storage_nodes")
 }
 
 model UserStorageAccess {
@@ -377,6 +401,9 @@ model FileEntry {
   children       FileEntry[]   @relation("FileEntryChildren")
 
   @@unique([storageNodeId, relativePath])
+  @@index([parentId])
+  @@index([storageNodeId, entryType, isDeleted])
+  @@map("file_entries")
 }
 
 model AuditLog {
@@ -706,6 +733,7 @@ model SyncLog {
 
   syncJob SyncJob @relation(fields: [syncJobId], references: [id], onDelete: Cascade)
 
+  @@index([syncJobId])
   @@map("sync_logs")
 }
 

@@ -137,7 +137,7 @@ export function AnnouncementList({
                   <span className="text-xs text-[var(--text-muted)] whitespace-nowrap">{new Date(a.startsAt).toLocaleDateString("en-US")}</span>
                   {canManage && (
                     <div className="flex items-center gap-1 opacity-0 transition group-hover:opacity-100">
-                      <button onClick={() => setEditing(a)} title={t("announcementsPage.action.edit")} className="rounded-lg p-1.5 text-[var(--text-muted)] hover:bg-[var(--surface)]/10 hover:text-[var(--color-action)]">
+                      <button onClick={() => setEditing(a)} title={t("announcementsPage.action.edit")} aria-label={t("announcementsPage.action.edit")} className="rounded-lg p-1.5 text-[var(--text-muted)] hover:bg-[var(--surface)]/10 hover:text-[var(--color-action)]">
                         <Pencil size={14} />
                       </button>
                       <button onClick={() => { setPendingDelete(a); setDeleteError(null); }} title={t("announcementsPage.action.delete")} aria-label={t("announcementsPage.action.deleteAria").replace("{title}", a.title)} className="rounded-lg p-1.5 text-[var(--text-muted)] hover:bg-[var(--surface)]/10 hover:text-rose-400">

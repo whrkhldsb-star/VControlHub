@@ -27,6 +27,7 @@ async function calculateServerUptime(serverId: string, date: Date) {
       },
     },
     orderBy: { createdAt: "asc" },
+    take: 5000,
   });
 
   if (snapshots.length === 0) {
@@ -62,6 +63,7 @@ async function aggregateDailyUptimes(date: Date = new Date(Date.now() - 86400000
   const servers = await prisma.server.findMany({
     where: { enabled: true },
     select: { id: true, name: true },
+    take: 500,
   });
 
   const dateStr = date.toISOString().split("T")[0];

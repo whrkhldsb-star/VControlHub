@@ -134,10 +134,10 @@ export function SnippetList({ snippets: initial }: { snippets: Snippet[] }) {
                 )}
               </div>
               <div className="flex items-center gap-1 opacity-100 transition sm:opacity-0 sm:group-hover:opacity-100 sm:group-focus-within:opacity-100">
-                <button onClick={() => handleCopy(s.content, s.id)} title={t("snippetsPage.action.copy")} className="min-h-11 min-w-11 rounded-lg p-1.5 text-[var(--text-muted)] hover:bg-[var(--surface)]/10 hover:text-[var(--color-action)] light:hover:bg-slate-100">
+                <button onClick={() => handleCopy(s.content, s.id)} title={t("snippetsPage.action.copy")} aria-label={t("snippetsPage.action.copy")} className="min-h-11 min-w-11 rounded-lg p-1.5 text-[var(--text-muted)] hover:bg-[var(--surface)]/10 hover:text-[var(--color-action)] light:hover:bg-slate-100">
                   {copiedId === s.id ? <Check size={14} /> : <Copy size={14} />}
                 </button>
-                <button onClick={() => setEditing(s)} title={t("snippetsPage.action.edit")} className="min-h-11 min-w-11 rounded-lg p-1.5 text-[var(--text-muted)] hover:bg-[var(--surface)]/10 hover:text-[var(--color-action)] light:hover:bg-slate-100">
+                <button onClick={() => setEditing(s)} title={t("snippetsPage.action.edit")} aria-label={t("snippetsPage.action.edit")} className="min-h-11 min-w-11 rounded-lg p-1.5 text-[var(--text-muted)] hover:bg-[var(--surface)]/10 hover:text-[var(--color-action)] light:hover:bg-slate-100">
                   <Pencil size={14} />
                 </button>
                 <button onClick={() => { setPendingDelete(s); setDeleteError(null); }} title={t("snippetsPage.action.delete")} aria-label={t("snippetsPage.deleteDialog.title") + " " + s.title} className="min-h-11 min-w-11 rounded-lg p-1.5 text-[var(--text-muted)] hover:bg-[var(--surface)]/10 hover:text-rose-400 light:hover:bg-slate-100">
@@ -181,7 +181,7 @@ export function SnippetList({ snippets: initial }: { snippets: Snippet[] }) {
             <p className="mt-2 text-sm leading-6 text-[var(--text-muted)]">
               {t("snippetsPage.deleteDialog.body").replace("{title}", pendingDelete.title)}
             </p>
-            {deleteError && <p role="alert" className="mt-3 text-xs text-rose-400 dark:text-rose-300">{deleteError}</p>}
+            {deleteError && <p role="alert" className="mt-3 text-xs text-rose-300 light:text-rose-400">{deleteError}</p>}
             <div className="mt-5 flex justify-end gap-2">
               <button type="button" disabled={deleteBusy} onClick={() => { setPendingDelete(null); setDeleteError(null); }} data-card className="min-h-11 px-4 py-2 text-sm text-[var(--text-secondary)] transition hover:bg-[var(--surface-hover)] disabled:opacity-50">
                 {t("snippetsPage.deleteDialog.cancel")}

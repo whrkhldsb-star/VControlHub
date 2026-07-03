@@ -1,4 +1,5 @@
 import path from "node:path";
+import { guessContentType } from "@/lib/http/mime-types";
 
 import { Client, type ConnectConfig } from "ssh2";
 import { NextResponse } from "next/server";
@@ -22,38 +23,6 @@ import { AuthError, NotFoundError, ValidationError } from "@/lib/errors";
 const logger = createLogger("api:storage:sftp-download");
 
 export const dynamic = "force-dynamic";
-
-function guessContentType(fileName: string): string {
-  const ext = path.extname(fileName).toLowerCase();
-  if ([".jpg", ".jpeg"].includes(ext)) return "image/jpeg";
-  if (ext === ".png") return "image/png";
-  if (ext === ".webp") return "image/webp";
-  if (ext === ".gif") return "image/gif";
-  if (ext === ".svg") return "image/svg+xml";
-  if (ext === ".bmp") return "image/bmp";
-  if (ext === ".ico") return "image/x-icon";
-  if (ext === ".mp4") return "video/mp4";
-  if (ext === ".webm") return "video/webm";
-  if (ext === ".mkv") return "video/x-matroska";
-  if (ext === ".avi") return "video/x-msvideo";
-  if (ext === ".mp3") return "audio/mpeg";
-  if (ext === ".wav") return "audio/wav";
-  if (ext === ".ogg") return "audio/ogg";
-  if (ext === ".flac") return "audio/flac";
-  if (ext === ".aac") return "audio/aac";
-  if (ext === ".pdf") return "application/pdf";
-  if (ext === ".txt") return "text/plain; charset=utf-8";
-  if (ext === ".json") return "application/json; charset=utf-8";
-  if (ext === ".xml") return "application/xml; charset=utf-8";
-  if (ext === ".html" || ext === ".htm") return "text/html; charset=utf-8";
-  if (ext === ".css") return "text/css; charset=utf-8";
-  if (ext === ".js") return "application/javascript; charset=utf-8";
-  if (ext === ".zip") return "application/zip";
-  if (ext === ".tar") return "application/x-tar";
-  if (ext === ".gz") return "application/gzip";
-  if (ext === ".7z") return "application/x-7z-compressed";
-  return "application/octet-stream";
-}
 
 function getSftpStream(
   client: Client,

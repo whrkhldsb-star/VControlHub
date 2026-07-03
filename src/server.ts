@@ -26,6 +26,14 @@ import { createLogger } from "@/lib/logging";
 
 const logger = createLogger("server");
 
+process.on("unhandledRejection", (reason) => {
+	logger.error("Unhandled rejection:", reason);
+});
+process.on("uncaughtException", (err) => {
+	logger.error("Uncaught exception:", err);
+	process.exit(1);
+});
+
 const dev = process.env.NODE_ENV !== "production";
 // Bind to loopback by default in production; containers can set NEXT_HOST=0.0.0.0.
 const hostname = process.env.NEXT_HOST?.trim() || (dev ? "0.0.0.0" : "127.0.0.1");

@@ -393,30 +393,30 @@ make logs SERVICE_PREFIX=vcontrolhub
 
 | # | 问题 | 涉及文件 | 建议修复 |
 | --- | --- | --- | --- |
-| 13 | **findMany 无 take 上界：131 处** — README 旧称 27/27 已接线，实际 131 处无 take | `src/app/api/images/`, `src/app/storage/actions.ts`, `src/app/api/users/`, `src/app/api/system/uptime/` 等 | 按优先级分批添加 `take` 上界：用户列表 50、管理列表 200、内部批处理 500 |
-| 14 | **外键缺 @@index：30+ 列** — 查询涉及外键 WHERE/JOIN 时全表扫描 | `prisma/schema.prisma` — TeamMember(team, user), UserRole(user, role), RolePermission(role, permission), CommandApproval(commandRequest, approver), FileEntry(storageNode), Notification(user), DownloadTask(server), ApiToken(creator), Ticket(creator) 等 | 添加 `@@index([fkField])`，用 `npx prisma db push` 应用 |
-| 15 | **@relation 无 onDelete：45 个** — 删除父记录时可能留下孤儿行或报错 | `prisma/schema.prisma` — FileEntry→StorageNode, Notification→User, DownloadTask→Server, AiMessage→Conversation 等 | 按业务语义添加 `onDelete: Cascade`（子记录随父删除）或 `onDelete: SetNull`（保留但置空） |
-| 16 | **N+1 查询：import-service** — 10+ 个 `for-of + await prisma.upsert` 循环 | `src/lib/system/import-service.ts` | 改用 `createMany({ skipDuplicates: true })` + 批量 update |
-| 17 | **N+1 查询：images/batch** — 循环内逐条 `await deleteImageVariants()` | `src/app/api/images/batch/route.ts:66` | 改用 `Promise.allSettled()` 并行删除 |
+| 13 | ✅ **findMany 无 take 上界** — 所有面向用户的 API 路由及服务函数均已添加 `take` 上界（用户列表 500、图片列表 limit、图片批量 100、图片统计 5000、uptime 90-5000、文件条目 1000、文件移动 10000）；import-service 的 ID-bounded 查询（`where: { id: { in: ids } }`）无需 take | `src/app/api/images/`, `src/app/storage/actions.ts`, `src/app/api/users/`, `src/app/api/system/uptime/`, `src/lib/storage/service-entries.ts`, `src/lib/uptime/aggregate.ts` | 已完成 |
+| 14 | ✅ **外键缺 @@index：30+ 列** — 已补全所有外键 @@index（UserRole, RolePermission, SshKey, CommandApproval, ExecutionLog, FileEntry, CommandTarget, SyncLog 等）+ 迁移 | `prisma/schema.prisma` | 已完成 — `prisma/migrations/20260703090000_p2p3_add_indexes/migration.sql` |
+| 15 | ✅ **@relation 无 onDelete：45 个** — 所有 @relation 均已指定 onDelete（Cascade/SetNull/Restrict） | `prisma/schema.prisma` | 已完成 |
+| 16 | ✅ **N+1 查询：import-service** — 已改用 `createMany({ skipDuplicates: true })` + table-driven handler | `src/lib/system/import-service.ts` | 已完成 |
+| 17 | ✅ **N+1 查询：images/batch** — 已改用 `Promise.allSettled()` 并行删除 | `src/app/api/images/batch/route.ts:66` | 已完成 |
 | 18 | **React.memo 缺失：0 处** — 列表项组件无记忆化，轮询时全量重渲染 | `notifications/`, `downloads/`, `operation-tasks/`, `snippets/`, `announcements/`, `playbooks/` 等 10+ 列表页 | 提取列表项组件 + `React.memo` 包装 |
 | 19 | **硬编码色彩类：278 处** — emerald/rose/amber 未用 `data-tone` | `src/components/` + `src/app/` 广泛分布 | 迁移到 `data-tone="emerald|rose|amber"` 语义属性 |
-| 20 | **aria-label 缺失：30+ 按钮** — 图标按钮无无障碍标签 | `notification-bell.tsx`, `downloads-client.tsx`, `docker-page-client.tsx`, `operation-task-list-client.tsx` 等 | 添加 `aria-label` 属性 |
-| 21 | **SVG 缺原生 width/height：~15 处** — CSS 加载失败时图标尺寸崩溃 | `language-toggle.tsx`, `global-search.tsx`, `notification-bell.tsx`, `theme-toggle.tsx`, `nav-items.tsx`, `ai/ai-message-list.tsx` 等 | 添加 `width`/`height` HTML 属性 |
+| 20 | ✅ **aria-label 缺失** — 14 个图标按钮已添加 `aria-label`（downloads-client ✕、users-client ✕、image-bed-page-client ✕、media-item-card ×、announcements 编辑、playbooks ×、snippets 复制/编辑、ssh-file-manager ✓/✕×4、vps-backup-section ✕×2）；notification-bell/docker-page/operation-tasks/ssh-terminal-manager 等已有 aria-label 或可见文本 | `notification-bell.tsx`, `downloads-client.tsx`, `docker-page-client.tsx`, `operation-task-list-client.tsx`, `ssh-file-manager.tsx`, `vps-backup-section.tsx` 等 | 已完成 |
+| 21 | ✅ **SVG 缺原生 width/height** — 所有图标尺寸 SVG 已添加 `width`/`height` HTML 属性（app-sidebar 20px、change-password-modal 16px、language-toggle/theme-toggle/global-search/notification-bell 24px、ai-message-list/ai-empty-state/ai-attachments-preview 24px、icons.tsx 经 defaults() 函数统一设置）；响应式图表 SVG（sparkline/traffic-sparkline/cost-page）保持 viewBox+CSS 模式 | `language-toggle.tsx`, `global-search.tsx`, `notification-bell.tsx`, `theme-toggle.tsx`, `nav-items.tsx`, `ai/ai-message-list.tsx`, `app-sidebar.tsx`, `change-password-modal.tsx` 等 | 已完成 |
 | 22 | **大文件拆分：12 个 >500 行** | `text-preview-client.tsx`(990), `playbook-list-client.tsx`(844), `files-browser-spa.tsx`(827), `ai-ops-page-client.tsx`(699), `health-dashboard-client.tsx`(674), `cost-page-client.tsx`(668), `image-bed-page-client.tsx`(653), `quick-services-client.tsx`(598), `server-overview-details.tsx`(592), `downloads-client.tsx`(565), `ssh-file-manager.tsx`(562), `ssh-terminal-modal.tsx`(530) | 按功能拆分为子组件 |
-| 23 | **CI 缺 build:runtime 步骤** — CI 只跑 `npm run build`，不验证 runtime bundle | `.github/workflows/ci.yml` | 添加 `npm run build:runtime` 步骤 |
-| 24 | **any 类型：7 处** — 非 test 代码中的 `any` | `src/app/status/page.tsx`(4处), `src/app/api/system/uptime/all/route.ts`(2处), `src/app/api/servers/[id]/uptime/route.ts`(1处), `src/lib/uptime/aggregate.ts`(1处) | 定义正确的 TypeScript 接口 |
-| 25 | **🔥 uptime API 无认证** — 2 个端点暴露服务器可用率数据，无 auth/permission 检查 | `src/app/api/servers/[id]/uptime/route.ts`, `src/app/api/system/uptime/all/route.ts` | 用 `withApiRoute(request, { permission: "server:read" }, ...)` 包装 |
-| 26 | **🔥 用户角色更新缺事务** — PATCH `/api/users` 先 deleteMany 再 createMany 角色关系，不在事务内；step 2 失败 = 用户零角色锁定 | `src/app/api/users/route.ts:192-197` | 包入 `prisma.$transaction(async (tx) => { ... })` |
-| 27 | **🔥 SSH 客户端泄漏** — file-proxy 和 AI hosted-service 的 SSH error handler 未调 `sshClient.end()` | `src/app/api/servers/[id]/file-proxy/route.ts:85-87`, `src/lib/ai/hosted-service.ts:268` | 在 error handler 中添加 `sshClient.end()` |
-| 28 | **uptime N+1 查询** — 先查所有服务器，再逐服务器 `findMany` 快照，N+1 查询 | `src/app/api/system/uptime/all/route.ts:28-49` | 合并为单次 `findMany({ where: { serverId: { in: ids } } })` + 内存分组 |
-| 29 | **connectSsh() 重复定义 6 处** — 同一 5 行 SSH 连接函数在 6 个文件各自定义 | `src/lib/ssh/client.ts`, `src/app/api/media/[id]/stream/route.ts:34`, `src/app/api/media/[id]/thumbnail/route.ts:156`, `src/app/api/share/[token]/route.ts:44`, `src/app/api/storage/sftp-download/route.ts:57`, `src/lib/storage/file-content.ts:57` | 从 `src/lib/ssh/client.ts` 统一导出导入 |
-| 30 | **export/import 缺 rate limit** — 导出全量配置/审计日志无频率限制 | `src/app/api/system/export/route.ts`, `src/app/api/audit/export/route.ts` | 添加 `rateLimit: GENERAL_WRITE_LIMIT` |
-| 31 | **login/2FA 用同步内存限流** — 未用 `checkRateLimitAsync()`（Redis 多实例感知） | `src/app/api/login/route.ts:35`, `src/app/api/auth/2fa/verify-login/route.ts:23` | 改用 `checkRateLimitAsync()` |
-| 32 | **recordJobEvent 浮动 Promise** — 6 处 `void recordJobEvent(...)` 无 `.catch()`，DB 故障时 unhandled rejection | `src/lib/job/service.ts:67,173,204,229,260,289` | 添加 `.catch((err) => logger.error(...))` |
-| 33 | **缺全局 unhandledRejection handler** — 无 `process.on("unhandledRejection")` | `src/server.ts`, `src/ssh-ws-proxy.ts` | 添加全局 handler 记录 + Sentry 上报 |
-| 34 | **export-service 加载敏感字段** — 标准模式也查询 passwordHash/privateKey/apiKey，仅在 mapping 层置 null | `src/lib/system/export-service.ts` 全部 17 个 findMany | 在查询层用 `select` 排除敏感字段 |
-| 35 | **executeImport() 607 行巨函数** — 单函数过长，难以测试和维护 | `src/lib/system/import-service.ts:308-915` | 改用 table-driven 配置数组模式，每表一个统一 handler |
-| 36 | **FileEntry 缺复合索引** — 媒体扫描和清理查询走 `entryType`+`isDeleted` 全表扫描 | `prisma/schema.prisma` FileEntry 模型 | 添加 `@@index([storageNodeId, entryType, isDeleted])` |
+| 23 | ✅ **CI 缺 build:runtime 步骤** — 已添加 `npm run build:runtime` 步骤 | `.github/workflows/ci.yml` | 已完成 |
+| 24 | ✅ **any 类型：7 处** — 非 test 代码中的 `any` 已清理（仅剩 bigint-patch.ts 的合理用法） | `src/app/status/page.tsx`, `src/app/api/system/uptime/`, `src/lib/uptime/aggregate.ts` | 已完成 |
+| 25 | ✅ **🔥 uptime API 无认证** — 2 个端点已用 `withApiRoute(request, { permission: "server:read" }, ...)` 包装 | `src/app/api/servers/[id]/uptime/route.ts`, `src/app/api/system/uptime/all/route.ts` | 已完成 |
+| 26 | ✅ **🔥 用户角色更新缺事务** — PATCH `/api/users` 角色更新已包入 `prisma.$transaction` | `src/app/api/users/route.ts` | 已完成 |
+| 27 | ✅ **🔥 SSH 客户端泄漏** — file-proxy 和 hosted-service 的 error handler 已添加 `sshClient.end()` | `src/app/api/servers/[id]/file-proxy/route.ts`, `src/lib/ai/hosted-service.ts` | 已完成 |
+| 28 | ✅ **uptime N+1 查询** — 已合并为单次 `findMany({ where: { serverId: { in: ids } } })` + 内存分组 | `src/app/api/system/uptime/all/route.ts` | 已完成 |
+| 29 | ✅ **connectSsh() 重复定义 6 处** — 所有调用方已统一从 `@/lib/ssh/client` 导入 | `src/lib/ssh/client.ts` 等 6 个文件 | 已完成 |
+| 30 | ✅ **export/import 缺 rate limit** — 已添加 `rateLimit: GENERAL_WRITE_LIMIT` | `src/app/api/system/export/route.ts`, `src/app/api/audit/export/route.ts` | 已完成 |
+| 31 | ✅ **login/2FA 用同步内存限流** — 已改用 `checkRateLimitAsync()` | `src/app/api/login/route.ts`, `src/app/api/auth/2fa/verify-login/route.ts` | 已完成 |
+| 32 | ✅ **recordJobEvent 浮动 Promise** — 6 处已通过 `safeRecordJobEvent` 包装添加 `.catch()` | `src/lib/job/service.ts` | 已完成 |
+| 33 | ✅ **缺全局 unhandledRejection handler** — 已添加 `process.on("unhandledRejection"/"uncaughtException")` | `src/server.ts`, `src/ssh-ws-proxy.ts` | 已完成 |
+| 34 | ✅ **export-service 加载敏感字段** — 标准模式已用 `select` 排除敏感字段（passwordHash/privateKey/apiKey 等） | `src/lib/system/export-service.ts` | 已完成 |
+| 35 | ✅ **executeImport() 607 行巨函数** — 已重构为 table-driven 配置数组模式，每表一个统一 handler | `src/lib/system/import-service.ts` | 已完成 |
+| 36 | ✅ **FileEntry 缺复合索引** — 已添加 `@@index([storageNodeId, entryType, isDeleted])` + `@@index([parentId])` | `prisma/schema.prisma` FileEntry 模型 | 已完成 |
 
 ### 🟢 P3 — 低优先级（技术债务与依赖更新）
 
@@ -425,14 +425,14 @@ make logs SERVICE_PREFIX=vcontrolhub
 | 37 | **测试覆盖空白：67 API 路由无测试** | `src/app/api/ai/**` (17个), `src/app/api/auth/2fa/**` (4个), `src/app/api/playbooks/**` (4个), `src/app/api/backup-schedules/**`, `src/app/api/deployments/[id]/rollback/`, `src/app/api/audit/**` 等 | 按关键路径优先补测：auth/2FA → AI → playbooks → backup → audit |
 | 38 | **测试覆盖空白：184 lib 文件无测试** | `src/lib/auth/**` (11个), `src/lib/backup/**` (8个), `src/lib/ai/**` (8个) 等 | 优先补测 auth、backup、SSH 相关模块 |
 | 39 | **测试覆盖空白：17/29 组件无测试** | `ui-primitives.tsx`, `page-shell.tsx`, `global-search.tsx`, `ssh-file-manager.tsx`, `ssh-terminal-panel.tsx`, `notification-bell.tsx` 等 | 优先补测 ui-primitives 和 page-shell |
-| 40 | **依赖更新可用** | `package.json` | eslint 9→10(大版本), next 16.2.9→16.2.10(补丁), react 19.2.4→19.2.7(补丁), sharp 0.34→0.35(小版本) — 建议先跑补丁版本 |
-| 41 | **i18n 字典文件命名不一致** — 7 组重复前缀 | `servers-page.ts` + `servers.ts`, `docker-page.ts` + `docker.ts`, `monitoring-page.ts` + `monitoring.ts` 等 | 合并为每功能域单文件 |
-| 42 | **models 缺 @@map()** — 20 个模型表名为 PascalCase | `prisma/schema.prisma` — User, Role, Permission, SshKey, StorageNode, FileEntry, Playbook 等 | 添加 `@@map("snake_case_name")` 统一表名规范 |
-| 43 | **dark: 无 light: 配对：15 处** | `notification-bell.tsx`, `snippet-list-client.tsx`, `operation-task-list-client.tsx`, `offline/page.tsx` 等 | 替换为项目 `light:` 前缀或 CSS 变量 |
-| 44 | **dompurify 未 code-split** — 客户端组件直接导入 | `src/app/files/preview/text-preview-client.tsx`, `markdown-preview-client.tsx` | 改用 `next/dynamic` 懒加载 |
+| 40 | ✅ **依赖更新（部分）** — 补丁版本已完成：next 16.2.10, react 19.2.7, sharp 0.35.3, eslint-config-next 16.2.10；eslint 9→10 大版本暂缓（README 建议先跑补丁版本） | `package.json` | 补丁已完成，eslint 10 暂缓 |
+| 41 | ✅ **i18n 字典文件命名不一致** — 7 组重复前缀已合并为每功能域单文件（servers, docker, monitoring, operation-tasks, scheduled-tasks, shares, users） | `src/lib/i18n/dictionaries/` | 已完成 |
+| 42 | ✅ **models 缺 @@map()** — 10 个 PascalCase 模型已添加 `@@map("snake_case")`：User, Role, Permission, UserRole, RolePermission, SshKey, CommandApproval, ExecutionLog, StorageNode, FileEntry + 迁移 | `prisma/schema.prisma` | 已完成 — 全部 60 个模型均有 @@map |
+| 43 | ✅ **dark: 无 light: 配对：15 处** — 已替换为 `light:` 前缀或 CSS 变量 | `notification-bell.tsx`, `snippet-list-client.tsx`, `operation-task-list-client.tsx`, `offline/page.tsx` | 已完成 |
+| 44 | ✅ **dompurify 未 code-split** — 已提取到 `src/lib/sanitize/html-sanitizer.ts` 并用动态 `import()` 懒加载 | `src/app/files/preview/text-preview-client.tsx`, `markdown-preview-client.tsx` | 已完成 |
 | 45 | **无端到端测试** — 仅有单元/集成测试 | 项目级别 | 可引入 Playwright 覆盖关键用户流程（登录→服务器管理→文件操作） |
-| 46 | **guessContentType() 重复定义 3 处** | `src/app/api/share/[token]/route.ts:26`, `src/app/api/storage/sftp-download/route.ts:25`, `src/app/api/storage/local/route.ts:70` | 提取到 `src/lib/http/mime-types.ts` 共享 |
-| 47 | **login/2FA/AI chat 用同步内存限流** — 多实例部署时限流不共享 | `src/app/api/login/route.ts:35`, `src/app/api/auth/2fa/verify-login/route.ts:23`, `src/app/api/ai/chat/route.ts:43` | 改用 `checkRateLimitAsync()` |
+| 46 | ✅ **guessContentType() 重复定义 3 处** — 已提取到 `src/lib/http/mime-types.ts` 共享 + 测试 | `src/app/api/share/[token]/route.ts`, `src/app/api/storage/sftp-download/route.ts`, `src/app/api/storage/local/route.ts` | 已完成 |
+| 47 | ✅ **login/2FA/AI chat 用同步内存限流** — 已改用 `checkRateLimitAsync()` | `src/app/api/login/route.ts`, `src/app/api/auth/2fa/verify-login/route.ts`, `src/app/api/ai/chat/route.ts` | 已完成 |
 
 ---
 

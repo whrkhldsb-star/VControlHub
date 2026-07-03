@@ -1,0 +1,3 @@
+-- server_uptime_snapshots table was created via `prisma db push` prior to
+-- migration tracking. No-op here so the migrate history is consistent.
+-- (Table already exists in the database.)

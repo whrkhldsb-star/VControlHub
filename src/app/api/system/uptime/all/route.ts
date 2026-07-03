@@ -45,6 +45,7 @@ export async function GET(request: NextRequest) {
         date: { gte: ninetyDaysAgo },
       },
       orderBy: [{ serverId: "asc" }, { date: "asc" }],
+      take: 5000,
     });
 
     const snapshotsByServer = new Map<string, ServerUptimeSnapshot[]>();

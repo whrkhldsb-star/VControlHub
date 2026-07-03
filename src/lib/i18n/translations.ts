@@ -27,11 +27,8 @@ import { zh as authZh, en as authEn } from "./dictionaries/auth";
 import { zh as backupspageZh, en as backupspageEn } from "./dictionaries/backups-page";
 import { zh as downloadspageZh, en as downloadspageEn } from "./dictionaries/downloads-page";
 import { zh as downloadsapiZh, en as downloadsapiEn } from "./dictionaries/downloads-api";
-import { zh as operationtaskspageZh, en as operationtaskspageEn } from "./dictionaries/operation-tasks-page";
-import { zh as scheduledtaskspageZh, en as scheduledtaskspageEn } from "./dictionaries/scheduled-tasks-page";
 import { zh as settingspageZh, en as settingspageEn } from "./dictionaries/settings-page";
 import { zh as sharetokenapiZh, en as sharetokenapiEn } from "./dictionaries/share-token-api";
-import { zh as sharespageZh, en as sharespageEn } from "./dictionaries/shares-page";
 import { zh as filedetailpanelZh, en as filedetailpanelEn } from "./dictionaries/file-detail-panel";
 import { zh as filespageZh, en as filespageEn } from "./dictionaries/files-page";
 import { zh as deploymentspageZh, en as deploymentspageEn } from "./dictionaries/deployments-page";
@@ -40,7 +37,6 @@ import { zh as costpageZh, en as costpageEn } from "./dictionaries/cost-page";
 import { zh as csvpreviewZh, en as csvpreviewEn } from "./dictionaries/csv-preview";
 import { zh as dashboardZh, en as dashboardEn } from "./dictionaries/dashboard";
 import { zh as dockerZh, en as dockerEn } from "./dictionaries/docker";
-import { zh as dockerpageZh, en as dockerpageEn } from "./dictionaries/docker-page";
 import { zh as errorZh, en as errorEn } from "./dictionaries/error";
 import { zh as fileUploadDropzoneZh, en as fileUploadDropzoneEn } from "./dictionaries/file-upload-dropzone";
 import { zh as healthpageZh, en as healthpageEn } from "./dictionaries/health-page";
@@ -54,7 +50,6 @@ import { zh as mediapreviewZh, en as mediapreviewEn } from "./dictionaries/media
 import { zh as mediascanbuttonZh, en as mediascanbuttonEn } from "./dictionaries/media-scan-button";
 import { zh as mediauploadpanelZh, en as mediauploadpanelEn } from "./dictionaries/media-upload-panel";
 import { zh as monitoringZh, en as monitoringEn } from "./dictionaries/monitoring";
-import { zh as monitoringPageZh, en as monitoringPageEn } from "./dictionaries/monitoring-page";
 import { zh as navZh, en as navEn } from "./dictionaries/nav";
 import { zh as notfoundZh, en as notfoundEn } from "./dictionaries/not-found";
 import { zh as notificationspageZh, en as notificationspageEn } from "./dictionaries/notifications-page";
@@ -71,7 +66,6 @@ import { zh as requestspageZh, en as requestspageEn } from "./dictionaries/reque
 import { zh as scheduledtasksZh, en as scheduledtasksEn } from "./dictionaries/scheduled-tasks";
 import { zh as searchZh, en as searchEn } from "./dictionaries/search";
 import { zh as serversZh, en as serversEn } from "./dictionaries/servers";
-import { zh as serverspageZh, en as serverspageEn } from "./dictionaries/servers-page";
 import { zh as serversreloadapiZh, en as serversreloadapiEn } from "./dictionaries/servers-reload-api";
 import { zh as serversdetectosapiZh, en as serversdetectosapiEn } from "./dictionaries/servers-detect-os-api";
 import { zh as vpsbackupapiZh, en as vpsbackupapiEn } from "./dictionaries/vps-backup-api";
@@ -88,7 +82,6 @@ import { zh as ticketsdetailZh, en as ticketsdetailEn } from "./dictionaries/tic
 import { zh as ticketspageZh, en as ticketspageEn } from "./dictionaries/tickets-page";
 import { zh as trafficpageZh, en as trafficpageEn } from "./dictionaries/traffic-page";
 import { zh as usersZh, en as usersEn } from "./dictionaries/users";
-import { zh as userspageZh, en as userspageEn } from "./dictionaries/users-page";
 import { zh as userspermZh, en as userspermEn } from "./dictionaries/users-perm";
 import { zh as storagepageZh, en as storagepageEn } from "./dictionaries/storage-page";
 import { zh as systemconfigZh, en as systemconfigEn } from "./dictionaries/system-config";
@@ -112,7 +105,6 @@ const zh: Record<string, string> = {
 	...dashboardZh,
 	...deploymentspageZh,
 	...dockerZh,
-	...dockerpageZh,
 	...downloadspageZh,
 	...downloadsapiZh,
 	...errorZh,
@@ -130,14 +122,12 @@ const zh: Record<string, string> = {
 	...mediascanbuttonZh,
 	...mediauploadpanelZh,
 	...monitoringZh,
-	...monitoringPageZh,
 	...navZh,
 	...notfoundZh,
 	...notificationspageZh,
 	...openapispecZh,
 	...officepreviewZh,
 	...operationtasksZh,
-	...operationtaskspageZh,
 	...preferencespageZh,
 	...playbookspageZh,
 	...pwaZh,
@@ -146,19 +136,16 @@ const zh: Record<string, string> = {
 	...recyclebinsectionZh,
 	...requestspageZh,
 	...scheduledtasksZh,
-	...scheduledtaskspageZh,
 	...settingspageZh,
 	...sharetokenapiZh,
 	...searchZh,
 	...serversZh,
-	...serverspageZh,
 	...serversreloadapiZh,
 	...serversdetectosapiZh,
 	...vpsbackupapiZh,
 	...serversfileproxyapiZh,
 	...sharepageZh,
 	...sharesZh,
-	...sharespageZh,
 	...snippetsPageZh,
 	...sshterminalmodalZh,
 	...statuspageZh,
@@ -169,7 +156,6 @@ const zh: Record<string, string> = {
 	...ticketspageZh,
 	...trafficpageZh,
 	...usersZh,
-	...userspageZh,
 	...userspermZh,
 	...storagepageZh,
 	...systemconfigZh,
@@ -194,7 +180,6 @@ const en: Record<string, string> = {
 	...dashboardEn,
 	...deploymentspageEn,
 	...dockerEn,
-	...dockerpageEn,
 	...downloadspageEn,
 	...downloadsapiEn,
 	...errorEn,
@@ -212,14 +197,12 @@ const en: Record<string, string> = {
 	...mediascanbuttonEn,
 	...mediauploadpanelEn,
 	...monitoringEn,
-	...monitoringPageEn,
 	...navEn,
 	...notfoundEn,
 	...notificationspageEn,
 	...openapispecEn,
 	...officepreviewEn,
 	...operationtasksEn,
-	...operationtaskspageEn,
 	...preferencespageEn,
 	...playbookspageEn,
 	...pwaEn,
@@ -228,19 +211,16 @@ const en: Record<string, string> = {
 	...recyclebinsectionEn,
 	...requestspageEn,
 	...scheduledtasksEn,
-	...scheduledtaskspageEn,
 	...settingspageEn,
 	...sharetokenapiEn,
 	...searchEn,
 	...serversEn,
-	...serverspageEn,
 	...serversreloadapiEn,
 	...serversdetectosapiEn,
 	...vpsbackupapiEn,
 	...serversfileproxyapiEn,
 	...sharepageEn,
 	...sharesEn,
-	...sharespageEn,
 	...snippetsPageEn,
 	...sshterminalmodalEn,
 	...statuspageEn,
@@ -251,7 +231,6 @@ const en: Record<string, string> = {
 	...ticketspageEn,
 	...trafficpageEn,
 	...usersEn,
-	...userspageEn,
 	...userspermEn,
 	...storagepageEn,
 	...systemconfigEn,

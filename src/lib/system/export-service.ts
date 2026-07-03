@@ -19,7 +19,7 @@ function dateToISO(d: Date | null | undefined): string | null {
 // ── 各表导出器 ────────────────────────────────────────────
 
 async function exportPermissions() {
-  const rows = await prisma.permission.findMany({ orderBy: { key: "asc" } });
+  const rows = await prisma.permission.findMany({ orderBy: { key: "asc" }, take: 1000 });
   return rows.map((r) => ({
     id: r.id,
     key: r.key,
@@ -29,7 +29,7 @@ async function exportPermissions() {
 }
 
 async function exportRoles() {
-  const rows = await prisma.role.findMany({ orderBy: { key: "asc" } });
+  const rows = await prisma.role.findMany({ orderBy: { key: "asc" }, take: 1000 });
   return rows.map((r) => ({
     id: r.id,
     key: r.key,
@@ -39,7 +39,7 @@ async function exportRoles() {
 }
 
 async function exportRolePermissions() {
-  const rows = await prisma.rolePermission.findMany();
+  const rows = await prisma.rolePermission.findMany({ take: 1000 });
   return rows.map((r) => ({
     roleId: r.roleId,
     permissionId: r.permissionId,
@@ -49,7 +49,16 @@ async function exportRolePermissions() {
 export type ExportMode = "standard" | "full";
 
 async function exportUsers(mode: ExportMode) {
-  const rows = await prisma.user.findMany({ orderBy: { username: "asc" } });
+  const rows = await prisma.user.findMany({
+    orderBy: { username: "asc" },
+    select: {
+      id: true, username: true, displayName: true, status: true,
+      mustChangePassword: true, twoFactorEnabled: true, preferences: true, createdAt: true,
+      passwordHash: mode === "full",
+      twoFactorSecret: mode === "full",
+    },
+    take: 1000,
+  });
   return rows.map((r) => ({
     id: r.id,
     username: r.username,
@@ -65,7 +74,7 @@ async function exportUsers(mode: ExportMode) {
 }
 
 async function exportUserRoles() {
-  const rows = await prisma.userRole.findMany();
+  const rows = await prisma.userRole.findMany({ take: 1000 });
   return rows.map((r) => ({
     userId: r.userId,
     roleId: r.roleId,
@@ -74,7 +83,16 @@ async function exportUserRoles() {
 }
 
 async function exportSshKeys(mode: ExportMode) {
-  const rows = await prisma.sshKey.findMany({ orderBy: { name: "asc" } });
+  const rows = await prisma.sshKey.findMany({
+    orderBy: { name: "asc" },
+    select: {
+      id: true, name: true, fingerprint: true, publicKey: true,
+      description: true, createdById: true, createdAt: true,
+      privateKey: mode === "full",
+      passphrase: mode === "full",
+    },
+    take: 1000,
+  });
   return rows.map((r) => ({
     id: r.id,
     name: r.name,
@@ -89,7 +107,17 @@ async function exportSshKeys(mode: ExportMode) {
 }
 
 async function exportServers(mode: ExportMode) {
-  const rows = await prisma.server.findMany({ orderBy: { name: "asc" } });
+  const rows = await prisma.server.findMany({
+    orderBy: { name: "asc" },
+    select: {
+      id: true, name: true, host: true, port: true, username: true,
+      sshKeyId: true, description: true, tags: true, enabled: true,
+      connectionType: true, publicUrl: true, fileProxyPort: true,
+      osDialect: true, osInfo: true, createdAt: true,
+      password: mode === "full",
+    },
+    take: 1000,
+  });
   return rows.map((r) => ({
     id: r.id,
     name: r.name,
@@ -111,7 +139,7 @@ async function exportServers(mode: ExportMode) {
 }
 
 async function exportStorageNodes() {
-  const rows = await prisma.storageNode.findMany({ orderBy: { name: "asc" } });
+  const rows = await prisma.storageNode.findMany({ orderBy: { name: "asc" }, take: 1000 });
   return rows.map((r) => ({
     id: r.id,
     name: r.name,
@@ -131,7 +159,7 @@ async function exportStorageNodes() {
 }
 
 async function exportUserStorageAccess() {
-  const rows = await prisma.userStorageAccess.findMany();
+  const rows = await prisma.userStorageAccess.findMany({ take: 1000 });
   return rows.map((r) => ({
     id: r.id,
     userId: r.userId,
@@ -147,7 +175,7 @@ async function exportUserStorageAccess() {
 }
 
 async function exportCommandTemplates() {
-  const rows = await prisma.commandTemplate.findMany({ orderBy: { name: "asc" } });
+  const rows = await prisma.commandTemplate.findMany({ orderBy: { name: "asc" }, take: 1000 });
   return rows.map((r) => ({
     id: r.id,
     name: r.name,
@@ -163,7 +191,7 @@ async function exportCommandTemplates() {
 }
 
 async function exportQuickServices() {
-  const rows = await prisma.quickService.findMany({ orderBy: { name: "asc" } });
+  const rows = await prisma.quickService.findMany({ orderBy: { name: "asc" }, take: 1000 });
   return rows.map((r) => ({
     id: r.id,
     slug: r.slug,
@@ -185,7 +213,7 @@ async function exportQuickServices() {
 }
 
 async function exportPlaybooks() {
-  const rows = await prisma.playbook.findMany({ orderBy: { name: "asc" } });
+  const rows = await prisma.playbook.findMany({ orderBy: { name: "asc" }, take: 1000 });
   return rows.map((r) => ({
     id: r.id,
     name: r.name,
@@ -201,7 +229,7 @@ async function exportPlaybooks() {
 }
 
 async function exportAlertRules() {
-  const rows = await prisma.alertRule.findMany({ orderBy: { name: "asc" } });
+  const rows = await prisma.alertRule.findMany({ orderBy: { name: "asc" }, take: 1000 });
   return rows.map((r) => ({
     id: r.id,
     name: r.name,
@@ -220,7 +248,7 @@ async function exportAlertRules() {
 }
 
 async function exportSettings(mode: ExportMode) {
-  const rows = await prisma.setting.findMany({ orderBy: { key: "asc" } });
+  const rows = await prisma.setting.findMany({ orderBy: { key: "asc" }, take: 1000 });
   return rows.map((r) => ({
     key: r.key,
     value: mode === "full" ? r.value : (isSensitiveSettingKey(r.key) ? "" : r.value),
@@ -228,7 +256,16 @@ async function exportSettings(mode: ExportMode) {
 }
 
 async function exportAiProviders(mode: ExportMode) {
-  const rows = await prisma.aiProvider.findMany({ orderBy: { name: "asc" } });
+  const rows = await prisma.aiProvider.findMany({
+    orderBy: { name: "asc" },
+    select: {
+      id: true, name: true, type: true, baseUrl: true, defaultModel: true,
+      availableModels: true, isDefault: true, enabled: true, settings: true,
+      createdBy: true, createdAt: true,
+      apiKey: mode === "full",
+    },
+    take: 1000,
+  });
   return rows.map((r) => ({
     id: r.id,
     name: r.name,
@@ -246,7 +283,7 @@ async function exportAiProviders(mode: ExportMode) {
 }
 
 async function exportAnnouncements() {
-  const rows = await prisma.announcement.findMany({ orderBy: { createdAt: "desc" } });
+  const rows = await prisma.announcement.findMany({ orderBy: { createdAt: "desc" }, take: 1000 });
   return rows.map((r) => ({
     id: r.id,
     title: r.title,
@@ -262,7 +299,7 @@ async function exportAnnouncements() {
 }
 
 async function exportSnippets() {
-  const rows = await prisma.snippet.findMany({ orderBy: { title: "asc" } });
+  const rows = await prisma.snippet.findMany({ orderBy: { title: "asc" }, take: 1000 });
   return rows.map((r) => ({
     id: r.id,
     title: r.title,

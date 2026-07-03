@@ -1,6 +1,7 @@
 import { createReadStream } from "node:fs";
 import { access, mkdir, stat, unlink, writeFile } from "node:fs/promises";
 import path from "node:path";
+import { guessContentType } from "@/lib/http/mime-types";
 
 import { NextResponse } from "next/server";
 
@@ -65,26 +66,6 @@ function resolveManagedLocalPath(basePath: string, relativePath: string) {
     absolutePath,
     allowedRoot,
   };
-}
-
-function guessContentType(fileName: string, mimeType: string | null) {
-  if (mimeType) {
-    return mimeType;
-  }
-
-  const ext = path.extname(fileName).toLowerCase();
-  if ([".jpg", ".jpeg"].includes(ext)) return "image/jpeg";
-  if (ext === ".png") return "image/png";
-  if (ext === ".webp") return "image/webp";
-  if (ext === ".gif") return "image/gif";
-  if (ext === ".svg") return "image/svg+xml";
-  if (ext === ".mp4") return "video/mp4";
-  if (ext === ".mp3") return "audio/mpeg";
-  if (ext === ".wav") return "audio/wav";
-  if (ext === ".pdf") return "application/pdf";
-  if (ext === ".txt") return "text/plain; charset=utf-8";
-  if (ext === ".json") return "application/json; charset=utf-8";
-  return "application/octet-stream";
 }
 
 async function handleGet(request: Request, session: SessionPayload) {

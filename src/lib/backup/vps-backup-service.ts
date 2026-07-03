@@ -398,6 +398,7 @@ export async function pruneOldVpsBackupRecords(
 			completedAt: { lt: cutoff },
 		},
 		select: { id: true, localPath: true },
+		take: 1000,
 	});
 
 	let deleted = 0;

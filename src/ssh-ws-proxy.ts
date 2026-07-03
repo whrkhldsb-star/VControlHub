@@ -424,3 +424,11 @@ function shutdown() {
 
 process.on("SIGTERM", shutdown);
 process.on("SIGINT", shutdown);
+
+process.on("unhandledRejection", (reason) => {
+	logger.error("Unhandled rejection:", reason);
+});
+process.on("uncaughtException", (err) => {
+	logger.error("Uncaught exception:", err);
+	shutdown();
+});

@@ -325,7 +325,7 @@ export function DownloadsClient({ servers, canManage, canManageNode }: { servers
 					message.type === "success" ? "border-emerald-400/30 bg-emerald-400/5 text-emerald-200" : "border-rose-400/30 bg-rose-400/5 text-rose-200"
 				}`}>
 					{message.text}
-					<button type="button" onClick={() => setMessage(null)} className="ml-3 text-current/50 hover:text-current">✕</button>
+					<button type="button" onClick={() => setMessage(null)} aria-label={t("common.close")} className="ml-3 text-current/50 hover:text-current">✕</button>
 				</div>
 			)}
 

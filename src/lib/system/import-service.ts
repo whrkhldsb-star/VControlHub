@@ -19,7 +19,13 @@ import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import type { ExportFile, ImportOptions, ImportPreview } from "@/lib/system/config-schema";
 
-// ── 工具函数 ──────────────────────────────────────────────
+// ── 类型与工具函数 ──────────────────────────────────────
+
+/** Prisma 事务客户端类型（$transaction 回调中的 tx） */
+type Tx = Prisma.TransactionClient;
+
+/** 导入计数器，在各 helper 间共享并累加 */
+type Counts = { created: number; updated: number; skipped: number };
 
 function parseDate(s: string): Date {
   return new Date(s);
@@ -32,6 +38,349 @@ function parseBigInt(s: string | null): bigint | null {
   } catch {
     return null;
   }
+}
+
+// ── 预览辅助函数 ──────────────────────────────────────────
+//
+// 每张表使用单次 batch findMany 替代 N 次 per-record findUnique，
+// 统计将创建/更新/跳过的记录数，不实际写入数据库。
+
+async function previewPermissions(
+  t: ExportFile["tables"],
+  options: ImportOptions,
+): Promise<{ create: number; update: number; skip: number }> {
+  const records = t.permissions;
+  if (records.length === 0) return { create: 0, update: 0, skip: 0 };
+  const ids = records.map((r) => r.id);
+  const existing = await prisma.permission.findMany({
+    where: { id: { in: ids } },
+    select: { id: true },
+  });
+  const existingIds = new Set(existing.map((e) => e.id));
+  const existingCount = records.filter((r) => existingIds.has(r.id)).length;
+  const newCount = records.length - existingCount;
+  if (options.overwriteExisting) {
+    return { create: newCount, update: existingCount, skip: 0 };
+  }
+  return { create: newCount, update: 0, skip: existingCount };
+}
+
+async function previewRoles(
+  t: ExportFile["tables"],
+  options: ImportOptions,
+): Promise<{ create: number; update: number; skip: number }> {
+  const records = t.roles;
+  if (records.length === 0) return { create: 0, update: 0, skip: 0 };
+  const ids = records.map((r) => r.id);
+  const existing = await prisma.role.findMany({
+    where: { id: { in: ids } },
+    select: { id: true },
+  });
+  const existingIds = new Set(existing.map((e) => e.id));
+  const existingCount = records.filter((r) => existingIds.has(r.id)).length;
+  const newCount = records.length - existingCount;
+  if (options.overwriteExisting) {
+    return { create: newCount, update: existingCount, skip: 0 };
+  }
+  return { create: newCount, update: 0, skip: existingCount };
+}
+
+async function previewRolePermissions(
+  t: ExportFile["tables"],
+): Promise<{ create: number; update: number; skip: number }> {
+  const records = t.rolePermissions;
+  if (records.length === 0) return { create: 0, update: 0, skip: 0 };
+  const roleIds = [...new Set(records.map((r) => r.roleId))];
+  const existing = await prisma.rolePermission.findMany({
+    where: { roleId: { in: roleIds } },
+    select: { roleId: true, permissionId: true },
+  });
+  const existingKeys = new Set(
+    existing.map((e) => `${e.roleId}:${e.permissionId}`),
+  );
+  const existingCount = records.filter(
+    (r) => existingKeys.has(`${r.roleId}:${r.permissionId}`),
+  ).length;
+  return { create: records.length - existingCount, update: 0, skip: existingCount };
+}
+
+async function previewUsers(
+  t: ExportFile["tables"],
+  options: ImportOptions,
+): Promise<{ create: number; update: number; skip: number }> {
+  const records = t.users;
+  if (records.length === 0) return { create: 0, update: 0, skip: 0 };
+  const ids = records.map((r) => r.id);
+  const existing = await prisma.user.findMany({
+    where: { id: { in: ids } },
+    select: { id: true },
+  });
+  const existingIds = new Set(existing.map((e) => e.id));
+  const existingCount = records.filter((r) => existingIds.has(r.id)).length;
+  const newCount = records.length - existingCount;
+  if (options.overwriteExisting) {
+    return { create: newCount, update: existingCount, skip: 0 };
+  }
+  return { create: newCount, update: 0, skip: existingCount };
+}
+
+async function previewUserRoles(
+  t: ExportFile["tables"],
+): Promise<{ create: number; update: number; skip: number }> {
+  const records = t.userRoles;
+  if (records.length === 0) return { create: 0, update: 0, skip: 0 };
+  const userIds = [...new Set(records.map((r) => r.userId))];
+  const existing = await prisma.userRole.findMany({
+    where: { userId: { in: userIds } },
+    select: { userId: true, roleId: true },
+  });
+  const existingKeys = new Set(
+    existing.map((e) => `${e.userId}:${e.roleId}`),
+  );
+  const existingCount = records.filter(
+    (r) => existingKeys.has(`${r.userId}:${r.roleId}`),
+  ).length;
+  return { create: records.length - existingCount, update: 0, skip: existingCount };
+}
+
+async function previewSshKeys(
+  t: ExportFile["tables"],
+  options: ImportOptions,
+): Promise<{ create: number; update: number; skip: number }> {
+  const records = t.sshKeys;
+  if (records.length === 0) return { create: 0, update: 0, skip: 0 };
+  const ids = records.map((r) => r.id);
+  const existing = await prisma.sshKey.findMany({
+    where: { id: { in: ids } },
+    select: { id: true },
+  });
+  const existingIds = new Set(existing.map((e) => e.id));
+  const existingCount = records.filter((r) => existingIds.has(r.id)).length;
+  const newCount = records.length - existingCount;
+  if (options.overwriteExisting) {
+    return { create: newCount, update: existingCount, skip: 0 };
+  }
+  return { create: newCount, update: 0, skip: existingCount };
+}
+
+async function previewServers(
+  t: ExportFile["tables"],
+  options: ImportOptions,
+): Promise<{ create: number; update: number; skip: number }> {
+  const records = t.servers;
+  if (records.length === 0) return { create: 0, update: 0, skip: 0 };
+  const ids = records.map((r) => r.id);
+  const existing = await prisma.server.findMany({
+    where: { id: { in: ids } },
+    select: { id: true },
+  });
+  const existingIds = new Set(existing.map((e) => e.id));
+  const existingCount = records.filter((r) => existingIds.has(r.id)).length;
+  const newCount = records.length - existingCount;
+  if (options.overwriteExisting) {
+    return { create: newCount, update: existingCount, skip: 0 };
+  }
+  return { create: newCount, update: 0, skip: existingCount };
+}
+
+async function previewStorageNodes(
+  t: ExportFile["tables"],
+  options: ImportOptions,
+): Promise<{ create: number; update: number; skip: number }> {
+  const records = t.storageNodes;
+  if (records.length === 0) return { create: 0, update: 0, skip: 0 };
+  const ids = records.map((r) => r.id);
+  const existing = await prisma.storageNode.findMany({
+    where: { id: { in: ids } },
+    select: { id: true },
+  });
+  const existingIds = new Set(existing.map((e) => e.id));
+  const existingCount = records.filter((r) => existingIds.has(r.id)).length;
+  const newCount = records.length - existingCount;
+  if (options.overwriteExisting) {
+    return { create: newCount, update: existingCount, skip: 0 };
+  }
+  return { create: newCount, update: 0, skip: existingCount };
+}
+
+async function previewUserStorageAccess(
+  t: ExportFile["tables"],
+  options: ImportOptions,
+): Promise<{ create: number; update: number; skip: number }> {
+  const records = t.userStorageAccess;
+  if (records.length === 0) return { create: 0, update: 0, skip: 0 };
+  const ids = records.map((r) => r.id);
+  const existing = await prisma.userStorageAccess.findMany({
+    where: { id: { in: ids } },
+    select: { id: true },
+  });
+  const existingIds = new Set(existing.map((e) => e.id));
+  const existingCount = records.filter((r) => existingIds.has(r.id)).length;
+  const newCount = records.length - existingCount;
+  if (options.overwriteExisting) {
+    return { create: newCount, update: existingCount, skip: 0 };
+  }
+  return { create: newCount, update: 0, skip: existingCount };
+}
+
+async function previewCommandTemplates(
+  t: ExportFile["tables"],
+  options: ImportOptions,
+): Promise<{ create: number; update: number; skip: number }> {
+  const records = t.commandTemplates;
+  if (records.length === 0) return { create: 0, update: 0, skip: 0 };
+  const ids = records.map((r) => r.id);
+  const existing = await prisma.commandTemplate.findMany({
+    where: { id: { in: ids } },
+    select: { id: true },
+  });
+  const existingIds = new Set(existing.map((e) => e.id));
+  const existingCount = records.filter((r) => existingIds.has(r.id)).length;
+  const newCount = records.length - existingCount;
+  if (options.overwriteExisting) {
+    return { create: newCount, update: existingCount, skip: 0 };
+  }
+  return { create: newCount, update: 0, skip: existingCount };
+}
+
+async function previewQuickServices(
+  t: ExportFile["tables"],
+  options: ImportOptions,
+): Promise<{ create: number; update: number; skip: number }> {
+  const records = t.quickServices;
+  if (records.length === 0) return { create: 0, update: 0, skip: 0 };
+  const ids = records.map((r) => r.id);
+  const existing = await prisma.quickService.findMany({
+    where: { id: { in: ids } },
+    select: { id: true },
+  });
+  const existingIds = new Set(existing.map((e) => e.id));
+  const existingCount = records.filter((r) => existingIds.has(r.id)).length;
+  const newCount = records.length - existingCount;
+  if (options.overwriteExisting) {
+    return { create: newCount, update: existingCount, skip: 0 };
+  }
+  return { create: newCount, update: 0, skip: existingCount };
+}
+
+async function previewPlaybooks(
+  t: ExportFile["tables"],
+  options: ImportOptions,
+): Promise<{ create: number; update: number; skip: number }> {
+  const records = t.playbooks;
+  if (records.length === 0) return { create: 0, update: 0, skip: 0 };
+  const ids = records.map((r) => r.id);
+  const existing = await prisma.playbook.findMany({
+    where: { id: { in: ids } },
+    select: { id: true },
+  });
+  const existingIds = new Set(existing.map((e) => e.id));
+  const existingCount = records.filter((r) => existingIds.has(r.id)).length;
+  const newCount = records.length - existingCount;
+  if (options.overwriteExisting) {
+    return { create: newCount, update: existingCount, skip: 0 };
+  }
+  return { create: newCount, update: 0, skip: existingCount };
+}
+
+async function previewAlertRules(
+  t: ExportFile["tables"],
+  options: ImportOptions,
+): Promise<{ create: number; update: number; skip: number }> {
+  const records = t.alertRules;
+  if (records.length === 0) return { create: 0, update: 0, skip: 0 };
+  const ids = records.map((r) => r.id);
+  const existing = await prisma.alertRule.findMany({
+    where: { id: { in: ids } },
+    select: { id: true },
+  });
+  const existingIds = new Set(existing.map((e) => e.id));
+  const existingCount = records.filter((r) => existingIds.has(r.id)).length;
+  const newCount = records.length - existingCount;
+  if (options.overwriteExisting) {
+    return { create: newCount, update: existingCount, skip: 0 };
+  }
+  return { create: newCount, update: 0, skip: existingCount };
+}
+
+async function previewSettings(
+  t: ExportFile["tables"],
+  options: ImportOptions,
+): Promise<{ create: number; update: number; skip: number }> {
+  const records = t.settings;
+  if (records.length === 0) return { create: 0, update: 0, skip: 0 };
+  const keys = records.map((r) => r.key);
+  const existing = await prisma.setting.findMany({
+    where: { key: { in: keys } },
+    select: { key: true },
+  });
+  const existingKeys = new Set(existing.map((e) => e.key));
+  const existingCount = records.filter((r) => existingKeys.has(r.key)).length;
+  const newCount = records.length - existingCount;
+  if (options.overwriteExisting) {
+    return { create: newCount, update: existingCount, skip: 0 };
+  }
+  return { create: newCount, update: 0, skip: existingCount };
+}
+
+async function previewAiProviders(
+  t: ExportFile["tables"],
+  options: ImportOptions,
+): Promise<{ create: number; update: number; skip: number }> {
+  const records = t.aiProviders;
+  if (records.length === 0) return { create: 0, update: 0, skip: 0 };
+  const ids = records.map((r) => r.id);
+  const existing = await prisma.aiProvider.findMany({
+    where: { id: { in: ids } },
+    select: { id: true },
+  });
+  const existingIds = new Set(existing.map((e) => e.id));
+  const existingCount = records.filter((r) => existingIds.has(r.id)).length;
+  const newCount = records.length - existingCount;
+  if (options.overwriteExisting) {
+    return { create: newCount, update: existingCount, skip: 0 };
+  }
+  return { create: newCount, update: 0, skip: existingCount };
+}
+
+async function previewAnnouncements(
+  t: ExportFile["tables"],
+  options: ImportOptions,
+): Promise<{ create: number; update: number; skip: number }> {
+  const records = t.announcements;
+  if (records.length === 0) return { create: 0, update: 0, skip: 0 };
+  const ids = records.map((r) => r.id);
+  const existing = await prisma.announcement.findMany({
+    where: { id: { in: ids } },
+    select: { id: true },
+  });
+  const existingIds = new Set(existing.map((e) => e.id));
+  const existingCount = records.filter((r) => existingIds.has(r.id)).length;
+  const newCount = records.length - existingCount;
+  if (options.overwriteExisting) {
+    return { create: newCount, update: existingCount, skip: 0 };
+  }
+  return { create: newCount, update: 0, skip: existingCount };
+}
+
+async function previewSnippets(
+  t: ExportFile["tables"],
+  options: ImportOptions,
+): Promise<{ create: number; update: number; skip: number }> {
+  const records = t.snippets;
+  if (records.length === 0) return { create: 0, update: 0, skip: 0 };
+  const ids = records.map((r) => r.id);
+  const existing = await prisma.snippet.findMany({
+    where: { id: { in: ids } },
+    select: { id: true },
+  });
+  const existingIds = new Set(existing.map((e) => e.id));
+  const existingCount = records.filter((r) => existingIds.has(r.id)).length;
+  const newCount = records.length - existingCount;
+  if (options.overwriteExisting) {
+    return { create: newCount, update: existingCount, skip: 0 };
+  }
+  return { create: newCount, update: 0, skip: existingCount };
 }
 
 // ── 预览模式 ──────────────────────────────────────────────
@@ -51,220 +400,131 @@ export async function previewImport(
 
   // ── Permissions ──
   {
-    let create = 0, update = 0, skip = 0;
-    for (const r of t.permissions) {
-      const existing = await prisma.permission.findUnique({ where: { id: r.id } });
-      if (existing) { if (options.overwriteExisting) update++; else skip++; }
-      else create++;
-    }
-    summary["权限"] = { create, update, skip };
-    totalRecords += create + update;
+    const r = await previewPermissions(t, options);
+    summary["权限"] = r;
+    totalRecords += r.create + r.update;
   }
 
   // ── Roles ──
   {
-    let create = 0, update = 0, skip = 0;
-    for (const r of t.roles) {
-      const existing = await prisma.role.findUnique({ where: { id: r.id } });
-      if (existing) { if (options.overwriteExisting) update++; else skip++; }
-      else create++;
-    }
-    summary["角色"] = { create, update, skip };
-    totalRecords += create + update;
+    const r = await previewRoles(t, options);
+    summary["角色"] = r;
+    totalRecords += r.create + r.update;
   }
 
   // ── RolePermissions ──
   {
-    let create = 0; const update = 0; let skip = 0;
-    for (const r of t.rolePermissions) {
-      const existing = await prisma.rolePermission.findUnique({
-        where: { roleId_permissionId: { roleId: r.roleId, permissionId: r.permissionId } },
-      });
-      if (existing) skip++;
-      else create++;
-    }
-    summary["角色权限"] = { create, update, skip };
-    totalRecords += create;
+    const r = await previewRolePermissions(t);
+    summary["角色权限"] = r;
+    totalRecords += r.create;
   }
 
   // ── Users ──
   {
-    let create = 0, update = 0, skip = 0;
     if (options.importUsers) {
-      for (const r of t.users) {
-        const existing = await prisma.user.findUnique({ where: { id: r.id } });
-        if (existing) { if (options.overwriteExisting) update++; else skip++; }
-        else create++;
-      }
+      const r = await previewUsers(t, options);
+      summary["用户"] = r;
+      totalRecords += r.create + r.update;
     } else {
-      skip = t.users.length;
+      summary["用户"] = { create: 0, update: 0, skip: t.users.length };
       warnings.push("已跳过用户导入（按选项设置）");
     }
-    summary["用户"] = { create, update, skip };
-    totalRecords += create + update;
   }
 
   // ── UserRoles ──
   {
-    let create = 0; const update = 0; let skip = 0;
-    for (const r of t.userRoles) {
-      const existing = await prisma.userRole.findUnique({
-        where: { userId_roleId: { userId: r.userId, roleId: r.roleId } },
-      });
-      if (existing) skip++;
-      else create++;
-    }
-    summary["用户角色"] = { create, update, skip };
-    totalRecords += create;
+    const r = await previewUserRoles(t);
+    summary["用户角色"] = r;
+    totalRecords += r.create;
   }
 
   // ── SshKeys ──
   {
-    let create = 0, update = 0, skip = 0;
-    for (const r of t.sshKeys) {
-      const existing = await prisma.sshKey.findUnique({ where: { id: r.id } });
-      if (existing) { if (options.overwriteExisting) update++; else skip++; }
-      else create++;
-    }
-    summary["SSH 密钥"] = { create, update, skip };
-    totalRecords += create + update;
+    const r = await previewSshKeys(t, options);
+    summary["SSH 密钥"] = r;
+    totalRecords += r.create + r.update;
   }
 
   // ── Servers ──
   {
-    let create = 0, update = 0, skip = 0;
-    for (const r of t.servers) {
-      const existing = await prisma.server.findUnique({ where: { id: r.id } });
-      if (existing) { if (options.overwriteExisting) update++; else skip++; }
-      else create++;
-    }
-    summary["服务器"] = { create, update, skip };
-    totalRecords += create + update;
+    const r = await previewServers(t, options);
+    summary["服务器"] = r;
+    totalRecords += r.create + r.update;
   }
 
   // ── StorageNodes ──
   {
-    let create = 0, update = 0, skip = 0;
-    for (const r of t.storageNodes) {
-      const existing = await prisma.storageNode.findUnique({ where: { id: r.id } });
-      if (existing) { if (options.overwriteExisting) update++; else skip++; }
-      else create++;
-    }
-    summary["存储节点"] = { create, update, skip };
-    totalRecords += create + update;
+    const r = await previewStorageNodes(t, options);
+    summary["存储节点"] = r;
+    totalRecords += r.create + r.update;
   }
 
   // ── UserStorageAccess ──
   {
-    let create = 0, update = 0, skip = 0;
-    for (const r of t.userStorageAccess) {
-      const existing = await prisma.userStorageAccess.findUnique({ where: { id: r.id } });
-      if (existing) { if (options.overwriteExisting) update++; else skip++; }
-      else create++;
-    }
-    summary["存储访问"] = { create, update, skip };
-    totalRecords += create + update;
+    const r = await previewUserStorageAccess(t, options);
+    summary["存储访问"] = r;
+    totalRecords += r.create + r.update;
   }
 
   // ── CommandTemplates ──
   {
-    let create = 0, update = 0, skip = 0;
-    for (const r of t.commandTemplates) {
-      const existing = await prisma.commandTemplate.findUnique({ where: { id: r.id } });
-      if (existing) { if (options.overwriteExisting) update++; else skip++; }
-      else create++;
-    }
-    summary["命令模板"] = { create, update, skip };
-    totalRecords += create + update;
+    const r = await previewCommandTemplates(t, options);
+    summary["命令模板"] = r;
+    totalRecords += r.create + r.update;
   }
 
   // ── QuickServices ──
   {
-    let create = 0, update = 0, skip = 0;
-    for (const r of t.quickServices) {
-      const existing = await prisma.quickService.findUnique({ where: { id: r.id } });
-      if (existing) { if (options.overwriteExisting) update++; else skip++; }
-      else create++;
-    }
-    summary["快捷服务"] = { create, update, skip };
-    totalRecords += create + update;
+    const r = await previewQuickServices(t, options);
+    summary["快捷服务"] = r;
+    totalRecords += r.create + r.update;
   }
 
   // ── Playbooks ──
   {
-    let create = 0, update = 0, skip = 0;
-    for (const r of t.playbooks) {
-      const existing = await prisma.playbook.findUnique({ where: { id: r.id } });
-      if (existing) { if (options.overwriteExisting) update++; else skip++; }
-      else create++;
-    }
-    summary["Playbook"] = { create, update, skip };
-    totalRecords += create + update;
+    const r = await previewPlaybooks(t, options);
+    summary["Playbook"] = r;
+    totalRecords += r.create + r.update;
   }
 
   // ── AlertRules ──
   {
-    let create = 0, update = 0, skip = 0;
-    for (const r of t.alertRules) {
-      const existing = await prisma.alertRule.findUnique({ where: { id: r.id } });
-      if (existing) { if (options.overwriteExisting) update++; else skip++; }
-      else create++;
-    }
-    summary["告警规则"] = { create, update, skip };
-    totalRecords += create + update;
+    const r = await previewAlertRules(t, options);
+    summary["告警规则"] = r;
+    totalRecords += r.create + r.update;
   }
 
   // ── Settings ──
   {
-    let create = 0, update = 0, skip = 0;
     if (options.importSettings) {
-      for (const r of t.settings) {
-        const existing = await prisma.setting.findUnique({ where: { key: r.key } });
-        if (existing) { if (options.overwriteExisting) update++; else skip++; }
-        else create++;
-      }
+      const r = await previewSettings(t, options);
+      summary["系统设置"] = r;
+      totalRecords += r.create + r.update;
     } else {
-      skip = t.settings.length;
+      summary["系统设置"] = { create: 0, update: 0, skip: t.settings.length };
       warnings.push("已跳过系统设置导入（按选项设置）");
     }
-    summary["系统设置"] = { create, update, skip };
-    totalRecords += create + update;
   }
 
   // ── AiProviders ──
   {
-    let create = 0, update = 0, skip = 0;
-    for (const r of t.aiProviders) {
-      const existing = await prisma.aiProvider.findUnique({ where: { id: r.id } });
-      if (existing) { if (options.overwriteExisting) update++; else skip++; }
-      else create++;
-    }
-    summary["AI 提供者"] = { create, update, skip };
-    totalRecords += create + update;
+    const r = await previewAiProviders(t, options);
+    summary["AI 提供者"] = r;
+    totalRecords += r.create + r.update;
   }
 
   // ── Announcements ──
   {
-    let create = 0, update = 0, skip = 0;
-    for (const r of t.announcements) {
-      const existing = await prisma.announcement.findUnique({ where: { id: r.id } });
-      if (existing) { if (options.overwriteExisting) update++; else skip++; }
-      else create++;
-    }
-    summary["公告"] = { create, update, skip };
-    totalRecords += create + update;
+    const r = await previewAnnouncements(t, options);
+    summary["公告"] = r;
+    totalRecords += r.create + r.update;
   }
 
   // ── Snippets ──
   {
-    let create = 0, update = 0, skip = 0;
-    for (const r of t.snippets) {
-      const existing = await prisma.snippet.findUnique({ where: { id: r.id } });
-      if (existing) { if (options.overwriteExisting) update++; else skip++; }
-      else create++;
-    }
-    summary["代码片段"] = { create, update, skip };
-    totalRecords += create + update;
+    const r = await previewSnippets(t, options);
+    summary["代码片段"] = r;
+    totalRecords += r.create + r.update;
   }
 
   // 安全警告 — only show for standard mode (full mode includes secrets)
@@ -301,6 +561,1004 @@ type ImportResult = {
   errors: string[];
 };
 
+// ── 导入辅助函数 ──────────────────────────────────────────
+//
+// 每张表使用 batch findMany + createMany + per-record update
+// 替代 N 次 per-record findUnique + create。
+// N findUnique + N create → 1 findMany + 1 createMany + M updates（M = 已存在数）。
+
+// 1. Permissions
+async function importPermissions(
+  tx: Tx,
+  t: ExportFile["tables"],
+  options: ImportOptions,
+  counts: Counts,
+): Promise<void> {
+  const records = t.permissions;
+  if (records.length === 0) return;
+  const ids = records.map((r) => r.id);
+  const existing = await tx.permission.findMany({
+    where: { id: { in: ids } },
+    select: { id: true },
+  });
+  const existingIds = new Set(existing.map((e) => e.id));
+  const toCreate = records.filter((r) => !existingIds.has(r.id));
+  const toUpdate = records.filter((r) => existingIds.has(r.id));
+
+  if (toCreate.length > 0) {
+    const result = await tx.permission.createMany({
+      data: toCreate.map((r) => ({
+        id: r.id,
+        key: r.key,
+        name: r.name,
+        description: r.description,
+      })),
+      skipDuplicates: true,
+    });
+    counts.created += result.count;
+  }
+
+  if (options.overwriteExisting) {
+    for (const r of toUpdate) {
+      await tx.permission.update({
+        where: { id: r.id },
+        data: { key: r.key, name: r.name, description: r.description },
+      });
+    }
+    counts.updated += toUpdate.length;
+  } else {
+    counts.skipped += toUpdate.length;
+  }
+}
+
+// 2. Roles
+async function importRoles(
+  tx: Tx,
+  t: ExportFile["tables"],
+  options: ImportOptions,
+  counts: Counts,
+): Promise<void> {
+  const records = t.roles;
+  if (records.length === 0) return;
+  const ids = records.map((r) => r.id);
+  const existing = await tx.role.findMany({
+    where: { id: { in: ids } },
+    select: { id: true },
+  });
+  const existingIds = new Set(existing.map((e) => e.id));
+  const toCreate = records.filter((r) => !existingIds.has(r.id));
+  const toUpdate = records.filter((r) => existingIds.has(r.id));
+
+  if (toCreate.length > 0) {
+    const result = await tx.role.createMany({
+      data: toCreate.map((r) => ({
+        id: r.id,
+        key: r.key,
+        name: r.name,
+        description: r.description,
+      })),
+      skipDuplicates: true,
+    });
+    counts.created += result.count;
+  }
+
+  if (options.overwriteExisting) {
+    for (const r of toUpdate) {
+      await tx.role.update({
+        where: { id: r.id },
+        data: { key: r.key, name: r.name, description: r.description },
+      });
+    }
+    counts.updated += toUpdate.length;
+  } else {
+    counts.skipped += toUpdate.length;
+  }
+}
+
+// 3. RolePermissions (create-only junction table, no try/catch)
+async function importRolePermissions(
+  tx: Tx,
+  t: ExportFile["tables"],
+  _options: ImportOptions,
+  counts: Counts,
+): Promise<void> {
+  const records = t.rolePermissions;
+  if (records.length === 0) return;
+  const result = await tx.rolePermission.createMany({
+    data: records.map((r) => ({
+      roleId: r.roleId,
+      permissionId: r.permissionId,
+    })),
+    skipDuplicates: true,
+  });
+  counts.created += result.count;
+  counts.skipped += records.length - result.count;
+}
+
+// 4. Users (可选，条件性密码处理)
+async function importUsers(
+  tx: Tx,
+  t: ExportFile["tables"],
+  options: ImportOptions,
+  counts: Counts,
+): Promise<void> {
+  if (!options.importUsers) {
+    counts.skipped += t.users.length;
+    return;
+  }
+  const records = t.users;
+  if (records.length === 0) return;
+  const ids = records.map((r) => r.id);
+  const existing = await tx.user.findMany({
+    where: { id: { in: ids } },
+    select: { id: true },
+  });
+  const existingIds = new Set(existing.map((e) => e.id));
+  const toCreate = records.filter((r) => !existingIds.has(r.id));
+  const toUpdate = records.filter((r) => existingIds.has(r.id));
+
+  if (toCreate.length > 0) {
+    const result = await tx.user.createMany({
+      data: toCreate.map((r) => ({
+        id: r.id,
+        username: r.username,
+        displayName: r.displayName,
+        // Full mode: restore actual hash; Standard: force password reset
+        passwordHash: r.passwordHash ?? "DISABLED_IMPORT_RESET",
+        status: r.status as never,
+        mustChangePassword: r.passwordHash ? r.mustChangePassword : true,
+        twoFactorEnabled: r.twoFactorEnabled,
+        twoFactorSecret: r.twoFactorSecret,
+        preferences: r.preferences as Prisma.InputJsonValue | undefined,
+      })),
+      skipDuplicates: true,
+    });
+    counts.created += result.count;
+  }
+
+  if (options.overwriteExisting) {
+    for (const r of toUpdate) {
+      await tx.user.update({
+        where: { id: r.id },
+        data: {
+          username: r.username,
+          displayName: r.displayName,
+          // In full mode, restore password hash; otherwise keep existing
+          ...(r.passwordHash ? { passwordHash: r.passwordHash } : {}),
+          status: r.status as never,
+          mustChangePassword: r.mustChangePassword,
+          twoFactorEnabled: r.twoFactorEnabled,
+          // In full mode, restore 2FA secret; otherwise keep existing
+          ...(r.twoFactorSecret !== null ? { twoFactorSecret: r.twoFactorSecret } : {}),
+        },
+      });
+    }
+    counts.updated += toUpdate.length;
+  } else {
+    counts.skipped += toUpdate.length;
+  }
+}
+
+// 5. UserRoles (create-only junction table, FK try/catch → pre-filter FK validity)
+async function importUserRoles(
+  tx: Tx,
+  t: ExportFile["tables"],
+  _options: ImportOptions,
+  counts: Counts,
+): Promise<void> {
+  const records = t.userRoles;
+  if (records.length === 0) return;
+
+  // Batch existence check by composite key
+  const userIds = [...new Set(records.map((r) => r.userId))];
+  const existing = await tx.userRole.findMany({
+    where: { userId: { in: userIds } },
+    select: { userId: true, roleId: true },
+  });
+  const existingKeys = new Set(
+    existing.map((e) => `${e.userId}:${e.roleId}`),
+  );
+  const toCreate = records.filter(
+    (r) => !existingKeys.has(`${r.userId}:${r.roleId}`),
+  );
+  counts.skipped += records.length - toCreate.length;
+
+  if (toCreate.length === 0) return;
+
+  // Pre-filter FK validity (userId, roleId) — original used try/catch per record
+  const createUserIds = [...new Set(toCreate.map((r) => r.userId))];
+  const createRoleIds = [...new Set(toCreate.map((r) => r.roleId))];
+  const validUsers = await tx.user.findMany({
+    where: { id: { in: createUserIds } },
+    select: { id: true },
+  });
+  const validRoles = await tx.role.findMany({
+    where: { id: { in: createRoleIds } },
+    select: { id: true },
+  });
+  const validUserIds = new Set(validUsers.map((u) => u.id));
+  const validRoleIds = new Set(validRoles.map((r) => r.id));
+  const validToCreate = toCreate.filter(
+    (r) => validUserIds.has(r.userId) && validRoleIds.has(r.roleId),
+  );
+  // FK 不存在 → skip
+  counts.skipped += toCreate.length - validToCreate.length;
+
+  if (validToCreate.length > 0) {
+    const result = await tx.userRole.createMany({
+      data: validToCreate.map((r) => ({
+        userId: r.userId,
+        roleId: r.roleId,
+        assignedAt: parseDate(r.assignedAt),
+      })),
+      skipDuplicates: true,
+    });
+    counts.created += result.count;
+    counts.skipped += validToCreate.length - result.count;
+  }
+}
+
+// 6. SshKeys
+async function importSshKeys(
+  tx: Tx,
+  t: ExportFile["tables"],
+  options: ImportOptions,
+  counts: Counts,
+): Promise<void> {
+  const records = t.sshKeys;
+  if (records.length === 0) return;
+  const ids = records.map((r) => r.id);
+  const existing = await tx.sshKey.findMany({
+    where: { id: { in: ids } },
+    select: { id: true },
+  });
+  const existingIds = new Set(existing.map((e) => e.id));
+  const toCreate = records.filter((r) => !existingIds.has(r.id));
+  const toUpdate = records.filter((r) => existingIds.has(r.id));
+
+  if (toCreate.length > 0) {
+    const result = await tx.sshKey.createMany({
+      data: toCreate.map((r) => ({
+        id: r.id,
+        name: r.name,
+        fingerprint: r.fingerprint,
+        publicKey: r.publicKey,
+        privateKey: r.privateKey,
+        passphrase: r.passphrase,
+        description: r.description,
+      })),
+      skipDuplicates: true,
+    });
+    counts.created += result.count;
+  }
+
+  if (options.overwriteExisting) {
+    for (const r of toUpdate) {
+      await tx.sshKey.update({
+        where: { id: r.id },
+        data: {
+          name: r.name,
+          fingerprint: r.fingerprint,
+          publicKey: r.publicKey,
+          // Full mode: restore private key + passphrase; Standard: keep existing
+          ...(r.privateKey ? { privateKey: r.privateKey } : {}),
+          ...(r.passphrase !== null && r.passphrase !== undefined
+            ? { passphrase: r.passphrase }
+            : {}),
+          description: r.description,
+        },
+      });
+    }
+    counts.updated += toUpdate.length;
+  } else {
+    counts.skipped += toUpdate.length;
+  }
+}
+
+// 7. Servers
+async function importServers(
+  tx: Tx,
+  t: ExportFile["tables"],
+  options: ImportOptions,
+  counts: Counts,
+): Promise<void> {
+  const records = t.servers;
+  if (records.length === 0) return;
+  const ids = records.map((r) => r.id);
+  const existing = await tx.server.findMany({
+    where: { id: { in: ids } },
+    select: { id: true },
+  });
+  const existingIds = new Set(existing.map((e) => e.id));
+  const toCreate = records.filter((r) => !existingIds.has(r.id));
+  const toUpdate = records.filter((r) => existingIds.has(r.id));
+
+  if (toCreate.length > 0) {
+    const result = await tx.server.createMany({
+      data: toCreate.map((r) => ({
+        id: r.id,
+        name: r.name,
+        host: r.host,
+        port: r.port,
+        username: r.username,
+        sshKeyId: r.sshKeyId,
+        // Full mode: restore actual password; Standard: null
+        password: r.password,
+        description: r.description,
+        tags: r.tags,
+        enabled: r.enabled,
+        connectionType: r.connectionType as never,
+        publicUrl: r.publicUrl,
+        fileProxyPort: r.fileProxyPort,
+        osDialect: r.osDialect,
+        osInfo: r.osInfo,
+      })),
+      skipDuplicates: true,
+    });
+    counts.created += result.count;
+  }
+
+  if (options.overwriteExisting) {
+    for (const r of toUpdate) {
+      await tx.server.update({
+        where: { id: r.id },
+        data: {
+          name: r.name,
+          host: r.host,
+          port: r.port,
+          username: r.username,
+          // Full mode: restore password; Standard: keep existing
+          ...(r.password ? { password: r.password } : {}),
+          sshKeyId: r.sshKeyId,
+          description: r.description,
+          tags: r.tags,
+          enabled: r.enabled,
+          connectionType: r.connectionType as never,
+          publicUrl: r.publicUrl,
+          fileProxyPort: r.fileProxyPort,
+          osDialect: r.osDialect,
+          osInfo: r.osInfo,
+        },
+      });
+    }
+    counts.updated += toUpdate.length;
+  } else {
+    counts.skipped += toUpdate.length;
+  }
+}
+
+// 8. StorageNodes
+async function importStorageNodes(
+  tx: Tx,
+  t: ExportFile["tables"],
+  options: ImportOptions,
+  counts: Counts,
+): Promise<void> {
+  const records = t.storageNodes;
+  if (records.length === 0) return;
+  const ids = records.map((r) => r.id);
+  const existing = await tx.storageNode.findMany({
+    where: { id: { in: ids } },
+    select: { id: true },
+  });
+  const existingIds = new Set(existing.map((e) => e.id));
+  const toCreate = records.filter((r) => !existingIds.has(r.id));
+  const toUpdate = records.filter((r) => existingIds.has(r.id));
+
+  if (toCreate.length > 0) {
+    const result = await tx.storageNode.createMany({
+      data: toCreate.map((r) => ({
+        id: r.id,
+        name: r.name,
+        driver: r.driver as never,
+        isDefault: r.isDefault,
+        basePath: r.basePath,
+        directAccessMode: r.directAccessMode as never,
+        publicBaseUrl: r.publicBaseUrl,
+        directAccessExpiresSeconds: r.directAccessExpiresSeconds,
+        host: r.host,
+        port: r.port,
+        username: r.username,
+        serverId: r.serverId,
+        healthStatus: r.healthStatus,
+      })),
+      skipDuplicates: true,
+    });
+    counts.created += result.count;
+  }
+
+  if (options.overwriteExisting) {
+    for (const r of toUpdate) {
+      await tx.storageNode.update({
+        where: { id: r.id },
+        data: {
+          name: r.name,
+          driver: r.driver as never,
+          isDefault: r.isDefault,
+          basePath: r.basePath,
+          directAccessMode: r.directAccessMode as never,
+          publicBaseUrl: r.publicBaseUrl,
+          directAccessExpiresSeconds: r.directAccessExpiresSeconds,
+          host: r.host,
+          port: r.port,
+          username: r.username,
+          serverId: r.serverId,
+          healthStatus: r.healthStatus,
+        },
+      });
+    }
+    counts.updated += toUpdate.length;
+  } else {
+    counts.skipped += toUpdate.length;
+  }
+}
+
+// 9. UserStorageAccess (FK try/catch on create → pre-filter FK validity)
+async function importUserStorageAccess(
+  tx: Tx,
+  t: ExportFile["tables"],
+  options: ImportOptions,
+  counts: Counts,
+): Promise<void> {
+  const records = t.userStorageAccess;
+  if (records.length === 0) return;
+  const ids = records.map((r) => r.id);
+  const existing = await tx.userStorageAccess.findMany({
+    where: { id: { in: ids } },
+    select: { id: true },
+  });
+  const existingIds = new Set(existing.map((e) => e.id));
+  const toCreate = records.filter((r) => !existingIds.has(r.id));
+  const toUpdate = records.filter((r) => existingIds.has(r.id));
+
+  if (options.overwriteExisting) {
+    for (const r of toUpdate) {
+      await tx.userStorageAccess.update({
+        where: { id: r.id },
+        data: {
+          userId: r.userId,
+          storageNodeId: r.storageNodeId,
+          pathPrefix: r.pathPrefix,
+          canRead: r.canRead,
+          canWrite: r.canWrite,
+          canDelete: r.canDelete,
+          quotaBytes: parseBigInt(r.quotaBytes),
+          maxFileBytes: parseBigInt(r.maxFileBytes),
+        },
+      });
+    }
+    counts.updated += toUpdate.length;
+  } else {
+    counts.skipped += toUpdate.length;
+  }
+
+  if (toCreate.length === 0) return;
+
+  // Pre-filter FK validity (userId, storageNodeId) — original used try/catch per record
+  const createUserIds = [...new Set(toCreate.map((r) => r.userId))];
+  const createStorageNodeIds = [...new Set(toCreate.map((r) => r.storageNodeId))];
+  const validUsers = await tx.user.findMany({
+    where: { id: { in: createUserIds } },
+    select: { id: true },
+  });
+  const validStorageNodes = await tx.storageNode.findMany({
+    where: { id: { in: createStorageNodeIds } },
+    select: { id: true },
+  });
+  const validUserIds = new Set(validUsers.map((u) => u.id));
+  const validStorageNodeIds = new Set(validStorageNodes.map((s) => s.id));
+  const validToCreate = toCreate.filter(
+    (r) => validUserIds.has(r.userId) && validStorageNodeIds.has(r.storageNodeId),
+  );
+  // FK 不存在 → skip
+  counts.skipped += toCreate.length - validToCreate.length;
+
+  if (validToCreate.length > 0) {
+    const result = await tx.userStorageAccess.createMany({
+      data: validToCreate.map((r) => ({
+        id: r.id,
+        userId: r.userId,
+        storageNodeId: r.storageNodeId,
+        pathPrefix: r.pathPrefix,
+        canRead: r.canRead,
+        canWrite: r.canWrite,
+        canDelete: r.canDelete,
+        quotaBytes: parseBigInt(r.quotaBytes),
+        maxFileBytes: parseBigInt(r.maxFileBytes),
+      })),
+      skipDuplicates: true,
+    });
+    counts.created += result.count;
+    counts.skipped += validToCreate.length - result.count;
+  }
+}
+
+// 10. CommandTemplates
+async function importCommandTemplates(
+  tx: Tx,
+  t: ExportFile["tables"],
+  options: ImportOptions,
+  counts: Counts,
+): Promise<void> {
+  const records = t.commandTemplates;
+  if (records.length === 0) return;
+  const ids = records.map((r) => r.id);
+  const existing = await tx.commandTemplate.findMany({
+    where: { id: { in: ids } },
+    select: { id: true },
+  });
+  const existingIds = new Set(existing.map((e) => e.id));
+  const toCreate = records.filter((r) => !existingIds.has(r.id));
+  const toUpdate = records.filter((r) => existingIds.has(r.id));
+
+  if (toCreate.length > 0) {
+    const result = await tx.commandTemplate.createMany({
+      data: toCreate.map((r) => ({
+        id: r.id,
+        name: r.name,
+        description: r.description,
+        command: r.command,
+        rollbackCommand: r.rollbackCommand,
+        variables: r.variables,
+        tags: r.tags,
+        isBuiltin: r.isBuiltin,
+        createdById: r.createdById,
+      })),
+      skipDuplicates: true,
+    });
+    counts.created += result.count;
+  }
+
+  if (options.overwriteExisting) {
+    for (const r of toUpdate) {
+      await tx.commandTemplate.update({
+        where: { id: r.id },
+        data: {
+          name: r.name,
+          description: r.description,
+          command: r.command,
+          rollbackCommand: r.rollbackCommand,
+          variables: r.variables,
+          tags: r.tags,
+          isBuiltin: r.isBuiltin,
+          createdById: r.createdById,
+        },
+      });
+    }
+    counts.updated += toUpdate.length;
+  } else {
+    counts.skipped += toUpdate.length;
+  }
+}
+
+// 11. QuickServices
+async function importQuickServices(
+  tx: Tx,
+  t: ExportFile["tables"],
+  options: ImportOptions,
+  counts: Counts,
+): Promise<void> {
+  const records = t.quickServices;
+  if (records.length === 0) return;
+  const ids = records.map((r) => r.id);
+  const existing = await tx.quickService.findMany({
+    where: { id: { in: ids } },
+    select: { id: true },
+  });
+  const existingIds = new Set(existing.map((e) => e.id));
+  const toCreate = records.filter((r) => !existingIds.has(r.id));
+  const toUpdate = records.filter((r) => existingIds.has(r.id));
+
+  if (toCreate.length > 0) {
+    const result = await tx.quickService.createMany({
+      data: toCreate.map((r) => ({
+        id: r.id,
+        slug: r.slug,
+        name: r.name,
+        category: r.category,
+        icon: r.icon,
+        description: r.description,
+        image: r.image,
+        port: r.port,
+        path: r.path,
+        internalPort: r.internalPort,
+        extraPortsJson: r.extraPortsJson,
+        command: r.command,
+        envJson: r.envJson,
+        volumesJson: r.volumesJson,
+      })),
+      skipDuplicates: true,
+    });
+    counts.created += result.count;
+  }
+
+  if (options.overwriteExisting) {
+    for (const r of toUpdate) {
+      await tx.quickService.update({
+        where: { id: r.id },
+        data: {
+          slug: r.slug,
+          name: r.name,
+          category: r.category,
+          icon: r.icon,
+          description: r.description,
+          image: r.image,
+          port: r.port,
+          path: r.path,
+          internalPort: r.internalPort,
+          extraPortsJson: r.extraPortsJson,
+          command: r.command,
+          envJson: r.envJson,
+          volumesJson: r.volumesJson,
+        },
+      });
+    }
+    counts.updated += toUpdate.length;
+  } else {
+    counts.skipped += toUpdate.length;
+  }
+}
+
+// 12. Playbooks
+async function importPlaybooks(
+  tx: Tx,
+  t: ExportFile["tables"],
+  options: ImportOptions,
+  counts: Counts,
+): Promise<void> {
+  const records = t.playbooks;
+  if (records.length === 0) return;
+  const ids = records.map((r) => r.id);
+  const existing = await tx.playbook.findMany({
+    where: { id: { in: ids } },
+    select: { id: true },
+  });
+  const existingIds = new Set(existing.map((e) => e.id));
+  const toCreate = records.filter((r) => !existingIds.has(r.id));
+  const toUpdate = records.filter((r) => existingIds.has(r.id));
+
+  if (toCreate.length > 0) {
+    const result = await tx.playbook.createMany({
+      data: toCreate.map((r) => ({
+        id: r.id,
+        name: r.name,
+        description: r.description,
+        triggerType: r.triggerType,
+        triggerConfig: r.triggerConfig as Prisma.InputJsonValue,
+        steps: r.steps as Prisma.InputJsonValue,
+        chainRetry: r.chainRetry,
+        enabled: r.enabled,
+        createdById: r.createdById,
+      })),
+      skipDuplicates: true,
+    });
+    counts.created += result.count;
+  }
+
+  if (options.overwriteExisting) {
+    for (const r of toUpdate) {
+      await tx.playbook.update({
+        where: { id: r.id },
+        data: {
+          name: r.name,
+          description: r.description,
+          triggerType: r.triggerType,
+          triggerConfig: r.triggerConfig as Prisma.InputJsonValue,
+          steps: r.steps as Prisma.InputJsonValue,
+          chainRetry: r.chainRetry,
+          enabled: r.enabled,
+          createdById: r.createdById,
+        },
+      });
+    }
+    counts.updated += toUpdate.length;
+  } else {
+    counts.skipped += toUpdate.length;
+  }
+}
+
+// 13. AlertRules
+async function importAlertRules(
+  tx: Tx,
+  t: ExportFile["tables"],
+  options: ImportOptions,
+  counts: Counts,
+): Promise<void> {
+  const records = t.alertRules;
+  if (records.length === 0) return;
+  const ids = records.map((r) => r.id);
+  const existing = await tx.alertRule.findMany({
+    where: { id: { in: ids } },
+    select: { id: true },
+  });
+  const existingIds = new Set(existing.map((e) => e.id));
+  const toCreate = records.filter((r) => !existingIds.has(r.id));
+  const toUpdate = records.filter((r) => existingIds.has(r.id));
+
+  if (toCreate.length > 0) {
+    const result = await tx.alertRule.createMany({
+      data: toCreate.map((r) => ({
+        id: r.id,
+        name: r.name,
+        metric: r.metric,
+        operator: r.operator,
+        threshold: r.threshold,
+        durationSeconds: r.durationSeconds,
+        serverIds: r.serverIds,
+        notifyChannels: r.notifyChannels,
+        webhookUrl: r.webhookUrl,
+        cooldownMinutes: r.cooldownMinutes,
+        silenceWindows: r.silenceWindows,
+        enabled: r.enabled,
+      })),
+      skipDuplicates: true,
+    });
+    counts.created += result.count;
+  }
+
+  if (options.overwriteExisting) {
+    for (const r of toUpdate) {
+      await tx.alertRule.update({
+        where: { id: r.id },
+        data: {
+          name: r.name,
+          metric: r.metric,
+          operator: r.operator,
+          threshold: r.threshold,
+          durationSeconds: r.durationSeconds,
+          serverIds: r.serverIds,
+          notifyChannels: r.notifyChannels,
+          webhookUrl: r.webhookUrl,
+          cooldownMinutes: r.cooldownMinutes,
+          silenceWindows: r.silenceWindows,
+          enabled: r.enabled,
+        },
+      });
+    }
+    counts.updated += toUpdate.length;
+  } else {
+    counts.skipped += toUpdate.length;
+  }
+}
+
+// 14. Settings (可选，key-based where，敏感 key 空值不覆盖)
+async function importSettings(
+  tx: Tx,
+  t: ExportFile["tables"],
+  options: ImportOptions,
+  counts: Counts,
+): Promise<void> {
+  if (!options.importSettings) {
+    counts.skipped += t.settings.length;
+    return;
+  }
+  const records = t.settings;
+  if (records.length === 0) return;
+  const keys = records.map((r) => r.key);
+  const existing = await tx.setting.findMany({
+    where: { key: { in: keys } },
+    select: { key: true },
+  });
+  const existingKeys = new Set(existing.map((e) => e.key));
+  const toCreate = records.filter((r) => !existingKeys.has(r.key));
+  const toUpdate = records.filter((r) => existingKeys.has(r.key));
+
+  if (toCreate.length > 0) {
+    const result = await tx.setting.createMany({
+      data: toCreate.map((r) => ({ key: r.key, value: r.value })),
+      skipDuplicates: true,
+    });
+    counts.created += result.count;
+  }
+
+  if (options.overwriteExisting) {
+    for (const r of toUpdate) {
+      // 敏感 key（空值）不覆盖
+      if (r.value !== "") {
+        await tx.setting.update({
+          where: { key: r.key },
+          data: { value: r.value },
+        });
+        counts.updated++;
+      } else {
+        counts.skipped++;
+      }
+    }
+  } else {
+    counts.skipped += toUpdate.length;
+  }
+}
+
+// 15. AiProviders (FK try/catch on create → pre-filter FK validity for createdBy)
+async function importAiProviders(
+  tx: Tx,
+  t: ExportFile["tables"],
+  options: ImportOptions,
+  counts: Counts,
+): Promise<void> {
+  const records = t.aiProviders;
+  if (records.length === 0) return;
+  const ids = records.map((r) => r.id);
+  const existing = await tx.aiProvider.findMany({
+    where: { id: { in: ids } },
+    select: { id: true },
+  });
+  const existingIds = new Set(existing.map((e) => e.id));
+  const toCreate = records.filter((r) => !existingIds.has(r.id));
+  const toUpdate = records.filter((r) => existingIds.has(r.id));
+
+  if (options.overwriteExisting) {
+    for (const r of toUpdate) {
+      await tx.aiProvider.update({
+        where: { id: r.id },
+        data: {
+          name: r.name,
+          type: r.type as never,
+          // Full mode: restore apiKey; Standard: keep existing
+          ...(r.apiKey ? { apiKey: r.apiKey } : {}),
+          baseUrl: r.baseUrl,
+          defaultModel: r.defaultModel,
+          availableModels: r.availableModels,
+          isDefault: r.isDefault,
+          enabled: r.enabled,
+          settings: r.settings as Prisma.InputJsonValue,
+        },
+      });
+    }
+    counts.updated += toUpdate.length;
+  } else {
+    counts.skipped += toUpdate.length;
+  }
+
+  if (toCreate.length === 0) return;
+
+  // Pre-filter FK validity (createdBy → User) — original used try/catch per record
+  const createdByIds = [...new Set(toCreate.map((r) => r.createdBy))];
+  const validUsers = await tx.user.findMany({
+    where: { id: { in: createdByIds } },
+    select: { id: true },
+  });
+  const validUserIds = new Set(validUsers.map((u) => u.id));
+  const validToCreate = toCreate.filter((r) => validUserIds.has(r.createdBy));
+  // FK 不存在 → skip
+  counts.skipped += toCreate.length - validToCreate.length;
+
+  if (validToCreate.length > 0) {
+    const result = await tx.aiProvider.createMany({
+      data: validToCreate.map((r) => ({
+        id: r.id,
+        name: r.name,
+        type: r.type as never,
+        apiKey: r.apiKey ?? "",
+        baseUrl: r.baseUrl,
+        defaultModel: r.defaultModel,
+        availableModels: r.availableModels,
+        isDefault: r.isDefault,
+        enabled: r.enabled,
+        settings: r.settings as Prisma.InputJsonValue,
+        createdBy: r.createdBy,
+      })),
+      skipDuplicates: true,
+    });
+    counts.created += result.count;
+    counts.skipped += validToCreate.length - result.count;
+  }
+}
+
+// 16. Announcements
+async function importAnnouncements(
+  tx: Tx,
+  t: ExportFile["tables"],
+  options: ImportOptions,
+  counts: Counts,
+): Promise<void> {
+  const records = t.announcements;
+  if (records.length === 0) return;
+  const ids = records.map((r) => r.id);
+  const existing = await tx.announcement.findMany({
+    where: { id: { in: ids } },
+    select: { id: true },
+  });
+  const existingIds = new Set(existing.map((e) => e.id));
+  const toCreate = records.filter((r) => !existingIds.has(r.id));
+  const toUpdate = records.filter((r) => existingIds.has(r.id));
+
+  if (toCreate.length > 0) {
+    const result = await tx.announcement.createMany({
+      data: toCreate.map((r) => ({
+        id: r.id,
+        title: r.title,
+        body: r.body,
+        level: r.level,
+        pinned: r.pinned,
+        published: r.published,
+        startsAt: r.startsAt ? parseDate(r.startsAt) : new Date(),
+        expiresAt: r.expiresAt ? parseDate(r.expiresAt) : null,
+        createdBy: r.createdBy,
+      })),
+      skipDuplicates: true,
+    });
+    counts.created += result.count;
+  }
+
+  if (options.overwriteExisting) {
+    for (const r of toUpdate) {
+      await tx.announcement.update({
+        where: { id: r.id },
+        data: {
+          title: r.title,
+          body: r.body,
+          level: r.level,
+          pinned: r.pinned,
+          published: r.published,
+          startsAt: r.startsAt ? parseDate(r.startsAt) : undefined,
+          expiresAt: r.expiresAt ? parseDate(r.expiresAt) : null,
+          createdBy: r.createdBy,
+        },
+      });
+    }
+    counts.updated += toUpdate.length;
+  } else {
+    counts.skipped += toUpdate.length;
+  }
+}
+
+// 17. Snippets
+async function importSnippets(
+  tx: Tx,
+  t: ExportFile["tables"],
+  options: ImportOptions,
+  counts: Counts,
+): Promise<void> {
+  const records = t.snippets;
+  if (records.length === 0) return;
+  const ids = records.map((r) => r.id);
+  const existing = await tx.snippet.findMany({
+    where: { id: { in: ids } },
+    select: { id: true },
+  });
+  const existingIds = new Set(existing.map((e) => e.id));
+  const toCreate = records.filter((r) => !existingIds.has(r.id));
+  const toUpdate = records.filter((r) => existingIds.has(r.id));
+
+  if (toCreate.length > 0) {
+    const result = await tx.snippet.createMany({
+      data: toCreate.map((r) => ({
+        id: r.id,
+        title: r.title,
+        description: r.description,
+        language: r.language,
+        content: r.content,
+        tags: r.tags,
+        isPrivate: r.isPrivate,
+        createdBy: r.createdBy,
+      })),
+      skipDuplicates: true,
+    });
+    counts.created += result.count;
+  }
+
+  if (options.overwriteExisting) {
+    for (const r of toUpdate) {
+      await tx.snippet.update({
+        where: { id: r.id },
+        data: {
+          title: r.title,
+          description: r.description,
+          language: r.language,
+          content: r.content,
+          tags: r.tags,
+          isPrivate: r.isPrivate,
+          createdBy: r.createdBy,
+        },
+      });
+    }
+    counts.updated += toUpdate.length;
+  } else {
+    counts.skipped += toUpdate.length;
+  }
+}
+
 /**
  * 按依赖顺序事务性导入所有配置表。
  * 整个导入在一个 Prisma 事务中完成，任一步骤失败则全部回滚。
@@ -310,600 +1568,44 @@ export async function executeImport(
   options: ImportOptions,
 ): Promise<ImportResult> {
   const t = file.tables;
-  let created = 0;
-  let updated = 0;
-  let skipped = 0;
+  const counts: Counts = { created: 0, updated: 0, skipped: 0 };
   const errors: string[] = [];
 
   await prisma.$transaction(async (tx) => {
     // 1. Permissions
-    for (const r of t.permissions) {
-      const existing = await tx.permission.findUnique({ where: { id: r.id } });
-      if (existing) {
-        if (options.overwriteExisting) {
-          await tx.permission.update({ where: { id: r.id }, data: { key: r.key, name: r.name, description: r.description } });
-          updated++;
-        } else { skipped++; }
-      } else {
-        await tx.permission.create({ data: { id: r.id, key: r.key, name: r.name, description: r.description } });
-        created++;
-      }
-    }
-
+    await importPermissions(tx, t, options, counts);
     // 2. Roles
-    for (const r of t.roles) {
-      const existing = await tx.role.findUnique({ where: { id: r.id } });
-      if (existing) {
-        if (options.overwriteExisting) {
-          await tx.role.update({ where: { id: r.id }, data: { key: r.key, name: r.name, description: r.description } });
-          updated++;
-        } else { skipped++; }
-      } else {
-        await tx.role.create({ data: { id: r.id, key: r.key, name: r.name, description: r.description } });
-        created++;
-      }
-    }
-
+    await importRoles(tx, t, options, counts);
     // 3. RolePermissions
-    for (const r of t.rolePermissions) {
-      const existing = await tx.rolePermission.findUnique({
-        where: { roleId_permissionId: { roleId: r.roleId, permissionId: r.permissionId } },
-      });
-      if (!existing) {
-        await tx.rolePermission.create({ data: { roleId: r.roleId, permissionId: r.permissionId } });
-        created++;
-      } else { skipped++; }
-    }
-
+    await importRolePermissions(tx, t, options, counts);
     // 4. Users (可选)
-    if (options.importUsers) {
-      for (const r of t.users) {
-        const existing = await tx.user.findUnique({ where: { id: r.id } });
-        if (existing) {
-          if (options.overwriteExisting) {
-            await tx.user.update({
-              where: { id: r.id },
-              data: {
-                username: r.username,
-                displayName: r.displayName,
-                // In full mode, restore password hash; otherwise keep existing
-                ...(r.passwordHash ? { passwordHash: r.passwordHash } : {}),
-                status: r.status as never,
-                mustChangePassword: r.mustChangePassword,
-                twoFactorEnabled: r.twoFactorEnabled,
-                // In full mode, restore 2FA secret; otherwise keep existing
-                ...(r.twoFactorSecret !== null ? { twoFactorSecret: r.twoFactorSecret } : {}),
-              },
-            });
-            updated++;
-          } else { skipped++; }
-        } else {
-          await tx.user.create({
-            data: {
-              id: r.id,
-              username: r.username,
-              displayName: r.displayName,
-              // Full mode: restore actual hash; Standard: force password reset
-              passwordHash: r.passwordHash ?? "DISABLED_IMPORT_RESET",
-              status: r.status as never,
-              mustChangePassword: r.passwordHash ? r.mustChangePassword : true,
-              twoFactorEnabled: r.twoFactorEnabled,
-              twoFactorSecret: r.twoFactorSecret,
-              preferences: r.preferences as Prisma.InputJsonValue | undefined,
-            },
-          });
-          created++;
-        }
-      }
-    } else {
-      skipped += t.users.length;
-    }
-
+    await importUsers(tx, t, options, counts);
     // 5. UserRoles
-    for (const r of t.userRoles) {
-      const existing = await tx.userRole.findUnique({
-        where: { userId_roleId: { userId: r.userId, roleId: r.roleId } },
-      });
-      if (!existing) {
-        try {
-          await tx.userRole.create({
-            data: {
-              userId: r.userId,
-             roleId: r.roleId,
-              assignedAt: parseDate(r.assignedAt),
-            },
-          });
-          created++;
-        } catch {
-          // FK 不存在 → skip
-          skipped++;
-        }
-      } else { skipped++; }
-    }
-
+    await importUserRoles(tx, t, options, counts);
     // 6. SshKeys
-    for (const r of t.sshKeys) {
-      const existing = await tx.sshKey.findUnique({ where: { id: r.id } });
-      if (existing) {
-        if (options.overwriteExisting) {
-          await tx.sshKey.update({
-            where: { id: r.id },
-            data: {
-              name: r.name,
-              fingerprint: r.fingerprint,
-              publicKey: r.publicKey,
-              // Full mode: restore private key + passphrase; Standard: keep existing
-              ...(r.privateKey ? { privateKey: r.privateKey } : {}),
-              ...(r.passphrase !== null && r.passphrase !== undefined ? { passphrase: r.passphrase } : {}),
-              description: r.description,
-            },
-          });
-          updated++;
-        } else { skipped++; }
-      } else {
-        await tx.sshKey.create({
-          data: {
-            id: r.id,
-            name: r.name,
-            fingerprint: r.fingerprint,
-            publicKey: r.publicKey,
-            privateKey: r.privateKey,
-            passphrase: r.passphrase,
-            description: r.description,
-          },
-        });
-        created++;
-      }
-    }
-
+    await importSshKeys(tx, t, options, counts);
     // 7. Servers
-    for (const r of t.servers) {
-      const existing = await tx.server.findUnique({ where: { id: r.id } });
-      if (existing) {
-        if (options.overwriteExisting) {
-          await tx.server.update({
-            where: { id: r.id },
-            data: {
-              name: r.name,
-              host: r.host,
-              port: r.port,
-              username: r.username,
-              // Full mode: restore password; Standard: keep existing
-              ...(r.password ? { password: r.password } : {}),
-              sshKeyId: r.sshKeyId,
-              description: r.description,
-              tags: r.tags,
-              enabled: r.enabled,
-              connectionType: r.connectionType as never,
-              publicUrl: r.publicUrl,
-              fileProxyPort: r.fileProxyPort,
-              osDialect: r.osDialect,
-              osInfo: r.osInfo,
-            },
-          });
-          updated++;
-        } else { skipped++; }
-      } else {
-        await tx.server.create({
-          data: {
-            id: r.id,
-            name: r.name,
-            host: r.host,
-            port: r.port,
-            username: r.username,
-            sshKeyId: r.sshKeyId,
-            // Full mode: restore actual password; Standard: null
-            password: r.password,
-            description: r.description,
-            tags: r.tags,
-            enabled: r.enabled,
-            connectionType: r.connectionType as never,
-            publicUrl: r.publicUrl,
-            fileProxyPort: r.fileProxyPort,
-            osDialect: r.osDialect,
-            osInfo: r.osInfo,
-          },
-        });
-        created++;
-      }
-    }
-
+    await importServers(tx, t, options, counts);
     // 8. StorageNodes
-    for (const r of t.storageNodes) {
-      const existing = await tx.storageNode.findUnique({ where: { id: r.id } });
-      if (existing) {
-        if (options.overwriteExisting) {
-          await tx.storageNode.update({
-            where: { id: r.id },
-            data: {
-              name: r.name,
-              driver: r.driver as never,
-              isDefault: r.isDefault,
-              basePath: r.basePath,
-              directAccessMode: r.directAccessMode as never,
-              publicBaseUrl: r.publicBaseUrl,
-              directAccessExpiresSeconds: r.directAccessExpiresSeconds,
-              host: r.host,
-              port: r.port,
-              username: r.username,
-              serverId: r.serverId,
-              healthStatus: r.healthStatus,
-            },
-          });
-          updated++;
-        } else { skipped++; }
-      } else {
-        await tx.storageNode.create({
-          data: {
-            id: r.id,
-            name: r.name,
-            driver: r.driver as never,
-            isDefault: r.isDefault,
-            basePath: r.basePath,
-            directAccessMode: r.directAccessMode as never,
-            publicBaseUrl: r.publicBaseUrl,
-            directAccessExpiresSeconds: r.directAccessExpiresSeconds,
-            host: r.host,
-            port: r.port,
-            username: r.username,
-            serverId: r.serverId,
-            healthStatus: r.healthStatus,
-          },
-        });
-        created++;
-      }
-    }
-
+    await importStorageNodes(tx, t, options, counts);
     // 9. UserStorageAccess
-    for (const r of t.userStorageAccess) {
-      const existing = await tx.userStorageAccess.findUnique({ where: { id: r.id } });
-      if (existing) {
-        if (options.overwriteExisting) {
-          await tx.userStorageAccess.update({
-            where: { id: r.id },
-            data: {
-              userId: r.userId,
-              storageNodeId: r.storageNodeId,
-              pathPrefix: r.pathPrefix,
-              canRead: r.canRead,
-              canWrite: r.canWrite,
-              canDelete: r.canDelete,
-              quotaBytes: parseBigInt(r.quotaBytes),
-              maxFileBytes: parseBigInt(r.maxFileBytes),
-            },
-          });
-          updated++;
-        } else { skipped++; }
-      } else {
-        try {
-          await tx.userStorageAccess.create({
-            data: {
-              id: r.id,
-              userId: r.userId,
-              storageNodeId: r.storageNodeId,
-              pathPrefix: r.pathPrefix,
-              canRead: r.canRead,
-              canWrite: r.canWrite,
-              canDelete: r.canDelete,
-              quotaBytes: parseBigInt(r.quotaBytes),
-              maxFileBytes: parseBigInt(r.maxFileBytes),
-            },
-          });
-          created++;
-        } catch {
-          skipped++;
-        }
-      }
-    }
-
+    await importUserStorageAccess(tx, t, options, counts);
     // 10. CommandTemplates
-    for (const r of t.commandTemplates) {
-      const existing = await tx.commandTemplate.findUnique({ where: { id: r.id } });
-      if (existing) {
-        if (options.overwriteExisting) {
-          await tx.commandTemplate.update({
-            where: { id: r.id },
-            data: {
-              name: r.name,
-              description: r.description,
-              command: r.command,
-              rollbackCommand: r.rollbackCommand,
-              variables: r.variables,
-              tags: r.tags,
-              isBuiltin: r.isBuiltin,
-              createdById: r.createdById,
-            },
-          });
-          updated++;
-        } else { skipped++; }
-      } else {
-        await tx.commandTemplate.create({
-          data: {
-            id: r.id,
-            name: r.name,
-            description: r.description,
-            command: r.command,
-            rollbackCommand: r.rollbackCommand,
-            variables: r.variables,
-            tags: r.tags,
-            isBuiltin: r.isBuiltin,
-            createdById: r.createdById,
-          },
-        });
-        created++;
-      }
-    }
-
+    await importCommandTemplates(tx, t, options, counts);
     // 11. QuickServices
-    for (const r of t.quickServices) {
-      const existing = await tx.quickService.findUnique({ where: { id: r.id } });
-      if (existing) {
-        if (options.overwriteExisting) {
-          await tx.quickService.update({
-            where: { id: r.id },
-            data: {
-              slug: r.slug,
-              name: r.name,
-              category: r.category,
-              icon: r.icon,
-              description: r.description,
-              image: r.image,
-              port: r.port,
-              path: r.path,
-              internalPort: r.internalPort,
-              extraPortsJson: r.extraPortsJson,
-              command: r.command,
-              envJson: r.envJson,
-              volumesJson: r.volumesJson,
-            },
-          });
-          updated++;
-        } else { skipped++; }
-      } else {
-        await tx.quickService.create({
-          data: {
-            id: r.id,
-            slug: r.slug,
-            name: r.name,
-            category: r.category,
-            icon: r.icon,
-            description: r.description,
-            image: r.image,
-            port: r.port,
-            path: r.path,
-            internalPort: r.internalPort,
-            extraPortsJson: r.extraPortsJson,
-            command: r.command,
-            envJson: r.envJson,
-            volumesJson: r.volumesJson,
-          },
-        });
-        created++;
-      }
-    }
-
+    await importQuickServices(tx, t, options, counts);
     // 12. Playbooks
-    for (const r of t.playbooks) {
-      const existing = await tx.playbook.findUnique({ where: { id: r.id } });
-      if (existing) {
-        if (options.overwriteExisting) {
-          await tx.playbook.update({
-            where: { id: r.id },
-            data: {
-              name: r.name,
-              description: r.description,
-              triggerType: r.triggerType,
-              triggerConfig: r.triggerConfig as Prisma.InputJsonValue,
-              steps: r.steps as Prisma.InputJsonValue,
-              chainRetry: r.chainRetry,
-              enabled: r.enabled,
-              createdById: r.createdById,
-            },
-          });
-          updated++;
-        } else { skipped++; }
-      } else {
-        await tx.playbook.create({
-          data: {
-            id: r.id,
-            name: r.name,
-            description: r.description,
-            triggerType: r.triggerType,
-            triggerConfig: r.triggerConfig as Prisma.InputJsonValue,
-            steps: r.steps as Prisma.InputJsonValue,
-            chainRetry: r.chainRetry,
-            enabled: r.enabled,
-            createdById: r.createdById,
-          },
-        });
-        created++;
-      }
-    }
-
+    await importPlaybooks(tx, t, options, counts);
     // 13. AlertRules
-    for (const r of t.alertRules) {
-      const existing = await tx.alertRule.findUnique({ where: { id: r.id } });
-      if (existing) {
-        if (options.overwriteExisting) {
-          await tx.alertRule.update({
-            where: { id: r.id },
-            data: {
-              name: r.name,
-              metric: r.metric,
-              operator: r.operator,
-              threshold: r.threshold,
-              durationSeconds: r.durationSeconds,
-              serverIds: r.serverIds,
-              notifyChannels: r.notifyChannels,
-              webhookUrl: r.webhookUrl,
-              cooldownMinutes: r.cooldownMinutes,
-              silenceWindows: r.silenceWindows,
-              enabled: r.enabled,
-            },
-          });
-          updated++;
-        } else { skipped++; }
-      } else {
-        await tx.alertRule.create({
-          data: {
-            id: r.id,
-            name: r.name,
-            metric: r.metric,
-            operator: r.operator,
-            threshold: r.threshold,
-            durationSeconds: r.durationSeconds,
-            serverIds: r.serverIds,
-            notifyChannels: r.notifyChannels,
-            webhookUrl: r.webhookUrl,
-            cooldownMinutes: r.cooldownMinutes,
-            silenceWindows: r.silenceWindows,
-            enabled: r.enabled,
-          },
-        });
-        created++;
-      }
-    }
-
+    await importAlertRules(tx, t, options, counts);
     // 14. Settings (可选)
-    if (options.importSettings) {
-      for (const r of t.settings) {
-        const existing = await tx.setting.findUnique({ where: { key: r.key } });
-        if (existing) {
-          if (options.overwriteExisting) {
-            // 敏感 key（空值）不覆盖
-            if (r.value !== "") {
-              await tx.setting.update({ where: { key: r.key }, data: { value: r.value } });
-              updated++;
-            } else { skipped++; }
-          } else { skipped++; }
-        } else {
-          await tx.setting.create({ data: { key: r.key, value: r.value } });
-          created++;
-        }
-      }
-    } else {
-      skipped += t.settings.length;
-    }
-
+    await importSettings(tx, t, options, counts);
     // 15. AiProviders
-    for (const r of t.aiProviders) {
-      const existing = await tx.aiProvider.findUnique({ where: { id: r.id } });
-      if (existing) {
-        if (options.overwriteExisting) {
-          await tx.aiProvider.update({
-            where: { id: r.id },
-            data: {
-              name: r.name,
-              type: r.type as never,
-              // Full mode: restore apiKey; Standard: keep existing
-              ...(r.apiKey ? { apiKey: r.apiKey } : {}),
-              baseUrl: r.baseUrl,
-              defaultModel: r.defaultModel,
-              availableModels: r.availableModels,
-              isDefault: r.isDefault,
-              enabled: r.enabled,
-              settings: r.settings as Prisma.InputJsonValue,
-            },
-          });
-          updated++;
-        } else { skipped++; }
-      } else {
-        try {
-          await tx.aiProvider.create({
-            data: {
-              id: r.id,
-              name: r.name,
-              type: r.type as never,
-              apiKey: r.apiKey ?? "",
-              baseUrl: r.baseUrl,
-              defaultModel: r.defaultModel,
-              availableModels: r.availableModels,
-              isDefault: r.isDefault,
-              enabled: r.enabled,
-              settings: r.settings as Prisma.InputJsonValue,
-              createdBy: r.createdBy,
-            },
-          });
-          created++;
-        } catch {
-          skipped++;
-        }
-      }
-    }
-
+    await importAiProviders(tx, t, options, counts);
     // 16. Announcements
-    for (const r of t.announcements) {
-      const existing = await tx.announcement.findUnique({ where: { id: r.id } });
-      if (existing) {
-        if (options.overwriteExisting) {
-          await tx.announcement.update({
-            where: { id: r.id },
-            data: {
-              title: r.title,
-              body: r.body,
-              level: r.level,
-              pinned: r.pinned,
-              published: r.published,
-              startsAt: r.startsAt ? parseDate(r.startsAt) : undefined,
-              expiresAt: r.expiresAt ? parseDate(r.expiresAt) : null,
-              createdBy: r.createdBy,
-            },
-          });
-          updated++;
-        } else { skipped++; }
-      } else {
-        await tx.announcement.create({
-          data: {
-            id: r.id,
-            title: r.title,
-            body: r.body,
-            level: r.level,
-            pinned: r.pinned,
-            published: r.published,
-            startsAt: r.startsAt ? parseDate(r.startsAt) : new Date(),
-            expiresAt: r.expiresAt ? parseDate(r.expiresAt) : null,
-            createdBy: r.createdBy,
-          },
-        });
-        created++;
-      }
-    }
-
+    await importAnnouncements(tx, t, options, counts);
     // 17. Snippets
-    for (const r of t.snippets) {
-      const existing = await tx.snippet.findUnique({ where: { id: r.id } });
-      if (existing) {
-        if (options.overwriteExisting) {
-          await tx.snippet.update({
-            where: { id: r.id },
-            data: {
-              title: r.title,
-              description: r.description,
-              language: r.language,
-              content: r.content,
-              tags: r.tags,
-              isPrivate: r.isPrivate,
-              createdBy: r.createdBy,
-            },
-          });
-          updated++;
-        } else { skipped++; }
-      } else {
-        await tx.snippet.create({
-          data: {
-            id: r.id,
-            title: r.title,
-            description: r.description,
-            language: r.language,
-            content: r.content,
-            tags: r.tags,
-            isPrivate: r.isPrivate,
-            createdBy: r.createdBy,
-          },
-        });
-        created++;
-      }
-    }
+    await importSnippets(tx, t, options, counts);
   }).catch((err: unknown) => {
     // 事务失败 → 记录错误，不部分提交
     const msg = err instanceof Error ? err.message : String(err);
@@ -911,5 +1613,5 @@ export async function executeImport(
     throw err;
   });
 
-  return { created, updated, skipped, errors };
+  return { created: counts.created, updated: counts.updated, skipped: counts.skipped, errors };
 }

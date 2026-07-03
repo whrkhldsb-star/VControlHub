@@ -359,7 +359,7 @@ export default function ImageBedPage({ canWrite, canDelete }: { canWrite: boolea
 			<div className="mt-3 p-4 bg-[var(--surface-elevated)] border border-[var(--border)] rounded-xl">
 					<div className="flex items-center justify-between mb-3">
 						<h3 className="text-sm font-semibold text-[var(--text-primary)]">{t("imageBedPage.stats.title")}</h3>
-							<button onClick={() => setShowStats(false)} className="text-[var(--text-muted)] hover:text-[var(--text-secondary)] text-sm">✕</button>
+							<button onClick={() => setShowStats(false)} aria-label={t("common.close")} className="text-[var(--text-muted)] hover:text-[var(--text-secondary)] text-sm">✕</button>
 						</div>
 						<div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
 							<div className="bg-[var(--surface-subtle)] rounded-lg p-3">
