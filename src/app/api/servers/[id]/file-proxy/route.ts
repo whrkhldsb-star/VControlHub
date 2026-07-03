@@ -83,6 +83,7 @@ async function sshExec(
     });
 
     sshClient.on("error", (err) => {
+      sshClient.end();
       resolve({ stdout: "", stderr: err.message, exitCode: -1 });
     });
 

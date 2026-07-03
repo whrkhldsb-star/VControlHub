@@ -40,7 +40,7 @@ function createSshConfig(input: SshConnectionParams): ConnectConfig {
  return config;
 }
 
-function connectSsh(config: ConnectConfig): Promise<Client> {
+export function connectSsh(config: ConnectConfig): Promise<Client> {
   return new Promise((resolve, reject) => {
     const client = new Client();
     client.on("ready", () => resolve(client));

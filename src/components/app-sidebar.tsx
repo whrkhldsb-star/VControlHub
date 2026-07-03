@@ -59,7 +59,9 @@ function SidebarControls() {
 				aria-label={t("search.dialog") === "search.dialog" ? "全局搜索" : t("search.dialog")}
 				aria-keyshortcuts="Control+K Meta+K"
 			>
-				<span aria-hidden="true">⌕</span>
+				<svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+					<path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+				</svg>
 			</button>
 			<LanguageToggle />
 			<ThemeToggle />
@@ -115,11 +117,11 @@ export function AppSidebar({
 	};
 
 	const nav = (
-		<nav className="flex h-full w-full flex-col overflow-hidden" data-i18n-skip>
+		<nav className="flex h-full w-full flex-col" data-i18n-skip>
 			<div className="border-b border-[var(--sidebar-border)] px-5 py-5">
 				<div className="flex items-center gap-2.5">
 					<div className="flex h-9 w-9 items-center justify-center rounded-lg bg-[var(--accent-bg)] text-[var(--accent)] border border-[var(--accent-border)]">
-						<svg className="h-4.5 w-4.5" fill="currentColor" viewBox="0 0 20 20"><path d="M10.394 2.08a1 1 0 00-.788 0l-7 3a1 1 0 000 1.84L5.25 8.05 4.646 12.2a1 1 0 00.476 1.006l4.5 2.706a1 1 0 001.056 0l4.5-2.706a1 1 0 00.476-1.006L14.95 8.05l2.644-1.228a1 1 0 000-1.84l-7-3zM10 4.08l5.106 2.19L10 8.49 4.894 6.27 10 4.08z" /></svg>
+						<svg width="20" height="20" className="h-4.5 w-4.5" fill="currentColor" viewBox="0 0 20 20"><path d="M10.394 2.08a1 1 0 00-.788 0l-7 3a1 1 0 000 1.84L5.25 8.05 4.646 12.2a1 1 0 00.476 1.006l4.5 2.706a1 1 0 001.056 0l4.5-2.706a1 1 0 00.476-1.006L14.95 8.05l2.644-1.228a1 1 0 000-1.84l-7-3zM10 4.08l5.106 2.19L10 8.49 4.894 6.27 10 4.08z" /></svg>
 					</div>
 					<div className="min-w-0">
 						<div className="truncate text-base font-semibold tracking-tight text-[var(--text-primary)]">{getAppName()}</div>
@@ -219,7 +221,7 @@ export function AppSidebar({
 			</aside>
 
 			<div className="hidden w-72 shrink-0 bg-[var(--sidebar-bg)] lg:block" aria-hidden="true" />
-			<aside className="hidden h-screen w-72 shrink-0 overflow-hidden border-r border-[var(--sidebar-border)] bg-[var(--sidebar-bg)] lg:fixed lg:inset-y-0 lg:left-0 lg:z-40 lg:flex">
+			<aside className="hidden h-screen w-72 shrink-0 border-r border-[var(--sidebar-border)] bg-[var(--sidebar-bg)] lg:fixed lg:inset-y-0 lg:left-0 lg:z-40 lg:flex">
 				{nav}
 			</aside>
 

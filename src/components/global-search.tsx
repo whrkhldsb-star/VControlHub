@@ -20,64 +20,80 @@ type DynamicSearchResponse = {
 	results?: SearchItem[];
 };
 
-const searchItemMetadata: Record<string, Pick<SearchItem, "icon" | "keywords">> = {
-	"/": { icon: "📊", keywords: ["dashboard", "首页", "概览"] },
-	"/servers": { icon: "🖥️", keywords: ["vps", "ssh", "终端", "服务器"] },
-	"/health": { icon: "💚", keywords: ["系统自检", "系统健康", "health", "system health"] },
-	"/traffic": { icon: "📈", keywords: ["流量", "带宽", "traffic"] },
-	"/files": { icon: "📁", keywords: ["storage", "存储", "云盘", "sftp"] },
-	"/downloads": { icon: "📥", keywords: ["下载站", "远程下载", "download"] },
-	"/operation-tasks": { icon: "🧾", keywords: ["任务中心", "后台任务", "task"] },
-	"/shares": { icon: "🔗", keywords: ["分享", "外链", "share"] },
-	"/backups": { icon: "💾", keywords: ["backup", "备份迁移", "恢复", "restore"] },
-	"/templates": { icon: "🧩", keywords: ["命令模板", "template", "command"] },
-	"/deployments": { icon: "🚀", keywords: ["部署", "deploy", "发布"] },
-	"/quick-services": { icon: "⚡", keywords: ["快服务", "quick service", "quick services", "quick-services", "quick apps", "应用商店"] },
-	"/snippets": { icon: "💻", keywords: ["代码片段", "snippet"] },
-	"/media": { icon: "🎞️", keywords: ["媒体库", "media"] },
-	"/image-bed": { icon: "🖼️", keywords: ["图床", "图片", "image"] },
-	"/ai": { icon: "🤖", keywords: ["AI 助手", "模型", "provider"] },
-	"/announcements": { icon: "📣", keywords: ["公告", "站内公告"] },
-	"/tickets": { icon: "🎫", keywords: ["工单", "请求", "ticket"] },
-	"/requests": { icon: "✅", keywords: ["审批", "approval", "requests"] },
-	"/scheduled-tasks": { icon: "⏰", keywords: ["定时任务", "计划任务", "cron"] },
-	"/alert-rules": { icon: "🚨", keywords: ["告警", "alert", "规则"] },
-	"/notifications": { icon: "🔔", keywords: ["通知", "消息", "notification"] },
-	"/settings": { icon: "⚙️", keywords: ["设置", "偏好设置", "系统设置", "个人偏好", "账户安全", "会话", "SMTP"] },
-	"/users": { icon: "👥", keywords: ["用户", "角色", "权限"] },
-	"/api-tokens": { icon: "🔑", keywords: ["API Token", "令牌", "token"] },
-	"/status": { icon: "📡", keywords: ["公开状态页", "status"] },
-	"/audit": { icon: "📋", keywords: ["审计", "日志", "audit"] },
-	"/qa-reports": { icon: "🧪", keywords: ["QA 报告", "维护环", "QA loop", "evidence"] },
+type SearchMetadata = { icon: string; keywordsKey?: string };
+
+const searchItemMetadata: Record<string, SearchMetadata> = {
+	"/": { icon: "📊", keywordsKey: "search.keywords.root" },
+	"/servers": { icon: "🖥️", keywordsKey: "search.keywords.servers" },
+	"/health": { icon: "💚", keywordsKey: "search.keywords.health" },
+	"/traffic": { icon: "📈", keywordsKey: "search.keywords.traffic" },
+	"/files": { icon: "📁", keywordsKey: "search.keywords.files" },
+	"/downloads": { icon: "📥", keywordsKey: "search.keywords.downloads" },
+	"/operation-tasks": { icon: "🧾", keywordsKey: "search.keywords.operationTasks" },
+	"/shares": { icon: "🔗", keywordsKey: "search.keywords.shares" },
+	"/backups": { icon: "💾", keywordsKey: "search.keywords.backups" },
+	"/templates": { icon: "🧩", keywordsKey: "search.keywords.templates" },
+	"/deployments": { icon: "🚀", keywordsKey: "search.keywords.deployments" },
+	"/quick-services": { icon: "⚡", keywordsKey: "search.keywords.quickServices" },
+	"/snippets": { icon: "💻", keywordsKey: "search.keywords.snippets" },
+	"/media": { icon: "🎞️", keywordsKey: "search.keywords.media" },
+	"/image-bed": { icon: "🖼️", keywordsKey: "search.keywords.imageBed" },
+	"/ai": { icon: "🤖", keywordsKey: "search.keywords.ai" },
+	"/announcements": { icon: "📣", keywordsKey: "search.keywords.announcements" },
+	"/tickets": { icon: "🎫", keywordsKey: "search.keywords.tickets" },
+	"/requests": { icon: "✅", keywordsKey: "search.keywords.requests" },
+	"/scheduled-tasks": { icon: "⏰", keywordsKey: "search.keywords.scheduledTasks" },
+	"/alert-rules": { icon: "🚨", keywordsKey: "search.keywords.alertRules" },
+	"/notifications": { icon: "🔔", keywordsKey: "search.keywords.notifications" },
+	"/settings": { icon: "⚙️", keywordsKey: "search.keywords.settings" },
+	"/users": { icon: "👥", keywordsKey: "search.keywords.users" },
+	"/api-tokens": { icon: "🔑", keywordsKey: "search.keywords.apiTokens" },
+	"/status": { icon: "📡", keywordsKey: "search.keywords.status" },
+	"/audit": { icon: "📋", keywordsKey: "search.keywords.audit" },
+	"/qa-reports": { icon: "🧪", keywordsKey: "search.keywords.qaReports" },
 };
 
-type SearchItemDefinition = Omit<SearchItem, "label" | "category"> & {
+type SearchItemDefinition = Omit<SearchItem, "label" | "category" | "keywords"> & {
 	labelKey: string;
 	fallbackLabel: string;
 	categoryKey: string;
 	fallbackCategory: string;
+	keywordsKey?: string;
 };
 
+function categoryForHref(href: string) {
+	if (href === "/status") return { key: "search.category.public", fallback: "Public page" };
+	if (href === "/users" || href === "/api-tokens" || href === "/audit") return { key: "search.category.system", fallback: "System" };
+	return { key: "search.category.page", fallback: "Page" };
+}
+
 const navigationSearchItems: SearchItemDefinition[] = [...mainNavItems, ...systemNavItems].map((item) => {
-	const metadata = searchItemMetadata[item.href] ?? ({} as Pick<SearchItem, "icon" | "keywords">);
+	const metadata = searchItemMetadata[item.href];
+	const category = categoryForHref(item.href);
 	return {
 		labelKey: item.labelKey,
 		fallbackLabel: item.fallbackLabel,
 		href: item.href,
-		icon: metadata.icon ?? "🔎",
-		categoryKey: item.href === "/status" ? "search.category.public" : item.href === "/users" || item.href === "/api-tokens" || item.href === "/audit" ? "search.category.system" : "search.category.page",
-		fallbackCategory: item.href === "/status" ? "公开页面" : item.href === "/users" || item.href === "/api-tokens" || item.href === "/audit" ? "系统" : "页面",
-		keywords: [item.labelKey, ...(metadata.keywords ?? [])],
+		icon: metadata?.icon ?? "🔎",
+		categoryKey: category.key,
+		fallbackCategory: category.fallback,
+		keywordsKey: metadata?.keywordsKey,
 	};
 });
 
 const searchItemDefinitions: SearchItemDefinition[] = [
 	...navigationSearchItems,
-	{ labelKey: "nav.ssh", fallbackLabel: "SSH 终端", href: "/servers", icon: "🔑", categoryKey: "search.category.tool", fallbackCategory: "工具", keywords: ["ssh", "终端", "VPS 管理", "服务器管理"] },
-	{ labelKey: "auth.change-password", fallbackLabel: "修改密码", href: "/settings#password", icon: "🔐", categoryKey: "search.category.action", fallbackCategory: "操作", keywords: ["密码", "password", "账户安全"] },
-	{ labelKey: "auth.two-factor", fallbackLabel: "两步验证", href: "/settings#2fa", icon: "🛡️", categoryKey: "search.category.action", fallbackCategory: "操作", keywords: ["2FA", "MFA", "双因素", "账户安全"] },
-	{ labelKey: "preferencesPage.category.personal.title", fallbackLabel: "个人偏好", href: "/settings#personal-preferences", icon: "👤", categoryKey: "search.category.action", fallbackCategory: "操作", keywords: ["偏好设置", "默认页面", "仪表盘组件", "通知", "自动刷新"] },
+	{ labelKey: "nav.ssh", fallbackLabel: "SSH Terminal", href: "/servers", icon: "🔑", categoryKey: "search.category.tool", fallbackCategory: "Tool", keywordsKey: "search.keywords.ssh" },
+	{ labelKey: "auth.change-password", fallbackLabel: "Change password", href: "/settings#password", icon: "🔐", categoryKey: "search.category.action", fallbackCategory: "Action", keywordsKey: "search.keywords.changePassword" },
+	{ labelKey: "auth.two-factor", fallbackLabel: "Two-factor authentication", href: "/settings#2fa", icon: "🛡️", categoryKey: "search.category.action", fallbackCategory: "Action", keywordsKey: "search.keywords.twoFactor" },
+	{ labelKey: "preferencesPage.category.personal.title", fallbackLabel: "Personal preferences", href: "/settings#personal-preferences", icon: "👤", categoryKey: "search.category.action", fallbackCategory: "Action", keywordsKey: "search.keywords.personalPreferences" },
 ];
+
+function getKeywords(key: string | undefined, locale: Locale): string[] {
+	if (!key) return [];
+	const translated = translate(key, locale);
+	return translated === key ? [] : translated.split("|").filter(Boolean);
+}
 
 function localizeSearchItems(locale: Locale): SearchItem[] {
 	return searchItemDefinitions.map((item) => ({
@@ -85,7 +101,7 @@ function localizeSearchItems(locale: Locale): SearchItem[] {
 		href: item.href,
 		icon: item.icon,
 		category: translate(item.categoryKey, locale) === item.categoryKey ? item.fallbackCategory : translate(item.categoryKey, locale),
-		keywords: item.keywords,
+		keywords: getKeywords(item.keywordsKey, locale),
 	}));
 }
 
@@ -261,7 +277,7 @@ export function GlobalSearch({
 				onClick={(e) => e.stopPropagation()}
 				>
 				<div className="flex items-center px-4 border-b border-[var(--border)]">
-					<svg className="w-4 h-4 text-[var(--text-muted)] shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+					<svg className="w-4 h-4 text-[var(--text-muted)] shrink-0" fill="none" stroke="currentColor" width="24" height="24" viewBox="0 0 24 24">
 						<path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
 					</svg>
 					<input

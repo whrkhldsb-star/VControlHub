@@ -53,6 +53,14 @@ export const zh: Record<string, string> = {
 	"sharesPage.button.copiedNotify": "分享链接已生成并复制到剪贴板",
 	"sharesPage.button.errorFallback": "创建分享链接失败",
 
+	"sharesPage.rowActions.revokedLabel": "已撤销",
+	"sharesPage.rowActions.warning": "撤销后该分享链接将立即失效且无法恢复。",
+	"sharesPage.rowActions.revoke": "撤销",
+	"sharesPage.rowActions.confirm": "确认撤销",
+	"sharesPage.rowActions.cancel": "取消",
+	"sharesPage.rowActions.submitting": "撤销中…",
+	"sharesPage.rowActions.confirmAria": "确认撤销分享链接",
+	"sharesPage.rowActions.fallback": "撤销失败",
 	"sharesPage.picker.eyebrow": "Share Center",
 	"sharesPage.picker.noItems": "当前目录没有可分享条目",
 	"sharesPage.picker.selectedHint": "文件和文件夹会分别生成独立分享链接。",
@@ -132,4 +140,13 @@ export const en: Record<string, string> = {
 	"sharesPage.button.copied": "Copied",
 	"sharesPage.button.copiedNotify": "Share link generated and copied to clipboard",
 	"sharesPage.button.errorFallback": "Failed to create share link",
+
+	"sharesPage.rowActions.revokedLabel": "Revoked",
+	"sharesPage.rowActions.warning": "Revoking will immediately invalidate the share link and it cannot be recovered.",
+	"sharesPage.rowActions.revoke": "Revoke",
+	"sharesPage.rowActions.confirm": "Confirm revoke",
+	"sharesPage.rowActions.cancel": "Cancel",
+	"sharesPage.rowActions.submitting": "Revoking…",
+	"sharesPage.rowActions.confirmAria": "Confirm revoke share link",
+	"sharesPage.rowActions.fallback": "Revoke failed",
 };

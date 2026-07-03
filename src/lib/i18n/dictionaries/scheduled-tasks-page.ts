@@ -10,8 +10,8 @@ export const zh: Record<string, string> = {
 	"scheduledTasksPage.createDialogTitle": "新建定时任务",
 	"scheduledTasksPage.name": "任务名称",
 	"scheduledTasksPage.cron": "Cron 表达式",
-	"scheduledTasksPage.command": "执行命令",
-	"scheduledTasksPage.servers": "执行节点",
+	"scheduledTasksPage.command": "命令内容",
+	"scheduledTasksPage.servers": "目标节点",
 	"scheduledTasksPage.reason": "执行原因",
 	"scheduledTasksPage.status.active": "启用",
 	"scheduledTasksPage.status.paused": "已暂停",
@@ -36,6 +36,11 @@ export const zh: Record<string, string> = {
 	"scheduledTasksPage.delete.desc": "即将删除定时任务 {name}。删除后该任务将停止调度，历史结果不会再通过此",
 	"scheduledTasksPage.cancel": "取消",
 	"scheduledTasksPage.delete.confirm": "确认删除",
+	"scheduledTasksPage.preview.label": "预览：{value}",
+	"scheduledTasksPage.createTitle": "创建定时任务",
+	"scheduledTasksPage.delete.tracking": "任务入口追踪。",
+	"scheduledTasksPage.delete.descPrefix": "即将删除定时任务 ",
+	"scheduledTasksPage.delete.descSuffix": "。删除后该任务将停止调度，历史结果不会再通过此任务入口追踪。",
 
 };
 
@@ -73,5 +78,9 @@ export const en: Record<string, string> = {
 	"scheduledTasksPage.lastRun": "Last run",
 	"scheduledTasksPage.nextRun": "Next run",
 	"scheduledTasksPage.search.empty": "No scheduled tasks or execution logs matching \"{query}\"",
-
+	"scheduledTasksPage.preview.label": "Preview: {value}",
+	"scheduledTasksPage.createTitle": "Create scheduled task",
+	"scheduledTasksPage.delete.tracking": " entry.",
+	"scheduledTasksPage.delete.descPrefix": "About to delete scheduled task ",
+	"scheduledTasksPage.delete.descSuffix": ". After deletion it will stop being scheduled and historical results will no longer be available through this entry.",
 };

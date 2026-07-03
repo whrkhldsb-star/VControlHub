@@ -38,7 +38,7 @@ async function calculateServerUptime(serverId: string, date: Date) {
     };
   }
 
-  const onlineCount = snapshots.filter((s: any) => s.isOnline).length;
+  const onlineCount = snapshots.filter((s) => s.isOnline).length;
   const offlineCount = snapshots.length - onlineCount;
 
   const intervalMinutes = 1440 / snapshots.length;

@@ -3,6 +3,7 @@ import path from "node:path";
 
 import { Client, type ConnectConfig } from "ssh2";
 
+import { connectSsh } from "@/lib/ssh/client";
 import { prisma } from "@/lib/db";
 import { BusinessError, ValidationError } from "@/lib/errors";
 import { resolveStorageSshCredentials } from "@/lib/storage/ssh-credentials";
@@ -53,15 +54,6 @@ export const storageFileNodeSelect = {
 		},
 	},
 } as const;
-
-function connectSsh(config: ConnectConfig): Promise<Client> {
-	return new Promise((resolve, reject) => {
-		const client = new Client();
-		client.on("ready", () => resolve(client));
-		client.on("error", (err) => reject(err));
-		client.connect(config);
-	});
-}
 
 function sftpReadFile(client: Client, remotePath: string): Promise<Buffer> {
 	return new Promise((resolve, reject) => {

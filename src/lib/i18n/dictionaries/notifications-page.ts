@@ -23,6 +23,19 @@ export const zh: Record<string, string> = {
 	"notificationsPage.title": "通知中心",
 	"notificationsPage.unread": "{count} 条未读通知",
 	"notificationsPage.unreadBadge": "未读",
+	"notificationBell.error.load": "通知列表加载失败",
+	"notificationBell.error.markAll": "通知标记已读失败",
+	"notificationBell.title": "通知",
+	"notificationBell.realtime": "实时",
+	"notificationBell.manual": "手动",
+	"notificationBell.polling": "轮询",
+	"notificationBell.markAllRead": "全部已读",
+	"notificationBell.empty": "暂无通知",
+	"notificationBell.recentList": "最近通知",
+	"notificationBell.viewAll": "查看全部通知 →",
+	"notificationBell.liveConnection": "实时连接",
+	"notificationBell.serverAlertTitle": "服务器告警：{name}",
+
 };
 
 export const en: Record<string, string> = {
@@ -43,4 +56,17 @@ export const en: Record<string, string> = {
 	"notificationsPage.title": "Notifications",
 	"notificationsPage.unread": "{count} unread",
 	"notificationsPage.unreadBadge": "Unread",
+	"notificationBell.error.load": "Failed to load notifications",
+	"notificationBell.error.markAll": "Failed to mark notifications read",
+	"notificationBell.title": "Notifications",
+	"notificationBell.realtime": "Live",
+	"notificationBell.manual": "Manual",
+	"notificationBell.polling": "Polling",
+	"notificationBell.markAllRead": "Mark all read",
+	"notificationBell.empty": "No notifications",
+	"notificationBell.recentList": "Recent notifications",
+	"notificationBell.viewAll": "View all notifications →",
+	"notificationBell.liveConnection": "Live connection",
+	"notificationBell.serverAlertTitle": "Server alert: {name}",
+
 };

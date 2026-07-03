@@ -66,7 +66,7 @@ export function AiMessageList({
             className="w-12 h-12 mb-3 opacity-30"
             fill="none"
             stroke="currentColor"
-            viewBox="0 0 24 24"
+            width="24" height="24" viewBox="0 0 24 24"
           >
             <path
               strokeLinecap="round"
@@ -96,7 +96,7 @@ export function AiMessageList({
                 className="w-4 h-4 text-[var(--text-primary)]"
                 fill="none"
                 stroke="currentColor"
-                viewBox="0 0 24 24"
+                width="24" height="24" viewBox="0 0 24 24"
               >
                 <path
                   strokeLinecap="round"
@@ -180,7 +180,7 @@ export function AiMessageList({
                 className="w-3 h-3"
                 fill="none"
                 stroke="currentColor"
-                viewBox="0 0 24 24"
+                width="24" height="24" viewBox="0 0 24 24"
               >
                 <path
                   strokeLinecap="round"
@@ -209,7 +209,7 @@ export function AiMessageList({
               className="w-4 h-4 text-[var(--text-primary)] animate-pulse"
               fill="none"
               stroke="currentColor"
-              viewBox="0 0 24 24"
+              width="24" height="24" viewBox="0 0 24 24"
             >
               <path
                 strokeLinecap="round"

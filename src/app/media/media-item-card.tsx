@@ -251,6 +251,7 @@ export function MediaItemCard({ item, canManage }: { item: MediaItem; canManage:
 					<button
 						type="button"
 						onClick={toggleFav}
+						aria-label={fav ? t("mediaItemCard.favoriteRemove") : t("mediaItemCard.favoriteAdd")}
 						className={`shrink-0 rounded p-1 transition ${fav ? "text-amber-400 hover:text-amber-300" : "text-[var(--text-muted)] hover:text-amber-400 opacity-0 group-hover:opacity-100"}`}
 						title={fav ? t("mediaItemCard.favoriteRemove") : t("mediaItemCard.favoriteAdd")}
 					>

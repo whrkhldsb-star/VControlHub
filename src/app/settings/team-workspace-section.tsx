@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { csrfFetch } from "@/lib/auth/csrf-client";
+import { useI18n } from "@/lib/i18n/use-locale";
 
 type TeamMemberDto = {
 	role: string;
@@ -19,7 +20,17 @@ type TeamDto = {
 	members: TeamMemberDto[];
 };
 
+type PendingConfirm =
+	| { kind: "removeMember"; teamId: string; userId: string; name: string }
+	| { kind: "deleteTeam"; teamId: string; name: string }
+	| null;
+
+function formatCopy(template: string, replacements: Record<string, string | number>) {
+	return Object.entries(replacements).reduce((text, [key, value]) => text.replaceAll(`{${key}}`, String(value)), template);
+}
+
 export function TeamWorkspaceSection({ canManage }: { canManage: boolean }) {
+	const { t } = useI18n();
 	const [teams, setTeams] = useState<TeamDto[]>([]);
 	const [currentTeamId, setCurrentTeamId] = useState<string | null>(null);
 	const [name, setName] = useState("");
@@ -31,10 +42,10 @@ export function TeamWorkspaceSection({ canManage }: { canManage: boolean }) {
 	const [busy, setBusy] = useState(false);
 	const [message, setMessage] = useState<string | null>(null);
 	const [error, setError] = useState<string | null>(null);
-	// Edit state
 	const [editingTeamId, setEditingTeamId] = useState<string | null>(null);
 	const [editName, setEditName] = useState("");
 	const [editDesc, setEditDesc] = useState("");
+	const [pendingConfirm, setPendingConfirm] = useState<PendingConfirm>(null);
 
 	async function refresh() {
 		setLoading(true);
@@ -44,7 +55,7 @@ export function TeamWorkspaceSection({ canManage }: { canManage: boolean }) {
 			setCurrentTeamId(data.currentTeamId ?? null);
 			setTargetTeamId((prev) => prev || data.teams?.[0]?.id || "");
 		} catch (err) {
-			setError(err instanceof Error ? err.message : "加载团队空间失败");
+			setError(err instanceof Error ? err.message : t("settingsTeam.error.load"));
 		} finally {
 			setLoading(false);
 		}
@@ -52,6 +63,7 @@ export function TeamWorkspaceSection({ canManage }: { canManage: boolean }) {
 
 	useEffect(() => {
 		void refresh();
+		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, []);
 
 	async function createTeam() {
@@ -67,10 +79,10 @@ export function TeamWorkspaceSection({ canManage }: { canManage: boolean }) {
 			});
 			setName("");
 			setSlug("");
-			setMessage("团队空间已创建");
+			setMessage(t("settingsTeam.message.created"));
 			await refresh();
 		} catch (err) {
-			setError(err instanceof Error ? err.message : "创建团队空间失败");
+			setError(err instanceof Error ? err.message : t("settingsTeam.error.create"));
 		} finally {
 			setBusy(false);
 		}
@@ -86,11 +98,10 @@ export function TeamWorkspaceSection({ canManage }: { canManage: boolean }) {
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify({ teamId }),
 			});
-			setMessage("当前团队空间已切换，正在刷新页面…");
-			// Reload to update server list and other team-scoped resources
+			setMessage(t("settingsTeam.message.switched"));
 			setTimeout(() => window.location.reload(), 800);
 		} catch (err) {
-			setError(err instanceof Error ? err.message : "切换团队空间失败");
+			setError(err instanceof Error ? err.message : t("settingsTeam.error.switch"));
 		} finally {
 			setBusy(false);
 		}
@@ -108,32 +119,20 @@ export function TeamWorkspaceSection({ canManage }: { canManage: boolean }) {
 				body: JSON.stringify({ username: memberUsername, role: memberRole }),
 			});
 			setMemberUsername("");
-			setMessage("团队成员已更新");
+			setMessage(t("settingsTeam.message.memberUpdated"));
 			await refresh();
 		} catch (err) {
-			setError(err instanceof Error ? err.message : "添加成员失败");
+			setError(err instanceof Error ? err.message : t("settingsTeam.error.addMember"));
 		} finally {
 			setBusy(false);
 		}
 	}
 
-	async function removeMember(teamId: string, userId: string, memberName: string) {
-		if (!confirm(`确定移除成员「${memberName}」？`)) return;
-		setBusy(true);
-		setError(null);
-		setMessage(null);
-		try {
-			await csrfFetch(`/api/teams/${teamId}/members/${userId}`, { method: "DELETE" });
-			setMessage("成员已移除");
-			await refresh();
-		} catch (err) {
-			setError(err instanceof Error ? err.message : "移除成员失败");
-		} finally {
-			setBusy(false);
-		}
+	function removeMember(teamId: string, userId: string, memberName: string) {
+		setPendingConfirm({ kind: "removeMember", teamId, userId, name: memberName });
 	}
 
-	async function startEditTeam(team: TeamDto) {
+	function startEditTeam(team: TeamDto) {
 		setEditingTeamId(team.id);
 		setEditName(team.name);
 		setEditDesc(team.description ?? "");
@@ -150,46 +149,61 @@ export function TeamWorkspaceSection({ canManage }: { canManage: boolean }) {
 				body: JSON.stringify({ name: editName, description: editDesc || null }),
 			});
 			setEditingTeamId(null);
-			setMessage("团队信息已更新");
+			setMessage(t("settingsTeam.message.updated"));
 			await refresh();
 		} catch (err) {
-			setError(err instanceof Error ? err.message : "更新团队失败");
+			setError(err instanceof Error ? err.message : t("settingsTeam.error.update"));
 		} finally {
 			setBusy(false);
 		}
 	}
 
-	async function deleteTeamSpace(teamId: string, teamName: string) {
-		if (!confirm(`确定删除团队「${teamName}」？此操作不可撤销，团队下的服务器将变为未分配状态。`)) return;
+	function deleteTeamSpace(teamId: string, teamName: string) {
+		setPendingConfirm({ kind: "deleteTeam", teamId, name: teamName });
+	}
+
+	async function confirmPendingAction() {
+		if (!pendingConfirm) return;
 		setBusy(true);
 		setError(null);
 		setMessage(null);
 		try {
-			await csrfFetch(`/api/teams/${teamId}`, { method: "DELETE" });
-			setMessage("团队已删除");
+			if (pendingConfirm.kind === "removeMember") {
+				await csrfFetch(`/api/teams/${pendingConfirm.teamId}/members/${pendingConfirm.userId}`, { method: "DELETE" });
+				setMessage(t("settingsTeam.message.memberRemoved"));
+			} else {
+				await csrfFetch(`/api/teams/${pendingConfirm.teamId}`, { method: "DELETE" });
+				setMessage(t("settingsTeam.message.deleted"));
+			}
+			setPendingConfirm(null);
 			await refresh();
 		} catch (err) {
-			setError(err instanceof Error ? err.message : "删除团队失败");
+			setError(err instanceof Error ? err.message : t(pendingConfirm.kind === "removeMember" ? "settingsTeam.error.removeMember" : "settingsTeam.error.delete"));
 		} finally {
 			setBusy(false);
 		}
 	}
 
+	const confirmTitle = pendingConfirm?.kind === "removeMember" ? t("settingsTeam.confirm.removeMember.title") : t("settingsTeam.confirm.deleteTeam.title");
+	const confirmDesc = pendingConfirm
+		? formatCopy(t(pendingConfirm.kind === "removeMember" ? "settingsTeam.confirm.removeMember.desc" : "settingsTeam.confirm.deleteTeam.desc"), { name: pendingConfirm.name })
+		: "";
+
 	return (
 		<section id="team-workspaces" data-card className="rounded-xl border border-[var(--border)] bg-[var(--surface)] space-y-4 p-5">
 			<div>
-				<p className="text-xs font-semibold uppercase tracking-[0.3em] text-[var(--color-action)]/80">Team Spaces</p>
-				<h2 className="mt-1 text-xl font-semibold text-[var(--text-primary)]">团队空间</h2>
-				<p className="mt-1 text-sm text-[var(--text-secondary)]">多租户资源隔离：创建团队、切换当前团队，维护成员并管理服务器归属。切换团队后服务器列表按团队过滤。</p>
+				<p className="text-xs font-semibold uppercase tracking-[0.3em] text-[var(--color-action)]/80">{t("settingsTeam.eyebrow")}</p>
+				<h2 className="mt-1 text-xl font-semibold text-[var(--text-primary)]">{t("settingsTeam.title")}</h2>
+				<p className="mt-1 text-sm text-[var(--text-secondary)]">{t("settingsTeam.desc")}</p>
 			</div>
 
 			{error && <div role="alert" className="rounded-xl border border-rose-400/20 bg-rose-500/10 px-3 py-2 text-sm text-rose-200 light:text-rose-600">{error}</div>}
 			{message && <div className="rounded-xl border border-emerald-400/20 bg-emerald-500/10 px-3 py-2 text-sm text-emerald-200 light:text-emerald-600">{message}</div>}
 
 			{loading ? (
-				<p className="text-sm text-[var(--text-muted)]">加载团队空间中…</p>
+				<p className="text-sm text-[var(--text-muted)]">{t("settingsTeam.loading")}</p>
 			) : teams.length === 0 ? (
-				<p className="text-sm text-[var(--text-muted)]">暂无团队空间。</p>
+				<p className="text-sm text-[var(--text-muted)]">{t("settingsTeam.empty")}</p>
 			) : (
 				<div className="grid gap-3 md:grid-cols-2">
 					{teams.map((team) => (
@@ -199,33 +213,33 @@ export function TeamWorkspaceSection({ canManage }: { canManage: boolean }) {
 									{editingTeamId === team.id ? (
 										<div className="space-y-1">
 											<input value={editName} onChange={(e) => setEditName(e.target.value)} className="w-full rounded-lg border border-[var(--border)] bg-[var(--surface)] px-2 py-1 text-sm" />
-											<input value={editDesc} onChange={(e) => setEditDesc(e.target.value)} placeholder="描述（可选）" className="w-full rounded-lg border border-[var(--border)] bg-[var(--surface)] px-2 py-1 text-xs" />
+											<input value={editDesc} onChange={(e) => setEditDesc(e.target.value)} placeholder={t("settingsTeam.descriptionPlaceholder")} className="w-full rounded-lg border border-[var(--border)] bg-[var(--surface)] px-2 py-1 text-xs" />
 										</div>
 									) : (
 										<>
 											<h3 className="font-semibold text-[var(--text-primary)]">{team.name}</h3>
-											<p className="text-xs text-[var(--text-muted)]">/{team.slug} · {team.members.length} 成员</p>
+											<p className="text-xs text-[var(--text-muted)]">/{team.slug} · {formatCopy(t("settingsTeam.memberCount"), { count: team.members.length })}</p>
 											{team.description && <p className="mt-1 text-xs text-[var(--text-secondary)]">{team.description}</p>}
 										</>
 									)}
 								</div>
 								<div className="flex flex-col gap-1">
 									<button type="button" disabled={busy || currentTeamId === team.id} onClick={() => switchTeam(team.id)} className="min-h-9 rounded-xl border border-[var(--border)] px-3 py-1 text-xs text-[var(--text-secondary)] disabled:opacity-60">
-										{currentTeamId === team.id ? "当前团队" : "切换"}
+										{currentTeamId === team.id ? t("settingsTeam.current") : t("settingsTeam.switch")}
 									</button>
 									{canManage && editingTeamId !== team.id && (
 										<button type="button" disabled={busy} onClick={() => startEditTeam(team)} className="min-h-9 rounded-xl border border-[var(--border)] px-3 py-1 text-xs text-[var(--text-secondary)] disabled:opacity-60">
-											编辑
+											{t("settingsTeam.edit")}
 										</button>
 									)}
 									{canManage && editingTeamId === team.id && (
 										<button type="button" disabled={busy} onClick={() => saveEditTeam(team.id)} className="min-h-9 rounded-xl border border-[var(--border)] px-3 py-1 text-xs text-emerald-300 light:text-emerald-600 disabled:opacity-60">
-											保存
+											{t("settingsTeam.save")}
 										</button>
 									)}
 									{canManage && (
 										<button type="button" disabled={busy} onClick={() => deleteTeamSpace(team.id, team.name)} className="min-h-9 rounded-xl border border-rose-400/30 px-3 py-1 text-xs text-rose-300 light:text-rose-600 disabled:opacity-60">
-											删除
+											{t("settingsTeam.delete")}
 										</button>
 									)}
 								</div>
@@ -245,7 +259,7 @@ export function TeamWorkspaceSection({ canManage }: { canManage: boolean }) {
 									</li>
 								))}
 								{team.members.length > 10 && (
-									<li className="text-[var(--text-muted)]">…还有 {team.members.length - 10} 名成员</li>
+									<li className="text-[var(--text-muted)]">{formatCopy(t("settingsTeam.moreMembers"), { count: team.members.length - 10 })}</li>
 								)}
 							</ul>
 						</article>
@@ -256,25 +270,38 @@ export function TeamWorkspaceSection({ canManage }: { canManage: boolean }) {
 			{canManage && (
 				<div className="grid gap-4 border-t border-[var(--border-subtle)] pt-4 md:grid-cols-2">
 					<div className="space-y-2">
-						<h3 className="text-sm font-semibold text-[var(--text-primary)]">创建团队空间</h3>
-						<input value={name} onChange={(e) => setName(e.target.value)} placeholder="团队名称" className="w-full rounded-xl border border-[var(--border)] bg-[var(--surface)] px-3 py-2 text-sm" />
-						<input value={slug} onChange={(e) => setSlug(e.target.value)} placeholder="slug（可选，例如 ops-team）" className="w-full rounded-xl border border-[var(--border)] bg-[var(--surface)] px-3 py-2 text-sm" />
-						<button type="button" disabled={busy || !name.trim()} onClick={createTeam} data-tone="accent" className="min-h-10 rounded-xl bg-[var(--accent)] text-[var(--color-action-fg)] px-4 py-2 text-sm font-medium disabled:opacity-60 hover:opacity-90 transition">创建团队</button>
+						<h3 className="text-sm font-semibold text-[var(--text-primary)]">{t("settingsTeam.createTitle")}</h3>
+						<input value={name} onChange={(e) => setName(e.target.value)} placeholder={t("settingsTeam.namePlaceholder")} className="w-full rounded-xl border border-[var(--border)] bg-[var(--surface)] px-3 py-2 text-sm" />
+						<input value={slug} onChange={(e) => setSlug(e.target.value)} placeholder={t("settingsTeam.slugPlaceholder")} className="w-full rounded-xl border border-[var(--border)] bg-[var(--surface)] px-3 py-2 text-sm" />
+						<button type="button" disabled={busy || !name.trim()} onClick={createTeam} data-tone="accent" className="min-h-10 rounded-xl bg-[var(--accent)] text-[var(--color-action-fg)] px-4 py-2 text-sm font-medium disabled:opacity-60 hover:opacity-90 transition">{t("settingsTeam.createButton")}</button>
 					</div>
 					<div className="space-y-2">
-						<h3 className="text-sm font-semibold text-[var(--text-primary)]">添加成员</h3>
+						<h3 className="text-sm font-semibold text-[var(--text-primary)]">{t("settingsTeam.addMemberTitle")}</h3>
 						<select value={targetTeamId} onChange={(e) => setTargetTeamId(e.target.value)} className="w-full rounded-xl border border-[var(--border)] bg-[var(--surface)] px-3 py-2 text-sm">
 							{teams.map((team) => <option key={team.id} value={team.id}>{team.name}</option>)}
 						</select>
-						<input value={memberUsername} onChange={(e) => setMemberUsername(e.target.value)} placeholder="用户名" className="w-full rounded-xl border border-[var(--border)] bg-[var(--surface)] px-3 py-2 text-sm" />
+						<input value={memberUsername} onChange={(e) => setMemberUsername(e.target.value)} placeholder={t("settingsTeam.usernamePlaceholder")} className="w-full rounded-xl border border-[var(--border)] bg-[var(--surface)] px-3 py-2 text-sm" />
 						<select value={memberRole} onChange={(e) => setMemberRole(e.target.value as "admin" | "member")} className="w-full rounded-xl border border-[var(--border)] bg-[var(--surface)] px-3 py-2 text-sm">
 							<option value="member">member</option>
 							<option value="admin">admin</option>
 						</select>
-						<button type="button" disabled={busy || !targetTeamId || !memberUsername.trim()} onClick={addMember} data-tone="accent" className="min-h-10 rounded-xl bg-[var(--accent)] text-[var(--color-action-fg)] px-4 py-2 text-sm font-medium disabled:opacity-60 hover:opacity-90 transition">添加/更新成员</button>
+						<button type="button" disabled={busy || !targetTeamId || !memberUsername.trim()} onClick={addMember} data-tone="accent" className="min-h-10 rounded-xl bg-[var(--accent)] text-[var(--color-action-fg)] px-4 py-2 text-sm font-medium disabled:opacity-60 hover:opacity-90 transition">{t("settingsTeam.addMemberButton")}</button>
 					</div>
 				</div>
 			)}
+
+			{pendingConfirm ? (
+				<div className="fixed inset-0 z-50 flex items-center justify-center bg-[var(--surface)]/70 px-4 backdrop-blur-sm" role="presentation">
+					<section role="dialog" aria-modal="true" aria-labelledby="team-workspace-confirm-title" className="w-full max-w-md rounded-2xl border border-rose-400/25 bg-[var(--modal-bg)] p-6 shadow-[0_24px_100px_rgba(244,63,94,0.16)]">
+						<h3 id="team-workspace-confirm-title" className="text-lg font-semibold text-[var(--text-primary)]">{confirmTitle}</h3>
+						<p className="mt-3 text-sm leading-6 text-[var(--text-secondary)]">{confirmDesc}</p>
+						<div className="mt-6 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
+							<button type="button" onClick={() => setPendingConfirm(null)} className="min-h-11 rounded-xl border border-[var(--border)] px-4 py-2 text-sm font-medium text-[var(--text-secondary)] hover:bg-[var(--surface-hover)]">{t("settingsTeam.confirm.cancel")}</button>
+							<button type="button" onClick={() => void confirmPendingAction()} disabled={busy} className="min-h-11 rounded-xl bg-rose-500 px-4 py-2 text-sm font-semibold text-[var(--text-primary)] hover:bg-rose-400 disabled:opacity-60">{t("settingsTeam.confirm.submit")}</button>
+						</div>
+					</section>
+				</div>
+			) : null}
 		</section>
 	);
 }

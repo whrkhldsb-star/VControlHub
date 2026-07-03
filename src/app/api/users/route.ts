@@ -175,14 +175,18 @@ export async function PATCH(request: Request) {
       }
 
       if (roleKeys) {
-        await prisma.userRole.deleteMany({ where: { userId } });
-        const roles = await prisma.role.findMany({
-          where: { key: { in: roleKeys } },
-          take: roleKeys.length,
-        });
-        await prisma.userRole.createMany({
-          data: roles.map((role) => ({ userId, roleId: role.id })),
-          skipDuplicates: true,
+        await prisma.$transaction(async (tx) => {
+          await tx.userRole.deleteMany({ where: { userId } });
+          const roles = await tx.role.findMany({
+            where: { key: { in: roleKeys } },
+            take: roleKeys.length,
+          });
+          if (roles.length > 0) {
+            await tx.userRole.createMany({
+              data: roles.map((role) => ({ userId, roleId: role.id })),
+              skipDuplicates: true,
+            });
+          }
         });
         auditUserAction(session!.userId, "user.role_update", {
           targetUsername: targetUser.username,

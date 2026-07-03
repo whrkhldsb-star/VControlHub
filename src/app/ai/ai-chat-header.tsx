@@ -34,7 +34,7 @@ export function AiChatHeader({
         className="md:hidden flex-shrink-0 text-[var(--text-secondary)] hover:text-[var(--text-secondary)] light:hover:text-slate-800 transition"
         aria-label={t("common.openSidebar")}
       >
-        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <svg className="w-5 h-5" fill="none" stroke="currentColor" width="24" height="24" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 6h16M4 12h16M4 18h16" />
         </svg>
       </button>

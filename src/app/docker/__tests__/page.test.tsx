@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import DockerPageClient from "../docker-page-client";
@@ -70,7 +70,7 @@ describe("DockerPage", () => {
 
 	it("manages Docker networks and volumes from the resources panel", async () => {
 		const user = userEvent.setup();
-		const confirmSpy = vi.spyOn(window, "confirm").mockReturnValue(true);
+		const confirmSpy = vi.spyOn(window, "confirm");
 		vi.mocked(csrfFetch).mockImplementation(async (input, init) => {
 			const url = String(input);
 			if (url.includes("/api/docker/resources?type=networks&name=bridge")) {
@@ -106,14 +106,16 @@ describe("DockerPage", () => {
 		));
 
 		await user.click(screen.getByRole("button", { name: "删除 Volume cache" }));
-		expect(confirmSpy).toHaveBeenCalledWith("确认删除 Volume cache？");
-		expect(csrfFetch).toHaveBeenCalledWith(
+		expect(confirmSpy).not.toHaveBeenCalled();
+		const resourceDialog = await screen.findByRole("dialog", { name: "确认删除 Volume cache?" });
+		await user.click(within(resourceDialog).getByRole("button", { name: "确认删除" }));
+		await waitFor(() => expect(csrfFetch).toHaveBeenCalledWith(
 			"/api/docker/resources",
 			expect.objectContaining({
 				method: "POST",
 				body: JSON.stringify({ type: "volumes", action: "delete", name: "cache" }),
 			}),
-		);
+		));
 	});
 
 	it("surfaces Docker action API errors instead of silently ignoring failures", async () => {

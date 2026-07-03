@@ -46,6 +46,7 @@ export function SshFileManager({ serverId, visible }: SshFileManagerProps) {
   const [mkdirName, setMkdirName] = useState("");
   const [renameTarget, setRenameTarget] = useState<string | null>(null);
   const [renameValue, setRenameValue] = useState("");
+  const [pendingDeleteEntry, setPendingDeleteEntry] = useState<DirEntry | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const listAbortRef = useRef<AbortController | null>(null);
 
@@ -219,13 +220,13 @@ export function SshFileManager({ serverId, visible }: SshFileManagerProps) {
   async function handleDelete(entry: DirEntry) {
     if (!entry.isFile) return;
     const filePath = currentPath.replace(/\/$/, "") + "/" + entry.name;
-    if (!confirm(t("sshFileManager.confirmDelete").replace("{name}", entry.name))) return;
 
     try {
       await csrfFetch(
         `/api/servers/${serverId}/sftp/delete?path=${encodeURIComponent(filePath)}`,
         { method: "DELETE" },
       );
+      setPendingDeleteEntry(null);
       loadDir(currentPath);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Delete failed");
@@ -540,7 +541,7 @@ export function SshFileManager({ serverId, visible }: SshFileManagerProps) {
                 >✎</button>
                 {entry.isFile && (
                   <button
-                    onClick={(e) => { e.stopPropagation(); handleDelete(entry); }}
+                    onClick={(e) => { e.stopPropagation(); setPendingDeleteEntry(entry); }}
                     className="shrink-0 text-[var(--text-muted)] opacity-0 transition hover:text-rose-300 group-hover:opacity-100"
                     aria-label={t("sshFileManager.delete")}
                     title={t("sshFileManager.delete")}
@@ -557,6 +558,18 @@ export function SshFileManager({ serverId, visible }: SshFileManagerProps) {
           </div>
         )}
       </div>
+      {pendingDeleteEntry ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-[var(--surface)]/70 px-4 backdrop-blur-sm" role="presentation">
+          <section role="dialog" aria-modal="true" aria-labelledby="ssh-file-delete-title" className="w-full max-w-md rounded-2xl border border-rose-400/25 bg-[var(--modal-bg)] p-6 shadow-[0_24px_100px_rgba(244,63,94,0.16)]">
+            <h3 id="ssh-file-delete-title" className="text-lg font-semibold text-[var(--text-primary)]">{t("common.confirmDelete")}</h3>
+            <p className="mt-3 text-sm leading-6 text-[var(--text-secondary)]">{t("sshFileManager.confirmDelete").replace("{name}", pendingDeleteEntry.name)}</p>
+            <div className="mt-6 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
+              <button type="button" onClick={() => setPendingDeleteEntry(null)} className="min-h-11 rounded-xl border border-[var(--border)] px-4 py-2 text-sm font-medium text-[var(--text-secondary)] hover:bg-[var(--surface-hover)]">{t("common.cancel")}</button>
+              <button type="button" onClick={() => void handleDelete(pendingDeleteEntry)} className="min-h-11 rounded-xl bg-rose-500 px-4 py-2 text-sm font-semibold text-[var(--text-primary)] hover:bg-rose-400">{t("common.confirmDelete")}</button>
+            </div>
+          </section>
+        </div>
+      ) : null}
     </div>
   );
 }

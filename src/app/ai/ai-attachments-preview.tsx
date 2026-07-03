@@ -96,7 +96,7 @@ export function AiAttachmentsPreview({
                         className="w-4 h-4 text-[var(--text-muted)]"
                         fill="none"
                         stroke="currentColor"
-                        viewBox="0 0 24 24"
+                        width="24" height="24" viewBox="0 0 24 24"
                       >
                         <path
                           strokeLinecap="round"

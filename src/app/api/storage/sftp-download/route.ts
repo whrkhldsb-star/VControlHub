@@ -2,6 +2,7 @@ import path from "node:path";
 
 import { Client, type ConnectConfig } from "ssh2";
 import { NextResponse } from "next/server";
+import { connectSsh } from "@/lib/ssh/client";
 import { withApiRoute } from "@/lib/http/api-guard";
 import { parseSearchParams } from "@/lib/http/parse-search-params";
 
@@ -52,15 +53,6 @@ function guessContentType(fileName: string): string {
   if (ext === ".gz") return "application/gzip";
   if (ext === ".7z") return "application/x-7z-compressed";
   return "application/octet-stream";
-}
-
-function connectSsh(config: ConnectConfig): Promise<Client> {
-  return new Promise((resolve, reject) => {
-    const client = new Client();
-    client.on("ready", () => resolve(client));
-    client.on("error", (err) => reject(err));
-    client.connect(config);
-  });
 }
 
 function getSftpStream(

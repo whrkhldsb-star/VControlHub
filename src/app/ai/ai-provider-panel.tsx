@@ -147,7 +147,7 @@ export function AiProviderPanel({
             className="text-[var(--text-muted)] hover:text-[var(--text-secondary)] transition"
             aria-label={t("aiPage.closeProviderAria")}
           >
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" width="24" height="24" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
             </svg>
           </button>

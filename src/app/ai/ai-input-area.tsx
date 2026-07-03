@@ -59,7 +59,7 @@ export function AiInputArea({
       {/* File rejection toast */}
       {fileRejectionMsg && (
         <div className="mb-2 px-3 py-2 rounded-lg bg-rose-500/10 border border-rose-500/20 text-xs text-rose-300 flex items-center gap-2 animate-in fade-in slide-in-from-bottom-2 duration-300">
-          <svg className="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <svg className="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" width="24" height="24" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
           </svg>
           <span>{fileRejectionMsg}</span>
@@ -75,7 +75,7 @@ export function AiInputArea({
           aria-label={t("aiPage.uploadFileTitle").replace("{types}", formatAllowedTypes(currentModelCaps))}
           title={t("aiPage.uploadFileTitle").replace("{types}", formatAllowedTypes(currentModelCaps))}
         >
-          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <svg className="w-5 h-5" fill="none" stroke="currentColor" width="24" height="24" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M18.364 5.636a9 9 0 11-12.728 0M12 3v12" />
           </svg>
         </button>
@@ -123,7 +123,7 @@ export function AiInputArea({
           className="h-10 w-10 rounded-xl bg-[var(--color-action)]/20 text-[var(--color-action)] flex items-center justify-center hover:bg-[var(--color-action)]/30 transition disabled:opacity-30 disabled:cursor-not-allowed"
           aria-label={t("aiPage.sendAria")}
         >
-          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <svg className="w-5 h-5" fill="none" stroke="currentColor" width="24" height="24" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19V5m0 0l-7 7m7-7l7 7" />
           </svg>
         </button>
@@ -134,7 +134,7 @@ export function AiInputArea({
             aria-label={t("aiPage.stopGenTitle")}
             title={t("aiPage.stopGenTitle")}
           >
-            <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
+            <svg className="w-5 h-5" fill="currentColor" width="24" height="24" viewBox="0 0 24 24">
               <rect x="6" y="6" width="12" height="12" rx="2" />
             </svg>
           </button>

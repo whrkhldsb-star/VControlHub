@@ -4,6 +4,7 @@ import path from "node:path";
 import { Client, type ConnectConfig } from "ssh2";
 import { z } from "zod";
 
+import { connectSsh } from "@/lib/ssh/client";
 import {
 	archiveStreamResponse,
 	closeSshClientOnStreamEnd,
@@ -39,15 +40,6 @@ function guessContentType(fileName: string): string {
 	if (ext === ".pdf") return "application/pdf";
 	if (ext === ".txt") return "text/plain; charset=utf-8";
 	return "application/octet-stream";
-}
-
-function connectSsh(config: ConnectConfig): Promise<Client> {
-	return new Promise((resolve, reject) => {
-		const client = new Client();
-		client.on("ready", () => resolve(client));
-		client.on("error", reject);
-		client.connect(config);
-	});
 }
 
 async function openSftpFile(client: Client, remotePath: string) {

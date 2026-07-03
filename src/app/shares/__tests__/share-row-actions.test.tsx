@@ -4,6 +4,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { ShareRowActions } from "../share-row-actions";
 import { csrfFetch } from "@/lib/auth/csrf-client";
+import { useI18n } from "@/lib/i18n/use-locale";
 
 const refresh = vi.fn();
 
@@ -13,13 +14,37 @@ vi.mock("next/navigation", () => ({
 
 vi.mock("@/lib/auth/csrf-client", () => ({ csrfFetch: vi.fn() }));
 
+vi.mock("@/lib/i18n/use-locale", async (importOriginal) => {
+	const mod = await importOriginal<typeof import("@/lib/i18n/use-locale")>();
+	const translations = await import("@/lib/i18n/translations");
+	let currentLocale: "zh" | "en" = "zh";
+	const buildT = () => (key: string) => translations.t(key, currentLocale);
+	const useI18nMock = vi.fn(() => ({
+		locale: currentLocale,
+		t: buildT(),
+		setLocale: vi.fn(),
+	}));
+	(globalThis as { __shareRowActionsI18nLocale?: (l: "zh" | "en") => void }).__shareRowActionsI18nLocale = (l) => {
+		currentLocale = l;
+	};
+	return {
+		...mod,
+		useI18n: useI18nMock,
+	};
+});
+
 const mockedFetch = vi.mocked(csrfFetch);
+const _mockedUseI18n = vi.mocked(useI18n);
+const setI18nLocale = (locale: "zh" | "en") => {
+	(globalThis as { __shareRowActionsI18nLocale?: (l: "zh" | "en") => void }).__shareRowActionsI18nLocale?.(locale);
+};
 
 describe("ShareRowActions", () => {
 	beforeEach(() => {
 		vi.restoreAllMocks();
 		mockedFetch.mockReset();
 		refresh.mockReset();
+		setI18nLocale("zh");
 	});
 
 	it("opens an inline confirmation before calling the delete API", async () => {
@@ -60,6 +85,35 @@ describe("ShareRowActions", () => {
 
 		expect(screen.getByText("已撤销")).toBeInTheDocument();
 		expect(screen.queryByRole("button", { name: "撤销" })).not.toBeInTheDocument();
+	});
+
+	it("renders English copy when the locale is en", async () => {
+		setI18nLocale("en");
+		const user = userEvent.setup();
+		mockedFetch.mockResolvedValueOnce(undefined);
+
+		render(<ShareRowActions id="share_1" revoked={false} />);
+
+		await user.click(screen.getByRole("button", { name: "Revoke" }));
+
+		expect(screen.getByText("Revoking will immediately invalidate the share link and it cannot be recovered.")).toBeInTheDocument();
+		expect(screen.getByRole("button", { name: "Confirm revoke" })).toBeInTheDocument();
+		expect(screen.getByRole("button", { name: "Cancel" })).toBeInTheDocument();
+
+		await user.click(screen.getByRole("button", { name: "Confirm revoke" }));
+
+		await waitFor(() =>
+			expect(mockedFetch).toHaveBeenCalledWith("/api/share-links?id=share_1", { method: "DELETE" }),
+		);
+		expect(refresh).toHaveBeenCalled();
+	});
+
+	it("renders the English revoked label when already revoked under en locale", () => {
+		setI18nLocale("en");
+		render(<ShareRowActions id="share_1" revoked={true} />);
+
+		expect(screen.getByText("Revoked")).toBeInTheDocument();
+		expect(screen.queryByRole("button", { name: "Revoke" })).not.toBeInTheDocument();
 	});
 
 	describe("touch targets (TR-022 R19.B mobile)", () => {

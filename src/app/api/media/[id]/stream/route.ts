@@ -5,6 +5,7 @@ import path from "node:path";
 import { Client, type ConnectConfig } from "ssh2";
 import { z } from "zod";
 
+import { connectSsh } from "@/lib/ssh/client";
 import { parseSearchParams } from "@/lib/http/parse-search-params";
 import { requireSession } from "@/lib/auth/require-session";
 import { sessionHasPermission } from "@/lib/auth/authorization";
@@ -29,15 +30,6 @@ function resolveManagedLocalPath(basePath: string, relativePath: string) {
   const relativeToRoot = path.relative(allowedRoot, absolutePath);
   if (relativeToRoot.startsWith("..") || path.isAbsolute(relativeToRoot)) throw new Error("非法路径");
   return { normalizedRelativePath: normalizedPath.path, absolutePath };
-}
-
-function connectSsh(config: ConnectConfig): Promise<Client> {
-  return new Promise((resolve, reject) => {
-    const client = new Client();
-    client.on("ready", () => resolve(client));
-    client.on("error", (err) => reject(err));
-    client.connect(config);
-  });
 }
 
 function openSftpStream(client: Client, remotePath: string, rangeHeader: string | null) {

@@ -1,5 +1,6 @@
 import type React from "react";
-import { render, screen, waitFor } from "@testing-library/react";
+import { screen, waitFor } from "@testing-library/react";
+import { renderWithI18n as render } from "@/lib/i18n/__tests__/test-helpers";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { act } from "react";

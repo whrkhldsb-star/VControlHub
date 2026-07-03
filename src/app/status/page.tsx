@@ -1,9 +1,27 @@
-import { getPublicStatus } from "@/lib/status/service";
+import { type SystemHealthCheck } from "@/lib/system-health/service";
 import { getServerLocale, t } from "@/lib/i18n/translations";
+import { getPublicStatus } from "@/lib/status/service";
 
 export const revalidate = 60;
 
-async function getAllUptimeData() {
+type StatusCheck = SystemHealthCheck;
+
+type UptimeDay = {
+  date: string;
+  uptimePercent: number;
+};
+
+type UptimeServer = {
+  id: string;
+  name?: string | null;
+  data?: UptimeDay[];
+};
+
+type UptimeResponse = {
+  servers?: UptimeServer[];
+};
+
+async function getAllUptimeData(): Promise<UptimeResponse | null> {
   try {
     const res = await fetch("/api/system/uptime/all", {
       cache: "no-store",
@@ -66,7 +84,7 @@ export default async function Page() {
         </div>
 
         <div className="mt-4 grid gap-3">
-          {status.checks.map((c: any) => (
+          {status.checks.map((c: StatusCheck) => (
             <div key={c.id} data-card className="p-4">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
@@ -111,9 +129,9 @@ export default async function Page() {
               显示过去 90 天的服务器 uptime 情况
             </p>
             <div className="mt-4 grid gap-6">
-              {uptimeData.servers.map((server: any) => {
+              {uptimeData.servers.map((server: UptimeServer) => {
                 const daysMap = new Map<string, number>();
-                (server.data || []).forEach((d: any) => {
+                (server.data || []).forEach((d: UptimeDay) => {
                   const dateKey = d.date ? String(d.date) : "";
                   if (dateKey) daysMap.set(dateKey, d.uptimePercent ?? 0);
                 });

@@ -1,7 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState, useCallback, useRef } from "react";
+import { createPortal } from "react-dom";
+import { useEffect, useState, useCallback, useRef, useLayoutEffect } from "react";
 import { useWsNotifications } from "@/lib/ws/use-ws-notifications";
 import { csrfFetch } from "@/lib/auth/csrf-client";
 import { getSafeNotificationActionUrl } from "@/lib/notification/action-url";
@@ -11,13 +12,35 @@ import { useI18n } from "@/lib/i18n/use-locale";
 /* ── Notification bell with real-time WebSocket push ──────── */
 
 export function NotificationBell() {
-	const { locale } = useI18n();
+	const { t } = useI18n();
 	const [isOpen, setIsOpen] = useState(false);
 	const [notifications, setNotifications] = useState<Array<{
 		id: string; type: string; title: string; message: string; isRead: boolean; actionUrl: string | null; createdAt: string;
 	}>>([]);
 	const [feedback, setFeedback] = useState<{ type: "error" | "info"; message: string } | null>(null);
 	const panelRef = useRef<HTMLDivElement>(null);
+	const buttonRef = useRef<HTMLButtonElement>(null);
+	const popoverRef = useRef<HTMLDivElement>(null);
+	const [popoverPos, setPopoverPos] = useState<{ left: number; bottom: number; maxHeight: number } | null>(null);
+
+	// Position the portal popover relative to the bell button, clamped to viewport
+	const updatePopoverPosition = useCallback(() => {
+		const btn = buttonRef.current;
+		if (!btn) return;
+		const rect = btn.getBoundingClientRect();
+		const width = 320; // w-80
+		const gap = 8;
+		const margin = 8;
+		// Prefer opening upward from the button (bell lives at sidebar bottom)
+		const bottom = window.innerHeight - rect.top + gap;
+		let left = rect.left;
+		if (left + width + margin > window.innerWidth) {
+			left = window.innerWidth - width - margin;
+		}
+		if (left < margin) left = margin;
+		const maxHeight = Math.max(160, rect.top - gap - margin);
+		setPopoverPos({ left, bottom, maxHeight });
+	}, []);
 
 	// WebSocket real-time updates
 	const { connected: wsConnected, lastNotification, unreadCount, lastServerAlert } = useWsNotifications();
@@ -45,9 +68,9 @@ export function NotificationBell() {
 			if (!wsConnected) setPolledUnread(data.unreadCount ?? 0);
 		} catch (err) {
 			setNotifications([]);
-			setFeedback({ type: "error", message: err instanceof Error ? err.message : (locale === "zh" ? "通知列表加载失败" : "Failed to load notifications") });
+			setFeedback({ type: "error", message: err instanceof Error ? err.message : t("notificationBell.error.load") });
 		}
-	}, [locale, wsConnected]);
+	}, [t, wsConnected]);
 
 	// Poll fallback when WS not connected
 	useEffect(() => {
@@ -91,24 +114,40 @@ export function NotificationBell() {
 			setNotifications((prev) => [{
 				id: `alert-${Date.now()}`,
 				type: "server_alert",
-				title: `服务器告警：${lastServerAlert.serverName}`,
+				title: t("notificationBell.serverAlertTitle").replace("{name}", lastServerAlert.serverName),
 				message: lastServerAlert.message,
 				isRead: false,
 				actionUrl: "/servers",
 				createdAt: new Date().toISOString(),
 			}, ...prev].slice(0, 50));
 		}
-	}, [lastServerAlert]);
+	}, [lastServerAlert, t]);
 
 	useEffect(() => {
 		const handleClick = (e: MouseEvent) => {
-			if (panelRef.current && !panelRef.current.contains(e.target as Node)) {
+			const target = e.target as Node;
+			const inTrigger = panelRef.current?.contains(target);
+			const inPopover = popoverRef.current?.contains(target);
+			if (!inTrigger && !inPopover) {
 				setIsOpen(false);
 			}
 		};
 		document.addEventListener("mousedown", handleClick);
 		return () => document.removeEventListener("mousedown", handleClick);
 	}, []);
+
+	// Recompute portal position when open, and on resize/scroll
+	useLayoutEffect(() => {
+		if (!isOpen) return;
+		updatePopoverPosition();
+		const onChange = () => updatePopoverPosition();
+		window.addEventListener("resize", onChange);
+		window.addEventListener("scroll", onChange, true);
+		return () => {
+			window.removeEventListener("resize", onChange);
+			window.removeEventListener("scroll", onChange, true);
+		};
+	}, [isOpen, updatePopoverPosition]);
 
 	useEffect(() => {
 		const handleKeyDown = (e: KeyboardEvent) => {
@@ -133,22 +172,23 @@ export function NotificationBell() {
 			else { setPolledUnread(0); }
 			setNotifications((prev) => prev.map((n) => ({ ...n, isRead: true })));
 		} catch (err) {
-			setFeedback({ type: "error", message: err instanceof Error ? err.message : (locale === "zh" ? "通知标记已读失败" : "Failed to mark notifications read") });
+			setFeedback({ type: "error", message: err instanceof Error ? err.message : t("notificationBell.error.markAll") });
 		}
 	};
 
-	const notificationLabel = locale === "zh" ? "通知" : "Notifications";
-	const realtimeLabel = locale === "zh" ? "实时" : "Live";
-	const manualLabel = locale === "zh" ? "手动" : "Manual";
-	const pollingPrefix = locale === "zh" ? "轮询" : "Polling";
-	const markAllReadLabel = locale === "zh" ? "全部已读" : "Mark all read";
-	const emptyLabel = locale === "zh" ? "暂无通知" : "No notifications";
-	const recentListLabel = locale === "zh" ? "最近通知" : "Recent notifications";
-	const viewAllLabel = locale === "zh" ? "查看全部通知 →" : "View all notifications →";
+	const notificationLabel = t("notificationBell.title");
+	const realtimeLabel = t("notificationBell.realtime");
+	const manualLabel = t("notificationBell.manual");
+	const pollingPrefix = t("notificationBell.polling");
+	const markAllReadLabel = t("notificationBell.markAllRead");
+	const emptyLabel = t("notificationBell.empty");
+	const recentListLabel = t("notificationBell.recentList");
+	const viewAllLabel = t("notificationBell.viewAll");
 
 	return (
 		<div className="relative" ref={panelRef}>
 			<button
+				ref={buttonRef}
 				onClick={togglePanel}
 				className="relative flex items-center justify-center w-11 h-11 rounded-lg text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--surface-elevated)] transition"
 				aria-label={notificationLabel}
@@ -156,7 +196,7 @@ export function NotificationBell() {
 				aria-expanded={isOpen}
 				aria-controls="notification-popover"
 			>
-				<svg className="w-[18px] h-[18px]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+				<svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
 					<path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
 				</svg>
 				{effectiveUnread > 0 && (
@@ -166,17 +206,25 @@ export function NotificationBell() {
 				)}
 				{/* WS connection indicator */}
 				{wsConnected && (
-					<span className="absolute bottom-0 right-0 h-1.5 w-1.5 rounded-full bg-emerald-400" title={locale === "zh" ? "实时连接" : "Live connection"} />
+					<span className="absolute bottom-0 right-0 h-1.5 w-1.5 rounded-full bg-emerald-400" title={t("notificationBell.liveConnection")} />
 				)}
 			</button>
 
-			{isOpen && (
+			{isOpen && typeof document !== "undefined" && createPortal(
 				<div
+					ref={popoverRef}
 					id="notification-popover"
 					role="dialog"
 					aria-modal="false"
 					aria-labelledby="notification-popover-title"
-					className="absolute bottom-full left-0 mb-2 w-80 rounded-xl border border-[var(--border)] bg-[var(--modal-bg)] backdrop-blur-xl shadow-2xl z-50 max-h-[60vh] overflow-y-auto"
+					style={{
+						position: "fixed",
+						left: popoverPos ? `${popoverPos.left}px` : "0px",
+						bottom: popoverPos ? `${popoverPos.bottom}px` : "auto",
+						maxHeight: popoverPos ? `${popoverPos.maxHeight}px` : "60vh",
+						visibility: popoverPos ? "visible" : "hidden",
+					}}
+					className="w-80 rounded-xl border border-[var(--border)] bg-[var(--modal-bg)] backdrop-blur-xl shadow-2xl z-[9999] overflow-y-auto"
 					>
 					<div className="sticky top-0 bg-[var(--modal-bg)] backdrop-blur border-b border-[var(--border)] px-4 py-3 flex items-center justify-between">
 						<span id="notification-popover-title" className="text-sm font-medium text-[var(--text-primary)]">{notificationLabel}</span>
@@ -225,7 +273,8 @@ export function NotificationBell() {
 							{viewAllLabel}
 						</Link>
 					</div>
-				</div>
+				</div>,
+				document.body
 			)}
 		</div>
 	);

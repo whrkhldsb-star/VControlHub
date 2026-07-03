@@ -1,4 +1,4 @@
-import { act, screen } from "@testing-library/react";
+import { act, screen, within } from "@testing-library/react";
 import { renderWithI18n as render } from "@/lib/i18n/__tests__/test-helpers";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -133,7 +133,7 @@ describe("DownloadsClient", () => {
 
   it("requires confirmation before purging completed task files", async () => {
     const actor = userEvent.setup();
-    const confirmSpy = vi.spyOn(window, "confirm").mockReturnValue(false);
+    const confirmSpy = vi.spyOn(window, "confirm");
     const completedTask = {
       ...runningTask,
       status: "COMPLETED",
@@ -149,7 +149,11 @@ describe("DownloadsClient", () => {
     expect(await screen.findByText("https://example.com/a.iso")).toBeInTheDocument();
     await actor.click(screen.getByRole("button", { name: "🗑 删除记录" }));
 
-    expect(confirmSpy).toHaveBeenCalledWith("确认彻底删除下载任务「a.iso」的记录？此操作不可撤销。");
+    expect(confirmSpy).not.toHaveBeenCalled();
+    const dialog = await screen.findByRole("dialog", { name: "确认删除" });
+    expect(dialog).toHaveTextContent("确认彻底删除下载任务「a.iso」的记录？此操作不可撤销。");
+    await actor.click(within(dialog).getByRole("button", { name: "取消" }));
+    expect(screen.queryByRole("dialog", { name: "确认删除" })).not.toBeInTheDocument();
     expect(vi.mocked(csrfFetch)).toHaveBeenCalledTimes(1);
     expect(vi.mocked(csrfFetch)).not.toHaveBeenCalledWith(
       "/api/downloads?taskId=dl_1&purge=1",
@@ -160,7 +164,7 @@ describe("DownloadsClient", () => {
 
   it("purges completed task files after confirmation", async () => {
     const actor = userEvent.setup();
-    const confirmSpy = vi.spyOn(window, "confirm").mockReturnValue(true);
+    const confirmSpy = vi.spyOn(window, "confirm");
     const completedTask = {
       ...runningTask,
       status: "COMPLETED",
@@ -177,6 +181,8 @@ describe("DownloadsClient", () => {
 
     expect(await screen.findByText("https://example.com/a.iso")).toBeInTheDocument();
     await actor.click(screen.getByRole("button", { name: "🗑 删除记录" }));
+    expect(confirmSpy).not.toHaveBeenCalled();
+    await actor.click(within(await screen.findByRole("dialog", { name: "确认删除" })).getByRole("button", { name: "确认删除" }));
 
     expect(vi.mocked(csrfFetch)).toHaveBeenCalledWith(
       "/api/downloads?taskId=dl_1&purge=1",

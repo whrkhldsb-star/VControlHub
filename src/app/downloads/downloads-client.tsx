@@ -128,6 +128,7 @@ export function DownloadsClient({ servers, canManage, canManageNode }: { servers
 	const [busyActions, setBusyActions] = useState<Record<string, string>>({});
 	const busyActionRef = useRef<Set<string>>(new Set());
 	const [downloadingIds, setDownloadingIds] = useState<Record<string, boolean>>({});
+	const [pendingPurgeTaskId, setPendingPurgeTaskId] = useState<string | null>(null);
 
 	const fetchTasks = useCallback(async () => {
 		try {
@@ -213,13 +214,9 @@ export function DownloadsClient({ servers, canManage, canManageNode }: { servers
 				setMessage({ type: "success", text: t("downloadsPage.success.cancelled") });
 				void fetchTasks();
 			} else if (action === "purge") {
-				const task = tasks.find((candidate) => candidate.id === taskId);
-				const confirmed = window.confirm(
-					t("downloadsPage.confirm.purge").replace("${name}", task?.fileName || task?.url || taskId),
-				);
-				if (!confirmed) return;
 				await csrfFetch(`/api/downloads?taskId=${taskId}&purge=1`, { method: "DELETE" });
 				setTasks((current) => current.filter((task) => task.id !== taskId));
+				setPendingPurgeTaskId(null);
 				setMessage({ type: "success", text: t("downloadsPage.success.deleted") });
 			} else if (action === "retry") {
 				const task = tasks.find((t) => t.id === taskId);
@@ -318,6 +315,8 @@ export function DownloadsClient({ servers, canManage, canManageNode }: { servers
 
 	const runningCount = tasks.filter((t) => t.status === "RUNNING").length;
 	const pendingCount = tasks.filter((t) => t.status === "PENDING").length;
+	const pendingPurgeTask = pendingPurgeTaskId ? tasks.find((task) => task.id === pendingPurgeTaskId) : null;
+	const pendingPurgeName = pendingPurgeTask?.fileName || pendingPurgeTask?.url || pendingPurgeTaskId || "";
 
 	return (
 		<div>
@@ -548,7 +547,7 @@ export function DownloadsClient({ servers, canManage, canManageNode }: { servers
 									</button>
 								)}
 								{(task.status === "COMPLETED" || task.status === "FAILED" || task.status === "CANCELLED") && canManage && (
-										<button type="button" onClick={() => handleAction(task.id, "purge")}
+										<button type="button" onClick={() => setPendingPurgeTaskId(task.id)}
 											data-tone="rose" className="rounded-lg border border-rose-400/20 px-3 py-1.5 text-xs text-rose-100 hover:bg-rose-400/10 transition"
 										>
 											{t("downloadsPage.action.delete")}
@@ -560,6 +559,18 @@ export function DownloadsClient({ servers, canManage, canManageNode }: { servers
 					})}
 				</div>
 			)}
+			{pendingPurgeTaskId ? (
+				<div className="fixed inset-0 z-50 flex items-center justify-center bg-[var(--surface)]/70 px-4 backdrop-blur-sm" role="presentation">
+					<section role="dialog" aria-modal="true" aria-labelledby="download-purge-title" className="w-full max-w-md rounded-2xl border border-rose-400/25 bg-[var(--modal-bg)] p-6 shadow-[0_24px_100px_rgba(244,63,94,0.16)]">
+						<h3 id="download-purge-title" className="text-lg font-semibold text-[var(--text-primary)]">{t("common.confirmDelete")}</h3>
+						<p className="mt-3 text-sm leading-6 text-[var(--text-secondary)]">{t("downloadsPage.confirm.purge").replace("${name}", pendingPurgeName)}</p>
+						<div className="mt-6 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
+							<button type="button" onClick={() => setPendingPurgeTaskId(null)} className="min-h-11 rounded-xl border border-[var(--border)] px-4 py-2 text-sm font-medium text-[var(--text-secondary)] hover:bg-[var(--surface-hover)]">{t("common.cancel")}</button>
+							<button type="button" onClick={() => handleAction(pendingPurgeTaskId, "purge")} className="min-h-11 rounded-xl bg-rose-500 px-4 py-2 text-sm font-semibold text-[var(--text-primary)] hover:bg-rose-400">{t("common.confirmDelete")}</button>
+						</div>
+					</section>
+				</div>
+			) : null}
 		</div>
 	);
 }

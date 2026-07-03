@@ -258,6 +258,7 @@ export async function executeSafeAction(
       });
 
       sshClient.on("error", (err) => {
+        sshClient.end();
         resolve({ success: false, data: null, error: `SSH连接失败: ${err.message}` });
       });
 

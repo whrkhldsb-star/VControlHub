@@ -62,10 +62,10 @@ export async function POST(request: Request) {
           const result = await prisma.imageUpload.deleteMany({
             where: whereClause,
           });
-          // Delete files (best-effort)
-          for (const img of images) {
-            await deleteImageVariants(img.storageKey, UPLOAD_DIR);
-          }
+          // Delete files (best-effort, parallel for throughput)
+          await Promise.allSettled(
+            images.map((img) => deleteImageVariants(img.storageKey, UPLOAD_DIR)),
+          );
           return NextResponse.json({ deleted: result.count });
         }
 

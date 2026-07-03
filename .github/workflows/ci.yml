@@ -62,3 +62,6 @@ jobs:
 
       - name: Build
         run: npm run build
+
+      - name: Build runtime bundle
+        run: npm run build:runtime

@@ -74,6 +74,7 @@ export function ScheduleBackupForm() {
 	const [message, setMessage] = useState<{ type: "ok" | "error"; text: string } | null>(null);
 	const [schedules, setSchedules] = useState<BackupSchedule[]>([]);
 	const [loadingList, setLoadingList] = useState(true);
+	const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
 
 	const cronPreview = useMemo(() => describeCronPreview(cronExpression, t), [cronExpression, t]);
 
@@ -144,9 +145,9 @@ export function ScheduleBackupForm() {
 	};
 
 	const deleteSchedule = async (id: string) => {
-		if (!window.confirm(t("backupsPage.schedule.deleteConfirm"))) return;
 		try {
 			await csrfFetch(`/api/backup-schedules/${id}`, { method: "DELETE" });
+			setPendingDeleteId(null);
 			await loadSchedules();
 		} catch {
 			// best-effort
@@ -241,7 +242,7 @@ export function ScheduleBackupForm() {
 										</button>
 										<button
 											type="button"
-											onClick={() => deleteSchedule(s.id)}
+											onClick={() => setPendingDeleteId(s.id)}
 											className="rounded-lg border border-rose-400/20 px-2 py-1 text-xs text-rose-200 transition hover:border-rose-400/40"
 										>
 											{t("backupsPage.schedule.delete")}
@@ -253,6 +254,18 @@ export function ScheduleBackupForm() {
 					</div>
 				)}
 			</div>
+			{pendingDeleteId ? (
+				<div className="fixed inset-0 z-50 flex items-center justify-center bg-[var(--surface)]/70 px-4 backdrop-blur-sm" role="presentation">
+					<section role="dialog" aria-modal="true" aria-labelledby="backup-schedule-delete-title" className="w-full max-w-md rounded-2xl border border-rose-400/25 bg-[var(--modal-bg)] p-6 shadow-[0_24px_100px_rgba(244,63,94,0.16)]">
+						<h3 id="backup-schedule-delete-title" className="text-lg font-semibold text-[var(--text-primary)]">{t("common.confirmDelete")}</h3>
+						<p className="mt-3 text-sm leading-6 text-[var(--text-secondary)]">{t("backupsPage.schedule.deleteConfirm")}</p>
+						<div className="mt-6 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
+							<button type="button" onClick={() => setPendingDeleteId(null)} className="min-h-11 rounded-xl border border-[var(--border)] px-4 py-2 text-sm font-medium text-[var(--text-secondary)] hover:bg-[var(--surface-hover)]">{t("common.cancel")}</button>
+							<button type="button" onClick={() => void deleteSchedule(pendingDeleteId)} className="min-h-11 rounded-xl bg-rose-500 px-4 py-2 text-sm font-semibold text-[var(--text-primary)] hover:bg-rose-400">{t("common.confirmDelete")}</button>
+						</div>
+					</section>
+				</div>
+			) : null}
 		</div>
 	);
 }

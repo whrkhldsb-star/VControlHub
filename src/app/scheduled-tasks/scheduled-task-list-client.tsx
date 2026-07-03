@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useMemo } from "react";
+import { Fragment, useState, useCallback, useMemo } from "react";
 import { EmptyState } from "@/components/page-shell";
 import { csrfFetch } from "@/lib/auth/csrf-client";
 import { useI18n } from "@/lib/i18n/use-locale";
@@ -190,8 +190,8 @@ export function ScheduledTaskListClient({ tasks: initialTasks, servers, canCreat
 											data-tone="accent"
 											className="min-h-11 rounded-2xl border px-4 py-2 text-xs font-medium transition"
 										>
-											重试
-										</button>
+											{t("scheduledTasksPage.retry")}
+											</button>
 									)}
 									{canManage && (
 										<button
@@ -208,8 +208,8 @@ export function ScheduledTaskListClient({ tasks: initialTasks, servers, canCreat
 											data-tone="danger"
 											className="min-h-11 rounded-2xl border px-4 py-2 text-xs font-medium transition"
 										>
-											删除
-										</button>
+											{t("scheduledTasksPage.delete")}
+											</button>
 									)}
 								</div>
 							</div>
@@ -222,14 +222,14 @@ export function ScheduledTaskListClient({ tasks: initialTasks, servers, canCreat
 					<section role="dialog" aria-modal="true" aria-labelledby="delete-scheduled-task-title" className="w-full max-w-md rounded-2xl border border-rose-400/25 bg-[var(--modal-bg)] p-6 shadow-[0_24px_100px_rgba(244,63,94,0.16)]">
 						<h2 id="delete-scheduled-task-title" className="text-lg font-semibold text-[var(--text-primary)]">{t("scheduledTasksPage.delete.title")}</h2>
 						<p className="mt-3 text-sm leading-6 text-[var(--text-secondary)]">
-							{t("scheduledTasksPage.delete.desc").split("{name}")[0]}<strong className="font-semibold text-[var(--text-primary)]">{taskPendingDelete.name}</strong>{t("scheduledTasksPage.delete.desc").split("{name}")[1]}任务入口追踪。
+							<Fragment>{t("scheduledTasksPage.delete.descPrefix")}<strong className="font-semibold text-[var(--text-primary)]">{taskPendingDelete.name}</strong>{t("scheduledTasksPage.delete.descSuffix")}</Fragment>
 						</p>
 						<div className="mt-6 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
 							<button type="button" onClick={() => setTaskPendingDelete(null)} className="min-h-11 rounded-xl border border-[var(--border)] px-4 py-2 text-sm font-medium text-[var(--text-secondary)] hover:bg-[var(--surface-hover)]">
-								取消
+								{t("scheduledTasksPage.cancel")}
 							</button>
 							<button type="button" onClick={() => deleteTask(taskPendingDelete)} className="min-h-11 rounded-xl bg-rose-500 px-4 py-2 text-sm font-semibold text-[var(--text-primary)] hover:bg-rose-400">
-								确认删除
+								{t("scheduledTasksPage.delete.confirm")}
 							</button>
 						</div>
 					</section>
@@ -297,18 +297,18 @@ function CreateTaskForm({ servers, onClose }: { servers: ServerOption[]; onClose
 
 	return (
 		<form onSubmit={handleSubmit} data-card className=" space-y-4">
-			<h3 className="text-lg font-semibold text-[var(--text-primary)]">创建定时任务</h3>
+			<h3 className="text-lg font-semibold text-[var(--text-primary)]">{t("scheduledTasksPage.createTitle")}</h3>
 			{error && <div role="alert" className="rounded-lg bg-rose-500/[0.10] border border-rose-400/20 px-3.5 py-2.5 text-sm text-rose-200">{error}</div>}
 
 			<div className="space-y-1.5">
-				<label htmlFor="scheduled-task-name" className={fieldLabelClass}>任务名称</label>
+				<label htmlFor="scheduled-task-name" className={fieldLabelClass}>{t("scheduledTasksPage.name")}</label>
 				<input id="scheduled-task-name" value={name} onChange={(e) => setName(e.target.value)} required placeholder={t("scheduledTasks.namePlaceholder")} className={fieldInputClass} />
 			</div>
 
 			<div className="space-y-1.5">
-				<label htmlFor="scheduled-task-cron" className={fieldLabelClass}>Cron 表达式</label>
+				<label htmlFor="scheduled-task-cron" className={fieldLabelClass}>{t("scheduledTasksPage.cron")}</label>
 				<input id="scheduled-task-cron" value={cronExpression} onChange={(e) => setCron(e.target.value)} required placeholder="0 3 * * *" className={monoFieldInputClass} />
-				<p data-tone="cyan" className="rounded-lg border border-[var(--color-action-border)]/10 px-3 py-2 text-xs text-[var(--text-primary)]">预览：{cronPreview}</p>
+				<p data-tone="cyan" className="rounded-lg border border-[var(--color-action-border)]/10 px-3 py-2 text-xs text-[var(--text-primary)]">{t("scheduledTasksPage.preview.label").replace("{value}", cronPreview)}</p>
 				<div className="flex flex-wrap gap-1.5">
 					{presetCrons.map((p) => (
 						<button key={p.expr} type="button" onClick={() => setCron(p.expr)}
@@ -325,18 +325,18 @@ function CreateTaskForm({ servers, onClose }: { servers: ServerOption[]; onClose
 			</div>
 
 			<div className="space-y-1.5">
-				<label htmlFor="scheduled-task-command" className={fieldLabelClass}>命令内容</label>
+				<label htmlFor="scheduled-task-command" className={fieldLabelClass}>{t("scheduledTasksPage.command")}</label>
 				<textarea id="scheduled-task-command" value={command} onChange={(e) => setCommand(e.target.value)} required rows={3} placeholder="df -h" className={`${monoFieldInputClass} resize-y`} />
 			</div>
 
 			<div className="space-y-1.5">
-				<label htmlFor="scheduled-task-reason" className={fieldLabelClass}>原因 / 备注</label>
+				<label htmlFor="scheduled-task-reason" className={fieldLabelClass}>{t("scheduledTasksPage.reason")}</label>
 				<input id="scheduled-task-reason" value={reason} onChange={(e) => setReason(e.target.value)} placeholder={t("scheduledTasks.reasonPlaceholder")} className={fieldInputClass} />
 			</div>
 
 			{enabledServers.length > 0 && (
 				<div className="space-y-1.5">
-					<div id="scheduled-task-target-nodes-label" className={fieldLabelClass}>目标节点</div>
+					<div id="scheduled-task-target-nodes-label" className={fieldLabelClass}>{t("scheduledTasksPage.servers")}</div>
 					<div className="grid gap-1.5 sm:grid-cols-2" role="group" aria-labelledby="scheduled-task-target-nodes-label">
 						{enabledServers.map((s) => (
 							<label key={s.id} className={`min-h-11 flex items-center gap-2 rounded-lg border px-3 py-2 text-sm cursor-pointer transition ${
@@ -355,7 +355,7 @@ function CreateTaskForm({ servers, onClose }: { servers: ServerOption[]; onClose
 					{submitting ? t("scheduledTasks.submit.creating") : t("scheduledTasks.submit.create")}
 				</button>
 				<button type="button" onClick={onClose} className="min-h-11 rounded-2xl border border-[var(--border)] px-5 py-2 text-sm text-[var(--text-secondary)] hover:bg-[var(--surface)]/10 transition">
-					取消
+					{t("scheduledTasksPage.cancel")}
 				</button>
 			</div>
 		</form>
