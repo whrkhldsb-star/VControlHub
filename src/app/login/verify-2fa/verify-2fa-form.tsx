@@ -110,7 +110,7 @@ if (data.success) {
 						onPaste={i === 0 ? handlePaste : undefined}
 						disabled={submitting}
 						autoFocus={i === 0}
-						aria-label={`验证码第 ${i + 1} 位`}
+						aria-label={`Verification code digit ${i + 1}`}
 						className="h-14 w-12 rounded-xl border border-[var(--border)] bg-[var(--input-bg)] text-center text-xl font-semibold text-[var(--text-primary)] shadow-sm outline-none transition-[box-shadow,border-color] duration-150 focus:border-[var(--color-action-border)] focus:bg-[var(--input-bg)] focus:ring-[var(--color-action-ring)] disabled:opacity-50"
 					/>
 				))}

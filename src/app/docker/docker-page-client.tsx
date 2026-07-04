@@ -76,7 +76,7 @@ const stateColors: Record<string, string> = {
 	exited: "bg-[var(--surface-hover)]/50 text-[var(--text-muted)]",
 	paused: "bg-[var(--warning-bg)] text-[var(--warning)]",
 	created: "bg-[var(--accent-bg)] text-[var(--accent)]",
-	restarting: "bg-orange-500/10 text-orange-400",
+	restarting: "bg-[var(--warning-bg)] text-[var(--warning)]",
 };
 
 export default function DockerPage() {

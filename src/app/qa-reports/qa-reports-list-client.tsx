@@ -61,7 +61,7 @@ function statusToneClass(status: string): string {
 function kindAccent(kind: QaReportSummary["kind"]): string {
 	if (kind === "slice") return "bg-[var(--color-action)]/15 text-[var(--text-secondary)] border-[var(--color-action-border)]/20";
 	if (kind === "blocker") return "bg-[var(--warning-bg)] text-[var(--warning)] border-[var(--warning-border)]";
-	return "bg-indigo-500/15 text-indigo-200 border-indigo-400/20";
+	return "bg-[var(--color-action-bg)] text-[var(--color-action)] border-[var(--color-action-border)]/20";
 }
 
 function emptyTrends(): QaReportTrends {

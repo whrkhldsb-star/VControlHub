@@ -65,7 +65,7 @@ const TaskRow = memo(function TaskRow({ task, t, sourceLabels, onViewEvents }: T
         <h3 className="mt-2 truncate text-sm font-medium text-[var(--text-primary)]">{task.title}</h3>
         <p className="mt-1 text-xs text-[var(--text-muted)]">{new Date(task.createdAt).toLocaleString("zh-CN")} {task.actor ? ` · ${task.actor}` : ""} {task.progress ? ` · ${task.progress}` : ""}</p>
         {task.logPreview && task.logPreview.length > 0 && (
-          <div aria-label={`最近日志：${task.title}`} className="mt-3 rounded-lg border border-[var(--border)] bg-[var(--surface-subtle)] px-3 py-2">
+          <div aria-label={`Recent logs: ${task.title}`} className="mt-3 rounded-lg border border-[var(--border)] bg-[var(--surface-subtle)] px-3 py-2">
             <div className="text-[11px] font-medium uppercase tracking-[0.2em] text-[var(--text-muted)]">{t("operationTasksPage.logs.recent")}</div>
             <ul className="mt-2 space-y-1 text-xs text-[var(--text-secondary)]">
               {task.logPreview.map((line, index) => <li key={`${task.id}-log-${index}`} className="break-words font-mono">{line}</li>)}

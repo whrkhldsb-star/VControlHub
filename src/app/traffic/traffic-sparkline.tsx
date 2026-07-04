@@ -124,7 +124,7 @@ export function TrafficSparkline({
 				className="block w-full"
 				style={{ height }}
 				role="img"
-				aria-label={`流量走势图，当前 RX ${formatRate(last.rx)}，TX ${formatRate(last.tx)}`}
+				aria-label={`Traffic trend chart, current RX ${formatRate(last.rx)}, TX ${formatRate(last.tx)}`}
 			>
 				{/* Horizontal grid: 3 lines (25%, 50%, 75%) */}
 				{[0.25, 0.5, 0.75].map((p) => (

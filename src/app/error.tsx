@@ -63,7 +63,7 @@ export default function RootError({
 				</button>
 				<NextLink
 					href="/"
-					className="inline-flex items-center rounded-lg bg-neutral-800 light:bg-neutral-100 px-6 py-2 text-sm text-neutral-200 no-underline hover:bg-neutral-700 light:hover:bg-neutral-200"
+					className="inline-flex items-center rounded-lg bg-[var(--surface-elevated)] light:bg-[var(--surface-elevated)] px-6 py-2 text-sm text-[var(--text-secondary)] no-underline hover:bg-[var(--surface-hover)] light:hover:bg-[var(--surface-hover)]"
 				>
 					{t("error.back-home")}
 				</NextLink>

@@ -31,10 +31,10 @@ export function FileListToasts({ toasts, onDismiss }: FileListToastsProps) {
           className={[
             "flex items-start justify-between gap-3 rounded-2xl border px-4 py-3 text-sm shadow-2xl backdrop-blur-xl",
             toast.type === "success"
-              ? "border-[var(--success-border)] bg-[var(--success-bg)] text-[var(--text-primary)] shadow-emerald-950/30"
+              ? "border-[var(--success-border)] bg-[var(--success-bg)] text-[var(--text-primary)] shadow-[var(--success-bg)]"
               : "",
             toast.type === "error"
-              ? "border-[var(--danger-border)] bg-[var(--danger-bg)] text-[var(--text-primary)] shadow-rose-950/30"
+              ? "border-[var(--danger-border)] bg-[var(--danger-bg)] text-[var(--text-primary)] shadow-[var(--danger-bg)]"
               : "",
             toast.type === "info"
               ? "border-[var(--color-action-border)]/40 bg-[var(--color-action)]/95 text-[var(--text-primary)] shadow-[var(--color-action)]/30"

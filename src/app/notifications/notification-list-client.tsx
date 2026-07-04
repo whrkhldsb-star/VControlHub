@@ -63,7 +63,7 @@ const NotificationRow = memo(function NotificationRow({
 		<article
 			className={`group rounded-xl border p-4 transition-colors duration-150 focus-within:ring-2 focus-within:ring-[var(--color-action-ring)] light:focus-within:ring-[var(--color-action-ring)] ${
 				n.isRead
-					? "border-[var(--border)] bg-[var(--surface)]/[0.04] hover:bg-[var(--surface)]/[0.04] light:hover:bg-slate-50"
+					? "border-[var(--border)] bg-[var(--surface)]/[0.04] hover:bg-[var(--surface)]/[0.04] light:hover:bg-[var(--surface-hover)]"
 					: "border-[var(--color-action-border)]/20 bg-[var(--color-action-bg)]/[0.04] hover:bg-[var(--color-action-bg)]/[0.10] light:border-[var(--color-action-border)]/30 light:bg-[var(--color-action-bg)] light:hover:bg-[var(--color-action-bg)]/70"
 			}`}
 		>

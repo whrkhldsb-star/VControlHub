@@ -136,7 +136,7 @@ export function FilesBrowserSpa({
         onClick={() => setMobileSidebarOpen((value) => !value)}
         aria-expanded={mobileSidebarOpen}
         aria-controls="files-browser-sidebar"
-        className="flex min-h-11 w-full items-center justify-between rounded-2xl border border-[var(--border)] bg-[var(--surface)] px-4 py-2 text-sm font-medium text-[var(--text-primary)] hover:bg-[var(--surface-hover)] light:bg-[var(--surface)] light:hover:bg-slate-200/60 xl:hidden"
+        className="flex min-h-11 w-full items-center justify-between rounded-2xl border border-[var(--border)] bg-[var(--surface)] px-4 py-2 text-sm font-medium text-[var(--text-primary)] hover:bg-[var(--surface-hover)] light:bg-[var(--surface)] light:hover:bg-[var(--surface-hover)] xl:hidden"
       >
         <span>{mobileSidebarOpen ? t("filesBrowserSpa.collapseDirectoryTree") : t("filesBrowserSpa.expandDirectoryTree")}</span>
         <span aria-hidden="true" className="text-xs">

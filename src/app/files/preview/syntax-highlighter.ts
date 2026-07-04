@@ -75,22 +75,22 @@ export function getRules(lang: string): { regex: RegExp; replace: string }[] {
 	
 	const kw = (words: string) => ({
 		regex: new RegExp(`\\b(${words})\\b`, "g"),
-		replace: '<span class="text-blue-400 font-medium">$1</span>',
+		replace: '<span class="text-[var(--color-action)] font-medium">$1</span>',
 	});
 	
 	const strRule = {
 		regex: /(&quot;[^&]*?&quot;|&#39;[^&]*?&#39;|`[^`]*?`)/g,
-		replace: '<span class="text-emerald-400">$1</span>',
+		replace: '<span class="text-[var(--success)]">$1</span>',
 	};
 	
 	const numRule = {
 		regex: /\b(\d+\.?\d*)\b/g,
-		replace: '<span class="text-amber-400">$1</span>',
+		replace: '<span class="text-[var(--warning)]">$1</span>',
 	};
 	
 	const decoratorRule = {
 		regex: /(@\w+)/g,
-		replace: '<span class="text-purple-400">$1</span>',
+		replace: '<span class="text-[var(--accent)]">$1</span>',
 	};
 	
 	const common: { regex: RegExp; replace: string }[] = [strRule, numRule];
@@ -120,7 +120,7 @@ export function getRules(lang: string): { regex: RegExp; replace: string }[] {
 		case "xml":
 			return [
 				commentRule("<!--"),
-				{ regex: /(&lt;\/?[\w.-]+)/g, replace: '<span class="text-blue-400">$1</span>' },
+				{ regex: /(&lt;\/?[\w.-]+)/g, replace: '<span class="text-[var(--color-action)]">$1</span>' },
 				{ regex: /(\s[\w.-]+)(=)/g, replace: '<span class="text-[var(--color-action)]">$1</span><span class="text-[var(--text-muted)]">=</span>' },
 				strRule,
 			];
@@ -173,13 +173,13 @@ export function highlightJson(line: string): string {
 	// keys
 	escaped = escaped.replace(/^\s*(&quot;[^&]+?&quot;)\s*(:)/, '<span class="text-[var(--color-action)]">$1</span><span class="text-[var(--text-muted)]">:</span>');
 	// string values
-	escaped = escaped.replace(/:\s*(&quot;[^&]*?&quot;)([,\s}]*)$/, ': <span class="text-emerald-400">$1</span>$2');
+	escaped = escaped.replace(/:\s*(&quot;[^&]*?&quot;)([,\s}]*)$/, ': <span class="text-[var(--success)]">$1</span>$2');
 	// standalone strings in arrays
-	escaped = escaped.replace(/^\s*(&quot;[^&]*?&quot;)([,\s\]]*)$/, '<span class="text-emerald-400">$1</span>$2');
+	escaped = escaped.replace(/^\s*(&quot;[^&]*?&quot;)([,\s\]]*)$/, '<span class="text-[var(--success)]">$1</span>$2');
 	// numbers
-	escaped = escaped.replace(/:\s*(\d+\.?\d*)([,\s}]*)$/, ': <span class="text-amber-400">$1</span>$2');
+	escaped = escaped.replace(/:\s*(\d+\.?\d*)([,\s}]*)$/, ': <span class="text-[var(--warning)]">$1</span>$2');
 	// booleans & null
-	escaped = escaped.replace(/:\s*(true|false|null)([,\s}]*)$/, ': <span class="text-blue-400">$1</span>$2');
+	escaped = escaped.replace(/:\s*(true|false|null)([,\s}]*)$/, ': <span class="text-[var(--color-action)]">$1</span>$2');
 	return escaped;
 }
 

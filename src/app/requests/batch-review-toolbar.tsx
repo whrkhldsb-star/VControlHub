@@ -96,7 +96,7 @@ export function BatchReviewToolbar({
 			<div className="relative">
 				<label
 					className="absolute left-2 top-2 z-10 flex h-6 w-6 cursor-pointer items-center justify-center rounded border border-[var(--border)] bg-[var(--modal-bg)] hover:bg-[var(--surface)]"
-					aria-label={`选择 ${id}`}
+					aria-label={`Select ${id}`}
 				>
 					<input
 						type="checkbox"
@@ -123,7 +123,7 @@ export function BatchReviewToolbar({
 						className="h-4 w-4 accent-[var(--color-action)]"
 						checked={allSelected}
 						onChange={toggleAll}
-						aria-label="全选待审批"
+						aria-label="Select all pending approvals"
 					/>
 					<span className="text-[var(--text-secondary)]">
 						全选（{pendingIds.length}）
@@ -150,7 +150,7 @@ export function BatchReviewToolbar({
 				<form
 					action={formAction}
 					className="sticky bottom-3 z-20 flex flex-col gap-2 rounded-xl border border-[var(--color-action-border)]/30 bg-[var(--modal-bg)] p-3 shadow-2xl backdrop-blur sm:flex-row sm:items-center sm:gap-3"
-					aria-label="批量审批操作栏"
+					aria-label="Batch approval toolbar"
 				>
 					{Array.from(selected).map((id) => (
 						<input key={id} type="hidden" name="commandRequestId" value={id} />

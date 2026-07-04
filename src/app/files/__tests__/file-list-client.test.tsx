@@ -16,7 +16,7 @@ const moveFileActionMock = vi.hoisted(() => vi.fn());
 const csrfFetchMock = vi.hoisted(() => vi.fn());
 
 function firstFileCheckbox(name: string) {
-  return screen.getAllByLabelText(`选择 ${name}`)[0]!;
+  return screen.getAllByLabelText(`Select ${name}`)[0]!;
 }
 
 vi.mock("next/navigation", () => ({
@@ -301,7 +301,7 @@ describe("FileListClient", () => {
   it("sorts by numeric file size instead of formatted labels", () => {
     renderFileList({ files: [imageFile, archiveFile, docFile], folders: [] });
 
-    fireEvent.click(screen.getByRole("button", { name: "按大小排序" }));
+    fireEvent.click(screen.getByRole("button", { name: "Sort by 大小" }));
 
     const table = screen.getByTestId("file-table-inner");
     const fileNames = Array.from(
@@ -331,7 +331,7 @@ describe("FileListClient", () => {
       />,
     );
 
-    fireEvent.click(screen.getByRole("button", { name: "按大小排序" }));
+    fireEvent.click(screen.getByRole("button", { name: "Sort by 大小" }));
     fireEvent.click(firstFileCheckbox("cover.jpg"));
     expect(screen.getByText("· 已选 1 个")).toBeInTheDocument();
 
@@ -351,7 +351,7 @@ describe("FileListClient", () => {
 
     expect(screen.queryByText(/已选/)).not.toBeInTheDocument();
     expect(
-      screen.getByRole("button", { name: "按大小排序" }),
+      screen.getByRole("button", { name: "Sort by 大小" }),
     ).toHaveTextContent("↑");
     expect(
       screen.getAllByRole("link", { name: "report.pdf" })[0]!,
@@ -422,7 +422,7 @@ describe("FileListClient", () => {
     renderFileList({ files: [], folders: [folder] });
 
     expect(
-      screen.getAllByRole("link", { name: "下载目录 photos" })[0]!,
+      screen.getAllByRole("link", { name: "Download folder archive photos" })[0]!,
     ).toHaveAttribute(
       "href",
       "/api/storage/archive-download?nodeId=node_1&path=photos",
@@ -622,7 +622,7 @@ describe("FileListClient", () => {
     fireEvent.click(firstFileCheckbox("report.pdf"));
     fireEvent.click(await screen.findByRole("button", { name: "批量移动" }));
     fireEvent.change(
-      await screen.findByRole("textbox", { name: "批量移动目标路径" }),
+      await screen.findByRole("textbox", { name: "Batch move target path" }),
       { target: { value: "archive" } },
     );
     fireEvent.click(await screen.findByRole("button", { name: "确认移动" }));

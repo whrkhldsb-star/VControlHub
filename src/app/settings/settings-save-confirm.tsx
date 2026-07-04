@@ -155,7 +155,7 @@ export function SaveButtonWithDiff({
         <div
           data-component="diff-table"
           role="region"
-          aria-label="未保存的修改"
+          aria-label="Unsaved changes"
           className="overflow-hidden rounded-lg border border-[var(--border)] bg-[var(--surface)]/[0.04]"
         >
           <table className="w-full text-xs">

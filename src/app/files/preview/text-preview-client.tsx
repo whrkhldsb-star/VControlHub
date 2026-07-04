@@ -436,7 +436,7 @@ export function TextPreviewClient({
 		try {
 			const escapedQuery = escapeHtml(searchQuery);
 			const escaped = escapeRegex(escapedQuery);
-			return html.replace(new RegExp(`(${escaped})`, "gi"), '<mark class="bg-amber-400/30 text-[var(--warning)] rounded-lg px-0.5">$1</mark>');
+			return html.replace(new RegExp(`(${escaped})`, "gi"), '<mark class="bg-[var(--warning-bg)] text-[var(--warning)] rounded-lg px-0.5">$1</mark>');
 		} catch {
 			return html;
 		}
@@ -445,7 +445,7 @@ export function TextPreviewClient({
 	return (
 		<div className="space-y-3">
 			<div className="flex flex-wrap items-center gap-2">
-				<span className="rounded-full bg-blue-400/10 px-3 py-1 text-xs font-medium text-blue-300 border border-blue-400/30">
+				<span className="rounded-full bg-[var(--color-action-bg)] px-3 py-1 text-xs font-medium text-[var(--color-action)] border border-[var(--color-action-border)]/30">
 					{langLabel(t, lang)}
 				</span>
 				<span className="text-xs text-[var(--text-muted)]">{t("textPreview.linesCount").replace("{count}", String(totalLines))}</span>
@@ -506,7 +506,7 @@ export function TextPreviewClient({
 										setReloadMessage("");
 									}}
 									disabled={saveStatus === "saving" || saveStatus === "reloading"}
-									className="rounded-lg border border-slate-700 bg-[var(--surface)] px-3 py-1.5 text-xs text-[var(--text-secondary)] hover:bg-[var(--surface-hover)] light:hover:bg-slate-200 disabled:opacity-50"
+									className="rounded-lg border border-[var(--border)] bg-[var(--surface)] px-3 py-1.5 text-xs text-[var(--text-secondary)] hover:bg-[var(--surface-hover)] light:hover:bg-[var(--surface-hover)] disabled:opacity-50"
 								>
 									{t("textPreview.button.cancel")}
 								</button>
@@ -515,7 +515,7 @@ export function TextPreviewClient({
 									onClick={() => setEditorFind({ open: true, query: "", total: 0, current: 0 })}
 									aria-label={t("textPreview.editor.findToggle")}
 									title={t("textPreview.editor.findToggle")}
-									className="rounded-lg border border-slate-700 bg-[var(--surface)] px-3 py-1.5 text-xs text-[var(--text-secondary)] hover:bg-[var(--surface-hover)] light:hover:bg-slate-200"
+									className="rounded-lg border border-[var(--border)] bg-[var(--surface)] px-3 py-1.5 text-xs text-[var(--text-secondary)] hover:bg-[var(--surface-hover)] light:hover:bg-[var(--surface-hover)]"
 								>
 									🔍
 								</button>

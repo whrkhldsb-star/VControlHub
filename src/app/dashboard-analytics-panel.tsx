@@ -217,7 +217,7 @@ function SparkBars({ points, color, locale: _locale = "zh" }: { points: Array<{ 
   const max = Math.max(1, ...points.map((point) => point.value));
   const colors = {
     cyan: "bg-[var(--color-action-bg)]/70",
-    violet: "bg-violet-400/70",
+    violet: "bg-[var(--accent)]/70",
     pink: "bg-pink-400/70",
   };
   return (

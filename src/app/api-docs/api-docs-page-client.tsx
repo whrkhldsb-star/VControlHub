@@ -29,7 +29,7 @@ const methodStyles: Record<string, string> = {
 	get: "border-[var(--success-border)] bg-[var(--success-bg)] text-[var(--success)]",
 	post: "border-[var(--color-action-border)]/25 bg-[var(--color-action-bg)]/10 text-[var(--text-secondary)]",
 	put: "border-[var(--warning-border)] bg-[var(--warning-bg)] text-[var(--warning)]",
-	patch: "border-violet-400/25 bg-[var(--accent-bg)] text-[var(--accent)]",
+	patch: "border-[var(--accent-border)] bg-[var(--accent-bg)] text-[var(--accent)]",
 	delete: "border-[var(--danger-border)] bg-[var(--danger-bg)] text-[var(--danger)]",
 };
 

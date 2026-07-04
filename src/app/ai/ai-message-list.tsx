@@ -275,7 +275,7 @@ export function AiMessageList({
                         approval.riskLevel === "critical"
                           ? "text-[var(--danger)]"
                           : approval.riskLevel === "high"
-                            ? "text-orange-400"
+                            ? "text-[var(--warning)]"
                             : approval.riskLevel === "medium"
                               ? "text-[var(--warning)]"
                               : "text-[var(--success)]"

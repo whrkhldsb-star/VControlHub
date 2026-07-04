@@ -68,6 +68,6 @@ describe("SortIcon", () => {
 		const { getByRole } = render(
 			<SortIcon col="size" label="大小" sortKey="name" sortDir="asc" onToggle={onToggle} />,
 		);
-		expect(getByRole("button", { name: "按大小排序" })).toBeInTheDocument();
+		expect(getByRole("button", { name: "Sort by 大小" })).toBeInTheDocument();
 	});
 });

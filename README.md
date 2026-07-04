@@ -362,20 +362,20 @@ make logs SERVICE_PREFIX=vcontrolhub
 
 | # | 问题 | 涉及文件 | 建议修复 |
 | --- | --- | --- | --- |
-| 1 | **`src/app/` 仍残留 ~104 处硬编码 tone 色彩类** — `src/components/` 已全部迁移到 `var(--*)`/`data-tone`，但 `src/app/` 仍有 `text-rose-*`/`bg-amber-*`/`border-emerald-*` 等散落；`globals.css` Q-layer 兼容层在运行时补偿，但源码未清理 | `downloads-client.tsx`(43处)、`files/preview/*`(38处)、`notifications/notification-list-client.tsx`(5处)、`playbooks/create-playbook-form.tsx`、`qa-reports-list-client.tsx`(indigo 未被 Q-layer 覆盖) 等 10 个文件 | 将残留 `rose/amber/emerald/slate/indigo` utility 替换为 `var(--danger/--warning/--success/--border)` 等 CSS 变量，随后移除 Q-layer 兼容 shim |
-| 2 | **大文件拆分未完成 — 仍有 19 个 >500 行源文件** | `import-executors.ts`(1104行，最大)、`storage/actions.ts`(729行)、`text-preview-client.tsx`(629行)、`ai-ops-page-client.tsx`(699行)、`cost-page-client.tsx`(668行) 等 | 按领域拆分：import-executors 按导入类型分组、storage/actions 拆为独立 action handler、text-preview-client 继续抽取子组件 |
-| 3 | **大量 `.tsx` 组件仍含硬编码中文字符串** — 绕过 `t()` i18n 系统，EN locale 下直接显示中文 | `servers/batch-server-action-panel.tsx`(整组件硬编码)、`servers/server-tab-layout.tsx`、`servers/server-overview-card.tsx`、`login/verify-2fa/`(3文件)、`image-bed/`(2文件)、`operation-tasks/page.tsx`、`scheduled-tasks/page.tsx`、`announcements/announcement-edit-modal.tsx`、`shares/create-share-form.tsx` 等 15+ 文件 | 将所有 JSX 文本/错误消息/aria-label 迁移到 `t()` + 字典 key；`i18n:key-check` 脚本仅校验已用 key 的完整性，无法检测绕过 `t()` 的硬编码中文 |
-| 4 | **inline locale 三元表达式替代 `t()` 调用** — `locale === "zh" ? "中文" : "English"` 模式 | `theme-toggle.tsx`、`language-toggle.tsx`、`health/sparkline-chart.tsx`、`login/page.tsx` | 改为 `t("key")` + 字典条目 |
+| 1 | ✅ **`src/app/` 硬编码 tone 色彩类源码清零** — 已将运行时代码中的 `rose/amber/emerald/slate/indigo/purple/orange/...` Tailwind 色彩 utility 迁移到 `var(--*)`/`data-tone` 语义变量；当前复扫：生产 `src/app` **0 处 / 0 文件**（仅测试文件仍允许样式断言用例） | 已处理：`downloads-client.tsx`、`files/preview/*`、`notifications/notification-list-client.tsx`、`qa-reports-list-client.tsx`、`image-bed`、`docker`、`error.tsx` 等 | 后续可在确认 Q-layer 仅剩兼容价值后，逐步移除 `globals.css` 中旧色彩 shim |
+| 2 | **大文件拆分未完成 — 仍有 19 个 >500 行源文件**，但部分子任务已完成：`import-executors.ts` 与 `storage/actions.ts` 已拆出，不再进入 >500 行榜单 | 当前最大：`ai-ops-page-client.tsx`(699)、`cost-page-client.tsx`(668)、`image-bed-page-client.tsx`(653)、`downloads-client.tsx`(645)、`quick-service/service-lifecycle.ts`(636)、`text-preview-client.tsx`(629) 等 | 继续按领域拆分：优先拆 UI 大组件（downloads/image-bed/text-preview）与 quick-service lifecycle |
+| 3 | **大量 `.tsx` 组件仍含硬编码中文字符串** — 绕过 `t()` i18n 系统，EN locale 下直接显示中文；当前粗扫仍有 80+ 文件 / 300+ 行（含部分注释/常量误报） | `dashboard-localized-sections.tsx`、`files/file-batch-toolbar.tsx`、`settings/system-config-section.tsx`、`servers/auto-probe-context.tsx`、`server-overview-card.tsx`、`audit/page.tsx`、`requests/*` 等 | 将所有 JSX 文本/错误消息迁移到 `t()` + 字典 key；`i18n:key-check` 脚本仅校验已用 key 的完整性，无法检测绕过 `t()` 的硬编码中文 |
+| 4 | **inline locale 三元表达式替代 `t()` 调用** — 仍有 13 处 / 10 文件 `locale === "zh" ? ... : ...` 模式 | `language-toggle.tsx`、`dashboard-analytics-panel.tsx`、`health-dashboard-client.tsx`、`sparkline-chart.tsx`、`users-client.tsx`、`tickets/page.tsx`、`audit-client.tsx`、`storage-node-list.tsx`、`restore-backup-button.tsx`、`dom-bridge.tsx` | 改为 `t("key")` + 字典条目 |
 
 #### 🟢 P3 — 低优先级
 
 | # | 问题 | 涉及文件 | 建议修复 |
 | --- | --- | --- | --- |
-| 5 | **`/api/status` 路由缺 try/catch** — 唯一既无 `withApiRoute` 又无手动错误处理的路由；公开端点，异常时返回裸 500 | `src/app/api/status/route.ts` | 加 `withApiRoute` 或手动 `try/catch` |
-| 6 | **`t()` fallback 代码异味** — 7 处 `t("key") === "key" ? "中文" : t("key")`，表明对字典完整性不信任 | `app-sidebar.tsx`(5处)、`change-password-modal.tsx`(1处)、`layout.tsx`(1处) | 确保字典 key 存在后删除 fallback 逻辑 |
-| 7 | **input 字段缺 `<label>`/`aria-label`** — 20+ 处 `<input>` 仅靠 `placeholder` 作为可访问名，不符合 WCAG | `ssh-file-manager.tsx`、`step-config-editor.tsx`、`api-token-manager-client.tsx`、`api-docs-page-client.tsx`、`tickets/create-ticket-form.tsx` 等 10+ 文件 | 为每个 input 关联 `<label htmlFor>` 或添加 `aria-label` |
-| 8 | **aria-label 含硬编码中文** — EN locale 下屏幕阅读器仍读中文 | `mobile-nav.tsx`、`image-preview-modal.tsx`、`verify-2fa-form.tsx`、`operation-task-list-client.tsx`、`server-tab-layout.tsx`、`server-overview-card.tsx` 等 8+ 处 | 改为 `t("ariaKey")` + 字典 |
-| 9 | **生产代码中残留 `console.log`/`console.error`** | `lib/uptime/aggregate.ts`(5处)、`instrumentation.ts`(5处)、`app/status/page.tsx`(1处) | 替换为 `lib/logging.ts` 统一日志或删除 |
+| 5 | ✅ **`/api/status` 路由错误处理已完成** — 当前异常路径返回 JSON 500，邻近测试已覆盖 | `src/app/api/status/route.ts`、`src/app/api/status/__tests__/route.test.ts` | 已完成，后续仅需常规维护 |
+| 6 | ✅ **`t()` fallback 代码异味已清零** — 当前复扫 `t("key") === "key" ? ...` 为 0 处 | 原 `app-sidebar.tsx`、`change-password-modal.tsx`、`layout.tsx` | 已完成 |
+| 7 | **input 字段缺 `<label>`/`aria-label`** — 粗扫仍有约 49 处 / 32 文件（含 hidden/file/custom input 误报，需逐项人工确认） | `ssh-file-manager.tsx`、`step-config-editor.tsx`、`api-token-manager-client.tsx`、`api-docs-page-client.tsx`、`tickets/create-ticket-form.tsx`、`settings/team-workspace-section.tsx` 等 | 为每个可交互 input 关联 `<label htmlFor>` 或添加 `aria-label`；排除 hidden/file trigger 等合理例外 |
+| 8 | ✅ **aria-label 硬编码中文已完成** — 生产代码 `aria-label` 行中文复扫仅剩 1 处注释误报，无真实中文 aria-label | 已处理：`mobile-nav.tsx`、`image-preview-modal.tsx`、`verify-2fa-form.tsx`、`operation-task-list-client.tsx`、`server-tab-layout.tsx`、`server-overview-card.tsx`、`files/*` 等 | 已完成；后续与 P2 #3 i18n 字符串收敛分开跟踪 |
+| 9 | **生产代码中残留 `console.log`/`console.error`** — 当前复扫约 6 处 / 5 文件，其中 `lib/logging.ts` 为日志实现合理例外，error boundary/PWA 输出需确认是否降级为统一 logger | `pwa-register.tsx`、`route-error.tsx`、`global-error.tsx`、`error.tsx`、`lib/logging.ts` | 保留 logger 实现例外；其余替换为统一 logger 或删除开发输出 |
 
 ### ✅ 已完成项（2026-07-04 复审确认）
 

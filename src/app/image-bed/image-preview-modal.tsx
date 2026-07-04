@@ -47,7 +47,7 @@ export function ImagePreviewModal({
 			onClick={onClose}
 			role="dialog"
 			aria-modal="true"
-			aria-label={`预览 ${image.filename}`}
+			aria-label={`Preview ${image.filename}`}
 		>
 			<div
 				className="relative max-w-4xl max-h-[90vh]"
@@ -105,7 +105,7 @@ export function ImagePreviewModal({
 				<button
 					onClick={onClose}
 					className="absolute -top-3 -right-3 w-8 h-8 bg-[var(--surface-elevated)] text-[var(--text-secondary)] rounded-full flex items-center justify-center hover:bg-[var(--surface-hover)] text-lg"
-					aria-label="关闭预览"
+					aria-label="Close preview"
 				>
 					✕
 				</button>

@@ -204,7 +204,7 @@ export function ServerOverviewCard({
         </div>
         <span
           role="status"
-          aria-label={`节点实时状态：${listHealthLabel}`}
+          aria-label={`Node realtime status: ${listHealthLabel}`}
           title={listHealthDescription}
           className={`shrink-0 rounded-full border px-2 py-0.5 text-[10px] font-medium ${listHealthToneClass}`}
         >

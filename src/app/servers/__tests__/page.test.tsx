@@ -166,7 +166,7 @@ describe("ServersPage", () => {
       "aria-controls",
       "server-details-srv_1",
     );
-    expect(screen.getByRole("status", { name: "节点实时状态：启用 · 待探测" })).toHaveTextContent("启用 · 待探测");
+    expect(screen.getByRole("status", { name: "Node realtime status: 启用 · 待探测" })).toHaveTextContent("启用 · 待探测");
     expect(screen.getByText(/列表状态未代表 SSH\/SFTP\/直连实时在线/)).toBeInTheDocument();
     expect(screen.queryByRole("region", { name: "hk-prod-1 VPS 详情" })).not.toBeInTheDocument();
     expect(screen.queryByText("连接与状态")).not.toBeInTheDocument();
@@ -348,7 +348,7 @@ describe("ServersPage", () => {
     // 状态徽章应当从「启用 · 待探测」过渡到「在线 · …」（成功路径）
     await waitFor(() => {
       expect(
-        screen.getByRole("status", { name: /节点实时状态：在线/ }),
+        screen.getByRole("status", { name: /Node realtime status: 在线/ }),
       ).toBeInTheDocument();
     });
 

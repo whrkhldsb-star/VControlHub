@@ -36,7 +36,7 @@ function IconButtonStub({ label }: { label: string }) {
 			type="button"
 			disabled
 			aria-label={label}
-			className="inline-flex h-8 w-8 items-center justify-center rounded text-zinc-400"
+			className="inline-flex h-8 w-8 items-center justify-center rounded text-[var(--text-muted)]"
 		>
 			<span className="h-3 w-3 rounded-full bg-current opacity-30" />
 		</button>
@@ -45,7 +45,7 @@ function IconButtonStub({ label }: { label: string }) {
 
 function InlineFormStub() {
 	return (
-		<span className="inline-flex h-8 items-center px-2 text-xs text-zinc-400">
+		<span className="inline-flex h-8 items-center px-2 text-xs text-[var(--text-muted)]">
 			…
 		</span>
 	);

@@ -44,7 +44,7 @@ export function DetailActionButton({
     <button
       type="button"
       title={t("fileListClient.detailTitle")}
-      aria-label={`资料详情 ${entry.name}`}
+      aria-label={`${t("fileListClient.detailTitle")} ${entry.name}`}
       onClick={() => onOpen(entry.id)}
       className={
         compact
@@ -94,7 +94,7 @@ export function DownloadActionLink({
     <Link
       href={downloadUrl}
       title={t("fileListClient.downloadTitle")}
-      aria-label={`下载 ${entry.name}`}
+      aria-label={`${t("fileListClient.downloadTitle")} ${entry.name}`}
       download={downloadUrl.startsWith("/") ? true : undefined}
       target={downloadUrl.startsWith("/") ? undefined : "_blank"}
       rel={downloadUrl.startsWith("/") ? undefined : "noopener noreferrer"}
@@ -134,7 +134,7 @@ export function FolderDownloadActionLink({
     <Link
       href={href}
       title={t("fileListClient.downloadFolderArchiveTitle")}
-      aria-label={`下载目录 ${folder.displayName ?? folder.name}`}
+      aria-label={`Download folder archive ${folder.displayName ?? folder.name}`}
       download
       className={
         compact

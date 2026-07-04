@@ -277,7 +277,7 @@ export default function ImageBedPage({ canWrite, canDelete }: { canWrite: boolea
 
 	return (
 		<PageShell>
-			<div className="mb-5 overflow-hidden rounded-3xl border border-[var(--border)]/[0.10] bg-[radial-gradient(circle_at_top_left,rgba(16,185,129,0.18),transparent_34%),linear-gradient(135deg,rgba(15,23,42,0.96),rgba(2,6,23,0.9))] p-6 shadow-2xl shadow-emerald-950/20 light:bg-[radial-gradient(circle_at_top_left,rgba(16,185,129,0.14),transparent_34%),linear-gradient(135deg,#ffffff,#f8fafc)] light:shadow-[var(--border)]/30">
+			<div className="mb-5 overflow-hidden rounded-3xl border border-[var(--border)]/[0.10] bg-[radial-gradient(circle_at_top_left,rgba(16,185,129,0.18),transparent_34%),linear-gradient(135deg,rgba(15,23,42,0.96),rgba(2,6,23,0.9))] p-6 shadow-2xl shadow-[var(--success-bg)] light:bg-[radial-gradient(circle_at_top_left,rgba(16,185,129,0.14),transparent_34%),linear-gradient(135deg,#ffffff,#f8fafc)] light:shadow-[var(--border)]/30">
 				<div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
 					<div>
 						<p data-page-eyebrow className="text-xs font-semibold uppercase tracking-[0.3em] text-[var(--color-action)]">{t("imageBedPage.hero.eyebrow")}</p>

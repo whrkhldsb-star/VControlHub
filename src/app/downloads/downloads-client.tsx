@@ -41,8 +41,8 @@ const statusBadge: Record<string, string> = {
 	PENDING: "border-[var(--warning-border)] bg-[var(--warning-bg)] text-[var(--warning)]",
 	RUNNING: "border-[var(--color-action-border)]/30 bg-[var(--color-action-bg)]/10 text-[var(--text-primary)]",
 	COMPLETED: "border-[var(--success-border)] bg-[var(--success-bg)] text-[var(--success)]",
-	FAILED: "border-rose-400/30 bg-rose-400/10 text-[var(--danger)]",
-	CANCELLED: "border-slate-400/30 bg-slate-400/10 text-[var(--text-primary)]",
+	FAILED: "border-[var(--danger-border)] bg-[var(--danger-bg)] text-[var(--danger)]",
+	CANCELLED: "border-[var(--border)] bg-[var(--surface-hover)] text-[var(--text-primary)]",
 };
 
 function getStatusLabel(t: (k: string) => string): Record<string, string> {
@@ -511,7 +511,7 @@ export function DownloadsClient({ servers, canManage, canManageNode }: { servers
 		<div>
 			{message && (
 				<div role={message.type === "error" ? "alert" : "status"} className={`mb-4 rounded-2xl border px-4 py-3 text-sm ${
-					message.type === "success" ? "border-[var(--success-border)] bg-emerald-400/5 text-[var(--success)]" : "border-rose-400/30 bg-rose-400/5 text-[var(--danger)]"
+					message.type === "success" ? "border-[var(--success-border)] bg-[var(--success-bg)]/50 text-[var(--success)]" : "border-[var(--danger-border)] bg-[var(--danger-bg)]/50 text-[var(--danger)]"
 				}`}>
 					{message.text}
 					<button type="button" onClick={() => setMessage(null)} aria-label={t("common.close")} className="ml-3 text-current/50 hover:text-current">✕</button>

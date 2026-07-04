@@ -67,7 +67,7 @@ describe("ActiveIncidentsBanner", () => {
     expect(await screen.findByText("数据库主库故障")).toBeInTheDocument();
     expect(await screen.findByText("计划维护窗口")).toBeInTheDocument();
 
-    const dismissBtn = screen.getByRole("button", { name: /关闭通知.*数据库主库故障/ });
+    const dismissBtn = screen.getByRole("button", { name: /Dismiss notification.*数据库主库故障/ });
     await user.click(dismissBtn);
 
     await waitFor(() => {

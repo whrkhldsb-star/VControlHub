@@ -53,7 +53,7 @@ export function SortIcon({
 		<button
 			type="button"
 			onClick={() => onToggle(col)}
-			aria-label={`按${label}排序`}
+			aria-label={`Sort by ${label}`}
 			className="inline-flex items-center gap-1 hover:text-[var(--text-primary)] light:hover:text-[var(--text-primary)] transition"
 		>
 			{active ? (sortDir === "asc" ? "↑" : "↓") : "↕"}

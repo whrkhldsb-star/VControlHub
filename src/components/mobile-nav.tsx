@@ -18,7 +18,7 @@ export function MobileNav() {
 
 	return (
 		<nav
-			aria-label="移动端底部导航"
+			aria-label={t("nav.mobile")}
 			data-i18n-skip
 			className="fixed bottom-0 left-0 right-0 z-50 overflow-hidden border-t border-[var(--border)] bg-[var(--modal-bg)] px-1 pb-[calc(0.35rem+env(safe-area-inset-bottom))] pt-1.5 shadow-[0_-16px_40px_rgba(0,0,0,0.28)] md:hidden"
 		>

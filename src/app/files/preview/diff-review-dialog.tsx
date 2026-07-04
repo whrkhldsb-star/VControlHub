@@ -45,7 +45,7 @@ export function DiffReviewDialog({
 						type="button"
 						onClick={onClose}
 						disabled={busy}
-						className="rounded-lg border border-slate-600/60 bg-[var(--surface)]/70 px-3 py-1.5 text-xs text-[var(--text-primary)] disabled:opacity-50"
+						className="rounded-lg border border-[var(--border-strong)] bg-[var(--surface)]/70 px-3 py-1.5 text-xs text-[var(--text-primary)] disabled:opacity-50"
 					>
 						{t("textPreview.button.backToEdit")}
 					</button>

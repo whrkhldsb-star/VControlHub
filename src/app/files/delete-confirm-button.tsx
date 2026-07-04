@@ -57,7 +57,7 @@ export function DeleteConfirmButton({
         type="button"
         onClick={() => setConfirming(true)}
         title="删除"
-        aria-label={`删除 ${entryName}`}
+        aria-label={`Delete ${entryName}`}
         className={
           variant === "menu"
             ? "flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-left text-sm text-[var(--danger)] transition hover:bg-[var(--danger-bg)]"

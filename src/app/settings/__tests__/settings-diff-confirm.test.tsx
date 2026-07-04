@@ -73,7 +73,7 @@ describe("SaveButtonWithDiff (TR-014 M01b)", () => {
 
 		const badge = await screen.findByText(/1 项已修改/);
 		await user.click(badge);
-		const table = await screen.findByRole("region", { name: "未保存的修改" });
+		const table = await screen.findByRole("region", { name: "Unsaved changes" });
 		expect(table).toBeInTheDocument();
 		expect(table.querySelector('[data-pending-key="runtime.commandOutputLimitBytes"]')).not.toBeNull();
 	});

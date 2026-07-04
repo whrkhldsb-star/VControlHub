@@ -66,7 +66,7 @@ export function FileMoreActions({
         <span aria-hidden="true">⋯</span>
         {compact ? null : <span>{t("fileMoreActions.more")}</span>}
       </summary>
-      <div className="absolute right-0 top-9 z-40 flex min-w-44 flex-col gap-1 rounded-2xl border border-[var(--border)] bg-[var(--modal-bg)] p-2 text-left shadow-2xl shadow-slate-950/40 light:shadow-[var(--border)]/30">
+      <div className="absolute right-0 top-9 z-40 flex min-w-44 flex-col gap-1 rounded-2xl border border-[var(--border)] bg-[var(--modal-bg)] p-2 text-left shadow-2xl shadow-black/40 light:shadow-[var(--border)]/30">
         {canShare && entryCanRead(entry) ? (
           <ShareFileButton entry={entry} compact variant="menu" onNotify={onNotify} />
         ) : null}

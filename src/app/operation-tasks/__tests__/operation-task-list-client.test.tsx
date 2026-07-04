@@ -47,8 +47,8 @@ describe("OperationTaskListClient", () => {
     expect(failure).toHaveTextContent("执行超时");
     expect(failure).toHaveTextContent("最新：重启服务");
     expect(screen.getByLabelText("排序偏好")).toHaveValue("recent");
-    expect(screen.getByLabelText("最近日志：重启服务")).toHaveTextContent("systemctl restart app");
-    expect(screen.getByLabelText("最近日志：重启服务")).toHaveTextContent("service restarted");
+    expect(screen.getByLabelText("Recent logs: 重启服务")).toHaveTextContent("systemctl restart app");
+    expect(screen.getByLabelText("Recent logs: 重启服务")).toHaveTextContent("service restarted");
   });
 
   it("surfaces refresh failures and keeps the existing task list visible", async () => {

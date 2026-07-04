@@ -42,7 +42,7 @@ export function EditorFindBar({ inputRef, find, onQueryChange, onMove, onClose }
 				}}
 				placeholder={t("textPreview.editor.findPlaceholder")}
 				aria-label={t("textPreview.editor.findPlaceholder")}
-				className="w-48 rounded-lg border border-slate-700 bg-[var(--surface)] px-2 py-1 text-xs text-[var(--text-secondary)] placeholder:text-[var(--text-muted)] focus:border-[var(--color-action-border)] focus:outline-none"
+				className="w-48 rounded-lg border border-[var(--border)] bg-[var(--surface)] px-2 py-1 text-xs text-[var(--text-secondary)] placeholder:text-[var(--text-muted)] focus:border-[var(--color-action-border)] focus:outline-none"
 			/>
 			<span className="text-xs text-[var(--text-secondary)]" data-testid="editor-find-count">
 				{find.query === ""
@@ -60,7 +60,7 @@ export function EditorFindBar({ inputRef, find, onQueryChange, onMove, onClose }
 				disabled={find.total === 0}
 				aria-label={t("textPreview.editor.findPrev")}
 				title={t("textPreview.editor.findPrev")}
-				className="rounded-lg border border-slate-700 bg-[var(--surface)] px-2 py-1 text-xs text-[var(--text-secondary)] hover:bg-[var(--surface-hover)] disabled:opacity-40"
+				className="rounded-lg border border-[var(--border)] bg-[var(--surface)] px-2 py-1 text-xs text-[var(--text-secondary)] hover:bg-[var(--surface-hover)] disabled:opacity-40"
 			>
 				↑
 			</button>
@@ -70,7 +70,7 @@ export function EditorFindBar({ inputRef, find, onQueryChange, onMove, onClose }
 				disabled={find.total === 0}
 				aria-label={t("textPreview.editor.findNext")}
 				title={t("textPreview.editor.findNext")}
-				className="rounded-lg border border-slate-700 bg-[var(--surface)] px-2 py-1 text-xs text-[var(--text-secondary)] hover:bg-[var(--surface-hover)] disabled:opacity-40"
+				className="rounded-lg border border-[var(--border)] bg-[var(--surface)] px-2 py-1 text-xs text-[var(--text-secondary)] hover:bg-[var(--surface-hover)] disabled:opacity-40"
 			>
 				↓
 			</button>
@@ -79,7 +79,7 @@ export function EditorFindBar({ inputRef, find, onQueryChange, onMove, onClose }
 				onClick={onClose}
 				aria-label={t("textPreview.editor.findClose")}
 				title={t("textPreview.editor.findClose")}
-				className="rounded-lg border border-slate-700 bg-[var(--surface)] px-2 py-1 text-xs text-[var(--text-secondary)] hover:bg-[var(--surface-hover)]"
+				className="rounded-lg border border-[var(--border)] bg-[var(--surface)] px-2 py-1 text-xs text-[var(--text-secondary)] hover:bg-[var(--surface-hover)]"
 			>
 				✕
 			</button>
