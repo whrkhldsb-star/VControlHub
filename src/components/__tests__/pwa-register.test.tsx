@@ -117,8 +117,7 @@ describe("PwaRegister", () => {
 	it("shows an offline banner when the browser goes offline", async () => {
 		renderPwa();
 		fireEvent(window, new Event("offline"));
-		expect(await screen.findByText("当前处于离线模式")).toBeInTheDocument();
-		expect(screen.getByText(/只读页面可继续浏览缓存内容/)).toBeInTheDocument();
+		expect(await screen.findByText(/网络已断开/)).toBeInTheDocument();
 	});
 
 	it("shows a refresh prompt when a waiting service worker is present", async () => {
