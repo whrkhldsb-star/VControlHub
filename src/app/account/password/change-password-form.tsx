@@ -92,7 +92,7 @@ export function ChangePasswordForm() {
 							const safeNext = nextPath && nextPath.startsWith("/") && !nextPath.startsWith("//") ? nextPath : "/";
 							router.push(safeNext);
 						}}
-						className="rounded-2xl border border-[var(--color-action-border)]/40 px-4 py-2 text-sm text-[var(--text-primary)] transition hover:bg-[var(--color-action)]/10 focus:outline-none focus:ring-2 focus:ring-[var(--color-action-ring)]"
+						className="rounded-2xl border border-[var(--color-action-border)]/40 px-4 py-2 text-sm text-[var(--text-primary)] transition hover:bg-[var(--color-action)]/10 focus:outline-none focus:ring-[var(--color-action-ring)]"
 					>
 						{t("accountPasswordPage.redirectNow")}
 					</button>

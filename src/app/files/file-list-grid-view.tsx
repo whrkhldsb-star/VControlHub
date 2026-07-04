@@ -123,7 +123,7 @@ export function FileListGridView({
                   checked={effectiveSelectedIdSet.has(entry.id)}
                   onChange={() => toggleOne(entry.id)}
                   aria-label={`选择 ${entry.name}`}
-                  className="h-4 w-4 rounded-lg border-[var(--border)] bg-[var(--surface)] text-[var(--color-action)] focus:ring-[var(--color-action-ring)]/50"
+                  className="h-4 w-4 rounded-lg border-[var(--border)] bg-[var(--surface)] text-[var(--color-action)] focus:ring-[var(--color-action-ring)]"
                 />
               ) : null}
             </div>

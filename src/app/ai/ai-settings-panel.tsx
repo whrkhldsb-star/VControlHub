@@ -239,7 +239,7 @@ export function AiSettingsPanel({
               type="checkbox"
               checked={settingsForm.enableVision}
               onChange={(e) => setSettingsForm((f) => ({ ...f, enableVision: e.target.checked }))}
-              className="rounded-lg border-[var(--border)] bg-[var(--input-bg)] text-[var(--color-action)] focus:ring-[var(--color-action-ring)]/30"
+              className="rounded-lg border-[var(--border)] bg-[var(--input-bg)] text-[var(--color-action)] focus:ring-[var(--color-action-ring)]"
             />
             <span className="text-xs text-[var(--text-secondary)]">
               {t("aiPage.visionToggle")}

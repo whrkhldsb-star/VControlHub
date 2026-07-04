@@ -236,7 +236,7 @@ export function AiProviderPanel({
                   <input id="ai-provider-edit-default-model" aria-label={t("aiPage.defaultModelLabel")} value={editForm.defaultModel} onChange={(e) => setEditForm((f) => f ? ({ ...f, defaultModel: e.target.value }) : f)} className="w-full mt-1 bg-[var(--input-bg)] border border-[var(--border)] rounded-lg px-2.5 py-1.5 text-xs text-[var(--text-primary)]" />
                 </div>
                 <label className="flex items-center gap-2 col-span-2 max-sm:col-span-1 cursor-pointer">
-                  <input type="checkbox" checked={editForm.isDefault} onChange={(e) => setEditForm((f) => f ? ({ ...f, isDefault: e.target.checked }) : f)} className="rounded-lg border-[var(--border)] bg-[var(--input-bg)] text-[var(--color-action)] focus:ring-[var(--color-action-ring)]/30" />
+                  <input type="checkbox" checked={editForm.isDefault} onChange={(e) => setEditForm((f) => f ? ({ ...f, isDefault: e.target.checked }) : f)} className="rounded-lg border-[var(--border)] bg-[var(--input-bg)] text-[var(--color-action)] focus:ring-[var(--color-action-ring)]" />
                   <span className="text-xs text-[var(--text-secondary)]">{t("common.setAsDefault")}</span>
                 </label>
               </div>
@@ -291,7 +291,7 @@ export function AiProviderPanel({
                   {modelOptions.length > 0 && <div className="max-h-24 overflow-y-auto rounded-lg bg-[var(--input-bg)] p-2 text-[11px] text-[var(--text-secondary)]">{modelOptions.slice(0, 20).join("、")}{modelOptions.length > 20 ? t("aiPage.modelsMore").replace("{count}", String(modelOptions.length)) : ""}</div>}
                 </div>
                 <label className="flex items-center gap-2 col-span-2 max-sm:col-span-1 cursor-pointer">
-                  <input type="checkbox" checked={provForm.isDefault} onChange={(e) => setProvForm((f) => ({ ...f, isDefault: e.target.checked }))} className="rounded-lg border-[var(--border)] bg-[var(--input-bg)] text-[var(--color-action)] focus:ring-[var(--color-action-ring)]/30" />
+                  <input type="checkbox" checked={provForm.isDefault} onChange={(e) => setProvForm((f) => ({ ...f, isDefault: e.target.checked }))} className="rounded-lg border-[var(--border)] bg-[var(--input-bg)] text-[var(--color-action)] focus:ring-[var(--color-action-ring)]" />
                   <span className="text-xs text-[var(--text-secondary)]">{t("common.setAsDefault")}</span>
                 </label>
               </div>
