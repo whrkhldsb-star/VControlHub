@@ -119,8 +119,6 @@ model User {
   twoFactorEnabled       Boolean                 @default(false)
   twoFactorSecret        String?
   preferences            Json?
-
-  @@map("users")
 }
 
 model Team {
@@ -162,8 +160,6 @@ model Role {
   updatedAt   DateTime         @updatedAt
   permissions RolePermission[]
   users       UserRole[]
-
-  @@map("roles")
 }
 
 model Permission {
@@ -172,8 +168,6 @@ model Permission {
   name        String
   description String?
   roles       RolePermission[]
-
-  @@map("permissions")
 }
 
 model UserRole {
@@ -185,7 +179,6 @@ model UserRole {
 
   @@id([userId, roleId])
   @@index([roleId])
-  @@map("user_roles")
 }
 
 model RolePermission {
@@ -196,7 +189,6 @@ model RolePermission {
 
   @@id([roleId, permissionId])
   @@index([permissionId])
-  @@map("role_permissions")
 }
 
 model SshKey {
@@ -214,7 +206,6 @@ model SshKey {
   servers     Server[]
 
   @@index([createdById])
-  @@map("ssh_keys")
 }
 
 model Server {
@@ -359,8 +350,6 @@ model StorageNode {
   imageUploads               ImageUpload[]
   mediaItems                 MediaItem[]
   mediaUploadSessions        MediaUploadSession[]
-
-  @@map("storage_nodes")
 }
 
 model UserStorageAccess {
