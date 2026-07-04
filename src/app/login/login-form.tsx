@@ -1,4 +1,5 @@
 import { t, type Locale } from "@/lib/i18n/translations";
+import { Input, StateBox } from "@/components/ui-primitives";
 
 type LoginFormProps = {
 	nextPath: string;
@@ -6,8 +7,7 @@ type LoginFormProps = {
 	locale: Locale;
 };
 
-const fieldClassName =
-	"w-full rounded-2xl border border-[var(--border)] bg-[var(--surface)]/[0.04] px-4 py-3 text-sm text-[var(--text-primary)] shadow-[0_0_0_1px_rgba(255,255,255,0.05)] outline-none transition-colors duration-150 placeholder:text-[var(--text-primary)]/30 focus:border-[var(--color-action-border)]/50 focus:bg-[var(--surface)]/[0.10] focus:ring-4 focus:ring-[var(--color-action-ring)]/10 light:border-slate-300 light:bg-slate-50 light:text-slate-900 light:placeholder:text-[var(--text-muted)] light:focus:border-[var(--color-action-border)]/70 light:focus:bg-[var(--surface)] light:focus:ring-[var(--color-action-ring)]/10";
+
 
 export function LoginForm({ nextPath, error, locale }: LoginFormProps) {
 	return (
@@ -18,28 +18,24 @@ export function LoginForm({ nextPath, error, locale }: LoginFormProps) {
 				<label className="text-xs font-semibold tracking-wide text-[var(--text-primary)]" htmlFor="username">
 					{t("login.form.username", locale)}
 				</label>
-				<input
-					id="username"
+				<Input id="username"
 					name="username"
 					type="text"
 					placeholder={t("login.form.usernamePlaceholder", locale)}
 					autoComplete="username"
-					className={fieldClassName}
-				/>
+					 />
 			</div>
 
 			<div className="space-y-1.5">
 				<label className="text-xs font-semibold tracking-wide text-[var(--text-primary)]" htmlFor="password">
 					{t("login.form.password", locale)}
 				</label>
-				<input
-					id="password"
+				<Input id="password"
 					name="password"
 					type="password"
 					placeholder={t("login.form.passwordPlaceholder", locale)}
 					autoComplete="current-password"
-					className={fieldClassName}
-				/>
+					 />
 			</div>
 
 			<label className="flex items-center justify-between gap-3 rounded-2xl border border-[var(--border)] bg-[var(--surface)]/[0.025] px-3.5 py-2.5 text-xs font-medium text-[var(--text-primary)] shadow-[0_0_0_1px_rgba(255,255,255,0.03)] light:border-slate-200/80 light:shadow-sm">
@@ -52,14 +48,14 @@ export function LoginForm({ nextPath, error, locale }: LoginFormProps) {
 			</label>
 
 			{error ? (
-				<div role="alert" data-tone="rose" className="rounded-2xl border border-rose-400/15 px-4 py-2.5 text-sm font-medium text-rose-200 shadow-[0_0_0_1px_rgba(251,113,133,0.08)] light:border-rose-200 light:bg-rose-50 light:shadow-sm">
+				<StateBox tone="danger" role="alert" className="mb-4">
 					{error}
-				</div>
+				</StateBox>
 			) : null}
 
 			<button
 				type="submit"
-				className="w-full rounded-2xl bg-gradient-to-r from-[var(--color-action)] to-blue-500 px-4 py-3 text-sm font-semibold text-[var(--text-primary)] shadow-[0_0_0_1px_rgba(34,211,238,0.2),0_8px_20px_rgba(34,211,238,0.15)] transition-[filter,box-shadow] duration-150 hover:brightness-110 hover:shadow-[0_0_0_1px_rgba(34,211,238,0.3),0_12px_28px_rgba(34,211,238,0.25)] focus:outline-none focus:ring-4 focus:ring-[var(--color-action-ring)]/40 light:from-[var(--color-action-hover)] light:to-blue-600 light:shadow-[0_12px_28px_rgba(14,116,144,0.22)] light:hover:shadow-[0_16px_34px_rgba(14,116,144,0.28)] light:focus:ring-[var(--color-action-ring)]/20"
+				data-variant="primary" className="w-full py-2.5 text-sm font-semibold"
 			>
 				{t("login.form.submit", locale)}
 			</button>

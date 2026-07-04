@@ -31,14 +31,14 @@ export default async function Verify2faPage({ searchParams }: Verify2faPageProps
 	return (
 		<main className="relative flex min-h-screen items-center justify-center overflow-hidden bg-[var(--surface-root)] text-[var(--text-primary)]">
 			{/* Background effects */}
-			<div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,rgba(34,211,238,0.08),transparent_50%),radial-gradient(circle_at_bottom_left,rgba(14,165,233,0.06),transparent_35%),linear-gradient(180deg,#08080c_0%,#050508_100%)]" />
-			<div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/10 to-transparent" />
+			<div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,var(--accent-bg),transparent_50%),radial-gradient(circle_at_bottom_left,rgba(99,102,241,0.06),transparent_35%),linear-gradient(180deg,var(--background)_0%,var(--surface-subtle)_100%)]" />
+			<div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-[var(--border-strong)] to-transparent" />
 
 			<div className="relative w-full max-w-md px-6">
-				<div className="rounded-2xl bg-[var(--surface)]/[0.04] p-6 shadow-[0_0_0_1px_rgba(255,255,255,0.06),0_30px_60px_rgba(0,0,0,0.4)] backdrop-blur-xl sm:p-8">
+				<div className="rounded-2xl bg-[var(--surface)] border border-[var(--border)] p-6 shadow-[var(--shadow-xl)] sm:p-8">
 					<div className="mb-7">
-						<div className="mb-3 flex h-12 w-12 items-center justify-center rounded-xl bg-[var(--color-action)]/10">
-							<svg className="h-6 w-6 text-[var(--color-action)]" fill="none" width="24" height="24" viewBox="0 0 24 24" stroke="currentColor">
+						<div className="mb-3 flex h-12 w-12 items-center justify-center rounded-xl bg-[var(--accent-bg)]">
+							<svg className="h-6 w-6 text-[var(--accent)]" fill="none" width="24" height="24" viewBox="0 0 24 24" stroke="currentColor">
 								<path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
 							</svg>
 						</div>
@@ -51,7 +51,7 @@ export default async function Verify2faPage({ searchParams }: Verify2faPageProps
 					<div className="mt-5 border-t border-[var(--border)] pt-4">
 						<a
 							href="/login"
-							className="text-xs text-[var(--text-primary)]/30 transition-colors hover:text-[var(--text-primary)] light:hover:text-[var(--text-primary)]/50"
+							className="text-xs text-[var(--text-primary)]/30 transition-colors hover:text-[var(--text-primary)] hover:text-[var(--text-primary)]"
 						>
 							{t("login.verify2faBackToLogin")}
 						</a>

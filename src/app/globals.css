@@ -71,6 +71,10 @@
 	--sidebar-active-fg: #58a6ff;
 
 	--input-bg: #0d1117;
+	--input-bg-focus: #161b22;
+	--input-ring: rgba(88,166,255,0.2);
+	--input-ring-danger: rgba(248,81,73,0.2);
+	--input-ring-success: rgba(63,185,80,0.2);
 	--input-border: #30363d;
 	--input-border-focus: #58a6ff;
 
@@ -151,6 +155,10 @@ html.light {
 	--sidebar-active-fg: #0969da;
 
 	--input-bg: #ffffff;
+	--input-bg-focus: #ffffff;
+	--input-ring: rgba(9,105,218,0.2);
+	--input-ring-danger: rgba(207,34,46,0.2);
+	--input-ring-success: rgba(26,127,55,0.2);
 	--input-border: #d0d7de;
 	--input-border-focus: #0969da;
 
@@ -1143,3 +1151,57 @@ html.light .border-rose-500\/20, html.light .border-rose-500\/30 { border-color:
 html.light .border-emerald-500\/30, html.light .border-emerald-500\/40 { border-color: var(--success-border) !important; }
 html.light .hover\:bg-rose-500\/20:hover { background-color: var(--danger-bg) !important; }
 html.light .hover\:bg-emerald-500\/10:hover { background-color: var(--success-bg) !important; }
+
+
+/* UI Primitives Data Attribute Extensions */
+[data-input] {
+	background-color: var(--input-bg);
+	border: 1px solid var(--input-border);
+	color: var(--text-primary);
+	border-radius: var(--radius-lg);
+	transition: border-color 0.15s, box-shadow 0.15s, background-color 0.15s;
+}
+[data-input]:focus-within, [data-input]:focus {
+	border-color: var(--input-border-focus);
+	background-color: var(--input-bg-focus);
+	box-shadow: 0 0 0 3px var(--input-ring);
+	outline: none;
+}
+[data-input][data-error="true"] {
+	border-color: var(--danger);
+}
+[data-input][data-error="true"]:focus-within, [data-input][data-error="true"]:focus {
+	box-shadow: 0 0 0 3px var(--input-ring-danger);
+}
+[data-input]:disabled, [data-input][aria-disabled="true"] {
+	opacity: 0.6;
+	cursor: not-allowed;
+	background-color: var(--surface-subtle);
+}
+
+[data-state-box] {
+	border-radius: var(--radius-xl);
+	padding: 1rem;
+	border: 1px solid var(--border);
+	background-color: var(--surface-subtle);
+}
+[data-state-box="danger"] {
+	background-color: var(--danger-bg);
+	border-color: var(--danger-border);
+	color: var(--danger);
+}
+[data-state-box="warning"] {
+	background-color: var(--warning-bg);
+	border-color: var(--warning-border);
+	color: var(--warning);
+}
+[data-state-box="success"] {
+	background-color: var(--success-bg);
+	border-color: var(--success-border);
+	color: var(--success);
+}
+[data-state-box="accent"] {
+	background-color: var(--accent-bg);
+	border-color: var(--accent-border);
+	color: var(--accent);
+}

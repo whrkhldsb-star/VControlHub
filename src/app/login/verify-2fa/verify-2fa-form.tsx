@@ -2,6 +2,7 @@
 
 import { useState, useRef, type KeyboardEvent, type ClipboardEvent } from "react";
 import { useRouter } from "next/navigation";
+import { StateBox } from "@/components/ui-primitives";
 import { csrfFetch } from "@/lib/auth/csrf-client";
 
 type Verify2faFormProps = {
@@ -110,21 +111,23 @@ if (data.success) {
 						disabled={submitting}
 						autoFocus={i === 0}
 						aria-label={`验证码第 ${i + 1} 位`}
-						className="h-14 w-12 rounded-xl bg-[var(--surface)]/[0.04] text-center text-xl font-semibold text-[var(--text-primary)] shadow-[0_0_0_1px_rgba(255,255,255,0.07)] outline-none transition-[box-shadow,background-color] duration-150 placeholder:text-[var(--text-primary)]/30 focus:bg-[var(--surface)]/[0.10] focus:shadow-[0_0_0_1px_rgba(34,211,238,0.3),0_0_0_4px_rgba(34,211,238,0.08)] disabled:opacity-50"
+						className="h-14 w-12 rounded-xl border border-[var(--border)] bg-[var(--input-bg)] text-center text-xl font-semibold text-[var(--text-primary)] shadow-sm outline-none transition-[box-shadow,border-color] duration-150 focus:border-[var(--input-border-focus)] focus:bg-[var(--input-bg-focus)] focus:ring-[3px] focus:ring-[var(--input-ring)] disabled:opacity-50"
 					/>
 				))}
 			</div>
 
 			{errorMsg ? (
-				<div className="rounded-xl bg-rose-500/[0.10] px-4 py-2.5 text-sm text-rose-200 shadow-[0_0_0_1px_rgba(251,113,133,0.15)]">
+				<StateBox tone="danger" className="py-2.5 text-center">
+					
 					{errorMsg}
-				</div>
+				
+				</StateBox>
 			) : null}
 
 			<button
 				type="submit"
 				disabled={submitting || digits.some((d) => !d)}
-				className="w-full rounded-xl bg-gradient-to-r from-[var(--color-action)] to-blue-500 px-4 py-3 text-sm font-medium text-[var(--text-primary)] shadow-[0_0_0_1px_rgba(34,211,238,0.2),0_8px_20px_rgba(34,211,238,0.15)] transition-[filter,box-shadow] duration-150 hover:brightness-110 hover:shadow-[0_0_0_1px_rgba(34,211,238,0.3),0_12px_28px_rgba(34,211,238,0.25)] focus:outline-none focus:ring-2 focus:ring-[var(--color-action-ring)]/40 disabled:opacity-50 disabled:hover:brightness-100"
+				data-variant="primary" className="w-full py-2.5 text-sm font-semibold"
 			>
 				{submitting ? "验证中..." : "验证"}
 			</button>

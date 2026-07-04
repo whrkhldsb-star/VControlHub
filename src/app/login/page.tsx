@@ -36,8 +36,8 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
 	return (
 		<main className="relative min-h-screen overflow-hidden bg-[var(--surface-root)] text-[var(--text-primary)]">
 			{/* Background effects */}
-			<div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,rgba(34,211,238,0.08),transparent_50%),radial-gradient(circle_at_bottom_left,rgba(14,165,233,0.06),transparent_35%),linear-gradient(180deg,#08080c_0%,#050508_100%)] light:bg-[radial-gradient(ellipse_at_top,rgba(14,165,233,0.18),transparent_48%),radial-gradient(circle_at_bottom_left,rgba(99,102,241,0.14),transparent_36%),linear-gradient(180deg,#f8fafc_0%,#eef6ff_100%)]" />
-			<div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/10 to-transparent light:via-[var(--color-action)]/50" />
+			<div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,var(--accent-bg),transparent_50%),radial-gradient(circle_at_bottom_left,rgba(99,102,241,0.06),transparent_35%),linear-gradient(180deg,var(--background)_0%,var(--surface-subtle)_100%)]" />
+			<div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-[var(--border-strong)] to-transparent" />
 
 			{/* Grid pattern overlay */}
 			<div
@@ -53,12 +53,12 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
 				<div className="grid w-full gap-12 lg:grid-cols-[1fr_400px] lg:items-center">
 					{/* Left: Branding */}
 					<section className="max-w-xl">
-						<div className="inline-flex items-center gap-2 rounded-full bg-[var(--surface)]/[0.10] px-3.5 py-1.5 text-[11px] font-bold uppercase tracking-[0.2em] text-[var(--text-primary)] shadow-[0_0_0_1px_rgba(255,255,255,0.06)] light:border light:border-[var(--color-action-border)] light:shadow-sm light:shadow-[var(--color-action)]/50 light:backdrop-blur">
-							<div className="h-1.5 w-1.5 rounded-full bg-[var(--color-action-bg)] shadow-[0_0_8px_rgba(34,211,238,0.55)] light:bg-[var(--color-action)] light:shadow-[0_0_8px_rgba(6,182,212,0.55)]" />
+						<div className="inline-flex items-center gap-2 rounded-full bg-[var(--surface-elevated)] border border-[var(--border)] px-3.5 py-1.5 text-[11px] font-bold uppercase tracking-[0.2em] text-[var(--text-primary)] shadow-sm backdrop-blur">
+							<div className="h-1.5 w-1.5 rounded-full bg-[var(--accent)] shadow-[0_0_8px_var(--accent-border)]" />
 							{publicLabel}
 						</div>
 						<h1 className="mt-6 text-5xl font-semibold tracking-[-0.05em] text-[var(--text-primary)] sm:text-6xl">
-							{siteName}<span className="text-[var(--color-action)]">.</span>
+							{siteName}<span className="text-[var(--accent)]">.</span>
 						</h1>
 						<p className="mt-4 max-w-md text-base leading-7 text-[var(--text-primary)]">
 							{publicLabel}{t("login.branding.tagline", locale)}
@@ -90,7 +90,7 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
 					</section>
 
 					{/* Right: Login Form */}
-					<section className="rounded-[1.75rem] bg-[var(--surface)]/[0.04] p-6 shadow-[0_0_0_1px_rgba(255,255,255,0.06),0_30px_60px_rgba(0,0,0,0.4)] backdrop-blur-xl sm:p-8 light:border light:shadow-[0_24px_70px_rgba(15,23,42,0.14)]">
+					<section className="rounded-[1.75rem] bg-[var(--surface)] border border-[var(--border)] p-6 shadow-[var(--shadow-xl)] sm:p-8">
 						<div className="mb-7">
 							<p className="text-[11px] font-bold uppercase tracking-[0.2em] text-[var(--text-primary)]">{t("login.branding.signInTag", locale)}</p>
 							<h2 className="mt-2.5 text-2xl font-semibold tracking-[-0.03em] text-[var(--text-primary)]">{t("login.branding.welcome", locale)}</h2>
@@ -106,8 +106,8 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
 
 function FeatureCard({ icon, title, desc }: { icon: React.ReactNode; title: string; desc: string }) {
 	return (
-		<div className="rounded-2xl bg-[var(--surface)]/[0.04] p-3.5 shadow-[0_0_0_1px_rgba(255,255,255,0.05)] backdrop-blur light:border light:shadow-sm light:shadow-[var(--border)]/30">
-			<div className="text-[var(--color-action)]/80">{icon}</div>
+		<div className="rounded-2xl bg-[var(--surface-subtle)] border border-[var(--border)] p-3.5 shadow-sm">
+			<div className="text-[var(--accent)]/80">{icon}</div>
 			<div className="mt-2 text-sm font-semibold text-[var(--text-primary)]">{title}</div>
 			<div className="mt-0.5 text-xs text-[var(--text-primary)]">{desc}</div>
 		</div>

@@ -1,114 +1,24 @@
-/**
- * Inline SVG icon components — drop-in replacement for lucide-react.
- *
- * Each icon accepts `size` (number, default 24), `className`, `fill`, and
- * any other SVG attributes so they can be used exactly like the lucide originals:
- *
- *     <Pencil size={14} className="text-[var(--text-muted)]" />
- *     <Star size={18} fill="currentColor" className="text-amber-400" />
- */
-
-import type { SVGProps } from "react";
-
-type IconProps = SVGProps<SVGSVGElement> & { size?: number };
-
-const defaults = (size: number, className?: string, fill?: string) =>
-  ({
-    width: size,
-    height: size,
-    viewBox: "0 0 24 24",
-    fill: fill ?? "none",
-    stroke: "currentColor",
-    strokeWidth: 2,
-    strokeLinecap: "round" as const,
-    strokeLinejoin: "round" as const,
-    className,
-  }) satisfies SVGProps<SVGSVGElement>;
-
-/* ------------------------------------------------------------------ */
-/*  Icons                                                              */
-/* ------------------------------------------------------------------ */
-
-export function Pencil({ size = 24, className, fill, ...rest }: IconProps) {
-  return <svg {...defaults(size, className, fill)} {...rest}><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z" /><path d="m15 5 4 4" /></svg>;
-}
-
-export function Trash2({ size = 24, className, fill, ...rest }: IconProps) {
-  return <svg {...defaults(size, className, fill)} {...rest}><path d="M3 6h18" /><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6" /><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2" /><line x1="10" x2="10" y1="11" y2="17" /><line x1="14" x2="14" y1="11" y2="17" /></svg>;
-}
-
-export function Copy({ size = 24, className, fill, ...rest }: IconProps) {
-  return <svg {...defaults(size, className, fill)} {...rest}><rect width="14" height="14" x="8" y="8" rx="2" ry="2" /><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2" /></svg>;
-}
-
-export function Check({ size = 24, className, fill, ...rest }: IconProps) {
-  return <svg {...defaults(size, className, fill)} {...rest}><path d="M20 6 9 17l-5-5" /></svg>;
-}
-
-export function Search({ size = 24, className, fill, ...rest }: IconProps) {
-  return <svg {...defaults(size, className, fill)} {...rest}><circle cx="11" cy="11" r="8" /><path d="m21 21-4.3-4.3" /></svg>;
-}
-
-export function Plus({ size = 24, className, fill, ...rest }: IconProps) {
-  return <svg {...defaults(size, className, fill)} {...rest}><path d="M5 12h14" /><path d="M12 5v14" /></svg>;
-}
-
-export function ChevronRight({ size = 24, className, fill, ...rest }: IconProps) {
-  return <svg {...defaults(size, className, fill)} {...rest}><path d="m9 18 6-6-6-6" /></svg>;
-}
-
-export function File({ size = 24, className, fill, ...rest }: IconProps) {
-  return <svg {...defaults(size, className, fill)} {...rest}><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z" /><path d="M14 2v4a2 2 0 0 0 2 2h4" /></svg>;
-}
-
-export function Folder({ size = 24, className, fill, ...rest }: IconProps) {
-  return <svg {...defaults(size, className, fill)} {...rest}><path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z" /></svg>;
-}
-
-export function Loader2({ size = 24, className, fill, ...rest }: IconProps) {
-  return <svg {...defaults(size, className, fill)} {...rest}><path d="M21 12a9 9 0 1 1-6.219-8.56" /></svg>;
-}
-
-export function RefreshCw({ size = 24, className, fill, ...rest }: IconProps) {
-  return <svg {...defaults(size, className, fill)} {...rest}><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8" /><path d="M21 3v5h-5" /><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16" /><path d="M8 16H3v5" /></svg>;
-}
-
-export function Share2({ size = 24, className, fill, ...rest }: IconProps) {
-  return <svg {...defaults(size, className, fill)} {...rest}><circle cx="18" cy="5" r="3" /><circle cx="6" cy="12" r="3" /><circle cx="18" cy="19" r="3" /><line x1="8.59" x2="15.42" y1="13.51" y2="17.49" /><line x1="15.41" x2="8.59" y1="6.51" y2="10.49" /></svg>;
-}
-
-export function Download({ size = 24, className, fill, ...rest }: IconProps) {
-  return <svg {...defaults(size, className, fill)} {...rest}><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><polyline points="7 10 12 15 17 10" /><line x1="12" x2="12" y1="15" y2="3" /></svg>;
-}
-
-export function FolderOpen({ size = 24, className, fill, ...rest }: IconProps) {
-  return <svg {...defaults(size, className, fill)} {...rest}><path d="m6 14 1.45-5.8A2 2 0 0 1 9.38 7H20a2 2 0 0 1 1.96 2.58L20 14" /><path d="M2 14h6a2 2 0 0 1 2 2v2a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2v-2a2 2 0 0 1 2-2Z" /><path d="M6 14h12a2 2 0 0 1 2 2v4a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2v-4a2 2 0 0 1 2-2Z" /></svg>;
-}
-
-export function Star({ size = 24, className, fill, ...rest }: IconProps) {
-  return <svg {...defaults(size, className, fill)} {...rest}><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" /></svg>;
-}
-
-export function Tag({ size = 24, className, fill, ...rest }: IconProps) {
-  return <svg {...defaults(size, className, fill)} {...rest}><path d="M12 2H2v10l9.29 9.29c.94.94 2.48.94 3.42 0l6.58-6.58c.94-.94.94-2.48 0-3.42L12 2Z" /><path d="M7 7h.01" /></svg>;
-}
-
-export function Eye({ size = 24, className, fill, ...rest }: IconProps) {
-  return <svg {...defaults(size, className, fill)} {...rest}><path d="M2.062 12.348a1 1 0 0 1 0-.696 10.752 10.752 0 0 1 19.876 0 1 1 0 0 1 0 .696 10.752 10.752 0 0 1-19.876 0" /><circle cx="12" cy="12" r="3" /></svg>;
-}
-
-export function ImageIcon({ size = 24, className, fill, ...rest }: IconProps) {
-  return <svg {...defaults(size, className, fill)} {...rest}><rect width="18" height="18" x="3" y="3" rx="2" ry="2" /><circle cx="9" cy="9" r="2" /><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21" /></svg>;
-}
-
-export function LinkIcon({ size = 24, className, fill, ...rest }: IconProps) {
-  return <svg {...defaults(size, className, fill)} {...rest}><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" /><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" /></svg>;
-}
-
-export function Music2({ size = 24, className, fill, ...rest }: IconProps) {
-  return <svg {...defaults(size, className, fill)} {...rest}><circle cx="8" cy="18" r="4" /><path d="M12 18V2l10 3v11" /><circle cx="18" cy="15" r="4" /></svg>;
-}
-
-export function Video({ size = 24, className, fill, ...rest }: IconProps) {
-  return <svg {...defaults(size, className, fill)} {...rest}><path d="m16 3 4 4-4 4" /><path d="M20 7H4" /><path d="m8 21-4-4 4-4" /><path d="M4 17h16" /></svg>;
+/** * Inline SVG icon components — drop-in replacement for lucide-react. * * Each icon accepts `size` (number, default 24), `className`, `fill`, and * any other SVG attributes so they can be used exactly like the lucide originals: * * <Pencil size={14} className="text-[var(--text-muted)]" /> * <Star size={18} fill="currentColor" className="text-[var(--warning)]" /> */ import type { SVGProps } from "react"; type IconProps = SVGProps<SVGSVGElement> & { size?: number }; const defaults = (size: number, className?: string, fill?: string) => ({ width: size, height: size, viewBox: "0 0 24 24", fill: fill ?? "none", stroke: "currentColor", strokeWidth: 2, strokeLinecap: "round" as const, strokeLinejoin: "round" as const, className, }) satisfies SVGProps<SVGSVGElement>; /* ------------------------------------------------------------------ */
+/* Icons */
+/* ------------------------------------------------------------------ */ export function Pencil({ size = 24, className, fill, ...rest }: IconProps) { return <svg {...defaults(size, className, fill)} {...rest}><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z" /><path d="m15 5 4 4" /></svg>;
+} export function Trash2({ size = 24, className, fill, ...rest }: IconProps) { return <svg {...defaults(size, className, fill)} {...rest}><path d="M3 6h18" /><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6" /><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2" /><line x1="10" x2="10" y1="11" y2="17" /><line x1="14" x2="14" y1="11" y2="17" /></svg>;
+} export function Copy({ size = 24, className, fill, ...rest }: IconProps) { return <svg {...defaults(size, className, fill)} {...rest}><rect width="14" height="14" x="8" y="8" rx="2" ry="2" /><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2" /></svg>;
+} export function Check({ size = 24, className, fill, ...rest }: IconProps) { return <svg {...defaults(size, className, fill)} {...rest}><path d="M20 6 9 17l-5-5" /></svg>;
+} export function Search({ size = 24, className, fill, ...rest }: IconProps) { return <svg {...defaults(size, className, fill)} {...rest}><circle cx="11" cy="11" r="8" /><path d="m21 21-4.3-4.3" /></svg>;
+} export function Plus({ size = 24, className, fill, ...rest }: IconProps) { return <svg {...defaults(size, className, fill)} {...rest}><path d="M5 12h14" /><path d="M12 5v14" /></svg>;
+} export function ChevronRight({ size = 24, className, fill, ...rest }: IconProps) { return <svg {...defaults(size, className, fill)} {...rest}><path d="m9 18 6-6-6-6" /></svg>;
+} export function File({ size = 24, className, fill, ...rest }: IconProps) { return <svg {...defaults(size, className, fill)} {...rest}><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z" /><path d="M14 2v4a2 2 0 0 0 2 2h4" /></svg>;
+} export function Folder({ size = 24, className, fill, ...rest }: IconProps) { return <svg {...defaults(size, className, fill)} {...rest}><path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z" /></svg>;
+} export function Loader2({ size = 24, className, fill, ...rest }: IconProps) { return <svg {...defaults(size, className, fill)} {...rest}><path d="M21 12a9 9 0 1 1-6.219-8.56" /></svg>;
+} export function RefreshCw({ size = 24, className, fill, ...rest }: IconProps) { return <svg {...defaults(size, className, fill)} {...rest}><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8" /><path d="M21 3v5h-5" /><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16" /><path d="M8 16H3v5" /></svg>;
+} export function Share2({ size = 24, className, fill, ...rest }: IconProps) { return <svg {...defaults(size, className, fill)} {...rest}><circle cx="18" cy="5" r="3" /><circle cx="6" cy="12" r="3" /><circle cx="18" cy="19" r="3" /><line x1="8.59" x2="15.42" y1="13.51" y2="17.49" /><line x1="15.41" x2="8.59" y1="6.51" y2="10.49" /></svg>;
+} export function Download({ size = 24, className, fill, ...rest }: IconProps) { return <svg {...defaults(size, className, fill)} {...rest}><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><polyline points="7 10 12 15 17 10" /><line x1="12" x2="12" y1="15" y2="3" /></svg>;
+} export function FolderOpen({ size = 24, className, fill, ...rest }: IconProps) { return <svg {...defaults(size, className, fill)} {...rest}><path d="m6 14 1.45-5.8A2 2 0 0 1 9.38 7H20a2 2 0 0 1 1.96 2.58L20 14" /><path d="M2 14h6a2 2 0 0 1 2 2v2a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2v-2a2 2 0 0 1 2-2Z" /><path d="M6 14h12a2 2 0 0 1 2 2v4a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2v-4a2 2 0 0 1 2-2Z" /></svg>;
+} export function Star({ size = 24, className, fill, ...rest }: IconProps) { return <svg {...defaults(size, className, fill)} {...rest}><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" /></svg>;
+} export function Tag({ size = 24, className, fill, ...rest }: IconProps) { return <svg {...defaults(size, className, fill)} {...rest}><path d="M12 2H2v10l9.29 9.29c.94.94 2.48.94 3.42 0l6.58-6.58c.94-.94.94-2.48 0-3.42L12 2Z" /><path d="M7 7h.01" /></svg>;
+} export function Eye({ size = 24, className, fill, ...rest }: IconProps) { return <svg {...defaults(size, className, fill)} {...rest}><path d="M2.062 12.348a1 1 0 0 1 0-.696 10.752 10.752 0 0 1 19.876 0 1 1 0 0 1 0 .696 10.752 10.752 0 0 1-19.876 0" /><circle cx="12" cy="12" r="3" /></svg>;
+} export function ImageIcon({ size = 24, className, fill, ...rest }: IconProps) { return <svg {...defaults(size, className, fill)} {...rest}><rect width="18" height="18" x="3" y="3" rx="2" ry="2" /><circle cx="9" cy="9" r="2" /><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21" /></svg>;
+} export function LinkIcon({ size = 24, className, fill, ...rest }: IconProps) { return <svg {...defaults(size, className, fill)} {...rest}><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" /><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" /></svg>;
+} export function Music2({ size = 24, className, fill, ...rest }: IconProps) { return <svg {...defaults(size, className, fill)} {...rest}><circle cx="8" cy="18" r="4" /><path d="M12 18V2l10 3v11" /><circle cx="18" cy="15" r="4" /></svg>;
+} export function Video({ size = 24, className, fill, ...rest }: IconProps) { return <svg {...defaults(size, className, fill)} {...rest}><path d="m16 3 4 4-4 4" /><path d="M20 7H4" /><path d="m8 21-4-4 4-4" /><path d="M4 17h16" /></svg>;
 }
