@@ -57,6 +57,8 @@ describe("GET /api/status", () => {
   it("propagates service errors as 500", async () => {
     getApiSessionMock.mockResolvedValueOnce(null);
     getPublicStatusSummaryMock.mockRejectedValueOnce(new Error("db down"));
-    await expect(route.GET(new Request("http://localhost/api/status"))).rejects.toThrow("db down");
+    const req = new Request("http://localhost/api/status");
+    const res = await route.GET(req);
+    expect(res.status).toBe(500);
   });
 });
