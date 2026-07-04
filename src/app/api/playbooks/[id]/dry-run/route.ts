@@ -1,13 +1,20 @@
 import { NextResponse } from "next/server";
 
 import { runPlaybook } from "@/lib/playbook/service";
-import { idQuerySchema } from "@/lib/playbook/schema";
 import { withApiRoute } from "@/lib/http/api-guard";
 import { GENERAL_WRITE_LIMIT } from "@/lib/http/rate-limit-presets";
-import { parseSearchParams } from "@/lib/http/parse-search-params";
 import { ValidationError } from "@/lib/errors";
 
 export const dynamic = "force-dynamic";
+
+type PlaybookRouteContext = { params: Promise<{ id?: string }> };
+
+async function requirePlaybookId(params: PlaybookRouteContext["params"]): Promise<string> {
+  const { id } = await params;
+  const normalized = id?.trim();
+  if (!normalized) throw new ValidationError("缺少 playbook id");
+  return normalized;
+}
 
 /**
  * POST /api/playbooks/[id]/dry-run
@@ -16,13 +23,12 @@ export const dynamic = "force-dynamic";
  * PlaybookRun record is persisted with `dryRun: true` so the UI can
  * show "this is what would happen" alongside the real run history.
  */
-export async function POST(request: Request) {
+export async function POST(request: Request, { params }: PlaybookRouteContext) {
   return withApiRoute(
     request,
     { permission: "playbook:run", rateLimit: GENERAL_WRITE_LIMIT, errorStatus: 400, errorMessage: "dry-run 失败" },
     async ({ session }) => {
-      const { id } = parseSearchParams(request, idQuerySchema);
-      if (!id) throw new ValidationError("缺少 playbook id");
+      const id = await requirePlaybookId(params);
       const run = await runPlaybook({
         playbookId: id,
         dryRun: true,

@@ -17,6 +17,7 @@ vi.mock("@/lib/playbook/service", () => ({
 const route = await import("../route");
 
 const session = { userId: "u1", username: "alice", user: { id: "u1" } };
+const ctx = (id?: string) => ({ params: Promise.resolve({ id }) });
 
 describe("/api/playbooks/[id]/dry-run POST", () => {
 	beforeEach(() => {
@@ -25,9 +26,10 @@ describe("/api/playbooks/[id]/dry-run POST", () => {
 		mocks.runPlaybook.mockResolvedValue({ id: "run1", playbookId: "pb1", status: "SUCCESS", dryRun: true });
 	});
 
-	it("requires playbook:run permission and returns the dry-run object", async () => {
+	it("requires playbook:run permission and returns the dry-run object from path params", async () => {
 		const res = await route.POST(
-			new Request("http://local/api/playbooks/pb1/dry-run?id=pb1", { method: "POST" }),
+			new Request("http://local/api/playbooks/pb1/dry-run", { method: "POST" }),
+			ctx("pb1"),
 		);
 		const json = await res.json();
 		expect(res.status).toBe(200);
@@ -44,7 +46,8 @@ describe("/api/playbooks/[id]/dry-run POST", () => {
 
 	it("passes a dry-run trigger context with source 'dry-run'", async () => {
 		await route.POST(
-			new Request("http://local/api/playbooks/pb1/dry-run?id=pb1", { method: "POST" }),
+			new Request("http://local/api/playbooks/pb1/dry-run", { method: "POST" }),
+			ctx("pb1"),
 		);
 		expect(mocks.runPlaybook).toHaveBeenCalledWith(
 			expect.objectContaining({
@@ -53,9 +56,10 @@ describe("/api/playbooks/[id]/dry-run POST", () => {
 		);
 	});
 
-	it("returns 400 when id query param is missing", async () => {
+	it("returns 400 when path id is missing", async () => {
 		const res = await route.POST(
 			new Request("http://local/api/playbooks//dry-run", { method: "POST" }),
+			ctx(undefined),
 		);
 		expect(res.status).toBe(400);
 		expect(mocks.runPlaybook).not.toHaveBeenCalled();
@@ -66,7 +70,8 @@ describe("/api/playbooks/[id]/dry-run POST", () => {
 			new Response(JSON.stringify({ error: "forbidden" }), { status: 403 }),
 		);
 		const res = await route.POST(
-			new Request("http://local/api/playbooks/pb1/dry-run?id=pb1", { method: "POST" }),
+			new Request("http://local/api/playbooks/pb1/dry-run", { method: "POST" }),
+			ctx("pb1"),
 		);
 		expect(res.status).toBe(403);
 		expect(mocks.runPlaybook).not.toHaveBeenCalled();
@@ -76,7 +81,8 @@ describe("/api/playbooks/[id]/dry-run POST", () => {
 		const { NotFoundError } = await import("@/lib/errors");
 		mocks.runPlaybook.mockRejectedValueOnce(new NotFoundError("playbook 不存在"));
 		const res = await route.POST(
-			new Request("http://local/api/playbooks/missing/dry-run?id=missing", { method: "POST" }),
+			new Request("http://local/api/playbooks/missing/dry-run", { method: "POST" }),
+			ctx("missing"),
 		);
 		expect(res.status).toBe(404);
 	});

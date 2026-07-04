@@ -22,6 +22,7 @@ const route = await import("../route");
 
 const session = { userId: "u1", username: "alice", user: { id: "u1" } };
 const playbookFixture = { id: "pb1", name: "Cleanup", enabled: true, steps: [{ id: "s1" }] };
+const ctx = (id?: string) => ({ params: Promise.resolve({ id }) });
 
 describe("/api/playbooks/[id]", () => {
 	beforeEach(() => {
@@ -32,8 +33,8 @@ describe("/api/playbooks/[id]", () => {
 		mocks.deletePlaybook.mockResolvedValue(playbookFixture);
 	});
 
-	it("GET requires playbook:read and returns a single playbook", async () => {
-		const res = await route.GET(new Request("http://local/api/playbooks/pb1?id=pb1"));
+	it("GET requires playbook:read and returns a single playbook from path params", async () => {
+		const res = await route.GET(new Request("http://local/api/playbooks/pb1"), ctx("pb1"));
 		const json = await res.json();
 		expect(res.status).toBe(200);
 		expect(mocks.requireApiPermission).toHaveBeenCalledWith("playbook:read");
@@ -43,27 +44,28 @@ describe("/api/playbooks/[id]", () => {
 
 	it("GET returns 404 when the playbook does not exist", async () => {
 		mocks.getPlaybook.mockResolvedValueOnce(null);
-		const res = await route.GET(new Request("http://local/api/playbooks/missing?id=missing"));
+		const res = await route.GET(new Request("http://local/api/playbooks/missing"), ctx("missing"));
 		expect(res.status).toBe(404);
 		const json = await res.json();
 		expect(json.code).toBe("NOT_FOUND");
 	});
 
-	it("GET returns 400 when id query param is missing", async () => {
-		const res = await route.GET(new Request("http://local/api/playbooks/"));
+	it("GET returns 400 when path id is missing", async () => {
+		const res = await route.GET(new Request("http://local/api/playbooks/"), ctx(undefined));
 		expect(res.status).toBe(400);
 		expect(mocks.getPlaybook).not.toHaveBeenCalled();
 	});
 
-	it("PATCH requires playbook:manage and updates the playbook", async () => {
+	it("PATCH requires playbook:manage and updates the playbook using the path id", async () => {
 		const updated = { id: "pb1", name: "Cleanup v2", enabled: false, chainRetry: 0 };
 		mocks.updatePlaybook.mockResolvedValueOnce({ ...playbookFixture, ...updated });
 		const res = await route.PATCH(
 			new Request("http://local/api/playbooks/pb1", {
 				method: "PATCH",
 				headers: { "content-type": "application/json" },
-				body: JSON.stringify({ id: "pb1", name: "Cleanup v2", enabled: false }),
+				body: JSON.stringify({ id: "body-id-ignored", name: "Cleanup v2", enabled: false }),
 			}),
+			ctx("pb1"),
 		);
 		const json = await res.json();
 		expect(res.status).toBe(200);
@@ -72,8 +74,8 @@ describe("/api/playbooks/[id]", () => {
 		expect(json.playbook).toMatchObject({ id: "pb1", name: "Cleanup v2" });
 	});
 
-	it("DELETE requires playbook:manage and deletes the playbook", async () => {
-		const res = await route.DELETE(new Request("http://local/api/playbooks/pb1?id=pb1", { method: "DELETE" }));
+	it("DELETE requires playbook:manage and deletes the playbook from path params", async () => {
+		const res = await route.DELETE(new Request("http://local/api/playbooks/pb1", { method: "DELETE" }), ctx("pb1"));
 		const json = await res.json();
 		expect(res.status).toBe(200);
 		expect(mocks.requireApiPermission).toHaveBeenCalledWith("playbook:manage");
@@ -81,8 +83,8 @@ describe("/api/playbooks/[id]", () => {
 		expect(json).toEqual({ success: true });
 	});
 
-	it("DELETE returns 400 when id is missing", async () => {
-		const res = await route.DELETE(new Request("http://local/api/playbooks/", { method: "DELETE" }));
+	it("DELETE returns 400 when path id is missing", async () => {
+		const res = await route.DELETE(new Request("http://local/api/playbooks/", { method: "DELETE" }), ctx(undefined));
 		expect(res.status).toBe(400);
 		expect(mocks.deletePlaybook).not.toHaveBeenCalled();
 	});
@@ -91,7 +93,7 @@ describe("/api/playbooks/[id]", () => {
 		mocks.requireApiPermission.mockResolvedValueOnce(
 			new Response(JSON.stringify({ error: "forbidden" }), { status: 403 }),
 		);
-		const res = await route.GET(new Request("http://local/api/playbooks/pb1?id=pb1"));
+		const res = await route.GET(new Request("http://local/api/playbooks/pb1"), ctx("pb1"));
 		expect(res.status).toBe(403);
 		expect(mocks.getPlaybook).not.toHaveBeenCalled();
 	});
