@@ -113,7 +113,7 @@ describe("HealthDashboardClient", () => {
 				generatedAt: "2026-05-30T00:00:00.000Z",
 				summary: { total: 4, healthy: 3, warning: 0, critical: 0, overall: "healthy" },
 				checks: [
-					{ id: "next-service", label: "Next.js 服务", status: "healthy", message: "vcontrolhub-next.service 正在运行" },
+					{ id: "next-service", label: "Next.js 服务", status: "healthy", message: "vcontrolhub-next.service 正在运行", params: { unit: "vcontrolhub-next.service" }, messageCode: "running" },
 				],
 			},
 		});
@@ -158,8 +158,8 @@ describe("HealthDashboardClient", () => {
 				generatedAt: "2026-05-30T00:00:00.000Z",
 				summary: { total: 2, healthy: 1, warning: 1, critical: 0, overall: "warning" },
 				checks: [
-					{ id: "database", label: "数据库连接", status: "healthy", message: "数据库可查询" },
-					{ id: "git-sync", label: "GitHub 同步状态", status: "warning", message: "本地与远端不一致" },
+					{ id: "database", label: "数据库连接", status: "healthy", message: "数据库可查询", messageCode: "healthy" },
+					{ id: "git-sync", label: "GitHub 同步状态", status: "warning", message: "本地与远端不一致", params: { head: "abc", remote: "def" }, messageCode: "differs" },
 				],
 			});
 
@@ -170,7 +170,7 @@ describe("HealthDashboardClient", () => {
 		expect(csrfFetch).toHaveBeenCalledWith("/api/system-health");
 		expect(screen.getByText("2 项检查 · 1 正常 · 1 警告 · 0 严重")).toBeInTheDocument();
 		expect(screen.getByText("GitHub 同步状态")).toBeInTheDocument();
-		expect(screen.getByText("本地与远端不一致")).toBeInTheDocument();
+		expect(screen.getByText(/abc.*不一致/)).toBeInTheDocument();
 	});
 
 	// TR-022 mobile overflow guards: status row, repair grid, and touch
@@ -185,7 +185,7 @@ describe("HealthDashboardClient", () => {
 				generatedAt: "2026-05-30T00:00:00.000Z",
 				summary: { total: 3, healthy: 2, warning: 1, critical: 0, overall: "warning" },
 				checks: [
-					{ id: "next-service", label: "Next.js 服务", status: "healthy", message: "vcontrolhub-next.service 正在运行" },
+					{ id: "next-service", label: "Next.js 服务", status: "healthy", message: "vcontrolhub-next.service 正在运行", params: { unit: "vcontrolhub-next.service" }, messageCode: "running" },
 				],
 			},
 		});
@@ -240,7 +240,7 @@ describe("HealthDashboardClient", () => {
 				generatedAt: "2026-05-30T00:00:00.000Z",
 				summary: { total: 3, healthy: 2, warning: 1, critical: 0, overall: "warning" },
 				checks: [
-					{ id: "next-service", label: "Next.js 服务", status: "healthy", message: "vcontrolhub-next.service 正在运行" },
+					{ id: "next-service", label: "Next.js 服务", status: "healthy", message: "vcontrolhub-next.service 正在运行", params: { unit: "vcontrolhub-next.service" }, messageCode: "running" },
 				],
 			},
 		});
@@ -275,8 +275,8 @@ describe("HealthDashboardClient", () => {
 				generatedAt: "2026-05-30T00:00:00.000Z",
 				summary: { total: 2, healthy: 1, warning: 1, critical: 0, overall: "warning" },
 				checks: [
-					{ id: "database", label: "数据库连接", status: "healthy", message: "数据库可查询" },
-					{ id: "git-sync", label: "GitHub 同步状态", status: "warning", message: "当前提交 abc123，远端状态暂不可确认" },
+					{ id: "database", label: "数据库连接", status: "healthy", message: "数据库可查询", messageCode: "healthy" },
+					{ id: "git-sync", label: "GitHub 同步状态", status: "warning", message: "当前提交 abc123，远端状态暂不可确认", params: { head: "abc123" }, messageCode: "no-remote" },
 				],
 			});
 

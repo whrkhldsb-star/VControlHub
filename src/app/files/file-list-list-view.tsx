@@ -146,7 +146,7 @@ export function FileListListView(props: FileListListViewProps) {
             </div>
             <div>操作</div>
           </div>
-          <div className="divide-y divide-white/[0.04] light:divide-slate-200">
+          <div className="divide-y divide-white/[0.04] light:divide-[var(--border)]">
             {sortedFolders.length === 0 && sortedFiles.length === 0 ? (
               <div className="px-6 py-16 text-center text-sm text-[var(--text-muted)]">
                 {emptyMessage}
@@ -309,7 +309,7 @@ export function FileListListView(props: FileListListViewProps) {
       </div>
 
       {/* Mobile card view (below md) */}
-      <div className="md:hidden divide-y divide-white/[0.04] light:divide-slate-200">
+      <div className="md:hidden divide-y divide-white/[0.04] light:divide-[var(--border)]">
         {sortedFolders.length === 0 && sortedFiles.length === 0 ? (
           <div className="px-6 py-16 text-center text-sm text-[var(--text-muted)]">
             {emptyMessage}
@@ -322,7 +322,7 @@ export function FileListListView(props: FileListListViewProps) {
             className="px-4 py-3 hover:bg-[var(--surface)]/[0.04] transition"
           >
             <div className="flex items-center gap-3">
-              <div className="rounded-lg bg-amber-400/10 p-1.5">
+              <div className="rounded-lg bg-[var(--warning-bg)] p-1.5">
                 <FileTypeIcon entry={{ entryType: "DIRECTORY" }} size={20} />
               </div>
               <div className="min-w-0 flex-1">

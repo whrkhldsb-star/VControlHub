@@ -201,11 +201,11 @@ export function VpsBackupSection({
 	return (
 		<div className="space-y-3">
 			{error ? (
-				<div className="rounded-lg border border-red-400/30 bg-red-400/10 px-3 py-2 text-xs text-red-300">
+				<div className="rounded-lg border border-[var(--danger-border)] bg-[var(--danger-bg)] px-3 py-2 text-xs text-[var(--danger)]">
 					{error}
 					<button
 						type="button"
-						className="ml-2 text-red-200 underline"
+						className="ml-2 text-[var(--danger)] underline"
 						aria-label={t("common.close")}
 						onClick={() => setError(null)}
 					>
@@ -336,7 +336,7 @@ export function VpsBackupSection({
 									<button
 										type="button"
 										onClick={() => handleDeleteSchedule(s.id)}
-										className="ml-2 shrink-0 text-xs text-red-400/70 transition-colors hover:text-red-400"
+										className="ml-2 shrink-0 text-xs text-[var(--danger)]0/70 transition-colors hover:text-[var(--danger)]"
 									>
 										✕
 									</button>
@@ -372,10 +372,10 @@ export function VpsBackupSection({
 										<span
 											className={`rounded px-1.5 py-0.5 text-[10px] font-medium ${
 												r.status === "COMPLETED"
-													? "bg-green-400/15 text-green-300"
+													? "bg-[var(--success-bg)] text-[var(--success)]"
 													: r.status === "FAILED"
-														? "bg-red-400/15 text-red-300"
-														: "bg-amber-400/15 text-amber-300"
+														? "bg-[var(--danger-bg)] text-[var(--danger)]"
+														: "bg-[var(--warning-bg)] text-[var(--warning)]"
 											}`}
 										>
 											{r.status}
@@ -390,7 +390,7 @@ export function VpsBackupSection({
 										{r.offsiteKey ? " · ☁️" : ""}
 									</div>
 									{r.errorMessage ? (
-										<div className="mt-1 truncate text-xs text-red-300/80">
+										<div className="mt-1 truncate text-xs text-[var(--danger)]0/80">
 											{r.errorMessage}
 										</div>
 									) : null}
@@ -408,7 +408,7 @@ export function VpsBackupSection({
 										<button
 											type="button"
 											onClick={() => handleDeleteRecord(r.id)}
-											className="text-xs text-red-400/60 transition-colors hover:text-red-400"
+											className="text-xs text-[var(--danger)]0/60 transition-colors hover:text-[var(--danger)]"
 										>
 											✕
 										</button>

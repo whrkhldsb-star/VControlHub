@@ -60,8 +60,8 @@ export function DeleteConfirmButton({
         aria-label={`删除 ${entryName}`}
         className={
           variant === "menu"
-            ? "flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-left text-sm text-rose-100 transition hover:bg-rose-400/10"
-            : "inline-flex h-8 w-8 items-center justify-center rounded-lg border border-rose-400/30 bg-rose-400/10 text-rose-100 transition hover:bg-rose-400/20"
+            ? "flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-left text-sm text-[var(--danger)] transition hover:bg-[var(--danger-bg)]"
+            : "inline-flex h-8 w-8 items-center justify-center rounded-lg border border-[var(--danger-border)] bg-[var(--danger-bg)] text-[var(--danger)] transition hover:bg-[var(--danger-bg)]"
         }
       >
         <svg
@@ -88,13 +88,13 @@ export function DeleteConfirmButton({
   return (
     <form action={formAction} className="flex flex-wrap items-center gap-3">
       <input type="hidden" name="fileEntryId" value={fileEntryId} />
-      <span className="text-sm text-rose-200">
+      <span className="text-sm text-[var(--danger)]">
         确认删除 {entryName}
         {entryType === "DIRECTORY" ? " 及其内容" : ""}？
       </span>
       <button
         type="submit"
-        data-tone="rose" className="rounded-lg border border-rose-400/30 px-4 py-2 text-sm font-medium text-rose-100 transition hover:bg-rose-400/20"
+        data-tone="rose" className="rounded-lg border border-[var(--danger-border)] px-4 py-2 text-sm font-medium text-[var(--danger)] transition hover:bg-[var(--danger-bg)]"
       >
         确认
       </button>

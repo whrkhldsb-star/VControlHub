@@ -72,7 +72,7 @@ describe("AppSidebar", () => {
 		const user = userEvent.setup();
 		render(<AppSidebar username="admin" />);
 
-		const searchButtons = screen.getAllByRole("button", { name: "全局搜索" });
+		const searchButtons = screen.getAllByRole("button", { name: "search.dialog" });
 		expect(searchButtons[0]).toHaveAttribute("aria-keyshortcuts", "Control+K Meta+K");
 		await user.click(searchButtons[0]!);
 

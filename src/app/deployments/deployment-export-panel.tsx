@@ -259,7 +259,7 @@ export function DeploymentExportPanel() {
       </form>
 
       {error && (
-        <p role="alert" className="mt-3 text-xs text-rose-300">
+        <p role="alert" className="mt-3 text-xs text-[var(--danger)]">
           {error}
         </p>
       )}
@@ -285,7 +285,7 @@ export function DeploymentExportPanel() {
           </div>
 
           {zipError && (
-            <p role="alert" className="mt-2 text-xs text-rose-300">
+            <p role="alert" className="mt-2 text-xs text-[var(--danger)]">
               {zipError}
             </p>
           )}

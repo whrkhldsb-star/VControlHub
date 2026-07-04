@@ -19,10 +19,10 @@ import { useI18n } from "@/lib/i18n/use-locale";
 
 const statusColor: Record<string, string> = {
 	available: "text-[var(--text-muted)]",
-	installing: "text-amber-400",
-	running: "text-emerald-400",
+	installing: "text-[var(--warning)]",
+	running: "text-[var(--success)]",
 	stopped: "text-[var(--text-muted)]",
-	error: "text-rose-400",
+	error: "text-[var(--danger)]",
 };
 
 const statusLabelKeys: Record<string, string> = {
@@ -86,7 +86,7 @@ export function ServiceCard({
 	const isRemote = item.source !== "local";
 
 	return (
-		<div data-card className=" p-4 flex flex-col gap-3 hover:border-[var(--border)]/[0.12] transition light:hover:border-slate-300">
+		<div data-card className=" p-4 flex flex-col gap-3 hover:border-[var(--border)]/[0.12] transition light:hover:border-[var(--border)]">
 			{/* Header */}
 			<div className="flex items-start justify-between">
 				<div className="flex items-center gap-2.5">
@@ -102,7 +102,7 @@ export function ServiceCard({
 							{item.source}
 						</span>
 					)}
-					<span className={`text-[10px] font-medium px-1.5 py-0.5 rounded-full border ${statusColor[item.status] ?? "text-[var(--text-muted)]"} ${item.status === "running" ? "border-emerald-400/20 bg-emerald-500/[0.10]" : item.status === "error" ? "border-rose-400/20 bg-rose-500/[0.10]" : "border-[var(--border)]"}`}>
+					<span className={`text-[10px] font-medium px-1.5 py-0.5 rounded-full border ${statusColor[item.status] ?? "text-[var(--text-muted)]"} ${item.status === "running" ? "border-[var(--success-border)] bg-[var(--success)]0/[0.10]" : item.status === "error" ? "border-[var(--danger-border)] bg-[var(--danger)]0/[0.10]" : "border-[var(--border)]"}`}>
 						{(statusLabelKeys[item.status] && t(statusLabelKeys[item.status] as string)) || item.status}
 					</span>
 				</div>
@@ -121,7 +121,7 @@ export function ServiceCard({
 
 			{/* Error message */}
 			{item.error && (
-				<div className="text-[10px] text-rose-300 bg-rose-500/[0.10] rounded px-2 py-1 line-clamp-2">{item.error}</div>
+				<div className="text-[10px] text-[var(--danger)] bg-[var(--danger)]0/[0.10] rounded px-2 py-1 line-clamp-2">{item.error}</div>
 			)}
 
 			{/* Actions */}
@@ -134,7 +134,7 @@ export function ServiceCard({
 				{tab === "installed" && (
 					<>
 						{item.status === "running" && access && (
-							<a href={access.url} target="_blank" rel="noreferrer" aria-label={t("qsPage.accessAria").replace("{name}", item.name).replace("{label}", access.label)} title={access.description} className="rounded-lg bg-emerald-500 px-3 py-1.5 text-xs font-semibold text-[var(--text-primary)] hover:bg-emerald-400 transition">
+							<a href={access.url} target="_blank" rel="noreferrer" aria-label={t("qsPage.accessAria").replace("{name}", item.name).replace("{label}", access.label)} title={access.description} className="rounded-lg bg-[var(--success)] px-3 py-1.5 text-xs font-semibold text-[var(--text-primary)] hover:bg-[var(--success)] transition">
 								{t("qsPage.access")}
 							</a>
 						)}
@@ -144,12 +144,12 @@ export function ServiceCard({
 							</button>
 						)}
 						{item.status === "stopped" && (
-							<button onClick={onStart} disabled={busy} className="rounded-lg bg-emerald-500 px-3 py-1.5 text-xs font-semibold text-[var(--text-primary)] hover:bg-emerald-400 transition disabled:opacity-50">
+							<button onClick={onStart} disabled={busy} className="rounded-lg bg-[var(--success)] px-3 py-1.5 text-xs font-semibold text-[var(--text-primary)] hover:bg-[var(--success)] transition disabled:opacity-50">
 								{busy ? t("qsPage.busy") : t("qsPage.start")}
 							</button>
 						)}
 						{item.status === "installing" && (
-							<span className="text-xs text-amber-400 animate-pulse">{t("qsPage.pullingImage")}</span>
+							<span className="text-xs text-[var(--warning)] animate-pulse">{t("qsPage.pullingImage")}</span>
 						)}
 						{item.status === "error" && (
 							<button onClick={onSync} disabled={busy} className="rounded-lg border border-[var(--border)]/[0.1] px-3 py-1.5 text-xs text-[var(--text-secondary)] hover:bg-[var(--surface)]/[0.10] transition disabled:opacity-50">
@@ -161,7 +161,7 @@ export function ServiceCard({
 								{busy ? t("qsPage.busy") : t("qsPage.update")}
 							</button>
 						)}
-						<button onClick={onUninstall} disabled={busy} className="ml-auto rounded-lg border border-rose-400/20 px-3 py-1.5 text-xs text-rose-300 hover:bg-rose-500/[0.10] transition disabled:opacity-50">
+						<button onClick={onUninstall} disabled={busy} className="ml-auto rounded-lg border border-[var(--danger-border)] px-3 py-1.5 text-xs text-[var(--danger)] hover:bg-[var(--danger)]0/[0.10] transition disabled:opacity-50">
 							{t("qsPage.uninstall")}
 						</button>
 					</>

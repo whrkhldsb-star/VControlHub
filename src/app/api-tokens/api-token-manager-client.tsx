@@ -30,11 +30,11 @@ function formatDate(value: Date | string | null) {
 }
 
 function tokenStatus(t: (k: string) => string, token: SafeApiToken) {
-  if (token.revokedAt) return { label: t("apiTokensPage.status.revoked"), className: "border-rose-400/25 bg-rose-400/10 text-rose-200" };
+  if (token.revokedAt) return { label: t("apiTokensPage.status.revoked"), className: "border-[var(--danger-border)] bg-[var(--danger-bg)] text-[var(--danger)]" };
   if (token.expiresAt && new Date(token.expiresAt).getTime() <= Date.now()) {
-    return { label: t("apiTokensPage.status.expired"), className: "border-amber-400/25 bg-amber-400/10 text-amber-200" };
+    return { label: t("apiTokensPage.status.expired"), className: "border-[var(--warning-border)] bg-[var(--warning-bg)] text-[var(--warning)]" };
   }
-  return { label: t("apiTokensPage.status.active"), className: "border-emerald-400/25 bg-emerald-400/10 text-emerald-200" };
+  return { label: t("apiTokensPage.status.active"), className: "border-[var(--success-border)] bg-[var(--success-bg)] text-[var(--success)]" };
 }
 
 function scopeLabel(t: (k: string) => string, scope: string): string {
@@ -109,21 +109,21 @@ export function ApiTokenManagerClient({ initialTokens, allowedScopes }: Props) {
       </div>
 
       {createdPlaintext && (
-        <section className="rounded-2xl border border-amber-300/25 bg-amber-300/[0.10] p-5 shadow-[0_20px_80px_rgba(251,191,36,0.08)]">
+        <section className="rounded-2xl border border-[var(--warning-border)] bg-[var(--warning)]0/[0.10] p-5 shadow-[0_20px_80px_rgba(251,191,36,0.08)]">
           <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
             <div>
-              <h2 className="text-base font-semibold text-amber-100">{t("apiTokensPage.plaintext.heading")}</h2>
-              <p className="mt-1 text-sm text-amber-100/75">{t("apiTokensPage.plaintext.copyHint")}</p>
+              <h2 className="text-base font-semibold text-[var(--warning)]">{t("apiTokensPage.plaintext.heading")}</h2>
+              <p className="mt-1 text-sm text-[var(--warning)]0/75">{t("apiTokensPage.plaintext.copyHint")}</p>
             </div>
-            <button type="button" onClick={() => navigator.clipboard?.writeText(createdPlaintext)} className="rounded-xl border border-amber-200/25 px-3 py-2 text-xs font-medium text-amber-100 hover:bg-amber-200/10">
+            <button type="button" onClick={() => navigator.clipboard?.writeText(createdPlaintext)} className="rounded-xl border border-[var(--warning-border)] px-3 py-2 text-xs font-medium text-[var(--warning)] hover:bg-[var(--warning-bg)]">
               {t("apiTokensPage.plaintext.copy")}
             </button>
           </div>
-          <code className="mt-4 block overflow-x-auto rounded-xl border border-amber-200/20 bg-[var(--surface-subtle)] p-3 font-mono text-xs text-amber-600 dark:text-amber-100">{createdPlaintext}</code>
+          <code className="mt-4 block overflow-x-auto rounded-xl border border-[var(--warning-border)] bg-[var(--surface-subtle)] p-3 font-mono text-xs text-[var(--warning)] dark:text-[var(--warning)]">{createdPlaintext}</code>
         </section>
       )}
 
-      {error && <div data-tone="rose" className="rounded-xl border border-rose-400/25 px-4 py-3 text-sm text-rose-100">{error}</div>}
+      {error && <div data-tone="rose" className="rounded-xl border border-[var(--danger-border)] px-4 py-3 text-sm text-[var(--danger)]">{error}</div>}
 
       <section className="rounded-2xl border border-[var(--border)]/[0.10] bg-[var(--surface)]/[0.04] p-5">
         <h2 className="text-lg font-semibold text-[var(--text-primary)]">{t("apiTokensPage.create.heading")}</h2>
@@ -191,7 +191,7 @@ export function ApiTokenManagerClient({ initialTokens, allowedScopes }: Props) {
                       </dl>
                     </div>
                     {!token.revokedAt && (
-                      <button type="button" aria-label={t("apiTokensPage.revoke.aria").replace("{name}", token.name)} disabled={revokingId === token.id} onClick={() => setTokenPendingRevoke(token)} data-tone="rose" className="rounded-2xl border border-rose-400/30 px-4 py-2 text-xs font-medium text-rose-100 transition hover:bg-rose-400/20 disabled:opacity-60">
+                      <button type="button" aria-label={t("apiTokensPage.revoke.aria").replace("{name}", token.name)} disabled={revokingId === token.id} onClick={() => setTokenPendingRevoke(token)} data-tone="rose" className="rounded-2xl border border-[var(--danger-border)] px-4 py-2 text-xs font-medium text-[var(--danger)] transition hover:bg-[var(--danger-bg)] disabled:opacity-60">
                         {revokingId === token.id ? t("apiTokensPage.revoke.revoking") : t("apiTokensPage.revoke.button")}
                       </button>
                     )}
@@ -204,7 +204,7 @@ export function ApiTokenManagerClient({ initialTokens, allowedScopes }: Props) {
       </section>
       {tokenPendingRevoke && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-[var(--surface)]/70 px-4 backdrop-blur-sm" role="presentation">
-          <section role="dialog" aria-modal="true" aria-labelledby="revoke-api-token-title" className="w-full max-w-md rounded-2xl border border-rose-400/25 bg-[var(--modal-bg)] p-6 shadow-[0_24px_100px_rgba(244,63,94,0.16)]">
+          <section role="dialog" aria-modal="true" aria-labelledby="revoke-api-token-title" className="w-full max-w-md rounded-2xl border border-[var(--danger-border)] bg-[var(--modal-bg)] p-6 shadow-[0_24px_100px_rgba(244,63,94,0.16)]">
             <h2 id="revoke-api-token-title" className="text-lg font-semibold text-[var(--text-primary)]">{t("apiTokensPage.revoke.confirmTitle")}</h2>
             <p className="mt-3 text-sm leading-6 text-[var(--text-secondary)]">
               {t("apiTokensPage.revoke.confirmBody").replace("{name}", tokenPendingRevoke.name)}
@@ -213,7 +213,7 @@ export function ApiTokenManagerClient({ initialTokens, allowedScopes }: Props) {
               <button type="button" onClick={() => setTokenPendingRevoke(null)} className="rounded-xl border border-[var(--border)] px-4 py-2 text-sm font-medium text-[var(--text-secondary)] hover:bg-[var(--surface-hover)]">
                 {t("apiTokensPage.revoke.cancel")}
               </button>
-              <button type="button" onClick={() => revokeToken(tokenPendingRevoke)} className="rounded-xl bg-rose-500 px-4 py-2 text-sm font-semibold text-[var(--text-primary)] hover:bg-rose-400">
+              <button type="button" onClick={() => revokeToken(tokenPendingRevoke)} className="rounded-xl bg-[var(--danger)] px-4 py-2 text-sm font-semibold text-[var(--text-primary)] hover:bg-[var(--danger)]">
                 {t("apiTokensPage.revoke.confirm")}
               </button>
             </div>

@@ -23,6 +23,9 @@
  * 2-5 above. Restored here.
  */
 import { registerServerSentry } from "@/lib/monitoring/sentry.server";
+import { createLogger } from "@/lib/logging";
+
+const logger = createLogger("instrumentation");
 
 export async function register() {
   if (process.env.NEXT_RUNTIME !== "nodejs") return;
@@ -38,9 +41,7 @@ export async function register() {
     const { startWorkerLifecycle } = await import("./lib/workers/startup");
     await startWorkerLifecycle();
   } catch (err) {
-    console.error(
-      `[workers:lifecycle] startup failed: ${err instanceof Error ? err.message : String(err)}`,
-    );
+    logger.error("Worker lifecycle startup failed", err);
   }
 
   // 4) TR-051 — admin password consistency check (env vs DB hash).
@@ -49,14 +50,12 @@ export async function register() {
     const { verifyAdminPasswordConsistency } = await import("./lib/auth/bootstrap");
     const result = await verifyAdminPasswordConsistency();
     if (result.ok) {
-      console.log(`[auth:bootstrap] admin password consistency OK (user=${result.username})`);
+      logger.info("Admin password consistency OK", { username: result.username });
     } else {
-      console.error(`[auth:bootstrap] admin password consistency FAILED: ${result.message}`);
+      logger.error("Admin password consistency check failed", { message: result.message });
     }
   } catch (err) {
-    console.error(
-      `[auth:bootstrap] admin password consistency check errored: ${err instanceof Error ? err.message : String(err)}`,
-    );
+    logger.error("Admin password consistency check errored", err);
   }
 
   // 5) TR-002 R4 — startup public-exposure probe for the direct gateway.
@@ -65,8 +64,6 @@ export async function register() {
     const { scheduleDirectGatewayExposureProbe } = await import("./lib/server/direct-gateway-probe");
     scheduleDirectGatewayExposureProbe();
   } catch (err) {
-    console.error(
-      `[direct-gateway:probe] schedule failed: ${err instanceof Error ? err.message : String(err)}`,
-    );
+    logger.error("Direct gateway probe schedule failed", err);
   }
 }

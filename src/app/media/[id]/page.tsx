@@ -245,7 +245,7 @@ export default async function MediaPlayerPage({
               </div>
               {item.favorite ? (
                 <Star
-                  className="ml-auto text-amber-400"
+                  className="ml-auto text-[var(--warning)]"
                   size={18}
                   fill="currentColor"
                 />

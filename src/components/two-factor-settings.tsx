@@ -81,13 +81,13 @@ export function TwoFactorSettings({ enabled }: { enabled: boolean }) {
 		<div className="rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-subtle)] p-5">
 			<div className="flex items-center justify-between mb-4">
 				<h3 className="text-sm font-medium text-[var(--text-primary)]">{t("auth.2fa-section-title")}</h3>
-				<span className={`text-xs px-2 py-0.5 rounded-full ${enabled ? "bg-emerald-500/10 text-emerald-400" : "bg-[var(--surface-hover)]/50 text-[var(--text-muted)]"}`}>
+				<span className={`text-xs px-2 py-0.5 rounded-full ${enabled ? "bg-[var(--success-bg)] text-[var(--success)]" : "bg-[var(--surface-hover)]/50 text-[var(--text-muted)]"}`}>
 					{enabled ? t("auth.2fa-enabled") : t("auth.2fa-disabled")}
 				</span>
 			</div>
 
 			{error && (
-				<div role="alert" className="mb-3 text-xs text-rose-400 bg-rose-500/10 rounded-lg px-3 py-2">{error}</div>
+				<div role="alert" className="mb-3 text-xs text-[var(--danger)] bg-[var(--danger-bg)] rounded-lg px-3 py-2">{error}</div>
 			)}
 
 			{step === "idle" && !enabled && (
@@ -112,7 +112,7 @@ export function TwoFactorSettings({ enabled }: { enabled: boolean }) {
 					</p>
 					<button
 						onClick={() => { setStep("disable"); setCode(""); setError(""); }}
-						className="px-4 py-2 text-xs font-medium bg-rose-500/10 text-rose-400 rounded-lg hover:bg-rose-500/20 transition"
+						className="px-4 py-2 text-xs font-medium bg-[var(--danger-bg)] text-[var(--danger)] rounded-lg hover:bg-[var(--danger-bg)] transition"
 					>
 						{t("auth.2fa-disable")}
 					</button>
@@ -188,7 +188,7 @@ export function TwoFactorSettings({ enabled }: { enabled: boolean }) {
 						<button
 							onClick={handleDisable}
 							disabled={loading || code.length !== 6}
-							className="px-4 py-2 text-xs font-medium bg-rose-500/10 text-rose-400 rounded-lg hover:bg-rose-500/20 transition disabled:opacity-50"
+							className="px-4 py-2 text-xs font-medium bg-[var(--danger-bg)] text-[var(--danger)] rounded-lg hover:bg-[var(--danger-bg)] transition disabled:opacity-50"
 						>
 							{loading ? t("auth.2fa-verifying") : t("auth.2fa-confirm-disable")}
 						</button>

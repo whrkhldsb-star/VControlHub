@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, memo } from "react";
 import Link from "next/link";
 import { csrfFetch } from "@/lib/auth/csrf-client";
 import { getSafeNotificationActionUrl } from "@/lib/notification/action-url";
@@ -47,6 +47,69 @@ function timeAgo(dateStr: string, t: (k: string) => string): string {
 	if (days < 30) return t("notificationsPage.time.daysAgo").replace("{count}", String(days));
 	return new Date(dateStr).toLocaleDateString("en-US");
 }
+
+const NotificationRow = memo(function NotificationRow({
+	notification: n,
+	t,
+	onMarkRead,
+	onDelete,
+}: {
+	notification: NotificationItem;
+	t: (k: string) => string;
+	onMarkRead: (id: string) => void;
+	onDelete: (id: string) => void;
+}) {
+	return (
+		<article
+			className={`group rounded-xl border p-4 transition-colors duration-150 focus-within:ring-2 focus-within:ring-[var(--color-action-ring)] light:focus-within:ring-[var(--color-action-ring)] ${
+				n.isRead
+					? "border-[var(--border)] bg-[var(--surface)]/[0.04] hover:bg-[var(--surface)]/[0.04] light:hover:bg-slate-50"
+					: "border-[var(--color-action-border)]/20 bg-[var(--color-action-bg)]/[0.04] hover:bg-[var(--color-action-bg)]/[0.10] light:border-[var(--color-action-border)]/30 light:bg-[var(--color-action-bg)] light:hover:bg-[var(--color-action-bg)]/70"
+			}`}
+		>
+			<div className="flex items-start gap-3">
+				<span className="text-lg mt-0.5 shrink-0" aria-hidden="true">{typeIcon[n.type] ?? "🔔"}</span>
+				<div className="flex-1 min-w-0">
+					<div className="flex items-center gap-2 min-w-0">
+						<h3 className={`text-sm font-medium truncate ${n.isRead ? "text-[var(--text-muted)]" : "text-[var(--text-primary)]"}`} title={n.title}>{n.title}</h3>
+						{!n.isRead && <div className="h-1.5 w-1.5 rounded-full bg-[var(--color-action-bg)] shrink-0 light:bg-[var(--color-action-strong)]" aria-label={t("notificationsPage.unreadBadge")} />}
+					</div>
+					<p className="mt-1 text-xs text-[var(--text-muted)] leading-relaxed">{n.message}</p>
+					<div className="mt-2 flex flex-wrap items-center gap-3 text-[11px]">
+						<span className="text-[var(--text-muted)]">{timeAgo(n.createdAt, t)}</span>
+						{n.actionUrl && (
+							<Link href={getSafeNotificationActionUrl(n.actionUrl)} className="rounded-lg px-1 py-0.5 text-[var(--color-action)]/70 transition hover:text-[var(--color-action)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-action-ring)] light:hover:text-[var(--color-action-strong)] light:focus-visible:ring-[var(--color-action-ring)]">
+								{t("notificationsPage.action.view")}
+							</Link>
+						)}
+						{!n.isRead && (
+							<button onClick={() => onMarkRead(n.id)} className="rounded-lg px-1 py-0.5 text-[var(--text-muted)] transition hover:text-[var(--text-secondary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-action-ring)] light:hover:text-[var(--text-primary)] light:focus-visible:ring-[var(--color-action-ring)]">
+								{t("notificationsPage.action.markOne")}
+							</button>
+						)}
+						<button onClick={() => onDelete(n.id)} className="rounded-lg px-1 py-0.5 text-[var(--text-muted)] opacity-100 transition hover:text-rose-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-300 light:hover:text-rose-700 light:focus-visible:ring-rose-600 sm:opacity-0 sm:group-hover:opacity-100 sm:group-focus-within:opacity-100">
+							{t("notificationsPage.action.delete")}
+						</button>
+					</div>
+				</div>
+			</div>
+		</article>
+	);
+}, (prev, next) => {
+	const p = prev.notification, n = next.notification;
+	return (
+		p.id === n.id &&
+		p.type === n.type &&
+		p.title === n.title &&
+		p.message === n.message &&
+		p.isRead === n.isRead &&
+		p.actionUrl === n.actionUrl &&
+		p.createdAt === n.createdAt &&
+		prev.t === next.t &&
+		prev.onMarkRead === next.onMarkRead &&
+		prev.onDelete === next.onDelete
+	);
+});
 
 export function NotificationListClient({ initialNotifications, initialUnreadCount }: Props) {
 	const { t } = useI18n();
@@ -115,41 +178,13 @@ export function NotificationListClient({ initialNotifications, initialUnreadCoun
 				</div>
 			)}
 			{notifications.map((n) => (
-				<article
+				<NotificationRow
 					key={n.id}
-					className={`group rounded-xl border p-4 transition-colors duration-150 focus-within:ring-2 focus-within:ring-[var(--color-action-ring)] light:focus-within:ring-[var(--color-action-ring)] ${
-						n.isRead
-							? "border-[var(--border)] bg-[var(--surface)]/[0.04] hover:bg-[var(--surface)]/[0.04] light:hover:bg-slate-50"
-							: "border-[var(--color-action-border)]/20 bg-[var(--color-action-bg)]/[0.04] hover:bg-[var(--color-action-bg)]/[0.10] light:border-[var(--color-action-border)]/30 light:bg-[var(--color-action-bg)] light:hover:bg-[var(--color-action-bg)]/70"
-					}`}
-				>
-					<div className="flex items-start gap-3">
-						<span className="text-lg mt-0.5 shrink-0" aria-hidden="true">{typeIcon[n.type] ?? "🔔"}</span>
-						<div className="flex-1 min-w-0">
-							<div className="flex items-center gap-2 min-w-0">
-								<h3 className={`text-sm font-medium truncate ${n.isRead ? "text-[var(--text-muted)]" : "text-[var(--text-primary)]"}`} title={n.title}>{n.title}</h3>
-								{!n.isRead && <div className="h-1.5 w-1.5 rounded-full bg-[var(--color-action-bg)] shrink-0 light:bg-[var(--color-action-strong)]" aria-label={t("notificationsPage.unreadBadge")} />}
-							</div>
-							<p className="mt-1 text-xs text-[var(--text-muted)] leading-relaxed">{n.message}</p>
-							<div className="mt-2 flex flex-wrap items-center gap-3 text-[11px]">
-								<span className="text-[var(--text-muted)]">{timeAgo(n.createdAt, t)}</span>
-								{n.actionUrl && (
-									<Link href={getSafeNotificationActionUrl(n.actionUrl)} className="rounded-lg px-1 py-0.5 text-[var(--color-action)]/70 transition hover:text-[var(--color-action)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-action-ring)] light:hover:text-[var(--color-action-strong)] light:focus-visible:ring-[var(--color-action-ring)]">
-										{t("notificationsPage.action.view")}
-									</Link>
-								)}
-								{!n.isRead && (
-									<button onClick={() => markOneRead(n.id)} className="rounded-lg px-1 py-0.5 text-[var(--text-muted)] transition hover:text-[var(--text-secondary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-action-ring)] light:hover:text-[var(--text-primary)] light:focus-visible:ring-[var(--color-action-ring)]">
-										{t("notificationsPage.action.markOne")}
-									</button>
-								)}
-								<button onClick={() => deleteOne(n.id)} className="rounded-lg px-1 py-0.5 text-[var(--text-muted)] opacity-100 transition hover:text-rose-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-300 light:hover:text-rose-700 light:focus-visible:ring-rose-600 sm:opacity-0 sm:group-hover:opacity-100 sm:group-focus-within:opacity-100">
-									{t("notificationsPage.action.delete")}
-								</button>
-							</div>
-						</div>
-					</div>
-				</article>
+					notification={n}
+					t={t}
+					onMarkRead={markOneRead}
+					onDelete={deleteOne}
+				/>
 			))}
 		</div>
 	);

@@ -38,13 +38,13 @@ export default function OfflinePage() {
 
   return (
     <main
-      className="min-h-screen flex flex-col items-center justify-center px-6 py-16 bg-[var(--surface)] text-[var(--text-primary)] light:bg-slate-50 light:text-[var(--color-action-fg)]"
+      className="min-h-screen flex flex-col items-center justify-center px-6 py-16 bg-[var(--surface)] text-[var(--text-primary)] light:bg-[var(--surface)] light:text-[var(--color-action-fg)]"
       aria-labelledby="offline-title"
     >
       <div className="max-w-md w-full text-center space-y-6">
         <div
           aria-hidden="true"
-          className="mx-auto w-16 h-16 rounded-full border-2 border-slate-700 light:border-slate-300 flex items-center justify-center"
+          className="mx-auto w-16 h-16 rounded-full border-2 border-[var(--border)] light:border-[var(--border)] flex items-center justify-center"
         >
           <span className="text-3xl">📡</span>
         </div>
@@ -69,7 +69,7 @@ export default function OfflinePage() {
               <li key={route.href}>
                 <a
                   href={route.href}
-                  className="block rounded-lg border border-slate-800 light:border-slate-200 bg-[var(--surface)] px-3 py-2 hover:border-[var(--border)] light:hover:border-slate-300 transition-colors"
+                  className="block rounded-lg border border-[var(--border)] light:border-[var(--border)] bg-[var(--surface)] px-3 py-2 hover:border-[var(--border)] light:hover:border-[var(--border)] transition-colors"
                 >
                   {t(route.labelKey)}
                 </a>
@@ -78,10 +78,10 @@ export default function OfflinePage() {
           </ul>
         </div>
 
-        <div className="pt-4 border-t border-slate-800 light:border-slate-200">
+        <div className="pt-4 border-t border-[var(--border)] light:border-[var(--border)]">
           <a
             href="/dashboard"
-            className="inline-flex items-center justify-center min-h-11 px-5 rounded-lg bg-[var(--surface)] text-[var(--text-primary)] light:bg-slate-100 light:text-[var(--color-action-fg)] text-sm font-medium hover:opacity-90 transition-opacity"
+            className="inline-flex items-center justify-center min-h-11 px-5 rounded-lg bg-[var(--surface)] text-[var(--text-primary)] light:bg-[var(--surface)] light:text-[var(--color-action-fg)] text-sm font-medium hover:opacity-90 transition-opacity"
           >
             {t("pwa.offline.retry")}
           </a>

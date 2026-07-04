@@ -50,7 +50,7 @@ export function ResendDeployButton({ templateId, variables, serverIds, reason, l
 			>
 				{pending ? t("deploymentsPage.resend.submitting") : (label || t("deploymentsPage.resend.triggerBtn"))}
 			</button>
-			{error && <span role="alert" className="text-xs text-rose-300">{error}</span>}
+			{error && <span role="alert" className="text-xs text-[var(--danger)]">{error}</span>}
 		</div>
 	);
 }

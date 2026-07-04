@@ -43,12 +43,13 @@ export function FieldRenderer({
   showHighRiskWarning,
   onHighRiskBlur,
 }: FieldRendererProps) {
+  const { t } = useI18n();
   if (field.type === "switch") {
     return (
       <div className="flex items-center justify-between gap-3">
-        <span className="text-sm text-[var(--text-secondary)]">{field.label}</span>
+        <span className="text-sm text-[var(--text-secondary)]">{t(field.labelKey)}</span>
         <SwitchField
-          label={field.label}
+          label={t(field.labelKey)}
           riskLevel={field.riskLevel}
           value={value === "true"}
           onChange={(v) => onChange(v ? "true" : "false")}
@@ -128,7 +129,7 @@ function RuntimeSummaryPanel({
         {summary.unit}
       </p>
       {summary.requiresRestart && (
-        <p className="font-medium text-amber-200 light:text-amber-700">
+        <p className="font-medium text-[var(--warning)]">
           {t("settingsClient.runtimeRestartWarning")}
         </p>
       )}
@@ -143,7 +144,7 @@ function HighRiskBlurWarning({ id }: { id: string }) {
       id={id}
       role="alert"
       data-testid="high-risk-blur-warning"
-      className="rounded-lg border border-rose-400/30 bg-rose-500/[0.10] px-2.5 py-1.5 text-[11px] leading-5 text-rose-100 light:border-rose-300/40 light:bg-rose-50 light:text-rose-800"
+      className="rounded-lg border border-[var(--danger-border)] bg-[var(--danger-bg)] px-2.5 py-1.5 text-[11px] leading-5 text-[var(--danger)]"
     >
       <span aria-hidden className="mr-1">
         ⚠
@@ -163,6 +164,7 @@ export function SelectField({
   showHighRiskWarning,
   onHighRiskBlur,
 }: CommonProps) {
+  const { t } = useI18n();
   const inputId = useId();
   const helperId = useId();
   const runtimeId = useId();
@@ -195,7 +197,7 @@ export function SelectField({
           htmlFor={inputId}
           className="flex flex-1 items-center gap-1.5 text-xs font-semibold text-[var(--text-primary)] tracking-wide"
         >
-          {field.label}
+          {t(field.labelKey)}
         </label>
         <FieldRiskBadge level={field.riskLevel} />
         <FieldRollbackButton
@@ -212,11 +214,11 @@ export function SelectField({
         onBlur={() => onHighRiskBlur(normalizedValue)}
         disabled={disabled}
         aria-describedby={describedBy}
-        className="w-full rounded-lg border border-[var(--border)] bg-[var(--surface)]/[0.04] px-3.5 py-2.5 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--color-action-border)]/30 disabled:cursor-not-allowed disabled:border-[var(--border)] disabled:bg-[var(--surface-subtle)] disabled:text-[var(--text-muted)] light:disabled:border-slate-200 light:disabled:bg-slate-100 light:disabled:text-[var(--text-muted)]"
+        className="w-full rounded-lg border border-[var(--border)] bg-[var(--surface)]/[0.04] px-3.5 py-2.5 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--color-action-border)]/30 disabled:cursor-not-allowed disabled:border-[var(--border)] disabled:bg-[var(--surface-subtle)] disabled:text-[var(--text-muted)]"
       >
         {options.map((opt) => (
           <option key={opt.value} value={opt.value} className="bg-[var(--surface)] text-[var(--text-primary)]">
-            {opt.label}
+            {t(opt.labelKey)}
           </option>
         ))}
       </select>
@@ -243,6 +245,7 @@ export function InputField({
   showHighRiskWarning,
   onHighRiskBlur,
 }: CommonProps) {
+  const { t } = useI18n();
   const inputId = useId();
   const helperId = useId();
   const runtimeId = useId();
@@ -268,7 +271,7 @@ export function InputField({
           htmlFor={inputId}
           className="flex flex-1 items-center gap-1.5 text-xs font-semibold text-[var(--text-primary)] tracking-wide"
         >
-          {field.label}
+          {t(field.labelKey)}
         </label>
         <FieldRiskBadge level={field.riskLevel} />
         <FieldRollbackButton
@@ -284,11 +287,11 @@ export function InputField({
         value={value}
         onChange={(e) => onChange(e.target.value)}
         onBlur={() => onHighRiskBlur(value)}
-        placeholder={field.placeholder}
+        placeholder={field.placeholderKey ? t(field.placeholderKey) : field.defaultValue ?? ""}
         autoComplete={field.autoComplete}
         disabled={disabled}
         aria-describedby={describedBy}
-        className="w-full rounded-lg border border-[var(--border)] bg-[var(--surface)]/[0.04] px-3.5 py-2.5 text-sm text-[var(--text-primary)] outline-none transition placeholder:text-[var(--text-primary)]/30 focus:border-[var(--color-action-border)]/30 disabled:cursor-not-allowed disabled:border-[var(--border)] disabled:bg-[var(--surface-subtle)] disabled:text-[var(--text-muted)] disabled:placeholder:text-[var(--text-primary)]/10 light:disabled:border-slate-200 light:disabled:bg-slate-100 light:disabled:text-[var(--text-muted)] light:disabled:placeholder:text-[var(--text-secondary)]"
+        className="w-full rounded-lg border border-[var(--border)] bg-[var(--surface)]/[0.04] px-3.5 py-2.5 text-sm text-[var(--text-primary)] outline-none transition placeholder:text-[var(--text-primary)]/30 focus:border-[var(--color-action-border)]/30 disabled:cursor-not-allowed disabled:border-[var(--border)] disabled:bg-[var(--surface-subtle)] disabled:text-[var(--text-muted)] disabled:placeholder:text-[var(--text-primary)]/10 light:disabled:placeholder:text-[var(--text-secondary)]"
       />
       {showHighRiskWarning && <HighRiskBlurWarning id={warningId} />}
       {helperText && (
@@ -312,6 +315,7 @@ export function TextAreaField({
   showHighRiskWarning,
   onHighRiskBlur,
 }: CommonProps) {
+  const { t } = useI18n();
   const inputId = useId();
   const helperId = useId();
   const warningId = useId();
@@ -328,7 +332,7 @@ export function TextAreaField({
           htmlFor={inputId}
           className="flex flex-1 items-center gap-1.5 text-xs font-semibold text-[var(--text-primary)] tracking-wide"
         >
-          {field.label}
+          {t(field.labelKey)}
         </label>
         <FieldRiskBadge level={field.riskLevel} />
         <FieldRollbackButton
@@ -343,7 +347,7 @@ export function TextAreaField({
         value={value}
         onChange={(e) => onChange(e.target.value)}
         onBlur={() => onHighRiskBlur(value)}
-        placeholder={field.placeholder}
+        placeholder={field.placeholderKey ? t(field.placeholderKey) : field.defaultValue ?? ""}
         disabled={disabled}
         aria-describedby={
           [helperText ? helperId : null, showHighRiskWarning ? warningId : null]

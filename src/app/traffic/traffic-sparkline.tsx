@@ -108,8 +108,8 @@ export function TrafficSparkline({
 						<span className="inline-block h-2 w-2 rounded-full bg-[var(--color-action-bg)]" />
 						{labels.rx ?? "RX"} {formatRate(last.rx)}
 					</span>
-					<span className="inline-flex items-center gap-1.5 text-emerald-300">
-						<span className="inline-block h-2 w-2 rounded-full bg-emerald-400" />
+					<span className="inline-flex items-center gap-1.5 text-[var(--success)]">
+						<span className="inline-block h-2 w-2 rounded-full bg-[var(--success)]" />
 						{labels.tx ?? "TX"} {formatRate(last.tx)}
 					</span>
 				</div>

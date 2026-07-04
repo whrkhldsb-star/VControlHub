@@ -145,7 +145,7 @@ export function SnippetEditModal({
           </label>
         </div>
 
-        {error && <p className="mt-2 text-xs text-rose-400">{error}</p>}
+        {error && <p className="mt-2 text-xs text-[var(--danger)]">{error}</p>}
 
         <div className="mt-5 flex justify-end gap-3">
           <button

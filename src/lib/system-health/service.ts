@@ -13,6 +13,8 @@ export type SystemHealthCheck = {
   status: SystemHealthStatus;
   message: string;
   detail?: string;
+  params?: Record<string, string | number>;
+  messageCode?: string;
 };
 
 export type SystemHealthSummary = {
@@ -61,9 +63,9 @@ async function checkPathExists(projectRoot: string, dir: string): Promise<System
   const absolute = join(projectRoot, dir);
   try {
     await access(absolute);
-    return { id: `dir-${dir}`, label: `运行目录 ${dir}`, status: "healthy", message: "目录存在", detail: relative(projectRoot, absolute) };
+    return { id: `dir-${dir}`, label: `运行目录 ${dir}`, status: "healthy", message: "目录存在", detail: relative(projectRoot, absolute), params: { name: dir }, messageCode: "healthy" };
   } catch {
-    return { id: `dir-${dir}`, label: `运行目录 ${dir}`, status: "warning", message: "目录不存在，部署脚本会自动创建", detail: dir };
+    return { id: `dir-${dir}`, label: `运行目录 ${dir}`, status: "warning", message: "目录不存在，部署脚本会自动创建", detail: dir, params: { name: dir }, messageCode: "warning" };
   }
 }
 
@@ -73,9 +75,9 @@ export async function collectSystemHealthChecks(options: { projectRoot?: string 
 
   try {
     await prisma.$queryRaw`SELECT 1`;
-    checks.push({ id: "database", label: "数据库连接", status: "healthy", message: "数据库可查询" });
+    checks.push({ id: "database", label: "数据库连接", status: "healthy", message: "数据库可查询", messageCode: "healthy" });
   } catch (error) {
-    checks.push({ id: "database", label: "数据库连接", status: "critical", message: "数据库不可用", detail: sanitizeDetail(error instanceof Error ? error.message : String(error)) });
+    checks.push({ id: "database", label: "数据库连接", status: "critical", message: "数据库不可用", detail: sanitizeDetail(error instanceof Error ? error.message : String(error)), messageCode: "critical" });
   }
 
   const [serverCount, storageNodeCount] = await Promise.all([
@@ -87,27 +89,32 @@ export async function collectSystemHealthChecks(options: { projectRoot?: string 
     label: "VPS 节点资产",
     status: serverCount >= 0 ? "healthy" : "warning",
     message: serverCount >= 0 ? `已纳管 ${serverCount} 个 VPS 节点` : "无法读取 VPS 节点",
+    params: serverCount >= 0 ? { count: serverCount } : undefined,
+    messageCode: serverCount >= 0 ? "healthy" : "warning",
   });
   checks.push({
     id: "storage-inventory",
     label: "云盘存储节点",
     status: storageNodeCount > 0 ? "healthy" : "warning",
     message: storageNodeCount > 0 ? `已配置 ${storageNodeCount} 个存储节点` : "尚未配置存储节点",
+    params: storageNodeCount > 0 ? { count: storageNodeCount } : undefined,
+    messageCode: storageNodeCount > 0 ? "healthy" : "warning",
   });
 
   const dirChecks = await Promise.all(RUNTIME_DIRS.map((dir) => checkPathExists(projectRoot, dir)));
-  checks.push({ id: "runtime-directories", label: "运行目录基线", status: dirChecks.some((c) => c.status !== "healthy") ? "warning" : "healthy", message: `${dirChecks.filter((c) => c.status === "healthy").length}/${dirChecks.length} 个运行目录可用` });
+  const dirOk = dirChecks.filter((c) => c.status === "healthy").length;
+  checks.push({ id: "runtime-directories", label: "运行目录基线", status: dirOk < dirChecks.length ? "warning" : "healthy", message: `${dirOk}/${dirChecks.length} 个运行目录可用`, params: { ok: dirOk, total: dirChecks.length }, messageCode: dirOk < dirChecks.length ? "warning" : "healthy" });
   checks.push(...dirChecks);
 
-  const serviceChecks = SERVICE_CHECKS.map((service) => {
+  const serviceChecks = SERVICE_CHECKS.map((service): SystemHealthCheck => {
     const state = safeExecFile("systemctl", ["is-active", service.unit]);
     if (state === "active") {
-      return { id: service.id, label: service.label, status: "healthy" as const, message: `${service.unit} 正在运行` };
+      return { id: service.id, label: service.label, status: "healthy" as const, message: `${service.unit} 正在运行`, params: { unit: service.unit }, messageCode: "running" };
     }
     if (state) {
-      return { id: service.id, label: service.label, status: "critical" as const, message: `${service.unit} 当前状态为 ${state}` };
+      return { id: service.id, label: service.label, status: "critical" as const, message: `${service.unit} 当前状态为 ${state}`, params: { unit: service.unit, state }, messageCode: "state" };
     }
-    return { id: service.id, label: service.label, status: "warning" as const, message: `${service.unit} 状态暂不可读` };
+    return { id: service.id, label: service.label, status: "warning" as const, message: `${service.unit} 状态暂不可读`, params: { unit: service.unit }, messageCode: "unreadable" };
   });
   checks.push(...serviceChecks);
 
@@ -118,10 +125,10 @@ export async function collectSystemHealthChecks(options: { projectRoot?: string 
       return "critical";
     }
   })();
-  checks.push({ id: "env-database-url", label: "数据库环境变量", status: envState, message: envState === "healthy" ? "DATABASE_URL 已配置" : "DATABASE_URL 未配置或仍是占位符" });
+  checks.push({ id: "env-database-url", label: "数据库环境变量", status: envState, message: envState === "healthy" ? "DATABASE_URL 已配置" : "DATABASE_URL 未配置或仍是占位符", messageCode: envState });
 
-  const settings = await prisma.setting.findMany({ where: { key: { startsWith: "notification." } }, take: 100 }).catch(() => []); // P2: notification.* setting 键数有限
-  checks.push({ id: "notification-settings", label: "通知渠道配置", status: settings.length > 0 ? "healthy" : "warning", message: settings.length > 0 ? `已保存 ${settings.length} 项通知渠道配置` : "可在系统设置中配置通知渠道" });
+  const settings = await prisma.setting.findMany({ where: { key: { startsWith: "notification." } }, take: 100 }).catch(() => []);
+  checks.push({ id: "notification-settings", label: "通知渠道配置", status: settings.length > 0 ? "healthy" : "warning", message: settings.length > 0 ? `已保存 ${settings.length} 项通知渠道配置` : "可在系统设置中配置通知渠道", params: settings.length > 0 ? { count: settings.length } : undefined, messageCode: settings.length > 0 ? "healthy" : "warning" });
 
   const gitHead = safeExecFile("git", ["-C", projectRoot, "rev-parse", "--short", "HEAD"]);
   const remoteLine = safeExecFile("git", ["-C", projectRoot, "ls-remote", "origin", "refs/heads/main"]);
@@ -137,6 +144,12 @@ export async function collectSystemHealthChecks(options: { projectRoot?: string 
           ? `本地提交 ${gitHead} 与 origin/main 一致`
           : `本地 ${gitHead} 与 origin/main ${gitRemoteHead} 不一致`
         : `当前提交 ${gitHead}，远端状态暂不可确认`,
+      params: gitRemoteHead
+        ? gitHealthy
+          ? { head: gitHead }
+          : { head: gitHead, remote: gitRemoteHead }
+        : { head: gitHead },
+      messageCode: gitRemoteHead ? (gitHealthy ? "synced" : "differs") : "no-remote",
     });
   } else {
     checks.push({
@@ -144,6 +157,7 @@ export async function collectSystemHealthChecks(options: { projectRoot?: string 
       label: "GitHub 同步状态",
       status: "warning",
       message: "当前目录不是可识别的 Git 仓库或无法读取 HEAD",
+      messageCode: "no-git",
     });
   }
 

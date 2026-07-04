@@ -166,7 +166,7 @@ export function AiProviderPanel({
                         {PROVIDER_TYPES[p.type] || p.type}
                       </span>
                       {p.isDefault && <span className="text-[10px] text-[var(--color-action)] bg-[var(--color-action-bg)]/10 px-1.5 py-0.5 rounded-lg">{t("common.default")}</span>}
-                      {!p.enabled && <span className="text-[10px] text-rose-400 bg-rose-400/10 px-1.5 py-0.5 rounded-lg">{t("aiPage.disabledBadge")}</span>}
+                      {!p.enabled && <span className="text-[10px] text-[var(--danger)] bg-[var(--danger-bg)] px-1.5 py-0.5 rounded-lg">{t("aiPage.disabledBadge")}</span>}
                     </div>
                     <p className="text-[11px] text-[var(--text-muted)] mt-0.5 truncate">{p.baseUrl} · {p.defaultModel}</p>
                   </div>
@@ -182,7 +182,7 @@ export function AiProviderPanel({
                           onRefreshProviders();
                         } catch { /* ignore */ }
                       }}
-                      className={`text-xs transition ${p.enabled ? "text-amber-400/60 hover:text-amber-400" : "text-green-400/60 hover:text-green-400"}`}
+                      className={`text-xs transition ${p.enabled ? "text-[var(--warning)]0/60 hover:text-[var(--warning)]" : "text-[var(--success)]0/60 hover:text-[var(--success)]"}`}
                     >
                       {p.enabled ? t("aiPage.disableAction") : t("aiPage.enableAction")}
                     </button>
@@ -195,7 +195,7 @@ export function AiProviderPanel({
                     </button>
                     <button
                       onClick={() => onDeleteProvider(p.id)}
-                      className="text-xs text-rose-400/60 hover:text-rose-400 transition"
+                      className="text-xs text-[var(--danger)]0/60 hover:text-[var(--danger)] transition"
                       aria-label={t("aiPage.deleteProviderAria2").replace("{name}", p.name)}
                     >
                       {t("aiPage.deleteAction")}
@@ -210,7 +210,7 @@ export function AiProviderPanel({
             <div data-tone="cyan" className="space-y-3 rounded-xl border border-[var(--color-action-border)]/20 p-3">
               <div className="flex items-center justify-between gap-3">
                 <h4 className="text-xs text-[var(--text-secondary)] uppercase tracking-wider">{t("aiPage.editProviderTitle")}</h4>
-                <button type="button" onClick={cancelEditing} className="text-xs text-[var(--text-secondary)] hover:text-[var(--text-secondary)] light:hover:text-slate-800">{t("aiPage.cancelEditing")}</button>
+                <button type="button" onClick={cancelEditing} className="text-xs text-[var(--text-secondary)] hover:text-[var(--text-secondary)] light:hover:text-[var(--text-disabled)]">{t("aiPage.cancelEditing")}</button>
               </div>
               <div className="grid grid-cols-2 gap-3 max-sm:grid-cols-1">
                 <div>

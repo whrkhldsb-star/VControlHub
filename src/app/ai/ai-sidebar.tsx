@@ -59,7 +59,7 @@ export function AiSidebar({
                 className={`group flex items-center gap-2 rounded-lg px-3 py-2 cursor-pointer transition ${
  activeConvId === conv.id
  ?"bg-[var(--color-action-bg)]/[0.10] text-[var(--text-primary)]"
- :"text-[var(--text-secondary)] hover:bg-[var(--surface)]/[0.04] hover:text-[var(--text-secondary)] light:hover:text-slate-800"
+ :"text-[var(--text-secondary)] hover:bg-[var(--surface)]/[0.04] hover:text-[var(--text-secondary)] light:hover:text-[var(--text-disabled)]"
  }`}
                 onClick={() => onSelectConv(conv.id)}
               >
@@ -73,7 +73,7 @@ export function AiSidebar({
                     onDeleteConv(conv.id);
                   }}
                   aria-label={t("aiPage.deleteConversationAria").replace("{title}", conv.title)}
-                  className="opacity-0 group-hover:opacity-100 text-rose-400/60 hover:text-rose-400 transition"
+                  className="opacity-0 group-hover:opacity-100 text-[var(--danger)]0/60 hover:text-[var(--danger)] transition"
                 >
                   <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" width="24" height="24" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -87,7 +87,7 @@ export function AiSidebar({
           <div className="border-t border-[var(--border)] p-2 space-y-1">
             <button
               onClick={onToggleProviders}
-              className="w-full flex items-center gap-2 rounded-lg px-3 py-2 text-xs text-[var(--text-secondary)] hover:bg-[var(--surface)]/[0.04] hover:text-[var(--text-secondary)] light:hover:text-slate-800 transition"
+              className="w-full flex items-center gap-2 rounded-lg px-3 py-2 text-xs text-[var(--text-secondary)] hover:bg-[var(--surface)]/[0.04] hover:text-[var(--text-secondary)] light:hover:text-[var(--text-disabled)] transition"
             >
               <svg className="w-4 h-4" fill="none" stroke="currentColor" width="24" height="24" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.857L8 16H6v2H4v2H2v-2.586l7.44-7.44A6 6 0 0121 9z" />
@@ -96,7 +96,7 @@ export function AiSidebar({
             </button>
             <button
               onClick={() => onToggleSidebar(false)}
-              className="w-full flex items-center gap-2 rounded-lg px-3 py-2 text-xs text-[var(--text-secondary)] hover:bg-[var(--surface)]/[0.04] hover:text-[var(--text-secondary)] light:hover:text-slate-800 transition lg:hidden"
+              className="w-full flex items-center gap-2 rounded-lg px-3 py-2 text-xs text-[var(--text-secondary)] hover:bg-[var(--surface)]/[0.04] hover:text-[var(--text-secondary)] light:hover:text-[var(--text-disabled)] transition lg:hidden"
             >
               <svg className="w-4 h-4" fill="none" stroke="currentColor" width="24" height="24" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M11 19l-7-7 7-7m8 14l-7-7 7-7" />

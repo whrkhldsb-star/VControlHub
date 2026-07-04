@@ -76,8 +76,8 @@ export function RenameInlineForm({
         aria-label={`${t("renameInlineForm.rename")} ${currentName}`}
         className={
           variant === "menu"
-            ? "flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-left text-sm text-amber-100 transition hover:bg-amber-400/10"
-            : "inline-flex h-8 w-8 items-center justify-center rounded-lg border border-amber-400/30 bg-amber-400/10 text-amber-100 transition hover:bg-amber-400/20"
+            ? "flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-left text-sm text-[var(--warning)] transition hover:bg-[var(--warning-bg)]"
+            : "inline-flex h-8 w-8 items-center justify-center rounded-lg border border-[var(--warning-border)] bg-[var(--warning-bg)] text-[var(--warning)] transition hover:bg-[var(--warning-bg)]"
         }
       >
         <svg

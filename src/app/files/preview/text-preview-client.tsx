@@ -4,272 +4,24 @@ import { useState, useEffect, useRef, useCallback, useMemo, useReducer } from "r
 import { csrfFetch } from "@/lib/auth/csrf-client";
 import { useI18n } from "@/lib/i18n/use-locale";
 import { FindBarLazy } from "./find-bar-lazy";
-
-type PreviewState = { loading: true } | { loading: false; content: string | null; error: string | null };
-type PreviewMetaState = {
-	editMode: boolean;
-	showDiffReview: boolean;
-	saveStatus: "idle" | "saving" | "saved" | "reloading" | "reloaded" | "error";
-	saveMessage: string;
-	reloadMessage: string;
-};
-
-const INITIAL_PREVIEW_META: PreviewMetaState = {
-	editMode: false,
-	showDiffReview: false,
-	saveStatus: "idle",
-	saveMessage: "",
-	reloadMessage: "",
-};
-
-type DiffRow = { line: number; before: string; after: string; kind: "added" | "removed" | "changed" };
-
-type EditorFindState = {
-	open: boolean;
-	query: string;
-	total: number;
-	current: number;
-};
-
-const INITIAL_EDITOR_FIND: EditorFindState = {
-	open: false,
-	query: "",
-	total: 0,
-	current: 0,
-};
-
-function countMatches(text: string, query: string): number {
-	if (!query) return 0;
-	let count = 0;
-	let idx = text.indexOf(query);
-	while (idx !== -1) {
-		count += 1;
-		idx = text.indexOf(query, idx + query.length);
-	}
-	return count;
-}
-
-const LANG_MAP: Record<string, string> = {
-	js: "javascript", jsx: "javascript", ts: "typescript", tsx: "typescript",
-	mjs: "javascript", cjs: "javascript",
-	py: "python", pyw: "python",
-	json: "json", jsonl: "json",
-	yml: "yaml", yaml: "yaml",
-	toml: "toml", ini: "toml", cfg: "toml", conf: "toml",
-	sh: "shell", bash: "shell", zsh: "shell", fish: "shell",
-	html: "html", htm: "html", xml: "xml", xsl: "xml", xslt: "xml", svg: "xml",
-	css: "css", scss: "css", sass: "css", less: "css",
-	sql: "sql",
-	go: "go", rs: "rust", java: "java", kt: "kotlin",
-	c: "c", h: "c", cpp: "cpp", cc: "cpp", cxx: "cpp", hpp: "cpp",
-	rb: "ruby", php: "php", lua: "lua",
-	dockerfile: "dockerfile", makefile: "makefile",
-	env: "env", gitignore: "env",
-	log: "log",
-};
-
-const TAB_INDENT = "	";
-
-function getLangFromName(name?: string): string {
-	if (!name) return "text";
-	const lower = name.toLowerCase();
-	if (lower === "dockerfile" || lower === "makefile" || lower === "vagrantfile" || lower === "gemfile") return LANG_MAP[lower] ?? "text";
-	const ext = lower.split(".").pop() ?? "";
-	return LANG_MAP[ext] ?? "text";
-}
-
-function buildLineDiff(before: string, after: string): DiffRow[] {
-	const beforeLines = before.split("\n");
-	const afterLines = after.split("\n");
-	const max = Math.max(beforeLines.length, afterLines.length);
-	const rows: DiffRow[] = [];
-	for (let i = 0; i < max; i += 1) {
-		const previous = beforeLines[i];
-		const next = afterLines[i];
-		if (previous === next) continue;
-		rows.push({
-			line: i + 1,
-			before: previous ?? "",
-			after: next ?? "",
-			kind: previous == null ? "added" : next == null ? "removed" : "changed",
-		});
-	}
-	return rows;
-}
-
-/* Simple token-based syntax highlighting using regex.
-   Strategy: extract comments/strings first as placeholders, highlight keywords, then restore. */
-
-
-function highlightLine(line: string, lang: string): string {
-	if (lang === "text" || lang === "log") return escapeHtml(line);
-	if (lang === "json") return highlightJson(line);
-	
-	let escaped = escapeHtml(line);
-	
-	const rules = getRules(lang);
-	for (const rule of rules) {
-		escaped = escaped.replace(rule.regex, rule.replace);
-	}
-	return escaped;
-}
-
-function getRules(lang: string): { regex: RegExp; replace: string }[] {
-	const commentRule = (prefix: string) => ({
-		regex: new RegExp(`(${escapeRegex(escapeHtml(prefix))}.*)$`),
-		replace: '<span class="text-[var(--text-muted)] italic">$1</span>',
-	});
-	
-	const jsKeywords = "break|case|catch|class|const|continue|debugger|default|delete|do|else|export|extends|finally|for|from|function|if|import|in|instanceof|let|new|of|return|static|super|switch|this|throw|try|typeof|var|void|while|with|yield|async|await|interface|type|enum|implements|declare|namespace|module|as|readonly|abstract|override|private|protected|public";
-	const pyKeywords = "and|as|assert|async|await|break|class|continue|def|del|elif|else|except|finally|for|from|global|if|import|in|is|lambda|nonlocal|not|or|pass|raise|return|try|while|with|yield|True|False|None";
-	const shellKeywords = "if|then|else|elif|fi|for|while|do|done|case|esac|function|return|exit|export|source|local|readonly|set|unset|echo|cd|mkdir|rm|cp|mv|cat|grep|sed|awk|find|chmod|chown|sudo|apt|yum|npm|pip|git|docker|systemctl";
-	
-	const kw = (words: string) => ({
-		regex: new RegExp(`\\b(${words})\\b`, "g"),
-		replace: '<span class="text-blue-400 font-medium">$1</span>',
-	});
-	
-	const strRule = {
-		regex: /(&quot;[^&]*?&quot;|&#39;[^&]*?&#39;|`[^`]*?`)/g,
-		replace: '<span class="text-emerald-400">$1</span>',
-	};
-	
-	const numRule = {
-		regex: /\b(\d+\.?\d*)\b/g,
-		replace: '<span class="text-amber-400">$1</span>',
-	};
-	
-	const decoratorRule = {
-		regex: /(@\w+)/g,
-		replace: '<span class="text-purple-400">$1</span>',
-	};
-	
-	const common: { regex: RegExp; replace: string }[] = [strRule, numRule];
-	
-	switch (lang) {
-		case "javascript":
-		case "typescript":
-			return [commentRule("//"), kw(jsKeywords), decoratorRule, ...common];
-		case "python":
-			return [commentRule("#"), kw(pyKeywords), decoratorRule, ...common];
-		case "shell":
-			return [commentRule("#"), kw(shellKeywords), ...common];
-		case "yaml":
-		case "toml":
-			return [
-				commentRule("#"),
-				{ regex: /^(\s*[\w.-]+)(\s*[:=]\s*)/gm, replace: '<span class="text-[var(--color-action)]">$1</span>$2' },
-				...common,
-			];
-		case "env":
-			return [
-				commentRule("#"),
-				{ regex: /^(\s*[\w.-]+)(=)/gm, replace: '<span class="text-[var(--color-action)]">$1</span><span class="text-[var(--text-muted)]">=</span>' },
-				...common,
-			];
-		case "html":
-		case "xml":
-			return [
-				commentRule("<!--"),
-				{ regex: /(&lt;\/?[\w.-]+)/g, replace: '<span class="text-blue-400">$1</span>' },
-				{ regex: /(\s[\w.-]+)(=)/g, replace: '<span class="text-[var(--color-action)]">$1</span><span class="text-[var(--text-muted)]">=</span>' },
-				strRule,
-			];
-		case "css":
-			return [
-				commentRule("/*"),
-				{ regex: /([.#]?[\w-]+)\s*\{/g, replace: '<span class="text-[var(--color-action)]">$1</span> {' },
-				{ regex: /([\w-]+)(\s*:)/g, replace: '<span class="text-[var(--text-primary)]">$1</span>$2' },
-				strRule,
-			];
-		case "sql":
-			return [
-				commentRule("--"),
-				kw("SELECT|FROM|WHERE|INSERT|INTO|VALUES|UPDATE|SET|DELETE|CREATE|TABLE|ALTER|DROP|INDEX|JOIN|LEFT|RIGHT|INNER|OUTER|ON|AND|OR|NOT|IN|IS|NULL|LIKE|ORDER|BY|GROUP|HAVING|LIMIT|OFFSET|AS|DISTINCT|COUNT|SUM|AVG|MAX|MIN|UNION|ALL|EXISTS|BETWEEN|CASE|WHEN|THEN|ELSE|END|ASC|DESC|PRIMARY|KEY|FOREIGN|REFERENCES|CONSTRAINT|DEFAULT|AUTO_INCREMENT|IF|BEGIN|COMMIT|ROLLBACK|TRANSACTION|VIEW|PROCEDURE|FUNCTION|TRIGGER|GRANT|REVOKE|DATABASE|SCHEMA"),
-				...common,
-			];
-		case "go":
-			return [
-				commentRule("//"),
-				kw("break|case|chan|const|continue|default|defer|else|fallthrough|for|func|go|goto|if|import|interface|map|package|range|return|select|struct|switch|type|var|nil|true|false|iota|append|cap|close|copy|delete|len|make|new|panic|print|println|recover"),
-				...common,
-			];
-		case "rust":
-			return [
-				commentRule("//"),
-				kw("as|async|await|break|const|continue|crate|dyn|else|enum|extern|fn|for|if|impl|in|let|loop|match|mod|move|mut|pub|ref|return|self|Self|static|struct|super|trait|type|unsafe|use|where|while|yield|true|false|Some|None|Ok|Err"),
-				...common,
-			];
-		case "ruby":
-			return [
-				commentRule("#"),
-				kw("alias|and|begin|break|case|class|def|defined|do|else|elsif|end|ensure|for|if|in|module|next|nil|not|or|redo|rescue|retry|return|self|super|then|undef|unless|until|when|while|yield|true|false|require|include|attr|raise|puts"),
-				decoratorRule,
-				...common,
-			];
-		case "php":
-			return [
-				commentRule("//"),
-				kw("abstract|and|array|as|break|callable|case|catch|class|clone|const|continue|declare|default|die|do|echo|else|elseif|empty|endfor|endforeach|endif|endswitch|endwhile|eval|exit|extends|final|finally|for|foreach|function|global|goto|if|implements|include|instanceof|insteadof|interface|isset|list|namespace|new|or|print|private|protected|public|require|return|static|switch|throw|trait|try|unset|use|var|while|xor|yield|true|false|null"),
-				{ regex: /(\$\w+)/g, replace: '<span class="text-purple-300">$1</span>' },
-				...common,
-			];
-		default:
-			return common;
-	}
-}
-
-function highlightJson(line: string): string {
-	let escaped = escapeHtml(line);
-	// keys
-	escaped = escaped.replace(/^\s*(&quot;[^&]+?&quot;)\s*(:)/, '<span class="text-[var(--color-action)]">$1</span><span class="text-[var(--text-muted)]">:</span>');
-	// string values
-	escaped = escaped.replace(/:\s*(&quot;[^&]*?&quot;)([,\s}]*)$/, ': <span class="text-emerald-400">$1</span>$2');
-	// standalone strings in arrays
-	escaped = escaped.replace(/^\s*(&quot;[^&]*?&quot;)([,\s\]]*)$/, '<span class="text-emerald-400">$1</span>$2');
-	// numbers
-	escaped = escaped.replace(/:\s*(\d+\.?\d*)([,\s}]*)$/, ': <span class="text-amber-400">$1</span>$2');
-	// booleans & null
-	escaped = escaped.replace(/:\s*(true|false|null)([,\s}]*)$/, ': <span class="text-blue-400">$1</span>$2');
-	return escaped;
-}
-
-function escapeHtml(s: string): string {
-	return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#39;");
-}
-
-function escapeRegex(s: string): string {
-	return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-}
-
-const LANG_LABELS: Record<string, string> = {
-	javascript: "JavaScript", typescript: "TypeScript", python: "Python", json: "JSON",
-	yaml: "YAML", toml: "TOML/INI", shell: "Shell", html: "HTML", xml: "XML",
-	css: "CSS", sql: "SQL", go: "Go", rust: "Rust", ruby: "Ruby", php: "PHP",
-	c: "C", cpp: "C++", java: "Java", kotlin: "Kotlin", lua: "Lua",
-};
-
-function langLabel(t: (k: string) => string, lang: string): string {
-	const translated = t(`textPreview.type.${lang}`);
-	return translated === `textPreview.type.${lang}` ? (LANG_LABELS[lang] ?? lang) : translated;
-}
-
-type EditableDraft = {
-	content: string;
-	byteSize: number;
-	lastModifiedMs?: number | null;
-	updatedAt?: string | null;
-};
-
-type SaveResponse = {
-	success: boolean;
-	file: {
-		byteSize: number;
-		previousByteSize?: number;
-		lastModifiedMs?: number | null;
-		updatedAt?: string | null;
-	};
-};
+import { EditorFindBar } from "./editor-find-bar";
+import { DiffReviewDialog } from "./diff-review-dialog";
+import {
+	getLangFromName,
+	highlightLine,
+	escapeHtml,
+	escapeRegex,
+	buildLineDiff,
+} from "./syntax-highlighter";
+import type {
+	PreviewState,
+	PreviewMetaState,
+	EditorFindState,
+	EditableDraft,
+	SaveResponse,
+} from "./text-preview-types";
+import { INITIAL_PREVIEW_META, INITIAL_EDITOR_FIND } from "./text-preview-types";
+import { countMatches, TAB_INDENT, langLabel } from "./text-preview-helpers";
 
 export function TextPreviewClient({
 	href,
@@ -791,136 +543,29 @@ export function TextPreviewClient({
 			</div>
 
 			{editMode && showDiffReview ? (
-				<div role="dialog" aria-modal="true" aria-label={t("textPreview.diffDialog.title")} data-tone="amber" className="rounded-2xl border border-amber-400/20 p-4 shadow-2xl shadow-black/20">
-					<div className="flex flex-wrap items-start justify-between gap-3">
-						<div>
-							<h3 className="text-sm font-semibold text-amber-100">{t("textPreview.diffDialog.title")}</h3>
-							<p className="mt-1 text-xs text-amber-100/80">
-								{t("textPreview.diffDialog.summary").replace("{added}", String(diffSummary.added)).replace("{removed}", String(diffSummary.removed)).replace("{changed}", String(diffSummary.changed))}
-							</p>
-							<p className="mt-1 text-xs text-amber-100/70">
-								{t("textPreview.diffDialog.note")}
-							</p>
-						</div>
-						<div className="flex gap-2">
-							<button
-								type="button"
-								onClick={() => setShowDiffReview(false)}
-								disabled={saveStatus === "saving" || saveStatus === "reloading"}
-								className="rounded-lg border border-slate-600/60 bg-[var(--surface)]/70 px-3 py-1.5 text-xs text-[var(--text-primary)] disabled:opacity-50"
-							>
-								{t("textPreview.button.backToEdit")}
-							</button>
-							<button
-								type="button"
-								onClick={handleSave}
-								disabled={saveStatus === "saving" || saveStatus === "reloading" || diffRows.length === 0}
-								data-tone="emerald" className="rounded-lg border border-emerald-300/40 px-3 py-1.5 text-xs font-medium text-emerald-100 disabled:opacity-50"
-							>
-								{saveStatus === "saving" ? t("textPreview.button.saving") : t("textPreview.button.confirmSave")}
-							</button>
-							{canReloadAfterSave ? (
-								<button
-									type="button"
-									onClick={handleSaveAndReload}
-									disabled={saveStatus === "saving" || saveStatus === "reloading" || diffRows.length === 0}
-									data-tone="amber" className="rounded-lg border border-amber-300/40 px-3 py-1.5 text-xs font-medium text-amber-100 disabled:opacity-50"
-									title={reloadKind === "systemd"
-										? t("textPreview.reloadHint.systemdConfirm").replace("{unit}", reloadUnit ?? "")
-										: t("textPreview.reloadHint.dockerConfirm").replace("{unit}", reloadUnit ?? "")}
-								>
-									{saveStatus === "saving"
-										? t("textPreview.button.saving")
-										: saveStatus === "reloading"
-											? t("textPreview.button.reloading")
-											: t("textPreview.button.saveAndReload").replace("{unit}", reloadUnit ?? "")}
-								</button>
-							) : null}
-						</div>
-					</div>
-					<div className="mt-3 max-h-72 overflow-auto rounded-xl border border-[var(--border)]/[0.10] bg-[var(--surface)]">
-						{diffRows.length === 0 ? (
-							<p className="px-3 py-2 text-xs text-[var(--text-secondary)]">{t("textPreview.diffEmpty")}</p>
-						) : (
-							<ul className="divide-y divide-white/[0.10] light:divide-slate-200">
-								{diffRows.slice(0, 80).map((row) => (
-									<li key={`${row.line}-${row.kind}`} className="grid gap-1 px-3 py-2 text-xs md:grid-cols-[80px_1fr_1fr]">
-										<span className="font-mono text-[var(--text-muted)]">L{row.line} · {row.kind === "added" ? t("textPreview.diffKind.added") : row.kind === "removed" ? t("textPreview.diffKind.removed") : t("textPreview.diffKind.changed")}</span>
-										<code className="min-h-5 whitespace-pre-wrap break-all rounded-lg bg-rose-500/10 px-2 py-1 text-rose-200">- {row.before}</code>
-										<code className="min-h-5 whitespace-pre-wrap break-all rounded-lg bg-emerald-500/10 px-2 py-1 text-emerald-200">+ {row.after}</code>
-									</li>
-								))}
-								{diffRows.length > 80 ? <li className="px-3 py-2 text-xs text-[var(--text-muted)]">{t("textPreview.diffMore").replace("{count}", String(diffRows.length - 80))}</li> : null}
-							</ul>
-						)}
-					</div>
-				</div>
+				<DiffReviewDialog
+					diffRows={diffRows}
+					diffSummary={diffSummary}
+					saveStatus={saveStatus}
+					canReloadAfterSave={canReloadAfterSave}
+					reloadKind={reloadKind}
+					reloadUnit={reloadUnit}
+					onClose={() => setShowDiffReview(false)}
+					onSave={handleSave}
+					onSaveAndReload={handleSaveAndReload}
+				/>
 			) : null}
 
 			{editMode ? (
 				<div className="space-y-2">
 					{editorFind.open ? (
-						<div
-							role="search"
-							aria-label={t("textPreview.editor.findToggle")}
-							data-testid="editor-find-bar"
-							className="flex flex-wrap items-center gap-2 rounded-lg border border-amber-400/30 bg-[var(--surface)]/70 px-3 py-2"
-						>
-							<input
-								ref={editorFindInputRef}
-								type="text"
-								value={editorFind.query}
-								onChange={(event) => updateEditorFindQuery(event.currentTarget.value)}
-								onKeyDown={(event) => {
-									if (event.key === "Enter") {
-										event.preventDefault();
-										moveEditorFind(event.shiftKey ? -1 : 1);
-									}
-								}}
-								placeholder={t("textPreview.editor.findPlaceholder")}
-								aria-label={t("textPreview.editor.findPlaceholder")}
-								className="w-48 rounded-lg border border-slate-700 bg-[var(--surface)] px-2 py-1 text-xs text-[var(--text-secondary)] placeholder:text-[var(--text-muted)] focus:border-amber-300 focus:outline-none"
-							/>
-							<span className="text-xs text-[var(--text-secondary)]" data-testid="editor-find-count">
-								{editorFind.query === ""
-									? ""
-									: editorFind.total === 0
-										? t("textPreview.editor.findNoMatch")
-										: t("textPreview.editor.findMatchCount")
-											.replace("{current}", String(editorFind.current))
-											.replace("{total}", String(editorFind.total))}
-							</span>
-							<div className="flex-1" />
-							<button
-								type="button"
-								onClick={() => moveEditorFind(-1)}
-								disabled={editorFind.total === 0}
-								aria-label={t("textPreview.editor.findPrev")}
-								title={t("textPreview.editor.findPrev")}
-								className="rounded-lg border border-slate-700 bg-[var(--surface)] px-2 py-1 text-xs text-[var(--text-secondary)] hover:bg-[var(--surface-hover)] disabled:opacity-40"
-							>
-								↑
-							</button>
-							<button
-								type="button"
-								onClick={() => moveEditorFind(1)}
-								disabled={editorFind.total === 0}
-								aria-label={t("textPreview.editor.findNext")}
-								title={t("textPreview.editor.findNext")}
-								className="rounded-lg border border-slate-700 bg-[var(--surface)] px-2 py-1 text-xs text-[var(--text-secondary)] hover:bg-[var(--surface-hover)] disabled:opacity-40"
-							>
-								↓
-							</button>
-							<button
-								type="button"
-								onClick={closeEditorFind}
-								aria-label={t("textPreview.editor.findClose")}
-								title={t("textPreview.editor.findClose")}
-								className="rounded-lg border border-slate-700 bg-[var(--surface)] px-2 py-1 text-xs text-[var(--text-secondary)] hover:bg-[var(--surface-hover)]"
-							>
-								✕
-							</button>
-						</div>
+						<EditorFindBar
+							inputRef={editorFindInputRef}
+							find={editorFind}
+							onQueryChange={updateEditorFindQuery}
+							onMove={moveEditorFind}
+							onClose={closeEditorFind}
+						/>
 					) : null}
 					<div
 						title={t("textPreview.editor.indentHint")}

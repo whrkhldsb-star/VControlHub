@@ -2,35 +2,46 @@ import { describe, expect, it } from "vitest";
 
 import {
 	SETTINGS_SCHEMA,
-	buildTocItems,
 	getSectionSaveKeys,
 	parseInteger,
 } from "../field-schema";
+import type { FieldValidationError } from "../field-schema";
 
 describe("parseInteger", () => {
 	it("returns null for a value within range", () => {
-		expect(parseInteger("100", "X", 0, 200)).toBeNull();
-		expect(parseInteger("0", "X", 0, 200)).toBeNull();
-		expect(parseInteger("200", "X", 0, 200)).toBeNull();
+		expect(parseInteger("100", 0, 200)).toBeNull();
+		expect(parseInteger("0", 0, 200)).toBeNull();
+		expect(parseInteger("200", 0, 200)).toBeNull();
 	});
 
-	it("rejects non-numeric values", () => {
-		expect(parseInteger("abc", "端口", 1, 65535)).toBe("端口 必须是数字");
+	it("rejects non-numeric values with a structured error", () => {
+		expect(parseInteger("abc", 1, 65535)).toEqual<FieldValidationError>({
+			key: "settingsClient.validate.parseInteger.notNumber",
+		});
 		// empty string parses to 0, which falls in the range check (not the parse check)
-		expect(parseInteger("", "端口", 1, 65535)).toBe("端口 必须在 1 到 65535 之间");
+		expect(parseInteger("", 1, 65535)).toEqual<FieldValidationError>({
+			key: "settingsClient.validate.parseInteger.outOfRange",
+			params: { min: 1, max: 65535 },
+		});
 	});
 
-	it("rejects values below the minimum", () => {
-		expect(parseInteger("299", "会话超时", 300, 2_592_000)).toBe("会话超时 必须在 300 到 2592000 之间");
+	it("rejects values below the minimum with min/max params", () => {
+		expect(parseInteger("299", 300, 2_592_000)).toEqual<FieldValidationError>({
+			key: "settingsClient.validate.parseInteger.outOfRange",
+			params: { min: 300, max: 2_592_000 },
+		});
 	});
 
-	it("rejects values above the maximum", () => {
-		expect(parseInteger("65536", "端口", 1, 65535)).toBe("端口 必须在 1 到 65535 之间");
+	it("rejects values above the maximum with min/max params", () => {
+		expect(parseInteger("65536", 1, 65535)).toEqual<FieldValidationError>({
+			key: "settingsClient.validate.parseInteger.outOfRange",
+			params: { min: 1, max: 65535 },
+		});
 	});
 
 	it("truncates floats before range checking", () => {
-		expect(parseInteger("10.9", "X", 0, 100)).toBeNull();
-		expect(parseInteger("100.1", "X", 0, 100)).toBeNull();
+		expect(parseInteger("10.9", 0, 100)).toBeNull();
+		expect(parseInteger("100.1", 0, 100)).toBeNull();
 	});
 });
 
@@ -76,32 +87,37 @@ describe("getSectionSaveKeys", () => {
 	});
 });
 
-describe("buildTocItems", () => {
-	it("emits one TOC entry per schema section in declaration order", () => {
-		const items = buildTocItems();
-		expect(items.map((i) => i.id)).toEqual(["2fa", "platform", "password", "runtime", "smtp", "telegram", "dashboard", "offsite", "aiOps"]);
+describe("Schema uses i18n keys (no raw Chinese)", () => {
+	it("all section titleKeys are i18n keys", () => {
+		for (const section of SETTINGS_SCHEMA) {
+			expect(section.titleKey).toMatch(/^settingsClient\./);
+		}
 	});
 
-	it("strips the parenthetical suffix from the SMTP title for the TOC chip", () => {
-		const items = buildTocItems();
-		expect(items.find((i) => i.id === "smtp")?.title).toBe("邮件通知");
+	it("all section saveMessageKeys are i18n keys or empty", () => {
+		for (const section of SETTINGS_SCHEMA) {
+			expect(section.saveMessageKey).toMatch(/^$|^settingsClient\./);
+		}
 	});
 
-	it("uses a custom subtitle for the 2FA section even though it has no fields", () => {
-		const items = buildTocItems();
-		expect(items.find((i) => i.id === "2fa")?.subtitle).toBe("两步验证");
+	it("all field labelKeys are i18n keys", () => {
+		for (const section of SETTINGS_SCHEMA) {
+			for (const field of section.fields) {
+				expect(field.labelKey).toMatch(/^settingsClient\./);
+			}
+		}
 	});
 
-	it("uses field count as the subtitle for sections without a custom override", () => {
-		const items = buildTocItems();
-		// All sections currently have a custom subtitle; verify them all explicitly.
-		expect(items.find((i) => i.id === "2fa")?.subtitle).toBe("两步验证");
-		expect(items.find((i) => i.id === "dashboard")?.subtitle).toBe("拖拽重排 / 编辑入口");
-		expect(items.find((i) => i.id === "platform")?.subtitle).toBe("品牌 / Logo");
-		expect(items.find((i) => i.id === "password")?.subtitle).toBe("超时 / 复杂度");
-		expect(items.find((i) => i.id === "smtp")?.subtitle).toBe("SMTP / 告警收件人");
-		expect(items.find((i) => i.id === "runtime")?.subtitle).toBe("命令 / SSH / 列表上限");
-		expect(items.find((i) => i.id === "offsite")?.subtitle).toBe("S3 / 推送窗口 / 保留");
+	it("all select option labelKeys are i18n keys", () => {
+		for (const section of SETTINGS_SCHEMA) {
+			for (const field of section.fields) {
+				if (field.options) {
+					for (const opt of field.options) {
+						expect(opt.labelKey).toMatch(/^settingsClient\./);
+					}
+				}
+			}
+		}
 	});
 });
 
@@ -110,17 +126,17 @@ describe("SMTP dynamic schema", () => {
 	const baseSettings: Record<string, string> = { "smtp.enabled": "false" };
 	const enabledSettings: Record<string, string> = { "smtp.enabled": "true" };
 
-	it("renders the '未启用' badge when smtp is off", () => {
-		const badge = typeof smtp.badge === "function" ? smtp.badge(baseSettings) : smtp.badge;
+	it("renders the 'disabled' badgeKey when smtp is off", () => {
+		const badgeKey = typeof smtp.badgeKey === "function" ? smtp.badgeKey(baseSettings) : smtp.badgeKey;
 		const tone = typeof smtp.badgeTone === "function" ? smtp.badgeTone(baseSettings) : smtp.badgeTone;
-		expect(badge).toBe("未启用");
+		expect(badgeKey).toBe("settingsClient.schema.badge.disabled");
 		expect(tone).toBe("slate");
 	});
 
-	it("flips the badge to '已启用' + emerald when smtp is on", () => {
-		const badge = typeof smtp.badge === "function" ? smtp.badge(enabledSettings) : smtp.badge;
+	it("flips the badgeKey to 'enabled' + emerald when smtp is on", () => {
+		const badgeKey = typeof smtp.badgeKey === "function" ? smtp.badgeKey(enabledSettings) : smtp.badgeKey;
 		const tone = typeof smtp.badgeTone === "function" ? smtp.badgeTone(enabledSettings) : smtp.badgeTone;
-		expect(badge).toBe("已启用");
+		expect(badgeKey).toBe("settingsClient.schema.badge.enabled");
 		expect(tone).toBe("emerald");
 	});
 
@@ -130,11 +146,11 @@ describe("SMTP dynamic schema", () => {
 		expect(hostField.disabled?.(enabledSettings)).toBe(false);
 	});
 
-	it("swaps the helper text for the port field based on smtp.enabled", () => {
+	it("swaps the helperTextKey for the port field based on smtp.enabled", () => {
 		const portField = smtp.fields.find((f) => f.key === "smtp.port")!;
-		const helperFn = portField.helperText as (s: Record<string, string>) => string | undefined;
-		expect(helperFn(baseSettings)).toBe("启用 SMTP 后可编辑");
-		expect(helperFn(enabledSettings)).toBe("1–65535；常用 465/587。");
+		const helperFn = portField.helperTextKey as (s: Record<string, string>) => string | undefined;
+		expect(helperFn(baseSettings)).toBe("settingsClient.helper.smtp.disabledHint");
+		expect(helperFn(enabledSettings)).toBe("settingsClient.field.smtp.port.helper.enabled");
 	});
 
 	it("validates alert recipients with a mix of separators", () => {
@@ -142,7 +158,9 @@ describe("SMTP dynamic schema", () => {
 		const validate = recipientsField.validate!;
 		expect(validate("a@x.com, b@x.com; c@x.com", baseSettings)).toBeNull();
 		expect(validate("a@x.com\nb@x.com", baseSettings)).toBeNull();
-		expect(validate("a@x.com, not-an-email", baseSettings)).toContain("告警收件人地址格式不正确");
+		const err = validate("a@x.com, not-an-email", baseSettings);
+		expect(err?.key).toBe("settingsClient.validate.smtp.recipients.invalidPrefix");
+		expect(err?.params?.invalid).toBe("not-an-email");
 	});
 });
 
@@ -160,32 +178,32 @@ describe("Runtime schema", () => {
 		const field = runtime.fields.find((f) => f.key === "runtime.commandExecutionTimeoutMs")!;
 		const validate = field.validate!;
 		expect(validate("300000", {})).toBeNull();
-		expect(validate("1", {})).toBe("命令执行超时 必须在 5000 到 3600000 之间");
-		expect(validate("3600001", {})).toBe("命令执行超时 必须在 5000 到 3600000 之间");
+		expect(validate("1", {})).toEqual<FieldValidationError>({
+			key: "settingsClient.validate.parseInteger.outOfRange",
+			params: { min: 5_000, max: 3_600_000 },
+		});
+		expect(validate("3600001", {})).toEqual<FieldValidationError>({
+			key: "settingsClient.validate.parseInteger.outOfRange",
+			params: { min: 5_000, max: 3_600_000 },
+		});
 	});
 
-	it("strips '(需重启)' parenthetical from the validation label", () => {
+	it("uses the same parseInteger error structure for reconcile interval", () => {
 		const field = runtime.fields.find((f) => f.key === "runtime.commandReconcileIntervalMs")!;
 		const validate = field.validate!;
-		// Label is "命令维护扫描间隔（毫秒，需重启）"; validation uses "命令维护扫描间隔"
-		expect(validate("1", {})).toBe("命令维护扫描间隔 必须在 5000 到 3600000 之间");
+		expect(validate("1", {})).toEqual<FieldValidationError>({
+			key: "settingsClient.validate.parseInteger.outOfRange",
+			params: { min: 5_000, max: 3_600_000 },
+		});
 	});
 
-	it("renders a notice banner explaining runtime value sources", () => {
-		expect(runtime.noticeBanner).toContain("当前运行值来自数据库设置");
+	it("has a noticeBannerKey pointing to the runtime notice banner", () => {
+		expect(runtime.noticeBannerKey).toBe("settingsClient.schema.section.runtime.noticeBanner");
 	});
 });
 
 describe("Schema declaration order", () => {
 	it("matches the save-button order asserted by settings-client tests", () => {
-		// settings-client.test.tsx asserts save button positions [0]=platform, [1]=password,
-		// [2]=runtime, [3]=smtp. The schema must keep that order; if you reorder, also
-		// update the test assertions.
-		// TR-020 M02: 仪表盘拖拽重排总开关放在 SETTINGS_SCHEMA 末尾, 不影响 platform/password/runtime/smtp
-		// 的保存按钮索引, 但 saveable 列表新增 dashboard 末位
-		// TR-007 M03: 异地备份放在 SETTINGS_SCHEMA 末尾 (dashboard 之后), saveable 列表新增 offsite 末位
-		// TR-032 E02: AI 智能运维 mode/provider 放在 SETTINGS_SCHEMA 末尾 (offsite 之后), saveable 列表新增 aiOps 末位
-		// TR-009 55d: Telegram Bot 告警放在 smtp 之后 (告警渠道归口), saveable 列表新增 telegram
 		const saveable = SETTINGS_SCHEMA.filter((s) => !s.custom);
 		expect(saveable.map((s) => s.id)).toEqual(["platform", "password", "runtime", "smtp", "telegram", "dashboard", "offsite", "aiOps"]);
 	});
@@ -197,19 +215,19 @@ describe("SSH idle timeout (select field)", () => {
 	);
 	if (!idleField) throw new Error("runtime.sshIdleTimeoutSec field missing from schema");
 
-	it("uses a select type with six presets", () => {
+	it("uses a select type with six presets (labelKey, not raw label)", () => {
 		expect(idleField.type).toBe("select");
 		expect(idleField.options).toEqual([
-			{ value: "0", label: "永不（强保活）" },
-			{ value: "300", label: "5 分钟" },
-			{ value: "600", label: "10 分钟" },
-			{ value: "1800", label: "30 分钟" },
-			{ value: "3600", label: "1 小时" },
-			{ value: "7200", label: "2 小时" },
+			{ value: "0", labelKey: "settingsClient.option.sshIdle.0" },
+			{ value: "300", labelKey: "settingsClient.option.sshIdle.300" },
+			{ value: "600", labelKey: "settingsClient.option.sshIdle.600" },
+			{ value: "1800", labelKey: "settingsClient.option.sshIdle.1800" },
+			{ value: "3600", labelKey: "settingsClient.option.sshIdle.3600" },
+			{ value: "7200", labelKey: "settingsClient.option.sshIdle.7200" },
 		]);
 	});
 
-	it("accepts '0' (永不) as a valid value", () => {
+	it("accepts '0' as a valid value", () => {
 		expect(idleField.validate?.("0", {})).toBeNull();
 	});
 
@@ -219,15 +237,21 @@ describe("SSH idle timeout (select field)", () => {
 		expect(idleField.validate?.("7200", {})).toBeNull();
 	});
 
-	it("rejects sub-minute values", () => {
-		expect(idleField.validate?.("30", {})).toMatch(/必须在 60 到 7200 秒之间/);
+	it("rejects sub-minute values with outOfRange key", () => {
+		expect(idleField.validate?.("30", {})).toEqual<FieldValidationError>({
+			key: "settingsClient.validate.sshIdle.outOfRange",
+		});
 	});
 
-	it("rejects values above 2 hours", () => {
-		expect(idleField.validate?.("7201", {})).toMatch(/必须在 60 到 7200 秒之间/);
+	it("rejects values above 2 hours with outOfRange key", () => {
+		expect(idleField.validate?.("7201", {})).toEqual<FieldValidationError>({
+			key: "settingsClient.validate.sshIdle.outOfRange",
+		});
 	});
 
-	it("rejects non-numeric values", () => {
-		expect(idleField.validate?.("abc", {})).toMatch(/必须是数字秒数/);
+	it("rejects non-numeric values with notNumber key", () => {
+		expect(idleField.validate?.("abc", {})).toEqual<FieldValidationError>({
+			key: "settingsClient.validate.sshIdle.notNumber",
+		});
 	});
 });

@@ -128,7 +128,7 @@ export default async function FilePreviewPage({ searchParams }: PreviewPageProps
 
 				{/* Large file warning */}
 				{largeTextWarning ? (
-					<div data-tone="amber" className="mb-4 rounded-2xl border border-amber-400/30 px-4 py-3 text-sm text-amber-200">
+					<div data-tone="amber" className="mb-4 rounded-2xl border border-[var(--warning-border)] px-4 py-3 text-sm text-[var(--warning)]">
 						{t("textPreview.preview.largeWarning", locale).replace("{size}", (size / 1024 / 1024).toFixed(1))}
 					</div>
 				) : null}

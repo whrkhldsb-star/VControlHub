@@ -90,7 +90,7 @@ function StateView({ state }: { state: DryRunState }) {
 		return (
 			<p
 				data-tone="emerald"
-				className="rounded-lg border border-emerald-400/20 px-2 py-1.5 text-xs text-emerald-200"
+				className="rounded-lg border border-[var(--success-border)] px-2 py-1.5 text-xs text-[var(--success)]"
 			>
 				{t("backupsPage.offsite.dryRunOk").replace("{latencyMs}", String(state.latencyMs))}
 			</p>
@@ -100,7 +100,7 @@ function StateView({ state }: { state: DryRunState }) {
 		return (
 			<p
 				data-tone="amber"
-				className="rounded-lg border border-amber-400/20 px-2 py-1.5 text-xs text-amber-200"
+				className="rounded-lg border border-[var(--warning-border)] px-2 py-1.5 text-xs text-[var(--warning)]"
 			>
 				{t("backupsPage.offsite.dryRunDisabled")}
 			</p>
@@ -110,7 +110,7 @@ function StateView({ state }: { state: DryRunState }) {
 		return (
 			<div
 				data-tone="amber"
-				className="rounded-lg border border-amber-400/20 px-2 py-1.5 text-xs text-amber-200"
+				className="rounded-lg border border-[var(--warning-border)] px-2 py-1.5 text-xs text-[var(--warning)]"
 			>
 				<p className="font-medium">dry-run failed: config_invalid</p>
 				<ul className="mt-1 list-disc pl-4">
@@ -125,7 +125,7 @@ function StateView({ state }: { state: DryRunState }) {
 		return (
 			<p
 				data-tone="rose"
-				className="rounded-lg border border-rose-400/20 px-2 py-1.5 text-xs text-rose-200"
+				className="rounded-lg border border-[var(--danger-border)] px-2 py-1.5 text-xs text-[var(--danger)]"
 			>
 				{t("backupsPage.offsite.dryRunFailed")
 					.replace("{message}", `[${state.code} / HTTP ${state.status}] ${state.message}`)}
@@ -135,7 +135,7 @@ function StateView({ state }: { state: DryRunState }) {
 	return (
 		<p
 			data-tone="rose"
-			className="rounded-lg border border-rose-400/20 px-2 py-1.5 text-xs text-rose-200"
+			className="rounded-lg border border-[var(--danger-border)] px-2 py-1.5 text-xs text-[var(--danger)]"
 		>
 			{t("backupsPage.offsite.dryRunFailed").replace("{message}", state.message)}
 		</p>

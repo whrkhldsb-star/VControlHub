@@ -230,17 +230,17 @@ export function MediaImageUploadPanel() {
 	}
 
 	return (
-		<section data-tone="emerald" className="mb-5 rounded-2xl border border-emerald-400/20 p-4 light:bg-emerald-50 light:border-emerald-200">
+		<section data-tone="emerald" className="mb-5 rounded-2xl border border-[var(--success-border)] p-4 light:bg-[var(--success)] light:border-[var(--success-border)]">
 			<div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
 				<div>
-					<h2 className="text-base font-semibold text-emerald-100">{t("mediaUploadPanel.heading")}</h2>
-					<p className="mt-1 text-xs text-emerald-100/70">{t("mediaUploadPanel.subheading")}</p>
+					<h2 className="text-base font-semibold text-[var(--success)]">{t("mediaUploadPanel.heading")}</h2>
+					<p className="mt-1 text-xs text-[var(--success)]0/70">{t("mediaUploadPanel.subheading")}</p>
 				</div>
 				<div className="flex flex-wrap items-center gap-2 text-xs">
-					<button type="button" onClick={loadNodes} disabled={loadingNodes} className="rounded-lg border border-emerald-300/30 px-3 py-2 text-emerald-100 transition hover:bg-emerald-400/10 disabled:opacity-60">
+					<button type="button" onClick={loadNodes} disabled={loadingNodes} className="rounded-lg border border-[var(--success-border)] px-3 py-2 text-[var(--success)] transition hover:bg-[var(--success-bg)] disabled:opacity-60">
 						{loadingNodes ? t("mediaUploadPanel.loadingNodes") : nodesLoaded ? t("mediaUploadPanel.refreshNodes") : t("mediaUploadPanel.loadNodes")}
 					</button>
-					<button type="button" onClick={() => fileInputRef.current?.click()} disabled={uploading} className="rounded-lg bg-emerald-500 px-4 py-2 font-medium text-[var(--text-primary)] transition hover:bg-emerald-400 disabled:opacity-60">
+					<button type="button" onClick={() => fileInputRef.current?.click()} disabled={uploading} className="rounded-lg bg-[var(--success)] px-4 py-2 font-medium text-[var(--text-primary)] transition hover:bg-[var(--success)] disabled:opacity-60">
 						{uploading ? t("mediaUploadPanel.uploading") : t("mediaUploadPanel.chooseFiles")}
 					</button>
 				</div>
@@ -249,7 +249,7 @@ export function MediaImageUploadPanel() {
 			<div className="mt-3 grid gap-2 md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
 				<div className="text-xs text-[var(--text-secondary)]">
 					<label htmlFor="media-image-storage-node" className="block">{t("mediaUploadPanel.storageNodeLabel")}</label>
-					<select id="media-image-storage-node" value={storageNodeId} onChange={(e) => setStorageNodeId(e.target.value)} onFocus={() => { if (!nodesLoaded && !loadingNodes) void loadNodes(); }} className="mt-1 w-full rounded-lg border border-emerald-300/20 dark:border-emerald-300/20 bg-[var(--input-bg)] px-3 py-2 text-sm text-[var(--text-primary)] outline-none focus:border-emerald-400 light:border-emerald-300">
+					<select id="media-image-storage-node" value={storageNodeId} onChange={(e) => setStorageNodeId(e.target.value)} onFocus={() => { if (!nodesLoaded && !loadingNodes) void loadNodes(); }} className="mt-1 w-full rounded-lg border border-[var(--success-border)] dark:border-[var(--success-border)] bg-[var(--input-bg)] px-3 py-2 text-sm text-[var(--text-primary)] outline-none focus:border-[var(--success-border)] light:border-[var(--success-border)]">
 						<option value="">{t("mediaUploadPanel.defaultStorage")}</option>
 						{nodes.map((node) => (
 							<option key={node.id} value={node.id}>{node.name}{node.driver ? ` · ${node.driver}` : ""}{node.serverName ? ` · ${node.serverName}` : ""}</option>
@@ -258,7 +258,7 @@ export function MediaImageUploadPanel() {
 				</div>
 				<div className="text-xs text-[var(--text-secondary)]">
 					<label htmlFor="media-image-target-path" className="block">{t("mediaUploadPanel.targetPathLabel")}</label>
-					<input id="media-image-target-path" value={targetPath} onChange={(e) => setTargetPath(e.target.value)} placeholder={t("mediaUploadPanel.targetPathPlaceholder")} className="mt-1 w-full rounded-lg border border-emerald-300/20 dark:border-emerald-300/20 bg-[var(--input-bg)] px-3 py-2 text-sm text-[var(--text-primary)] outline-none placeholder:text-[var(--text-muted)] focus:border-emerald-400 light:border-emerald-300" />
+					<input id="media-image-target-path" value={targetPath} onChange={(e) => setTargetPath(e.target.value)} placeholder={t("mediaUploadPanel.targetPathPlaceholder")} className="mt-1 w-full rounded-lg border border-[var(--success-border)] dark:border-[var(--success-border)] bg-[var(--input-bg)] px-3 py-2 text-sm text-[var(--text-primary)] outline-none placeholder:text-[var(--text-muted)] focus:border-[var(--success-border)] light:border-[var(--success-border)]" />
 				</div>
 			</div>
 
@@ -267,7 +267,7 @@ export function MediaImageUploadPanel() {
 			<input ref={fileInputRef} type="file" accept="image/*" multiple className="hidden" onChange={(e) => e.target.files && void uploadFiles(e.target.files)} />
 
 			{progress ? (
-				<div role="status" aria-label={t("mediaUploadPanel.progressAria")} className="mt-3 rounded-xl border border-emerald-300/20 dark:border-emerald-300/20 bg-[var(--surface-subtle)] p-3 text-xs text-[var(--text-secondary)]">
+				<div role="status" aria-label={t("mediaUploadPanel.progressAria")} className="mt-3 rounded-xl border border-[var(--success-border)] dark:border-[var(--success-border)] bg-[var(--surface-subtle)] p-3 text-xs text-[var(--text-secondary)]">
 					<div className="flex justify-between gap-3">
 						<span>{uploading
 							? t("mediaUploadPanel.progressCurrent").replace("{current}", String(progress.current)).replace("{total}", String(progress.total))
@@ -296,12 +296,12 @@ export function MediaImageUploadPanel() {
 						})}
 					</div>
 					{chunked.progress && chunked.progress.resumed && chunked.progress.skipped > 0 ? (
-						<p className="mt-2 text-[11px] text-emerald-200/80">{t("mediaUploadPanel.chunkedResumeNotice").replace("{skipped}", String(chunked.progress.skipped))}</p>
+						<p className="mt-2 text-[11px] text-[var(--success)]0/80">{t("mediaUploadPanel.chunkedResumeNotice").replace("{skipped}", String(chunked.progress.skipped))}</p>
 					) : null}
 				</div>
 			) : null}
-			{message ? <p role="status" className="mt-2 text-xs text-emerald-100">{message}</p> : null}
-			{error ? <p role="alert" className="mt-2 text-xs text-rose-200">{error}</p> : null}
+			{message ? <p role="status" className="mt-2 text-xs text-[var(--success)]">{message}</p> : null}
+			{error ? <p role="alert" className="mt-2 text-xs text-[var(--danger)]">{error}</p> : null}
 		</section>
 	);
 }

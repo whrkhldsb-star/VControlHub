@@ -118,17 +118,17 @@ export function CreateShareForm({ nodes }: { nodes: StorageNode[] }) {
             </div>
           </div>
 
-          {error && <p className="mt-2 text-xs text-rose-400">{error}</p>}
+          {error && <p className="mt-2 text-xs text-[var(--danger)]">{error}</p>}
 
           {result && (
-            <div data-tone="emerald" className="mt-3 rounded-lg border border-emerald-400/20 p-3">
-              <p className="text-xs text-emerald-300 font-medium">{t("sharesPage.create.success")}</p>
+            <div data-tone="emerald" className="mt-3 rounded-lg border border-[var(--success-border)] p-3">
+              <p className="text-xs text-[var(--success)] font-medium">{t("sharesPage.create.success")}</p>
               <div className="mt-2 flex items-center gap-2">
-                <code className="block flex-1 break-all text-xs text-emerald-200">{shareUrl || `/share/${result.token}`}</code>
+                <code className="block flex-1 break-all text-xs text-[var(--success)]">{shareUrl || `/share/${result.token}`}</code>
                 <button
                   type="button"
                   onClick={handleCopy}
-                  data-tone="emerald" className="shrink-0 rounded-lg border border-emerald-400/30 px-3 py-1.5 text-xs font-medium text-emerald-100 transition hover:bg-emerald-400/20"
+                  data-tone="emerald" className="shrink-0 rounded-lg border border-[var(--success-border)] px-3 py-1.5 text-xs font-medium text-[var(--success)] transition hover:bg-[var(--success-bg)]"
                 >
                   {copied ? t("sharesPage.create.copied") : t("sharesPage.create.copy")}
                 </button>

@@ -217,12 +217,14 @@ export function SchemaDrivenSection({
   const { t } = useI18n();
   const saveKeys = getSectionSaveKeys(section);
   const hasSaveButton = saveKeys.length > 0;
-  const description =
-    typeof section.description === "function"
-      ? section.description(settings)
-      : section.description;
-  const badge =
-    typeof section.badge === "function" ? section.badge(settings) : section.badge;
+  const descriptionKey =
+    typeof section.descriptionKey === "function"
+      ? section.descriptionKey(settings)
+      : section.descriptionKey;
+  const description = t(descriptionKey);
+  const badgeKeyRaw =
+    typeof section.badgeKey === "function" ? section.badgeKey(settings) : section.badgeKey;
+  const badge = badgeKeyRaw ? t(badgeKeyRaw) : undefined;
   const badgeToneRaw =
     typeof section.badgeTone === "function"
       ? section.badgeTone(settings)
@@ -239,7 +241,7 @@ export function SchemaDrivenSection({
       <AuditSummary metadata={auditMetadata} />
       {headerSwitchField && (
         <SwitchField
-          label={headerSwitchField.label}
+          label={t(headerSwitchField.labelKey)}
           value={settings[headerSwitchField.key] === "true"}
           onChange={(v) =>
             updateField(headerSwitchField.key, v ? "true" : "false")
@@ -253,7 +255,7 @@ export function SchemaDrivenSection({
     <CollapsibleSection
       id={section.id}
       icon={section.icon}
-      title={section.title}
+      title={t(section.titleKey)}
       description={description}
       badge={
         badge ??
@@ -273,12 +275,12 @@ export function SchemaDrivenSection({
         <TwoFactorSettingsLazy enabled={twoFactorEnabled} />
       ) : (
         <>
-          {section.noticeBanner && (
+          {section.noticeBannerKey && (
             <div
               data-tone="cyan"
               className="rounded-lg border border-[var(--accent-border)] bg-[var(--accent-bg)] px-3 py-2 text-xs text-[var(--accent)]"
             >
-              {section.noticeBanner}
+              {t(section.noticeBannerKey)}
             </div>
           )}
           {(() => {
@@ -296,10 +298,11 @@ export function SchemaDrivenSection({
             return (
               <div className={gridClass} {...gridAttrs}>
                 {renderableFields.map((field) => {
-                  const helperText =
-                    typeof field.helperText === "function"
-                      ? field.helperText(settings)
-                      : field.helperText;
+                  const helperKey =
+                    typeof field.helperTextKey === "function"
+                      ? field.helperTextKey(settings)
+                      : field.helperTextKey;
+                  const helperText = helperKey ? t(helperKey) : undefined;
                   const disabled = field.disabled
                     ? field.disabled(settings)
                     : false;

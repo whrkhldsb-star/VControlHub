@@ -80,18 +80,18 @@ export function ServerOverviewCard({
   if (!server.enabled) {
     listHealthLabel = t("serverOverviewCard.disabled");
     listHealthToneClass =
-      "border-slate-400/20 bg-slate-400/10 text-[var(--text-muted)]";
+      "border-[var(--border)] bg-[var(--surface)] text-[var(--text-muted)]";
     listHealthDescription =
       t("serverOverviewCard.disabledDescription");
   } else if (diagnosticRun.status === "loading") {
     listHealthLabel = t("serverOverviewCard.checking");
     listHealthToneClass =
-      "border-sky-400/30 bg-sky-400/10 text-sky-200 light:border-sky-700/30 light:bg-sky-50";
+      "border-[var(--info-border)] bg-[var(--info-bg)] text-[var(--info)] light:border-[var(--info-border)] light:bg-[var(--info)]";
     listHealthDescription = t("serverOverviewCard.checkingDescription");
   } else if (diagnosticRun.status === "success") {
     listHealthLabel = `在线 · ${diagnosticRun.checkedAt.split(" ").pop() ?? ""}`.trim();
     listHealthToneClass =
-      "border-emerald-400/30 bg-emerald-400/10 text-emerald-200 light:border-emerald-700/30 light:bg-emerald-50";
+      "border-[var(--success-border)] bg-[var(--success-bg)] text-[var(--success)] light:border-[var(--success-border)] light:bg-[var(--success)]";
     listHealthDescription =
       diagnosticRun.summary
         ? `最近一次实时探测成功：${diagnosticRun.summary}（${diagnosticRun.checkedAt}）`
@@ -99,12 +99,12 @@ export function ServerOverviewCard({
   } else if (diagnosticRun.status === "error") {
     listHealthLabel = t("serverOverviewCard.offline");
     listHealthToneClass =
-      "border-rose-400/30 bg-rose-400/10 text-rose-200 light:border-rose-700/30 light:bg-rose-50";
+      "border-[var(--danger-border)] bg-[var(--danger-bg)] text-[var(--danger)] light:border-[var(--danger-border)] light:bg-[var(--danger)]";
     listHealthDescription = `最近一次实时探测失败：${diagnosticRun.message}（${diagnosticRun.checkedAt}）`;
   } else {
     listHealthLabel = t("serverOverviewCard.enabledPendingProbe");
     listHealthToneClass =
-      "border-amber-400/20 bg-amber-400/10 text-amber-100 light:border-amber-700/25 light:bg-amber-50";
+      "border-[var(--warning-border)] bg-[var(--warning-bg)] text-[var(--warning)] light:border-[var(--warning-border)] light:bg-[var(--warning)]";
     listHealthDescription =
       t("serverOverviewCard.enabledPendingProbeDescription");
   }
@@ -191,7 +191,7 @@ export function ServerOverviewCard({
         <div className="min-w-0">
           <div className="flex items-center gap-2">
             <span
-              className={`h-2 w-2 shrink-0 rounded-full ${server.enabled ? "bg-emerald-400" : "bg-slate-500"}`}
+              className={`h-2 w-2 shrink-0 rounded-full ${server.enabled ? "bg-[var(--success)]" : "bg-[var(--surface)]"}`}
               aria-hidden="true"
             />
             <h2 className="truncate text-sm font-semibold text-[var(--text-primary)]">
@@ -224,7 +224,7 @@ export function ServerOverviewCard({
           value={`${server.pendingCommandCount} ${t("serverOverviewCard.itemsCount")}`}
         />
       </div>
-      <p data-tone="amber" className="mt-2 rounded-lg border border-amber-400/10 px-2 py-1.5 text-[11px] leading-5 text-[var(--text-muted)] light:border-amber-700/15 light:bg-amber-50">
+      <p data-tone="amber" className="mt-2 rounded-lg border border-[var(--warning-border)] px-2 py-1.5 text-[11px] leading-5 text-[var(--text-muted)] light:border-[var(--warning-border)] light:bg-[var(--warning)]">
         {listHealthDescription}
       </p>
 
@@ -250,7 +250,7 @@ export function ServerOverviewCard({
           onClick={() => setExpanded((value) => !value)}
           aria-expanded={expanded}
           aria-controls={detailsId}
-          className="rounded-lg border border-[var(--border)] bg-[var(--surface)]/[0.04] px-3 py-1 text-xs text-[var(--text-secondary)] transition hover:bg-[var(--surface)]/[0.10] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-action)] light:hover:bg-slate-100"
+          className="rounded-lg border border-[var(--border)] bg-[var(--surface)]/[0.04] px-3 py-1 text-xs text-[var(--text-secondary)] transition hover:bg-[var(--surface)]/[0.10] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-action)] light:hover:bg-[var(--surface)]"
         >
           {expanded ? t("serverOverviewCard.collapseDetails") : t("serverOverviewCard.viewDetails")}
         </button>

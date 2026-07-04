@@ -151,13 +151,13 @@ export function FileDetailPanel({
               {entryCanRead(detailEntry) ? (
                 <Link
                   href={buildMediaLibraryHref(detailEntry)}
-                  data-tone="emerald" className="rounded-2xl border border-emerald-400/30 px-4 py-3 text-sm font-medium text-emerald-100 transition hover:bg-emerald-500/20"
+                  data-tone="emerald" className="rounded-2xl border border-[var(--success-border)] px-4 py-3 text-sm font-medium text-[var(--success)] transition hover:bg-[var(--success-bg)]"
                 >
                   在媒体库中查找
                 </Link>
               ) : null}
               {canShare && entryCanRead(detailEntry) ? (
-                <div data-tone="amber" className="rounded-2xl border border-amber-400/30 p-2">
+                <div data-tone="amber" className="rounded-2xl border border-[var(--warning-border)] p-2">
                   <ShareFileButton entry={detailEntry} />
                 </div>
               ) : null}

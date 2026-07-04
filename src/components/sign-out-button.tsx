@@ -26,7 +26,7 @@ export function SignOutButton() {
 			type="button"
 			onClick={handleSignOut}
 			disabled={pending}
-			className="w-full flex items-center gap-3 rounded-lg px-3.5 py-2 text-sm text-rose-200 hover:bg-rose-400/10 transition light:hover:bg-rose-50 disabled:opacity-60"
+			className="w-full flex items-center gap-3 rounded-lg px-3.5 py-2 text-sm text-[var(--danger)] hover:bg-[var(--danger-bg)] transition light:hover:bg-[var(--danger)] disabled:opacity-60"
 		>
 			<span>🚪</span>
 			<span><LocalizedText textKey="auth.logout" fallback="退出登录" /></span>

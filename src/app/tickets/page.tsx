@@ -10,9 +10,9 @@ export const dynamic = "force-dynamic";
 
 const statusTone: Record<string, string> = {
 	OPEN: "border-[var(--color-action-border)]/30 bg-[var(--color-action-bg)]/10 text-[var(--text-primary)]",
-	IN_PROGRESS: "border-amber-400/30 bg-amber-400/10 text-amber-100",
-	RESOLVED: "border-emerald-400/30 bg-emerald-400/10 text-emerald-100",
-	CLOSED: "border-slate-400/30 bg-slate-400/10 text-[var(--text-secondary)]",
+	IN_PROGRESS: "border-[var(--warning-border)] bg-[var(--warning-bg)] text-[var(--warning)]",
+	RESOLVED: "border-[var(--success-border)] bg-[var(--success-bg)] text-[var(--success)]",
+	CLOSED: "border-[var(--border)] bg-[var(--surface)] text-[var(--text-secondary)]",
 };
 
 function priorityLabel(locale: Locale, key: string): string {

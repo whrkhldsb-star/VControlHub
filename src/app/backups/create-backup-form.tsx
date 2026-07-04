@@ -39,7 +39,7 @@ export function CreateBackupForm() {
       <button disabled={pending} className="rounded-lg bg-[var(--color-action-bg)] px-4 py-2 text-sm font-semibold text-[var(--color-action-fg)] disabled:cursor-not-allowed disabled:opacity-60">
         {pending ? t("common.executing") : t("common.createAndExecute")}
       </button>
-      {state.error && <p className="md:col-span-3 text-xs text-rose-300">{state.error}</p>}
+      {state.error && <p className="md:col-span-3 text-xs text-[var(--danger)]">{state.error}</p>}
     </form>
   );
 }

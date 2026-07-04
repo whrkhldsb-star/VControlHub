@@ -27,7 +27,7 @@ describe("GET /api/status", () => {
       summary: { overall: "warning" },
     };
     getPublicStatusSummaryMock.mockResolvedValueOnce(summaryPayload);
-    const res = await route.GET();
+    const res = await route.GET(new Request("http://localhost/api/status"));
     expect(res.status).toBe(200);
     const body = await res.json();
     expect(body).toEqual(summaryPayload);
@@ -47,7 +47,7 @@ describe("GET /api/status", () => {
       ],
     };
     getPublicStatusMock.mockResolvedValueOnce(fullPayload);
-    const res = await route.GET();
+    const res = await route.GET(new Request("http://localhost/api/status"));
     expect(res.status).toBe(200);
     const body = await res.json();
     expect(body).toEqual(fullPayload);
@@ -57,6 +57,6 @@ describe("GET /api/status", () => {
   it("propagates service errors as 500", async () => {
     getApiSessionMock.mockResolvedValueOnce(null);
     getPublicStatusSummaryMock.mockRejectedValueOnce(new Error("db down"));
-    await expect(route.GET()).rejects.toThrow("db down");
+    await expect(route.GET(new Request("http://localhost/api/status"))).rejects.toThrow("db down");
   });
 });

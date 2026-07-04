@@ -285,7 +285,7 @@ export default function ImageBedPage({ canWrite, canDelete }: { canWrite: boolea
 						<p className="mt-2 max-w-2xl text-sm leading-6 text-[var(--text-secondary)]">{t("imageBedPage.hero.desc")}</p>
 					</div>
 					<div className="flex flex-wrap items-center gap-2 text-xs">
-						<Link href="/media?type=image" className="rounded-xl bg-emerald-500 px-4 py-2 font-medium text-[var(--text-primary)] transition hover:bg-emerald-400">{t("imageBedPage.hero.openMedia")}</Link>
+						<Link href="/media?type=image" className="rounded-xl bg-[var(--success)] px-4 py-2 font-medium text-[var(--text-primary)] transition hover:bg-[var(--success)]">{t("imageBedPage.hero.openMedia")}</Link>
 						{canWrite && <button onClick={() => { fetchStorageNodes(); setShowPublishModal(true); }} className="rounded-xl border border-[var(--accent-border)] bg-[var(--accent-bg)] px-4 py-2 font-medium text-[var(--accent)] transition hover:bg-[var(--accent-hover)] hover:text-[var(--text-primary)]">{t("imageBedPage.hero.publishFromStorage")}</button>}
 					</div>
 				</div>
@@ -300,9 +300,9 @@ export default function ImageBedPage({ canWrite, canDelete }: { canWrite: boolea
 				<div className="rounded-2xl border border-[var(--border)]/[0.07] bg-[var(--surface)] p-4">
 					<h2 className="text-sm font-semibold text-[var(--text-primary)]">{t("imageBedPage.publish.title")}</h2>
 					<div className="mt-3 grid gap-2 text-sm sm:grid-cols-3">
-						<Link href="/media?type=image" data-tone="emerald" className="rounded-2xl border border-emerald-400/25 p-3 text-[var(--text-primary)] transition hover:bg-emerald-400/15"><span className="block text-lg">{t("imageBedPage.publish.media.title")}</span><span className="mt-1 block text-xs opacity-75">{t("imageBedPage.publish.media.desc")}</span></Link>
-						<button type="button" onClick={() => { fetchStorageNodes(); setShowPublishModal(true); }} className="rounded-2xl border border-blue-400/25 bg-blue-400/10 p-3 text-left text-[var(--text-primary)] transition hover:bg-blue-400/15"><span className="block text-lg">{t("imageBedPage.publish.storage.title")}</span><span className="mt-1 block text-xs opacity-75">{t("imageBedPage.publish.storage.desc")}</span></button>
-						<button type="button" onClick={() => setShowLegacyUpload((value) => !value)} data-tone="amber" className="rounded-2xl border border-amber-400/20 p-3 text-left text-[var(--text-primary)] transition hover:bg-amber-400/15"><span className="block text-lg">{t("imageBedPage.publish.legacy.title")}</span><span className="mt-1 block text-xs opacity-75">{t("imageBedPage.publish.legacy.desc")}</span></button>
+						<Link href="/media?type=image" data-tone="emerald" className="rounded-2xl border border-[var(--success-border)] p-3 text-[var(--text-primary)] transition hover:bg-[var(--success-bg)]"><span className="block text-lg">{t("imageBedPage.publish.media.title")}</span><span className="mt-1 block text-xs opacity-75">{t("imageBedPage.publish.media.desc")}</span></Link>
+						<button type="button" onClick={() => { fetchStorageNodes(); setShowPublishModal(true); }} className="rounded-2xl border border-[var(--info-border)] bg-[var(--info-bg)] p-3 text-left text-[var(--text-primary)] transition hover:bg-[var(--info-bg)]"><span className="block text-lg">{t("imageBedPage.publish.storage.title")}</span><span className="mt-1 block text-xs opacity-75">{t("imageBedPage.publish.storage.desc")}</span></button>
+						<button type="button" onClick={() => setShowLegacyUpload((value) => !value)} data-tone="amber" className="rounded-2xl border border-[var(--warning-border)] p-3 text-left text-[var(--text-primary)] transition hover:bg-[var(--warning-bg)]"><span className="block text-lg">{t("imageBedPage.publish.legacy.title")}</span><span className="mt-1 block text-xs opacity-75">{t("imageBedPage.publish.legacy.desc")}</span></button>
 					</div>
 				</div>
 				<div className="rounded-2xl border border-[var(--border)]/[0.07] bg-[var(--surface)] p-4">
@@ -344,13 +344,13 @@ export default function ImageBedPage({ canWrite, canDelete }: { canWrite: boolea
 						{selectedIds.size === images.length ? t("imageBedPage.batch.deselectAll") : t("imageBedPage.batch.selectAll")}
 					</button>
 					{canDelete && (
-						<button onClick={requestBatchDelete} disabled={selectedIds.size === 0} className="min-h-11 rounded-lg px-3 text-xs bg-rose-500/20 text-rose-300 hover:bg-rose-500/30 transition disabled:opacity-30">{t("imageBedPage.batch.delete")}</button>
+						<button onClick={requestBatchDelete} disabled={selectedIds.size === 0} className="min-h-11 rounded-lg px-3 text-xs bg-[var(--danger-bg)] text-[var(--danger)] hover:bg-[var(--danger-bg)] transition disabled:opacity-30">{t("imageBedPage.batch.delete")}</button>
 					)}
 					<div className="flex items-center gap-1">
 						<input type="text" value={batchAlbum} onChange={(e) => setBatchAlbum(e.target.value)} placeholder={t("imageBedPage.batch.albumPlaceholder")} aria-label={t("imageBedPage.batch.albumLabel")} className="min-h-11 bg-[var(--input-bg)] border border-[var(--border)] rounded-lg px-2 py-1 text-xs text-[var(--text-primary)] w-28 focus:outline-none focus:border-[var(--color-action-border)]/50" />
 						<button onClick={() => runBatchAction("moveAlbum")} disabled={selectedIds.size === 0 || !batchAlbum} className="min-h-11 rounded-lg px-3 text-xs bg-[var(--color-action)]/20 text-[var(--color-action)] hover:bg-[var(--color-action)]/30 transition disabled:opacity-30">{t("imageBedPage.batch.move")}</button>
 					</div>
-					<button onClick={() => runBatchAction("togglePublic")} disabled={selectedIds.size === 0} className="min-h-11 rounded-lg px-3 text-xs bg-green-500/20 text-green-300 hover:bg-green-500/30 transition disabled:opacity-30">{t("imageBedPage.batch.togglePublic")}</button>
+					<button onClick={() => runBatchAction("togglePublic")} disabled={selectedIds.size === 0} className="min-h-11 rounded-lg px-3 text-xs bg-[var(--success-bg)] text-[var(--success)] hover:bg-[var(--success-bg)] transition disabled:opacity-30">{t("imageBedPage.batch.togglePublic")}</button>
 				</div>
 			)}
 
@@ -415,13 +415,13 @@ export default function ImageBedPage({ canWrite, canDelete }: { canWrite: boolea
 
 			{/* Upload Area */}
 			{showLegacyUpload && canWrite && (
-				<div data-tone="amber" className="mt-4 rounded-xl border border-amber-400/20 p-4 light:border-amber-200 light:bg-amber-50">
+				<div data-tone="amber" className="mt-4 rounded-xl border border-[var(--warning-border)] p-4 light:border-[var(--warning-border)] light:bg-[var(--warning)]">
 					<div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
 						<div>
 							<h2 className="text-sm font-semibold text-[var(--text-primary)]">{t("imageBedPage.legacy.title")}</h2>
 							<p className="mt-1 text-xs text-[var(--text-primary)]/70">{t("imageBedPage.legacy.desc")}</p>
 						</div>
-						<Link href="/media?type=image" className="inline-flex items-center justify-center rounded-lg bg-emerald-500 px-4 py-2 text-xs font-medium text-[var(--text-primary)] transition hover:bg-emerald-400">{t("imageBedPage.legacy.openMedia")}</Link>
+						<Link href="/media?type=image" className="inline-flex items-center justify-center rounded-lg bg-[var(--success)] px-4 py-2 text-xs font-medium text-[var(--text-primary)] transition hover:bg-[var(--success)]">{t("imageBedPage.legacy.openMedia")}</Link>
 					</div>
 				</div>
 			)}
@@ -471,7 +471,7 @@ export default function ImageBedPage({ canWrite, canDelete }: { canWrite: boolea
 						{uploadProgress.queue.map((item, index) => (
 							<div key={`${item.name}-${index}`} className="flex items-center justify-between gap-3">
 								<span className="truncate" title={`${item.name} · ${item.message}`}>{item.name} · {item.message}</span>
-								<span className={item.status === "success" ? "text-emerald-300" : item.status === "error" || item.status === "skipped" ? "text-rose-300" : item.status === "uploading" ? "text-[var(--color-action)]" : "text-[var(--text-muted)]"}>
+								<span className={item.status === "success" ? "text-[var(--success)]" : item.status === "error" || item.status === "skipped" ? "text-[var(--danger)]" : item.status === "uploading" ? "text-[var(--color-action)]" : "text-[var(--text-muted)]"}>
 									{item.status === "success" ? t("imageBedPage.progress.status.success") : item.status === "error" || item.status === "skipped" ? t("imageBedPage.progress.status.error") : item.status === "uploading" ? t("imageBedPage.progress.status.uploading") : t("imageBedPage.progress.status.pending")}
 								</span>
 							</div>
@@ -494,7 +494,7 @@ export default function ImageBedPage({ canWrite, canDelete }: { canWrite: boolea
 					/>
 				</label>
 				<button onClick={() => fetchImages(1)} className="min-h-11 rounded-lg bg-[var(--color-action)]/10 px-4 py-2 text-sm text-[var(--color-action)] hover:bg-[var(--color-action)]/20 transition">{t("imageBedPage.search.submit")}</button>
-				<button onClick={() => { setSearch(""); fetchImages(1); }} className="min-h-11 rounded-lg px-4 py-2 text-sm text-[var(--text-secondary)] hover:text-[var(--text-primary)] light:hover:text-slate-800 transition">{t("imageBedPage.search.reset")}</button>
+				<button onClick={() => { setSearch(""); fetchImages(1); }} className="min-h-11 rounded-lg px-4 py-2 text-sm text-[var(--text-secondary)] hover:text-[var(--text-primary)] light:hover:text-[var(--text-disabled)] transition">{t("imageBedPage.search.reset")}</button>
 			</div>
 
 			{/* Image Grid */}
@@ -512,7 +512,7 @@ export default function ImageBedPage({ canWrite, canDelete }: { canWrite: boolea
 								{batchMode && (
 									<div
 										onClick={(e) => { e.stopPropagation(); toggleSelect(img.id); }}
-										className={`absolute top-2 left-2 z-10 w-6 h-6 rounded-lg border-2 flex items-center justify-center cursor-pointer transition ${selectedIds.has(img.id) ? "bg-[var(--color-action)] border-[var(--color-action-border)] text-[var(--text-primary)]" : "bg-black/50 border-slate-500 hover:border-slate-300"}`}
+										className={`absolute top-2 left-2 z-10 w-6 h-6 rounded-lg border-2 flex items-center justify-center cursor-pointer transition ${selectedIds.has(img.id) ? "bg-[var(--color-action)] border-[var(--color-action-border)] text-[var(--text-primary)]" : "bg-black/50 border-[var(--border)] hover:border-[var(--border)]"}`}
 									>
 										{selectedIds.has(img.id) && "✓"}
 									</div>
@@ -533,10 +533,10 @@ export default function ImageBedPage({ canWrite, canDelete }: { canWrite: boolea
 										className="absolute inset-0 flex items-center justify-center gap-1 bg-black/50 p-2 md:bg-black/60 md:opacity-0 md:group-hover:opacity-100 md:p-0"
 									>
 										<button onClick={() => copyLink(img.publicUrl)} className="min-h-11 min-w-11 rounded-lg px-2 text-xs bg-[var(--color-action)]/20 text-[var(--color-action)] hover:bg-[var(--color-action)]/30" title={t("imageBedPage.copy.title.url")} aria-label={t("imageBedPage.copy.title.url")}>🔗</button>
-										<button onClick={() => copyMarkdown(img)} className="min-h-11 min-w-11 rounded-lg px-2 text-xs bg-green-500/20 text-green-300 hover:bg-green-500/30" title={t("imageBedPage.copy.title.markdown")} aria-label={t("imageBedPage.copy.title.markdown")}>M↓</button>
+										<button onClick={() => copyMarkdown(img)} className="min-h-11 min-w-11 rounded-lg px-2 text-xs bg-[var(--success-bg)] text-[var(--success)] hover:bg-[var(--success-bg)]" title={t("imageBedPage.copy.title.markdown")} aria-label={t("imageBedPage.copy.title.markdown")}>M↓</button>
 										<button onClick={() => copyHTML(img)} className="min-h-11 min-w-11 rounded-lg px-2 text-xs bg-orange-500/20 text-orange-300 hover:bg-orange-500/30" title={t("imageBedPage.copy.title.html")} aria-label={t("imageBedPage.copy.title.html")}>H</button>
 										{canDelete && (
-											<button onClick={() => requestDelete(img)} className="min-h-11 min-w-11 rounded-lg px-2 text-xs bg-rose-500/20 text-rose-300 hover:bg-rose-500/30" title={t("imageBedPage.image.delete.aria")} aria-label={t("imageBedPage.image.delete.aria")}>🗑</button>
+											<button onClick={() => requestDelete(img)} className="min-h-11 min-w-11 rounded-lg px-2 text-xs bg-[var(--danger-bg)] text-[var(--danger)] hover:bg-[var(--danger-bg)]" title={t("imageBedPage.image.delete.aria")} aria-label={t("imageBedPage.image.delete.aria")}>🗑</button>
 										)}
 									</div>
 								)}
@@ -547,7 +547,7 @@ export default function ImageBedPage({ canWrite, canDelete }: { canWrite: boolea
 								<span className="text-[10px] text-[var(--text-muted)]">{formatSize(img.sizeBytes)} · {formatDate(img.createdAt)}</span>
 								<div className="flex items-center gap-1">
 									{img.album && <span className="text-[10px] text-[var(--text-muted)] bg-[var(--surface-hover)] px-1.5 py-0.5 rounded-lg">{img.album}</span>}
-									<span className={`text-[9px] px-1 py-0.5 rounded-lg ${img.isPublic ? "bg-green-500/10 text-green-500" : "bg-[var(--surface-hover)] text-[var(--text-muted)]"}`}>
+									<span className={`text-[9px] px-1 py-0.5 rounded-lg ${img.isPublic ? "bg-[var(--success-bg)] text-[var(--success)]" : "bg-[var(--surface-hover)] text-[var(--text-muted)]"}`}>
 										{img.isPublic ? t("imageBedPage.image.public") : t("imageBedPage.image.private")}
 									</span>
 								</div>
@@ -560,9 +560,9 @@ export default function ImageBedPage({ canWrite, canDelete }: { canWrite: boolea
 			{/* Pagination */}
 			{totalPages > 1 && (
 				<div className="mt-6 flex items-center justify-center gap-2">
-					<button onClick={() => fetchImages(page - 1)} disabled={page <= 1} className="px-3 py-1.5 text-sm bg-[var(--surface-hover)] text-[var(--text-secondary)] rounded-lg disabled:opacity-30 hover:bg-[var(--surface-hover)] light:hover:bg-slate-200 transition">{t("imageBedPage.pagination.prev")}</button>
+					<button onClick={() => fetchImages(page - 1)} disabled={page <= 1} className="px-3 py-1.5 text-sm bg-[var(--surface-hover)] text-[var(--text-secondary)] rounded-lg disabled:opacity-30 hover:bg-[var(--surface-hover)] light:hover:bg-[var(--surface)] transition">{t("imageBedPage.pagination.prev")}</button>
 					<span className="text-sm text-[var(--text-secondary)]">{page} / {totalPages}</span>
-					<button onClick={() => fetchImages(page + 1)} disabled={page >= totalPages} className="px-3 py-1.5 text-sm bg-[var(--surface-hover)] text-[var(--text-secondary)] rounded-lg disabled:opacity-30 hover:bg-[var(--surface-hover)] light:hover:bg-slate-200 transition">{t("imageBedPage.pagination.next")}</button>
+					<button onClick={() => fetchImages(page + 1)} disabled={page >= totalPages} className="px-3 py-1.5 text-sm bg-[var(--surface-hover)] text-[var(--text-secondary)] rounded-lg disabled:opacity-30 hover:bg-[var(--surface-hover)] light:hover:bg-[var(--surface)] transition">{t("imageBedPage.pagination.next")}</button>
 				</div>
 			)}
 
@@ -605,7 +605,7 @@ export default function ImageBedPage({ canWrite, canDelete }: { canWrite: boolea
 							</div>
 						</div>
 						<div className="mt-5 flex items-center justify-end gap-2">
-							<button onClick={() => setShowPublishModal(false)} className="px-4 py-2 text-sm text-[var(--text-secondary)] hover:text-[var(--text-primary)] light:hover:text-slate-800 transition">{t("imageBedPage.publishFromStorage.cancel")}</button>
+							<button onClick={() => setShowPublishModal(false)} className="px-4 py-2 text-sm text-[var(--text-secondary)] hover:text-[var(--text-primary)] light:hover:text-[var(--text-disabled)] transition">{t("imageBedPage.publishFromStorage.cancel")}</button>
 							<button onClick={handlePublishFromStorage} disabled={!publishForm.storageNodeId || !publishForm.relativePath} className="px-4 py-2 text-sm bg-[var(--color-action-strong)] text-[var(--text-primary)] rounded-lg hover:bg-[var(--color-action)] transition disabled:opacity-30">{t("imageBedPage.publishFromStorage.submit")}</button>
 						</div>
 					</div>
@@ -618,7 +618,7 @@ export default function ImageBedPage({ canWrite, canDelete }: { canWrite: boolea
 						role="dialog"
 						aria-modal="true"
 						aria-label={pendingDelete.type === "single" ? t("imageBedPage.delete.ariaLabel.single") : t("imageBedPage.delete.ariaLabel.batch")}
-						className="bg-[var(--modal-bg)] border border-rose-500/20 rounded-xl p-6 w-full max-w-md shadow-2xl"
+						className="bg-[var(--modal-bg)] border border-[var(--danger-border)] rounded-xl p-6 w-full max-w-md shadow-2xl"
 						onClick={(e) => e.stopPropagation()}
 					>
 						<h3 className="text-lg font-semibold text-[var(--text-primary)] mb-2">{pendingDelete.type === "single" ? t("imageBedPage.delete.title.single") : t("imageBedPage.delete.title.batch")}</h3>
@@ -630,8 +630,8 @@ export default function ImageBedPage({ canWrite, canDelete }: { canWrite: boolea
 							)}
 						</p>
 						<div className="mt-6 flex items-center justify-end gap-2">
-							<button type="button" onClick={() => setPendingDelete(null)} className="px-4 py-2 text-sm text-[var(--text-secondary)] hover:text-[var(--text-primary)] light:hover:text-slate-800 transition">{t("imageBedPage.delete.cancel")}</button>
-							<button type="button" onClick={confirmDelete} disabled={deleting} className="px-4 py-2 text-sm bg-rose-600 text-[var(--text-primary)] rounded-lg hover:bg-rose-500 transition disabled:opacity-50">{deleting ? "删除中..." : "确认删除"}</button>
+							<button type="button" onClick={() => setPendingDelete(null)} className="px-4 py-2 text-sm text-[var(--text-secondary)] hover:text-[var(--text-primary)] light:hover:text-[var(--text-disabled)] transition">{t("imageBedPage.delete.cancel")}</button>
+							<button type="button" onClick={confirmDelete} disabled={deleting} className="px-4 py-2 text-sm bg-[var(--danger)] text-[var(--text-primary)] rounded-lg hover:bg-[var(--danger)] transition disabled:opacity-50">{deleting ? "删除中..." : "确认删除"}</button>
 						</div>
 					</div>
 				</div>

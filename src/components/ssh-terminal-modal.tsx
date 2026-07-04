@@ -346,7 +346,7 @@ export function SshTerminalModal({ serverId, serverName, host, sessionToken, onC
 				aria-modal="true"
 				aria-labelledby={`ssh-terminal-title-${serverId}`}
 				aria-describedby={`ssh-terminal-host-${serverId}`}
-				className="my-auto flex max-h-none min-h-0 w-full max-w-5xl flex-col rounded-2xl border border-[var(--border)] bg-slate-900 text-[var(--text-primary)] shadow-2xl sm:max-h-[92vh] sm:rounded-3xl"
+				className="my-auto flex max-h-none min-h-0 w-full max-w-5xl flex-col rounded-2xl border border-[var(--border)] bg-[var(--surface)] text-[var(--text-primary)] shadow-2xl sm:max-h-[92vh] sm:rounded-3xl"
 				onClick={(e) => e.stopPropagation()}
 			>
 				<div className="flex flex-col gap-3 border-b border-[var(--border)] px-4 py-4 sm:px-6 md:flex-row md:items-center md:justify-between">
@@ -365,10 +365,10 @@ export function SshTerminalModal({ serverId, serverName, host, sessionToken, onC
 							aria-live="polite"
 							className={`rounded-full px-3 py-1 text-xs ${
 								status === "connected"
-									? "border border-emerald-400/30 bg-emerald-400/10 text-emerald-200 light:border-emerald-400/40 light:bg-emerald-500/15"
+									? "border border-[var(--success-border)] bg-[var(--success-bg)] text-[var(--success)] light:border-[var(--success-border)] light:bg-[var(--success-bg)]"
 									: status === "connecting"
-									? "border border-amber-400/30 bg-amber-400/10 text-amber-200 light:border-amber-400/40 light:bg-amber-500/15"
-									: "border border-rose-400/30 bg-rose-400/10 text-rose-200 light:border-rose-400/40 light:bg-rose-500/15"
+									? "border border-[var(--warning-border)] bg-[var(--warning-bg)] text-[var(--warning)] light:border-[var(--warning-border)] light:bg-[var(--warning-bg)]"
+									: "border border-[var(--danger-border)] bg-[var(--danger-bg)] text-[var(--danger)] light:border-[var(--danger-border)] light:bg-[var(--danger-bg)]"
 							}`}
 						>
 							{status === "connected"
@@ -410,7 +410,7 @@ export function SshTerminalModal({ serverId, serverName, host, sessionToken, onC
 				</div>
 
 				{errorMsg && (status === "error" || status === "closed") && (
-					<div data-tone="rose" className="mx-6 mt-4 rounded-2xl border border-rose-400/20 px-4 py-3 text-sm text-rose-200">
+					<div data-tone="rose" className="mx-6 mt-4 rounded-2xl border border-[var(--danger-border)] px-4 py-3 text-sm text-[var(--danger)]">
 						❌ {errorMsg}
 					</div>
 				)}
@@ -476,7 +476,7 @@ export function SshTerminalModal({ serverId, serverName, host, sessionToken, onC
 												<button
 													onClick={() => removeFavorite(cmd)}
 													aria-label={t("sshTerminalModal.favoritesRemove").replace("{cmd}", cmd)}
-													className="min-h-11 min-w-11 shrink-0 rounded-lg px-1 text-[12px] text-rose-400/70 transition hover:bg-rose-400/10 hover:text-rose-300 group-hover:opacity-100"
+													className="min-h-11 min-w-11 shrink-0 rounded-lg px-1 text-[12px] text-[var(--danger)]0/70 transition hover:bg-[var(--danger-bg)] hover:text-[var(--danger)] group-hover:opacity-100"
 												>
 													✕
 												</button>

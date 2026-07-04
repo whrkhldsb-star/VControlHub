@@ -58,7 +58,7 @@ export function AiRenameDialog({
           />
         </label>
         {error && (
-          <p role="alert" className="mt-3 text-xs text-rose-300">
+          <p role="alert" className="mt-3 text-xs text-[var(--danger)]">
             {error}
           </p>
         )}

@@ -70,13 +70,13 @@ export function ChangePasswordForm() {
 			</div>
 
 			{state.error ? (
-				<div data-tone="rose" className="rounded-2xl border border-rose-400/30 px-4 py-3 text-sm text-rose-100">{state.error}</div>
+				<div data-tone="rose" className="rounded-2xl border border-[var(--danger-border)] px-4 py-3 text-sm text-[var(--danger)]">{state.error}</div>
 			) : null}
 			{state.success ? (
-				<div data-tone="emerald" className="rounded-2xl border border-emerald-400/30 px-4 py-3 text-sm text-emerald-100" role="status" aria-live="polite">
+				<div data-tone="emerald" className="rounded-2xl border border-[var(--success-border)] px-4 py-3 text-sm text-[var(--success)]" role="status" aria-live="polite">
 					{state.success}
 					{countdown !== null && countdown > 0 ? (
-						<span className="ml-2 text-emerald-200/80">
+						<span className="ml-2 text-[var(--success)]0/80">
 							{t("accountPasswordPage.redirectCountdown").replace("{seconds}", String(countdown))}
 						</span>
 					) : null}

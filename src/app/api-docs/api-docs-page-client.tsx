@@ -26,11 +26,11 @@ type ApiEntry = {
 };
 
 const methodStyles: Record<string, string> = {
-	get: "border-emerald-400/25 bg-emerald-400/10 text-emerald-200",
+	get: "border-[var(--success-border)] bg-[var(--success-bg)] text-[var(--success)]",
 	post: "border-[var(--color-action-border)]/25 bg-[var(--color-action-bg)]/10 text-[var(--text-secondary)]",
-	put: "border-amber-400/25 bg-amber-400/10 text-amber-200",
+	put: "border-[var(--warning-border)] bg-[var(--warning-bg)] text-[var(--warning)]",
 	patch: "border-violet-400/25 bg-violet-400/10 text-violet-200",
-	delete: "border-rose-400/25 bg-rose-400/10 text-rose-200",
+	delete: "border-[var(--danger-border)] bg-[var(--danger-bg)] text-[var(--danger)]",
 };
 
 function groupEntries(spec: OpenApiSpec | null, untaggedLabel: string) {
@@ -139,7 +139,7 @@ export default function ApiDocsPage() {
 				</section>
 
 				{error ? (
-					<div role="alert" data-tone="rose" className="rounded-2xl border border-rose-400/20 p-4 text-sm text-rose-200">
+					<div role="alert" data-tone="rose" className="rounded-2xl border border-[var(--danger-border)] p-4 text-sm text-[var(--danger)]">
 						{error}
 					</div>
 				) : null}
@@ -165,7 +165,7 @@ export default function ApiDocsPage() {
 									<div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
 										<div className="min-w-0 flex-1">
 											<div className="flex flex-wrap items-center gap-2">
-												<span className={`rounded-lg border px-2 py-1 font-mono text-xs font-semibold uppercase ${methodStyles[entry.method] ?? "border-slate-400/25 bg-slate-400/10 text-[var(--text-primary)]"}`}>
+												<span className={`rounded-lg border px-2 py-1 font-mono text-xs font-semibold uppercase ${methodStyles[entry.method] ?? "border-[var(--border)] bg-[var(--surface)] text-[var(--text-primary)]"}`}>
 													{entry.method}
 												</span>
 												<code className="break-all rounded-lg bg-[var(--surface-subtle)] px-2 py-1 font-mono text-sm text-[var(--color-action)]">/api{entry.path}</code>

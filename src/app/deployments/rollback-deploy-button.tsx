@@ -51,7 +51,7 @@ export function RollbackDeployButton({ runId, templateName, disabled = false }: 
   return (
     <div className="flex flex-wrap items-center gap-2">
       {confirming ? (
-        <span id={`rollback-deploy-${runId}-warning`} className="text-xs text-amber-200">
+        <span id={`rollback-deploy-${runId}-warning`} className="text-xs text-[var(--warning)]">
           {t("deploymentsPage.rollback.confirmWarning")}
         </span>
       ) : null}
@@ -60,7 +60,7 @@ export function RollbackDeployButton({ runId, templateName, disabled = false }: 
         onClick={handleRollback}
         disabled={pending || disabled}
         aria-describedby={confirming ? `rollback-deploy-${runId}-warning` : undefined}
-        data-tone="emerald" className="rounded-lg border border-emerald-400/30 px-3 py-1.5 text-xs font-medium text-emerald-200 transition hover:bg-emerald-400/15 disabled:cursor-not-allowed disabled:opacity-60"
+        data-tone="emerald" className="rounded-lg border border-[var(--success-border)] px-3 py-1.5 text-xs font-medium text-[var(--success)] transition hover:bg-[var(--success-bg)] disabled:cursor-not-allowed disabled:opacity-60"
       >
         {pending ? t("deploymentsPage.rollback.submitting") : confirming ? t("deploymentsPage.rollback.confirmBtn") : t("deploymentsPage.rollback.triggerBtn")}
       </button>
@@ -77,7 +77,7 @@ export function RollbackDeployButton({ runId, templateName, disabled = false }: 
           {t("common.cancel")}
         </button>
       ) : null}
-      {error && <span role="alert" className="text-xs text-rose-300">{error}</span>}
+      {error && <span role="alert" className="text-xs text-[var(--danger)]">{error}</span>}
     </div>
   );
 }

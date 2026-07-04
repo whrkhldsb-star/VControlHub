@@ -109,7 +109,7 @@ export function CsvPreviewClient({ href }: { href: string }) {
 
 	if (state.error) {
 		return (
-			<div className="flex flex-col items-center gap-3 py-16 text-rose-300">
+			<div className="flex flex-col items-center gap-3 py-16 text-[var(--danger)]">
 				<span className="text-3xl">⚠️</span>
 				<p className="text-sm">{state.error}</p>
 			</div>
@@ -128,25 +128,25 @@ export function CsvPreviewClient({ href }: { href: string }) {
 	return (
 		<div className="space-y-4">
 			<div className="flex items-center gap-3">
-				<span className="rounded-full bg-emerald-400/10 px-3 py-1 text-xs font-medium text-emerald-300 border border-emerald-400/30">{t("csvPreview.tableBadge")}</span>
+				<span className="rounded-full bg-[var(--success-bg)] px-3 py-1 text-xs font-medium text-[var(--success)] border border-[var(--success-border)]">{t("csvPreview.tableBadge")}</span>
 				<span className="text-xs text-[var(--text-secondary)]">{t("csvPreview.rowCol").replace("{rows}", String(dataRows.length)).replace("{cols}", String(colCount))}</span>
 			</div>
 			<div className="overflow-auto rounded-2xl border border-[var(--border)]">
 				<table className="w-full text-sm">
 					<thead>
 						<tr className="bg-[var(--surface)] light:bg-[var(--surface)]/80">
-							<th className="px-3 py-2 text-left text-xs font-medium text-[var(--text-secondary)] border-b border-slate-700 w-12">#</th>
+							<th className="px-3 py-2 text-left text-xs font-medium text-[var(--text-secondary)] border-b border-[var(--border)] w-12">#</th>
 							{header.map((col, i) => (
-								<th key={i} className="px-3 py-2 text-left text-xs font-medium text-[var(--color-action)] border-b border-slate-700 whitespace-nowrap">{col || t("csvPreview.colIndex").replace("{index}", String(i + 1))}</th>
+								<th key={i} className="px-3 py-2 text-left text-xs font-medium text-[var(--color-action)] border-b border-[var(--border)] whitespace-nowrap">{col || t("csvPreview.colIndex").replace("{index}", String(i + 1))}</th>
 							))}
 						</tr>
 					</thead>
 					<tbody>
 						{displayRows.map((row, rowIdx) => (
 							<tr key={rowIdx} className={rowIdx % 2 === 0 ? "bg-[var(--surface)]/70" : "bg-[var(--surface)]/70"}>
-								<td className="px-3 py-1.5 text-right text-xs text-[var(--text-muted)] border-b border-slate-800/50 light:border-slate-300/50">{rowIdx + 1}</td>
+								<td className="px-3 py-1.5 text-right text-xs text-[var(--text-muted)] border-b border-[var(--border)] light:border-[var(--border)]">{rowIdx + 1}</td>
 								{header.map((_, colIdx) => (
-									<td key={colIdx} className="px-3 py-1.5 text-[var(--text-secondary)] border-b border-slate-800/50 light:border-slate-300/50 whitespace-nowrap max-w-[300px] truncate">{row[colIdx] ?? ""}</td>
+									<td key={colIdx} className="px-3 py-1.5 text-[var(--text-secondary)] border-b border-[var(--border)] light:border-[var(--border)] whitespace-nowrap max-w-[300px] truncate">{row[colIdx] ?? ""}</td>
 								))}
 							</tr>
 						))}
@@ -154,7 +154,7 @@ export function CsvPreviewClient({ href }: { href: string }) {
 				</table>
 			</div>
 			{truncated ? (
-				<div data-tone="amber" className="rounded-2xl border border-amber-400/30 px-4 py-3 text-sm text-amber-200">
+				<div data-tone="amber" className="rounded-2xl border border-[var(--warning-border)] px-4 py-3 text-sm text-[var(--warning)]">
 					{t("csvPreview.largeWarning").replace("{max}", String(maxRows)).replace("{total}", String(dataRows.length))}
 				</div>
 			) : null}

@@ -31,7 +31,7 @@ export function AiChatHeader({
       {/* Mobile sidebar toggle */}
       <button
         onClick={onToggleSidebar}
-        className="md:hidden flex-shrink-0 text-[var(--text-secondary)] hover:text-[var(--text-secondary)] light:hover:text-slate-800 transition"
+        className="md:hidden flex-shrink-0 text-[var(--text-secondary)] hover:text-[var(--text-secondary)] light:hover:text-[var(--text-disabled)] transition"
         aria-label={t("common.openSidebar")}
       >
         <svg className="w-5 h-5" fill="none" stroke="currentColor" width="24" height="24" viewBox="0 0 24 24">
@@ -51,26 +51,26 @@ export function AiChatHeader({
       <div className="flex items-center gap-1.5">
         <button
           onClick={onToggleSettings}
-          className="h-7 px-2.5 rounded-lg text-xs text-[var(--text-secondary)] hover:bg-[var(--surface)]/[0.04] hover:text-[var(--text-secondary)] light:hover:text-slate-800 transition"
+          className="h-7 px-2.5 rounded-lg text-xs text-[var(--text-secondary)] hover:bg-[var(--surface)]/[0.04] hover:text-[var(--text-secondary)] light:hover:text-[var(--text-disabled)] transition"
         >
           {t("aiPage.settings")}
         </button>
         <button
           onClick={onClearMessages}
-          className="h-7 px-2.5 rounded-lg text-xs text-[var(--text-secondary)] hover:bg-rose-500/10 hover:text-rose-400 transition"
+          className="h-7 px-2.5 rounded-lg text-xs text-[var(--text-secondary)] hover:bg-[var(--danger-bg)] hover:text-[var(--danger)] transition"
           title={t("aiPage.clearMessagesTitle")}
         >
           {t("aiPage.clear")}
         </button>
         <button
           onClick={onRenameConv}
-          className="h-7 px-2.5 rounded-lg text-xs text-[var(--text-secondary)] hover:bg-[var(--surface)]/[0.04] hover:text-[var(--text-secondary)] light:hover:text-slate-800 transition"
+          className="h-7 px-2.5 rounded-lg text-xs text-[var(--text-secondary)] hover:bg-[var(--surface)]/[0.04] hover:text-[var(--text-secondary)] light:hover:text-[var(--text-disabled)] transition"
         >
           {t("aiPage.rename")}
         </button>
         <button
           onClick={onExportConv}
-          className="h-7 px-2.5 rounded-lg text-xs text-[var(--text-secondary)] hover:bg-[var(--surface)]/[0.04] hover:text-[var(--text-secondary)] light:hover:text-slate-800 transition"
+          className="h-7 px-2.5 rounded-lg text-xs text-[var(--text-secondary)] hover:bg-[var(--surface)]/[0.04] hover:text-[var(--text-secondary)] light:hover:text-[var(--text-disabled)] transition"
           title={t("aiPage.exportTitle")}
         >
           {t("aiPage.export")}

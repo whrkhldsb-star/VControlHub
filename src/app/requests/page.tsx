@@ -71,7 +71,7 @@ export default async function RequestsPage() {
 							<h2 id="command-approval-heading" className="text-xl font-semibold text-[var(--text-primary)]">{t("requestsPage.cmd.title", locale)}</h2>
 							<p className="mt-1 text-sm text-[var(--text-muted)]">{t("requestsPage.cmd.desc", locale)}</p>
 						</div>
-						<span data-tone="amber" className="rounded-lg border border-amber-400/20 px-3 py-1 text-xs text-amber-200">{t("requestsPage.cmd.scopeBadge", locale)}</span>
+						<span data-tone="amber" className="rounded-lg border border-[var(--warning-border)] px-3 py-1 text-xs text-[var(--warning)]">{t("requestsPage.cmd.scopeBadge", locale)}</span>
 					</div>
 
 					{requests.length === 0 ? (
@@ -123,7 +123,7 @@ export default async function RequestsPage() {
 									<InfoSection title={t("requestsPage.card.latestApprovalTitle", locale)}>
 										{request.latestApproval ? (
 											<InfoItem className="text-sm">
-												<div className={`font-medium ${request.latestApproval.approved ? "text-emerald-300" : "text-rose-300"}`}>
+												<div className={`font-medium ${request.latestApproval.approved ? "text-[var(--success)]" : "text-[var(--danger)]"}`}>
 													{request.latestApproval.approved ? "已批准" : "已拒绝"}
 												</div>
 												<div className="mt-1 text-[11px] text-[var(--text-muted)]">
@@ -173,9 +173,9 @@ function ApprovalBadge({ status }: { status: string }) {
 		"已拒绝": "danger",
 	};
 	const styleMap: Record<string, string> = {
-		待审批: "border-amber-400/20 text-amber-200",
-		已批准: "border-emerald-400/20 text-emerald-200",
-		已拒绝: "border-rose-400/20 text-rose-200",
+		待审批: "border-[var(--warning-border)] text-[var(--warning)]",
+		已批准: "border-[var(--success-border)] text-[var(--success)]",
+		已拒绝: "border-[var(--danger-border)] text-[var(--danger)]",
 	};
 	const tone = toneMap[status];
 	const style = styleMap[status] ?? "border-[var(--border)] text-[var(--text-secondary)]";

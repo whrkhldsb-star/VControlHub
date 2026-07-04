@@ -75,10 +75,10 @@ export function ShareFileButton({
         aria-label={label}
         className={
           variant === "menu"
-            ? "flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-left text-sm text-emerald-100 transition hover:bg-emerald-500/10 disabled:opacity-50"
+            ? "flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-left text-sm text-[var(--success)] transition hover:bg-[var(--success-bg)] disabled:opacity-50"
             : compact
-            ? "inline-flex h-8 w-8 items-center justify-center rounded-lg border border-emerald-400/30 bg-emerald-500/10 text-emerald-100 transition hover:bg-emerald-500/20 disabled:opacity-50"
-            : "inline-flex items-center gap-1.5 rounded-lg border border-emerald-400/30 bg-emerald-500/10 px-2.5 py-1.5 text-xs text-emerald-100 transition hover:bg-emerald-500/20 disabled:opacity-50"
+            ? "inline-flex h-8 w-8 items-center justify-center rounded-lg border border-[var(--success-border)] bg-[var(--success-bg)] text-[var(--success)] transition hover:bg-[var(--success-bg)] disabled:opacity-50"
+            : "inline-flex items-center gap-1.5 rounded-lg border border-[var(--success-border)] bg-[var(--success-bg)] px-2.5 py-1.5 text-xs text-[var(--success)] transition hover:bg-[var(--success-bg)] disabled:opacity-50"
         }
       >
         <span aria-hidden="true">🔗</span>
@@ -89,11 +89,11 @@ export function ShareFileButton({
       {shareUrl || error ? (
         <div className="absolute right-0 top-10 z-30 w-72 rounded-xl border border-[var(--border)] bg-[var(--modal-bg)] p-3 text-left text-xs shadow-xl">
           {error ? (
-            <p className="text-rose-300">{error}</p>
+            <p className="text-[var(--danger)]">{error}</p>
           ) : null}
           {shareUrl ? (
             <div className="space-y-2">
-              <p className="font-medium text-emerald-200">
+              <p className="font-medium text-[var(--success)]">
                 分享链接已生成{copied ? "并复制" : ""}
               </p>
               <code className="block break-all rounded-lg bg-[var(--surface)]/[0.04] p-2 text-[var(--text-secondary)]">
@@ -102,7 +102,7 @@ export function ShareFileButton({
               <button
                 type="button"
                 onClick={() => copy(shareUrl)}
-                className="rounded-lg border border-emerald-400/30 px-2 py-1 text-emerald-100"
+                className="rounded-lg border border-[var(--success-border)] px-2 py-1 text-[var(--success)]"
               >
                 {copied ? "已复制 ✓" : "复制链接"}
               </button>

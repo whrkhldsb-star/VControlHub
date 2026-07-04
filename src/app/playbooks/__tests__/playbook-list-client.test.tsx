@@ -4,7 +4,8 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { csrfFetch } from "@/lib/auth/csrf-client";
 import { renderWithI18n } from "@/lib/i18n/__tests__/test-helpers";
-import { PlaybookListClient, reorderSteps } from "../playbook-list-client";
+import { PlaybookListClient } from "../playbook-list-client";
+import { reorderSteps } from "../playbook-types";
 
 const addToastMock = vi.fn();
 

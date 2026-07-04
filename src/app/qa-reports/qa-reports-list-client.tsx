@@ -23,15 +23,15 @@ function kindLabel(t: (key: string) => string, kind: Exclude<KindFilter, "all">)
 }
 
 const toneToCardClass: Record<QaReportTrendCard["tone"], string> = {
-	success: "border-emerald-400/30 text-emerald-200",
-	warn: "border-amber-400/30 text-amber-200",
+	success: "border-[var(--success-border)] text-[var(--success)]",
+	warn: "border-[var(--warning-border)] text-[var(--warning)]",
 	neutral: "border-[var(--border)] text-[var(--text-secondary)]",
 	info: "border-[var(--color-action-border)]/30 text-[var(--text-secondary)]",
 };
 
 const toneToValueClass: Record<QaReportTrendCard["tone"], string> = {
-	success: "text-emerald-100",
-	warn: "text-amber-100",
+	success: "text-[var(--success)]",
+	warn: "text-[var(--warning)]",
 	neutral: "text-[var(--text-secondary)]",
 	info: "text-[var(--text-primary)]",
 };
@@ -52,15 +52,15 @@ function formatDayShort(day: string): string {
 
 function statusToneClass(status: string): string {
 	const lower = status.toLowerCase();
-	if (lower.includes("fail") || lower.includes("error")) return "text-rose-300 border-rose-400/30";
+	if (lower.includes("fail") || lower.includes("error")) return "text-[var(--danger)] border-[var(--danger-border)]";
 	if (lower.includes("run") || lower.includes("deploy")) return "text-[var(--color-action)] border-[var(--color-action-border)]/30";
-	if (lower.includes("complete") || lower.includes("resolved")) return "text-emerald-300 border-emerald-400/30";
+	if (lower.includes("complete") || lower.includes("resolved")) return "text-[var(--success)] border-[var(--success-border)]";
 	return "text-[var(--text-secondary)] border-[var(--border)]";
 }
 
 function kindAccent(kind: QaReportSummary["kind"]): string {
 	if (kind === "slice") return "bg-[var(--color-action)]/15 text-[var(--text-secondary)] border-[var(--color-action-border)]/20";
-	if (kind === "blocker") return "bg-amber-500/15 text-amber-200 border-amber-400/20";
+	if (kind === "blocker") return "bg-[var(--warning-bg)] text-[var(--warning)] border-[var(--warning-border)]";
 	return "bg-indigo-500/15 text-indigo-200 border-indigo-400/20";
 }
 
@@ -144,9 +144,9 @@ function TrendSection({ trends }: TrendSectionProps) {
 											.replace("{ok}", String(bucket.success))
 											.replace("{fail}", String(bucket.failed))}
 									>
-										<div className="w-full bg-emerald-400/70" style={{ height: `${successHeight}px` }} />
+										<div className="w-full bg-[var(--success-bg)]" style={{ height: `${successHeight}px` }} />
 										<div
-											className="w-full bg-amber-400/70"
+											className="w-full bg-[var(--warning-bg)]"
 											style={{ height: `${Math.max(0, totalHeight - successHeight)}px` }}
 										/>
 									</div>
@@ -199,8 +199,8 @@ function TrendSection({ trends }: TrendSectionProps) {
 
 function RecentRunRow({ run }: { run: QaReportTrendRecentRun }) {
 	const accent = run.isSuccess
-		? "border-emerald-400/30 text-emerald-200"
-		: "border-amber-400/30 text-amber-200";
+		? "border-[var(--success-border)] text-[var(--success)]"
+		: "border-[var(--warning-border)] text-[var(--warning)]";
 	return (
 		<li className="flex flex-col gap-1 px-3 py-2 sm:flex-row sm:items-start sm:justify-between sm:gap-3">
 			<div className="min-w-0 flex-1">
@@ -266,7 +266,7 @@ export function QaReportsListClient({
 	return (
 		<div className="space-y-5">
 			{error ? (
-				<div role="alert" className="rounded-xl border border-rose-400/20 bg-rose-500/5 px-4 py-3 text-sm text-rose-100">
+				<div role="alert" className="rounded-xl border border-[var(--danger-border)] bg-[var(--danger-bg)] px-4 py-3 text-sm text-[var(--danger)]">
 					{error}
 				</div>
 			) : null}

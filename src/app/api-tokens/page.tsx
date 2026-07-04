@@ -13,9 +13,9 @@ export default async function Page() {
 	if (!sessionHasPermission(session, "api-token:manage")) {
 		return (
 			<PageShell>
-				<section data-tone="rose" className="rounded-2xl border border-rose-400/20 p-6">
-					<h1 className="text-xl font-semibold text-rose-100">{t("common.insufficientPermissions", locale)}</h1>
-					<p className="mt-2 text-sm text-rose-100/70">{t("apiTokensPage.permissionDeniedHint", locale)}</p>
+				<section data-tone="rose" className="rounded-2xl border border-[var(--danger-border)] p-6">
+					<h1 className="text-xl font-semibold text-[var(--danger)]">{t("common.insufficientPermissions", locale)}</h1>
+					<p className="mt-2 text-sm text-[var(--danger)]0/70">{t("apiTokensPage.permissionDeniedHint", locale)}</p>
 				</section>
 			</PageShell>
 		);

@@ -82,14 +82,14 @@ export default async function BackupsPage() {
 					<p className="text-xs text-[var(--text-muted)]">{t("backupsPage.failures.count").replace("{count}", String(summary.failedRecords))}</p>
 				</div>
 				{summary.failureSummary.length === 0 ? (
-					<p data-tone="emerald" className="mt-4 rounded-lg border border-emerald-400/20 px-3 py-2 text-xs text-emerald-200">{t("backupsPage.failures.empty")}</p>
+					<p data-tone="emerald" className="mt-4 rounded-lg border border-[var(--success-border)] px-3 py-2 text-xs text-[var(--success)]">{t("backupsPage.failures.empty")}</p>
 				) : (
 					<div className="mt-4 grid gap-3 md:grid-cols-2">
 						{summary.failureSummary.map((item) => (
-							<div key={item.category} data-tone="rose" className="rounded-lg border border-rose-400/20 p-3 light:bg-rose-50">
+							<div key={item.category} data-tone="rose" className="rounded-lg border border-[var(--danger-border)] p-3 light:bg-[var(--danger)]">
 								<div className="flex items-center justify-between gap-3">
-									<p className="text-xs font-semibold text-rose-200">{item.label}</p>
-									<span className="rounded-full bg-rose-400/15 px-2 py-0.5 text-xs text-rose-100">{t("backupsPage.failures.itemCount").replace("{count}", String(item.count))}</span>
+									<p className="text-xs font-semibold text-[var(--danger)]">{item.label}</p>
+									<span className="rounded-full bg-[var(--danger-bg)] px-2 py-0.5 text-xs text-[var(--danger)]">{t("backupsPage.failures.itemCount").replace("{count}", String(item.count))}</span>
 								</div>
 								{item.latestRecordPath && <p className="mt-2 text-xs text-[var(--text-muted)]">{t("backupsPage.failures.latestRecord").replace("{path}", item.latestRecordPath)}</p>}
 								<p className="mt-2 rounded-lg border border-[var(--border)] bg-black/10 px-2 py-1.5 text-xs text-[var(--text-secondary)]/70">{t("backupsPage.failures.remediation").replace("{remediation}", item.remediation)}</p>
@@ -187,7 +187,7 @@ export default async function BackupsPage() {
 							<div className="mt-2 flex flex-wrap gap-3 text-xs text-[var(--text-muted)]">
 								<span>{t("backupsPage.records.size").replace("{size}", formatBackupSize(b.fileSize))}</span>
 								<span>{b.completedAt ? t("backupsPage.records.completedAt").replace("{time}", formatZhDateTime(b.completedAt)) : t("backupsPage.records.notCompleted")}</span>
-								{b.errorMessage && <span className="text-rose-300">{t("backupsPage.records.error").replace("{message}", b.errorMessage)}</span>}
+								{b.errorMessage && <span className="text-[var(--danger)]">{t("backupsPage.records.error").replace("{message}", b.errorMessage)}</span>}
 							</div>
 							{b.note && <p className="mt-2 text-xs text-[var(--text-muted)]">{b.note}</p>}
 							{canRestore && (

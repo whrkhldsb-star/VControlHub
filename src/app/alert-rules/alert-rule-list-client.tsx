@@ -168,7 +168,7 @@ export function AlertRuleListClient({ rules: initialRules, servers, playbooks = 
 								type="button"
 								onClick={() => deleteRule(rulePendingDelete.id)}
 								disabled={busyAction === `delete:${rulePendingDelete.id}`}
-								data-tone="rose" className="rounded-xl border border-rose-400/30 px-4 py-2 text-sm font-medium text-rose-100 transition hover:bg-rose-500/25 disabled:cursor-not-allowed disabled:opacity-60"
+								data-tone="rose" className="rounded-xl border border-[var(--danger-border)] px-4 py-2 text-sm font-medium text-[var(--danger)] transition hover:bg-[var(--danger-bg)] disabled:cursor-not-allowed disabled:opacity-60"
 							>
 								{busyAction === `delete:${rulePendingDelete.id}` ? t("alertRulesPage.delete.deleting") : t("alertRulesPage.delete.confirmBtn")}
 							</button>
@@ -195,7 +195,7 @@ export function AlertRuleListClient({ rules: initialRules, servers, playbooks = 
 			</div>
 
 			{actionError && (
-				<div role="alert" data-tone="rose" className="rounded-xl border border-rose-400/20 px-4 py-3 text-sm text-rose-100">
+				<div role="alert" data-tone="rose" className="rounded-xl border border-[var(--danger-border)] px-4 py-3 text-sm text-[var(--danger)]">
 					{actionError}
 				</div>
 			)}
@@ -234,7 +234,7 @@ export function AlertRuleListClient({ rules: initialRules, servers, playbooks = 
 										{t("alertRulesPage.condition.when")} <span className="text-[var(--color-action)]/80">{metricLabel(t, rule.metric)}</span>{" "}
 										{rule.metric !== "server_offline" && <>
 											<span className="text-[var(--text-primary)]/70">{operatorLabel(t, rule.operator)}</span>{" "}
-											<span className="text-amber-300 font-mono">{rule.threshold}%</span>
+											<span className="text-[var(--warning)] font-mono">{rule.threshold}%</span>
 										</>}
 										{rule.durationSeconds > 0 && <span className="text-[var(--text-muted)]">{t("alertRulesPage.condition.duration").replace("{seconds}", String(rule.durationSeconds))}</span>}
 										{rule.serverIds.length === 0 ? t("alertRulesPage.condition.allNodes") : t("alertRulesPage.condition.nodeCount").replace("{count}", String(rule.serverIds.length))}
@@ -246,7 +246,7 @@ export function AlertRuleListClient({ rules: initialRules, servers, playbooks = 
 											</span>
 										))}
 						{rule.webhookConfigured && (
-							<span data-tone="emerald" className="rounded-lg border border-emerald-400/20 px-1.5 py-0.5 text-[10px] text-emerald-200">
+							<span data-tone="emerald" className="rounded-lg border border-[var(--success-border)] px-1.5 py-0.5 text-[10px] text-[var(--success)]">
 								{t("alertRulesPage.badge.webhookConfigured")}
 							</span>
 						)}
@@ -277,8 +277,8 @@ export function AlertRuleListClient({ rules: initialRules, servers, playbooks = 
 							disabled={busyAction === `toggle:${rule.id}`}
 							className={`rounded-2xl border px-4 py-2 text-xs font-medium transition disabled:cursor-not-allowed disabled:opacity-60 ${
 								rule.enabled
-									? "border-amber-400/30 bg-amber-400/10 text-amber-100 hover:bg-amber-400/20"
-									: "border-emerald-400/30 bg-emerald-400/10 text-emerald-100 hover:bg-emerald-400/20"
+									? "border-[var(--warning-border)] bg-[var(--warning-bg)] text-[var(--warning)] hover:bg-[var(--warning-bg)]"
+									: "border-[var(--success-border)] bg-[var(--success-bg)] text-[var(--success)] hover:bg-[var(--success-bg)]"
 							}`}
 						>
 							{busyAction === `toggle:${rule.id}` ? t("alertRulesPage.action.processing") : rule.enabled ? t("alertRulesPage.action.pause") : t("alertRulesPage.action.enable")}
@@ -293,7 +293,7 @@ export function AlertRuleListClient({ rules: initialRules, servers, playbooks = 
 						<button
 							onClick={() => setRulePendingDelete(rule)}
 							disabled={busyAction === `delete:${rule.id}`}
-							data-tone="rose" className="rounded-2xl border border-rose-400/30 px-4 py-2 text-xs font-medium text-rose-100 hover:bg-rose-400/20 transition disabled:cursor-not-allowed disabled:opacity-60"
+							data-tone="rose" className="rounded-2xl border border-[var(--danger-border)] px-4 py-2 text-xs font-medium text-[var(--danger)] hover:bg-[var(--danger-bg)] transition disabled:cursor-not-allowed disabled:opacity-60"
 						>
 							{busyAction === `delete:${rule.id}` ? t("alertRulesPage.action.deleting") : t("alertRulesPage.action.delete")}
 						</button>
@@ -372,7 +372,7 @@ function CreateRuleForm({ servers, playbooks, onClose }: { servers: ServerOption
 	return (
 		<form onSubmit={handleSubmit} data-card className=" space-y-4">
 			<h3 className="text-lg font-semibold text-[var(--text-primary)]">{t("alertRulesPage.createForm.title")}</h3>
-			{error && <div className="rounded-lg bg-rose-500/[0.10] border border-rose-400/20 px-3.5 py-2.5 text-sm text-rose-200">{error}</div>}
+			{error && <div className="rounded-lg bg-[var(--danger)]0/[0.10] border border-[var(--danger-border)] px-3.5 py-2.5 text-sm text-[var(--danger)]">{error}</div>}
 
 			<div className="space-y-1.5">
 				<label className="text-xs font-medium text-[var(--text-primary)]/70 tracking-wide" htmlFor="alertRuleName">{t("alertRulesPage.createForm.name")}</label>

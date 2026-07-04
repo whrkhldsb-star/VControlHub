@@ -47,14 +47,14 @@ export function ShareRowActions({
 	return (
 		<div className="flex flex-wrap items-center gap-2">
 			{confirming ? (
-				<span className="text-xs text-rose-200">{t("sharesPage.rowActions.warning")}</span>
+				<span className="text-xs text-[var(--danger)]">{t("sharesPage.rowActions.warning")}</span>
 			) : null}
 			<button
 				type="button"
 				onClick={handleRevoke}
 				disabled={busy}
 				aria-describedby={confirming ? `revoke-share-${id}-warning` : undefined}
-				data-tone="rose" className="min-h-11 min-w-11 rounded-lg border border-rose-400/30 px-2.5 py-1 text-xs text-rose-100 transition hover:bg-rose-400/20 disabled:cursor-not-allowed disabled:opacity-50"
+				data-tone="rose" className="min-h-11 min-w-11 rounded-lg border border-[var(--danger-border)] px-2.5 py-1 text-xs text-[var(--danger)] transition hover:bg-[var(--danger-bg)] disabled:cursor-not-allowed disabled:opacity-50"
 			>
 				{busy ? t("sharesPage.rowActions.submitting") : confirming ? t("sharesPage.rowActions.confirm") : t("sharesPage.rowActions.revoke")}
 			</button>
@@ -72,7 +72,7 @@ export function ShareRowActions({
 				</button>
 			) : null}
 			{confirming ? <span id={`revoke-share-${id}-warning`} className="sr-only">{t("sharesPage.rowActions.confirmAria")}</span> : null}
-			{error ? <span role="alert" className="text-xs text-rose-300">{error}</span> : null}
+			{error ? <span role="alert" className="text-xs text-[var(--danger)]">{error}</span> : null}
 		</div>
 	);
 }

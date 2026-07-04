@@ -34,19 +34,25 @@ export function useConvSettingsForm({
   const [settingsForm, setSettingsForm] = useState(DEFAULT_SETTINGS_FORM);
 
   useEffect(() => {
+    let ignore = false;
     if (activeConv) {
-      setSettingsForm({
-        model: activeConv.model,
-        systemPrompt: activeConv.systemPrompt || "",
-        temperature: activeConv.temperature,
-        maxTokens: activeConv.maxTokens,
-        topP: activeConv.topP,
-        frequencyPenalty: activeConv.frequencyPenalty,
-        presencePenalty: activeConv.presencePenalty,
-        enableVision: activeConv.enableVision,
-        hostingEnabled: activeConv.hostingEnabled,
-      });
+      setTimeout(() => {
+        if (!ignore) {
+          setSettingsForm({
+            model: activeConv.model,
+            systemPrompt: activeConv.systemPrompt || "",
+            temperature: activeConv.temperature,
+            maxTokens: activeConv.maxTokens,
+            topP: activeConv.topP,
+            frequencyPenalty: activeConv.frequencyPenalty,
+            presencePenalty: activeConv.presencePenalty,
+            enableVision: activeConv.enableVision,
+            hostingEnabled: activeConv.hostingEnabled,
+          });
+        }
+      }, 0);
     }
+    return () => { ignore = true; };
   }, [activeConv]);
 
   const handleSaveSettings = useCallback(async () => {

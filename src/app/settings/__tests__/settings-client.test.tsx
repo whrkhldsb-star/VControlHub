@@ -218,7 +218,7 @@ describe("SettingsClient", () => {
     render(<SettingsClient settings={{ "runtime.commandExecutionTimeoutMs": "1", "runtime.commandOutputLimitBytes": "262144", "runtime.commandStaleRunningAfterMs": "600000", "runtime.commandExecutionHeartbeatMs": "60000", "runtime.commandReconcileIntervalMs": "60000", "runtime.sftpSyncDirectoryTimeoutMs": "60000", "runtime.sshWsHeartbeatIntervalMs": "25000", "runtime.sshIdleTimeoutSec": "600", "runtime.operationTaskListLimit": "100", "runtime.aiProviderListLimit": "100", "runtime.aiConversationListLimit": "200" }} canManage />);
     await user.click(screen.getAllByRole("button", { name: "保存" })[2]!);
 
-    expect(screen.getByText("命令执行超时 必须在 5000 到 3600000 之间")).toBeInTheDocument();
+    expect(screen.getByText("命令执行超时（毫秒） 必须在 5000 到 3600000 之间")).toBeInTheDocument();
     expect(csrfFetch).not.toHaveBeenCalled();
   });
 	it("hosts account two-factor controls in system settings", () => {

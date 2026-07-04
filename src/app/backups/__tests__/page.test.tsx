@@ -1,5 +1,5 @@
 import { renderWithI18n as render } from "@/lib/i18n/__tests__/test-helpers";
-import { screen } from "@testing-library/react";
+import { screen, act } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
 vi.mock("@/lib/auth/require-session", () => ({
@@ -97,7 +97,7 @@ import BackupsPage from "../page";
 
 describe("BackupsPage", () => {
   it("shows backup commands that match each recorded backup type", async () => {
-    render(await BackupsPage());
+    await act(async () => { render(await BackupsPage()); });
 
     expect(screen.getByText("创建并执行备份")).toBeInTheDocument();
     expect(screen.getByText(/创建可审计备份记录并排入 Durable Job 后台队列/)).toBeInTheDocument();

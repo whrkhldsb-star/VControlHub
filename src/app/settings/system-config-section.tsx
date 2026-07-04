@@ -203,7 +203,7 @@ export function SystemConfigSection() {
         </div>
 
         {exportMode === "full" && (
-          <div className="rounded-lg border border-amber-400/20 bg-amber-500/[0.08] px-3.5 py-2.5 text-xs text-amber-200 light:text-amber-700">
+          <div className="rounded-lg border border-[var(--warning-border)] bg-[var(--warning)]0/[0.08] px-3.5 py-2.5 text-xs text-[var(--warning)] light:text-[var(--warning)]">
             ⚠ {t("systemConfig.export.fullWarning")}
           </div>
         )}
@@ -216,7 +216,7 @@ export function SystemConfigSection() {
           {exporting ? t("systemConfig.export.exporting") : t("systemConfig.export.button")}
         </button>
         {exportError && (
-          <p className="text-sm text-rose-400 light:text-rose-600">{exportError}</p>
+          <p className="text-sm text-[var(--danger)] light:text-[var(--danger)]">{exportError}</p>
         )}
       </div>
 
@@ -246,7 +246,7 @@ export function SystemConfigSection() {
             <p className="text-xs text-[var(--text-secondary)]">{selectedFileName}</p>
           )}
           {fileError && (
-            <p className="text-sm text-rose-400 light:text-rose-600">{fileError}</p>
+            <p className="text-sm text-[var(--danger)] light:text-[var(--danger)]">{fileError}</p>
           )}
         </div>
 
@@ -307,11 +307,11 @@ export function SystemConfigSection() {
             {/* 警告 */}
             {preview.warnings.length > 0 && (
               <div className="space-y-1 mt-2">
-                <span className="text-xs font-medium text-amber-400 light:text-amber-700">
+                <span className="text-xs font-medium text-[var(--warning)] light:text-[var(--warning)]">
                   {t("systemConfig.import.preview.warnings")}
                 </span>
                 {preview.warnings.map((w, i) => (
-                  <p key={i} className="text-xs text-amber-400 light:text-amber-700">⚠ {w}</p>
+                  <p key={i} className="text-xs text-[var(--warning)] light:text-[var(--warning)]">⚠ {w}</p>
                 ))}
               </div>
             )}
@@ -329,8 +329,8 @@ export function SystemConfigSection() {
 
         {/* 导入结果 */}
         {result && (
-          <div className="p-3 rounded-lg bg-emerald-500/10 border border-emerald-500/30">
-            <p className="text-sm text-emerald-400 light:text-emerald-600">
+          <div className="p-3 rounded-lg bg-[var(--success-bg)] border border-[var(--success-border)]">
+            <p className="text-sm text-[var(--success)] light:text-[var(--success)]">
               {t("systemConfig.import.result.success")
                 .replace("{created}", String(result.created))
                 .replace("{updated}", String(result.updated))
@@ -340,7 +340,7 @@ export function SystemConfigSection() {
         )}
 
         {importError && (
-          <p className="text-sm text-rose-400 light:text-rose-600">{importError}</p>
+          <p className="text-sm text-[var(--danger)] light:text-[var(--danger)]">{importError}</p>
         )}
       </div>
     </div>

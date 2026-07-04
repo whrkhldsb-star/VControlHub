@@ -197,8 +197,8 @@ export function TeamWorkspaceSection({ canManage }: { canManage: boolean }) {
 				<p className="mt-1 text-sm text-[var(--text-secondary)]">{t("settingsTeam.desc")}</p>
 			</div>
 
-			{error && <div role="alert" className="rounded-xl border border-rose-400/20 bg-rose-500/10 px-3 py-2 text-sm text-rose-200 light:text-rose-600">{error}</div>}
-			{message && <div className="rounded-xl border border-emerald-400/20 bg-emerald-500/10 px-3 py-2 text-sm text-emerald-200 light:text-emerald-600">{message}</div>}
+			{error && <div role="alert" className="rounded-xl border border-[var(--danger-border)] bg-[var(--danger-bg)] px-3 py-2 text-sm text-[var(--danger)] light:text-[var(--danger)]">{error}</div>}
+			{message && <div className="rounded-xl border border-[var(--success-border)] bg-[var(--success-bg)] px-3 py-2 text-sm text-[var(--success)] light:text-[var(--success)]">{message}</div>}
 
 			{loading ? (
 				<p className="text-sm text-[var(--text-muted)]">{t("settingsTeam.loading")}</p>
@@ -233,12 +233,12 @@ export function TeamWorkspaceSection({ canManage }: { canManage: boolean }) {
 										</button>
 									)}
 									{canManage && editingTeamId === team.id && (
-										<button type="button" disabled={busy} onClick={() => saveEditTeam(team.id)} className="min-h-9 rounded-xl border border-[var(--border)] px-3 py-1 text-xs text-emerald-300 light:text-emerald-600 disabled:opacity-60">
+										<button type="button" disabled={busy} onClick={() => saveEditTeam(team.id)} className="min-h-9 rounded-xl border border-[var(--border)] px-3 py-1 text-xs text-[var(--success)] light:text-[var(--success)] disabled:opacity-60">
 											{t("settingsTeam.save")}
 										</button>
 									)}
 									{canManage && (
-										<button type="button" disabled={busy} onClick={() => deleteTeamSpace(team.id, team.name)} className="min-h-9 rounded-xl border border-rose-400/30 px-3 py-1 text-xs text-rose-300 light:text-rose-600 disabled:opacity-60">
+										<button type="button" disabled={busy} onClick={() => deleteTeamSpace(team.id, team.name)} className="min-h-9 rounded-xl border border-[var(--danger-border)] px-3 py-1 text-xs text-[var(--danger)] light:text-[var(--danger)] disabled:opacity-60">
 											{t("settingsTeam.delete")}
 										</button>
 									)}
@@ -251,7 +251,7 @@ export function TeamWorkspaceSection({ canManage }: { canManage: boolean }) {
 										<span className="flex items-center gap-2">
 											<span className="text-[var(--text-muted)]">{member.role}</span>
 											{canManage && member.role !== "owner" && (
-												<button type="button" disabled={busy} onClick={() => removeMember(team.id, member.user.id, member.user.displayName || member.user.username)} className="text-rose-400/70 hover:text-rose-400 light:text-rose-500 light:hover:text-rose-600 disabled:opacity-60">
+												<button type="button" disabled={busy} onClick={() => removeMember(team.id, member.user.id, member.user.displayName || member.user.username)} className="text-[var(--danger)]0/70 hover:text-[var(--danger)] light:text-[var(--danger)] light:hover:text-[var(--danger)] disabled:opacity-60">
 													✕
 												</button>
 											)}
@@ -292,12 +292,12 @@ export function TeamWorkspaceSection({ canManage }: { canManage: boolean }) {
 
 			{pendingConfirm ? (
 				<div className="fixed inset-0 z-50 flex items-center justify-center bg-[var(--surface)]/70 px-4 backdrop-blur-sm" role="presentation">
-					<section role="dialog" aria-modal="true" aria-labelledby="team-workspace-confirm-title" className="w-full max-w-md rounded-2xl border border-rose-400/25 bg-[var(--modal-bg)] p-6 shadow-[0_24px_100px_rgba(244,63,94,0.16)]">
+					<section role="dialog" aria-modal="true" aria-labelledby="team-workspace-confirm-title" className="w-full max-w-md rounded-2xl border border-[var(--danger-border)] bg-[var(--modal-bg)] p-6 shadow-[0_24px_100px_rgba(244,63,94,0.16)]">
 						<h3 id="team-workspace-confirm-title" className="text-lg font-semibold text-[var(--text-primary)]">{confirmTitle}</h3>
 						<p className="mt-3 text-sm leading-6 text-[var(--text-secondary)]">{confirmDesc}</p>
 						<div className="mt-6 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
 							<button type="button" onClick={() => setPendingConfirm(null)} className="min-h-11 rounded-xl border border-[var(--border)] px-4 py-2 text-sm font-medium text-[var(--text-secondary)] hover:bg-[var(--surface-hover)]">{t("settingsTeam.confirm.cancel")}</button>
-							<button type="button" onClick={() => void confirmPendingAction()} disabled={busy} className="min-h-11 rounded-xl bg-rose-500 px-4 py-2 text-sm font-semibold text-[var(--text-primary)] hover:bg-rose-400 disabled:opacity-60">{t("settingsTeam.confirm.submit")}</button>
+							<button type="button" onClick={() => void confirmPendingAction()} disabled={busy} className="min-h-11 rounded-xl bg-[var(--danger)] px-4 py-2 text-sm font-semibold text-[var(--text-primary)] hover:bg-[var(--danger)] disabled:opacity-60">{t("settingsTeam.confirm.submit")}</button>
 						</div>
 					</section>
 				</div>

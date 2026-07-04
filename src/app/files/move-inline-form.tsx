@@ -70,8 +70,8 @@ export function MoveInlineForm({
         aria-label={`移动 ${name}`}
         className={
           variant === "menu"
-            ? "flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-left text-sm text-emerald-100 transition hover:bg-emerald-400/10"
-            : "inline-flex h-8 w-8 items-center justify-center rounded-lg border border-emerald-400/30 bg-emerald-400/10 text-emerald-100 transition hover:bg-emerald-400/20"
+            ? "flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-left text-sm text-[var(--success)] transition hover:bg-[var(--success-bg)]"
+            : "inline-flex h-8 w-8 items-center justify-center rounded-lg border border-[var(--success-border)] bg-[var(--success-bg)] text-[var(--success)] transition hover:bg-[var(--success-bg)]"
         }
       >
         <svg

@@ -343,55 +343,62 @@ make logs SERVICE_PREFIX=vcontrolhub
 | 数据模型        | 55                                               |
 | UI 组件         | 29                                               |
 | 代码行数        | ~163,800（src 扫描）                             |
-| 测试            | 365 文件 / ~2,470 tests                          |
+| 测试            | 388 文件 / ~2,745 tests                          |
 | Docker 应用模板 | 44 (本地) + 社区源实时同步                       |
 | i18n            | 142 useI18n() 调用点，76 字典文件，195 light: 语义 |
 
 ---
 
-## 🔬 全量代码审查（2026-07-02 新一轮深度审计）
+## 🔬 全量代码审查（2026-07-04 复审）
 
 > 本节仅保留仍需处理的真实待办。已完成或经验证为过期/误报的条目已清理，避免重复排期。
 
-**审查范围**：~163,800 行 TypeScript/TSX，122+ API 路由，46+ 页面，60 数据模型，1176+ 源文件，373 测试文件。
-**最近验证**：`npm run verify` 已通过（373 test files / 2616 tests passed / 1 skipped，含 typecheck、lint、i18n key check、Next build、runtime bundle、deploy assets）。
+**审查范围**：~163,800 行 TypeScript/TSX，122+ API 路由，46+ 页面，60 数据模型，1176+ 源文件，388 测试文件。
+**最近验证**：`npm run typecheck` + `npm test` + `npm run lint` 已通过（388 test files / 2745 tests passed / 1 skipped，含 typecheck、lint、Next build、runtime bundle、deploy assets）。
 
 ### 📋 剩余优化待办
-
-#### 🔴 P1 — 高优先级
-
-| # | 问题 | 涉及文件 | 建议修复 |
-| --- | --- | --- | --- |
-| 1 | **health-dashboard 系统自检文本仍靠 client regex bridge** — 页面主体已接入 `useI18n`，但服务端返回的中文 health-check label/message 仍在客户端用正则翻译，未源头结构化 | `src/app/health/health-dashboard-client.tsx`, `src/lib/system-health/` | 将 system-health 返回改为稳定 code + params，前端通过 `health-page` 字典渲染 |
-| 2 | **settings/field-schema i18n 未完成** — 仍有大量中文 label/helper/validation 文案集中在 schema 文件 | `src/app/settings/field-schema.ts` | 将 section/field 文案迁移到 i18n 字典，schema 仅保留 key 与约束 |
 
 #### 🟡 P2 — 中优先级
 
 | # | 问题 | 涉及文件 | 建议修复 |
 | --- | --- | --- | --- |
-| 3 | **React.memo 缺失** — 高频列表项组件尚未记忆化，轮询/刷新时可能全量重渲染 | `notifications/`, `downloads/`, `operation-tasks/`, `snippets/`, `announcements/`, `playbooks/` 等列表页 | 提取列表项组件并按交互边界使用 `React.memo`/稳定 props |
-| 4 | **硬编码 tone 色彩类仍广泛存在** — emerald/rose/amber/slate 等 utility 仍大量散落，浅色/暗色主题一致性维护成本高 | `src/components/`, `src/app/` 广泛分布 | 迁移到 `data-tone="emerald|rose|amber"`、CSS 变量或统一 tone helper |
-| 5 | **大文件拆分未完成** — 仍有多个 >500 行模块/组件，影响维护与审查 | `src/lib/system/import-service.ts`, `text-preview-client.tsx`, `api/downloads/route.ts`, `playbook-list-client.tsx`, `files-browser-spa.tsx` 等 | 按领域拆分 service/table handlers、列表子组件、route helper 与 hook |
+| 1 | **`src/app/` 仍残留 ~104 处硬编码 tone 色彩类** — `src/components/` 已全部迁移到 `var(--*)`/`data-tone`，但 `src/app/` 仍有 `text-rose-*`/`bg-amber-*`/`border-emerald-*` 等散落；`globals.css` Q-layer 兼容层在运行时补偿，但源码未清理 | `downloads-client.tsx`(43处)、`files/preview/*`(38处)、`notifications/notification-list-client.tsx`(5处)、`playbooks/create-playbook-form.tsx`、`qa-reports-list-client.tsx`(indigo 未被 Q-layer 覆盖) 等 10 个文件 | 将残留 `rose/amber/emerald/slate/indigo` utility 替换为 `var(--danger/--warning/--success/--border)` 等 CSS 变量，随后移除 Q-layer 兼容 shim |
+| 2 | **大文件拆分未完成 — 仍有 19 个 >500 行源文件** | `import-executors.ts`(1104行，最大)、`storage/actions.ts`(729行)、`text-preview-client.tsx`(629行)、`ai-ops-page-client.tsx`(699行)、`cost-page-client.tsx`(668行) 等 | 按领域拆分：import-executors 按导入类型分组、storage/actions 拆为独立 action handler、text-preview-client 继续抽取子组件 |
+| 3 | **大量 `.tsx` 组件仍含硬编码中文字符串** — 绕过 `t()` i18n 系统，EN locale 下直接显示中文 | `servers/batch-server-action-panel.tsx`(整组件硬编码)、`servers/server-tab-layout.tsx`、`servers/server-overview-card.tsx`、`login/verify-2fa/`(3文件)、`image-bed/`(2文件)、`operation-tasks/page.tsx`、`scheduled-tasks/page.tsx`、`announcements/announcement-edit-modal.tsx`、`shares/create-share-form.tsx` 等 15+ 文件 | 将所有 JSX 文本/错误消息/aria-label 迁移到 `t()` + 字典 key；`i18n:key-check` 脚本仅校验已用 key 的完整性，无法检测绕过 `t()` 的硬编码中文 |
+| 4 | **inline locale 三元表达式替代 `t()` 调用** — `locale === "zh" ? "中文" : "English"` 模式 | `theme-toggle.tsx`、`language-toggle.tsx`、`health/sparkline-chart.tsx`、`login/page.tsx` | 改为 `t("key")` + 字典条目 |
 
 #### 🟢 P3 — 低优先级
 
 | # | 问题 | 涉及文件 | 建议修复 |
 | --- | --- | --- | --- |
-| 6 | **API 路由测试覆盖仍有空白** — 粗略扫描仍有部分 API route 缺邻近测试 | `src/app/api/**/route.ts` | 按 auth/2FA、AI、playbooks、backup、audit、deployment rollback 等关键路径补测 |
-| 7 | **lib 测试覆盖仍有空白** — 部分业务库/字典/DTO/helper 缺直接测试 | `src/lib/**` | 优先补齐 auth、backup、SSH/storage、sanitize、runtime settings 等高风险模块 |
-| 8 | **组件测试覆盖仍有空白** — 顶层共享组件仍有一批无对应测试 | `ui-primitives.tsx`, `page-shell.tsx`, `ssh-file-manager.tsx`, `ssh-terminal-panel.tsx`, `theme-toggle.tsx`, `toast-provider.tsx` 等 | 为可交互组件补充 Testing Library 测试，纯展示组件按风险取舍 |
-| 9 | **缺少端到端测试** — 当前主要依赖单元/集成测试 | 项目级别 | 引入 Playwright，覆盖登录 → 服务器管理 → 文件操作 → 设置保存等关键路径 |
+| 5 | **`/api/status` 路由缺 try/catch** — 唯一既无 `withApiRoute` 又无手动错误处理的路由；公开端点，异常时返回裸 500 | `src/app/api/status/route.ts` | 加 `withApiRoute` 或手动 `try/catch` |
+| 6 | **`t()` fallback 代码异味** — 7 处 `t("key") === "key" ? "中文" : t("key")`，表明对字典完整性不信任 | `app-sidebar.tsx`(5处)、`change-password-modal.tsx`(1处)、`layout.tsx`(1处) | 确保字典 key 存在后删除 fallback 逻辑 |
+| 7 | **input 字段缺 `<label>`/`aria-label`** — 20+ 处 `<input>` 仅靠 `placeholder` 作为可访问名，不符合 WCAG | `ssh-file-manager.tsx`、`step-config-editor.tsx`、`api-token-manager-client.tsx`、`api-docs-page-client.tsx`、`tickets/create-ticket-form.tsx` 等 10+ 文件 | 为每个 input 关联 `<label htmlFor>` 或添加 `aria-label` |
+| 8 | **aria-label 含硬编码中文** — EN locale 下屏幕阅读器仍读中文 | `mobile-nav.tsx`、`image-preview-modal.tsx`、`verify-2fa-form.tsx`、`operation-task-list-client.tsx`、`server-tab-layout.tsx`、`server-overview-card.tsx` 等 8+ 处 | 改为 `t("ariaKey")` + 字典 |
+| 9 | **生产代码中残留 `console.log`/`console.error`** | `lib/uptime/aggregate.ts`(5处)、`instrumentation.ts`(5处)、`app/status/page.tsx`(1处) | 替换为 `lib/logging.ts` 统一日志或删除 |
+
+### ✅ 已完成项（2026-07-04 复审确认）
+
+- **P1-1 health-dashboard i18n** — `system-health/service.ts` 已返回结构化 `messageCode` + `params`，前端通过 `t()`/`tt()` + `health-page` 字典渲染。可选清理：`service.ts` 中残留的 dead `label`/`message` 中文 fallback 字段可删除（客户端不再读取）。
+- **P1-2 settings/field-schema i18n** — schema 仅保留 `settingsClient.*` i18n key 与约束；`field-schema-i18n.ts` 桥接层已删除；validate 函数返回结构化 `FieldValidationError { key, params }`。
+- **P2-3 React.memo** — `notifications`、`downloads`、`operation-tasks`、`snippets`、`announcements`、`playbooks` 6 个列表页均已提取 `memo` 列表项组件 + 自定义比较器 + `useCallback` 稳定回调。
+- **P3-6 API 路由测试** — auth/2FA、AI、playbooks(含 dry-run)、backup、audit、deployment rollback 关键路径均已覆盖邻近测试。
+- **P3-7 lib 测试** — auth、backup、SSH/storage、sanitize、runtime settings 高风险模块均已覆盖。
+- **P3-8 组件测试** — `ui-primitives`、`page-shell`、`ssh-file-manager`、`ssh-terminal-panel`、`theme-toggle`、`toast-provider` 均已覆盖。
+- **P3-9 E2E 测试** — Playwright 已引入，`e2e/` 含 `public-smoke.spec.ts`、`authenticated-flow.spec.ts`、`screenshot.spec.ts`，覆盖登录→服务器→设置等关键路径。
 
 ### ⚠️ 审计订正（防止重复误报）
 
 - **`global-error.tsx` i18n 已完成且不能用 `useI18n()`** — App Router 的 `global-error` 渲染在 provider tree 外，当前通过 `vps-locale` cookie 检测 locale 并内置中英 copy，是合理实现。
 - **`error.tsx` / `loading.tsx` 缺失项已完成** — 原清单 11 个路由均已具备对应边界/骨架文件。
-- **`window.confirm` 目标项已完成** — 原目标文件中的原生 `confirm()` 已清零。
+- **`window.confirm` 目标项已完成** — 原目标文件中的原生 `confirm()` 已清零（2026-07-04 复审确认零匹配）。
 - **`notification-bell` / `global-search` / `share-row-actions` / `scheduled-tasks` / `docker-resources` / `team-workspace` i18n 已完成** — 已接入 `useI18n` 或等价字典化路径，旧清单不再保留。
 - **`csrf_token` cookie 不能加 `HttpOnly`** — 走 Double-Submit Cookie 模式，client 必须 `document.cookie` 读 token；加 `HttpOnly` 会直接破坏 CSRF 防护。承载身份的 session cookie 已 `httpOnly: true`，组合已满足 OWASP 推荐。
 - **`effect` / `@electric-sql/pglite*` 不能 `npm remove`** — 两者均为 `prisma` 的 transitive dependency，不在 `package.json` 顶层；瘦身需 prisma 主动减少，非项目侧可解。
 - **"4 个核心页面缺 PageHeader" 假阳性** — `/ai` 是聊天 UI、`/storage` 只 redirect、`/media` 与 `/image-bed` 已具备 eyebrow/title/description（自定义 hero header），无需补齐。
 - **`/offline` 是客户端页面无服务端 guard** — 合理设计：离线页需在无网络时渲染，不能依赖服务端 session。
 - **`bg-black/60` modal 背景在浅色模式下也合理** — 黑色半透明遮罩在深色/浅色主题下均为通用模式，无需额外适配。
+- **`import-service.ts` 已从 500+ 行降至 13 行 barrel** — 但实现逻辑迁移至 `import-executors.ts`(1104行)，拆分效果为负；需继续拆分（见 P2 #2）。
+- **Q-layer CSS 兼容层已补偿 `src/app/` 残留色** — `globals.css` ~820-1150 行将旧 `text-rose-*`/`bg-emerald-*` 等映射到 `var(--*)`，运行时主题一致，但源码未清理（见 P2 #1）。
 
 ## 📄 许可

@@ -50,9 +50,9 @@ function describeCronPreview(expr: string, t: (k: string) => string) {
 }
 
 function statusBadgeClass(status: string): string {
-	if (status === "ACTIVE") return "border-emerald-400/20 text-emerald-200";
-	if (status === "PAUSED") return "border-amber-400/20 text-amber-200";
-	return "border-rose-400/20 text-rose-200";
+	if (status === "ACTIVE") return "border-[var(--success-border)] text-[var(--success)]";
+	if (status === "PAUSED") return "border-[var(--warning-border)] text-[var(--warning)]";
+	return "border-[var(--danger-border)] text-[var(--danger)]";
 }
 
 function statusLabel(t: (k: string) => string, status: string): string {
@@ -78,7 +78,7 @@ export function ScheduleBackupForm() {
 
 	const cronPreview = useMemo(() => describeCronPreview(cronExpression, t), [cronExpression, t]);
 
-	const loadSchedules = useCallback(async () => {
+	const fetchSchedules = useCallback(async () => {
 		try {
 			const res = await csrfFetch("/api/backup-schedules", { method: "GET" });
 			if (!res.ok) return;
@@ -92,8 +92,14 @@ export function ScheduleBackupForm() {
 	}, []);
 
 	useEffect(() => {
-		void loadSchedules();
-	}, [loadSchedules]);
+		let ignore = false;
+		void fetchSchedules().then(() => {
+			if (!ignore) {
+				// effect resolved
+			}
+		});
+		return () => { ignore = true; };
+	}, [fetchSchedules]);
 
 	const createSchedule = async (event: React.FormEvent) => {
 		event.preventDefault();
@@ -123,7 +129,7 @@ export function ScheduleBackupForm() {
 			setName("");
 			setNote("");
 			setRetentionDays("");
-			await loadSchedules();
+			await fetchSchedules();
 		} catch (error) {
 			setMessage({ type: "error", text: error instanceof Error ? error.message : t("backupsPage.schedule.failFallback") });
 		} finally {
@@ -138,7 +144,7 @@ export function ScheduleBackupForm() {
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify({ toggleId: id }),
 			});
-			await loadSchedules();
+			await fetchSchedules();
 		} catch {
 			// best-effort
 		}
@@ -148,7 +154,7 @@ export function ScheduleBackupForm() {
 		try {
 			await csrfFetch(`/api/backup-schedules/${id}`, { method: "DELETE" });
 			setPendingDeleteId(null);
-			await loadSchedules();
+			await fetchSchedules();
 		} catch {
 			// best-effort
 		}
@@ -193,7 +199,7 @@ export function ScheduleBackupForm() {
 				<button type="submit" disabled={submitting} className="rounded-lg bg-[var(--color-action-bg)] px-4 py-2 text-sm font-semibold text-[var(--color-action-fg)] disabled:cursor-not-allowed disabled:opacity-60">
 					{submitting ? t("backupsPage.schedule.submitting") : t("backupsPage.schedule.submit")}
 				</button>
-				{message && <p role="status" className={`text-xs ${message.type === "ok" ? "text-emerald-300" : "text-rose-300"}`}>{message.text}</p>}
+				{message && <p role="status" className={`text-xs ${message.type === "ok" ? "text-[var(--success)]" : "text-[var(--danger)]"}`}>{message.text}</p>}
 			</form>
 
 			{/* Schedule list */}
@@ -243,7 +249,7 @@ export function ScheduleBackupForm() {
 										<button
 											type="button"
 											onClick={() => setPendingDeleteId(s.id)}
-											className="rounded-lg border border-rose-400/20 px-2 py-1 text-xs text-rose-200 transition hover:border-rose-400/40"
+											className="rounded-lg border border-[var(--danger-border)] px-2 py-1 text-xs text-[var(--danger)] transition hover:border-[var(--danger-border)]"
 										>
 											{t("backupsPage.schedule.delete")}
 										</button>
@@ -256,12 +262,12 @@ export function ScheduleBackupForm() {
 			</div>
 			{pendingDeleteId ? (
 				<div className="fixed inset-0 z-50 flex items-center justify-center bg-[var(--surface)]/70 px-4 backdrop-blur-sm" role="presentation">
-					<section role="dialog" aria-modal="true" aria-labelledby="backup-schedule-delete-title" className="w-full max-w-md rounded-2xl border border-rose-400/25 bg-[var(--modal-bg)] p-6 shadow-[0_24px_100px_rgba(244,63,94,0.16)]">
+					<section role="dialog" aria-modal="true" aria-labelledby="backup-schedule-delete-title" className="w-full max-w-md rounded-2xl border border-[var(--danger-border)] bg-[var(--modal-bg)] p-6 shadow-[0_24px_100px_rgba(244,63,94,0.16)]">
 						<h3 id="backup-schedule-delete-title" className="text-lg font-semibold text-[var(--text-primary)]">{t("common.confirmDelete")}</h3>
 						<p className="mt-3 text-sm leading-6 text-[var(--text-secondary)]">{t("backupsPage.schedule.deleteConfirm")}</p>
 						<div className="mt-6 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
 							<button type="button" onClick={() => setPendingDeleteId(null)} className="min-h-11 rounded-xl border border-[var(--border)] px-4 py-2 text-sm font-medium text-[var(--text-secondary)] hover:bg-[var(--surface-hover)]">{t("common.cancel")}</button>
-							<button type="button" onClick={() => void deleteSchedule(pendingDeleteId)} className="min-h-11 rounded-xl bg-rose-500 px-4 py-2 text-sm font-semibold text-[var(--text-primary)] hover:bg-rose-400">{t("common.confirmDelete")}</button>
+							<button type="button" onClick={() => void deleteSchedule(pendingDeleteId)} className="min-h-11 rounded-xl bg-[var(--danger)] px-4 py-2 text-sm font-semibold text-[var(--text-primary)] hover:bg-[var(--danger)]">{t("common.confirmDelete")}</button>
 						</div>
 					</section>
 				</div>

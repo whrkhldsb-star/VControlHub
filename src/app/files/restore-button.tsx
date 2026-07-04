@@ -28,15 +28,15 @@ export function RestoreButton({
       <input type="hidden" name="fileEntryId" value={fileEntryId} />
       <button
         type="submit"
-        data-tone="emerald" className="rounded-lg border border-emerald-400/30 px-4 py-2 text-sm font-medium text-emerald-100 transition hover:bg-emerald-400/20"
+        data-tone="emerald" className="rounded-lg border border-[var(--success-border)] px-4 py-2 text-sm font-medium text-[var(--success)] transition hover:bg-[var(--success-bg)]"
       >
         恢复
       </button>
       {state.error ? (
-        <span className="text-xs text-rose-300">{state.error}</span>
+        <span className="text-xs text-[var(--danger)]">{state.error}</span>
       ) : null}
       {state.success ? (
-        <span className="text-xs text-emerald-300">{state.success}</span>
+        <span className="text-xs text-[var(--success)]">{state.success}</span>
       ) : null}
     </form>
   );

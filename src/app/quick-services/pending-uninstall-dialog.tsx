@@ -33,7 +33,7 @@ export function PendingUninstallDialog({
 				role="dialog"
 				aria-modal="true"
 				aria-label={t("qsPage.uninstallAria")}
-				className="mx-0 w-full max-w-md rounded-t-2xl border border-rose-400/20 bg-[var(--surface-root)] p-6 shadow-2xl sm:mx-4 sm:rounded-2xl"
+				className="mx-0 w-full max-w-md rounded-t-2xl border border-[var(--danger-border)] bg-[var(--surface-root)] p-6 shadow-2xl sm:mx-4 sm:rounded-2xl"
 				onClick={(e) => e.stopPropagation()}
 			>
 				<h3 className="text-lg font-semibold text-[var(--text-primary)] mb-2">{t("qsPage.uninstallTitle")}</h3>
@@ -42,17 +42,17 @@ export function PendingUninstallDialog({
 				</p>
 				<label
 					data-tone="rose"
-					className="mt-4 flex items-start gap-3 rounded-xl border border-rose-400/15 p-3 text-sm text-rose-100"
+					className="mt-4 flex items-start gap-3 rounded-xl border border-[var(--danger-border)] p-3 text-sm text-[var(--danger)]"
 				>
 					<input
 						type="checkbox"
 						checked={pending.deleteVolumes}
 						onChange={(e) => onToggleDeleteVolumes(e.target.checked)}
-						className="mt-1 h-4 w-4 rounded-lg border-rose-300/40 bg-transparent text-rose-500"
+						className="mt-1 h-4 w-4 rounded-lg border-[var(--danger-border)] bg-transparent text-[var(--danger)]"
 					/>
 					<span>
 						<span className="block font-medium">{t("qsPage.alsoDeleteData")}</span>
-						<span className="mt-1 block text-xs leading-5 text-rose-100/80">
+						<span className="mt-1 block text-xs leading-5 text-[var(--danger)]0/80">
 							{t("qsPage.dataDeleteHint")}
 						</span>
 					</span>
@@ -68,7 +68,7 @@ export function PendingUninstallDialog({
 					<button
 						type="button"
 						onClick={onConfirm}
-						className="min-h-11 rounded-lg bg-rose-500 px-4 py-2 text-xs font-semibold text-[var(--text-primary)] hover:bg-rose-400 transition"
+						className="min-h-11 rounded-lg bg-[var(--danger)] px-4 py-2 text-xs font-semibold text-[var(--text-primary)] hover:bg-[var(--danger)] transition"
 					>
 						{t("qsPage.confirmUninstall")}
 					</button>

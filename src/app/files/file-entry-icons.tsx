@@ -55,7 +55,7 @@ export function FileTypeIcon({
         strokeWidth="1.5"
         strokeLinecap="round"
         strokeLinejoin="round"
-        className="text-amber-400"
+        className="text-[var(--warning)]"
       >
         <path
           d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z"
@@ -77,7 +77,7 @@ export function FileTypeIcon({
         strokeWidth="1.5"
         strokeLinecap="round"
         strokeLinejoin="round"
-        className="text-emerald-400"
+        className="text-[var(--success)]"
       >
         <rect
           x="3"
@@ -104,7 +104,7 @@ export function FileTypeIcon({
         strokeWidth="1.5"
         strokeLinecap="round"
         strokeLinejoin="round"
-        className="text-rose-400"
+        className="text-[var(--danger)]"
       >
         <rect
           x="2"
@@ -153,7 +153,7 @@ export function FileTypeIcon({
         strokeWidth="1.5"
         strokeLinecap="round"
         strokeLinejoin="round"
-        className="text-rose-400"
+        className="text-[var(--danger)]"
       >
         <path
           d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"
@@ -213,7 +213,7 @@ export function FileTypeIcon({
         strokeWidth="1.5"
         strokeLinecap="round"
         strokeLinejoin="round"
-        className="text-sky-400"
+        className="text-[var(--info)]"
       >
         <path
           d="M16 18l6-6-6-6M8 6l-6 6 6 6"

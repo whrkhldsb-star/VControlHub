@@ -66,6 +66,8 @@ export function SshFileManager({ serverId, visible }: SshFileManagerProps) {
           body: JSON.stringify({ path }),
           signal: ac.signal,
         });
+  
+
         setCurrentPath(data.path);
         setEntries(data.entries || []);
       } catch (err) {
@@ -83,10 +85,20 @@ export function SshFileManager({ serverId, visible }: SshFileManagerProps) {
   useEffect(() => {
     if (visible && !currentPath) {
       // Default to /root or / for root SSH sessions
-      loadDir("/root").catch(() => {
-        // If /root fails, try /
-        loadDir("/").catch(() => {});
-      });
+      
+	const init = async () => {
+try {
+	await loadDir("/root");
+} catch {
+	await loadDir("/").catch(() => {});
+}
+	};
+	init();
+
+
+
+
+
     }
   }, [visible, currentPath, loadDir]);
 
@@ -183,6 +195,9 @@ export function SshFileManager({ serverId, visible }: SshFileManagerProps) {
 
             xhr.send(formData);
           });
+
+    
+
         } catch {
           // Error already handled in callbacks above
         }
@@ -192,7 +207,8 @@ export function SshFileManager({ serverId, visible }: SshFileManagerProps) {
       loadDir(currentPath);
 
       // Clear completed uploads after 3s
-      setTimeout(() => {
+      
+        setTimeout(() => {
         setUploads((prev) => prev.filter((u) => u.status === "uploading"));
       }, 3000);
     },
@@ -244,6 +260,8 @@ export function SshFileManager({ serverId, visible }: SshFileManagerProps) {
         method: "POST",
         body: JSON.stringify({ path: newPath }),
       });
+
+
       setShowMkdir(false);
       setMkdirName("");
       loadDir(currentPath);
@@ -263,6 +281,8 @@ export function SshFileManager({ serverId, visible }: SshFileManagerProps) {
         method: "POST",
         body: JSON.stringify({ oldPath, newPath }),
       });
+
+
       setRenameTarget(null);
       setRenameValue("");
       loadDir(currentPath);
@@ -311,6 +331,7 @@ export function SshFileManager({ serverId, visible }: SshFileManagerProps) {
       hour: "2-digit",
       minute: "2-digit",
     });
+
   }
 
   // ── Render ───────────────────────────────────────────────────
@@ -323,14 +344,14 @@ export function SshFileManager({ serverId, visible }: SshFileManagerProps) {
       data-testid={`ssh-file-manager-${serverId}`}
     >
       {/* Header + breadcrumbs */}
-      <div className="rounded-xl border border-[var(--border-subtle)] light:border-slate-200/60 bg-[var(--surface-subtle)] light:bg-slate-50/50 p-3">
+      <div className="rounded-xl border border-[var(--border-subtle)] light:border-[var(--border)] bg-[var(--surface-subtle)] light:bg-[var(--surface)] p-3">
         <div className="mb-2 flex items-center gap-2">
-          <span className="text-sm font-medium text-[var(--text-primary)] light:text-slate-900" aria-hidden="true">📁</span>
-          <span className="text-sm font-medium text-[var(--text-primary)] light:text-slate-900">{t("sshFileManager.title")}</span>
+          <span className="text-sm font-medium text-[var(--text-primary)] light:text-[var(--text-disabled)]" aria-hidden="true">📁</span>
+          <span className="text-sm font-medium text-[var(--text-primary)] light:text-[var(--text-disabled)]">{t("sshFileManager.title")}</span>
           <button
             type="button"
             onClick={() => setShowMkdir(!showMkdir)}
-            className="ml-auto min-h-9 rounded-full border border-[var(--border-subtle)] light:border-slate-200 px-2 py-0.5 text-xs text-[var(--text-secondary)] light:text-[var(--text-muted)] transition hover:bg-[var(--surface-elevated)] light:hover:bg-[var(--surface-hover)]/50"
+            className="ml-auto min-h-9 rounded-full border border-[var(--border-subtle)] light:border-[var(--border)] px-2 py-0.5 text-xs text-[var(--text-secondary)] light:text-[var(--text-muted)] transition hover:bg-[var(--surface-elevated)] light:hover:bg-[var(--surface-hover)]/50"
             aria-label={t("sshFileManager.newFolder")}
             title={t("sshFileManager.newFolder")}
           >
@@ -414,7 +435,7 @@ export function SshFileManager({ serverId, visible }: SshFileManagerProps) {
 
       {/* Error banner */}
       {error && (
-        <div className="rounded-xl border border-rose-400/20 px-3 py-2 text-xs text-rose-200">
+        <div className="rounded-xl border border-[var(--danger-border)] px-3 py-2 text-xs text-[var(--danger)]">
           ❌ {error}
         </div>
       )}
@@ -424,7 +445,7 @@ export function SshFileManager({ serverId, visible }: SshFileManagerProps) {
         <div className="space-y-1 rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-subtle)] p-2">
           {uploads.map((u, i) => (
             <div key={i} className="flex items-center gap-2 text-xs">
-              <span className={`min-w-16 shrink-0 truncate ${u.status === "error" ? "text-rose-300" : u.status === "done" ? "text-emerald-300" : "text-[var(--text-secondary)]"}`}>
+              <span className={`min-w-16 shrink-0 truncate ${u.status === "error" ? "text-[var(--danger)]" : u.status === "done" ? "text-[var(--success)]" : "text-[var(--text-secondary)]"}`}>
                 {u.fileName}
               </span>
               {u.status === "uploading" && (
@@ -435,8 +456,8 @@ export function SshFileManager({ serverId, visible }: SshFileManagerProps) {
                   />
                 </div>
               )}
-              {u.status === "done" && <span className="text-emerald-300">✓</span>}
-              {u.status === "error" && <span className="text-rose-300 text-[10px]">{u.error}</span>}
+              {u.status === "done" && <span className="text-[var(--success)]">✓</span>}
+              {u.status === "error" && <span className="text-[var(--danger)] text-[10px]">{u.error}</span>}
             </div>
           ))}
         </div>
@@ -546,7 +567,7 @@ export function SshFileManager({ serverId, visible }: SshFileManagerProps) {
                 {entry.isFile && (
                   <button
                     onClick={(e) => { e.stopPropagation(); setPendingDeleteEntry(entry); }}
-                    className="shrink-0 text-[var(--text-muted)] opacity-0 transition hover:text-rose-300 group-hover:opacity-100"
+                    className="shrink-0 text-[var(--text-muted)] opacity-0 transition hover:text-[var(--danger)] group-hover:opacity-100"
                     aria-label={t("sshFileManager.delete")}
                     title={t("sshFileManager.delete")}
                   >🗑</button>
@@ -564,12 +585,12 @@ export function SshFileManager({ serverId, visible }: SshFileManagerProps) {
       </div>
       {pendingDeleteEntry ? (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-[var(--surface)]/70 px-4 backdrop-blur-sm" role="presentation">
-          <section role="dialog" aria-modal="true" aria-labelledby="ssh-file-delete-title" className="w-full max-w-md rounded-2xl border border-rose-400/25 bg-[var(--modal-bg)] p-6 shadow-[0_24px_100px_rgba(244,63,94,0.16)]">
+          <section role="dialog" aria-modal="true" aria-labelledby="ssh-file-delete-title" className="w-full max-w-md rounded-2xl border border-[var(--danger-border)] bg-[var(--modal-bg)] p-6 shadow-[0_24px_100px_rgba(244,63,94,0.16)]">
             <h3 id="ssh-file-delete-title" className="text-lg font-semibold text-[var(--text-primary)]">{t("common.confirmDelete")}</h3>
             <p className="mt-3 text-sm leading-6 text-[var(--text-secondary)]">{t("sshFileManager.confirmDelete").replace("{name}", pendingDeleteEntry.name)}</p>
             <div className="mt-6 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
               <button type="button" onClick={() => setPendingDeleteEntry(null)} className="min-h-11 rounded-xl border border-[var(--border)] px-4 py-2 text-sm font-medium text-[var(--text-secondary)] hover:bg-[var(--surface-hover)]">{t("common.cancel")}</button>
-              <button type="button" onClick={() => void handleDelete(pendingDeleteEntry)} className="min-h-11 rounded-xl bg-rose-500 px-4 py-2 text-sm font-semibold text-[var(--text-primary)] hover:bg-rose-400">{t("common.confirmDelete")}</button>
+              <button type="button" onClick={() => void handleDelete(pendingDeleteEntry)} className="min-h-11 rounded-xl bg-[var(--danger)] px-4 py-2 text-sm font-semibold text-[var(--text-primary)] hover:bg-[var(--danger)]">{t("common.confirmDelete")}</button>
             </div>
           </section>
         </div>

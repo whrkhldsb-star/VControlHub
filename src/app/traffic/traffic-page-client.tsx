@@ -75,7 +75,7 @@ function Card({ title, children }: { title: string; children: React.ReactNode })
 }
 
 function RateBadge({ label, value, color }: { label: string; value: string; color: "cyan" | "emerald" }) {
-  const styles = color === "cyan" ? "bg-[var(--color-action)]/10 text-[var(--color-action)]" : "bg-emerald-500/10 text-emerald-300";
+  const styles = color === "cyan" ? "bg-[var(--color-action)]/10 text-[var(--color-action)]" : "bg-[var(--success-bg)] text-[var(--success)]";
   return (
     <div className={`rounded-xl px-4 py-3 ${styles}`}>
       <div className="text-[11px] opacity-70">{label}</div>
@@ -228,7 +228,7 @@ export default function TrafficPage({ canManage: _canManage }: { canManage: bool
         </div>
         <div className="flex items-center gap-2">
           <button onClick={() => fetchSummary()} className="rounded-lg bg-[var(--color-action)]/10 px-3 py-1.5 text-xs font-medium text-[var(--color-action)] hover:bg-[var(--color-action)]/20">{t("trafficPage.refresh")}</button>
-          <button onClick={() => setAutoRefresh((v) => !v)} disabled={refreshIntervalSeconds <= 0} className={`rounded-lg px-3 py-1.5 text-xs font-medium disabled:cursor-not-allowed disabled:opacity-50 ${autoRefresh ? "bg-emerald-500/10 text-emerald-300" : "bg-[var(--surface-hover)]/60 text-[var(--text-secondary)]"}`}>
+          <button onClick={() => setAutoRefresh((v) => !v)} disabled={refreshIntervalSeconds <= 0} className={`rounded-lg px-3 py-1.5 text-xs font-medium disabled:cursor-not-allowed disabled:opacity-50 ${autoRefresh ? "bg-[var(--success-bg)] text-[var(--success)]" : "bg-[var(--surface-hover)]/60 text-[var(--text-secondary)]"}`}>
             {autoRefresh
               ? t("trafficPage.autoRefreshOn").replace("{label}", refreshLabel)
               : refreshIntervalSeconds <= 0
@@ -238,7 +238,7 @@ export default function TrafficPage({ canManage: _canManage }: { canManage: bool
         </div>
       </div>
 
-      {error && <div className="mb-4 rounded-lg bg-rose-500/10 px-4 py-3 text-sm text-rose-300">{error}</div>}
+      {error && <div className="mb-4 rounded-lg bg-[var(--danger-bg)] px-4 py-3 text-sm text-[var(--danger)]">{error}</div>}
 
       <div className="mb-5 flex flex-wrap items-center gap-2">
         <button type="button" onClick={() => { setHistoryScope("24h"); void fetchHistory("24h"); }} className={`rounded-lg px-3 py-1.5 text-xs font-medium ${historyScope === "24h" ? "bg-[var(--color-action)]/15 text-[var(--text-secondary)]" : "bg-[var(--surface)]/[0.04] text-[var(--text-secondary)]"}`}>24h</button>
@@ -303,8 +303,8 @@ export default function TrafficPage({ canManage: _canManage }: { canManage: bool
                     )}
                   </div>
                   <div className="mt-4 grid grid-cols-1 gap-3 text-xs text-[var(--text-secondary)] md:grid-cols-2">
-                    <div className="rounded-xl bg-[var(--input-bg)] p-3 light:ring-1 light:ring-slate-200">{t("trafficPage.rxTotal").replace("{value}", primary.rxLabel)}<span className="font-mono text-[var(--text-primary)]"> </span></div>
-                    <div className="rounded-xl bg-[var(--input-bg)] p-3 light:ring-1 light:ring-slate-200">{t("trafficPage.txTotal").replace("{value}", primary.txLabel)}<span className="font-mono text-[var(--text-primary)]"> </span></div>
+                    <div className="rounded-xl bg-[var(--input-bg)] p-3 light:ring-1 light:ring-[var(--border-strong)]">{t("trafficPage.rxTotal").replace("{value}", primary.rxLabel)}<span className="font-mono text-[var(--text-primary)]"> </span></div>
+                    <div className="rounded-xl bg-[var(--input-bg)] p-3 light:ring-1 light:ring-[var(--border-strong)]">{t("trafficPage.txTotal").replace("{value}", primary.txLabel)}<span className="font-mono text-[var(--text-primary)]"> </span></div>
                   </div>
                 </>
               ) : <div className="text-sm text-[var(--text-muted)]">{t("trafficPage.noIface")}</div>}
@@ -320,7 +320,7 @@ export default function TrafficPage({ canManage: _canManage }: { canManage: bool
               <table className="w-full text-xs">
                 <thead className="text-[var(--text-muted)]"><tr><th className="py-2 text-left">{t("trafficPage.th.iface")}</th><th className="text-right">{t("trafficPage.th.rxRate")}</th><th className="text-right">{t("trafficPage.th.txRate")}</th><th className="text-right">{t("trafficPage.th.rxTotal")}</th><th className="text-right">{t("trafficPage.th.txTotal")}</th></tr></thead>
                 <tbody>
-                  {summary.currentServer.interfaces.map((item) => <tr key={item.iface} className="border-t border-[var(--border)]"><td className="py-2 font-mono text-[var(--text-primary)]">{item.iface}</td><td className="text-right text-[var(--color-action)]">{item.rxRateLabel}</td><td className="text-right text-emerald-300">{item.txRateLabel}</td><td className="text-right text-[var(--text-secondary)]">{item.rxLabel}</td><td className="text-right text-[var(--text-secondary)]">{item.txLabel}</td></tr>)}
+                  {summary.currentServer.interfaces.map((item) => <tr key={item.iface} className="border-t border-[var(--border)]"><td className="py-2 font-mono text-[var(--text-primary)]">{item.iface}</td><td className="text-right text-[var(--color-action)]">{item.rxRateLabel}</td><td className="text-right text-[var(--success)]">{item.txRateLabel}</td><td className="text-right text-[var(--text-secondary)]">{item.rxLabel}</td><td className="text-right text-[var(--text-secondary)]">{item.txLabel}</td></tr>)}
                 </tbody>
               </table>
             </div>
@@ -345,15 +345,15 @@ export default function TrafficPage({ canManage: _canManage }: { canManage: bool
                       <div className="mt-1 text-[11px] text-[var(--text-muted)]">{node.host}</div>
                     </div>
                     {node.error ? (
-                      <span className="rounded-full bg-rose-500/10 px-2 py-0.5 text-[10px] text-rose-300">{t("trafficPage.badge.samplingFailed")}</span>
+                      <span className="rounded-full bg-[var(--danger-bg)] px-2 py-0.5 text-[10px] text-[var(--danger)]">{t("trafficPage.badge.samplingFailed")}</span>
                     ) : node.primaryInterface ? (
-                      <span className="rounded-full bg-emerald-500/10 px-2 py-0.5 text-[10px] text-emerald-300">{t("trafficPage.badge.onlineIface").replace("{iface}", node.primaryInterface.iface)}</span>
+                      <span className="rounded-full bg-[var(--success-bg)] px-2 py-0.5 text-[10px] text-[var(--success)]">{t("trafficPage.badge.onlineIface").replace("{iface}", node.primaryInterface.iface)}</span>
                     ) : (
-                      <span className="rounded-full bg-slate-500/10 px-2 py-0.5 text-[10px] text-[var(--text-secondary)]">{t("trafficPage.badge.noIface")}</span>
+                      <span className="rounded-full bg-[var(--surface)] px-2 py-0.5 text-[10px] text-[var(--text-secondary)]">{t("trafficPage.badge.noIface")}</span>
                     )}
                   </div>
                   {node.error ? (
-                    <div className="mt-3 break-all text-[11px] text-rose-200/80">{node.error}</div>
+                    <div className="mt-3 break-all text-[11px] text-[var(--danger)]0/80">{node.error}</div>
                   ) : node.primaryInterface ? (
                     <>
                       <div className="mt-3 grid grid-cols-2 gap-2">
@@ -361,7 +361,7 @@ export default function TrafficPage({ canManage: _canManage }: { canManage: bool
                           <div className="text-[10px] opacity-70">{t("trafficPage.rxShort")}</div>
                           <div className="text-sm font-semibold tabular-nums">{node.primaryInterface.rxRateLabel}</div>
                         </div>
-                        <div className="rounded-lg bg-emerald-500/10 px-3 py-2 text-emerald-300">
+                        <div className="rounded-lg bg-[var(--success-bg)] px-3 py-2 text-[var(--success)]">
                           <div className="text-[10px] opacity-70">{t("trafficPage.txShort")}</div>
                           <div className="text-sm font-semibold tabular-nums">{node.primaryInterface.txRateLabel}</div>
                         </div>

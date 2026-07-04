@@ -125,7 +125,7 @@ export function CreateDownloadForm({
 					<p className="text-[11px] text-[var(--text-muted)]">
 						{t("downloadsPage.form.batchNotice")}
 					</p>
-					{batchModeError && <p className="text-[11px] text-rose-300">{batchModeError}</p>}
+					{batchModeError && <p className="text-[11px] text-[var(--danger)]">{batchModeError}</p>}
 				</div>
 			) : (
 				<div className="space-y-1.5">
@@ -166,8 +166,8 @@ export function CreateDownloadForm({
 						<div
 							className={`rounded-lg border px-3 py-2 text-[11px] leading-5 ${
 								selectedServer.accessTransport === "direct"
-									? "border-emerald-400/20 bg-emerald-400/[0.10] text-emerald-100"
-									: "border-amber-400/20 bg-amber-400/[0.10] text-amber-100"
+									? "border-[var(--success-border)] bg-[var(--success)]0/[0.10] text-[var(--success)]"
+									: "border-[var(--warning-border)] bg-[var(--warning)]0/[0.10] text-[var(--warning)]"
 							}`}
 						>
 							<div className="font-medium">{selectedServer.accessStatusLabel}</div>
@@ -229,7 +229,7 @@ export function CreateDownloadForm({
 			{form.url?.startsWith("magnet:") && (
 				<div
 					data-tone="amber"
-					className="rounded-xl border border-amber-400/20 px-4 py-3 text-xs text-amber-200/70"
+					className="rounded-xl border border-[var(--warning-border)] px-4 py-3 text-xs text-[var(--warning)]0/70"
 				>
 					{t("downloadsPage.form.magnetNotice")}
 				</div>

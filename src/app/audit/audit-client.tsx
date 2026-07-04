@@ -203,7 +203,7 @@ export function AuditLogClient({ initialActionFilter = "" }: AuditLogClientProps
       </div>
 
       {error && (
-        <div role="alert" data-tone="rose" className="mb-4 rounded-2xl border border-rose-400/30 px-4 py-3 text-sm text-rose-200">
+        <div role="alert" data-tone="rose" className="mb-4 rounded-2xl border border-[var(--danger-border)] px-4 py-3 text-sm text-[var(--danger)]">
           {error}
         </div>
       )}
@@ -224,7 +224,7 @@ export function AuditLogClient({ initialActionFilter = "" }: AuditLogClientProps
             {loading ? (
               <EmptyState>{t("audit.loading")}</EmptyState>
             ) : error && !data ? (
-              <div className="px-4 py-10 text-sm text-rose-200">{t("audit.load-error")}</div>
+              <div className="px-4 py-10 text-sm text-[var(--danger)]">{t("audit.load-error")}</div>
             ) : !data || data.logs.length === 0 ? (
               <EmptyState>{t("audit.empty")}</EmptyState>
             ) : (
@@ -257,7 +257,7 @@ export function AuditLogClient({ initialActionFilter = "" }: AuditLogClientProps
           {loading ? (
             <EmptyState>{t("audit.loading")}</EmptyState>
           ) : error ? (
-            <div className="px-4 py-10 text-sm text-rose-200">{t("audit.load-error")}</div>
+            <div className="px-4 py-10 text-sm text-[var(--danger)]">{t("audit.load-error")}</div>
           ) : !data || data.logs.length === 0 ? (
             <EmptyState>{t("audit.empty")}</EmptyState>
           ) : (

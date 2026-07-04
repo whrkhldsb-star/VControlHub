@@ -56,7 +56,7 @@ function SidebarControls() {
 				type="button"
 				onClick={openGlobalSearch}
 				className={`flex h-11 w-11 items-center justify-center rounded-lg text-[var(--text-muted)] transition hover:bg-[var(--surface-elevated)] hover:text-[var(--text-primary)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--accent)]`}
-				aria-label={t("search.dialog") === "search.dialog" ? "全局搜索" : t("search.dialog")}
+				aria-label={t("search.dialog")}
 				aria-keyshortcuts="Control+K Meta+K"
 			>
 				<svg width="20" height="20" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
@@ -136,7 +136,7 @@ export function AppSidebar({
 				{visibleSystemNav.length > 0 && (
 					<>
 						<div className="px-3 pb-1 pt-4 text-[10px] font-medium uppercase tracking-[0.2em] text-[var(--text-disabled)]">
-								{t("nav.system") === "nav.system" ? "系统管理" : t("nav.system")}
+								{t("nav.system")}
 							</div>
 						{visibleSystemNav.map(renderNavLink)}
 					</>
@@ -145,7 +145,7 @@ export function AppSidebar({
 				{quickServices.length > 0 && (
 					<>
 						<div className="px-3 pb-1 pt-4 text-[10px] font-medium uppercase tracking-[0.2em] text-[var(--text-disabled)]">
-								{t("nav.quickservice") === "nav.quickservice" ? "快捷服务" : t("nav.quickservice")}
+								{t("nav.quickservice")}
 							</div>
 							{quickServices.map((item) => (
 								<a
@@ -183,7 +183,7 @@ export function AppSidebar({
 					className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm text-[var(--text-muted)] transition-colors duration-150 hover:bg-[var(--sidebar-hover)] hover:text-[var(--text-secondary)]"
 				>
 					<IconKey />
-					<span>{t("auth.change-password") === "auth.change-password" ? "修改密码" : t("auth.change-password")}</span>
+					<span>{t("auth.change-password")}</span>
 				</button>
 				<div className="px-2 py-1">
 					<SignOutButton />
@@ -197,7 +197,7 @@ export function AppSidebar({
 			<button
 				onClick={() => setMobileOpen(true)}
 				className="fixed left-4 top-4 z-50 rounded-lg border border-[var(--border)] bg-[var(--surface)] p-2.5 text-[var(--text-secondary)] backdrop-blur transition hover:bg-[var(--surface-elevated)] lg:hidden"
-				aria-label={t("nav.openMenu") === "nav.openMenu" ? "打开导航菜单" : t("nav.openMenu")}
+				aria-label={t("nav.openMenu")}
 			>
 				<svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
 					<path d="M3 5h14M3 10h14M3 15h14" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />

@@ -156,7 +156,7 @@ const _data = await csrfFetch("/api/users/permissions", {
           <button type="button" onClick={onClose} className="rounded-lg border border-[var(--border)] px-3 py-1.5 text-sm text-[var(--text-secondary)] hover:bg-[var(--surface-hover)]">{t("usersPerm.action.close")}</button>
         </div>
 
-        {message && <div className={`mb-4 rounded-2xl border px-4 py-3 text-sm ${message.type === "success" ? "border-emerald-400/30 bg-emerald-400/10 text-emerald-100" : "border-rose-400/30 bg-rose-400/10 text-rose-100"}`}>{message.text}</div>}
+        {message && <div className={`mb-4 rounded-2xl border px-4 py-3 text-sm ${message.type === "success" ? "border-[var(--success-border)] bg-[var(--success-bg)] text-[var(--success)]" : "border-[var(--danger-border)] bg-[var(--danger-bg)] text-[var(--danger)]"}`}>{message.text}</div>}
         {loading || !payload ? <EmptyState>{t("usersPerm.loading")}</EmptyState> : (
           <div className="space-y-6">
             <section className="rounded-2xl border border-[var(--border)] bg-[var(--surface-subtle)] p-4">
@@ -205,7 +205,7 @@ const _data = await csrfFetch("/api/users/permissions", {
                         <input id={`grantQuota-${index}`} value={grant.quotaBytes ?? ""} onChange={(e) => updateGrant(index, { quotaBytes: e.target.value })} placeholder={t("usersPerm.grants.quotaPlaceholder")} className="rounded-xl border border-[var(--border)] bg-[var(--input-bg)] px-3 py-2 text-sm text-[var(--text-primary)]" />
                         <label className="sr-only" htmlFor={`grantMaxFile-${index}`}>{t("usersPerm.grants.maxFile")}</label>
                         <input id={`grantMaxFile-${index}`} value={grant.maxFileBytes ?? ""} onChange={(e) => updateGrant(index, { maxFileBytes: e.target.value })} placeholder={t("usersPerm.grants.maxFilePlaceholder")} className="rounded-xl border border-[var(--border)] bg-[var(--input-bg)] px-3 py-2 text-sm text-[var(--text-primary)]" />
-                        <button type="button" onClick={() => setGrants((current) => current.filter((_, i) => i !== index))} className="rounded-xl border border-rose-400/30 px-3 py-2 text-xs text-rose-100 hover:bg-rose-400/10">{t("usersPerm.action.delete")}</button>
+                        <button type="button" onClick={() => setGrants((current) => current.filter((_, i) => i !== index))} className="rounded-xl border border-[var(--danger-border)] px-3 py-2 text-xs text-[var(--danger)] hover:bg-[var(--danger-bg)]">{t("usersPerm.action.delete")}</button>
                       </div>
                       <div className="mt-3 flex flex-wrap items-center gap-4 text-xs text-[var(--text-secondary)]">
                         <label><input type="checkbox" checked={grant.canRead} onChange={(e) => updateGrant(index, { canRead: e.target.checked })} /> {t("usersPerm.grants.read")}</label>

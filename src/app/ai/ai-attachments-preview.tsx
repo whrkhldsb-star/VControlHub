@@ -55,7 +55,7 @@ export function AiAttachmentsPreview({
                   onClick={() =>
                     setImageUrls((prev) => prev.filter((_, j) => j !== i))
                   }
-                  className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-rose-500 text-[var(--text-primary)] text-[8px] flex items-center justify-center opacity-0 group-hover:opacity-100 transition"
+                  className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-[var(--danger)] text-[var(--text-primary)] text-[8px] flex items-center justify-center opacity-0 group-hover:opacity-100 transition"
                 >
                   ×
                 </button>
@@ -115,7 +115,7 @@ export function AiAttachmentsPreview({
                   onClick={() =>
                     setFileAttachments((prev) => prev.filter((_, j) => j !== i))
                   }
-                  className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-rose-500 text-[var(--text-primary)] text-[8px] flex items-center justify-center opacity-0 group-hover:opacity-100 transition"
+                  className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-[var(--danger)] text-[var(--text-primary)] text-[8px] flex items-center justify-center opacity-0 group-hover:opacity-100 transition"
                 >
                   ×
                 </button>

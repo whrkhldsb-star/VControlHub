@@ -133,12 +133,12 @@ export function BatchReviewToolbar({
 					<span className="text-[var(--color-action)]">已选 {selected.size} 条</span>
 				)}
 				{state.success && (
-					<span data-tone="emerald" className="text-emerald-300">
+					<span data-tone="emerald" className="text-[var(--success)]">
 						{state.success}
 					</span>
 				)}
 				{state.error && (
-					<span data-tone="rose" className="text-rose-300">
+					<span data-tone="rose" className="text-[var(--danger)]">
 						{state.error}
 					</span>
 				)}
@@ -172,7 +172,7 @@ export function BatchReviewToolbar({
 						name="decision"
 						value="approve"
 						disabled={isPending}
-						className="rounded-lg bg-emerald-500 px-4 py-2 text-sm font-medium text-[var(--color-action-fg)] transition hover:bg-emerald-400 disabled:cursor-not-allowed disabled:opacity-60"
+						className="rounded-lg bg-[var(--success)] px-4 py-2 text-sm font-medium text-[var(--color-action-fg)] transition hover:bg-[var(--success)] disabled:cursor-not-allowed disabled:opacity-60"
 					>
 						{isPending ? "处理中..." : `批量批准（${selected.size}）`}
 					</button>
@@ -181,7 +181,7 @@ export function BatchReviewToolbar({
 						name="decision"
 						value="reject"
 						disabled={isPending}
-						className="rounded-lg border border-rose-400/40 px-4 py-2 text-sm font-medium text-rose-200 transition hover:bg-rose-500/10 disabled:cursor-not-allowed disabled:opacity-60"
+						className="rounded-lg border border-[var(--danger-border)] px-4 py-2 text-sm font-medium text-[var(--danger)] transition hover:bg-[var(--danger-bg)] disabled:cursor-not-allowed disabled:opacity-60"
 					>
 						{isPending ? "处理中..." : `批量拒绝（${selected.size}）`}
 					</button>

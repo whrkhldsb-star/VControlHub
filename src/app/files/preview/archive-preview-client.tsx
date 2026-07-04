@@ -90,7 +90,7 @@ export function ArchivePreviewClient({
 						type="button"
 						onClick={handleExtract}
 						disabled={extracting}
-						data-tone="emerald" className="rounded-xl border border-emerald-400/30 px-4 py-2 text-sm font-medium text-emerald-100 transition hover:bg-emerald-400/20 disabled:opacity-50 disabled:cursor-not-allowed"
+						data-tone="emerald" className="rounded-xl border border-[var(--success-border)] px-4 py-2 text-sm font-medium text-[var(--success)] transition hover:bg-[var(--success-bg)] disabled:opacity-50 disabled:cursor-not-allowed"
 					>
 						{extracting ? t("archivePreview.extracting") : t("archivePreview.extract")}
 					</button>
@@ -98,13 +98,13 @@ export function ArchivePreviewClient({
 			</div>
 
 			{error ? (
-				<div data-tone="rose" className="rounded-2xl border border-rose-400/30 px-4 py-3 text-sm text-rose-200">
+				<div data-tone="rose" className="rounded-2xl border border-[var(--danger-border)] px-4 py-3 text-sm text-[var(--danger)]">
 					{error}
 				</div>
 			) : null}
 
 			{extractResult ? (
-				<div data-tone="emerald" className="rounded-2xl border border-emerald-400/30 px-4 py-3 text-sm text-emerald-200">
+				<div data-tone="emerald" className="rounded-2xl border border-[var(--success-border)] px-4 py-3 text-sm text-[var(--success)]">
 					{extractResult}
 				</div>
 			) : null}
@@ -116,7 +116,7 @@ export function ArchivePreviewClient({
 						<div>{t("archivePreview.table.name")}</div>
 						<div className="text-right">{t("archivePreview.table.size")}</div>
 					</div>
-					<div className="divide-y divide-white/[0.04] light:divide-slate-200 max-h-[50vh] overflow-y-auto">
+					<div className="divide-y divide-white/[0.04] light:divide-[var(--border)] max-h-[50vh] overflow-y-auto">
 						{entries.map((entry, i) => (
 							<div
 								key={`${entry.name}-${i}`}

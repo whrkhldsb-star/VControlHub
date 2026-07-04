@@ -49,7 +49,7 @@ export default async function SharePage({
         </div>
 
         {errorMessage ? (
-          <div data-tone="rose" className="rounded-lg border border-rose-400/20 px-4 py-3 text-center text-sm text-rose-200">
+          <div data-tone="rose" className="rounded-lg border border-[var(--danger-border)] px-4 py-3 text-center text-sm text-[var(--danger)]">
             {errorMessage}
           </div>
         ) : share ? (
@@ -124,11 +124,11 @@ export default async function SharePage({
                   )}
                 </div>
                 {files.length === 0 ? (
-                  <div data-tone="amber" className="rounded-lg border border-amber-400/20 px-4 py-3 text-center text-xs text-amber-200">
+                  <div data-tone="amber" className="rounded-lg border border-[var(--warning-border)] px-4 py-3 text-center text-xs text-[var(--warning)]">
                     {t("sharePage.noFiles", locale)}
                   </div>
                 ) : (
-                  <div className="divide-y divide-[var(--border)] light:divide-slate-200">
+                  <div className="divide-y divide-[var(--border)] light:divide-[var(--border)]">
                     {files.map((file) => (
                       <div key={file.id} className="flex items-center justify-between gap-3 py-3">
                         <div className="min-w-0">
@@ -153,7 +153,7 @@ export default async function SharePage({
         ) : null}
 
         <div className="mt-6 text-center">
-          <Link href="/" className="text-xs text-[var(--text-muted)] transition hover:text-[var(--text-secondary)] light:hover:text-slate-700">
+          <Link href="/" className="text-xs text-[var(--text-muted)] transition hover:text-[var(--text-secondary)] light:hover:text-[var(--text-disabled)]">
             {t("sharePage.brand", locale)}
           </Link>
         </div>

@@ -51,6 +51,8 @@ export type SystemHealthCheck = {
 	status: SystemHealthStatus;
 	message: string;
 	detail?: string;
+	params?: Record<string, string | number>;
+	messageCode?: string;
 };
 
 export type SystemHealthReport = {

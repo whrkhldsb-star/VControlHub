@@ -67,7 +67,7 @@ export function FileListDetailsView({
   folderCanWrite,
 }: FileListDetailsViewProps) {
   return (
-    <div className="divide-y divide-white/[0.04] light:divide-slate-200">
+    <div className="divide-y divide-white/[0.04] light:divide-[var(--border)]">
       {sortedFolders.length === 0 && sortedFiles.length === 0 ? (
         <div className="px-6 py-16 text-center">
           <p className="text-sm text-[var(--text-muted)]">{emptyMessage}</p>
@@ -81,7 +81,7 @@ export function FileListDetailsView({
           className="flex items-center gap-4 px-5 py-4 hover:bg-[var(--surface)]/[0.04] transition group"
         >
           <div className="shrink-0">
-            <div className="rounded-xl bg-amber-400/10 p-2">
+            <div className="rounded-xl bg-[var(--warning-bg)] p-2">
               <FileTypeIcon entry={{ entryType: "DIRECTORY" }} size={28} />
             </div>
           </div>

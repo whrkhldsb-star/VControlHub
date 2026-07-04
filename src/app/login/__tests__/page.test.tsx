@@ -17,7 +17,7 @@ describe("LoginPage", () => {
 		render(await LoginPage({ searchParams: Promise.resolve({}) }));
 
 		expect(screen.getByText("VPS 统一管控平台")).toBeInTheDocument();
-		expect(screen.getByText("VPS 管理与分布式云盘，一站掌控。")).toBeInTheDocument();
+		expect(screen.getByText("VPS 管理与分布式云盘，一站式资源管理")).toBeInTheDocument();
 		expect(screen.getByText("欢迎回来")).toBeInTheDocument();
 		expect(screen.getByText("VPS 管理")).toBeInTheDocument();
 		expect(screen.getByText("安全审批")).toBeInTheDocument();

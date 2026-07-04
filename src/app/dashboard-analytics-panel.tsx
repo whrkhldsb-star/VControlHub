@@ -195,9 +195,9 @@ export function DashboardAnalyticsPanel() {
 
 function MetricLine({ label, value, color }: { label: string; value: number; color: "emerald" | "blue" | "amber" }) {
   const colors = {
-    emerald: "bg-emerald-400",
-    blue: "bg-blue-400",
-    amber: "bg-amber-400",
+    emerald: "bg-[var(--success)]",
+    blue: "bg-[var(--info)]",
+    amber: "bg-[var(--warning)]",
   };
   return (
     <div>
@@ -258,10 +258,10 @@ function StackedDownloadBars({ points, locale: _locale = "zh" }: { points: Downl
         return (
           <div key={point.date} className="flex min-w-0 flex-1 flex-col items-center gap-1">
             <div className="flex w-full flex-col justify-end overflow-hidden rounded-t bg-[var(--surface)]/10" style={{ height: `${height}px` }} title={`${point.date}: ${total}`}>
-              <Segment value={point.failed} total={total} className="bg-rose-400/70" />
+              <Segment value={point.failed} total={total} className="bg-[var(--danger-bg)]" />
               <Segment value={point.running} total={total} className="bg-[var(--color-action-bg)]/70" />
-              <Segment value={point.pending} total={total} className="bg-amber-400/70" />
-              <Segment value={point.completed} total={total} className="bg-emerald-400/70" />
+              <Segment value={point.pending} total={total} className="bg-[var(--warning-bg)]" />
+              <Segment value={point.completed} total={total} className="bg-[var(--success-bg)]" />
             </div>
             <span className="whitespace-nowrap text-[10px] text-[var(--text-muted)]">{showLabel ? formatShortDate(point.date) : ""}</span>
           </div>
@@ -278,10 +278,10 @@ function Segment({ value, total, className }: { value: number; total: number; cl
 
 function MiniStat({ label, value, color }: { label: string; value: number; color: "emerald" | "rose" | "cyan" | "amber" }) {
   const colors = {
-    emerald: "text-emerald-200 border-emerald-400/20 bg-emerald-400/10",
-    rose: "text-rose-200 border-rose-400/20 bg-rose-400/10",
+    emerald: "text-[var(--success)] border-[var(--success-border)] bg-[var(--success-bg)]",
+    rose: "text-[var(--danger)] border-[var(--danger-border)] bg-[var(--danger-bg)]",
     cyan: "text-[var(--text-secondary)] border-[var(--color-action-border)]/20 bg-[var(--color-action-bg)]/10",
-    amber: "text-amber-200 border-amber-400/20 bg-amber-400/10",
+    amber: "text-[var(--warning)] border-[var(--warning-border)] bg-[var(--warning-bg)]",
   };
   return (
     <div className={`rounded-lg border px-3 py-2 ${colors[color]}`}>

@@ -67,8 +67,8 @@ export function StorageNodeEditForm({
 				{isSftp ? (
 					<>
 						<label className="grid gap-2 text-sm text-[var(--text-secondary)]">
-							<span>{t("storagePage.form.fieldBindVps")} <span className="text-rose-400">{t("storagePage.form.fieldBindVpsRequired")}</span></span>
-							<select name="serverId" defaultValue={node.serverId ?? ""} className="rounded-2xl border border-rose-400/40 bg-[var(--input-bg)] px-4 py-3 text-[var(--text-primary)]">
+							<span>{t("storagePage.form.fieldBindVps")} <span className="text-[var(--danger)]">{t("storagePage.form.fieldBindVpsRequired")}</span></span>
+							<select name="serverId" defaultValue={node.serverId ?? ""} className="rounded-2xl border border-[var(--danger-border)] bg-[var(--input-bg)] px-4 py-3 text-[var(--text-primary)]">
 								<option value="">{t("storagePage.form.optionNotBound")}</option>
 								{servers.map((server) => (
 									<option key={server.id} value={server.id}>{server.name} · {server.host}</option>
@@ -76,8 +76,8 @@ export function StorageNodeEditForm({
 							</select>
 						</label>
 						<label className="grid gap-2 text-sm text-[var(--text-secondary)]">
-							<span>{t("storagePage.form.fieldRemoteHost")} <span className="text-rose-400">{t("storagePage.form.fieldRemoteHostRequired")}</span></span>
-							<input name="host" defaultValue={node.host ?? ""} className="rounded-2xl border border-rose-400/40 bg-[var(--input-bg)] px-4 py-3 text-[var(--text-primary)]" placeholder={t("storagePage.form.hostPlaceholder")} />
+							<span>{t("storagePage.form.fieldRemoteHost")} <span className="text-[var(--danger)]">{t("storagePage.form.fieldRemoteHostRequired")}</span></span>
+							<input name="host" defaultValue={node.host ?? ""} className="rounded-2xl border border-[var(--danger-border)] bg-[var(--input-bg)] px-4 py-3 text-[var(--text-primary)]" placeholder={t("storagePage.form.hostPlaceholder")} />
 						</label>
 						<label className="grid gap-2 text-sm text-[var(--text-secondary)]">
 							<span>{t("storagePage.form.fieldPort")}</span>
@@ -111,8 +111,8 @@ export function StorageNodeEditForm({
 				</label>
 			</div>
 
-			{state.error ? <div data-tone="rose" className="rounded-2xl border border-rose-400/30 px-4 py-3 text-sm text-rose-100">{state.error}</div> : null}
-			{state.success ? <div data-tone="emerald" className="rounded-2xl border border-emerald-400/30 px-4 py-3 text-sm text-emerald-100">{state.success}</div> : null}
+			{state.error ? <div data-tone="rose" className="rounded-2xl border border-[var(--danger-border)] px-4 py-3 text-sm text-[var(--danger)]">{state.error}</div> : null}
+			{state.success ? <div data-tone="emerald" className="rounded-2xl border border-[var(--success-border)] px-4 py-3 text-sm text-[var(--success)]">{state.success}</div> : null}
 
 			<div className="flex justify-end"><SubmitButton pendingLabel={t("storagePage.form.submitPending")}>{t("storagePage.form.submitEdit")}</SubmitButton></div>
 		</form>

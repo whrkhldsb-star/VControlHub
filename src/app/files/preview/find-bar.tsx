@@ -49,7 +49,7 @@ export function FindBar({
 					value={searchQuery}
 					onChange={(e) => onSearchQueryChange(e.target.value)}
 					placeholder={t("textPreview.find.searchPlaceholder")}
-					className="w-36 rounded-lg border border-slate-700 bg-[var(--surface)] px-2 py-1 text-xs text-[var(--text-secondary)] placeholder:text-[var(--text-muted)] focus:border-[var(--color-action-border)]/50 focus:outline-none"
+					className="w-36 rounded-lg border border-[var(--border)] bg-[var(--surface)] px-2 py-1 text-xs text-[var(--text-secondary)] placeholder:text-[var(--text-muted)] focus:border-[var(--color-action-border)]/50 focus:outline-none"
 				/>
 			</div>
 			<div className="flex items-end gap-1">
@@ -68,13 +68,13 @@ export function FindBar({
 						onChange={(e) => onJumpLineChange(e.target.value)}
 						onKeyDown={(e) => e.key === "Enter" && onJumpToLine()}
 						placeholder={t("textPreview.find.jumpPlaceholder")}
-						className="w-24 rounded-lg border border-slate-700 bg-[var(--surface)] px-2 py-1 text-xs text-[var(--text-secondary)] placeholder:text-[var(--text-muted)] focus:border-[var(--color-action-border)]/50 focus:outline-none"
+						className="w-24 rounded-lg border border-[var(--border)] bg-[var(--surface)] px-2 py-1 text-xs text-[var(--text-secondary)] placeholder:text-[var(--text-muted)] focus:border-[var(--color-action-border)]/50 focus:outline-none"
 					/>
 				</div>
 				<button
 					type="button"
 					onClick={onJumpToLine}
-					className="rounded-lg border border-slate-700 bg-[var(--surface)] px-2 py-1 text-xs text-[var(--text-secondary)] hover:bg-[var(--surface-hover)] light:hover:bg-slate-200"
+					className="rounded-lg border border-[var(--border)] bg-[var(--surface)] px-2 py-1 text-xs text-[var(--text-secondary)] hover:bg-[var(--surface-hover)] light:hover:bg-[var(--surface)]"
 				>
 					{t("textPreview.find.jumpButton")}
 				</button>

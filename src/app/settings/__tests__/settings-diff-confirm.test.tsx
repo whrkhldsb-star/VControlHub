@@ -78,14 +78,14 @@ describe("SaveButtonWithDiff (TR-014 M01b)", () => {
 		expect(table.querySelector('[data-pending-key="runtime.commandOutputLimitBytes"]')).not.toBeNull();
 	});
 
-	it("uses rose tone for high-risk pending changes (badge + save button)", async () => {
+	it("uses danger tone for high-risk pending changes (badge + save button)", async () => {
 		const user = userEvent.setup();
 		wrap(<SettingsClient settings={baseRuntimeSettings} canManage />);
 		// commandExecutionTimeoutMs is high risk
 		await user.clear(screen.getByLabelText("命令执行超时（毫秒）"));
 		await user.type(screen.getByLabelText("命令执行超时（毫秒）"), "120000");
 		const badge = await screen.findByText(/1 项已修改 · 1 高风险/);
-		expect(badge.closest("button")?.className).toContain("rose");
+		expect(badge.closest("button")?.className).toContain("var(--danger)");
 	});
 });
 

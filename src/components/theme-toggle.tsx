@@ -5,10 +5,10 @@ import { useI18n } from "@/lib/i18n/use-locale";
 
 export function ThemeToggle() {
 	const { theme, toggleTheme } = useTheme();
-	const { locale } = useI18n();
+	const { t } = useI18n();
 	const label = theme === "dark"
-		? (locale === "zh" ? "切换到浅色模式" : "Switch to light mode")
-		: (locale === "zh" ? "切换到深色模式" : "Switch to dark mode");
+		? t("theme.toggleToLight")
+		: t("theme.toggleToDark");
 
 	return (
 		<button

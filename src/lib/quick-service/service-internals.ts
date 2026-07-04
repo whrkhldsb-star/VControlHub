@@ -304,9 +304,9 @@ export function isPortAvailableSync(port: number): boolean {
 	assertTcpPort(port);
 	try {
 		execFileSync(
-			"node",
+			/*turbopackIgnore: true*/ "node",
 			[
-				"-e",
+				/*turbopackIgnore: true*/ "-e",
 				"const n=require('net');const p=Number(process.argv[1]);const s=n.createServer();s.on('error',()=>process.exit(1));s.listen(p,'0.0.0.0',()=>s.close(()=>process.exit(0)))",
 				String(port),
 			],

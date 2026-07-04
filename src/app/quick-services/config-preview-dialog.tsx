@@ -122,7 +122,7 @@ export function ConfigPreviewDialog({
 							: noneLabel}
 					</div>
 				</div>
-				<div data-tone="amber" className="mt-4 rounded-xl border border-amber-400/20 p-3 text-xs leading-5 text-amber-100">
+				<div data-tone="amber" className="mt-4 rounded-xl border border-[var(--warning-border)] p-3 text-xs leading-5 text-[var(--warning)]">
 					{warning}
 				</div>
 				<div className="mt-6 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">

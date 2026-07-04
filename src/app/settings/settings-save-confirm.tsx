@@ -22,7 +22,7 @@ import { FieldRiskBadge } from "./settings-field-risk";
 // TR-014 M01b
 export type PendingChange = {
   key: string;
-  label: string;
+  labelKey: string;
   oldValue: string;
   newValue: string;
   riskLevel: "low" | "medium" | "high";
@@ -44,7 +44,7 @@ export function getPendingChanges(
       if (newValue === oldValue) continue;
       out.push({
         key: field.key,
-        label: field.label,
+        labelKey: field.labelKey,
         oldValue,
         newValue,
         riskLevel: field.riskLevel ?? "low",
@@ -111,10 +111,10 @@ export function SaveButtonWithDiff({
             data-pending-count={count}
             className={`inline-flex items-center gap-1 rounded-full border px-2.5 py-0.5 text-[11px] font-medium transition ${
               highCount > 0
-                ? "border-rose-400/30 bg-rose-400/10 text-rose-200 hover:bg-rose-400/15 light:border-rose-700/30 light:bg-rose-50 light:text-rose-800"
+                ? "border-[var(--danger-border)] bg-[var(--danger-bg)] text-[var(--danger)] hover:bg-[var(--danger-bg)]"
                 : mediumCount > 0
-                  ? "border-amber-400/30 bg-amber-400/10 text-amber-200 hover:bg-amber-400/15 light:border-amber-700/30 light:bg-amber-50 light:text-amber-800"
-                  : "border-[var(--color-action-border)]/30 bg-[var(--color-action-bg)]/10 text-[var(--text-secondary)] hover:bg-[var(--color-action-bg)]/15 light:border-[var(--color-action-border)]/30 light:bg-[var(--color-action-bg)] light:text-[var(--color-action-strong)]"
+                  ? "border-[var(--warning-border)] bg-[var(--warning-bg)] text-[var(--warning)] hover:bg-[var(--warning-bg)]"
+                  : "border-[var(--color-action-border)]/30 bg-[var(--color-action-bg)]/10 text-[var(--text-secondary)] hover:bg-[var(--color-action-bg)]/15"
             }`}
           >
             <span aria-hidden>{expanded ? "▾" : "▸"}</span>
@@ -144,7 +144,7 @@ export function SaveButtonWithDiff({
           data-component="save-button"
           className={`rounded-2xl px-5 py-2 text-sm font-medium transition disabled:opacity-60 ${
             highCount > 0
-              ? "bg-rose-500 text-[var(--text-primary)] hover:bg-rose-400 light:bg-rose-600 light:hover:bg-rose-500"
+              ? "bg-[var(--danger)] text-[var(--text-primary)] hover:bg-[var(--danger)]"
               : "bg-[var(--color-action)] text-[var(--color-action-fg)] hover:bg-[var(--color-action-bg)]"
           }`}
         >
@@ -156,7 +156,7 @@ export function SaveButtonWithDiff({
           data-component="diff-table"
           role="region"
           aria-label="未保存的修改"
-          className="overflow-hidden rounded-lg border border-[var(--border)] bg-[var(--surface)]/[0.04] light:bg-slate-50"
+          className="overflow-hidden rounded-lg border border-[var(--border)] bg-[var(--surface)]/[0.04]"
         >
           <table className="w-full text-xs">
             <thead className="border-b border-[var(--border)] bg-[var(--surface)]/[0.04] text-left text-[11px] uppercase tracking-wide text-[var(--text-muted)] light:bg-[var(--surface)]/70">
@@ -175,7 +175,7 @@ export function SaveButtonWithDiff({
                   data-pending-risk={change.riskLevel}
                   className="border-t border-[var(--border)] align-top"
                 >
-                  <td className="px-3 py-2 font-mono text-[11px] text-[var(--text-primary)]">{change.label}</td>
+                  <td className="px-3 py-2 font-mono text-[11px] text-[var(--text-primary)]">{t(change.labelKey)}</td>
                   <td className="px-3 py-2 text-[var(--text-muted)] line-through">
                     {renderDiffValue(change.oldValue, t)}
                   </td>
@@ -236,7 +236,7 @@ export function HighRiskConfirmModal({
       <div className="w-[min(560px,90vw)] p-5">
         <h2
           id="high-risk-confirm-title"
-          className="text-base font-semibold text-rose-200 light:text-rose-700"
+          className="text-base font-semibold text-[var(--danger)]"
         >
           {t("settingsClient.confirmHighRiskTitle")}
         </h2>
@@ -250,10 +250,10 @@ export function HighRiskConfirmModal({
           {changes.map((change) => (
             <li
               key={change.key}
-              className="rounded-lg border border-rose-400/20 bg-rose-500/[0.10] p-3 text-xs light:border-rose-200 light:bg-rose-50"
+              className="rounded-lg border border-[var(--danger-border)] bg-[var(--danger-bg)] p-3 text-xs"
             >
               <div className="flex items-center justify-between gap-2">
-                <span className="font-mono text-[11px] text-[var(--text-primary)]">{change.label}</span>
+                <span className="font-mono text-[11px] text-[var(--text-primary)]">{t(change.labelKey)}</span>
                 <FieldRiskBadge level={change.riskLevel} />
               </div>
               <div className="mt-1.5 grid grid-cols-1 gap-1 text-[11px] sm:grid-cols-2">
@@ -265,7 +265,7 @@ export function HighRiskConfirmModal({
                 </div>
                 <div>
                   <span className="text-[var(--text-muted)]">{t("settingsClient.confirmNew")}</span>
-                  <span className="text-rose-100 light:text-rose-800">
+                  <span className="text-[var(--danger)]">
                     {renderDiffValue(change.newValue, t, 40)}
                   </span>
                 </div>
@@ -279,7 +279,7 @@ export function HighRiskConfirmModal({
             onClick={onCancel}
             disabled={busy}
             data-action="cancel"
-            className="rounded-lg border border-[var(--border)] bg-[var(--surface)]/[0.04] px-4 py-1.5 text-xs text-[var(--text-secondary)] transition hover:bg-[var(--surface)]/[0.10] hover:text-[var(--text-primary)] disabled:opacity-50 light:text-slate-700 light:hover:bg-slate-50"
+            className="rounded-lg border border-[var(--border)] bg-[var(--surface)]/[0.04] px-4 py-1.5 text-xs text-[var(--text-secondary)] transition hover:bg-[var(--surface)]/[0.10] hover:text-[var(--text-primary)] disabled:opacity-50"
           >
             {t("settingsClient.confirmCancel")}
           </button>
@@ -295,7 +295,7 @@ export function HighRiskConfirmModal({
             }}
             disabled={busy}
             data-action="confirm"
-            className="rounded-lg bg-rose-500 px-4 py-1.5 text-xs font-semibold text-[var(--text-primary)] transition hover:bg-rose-400 disabled:opacity-50 light:bg-rose-600 light:hover:bg-rose-500"
+            className="rounded-lg bg-[var(--danger)] px-4 py-1.5 text-xs font-semibold text-[var(--text-primary)] transition hover:bg-[var(--danger)] disabled:opacity-50"
           >
             {busy ? t("settingsClient.saving") : t("settingsClient.confirmSaveAction")}
           </button>

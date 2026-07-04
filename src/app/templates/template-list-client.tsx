@@ -98,7 +98,7 @@ export function TemplateListClient({ templates: initialTemplates, servers, canCr
 							<button
 								type="button"
 								onClick={() => handleDelete(templatePendingDelete.id)}
-								data-tone="rose" className="min-h-11 rounded-xl border border-rose-400/30 px-4 py-2 text-sm font-medium text-rose-100 transition hover:bg-rose-500/25"
+								data-tone="rose" className="min-h-11 rounded-xl border border-[var(--danger-border)] px-4 py-2 text-sm font-medium text-[var(--danger)] transition hover:bg-[var(--danger-bg)]"
 							>
 								{t("templatesPage.delete.confirm2")}
 							</button>
@@ -168,8 +168,8 @@ export function TemplateListClient({ templates: initialTemplates, servers, canCr
 								{tmpl.command}
 							</div>
 							{tmpl.rollbackCommand && (
-								<div data-tone="emerald" className="mt-2 rounded-lg border border-emerald-400/20 px-3 py-2 font-mono text-xs text-emerald-100 line-clamp-2 light:border-emerald-200 light:bg-emerald-50">
-									<span className="mr-2 font-sans text-[10px] uppercase tracking-[0.2em] text-emerald-300">Rollback</span>{tmpl.rollbackCommand}
+								<div data-tone="emerald" className="mt-2 rounded-lg border border-[var(--success-border)] px-3 py-2 font-mono text-xs text-[var(--success)] line-clamp-2 light:border-[var(--success-border)] light:bg-[var(--success)]">
+									<span className="mr-2 font-sans text-[10px] uppercase tracking-[0.2em] text-[var(--success)]">Rollback</span>{tmpl.rollbackCommand}
 								</div>
 							)}
 							{tmpl.variables.length > 0 && (
@@ -199,7 +199,7 @@ export function TemplateListClient({ templates: initialTemplates, servers, canCr
 								{canCreate && !tmpl.isBuiltin && (
 									<button
 										onClick={() => setTemplatePendingDelete(tmpl)}
-										className="min-h-11 min-w-11 text-[11px] text-rose-400/60 hover:text-rose-300 transition"
+										className="min-h-11 min-w-11 text-[11px] text-[var(--danger)]0/60 hover:text-[var(--danger)] transition"
 										>
 										{t("templatesPage.delete.action")}
 									</button>
@@ -246,7 +246,7 @@ function DeployButton({ template, servers, onDeploy, loading }: {
 				const variableLabel = t("templatesPage.variable").replace("{name}", v);
 				return (
 					<div key={v} className="flex items-center gap-2">
-						<label htmlFor={variableInputId} className="text-[11px] text-amber-200 font-mono w-24 shrink-0">{variableLabel}</label>
+						<label htmlFor={variableInputId} className="text-[11px] text-[var(--warning)] font-mono w-24 shrink-0">{variableLabel}</label>
 						<input
 							id={variableInputId}
 							value={vars[v] ?? ""}
@@ -319,7 +319,7 @@ function CreateTemplateForm({ onClose }: { onClose: () => void }) {
 	return (
 		<form onSubmit={handleSubmit} data-card className=" space-y-4">
 			<h3 className="text-lg font-semibold text-[var(--text-primary)]">{t("templatesPage.create.title")}</h3>
-			{error && <div className="rounded-lg bg-rose-500/[0.10] border border-rose-400/20 px-3.5 py-2.5 text-sm text-rose-200">{error}</div>}
+			{error && <div className="rounded-lg bg-[var(--danger)]0/[0.10] border border-[var(--danger-border)] px-3.5 py-2.5 text-sm text-[var(--danger)]">{error}</div>}
 			<div className="space-y-1.5">
 				<label htmlFor={`${createFormId}-name`} className="text-xs font-medium text-[var(--text-primary)]/70 tracking-wide">{t("templatesPage.create.nameLabel")}</label>
 				<input id={`${createFormId}-name`} value={name} onChange={(e) => setName(e.target.value)} required placeholder={t("templatesPage.create.namePlaceholder")} className="w-full rounded-lg border border-[var(--border)] bg-[var(--surface)]/[0.04] px-3.5 py-2.5 text-sm text-[var(--text-primary)] outline-none transition placeholder:text-[var(--text-primary)]/30 focus:border-[var(--color-action-border)]/30" />
@@ -335,7 +335,7 @@ function CreateTemplateForm({ onClose }: { onClose: () => void }) {
 			</div>
 			<div className="space-y-1.5">
 				<label htmlFor={`${createFormId}-rollback-command`} className="text-xs font-medium text-[var(--text-primary)]/70 tracking-wide">{t("templatesPage.create.rollbackLabel")}</label>
-				<textarea id={`${createFormId}-rollback-command`} value={rollbackCommand} onChange={(e) => setRollbackCommand(e.target.value)} rows={3} placeholder={t("templatesPage.create.rollbackPlaceholder")} data-tone="emerald" className="w-full rounded-lg border border-emerald-400/20 px-3.5 py-2.5 text-sm text-[var(--text-primary)] light:border-emerald-200 light:bg-emerald-50 font-mono outline-none transition placeholder:text-[var(--text-primary)]/30 focus:border-emerald-400/40 resize-y" />
+				<textarea id={`${createFormId}-rollback-command`} value={rollbackCommand} onChange={(e) => setRollbackCommand(e.target.value)} rows={3} placeholder={t("templatesPage.create.rollbackPlaceholder")} data-tone="emerald" className="w-full rounded-lg border border-[var(--success-border)] px-3.5 py-2.5 text-sm text-[var(--text-primary)] light:border-[var(--success-border)] light:bg-[var(--success)] font-mono outline-none transition placeholder:text-[var(--text-primary)]/30 focus:border-[var(--success-border)] resize-y" />
 				<p className="text-[11px] text-[var(--text-muted)]">{t("templatesPage.create.rollbackHint")}</p>
 			</div>
 			<div className="space-y-1.5">

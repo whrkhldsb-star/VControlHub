@@ -22,12 +22,12 @@ interface TicketDetailClientProps {
 
 const STATUS_TONE: Record<string, string> = {
   OPEN: "border-[var(--color-action-border)]/30 bg-[var(--color-action-bg)]/10 text-[var(--text-primary)]",
-  IN_PROGRESS: "border-amber-400/30 bg-amber-400/10 text-amber-100",
-  RESOLVED: "border-emerald-400/30 bg-emerald-400/10 text-emerald-100",
-  CLOSED: "border-slate-400/30 bg-slate-400/10 text-[var(--text-secondary)]",
+  IN_PROGRESS: "border-[var(--warning-border)] bg-[var(--warning-bg)] text-[var(--warning)]",
+  RESOLVED: "border-[var(--success-border)] bg-[var(--success-bg)] text-[var(--success)]",
+  CLOSED: "border-[var(--border)] bg-[var(--surface)] text-[var(--text-secondary)]",
 };
 const PRIORITY_TONE: Record<string, string> = {
-  LOW: "text-[var(--text-secondary)]", NORMAL: "text-[var(--text-secondary)]", HIGH: "text-amber-400", URGENT: "text-rose-400",
+  LOW: "text-[var(--text-secondary)]", NORMAL: "text-[var(--text-secondary)]", HIGH: "text-[var(--warning)]", URGENT: "text-[var(--danger)]",
 };
 
 function statusLabel(t: (k: string) => string, status: string): string {
@@ -96,7 +96,7 @@ export function TicketDetailClient({ initial, canManage, locale: _locale }: Tick
 
   return (
     <div data-card className="space-y-6">
-      <Link href="/tickets" className="inline-flex items-center gap-1 text-xs text-[var(--text-muted)] hover:text-[var(--text-secondary)] light:hover:text-slate-700 transition-colors">
+      <Link href="/tickets" className="inline-flex items-center gap-1 text-xs text-[var(--text-muted)] hover:text-[var(--text-secondary)] light:hover:text-[var(--text-disabled)] transition-colors">
         {t("ticketsDetail.backToList")}
       </Link>
       {/* Ticket header */}
@@ -161,7 +161,7 @@ export function TicketDetailClient({ initial, canManage, locale: _locale }: Tick
         </div>
       )}
 
-      {error && <p className="text-sm text-rose-400">{error}</p>}
+      {error && <p className="text-sm text-[var(--danger)]">{error}</p>}
 
       {/* Comments */}
  <div data-card className="">

@@ -65,11 +65,11 @@ export function DashboardCustomizeToolbar({
 
 	return (
 		<div
-			className="mb-3 flex flex-wrap items-center justify-between gap-2 rounded-xl border border-amber-500/30 bg-amber-500/5 p-2"
+			className="mb-3 flex flex-wrap items-center justify-between gap-2 rounded-xl border border-[var(--warning-border)] bg-[var(--warning-bg)] p-2"
 			role="region"
 			aria-label={t("dashboard.customize")}
 		>
-			<p className="px-2 text-xs text-amber-200/80">
+			<p className="px-2 text-xs text-[var(--warning)]0/80">
 				{t("dashboard.customize-drag-tip")}
 			</p>
 			<div className="flex flex-wrap items-center gap-1.5">
@@ -85,7 +85,7 @@ export function DashboardCustomizeToolbar({
 							className={`rounded-lg border px-2.5 py-1 text-[11px] transition ${
 								hidden
 									? "border-[var(--border)] bg-[var(--surface-hover)] text-[var(--text-muted)] line-through"
-									: "border-emerald-500/40 bg-emerald-500/10 text-emerald-200"
+									: "border-[var(--success-border)] bg-[var(--success-bg)] text-[var(--success)]"
 							}`}
 						>
 							{DASHBOARD_WIDGET_LABELS[id]} ·{" "}

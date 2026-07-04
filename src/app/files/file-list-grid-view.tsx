@@ -85,10 +85,10 @@ export function FileListGridView({
           type="button"
           onClick={() => navigateToFolder(folder.path)}
           data-testid="folder-card"
-          className="group flex min-h-[156px] flex-col items-center gap-3 rounded-xl border border-[var(--border)] bg-[var(--surface)] p-5 text-center transition-colors duration-150 hover:border-amber-400/30 hover:bg-amber-400/[0.04]"
+          className="group flex min-h-[156px] flex-col items-center gap-3 rounded-xl border border-[var(--border)] bg-[var(--surface)] p-5 text-center transition-colors duration-150 hover:border-[var(--warning-border)] hover:bg-[var(--warning)]0/[0.04]"
         >
           <div
-            className="rounded-xl bg-amber-400/10 p-3 transition-colors group-hover:bg-amber-400/20"
+            className="rounded-xl bg-[var(--warning-bg)] p-3 transition-colors group-hover:bg-[var(--warning-bg)]"
             aria-hidden="true"
           >
             <FileTypeIcon entry={{ entryType: "DIRECTORY" }} size={36} />
@@ -168,7 +168,7 @@ export function FileListGridView({
               )}
               <div className="mt-1 flex items-center justify-center gap-2 text-xs text-[var(--text-muted)]">
                 <span>{entry.sizeLabel}</span>
-                <span className="text-slate-700">·</span>
+                <span className="text-[var(--text-disabled)]">·</span>
                 <span className="truncate">{entry.storageNode.name}</span>
               </div>
             </div>

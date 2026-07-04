@@ -328,10 +328,10 @@ export function SshTerminalPanel({ serverId, serverName, host, sessionToken, vis
 			data-testid={`ssh-terminal-panel-${serverId}`}
 		>
 			{/* Toolbar */}
-			<div className="flex flex-wrap items-center gap-2 border-b border-[var(--border-subtle)] light:border-slate-200 px-4 py-2">
+			<div className="flex flex-wrap items-center gap-2 border-b border-[var(--border-subtle)] light:border-[var(--border)] px-4 py-2">
 				<div className="flex items-center gap-2">
 					<span className="text-sm" aria-hidden="true">💻</span>
-					<span className="text-sm font-medium text-[var(--text-primary)] light:text-slate-900">{serverName}</span>
+					<span className="text-sm font-medium text-[var(--text-primary)] light:text-[var(--text-disabled)]">{serverName}</span>
 					<span className="text-xs text-[var(--text-secondary)]">{host}</span>
 				</div>
 				<div className="ml-auto flex flex-wrap items-center gap-2">
@@ -340,10 +340,10 @@ export function SshTerminalPanel({ serverId, serverName, host, sessionToken, vis
 						aria-live="polite"
 						className={`rounded-full px-3 py-1 text-xs ${
 							status === "connected"
-								? "border border-emerald-400/30 bg-emerald-400/10 text-emerald-200"
+								? "border border-[var(--success-border)] bg-[var(--success-bg)] text-[var(--success)]"
 								: status === "connecting"
-								? "border border-amber-400/30 bg-amber-400/10 text-amber-200"
-								: "border border-rose-400/30 bg-rose-400/10 text-rose-200"
+								? "border border-[var(--warning-border)] bg-[var(--warning-bg)] text-[var(--warning)]"
+								: "border border-[var(--danger-border)] bg-[var(--danger-bg)] text-[var(--danger)]"
 						}`}
 					>
 						{status === "connected"
@@ -358,7 +358,7 @@ export function SshTerminalPanel({ serverId, serverName, host, sessionToken, vis
 						type="button"
 						onClick={() => setShowSidePanel(!showSidePanel)}
 						aria-expanded={showSidePanel}
-						className={`min-h-9 rounded-full border px-3 py-1 text-xs transition ${showSidePanel ? "border-[var(--color-action-border)]/30 bg-[var(--color-action-bg)]/10 text-[var(--color-action-fg)]" : "border-[var(--border-subtle)] light:border-slate-200 bg-[var(--surface-subtle)] light:bg-slate-800/50 text-[var(--text-secondary)] light:text-slate-600 hover:bg-[var(--surface-elevated)] light:hover:bg-[var(--surface-hover)]/50"}`}
+						className={`min-h-9 rounded-full border px-3 py-1 text-xs transition ${showSidePanel ? "border-[var(--color-action-border)]/30 bg-[var(--color-action-bg)]/10 text-[var(--color-action-fg)]" : "border-[var(--border-subtle)] light:border-[var(--border)] bg-[var(--surface-subtle)] light:bg-[var(--surface)] text-[var(--text-secondary)] light:text-[var(--text-muted)] hover:bg-[var(--surface-elevated)] light:hover:bg-[var(--surface-hover)]/50"}`}
 					>
 						{t("sshTerminalModal.panelToggle")}
 					</button>
@@ -366,7 +366,7 @@ export function SshTerminalPanel({ serverId, serverName, host, sessionToken, vis
 						type="button"
 						onClick={() => setShowFileManager(!showFileManager)}
 						aria-expanded={showFileManager}
-						className={`min-h-9 rounded-full border px-3 py-1 text-xs transition ${showFileManager ? "border-[var(--color-action-border)]/30 bg-[var(--color-action-bg)]/10 text-[var(--color-action-fg)]" : "border-[var(--border-subtle)] light:border-slate-200 bg-[var(--surface-subtle)] light:bg-slate-800/50 text-[var(--text-secondary)] light:text-slate-600 hover:bg-[var(--surface-elevated)] light:hover:bg-[var(--surface-hover)]/50"}`}
+						className={`min-h-9 rounded-full border px-3 py-1 text-xs transition ${showFileManager ? "border-[var(--color-action-border)]/30 bg-[var(--color-action-bg)]/10 text-[var(--color-action-fg)]" : "border-[var(--border-subtle)] light:border-[var(--border)] bg-[var(--surface-subtle)] light:bg-[var(--surface)] text-[var(--text-secondary)] light:text-[var(--text-muted)] hover:bg-[var(--surface-elevated)] light:hover:bg-[var(--surface-hover)]/50"}`}
 					>
 						{t("sshFileManager.toggle")}
 					</button>
@@ -384,7 +384,7 @@ export function SshTerminalPanel({ serverId, serverName, host, sessionToken, vis
 						type="button"
 						onClick={onClose}
 						aria-label={t("sshTerminalModal.ariaClose")}
-						className="min-h-9 rounded-full border border-[var(--border-subtle)] light:border-slate-200 bg-[var(--surface-subtle)] light:bg-slate-800/50 px-3 py-1 text-xs text-[var(--text-secondary)] light:text-slate-600 transition hover:bg-[var(--surface-elevated)] light:hover:bg-[var(--surface-hover)]/50"
+						className="min-h-9 rounded-full border border-[var(--border-subtle)] light:border-[var(--border)] bg-[var(--surface-subtle)] light:bg-[var(--surface)] px-3 py-1 text-xs text-[var(--text-secondary)] light:text-[var(--text-muted)] transition hover:bg-[var(--surface-elevated)] light:hover:bg-[var(--surface-hover)]/50"
 					>
 						{t("sshTerminalModal.close")}
 					</button>
@@ -393,7 +393,7 @@ export function SshTerminalPanel({ serverId, serverName, host, sessionToken, vis
 
 			{/* Error banner */}
 			{errorMsg && (status === "error" || status === "closed") && (
-				<div data-tone="rose" className="mx-4 mt-3 rounded-xl border border-rose-400/20 px-4 py-2 text-sm text-rose-200">
+				<div data-tone="rose" className="mx-4 mt-3 rounded-xl border border-[var(--danger-border)] px-4 py-2 text-sm text-[var(--danger)]">
 					❌ {errorMsg}
 				</div>
 			)}
@@ -401,7 +401,7 @@ export function SshTerminalPanel({ serverId, serverName, host, sessionToken, vis
 			{/* Terminal + side panel */}
 			<div className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto p-3 lg:flex-row lg:overflow-hidden">
 				<div className="flex min-h-0 flex-1 flex-col gap-2 overflow-hidden">
-					<div className="flex flex-wrap items-center gap-2 rounded-xl border border-[var(--border-subtle)] light:border-slate-200/60 bg-[var(--surface-subtle)] light:bg-slate-50/50 p-2">
+					<div className="flex flex-wrap items-center gap-2 rounded-xl border border-[var(--border-subtle)] light:border-[var(--border)] bg-[var(--surface-subtle)] light:bg-[var(--surface)] p-2">
 						<label htmlFor={`ssh-terminal-search-${serverId}`} className="sr-only">{t("sshTerminalModal.searchLabel")}</label>
 						<input
 							id={`ssh-terminal-search-${serverId}`}
@@ -412,16 +412,16 @@ export function SshTerminalPanel({ serverId, serverName, host, sessionToken, vis
 								if (e.key === "Escape") clearTerminalSearch();
 							}}
 							placeholder={t("sshTerminalModal.searchPlaceholder")}
-							className="min-h-10 min-w-[180px] flex-1 rounded-xl border border-[var(--border-subtle)] light:border-slate-200/60 bg-[var(--surface-subtle)] light:bg-slate-100/40 px-3 py-2 text-sm text-[var(--text-primary)] light:text-slate-900 outline-none placeholder:text-[var(--text-muted)]/20 light:placeholder:text-slate-400/20 focus:border-[var(--color-action-border)]/30"
+							className="min-h-10 min-w-[180px] flex-1 rounded-xl border border-[var(--border-subtle)] light:border-[var(--border)] bg-[var(--surface-subtle)] light:bg-[var(--surface)] px-3 py-2 text-sm text-[var(--text-primary)] light:text-[var(--text-disabled)] outline-none placeholder:text-[var(--text-muted)]/20 light:placeholder:text-[var(--text-primary)]0/20 focus:border-[var(--color-action-border)]/30"
 						/>
-						<button type="button" onClick={() => searchTerminal("previous")} className="min-h-10 rounded-xl border border-[var(--border-subtle)] light:border-slate-200/80 px-3 text-xs text-[var(--text-secondary)] light:text-slate-200 hover:bg-[var(--surface-subtle)] light:hover:bg-slate-100/60">{t("sshTerminalModal.searchPrevious")}</button>
+						<button type="button" onClick={() => searchTerminal("previous")} className="min-h-10 rounded-xl border border-[var(--border-subtle)] light:border-[var(--border)] px-3 text-xs text-[var(--text-secondary)] light:text-[var(--text-primary)] hover:bg-[var(--surface-subtle)] light:hover:bg-[var(--surface)]">{t("sshTerminalModal.searchPrevious")}</button>
 						<button type="button" onClick={() => searchTerminal("next")} data-tone="cyan" className="min-h-10 rounded-xl border border-[var(--color-action-border)]/20 px-3 text-xs text-[var(--color-action-fg)] hover:bg-[var(--color-action-bg)]/20">{t("sshTerminalModal.searchNext")}</button>
-						<button type="button" onClick={clearTerminalSearch} className="min-h-10 rounded-xl border border-[var(--border-subtle)] light:border-slate-200/80 px-3 text-xs text-[var(--text-muted)] hover:bg-[var(--surface-subtle)] light:hover:bg-slate-100/60">{t("sshTerminalModal.searchClear")}</button>
+						<button type="button" onClick={clearTerminalSearch} className="min-h-10 rounded-xl border border-[var(--border-subtle)] light:border-[var(--border)] px-3 text-xs text-[var(--text-muted)] hover:bg-[var(--surface-subtle)] light:hover:bg-[var(--surface)]">{t("sshTerminalModal.searchClear")}</button>
 					</div>
 					<div
 						ref={termRef}
 						data-testid="ssh-terminal-surface"
-						className="h-[clamp(280px,52vh,520px)] w-full overflow-hidden rounded-xl border border-[var(--border-subtle)] light:border-slate-200 bg-[var(--surface-root)] lg:h-full lg:min-h-[350px]"
+						className="h-[clamp(280px,52vh,520px)] w-full overflow-hidden rounded-xl border border-[var(--border-subtle)] light:border-[var(--border)] bg-[var(--surface-root)] lg:h-full lg:min-h-[350px]"
 					/>
 				</div>
 				{showFileManager && (
@@ -429,8 +429,8 @@ export function SshTerminalPanel({ serverId, serverName, host, sessionToken, vis
 			)}
 			{showSidePanel && (
 					<div className="flex max-h-[50vh] w-full shrink-0 flex-col gap-3 overflow-y-auto lg:ml-3 lg:max-h-none lg:w-56">
-						<section className="rounded-xl border border-[var(--border-subtle)] light:border-slate-200/60 bg-[var(--surface-subtle)] light:bg-slate-50/50 p-3">
-							<h4 className="mb-2 text-xs font-medium text-[var(--text-muted)]/60 light:text-slate-500/60">{t("sshTerminalModal.favoritesTitle")}</h4>
+						<section className="rounded-xl border border-[var(--border-subtle)] light:border-[var(--border)] bg-[var(--surface-subtle)] light:bg-[var(--surface)] p-3">
+							<h4 className="mb-2 text-xs font-medium text-[var(--text-muted)]/60 light:text-[var(--text-primary)]0/60">{t("sshTerminalModal.favoritesTitle")}</h4>
 							<div className="mb-2 flex gap-1.5">
 								<label htmlFor={`ssh-fav-${serverId}`} className="sr-only">{t("sshTerminalModal.favoritesLabel")}</label>
 								<input
@@ -439,40 +439,40 @@ export function SshTerminalPanel({ serverId, serverName, host, sessionToken, vis
 									onChange={(e) => setNewFavorite(e.target.value)}
 									onKeyDown={(e) => e.key === "Enter" && addFavorite()}
 									placeholder={t("sshTerminalModal.favoritesPlaceholder")}
-									className="min-h-11 min-w-0 flex-1 rounded-lg border border-[var(--border-subtle)] light:border-slate-200/60 bg-[var(--surface-subtle)] light:bg-slate-100/40 px-3 py-1 text-[13px] font-mono text-[var(--text-primary)] light:text-slate-900 outline-none placeholder:text-[var(--text-muted)]/20 light:placeholder:text-slate-400/20 focus:border-[var(--color-action-border)]/30"
+									className="min-h-11 min-w-0 flex-1 rounded-lg border border-[var(--border-subtle)] light:border-[var(--border)] bg-[var(--surface-subtle)] light:bg-[var(--surface)] px-3 py-1 text-[13px] font-mono text-[var(--text-primary)] light:text-[var(--text-disabled)] outline-none placeholder:text-[var(--text-muted)]/20 light:placeholder:text-[var(--text-primary)]0/20 focus:border-[var(--color-action-border)]/30"
 									/>
 									<button onClick={addFavorite} aria-label={t("sshTerminalModal.favoritesAdd")} data-tone="cyan" className="min-h-11 min-w-11 shrink-0 rounded-lg border border-[var(--color-action-border)]/20 px-2 py-1 text-[13px] text-[var(--color-action-fg)] transition hover:bg-[var(--color-action-bg)]/20">+</button>
 							</div>
 							{favoriteCommands.length === 0 ? (
-								<p className="text-[10px] text-slate-600">{t("sshTerminalModal.favoritesEmpty")}</p>
+								<p className="text-[10px] text-[var(--text-muted)]">{t("sshTerminalModal.favoritesEmpty")}</p>
 							) : (
 								<div className="space-y-1">
 									{favoriteCommands.map((cmd) => (
 										<div key={cmd} className="group flex items-center gap-1">
-											<button onClick={() => sendCommand(cmd)} className="min-h-11 min-w-0 flex-1 truncate rounded-lg px-3 py-1 text-left text-[12px] font-mono text-[var(--color-action-fg)]/80 transition hover:bg-[var(--surface-subtle)] light:hover:bg-slate-100/60" title={cmd}>{cmd}</button>
-											<button onClick={() => removeFavorite(cmd)} aria-label={t("sshTerminalModal.favoritesRemove").replace("{cmd}", cmd)} className="min-h-11 min-w-11 shrink-0 rounded-lg px-1 text-[12px] text-rose-400/70 transition hover:bg-rose-400/10 hover:text-rose-300 group-hover:opacity-100">✕</button>
+											<button onClick={() => sendCommand(cmd)} className="min-h-11 min-w-0 flex-1 truncate rounded-lg px-3 py-1 text-left text-[12px] font-mono text-[var(--color-action-fg)]/80 transition hover:bg-[var(--surface-subtle)] light:hover:bg-[var(--surface)]" title={cmd}>{cmd}</button>
+											<button onClick={() => removeFavorite(cmd)} aria-label={t("sshTerminalModal.favoritesRemove").replace("{cmd}", cmd)} className="min-h-11 min-w-11 shrink-0 rounded-lg px-1 text-[12px] text-[var(--danger)]0/70 transition hover:bg-[var(--danger-bg)] hover:text-[var(--danger)] group-hover:opacity-100">✕</button>
 										</div>
 									))}
 								</div>
 							)}
 						</section>
-						<section className="rounded-xl border border-[var(--border-subtle)] light:border-slate-200/60 bg-[var(--surface-subtle)] light:bg-slate-50/50 p-3">
-							<h4 className="mb-2 text-xs font-medium text-[var(--text-muted)]/60 light:text-slate-500/60">{t("sshTerminalModal.historyTitle")}</h4>
+						<section className="rounded-xl border border-[var(--border-subtle)] light:border-[var(--border)] bg-[var(--surface-subtle)] light:bg-[var(--surface)] p-3">
+							<h4 className="mb-2 text-xs font-medium text-[var(--text-muted)]/60 light:text-[var(--text-primary)]0/60">{t("sshTerminalModal.historyTitle")}</h4>
 							{commandHistory.length === 0 ? (
-								<p className="text-[10px] text-slate-600">{t("sshTerminalModal.historyEmpty")}</p>
+								<p className="text-[10px] text-[var(--text-muted)]">{t("sshTerminalModal.historyEmpty")}</p>
 							) : (
 								<div className="max-h-[200px] space-y-1 overflow-y-auto">
 									{commandHistory.map((cmd, i) => (
-										<button key={`${cmd}-${i}`} onClick={() => sendCommand(cmd)} className="min-h-11 block w-full truncate rounded-lg px-3 py-1 text-left text-[12px] font-mono text-[var(--text-secondary)] transition hover:bg-[var(--surface-subtle)] light:hover:bg-slate-100/60 hover:text-[var(--color-action-fg)]/80" title={cmd}>{cmd}</button>
+										<button key={`${cmd}-${i}`} onClick={() => sendCommand(cmd)} className="min-h-11 block w-full truncate rounded-lg px-3 py-1 text-left text-[12px] font-mono text-[var(--text-secondary)] transition hover:bg-[var(--surface-subtle)] light:hover:bg-[var(--surface)] hover:text-[var(--color-action-fg)]/80" title={cmd}>{cmd}</button>
 									))}
 								</div>
 							)}
 						</section>
-						<section className="rounded-xl border border-[var(--border-subtle)] light:border-slate-200/60 bg-[var(--surface-subtle)] light:bg-slate-50/50 p-3">
-							<h4 className="mb-2 text-xs font-medium text-[var(--text-muted)]/60 light:text-slate-500/60">{t("sshTerminalModal.quickCommandsTitle")}</h4>
+						<section className="rounded-xl border border-[var(--border-subtle)] light:border-[var(--border)] bg-[var(--surface-subtle)] light:bg-[var(--surface)] p-3">
+							<h4 className="mb-2 text-xs font-medium text-[var(--text-muted)]/60 light:text-[var(--text-primary)]0/60">{t("sshTerminalModal.quickCommandsTitle")}</h4>
 							<div className="space-y-1">
 								{["ls -la", "df -h", "free -m", "top -bn1 | head -20", "uptime", "whoami", "cat /etc/os-release", "ps aux --sort=-%mem | head -10"].map((cmd) => (
-									<button key={cmd} onClick={() => sendCommand(cmd)} className="min-h-11 block w-full truncate rounded-lg px-3 py-1 text-left text-[12px] font-mono text-[var(--text-muted)] transition hover:bg-[var(--surface-subtle)] light:hover:bg-slate-100/60 hover:text-[var(--color-action-fg)]/80" title={cmd}>{cmd}</button>
+									<button key={cmd} onClick={() => sendCommand(cmd)} className="min-h-11 block w-full truncate rounded-lg px-3 py-1 text-left text-[12px] font-mono text-[var(--text-muted)] transition hover:bg-[var(--surface-subtle)] light:hover:bg-[var(--surface)] hover:text-[var(--color-action-fg)]/80" title={cmd}>{cmd}</button>
 								))}
 							</div>
 						</section>

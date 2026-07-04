@@ -159,8 +159,8 @@ export function InstallDialog({
 								className={`w-full rounded-lg border bg-[var(--surface)]/[0.04] px-4 py-2.5 text-sm text-[var(--text-primary)] placeholder-slate-600 outline-none transition ${
 									portCheck
 										? portCheck.available
-											? "border-emerald-400/40 focus:border-emerald-400"
-											: "border-rose-400/40 focus:border-rose-400"
+											? "border-[var(--success-border)] focus:border-[var(--success-border)]"
+											: "border-[var(--danger-border)] focus:border-[var(--danger-border)]"
 										: "border-[var(--border)] focus:border-[var(--color-action-border)]"
 								}`}
 								placeholder="1-65535"
@@ -173,7 +173,7 @@ export function InstallDialog({
 							{portCheck && !portCheck.checking && (
 								<div
 									className={`absolute right-3 top-1/2 -translate-y-1/2 text-xs font-medium ${
-										portCheck.available ? "text-emerald-400" : "text-rose-400"
+										portCheck.available ? "text-[var(--success)]" : "text-[var(--danger)]"
 									}`}
 								>
 									{portCheck.available ? t("qsPage.portAvailable") : t("qsPage.portInUse")}
@@ -183,7 +183,7 @@ export function InstallDialog({
 					</label>
 
 					{portCheck && !portCheck.available && portCheck.usedBy && (
-						<div className="text-xs text-rose-300/80 bg-rose-500/[0.10] rounded-lg px-3 py-2 border border-rose-400/10">
+						<div className="text-xs text-[var(--danger)]0/80 bg-[var(--danger)]0/[0.10] rounded-lg px-3 py-2 border border-[var(--danger-border)]">
 							{t("qsPage.portInUseDetail").replace("{usedBy}", portCheck.usedBy)}
 						</div>
 					)}

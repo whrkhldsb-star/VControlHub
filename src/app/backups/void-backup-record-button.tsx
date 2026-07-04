@@ -43,12 +43,12 @@ export function VoidBackupRecordButton({ backupId, status }: Props) {
         type="button"
         disabled={disabled}
         onClick={handleVoid}
-        className="w-fit rounded-lg border border-amber-300/40 px-3 py-1.5 text-xs font-semibold text-amber-100 transition hover:bg-amber-300/10 disabled:cursor-not-allowed disabled:opacity-50"
+        className="w-fit rounded-lg border border-[var(--warning-border)] px-3 py-1.5 text-xs font-semibold text-[var(--warning)] transition hover:bg-[var(--warning-bg)] disabled:cursor-not-allowed disabled:opacity-50"
       >
         {pending ? "正在作废..." : "标记作废"}
       </button>
-      {message && <p className="text-xs text-emerald-300">{message}</p>}
-      {error && <p role="alert" className="text-xs text-rose-300">{error}</p>}
+      {message && <p className="text-xs text-[var(--success)]">{message}</p>}
+      {error && <p role="alert" className="text-xs text-[var(--danger)]">{error}</p>}
     </div>
   );
 }

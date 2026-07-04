@@ -153,14 +153,14 @@ export default function MonitoringPage({ canManage: _canManage }: { canManage: b
   if (!stats) {
     return (
       <PageShell>
-        <div data-tone="rose" className="rounded-2xl border border-rose-500/20 p-5 text-sm text-rose-100">
-          <h1 className="mb-2 text-xl font-semibold text-rose-50">{t("monitoringPage.errorTitle")}</h1>
-          <p className="text-rose-100/80">{errorMessage ?? t("monitoringPage.errorUnavailable")}</p>
+        <div data-tone="rose" className="rounded-2xl border border-[var(--danger-border)] p-5 text-sm text-[var(--danger)]">
+          <h1 className="mb-2 text-xl font-semibold text-[var(--danger)]">{t("monitoringPage.errorTitle")}</h1>
+          <p className="text-[var(--danger)]0/80">{errorMessage ?? t("monitoringPage.errorUnavailable")}</p>
           <button
             type="button"
             onClick={fetchStats}
             disabled={refreshing}
-            className="mt-4 rounded-lg bg-rose-500 px-4 py-2 text-xs font-semibold text-[var(--text-primary)] transition hover:bg-rose-400 disabled:cursor-not-allowed disabled:opacity-60"
+            className="mt-4 rounded-lg bg-[var(--danger)] px-4 py-2 text-xs font-semibold text-[var(--text-primary)] transition hover:bg-[var(--danger)] disabled:cursor-not-allowed disabled:opacity-60"
           >
             {refreshing ? t("monitoringPage.retrying") : t("monitoringPage.retry")}
           </button>
@@ -186,7 +186,7 @@ export default function MonitoringPage({ canManage: _canManage }: { canManage: b
       />
 
       {errorMessage ? (
-        <div data-tone="amber" className="mb-4 rounded-xl border border-amber-500/20 px-4 py-3 text-xs text-amber-100">
+        <div data-tone="amber" className="mb-4 rounded-xl border border-[var(--warning-border)] px-4 py-3 text-xs text-[var(--warning)]">
           {t("monitoringPage.lastRefreshFailed").replace("{message}", errorMessage)}
         </div>
       ) : null}
@@ -204,13 +204,13 @@ export default function MonitoringPage({ canManage: _canManage }: { canManage: b
           type="button"
           onClick={() => setAutoRefresh(!autoRefresh)}
           disabled={refreshIntervalSeconds <= 0}
-          className={`rounded-lg px-3 py-1.5 text-xs font-medium transition disabled:cursor-not-allowed disabled:opacity-50 ${autoRefresh ?"bg-emerald-500/10 text-emerald-400" :"bg-[var(--surface-hover)]/50 light:bg-slate-200/50 text-[var(--text-muted)]"}`}
+          className={`rounded-lg px-3 py-1.5 text-xs font-medium transition disabled:cursor-not-allowed disabled:opacity-50 ${autoRefresh ?"bg-[var(--success-bg)] text-[var(--success)]" :"bg-[var(--surface-hover)]/50 light:bg-[var(--surface)] text-[var(--text-muted)]"}`}
         >
           {autoRefreshLabel}
         </button>
         {sseConnected && autoRefresh && (
-          <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/10 px-2 py-0.5 text-[10px] text-emerald-400">
-            <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse" />
+          <span className="inline-flex items-center gap-1 rounded-full bg-[var(--success-bg)] px-2 py-0.5 text-[10px] text-[var(--success)]">
+            <span className="h-1.5 w-1.5 rounded-full bg-[var(--success)] animate-pulse" />
             SSE
           </span>
         )}
@@ -281,7 +281,7 @@ export default function MonitoringPage({ canManage: _canManage }: { canManage: b
               {stats.topProcesses.map((p) => (
                 <tr key={p.pid} className="border-b border-[var(--border)]">
                   <td className="py-1.5 font-mono text-[var(--text-muted)]">{p.pid}</td>
-                  <td className="py-1.5 text-right text-amber-400">{p.cpu}</td>
+                  <td className="py-1.5 text-right text-[var(--warning)]">{p.cpu}</td>
                   <td className="py-1.5 text-right text-[var(--color-action)]">{p.mem}</td>
                   <td className="max-w-[200px] truncate py-1.5 pl-4 text-[var(--text-primary)]">{p.cmd}</td>
                 </tr>

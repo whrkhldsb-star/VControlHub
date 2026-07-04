@@ -49,7 +49,7 @@ export function RecycleBinSectionClient({
 	}
 
 	return (
-		<article className="rounded-3xl border border-rose-400/20 bg-[var(--surface)] p-6">
+		<article className="rounded-3xl border border-[var(--danger-border)] bg-[var(--surface)] p-6">
 			<div className="flex items-start justify-between gap-4">
 				<div>
 					<h3 className="text-xl font-semibold text-[var(--text-primary)]">{t("recycleBinSection.title")}</h3>

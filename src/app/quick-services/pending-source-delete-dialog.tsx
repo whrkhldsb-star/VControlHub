@@ -31,7 +31,7 @@ export function PendingSourceDeleteDialog({
 				role="dialog"
 				aria-modal="true"
 				aria-label={t("qsPage.deleteSourceAria")}
-				className="mx-0 w-full max-w-md rounded-t-2xl border border-rose-400/20 bg-[var(--surface-root)] p-6 shadow-2xl sm:mx-4 sm:rounded-2xl"
+				className="mx-0 w-full max-w-md rounded-t-2xl border border-[var(--danger-border)] bg-[var(--surface-root)] p-6 shadow-2xl sm:mx-4 sm:rounded-2xl"
 				onClick={(e) => e.stopPropagation()}
 			>
 				<h3 className="text-lg font-semibold text-[var(--text-primary)] mb-2">{t("qsPage.deleteSourceTitle")}</h3>
@@ -49,7 +49,7 @@ export function PendingSourceDeleteDialog({
 					<button
 						type="button"
 						onClick={onConfirm}
-						className="min-h-11 rounded-lg bg-rose-500 px-4 py-2 text-xs font-semibold text-[var(--text-primary)] hover:bg-rose-400 transition"
+						className="min-h-11 rounded-lg bg-[var(--danger)] px-4 py-2 text-xs font-semibold text-[var(--text-primary)] hover:bg-[var(--danger)] transition"
 					>
 						{t("qsPage.confirmDelete")}
 					</button>

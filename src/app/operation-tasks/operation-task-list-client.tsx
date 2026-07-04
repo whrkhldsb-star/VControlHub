@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { memo, useCallback, useMemo, useState } from "react";
 import Link from "next/link";
 import { EmptyState } from "@/components/page-shell";
 import type { OperationTask, OperationTaskFailureSummary, OperationTaskSourceSummary, OperationTaskStatus } from "@/lib/operation-task/dto";
@@ -44,8 +44,50 @@ function getExportPath(statusFilter: string, taskTypeFilter: string, sort: strin
   return `${path}${path.includes("?") ? "&" : "?"}format=csv`;
 }
 
+type TaskRowProps = {
+  task: OperationTask;
+  t: (k: string) => string;
+  sourceLabels: Record<string, string>;
+  onViewEvents: (sourceId: string) => void;
+};
+
+const TaskRow = memo(function TaskRow({ task, t, sourceLabels, onViewEvents }: TaskRowProps) {
+  return (
+    <div className="flex flex-col gap-3 px-5 py-4 sm:flex-row sm:items-start sm:justify-between">
+      <div className="min-w-0 flex-1">
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="rounded-lg bg-[var(--surface-hover)] px-2 py-1 text-xs text-[var(--text-muted)]">{sourceLabels[task.source] ?? task.source}</span>
+          <span data-tone={statusTone[task.status] ?? "neutral"} className="rounded-lg border px-2 py-1 text-xs font-medium">{task.status}</span>
+          {task.taskType && <span className="rounded-lg border border-[var(--border)] px-2 py-1 text-xs text-[var(--text-muted)]">{task.taskType}</span>}
+          {task.foldedCount && task.foldedCount > 1 && <span className="rounded-lg border border-[var(--accent-border)] bg-[var(--accent-bg)] px-2 py-1 text-xs text-[var(--accent)]">{t("operationTasksPage.folded").replace("{count}", String(task.foldedCount))}</span>}
+          {task.workerId && <span title={task.workerHeartbeatAt ? `最近心跳：${new Date(task.workerHeartbeatAt).toLocaleString("zh-CN")}` : t("operationTasksPage.worker.noHeartbeat")} data-tone="accent" className="rounded-lg border px-2 py-1 text-xs font-medium">worker {task.workerId}</span>}
+        </div>
+        <h3 className="mt-2 truncate text-sm font-medium text-[var(--text-primary)]">{task.title}</h3>
+        <p className="mt-1 text-xs text-[var(--text-muted)]">{new Date(task.createdAt).toLocaleString("zh-CN")} {task.actor ? ` · ${task.actor}` : ""} {task.progress ? ` · ${task.progress}` : ""}</p>
+        {task.logPreview && task.logPreview.length > 0 && (
+          <div aria-label={`最近日志：${task.title}`} className="mt-3 rounded-lg border border-[var(--border)] bg-[var(--surface-subtle)] px-3 py-2">
+            <div className="text-[11px] font-medium uppercase tracking-[0.2em] text-[var(--text-muted)]">{t("operationTasksPage.logs.recent")}</div>
+            <ul className="mt-2 space-y-1 text-xs text-[var(--text-secondary)]">
+              {task.logPreview.map((line, index) => <li key={`${task.id}-log-${index}`} className="break-words font-mono">{line}</li>)}
+            </ul>
+          </div>
+        )}
+      </div>
+      <div className="flex flex-col items-end gap-2">
+        {task.source === "job" && task.eventCount && task.eventCount > 0 ? (
+          <button type="button" onClick={() => onViewEvents(task.sourceId)} className="text-xs text-[var(--color-action)] hover:opacity-80">
+            {t("operationTasksPage.task.viewEvents").replace("{count}", String(task.eventCount))}
+          </button>
+        ) : null}
+        {task.href && <Link href={task.href} className="text-xs text-[var(--color-action)] hover:text-[var(--text-secondary)]">{t("operationTasksPage.task.viewSource")}</Link>}
+      </div>
+    </div>
+  );
+}, (prev, next) => prev.task === next.task && prev.t === next.t && prev.sourceLabels === next.sourceLabels && prev.onViewEvents === next.onViewEvents);
+
 export function OperationTaskListClient({ initialTasks, initialSourceSummary = [], initialFailureSummary = [] }: { initialTasks: OperationTask[]; initialSourceSummary?: OperationTaskSourceSummary[]; initialFailureSummary?: OperationTaskFailureSummary[] }) {
   const { t } = useI18n();
+  const sourceLabels = useMemo(() => getSourceLabels(t), [t]);
   const statusFilters = [
     { label: t("operationTasks.filter.all"), value: "all" },
     { label: t("operationTasks.filter.attention"), value: "attention" },
@@ -68,6 +110,7 @@ export function OperationTaskListClient({ initialTasks, initialSourceSummary = [
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [eventsJobId, setEventsJobId] = useState<string | null>(null);
+  const handleViewEvents = useCallback((sourceId: string) => setEventsJobId(sourceId), []);
   const taskTypeOptions = useMemo(() => Array.from(new Set(tasks.map((task) => task.taskType).filter((value): value is string => Boolean(value)))).sort(), [tasks]);
   const refresh = async () => {
     setRefreshing(true);
@@ -83,7 +126,7 @@ export function OperationTaskListClient({ initialTasks, initialSourceSummary = [
   };
   const counts = tasks.reduce<Record<OperationTaskStatus, number>>((acc, task) => { acc[task.status] = (acc[task.status] ?? 0) + 1; return acc; }, {} as Record<OperationTaskStatus, number>);
   return <div className="space-y-5">
-    {error && <div role="alert" data-tone="rose" className="rounded-xl border border-rose-400/20 px-4 py-3 text-sm text-rose-100">{error}</div>}
+    {error && <div role="alert" data-tone="rose" className="rounded-xl border border-[var(--danger-border)] px-4 py-3 text-sm text-[var(--danger)]">{error}</div>}
     <div className="grid gap-3 sm:grid-cols-4">
       {[["running", t("operationTasks.filter.running")],["pending", t("operationTasks.filter.pending")],["failed", t("operationTasks.filter.failed")],["completed", t("operationTasks.filter.completed")]].map(([key,label]) => <div key={key} data-card className=" p-4"><div className="text-xs text-[var(--text-muted)]">{label}</div><div className="mt-2 text-2xl font-semibold text-[var(--text-primary)]">{counts[key as OperationTaskStatus] ?? 0}</div></div>)}
     </div>
@@ -97,12 +140,12 @@ export function OperationTaskListClient({ initialTasks, initialSourceSummary = [
       </div>
       {sourceSummary.length === 0 ? <p className="mt-3 text-sm text-[var(--text-muted)]">{t("operationTasks.summary.noSources")}</p> : <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
         {sourceSummary.map((item) => <div key={item.source} className="rounded-lg border border-[var(--border)]/[0.10] bg-[var(--surface)]/[0.04] px-3 py-3">
-          <div className="flex items-center justify-between gap-3"><span className="text-sm font-medium text-[var(--text-primary)]">{getSourceLabels(t)[item.source] ?? item.source}</span><span className="text-xs text-[var(--text-muted)]">{t("operationTasksPage.summary.grandTotal").replace("{count}", String(item.total))}</span></div>
+          <div className="flex items-center justify-between gap-3"><span className="text-sm font-medium text-[var(--text-primary)]">{sourceLabels[item.source] ?? item.source}</span><span className="text-xs text-[var(--text-muted)]">{t("operationTasksPage.summary.grandTotal").replace("{count}", String(item.total))}</span></div>
           <div className="mt-2 flex flex-wrap gap-2 text-xs text-[var(--text-secondary)]"><span>{t("operationTasksPage.summary.needProcess").replace("{count}", String(item.attention))}</span><span>{t("operationTasksPage.summary.failed").replace("{count}", String(item.failed))}</span><span>{t("operationTasksPage.summary.running").replace("{count}", String(item.running))}</span><span>{t("operationTasksPage.summary.pending").replace("{count}", String(item.pending))}</span></div>
         </div>)}
       </div>}
     </section>
-    <section aria-label={t("operationTasks.summary.failureGroup")} data-tone="rose" className="rounded-xl border border-rose-400/15 p-4">
+    <section aria-label={t("operationTasks.summary.failureGroup")} data-tone="rose" className="rounded-xl border border-[var(--danger-border)] p-4">
       <div className="flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <h2 className="text-sm font-semibold text-[var(--text-primary)]">{t("operationTasks.summary.failureGroup")}</h2>
@@ -111,9 +154,9 @@ export function OperationTaskListClient({ initialTasks, initialSourceSummary = [
         <div className="text-xs text-[var(--text-muted)]">{t("operationTasksPage.failures.totalCount").replace("{count}", String(failureSummary.reduce((total, item) => total + item.total, 0)))}</div>
       </div>
       {failureSummary.length === 0 ? <p className="mt-3 text-sm text-[var(--text-muted)]">{t("operationTasks.summary.noFailures")}</p> : <div className="mt-4 grid gap-3 lg:grid-cols-2">
-        {failureSummary.map((item) => <div key={item.reason} data-tone="rose" className="rounded-lg border border-rose-400/15 px-3 py-3">
+        {failureSummary.map((item) => <div key={item.reason} data-tone="rose" className="rounded-lg border border-[var(--danger-border)] px-3 py-3">
           <div className="flex flex-wrap items-center justify-between gap-2"><span className="text-sm font-medium text-[var(--text-primary)]">{item.reason}</span><span data-tone="danger" className="rounded-lg border px-2 py-1 text-xs font-medium">{t("operationTasksPage.failures.itemCount").replace("{count}", String(item.total))}</span></div>
-          <p className="mt-2 text-xs text-[var(--text-muted)]">{t("operationTasksPage.failures.sourceAndLatest").replace("{sources}", item.sources.map((source) => getSourceLabels(t)[source] ?? source).join("、")).replace("{title}", item.latestTitle)}</p>
+          <p className="mt-2 text-xs text-[var(--text-muted)]">{t("operationTasksPage.failures.sourceAndLatest").replace("{sources}", item.sources.map((source) => sourceLabels[source] ?? source).join("、")).replace("{title}", item.latestTitle)}</p>
         </div>)}
       </div>}
     </section>
@@ -148,17 +191,7 @@ export function OperationTaskListClient({ initialTasks, initialSourceSummary = [
         </div>
       </div>
       <div className="divide-y divide-[var(--border)]">
-        {tasks.length === 0 ? <EmptyState text={t("operationTasks.tasks.empty")} /> : tasks.map((task) => <div key={task.id} className="flex flex-col gap-3 px-5 py-4 sm:flex-row sm:items-start sm:justify-between">
-          <div className="min-w-0 flex-1"><div className="flex flex-wrap items-center gap-2"><span className="rounded-lg bg-[var(--surface-hover)] px-2 py-1 text-xs text-[var(--text-muted)]">{getSourceLabels(t)[task.source] ?? task.source}</span><span data-tone={statusTone[task.status] ?? "neutral"} className="rounded-lg border px-2 py-1 text-xs font-medium">{task.status}</span>{task.taskType && <span className="rounded-lg border border-[var(--border)] px-2 py-1 text-xs text-[var(--text-muted)]">{task.taskType}</span>}{task.foldedCount && task.foldedCount > 1 && <span className="rounded-lg border border-indigo-400/20 bg-indigo-400/10 px-2 py-1 text-xs text-indigo-200">{t("operationTasksPage.folded").replace("{count}", String(task.foldedCount))}</span>}{task.workerId && <span title={task.workerHeartbeatAt ? `最近心跳：${new Date(task.workerHeartbeatAt).toLocaleString("zh-CN")}` : t("operationTasksPage.worker.noHeartbeat")} data-tone="accent" className="rounded-lg border px-2 py-1 text-xs font-medium">worker {task.workerId}</span>}</div><h3 className="mt-2 truncate text-sm font-medium text-[var(--text-primary)]">{task.title}</h3><p className="mt-1 text-xs text-[var(--text-muted)]">{new Date(task.createdAt).toLocaleString("zh-CN")} {task.actor ? ` · ${task.actor}` : ""} {task.progress ? ` · ${task.progress}` : ""}</p>{task.logPreview && task.logPreview.length > 0 && <div aria-label={`最近日志：${task.title}`} className="mt-3 rounded-lg border border-[var(--border)] bg-[var(--surface-subtle)] px-3 py-2"><div className="text-[11px] font-medium uppercase tracking-[0.2em] text-[var(--text-muted)]">{t("operationTasksPage.logs.recent")}</div><ul className="mt-2 space-y-1 text-xs text-[var(--text-secondary)]">{task.logPreview.map((line, index) => <li key={`${task.id}-log-${index}`} className="break-words font-mono">{line}</li>)}</ul></div>}</div>
-          <div className="flex flex-col items-end gap-2">
-            {task.source === "job" && task.eventCount && task.eventCount > 0 ? (
-              <button type="button" onClick={() => setEventsJobId(task.sourceId)} className="text-xs text-[var(--color-action)] hover:opacity-80">
-                {t("operationTasksPage.task.viewEvents").replace("{count}", String(task.eventCount))}
-              </button>
-            ) : null}
-            {task.href && <Link href={task.href} className="text-xs text-[var(--color-action)] hover:text-[var(--text-secondary)]">{t("operationTasksPage.task.viewSource")}</Link>}
-          </div>
-        </div>)}
+        {tasks.length === 0 ? <EmptyState text={t("operationTasks.tasks.empty")} /> : tasks.map((task) => <TaskRow key={task.id} task={task} t={t} sourceLabels={sourceLabels} onViewEvents={handleViewEvents} />)}
       </div>
     </div>
     <JobEventsDialog jobId={eventsJobId} open={eventsJobId !== null} onClose={() => setEventsJobId(null)} />

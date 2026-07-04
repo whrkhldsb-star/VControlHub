@@ -95,12 +95,12 @@ function InfoRow({ label, value }: { label: string; value: string }) {
 
 function statusToneClass(tone: "success" | "warning" | "info") {
 	if (tone === "success") {
-		return "border-emerald-400/25 bg-emerald-400/10 text-emerald-200 light:border-emerald-700/20 light:bg-emerald-50";
+		return "border-[var(--success-border)] bg-[var(--success-bg)] text-[var(--success)] light:border-[var(--success-border)] light:bg-[var(--success)]";
 	}
 	if (tone === "warning") {
-		return "border-amber-400/25 bg-amber-400/10 text-amber-200 light:border-amber-700/20 light:bg-amber-50";
+		return "border-[var(--warning-border)] bg-[var(--warning-bg)] text-[var(--warning)] light:border-[var(--warning-border)] light:bg-[var(--warning)]";
 	}
-	return "border-sky-400/25 bg-sky-400/10 text-sky-200 light:border-sky-700/20 light:bg-sky-50";
+	return "border-[var(--info-border)] bg-[var(--info-bg)] text-[var(--info)] light:border-[var(--info-border)] light:bg-[var(--info)]";
 }
 
 // TR-041: OS dialect display + detect button
@@ -170,7 +170,7 @@ function OsDialectSection({
 				</button>
 			</div>
 			{error ? (
-				<p className="mt-1.5 text-[11px] text-rose-300">{error}</p>
+				<p className="mt-1.5 text-[11px] text-[var(--danger)]">{error}</p>
 			) : null}
 			{hasDialect && (pm || sm) ? (
 				<div className="mt-1.5 flex flex-wrap gap-1.5">
@@ -193,33 +193,33 @@ function OsDialectSection({
 // TR-002 R3: advice 项的 tone 决定背景与边框；emerald=safe / amber=warning / rose=danger
 function adviceToneClass(tone: "emerald" | "amber" | "rose" | undefined) {
 	if (tone === "emerald") {
-		return "border-emerald-400/20 bg-emerald-400/[0.10] light:border-emerald-700/20 light:bg-emerald-50/60";
+		return "border-[var(--success-border)] bg-[var(--success)]0/[0.10] light:border-[var(--success-border)] light:bg-[var(--success-bg)]";
 	}
 	if (tone === "rose") {
-		return "border-rose-400/20 bg-rose-400/[0.10] light:border-rose-700/20 light:bg-rose-50/60";
+		return "border-[var(--danger-border)] bg-[var(--danger)]0/[0.10] light:border-[var(--danger-border)] light:bg-[var(--danger-bg)]";
 	}
 	// amber (default) 与原版一致
-	return "border-amber-400/15 light:border-amber-700/20 light:bg-amber-50/60";
+	return "border-[var(--warning-border)] light:border-[var(--warning-border)] light:bg-[var(--warning-bg)]";
 }
 
 function adviceTitleClass(tone: "emerald" | "amber" | "rose" | undefined) {
 	if (tone === "emerald") {
-		return "text-emerald-100 light:text-emerald-900";
+		return "text-[var(--success)] light:text-[var(--success)]";
 	}
 	if (tone === "rose") {
-		return "text-rose-100 light:text-rose-900";
+		return "text-[var(--danger)] light:text-[var(--danger)]";
 	}
-	return "text-amber-100 light:text-amber-900";
+	return "text-[var(--warning)] light:text-[var(--warning)]";
 }
 
 function adviceBadgeClass(tone: "emerald" | "amber" | "rose" | undefined) {
 	if (tone === "emerald") {
-		return "border-emerald-300/30 bg-emerald-300/10 text-emerald-200 light:border-emerald-700/25 light:text-emerald-800";
+		return "border-[var(--success-border)] bg-[var(--success-bg)] text-[var(--success)] light:border-[var(--success-border)] light:text-[var(--success)]";
 	}
 	if (tone === "rose") {
-		return "border-rose-300/30 bg-rose-300/10 text-rose-200 light:border-rose-700/25 light:text-rose-800";
+		return "border-[var(--danger-border)] bg-[var(--danger-bg)] text-[var(--danger)] light:border-[var(--danger-border)] light:text-[var(--danger)]";
 	}
-	return "border-amber-300/30 bg-amber-300/10 text-amber-200 light:border-amber-700/25 light:text-amber-800";
+	return "border-[var(--warning-border)] bg-[var(--warning-bg)] text-[var(--warning)] light:border-[var(--warning-border)] light:text-[var(--warning)]";
 }
 
 function DirectGatewayHealthyDetail({
@@ -272,7 +272,7 @@ function DirectGatewayAdviceList({
 							className={
 								item.priority === "primary"
 									? `rounded border px-1.5 py-0.5 text-[10px] uppercase tracking-wide ${adviceBadgeClass(item.tone)}`
-									: "rounded border border-slate-300/20 bg-slate-300/10 px-1.5 py-0.5 text-[10px] uppercase tracking-wide text-[var(--text-secondary)] light:border-slate-400/30"
+									: "rounded border border-[var(--border)] bg-[var(--surface)] px-1.5 py-0.5 text-[10px] uppercase tracking-wide text-[var(--text-secondary)] light:border-[var(--border)]"
 							}
 						>
 							{item.priority === "primary" ? t("serverOverviewDetails.recommendation") : t("serverOverviewDetails.reference")}
@@ -506,7 +506,7 @@ export function ServerOverviewDetails({
 							type="button"
 							onClick={onRunRealtimeDiagnostics}
 							disabled={diagnosticRun.status === "loading" || !server.enabled}
-							className="inline-flex shrink-0 items-center justify-center rounded-lg border border-emerald-300/25 bg-emerald-300/10 px-3 py-1.5 text-xs text-emerald-100 transition hover:bg-emerald-300/15 disabled:cursor-not-allowed disabled:opacity-60 light:border-emerald-700/20 light:bg-emerald-50"
+							className="inline-flex shrink-0 items-center justify-center rounded-lg border border-[var(--success-border)] bg-[var(--success-bg)] px-3 py-1.5 text-xs text-[var(--success)] transition hover:bg-[var(--success-bg)] disabled:cursor-not-allowed disabled:opacity-60 light:border-[var(--success-border)] light:bg-[var(--success)]"
 						>
 							{diagnosticRun.status === "loading" ? t("serverOverviewDetails.diagnosing") : t("serverOverviewDetails.runRealtimeDiagnostics")}
 						</button>
@@ -515,7 +515,7 @@ export function ServerOverviewDetails({
 						<div
 							role="status"
 							data-tone="emerald"
-							className="mt-3 rounded-lg border border-emerald-400/20 p-2 text-[11px] leading-5 text-emerald-100 light:border-emerald-700/20 light:bg-emerald-50"
+							className="mt-3 rounded-lg border border-[var(--success-border)] p-2 text-[11px] leading-5 text-[var(--success)] light:border-[var(--success-border)] light:bg-[var(--success)]"
 						>
 							{t("serverOverviewDetails.diagnosticSuccess").replace("{summary}", diagnosticRun.summary).replace("{checkedAt}", diagnosticRun.checkedAt)}
 						</div>
@@ -524,7 +524,7 @@ export function ServerOverviewDetails({
 						<div
 							role="alert"
 							data-tone="rose"
-							className="mt-3 rounded-lg border border-rose-400/20 p-2 text-[11px] leading-5 text-rose-100 light:border-rose-700/20 light:bg-rose-50"
+							className="mt-3 rounded-lg border border-[var(--danger-border)] p-2 text-[11px] leading-5 text-[var(--danger)] light:border-[var(--danger-border)] light:bg-[var(--danger)]"
 						>
 							{t("serverOverviewDetails.diagnosticFailure").replace("{message}", diagnosticRun.message).replace("{checkedAt}", diagnosticRun.checkedAt)}
 						</div>

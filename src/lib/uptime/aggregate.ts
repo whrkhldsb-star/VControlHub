@@ -3,8 +3,10 @@
  * 每天汇总前一天的 uptime 数据并存储到 server_uptime_snapshots 表
  */
 import { PrismaClient } from "@prisma/client";
+import { createLogger } from "@/lib/logging";
 
 const prisma = new PrismaClient();
+const logger = createLogger("uptime:aggregate");
 
 /**
  * 计算某台服务器某天的 uptime
@@ -67,7 +69,7 @@ async function aggregateDailyUptimes(date: Date = new Date(Date.now() - 86400000
   });
 
   const dateStr = date.toISOString().split("T")[0];
-  console.log(`📊 Aggregating uptime for ${servers.length} servers on ${dateStr}`);
+  logger.info("Aggregating uptime", { serverCount: servers.length, date: dateStr });
 
   for (const server of servers) {
     const stats = await calculateServerUptime(server.id, date);
@@ -87,9 +89,12 @@ async function aggregateDailyUptimes(date: Date = new Date(Date.now() - 86400000
       update: stats,
     });
 
-    console.log(
-      `  ✓ ${server.name}: ${stats.uptimePercent}% uptime (${stats.onlineMinutes}/${stats.offlineMinutes} min)`,
-    );
+    logger.debug("Server uptime aggregated", {
+      server: server.name,
+      uptimePercent: stats.uptimePercent,
+      onlineMinutes: stats.onlineMinutes,
+      offlineMinutes: stats.offlineMinutes,
+    });
   }
 }
 
@@ -101,15 +106,15 @@ async function main() {
   const date = dateArg ? new Date(dateArg) : new Date(Date.now() - 86400000);
 
   if (isNaN(date.getTime())) {
-    console.error("❌ Invalid date format. Use YYYY-MM-DD");
+    logger.error("Invalid date format. Use YYYY-MM-DD");
     process.exit(1);
   }
 
   try {
     await aggregateDailyUptimes(date);
-    console.log("\n✅ Uptime aggregation completed");
+    logger.info("Uptime aggregation completed");
   } catch (err) {
-    console.error("\n❌ Aggregation failed:", err);
+    logger.error("Aggregation failed", err);
     process.exit(1);
   } finally {
     await prisma.$disconnect();

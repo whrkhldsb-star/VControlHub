@@ -123,7 +123,7 @@ export function ScheduledTaskListClient({ tasks: initialTasks, servers, canCreat
 
 	return (
 		<div className="space-y-6">
-			{actionError && <div role="alert" className="rounded-lg bg-rose-500/[0.10] border border-rose-400/20 px-3.5 py-2.5 text-sm text-rose-200">{actionError}</div>}
+			{actionError && <div role="alert" className="rounded-lg bg-[var(--danger)]0/[0.10] border border-[var(--danger-border)] px-3.5 py-2.5 text-sm text-[var(--danger)]">{actionError}</div>}
 			<div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
 				<div className="space-y-1">
 					<label htmlFor="scheduled-task-log-search" className="text-xs font-medium text-[var(--text-secondary)]">{t("scheduledTasksPage.search.label")}</label>
@@ -219,7 +219,7 @@ export function ScheduledTaskListClient({ tasks: initialTasks, servers, canCreat
 			)}
 			{taskPendingDelete && (
 				<div className="fixed inset-0 z-50 flex items-center justify-center bg-[var(--surface)]/70 px-4 backdrop-blur-sm" role="presentation">
-					<section role="dialog" aria-modal="true" aria-labelledby="delete-scheduled-task-title" className="w-full max-w-md rounded-2xl border border-rose-400/25 bg-[var(--modal-bg)] p-6 shadow-[0_24px_100px_rgba(244,63,94,0.16)]">
+					<section role="dialog" aria-modal="true" aria-labelledby="delete-scheduled-task-title" className="w-full max-w-md rounded-2xl border border-[var(--danger-border)] bg-[var(--modal-bg)] p-6 shadow-[0_24px_100px_rgba(244,63,94,0.16)]">
 						<h2 id="delete-scheduled-task-title" className="text-lg font-semibold text-[var(--text-primary)]">{t("scheduledTasksPage.delete.title")}</h2>
 						<p className="mt-3 text-sm leading-6 text-[var(--text-secondary)]">
 							<Fragment>{t("scheduledTasksPage.delete.descPrefix")}<strong className="font-semibold text-[var(--text-primary)]">{taskPendingDelete.name}</strong>{t("scheduledTasksPage.delete.descSuffix")}</Fragment>
@@ -228,7 +228,7 @@ export function ScheduledTaskListClient({ tasks: initialTasks, servers, canCreat
 							<button type="button" onClick={() => setTaskPendingDelete(null)} className="min-h-11 rounded-xl border border-[var(--border)] px-4 py-2 text-sm font-medium text-[var(--text-secondary)] hover:bg-[var(--surface-hover)]">
 								{t("scheduledTasksPage.cancel")}
 							</button>
-							<button type="button" onClick={() => deleteTask(taskPendingDelete)} className="min-h-11 rounded-xl bg-rose-500 px-4 py-2 text-sm font-semibold text-[var(--text-primary)] hover:bg-rose-400">
+							<button type="button" onClick={() => deleteTask(taskPendingDelete)} className="min-h-11 rounded-xl bg-[var(--danger)] px-4 py-2 text-sm font-semibold text-[var(--text-primary)] hover:bg-[var(--danger)]">
 								{t("scheduledTasksPage.delete.confirm")}
 							</button>
 						</div>
@@ -298,7 +298,7 @@ function CreateTaskForm({ servers, onClose }: { servers: ServerOption[]; onClose
 	return (
 		<form onSubmit={handleSubmit} data-card className=" space-y-4">
 			<h3 className="text-lg font-semibold text-[var(--text-primary)]">{t("scheduledTasksPage.createTitle")}</h3>
-			{error && <div role="alert" className="rounded-lg bg-rose-500/[0.10] border border-rose-400/20 px-3.5 py-2.5 text-sm text-rose-200">{error}</div>}
+			{error && <div role="alert" className="rounded-lg bg-[var(--danger)]0/[0.10] border border-[var(--danger-border)] px-3.5 py-2.5 text-sm text-[var(--danger)]">{error}</div>}
 
 			<div className="space-y-1.5">
 				<label htmlFor="scheduled-task-name" className={fieldLabelClass}>{t("scheduledTasksPage.name")}</label>

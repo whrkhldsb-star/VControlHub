@@ -34,7 +34,7 @@ export function PermanentDeleteButton({
       <button
         type="button"
         onClick={() => setConfirming(true)}
-        data-tone="rose" className="rounded-lg border border-rose-400/30 px-4 py-2 text-sm font-medium text-rose-100 transition hover:bg-rose-400/20"
+        data-tone="rose" className="rounded-lg border border-[var(--danger-border)] px-4 py-2 text-sm font-medium text-[var(--danger)] transition hover:bg-[var(--danger-bg)]"
       >
         永久删除
       </button>
@@ -44,12 +44,12 @@ export function PermanentDeleteButton({
   return (
     <form action={formAction} className="flex flex-wrap items-center gap-3">
       <input type="hidden" name="fileEntryId" value={fileEntryId} />
-      <span className="text-sm text-rose-200">
+      <span className="text-sm text-[var(--danger)]">
         ⚠️ 永久删除 {entryName}？此操作不可恢复！
       </span>
       <button
         type="submit"
-        data-tone="rose" className="rounded-lg border border-rose-400/30 px-4 py-2 text-sm font-medium text-rose-100 transition hover:bg-rose-400/20"
+        data-tone="rose" className="rounded-lg border border-[var(--danger-border)] px-4 py-2 text-sm font-medium text-[var(--danger)] transition hover:bg-[var(--danger-bg)]"
       >
         确认
       </button>
@@ -61,10 +61,10 @@ export function PermanentDeleteButton({
         取消
       </button>
       {state.error ? (
-        <span className="text-xs text-rose-300">{state.error}</span>
+        <span className="text-xs text-[var(--danger)]">{state.error}</span>
       ) : null}
       {state.success ? (
-        <span className="text-xs text-emerald-300">{state.success}</span>
+        <span className="text-xs text-[var(--success)]">{state.success}</span>
       ) : null}
     </form>
   );

@@ -36,7 +36,7 @@ const buttonPrimary =
 const buttonGhost =
 	"rounded-lg border border-[var(--border)] bg-[var(--surface)]/[0.04] hover:bg-[var(--surface)]/[0.10] px-4 py-2 text-sm text-[var(--text-primary)] transition";
 const buttonDanger =
-	"rounded-lg border border-rose-500/30 bg-rose-500/10 hover:bg-rose-500/20 px-3 py-1.5 text-xs text-rose-200 transition";
+	"rounded-lg border border-[var(--danger-border)] bg-[var(--danger-bg)] hover:bg-[var(--danger-bg)] px-3 py-1.5 text-xs text-[var(--danger)] transition";
 
 function formatAmount(amount: string, currency: CostCurrency, locale: string): string {
 	const num = Number(amount);

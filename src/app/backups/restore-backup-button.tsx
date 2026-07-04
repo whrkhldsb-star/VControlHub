@@ -66,12 +66,12 @@ export function RestoreBackupButton({ backupId, backupType, disabled = false }: 
         type="button"
         disabled={disabled || pending}
         onClick={openConfirm}
-        className="w-fit rounded-lg border border-rose-300/40 px-3 py-1.5 text-xs font-semibold text-rose-100 transition hover:bg-rose-300/10 disabled:cursor-not-allowed disabled:opacity-50"
+        className="w-fit rounded-lg border border-[var(--danger-border)] px-3 py-1.5 text-xs font-semibold text-[var(--danger)] transition hover:bg-[var(--danger-bg)] disabled:cursor-not-allowed disabled:opacity-50"
       >
         {pending ? "正在恢复..." : t("common.restore")}
       </button>
-      {message && <p className="text-xs text-emerald-300">{message}</p>}
-      {error && <p className="text-xs text-rose-300">{error}</p>}
+      {message && <p className="text-xs text-[var(--success)]">{message}</p>}
+      {error && <p className="text-xs text-[var(--danger)]">{error}</p>}
       {confirmOpen && (
         <div className="fixed inset-0 z-50 flex items-end justify-center overflow-y-auto bg-[var(--surface)]/75 p-0 backdrop-blur-sm sm:items-center sm:p-4" role="presentation">
           <div
@@ -79,11 +79,11 @@ export function RestoreBackupButton({ backupId, backupType, disabled = false }: 
             aria-modal="true"
             aria-labelledby="restore-backup-title"
             aria-describedby="restore-backup-description"
-            className="mx-0 w-full max-w-md rounded-t-2xl border border-rose-400/30 bg-[var(--modal-bg)] p-5 shadow-2xl shadow-black/30 sm:mx-4 sm:rounded-2xl"
+            className="mx-0 w-full max-w-md rounded-t-2xl border border-[var(--danger-border)] bg-[var(--modal-bg)] p-5 shadow-2xl shadow-black/30 sm:mx-4 sm:rounded-2xl"
           >
             <h3 id="restore-backup-title" className="text-base font-semibold text-[var(--text-primary)]">{t("backupsPage.restore.confirmTitle")}</h3>
             <p id="restore-backup-description" className="mt-2 text-sm leading-6 text-[var(--text-secondary)]">
-              恢复 <span className="font-semibold text-[var(--text-primary)]">{backupType}</span> 备份会覆盖当前数据/文件。请输入 <span className="font-mono font-semibold text-rose-200">{CONFIRM_TEXT}</span> 后继续。
+              恢复 <span className="font-semibold text-[var(--text-primary)]">{backupType}</span> 备份会覆盖当前数据/文件。请输入 <span className="font-mono font-semibold text-[var(--danger)]">{CONFIRM_TEXT}</span> 后继续。
             </p>
             <label className="mt-4 grid gap-1 text-sm text-[var(--text-secondary)]">
               输入 RESTORE 确认恢复
@@ -91,11 +91,11 @@ export function RestoreBackupButton({ backupId, backupType, disabled = false }: 
                 value={confirmText}
                 onChange={(event) => setConfirmText(event.target.value)}
                 autoFocus
-                className="min-h-11 rounded-xl border border-[var(--border)] bg-[var(--surface)]/[0.04] px-3 py-2 text-sm text-[var(--text-primary)] outline-none placeholder:text-[var(--text-muted)] focus:border-rose-300/60"
+                className="min-h-11 rounded-xl border border-[var(--border)] bg-[var(--surface)]/[0.04] px-3 py-2 text-sm text-[var(--text-primary)] outline-none placeholder:text-[var(--text-muted)] focus:border-[var(--danger-border)]"
                 placeholder={CONFIRM_TEXT}
               />
             </label>
-            {error && <p role="alert" className="mt-3 text-xs text-rose-300">{error}</p>}
+            {error && <p role="alert" className="mt-3 text-xs text-[var(--danger)]">{error}</p>}
             <div className="mt-5 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
               <button
                 type="button"
@@ -113,7 +113,7 @@ export function RestoreBackupButton({ backupId, backupType, disabled = false }: 
                 type="button"
                 disabled={pending || confirmText !== CONFIRM_TEXT}
                 onClick={handleRestore}
-                data-tone="rose" className="min-h-11 rounded-xl border border-rose-400/30 px-4 py-2 text-sm font-semibold text-rose-100 transition hover:bg-rose-500/25 disabled:cursor-not-allowed disabled:opacity-50"
+                data-tone="rose" className="min-h-11 rounded-xl border border-[var(--danger-border)] px-4 py-2 text-sm font-semibold text-[var(--danger)] transition hover:bg-[var(--danger-bg)] disabled:cursor-not-allowed disabled:opacity-50"
               >
                 {pending ? t("backupsPage.restore.pending") : t("backupsPage.restore.confirm")}
               </button>

@@ -1,68 +1,50 @@
 /**
- * 设置页字段配置（声明式 schema）
+ * Settings schema — declarative, i18n-keyed.
  *
- * 加新设置项的成本：
- *   1. 后端补 setting key（service / dto / runtime-settings）
- *   2. 在这里 SETTINGS_SCHEMA 找到对应分组的 fields[] 加一行
- *   3. （可选）如果是新分组，在 SETTINGS_SCHEMA 数组顶层加一个 SectionDef
+ * All user-facing strings (titles, descriptions, labels, helpers,
+ * placeholders, badges, save messages, notice banners, select option
+ * labels, validate error keys) are stored as i18n dictionary keys.
+ * The rendering layer resolves them via t(key) / tt(key, params).
  *
- * 不再需要：
- *   - 在 RUNTIME_NUMBER_RULES 里加一行
- *   - 在 SECTION_KEYS 里同步 key 列表
- *   - 在 settings-client.tsx 的 JSX 里手写一组 <Field>
- *   - 在每个 section 的 SaveButton onClick 里手写 keys 数组
+ * Adding a new setting:
+ *   1. Backend: add setting key (service / dto / runtime-settings)
+ *   2. Add a FieldDef to the appropriate section's fields[]
+ *   3. Add the i18n keys to src/lib/i18n/dictionaries/settings-page.ts
+ *   4. (Optional) For a new section, add a SectionDef to SETTINGS_SCHEMA
  *
- * 渲染顺序约束：settings-client.test.tsx 假设保存按钮顺序为
- *   [0] platform / [1] password / [2] runtime / [3] smtp
- * 修改 SETTINGS_SCHEMA 顺序时请同步维护测试断言或重排 runtime/smtp 位置。
+ * Rendering order constraint: settings-client.test.tsx asserts save-button
+ * order [0] platform / [1] password / [2] runtime / [3] smtp.
  */
 
 export type FieldType = "text" | "number" | "password" | "select" | "switch" | "textarea";
 
 export type SelectOption = {
-	/** 实际写入 settings 记录的值（字符串） */
 	value: string;
-	/** 渲染给用户看的标签 */
-	label: string;
+	labelKey: string;
 };
 
 export type FieldRiskLevel = "low" | "medium" | "high";
 
-export type FieldDef = {
-	/** 设置 key（同 settings record key） */
+export type FieldValidationError = {
 	key: string;
-	label: string;
+	params?: Record<string, string | number>;
+};
+
+export type FieldDef = {
+	key: string;
+	labelKey: string;
 	type: FieldType;
-	placeholder?: string;
+	placeholderKey?: string;
 	defaultValue?: string;
 	autoComplete?: string;
-	/** select 类型的下拉选项（type=select 必填） */
 	options?: SelectOption[];
-	/** 静态 helperText 或动态 helperText（基于当前 settings 实时生成） */
-	helperText?: string | ((settings: Record<string, string>) => string | undefined);
-	/** 数字范围（用于 number 类型），同时也是默认 validate 的一部分 */
+	helperTextKey?: string | ((settings: Record<string, string>) => string | undefined);
 	min?: number;
 	max?: number;
-	/** 当 fallback validate 不够用时的自定义校验，返回 null = ok，字符串 = 错误信息 */
-	validate?: (value: string, settings: Record<string, string>) => string | null;
-	/** 字段被禁用的条件（典型场景：SMTP 字段在未启用时禁用） */
+	validate?: (value: string, settings: Record<string, string>) => FieldValidationError | null;
 	disabled?: (settings: Record<string, string>) => boolean;
-	/** 关联到 runtime-settings DTO 的 key，默认等于 key 本身（仅 runtime 分组使用） */
 	runtimeSummaryKey?: string;
-	// ── TR-014 设置页高风险设置 (M01) ──────────────────────
-	/**
-	 * 风险等级：
-	 *   low    — 改了不影响现有用户/服务（默认）
-	 *   medium — 改了行为但不会立即破坏（多数 runtime.* 调参）
-	 *   high   — 改了可能立即破坏已运行服务（密码/超时/SMTP 密码等）
-	 * UI 据此渲染警告图标 + (M01b) 失焦时弹确认 modal。
-	 */
 	riskLevel?: FieldRiskLevel;
-	/**
-	 * 是否支持"恢复默认"按钮（点击把字段值重置为 `defaultValue`）。
-	 * 推断规则：有 `defaultValue` 的字段默认支持；显式设为 false 可关闭。
-	 * (M01a: 仅 text/number/select/textarea 渲染按钮; password 默认不渲染, 避免误清空)
-	 */
 	rollbackable?: boolean;
 };
 
@@ -73,107 +55,96 @@ export type SectionLayout = "stack" | "grid-2";
 export type SectionDef = {
 	id: string;
 	icon: string;
-	title: string;
-	description: string | ((settings: Record<string, string>) => string);
-	/** 静态徽标或基于 settings 的动态徽标（如 SMTP 已启用/未启用） */
-	badge?: string | ((settings: Record<string, string>) => string);
+	titleKey: string;
+	descriptionKey: string | ((settings: Record<string, string>) => string);
+	badgeKey?: string | ((settings: Record<string, string>) => string);
 	badgeTone?: BadgeTone | ((settings: Record<string, string>) => BadgeTone);
 	defaultOpen: boolean;
 	asForm?: boolean;
 	layout?: SectionLayout;
-	/** Section 内顶部的提示横幅（如 runtime 的"需重启"说明） */
-	noticeBanner?: string;
-	/** 保存成功后展示的 toast 文案 */
-	saveMessage: string;
-	/** Section 的字段 */
+	noticeBannerKey?: string;
+	saveMessageKey: string;
 	fields: FieldDef[];
-	/** 把哪个字段（如 smtp.enabled）作为 header 右侧的开关？（仅 SMTP 用） */
 	headerSwitchKey?: string;
-	/** 该 section 是否走"特殊 children"路径（如 2FA 是单独组件，不靠 fields 渲染） */
 	custom?: "two-factor";
 };
 
-/* ── 校验工具 ───────────────────────────────────────────── */
+/* ── Validate helpers ────────────────────────────────────── */
 
-export function parseInteger(value: string, label: string, min: number, max: number): string | null {
+export function parseInteger(value: string, min: number, max: number): FieldValidationError | null {
 	const parsed = Number(value);
-	if (!Number.isFinite(parsed)) return `${label} 必须是数字`;
+	if (!Number.isFinite(parsed)) return { key: "settingsClient.validate.parseInteger.notNumber" };
 	const integer = Math.trunc(parsed);
-	if (integer < min || integer > max) return `${label} 必须在 ${min} 到 ${max} 之间`;
+	if (integer < min || integer > max) return { key: "settingsClient.validate.parseInteger.outOfRange", params: { min, max } };
 	return null;
 }
 
 const isValidEmail = (s: string) => /^.+@.+\..+$/.test(s);
 
-const validateLogoUrl = (value: string): string | null => {
+const validateLogoUrl = (value: string): FieldValidationError | null => {
 	const trimmed = value.trim();
 	if (!trimmed || trimmed.startsWith("/")) return null;
 	try {
 		const parsed = new URL(trimmed);
-		return parsed.protocol === "http:" || parsed.protocol === "https:" ? null : "Logo URL 只支持 http(s) 或站内路径";
+		return parsed.protocol === "http:" || parsed.protocol === "https:" ? null : { key: "settingsClient.validate.logoUrl.invalid" };
 	} catch {
-		return "Logo URL 只支持 http(s) 或站内路径";
+		return { key: "settingsClient.validate.logoUrl.invalid" };
 	}
 };
 
-/* ── 工厂 ───────────────────────────────────────────────── */
+/* ── Factory ─────────────────────────────────────────────── */
 
-function runtimeNumber(key: string, label: string, defaultValue: string, min: number, max: number): FieldDef {
-	// label 去掉括号里的"需重启"等修饰生成校验用的 short label
-	const validateLabel = label.replace(/（[^）]*）/g, "").trim();
+function runtimeNumber(key: string, labelKey: string, defaultValue: string, min: number, max: number): FieldDef {
 	return {
 		key,
-		label,
+		labelKey,
 		type: "number",
-		placeholder: defaultValue,
 		defaultValue,
 		min,
 		max,
-		validate: (value) => parseInteger(value, validateLabel, min, max),
+		validate: (value) => parseInteger(value, min, max),
 	};
 }
 
-/* ── Schema ─────────────────────────────────────────────── */
+/* ── Schema ──────────────────────────────────────────────── */
 
-const SMTP_DISABLED_HINT = "启用 SMTP 后可编辑";
 const isSmtpDisabled = (s: Record<string, string>) => s["smtp.enabled"] !== "true";
-const TELEGRAM_DISABLED_HINT = "启用 Telegram 后可编辑";
 const isTelegramDisabled = (s: Record<string, string>) => s["telegram.enabled"] !== "true";
 
 export const SETTINGS_SCHEMA: SectionDef[] = [
 	{
 		id: "2fa",
 		icon: "🛡️",
-		title: "账户安全",
-		description: "当前登录账号的二次验证集中在系统设置中管理，避免分散在侧栏底部入口。",
-		badge: "2FA",
+		titleKey: "settingsClient.schema.section.twoFactor.title",
+		descriptionKey: "settingsClient.schema.section.twoFactor.description",
+		badgeKey: "settingsClient.schema.section.twoFactor.badge",
 		defaultOpen: true,
-		saveMessage: "",
+		saveMessageKey: "",
 		fields: [],
 		custom: "two-factor",
 	},
 	{
 		id: "platform",
 		icon: "🌐",
-		title: "平台信息",
-		description: "保存后新打开或刷新后的页面会读取最新品牌信息；Logo 支持 http(s) 地址或站内 `/...` 路径。",
+		titleKey: "settingsClient.schema.section.platform.title",
+		descriptionKey: "settingsClient.schema.section.platform.description",
 		defaultOpen: true,
-		saveMessage: "平台信息已保存；新打开/刷新后的页面会读取最新名称和 Logo。",
+		saveMessageKey: "settingsClient.schema.section.platform.saveMessage",
 		fields: [
 			{
 				key: "platform.name",
-				label: "平台名称",
+				labelKey: "settingsClient.field.platform.name.label",
 				type: "text",
-				placeholder: "VPS 统一管控平台",
-				helperText: "不能为空，最多 80 个字符；用于页面标题和公开品牌文案。",
-				validate: (value) => (value.trim() ? null : "平台名称不能为空"),
+				placeholderKey: "settingsClient.field.platform.name.placeholder",
+				helperTextKey: "settingsClient.field.platform.name.helper",
+				validate: (value) => (value.trim() ? null : { key: "settingsClient.validate.platform.name.empty" }),
 			},
 			{
 				key: "platform.logo",
-				label: "Logo URL",
+				labelKey: "settingsClient.field.platform.logo.label",
 				type: "text",
-				placeholder: "https://example.com/logo.png",
-				helperText: "留空则不显示 Logo；支持 http(s) 或 /icon.png 这类站内路径。",
+				placeholderKey: "settingsClient.field.platform.logo.placeholder",
+				helperTextKey: "settingsClient.field.platform.logo.helper",
 				validate: validateLogoUrl,
 			},
 		],
@@ -181,399 +152,378 @@ export const SETTINGS_SCHEMA: SectionDef[] = [
 	{
 		id: "password",
 		icon: "🔐",
-		title: "会话与安全",
-		description: "会话超时只影响保存后的新登录；密码策略会立即用于创建用户、重置密码和账号改密。",
+		titleKey: "settingsClient.schema.section.password.title",
+		descriptionKey: "settingsClient.schema.section.password.description",
 		defaultOpen: true,
-		saveMessage: "会话与密码策略已保存；会话超时只影响新登录，密码策略立即用于创建用户、重置密码和改密。",
+		saveMessageKey: "settingsClient.schema.section.password.saveMessage",
 		fields: [
 			{
 				key: "session.timeout",
-				label: "会话超时（秒）",
+				labelKey: "settingsClient.field.session.timeout.label",
 				type: "number",
-				placeholder: "86400",
+				placeholderKey: "settingsClient.field.session.timeout.placeholder",
 				min: 300,
 				max: 2_592_000,
-				helperText: "300–2592000 秒；已有 session 不会被 retroactively 缩短。",
-				validate: (value) => parseInteger(value, "会话超时", 300, 2_592_000),
-				// TR-014: 改 session 超时会影响所有新登录; 设错短值会立即影响生产
+				helperTextKey: "settingsClient.field.session.timeout.helper",
+				validate: (value) => parseInteger(value, 300, 2_592_000),
 				riskLevel: "high",
 			},
 			{
 				key: "password.minLength",
-				label: "密码最小长度",
+				labelKey: "settingsClient.field.password.minLength.label",
 				type: "number",
-				placeholder: "8",
+				placeholderKey: "settingsClient.field.password.minLength.placeholder",
 				min: 8,
 				max: 128,
-				helperText: "8–128 位；保存后立即约束新密码。",
-				validate: (value) => parseInteger(value, "密码最小长度", 8, 128),
-				// TR-014: 改了立即约束新建/重置/改密流程; 调短可能让旧弱密码不通过
+				helperTextKey: "settingsClient.field.password.minLength.helper",
+				validate: (value) => parseInteger(value, 8, 128),
 				riskLevel: "high",
 			},
-			{ key: "password.requireUppercase", label: "要求大写字母", type: "switch", riskLevel: "medium" },
-			{ key: "password.requireNumber", label: "要求数字", type: "switch", riskLevel: "medium" },
-			{ key: "password.requireSpecial", label: "要求特殊字符", type: "switch", riskLevel: "medium" },
+			{ key: "password.requireUppercase", labelKey: "settingsClient.field.password.requireUppercase.label", type: "switch", riskLevel: "medium" },
+			{ key: "password.requireNumber", labelKey: "settingsClient.field.password.requireNumber.label", type: "switch", riskLevel: "medium" },
+			{ key: "password.requireSpecial", labelKey: "settingsClient.field.password.requireSpecial.label", type: "switch", riskLevel: "medium" },
 		],
 	},
 	{
 		id: "runtime",
 		icon: "⚙️",
-		title: "运行参数",
-		description:
-			"非敏感稳定性/可用性参数。命令执行、SFTP 同步、任务中心和 AI 列表上限相关项会立即生效；命令维护扫描和 SSH 终端连接保活参数需要重启对应服务后生效。SSH 终端默认强保活：只要浏览器页面还开着、网络和目标 SSH 仍可用，系统不会因为空闲主动断开。",
-		badge: "高级",
+		titleKey: "settingsClient.schema.section.runtime.title",
+		descriptionKey: "settingsClient.schema.section.runtime.description",
+		badgeKey: "settingsClient.schema.section.runtime.badge",
 		defaultOpen: false,
 		layout: "grid-2",
-		noticeBanner: "当前运行值来自数据库设置、环境变量或系统默认值；带“需重启”的项目保存后不会改变已启动的 SSH/维护扫描进程，需重启对应服务。",
-		saveMessage: "运行参数已保存；标注“需重启”的 SSH/维护扫描参数请重启对应服务，其余新请求/新任务立即读取。",
+		noticeBannerKey: "settingsClient.schema.section.runtime.noticeBanner",
+		saveMessageKey: "settingsClient.schema.section.runtime.saveMessage",
 		fields: [
-			// TR-014: 命令执行超时调短会让中等长度任务被误杀; 卡死判定调短会让正常耗时任务被标 stale
-			Object.assign(runtimeNumber("runtime.commandExecutionTimeoutMs", "命令执行超时（毫秒）", "300000", 5_000, 3_600_000), { riskLevel: "high" as const }),
-			Object.assign(runtimeNumber("runtime.commandOutputLimitBytes", "命令输出保留上限（字节）", "262144", 4_096, 10_485_760), { riskLevel: "medium" as const }),
-			Object.assign(runtimeNumber("runtime.commandStaleRunningAfterMs", "命令卡死判定时间（毫秒）", "600000", 30_000, 86_400_000), { riskLevel: "high" as const }),
-			Object.assign(runtimeNumber("runtime.commandExecutionHeartbeatMs", "命令执行心跳间隔（毫秒）", "60000", 5_000, 600_000), { riskLevel: "medium" as const }),
-			Object.assign(runtimeNumber("runtime.commandReconcileIntervalMs", "命令维护扫描间隔（毫秒，需重启）", "60000", 5_000, 3_600_000), { riskLevel: "medium" as const }),
-			Object.assign(runtimeNumber("runtime.sftpSyncDirectoryTimeoutMs", "SFTP 单目录同步超时（毫秒）", "60000", 5_000, 1_800_000), { riskLevel: "medium" as const }),
-			Object.assign(runtimeNumber("runtime.sshWsHeartbeatIntervalMs", "SSH WebSocket 心跳间隔（毫秒，需重启）", "25000", 5_000, 600_000), { riskLevel: "medium" as const }),
+			Object.assign(runtimeNumber("runtime.commandExecutionTimeoutMs", "settingsClient.field.runtime.commandExecutionTimeoutMs.label", "300000", 5_000, 3_600_000), { riskLevel: "high" as const }),
+			Object.assign(runtimeNumber("runtime.commandOutputLimitBytes", "settingsClient.field.runtime.commandOutputLimitBytes.label", "262144", 4_096, 10_485_760), { riskLevel: "medium" as const }),
+			Object.assign(runtimeNumber("runtime.commandStaleRunningAfterMs", "settingsClient.field.runtime.commandStaleRunningAfterMs.label", "600000", 30_000, 86_400_000), { riskLevel: "high" as const }),
+			Object.assign(runtimeNumber("runtime.commandExecutionHeartbeatMs", "settingsClient.field.runtime.commandExecutionHeartbeatMs.label", "60000", 5_000, 600_000), { riskLevel: "medium" as const }),
+			Object.assign(runtimeNumber("runtime.commandReconcileIntervalMs", "settingsClient.field.runtime.commandReconcileIntervalMs.label", "60000", 5_000, 3_600_000), { riskLevel: "medium" as const }),
+			Object.assign(runtimeNumber("runtime.sftpSyncDirectoryTimeoutMs", "settingsClient.field.runtime.sftpSyncDirectoryTimeoutMs.label", "60000", 5_000, 1_800_000), { riskLevel: "medium" as const }),
+			Object.assign(runtimeNumber("runtime.sshWsHeartbeatIntervalMs", "settingsClient.field.runtime.sshWsHeartbeatIntervalMs.label", "25000", 5_000, 600_000), { riskLevel: "medium" as const }),
 			{
 				key: "runtime.sshIdleTimeoutSec",
-				label: "SSH 空闲超时",
+				labelKey: "settingsClient.field.sshIdleTimeout.label",
 				type: "select",
 				defaultValue: "0",
-				helperText: "浏览器侧 SSH 终端多久无操作后自动断开连接。默认为「永不」（强保活：只要页面开着、网络和目标 SSH 仍可用就不会断）；调短可以减少无效长连接占用。保存后需重启 SSH WebSocket 服务。",
+				helperTextKey: "settingsClient.field.sshIdleTimeout.helper",
 				options: [
-					{ value: "0", label: "永不（强保活）" },
-					{ value: "300", label: "5 分钟" },
-					{ value: "600", label: "10 分钟" },
-					{ value: "1800", label: "30 分钟" },
-					{ value: "3600", label: "1 小时" },
-					{ value: "7200", label: "2 小时" },
+					{ value: "0", labelKey: "settingsClient.option.sshIdle.0" },
+					{ value: "300", labelKey: "settingsClient.option.sshIdle.300" },
+					{ value: "600", labelKey: "settingsClient.option.sshIdle.600" },
+					{ value: "1800", labelKey: "settingsClient.option.sshIdle.1800" },
+					{ value: "3600", labelKey: "settingsClient.option.sshIdle.3600" },
+					{ value: "7200", labelKey: "settingsClient.option.sshIdle.7200" },
 				],
 				validate: (value) => {
 					if (value === "0") return null;
 					const parsed = Number(value);
-					if (!Number.isFinite(parsed)) return "SSH 空闲超时 必须是数字秒数";
+					if (!Number.isFinite(parsed)) return { key: "settingsClient.validate.sshIdle.notNumber" };
 					const seconds = Math.trunc(parsed);
-					if (seconds < 60 || seconds > 7200) return "SSH 空闲超时 必须在 60 到 7200 秒之间 (0 表示永不)";
+					if (seconds < 60 || seconds > 7200) return { key: "settingsClient.validate.sshIdle.outOfRange" };
 					return null;
 				},
-				// TR-014: 改此值需重启 ssh-ws, 且误短会让用户 SSH 终端频繁掉线
 				riskLevel: "high",
 			},
-			Object.assign(runtimeNumber("runtime.operationTaskListLimit", "任务中心列表上限（条）", "100", 20, 500), { riskLevel: "medium" as const }),
-			Object.assign(runtimeNumber("runtime.aiProviderListLimit", "AI 提供商列表上限（条）", "100", 10, 500), { riskLevel: "medium" as const }),
-			Object.assign(runtimeNumber("runtime.aiConversationListLimit", "AI 对话列表上限（条）", "200", 20, 1_000), { riskLevel: "medium" as const }),
+			Object.assign(runtimeNumber("runtime.operationTaskListLimit", "settingsClient.field.runtime.operationTaskListLimit.label", "100", 20, 500), { riskLevel: "medium" as const }),
+			Object.assign(runtimeNumber("runtime.aiProviderListLimit", "settingsClient.field.runtime.aiProviderListLimit.label", "100", 10, 500), { riskLevel: "medium" as const }),
+			Object.assign(runtimeNumber("runtime.aiConversationListLimit", "settingsClient.field.runtime.aiConversationListLimit.label", "200", 20, 1_000), { riskLevel: "medium" as const }),
 		],
 	},
 	{
 		id: "smtp",
 		icon: "📧",
-		title: "邮件通知（SMTP）",
-		description: (s) => (s["smtp.enabled"] === "true"
-			? "SMTP 已启用，告警规则选择 email 渠道时会发送到下方收件人。"
-			: "SMTP 未启用，连接参数会保留但不会被用于发送邮件。启用后可在告警规则中选择 email 渠道。"),
-		badge: (s) => (s["smtp.enabled"] === "true" ? "已启用" : "未启用"),
+		titleKey: "settingsClient.schema.section.smtp.title",
+		descriptionKey: (s) => (s["smtp.enabled"] === "true"
+			? "settingsClient.schema.section.smtp.description.enabled"
+			: "settingsClient.schema.section.smtp.description.disabled"),
+		badgeKey: (s) => (s["smtp.enabled"] === "true" ? "settingsClient.schema.badge.enabled" : "settingsClient.schema.badge.disabled"),
 		badgeTone: (s) => (s["smtp.enabled"] === "true" ? "emerald" : "slate"),
 		defaultOpen: false,
 		asForm: true,
 		layout: "grid-2",
-		saveMessage: "SMTP 设置已保存；启用后系统通知会使用最新连接参数。",
+		saveMessageKey: "settingsClient.schema.section.smtp.saveMessage",
 		headerSwitchKey: "smtp.enabled",
 		fields: [
-			// smtp.enabled 由 headerSwitchKey 渲染到 header；同时也参与保存的 key 列表，
-			// 所以它仍然要出现在 fields 里（type=switch + 标记为 hidden via headerSwitchKey）。
-			{ key: "smtp.enabled", label: "启用 SMTP", type: "switch" },
+			{ key: "smtp.enabled", labelKey: "settingsClient.field.smtp.enabled.label", type: "switch" },
 			{
 				key: "smtp.host",
-				label: "SMTP 服务器",
+				labelKey: "settingsClient.field.smtp.host.label",
 				type: "text",
-				placeholder: "smtp.example.com",
+				placeholderKey: "settingsClient.field.smtp.host.placeholder",
 				disabled: isSmtpDisabled,
-				helperText: (s) => (isSmtpDisabled(s) ? SMTP_DISABLED_HINT : undefined),
+				helperTextKey: (s) => (isSmtpDisabled(s) ? "settingsClient.helper.smtp.disabledHint" : undefined),
 			},
 			{
 				key: "smtp.port",
-				label: "端口",
+				labelKey: "settingsClient.field.smtp.port.label",
 				type: "number",
-				placeholder: "587",
+				placeholderKey: "settingsClient.field.smtp.port.placeholder",
 				min: 1,
 				max: 65_535,
 				disabled: isSmtpDisabled,
-				helperText: (s) => (isSmtpDisabled(s) ? SMTP_DISABLED_HINT : "1–65535；常用 465/587。"),
-				validate: (value) => parseInteger(value || "587", "SMTP 端口", 1, 65_535),
+				helperTextKey: (s) => (isSmtpDisabled(s) ? "settingsClient.helper.smtp.disabledHint" : "settingsClient.field.smtp.port.helper.enabled"),
+				validate: (value) => parseInteger(value || "587", 1, 65_535),
 			},
 			{
 				key: "smtp.user",
-				label: "用户名",
+				labelKey: "settingsClient.field.smtp.user.label",
 				type: "text",
-				placeholder: "user@example.com",
+				placeholderKey: "settingsClient.field.smtp.user.placeholder",
 				autoComplete: "username",
 				disabled: isSmtpDisabled,
-				helperText: (s) => (isSmtpDisabled(s) ? SMTP_DISABLED_HINT : undefined),
+				helperTextKey: (s) => (isSmtpDisabled(s) ? "settingsClient.helper.smtp.disabledHint" : undefined),
 			},
 			{
 				key: "smtp.pass",
-				label: "密码",
+				labelKey: "settingsClient.field.smtp.pass.label",
 				type: "password",
-				placeholder: "••••••••",
+				placeholderKey: "settingsClient.field.smtp.pass.placeholder",
 				autoComplete: "new-password",
 				disabled: isSmtpDisabled,
-				helperText: (s) => (isSmtpDisabled(s) ? SMTP_DISABLED_HINT : undefined),
-				// TR-014: SMTP 密码错会让所有邮件告警失败; 改后无法立即验证
+				helperTextKey: (s) => (isSmtpDisabled(s) ? "settingsClient.helper.smtp.disabledHint" : undefined),
 				riskLevel: "high",
 			},
 			{
 				key: "smtp.from",
-				label: "发件人地址",
+				labelKey: "settingsClient.field.smtp.from.label",
 				type: "text",
-				placeholder: "noreply@example.com",
+				placeholderKey: "settingsClient.field.smtp.from.placeholder",
 				disabled: isSmtpDisabled,
-				helperText: (s) => (isSmtpDisabled(s) ? SMTP_DISABLED_HINT : "保存前会校验邮箱格式。"),
-				validate: (value) => (value.trim() && !isValidEmail(value.trim()) ? "发件人地址格式不正确" : null),
+				helperTextKey: (s) => (isSmtpDisabled(s) ? "settingsClient.helper.smtp.disabledHint" : "settingsClient.field.smtp.from.helper.enabled"),
+				validate: (value) => (value.trim() && !isValidEmail(value.trim()) ? { key: "settingsClient.validate.smtp.from.invalid" } : null),
 			},
 			{
 				key: "smtp.alertRecipients",
-				label: "告警收件人",
+				labelKey: "settingsClient.field.smtp.alertRecipients.label",
 				type: "text",
-				placeholder: "ops@example.com, admin@example.com",
+				placeholderKey: "settingsClient.field.smtp.alertRecipients.placeholder",
 				disabled: isSmtpDisabled,
-				helperText: (s) => (isSmtpDisabled(s)
-					? SMTP_DISABLED_HINT
-					: "多个地址可用逗号、分号或换行分隔；告警测试和真实告警共用此列表。"),
+				helperTextKey: (s) => (isSmtpDisabled(s)
+					? "settingsClient.helper.smtp.disabledHint"
+					: "settingsClient.field.smtp.alertRecipients.helper.enabled"),
 				validate: (value) => {
 					const recipients = value.split(/[\n,;，；]+/).map((item) => item.trim()).filter(Boolean);
 					const invalid = recipients.find((recipient) => !isValidEmail(recipient));
-					return invalid ? `告警收件人地址格式不正确：${invalid}` : null;
+					return invalid ? { key: "settingsClient.validate.smtp.recipients.invalidPrefix", params: { invalid } } : null;
 				},
 			},
 		],
 	},
 	{
-		// TR-009 55d: Telegram Bot 告警渠道
-		// 走 https://api.telegram.org/bot<token>/sendMessage, 不引新依赖 (复用 undici fetch)
-		// botToken is sensitive (masked in GET); chatId 支持多目标 (群/频道), 逗号/分号/换行/CJK 分隔
 		id: "telegram",
 		icon: "💬",
-		title: "Telegram 告警",
-		description: (s) => (s["telegram.enabled"] === "true"
-			? "Telegram 已启用，告警规则选择 telegram 渠道时会推送到下方 Chat ID。"
-			: "Telegram 未启用，Bot Token 会保留但不会用于发送消息。启用后可在告警规则中选择 telegram 渠道。"),
-		badge: (s) => (s["telegram.enabled"] === "true" ? "已启用" : "未启用"),
+		titleKey: "settingsClient.schema.section.telegram.title",
+		descriptionKey: (s) => (s["telegram.enabled"] === "true"
+			? "settingsClient.schema.section.telegram.description.enabled"
+			: "settingsClient.schema.section.telegram.description.disabled"),
+		badgeKey: (s) => (s["telegram.enabled"] === "true" ? "settingsClient.schema.badge.enabled" : "settingsClient.schema.badge.disabled"),
 		badgeTone: (s) => (s["telegram.enabled"] === "true" ? "emerald" : "slate"),
 		defaultOpen: false,
 		asForm: true,
 		layout: "grid-2",
-		saveMessage: "Telegram 设置已保存；启用后系统告警会使用最新 Bot Token 推送。",
+		saveMessageKey: "settingsClient.schema.section.telegram.saveMessage",
 		headerSwitchKey: "telegram.enabled",
 		fields: [
-			{ key: "telegram.enabled", label: "启用 Telegram 告警", type: "switch" },
+			{ key: "telegram.enabled", labelKey: "settingsClient.field.telegram.enabled.label", type: "switch" },
 			{
 				key: "telegram.botToken",
-				label: "Bot Token",
+				labelKey: "settingsClient.field.telegram.botToken.label",
 				type: "password",
-				placeholder: "123456:ABC-DEF1234ghIkl-zyx57W2v1u123ew11",
+				placeholderKey: "settingsClient.field.telegram.botToken.placeholder",
 				autoComplete: "off",
 				disabled: isTelegramDisabled,
-				helperText: (s) => (isTelegramDisabled(s)
-					? TELEGRAM_DISABLED_HINT
-					: "向 @BotFather 创建 bot 后获取的 token；GET 时返回 *** 占位。"),
-				// TR-014: Bot Token 错会让所有 Telegram 告警失败; 改后无法立即验证
+				helperTextKey: (s) => (isTelegramDisabled(s)
+					? "settingsClient.helper.telegram.disabledHint"
+					: "settingsClient.field.telegram.botToken.helper.enabled"),
 				riskLevel: "high",
 			},
 			{
 				key: "telegram.chatId",
-				label: "Chat ID",
+				labelKey: "settingsClient.field.telegram.chatId.label",
 				type: "textarea",
-				placeholder: "100200300\n-100400500\n@channel_alerts",
+				placeholderKey: "settingsClient.field.telegram.chatId.placeholder",
 				disabled: isTelegramDisabled,
-				helperText: (s) => (isTelegramDisabled(s)
-					? TELEGRAM_DISABLED_HINT
-					: "支持多个目标：私聊用用户数字 ID、群用 - 开头的数字、公开频道用 @channelusername；可用逗号、分号、换行分隔。"),
+				helperTextKey: (s) => (isTelegramDisabled(s)
+					? "settingsClient.helper.telegram.disabledHint"
+					: "settingsClient.field.telegram.chatId.helper.enabled"),
 				validate: (value) => {
 					const tokens = value
 						.split(/[\n,;，；]+/)
 						.map((item) => item.trim())
 						.filter(Boolean);
-					if (tokens.length === 0) return "Telegram Chat ID 至少配置 1 个目标";
+					if (tokens.length === 0) return { key: "settingsClient.validate.telegram.chatId.required" };
 					const invalid = tokens.find(
 						(token) => !/^-?\d+$/.test(token) && !/^@[A-Za-z0-9_]{4,}$/.test(token),
 					);
-					return invalid ? `Telegram Chat ID 格式不正确：${invalid}（应为数字或 @channelusername）` : null;
+					return invalid ? { key: "settingsClient.validate.telegram.chatId.invalidPrefix", params: { invalid } } : null;
 				},
 			},
 		],
 	},
 	{
-		// TR-020 M02: 仪表盘布局相关总开关 (admin 可关)
-		// 放在 SETTINGS_SCHEMA 末尾, 不会改变既有 platform/password/runtime/smtp 的保存按钮顺序断言
 		id: "dashboard",
 		icon: "🧩",
-		title: "仪表盘布局",
-		description: "控制仪表盘首页的拖拽重排与编辑入口；不影响 widget 内容本身。",
+		titleKey: "settingsClient.schema.section.dashboard.title",
+		descriptionKey: "settingsClient.schema.section.dashboard.description",
 		defaultOpen: false,
-		saveMessage: "仪表盘布局设置已保存；拖拽开关关闭后首页不再显示「编辑布局」入口。",
+		saveMessageKey: "settingsClient.schema.section.dashboard.saveMessage",
 		fields: [
 			{
 				key: "dashboard.layout.dragReorderEnabled",
-				label: "允许拖拽重排仪表盘 widget",
+				labelKey: "settingsClient.field.dashboard.layout.dragReorderEnabled.label",
 				type: "switch",
 				defaultValue: "true",
-				helperText: "关闭后仪表盘顶部不再显示「编辑布局」入口，widget 顺序与显隐使用当前持久化结果不再变化。",
+				helperTextKey: "settingsClient.field.dashboard.layout.dragReorderEnabled.helper",
 			},
 		],
 	},
 	{
-		// TR-007 M03: 异地备份 (S3-compatible)
-		// 放在 SETTINGS_SCHEMA 末尾, 不影响既有 platform/password/runtime/smtp/dashboard 的索引断言
 		id: "offsite",
 		icon: "☁️",
-		title: "异地备份 (S3-compatible)",
-		description: (s) => (s["offsite.enabled"] === "true"
-			? "已启用异地备份，每日将本地备份推送至 S3-compatible 端点。"
-			: "未启用。启用前下方连接参数会被保存但不会用于实际备份。"),
-		badge: (s) => (s["offsite.enabled"] === "true" ? "已启用" : "未启用"),
+		titleKey: "settingsClient.schema.section.offsite.title",
+		descriptionKey: (s) => (s["offsite.enabled"] === "true"
+			? "settingsClient.schema.section.offsite.description.enabled"
+			: "settingsClient.schema.section.offsite.description.disabled"),
+		badgeKey: (s) => (s["offsite.enabled"] === "true" ? "settingsClient.schema.badge.enabled" : "settingsClient.schema.badge.disabled"),
 		badgeTone: (s) => (s["offsite.enabled"] === "true" ? "emerald" : "slate"),
 		defaultOpen: false,
 		asForm: true,
 		layout: "grid-2",
 		headerSwitchKey: "offsite.enabled",
-		noticeBanner: "异地备份走 SigV4 签名 + PUT/HEAD/DELETE 协议；不引新依赖，复用 undici fetch 与 Node 22 内置 crypto。Provider 决定默认 URL 模式 (AWS → virtual-hosted；其他 → path-style)。",
-		saveMessage: "异地备份设置已保存；启用后每日窗口到达时会按当前配置尝试推送，失败会告警到 failureAlertRecipient。",
+		noticeBannerKey: "settingsClient.schema.section.offsite.noticeBanner",
+		saveMessageKey: "settingsClient.schema.section.offsite.saveMessage",
 		fields: [
-			// headerSwitchKey 渲染 offsite.enabled 到 header; fields 里同步保留以便 PATCH key 列表正确
-			{ key: "offsite.enabled", label: "启用异地备份", type: "switch" },
+			{ key: "offsite.enabled", labelKey: "settingsClient.field.offsite.enabled.label", type: "switch" },
 			{
 				key: "offsite.provider",
-				label: "Provider",
+				labelKey: "settingsClient.field.offsite.provider.label",
 				type: "select",
 				defaultValue: "s3",
 				options: [
-					{ value: "s3", label: "AWS S3" },
-					{ value: "r2", label: "Cloudflare R2" },
-					{ value: "b2", label: "Backblaze B2" },
-					{ value: "minio", label: "MinIO (自建)" },
+					{ value: "s3", labelKey: "settingsClient.option.offsite.provider.s3" },
+					{ value: "r2", labelKey: "settingsClient.option.offsite.provider.r2" },
+					{ value: "b2", labelKey: "settingsClient.option.offsite.provider.b2" },
+					{ value: "minio", labelKey: "settingsClient.option.offsite.provider.minio" },
 				],
-				helperText: "Provider 决定默认 URL 寻址模式；S3 走 virtual-hosted，其他默认 path-style。",
+				helperTextKey: "settingsClient.field.offsite.provider.helper",
 			},
 			{
 				key: "offsite.endpoint",
-				label: "Endpoint URL",
+				labelKey: "settingsClient.field.offsite.endpoint.label",
 				type: "text",
-				placeholder: "https://s3.us-east-1.amazonaws.com",
-				helperText: "S3-compatible 端点；留空时按 provider + region 推断。",
+				placeholderKey: "settingsClient.field.offsite.endpoint.placeholder",
+				helperTextKey: "settingsClient.field.offsite.endpoint.helper",
 			},
 			{
 				key: "offsite.region",
-				label: "Region",
+				labelKey: "settingsClient.field.offsite.region.label",
 				type: "text",
-				placeholder: "us-east-1",
-				helperText: "AWS region 必填；MinIO/R2/B2 可填任意值但需与 endpoint 保持一致。",
+				placeholderKey: "settingsClient.field.offsite.region.placeholder",
+				helperTextKey: "settingsClient.field.offsite.region.helper",
 			},
 			{
 				key: "offsite.bucket",
-				label: "Bucket",
+				labelKey: "settingsClient.field.offsite.bucket.label",
 				type: "text",
-				placeholder: "my-backup-bucket",
-				helperText: "目标存储桶；需先在对应 provider 控制台创建。",
+				placeholderKey: "settingsClient.field.offsite.bucket.placeholder",
+				helperTextKey: "settingsClient.field.offsite.bucket.helper",
 			},
 			{
 				key: "offsite.accessKeyId",
-				label: "Access Key ID",
+				labelKey: "settingsClient.field.offsite.accessKeyId.label",
 				type: "text",
-				placeholder: "AKIAEXAMPLE...",
-				helperText: "从 provider 后台获取的 access key；不要使用主账号 root key。",
-				// TR-014: 改凭据后下次推送会失败; UI 看不到实际值是否正确, 需配合 dry-run 验证
+				placeholderKey: "settingsClient.field.offsite.accessKeyId.placeholder",
+				helperTextKey: "settingsClient.field.offsite.accessKeyId.helper",
 				riskLevel: "high",
 			},
 			{
 				key: "offsite.secretAccessKey",
-				label: "Secret Access Key",
+				labelKey: "settingsClient.field.offsite.secretAccessKey.label",
 				type: "password",
-				placeholder: "••••••••",
+				placeholderKey: "settingsClient.field.offsite.secretAccessKey.placeholder",
 				autoComplete: "new-password",
-				helperText: "凭据 at-rest 加密 (settings.crypto.service); GET 时返回 *** 占位。",
-				// TR-014: 改凭据错会让所有异地推送失败; 改后无法立即验证
+				helperTextKey: "settingsClient.field.offsite.secretAccessKey.helper",
 				riskLevel: "high",
 			},
 			{
 				key: "offsite.pathPrefix",
-				label: "路径前缀",
+				labelKey: "settingsClient.field.offsite.pathPrefix.label",
 				type: "text",
-				placeholder: "vcontrolhub-backups/",
-				helperText: "对象 key 前缀；必须以 / 结尾。",
+				placeholderKey: "settingsClient.field.offsite.pathPrefix.placeholder",
+				helperTextKey: "settingsClient.field.offsite.pathPrefix.helper",
 				validate: (value) => {
 					const trimmed = value.trim();
 					if (!trimmed) return null;
-					return trimmed.endsWith("/") ? null : "路径前缀必须以 / 结尾";
+					return trimmed.endsWith("/") ? null : { key: "settingsClient.validate.offsite.pathPrefix.noSlash" };
 				},
 			},
 			{
 				key: "offsite.dailyWindowHour",
-				label: "每日推送窗口 (小时)",
+				labelKey: "settingsClient.field.offsite.dailyWindowHour.label",
 				type: "number",
-				placeholder: "3",
+				placeholderKey: "settingsClient.field.offsite.dailyWindowHour.placeholder",
 				min: 0,
 				max: 23,
-				helperText: "0–23 整数；UTC 整点窗口；默认 03:00。",
-				validate: (value) => parseInteger(value || "3", "每日推送窗口", 0, 23),
+				helperTextKey: "settingsClient.field.offsite.dailyWindowHour.helper",
+				validate: (value) => parseInteger(value || "3", 0, 23),
 			},
 			{
 				key: "offsite.retentionDays",
-				label: "保留天数",
+				labelKey: "settingsClient.field.offsite.retentionDays.label",
 				type: "number",
-				placeholder: "30",
+				placeholderKey: "settingsClient.field.offsite.retentionDays.placeholder",
 				min: 1,
 				max: 3650,
-				helperText: "异地端保留天数；超过的备份对象会被 lifecycle job 清理。",
-				validate: (value) => parseInteger(value || "30", "保留天数", 1, 3650),
+				helperTextKey: "settingsClient.field.offsite.retentionDays.helper",
+				validate: (value) => parseInteger(value || "30", 1, 3650),
 			},
 			{
 				key: "offsite.failureAlertRecipient",
-				label: "失败告警收件人",
+				labelKey: "settingsClient.field.offsite.failureAlertRecipient.label",
 				type: "text",
-				placeholder: "ops@example.com",
-				helperText: "异地推送失败时发告警邮件到此地址；留空则不告警。",
+				placeholderKey: "settingsClient.field.offsite.failureAlertRecipient.placeholder",
+				helperTextKey: "settingsClient.field.offsite.failureAlertRecipient.helper",
 				validate: (value) => {
 					const trimmed = value.trim();
 					if (!trimmed) return null;
-					return isValidEmail(trimmed) ? null : "失败告警收件人不是合法邮箱";
+					return isValidEmail(trimmed) ? null : { key: "settingsClient.validate.offsite.failureRecipient.invalid" };
 				},
 			},
 		],
 	},
 	{
-		// TR-032 E02: 智能 AI 运维 mode / provider
-		// 放在 SETTINGS_SCHEMA 末尾, 不影响既有 platform/password/runtime/smtp/dashboard/offsite 的索引断言
 		id: "aiOps",
 		icon: "🤖",
-		title: "AI 智能运维",
-		description: (s) => (s["ai.ops.mode"] === "autonomous"
-			? "AI 自主模式：白名单内的安全动作（告警评估、低风险 Playbook 等）会自动执行。"
-			: "AI 建议模式：所有动作都需要管理员审批（推荐模式）。autonomous 模式需要 ai:ops:autonomous 权限。"),
-		badge: (s) => (s["ai.ops.mode"] === "autonomous" ? "自主模式" : "建议模式"),
+		titleKey: "settingsClient.schema.section.aiOps.title",
+		descriptionKey: (s) => (s["ai.ops.mode"] === "autonomous"
+			? "settingsClient.schema.section.aiOps.description.autonomous"
+			: "settingsClient.schema.section.aiOps.description.recommendation"),
+		badgeKey: (s) => (s["ai.ops.mode"] === "autonomous" ? "settingsClient.schema.badge.aiOps.autonomous" : "settingsClient.schema.badge.aiOps.recommendation"),
 		badgeTone: (s) => (s["ai.ops.mode"] === "autonomous" ? "amber" : "cyan"),
 		defaultOpen: false,
-		saveMessage: "AI 运维设置已保存；新的 mode 在下次扫描生效。",
+		saveMessageKey: "settingsClient.schema.section.aiOps.saveMessage",
 		fields: [
 			{
 				key: "ai.ops.mode",
-				label: "运行模式",
+				labelKey: "settingsClient.field.ai.ops.mode.label",
 				type: "select",
 				defaultValue: "recommendation",
 				options: [
-					{ value: "recommendation", label: "建议模式（需人工审批）" },
-					{ value: "autonomous", label: "自主模式（白名单内自动执行）" },
+					{ value: "recommendation", labelKey: "settingsClient.option.aiOps.mode.recommendation" },
+					{ value: "autonomous", labelKey: "settingsClient.option.aiOps.mode.autonomous" },
 				],
-				helperText: "切换到 autonomous 前请确认已开启 ai:ops:autonomous 权限，并理解 AI 会按 AI_OPS_SAFE_AUTONOMOUS_ACTIONS 白名单自动执行。",
+				helperTextKey: "settingsClient.field.ai.ops.mode.helper",
 				riskLevel: "high",
 			},
 			{
 				key: "ai.ops.provider",
-				label: "AI 提供方 ID",
+				labelKey: "settingsClient.field.ai.ops.provider.label",
 				type: "text",
 				defaultValue: "",
-				placeholder: "留空 = 内置系统健康信号 surface",
-				helperText: "可选。对接真实 AI provider 的预留字段（v2），目前仅用于标识与审计；仅允许字母、数字、点、下划线、冒号、连字符，最长 64 个字符。",
+				placeholderKey: "settingsClient.field.ai.ops.provider.placeholder",
+				helperTextKey: "settingsClient.field.ai.ops.provider.helper",
 			},
 		],
 	},
@@ -581,30 +531,7 @@ export const SETTINGS_SCHEMA: SectionDef[] = [
 
 /* ── Helpers ────────────────────────────────────────────── */
 
-/** 一个 section 中需要参与 PATCH 保存的所有字段 key（custom section 不参与） */
 export function getSectionSaveKeys(section: SectionDef): string[] {
 	if (section.custom) return [];
 	return section.fields.map((f) => f.key);
-}
-
-/** TOC 用的导航项 */
-export function buildTocItems(): { id: string; icon: string; title: string; subtitle: string }[] {
-	const subtitleByCount = (n: number) => `${n} 项`;
-	const customSubtitle: Record<string, string> = {
-		"2fa": "两步验证",
-		platform: "品牌 / Logo",
-		password: "超时 / 复杂度",
-		smtp: "SMTP / 告警收件人",
-		telegram: "Bot Token / Chat ID",
-		runtime: "命令 / SSH / 列表上限",
-		dashboard: "拖拽重排 / 编辑入口",
-		offsite: "S3 / 推送窗口 / 保留",
-		aiOps: "运行模式 / provider",
-	};
-	return SETTINGS_SCHEMA.map((s) => ({
-		id: s.id,
-		icon: s.icon,
-		title: s.title === "邮件通知（SMTP）" ? "邮件通知" : s.title,
-		subtitle: customSubtitle[s.id] ?? subtitleByCount(s.fields.length),
-	}));
 }

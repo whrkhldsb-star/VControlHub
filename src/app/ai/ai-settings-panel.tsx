@@ -81,13 +81,13 @@ export function AiSettingsPanel({
                           <span className="text-[9px] text-[var(--color-action)]/60" title={t("aiPage.visionCap")}>👁</span>
                         )}
                         {m.capabilities?.video && (
-                          <span className="text-[9px] text-blue-400/60" title={t("aiPage.videoCapSetting")}>🎬</span>
+                          <span className="text-[9px] text-[var(--info)]0/60" title={t("aiPage.videoCapSetting")}>🎬</span>
                         )}
                         {m.capabilities?.audio && (
                           <span className="text-[9px] text-purple-400/60" title={t("aiPage.audioCapSetting")}>🎵</span>
                         )}
                         {m.capabilities?.document && (
-                          <span className="text-[9px] text-green-400/60" title={t("aiPage.documentCapSetting")}>📑</span>
+                          <span className="text-[9px] text-[var(--success)]0/60" title={t("aiPage.documentCapSetting")}>📑</span>
                         )}
                       </span>
                       {m.context_length && (
@@ -257,11 +257,11 @@ export function AiSettingsPanel({
  type="checkbox"
  checked={settingsForm.hostingEnabled}
  onChange={(e) => setSettingsForm((f) => ({ ...f, hostingEnabled: e.target.checked }))}
- className="rounded-lg border-[var(--border)] bg-[var(--input-bg)] text-amber-400 focus:ring-amber-400/30"
+ className="rounded-lg border-[var(--border)] bg-[var(--input-bg)] text-[var(--warning)] focus:ring-[var(--warning-border)]"
  />
  <span className="text-xs text-[var(--text-secondary)]">
  {t("aiPage.hostedMode")}
- <span className="text-[9px] text-amber-400/60 ml-1">{t("aiPage.hostedHint")}</span>
+ <span className="text-[9px] text-[var(--warning)]0/60 ml-1">{t("aiPage.hostedHint")}</span>
  </span>
  </label>
  </div>

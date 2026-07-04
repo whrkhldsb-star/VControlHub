@@ -21,15 +21,15 @@ export function ReviewCommandForm({ commandRequestId }: { commandRequestId: stri
         <textarea name="comment" rows={2} className="rounded-2xl border border-[var(--border)] bg-[var(--input-bg)] px-4 py-3 text-[var(--text-primary)] outline-none ring-0" placeholder={t("requestsPage.review.commentPlaceholder")} />
       </label>
 
-      {state.error ? <div data-tone="rose" className="mt-3 rounded-2xl border border-rose-400/30 px-4 py-3 text-rose-100">{state.error}</div> : null}
-      {state.success ? <div data-tone="emerald" className="mt-3 rounded-2xl border border-emerald-400/30 px-4 py-3 text-emerald-100">{state.success}</div> : null}
+      {state.error ? <div data-tone="rose" className="mt-3 rounded-2xl border border-[var(--danger-border)] px-4 py-3 text-[var(--danger)]">{state.error}</div> : null}
+      {state.success ? <div data-tone="emerald" className="mt-3 rounded-2xl border border-[var(--success-border)] px-4 py-3 text-[var(--success)]">{state.success}</div> : null}
 
       <div className="mt-4 flex flex-wrap gap-3">
         <SubmitButton
           pendingLabel="处理中..."
           name="decision"
           value="approve"
-          className="rounded-2xl bg-emerald-500 px-4 py-2 text-sm font-medium text-[var(--color-action-fg)] transition hover:bg-emerald-400 disabled:cursor-not-allowed disabled:opacity-60"
+          className="rounded-2xl bg-[var(--success)] px-4 py-2 text-sm font-medium text-[var(--color-action-fg)] transition hover:bg-[var(--success)] disabled:cursor-not-allowed disabled:opacity-60"
         >
           <span>{t("requestsPage.review.approve")}</span>
         </SubmitButton>

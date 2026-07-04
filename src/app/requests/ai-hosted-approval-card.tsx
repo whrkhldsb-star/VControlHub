@@ -62,7 +62,7 @@ export function AiHostedApprovalCard({ action }: AiHostedApprovalCardProps) {
           <div className="flex flex-wrap items-center gap-2">
             <h3 className="text-base font-semibold text-[var(--text-primary)]">{action.actionName}</h3>
             <span data-tone="cyan" className="rounded-lg border border-[var(--color-action-border)]/20 px-2 py-0.5 text-[11px] font-medium text-[var(--text-secondary)]">{t("aiHostedApproval.badge")}</span>
-            <span data-tone="amber" className="rounded-lg border border-amber-400/20 px-2 py-0.5 text-[11px] font-medium text-amber-200">{riskLabel(t, action.riskLevel)}</span>
+            <span data-tone="amber" className="rounded-lg border border-[var(--warning-border)] px-2 py-0.5 text-[11px] font-medium text-[var(--warning)]">{riskLabel(t, action.riskLevel)}</span>
           </div>
           <p className="mt-1 text-xs text-[var(--text-secondary)]">{t("aiHostedApproval.description")}</p>
           <div className="mt-3 grid gap-2 text-xs text-[var(--text-secondary)] sm:grid-cols-2">
@@ -76,14 +76,14 @@ export function AiHostedApprovalCard({ action }: AiHostedApprovalCardProps) {
             </div>
           </div>
           <pre className="mt-3 max-h-32 overflow-auto rounded-lg border border-[var(--border)] bg-[var(--surface-subtle)] p-3 text-[11px] text-[var(--text-secondary)]">{formatParams(action.params)}</pre>
-          {error ? <p role="alert" className="mt-2 text-xs text-rose-300">{error}</p> : null}
+          {error ? <p role="alert" className="mt-2 text-xs text-[var(--danger)]">{error}</p> : null}
         </div>
         <div className="flex shrink-0 gap-2">
           <button
             type="button"
             disabled={disabled}
             onClick={() => review("approve")}
-            className="rounded-lg bg-emerald-500 px-3 py-2 text-xs font-medium text-[var(--color-action-fg)] transition hover:bg-emerald-400 disabled:cursor-not-allowed disabled:opacity-60"
+            className="rounded-lg bg-[var(--success)] px-3 py-2 text-xs font-medium text-[var(--color-action-fg)] transition hover:bg-[var(--success)] disabled:cursor-not-allowed disabled:opacity-60"
           >
             {status === "approving" ? t("aiHostedApproval.approving") : status === "approved" ? t("aiHostedApproval.approved") : t("aiHostedApproval.approveAction")}
           </button>

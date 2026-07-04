@@ -259,8 +259,8 @@ export function ShareFilePicker({ nodes }: { nodes: StorageNode[] }) {
 				))}
 			</div>
 
-			{error ? <p data-tone="rose" className="mt-3 rounded-xl border border-rose-400/20 px-3 py-2 text-sm text-rose-300">{error}</p> : null}
-			{data?.syncWarning ? <p data-tone="amber" className="mt-3 rounded-xl border border-amber-400/20 px-3 py-2 text-sm text-amber-200">{data.syncWarning}</p> : null}
+			{error ? <p data-tone="rose" className="mt-3 rounded-xl border border-[var(--danger-border)] px-3 py-2 text-sm text-[var(--danger)]">{error}</p> : null}
+			{data?.syncWarning ? <p data-tone="amber" className="mt-3 rounded-xl border border-[var(--warning-border)] px-3 py-2 text-sm text-[var(--warning)]">{data.syncWarning}</p> : null}
 
 			<div className="mt-4 grid gap-4 lg:grid-cols-[minmax(0,1fr)_20rem]">
 				<div className="overflow-hidden rounded-xl border border-[var(--border)]/[0.10]">
@@ -273,7 +273,7 @@ export function ShareFilePicker({ nodes }: { nodes: StorageNode[] }) {
 					{loading ? (
 						<div className="flex items-center justify-center gap-2 p-8 text-sm text-[var(--text-muted)]"><Loader2 size={16} className="animate-spin" /> {copyText.loading}</div>
 					) : (data?.folders.length || data?.files.length) ? (
-						<div className="divide-y divide-white/[0.10] light:divide-slate-200">
+						<div className="divide-y divide-white/[0.10] light:divide-[var(--border)]">
 							{data?.folders.map((folder) => {
 								const item: SelectedEntry = {
 									key: entryKey({ storageNodeId: folder.storageNodeId || nodeId, path: folderPath(folder), entryType: "DIRECTORY" }),
@@ -283,7 +283,7 @@ export function ShareFilePicker({ nodes }: { nodes: StorageNode[] }) {
 									entryType: "DIRECTORY",
 								};
 								return (
-									<div key={item.key} className="grid grid-cols-[2rem_minmax(0,1fr)_8rem_6rem] items-center gap-2 px-3 py-2.5 text-sm hover:bg-[var(--surface)]/[0.04] light:hover:bg-slate-50">
+									<div key={item.key} className="grid grid-cols-[2rem_minmax(0,1fr)_8rem_6rem] items-center gap-2 px-3 py-2.5 text-sm hover:bg-[var(--surface)]/[0.04] light:hover:bg-[var(--surface)]">
 										<input type="checkbox" checked={Boolean(selected[item.key])} onChange={() => toggleSelection(item)} className="h-4 w-4 accent-[var(--color-action)]" aria-label={`${copyText.selectFolder} ${folder.name}`} />
 										<button type="button" onClick={() => openFolder(folder)} className="min-h-11 flex min-w-0 items-center gap-2 text-left text-[var(--text-primary)] hover:text-[var(--text-secondary)] light:hover:text-[var(--color-action-strong)]">
 											<Folder size={17} className="shrink-0 text-[var(--color-action)]" />
@@ -304,7 +304,7 @@ export function ShareFilePicker({ nodes }: { nodes: StorageNode[] }) {
 									sizeLabel: file.sizeLabel,
 								};
 								return (
-									<label key={item.key} className="grid grid-cols-[2rem_minmax(0,1fr)_8rem_6rem] items-center gap-2 px-3 py-2.5 text-sm hover:bg-[var(--surface)]/[0.04] light:hover:bg-slate-50">
+									<label key={item.key} className="grid grid-cols-[2rem_minmax(0,1fr)_8rem_6rem] items-center gap-2 px-3 py-2.5 text-sm hover:bg-[var(--surface)]/[0.04] light:hover:bg-[var(--surface)]">
 										<input type="checkbox" checked={Boolean(selected[item.key])} onChange={() => toggleSelection(item)} className="h-4 w-4 accent-[var(--color-action)]" aria-label={`${copyText.selectFile} ${file.name}`} />
 										<span className="flex min-w-0 items-center gap-2 text-[var(--text-primary)]"><File size={16} className="shrink-0 text-[var(--text-secondary)]" /><span className="truncate">{file.name}</span></span>
 										<span className="text-xs text-[var(--text-muted)]">{copyText.file}</span>
@@ -324,7 +324,7 @@ export function ShareFilePicker({ nodes }: { nodes: StorageNode[] }) {
 							<h3 className="text-sm font-semibold text-[var(--text-primary)]">{copyText.selectedPrefix} {selectedItems.length} {copyText.selectedSuffix}</h3>
 							<p className="mt-1 text-xs text-[var(--text-muted)]">{copyText.selectedHint}</p>
 						</div>
-						<button type="button" onClick={() => setSelected({})} className="min-h-11 min-w-11 text-xs text-[var(--text-muted)] hover:text-[var(--text-primary)] light:hover:text-slate-700">{copyText.clear}</button>
+						<button type="button" onClick={() => setSelected({})} className="min-h-11 min-w-11 text-xs text-[var(--text-muted)] hover:text-[var(--text-primary)] light:hover:text-[var(--text-disabled)]">{copyText.clear}</button>
 					</div>
 					<div className="mt-3 max-h-48 space-y-2 overflow-auto pr-1">
 						{selectedItems.length ? selectedItems.map((item) => (
@@ -346,13 +346,13 @@ export function ShareFilePicker({ nodes }: { nodes: StorageNode[] }) {
 
 					{results.length ? (
 						<div className="mt-4 space-y-2">
-							<p className="text-xs font-medium text-emerald-300">{copyText.created}</p>
+							<p className="text-xs font-medium text-[var(--success)]">{copyText.created}</p>
 							{results.map((item) => (
-								<div key={item.key} className="rounded-lg border border-emerald-400/20 bg-emerald-400/[0.07] p-2 text-xs">
-									<div className="truncate text-emerald-100">{item.name}</div>
+								<div key={item.key} className="rounded-lg border border-[var(--success-border)] bg-[var(--success)]0/[0.07] p-2 text-xs">
+									<div className="truncate text-[var(--success)]">{item.name}</div>
 									<div className="mt-1 flex items-center gap-2">
-										<code className="min-w-0 flex-1 truncate text-emerald-200/80">{item.url}</code>
-										<button type="button" onClick={() => void copy(item)} className="min-h-11 min-w-11 inline-flex items-center gap-1 rounded-lg border border-emerald-400/30 px-2 py-1 text-emerald-100"><Copy size={12} />{copiedKey === item.key ? copyText.copied : copyText.copy}</button>
+										<code className="min-w-0 flex-1 truncate text-[var(--success)]0/80">{item.url}</code>
+										<button type="button" onClick={() => void copy(item)} className="min-h-11 min-w-11 inline-flex items-center gap-1 rounded-lg border border-[var(--success-border)] px-2 py-1 text-[var(--success)]"><Copy size={12} />{copiedKey === item.key ? copyText.copied : copyText.copy}</button>
 									</div>
 								</div>
 							))}

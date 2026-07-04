@@ -82,7 +82,7 @@ export function RetentionButton({ olderThan30Days, totalRecords }: Props) {
         <button
           type="submit"
           disabled={disabled}
-          className="rounded-lg border border-amber-300/40 px-3 py-1.5 text-xs font-semibold text-amber-100 transition hover:bg-amber-300/10 disabled:cursor-not-allowed disabled:opacity-50"
+          className="rounded-lg border border-[var(--warning-border)] px-3 py-1.5 text-xs font-semibold text-[var(--warning)] transition hover:bg-[var(--warning-bg)] disabled:cursor-not-allowed disabled:opacity-50"
         >
           {pending ? t("backupsPage.retention.pending") : t("backupsPage.retention.submit")}
         </button>
@@ -94,12 +94,12 @@ export function RetentionButton({ olderThan30Days, totalRecords }: Props) {
           .replace("{extra}", t("backupsPage.retention.matchInfoExtra"))}
       </p>
       {taskId && (
-        <p role="status" className="text-xs text-emerald-300">
+        <p role="status" className="text-xs text-[var(--success)]">
           已加入清理队列，详情可在 <Link href="/operation-tasks" className="underline">任务中心</Link> 查看（{taskId}）。
         </p>
       )}
       {error && (
-        <p role="alert" className="text-xs text-rose-300">{t("backupsPage.retention.error")}：{error}</p>
+        <p role="alert" className="text-xs text-[var(--danger)]">{t("backupsPage.retention.error")}：{error}</p>
       )}
     </form>
   );

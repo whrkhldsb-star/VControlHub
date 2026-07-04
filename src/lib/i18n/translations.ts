@@ -42,6 +42,7 @@ import { zh as fileUploadDropzoneZh, en as fileUploadDropzoneEn } from "./dictio
 import { zh as healthpageZh, en as healthpageEn } from "./dictionaries/health-page";
 import { zh as imagebedZh, en as imagebedEn } from "./dictionaries/image-bed";
 import { zh as imagebedpageZh, en as imagebedpageEn } from "./dictionaries/image-bed-page";
+import { zh as languagetoggleZh, en as languagetoggleEn } from "./dictionaries/language-toggle";
 import { zh as loginZh, en as loginEn } from "./dictionaries/login";
 import { zh as markdownpreviewZh, en as markdownpreviewEn } from "./dictionaries/markdown-preview";
 import { zh as mediaitemcardZh, en as mediaitemcardEn } from "./dictionaries/media-item-card";
@@ -114,6 +115,7 @@ const zh: Record<string, string> = {
 	...healthpageZh,
 	...imagebedZh,
 	...imagebedpageZh,
+	...languagetoggleZh,
 	...loginZh,
 	...markdownpreviewZh,
 	...mediaitemcardZh,
@@ -189,6 +191,7 @@ const en: Record<string, string> = {
 	...healthpageEn,
 	...imagebedEn,
 	...imagebedpageEn,
+	...languagetoggleEn,
 	...loginEn,
 	...markdownpreviewEn,
 	...mediaitemcardEn,

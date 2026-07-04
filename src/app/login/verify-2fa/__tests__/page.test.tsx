@@ -22,7 +22,7 @@ describe("Verify2faPage i18n", () => {
 		expect(screen.getByText("两步验证")).toBeInTheDocument();
 		// login.verify2faDescription — new key, zh
 		expect(
-			screen.getByText("请输入您身份验证器应用中显示的验证码"),
+			screen.getByText("请输入身份验证器应用 (Authenticator) 中生成的 6 位动态验证码"),
 		).toBeInTheDocument();
 		// login.verify2faBackToLogin — new key, zh
 		expect(screen.getByText("← 返回登录")).toBeInTheDocument();

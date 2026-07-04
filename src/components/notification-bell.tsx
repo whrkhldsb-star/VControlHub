@@ -200,13 +200,13 @@ export function NotificationBell() {
 					<path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
 				</svg>
 				{effectiveUnread > 0 && (
-					<span className="absolute -top-0.5 -right-0.5 flex h-4 min-w-[16px] items-center justify-center rounded-full bg-rose-500 px-1 text-[9px] font-bold text-white animate-pulse">
+					<span className="absolute -top-0.5 -right-0.5 flex h-4 min-w-[16px] items-center justify-center rounded-full bg-[var(--danger)] px-1 text-[9px] font-bold text-white animate-pulse">
 						{effectiveUnread > 99 ? "99+" : effectiveUnread}
 					</span>
 				)}
 				{/* WS connection indicator */}
 				{wsConnected && (
-					<span className="absolute bottom-0 right-0 h-1.5 w-1.5 rounded-full bg-emerald-400" title={t("notificationBell.liveConnection")} />
+					<span className="absolute bottom-0 right-0 h-1.5 w-1.5 rounded-full bg-[var(--success)]" title={t("notificationBell.liveConnection")} />
 				)}
 			</button>
 
@@ -230,7 +230,7 @@ export function NotificationBell() {
 						<span id="notification-popover-title" className="text-sm font-medium text-[var(--text-primary)]">{notificationLabel}</span>
 						<div className="flex items-center gap-2">
 							{wsConnected ? (
-								<span className="text-[10px] text-emerald-400/70 light:text-emerald-600">{realtimeLabel}</span>
+								<span className="text-[10px] text-[var(--success)]0/70 light:text-[var(--success)]">{realtimeLabel}</span>
 							) : refreshIntervalSeconds <= 0 ? (
 								<span className="text-[10px] text-[var(--text-muted)]">{manualLabel}</span>
 							) : (
@@ -244,14 +244,14 @@ export function NotificationBell() {
 						</div>
 					</div>
 					{feedback && (
-						<div role="alert" data-tone="rose" className="border-b border-rose-400/10 px-4 py-2 text-xs text-rose-200">
+						<div role="alert" data-tone="rose" className="border-b border-[var(--danger-border)] px-4 py-2 text-xs text-[var(--danger)]">
 							{feedback.message}
 						</div>
 					)}
 					{notifications.length === 0 && !feedback ? (
 						<div className="p-6 text-center text-xs text-[var(--text-secondary)]">{emptyLabel}</div>
 					) : notifications.length > 0 ? (
-						<ul className="divide-y divide-white/[0.04] light:divide-slate-200" aria-label={recentListLabel}>
+						<ul className="divide-y divide-white/[0.04] light:divide-[var(--border)]" aria-label={recentListLabel}>
 							{notifications.slice(0, 10).map((n) => (
 								<li key={n.id}>
 									<Link

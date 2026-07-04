@@ -15,47 +15,6 @@ type SystemHealthSummary = { total: number; healthy: number; warning: number; cr
 
 type Props = { serverCount: number; initialSystemHealth?: SystemHealthReport | null };
 
-/**
- * Translates server-returned Chinese health-check labels/messages to English.
- * The server-side health check returns Chinese strings (it doesn't know the
- * client locale), so we translate them client-side via regex matching.
- */
-function translateSystemHealthText(value: string, locale: "zh" | "en") {
-	if (locale !== "en") return value;
-	return value
-		.replace(/^数据库连接$/, "Database Connection")
-		.replace(/^数据库可查询$/, "Database is queryable")
-		.replace(/^数据库不可用$/, "Database is unavailable")
-		.replace(/^VPS 节点资产$/, "VPS Node Inventory")
-		.replace(/^已纳管 (\d+) 个 VPS 节点$/, "Managed $1 VPS nodes")
-		.replace(/^无法读取 VPS 节点$/, "Unable to read VPS nodes")
-		.replace(/^云盘存储节点$/, "Cloud Storage Nodes")
-		.replace(/^已配置 (\d+) 个存储节点$/, "Configured $1 storage nodes")
-		.replace(/^尚未配置存储节点$/, "No storage nodes configured")
-		.replace(/^运行目录基线$/, "Runtime Directory Baseline")
-		.replace(/^(\d+)\/(\d+) 个运行目录可用$/, "$1/$2 runtime directories available")
-		.replace(/^运行目录 (.+)$/, "Runtime directory $1")
-		.replace(/^目录存在$/, "Directory exists")
-		.replace(/^目录不存在，部署脚本会自动创建$/, "Directory is missing; deployment scripts will create it automatically")
-		.replace(/^Next\.js 服务$/, "Next.js Service")
-		.replace(/^SSH WebSocket 服务$/, "SSH WebSocket Service")
-		.replace(/^Caddy 反代服务$/, "Caddy Reverse Proxy Service")
-		.replace(/^(.+\.service) 正在运行$/, "$1 is running")
-		.replace(/^(.+\.service) 当前状态为 (.+)$/, "$1 is currently $2")
-		.replace(/^(.+\.service) 状态暂不可读$/, "$1 status is temporarily unreadable")
-		.replace(/^数据库环境变量$/, "Database Environment Variable")
-		.replace(/^DATABASE_URL 已配置$/, "DATABASE_URL is configured")
-		.replace(/^DATABASE_URL 未配置或仍是占位符$/, "DATABASE_URL is missing or still a placeholder")
-		.replace(/^通知渠道配置$/, "Notification Channel Configuration")
-		.replace(/^已保存 (\d+) 项通知渠道配置$/, "Saved $1 notification channel settings")
-		.replace(/^可在系统设置中配置通知渠道$/, "Configure notification channels in Settings")
-		.replace(/^GitHub 同步状态$/, "GitHub Sync Status")
-		.replace(/^本地提交 ([a-f0-9]+) 与 origin\/main 一致$/, "Local commit $1 matches origin/main")
-		.replace(/^本地 ([a-f0-9]+) 与 origin\/main ([a-f0-9]+) 不一致$/, "Local $1 differs from origin/main $2")
-		.replace(/^当前提交 ([a-f0-9]+)，远端状态暂不可确认$/, "Current commit $1; remote status is temporarily unavailable")
-		.replace(/^当前目录不是可识别的 Git 仓库或无法读取 HEAD$/, "Current directory is not a recognized Git repository or HEAD cannot be read");
-}
-
 type RepairSuggestion = {
 	id: string;
 	label: string;
@@ -122,20 +81,20 @@ const repairSuggestions = (summary: SystemHealthSummary | null | undefined, t: T
 };
 
 const repairToneClasses: Record<SystemHealthStatus, { border: string; bg: string; badge: string }> = {
-	healthy: { border: "border-emerald-400/20", bg: "bg-emerald-400/10", badge: "border-emerald-400/30 text-emerald-100" },
-	warning: { border: "border-amber-400/20", bg: "bg-amber-400/10", badge: "border-amber-400/30 text-amber-100" },
-	critical: { border: "border-rose-400/20", bg: "bg-rose-400/10", badge: "border-rose-400/30 text-rose-100" },
+	healthy: { border: "border-[var(--success-border)]", bg: "bg-[var(--success-bg)]", badge: "border-[var(--success-border)] text-[var(--success)]" },
+	warning: { border: "border-[var(--warning-border)]", bg: "bg-[var(--warning-bg)]", badge: "border-[var(--warning-border)] text-[var(--warning)]" },
+	critical: { border: "border-[var(--danger-border)]", bg: "bg-[var(--danger-bg)]", badge: "border-[var(--danger-border)] text-[var(--danger)]" },
 };
 
 
 /* ── Status helpers ───────────────────────────────────────── */
 
 const statusToneClasses: Record<string, { bg: string; text: string; dot: string }> = {
-	healthy: { bg: "border-emerald-400/20 bg-emerald-400/10", text: "text-[var(--success)]", dot: "bg-emerald-400" },
-	warning: { bg: "border-amber-400/20 bg-amber-400/10", text: "text-[var(--warning)]", dot: "bg-amber-400" },
-	critical: { bg: "border-rose-400/20 bg-rose-400/10", text: "text-[var(--danger)]", dot: "bg-rose-400" },
-	offline: { bg: "border-slate-400/20 bg-slate-400/10", text: "text-[var(--text-secondary)]", dot: "bg-slate-500" },
-	unknown: { bg: "border-slate-400/20 bg-slate-400/10", text: "text-[var(--text-secondary)]", dot: "bg-slate-600" },
+	healthy: { bg: "border-[var(--success-border)] bg-[var(--success-bg)]", text: "text-[var(--success)]", dot: "bg-[var(--success)]" },
+	warning: { bg: "border-[var(--warning-border)] bg-[var(--warning-bg)]", text: "text-[var(--warning)]", dot: "bg-[var(--warning)]" },
+	critical: { bg: "border-[var(--danger-border)] bg-[var(--danger-bg)]", text: "text-[var(--danger)]", dot: "bg-[var(--danger)]" },
+	offline: { bg: "border-[var(--border)] bg-[var(--surface)]", text: "text-[var(--text-secondary)]", dot: "bg-[var(--surface)]" },
+	unknown: { bg: "border-[var(--border)] bg-[var(--surface)]", text: "text-[var(--text-secondary)]", dot: "bg-[var(--surface)]" },
 };
 const unknownTone = statusToneClasses.unknown!;
 
@@ -147,16 +106,16 @@ function statusLabelKey(status: string): `healthPage.status.${HealthStatusKey}` 
 
 function usageColor(val: number | undefined, warn = 80, crit = 95): string {
 	if (val === undefined) return "text-[var(--text-muted)]";
-	if (val >= crit) return "text-rose-300";
-	if (val >= warn) return "text-amber-300";
-	return "text-emerald-300";
+	if (val >= crit) return "text-[var(--danger)]";
+	if (val >= warn) return "text-[var(--warning)]";
+	return "text-[var(--success)]";
 }
 
 function usageBarColor(val: number | undefined, warn = 80, crit = 95): string {
 	if (val === undefined) return "bg-[var(--surface)]";
-	if (val >= crit) return "bg-rose-500";
-	if (val >= warn) return "bg-amber-500";
-	return "bg-emerald-500";
+	if (val >= crit) return "bg-[var(--danger)]";
+	if (val >= warn) return "bg-[var(--warning)]";
+	return "bg-[var(--success)]";
 }
 
 /* ── Component ────────────────────────────────────────────── */
@@ -257,7 +216,7 @@ export function HealthDashboardClient({ serverCount, initialSystemHealth }: Prop
 									<th className="px-4 py-3 text-left text-xs font-medium text-[var(--text-muted)] uppercase tracking-wider">{t("healthPage.ui.details")}</th>
 								</tr>
 							</thead>
-							<tbody className="divide-y divide-white/[0.04] light:divide-slate-200">
+							<tbody className="divide-y divide-white/[0.04] light:divide-[var(--border)]">
 								{Array.from({ length: skeletonRowCount }).map((_, i) => (
 									<tr key={i} className="animate-pulse">
 										<td className="px-4 py-4"><div className="h-3 w-32 rounded-lg bg-[var(--surface-elevated)]" /></td>
@@ -279,13 +238,13 @@ export function HealthDashboardClient({ serverCount, initialSystemHealth }: Prop
 
 	if (!overview) {
 		return (
-			<div data-tone="rose" className="rounded-xl border border-rose-400/20 p-4 text-sm text-rose-100" role="alert">
+			<div data-tone="rose" className="rounded-xl border border-[var(--danger-border)] p-4 text-sm text-[var(--danger)]" role="alert">
 				<div>{loadError ?? t("healthPage.ui.healthUnavailable")}</div>
 				<button
 					type="button"
 					onClick={fetchHealth}
 					disabled={isRefreshing}
-					className="mt-3 rounded-lg border border-rose-300/40 px-3 py-1.5 text-xs transition hover:bg-rose-300/10 disabled:cursor-not-allowed disabled:opacity-60"
+					className="mt-3 rounded-lg border border-[var(--danger-border)] px-3 py-1.5 text-xs transition hover:bg-[var(--danger-bg)] disabled:cursor-not-allowed disabled:opacity-60"
 				>
 					{isRefreshing ? t("healthPage.ui.retrying") : t("healthPage.ui.retryLoad")}
 				</button>
@@ -299,7 +258,7 @@ export function HealthDashboardClient({ serverCount, initialSystemHealth }: Prop
 		<div className="space-y-6">
 			<ActiveIncidentsBanner />
 			{loadError && (
-				<div role="alert" data-tone="rose" className="rounded-xl border border-rose-400/20 p-3 text-sm text-rose-100">
+				<div role="alert" data-tone="rose" className="rounded-xl border border-[var(--danger-border)] p-3 text-sm text-[var(--danger)]">
 					{loadError}
 				</div>
 			)}
@@ -340,11 +299,11 @@ export function HealthDashboardClient({ serverCount, initialSystemHealth }: Prop
 								return (
 									<div key={check.id} className={`rounded-xl border ${sc.bg} p-3`}>
 										<div className="flex items-center justify-between gap-3">
-											<div className="text-sm font-medium text-[var(--text-primary)]">{translateSystemHealthText(check.label, locale)}</div>
+											<div className="text-sm font-medium text-[var(--text-primary)]">{tt(`healthPage.check.${check.id.startsWith("dir-") ? "dir" : check.id}.label`, check.params)}</div>
 											<span className={`rounded-full border px-2 py-0.5 text-[10px] ${sc.text}`}>{t(statusLabelKey(check.status))}</span>
 										</div>
-										<p className="mt-1 text-xs text-[var(--text-secondary)]">{translateSystemHealthText(check.message, locale)}</p>
-										{check.detail && <p className="mt-1 break-all text-[11px] text-[var(--text-muted)]">{translateSystemHealthText(check.detail, locale)}</p>}
+										<p className="mt-1 text-xs text-[var(--text-secondary)]">{tt(`healthPage.check.${check.id.startsWith("dir-") ? "dir" : check.id}.message.${check.messageCode ?? check.status}`, check.params)}</p>
+										{check.detail && <p className="mt-1 break-all text-[11px] text-[var(--text-muted)]">{check.detail}</p>}
 									</div>
 								);
 							})}
@@ -460,7 +419,7 @@ export function HealthDashboardClient({ serverCount, initialSystemHealth }: Prop
 						{tt("healthPage.ui.trendHeading", { name: overview.servers.find((s) => s.serverId === expandedServer)?.serverName ?? "" })}
 					</h3>
 					{historyErrors[expandedServer] ? (
-						<div role="alert" data-tone="rose" className="rounded-lg border border-rose-400/20 p-3 text-sm text-rose-100">
+						<div role="alert" data-tone="rose" className="rounded-lg border border-[var(--danger-border)] p-3 text-sm text-[var(--danger)]">
 							{historyErrors[expandedServer]}
 						</div>
 					) : (
@@ -477,9 +436,9 @@ export function HealthDashboardClient({ serverCount, initialSystemHealth }: Prop
 function SummaryCard({ label, value, color }: { label: string; value: number | string; color: string }) {
 	const colorMap: Record<string, string> = {
 		slate: "text-[var(--text-primary)]",
-		emerald: "text-emerald-300",
-		amber: "text-amber-300",
-		rose: "text-rose-300",
+		emerald: "text-[var(--success)]",
+		amber: "text-[var(--warning)]",
+		rose: "text-[var(--danger)]",
 	};
 	return (
 		<article data-card className=" p-4">

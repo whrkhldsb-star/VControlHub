@@ -32,7 +32,7 @@ export function CreateTicketForm(_props: Props = {}) {
 	return (
 		<form action={formAction} data-card className=" space-y-4">
 			<h2 className="text-sm font-semibold text-[var(--text-primary)]">{t("ticketsPage.form.title")}</h2>
-			{state?.error && <p className="text-xs text-rose-400">{state.error}</p>}
+			{state?.error && <p className="text-xs text-[var(--danger)]">{state.error}</p>}
 			<div className="grid gap-3 md:grid-cols-2">
 				<label className="grid gap-1.5 text-xs font-medium text-[var(--text-secondary)]">
 					{t("ticketsPage.form.label.title")}

@@ -68,13 +68,13 @@ export function FileBatchToolbar({
         <div
           role="alert"
           aria-labelledby={batchErrorTitleId}
-          className="fixed bottom-20 left-1/2 z-50 max-w-lg -translate-x-1/2 rounded-2xl border border-amber-400/30 bg-amber-950/95 px-4 py-3 text-sm text-amber-100 shadow-2xl"
+          className="fixed bottom-20 left-1/2 z-50 max-w-lg -translate-x-1/2 rounded-2xl border border-[var(--warning-border)] bg-[var(--warning-bg)] px-4 py-3 text-sm text-[var(--warning)] shadow-2xl"
         >
           <p id={batchErrorTitleId} className="font-medium">
             批量操作完成，{progress.errors.length + moveProgress.errors.length}{" "}
             个失败
           </p>
-          <ul className="mt-1 max-h-28 overflow-y-auto text-xs text-amber-100/80">
+          <ul className="mt-1 max-h-28 overflow-y-auto text-xs text-[var(--warning)]0/80">
             {[...progress.errors, ...moveProgress.errors].map((error) => (
               <li key={error}>• {error}</li>
             ))}
@@ -98,14 +98,14 @@ export function FileBatchToolbar({
           </span>
           {batchAction === "confirm-delete" ? (
             <>
-              <span className="text-sm text-rose-200">
+              <span className="text-sm text-[var(--danger)]">
                 确认删除 {selectedCount} 个文件？
               </span>
               <button
                 type="button"
                 onClick={onConfirmDelete}
                 disabled={isPending}
-                data-tone="rose" className="rounded-lg border border-rose-400/30 px-4 py-2 text-sm font-medium text-rose-100 transition hover:bg-rose-400/20 disabled:opacity-50"
+                data-tone="rose" className="rounded-lg border border-[var(--danger-border)] px-4 py-2 text-sm font-medium text-[var(--danger)] transition hover:bg-[var(--danger-bg)] disabled:opacity-50"
               >
                 确认删除
               </button>
@@ -120,13 +120,13 @@ export function FileBatchToolbar({
             </>
           ) : batchAction === "deleting" ? (
             <>
-              <span className="text-sm text-rose-200">
+              <span className="text-sm text-[var(--danger)]">
                 已删除 {progress.done}/{progress.total} 个
               </span>
               {progress.done < progress.total ? (
                 <div className="h-2 w-24 overflow-hidden rounded-full bg-[var(--surface)]/10">
                   <div
-                    className="h-full rounded-full bg-rose-400 transition-[width]"
+                    className="h-full rounded-full bg-[var(--danger)] transition-[width]"
                     style={{
                       width: `${progress.total > 0 ? (progress.done / progress.total) * 100 : 0}%`,
                     }}
@@ -134,7 +134,7 @@ export function FileBatchToolbar({
                 </div>
               ) : null}
               {progress.errors.length > 0 ? (
-                <span className="text-sm text-amber-200">
+                <span className="text-sm text-[var(--warning)]">
                   {progress.errors.length} 个失败
                 </span>
               ) : null}
@@ -224,7 +224,7 @@ export function FileBatchToolbar({
                 <button
                   type="button"
                   onClick={() => setBatchAction("confirm-delete")}
-                  data-tone="rose" className="rounded-lg border border-rose-400/30 px-4 py-2 text-sm font-medium text-rose-100 transition hover:bg-rose-400/20"
+                  data-tone="rose" className="rounded-lg border border-[var(--danger-border)] px-4 py-2 text-sm font-medium text-[var(--danger)] transition hover:bg-[var(--danger-bg)]"
                 >
                   批量删除
                 </button>

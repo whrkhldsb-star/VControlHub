@@ -265,7 +265,7 @@ export function QuickServicesClient({ canManage }: { canManage: boolean }) {
 	};
 
 	if (loading) return <div className="text-sm text-[var(--text-muted)] py-12 text-center">{t("qsPage.loading")}</div>;
-	if (error) return <div className="text-sm text-rose-400 py-12 text-center">{error}</div>;
+	if (error) return <div className="text-sm text-[var(--danger)] py-12 text-center">{error}</div>;
 
 	if (!canManage) {
 		return (
@@ -344,16 +344,16 @@ export function QuickServicesClient({ canManage }: { canManage: boolean }) {
 	return (
 		<div className="space-y-6">
 			{dockerStatus && !dockerStatus.available ? (
-				<div data-tone="amber" className="rounded-2xl border border-amber-400/25 p-4 text-sm text-amber-100">
+				<div data-tone="amber" className="rounded-2xl border border-[var(--warning-border)] p-4 text-sm text-[var(--warning)]">
 					<div className="font-medium">{t("qsPage.dockerNotReadyTitle")}</div>
-					<p className="mt-1 text-xs text-amber-100/75">{dockerStatus.message}</p>
-					{dockerStatus.installHint ? <p data-code-surface="true" className="mt-2 rounded-lg border border-amber-300/20 bg-[var(--surface-subtle)] px-3 py-2 font-mono text-xs text-amber-50">{dockerStatus.installHint}</p> : null}
+					<p className="mt-1 text-xs text-[var(--warning)]0/75">{dockerStatus.message}</p>
+					{dockerStatus.installHint ? <p data-code-surface="true" className="mt-2 rounded-lg border border-[var(--warning-border)] bg-[var(--surface-subtle)] px-3 py-2 font-mono text-xs text-[var(--warning)]">{dockerStatus.installHint}</p> : null}
 				</div>
 			) : null}
 
 			{/* Message */}
 			{actions.message && (
-				<div role={actions.message.type === "ok" ? "status" : "alert"} className={`rounded-lg px-4 py-3 text-sm ${actions.message.type === "ok" ? "bg-emerald-500/[0.10] border border-emerald-400/20 text-emerald-200" : "bg-rose-500/[0.10] border border-rose-400/20 text-rose-200"}`}>
+				<div role={actions.message.type === "ok" ? "status" : "alert"} className={`rounded-lg px-4 py-3 text-sm ${actions.message.type === "ok" ? "bg-[var(--success)]0/[0.10] border border-[var(--success-border)] text-[var(--success)]" : "bg-[var(--danger)]0/[0.10] border border-[var(--danger-border)] text-[var(--danger)]"}`}>
 					<span>{actions.message.text}</span>
 					{actions.message.taskId ? (
 						<Link href="/operation-tasks" className="ml-3 inline-flex rounded-lg border border-current/30 px-2 py-1 text-xs font-semibold hover:bg-[var(--surface)]/10 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-current">
@@ -388,13 +388,13 @@ export function QuickServicesClient({ canManage }: { canManage: boolean }) {
 						{runningItems.slice(0, 4).map((item) => {
 							const access = quickServiceAccess(item);
 							return (
-								<a key={item.slug} href={access?.url ?? "#"} target="_blank" rel="noreferrer" aria-disabled={!access} aria-label={access ? t("qsPage.accessEntry").replace("{name}", item.name).replace("{label}", access.label) : t("qsPage.accessEntryUnconfigured").replace("{name}", item.name)} data-tone="emerald" className="rounded-xl border border-emerald-400/15 p-3 transition hover:bg-emerald-400/[0.1]">
+								<a key={item.slug} href={access?.url ?? "#"} target="_blank" rel="noreferrer" aria-disabled={!access} aria-label={access ? t("qsPage.accessEntry").replace("{name}", item.name).replace("{label}", access.label) : t("qsPage.accessEntryUnconfigured").replace("{name}", item.name)} data-tone="emerald" className="rounded-xl border border-[var(--success-border)] p-3 transition hover:bg-[var(--success)]0/[0.1]">
 									<div className="flex items-center justify-between gap-2">
 										<span className="truncate text-sm font-medium text-[var(--text-primary)]">{item.icon} {item.name}</span>
-										<span className="text-[10px] text-emerald-200">:{item.port ?? item.defaultPort}</span>
+										<span className="text-[10px] text-[var(--success)]">:{item.port ?? item.defaultPort}</span>
 									</div>
 									<p className="mt-1 truncate text-[11px] text-[var(--text-muted)]">{access?.url ?? `${accessHostLabel}:${item.port ?? item.defaultPort}`}</p>
-									{access ? <p className="mt-2 text-[10px] font-medium text-amber-200">{access.label}</p> : null}
+									{access ? <p className="mt-2 text-[10px] font-medium text-[var(--warning)]">{access.label}</p> : null}
 								</a>
 							);
 						})}
@@ -413,7 +413,7 @@ export function QuickServicesClient({ canManage }: { canManage: boolean }) {
 					<p className="text-xs uppercase tracking-[0.2em] text-[var(--text-muted)]">{t("qsPage.sourcesLabel")}</p>
 					<h3 className="mt-1 text-base font-semibold text-[var(--text-primary)]">{t("qsPage.sourcesEnabledCount").replace("{enabled}", String(sources.filter((s) => s.enabled).length)).replace("{total}", String(sources.length))}</h3>
 					<p className="mt-2 text-sm leading-6 text-[var(--text-muted)]">{lastSyncedSource ? t("qsPage.lastSynced").replace("{name}", lastSyncedSource.displayName) : t("qsPage.noSyncRecord")}</p>
-					<button type="button" onClick={() => setTab("sources")} className={`mt-3 rounded-lg border px-3 py-1.5 text-xs transition ${staleSources.length > 0 ? "border-amber-400/30 bg-amber-400/10 text-amber-100 hover:bg-amber-400/15" : "border-[var(--border)] text-[var(--text-secondary)] hover:bg-[var(--surface)]/[0.10]"}`}>
+					<button type="button" onClick={() => setTab("sources")} className={`mt-3 rounded-lg border px-3 py-1.5 text-xs transition ${staleSources.length > 0 ? "border-[var(--warning-border)] bg-[var(--warning-bg)] text-[var(--warning)] hover:bg-[var(--warning-bg)]" : "border-[var(--border)] text-[var(--text-secondary)] hover:bg-[var(--surface)]/[0.10]"}`}>
 						{staleSources.length > 0 ? t("qsPage.handleStaleSources").replace("{count}", String(staleSources.length)) : t("qsPage.manageSources")}
 					</button>
 				</div>
@@ -472,16 +472,16 @@ export function QuickServicesClient({ canManage }: { canManage: boolean }) {
 
 			{/* Tab bar */}
 			<div data-card className="flex flex-wrap gap-1  p-1 w-fit">
-				<button onClick={() => setTab("store")} className={`px-4 py-2 rounded-lg text-sm font-medium transition ${tab === "store" ? "bg-[var(--color-action)]/20 text-[var(--color-action)] light:bg-[var(--color-action-bg)]" : "text-[var(--text-muted)] hover:text-[var(--text-primary)] light:hover:bg-slate-100 light:hover:text-[var(--text-primary)]"}`}>
+				<button onClick={() => setTab("store")} className={`px-4 py-2 rounded-lg text-sm font-medium transition ${tab === "store" ? "bg-[var(--color-action)]/20 text-[var(--color-action)] light:bg-[var(--color-action-bg)]" : "text-[var(--text-muted)] hover:text-[var(--text-primary)] light:hover:bg-[var(--surface)] light:hover:text-[var(--text-primary)]"}`}>
 					{t("qsPage.tabStore").replace("{count}", String(localAvailable.length))}
 				</button>
-				<button onClick={() => setTab("community")} className={`px-4 py-2 rounded-lg text-sm font-medium transition ${tab === "community" ? "bg-violet-500/20 text-violet-300 light:bg-violet-100" : "text-[var(--text-muted)] hover:text-[var(--text-primary)] light:hover:bg-slate-100 light:hover:text-[var(--text-primary)]"}`}>
+				<button onClick={() => setTab("community")} className={`px-4 py-2 rounded-lg text-sm font-medium transition ${tab === "community" ? "bg-violet-500/20 text-violet-300 light:bg-violet-100" : "text-[var(--text-muted)] hover:text-[var(--text-primary)] light:hover:bg-[var(--surface)] light:hover:text-[var(--text-primary)]"}`}>
 					{t("qsPage.tabCommunity").replace("{count}", String(remoteAvailable.length))}
 				</button>
-				<button onClick={() => setTab("installed")} className={`px-4 py-2 rounded-lg text-sm font-medium transition ${tab === "installed" ? "bg-[var(--color-action)]/20 text-[var(--color-action)] light:bg-[var(--color-action-bg)]" : "text-[var(--text-muted)] hover:text-[var(--text-primary)] light:hover:bg-slate-100 light:hover:text-[var(--text-primary)]"}`}>
+				<button onClick={() => setTab("installed")} className={`px-4 py-2 rounded-lg text-sm font-medium transition ${tab === "installed" ? "bg-[var(--color-action)]/20 text-[var(--color-action)] light:bg-[var(--color-action-bg)]" : "text-[var(--text-muted)] hover:text-[var(--text-primary)] light:hover:bg-[var(--surface)] light:hover:text-[var(--text-primary)]"}`}>
 					{t("qsPage.tabInstalled").replace("{count}", String(installed.length))}
 				</button>
-				<button onClick={() => setTab("sources")} className={`px-4 py-2 rounded-lg text-sm font-medium transition ${tab === "sources" ? "bg-amber-500/20 text-amber-300 light:bg-amber-100" : "text-[var(--text-muted)] hover:text-[var(--text-primary)] light:hover:bg-slate-100 light:hover:text-[var(--text-primary)]"}`}>
+				<button onClick={() => setTab("sources")} className={`px-4 py-2 rounded-lg text-sm font-medium transition ${tab === "sources" ? "bg-[var(--warning-bg)] text-[var(--warning)] light:bg-[var(--warning)]" : "text-[var(--text-muted)] hover:text-[var(--text-primary)] light:hover:bg-[var(--surface)] light:hover:text-[var(--text-primary)]"}`}>
 					{t("qsPage.tabSources").replace("{count}", String(sources.length))}
 				</button>
 			</div>
@@ -583,9 +583,9 @@ export function QuickServicesClient({ canManage }: { canManage: boolean }) {
 
 function SummaryPill({ label, value, tone }: { label: string; value: number; tone: "emerald" | "amber" | "rose" | "cyan" }) {
 	const toneClass = {
-		emerald: "border-emerald-400/20 bg-emerald-500/[0.10] text-emerald-200",
-		amber: "border-amber-400/20 bg-amber-500/[0.10] text-amber-200",
-		rose: "border-rose-400/20 bg-rose-500/[0.10] text-rose-200",
+		emerald: "border-[var(--success-border)] bg-[var(--success)]0/[0.10] text-[var(--success)]",
+		amber: "border-[var(--warning-border)] bg-[var(--warning)]0/[0.10] text-[var(--warning)]",
+		rose: "border-[var(--danger-border)] bg-[var(--danger)]0/[0.10] text-[var(--danger)]",
 		cyan: "border-[var(--color-action-border)]/20 bg-[var(--color-action)]/[0.10] text-[var(--text-secondary)]",
 	}[tone];
 

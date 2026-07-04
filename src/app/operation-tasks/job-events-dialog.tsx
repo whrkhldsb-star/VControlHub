@@ -166,7 +166,7 @@ export function JobEventsDialog({ jobId, open, onClose }: JobEventsDialogProps) 
         </div>
         <div className="max-h-[60vh] overflow-y-auto px-5 py-4">
           {error ? (
-            <div role="alert" data-tone="rose" className="rounded-lg border border-rose-400/20 px-3 py-2 text-xs text-rose-200">
+            <div role="alert" data-tone="rose" className="rounded-lg border border-[var(--danger-border)] px-3 py-2 text-xs text-[var(--danger)]">
               {error}
             </div>
           ) : null}

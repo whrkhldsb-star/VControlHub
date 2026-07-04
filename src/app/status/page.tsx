@@ -1,8 +1,13 @@
 import { type SystemHealthCheck } from "@/lib/system-health/service";
 import { getServerLocale, t } from "@/lib/i18n/translations";
 import { getPublicStatus } from "@/lib/status/service";
+import { createLogger } from "@/lib/logging";
+import { getAllUptimeDataInternal } from "@/lib/uptime/internal";
 
-export const revalidate = 60;
+const logger = createLogger("status:page");
+
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
 
 type StatusCheck = SystemHealthCheck;
 
@@ -23,25 +28,20 @@ type UptimeResponse = {
 
 async function getAllUptimeData(): Promise<UptimeResponse | null> {
   try {
-    const res = await fetch("/api/system/uptime/all", {
-      cache: "no-store",
-    });
-    if (res.ok) {
-      return await res.json();
-    }
+    return await getAllUptimeDataInternal();
   } catch (err) {
-    console.error("Failed to fetch uptime data:", err);
+    logger.error("Failed to fetch uptime data", err);
   }
   return null;
 }
 
 function getColorClass(uptime: number) {
   if (uptime === 0) return "bg-[var(--surface-hover)]";
-  if (uptime >= 99) return "bg-emerald-500";
-  if (uptime >= 95) return "bg-emerald-400";
-  if (uptime >= 90) return "bg-amber-400";
-  if (uptime >= 75) return "bg-amber-500";
-  return "bg-rose-500";
+  if (uptime >= 99) return "bg-[var(--success)]";
+  if (uptime >= 95) return "bg-[var(--success)]";
+  if (uptime >= 90) return "bg-[var(--warning)]";
+  if (uptime >= 75) return "bg-[var(--warning)]";
+  return "bg-[var(--danger)]";
 }
 
 export default async function Page() {
@@ -62,10 +62,10 @@ export default async function Page() {
             <span
               className={`inline-block h-3 w-3 rounded-full ${
                 status.summary.overall === "healthy"
-                  ? "bg-emerald-400"
+                  ? "bg-[var(--success)]"
                   : status.summary.overall === "warning"
-                  ? "bg-amber-400"
-                  : "bg-rose-400"
+                  ? "bg-[var(--warning)]"
+                  : "bg-[var(--danger)]"
               }`}
             />
             <span className="text-lg font-medium">
@@ -91,10 +91,10 @@ export default async function Page() {
                   <span
                     className={`inline-block h-2 w-2 rounded-full ${
                       c.status === "healthy"
-                        ? "bg-emerald-400"
+                        ? "bg-[var(--success)]"
                         : c.status === "warning"
-                        ? "bg-amber-400"
-                        : "bg-rose-400"
+                        ? "bg-[var(--warning)]"
+                        : "bg-[var(--danger)]"
                     }`}
                   />
                   <b className="text-sm text-[var(--text-primary)]">{c.label}</b>
@@ -102,10 +102,10 @@ export default async function Page() {
                 <span
                   className={`text-xs ${
                     c.status === "healthy"
-                      ? "text-emerald-400"
+                      ? "text-[var(--success)]"
                       : c.status === "warning"
-                      ? "text-amber-400"
-                      : "text-rose-400"
+                      ? "text-[var(--warning)]"
+                      : "text-[var(--danger)]"
                   }`}
                 >
                   {c.status === "healthy"
@@ -166,7 +166,7 @@ export default async function Page() {
                       </div>
                     </div>
                     <div className="flex flex-wrap gap-1">
-                      {filled.map((d, idx) => (
+                      {filled.map((d, _idx) => (
                         <div
                           key={d.date}
                           className={`h-4 w-4 rounded ${getColorClass(d.uptimePercent)} transition hover:scale-125 hover:z-10`}

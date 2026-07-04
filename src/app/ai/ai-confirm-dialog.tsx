@@ -40,7 +40,7 @@ export function AiConfirmDialog({
         <h3 className="text-sm font-semibold text-[var(--text-primary)]">{title}</h3>
         <div className="mt-2 text-sm leading-6 text-[var(--text-secondary)]">{description}</div>
         {error && (
-          <div role="alert" className="mt-3 rounded-xl border border-rose-400/20 bg-rose-500/10 px-3 py-2 text-xs text-rose-200">
+          <div role="alert" className="mt-3 rounded-xl border border-[var(--danger-border)] bg-[var(--danger-bg)] px-3 py-2 text-xs text-[var(--danger)]">
             {error}
           </div>
         )}
@@ -59,7 +59,7 @@ export function AiConfirmDialog({
             disabled={busy}
             className={`rounded-xl px-3 py-2 text-xs font-medium transition disabled:opacity-50 ${
  danger
- ?"bg-rose-500/20 text-rose-200 hover:bg-rose-500/30"
+ ?"bg-[var(--danger-bg)] text-[var(--danger)] hover:bg-[var(--danger-bg)]"
  :"bg-[var(--color-action)]/20 text-[var(--text-secondary)] hover:bg-[var(--color-action)]/30"
  }`}
           >

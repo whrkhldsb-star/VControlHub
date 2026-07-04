@@ -12,10 +12,10 @@ import { getServerLocale, t } from "@/lib/i18n/translations";
 export const dynamic = "force-dynamic";
 
 function deploymentStatusTone(status: string) {
-	if (["COMPLETED", "SUCCESS", "SUCCEEDED"].includes(status)) return "border-emerald-400/30 bg-emerald-400/10 text-emerald-100";
-	if (["FAILED", "CANCELLED", "REJECTED"].includes(status)) return "border-rose-400/30 bg-rose-400/10 text-rose-100";
+	if (["COMPLETED", "SUCCESS", "SUCCEEDED"].includes(status)) return "border-[var(--success-border)] bg-[var(--success-bg)] text-[var(--success)]";
+	if (["FAILED", "CANCELLED", "REJECTED"].includes(status)) return "border-[var(--danger-border)] bg-[var(--danger-bg)] text-[var(--danger)]";
 	if (["RUNNING", "APPROVED"].includes(status)) return "border-[var(--color-action-border)]/30 bg-[var(--color-action-bg)]/10 text-[var(--text-primary)]";
-	return "border-amber-400/30 bg-amber-400/10 text-amber-100";
+	return "border-[var(--warning-border)] bg-[var(--warning-bg)] text-[var(--warning)]";
 }
 
 export default async function DeploymentsPage({ searchParams }: { searchParams?: Promise<{ error?: string }> }) {
@@ -73,7 +73,7 @@ export default async function DeploymentsPage({ searchParams }: { searchParams?:
 				<p className="mt-3 text-xs text-[var(--text-muted)]">{tr("deploymentsPage.page.howItWorks.auditNote")}</p>
 			</section>
 			{formError && (
-				<div role="alert" data-tone="rose" className="mb-6 rounded-xl border border-rose-400/20 px-4 py-3 text-sm text-rose-200">
+				<div role="alert" data-tone="rose" className="mb-6 rounded-xl border border-[var(--danger-border)] px-4 py-3 text-sm text-[var(--danger)]">
 					{tr("deploymentsPage.page.submitFailed")}{formError}
 				</div>
 			)}
@@ -86,10 +86,10 @@ export default async function DeploymentsPage({ searchParams }: { searchParams?:
 				</section>
 			)}
 			{canRun && latestRun && (
-				<section data-tone="emerald" className="mb-6 rounded-xl border border-emerald-400/20 p-5">
+				<section data-tone="emerald" className="mb-6 rounded-xl border border-[var(--success-border)] p-5">
 					<div className="flex flex-wrap items-start justify-between gap-3">
 						<div>
-							<p className="text-xs font-semibold uppercase tracking-[0.2em] text-emerald-200/70">{tr("deploymentsPage.page.latestDeploy.eyebrow")}</p>
+							<p className="text-xs font-semibold uppercase tracking-[0.2em] text-[var(--success)]0/70">{tr("deploymentsPage.page.latestDeploy.eyebrow")}</p>
 							<h2 className="mt-1 text-sm font-semibold text-[var(--text-primary)]">{tr("deploymentsPage.page.latestDeploy.heading")}{latestRun.template.name}</h2>
 							<p className="mt-1 text-xs text-[var(--text-secondary)]">{trTpl("deploymentsPage.page.latestDeploy.meta", { count: String(latestRun.serverIds.length), date: latestRun.createdAt.toLocaleString("zh-CN"), snapshot: latestRun.snapshotId || tr("deploymentsPage.page.latestDeploy.snapshotPending") })}</p>
 						</div>
@@ -122,13 +122,13 @@ export default async function DeploymentsPage({ searchParams }: { searchParams?:
 								<span className={`rounded-lg border px-2 py-1 text-xs ${deploymentStatusTone(r.status)}`}>{r.status}</span>
 							</div>
 							<code className="mt-3 block overflow-auto rounded-lg border border-[var(--border)] bg-[var(--surface)]/70 p-3 font-mono text-xs text-[var(--text-secondary)]">{r.renderedCommand}</code>
-							{r.snapshot?.rollbackCommand && <code data-tone="emerald" className="mt-2 block overflow-auto rounded-lg border border-emerald-400/20 p-3 font-mono text-xs text-emerald-100 light:border-emerald-200 light:bg-emerald-50">{tr("deploymentsPage.page.runsSection.rollback")}{r.snapshot.rollbackCommand}</code>}
+							{r.snapshot?.rollbackCommand && <code data-tone="emerald" className="mt-2 block overflow-auto rounded-lg border border-[var(--success-border)] p-3 font-mono text-xs text-[var(--success)] light:border-[var(--success-border)] light:bg-[var(--success)]">{tr("deploymentsPage.page.runsSection.rollback")}{r.snapshot.rollbackCommand}</code>}
 							{r.rollbackAttempts?.length > 0 && (
-								<div data-tone="emerald" className="mt-2 rounded-lg border border-emerald-400/20 px-3 py-2 text-xs text-emerald-100">
+								<div data-tone="emerald" className="mt-2 rounded-lg border border-[var(--success-border)] px-3 py-2 text-xs text-[var(--success)]">
 									{trTpl("deploymentsPage.page.runsSection.rollbackMeta", { status: r.rollbackAttempts[0]!.status, request: r.rollbackAttempts[0]!.commandRequestId || tr("deploymentsPage.page.runsSection.requestPending"), date: r.rollbackAttempts[0]!.createdAt.toLocaleString("zh-CN") })}
 								</div>
 							)}
-							{r.errorMessage && <p className="mt-2 text-xs text-rose-300">{r.errorMessage}</p>}
+							{r.errorMessage && <p className="mt-2 text-xs text-[var(--danger)]">{r.errorMessage}</p>}
 							{canRun && (
 								<div className="mt-3 flex flex-wrap gap-2">
 									<RollbackDeployButton runId={r.id} templateName={r.template.name} disabled={!r.snapshot?.rollbackCommand} />

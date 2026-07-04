@@ -26,18 +26,18 @@ describe("FieldRiskBadge", () => {
     expect(c2.firstChild).toBeNull();
   });
 
-  it("renders medium badge with amber tone and data-risk='medium'", () => {
+  it("renders medium badge with warning tone and data-risk='medium'", () => {
     wrap(<FieldRiskBadge level="medium" />);
     const badge = screen.getByLabelText("中风险");
     expect(badge.getAttribute("data-risk")).toBe("medium");
-    expect(badge.className).toContain("amber-400");
+    expect(badge.className).toContain("var(--warning)");
   });
 
-  it("renders high badge with rose tone and data-risk='high'", () => {
+  it("renders high badge with danger tone and data-risk='high'", () => {
     wrap(<FieldRiskBadge level="high" />);
     const badge = screen.getByLabelText("高风险");
     expect(badge.getAttribute("data-risk")).toBe("high");
-    expect(badge.className).toContain("rose-400");
+    expect(badge.className).toContain("var(--danger)");
   });
 
   it("includes a sr-only text so screen readers read '高风险' / '中风险'", () => {
@@ -56,7 +56,7 @@ describe("FieldRollbackButton", () => {
   function makeField(overrides: Partial<FieldDef> = {}): FieldDef {
     return {
       key: "test.field",
-      label: "测试字段",
+      labelKey: "测试字段",
       type: "text",
       defaultValue: "默认值",
       ...overrides,

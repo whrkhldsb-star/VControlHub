@@ -44,7 +44,7 @@ export function DeploymentLaunchForm({ templates, servers }: { templates: Deploy
 
 	if (templates.length === 0) {
 		return (
-			<div data-tone="amber" className="mt-4 rounded-xl border border-amber-400/20 px-4 py-3 text-sm text-amber-100 light:bg-amber-50">
+			<div data-tone="amber" className="mt-4 rounded-xl border border-[var(--warning-border)] px-4 py-3 text-sm text-[var(--warning)] light:bg-[var(--warning)]">
 				{t("deploymentsPage.launch.noTemplateHint")}
 			</div>
 		);
@@ -52,10 +52,10 @@ export function DeploymentLaunchForm({ templates, servers }: { templates: Deploy
 
 	if (servers.length === 0) {
 		return (
-			<div data-tone="amber" className="mt-4 rounded-xl border border-amber-400/20 px-4 py-3 text-sm text-amber-100 light:bg-amber-50">
+			<div data-tone="amber" className="mt-4 rounded-xl border border-[var(--warning-border)] px-4 py-3 text-sm text-[var(--warning)] light:bg-[var(--warning)]">
 				<p className="font-medium">{t("deploymentsPage.launch.noVpsTitle")}</p>
-				<p className="mt-1 text-xs text-amber-100/80">{t("deploymentsPage.launch.noVpsDesc")}</p>
-				<Link href="/servers" className="mt-3 inline-flex rounded-lg border border-amber-300/40 px-3 py-1.5 text-xs font-semibold text-amber-50 transition hover:bg-amber-300/10">{t("deploymentsPage.launch.addVps")}</Link>
+				<p className="mt-1 text-xs text-[var(--warning)]0/80">{t("deploymentsPage.launch.noVpsDesc")}</p>
+				<Link href="/servers" className="mt-3 inline-flex rounded-lg border border-[var(--warning-border)] px-3 py-1.5 text-xs font-semibold text-[var(--warning)] transition hover:bg-[var(--warning-bg)]">{t("deploymentsPage.launch.addVps")}</Link>
 			</div>
 		);
 	}
@@ -157,7 +157,7 @@ export function DeploymentLaunchForm({ templates, servers }: { templates: Deploy
 				<code className="mt-3 block max-h-40 overflow-auto whitespace-pre-wrap rounded-lg border border-[var(--border)] bg-[var(--surface)]/70 p-3 font-mono text-xs text-[var(--text-secondary)]">{previewCommand(selectedTemplate, variables, t)}</code>
 			</details>
 
-			{error && <p className="text-xs text-rose-300">{error}</p>}
+			{error && <p className="text-xs text-[var(--danger)]">{error}</p>}
 			<button disabled={pending} className="w-fit rounded-lg bg-[var(--color-action-bg)] px-4 py-2 text-sm font-semibold text-[var(--color-action-fg)] transition hover:bg-[var(--color-action-bg)] disabled:cursor-not-allowed disabled:opacity-60">{pending ? t("deploymentsPage.launch.submitting") : t("deploymentsPage.launch.submit")}</button>
 		</form>
 	);

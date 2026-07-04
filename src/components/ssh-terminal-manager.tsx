@@ -99,15 +99,15 @@ export function SshTerminalManager({
 				<button
 					type="button"
 					onClick={() => setMinimized(false)}
-					className="pointer-events-auto flex items-center gap-2 rounded-full border border-[var(--border-subtle)] light:border-slate-200 bg-[var(--surface)] px-4 py-2.5 text-xs text-[var(--text-primary)] light:text-slate-900 shadow-2xl transition hover:bg-[var(--surface-elevated)] light:hover:bg-slate-800"
+					className="pointer-events-auto flex items-center gap-2 rounded-full border border-[var(--border-subtle)] light:border-[var(--border)] bg-[var(--surface)] px-4 py-2.5 text-xs text-[var(--text-primary)] light:text-[var(--text-disabled)] shadow-2xl transition hover:bg-[var(--surface-elevated)] light:hover:bg-[var(--surface)]"
 					aria-label={t("sshTerminalManager.title")}
 				>
-					<span className="flex h-2 w-2 rounded-full bg-emerald-400" aria-hidden />
+					<span className="flex h-2 w-2 rounded-full bg-[var(--success)]" aria-hidden />
 					<span className="font-medium">
 						{tabs.length} {t("sshTerminalManager.tabsSuffix")}
 					</span>
 					{connectedCount > 0 && (
-						<span className="text-emerald-400">
+						<span className="text-[var(--success)]">
 							{connectedCount} ●
 						</span>
 					)}
@@ -129,15 +129,15 @@ export function SshTerminalManager({
 					borderColor: "var(--border)",
 					color: "var(--text-primary)",
 				}}
-				className="pointer-events-auto flex max-h-[72vh] min-h-0 w-full max-w-5xl flex-col rounded-2xl border border-[var(--border-subtle)] light:border-slate-200 bg-[var(--surface)] text-[var(--text-primary)] light:text-slate-900 shadow-2xl sm:rounded-3xl"
+				className="pointer-events-auto flex max-h-[72vh] min-h-0 w-full max-w-5xl flex-col rounded-2xl border border-[var(--border-subtle)] light:border-[var(--border)] bg-[var(--surface)] text-[var(--text-primary)] light:text-[var(--text-disabled)] shadow-2xl sm:rounded-3xl"
 			>
 				{/* Title bar + tab bar + controls */}
-				<div className="flex items-center justify-between border-b border-[var(--border-subtle)] light:border-slate-200 px-4 py-2.5">
+				<div className="flex items-center justify-between border-b border-[var(--border-subtle)] light:border-[var(--border)] px-4 py-2.5">
 					<div className="flex items-center gap-2">
-						<h3 id="ssh-terminal-manager-title" className="text-sm font-semibold text-[var(--text-primary)] light:text-slate-900">
+						<h3 id="ssh-terminal-manager-title" className="text-sm font-semibold text-[var(--text-primary)] light:text-[var(--text-disabled)]">
 							{t("sshTerminalManager.title")}
 						</h3>
-						<span className="rounded-full bg-[var(--surface-subtle)] light:bg-slate-800 px-2 py-0.5 text-xs text-[var(--text-secondary)] light:text-slate-600">
+						<span className="rounded-full bg-[var(--surface-subtle)] light:bg-[var(--surface)] px-2 py-0.5 text-xs text-[var(--text-secondary)] light:text-[var(--text-muted)]">
 							{tabs.length} {t("sshTerminalManager.tabsSuffix")}
 						</span>
 					</div>
@@ -147,7 +147,7 @@ export function SshTerminalManager({
 							type="button"
 							onClick={() => setMinimized(true)}
 							aria-label={t("sshTerminalManager.minimize")}
-							className="min-h-9 min-w-9 rounded-lg border border-[var(--border-subtle)] light:border-slate-200 bg-[var(--surface-subtle)] light:bg-slate-800/50 px-3 py-1.5 text-xs text-[var(--text-secondary)] light:text-slate-600 transition hover:bg-[var(--surface-elevated)] light:hover:bg-[var(--surface-hover)]/50"
+							className="min-h-9 min-w-9 rounded-lg border border-[var(--border-subtle)] light:border-[var(--border)] bg-[var(--surface-subtle)] light:bg-[var(--surface)] px-3 py-1.5 text-xs text-[var(--text-secondary)] light:text-[var(--text-muted)] transition hover:bg-[var(--surface-elevated)] light:hover:bg-[var(--surface-hover)]/50"
 							title={t("sshTerminalManager.minimize")}
 						>
 							▬
@@ -157,7 +157,7 @@ export function SshTerminalManager({
 							type="button"
 							onClick={onClose}
 							aria-label={t("sshTerminalModal.ariaClose")}
-							className="min-h-9 min-w-9 rounded-lg border border-[var(--border-subtle)] light:border-slate-200 bg-[var(--surface-subtle)] light:bg-slate-800/50 px-3 py-1.5 text-xs text-[var(--text-secondary)] light:text-slate-600 transition hover:bg-[var(--surface-elevated)] light:hover:bg-[var(--surface-hover)]/50"
+							className="min-h-9 min-w-9 rounded-lg border border-[var(--border-subtle)] light:border-[var(--border)] bg-[var(--surface-subtle)] light:bg-[var(--surface)] px-3 py-1.5 text-xs text-[var(--text-secondary)] light:text-[var(--text-muted)] transition hover:bg-[var(--surface-elevated)] light:hover:bg-[var(--surface-hover)]/50"
 							title={t("sshTerminalModal.close")}
 						>
 							✕
@@ -166,15 +166,15 @@ export function SshTerminalManager({
 				</div>
 
 				{/* Tab bar */}
-				<div className="flex items-stretch gap-0.5 overflow-x-auto border-b border-[var(--border-subtle)] light:border-slate-200 bg-[var(--surface-subtle)] light:bg-slate-100 px-2 py-1" role="tablist">
+				<div className="flex items-stretch gap-0.5 overflow-x-auto border-b border-[var(--border-subtle)] light:border-[var(--border)] bg-[var(--surface-subtle)] light:bg-[var(--surface)] px-2 py-1" role="tablist">
 					{tabs.map((tab, i) => {
 						const isActive = i === activeTabIndex;
 						const statusColor =
 							tab.status === "connected"
-								? "bg-emerald-400"
+								? "bg-[var(--success)]"
 								: tab.status === "connecting"
-									? "bg-amber-400"
-									: "bg-rose-400";
+									? "bg-[var(--warning)]"
+									: "bg-[var(--danger)]";
 						return (
 							<div
 								key={tab.id}
@@ -184,8 +184,8 @@ export function SshTerminalManager({
 								onClick={() => onTabSelect(i)}
 								className={`group flex cursor-pointer items-center gap-2 rounded-lg px-3 py-2 text-xs transition ${
 									isActive
-										? "bg-[var(--surface-elevated)] light:bg-[var(--surface-hover)] text-[var(--text-primary)] light:text-slate-900"
-										: "text-[var(--text-muted)] hover:bg-[var(--surface-subtle)] light:hover:bg-slate-600 hover:text-[var(--text-secondary)] light:hover:text-slate-700"
+										? "bg-[var(--surface-elevated)] light:bg-[var(--surface-hover)] text-[var(--text-primary)] light:text-[var(--text-disabled)]"
+										: "text-[var(--text-muted)] hover:bg-[var(--surface-subtle)] light:hover:bg-[var(--surface)] hover:text-[var(--text-secondary)] light:hover:text-[var(--text-disabled)]"
 								}`}
 							>
 								<span className={`h-2 w-2 shrink-0 rounded-full ${statusColor}`} aria-hidden="true" />
@@ -197,7 +197,7 @@ export function SshTerminalManager({
 										onTabClose(i);
 									}}
 									aria-label={t("sshTerminalManager.closeTab").replace("{serverName}", tab.serverName)}
-									className="ml-1 shrink-0 rounded p-0.5 text-[var(--text-muted)] opacity-0 transition hover:bg-[var(--surface-elevated)] light:hover:bg-[var(--surface-hover)] hover:text-rose-300 group-hover:opacity-100"
+									className="ml-1 shrink-0 rounded p-0.5 text-[var(--text-muted)] opacity-0 transition hover:bg-[var(--surface-elevated)] light:hover:bg-[var(--surface-hover)] hover:text-[var(--danger)] group-hover:opacity-100"
 								>
 									✕
 								</button>

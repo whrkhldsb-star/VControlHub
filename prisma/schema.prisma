@@ -67,6 +67,7 @@ enum AiHostedActionStatus {
 }
 
 model User {
+  @@map("User")
   id                     String                  @id @default(cuid())
   username               String                  @unique
   displayName            String?
@@ -152,6 +153,7 @@ model TeamMember {
 }
 
 model Role {
+  @@map("Role")
   id          String           @id @default(cuid())
   key         String           @unique
   name        String
@@ -163,6 +165,7 @@ model Role {
 }
 
 model Permission {
+  @@map("Permission")
   id          String           @id @default(cuid())
   key         String           @unique
   name        String
@@ -171,6 +174,7 @@ model Permission {
 }
 
 model UserRole {
+  @@map("UserRole")
   userId     String
   roleId     String
   assignedAt DateTime @default(now())
@@ -182,6 +186,7 @@ model UserRole {
 }
 
 model RolePermission {
+  @@map("RolePermission")
   roleId       String
   permissionId String
   role         Role       @relation(fields: [roleId], references: [id], onDelete: Cascade)
@@ -192,6 +197,7 @@ model RolePermission {
 }
 
 model SshKey {
+  @@map("SshKey")
   id          String   @id @default(cuid())
   name        String
   fingerprint String   @unique
@@ -325,6 +331,7 @@ model ExecutionLog {
 }
 
 model StorageNode {
+  @@map("StorageNode")
   id                         String               @id @default(cuid())
   name                       String
   driver                     StorageDriver

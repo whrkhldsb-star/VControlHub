@@ -36,9 +36,9 @@ import {
   SETTINGS_SCHEMA,
   getSectionSaveKeys,
   type FieldDef,
+  type FieldValidationError,
   type SectionDef,
 } from "./field-schema";
-import { getSettingsSchema, getTocItems } from "./field-schema-i18n";
 import {
   HighRiskConfirmModal,
   getPendingChanges,
@@ -52,6 +52,18 @@ import {
 // Re-export so test files importing from `settings-client` keep working.
 export { FieldRiskBadge, FieldRollbackButton } from "./settings-field-risk";
 export type { PendingChange } from "./settings-save-confirm";
+
+const TOC_SUBTITLE_KEYS: Record<string, string> = {
+  "2fa": "settingsClient.toc.twoFactor.subtitle",
+  platform: "settingsClient.toc.platform.subtitle",
+  password: "settingsClient.toc.password.subtitle",
+  smtp: "settingsClient.toc.smtp.subtitle",
+  telegram: "settingsClient.toc.telegram.subtitle",
+  runtime: "settingsClient.toc.runtime.subtitle",
+  dashboard: "settingsClient.toc.dashboard.subtitle",
+  offsite: "settingsClient.toc.offsite.subtitle",
+  aiOps: "settingsClient.toc.aiOps.subtitle",
+};
 
 type Props = {
   settings: Record<string, string>;
@@ -74,11 +86,26 @@ export function SettingsClient({
   visibleSectionIds,
 }: Props) {
   const { t } = useI18n();
-  // Translated schema (title/description/helper/badge/saveMessage/
-  // noticeBanner/label are all projected through the i18n dictionary).
-  // defaultOpen / keys / validate remain from the original const.
-  const schema = useMemo(() => getSettingsSchema(t), [t]);
-  const tocItems = useMemo(() => getTocItems(t), [t]);
+  // Schema now holds i18n keys directly — rendering components call t()/tt()
+  // to resolve them. No bridge layer needed.
+  const schema = SETTINGS_SCHEMA;
+  const tt = (key: string, vars?: Record<string, string | number>) => {
+    let s = t(key);
+    if (vars) for (const [k, v] of Object.entries(vars)) s = s.replace(`{${k}}`, String(v));
+    return s;
+  };
+  const tocItems = useMemo(() =>
+    SETTINGS_SCHEMA.map((s) => {
+      const subtitleKey = TOC_SUBTITLE_KEYS[s.id] ?? `settingsClient.toc.fieldsCount.suffix`;
+      const count = `${s.fields.length}${t("settingsClient.toc.fieldsCount.suffix")}`;
+      return {
+        id: s.id,
+        icon: s.icon,
+        title: s.id === "smtp" ? t("settingsClient.toc.smtp.titleShort") : t(s.titleKey),
+        subtitle: TOC_SUBTITLE_KEYS[s.id] ? t(subtitleKey) : count,
+      };
+    }),
+  [t]);
   const [settings, setSettings] = useState(initialSettings);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
@@ -226,9 +253,11 @@ export function SettingsClient({
       const validationErrors = keys
         .map((key) => {
           const field = section.fields.find((f) => f.key === key);
-          return field?.validate
-            ? field.validate(settings[key] ?? "", settings)
-            : null;
+          if (!field?.validate) return null;
+          const error = field.validate(settings[key] ?? "", settings);
+          if (!error) return null;
+          const label = t(field.labelKey);
+          return tt(error.key, { ...error.params, label });
         })
         .filter((message): message is string => Boolean(message));
       if (validationErrors.length > 0) {
@@ -265,7 +294,7 @@ export function SettingsClient({
           });
           setSaved(true);
           setSavedMessage(
-            section.saveMessage || t("settingsClient.saveSuccess"),
+            section.saveMessageKey ? t(section.saveMessageKey) : t("settingsClient.saveSuccess"),
           );
           setTimeout(() => {
             setSaved(false);
@@ -288,7 +317,7 @@ export function SettingsClient({
       }
       await performSave();
     },
-    [settings, initialSettings, t],
+    [settings, initialSettings, t, tt],
   );
 
   if (!canManage) {

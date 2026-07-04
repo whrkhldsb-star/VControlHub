@@ -58,12 +58,12 @@ export function AiInputArea({
     <div className="px-4 py-3 border-t border-[var(--border)] bg-[var(--surface-subtle)]">
       {/* File rejection toast */}
       {fileRejectionMsg && (
-        <div className="mb-2 px-3 py-2 rounded-lg bg-rose-500/10 border border-rose-500/20 text-xs text-rose-300 flex items-center gap-2 animate-in fade-in slide-in-from-bottom-2 duration-300">
+        <div className="mb-2 px-3 py-2 rounded-lg bg-[var(--danger-bg)] border border-[var(--danger-border)] text-xs text-[var(--danger)] flex items-center gap-2 animate-in fade-in slide-in-from-bottom-2 duration-300">
           <svg className="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" width="24" height="24" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
           </svg>
           <span>{fileRejectionMsg}</span>
-          <button onClick={clearRejection} aria-label={t("aiPage.fileRejectionDismissAria")} className="ml-auto text-rose-400/60 hover:text-rose-300 flex-shrink-0">×</button>
+          <button onClick={clearRejection} aria-label={t("aiPage.fileRejectionDismissAria")} className="ml-auto text-[var(--danger)]0/60 hover:text-[var(--danger)] flex-shrink-0">×</button>
         </div>
       )}
       <div className="flex gap-2 items-end">
@@ -71,7 +71,7 @@ export function AiInputArea({
         <button
           onClick={() => fileInputRef.current?.click()}
           disabled={streaming}
-          className="h-10 w-10 rounded-xl bg-[var(--surface)]/[0.04] text-[var(--text-secondary)] flex items-center justify-center hover:bg-[var(--surface)]/[0.10] hover:text-[var(--text-secondary)] light:hover:text-slate-800 transition disabled:opacity-30"
+          className="h-10 w-10 rounded-xl bg-[var(--surface)]/[0.04] text-[var(--text-secondary)] flex items-center justify-center hover:bg-[var(--surface)]/[0.10] hover:text-[var(--text-secondary)] light:hover:text-[var(--text-disabled)] transition disabled:opacity-30"
           aria-label={t("aiPage.uploadFileTitle").replace("{types}", formatAllowedTypes(currentModelCaps))}
           title={t("aiPage.uploadFileTitle").replace("{types}", formatAllowedTypes(currentModelCaps))}
         >
@@ -130,7 +130,7 @@ export function AiInputArea({
         {streaming && (
           <button
             onClick={handleStopGeneration}
-            className="h-10 w-10 rounded-xl bg-rose-500/20 text-rose-300 flex items-center justify-center hover:bg-rose-500/30 transition"
+            className="h-10 w-10 rounded-xl bg-[var(--danger-bg)] text-[var(--danger)] flex items-center justify-center hover:bg-[var(--danger-bg)] transition"
             aria-label={t("aiPage.stopGenTitle")}
             title={t("aiPage.stopGenTitle")}
           >

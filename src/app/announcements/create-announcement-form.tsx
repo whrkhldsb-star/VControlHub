@@ -46,7 +46,7 @@ export function CreateAnnouncementForm() {
 	return (
 		<form onSubmit={handleSubmit} data-card className=" space-y-4">
 			<h2 className="text-sm font-semibold text-[var(--text-primary)]">{t("announcementsPage.create.title")}</h2>
-			{error && <p className="text-xs text-rose-500 dark:text-rose-400">{error}</p>}
+			{error && <p className="text-xs text-[var(--danger)] dark:text-[var(--danger)]">{error}</p>}
 			<div className="grid gap-3 md:grid-cols-2">
 				<div className="grid gap-1.5">
 					<label htmlFor={titleId} className="text-xs font-medium text-[var(--text-secondary)]">{t("announcementsPage.create.titleLabel")}</label>

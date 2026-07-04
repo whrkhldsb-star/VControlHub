@@ -76,7 +76,7 @@ export function AiMessageList({
             />
           </svg>
           <p className="text-sm">{t("aiPage.placeholder")}</p>
-          <p className="text-xs mt-1 text-slate-700">
+          <p className="text-xs mt-1 text-[var(--text-disabled)]">
             {t("aiPage.dragPasteHint").replace(
               "{types}",
               formatAllowedTypes(currentModelCaps),
@@ -91,7 +91,7 @@ export function AiMessageList({
           className={`flex gap-3 ${msg.role === "user" ? "justify-end" : ""}`}
         >
           {msg.role !== "user" && (
-            <div className="flex-shrink-0 w-7 h-7 rounded-lg bg-gradient-to-br from-[var(--color-action)] to-blue-500 flex items-center justify-center">
+            <div className="flex-shrink-0 w-7 h-7 rounded-lg bg-gradient-to-br from-[var(--color-action)] to-[var(--info)] flex items-center justify-center">
               <svg
                 className="w-4 h-4 text-[var(--text-primary)]"
                 fill="none"
@@ -204,7 +204,7 @@ export function AiMessageList({
 
       {streaming && streamContent && (
         <div className="flex gap-3">
-          <div className="flex-shrink-0 w-7 h-7 rounded-lg bg-gradient-to-br from-[var(--color-action)] to-blue-500 flex items-center justify-center">
+          <div className="flex-shrink-0 w-7 h-7 rounded-lg bg-gradient-to-br from-[var(--color-action)] to-[var(--info)] flex items-center justify-center">
             <svg
               className="w-4 h-4 text-[var(--text-primary)] animate-pulse"
               fill="none"
@@ -236,7 +236,7 @@ export function AiMessageList({
       )}
       {streaming && !streamContent && !streamReasoning && (
         <div className="flex gap-3">
-          <div className="flex-shrink-0 w-7 h-7 rounded-lg bg-gradient-to-br from-[var(--color-action)] to-blue-500 flex items-center justify-center">
+          <div className="flex-shrink-0 w-7 h-7 rounded-lg bg-gradient-to-br from-[var(--color-action)] to-[var(--info)] flex items-center justify-center">
             <div className="flex gap-0.5">
               <span className="w-1 h-1 bg-[var(--surface)] rounded-full animate-bounce [animation-delay:0ms]" />
               <span className="w-1 h-1 bg-[var(--surface)] rounded-full animate-bounce [animation-delay:150ms]" />
@@ -251,8 +251,8 @@ export function AiMessageList({
       <div ref={messagesEndRef} />
 
       {pendingApprovals.length > 0 && (
-        <div className="px-4 py-2 border-t border-amber-500/20 bg-amber-950/30">
-          <div className="text-xs text-amber-400 font-medium mb-2">
+        <div className="px-4 py-2 border-t border-[var(--warning-border)] bg-[var(--warning-bg)]">
+          <div className="text-xs text-[var(--warning)] font-medium mb-2">
             {t("aiPage.pendingApprovalsTitle").replace(
               "{count}",
               String(pendingApprovals.length),
@@ -273,12 +273,12 @@ export function AiMessageList({
                     <span
                       className={
                         approval.riskLevel === "critical"
-                          ? "text-rose-400"
+                          ? "text-[var(--danger)]"
                           : approval.riskLevel === "high"
                             ? "text-orange-400"
                             : approval.riskLevel === "medium"
-                              ? "text-yellow-400"
-                              : "text-green-400"
+                              ? "text-[var(--warning)]"
+                              : "text-[var(--success)]"
                       }
                     >
                       {approval.riskLevel}
@@ -295,7 +295,7 @@ export function AiMessageList({
                 </div>
                 <div className="flex gap-2 ml-3">
                   <button
-                    className="px-3 py-1 text-xs rounded bg-rose-600 hover:bg-rose-700 disabled:bg-rose-900/60 disabled:cursor-not-allowed text-[var(--text-primary)] transition"
+                    className="px-3 py-1 text-xs rounded bg-[var(--danger)] hover:bg-[var(--danger)] disabled:bg-[var(--danger-bg)] disabled:cursor-not-allowed text-[var(--text-primary)] transition"
                     disabled={approvalBusyById[approval.actionId]}
                     aria-busy={
                       approvalBusyById[approval.actionId] ? "true" : undefined
@@ -305,7 +305,7 @@ export function AiMessageList({
                     {t("aiPage.reject")}
                   </button>
                   <button
-                    className="px-3 py-1 text-xs rounded bg-green-600 hover:bg-green-700 disabled:bg-green-900/60 disabled:cursor-not-allowed text-[var(--text-primary)] transition"
+                    className="px-3 py-1 text-xs rounded bg-[var(--success)] hover:bg-[var(--success)] disabled:bg-[var(--success-bg)] disabled:cursor-not-allowed text-[var(--text-primary)] transition"
                     disabled={approvalBusyById[approval.actionId]}
                     aria-busy={
                       approvalBusyById[approval.actionId] ? "true" : undefined

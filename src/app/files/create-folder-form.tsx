@@ -139,10 +139,10 @@ export function CreateFolderForm({
         取消
       </button>
       {state.error ? (
-        <span className="text-xs text-rose-300">{state.error}</span>
+        <span className="text-xs text-[var(--danger)]">{state.error}</span>
       ) : null}
       {state.success ? (
-        <span className="text-xs text-emerald-300">{state.success}</span>
+        <span className="text-xs text-[var(--success)]">{state.success}</span>
       ) : null}
     </form>
   );

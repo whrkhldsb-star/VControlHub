@@ -50,6 +50,9 @@ export default function GlobalError({
 
 	useEffect(() => {
 		setLocale(detectLocale());
+	}, []);
+
+	useEffect(() => {
 		console.error("[GlobalError]", error);
 	}, [error]);
 
