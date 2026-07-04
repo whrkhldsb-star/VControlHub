@@ -8,7 +8,7 @@
 export const zh: Record<string, string> = {
 	"login.branding.signInTag": "Secure Sign In",
 	"login.branding.subtitle": "使用管理员账号进入控制台。",
-	"login.branding.tagline": "，一站掌控。",
+	"login.branding.tagline": "，一站式资源管理",
 	"login.branding.welcome": "欢迎回来",
 	"login.error.invalid": "用户名或密码错误",
 	"login.error.locked": "账户已锁定，请 {min} 后再试",
@@ -23,11 +23,11 @@ export const zh: Record<string, string> = {
 	"login.feature.vps.title": "VPS 管理",
 	"login.form.password": "密码",
 	"login.form.passwordPlaceholder": "输入密码",
-	"login.form.remember": "记住登录 30 天，减少频繁跳转登录页",
-	"login.form.submit": "登录后台",
+	"login.form.remember": "保持登录状态 (30天)",
+	"login.form.submit": "登录",
 	"login.form.username": "用户名",
 	"login.form.usernamePlaceholder": "输入用户名",
-	"login.verify2faDescription": "请输入您身份验证器应用中显示的验证码",
+	"login.verify2faDescription": "请输入身份验证器应用 (Authenticator) 中生成的 6 位动态验证码",
 	"login.verify2faBackToLogin": "← 返回登录",
 };
 

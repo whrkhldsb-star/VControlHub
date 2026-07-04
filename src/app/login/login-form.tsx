@@ -38,13 +38,13 @@ export function LoginForm({ nextPath, error, locale }: LoginFormProps) {
 					 />
 			</div>
 
-			<label className="flex items-center justify-between gap-3 rounded-2xl border border-[var(--border)] bg-[var(--surface)]/[0.025] px-3.5 py-2.5 text-xs font-medium text-[var(--text-primary)] shadow-[0_0_0_1px_rgba(255,255,255,0.03)] light:border-slate-200/80 light:shadow-sm">
-				<span>{t("login.form.remember", locale)}</span>
+			<label className="flex items-center gap-3 rounded-2xl border border-[var(--border)] bg-[var(--surface)]/[0.04] px-4 py-3 text-xs font-medium text-[var(--text-primary)] shadow-sm">
 				<input
 					type="checkbox"
 					name="remember"
-					className="h-4 w-4 rounded-lg border-[var(--border)] bg-[var(--surface)]/[0.10] text-[var(--color-action)] focus:ring-[var(--color-action-ring)]/40 light:focus:ring-[var(--color-action-ring)]/30"
+					className="h-4 w-4 shrink-0 rounded border-[var(--border-strong)] bg-[var(--surface-subtle)] text-[var(--accent)] focus:ring-2 focus:ring-[var(--accent-ring)] disabled:opacity-50"
 				/>
+				<span>{t("login.form.remember", locale)}</span>
 			</label>
 
 			{error ? (
