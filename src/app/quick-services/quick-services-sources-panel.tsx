@@ -172,7 +172,7 @@ export function SourcesPanel({ sources, actions, onRequestDeleteSource }: Source
 								key={type}
 								type="button"
 								onClick={() => setNewSourceType(type)}
-								className={`rounded-lg border px-3 py-1.5 text-xs transition ${newSourceType === type ? "border-violet-400/30 bg-violet-400/10 text-violet-100" : "border-[var(--border)] text-[var(--text-secondary)] hover:bg-[var(--surface)]/[0.10]"}`}
+								className={`rounded-lg border px-3 py-1.5 text-xs transition ${newSourceType === type ? "border-[var(--accent-border)] bg-[var(--accent-bg)] text-[var(--accent)]" : "border-[var(--border)] text-[var(--text-secondary)] hover:bg-[var(--surface)]/[0.10]"}`}
 							>
 								{type}
 							</button>

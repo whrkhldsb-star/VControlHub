@@ -256,7 +256,7 @@ export function AlertRuleListClient({ rules: initialRules, servers, playbooks = 
 							</span>
 						)}
 						{(rule.silenceWindows?.length ?? 0) > 0 && (
-							<span className="rounded-lg border border-violet-400/20 bg-violet-400/10 px-1.5 py-0.5 text-[10px] text-violet-200">
+							<span className="rounded-lg border border-[var(--accent-border)] bg-[var(--accent-bg)] px-1.5 py-0.5 text-[10px] text-[var(--accent)]">
 								{t("alertRulesPage.badge.silence").replace("{windows}", rule.silenceWindows?.join("、") ?? "")}
 							</span>
 						)}

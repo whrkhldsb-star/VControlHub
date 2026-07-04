@@ -134,7 +134,7 @@ export function FileTypeIcon({
         strokeWidth="1.5"
         strokeLinecap="round"
         strokeLinejoin="round"
-        className="text-purple-400"
+        className="text-[var(--accent)]"
       >
         <path d="M9 18V5l12-2v13" fill="currentColor" fillOpacity="0.12" />
         <circle cx="6" cy="18" r="3" />
@@ -182,7 +182,7 @@ export function FileTypeIcon({
         strokeWidth="1.5"
         strokeLinecap="round"
         strokeLinejoin="round"
-        className="text-orange-400"
+        className="text-[var(--warning)]"
       >
         <rect
           x="2"

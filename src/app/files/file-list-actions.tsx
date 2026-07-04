@@ -48,8 +48,8 @@ export function DetailActionButton({
       onClick={() => onOpen(entry.id)}
       className={
         compact
-          ? "inline-flex h-8 w-8 items-center justify-center rounded-lg border border-violet-400/30 bg-violet-500/10 text-violet-100 transition hover:bg-violet-500/20"
-          : "inline-flex items-center gap-1.5 rounded-lg border border-violet-400/30 bg-violet-500/10 px-2.5 py-1.5 text-xs text-violet-100 transition hover:bg-violet-500/20"
+          ? "inline-flex h-8 w-8 items-center justify-center rounded-lg border border-[var(--accent-border)] bg-[var(--accent-bg)] text-[var(--accent)] transition hover:bg-[var(--accent-bg)]"
+          : "inline-flex items-center gap-1.5 rounded-lg border border-[var(--accent-border)] bg-[var(--accent-bg)] px-2.5 py-1.5 text-xs text-[var(--accent)] transition hover:bg-[var(--accent-bg)]"
       }
     >
       <svg

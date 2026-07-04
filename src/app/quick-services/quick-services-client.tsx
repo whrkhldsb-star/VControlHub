@@ -475,7 +475,7 @@ export function QuickServicesClient({ canManage }: { canManage: boolean }) {
 				<button onClick={() => setTab("store")} className={`px-4 py-2 rounded-lg text-sm font-medium transition ${tab === "store" ? "bg-[var(--color-action)]/20 text-[var(--color-action)] light:bg-[var(--color-action-bg)]" : "text-[var(--text-muted)] hover:text-[var(--text-primary)] light:hover:bg-[var(--surface)] light:hover:text-[var(--text-primary)]"}`}>
 					{t("qsPage.tabStore").replace("{count}", String(localAvailable.length))}
 				</button>
-				<button onClick={() => setTab("community")} className={`px-4 py-2 rounded-lg text-sm font-medium transition ${tab === "community" ? "bg-violet-500/20 text-violet-300 light:bg-violet-100" : "text-[var(--text-muted)] hover:text-[var(--text-primary)] light:hover:bg-[var(--surface)] light:hover:text-[var(--text-primary)]"}`}>
+				<button onClick={() => setTab("community")} className={`px-4 py-2 rounded-lg text-sm font-medium transition ${tab === "community" ? "bg-[var(--accent-bg)] text-[var(--accent)] bg-[var(--accent-bg)]" : "text-[var(--text-muted)] hover:text-[var(--text-primary)] light:hover:bg-[var(--surface)] light:hover:text-[var(--text-primary)]"}`}>
 					{t("qsPage.tabCommunity").replace("{count}", String(remoteAvailable.length))}
 				</button>
 				<button onClick={() => setTab("installed")} className={`px-4 py-2 rounded-lg text-sm font-medium transition ${tab === "installed" ? "bg-[var(--color-action)]/20 text-[var(--color-action)] light:bg-[var(--color-action-bg)]" : "text-[var(--text-muted)] hover:text-[var(--text-primary)] light:hover:bg-[var(--surface)] light:hover:text-[var(--text-primary)]"}`}>

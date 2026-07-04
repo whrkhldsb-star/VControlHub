@@ -87,7 +87,7 @@ const NotificationRow = memo(function NotificationRow({
 								{t("notificationsPage.action.markOne")}
 							</button>
 						)}
-						<button onClick={() => onDelete(n.id)} className="rounded-lg px-1 py-0.5 text-[var(--text-muted)] opacity-100 transition hover:text-rose-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-300 light:hover:text-rose-700 light:focus-visible:ring-rose-600 sm:opacity-0 sm:group-hover:opacity-100 sm:group-focus-within:opacity-100">
+						<button onClick={() => onDelete(n.id)} className="rounded-lg px-1 py-0.5 text-[var(--text-muted)] opacity-100 transition hover:text-[var(--danger)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--danger-border)] hover:text-[var(--danger)] focus-visible:ring-[var(--danger-border)] sm:opacity-0 sm:group-hover:opacity-100 sm:group-focus-within:opacity-100">
 							{t("notificationsPage.action.delete")}
 						</button>
 					</div>
@@ -166,7 +166,7 @@ export function NotificationListClient({ initialNotifications, initialUnreadCoun
 	return (
 		<div className="space-y-3">
 			{error && (
-				<div role="alert" data-tone="rose" className="rounded-lg border border-rose-400/20 px-3 py-2 text-xs text-rose-200">
+				<div role="alert" data-tone="rose" className="rounded-lg border border-[var(--danger-border)] px-3 py-2 text-xs text-[var(--danger)]">
 					{error}
 				</div>
 			)}

@@ -311,7 +311,7 @@ export default function ImageBedPage({ canWrite, canDelete }: { canWrite: boolea
 							<h2 className="text-sm font-semibold text-[var(--text-primary)]">{t("imageBedPage.manage.title")}</h2>
 							<p className="mt-1 text-xs text-[var(--text-muted)]">{t("imageBedPage.manage.desc")}</p>
 						</div>
-						<button onClick={fetchStats} className="rounded-lg bg-purple-500/10 px-3 py-1.5 text-xs text-purple-300 transition hover:bg-purple-500/20 light:text-purple-700">{t("imageBedPage.manage.stats")}</button>
+						<button onClick={fetchStats} className="rounded-lg bg-[var(--accent-bg)] px-3 py-1.5 text-xs text-[var(--accent)] transition hover:bg-[var(--accent-bg)] text-[var(--accent)]">{t("imageBedPage.manage.stats")}</button>
 					</div>
 					<div className="mt-3 flex flex-wrap gap-2 text-xs">
 						<ToggleChip active={showAll} onClick={() => { setShowAll(!showAll); }} ariaLabel={t("imageBedPage.toggle.toggleScope")}>
@@ -534,7 +534,7 @@ export default function ImageBedPage({ canWrite, canDelete }: { canWrite: boolea
 									>
 										<button onClick={() => copyLink(img.publicUrl)} className="min-h-11 min-w-11 rounded-lg px-2 text-xs bg-[var(--color-action)]/20 text-[var(--color-action)] hover:bg-[var(--color-action)]/30" title={t("imageBedPage.copy.title.url")} aria-label={t("imageBedPage.copy.title.url")}>🔗</button>
 										<button onClick={() => copyMarkdown(img)} className="min-h-11 min-w-11 rounded-lg px-2 text-xs bg-[var(--success-bg)] text-[var(--success)] hover:bg-[var(--success-bg)]" title={t("imageBedPage.copy.title.markdown")} aria-label={t("imageBedPage.copy.title.markdown")}>M↓</button>
-										<button onClick={() => copyHTML(img)} className="min-h-11 min-w-11 rounded-lg px-2 text-xs bg-orange-500/20 text-orange-300 hover:bg-orange-500/30" title={t("imageBedPage.copy.title.html")} aria-label={t("imageBedPage.copy.title.html")}>H</button>
+										<button onClick={() => copyHTML(img)} className="min-h-11 min-w-11 rounded-lg px-2 text-xs bg-[var(--warning-bg)] text-[var(--warning)] hover:bg-[var(--warning-bg)]/80" title={t("imageBedPage.copy.title.html")} aria-label={t("imageBedPage.copy.title.html")}>H</button>
 										{canDelete && (
 											<button onClick={() => requestDelete(img)} className="min-h-11 min-w-11 rounded-lg px-2 text-xs bg-[var(--danger-bg)] text-[var(--danger)] hover:bg-[var(--danger-bg)]" title={t("imageBedPage.image.delete.aria")} aria-label={t("imageBedPage.image.delete.aria")}>🗑</button>
 										)}

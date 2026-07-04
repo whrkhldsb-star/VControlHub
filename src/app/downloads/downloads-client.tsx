@@ -38,10 +38,10 @@ type GlobalStat = { downloadSpeed: string; uploadSpeed: string; numActive: strin
 /* ── Status helpers ───────────────────────────────────────── */
 
 const statusBadge: Record<string, string> = {
-	PENDING: "border-amber-400/30 bg-amber-400/10 text-amber-100",
+	PENDING: "border-[var(--warning-border)] bg-[var(--warning-bg)] text-[var(--warning)]",
 	RUNNING: "border-[var(--color-action-border)]/30 bg-[var(--color-action-bg)]/10 text-[var(--text-primary)]",
-	COMPLETED: "border-emerald-400/30 bg-emerald-400/10 text-emerald-100",
-	FAILED: "border-rose-400/30 bg-rose-400/10 text-rose-100",
+	COMPLETED: "border-[var(--success-border)] bg-[var(--success-bg)] text-[var(--success)]",
+	FAILED: "border-rose-400/30 bg-rose-400/10 text-[var(--danger)]",
 	CANCELLED: "border-slate-400/30 bg-slate-400/10 text-[var(--text-primary)]",
 };
 
@@ -136,7 +136,7 @@ const DownloadTaskRow = memo(function DownloadTaskRow({
 					{getStatusLabel(t)[task.status] ?? task.status}
 				</span>
 				<span className="text-[11px] text-[var(--text-muted)]">{urlTypeLabel(task.url, t)}</span>
-				{task.relayMode && <span data-tone="amber" className="rounded-lg border border-amber-400/20 px-2 py-0.5 text-[10px] text-amber-100">{t("downloadsPage.badge.relay")}</span>}
+				{task.relayMode && <span data-tone="amber" className="rounded-lg border border-[var(--warning-border)] px-2 py-0.5 text-[10px] text-[var(--warning)]">{t("downloadsPage.badge.relay")}</span>}
 				{task.category && <span className="text-[11px] text-[var(--text-muted)]">{categoryIcon[task.category] ?? "📦"} {task.category}</span>}
 				{task.isBatch && <span data-tone="cyan" className="rounded-lg border border-[var(--color-action-border)]/20 px-2 py-0.5 text-[10px] text-[var(--text-primary)]">{t("downloadsPage.badge.batch")}</span>}
 			</div>
@@ -171,14 +171,14 @@ const DownloadTaskRow = memo(function DownloadTaskRow({
 
 			{/* Error */}
 			{task.errorMessage && (
-				<div data-tone="rose" className="mt-2 rounded-lg border border-rose-400/20 px-3 py-2 text-xs text-rose-200">{task.errorMessage}</div>
+				<div data-tone="rose" className="mt-2 rounded-lg border border-[var(--danger-border)] px-3 py-2 text-xs text-[var(--danger)]">{task.errorMessage}</div>
 			)}
 
 			{/* Actions */}
 			<div className="mt-3 flex gap-2">
 				{task.status === "RUNNING" && task.aria2Gid && canManage && (
 					<button type="button" onClick={() => onAction(task.id, "pause")}
-						data-tone="amber" className="rounded-lg border border-amber-400/20 px-3 py-1.5 text-xs text-amber-100 hover:bg-amber-400/10 transition"
+						data-tone="amber" className="rounded-lg border border-[var(--warning-border)] px-3 py-1.5 text-xs text-[var(--warning)] hover:bg-[var(--warning-bg)] transition"
 					>
 						{t("downloadsPage.action.pause")}
 					</button>
@@ -195,14 +195,14 @@ const DownloadTaskRow = memo(function DownloadTaskRow({
 				)}
 				{task.status === "PENDING" && task.aria2Gid && canManage && (
 					<button type="button" onClick={() => onAction(task.id, "resume")}
-						data-tone="emerald" className="rounded-lg border border-emerald-400/20 px-3 py-1.5 text-xs text-emerald-100 hover:bg-emerald-400/10 transition"
+						data-tone="emerald" className="rounded-lg border border-[var(--success-border)] px-3 py-1.5 text-xs text-[var(--success)] hover:bg-[var(--success-bg)] transition"
 					>
 						{t("downloadsPage.action.resume")}
 					</button>
 				)}
 				{(task.status === "RUNNING" || task.status === "PENDING") && canManage && (
 					<button type="button" onClick={() => onAction(task.id, "cancel")}
-						data-tone="rose" className="rounded-lg border border-rose-400/20 px-3 py-1.5 text-xs text-rose-100 hover:bg-rose-400/10 transition"
+						data-tone="rose" className="rounded-lg border border-[var(--danger-border)] px-3 py-1.5 text-xs text-[var(--danger)] hover:bg-[var(--danger-bg)] transition"
 					>
 						{t("downloadsPage.action.cancel")}
 					</button>
@@ -233,7 +233,7 @@ const DownloadTaskRow = memo(function DownloadTaskRow({
 					const href = `/files?nodeId=${encodeURIComponent(node.id)}${rel ? `&path=${encodeURIComponent(rel)}` : ""}`;
 					return (
 						<a href={href}
-							data-tone="emerald" className="rounded-lg border border-emerald-400/20 px-3 py-1.5 text-xs text-emerald-100 hover:bg-emerald-400/10 transition"
+							data-tone="emerald" className="rounded-lg border border-[var(--success-border)] px-3 py-1.5 text-xs text-[var(--success)] hover:bg-[var(--success-bg)] transition"
 							title={t("downloadsPage.action.openFolderTitle")}
 						>
 							{t("downloadsPage.action.openFolder")}
@@ -250,7 +250,7 @@ const DownloadTaskRow = memo(function DownloadTaskRow({
 				)}
 				{(task.status === "COMPLETED" || task.status === "FAILED" || task.status === "CANCELLED") && canManage && (
 					<button type="button" onClick={() => onPendingPurge(task.id)}
-						data-tone="rose" className="rounded-lg border border-rose-400/20 px-3 py-1.5 text-xs text-rose-100 hover:bg-rose-400/10 transition"
+						data-tone="rose" className="rounded-lg border border-[var(--danger-border)] px-3 py-1.5 text-xs text-[var(--danger)] hover:bg-[var(--danger-bg)] transition"
 					>
 						{t("downloadsPage.action.delete")}
 					</button>
@@ -511,7 +511,7 @@ export function DownloadsClient({ servers, canManage, canManageNode }: { servers
 		<div>
 			{message && (
 				<div role={message.type === "error" ? "alert" : "status"} className={`mb-4 rounded-2xl border px-4 py-3 text-sm ${
-					message.type === "success" ? "border-emerald-400/30 bg-emerald-400/5 text-emerald-200" : "border-rose-400/30 bg-rose-400/5 text-rose-200"
+					message.type === "success" ? "border-[var(--success-border)] bg-emerald-400/5 text-[var(--success)]" : "border-rose-400/30 bg-rose-400/5 text-[var(--danger)]"
 				}`}>
 					{message.text}
 					<button type="button" onClick={() => setMessage(null)} aria-label={t("common.close")} className="ml-3 text-current/50 hover:text-current">✕</button>
@@ -531,7 +531,7 @@ export function DownloadsClient({ servers, canManage, canManageNode }: { servers
 					</div>
 					<div>
 						<span className="text-[var(--text-muted)]">{t("downloadsPage.stats.pending")}</span>
-						<span className="ml-2 text-amber-200">{globalStat.numWaiting}</span>
+						<span className="ml-2 text-[var(--warning)]">{globalStat.numWaiting}</span>
 					</div>
 					<div className="ml-auto flex items-center gap-2">
 						<span className="text-xs text-[var(--text-muted)]">{t("downloadsPage.stats.globalLimit")}</span>
@@ -550,7 +550,7 @@ export function DownloadsClient({ servers, canManage, canManageNode }: { servers
 			{!globalStat && (runningCount > 0 || pendingCount > 0) && (
 				<div className="mb-4 flex gap-3 text-xs text-[var(--text-muted)]">
 					{runningCount > 0 && <span className="text-[var(--color-action)]">{t("downloadsPage.stats.runningCount").replace("${count}", String(runningCount))}</span>}
-					{pendingCount > 0 && <span className="text-amber-300">{t("downloadsPage.stats.pendingCount").replace("${count}", String(pendingCount))}</span>}
+					{pendingCount > 0 && <span className="text-[var(--warning)]">{t("downloadsPage.stats.pendingCount").replace("${count}", String(pendingCount))}</span>}
 				</div>
 			)}
 
@@ -584,7 +584,7 @@ export function DownloadsClient({ servers, canManage, canManageNode }: { servers
 						{showForm ? t("downloadsPage.form.cancelLabel") : t("downloadsPage.form.createLabel")}
 					</button>
 				) : canManage ? (
-					<div data-tone="amber" className="rounded-2xl border border-amber-400/20 px-4 py-2 text-xs text-amber-100">
+					<div data-tone="amber" className="rounded-2xl border border-[var(--warning-border)] px-4 py-2 text-xs text-[var(--warning)]">
 						{t("downloadsPage.form.noTarget")}
 					</div>
 				) : null}
@@ -630,12 +630,12 @@ export function DownloadsClient({ servers, canManage, canManageNode }: { servers
 			)}
 			{pendingPurgeTaskId ? (
 				<div className="fixed inset-0 z-50 flex items-center justify-center bg-[var(--surface)]/70 px-4 backdrop-blur-sm" role="presentation">
-					<section role="dialog" aria-modal="true" aria-labelledby="download-purge-title" className="w-full max-w-md rounded-2xl border border-rose-400/25 bg-[var(--modal-bg)] p-6 shadow-[0_24px_100px_rgba(244,63,94,0.16)]">
+					<section role="dialog" aria-modal="true" aria-labelledby="download-purge-title" className="w-full max-w-md rounded-2xl border border-[var(--danger-border)] bg-[var(--modal-bg)] p-6 shadow-[0_24px_100px_rgba(244,63,94,0.16)]">
 						<h3 id="download-purge-title" className="text-lg font-semibold text-[var(--text-primary)]">{t("common.confirmDelete")}</h3>
 						<p className="mt-3 text-sm leading-6 text-[var(--text-secondary)]">{t("downloadsPage.confirm.purge").replace("${name}", pendingPurgeName)}</p>
 						<div className="mt-6 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
 							<button type="button" onClick={() => setPendingPurgeTaskId(null)} className="min-h-11 rounded-xl border border-[var(--border)] px-4 py-2 text-sm font-medium text-[var(--text-secondary)] hover:bg-[var(--surface-hover)]">{t("common.cancel")}</button>
-							<button type="button" onClick={() => handleAction(pendingPurgeTaskId, "purge")} className="min-h-11 rounded-xl bg-rose-500 px-4 py-2 text-sm font-semibold text-[var(--text-primary)] hover:bg-rose-400">{t("common.confirmDelete")}</button>
+							<button type="button" onClick={() => handleAction(pendingPurgeTaskId, "purge")} className="min-h-11 rounded-xl bg-[var(--danger-border)] text-[var(--danger)] px-4 py-2 text-sm font-semibold text-[var(--text-primary)] hover:bg-[var(--danger-bg)] hover:text-[var(--danger)]">{t("common.confirmDelete")}</button>
 						</div>
 					</section>
 				</div>

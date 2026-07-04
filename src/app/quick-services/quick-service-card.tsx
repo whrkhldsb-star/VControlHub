@@ -98,7 +98,7 @@ export function ServiceCard({
 				</div>
 				<div className="flex items-center gap-1.5">
 					{isRemote && (
-						<span className="text-[10px] px-1.5 py-0.5 rounded-lg border border-violet-400/20 bg-violet-500/[0.10] text-violet-400">
+						<span className="text-[10px] px-1.5 py-0.5 rounded-lg border border-[var(--accent-border)] bg-[var(--accent-bg)] text-[var(--accent)]">
 							{item.source}
 						</span>
 					)}
@@ -127,7 +127,7 @@ export function ServiceCard({
 			{/* Actions */}
 			<div className="flex items-center gap-2 mt-auto pt-1">
 				{tab !== "installed" && item.status === "available" && (
-					<button onClick={onInstall} disabled={busy} className={`rounded-lg px-3.5 py-1.5 text-xs font-semibold text-[var(--color-action-fg)] transition disabled:opacity-50 ${isRemote ? "bg-violet-500 hover:bg-violet-400" : "bg-[var(--color-action)] hover:bg-[var(--color-action-bg)]"}`}>
+					<button onClick={onInstall} disabled={busy} className={`rounded-lg px-3.5 py-1.5 text-xs font-semibold text-[var(--color-action-fg)] transition disabled:opacity-50 ${isRemote ? "bg-[var(--color-action)] hover:bg-[var(--color-action-bg)]" : "bg-[var(--color-action)] hover:bg-[var(--color-action-bg)]"}`}>
 						{busy ? t("qsPage.installingLabel") : t("qsPage.installNow")}
 					</button>
 				)}

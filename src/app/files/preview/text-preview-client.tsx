@@ -153,8 +153,8 @@ export function TextPreviewClient({
 		const el = lineRef.current.get(num - 1);
 		if (el) {
 			el.scrollIntoView({ behavior: "smooth", block: "center" });
-			el.classList.add("bg-amber-400/10");
-			setTimeout(() => el.classList.remove("bg-amber-400/10"), 2000);
+			el.classList.add("bg-[var(--warning-bg)]");
+			setTimeout(() => el.classList.remove("bg-[var(--warning-bg)]"), 2000);
 		}
 	}, [jumpLine]);
 
@@ -413,7 +413,7 @@ export function TextPreviewClient({
 
 	if (state.error) {
 		return (
-			<div className="flex flex-col items-center gap-3 py-16 text-rose-300">
+			<div className="flex flex-col items-center gap-3 py-16 text-[var(--danger)]">
 				<span className="text-3xl">⚠️</span>
 				<p className="text-sm">{state.error}</p>
 			</div>
@@ -436,7 +436,7 @@ export function TextPreviewClient({
 		try {
 			const escapedQuery = escapeHtml(searchQuery);
 			const escaped = escapeRegex(escapedQuery);
-			return html.replace(new RegExp(`(${escaped})`, "gi"), '<mark class="bg-amber-400/30 text-amber-200 rounded-lg px-0.5">$1</mark>');
+			return html.replace(new RegExp(`(${escaped})`, "gi"), '<mark class="bg-amber-400/30 text-[var(--warning)] rounded-lg px-0.5">$1</mark>');
 		} catch {
 			return html;
 		}
@@ -450,14 +450,14 @@ export function TextPreviewClient({
 				</span>
 				<span className="text-xs text-[var(--text-muted)]">{t("textPreview.linesCount").replace("{count}", String(totalLines))}</span>
 				{canEdit ? (
-					<span data-tone="emerald" className="rounded-lg border border-emerald-400/30 px-3 py-1 text-xs text-emerald-200">
+					<span data-tone="emerald" className="rounded-lg border border-[var(--success-border)] px-3 py-1 text-xs text-[var(--success)]">
 						{t("textPreview.editHint")}
 					</span>
 				) : null}
 				{saveMessage ? (
 					<span
 						role={saveStatus === "error" ? "alert" : "status"}
-						className={`text-xs ${saveStatus === "error" ? "text-rose-300" : "text-emerald-300"}`}
+						className={`text-xs ${saveStatus === "error" ? "text-[var(--danger)]" : "text-[var(--success)]"}`}
 					>
 						{saveMessage}
 						{reloadMessage ? (
@@ -474,7 +474,7 @@ export function TextPreviewClient({
 									type="button"
 									onClick={() => setShowDiffReview(true)}
 									disabled={saveStatus === "saving" || saveStatus === "reloading" || !hasUnsavedChanges}
-									data-tone="emerald" className="rounded-lg border border-emerald-400/30 px-3 py-1.5 text-xs text-emerald-100 hover:bg-emerald-400/20 disabled:opacity-50"
+									data-tone="emerald" className="rounded-lg border border-[var(--success-border)] px-3 py-1.5 text-xs text-[var(--success)] hover:bg-[var(--success-bg)] disabled:opacity-50"
 								>
 									{saveStatus === "saving" ? t("textPreview.button.saving") : t("textPreview.button.previewSave")}
 								</button>
@@ -483,7 +483,7 @@ export function TextPreviewClient({
 										type="button"
 										onClick={handleSaveAndReload}
 										disabled={saveStatus === "saving" || saveStatus === "reloading" || !hasUnsavedChanges}
-										data-tone="amber" className="rounded-lg border border-amber-400/30 px-3 py-1.5 text-xs text-amber-100 hover:bg-amber-400/20 disabled:opacity-50"
+										data-tone="amber" className="rounded-lg border border-[var(--warning-border)] px-3 py-1.5 text-xs text-[var(--warning)] hover:bg-[var(--warning-bg)] disabled:opacity-50"
 										title={reloadKind === "systemd"
 											? t("textPreview.reloadHint.systemd").replace("{unit}", reloadUnit ?? "")
 											: t("textPreview.reloadHint.docker").replace("{unit}", reloadUnit ?? "")}

@@ -264,7 +264,7 @@ export default function DockerPage() {
 					onClick={() => {
 						for (const container of runningContainers) void fetchStats(container.Id);
 					}}
-					className="min-h-11 px-3 py-1.5 text-xs font-medium bg-purple-500/10 text-purple-300 rounded-lg hover:bg-purple-500/20 transition"
+					className="min-h-11 px-3 py-1.5 text-xs font-medium bg-[var(--accent-bg)] text-[var(--accent)] rounded-lg hover:bg-[var(--accent-bg)] transition"
 				>
 					{t("dockerPage.refresh.stats")}
 				</button>
@@ -321,7 +321,7 @@ export default function DockerPage() {
 											{stat && (
 												<div className="mb-3 grid grid-cols-2 gap-2 text-[11px] md:grid-cols-4">
 													<div className="rounded-lg bg-[var(--color-action)]/10 px-2 py-1.5 text-[var(--color-action)]">{t("dockerPage.stat.cpu").replace("{percent}", stat.cpuPercent.toFixed(1))}</div>
-													<div className="rounded-lg bg-purple-500/10 px-2 py-1.5 text-purple-300">{t("dockerPage.stat.memory").replace("{used}", formatBytes(stat.memoryUsageBytes)).replace("{percent}", stat.memoryPercent.toFixed(1))}</div>
+													<div className="rounded-lg bg-[var(--accent-bg)] px-2 py-1.5 text-[var(--accent)]">{t("dockerPage.stat.memory").replace("{used}", formatBytes(stat.memoryUsageBytes)).replace("{percent}", stat.memoryPercent.toFixed(1))}</div>
 													<div className="rounded-lg bg-[var(--success-bg)] px-2 py-1.5 text-[var(--success)]">{t("dockerPage.stat.netRx").replace("{bytes}", formatBytes(stat.networkRxBytes))}</div>
 													<div className="rounded-lg bg-[var(--warning-bg)] px-2 py-1.5 text-[var(--warning)]">{t("dockerPage.stat.netTx").replace("{bytes}", formatBytes(stat.networkTxBytes))}</div>
 												</div>

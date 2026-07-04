@@ -84,7 +84,7 @@ export function AiSettingsPanel({
                           <span className="text-[9px] text-[var(--info)]0/60" title={t("aiPage.videoCapSetting")}>🎬</span>
                         )}
                         {m.capabilities?.audio && (
-                          <span className="text-[9px] text-purple-400/60" title={t("aiPage.audioCapSetting")}>🎵</span>
+                          <span className="text-[9px] text-[var(--accent)]" title={t("aiPage.audioCapSetting")}>🎵</span>
                         )}
                         {m.capabilities?.document && (
                           <span className="text-[9px] text-[var(--success)]0/60" title={t("aiPage.documentCapSetting")}>📑</span>

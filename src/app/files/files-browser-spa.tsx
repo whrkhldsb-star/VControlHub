@@ -314,7 +314,7 @@ export function FilesBrowserSpa({
                     )
                   }
                   disabled={loading}
-                  data-tone="emerald" className="rounded-lg border border-emerald-400/30 px-4 py-2 text-sm font-medium text-emerald-100 transition hover:bg-emerald-400/20 disabled:cursor-not-allowed disabled:opacity-60"
+                  data-tone="emerald" className="rounded-lg border border-[var(--success-border)] px-4 py-2 text-sm font-medium text-[var(--success)] transition hover:bg-[var(--success-bg)] disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   {loading ? t("filesBrowserSpa.refreshing") : `↻ ${refreshLabel}`}
                 </button>
@@ -364,7 +364,7 @@ export function FilesBrowserSpa({
           {listError ? (
             <div
               role="alert"
-              data-tone="amber" className="mt-4 rounded-lg border border-amber-400/30 px-4 py-3 text-sm text-amber-100"
+              data-tone="amber" className="mt-4 rounded-lg border border-[var(--warning-border)] px-4 py-3 text-sm text-[var(--warning)]"
             >
               {data.syncWarning === listError
                 ? t("filesBrowserSpa.remoteSyncNotice")
