@@ -94,12 +94,12 @@ export function FileListListView(props: FileListListViewProps) {
               <input
                 type="checkbox"
                 checked={allSelected}
+                aria-label={t("fileListClient.selectAllFiles")}
                 ref={(el) => {
                   if (el) el.indeterminate = someSelected;
                 }}
                 onChange={toggleAll}
                 disabled={visibleFilesCount === 0}
-                aria-label={t("fileListClient.selectAllFiles")}
                 className="rounded-lg h-4 w-4 accent-[var(--color-action)]"
               />
             </div>
@@ -251,8 +251,8 @@ export function FileListListView(props: FileListListViewProps) {
                       <input
                         type="checkbox"
                         checked={effectiveSelectedIdSet.has(entry.id)}
-                        onChange={() => toggleOne(entry.id)}
                         aria-label={`Select ${entry.name}`}
+                        onChange={() => toggleOne(entry.id)}
                         className="h-4 w-4 rounded-lg border-[var(--border)] bg-[var(--surface)] text-[var(--color-action)] focus:ring-[var(--color-action-ring)]"
                       />
                     ) : null}
@@ -395,8 +395,8 @@ export function FileListListView(props: FileListListViewProps) {
                   <input
                     type="checkbox"
                     checked={effectiveSelectedIdSet.has(entry.id)}
-                    onChange={() => toggleOne(entry.id)}
                     aria-label={`Select ${entry.name}`}
+                    onChange={() => toggleOne(entry.id)}
                     className="mt-2 h-4 w-4 rounded-lg border-[var(--border)] bg-[var(--surface)] text-[var(--color-action)] focus:ring-[var(--color-action-ring)]"
                   />
                 ) : null}

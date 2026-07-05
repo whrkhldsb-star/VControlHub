@@ -71,7 +71,7 @@ export function AiSettingsPanel({
                   <span className="text-[9px] text-[var(--color-action)] bg-[var(--color-action-bg)]/10 px-1 py-0.5 rounded-lg">👁</span>
                 )}
               </span>
-              <svg className={`w-3.5 h-3.5 text-[var(--text-muted)] transition-transform ${modelDropdownOpen ? "rotate-180" : ""}`} fill="none" stroke="currentColor" width="24" height="24" viewBox="0 0 24 24"> <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /> </svg> </button> {modelDropdownOpen && ( <div className="absolute z-50 top-full left-0 right-0 mt-1 bg-[var(--surface)] border border-[var(--border)] rounded-lg shadow-xl max-h-60 overflow-hidden flex flex-col"> <div className="p-2 border-b border-[var(--border)]/10"> <input value={modelSearch} onChange={(e) => setModelSearch(e.target.value)} placeholder={t("aiPage.searchModel")} aria-label={t("aiPage.searchModelAria")} className="w-full bg-[var(--input-bg)] border border-[var(--border)]/10 rounded-lg px-2 py-1 text-xs text-[var(--text-primary)] placeholder-slate-600 focus:outline-none focus:border-[var(--color-action-border)]/30" autoFocus /> </div> <div className="overflow-y-auto max-h-48"> {filteredModels.length === 0 && !modelsLoading && ( <div className="px-3 py-4 text-xs text-[var(--text-muted)] text-center"> {t("aiPage.noModels")} <button onClick={onRefreshModels} className="ml-2 text-[var(--color-action)] hover:text-[var(--color-action)] light:hover:text-[var(--color-action-strong)]" > {t("aiPage.refresh")} </button> </div> )} {filteredModels.map((m) => ( <button key={m.id} onClick={() => { setSettingsForm((f) => ({ ...f, model: m.id, enableVision: m.vision ? true : f.enableVision, })); setModelDropdownOpen(false); setModelSearch(""); }} className={`w-full text-left px-3 py-2 text-xs hover:bg-[var(--surface)]/[0.04] transition flex items-center gap-2 ${
+              <svg className={`w-3.5 h-3.5 text-[var(--text-muted)] transition-transform ${modelDropdownOpen ? "rotate-180" : ""}`} fill="none" stroke="currentColor" width="24" height="24" viewBox="0 0 24 24"> <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /> </svg> </button> {modelDropdownOpen && ( <div className="absolute z-50 top-full left-0 right-0 mt-1 bg-[var(--surface)] border border-[var(--border)] rounded-lg shadow-xl max-h-60 overflow-hidden flex flex-col"> <div className="p-2 border-b border-[var(--border)]/10"> <input value={modelSearch} aria-label={t("aiPage.searchModelAria")} onChange={(e) => setModelSearch(e.target.value)} placeholder={t("aiPage.searchModel")} className="w-full bg-[var(--input-bg)] border border-[var(--border)]/10 rounded-lg px-2 py-1 text-xs text-[var(--text-primary)] placeholder-slate-600 focus:outline-none focus:border-[var(--color-action-border)]/30" autoFocus /> </div> <div className="overflow-y-auto max-h-48"> {filteredModels.length === 0 && !modelsLoading && ( <div className="px-3 py-4 text-xs text-[var(--text-muted)] text-center"> {t("aiPage.noModels")} <button onClick={onRefreshModels} className="ml-2 text-[var(--color-action)] hover:text-[var(--color-action)] light:hover:text-[var(--color-action-strong)]" > {t("aiPage.refresh")} </button> </div> )} {filteredModels.map((m) => ( <button key={m.id} onClick={() => { setSettingsForm((f) => ({ ...f, model: m.id, enableVision: m.vision ? true : f.enableVision, })); setModelDropdownOpen(false); setModelSearch(""); }} className={`w-full text-left px-3 py-2 text-xs hover:bg-[var(--surface)]/[0.04] transition flex items-center gap-2 ${
                         settingsForm.model === m.id ? "text-[var(--color-action)] bg-[var(--color-action-bg)]/[0.10]" : "text-[var(--text-primary)]"
                       }`}
                     >
@@ -108,6 +108,7 @@ export function AiSettingsPanel({
                   <div className="flex gap-1.5">
                     <input
                       value={modelSearch || settingsForm.model}
+                      aria-label={t("aiPage.manualModelIdAria")}
                       onChange={(e) => setModelSearch(e.target.value)}
                       onKeyDown={(e) => {
                         if (e.key === "Enter" && modelSearch.trim()) {
@@ -117,7 +118,6 @@ export function AiSettingsPanel({
                         }
                       }}
                       placeholder={t("aiPage.manualModelIdPlaceholder")}
-                      aria-label={t("aiPage.manualModelIdAria")}
                       className="flex-1 bg-[var(--input-bg)] border border-[var(--border)]/10 rounded-lg px-2 py-1 text-xs text-[var(--text-primary)] placeholder-slate-600 focus:outline-none"
                     />
                     <button

@@ -33,6 +33,7 @@ export function EditorFindBar({ inputRef, find, onQueryChange, onMove, onClose }
 				ref={inputRef}
 				type="text"
 				value={find.query}
+				aria-label={t("textPreview.editor.findPlaceholder")}
 				onChange={(event) => onQueryChange(event.currentTarget.value)}
 				onKeyDown={(event) => {
 					if (event.key === "Enter") {
@@ -41,7 +42,6 @@ export function EditorFindBar({ inputRef, find, onQueryChange, onMove, onClose }
 					}
 				}}
 				placeholder={t("textPreview.editor.findPlaceholder")}
-				aria-label={t("textPreview.editor.findPlaceholder")}
 				className="w-48 rounded-lg border border-[var(--border)] bg-[var(--surface)] px-2 py-1 text-xs text-[var(--text-secondary)] placeholder:text-[var(--text-muted)] focus:border-[var(--color-action-border)] focus:outline-none"
 			/>
 			<span className="text-xs text-[var(--text-secondary)]" data-testid="editor-find-count">

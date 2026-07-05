@@ -103,12 +103,12 @@ export function AuditLogClient({ initialActionFilter = "" }: AuditLogClientProps
           <input
             type="search"
             value={searchQuery}
+            aria-label={t("audit.search-placeholder")}
             onChange={(e) => {
               setSearchQuery(e.target.value);
               setPage(1);
             }}
             placeholder={t("audit.search-placeholder")}
-            aria-label={t("audit.search-placeholder")}
             className="min-w-[240px] flex-1 rounded-2xl border border-[var(--border)] bg-[var(--input-bg)] px-4 py-2 text-sm text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus:border-[var(--color-action-border)]/50 focus:outline-none"
           />
           <button

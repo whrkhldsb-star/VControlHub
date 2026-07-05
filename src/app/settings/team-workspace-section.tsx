@@ -212,8 +212,8 @@ export function TeamWorkspaceSection({ canManage }: { canManage: boolean }) {
 								<div className="flex-1">
 									{editingTeamId === team.id ? (
 										<div className="space-y-1">
-											<input value={editName} onChange={(e) => setEditName(e.target.value)} className="w-full rounded-lg border border-[var(--border)] bg-[var(--surface)] px-2 py-1 text-sm" />
-											<input value={editDesc} onChange={(e) => setEditDesc(e.target.value)} placeholder={t("settingsTeam.descriptionPlaceholder")} className="w-full rounded-lg border border-[var(--border)] bg-[var(--surface)] px-2 py-1 text-xs" />
+											<input value={editName} aria-label={t("settingsTeam.namePlaceholder")} onChange={(e) => setEditName(e.target.value)} className="w-full rounded-lg border border-[var(--border)] bg-[var(--surface)] px-2 py-1 text-sm" />
+											<input value={editDesc} aria-label={t("settingsTeam.descriptionPlaceholder")} onChange={(e) => setEditDesc(e.target.value)} placeholder={t("settingsTeam.descriptionPlaceholder")} className="w-full rounded-lg border border-[var(--border)] bg-[var(--surface)] px-2 py-1 text-xs" />
 										</div>
 									) : (
 										<>
@@ -271,8 +271,8 @@ export function TeamWorkspaceSection({ canManage }: { canManage: boolean }) {
 				<div className="grid gap-4 border-t border-[var(--border-subtle)] pt-4 md:grid-cols-2">
 					<div className="space-y-2">
 						<h3 className="text-sm font-semibold text-[var(--text-primary)]">{t("settingsTeam.createTitle")}</h3>
-						<input value={name} onChange={(e) => setName(e.target.value)} placeholder={t("settingsTeam.namePlaceholder")} className="w-full rounded-xl border border-[var(--border)] bg-[var(--surface)] px-3 py-2 text-sm" />
-						<input value={slug} onChange={(e) => setSlug(e.target.value)} placeholder={t("settingsTeam.slugPlaceholder")} className="w-full rounded-xl border border-[var(--border)] bg-[var(--surface)] px-3 py-2 text-sm" />
+						<input value={name} aria-label={t("settingsTeam.namePlaceholder")} onChange={(e) => setName(e.target.value)} placeholder={t("settingsTeam.namePlaceholder")} className="w-full rounded-xl border border-[var(--border)] bg-[var(--surface)] px-3 py-2 text-sm" />
+						<input value={slug} aria-label={t("settingsTeam.slugPlaceholder")} onChange={(e) => setSlug(e.target.value)} placeholder={t("settingsTeam.slugPlaceholder")} className="w-full rounded-xl border border-[var(--border)] bg-[var(--surface)] px-3 py-2 text-sm" />
 						<button type="button" disabled={busy || !name.trim()} onClick={createTeam} data-tone="accent" className="min-h-10 rounded-xl bg-[var(--accent)] text-[var(--color-action-fg)] px-4 py-2 text-sm font-medium disabled:opacity-60 hover:opacity-90 transition">{t("settingsTeam.createButton")}</button>
 					</div>
 					<div className="space-y-2">
@@ -280,7 +280,7 @@ export function TeamWorkspaceSection({ canManage }: { canManage: boolean }) {
 						<select value={targetTeamId} onChange={(e) => setTargetTeamId(e.target.value)} className="w-full rounded-xl border border-[var(--border)] bg-[var(--surface)] px-3 py-2 text-sm">
 							{teams.map((team) => <option key={team.id} value={team.id}>{team.name}</option>)}
 						</select>
-						<input value={memberUsername} onChange={(e) => setMemberUsername(e.target.value)} placeholder={t("settingsTeam.usernamePlaceholder")} className="w-full rounded-xl border border-[var(--border)] bg-[var(--surface)] px-3 py-2 text-sm" />
+						<input value={memberUsername} aria-label={t("settingsTeam.usernamePlaceholder")} onChange={(e) => setMemberUsername(e.target.value)} placeholder={t("settingsTeam.usernamePlaceholder")} className="w-full rounded-xl border border-[var(--border)] bg-[var(--surface)] px-3 py-2 text-sm" />
 						<select value={memberRole} onChange={(e) => setMemberRole(e.target.value as "admin" | "member")} className="w-full rounded-xl border border-[var(--border)] bg-[var(--surface)] px-3 py-2 text-sm">
 							<option value="member">member</option>
 							<option value="admin">admin</option>
