@@ -7,6 +7,7 @@ import {
   buildSshParamsFromServer,
   createRemoteDirectory,
 } from "@/lib/ssh/client";
+import { requireApprovedSshHostKey } from "@/lib/ssh/host-key";
 import { encryptServerPasswordIfPlain } from "@/lib/ssh/ssh-key-crypto";
 import { normalizeServerInput } from "./config";
 import { SERVER_PROFILE_INCLUDE } from "./service-profile-includes";
@@ -34,6 +35,7 @@ export async function createServerProfile(input: CreateServerInput) {
     fingerprint?: string | null;
     publicKey?: string | null;
     privateKey?: string | null;
+    passphrase?: string | null;
     createdAt?: Date | string;
   } | null = null;
 
@@ -75,6 +77,7 @@ export async function createServerProfile(input: CreateServerInput) {
     costAutoSync: normalized.costAutoSync,
     costMonthlyAmount: normalized.costMonthlyAmount ? new Prisma.Decimal(normalized.costMonthlyAmount) : null,
     costCurrency: normalized.costCurrency,
+    hostKeySha256: null,
     costProvider: normalized.costProvider,
     costLastSyncedAt: null,
     storageNode: null,
@@ -82,6 +85,20 @@ export async function createServerProfile(input: CreateServerInput) {
     createdAt: new Date(),
     updatedAt: new Date(),
   };
+  const pendingSsh = await buildSshParamsFromServer(
+    pendingServerForPreflight,
+    pendingServerForPreflight.sshKey
+      ? {
+          privateKey: pendingServerForPreflight.sshKey.privateKey ?? null,
+          passphrase: pendingServerForPreflight.sshKey.passphrase ?? null,
+        }
+      : null,
+  );
+  const hostKeySha256 = await requireApprovedSshHostKey({
+    ssh: pendingSsh,
+    approvedHostKeySha256: payload.approvedHostKeySha256 || payload.hostKeySha256,
+  });
+  pendingServerForPreflight.hostKeySha256 = hostKeySha256;
   await verifyServerSshConnectivity(normalized, pendingServerForPreflight);
 
   const server = await prisma.server.create({
@@ -93,6 +110,7 @@ export async function createServerProfile(input: CreateServerInput) {
       description: normalized.description,
       tags: normalized.tags,
       connectionType: normalized.connectionType,
+      hostKeySha256,
       sshKeyId:
         normalized.connectionType === "SSH_KEY" ? normalized.sshKeyId! : null,
       password:
@@ -126,6 +144,7 @@ export async function createServerProfile(input: CreateServerInput) {
       serverId: isLocalHost ? null : server.id,
       directAccessMode: "PROXY",
       publicBaseUrl: null,
+      hostKeySha256,
     },
   });
 
@@ -214,6 +233,7 @@ export async function updateServerProfile(
     fingerprint?: string | null;
     publicKey?: string | null;
     privateKey?: string | null;
+    passphrase?: string | null;
     createdAt?: Date | string;
   } | null = current.sshKey ?? null;
 
@@ -260,7 +280,24 @@ export async function updateServerProfile(
         : current.password,
     sshKey: normalized.connectionType === "SSH_KEY" ? updateSshKey : null,
   };
+  let hostKeySha256 = current.hostKeySha256 ?? null;
   if (connectionChanged) {
+    const nextSsh = await buildSshParamsFromServer(
+      nextServerForPreflight,
+      nextServerForPreflight.sshKey
+        ? {
+            privateKey: nextServerForPreflight.sshKey.privateKey ?? null,
+            passphrase: nextServerForPreflight.sshKey.passphrase ?? null,
+          }
+        : null,
+    );
+    hostKeySha256 = await requireApprovedSshHostKey({
+      ssh: nextSsh,
+      pinnedHostKeySha256:
+        normalized.host === current.host && normalized.port === current.port ? current.hostKeySha256 : null,
+      approvedHostKeySha256: input.approvedHostKeySha256 || input.hostKeySha256,
+    });
+    nextServerForPreflight.hostKeySha256 = hostKeySha256;
     await verifyServerSshConnectivity(normalized, nextServerForPreflight);
   }
 
@@ -272,6 +309,7 @@ export async function updateServerProfile(
       port: normalized.port,
       username: normalized.username,
       connectionType: normalized.connectionType,
+      hostKeySha256,
       sshKeyId:
         normalized.connectionType === "SSH_KEY" ? normalized.sshKeyId! : null,
       password:

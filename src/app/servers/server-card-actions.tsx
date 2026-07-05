@@ -328,6 +328,22 @@ export function ServerCardActions({
               defaultValue={username}
               className="w-full rounded-lg border border-[var(--border)] bg-[var(--surface-subtle)] px-3 py-2 text-sm text-[var(--text-primary)]"
             />{" "}
+            <label className="grid gap-2 rounded-xl border border-[var(--warning-border)] bg-[var(--warning-bg)] p-3 text-xs text-[var(--text-secondary)]" htmlFor={`edit-host-key-${serverId}`}>
+              <span className="block font-medium text-[var(--text-primary)]">
+                {t("serverCardActions.edit.hostKeyTrustTitle")}
+              </span>
+              <span className="block text-[11px] text-[var(--text-muted)]">
+                {t("serverCardActions.edit.hostKeyTrustDesc")}
+              </span>
+              <input
+                id={`edit-host-key-${serverId}`}
+                name="approvedHostKeySha256"
+                type="text"
+                defaultValue={editState.hostKeySha256 ?? ""}
+                placeholder="SHA256:..."
+                className="w-full rounded-lg border border-[var(--warning-border)] bg-[var(--input-bg)] px-3 py-2 font-mono text-xs text-[var(--text-primary)]"
+              />
+            </label>{" "}
             {connectionType === "PASSWORD" ? (
               <>
                 {" "}

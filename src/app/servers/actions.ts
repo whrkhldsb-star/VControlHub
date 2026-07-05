@@ -12,11 +12,13 @@ import {
   updateServerProfile,
 } from "@/lib/server/service";
 import { getServerLocale, t } from "@/lib/i18n/translations";
+import { SshHostKeyApprovalRequiredError } from "@/lib/ssh/host-key";
 
 export type ServerActionState = {
   error?: string;
   success?: string;
   relatedStorageCount?: number;
+  hostKeySha256?: string;
 };
 
 function parseTags(raw: string) {
@@ -58,6 +60,7 @@ export async function createServerAction(
     const costMonthlyAmount = String(formData.get("costMonthlyAmount") ?? "");
     const costCurrency = String(formData.get("costCurrency") ?? "CNY") as "CNY" | "USD" | "EUR" | "JPY" | "HKD";
     const costProvider = String(formData.get("costProvider") ?? "");
+    const approvedHostKeySha256 = String(formData.get("approvedHostKeySha256") ?? "") || undefined;
 
     const created = await createServerProfile({
       name,
@@ -76,6 +79,7 @@ export async function createServerAction(
       costMonthlyAmount,
       costCurrency,
       costProvider,
+      approvedHostKeySha256,
     });
 
     revalidatePath("/");
@@ -92,6 +96,7 @@ export async function createServerAction(
   } catch (error) {
     return {
       error: error instanceof Error ? error.message : tr("serversPage.action.createFailed"),
+      ...(error instanceof SshHostKeyApprovalRequiredError ? { hostKeySha256: error.hostKeySha256 } : {}),
     } as ServerActionState;
   }
 }
@@ -110,6 +115,7 @@ export async function updateServerAction(
     ) as "SSH_KEY" | "PASSWORD";
     const password = String(formData.get("password") ?? "");
     const sshKeyId = String(formData.get("sshKeyId") ?? "");
+    const approvedHostKeySha256 = String(formData.get("approvedHostKeySha256") ?? "") || undefined;
 
     await updateServerProfile(serverId, {
       name: String(formData.get("name") ?? ""),
@@ -127,6 +133,7 @@ export async function updateServerAction(
       costMonthlyAmount: String(formData.get("costMonthlyAmount") ?? ""),
       costCurrency: String(formData.get("costCurrency") ?? "CNY") as "CNY" | "USD" | "EUR" | "JPY" | "HKD",
       costProvider: String(formData.get("costProvider") ?? ""),
+      approvedHostKeySha256,
     });
 
     revalidatePath("/");
@@ -138,6 +145,7 @@ export async function updateServerAction(
   } catch (error) {
     return {
       error: error instanceof Error ? error.message : tr("serversPage.action.updateFailed"),
+      ...(error instanceof SshHostKeyApprovalRequiredError ? { hostKeySha256: error.hostKeySha256 } : {}),
     } as ServerActionState;
   }
 }

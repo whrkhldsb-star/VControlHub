@@ -2,6 +2,7 @@ export const SERVER_PROFILE_INCLUDE = {
   sshKey: {
     select: {
       id: true,
+      hostKeySha256: true,
       name: true,
       fingerprint: true,
       publicKey: true,

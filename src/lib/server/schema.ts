@@ -33,6 +33,8 @@ export const createServerSchema = z
     connectionType: z.enum(["SSH_KEY", "PASSWORD"]).default("SSH_KEY"),
     sshKeyId: z.string().trim().optional(),
     password: z.string().trim().optional(),
+    hostKeySha256: z.string().trim().max(128, "SSH 主机指纹过长").optional().or(z.literal("")),
+    approvedHostKeySha256: z.string().trim().max(128, "SSH 主机指纹确认值过长").optional().or(z.literal("")),
     description: z
       .string()
       .trim()

@@ -44,6 +44,7 @@ export type ServerWithRelations = {
     fingerprint?: string | null;
     publicKey?: string | null;
     privateKey?: string | null;
+    passphrase?: string | null;
     createdAt?: Date | string;
   } | null;
   storageNode?: {
@@ -61,6 +62,7 @@ export type ServerWithRelations = {
   // TR-041: OS dialect adaptation layer
   osDialect?: string | null;
   osInfo?: string | null;
+  hostKeySha256?: string | null;
   // TR-031: monthly VPS cost auto-sync settings
   costAutoSync?: boolean;
   costMonthlyAmount?: Prisma.Decimal | null;
@@ -210,7 +212,7 @@ export async function verifyServerSshConnectivity(
   normalized: NormalizedServerInput,
   serverLike: Pick<
     ServerWithRelations,
-    "host" | "port" | "username" | "password" | "connectionType" | "sshKeyId"
+    "host" | "port" | "username" | "password" | "connectionType" | "sshKeyId" | "hostKeySha256"
   > & {
     sshKey?: { privateKey?: string | null; passphrase?: string | null } | null;
   },
@@ -250,6 +252,7 @@ export function enrichServer(server: ServerWithRelations) {
     host: server.host,
     port: server.port,
     username: server.username,
+    hostKeySha256: server.hostKeySha256 ?? null,
     sshKeyId: server.sshKeyId,
     password: server.password ? "••••••••" : null,
     description: server.description,

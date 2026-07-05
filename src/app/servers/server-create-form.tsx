@@ -341,6 +341,27 @@ export function ServerCreateForm({
         </div>{" "}
       </div>{" "}
       <ConnectionTypeFields sshKeys={sshKeys} />{" "}
+      <div className="rounded-xl border border-[var(--warning-border)] bg-[var(--warning-bg)] p-4 text-sm text-[var(--text-secondary)]">
+        <label className="block space-y-2" htmlFor="approvedHostKeySha256">
+          <span className="block font-medium text-[var(--text-primary)]">
+            {t("serversPage.create.hostKeyTrustTitle")}
+          </span>
+          <span className="block text-xs text-[var(--text-secondary)]">
+            {t("serversPage.create.hostKeyTrustDesc")}
+          </span>
+          <input
+            id="approvedHostKeySha256"
+            name="approvedHostKeySha256"
+            type="text"
+            defaultValue={state.hostKeySha256 ?? ""}
+            placeholder="SHA256:..."
+            className="mt-2 w-full rounded-lg border border-[var(--warning-border)] bg-[var(--input-bg)] px-3 py-2 font-mono text-xs text-[var(--text-primary)]"
+          />
+          <span className="block text-xs text-[var(--warning)]">
+            {t("serversPage.create.hostKeyTrustHint")}
+          </span>
+        </label>
+      </div>{" "}
       <div className="space-y-1.5">
         {" "}
         <label

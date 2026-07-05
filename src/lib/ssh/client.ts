@@ -11,6 +11,10 @@ export type SshConnectionParams = {
   passphrase?: string;
   password?: string;
   hostKeySha256?: string | null;
+  /** Capture the remote SHA256 host key hash during TOFU discovery. */
+  onHostKeySha256?: (fingerprint: string) => void;
+  /** Abort immediately after host-key capture so first-contact TOFU never sends credentials. */
+  rejectUnknownHostKeyAfterCapture?: boolean;
 };
 
 export type SftpListEntry = {
@@ -45,9 +49,13 @@ function createSshConfig(input: SshConnectionParams): ConnectConfig {
  }
 
  const expectedHostKey = normalizeHostKeySha256(input.hostKeySha256);
- if (expectedHostKey) {
+ if (expectedHostKey || input.onHostKeySha256) {
   config.hostHash = "sha256";
-  config.hostVerifier = (hashedKey: string) => hashedKey === expectedHostKey;
+  config.hostVerifier = (hashedKey: string) => {
+   input.onHostKeySha256?.(`SHA256:${hashedKey}`);
+   if (expectedHostKey) return hashedKey === expectedHostKey;
+   return !input.rejectUnknownHostKeyAfterCapture;
+  };
  }
 
  return config;
