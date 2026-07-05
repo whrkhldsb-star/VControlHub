@@ -3,14 +3,10 @@
 import { useState, useEffect, useRef, useCallback, useMemo, useReducer } from "react";
 import { csrfFetch } from "@/lib/auth/csrf-client";
 import { useI18n } from "@/lib/i18n/use-locale";
-import { FindBarLazy } from "./find-bar-lazy";
-import { EditorFindBar } from "./editor-find-bar";
 import { DiffReviewDialog } from "./diff-review-dialog";
 import {
 	getLangFromName,
 	highlightLine,
-	escapeHtml,
-	escapeRegex,
 	buildLineDiff,
 } from "./syntax-highlighter";
 import type {
@@ -21,7 +17,10 @@ import type {
 	SaveResponse,
 } from "./text-preview-types";
 import { INITIAL_PREVIEW_META, INITIAL_EDITOR_FIND } from "./text-preview-types";
-import { countMatches, TAB_INDENT, langLabel } from "./text-preview-helpers";
+import { countMatches, TAB_INDENT } from "./text-preview-helpers";
+import { TextPreviewBody, TextPreviewToolbar } from "./text-preview-renderers";
+import { TextPreviewError, TextPreviewLoading } from "./text-preview-states";
+import { highlightSearchTerm } from "./text-preview-highlight";
 
 export function TextPreviewClient({
 	href,
@@ -404,143 +403,55 @@ export function TextPreviewClient({
 	}, [performSave, serverId, reloadUnit, reloadKind, relativePath, setSaveMessage, setSaveStatus, setReloadMessage, t]);
 
 	if (state.loading) {
-		return (
-			<div className="flex items-center justify-center py-16 text-[var(--text-secondary)]">
-				<span className="animate-pulse text-sm">{t("textPreview.loading")}</span>
-			</div>
-		);
+		return <TextPreviewLoading label={t("textPreview.loading")} />;
 	}
 
 	if (state.error) {
-		return (
-			<div className="flex flex-col items-center gap-3 py-16 text-[var(--danger)]">
-				<span className="text-3xl">⚠️</span>
-				<p className="text-sm">{state.error}</p>
-			</div>
-		);
+		return <TextPreviewError message={state.error} />;
 	}
 
 	if (!sanitizeHighlight) {
-		return (
-			<div className="flex items-center justify-center py-16 text-[var(--text-secondary)]">
-				<span className="animate-pulse text-sm">{t("textPreview.loading")}</span>
-			</div>
-		);
+		return <TextPreviewLoading label={t("textPreview.loading")} />;
 	}
 
 	const lines = currentContent.split("\n");
 	const totalLines = lines.length;
 	const hasUnsavedChanges = draft !== currentContent;
-	const highlightSearch = (html: string): string => {
-		if (!searchQuery.trim()) return html;
-		try {
-			const escapedQuery = escapeHtml(searchQuery);
-			const escaped = escapeRegex(escapedQuery);
-			return html.replace(new RegExp(`(${escaped})`, "gi"), '<mark class="bg-[var(--warning-bg)] text-[var(--warning)] rounded-lg px-0.5">$1</mark>');
-		} catch {
-			return html;
-		}
-	};
+	const highlightSearch = (html: string): string => highlightSearchTerm(html, searchQuery);
 
 	return (
 		<div className="space-y-3">
-			<div className="flex flex-wrap items-center gap-2">
-				<span className="rounded-full bg-[var(--color-action-bg)] px-3 py-1 text-xs font-medium text-[var(--color-action)] border border-[var(--color-action-border)]/30">
-					{langLabel(t, lang)}
-				</span>
-				<span className="text-xs text-[var(--text-muted)]">{t("textPreview.linesCount").replace("{count}", String(totalLines))}</span>
-				{canEdit ? (
-					<span data-tone="emerald" className="rounded-lg border border-[var(--success-border)] px-3 py-1 text-xs text-[var(--success)]">
-						{t("textPreview.editHint")}
-					</span>
-				) : null}
-				{saveMessage ? (
-					<span
-						role={saveStatus === "error" ? "alert" : "status"}
-						className={`text-xs ${saveStatus === "error" ? "text-[var(--danger)]" : "text-[var(--success)]"}`}
-					>
-						{saveMessage}
-						{reloadMessage ? (
-							<span className="ml-2 text-[var(--text-secondary)]">· {reloadMessage}</span>
-						) : null}
-					</span>
-				) : null}
-				<div className="flex-1" />
-				{canEdit ? (
-					<div className="flex items-center gap-1">
-						{editMode ? (
-							<>
-								<button
-									type="button"
-									onClick={() => setShowDiffReview(true)}
-									disabled={saveStatus === "saving" || saveStatus === "reloading" || !hasUnsavedChanges}
-									data-tone="emerald" className="rounded-lg border border-[var(--success-border)] px-3 py-1.5 text-xs text-[var(--success)] hover:bg-[var(--success-bg)] disabled:opacity-50"
-								>
-									{saveStatus === "saving" ? t("textPreview.button.saving") : t("textPreview.button.previewSave")}
-								</button>
-								{canReloadAfterSave ? (
-									<button
-										type="button"
-										onClick={handleSaveAndReload}
-										disabled={saveStatus === "saving" || saveStatus === "reloading" || !hasUnsavedChanges}
-										data-tone="amber" className="rounded-lg border border-[var(--warning-border)] px-3 py-1.5 text-xs text-[var(--warning)] hover:bg-[var(--warning-bg)] disabled:opacity-50"
-										title={reloadKind === "systemd"
-											? t("textPreview.reloadHint.systemd").replace("{unit}", reloadUnit ?? "")
-											: t("textPreview.reloadHint.docker").replace("{unit}", reloadUnit ?? "")}
-										>
-										{saveStatus === "saving"
-											? t("textPreview.button.saving")
-											: saveStatus === "reloading"
-												? t("textPreview.button.reloading")
-												: t("textPreview.button.saveAndReload").replace("{unit}", reloadUnit ?? "")}
-										</button>
-								) : null}
-								<button
-									type="button"
-									onClick={() => {
-										setDraft(currentContent);
-										setEditMode(false);
-										setShowDiffReview(false);
-										setSaveStatus("idle");
-										setSaveMessage("");
-										setReloadMessage("");
-									}}
-									disabled={saveStatus === "saving" || saveStatus === "reloading"}
-									className="rounded-lg border border-[var(--border)] bg-[var(--surface)] px-3 py-1.5 text-xs text-[var(--text-secondary)] hover:bg-[var(--surface-hover)] light:hover:bg-[var(--surface-hover)] disabled:opacity-50"
-								>
-									{t("textPreview.button.cancel")}
-								</button>
-								<button
-									type="button"
-									onClick={() => setEditorFind({ open: true, query: "", total: 0, current: 0 })}
-									aria-label={t("textPreview.editor.findToggle")}
-									title={t("textPreview.editor.findToggle")}
-									className="rounded-lg border border-[var(--border)] bg-[var(--surface)] px-3 py-1.5 text-xs text-[var(--text-secondary)] hover:bg-[var(--surface-hover)] light:hover:bg-[var(--surface-hover)]"
-								>
-									🔍
-								</button>
-								</>
-						) : (
-							<button
-								type="button"
-								onClick={() => setEditMode(true)}
-								data-tone="cyan" className="rounded-lg border border-[var(--color-action-border)]/30 px-3 py-1.5 text-xs text-[var(--text-primary)] hover:bg-[var(--color-action-bg)]/20"
-							>
-								{t("textPreview.button.edit")}
-							</button>
-						)}
-					</div>
-				) : null}
-				{!editMode ? (
-					<FindBarLazy
-						searchQuery={searchQuery}
-						onSearchQueryChange={setSearchQuery}
-						jumpLine={jumpLine}
-						onJumpLineChange={setJumpLine}
-						onJumpToLine={handleJumpToLine}
-					/>
-				) : null}
-			</div>
+			<TextPreviewToolbar
+				t={t}
+				lang={lang}
+				totalLines={totalLines}
+				canEdit={canEdit}
+				editMode={editMode}
+				saveStatus={saveStatus}
+				saveMessage={saveMessage}
+				reloadMessage={reloadMessage}
+				hasUnsavedChanges={hasUnsavedChanges}
+				canReloadAfterSave={canReloadAfterSave}
+				reloadKind={reloadKind}
+				reloadUnit={reloadUnit}
+				searchQuery={searchQuery}
+				jumpLine={jumpLine}
+				setSearchQuery={setSearchQuery}
+				setJumpLine={setJumpLine}
+				onJumpToLine={handleJumpToLine}
+				onPreviewSave={() => setShowDiffReview(true)}
+				onSaveAndReload={handleSaveAndReload}
+				onCancelEdit={() => {
+					setDraft(currentContent);
+					setEditMode(false);
+					setShowDiffReview(false);
+					setSaveStatus("idle");
+					setSaveMessage("");
+					setReloadMessage("");
+				}}
+				onOpenEditorFind={() => setEditorFind({ open: true, query: "", total: 0, current: 0 })}
+				onEnterEditMode={() => setEditMode(true)}
+			/>
 
 			{editMode && showDiffReview ? (
 				<DiffReviewDialog
@@ -556,74 +467,32 @@ export function TextPreviewClient({
 				/>
 			) : null}
 
-			{editMode ? (
-				<div className="space-y-2">
-					{editorFind.open ? (
-						<EditorFindBar
-							inputRef={editorFindInputRef}
-							find={editorFind}
-							onQueryChange={updateEditorFindQuery}
-							onMove={moveEditorFind}
-							onClose={closeEditorFind}
-						/>
-					) : null}
-					<div
-						title={t("textPreview.editor.indentHint")}
-						className="flex min-h-[70vh] overflow-hidden rounded-2xl border border-[var(--color-action-border)]/30 bg-[var(--surface)] font-mono text-sm leading-relaxed text-[var(--text-primary)] focus-within:border-[var(--color-action-border)]"
-					>
-						<div
-							ref={gutterRef}
-							aria-hidden
-							data-testid="editor-line-gutter"
-							className="select-none overflow-hidden border-r border-[var(--border)]/[0.10] bg-[var(--surface)]/70 px-2 py-4 text-right text-[var(--text-muted)]"
-							style={{ minWidth: "3rem" }}
-						>
-							{Array.from({ length: draft.split("\n").length }, (_, i) => (
-								<div key={i} className="leading-relaxed">{i + 1}</div>
-							))}
-						</div>
-						<textarea
-							ref={editorRef}
-							aria-label={t("textPreview.editAria")}
-							value={draft}
-							onChange={(event) => {
-								setDraft(event.currentTarget.value);
-								setSaveStatus("idle");
-								setSaveMessage("");
-							}}
-							onClick={() => showDiffReview && setShowDiffReview(false)}
-							onScroll={handleEditorScroll}
-							onKeyDown={handleEditorKeyDown}
-							className="min-h-[70vh] w-full resize-none bg-[var(--surface)] p-4 font-mono text-sm leading-relaxed text-[var(--text-primary)] outline-none"
-							spellCheck={false}
-						/>
-					</div>
-				</div>
-			) : (
-				<div ref={containerRef} className="overflow-auto rounded-2xl bg-[var(--surface)] p-4 text-sm leading-relaxed max-h-[75vh]">
-					<pre className="font-mono text-[var(--text-secondary)]">
-						<code>
-							{lines.map((line, i) => {
-								let html = highlightLine(line, lang);
-								html = highlightSearch(html);
-								html = sanitizeHighlight(html);
-								return (
-									<div
-										key={i}
-										ref={(el) => { if (el) lineRef.current.set(i, el); }}
-										className="flex transition-colors duration-500"
-									>
-										<span className="mr-4 inline-block w-12 select-none text-right text-[var(--text-muted)] shrink-0">
-											{i + 1}
-										</span>
-										<span className="whitespace-pre-wrap break-all" dangerouslySetInnerHTML={{ __html: html }} />
-									</div>
-								);
-							})}
-						</code>
-					</pre>
-				</div>
-			)}
+			<TextPreviewBody
+				t={t}
+				editMode={editMode}
+				editorFind={editorFind}
+				draft={draft}
+				lines={lines}
+				lang={lang}
+				showDiffReview={showDiffReview}
+				editorFindInputRef={editorFindInputRef}
+				gutterRef={gutterRef}
+				editorRef={editorRef}
+				containerRef={containerRef}
+				lineRef={lineRef}
+				setDraft={setDraft}
+				setSaveStatus={setSaveStatus}
+				setSaveMessage={setSaveMessage}
+				setShowDiffReview={setShowDiffReview}
+				onQueryChange={updateEditorFindQuery}
+				onMove={moveEditorFind}
+				onCloseFind={closeEditorFind}
+				onEditorScroll={handleEditorScroll}
+				onEditorKeyDown={handleEditorKeyDown}
+				highlightLine={highlightLine}
+				highlightSearch={highlightSearch}
+				sanitizeHighlight={sanitizeHighlight}
+			/>
 		</div>
 	);
 }
