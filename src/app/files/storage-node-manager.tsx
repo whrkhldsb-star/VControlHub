@@ -4,6 +4,7 @@ import { useState } from "react";
 
 import { StorageNodeList } from "@/app/storage/storage-node-list";
 import { StorageNodeCreateForm } from "@/app/storage/storage-node-create-form";
+import { useI18n } from "@/lib/i18n/use-locale";
 
 type StorageNodeItem = {
 	id: string;
@@ -33,6 +34,7 @@ export function StorageNodeManager({
 	servers: Array<{ id: string; name: string; host: string }>;
 	canManageNodes: boolean;
 }) {
+	const { t } = useI18n();
 	const [expanded, setExpanded] = useState(false);
 
 	const localCount = nodes.filter((n) => n.driver === "LOCAL").length;
@@ -42,9 +44,9 @@ export function StorageNodeManager({
 		<section id="storage-nodes" className="scroll-mt-24 rounded-3xl border border-[var(--border)] bg-[var(--surface)] p-6">
 			<div className="flex items-center justify-between gap-4">
 				<div>
-					<h2 className="text-2xl font-semibold text-[var(--text-primary)]">存储节点</h2>
+					<h2 className="text-2xl font-semibold text-[var(--text-primary)]">{t("storagePage.nodes.title")}</h2>
 					<p className="mt-2 text-sm leading-7 text-[var(--text-secondary)]">
-						{nodes.length} 个节点 · 本机 {localCount} · SFTP {sftpCount}
+						{t("storagePage.nodes.summary").replace("{total}", String(nodes.length)).replace("{local}", String(localCount)).replace("{sftp}", String(sftpCount))}
 					</p>
 				</div>
 				<button
@@ -53,7 +55,7 @@ export function StorageNodeManager({
 					data-tone="accent"
 					className="rounded-lg border px-4 py-2 text-sm font-medium transition"
 				>
-					{expanded ? "收起" : "展开"}
+					{expanded ? t("common.collapse") : t("common.expand")}
 				</button>
 			</div>
 

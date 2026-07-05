@@ -88,7 +88,7 @@ export function VpsBackupSection({
 				fetch(`/api/servers/${serverId}/vps-backup/schedules`),
 				fetch(`/api/servers/${serverId}/vps-backup/records`),
 			]);
-			if (!schedRes.ok || !recRes.ok) throw new Error("Failed to fetch");
+			if (!schedRes.ok || !recRes.ok) throw new Error(t("vpsBackup.error.fetch"));
 			const [schedData, recData] = await Promise.all([
 				schedRes.json(),
 				recRes.json(),
@@ -96,7 +96,7 @@ export function VpsBackupSection({
 			setSchedules(schedData.schedules ?? []);
 			setRecords(recData.records ?? []);
 		} catch (err) {
-			setError(err instanceof Error ? err.message : "Unknown error");
+			setError(err instanceof Error ? err.message : t("vpsBackup.error.unknown"));
 		} finally {
 			setLoading(false);
 		}
@@ -118,12 +118,12 @@ export function VpsBackupSection({
 			});
 			if (!res.ok) {
 				const data = await res.json().catch(() => ({}));
-				setError(data.error ?? "Trigger failed");
+				setError(data.error ?? t("vpsBackup.error.trigger"));
 			} else {
 				await fetchAll();
 			}
 		} catch (err) {
-			setError(err instanceof Error ? err.message : "Trigger failed");
+			setError(err instanceof Error ? err.message : t("vpsBackup.error.trigger"));
 		} finally {
 			setTriggering(null);
 		}
@@ -146,7 +146,7 @@ export function VpsBackupSection({
 			});
 			if (!res.ok) {
 				const data = await res.json().catch(() => ({}));
-				setError(data.error ?? "Create failed");
+				setError(data.error ?? t("vpsBackup.error.create"));
 			} else {
 				setShowCreate(false);
 				setCreateForm({
@@ -159,7 +159,7 @@ export function VpsBackupSection({
 				await fetchAll();
 			}
 		} catch (err) {
-			setError(err instanceof Error ? err.message : "Create failed");
+			setError(err instanceof Error ? err.message : t("vpsBackup.error.create"));
 		}
 	};
 
@@ -170,7 +170,7 @@ export function VpsBackupSection({
 			});
 			await fetchAll();
 		} catch (err) {
-			setError(err instanceof Error ? err.message : "Delete failed");
+			setError(err instanceof Error ? err.message : t("vpsBackup.error.delete"));
 		}
 	};
 
@@ -181,7 +181,7 @@ export function VpsBackupSection({
 			});
 			await fetchAll();
 		} catch (err) {
-			setError(err instanceof Error ? err.message : "Delete failed");
+			setError(err instanceof Error ? err.message : t("vpsBackup.error.delete"));
 		}
 	};
 

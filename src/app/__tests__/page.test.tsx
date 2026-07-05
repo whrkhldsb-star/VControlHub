@@ -1,5 +1,6 @@
 import { render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { I18nProvider } from "@/lib/i18n/provider";
 
 vi.mock("@/lib/auth/csrf-client", () => ({
   csrfFetch: vi.fn(),
@@ -126,7 +127,7 @@ describe("Home", () => {
   });
 
   it("renders dashboard sections for servers and storage overview", async () => {
-    render(await Home());
+    render(<I18nProvider initialLocale="zh">{await Home()}</I18nProvider>);
 
     expect(screen.getByText("仪表盘")).toBeInTheDocument();
     expect(screen.getByText("VPS 状态总览")).toBeInTheDocument();

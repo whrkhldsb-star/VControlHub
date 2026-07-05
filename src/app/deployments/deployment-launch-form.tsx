@@ -100,7 +100,7 @@ export function DeploymentLaunchForm({ templates, servers }: { templates: Deploy
 		<form onSubmit={handleSubmit} className="mt-4 grid gap-4">
 			<div className="grid gap-3 md:grid-cols-2">
 				<label className="grid gap-1.5 text-xs font-medium text-[var(--text-secondary)]">
-					部署模板
+					{t("deploymentsPage.launch.templateLabel")}
 					<select
 						name="templateId"
 						value={templateId}
@@ -111,7 +111,7 @@ export function DeploymentLaunchForm({ templates, servers }: { templates: Deploy
 					</select>
 				</label>
 				<label className="grid gap-1.5 text-xs font-medium text-[var(--text-secondary)]">
-					部署原因
+					{t("deploymentsPage.launch.reasonLabel")}
 					<input name="reason" maxLength={500} placeholder={t("deploymentsPage.launch.reasonPlaceholder")} className="rounded-lg border border-[var(--border)] bg-[var(--input-bg)] px-3 py-2 text-sm text-[var(--text-primary)] placeholder:text-[var(--text-muted)]" />
 				</label>
 			</div>
@@ -128,7 +128,7 @@ export function DeploymentLaunchForm({ templates, servers }: { templates: Deploy
 						{variables.map((name) => (
 							<label key={name} className="grid gap-1.5 text-xs font-medium text-[var(--text-secondary)]">
 								{name}
-								<input name={`variables.${name}`} required placeholder={`填写 ${name}`} className="rounded-lg border border-[var(--border)] bg-[var(--input-bg)] px-3 py-2 text-sm text-[var(--text-primary)] placeholder:text-[var(--text-muted)]" />
+								<input name={`variables.${name}`} required placeholder={t("deploymentsPage.launch.variablePlaceholder").replace("{name}", name)} className="rounded-lg border border-[var(--border)] bg-[var(--input-bg)] px-3 py-2 text-sm text-[var(--text-primary)] placeholder:text-[var(--text-muted)]" />
 							</label>
 						))}
 					</div>

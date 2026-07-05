@@ -3,7 +3,7 @@
 import Link from "next/link";
 
 import { EmptyState, StatCard } from "@/components/page-shell";
-import { useLocalizedText } from "@/components/localized-text";
+import { useI18n } from "@/lib/i18n/use-locale";
 
 type DashboardServerSummary = {
   total: number;
@@ -34,8 +34,9 @@ type DashboardQueueSummary = {
 type DashboardQuickLinksProps = DashboardQueueSummary;
 
 export function DashboardLocalizedHeader({ username }: { username: string }) {
-  const title = useLocalizedText("dashboard.title", "仪表盘");
-  const currentUser = useLocalizedText("dashboard.current-user", "当前用户");
+  const { t } = useI18n();
+  const title = t("dashboard.title");
+  const currentUser = t("dashboard.current-user");
   return (
     <header className="mb-8">
       <h1 className="text-3xl font-semibold tracking-tight text-[var(--text-primary)]">{title}</h1>
@@ -45,16 +46,17 @@ export function DashboardLocalizedHeader({ username }: { username: string }) {
 }
 
 export function DashboardServerHero({ summary }: { summary: DashboardServerSummary }) {
-  const eyebrow = useLocalizedText("dashboard.server-overview", "VPS 状态总览");
-  const onlineSuffix = useLocalizedText("dashboard.online-vps-suffix", "台在线 VPS");
-  const managedPrefix = useLocalizedText("dashboard.managed-nodes-prefix", "共");
-  const managedSuffix = useLocalizedText("dashboard.managed-nodes-suffix", "台纳管节点");
-  const sshSuffix = useLocalizedText("dashboard.ssh-bound-suffix", "台绑定 SSH 密钥");
-  const gatewaySuffix = useLocalizedText("dashboard.direct-gateway-online-suffix", "台直连网关在线");
-  const cta = useLocalizedText("dashboard.manage-vps-keys", "管理 VPS 与密钥 →");
-  const onlineLabel = useLocalizedText("dashboard.online-vps", "在线 VPS");
-  const disabledLabel = useLocalizedText("dashboard.offline-disabled", "离线/停用");
-  const sshLabel = useLocalizedText("dashboard.ssh-key-bound", "SSH 密钥绑定");
+  const { t } = useI18n();
+  const eyebrow = t("dashboard.server-overview");
+  const onlineSuffix = t("dashboard.online-vps-suffix");
+  const managedPrefix = t("dashboard.managed-nodes-prefix");
+  const managedSuffix = t("dashboard.managed-nodes-suffix");
+  const sshSuffix = t("dashboard.ssh-bound-suffix");
+  const gatewaySuffix = t("dashboard.direct-gateway-online-suffix");
+  const cta = t("dashboard.manage-vps-keys");
+  const onlineLabel = t("dashboard.online-vps");
+  const disabledLabel = t("dashboard.offline-disabled");
+  const sshLabel = t("dashboard.ssh-key-bound");
 
   return (
     <section data-dashboard-widget="server-status" data-tone="cyan" className="mb-8 rounded-2xl border border-[var(--color-action-border)] p-5">
@@ -81,20 +83,21 @@ export function DashboardServerHero({ summary }: { summary: DashboardServerSumma
 }
 
 export function DashboardStatsSection({ storage, queue }: { storage: DashboardStorageSummary; queue: DashboardQueueSummary }) {
-  const coreTitle = useLocalizedText("dashboard.core-resources", "核心资源");
-  const queueTitle = useLocalizedText("dashboard.ops-queue", "运维队列");
-  const vpsNodes = useLocalizedText("dashboard.vps-nodes", "VPS 节点");
-  const enabledNodes = useLocalizedText("dashboard.enabled-nodes", "启用节点");
-  const storageNodes = useLocalizedText("dashboard.storage-nodes", "存储节点");
-  const fileEntries = useLocalizedText("dashboard.file-entries", "文件条目");
-  const pending = useLocalizedText("dashboard.pending-approvals", "待审批");
-  const downloads = useLocalizedText("dashboard.download-tasks", "下载任务");
-  const running = useLocalizedText("dashboard.running", "运行中");
-  const completed = useLocalizedText("dashboard.completed", "完成");
-  const failed = useLocalizedText("dashboard.failed", "失败");
-  const notificationScheduled = useLocalizedText("dashboard.notifications-scheduled", "通知/定时");
-  const unread = useLocalizedText("dashboard.unread", "未读");
-  const active = useLocalizedText("dashboard.active", "活跃");
+  const { t } = useI18n();
+  const coreTitle = t("dashboard.core-resources");
+  const queueTitle = t("dashboard.ops-queue");
+  const vpsNodes = t("dashboard.vps-nodes");
+  const enabledNodes = t("dashboard.enabled-nodes");
+  const storageNodes = t("dashboard.storage-nodes");
+  const fileEntries = t("dashboard.file-entries");
+  const pending = t("dashboard.pending-approvals");
+  const downloads = t("dashboard.download-tasks");
+  const running = t("dashboard.running");
+  const completed = t("dashboard.completed");
+  const failed = t("dashboard.failed");
+  const notificationScheduled = t("dashboard.notifications-scheduled");
+  const unread = t("dashboard.unread");
+  const active = t("dashboard.active");
 
   const downloadValue = queue.downloads.running > 0 ? `${queue.downloads.running} ${running}` : String(queue.downloads.running + queue.downloads.completed + queue.downloads.failed);
   const downloadDetail = queue.downloads.running > 0 ? `${queue.downloads.running} ${running} / ${queue.downloads.completed} ${completed} / ${queue.downloads.failed} ${failed}` : undefined;
@@ -123,23 +126,24 @@ export function DashboardStatsSection({ storage, queue }: { storage: DashboardSt
 }
 
 export function DashboardQuickLinks({ pendingApprovals, downloads, unreadNotifications, activeScheduledTasks }: DashboardQuickLinksProps) {
+  const { t } = useI18n();
   const labels = {
-    servers: useLocalizedText("dashboard.quick.servers", "VPS 管理"),
-    serversDesc: useLocalizedText("dashboard.quick.servers-desc", "节点纳管、SSH 密钥与命令分发"),
-    files: useLocalizedText("dashboard.quick.files", "文件管理"),
-    filesDesc: useLocalizedText("dashboard.quick.files-desc", "文件浏览、上传下载与存储节点管理"),
-    downloads: useLocalizedText("dashboard.quick.downloads", "远程下载"),
-    downloadsDesc: useLocalizedText("dashboard.quick.downloads-desc", "URL/磁力链接下载到指定 VPS"),
-    approvals: useLocalizedText("dashboard.quick.approvals", "审批中心"),
-    approvalsDesc: useLocalizedText("dashboard.quick.approvals-desc", "命令审批与执行日志"),
-    scheduled: useLocalizedText("dashboard.quick.scheduled", "定时任务"),
-    scheduledDesc: useLocalizedText("dashboard.quick.scheduled-desc", "Cron 调度与自动化命令下发"),
-    notifications: useLocalizedText("dashboard.quick.notifications", "通知中心"),
-    notificationsDesc: useLocalizedText("dashboard.quick.notifications-desc", "系统告警与操作通知"),
-    running: useLocalizedText("dashboard.running", "运行中"),
-    pending: useLocalizedText("dashboard.pending-approvals", "待审批"),
-    active: useLocalizedText("dashboard.active", "活跃"),
-    unread: useLocalizedText("dashboard.unread", "未读"),
+    servers: t("dashboard.quick.servers"),
+    serversDesc: t("dashboard.quick.servers-desc"),
+    files: t("dashboard.quick.files"),
+    filesDesc: t("dashboard.quick.files-desc"),
+    downloads: t("dashboard.quick.downloads"),
+    downloadsDesc: t("dashboard.quick.downloads-desc"),
+    approvals: t("dashboard.quick.approvals"),
+    approvalsDesc: t("dashboard.quick.approvals-desc"),
+    scheduled: t("dashboard.quick.scheduled"),
+    scheduledDesc: t("dashboard.quick.scheduled-desc"),
+    notifications: t("dashboard.quick.notifications"),
+    notificationsDesc: t("dashboard.quick.notifications-desc"),
+    running: t("dashboard.running"),
+    pending: t("dashboard.pending-approvals"),
+    active: t("dashboard.active"),
+    unread: t("dashboard.unread"),
   };
 
   return (
@@ -176,15 +180,16 @@ type DashboardCommandRequest = {
 };
 
 export function DashboardRecentActivity({ recentRequests, recentAuditLogs }: { recentRequests: DashboardCommandRequest[]; recentAuditLogs: DashboardAuditLog[] }) {
-  const approvalsTitle = useLocalizedText("dashboard.recent-approvals", "最近审批活动");
-  const auditTitle = useLocalizedText("dashboard.recent-audit", "最近操作日志");
-  const noRequests = useLocalizedText("dashboard.no-command-requests", "暂无命令请求记录。");
-  const noAudit = useLocalizedText("dashboard.no-audit-logs", "暂无审计日志。");
-  const assistant = useLocalizedText("dashboard.actor-assistant", "助手");
-  const user = useLocalizedText("dashboard.actor-user", "用户");
-  const targetPrefix = useLocalizedText("dashboard.target-prefix", "目标");
-  const targetSuffix = useLocalizedText("dashboard.target-suffix", "台");
-  const viewAll = useLocalizedText("dashboard.view-all", "查看全部 →");
+  const { t } = useI18n();
+  const approvalsTitle = t("dashboard.recent-approvals");
+  const auditTitle = t("dashboard.recent-audit");
+  const noRequests = t("dashboard.no-command-requests");
+  const noAudit = t("dashboard.no-audit-logs");
+  const assistant = t("dashboard.actor-assistant");
+  const user = t("dashboard.actor-user");
+  const targetPrefix = t("dashboard.target-prefix");
+  const targetSuffix = t("dashboard.target-suffix");
+  const viewAll = t("dashboard.view-all");
 
   return (
     <section data-dashboard-widget="audit-log" className="mt-8 grid gap-6 lg:grid-cols-2">
@@ -228,7 +233,7 @@ export function DashboardRecentActivity({ recentRequests, recentAuditLogs }: { r
               <div key={log.id} className="rounded-lg border border-[var(--border)] bg-[var(--surface)]/[0.04] px-3.5 py-2.5 transition-colors duration-150 hover:bg-[var(--surface)]/[0.04]">
                 <div className="flex items-center gap-2 text-xs">
                   <Badge color={log.severity === "WARNING" ? "amber" : log.severity === "CRITICAL" ? "rose" : "slate"}>{log.action}</Badge>
-                  <span className="min-w-0 flex-1 truncate text-[var(--text-muted)]">{log.actor?.displayName ?? log.actor?.username ?? (log.actorType === "SYSTEM" ? "系统" : log.actorType)}</span>
+                  <span className="min-w-0 flex-1 truncate text-[var(--text-muted)]">{log.actor?.displayName ?? log.actor?.username ?? (log.actorType === "SYSTEM" ? t("dashboard.actor-system") : log.actorType)}</span>
                   <time className="shrink-0 whitespace-nowrap text-[var(--text-muted)]" dateTime={log.createdAt} suppressHydrationWarning>{log.formattedCreatedAt}</time>
                 </div>
               </div>

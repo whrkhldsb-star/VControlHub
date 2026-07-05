@@ -8,6 +8,7 @@ import { DeploymentExportPanel } from "./deployment-export-panel";
 import { ResendDeployButton } from "./resend-deploy-button";
 import { RollbackDeployButton } from "./rollback-deploy-button";
 import { getServerLocale, t } from "@/lib/i18n/translations";
+import { toDateLocale } from "@/lib/i18n/locale-format";
 
 export const dynamic = "force-dynamic";
 
@@ -22,6 +23,7 @@ export default async function DeploymentsPage({ searchParams }: { searchParams?:
 
 	const session = await requireSession("/deployments");
 	const locale = await getServerLocale();
+	const dateLocale = toDateLocale(locale);
 	const tr = (key: string) => t(key, locale);
 	const trTpl = (key: string, vars: Record<string, string>) =>
 		Object.entries(vars).reduce((s, [k, v]) => s.replaceAll(`{${k}}`, v), tr(key));
@@ -91,7 +93,7 @@ export default async function DeploymentsPage({ searchParams }: { searchParams?:
 						<div>
 							<p className="text-xs font-semibold uppercase tracking-[0.2em] text-[var(--success)]0/70">{tr("deploymentsPage.page.latestDeploy.eyebrow")}</p>
 							<h2 className="mt-1 text-sm font-semibold text-[var(--text-primary)]">{tr("deploymentsPage.page.latestDeploy.heading")}{latestRun.template.name}</h2>
-							<p className="mt-1 text-xs text-[var(--text-secondary)]">{trTpl("deploymentsPage.page.latestDeploy.meta", { count: String(latestRun.serverIds.length), date: latestRun.createdAt.toLocaleString("zh-CN"), snapshot: latestRun.snapshotId || tr("deploymentsPage.page.latestDeploy.snapshotPending") })}</p>
+							<p className="mt-1 text-xs text-[var(--text-secondary)]">{trTpl("deploymentsPage.page.latestDeploy.meta", { count: String(latestRun.serverIds.length), date: latestRun.createdAt.toLocaleString(dateLocale), snapshot: latestRun.snapshotId || tr("deploymentsPage.page.latestDeploy.snapshotPending") })}</p>
 						</div>
 						<span className={`rounded-full border px-2.5 py-1 text-xs ${deploymentStatusTone(latestRun.status)}`}>{latestRun.status}</span>
 					</div>
@@ -102,7 +104,7 @@ export default async function DeploymentsPage({ searchParams }: { searchParams?:
 							templateId={latestRun.templateId}
 							variables={latestRun.variables as Record<string, string> | null}
 							serverIds={latestRun.serverIds}
-							reason={`重新提交部署：${latestRun.template.name}`}
+							reason={trTpl("deploymentsPage.resend.reasonLatest", { name: latestRun.template.name })}
 							label={tr("deploymentsPage.launch.title")}
 						/>
 						<span className="text-xs text-[var(--text-muted)]">{tr("deploymentsPage.page.latestDeploy.help")}</span>
@@ -117,7 +119,7 @@ export default async function DeploymentsPage({ searchParams }: { searchParams?:
 							<div className="flex items-center justify-between gap-3">
 								<div>
 									<h3 className="text-sm font-medium text-[var(--text-primary)]">{r.template.name}</h3>
-									<p className="mt-1 text-xs text-[var(--text-muted)]">{trTpl("deploymentsPage.page.runsSection.meta", { count: String(r.serverIds.length), date: r.createdAt.toLocaleString("zh-CN"), request: r.commandRequestId || tr("deploymentsPage.page.runsSection.requestPending") })}</p>
+									<p className="mt-1 text-xs text-[var(--text-muted)]">{trTpl("deploymentsPage.page.runsSection.meta", { count: String(r.serverIds.length), date: r.createdAt.toLocaleString(dateLocale), request: r.commandRequestId || tr("deploymentsPage.page.runsSection.requestPending") })}</p>
 								</div>
 								<span className={`rounded-lg border px-2 py-1 text-xs ${deploymentStatusTone(r.status)}`}>{r.status}</span>
 							</div>
@@ -125,7 +127,7 @@ export default async function DeploymentsPage({ searchParams }: { searchParams?:
 							{r.snapshot?.rollbackCommand && <code data-tone="emerald" className="mt-2 block overflow-auto rounded-lg border border-[var(--success-border)] p-3 font-mono text-xs text-[var(--success)] light:border-[var(--success-border)] light:bg-[var(--success)]">{tr("deploymentsPage.page.runsSection.rollback")}{r.snapshot.rollbackCommand}</code>}
 							{r.rollbackAttempts?.length > 0 && (
 								<div data-tone="emerald" className="mt-2 rounded-lg border border-[var(--success-border)] px-3 py-2 text-xs text-[var(--success)]">
-									{trTpl("deploymentsPage.page.runsSection.rollbackMeta", { status: r.rollbackAttempts[0]!.status, request: r.rollbackAttempts[0]!.commandRequestId || tr("deploymentsPage.page.runsSection.requestPending"), date: r.rollbackAttempts[0]!.createdAt.toLocaleString("zh-CN") })}
+									{trTpl("deploymentsPage.page.runsSection.rollbackMeta", { status: r.rollbackAttempts[0]!.status, request: r.rollbackAttempts[0]!.commandRequestId || tr("deploymentsPage.page.runsSection.requestPending"), date: r.rollbackAttempts[0]!.createdAt.toLocaleString(dateLocale) })}
 								</div>
 							)}
 							{r.errorMessage && <p className="mt-2 text-xs text-[var(--danger)]">{r.errorMessage}</p>}
@@ -136,8 +138,8 @@ export default async function DeploymentsPage({ searchParams }: { searchParams?:
 										templateId={r.templateId}
 										variables={r.variables as Record<string, string> | null}
 										serverIds={r.serverIds}
-										reason={`回退重发：${r.template.name}`}
-										label="按此记录重发"
+										reason={trTpl("deploymentsPage.resend.reasonFromRecord", { name: r.template.name })}
+										label={tr("deploymentsPage.resend.triggerBtn")}
 									/>
 								</div>
 							)}

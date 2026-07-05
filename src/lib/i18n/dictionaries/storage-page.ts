@@ -3,6 +3,8 @@
  */
 export const zh: Record<string, string> = {
 	"storagePage.list.empty": "暂无存储节点。",
+	"storagePage.nodes.title": "存储节点",
+	"storagePage.nodes.summary": "{total} 个节点 · 本机 {local} · SFTP {sftp}",
 
 	"storagePage.list.health": "健康",
 
@@ -57,6 +59,7 @@ export const zh: Record<string, string> = {
 	"storagePage.action.updateNodeFailed": "更新存储节点失败",
 	"storagePage.action.deleteNodeSuccess": "存储节点已删除。",
 	"storagePage.action.deleteNodeFailed": "删除存储节点失败",
+	"storagePage.delete.confirmNode": "确认删除「{name}」？",
 
 	"storagePage.action.physicalFileDeleteFailed": "物理文件删除失败",
 
@@ -90,6 +93,8 @@ export const zh: Record<string, string> = {
 
 export const en: Record<string, string> = {
 	"storagePage.list.empty": "No storage nodes yet.",
+	"storagePage.nodes.title": "Storage nodes",
+	"storagePage.nodes.summary": "{total} node(s) · Local {local} · SFTP {sftp}",
 
 	"storagePage.list.health": "Healthy",
 
@@ -144,6 +149,7 @@ export const en: Record<string, string> = {
 	"storagePage.action.updateNodeFailed": "Failed to update storage node",
 	"storagePage.action.deleteNodeSuccess": "Storage node deleted.",
 	"storagePage.action.deleteNodeFailed": "Failed to delete storage node",
+	"storagePage.delete.confirmNode": "Delete “{name}”?",
 
 	"storagePage.action.physicalFileDeleteFailed": "Physical file deletion failed",
 

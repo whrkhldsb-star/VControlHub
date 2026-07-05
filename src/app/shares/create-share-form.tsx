@@ -36,7 +36,7 @@ export function CreateShareForm({ nodes }: { nodes: StorageNode[] }) {
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     } catch {
-      /* clipboard 不可用时静默，用户仍可手动复制下方文本 */
+      /* Clipboard may be unavailable; the URL remains visible for manual copy. */
     }
   };
 
@@ -83,7 +83,7 @@ export function CreateShareForm({ nodes }: { nodes: StorageNode[] }) {
               <h3 className="text-sm font-semibold text-[var(--text-primary)]">{t("sharesPage.create.advancedTitle")}</h3>
               <p className="mt-1 text-xs text-[var(--text-muted)]">{t("sharesPage.create.desc")}</p>
             </div>
-            <button onClick={() => { setOpen(false); setResult(null); setError(""); }} className="text-xs text-[var(--text-muted)] hover:text-[var(--text-secondary)]">收起</button>
+            <button onClick={() => { setOpen(false); setResult(null); setError(""); }} className="text-xs text-[var(--text-muted)] hover:text-[var(--text-secondary)]">{t("common.collapse")}</button>
           </div>
 
           <div className="grid gap-3 sm:grid-cols-2">
@@ -95,7 +95,7 @@ export function CreateShareForm({ nodes }: { nodes: StorageNode[] }) {
             </div>
             <div>
               <label className="block text-xs text-[var(--text-secondary)] mb-1" htmlFor="createSharePath">{t("sharesPage.create.path")}</label>
-              <input id="createSharePath" value={path} onChange={(e) => setPath(e.target.value)} placeholder={entryType === "DIRECTORY" ? "如 /public 或 /docs" : "如 /docs/readme.md"} data-input className="w-full rounded-lg border px-3 py-2 text-sm outline-none" />
+              <input id="createSharePath" value={path} onChange={(e) => setPath(e.target.value)} placeholder={entryType === "DIRECTORY" ? t("sharesPage.create.pathPlaceholderDirectory") : t("sharesPage.create.pathPlaceholderFile")} data-input className="w-full rounded-lg border px-3 py-2 text-sm outline-none" />
             </div>
             <div>
               <label className="block text-xs text-[var(--text-secondary)] mb-1" htmlFor="createShareEntryType">{t("sharesPage.create.entryType")}</label>
@@ -133,7 +133,7 @@ export function CreateShareForm({ nodes }: { nodes: StorageNode[] }) {
                   {copied ? t("sharesPage.create.copied") : t("sharesPage.create.copy")}
                 </button>
               </div>
-              <p className="mt-1 text-[10px] text-[var(--text-muted)]">{t("sharesPage.create.tokenWarning")}，数据库仅存储哈希，无法再次查看。</p>
+              <p className="mt-1 text-[10px] text-[var(--text-muted)]">{t("sharesPage.create.tokenWarning")}</p>
             </div>
           )}
 

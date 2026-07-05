@@ -68,7 +68,7 @@ export function TrafficSparkline({
 				style={{ height }}
 				data-traffic-sparkline-empty
 			>
-				{labels.empty ?? "采集中…多个数据点后将显示走势"}
+				{labels.empty ?? "Collecting… trend appears after multiple samples"}
 			</div>
 		);
 	}
@@ -115,7 +115,7 @@ export function TrafficSparkline({
 				</div>
 				<span className="text-[var(--text-muted)]">
 					{labels.windowHint?.replace("{count}", String(samples.length)) ??
-						`${samples.length} 个样本`}
+						`${samples.length} samples`}
 				</span>
 			</div>
 			<svg

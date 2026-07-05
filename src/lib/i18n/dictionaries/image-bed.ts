@@ -6,6 +6,7 @@
  */
 
 export const zh: Record<string, string> = {
+	"imageBed.preview.copyLink": "复制外链",
 	"imageBed.toast.batchError": "批量操作出错",
 	"imageBed.toast.copyFailed": "复制失败",
 	"imageBed.toast.deleteError": "删除出错",
@@ -23,6 +24,7 @@ export const zh: Record<string, string> = {
 };
 
 export const en: Record<string, string> = {
+	"imageBed.preview.copyLink": "Copy link",
 	"imageBed.toast.batchError": "Batch operation failed",
 	"imageBed.toast.copyFailed": "Copy failed",
 	"imageBed.toast.deleteError": "Delete failed",

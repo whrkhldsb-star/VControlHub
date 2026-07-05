@@ -1,14 +1,15 @@
 "use client";
 
 import { useState, type ReactNode } from "react";
+import { useI18n } from "@/lib/i18n/use-locale";
 
 type PanelKey = "nodes" | "create" | "sshkeys" | "batch";
 
-const actions: { key: PanelKey; label: string }[] = [
-	{ key: "nodes", label: "VPS 总览" },
-	{ key: "create", label: "添加 VPS" },
-	{ key: "sshkeys", label: "添加密钥" },
-	{ key: "batch", label: "批量操作" },
+const actions: { key: PanelKey; labelKey: string }[] = [
+	{ key: "nodes", labelKey: "serversPage.tabs.overview" },
+	{ key: "create", labelKey: "serversPage.tabs.addVps" },
+	{ key: "sshkeys", labelKey: "serversPage.tabs.addKey" },
+	{ key: "batch", labelKey: "serversPage.tabs.batch" },
 ];
 
 export function ServerTabLayout({
@@ -22,6 +23,7 @@ export function ServerTabLayout({
 	sshKeysPanel: ReactNode;
 	batchPanel?: ReactNode;
 }) {
+	const { t } = useI18n();
 	const [activePanel, setActivePanel] = useState<PanelKey>("nodes");
 
 	const panels: Record<PanelKey, ReactNode> = {
@@ -49,7 +51,7 @@ export function ServerTabLayout({
 										:"border-[var(--border)] bg-[var(--surface)]/[0.04] text-[var(--text-secondary)] hover:bg-[var(--surface)]/[0.10]"
 								} ${disabled ?"cursor-not-allowed opacity-45" :""}`}
 							>
-								<div className="text-sm font-medium">{action.label}</div>
+								<div className="text-sm font-medium">{t(action.labelKey)}</div>
 							</button>
 						);
 					})}

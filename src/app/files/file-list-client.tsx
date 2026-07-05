@@ -242,7 +242,7 @@ export function FileListClient({
   });
 
   const emptyMessage = searchQuery
-    ? `未找到匹配 "${searchQuery}" 的文件。`
+    ? t("fileListClient.searchEmpty").replace("{query}", searchQuery)
     : t("fileListClient.emptyFolder");
 
   const [detailEntryId, setDetailEntryId] = useState<string | null>(null);

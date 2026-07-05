@@ -272,12 +272,12 @@ export function AiOpsPageClient({
 				addToast(
 					body.result.ok ? "success" : "error",
 					body.result.ok
-						? "已审批, 可点击执行"
-						: (body.result.errorMessage ?? "审批失败"),
+						? t("aiOpsPage.actions.approvedReady")
+						: (body.result.errorMessage ?? t("aiOpsPage.actions.approvalFailed")),
 				);
 				await reload();
 			} catch (error) {
-				addToast("error", `审批失败: ${String(error)}`);
+				addToast("error", `${t("aiOpsPage.actions.approvalFailed")}: ${String(error)}`);
 			} finally {
 				setExecuting(null);
 			}

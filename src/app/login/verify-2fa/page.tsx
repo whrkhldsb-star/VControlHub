@@ -9,9 +9,9 @@ type Verify2faPageProps = {
 };
 
 function resolveErrorMessage(error?: string) {
-	if (error === "expired") return "验证会话已过期，请重新登录";
-	if (error === "invalid") return "验证码错误，请重试";
-	if (error === "rate_limited") return "验证尝试过于频繁，请稍后再试";
+	if (error === "expired") return t("login.verify2faExpired");
+	if (error === "invalid") return t("login.verify2faInvalid");
+	if (error === "rate_limited") return t("login.verify2faRateLimited");
 	return undefined;
 }
 

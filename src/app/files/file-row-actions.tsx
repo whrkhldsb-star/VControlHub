@@ -60,7 +60,7 @@ export const DeleteConfirmButton: ComponentType<DeleteConfirmButtonProps> =
 	dynamic(
 		() =>
 			import("./delete-confirm-button").then((m) => m.DeleteConfirmButton),
-		{ ssr: false, loading: () => <IconButtonStub label="删除" /> },
+		{ ssr: false, loading: () => <IconButtonStub label="Delete" /> },
 	);
 
 type RenameInlineFormProps = ComponentProps<
@@ -84,5 +84,5 @@ type ShareFileButtonProps = ComponentProps<
 >;
 export const ShareFileButton: ComponentType<ShareFileButtonProps> = dynamic(
 	() => import("./share-file-button").then((m) => m.ShareFileButton),
-	{ ssr: false, loading: () => <IconButtonStub label="分享" /> },
+	{ ssr: false, loading: () => <IconButtonStub label="Share" /> },
 );

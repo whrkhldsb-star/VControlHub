@@ -4,6 +4,7 @@ import { useState, useRef, type KeyboardEvent, type ClipboardEvent } from "react
 import { useRouter } from "next/navigation";
 import { StateBox } from "@/components/ui-primitives";
 import { csrfFetch } from "@/lib/auth/csrf-client";
+import { useI18n } from "@/lib/i18n/use-locale";
 
 type Verify2faFormProps = {
 	nextPath: string;
@@ -11,6 +12,7 @@ type Verify2faFormProps = {
 };
 
 export function Verify2faForm({ nextPath, error }: Verify2faFormProps) {
+	const { t } = useI18n();
 	const [digits, setDigits] = useState<string[]>(Array(6).fill(""));
 	const [submitting, setSubmitting] = useState(false);
 	const [errorMsg, setErrorMsg] = useState(error);
@@ -75,11 +77,11 @@ if (data.success) {
 				return;
 			}
 
-			setErrorMsg(data.error || "验证失败");
+			setErrorMsg(data.error || t("login.verify2faFailed"));
 			setDigits(Array(6).fill(""));
 			inputRefs.current[0]?.focus();
 		} catch {
-			setErrorMsg("网络错误，请重试");
+			setErrorMsg(t("login.verify2faNetworkError"));
 		} finally {
 			setSubmitting(false);
 		}
@@ -129,7 +131,7 @@ if (data.success) {
 				disabled={submitting || digits.some((d) => !d)}
 				data-variant="primary" className="w-full py-2.5 text-sm font-semibold"
 			>
-				{submitting ? "验证中..." : "验证"}
+				{submitting ? t("login.verify2faSubmitting") : t("login.verify2faSubmit")}
 			</button>
 		</form>
 	);

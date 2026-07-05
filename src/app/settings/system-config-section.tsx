@@ -1,11 +1,11 @@
 "use client";
 
 /**
- * TR-042: 系统配置导出/导入 UI
+ * TR-042: System config export/import UI
  *
- * 嵌入设置页 advanced tab 下方。支持：
- * - 一键导出 .vch.json 配置快照（脱敏）
- * - 上传配置文件 → 预览导入（dryRun）→ 确认导入
+ * Embedded under the settings advanced tab. Supports:
+ * - One-click .vch.json config snapshot export (sanitized)
+ * - Upload config file → preview import (dryRun) → confirm import
  */
 
 import { useRef, useState } from "react";
@@ -38,7 +38,7 @@ export function SystemConfigSection() {
 
   const [exportMode, setExportMode] = useState<"standard" | "full">("standard");
 
-  // ── 导出 ──────────────────────────────────────────────
+  // ── Export ──────────────────────────────────────────────
 
   async function handleExport() {
     setExporting(true);
@@ -62,7 +62,7 @@ export function SystemConfigSection() {
     }
   }
 
-  // ── 文件选择 ──────────────────────────────────────────
+  // ── File selection ───────────────────────────────────────
 
   function handleFileSelect(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
@@ -93,7 +93,7 @@ export function SystemConfigSection() {
     reader.readAsText(file);
   }
 
-  // ── 预览导入 ──────────────────────────────────────────
+  // ── Import preview ───────────────────────────────────────
 
   async function handlePreview() {
     if (!selectedFile) return;
@@ -112,7 +112,7 @@ export function SystemConfigSection() {
           importSettings,
         }),
       });
-      if (!res.ok) throw new Error("Preview failed");
+      if (!res.ok) throw new Error(t("systemConfig.import.previewFailed"));
       const data = await res.json();
       setPreview(data.preview as ImportPreview);
     } catch (err) {
@@ -122,7 +122,7 @@ export function SystemConfigSection() {
     }
   }
 
-  // ── 执行导入 ──────────────────────────────────────────
+  // ── Execute import ───────────────────────────────────────
 
   async function handleExecute() {
     if (!selectedFile) return;
@@ -154,23 +154,23 @@ export function SystemConfigSection() {
     }
   }
 
-  // ── 渲染 ──────────────────────────────────────────────
+  // ── Render ───────────────────────────────────────────────
 
   return (
     <div className="space-y-4 rounded-lg border border-[var(--border)] p-4 bg-[var(--surface)]">
-      {/* 标题 */}
+      {/* Title */}
       <div>
         <span className="text-xs text-[var(--text-muted)]">{t("systemConfig.eyebrow")}</span>
         <h3 className="text-lg font-semibold mt-0.5 text-[var(--text-primary)]">{t("systemConfig.title")}</h3>
         <p className="text-sm text-[var(--text-secondary)] mt-1">{t("systemConfig.description")}</p>
       </div>
 
-      {/* 导出区 */}
+      {/* Export area */}
       <div className="space-y-2">
         <h4 className="text-sm font-medium text-[var(--text-primary)]">{t("systemConfig.export.title")}</h4>
         <p className="text-xs text-[var(--text-secondary)]">{t("systemConfig.export.hint")}</p>
 
-        {/* 导出模式选择 */}
+        {/* Export mode selection */}
         <div className="flex flex-col gap-2 py-1">
           <label className="flex items-start gap-2.5 text-sm cursor-pointer">
             <input
@@ -220,14 +220,14 @@ export function SystemConfigSection() {
         )}
       </div>
 
-      {/* 分割线 */}
+      {/* Divider */}
       <hr className="border-[var(--border)]" />
 
-      {/* 导入区 */}
+      {/* Import area */}
       <div className="space-y-3">
         <h4 className="text-sm font-medium text-[var(--text-primary)]">{t("systemConfig.import.title")}</h4>
 
-        {/* 文件选择 */}
+        {/* File selection */}
         <div className="space-y-1">
           <label className="text-sm text-[var(--text-secondary)]">
             {t("systemConfig.import.fileLabel")}
@@ -250,7 +250,7 @@ export function SystemConfigSection() {
           )}
         </div>
 
-        {/* 选项 */}
+        {/* Options */}
         {selectedFile && !fileError && (
           <div className="space-y-2 p-3 rounded-lg bg-[var(--surface-elevated)]">
             <span className="text-sm font-medium text-[var(--text-primary)]">{t("systemConfig.import.options")}</span>
@@ -273,7 +273,7 @@ export function SystemConfigSection() {
               <span className="text-xs text-[var(--text-muted)]">{t("systemConfig.import.importSettingsHint")}</span>
             </label>
 
-            {/* 预览按钮 */}
+            {/* Preview button */}
             <button
               onClick={handlePreview}
               disabled={previewing}
@@ -284,7 +284,7 @@ export function SystemConfigSection() {
           </div>
         )}
 
-        {/* 预览结果 */}
+        {/* Preview result */}
         {preview && (
           <div className="space-y-2 p-3 rounded-lg border border-[var(--border)] bg-[var(--surface-elevated)]">
             <h5 className="text-sm font-medium text-[var(--text-primary)]">{t("systemConfig.import.preview.title")}</h5>
@@ -292,7 +292,7 @@ export function SystemConfigSection() {
               {t("systemConfig.import.preview.totalRecords").replace("{count}", String(preview.totalRecords))}
             </p>
 
-            {/* 表格 → list 形式 */}
+            {/* Table as a compact list */}
             <div className="space-y-1">
               {Object.entries(preview.summary).map(([table, counts]) => (
                 <div key={table} className="flex justify-between text-xs text-[var(--text-primary)]">
@@ -304,7 +304,7 @@ export function SystemConfigSection() {
               ))}
             </div>
 
-            {/* 警告 */}
+            {/* Warnings */}
             {preview.warnings.length > 0 && (
               <div className="space-y-1 mt-2">
                 <span className="text-xs font-medium text-[var(--warning)] light:text-[var(--warning)]">
@@ -316,7 +316,7 @@ export function SystemConfigSection() {
               </div>
             )}
 
-            {/* 确认导入按钮 */}
+            {/* Confirm import button */}
             <button
               onClick={handleExecute}
               disabled={executing || preview.totalRecords === 0}
@@ -327,7 +327,7 @@ export function SystemConfigSection() {
           </div>
         )}
 
-        {/* 导入结果 */}
+        {/* Import result */}
         {result && (
           <div className="p-3 rounded-lg bg-[var(--success-bg)] border border-[var(--success-border)]">
             <p className="text-sm text-[var(--success)] light:text-[var(--success)]">

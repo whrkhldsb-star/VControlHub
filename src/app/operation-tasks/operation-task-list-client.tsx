@@ -6,6 +6,7 @@ import { EmptyState } from "@/components/page-shell";
 import type { OperationTask, OperationTaskFailureSummary, OperationTaskSourceSummary, OperationTaskStatus } from "@/lib/operation-task/dto";
 import { csrfFetch } from "@/lib/auth/csrf-client";
 import { useI18n } from "@/lib/i18n/use-locale";
+import { toDateLocale } from "@/lib/i18n/locale-format";
 
 import { JobEventsDialog } from "./job-events-dialog";
 
@@ -47,11 +48,12 @@ function getExportPath(statusFilter: string, taskTypeFilter: string, sort: strin
 type TaskRowProps = {
   task: OperationTask;
   t: (k: string) => string;
+  dateLocale: string;
   sourceLabels: Record<string, string>;
   onViewEvents: (sourceId: string) => void;
 };
 
-const TaskRow = memo(function TaskRow({ task, t, sourceLabels, onViewEvents }: TaskRowProps) {
+const TaskRow = memo(function TaskRow({ task, t, dateLocale, sourceLabels, onViewEvents }: TaskRowProps) {
   return (
     <div className="flex flex-col gap-3 px-5 py-4 sm:flex-row sm:items-start sm:justify-between">
       <div className="min-w-0 flex-1">
@@ -60,10 +62,10 @@ const TaskRow = memo(function TaskRow({ task, t, sourceLabels, onViewEvents }: T
           <span data-tone={statusTone[task.status] ?? "neutral"} className="rounded-lg border px-2 py-1 text-xs font-medium">{task.status}</span>
           {task.taskType && <span className="rounded-lg border border-[var(--border)] px-2 py-1 text-xs text-[var(--text-muted)]">{task.taskType}</span>}
           {task.foldedCount && task.foldedCount > 1 && <span className="rounded-lg border border-[var(--accent-border)] bg-[var(--accent-bg)] px-2 py-1 text-xs text-[var(--accent)]">{t("operationTasksPage.folded").replace("{count}", String(task.foldedCount))}</span>}
-          {task.workerId && <span title={task.workerHeartbeatAt ? `最近心跳：${new Date(task.workerHeartbeatAt).toLocaleString("zh-CN")}` : t("operationTasksPage.worker.noHeartbeat")} data-tone="accent" className="rounded-lg border px-2 py-1 text-xs font-medium">worker {task.workerId}</span>}
+          {task.workerId && <span title={task.workerHeartbeatAt ? t("operationTasksPage.worker.heartbeat").replace("{time}", new Date(task.workerHeartbeatAt).toLocaleString(dateLocale)) : t("operationTasksPage.worker.noHeartbeat")} data-tone="accent" className="rounded-lg border px-2 py-1 text-xs font-medium">worker {task.workerId}</span>}
         </div>
         <h3 className="mt-2 truncate text-sm font-medium text-[var(--text-primary)]">{task.title}</h3>
-        <p className="mt-1 text-xs text-[var(--text-muted)]">{new Date(task.createdAt).toLocaleString("zh-CN")} {task.actor ? ` · ${task.actor}` : ""} {task.progress ? ` · ${task.progress}` : ""}</p>
+        <p className="mt-1 text-xs text-[var(--text-muted)]">{new Date(task.createdAt).toLocaleString(dateLocale)} {task.actor ? ` · ${task.actor}` : ""} {task.progress ? ` · ${task.progress}` : ""}</p>
         {task.logPreview && task.logPreview.length > 0 && (
           <div aria-label={`Recent logs: ${task.title}`} className="mt-3 rounded-lg border border-[var(--border)] bg-[var(--surface-subtle)] px-3 py-2">
             <div className="text-[11px] font-medium uppercase tracking-[0.2em] text-[var(--text-muted)]">{t("operationTasksPage.logs.recent")}</div>
@@ -83,10 +85,11 @@ const TaskRow = memo(function TaskRow({ task, t, sourceLabels, onViewEvents }: T
       </div>
     </div>
   );
-}, (prev, next) => prev.task === next.task && prev.t === next.t && prev.sourceLabels === next.sourceLabels && prev.onViewEvents === next.onViewEvents);
+}, (prev, next) => prev.task === next.task && prev.t === next.t && prev.dateLocale === next.dateLocale && prev.sourceLabels === next.sourceLabels && prev.onViewEvents === next.onViewEvents);
 
 export function OperationTaskListClient({ initialTasks, initialSourceSummary = [], initialFailureSummary = [] }: { initialTasks: OperationTask[]; initialSourceSummary?: OperationTaskSourceSummary[]; initialFailureSummary?: OperationTaskFailureSummary[] }) {
-  const { t } = useI18n();
+  const { t, locale } = useI18n();
+  const dateLocale = toDateLocale(locale);
   const sourceLabels = useMemo(() => getSourceLabels(t), [t]);
   const statusFilters = [
     { label: t("operationTasks.filter.all"), value: "all" },
@@ -191,7 +194,7 @@ export function OperationTaskListClient({ initialTasks, initialSourceSummary = [
         </div>
       </div>
       <div className="divide-y divide-[var(--border)]">
-        {tasks.length === 0 ? <EmptyState text={t("operationTasks.tasks.empty")} /> : tasks.map((task) => <TaskRow key={task.id} task={task} t={t} sourceLabels={sourceLabels} onViewEvents={handleViewEvents} />)}
+        {tasks.length === 0 ? <EmptyState text={t("operationTasks.tasks.empty")} /> : tasks.map((task) => <TaskRow key={task.id} task={task} t={t} dateLocale={dateLocale} sourceLabels={sourceLabels} onViewEvents={handleViewEvents} />)}
       </div>
     </div>
     <JobEventsDialog jobId={eventsJobId} open={eventsJobId !== null} onClose={() => setEventsJobId(null)} />

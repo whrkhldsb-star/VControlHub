@@ -30,6 +30,13 @@ export const zh: Record<string, string> = {
 	"login.form.usernamePlaceholder": "输入用户名",
 	"login.verify2faDescription": "请输入身份验证器应用 (Authenticator) 中生成的 6 位动态验证码",
 	"login.verify2faBackToLogin": "← 返回登录",
+	"login.verify2faSubmit": "验证",
+	"login.verify2faSubmitting": "验证中...",
+	"login.verify2faFailed": "验证失败",
+	"login.verify2faNetworkError": "网络错误，请重试",
+	"login.verify2faExpired": "验证会话已过期，请重新登录",
+	"login.verify2faInvalid": "验证码错误，请重试",
+	"login.verify2faRateLimited": "验证尝试过于频繁，请稍后再试",
 };
 
 export const en: Record<string, string> = {
@@ -57,4 +64,11 @@ export const en: Record<string, string> = {
 	"login.form.usernamePlaceholder": "Enter username",
 	"login.verify2faDescription": "Enter the 6-digit code from your authenticator app.",
 	"login.verify2faBackToLogin": "← Back to sign in",
+	"login.verify2faSubmit": "Verify",
+	"login.verify2faSubmitting": "Verifying...",
+	"login.verify2faFailed": "Verification failed",
+	"login.verify2faNetworkError": "Network error, please try again",
+	"login.verify2faExpired": "Verification session expired. Please sign in again",
+	"login.verify2faInvalid": "Invalid verification code, please try again",
+	"login.verify2faRateLimited": "Too many verification attempts. Please try again later",
 };

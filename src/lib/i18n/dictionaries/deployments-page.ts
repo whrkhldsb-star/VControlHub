@@ -31,6 +31,9 @@ export const zh: Record<string, string> = {
 	"deploymentsPage.launch.noVpsTitle": "暂无可用 VPS",
 	"deploymentsPage.launch.previewCommand": "预览命令",
 	"deploymentsPage.launch.reasonPlaceholder": "例如：版本升级",
+	"deploymentsPage.launch.templateLabel": "部署模板",
+	"deploymentsPage.launch.reasonLabel": "部署原因",
+	"deploymentsPage.launch.variablePlaceholder": "填写 {name}",
 	"deploymentsPage.launch.targetVpsHint": "默认使用网站服务器中转；勾选后会通过 SSH 安装 VControlHub Direct Gateway 微服务。",
 	"deploymentsPage.launch.targetVpsTitle": "目标 VPS",
 	"deploymentsPage.launch.variablesHint": "下发前请填入实际值",
@@ -100,6 +103,8 @@ export const zh: Record<string, string> = {
 
 	// Resend button (TR-026 unified feedback)
 	"deploymentsPage.resend.triggerBtn": "按此记录重发",
+	"deploymentsPage.resend.reasonLatest": "重新提交部署：{name}",
+	"deploymentsPage.resend.reasonFromRecord": "回退重发：{name}",
 	"deploymentsPage.resend.submitting": "提交中...",
 	"deploymentsPage.resend.toast.success": "部署重发已提交",
 	"deploymentsPage.resend.toast.failed": "重发失败",
@@ -134,6 +139,9 @@ export const en: Record<string, string> = {
 	"deploymentsPage.launch.noVpsTitle": "No available VPS",
 	"deploymentsPage.launch.previewCommand": "Preview command",
 	"deploymentsPage.launch.reasonPlaceholder": "e.g. Version upgrade",
+	"deploymentsPage.launch.templateLabel": "Deployment template",
+	"deploymentsPage.launch.reasonLabel": "Deployment reason",
+	"deploymentsPage.launch.variablePlaceholder": "Enter {name}",
 	"deploymentsPage.launch.targetVpsHint": "By default the web server relays traffic; when enabled, VControlHub Direct Gateway microservice will be installed via SSH.",
 	"deploymentsPage.launch.targetVpsTitle": "Target VPS",
 	"deploymentsPage.launch.variablesHint": "Fill in actual values before dispatching",
@@ -203,6 +211,8 @@ export const en: Record<string, string> = {
 
 	// Resend button (TR-026 unified feedback)
 	"deploymentsPage.resend.triggerBtn": "Resend from this record",
+	"deploymentsPage.resend.reasonLatest": "Resubmit deployment: {name}",
+	"deploymentsPage.resend.reasonFromRecord": "Rollback resend: {name}",
 	"deploymentsPage.resend.submitting": "Submitting...",
 	"deploymentsPage.resend.toast.success": "Deployment resend submitted",
 	"deploymentsPage.resend.toast.failed": "Resend failed",

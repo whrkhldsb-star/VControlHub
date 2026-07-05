@@ -94,7 +94,7 @@ export function ShareFileButton({
           {shareUrl ? (
             <div className="space-y-2">
               <p className="font-medium text-[var(--success)]">
-                分享链接已生成{copied ? "并复制" : ""}
+                {copied ? t("sharesPage.button.generatedAndCopied") : t("sharesPage.button.generated")}
               </p>
               <code className="block break-all rounded-lg bg-[var(--surface)]/[0.04] p-2 text-[var(--text-secondary)]">
                 {shareUrl}
@@ -104,7 +104,7 @@ export function ShareFileButton({
                 onClick={() => copy(shareUrl)}
                 className="rounded-lg border border-[var(--success-border)] px-2 py-1 text-[var(--success)]"
               >
-                {copied ? "已复制 ✓" : "复制链接"}
+                {copied ? t("sharesPage.button.copied") : t("sharesPage.button.copy")}
               </button>
             </div>
           ) : null}

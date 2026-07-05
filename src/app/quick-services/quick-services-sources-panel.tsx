@@ -183,12 +183,12 @@ export function SourcesPanel({ sources, actions, onRequestDeleteSource }: Source
 						onClick={doAddSource}
 						className="rounded-lg bg-[var(--color-action)] px-4 py-2 text-xs font-semibold text-[var(--color-action-fg)] hover:bg-[var(--color-action-bg)] transition"
 					>
-						添加源
+						{t("quickServicesPage.sources.add")}
 					</button>
 				</div>
 			</div>
 			<div className="flex items-center justify-between">
-				<p className="text-xs text-[var(--text-muted)]">{t("quickServicesPage.sources.manageDesc")}，同步后可在「社区推荐」中一键安装</p>
+				<p className="text-xs text-[var(--text-muted)]">{t("quickServicesPage.sources.manageDesc")}</p>
 				<button
 					type="button"
 					onClick={() => actions.doSync()}
@@ -239,7 +239,7 @@ export function SourcesPanel({ sources, actions, onRequestDeleteSource }: Source
 							disabled={actions.syncing !== null}
 							className="rounded-lg border border-[var(--border)]/[0.1] px-3 py-1.5 text-xs text-[var(--text-secondary)] hover:bg-[var(--surface)]/[0.10] transition disabled:opacity-50"
 						>
-							{actions.syncing === src.id ? "同步中…" : t("quickServicesPage.sources.syncNow")}
+							{actions.syncing === src.id ? t("quickServicesPage.sources.syncing") : t("quickServicesPage.sources.syncNow")}
 						</button>
 						<button
 							type="button"
@@ -253,7 +253,7 @@ export function SourcesPanel({ sources, actions, onRequestDeleteSource }: Source
 							onClick={() => onRequestDeleteSource(src)}
 							className="ml-auto rounded-lg border border-[var(--danger-border)] px-3 py-1.5 text-xs text-[var(--danger)] hover:bg-[var(--danger)]0/[0.10] transition"
 						>
-							删除
+							{t("common.delete")}
 						</button>
 					</div>
 				</div>

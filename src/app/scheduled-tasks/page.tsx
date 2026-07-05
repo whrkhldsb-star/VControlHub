@@ -5,11 +5,14 @@ import { listServerProfiles } from "@/lib/server/service";
 
 import { ScheduledTaskListClient } from "./scheduled-task-list-client";
 import { PageShell, PageHeader } from "@/components/page-shell";
+import { getServerLocale, t } from "@/lib/i18n/translations";
 
 export const dynamic = "force-dynamic";
 
 export default async function ScheduledTasksPage() {
 	const session = await requireSession();
+	const locale = await getServerLocale();
+	const tr = (key: string) => t(key, locale);
 	const canCreate = sessionHasPermission(session, "command:create");
 	const canManage = canCreate;
 
@@ -41,8 +44,8 @@ export default async function ScheduledTasksPage() {
 		<PageShell maxW="max-w-7xl">
 				<PageHeader
 					eyebrow="Automation"
-					title="定时任务"
-					description="配置 Cron 表达式，自动向 VPS 节点下发待审批命令"
+					title={tr("scheduledTasksPage.header.title")}
+					description={tr("scheduledTasksPage.header.description")}
 				/>
 				<ScheduledTaskListClient tasks={serialized} servers={serverOptions} canCreate={canCreate} canManage={canManage} />
 		</PageShell>

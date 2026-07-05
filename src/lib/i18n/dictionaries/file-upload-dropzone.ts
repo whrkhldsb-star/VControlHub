@@ -78,6 +78,7 @@ export const zh: Record<string, string> = {
   "filesBrowserSpa.searchLabel": "搜索",
 
   "fileListClient.emptyFolder": "当前目录暂无内容。",
+  "fileListClient.searchEmpty": "未找到匹配 \"{query}\" 的文件。",
   "fileListClient.detailTitle": "资料详情",
   "fileListClient.downloadTitle": "下载",
   "fileListClient.downloadFolderArchiveTitle": "下载目录归档",
@@ -192,6 +193,7 @@ export const en: Record<string, string> = {
   "filesBrowserSpa.searchLabel": "Search",
 
   "fileListClient.emptyFolder": "Current folder is empty.",
+  "fileListClient.searchEmpty": "No files matching \"{query}\" were found.",
   "fileListClient.detailTitle": "File details",
   "fileListClient.downloadTitle": "Download",
   "fileListClient.downloadFolderArchiveTitle": "Download folder archive",

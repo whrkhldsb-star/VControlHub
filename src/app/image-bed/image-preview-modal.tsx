@@ -16,6 +16,7 @@
 "use client";
 
 import Image from "next/image";
+import { useI18n } from "@/lib/i18n/use-locale";
 import type { ImageItem } from "./image-bed-types";
 
 export interface ImagePreviewModalProps {
@@ -39,6 +40,7 @@ export function ImagePreviewModal({
 	onRequestDelete,
 	formatSize,
 }: ImagePreviewModalProps) {
+	const { t } = useI18n();
 	if (!image) return null;
 
 	return (
@@ -75,7 +77,7 @@ export function ImagePreviewModal({
 							data-tone="cyan"
 							className="min-h-11 rounded-lg border border-[var(--accent-border)] px-3 py-1.5 text-xs text-[var(--accent)] hover:bg-[var(--accent-bg)]"
 						>
-							复制外链
+							{t("imageBed.preview.copyLink")}
 						</button>
 						<button
 							onClick={() => onCopyMarkdown(image)}
@@ -97,7 +99,7 @@ export function ImagePreviewModal({
 								data-tone="rose"
 								className="min-h-11 rounded-lg border border-[var(--danger-border)] px-3 py-1.5 text-xs text-[var(--danger)] hover:bg-[var(--danger-bg)]"
 							>
-								删除
+								{t("common.delete")}
 							</button>
 						)}
 					</div>

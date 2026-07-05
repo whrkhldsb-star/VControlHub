@@ -31,7 +31,7 @@ export default function ImageBedPage({ canWrite, canDelete }: { canWrite: boolea
 	const { t } = useI18n();
 	const [uploading, setUploading] = useState(false);
 	const [dragOver, setDragOver] = useState(false);
-	const [toast, setToast] = useState<string | null>(null);
+	const [toast, setToast] = useState<{ message: string; tone: "status" | "alert" } | null>(null);
 	const [previewImage, setPreviewImage] = useState<ImageItem | null>(null);
 	const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
 	const [showStats, setShowStats] = useState(false);
@@ -47,8 +47,8 @@ export default function ImageBedPage({ canWrite, canDelete }: { canWrite: boolea
 	const [pendingDelete, setPendingDelete] = useState<PendingDelete | null>(null);
 	const fileInputRef = useRef<HTMLInputElement>(null);
 
-	const showToast = (msg: string) => {
-		setToast(msg);
+	const showToast = (msg: string, tone: "status" | "alert" = "status") => {
+		setToast({ message: msg, tone });
 		setTimeout(() => setToast(null), 3000);
 	};
 
@@ -162,10 +162,10 @@ export default function ImageBedPage({ canWrite, canDelete }: { canWrite: boolea
 			showToast(t("imageBedPage.summary.successAll").replace("{count}", String(success)));
 			void fetchImages(1);
 		} else if (success > 0) {
-			showToast(t("imageBedPage.summary.partial").replace("{success}", String(success)).replace("{total}", String(uploadItems.length)).replace("{failure}", String(failure)));
+			showToast(t("imageBedPage.summary.partial").replace("{success}", String(success)).replace("{total}", String(uploadItems.length)).replace("{failure}", String(failure)), "alert");
 			void fetchImages(1);
 		} else {
-			showToast(t("imageBedPage.summary.allFailed").replace("{failure}", String(failure)).replace("{total}", String(uploadItems.length)));
+			showToast(t("imageBedPage.summary.allFailed").replace("{failure}", String(failure)).replace("{total}", String(uploadItems.length)), "alert");
 		}
 	};
 
@@ -383,14 +383,14 @@ export default function ImageBedPage({ canWrite, canDelete }: { canWrite: boolea
 						<div className="mb-3">
 							<div className="text-xs text-[var(--text-secondary)] mb-1">{t("imageBedPage.stats.trend7d")}</div>
 							<div className="flex items-end gap-1 h-16">
-								{stats.uploadTrend.map((t) => {
+								{stats.uploadTrend.map((trend) => {
 									const maxCount = Math.max(...stats.uploadTrend.map((x) => x.count), 1);
-									const height = Math.max((t.count / maxCount) * 100, 8);
+									const height = Math.max((trend.count / maxCount) * 100, 8);
 									return (
-										<div key={t.date} className="flex-1 flex flex-col items-center gap-0.5" title={`${t.date}: ${t.count} 张`}>
-											<div className="text-[9px] text-[var(--text-muted)]">{t.count}</div>
+										<div key={trend.date} className="flex-1 flex flex-col items-center gap-0.5" title={t("imageBedPage.stats.imageCountTitle").replace("{date}", trend.date).replace("{count}", String(trend.count))}>
+											<div className="text-[9px] text-[var(--text-muted)]">{trend.count}</div>
 											<div className="w-full bg-[var(--color-action)]/60 rounded-t" style={{ height: `${height}%` }} />
-											<div className="text-[8px] text-[var(--text-muted)]">{t.date.slice(5)}</div>
+											<div className="text-[8px] text-[var(--text-muted)]">{trend.date.slice(5)}</div>
 										</div>
 									);
 								})}
@@ -404,7 +404,7 @@ export default function ImageBedPage({ canWrite, canDelete }: { canWrite: boolea
 								{stats.albums.slice(0, 5).map((a) => (
 									<div key={a.album} className="flex items-center justify-between text-xs">
 										<span className="text-[var(--text-secondary)]">{a.album}</span>
-										<span className="text-[var(--text-muted)]">{a.count} 张 · {formatSize(a.sizeBytes)}</span>
+										<span className="text-[var(--text-muted)]">{t("imageBedPage.stats.albumCountSize").replace("{count}", String(a.count)).replace("{size}", formatSize(a.sizeBytes))}</span>
 									</div>
 								))}
 							</div>
@@ -499,10 +499,10 @@ export default function ImageBedPage({ canWrite, canDelete }: { canWrite: boolea
 
 			{/* Image Grid */}
 			{loading ? (
-				<EmptyState>加载中…</EmptyState>
+				<EmptyState>{t("imageBedPage.loading")}</EmptyState>
 			) : images.length === 0 ? (
 				<EmptyState icon="🎉" variant="boxed">
-					暂无图片，上传第一张吧
+					{t("imageBedPage.empty")}
 				</EmptyState>
 			) : (
 				<div data-testid="image-bed-grid" className="mt-6 grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
@@ -624,14 +624,14 @@ export default function ImageBedPage({ canWrite, canDelete }: { canWrite: boolea
 						<h3 className="text-lg font-semibold text-[var(--text-primary)] mb-2">{pendingDelete.type === "single" ? t("imageBedPage.delete.title.single") : t("imageBedPage.delete.title.batch")}</h3>
 						<p className="text-sm leading-6 text-[var(--text-secondary)]">
 							{pendingDelete.type === "single" ? (
-								<>{t("imageBedPage.delete.desc.single") + pendingDelete.filename + "，图片外链将失效。"}</>
+								<>{t("imageBedPage.delete.desc.singleWithName").replace("{filename}", pendingDelete.filename)}</>
 							) : (
-								<>{t("imageBedPage.delete.desc.batch") + pendingDelete.count + " 张图片，对应外链将失效。"}</>
+								<>{t("imageBedPage.delete.desc.batchWithCount").replace("{count}", String(pendingDelete.count))}</>
 							)}
 						</p>
 						<div className="mt-6 flex items-center justify-end gap-2">
 							<button type="button" onClick={() => setPendingDelete(null)} className="px-4 py-2 text-sm text-[var(--text-secondary)] hover:text-[var(--text-primary)] light:hover:text-[var(--text-disabled)] transition">{t("imageBedPage.delete.cancel")}</button>
-							<button type="button" onClick={confirmDelete} disabled={deleting} className="px-4 py-2 text-sm bg-[var(--danger)] text-[var(--text-primary)] rounded-lg hover:bg-[var(--danger)] transition disabled:opacity-50">{deleting ? "删除中..." : "确认删除"}</button>
+							<button type="button" onClick={confirmDelete} disabled={deleting} className="px-4 py-2 text-sm bg-[var(--danger)] text-[var(--text-primary)] rounded-lg hover:bg-[var(--danger)] transition disabled:opacity-50">{deleting ? t("imageBedPage.delete.deleting") : t("common.confirmDelete")}</button>
 						</div>
 					</div>
 				</div>
@@ -639,8 +639,8 @@ export default function ImageBedPage({ canWrite, canDelete }: { canWrite: boolea
 
 			{/* Toast */}
 			{toast && (
-				<div role={toast.includes("失败") || toast.includes("出错") || toast.includes("超过") ? "alert" : "status"} className="fixed bottom-6 right-6 bg-[var(--modal-bg)] border border-[var(--border)] text-sm text-[var(--text-primary)] px-4 py-2.5 rounded-xl shadow-lg z-50 animate-fade-in">
-					{toast}
+				<div role={toast.tone} className="fixed bottom-6 right-6 bg-[var(--modal-bg)] border border-[var(--border)] text-sm text-[var(--text-primary)] px-4 py-2.5 rounded-xl shadow-lg z-50 animate-fade-in">
+					{toast.message}
 				</div>
 			)}
 

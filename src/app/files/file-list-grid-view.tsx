@@ -10,6 +10,7 @@
  * purely layout.
  */
 import Link from "next/link";
+import { useI18n } from "@/lib/i18n/use-locale";
 
 import { FileTypeIcon } from "./file-entry-icons";
 import { FileRowActions } from "./file-list-actions";
@@ -59,6 +60,7 @@ export function FileListGridView({
   entryCanWrite,
   entryCanDelete,
 }: FileListGridViewProps) {
+  const { t } = useI18n();
   return (
     <div className="grid grid-cols-2 gap-3 p-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">
       {sortedFolders.length === 0 && sortedFiles.length === 0 ? (
@@ -97,7 +99,7 @@ export function FileListGridView({
             {folder.displayName ?? folder.name}
           </span>
           <span className="text-xs text-[var(--text-muted)]">
-            {folder.fileCount + folder.folderCount} 项
+            {t("fileListClient.folderItemCount").replace("{count}", String(folder.fileCount + folder.folderCount))}
           </span>
         </button>
       ))}

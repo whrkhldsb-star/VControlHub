@@ -43,6 +43,7 @@ export const zh: Record<string, string> = {
   "systemConfig.import.invalidFile": "文件格式无效，请选择有效的 .vch.json 配置快照",
   "systemConfig.import.schemaVersionMismatch": "Schema 版本不兼容（文件版本 {fileVersion}，当前版本 {currentVersion}）",
   "systemConfig.import.noFile": "请先选择配置文件",
+  "systemConfig.import.previewFailed": "预览失败",
 };
 
 export const en: Record<string, string> = {
@@ -87,4 +88,5 @@ export const en: Record<string, string> = {
   "systemConfig.import.invalidFile": "Invalid file format. Please select a valid .vch.json config snapshot",
   "systemConfig.import.schemaVersionMismatch": "Schema version incompatible (file version {fileVersion}, current version {currentVersion})",
   "systemConfig.import.noFile": "Please select a config file first",
+  "systemConfig.import.previewFailed": "Preview failed",
 };
