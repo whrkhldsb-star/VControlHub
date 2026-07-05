@@ -1,6 +1,236 @@
-"use client"; import { useActionState, useId, useState } from "react"; import { SubmitButton } from "./submit-button";
-import { changePasswordAction, type AccountPasswordActionState } from "@/app/account/password/actions";
-import { useI18n } from "@/lib/i18n/use-locale"; const initialState: AccountPasswordActionState = {}; type PasswordFieldProps = { label: string; name: "currentPassword" | "newPassword" | "confirmPassword"; autoComplete: "current-password" | "new-password"; description: string;
-}; export function ChangePasswordModal({ open, onClose }: { open: boolean; onClose: () => void }) { const [state, formAction] = useActionState(changePasswordAction, initialState); const titleId = useId(); const descriptionId = useId(); const { t } = useI18n(); const closeModalLabel = t("common.closeChangePasswordModal"); const changePasswordDescription = t("common.changePasswordDescription"); const titleText = t("common.editPassword"); if (!open) return null; return ( <div className="fixed inset-0 z-[100] flex items-center justify-center"> <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} /> <div role="dialog" aria-modal="true" aria-labelledby={titleId} aria-describedby={descriptionId} className="relative z-10 w-full max-w-md mx-4 rounded-3xl border border-[var(--border)] bg-[var(--modal-bg)] p-6 shadow-2xl"> <div className="flex items-center justify-between mb-4"> <h2 id={titleId} className="text-xl font-semibold text-[var(--text-primary)]">{titleText}</h2> <button type="button" onClick={onClose} className="rounded-xl p-2 text-[var(--text-secondary)] hover:bg-[var(--surface-elevated)] hover:text-[var(--text-primary)] light:hover:text-[var(--color-action-fg)] transition" aria-label={closeModalLabel}> <svg width="18" height="18" viewBox="0 0 18 18" fill="none" xmlns="http://www.w3.org/2000/svg"> <path d="M4 4l10 10M14 4L4 14" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" /> </svg> </button> </div> <p id={descriptionId} className="mb-4 text-sm text-[var(--text-secondary)]"> {changePasswordDescription} </p> <form action={formAction} className="grid gap-4"> <input type="text" name="username" autoComplete="username" className="hidden" tabIndex={-1} aria-hidden="true" /> <PasswordField label={t("changePassword.currentPassword")} name="currentPassword" autoComplete="current-password" description={t("changePassword.currentPasswordDesc")} /> <PasswordField label={t("changePassword.newPassword")} name="newPassword" autoComplete="new-password" description={t("changePassword.newPasswordDesc")} /> <PasswordField label={t("changePassword.confirmPassword")} name="confirmPassword" autoComplete="new-password" description={t("changePassword.confirmPasswordDesc")} /> {state.error ? ( <div role="alert" data-tone="rose" className="rounded-2xl border border-[var(--danger-border)] px-4 py-3 text-sm text-[var(--danger)]">{state.error}</div> ) : null} {state.success ? ( <div role="status" data-tone="emerald" className="rounded-2xl border border-[var(--success-border)] px-4 py-3 text-sm text-[var(--success)]">{state.success}</div> ) : null} <div className="flex justify-end gap-3 pt-2"> <button type="button" onClick={onClose} className="rounded-2xl border border-[var(--border)] px-5 py-2.5 text-sm text-[var(--text-secondary)] hover:bg-[var(--surface-elevated)] transition"> {t("common.cancel")} </button> <SubmitButton pendingLabel={t("changePassword.saving")}>{t("common.saveNewPassword")}</SubmitButton> </div> </form> </div> </div> );
-} function PasswordField({ label, name, autoComplete, description }: PasswordFieldProps) { const { t } = useI18n(); const inputId = useId(); const descriptionId = useId(); const [visible, setVisible] = useState(false); return ( <div className="grid gap-2 text-sm text-[var(--text-secondary)]"> <label htmlFor={inputId}>{label}</label> <div className="flex overflow-hidden rounded-2xl border border-[var(--border)] bg-[var(--input-bg)] focus-within:border-[var(--color-action-border)]/60"> <input id={inputId} name={name} type={visible ? "text" : "password"} required autoComplete={autoComplete} aria-describedby={descriptionId} className="min-w-0 flex-1 bg-transparent px-4 py-3 text-[var(--text-primary)] outline-none" /> <button type="button" aria-label={`${visible ? t("changePassword.hide") : t("changePassword.show")}${label}`} aria-pressed={visible} onClick={() => setVisible((current) => !current)} className="flex items-center gap-1 border-l border-[var(--border)] px-4 text-xs font-medium text-[var(--accent)] transition hover:bg-[var(--surface-elevated)] hover:text-[var(--accent-hover)] focus:outline-none focus:ring-2 focus:ring-inset focus:ring-[var(--color-action-ring)]"> {visible ? ( <svg width="16" height="16" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5} aria-hidden="true"> <path strokeLinecap="round" strokeLinejoin="round" d="M3.98 8.223A10.477 10.477 0 001.934 12C3.226 16.338 7.244 19.5 12 19.5c.993 0 1.953-.138 2.863-.395M6.228 6.228A10.45 10.45 0 0112 4.5c4.756 0 8.773 3.162 10.065 7.498a10.523 10.523 0 01-4.293 5.774M6.228 6.228L3 3m3.228 3.228l3.65 3.65m7.808 7.808L21 21m-2.258-2.258l-3.287-3.287M9.88 9.88a3 3 0 104.24 4.24" /> </svg> ) : ( <svg width="16" height="16" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5} aria-hidden="true"> <path strokeLinecap="round" strokeLinejoin="round" d="M2.036 12.322a1.012 1.012 0 010-.644C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178z" /> <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /> </svg> )} {visible ? t("changePassword.hide") : t("changePassword.show")} </button> </div> <p id={descriptionId} className="text-[11px] text-[var(--text-muted)]">{description}</p> </div> );
+"use client";
+import { useActionState, useId, useState } from "react";
+import { SubmitButton } from "./submit-button";
+import {
+  changePasswordAction,
+  type AccountPasswordActionState,
+} from "@/app/account/password/actions";
+import { useI18n } from "@/lib/i18n/use-locale";
+const initialState: AccountPasswordActionState = {};
+type PasswordFieldProps = {
+  label: string;
+  name: "currentPassword" | "newPassword" | "confirmPassword";
+  autoComplete: "current-password" | "new-password";
+  description: string;
+};
+export function ChangePasswordModal({
+  open,
+  onClose,
+}: {
+  open: boolean;
+  onClose: () => void;
+}) {
+  const [state, formAction] = useActionState(
+    changePasswordAction,
+    initialState,
+  );
+  const titleId = useId();
+  const descriptionId = useId();
+  const { t } = useI18n();
+  const closeModalLabel = t("common.closeChangePasswordModal");
+  const changePasswordDescription = t("common.changePasswordDescription");
+  const titleText = t("common.editPassword");
+  if (!open) return null;
+  return (
+    <div className="fixed inset-0 z-[100] flex items-center justify-center">
+      {" "}
+      <div
+        className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+        onClick={onClose}
+      />{" "}
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby={titleId}
+        aria-describedby={descriptionId}
+        className="relative z-10 w-full max-w-md mx-4 rounded-3xl border border-[var(--border)] bg-[var(--modal-bg)] p-6 shadow-2xl"
+      >
+        {" "}
+        <div className="flex items-center justify-between mb-4">
+          {" "}
+          <h2
+            id={titleId}
+            className="text-xl font-semibold text-[var(--text-primary)]"
+          >
+            {titleText}
+          </h2>{" "}
+          <button
+            type="button"
+            onClick={onClose}
+            className="rounded-xl p-2 text-[var(--text-secondary)] hover:bg-[var(--surface-elevated)] hover:text-[var(--text-primary)] light:hover:text-[var(--color-action-fg)] transition"
+            aria-label={closeModalLabel}
+          >
+            {" "}
+            <svg
+              width="18"
+              height="18"
+              viewBox="0 0 18 18"
+              fill="none"
+              xmlns="http://www.w3.org/2000/svg"
+            >
+              {" "}
+              <path
+                d="M4 4l10 10M14 4L4 14"
+                stroke="currentColor"
+                strokeWidth="1.5"
+                strokeLinecap="round"
+              />{" "}
+            </svg>{" "}
+          </button>{" "}
+        </div>{" "}
+        <p
+          id={descriptionId}
+          className="mb-4 text-sm text-[var(--text-secondary)]"
+        >
+          {" "}
+          {changePasswordDescription}{" "}
+        </p>{" "}
+        <form action={formAction} className="grid gap-4">
+          {" "}
+          <input
+            type="text"
+            name="username"
+            autoComplete="username"
+            className="hidden"
+            tabIndex={-1}
+            aria-hidden="true"
+          />{" "}
+          <PasswordField
+            label={t("changePassword.currentPassword")}
+            name="currentPassword"
+            autoComplete="current-password"
+            description={t("changePassword.currentPasswordDesc")}
+          />{" "}
+          <PasswordField
+            label={t("changePassword.newPassword")}
+            name="newPassword"
+            autoComplete="new-password"
+            description={t("changePassword.newPasswordDesc")}
+          />{" "}
+          <PasswordField
+            label={t("changePassword.confirmPassword")}
+            name="confirmPassword"
+            autoComplete="new-password"
+            description={t("changePassword.confirmPasswordDesc")}
+          />{" "}
+          {state.error ? (
+            <div
+              role="alert"
+              data-tone="rose"
+              className="rounded-2xl border border-[var(--danger-border)] px-4 py-3 text-sm text-[var(--danger)]"
+            >
+              {state.error}
+            </div>
+          ) : null}{" "}
+          {state.success ? (
+            <div
+              role="status"
+              data-tone="emerald"
+              className="rounded-2xl border border-[var(--success-border)] px-4 py-3 text-sm text-[var(--success)]"
+            >
+              {state.success}
+            </div>
+          ) : null}{" "}
+          <div className="flex justify-end gap-3 pt-2">
+            {" "}
+            <button
+              type="button"
+              onClick={onClose}
+              className="rounded-2xl border border-[var(--border)] px-5 py-2.5 text-sm text-[var(--text-secondary)] hover:bg-[var(--surface-elevated)] transition"
+            >
+              {" "}
+              {t("common.cancel")}{" "}
+            </button>{" "}
+            <SubmitButton pendingLabel={t("changePassword.saving")}>
+              {t("common.saveNewPassword")}
+            </SubmitButton>{" "}
+          </div>{" "}
+        </form>{" "}
+      </div>{" "}
+    </div>
+  );
+}
+function PasswordField({
+  label,
+  name,
+  autoComplete,
+  description,
+}: PasswordFieldProps) {
+  const { t } = useI18n();
+  const inputId = useId();
+  const descriptionId = useId();
+  const [visible, setVisible] = useState(false);
+  return (
+    <div className="grid gap-2 text-sm text-[var(--text-secondary)]">
+      {" "}
+      <label htmlFor={inputId}>{label}</label>{" "}
+      <div className="flex overflow-hidden rounded-2xl border border-[var(--border)] bg-[var(--input-bg)] focus-within:border-[var(--color-action-border)]/60">
+        {" "}
+        <input
+          id={inputId}
+          name={name}
+          type={visible ? "text" : "password"}
+          required
+          autoComplete={autoComplete}
+          aria-describedby={descriptionId}
+          className="min-w-0 flex-1 bg-transparent px-4 py-3 text-[var(--text-primary)] outline-none"
+        />{" "}
+        <button
+          type="button"
+          aria-label={`${visible ? t("changePassword.hide") : t("changePassword.show")}${label}`}
+          aria-pressed={visible}
+          onClick={() => setVisible((current) => !current)}
+          className="flex items-center gap-1 border-l border-[var(--border)] px-4 text-xs font-medium text-[var(--accent)] transition hover:bg-[var(--surface-elevated)] hover:text-[var(--accent-hover)] focus:outline-none focus:ring-2 focus:ring-inset focus:ring-[var(--color-action-ring)]"
+        >
+          {" "}
+          {visible ? (
+            <svg
+              width="16"
+              height="16"
+              className="h-4 w-4"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+              strokeWidth={1.5}
+              aria-hidden="true"
+            >
+              {" "}
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                d="M3.98 8.223A10.477 10.477 0 001.934 12C3.226 16.338 7.244 19.5 12 19.5c.993 0 1.953-.138 2.863-.395M6.228 6.228A10.45 10.45 0 0112 4.5c4.756 0 8.773 3.162 10.065 7.498a10.523 10.523 0 01-4.293 5.774M6.228 6.228L3 3m3.228 3.228l3.65 3.65m7.808 7.808L21 21m-2.258-2.258l-3.287-3.287M9.88 9.88a3 3 0 104.24 4.24"
+              />{" "}
+            </svg>
+          ) : (
+            <svg
+              width="16"
+              height="16"
+              className="h-4 w-4"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+              strokeWidth={1.5}
+              aria-hidden="true"
+            >
+              {" "}
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                d="M2.036 12.322a1.012 1.012 0 010-.644C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178z"
+              />{" "}
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
+              />{" "}
+            </svg>
+          )}{" "}
+          {visible ? t("changePassword.hide") : t("changePassword.show")}{" "}
+        </button>{" "}
+      </div>{" "}
+      <p id={descriptionId} className="text-[11px] text-[var(--text-muted)]">
+        {description}
+      </p>{" "}
+    </div>
+  );
 }

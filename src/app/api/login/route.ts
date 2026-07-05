@@ -9,6 +9,7 @@ import { checkRateLimitAsync, getClientIp, LOGIN_RATE_LIMIT, LOGIN_SLOW_RATE_LIM
 import { generateCsrfToken, getCsrfCookieName } from "@/lib/auth/csrf";
 
 const logger = createLogger("api:login");
+// guardMode: login
 
 const loginFormSchema = z.object({
   username: z.string().min(1, "用户名不能为空"),

@@ -50,12 +50,25 @@ function detectByExtension(name: string): { isMarkdown: boolean; isCsv: boolean;
 	};
 }
 
+function isAllowedPreviewHref(href: string): boolean {
+	if (!href || !href.startsWith("/") || href.startsWith("//")) return false;
+	return [
+		"/api/files/",
+		"/api/storage/",
+		"/api/media/",
+		"/api/images/",
+		"/api/share/",
+	].some((prefix) => href.startsWith(prefix));
+}
+
 export default async function FilePreviewPage({ searchParams }: PreviewPageProps) {
 	await requireSession();
 	const locale = await getServerLocale();
 
 	const params = await searchParams;
-	const href = params?.href ?? "";
+	const requestedHref = params?.href ?? "";
+	const href = isAllowedPreviewHref(requestedHref) ? requestedHref : "";
+	const invalidHref = Boolean(requestedHref && !href);
 	const name = params?.name ?? t("textPreview.preview.unknownFile", locale);
 	const mimeType = params?.type ?? "";
 	const driver = params?.driver ?? "LOCAL";
@@ -125,6 +138,13 @@ export default async function FilePreviewPage({ searchParams }: PreviewPageProps
 						</a>
 					) : null}
 			</div>
+
+				{/* Large file warning */}
+				{invalidHref ? (
+					<div role="alert" data-tone="danger" className="mb-4 rounded-2xl border border-[var(--danger-border)] px-4 py-3 text-sm text-[var(--danger)]">
+						{t("textPreview.preview.invalidHref", locale)}
+					</div>
+				) : null}
 
 				{/* Large file warning */}
 				{largeTextWarning ? (

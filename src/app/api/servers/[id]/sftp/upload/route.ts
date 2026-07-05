@@ -16,6 +16,7 @@ import { GENERAL_WRITE_LIMIT, withRateLimit, rateLimitResponse } from "@/lib/htt
 import { uploadFile, sanitizeRemotePath, sanitizeFileName } from "@/lib/ssh/sftp-service";
 
 export const dynamic = "force-dynamic";
+// guardMode: manual
 const MAX_UPLOAD_SIZE = 100 * 1024 * 1024; // 100 MB
 
 export async function POST(

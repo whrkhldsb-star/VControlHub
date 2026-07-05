@@ -33,7 +33,7 @@ const CATALOG = join(ROOT, 'docs', 'route-catalog.json');
 type Catalog = {
   sidebar: { main: { href: string }[]; system: { href: string }[]; mobileHrefs: string[] };
   pages: { path: string; declaredPermissions: string[] }[];
-  apiRoutes: { path: string; methods: string[]; declaredPermissions: string[] }[];
+  apiRoutes: { path: string; methods: string[]; declaredPermissions: string[]; guardMode?: string }[];
   permissions: string[];
 };
 
@@ -73,6 +73,9 @@ for (const page of catalog.pages) {
 for (const route of catalog.apiRoutes) {
   if (route.methods.length === 0) {
     errors.push(`api ${route.path} declares no HTTP method`);
+  }
+  if (!route.guardMode) {
+    errors.push(`api ${route.path} has no guardMode declaration or inferred guard`);
   }
   for (const p of route.declaredPermissions) {
     if (!permSet.has(p)) {

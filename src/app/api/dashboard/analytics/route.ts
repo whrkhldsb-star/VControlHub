@@ -6,15 +6,35 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 
 import { getApiSession } from "@/lib/auth/api-session";
+import { sessionHasPermission } from "@/lib/auth/authorization";
 import { prisma } from "@/lib/db";
 import { parseSearchParams } from "@/lib/http/parse-search-params";
 import { createLogger } from "@/lib/logging";
 
 import { apiError } from "@/lib/http/api-error";
 import { CachePresets, withCacheHeaders } from "@/lib/cache";
+import type { SessionPayload } from "@/lib/auth/session";
 const logger = createLogger("api:dashboard:analytics");
 
 export const dynamic = "force-dynamic";
+
+function canReadAnalyticsDomain(session: SessionPayload, type: "servers" | "downloads" | "audit" | "image-bed") {
+  if (type === "servers") return sessionHasPermission(session, "server:read") || sessionHasPermission(session, "health:read");
+  if (type === "downloads") return sessionHasPermission(session, "storage:read");
+  if (type === "audit") return sessionHasPermission(session, "audit:read");
+  if (type === "image-bed") return sessionHasPermission(session, "image:read") || sessionHasPermission(session, "image:write") || sessionHasPermission(session, "media:manage");
+  return false;
+}
+
+function shouldIncludeAnalytics(session: SessionPayload, requested: string, type: "servers" | "downloads" | "audit" | "image-bed") {
+  return (requested === "all" || requested === type) && canReadAnalyticsDomain(session, type);
+}
+
+function requestedDomainForbidden(session: SessionPayload, requested: string) {
+  if (requested === "all") return false;
+  if (!["servers", "downloads", "audit", "image-bed"].includes(requested)) return false;
+  return !canReadAnalyticsDomain(session, requested as "servers" | "downloads" | "audit" | "image-bed");
+}
 
 export async function GET(request: Request) {
   try {
@@ -33,10 +53,14 @@ export async function GET(request: Request) {
       }),
     );
 
+    if (requestedDomainForbidden(session, type)) {
+      return apiError({ code: "FORBIDDEN", message: "缺少仪表盘分析数据读取权限", status: 403 });
+    }
+
     const results: Record<string, unknown> = {};
 
     // Server metrics trend (last 24h)
-    if (type === "all" || type === "servers") {
+    if (shouldIncludeAnalytics(session, type, "servers")) {
       const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
       const metrics = await prisma.metricSnapshot.findMany({
         where: { createdAt: { gte: twentyFourHoursAgo } },
@@ -83,7 +107,7 @@ export async function GET(request: Request) {
     }
 
     // Download task trend (last 7 days)
-    if (type === "all" || type === "downloads") {
+    if (shouldIncludeAnalytics(session, type, "downloads")) {
       const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
       const downloads = await prisma.downloadTask.findMany({
         where: { createdAt: { gte: sevenDaysAgo } },
@@ -114,7 +138,7 @@ export async function GET(request: Request) {
     }
 
     // Audit log activity (last 30 days, grouped by day)
-    if (type === "all" || type === "audit") {
+    if (shouldIncludeAnalytics(session, type, "audit")) {
       const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
       const audits = await prisma.auditLog.findMany({
         where: { createdAt: { gte: thirtyDaysAgo } },
@@ -141,7 +165,7 @@ export async function GET(request: Request) {
     }
 
     // Image bed storage trend (last 7 days)
-    if (type === "all" || type === "image-bed") {
+    if (shouldIncludeAnalytics(session, type, "image-bed")) {
       const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
       const images = await prisma.imageUpload.findMany({
         where: { createdAt: { gte: sevenDaysAgo } },

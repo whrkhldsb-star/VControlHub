@@ -12,7 +12,7 @@ import { AuthError } from "@/lib/errors";
 export const dynamic = "force-dynamic";
 
 export async function GET(request: Request) {
-  return withApiRoute(request, { requireAuth: true }, async ({ session }) => {
+  return withApiRoute(request, { permission: "ai:chat" }, async ({ session }) => {
     if (!session)
       throw new AuthError("未认证");
     const actions = await getPendingActions(session.userId);

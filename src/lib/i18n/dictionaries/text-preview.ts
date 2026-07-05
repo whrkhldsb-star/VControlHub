@@ -62,6 +62,7 @@ export const zh: Record<string, string> = {
 	"textPreview.preview.download": "⬇ 下载",
 	"textPreview.preview.largeWarning": "⚠ 文件较大（{size} MB），预览可能较慢。建议直接下载后查看。",
 	"textPreview.preview.unsupported": "此文件类型暂不支持在线预览",
+	"textPreview.preview.invalidHref": "预览链接无效或不在允许的站内文件 API 范围内",
 	"textPreview.preview.downloadToView": "⬇ 下载后查看",
 };
 
@@ -122,5 +123,6 @@ export const en: Record<string, string> = {
 	"textPreview.preview.download": "⬇ Download",
 	"textPreview.preview.largeWarning": "⚠ Large file ({size} MB); preview may be slow. Downloading it first is recommended.",
 	"textPreview.preview.unsupported": "This file type does not support online preview yet",
+	"textPreview.preview.invalidHref": "The preview link is invalid or outside the allowed same-origin file API prefixes",
 	"textPreview.preview.downloadToView": "⬇ Download to view",
 };

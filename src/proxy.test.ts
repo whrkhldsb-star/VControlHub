@@ -31,13 +31,32 @@ describe("proxy auth and CSRF boundaries", () => {
     expect(response.status).toBe(403);
   });
 
-  it("lets bearer-token API clients reach image write routes for route-level auth", () => {
+  it("lets bearer-token API clients reach explicitly token-aware image write routes for route-level auth", () => {
     const response = proxy(makeRequest("/api/images/upload", {
       method: "POST",
       headers: { authorization: "Bearer whr_test" },
     }));
 
     expect(response.status).toBe(200);
+  });
+
+  it("does not let arbitrary bearer headers bypass CSRF on cookie API routes", () => {
+    const response = proxy(makeRequest("/api/backups/record_1/void", {
+      method: "POST",
+      headers: { authorization: "Bearer invalid" },
+    }));
+
+    expect(response.status).toBe(401);
+  });
+
+  it("requires CSRF when a bearer header is sent to a non-token-aware route with a session cookie", () => {
+    const response = proxy(makeRequest("/api/backups/record_1/void", {
+      method: "POST",
+      headers: { authorization: "Bearer invalid" },
+      cookies: { vcontrolhub_session: "payload.signature.with.length" },
+    }));
+
+    expect(response.status).toBe(403);
   });
 
   it("treats PWA service worker / manifest / offline page as public (TR-033)", () => {

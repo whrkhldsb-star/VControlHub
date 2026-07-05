@@ -290,6 +290,16 @@ export async function createDeploymentRollbackRun(input: { sourceRunId: string; 
   if (!snapshot) throw new NotFoundError("该部署没有可回滚快照");
   if (!snapshot.rollbackCommand?.trim()) throw new ValidationError("该部署快照没有回滚命令");
 
+  const activeRollback = await prisma.deploymentRollbackRun.findFirst({
+    where: {
+      sourceRunId: sourceRun.id,
+      status: { in: ["PENDING", "APPROVED", "RUNNING"] },
+    },
+    select: { id: true, status: true },
+    orderBy: { createdAt: "desc" },
+  });
+  if (activeRollback) throw new ValidationError("已有回滚任务正在处理，请等待当前回滚完成后再试");
+
   const reason = input.reason?.trim() || `真实回滚：${snapshot.templateName}`;
   const rollback = await prisma.deploymentRollbackRun.create({
     data: {

@@ -8,8 +8,6 @@ import { Client, type ConnectConfig } from "ssh2";
 import { NextResponse } from "next/server";
 
 import { connectSsh } from "@/lib/ssh/client";
-import { requireSession } from "@/lib/auth/require-session";
-import { sessionHasPermission } from "@/lib/auth/authorization";
 import { config } from "@/lib/config/env";
 import { createLogger } from "@/lib/logging";
 import { getMediaItem } from "@/lib/media/service";
@@ -17,6 +15,10 @@ import { assertStorageAccess } from "@/lib/storage/access-control";
 import { expandStorageBasePath, normalizeStorageRelativePath } from "@/lib/storage/path-utils";
 import { normalizeRemoteRelativePath, normalizeRemoteTargetPath, toClientStorageError } from "@/lib/storage/remote-path";
 import { resolveStorageSshCredentials } from "@/lib/storage/ssh-credentials";
+
+import { withApiRoute } from "@/lib/http/api-guard";
+import { GENERAL_READ_LIMIT } from "@/lib/http/rate-limit-presets";
+import { AuthError } from "@/lib/errors";
 
 import { apiError } from "@/lib/http/api-error";
 export const dynamic = "force-dynamic";
@@ -174,13 +176,13 @@ function readRemoteIntoBuffer(client: Client, remotePath: string, maxBytes: numb
 	});
 }
 
-export async function GET(_request: Request, { params }: { params: Promise<{ id: string }> }) {
-	const session = await requireSession("/media");
-	if (!sessionHasPermission(session, "storage:read")) {
-		return apiError({ code: "FORBIDDEN", message: "缺少存储读取权限", status: 403 });
-	}
-
-	const { id } = await params;
+export async function GET(request: Request, { params }: { params: Promise<{ id: string }> }) {
+	return withApiRoute(
+		request,
+		{ permission: "storage:read", rateLimit: GENERAL_READ_LIMIT, errorMessage: "读取媒体缩略图失败" },
+		async ({ session }) => {
+			if (!session) throw new AuthError("未认证");
+			const { id } = await params;
 	const item = await getMediaItem(id);
 	if (!item || !item.storageNode) return apiError({ code: "NOT_FOUND", message: "媒体不存在", status: 404 });
 
@@ -267,6 +269,7 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
 				host: credentials.host,
 				port: credentials.port,
 				username: credentials.username,
+				hostKeySha256: credentials.hostKeySha256,
 				privateKey: credentials.privateKey,
 				password: credentials.password,
 				readyTimeout: 5000,
@@ -321,4 +324,6 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
 			"X-Thumbnail-Cache": "miss",
 		},
 	});
+		},
+	);
 }

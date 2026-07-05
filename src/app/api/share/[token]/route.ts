@@ -22,8 +22,14 @@ import { normalizeRemoteTargetPath } from "@/lib/storage/remote-path";
 import { resolveStorageSshCredentials } from "@/lib/storage/ssh-credentials";
 
 import { apiError } from "@/lib/http/api-error";
+import { getClientIp } from "@/lib/rate-limit";
+import { rateLimitResponse, withRateLimit, type RateLimitConfig } from "@/lib/http/rate-limit-presets";
 import { getServerLocale, t } from "@/lib/i18n/translations";
 export const dynamic = "force-dynamic";
+// guardMode: public
+
+const SHARE_TOKEN_LIMIT: RateLimitConfig = { maxRequests: 60, windowMs: 60_000 };
+const SHARE_PASSWORD_LIMIT: RateLimitConfig = { maxRequests: 8, windowMs: 15 * 60_000 };
 
 async function openSftpFile(client: Client, remotePath: string) {
 	return new Promise<{ stream: import("stream").Readable; size: number }>((resolve, reject) => {
@@ -57,6 +63,9 @@ export async function GET(
 ) {
 	const { token } = await params;
 	const locale = await getServerLocale();
+	const tokenRateLimit = await withRateLimit(request, SHARE_TOKEN_LIMIT);
+	if (!tokenRateLimit.allowed) return rateLimitResponse(tokenRateLimit.retryAfterMs);
+	const clientIp = getClientIp(request);
 
 	if (!token || token.length < 10) {
 		return apiError({ code: "VALIDATION_FAILED", message: t("apiShareToken.invalidToken", locale), status: 400 });
@@ -68,6 +77,13 @@ export async function GET(
 			request,
 			z.object({ password: z.string().min(1).max(128).optional() }),
 		);
+		if (password) {
+			const passwordLimit = await withRateLimit(
+				new Request(request.url, { headers: { "x-forwarded-for": `${clientIp}:share:${token}` } }),
+				SHARE_PASSWORD_LIMIT,
+			);
+			if (!passwordLimit.allowed) return rateLimitResponse(passwordLimit.retryAfterMs);
+		}
 		share = await resolveShareToken(token, password);
 	} catch (err) {
 		const message = err instanceof Error ? err.message : t("apiShareToken.invalidToken", locale);
@@ -150,6 +166,7 @@ export async function GET(
 				host: credentials.host,
 				port: credentials.port,
 				username: credentials.username,
+				hostKeySha256: credentials.hostKeySha256,
 				privateKey: credentials.privateKey,
 				password: credentials.password,
 				readyTimeout: 15000,

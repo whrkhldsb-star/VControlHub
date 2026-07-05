@@ -27,9 +27,9 @@ const ownerSession = {
   roles: ["user"],
   mustChangePassword: false,
 };
-const adminSession = {
-  userId: "admin_1",
-  username: "admin",
+const imageReaderSession = {
+  userId: "reader_1",
+  username: "reader",
   roles: ["admin"],
   mustChangePassword: false,
 };
@@ -106,8 +106,8 @@ describe("GET /api/images/[id]/file", () => {
     expect(response.headers.get("Cache-Control")).toBe("private, no-store");
   });
 
-  it("lets admins preview another user's private image", async () => {
-    getApiSessionMock.mockResolvedValue(adminSession);
+  it("lets image readers preview another user's private image", async () => {
+    getApiSessionMock.mockResolvedValue(imageReaderSession);
     imageFindUniqueMock.mockResolvedValue(
       image({ isPublic: false, userId: "u1" }),
     );

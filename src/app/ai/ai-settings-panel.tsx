@@ -4,15 +4,15 @@ import type { ModelInfo } from "./ai-types";
 import { useI18n } from "@/lib/i18n/use-locale";
 
 interface SettingsFormState {
- model: string;
- systemPrompt: string;
- temperature: number;
- maxTokens: number;
- topP: number;
- frequencyPenalty: number;
- presencePenalty: number;
- enableVision: boolean;
- hostingEnabled: boolean;
+  model: string;
+  systemPrompt: string;
+  temperature: number;
+  maxTokens: number;
+  topP: number;
+  frequencyPenalty: number;
+  presencePenalty: number;
+  enableVision: boolean;
+  hostingEnabled: boolean;
 }
 
 interface SettingsPanelProps {
@@ -48,7 +48,7 @@ export function AiSettingsPanel({
   if (!show) return null;
 
   const filteredModels = modelList.filter((m) =>
-    m.id.toLowerCase().includes(modelSearch.toLowerCase())
+    m.id.toLowerCase().includes(modelSearch.toLowerCase()),
   );
 
   return (
@@ -58,7 +58,11 @@ export function AiSettingsPanel({
         <div className="col-span-2 md:col-span-2 relative">
           <label className="text-[10px] text-[var(--text-muted)] uppercase tracking-wider">
             {t("aiPage.model")}
-            {modelsLoading && <span className="ml-2 text-[var(--color-action)] animate-pulse">{t("aiPage.loading")}</span>}
+            {modelsLoading && (
+              <span className="ml-2 text-[var(--color-action)] animate-pulse">
+                {t("aiPage.loading")}
+              </span>
+            )}
           </label>
           <div className="relative mt-1">
             <button
@@ -68,26 +72,108 @@ export function AiSettingsPanel({
               <span className="truncate flex items-center gap-1.5">
                 {settingsForm.model}
                 {currentModelSupportsVision && (
-                  <span className="text-[9px] text-[var(--color-action)] bg-[var(--color-action-bg)]/10 px-1 py-0.5 rounded-lg">👁</span>
+                  <span className="text-[9px] text-[var(--color-action)] bg-[var(--color-action-bg)]/10 px-1 py-0.5 rounded-lg">
+                    👁
+                  </span>
                 )}
               </span>
-              <svg className={`w-3.5 h-3.5 text-[var(--text-muted)] transition-transform ${modelDropdownOpen ? "rotate-180" : ""}`} fill="none" stroke="currentColor" width="24" height="24" viewBox="0 0 24 24"> <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /> </svg> </button> {modelDropdownOpen && ( <div className="absolute z-50 top-full left-0 right-0 mt-1 bg-[var(--surface)] border border-[var(--border)] rounded-lg shadow-xl max-h-60 overflow-hidden flex flex-col"> <div className="p-2 border-b border-[var(--border)]/10"> <input value={modelSearch} aria-label={t("aiPage.searchModelAria")} onChange={(e) => setModelSearch(e.target.value)} placeholder={t("aiPage.searchModel")} className="w-full bg-[var(--input-bg)] border border-[var(--border)]/10 rounded-lg px-2 py-1 text-xs text-[var(--text-primary)] placeholder-slate-600 focus:outline-none focus:border-[var(--color-action-border)]/30" autoFocus /> </div> <div className="overflow-y-auto max-h-48"> {filteredModels.length === 0 && !modelsLoading && ( <div className="px-3 py-4 text-xs text-[var(--text-muted)] text-center"> {t("aiPage.noModels")} <button onClick={onRefreshModels} className="ml-2 text-[var(--color-action)] hover:text-[var(--color-action)] light:hover:text-[var(--color-action-strong)]" > {t("aiPage.refresh")} </button> </div> )} {filteredModels.map((m) => ( <button key={m.id} onClick={() => { setSettingsForm((f) => ({ ...f, model: m.id, enableVision: m.vision ? true : f.enableVision, })); setModelDropdownOpen(false); setModelSearch(""); }} className={`w-full text-left px-3 py-2 text-xs hover:bg-[var(--surface)]/[0.04] transition flex items-center gap-2 ${
-                        settingsForm.model === m.id ? "text-[var(--color-action)] bg-[var(--color-action-bg)]/[0.10]" : "text-[var(--text-primary)]"
+              <svg
+                className={`w-3.5 h-3.5 text-[var(--text-muted)] transition-transform ${modelDropdownOpen ? "rotate-180" : ""}`}
+                fill="none"
+                stroke="currentColor"
+                width="24"
+                height="24"
+                viewBox="0 0 24 24"
+              >
+                {" "}
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M19 9l-7 7-7-7"
+                />{" "}
+              </svg>{" "}
+            </button>{" "}
+            {modelDropdownOpen && (
+              <div className="absolute z-50 top-full left-0 right-0 mt-1 bg-[var(--surface)] border border-[var(--border)] rounded-lg shadow-xl max-h-60 overflow-hidden flex flex-col">
+                {" "}
+                <div className="p-2 border-b border-[var(--border)]/10">
+                  {" "}
+                  <input
+                    value={modelSearch}
+                    aria-label={t("aiPage.searchModelAria")}
+                    onChange={(e) => setModelSearch(e.target.value)}
+                    placeholder={t("aiPage.searchModel")}
+                    className="w-full bg-[var(--input-bg)] border border-[var(--border)]/10 rounded-lg px-2 py-1 text-xs text-[var(--text-primary)] placeholder-slate-600 focus:outline-none focus:border-[var(--color-action-border)]/30"
+                    autoFocus
+                  />{" "}
+                </div>{" "}
+                <div className="overflow-y-auto max-h-48">
+                  {" "}
+                  {filteredModels.length === 0 && !modelsLoading && (
+                    <div className="px-3 py-4 text-xs text-[var(--text-muted)] text-center">
+                      {" "}
+                      {t("aiPage.noModels")}{" "}
+                      <button
+                        onClick={onRefreshModels}
+                        className="ml-2 text-[var(--color-action)] hover:text-[var(--color-action)] light:hover:text-[var(--color-action-strong)]"
+                      >
+                        {" "}
+                        {t("aiPage.refresh")}{" "}
+                      </button>{" "}
+                    </div>
+                  )}{" "}
+                  {filteredModels.map((m) => (
+                    <button
+                      key={m.id}
+                      onClick={() => {
+                        setSettingsForm((f) => ({
+                          ...f,
+                          model: m.id,
+                          enableVision: m.vision ? true : f.enableVision,
+                        }));
+                        setModelDropdownOpen(false);
+                        setModelSearch("");
+                      }}
+                      className={`w-full text-left px-3 py-2 text-xs hover:bg-[var(--surface)]/[0.04] transition flex items-center gap-2 ${
+                        settingsForm.model === m.id
+                          ? "text-[var(--color-action)] bg-[var(--color-action-bg)]/[0.10]"
+                          : "text-[var(--text-primary)]"
                       }`}
                     >
                       <span className="truncate flex-1">{m.id}</span>
                       <span className="flex items-center gap-0.5 flex-shrink-0">
                         {(m.capabilities?.vision || m.vision) && (
-                          <span className="text-[9px] text-[var(--color-action)]/60" title={t("aiPage.visionCap")}>👁</span>
+                          <span
+                            className="text-[9px] text-[var(--color-action)]/60"
+                            title={t("aiPage.visionCap")}
+                          >
+                            👁
+                          </span>
                         )}
                         {m.capabilities?.video && (
-                          <span className="text-[9px] text-[var(--info)]0/60" title={t("aiPage.videoCapSetting")}>🎬</span>
+                          <span
+                            className="text-[9px] text-[var(--info)]0/60"
+                            title={t("aiPage.videoCapSetting")}
+                          >
+                            🎬
+                          </span>
                         )}
                         {m.capabilities?.audio && (
-                          <span className="text-[9px] text-[var(--accent)]" title={t("aiPage.audioCapSetting")}>🎵</span>
+                          <span
+                            className="text-[9px] text-[var(--accent)]"
+                            title={t("aiPage.audioCapSetting")}
+                          >
+                            🎵
+                          </span>
                         )}
                         {m.capabilities?.document && (
-                          <span className="text-[9px] text-[var(--success)]0/60" title={t("aiPage.documentCapSetting")}>📑</span>
+                          <span
+                            className="text-[9px] text-[var(--success)]0/60"
+                            title={t("aiPage.documentCapSetting")}
+                          >
+                            📑
+                          </span>
                         )}
                       </span>
                       {m.context_length && (
@@ -112,7 +198,10 @@ export function AiSettingsPanel({
                       onChange={(e) => setModelSearch(e.target.value)}
                       onKeyDown={(e) => {
                         if (e.key === "Enter" && modelSearch.trim()) {
-                          setSettingsForm((f) => ({ ...f, model: modelSearch.trim() }));
+                          setSettingsForm((f) => ({
+                            ...f,
+                            model: modelSearch.trim(),
+                          }));
                           setModelDropdownOpen(false);
                           setModelSearch("");
                         }
@@ -123,7 +212,10 @@ export function AiSettingsPanel({
                     <button
                       onClick={() => {
                         if (modelSearch.trim()) {
-                          setSettingsForm((f) => ({ ...f, model: modelSearch.trim() }));
+                          setSettingsForm((f) => ({
+                            ...f,
+                            model: modelSearch.trim(),
+                          }));
                           setModelDropdownOpen(false);
                           setModelSearch("");
                         }
@@ -141,8 +233,14 @@ export function AiSettingsPanel({
 
         {/* Temperature slider */}
         <div>
-          <label htmlFor="ai-setting-temperature" className="text-[10px] text-[var(--text-muted)] uppercase tracking-wider">
-            Temperature <span className="text-[var(--color-action)]/70">{settingsForm.temperature.toFixed(2)}</span>
+          <label
+            htmlFor="ai-setting-temperature"
+            className="text-[10px] text-[var(--text-muted)] uppercase tracking-wider"
+          >
+            Temperature{" "}
+            <span className="text-[var(--color-action)]/70">
+              {settingsForm.temperature.toFixed(2)}
+            </span>
           </label>
           <div className="mt-1 flex items-center gap-2">
             <input
@@ -152,7 +250,12 @@ export function AiSettingsPanel({
               max={2}
               step={0.01}
               value={settingsForm.temperature}
-              onChange={(e) => setSettingsForm((f) => ({ ...f, temperature: parseFloat(e.target.value) }))}
+              onChange={(e) =>
+                setSettingsForm((f) => ({
+                  ...f,
+                  temperature: parseFloat(e.target.value),
+                }))
+              }
               className="flex-1 h-1.5 bg-[var(--surface)]/10 rounded-full appearance-none cursor-pointer accent-[var(--color-action)] [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-3 [&::-webkit-slider-thumb]:h-3 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-[var(--color-action-bg)]"
             />
           </div>
@@ -160,25 +263,43 @@ export function AiSettingsPanel({
 
         {/* Max Tokens */}
         <div>
-          <label htmlFor="ai-setting-max-tokens" className="text-[10px] text-[var(--text-muted)] uppercase tracking-wider">
+          <label
+            htmlFor="ai-setting-max-tokens"
+            className="text-[10px] text-[var(--text-muted)] uppercase tracking-wider"
+          >
             Max Tokens
           </label>
           <select
             id="ai-setting-max-tokens"
             value={settingsForm.maxTokens}
-            onChange={(e) => setSettingsForm((f) => ({ ...f, maxTokens: parseInt(e.target.value) }))}
+            onChange={(e) =>
+              setSettingsForm((f) => ({
+                ...f,
+                maxTokens: parseInt(e.target.value),
+              }))
+            }
             className="w-full mt-1 bg-[var(--input-bg)] border border-[var(--border)] rounded-lg px-2.5 py-1.5 text-xs text-[var(--text-primary)]"
           >
-            {[512, 1024, 2048, 4096, 8192, 16384, 32768, 65536, 128000].map((v) => (
-              <option key={v} value={v}>{v.toLocaleString()}</option>
-            ))}
+            {[512, 1024, 2048, 4096, 8192, 16384, 32768, 65536, 128000].map(
+              (v) => (
+                <option key={v} value={v}>
+                  {v.toLocaleString()}
+                </option>
+              ),
+            )}
           </select>
         </div>
 
         {/* Top P slider */}
         <div>
-          <label htmlFor="ai-setting-top-p" className="text-[10px] text-[var(--text-muted)] uppercase tracking-wider">
-            Top P <span className="text-[var(--color-action)]/70">{settingsForm.topP.toFixed(2)}</span>
+          <label
+            htmlFor="ai-setting-top-p"
+            className="text-[10px] text-[var(--text-muted)] uppercase tracking-wider"
+          >
+            Top P{" "}
+            <span className="text-[var(--color-action)]/70">
+              {settingsForm.topP.toFixed(2)}
+            </span>
           </label>
           <div className="mt-1 flex items-center gap-2">
             <input
@@ -188,7 +309,12 @@ export function AiSettingsPanel({
               max={1}
               step={0.01}
               value={settingsForm.topP}
-              onChange={(e) => setSettingsForm((f) => ({ ...f, topP: parseFloat(e.target.value) }))}
+              onChange={(e) =>
+                setSettingsForm((f) => ({
+                  ...f,
+                  topP: parseFloat(e.target.value),
+                }))
+              }
               className="flex-1 h-1.5 bg-[var(--surface)]/10 rounded-full appearance-none cursor-pointer accent-[var(--color-action)] [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-3 [&::-webkit-slider-thumb]:h-3 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-[var(--color-action-bg)]"
             />
           </div>
@@ -196,8 +322,14 @@ export function AiSettingsPanel({
 
         {/* Frequency Penalty slider */}
         <div>
-          <label htmlFor="ai-setting-freq-pen" className="text-[10px] text-[var(--text-muted)] uppercase tracking-wider">
-            {t("aiPage.frequencyPenalty")} <span className="text-[var(--color-action)]/70">{settingsForm.frequencyPenalty.toFixed(2)}</span>
+          <label
+            htmlFor="ai-setting-freq-pen"
+            className="text-[10px] text-[var(--text-muted)] uppercase tracking-wider"
+          >
+            {t("aiPage.frequencyPenalty")}{" "}
+            <span className="text-[var(--color-action)]/70">
+              {settingsForm.frequencyPenalty.toFixed(2)}
+            </span>
           </label>
           <div className="mt-1 flex items-center gap-2">
             <input
@@ -207,7 +339,12 @@ export function AiSettingsPanel({
               max={2}
               step={0.01}
               value={settingsForm.frequencyPenalty}
-              onChange={(e) => setSettingsForm((f) => ({ ...f, frequencyPenalty: parseFloat(e.target.value) }))}
+              onChange={(e) =>
+                setSettingsForm((f) => ({
+                  ...f,
+                  frequencyPenalty: parseFloat(e.target.value),
+                }))
+              }
               className="flex-1 h-1.5 bg-[var(--surface)]/10 rounded-full appearance-none cursor-pointer accent-[var(--color-action)] [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-3 [&::-webkit-slider-thumb]:h-3 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-[var(--color-action-bg)]"
             />
           </div>
@@ -215,8 +352,14 @@ export function AiSettingsPanel({
 
         {/* Presence Penalty slider */}
         <div>
-          <label htmlFor="ai-setting-pres-pen" className="text-[10px] text-[var(--text-muted)] uppercase tracking-wider">
-            {t("aiPage.presencePenalty")} <span className="text-[var(--color-action)]/70">{settingsForm.presencePenalty.toFixed(2)}</span>
+          <label
+            htmlFor="ai-setting-pres-pen"
+            className="text-[10px] text-[var(--text-muted)] uppercase tracking-wider"
+          >
+            {t("aiPage.presencePenalty")}{" "}
+            <span className="text-[var(--color-action)]/70">
+              {settingsForm.presencePenalty.toFixed(2)}
+            </span>
           </label>
           <div className="mt-1 flex items-center gap-2">
             <input
@@ -226,7 +369,12 @@ export function AiSettingsPanel({
               max={2}
               step={0.01}
               value={settingsForm.presencePenalty}
-              onChange={(e) => setSettingsForm((f) => ({ ...f, presencePenalty: parseFloat(e.target.value) }))}
+              onChange={(e) =>
+                setSettingsForm((f) => ({
+                  ...f,
+                  presencePenalty: parseFloat(e.target.value),
+                }))
+              }
               className="flex-1 h-1.5 bg-[var(--surface)]/10 rounded-full appearance-none cursor-pointer accent-[var(--color-action)] [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-3 [&::-webkit-slider-thumb]:h-3 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-[var(--color-action-bg)]"
             />
           </div>
@@ -238,35 +386,49 @@ export function AiSettingsPanel({
             <input
               type="checkbox"
               checked={settingsForm.enableVision}
-              onChange={(e) => setSettingsForm((f) => ({ ...f, enableVision: e.target.checked }))}
+              onChange={(e) =>
+                setSettingsForm((f) => ({
+                  ...f,
+                  enableVision: e.target.checked,
+                }))
+              }
               className="rounded-lg border-[var(--border)] bg-[var(--input-bg)] text-[var(--color-action)] focus:ring-[var(--color-action-ring)]"
             />
             <span className="text-xs text-[var(--text-secondary)]">
               {t("aiPage.visionToggle")}
               {currentModelSupportsVision && (
-                <span className="text-[9px] text-[var(--color-action)]/60 ml-1">{t("aiPage.recommended")}</span>
+                <span className="text-[9px] text-[var(--color-action)]/60 ml-1">
+                  {t("aiPage.recommended")}
+                </span>
               )}
             </span>
- </label>
- </div>
+          </label>
+        </div>
 
- {/* Hosting (AI托管) toggle */}
- <div className="flex items-end gap-2">
- <label className="flex items-center gap-2 cursor-pointer">
- <input
- type="checkbox"
- checked={settingsForm.hostingEnabled}
- onChange={(e) => setSettingsForm((f) => ({ ...f, hostingEnabled: e.target.checked }))}
- className="rounded-lg border-[var(--border)] bg-[var(--input-bg)] text-[var(--warning)] focus:ring-[var(--warning-border)]"
- />
- <span className="text-xs text-[var(--text-secondary)]">
- {t("aiPage.hostedMode")}
- <span className="text-[9px] text-[var(--warning)]0/60 ml-1">{t("aiPage.hostedHint")}</span>
- </span>
- </label>
- </div>
+        {/* Hosting (AI托管) toggle */}
+        <div className="flex items-end gap-2">
+          <label className="flex items-center gap-2 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={settingsForm.hostingEnabled}
+              onChange={(e) =>
+                setSettingsForm((f) => ({
+                  ...f,
+                  hostingEnabled: e.target.checked,
+                }))
+              }
+              className="rounded-lg border-[var(--border)] bg-[var(--input-bg)] text-[var(--warning)] focus:ring-[var(--warning-border)]"
+            />
+            <span className="text-xs text-[var(--text-secondary)]">
+              {t("aiPage.hostedMode")}
+              <span className="text-[9px] text-[var(--warning)]0/60 ml-1">
+                {t("aiPage.hostedHint")}
+              </span>
+            </span>
+          </label>
+        </div>
 
- {/* Save button */}
+        {/* Save button */}
         <div className="flex items-end gap-2">
           <button
             onClick={onSaveSettings}
@@ -279,11 +441,18 @@ export function AiSettingsPanel({
 
       {/* System prompt */}
       <div className="mt-3">
-        <label className="text-[10px] text-[var(--text-muted)] uppercase tracking-wider" htmlFor="ai-setting-system-prompt">{t("aiPage.systemPromptLabel")}</label>
+        <label
+          className="text-[10px] text-[var(--text-muted)] uppercase tracking-wider"
+          htmlFor="ai-setting-system-prompt"
+        >
+          {t("aiPage.systemPromptLabel")}
+        </label>
         <textarea
           id="ai-setting-system-prompt"
           value={settingsForm.systemPrompt}
-          onChange={(e) => setSettingsForm((f) => ({ ...f, systemPrompt: e.target.value }))}
+          onChange={(e) =>
+            setSettingsForm((f) => ({ ...f, systemPrompt: e.target.value }))
+          }
           rows={2}
           placeholder={t("aiPage.systemPromptPlaceholder")}
           className="w-full mt-1 bg-[var(--input-bg)] border border-[var(--border)] rounded-lg px-2.5 py-1.5 text-xs text-[var(--text-primary)] placeholder-slate-600 resize-none focus:outline-none focus:border-[var(--color-action-border)]/30"

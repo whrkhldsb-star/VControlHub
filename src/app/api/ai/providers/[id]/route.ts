@@ -53,7 +53,7 @@ export async function GET(
 ) {
   return withApiRoute(
     request,
-    { requireAuth: true, errorStatus: 404, errorMessage: "未找到" },
+    { permission: "ai:manage", errorStatus: 404, errorMessage: "未找到" },
     async ({ session }) => {
       if (!session)
         throw new AuthError("未认证");

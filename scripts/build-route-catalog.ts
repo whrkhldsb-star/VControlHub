@@ -108,7 +108,7 @@ function apiMethods(text: string, filePath: string, seen: Set<string> = new Set(
       .map((s) => s.split(/\s+as\s+/).pop()!);
     const targetRel = m[2]!;
     const targetDir = dirname(filePath);
-    const target = resolve(targetDir, targetRel) + (targetRel.endsWith('route') ? '.ts' : '/route.ts');
+    const target = resolve(targetDir, targetRel) + (targetRel.endsWith('.ts') ? '' : '.ts');
     try {
       const t = readFileSync(target, 'utf8');
       for (const n of apiMethods(t, target, seen)) {
@@ -119,6 +119,16 @@ function apiMethods(text: string, filePath: string, seen: Set<string> = new Set(
     }
   }
   return [...set].sort();
+}
+
+function guardMode(text: string): string {
+  const match = text.match(/(?:export\s+const\s+guardMode\s*=\s*["']([^"']+)["']|guardMode:\s*([a-zA-Z-]+))/);
+  if (match) return match[1] ?? match[2]!;
+  if (text.includes('withApiRoute(')) return 'withApiRoute';
+  if (text.includes('enforceApiGuard(') || text.includes('requireApiPermission(')) return 'manual';
+  if (text.includes('verifyBearerToken(')) return 'bearer';
+  if (text.includes('getApiSession(') || text.includes('requireApiSession(')) return 'session';
+  return 'unspecified';
 }
 
 function main() {
@@ -160,6 +170,7 @@ function main() {
         path,
         file: rel,
         methods: apiMethods(text, f),
+        guardMode: guardMode(text),
         declaredPermissions: declaredPerms(text),
       };
     });

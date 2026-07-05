@@ -29,6 +29,9 @@ export const UPLOAD_LIMIT: RateLimitConfig = { maxRequests: 10, windowMs: 60_000
 /** Command execution: 5 per minute per IP */
 export const COMMAND_LIMIT: RateLimitConfig = { maxRequests: 5, windowMs: 60_000 };
 
+/** General API read: 120 per minute per IP */
+export const GENERAL_READ_LIMIT: RateLimitConfig = { maxRequests: 120, windowMs: 60_000 };
+
 /** General API write: 30 per minute per IP */
 export const GENERAL_WRITE_LIMIT: RateLimitConfig = { maxRequests: 30, windowMs: 60_000 };
 

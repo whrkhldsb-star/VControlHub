@@ -55,7 +55,7 @@ export async function GET(
       const canReadPrivateImage =
         !!session &&
         (session.userId === image.userId ||
-          sessionHasPermission(session, "user:read"));
+          sessionHasPermission(session, "image:read"));
 
       if (!canReadPrivateImage) {
         return NextResponse.json(

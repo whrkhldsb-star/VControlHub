@@ -20,7 +20,7 @@ function parseModels(data: { availableModels?: string[]; models?: string }) {
 }
 
 export async function GET(request: Request) {
-  return withApiRoute(request, { requireAuth: true }, async ({ session }) => {
+  return withApiRoute(request, { permission: "ai:manage" }, async ({ session }) => {
     if (!session)
       throw new AuthError("未认证");
     const providers = await listProviders(session.userId);

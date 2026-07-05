@@ -31,6 +31,9 @@
     "readme:reconcile": "tsx scripts/readme-reconcile.ts",
     "readme:reconcile:write": "tsx scripts/readme-reconcile.ts --write",
     "readme:reconcile:closeout": "tsx scripts/readme-reconcile-closeout.ts",
+    "readme:metrics": "tsx scripts/readme-metrics.ts",
+    "readme:metrics:write": "tsx scripts/readme-metrics.ts --write",
+    "docs:check": "npm run readme:metrics",
     "verify": "npm run prisma:generate && npm run typecheck && npm run lint && npm run i18n:key-check && npm test && npm run build && npm run build:runtime && npm run verify:deploy-assets",
     "build:turbopack": "next build",
     "build:webpack": "next build --webpack"

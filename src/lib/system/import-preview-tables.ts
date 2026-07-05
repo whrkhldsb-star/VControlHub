@@ -1,6 +1,60 @@
 import { prisma } from "@/lib/db";
 import type { ExportFile, ImportOptions } from "@/lib/system/config-schema";
 
+async function chunkedExistingIds<T extends { id: string }>(
+  ids: string[],
+  findMany: (chunk: string[]) => Promise<T[]>,
+  chunkSize = 500,
+): Promise<Set<string>> {
+  const out = new Set<string>();
+  for (let i = 0; i < ids.length; i += chunkSize) {
+    const rows = await findMany(ids.slice(i, i + chunkSize));
+    for (const row of rows) out.add(row.id);
+  }
+  return out;
+}
+
+async function previewById<T extends { id: string }>(
+  records: T[],
+  options: ImportOptions,
+  findMany: (chunk: string[]) => Promise<{ id: string }[]>,
+): Promise<{ create: number; update: number; skip: number }> {
+  if (records.length === 0) return { create: 0, update: 0, skip: 0 };
+  const existingIds = await chunkedExistingIds(records.map((r) => r.id), findMany);
+  const existingCount = records.filter((r) => existingIds.has(r.id)).length;
+  const newCount = records.length - existingCount;
+  if (options.overwriteExisting) return { create: newCount, update: existingCount, skip: 0 };
+  return { create: newCount, update: 0, skip: existingCount };
+}
+
+async function chunkedExistingKeys<T extends Record<K, string>, K extends string>(
+  keys: string[],
+  keyName: K,
+  findMany: (chunk: string[]) => Promise<T[]>,
+  chunkSize = 500,
+): Promise<Set<string>> {
+  const out = new Set<string>();
+  for (let i = 0; i < keys.length; i += chunkSize) {
+    const rows = await findMany(keys.slice(i, i + chunkSize));
+    for (const row of rows) out.add(row[keyName]);
+  }
+  return out;
+}
+
+async function previewByKey<T extends Record<K, string>, K extends string>(
+  records: T[],
+  keyName: K,
+  options: ImportOptions,
+  findMany: (chunk: string[]) => Promise<Record<K, string>[]>,
+): Promise<{ create: number; update: number; skip: number }> {
+  if (records.length === 0) return { create: 0, update: 0, skip: 0 };
+  const existingKeys = await chunkedExistingKeys(records.map((r) => r[keyName]), keyName, findMany);
+  const existingCount = records.filter((r) => existingKeys.has(r[keyName])).length;
+  const newCount = records.length - existingCount;
+  if (options.overwriteExisting) return { create: newCount, update: existingCount, skip: 0 };
+  return { create: newCount, update: 0, skip: existingCount };
+}
+
 // ── 预览辅助函数 ──────────────────────────────────────────
 //
 // 每张表使用单次 batch findMany 替代 N 次 per-record findUnique，
@@ -11,19 +65,10 @@ export async function previewPermissions(
   options: ImportOptions,
 ): Promise<{ create: number; update: number; skip: number }> {
   const records = t.permissions;
-  if (records.length === 0) return { create: 0, update: 0, skip: 0 };
-  const ids = records.map((r) => r.id);
-  const existing = await prisma.permission.findMany({
+  return previewById(records, options, (ids) => prisma.permission.findMany({
     where: { id: { in: ids } },
     select: { id: true },
-  });
-  const existingIds = new Set(existing.map((e) => e.id));
-  const existingCount = records.filter((r) => existingIds.has(r.id)).length;
-  const newCount = records.length - existingCount;
-  if (options.overwriteExisting) {
-    return { create: newCount, update: existingCount, skip: 0 };
-  }
-  return { create: newCount, update: 0, skip: existingCount };
+  }));
 }
 
 export async function previewRoles(
@@ -31,19 +76,10 @@ export async function previewRoles(
   options: ImportOptions,
 ): Promise<{ create: number; update: number; skip: number }> {
   const records = t.roles;
-  if (records.length === 0) return { create: 0, update: 0, skip: 0 };
-  const ids = records.map((r) => r.id);
-  const existing = await prisma.role.findMany({
+  return previewById(records, options, (ids) => prisma.role.findMany({
     where: { id: { in: ids } },
     select: { id: true },
-  });
-  const existingIds = new Set(existing.map((e) => e.id));
-  const existingCount = records.filter((r) => existingIds.has(r.id)).length;
-  const newCount = records.length - existingCount;
-  if (options.overwriteExisting) {
-    return { create: newCount, update: existingCount, skip: 0 };
-  }
-  return { create: newCount, update: 0, skip: existingCount };
+  }));
 }
 
 export async function previewRolePermissions(
@@ -70,19 +106,10 @@ export async function previewUsers(
   options: ImportOptions,
 ): Promise<{ create: number; update: number; skip: number }> {
   const records = t.users;
-  if (records.length === 0) return { create: 0, update: 0, skip: 0 };
-  const ids = records.map((r) => r.id);
-  const existing = await prisma.user.findMany({
+  return previewById(records, options, (ids) => prisma.user.findMany({
     where: { id: { in: ids } },
     select: { id: true },
-  });
-  const existingIds = new Set(existing.map((e) => e.id));
-  const existingCount = records.filter((r) => existingIds.has(r.id)).length;
-  const newCount = records.length - existingCount;
-  if (options.overwriteExisting) {
-    return { create: newCount, update: existingCount, skip: 0 };
-  }
-  return { create: newCount, update: 0, skip: existingCount };
+  }));
 }
 
 export async function previewUserRoles(
@@ -109,19 +136,10 @@ export async function previewSshKeys(
   options: ImportOptions,
 ): Promise<{ create: number; update: number; skip: number }> {
   const records = t.sshKeys;
-  if (records.length === 0) return { create: 0, update: 0, skip: 0 };
-  const ids = records.map((r) => r.id);
-  const existing = await prisma.sshKey.findMany({
+  return previewById(records, options, (ids) => prisma.sshKey.findMany({
     where: { id: { in: ids } },
     select: { id: true },
-  });
-  const existingIds = new Set(existing.map((e) => e.id));
-  const existingCount = records.filter((r) => existingIds.has(r.id)).length;
-  const newCount = records.length - existingCount;
-  if (options.overwriteExisting) {
-    return { create: newCount, update: existingCount, skip: 0 };
-  }
-  return { create: newCount, update: 0, skip: existingCount };
+  }));
 }
 
 export async function previewServers(
@@ -129,19 +147,10 @@ export async function previewServers(
   options: ImportOptions,
 ): Promise<{ create: number; update: number; skip: number }> {
   const records = t.servers;
-  if (records.length === 0) return { create: 0, update: 0, skip: 0 };
-  const ids = records.map((r) => r.id);
-  const existing = await prisma.server.findMany({
+  return previewById(records, options, (ids) => prisma.server.findMany({
     where: { id: { in: ids } },
     select: { id: true },
-  });
-  const existingIds = new Set(existing.map((e) => e.id));
-  const existingCount = records.filter((r) => existingIds.has(r.id)).length;
-  const newCount = records.length - existingCount;
-  if (options.overwriteExisting) {
-    return { create: newCount, update: existingCount, skip: 0 };
-  }
-  return { create: newCount, update: 0, skip: existingCount };
+  }));
 }
 
 export async function previewStorageNodes(
@@ -149,19 +158,10 @@ export async function previewStorageNodes(
   options: ImportOptions,
 ): Promise<{ create: number; update: number; skip: number }> {
   const records = t.storageNodes;
-  if (records.length === 0) return { create: 0, update: 0, skip: 0 };
-  const ids = records.map((r) => r.id);
-  const existing = await prisma.storageNode.findMany({
+  return previewById(records, options, (ids) => prisma.storageNode.findMany({
     where: { id: { in: ids } },
     select: { id: true },
-  });
-  const existingIds = new Set(existing.map((e) => e.id));
-  const existingCount = records.filter((r) => existingIds.has(r.id)).length;
-  const newCount = records.length - existingCount;
-  if (options.overwriteExisting) {
-    return { create: newCount, update: existingCount, skip: 0 };
-  }
-  return { create: newCount, update: 0, skip: existingCount };
+  }));
 }
 
 export async function previewUserStorageAccess(
@@ -169,19 +169,10 @@ export async function previewUserStorageAccess(
   options: ImportOptions,
 ): Promise<{ create: number; update: number; skip: number }> {
   const records = t.userStorageAccess;
-  if (records.length === 0) return { create: 0, update: 0, skip: 0 };
-  const ids = records.map((r) => r.id);
-  const existing = await prisma.userStorageAccess.findMany({
+  return previewById(records, options, (ids) => prisma.userStorageAccess.findMany({
     where: { id: { in: ids } },
     select: { id: true },
-  });
-  const existingIds = new Set(existing.map((e) => e.id));
-  const existingCount = records.filter((r) => existingIds.has(r.id)).length;
-  const newCount = records.length - existingCount;
-  if (options.overwriteExisting) {
-    return { create: newCount, update: existingCount, skip: 0 };
-  }
-  return { create: newCount, update: 0, skip: existingCount };
+  }));
 }
 
 export async function previewCommandTemplates(
@@ -189,19 +180,10 @@ export async function previewCommandTemplates(
   options: ImportOptions,
 ): Promise<{ create: number; update: number; skip: number }> {
   const records = t.commandTemplates;
-  if (records.length === 0) return { create: 0, update: 0, skip: 0 };
-  const ids = records.map((r) => r.id);
-  const existing = await prisma.commandTemplate.findMany({
+  return previewById(records, options, (ids) => prisma.commandTemplate.findMany({
     where: { id: { in: ids } },
     select: { id: true },
-  });
-  const existingIds = new Set(existing.map((e) => e.id));
-  const existingCount = records.filter((r) => existingIds.has(r.id)).length;
-  const newCount = records.length - existingCount;
-  if (options.overwriteExisting) {
-    return { create: newCount, update: existingCount, skip: 0 };
-  }
-  return { create: newCount, update: 0, skip: existingCount };
+  }));
 }
 
 export async function previewQuickServices(
@@ -209,19 +191,10 @@ export async function previewQuickServices(
   options: ImportOptions,
 ): Promise<{ create: number; update: number; skip: number }> {
   const records = t.quickServices;
-  if (records.length === 0) return { create: 0, update: 0, skip: 0 };
-  const ids = records.map((r) => r.id);
-  const existing = await prisma.quickService.findMany({
+  return previewById(records, options, (ids) => prisma.quickService.findMany({
     where: { id: { in: ids } },
     select: { id: true },
-  });
-  const existingIds = new Set(existing.map((e) => e.id));
-  const existingCount = records.filter((r) => existingIds.has(r.id)).length;
-  const newCount = records.length - existingCount;
-  if (options.overwriteExisting) {
-    return { create: newCount, update: existingCount, skip: 0 };
-  }
-  return { create: newCount, update: 0, skip: existingCount };
+  }));
 }
 
 export async function previewPlaybooks(
@@ -230,18 +203,10 @@ export async function previewPlaybooks(
 ): Promise<{ create: number; update: number; skip: number }> {
   const records = t.playbooks;
   if (records.length === 0) return { create: 0, update: 0, skip: 0 };
-  const ids = records.map((r) => r.id);
-  const existing = await prisma.playbook.findMany({
+  return previewById(records, options, (ids) => prisma.playbook.findMany({
     where: { id: { in: ids } },
     select: { id: true },
-  });
-  const existingIds = new Set(existing.map((e) => e.id));
-  const existingCount = records.filter((r) => existingIds.has(r.id)).length;
-  const newCount = records.length - existingCount;
-  if (options.overwriteExisting) {
-    return { create: newCount, update: existingCount, skip: 0 };
-  }
-  return { create: newCount, update: 0, skip: existingCount };
+  }));
 }
 
 export async function previewAlertRules(
@@ -250,18 +215,10 @@ export async function previewAlertRules(
 ): Promise<{ create: number; update: number; skip: number }> {
   const records = t.alertRules;
   if (records.length === 0) return { create: 0, update: 0, skip: 0 };
-  const ids = records.map((r) => r.id);
-  const existing = await prisma.alertRule.findMany({
+  return previewById(records, options, (ids) => prisma.alertRule.findMany({
     where: { id: { in: ids } },
     select: { id: true },
-  });
-  const existingIds = new Set(existing.map((e) => e.id));
-  const existingCount = records.filter((r) => existingIds.has(r.id)).length;
-  const newCount = records.length - existingCount;
-  if (options.overwriteExisting) {
-    return { create: newCount, update: existingCount, skip: 0 };
-  }
-  return { create: newCount, update: 0, skip: existingCount };
+  }));
 }
 
 export async function previewSettings(
@@ -270,18 +227,10 @@ export async function previewSettings(
 ): Promise<{ create: number; update: number; skip: number }> {
   const records = t.settings;
   if (records.length === 0) return { create: 0, update: 0, skip: 0 };
-  const keys = records.map((r) => r.key);
-  const existing = await prisma.setting.findMany({
+  return previewByKey(records, "key", options, (keys) => prisma.setting.findMany({
     where: { key: { in: keys } },
     select: { key: true },
-  });
-  const existingKeys = new Set(existing.map((e) => e.key));
-  const existingCount = records.filter((r) => existingKeys.has(r.key)).length;
-  const newCount = records.length - existingCount;
-  if (options.overwriteExisting) {
-    return { create: newCount, update: existingCount, skip: 0 };
-  }
-  return { create: newCount, update: 0, skip: existingCount };
+  }));
 }
 
 export async function previewAiProviders(
@@ -290,18 +239,10 @@ export async function previewAiProviders(
 ): Promise<{ create: number; update: number; skip: number }> {
   const records = t.aiProviders;
   if (records.length === 0) return { create: 0, update: 0, skip: 0 };
-  const ids = records.map((r) => r.id);
-  const existing = await prisma.aiProvider.findMany({
+  return previewById(records, options, (ids) => prisma.aiProvider.findMany({
     where: { id: { in: ids } },
     select: { id: true },
-  });
-  const existingIds = new Set(existing.map((e) => e.id));
-  const existingCount = records.filter((r) => existingIds.has(r.id)).length;
-  const newCount = records.length - existingCount;
-  if (options.overwriteExisting) {
-    return { create: newCount, update: existingCount, skip: 0 };
-  }
-  return { create: newCount, update: 0, skip: existingCount };
+  }));
 }
 
 export async function previewAnnouncements(
@@ -310,18 +251,10 @@ export async function previewAnnouncements(
 ): Promise<{ create: number; update: number; skip: number }> {
   const records = t.announcements;
   if (records.length === 0) return { create: 0, update: 0, skip: 0 };
-  const ids = records.map((r) => r.id);
-  const existing = await prisma.announcement.findMany({
+  return previewById(records, options, (ids) => prisma.announcement.findMany({
     where: { id: { in: ids } },
     select: { id: true },
-  });
-  const existingIds = new Set(existing.map((e) => e.id));
-  const existingCount = records.filter((r) => existingIds.has(r.id)).length;
-  const newCount = records.length - existingCount;
-  if (options.overwriteExisting) {
-    return { create: newCount, update: existingCount, skip: 0 };
-  }
-  return { create: newCount, update: 0, skip: existingCount };
+  }));
 }
 
 export async function previewSnippets(
@@ -330,16 +263,8 @@ export async function previewSnippets(
 ): Promise<{ create: number; update: number; skip: number }> {
   const records = t.snippets;
   if (records.length === 0) return { create: 0, update: 0, skip: 0 };
-  const ids = records.map((r) => r.id);
-  const existing = await prisma.snippet.findMany({
+  return previewById(records, options, (ids) => prisma.snippet.findMany({
     where: { id: { in: ids } },
     select: { id: true },
-  });
-  const existingIds = new Set(existing.map((e) => e.id));
-  const existingCount = records.filter((r) => existingIds.has(r.id)).length;
-  const newCount = records.length - existingCount;
-  if (options.overwriteExisting) {
-    return { create: newCount, update: existingCount, skip: 0 };
-  }
-  return { create: newCount, update: 0, skip: existingCount };
+  }));
 }

@@ -129,12 +129,12 @@ describe("AI API shared guard migration", () => {
     });
   });
 
-  it("lists providers with auth-only API session and masks provider secrets", async () => {
+  it("requires ai:manage for provider reads and masks provider secrets", async () => {
     const response = await providersRoute.GET(
       new Request("http://local/api/ai/providers"),
     );
     expect(response.status).toBe(200);
-    expect(mocks.requireApiSession).toHaveBeenCalled();
+    expect(mocks.requireApiPermission).toHaveBeenCalledWith("ai:manage");
     const body = await response.json();
     expect(body.providers[0].apiKey).toBeUndefined();
   });
@@ -225,6 +225,7 @@ describe("AI API shared guard migration", () => {
       new Request("http://local/api/ai/hosted-actions"),
     );
     expect(listResponse.status).toBe(200);
+    expect(mocks.requireApiPermission).toHaveBeenCalledWith("ai:chat")
     expect(mocks.getPendingActions).toHaveBeenCalledWith("u1");
 
     const confirmResponse = await hostedActionDetailRoute.PATCH(

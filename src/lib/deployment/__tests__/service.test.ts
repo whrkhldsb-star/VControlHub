@@ -5,7 +5,7 @@ const { mockPrisma } = vi.hoisted(() => ({
     commandTemplate: { findUnique: vi.fn(), findMany: vi.fn(), count: vi.fn(), create: vi.fn() },
     deploymentRun: { create: vi.fn(), update: vi.fn(), findMany: vi.fn(), findUnique: vi.fn() },
     deploymentSnapshot: { create: vi.fn() },
-    deploymentRollbackRun: { create: vi.fn(), update: vi.fn() },
+    deploymentRollbackRun: { findFirst: vi.fn(), create: vi.fn(), update: vi.fn() },
   },
 }));
 
@@ -30,6 +30,7 @@ describe("deployment service", () => {
     mockPrisma.deploymentRun.create.mockImplementation(async ({ data }: any) => ({ id: "dep1", ...data }));
     mockPrisma.deploymentSnapshot.create.mockImplementation(async ({ data }: any) => ({ id: "snap1", ...data }));
     mockPrisma.deploymentRun.update.mockImplementation(async ({ where, data }: any) => ({ id: where?.id ?? "dep1", ...data }));
+    mockPrisma.deploymentRollbackRun.findFirst.mockResolvedValue(null);
   });
 
   it("renders template variables and submits through command approval pipeline", async () => {
@@ -113,6 +114,25 @@ describe("deployment service", () => {
       submissionMode: "assistant",
     }));
     expect(rollback).toMatchObject({ id: "rb1", commandRequestId: "cmd1", status: "PENDING" });
+  });
+
+
+  it("blocks duplicate active rollback attempts for the same deployment run", async () => {
+    mockPrisma.deploymentRun.findUnique.mockResolvedValue({
+      id: "dep1",
+      template: { id: "tmpl1", name: "Nginx" },
+      snapshot: {
+        id: "snap1",
+        templateName: "Nginx",
+        rollbackCommand: "apt remove nginx",
+        serverIds: ["srv1"],
+      },
+    });
+    mockPrisma.deploymentRollbackRun.findFirst.mockResolvedValueOnce({ id: "rb_active", status: "PENDING" });
+
+    await expect(createDeploymentRollbackRun({ sourceRunId: "dep1", requesterId: "u1" })).rejects.toThrow("已有回滚任务正在处理");
+    expect(mockPrisma.deploymentRollbackRun.create).not.toHaveBeenCalled();
+    expect(commandService.createCommandRequest).not.toHaveBeenCalled();
   });
 
   it("lists templates for the deployment page without rendering secrets", async () => {

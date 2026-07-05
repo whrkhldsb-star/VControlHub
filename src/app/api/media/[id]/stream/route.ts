@@ -7,8 +7,6 @@ import { z } from "zod";
 
 import { connectSsh } from "@/lib/ssh/client";
 import { parseSearchParams } from "@/lib/http/parse-search-params";
-import { requireSession } from "@/lib/auth/require-session";
-import { sessionHasPermission } from "@/lib/auth/authorization";
 import { createLogger } from "@/lib/logging";
 import { getMediaItem } from "@/lib/media/service";
 import { assertStorageAccess } from "@/lib/storage/access-control";
@@ -16,6 +14,10 @@ import { expandStorageBasePath, normalizeStorageRelativePath } from "@/lib/stora
 import { normalizeRemoteRelativePath, normalizeRemoteTargetPath, toClientStorageError } from "@/lib/storage/remote-path";
 import { parseStorageRange, storageStreamResponse, type StorageByteRange } from "@/lib/storage/streaming";
 import { resolveStorageSshCredentials } from "@/lib/storage/ssh-credentials";
+
+import { withApiRoute } from "@/lib/http/api-guard";
+import { GENERAL_READ_LIMIT } from "@/lib/http/rate-limit-presets";
+import { AuthError } from "@/lib/errors";
 
 import { apiError } from "@/lib/http/api-error";
 export const dynamic = "force-dynamic";
@@ -49,12 +51,12 @@ function openSftpStream(client: Client, remotePath: string, rangeHeader: string 
 }
 
 export async function GET(request: Request, { params }: { params: Promise<{ id: string }> }) {
-  const session = await requireSession("/media");
-  if (!sessionHasPermission(session, "storage:read")) {
-    return apiError({ code: "FORBIDDEN", message: "缺少存储读取权限", status: 403 });
-  }
-
-  const { id } = await params;
+  return withApiRoute(
+    request,
+    { permission: "storage:read", rateLimit: GENERAL_READ_LIMIT, errorMessage: "读取媒体失败" },
+    async ({ session }) => {
+      if (!session) throw new AuthError("未认证");
+      const { id } = await params;
   const { download } = parseSearchParams(
     request,
     z.object({
@@ -170,4 +172,6 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
     logger.error("read remote media stream failed", error, { id, nodeId: node.id });
     return NextResponse.json(toClientStorageError("获取远端媒体失败，请检查文件是否存在或节点是否可连接"), { status: 502 });
   }
+    },
+  );
 }

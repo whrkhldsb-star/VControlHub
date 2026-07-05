@@ -42,6 +42,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       } catch (error) {
         const message = error instanceof Error ? error.message : "回滚失败";
         if (message.includes("不存在")) return apiError({ status: 404, code: "NOT_FOUND", message });
+        if (message.includes("已有回滚任务")) return apiError({ status: 409, code: "CONFLICT", message });
         if (message.includes("快照") || message.includes("回滚命令")) {
           return apiError({ status: 400, code: "BUSINESS_RULE_FAILED", message });
         }

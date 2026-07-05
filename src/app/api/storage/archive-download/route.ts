@@ -171,6 +171,7 @@ export async function GET(request: Request) {
         host: credentials.host,
         port: credentials.port,
         username: credentials.username,
+        hostKeySha256: credentials.hostKeySha256,
         privateKey: credentials.privateKey,
         password: credentials.password,
         readyTimeout: 15000,

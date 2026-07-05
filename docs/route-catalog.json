@@ -1,132 +1,128 @@
 {
-  "generatedAt": "2026-06-24T05:58:52.109Z",
+  "generatedAt": "2026-07-05T14:26:26.174Z",
   "summary": {
-    "sidebarMain": 28,
+    "sidebarMain": 27,
     "sidebarSystem": 5,
     "sidebarMobile": 5,
     "pages": 46,
-    "apiRoutes": 108,
-    "permissionsDefined": 49
+    "apiRoutes": 138,
+    "permissionsDefined": 53
   },
   "sidebar": {
     "main": [
       {
         "href": "/dashboard",
-        "fallbackLabel": "仪表盘"
+        "fallbackLabel": "Dashboard"
       },
       {
         "href": "/servers",
-        "fallbackLabel": "VPS 管理"
+        "fallbackLabel": "VPS Management"
       },
       {
         "href": "/health",
-        "fallbackLabel": "健康看板"
+        "fallbackLabel": "Health"
       },
       {
         "href": "/monitoring",
-        "fallbackLabel": "服务器监控"
+        "fallbackLabel": "Monitoring"
       },
       {
         "href": "/traffic",
-        "fallbackLabel": "流量中心"
+        "fallbackLabel": "Traffic"
       },
       {
         "href": "/files",
-        "fallbackLabel": "文件管理"
+        "fallbackLabel": "Files"
       },
       {
         "href": "/downloads",
-        "fallbackLabel": "远程下载"
+        "fallbackLabel": "Downloads"
       },
       {
         "href": "/operation-tasks",
-        "fallbackLabel": "任务中心"
+        "fallbackLabel": "Tasks"
       },
       {
         "href": "/shares",
-        "fallbackLabel": "分享链接"
+        "fallbackLabel": "Share Links"
       },
       {
         "href": "/backups",
-        "fallbackLabel": "备份迁移"
+        "fallbackLabel": "Backups"
       },
       {
         "href": "/cost-summary",
-        "fallbackLabel": "成本追踪"
+        "fallbackLabel": "Costs"
       },
       {
         "href": "/templates",
-        "fallbackLabel": "命令模板"
+        "fallbackLabel": "Command Templates"
       },
       {
         "href": "/deployments",
-        "fallbackLabel": "应用部署"
+        "fallbackLabel": "Deployments"
       },
       {
         "href": "/quick-services",
-        "fallbackLabel": "快捷服务"
+        "fallbackLabel": "Quick Services"
       },
       {
         "href": "/snippets",
-        "fallbackLabel": "代码片段"
+        "fallbackLabel": "Snippets"
       },
       {
         "href": "/media",
-        "fallbackLabel": "媒体库"
+        "fallbackLabel": "Media"
       },
       {
         "href": "/image-bed",
-        "fallbackLabel": "外链管理"
+        "fallbackLabel": "Image Links"
       },
       {
         "href": "/ai",
-        "fallbackLabel": "AI 助手"
+        "fallbackLabel": "AI Assistant"
       },
       {
         "href": "/ai-ops",
-        "fallbackLabel": "智能运维"
+        "fallbackLabel": "AI Ops"
       },
       {
         "href": "/announcements",
-        "fallbackLabel": "站内公告"
+        "fallbackLabel": "Announcements"
       },
       {
         "href": "/tickets",
-        "fallbackLabel": "工单请求"
+        "fallbackLabel": "Tickets"
       },
       {
         "href": "/requests",
-        "fallbackLabel": "审批中心"
+        "fallbackLabel": "Approvals"
       },
       {
         "href": "/scheduled-tasks",
-        "fallbackLabel": "定时任务"
+        "fallbackLabel": "Scheduled Tasks"
       },
       {
         "href": "/playbooks",
-        "fallbackLabel": "Playbook 自动化"
+        "fallbackLabel": "Playbook Automation"
       },
       {
         "href": "/alert-rules",
-        "fallbackLabel": "智能告警"
+        "fallbackLabel": "Alert Rules"
       },
       {
         "href": "/notifications",
-        "fallbackLabel": "通知中心"
-      },
-      {
-        "href": "/preferences",
-        "fallbackLabel": "偏好设置"
+        "fallbackLabel": "Notifications"
       },
       {
         "href": "/settings",
-        "fallbackLabel": "系统设置"
+        "fallbackLabel": "Settings"
       }
     ],
     "system": [
       {
         "href": "/users",
-        "fallbackLabel": "用户管理"
+        "fallbackLabel": "Users"
       },
       {
         "href": "/api-tokens",
@@ -134,15 +130,15 @@
       },
       {
         "href": "/status",
-        "fallbackLabel": "公开状态页"
+        "fallbackLabel": "Public Status"
       },
       {
         "href": "/audit",
-        "fallbackLabel": "审计日志"
+        "fallbackLabel": "Audit Log"
       },
       {
         "href": "/qa-reports",
-        "fallbackLabel": "QA 报告"
+        "fallbackLabel": "QA Reports"
       }
     ],
     "mobileHrefs": [
@@ -407,7 +403,7 @@
     {
       "path": "/preferences",
       "file": "src/app/preferences/page.tsx",
-      "inSidebarMain": true,
+      "inSidebarMain": false,
       "inSidebarSystem": false,
       "declaredPermissions": []
     },
@@ -573,6 +569,7 @@
       "methods": [
         "GET"
       ],
+      "guardMode": "withApiRoute",
       "declaredPermissions": [
         "task:read"
       ]
@@ -583,6 +580,7 @@
       "methods": [
         "GET"
       ],
+      "guardMode": "withApiRoute",
       "declaredPermissions": [
         "task:read"
       ]
@@ -593,6 +591,7 @@
       "methods": [
         "GET"
       ],
+      "guardMode": "withApiRoute",
       "declaredPermissions": [
         "task:read"
       ]
@@ -603,6 +602,7 @@
       "methods": [
         "POST"
       ],
+      "guardMode": "withApiRoute",
       "declaredPermissions": [
         "ai:chat"
       ]
@@ -615,6 +615,7 @@
         "GET",
         "PATCH"
       ],
+      "guardMode": "withApiRoute",
       "declaredPermissions": []
     },
     {
@@ -624,6 +625,7 @@
         "GET",
         "POST"
       ],
+      "guardMode": "withApiRoute",
       "declaredPermissions": [
         "ai:chat"
       ]
@@ -634,6 +636,7 @@
       "methods": [
         "PATCH"
       ],
+      "guardMode": "withApiRoute",
       "declaredPermissions": []
     },
     {
@@ -642,7 +645,10 @@
       "methods": [
         "GET"
       ],
-      "declaredPermissions": []
+      "guardMode": "withApiRoute",
+      "declaredPermissions": [
+        "ai:chat"
+      ]
     },
     {
       "path": "/src/app/api/ai/models/probe",
@@ -650,6 +656,7 @@
       "methods": [
         "POST"
       ],
+      "guardMode": "withApiRoute",
       "declaredPermissions": [
         "ai:manage"
       ]
@@ -660,7 +667,19 @@
       "methods": [
         "GET"
       ],
+      "guardMode": "withApiRoute",
       "declaredPermissions": []
+    },
+    {
+      "path": "/src/app/api/ai/ops/logs/[id]/approve",
+      "file": "src/app/api/ai/ops/logs/[id]/approve/route.ts",
+      "methods": [
+        "POST"
+      ],
+      "guardMode": "withApiRoute",
+      "declaredPermissions": [
+        "ai:ops:manage"
+      ]
     },
     {
       "path": "/src/app/api/ai/ops/logs/[id]/execute",
@@ -668,6 +687,7 @@
       "methods": [
         "POST"
       ],
+      "guardMode": "withApiRoute",
       "declaredPermissions": [
         "ai:ops:autonomous",
         "ai:ops:manage"
@@ -679,6 +699,7 @@
       "methods": [
         "GET"
       ],
+      "guardMode": "withApiRoute",
       "declaredPermissions": [
         "ai:ops:read"
       ]
@@ -689,6 +710,7 @@
       "methods": [
         "GET"
       ],
+      "guardMode": "withApiRoute",
       "declaredPermissions": [
         "ai:ops:read"
       ]
@@ -699,6 +721,7 @@
       "methods": [
         "POST"
       ],
+      "guardMode": "withApiRoute",
       "declaredPermissions": [
         "ai:ops:manage"
       ]
@@ -710,6 +733,7 @@
         "GET",
         "PATCH"
       ],
+      "guardMode": "withApiRoute",
       "declaredPermissions": [
         "ai:ops:manage",
         "ai:ops:read"
@@ -721,6 +745,7 @@
       "methods": [
         "GET"
       ],
+      "guardMode": "withApiRoute",
       "declaredPermissions": [
         "ai:ops:read"
       ]
@@ -733,6 +758,7 @@
         "GET",
         "PATCH"
       ],
+      "guardMode": "withApiRoute",
       "declaredPermissions": [
         "ai:manage"
       ]
@@ -744,6 +770,7 @@
         "GET",
         "POST"
       ],
+      "guardMode": "withApiRoute",
       "declaredPermissions": [
         "ai:manage"
       ]
@@ -758,6 +785,7 @@
         "POST",
         "PUT"
       ],
+      "guardMode": "withApiRoute",
       "declaredPermissions": [
         "notification:manage"
       ]
@@ -771,6 +799,7 @@
         "PATCH",
         "POST"
       ],
+      "guardMode": "withApiRoute",
       "declaredPermissions": [
         "announcement:manage"
       ]
@@ -783,6 +812,7 @@
         "GET",
         "POST"
       ],
+      "guardMode": "withApiRoute",
       "declaredPermissions": [
         "api-token:manage"
       ]
@@ -796,8 +826,20 @@
         "PATCH",
         "POST"
       ],
+      "guardMode": "withApiRoute",
       "declaredPermissions": [
         "user:manage"
+      ]
+    },
+    {
+      "path": "/src/app/api/audit/export",
+      "file": "src/app/api/audit/export/route.ts",
+      "methods": [
+        "GET"
+      ],
+      "guardMode": "withApiRoute",
+      "declaredPermissions": [
+        "audit:read"
       ]
     },
     {
@@ -806,6 +848,7 @@
       "methods": [
         "GET"
       ],
+      "guardMode": "withApiRoute",
       "declaredPermissions": [
         "audit:read"
       ]
@@ -816,6 +859,7 @@
       "methods": [
         "POST"
       ],
+      "guardMode": "withApiRoute",
       "declaredPermissions": []
     },
     {
@@ -824,6 +868,7 @@
       "methods": [
         "POST"
       ],
+      "guardMode": "withApiRoute",
       "declaredPermissions": []
     },
     {
@@ -833,6 +878,7 @@
         "POST",
         "PUT"
       ],
+      "guardMode": "withApiRoute",
       "declaredPermissions": []
     },
     {
@@ -841,6 +887,7 @@
       "methods": [
         "POST"
       ],
+      "guardMode": "login",
       "declaredPermissions": []
     },
     {
@@ -849,6 +896,7 @@
       "methods": [
         "POST"
       ],
+      "guardMode": "withApiRoute",
       "declaredPermissions": []
     },
     {
@@ -857,8 +905,34 @@
       "methods": [
         "POST"
       ],
+      "guardMode": "withApiRoute",
       "declaredPermissions": [
         "server:ssh"
+      ]
+    },
+    {
+      "path": "/src/app/api/backup-schedules/[id]",
+      "file": "src/app/api/backup-schedules/[id]/route.ts",
+      "methods": [
+        "DELETE"
+      ],
+      "guardMode": "withApiRoute",
+      "declaredPermissions": [
+        "backup:create"
+      ]
+    },
+    {
+      "path": "/src/app/api/backup-schedules",
+      "file": "src/app/api/backup-schedules/route.ts",
+      "methods": [
+        "GET",
+        "PATCH",
+        "POST"
+      ],
+      "guardMode": "withApiRoute",
+      "declaredPermissions": [
+        "backup:create",
+        "backup:read"
       ]
     },
     {
@@ -867,6 +941,7 @@
       "methods": [
         "POST"
       ],
+      "guardMode": "withApiRoute",
       "declaredPermissions": [
         "backup:restore"
       ]
@@ -877,6 +952,7 @@
       "methods": [
         "POST"
       ],
+      "guardMode": "withApiRoute",
       "declaredPermissions": [
         "backup:create"
       ]
@@ -887,6 +963,7 @@
       "methods": [
         "POST"
       ],
+      "guardMode": "withApiRoute",
       "declaredPermissions": [
         "backup:create"
       ]
@@ -897,6 +974,7 @@
       "methods": [
         "POST"
       ],
+      "guardMode": "withApiRoute",
       "declaredPermissions": [
         "backup:create"
       ]
@@ -908,6 +986,7 @@
         "GET",
         "POST"
       ],
+      "guardMode": "withApiRoute",
       "declaredPermissions": [
         "backup:create",
         "backup:read"
@@ -920,6 +999,7 @@
         "GET",
         "POST"
       ],
+      "guardMode": "withApiRoute",
       "declaredPermissions": [
         "backup:create",
         "backup:read"
@@ -932,6 +1012,7 @@
         "GET",
         "POST"
       ],
+      "guardMode": "withApiRoute",
       "declaredPermissions": [
         "backup:create",
         "backup:read"
@@ -946,6 +1027,7 @@
         "PATCH",
         "POST"
       ],
+      "guardMode": "withApiRoute",
       "declaredPermissions": [
         "command:create",
         "command:read"
@@ -959,6 +1041,7 @@
         "PATCH",
         "POST"
       ],
+      "guardMode": "withApiRoute",
       "declaredPermissions": [
         "command:create",
         "command:execute",
@@ -973,6 +1056,7 @@
         "GET",
         "PATCH"
       ],
+      "guardMode": "withApiRoute",
       "declaredPermissions": [
         "cost:manage",
         "cost:read"
@@ -985,6 +1069,7 @@
         "GET",
         "POST"
       ],
+      "guardMode": "withApiRoute",
       "declaredPermissions": [
         "cost:manage",
         "cost:read"
@@ -994,9 +1079,12 @@
       "path": "/src/app/api/cost/snapshots",
       "file": "src/app/api/cost/snapshots/route.ts",
       "methods": [
-        "GET"
+        "GET",
+        "POST"
       ],
+      "guardMode": "withApiRoute",
       "declaredPermissions": [
+        "cost:manage",
         "cost:read"
       ]
     },
@@ -1006,6 +1094,7 @@
       "methods": [
         "GET"
       ],
+      "guardMode": "withApiRoute",
       "declaredPermissions": [
         "cost:read"
       ]
@@ -1016,7 +1105,16 @@
       "methods": [
         "GET"
       ],
-      "declaredPermissions": []
+      "guardMode": "session",
+      "declaredPermissions": [
+        "audit:read",
+        "health:read",
+        "image:read",
+        "image:write",
+        "media:manage",
+        "server:read",
+        "storage:read"
+      ]
     },
     {
       "path": "/src/app/api/deploy-export/[id]/zip",
@@ -1024,6 +1122,7 @@
       "methods": [
         "GET"
       ],
+      "guardMode": "withApiRoute",
       "declaredPermissions": [
         "deploy:export"
       ]
@@ -1035,6 +1134,7 @@
         "GET",
         "POST"
       ],
+      "guardMode": "withApiRoute",
       "declaredPermissions": [
         "deploy:export"
       ]
@@ -1045,6 +1145,7 @@
       "methods": [
         "POST"
       ],
+      "guardMode": "withApiRoute",
       "declaredPermissions": [
         "deploy:run"
       ]
@@ -1056,6 +1157,7 @@
         "GET",
         "POST"
       ],
+      "guardMode": "withApiRoute",
       "declaredPermissions": [
         "deploy:read",
         "deploy:run"
@@ -1068,6 +1170,19 @@
         "GET",
         "POST"
       ],
+      "guardMode": "withApiRoute",
+      "declaredPermissions": [
+        "docker:manage"
+      ]
+    },
+    {
+      "path": "/src/app/api/docker/resources",
+      "file": "src/app/api/docker/resources/route.ts",
+      "methods": [
+        "GET",
+        "POST"
+      ],
+      "guardMode": "withApiRoute",
       "declaredPermissions": [
         "docker:manage"
       ]
@@ -1078,6 +1193,7 @@
       "methods": [
         "GET"
       ],
+      "guardMode": "public",
       "declaredPermissions": []
     },
     {
@@ -1086,6 +1202,7 @@
       "methods": [
         "GET"
       ],
+      "guardMode": "withApiRoute",
       "declaredPermissions": []
     },
     {
@@ -1097,11 +1214,8 @@
         "PATCH",
         "POST"
       ],
-      "declaredPermissions": [
-        "storage:manage-node",
-        "storage:read",
-        "storage:write"
-      ]
+      "guardMode": "delegated",
+      "declaredPermissions": []
     },
     {
       "path": "/src/app/api/files/archive-list",
@@ -1109,8 +1223,20 @@
       "methods": [
         "GET"
       ],
+      "guardMode": "withApiRoute",
       "declaredPermissions": [
         "storage:read"
+      ]
+    },
+    {
+      "path": "/src/app/api/files/compress",
+      "file": "src/app/api/files/compress/route.ts",
+      "methods": [
+        "POST"
+      ],
+      "guardMode": "withApiRoute",
+      "declaredPermissions": [
+        "storage:write"
       ]
     },
     {
@@ -1120,6 +1246,7 @@
         "GET",
         "PUT"
       ],
+      "guardMode": "withApiRoute",
       "declaredPermissions": [
         "storage:read",
         "storage:write"
@@ -1131,6 +1258,7 @@
       "methods": [
         "POST"
       ],
+      "guardMode": "withApiRoute",
       "declaredPermissions": [
         "storage:write"
       ]
@@ -1141,6 +1269,7 @@
       "methods": [
         "GET"
       ],
+      "guardMode": "withApiRoute",
       "declaredPermissions": [
         "share:create",
         "storage:delete",
@@ -1155,6 +1284,7 @@
       "methods": [
         "GET"
       ],
+      "guardMode": "withApiRoute",
       "declaredPermissions": [
         "health:read"
       ]
@@ -1165,8 +1295,9 @@
       "methods": [
         "GET"
       ],
+      "guardMode": "session",
       "declaredPermissions": [
-        "user:read"
+        "image:read"
       ]
     },
     {
@@ -1175,6 +1306,7 @@
       "methods": [
         "DELETE"
       ],
+      "guardMode": "withApiRoute",
       "declaredPermissions": [
         "role:manage",
         "storage:delete"
@@ -1186,6 +1318,7 @@
       "methods": [
         "POST"
       ],
+      "guardMode": "withApiRoute",
       "declaredPermissions": [
         "role:manage",
         "storage:delete"
@@ -1197,6 +1330,7 @@
       "methods": [
         "GET"
       ],
+      "guardMode": "withApiRoute",
       "declaredPermissions": [
         "image:read",
         "user:read"
@@ -1208,6 +1342,7 @@
       "methods": [
         "POST"
       ],
+      "guardMode": "withApiRoute",
       "declaredPermissions": [
         "storage:read"
       ]
@@ -1218,6 +1353,7 @@
       "methods": [
         "GET"
       ],
+      "guardMode": "withApiRoute",
       "declaredPermissions": [
         "user:read"
       ]
@@ -1228,6 +1364,7 @@
       "methods": [
         "PUT"
       ],
+      "guardMode": "withApiRoute",
       "declaredPermissions": [
         "storage:write"
       ]
@@ -1238,6 +1375,7 @@
       "methods": [
         "POST"
       ],
+      "guardMode": "withApiRoute",
       "declaredPermissions": [
         "storage:write"
       ]
@@ -1249,6 +1387,7 @@
         "DELETE",
         "GET"
       ],
+      "guardMode": "withApiRoute",
       "declaredPermissions": [
         "storage:write"
       ]
@@ -1259,6 +1398,7 @@
       "methods": [
         "POST"
       ],
+      "guardMode": "withApiRoute",
       "declaredPermissions": [
         "storage:write"
       ]
@@ -1269,6 +1409,7 @@
       "methods": [
         "POST"
       ],
+      "guardMode": "withApiRoute",
       "declaredPermissions": [
         "image:write",
         "storage:write"
@@ -1280,6 +1421,7 @@
       "methods": [
         "GET"
       ],
+      "guardMode": "withApiRoute",
       "declaredPermissions": [
         "task:read"
       ]
@@ -1290,6 +1432,7 @@
       "methods": [
         "POST"
       ],
+      "guardMode": "login",
       "declaredPermissions": []
     },
     {
@@ -1298,6 +1441,7 @@
       "methods": [
         "PATCH"
       ],
+      "guardMode": "withApiRoute",
       "declaredPermissions": [
         "media:manage"
       ]
@@ -1308,6 +1452,7 @@
       "methods": [
         "GET"
       ],
+      "guardMode": "withApiRoute",
       "declaredPermissions": [
         "storage:read"
       ]
@@ -1318,6 +1463,7 @@
       "methods": [
         "GET"
       ],
+      "guardMode": "withApiRoute",
       "declaredPermissions": [
         "storage:read"
       ]
@@ -1329,6 +1475,7 @@
         "GET",
         "POST"
       ],
+      "guardMode": "withApiRoute",
       "declaredPermissions": [
         "media:manage",
         "storage:read"
@@ -1340,6 +1487,16 @@
       "methods": [
         "GET"
       ],
+      "guardMode": "withApiRoute",
+      "declaredPermissions": []
+    },
+    {
+      "path": "/src/app/api/monitoring/stream",
+      "file": "src/app/api/monitoring/stream/route.ts",
+      "methods": [
+        "GET"
+      ],
+      "guardMode": "withApiRoute",
       "declaredPermissions": []
     },
     {
@@ -1351,6 +1508,7 @@
         "PATCH",
         "POST"
       ],
+      "guardMode": "withApiRoute",
       "declaredPermissions": [
         "notification:manage"
       ]
@@ -1361,6 +1519,7 @@
       "methods": [
         "GET"
       ],
+      "guardMode": "withApiRoute",
       "declaredPermissions": [
         "task:read"
       ]
@@ -1371,6 +1530,7 @@
       "methods": [
         "POST"
       ],
+      "guardMode": "withApiRoute",
       "declaredPermissions": [
         "playbook:run"
       ]
@@ -1383,6 +1543,7 @@
         "GET",
         "PATCH"
       ],
+      "guardMode": "withApiRoute",
       "declaredPermissions": [
         "playbook:manage",
         "playbook:read"
@@ -1394,6 +1555,7 @@
       "methods": [
         "POST"
       ],
+      "guardMode": "withApiRoute",
       "declaredPermissions": [
         "playbook:run"
       ]
@@ -1405,6 +1567,7 @@
         "GET",
         "POST"
       ],
+      "guardMode": "withApiRoute",
       "declaredPermissions": [
         "playbook:manage",
         "playbook:read"
@@ -1417,6 +1580,7 @@
         "GET",
         "PUT"
       ],
+      "guardMode": "withApiRoute",
       "declaredPermissions": []
     },
     {
@@ -1426,6 +1590,7 @@
         "DELETE",
         "PATCH"
       ],
+      "guardMode": "withApiRoute",
       "declaredPermissions": [
         "docker:manage"
       ]
@@ -1436,6 +1601,7 @@
       "methods": [
         "GET"
       ],
+      "guardMode": "withApiRoute",
       "declaredPermissions": [
         "docker:manage"
       ]
@@ -1447,6 +1613,7 @@
         "GET",
         "POST"
       ],
+      "guardMode": "withApiRoute",
       "declaredPermissions": [
         "docker:manage"
       ]
@@ -1460,9 +1627,34 @@
         "PATCH",
         "POST"
       ],
+      "guardMode": "withApiRoute",
       "declaredPermissions": [
         "command:create",
         "command:read"
+      ]
+    },
+    {
+      "path": "/src/app/api/search",
+      "file": "src/app/api/search/route.ts",
+      "methods": [
+        "GET"
+      ],
+      "guardMode": "withApiRoute",
+      "declaredPermissions": [
+        "docker:manage",
+        "playbook:read",
+        "server:read"
+      ]
+    },
+    {
+      "path": "/src/app/api/servers/[id]/detect-os",
+      "file": "src/app/api/servers/[id]/detect-os/route.ts",
+      "methods": [
+        "POST"
+      ],
+      "guardMode": "withApiRoute",
+      "declaredPermissions": [
+        "server:ssh"
       ]
     },
     {
@@ -1473,6 +1665,7 @@
         "GET",
         "POST"
       ],
+      "guardMode": "withApiRoute",
       "declaredPermissions": [
         "server:ssh"
       ]
@@ -1483,8 +1676,146 @@
       "methods": [
         "POST"
       ],
+      "guardMode": "withApiRoute",
       "declaredPermissions": [
         "server:ssh"
+      ]
+    },
+    {
+      "path": "/src/app/api/servers/[id]/sftp/delete",
+      "file": "src/app/api/servers/[id]/sftp/delete/route.ts",
+      "methods": [
+        "DELETE"
+      ],
+      "guardMode": "withApiRoute",
+      "declaredPermissions": [
+        "server:ssh"
+      ]
+    },
+    {
+      "path": "/src/app/api/servers/[id]/sftp/download",
+      "file": "src/app/api/servers/[id]/sftp/download/route.ts",
+      "methods": [
+        "GET"
+      ],
+      "guardMode": "withApiRoute",
+      "declaredPermissions": [
+        "server:ssh"
+      ]
+    },
+    {
+      "path": "/src/app/api/servers/[id]/sftp/list",
+      "file": "src/app/api/servers/[id]/sftp/list/route.ts",
+      "methods": [
+        "POST"
+      ],
+      "guardMode": "withApiRoute",
+      "declaredPermissions": [
+        "server:ssh"
+      ]
+    },
+    {
+      "path": "/src/app/api/servers/[id]/sftp/mkdir",
+      "file": "src/app/api/servers/[id]/sftp/mkdir/route.ts",
+      "methods": [
+        "POST"
+      ],
+      "guardMode": "withApiRoute",
+      "declaredPermissions": [
+        "server:ssh"
+      ]
+    },
+    {
+      "path": "/src/app/api/servers/[id]/sftp/rename",
+      "file": "src/app/api/servers/[id]/sftp/rename/route.ts",
+      "methods": [
+        "POST"
+      ],
+      "guardMode": "withApiRoute",
+      "declaredPermissions": [
+        "server:ssh"
+      ]
+    },
+    {
+      "path": "/src/app/api/servers/[id]/sftp/upload",
+      "file": "src/app/api/servers/[id]/sftp/upload/route.ts",
+      "methods": [
+        "POST"
+      ],
+      "guardMode": "manual",
+      "declaredPermissions": [
+        "server:ssh"
+      ]
+    },
+    {
+      "path": "/src/app/api/servers/[id]/uptime",
+      "file": "src/app/api/servers/[id]/uptime/route.ts",
+      "methods": [
+        "GET"
+      ],
+      "guardMode": "withApiRoute",
+      "declaredPermissions": [
+        "server:read"
+      ]
+    },
+    {
+      "path": "/src/app/api/servers/[id]/vps-backup/records/[recordId]/download",
+      "file": "src/app/api/servers/[id]/vps-backup/records/[recordId]/download/route.ts",
+      "methods": [
+        "GET"
+      ],
+      "guardMode": "withApiRoute",
+      "declaredPermissions": [
+        "server:read"
+      ]
+    },
+    {
+      "path": "/src/app/api/servers/[id]/vps-backup/records/[recordId]",
+      "file": "src/app/api/servers/[id]/vps-backup/records/[recordId]/route.ts",
+      "methods": [
+        "DELETE"
+      ],
+      "guardMode": "withApiRoute",
+      "declaredPermissions": [
+        "server:write"
+      ]
+    },
+    {
+      "path": "/src/app/api/servers/[id]/vps-backup/records",
+      "file": "src/app/api/servers/[id]/vps-backup/records/route.ts",
+      "methods": [
+        "GET",
+        "POST"
+      ],
+      "guardMode": "withApiRoute",
+      "declaredPermissions": [
+        "server:read",
+        "server:write"
+      ]
+    },
+    {
+      "path": "/src/app/api/servers/[id]/vps-backup/schedules/[scheduleId]",
+      "file": "src/app/api/servers/[id]/vps-backup/schedules/[scheduleId]/route.ts",
+      "methods": [
+        "DELETE",
+        "PATCH"
+      ],
+      "guardMode": "withApiRoute",
+      "declaredPermissions": [
+        "server:write"
+      ]
+    },
+    {
+      "path": "/src/app/api/servers/[id]/vps-backup/schedules",
+      "file": "src/app/api/servers/[id]/vps-backup/schedules/route.ts",
+      "methods": [
+        "GET",
+        "POST"
+      ],
+      "guardMode": "withApiRoute",
+      "declaredPermissions": [
+        "server:read",
+        "server:write"
       ]
     },
     {
@@ -1493,6 +1824,7 @@
       "methods": [
         "GET"
       ],
+      "guardMode": "withApiRoute",
       "declaredPermissions": [
         "server:read"
       ]
@@ -1504,6 +1836,7 @@
         "GET",
         "PATCH"
       ],
+      "guardMode": "withApiRoute",
       "declaredPermissions": [
         "user:manage"
       ]
@@ -1516,6 +1849,7 @@
         "GET",
         "POST"
       ],
+      "guardMode": "withApiRoute",
       "declaredPermissions": [
         "share:create",
         "share:manage",
@@ -1528,6 +1862,7 @@
       "methods": [
         "GET"
       ],
+      "guardMode": "public",
       "declaredPermissions": []
     },
     {
@@ -1539,6 +1874,7 @@
         "PATCH",
         "POST"
       ],
+      "guardMode": "withApiRoute",
       "declaredPermissions": [
         "role:manage",
         "snippet:manage"
@@ -1550,6 +1886,7 @@
       "methods": [
         "GET"
       ],
+      "guardMode": "withApiRoute",
       "declaredPermissions": []
     },
     {
@@ -1558,6 +1895,7 @@
       "methods": [
         "GET"
       ],
+      "guardMode": "withApiRoute",
       "declaredPermissions": [
         "storage:read"
       ]
@@ -1570,6 +1908,7 @@
         "GET",
         "POST"
       ],
+      "guardMode": "withApiRoute",
       "declaredPermissions": [
         "storage:read"
       ]
@@ -1581,6 +1920,7 @@
         "GET",
         "POST"
       ],
+      "guardMode": "withApiRoute",
       "declaredPermissions": [
         "storage:read",
         "storage:write"
@@ -1592,6 +1932,7 @@
       "methods": [
         "GET"
       ],
+      "guardMode": "withApiRoute",
       "declaredPermissions": [
         "storage:manage-node",
         "storage:read"
@@ -1603,6 +1944,7 @@
       "methods": [
         "GET"
       ],
+      "guardMode": "withApiRoute",
       "declaredPermissions": [
         "storage:read"
       ]
@@ -1613,6 +1955,7 @@
       "methods": [
         "POST"
       ],
+      "guardMode": "withApiRoute",
       "declaredPermissions": [
         "storage:delete",
         "storage:read",
@@ -1625,6 +1968,7 @@
       "methods": [
         "POST"
       ],
+      "guardMode": "withApiRoute",
       "declaredPermissions": [
         "storage:manage-node"
       ]
@@ -1635,6 +1979,7 @@
       "methods": [
         "POST"
       ],
+      "guardMode": "withApiRoute",
       "declaredPermissions": [
         "storage:write"
       ]
@@ -1645,6 +1990,7 @@
       "methods": [
         "GET"
       ],
+      "guardMode": "withApiRoute",
       "declaredPermissions": [
         "storage:read"
       ]
@@ -1655,9 +2001,92 @@
       "methods": [
         "GET"
       ],
+      "guardMode": "withApiRoute",
       "declaredPermissions": [
         "health:read"
       ]
+    },
+    {
+      "path": "/src/app/api/system/export",
+      "file": "src/app/api/system/export/route.ts",
+      "methods": [
+        "GET"
+      ],
+      "guardMode": "withApiRoute",
+      "declaredPermissions": [
+        "user:manage"
+      ]
+    },
+    {
+      "path": "/src/app/api/system/import",
+      "file": "src/app/api/system/import/route.ts",
+      "methods": [
+        "POST"
+      ],
+      "guardMode": "withApiRoute",
+      "declaredPermissions": [
+        "user:manage"
+      ]
+    },
+    {
+      "path": "/src/app/api/system/uptime/all",
+      "file": "src/app/api/system/uptime/all/route.ts",
+      "methods": [
+        "GET"
+      ],
+      "guardMode": "withApiRoute",
+      "declaredPermissions": [
+        "server:read"
+      ]
+    },
+    {
+      "path": "/src/app/api/teams/[id]/members/[userId]",
+      "file": "src/app/api/teams/[id]/members/[userId]/route.ts",
+      "methods": [
+        "DELETE"
+      ],
+      "guardMode": "withApiRoute",
+      "declaredPermissions": []
+    },
+    {
+      "path": "/src/app/api/teams/[id]/members",
+      "file": "src/app/api/teams/[id]/members/route.ts",
+      "methods": [
+        "POST"
+      ],
+      "guardMode": "withApiRoute",
+      "declaredPermissions": []
+    },
+    {
+      "path": "/src/app/api/teams/[id]",
+      "file": "src/app/api/teams/[id]/route.ts",
+      "methods": [
+        "DELETE",
+        "PATCH"
+      ],
+      "guardMode": "withApiRoute",
+      "declaredPermissions": []
+    },
+    {
+      "path": "/src/app/api/teams",
+      "file": "src/app/api/teams/route.ts",
+      "methods": [
+        "GET",
+        "POST"
+      ],
+      "guardMode": "withApiRoute",
+      "declaredPermissions": [
+        "team:create"
+      ]
+    },
+    {
+      "path": "/src/app/api/teams/switch",
+      "file": "src/app/api/teams/switch/route.ts",
+      "methods": [
+        "POST"
+      ],
+      "guardMode": "withApiRoute",
+      "declaredPermissions": []
     },
     {
       "path": "/src/app/api/tickets/[id]",
@@ -1667,6 +2096,7 @@
         "PATCH",
         "POST"
       ],
+      "guardMode": "withApiRoute",
       "declaredPermissions": [
         "ticket:manage"
       ]
@@ -1679,10 +2109,22 @@
         "PATCH",
         "POST"
       ],
+      "guardMode": "withApiRoute",
       "declaredPermissions": [
         "ticket:create",
         "ticket:manage",
         "ticket:read"
+      ]
+    },
+    {
+      "path": "/src/app/api/traffic/history",
+      "file": "src/app/api/traffic/history/route.ts",
+      "methods": [
+        "GET"
+      ],
+      "guardMode": "withApiRoute",
+      "declaredPermissions": [
+        "server:read"
       ]
     },
     {
@@ -1691,6 +2133,7 @@
       "methods": [
         "GET"
       ],
+      "guardMode": "withApiRoute",
       "declaredPermissions": [
         "server:read"
       ]
@@ -1702,6 +2145,7 @@
         "GET",
         "PATCH"
       ],
+      "guardMode": "withApiRoute",
       "declaredPermissions": [
         "user:manage",
         "user:read"
@@ -1715,6 +2159,7 @@
         "PATCH",
         "POST"
       ],
+      "guardMode": "withApiRoute",
       "declaredPermissions": [
         "user:manage",
         "user:read"
@@ -1766,6 +2211,10 @@
     "storage:read",
     "storage:write",
     "task:read",
+    "team:create",
+    "team:read",
+    "team:manage",
+    "team:member:manage",
     "ticket:create",
     "ticket:manage",
     "ticket:read",

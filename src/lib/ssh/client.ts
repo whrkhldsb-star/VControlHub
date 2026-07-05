@@ -10,6 +10,7 @@ export type SshConnectionParams = {
   privateKey?: string;
   passphrase?: string;
   password?: string;
+  hostKeySha256?: string | null;
 };
 
 export type SftpListEntry = {
@@ -20,6 +21,12 @@ export type SftpListEntry = {
  modifyTime: number;
  accessTime: number;
 };
+
+function normalizeHostKeySha256(fingerprint?: string | null): string | null {
+ const value = fingerprint?.trim();
+ if (!value) return null;
+ return value.replace(/^SHA256:/i, "");
+}
 
 function createSshConfig(input: SshConnectionParams): ConnectConfig {
  const config: ConnectConfig = {
@@ -37,15 +44,25 @@ function createSshConfig(input: SshConnectionParams): ConnectConfig {
   config.password = input.password;
  }
 
+ const expectedHostKey = normalizeHostKeySha256(input.hostKeySha256);
+ if (expectedHostKey) {
+  config.hostHash = "sha256";
+  config.hostVerifier = (hashedKey: string) => hashedKey === expectedHostKey;
+ }
+
  return config;
 }
 
-export function connectSsh(config: ConnectConfig): Promise<Client> {
+export function createSshConfigForTest(input: SshConnectionParams): ConnectConfig {
+  return createSshConfig(input);
+}
+
+export function connectSsh(config: ConnectConfig | SshConnectionParams): Promise<Client> {
   return new Promise((resolve, reject) => {
     const client = new Client();
     client.on("ready", () => resolve(client));
     client.on("error", (err) => reject(err));
-    client.connect(config);
+    client.connect("hostKeySha256" in config ? createSshConfig(config) : config);
   });
 }
 
@@ -332,11 +349,13 @@ export async function buildSshParamsFromServer(server: {
  username: string;
  sshKeyId: string | null;
  password: string | null;
+  hostKeySha256?: string | null;
 }, sshKey?: { privateKey: string | null; passphrase?: string | null } | null): Promise<SshConnectionParams> {
   return {
     host: server.host,
     port: server.port,
     username: server.username,
+    hostKeySha256: server.hostKeySha256 ?? null,
     ...(sshKey?.privateKey ? {
       privateKey: decryptSshPrivateKey(sshKey.privateKey),
       ...(sshKey.passphrase ? { passphrase: decryptSshKeyPassphrase(sshKey.passphrase) } : {}),

@@ -86,4 +86,17 @@ describe("share token file route", () => {
     const bytes = new Uint8Array(await response.arrayBuffer());
     expect([...bytes.slice(0, 2)]).toEqual([0x1f, 0x8b]);
   });
+  it("rate limits repeated password attempts for a share token", async () => {
+    vi.mocked(resolveShareToken).mockRejectedValue(new Error("密码错误"));
+
+    let last: Response | null = null;
+    for (let i = 0; i < 9; i++) {
+      last = await route.GET(new Request(`http://local/api/share/token?password=bad${i}`, { headers: { "cf-connecting-ip": "203.0.113.45" } }), {
+        params: Promise.resolve({ token: "share-token-rate-limit" }),
+      });
+    }
+
+    expect(last?.status).toBe(429);
+  });
+
 });

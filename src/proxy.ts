@@ -125,6 +125,17 @@ function addSecurityHeaders(
   return response;
 }
 
+const BEARER_TOKEN_API_BYPASS: Array<{ method: string; pattern: RegExp }> = [
+  { method: "GET", pattern: /^\/api\/health$/ },
+  { method: "GET", pattern: /^\/api\/images\/list$/ },
+  { method: "POST", pattern: /^\/api\/images\/upload$/ },
+];
+
+function canRouteValidateBearerToken(pathname: string, method: string): boolean {
+  const normalizedMethod = method.toUpperCase();
+  return BEARER_TOKEN_API_BYPASS.some((entry) => entry.method === normalizedMethod && entry.pattern.test(pathname));
+}
+
 function requestUrlIsHttps(request: NextRequest): boolean {
   // Check if the original request was HTTPS via the X-Forwarded-Proto header
   // (set by reverse proxies like Caddy/Apache) or the URL protocol
@@ -143,6 +154,7 @@ export function proxy(request: NextRequest) {
       ?.trim()
       .toLowerCase()
       .startsWith("bearer ") ?? false;
+  const routeCanValidateBearerToken = hasBearerToken && canRouteValidateBearerToken(pathname, request.method);
 
   // Login is public, but authenticated operators can still navigate there
   // (for example after changing default-page preferences) and should not see
@@ -163,7 +175,7 @@ export function proxy(request: NextRequest) {
   }
 
   // 2) Check session cookie for protected paths
-  if (!hasValidSessionCookie(request) && !hasBearerToken) {
+  if (!hasValidSessionCookie(request) && !routeCanValidateBearerToken) {
     // API routes get 401, pages get redirected to login
     if (pathname.startsWith("/api/")) {
       return NextResponse.json(
@@ -193,7 +205,7 @@ export function proxy(request: NextRequest) {
     if (
       pathname !== "/api/login" &&
       pathname !== "/api/auth/2fa/verify-login" &&
-      !hasBearerToken
+      !routeCanValidateBearerToken
     ) {
       if (!csrfCookie || !csrfHeader || csrfCookie !== csrfHeader) {
         return NextResponse.json(

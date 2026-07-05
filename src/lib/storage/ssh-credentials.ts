@@ -5,6 +5,7 @@ export type StorageSshCredentialNode = {
   host?: string | null;
   port?: number | null;
   username?: string | null;
+  hostKeySha256?: string | null;
   server?: {
     host?: string | null;
     port?: number | null;
@@ -12,6 +13,7 @@ export type StorageSshCredentialNode = {
     connectionType?: "SSH_KEY" | "PASSWORD" | string | null;
     password?: string | null;
     sshKey?: { privateKey?: string | null } | null;
+    hostKeySha256?: string | null;
   } | null;
 };
 
@@ -22,6 +24,7 @@ export type ResolvedStorageSshCredentials = {
   connectionType: "SSH_KEY" | "PASSWORD";
   privateKey?: string;
   password?: string;
+  hostKeySha256?: string | null;
 };
 
 export function resolveStorageSshCredentials(node: StorageSshCredentialNode): ResolvedStorageSshCredentials {
@@ -47,5 +50,5 @@ export function resolveStorageSshCredentials(node: StorageSshCredentialNode): Re
     throw new ValidationError("缺少登录密码，无法连接");
   }
 
-  return { host, port, username, connectionType, privateKey, password };
+  return { host, port, username, connectionType, privateKey, password, hostKeySha256: node.hostKeySha256 ?? node.server?.hostKeySha256 ?? null };
 }

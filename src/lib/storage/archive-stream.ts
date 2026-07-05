@@ -2,6 +2,7 @@ import { spawn } from "node:child_process";
 import path from "node:path";
 
 import { Client, type ConnectConfig } from "ssh2";
+import { connectSsh, type SshConnectionParams } from "@/lib/ssh/client";
 
 import { buildContentDisposition } from "@/lib/http/content-disposition";
 import { nodeStreamToWeb } from "@/lib/http/node-to-web-stream";
@@ -36,13 +37,8 @@ function shellQuote(value: string) {
 	return `'${value.replace(/'/g, `'"'"'`)}'`;
 }
 
-export function connectArchiveSsh(config: ConnectConfig): Promise<Client> {
-	return new Promise((resolve, reject) => {
-		const client = new Client();
-		client.on("ready", () => resolve(client));
-		client.on("error", (err) => reject(err));
-		client.connect(config);
-	});
+export function connectArchiveSsh(config: ConnectConfig | SshConnectionParams): Promise<Client> {
+	return connectSsh(config);
 }
 
 export function streamRemoteTarGz(client: Client, remoteDirectoryPath: string) {

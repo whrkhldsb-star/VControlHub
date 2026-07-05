@@ -20,3 +20,4 @@ export { PATCH } from "./route-patch";
 export { DELETE } from "./route-delete";
 
 export const dynamic = "force-dynamic";
+// guardMode: delegated

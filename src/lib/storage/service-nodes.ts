@@ -99,6 +99,7 @@ export async function checkStorageNodeHealth(storageNodeId: string) {
         host: credentials.host,
         port: credentials.port,
         username: credentials.username,
+        hostKeySha256: credentials.hostKeySha256,
         privateKey: credentials.privateKey,
         password: credentials.password,
         remotePath: normalizeRemotePath(node.basePath, ""),

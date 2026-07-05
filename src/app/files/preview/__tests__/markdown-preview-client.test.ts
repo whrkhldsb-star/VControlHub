@@ -23,4 +23,14 @@ describe("markdown preview sanitization", () => {
 		expect(html).toContain("class=\"align-center\"");
 		expect(html).toContain("class=\"align-right\"");
 	});
+
+	it("escapes markdown link text and attributes before sanitizer runs", () => {
+		const html = renderMarkdown('[<img src=x onerror=alert(1)>](https://example.com/" onclick="alert(1)) [rel](/files/readme.md) [bad](ftp://example.com)');
+
+		expect(html).toContain('href="https://example.com/&amp;quot;"');
+		expect(html).toContain('href="/files/readme.md"');
+		expect(html).not.toContain("<img");
+		expect(html).not.toContain('onclick="alert');
+		expect(html).not.toContain('href="ftp://example.com"');
+	});
 });

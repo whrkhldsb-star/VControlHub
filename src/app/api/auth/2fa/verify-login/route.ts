@@ -15,6 +15,7 @@ import { checkRateLimitAsync, getClientIp, LOGIN_RATE_LIMIT } from "@/lib/rate-l
 import { apiCatch, apiError } from "@/lib/http/api-error";
 
 const verifyLoginSchema = z.object({ code: z.string().min(1) });
+// guardMode: login
 
 export async function POST(request: Request) {
 	try {

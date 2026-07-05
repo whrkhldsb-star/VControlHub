@@ -240,6 +240,7 @@ model Server {
   fileProxyPort   Int                  @default(0) // 文件代理端口（0=未启用）
   osDialect       String? // TR-041: JSON 序列化的 OsDialect（包管理器/服务管理器/路径等）
   osInfo          String? // TR-041: /etc/os-release 原始摘要（distro name + version）
+  hostKeySha256   String? // SHA256 SSH host key fingerprint used for strict host verification
   costAutoSync    Boolean  @default(false) // TR-031: 是否自动同步 VPS 月费到成本条目
   costMonthlyAmount Decimal? @db.Decimal(12, 2) // TR-031: VPS 月费
   costCurrency    String   @default("CNY") // TR-031: VPS 月费币种
@@ -350,6 +351,7 @@ model StorageNode {
   lastHealthLatencyMs        Int?
   createdAt                  DateTime             @default(now())
   updatedAt                  DateTime             @updatedAt
+  hostKeySha256              String? // SHA256 SSH host key fingerprint used for strict host verification
   server                     Server?              @relation(fields: [serverId], references: [id], onDelete: SetNull)
   fileEntries                FileEntry[]
   accessGrants               UserStorageAccess[]
@@ -601,6 +603,7 @@ model MetricSnapshot {
   server Server @relation(fields: [serverId], references: [id], onDelete: Cascade)
 
   @@index([serverId, createdAt])
+  @@index([createdAt])
   @@map("metric_snapshots")
 }
 
@@ -770,6 +773,7 @@ model DownloadTask {
 
   @@index([serverId, status])
   @@index([status, createdAt])
+  @@index([createdAt])
   @@map("download_tasks")
 }
 
@@ -1260,6 +1264,7 @@ model ImageUpload {
   @@index([userId, createdAt])
   @@index([album])
   @@index([isPublic, createdAt])
+  @@index([createdAt])
   @@map("image_uploads")
 }
 

@@ -20,10 +20,14 @@ describe("VoidBackupRecordButton", () => {
     mocks.csrfFetch.mockResolvedValue({ backup: { id: "bak1", status: "FAILED" } });
   });
 
-  it("marks pending backup records void and refreshes the page", async () => {
+  it("requires inline confirmation before marking pending backup records void", async () => {
     render(<VoidBackupRecordButton backupId="bak1" status="PENDING" />);
 
     fireEvent.click(screen.getByRole("button", { name: "标记作废" }));
+    expect(mocks.csrfFetch).not.toHaveBeenCalled();
+    expect(screen.getByText(/请再次确认/)).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "确认作废" }));
 
     await waitFor(() => expect(mocks.csrfFetch).toHaveBeenCalledWith("/api/backups/bak1/void", expect.objectContaining({ method: "POST" })));
     expect(JSON.parse(mocks.csrfFetch.mock.calls[0]![1]!.body)).toMatchObject({ reason: expect.stringContaining("手动作废") });
