@@ -5,6 +5,8 @@ import { csrfFetch } from "@/lib/auth/csrf-client";
 import { useI18n } from "@/lib/i18n/use-locale";
 import { useToast } from "@/components/toast-provider";
 import { EmptyState } from "@/components/page-shell";
+import { CostDeleteDialog, CostEntryFormModal } from "./cost-entry-dialogs";
+import { CATEGORIES, buttonDanger, buttonGhost, buttonPrimary, cardClass, emptyForm, formatAmount, inputClass, isValidDate, labelClass } from "./cost-page-shared";
 
 import type {
 	CostCategory,
@@ -25,55 +27,7 @@ type Props = {
 	availableCurrencies: CostCurrency[];
 };
 
-const CATEGORIES: CostCategory[] = ["vps", "bandwidth", "storage", "other"];
-
-const cardClass = "rounded-2xl border border-[var(--border)] bg-[var(--surface)]/[0.04] p-5";
-const labelClass = "text-xs font-medium text-[var(--text-secondary)] tracking-wide";
-const inputClass =
-	"w-full rounded-lg border border-[var(--border)] bg-[var(--surface)]/[0.04] px-3.5 py-2.5 text-sm text-[var(--text-primary)] outline-none transition placeholder:text-[var(--text-primary)]/30 focus:border-[var(--color-action-border)]/30";
-const buttonPrimary =
-	"rounded-lg bg-[var(--color-action)]/80 hover:bg-[var(--color-action)] px-4 py-2 text-sm font-medium text-[var(--color-action-fg)] transition disabled:opacity-50 disabled:cursor-not-allowed";
-const buttonGhost =
-	"rounded-lg border border-[var(--border)] bg-[var(--surface)]/[0.04] hover:bg-[var(--surface)]/[0.10] px-4 py-2 text-sm text-[var(--text-primary)] transition";
-const buttonDanger =
-	"rounded-lg border border-[var(--danger-border)] bg-[var(--danger-bg)] hover:bg-[var(--danger-bg)] px-3 py-1.5 text-xs text-[var(--danger)] transition";
-
-function formatAmount(amount: string, currency: CostCurrency, locale: string): string {
-	const num = Number(amount);
-	if (!Number.isFinite(num)) return `${amount} ${currency}`;
-	try {
-		return new Intl.NumberFormat(locale, {
-			style: "currency",
-			currency,
-		}).format(num);
-	} catch {
-		return `${num.toFixed(2)} ${currency}`;
-	}
-}
-
-function emptyForm(): {
-	category: CostCategory;
-	provider: string;
-	amount: string;
-	currency: CostCurrency;
-	effectiveDate: string;
-	notes: string;
-} {
-	return {
-		category: "vps",
-		provider: "",
-		amount: "",
-		currency: "CNY",
-		effectiveDate: new Date().toISOString().slice(0, 10),
-		notes: "",
-	};
-}
-
-function isValidDate(s: string): boolean {
-	if (!/^\d{4}-\d{2}-\d{2}$/u.test(s)) return false;
-	const d = new Date(`${s}T00:00:00Z`);
-	return !Number.isNaN(d.getTime());
-}
+export type { CostCurrency };
 
 export function CostPageClient({
 	initialMonth,
@@ -503,166 +457,25 @@ export function CostPageClient({
 				)}
 			</section>
 
-			{/* Create / edit modal */}
-			{showForm && canManage ? (
-				<div
-					className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4"
-					role="dialog"
-					aria-modal="true"
-				>
-					<div className={`${cardClass} w-full max-w-md space-y-4`}>
-						<h3 className="text-base font-semibold text-[var(--text-primary)]">
-							{editingId ? t("costPage.form.editTitle") : t("costPage.form.title")}
-						</h3>
-						<div>
-							<label className={labelClass} htmlFor="cost-category">
-								{t("costPage.form.category")}
-							</label>
-							<select
-								id="cost-category"
-								className={inputClass}
-								value={form.category}
-								onChange={(e) => setForm({ ...form, category: e.target.value as CostCategory })}
-							>
-								{CATEGORIES.map((c) => (
-									<option key={c} value={c}>
-										{t(`costPage.category.${c}`)}
-									</option>
-								))}
-							</select>
-						</div>
-						<div>
-							<label className={labelClass} htmlFor="cost-provider">
-								{t("costPage.form.provider")}
-							</label>
-							<input
-								id="cost-provider"
-								className={inputClass}
-								placeholder={t("costPage.form.providerPlaceholder")}
-								value={form.provider}
-								onChange={(e) => setForm({ ...form, provider: e.target.value })}
-							/>
-						</div>
-						<div className="grid grid-cols-2 gap-3">
-							<div>
-								<label className={labelClass} htmlFor="cost-amount">
-									{t("costPage.form.amount")}
-								</label>
-								<input
-									id="cost-amount"
-									className={`${inputClass} font-mono`}
-									inputMode="decimal"
-									placeholder={t("costPage.form.amountPlaceholder")}
-									value={form.amount}
-									onChange={(e) => setForm({ ...form, amount: e.target.value })}
-								/>
-							</div>
-							<div>
-								<label className={labelClass} htmlFor="cost-currency">
-									{t("costPage.form.currency")}
-								</label>
-								<select
-									id="cost-currency"
-									className={inputClass}
-									value={form.currency}
-									onChange={(e) => setForm({ ...form, currency: e.target.value as CostCurrency })}
-								>
-									{availableCurrencies.map((c) => (
-										<option key={c} value={c}>
-											{t(`costPage.currency.${c}`)}
-										</option>
-									))}
-								</select>
-							</div>
-						</div>
-						<div>
-							<label className={labelClass} htmlFor="cost-effective-date">
-								{t("costPage.form.effectiveDate")}
-							</label>
-							<input
-								id="cost-effective-date"
-								type="date"
-								className={inputClass}
-								value={form.effectiveDate}
-								onChange={(e) => setForm({ ...form, effectiveDate: e.target.value })}
-							/>
-						</div>
-						<div>
-							<label className={labelClass} htmlFor="cost-notes">
-								{t("costPage.form.notes")}
-							</label>
-							<textarea
-								id="cost-notes"
-								className={`${inputClass} min-h-[60px]`}
-								placeholder={t("costPage.form.notesPlaceholder")}
-								value={form.notes}
-								onChange={(e) => setForm({ ...form, notes: e.target.value })}
-							/>
-						</div>
-						<div className="flex justify-end gap-2 pt-2">
-							<button
-								type="button"
-								className={buttonGhost}
-								onClick={() => {
-									setShowForm(false);
-									setEditingId(null);
-								}}
-								disabled={saving}
-							>
-								{t("costPage.form.cancel")}
-							</button>
-							<button
-								type="button"
-								className={buttonPrimary}
-								onClick={submitForm}
-								disabled={saving}
-							>
-								{saving ? t("costPage.actions.saving") : t("costPage.form.submit")}
-							</button>
-						</div>
-					</div>
-				</div>
-			) : null}
-
-			{/* Delete confirm */}
-			{confirmDelete ? (
-				<div
-					className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4"
-					role="alertdialog"
-					aria-modal="true"
-				>
-					<div className={`${cardClass} w-full max-w-sm space-y-4`}>
-						<h3 className="text-base font-semibold text-[var(--text-primary)]">
-							{t("costPage.delete.title")}
-						</h3>
-						<p className="text-sm text-[var(--text-primary)]/70">
-							{t("costPage.delete.confirm")
-								.replace("{provider}", confirmDelete.provider)
-								.replace("{amount}", confirmDelete.amount)}
-						</p>
-						<div className="flex justify-end gap-2">
-							<button
-								type="button"
-								className={buttonGhost}
-								onClick={() => setConfirmDelete(null)}
-								disabled={deletingId === confirmDelete.id}
-							>
-								{t("costPage.delete.cancel")}
-							</button>
-							<button
-								type="button"
-								className={buttonPrimary}
-								onClick={onConfirmDelete}
-								disabled={deletingId === confirmDelete.id}
-							>
-								{deletingId === confirmDelete.id
-									? t("costPage.actions.deleting")
-									: t("costPage.delete.confirmBtn")}
-							</button>
-						</div>
-					</div>
-				</div>
-			) : null}
+			<CostEntryFormModal
+				open={showForm && canManage}
+				editingId={editingId}
+				form={form}
+				availableCurrencies={availableCurrencies}
+				saving={saving}
+				setForm={setForm}
+				setShowForm={setShowForm}
+				setEditingId={setEditingId}
+				submitForm={submitForm}
+				t={t}
+			/>
+			<CostDeleteDialog
+				confirmDelete={confirmDelete}
+				deletingId={deletingId}
+				setConfirmDelete={setConfirmDelete}
+				onConfirmDelete={onConfirmDelete}
+				t={t}
+			/>
 		</div>
 	);
 }
