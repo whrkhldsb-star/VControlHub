@@ -4,6 +4,7 @@ import { useState, useCallback } from "react";
 import { csrfFetch } from "@/lib/auth/csrf-client";
 import { EmptyState } from "@/components/page-shell";
 import { useResourcePolling } from "@/lib/http/use-resource-polling";
+import { toDateLocale } from "@/lib/i18n/locale-format";
 import { useI18n } from "@/lib/i18n/use-locale";
 
 type AuditLog = {
@@ -231,7 +232,7 @@ export function AuditLogClient({ initialActionFilter = "" }: AuditLogClientProps
               data.logs.map((log) => (
                 <div key={log.id} className="grid grid-cols-[140px_100px_120px_minmax(0,1.5fr)_minmax(0,2fr)_160px] items-center gap-4 px-4 py-3 text-sm">
                   <div className="text-xs text-[var(--text-muted)]">
-                    {new Date(log.createdAt).toLocaleString(locale === "zh" ? "zh-CN" : "en-US", { month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit" })}
+                    {new Date(log.createdAt).toLocaleString(toDateLocale(locale), { month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit" })}
                   </div>
                   <div>
                     <span data-tone={severityTone(log.severity)} className="rounded-full border px-2 py-0.5 text-[10px] font-medium">
@@ -270,7 +271,7 @@ export function AuditLogClient({ initialActionFilter = "" }: AuditLogClientProps
                   </span>
                 </div>
                 <div className="text-xs text-[var(--text-muted)]">
-                  {log.actor ? (log.actor.displayName ?? log.actor.username) : log.actorType} · {new Date(log.createdAt).toLocaleString(locale === "zh" ? "zh-CN" : "en-US")}
+                  {log.actor ? (log.actor.displayName ?? log.actor.username) : log.actorType} · {new Date(log.createdAt).toLocaleString(toDateLocale(locale))}
                 </div>
                 <div className="text-xs text-[var(--text-muted)] font-mono truncate">
                   {Object.entries(log.detail).map(([k, v]) => `${k}=${String(v)}`).join(", ")}

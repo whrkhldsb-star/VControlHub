@@ -1,6 +1,9 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { createLogger } from "@/lib/logging";
+
+const logger = createLogger("global-error");
 
 /**
  * Global Error Boundary — catches unhandled errors in any route segment.
@@ -53,7 +56,7 @@ export default function GlobalError({
 	}, []);
 
 	useEffect(() => {
-		console.error("[GlobalError]", error);
+		logger.error("global error boundary captured error", error);
 	}, [error]);
 
 	const c = copy[locale];

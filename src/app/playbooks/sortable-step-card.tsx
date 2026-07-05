@@ -91,6 +91,7 @@ export function SortableStepCard({
 						min={0}
 						max={5}
 						value={step.retry}
+						aria-label={t("playbooksPage.createForm.retry")}
 						onChange={(e) => onUpdate(step.id, { retry: Number(e.target.value) })}
 						className={fieldInputClass}
 					/>
@@ -102,6 +103,7 @@ export function SortableStepCard({
 						min={1}
 						max={3600}
 						value={step.timeoutSec}
+						aria-label={t("playbooksPage.createForm.timeoutSec")}
 						onChange={(e) => onUpdate(step.id, { timeoutSec: Number(e.target.value) })}
 						className={fieldInputClass}
 					/>

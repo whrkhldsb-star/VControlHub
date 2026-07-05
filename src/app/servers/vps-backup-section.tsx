@@ -262,6 +262,7 @@ export function VpsBackupSection({
 						<input
 							type="text"
 							placeholder={t("vpsBackup.scheduleName")}
+							aria-label={t("vpsBackup.scheduleName")}
 							value={createForm.name}
 							onChange={(e) => setCreateForm({ ...createForm, name: e.target.value })}
 							className="w-full rounded-lg border border-[var(--border)] bg-[var(--surface)]/[0.04] px-3 py-1.5 text-sm text-[var(--text-primary)] placeholder:text-[var(--text-muted)]"
@@ -269,6 +270,7 @@ export function VpsBackupSection({
 						<div className="grid grid-cols-2 gap-2">
 							<select
 								value={createForm.backupType}
+								aria-label={t("vpsBackup.backupType")}
 								onChange={(e) => setCreateForm({ ...createForm, backupType: e.target.value })}
 								className="rounded-lg border border-[var(--border)] bg-[var(--surface)]/[0.04] px-3 py-1.5 text-sm text-[var(--text-primary)]"
 							>
@@ -279,6 +281,7 @@ export function VpsBackupSection({
 							<input
 								type="text"
 								placeholder="0 3 * * *"
+								aria-label={t("vpsBackup.cronExpression")}
 								value={createForm.cronExpression}
 								onChange={(e) => setCreateForm({ ...createForm, cronExpression: e.target.value })}
 								className="rounded-lg border border-[var(--border)] bg-[var(--surface)]/[0.04] px-3 py-1.5 text-sm text-[var(--text-primary)] placeholder:text-[var(--text-muted)]"
@@ -286,6 +289,7 @@ export function VpsBackupSection({
 						</div>
 						<textarea
 							placeholder={t("vpsBackup.pathsPlaceholder")}
+							aria-label={t("vpsBackup.pathsPlaceholder")}
 							value={createForm.paths}
 							onChange={(e) => setCreateForm({ ...createForm, paths: e.target.value })}
 							rows={2}
@@ -297,6 +301,7 @@ export function VpsBackupSection({
 								min={1}
 								max={365}
 								placeholder={t("vpsBackup.retentionDays")}
+								aria-label={t("vpsBackup.retentionDays")}
 								value={createForm.retentionDays}
 								onChange={(e) => setCreateForm({ ...createForm, retentionDays: e.target.value })}
 								className="w-24 rounded-lg border border-[var(--border)] bg-[var(--surface)]/[0.04] px-3 py-1.5 text-sm text-[var(--text-primary)]"

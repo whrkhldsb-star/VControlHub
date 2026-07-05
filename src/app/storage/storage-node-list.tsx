@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import { toDateLocale } from "@/lib/i18n/locale-format";
 import { useI18n } from "@/lib/i18n/use-locale";
 
 import { checkStorageNodeHealthAction } from "./actions";
@@ -65,7 +66,7 @@ function formatHealthTime(value: string | null | undefined, locale: "zh" | "en")
 	if (!value) return "";
 	const date = new Date(value);
 	if (Number.isNaN(date.getTime())) return value;
-	return date.toLocaleString(locale === "zh" ? "zh-CN" : "en-US", { hour12: false });
+	return date.toLocaleString(toDateLocale(locale), { hour12: false });
 }
 
 function StorageNodeCard({

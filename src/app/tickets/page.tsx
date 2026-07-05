@@ -4,6 +4,7 @@ import { listTickets } from "@/lib/ticket/service";
 import { PageShell, EmptyState, PageHeader } from "@/components/page-shell";
 import { CreateTicketForm } from "./create-ticket-form";
 import Link from "next/link";
+import { toDateLocale } from "@/lib/i18n/locale-format";
 import { getServerLocale, t, type Locale } from "@/lib/i18n/translations";
 
 export const dynamic = "force-dynamic";
@@ -48,7 +49,7 @@ export default async function Page() {
 									<div className="mt-2 flex flex-wrap gap-x-3 text-xs text-[var(--text-muted)]">
 										{ticket.creator && <span>{t("ticketsPage.creator", locale).replace("{name}", ticket.creator.displayName || ticket.creator.username)}</span>}
 										{ticket.assignee && <span>{t("ticketsPage.assignee", locale).replace("{name}", ticket.assignee.displayName || ticket.assignee.username)}</span>}
-										<span>{t("ticketsPage.createdAt", locale).replace("{time}", new Date(ticket.createdAt).toLocaleString(locale === "zh" ? "zh-CN" : "en-US"))}</span>
+										<span>{t("ticketsPage.createdAt", locale).replace("{time}", new Date(ticket.createdAt).toLocaleString(toDateLocale(locale)))}</span>
 									</div>
 								</Link>
 					))}

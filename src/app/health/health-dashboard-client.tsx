@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { toDateLocale } from "@/lib/i18n/locale-format";
 import { useI18n } from "@/lib/i18n/use-locale";
 import { getRefreshIntervalLabel } from "@/lib/preferences/refresh-interval";
 
@@ -122,7 +123,7 @@ function usageBarColor(val: number | undefined, warn = 80, crit = 95): string {
 
 export function HealthDashboardClient({ serverCount, initialSystemHealth }: Props) {
 	const { locale, t } = useI18n();
-	const browserLocale = locale === "zh" ? "zh-CN" : "en-US";
+	const browserLocale = toDateLocale(locale);
 	const {
 		overview,
 		systemHealth,

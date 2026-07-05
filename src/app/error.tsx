@@ -4,6 +4,9 @@ import NextLink from "next/link";
 import { useEffect } from "react";
 import { useI18n } from "@/lib/i18n/use-locale";
 import { PermissionDenied } from "@/components/page-shell";
+import { createLogger } from "@/lib/logging";
+
+const logger = createLogger("root-error");
 
 /**
  * Root-level error boundary for route segments.
@@ -33,7 +36,7 @@ export default function RootError({
 		// pipeline can pick them up. ForbiddenError is intentional, not
 		// a defect, but we still log it for audit.
 		if (error.name !== "ForbiddenError") {
-			console.error("[root-error]", error);
+			logger.error("root error boundary captured error", error);
 		}
 	}, [error]);
 

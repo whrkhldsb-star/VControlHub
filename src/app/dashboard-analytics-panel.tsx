@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 
 import { csrfFetch } from "@/lib/auth/csrf-client";
+import { toDateLocale } from "@/lib/i18n/locale-format";
 import { useI18n } from "@/lib/i18n/use-locale";
 import { EmptyState } from "@/components/page-shell";
 
@@ -48,7 +49,7 @@ function formatShortDate(value: string) {
 function formatShortTime(value: string, locale: "zh" | "en" = "zh") {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return value;
-  return date.toLocaleTimeString(locale === "zh" ? "zh-CN" : "en-US", { hour: "2-digit", minute: "2-digit" });
+  return date.toLocaleTimeString(toDateLocale(locale), { hour: "2-digit", minute: "2-digit" });
 }
 
 function formatBytes(value: number) {

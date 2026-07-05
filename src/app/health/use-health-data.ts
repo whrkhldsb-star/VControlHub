@@ -17,6 +17,7 @@
 import { useCallback, useEffect, useState } from "react";
 
 import { csrfFetch } from "@/lib/auth/csrf-client";
+import { t } from "@/lib/i18n/translations";
 import { getRefreshIntervalFromStorage } from "@/lib/preferences/refresh-interval";
 
 import type {
@@ -90,7 +91,7 @@ export function useHealthData({
 			setLastRefresh(new Date().toLocaleTimeString(browserLocale));
 		} catch (error) {
 			setLoadError(
-				getErrorMessage(error, locale === "zh" ? "加载健康状态失败" : "Failed to load health status"),
+				getErrorMessage(error, t("healthPage.error.loadStatus", locale)),
 			);
 		} finally {
 			setIsRefreshing(false);
@@ -123,7 +124,7 @@ export function useHealthData({
 				...prev,
 				[serverId]: getErrorMessage(
 					error,
-					locale === "zh" ? "加载历史指标失败" : "Failed to load metric history",
+					t("healthPage.error.loadHistory", locale),
 				),
 			}));
 		}

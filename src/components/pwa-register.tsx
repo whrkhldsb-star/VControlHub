@@ -1,7 +1,11 @@
 "use client"; /** * PwaRegister — registers the VControlHub service worker and exposes the * user-visible PWA state: offline banner + update prompt. */
 import { useEffect, useState } from "react";
 import { useToast } from "@/components/toast-provider";
+import { createLogger } from "@/lib/logging";
 import { useI18n } from "@/lib/i18n/use-locale";
+
+const logger = createLogger("pwa-register");
+
 const OFFLINE_WARM_ROUTES = [
   "/dashboard",
   "/servers",
@@ -54,7 +58,7 @@ export function PwaRegister() {
   useEffect(() => {
     if (typeof window === "undefined") return;
     if (!navigator.serviceWorker) {
-      console.info("[VControlHub PWA]", t("pwa.register.unsupported"));
+      logger.info("service worker unsupported");
       return;
     }
     const sw = navigator.serviceWorker;
@@ -94,10 +98,7 @@ export function PwaRegister() {
     };
     sw.register("/sw.js", { scope: "/" })
       .then((registration) => {
-        console.info(
-          "[VControlHub PWA] service worker registered",
-          registration.scope,
-        );
+        logger.info("service worker registered", { scope: registration.scope });
         if (registration.waiting) {
           notifyUpdateAvailable(registration.waiting);
         }
@@ -107,10 +108,7 @@ export function PwaRegister() {
         );
       })
       .catch((err: unknown) => {
-        console.error(
-          "[VControlHub PWA] service worker registration failed",
-          err,
-        );
+        logger.error("service worker registration failed", err);
         addToast("error", t("pwa.register.failed"));
       });
     return () => {

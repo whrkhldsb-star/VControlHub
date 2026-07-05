@@ -14,6 +14,8 @@ export const zh: Record<string, string> = {
 	"healthPage.serverCount": "纳管节点 {count} 台",
 	"healthPage.noPermission": "缺少健康监控权限",
 	"healthPage.noPermissionHint": "需要 health:read 权限后才能查看节点健康详情和历史指标。",
+	"healthPage.error.loadStatus": "加载健康状态失败",
+	"healthPage.error.loadHistory": "加载历史指标失败",
 
 	// Status labels
 	"healthPage.status.healthy": "正常",
@@ -142,6 +144,8 @@ export const en: Record<string, string> = {
 	"healthPage.serverCount": "Managed {count} nodes",
 	"healthPage.noPermission": "Missing health monitoring permission",
 	"healthPage.noPermissionHint": "You need the health:read permission to view node health details and historical metrics.",
+	"healthPage.error.loadStatus": "Failed to load health status",
+	"healthPage.error.loadHistory": "Failed to load metric history",
 
 	// Status labels
 	"healthPage.status.healthy": "Healthy",

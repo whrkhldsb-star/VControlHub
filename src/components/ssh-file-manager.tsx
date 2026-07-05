@@ -411,6 +411,7 @@ try {
               onChange={(e) => setMkdirName(e.target.value)}
               onKeyDown={(e) => e.key === "Enter" && handleMkdir()}
               placeholder={t("sshFileManager.folderName")}
+              aria-label={t("sshFileManager.folderName")}
               className="min-h-9 min-w-0 flex-1 rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-elevated)] px-3 py-1 text-xs text-[var(--text-primary)] outline-none placeholder:text-[var(--text-muted)] focus:border-[var(--color-action-border)]/30"
               autoFocus
             />
@@ -512,6 +513,7 @@ try {
               <div className="flex flex-1 items-center gap-1">
                 <input
                   value={renameValue}
+                  aria-label={t("sshFileManager.rename")}
                   onChange={(e) => setRenameValue(e.target.value)}
                   onKeyDown={(e) => {
                     if (e.key === "Enter") handleRename();

@@ -42,7 +42,7 @@ describe("MobileNav", () => {
 	it("keeps the mobile bar compact and safe-area aware on phones", () => {
 		renderWithProviders(<MobileNav />);
 
-		const nav = screen.getByRole("navigation", { name: "nav.mobile" });
+		const nav = screen.getByRole("navigation", { name: "移动端导航" });
 		expect(nav).toHaveClass("md:hidden");
 		expect(nav).toHaveClass("overflow-hidden");
 		expect(nav).toHaveClass("pb-[calc(0.35rem+env(safe-area-inset-bottom))]");

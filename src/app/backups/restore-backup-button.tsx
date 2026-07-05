@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 
 import { csrfFetch } from "@/lib/auth/csrf-client";
+import { toDateLocale } from "@/lib/i18n/locale-format";
 import { useI18n } from "@/lib/i18n/use-locale";
 
 type Props = {
@@ -47,7 +48,7 @@ export function RestoreBackupButton({ backupId, backupType, disabled = false }: 
       }) as { restoredAt?: string; error?: string };
       setMessage(
         result.restoredAt
-          ? t("backupsPage.restore.successWithTime").replace("{time}", new Date(result.restoredAt).toLocaleString(locale === "zh" ? "zh-CN" : "en-US"))
+          ? t("backupsPage.restore.successWithTime").replace("{time}", new Date(result.restoredAt).toLocaleString(toDateLocale(locale)))
           : t("backupsPage.restore.success")
       );
       setConfirmOpen(false);

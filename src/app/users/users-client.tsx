@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from "react";
 import { UserPermissionPanel } from "./user-permission-panel";
 import { csrfFetch } from "@/lib/auth/csrf-client";
 import { EmptyState } from "@/components/page-shell";
+import { toDateLocale } from "@/lib/i18n/locale-format";
 import { useI18n } from "@/lib/i18n/use-locale";
 
 type RoleInfo = { key: string; name: string };
@@ -252,7 +253,7 @@ export function UserManagementClient({ canManage = false }: { canManage?: boolea
                   <div className="mt-1 flex items-center gap-2 text-xs text-[var(--text-secondary)]">
                     <span>@{user.username}</span>
                     <span>·</span>
-                    <span>{new Date(user.createdAt).toLocaleDateString(locale === "zh" ? "zh-CN" : "en-US")}</span>
+                    <span>{new Date(user.createdAt).toLocaleDateString(toDateLocale(locale))}</span>
                   </div>
                   <div className="mt-2 flex flex-wrap gap-1.5">
                     {user.roles.map((role) => (

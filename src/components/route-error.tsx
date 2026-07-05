@@ -4,6 +4,9 @@ import { useEffect } from "react";
 
 import { PermissionDenied } from "@/components/page-shell";
 import { useI18n } from "@/lib/i18n/use-locale";
+import { createLogger } from "@/lib/logging";
+
+const logger = createLogger("route-error");
 
 type RouteErrorProps = {
 	error: Error & { digest?: string };
@@ -25,7 +28,7 @@ export function RouteError({
 		// permission-driven signal, not a defect. Still log it for audit so
 		// cron / smoke pipelines can correlate page hits with denial.
 		if (error.name !== "ForbiddenError") {
-			console.error("[Route Error]", error);
+			logger.error("route error boundary captured error", error);
 		}
 	}, [error]);
 

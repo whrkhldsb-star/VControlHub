@@ -105,13 +105,14 @@ describe("PwaRegister", () => {
 	});
 
 	it("gracefully no-ops when navigator.serviceWorker is absent", () => {
+		const register = (navigator.serviceWorker as unknown as { register: ReturnType<typeof vi.fn> }).register;
 		Object.defineProperty(navigator, "serviceWorker", {
 			configurable: true,
 			value: undefined,
 		});
-		const infoSpy = vi.spyOn(console, "info").mockImplementation(() => undefined);
 		renderPwa();
-		expect(infoSpy).toHaveBeenCalled();
+		expect(register).not.toHaveBeenCalled();
+		expect(screen.queryByText(/service worker registration failed/i)).not.toBeInTheDocument();
 	});
 
 	it("shows an offline banner when the browser goes offline", async () => {

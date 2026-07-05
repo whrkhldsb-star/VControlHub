@@ -34,12 +34,14 @@ export function StepConfigEditor({
 				<label className="text-[11px] text-[var(--text-secondary)]">recipientUserId</label>
 				<input
 					value={String(cfg.recipientUserId ?? "")}
+					aria-label="recipientUserId"
 					onChange={(e) => onConfigChange({ recipientUserId: e.target.value })}
 					className={fieldInputClass}
 				/>
 				<label className="text-[11px] text-[var(--text-secondary)]">subject</label>
 				<input
 					value={String(cfg.subject ?? "")}
+					aria-label="subject"
 					onChange={(e) => onConfigChange({ subject: e.target.value })}
 					className={fieldInputClass}
 				/>
@@ -58,7 +60,8 @@ export function StepConfigEditor({
 			<label className="text-[11px] text-[var(--text-secondary)]">url</label>
 			<input
 				value={String(cfg.url ?? "")}
-				onChange={(e) => onConfigChange({ url: e.target.value })}
+				aria-label="url"
+			onChange={(e) => onConfigChange({ url: e.target.value })}
 				placeholder="https://example.com/hook"
 				className={fieldInputClass}
 			/>

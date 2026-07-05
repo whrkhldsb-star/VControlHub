@@ -4,6 +4,7 @@
 "use client";
 
 import { useEffect, useState, useCallback, createContext, useContext } from "react";
+import { toHtmlLang } from "./locale-format";
 import { type Locale, t, getAllTranslations } from "./translations";
 
 const STORAGE_KEY = "vps-locale";
@@ -34,7 +35,7 @@ function isLocale(value: string | null | undefined): value is Locale {
 }
 
 function applyLocale(locale: Locale) {
-	document.documentElement.lang = locale === "zh" ? "zh-CN" : "en";
+	document.documentElement.lang = toHtmlLang(locale);
 	document.documentElement.dataset.locale = locale;
 }
 
