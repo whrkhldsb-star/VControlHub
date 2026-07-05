@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { toDateLocale } from "@/lib/i18n/locale-format";
 
 import { useI18n } from "@/lib/i18n/use-locale";
 import { ServerCardActions } from "./server-card-actions";
@@ -65,7 +66,7 @@ export function ServerOverviewCard({
   canManageServers,
   canUseSshTerminal,
 }: ServerOverviewCardProps) {
-  const { t } = useI18n();
+  const { locale, t } = useI18n();
   const [expanded, setExpanded] = useState(false);
   const [diagnosticRun, setDiagnosticRun] = useState<DiagnosticRunState>({ status: "idle" });
   const directLabel = server.directGateway?.statusLabel ?? t("serverOverviewCard.websiteRelay");
@@ -89,18 +90,18 @@ export function ServerOverviewCard({
       "border-[var(--info-border)] bg-[var(--info-bg)] text-[var(--info)] light:border-[var(--info-border)] light:bg-[var(--info)]";
     listHealthDescription = t("serverOverviewCard.checkingDescription");
   } else if (diagnosticRun.status === "success") {
-    listHealthLabel = `在线 · ${diagnosticRun.checkedAt.split(" ").pop() ?? ""}`.trim();
+    listHealthLabel = `${t("serverOverviewCard.online")} · ${diagnosticRun.checkedAt.split(" ").pop() ?? ""}`.trim();
     listHealthToneClass =
       "border-[var(--success-border)] bg-[var(--success-bg)] text-[var(--success)] light:border-[var(--success-border)] light:bg-[var(--success)]";
     listHealthDescription =
       diagnosticRun.summary
-        ? `最近一次实时探测成功：${diagnosticRun.summary}（${diagnosticRun.checkedAt}）`
-        : `最近一次实时探测成功（${diagnosticRun.checkedAt}）`;
+        ? t("serverOverviewCard.lastProbeSuccessWithSummary").replace("{summary}", diagnosticRun.summary).replace("{checkedAt}", diagnosticRun.checkedAt)
+        : t("serverOverviewCard.lastProbeSuccess").replace("{checkedAt}", diagnosticRun.checkedAt);
   } else if (diagnosticRun.status === "error") {
     listHealthLabel = t("serverOverviewCard.offline");
     listHealthToneClass =
       "border-[var(--danger-border)] bg-[var(--danger-bg)] text-[var(--danger)] light:border-[var(--danger-border)] light:bg-[var(--danger)]";
-    listHealthDescription = `最近一次实时探测失败：${diagnosticRun.message}（${diagnosticRun.checkedAt}）`;
+    listHealthDescription = t("serverOverviewCard.lastProbeFailed").replace("{message}", diagnosticRun.message).replace("{checkedAt}", diagnosticRun.checkedAt);
   } else {
     listHealthLabel = t("serverOverviewCard.enabledPendingProbe");
     listHealthToneClass =
@@ -116,12 +117,12 @@ export function ServerOverviewCard({
         cache: "no-store",
       });
       const payload = await response.json().catch(() => null);
-      const checkedAt = new Date().toLocaleString("zh-CN", { hour12: false });
+      const checkedAt = new Date().toLocaleString(toDateLocale(locale), { hour12: false });
 
       if (!response.ok) {
         setDiagnosticRun({
           status: "error",
-          message: payload?.error ?? `监控接口返回 ${response.status}`,
+          message: payload?.error ?? t("serverOverviewCard.monitorStatusReturned").replace("{status}", String(response.status)),
           checkedAt,
         });
         return;
@@ -132,21 +133,21 @@ export function ServerOverviewCard({
       }
 
       const diskText = Array.isArray(payload?.disk) && payload.disk.length > 0
-        ? `，磁盘 ${payload.disk[0].mount} ${payload.disk[0].usagePercent}%`
+        ? t("serverOverviewCard.diskSummary").replace("{mount}", String(payload.disk[0].mount)).replace("{usage}", String(payload.disk[0].usagePercent))
         : "";
       setDiagnosticRun({
         status: "success",
-        summary: `CPU ${payload?.cpu?.usagePercent ?? "--"}% · 内存 ${payload?.memory?.usagePercent ?? "--"}%${diskText}`,
+        summary: t("serverOverviewCard.resourceSummary").replace("{cpu}", String(payload?.cpu?.usagePercent ?? "--")).replace("{memory}", String(payload?.memory?.usagePercent ?? "--")).replace("{disk}", diskText),
         checkedAt,
       });
     } catch (error) {
       setDiagnosticRun({
         status: "error",
         message: error instanceof Error ? error.message : t("serverOverviewCard.realtimeProbeFailed"),
-        checkedAt: new Date().toLocaleString("zh-CN", { hour12: false }),
+        checkedAt: new Date().toLocaleString(toDateLocale(locale), { hour12: false }),
       });
     }
-  }, [server.id, t]);
+  }, [server.id, locale, t]);
 
   // ---------------------------------------------------------------------
   // 自动探测：受 AutoProbeContext 控制，挂载/切回页面时跑一次 + 周期刷新。

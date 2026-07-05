@@ -91,6 +91,10 @@ export const zh: Record<string, string> = {
   "fileListClient.listView": "列表视图",
   "fileListClient.iconView": "图标视图",
   "fileListClient.detailView": "详情视图",
+  "fileListClient.actions": "操作",
+  "fileListClient.folderItemCount": "{count} 项",
+  "fileListClient.open": "打开",
+  "fileListClient.directory": "目录",
 
   // files-browser-spa R26
   "filesBrowserSpa.currentSelectionLabel": "当前：",
@@ -201,6 +205,10 @@ export const en: Record<string, string> = {
   "fileListClient.listView": "List view",
   "fileListClient.iconView": "Icon view",
   "fileListClient.detailView": "Detail view",
+  "fileListClient.actions": "Actions",
+  "fileListClient.folderItemCount": "{count} item(s)",
+  "fileListClient.open": "Open",
+  "fileListClient.directory": "Directory",
 
   // files-browser-spa R26
   "filesBrowserSpa.currentSelectionLabel": "Current: ",

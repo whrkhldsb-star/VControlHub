@@ -129,14 +129,14 @@ export function CreateFolderForm({
         data-tone="accent"
         className="rounded-lg border px-4 py-2 text-sm font-medium transition disabled:cursor-not-allowed disabled:opacity-50"
       >
-        创建
+        {t("common.create")}
       </button>
       <button
         type="button"
         onClick={handleCancel}
         className="rounded-lg border border-[var(--border)] bg-[var(--surface)]/10 px-4 py-2 text-sm font-medium text-[var(--text-secondary)] transition hover:bg-[var(--surface)]/10"
       >
-        取消
+        {t("common.cancel")}
       </button>
       {state.error ? (
         <span className="text-xs text-[var(--danger)]">{state.error}</span>

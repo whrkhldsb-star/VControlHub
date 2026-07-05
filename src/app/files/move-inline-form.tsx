@@ -3,6 +3,7 @@
 import { useActionState, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 
+import { useI18n } from "@/lib/i18n/use-locale";
 import { type MoveFileActionState, moveFileAction } from "./move-file-action";
 
 const initialState: MoveFileActionState = {};
@@ -26,6 +27,7 @@ export function MoveInlineForm({
   onNotify?: (type: "success" | "error" | "info", message: string) => void;
 }) {
   const router = useRouter();
+  const { t } = useI18n();
   const [editing, setEditing] = useState(false);
   const [targetDir, setTargetDir] = useState("");
   const inputRef = useRef<HTMLInputElement | null>(null);
@@ -66,7 +68,7 @@ export function MoveInlineForm({
       <button
         type="button"
         onClick={handleToggle}
-        title="移动"
+        title={t("common.move")}
         aria-label={`Move ${name}`}
         className={
           variant === "menu"
@@ -87,7 +89,7 @@ export function MoveInlineForm({
           <path d="M5 12h14" />
           <path d="m12 5 7 7-7 7" />
         </svg>
-        {variant === "menu" ? <span>移动</span> : null}
+        {variant === "menu" ? <span>{t("common.move")}</span> : null}
       </button>
     );
   }
@@ -105,7 +107,7 @@ export function MoveInlineForm({
       <input type="hidden" name="currentRelativePath" value={relativePath} />
       <input type="hidden" name="storageNodeId" value={storageNodeId} />
       <label className="grid gap-1 text-sm text-[var(--text-secondary)]">
-        <span className="sr-only">目标路径</span>
+        <span className="sr-only">{t("filesPage.actions.targetPath")}</span>
         <input
           ref={inputRef}
           name="targetDir"
@@ -113,7 +115,7 @@ export function MoveInlineForm({
           onChange={(event) => setTargetDir(event.currentTarget.value)}
           required
           minLength={1}
-          placeholder={currentDir || "目标路径"}
+          placeholder={currentDir || t("filesPage.actions.targetPath")}
           className="rounded-2xl border border-[var(--border)] bg-[var(--input-bg)] px-3 py-1.5 text-xs text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus:border-[var(--color-action-border)]/50 focus:outline-none"
         />
       </label>
@@ -125,14 +127,14 @@ export function MoveInlineForm({
         disabled={!targetDir.trim() || targetDir.trim() === currentDir}
         data-tone="cyan" className="rounded-lg border border-[var(--color-action-border)]/30 px-3 py-1.5 text-xs font-medium text-[var(--text-primary)] transition hover:bg-[var(--color-action-bg)]/20 disabled:cursor-not-allowed disabled:opacity-50"
       >
-        确认
+        {t("common.confirm")}
       </button>
       <button
         type="button"
         onClick={handleCancel}
         className="rounded-lg border border-[var(--border)] bg-[var(--surface)]/10 px-3 py-1.5 text-xs font-medium text-[var(--text-secondary)] transition hover:bg-[var(--surface)]/10"
       >
-        取消
+        {t("common.cancel")}
       </button>
     </form>
   );

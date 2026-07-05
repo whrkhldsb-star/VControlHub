@@ -67,7 +67,7 @@ export function DetailActionButton({
         <path d="M12 16v-4" />
         <path d="M12 8h.01" />
       </svg>
-      {compact ? null : <span>详情</span>}
+      {compact ? null : <span>{t("fileListClient.detailTitle")}</span>}
     </button>
   );
 }
@@ -105,7 +105,7 @@ export function DownloadActionLink({
       }
     >
       <DownloadIcon />
-      {compact ? null : <span>下载</span>}
+      {compact ? null : <span>{t("fileListClient.downloadTitle")}</span>}
     </Link>
   );
 }
@@ -143,7 +143,7 @@ export function FolderDownloadActionLink({
       }
     >
       <DownloadIcon />
-      {compact ? null : <span>下载</span>}
+      {compact ? null : <span>{t("fileListClient.downloadTitle")}</span>}
     </Link>
   );
 }

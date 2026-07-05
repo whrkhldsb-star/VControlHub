@@ -87,7 +87,7 @@ export function FileDetailPanel({
             onClick={onClose}
             className="rounded-lg border border-[var(--border)] bg-[var(--surface)]/10 px-3 py-1.5 text-xs text-[var(--text-secondary)] transition hover:bg-[var(--surface)]/10"
           >
-            关闭
+            {t("fileDetailPanel.close")}
           </button>
         </div>
         <div className="flex-1 space-y-5 overflow-y-auto px-5 py-5">
@@ -128,7 +128,7 @@ export function FileDetailPanel({
 
           <div>
             <h3 className="text-sm font-semibold text-[var(--text-secondary)]">
-              快捷操作
+              {t("fileDetailPanel.quickActions")}
             </h3>
             <div className="mt-3 grid gap-2 sm:grid-cols-2">
               {detailEntry.previewable && entryCanRead(detailEntry) ? (
@@ -136,7 +136,7 @@ export function FileDetailPanel({
                   href={getPreviewHref(detailEntry)}
                   data-tone="cyan" className="rounded-2xl border border-[var(--color-action-border)]/30 px-4 py-3 text-sm font-medium text-[var(--text-primary)] transition hover:bg-[var(--color-action)]/20"
                 >
-                  预览 / 在线编辑
+                  {t("fileDetailPanel.preview")}
                 </Link>
               ) : null}
               {entryCanRead(detailEntry) ? (
@@ -145,7 +145,7 @@ export function FileDetailPanel({
                   download
                   className="rounded-2xl border border-[var(--border)] bg-[var(--surface)]/10 px-4 py-3 text-sm font-medium text-[var(--text-secondary)] transition hover:bg-[var(--surface)]/10"
                 >
-                  下载文件
+                  {t("fileDetailPanel.download")}
                 </Link>
               ) : null}
               {entryCanRead(detailEntry) ? (
@@ -153,7 +153,7 @@ export function FileDetailPanel({
                   href={buildMediaLibraryHref(detailEntry)}
                   data-tone="emerald" className="rounded-2xl border border-[var(--success-border)] px-4 py-3 text-sm font-medium text-[var(--success)] transition hover:bg-[var(--success-bg)]"
                 >
-                  在媒体库中查找
+                  {t("fileDetailPanel.findInMedia")}
                 </Link>
               ) : null}
               {canShare && entryCanRead(detailEntry) ? (
@@ -166,7 +166,7 @@ export function FileDetailPanel({
 
           <div>
             <h3 className="text-sm font-semibold text-[var(--text-secondary)]">
-              管理操作
+              {t("fileDetailPanel.managementActions")}
             </h3>
             <div className="mt-3 flex flex-wrap gap-2">
               {entryCanWrite(detailEntry) ? (

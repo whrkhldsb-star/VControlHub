@@ -95,7 +95,7 @@ export function RetentionButton({ olderThan30Days, totalRecords }: Props) {
       </p>
       {taskId && (
         <p role="status" className="text-xs text-[var(--success)]">
-          已加入清理队列，详情可在 <Link href="/operation-tasks" className="underline">任务中心</Link> 查看（{taskId}）。
+          {t("backupsPage.retention.queuedPrefix")} <Link href="/operation-tasks" className="underline">{t("backupsPage.retry.taskCenter")}</Link> {t("backupsPage.retention.queuedSuffix").replace("{taskId}", taskId)}
         </p>
       )}
       {error && (

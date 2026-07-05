@@ -69,7 +69,7 @@ export function RestoreBackupButton({ backupId, backupType, disabled = false }: 
         onClick={openConfirm}
         className="w-fit rounded-lg border border-[var(--danger-border)] px-3 py-1.5 text-xs font-semibold text-[var(--danger)] transition hover:bg-[var(--danger-bg)] disabled:cursor-not-allowed disabled:opacity-50"
       >
-        {pending ? "正在恢复..." : t("common.restore")}
+        {pending ? t("backupsPage.restore.pending") : t("common.restore")}
       </button>
       {message && <p className="text-xs text-[var(--success)]">{message}</p>}
       {error && <p className="text-xs text-[var(--danger)]">{error}</p>}
@@ -84,10 +84,10 @@ export function RestoreBackupButton({ backupId, backupType, disabled = false }: 
           >
             <h3 id="restore-backup-title" className="text-base font-semibold text-[var(--text-primary)]">{t("backupsPage.restore.confirmTitle")}</h3>
             <p id="restore-backup-description" className="mt-2 text-sm leading-6 text-[var(--text-secondary)]">
-              恢复 <span className="font-semibold text-[var(--text-primary)]">{backupType}</span> 备份会覆盖当前数据/文件。请输入 <span className="font-mono font-semibold text-[var(--danger)]">{CONFIRM_TEXT}</span> 后继续。
+              {t("backupsPage.restore.warningPrefix")} <span className="font-semibold text-[var(--text-primary)]">{backupType}</span> {t("backupsPage.restore.warningSuffix")} <span className="font-mono font-semibold text-[var(--danger)]">{CONFIRM_TEXT}</span> {t("backupsPage.restore.warningContinue")}
             </p>
             <label className="mt-4 grid gap-1 text-sm text-[var(--text-secondary)]">
-              输入 RESTORE 确认恢复
+              {t("backupsPage.restore.inputLabel").replace("{confirmText}", CONFIRM_TEXT)}
               <input
                 value={confirmText}
                 onChange={(event) => setConfirmText(event.target.value)}
@@ -108,7 +108,7 @@ export function RestoreBackupButton({ backupId, backupType, disabled = false }: 
                 }}
                 className="min-h-11 rounded-xl border border-[var(--border)] px-4 py-2 text-sm text-[var(--text-secondary)] transition hover:bg-[var(--surface)]/10 disabled:opacity-50"
               >
-                取消
+                {t("common.cancel")}
               </button>
               <button
                 type="button"

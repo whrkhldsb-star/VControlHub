@@ -144,7 +144,7 @@ export function FileListListView(props: FileListListViewProps) {
                 onToggle={toggleSort}
               />
             </div>
-            <div>操作</div>
+            <div>{t("fileListClient.actions")}</div>
           </div>
           <div className="divide-y divide-white/[0.04] light:divide-[var(--border)]">
             {sortedFolders.length === 0 && sortedFiles.length === 0 ? (
@@ -180,7 +180,7 @@ export function FileListListView(props: FileListListViewProps) {
                   </button>
                 </div>
                 <div className="text-[var(--text-muted)]">
-                  {folder.fileCount + folder.folderCount} 项
+                  {t("fileListClient.folderItemCount").replace("{count}", String(folder.fileCount + folder.folderCount))}
                 </div>
                 <div className="truncate text-xs text-[var(--text-muted)]" title={folder.sourceValues[0] ?? "—"}>
                   {folder.sourceValues[0] ?? "—"}
@@ -203,7 +203,7 @@ export function FileListListView(props: FileListListViewProps) {
                     >
                       <path d="M5 12h14M12 5l7 7-7 7" />
                     </svg>
-                    打开
+                    {t("fileListClient.open")}
                   </button>
                   {folderCanWrite(folder) ? (
                     <RenameInlineForm
@@ -334,7 +334,7 @@ export function FileListListView(props: FileListListViewProps) {
                   {folder.displayName ?? folder.name}
                 </button>
                 <div className="mt-0.5 text-xs text-[var(--text-muted)]">
-                  {folder.fileCount + folder.folderCount} 项
+                  {t("fileListClient.folderItemCount").replace("{count}", String(folder.fileCount + folder.folderCount))}
                 </div>
               </div>
               <button
@@ -343,7 +343,7 @@ export function FileListListView(props: FileListListViewProps) {
                 data-tone="cyan"
                 className="shrink-0 inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium border border-[var(--color-action-border)]/25 text-[var(--text-secondary)] hover:bg-[var(--color-action)]/20 transition"
               >
-                打开
+                {t("fileListClient.open")}
               </button>
             </div>
             {entryCanRead(folder) || folderCanWrite(folder) ? (

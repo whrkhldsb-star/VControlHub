@@ -1,4 +1,5 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { renderWithI18n as render } from "@/lib/i18n/__tests__/test-helpers";
+import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it, vi, beforeEach } from "vitest";
 
 const { mocks } = vi.hoisted(() => ({

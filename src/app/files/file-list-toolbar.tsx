@@ -27,10 +27,10 @@ export function FileListToolbar({
   return (
     <div className="flex items-center justify-between bg-[var(--surface)]/[0.04] px-5 py-2.5 border-b border-[var(--border)]">
       <div className="flex items-center gap-2 text-sm text-[var(--text-muted)]">
-        <span>{itemCount} 项</span>
+        <span>{t("filesPage.list.itemCount").replace("{count}", String(itemCount))}</span>
         {selectedCount > 0 ? (
           <span className="text-[var(--color-action)] font-medium">
-            · 已选 {selectedCount} 个
+            {t("filesPage.list.selectedCount").replace("{count}", String(selectedCount))}
           </span>
         ) : null}
       </div>
@@ -64,7 +64,7 @@ export function FileListToolbar({
             <line x1="3" y1="12" x2="3.01" y2="12" />
             <line x1="3" y1="18" x2="3.01" y2="18" />
           </svg>
-          列表
+          {t("filesPage.list.viewList")}
         </button>
         <button
           type="button"
@@ -93,7 +93,7 @@ export function FileListToolbar({
             <rect x="14" y="14" width="7" height="7" />
             <rect x="3" y="14" width="7" height="7" />
           </svg>
-          图标
+          {t("filesPage.list.viewGrid")}
         </button>
         <button
           type="button"
@@ -122,7 +122,7 @@ export function FileListToolbar({
             <line x1="3" y1="9" x2="9" y2="9" />
             <line x1="3" y1="15" x2="9" y2="15" />
           </svg>
-          详情
+          {t("filesPage.list.viewDetails")}
         </button>
       </div>
     </div>

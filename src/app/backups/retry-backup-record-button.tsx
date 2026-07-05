@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 
 import { csrfFetch } from "@/lib/auth/csrf-client";
+import { useI18n } from "@/lib/i18n/use-locale";
 
 type Props = {
   backupId: string;
@@ -13,6 +14,7 @@ type Props = {
 
 export function RetryBackupRecordButton({ backupId, status }: Props) {
   const router = useRouter();
+  const { t } = useI18n();
   const [pending, setPending] = useState(false);
   const [taskId, setTaskId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -28,7 +30,7 @@ export function RetryBackupRecordButton({ backupId, status }: Props) {
       setTaskId(result?.taskId ?? null);
       router.refresh();
     } catch (retryError) {
-      setError(retryError instanceof Error ? retryError.message : "重试备份失败");
+      setError(retryError instanceof Error ? retryError.message : t("backupsPage.retry.errorFallback"));
     } finally {
       setPending(false);
     }
@@ -42,11 +44,11 @@ export function RetryBackupRecordButton({ backupId, status }: Props) {
         onClick={handleRetry}
         className="w-fit rounded-lg border border-[var(--color-action-border)]/40 px-3 py-1.5 text-xs font-semibold text-[var(--text-primary)] transition hover:bg-[var(--color-action-bg)]/10 disabled:cursor-not-allowed disabled:opacity-50"
       >
-        {pending ? "正在排队..." : "重试备份"}
+        {pending ? t("backupsPage.retry.pending") : t("backupsPage.retry.submit")}
       </button>
       {taskId && (
         <p role="status" className="text-xs text-[var(--success)]">
-          已重新排队，可在 <Link href="/operation-tasks" className="underline">任务中心</Link> 查看进度（{taskId}）。
+          {t("backupsPage.retry.successPrefix")} <Link href="/operation-tasks" className="underline">{t("backupsPage.retry.taskCenter")}</Link> {t("backupsPage.retry.successSuffix").replace("{taskId}", taskId)}
         </p>
       )}
       {error && <p role="alert" className="text-xs text-[var(--danger)]">{error}</p>}

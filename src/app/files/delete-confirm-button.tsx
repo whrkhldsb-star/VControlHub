@@ -3,6 +3,7 @@
 import { useActionState, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 
+import { useI18n } from "@/lib/i18n/use-locale";
 import {
   deleteFileEntryAction,
   type StorageActionState,
@@ -26,6 +27,7 @@ export function DeleteConfirmButton({
   onNotify?: (type: "success" | "error" | "info", message: string) => void;
 }) {
   const router = useRouter();
+  const { t } = useI18n();
   const [confirming, setConfirming] = useState(false);
   const [state, formAction] = useActionState(
     deleteFileEntryAction,
@@ -56,7 +58,7 @@ export function DeleteConfirmButton({
       <button
         type="button"
         onClick={() => setConfirming(true)}
-        title="删除"
+        title={t("common.delete")}
         aria-label={`Delete ${entryName}`}
         className={
           variant === "menu"
@@ -80,7 +82,7 @@ export function DeleteConfirmButton({
           <line x1="10" y1="11" x2="10" y2="17" />
           <line x1="14" y1="11" x2="14" y2="17" />
         </svg>
-        {variant === "menu" ? <span>删除</span> : null}
+        {variant === "menu" ? <span>{t("common.delete")}</span> : null}
       </button>
     );
   }
@@ -89,21 +91,20 @@ export function DeleteConfirmButton({
     <form action={formAction} className="flex flex-wrap items-center gap-3">
       <input type="hidden" name="fileEntryId" value={fileEntryId} />
       <span className="text-sm text-[var(--danger)]">
-        确认删除 {entryName}
-        {entryType === "DIRECTORY" ? " 及其内容" : ""}？
+        {t("filesPage.actions.confirmDelete").replace("{name}", entryName).replace("{contents}", entryType === "DIRECTORY" ? t("filesPage.actions.directoryContents") : "")}
       </span>
       <button
         type="submit"
         data-tone="rose" className="rounded-lg border border-[var(--danger-border)] px-4 py-2 text-sm font-medium text-[var(--danger)] transition hover:bg-[var(--danger-bg)]"
       >
-        确认
+        {t("common.confirm")}
       </button>
       <button
         type="button"
         onClick={handleCancel}
         className="rounded-lg border border-[var(--border)] bg-[var(--surface)]/10 px-4 py-2 text-sm font-medium text-[var(--text-secondary)] transition hover:bg-[var(--surface)]/10"
       >
-        取消
+        {t("common.cancel")}
       </button>
     </form>
   );

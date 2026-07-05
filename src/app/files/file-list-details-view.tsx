@@ -9,6 +9,7 @@
  * density than the spreadsheet-style list view.
  */
 import Link from "next/link";
+import { useI18n } from "@/lib/i18n/use-locale";
 
 import { FileTypeIcon } from "./file-entry-icons";
 import {
@@ -66,6 +67,7 @@ export function FileListDetailsView({
   entryCanDelete,
   folderCanWrite,
 }: FileListDetailsViewProps) {
+  const { t } = useI18n();
   return (
     <div className="divide-y divide-white/[0.04] light:divide-[var(--border)]">
       {sortedFolders.length === 0 && sortedFiles.length === 0 ? (
@@ -94,8 +96,8 @@ export function FileListDetailsView({
               {folder.displayName ?? folder.name}
             </button>
             <div className="mt-1 flex flex-wrap gap-x-4 gap-y-1 text-xs text-[var(--text-muted)]">
-              <span>目录</span>
-              <span>{folder.fileCount + folder.folderCount} 项</span>
+              <span>{t("fileListClient.directory")}</span>
+              <span>{t("fileListClient.folderItemCount").replace("{count}", String(folder.fileCount + folder.folderCount))}</span>
             </div>
           </div>
           <div className="shrink-0 flex items-center gap-1">
@@ -117,7 +119,7 @@ export function FileListDetailsView({
               >
                 <path d="M5 12h14M12 5l7 7-7 7" />
               </svg>
-              打开
+              {t("fileListClient.open")}
             </button>
             {folderCanWrite(folder) ? (
               <RenameInlineForm

@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback } from "react";
+import { useI18n } from "@/lib/i18n/use-locale";
 
 export function SearchScopeToggle({
 	scope,
@@ -10,6 +11,7 @@ export function SearchScopeToggle({
 	currentPath?: string;
 	onScopeChange?: (newScope: string) => void;
 }) {
+	const { t } = useI18n();
 	const handleClick = useCallback(
 		(newScope: string, e: React.MouseEvent) => {
 			if (onScopeChange) {
@@ -40,7 +42,7 @@ export function SearchScopeToggle({
 						:"text-[var(--text-secondary)] hover:text-[var(--text-secondary)] light:hover:text-[var(--text-disabled)]"
 				}`}
 			>
-				当前目录
+				{t("filesPage.searchScope.current")}
 			</button>
 			<button
 				type="button"
@@ -51,7 +53,7 @@ export function SearchScopeToggle({
 						:"text-[var(--text-secondary)] hover:text-[var(--text-secondary)] light:hover:text-[var(--text-disabled)]"
 				}`}
 			>
-				全部文件
+				{t("filesPage.searchScope.all")}
 			</button>
 		</div>
 	);
