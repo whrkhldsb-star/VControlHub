@@ -6,11 +6,11 @@ import { useSshTerminal } from "./ssh-terminal-context";
 import { useI18n } from "@/lib/i18n/use-locale";
 import {
   deleteServerAction,
-  toggleDirectGatewayAction,
   toggleServerAction,
   updateServerAction,
   type ServerActionState,
 } from "./actions";
+import { ServerCardDirectGatewayForm } from "./server-card-actions-direct-gateway";
 const initialState: ServerActionState = {
   error: undefined,
   success: undefined,
@@ -73,10 +73,6 @@ export function ServerCardActions({
     deleteServerAction,
     initialState,
   );
-  const [directState, directAction] = useActionState(
-    toggleDirectGatewayAction,
-    initialState,
-  );
   const [editState, editAction] = useActionState(
     updateServerAction,
     initialState,
@@ -120,134 +116,10 @@ export function ServerCardActions({
           </button>
         )}{" "}
         {canManageServers && directGateway ? (
-          <form
-            action={directAction}
-            aria-label={t("serverCardActions.directGateway.formAria")}
-            data-tone="cyan"
-            className="space-y-3 rounded-2xl border border-[var(--color-action-border)]/20 p-3 light:border-[var(--color-action-border)]/20 light:bg-[var(--color-action-bg)]/80"
-          >
-            {" "}
-            <input type="hidden" name="serverId" value={serverId} />{" "}
-            <input
-              type="hidden"
-              name="enabledDirectGateway"
-              value={directGateway.enabled ? "false" : "true"}
-            />{" "}
-            {!directGateway.enabled ? (
-              <div className="space-y-1">
-                {" "}
-                <label
-                  className="block text-[11px] font-medium text-[var(--text-muted)]"
-                  htmlFor={`direct-gateway-protocol-${serverId}`}
-                >
-                  {" "}
-                  {t("serverCardActions.directGateway.protocol")}{" "}
-                </label>{" "}
-                <select
-                  id={`direct-gateway-protocol-${serverId}`}
-                  name="directGatewayProtocol"
-                  defaultValue="http"
-                  className="w-full rounded-lg border border-[var(--color-action-border)]/20 bg-[var(--surface-subtle)] px-3 py-2 text-xs text-[var(--text-primary)]"
-                >
-                  {" "}
-                  <option value="http">
-                    {t("serverCardActions.directGateway.protocolHttp")}
-                  </option>{" "}
-                  <option value="https">
-                    {t("serverCardActions.directGateway.protocolHttps")}
-                  </option>{" "}
-                </select>{" "}
-              </div>
-            ) : null}{" "}
-            <div className="space-y-1" role="status" aria-live="polite">
-              {" "}
-              <div className="text-xs font-medium text-[var(--text-secondary)]">
-                {" "}
-                {t("serverCardActions.directGateway.statusPrefix").replace(
-                  "{status}",
-                  directGateway.statusLabel,
-                )}{" "}
-              </div>{" "}
-              {directGateway.publicUrl ? (
-                <a
-                  href={directGateway.publicUrl}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="block break-all text-xs font-medium text-[var(--text-primary)] underline decoration-[var(--color-action)]/30 underline-offset-2 hover:text-[var(--text-primary)] light:hover:text-[var(--text-primary)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-action)] light:hover:text-[var(--color-action-strong)]"
-                >
-                  {" "}
-                  {directGateway.publicUrl}{" "}
-                </a>
-              ) : (
-                <div className="text-[11px] text-[var(--text-muted)]">
-                  {" "}
-                  {t("serverCardActions.directGateway.relayHint")}{" "}
-                </div>
-              )}{" "}
-            </div>{" "}
-            <div className="rounded-xl border border-[var(--border)] bg-[var(--surface-subtle)] p-3 text-[11px] leading-5 text-[var(--text-muted)] light:border-[var(--color-action-border)]/15">
-              {" "}
-              {directGateway.enabled ? (
-                <>
-                  {" "}
-                  <p className="font-medium text-[var(--text-primary)]">
-                    {" "}
-                    {t("serverCardActions.directGateway.enabledTitle")}{" "}
-                  </p>{" "}
-                  <p>
-                    {" "}
-                    {t("serverCardActions.directGateway.enabledDetail").replace(
-                      "{port}",
-                      String(
-                        directGateway.port ||
-                          t(
-                            "serverCardActions.directGateway.enabledDetailPortFallback",
-                          ),
-                      ),
-                    )}{" "}
-                  </p>{" "}
-                </>
-              ) : (
-                <>
-                  {" "}
-                  <p className="font-medium text-[var(--text-primary)]">
-                    {" "}
-                    {t("serverCardActions.directGateway.disabledTitle")}{" "}
-                  </p>{" "}
-                  <p>
-                    {" "}
-                    {t("serverCardActions.directGateway.disabledDetail")}{" "}
-                  </p>{" "}
-                </>
-              )}{" "}
-            </div>{" "}
-            <SubmitButton
-              pendingLabel={
-                directGateway.enabled
-                  ? t("serverCardActions.directGateway.pendingDisable")
-                  : t("serverCardActions.directGateway.pendingEnable")
-              }
-              data-tone="cyan"
-              className="w-full rounded-2xl border border-[var(--color-action-border)]/30 px-4 py-2 text-sm font-medium text-[var(--text-primary)] transition hover:bg-[var(--color-action-bg)]/20 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-action)] light:border-[var(--color-action-border)]/30 light:bg-[var(--color-action-bg)] light:hover:bg-[var(--color-action-bg)]"
-            >
-              {" "}
-              {directGateway.enabled
-                ? t("serverCardActions.directGateway.disableLabel")
-                : t("serverCardActions.directGateway.enableLabel")}{" "}
-            </SubmitButton>{" "}
-            {directState.error ? (
-              <div role="alert" className="text-xs text-[var(--danger)]">
-                {" "}
-                {directState.error}{" "}
-              </div>
-            ) : null}{" "}
-            {directState.success ? (
-              <div role="status" className="text-xs text-[var(--success)]">
-                {" "}
-                {directState.success}{" "}
-              </div>
-            ) : null}{" "}
-          </form>
+          <ServerCardDirectGatewayForm
+            serverId={serverId}
+            directGateway={directGateway}
+          />
         ) : null}{" "}
         {canManageServers ? (
           <button

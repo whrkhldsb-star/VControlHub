@@ -26,6 +26,7 @@ import {
   decryptServerPassword,
   decryptSshPrivateKey,
 } from "@/lib/ssh/ssh-key-crypto";
+import { createVerifiedSshConfig } from "@/lib/ssh/client";
 import { getServerLocale, t } from "@/lib/i18n/translations";
 
 export const dynamic = "force-dynamic";
@@ -39,6 +40,7 @@ async function sshExec(
     username: string;
     password: string | null;
     sshKey: { privateKey: string } | null;
+    hostKeySha256?: string | null;
   },
   command: string,
 ): Promise<{ stdout: string; stderr: string; exitCode: number }> {
@@ -46,18 +48,18 @@ async function sshExec(
   const sshClient = new Client();
 
   return new Promise((resolve) => {
-    const config: Record<string, unknown> = {
+    const config = createVerifiedSshConfig({
       host: server.host,
       port: server.port,
       username: server.username,
-      readyTimeout: 10000,
-    };
-
-    if (server.sshKey?.privateKey) {
-      config.privateKey = decryptSshPrivateKey(server.sshKey.privateKey);
-    } else if (server.password) {
-      config.password = decryptServerPassword(server.password);
-    }
+      hostKeySha256: server.hostKeySha256,
+      ...(server.sshKey?.privateKey
+        ? { privateKey: decryptSshPrivateKey(server.sshKey.privateKey) }
+        : server.password
+          ? { password: decryptServerPassword(server.password) }
+          : {}),
+    });
+    config.readyTimeout = 10000;
 
     sshClient.on("ready", () => {
       sshClient.exec(command, { pty: false }, (err, stream) => {
@@ -87,7 +89,7 @@ async function sshExec(
       resolve({ stdout: "", stderr: err.message, exitCode: -1 });
     });
 
-    sshClient.connect(config as Parameters<typeof sshClient.connect>[0]);
+    sshClient.connect(config);
   });
 }
 
@@ -142,6 +144,7 @@ export async function GET(
           username: string;
           password: string | null;
           sshKey: { privateKey: string } | null;
+    hostKeySha256?: string | null;
         },
         `ps -p ${proxy.pid} -o pid= 2>/dev/null || echo "not_running"`,
       );
@@ -161,6 +164,7 @@ export async function GET(
             username: string;
             password: string | null;
             sshKey: { privateKey: string } | null;
+    hostKeySha256?: string | null;
           },
           `kill ${proxy.pid} 2>/dev/null; rm -f /tmp/.vps_file_proxy_*.py /tmp/.vps_proxy_out`,
         );
@@ -256,6 +260,7 @@ export async function POST(
               username: string;
               password: string | null;
               sshKey: { privateKey: string } | null;
+    hostKeySha256?: string | null;
             },
             `ps -p ${existing.pid} -o pid= 2>/dev/null || echo "not_running"`,
           );
@@ -299,6 +304,7 @@ export async function POST(
             username: string;
             password: string | null;
             sshKey: { privateKey: string } | null;
+    hostKeySha256?: string | null;
           },
           startCmd,
         );
@@ -320,6 +326,7 @@ export async function POST(
             username: string;
             password: string | null;
             sshKey: { privateKey: string } | null;
+    hostKeySha256?: string | null;
           },
           `cat /tmp/.vps_proxy_out 2>/dev/null | grep "PROXY_READY" | head -1`,
         );
@@ -425,6 +432,7 @@ export async function DELETE(
               username: string;
               password: string | null;
               sshKey: { privateKey: string } | null;
+    hostKeySha256?: string | null;
             },
             `kill ${proxy.pid} 2>/dev/null; rm -f /tmp/.vps_file_proxy_*.py /tmp/.vps_proxy_out`,
           );

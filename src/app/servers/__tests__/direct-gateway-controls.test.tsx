@@ -213,6 +213,7 @@ describe("server direct gateway controls", () => {
     actionStateOverrides.push(
       { error: undefined, success: undefined, relatedStorageCount: undefined },
       { error: undefined, success: undefined, relatedStorageCount: undefined },
+      { error: undefined, success: undefined, relatedStorageCount: undefined },
       {
         error: "目标服务器直连只能启用于已绑定 SFTP 存储节点的 VPS。",
         success: undefined,

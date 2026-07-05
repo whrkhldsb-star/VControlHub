@@ -12,6 +12,7 @@ import type { Permission, RoleKey } from "@/lib/auth/rbac";
 import { createCommandRequest } from "@/lib/command/service";
 import { prisma } from "@/lib/db";
 import { BusinessError, ForbiddenError, NotFoundError } from "@/lib/errors";
+import { createVerifiedSshConfig } from "@/lib/ssh/client";
 import { decryptServerPassword, decryptSshPrivateKey } from "@/lib/ssh/ssh-key-crypto";
 import { deserializeDialect } from "@/lib/ssh/os-dialect";
 import { buildCommand } from "./hosted-command-builder";
@@ -210,18 +211,18 @@ export async function executeSafeAction(
     const sshClient = new Client();
 
     return new Promise((resolve) => {
-      const connectConfig: Record<string, unknown> = {
+      const connectConfig = createVerifiedSshConfig({
         host: server.host,
         port: server.port,
         username: server.username,
-        readyTimeout: 10000,
-      };
-
-      if (server.sshKey?.privateKey) {
-        connectConfig.privateKey = decryptSshPrivateKey(server.sshKey.privateKey);
-      } else if (server.password) {
-        connectConfig.password = decryptServerPassword(server.password);
-      }
+        hostKeySha256: server.hostKeySha256,
+        ...(server.sshKey?.privateKey
+          ? { privateKey: decryptSshPrivateKey(server.sshKey.privateKey) }
+          : server.password
+            ? { password: decryptServerPassword(server.password) }
+            : {}),
+      });
+      connectConfig.readyTimeout = 10000;
 
       sshClient.on("ready", () => {
         if (!isHostedActionType(action.actionType)) {
@@ -264,7 +265,7 @@ export async function executeSafeAction(
         resolve({ success: false, data: null, error: `SSH连接失败: ${err.message}` });
       });
 
-      sshClient.connect(connectConfig as Parameters<typeof sshClient.connect>[0]);
+      sshClient.connect(connectConfig);
     });
   } catch (err) {
     return { success: false, data: null, error: `执行失败: ${err instanceof Error ? err.message : "未知错误"}` };

@@ -65,6 +65,10 @@ export function createSshConfigForTest(input: SshConnectionParams): ConnectConfi
   return createSshConfig(input);
 }
 
+export function createVerifiedSshConfig(input: SshConnectionParams): ConnectConfig {
+  return createSshConfig(input);
+}
+
 export function connectSsh(config: ConnectConfig | SshConnectionParams): Promise<Client> {
   return new Promise((resolve, reject) => {
     const client = new Client();

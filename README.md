@@ -343,10 +343,10 @@ make logs SERVICE_PREFIX=vcontrolhub
 | API 路由文件        | 138                                              |
 | 数据模型            | 60                                               |
 | UI 组件           | 35                                               |
-| 代码行数            | ~179,800（src 扫描）                                 |
+| 代码行数            | ~179,849（src 扫描）                                 |
 | 测试              | 392 文件                                           |
 | Docker 应用模板     | 44 (本地) + 社区源实时同步                                |
-| i18n            | 210 useI18n() 调用点，77 字典文件                        |
+| i18n            | 211 useI18n() 调用点，77 字典文件                        |
 <!-- README_METRICS_END -->
 
 ---
@@ -359,7 +359,7 @@ make logs SERVICE_PREFIX=vcontrolhub
 
 - **P1 安全/API 边界**：Bearer proxy 只允许明确 token-aware 端点跳过 session/CSRF；媒体 stream/thumbnail 迁移到统一 API guard + rate limit；部署 rollback 增加服务端幂等/并发保护；Dashboard analytics 按数据域检查权限。
 - **P2 安全/UX**：backup void 增加二次确认；AI provider/hosted-actions GET 权限收紧；公开 share 下载增加 token/password 尝试限流；private image file 改为 owner 或 `image:read`；Markdown/文件 preview 增加 href allowlist 与 HTML escape。
-- **SSH 主机身份校验**：Server/StorageNode 增加 `hostKeySha256` 字段；SSH client 支持 `hostHash="sha256"` + `hostVerifier` pinning；VPS 首次纳管采用 TOFU 闭环：先无凭据捕获 SHA256 host key 并阻止保存，管理员 out-of-band 核对后将指纹原样填入再次提交，之后所有 SSH/SFTP 调用固定校验该指纹，指纹变化会被阻断。
+- **SSH 主机身份校验**：Server/StorageNode 增加 `hostKeySha256` 字段；SSH client 支持 `hostHash="sha256"` + `hostVerifier` pinning；VPS 首次纳管采用 TOFU 闭环：先无凭据捕获 SHA256 host key 并阻止保存，管理员 out-of-band 核对后将指纹原样填入再次提交；本轮复审继续补齐文件代理、AI 托管安全操作、SFTP service 与 SSH WebSocket 等 raw `ssh2` 链路，统一走 `createVerifiedSshConfig()`，之后所有 SSH/SFTP 调用固定校验该指纹，指纹变化会被阻断。
 - **数据/性能**：Dashboard 时间范围查询补 `createdAt` 索引；系统导入预览大 `IN (...)` 查询改为分批查询；system health 已具备真实 DB probe。
 - **部署治理**：`deploy/check.sh RUN_NPM_CHECKS=1` 同步构建 runtime bundle；新增 `deploy/drift-check.sh` / `make drift-check`；Docker Compose healthcheck 改为真实存在的 `/login` 探活；route catalog 增加 guardMode 声明与校验。
 - **可维护性**：生产 TSX 超长单行清零；`servers` / `settings-page` 大字典拆分；媒体卡片移除 `href="#"` fallback；E2E 截图输出到忽略目录并移除根目录 PNG 跟踪；Next image optimizer 不再允许任意 HTTPS 域名；README 项目规模改为 `scripts/readme-metrics.ts` 自动校验。

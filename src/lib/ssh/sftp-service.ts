@@ -9,6 +9,7 @@
  */
 
 import { Client } from "ssh2";
+import { createVerifiedSshConfig } from "@/lib/ssh/client";
 import type { Stats, FileEntryWithStats } from "ssh2";
 import { Readable, Writable, PassThrough } from "node:stream";
 import { prisma } from "@/lib/db";
@@ -50,6 +51,7 @@ type ResolvedConnection = {
   privateKey?: string;
   passphrase?: string;
   password?: string;
+  hostKeySha256?: string | null;
 };
 
 // ── Path safety ────────────────────────────────────────────────────
@@ -100,6 +102,7 @@ async function resolveServerConnection(serverId: string): Promise<ResolvedConnec
       enabled: true,
       connectionType: true,
       password: true,
+      hostKeySha256: true,
       sshKey: { select: { privateKey: true, passphrase: true } },
     },
   });
@@ -120,6 +123,7 @@ async function resolveServerConnection(serverId: string): Promise<ResolvedConnec
     port: srv.port,
     username: srv.username,
     connectionType: srv.connectionType,
+    hostKeySha256: srv.hostKeySha256,
     privateKey:
       srv.connectionType === "SSH_KEY" && srv.sshKey?.privateKey
         ? decryptSshPrivateKey(srv.sshKey!.privateKey ?? "")
@@ -177,17 +181,19 @@ async function openSftpSession(serverId: string): Promise<SftpSession> {
       reject(new Error(`SSH connection error: ${err.message}`));
     });
 
-    client.connect({
+    const config = createVerifiedSshConfig({
       host: conn.host,
       port: conn.port,
       username: conn.username,
+      hostKeySha256: conn.hostKeySha256,
       ...(conn.connectionType === "SSH_KEY"
         ? { privateKey: conn.privateKey, ...(conn.passphrase ? { passphrase: conn.passphrase } : {}) }
         : { password: conn.password }),
-      readyTimeout: 15000,
-      keepaliveInterval: 5000,
-      keepaliveCountMax: 3,
     });
+    config.readyTimeout = 15000;
+    config.keepaliveInterval = 5000;
+    config.keepaliveCountMax = 3;
+    client.connect(config);
   });
 }
 

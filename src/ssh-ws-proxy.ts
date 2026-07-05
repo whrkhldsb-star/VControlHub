@@ -14,6 +14,7 @@ import { Client } from "ssh2";
 import { prisma } from "@/lib/db";
 import { config } from "@/lib/config/env";
 import { decryptServerPassword, decryptSshPrivateKey, decryptSshKeyPassphrase } from "@/lib/ssh/ssh-key-crypto";
+import { createVerifiedSshConfig } from "@/lib/ssh/client";
 
 import { canUseSshTerminal } from "./lib/auth/ssh-access";
 import { getAppSlug } from "./lib/branding";
@@ -153,6 +154,7 @@ async function resolveServerConnection(serverId: string) {
    enabled: true,
    connectionType: true,
    password: true,
+   hostKeySha256: true,
    sshKey: { select: { privateKey: true, passphrase: true } },
   },
  });
@@ -166,6 +168,7 @@ async function resolveServerConnection(serverId: string) {
   port: srv.port,
   username: srv.username,
   connectionType: srv.connectionType,
+  hostKeySha256: srv.hostKeySha256,
 	privateKey: srv.connectionType === "SSH_KEY" ? decryptSshPrivateKey(srv.sshKey!.privateKey ?? "") : undefined,
 	passphrase: srv.connectionType === "SSH_KEY" && srv.sshKey?.passphrase ? decryptSshKeyPassphrase(srv.sshKey.passphrase) : undefined,
 	password: srv.connectionType === "PASSWORD" ? decryptServerPassword(srv.password ?? "") : undefined,
@@ -394,16 +397,18 @@ wss.on("connection", async (ws, req) => {
  }
  });
 
- sshClient.connect({
+ const sshConfig = createVerifiedSshConfig({
  host: connParams.host,
  port: connParams.port,
  username: connParams.username,
+ hostKeySha256: connParams.hostKeySha256,
  ...(connParams.connectionType === "SSH_KEY" ? { privateKey: connParams.privateKey, ...(connParams.passphrase ? { passphrase: connParams.passphrase } : {}) } : { password: connParams.password }),
- readyTimeout: 15000,
- timeout: 10000,
- keepaliveInterval: terminalRuntimeConfig.sshKeepaliveIntervalMs,
- keepaliveCountMax: terminalRuntimeConfig.sshKeepaliveCountMax,
  });
+ sshConfig.readyTimeout = 15000;
+ sshConfig.timeout = 10000;
+ sshConfig.keepaliveInterval = terminalRuntimeConfig.sshKeepaliveIntervalMs;
+ sshConfig.keepaliveCountMax = terminalRuntimeConfig.sshKeepaliveCountMax;
+ sshClient.connect(sshConfig);
 });
 
 const shouldStartServer = process.env.NODE_ENV !== "test";
