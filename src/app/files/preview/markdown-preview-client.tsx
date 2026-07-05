@@ -156,7 +156,7 @@ function inlineFormat(text: string): string {
 	text = text.replace(/\[([^\]]+)\]\(([^)]+)\)/g, (match, text, url) => {
 		const trimmed = url.trim().toLowerCase();
 		if (trimmed.startsWith('javascript:') || trimmed.startsWith('data:') || trimmed.startsWith('vbscript:')) {
-			return match; // 不转换危险链接
+			return match; // Leave dangerous links as escaped plain text
 		}
 		return `<a href="${url.trim()}" target="_blank" rel="noopener noreferrer">${text}</a>`;
 	});

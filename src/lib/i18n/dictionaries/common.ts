@@ -6,6 +6,8 @@
  */
 
 export const zh: Record<string, string> = {
+	"uptimeHeatmap.sla90": "90 天 SLA",
+	"common.colon": "：",
 	"common.noPermission": "缺少权限",
 	"common.actions": "操作",
 	"common.allFiles": "全部文件",
@@ -52,6 +54,7 @@ export const zh: Record<string, string> = {
 	"common.nodeName": "节点名称",
 	"common.openSidebar": "打开侧边栏",
 	"common.optional": "可选",
+	"common.submitting": "提交中…",
 	"common.path": "路径",
 	"common.pathPrefix": "路径：/",
 	"common.pinned": "📌 置顶",
@@ -101,6 +104,8 @@ export const zh: Record<string, string> = {
 };
 
 export const en: Record<string, string> = {
+	"uptimeHeatmap.sla90": "90-day SLA",
+	"common.colon": ": ",
 	"common.noPermission": "Missing permission",
 	"common.actions": "Actions",
 	"common.allFiles": "All files",
@@ -147,6 +152,7 @@ export const en: Record<string, string> = {
 	"common.nodeName": "Node name",
 	"common.openSidebar": "Open sidebar",
 	"common.optional": "Optional",
+	"common.submitting": "Submitting…",
 	"common.path": "Path",
 	"common.pathPrefix": "Path: /",
 	"common.pinned": "📌 Pinned",

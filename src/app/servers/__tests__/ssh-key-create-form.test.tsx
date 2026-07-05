@@ -27,7 +27,7 @@ describe("SshKeyCreateForm", () => {
 	it("allows importing a PPK file without requiring a pasted private key", () => {
 		render(<SshKeyCreateForm />);
 
-		expect(screen.getByLabelText("私钥")).not.toBeRequired();
-		expect(screen.getByText("密钥文件上传")).toBeInTheDocument();
+		expect(screen.getByLabelText("serversPage.sshKeyCreate.privateKeyLabel")).not.toBeRequired();
+		expect(screen.getByText("serversPage.sshKeyCreate.fileUploadLabel")).toBeInTheDocument();
 	});
 });

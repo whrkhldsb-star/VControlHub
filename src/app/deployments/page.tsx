@@ -49,7 +49,7 @@ export default async function DeploymentsPage({ searchParams }: { searchParams?:
 					<div className="rounded-lg border border-[var(--border)] bg-[var(--input-bg)] p-3 text-center">
 						<div className="text-lg mb-1">📝</div>
 						<div className="font-medium text-[var(--text-primary)]">{tr("deploymentsPage.page.howItWorks.step1.title")}</div>
-						<div className="mt-1">{tr("deploymentsPage.page.howItWorks.step1.desc").replace("{{变量名}}", "{{variable}}")}</div>
+						<div className="mt-1">{tr("deploymentsPage.page.howItWorks.step1.desc").replace("{{\u53d8\u91cf\u540d}}", "{{variable}}")}</div>
 					</div>
 					<div className="rounded-lg border border-[var(--border)] bg-[var(--input-bg)] p-3 text-center">
 						<div className="text-lg mb-1">🎯</div>

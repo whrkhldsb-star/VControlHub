@@ -28,16 +28,14 @@ type BackupRecord = {
 	durationMs: string | null;
 };
 
-const PRESET_LABELS: Record<string, { zh: string; en: string }> = {
-	"nginx-config": { zh: "Nginx 配置", en: "Nginx Config" },
-	"mysql-database": { zh: "MySQL 数据库", en: "MySQL Database" },
-	"postgres-database": { zh: "PostgreSQL 数据库", en: "PostgreSQL Database" },
-	"docker-volumes": { zh: "Docker Volumes", en: "Docker Volumes" },
-	"website-files": { zh: "网站文件", en: "Website Files" },
-	custom: { zh: "自定义路径", en: "Custom Paths" },
-};
-
-const PRESET_OPTIONS = Object.keys(PRESET_LABELS);
+const PRESET_OPTIONS = [
+	"nginx-config",
+	"mysql-database",
+	"postgres-database",
+	"docker-volumes",
+	"website-files",
+	"custom",
+] as const;
 
 function formatBytes(bytes: string | null): string {
 	if (!bytes) return "—";
@@ -185,8 +183,11 @@ export function VpsBackupSection({
 		}
 	};
 
-	const presetLabel = (type: string) =>
-		PRESET_LABELS[type]?.[locale] ?? type;
+	const presetLabel = (type: string) => {
+		const key = `vpsBackup.preset.${type}`;
+		const label = t(key);
+		return label === key ? type : label;
+	};
 
 	if (loading) {
 		return (
