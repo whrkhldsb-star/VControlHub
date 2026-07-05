@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 
 import { requirePermission } from "@/lib/auth/authorization";
 import { reviewCommandRequest } from "@/lib/command/service";
+import { getServerLocale, t } from "@/lib/i18n/translations";
 
 export type ReviewActionState = {
   error?: string;
@@ -19,6 +20,8 @@ export type BatchReviewActionState = {
 
 export async function reviewCommandAction(_prevState: ReviewActionState | null, formData: FormData) {
   const session = await requirePermission("command:approve");
+  const locale = await getServerLocale();
+  const tr = (key: string) => t(key, locale);
 
   try {
     const approved = String(formData.get("decision") ?? "approve") === "approve";
@@ -37,10 +40,10 @@ export async function reviewCommandAction(_prevState: ReviewActionState | null, 
     revalidatePath("/requests");
 
     return {
-      success: approved ? "命令请求已批准并进入执行流。" : "命令请求已拒绝。",
+      success: approved ? tr("requestsPage.action.approved") : tr("requestsPage.action.rejected"),
     } satisfies ReviewActionState;
   } catch (error) {
-    return { error: error instanceof Error ? error.message : "审批命令请求失败" } satisfies ReviewActionState;
+    return { error: error instanceof Error ? error.message : tr("requestsPage.action.reviewFailed") } satisfies ReviewActionState;
   }
 }
 
@@ -65,6 +68,8 @@ export async function batchReviewCommandAction(
   formData: FormData,
 ): Promise<BatchReviewActionState> {
   const session = await requirePermission("command:approve");
+  const locale = await getServerLocale();
+  const tr = (key: string) => t(key, locale);
 
   const approved = String(formData.get("decision") ?? "approve") === "approve";
   const comment = String(formData.get("comment") ?? "");
@@ -74,7 +79,7 @@ export async function batchReviewCommandAction(
   );
 
   if (ids.length === 0) {
-    return { error: "未选中任何待审批请求" } satisfies BatchReviewActionState;
+    return { error: tr("requestsPage.batch.errorNoSelection") } satisfies BatchReviewActionState;
   }
 
   const results: Record<string, "ok" | string> = {};
@@ -92,7 +97,7 @@ export async function batchReviewCommandAction(
       results[commandRequestId] = "ok";
       okCount++;
     } catch (error) {
-      results[commandRequestId] = error instanceof Error ? error.message : "审批失败";
+      results[commandRequestId] = error instanceof Error ? error.message : tr("requestsPage.batch.errorReviewFailed");
       failCount++;
     }
   }
@@ -101,21 +106,21 @@ export async function batchReviewCommandAction(
   revalidatePath("/servers");
   revalidatePath("/requests");
 
-  const verb = approved ? "批准" : "拒绝";
+  const verb = approved ? tr("requestsPage.batch.verbApprove") : tr("requestsPage.batch.verbReject");
   if (failCount === 0) {
     return {
-      success: `已${verb} ${okCount} 条命令请求。`,
+      success: tr("requestsPage.batch.successAll").replace("{verb}", verb).replace("{count}", String(okCount)),
       results,
     } satisfies BatchReviewActionState;
   }
   if (okCount === 0) {
     return {
-      error: `批量${verb}失败：${failCount} 条全部失败。`,
+      error: tr("requestsPage.batch.errorAllFailed").replace("{verb}", verb).replace("{count}", String(failCount)),
       results,
     } satisfies BatchReviewActionState;
   }
   return {
-    success: `部分成功：${okCount} 条${verb}成功，${failCount} 条失败。`,
+    success: tr("requestsPage.batch.successPartial").replace("{verb}", verb).replace("{okCount}", String(okCount)).replace("{failCount}", String(failCount)),
     results,
   } satisfies BatchReviewActionState;
 }

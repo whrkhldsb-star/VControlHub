@@ -60,6 +60,16 @@ export const zh: Record<string, string> = {
 	"requestsPage.batch.pending": "处理中...",
 	"requestsPage.batch.approve": "批量批准（{count}）",
 	"requestsPage.batch.reject": "批量拒绝（{count}）",
+	"requestsPage.action.approved": "命令请求已批准并进入执行流。",
+	"requestsPage.action.rejected": "命令请求已拒绝。",
+	"requestsPage.action.reviewFailed": "审批命令请求失败",
+	"requestsPage.batch.errorNoSelection": "未选中任何待审批请求",
+	"requestsPage.batch.errorReviewFailed": "审批失败",
+	"requestsPage.batch.verbApprove": "批准",
+	"requestsPage.batch.verbReject": "拒绝",
+	"requestsPage.batch.successAll": "已{verb} {count} 条命令请求。",
+	"requestsPage.batch.errorAllFailed": "批量{verb}失败：{count} 条全部失败。",
+	"requestsPage.batch.successPartial": "部分成功：{okCount} 条{verb}成功，{failCount} 条失败。",
 
 	// cancel-command-button.tsx (client)
 	"requestsPage.cancel.title": "取消命令",
@@ -145,6 +155,16 @@ export const en: Record<string, string> = {
 	"requestsPage.batch.pending": "Processing...",
 	"requestsPage.batch.approve": "Approve selected ({count})",
 	"requestsPage.batch.reject": "Reject selected ({count})",
+	"requestsPage.action.approved": "Command request approved and queued for execution.",
+	"requestsPage.action.rejected": "Command request rejected.",
+	"requestsPage.action.reviewFailed": "Failed to review command request",
+	"requestsPage.batch.errorNoSelection": "No pending requests selected",
+	"requestsPage.batch.errorReviewFailed": "Review failed",
+	"requestsPage.batch.verbApprove": "approved",
+	"requestsPage.batch.verbReject": "rejected",
+	"requestsPage.batch.successAll": "Successfully {verb} {count} command request(s).",
+	"requestsPage.batch.errorAllFailed": "Batch {verb} failed: all {count} item(s) failed.",
+	"requestsPage.batch.successPartial": "Partial success: {okCount} {verb}, {failCount} failed.",
 
 	// cancel-command-button.tsx
 	"requestsPage.cancel.title": "Cancel command",

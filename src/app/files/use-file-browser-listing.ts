@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { csrfFetch } from "@/lib/auth/csrf-client";
 import { logError } from "@/lib/logging";
+import { useI18n } from "@/lib/i18n/use-locale";
 
 /**
  * Minimal shape of the `/api/files/list` response that the listing
@@ -72,6 +73,7 @@ export function useFileBrowserListing<TData extends ListingFilesApiResponse>({
   initialData,
   manageMobileSidebar = false,
 }: UseFileBrowserListingInput<TData>): UseFileBrowserListingResult<TData> {
+  const { t } = useI18n();
   const [data, setData] = useState<TData>(initialData);
   const [loading, setLoading] = useState(false);
   const [listError, setListError] = useState<string | null>(null);
@@ -129,13 +131,13 @@ export function useFileBrowserListing<TData extends ListingFilesApiResponse>({
         if (err instanceof Error && err.name === "AbortError") return;
         logError("Failed to fetch files:", err);
         setListError(
-          err instanceof Error ? err.message : "文件列表刷新失败，请稍后重试。",
+          err instanceof Error ? err.message : t("filesPage.listRefreshFailed"),
         );
       } finally {
         setLoading(false);
       }
     },
-    [data.nodeIdFilter],
+    [data.nodeIdFilter, t],
   );
 
   // popstate: re-fetch from the URL without pushing a new history entry

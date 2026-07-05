@@ -6,6 +6,7 @@ import { requirePermission } from "@/lib/auth/authorization";
 import { prisma } from "@/lib/db";
 import { assertStorageAccess } from "@/lib/storage/access-control";
 import { moveBackingObject } from "@/lib/storage/fs-backend";
+import { getServerLocale, t } from "@/lib/i18n/translations";
 import {
   joinStoragePath,
   normalizeStorageRelativePath,
@@ -19,15 +20,17 @@ export async function moveFileAction(
   formData: FormData,
 ) {
   const session = await requirePermission("storage:write");
+  const locale = await getServerLocale();
+  const tr = (key: string) => t(key, locale);
 
   try {
     const fileEntryId = String(formData.get("fileEntryId") ?? "").trim();
     const targetDir = String(formData.get("targetDir") ?? "").trim();
 
     if (!fileEntryId)
-      return { error: "缺少文件参数" } satisfies MoveFileActionState;
+      return { error: tr("filesPage.move.errorMissingFile") } satisfies MoveFileActionState;
     if (!targetDir)
-      return { error: "目标路径不能为空" } satisfies MoveFileActionState;
+      return { error: tr("filesPage.move.errorEmptyTarget") } satisfies MoveFileActionState;
 
     const targetDirResult = normalizeStorageTargetDirectory(targetDir);
     if (!targetDirResult.ok) {
@@ -67,7 +70,7 @@ export async function moveFileAction(
     });
 
     if (!entry)
-      return { error: "文件条目不存在" } satisfies MoveFileActionState;
+      return { error: tr("filesPage.move.errorFileNotFound") } satisfies MoveFileActionState;
 
     const joinedPath = joinStoragePath(normalizedTargetDir, entry.name);
     if (!joinedPath.ok) {
@@ -93,12 +96,12 @@ export async function moveFileAction(
 
     if (!destinationAccess.allowed) {
       return {
-        error: destinationAccess.reason ?? "没有该存储节点或路径的访问授权",
+        error: destinationAccess.reason ?? tr("filesPage.move.errorNoAccess"),
       } satisfies MoveFileActionState;
     }
 
     if (newRelativePath === entry.relativePath) {
-      return { error: "目标路径与当前路径相同" } satisfies MoveFileActionState;
+      return { error: tr("filesPage.move.errorSamePath") } satisfies MoveFileActionState;
     }
 
     // 检查目标路径是否已存在
@@ -114,7 +117,7 @@ export async function moveFileAction(
 
     if (existing) {
       return {
-        error: `目标路径 /${newRelativePath} 已存在同名文件`,
+        error: tr("filesPage.move.errorTargetExists").replace("{path}", `/${newRelativePath}`),
       } satisfies MoveFileActionState;
     }
 
@@ -127,9 +130,9 @@ export async function moveFileAction(
       });
     } catch (error) {
       const driverLabel =
-        entry.storageNode.driver === "LOCAL" ? "本地" : "远端";
+        entry.storageNode.driver === "LOCAL" ? tr("filesPage.move.driverLocal") : tr("filesPage.move.driverRemote");
       return {
-        error: `${driverLabel}文件移动失败：${error instanceof Error ? error.message : "未知错误"}`,
+        error: tr("filesPage.move.errorBackingMoveFailed").replace("{driver}", driverLabel).replace("{message}", error instanceof Error ? error.message : tr("filesPage.move.errorUnknown")),
       } satisfies MoveFileActionState;
     }
 
@@ -169,11 +172,11 @@ export async function moveFileAction(
     revalidatePath("/files");
 
     return {
-      success: `已移动到 /${newRelativePath}`,
+      success: tr("filesPage.move.success").replace("{path}", `/${newRelativePath}`),
     } satisfies MoveFileActionState;
   } catch (error) {
     return {
-      error: error instanceof Error ? error.message : "移动文件失败",
+      error: error instanceof Error ? error.message : tr("filesPage.move.errorMoveFailed"),
     } satisfies MoveFileActionState;
   }
 }
