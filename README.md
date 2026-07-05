@@ -76,7 +76,7 @@
 - **命令模板** — 可复用的 SSH 命令模板库
 - **Playbook 编排** — 多步骤命令编排，变量替换，条件执行
 - **数据备份** — 数据库 / 文件 / 全量三种备份模式，支持定时自动备份（cron 调度 + 保留策略）+ 异地 S3 上传
-- **部署管理** — 版本导出 + 最近部署重发（真实回滚待补齐）
+- **部署管理** — 版本导出、最近部署重发、基于部署快照的真实回滚
 - **成本追踪** — 资源成本汇总与趋势分析
 - **智能运维** — AI 驱动的运维建议与自动诊断
 
@@ -109,7 +109,7 @@
 | Playbook     | `/playbooks`       | 多步骤命令编排，变量替换                                       |
 | 定时任务     | `/scheduled-tasks` | Cron 调度 + 执行日志                                           |
 | 备份         | `/backups`         | 数据库/文件/全量备份 + 恢复 + 定时备份调度                     |
-| 部署         | `/deployments`     | 应用部署运行记录、版本导出与最近部署重发（不是快照级真实回滚） |
+| 部署         | `/deployments`     | 应用部署运行记录、版本导出、最近部署重发与快照级真实回滚       |
 | 下载中心     | `/downloads`       | Aria2 任务管理                                                 |
 | 图床外链中心 | `/image-bed`       | 已发布图片外链复制、来源审计与兼容发布                         |
 | 媒体         | `/media`           | 在线媒体浏览                                                   |
@@ -349,56 +349,10 @@ make logs SERVICE_PREFIX=vcontrolhub
 
 ---
 
-## 🔬 全量代码审查（2026-07-04 复审）
+## 🔬 全量代码审查
 
-> 本节仅保留仍需处理的真实待办。已完成或经验证为过期/误报的条目已清理，避免重复排期。
+当前 README 不保留已完成任务清单；复审 backlog 已清空。若后续发现新的真实待办，只记录可执行、未完成的问题，并附验证方式。
 
-**审查范围**：~163,800 行 TypeScript/TSX，122+ API 路由，46+ 页面，60 数据模型，1176+ 源文件，388 测试文件。
-**最近验证**：`npm run typecheck` + `npm test` + `npm run lint` 已通过（388 test files / 2745 tests passed / 1 skipped，含 typecheck、lint、Next build、runtime bundle、deploy assets）。
-
-### 📋 剩余优化待办
-
-#### 🟡 P2 — 中优先级
-
-| # | 问题 | 涉及文件 | 建议修复 |
-| --- | --- | --- | --- |
-| 1 | ✅ **`src/app/` 硬编码 tone 色彩类源码清零** — 已将运行时代码中的 `rose/amber/emerald/slate/indigo/purple/orange/...` Tailwind 色彩 utility 迁移到 `var(--*)`/`data-tone` 语义变量；当前复扫：生产 `src/app` **0 处 / 0 文件**（仅测试文件仍允许样式断言用例） | 已处理：`downloads-client.tsx`、`files/preview/*`、`notifications/notification-list-client.tsx`、`qa-reports-list-client.tsx`、`image-bed`、`docker`、`error.tsx` 等 | 后续可在确认 Q-layer 仅剩兼容价值后，逐步移除 `globals.css` 中旧色彩 shim |
-| 2 | ✅ **大文件拆分完成 — 生产非测试非字典 >500 行源文件已清零**；前几轮把多个页面/组件热点拆到 500 行以下；本轮批量拆分底层模块：`quick-service/catalog.ts` 601→18（按 storage/media/devtools/notes/network/blog/other 分类拆分）、`quick-service/service-lifecycle.ts` 636→382（install/start-container 路径提取到 `service-lifecycle-install.ts`）、`server/service-profiles.ts` 554→360（重复 include 提取到 `service-profile-includes.ts`）、`settings/field-schema.ts` 537→20（schema core/base/notifications/offsite 分层）、`system/import-preview.ts` 529→205（table preview helpers 提取到 `import-preview-tables.ts`）、`ai/hosted-service.ts` 553→404（command builder 提取到 `hosted-command-builder.ts`）、`qa-reports/service.ts` 552→341（trend 聚合提取到 `trends.ts`）、`api/ai/chat/route.ts` 543→429（message payload builder 提取到 `message-payload.ts`）。当前 `src/app` 真实页面组件 >500 已清零，`src/components` 生产组件 >500 已清零，生产 TS/TSX 非字典/非测试 >500 已清零 | 已处理：`ai-ops-page-client.tsx`、`cost-summary/*`、`image-bed/*`、`downloads/*`、`quick-services/*`、`servers/server-overview-*`、`files/preview/text-preview-*`、`ssh-file-manager*`、`ssh-terminal-*`、`quick-service/catalog*`、`quick-service/service-lifecycle*`、`server/service-profile*`、`settings/field-schema*`、`system/import-preview*`、`ai/hosted-*`、`qa-reports/*`、`api/ai/chat/*` | 已完成；后续仅需防止新增 >500 行源文件，新增复杂逻辑优先按 domain/helper/component 拆分 |
-| 3 | ✅ **硬编码中文字符串前端面清零** — 本轮继续迁移 server/SSH key/batch/monitor/storage/VPS backup/deployments/markdown preview 等剩余可见文案与 fallback；最新精扫区分测试/API 后，`src/app` + `src/components` 生产非测试 TS/TSX **0 文件 / 0 行** 命中硬编码中文 | 已迁移：`dashboard-localized-sections.tsx`、`settings/system-config-section.tsx`、`image-bed-page-client.tsx`、`files/*` 多个操作组件、`backups/*` 操作按钮、`operation-tasks/page.tsx`、`scheduled-tasks/page.tsx`、`quick-services/page.tsx`、`ai-ops-page-client.tsx`、`ai/*` 附件提示、`files/file-entry-utils.ts`、`files/use-file-batch-operations.ts`、`files/move-file-action.ts`、`files/use-file-browser-listing.ts`、`requests/actions.ts`、`servers/actions.ts`、`servers/command-actions.ts`、`servers/*-form.tsx`、`server-monitor-card.tsx`、`vps-backup-section.tsx`、`storage-node-list.tsx`、`account/password/actions.ts`、`login/actions.ts`、`global-error.tsx`、`nav-items.tsx`；`typecheck/test/lint/i18n:key-check/build` 通过 | 已完成；后续新增 UI/Action 文案必须走字典或明确非用户可见 sentinel，避免重新引入源码中文 |
-| 4 | ✅ **inline locale UI 三元表达式已收敛** — 日期格式统一迁移到 `toDateLocale()`，错误 fallback 迁移到字典 key；当前复扫仅剩 7 处 / 4 文件，均为底层 locale/DOM 桥接或语言切换逻辑例外 | 保留例外：`locale-format.ts`、`dom-bridge.tsx`、`dom-translations.ts`、`language-toggle.tsx`；已处理：`dashboard-analytics-panel.tsx`、`health-dashboard-client.tsx`、`sparkline-chart.tsx`、`users-client.tsx`、`tickets/page.tsx`、`audit-client.tsx`、`storage-node-list.tsx`、`restore-backup-button.tsx` | 已完成；后续新增 UI 文案禁止 `locale === "zh" ? ... : ...`，日期/HTML lang 使用 helper |
-
-#### 🟢 P3 — 低优先级
-
-| # | 问题 | 涉及文件 | 建议修复 |
-| --- | --- | --- | --- |
-| 5 | ✅ **`/api/status` 路由错误处理已完成** — 当前异常路径返回 JSON 500，邻近测试已覆盖 | `src/app/api/status/route.ts`、`src/app/api/status/__tests__/route.test.ts` | 已完成，后续仅需常规维护 |
-| 6 | ✅ **`t()` fallback 代码异味已清零** — 当前复扫 `t("key") === "key" ? ...` 为 0 处 | 原 `app-sidebar.tsx`、`change-password-modal.tsx`、`layout.tsx` | 已完成 |
-| 7 | ✅ **input 字段缺 `<label>`/`aria-label` 已完成** — 已为明确可交互输入补齐可访问名，并把 `aria-label` 放在事件处理器前避免扫描误判；当前精扫仅剩 2 处 / 2 文件，均为通用 Input 封装例外，实际由调用方通过 `id`/`aria-*` props 传入 | 已处理：`ssh-file-manager.tsx`、`sortable-step-card.tsx`、`step-config-editor.tsx`、`vps-backup-section.tsx`、`share-file-picker.tsx`、`verify-2fa-form.tsx`、`media-item-card.tsx`、`image-bed-page-client.tsx`、`docker-resources-panel.tsx`、`ai-settings-panel.tsx`、`ai-attachments-preview.tsx`、`audit-client.tsx`、`team-workspace-section.tsx`、`files/*`；保留封装例外：`ui-primitives.tsx`、`input-base.tsx` | 已完成；后续新增 input 必须由可见 label 或 aria props 提供可访问名 |
-| 8 | ✅ **aria-label 硬编码中文已完成** — 生产代码 `aria-label` 行中文复扫仅剩 1 处注释误报，无真实中文 aria-label | 已处理：`mobile-nav.tsx`、`image-preview-modal.tsx`、`verify-2fa-form.tsx`、`operation-task-list-client.tsx`、`server-tab-layout.tsx`、`server-overview-card.tsx`、`files/*` 等 | 已完成；后续与 P2 #3 i18n 字符串收敛分开跟踪 |
-| 9 | ✅ **生产组件直接 `console.*` 已清零** — PWA 注册和 error boundary 已改用统一 `createLogger()`；当前复扫仅剩 `lib/logging.ts` 自身 3 处实现例外 + 测试 fixture 字符串 1 处 | 已处理：`pwa-register.tsx`、`route-error.tsx`、`global-error.tsx`、`error.tsx`；保留：`lib/logging.ts` | 已完成；后续新增日志统一走 `createLogger(scope)` |
-
-### ✅ 已完成项（2026-07-04 复审确认）
-
-- **P1-1 health-dashboard i18n** — `system-health/service.ts` 已返回结构化 `messageCode` + `params`，前端通过 `t()`/`tt()` + `health-page` 字典渲染。可选清理：`service.ts` 中残留的 dead `label`/`message` 中文 fallback 字段可删除（客户端不再读取）。
-- **P1-2 settings/field-schema i18n** — schema 仅保留 `settingsClient.*` i18n key 与约束；`field-schema-i18n.ts` 桥接层已删除；validate 函数返回结构化 `FieldValidationError { key, params }`。
-- **P2-3 React.memo** — `notifications`、`downloads`、`operation-tasks`、`snippets`、`announcements`、`playbooks` 6 个列表页均已提取 `memo` 列表项组件 + 自定义比较器 + `useCallback` 稳定回调。
-- **P3-6 API 路由测试** — auth/2FA、AI、playbooks(含 dry-run)、backup、audit、deployment rollback 关键路径均已覆盖邻近测试。
-- **P3-7 lib 测试** — auth、backup、SSH/storage、sanitize、runtime settings 高风险模块均已覆盖。
-- **P3-8 组件测试** — `ui-primitives`、`page-shell`、`ssh-file-manager`、`ssh-terminal-panel`、`theme-toggle`、`toast-provider` 均已覆盖。
-- **P3-9 E2E 测试** — Playwright 已引入，`e2e/` 含 `public-smoke.spec.ts`、`authenticated-flow.spec.ts`、`screenshot.spec.ts`，覆盖登录→服务器→设置等关键路径。
-
-### ⚠️ 审计订正（防止重复误报）
-
-- **`global-error.tsx` i18n 已完成且不能用 `useI18n()`** — App Router 的 `global-error` 渲染在 provider tree 外，当前通过 `vps-locale` cookie 检测 locale 并内置中英 copy，是合理实现。
-- **`error.tsx` / `loading.tsx` 缺失项已完成** — 原清单 11 个路由均已具备对应边界/骨架文件。
-- **`window.confirm` 目标项已完成** — 原目标文件中的原生 `confirm()` 已清零（2026-07-04 复审确认零匹配）。
-- **`notification-bell` / `global-search` / `share-row-actions` / `scheduled-tasks` / `docker-resources` / `team-workspace` i18n 已完成** — 已接入 `useI18n` 或等价字典化路径，旧清单不再保留。
-- **`csrf_token` cookie 不能加 `HttpOnly`** — 走 Double-Submit Cookie 模式，client 必须 `document.cookie` 读 token；加 `HttpOnly` 会直接破坏 CSRF 防护。承载身份的 session cookie 已 `httpOnly: true`，组合已满足 OWASP 推荐。
-- **`effect` / `@electric-sql/pglite*` 不能 `npm remove`** — 两者均为 `prisma` 的 transitive dependency，不在 `package.json` 顶层；瘦身需 prisma 主动减少，非项目侧可解。
-- **"4 个核心页面缺 PageHeader" 假阳性** — `/ai` 是聊天 UI、`/storage` 只 redirect、`/media` 与 `/image-bed` 已具备 eyebrow/title/description（自定义 hero header），无需补齐。
-- **`/offline` 是客户端页面无服务端 guard** — 合理设计：离线页需在无网络时渲染，不能依赖服务端 session。
-- **`bg-black/60` modal 背景在浅色模式下也合理** — 黑色半透明遮罩在深色/浅色主题下均为通用模式，无需额外适配。
-- **`import-service.ts` 已从 500+ 行降至 13 行 barrel** — 但实现逻辑迁移至 `import-executors.ts`(1104行)，拆分效果为负；需继续拆分（见 P2 #2）。
-- **Q-layer CSS 兼容层已补偿 `src/app/` 残留色** — `globals.css` ~820-1150 行将旧 `text-rose-*`/`bg-emerald-*` 等映射到 `var(--*)`，运行时主题一致，但源码未清理（见 P2 #1）。
+---
 
 ## 📄 许可
