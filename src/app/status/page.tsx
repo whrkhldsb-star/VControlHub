@@ -1,5 +1,6 @@
 import { type SystemHealthCheck } from "@/lib/system-health/service";
 import { getServerLocale, t } from "@/lib/i18n/translations";
+import { toDateLocale } from "@/lib/i18n/locale-format";
 import { getPublicStatus } from "@/lib/status/service";
 import { createLogger } from "@/lib/logging";
 import { getAllUptimeDataInternal } from "@/lib/uptime/internal";
@@ -44,9 +45,25 @@ function getColorClass(uptime: number) {
   return "bg-[var(--danger)]";
 }
 
+function getHealthLabel(status: string, locale: Parameters<typeof t>[1]) {
+  switch (status) {
+    case "healthy":
+      return t("statusPage.health.healthy", locale);
+    case "warning":
+      return t("statusPage.health.warning", locale);
+    case "degraded":
+      return t("statusPage.health.degraded", locale);
+    case "critical":
+      return t("statusPage.health.critical", locale);
+    default:
+      return status;
+  }
+}
+
 export default async function Page() {
   const status = await getPublicStatus();
   const locale = await getServerLocale();
+  const dateLocale = toDateLocale(locale);
   const uptimeData = await getAllUptimeData();
 
   return (
@@ -70,16 +87,12 @@ export default async function Page() {
             />
             <span className="text-lg font-medium">
               {t("statusPage.overallLabel", locale)}
-              {status.summary.overall === "healthy"
-                ? "正常"
-                : status.summary.overall === "warning"
-                ? "警告"
-                : "异常"}
+              {getHealthLabel(status.summary.overall, locale)}
             </span>
           </div>
           <p className="mt-2 text-xs text-[var(--text-muted)]">
             {t("statusPage.updatedAt", locale)}
-            {new Date(status.generatedAt).toLocaleString("zh-CN")}
+            {new Date(status.generatedAt).toLocaleString(dateLocale)}
           </p>
         </div>
 
@@ -108,11 +121,7 @@ export default async function Page() {
                       : "text-[var(--danger)]"
                   }`}
                 >
-                  {c.status === "healthy"
-                    ? "正常"
-                    : c.status === "warning"
-                    ? "警告"
-                    : "异常"}
+                  {getHealthLabel(c.status, locale)}
                 </span>
               </div>
               <p className="mt-1.5 text-sm text-[var(--text-secondary)]">
@@ -124,9 +133,9 @@ export default async function Page() {
 
         {uptimeData && uptimeData.servers && uptimeData.servers.length > 0 && (
           <div className="mt-8">
-            <h2 className="text-lg font-medium">历史可用率（90 天）</h2>
+            <h2 className="text-lg font-medium">{t("statusPage.uptime.title", locale)}</h2>
             <p className="mt-1 text-xs text-[var(--text-muted)]">
-              显示过去 90 天的服务器 uptime 情况
+              {t("statusPage.uptime.desc", locale)}
             </p>
             <div className="mt-4 grid gap-6">
               {uptimeData.servers.map((server: UptimeServer) => {

@@ -26,7 +26,7 @@ export function ReviewCommandForm({ commandRequestId }: { commandRequestId: stri
 
       <div className="mt-4 flex flex-wrap gap-3">
         <SubmitButton
-          pendingLabel="处理中..."
+          pendingLabel={t("requestsPage.review.pending")}
           name="decision"
           value="approve"
           className="rounded-2xl bg-[var(--success)] px-4 py-2 text-sm font-medium text-[var(--color-action-fg)] transition hover:bg-[var(--success)] disabled:cursor-not-allowed disabled:opacity-60"

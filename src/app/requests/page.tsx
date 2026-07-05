@@ -9,6 +9,7 @@ import { AiHostedApprovalCard } from "./ai-hosted-approval-card";
 import { BatchReviewToolbar } from "./batch-review-toolbar";
 import { PageShell, PageHeader, StatCard, EmptyState } from "@/components/page-shell";
 import { getServerLocale, t } from "@/lib/i18n/translations";
+import { toDateLocale } from "@/lib/i18n/locale-format";
 
 export const dynamic = "force-dynamic";
 
@@ -16,6 +17,7 @@ export default async function RequestsPage() {
 	const session = await requireSession("/requests");
 	const canApprove = sessionHasPermission(session, "command:approve");
 	const locale = await getServerLocale();
+	const dateLocale = toDateLocale(locale);
 	const [requests, aiActions] = await Promise.all([
 		listCommandRequests(),
 		getPendingActions(session.userId),
@@ -92,8 +94,8 @@ export default async function RequestsPage() {
 									<div className="min-w-0 flex-1">
 										<div className="flex flex-wrap items-center gap-2">
 											<h3 className="text-lg font-semibold text-[var(--text-primary)]">{request.title}</h3>
-											<ApprovalBadge status={request.approvalStateLabel} />
-											<InitiatorBadge assistant={request.isAssistantInitiated} />
+											<ApprovalBadge status={request.status} label={getRequestStatusLabel(request.status, locale)} />
+											<InitiatorBadge assistant={request.isAssistantInitiated} label={t(request.isAssistantInitiated ? "requestsPage.initiator.assistant" : "requestsPage.initiator.user", locale)} />
 										</div>
 										{canApprove ? (
 											<p className="mt-2.5 rounded-lg bg-[var(--surface-subtle)] px-3 py-2 font-mono text-xs text-[var(--text-primary)] border border-[var(--border)]">{request.command}</p>
@@ -109,7 +111,7 @@ export default async function RequestsPage() {
 								</div>
 
 								<div className="mt-4 grid gap-3 lg:grid-cols-3">
-									<InfoSection title="目标节点">
+									<InfoSection title={t("requestsPage.card.targetNodesTitle", locale)}>
 										<div className="space-y-1.5">
 											{request.targets.map((target: (typeof request.targets)[number]) => (
 												<InfoItem key={target.id}>
@@ -124,7 +126,7 @@ export default async function RequestsPage() {
 										{request.latestApproval ? (
 											<InfoItem className="text-sm">
 												<div className={`font-medium ${request.latestApproval.approved ? "text-[var(--success)]" : "text-[var(--danger)]"}`}>
-													{request.latestApproval.approved ? "已批准" : "已拒绝"}
+													{t(request.latestApproval.approved ? "requestsPage.status.APPROVED" : "requestsPage.status.REJECTED", locale)}
 												</div>
 												<div className="mt-1 text-[11px] text-[var(--text-muted)]">
 													{request.latestApproval.approver.displayName || request.latestApproval.approver.username}
@@ -142,7 +144,7 @@ export default async function RequestsPage() {
 												{request.executionLogs.map((log: (typeof request.executionLogs)[number], index: number) => (
 													<InfoItem key={log.id ?? `${request.id}-log-${index}`} className="text-xs text-[var(--text-secondary)]">
 														<div>{log.summary}</div>
-														{log.createdAt && <div className="mt-1 text-[11px] text-[var(--text-muted)]">{new Date(log.createdAt).toLocaleString("zh-CN")}</div>}
+														{log.createdAt && <div className="mt-1 text-[11px] text-[var(--text-muted)]">{new Date(log.createdAt).toLocaleString(dateLocale)}</div>}
 													</InfoItem>
 												))}
 											</div>
@@ -166,30 +168,57 @@ export default async function RequestsPage() {
 	);
 }
 
-function ApprovalBadge({ status }: { status: string }) {
+function getRequestStatusLabel(status: string, locale: Parameters<typeof t>[1]) {
+	switch (status) {
+		case "PENDING_APPROVAL":
+			return t("requestsPage.status.PENDING_APPROVAL", locale);
+		case "APPROVED":
+			return t("requestsPage.status.APPROVED", locale);
+		case "REJECTED":
+			return t("requestsPage.status.REJECTED", locale);
+		case "RUNNING":
+			return t("requestsPage.status.RUNNING", locale);
+		case "COMPLETED":
+			return t("requestsPage.status.COMPLETED", locale);
+		case "FAILED":
+			return t("requestsPage.status.FAILED", locale);
+		case "CANCELLED":
+			return t("requestsPage.status.CANCELLED", locale);
+		default:
+			return status;
+	}
+}
+
+function ApprovalBadge({ status, label }: { status: string; label: string }) {
 	const toneMap: Record<string, "warning" | "success" | "danger" | "neutral"> = {
-		"待审批": "warning",
-		"已批准": "success",
-		"已拒绝": "danger",
+		PENDING_APPROVAL: "warning",
+		APPROVED: "success",
+		COMPLETED: "success",
+		REJECTED: "danger",
+		FAILED: "danger",
+		CANCELLED: "neutral",
 	};
 	const styleMap: Record<string, string> = {
-		待审批: "border-[var(--warning-border)] text-[var(--warning)]",
-		已批准: "border-[var(--success-border)] text-[var(--success)]",
-		已拒绝: "border-[var(--danger-border)] text-[var(--danger)]",
+		PENDING_APPROVAL: "border-[var(--warning-border)] text-[var(--warning)]",
+		APPROVED: "border-[var(--success-border)] text-[var(--success)]",
+		COMPLETED: "border-[var(--success-border)] text-[var(--success)]",
+		REJECTED: "border-[var(--danger-border)] text-[var(--danger)]",
+		FAILED: "border-[var(--danger-border)] text-[var(--danger)]",
+		CANCELLED: "border-[var(--border)] text-[var(--text-muted)]",
 	};
-	const tone = toneMap[status];
+	const tone = toneMap[status] ?? "neutral";
 	const style = styleMap[status] ?? "border-[var(--border)] text-[var(--text-secondary)]";
 	return (
 		<span
 			data-tone={tone}
 			className={`inline-flex items-center rounded-full border px-2 py-0.5 text-[11px] font-medium ${style}`}
 		>
-			{status}
+			{label}
 		</span>
 	);
 }
 
-function InitiatorBadge({ assistant }: { assistant: boolean }) {
+function InitiatorBadge({ assistant, label }: { assistant: boolean; label: string }) {
 	return (
 		<span
 			data-tone={assistant ? "accent" : "neutral"}
@@ -197,7 +226,7 @@ function InitiatorBadge({ assistant }: { assistant: boolean }) {
 				assistant ? "border-[var(--color-action-border)]/20 text-[var(--text-secondary)]" : "border-[var(--border)] text-[var(--text-muted)]"
 			}`}
 		>
-			{assistant ? "助手授权" : "用户审批"}
+			{label}
 		</span>
 	);
 }

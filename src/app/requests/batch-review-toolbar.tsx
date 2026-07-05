@@ -25,6 +25,8 @@ import {
 	useState,
 } from "react";
 
+import { useI18n } from "@/lib/i18n/use-locale";
+
 import {
 	batchReviewCommandAction,
 	type BatchReviewActionState,
@@ -41,6 +43,7 @@ export function BatchReviewToolbar({
 	pendingIds,
 	children,
 }: BatchReviewToolbarProps) {
+	const { t } = useI18n();
 	const [selected, setSelected] = useState<Set<string>>(() => new Set());
 	const [comment, setComment] = useState("");
 	const commentId = useId();
@@ -126,11 +129,11 @@ export function BatchReviewToolbar({
 						aria-label="Select all pending approvals"
 					/>
 					<span className="text-[var(--text-secondary)]">
-						全选（{pendingIds.length}）
+						{t("requestsPage.batch.selectAll").replace("{count}", String(pendingIds.length))}
 					</span>
 				</label>
 				{someSelected && (
-					<span className="text-[var(--color-action)]">已选 {selected.size} 条</span>
+					<span className="text-[var(--color-action)]">{t("requestsPage.batch.selectedCount").replace("{count}", String(selected.size))}</span>
 				)}
 				{state.success && (
 					<span data-tone="emerald" className="text-[var(--success)]">
@@ -156,7 +159,7 @@ export function BatchReviewToolbar({
 						<input key={id} type="hidden" name="commandRequestId" value={id} />
 					))}
 					<label htmlFor={commentId} className="sr-only">
-						批量审批备注
+						{t("requestsPage.batch.commentLabel")}
 					</label>
 					<input
 						id={commentId}
@@ -164,7 +167,7 @@ export function BatchReviewToolbar({
 						name="comment"
 						value={comment}
 						onChange={(e) => setComment(e.target.value)}
-						placeholder="批量审批备注（选填，将应用到全部 N 条）"
+						placeholder={t("requestsPage.batch.commentPlaceholder")}
 						className="flex-1 rounded-lg border border-[var(--border)] bg-[var(--input-bg)] px-3 py-2 text-sm text-[var(--text-primary)] outline-none focus:border-[var(--color-action-border)]/40"
 					/>
 					<button
@@ -174,7 +177,7 @@ export function BatchReviewToolbar({
 						disabled={isPending}
 						className="rounded-lg bg-[var(--success)] px-4 py-2 text-sm font-medium text-[var(--color-action-fg)] transition hover:bg-[var(--success)] disabled:cursor-not-allowed disabled:opacity-60"
 					>
-						{isPending ? "处理中..." : `批量批准（${selected.size}）`}
+						{isPending ? t("requestsPage.batch.pending") : t("requestsPage.batch.approve").replace("{count}", String(selected.size))}
 					</button>
 					<button
 						type="submit"
@@ -183,7 +186,7 @@ export function BatchReviewToolbar({
 						disabled={isPending}
 						className="rounded-lg border border-[var(--danger-border)] px-4 py-2 text-sm font-medium text-[var(--danger)] transition hover:bg-[var(--danger-bg)] disabled:cursor-not-allowed disabled:opacity-60"
 					>
-						{isPending ? "处理中..." : `批量拒绝（${selected.size}）`}
+						{isPending ? t("requestsPage.batch.pending") : t("requestsPage.batch.reject").replace("{count}", String(selected.size))}
 					</button>
 				</form>
 			)}
