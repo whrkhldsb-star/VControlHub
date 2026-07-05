@@ -79,7 +79,7 @@ export function AiMessageList({
           <p className="text-xs mt-1 text-[var(--text-disabled)]">
             {t("aiPage.dragPasteHint").replace(
               "{types}",
-              formatAllowedTypes(currentModelCaps),
+              formatAllowedTypes(currentModelCaps, t),
             )}
           </p>
         </div>

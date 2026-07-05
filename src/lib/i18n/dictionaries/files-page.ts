@@ -52,6 +52,22 @@ export const zh: Record<string, string> = {
 	"filesPage.list.viewList": "列表",
 	"filesPage.list.viewGrid": "图标",
 	"filesPage.list.viewDetails": "详情",
+
+	"filesPage.preview.officeAria": "打开 Office 下载提示 {name}",
+	"filesPage.preview.officeTitle": "Office 文件暂不做公网在线渲染，将打开下载提示页",
+	"filesPage.preview.archiveAria": "查看压缩包内容 {name}",
+	"filesPage.preview.archiveLocalTitle": "查看压缩包内容，可在受控流程中在线解压",
+	"filesPage.preview.archiveRemoteTitle": "查看压缩包内容，远端压缩包仅提供安全列表和下载",
+	"filesPage.preview.defaultAria": "预览 {name}",
+	"filesPage.preview.defaultTitle": "预览",
+	"filesPage.batch.deleteSuccess": "已删除 {count} 个文件",
+	"filesPage.batch.deletePartialFailure": "批量删除完成，但有 {count} 个文件失败",
+	"filesPage.batch.fileMissing": "{id}: 文件不存在",
+	"filesPage.batch.moveSuccess": "已移动 {count} 个文件",
+	"filesPage.batch.movePartialFailure": "批量移动完成，但有 {count} 个文件失败",
+	"filesPage.batch.compressCrossStorageUnsupported": "批量压缩暂不支持跨存储节点选择",
+	"filesPage.batch.compressSuccess": "已压缩 {count} 个文件",
+	"filesPage.batch.compressFailed": "压缩失败",
 };
 
 export const en: Record<string, string> = {
@@ -105,4 +121,20 @@ export const en: Record<string, string> = {
 	"filesPage.list.viewList": "List",
 	"filesPage.list.viewGrid": "Icons",
 	"filesPage.list.viewDetails": "Details",
+
+	"filesPage.preview.officeAria": "Open Office download notice for {name}",
+	"filesPage.preview.officeTitle": "Office files are not rendered online publicly yet; opening the download notice page.",
+	"filesPage.preview.archiveAria": "View archive contents for {name}",
+	"filesPage.preview.archiveLocalTitle": "View archive contents; local archives can be extracted online through the controlled flow.",
+	"filesPage.preview.archiveRemoteTitle": "View archive contents; remote archives only support safe listing and download.",
+	"filesPage.preview.defaultAria": "Preview {name}",
+	"filesPage.preview.defaultTitle": "Preview",
+	"filesPage.batch.deleteSuccess": "Deleted {count} file(s)",
+	"filesPage.batch.deletePartialFailure": "Batch delete completed, but {count} file(s) failed",
+	"filesPage.batch.fileMissing": "{id}: file not found",
+	"filesPage.batch.moveSuccess": "Moved {count} file(s)",
+	"filesPage.batch.movePartialFailure": "Batch move completed, but {count} file(s) failed",
+	"filesPage.batch.compressCrossStorageUnsupported": "Batch archive does not support selecting files across storage nodes yet",
+	"filesPage.batch.compressSuccess": "Archived {count} file(s)",
+	"filesPage.batch.compressFailed": "Archive failed",
 };

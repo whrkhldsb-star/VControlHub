@@ -28,6 +28,7 @@ export interface UseFileAttachmentsOptions {
   modelName: string | null | undefined;
   enableVision?: boolean;
   onReject?: (message: string) => void;
+  t?: (key: string) => string;
 }
 
 export interface UseFileAttachmentsReturn {
@@ -47,7 +48,9 @@ export function useFileAttachments({
   modelName,
   enableVision,
   onReject,
+  t,
 }: UseFileAttachmentsOptions): UseFileAttachmentsReturn {
+  const tr = t ?? ((key: string) => key);
   const [fileAttachments, setFileAttachments] = useState<FileAttachment[]>([]);
   const [fileRejectionMsg, setFileRejectionMsg] = useState<string | null>(null);
 
@@ -65,7 +68,7 @@ export function useFileAttachments({
       const fileArr = Array.from(files);
       for (const file of fileArr) {
         if (file.size > MAX_FILE_SIZE_BYTES) {
-          showRejection(`📄 ${file.name} 超过 20MB 限制`);
+          showRejection(tr("aiPage.fileTooLarge").replace("{name}", file.name));
           continue;
         }
 
@@ -75,7 +78,7 @@ export function useFileAttachments({
           case "image": {
             if (!currentModelCaps.vision && !enableVision) {
               showRejection(
-                `🖼 当前模型 ${modelName} 不支持图片输入。请在设置中切换为多模态模型（如 GPT-4o、Claude 3.5 等）`
+                tr("aiPage.unsupportedImageModel").replace("{model}", modelName ?? "-")
               );
               continue;
             }
@@ -97,7 +100,7 @@ export function useFileAttachments({
           case "video": {
             if (!currentModelCaps.video) {
               showRejection(
-                `🎬 当前模型 ${modelName} 不支持视频输入。支持视频的模型：Gemini 1.5/2、Qwen2-VL、GPT-4o 等`
+                tr("aiPage.unsupportedVideoModel").replace("{model}", modelName ?? "-")
               );
               continue;
             }
@@ -119,7 +122,7 @@ export function useFileAttachments({
           case "audio": {
             if (!currentModelCaps.audio) {
               showRejection(
-                `🎵 当前模型 ${modelName} 不支持音频输入。支持音频的模型：Gemini 2、GPT-4o-audio 等`
+                tr("aiPage.unsupportedAudioModel").replace("{model}", modelName ?? "-")
               );
               continue;
             }
@@ -142,12 +145,12 @@ export function useFileAttachments({
             if (!currentModelCaps.document) {
               if (file.name.toLowerCase().endsWith(".pdf")) {
                 showRejection(
-                  `📑 当前模型 ${modelName} 不支持 PDF 文件。支持文档的模型：Gemini 1.5/2、Claude 3.5 Sonnet、GPT-4o 等`
+                  tr("aiPage.unsupportedPdfModel").replace("{model}", modelName ?? "-")
                 );
                 continue;
               }
               showRejection(
-                `📑 当前模型 ${modelName} 不支持 Office 文档。支持文档的模型：Gemini 1.5/2、Claude 3.5 Sonnet、GPT-4o 等`
+                tr("aiPage.unsupportedOfficeModel").replace("{model}", modelName ?? "-")
               );
               continue;
             }
@@ -170,7 +173,7 @@ export function useFileAttachments({
             const text = await readFileAsText(file);
             const truncated =
               text.length > MAX_TEXT_FILE_LENGTH
-                ? text.slice(0, MAX_TEXT_FILE_LENGTH) + "\n...(文件过长，已截断)"
+                ? text.slice(0, MAX_TEXT_FILE_LENGTH) + tr("aiPage.fileTruncatedSuffix")
                 : text;
             setFileAttachments((prev) => [
               ...prev,
@@ -185,13 +188,13 @@ export function useFileAttachments({
           }
           default: {
             showRejection(
-              `❌ 不支持的文件类型: ${file.name}。当前模型可接受：${formatAllowedTypes(currentModelCaps)}`
+              tr("aiPage.unsupportedFileType").replace("{name}", file.name).replace("{types}", formatAllowedTypes(currentModelCaps, tr))
             );
           }
         }
       }
     },
-    [currentModelCaps, enableVision, modelName, showRejection]
+    [currentModelCaps, enableVision, modelName, showRejection, tr]
   );
 
   const handlePaste = useCallback(
@@ -201,7 +204,7 @@ export function useFileAttachments({
       for (const item of Array.from(items)) {
         if (item.type.startsWith("image/")) {
           if (!currentModelCaps.vision && !enableVision) {
-            showRejection(`🖼 当前模型不支持图片输入，请在设置中切换为多模态模型`);
+            showRejection(tr("aiPage.unsupportedPasteImage"));
             event.preventDefault();
             return;
           }
@@ -211,7 +214,7 @@ export function useFileAttachments({
         }
       }
     },
-    [currentModelCaps, enableVision, showRejection, handleFileSelect]
+    [currentModelCaps, enableVision, showRejection, handleFileSelect, tr]
   );
 
   const handleDrop = useCallback(

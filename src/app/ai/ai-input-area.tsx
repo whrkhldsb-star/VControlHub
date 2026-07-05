@@ -53,6 +53,7 @@ export function AiInputArea({
     handlePaste,
   } = fileAttachmentsState;
   const enableVision = activeConv?.enableVision ?? false;
+  const allowedTypes = formatAllowedTypes(currentModelCaps, t);
 
   return (
     <div className="px-4 py-3 border-t border-[var(--border)] bg-[var(--surface-subtle)]">
@@ -72,8 +73,8 @@ export function AiInputArea({
           onClick={() => fileInputRef.current?.click()}
           disabled={streaming}
           className="h-10 w-10 rounded-xl bg-[var(--surface)]/[0.04] text-[var(--text-secondary)] flex items-center justify-center hover:bg-[var(--surface)]/[0.10] hover:text-[var(--text-secondary)] light:hover:text-[var(--text-disabled)] transition disabled:opacity-30"
-          aria-label={t("aiPage.uploadFileTitle").replace("{types}", formatAllowedTypes(currentModelCaps))}
-          title={t("aiPage.uploadFileTitle").replace("{types}", formatAllowedTypes(currentModelCaps))}
+          aria-label={t("aiPage.uploadFileTitle").replace("{types}", allowedTypes)}
+          title={t("aiPage.uploadFileTitle").replace("{types}", allowedTypes)}
         >
           <svg className="w-5 h-5" fill="none" stroke="currentColor" width="24" height="24" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M18.364 5.636a9 9 0 11-12.728 0M12 3v12" />
@@ -104,8 +105,8 @@ export function AiInputArea({
           onPaste={handlePaste}
           placeholder={
             enableVision
-              ? t("aiPage.inputPlaceholderVision").replace("{types}", formatAllowedTypes(currentModelCaps))
-              : t("aiPage.inputPlaceholder").replace("{types}", formatAllowedTypes(currentModelCaps))
+              ? t("aiPage.inputPlaceholderVision").replace("{types}", allowedTypes)
+              : t("aiPage.inputPlaceholder").replace("{types}", allowedTypes)
           }
           rows={1}
           disabled={streaming}

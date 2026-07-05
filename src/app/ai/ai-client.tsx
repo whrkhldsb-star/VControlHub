@@ -105,6 +105,7 @@ export function AiClient({
     modelName: activeConv?.model,
     enableVision: activeConv?.enableVision,
     onReject: (msg) => addToast("error", msg),
+    t,
   });
 
   const {

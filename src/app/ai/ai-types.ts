@@ -77,10 +77,10 @@ export type FileCategory = "image" | "video" | "audio" | "document" | "text" | "
 
 export const PROVIDER_TYPES: Record<string, string> = {
   OPENAI: "OpenAI",
-  OPENAI_COMPATIBLE: "OpenAI 兼容",
+  OPENAI_COMPATIBLE: "OpenAI Compatible",
   ANTHROPIC: "Anthropic",
   GOOGLE: "Google AI",
-  CUSTOM: "自定义",
+  CUSTOM: "Custom",
 };
 
 export const COMMON_BASE_URLS: Record<string, string> = {

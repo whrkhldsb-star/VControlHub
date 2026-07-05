@@ -180,7 +180,8 @@ export function FileRowActions({
   entryCanWrite: EntryGuard;
   entryCanDelete: EntryGuard;
 } & CompactProp) {
-  const previewAction = getPreviewActionCopy(entry);
+  const { t } = useI18n();
+  const previewAction = getPreviewActionCopy(entry, t);
   return (
     <div className="flex items-center gap-1 flex-wrap">
       <DetailActionButton entry={entry} onOpen={onOpenDetail} compact={compact} />

@@ -185,6 +185,23 @@ export const zh: Record<string, string> = {
 	"aiPage.mediumRisk": "中",
 	"aiPage.lowRisk": "低",
 
+	// client — file capability messages
+	"aiPage.allowedType.text": "文本文件",
+	"aiPage.allowedType.image": "图片",
+	"aiPage.allowedType.video": "视频",
+	"aiPage.allowedType.audio": "音频",
+	"aiPage.allowedType.document": "PDF/文档",
+	"aiPage.allowedType.separator": "、",
+	"aiPage.fileTooLarge": "📄 {name} 超过 20MB 限制",
+	"aiPage.unsupportedImageModel": "🖼 当前模型 {model} 不支持图片输入。请在设置中切换为多模态模型（如 GPT-4o、Claude 3.5 等）",
+	"aiPage.unsupportedVideoModel": "🎬 当前模型 {model} 不支持视频输入。支持视频的模型：Gemini 1.5/2、Qwen2-VL、GPT-4o 等",
+	"aiPage.unsupportedAudioModel": "🎵 当前模型 {model} 不支持音频输入。支持音频的模型：Gemini 2、GPT-4o-audio 等",
+	"aiPage.unsupportedPdfModel": "📑 当前模型 {model} 不支持 PDF 文件。支持文档的模型：Gemini 1.5/2、Claude 3.5 Sonnet、GPT-4o 等",
+	"aiPage.unsupportedOfficeModel": "📑 当前模型 {model} 不支持 Office 文档。支持文档的模型：Gemini 1.5/2、Claude 3.5 Sonnet、GPT-4o 等",
+	"aiPage.fileTruncatedSuffix": "\n...(文件过长，已截断)",
+	"aiPage.unsupportedFileType": "❌ 不支持的文件类型: {name}。当前模型可接受：{types}",
+	"aiPage.unsupportedPasteImage": "🖼 当前模型不支持图片输入，请在设置中切换为多模态模型",
+
 	// client — copy / images
 	"aiPage.copy": "复制",
 };
@@ -371,6 +388,23 @@ export const en: Record<string, string> = {
 	"aiPage.highRisk": "high",
 	"aiPage.mediumRisk": "medium",
 	"aiPage.lowRisk": "low",
+
+	// client — file capability messages
+	"aiPage.allowedType.text": "text files",
+	"aiPage.allowedType.image": "images",
+	"aiPage.allowedType.video": "video",
+	"aiPage.allowedType.audio": "audio",
+	"aiPage.allowedType.document": "PDF/documents",
+	"aiPage.allowedType.separator": ", ",
+	"aiPage.fileTooLarge": "📄 {name} exceeds the 20MB limit",
+	"aiPage.unsupportedImageModel": "🖼 The current model {model} does not support image input. Switch to a multimodal model in settings, such as GPT-4o or Claude 3.5.",
+	"aiPage.unsupportedVideoModel": "🎬 The current model {model} does not support video input. Video-capable models include Gemini 1.5/2, Qwen2-VL, and GPT-4o.",
+	"aiPage.unsupportedAudioModel": "🎵 The current model {model} does not support audio input. Audio-capable models include Gemini 2 and GPT-4o-audio.",
+	"aiPage.unsupportedPdfModel": "📑 The current model {model} does not support PDF files. Document-capable models include Gemini 1.5/2, Claude 3.5 Sonnet, and GPT-4o.",
+	"aiPage.unsupportedOfficeModel": "📑 The current model {model} does not support Office documents. Document-capable models include Gemini 1.5/2, Claude 3.5 Sonnet, and GPT-4o.",
+	"aiPage.fileTruncatedSuffix": "\n...(file too long, truncated)",
+	"aiPage.unsupportedFileType": "❌ Unsupported file type: {name}. Current model accepts: {types}",
+	"aiPage.unsupportedPasteImage": "🖼 The current model does not support image input. Switch to a multimodal model in settings.",
 
 	// client — copy / images
 	"aiPage.copy": "Copy",

@@ -68,13 +68,13 @@ export function categorizeFile(file: File): FileCategory {
 }
 
 /** Format allowed types for the current model (for error messages) */
-export function formatAllowedTypes(caps: ModelCapabilities): string {
-  const parts: string[] = ["文本文件"];
-  if (caps.vision) parts.push("图片");
-  if (caps.video) parts.push("视频");
-  if (caps.audio) parts.push("音频");
-  if (caps.document) parts.push("PDF/文档");
-  return parts.join("、");
+export function formatAllowedTypes(caps: ModelCapabilities, t: (key: string) => string): string {
+  const parts: string[] = [t("aiPage.allowedType.text")];
+  if (caps.vision) parts.push(t("aiPage.allowedType.image"));
+  if (caps.video) parts.push(t("aiPage.allowedType.video"));
+  if (caps.audio) parts.push(t("aiPage.allowedType.audio"));
+  if (caps.document) parts.push(t("aiPage.allowedType.document"));
+  return parts.join(t("aiPage.allowedType.separator"));
 }
 
 /** Build the accept string for the file input based on capabilities */

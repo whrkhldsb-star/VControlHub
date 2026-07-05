@@ -39,6 +39,7 @@ type CommonInput = {
   onRefresh?: () => void;
   currentSelectionScopeKey: string;
   showToast: ToastFn;
+  t: (key: string) => string;
   setBatchAction: Setter<BatchAction>;
   setSelectedIds: Setter<Set<string>>;
   setSelectedScopeKey: Setter<string>;
@@ -73,6 +74,7 @@ export function useBatchDelete(input: UseBatchDeleteInput) {
     onRefresh,
     currentSelectionScopeKey,
     showToast,
+    t,
     setBatchAction,
     setProgress,
     setSelectedIds,
@@ -108,11 +110,11 @@ export function useBatchDelete(input: UseBatchDeleteInput) {
         router.refresh();
       }
       if (errors.length === 0) {
-        showToast("success", `已删除 ${ids.length} 个文件`);
+        showToast("success", t("filesPage.batch.deleteSuccess").replace("{count}", String(ids.length)));
         clearSelection();
         return;
       }
-      showToast("error", `批量删除完成，但有 ${errors.length} 个文件失败`);
+      showToast("error", t("filesPage.batch.deletePartialFailure").replace("{count}", String(errors.length)));
       setBatchAction("none");
       setSelectedScopeKey(currentSelectionScopeKey);
       setSelectedIds(new Set(ids));
@@ -126,6 +128,7 @@ export function useBatchDelete(input: UseBatchDeleteInput) {
     onRefresh,
     currentSelectionScopeKey,
     showToast,
+    t,
     setBatchAction,
     setProgress,
     setSelectedIds,
@@ -149,6 +152,7 @@ export function useBatchMove(input: UseBatchMoveInput) {
     onRefresh,
     currentSelectionScopeKey,
     showToast,
+    t,
     setBatchAction,
     setMoveProgress,
     setSelectedIds,
@@ -167,7 +171,7 @@ export function useBatchMove(input: UseBatchMoveInput) {
       for (const id of ids) {
         const file = files.find((f) => f.id === id);
         if (!file) {
-          errors.push(`${id}: 文件不存在`);
+          errors.push(t("filesPage.batch.fileMissing").replace("{id}", id));
           completed++;
           setMoveProgress({
             done: completed,
@@ -196,11 +200,11 @@ export function useBatchMove(input: UseBatchMoveInput) {
         router.refresh();
       }
       if (errors.length === 0) {
-        showToast("success", `已移动 ${ids.length} 个文件`);
+        showToast("success", t("filesPage.batch.moveSuccess").replace("{count}", String(ids.length)));
         clearSelection();
         return;
       }
-      showToast("error", `批量移动完成，但有 ${errors.length} 个文件失败`);
+      showToast("error", t("filesPage.batch.movePartialFailure").replace("{count}", String(errors.length)));
       setBatchAction("none");
       setSelectedScopeKey(currentSelectionScopeKey);
       setSelectedIds(new Set(ids));
@@ -219,6 +223,7 @@ export function useBatchMove(input: UseBatchMoveInput) {
     onRefresh,
     currentSelectionScopeKey,
     showToast,
+    t,
     setBatchAction,
     setMoveProgress,
     setSelectedIds,
@@ -243,6 +248,7 @@ export function useBatchCompress(input: UseBatchCompressInput) {
     currentPath,
     currentSelectionScopeKey,
     showToast,
+    t,
     setBatchAction,
     setProgress,
     setSelectedIds,
@@ -259,7 +265,7 @@ export function useBatchCompress(input: UseBatchCompressInput) {
 
     const storageNodeId = selectedFiles[0]!.storageNodeId;
     if (selectedFiles.some((file) => file.storageNodeId !== storageNodeId)) {
-      showToast("error", "批量压缩暂不支持跨存储节点选择");
+      showToast("error", t("filesPage.batch.compressCrossStorageUnsupported"));
       return;
     }
 
@@ -286,7 +292,7 @@ export function useBatchCompress(input: UseBatchCompressInput) {
         });
         showToast(
           "success",
-          data.message ?? `已压缩 ${selectedFiles.length} 个文件`,
+          data.message ?? t("filesPage.batch.compressSuccess").replace("{count}", String(selectedFiles.length)),
         );
         if (onRefresh) {
           onRefresh();
@@ -295,7 +301,7 @@ export function useBatchCompress(input: UseBatchCompressInput) {
         }
         clearSelection();
       } catch (error) {
-        const message = error instanceof Error ? error.message : "压缩失败";
+        const message = error instanceof Error ? error.message : t("filesPage.batch.compressFailed");
         setProgress({
           done: 0,
           total: selectedFiles.length,
@@ -311,6 +317,7 @@ export function useBatchCompress(input: UseBatchCompressInput) {
     effectiveSelectedIds,
     files,
     showToast,
+    t,
     setBatchAction,
     setProgress,
     currentPath,

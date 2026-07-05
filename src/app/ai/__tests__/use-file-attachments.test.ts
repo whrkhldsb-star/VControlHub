@@ -31,6 +31,20 @@ vi.mock("../ai-file-helpers", () => ({
 
 import { useFileAttachments } from "../hooks/use-file-attachments";
 
+
+const TEST_TRANSLATIONS: Record<string, string> = {
+  "aiPage.fileTooLarge": "📄 {name} 超过 20MB 限制",
+  "aiPage.unsupportedImageModel": "🖼 当前模型 {model} 不支持图片输入。请在设置中切换为多模态模型（如 GPT-4o、Claude 3.5 等）",
+  "aiPage.unsupportedVideoModel": "🎬 当前模型 {model} 不支持视频输入。支持视频的模型：Gemini 1.5/2、Qwen2-VL、GPT-4o 等",
+  "aiPage.unsupportedAudioModel": "🎵 当前模型 {model} 不支持音频输入。支持音频的模型：Gemini 2、GPT-4o-audio 等",
+  "aiPage.unsupportedPdfModel": "📑 当前模型 {model} 不支持 PDF 文件。支持文档的模型：Gemini 1.5/2、Claude 3.5 Sonnet、GPT-4o 等",
+  "aiPage.unsupportedOfficeModel": "📑 当前模型 {model} 不支持 Office 文档。支持文档的模型：Gemini 1.5/2、Claude 3.5 Sonnet、GPT-4o 等",
+  "aiPage.fileTruncatedSuffix": "\n...(文件过长，已截断)",
+  "aiPage.unsupportedFileType": "❌ 不支持的文件类型: {name}。当前模型可接受：{types}",
+  "aiPage.unsupportedPasteImage": "🖼 当前模型不支持图片输入，请在设置中切换为多模态模型",
+};
+const testT = (key: string) => TEST_TRANSLATIONS[key] ?? key;
+
 const ALL_CAPS = {
   vision: true,
   document: true,
@@ -61,6 +75,7 @@ describe("useFileAttachments", () => {
       useFileAttachments({
         currentModelCaps: ALL_CAPS,
         modelName: "gpt-4o",
+        t: testT,
         onReject,
       })
     );
@@ -78,6 +93,7 @@ describe("useFileAttachments", () => {
       useFileAttachments({
         currentModelCaps: { vision: false, document: true, video: true, audio: true },
         modelName: "gpt-3.5",
+        t: testT,
         enableVision: false,
         onReject,
       })
@@ -95,6 +111,7 @@ describe("useFileAttachments", () => {
       useFileAttachments({
         currentModelCaps: ALL_CAPS,
         modelName: "gpt-4o",
+        t: testT,
       })
     );
     const img = makeFile("a.png", "image/png");
@@ -111,6 +128,7 @@ describe("useFileAttachments", () => {
       useFileAttachments({
         currentModelCaps: { vision: false, document: true, video: true, audio: true },
         modelName: "text-only",
+        t: testT,
         enableVision: true,
       })
     );
@@ -127,6 +145,7 @@ describe("useFileAttachments", () => {
       useFileAttachments({
         currentModelCaps: { vision: true, document: true, video: false, audio: true },
         modelName: "no-video",
+        t: testT,
         onReject,
       })
     );
@@ -142,6 +161,7 @@ describe("useFileAttachments", () => {
       useFileAttachments({
         currentModelCaps: { vision: true, document: true, video: true, audio: false },
         modelName: "no-audio",
+        t: testT,
         onReject,
       })
     );
@@ -157,6 +177,7 @@ describe("useFileAttachments", () => {
       useFileAttachments({
         currentModelCaps: { vision: true, document: false, video: true, audio: true },
         modelName: "no-doc",
+        t: testT,
         onReject,
       })
     );
@@ -172,6 +193,7 @@ describe("useFileAttachments", () => {
       useFileAttachments({
         currentModelCaps: ALL_CAPS,
         modelName: "any",
+        t: testT,
       })
     );
     const txt = new File([longContent], "long.txt", { type: "text/plain" });
@@ -186,7 +208,7 @@ describe("useFileAttachments", () => {
 
   it("clearAttachments empties the list", async () => {
     const { result } = renderHook(() =>
-      useFileAttachments({ currentModelCaps: ALL_CAPS, modelName: "x" })
+      useFileAttachments({ currentModelCaps: ALL_CAPS, modelName: "x", t: testT })
     );
     await act(async () => {
       await result.current.handleFileSelect([makeFile("a.txt", "text/plain")]);
@@ -203,6 +225,7 @@ describe("useFileAttachments", () => {
       useFileAttachments({
         currentModelCaps: { vision: false, document: true, video: true, audio: true },
         modelName: "x",
+        t: testT,
         enableVision: false,
         onReject,
       })
