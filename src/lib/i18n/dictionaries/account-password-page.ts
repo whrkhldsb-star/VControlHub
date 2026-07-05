@@ -45,6 +45,8 @@ export const zh: Record<string, string> = {
 	// post-success redirect (countdown template + immediate button)
 	"accountPasswordPage.redirectCountdown": "（{seconds}s 后自动跳到仪表盘…）",
 	"accountPasswordPage.redirectNow": "立即跳到仪表盘",
+	"accountPasswordPage.action.success": "密码已更新。下次登录请使用新密码。",
+	"accountPasswordPage.action.errorFallback": "修改密码失败",
 };
 
 export const en: Record<string, string> = {
@@ -79,4 +81,6 @@ export const en: Record<string, string> = {
 	// post-success redirect (countdown template + immediate button)
 	"accountPasswordPage.redirectCountdown": "({seconds}s until redirect to dashboard...)",
 	"accountPasswordPage.redirectNow": "Go to dashboard now",
+	"accountPasswordPage.action.success": "Password updated. Use the new password next time you sign in.",
+	"accountPasswordPage.action.errorFallback": "Failed to change password",
 };

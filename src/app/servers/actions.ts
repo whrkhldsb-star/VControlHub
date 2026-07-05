@@ -11,6 +11,7 @@ import {
   toggleServerEnabled,
   updateServerProfile,
 } from "@/lib/server/service";
+import { getServerLocale, t } from "@/lib/i18n/translations";
 
 export type ServerActionState = {
   error?: string;
@@ -25,11 +26,17 @@ function parseTags(raw: string) {
     .filter(Boolean);
 }
 
+async function serverActionTranslator() {
+  const locale = await getServerLocale();
+  return (key: string) => t(key, locale);
+}
+
 export async function createServerAction(
   _prevState: ServerActionState | null,
   formData: FormData,
 ) {
   await requirePermission("server:write");
+  const tr = await serverActionTranslator();
 
   try {
     const name = String(formData.get("name") ?? "");
@@ -79,12 +86,12 @@ export async function createServerAction(
     return {
       success:
         created.onboardingWarnings.length > 0
-          ? `VPS 节点已纳管，但有自动配置项需要处理：${created.onboardingWarnings.join(" ")}`
-          : "VPS 节点已纳管，可继续在审批中心投递命令。",
+          ? tr("serversPage.action.createWithWarnings").replace("{warnings}", created.onboardingWarnings.join(" "))
+          : tr("serversPage.action.createSuccess"),
     } as ServerActionState;
   } catch (error) {
     return {
-      error: error instanceof Error ? error.message : "纳管节点失败",
+      error: error instanceof Error ? error.message : tr("serversPage.action.createFailed"),
     } as ServerActionState;
   }
 }
@@ -94,6 +101,7 @@ export async function updateServerAction(
   formData: FormData,
 ) {
   await requirePermission("server:write");
+  const tr = await serverActionTranslator();
 
   try {
     const serverId = String(formData.get("serverId") ?? "");
@@ -126,10 +134,10 @@ export async function updateServerAction(
     revalidatePath("/storage");
     revalidatePath("/files");
 
-    return { success: "VPS 节点已更新并通过连接校验。" } as ServerActionState;
+    return { success: tr("serversPage.action.updateSuccess") } as ServerActionState;
   } catch (error) {
     return {
-      error: error instanceof Error ? error.message : "更新 VPS 节点失败",
+      error: error instanceof Error ? error.message : tr("serversPage.action.updateFailed"),
     } as ServerActionState;
   }
 }
@@ -139,6 +147,7 @@ export async function createSshKeyAction(
   formData: FormData,
 ) {
   const session = await requirePermission("server:write");
+  const tr = await serverActionTranslator();
 
   try {
     const uploadedFile = formData.get("ppkFile");
@@ -167,11 +176,11 @@ export async function createSshKeyAction(
     revalidatePath("/servers");
 
     return {
-      success: "SSH 密钥已添加，可立即用于 VPS 纳管与命令执行。",
+      success: tr("serversPage.action.sshKeyCreated"),
     } as ServerActionState;
   } catch (error) {
     return {
-      error: error instanceof Error ? error.message : "添加 SSH 密钥失败",
+      error: error instanceof Error ? error.message : tr("serversPage.action.sshKeyCreateFailed"),
     } as ServerActionState;
   }
 }
@@ -181,16 +190,17 @@ export async function toggleServerAction(
   formData: FormData,
 ) {
   await requirePermission("server:write");
+  const tr = await serverActionTranslator();
 
   try {
     const serverId = String(formData.get("serverId") ?? "");
     await toggleServerEnabled(serverId);
     revalidatePath("/");
     revalidatePath("/servers");
-    return { success: "节点状态已更新。" } as ServerActionState;
+    return { success: tr("serversPage.action.toggleSuccess") } as ServerActionState;
   } catch (error) {
     return {
-      error: error instanceof Error ? error.message : "更新节点状态失败",
+      error: error instanceof Error ? error.message : tr("serversPage.action.toggleFailed"),
     } as ServerActionState;
   }
 }
@@ -200,6 +210,7 @@ export async function toggleDirectGatewayAction(
   formData: FormData,
 ) {
   await requirePermission("server:write");
+  const tr = await serverActionTranslator();
 
   try {
     const serverId = String(formData.get("serverId") ?? "");
@@ -215,12 +226,12 @@ export async function toggleDirectGatewayAction(
     revalidatePath("/files");
     return {
       success: enabled
-        ? "目标直连已启用，上传、下载和在线浏览将优先直连。"
-        : "已切回网站中转，并已删除目标服务器直连服务。",
+        ? tr("serversPage.action.directGatewayEnabled")
+        : tr("serversPage.action.directGatewayDisabled"),
     } as ServerActionState;
   } catch (error) {
     return {
-      error: error instanceof Error ? error.message : "切换目标直连失败",
+      error: error instanceof Error ? error.message : tr("serversPage.action.directGatewayFailed"),
     } as ServerActionState;
   }
 }
@@ -230,13 +241,14 @@ export async function batchToggleServerAction(
   formData: FormData,
 ) {
   await requirePermission("server:write");
+  const tr = await serverActionTranslator();
 
   try {
     const enabled = formData.get("enabled") === "true";
     const serverIds = formData.getAll("serverIds").map(String).filter(Boolean);
 
     if (serverIds.length === 0) {
-      return { error: "请先选择至少 1 台节点" } as ServerActionState;
+      return { error: tr("serversPage.action.batchEmpty") } as ServerActionState;
     }
 
     const { prisma } = await import("@/lib/db");
@@ -250,12 +262,12 @@ export async function batchToggleServerAction(
 
     return {
       success: enabled
-        ? `已批量启用 ${result.count} 台节点。`
-        : `已批量停用 ${result.count} 台节点。`,
+        ? tr("serversPage.action.batchEnabled").replace("{count}", String(result.count))
+        : tr("serversPage.action.batchDisabled").replace("{count}", String(result.count)),
     } as ServerActionState;
   } catch (error) {
     return {
-      error: error instanceof Error ? error.message : "批量更新节点状态失败",
+      error: error instanceof Error ? error.message : tr("serversPage.action.batchFailed"),
     } as ServerActionState;
   }
 }
@@ -265,6 +277,7 @@ export async function deleteServerAction(
   formData: FormData,
 ) {
   await requirePermission("server:write");
+  const tr = await serverActionTranslator();
 
   try {
     const serverId = String(formData.get("serverId") ?? "");
@@ -276,7 +289,7 @@ export async function deleteServerAction(
       select: { name: true },
     });
     if (!current) {
-      return { error: "VPS 节点不存在或已删除" } as ServerActionState;
+      return { error: tr("serversPage.action.notFound") } as ServerActionState;
     }
 
     // Query related storage nodes count
@@ -294,7 +307,7 @@ export async function deleteServerAction(
     if (confirmName !== current.name) {
       return {
         relatedStorageCount,
-        error: `请输入 VPS 名称「${current.name}」以确认删除。`,
+        error: tr("serversPage.action.deleteConfirmName").replace("{name}", current.name),
       } as ServerActionState;
     }
 
@@ -302,10 +315,10 @@ export async function deleteServerAction(
     revalidatePath("/");
     revalidatePath("/servers");
     revalidatePath("/storage");
-    return { success: "节点已删除。" } as ServerActionState;
+    return { success: tr("serversPage.action.deleteSuccess") } as ServerActionState;
   } catch (error) {
     return {
-      error: error instanceof Error ? error.message : "删除节点失败",
+      error: error instanceof Error ? error.message : tr("serversPage.action.deleteFailed"),
     } as ServerActionState;
   }
 }

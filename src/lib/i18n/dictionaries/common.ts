@@ -6,6 +6,7 @@
  */
 
 export const zh: Record<string, string> = {
+	"common.noPermission": "缺少权限",
 	"common.actions": "操作",
 	"common.allFiles": "全部文件",
 	"common.back": "返回",
@@ -100,6 +101,7 @@ export const zh: Record<string, string> = {
 };
 
 export const en: Record<string, string> = {
+	"common.noPermission": "Missing permission",
 	"common.actions": "Actions",
 	"common.allFiles": "All files",
 	"common.back": "Back",

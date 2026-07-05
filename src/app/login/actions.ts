@@ -6,6 +6,7 @@ import { redirect } from "next/navigation";
 import { authenticateUser } from "@/lib/auth/service";
 import { createSessionToken, getSessionCookieName } from "@/lib/auth/session";
 import { config } from "@/lib/config/env";
+import { getServerLocale, t } from "@/lib/i18n/translations";
 
 export type LoginActionState = {
   error?: string;
@@ -22,6 +23,7 @@ function getPostLoginRedirectPath(nextValue: FormDataEntryValue | null, defaultP
 }
 
 export async function login(_prevState: LoginActionState | null, formData: FormData) {
+  const locale = await getServerLocale();
   const username = String(formData.get("username") ?? "");
   const password = String(formData.get("password") ?? "");
   const requestedNextPath = formData.get("next");
@@ -29,7 +31,7 @@ export async function login(_prevState: LoginActionState | null, formData: FormD
   const user = await authenticateUser({ username, password });
   if (!user) {
     return {
-      error: "用户名或密码错误",
+      error: t("login.error.invalid", locale),
     } satisfies LoginActionState;
   }
 

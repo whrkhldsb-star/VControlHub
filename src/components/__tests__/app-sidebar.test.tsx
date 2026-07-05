@@ -32,7 +32,7 @@ describe("AppSidebar", () => {
 	it("keeps two-factor controls centralized under the unified settings entry instead of separate menu items", () => {
 		render(<AppSidebar username="admin" />);
 
-		expect(screen.getAllByRole("link", { name: /^设置$/ }).length).toBeGreaterThan(0);
+		expect(screen.getAllByRole("link", { name: /^Settings$/ }).length).toBeGreaterThan(0);
 		expect(screen.queryByRole("link", { name: /系统设置/ })).not.toBeInTheDocument();
 		expect(screen.queryByRole("link", { name: /偏好设置/ })).not.toBeInTheDocument();
 		expect(screen.queryByRole("link", { name: /两步验证/ })).not.toBeInTheDocument();
@@ -84,6 +84,6 @@ describe("AppSidebar", () => {
 		render(<AppSidebar />);
 
 		expect(screen.queryByRole("navigation")).not.toBeInTheDocument();
-		expect(screen.queryByRole("link", { name: /仪表盘/ })).not.toBeInTheDocument();
+		expect(screen.queryByRole("link", { name: /Dashboard/ })).not.toBeInTheDocument();
 	});
 });

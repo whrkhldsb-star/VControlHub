@@ -8,6 +8,7 @@
  */
 
 import type { ReactNode } from "react";
+import { LocalizedText } from "./localized-text";
 
 /* ── ToggleChip ────────────────────────────────────────────────────── */
 /**
@@ -182,7 +183,7 @@ export function StatCard({
 export function PermissionDenied() {
 	return (
 		<PageShell>
-			<div className="text-center text-[var(--text-muted)]">缺少权限</div>
+			<div className="text-center text-[var(--text-muted)]"><LocalizedText textKey="common.noPermission" fallback="Missing permission" /></div>
 		</PageShell>
 	);
 }

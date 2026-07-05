@@ -173,6 +173,9 @@ export const zh: Record<string, string> = {
 	"backupsPage.void.errorFallback": "作废记录失败",
 	"backupsPage.void.pending": "正在作废...",
 	"backupsPage.void.submit": "标记作废",
+	"backupsPage.action.noPermission": "缺少权限",
+	"backupsPage.action.invalidInput": "备份参数无效",
+	"backupsPage.action.jobTitle": "创建{type}备份",
 
 };
 
@@ -331,4 +334,7 @@ export const en: Record<string, string> = {
 	"backupsPage.void.errorFallback": "Failed to void record",
 	"backupsPage.void.pending": "Voiding...",
 	"backupsPage.void.submit": "Mark void",
+	"backupsPage.action.noPermission": "Missing permission",
+	"backupsPage.action.invalidInput": "Invalid backup parameters",
+	"backupsPage.action.jobTitle": "Create {type} backup",
 };

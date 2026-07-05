@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 
 import { requireSession } from "@/lib/auth/require-session";
 import { changePassword } from "@/lib/auth/service";
+import { getServerLocale, t } from "@/lib/i18n/translations";
 
 export type AccountPasswordActionState = {
   error?: string;
@@ -15,6 +16,8 @@ export async function changePasswordAction(
   formData: FormData,
 ) {
   const session = await requireSession("/account/password");
+  const locale = await getServerLocale();
+  const tr = (key: string) => t(key, locale);
 
   try {
     const result = await changePassword({
@@ -26,7 +29,7 @@ export async function changePasswordAction(
 
     if (!result.success) {
       return {
-        error: result.error ?? "修改密码失败",
+        error: result.error ?? tr("accountPasswordPage.action.errorFallback"),
       } satisfies AccountPasswordActionState;
     }
 
@@ -34,11 +37,11 @@ export async function changePasswordAction(
     revalidatePath("/account/password");
 
     return {
-      success: "密码已更新。下次登录请使用新密码。",
+      success: tr("accountPasswordPage.action.success"),
     } satisfies AccountPasswordActionState;
   } catch (error) {
     return {
-      error: error instanceof Error ? error.message : "修改密码失败",
+      error: error instanceof Error ? error.message : tr("accountPasswordPage.action.errorFallback"),
     } satisfies AccountPasswordActionState;
   }
 }

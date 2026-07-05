@@ -28,10 +28,10 @@ function detectLocale(): Locale {
 const copy = {
 	zh: {
 		lang: "zh-CN",
-		title: "出错了",
-		description: "页面遇到了意外错误，请尝试刷新。如果问题持续出现，请联系管理员。",
-		digestLabel: "错误标识",
-		retry: "重试",
+		title: "\u51fa\u9519\u4e86",
+		description: "\u9875\u9762\u9047\u5230\u4e86\u610f\u5916\u9519\u8bef\uff0c\u8bf7\u5c1d\u8bd5\u5237\u65b0\u3002\u5982\u679c\u95ee\u9898\u6301\u7eed\u51fa\u73b0\uff0c\u8bf7\u8054\u7cfb\u7ba1\u7406\u5458\u3002",
+		digestLabel: "\u9519\u8bef\u6807\u8bc6",
+		retry: "\u91cd\u8bd5",
 	},
 	en: {
 		lang: "en",
