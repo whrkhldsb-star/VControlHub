@@ -9,6 +9,7 @@ import {
 } from "@/lib/ssh/client";
 import { encryptServerPasswordIfPlain } from "@/lib/ssh/ssh-key-crypto";
 import { normalizeServerInput } from "./config";
+import { SERVER_PROFILE_INCLUDE } from "./service-profile-includes";
 import { createServerSchema, type CreateServerInput } from "./schema";
 import { applyServerDirectGatewayState } from "./service-direct-gateway";
 import {
@@ -104,46 +105,7 @@ export async function createServerProfile(input: CreateServerInput) {
       costProvider: normalized.costProvider,
       enabled: true,
     },
-    include: {
-      sshKey: {
-        select: {
-          id: true,
-          name: true,
-          fingerprint: true,
-          publicKey: true,
-          privateKey: true, passphrase: true,
-          createdAt: true,
-        },
-      },
-      storageNode: {
-        select: {
-          id: true,
-          name: true,
-          driver: true,
-          isDefault: true,
-          basePath: true,
-          directAccessMode: true,
-          publicBaseUrl: true,
-        },
-      },
-      commandTargets: {
-        select: {
-          id: true,
-          status: true,
-          commandRequest: {
-            select: {
-              id: true,
-              title: true,
-              initiatedByType: true,
-              status: true,
-              createdAt: true,
-            },
-          },
-        },
-        orderBy: { commandRequest: { createdAt: "desc" } },
-        take: 3,
-      },
-    },
+    include: SERVER_PROFILE_INCLUDE,
   });
 
   // Auto-create associated storage node
@@ -204,46 +166,7 @@ export async function createServerProfile(input: CreateServerInput) {
   // Re-fetch to include the newly created storageNode relation
   const refreshed = await prisma.server.findUnique({
     where: { id: server.id },
-    include: {
-      sshKey: {
-        select: {
-          id: true,
-          name: true,
-          fingerprint: true,
-          publicKey: true,
-          privateKey: true, passphrase: true,
-          createdAt: true,
-        },
-      },
-      storageNode: {
-        select: {
-          id: true,
-          name: true,
-          driver: true,
-          isDefault: true,
-          basePath: true,
-          directAccessMode: true,
-          publicBaseUrl: true,
-        },
-      },
-      commandTargets: {
-        select: {
-          id: true,
-          status: true,
-          commandRequest: {
-            select: {
-              id: true,
-              title: true,
-              initiatedByType: true,
-              status: true,
-              createdAt: true,
-            },
-          },
-        },
-        orderBy: { commandRequest: { createdAt: "desc" } },
-        take: 3,
-      },
-    },
+    include: SERVER_PROFILE_INCLUDE,
   });
 
   safeRevalidatePath("/storage");
@@ -261,46 +184,7 @@ export async function updateServerProfile(
 ) {
   const current = await prisma.server.findUnique({
     where: { id: serverId },
-    include: {
-      sshKey: {
-        select: {
-          id: true,
-          name: true,
-          fingerprint: true,
-          publicKey: true,
-          privateKey: true, passphrase: true,
-          createdAt: true,
-        },
-      },
-      commandTargets: {
-        select: {
-          id: true,
-          status: true,
-          commandRequest: {
-            select: {
-              id: true,
-              title: true,
-              initiatedByType: true,
-              status: true,
-              createdAt: true,
-            },
-          },
-        },
-        orderBy: { commandRequest: { createdAt: "desc" } },
-        take: 3,
-      },
-      storageNode: {
-        select: {
-          id: true,
-          name: true,
-          driver: true,
-          isDefault: true,
-          basePath: true,
-          directAccessMode: true,
-          publicBaseUrl: true,
-        },
-      },
-    },
+    include: SERVER_PROFILE_INCLUDE,
   });
   if (!current) throw new NotFoundError("VPS 节点不存在或已删除");
 
@@ -403,46 +287,7 @@ export async function updateServerProfile(
       enabled:
         typeof input.enabled === "boolean" ? input.enabled : current.enabled,
     },
-    include: {
-      sshKey: {
-        select: {
-          id: true,
-          name: true,
-          fingerprint: true,
-          publicKey: true,
-          privateKey: true, passphrase: true,
-          createdAt: true,
-        },
-      },
-      storageNode: {
-        select: {
-          id: true,
-          name: true,
-          driver: true,
-          isDefault: true,
-          basePath: true,
-          directAccessMode: true,
-          publicBaseUrl: true,
-        },
-      },
-      commandTargets: {
-        select: {
-          id: true,
-          status: true,
-          commandRequest: {
-            select: {
-              id: true,
-              title: true,
-              initiatedByType: true,
-              status: true,
-              createdAt: true,
-            },
-          },
-        },
-        orderBy: { commandRequest: { createdAt: "desc" } },
-        take: 3,
-      },
-    },
+    include: SERVER_PROFILE_INCLUDE,
   });
 
   return enrichServer(updated);
@@ -507,46 +352,7 @@ export async function listServerProfiles(teamId?: string | null) {
   const servers = await prisma.server.findMany({
     where: teamId === undefined ? undefined : { teamId: teamId ?? null },
     orderBy: { createdAt: "desc" },
-    include: {
-      sshKey: {
-        select: {
-          id: true,
-          name: true,
-          fingerprint: true,
-          publicKey: true,
-          privateKey: true, passphrase: true,
-          createdAt: true,
-        },
-      },
-      storageNode: {
-        select: {
-          id: true,
-          name: true,
-          driver: true,
-          isDefault: true,
-          basePath: true,
-          directAccessMode: true,
-          publicBaseUrl: true,
-        },
-      },
-      commandTargets: {
-        select: {
-          id: true,
-          status: true,
-          commandRequest: {
-            select: {
-              id: true,
-              title: true,
-              initiatedByType: true,
-              status: true,
-              createdAt: true,
-            },
-          },
-        },
-        orderBy: { commandRequest: { createdAt: "desc" } },
-        take: 3,
-      },
-    },
+    include: SERVER_PROFILE_INCLUDE,
     take: 500, // P2: server 总数有限
   });
 

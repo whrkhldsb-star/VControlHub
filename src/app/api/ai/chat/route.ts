@@ -16,27 +16,11 @@ import {
   executeSafeAction,
 } from "@/lib/ai/hosted-service";
 import { getServerLocale, t } from "@/lib/i18n/translations";
+import { buildAiChatMessagePayload } from "./message-payload";
 
 export const dynamic = "force-dynamic";
 
 const AI_CHAT_LIMIT = { maxRequests: 20, windowMs: 60_000 };
-
-type HistoryMessage = {
-  role: "user" | "assistant" | "system" | "tool";
-  content:
-    | string
-    | Array<{
-        type: "text" | "image_url";
-        text?: string;
-        image_url?: { url: string; detail?: string };
-      }>;
-  tool_call_id?: string;
-  tool_calls?: Array<{
-    id: string;
-    type: "function";
-    function: { name: string; arguments: string };
-  }>;
-};
 
 export async function POST(request: Request) {
   const locale = await getServerLocale();
@@ -76,110 +60,12 @@ export async function POST(request: Request) {
       const isVisionCapable = conv.enableVision;
       const isHostingEnabled = conv.hostingEnabled;
 
-      // Build message history for the API
-      const historyMessages: HistoryMessage[] = [];
-
-      // System prompt
-      if (conv.systemPrompt) {
-        historyMessages.push({ role: "system", content: conv.systemPrompt });
-      }
-
-      // History
-      for (const msg of conv.messages) {
-        if (msg.role === "system") continue;
-
-        // Tool call results (role=tool)
-        if (msg.role === "tool") {
-          historyMessages.push({
-            role: "tool",
-            content: msg.content,
-            tool_call_id: msg.toolCallId || undefined,
-          });
-          continue;
-        }
-
-        // Assistant messages with tool calls
-        const toolCallsData = JSON.parse(msg.toolCalls || "[]");
-        if (msg.role === "assistant" && toolCallsData.length > 0) {
-          historyMessages.push({
-            role: "assistant",
-            content: msg.content || "",
-            tool_calls: toolCallsData,
-          });
-          continue;
-        }
-
-        if (msg.role === "user" && isVisionCapable) {
-          const imgUrls: string[] = JSON.parse(msg.imageUrls || "[]");
-          if (imgUrls.length > 0) {
-            const content: Array<{
-              type: "text" | "image_url";
-              text?: string;
-              image_url?: { url: string };
-            }> = [{ type: "text", text: msg.content }];
-            for (const u of imgUrls) {
-              content.push({ type: "image_url", image_url: { url: u } });
-            }
-            historyMessages.push({ role: "user", content });
-            continue;
-          }
-        }
-        historyMessages.push({
-          role: msg.role as "user" | "assistant",
-          content: msg.content,
-        });
-      }
-
-      // Build the new user message content
-      const userText = body.content.trim();
-      const userImageUrls = body.imageUrls ?? [];
-      const userImageBase64 = body.imageBase64 ?? [];
-      const userFiles = body.fileAttachments ?? [];
-      const hasImages =
-        isVisionCapable &&
-        (userImageUrls.length > 0 || userImageBase64.length > 0);
-      const hasFiles = userFiles.length > 0;
-
-      // Build text content including file attachments
-      let fullText = userText;
-      if (hasFiles) {
-        const fileParts = userFiles
-          .map(
-            (f) =>
-              `--- File: ${f.name} ---\n${f.content}\n--- End of ${f.name} ---`,
-          )
-          .join("\n\n");
-        fullText = `${userText}${t("apiAiChat.attachmentPrefix", locale)}${fileParts}`;
-      }
-
-      if (hasImages) {
-        const content: Array<{
-          type: "text" | "image_url";
-          text?: string;
-          image_url?: { url: string; detail?: string };
-        }> = [{ type: "text", text: fullText }];
-
-        for (const url of userImageUrls) {
-          content.push({ type: "image_url", image_url: { url } });
-        }
-        for (const img of userImageBase64) {
-          content.push({
-            type: "image_url",
-            image_url: { url: `data:${img.mimeType};base64,${img.data}` },
-          });
-        }
-        historyMessages.push({ role: "user", content });
-      } else {
-        historyMessages.push({ role: "user", content: fullText });
-      }
-
-      // Save user message
-      const allImageUrls = [
-        ...userImageUrls,
-        ...userImageBase64.map(
-          (img) => `data:${img.mimeType};base64,...(${img.data.length} chars)`,
-        ),
-      ];
+      const { allImageUrls, historyMessages, userText } = buildAiChatMessagePayload({
+        body,
+        conv,
+        isVisionCapable,
+        locale,
+      });
 
       await createMessage({
         conversationId: conv.id,
