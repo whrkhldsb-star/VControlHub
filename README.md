@@ -339,19 +339,61 @@ make logs SERVICE_PREFIX=vcontrolhub
 | 指标            | 数量                                             |
 | --------------- | ------------------------------------------------ |
 | 功能页面        | 46                                               |
-| API 端点        | 122（withApiRoute 113 个，9 个特殊路径合理豁免） |
+| API 路由文件     | 138                                              |
 | 数据模型        | 55                                               |
 | UI 组件         | 29                                               |
 | 代码行数        | ~163,800（src 扫描）                             |
-| 测试            | 388 文件 / ~2,745 tests                          |
+| 测试            | 380 文件                                         |
 | Docker 应用模板 | 44 (本地) + 社区源实时同步                       |
-| i18n            | 142 useI18n() 调用点，76 字典文件，195 light: 语义 |
+| i18n            | 210 useI18n() 调用点，73 字典文件                 |
 
 ---
 
-## 🔬 全量代码审查
+## 🔬 全量代码审查（2026-07-05）
 
-当前 README 不保留已完成任务清单；复审 backlog 已清空。若后续发现新的真实待办，只记录可执行、未完成的问题，并附验证方式。
+> 本节只记录本轮复审确认仍未解决、可执行的真实问题。已完成项与误报不再保留。
+
+**审查范围**：前端交互/可访问性、API/权限/安全、Prisma/数据访问、部署与架构治理。
+**本轮基线**：`git status` 干净；`vcontrolhub-next` 运行于 `/opt/VControlHub`；上一轮 `typecheck/test/lint/i18n:key-check/build` 已通过。
+**快速扫描结果**：生产非测试非字典 TS/TSX >500 行为 0；`src/app` + `src/components` 生产非测试 TS/TSX 硬编码中文为 0。
+
+### 🔴 P1 — 优先修复
+
+| # | 问题 | 证据 | 建议修复 / 验证 |
+| --- | --- | --- | --- |
+| 1 | **Bearer 头在 proxy 层仅凭格式跳过 session 预检与 CSRF**：任意 `Authorization: Bearer ***` 都会让 proxy 放行到 route，并跳过状态修改 API 的 CSRF 检查；但统一 `withApiRoute()` / `requireApiPermission()` 并不验证 Bearer token。 | `src/proxy.ts`：`hasBearerToken` 只判断 `startsWith("bearer ")`，line ~166 跳过无 session 401，line ~193-197 跳过 CSRF；`src/lib/http/api-guard.ts` 与 `require-api-permission.ts` 仍只走 cookie session；`bearer-token.ts` 的 `verifyBearerToken()` 未接入统一 guard。 | proxy 不应把 Bearer 格式等同认证。仅明确支持 API token 的 endpoint 才可绕过 cookie/CSRF；或把 Bearer 验证下沉到 `withApiRoute({ bearerScope })`，无效 token fail closed。验证：新增 proxy/API guard 测试，`Bearer invalid` 对普通 POST 仍需 CSRF 或返回 401。 |
+| 2 | **媒体流与缩略图 API 未走统一 API guard / rate limit**：`/api/media/[id]/stream` 与 `/api/media/[id]/thumbnail` 使用页面型 `requireSession("/media")`，不是 JSON API auth 语义，也缺少统一限流。 | `src/app/api/media/[id]/stream/route.ts`、`thumbnail/route.ts`：直接 `requireSession` + `sessionHasPermission`，未用 `withApiRoute()` / `GENERAL_READ_LIMIT`。 | 迁移到 `withApiRoute(request, { permission: "storage:read", rateLimit: GENERAL_READ_LIMIT })`；保留 Range/stream、缩略图缓存、SFTP circuit breaker、`assertStorageAccess`。验证：`npm test -- --run src/app/api/media`，未登录 curl 应返回 JSON 401/403 而非页面 redirect。 |
+| 3 | **真实部署回滚缺服务端幂等/并发保护**：快速重复 POST 可创建多个 rollback run / command request；客户端 `pending` 只能挡单 tab。 | `src/app/api/deployments/[id]/rollback/route.ts` 调 `createDeploymentRollbackRun()`；`src/lib/deployment/service.ts` 先 `deploymentRollbackRun.create()` 再 `createCommandRequest()`，创建前未检查同一 `sourceRunId` 是否已有 `PENDING/RUNNING/APPROVED` rollback。 | 在 service 层用 transaction/锁语义检查同一 source run 的进行中 rollback；第二次返回已有任务或 409。route 映射 `CONFLICT`。验证：`npm test -- --run src/app/api/deployments src/lib/deployment`，并加连续双 POST 回归测试。 |
+| 4 | **Dashboard analytics 只校验登录，未校验分域权限**：任何已登录用户可读服务器指标、下载趋势、审计活动和图床趋势。 | `src/app/api/dashboard/analytics/route.ts` 只 `getApiSession()`；无 `sessionHasPermission()` / `requireApiPermission()` / `withApiRoute()`；返回 `metricSnapshot`、`downloadTask`、`auditLog`、`imageUpload` 聚合。 | 迁移统一 guard；按 `type` 做分域权限过滤（如 server/download/audit/image 权限）或引入 dashboard read 权限。验证：`npm test -- --run src/app/api/dashboard`，覆盖低权限用户不可读 audit/server 全局趋势。 |
+
+### 🟡 P2 — 中优先级
+
+| # | 问题 | 证据 | 建议修复 / 验证 |
+| --- | --- | --- | --- |
+| 5 | **备份“标记作废”破坏性操作缺少二次确认**。 | `src/app/backups/void-backup-record-button.tsx`：`onClick={handleVoid}` 后直接 `POST /api/backups/${backupId}/void`；同目录 restore 需要输入 `RESTORE`，删除计划有确认对话框。 | 改成 `alertdialog` 或输入 `VOID`/备份 ID 的确认模式；更新 `void-backup-record-button.test.tsx`。验证：`npm test -- --run src/app/backups`。 |
+| 6 | **AI provider / hosted-actions 读接口权限偏宽**：写操作有 `ai:manage`，读操作仅 `requireAuth`，可能让普通登录用户读 provider 元数据、masked key、baseUrl、待审批操作元数据。 | `src/app/api/ai/providers/route.ts`、`providers/[id]/route.ts` GET 使用 `requireAuth: true`；PATCH/DELETE 才 `permission: "ai:manage"`。`src/app/api/ai/hosted-actions/route.ts` GET 仅 requireAuth。 | 为 provider GET 使用 `ai:manage` 或新增 `ai:read`；hosted-actions GET 使用 `ai:chat` / `ai:action:read` / requester-or-approver 过滤。验证：`npm test -- --run src/app/api/ai`。 |
+| 7 | **SSH 连接缺 host key / known_hosts 校验**，管理面 SSH/SFTP 无法确认目标主机身份。 | `src/lib/ssh/client.ts` 构造 `ConnectConfig` 仅 host/port/username/privateKey/password/timeout，未设置 `hostVerifier` / `hostHash`；调用覆盖 media stream/thumbnail、share token、AI hosted service 等。 | 为 server/storage node 存储 SSH host key fingerprint；首次连接 TOFU 审批，后续 `hostVerifier` 校验，变更需人工确认与审计。验证：`rg "hostVerifier|hostHash|known_hosts|client\.connect" src` + SSH client tests。 |
+| 8 | **公开分享下载接口无速率限制，密码型分享可被在线爆破/枚举**。 | `src/proxy.ts` 将 `/api/share/` 设为 public；`src/app/api/share/[token]/route.ts` 注释“share token 本身是凭据”，接收 `password` query，未见 rate limit。 | 对 IP + token 加限流；密码失败计数/递增延迟；密码改 POST body 避免日志/Referer 泄露。验证：`npm test -- --run src/app/api/share`。 |
+| 9 | **私有图片文件读取权限语义偏粗，且未统一限流**：public 图片匿名读取合理，但 private 图片用 `user:read` 作为全局读权限不够贴合图床/存储边界。 | `src/app/api/images/[id]/file/route.ts`：private 图片允许 owner 或 `sessionHasPermission(session, "user:read")`；未用统一 API guard/rate limit。 | 引入/复用 `image:read` 或 `storage:read` + owner 检查；public path 加读取限流，private path 走 JSON auth。验证：`npm test -- --run src/app/api/images`。 |
+| 10 | **Markdown 预览链接拼接边界仍偏脆弱**：自制 Markdown renderer 在 `dangerouslySetInnerHTML` 路径中拼 `<a href="${url.trim()}">${text}</a>`，只拦 `javascript/data/vbscript`，未对 href/text 在拼接点做显式二次 escape / scheme allowlist。 | `src/app/files/preview/markdown-preview-client.tsx` `inlineFormat()`；最终进入 `dangerouslySetInnerHTML`。虽然动态 sanitizer 会再处理，但 renderer 自身边界不够清晰。 | 在 link callback 内对 href/text 显式 escape；限制 `http: / https: / mailto: / 相对路径`；增加 attribute injection 与恶意链接文本测试。验证：`npm test -- --run src/app/files`。 |
+| 11 | **文件预览页对 query `href` 缺少前端允许前缀约束**：`href` 直接来自 `searchParams`，传给 image/iframe/fetch preview client。 | `src/app/files/preview/page.tsx`：`const href = params?.href ?? ""`，随后作为 `img src`、`iframe src`、`MarkdownPreviewClient href`、`TextPreviewClient href`。 | 只允许同源相对路径和明确 API 前缀（如 `/api/files/`、`/api/storage/`、`/api/media/`）；非法 URL 显示本地错误且不发 fetch。验证：访问 `/files/preview?type=text&href=https://example.com` 应显示错误。 |
+| 12 | **生产组件仍存在超长单行 JSX，行数达标但维护性差**。 | 最大行长扫描命中：`server-card-actions.tsx` line 8 ~15147、`media/page.tsx` line 15 ~13660、`docker-resources-panel.tsx` line 8 ~9654、`server-create-form.tsx` line 10 ~8264、`media-item-card.tsx` line 15 ~7998、`ssh-key-create-form.tsx` line 1 ~6108 等。 | 格式化为多行 JSX，必要时继续按组件/helper 拆分；新增最大行长扫描（生产 TS/TSX >1000 chars fail）。验证：`npm run typecheck` + 相关页面测试 + max-line scan。 |
+| 13 | **字典文件继续膨胀，i18n 域边界过大**。 | `src/lib/i18n/dictionaries/servers.ts` 641 行；`settings-page.ts` 626 行。`servers.ts` 混合 servers page、server card actions、Direct Gateway、VPS backup、monitor、SSH key、batch panel。 | 按子域拆分字典并在聚合器保持同一 key space。验证：`npm run i18n:key-check` + 字典行数扫描。 |
+| 14 | **系统导入预览/执行对导入 payload 做单次大 `IN (...)` 查询，缺少分批上限**。 | `src/lib/system/import-preview-tables.ts` 多处 `ids = records.map(...)` 后 `findMany({ where: { id: { in: ids }}})`；`import-executors-config.ts` 等同类 key/id 查询。不是全表扫描，但大导入包会产生超大 IN。 | 增加 `chunkedFindExistingIds(..., chunkSize=500/1000)` helper，preview/executor 共用；对 2000+ records 加测试。验证：`npm test -- --run src/lib/system`。 |
+| 15 | **Dashboard 聚合查询缺匹配索引，且在 Node 层拉 5k/10k 行聚合**。 | `dashboard/analytics/route.ts` 按 `createdAt >= ... orderBy createdAt` 查 `MetricSnapshot`、`DownloadTask`、`ImageUpload`；schema 主要是 `[serverId, createdAt]`、`[status, createdAt]`、`[userId/isPublic, createdAt]`，缺全局 `createdAt` 索引。 | 为实际全局时间查询补 `@@index([createdAt])`；后续把小时/日聚合下推 SQL。验证：Prisma migrate/db push + `npm test -- --run src/app/api/dashboard`。 |
+| 16 | **系统 health 页面只检查 `DATABASE_URL` 字符串，不做真实 DB probe**。 | `src/lib/system-health/service.ts` line ~121-128：仅判断 `config.db.url !== "REPLACE_WITH_DATABASE_URL"`，未执行 `SELECT 1` / `$connect`。 | 增加短超时 `prisma.$queryRaw\`SELECT 1\``，区分 env 缺失、连接失败、查询超时。验证：`npm test -- --run src/app/api/system-health src/lib/system-health`。 |
+| 17 | **`deploy/check.sh RUN_NPM_CHECKS=1` 会构建 Next，但不会重新生成 runtime bundle**。 | `deploy/check.sh` line ~117-125 执行 `prisma:generate/typecheck/lint/test/build`，缺 `npm run build:runtime`；systemd 实际运行 `dist/server.js`。 | 在 npm checks 末尾追加 `npm run build:runtime`，与 `deploy/install.sh` / 当前部署流程一致。验证：`RUN_NPM_CHECKS=1 deploy/check.sh` 后检查 `dist/server.js` mtime。 |
+| 18 | **README 项目规模数字仍需自动生成/校验**。 | 本轮已把静态值更新为当前扫描：pages=46、api route files=138、test files=380、dictionary files=73、`useI18n(`=210；但仍是手写。 | 新增 `scripts/readme-metrics.ts` / `npm run docs:check` 自动生成或校验项目规模区块；README 标注生成来源。验证：`npm run docs:check`。 |
+
+### 🟢 P3 — 低优先级 / 治理增强
+
+| # | 问题 | 证据 | 建议修复 / 验证 |
+| --- | --- | --- | --- |
+| 19 | **API guard 例外/Barrel 路由缺少机器可读声明，审计工具仍需人工分辨例外与真问题**。 | 粗扫不含 `withApiRoute` 会命中 login、2FA verify、share token、openapi、downloads barrel、media stream/thumbnail；其中部分是合理例外/委托 guard，media 是迁移候选。 | 约定 `export const guardMode = "public" | "login" | "delegated" | "manual" | "withApiRoute"`，让 route catalog/verify 脚本识别。验证：新增 route-catalog check。 |
+| 20 | **媒体卡片资源链接语义不清，存在 `href="#"` fallback**。 | `src/app/media/media-item-card.tsx` `MediaCover` 返回 `<a href={sourceHref ?? fileHref ?? "#"}>`；资源打开可用 `<a>`，但 `#` fallback 会产生不可达/跳顶行为。 | 区分页面导航与资源打开；无有效 href 时渲染 disabled button/静态卡片。验证：`npm test -- --run src/app/media`。 |
+| 21 | **缺少生产实例 drift-check 入口**。 | README 有 `deploy/check.sh`、`deploy/smoke-test.sh`、`deploy.sh`，但没有专门检查 systemd `WorkingDirectory/ExecStart`、git HEAD、`dist/server.js`、`.next/BUILD_ID` 与当前 checkout 是否一致的目标；历史上踩过 `/opt/VControlHub` vs `/opt/vcontrolhub` 漂移。 | 新增 `deploy/drift-check.sh` 或 `make drift-check`，输出 systemd 工作目录、ExecStart、git HEAD、构建产物时间、local `/login` smoke。验证：`make drift-check`。 |
+| 22 | **E2E 截图产物被跟踪且测试会覆盖仓库根目录 PNG**。 | `git ls-files` 包含 `login-dark.png`、`login-light.png`；`e2e/screenshot.spec.ts` 输出同名根目录文件。 | 输出到 `.hermes/qa-runs/` / `test-results/` 等忽略目录；若保留基线图，放 fixtures 且测试不覆盖。验证：`git status` 跑 e2e screenshot 后不出现 PNG diff。 |
+| 23 | **Next 图片优化允许任意 HTTPS 远程域名**。 | `next.config.ts` `images.remotePatterns = [{ protocol: "https", hostname: "**" }]`。 | 限制到可信图床/CDN/对象存储域名；用户外链预览使用普通 `<img>` 或 `unoptimized`。验证：`npm run typecheck` + image 相关页面 smoke。 |
 
 ---
 
