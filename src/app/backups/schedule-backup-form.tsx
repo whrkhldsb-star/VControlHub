@@ -138,6 +138,7 @@ export function ScheduleBackupForm() {
 	};
 
 	const toggleSchedule = async (id: string) => {
+		setMessage(null);
 		try {
 			await csrfFetch("/api/backup-schedules", {
 				method: "PATCH",
@@ -145,18 +146,19 @@ export function ScheduleBackupForm() {
 				body: JSON.stringify({ toggleId: id }),
 			});
 			await fetchSchedules();
-		} catch {
-			// best-effort
+		} catch (error) {
+			setMessage({ type: "error", text: error instanceof Error ? error.message : t("backupsPage.schedule.failFallback") });
 		}
 	};
 
 	const deleteSchedule = async (id: string) => {
+		setMessage(null);
 		try {
 			await csrfFetch(`/api/backup-schedules/${id}`, { method: "DELETE" });
 			setPendingDeleteId(null);
 			await fetchSchedules();
-		} catch {
-			// best-effort
+		} catch (error) {
+			setMessage({ type: "error", text: error instanceof Error ? error.message : t("backupsPage.schedule.failFallback") });
 		}
 	};
 

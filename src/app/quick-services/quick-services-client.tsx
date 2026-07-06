@@ -280,14 +280,26 @@ export function QuickServicesClient({ canManage }: { canManage: boolean }) {
 					<div className="mt-4 grid gap-2 sm:grid-cols-2">
 						{runningItems.slice(0, 4).map((item) => {
 							const access = quickServiceAccess(item);
-							return (
-								<a key={item.slug} href={access?.url ?? "#"} target="_blank" rel="noreferrer" aria-disabled={!access} aria-label={access ? t("qsPage.accessEntry").replace("{name}", item.name).replace("{label}", access.label) : t("qsPage.accessEntryUnconfigured").replace("{name}", item.name)} data-tone="emerald" className="rounded-xl border border-[var(--success-border)] p-3 transition hover:bg-[var(--success)]/[0.1]">
+							const cardBody = (
+								<>
 									<div className="flex items-center justify-between gap-2">
 										<span className="truncate text-sm font-medium text-[var(--text-primary)]">{item.icon} {item.name}</span>
 										<span className="text-[10px] text-[var(--success)]">:{item.port ?? item.defaultPort}</span>
 									</div>
 									<p className="mt-1 truncate text-[11px] text-[var(--text-muted)]">{access?.url ?? `${accessHostLabel}:${item.port ?? item.defaultPort}`}</p>
-									{access ? <p className="mt-2 text-[10px] font-medium text-[var(--warning)]">{access.label}</p> : null}
+									{access ? <p className="mt-2 text-[10px] font-medium text-[var(--warning)]">{access.label}</p> : <p className="mt-2 text-[10px] font-medium text-[var(--text-muted)]">{t("qsPage.accessEntryUnconfigured").replace("{name}", item.name)}</p>}
+								</>
+							);
+							if (!access) {
+								return (
+									<div key={item.slug} aria-label={t("qsPage.accessEntryUnconfigured").replace("{name}", item.name)} data-tone="neutral" className="rounded-xl border border-[var(--border)] p-3 opacity-80">
+										{cardBody}
+									</div>
+								);
+							}
+							return (
+								<a key={item.slug} href={access.url} target="_blank" rel="noreferrer" aria-label={t("qsPage.accessEntry").replace("{name}", item.name).replace("{label}", access.label)} data-tone="emerald" className="rounded-xl border border-[var(--success-border)] p-3 transition hover:bg-[var(--success)]/[0.1]">
+									{cardBody}
 								</a>
 							);
 						})}

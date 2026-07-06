@@ -296,6 +296,20 @@ describe("QuickServicesClient", () => {
 		expect(await screen.findByText("源已删除")).toBeInTheDocument();
 	});
 
+	it("does not render a fake # access link when no service access URL can be built", async () => {
+		vi.mocked(csrfFetch)
+			.mockResolvedValueOnce({ ...catalogResponse, publicHost: "" })
+			.mockResolvedValueOnce(sourcesResponse);
+		vi.spyOn(window, "location", "get").mockReturnValue({ ...window.location, hostname: "" } as Location);
+
+		render(<QuickServicesClient canManage />);
+
+		await screen.findByText(/最近同步：LinuxServer/);
+		expect(screen.queryByRole("link", { name: /访问.*未配置访问入口/ })).not.toBeInTheDocument();
+		expect(screen.queryByRole("link", { name: /访问.*公开直连端口/ })).not.toBeInTheDocument();
+		expect(document.querySelector('a[href="#"]')).not.toBeInTheDocument();
+	});
+
 	it("shows a public direct-port access link for running services", async () => {
 		mockInitialLoads();
 
