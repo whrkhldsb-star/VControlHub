@@ -45,7 +45,7 @@ const TRANSITIONS: Record<string, string[]> = {
   CLOSED: ["OPEN"],
 };
 
-export function TicketDetailClient({ initial, canManage, locale: _locale }: TicketDetailClientProps) {
+export function TicketDetailClient({ initial, canManage, users = [], locale: _locale }: TicketDetailClientProps) {
   const { t } = useI18n();
   const [ticket, setTicket] = useState(initial);
   const [comment, setComment] = useState("");
@@ -140,7 +140,9 @@ export function TicketDetailClient({ initial, canManage, locale: _locale }: Tick
               className="rounded-lg border border-[var(--border)] bg-[var(--input-bg)] px-2 py-1 text-sm text-[var(--text-secondary)] outline-none disabled:opacity-50"
             >
               <option value="">{t("ticketsDetail.unassigned")}</option>
-              {/* users populated from parent page */}
+              {users.map((u) => (
+                <option key={u.id} value={u.id}>{u.displayName || u.username}</option>
+              ))}
             </select>
           </div>
         )}

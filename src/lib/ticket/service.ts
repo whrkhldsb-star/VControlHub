@@ -1,7 +1,26 @@
-import { ValidationError } from "@/lib/errors";
+import { ValidationError, BusinessError } from "@/lib/errors";
 import { prisma } from "@/lib/db";
 
 const STATUSES = new Set(["OPEN", "IN_PROGRESS", "RESOLVED", "CLOSED"]);
+
+/**
+ * Valid status transitions. Mirrors the TRANSITIONS map in
+ * `ticket-detail-client.tsx` so the UI and API enforce the same state
+ * machine. A CLOSED ticket can only be re-opened to OPEN; the agent must
+ * then drive it through IN_PROGRESS→RESOLVED→CLOSED again if it needs to
+ * be re-closed. This keeps the audit trail and the `closedAt` invariant
+ * consistent.
+ *
+ * Server-side enforcement matters because the UI restriction is only
+ * client-side; an authenticated API caller could otherwise PATCH a
+ * CLOSED ticket straight to OPEN, skipping the state machine entirely.
+ */
+const TRANSITIONS: Record<string, Set<string>> = {
+  OPEN: new Set(["IN_PROGRESS"]),
+  IN_PROGRESS: new Set(["RESOLVED", "OPEN"]),
+  RESOLVED: new Set(["CLOSED", "IN_PROGRESS"]),
+  CLOSED: new Set(["OPEN"]),
+};
 
 export async function createTicket(input: { title: string; description: string; priority?: string; createdBy: string }) {
   if (!input.title.trim() || !input.description.trim()) throw new ValidationError("工单标题和描述不能为空");
@@ -47,6 +66,17 @@ export async function updateTicketStatus(input: { id: string; status?: string; a
 
   if (input.status !== undefined) {
     if (!STATUSES.has(input.status)) throw new ValidationError("工单状态无效");
+    // Enforce the state machine. The UI only offers the allowed
+    // transitions; the API must enforce them too, otherwise an
+    // authenticated caller could PATCH a CLOSED ticket straight back
+    // to RESOLVED (or worse, jump OPEN→CLOSED in one hop) and break
+    // the `closedAt` invariant + audit trail.
+    const current = await prisma.ticket.findUnique({ where: { id: input.id }, select: { status: true } });
+    if (!current) throw new BusinessError("工单不存在");
+    const allowed = TRANSITIONS[current.status] ?? new Set<string>();
+    if (!allowed.has(input.status)) {
+      throw new ValidationError(`工单状态不能从 ${current.status} 变更为 ${input.status}`);
+    }
     data.status = input.status;
     data.closedAt = input.status === "CLOSED" ? new Date() : null;
   }

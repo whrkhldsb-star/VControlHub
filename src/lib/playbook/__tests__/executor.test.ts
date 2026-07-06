@@ -1,10 +1,11 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const { mocks } = vi.hoisted(() => ({
 	mocks: {
 		enqueueJob: vi.fn(),
 		recordJobEvent: vi.fn(),
 		notificationCreate: vi.fn(),
+		fetch: vi.fn(),
 	},
 }));
 
@@ -15,6 +16,12 @@ vi.mock("@/lib/db", () => ({
 		notification: { create: mocks.notificationCreate },
 	},
 }));
+
+// Stub global fetch for call_webhook step tests. Node 18+ ships a real
+// global fetch; we replace it so no real HTTP call escapes the test.
+const originalFetch = globalThis.fetch;
+beforeEach(() => { globalThis.fetch = mocks.fetch as unknown as typeof fetch; });
+afterEach(() => { globalThis.fetch = originalFetch; });
 
 import { executePlaybookChain } from "../executor";
 import type { PlaybookRecord } from "../types";
@@ -126,13 +133,14 @@ describe("executePlaybookChain", () => {
 		});
 	});
 
-	it("records call_webhook as ok (M04 stub returns 'skipped' summary)", async () => {
+	it("calls the webhook URL via fetch and records ok on 2xx", async () => {
+		mocks.fetch.mockResolvedValueOnce({ ok: true, status: 200, statusText: "OK" });
 		const playbook = buildPlaybook([
 			{
 				id: "s1",
 				name: "hook",
 				type: "call_webhook",
-				config: { url: "https://example.com", method: "POST" },
+				config: { url: "https://example.com/webhook", method: "POST" },
 				retry: 0,
 				timeoutSec: 60,
 			},
@@ -143,7 +151,32 @@ describe("executePlaybookChain", () => {
 			dryRun: false,
 		});
 		expect(results[0]?.status).toBe("ok");
-		expect(results[0]?.summary).toContain("skipped");
+		expect(results[0]?.summary).toContain("200");
+		expect(mocks.fetch).toHaveBeenCalledWith(
+			"https://example.com/webhook",
+			expect.objectContaining({ method: "POST", signal: expect.any(AbortSignal) }),
+		);
+	});
+
+	it("fails the webhook step on non-2xx response (no silent success)", async () => {
+		mocks.fetch.mockResolvedValueOnce({ ok: false, status: 503, statusText: "Service Unavailable" });
+		const playbook = buildPlaybook([
+			{
+				id: "s1",
+				name: "hook",
+				type: "call_webhook",
+				config: { url: "https://example.com/broken", method: "POST" },
+				retry: 0,
+				timeoutSec: 60,
+			},
+		]);
+		const results = await executePlaybookChain({
+			playbook,
+			runId: "run-1",
+			dryRun: false,
+		});
+		expect(results[0]?.status).toBe("failed");
+		expect(results[0]?.error).toContain("503");
 	});
 
 	it("aborts the chain on the first failed step in non-dryRun mode (no synthetic skipped entry)", async () => {

@@ -182,13 +182,35 @@ async function dispatchStep(
       return `notification sent to ${cfg.recipientUserId}`;
     }
     case "call_webhook": {
-      // M04 does NOT actually call the URL — we record the would-be call
-      // and surface a "skipped" entry. The user can wire a real webhook
-      // integration as a follow-up. This keeps the chain side-effect-free
-      // until the operator confirms the playbook via the UI.
-      void step;
-      void ctx;
-      return "call_webhook (skipped in M04; will be wired in follow-up)";
+      // Actually call the webhook URL. Previously this branch was a
+      // silent no-op ("skipped in M04"), which meant a playbook that
+      // *looked* configured to call out would silently succeed without
+      // ever making the HTTP request — a real functional gap. We now
+      // perform the request and let any non-2xx response fail the step
+      // so the operator sees the broken integration in the run log.
+      const cfg = step.config as {
+        url: string;
+        method: "GET" | "POST" | "PUT";
+        headers?: Record<string, string>;
+        body?: string;
+      };
+      const controller = new AbortController();
+      const timeoutMs = Math.max(1, step.timeoutSec) * 1000;
+      const timer = setTimeout(() => controller.abort(), timeoutMs);
+      try {
+        const response = await fetch(cfg.url, {
+          method: cfg.method,
+          headers: cfg.headers ?? { "Content-Type": "application/json" },
+          body: cfg.method === "GET" ? undefined : cfg.body,
+          signal: controller.signal,
+        });
+        if (!response.ok) {
+          throw new Error(`webhook ${cfg.method} ${cfg.url} returned ${response.status} ${response.statusText}`);
+        }
+        return `webhook ${cfg.method} ${cfg.url} → ${response.status}`;
+      } finally {
+        clearTimeout(timer);
+      }
     }
     default: {
       // Discriminated union exhaustiveness: every step type is handled.

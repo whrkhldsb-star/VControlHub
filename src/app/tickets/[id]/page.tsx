@@ -2,9 +2,10 @@ import { requireSession } from "@/lib/auth/require-session";
 import { sessionHasPermission } from "@/lib/auth/authorization";
 import { canViewTicket, getTicketById } from "@/lib/ticket/service";
 import { PageShell, EmptyState, PageHeader } from "@/components/page-shell";
-import { TicketDetailClient, type Ticket } from "./ticket-detail-client";
+import { TicketDetailClient, type Ticket, type TicketUser } from "./ticket-detail-client";
 import { notFound } from "next/navigation";
 import { getServerLocale, t } from "@/lib/i18n/translations";
+import { prisma } from "@/lib/db";
 
 export const dynamic = "force-dynamic";
 
@@ -19,6 +20,17 @@ export default async function TicketDetailPage({ params }: { params: Promise<{ i
   const ticket = await getTicketById(id);
   if (!ticket) notFound();
 
+  // Populate the assignee dropdown — previously the <select> rendered
+  // with no <option> children, so "Assign to" was visually present but
+  // functionally a no-op for every manager.
+  const users: TicketUser[] = canManage
+    ? await prisma.user.findMany({
+        select: { id: true, username: true, displayName: true },
+        orderBy: { username: "asc" },
+        take: 200,
+      })
+    : [];
+
   // Serialize dates for client component
   const serialized: Ticket = {
     ...ticket,
@@ -31,7 +43,7 @@ export default async function TicketDetailPage({ params }: { params: Promise<{ i
   return (
     <PageShell maxW="max-w-4xl">
       <PageHeader eyebrow={t("ticketsDetail.eyebrow", locale)} title={t("ticketsDetail.title", locale)} description={t("ticketsDetail.desc", locale)} className="mb-6" />
-      <TicketDetailClient initial={serialized} canManage={canManage} locale={locale} />
+      <TicketDetailClient initial={serialized} canManage={canManage} users={users} locale={locale} />
     </PageShell>
   );
 }

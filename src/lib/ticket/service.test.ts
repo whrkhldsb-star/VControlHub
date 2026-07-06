@@ -23,6 +23,7 @@ describe("ticket service", () => {
   });
 
   it("preserves assignee when status changes omit assigneeId and clears assignee only for explicit null", async () => {
+    mockPrisma.ticket.findUnique.mockResolvedValue({ id: "tk1", status: "OPEN" });
     mockPrisma.ticket.update.mockResolvedValue({ id: "tk1" });
 
     await updateTicketStatus({ id: "tk1", status: "IN_PROGRESS" });
@@ -36,6 +37,55 @@ describe("ticket service", () => {
       where: { id: "tk1" },
       data: { assigneeId: null },
     });
+  });
+
+  it("rejects invalid status transitions (state machine)", async () => {
+    // OPEN → CLOSED is not a valid transition (must go through IN_PROGRESS→RESOLVED→CLOSED)
+    mockPrisma.ticket.findUnique.mockResolvedValueOnce({ id: "tk1", status: "OPEN" });
+    await expect(updateTicketStatus({ id: "tk1", status: "CLOSED" })).rejects.toThrow(/不能从 OPEN 变更为 CLOSED/);
+
+    // CLOSED → IN_PROGRESS is not valid (only CLOSED → OPEN)
+    mockPrisma.ticket.findUnique.mockResolvedValueOnce({ id: "tk1", status: "CLOSED" });
+    await expect(updateTicketStatus({ id: "tk1", status: "IN_PROGRESS" })).rejects.toThrow(/不能从 CLOSED 变更为 IN_PROGRESS/);
+
+    // RESOLVED → OPEN is not valid
+    mockPrisma.ticket.findUnique.mockResolvedValueOnce({ id: "tk1", status: "RESOLVED" });
+    await expect(updateTicketStatus({ id: "tk1", status: "OPEN" })).rejects.toThrow(/不能从 RESOLVED 变更为 OPEN/);
+
+    // update should not have been called for any of the rejected transitions
+    expect(mockPrisma.ticket.update).not.toHaveBeenCalled();
+  });
+
+  it("accepts valid status transitions", async () => {
+    // OPEN → IN_PROGRESS (valid)
+    mockPrisma.ticket.findUnique.mockResolvedValueOnce({ id: "tk1", status: "OPEN" });
+    mockPrisma.ticket.update.mockResolvedValueOnce({ id: "tk1", status: "IN_PROGRESS" });
+    await updateTicketStatus({ id: "tk1", status: "IN_PROGRESS" });
+    expect(mockPrisma.ticket.update).toHaveBeenLastCalledWith({
+      where: { id: "tk1" },
+      data: { status: "IN_PROGRESS", closedAt: null },
+    });
+
+    // IN_PROGRESS → RESOLVED (valid)
+    mockPrisma.ticket.findUnique.mockResolvedValueOnce({ id: "tk1", status: "IN_PROGRESS" });
+    mockPrisma.ticket.update.mockResolvedValueOnce({ id: "tk1", status: "RESOLVED" });
+    await updateTicketStatus({ id: "tk1", status: "RESOLVED" });
+
+    // RESOLVED → CLOSED (valid, sets closedAt)
+    mockPrisma.ticket.findUnique.mockResolvedValueOnce({ id: "tk1", status: "RESOLVED" });
+    mockPrisma.ticket.update.mockResolvedValueOnce({ id: "tk1", status: "CLOSED" });
+    await updateTicketStatus({ id: "tk1", status: "CLOSED" });
+    expect(mockPrisma.ticket.update).toHaveBeenLastCalledWith(
+      expect.objectContaining({ data: expect.objectContaining({ status: "CLOSED", closedAt: expect.any(Date) }) }),
+    );
+
+    // CLOSED → OPEN (re-open, valid, clears closedAt)
+    mockPrisma.ticket.findUnique.mockResolvedValueOnce({ id: "tk1", status: "CLOSED" });
+    mockPrisma.ticket.update.mockResolvedValueOnce({ id: "tk1", status: "OPEN" });
+    await updateTicketStatus({ id: "tk1", status: "OPEN" });
+    expect(mockPrisma.ticket.update).toHaveBeenLastCalledWith(
+      expect.objectContaining({ data: expect.objectContaining({ status: "OPEN", closedAt: null }) }),
+    );
   });
 
   it("adds non-empty comments", async () => {
