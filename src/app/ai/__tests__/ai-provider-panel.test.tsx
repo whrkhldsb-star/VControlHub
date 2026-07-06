@@ -11,8 +11,9 @@ vi.mock("@/lib/auth/csrf-client", () => ({
   csrfFetch: vi.fn(),
 }));
 
+const addToastMock = vi.hoisted(() => vi.fn());
 vi.mock("@/components/toast-provider", () => ({
-  useToast: () => ({ addToast: vi.fn() }),
+  useToast: () => ({ addToast: addToastMock }),
 }));
 
 const providerFixture = {
@@ -33,6 +34,32 @@ const providerFixture = {
 describe("AiProviderPanel", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+  });
+
+  it("shows a toast when toggling a provider fails instead of silently swallowing the error", async () => {
+    const user = userEvent.setup();
+    const onRefreshProviders = vi.fn();
+    vi.mocked(csrfFetch).mockRejectedValueOnce(new Error("Provider update failed"));
+
+    render(
+      <AiProviderPanel
+        show
+        providers={[providerFixture]}
+        provForm={DEFAULT_PROV_FORM}
+        onClose={vi.fn()}
+        onCreateProvider={vi.fn()}
+        onDeleteProvider={vi.fn()}
+        onRefreshProviders={onRefreshProviders}
+        setProvForm={vi.fn()}
+      />,
+    );
+
+    await user.click(screen.getByRole("button", { name: "禁用" }));
+
+    await waitFor(() => {
+      expect(addToastMock).toHaveBeenCalledWith("error", "Provider update failed");
+    });
+    expect(onRefreshProviders).not.toHaveBeenCalled();
   });
 
   it("fetches provider models from credentials and lets the user choose instead of typing models manually", async () => {

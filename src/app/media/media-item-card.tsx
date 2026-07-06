@@ -205,18 +205,21 @@ export function MediaItemCard({
   const [newTag, setNewTag] = useState("");
   const [imageBedUrl, setImageBedUrl] = useState<string | null>(null);
   const [publishError, setPublishError] = useState<string | null>(null);
+  const [mutationError, setMutationError] = useState<string | null>(null);
   const [publishing, setPublishing] = useState(false);
   const toggleFav = async () => {
     const next = !fav;
     setFav(next);
+    setMutationError(null);
     try {
       await csrfFetch(`/api/media/${item.id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ favorite: next }),
       });
-    } catch {
+    } catch (error) {
       setFav(!next);
+      setMutationError(getErrorMessage(error, t("mediaItemCard.updateErrorFallback")));
     }
   };
   const addTag = async () => {
@@ -226,27 +229,31 @@ export function MediaItemCard({
     setTags(next);
     setNewTag("");
     setShowTagInput(false);
+    setMutationError(null);
     try {
       await csrfFetch(`/api/media/${item.id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ tags: next }),
       });
-    } catch {
+    } catch (error) {
       setTags(tags);
+      setMutationError(getErrorMessage(error, t("mediaItemCard.updateErrorFallback")));
     }
   };
   const removeTag = async (tag: string) => {
     const next = tags.filter((x) => x !== tag);
     setTags(next);
+    setMutationError(null);
     try {
       await csrfFetch(`/api/media/${item.id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ tags: next }),
       });
-    } catch {
+    } catch (error) {
       setTags(tags);
+      setMutationError(getErrorMessage(error, t("mediaItemCard.updateErrorFallback")));
     }
   };
   const publishAsImageBed = async () => {
@@ -419,6 +426,11 @@ export function MediaItemCard({
       {publishError ? (
         <p role="alert" className="mt-2 text-[11px] text-[var(--danger)]">
           {publishError}
+        </p>
+      ) : null}{" "}
+      {mutationError ? (
+        <p role="alert" className="mt-2 text-[11px] text-[var(--danger)]">
+          {mutationError}
         </p>
       ) : null}{" "}
       {canManage && (

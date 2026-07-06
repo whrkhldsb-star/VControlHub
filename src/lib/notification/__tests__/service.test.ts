@@ -54,6 +54,14 @@ describe("notification service state synchronization", () => {
     expect(pushUnreadCountMock).toHaveBeenCalledWith("u_1", 3);
   });
 
+  it("rejects mark-as-read when the notification does not belong to the user", async () => {
+    prismaMock.notification.updateMany.mockResolvedValueOnce({ count: 0 });
+
+    await expect(markAsRead("n_missing", "u_1")).rejects.toThrow("通知不存在或无权操作");
+    expect(prismaMock.notification.count).not.toHaveBeenCalled();
+    expect(pushUnreadCountMock).not.toHaveBeenCalled();
+  });
+
   it("pushes zero unread count only after mark-all persistence completes", async () => {
     let resolveUpdate!: (value: { count: number }) => void;
     const updatePromise = new Promise<{ count: number }>((resolve) => {
@@ -88,5 +96,13 @@ describe("notification service state synchronization", () => {
     resolveDelete({ count: 1 });
     await expect(resultPromise).resolves.toEqual({ count: 1 });
     expect(pushUnreadCountMock).toHaveBeenCalledWith("u_1", 2);
+  });
+
+  it("rejects delete when the notification does not belong to the user", async () => {
+    prismaMock.notification.deleteMany.mockResolvedValueOnce({ count: 0 });
+
+    await expect(deleteNotification("n_missing", "u_1")).rejects.toThrow("通知不存在或无权操作");
+    expect(prismaMock.notification.count).not.toHaveBeenCalled();
+    expect(pushUnreadCountMock).not.toHaveBeenCalled();
   });
 });

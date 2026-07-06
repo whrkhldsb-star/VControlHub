@@ -172,6 +172,7 @@ export function AiProviderPanel({
                   </div>
                   <div className="flex items-center gap-2 flex-shrink-0 max-sm:justify-end">
                     <button
+                      type="button"
                       onClick={async () => {
                         try {
                           await csrfFetch(`/api/ai/providers/${p.id}`, {
@@ -180,7 +181,9 @@ export function AiProviderPanel({
                             body: JSON.stringify({ enabled: !p.enabled }),
                           });
                           onRefreshProviders();
-                        } catch { /* ignore */ }
+                        } catch (e: unknown) {
+                          addToast("error", e instanceof Error ? e.message : t("aiPage.providerUpdateFailed"));
+                        }
                       }}
                       className={`text-xs transition ${p.enabled ? "text-[var(--warning)]/60 hover:text-[var(--warning)]" : "text-[var(--success)]/60 hover:text-[var(--success)]"}`}
                     >

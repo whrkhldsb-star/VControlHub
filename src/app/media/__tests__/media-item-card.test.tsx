@@ -1,8 +1,10 @@
 import { renderWithI18n as render } from "@/lib/i18n/__tests__/test-helpers";
 import { screen } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 
 import { MediaItemCard, type MediaItem } from "../media-item-card";
+import { csrfFetch } from "@/lib/auth/csrf-client";
 
 vi.mock("@/lib/auth/csrf-client", () => ({ csrfFetch: vi.fn() }));
 
@@ -70,5 +72,16 @@ describe("MediaItemCard", () => {
     render(<MediaItemCard item={{ ...item, mediaType: "image", mimeType: "image/png", name: "photo.png", relativePath: "images/photo.png" }} canManage />);
 
     expect(screen.getByRole("button", { name: /图床外链/ })).toBeInTheDocument();
+  });
+
+  it("shows a visible error when favorite updates fail", async () => {
+    const user = userEvent.setup();
+    vi.mocked(csrfFetch).mockRejectedValueOnce(new Error("保存收藏失败"));
+
+    render(<MediaItemCard item={item} canManage />);
+
+    await user.click(screen.getByRole("button", { name: "收藏" }));
+
+    expect(await screen.findByRole("alert")).toHaveTextContent("保存收藏失败");
   });
 });

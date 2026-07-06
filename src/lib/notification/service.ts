@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/db";
 import { pushNotification, pushUnreadCount } from "@/lib/ws/notification-ws";
 import { createLogger } from "@/lib/logging";
+import { NotFoundError } from "@/lib/errors";
 
 const logger = createLogger("notification:service");
 
@@ -87,6 +88,9 @@ export async function markAsRead(notificationId: string, userId: string) {
 		where: { id: notificationId, userId },
 		data: { isRead: true },
 	});
+	if (result.count === 0) {
+		throw new NotFoundError("通知不存在或无权操作");
+	}
 	// Push updated unread count after marking as read
 	const unreadCount = await getUnreadCount(userId);
 	pushUnreadCount(userId, unreadCount);
@@ -106,6 +110,9 @@ export async function deleteNotification(notificationId: string, userId: string)
 	const result = await prisma.notification.deleteMany({
 		where: { id: notificationId, userId },
 	});
+	if (result.count === 0) {
+		throw new NotFoundError("通知不存在或无权操作");
+	}
 	// Push updated unread count after deletion
 	const unreadCount = await getUnreadCount(userId);
 	pushUnreadCount(userId, unreadCount);
