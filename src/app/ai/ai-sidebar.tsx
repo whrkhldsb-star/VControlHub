@@ -73,7 +73,7 @@ export function AiSidebar({
                     onDeleteConv(conv.id);
                   }}
                   aria-label={t("aiPage.deleteConversationAria").replace("{title}", conv.title)}
-                  className="opacity-0 group-hover:opacity-100 text-[var(--danger)]0/60 hover:text-[var(--danger)] transition"
+                  className="opacity-0 group-hover:opacity-100 text-[var(--danger)]/60 hover:text-[var(--danger)] transition"
                 >
                   <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" width="24" height="24" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />

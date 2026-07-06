@@ -102,7 +102,7 @@ export function ServiceCard({
 							{item.source}
 						</span>
 					)}
-					<span className={`text-[10px] font-medium px-1.5 py-0.5 rounded-full border ${statusColor[item.status] ?? "text-[var(--text-muted)]"} ${item.status === "running" ? "border-[var(--success-border)] bg-[var(--success)]0/[0.10]" : item.status === "error" ? "border-[var(--danger-border)] bg-[var(--danger)]0/[0.10]" : "border-[var(--border)]"}`}>
+					<span className={`text-[10px] font-medium px-1.5 py-0.5 rounded-full border ${statusColor[item.status] ?? "text-[var(--text-muted)]"} ${item.status === "running" ? "border-[var(--success-border)] bg-[var(--success)]/[0.10]" : item.status === "error" ? "border-[var(--danger-border)] bg-[var(--danger)]/[0.10]" : "border-[var(--border)]"}`}>
 						{(statusLabelKeys[item.status] && t(statusLabelKeys[item.status] as string)) || item.status}
 					</span>
 				</div>
@@ -121,7 +121,7 @@ export function ServiceCard({
 
 			{/* Error message */}
 			{item.error && (
-				<div className="text-[10px] text-[var(--danger)] bg-[var(--danger)]0/[0.10] rounded px-2 py-1 line-clamp-2">{item.error}</div>
+				<div className="text-[10px] text-[var(--danger)] bg-[var(--danger)]/[0.10] rounded px-2 py-1 line-clamp-2">{item.error}</div>
 			)}
 
 			{/* Actions */}
@@ -161,7 +161,7 @@ export function ServiceCard({
 								{busy ? t("qsPage.busy") : t("qsPage.update")}
 							</button>
 						)}
-						<button onClick={onUninstall} disabled={busy} className="ml-auto rounded-lg border border-[var(--danger-border)] px-3 py-1.5 text-xs text-[var(--danger)] hover:bg-[var(--danger)]0/[0.10] transition disabled:opacity-50">
+						<button onClick={onUninstall} disabled={busy} className="ml-auto rounded-lg border border-[var(--danger-border)] px-3 py-1.5 text-xs text-[var(--danger)] hover:bg-[var(--danger)]/[0.10] transition disabled:opacity-50">
 							{t("qsPage.uninstall")}
 						</button>
 					</>

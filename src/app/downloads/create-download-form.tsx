@@ -166,8 +166,8 @@ export function CreateDownloadForm({
 						<div
 							className={`rounded-lg border px-3 py-2 text-[11px] leading-5 ${
 								selectedServer.accessTransport === "direct"
-									? "border-[var(--success-border)] bg-[var(--success)]0/[0.10] text-[var(--success)]"
-									: "border-[var(--warning-border)] bg-[var(--warning)]0/[0.10] text-[var(--warning)]"
+									? "border-[var(--success-border)] bg-[var(--success)]/[0.10] text-[var(--success)]"
+									: "border-[var(--warning-border)] bg-[var(--warning)]/[0.10] text-[var(--warning)]"
 							}`}
 						>
 							<div className="font-medium">{selectedServer.accessStatusLabel}</div>
@@ -229,7 +229,7 @@ export function CreateDownloadForm({
 			{form.url?.startsWith("magnet:") && (
 				<div
 					data-tone="amber"
-					className="rounded-xl border border-[var(--warning-border)] px-4 py-3 text-xs text-[var(--warning)]0/70"
+					className="rounded-xl border border-[var(--warning-border)] px-4 py-3 text-xs text-[var(--warning)]/70"
 				>
 					{t("downloadsPage.form.magnetNotice")}
 				</div>

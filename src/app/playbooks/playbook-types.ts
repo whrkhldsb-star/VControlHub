@@ -24,6 +24,13 @@ export type SerializedPlaybook = {
 	createdAt: string;
 };
 
+export type RunStepSummary = {
+	stepId: string;
+	status: "ok" | "failed" | "skipped" | "dry_run" | string;
+	summary?: string;
+	error?: string;
+};
+
 export type RunSummary = {
 	id: string;
 	status: string;
@@ -31,7 +38,16 @@ export type RunSummary = {
 	startedAt: string | null;
 	completedAt: string | null;
 	errorMessage: string | null;
+	stepResults?: RunStepSummary[];
 };
+
+export function dryRunStepCounts(run: Pick<RunSummary, "stepResults">): { ok: number; total: number } {
+	const steps = run.stepResults ?? [];
+	return {
+		ok: steps.filter((step) => step.status === "dry_run" || step.status === "ok").length,
+		total: steps.length,
+	};
+}
 
 export const fieldLabelClass = "text-xs font-medium text-[var(--text-secondary)] tracking-wide";
 export const fieldInputClass = "w-full rounded-lg border border-[var(--border)] bg-[var(--surface-elevated)] px-3.5 py-2.5 text-sm text-[var(--text-primary)] outline-none transition placeholder:text-[var(--text-muted)] focus:border-[var(--color-action-border)]/30";

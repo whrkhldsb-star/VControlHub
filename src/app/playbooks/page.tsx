@@ -26,6 +26,7 @@ export default async function PlaybooksPage() {
 		startedAt: string | null;
 		completedAt: string | null;
 		errorMessage: string | null;
+		stepResults: Array<{ stepId: string; status: string; summary?: string; error?: string }>;
 	}>> = {};
 	if (canRead) {
 		const runLists = await Promise.all(
@@ -38,6 +39,7 @@ export default async function PlaybooksPage() {
 					startedAt: r.startedAt?.toISOString() ?? null,
 					completedAt: r.completedAt?.toISOString() ?? null,
 					errorMessage: r.errorMessage,
+					stepResults: r.stepResults,
 				})) };
 			}),
 		);

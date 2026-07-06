@@ -251,7 +251,7 @@ export function TeamWorkspaceSection({ canManage }: { canManage: boolean }) {
 										<span className="flex items-center gap-2">
 											<span className="text-[var(--text-muted)]">{member.role}</span>
 											{canManage && member.role !== "owner" && (
-												<button type="button" disabled={busy} onClick={() => removeMember(team.id, member.user.id, member.user.displayName || member.user.username)} className="text-[var(--danger)]0/70 hover:text-[var(--danger)] light:text-[var(--danger)] light:hover:text-[var(--danger)] disabled:opacity-60">
+												<button type="button" disabled={busy} onClick={() => removeMember(team.id, member.user.id, member.user.displayName || member.user.username)} className="text-[var(--danger)]/70 hover:text-[var(--danger)] light:text-[var(--danger)] light:hover:text-[var(--danger)] disabled:opacity-60">
 													✕
 												</button>
 											)}

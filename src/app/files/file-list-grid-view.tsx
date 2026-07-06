@@ -87,7 +87,7 @@ export function FileListGridView({
           type="button"
           onClick={() => navigateToFolder(folder.path)}
           data-testid="folder-card"
-          className="group flex min-h-[156px] flex-col items-center gap-3 rounded-xl border border-[var(--border)] bg-[var(--surface)] p-5 text-center transition-colors duration-150 hover:border-[var(--warning-border)] hover:bg-[var(--warning)]0/[0.04]"
+          className="group flex min-h-[156px] flex-col items-center gap-3 rounded-xl border border-[var(--border)] bg-[var(--surface)] p-5 text-center transition-colors duration-150 hover:border-[var(--warning-border)] hover:bg-[var(--warning)]/[0.04]"
         >
           <div
             className="rounded-xl bg-[var(--warning-bg)] p-3 transition-colors group-hover:bg-[var(--warning-bg)]"

@@ -52,7 +52,7 @@ export function PendingUninstallDialog({
 					/>
 					<span>
 						<span className="block font-medium">{t("qsPage.alsoDeleteData")}</span>
-						<span className="mt-1 block text-xs leading-5 text-[var(--danger)]0/80">
+						<span className="mt-1 block text-xs leading-5 text-[var(--danger)]/80">
 							{t("qsPage.dataDeleteHint")}
 						</span>
 					</span>

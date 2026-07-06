@@ -123,7 +123,7 @@ export default async function Page({
               <div className="text-lg font-semibold text-[var(--info)] ">
                 {imageCount}
               </div>
-              <div className="text-[10px] text-[var(--info)]0/70 ">
+              <div className="text-[10px] text-[var(--info)]/70 ">
                 {t("mediaPage.stat.image", locale)}
               </div>
             </div>{" "}

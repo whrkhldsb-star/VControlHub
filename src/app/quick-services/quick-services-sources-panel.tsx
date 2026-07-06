@@ -214,11 +214,11 @@ export function SourcesPanel({ sources, actions, onRequestDeleteSource }: Source
 							</div>
 						</div>
 						<div className="flex items-center gap-2">
-							<span className={`text-[10px] px-2 py-0.5 rounded-full border ${src.enabled ? "border-[var(--success-border)] bg-[var(--success)]0/[0.10] text-[var(--success)]" : "border-[var(--border)] text-[var(--text-muted)]"}`}>
+							<span className={`text-[10px] px-2 py-0.5 rounded-full border ${src.enabled ? "border-[var(--success-border)] bg-[var(--success)]/[0.10] text-[var(--success)]" : "border-[var(--border)] text-[var(--text-muted)]"}`}>
 								{src.enabled ? t("quickServicesPage.sources.status.enabled") : t("quickServicesPage.sources.status.disabled")}
 							</span>
 							{src.lastSyncStatus && (
-								<span className={`text-[10px] px-2 py-0.5 rounded-full border ${src.lastSyncStatus === "success" ? "border-[var(--success-border)] bg-[var(--success)]0/[0.10] text-[var(--success)]" : "border-[var(--danger-border)] bg-[var(--danger)]0/[0.10] text-[var(--danger)]"}`}>
+								<span className={`text-[10px] px-2 py-0.5 rounded-full border ${src.lastSyncStatus === "success" ? "border-[var(--success-border)] bg-[var(--success)]/[0.10] text-[var(--success)]" : "border-[var(--danger-border)] bg-[var(--danger)]/[0.10] text-[var(--danger)]"}`}>
 									{src.lastSyncStatus === "success" ? t("quickServicesPage.sources.status.syncSuccess") : t("quickServicesPage.sources.status.syncFailed")}
 								</span>
 							)}
@@ -230,7 +230,7 @@ export function SourcesPanel({ sources, actions, onRequestDeleteSource }: Source
 						{src.lastSyncAt && <span>{t("quickServicesPage.sources.lastSyncAt") + ": " + new Date(src.lastSyncAt).toLocaleString()}</span>}
 					</div>
 					{src.lastSyncError && (
-						<div className="text-[10px] text-[var(--danger)] bg-[var(--danger)]0/[0.10] rounded px-2 py-1">{src.lastSyncError}</div>
+						<div className="text-[10px] text-[var(--danger)] bg-[var(--danger)]/[0.10] rounded px-2 py-1">{src.lastSyncError}</div>
 					)}
 					<div className="flex items-center gap-2 pt-1">
 						<button
@@ -244,14 +244,14 @@ export function SourcesPanel({ sources, actions, onRequestDeleteSource }: Source
 						<button
 							type="button"
 							onClick={() => actions.doToggleSource(src.id, !src.enabled)}
-							className={`rounded-lg border px-3 py-1.5 text-xs transition ${src.enabled ? "border-[var(--warning-border)] text-[var(--warning)] hover:bg-[var(--warning)]0/[0.10]" : "border-[var(--success-border)] text-[var(--success)] hover:bg-[var(--success)]0/[0.10]"}`}
+							className={`rounded-lg border px-3 py-1.5 text-xs transition ${src.enabled ? "border-[var(--warning-border)] text-[var(--warning)] hover:bg-[var(--warning)]/[0.10]" : "border-[var(--success-border)] text-[var(--success)] hover:bg-[var(--success)]/[0.10]"}`}
 						>
 							{src.enabled ? t("quickServicesPage.sources.disable") : t("quickServicesPage.sources.enable")}
 						</button>
 						<button
 							type="button"
 							onClick={() => onRequestDeleteSource(src)}
-							className="ml-auto rounded-lg border border-[var(--danger-border)] px-3 py-1.5 text-xs text-[var(--danger)] hover:bg-[var(--danger)]0/[0.10] transition"
+							className="ml-auto rounded-lg border border-[var(--danger-border)] px-3 py-1.5 text-xs text-[var(--danger)] hover:bg-[var(--danger)]/[0.10] transition"
 						>
 							{t("common.delete")}
 						</button>

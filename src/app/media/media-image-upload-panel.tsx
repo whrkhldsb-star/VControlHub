@@ -234,7 +234,7 @@ export function MediaImageUploadPanel() {
 			<div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
 				<div>
 					<h2 className="text-base font-semibold text-[var(--success)]">{t("mediaUploadPanel.heading")}</h2>
-					<p className="mt-1 text-xs text-[var(--success)]0/70">{t("mediaUploadPanel.subheading")}</p>
+					<p className="mt-1 text-xs text-[var(--success)]/70">{t("mediaUploadPanel.subheading")}</p>
 				</div>
 				<div className="flex flex-wrap items-center gap-2 text-xs">
 					<button type="button" onClick={loadNodes} disabled={loadingNodes} className="rounded-lg border border-[var(--success-border)] px-3 py-2 text-[var(--success)] transition hover:bg-[var(--success-bg)] disabled:opacity-60">
@@ -296,7 +296,7 @@ export function MediaImageUploadPanel() {
 						})}
 					</div>
 					{chunked.progress && chunked.progress.resumed && chunked.progress.skipped > 0 ? (
-						<p className="mt-2 text-[11px] text-[var(--success)]0/80">{t("mediaUploadPanel.chunkedResumeNotice").replace("{skipped}", String(chunked.progress.skipped))}</p>
+						<p className="mt-2 text-[11px] text-[var(--success)]/80">{t("mediaUploadPanel.chunkedResumeNotice").replace("{skipped}", String(chunked.progress.skipped))}</p>
 					) : null}
 				</div>
 			) : null}

@@ -115,10 +115,10 @@ export function OsDialectSection({
 // TR-002 R3: advice 项的 tone 决定背景与边框；emerald=safe / amber=warning / rose=danger
 function adviceToneClass(tone: "emerald" | "amber" | "rose" | undefined) {
 	if (tone === "emerald") {
-		return "border-[var(--success-border)] bg-[var(--success)]0/[0.10] light:border-[var(--success-border)] light:bg-[var(--success-bg)]";
+		return "border-[var(--success-border)] bg-[var(--success)]/[0.10] light:border-[var(--success-border)] light:bg-[var(--success-bg)]";
 	}
 	if (tone === "rose") {
-		return "border-[var(--danger-border)] bg-[var(--danger)]0/[0.10] light:border-[var(--danger-border)] light:bg-[var(--danger-bg)]";
+		return "border-[var(--danger-border)] bg-[var(--danger)]/[0.10] light:border-[var(--danger-border)] light:bg-[var(--danger-bg)]";
 	}
 	// amber (default) 与原版一致
 	return "border-[var(--warning-border)] light:border-[var(--warning-border)] light:bg-[var(--warning-bg)]";

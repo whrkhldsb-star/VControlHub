@@ -5,7 +5,7 @@ import { csrfFetch } from "@/lib/auth/csrf-client";
 import { useI18n } from "@/lib/i18n/use-locale";
 import { useToast } from "@/components/toast-provider";
 import { EmptyState } from "@/components/page-shell";
-import { statusLabelFor } from "./playbook-types";
+import { statusLabelFor, dryRunStepCounts } from "./playbook-types";
 import type { SerializedPlaybook, RunSummary } from "./playbook-types";
 import { CreatePlaybookForm } from "./create-playbook-form";
 import { PlaybookCard } from "./playbook-card";
@@ -45,7 +45,8 @@ export function PlaybookListClient({ playbooks: initial, runsByPlaybook: initial
           [id]: [run, ...(prev[id] ?? [])].slice(0, 5),
         }));
         if (kind === "dry-run") {
-          addToast("success", t("playbooksPage.toast.dryRun").replace("{ok}", "0").replace("{total}", "0"));
+          const counts = dryRunStepCounts(run);
+          addToast("success", t("playbooksPage.toast.dryRun").replace("{ok}", String(counts.ok)).replace("{total}", String(counts.total)));
         } else {
           addToast(
             run.status === "failed" ? "error" : "success",

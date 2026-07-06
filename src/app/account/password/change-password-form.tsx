@@ -76,7 +76,7 @@ export function ChangePasswordForm() {
 				<div data-tone="emerald" className="rounded-2xl border border-[var(--success-border)] px-4 py-3 text-sm text-[var(--success)]" role="status" aria-live="polite">
 					{state.success}
 					{countdown !== null && countdown > 0 ? (
-						<span className="ml-2 text-[var(--success)]0/80">
+						<span className="ml-2 text-[var(--success)]/80">
 							{t("accountPasswordPage.redirectCountdown").replace("{seconds}", String(countdown))}
 						</span>
 					) : null}

@@ -21,6 +21,18 @@ const stepA = { id: "a", name: "第一步", type: "run_command" as const, config
 const stepB = { id: "b", name: "第二步", type: "run_command" as const, config: { command: "echo second", serverIds: [] }, retry: 0, timeoutSec: 60 };
 const stepC = { id: "c", name: "第三步", type: "run_command" as const, config: { command: "echo third", serverIds: [] }, retry: 0, timeoutSec: 60 };
 
+const playbook = {
+	id: "pb_1",
+	name: "夜间维护",
+	description: null,
+	triggerType: "cron" as const,
+	triggerConfig: { expression: "0 3 * * *" },
+	steps: [stepA, stepB],
+	chainRetry: 0,
+	enabled: true,
+	createdAt: "2026-01-01T00:00:00.000Z",
+};
+
 function renderClient() {
 	return renderWithI18n(
 		<PlaybookListClient playbooks={[]} runsByPlaybook={{}} canManage canRun />,
@@ -39,6 +51,37 @@ describe("Playbook step ordering", () => {
 		const steps = [stepA, stepB, stepC];
 		expect(reorderSteps(steps, "c", "missing")).toBe(steps);
 		expect(reorderSteps(steps, "b", "b")).toBe(steps);
+	});
+});
+
+describe("PlaybookListClient run feedback", () => {
+	beforeEach(() => {
+		vi.clearAllMocks();
+	});
+
+	it("shows real dry-run step counts instead of hard-coded 0/0", async () => {
+		const user = userEvent.setup();
+		vi.mocked(csrfFetch).mockResolvedValueOnce({
+			run: {
+				id: "run_1",
+				status: "completed",
+				dryRun: true,
+				startedAt: "2026-01-01T00:00:00.000Z",
+				completedAt: "2026-01-01T00:00:01.000Z",
+				errorMessage: null,
+				stepResults: [
+					{ stepId: "a", status: "dry_run", summary: "dry-run: echo first" },
+					{ stepId: "b", status: "dry_run", summary: "dry-run: echo second" },
+				],
+			},
+		});
+
+		renderWithI18n(<PlaybookListClient playbooks={[playbook]} runsByPlaybook={{ pb_1: [] }} canManage canRun />, { locale: "zh" });
+
+		await user.click(screen.getByRole("button", { name: /Dry-run 演练/ }));
+
+		await waitFor(() => expect(addToastMock).toHaveBeenCalledWith("success", "Dry-run 完成（2/2 步规划成功）"));
+		expect(csrfFetch).toHaveBeenCalledWith("/api/playbooks/pb_1/dry-run", { method: "POST" });
 	});
 });
 

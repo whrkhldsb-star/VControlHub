@@ -199,7 +199,7 @@ export function TemplateListClient({ templates: initialTemplates, servers, canCr
 								{canCreate && !tmpl.isBuiltin && (
 									<button
 										onClick={() => setTemplatePendingDelete(tmpl)}
-										className="min-h-11 min-w-11 text-[11px] text-[var(--danger)]0/60 hover:text-[var(--danger)] transition"
+										className="min-h-11 min-w-11 text-[11px] text-[var(--danger)]/60 hover:text-[var(--danger)] transition"
 										>
 										{t("templatesPage.delete.action")}
 									</button>
@@ -319,7 +319,7 @@ function CreateTemplateForm({ onClose }: { onClose: () => void }) {
 	return (
 		<form onSubmit={handleSubmit} data-card className=" space-y-4">
 			<h3 className="text-lg font-semibold text-[var(--text-primary)]">{t("templatesPage.create.title")}</h3>
-			{error && <div className="rounded-lg bg-[var(--danger)]0/[0.10] border border-[var(--danger-border)] px-3.5 py-2.5 text-sm text-[var(--danger)]">{error}</div>}
+			{error && <div className="rounded-lg bg-[var(--danger)]/[0.10] border border-[var(--danger-border)] px-3.5 py-2.5 text-sm text-[var(--danger)]">{error}</div>}
 			<div className="space-y-1.5">
 				<label htmlFor={`${createFormId}-name`} className="text-xs font-medium text-[var(--text-primary)]/70 tracking-wide">{t("templatesPage.create.nameLabel")}</label>
 				<input id={`${createFormId}-name`} value={name} onChange={(e) => setName(e.target.value)} required placeholder={t("templatesPage.create.namePlaceholder")} className="w-full rounded-lg border border-[var(--border)] bg-[var(--surface)]/[0.04] px-3.5 py-2.5 text-sm text-[var(--text-primary)] outline-none transition placeholder:text-[var(--text-primary)]/30 focus:border-[var(--color-action-border)]/30" />

@@ -15,7 +15,7 @@ export default async function Page() {
 			<PageShell>
 				<section data-tone="rose" className="rounded-2xl border border-[var(--danger-border)] p-6">
 					<h1 className="text-xl font-semibold text-[var(--danger)]">{t("common.insufficientPermissions", locale)}</h1>
-					<p className="mt-2 text-sm text-[var(--danger)]0/70">{t("apiTokensPage.permissionDeniedHint", locale)}</p>
+					<p className="mt-2 text-sm text-[var(--danger)]/70">{t("apiTokensPage.permissionDeniedHint", locale)}</p>
 				</section>
 			</PageShell>
 		);

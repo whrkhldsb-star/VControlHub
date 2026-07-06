@@ -342,7 +342,7 @@ export function VpsBackupSection({
 									<button
 										type="button"
 										onClick={() => handleDeleteSchedule(s.id)}
-										className="ml-2 shrink-0 text-xs text-[var(--danger)]0/70 transition-colors hover:text-[var(--danger)]"
+										className="ml-2 shrink-0 text-xs text-[var(--danger)]/70 transition-colors hover:text-[var(--danger)]"
 									>
 										✕
 									</button>
@@ -396,7 +396,7 @@ export function VpsBackupSection({
 										{r.offsiteKey ? " · ☁️" : ""}
 									</div>
 									{r.errorMessage ? (
-										<div className="mt-1 truncate text-xs text-[var(--danger)]0/80">
+										<div className="mt-1 truncate text-xs text-[var(--danger)]/80">
 											{r.errorMessage}
 										</div>
 									) : null}
@@ -414,7 +414,7 @@ export function VpsBackupSection({
 										<button
 											type="button"
 											onClick={() => handleDeleteRecord(r.id)}
-											className="text-xs text-[var(--danger)]0/60 transition-colors hover:text-[var(--danger)]"
+											className="text-xs text-[var(--danger)]/60 transition-colors hover:text-[var(--danger)]"
 										>
 											✕
 										</button>

@@ -353,7 +353,7 @@ export default function TrafficPage({ canManage: _canManage }: { canManage: bool
                     )}
                   </div>
                   {node.error ? (
-                    <div className="mt-3 break-all text-[11px] text-[var(--danger)]0/80">{node.error}</div>
+                    <div className="mt-3 break-all text-[11px] text-[var(--danger)]/80">{node.error}</div>
                   ) : node.primaryInterface ? (
                     <>
                       <div className="mt-3 grid grid-cols-2 gap-2">

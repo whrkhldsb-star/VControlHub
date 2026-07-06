@@ -182,7 +182,7 @@ export function AiProviderPanel({
                           onRefreshProviders();
                         } catch { /* ignore */ }
                       }}
-                      className={`text-xs transition ${p.enabled ? "text-[var(--warning)]0/60 hover:text-[var(--warning)]" : "text-[var(--success)]0/60 hover:text-[var(--success)]"}`}
+                      className={`text-xs transition ${p.enabled ? "text-[var(--warning)]/60 hover:text-[var(--warning)]" : "text-[var(--success)]/60 hover:text-[var(--success)]"}`}
                     >
                       {p.enabled ? t("aiPage.disableAction") : t("aiPage.enableAction")}
                     </button>
@@ -195,7 +195,7 @@ export function AiProviderPanel({
                     </button>
                     <button
                       onClick={() => onDeleteProvider(p.id)}
-                      className="text-xs text-[var(--danger)]0/60 hover:text-[var(--danger)] transition"
+                      className="text-xs text-[var(--danger)]/60 hover:text-[var(--danger)] transition"
                       aria-label={t("aiPage.deleteProviderAria2").replace("{name}", p.name)}
                     >
                       {t("aiPage.deleteAction")}

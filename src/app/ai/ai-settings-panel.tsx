@@ -153,7 +153,7 @@ export function AiSettingsPanel({
                         )}
                         {m.capabilities?.video && (
                           <span
-                            className="text-[9px] text-[var(--info)]0/60"
+                            className="text-[9px] text-[var(--info)]/60"
                             title={t("aiPage.videoCapSetting")}
                           >
                             🎬
@@ -169,7 +169,7 @@ export function AiSettingsPanel({
                         )}
                         {m.capabilities?.document && (
                           <span
-                            className="text-[9px] text-[var(--success)]0/60"
+                            className="text-[9px] text-[var(--success)]/60"
                             title={t("aiPage.documentCapSetting")}
                           >
                             📑
@@ -421,7 +421,7 @@ export function AiSettingsPanel({
             />
             <span className="text-xs text-[var(--text-secondary)]">
               {t("aiPage.hostedMode")}
-              <span className="text-[9px] text-[var(--warning)]0/60 ml-1">
+              <span className="text-[9px] text-[var(--warning)]/60 ml-1">
                 {t("aiPage.hostedHint")}
               </span>
             </span>

@@ -372,7 +372,7 @@ function CreateRuleForm({ servers, playbooks, onClose }: { servers: ServerOption
 	return (
 		<form onSubmit={handleSubmit} data-card className=" space-y-4">
 			<h3 className="text-lg font-semibold text-[var(--text-primary)]">{t("alertRulesPage.createForm.title")}</h3>
-			{error && <div className="rounded-lg bg-[var(--danger)]0/[0.10] border border-[var(--danger-border)] px-3.5 py-2.5 text-sm text-[var(--danger)]">{error}</div>}
+			{error && <div className="rounded-lg bg-[var(--danger)]/[0.10] border border-[var(--danger-border)] px-3.5 py-2.5 text-sm text-[var(--danger)]">{error}</div>}
 
 			<div className="space-y-1.5">
 				<label className="text-xs font-medium text-[var(--text-primary)]/70 tracking-wide" htmlFor="alertRuleName">{t("alertRulesPage.createForm.name")}</label>

@@ -230,7 +230,7 @@ export function NotificationBell() {
 						<span id="notification-popover-title" className="text-sm font-medium text-[var(--text-primary)]">{notificationLabel}</span>
 						<div className="flex items-center gap-2">
 							{wsConnected ? (
-								<span className="text-[10px] text-[var(--success)]0/70 light:text-[var(--success)]">{realtimeLabel}</span>
+								<span className="text-[10px] text-[var(--success)]/70 light:text-[var(--success)]">{realtimeLabel}</span>
 							) : refreshIntervalSeconds <= 0 ? (
 								<span className="text-[10px] text-[var(--text-muted)]">{manualLabel}</span>
 							) : (

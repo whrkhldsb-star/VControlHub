@@ -98,7 +98,7 @@ export function FileBatchToolbar({
           <p id={batchErrorTitleId} className="font-medium">
             {formatCopy(copy.errorSummary, { count: progress.errors.length + moveProgress.errors.length })}
           </p>
-          <ul className="mt-1 max-h-28 overflow-y-auto text-xs text-[var(--warning)]0/80">
+          <ul className="mt-1 max-h-28 overflow-y-auto text-xs text-[var(--warning)]/80">
             {[...progress.errors, ...moveProgress.errors].map((error) => (
               <li key={error}>• {error}</li>
             ))}

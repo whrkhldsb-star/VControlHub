@@ -109,11 +109,11 @@ export function ApiTokenManagerClient({ initialTokens, allowedScopes }: Props) {
       </div>
 
       {createdPlaintext && (
-        <section className="rounded-2xl border border-[var(--warning-border)] bg-[var(--warning)]0/[0.10] p-5 shadow-[0_20px_80px_rgba(251,191,36,0.08)]">
+        <section className="rounded-2xl border border-[var(--warning-border)] bg-[var(--warning)]/[0.10] p-5 shadow-[0_20px_80px_rgba(251,191,36,0.08)]">
           <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
             <div>
               <h2 className="text-base font-semibold text-[var(--warning)]">{t("apiTokensPage.plaintext.heading")}</h2>
-              <p className="mt-1 text-sm text-[var(--warning)]0/75">{t("apiTokensPage.plaintext.copyHint")}</p>
+              <p className="mt-1 text-sm text-[var(--warning)]/75">{t("apiTokensPage.plaintext.copyHint")}</p>
             </div>
             <button type="button" onClick={() => navigator.clipboard?.writeText(createdPlaintext)} className="rounded-xl border border-[var(--warning-border)] px-3 py-2 text-xs font-medium text-[var(--warning)] hover:bg-[var(--warning-bg)]">
               {t("apiTokensPage.plaintext.copy")}

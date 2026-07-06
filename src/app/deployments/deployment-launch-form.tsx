@@ -54,7 +54,7 @@ export function DeploymentLaunchForm({ templates, servers }: { templates: Deploy
 		return (
 			<div data-tone="amber" className="mt-4 rounded-xl border border-[var(--warning-border)] px-4 py-3 text-sm text-[var(--warning)] light:bg-[var(--warning)]">
 				<p className="font-medium">{t("deploymentsPage.launch.noVpsTitle")}</p>
-				<p className="mt-1 text-xs text-[var(--warning)]0/80">{t("deploymentsPage.launch.noVpsDesc")}</p>
+				<p className="mt-1 text-xs text-[var(--warning)]/80">{t("deploymentsPage.launch.noVpsDesc")}</p>
 				<Link href="/servers" className="mt-3 inline-flex rounded-lg border border-[var(--warning-border)] px-3 py-1.5 text-xs font-semibold text-[var(--warning)] transition hover:bg-[var(--warning-bg)]">{t("deploymentsPage.launch.addVps")}</Link>
 			</div>
 		);

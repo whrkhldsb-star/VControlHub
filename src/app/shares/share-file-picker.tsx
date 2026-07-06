@@ -348,10 +348,10 @@ export function ShareFilePicker({ nodes }: { nodes: StorageNode[] }) {
 						<div className="mt-4 space-y-2">
 							<p className="text-xs font-medium text-[var(--success)]">{copyText.created}</p>
 							{results.map((item) => (
-								<div key={item.key} className="rounded-lg border border-[var(--success-border)] bg-[var(--success)]0/[0.07] p-2 text-xs">
+								<div key={item.key} className="rounded-lg border border-[var(--success-border)] bg-[var(--success)]/[0.07] p-2 text-xs">
 									<div className="truncate text-[var(--success)]">{item.name}</div>
 									<div className="mt-1 flex items-center gap-2">
-										<code className="min-w-0 flex-1 truncate text-[var(--success)]0/80">{item.url}</code>
+										<code className="min-w-0 flex-1 truncate text-[var(--success)]/80">{item.url}</code>
 										<button type="button" onClick={() => void copy(item)} className="min-h-11 min-w-11 inline-flex items-center gap-1 rounded-lg border border-[var(--success-border)] px-2 py-1 text-[var(--success)]"><Copy size={12} />{copiedKey === item.key ? copyText.copied : copyText.copy}</button>
 									</div>
 								</div>

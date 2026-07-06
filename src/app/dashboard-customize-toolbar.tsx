@@ -69,7 +69,7 @@ export function DashboardCustomizeToolbar({
 			role="region"
 			aria-label={t("dashboard.customize")}
 		>
-			<p className="px-2 text-xs text-[var(--warning)]0/80">
+			<p className="px-2 text-xs text-[var(--warning)]/80">
 				{t("dashboard.customize-drag-tip")}
 			</p>
 			<div className="flex flex-wrap items-center gap-1.5">

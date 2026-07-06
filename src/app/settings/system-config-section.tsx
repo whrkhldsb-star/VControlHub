@@ -203,7 +203,7 @@ export function SystemConfigSection() {
         </div>
 
         {exportMode === "full" && (
-          <div className="rounded-lg border border-[var(--warning-border)] bg-[var(--warning)]0/[0.08] px-3.5 py-2.5 text-xs text-[var(--warning)] light:text-[var(--warning)]">
+          <div className="rounded-lg border border-[var(--warning-border)] bg-[var(--warning)]/[0.08] px-3.5 py-2.5 text-xs text-[var(--warning)] light:text-[var(--warning)]">
             ⚠ {t("systemConfig.export.fullWarning")}
           </div>
         )}

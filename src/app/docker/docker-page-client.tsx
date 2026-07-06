@@ -239,7 +239,7 @@ export default function DockerPage() {
 				<p className="mt-1 leading-relaxed">
 					{scopeWarning}
 				</p>
-				<p className="mt-2 text-xs text-[var(--warning)]0/80">
+				<p className="mt-2 text-xs text-[var(--warning)]/80">
 					{scopeSocketText}
 				</p>
 			</section>

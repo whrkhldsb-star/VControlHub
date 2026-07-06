@@ -64,7 +64,7 @@ export function AiInputArea({
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
           </svg>
           <span>{fileRejectionMsg}</span>
-          <button onClick={clearRejection} aria-label={t("aiPage.fileRejectionDismissAria")} className="ml-auto text-[var(--danger)]0/60 hover:text-[var(--danger)] flex-shrink-0">×</button>
+          <button onClick={clearRejection} aria-label={t("aiPage.fileRejectionDismissAria")} className="ml-auto text-[var(--danger)]/60 hover:text-[var(--danger)] flex-shrink-0">×</button>
         </div>
       )}
       <div className="flex gap-2 items-end">

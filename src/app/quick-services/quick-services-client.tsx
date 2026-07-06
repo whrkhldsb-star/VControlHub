@@ -239,14 +239,14 @@ export function QuickServicesClient({ canManage }: { canManage: boolean }) {
 			{dockerStatus && !dockerStatus.available ? (
 				<div data-tone="amber" className="rounded-2xl border border-[var(--warning-border)] p-4 text-sm text-[var(--warning)]">
 					<div className="font-medium">{t("qsPage.dockerNotReadyTitle")}</div>
-					<p className="mt-1 text-xs text-[var(--warning)]0/75">{dockerStatus.message}</p>
+					<p className="mt-1 text-xs text-[var(--warning)]/75">{dockerStatus.message}</p>
 					{dockerStatus.installHint ? <p data-code-surface="true" className="mt-2 rounded-lg border border-[var(--warning-border)] bg-[var(--surface-subtle)] px-3 py-2 font-mono text-xs text-[var(--warning)]">{dockerStatus.installHint}</p> : null}
 				</div>
 			) : null}
 
 			{/* Message */}
 			{actions.message && (
-				<div role={actions.message.type === "ok" ? "status" : "alert"} className={`rounded-lg px-4 py-3 text-sm ${actions.message.type === "ok" ? "bg-[var(--success)]0/[0.10] border border-[var(--success-border)] text-[var(--success)]" : "bg-[var(--danger)]0/[0.10] border border-[var(--danger-border)] text-[var(--danger)]"}`}>
+				<div role={actions.message.type === "ok" ? "status" : "alert"} className={`rounded-lg px-4 py-3 text-sm ${actions.message.type === "ok" ? "bg-[var(--success)]/[0.10] border border-[var(--success-border)] text-[var(--success)]" : "bg-[var(--danger)]/[0.10] border border-[var(--danger-border)] text-[var(--danger)]"}`}>
 					<span>{actions.message.text}</span>
 					{actions.message.taskId ? (
 						<Link href="/operation-tasks" className="ml-3 inline-flex rounded-lg border border-current/30 px-2 py-1 text-xs font-semibold hover:bg-[var(--surface)]/10 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-current">
@@ -281,7 +281,7 @@ export function QuickServicesClient({ canManage }: { canManage: boolean }) {
 						{runningItems.slice(0, 4).map((item) => {
 							const access = quickServiceAccess(item);
 							return (
-								<a key={item.slug} href={access?.url ?? "#"} target="_blank" rel="noreferrer" aria-disabled={!access} aria-label={access ? t("qsPage.accessEntry").replace("{name}", item.name).replace("{label}", access.label) : t("qsPage.accessEntryUnconfigured").replace("{name}", item.name)} data-tone="emerald" className="rounded-xl border border-[var(--success-border)] p-3 transition hover:bg-[var(--success)]0/[0.1]">
+								<a key={item.slug} href={access?.url ?? "#"} target="_blank" rel="noreferrer" aria-disabled={!access} aria-label={access ? t("qsPage.accessEntry").replace("{name}", item.name).replace("{label}", access.label) : t("qsPage.accessEntryUnconfigured").replace("{name}", item.name)} data-tone="emerald" className="rounded-xl border border-[var(--success-border)] p-3 transition hover:bg-[var(--success)]/[0.1]">
 									<div className="flex items-center justify-between gap-2">
 										<span className="truncate text-sm font-medium text-[var(--text-primary)]">{item.icon} {item.name}</span>
 										<span className="text-[10px] text-[var(--success)]">:{item.port ?? item.defaultPort}</span>
@@ -476,9 +476,9 @@ export function QuickServicesClient({ canManage }: { canManage: boolean }) {
 
 function SummaryPill({ label, value, tone }: { label: string; value: number; tone: "emerald" | "amber" | "rose" | "cyan" }) {
 	const toneClass = {
-		emerald: "border-[var(--success-border)] bg-[var(--success)]0/[0.10] text-[var(--success)]",
-		amber: "border-[var(--warning-border)] bg-[var(--warning)]0/[0.10] text-[var(--warning)]",
-		rose: "border-[var(--danger-border)] bg-[var(--danger)]0/[0.10] text-[var(--danger)]",
+		emerald: "border-[var(--success-border)] bg-[var(--success)]/[0.10] text-[var(--success)]",
+		amber: "border-[var(--warning-border)] bg-[var(--warning)]/[0.10] text-[var(--warning)]",
+		rose: "border-[var(--danger-border)] bg-[var(--danger)]/[0.10] text-[var(--danger)]",
 		cyan: "border-[var(--color-action-border)]/20 bg-[var(--color-action)]/[0.10] text-[var(--text-secondary)]",
 	}[tone];
 
