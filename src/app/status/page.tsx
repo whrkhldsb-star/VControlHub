@@ -39,7 +39,7 @@ async function getAllUptimeData(): Promise<UptimeResponse | null> {
 function getColorClass(uptime: number) {
   if (uptime === 0) return "bg-[var(--surface-hover)]";
   if (uptime >= 99) return "bg-[var(--success)]";
-  if (uptime >= 95) return "bg-[var(--success)]";
+  if (uptime >= 95) return "bg-[var(--info)]";
   if (uptime >= 90) return "bg-[var(--warning)]";
   if (uptime >= 75) return "bg-[var(--warning)]";
   return "bg-[var(--danger)]";
@@ -169,9 +169,9 @@ export default async function Page() {
                 return (
                   <div key={server.id} data-card className="p-4">
                     <div className="mb-3 flex items-center justify-between">
-                      <h3 className="text-sm font-medium">{server.name || "Server"}</h3>
+                      <h3 className="text-sm font-medium">{server.name || t("statusPage.uptime.defaultServerName", locale)}</h3>
                       <div className="text-xs text-[var(--text-muted)]">
-                        SLA: <span className="font-mono">{sla}%</span>
+                        {t("statusPage.uptime.slaLabel", locale)} <span className="font-mono">{sla}%</span>
                       </div>
                     </div>
                     <div className="flex flex-wrap gap-1">

@@ -7,6 +7,7 @@
  * in the parent; this component owns only the layout and a11y wiring.
  */
 import { useI18n } from "@/lib/i18n/use-locale";
+import { useDialogFocus } from "@/lib/a11y/use-dialog-focus";
 
 type Props = {
   open: boolean;
@@ -28,14 +29,20 @@ export function AiRenameDialog({
   onConfirm,
 }: Props) {
   const { t } = useI18n();
+  const dialogRef = useDialogFocus<HTMLDivElement>({ open, onClose: onCancel });
   if (!open) return null;
   return (
-    <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 px-4 backdrop-blur-sm">
+    <div
+      className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 px-4 backdrop-blur-sm"
+      onClick={onCancel}
+    >
       <div
+        ref={dialogRef}
         role="dialog"
         aria-modal="true"
         aria-labelledby="rename-conversation-title"
         className="w-full max-w-sm rounded-2xl border border-[var(--border)] bg-[var(--modal-bg)] p-5 shadow-2xl"
+        onClick={(e) => e.stopPropagation()}
       >
         <h3
           id="rename-conversation-title"

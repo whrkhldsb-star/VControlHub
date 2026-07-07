@@ -62,7 +62,7 @@ export default async function AuditPage({ searchParams }: AuditPageProps) {
 
 	return (
 		<PageShell maxW="max-w-7xl">
-			<PageHeader eyebrow="Audit" title={copy.title} description={copy.description}>
+			<PageHeader eyebrow={t("auditPage.eyebrow", locale)} title={copy.title} description={copy.description}>
 				<div className="flex flex-wrap gap-2 text-xs text-[var(--text-secondary)]">
 					<Link href="/" className="rounded-lg border border-[var(--border)] bg-[var(--surface)]/[0.04] px-3 py-1.5 transition hover:bg-[var(--surface)]/[0.10]">{copy.backHome}</Link>
 					<Link href="/health" className="rounded-lg border border-[var(--border)] bg-[var(--surface)]/[0.04] px-3 py-1.5 transition hover:bg-[var(--surface)]/[0.10]">{copy.healthCheck}</Link>

@@ -134,7 +134,7 @@ export function ServiceCard({
 				{tab === "installed" && (
 					<>
 						{item.status === "running" && access && (
-							<a href={access.url} target="_blank" rel="noreferrer" aria-label={t("qsPage.accessAria").replace("{name}", item.name).replace("{label}", access.label)} title={access.description} className="rounded-lg bg-[var(--success)] px-3 py-1.5 text-xs font-semibold text-[var(--text-primary)] hover:bg-[var(--success)] transition">
+							<a href={access.url} target="_blank" rel="noreferrer" aria-label={t("qsPage.accessAria").replace("{name}", item.name).replace("{label}", access.label)} title={access.description} className="rounded-lg bg-[var(--success)] px-3 py-1.5 text-xs font-semibold text-[var(--text-primary)] hover:bg-[var(--success-bg)] hover:text-[var(--success)] transition">
 								{t("qsPage.access")}
 							</a>
 						)}
@@ -144,7 +144,7 @@ export function ServiceCard({
 							</button>
 						)}
 						{item.status === "stopped" && (
-							<button onClick={onStart} disabled={busy} className="rounded-lg bg-[var(--success)] px-3 py-1.5 text-xs font-semibold text-[var(--text-primary)] hover:bg-[var(--success)] transition disabled:opacity-50">
+							<button onClick={onStart} disabled={busy} className="rounded-lg bg-[var(--success)] px-3 py-1.5 text-xs font-semibold text-[var(--text-primary)] hover:bg-[var(--success-bg)] hover:text-[var(--success)] transition disabled:opacity-50">
 								{busy ? t("qsPage.busy") : t("qsPage.start")}
 							</button>
 						)}
@@ -161,7 +161,7 @@ export function ServiceCard({
 								{busy ? t("qsPage.busy") : t("qsPage.update")}
 							</button>
 						)}
-						<button onClick={onUninstall} disabled={busy} className="ml-auto rounded-lg border border-[var(--danger-border)] px-3 py-1.5 text-xs text-[var(--danger)] hover:bg-[var(--danger)]/[0.10] transition disabled:opacity-50">
+						<button onClick={onUninstall} disabled={busy} className="ml-auto rounded-lg border border-[var(--danger-border)] px-3 py-1.5 text-xs text-[var(--danger)] hover:bg-[var(--danger-bg)] hover:text-[var(--danger)]/[0.10] transition disabled:opacity-50">
 							{t("qsPage.uninstall")}
 						</button>
 					</>

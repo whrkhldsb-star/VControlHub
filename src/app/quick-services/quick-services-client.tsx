@@ -298,7 +298,7 @@ export function QuickServicesClient({ canManage }: { canManage: boolean }) {
 								);
 							}
 							return (
-								<a key={item.slug} href={access.url} target="_blank" rel="noreferrer" aria-label={t("qsPage.accessEntry").replace("{name}", item.name).replace("{label}", access.label)} data-tone="emerald" className="rounded-xl border border-[var(--success-border)] p-3 transition hover:bg-[var(--success)]/[0.1]">
+								<a key={item.slug} href={access.url} target="_blank" rel="noreferrer" aria-label={t("qsPage.accessEntry").replace("{name}", item.name).replace("{label}", access.label)} data-tone="emerald" className="rounded-xl border border-[var(--success-border)] p-3 transition hover:bg-[var(--success-bg)] hover:text-[var(--success)]/[0.1]">
 									{cardBody}
 								</a>
 							);

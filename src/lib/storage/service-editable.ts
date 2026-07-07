@@ -3,6 +3,7 @@ import { access, readFile, stat, writeFile } from "node:fs/promises";
 import type { SessionPayload } from "@/lib/auth/session";
 import { prisma } from "@/lib/db";
 import { BusinessError, ConflictError, ForbiddenError, NotFoundError, ValidationError } from "@/lib/errors";
+import { serverT } from "@/lib/i18n/server-locale";
 import { assertStorageAccess } from "@/lib/storage/access-control";
 import { MAX_EDITABLE_FILE_SIZE_BYTES } from "./mime-constants";
 import {
@@ -16,6 +17,7 @@ async function resolveLocalEditableFileEntry(input: {
   operation: "read" | "write";
   writeBytes?: number | bigint | null;
 }) {
+  const t = await serverT();
   const entry = await prisma.fileEntry.findUnique({
     where: { id: input.fileEntryId },
     include: {
@@ -31,11 +33,11 @@ async function resolveLocalEditableFileEntry(input: {
   });
 
   if (!entry || entry.isDeleted) {
-    throw new NotFoundError("文件条目不存在或已删除");
+    throw new NotFoundError(t("backend.storage.editableEntryNotFound"));
   }
 
   if (entry.storageNode.driver !== "LOCAL") {
-    throw new BusinessError("仅支持编辑已上传到当前服务器本机存储节点的文件");
+    throw new BusinessError(t("backend.storage.editableLocalOnly"));
   }
 
   const storageAccess = await assertStorageAccess({
@@ -46,7 +48,7 @@ async function resolveLocalEditableFileEntry(input: {
     writeBytes: input.writeBytes,
   });
   if (!storageAccess.allowed) {
-    throw new ForbiddenError(storageAccess.reason ?? "没有该存储节点或路径的访问授权");
+    throw new ForbiddenError(storageAccess.reason ?? t("backend.storage.editableNoAccess"));
   }
 
   if (
@@ -56,7 +58,7 @@ async function resolveLocalEditableFileEntry(input: {
       mimeType: entry.mimeType,
     })
   ) {
-    throw new ValidationError("当前仅支持编辑文本类文件");
+    throw new ValidationError(t("backend.storage.editableTextOnly"));
   }
 
   const absolutePath = resolveLocalAbsolutePath(
@@ -67,11 +69,11 @@ async function resolveLocalEditableFileEntry(input: {
   const fileStat = await stat(absolutePath);
 
   if (!fileStat.isFile()) {
-    throw new BusinessError("目标不是可编辑文件");
+    throw new BusinessError(t("backend.storage.editableTargetNotFile"));
   }
 
   if (fileStat.size > MAX_EDITABLE_FILE_SIZE_BYTES) {
-    throw new ValidationError("文件超过 512 KB，暂不支持在线编辑");
+    throw new ValidationError(t("backend.storage.editableFileTooLarge"));
   }
 
   return { entry, absolutePath, fileStat };
@@ -110,8 +112,10 @@ export async function saveLocalEditableFileDraft(input: {
   const content = String(input.content ?? "");
   const byteSize = Buffer.byteLength(content, "utf8");
 
+  const t = await serverT();
+
   if (byteSize > MAX_EDITABLE_FILE_SIZE_BYTES) {
-    throw new ValidationError("文件超过 512 KB，暂不支持在线编辑");
+    throw new ValidationError(t("backend.storage.editableFileTooLarge"));
   }
 
   const { entry, fileStat, absolutePath } = await resolveLocalEditableFileEntry(
@@ -125,7 +129,7 @@ export async function saveLocalEditableFileDraft(input: {
 
   const currentUpdatedAt = entry.updatedAt?.toISOString?.() ?? entry.updatedAt;
   if (input.expectedUpdatedAt && currentUpdatedAt && input.expectedUpdatedAt !== currentUpdatedAt) {
-    throw new ConflictError("文件已被其他操作更新，请重新加载后再保存");
+    throw new ConflictError(t("backend.storage.editableFileUpdatedByOther"));
   }
 
   if (
@@ -133,7 +137,7 @@ export async function saveLocalEditableFileDraft(input: {
     Number.isFinite(input.expectedLastModifiedMs) &&
     Math.abs(fileStat.mtimeMs - input.expectedLastModifiedMs) > 1
   ) {
-    throw new ConflictError("文件内容已在磁盘上发生变化，请重新加载后再保存");
+    throw new ConflictError(t("backend.storage.editableFileChangedOnDisk"));
   }
 
   await writeFile(absolutePath, content, "utf8");

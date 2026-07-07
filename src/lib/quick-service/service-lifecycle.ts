@@ -172,6 +172,7 @@ export async function startService(slug: string) {
 				diff: { before, after: { status: "running", mode: "existing-container" } },
 			});
 		} catch {
+			// Container not found or start failed — fall back to re-creating it from the template.
 			const tmpl: ServiceTemplate = {
 				slug: svc.slug,
 				name: svc.name,
@@ -339,6 +340,7 @@ export async function syncServiceStatus(slug: string) {
 		});
 		return status;
 	} catch {
+		// Container inspection failed (missing or unreachable) — treat as stopped.
 		await prisma.quickService.update({ where: { slug }, data: { status: "stopped" } });
 		await writeQuickServiceAudit({
 			action: "sync",
@@ -370,6 +372,7 @@ export function checkPort(port: number): { available: boolean; usedBy: string | 
 					});
 					usedBy = cmdLine.trim().substring(0, 80) || `PID ${pid}`;
 				} catch {
+					// /proc/<pid>/cmdline unreadable (process exited, permission) — use PID as label.
 					usedBy = `PID ${pid}`;
 				}
 			}
@@ -377,6 +380,7 @@ export function checkPort(port: number): { available: boolean; usedBy: string | 
 		}
 		return { available: true, usedBy: null };
 	} catch {
+		// Port lookup/inspection failed — assume the port is available rather than blocking use.
 		return { available: true, usedBy: null };
 	}
 }

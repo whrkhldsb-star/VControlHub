@@ -92,6 +92,7 @@ export function setupWebSocketServer(server: import("node:http").Server) {
 					wss!.emit("connection", ws, request, session);
 				});
 			} catch {
+				// Upgrade failed (bad session, protocol error, etc.) — drop the socket.
 				socket.destroy();
 			}
 		})();

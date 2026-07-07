@@ -4,6 +4,7 @@ import { EmptyState, StatCard } from "@/components/page-shell";
 import { useMemo, useState } from "react";
 import { csrfFetch } from "@/lib/auth/csrf-client";
 import { useI18n } from "@/lib/i18n/use-locale";
+import { useDialogFocus } from "@/lib/a11y/use-dialog-focus";
 
 export type SafeApiToken = {
   id: string;
@@ -22,11 +23,11 @@ type Props = {
   allowedScopes: readonly string[];
 };
 
-function formatDate(value: Date | string | null) {
+function formatDate(value: Date | string | null, locale?: string) {
   if (!value) return "—";
   const date = value instanceof Date ? value : new Date(value);
   if (Number.isNaN(date.getTime())) return "—";
-  return date.toLocaleString("zh-CN", { hour12: false });
+  return date.toLocaleString(locale === "zh" ? "zh-CN" : "en-US", { hour12: false });
 }
 
 function tokenStatus(t: (k: string) => string, token: SafeApiToken) {
@@ -43,7 +44,7 @@ function scopeLabel(t: (k: string) => string, scope: string): string {
 }
 
 export function ApiTokenManagerClient({ initialTokens, allowedScopes }: Props) {
-  const { t } = useI18n();
+  const { t, locale } = useI18n();
   const [tokens, setTokens] = useState(initialTokens);
   const [name, setName] = useState("");
   const [selectedScopes, setSelectedScopes] = useState<string[]>(["read"]);
@@ -53,6 +54,7 @@ export function ApiTokenManagerClient({ initialTokens, allowedScopes }: Props) {
   const [error, setError] = useState<string | null>(null);
   const [createdPlaintext, setCreatedPlaintext] = useState<string | null>(null);
   const [tokenPendingRevoke, setTokenPendingRevoke] = useState<SafeApiToken | null>(null);
+  const revokeDialogRef = useDialogFocus({ open: !!tokenPendingRevoke, onClose: () => setTokenPendingRevoke(null) });
 
   const activeCount = useMemo(() => tokens.filter((token) => !token.revokedAt).length, [tokens]);
 
@@ -203,8 +205,8 @@ export function ApiTokenManagerClient({ initialTokens, allowedScopes }: Props) {
         )}
       </section>
       {tokenPendingRevoke && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-[var(--surface)]/70 px-4 backdrop-blur-sm" role="presentation">
-          <section role="dialog" aria-modal="true" aria-labelledby="revoke-api-token-title" className="w-full max-w-md rounded-2xl border border-[var(--danger-border)] bg-[var(--modal-bg)] p-6 shadow-[0_24px_100px_rgba(244,63,94,0.16)]">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-[var(--surface)]/70 px-4 backdrop-blur-sm" role="presentation" onClick={() => setTokenPendingRevoke(null)}>
+          <section ref={revokeDialogRef} role="dialog" aria-modal="true" aria-labelledby="revoke-api-token-title" className="w-full max-w-md rounded-2xl border border-[var(--danger-border)] bg-[var(--modal-bg)] p-6 shadow-[0_24px_100px_rgba(244,63,94,0.16)]">
             <h2 id="revoke-api-token-title" className="text-lg font-semibold text-[var(--text-primary)]">{t("apiTokensPage.revoke.confirmTitle")}</h2>
             <p className="mt-3 text-sm leading-6 text-[var(--text-secondary)]">
               {t("apiTokensPage.revoke.confirmBody").replace("{name}", tokenPendingRevoke.name)}
@@ -213,7 +215,7 @@ export function ApiTokenManagerClient({ initialTokens, allowedScopes }: Props) {
               <button type="button" onClick={() => setTokenPendingRevoke(null)} className="rounded-xl border border-[var(--border)] px-4 py-2 text-sm font-medium text-[var(--text-secondary)] hover:bg-[var(--surface-hover)]">
                 {t("apiTokensPage.revoke.cancel")}
               </button>
-              <button type="button" onClick={() => revokeToken(tokenPendingRevoke)} className="rounded-xl bg-[var(--danger)] px-4 py-2 text-sm font-semibold text-[var(--text-primary)] hover:bg-[var(--danger)]">
+              <button type="button" onClick={() => revokeToken(tokenPendingRevoke)} className="rounded-xl bg-[var(--danger)] px-4 py-2 text-sm font-semibold text-[var(--text-primary)] hover:bg-[var(--danger-bg)] hover:text-[var(--danger)]">
                 {t("apiTokensPage.revoke.confirm")}
               </button>
             </div>

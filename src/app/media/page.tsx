@@ -170,7 +170,7 @@ export default async function Page({
                 <Link
                   href="/image-bed"
                   data-tone="emerald"
-                  className="inline-flex items-center gap-1 rounded-lg border border-[var(--success-border)] px-3 py-1.5 font-medium text-[var(--success)] transition hover:bg-[var(--success)]"
+                  className="inline-flex items-center gap-1 rounded-lg border border-[var(--success-border)] px-3 py-1.5 font-medium text-[var(--success)] transition hover:bg-[var(--success-bg)] hover:text-[var(--success)]"
                 >
                   {" "}
                   {t("mediaPage.linkHub.label", locale)}{" "}
@@ -275,7 +275,7 @@ export default async function Page({
               href={toggleTypeHref(filters, "audio")}
               active={mediaType === "audio"}
               activeClassName="border-[var(--success-border)] bg-[var(--success)] text-[var(--success)]"
-              inactiveClassName="border-[var(--success-border)] bg-[var(--success)]/[0.10] text-[var(--success)] hover:bg-[var(--success)]"
+              inactiveClassName="border-[var(--success-border)] bg-[var(--success)]/[0.10] text-[var(--success)] hover:bg-[var(--success-bg)] hover:text-[var(--success)]"
               className="rounded-2xl border px-4 py-3 transition"
               title={
                 mediaType === "audio"
@@ -457,7 +457,7 @@ export default async function Page({
             <Link
               href="/image-bed"
               data-tone="emerald"
-              className="inline-flex items-center justify-center rounded-xl border border-[var(--success-border)] px-3 py-2 text-xs font-medium text-[var(--success)] transition hover:bg-[var(--success)]"
+              className="inline-flex items-center justify-center rounded-xl border border-[var(--success-border)] px-3 py-2 text-xs font-medium text-[var(--success)] transition hover:bg-[var(--success-bg)] hover:text-[var(--success)]"
             >
               {" "}
               {t("mediaPage.linkHub.open", locale)}{" "}

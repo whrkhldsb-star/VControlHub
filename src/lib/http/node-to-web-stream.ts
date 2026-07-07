@@ -25,6 +25,7 @@ export function nodeStreamToWeb(nodeStream: NodeJS.ReadableStream): ReadableStre
 				try {
 					controller.close();
 				} catch {
+					// Controller already closed or errored — nothing to do.
 				}
 			};
 			const onData = (chunk: Buffer | string) => {
@@ -32,6 +33,7 @@ export function nodeStreamToWeb(nodeStream: NodeJS.ReadableStream): ReadableStre
 				try {
 					controller.enqueue(typeof chunk === "string" ? new TextEncoder().encode(chunk) : chunk);
 				} catch {
+					// Stream closed/erroring — tear down the underlying Node stream.
 					closed = true;
 					cleanup();
 					nodeStream.destroy();
@@ -46,6 +48,7 @@ export function nodeStreamToWeb(nodeStream: NodeJS.ReadableStream): ReadableStre
 				try {
 					controller.error(error);
 				} catch {
+					// Controller already closed — cannot propagate the error further.
 				}
 			};
 

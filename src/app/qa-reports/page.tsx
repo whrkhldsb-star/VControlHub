@@ -13,7 +13,7 @@
  */
 import { requireSession } from "@/lib/auth/require-session";
 import { sessionHasPermission } from "@/lib/auth/authorization";
-import { t } from "@/lib/i18n/translations";
+import { getServerLocale, t } from "@/lib/i18n/translations";
 import { listQaReports } from "@/lib/qa-reports/service";
 import { QaReportsListClient } from "./qa-reports-list-client";
 import { PageShell, PageHeader, EmptyState } from "@/components/page-shell";
@@ -21,6 +21,7 @@ import { PageShell, PageHeader, EmptyState } from "@/components/page-shell";
 export const dynamic = "force-dynamic";
 
 export default async function QaReportsPage() {
+	const locale = await getServerLocale();
 	const session = await requireSession("/qa-reports");
 	if (!sessionHasPermission(session, "task:read")) {
 		return (
@@ -33,7 +34,7 @@ export default async function QaReportsPage() {
 	return (
 		<PageShell maxW="max-w-7xl">
 			<PageHeader
-				eyebrow="QA Reports"
+				eyebrow={t("qaReportsPage.eyebrow", locale)}
 				title={t("qaReportsPage.title")}
 				description={t("qaReportsPage.desc")}
 			/>

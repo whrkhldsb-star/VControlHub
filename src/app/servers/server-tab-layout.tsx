@@ -35,7 +35,7 @@ export function ServerTabLayout({
 
 	return (
 		<div className="space-y-5">
-			<section data-card aria-label="VPS quick actions" className="p-2">
+			<section data-card aria-label={t("serversPage.quickActionsAria")} className="p-2">
 				<div className="grid gap-2 md:grid-cols-4">
 					{actions.map((action) => {
 						const disabled = !panels[action.key];

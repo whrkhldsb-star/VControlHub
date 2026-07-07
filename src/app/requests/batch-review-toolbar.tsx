@@ -126,7 +126,7 @@ export function BatchReviewToolbar({
 						className="h-4 w-4 accent-[var(--color-action)]"
 						checked={allSelected}
 						onChange={toggleAll}
-						aria-label="Select all pending approvals"
+						aria-label={t("requestsPage.batch.selectAllAria")}
 					/>
 					<span className="text-[var(--text-secondary)]">
 						{t("requestsPage.batch.selectAll").replace("{count}", String(pendingIds.length))}
@@ -153,7 +153,7 @@ export function BatchReviewToolbar({
 				<form
 					action={formAction}
 					className="sticky bottom-3 z-20 flex flex-col gap-2 rounded-xl border border-[var(--color-action-border)]/30 bg-[var(--modal-bg)] p-3 shadow-2xl backdrop-blur sm:flex-row sm:items-center sm:gap-3"
-					aria-label="Batch approval toolbar"
+					aria-label={t("requestsPage.batch.toolbarAria")}
 				>
 					{Array.from(selected).map((id) => (
 						<input key={id} type="hidden" name="commandRequestId" value={id} />
@@ -175,7 +175,7 @@ export function BatchReviewToolbar({
 						name="decision"
 						value="approve"
 						disabled={isPending}
-						className="rounded-lg bg-[var(--success)] px-4 py-2 text-sm font-medium text-[var(--color-action-fg)] transition hover:bg-[var(--success)] disabled:cursor-not-allowed disabled:opacity-60"
+						className="rounded-lg bg-[var(--success)] px-4 py-2 text-sm font-medium text-[var(--color-action-fg)] transition hover:bg-[var(--success-bg)] hover:text-[var(--success)] disabled:cursor-not-allowed disabled:opacity-60"
 					>
 						{isPending ? t("requestsPage.batch.pending") : t("requestsPage.batch.approve").replace("{count}", String(selected.size))}
 					</button>

@@ -49,7 +49,7 @@ export function PendingSourceDeleteDialog({
 					<button
 						type="button"
 						onClick={onConfirm}
-						className="min-h-11 rounded-lg bg-[var(--danger)] px-4 py-2 text-xs font-semibold text-[var(--text-primary)] hover:bg-[var(--danger)] transition"
+						className="min-h-11 rounded-lg bg-[var(--danger)] px-4 py-2 text-xs font-semibold text-[var(--text-primary)] hover:bg-[var(--danger-bg)] hover:text-[var(--danger)] transition"
 					>
 						{t("qsPage.confirmDelete")}
 					</button>

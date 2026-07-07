@@ -4,12 +4,14 @@ import { useState, useEffect, useCallback, useRef, type MouseEvent } from "react
 import { csrfFetch } from "@/lib/auth/csrf-client";
 import { EmptyState } from "@/components/page-shell";
 import { useI18n } from "@/lib/i18n/use-locale";
+import { useDialogFocus } from "@/lib/a11y/use-dialog-focus";
 import { CreateDownloadFormLazy } from "./create-download-form-lazy";
 import { DownloadTaskRow } from "./downloads-task-row";
 import { getCategories, getErrorMessage, getStatusLabel, formatSpeed, type DownloadTask, type GlobalStat, type ServerOption } from "./downloads-shared";
 export type { ServerOption } from "./downloads-shared";
 export function DownloadsClient({ servers, canManage, canManageNode }: { servers: ServerOption[]; canManage: boolean; canManageNode: boolean }) {
 	const { t } = useI18n();
+
 	const [tasks, setTasks] = useState<DownloadTask[]>([]);
 	const [globalStat, setGlobalStat] = useState<GlobalStat>(null);
 	const [loading, setLoading] = useState(true);
@@ -29,6 +31,7 @@ export function DownloadsClient({ servers, canManage, canManageNode }: { servers
 	const busyActionRef = useRef<Set<string>>(new Set());
 	const [downloadingIds, setDownloadingIds] = useState<Record<string, boolean>>({});
 	const [pendingPurgeTaskId, setPendingPurgeTaskId] = useState<string | null>(null);
+  const dialogRef = useDialogFocus<HTMLDivElement>({ open: pendingPurgeTaskId !== null, onClose: () => setPendingPurgeTaskId(null) });
 
 	const fetchTasks = useCallback(async () => {
 		try {
@@ -340,8 +343,8 @@ export function DownloadsClient({ servers, canManage, canManageNode }: { servers
 				</div>
 			)}
 			{pendingPurgeTaskId ? (
-				<div className="fixed inset-0 z-50 flex items-center justify-center bg-[var(--surface)]/70 px-4 backdrop-blur-sm" role="presentation">
-					<section role="dialog" aria-modal="true" aria-labelledby="download-purge-title" className="w-full max-w-md rounded-2xl border border-[var(--danger-border)] bg-[var(--modal-bg)] p-6 shadow-[0_24px_100px_rgba(244,63,94,0.16)]">
+				<div className="fixed inset-0 z-50 flex items-center justify-center bg-[var(--surface)]/70 px-4 backdrop-blur-sm" role="presentation" onClick={() => setPendingPurgeTaskId(null)}>
+					<section ref={dialogRef} role="dialog" aria-modal="true" aria-labelledby="download-purge-title" className="w-full max-w-md rounded-2xl border border-[var(--danger-border)] bg-[var(--modal-bg)] p-6 shadow-[0_24px_100px_rgba(244,63,94,0.16)]">
 						<h3 id="download-purge-title" className="text-lg font-semibold text-[var(--text-primary)]">{t("common.confirmDelete")}</h3>
 						<p className="mt-3 text-sm leading-6 text-[var(--text-secondary)]">{t("downloadsPage.confirm.purge").replace("${name}", pendingPurgeName)}</p>
 						<div className="mt-6 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">

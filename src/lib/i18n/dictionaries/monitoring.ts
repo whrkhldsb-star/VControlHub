@@ -49,6 +49,7 @@ export const zh: Record<string, string> = {
 	"monitoringPage.field.noData": "无数据",
 	"monitoringPage.field.activeConnections": "活跃连接",
 	"monitoringPage.table.command": "命令",
+	"monitoringPage.eyebrow": "监控",
 };
 
 export const en: Record<string, string> = {
@@ -95,4 +96,5 @@ export const en: Record<string, string> = {
 	"monitoringPage.field.noData": "No data",
 	"monitoringPage.field.activeConnections": "Active connections",
 	"monitoringPage.table.command": "Command",
+	"monitoringPage.eyebrow": "Monitoring",
 };

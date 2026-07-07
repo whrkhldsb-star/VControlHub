@@ -1,9 +1,10 @@
 "use client";
-import { useActionState, useState } from "react";
+import { useActionState, useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { SubmitButton } from "@/components/submit-button";
 import { useSshTerminal } from "./ssh-terminal-context";
 import { useI18n } from "@/lib/i18n/use-locale";
+import { useDialogFocus } from "@/lib/a11y/use-dialog-focus";
 import {
   deleteServerAction,
   toggleServerAction,
@@ -78,6 +79,9 @@ export function ServerCardActions({
     initialState,
   );
   const [showEdit, setShowEdit] = useState(false);
+  useEffect(() => {
+    if (toggleState.success) router.refresh();
+  }, [toggleState.success, router]);
   const { openTerminal } = useSshTerminal();
   const isConfirming =
     deleteState.relatedStorageCount !== undefined &&
@@ -334,7 +338,7 @@ export function ServerCardActions({
             <SubmitButton
               pendingLabel={t("serverCardActions.edit.pending")}
               data-tone="emerald"
-              className="w-full rounded-2xl border border-[var(--success-border)] px-4 py-2 text-sm font-medium text-[var(--success)] transition hover:bg-[var(--success)] light:border-[var(--success-border)] light:bg-[var(--success-bg)] light:hover:bg-[var(--success-bg)]"
+              className="w-full rounded-2xl border border-[var(--success-border)] px-4 py-2 text-sm font-medium text-[var(--success)] transition hover:bg-[var(--success-bg)] hover:text-[var(--success)] light:border-[var(--success-border)] light:bg-[var(--success-bg)] light:hover:bg-[var(--success-bg)]"
             >
               {" "}
               {t("serverCardActions.edit.submit")}{" "}
@@ -444,7 +448,7 @@ export function ServerCardActions({
                   <SubmitButton
                     pendingLabel={t("serverCardActions.delete.pending")}
                     data-tone="rose"
-                    className="flex-1 rounded-2xl border border-[var(--danger-border)] px-4 py-2 text-sm font-medium text-[var(--danger)] transition hover:bg-[var(--danger)] light:hover:bg-[var(--danger-bg)] light:hover:bg-[var(--danger)]"
+                    className="flex-1 rounded-2xl border border-[var(--danger-border)] px-4 py-2 text-sm font-medium text-[var(--danger)] transition hover:bg-[var(--danger-bg)] hover:text-[var(--danger)] light:hover:bg-[var(--danger-bg)] light:hover:bg-[var(--danger-bg)] hover:text-[var(--danger)]"
                   >
                     {" "}
                     {t("common.confirmDelete")}{" "}
@@ -463,7 +467,7 @@ export function ServerCardActions({
               <SubmitButton
                 pendingLabel={t("serverCardActions.delete.pendingLookup")}
                 data-tone="rose"
-                className="w-full rounded-2xl border border-[var(--danger-border)] px-4 py-2 text-sm font-medium text-[var(--danger)] transition hover:bg-[var(--danger)] light:hover:bg-[var(--danger-bg)] light:hover:bg-[var(--danger-bg)]"
+                className="w-full rounded-2xl border border-[var(--danger-border)] px-4 py-2 text-sm font-medium text-[var(--danger)] transition hover:bg-[var(--danger-bg)] hover:text-[var(--danger)] light:hover:bg-[var(--danger-bg)] light:hover:bg-[var(--danger-bg)]"
               >
                 {" "}
                 {t("serverCardActions.delete.confirm")}{" "}

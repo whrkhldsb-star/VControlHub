@@ -50,7 +50,7 @@ export class AppError extends Error {
 
 /** 401 — caller is not authenticated. */
 export class AuthError extends AppError {
-	constructor(message = "未认证", details?: unknown) {
+	constructor(message = "Authentication required", details?: unknown) {
 		super({ code: "AUTH_REQUIRED", message, status: 401, details });
 		this.name = "AuthError";
 	}
@@ -58,7 +58,7 @@ export class AuthError extends AppError {
 
 /** 403 — authenticated but lacking permission. */
 export class ForbiddenError extends AppError {
-	constructor(message = "无权访问", details?: unknown) {
+	constructor(message = "Access forbidden", details?: unknown) {
 		super({ code: "FORBIDDEN", message, status: 403, details });
 		this.name = "ForbiddenError";
 	}
@@ -66,7 +66,7 @@ export class ForbiddenError extends AppError {
 
 /** 404 — resource not found. */
 export class NotFoundError extends AppError {
-	constructor(message = "资源不存在", details?: unknown) {
+	constructor(message = "Resource not found", details?: unknown) {
 		super({ code: "NOT_FOUND", message, status: 404, details });
 		this.name = "NotFoundError";
 	}
@@ -74,7 +74,7 @@ export class NotFoundError extends AppError {
 
 /** 400 — input did not pass validation. `details` typically carries field errors. */
 export class ValidationError extends AppError {
-	constructor(message = "输入校验失败", details?: unknown) {
+	constructor(message = "Validation failed", details?: unknown) {
 		super({ code: "VALIDATION_FAILED", message, status: 400, details });
 		this.name = "ValidationError";
 	}
@@ -82,7 +82,7 @@ export class ValidationError extends AppError {
 
 /** 409 — request conflicts with current state (duplicate slug, version race, etc.). */
 export class ConflictError extends AppError {
-	constructor(message = "状态冲突", details?: unknown) {
+	constructor(message = "Conflict", details?: unknown) {
 		super({ code: "CONFLICT", message, status: 409, details });
 		this.name = "ConflictError";
 	}
@@ -90,7 +90,7 @@ export class ConflictError extends AppError {
 
 /** 429 — caller exceeded rate limit. */
 export class RateLimitError extends AppError {
-	constructor(message = "请求过于频繁", details?: unknown) {
+	constructor(message = "Rate limit exceeded", details?: unknown) {
 		super({ code: "RATE_LIMITED", message, status: 429, details });
 		this.name = "RateLimitError";
 	}

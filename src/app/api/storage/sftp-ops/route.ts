@@ -384,6 +384,7 @@ async function handlePost(body: SftpOpsBody, session: SessionPayload) {
             encoding = "base64";
           }
         } catch {
+          // UTF-8 decode/validation failed (binary content) — fall back to base64.
           content = buffer.toString("base64");
           encoding = "base64";
         }

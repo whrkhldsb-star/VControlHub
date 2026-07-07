@@ -61,26 +61,26 @@ export async function updateBackupRecordStatus(
 
 export async function voidBackupRecord(input: { id: string; reason: string }) {
 	const record = await getBackupRecord(input.id);
-	if (!record) throw new NotFoundError("备份记录不存在");
-	if (record.status === "COMPLETED") throw new BusinessError("已完成备份不能作废");
-	if (record.status === "RUNNING") throw new BusinessError("运行中的备份不能作废");
+	if (!record) throw new NotFoundError("Backup record not found");
+	if (record.status === "COMPLETED") throw new BusinessError("Completed backups cannot be voided");
+	if (record.status === "RUNNING") throw new BusinessError("Running backups cannot be voided");
 	const reason = input.reason.trim().slice(0, 500);
-	if (!reason) throw new ValidationError("作废原因不能为空");
-	const prefix = "已作废";
+	if (!reason) throw new ValidationError("Void reason cannot be empty");
+	const prefix = "Voided";
 	const errorMessage = record.errorMessage?.includes(prefix)
 		? record.errorMessage
-		: `${prefix}：${reason}`;
+		: `${prefix}: ${reason}`;
 	return updateBackupRecordStatus(record.id, { status: "FAILED", errorMessage });
 }
 
 export async function prepareBackupRecordRetry(input: { id: string }) {
 	const record = await getBackupRecord(input.id);
-	if (!record) throw new NotFoundError("备份记录不存在");
-	if (record.status === "COMPLETED") throw new BusinessError("已完成备份不能重试");
-	if (record.status === "RUNNING") throw new BusinessError("运行中的备份不能重试");
-	if (record.status === "PENDING") throw new BusinessError("排队中的备份不能重复排队");
-	if (record.status !== "FAILED") throw new BusinessError("只能重试失败的备份记录");
-	if (!isBackupType(record.type)) throw new ValidationError("备份类型无效");
+	if (!record) throw new NotFoundError("Backup record not found");
+	if (record.status === "COMPLETED") throw new BusinessError("Completed backups cannot be retried");
+	if (record.status === "RUNNING") throw new BusinessError("Running backups cannot be retried");
+	if (record.status === "PENDING") throw new BusinessError("Pending backups cannot be re-queued");
+	if (record.status !== "FAILED") throw new BusinessError("Only failed backups can be retried");
+	if (!isBackupType(record.type)) throw new ValidationError("Invalid backup type");
 	assertPortableBackupPath(record.filePath);
 	return updateBackupRecordStatus(record.id, { status: "PENDING", errorMessage: null });
 }

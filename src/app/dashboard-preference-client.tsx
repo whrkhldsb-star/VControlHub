@@ -87,6 +87,7 @@ export function DashboardPreferenceClient({
 				const raw = window.localStorage.getItem("vps-preferences");
 				loadPreferences(raw ? JSON.parse(raw) : null);
 			} catch {
+				// Stored preferences are corrupted or unparseable — reset to defaults.
 				loadPreferences(null);
 			}
 		};
@@ -100,7 +101,6 @@ export function DashboardPreferenceClient({
 		};
 	}, []);
 
-	const _effectiveOrder = draftOrder ?? preferences.dashboardWidgets;
 	const effectiveHidden = useMemo(() => {
 		if (draftHidden) return draftHidden;
 		// All visible = none hidden. We model "hidden" as a separate set on top of order.
@@ -192,7 +192,7 @@ export function DashboardPreferenceClient({
 	);
 
 	// HTML5 drag-and-drop wiring — only enabled in edit mode.
-	const _handleDragStart = useCallback(
+	const handleDragStart = useCallback(
 		(id: DashboardWidgetId) => (e: React.DragEvent) => {
 			if (!isEditing) return;
 			setDragId(id);
@@ -211,7 +211,7 @@ export function DashboardPreferenceClient({
 		[isEditing],
 	);
 
-	const _handleDrop = useCallback(
+	const handleDrop = useCallback(
 		(targetId: DashboardWidgetId) => (e: React.DragEvent) => {
 			if (!isEditing) return;
 			e.preventDefault();
@@ -235,6 +235,36 @@ export function DashboardPreferenceClient({
 	const handleDragEnd = useCallback(() => {
 		setDragId(null);
 	}, []);
+
+	// Wire draggable + listeners on each widget via React useEffect (replaces inline <script>).
+	useEffect(() => {
+		if (!isEditing) return;
+		const root = gridRef.current;
+		if (!root) return;
+
+		const widgets = root.querySelectorAll<HTMLElement>("[data-dashboard-widget]");
+		const cleanups: (() => void)[] = [];
+		widgets.forEach((w) => {
+			w.setAttribute("draggable", "true");
+			const id = w.getAttribute("data-dashboard-widget") as DashboardWidgetId | null;
+			if (!id) return;
+			const onStart = handleDragStart(id) as unknown as EventListener;
+			const onOver = handleDragOver as unknown as EventListener;
+			const onDrop = handleDrop(id) as unknown as EventListener;
+			w.addEventListener("dragstart", onStart);
+			w.addEventListener("dragover", onOver);
+			w.addEventListener("drop", onDrop);
+			cleanups.push(() => {
+				w.removeEventListener("dragstart", onStart);
+				w.removeEventListener("dragover", onOver);
+				w.removeEventListener("drop", onDrop);
+				w.removeAttribute("draggable");
+			});
+		});
+
+		return () => cleanups.forEach((fn) => fn());
+	}, [isEditing, handleDragStart, handleDragOver, handleDrop]);
+
 
 	// Render a per-widget wrapper that exposes dnd + order attributes when editing.
 	// Done as a CSS-injection strategy (no React.Children.map re-ordering), so
@@ -285,47 +315,9 @@ export function DashboardPreferenceClient({
 			>
 				{children}
 			</div>
-			{isEditing ? (
-				<noscript>
-					<style>{`[data-dashboard-edit="true"] [data-dashboard-widget]{cursor:move}`}</style>
-				</noscript>
-			) : null}
-			{/* Inject data-dnd handlers on each widget via DOM query is heavy; instead we
-			    emit a small inline script that attaches dragstart/dragover/drop listeners
-			    to any [data-dashboard-widget] inside [data-dashboard-edit="true"] once
-			    on mount. This keeps the server-rendered output stable. */}
-			{isEditing ? (
-				<script
-					dangerouslySetInnerHTML={{
-						__html: `(() => {
-  try {
-    const root = document.querySelector('[data-dashboard-edit="true"]');
-    if (!root || root.dataset.dndWired === '1') return;
-    root.dataset.dndWired = '1';
-    const widgets = root.querySelectorAll('[data-dashboard-widget]');
-    widgets.forEach((w) => {
-      w.setAttribute('draggable', 'true');
-      w.addEventListener('dragstart', (e) => {
-        const id = w.getAttribute('data-dashboard-widget');
-        if (!id) return;
-        e.dataTransfer.setData('text/plain', id);
-        e.dataTransfer.effectAllowed = 'move';
-      });
-      w.addEventListener('dragover', (e) => { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; });
-      w.addEventListener('drop', (e) => {
-        e.preventDefault();
-        const src = e.dataTransfer.getData('text/plain');
-        const dst = w.getAttribute('data-dashboard-widget');
-        if (!src || !dst || src === dst) return;
-        const evt = new CustomEvent('vps-dashboard-reorder', { detail: { src, dst } });
-        root.dispatchEvent(evt);
-      });
-    });
-  } catch (err) { /* noop */ }
-})();`,
-					}}
-				/>
-			) : null}
+			
+			{/* Drag-and-drop wired via React useEffect using gridRef querySelectorAll. */}
+			
 			{isEditing ? (
 				<p className="mt-2 text-center text-[11px] text-[var(--text-muted)]">
 					{t("dashboard.customize-drag-tip")}

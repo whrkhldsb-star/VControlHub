@@ -269,6 +269,7 @@ export function useQuickServiceActions({
         fetchSources();
         if (!enabled) fetchCatalog();
       } catch {
+        // API call failed — surface a generic error toast to the user.
         setMessage({ type: "err", text: t("qsActions.opFailed") });
       }
     },

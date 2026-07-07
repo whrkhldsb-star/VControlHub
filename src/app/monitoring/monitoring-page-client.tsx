@@ -160,7 +160,7 @@ export default function MonitoringPage({ canManage: _canManage }: { canManage: b
             type="button"
             onClick={fetchStats}
             disabled={refreshing}
-            className="mt-4 rounded-lg bg-[var(--danger)] px-4 py-2 text-xs font-semibold text-[var(--text-primary)] transition hover:bg-[var(--danger)] disabled:cursor-not-allowed disabled:opacity-60"
+            className="mt-4 rounded-lg bg-[var(--danger)] px-4 py-2 text-xs font-semibold text-[var(--text-primary)] transition hover:bg-[var(--danger-bg)] hover:text-[var(--danger)] disabled:cursor-not-allowed disabled:opacity-60"
           >
             {refreshing ? t("monitoringPage.retrying") : t("monitoringPage.retry")}
           </button>
@@ -179,7 +179,7 @@ export default function MonitoringPage({ canManage: _canManage }: { canManage: b
   return (
     <PageShell>
       <PageHeader
-        eyebrow="Monitoring"
+        eyebrow={t("monitoringPage.eyebrow")}
         title={t("monitoringPage.title")}
         description={t("monitoringPage.desc")}
         className="mb-6"

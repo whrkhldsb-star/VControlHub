@@ -1,6 +1,7 @@
 "use client";
 
 import { useI18n } from "@/lib/i18n/use-locale";
+import { useDialogFocus } from "@/lib/a11y/use-dialog-focus";
 import type { DiffRow } from "./text-preview-types";
 
 type DiffReviewDialogProps = {

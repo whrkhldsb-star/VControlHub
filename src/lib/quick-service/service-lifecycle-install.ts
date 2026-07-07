@@ -36,6 +36,7 @@ async function rollbackInstallToSnapshot(slug: string, before: QuickServiceSnaps
 		try {
 			await prisma.quickService.delete({ where: { slug } });
 		} catch {
+			// Record no longer exists (concurrent delete) — mark as errored instead.
 			await prisma.quickService.update({ where: { slug }, data: { status: "error", error } }).catch(() => {});
 		}
 		return { status: "deleted", reason: "fresh-install-failed" };

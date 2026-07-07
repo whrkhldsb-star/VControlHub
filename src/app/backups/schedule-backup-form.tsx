@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { csrfFetch } from "@/lib/auth/csrf-client";
 import { useI18n } from "@/lib/i18n/use-locale";
+import { useDialogFocus } from "@/lib/a11y/use-dialog-focus";
 import type { BackupType } from "@/lib/backup/service";
 import { formatZhDateTime } from "@/lib/datetime/format";
 
@@ -65,6 +66,7 @@ function statusLabel(t: (k: string) => string, status: string): string {
 
 export function ScheduleBackupForm() {
 	const { t } = useI18n();
+
 	const [type, setType] = useState<BackupType>("DATABASE");
 	const [name, setName] = useState("");
 	const [cronExpression, setCronExpression] = useState("0 3 * * *");
@@ -75,14 +77,13 @@ export function ScheduleBackupForm() {
 	const [schedules, setSchedules] = useState<BackupSchedule[]>([]);
 	const [loadingList, setLoadingList] = useState(true);
 	const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
+	const dialogRef = useDialogFocus<HTMLDivElement>({ open: pendingDeleteId !== null, onClose: () => setPendingDeleteId(null) });
 
 	const cronPreview = useMemo(() => describeCronPreview(cronExpression, t), [cronExpression, t]);
 
 	const fetchSchedules = useCallback(async () => {
 		try {
-			const res = await csrfFetch("/api/backup-schedules", { method: "GET" });
-			if (!res.ok) return;
-			const data = await res.json();
+			const data = await csrfFetch<{ schedules: BackupSchedule[] }>("/api/backup-schedules", { method: "GET" });
 			setSchedules(data.schedules ?? []);
 		} catch {
 			// best-effort
@@ -116,15 +117,11 @@ export function ScheduleBackupForm() {
 				const parsed = Number.parseInt(retentionDays, 10);
 				if (Number.isFinite(parsed) && parsed > 0) body.retentionDays = parsed;
 			}
-			const res = await csrfFetch("/api/backup-schedules", {
+			await csrfFetch("/api/backup-schedules", {
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify(body),
 			});
-			if (!res.ok) {
-				const err = await res.json().catch(() => ({}));
-				throw new Error(err.message || err.summary || t("backupsPage.schedule.failFallback"));
-			}
 			setMessage({ type: "ok", text: t("backupsPage.schedule.success") });
 			setName("");
 			setNote("");
@@ -263,13 +260,13 @@ export function ScheduleBackupForm() {
 				)}
 			</div>
 			{pendingDeleteId ? (
-				<div className="fixed inset-0 z-50 flex items-center justify-center bg-[var(--surface)]/70 px-4 backdrop-blur-sm" role="presentation">
-					<section role="dialog" aria-modal="true" aria-labelledby="backup-schedule-delete-title" className="w-full max-w-md rounded-2xl border border-[var(--danger-border)] bg-[var(--modal-bg)] p-6 shadow-[0_24px_100px_rgba(244,63,94,0.16)]">
+				<div className="fixed inset-0 z-50 flex items-center justify-center bg-[var(--surface)]/70 px-4 backdrop-blur-sm" role="presentation" onClick={() => setPendingDeleteId(null)}>
+					<section ref={dialogRef} role="dialog" aria-modal="true" aria-labelledby="backup-schedule-delete-title" className="w-full max-w-md rounded-2xl border border-[var(--danger-border)] bg-[var(--modal-bg)] p-6 shadow-[0_24px_100px_rgba(244,63,94,0.16)]">
 						<h3 id="backup-schedule-delete-title" className="text-lg font-semibold text-[var(--text-primary)]">{t("common.confirmDelete")}</h3>
 						<p className="mt-3 text-sm leading-6 text-[var(--text-secondary)]">{t("backupsPage.schedule.deleteConfirm")}</p>
 						<div className="mt-6 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
 							<button type="button" onClick={() => setPendingDeleteId(null)} className="min-h-11 rounded-xl border border-[var(--border)] px-4 py-2 text-sm font-medium text-[var(--text-secondary)] hover:bg-[var(--surface-hover)]">{t("common.cancel")}</button>
-							<button type="button" onClick={() => void deleteSchedule(pendingDeleteId)} className="min-h-11 rounded-xl bg-[var(--danger)] px-4 py-2 text-sm font-semibold text-[var(--text-primary)] hover:bg-[var(--danger)]">{t("common.confirmDelete")}</button>
+							<button type="button" onClick={() => void deleteSchedule(pendingDeleteId)} className="min-h-11 rounded-xl bg-[var(--danger)] px-4 py-2 text-sm font-semibold text-[var(--text-primary)] hover:bg-[var(--danger-hover)]">{t("common.confirmDelete")}</button>
 						</div>
 					</section>
 				</div>

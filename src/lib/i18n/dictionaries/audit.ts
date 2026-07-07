@@ -61,6 +61,7 @@ export const zh: Record<string, string> = {
 	"audit.page.highRisk.filterPrefix": "按动作筛查：",
 	"audit.page.topActions.title": "最常见动作",
 	"audit.page.topActions.empty": "暂无动作统计。",
+	"auditPage.eyebrow": "审计",
 };
 
 export const en: Record<string, string> = {
@@ -119,4 +120,5 @@ export const en: Record<string, string> = {
 	"audit.page.highRisk.filterPrefix": "Filter action:",
 	"audit.page.topActions.title": "Most common actions",
 	"audit.page.topActions.empty": "No action statistics yet.",
+	"auditPage.eyebrow": "Audit",
 };

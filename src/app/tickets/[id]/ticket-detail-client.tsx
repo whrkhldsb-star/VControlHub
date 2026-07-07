@@ -46,7 +46,7 @@ const TRANSITIONS: Record<string, string[]> = {
 };
 
 export function TicketDetailClient({ initial, canManage, users = [], locale: _locale }: TicketDetailClientProps) {
-  const { t } = useI18n();
+  const { t, locale } = useI18n();
   const [ticket, setTicket] = useState(initial);
   const [comment, setComment] = useState("");
   const [saving, setSaving] = useState(false);
@@ -114,9 +114,9 @@ export function TicketDetailClient({ initial, canManage, users = [], locale: _lo
             </div>
           </div>
           <div className="text-right text-xs text-[var(--text-muted)]">
-            <p>{t("ticketsDetail.createdAt").replace("{time}", new Date(ticket.createdAt).toLocaleString("zh-CN"))}</p>
-            <p>{t("ticketsDetail.updatedAt").replace("{time}", new Date(ticket.updatedAt).toLocaleString("zh-CN"))}</p>
-            {ticket.closedAt && <p>{t("ticketsDetail.closedAt").replace("{time}", new Date(ticket.closedAt).toLocaleString("zh-CN"))}</p>}
+            <p>{t("ticketsDetail.createdAt").replace("{time}", new Date(ticket.createdAt).toLocaleString(locale === "zh" ? "zh-CN" : "en-US"))}</p>
+            <p>{t("ticketsDetail.updatedAt").replace("{time}", new Date(ticket.updatedAt).toLocaleString(locale === "zh" ? "zh-CN" : "en-US"))}</p>
+            {ticket.closedAt && <p>{t("ticketsDetail.closedAt").replace("{time}", new Date(ticket.closedAt).toLocaleString(locale === "zh" ? "zh-CN" : "en-US"))}</p>}
           </div>
         </div>
 
@@ -176,7 +176,7 @@ export function TicketDetailClient({ initial, canManage, users = [], locale: _lo
               <div key={c.id} className="rounded-lg border border-[var(--border)]/[0.04] bg-[var(--input-bg)] p-4">
                 <div className="flex items-center justify-between mb-2">
                   <span className="text-sm font-medium text-[var(--text-primary)]">{c.author.displayName || c.author.username}</span>
-                  <span className="text-xs text-[var(--text-muted)]">{new Date(c.createdAt).toLocaleString("zh-CN")}</span>
+                  <span className="text-xs text-[var(--text-muted)]">{new Date(c.createdAt).toLocaleString(locale === "zh" ? "zh-CN" : "en-US")}</span>
                 </div>
                 <p className="whitespace-pre-wrap text-sm text-[var(--text-secondary)]">{c.body}</p>
               </div>

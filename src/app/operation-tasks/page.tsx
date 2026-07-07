@@ -17,7 +17,7 @@ export default async function OperationTasksPage() {
 	const { tasks, sourceSummary, failureSummary } = await listOperationTaskResult();
 	return (
 		<PageShell maxW="max-w-7xl">
-			<PageHeader eyebrow="Operations" title={tr("operationTasksPage.header.title")} description={tr("operationTasksPage.header.description")} />
+			<PageHeader eyebrow={t("operationTasksPage.eyebrow", locale)} title={tr("operationTasksPage.header.title")} description={tr("operationTasksPage.header.description")} />
 			<OperationTaskListClient initialTasks={tasks} initialSourceSummary={sourceSummary} initialFailureSummary={failureSummary} />
 		</PageShell>
 	);

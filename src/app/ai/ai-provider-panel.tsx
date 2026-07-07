@@ -6,6 +6,7 @@ import { csrfFetch } from "@/lib/auth/csrf-client";
 import { useToast } from "@/components/toast-provider";
 import { useI18n } from "@/lib/i18n/use-locale";
 import { useMemo, useState } from "react";
+import { useDialogFocus } from "@/lib/a11y/use-dialog-focus";
 
 export interface ProviderFormState {
   name: string;
@@ -44,6 +45,7 @@ export function AiProviderPanel({
   const [modelsLoading, setModelsLoading] = useState(false);
   const [editingProviderId, setEditingProviderId] = useState<string | null>(null);
   const [editForm, setEditForm] = useState<ProviderFormState | null>(null);
+  const dialogRef = useDialogFocus<HTMLDivElement>({ open: show, onClose });
   const modelOptions = useMemo(() => {
     const fromFetch = fetchedModels.map((m) => m.id).filter(Boolean);
     const fromForm = provForm.availableModels.split(",").map((m) => m.trim()).filter(Boolean);
@@ -133,12 +135,17 @@ export function AiProviderPanel({
   if (!show) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm max-sm:items-end">
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm max-sm:items-end"
+      onClick={onClose}
+    >
       <div
+        ref={dialogRef}
         role="dialog"
         aria-modal="true"
         aria-labelledby="ai-provider-panel-title"
         className="w-full max-w-lg max-sm:max-w-none max-sm:rounded-b-none bg-[var(--sidebar-bg)] border border-[var(--card-border)] rounded-2xl shadow-2xl overflow-hidden"
+        onClick={(e) => e.stopPropagation()}
       >
         <div className="px-5 py-4 border-b border-[var(--card-border)] flex items-center justify-between">
           <h3 id="ai-provider-panel-title" className="text-sm font-semibold text-[var(--text-primary)]">{t("aiPage.providerPanelTitle")}</h3>

@@ -190,9 +190,10 @@ function getRequestStatusLabel(status: string, locale: Parameters<typeof t>[1]) 
 }
 
 function ApprovalBadge({ status, label }: { status: string; label: string }) {
-	const toneMap: Record<string, "warning" | "success" | "danger" | "neutral"> = {
+	const toneMap: Record<string, "warning" | "success" | "danger" | "neutral" | "info"> = {
 		PENDING_APPROVAL: "warning",
 		APPROVED: "success",
+		RUNNING: "info",
 		COMPLETED: "success",
 		REJECTED: "danger",
 		FAILED: "danger",
@@ -201,6 +202,7 @@ function ApprovalBadge({ status, label }: { status: string; label: string }) {
 	const styleMap: Record<string, string> = {
 		PENDING_APPROVAL: "border-[var(--warning-border)] text-[var(--warning)]",
 		APPROVED: "border-[var(--success-border)] text-[var(--success)]",
+		RUNNING: "border-[var(--info-border)] text-[var(--info)]",
 		COMPLETED: "border-[var(--success-border)] text-[var(--success)]",
 		REJECTED: "border-[var(--danger-border)] text-[var(--danger)]",
 		FAILED: "border-[var(--danger-border)] text-[var(--danger)]",

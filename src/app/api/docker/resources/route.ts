@@ -74,6 +74,7 @@ function dockerRequest(apiPath: string, method = "GET", body?: string): Promise<
         try {
           data = raw ? JSON.parse(raw) : null;
         } catch {
+          // Response is not valid JSON — return the raw string as-is.
           data = raw;
         }
         resolve({ ok: res.statusCode! >= 200 && res.statusCode! < 300, status: res.statusCode!, data });

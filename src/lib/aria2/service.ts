@@ -162,7 +162,10 @@ export async function ensureAria2Daemon(): Promise<void> {
 	await mkdir(config.rpcDir, { recursive: true });
 
 	// Create empty session file if not exists
-	try { await readFile(config.rpcSession); } catch { await writeFile(config.rpcSession, ""); }
+	try { await readFile(config.rpcSession); } catch {
+		// Session file does not exist yet — create an empty one.
+		await writeFile(config.rpcSession, "");
+	}
 
 	const conf = buildAria2Config(config);
 
@@ -179,6 +182,7 @@ export async function ensureAria2Daemon(): Promise<void> {
 		try {
 			await access("/usr/local/bin/aria2c", constants.X_OK);
 		} catch {
+			// aria2c not found in either standard location — re-throw the original error.
 			throw Object.assign(new Error("spawn aria2c ENOENT"), { code: "ENOENT", cause: error });
 		}
 	}
@@ -196,6 +200,7 @@ export async function ensureAria2Daemon(): Promise<void> {
 				daemonStarted = true;
 				return;
 			} catch {
+				// Daemon not ready yet — retry after a short delay.
 				continue;
 			}
 		}

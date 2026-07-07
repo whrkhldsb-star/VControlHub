@@ -1,7 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useCallback, useState } from "react";
 import { useI18n } from "@/lib/i18n/use-locale";
+import { useDialogFocus } from "@/lib/a11y/use-dialog-focus";
 import { useRouter } from "next/navigation";
 
 import { csrfFetch } from "@/lib/auth/csrf-client";
@@ -91,7 +92,7 @@ export function CancelCommandButton({ commandRequestId, commandTitle }: Props) {
                 type="button"
                 disabled={pending}
                 onClick={submit}
-                className="rounded-xl bg-[var(--danger)] px-4 py-2 text-sm font-medium text-[var(--text-primary)] transition hover:bg-[var(--danger)] disabled:opacity-50"
+                className="rounded-xl bg-[var(--danger)] px-4 py-2 text-sm font-medium text-[var(--text-primary)] transition hover:bg-[var(--danger-bg)] hover:text-[var(--danger)] disabled:opacity-50"
               >
                 {pending ? t("requestsPage.cancel.pending") : t("requestsPage.cancel.confirm")}
               </button>

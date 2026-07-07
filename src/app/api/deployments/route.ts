@@ -54,6 +54,7 @@ async function readRequestBody(request: Request) {
     try {
       variables = JSON.parse(variablesJson) as Record<string, string>;
     } catch {
+      // Invalid JSON in form data — start with empty variables and let per-field entries override.
       variables = {};
     }
   }

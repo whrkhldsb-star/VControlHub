@@ -49,6 +49,7 @@ export function useProviderForm({
       await refreshProviders();
       setProvForm({ ...DEFAULT_PROV_FORM });
     } catch {
+      // Provider creation failed — notify the user via toast.
       addToast("error", t("aiPage.addProviderFailed"));
     }
   }, [provForm, refreshProviders, addToast, t]);

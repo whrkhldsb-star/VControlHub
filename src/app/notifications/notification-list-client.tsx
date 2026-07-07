@@ -36,7 +36,7 @@ const typeIcon: Record<string, string> = {
 	system: "🔔",
 };
 
-function timeAgo(dateStr: string, t: (k: string) => string): string {
+function timeAgo(dateStr: string, t: (k: string) => string, locale: string): string {
 	const diff = Date.now() - new Date(dateStr).getTime();
 	const mins = Math.floor(diff / 60_000);
 	if (mins < 1) return t("notificationsPage.time.justNow");
@@ -45,17 +45,19 @@ function timeAgo(dateStr: string, t: (k: string) => string): string {
 	if (hours < 24) return t("notificationsPage.time.hoursAgo").replace("{count}", String(hours));
 	const days = Math.floor(hours / 24);
 	if (days < 30) return t("notificationsPage.time.daysAgo").replace("{count}", String(days));
-	return new Date(dateStr).toLocaleDateString("en-US");
+	return new Date(dateStr).toLocaleDateString(locale === "zh" ? "zh-CN" : "en-US");
 }
 
 const NotificationRow = memo(function NotificationRow({
 	notification: n,
 	t,
+	locale,
 	onMarkRead,
 	onDelete,
 }: {
 	notification: NotificationItem;
 	t: (k: string) => string;
+	locale: string;
 	onMarkRead: (id: string) => void;
 	onDelete: (id: string) => void;
 }) {
@@ -76,7 +78,7 @@ const NotificationRow = memo(function NotificationRow({
 					</div>
 					<p className="mt-1 text-xs text-[var(--text-muted)] leading-relaxed">{n.message}</p>
 					<div className="mt-2 flex flex-wrap items-center gap-3 text-[11px]">
-						<span className="text-[var(--text-muted)]">{timeAgo(n.createdAt, t)}</span>
+						<span className="text-[var(--text-muted)]">{timeAgo(n.createdAt, t, locale)}</span>
 						{n.actionUrl && (
 							<Link href={getSafeNotificationActionUrl(n.actionUrl)} className="rounded-lg px-1 py-0.5 text-[var(--color-action)]/70 transition hover:text-[var(--color-action)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-action-ring)] light:hover:text-[var(--color-action-strong)] light:focus-visible:ring-[var(--color-action-ring)]">
 								{t("notificationsPage.action.view")}
@@ -112,7 +114,7 @@ const NotificationRow = memo(function NotificationRow({
 });
 
 export function NotificationListClient({ initialNotifications, initialUnreadCount }: Props) {
-	const { t } = useI18n();
+	const { t, locale } = useI18n();
 	const [notifications, setNotifications] = useState(initialNotifications);
 	const [unreadCount, setUnreadCount] = useState(initialUnreadCount);
 	const [error, setError] = useState<string | null>(null);
@@ -182,6 +184,7 @@ export function NotificationListClient({ initialNotifications, initialUnreadCoun
 					key={n.id}
 					notification={n}
 					t={t}
+					locale={locale}
 					onMarkRead={markOneRead}
 					onDelete={deleteOne}
 				/>

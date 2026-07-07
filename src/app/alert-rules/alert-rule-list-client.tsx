@@ -5,6 +5,7 @@ import { csrfFetch } from "@/lib/auth/csrf-client";
 import { useToast } from "@/components/toast-provider";
 import { EmptyState } from "@/components/page-shell";
 import { useI18n } from "@/lib/i18n/use-locale";
+import { useDialogFocus } from "@/lib/a11y/use-dialog-focus";
 
 type AlertRule = {
 	id: string; name: string; metric: string; operator: string;
@@ -55,7 +56,8 @@ function deliveryStatusLabel(t: (key: string) => string, status: TestDelivery["s
 }
 
 export function AlertRuleListClient({ rules: initialRules, servers, playbooks = [], canManage }: Props) {
-	const { t } = useI18n();
+	const { t, locale } = useI18n();
+
 	const { addToast } = useToast();
 	const [rules, setRules] = useState(initialRules);
 	const [showCreate, setShowCreate] = useState(false);
@@ -267,7 +269,7 @@ export function AlertRuleListClient({ rules: initialRules, servers, playbooks = 
 						)}
 									</div>
 									{rule.lastTriggeredAt && (
-										<p className="mt-1 text-[11px] text-[var(--text-muted)]">{t("alertRulesPage.lastTriggered").replace("{date}", new Date(rule.lastTriggeredAt).toLocaleString("zh-CN"))}</p>
+										<p className="mt-1 text-[11px] text-[var(--text-muted)]">{t("alertRulesPage.lastTriggered").replace("{date}", new Date(rule.lastTriggeredAt).toLocaleString(locale === "zh" ? "zh-CN" : "en-US"))}</p>
 									)}
 								</div>
 								{canManage && (
@@ -277,8 +279,8 @@ export function AlertRuleListClient({ rules: initialRules, servers, playbooks = 
 							disabled={busyAction === `toggle:${rule.id}`}
 							className={`rounded-2xl border px-4 py-2 text-xs font-medium transition disabled:cursor-not-allowed disabled:opacity-60 ${
 								rule.enabled
-									? "border-[var(--warning-border)] bg-[var(--warning-bg)] text-[var(--warning)] hover:bg-[var(--warning-bg)]"
-									: "border-[var(--success-border)] bg-[var(--success-bg)] text-[var(--success)] hover:bg-[var(--success-bg)]"
+									? "border-[var(--warning-border)] bg-[var(--warning-bg)] text-[var(--warning)] hover:bg-[var(--warning-bg)]/60"
+									: "border-[var(--success-border)] bg-[var(--success-bg)] text-[var(--success)] hover:bg-[var(--success-bg)]/60"
 							}`}
 						>
 							{busyAction === `toggle:${rule.id}` ? t("alertRulesPage.action.processing") : rule.enabled ? t("alertRulesPage.action.pause") : t("alertRulesPage.action.enable")}
@@ -311,7 +313,7 @@ export function AlertRuleListClient({ rules: initialRules, servers, playbooks = 
 /* ── Create form ──────────────────────────────────────────── */
 
 function CreateRuleForm({ servers, playbooks, onClose }: { servers: ServerOption[]; playbooks: PlaybookOption[]; onClose: () => void }) {
-	const { t } = useI18n();
+	const { t, locale } = useI18n();
 	const [name, setName] = useState("");
 	const [metric, setMetric] = useState("cpu_usage");
 	const [operator, setOperator] = useState("gte");

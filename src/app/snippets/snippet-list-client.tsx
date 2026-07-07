@@ -4,6 +4,7 @@ import { memo, useCallback, useState, useMemo } from "react";
 import { csrfFetch } from "@/lib/auth/csrf-client";
 import { useToast } from "@/components/toast-provider";
 import { useI18n } from "@/lib/i18n/use-locale";
+import { useDialogFocus } from "@/lib/a11y/use-dialog-focus";
 import { SnippetEditModal } from "./snippet-edit-modal";
 import { CreateSnippetModal } from "./create-snippet-modal";
 import { Pencil, Trash2, Copy, Check, Search, Plus } from "@/components/icons";
@@ -63,10 +64,12 @@ const SnippetCard = memo(function SnippetCard({ snippet: s, t, copied, onCopy, o
 
 export function SnippetList({ snippets: initial }: { snippets: Snippet[] }) {
   const { t } = useI18n();
+
   const { addToast } = useToast();
   const [items, setItems] = useState(initial);
   const [editing, setEditing] = useState<Snippet | null>(null);
   const [pendingDelete, setPendingDelete] = useState<Snippet | null>(null);
+  const dialogRef = useDialogFocus<HTMLDivElement>({ open: pendingDelete !== null, onClose: () => setPendingDelete(null) });
   const [deleteError, setDeleteError] = useState<string | null>(null);
   const [deleteBusy, setDeleteBusy] = useState(false);
   const [copiedId, setCopiedId] = useState<string | null>(null);
@@ -110,6 +113,7 @@ export function SnippetList({ snippets: initial }: { snippets: Snippet[] }) {
       setCopiedId(id);
       setTimeout(() => setCopiedId(null), 2000);
     } catch {
+      // Clipboard write failed (permissions, non-secure context) — notify the user.
       addToast("error", t("snippetsPage.toast.copyFailed"));
     }
   }, [t, addToast]);
@@ -190,8 +194,8 @@ export function SnippetList({ snippets: initial }: { snippets: Snippet[] }) {
       )}
 
       {pendingDelete && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-[var(--surface)]/70 p-4 backdrop-blur-sm" role="presentation">
-          <div role="dialog" aria-modal="true" aria-labelledby="delete-snippet-title" className="w-full max-w-md rounded-2xl border border-[var(--border)] bg-[var(--modal-bg)] p-5 shadow-2xl shadow-black/30">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-[var(--surface)]/70 p-4 backdrop-blur-sm" role="presentation" onClick={() => setPendingDelete(null)}>
+          <div ref={dialogRef} role="dialog" aria-modal="true" aria-labelledby="delete-snippet-title" className="w-full max-w-md rounded-2xl border border-[var(--border)] bg-[var(--modal-bg)] p-5 shadow-2xl shadow-black/30">
             <h3 id="delete-snippet-title" className="text-base font-semibold text-[var(--text-primary)]">{t("snippetsPage.deleteDialog.title")}</h3>
             <p className="mt-2 text-sm leading-6 text-[var(--text-muted)]">
               {t("snippetsPage.deleteDialog.body").replace("{title}", pendingDelete.title)}

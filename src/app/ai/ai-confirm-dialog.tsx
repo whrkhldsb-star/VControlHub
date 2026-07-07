@@ -2,6 +2,7 @@
 
 import type { ReactNode } from "react";
 import { useI18n } from "@/lib/i18n/use-locale";
+import { useDialogFocus } from "@/lib/a11y/use-dialog-focus";
 
 interface AiConfirmDialogProps {
   open: boolean;
@@ -27,15 +28,21 @@ export function AiConfirmDialog({
   onConfirm,
 }: AiConfirmDialogProps) {
   const { t } = useI18n();
+  const dialogRef = useDialogFocus<HTMLDivElement>({ open, onClose: onCancel });
   if (!open) return null;
 
   return (
-    <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 px-4 backdrop-blur-sm">
+    <div
+      className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 px-4 backdrop-blur-sm"
+      onClick={onCancel}
+    >
       <div
+        ref={dialogRef}
         role="dialog"
         aria-modal="true"
         aria-label={title}
         className="w-full max-w-sm rounded-2xl border border-[var(--border)] bg-[var(--modal-bg)] p-5 shadow-2xl"
+        onClick={(e) => e.stopPropagation()}
       >
         <h3 className="text-sm font-semibold text-[var(--text-primary)]">{title}</h3>
         <div className="mt-2 text-sm leading-6 text-[var(--text-secondary)]">{description}</div>

@@ -124,7 +124,10 @@ export function renderMarkdown(md: string): string {
       i++;
     }
     if (paraLines.length > 0) {
-      out.push(`<p>${inlineFormat(paraLines.join("<br />"))}</p>`);
+      // Format each line individually, then join with <br /> AFTER escaping
+      // (escapeHtml in inlineFormat would escape <br /> into literal text)
+      const formatted = paraLines.map((line) => inlineFormat(line));
+      out.push(`<p>${formatted.join("<br />")}</p>`);
     }
   }
 

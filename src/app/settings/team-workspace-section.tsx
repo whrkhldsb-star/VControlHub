@@ -297,7 +297,7 @@ export function TeamWorkspaceSection({ canManage }: { canManage: boolean }) {
 						<p className="mt-3 text-sm leading-6 text-[var(--text-secondary)]">{confirmDesc}</p>
 						<div className="mt-6 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
 							<button type="button" onClick={() => setPendingConfirm(null)} className="min-h-11 rounded-xl border border-[var(--border)] px-4 py-2 text-sm font-medium text-[var(--text-secondary)] hover:bg-[var(--surface-hover)]">{t("settingsTeam.confirm.cancel")}</button>
-							<button type="button" onClick={() => void confirmPendingAction()} disabled={busy} className="min-h-11 rounded-xl bg-[var(--danger)] px-4 py-2 text-sm font-semibold text-[var(--text-primary)] hover:bg-[var(--danger)] disabled:opacity-60">{t("settingsTeam.confirm.submit")}</button>
+							<button type="button" onClick={() => void confirmPendingAction()} disabled={busy} className="min-h-11 rounded-xl bg-[var(--danger)] px-4 py-2 text-sm font-semibold text-[var(--text-primary)] hover:bg-[var(--danger-bg)] hover:text-[var(--danger)] disabled:opacity-60">{t("settingsTeam.confirm.submit")}</button>
 						</div>
 					</section>
 				</div>

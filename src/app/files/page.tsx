@@ -217,7 +217,7 @@ export default async function FilesPage({ searchParams }: FilesPageProps) {
   return (
     <PageShell maxW="max-w-7xl">
       <PageHeader
-        eyebrow="Storage"
+        eyebrow={t("filesPage.eyebrow", locale)}
         title={t("filesPage.title", locale)}
         description={t("filesPage.description", locale)}
       >

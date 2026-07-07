@@ -3,6 +3,7 @@
 import Image from "next/image";
 import type { Dispatch, SetStateAction } from "react";
 import { Card } from "@/components/page-shell";
+import { useDialogFocus } from "@/lib/a11y/use-dialog-focus";
 import type { ImageItem, PendingDelete } from "./image-bed-types";
 import { formatImageSize, type ImageBedT } from "./image-bed-sections";
 
@@ -53,24 +54,48 @@ export function ImageGrid({
           <div className="group relative mb-3 aspect-square overflow-hidden rounded-lg bg-[var(--input-bg)]">
             {batchMode && (
               <div
+                role="checkbox"
+                tabIndex={0}
+                aria-checked={selectedIds.has(img.id)}
+                aria-label={selectedIds.has(img.id) ? "Unselect" : "Select"}
                 onClick={(e) => {
                   e.stopPropagation();
                   toggleSelect(img.id);
                 }}
-                className={`absolute left-2 top-2 z-10 flex h-6 w-6 cursor-pointer items-center justify-center rounded-lg border-2 transition ${selectedIds.has(img.id) ? "border-[var(--color-action-border)] bg-[var(--color-action)] text-[var(--text-primary)]" : "border-[var(--border)] bg-black/50 hover:border-[var(--border)]"}`}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" || e.key === " ") {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    toggleSelect(img.id);
+                  }
+                }}
+                className={`absolute left-2 top-2 z-10 flex h-6 w-6 cursor-pointer items-center justify-center rounded-lg border-2 transition focus:outline-none focus:ring-2 focus:ring-[var(--color-action)] ${selectedIds.has(img.id) ? "border-[var(--color-action-border)] bg-[var(--color-action)] text-[var(--text-primary)]" : "border-[var(--border)] bg-black/50 hover:border-[var(--border)]"}`}
               >
                 {selectedIds.has(img.id) && "✓"}
               </div>
             )}
-            <Image
-              src={img.publicUrl}
-              alt={img.filename}
-              fill
-              sizes="(min-width: 1280px) 25vw, (min-width: 1024px) 33vw, (min-width: 640px) 50vw, 100vw"
-              unoptimized
-              className="cursor-pointer object-cover transition-transform duration-200 hover:scale-105"
-              onClick={() => !batchMode && setPreviewImage(img)}
-            />
+            <div
+              role="button"
+              tabIndex={0}
+              aria-label={img.filename}
+              onKeyDown={(e) => {
+                if (!batchMode && (e.key === "Enter" || e.key === " ")) {
+                  e.preventDefault();
+                  setPreviewImage(img);
+                }
+              }}
+              className="h-full w-full"
+            >
+              <Image
+                src={img.publicUrl}
+                alt={img.filename}
+                fill
+                sizes="(min-width: 1280px) 25vw, (min-width: 1024px) 33vw, (min-width: 640px) 50vw, 100vw"
+                unoptimized
+                className="cursor-pointer object-cover transition-transform duration-200 hover:scale-105"
+                onClick={() => !batchMode && setPreviewImage(img)}
+              />
+            </div>
             {!batchMode && (
               <div
                 data-testid="image-card-overlay"
@@ -298,12 +323,16 @@ export function DeleteImageDialog({
   onClose: () => void;
   t: ImageBedT;
 }) {
-  return (
+  
+  const dialogRef = useDialogFocus<HTMLDivElement>({ open: true, onClose });
+
+return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4"
       onClick={onClose}
     >
       <div
+        ref={dialogRef}
         role="dialog"
         aria-modal="true"
         aria-label={
@@ -342,7 +371,7 @@ export function DeleteImageDialog({
             type="button"
             onClick={confirmDelete}
             disabled={deleting}
-            className="rounded-lg bg-[var(--danger)] px-4 py-2 text-sm text-[var(--text-primary)] transition hover:bg-[var(--danger)] disabled:opacity-50"
+            className="rounded-lg bg-[var(--danger)] px-4 py-2 text-sm text-[var(--text-primary)] transition hover:bg-[var(--danger-bg)] hover:text-[var(--danger)] disabled:opacity-50"
           >
             {deleting
               ? t("imageBedPage.delete.deleting")

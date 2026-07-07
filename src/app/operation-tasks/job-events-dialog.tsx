@@ -52,10 +52,10 @@ function levelTone(level: string): "info" | "warn" | "error" {
   return "info";
 }
 
-function formatTime(value: string) {
+function formatTime(value: string, locale?: string) {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return value;
-  return date.toLocaleString("zh-CN", { hour12: false });
+  return date.toLocaleString(locale === "zh" ? "zh-CN" : "en-US", { hour12: false });
 }
 
 function summarizePayload(payload: unknown): string | null {
@@ -69,7 +69,7 @@ function summarizePayload(payload: unknown): string | null {
 }
 
 export function JobEventsDialog({ jobId, open, onClose }: JobEventsDialogProps) {
-  const { t } = useI18n();
+  const { t, locale } = useI18n();
   const levelLabels = buildLevelLabels(t);
   const typeLabels = buildTypeLabels(t);
   const [events, setEvents] = useState<JobEventRow[]>([]);

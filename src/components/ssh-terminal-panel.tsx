@@ -128,6 +128,7 @@ export function SshTerminalPanel({ serverId, serverName, host, sessionToken, vis
 				});
 				handshakeToken = data.token || "";
 			} catch {
+				// Token fetch failed — surface the error to the user and abort the connection.
 				if (!disposed && nonce === connectionNonceRef.current) {
 					setStatus("error");
 					setErrorMsg(t("sshTerminalModal.errTokenFetchFailed"));

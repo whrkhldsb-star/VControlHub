@@ -295,7 +295,7 @@ export function AiMessageList({
                 </div>
                 <div className="flex gap-2 ml-3">
                   <button
-                    className="px-3 py-1 text-xs rounded bg-[var(--danger)] hover:bg-[var(--danger)] disabled:bg-[var(--danger-bg)] disabled:cursor-not-allowed text-[var(--text-primary)] transition"
+                    className="px-3 py-1 text-xs rounded bg-[var(--danger)] hover:bg-[var(--danger-bg)] hover:text-[var(--danger)] disabled:bg-[var(--danger-bg)] disabled:cursor-not-allowed text-[var(--text-primary)] transition"
                     disabled={approvalBusyById[approval.actionId]}
                     aria-busy={
                       approvalBusyById[approval.actionId] ? "true" : undefined
@@ -305,7 +305,7 @@ export function AiMessageList({
                     {t("aiPage.reject")}
                   </button>
                   <button
-                    className="px-3 py-1 text-xs rounded bg-[var(--success)] hover:bg-[var(--success)] disabled:bg-[var(--success-bg)] disabled:cursor-not-allowed text-[var(--text-primary)] transition"
+                    className="px-3 py-1 text-xs rounded bg-[var(--success)] hover:bg-[var(--success-bg)] hover:text-[var(--success)] disabled:bg-[var(--success-bg)] disabled:cursor-not-allowed text-[var(--text-primary)] transition"
                     disabled={approvalBusyById[approval.actionId]}
                     aria-busy={
                       approvalBusyById[approval.actionId] ? "true" : undefined

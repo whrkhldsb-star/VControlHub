@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { toDateLocale } from "@/lib/i18n/locale-format";
 
 import { useI18n } from "@/lib/i18n/use-locale";
+import { useDialogFocus } from "@/lib/a11y/use-dialog-focus";
 import { ServerCardActions } from "./server-card-actions";
 import { useAutoProbeSettings } from "./auto-probe-context";
 import { ServerOverviewDetailsLazy } from "./server-overview-details-lazy";

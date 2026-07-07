@@ -92,6 +92,7 @@ async function copyTextToClipboard(value: string): Promise<boolean> {
   try {
     ok = document.execCommand("copy");
   } catch {
+    // execCommand not supported or blocked — clipboard copy fails gracefully.
     ok = false;
   }
   textarea.remove();

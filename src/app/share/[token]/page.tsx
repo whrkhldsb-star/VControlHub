@@ -86,7 +86,7 @@ export default async function SharePage({
                   <div className="flex justify-between gap-3 sm:col-span-2">
                     <dt>{t("sharePage.expiresAt", locale)}</dt>
                     <dd className="text-[var(--text-secondary)]">
-                      {new Date(share.expiresAt).toLocaleString("zh-CN")}
+                      {new Date(share.expiresAt).toLocaleString(locale === "zh" ? "zh-CN" : "en-US")}
                     </dd>
                   </div>
                 ) : (

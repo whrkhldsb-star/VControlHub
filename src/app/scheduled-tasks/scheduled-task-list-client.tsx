@@ -35,9 +35,9 @@ function statusLabelFor(status: string, t: (key: string) => string): string {
 	return status;
 }
 
-function formatTime(iso: string | null): string {
+function formatTime(iso: string | null, locale?: string): string {
 	if (!iso) return "—";
-	return new Date(iso).toLocaleString("zh-CN");
+	return new Date(iso).toLocaleString(locale === "zh" ? "zh-CN" : "en-US");
 }
 
 function matchesTask(task: Task, query: string) {
@@ -68,7 +68,7 @@ function describeCronPreview(expr: string, t: (key: string) => string) {
 }
 
 export function ScheduledTaskListClient({ tasks: initialTasks, servers, canCreate, canManage }: Props) {
-	const { t } = useI18n();
+	const { t, locale } = useI18n();
 	const [tasks, setTasks] = useState(initialTasks);
 	const [showCreate, setShowCreate] = useState(false);
 	const [taskPendingDelete, setTaskPendingDelete] = useState<Task | null>(null);
@@ -228,7 +228,7 @@ export function ScheduledTaskListClient({ tasks: initialTasks, servers, canCreat
 							<button type="button" onClick={() => setTaskPendingDelete(null)} className="min-h-11 rounded-xl border border-[var(--border)] px-4 py-2 text-sm font-medium text-[var(--text-secondary)] hover:bg-[var(--surface-hover)]">
 								{t("scheduledTasksPage.cancel")}
 							</button>
-							<button type="button" onClick={() => deleteTask(taskPendingDelete)} className="min-h-11 rounded-xl bg-[var(--danger)] px-4 py-2 text-sm font-semibold text-[var(--text-primary)] hover:bg-[var(--danger)]">
+							<button type="button" onClick={() => deleteTask(taskPendingDelete)} className="min-h-11 rounded-xl bg-[var(--danger)] px-4 py-2 text-sm font-semibold text-[var(--text-primary)] hover:bg-[var(--danger-bg)] hover:text-[var(--danger)]">
 								{t("scheduledTasksPage.delete.confirm")}
 							</button>
 						</div>
@@ -242,7 +242,7 @@ export function ScheduledTaskListClient({ tasks: initialTasks, servers, canCreat
 /* ── Create form ──────────────────────────────────────────── */
 
 function CreateTaskForm({ servers, onClose }: { servers: ServerOption[]; onClose: () => void }) {
-	const { t } = useI18n();
+	const { t, locale } = useI18n();
 	const [name, setName] = useState("");
 	const [cronExpression, setCron] = useState("0 3 * * *");
 	const [command, setCommand] = useState("");

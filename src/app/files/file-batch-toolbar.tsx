@@ -184,7 +184,7 @@ export function FileBatchToolbar({
               <input
                 type="text"
                 value={moveTargetDir}
-                aria-label="Batch move target path"
+                aria-label={t("filesPage.batchMove.targetPathAria")}
                 onChange={(e) => setMoveTargetDir(e.currentTarget.value)}
                 placeholder={currentPath || copy.targetPathPlaceholder}
                 className="w-40 rounded-2xl border border-[var(--border)] bg-[var(--input-bg)] px-3 py-1.5 text-sm text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus:border-[var(--color-action-border)]/50 focus:outline-none"

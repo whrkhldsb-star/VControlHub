@@ -56,6 +56,7 @@ export function parseToolCall(tc: ToolCall): ParsedToolCall | null {
   try {
     args = JSON.parse(tc.function.arguments);
   } catch {
+    // Malformed JSON arguments — default to empty so the tool call can still be surfaced.
     args = {};
   }
 

@@ -71,6 +71,7 @@ export function SshFileManager({ serverId, visible }: SshFileManagerProps) {
       try {
         await loadDir("/root");
       } catch {
+        // /root not accessible — fall back to the filesystem root.
         await loadDir("/").catch(() => {});
       }
     };

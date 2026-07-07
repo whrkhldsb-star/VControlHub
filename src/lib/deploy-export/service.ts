@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/db";
 import { BusinessError, ValidationError } from "@/lib/errors";
+import { t } from "@/lib/i18n/translations";
 
 const DANGEROUS_ENV_FLAGS = [
 	"ENABLE_DEMO_FALLBACK",
@@ -15,7 +16,7 @@ import { getAppName } from "@/lib/branding";
 function sanitizeAppName(value?: string) {
 	const appName = (value ?? getAppName()).trim();
 	if (!/^[a-z][a-z0-9-]{1,40}$/.test(appName)) {
-		throw new ValidationError("应用名称只能包含小写字母、数字和连字符，且必须以字母开头");
+		throw new ValidationError(t("backend.deployExport.appNameInvalid"));
 	}
 	return appName;
 }
@@ -23,7 +24,7 @@ function sanitizeAppName(value?: string) {
 function sanitizeDomain(value?: string) {
 	const domain = (value ?? "example.com").trim().toLowerCase();
 	if (!/^(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,63}$/.test(domain)) {
-		throw new ValidationError("域名格式不合法");
+		throw new ValidationError(t("backend.deployExport.domainInvalid"));
 	}
 	return domain;
 }
@@ -118,7 +119,7 @@ export function buildPortableDeploymentPackage(options: { domain?: string; appNa
 	};
 	const joined = Object.values(files).join("\n");
 	if (/postgres(?:ql)?:\/\/[^\s"']+:[^\s"']+@/i.test(joined) || /BEGIN (?:OPENSSH|RSA|EC|DSA) PRIVATE KEY/.test(joined)) {
-		throw new BusinessError("部署包模板包含敏感内容，已拒绝导出");
+		throw new BusinessError(t("backend.deployExport.templateContainsSecrets"));
 	}
 	return { manifest: { appName, domain, generatedAt: new Date().toISOString(), dangerousEnvFlags: DANGEROUS_ENV_FLAGS }, files };
 }

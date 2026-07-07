@@ -43,6 +43,7 @@ export async function getPublicStatus() {
 		await prisma.$queryRaw`SELECT 1`;
 		checks.push({ id: "database", label: "数据库", status: "healthy", message: "可用" });
 	} catch {
+		// Database unreachable — report critical status but keep the rest of the checks running.
 		checks.push({ id: "database", label: "数据库", status: "critical", message: "不可用" });
 	}
 	const [serverCount, storageNodes] = await Promise.all([

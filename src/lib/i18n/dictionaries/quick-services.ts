@@ -6,6 +6,7 @@
 export const zh: Record<string, string> = {
 	"qsPage.title": "快捷服务",
 	"qsPage.description": "一键安装常用自托管服务，自动 Docker 部署，安装即用。",
+	"qsPage.eyebrow": "快捷服务",
 	// quick-service-card
 	"qsPage.statusAvailable": "未安装",
 	"qsPage.statusInstalling": "安装中…",
@@ -211,6 +212,7 @@ export const zh: Record<string, string> = {
 export const en: Record<string, string> = {
 	"qsPage.title": "Quick Services",
 	"qsPage.description": "One-click install for common self-hosted services with automatic Docker deployment.",
+	"qsPage.eyebrow": "Quick Services",
 	// quick-service-card
 	"qsPage.statusAvailable": "Not installed",
 	"qsPage.statusInstalling": "Installing…",

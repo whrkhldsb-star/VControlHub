@@ -192,6 +192,7 @@ function resolveRuntimeSettingSummary(key: RuntimeSettingKey, persistedValue?: s
       value = Number(normalizeRuntimeSettingValue(key, persistedValue));
       source = "database";
     } catch {
+      // Persisted value is not parseable as a number — fall back to the default.
       value = fallback;
       source = "invalid-database";
     }

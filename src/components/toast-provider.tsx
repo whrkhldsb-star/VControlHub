@@ -1,6 +1,7 @@
 "use client";
 
 import { createContext, useContext, useState, useCallback, type ReactNode } from "react";
+import { useI18n } from "@/lib/i18n/use-locale";
 
 type ToastType = "success" | "error" | "info" | "warning";
 
@@ -59,6 +60,7 @@ const TOAST_ICONS: Record<ToastType, string> = {
 };
 
 export function ToastProvider({ children }: { children: ReactNode }) {
+  const { t } = useI18n();
   const [toasts, setToasts] = useState<Toast[]>([]);
 
   const removeToast = useCallback((id: string) => {
@@ -98,7 +100,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
                 type="button"
                 onClick={() => removeToast(toast.id)}
                 className="ml-1 text-[var(--text-muted)] transition hover:text-[var(--text-primary)]"
-                aria-label="Close"
+                aria-label={t("common.close")}
               >
                 ✕
               </button>

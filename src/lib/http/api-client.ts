@@ -109,6 +109,7 @@ async function request<T>(
 		try {
 			body = (await response.json()) as Record<string, unknown>;
 		} catch {
+			// Response body is not valid JSON — use status text as the error message.
 			body = { error: response.statusText };
 		}
 		throw new ApiError(response.status, body);

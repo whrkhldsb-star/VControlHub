@@ -155,6 +155,7 @@ function getTopProcesses(): {
         const memKb = rss * (4096 / 1024); // page size 4096 → KB
         procs.push({ pid, memKb, cmd: cmd.slice(0, 40), utime, stime });
       } catch {
+        // /proc/<pid>/stat unreadable (process exited mid-read) — skip this process.
         continue;
       }
       if (procs.length > 200) break; // safety limit

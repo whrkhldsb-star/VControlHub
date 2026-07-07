@@ -117,7 +117,7 @@ function groupHistory(points: TrafficHistoryPoint[], scope: "24h" | "7d") {
 }
 
 export default function TrafficPage({ canManage: _canManage }: { canManage: boolean }) {
-  const { t } = useI18n();
+  const { t, locale } = useI18n();
   const [summary, setSummary] = useState<TrafficSummary | null>(null);
   const [remoteServers, setRemoteServers] = useState<RemoteServerTraffic[] | null>(null);
   const [remoteLoading, setRemoteLoading] = useState(false);
@@ -258,7 +258,7 @@ export default function TrafficPage({ canManage: _canManage }: { canManage: bool
                   <option value="">{t("trafficPage.iface.auto")}</option>
                   {summary.currentServer.interfaces.map((item) => <option key={item.iface} value={item.iface}>{item.iface}</option>)}
                 </select>
-                <span className="text-[11px] text-[var(--text-muted)]">{t("trafficPage.lastUpdated").replace("{date}", new Date(summary.timestamp).toLocaleString("zh-CN"))}</span>
+                <span className="text-[11px] text-[var(--text-muted)]">{t("trafficPage.lastUpdated").replace("{date}", new Date(summary.timestamp).toLocaleString(locale === "zh" ? "zh-CN" : "en-US"))}</span>
               </div>
               {primary ? (
                 <>

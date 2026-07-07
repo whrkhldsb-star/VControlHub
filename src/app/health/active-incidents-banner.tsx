@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 
 import { csrfFetch } from "@/lib/auth/csrf-client";
+import { useI18n } from "@/lib/i18n/use-locale";
 
 type ActiveAnnouncement = {
 	id: string;
@@ -17,6 +18,7 @@ type ActiveAnnouncement = {
 const INCIDENT_LEVELS = new Set(["incident", "maintenance"]);
 
 export function ActiveIncidentsBanner() {
+  const { t } = useI18n();
 	const [incidents, setIncidents] = useState<ActiveAnnouncement[]>([]);
 	const [dismissed, setDismissed] = useState<Set<string>>(new Set());
 
@@ -56,7 +58,7 @@ export function ActiveIncidentsBanner() {
 	}
 
 	return (
-		<section className="space-y-3" aria-label="Active incident announcements">
+		<section className="space-y-3" aria-label={t("healthPage.activeIncidentsAria")}>
 			{visible.map((item) => (
 				<div key={item.id} className={`rounded-xl border p-4 ${levelColor(item.level)}`}>
 					<div className="flex items-start justify-between gap-3">

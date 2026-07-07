@@ -57,6 +57,7 @@ export function DashboardServerHero({ summary }: { summary: DashboardServerSumma
   const onlineLabel = t("dashboard.online-vps");
   const disabledLabel = t("dashboard.offline-disabled");
   const sshLabel = t("dashboard.ssh-key-bound");
+  const gatewayLabel = t("dashboard.direct-gateway");
 
   return (
     <section data-dashboard-widget="server-status" data-tone="cyan" className="mb-8 rounded-2xl border border-[var(--color-action-border)] p-5">
@@ -76,7 +77,7 @@ export function DashboardServerHero({ summary }: { summary: DashboardServerSumma
         <StatCard label={onlineLabel} value={String(summary.enabled)} accent={summary.enabled > 0} accentColor="cyan" />
         <StatCard label={disabledLabel} value={String(summary.disabled)} accent={summary.disabled > 0} accentColor="amber" />
         <StatCard label={sshLabel} value={`${summary.sshKey}/${summary.total}`} accent={summary.sshKey > 0} />
-        <StatCard label="Direct Gateway" value={String(summary.directGateway)} accent={summary.directGateway > 0} accentColor="cyan" />
+        <StatCard label={gatewayLabel} value={String(summary.directGateway)} accent={summary.directGateway > 0} accentColor="cyan" />
       </div>
     </section>
   );

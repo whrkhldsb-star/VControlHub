@@ -88,7 +88,7 @@ export function DashboardCustomizeToolbar({
 									: "border-[var(--success-border)] bg-[var(--success-bg)] text-[var(--success)]"
 							}`}
 						>
-							{DASHBOARD_WIDGET_LABELS[id]} ·{" "}
+							{t(DASHBOARD_WIDGET_LABELS[id])} ·{" "}
 							{hidden ? t("dashboard.customize-show") : t("dashboard.customize-hide")}
 						</button>
 					);

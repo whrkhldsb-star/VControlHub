@@ -56,7 +56,7 @@ export function SortableStepCard({
 					required
 				/>
 				<select
-					aria-label="step type"
+					aria-label={t("playbooksPage.step.typeAria")}
 					value={step.type}
 					onChange={(e) => {
 						const newType = e.target.value as StepType;

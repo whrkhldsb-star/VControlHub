@@ -102,7 +102,7 @@ export function DashboardWidgetDetailDialog({
 						id="dashboard-widget-detail-title"
 						className="text-lg font-semibold text-[var(--text-primary)]"
 					>
-						{DASHBOARD_WIDGET_LABELS[openId]}
+						{t(DASHBOARD_WIDGET_LABELS[openId])}
 					</h2>
 					<button
 						ref={closeRef}

@@ -21,6 +21,7 @@ export const zh: Record<string, string> = {
 	"filesPage.recycleDesc": "查看最近删除的文件，做误删恢复前的快速核对。",
 	"filesPage.recycleCta": "进入回收站",
 	"filesPage.syncWarningFallback": "远端目录同步失败，已显示本地索引",
+	"filesPage.eyebrow": "存储",
 	"filesPage.batchToolbar.errorSummary": "批量操作完成，{count} 个失败",
 	"filesPage.batchToolbar.regionTitle": "文件批量操作",
 	"filesPage.batchToolbar.regionDescription": "已选择 {count} 个文件，可取消选择或执行当前权限允许的批量操作。",
@@ -81,6 +82,7 @@ export const zh: Record<string, string> = {
 	"filesPage.move.success": "已移动到 {path}",
 	"filesPage.move.errorMoveFailed": "移动文件失败",
 	"filesPage.listRefreshFailed": "文件列表刷新失败，请稍后重试。",
+	"filesPage.batchMove.targetPathAria": "批量移动目标路径",
 };
 
 export const en: Record<string, string> = {
@@ -103,6 +105,7 @@ export const en: Record<string, string> = {
 	"filesPage.recycleDesc": "Inspect recently deleted files before deciding to recover.",
 	"filesPage.recycleCta": "Open recycle bin",
 	"filesPage.syncWarningFallback": "Remote directory sync failed; showing the local index.",
+	"filesPage.eyebrow": "Storage",
 	"filesPage.batchToolbar.errorSummary": "Batch operation completed with {count} failure(s)",
 	"filesPage.batchToolbar.regionTitle": "File batch actions",
 	"filesPage.batchToolbar.regionDescription": "{count} file(s) selected. You can clear the selection or run any batch action allowed by your permissions.",
@@ -163,4 +166,5 @@ export const en: Record<string, string> = {
 	"filesPage.move.success": "Moved to {path}",
 	"filesPage.move.errorMoveFailed": "Move failed",
 	"filesPage.listRefreshFailed": "Failed to refresh the file list. Please try again later.",
+	"filesPage.batchMove.targetPathAria": "Batch move target path",
 };

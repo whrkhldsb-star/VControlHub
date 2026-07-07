@@ -5,6 +5,7 @@ import { csrfFetch } from "@/lib/auth/csrf-client";
 import { useToast } from "@/components/toast-provider";
 import { EmptyState } from "@/components/page-shell";
 import { useI18n } from "@/lib/i18n/use-locale";
+import { useDialogFocus } from "@/lib/a11y/use-dialog-focus";
 import type { Locale } from "@/lib/i18n/translations";
 
 type Template = {
@@ -26,6 +27,7 @@ type Props = {
 
 export function TemplateListClient({ templates: initialTemplates, servers, canCreate, canDeploy = false, locale: _locale }: Props) {
 	const { t } = useI18n();
+
 	const { addToast } = useToast();
 	const [templates, setTemplates] = useState(initialTemplates);
 	const [showCreate, setShowCreate] = useState(false);

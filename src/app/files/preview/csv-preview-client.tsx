@@ -143,7 +143,7 @@ export function CsvPreviewClient({ href }: { href: string }) {
 					</thead>
 					<tbody>
 						{displayRows.map((row, rowIdx) => (
-							<tr key={rowIdx} className={rowIdx % 2 === 0 ? "bg-[var(--surface)]/70" : "bg-[var(--surface)]/70"}>
+							<tr key={rowIdx} className={rowIdx % 2 === 0 ? "bg-[var(--surface)]/70" : "bg-[var(--surface-subtle)]/60"}>
 								<td className="px-3 py-1.5 text-right text-xs text-[var(--text-muted)] border-b border-[var(--border)] light:border-[var(--border)]">{rowIdx + 1}</td>
 								{header.map((_, colIdx) => (
 									<td key={colIdx} className="px-3 py-1.5 text-[var(--text-secondary)] border-b border-[var(--border)] light:border-[var(--border)] whitespace-nowrap max-w-[300px] truncate">{row[colIdx] ?? ""}</td>

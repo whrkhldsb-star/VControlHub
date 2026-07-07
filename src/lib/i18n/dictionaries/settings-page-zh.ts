@@ -321,4 +321,5 @@ export const zh: Record<string, string> = {
 	"settingsTeam.confirm.cancel": "取消",
 	"settingsTeam.confirm.submit": "确认",
 
+	"settingsPage.unsavedChangesAria": "未保存的更改",
 };

@@ -39,10 +39,10 @@ const toneToValueClass: Record<QaReportTrendCard["tone"], string> = {
 const MAX_DAILY_BAR_HEIGHT = 56; // px, the tallest possible bar in the mini chart
 const MAX_RECENT_RUNS = 5;
 
-function formatTime(iso: string): string {
+function formatTime(iso: string, locale?: string): string {
 	const ts = Date.parse(iso);
 	if (Number.isNaN(ts)) return iso;
-	return new Date(ts).toLocaleString("zh-CN", { hour12: false });
+	return new Date(ts).toLocaleString(locale === "zh" ? "zh-CN" : "en-US", { hour12: false });
 }
 
 function formatDayShort(day: string): string {
@@ -80,7 +80,7 @@ type TrendSectionProps = {
 };
 
 function TrendSection({ trends }: TrendSectionProps) {
-	const { t } = useI18n();
+	const { t, locale } = useI18n();
 	const dailyMax = useMemo(() => {
 		let max = 0;
 		for (const bucket of trends.dailyBuckets) {
@@ -226,7 +226,7 @@ export function QaReportsListClient({
 	initialUpdatedAt: string | null;
 	initialTrends: QaReportTrends;
 }) {
-	const { t } = useI18n();
+	const { t, locale } = useI18n();
 	const [reports, setReports] = useState(initialReports);
 	const [totals, setTotals] = useState(initialTotals);
 	const [updatedAt, setUpdatedAt] = useState<string | null>(initialUpdatedAt);

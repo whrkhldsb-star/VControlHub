@@ -24,10 +24,10 @@ export const DEFAULT_PAGE_OPTIONS = ["/", "/servers", "/files", "/docker", "/mon
  * new widget is added without one.
  */
 export const DASHBOARD_WIDGET_LABELS: Record<DashboardWidgetId, string> = {
-	"server-status": "VPS 状态",
-	"quick-links": "快捷入口",
-	analytics: "数据趋势",
-	"audit-log": "最近操作日志",
+	"server-status": "dashboard.widget.serverStatus",
+	"quick-links": "dashboard.widget.quickLinks",
+	analytics: "dashboard.widget.analytics",
+	"audit-log": "dashboard.widget.auditLog",
 };
 
 export const defaultUserPreferences: UserPreferences = {

@@ -181,7 +181,7 @@ export function HealthDashboardClient({ serverCount, initialSystemHealth }: Prop
 					</div>
 					<div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
 						{[1, 2, 3].map((i) => (
-							<div key={i} className="animate-pulse rounded-xl border border-white/[0.10] bg-[var(--surface)] p-4 h-24" />
+							<div key={i} className="animate-pulse rounded-xl border border-white/[0.10] light:border-[var(--border)] bg-[var(--surface)] p-4 h-24" />
 						))}
 					</div>
 				</section>
@@ -197,7 +197,7 @@ export function HealthDashboardClient({ serverCount, initialSystemHealth }: Prop
 				<div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
 					<div className="text-xs text-[var(--text-muted)]">{t("healthPage.ui.lastRefresh")}: —</div>
 					<div className="flex flex-wrap items-center gap-3">
-						<button type="button" disabled className="min-h-11 inline-flex items-center rounded-lg border border-white/[0.10] bg-[var(--surface)] px-3 text-xs text-[var(--text-muted)] opacity-60">
+						<button type="button" disabled className="min-h-11 inline-flex items-center rounded-lg border border-white/[0.10] light:border-[var(--border)] bg-[var(--surface)] px-3 text-xs text-[var(--text-muted)] opacity-60">
 							{t("healthPage.ui.refreshing")}
 						</button>
 					</div>
@@ -207,7 +207,7 @@ export function HealthDashboardClient({ serverCount, initialSystemHealth }: Prop
 					<div className="overflow-x-auto">
 						<table className="w-full text-sm">
 							<thead>
-								<tr className="border-b border-white/[0.10] bg-[var(--surface)]">
+								<tr className="border-b border-white/[0.10] light:border-[var(--border)] bg-[var(--surface)]">
 									<th className="px-4 py-3 text-left text-xs font-medium text-[var(--text-muted)] uppercase tracking-wider">{t("healthPage.ui.node")}</th>
 									<th className="px-4 py-3 text-left text-xs font-medium text-[var(--text-muted)] uppercase tracking-wider">{t("healthPage.ui.status")}</th>
 									<th className="px-4 py-3 text-left text-xs font-medium text-[var(--text-muted)] uppercase tracking-wider">CPU</th>
@@ -331,7 +331,7 @@ export function HealthDashboardClient({ serverCount, initialSystemHealth }: Prop
 						onClick={fetchHealth}
 						disabled={isRefreshing}
 						aria-label={t("healthPage.ui.refreshAria")}
-						className="min-h-11 inline-flex items-center rounded-lg border border-white/[0.10] bg-[var(--surface)] px-3 text-xs text-[var(--text-secondary)] hover:bg-[var(--sidebar-hover)] transition disabled:cursor-not-allowed disabled:opacity-60"
+						className="min-h-11 inline-flex items-center rounded-lg border border-white/[0.10] light:border-[var(--border)] bg-[var(--surface)] px-3 text-xs text-[var(--text-secondary)] hover:bg-[var(--sidebar-hover)] transition disabled:cursor-not-allowed disabled:opacity-60"
 					>
 						{isRefreshing ? t("healthPage.ui.refreshing") : t("healthPage.ui.refresh")}
 					</button>
@@ -356,7 +356,7 @@ export function HealthDashboardClient({ serverCount, initialSystemHealth }: Prop
 				<div className="overflow-x-auto">
 					<table className="w-full text-sm">
 						<thead>
-							<tr className="border-b border-white/[0.10] bg-[var(--surface)]">
+							<tr className="border-b border-white/[0.10] light:border-[var(--border)] bg-[var(--surface)]">
 								<th className="px-4 py-3 text-left text-xs font-medium text-[var(--text-muted)] uppercase tracking-wider">{t("healthPage.ui.node")}</th>
 								<th className="px-4 py-3 text-left text-xs font-medium text-[var(--text-muted)] uppercase tracking-wider">{t("healthPage.ui.status")}</th>
 								<th className="px-4 py-3 text-left text-xs font-medium text-[var(--text-muted)] uppercase tracking-wider">CPU</th>
@@ -366,7 +366,7 @@ export function HealthDashboardClient({ serverCount, initialSystemHealth }: Prop
 								<th className="px-4 py-3 text-left text-xs font-medium text-[var(--text-muted)] uppercase tracking-wider">{t("healthPage.ui.details")}</th>
 							</tr>
 						</thead>
-						<tbody className="divide-y divide-white/[0.04]">
+						<tbody className="divide-y divide-white/[0.04] light:divide-[var(--border)]">
 							{overview.servers.map((server) => {
 								const sc = statusToneClasses[server.status] ?? unknownTone;
 								return (

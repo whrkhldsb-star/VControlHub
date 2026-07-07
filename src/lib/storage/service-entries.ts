@@ -5,6 +5,8 @@ import { Prisma } from "@prisma/client";
 
 import { prisma } from "@/lib/db";
 import { BusinessError, ConflictError, NotFoundError, ValidationError } from "@/lib/errors";
+import { serverT } from "@/lib/i18n/server-locale";
+import { t } from "@/lib/i18n/translations";
 import { listRemoteDirectory } from "@/lib/ssh/client";
 import { normalizeRemotePath } from "@/lib/storage/remote-path";
 import { resolveStorageSshCredentials } from "@/lib/storage/ssh-credentials";
@@ -32,7 +34,7 @@ export function resolveLocalAbsolutePath(basePath: string, relativePath: string)
   const relativeToRoot = path.relative(allowedRoot, absolutePath);
 
   if (relativeToRoot.startsWith("..") || path.isAbsolute(relativeToRoot)) {
-    throw new ValidationError("非法路径");
+    throw new ValidationError(t("backend.storage.invalidPath"));
   }
 
   return absolutePath;
@@ -126,7 +128,8 @@ export async function createFileEntry(input: CreateFileEntryInput) {
     select: { id: true, isDeleted: true },
   });
   if (existing && !existing.isDeleted) {
-    throw new ConflictError(`路径已存在: ${payload.relativePath}`);
+    const t = await serverT();
+    throw new ConflictError(t("backend.storage.pathAlreadyExists").replace("{path}", payload.relativePath));
   }
   if (existing?.isDeleted) {
     return prisma.fileEntry.update({
@@ -165,7 +168,8 @@ export async function updateFileEntry(input: UpdateFileEntryInput) {
   });
 
   if (!current) {
-    throw new NotFoundError("文件条目不存在或已删除");
+    const t = await serverT();
+    throw new NotFoundError(t("backend.storage.fileEntryNotFound"));
   }
 
   return prisma.fileEntry.update({
@@ -189,7 +193,8 @@ export async function softDeleteFileEntry(input: FileEntryMutationInput) {
   });
 
   if (!current) {
-    throw new NotFoundError("文件条目不存在或已删除");
+    const t = await serverT();
+    throw new NotFoundError(t("backend.storage.fileEntryNotFound"));
   }
 
   return prisma.fileEntry.update({
@@ -226,6 +231,7 @@ type DeletedFileEntryWithNode = Prisma.FileEntryGetPayload<{
 export type { DeletedFileEntryWithNode };
 
 async function assertDeletedEntryStillExists(entry: DeletedFileEntryWithNode) {
+  const t = await serverT();
   if (entry.storageNode.driver === "LOCAL") {
     const absolutePath = resolveLocalAbsolutePath(
       entry.storageNode.basePath,
@@ -235,14 +241,14 @@ async function assertDeletedEntryStillExists(entry: DeletedFileEntryWithNode) {
     try {
       fileStat = await stat(absolutePath);
     } catch {
-      throw new BusinessError("原始文件已不存在，无法恢复索引");
+      throw new BusinessError(t("backend.storage.originalFileMissing"));
     }
 
     if (entry.entryType === "DIRECTORY" && !fileStat.isDirectory()) {
-      throw new BusinessError("原始路径已不是目录，无法恢复索引");
+      throw new BusinessError(t("backend.storage.originalPathNotDirectory"));
     }
     if (entry.entryType === "FILE" && !fileStat.isFile()) {
-      throw new BusinessError("原始路径已不是文件，无法恢复索引");
+      throw new BusinessError(t("backend.storage.originalPathNotFile"));
     }
     return;
   }
@@ -256,7 +262,7 @@ async function assertDeletedEntryStillExists(entry: DeletedFileEntryWithNode) {
       normalizedParent,
     );
   } catch {
-    throw new BusinessError("原始远端路径非法，无法恢复索引");
+    throw new BusinessError(t("backend.storage.remotePathInvalid"));
   }
 
   const credentials = resolveStorageSshCredentials(entry.storageNode);
@@ -267,7 +273,7 @@ async function assertDeletedEntryStillExists(entry: DeletedFileEntryWithNode) {
       remotePath: remoteParentPath,
     });
   } catch {
-    throw new BusinessError("无法确认远端文件仍然存在，恢复已取消");
+    throw new BusinessError(t("backend.storage.remoteFileCheckFailed"));
   }
 
   const expectedName = path.posix.basename(entry.relativePath);
@@ -275,14 +281,14 @@ async function assertDeletedEntryStillExists(entry: DeletedFileEntryWithNode) {
     (candidate) => candidate.name === expectedName,
   );
   if (!remoteEntry) {
-    throw new BusinessError("原始远端文件已不存在，无法恢复索引");
+    throw new BusinessError(t("backend.storage.remoteFileMissing"));
   }
 
   if (entry.entryType === "DIRECTORY" && remoteEntry.type !== "directory") {
-    throw new BusinessError("原始远端路径已不是目录，无法恢复索引");
+    throw new BusinessError(t("backend.storage.remotePathNotDirectory"));
   }
   if (entry.entryType === "FILE" && remoteEntry.type !== "file") {
-    throw new BusinessError("原始远端路径已不是文件，无法恢复索引");
+    throw new BusinessError(t("backend.storage.remotePathNotFile"));
   }
 }
 
@@ -315,11 +321,13 @@ export async function restoreFileEntry(input: FileEntryMutationInput) {
   });
 
   if (!current) {
-    throw new NotFoundError("文件条目不存在或已删除");
+    const t = await serverT();
+    throw new NotFoundError(t("backend.storage.fileEntryNotFound"));
   }
 
   if (!current.isDeleted) {
-    throw new BusinessError("文件条目未在回收站中");
+    const t = await serverT();
+    throw new BusinessError(t("backend.storage.fileEntryNotInRecycleBin"));
   }
 
   await assertDeletedEntryStillExists(current);

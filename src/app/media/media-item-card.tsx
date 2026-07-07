@@ -395,7 +395,7 @@ export function MediaItemCard({
             onClick={() => void publishAsImageBed()}
             disabled={publishing}
             data-tone="emerald"
-            className="inline-flex items-center gap-1 rounded-lg border border-[var(--success-border)] px-2.5 py-1.5 text-[var(--success)] hover:bg-[var(--success)] disabled:opacity-50"
+            className="inline-flex items-center gap-1 rounded-lg border border-[var(--success-border)] px-2.5 py-1.5 text-[var(--success)] hover:bg-[var(--success-bg)] hover:text-[var(--success)] disabled:opacity-50"
             title={t("mediaItemCard.publishTooltip")}
           >
             {" "}

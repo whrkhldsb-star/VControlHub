@@ -1,3 +1,4 @@
+import { getServerLocale } from "@/lib/i18n/translations";
 import { requireSession } from "@/lib/auth/require-session";
 import { sessionHasPermission } from "@/lib/auth/authorization";
 import { listShareLinks } from "@/lib/share-link/service";
@@ -11,6 +12,7 @@ import { ShareRowActions } from "./share-row-actions";
 export const revalidate = 60;
 
 export default async function SharesPage() {
+	const locale = await getServerLocale();
 	const session = await requireSession("/shares");
 	if (!sessionHasPermission(session, "share:read")) return <PageShell><EmptyState text={t("shares.noPermission")} /></PageShell>;
 	const [shares, nodes] = await Promise.all([listShareLinks(), listStorageNodes()]);
@@ -19,7 +21,7 @@ export default async function SharesPage() {
 
 	return (
 		<PageShell>
-			<PageHeader eyebrow="Sharing" title={t("shares.title")} description={t("shares.desc")} />
+			<PageHeader eyebrow={t("sharesPage.eyebrow", locale)} title={t("shares.title")} description={t("shares.desc")} />
 
 			{canCreate ? (
 				<div className="mb-6 space-y-4">
@@ -45,7 +47,7 @@ export default async function SharesPage() {
 									{canManage ? <ShareRowActions id={s.id} revoked={Boolean(s.revokedAt)} /> : null}
 								</div>
 							</div>
-							<p className="mt-2 text-xs text-[var(--text-muted)]">{t("shares.createdAt")}：{s.createdAt.toLocaleString("zh-CN")} · {t("shares.expiresAt")}：{s.expiresAt?.toLocaleString("zh-CN") ?? t("shares.neverExpires")}</p>
+							<p className="mt-2 text-xs text-[var(--text-muted)]">{t("shares.createdAt")}：{s.createdAt.toLocaleString(locale === "zh" ? "zh-CN" : "en-US")} · {t("shares.expiresAt")}：{s.expiresAt?.toLocaleString(locale === "zh" ? "zh-CN" : "en-US") ?? t("shares.neverExpires")}</p>
 						</div>
 					))}
 				</div>

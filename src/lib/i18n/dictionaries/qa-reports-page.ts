@@ -69,6 +69,7 @@ export const zh: Record<string, string> = {
 	"qaReportsPage.totalReports": "总报告数",
 	"qaReportsPage.uninspected": "未巡检",
 	"qaReportsPage.viewDetail": "查看详情 →",
+	"qaReportsPage.eyebrow": "QA 报告",
 };
 
 export const en: Record<string, string> = {
@@ -135,4 +136,5 @@ export const en: Record<string, string> = {
 	"qaReportsPage.totalReports": "Total reports",
 	"qaReportsPage.uninspected": "Not inspected",
 	"qaReportsPage.viewDetail": "View details →",
+	"qaReportsPage.eyebrow": "QA Reports",
 };

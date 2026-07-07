@@ -5,6 +5,8 @@ import path from "node:path";
 
 import { prisma } from "@/lib/db";
 import { ForbiddenError, NotFoundError, ValidationError } from "@/lib/errors";
+import { serverT } from "@/lib/i18n/server-locale";
+import { t } from "@/lib/i18n/translations";
 import { guessMimeType } from "@/lib/image-bed/constants";
 import { assertStorageAccess } from "@/lib/storage/access-control";
 import { expandStorageBasePath } from "@/lib/storage/path-utils";
@@ -15,7 +17,36 @@ export function hashShareToken(token: string) {
   return createHash("sha256").update(token).digest("hex");
 }
 
-const INVALID_SHARE_PATH_MESSAGE = "分享路径必须是存储节点内的安全相对路径";
+export function normalizeSharePath(path: string) {
+  const rawPath = path.trim();
+  if (!rawPath) {
+    throw new ValidationError(t("backend.shareLink.invalidSharePath"));
+  }
+
+  if (/\0|[\u0000-\u001F\u007F]/.test(rawPath)) {
+    throw new ValidationError(t("backend.shareLink.invalidSharePath"));
+  }
+
+  if (/^[a-zA-Z]:/.test(rawPath) || rawPath.startsWith("//")) {
+    throw new ValidationError(t("backend.shareLink.invalidSharePath"));
+  }
+
+  const normalizedPath = rawPath
+    .replace(/\\/g, "/")
+    .replace(/^\/+/, "")
+    .replace(/\/+/g, "/");
+
+  const segments = normalizedPath.split("/").filter(Boolean);
+  if (segments.length === 0 || segments.some((segment) => segment === "." || segment === "..")) {
+    throw new ValidationError(t("backend.shareLink.invalidSharePath"));
+  }
+
+  return segments.join("/");
+}
+
+export function hashSharePassword(password: string) {
+  return createHash("sha256").update(`share-pw:${password}`).digest("hex");
+}
 
 const SHARE_STORAGE_NODE_INCLUDE = {
   storageNode: {
@@ -26,37 +57,6 @@ const SHARE_STORAGE_NODE_INCLUDE = {
     },
   },
 } as const;
-
-export function normalizeSharePath(path: string) {
-  const rawPath = path.trim();
-  if (!rawPath) {
-    throw new ValidationError(INVALID_SHARE_PATH_MESSAGE);
-  }
-
-  if (/\0|[\u0000-\u001F\u007F]/.test(rawPath)) {
-    throw new ValidationError(INVALID_SHARE_PATH_MESSAGE);
-  }
-
-  if (/^[a-zA-Z]:/.test(rawPath) || rawPath.startsWith("//")) {
-    throw new ValidationError(INVALID_SHARE_PATH_MESSAGE);
-  }
-
-  const normalizedPath = rawPath
-    .replace(/\\/g, "/")
-    .replace(/^\/+/, "")
-    .replace(/\/+/g, "/");
-
-  const segments = normalizedPath.split("/").filter(Boolean);
-  if (segments.length === 0 || segments.some((segment) => segment === "." || segment === "..")) {
-    throw new ValidationError(INVALID_SHARE_PATH_MESSAGE);
-  }
-
-  return segments.join("/");
-}
-
-export function hashSharePassword(password: string) {
-  return createHash("sha256").update(`share-pw:${password}`).digest("hex");
-}
 
 export async function createShareLink(input: {
   session: SessionPayload;
@@ -71,7 +71,10 @@ export async function createShareLink(input: {
 }) {
   const normalizedPath = normalizeSharePath(input.path);
   const access = await assertStorageAccess({ session: input.session, storageNodeId: input.storageNodeId, relativePath: normalizedPath, operation: "read" });
-  if (!access.allowed) throw new ForbiddenError(access.reason || "没有该路径的分享权限");
+  if (!access.allowed) {
+    const t = await serverT();
+    throw new ForbiddenError(access.reason || t("backend.shareLink.noSharePermission"));
+  }
 
   const token = randomBytes(36).toString("base64url").slice(0, 48);
   const expiresAt = input.expiresInHours ? new Date(Date.now() + input.expiresInHours * 60 * 60 * 1000) : null;
@@ -170,6 +173,7 @@ async function syncLocalShareDirectory(share: { storageNodeId: string; storageNo
 	try {
 		entries = await readdir(absoluteDir, { withFileTypes: true });
 	} catch {
+		// Directory unreadable (permission denied, missing, etc.) — nothing to list.
 		return;
 	}
 

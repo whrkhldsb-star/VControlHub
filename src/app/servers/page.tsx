@@ -6,7 +6,7 @@ import { listServerProfiles } from "@/lib/server/service";
 import { PageShell, PageHeader, StatCard, EmptyState } from "@/components/page-shell";
 import { getSessionCookieName } from "@/lib/auth/session";
 import { logError } from "@/lib/logging";
-import { t } from "@/lib/i18n/translations";
+import { getServerLocale, t } from "@/lib/i18n/translations";
 
 import { getServerFormOptions } from "./actions";
 import { BatchServerActionPanel } from "./batch-server-action-panel";
@@ -20,6 +20,7 @@ import { SshTerminalProvider } from "./ssh-terminal-context";
 export const dynamic = "force-dynamic";
 
 export default async function ServersPage() {
+  const locale = await getServerLocale();
 	const session = await requireSession("/servers");
 	const canManageServers = sessionHasPermission(session, "server:write");
 	const canUseSshTerminal = sessionHasPermission(session, "server:ssh");
@@ -43,7 +44,7 @@ export default async function ServersPage() {
 	return (
 		<PageShell maxW="max-w-7xl">
 			<PageHeader
-				eyebrow="Infrastructure"
+				eyebrow={t("serversPage.eyebrow", locale)}
 				title={t("serversPage.title")}
 				description={t("serversPage.desc")}
 			>

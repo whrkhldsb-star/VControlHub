@@ -298,4 +298,5 @@ export const en: Record<string, string> = {
 	"settingsTeam.confirm.cancel": "Cancel",
 	"settingsTeam.confirm.submit": "Confirm",
 
+	"settingsPage.unsavedChangesAria": "Unsaved changes",
 };

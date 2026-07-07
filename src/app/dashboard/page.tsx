@@ -6,6 +6,8 @@ import { getUnreadCount } from "@/lib/notification/service";
 import { prisma } from "@/lib/db";
 import { getSetting } from "@/lib/settings/service";
 import { PageShell } from "@/components/page-shell";
+import { getServerLocale } from "@/lib/i18n/translations";
+import { formatDateTime } from "@/lib/datetime/format";
 import { DashboardAnalyticsPanel } from "../dashboard-analytics-panel";
 import { DashboardPreferenceClient } from "../dashboard-preference-client";
 import {
@@ -17,23 +19,6 @@ import {
 } from "../dashboard-localized-sections";
 
 export const dynamic = "force-dynamic";
-
-const dashboardAuditDateFormatter = new Intl.DateTimeFormat("zh-CN", {
-  timeZone: "Asia/Shanghai",
-  year: "numeric",
-  month: "2-digit",
-  day: "2-digit",
-  hour: "2-digit",
-  minute: "2-digit",
-  second: "2-digit",
-  hour12: false,
-});
-
-function formatDashboardAuditDate(value: Date | string | number) {
-  const date = value instanceof Date ? value : new Date(value);
-  if (Number.isNaN(date.getTime())) return "—";
-  return dashboardAuditDateFormatter.format(date);
-}
 
 export default async function DashboardPage() {
   const session = await requireSession("/dashboard");
@@ -66,6 +51,7 @@ export default async function DashboardPage() {
   const dlCompleted = downloadStats.find((d) => d.status === "COMPLETED")?._count ?? 0;
   const dlFailed = downloadStats.find((d) => d.status === "FAILED")?._count ?? 0;
 
+  const locale = await getServerLocale();
   const formattedAuditLogs = recentAuditLogs.map((log) => ({
     id: log.id,
     action: log.action,
@@ -73,7 +59,7 @@ export default async function DashboardPage() {
     actorType: log.actorType,
     actor: log.actor,
     createdAt: log.createdAt.toISOString(),
-    formattedCreatedAt: formatDashboardAuditDate(log.createdAt),
+    formattedCreatedAt: formatDateTime(log.createdAt, locale),
   }));
 
   const formattedRecentRequests = recentRequests.map((request) => ({

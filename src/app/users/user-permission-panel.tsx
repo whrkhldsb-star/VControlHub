@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { csrfFetch } from "@/lib/auth/csrf-client";
 import { EmptyState } from "@/components/page-shell";
 import { useI18n } from "@/lib/i18n/use-locale";
+import { useDialogFocus } from "@/lib/a11y/use-dialog-focus";
 
 type RoleInfo = { key: string; name: string; description?: string | null };
 type PermissionInfo = { key: string; name: string; description?: string | null };

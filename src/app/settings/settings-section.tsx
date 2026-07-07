@@ -37,12 +37,13 @@ import { TwoFactorSettingsLazy } from "./two-factor-settings-lazy";
 
 export function formatMetadataDate(
   value: Date | string | null,
-  t: (key: string) => string,
+  t: (key: string, locale?: string) => string,
+  locale: string = "zh",
 ) {
   if (!value) return t("settingsClient.metadataNoRecord");
   const date = value instanceof Date ? value : new Date(value);
   if (Number.isNaN(date.getTime())) return t("settingsClient.metadataNoRecord");
-  return date.toLocaleString("zh-CN", { hour12: false });
+  return date.toLocaleString(locale === "zh" ? "zh-CN" : "en-US", { hour12: false });
 }
 
 export function latestSectionMetadata(
@@ -95,7 +96,7 @@ export function CollapsibleSection({
   asForm = false,
   children,
 }: CollapsibleSectionProps) {
-  const { t } = useI18n();
+  const { t, locale } = useI18n();
   const Inner = asForm ? "form" : "div";
   const badgeClass = BADGE_COLOR_CLASSES[badgeTone] ?? BADGE_COLOR_CLASSES.cyan;
   return (
@@ -157,7 +158,7 @@ export function AuditSummary({
 }: {
   metadata: SettingUpdateMetadata | null;
 }) {
-  const { t } = useI18n();
+  const { t, locale } = useI18n();
   return (
     <div
       data-tone="amber"
@@ -214,7 +215,7 @@ export function SchemaDrivenSection({
   onHighRiskBlur,
   onHighRiskChange,
 }: SchemaDrivenSectionProps) {
-  const { t } = useI18n();
+  const { t, locale } = useI18n();
   const saveKeys = getSectionSaveKeys(section);
   const hasSaveButton = saveKeys.length > 0;
   const descriptionKey =

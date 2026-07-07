@@ -82,6 +82,10 @@ export const zh: Record<string, string> = {
 	"playbooksPage.status.cancelled": "已取消",
 	"playbooksPage.stepsAndCreatedAt": "{count} 步 · 创建于 {time}",
 
+	"playbooksPage.step.typeAria": "步骤类型",
+	"playbooksPage.step.recipientAria": "收件人用户ID",
+	"playbooksPage.step.subjectAria": "主题",
+	"playbooksPage.step.urlAria": "URL",
 };
 
 export const en: Record<string, string> = {
@@ -159,4 +163,8 @@ export const en: Record<string, string> = {
 	"playbooksPage.status.cancelled": "Cancelled",
 	"playbooksPage.stepsAndCreatedAt": "{count} steps · Created at {time}",
 
+	"playbooksPage.step.typeAria": "Step type",
+	"playbooksPage.step.recipientAria": "Recipient user ID",
+	"playbooksPage.step.subjectAria": "Subject",
+	"playbooksPage.step.urlAria": "URL",
 };

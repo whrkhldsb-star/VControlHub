@@ -47,7 +47,7 @@ function statusLabel(status: string, t: (k: string) => string) {
   return status;
 }
 
-export function UserManagementClient({ canManage = false }: { canManage?: boolean }) {
+export function UserManagementClient({ canManage = false, currentUserId = "" }: { canManage?: boolean; currentUserId?: string }) {
   const { t, locale } = useI18n();
   const [users, setUsers] = useState<UserInfo[]>([]);
   const [loading, setLoading] = useState(true);
@@ -118,6 +118,30 @@ export function UserManagementClient({ canManage = false }: { canManage?: boolea
         type: "error",
         text: messageFromError(err, t(errKey).replace("{name}", username)),
       });
+    }
+  };
+
+  const [resetPasswordUser, setResetPasswordUser] = useState<UserInfo | null>(null);
+  const [resetPasswordValue, setResetPasswordValue] = useState("");
+  const [resetting, setResetting] = useState(false);
+
+  const handleResetPassword = async () => {
+    if (!resetPasswordUser || !resetPasswordValue) return;
+    setResetting(true);
+    setMessage(null);
+    try {
+      await csrfFetch("/api/users", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ userId: resetPasswordUser.id, action: "reset_password", newPassword: resetPasswordValue }),
+      });
+      setMessage({ type: "success", text: t("usersPage.success.passwordReset").replace("{name}", resetPasswordUser.username) });
+      setResetPasswordUser(null);
+      setResetPasswordValue("");
+    } catch (err) {
+      setMessage({ type: "error", text: messageFromError(err, t("usersPage.error.resetFailed").replace("{name}", resetPasswordUser.username)) });
+    } finally {
+      setResetting(false);
     }
   };
 
@@ -274,15 +298,25 @@ export function UserManagementClient({ canManage = false }: { canManage?: boolea
                       >
                         {t("usersPage.action.permissions")}
                       </button>
+                      <button
+                        type="button"
+                        onClick={() => { setResetPasswordUser(user); setResetPasswordValue(""); }}
+                        data-tone="warning"
+                        className="rounded-lg border px-3 py-1.5 text-xs transition"
+                      >
+                        {t("usersPage.action.resetPassword")}
+                      </button>
                       {user.status !== "DISABLED" ? (
-                        <button
-                          type="button"
-                          onClick={() => handleToggleStatus(user.id, user.status, user.username)}
-                          data-tone="danger"
-                          className="rounded-lg border px-3 py-1.5 text-xs transition"
-                        >
-                          {t("usersPage.action.disable")}
-                        </button>
+                        user.id !== currentUserId && (
+                          <button
+                            type="button"
+                            onClick={() => handleToggleStatus(user.id, user.status, user.username)}
+                            data-tone="danger"
+                            className="rounded-lg border px-3 py-1.5 text-xs transition"
+                          >
+                            {t("usersPage.action.disable")}
+                          </button>
+                        )
                       ) : (
                         <button
                           type="button"
@@ -310,6 +344,53 @@ export function UserManagementClient({ canManage = false }: { canManage?: boolea
           onClose={() => setEditingPermissionsUser(null)}
           onSaved={fetchUsers}
         />
+      )}
+      {resetPasswordUser && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-[var(--surface)]/70 px-4 backdrop-blur-sm"
+          role="presentation"
+          onClick={() => setResetPasswordUser(null)}
+        >
+          <section
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="reset-password-title"
+            className="w-full max-w-md rounded-2xl border border-[var(--warning-border)] bg-[var(--modal-bg)] p-6 shadow-lg"
+          >
+            <h2 id="reset-password-title" className="text-lg font-semibold text-[var(--text-primary)]">
+              {t("usersPage.resetPassword.title").replace("{name}", resetPasswordUser.username)}
+            </h2>
+            <p className="mt-2 text-sm text-[var(--text-secondary)]">
+              {t("usersPage.resetPassword.desc")}
+            </p>
+            <input
+              type="password"
+              value={resetPasswordValue}
+              onChange={(e) => setResetPasswordValue(e.target.value)}
+              className="mt-4 w-full rounded-xl border border-[var(--border)] bg-[var(--input-bg)] px-4 py-2 text-sm text-[var(--text-primary)] focus:outline-none focus:border-[var(--color-action-border)]/50"
+              placeholder={t("usersPage.form.passwordPlaceholder")}
+              autoFocus
+            />
+            <div className="mt-6 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
+              <button
+                type="button"
+                onClick={() => setResetPasswordUser(null)}
+                className="rounded-xl border border-[var(--border)] px-4 py-2 text-sm font-medium text-[var(--text-secondary)] hover:bg-[var(--surface-hover)]"
+              >
+                {t("usersPage.action.cancel")}
+              </button>
+              <button
+                type="button"
+                onClick={handleResetPassword}
+                disabled={resetting || !resetPasswordValue}
+                data-tone="warning"
+                className="rounded-xl border px-4 py-2 text-sm font-medium transition disabled:opacity-50"
+              >
+                {resetting ? t("usersPage.action.resetting") : t("usersPage.action.confirmReset")}
+              </button>
+            </div>
+          </section>
+        </div>
       )}
     </div>
   );

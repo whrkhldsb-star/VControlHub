@@ -43,7 +43,7 @@ export default async function ScheduledTasksPage() {
 	return (
 		<PageShell maxW="max-w-7xl">
 				<PageHeader
-					eyebrow="Automation"
+					eyebrow={t("scheduledTasksPage.eyebrow", locale)}
 					title={tr("scheduledTasksPage.header.title")}
 					description={tr("scheduledTasksPage.header.description")}
 				/>

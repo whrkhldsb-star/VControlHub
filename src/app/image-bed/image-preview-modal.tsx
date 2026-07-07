@@ -17,6 +17,7 @@
 
 import Image from "next/image";
 import { useI18n } from "@/lib/i18n/use-locale";
+import { useDialogFocus } from "@/lib/a11y/use-dialog-focus";
 import type { ImageItem } from "./image-bed-types";
 
 export interface ImagePreviewModalProps {
@@ -41,6 +42,8 @@ export function ImagePreviewModal({
 	formatSize,
 }: ImagePreviewModalProps) {
 	const { t } = useI18n();
+  const dialogRef = useDialogFocus<HTMLDivElement>({ open: image !== null, onClose });
+
 	if (!image) return null;
 
 	return (
@@ -107,7 +110,7 @@ export function ImagePreviewModal({
 				<button
 					onClick={onClose}
 					className="absolute -top-3 -right-3 w-8 h-8 bg-[var(--surface-elevated)] text-[var(--text-secondary)] rounded-full flex items-center justify-center hover:bg-[var(--surface-hover)] text-lg"
-					aria-label="Close preview"
+					aria-label={t("common.close")}
 				>
 					✕
 				</button>

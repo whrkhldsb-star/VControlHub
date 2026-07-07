@@ -30,7 +30,7 @@ export default function ImageBedPage({ canWrite, canDelete }: { canWrite: boolea
 		setSearch,
 		setShowAll,
 	} = useImageBedList({ canWrite });
-	const { t } = useI18n();
+	const { t, locale } = useI18n();
 	const [uploading, setUploading] = useState(false);
 	const [dragOver, setDragOver] = useState(false);
 	const [toast, setToast] = useState<{ message: string; tone: "status" | "alert" } | null>(null);
@@ -62,6 +62,7 @@ export default function ImageBedPage({ canWrite, canDelete }: { canWrite: boolea
 		try {
 			await fetchImages(p);
 		} catch {
+			// Image list fetch failed — notify the user via toast.
 			showToast(t("imageBed.toast.fetchListFailed"));
 		}
 	}, [fetchImages, t]);
@@ -76,6 +77,7 @@ export default function ImageBedPage({ canWrite, canDelete }: { canWrite: boolea
 			setStats(data);
 			setShowStats(true);
 		} catch {
+			// Failed to fetch image stats — notify the user via toast.
 			showToast(t("imageBed.toast.fetchStatsFailed"));
 		}
 	};
@@ -264,7 +266,7 @@ export default function ImageBedPage({ canWrite, canDelete }: { canWrite: boolea
 	const formatSize = formatImageSize;
 
 	const formatDate = (iso: string) => {
-		return new Date(iso).toLocaleString("zh-CN", { month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit" });
+		return new Date(iso).toLocaleString(locale === "zh" ? "zh-CN" : "en-US", { month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit" });
 	};
 
 	const formatPublishSource = (img: ImageItem) => {
@@ -283,7 +285,7 @@ export default function ImageBedPage({ canWrite, canDelete }: { canWrite: boolea
 						<p className="mt-2 max-w-2xl text-sm leading-6 text-[var(--text-secondary)]">{t("imageBedPage.hero.desc")}</p>
 					</div>
 					<div className="flex flex-wrap items-center gap-2 text-xs">
-						<Link href="/media?type=image" className="rounded-xl bg-[var(--success)] px-4 py-2 font-medium text-[var(--text-primary)] transition hover:bg-[var(--success)]">{t("imageBedPage.hero.openMedia")}</Link>
+						<Link href="/media?type=image" className="rounded-xl bg-[var(--success)] px-4 py-2 font-medium text-[var(--text-primary)] transition hover:bg-[var(--success-bg)] hover:text-[var(--success)]">{t("imageBedPage.hero.openMedia")}</Link>
 						{canWrite && <button onClick={() => { fetchStorageNodes(); setShowPublishModal(true); }} className="rounded-xl border border-[var(--accent-border)] bg-[var(--accent-bg)] px-4 py-2 font-medium text-[var(--accent)] transition hover:bg-[var(--accent-hover)] hover:text-[var(--text-primary)]">{t("imageBedPage.hero.publishFromStorage")}</button>}
 					</div>
 				</div>
@@ -365,7 +367,7 @@ export default function ImageBedPage({ canWrite, canDelete }: { canWrite: boolea
 							<h2 className="text-sm font-semibold text-[var(--text-primary)]">{t("imageBedPage.legacy.title")}</h2>
 							<p className="mt-1 text-xs text-[var(--text-primary)]/70">{t("imageBedPage.legacy.desc")}</p>
 						</div>
-						<Link href="/media?type=image" className="inline-flex items-center justify-center rounded-lg bg-[var(--success)] px-4 py-2 text-xs font-medium text-[var(--text-primary)] transition hover:bg-[var(--success)]">{t("imageBedPage.legacy.openMedia")}</Link>
+						<Link href="/media?type=image" className="inline-flex items-center justify-center rounded-lg bg-[var(--success)] px-4 py-2 text-xs font-medium text-[var(--text-primary)] transition hover:bg-[var(--success-bg)] hover:text-[var(--success)]">{t("imageBedPage.legacy.openMedia")}</Link>
 					</div>
 				</div>
 			)}

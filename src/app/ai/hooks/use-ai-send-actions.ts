@@ -140,6 +140,7 @@ export function useAiSendActions({
         setActiveConvId(data.conversation.id);
       }
     } catch {
+      // Conversation creation failed — notify the user via toast.
       addToast("error", t("aiPage.createConvFailed"));
     }
   }, [

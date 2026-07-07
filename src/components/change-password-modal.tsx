@@ -1,6 +1,7 @@
 "use client";
 import { useActionState, useId, useState } from "react";
 import { SubmitButton } from "./submit-button";
+import { useDialogFocus } from "@/lib/a11y/use-dialog-focus";
 import {
   changePasswordAction,
   type AccountPasswordActionState,
@@ -27,6 +28,8 @@ export function ChangePasswordModal({
   const titleId = useId();
   const descriptionId = useId();
   const { t } = useI18n();
+  const dialogRef = useDialogFocus<HTMLDivElement>({ open: open, onClose: onClose });
+
   const closeModalLabel = t("common.closeChangePasswordModal");
   const changePasswordDescription = t("common.changePasswordDescription");
   const titleText = t("common.editPassword");
@@ -39,6 +42,7 @@ export function ChangePasswordModal({
         onClick={onClose}
       />{" "}
       <div
+        ref={dialogRef}
         role="dialog"
         aria-modal="true"
         aria-labelledby={titleId}

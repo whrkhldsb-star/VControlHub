@@ -66,6 +66,7 @@ export function useConvSettingsForm({
       await refreshConversations();
       onSaved();
     } catch {
+      // Failed to persist conversation settings — notify the user via toast.
       addToast("error", t("aiPage.saveFailed"));
     }
   }, [

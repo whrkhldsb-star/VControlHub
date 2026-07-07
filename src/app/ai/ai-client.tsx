@@ -142,6 +142,7 @@ export function AiClient({
       const data = await csrfFetch(`/api/ai/models?providerId=${providerId}`);
       if (data.models) setModelList(data.models);
     } catch {
+      // Failed to fetch models — show an empty list so the UI remains usable.
       setModelList([]);
     } finally {
       setModelsLoading(false);

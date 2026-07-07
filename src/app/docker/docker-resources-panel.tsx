@@ -219,7 +219,7 @@ export function DockerResourcesPanel() {
                     })}
                     onClick={() => setPendingDelete({ type, name: itemName })}
                     disabled={busyKey === `delete:${key}`}
-                    className="min-h-10 rounded-lg bg-[var(--danger)] px-3 py-1 text-xs text-[var(--danger)] transition hover:bg-[var(--danger)] disabled:opacity-50"
+                    className="min-h-10 rounded-lg bg-[var(--danger)] px-3 py-1 text-xs text-[var(--danger)] transition hover:bg-[var(--danger-bg)] hover:text-[var(--danger)] disabled:opacity-50"
                   >
                     {t("dockerResources.delete")}
                   </button>{" "}
@@ -357,7 +357,7 @@ export function DockerResourcesPanel() {
                   busyKey ===
                   `delete:${pendingDelete.type}:${pendingDelete.name}`
                 }
-                className="min-h-11 rounded-xl bg-[var(--danger)] px-4 py-2 text-sm font-semibold text-[var(--text-primary)] hover:bg-[var(--danger)] disabled:opacity-60"
+                className="min-h-11 rounded-xl bg-[var(--danger)] px-4 py-2 text-sm font-semibold text-[var(--text-primary)] hover:bg-[var(--danger-bg)] hover:text-[var(--danger)] disabled:opacity-60"
               >
                 {t("dockerResources.confirm")}
               </button>{" "}

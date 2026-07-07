@@ -24,6 +24,7 @@ import { zh as announcementspageZh, en as announcementspageEn } from "./dictiona
 import { zh as apitokenspageZh, en as apitokenspageEn } from "./dictionaries/api-tokens-page";
 import { zh as auditZh, en as auditEn } from "./dictionaries/audit";
 import { zh as authZh, en as authEn } from "./dictionaries/auth";
+import { zh as backendServicesZh, en as backendServicesEn } from "./dictionaries/backend-services";
 import { zh as backupspageZh, en as backupspageEn } from "./dictionaries/backups-page";
 import { zh as downloadspageZh, en as downloadspageEn } from "./dictionaries/downloads-page";
 import { zh as downloadsapiZh, en as downloadsapiEn } from "./dictionaries/downloads-api";
@@ -99,6 +100,7 @@ const zh: Record<string, string> = {
 	...apitokenspageZh,
 	...auditZh,
 	...authZh,
+	...backendServicesZh,
 	...backupspageZh,
 	...commonZh,
 	...costpageZh,
@@ -175,6 +177,7 @@ const en: Record<string, string> = {
 	...apitokenspageEn,
 	...auditEn,
 	...authEn,
+	...backendServicesEn,
 	...backupspageEn,
 	...commonEn,
 	...costpageEn,

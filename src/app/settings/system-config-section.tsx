@@ -85,6 +85,7 @@ export function SystemConfigSection() {
         }
         setSelectedFile(json as ExportFile);
       } catch {
+        // File content is not valid JSON or schema mismatch — show an error to the user.
         setFileError(t("systemConfig.import.invalidFile"));
         setSelectedFile(null);
       }

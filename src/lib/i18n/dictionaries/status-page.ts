@@ -16,6 +16,8 @@ export const zh: Record<string, string> = {
 	"statusPage.health.critical": "异常",
 	"statusPage.uptime.title": "历史可用率（90 天）",
 	"statusPage.uptime.desc": "显示过去 90 天的服务器 uptime 情况",
+	"statusPage.uptime.defaultServerName": "服务器",
+	"statusPage.uptime.slaLabel": "SLA：",
 };
 
 export const en: Record<string, string> = {
@@ -29,4 +31,6 @@ export const en: Record<string, string> = {
 	"statusPage.health.critical": "Critical",
 	"statusPage.uptime.title": "Historical uptime (90 days)",
 	"statusPage.uptime.desc": "Shows server uptime over the past 90 days.",
+	"statusPage.uptime.defaultServerName": "Server",
+	"statusPage.uptime.slaLabel": "SLA: ",
 };

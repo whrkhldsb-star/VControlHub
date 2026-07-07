@@ -144,7 +144,7 @@ export function SaveButtonWithDiff({
           data-component="save-button"
           className={`rounded-2xl px-5 py-2 text-sm font-medium transition disabled:opacity-60 ${
             highCount > 0
-              ? "bg-[var(--danger)] text-[var(--text-primary)] hover:bg-[var(--danger)]"
+              ? "bg-[var(--danger)] text-[var(--text-primary)] hover:bg-[var(--danger-bg)] hover:text-[var(--danger)]"
               : "bg-[var(--color-action)] text-[var(--color-action-fg)] hover:bg-[var(--color-action-bg)]"
           }`}
         >
@@ -155,7 +155,7 @@ export function SaveButtonWithDiff({
         <div
           data-component="diff-table"
           role="region"
-          aria-label="Unsaved changes"
+          aria-label={t("settingsPage.unsavedChangesAria")}
           className="overflow-hidden rounded-lg border border-[var(--border)] bg-[var(--surface)]/[0.04]"
         >
           <table className="w-full text-xs">
@@ -295,7 +295,7 @@ export function HighRiskConfirmModal({
             }}
             disabled={busy}
             data-action="confirm"
-            className="rounded-lg bg-[var(--danger)] px-4 py-1.5 text-xs font-semibold text-[var(--text-primary)] transition hover:bg-[var(--danger)] disabled:opacity-50"
+            className="rounded-lg bg-[var(--danger)] px-4 py-1.5 text-xs font-semibold text-[var(--text-primary)] transition hover:bg-[var(--danger-bg)] hover:text-[var(--danger)] disabled:opacity-50"
           >
             {busy ? t("settingsClient.saving") : t("settingsClient.confirmSaveAction")}
           </button>

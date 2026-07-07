@@ -14,6 +14,7 @@ export const zh: Record<string, string> = {
 	"healthPage.serverCount": "纳管节点 {count} 台",
 	"healthPage.noPermission": "缺少健康监控权限",
 	"healthPage.noPermissionHint": "需要 health:read 权限后才能查看节点健康详情和历史指标。",
+	"healthPage.eyebrow": "健康中心",
 	"healthPage.error.loadStatus": "加载健康状态失败",
 	"healthPage.error.loadHistory": "加载历史指标失败",
 
@@ -136,6 +137,7 @@ export const zh: Record<string, string> = {
 	"healthPage.check.git-sync.message.differs": "本地 {head} 与 origin/main {remote} 不一致",
 	"healthPage.check.git-sync.message.no-remote": "当前提交 {head}，远端状态暂不可确认",
 	"healthPage.check.git-sync.message.no-git": "当前目录不是可识别的 Git 仓库或无法读取 HEAD",
+	"healthPage.activeIncidentsAria": "活动事件公告",
 };
 
 export const en: Record<string, string> = {
@@ -144,6 +146,7 @@ export const en: Record<string, string> = {
 	"healthPage.serverCount": "Managed {count} nodes",
 	"healthPage.noPermission": "Missing health monitoring permission",
 	"healthPage.noPermissionHint": "You need the health:read permission to view node health details and historical metrics.",
+	"healthPage.eyebrow": "Health Center",
 	"healthPage.error.loadStatus": "Failed to load health status",
 	"healthPage.error.loadHistory": "Failed to load metric history",
 
@@ -266,4 +269,5 @@ export const en: Record<string, string> = {
 	"healthPage.check.git-sync.message.differs": "Local {head} differs from origin/main {remote}",
 	"healthPage.check.git-sync.message.no-remote": "Current commit {head}; remote status is temporarily unavailable",
 	"healthPage.check.git-sync.message.no-git": "Current directory is not a recognized Git repository or HEAD cannot be read",
+	"healthPage.activeIncidentsAria": "Active incident announcements",
 };

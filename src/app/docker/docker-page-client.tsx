@@ -180,6 +180,7 @@ export default function DockerPage() {
 			const data = await csrfFetch(`/api/docker/containers?logs=${id}&tail=50`);
 			setLogs(typeof data.data === "string" ? data.data : JSON.stringify(data.data, null, 2));
 		} catch {
+			// Failed to fetch container logs — show an error message in the logs panel.
 			setLogs(t("dockerPage.error.logs"));
 		}
 	};

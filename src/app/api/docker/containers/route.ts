@@ -93,6 +93,7 @@ function dockerRequest(
         try {
           data = JSON.parse(raw);
         } catch {
+          // Response is not valid JSON — return the raw string as-is.
           data = raw;
         }
         resolve({

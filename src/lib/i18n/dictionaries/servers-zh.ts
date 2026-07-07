@@ -328,4 +328,6 @@ export const zh: Record<string, string> = {
 	"vpsBackup.preset.docker-volumes": "Docker Volumes",
 	"vpsBackup.preset.website-files": "网站文件",
 	"vpsBackup.preset.custom": "自定义路径",
+	"serversPage.eyebrow": "基础设施",
+	"serversPage.quickActionsAria": "VPS 快捷操作",
 };

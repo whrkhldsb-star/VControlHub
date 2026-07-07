@@ -8,6 +8,7 @@
 export const zh: Record<string, string> = {
 	"scheduledTasksPage.header.title": "定时任务",
 	"scheduledTasksPage.header.description": "配置 Cron 表达式，自动向 VPS 节点下发待审批命令",
+	"scheduledTasksPage.eyebrow": "自动化",
 	"scheduledTasks.createFailed": "创建失败",
 	"scheduledTasks.cron.custom": "自定义 Cron；保存时服务端会计算下一次运行时间",
 	"scheduledTasks.cron.dailyPrefix": "每天",
@@ -89,6 +90,7 @@ export const zh: Record<string, string> = {
 export const en: Record<string, string> = {
 	"scheduledTasksPage.header.title": "Scheduled Tasks",
 	"scheduledTasksPage.header.description": "Configure Cron expressions to automatically dispatch approval-gated commands to VPS nodes.",
+	"scheduledTasksPage.eyebrow": "Automation",
 	"scheduledTasks.createFailed": "Create failed",
 	"scheduledTasks.cron.custom": "Custom cron; the server will compute the next run time on save",
 	"scheduledTasks.cron.dailyPrefix": "Every day at",

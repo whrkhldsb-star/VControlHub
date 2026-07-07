@@ -75,7 +75,7 @@ export function AnnouncementList({
   items: Announcement[];
   canManage: boolean;
 }) {
-  const { t } = useI18n();
+  const { t, locale } = useI18n();
   const { addToast } = useToast();
   const [items, setItems] = useState(initial);
   const [editing, setEditing] = useState<Announcement | null>(null);

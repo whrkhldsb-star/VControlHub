@@ -1,6 +1,7 @@
 "use client";
 
 import { useI18n } from "@/lib/i18n/use-locale";
+import { useDialogFocus } from "@/lib/a11y/use-dialog-focus";
 import type { SerializedPlaybook } from "./playbook-types";
 
 type PlaybookDeleteDialogProps = {
@@ -12,9 +13,11 @@ type PlaybookDeleteDialogProps = {
 
 export function PlaybookDeleteDialog({ playbook, busy, onCancel, onConfirm }: PlaybookDeleteDialogProps) {
   const { t } = useI18n();
+  const dialogRef = useDialogFocus<HTMLDivElement>({ open: playbook !== null, onClose: onCancel });
+
   if (!playbook) return null;
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-[var(--surface)] px-4 backdrop-blur-sm" role="presentation">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-[var(--surface)] px-4 backdrop-blur-sm" role="presentation" onClick={onCancel}>
       <section
         role="dialog"
         aria-modal="true"
@@ -39,7 +42,7 @@ export function PlaybookDeleteDialog({ playbook, busy, onCancel, onConfirm }: Pl
             type="button"
             onClick={onConfirm}
             disabled={busy}
-            className="min-h-11 rounded-xl bg-[var(--danger)] px-4 py-2 text-sm font-semibold text-[var(--text-primary)] hover:bg-[var(--danger)] disabled:opacity-50"
+            className="min-h-11 rounded-xl bg-[var(--danger)] px-4 py-2 text-sm font-semibold text-[var(--text-primary)] hover:bg-[var(--danger-bg)] hover:text-[var(--danger)] disabled:opacity-50"
           >
             {busy ? t("playbooksPage.action.deleting") : t("playbooksPage.delete.confirmBtn")}
           </button>

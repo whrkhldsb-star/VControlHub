@@ -316,4 +316,6 @@ export const en: Record<string, string> = {
 	"vpsBackup.preset.docker-volumes": "Docker Volumes",
 	"vpsBackup.preset.website-files": "Website Files",
 	"vpsBackup.preset.custom": "Custom Paths",
+	"serversPage.eyebrow": "Infrastructure",
+	"serversPage.quickActionsAria": "VPS quick actions",
 };

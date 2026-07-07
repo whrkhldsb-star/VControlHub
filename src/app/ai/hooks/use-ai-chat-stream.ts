@@ -116,6 +116,7 @@ export function useAiChatStream({
           action === "reject" ? t("aiPage.rejected") : t("aiPage.approved"),
         );
       } catch {
+        // Approval/rejection request failed — notify the user via toast.
         addToast("error", t("aiPage.opFailed"));
       } finally {
         approvalBusyRef.current.delete(approval.actionId);
