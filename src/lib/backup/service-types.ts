@@ -88,11 +88,11 @@ export function assertPortableBackupPath(filePath: string) {
 		value.includes("//") ||
 		parts.some((part) => !part || part === "." || part === "..")
 	) {
-		throw new ValidationError("备份路径必须是可移植的相对路径");
+		throw new ValidationError("Backup path must be a portable relative path");
 	}
 	const normalized = normalize(value);
 	if (normalized.startsWith("..") || normalized.includes(`${sep}..${sep}`) || normalized === "..") {
-		throw new ValidationError("备份路径必须是可移植的相对路径");
+		throw new ValidationError("Backup path must be a portable relative path");
 	}
 	return value;
 }

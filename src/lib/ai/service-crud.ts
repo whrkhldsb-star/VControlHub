@@ -110,8 +110,8 @@ const AI_PROVIDER_LIST_SELECT = {
 /* ── Provider CRUD ───────────────────────────────────────────── */
 
 export async function createProvider(input: CreateProviderInput) {
-	if (!input.name.trim()) throw new ValidationError("提供商名称不能为空");
-	if (!input.apiKey.trim()) throw new ValidationError("API Key 不能为空");
+	if (!input.name.trim()) throw new ValidationError("Provider name is required");
+	if (!input.apiKey.trim()) throw new ValidationError("API Key is required");
 
 	const normalizedBaseUrl = normalizeProviderBaseUrl(input.baseUrl);
 	const normalizedModels = normalizeProviderModels(input.availableModels);
@@ -156,7 +156,7 @@ export async function getProviderById(id: string, _userId: string) {
 		where: { id },
 		select: AI_PROVIDER_LIST_SELECT,
 	});
-	if (!provider) throw new NotFoundError("提供商不存在");
+	if (!provider) throw new NotFoundError("Provider not found");
 	return provider;
 }
 
@@ -196,7 +196,7 @@ export async function deleteProvider(id: string, _userId: string) {
 
 export async function createConversation(input: CreateConversationInput) {
 	const provider = await prisma.aiProvider.findUnique({ where: { id: input.providerId } });
-	if (!provider) throw new NotFoundError("AI 提供商不存在");
+	if (!provider) throw new NotFoundError("AI provider not found");
 
 	return prisma.aiConversation.create({
 		data: {
@@ -235,7 +235,7 @@ export async function getConversationById(id: string, userId: string) {
 			messages: { orderBy: { createdAt: "asc" } },
 		},
 	});
-	if (!conv) throw new NotFoundError("对话不存在");
+	if (!conv) throw new NotFoundError("Conversation not found");
 	return conv;
 }
 
@@ -265,6 +265,6 @@ export async function deleteConversation(id: string, userId: string) {
 
 export async function clearConversationMessages(id: string, userId: string) {
 	const conv = await prisma.aiConversation.findFirst({ where: { id, createdBy: userId } });
-	if (!conv) throw new NotFoundError("对话不存在");
+	if (!conv) throw new NotFoundError("Conversation not found");
 	await prisma.aiMessage.deleteMany({ where: { conversationId: id } });
 }

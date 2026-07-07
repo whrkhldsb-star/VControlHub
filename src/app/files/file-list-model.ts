@@ -70,7 +70,7 @@ export function sortFolders(
 	const sorted = [...folders];
 	if (sortKey === "name") {
 		sorted.sort((a, b) =>
-			(a.displayName ?? a.name).localeCompare(b.displayName ?? b.name, "zh-CN"),
+			(a.displayName ?? a.name).localeCompare(b.displayName ?? b.name),
 		);
 	}
 	if (sortDir === "desc") sorted.reverse();
@@ -91,11 +91,11 @@ export function sortFiles(
 function compareFiles(a: FileProp, b: FileProp, sortKey: FileListSortKey) {
 	switch (sortKey) {
 		case "name":
-			return a.name.localeCompare(b.name, "zh-CN");
+			return a.name.localeCompare(b.name);
 		case "size":
 			return (a.sizeBytes ?? -1) - (b.sizeBytes ?? -1);
 		case "source":
-			return a.storageNodeName.localeCompare(b.storageNodeName, "zh-CN");
+			return a.storageNodeName.localeCompare(b.storageNodeName);
 		case "updated":
 			return (a.updatedAt ?? "").localeCompare(b.updatedAt ?? "");
 		default:

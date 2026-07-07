@@ -34,7 +34,7 @@ export async function withServiceOperationLock<T>(
 ): Promise<T> {
 	const normalizedSlug = slug.trim();
 	if (serviceOperationLocks.has(normalizedSlug)) {
-		throw new ConflictError(`服务 ${normalizedSlug} 正在执行其它操作，请稍后重试`);
+		throw new ConflictError(`Service ${normalizedSlug} is busy with another operation, please retry shortly`);
 	}
 	serviceOperationLocks.add(normalizedSlug);
 	try {
@@ -47,7 +47,7 @@ export async function withServiceOperationLock<T>(
 /** Throws if the service is mid-install (the only state that should block other ops). */
 export function assertServiceNotBusy(svc: { slug: string; status?: string | null }, operation: string) {
 	if (svc.status === "installing") {
-		throw new ConflictError(`服务 ${svc.slug} 正在安装中，无法${operation}，请稍后重试`);
+		throw new ConflictError(`Service ${svc.slug} is installing, cannot ${operation}, please retry shortly`);
 	}
 }
 
@@ -62,33 +62,33 @@ const TRUSTED_HOST_MOUNTS = new Set(["/etc/timezone", "/etc/localtime"]);
 const DOCKER_SOCKET = "/var/run/docker.sock";
 
 export function safeContainerName(slug: string): string {
-	if (!SAFE_CONTAINER_RE.test(slug)) throw new ValidationError("服务标识无效");
+	if (!SAFE_CONTAINER_RE.test(slug)) throw new ValidationError("Service identifier is invalid");
 	return `qs-${slug}`;
 }
 
-export function assertTcpPort(port: number, label = "端口") {
+export function assertTcpPort(port: number, label = "Port") {
 	if (!Number.isInteger(port) || port < 1 || port > 65535) {
-		throw new ValidationError(`${label} ${port} 无效，请使用 1-65535 范围内的端口。`);
+		throw new ValidationError(`${label} ${port} is invalid, please use a port in the range 1-65535.`);
 	}
 }
 
 export function assertImage(image: string) {
-	if (!SAFE_IMAGE_RE.test(image)) throw new ValidationError("镜像名称无效");
+	if (!SAFE_IMAGE_RE.test(image)) throw new ValidationError("Image name is invalid");
 }
 
 function normalizeVolumeEndpoint(value: string, label: string) {
 	const trimmed = value.trim();
 	if (!trimmed.startsWith("/") || trimmed.includes("\0") || trimmed.includes("..")) {
-		throw new ValidationError(`${label} 路径无效`);
+		throw new ValidationError(`${label} path is invalid`);
 	}
 	return trimmed.replace(/\/+$/, "") || "/";
 }
 
 function splitContainerPathAndOptions(raw: string) {
 	const [containerPath, ...options] = raw.split(":");
-	const normalizedPath = normalizeVolumeEndpoint(containerPath!, "容器挂载");
+	const normalizedPath = normalizeVolumeEndpoint(containerPath!, "Container mount");
 	for (const option of options) {
-		if (!SAFE_VOLUME_OPTION_RE.test(option)) throw new ValidationError(`挂载选项 ${option} 无效`);
+		if (!SAFE_VOLUME_OPTION_RE.test(option)) throw new ValidationError(`Mount option ${option} is invalid`);
 	}
 	return [normalizedPath, ...options].join(":");
 }
@@ -96,11 +96,11 @@ function splitContainerPathAndOptions(raw: string) {
 function assertHostVolumeAllowed(hostPath: string, template: ServiceTemplate) {
 	if (hostPath === DOCKER_SOCKET) {
 		if (template.allowDockerSocket === true) return;
-		throw new BusinessError("远程应用不允许挂载 Docker socket");
+		throw new BusinessError("Remote applications are not allowed to mount the Docker socket");
 	}
 	if (TRUSTED_HOST_MOUNTS.has(hostPath)) return;
 	if (HOST_VOLUME_ROOTS.some((root) => hostPath === root.slice(0, -1) || hostPath.startsWith(root))) return;
-	throw new BusinessError(`宿主机挂载路径 ${hostPath} 不在允许范围内`);
+	throw new BusinessError(`Host mount path ${hostPath} is not within the allowed range`);
 }
 
 function isRemovableHostVolume(hostPath: string) {
@@ -120,7 +120,7 @@ export function getRemovableHostVolumes(rawVolumesJson: string | null | undefine
 	const paths = new Set<string>();
 	for (const vol of volumes) {
 		if (typeof vol.host !== "string") continue;
-		const host = normalizeVolumeEndpoint(vol.host, "宿主机挂载");
+		const host = normalizeVolumeEndpoint(vol.host, "Host mount");
 		if (isRemovableHostVolume(host)) paths.add(host);
 	}
 	return [...paths];
@@ -129,17 +129,17 @@ export function getRemovableHostVolumes(rawVolumesJson: string | null | undefine
 export function validateTemplate(template: ServiceTemplate) {
 	safeContainerName(template.slug);
 	assertImage(template.image);
-	assertTcpPort(template.defaultPort, "默认端口");
-	if (template.internalPort !== undefined) assertTcpPort(template.internalPort, "容器端口");
+	assertTcpPort(template.defaultPort, "Default port");
+	if (template.internalPort !== undefined) assertTcpPort(template.internalPort, "Container port");
 	for (const ep of template.extraPorts ?? []) {
-		assertTcpPort(ep.host, "额外端口");
-		assertTcpPort(ep.container, "额外容器端口");
+		assertTcpPort(ep.host, "Extra port");
+		assertTcpPort(ep.container, "Extra container port");
 	}
 	for (const key of Object.keys(template.envJson)) {
-		if (!SAFE_ENV_KEY_RE.test(key)) throw new ValidationError(`环境变量名 ${key} 无效`);
+		if (!SAFE_ENV_KEY_RE.test(key)) throw new ValidationError(`Environment variable name ${key} is invalid`);
 	}
 	for (const vol of template.volumesJson) {
-		const host = normalizeVolumeEndpoint(vol.host, "宿主机挂载");
+		const host = normalizeVolumeEndpoint(vol.host, "Host mount");
 		assertHostVolumeAllowed(host, template);
 		splitContainerPathAndOptions(vol.container);
 	}
@@ -179,7 +179,7 @@ export function parseCommandArgs(command?: string): string[] {
 		}
 		current += ch;
 	}
-	if (escaping || quote) throw new ValidationError("启动命令格式无效");
+	if (escaping || quote) throw new ValidationError("Startup command format is invalid");
 	if (current) args.push(current);
 	return args;
 }
@@ -330,7 +330,7 @@ export function allocatePort(preferredPort?: number): number {
 		tried.add(port);
 		if (isPortAvailableSync(port)) return port;
 	}
-	throw new BusinessError("无法分配可用端口，请手动指定端口后重试");
+	throw new BusinessError("Unable to allocate an available port, please specify a port manually and retry");
 }
 
 export function getUsedPorts(): number[] {
@@ -369,16 +369,16 @@ export function parseListeningPorts(output: string): Set<number> {
 	return ports;
 }
 
-export function assertPortAvailable(port: number, label = "端口") {
+export function assertPortAvailable(port: number, label = "Port") {
 	assertTcpPort(port, label);
 	if (!isPortAvailableSync(port)) {
-		throw new ConflictError(`${label} ${port} 已被占用，请更换端口后重试。`);
+		throw new ConflictError(`${label} ${port} is already in use, please use a different port and retry.`);
 	}
 }
 
 export function assertTemplatePortsAvailable(template: ServiceTemplate, hostPort: number) {
-	assertPortAvailable(hostPort, "端口");
+	assertPortAvailable(hostPort, "Port");
 	for (const ep of template.extraPorts ?? []) {
-		assertPortAvailable(ep.host, "额外端口");
+		assertPortAvailable(ep.host, "Extra port");
 	}
 }

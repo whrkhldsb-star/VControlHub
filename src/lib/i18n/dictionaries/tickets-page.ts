@@ -7,6 +7,7 @@
 
 export const zh: Record<string, string> = {
 	"ticketsPage.assignee": "处理人: {name}",
+	"ticketsPage.form.success.created": "工单已创建",
 	"ticketsPage.createdAt": "创建: {time}",
 	"ticketsPage.creator": "提交人: {name}",
 	"ticketsPage.desc": "提交资源申请、问题反馈和运维请求，支持状态流转与评论。",

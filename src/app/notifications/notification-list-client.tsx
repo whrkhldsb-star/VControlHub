@@ -89,7 +89,7 @@ const NotificationRow = memo(function NotificationRow({
 								{t("notificationsPage.action.markOne")}
 							</button>
 						)}
-						<button onClick={() => onDelete(n.id)} className="rounded-lg px-1 py-0.5 text-[var(--text-muted)] opacity-100 transition hover:text-[var(--danger)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--danger-border)] hover:text-[var(--danger)] focus-visible:ring-[var(--danger-border)] sm:opacity-0 sm:group-hover:opacity-100 sm:group-focus-within:opacity-100">
+						<button onClick={() => onDelete(n.id)} className="rounded-lg px-1 py-0.5 text-[var(--text-muted)] transition hover:text-[var(--danger)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--danger-border)] sm:opacity-0 sm:group-hover:opacity-100 sm:group-focus-within:opacity-100" aria-label={t("notificationsPage.action.delete")}>
 							{t("notificationsPage.action.delete")}
 						</button>
 					</div>

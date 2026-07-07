@@ -12,7 +12,7 @@ export async function DELETE(
 ) {
 	return withApiRoute(
 		request,
-		{ requireAuth: true, rateLimit: GENERAL_WRITE_LIMIT, errorMessage: "移除团队成员失败" },
+		{ requireAuth: true, rateLimit: GENERAL_WRITE_LIMIT, errorMessage: "Failed to remove team member" },
 		async ({ session }) => {
 			const { id, userId } = await params;
 			await removeTeamMember(id, userId, session!);

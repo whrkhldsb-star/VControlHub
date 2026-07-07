@@ -38,13 +38,13 @@ export async function POST(request: Request) {
     {
       permission: "storage:read",
       rateLimit: IMAGE_UPLOAD_LIMIT,
-      errorMessage: "从云盘发布失败",
+      errorMessage: "Failed to publish from storage",
       bodySchema: publishSchema,
     },
     async ({ session, body }) => {
       if (!session)
         return NextResponse.json(
-          { error: "未登录或会话已过期" },
+          { error: "Not authenticated or session expired" },
           { status: 401 },
         );
       const { storageNodeId, relativePath, filename, album } = body;
@@ -56,7 +56,7 @@ export async function POST(request: Request) {
       });
       if (!storageNode || (storageNode.driver !== "LOCAL" && storageNode.driver !== "SFTP")) {
         return NextResponse.json(
-          { error: "仅支持本地或 SFTP 存储节点" },
+          { error: "Only LOCAL or SFTP storage nodes are supported" },
           { status: 400 },
         );
       }
@@ -64,7 +64,7 @@ export async function POST(request: Request) {
       const ext = path.extname(relativePath).toLowerCase();
       if (!IMAGE_EXTENSIONS.has(ext))
         return NextResponse.json(
-          { error: "不支持该文件类型" },
+          { error: "Unsupported file type" },
           { status: 400 },
         );
 
@@ -92,7 +92,7 @@ export async function POST(request: Request) {
         return NextResponse.json({
           image: existing,
           publicUrl: `/api/images/${existing.id}/file`,
-          message: "文件已存在（checksum 匹配），跳过上传",
+          message: "File already exists (checksum matched), skipping upload",
         });
       }
 

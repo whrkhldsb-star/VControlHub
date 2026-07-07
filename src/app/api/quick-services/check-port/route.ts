@@ -22,7 +22,7 @@ const checkPortQuerySchema = z
 
 /** GET /api/quick-services/check-port?port=XXX — real-time port availability check */
 export async function GET(request: Request) {
-	return withApiRoute(request, { permission: "docker:manage", errorStatus: 500, errorMessage: "服务器错误" }, async () => {
+	return withApiRoute(request, { permission: "docker:manage", errorStatus: 500, errorMessage: "Server error" }, async () => {
 		const { action, port, preferred } = parseSearchParams(request, checkPortQuerySchema);
 
 		// action=allocate: suggest a free port
@@ -31,7 +31,7 @@ export async function GET(request: Request) {
 				const port = allocatePort(preferred);
 				return NextResponse.json({ port, available: true });
 			} catch (err) {
-				const msg = err instanceof Error ? err.message : "分配失败";
+				const msg = err instanceof Error ? err.message : "Configuration check failed";
 				throw new AppError({ code: "INTERNAL_ERROR", message: msg, status: 500 });
 			}
 		}
@@ -43,7 +43,7 @@ export async function GET(request: Request) {
 
 		// Default: check a specific port
 		if (port === undefined) {
-			throw new ValidationError("请提供 port 参数");
+			throw new ValidationError("Please provide the port parameter");
 		}
 
 		const result = checkPort(port);

@@ -37,7 +37,7 @@ export async function POST(request: Request) {
     { permission: "deploy:export", rateLimit: GENERAL_WRITE_LIMIT, bodySchema: deployExportPostSchema },
     async ({ session, body: data }) => {
       if (!session)
-        throw new AuthError("未认证");
+        throw new AuthError("Unauthorized");
 
       return NextResponse.json(
         {

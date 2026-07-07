@@ -61,7 +61,7 @@ export async function resolveManagedLocalEntryPath(input: {
   const relativeToRoot = path.relative(allowedRoot, absolutePath);
 
   if (relativeToRoot.startsWith("..") || path.isAbsolute(relativeToRoot)) {
-    throw new ValidationError("路径超出存储根目录");
+    throw new ValidationError("Path exceeds storage root directory");
   }
 
   return { path, absolutePath, allowedRoot };

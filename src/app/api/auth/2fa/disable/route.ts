@@ -19,13 +19,13 @@ export async function POST(request: Request) {
     {
       requireAuth: true,
       rateLimit: GENERAL_WRITE_LIMIT,
-      errorMessage: "禁用两步验证失败",
+      errorMessage: "Failed to disable two-factor verification",
       bodySchema: disableSchema,
     },
     async ({ session, body }) => {
       if (!session)
         return NextResponse.json(
-          { error: "未登录或会话已过期" },
+          { error: "Not authenticated or session expired" },
           { status: 401 },
         );
 
@@ -37,12 +37,12 @@ export async function POST(request: Request) {
       });
 
       if (!user?.twoFactorEnabled || !user.twoFactorSecret) {
-        throw new ValidationError("两步验证未启用");
+        throw new ValidationError("Two-factor verification is not enabled");
       }
 
       const valid = verifyTOTP({ token: code, secret: user.twoFactorSecret });
       if (!valid) {
-        throw new ValidationError("验证码错误");
+        throw new ValidationError("Invalid verification code");
       }
 
       await prisma.user.update({

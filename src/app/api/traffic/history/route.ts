@@ -24,7 +24,7 @@ export const dynamic = "force-dynamic";
 export async function GET(request: Request) {
   return withApiRoute(
     request,
-    { permission: "server:read", errorMessage: "获取流量历史失败" },
+    { permission: "server:read", errorMessage: "Failed to fetch traffic history" },
     async () => {
       const { iface, source, hours } = parseSearchParams(request, trafficHistoryQuerySchema);
       const since = new Date(Date.now() - hours * 3600_000);

@@ -169,7 +169,7 @@ function mapCommandRequest(
 export async function cancelCommandRequest(input: { commandRequestId: string; actorId: string; reason?: string }) {
   const commandRequestId = input.commandRequestId.trim();
   if (!commandRequestId) {
-    throw new ValidationError("命令请求不存在");
+    throw new ValidationError("Command request not found");
   }
 
   const request = await prisma.commandRequest.findUnique({
@@ -178,11 +178,11 @@ export async function cancelCommandRequest(input: { commandRequestId: string; ac
   });
 
   if (!request) {
-    throw new NotFoundError("命令请求不存在");
+    throw new NotFoundError("Command request not found");
   }
 
   if (!["PENDING_APPROVAL", "APPROVED", "RUNNING"].includes(request.status)) {
-    throw new BusinessError("当前命令请求已结束，无法取消");
+    throw new BusinessError("Command request has ended and cannot be cancelled");
   }
 
   const cancellableTargetIds = request.targets
@@ -272,11 +272,11 @@ export async function reviewCommandRequest(input: ReviewCommandInput) {
   });
 
   if (!request) {
-    throw new NotFoundError("命令请求不存在");
+    throw new NotFoundError("Command request not found");
   }
 
   if (request.status !== "PENDING_APPROVAL") {
-    throw new BusinessError("当前命令请求不在待审批状态");
+    throw new BusinessError("Command request is not pending approval");
   }
 
   const nextStatus = payload.approved ? "APPROVED" : "REJECTED";

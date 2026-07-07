@@ -120,29 +120,29 @@ function describeStorageTrafficSource(node: {
 }) {
   if (node.driver === "LOCAL") {
     return {
-      trafficSource: "当前服务器",
-      trafficSourceLabel: "当前服务器网卡",
-      trafficSourceDetail: "使用当前服务器网卡统计，下载和上传会计入本机流量。",
+      trafficSource: "current server",
+      trafficSourceLabel: "current server NIC",
+      trafficSourceDetail: "Using current server NIC statistics, download and upload will count as local traffic.",
       remoteServerId: null as string | null,
     };
   }
 
   if (node.server) {
     return {
-      trafficSource: "绑定服务器",
-      trafficSourceLabel: `绑定服务器：${node.server.name}`,
-      trafficSourceDetail: `${node.server.name}（${node.server.host}:${node.server.port}）的实时流量见下方 “VPS 节点流量”。`,
+      trafficSource: "bound server",
+      trafficSourceLabel: `bound server: ${node.server.name}`,
+      trafficSourceDetail: `${node.server.name} (${node.server.host}:${node.server.port}) actual traffic is visible under "VPS node traffic".`,
       remoteServerId: node.server.id,
     };
   }
 
   const host = node.host?.trim();
   return {
-    trafficSource: "远程 SFTP 主机",
-    trafficSourceLabel: host ? `远程 SFTP：${host}` : "远程 SFTP：未配置主机",
+    trafficSource: "Remote SFTP host",
+    trafficSourceLabel: host ? `Remote SFTP: ${host}` : "Remote SFTP: host Not configured",
     trafficSourceDetail: host
-      ? `${host}:${node.port ?? 22} 流量发生在目标服务器；如需采样请把该 SFTP 节点绑定到 VPS 节点。`
-      : "该 SFTP 节点尚未配置主机，无法定位远端流量来源。",
+      ? `${host}:${node.port ?? 22} traffic occurs on the target server; for sampling, please bind the SFTP node to a VPS node.`
+      : "The SFTP node does not have a host configured, cannot locate remote traffic source.",
     remoteServerId: null,
   };
 }
@@ -150,7 +150,7 @@ function describeStorageTrafficSource(node: {
 export async function GET(req: NextRequest) {
   return withApiRoute(
     req,
-    { permission: "server:read", errorMessage: "获取流量摘要失败" },
+    { permission: "server:read", errorMessage: "Failed to fetch traffic summary" },
     async () => {
       const q = parseSearchParams(req, trafficSummaryQuerySchema);
       const selectedIface = q.iface ?? "";
@@ -206,7 +206,7 @@ export async function GET(req: NextRequest) {
         currentServer: {
           type: "LOCAL_SERVER",
           id: "local",
-          name: "当前服务器",
+          name: "current server",
           primaryInterface: primary ? summarizeInterface(`local:${primary.iface}`, primary) : null,
           interfaces: interfaces.map((item) => summarizeInterface(`local:${item.iface}`, item)),
         },

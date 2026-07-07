@@ -51,7 +51,7 @@ export async function POST(request: Request) {
       rateLimit: GENERAL_WRITE_LIMIT,
       bodySchema: createUserSchema,
       errorStatus: 400,
-      errorMessage: "创建用户失败",
+      errorMessage: "Failed to create user",
     },
     async ({ session, body }) => {
       const passwordPolicyError = await validatePasswordPolicy(body.password);
@@ -68,7 +68,7 @@ export async function POST(request: Request) {
       const user = await prisma.$transaction(async (tx) => {
         const existing = await tx.user.findUnique({ where: { username } });
         if (existing) {
-          throw new Error("用户名已存在");
+          throw new Error("UsernameAlready exists");
         }
 
         const roles = await tx.role.findMany({
@@ -78,7 +78,7 @@ export async function POST(request: Request) {
         const foundRoleKeys = new Set(roles.map((role) => role.key));
         const missingRoleKeys = roleKeys.filter((key) => !foundRoleKeys.has(key));
         if (missingRoleKeys.length > 0) {
-          throw new Error(`角色不存在: ${missingRoleKeys.join(", ")}`);
+          throw new Error(`RoleNot found: ${missingRoleKeys.join(", ")}`);
         }
 
         const passwordHash = await hashPassword(body.password);
@@ -120,7 +120,7 @@ export async function PATCH(request: Request) {
       permission: "user:manage",
       rateLimit: GENERAL_WRITE_LIMIT,
       bodySchema: updateUserSchema,
-      errorMessage: "更新用户失败",
+      errorMessage: "Failed to update user",
     },
     async ({ session, body }) => {
       const { userId, action: userAction, roleKeys, newPassword } = body;
@@ -129,11 +129,11 @@ export async function PATCH(request: Request) {
         where: { id: userId },
       });
       if (!targetUser) {
-        throw new NotFoundError("用户不存在");
+        throw new NotFoundError("User not found");
       }
 
       if (userId === session!.userId && userAction === "disable") {
-        throw new ValidationError("不能禁用自己");
+        throw new ValidationError("Cannot disable yourself");
       }
 
       if (userAction === "disable") {

@@ -70,7 +70,7 @@ export async function deleteAlertRule(id: string) {
 
 export async function toggleAlertRule(id: string) {
 	const current = await prisma.alertRule.findUnique({ where: { id }, select: { enabled: true } });
-	if (!current) throw new NotFoundError("规则不存在");
+	if (!current) throw new NotFoundError("Rule not found");
 	return prisma.alertRule.update({ where: { id }, data: { enabled: !current.enabled } });
 }
 
@@ -82,7 +82,7 @@ export type AlertRuleTestDelivery = {
 
 export async function testAlertRule(id: string): Promise<{ rule: { id: string; name: string; metric: string; notifyChannels: string[]; webhookConfigured: boolean }; deliveries: AlertRuleTestDelivery[] }> {
 	const rule = await prisma.alertRule.findUnique({ where: { id } });
-	if (!rule) throw new NotFoundError("规则不存在");
+	if (!rule) throw new NotFoundError("Rule not found");
 
 	const deliveries: AlertRuleTestDelivery[] = [];
 	const title = `测试告警: ${rule.name}`;

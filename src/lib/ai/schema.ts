@@ -33,12 +33,12 @@ export const aiProviderTypeSchema = z.enum([
 // legacy comma-separated text input; new code should prefer
 // `availableModels` (array).
 export const createProviderSchema = z.object({
-  name: z.string().min(1, "提供商名称不能为空").max(128, "提供商名称过长"),
+  name: z.string().min(1, "Provider name is required").max(128, "Provider name is too long"),
   type: aiProviderTypeSchema.optional(),
-  apiKey: z.string().min(1, "API Key 不能为空"),
-  baseUrl: z.string().trim().max(2048, "基础 URL 过长").optional(),
-  models: z.string().trim().max(8192, "模型列表过长").optional(),
-  availableModels: z.array(z.string().trim().min(1)).max(256, "模型过多").optional(),
+  apiKey: z.string().min(1, "API Key is required"),
+  baseUrl: z.string().trim().max(2048, "Base URL is too long").optional(),
+  models: z.string().trim().max(8192, "Model list is too long").optional(),
+  availableModels: z.array(z.string().trim().min(1)).max(256, "Too many models").optional(),
   defaultModel: z.string().trim().min(1).max(128).optional(),
   isDefault: z.boolean().optional(),
   enabled: z.boolean().optional(),
@@ -63,12 +63,12 @@ export const updateProviderSchema = z.object({
 // POST /api/ai/conversations body. Provider + model are required; the
 // sampling parameters mirror OpenAI's chat completion API.
 export const createConversationSchema = z.object({
-  title: z.string().min(1).max(200, "标题过长").optional(),
-  providerId: z.string().min(1, "缺少提供商"),
-  model: z.string().min(1, "缺少模型"),
-  systemPrompt: z.string().max(2000, "系统提示过长").optional(),
+  title: z.string().min(1).max(200, "Title is too long").optional(),
+  providerId: z.string().min(1, "Missing provider"),
+  model: z.string().min(1, "Missing model"),
+  systemPrompt: z.string().max(2000, "System prompt is too long").optional(),
   temperature: z.number().min(0).max(2).optional(),
-  maxTokens: z.number().int().min(1).max(128000, "max_tokens 过大").optional(),
+  maxTokens: z.number().int().min(1).max(128000, "max_tokens is too large").optional(),
   topP: z.number().min(0).max(1).optional(),
   frequencyPenalty: z.number().min(-2).max(2).optional(),
   presencePenalty: z.number().min(-2).max(2).optional(),
@@ -99,15 +99,15 @@ export const updateConversationSchema = z.object({
 // the route handler; zod's `.min(1)` enforces that a non-empty value was
 // supplied so the route can return a clean 400.
 export const aiModelsQuerySchema = z.object({
-  providerId: z.string().trim().min(1, "缺少 providerId"),
+  providerId: z.string().trim().min(1, "Missing providerId"),
 });
 
 // POST /api/ai/models/probe body. The caller probes a brand-new provider
 // before saving it, so `apiKey` is required and `baseUrl`/`defaultModel`
 // are optional.
 export const probeModelsSchema = z.object({
-  apiKey: z.string().min(1, "缺少 API Key"),
-  baseUrl: z.string().trim().max(2048, "基础 URL 过长").optional(),
+  apiKey: z.string().min(1, "Missing API Key"),
+  baseUrl: z.string().trim().max(2048, "Base URL is too long").optional(),
   defaultModel: z.string().trim().min(1).max(128).optional(),
 });
 
@@ -126,8 +126,8 @@ export const probeModelsSchema = z.object({
 export const chatRequestSchema = z
   .object({
     conversationId: z.string().trim().min(1).optional(),
-    message: z.string().min(1, "消息内容不能为空").max(64_000, "消息过长").optional(),
-    content: z.string().max(64_000, "消息过长").optional(),
+    message: z.string().min(1, "Message content is required").max(64_000, "Message is too long").optional(),
+    content: z.string().max(64_000, "Message is too long").optional(),
     model: z.string().trim().min(1).max(128).optional(),
     providerId: z.string().trim().min(1).max(128).optional(),
     imageUrls: z.array(z.string().trim().url()).max(8).optional(),
@@ -135,7 +135,7 @@ export const chatRequestSchema = z
       .array(
         z.object({
           mimeType: z.string().trim().min(1).max(64),
-          data: z.string().min(1).max(8_000_000, "图片数据过大"),
+          data: z.string().min(1).max(8_000_000, "Image data is too large"),
         }),
       )
       .max(8)
@@ -144,7 +144,7 @@ export const chatRequestSchema = z
       .array(
         z.object({
           name: z.string().trim().min(1).max(255),
-          content: z.string().max(256_000, "附件内容过大"),
+          content: z.string().max(256_000, "Attachment content is too large"),
         }),
       )
       .max(8)
@@ -165,7 +165,7 @@ export const chatRequestSchema = z
 export const hostedActionDecisionSchema = z
   .object({
     action: z.enum(["approve", "reject", "confirm"]),
-    reason: z.string().trim().max(500, "理由过长").optional(),
+    reason: z.string().trim().max(500, "Reason is too long").optional(),
   })
   .superRefine((value, ctx) => {
     if (value.action === "reject" && !value.reason) {

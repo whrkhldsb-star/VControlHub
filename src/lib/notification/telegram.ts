@@ -54,9 +54,9 @@ export async function getTelegramConfig(): Promise<TelegramConfig> {
 }
 
 export function assertTelegramReady(config: TelegramConfig) {
-	if (!config.enabled) throw new ValidationError("Telegram 通道未启用");
-	if (!config.botToken) throw new ValidationError("Telegram Bot Token 未配置");
-	if (config.chatIds.length === 0) throw new ValidationError("Telegram Chat ID 未配置");
+	if (!config.enabled) throw new ValidationError("Telegram channel not enabled");
+	if (!config.botToken) throw new ValidationError("Telegram Bot Token not configured");
+	if (config.chatIds.length === 0) throw new ValidationError("Telegram Chat ID not configured");
 }
 
 /* ── Network adapter (overridable for tests) ──────────────── */

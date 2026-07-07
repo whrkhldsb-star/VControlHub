@@ -56,8 +56,8 @@ export async function runBackupRecord(input: { type: "DATABASE" | "FILES" | "FUL
 export async function runExistingBackupRecord(input: { id: string; projectRoot?: string }) {
 	const projectRoot = input.projectRoot || config.app.appDir || process.cwd();
 	const record = await getBackupRecord(input.id);
-	if (!record) throw new NotFoundError("备份记录不存在");
-	if (!isBackupType(record.type)) throw new ValidationError("备份类型无效");
+	if (!record) throw new NotFoundError("Backup record not found");
+	if (!isBackupType(record.type)) throw new ValidationError("Invalid backup type");
 	let outputPath: string;
 	try {
 		outputPath = resolveBackupPath(projectRoot, record.filePath);
@@ -131,14 +131,14 @@ function buildRestoreExecution(record: { type: string; filePath: string }, proje
 
 export async function restoreBackupRecord(input: { id: string; confirm: string; projectRoot?: string }) {
 	if (input.confirm !== "RESTORE") {
-		throw new ValidationError("恢复操作需要明确确认");
+		throw new ValidationError("Restore operation requires explicit confirmation");
 	}
 	const record = await getBackupRecord(input.id);
 	if (!record) {
-		throw new NotFoundError("备份记录不存在");
+		throw new NotFoundError("Backup record not found");
 	}
 	if (record.status !== "COMPLETED") {
-		throw new BusinessError("只能恢复已完成的备份");
+		throw new BusinessError("Only completed backups can be restored");
 	}
 	const projectRoot = input.projectRoot || config.app.appDir || process.cwd();
 	const execution = buildRestoreExecution(record, projectRoot);

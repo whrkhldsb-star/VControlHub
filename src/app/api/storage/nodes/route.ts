@@ -17,7 +17,7 @@ const driverFilterSchema = z
       .string()
       .trim()
       .transform((value) => value.toUpperCase())
-      .refine((value) => value === "" || SUPPORTED_DRIVER_FILTERS.has(value), "不支持的存储节点类型")
+      .refine((value) => value === "" || SUPPORTED_DRIVER_FILTERS.has(value), "Unsupported'sstorage nodetype")
       .optional(),
   })
   .transform((value) => value.driver ?? "");
@@ -25,7 +25,7 @@ const driverFilterSchema = z
 export async function GET(request: Request) {
   return withApiRoute(
     request,
-    { permission: "storage:read", errorMessage: "读取存储节点失败" },
+    { permission: "storage:read", errorMessage: "Failed to read storage node" },
     async ({ session }) => {
       const driverFilter = parseSearchParams(request, driverFilterSchema);
 

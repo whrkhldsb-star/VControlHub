@@ -1,8 +1,8 @@
 import { z } from "zod";
 
 export const createTeamSchema = z.object({
-	name: z.string().trim().min(1, "团队名称不能为空").max(80),
-	slug: z.string().trim().min(1).max(64).regex(/^[a-z0-9][a-z0-9-]*$/, "团队标识只能包含小写字母、数字和连字符").optional(),
+	name: z.string().trim().min(1, "Team name is required").max(80),
+	slug: z.string().trim().min(1).max(64).regex(/^[a-z0-9][a-z0-9-]*$/, "Team slug can only contain lowercase letters, digits and hyphens").optional(),
 	description: z.string().trim().max(300).optional().nullable(),
 });
 
@@ -16,7 +16,7 @@ export const addTeamMemberSchema = z.object({
 });
 
 export const updateTeamSchema = z.object({
-	name: z.string().trim().min(1, "团队名称不能为空").max(80).optional(),
+	name: z.string().trim().min(1, "Team name is required").max(80).optional(),
 	description: z.string().trim().max(300).optional().nullable(),
 });
 

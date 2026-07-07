@@ -36,7 +36,7 @@ export async function GET(request: Request) {
 			rateLimit: GENERAL_WRITE_LIMIT,
 			querySchema,
 			errorStatus: 500,
-			errorMessage: "加载 AI 运维记录失败",
+			errorMessage: "Failed to load AI ops records",
 		},
 		async ({ query }) => {
 			const logs = await listAiOpsLogs({

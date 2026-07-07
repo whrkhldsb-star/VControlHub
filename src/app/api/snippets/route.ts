@@ -64,9 +64,9 @@ export async function PATCH(request: Request) {
       try {
         return NextResponse.json({ snippet: await updateSnippet(id, data, actor) });
       } catch (err) {
-        const message = err instanceof Error ? err.message : "更新失败";
-        if (message.includes("无权")) return apiError({ status: 403, code: "PERMISSION_DENIED", message });
-        if (message.includes("不存在")) return apiError({ status: 404, code: "NOT_FOUND", message });
+        const message = err instanceof Error ? err.message : "Update failed";
+        if (message.includes("Forbidden")) return apiError({ status: 403, code: "PERMISSION_DENIED", message });
+        if (message.includes("Not found")) return apiError({ status: 404, code: "NOT_FOUND", message });
         return apiError({ status: 400, code: "BUSINESS_RULE_FAILED", message });
       }
     },
@@ -90,9 +90,9 @@ export async function DELETE(request: Request) {
         await deleteSnippet(query.id, actor);
         return NextResponse.json({ success: true });
       } catch (err) {
-        const message = err instanceof Error ? err.message : "删除失败";
-        if (message.includes("无权")) return apiError({ status: 403, code: "PERMISSION_DENIED", message });
-        if (message.includes("不存在")) return apiError({ status: 404, code: "NOT_FOUND", message });
+        const message = err instanceof Error ? err.message : "Delete failed";
+        if (message.includes("Forbidden")) return apiError({ status: 403, code: "PERMISSION_DENIED", message });
+        if (message.includes("Not found")) return apiError({ status: 404, code: "NOT_FOUND", message });
         return apiError({ status: 400, code: "BUSINESS_RULE_FAILED", message });
       }
     },

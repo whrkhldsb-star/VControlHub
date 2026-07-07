@@ -104,11 +104,11 @@ export default async function FilesPage({ searchParams }: FilesPageProps) {
   const responseNodeIdFilter = effectiveNodeId;
   const currentNode = findFileTreeNode(tree, responseCurrentPath) ?? tree;
   let folders = [...currentNode.folders.values()].sort((a, b) =>
-    a.name.localeCompare(b.name, "zh-CN"),
+    a.name.localeCompare(b.name),
   );
   let files = [...currentNode.files]
     .filter((entry) => !isDirectoryEntry(entry))
-    .sort((a, b) => a.name.localeCompare(b.name, "zh-CN"));
+    .sort((a, b) => a.name.localeCompare(b.name));
 
   if (searchQuery) {
     const lowerQuery = searchQuery.toLowerCase();

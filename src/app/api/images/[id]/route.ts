@@ -62,12 +62,12 @@ export async function DELETE(
     {
       requireAuth: true,
       rateLimit: IMAGE_UPLOAD_LIMIT,
-      errorMessage: "删除失败",
+      errorMessage: "Delete failed",
     },
     async ({ session }) => {
       if (!session)
         return NextResponse.json(
-          { error: "未登录或会话已过期" },
+          { error: "Not authenticated or session expired" },
           { status: 401 },
         );
       const { id } = await params;
@@ -84,12 +84,12 @@ export async function DELETE(
       });
 
       if (!image)
-        throw new NotFoundError("图片不存在");
+        throw new NotFoundError("Image not found");
 
       // Only owner or explicit destructive/admin permissions can delete.
       // `user:read` is intentionally not enough because viewer accounts have it.
       if (!canDeleteImage({ ownerId: image.userId, session })) {
-        throw new ForbiddenError("无权删除");
+        throw new ForbiddenError("No permission to delete");
       }
 
       // If linked to a LOCAL storage node, delete the published copy before the
@@ -115,7 +115,7 @@ export async function DELETE(
           } catch (error) {
             logError("image-bed:delete-storage-copy", error);
             return NextResponse.json(
-              { error: "存储节点图片副本删除失败，记录未删除" },
+              { error: "Failed to delete image copy from storage node, record not deleted" },
               { status: 502 },
             );
           }
@@ -132,7 +132,7 @@ export async function DELETE(
       } catch (error) {
         logError("image-bed:delete-local-files", error);
         return NextResponse.json(
-          { error: "图片文件删除失败，记录未删除" },
+          { error: "Failed to delete image file, record not deleted" },
           { status: 502 },
         );
       }

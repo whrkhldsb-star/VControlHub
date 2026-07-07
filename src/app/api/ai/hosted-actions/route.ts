@@ -14,7 +14,7 @@ export const dynamic = "force-dynamic";
 export async function GET(request: Request) {
   return withApiRoute(request, { permission: "ai:chat" }, async ({ session }) => {
     if (!session)
-      throw new AuthError("未认证");
+      throw new AuthError("Not authenticated");
     const actions = await getPendingActions(session.userId);
     return NextResponse.json({ actions });
   });

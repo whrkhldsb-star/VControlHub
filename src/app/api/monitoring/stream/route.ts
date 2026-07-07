@@ -108,7 +108,7 @@ function formatUptime(seconds: number): string {
   const d = Math.floor(seconds / 86400);
   const h = Math.floor((seconds % 86400) / 3600);
   const m = Math.floor((seconds % 3600) / 60);
-  return `${d}天 ${h}时 ${m}分`;
+  return `${d}d  ${h}h ${m}m`;
 }
 
 function collectStats() {
@@ -156,7 +156,7 @@ function collectStats() {
 export async function GET(request: Request) {
   return withApiRoute(
     request,
-    { requireAuth: true, errorMessage: "Monitoring SSE 认证失败" },
+    { requireAuth: true, errorMessage: "Monitoring SSE AuthenticationFailed" },
     async () => {
       const url = new URL(request.url);
       const intervalSeconds = Math.max(2, Math.min(30, Number(url.searchParams.get("interval")) || 5));

@@ -22,7 +22,7 @@ export const dynamic = "force-dynamic";
 
 /** GET /api/quick-services — list catalog + installed + remote services */
 export async function GET(request: Request) {
-	return withApiRoute(request, { permission: "docker:manage", errorStatus: 500, errorMessage: "服务器错误" }, async () => {
+	return withApiRoute(request, { permission: "docker:manage", errorStatus: 500, errorMessage: "Server error" }, async () => {
 		const installed = await listQuickServices();
 		const installedMap = new Map(installed.map((s) => [s.slug, s]));
 
@@ -86,8 +86,8 @@ export async function POST(request: Request) {
 		rateLimit: GENERAL_WRITE_LIMIT,
 		bodySchema: installSchema,
 		onError(error) {
-			const message = error instanceof Error ? error.message : "安装失败";
-			const isPortError = message.includes("端口") && message.includes("占用");
+			const message = error instanceof Error ? error.message : "installedFailed";
+			const isPortError = message.includes("port") && message.includes("in use");
 			return NextResponse.json(
 				{ error: message, portConflict: isPortError },
 				{ status: isPortError ? 409 : 500 },
@@ -108,17 +108,17 @@ export async function POST(request: Request) {
 			}
 		}
 
-		if (!template) throw new ValidationError("未知服务");
+		if (!template) throw new ValidationError("Unknown service");
 
 		// Validate custom port if provided
 		if (customPort !== undefined) {
 			if (isNaN(customPort) || customPort < 1 || customPort > 65535) {
-				throw new ValidationError("端口号无效，请输入 1-65535 之间的数字");
+				throw new ValidationError("Invalid port，please enter 1-65535 a number between");
 			}
 			const check = checkPort(customPort);
 			if (!check.available) {
 				return NextResponse.json(
-					{ error: `端口 ${customPort} 已被占用（${check.usedBy}），请更换端口后重试`, portConflict: true, usedBy: check.usedBy },
+					{ error: `port ${customPort} is already in use（${check.usedBy}），please change port and retry`, portConflict: true, usedBy: check.usedBy },
 					{ status: 409 },
 				);
 			}
@@ -126,7 +126,7 @@ export async function POST(request: Request) {
 
 		const prepared = prepareInstallSecrets(template);
 		const { job, taskId, reused } = await enqueueQuickServiceJob({
-			title: `安装快捷服务：${template.name}`,
+			title: `Installed quick service：${template.name}`,
 			createdBy: session?.userId ?? null,
 			payload: {
 				action: "install",
@@ -145,7 +145,7 @@ export async function POST(request: Request) {
 			taskId,
 			status: job.status,
 			notice: { credentials: prepared.credentials, notes: prepared.notes },
-			message: reused ? "该服务已有进行中的生命周期任务，已返回现有任务。" : "QuickService 安装已加入后台任务，可在任务中心查看进度。",
+			message: reused ? "The service already has a lifecycle task in progress, returning the existing task。" : "Quick service installation has been added as a background task，you can check progress in the task center。",
 		}, { status: 202 });
 	});
 }

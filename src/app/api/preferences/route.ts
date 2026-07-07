@@ -29,10 +29,10 @@ const defaultPreferences = defaultUserPreferences;
 export async function GET(request: Request) {
   return withApiRoute(
     request,
-    { requireAuth: true, errorMessage: "获取偏好设置失败" },
+    { requireAuth: true, errorMessage: "Failed to fetch preferences" },
     async ({ session }) => {
       if (!session)
-        throw new AuthError("未认证");
+        throw new AuthError("Unauthorized");
 
       const user = await prisma.user.findUnique({
         where: { id: session.userId },
@@ -58,11 +58,11 @@ export async function PUT(request: Request) {
       requireAuth: true,
       rateLimit: GENERAL_WRITE_LIMIT,
       bodySchema: prefsSchema,
-      errorMessage: "保存偏好设置失败",
+      errorMessage: "Failed to save preferences",
     },
     async ({ session, body }) => {
       if (!session)
-        throw new AuthError("未认证");
+        throw new AuthError("Unauthorized");
 
       const prefs = normalizeUserPreferences(body);
 

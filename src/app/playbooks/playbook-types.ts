@@ -1,4 +1,5 @@
 import { arrayMove } from "@dnd-kit/sortable";
+import { formatDateTime } from "@/lib/datetime/format";
 
 export type TriggerType = "cron" | "metric";
 export type StepType = "run_command" | "send_notification" | "call_webhook";
@@ -74,9 +75,9 @@ export function statusLabelFor(t: (k: string) => string, status: string): string
 	}
 }
 
-export function formatTime(iso: string | null): string {
+export function formatTime(iso: string | null, locale: string = "zh"): string {
 	if (!iso) return "—";
-	return new Date(iso).toLocaleString("zh-CN");
+	return formatDateTime(iso, locale as "zh" | "en");
 }
 
 export function defaultConfigFor(type: StepType): Record<string, unknown> {

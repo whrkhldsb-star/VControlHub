@@ -54,12 +54,12 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 export function parseCommandExecutionJobPayload(
   payload: Prisma.JsonValue,
 ): CommandExecutionJobPayload {
-  if (!isRecord(payload)) throw new Error("命令执行任务 payload 无效");
+  if (!isRecord(payload)) throw new Error("Command execution task payload invalid");
   const commandRequestId =
     typeof payload.commandRequestId === "string" && payload.commandRequestId.trim()
       ? payload.commandRequestId.trim()
       : null;
-  if (!commandRequestId) throw new Error("命令执行任务缺少 commandRequestId");
+  if (!commandRequestId) throw new Error("Command execution task missing commandRequestId");
   return {
     commandRequestId,
     summary: typeof payload.summary === "string" ? payload.summary : undefined,
@@ -72,7 +72,7 @@ export async function enqueueCommandExecutionJob(input: {
   summary?: string;
 }) {
   const commandRequestId = input.commandRequestId?.trim();
-  if (!commandRequestId) throw new Error("命令执行任务缺少 commandRequestId");
+  if (!commandRequestId) throw new Error("Command execution task missing commandRequestId");
   return enqueueJob({
     type: COMMAND_EXECUTION_JOB_TYPE,
     title: `执行命令 ${commandRequestId}`,
@@ -94,7 +94,7 @@ async function handleClaimedJob(
     payload = parseCommandExecutionJobPayload(job.payload);
   } catch (parseError) {
     const message =
-      parseError instanceof Error ? parseError.message : "命令执行任务 payload 解析失败";
+      parseError instanceof Error ? parseError.message : "Command execution task payload parse failed";
     await failJob(job.id, COMMAND_EXECUTION_WORKER_ID, message.slice(0, 2000));
     logger.error("Command execution job payload invalid", { jobId: job.id, error: message });
     return true;

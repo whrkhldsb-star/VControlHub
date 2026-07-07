@@ -11,7 +11,7 @@ import type { DeploymentExport } from "@prisma/client";
 
 export const dynamic = "force-dynamic";
 
-const idSchema = z.string().trim().min(1, "导出 id 不能为空");
+const idSchema = z.string().trim().min(1, "Export id is required");
 
 type ExportFilesRecord = Record<string, string>;
 
@@ -54,21 +54,21 @@ export async function GET(
     async ({ session }) => {
       if (!session) {
         // Guarded by `deploy:export` already; this is a type narrowing only.
-        throw new NotFoundError("部署导出包不存在");
+        throw new NotFoundError("Deployment export package not found");
       }
       const { id } = await params;
       const parsedId = idSchema.safeParse(id);
       if (!parsedId.success) {
-        throw new ValidationError(parsedId.error.issues[0]?.message ?? "导出 id 无效");
+        throw new ValidationError(parsedId.error.issues[0]?.message ?? "Invalid export id");
       }
       const record = await prisma.deploymentExport.findUnique({ where: { id: parsedId.data } });
       if (!record) {
-        throw new NotFoundError("部署导出包不存在");
+        throw new NotFoundError("Deployment export package not found");
       }
       const files = asStringRecord(record.files);
       const entries = Object.entries(files).map(([name, content]) => ({ name, content }));
       if (entries.length === 0) {
-        throw new NotFoundError("部署导出包没有可下载的文件");
+        throw new NotFoundError("Deployment export package has no downloadable files");
       }
       const zip = buildZip(entries, { mtime: record.createdAt });
       auditUserAction(session.userId, "deployment.export.download", {

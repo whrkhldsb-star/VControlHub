@@ -35,6 +35,7 @@ export function CommandCreateForm({ servers }: { servers: ServerOption[] }) {
     });
   };
   const selectAll = () => {
+    if (enabledServerIds.length === 0) return;
     if (selectedServerIds.size === enabledServerIds.length) {
       setSelectedServerIds(new Set());
     } else {

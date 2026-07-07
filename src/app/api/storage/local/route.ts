@@ -58,7 +58,7 @@ function resolveManagedLocalPath(basePath: string, relativePath: string) {
   const relativeToRoot = path.relative(allowedRoot, absolutePath);
 
   if (relativeToRoot.startsWith("..") || path.isAbsolute(relativeToRoot)) {
-    throw new Error("非法路径");
+    throw new Error("InvalidPath");
   }
 
   return {
@@ -75,7 +75,7 @@ async function handleGet(request: Request, session: SessionPayload) {
   );
 
   if (!relativePath) {
-    throw new ValidationError("缺少 path 参数");
+    throw new ValidationError("Missing path Parameter");
   }
 
   const normalizedDownloadPath = normalizeStorageRelativePath(relativePath);
@@ -114,7 +114,7 @@ async function handleGet(request: Request, session: SessionPayload) {
 
   if (!entry) {
     return NextResponse.json(
-      { error: "文件条目不存在，或未登记为本机存储文件" },
+      { error: "file entry not found, or not registered as local storage file" },
       { status: 404 },
     );
   }
@@ -127,7 +127,7 @@ async function handleGet(request: Request, session: SessionPayload) {
   });
   if (!accessDecision.allowed) {
     return NextResponse.json(
-      { error: accessDecision.reason ?? "缺少存储访问授权" },
+      { error: accessDecision.reason ?? "Missing storage access authorization" },
       { status: 403 },
     );
   }
@@ -140,7 +140,7 @@ async function handleGet(request: Request, session: SessionPayload) {
     ));
   } catch (error) {
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : "非法路径" },
+      { error: error instanceof Error ? error.message : "Invalid path" },
       { status: 400 },
     );
   }
@@ -150,7 +150,7 @@ async function handleGet(request: Request, session: SessionPayload) {
     const fileStat = await stat(absolutePath);
     if (!fileStat.isFile()) {
       return NextResponse.json(
-        { error: "目标不是可下载文件" },
+        { error: "TargetnotiscanDownloadFile" },
         { status: 400 },
       );
     }
@@ -170,7 +170,7 @@ async function handleGet(request: Request, session: SessionPayload) {
   } catch (downloadError) {
     logError("[/api/storage/local] download error:", downloadError);
     return NextResponse.json(
-      { error: "文件不存在或暂时无法读取" },
+      { error: "File not found or temporarily cannot be read" },
       { status: 404 },
     );
   }
@@ -184,14 +184,14 @@ async function handlePost(request: Request, session: SessionPayload) {
 
   if (!storageNodeId) {
     return NextResponse.json(
-      { error: "缺少 storageNodeId 参数" },
+      { error: "Missing storageNodeId Parameter" },
       { status: 400 },
     );
   }
 
   if (!relativePath) {
     return NextResponse.json(
-      { error: "缺少 relativePath 参数" },
+      { error: "Missing relativePath Parameter" },
       { status: 400 },
     );
   }
@@ -205,7 +205,7 @@ async function handlePost(request: Request, session: SessionPayload) {
   }
 
   if (!isUploadLike(file)) {
-    throw new ValidationError("缺少上传文件");
+    throw new ValidationError("MissingUploadFile");
   }
 
   const declaredFileSize =
@@ -215,7 +215,7 @@ async function handlePost(request: Request, session: SessionPayload) {
   if (declaredFileSize !== null && declaredFileSize > MAX_STORAGE_UPLOAD_BYTES) {
     return NextResponse.json(
       {
-        error: "上传文件超过 100 MB，请使用下载任务或 SFTP 工具传输大文件",
+        error: "upload file exceeds 100 MB, please use download task or SFTP tool for large files",
         maxUploadBytes: MAX_STORAGE_UPLOAD_BYTES,
         size: declaredFileSize,
       },
@@ -248,7 +248,7 @@ async function handlePost(request: Request, session: SessionPayload) {
 
   if (!storageNode || !["LOCAL", "SFTP"].includes(storageNode.driver)) {
     return NextResponse.json(
-      { error: "仅支持上传到 LOCAL 或 SFTP 存储节点" },
+      { error: "Only supports uploading to LOCAL or SFTP storage nodes" },
       { status: 400 },
     );
   }
@@ -272,7 +272,7 @@ async function handlePost(request: Request, session: SessionPayload) {
     }
   } catch (error) {
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : "非法路径" },
+      { error: error instanceof Error ? error.message : "Invalid path" },
       { status: 400 },
     );
   }
@@ -281,7 +281,7 @@ async function handlePost(request: Request, session: SessionPayload) {
   if (fileBuffer.byteLength > MAX_STORAGE_UPLOAD_BYTES) {
     return NextResponse.json(
       {
-        error: "上传文件超过 100 MB，请使用下载任务或 SFTP 工具传输大文件",
+        error: "upload file exceeds 100 MB, please use download task or SFTP tool for large files",
         maxUploadBytes: MAX_STORAGE_UPLOAD_BYTES,
         size: fileBuffer.byteLength,
       },
@@ -299,7 +299,7 @@ async function handlePost(request: Request, session: SessionPayload) {
   });
   if (!accessDecision.allowed) {
     return NextResponse.json(
-      { error: accessDecision.reason ?? "缺少存储写入授权" },
+      { error: accessDecision.reason ?? "Missing storage write authorization" },
       { status: 403 },
     );
   }
@@ -314,7 +314,7 @@ async function handlePost(request: Request, session: SessionPayload) {
   if (storageNode.driver === "LOCAL") {
     if (!absolutePath) {
       return NextResponse.json(
-        { error: "本机存储路径解析失败" },
+        { error: "failed to resolve local storage path" },
         { status: 400 },
       );
     }
@@ -325,7 +325,7 @@ async function handlePost(request: Request, session: SessionPayload) {
   } else {
     if (!remotePath) {
       return NextResponse.json(
-        { error: "远端存储路径解析失败" },
+        { error: "failed to resolve remote storage path" },
         { status: 400 },
       );
     }
@@ -333,7 +333,7 @@ async function handlePost(request: Request, session: SessionPayload) {
       sftpCredentials = resolveStorageSshCredentials(storageNode);
     } catch (error) {
       return NextResponse.json(
-        { error: error instanceof Error ? error.message : "连接凭据不可用" },
+        { error: error instanceof Error ? error.message : "connectioncredentialsCannotavailable" },
         { status: 400 },
       );
     }
@@ -353,7 +353,7 @@ async function handlePost(request: Request, session: SessionPayload) {
     } catch (error) {
       logError("[/api/storage/local] sftp upload error:", error);
       return NextResponse.json(
-        { error: error instanceof Error ? error.message : "远端上传失败" },
+        { error: error instanceof Error ? error.message : "Remote upload failed" },
         { status: 502 },
       );
     }
@@ -418,9 +418,9 @@ async function handlePost(request: Request, session: SessionPayload) {
         );
       }
     }
-    const message = error instanceof Error ? error.message : "未知错误";
+    const message = error instanceof Error ? error.message : "Unknown error";
     return NextResponse.json(
-      { error: `上传索引写入失败：${message}` },
+      { error: `Failed to write upload index: ${message}` },
       { status: 500 },
     );
   }
@@ -436,10 +436,10 @@ async function handlePost(request: Request, session: SessionPayload) {
 export async function GET(request: Request) {
   return withApiRoute(
     request,
-    { permission: "storage:read", errorMessage: "读取本机文件失败" },
+    { permission: "storage:read", errorMessage: "Failed to read local file" },
     async ({ session }) => {
       if (!session)
-        throw new AuthError("未认证");
+        throw new AuthError("Not authenticated");
       return handleGet(request, session);
     },
   );
@@ -451,11 +451,11 @@ export async function POST(request: Request) {
     {
       permission: "storage:write",
       rateLimit: GENERAL_WRITE_LIMIT,
-      errorMessage: "上传文件失败",
+      errorMessage: "Failed to upload file",
     },
     async ({ session }) => {
       if (!session)
-        throw new AuthError("未认证");
+        throw new AuthError("Not authenticated");
       return handlePost(request, session);
     },
   );

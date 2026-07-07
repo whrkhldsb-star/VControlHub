@@ -1,9 +1,10 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { csrfFetch } from "@/lib/auth/csrf-client";
 import { useI18n } from "@/lib/i18n/use-locale";
+import { useToast } from "@/components/toast-provider";
 import type { Locale } from "@/lib/i18n/translations";
 
 type Props = { locale?: Locale };
@@ -11,7 +12,8 @@ type Props = { locale?: Locale };
 export function CreateTicketForm(_props: Props = {}) {
 	const router = useRouter();
 	const { t } = useI18n();
-	const [state, formAction, pending] = useActionState(async (_prev: { error?: string } | null, formData: FormData) => {
+	const { addToast } = useToast();
+	const [state, formAction, pending] = useActionState(async (_prev: { error?: string; success?: boolean } | null, formData: FormData) => {
 		const title = String(formData.get("subject") ?? "").trim();
 		const description = String(formData.get("description") ?? "").trim();
 		const priority = String(formData.get("priority") ?? "NORMAL").toUpperCase();
@@ -23,11 +25,19 @@ export function CreateTicketForm(_props: Props = {}) {
 				body: JSON.stringify({ subject: title, description, priority }),
 			});
 			router.refresh();
-			return null;
+			return { success: true };
 		} catch (err) {
 			return { error: err instanceof Error ? err.message : t("ticketsPage.form.error.createFailed") };
 		}
 	}, null);
+
+	useEffect(() => {
+		if (state?.success) {
+			addToast("success", t("ticketsPage.form.success.created"));
+		} else if (state?.error) {
+			addToast("error", state.error);
+		}
+	}, [state, addToast, t]);
 
 	return (
 		<form action={formAction} data-card className=" space-y-4">

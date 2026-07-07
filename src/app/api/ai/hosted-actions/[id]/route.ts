@@ -30,12 +30,12 @@ export async function PATCH(
       requireAuth: true,
       rateLimit: GENERAL_WRITE_LIMIT,
       errorStatus: 400,
-      errorMessage: "操作失败",
+      errorMessage: "OperationFailed",
       bodySchema: hostedActionDecisionSchema,
     },
     async ({ session, body }) => {
       if (!session)
-        throw new AuthError("未认证");
+        throw new AuthError("Not authenticated");
       const { id } = await params;
 
       if (body.action === "confirm") {

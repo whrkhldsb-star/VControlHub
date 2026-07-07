@@ -106,7 +106,7 @@ export function RestoreBackupButton({ backupId, backupType, disabled = false }: 
                   setConfirmText("");
                   setError(null);
                 }}
-                className="min-h-11 rounded-xl border border-[var(--border)] px-4 py-2 text-sm text-[var(--text-secondary)] transition hover:bg-[var(--surface)]/10 disabled:opacity-50"
+                className="min-h-11 rounded-xl border border-[var(--border)] px-4 py-2 text-sm text-[var(--text-secondary)] transition hover:bg-[var(--surface-hover)] disabled:opacity-50"
               >
                 {t("common.cancel")}
               </button>

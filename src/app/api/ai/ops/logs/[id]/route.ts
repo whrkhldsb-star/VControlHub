@@ -24,12 +24,12 @@ export async function GET(
 			permission: "ai:ops:read",
 			rateLimit: GENERAL_WRITE_LIMIT,
 			errorStatus: 500,
-			errorMessage: "加载 AI 运维记录失败",
+			errorMessage: "Failed to load AI ops records",
 		},
 		async () => {
 			const log = await getAiOpsLog(id);
 			if (!log) {
-				throw new NotFoundError(`未找到 AI 运维记录 ${id}`);
+				throw new NotFoundError(`AI ops record not found ${id}`);
 			}
 			return NextResponse.json({ log });
 		},

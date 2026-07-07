@@ -29,7 +29,7 @@ export async function POST(request: Request) {
 			rateLimit: GENERAL_WRITE_LIMIT,
 			bodySchema: triggerAiOpsScanSchema,
 			errorStatus: 500,
-			errorMessage: "扫描触发失败",
+			errorMessage: "Failed to trigger scan",
 		},
 		async ({ session, body }) => {
 			const triggered = await runAiOpsScanWorkerOnce("manual");

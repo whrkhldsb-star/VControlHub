@@ -12,7 +12,7 @@ type PlaybookRouteContext = { params: Promise<{ id?: string }> };
 async function requirePlaybookId(params: PlaybookRouteContext["params"]): Promise<string> {
   const { id } = await params;
   const normalized = id?.trim();
-  if (!normalized) throw new ValidationError("缺少 playbook id");
+  if (!normalized) throw new ValidationError("Missing playbook id");
   return normalized;
 }
 
@@ -26,7 +26,7 @@ async function requirePlaybookId(params: PlaybookRouteContext["params"]): Promis
 export async function POST(request: Request, { params }: PlaybookRouteContext) {
   return withApiRoute(
     request,
-    { permission: "playbook:run", rateLimit: GENERAL_WRITE_LIMIT, errorStatus: 400, errorMessage: "dry-run 失败" },
+    { permission: "playbook:run", rateLimit: GENERAL_WRITE_LIMIT, errorStatus: 400, errorMessage: "dry-run Failed" },
     async ({ session }) => {
       const id = await requirePlaybookId(params);
       const run = await runPlaybook({

@@ -108,7 +108,7 @@ async function executeTarSync(
 
 export async function executeSyncJob(jobId: string): Promise<void> {
 	const job = await getSyncJob(jobId);
-	if (!job) throw new Error("同步任务不存在");
+	if (!job) throw new Error("Sync job not found");
 
 	await prisma.syncJob.update({ where: { id: jobId }, data: { status: "RUNNING" } });
 
@@ -137,7 +137,7 @@ export async function executeSyncJob(jobId: string): Promise<void> {
 		const targetKeyPath = targetCredentials.privateKey ? getSyncTempKeyPath(jobId, "rsync") : undefined;
 
 		if (!targetCredentials.privateKey && !targetCredentials.password) {
-			throw new Error("目标服务器未配置 SSH 密钥或密码");
+			throw new Error("Target server has no SSH key or password configured");
 		}
 
 		const rsyncCmd = buildRsyncCommand({

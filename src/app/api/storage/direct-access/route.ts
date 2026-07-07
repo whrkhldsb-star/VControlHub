@@ -100,7 +100,7 @@ function buildSignedDirectUrl(input: {
   const secret = getDirectAccessSecret();
 
   if (!secret) {
-    throw new Error("未配置直连签名密钥 STORAGE_DIRECT_ACCESS_SECRET");
+    throw new Error("Direct access signing key is not configured STORAGE_DIRECT_ACCESS_SECRET");
   }
 
   const signedPath = normalizeDirectGatewaySignedPath({
@@ -155,7 +155,7 @@ async function resolveDirectAccessPayload(input: {
   });
 
   if (!node) {
-    throw new NotFoundError("存储节点不存在");
+    throw new NotFoundError("Storage node not found");
   }
 
   let normalizedRelativePath: string;
@@ -164,7 +164,7 @@ async function resolveDirectAccessPayload(input: {
     normalizedRelativePath = normalizeRemoteRelativePath(relativePath);
   } catch {
     return NextResponse.json(
-      { error: "请求路径超出存储节点根目录" },
+      { error: "Requested path exceeds storage node root directory" },
       { status: 400 },
     );
   }
@@ -210,7 +210,7 @@ async function resolveDirectAccessPayload(input: {
       } catch (error) {
         if (node.directAccessMode === "DIRECT") {
           const message =
-            error instanceof Error ? error.message : "生成直连链接失败";
+            error instanceof Error ? error.message : "failed to generate direct access link";
           return NextResponse.json(
             { error: message, mode: "managed-download", fallbackUrl: fallback },
             { status: 500 },
@@ -244,11 +244,11 @@ export async function GET(request: Request) {
     { permission: "storage:read" },
     async ({ session }) => {
       if (!session)
-        throw new AuthError("未认证");
+        throw new AuthError("Not authenticated");
       const parsed = parseDirectAccessQuery(request);
       if (!parsed.success)
         return NextResponse.json(
-          { error: "缺少 nodeId 或 relativePath" },
+          { error: "Missing nodeId or relativePath" },
           { status: 400 },
         );
 
@@ -280,7 +280,7 @@ export async function POST(request: Request) {
     { permission: "storage:read", rateLimit: UPLOAD_LIMIT, bodySchema: directAccessSchema },
     async ({ session, body }) => {
       if (!session)
-        throw new AuthError("未认证");
+        throw new AuthError("Not authenticated");
 
       const payload = await resolveDirectAccessPayload({
         ...body,

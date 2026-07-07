@@ -25,7 +25,7 @@ export async function POST(request: Request) {
       permission: "backup:create",
       rateLimit: GENERAL_WRITE_LIMIT,
       errorStatus: 400,
-      errorMessage: "创建备份计划失败",
+      errorMessage: "Failed to create backup schedule",
       bodySchema: createBackupScheduleSchema,
     },
     async ({ session, body }) => {
@@ -48,7 +48,7 @@ export async function PATCH(request: Request) {
       permission: "backup:create",
       rateLimit: GENERAL_WRITE_LIMIT,
       errorStatus: 400,
-      errorMessage: "更新备份计划失败",
+      errorMessage: "Failed to update backup schedule",
       bodySchema: patchBackupScheduleSchema,
     },
     async ({ body }) => {

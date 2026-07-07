@@ -254,7 +254,7 @@ export function CostPageClient({
 	if (!canRead) {
 		return (
 			<EmptyState
-				text={t("costPage.error.load")}
+				text={t("costPage.noPermission")}
 				variant="boxed"
 			/>
 		);

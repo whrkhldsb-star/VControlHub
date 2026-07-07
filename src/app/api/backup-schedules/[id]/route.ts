@@ -14,12 +14,12 @@ export async function DELETE(request: Request) {
       permission: "backup:create",
       rateLimit: GENERAL_WRITE_LIMIT,
       errorStatus: 400,
-      errorMessage: "删除备份计划失败",
+      errorMessage: "Failed to delete backup schedule",
       querySchema: idQuerySchema,
     },
     async ({ query }) => {
       const { id } = query;
-      if (!id) return NextResponse.json({ error: "缺少计划 ID" }, { status: 400 });
+      if (!id) return NextResponse.json({ error: "Missing schedule ID" }, { status: 400 });
       const result = await deleteBackupSchedule(id);
       return NextResponse.json(result);
     },

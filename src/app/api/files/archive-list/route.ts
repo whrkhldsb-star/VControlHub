@@ -27,10 +27,10 @@ type ArchiveEntry = {
 export async function GET(request: NextRequest) {
   return withApiRoute(
     request,
-    { permission: "storage:read", errorMessage: "读取压缩包失败" },
+    { permission: "storage:read", errorMessage: "Failed to read archive" },
     async ({ session }) => {
       if (!session)
-        throw new AuthError("未授权");
+        throw new AuthError("Unauthorized");
       const { nodeId, relativePath, driver, name } = parseSearchParams(
         request,
         archiveListQuerySchema,
@@ -39,13 +39,13 @@ export async function GET(request: NextRequest) {
 
       if (driver !== "LOCAL") {
         return NextResponse.json(
-          { error: "仅支持本地存储节点的压缩包在线查看" },
+          { error: "Only local storage node archive viewing is supported" },
           { status: 400 },
         );
       }
 
       if (!relativePath) {
-        throw new ValidationError("缺少文件路径");
+        throw new ValidationError("Missing file path");
       }
 
       const node = await prisma.storageNode.findUnique({
@@ -53,7 +53,7 @@ export async function GET(request: NextRequest) {
         select: { id: true, name: true, driver: true, basePath: true },
       });
       if (!node) {
-        throw new NotFoundError("存储节点不存在");
+        throw new NotFoundError("Storage node not found");
       }
 
       const resolvedPath = resolveStoragePathWithinBase(
@@ -75,7 +75,7 @@ export async function GET(request: NextRequest) {
       });
       if (!accessDecision.allowed) {
         return NextResponse.json(
-          { error: accessDecision.reason ?? "没有该存储节点或路径的访问授权" },
+          { error: accessDecision.reason ?? "No access permission for this storage node or path" },
           { status: 403 },
         );
       }
@@ -88,7 +88,7 @@ export async function GET(request: NextRequest) {
         );
         return NextResponse.json({ entries });
       } catch (err) {
-        const message = err instanceof Error ? err.message : "读取压缩包失败";
+        const message = err instanceof Error ? err.message : "Failed to read archive";
         throw new AppError({ code: "INTERNAL_ERROR", message: message, status: 500 });
       }
     },
@@ -120,7 +120,7 @@ async function listArchiveContents(
   if (ext === ".rar") {
     return listRar(fullPath);
   }
-  throw new Error(`不支持的压缩包格式: ${ext}`);
+  throw new Error(`Unsupported archive format: ${ext}`);
 }
 
 async function listZip(filePath: string): Promise<ArchiveEntry[]> {
@@ -216,7 +216,7 @@ async function list7z(filePath: string): Promise<ArchiveEntry[]> {
     });
     return parse7zOutput(stdout);
   } catch {
-    throw new Error("7z 格式需要安装 7z 命令行工具");
+    throw new Error("7z format requires the 7z command-line tool to be installed");
   }
 }
 
@@ -255,7 +255,7 @@ async function listRar(filePath: string): Promise<ArchiveEntry[]> {
     });
     return parseRarOutput(stdout);
   } catch {
-    throw new Error("RAR 格式需要安装 unrar 命令行工具");
+    throw new Error("RAR format requires the unrar command-line tool to be installed");
   }
 }
 

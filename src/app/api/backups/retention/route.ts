@@ -27,10 +27,10 @@ export async function GET(request: Request) {
  * operation-task center.
  */
 export async function POST(request: Request) {
-  return withApiRoute(request, { permission: "backup:create", rateLimit: GENERAL_WRITE_LIMIT, errorStatus: 500, errorMessage: "操作失败", bodySchema: backupRetentionInputSchema }, async ({ session, body }) => {
+  return withApiRoute(request, { permission: "backup:create", rateLimit: GENERAL_WRITE_LIMIT, errorStatus: 500, errorMessage: "Operation failed", bodySchema: backupRetentionInputSchema }, async ({ session, body }) => {
     const job = await enqueueJob({
       type: BACKUP_RETENTION_JOB_TYPE,
-      title: "清理旧备份 (自动保留策略)",
+      title: "Clean up old backups (automatic retention policy)",
       payload: body,
       createdBy: session?.userId ?? null,
       maxAttempts: 1,

@@ -23,7 +23,7 @@ export async function GET(request: Request) {
 			permission: "ai:ops:read",
 			rateLimit: GENERAL_WRITE_LIMIT,
 			errorStatus: 500,
-			errorMessage: "加载 AI 运维汇总失败",
+			errorMessage: "Failed to load AI ops summary",
 		},
 		async () => {
 			const summary = await summariseAiOps();

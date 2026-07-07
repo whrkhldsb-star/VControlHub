@@ -55,7 +55,7 @@ export function FileDetailPanel({
   entryCanWrite,
   entryCanDelete,
 }: FileDetailPanelProps) {
-  const { t } = useI18n();
+  const { t, locale } = useI18n();
   return (
     <div
       className="fixed inset-0 z-50 flex justify-end bg-[var(--surface-subtle)] p-3 backdrop-blur-sm"
@@ -114,7 +114,7 @@ export function FileDetailPanel({
                 <p className="text-xs text-[var(--text-muted)]">{t("fileDetailPanel.modified")}</p>
                 <p className="mt-1 font-medium">
                   {detailEntry.updatedAt
-                    ? formatDate(detailEntry.updatedAt)
+                    ? formatDate(detailEntry.updatedAt, locale)
                     : "—"}
                 </p>
               </div>

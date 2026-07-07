@@ -11,6 +11,7 @@ type PlaybookRunHistoryProps = {
 };
 
 export function PlaybookRunHistory({ runs, t }: PlaybookRunHistoryProps) {
+  const { locale } = useI18n();
   return (
     <details className="mt-3">
       <summary className="cursor-pointer text-xs text-[var(--text-secondary)] hover:text-[var(--text-primary)]">
@@ -25,7 +26,7 @@ export function PlaybookRunHistory({ runs, t }: PlaybookRunHistoryProps) {
               <span data-tone={r.status === "failed" ? "danger" : r.status === "completed" ? "success" : "neutral"} className="rounded-full border px-1.5 py-0.5 text-[10px]">
                 {statusLabelFor(t, r.status)}{r.dryRun ? " · dry-run" : ""}
               </span>
-              <span className="text-[var(--text-muted)]">{formatTime(r.startedAt)}</span>
+              <span className="text-[var(--text-muted)]">{formatTime(r.startedAt, locale)}</span>
               {r.errorMessage && <span className="text-[var(--danger)] truncate">{r.errorMessage}</span>}
             </div>
           ))
@@ -56,7 +57,7 @@ export const PlaybookCard = memo(function PlaybookCard({
   onToggle,
   onDelete,
 }: PlaybookCardProps) {
-  const { t } = useI18n();
+  const { t, locale } = useI18n();
   const isRunning = busyAction === `run:${playbook.id}`;
   const isDryRunning = busyAction === `dry-run:${playbook.id}`;
   const isToggling = busyAction === `toggle:${playbook.id}`;
@@ -83,7 +84,7 @@ export const PlaybookCard = memo(function PlaybookCard({
             <p className="mt-1 text-xs text-[var(--text-secondary)]">{playbook.description}</p>
           )}
           <div className="mt-2 text-xs text-[var(--text-muted)]">
-            {t("playbooksPage.stepsAndCreatedAt").replace("{count}", String(playbook.steps.length)).replace("{time}", formatTime(playbook.createdAt))}
+            {t("playbooksPage.stepsAndCreatedAt").replace("{count}", String(playbook.steps.length)).replace("{time}", formatTime(playbook.createdAt, locale))}
           </div>
           <PlaybookRunHistory runs={playbookRuns} t={t} />
         </div>

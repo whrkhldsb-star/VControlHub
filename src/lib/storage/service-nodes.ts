@@ -25,7 +25,7 @@ export type StorageNodeHealthStatus = "UNKNOWN" | "HEALTHY" | "UNHEALTHY";
 
 function sanitizeHealthError(error: unknown) {
   const rawMessage =
-    error instanceof Error ? error.message : String(error || "健康检查失败");
+    error instanceof Error ? error.message : String(error || "Health check failed");
   return rawMessage
     .replace(/-----BEGIN[\s\S]*?-----END[^\n]+-----/g, "[REDACTED]")
     .replace(/SECRET/gi, "[REDACTED]")
@@ -77,7 +77,7 @@ export async function checkStorageNodeHealth(storageNodeId: string) {
   });
 
   if (!node) {
-    throw new NotFoundError("存储节点不存在或已删除");
+    throw new NotFoundError("Storage node not found or has been deleted");
   }
 
   const startedAt = Date.now();
@@ -89,7 +89,7 @@ export async function checkStorageNodeHealth(storageNodeId: string) {
       const expandedBasePath = expandStorageBasePath(node.basePath);
       const baseStat = await stat(expandedBasePath);
       if (!baseStat.isDirectory()) {
-        throw new BusinessError("本机存储根路径不是目录");
+        throw new BusinessError("Local storage root path is not a directory");
       }
       await access(expandedBasePath, fsConstants.R_OK | fsConstants.W_OK);
     } else if (node.driver === "SFTP") {
@@ -131,7 +131,7 @@ export async function createStorageNode(input: CreateStorageNodeInput) {
   const payload = createStorageNodeSchema.parse(input);
 
   if (payload.driver === "SFTP" && !payload.serverId && !payload.host) {
-    throw new ValidationError("SFTP 存储节点必须绑定 VPS 节点或指定远端主机");
+    throw new ValidationError("SFTP storage nodes must be bound to a VPS node or specify a remote host");
   }
 
   await ensureDefaultNodeState(payload.isDefault);
@@ -203,7 +203,7 @@ export async function updateStorageNode(input: UpdateStorageNodeInput) {
   });
 
   if (!current) {
-    throw new NotFoundError("存储节点不存在或已删除");
+    throw new NotFoundError("Storage node not found or has been deleted");
   }
 
   const nextDriver = payload.driver ?? current.driver;
@@ -220,7 +220,7 @@ export async function updateStorageNode(input: UpdateStorageNodeInput) {
     payload.username === undefined ? current.username : payload.username;
 
   if (nextDriver === "SFTP" && !nextServerId && !nextHost) {
-    throw new ValidationError("SFTP 存储节点必须绑定 VPS 节点或指定远端主机");
+    throw new ValidationError("SFTP storage nodes must be bound to a VPS node or specify a remote host");
   }
 
   await ensureDefaultNodeState(payload.isDefault);
@@ -256,14 +256,14 @@ export async function deleteStorageNode(storageNodeId: string) {
   });
 
   if (!node) {
-    throw new NotFoundError("存储节点不存在或已删除");
+    throw new NotFoundError("Storage node not found or has been deleted");
   }
 
   const activeEntryCount = node.fileEntries.filter(
     (entry: { isDeleted: boolean }) => !entry.isDeleted,
   ).length;
   if (activeEntryCount > 0) {
-    throw new BusinessError("该存储节点下仍有文件条目，请先删除或迁移文件后再移除节点");
+    throw new BusinessError("This storage node still has file entries; please delete or migrate the files before removing the node");
   }
 
   await prisma.storageNode.delete({ where: { id: storageNodeId } });

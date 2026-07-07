@@ -8,13 +8,13 @@ import { collectServerMetrics } from "@/lib/server/monitor";
 export const dynamic = "force-dynamic";
 
 const serverMonitorQuerySchema = z.object({
-  serverId: z.string().trim().min(1, "缺少 serverId"),
+  serverId: z.string().trim().min(1, "Missing serverId"),
 });
 
 export async function GET(request: Request) {
   return withApiRoute(
     request,
-    { permission: "server:read", errorMessage: "服务器错误" },
+    { permission: "server:read", errorMessage: "Server error" },
     async () => {
       const { serverId } = parseSearchParams(request, serverMonitorQuerySchema);
 

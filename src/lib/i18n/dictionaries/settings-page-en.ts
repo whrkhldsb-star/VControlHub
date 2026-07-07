@@ -21,6 +21,7 @@ export const en: Record<string, string> = {
 	"settingsClient.saveSuccess": "Settings saved.",
 	"settingsClient.saveFailed": "Save failed",
 	"settingsClient.categoryNav": "Settings category navigation",
+	"settingsClient.tabsAria": "Settings tabs",
 	"settingsClient.collapse": "Collapse",
 	"settingsClient.expand": "Expand",
 	"settingsClient.sectionSuffix": "section",

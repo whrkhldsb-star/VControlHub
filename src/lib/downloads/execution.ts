@@ -100,9 +100,9 @@ export async function executeAria2RelayDownload(
     } else if (st.status === "error" || st.status === "removed") {
      await prisma.downloadTask.update({
       where: { id: taskId },
-      data: { status: "FAILED", errorMessage: `aria2 下载失败: ${st.status}` },
+      data: { status: "FAILED", errorMessage: `aria2 download failed: ${st.status}` },
      });
-     if (userId) notifyDownloadResult(userId, urls[0]!, "failed", `aria2 下载失败: ${st.status}`).catch(() => {});
+     if (userId) notifyDownloadResult(userId, urls[0]!, "failed", `aria2 download failed: ${st.status}`).catch(() => {});
      await cleanupTemp(tempDir);
      return;
      }
@@ -119,8 +119,8 @@ export async function executeAria2RelayDownload(
 
   if (!done) {
    try { await removeDownload(gid, true); } catch (err) { logError("[DownloadAPI] Failed to remove aria2 download on timeout:", err); }
-   await prisma.downloadTask.update({ where: { id: taskId }, data: { status: "FAILED", errorMessage: "下载超时（2小时限制）" } });
-   if (userId) notifyDownloadResult(userId, urls[0]!, "failed", "下载超时（2小时限制）").catch(() => {});
+   await prisma.downloadTask.update({ where: { id: taskId }, data: { status: "FAILED", errorMessage: "Download timed out (2 hour limit)" } });
+   if (userId) notifyDownloadResult(userId, urls[0]!, "failed", "Download timed out (2 hour limit)").catch(() => {});
    await cleanupTemp(tempDir);
    return;
   }
@@ -131,8 +131,8 @@ export async function executeAria2RelayDownload(
   const filesToTransfer = downloadedFiles.filter((f) => !f.endsWith(".aria2") && !f.startsWith("."));
 
   if (filesToTransfer.length === 0) {
-   await prisma.downloadTask.update({ where: { id: taskId }, data: { status: "FAILED", errorMessage: "下载完成但未找到文件" } });
-   if (userId) notifyDownloadResult(userId, urls[0]!, "failed", "下载完成但未找到文件").catch(() => {});
+   await prisma.downloadTask.update({ where: { id: taskId }, data: { status: "FAILED", errorMessage: "Download completed but file not found" } });
+   if (userId) notifyDownloadResult(userId, urls[0]!, "failed", "Download completed but file not found").catch(() => {});
    await cleanupTemp(tempDir);
    return;
   }
@@ -195,7 +195,7 @@ export async function executeDirectDownload(
    await indexDownloadedFileEntry({ storageNode: server.storageNode, targetPath, fileName, size: null });
   } else {
    const { stdout: logContent } = await execRemoteCommand({ ...sshParams, command: getDirectDownloadLogCommand(taskId), timeout: 8000 });
-   const errMsg = logContent.trim() || "无法启动下载进程";
+   const errMsg = logContent.trim() || "Failed to start download process";
    await prisma.downloadTask.update({ where: { id: taskId }, data: { status: "FAILED", errorMessage: errMsg } });
    if (userId) notifyDownloadResult(userId, url, "failed", errMsg).catch(() => {});
   }

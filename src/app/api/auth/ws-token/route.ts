@@ -35,7 +35,7 @@ export async function POST(request: NextRequest) {
     },
     async ({ session, body }) => {
       if (!session)
-        throw new AuthError("未认证");
+        throw new AuthError("Not authenticated");
 
       const secret = config.ssh.wsSecret;
       if (!secret) {

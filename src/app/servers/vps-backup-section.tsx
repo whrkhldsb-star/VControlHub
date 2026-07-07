@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 
 import { csrfFetch } from "@/lib/auth/csrf-client";
 import { useI18n } from "@/lib/i18n/use-locale";
+import { toDateLocale } from "@/lib/i18n/locale-format";
 
 type BackupSchedule = {
 	id: string;
@@ -388,7 +389,7 @@ export function VpsBackupSection({
 										</span>
 									</div>
 									<div className="mt-0.5 text-xs text-[var(--text-muted)]">
-										{new Date(r.createdAt).toLocaleString(locale === "en" ? "en-US" : "zh-CN")}
+										{new Date(r.createdAt).toLocaleString(toDateLocale(locale))}
 										{" · "}
 										{formatBytes(r.fileSize)}
 										{" · "}

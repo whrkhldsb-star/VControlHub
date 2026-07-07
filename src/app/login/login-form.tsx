@@ -1,5 +1,6 @@
 import { t, type Locale } from "@/lib/i18n/translations";
 import { Input, StateBox } from "@/components/ui-primitives";
+import { SubmitButton } from "@/components/submit-button";
 
 type LoginFormProps = {
 	nextPath: string;
@@ -53,12 +54,9 @@ export function LoginForm({ nextPath, error, locale }: LoginFormProps) {
 				</StateBox>
 			) : null}
 
-			<button
-				type="submit"
-				data-variant="primary" className="w-full py-2.5 text-sm font-semibold"
-			>
-				{t("login.form.submit", locale)}
-			</button>
+			<SubmitButton pendingLabel={t("login.form.submitting", locale)} className="w-full py-2.5 text-sm font-semibold">
+					{t("login.form.submit", locale)}
+				</SubmitButton>
 		</form>
 	);
 }

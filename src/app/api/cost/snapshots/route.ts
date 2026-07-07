@@ -31,7 +31,7 @@ export async function GET(request: Request) {
 			rateLimit: GENERAL_WRITE_LIMIT,
 			querySchema,
 			errorStatus: 500,
-			errorMessage: "加载历史快照失败",
+			errorMessage: "Failed to load historical snapshots",
 		},
 		async ({ query }) => {
 			const snapshots = await listRecentSnapshots(query.limit ?? 30);
@@ -48,7 +48,7 @@ export async function POST(request: Request) {
 			rateLimit: GENERAL_WRITE_LIMIT,
 			bodySchema: syncSchema,
 			errorStatus: 500,
-			errorMessage: "同步 VPS 月费失败",
+			errorMessage: "Failed to sync VPS monthly cost",
 		},
 		async ({ body }) => {
 			const result = await syncServerMonthlyCosts(body.month);

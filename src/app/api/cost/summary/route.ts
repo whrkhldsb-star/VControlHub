@@ -30,7 +30,7 @@ export async function GET(request: Request) {
 			rateLimit: GENERAL_WRITE_LIMIT,
 			querySchema: summaryQuerySchema,
 			errorStatus: 500,
-			errorMessage: "加载成本汇总失败",
+			errorMessage: "Failed to load cost summary",
 		},
 		async ({ query }) => {
 			const summary = await summarizeMonth(query.month, query.currency);

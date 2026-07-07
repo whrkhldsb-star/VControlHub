@@ -219,7 +219,7 @@ export function DockerResourcesPanel() {
                     })}
                     onClick={() => setPendingDelete({ type, name: itemName })}
                     disabled={busyKey === `delete:${key}`}
-                    className="min-h-10 rounded-lg bg-[var(--danger)] px-3 py-1 text-xs text-[var(--danger)] transition hover:bg-[var(--danger-bg)] hover:text-[var(--danger)] disabled:opacity-50"
+                    className="min-h-10 rounded-lg bg-[var(--danger)]/20 px-3 py-1 text-xs text-[var(--danger)] transition hover:bg-[var(--danger)]/30 disabled:opacity-50"
                   >
                     {t("dockerResources.delete")}
                   </button>{" "}
@@ -259,7 +259,7 @@ export function DockerResourcesPanel() {
       {error ? (
         <div
           role="alert"
-          className="mb-4 rounded-lg bg-[var(--danger)] px-3 py-2 text-sm text-[var(--danger)]"
+          className="mb-4 rounded-lg bg-[var(--danger)]/20 px-3 py-2 text-sm text-[var(--danger)]"
         >
           {error}
         </div>
@@ -357,7 +357,7 @@ export function DockerResourcesPanel() {
                   busyKey ===
                   `delete:${pendingDelete.type}:${pendingDelete.name}`
                 }
-                className="min-h-11 rounded-xl bg-[var(--danger)] px-4 py-2 text-sm font-semibold text-[var(--text-primary)] hover:bg-[var(--danger-bg)] hover:text-[var(--danger)] disabled:opacity-60"
+                className="min-h-11 rounded-xl bg-[var(--danger)] px-4 py-2 text-sm font-semibold text-[var(--text-primary)] hover:bg-[var(--danger)]/80 disabled:opacity-60"
               >
                 {t("dockerResources.confirm")}
               </button>{" "}

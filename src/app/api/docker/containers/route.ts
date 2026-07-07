@@ -34,14 +34,14 @@ const hubHostDockerScope = {
   scope: "hub-host",
   socketPath: DOCKER_SOCKET,
   warning:
-    "Docker 模块仅操作 VControlHub 所在主机的 Docker socket，不是跨 VPS 容器控制台；具备 docker:manage 的用户等同拥有本机容器管理能力。",
+    "The Docker module only operates on the VControlHub host's Docker socket; it is not a cross-VPS container console. Users with docker:manage permission can manage local containers.",
 };
 const dockerUnavailableResponse = {
   ok: true,
   status: 200,
   data: [],
   dockerAvailable: false,
-  message: "Docker 未安装或 Docker socket 不可用",
+  message: "Docker is not installed or Docker socket is unavailable",
   dockerScope: hubHostDockerScope,
 };
 
@@ -136,7 +136,7 @@ function dockerRequest(
 export async function GET(req: NextRequest) {
   return withApiRoute(
     req,
-    { permission: "docker:manage", errorMessage: "Docker API 请求失败" },
+    { permission: "docker:manage", errorMessage: "Docker API RequestFailed" },
     async () => {
       const { id, logs, stats, tail: tailRaw } = parseSearchParams(
         req,
@@ -152,19 +152,19 @@ export async function GET(req: NextRequest) {
       // Validate container IDs to prevent path traversal
       if (id && !isValidDockerId(id)) {
         return NextResponse.json(
-          { error: "无效的容器ID格式" },
+          { error: "Invalid container ID format" },
           { status: 400 },
         );
       }
       if (logs && !isValidDockerId(logs)) {
         return NextResponse.json(
-          { error: "无效的容器ID格式" },
+          { error: "Invalid container ID format" },
           { status: 400 },
         );
       }
       if (stats && !isValidDockerId(stats)) {
         return NextResponse.json(
-          { error: "无效的容器ID格式" },
+          { error: "Invalid container ID format" },
           { status: 400 },
         );
       }
@@ -215,19 +215,19 @@ export async function POST(req: NextRequest) {
     {
       permission: "docker:manage",
       rateLimit: COMMAND_LIMIT,
-      errorMessage: "Docker 操作失败",
+      errorMessage: "Docker OperationFailed",
       bodySchema: containerActionSchema,
     },
     async ({ session, body }) => {
       if (!session)
-        throw new AuthError("未认证");
+        throw new AuthError("Not authenticated");
 
       const { id, action } = body;
 
       // Validate container ID to prevent path traversal
       if (!isValidDockerId(id)) {
         return NextResponse.json(
-          { error: "无效的容器ID格式" },
+          { error: "Invalid container ID format" },
           { status: 400 },
         );
       }

@@ -3,52 +3,52 @@ import { z } from "zod";
 const serverTagSchema = z
   .string()
   .trim()
-  .min(1, "标签不能为空")
-  .max(32, "标签最多 32 个字符");
+  .min(1, "Tag is required")
+  .max(32, "Tags must be at most 32 characters");
 
 export const createServerSchema = z
   .object({
     name: z
       .string()
       .trim()
-      .min(2, "节点名称至少 2 个字符")
-      .max(64, "节点名称最多 64 个字符"),
+      .min(2, "Node name must be at least 2 characters")
+      .max(64, "Node name must be at most 64 characters"),
     host: z
       .string()
       .trim()
-      .min(2, "IP 地址或主机名不能为空")
-      .max(255, "IP 地址或主机名过长"),
+      .min(2, "IP address or hostname is required")
+      .max(255, "IP address or hostname is too long"),
     port: z.coerce
       .number()
       .int()
-      .min(1, "端口最小为 1")
-      .max(65535, "端口最大为 65535")
+      .min(1, "Port must be at least 1")
+      .max(65535, "Port must be at most 65535")
       .default(22),
     username: z
       .string()
       .trim()
-      .max(64, "SSH 用户名过长")
+      .max(64, "SSH username is too long")
       .optional()
       .default("root"),
     connectionType: z.enum(["SSH_KEY", "PASSWORD"]).default("SSH_KEY"),
     sshKeyId: z.string().trim().optional(),
     password: z.string().trim().optional(),
-    hostKeySha256: z.string().trim().max(128, "SSH 主机指纹过长").optional().or(z.literal("")),
-    approvedHostKeySha256: z.string().trim().max(128, "SSH 主机指纹确认值过长").optional().or(z.literal("")),
+    hostKeySha256: z.string().trim().max(128, "SSH host key fingerprint is too long").optional().or(z.literal("")),
+    approvedHostKeySha256: z.string().trim().max(128, "SSH approved host key fingerprint is too long").optional().or(z.literal("")),
     description: z
       .string()
       .trim()
-      .max(255, "描述最多 255 个字符")
+      .max(255, "Description must be at most 255 characters")
       .optional()
       .transform((value) => value || undefined),
-    tags: z.array(serverTagSchema).max(20, "标签最多 20 个").default([]),
+    tags: z.array(serverTagSchema).max(20, "At most 20 tags are allowed").default([]),
     enableDirectGateway: z.boolean().optional().default(false),
     directGatewayProtocol: z.enum(["http", "https"]).optional().default("http"),
     storagePath: z
       .string()
       .trim()
-      .min(1, "存储路径不能为空")
-      .max(500, "路径过长")
+      .min(1, "Storage path is required")
+      .max(500, "Path is too long")
       .default("/root/drive"),
     costAutoSync: z.boolean().optional().default(false),
     costMonthlyAmount: z
@@ -59,7 +59,7 @@ export const createServerSchema = z
       .or(z.literal(""))
       .transform((value) => value || undefined),
     costCurrency: z.enum(["CNY", "USD", "EUR", "JPY", "HKD"]).optional().default("CNY"),
-    costProvider: z.string().trim().max(128, "账单提供方最多 128 个字符").optional().transform((value) => value || undefined),
+    costProvider: z.string().trim().max(128, "Cost provider must be at most 128 characters").optional().transform((value) => value || undefined),
   })
   .refine(
     (data) => {

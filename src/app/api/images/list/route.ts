@@ -22,11 +22,11 @@ export async function GET(request: Request) {
 
   return withApiRoute(
     request,
-    { requireAuth: true, errorMessage: "获取图片列表失败" },
+    { requireAuth: true, errorMessage: "Failed to fetch image list" },
     async ({ session }) => {
       if (!session)
         return NextResponse.json(
-          { error: "未登录或会话已过期" },
+          { error: "Not authenticated or session expired" },
           { status: 401 },
         );
       return listImages(

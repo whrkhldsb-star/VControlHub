@@ -40,13 +40,13 @@ function detectKeyFormat(content: string): "ppk" | "openssh" | "unknown" {
 function validateOpenSshPrivateKey(key: string): void {
   const trimmed = key.trim();
   if (!trimmed.startsWith("-----BEGIN ")) {
-    throw new ValidationError("私钥格式无效：OpenSSH/PEM 私钥应以 -----BEGIN 开头。");
+    throw new ValidationError("Private key format is invalid: OpenSSH/PEM private key should start with -----BEGIN.");
   }
   if (!trimmed.includes("PRIVATE KEY-----")) {
-    throw new ValidationError("私钥格式无效：缺少 PRIVATE KEY 标记。");
+    throw new ValidationError("Private key format is invalid: missing PRIVATE KEY marker.");
   }
   if (!trimmed.includes("-----END ")) {
-    throw new ValidationError("私钥格式无效：缺少结束标记 -----END。");
+    throw new ValidationError("Private key format is invalid: missing end marker -----END.");
   }
 }
 
@@ -77,13 +77,13 @@ function computeSshPublicKeyFingerprint(publicKey: string) {
 
   if (parts.length < 2) {
     throw new ValidationError(
-      "SSH 公钥格式无效，请粘贴完整的 authorized_keys 公钥内容。",
+      "SSH public key format is invalid; please paste the full authorized_keys public key content.",
     );
   }
 
   const decoded = Buffer.from(toBase64UrlSafe(parts[1]!), "base64");
   if (decoded.length === 0) {
-    throw new ValidationError("SSH 公钥内容无法解析，请检查公钥是否完整。");
+    throw new ValidationError("SSH public key content cannot be parsed; please check that the public key is complete.");
   }
 
   return `SHA256:${createHash("sha256").update(decoded).digest("base64").replace(/=+$/g, "")}`;
@@ -107,7 +107,7 @@ async function normalizeImportedSshKey(input: {
   if (!uploadedContent) {
     const publicKey = normalizeAuthorizedKey(input.publicKey ?? "");
     if (!publicKey && !manualPrivateKey) {
-      throw new ValidationError("SSH 公钥不能为空，或请上传密钥文件自动提取。");
+      throw new ValidationError("SSH public key cannot be empty, or upload a key file to extract it automatically.");
     }
     if (manualPrivateKey && manualPrivateKey.startsWith("-----BEGIN")) {
       validateOpenSshPrivateKey(manualPrivateKey);
@@ -141,7 +141,7 @@ async function normalizeImportedSshKey(input: {
 
   if (format === "unknown") {
     throw new ValidationError(
-      "无法识别密钥文件格式。支持 PuTTY .ppk、OpenSSH、PEM (PKCS#1/PKCS#8/SEC1) 格式。",
+      "Unrecognized key file format. Supported formats: PuTTY .ppk, OpenSSH, PEM (PKCS#1/PKCS#8/SEC1).",
     );
   }
 
@@ -151,11 +151,11 @@ async function normalizeImportedSshKey(input: {
   const outputPassphrase = input.privateKeyOutputPassphrase?.trim() ?? "";
 
   if (encryptionMode === "same-as-ppk" && !inputPassphrase) {
-    throw new ValidationError("选择沿用 PPK 口令时，必须填写 PPK 口令。");
+    throw new ValidationError("When choosing to keep the PPK passphrase, you must provide the PPK passphrase.");
   }
 
   if (encryptionMode === "custom" && !outputPassphrase) {
-    throw new ValidationError("选择自定义加密格式时，必须填写新的私钥口令。");
+    throw new ValidationError("When choosing a custom encryption format, you must provide a new private key passphrase.");
   }
 
   try {
@@ -180,15 +180,15 @@ async function normalizeImportedSshKey(input: {
   } catch (error) {
     if (error instanceof PPKError) {
       if (error.code === "PASSPHRASE_REQUIRED") {
-        throw new ValidationError("该 PPK 文件已加密，请填写正确的 PPK 口令后再导入。");
+        throw new ValidationError("This PPK file is encrypted; please provide the correct PPK passphrase before importing.");
       }
 
       if (error.code === "INVALID_MAC") {
-        throw new ValidationError("PPK 口令错误或文件已损坏，请检查后重试。");
+        throw new ValidationError("PPK passphrase is incorrect or the file is corrupted; please check and retry.");
       }
 
       if (error.code === "WRONG_FORMAT") {
-        throw new ValidationError("上传文件不是有效的 PPK 私钥，请选择 .ppk 文件。 ");
+        throw new ValidationError("The uploaded file is not a valid PPK private key; please select a .ppk file. ");
       }
 
       throw new ValidationError(error.message);
@@ -213,12 +213,12 @@ export async function createSshKey(input: {
   const name = input.name.trim();
   const description = input.description?.trim() || null;
 
-  if (!name) throw new ValidationError("SSH 密钥名称不能为空");
+  if (!name) throw new ValidationError("SSH key name is required");
 
   const normalizedKey = await normalizeImportedSshKey(input);
 
   if (!normalizedKey.fingerprint) {
-    throw new ValidationError("无法计算密钥指纹，请检查密钥内容是否完整。");
+    throw new ValidationError("Unable to compute key fingerprint; please check that the key content is complete.");
   }
 
   return prisma.sshKey.create({

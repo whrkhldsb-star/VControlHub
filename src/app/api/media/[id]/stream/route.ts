@@ -30,7 +30,7 @@ function resolveManagedLocalPath(basePath: string, relativePath: string) {
   const allowedRoot = path.resolve(expandStorageBasePath(basePath));
   const absolutePath = path.resolve(allowedRoot, normalizedPath.path);
   const relativeToRoot = path.relative(allowedRoot, absolutePath);
-  if (relativeToRoot.startsWith("..") || path.isAbsolute(relativeToRoot)) throw new Error("非法路径");
+  if (relativeToRoot.startsWith("..") || path.isAbsolute(relativeToRoot)) throw new Error("InvalidPath");
   return { normalizedRelativePath: normalizedPath.path, absolutePath };
 }
 
@@ -40,7 +40,7 @@ function openSftpStream(client: Client, remotePath: string, rangeHeader: string 
       if (err) return reject(err);
       sftp.stat(remotePath, (statErr, stats) => {
         if (statErr) return reject(statErr);
-        if (!stats.isFile()) return reject(new Error("目标不是可播放文件"));
+        if (!stats.isFile()) return reject(new Error("Target is not a playable file"));
         const range = parseStorageRange(rangeHeader, stats.size);
         if (range instanceof Response) return reject(Object.assign(new Error("Range Not Satisfiable"), { response: range }));
         const stream = sftp.createReadStream(remotePath, { start: range.start, end: range.end });
@@ -53,9 +53,9 @@ function openSftpStream(client: Client, remotePath: string, rangeHeader: string 
 export async function GET(request: Request, { params }: { params: Promise<{ id: string }> }) {
   return withApiRoute(
     request,
-    { permission: "storage:read", rateLimit: GENERAL_READ_LIMIT, errorMessage: "读取媒体失败" },
+    { permission: "storage:read", rateLimit: GENERAL_READ_LIMIT, errorMessage: "Failed to read media" },
     async ({ session }) => {
-      if (!session) throw new AuthError("未认证");
+      if (!session) throw new AuthError("Not authenticated");
       const { id } = await params;
   const { download } = parseSearchParams(
     request,
@@ -67,7 +67,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
     }),
   );
   const item = await getMediaItem(id);
-  if (!item || !item.storageNode) return apiError({ code: "NOT_FOUND", message: "媒体不存在", status: 404 });
+  if (!item || !item.storageNode) return apiError({ code: "NOT_FOUND", message: "Media not found", status: 404 });
 
   const node = item.storageNode;
   const accessDecision = await assertStorageAccess({
@@ -77,7 +77,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
     operation: "read",
   });
   if (!accessDecision.allowed) {
-    return apiError({ code: "FORBIDDEN", message: accessDecision.reason ?? "缺少存储访问授权", status: 403 });
+    return apiError({ code: "FORBIDDEN", message: accessDecision.reason ?? "Missing storage access authorization", status: 403 });
   }
 
   if (node.driver === "LOCAL") {
@@ -85,7 +85,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
     try {
       ({ absolutePath: localPath } = resolveManagedLocalPath(node.basePath, item.relativePath));
       const fileStat = await stat(localPath);
-      if (!fileStat.isFile()) return apiError({ code: "VALIDATION_FAILED", message: "目标不是可播放文件", status: 400 });
+      if (!fileStat.isFile()) return apiError({ code: "VALIDATION_FAILED", message: "Target is not a playable file", status: 400 });
       const range = parseStorageRange(request.headers.get("range"), fileStat.size);
       if (range instanceof Response) return range;
       const stream = createReadStream(localPath, { start: range.start, end: range.end });
@@ -99,12 +99,12 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
       });
     } catch (error) {
       logger.error("read local media stream failed", error, { id });
-      return apiError({ code: "NOT_FOUND", message: "文件不存在或暂时无法读取", status: 404 });
+      return apiError({ code: "NOT_FOUND", message: "File not found or temporarily cannot be read", status: 404 });
     }
   }
 
   if (node.driver !== "SFTP") {
-    return apiError({ code: "VALIDATION_FAILED", message: "该存储节点暂不支持媒体流播放", status: 400 });
+    return apiError({ code: "VALIDATION_FAILED", message: "This storage node does not support media streaming", status: 400 });
   }
 
   let normalizedRemotePath: string;
@@ -113,7 +113,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
     normalizedRemotePath = normalizeRemoteTargetPath(node.basePath, item.relativePath);
     normalizedRelativePath = normalizeRemoteRelativePath(item.relativePath);
   } catch {
-    return NextResponse.json(toClientStorageError("请求路径超出存储节点根目录"), { status: 400 });
+    return NextResponse.json(toClientStorageError("Requested path exceeds storage node root directory"), { status: 400 });
   }
 
   const remoteAccess = await assertStorageAccess({
@@ -123,14 +123,14 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
     operation: "read",
   });
   if (!remoteAccess.allowed) {
-    return apiError({ code: "FORBIDDEN", message: remoteAccess.reason ?? "缺少存储访问授权", status: 403 });
+    return apiError({ code: "FORBIDDEN", message: remoteAccess.reason ?? "Missing storage access authorization", status: 403 });
   }
 
   const connectionCredentials = (() => {
     try {
       return resolveStorageSshCredentials(node);
     } catch (error) {
-      return error instanceof Error ? error : new Error("缺少远端主机地址或连接凭据，无法连接");
+      return error instanceof Error ? error : new Error("Missing remote host address or connection credentials, cannot connect");
     }
   })();
   if (connectionCredentials instanceof Error) {
@@ -170,7 +170,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
     const maybeResponse = (error as { response?: Response }).response;
     if (maybeResponse) return maybeResponse;
     logger.error("read remote media stream failed", error, { id, nodeId: node.id });
-    return NextResponse.json(toClientStorageError("获取远端媒体失败，请检查文件是否存在或节点是否可连接"), { status: 502 });
+    return NextResponse.json(toClientStorageError("Failed to fetch remote media, please check if the file exists or the node can be connected"), { status: 502 });
   }
     },
   );

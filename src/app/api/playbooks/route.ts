@@ -14,7 +14,7 @@ export const dynamic = "force-dynamic";
 export async function GET(request: Request) {
   return withApiRoute(
     request,
-    { permission: "playbook:read", rateLimit: GENERAL_WRITE_LIMIT, errorStatus: 500, errorMessage: "服务器错误" },
+    { permission: "playbook:read", rateLimit: GENERAL_WRITE_LIMIT, errorStatus: 500, errorMessage: "Server error" },
     async () => {
       const playbooks = await listPlaybooks();
       return NextResponse.json({ playbooks });
@@ -25,7 +25,7 @@ export async function GET(request: Request) {
 export async function POST(request: Request) {
   return withApiRoute(
     request,
-    { permission: "playbook:manage", rateLimit: GENERAL_WRITE_LIMIT, errorStatus: 400, errorMessage: "创建失败", bodySchema: createPlaybookSchema },
+    { permission: "playbook:manage", rateLimit: GENERAL_WRITE_LIMIT, errorStatus: 400, errorMessage: "CreateFailed", bodySchema: createPlaybookSchema },
     async ({ session, body }) => {
       const createdById = session?.userId ?? "";
       const playbook = await createPlaybook(body, createdById);

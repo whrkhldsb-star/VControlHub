@@ -69,7 +69,7 @@ export function VoidBackupRecordButton({ backupId, status }: Props) {
             type="button"
             disabled={pending}
             onClick={() => setConfirming(false)}
-            className="w-fit rounded-lg border border-[var(--border)] px-3 py-1.5 text-xs font-semibold text-[var(--text-secondary)] transition hover:bg-[var(--surface)]/10 disabled:cursor-not-allowed disabled:opacity-50"
+            className="w-fit rounded-lg border border-[var(--border)] px-3 py-1.5 text-xs font-semibold text-[var(--text-secondary)] transition hover:bg-[var(--surface-hover)] disabled:cursor-not-allowed disabled:opacity-50"
           >
             {t("common.cancel")}
           </button>

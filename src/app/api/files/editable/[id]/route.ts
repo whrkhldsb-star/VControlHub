@@ -17,9 +17,9 @@ export async function GET(
 ) {
   return withApiRoute(
     request,
-    { permission: "storage:read", errorMessage: "读取文件草稿失败" },
+    { permission: "storage:read", errorMessage: "Failed to fetch file draft" },
     async ({ session }) => {
-      if (!session) throw new AuthError("未认证");
+      if (!session) throw new AuthError("Unauthorized");
       const { id } = await params;
       const draft = await getLocalEditableFileDraft({ fileEntryId: id, session });
       return NextResponse.json({ draft });
@@ -37,11 +37,11 @@ export async function PUT(
       permission: "storage:write",
       rateLimit: GENERAL_WRITE_LIMIT,
       errorStatus: 400,
-      errorMessage: "保存文件失败",
+      errorMessage: "Failed to save file",
       bodySchema: saveEditableFileBodySchema,
     },
     async ({ session, body }) => {
-      if (!session) throw new AuthError("未认证");
+      if (!session) throw new AuthError("Unauthorized");
       const { id } = await params;
 
       const result = await saveLocalEditableFileDraft({

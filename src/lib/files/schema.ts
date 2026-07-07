@@ -83,7 +83,7 @@ export type CompressFilesBody = z.infer<typeof compressFilesBodySchema>;
  * the first save on a freshly opened draft has no prior timestamp.
  */
 export const saveEditableFileBodySchema = z.object({
-  content: z.string().max(512 * 1024, "文件超过 512 KB，暂不支持在线编辑"),
+  content: z.string().max(512 * 1024, "File exceeds 512 KB, online editing is not supported"),
   expectedUpdatedAt: z.string().datetime().optional().nullable(),
   expectedLastModifiedMs: z
     .number()

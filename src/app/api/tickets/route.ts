@@ -14,7 +14,7 @@ const ticketCreateSchema = z.object({
   category: z.string().optional(),
   serverId: z.string().optional(),
 }).refine((data) => Boolean(data.subject || data.title), {
-  message: "工单标题不能为空",
+  message: "Ticket title is required",
   path: ["subject"],
 });
 
@@ -59,12 +59,12 @@ export async function POST(request: Request) {
   return withApiRoute(request, { requireAuth: true, rateLimit: GENERAL_WRITE_LIMIT, bodySchema: ticketPostSchema }, async ({ session, body }) => {
     if ("ticketId" in body) {
       if (!session || (!sessionHasPermission(session, "ticket:manage") && !(await canViewTicket(body.ticketId, session.userId)))) {
-        throw new ForbiddenError("缺少权限");
+        throw new ForbiddenError("MissingPermission");
       }
       return NextResponse.json({ comment: await addTicketComment({ ticketId: body.ticketId, authorId: session?.userId ?? "", body: body.body }) }, { status: 201 });
     }
     if (!session || !sessionHasPermission(session, "ticket:create")) {
-      throw new ForbiddenError("缺少权限");
+      throw new ForbiddenError("MissingPermission");
     }
     return NextResponse.json({ ticket: await createTicket({ title: body.subject ?? body.title ?? "", description: body.description, priority: normalizePriority(body.priority), createdBy: session?.userId ?? "" }) }, { status: 201 });
   });

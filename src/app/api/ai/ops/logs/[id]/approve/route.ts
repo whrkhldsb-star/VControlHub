@@ -19,7 +19,7 @@ import { ForbiddenError } from "@/lib/errors";
 export const dynamic = "force-dynamic";
 
 const approveSchema = z.object({
-	actionId: z.string().min(1, "actionId 不能为空"),
+	actionId: z.string().min(1, "actionId is required"),
 });
 
 export async function POST(
@@ -34,11 +34,11 @@ export async function POST(
 			rateLimit: GENERAL_WRITE_LIMIT,
 			bodySchema: approveSchema,
 			errorStatus: 500,
-			errorMessage: "审批推荐项失败",
+			errorMessage: "Failed to approve recommendation",
 		},
 		async ({ session, body }) => {
 			if (!session) {
-				throw new ForbiddenError("未登录或会话已过期");
+				throw new ForbiddenError("Not authenticated or session expired");
 			}
 			const result = await approveRecommendation({
 				logId: id,

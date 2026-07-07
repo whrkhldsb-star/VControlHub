@@ -22,13 +22,13 @@ export async function GET(request: Request) {
   if (hasBearerHeader) {
     const tokenAuth = await verifyBearerToken(request, "health:read");
     if (!tokenAuth)
-      return apiError({ code: "AUTH_REQUIRED", message: "未认证", status: 401 });
+      return apiError({ code: "AUTH_REQUIRED", message: "Unauthorized", status: 401 });
     return handleHealthRequest(request);
   }
 
   return withApiRoute(
     request,
-    { permission: "health:read", errorMessage: "健康数据获取失败" },
+    { permission: "health:read", errorMessage: "Failed to fetch health data" },
     async () => handleHealthRequest(request),
   );
 }
@@ -58,9 +58,9 @@ async function handleHealthRequest(request: Request) {
       }));
       return NextResponse.json({ history: serialized });
     } catch (err) {
-      const message = err instanceof Error ? err.message : "未知错误";
+      const message = err instanceof Error ? err.message : "Unknown error";
       return NextResponse.json(
-        { error: `健康历史获取失败: ${message}` },
+        { error: `Failed to fetch health history: ${message}` },
         { status: 500 },
       );
     }
@@ -70,9 +70,9 @@ async function handleHealthRequest(request: Request) {
   try {
     overview = await collectAllHealth();
   } catch (err) {
-    const message = err instanceof Error ? err.message : "未知错误";
+    const message = err instanceof Error ? err.message : "Unknown error";
     return NextResponse.json(
-      { error: `健康数据采集失败: ${message}` },
+      { error: `Failed to collect health data: ${message}` },
       { status: 500 },
     );
   }

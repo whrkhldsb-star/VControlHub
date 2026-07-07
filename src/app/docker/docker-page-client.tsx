@@ -59,7 +59,7 @@ function getContainerName(t: (key: string) => string, container: Pick<Container,
 	return (container.Names?.[0] || container.Id?.slice(0, 12) || t("dockerPage.state.unknown")).replace(/^\//, "");
 }
 
-const KNOWN_DOCKER_STATES = ["running", "exited", "paused", "created", "restarting"] as const;
+const KNOWN_DOCKER_STATES = ["running", "exited", "paused", "created", "restarting", "dead", "removing"] as const;
 type KnownDockerState = (typeof KNOWN_DOCKER_STATES)[number];
 
 function isKnownDockerState(state: string): state is KnownDockerState {
@@ -207,9 +207,11 @@ export default function DockerPage() {
 
 	useEffect(() => {
 		for (const container of runningContainers) {
+			// Skip if stats already fetched for this container
+			if (stats[container.Id]) continue;
 			void fetchStats(container.Id);
 		}
-	}, [runningContainers]);
+	}, [runningContainers]); // eslint-disable-line react-hooks/exhaustive-deps
 
 	useEffect(() => {
 		if (!statsAutoRefresh || refreshIntervalSeconds <= 0 || runningContainers.length === 0) return;

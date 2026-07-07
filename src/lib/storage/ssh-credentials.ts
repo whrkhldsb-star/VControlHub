@@ -41,13 +41,13 @@ export function resolveStorageSshCredentials(node: StorageSshCredentialNode): Re
     : undefined;
 
   if (!host) {
-    throw new ValidationError("缺少远端主机地址，无法连接");
+    throw new ValidationError("Missing remote host address, cannot connect");
   }
   if (connectionType === "SSH_KEY" && !privateKey) {
-    throw new ValidationError("缺少 SSH 私钥，无法连接");
+    throw new ValidationError("Missing SSH private key, cannot connect");
   }
   if (connectionType === "PASSWORD" && !password) {
-    throw new ValidationError("缺少登录密码，无法连接");
+    throw new ValidationError("Missing login password, cannot connect");
   }
 
   return { host, port, username, connectionType, privateKey, password, hostKeySha256: node.hostKeySha256 ?? node.server?.hostKeySha256 ?? null };

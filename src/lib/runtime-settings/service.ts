@@ -144,11 +144,11 @@ export function normalizeRuntimeSettingValue(key: RuntimeSettingKey, value: stri
   const definition = RUNTIME_SETTING_DEFINITIONS[key];
   const parsed = Number(value);
   if (!Number.isFinite(parsed)) {
-    throw new ValidationError(`${definition.label} 必须是数字`);
+    throw new ValidationError(`${definition.label} must be a number`);
   }
   const integer = Math.trunc(parsed);
   if (integer < definition.min || integer > definition.max) {
-    throw new ValidationError(`${definition.label} 必须在 ${definition.min} 到 ${definition.max} ${definition.unit}之间`);
+    throw new ValidationError(`${definition.label} must be between ${definition.min} and ${definition.max} ${definition.unit}`);
   }
   return String(integer);
 }

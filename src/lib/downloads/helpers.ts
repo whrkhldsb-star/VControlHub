@@ -16,13 +16,13 @@ export function normalizeDownloadFileName(fileName: string | null | undefined): 
  const value = (fileName ?? "").trim();
  if (!value) return null;
  if (value.includes("\0") || value.includes("/") || value.includes("\\")) {
-  throw new ValidationError("下载文件名不能包含路径分隔符");
+  throw new ValidationError("Download filename cannot contain path separators");
  }
  if (value === "." || value === ".." || value.includes("..")) {
-  throw new ValidationError("下载文件名不能包含 ..");
+  throw new ValidationError("Download filename cannot contain ..");
  }
  if (/^[A-Za-z]:/.test(value) || /[\r\n]/.test(value)) {
-  throw new ValidationError("下载文件名无效");
+  throw new ValidationError("Download filename invalid");
  }
  return value;
 }
@@ -131,9 +131,9 @@ export function buildProgressText(st: Aria2Status): string {
 
 export function getPublicDownloadError(error: unknown): string {
  if (error instanceof Error && error.message.includes("No SSH key or password")) {
-  return "目标 VPS 未配置可用的 SSH 凭据";
+  return "Target VPS has no valid SSH credentials configured";
  }
- return "下载任务执行失败，请查看服务日志";
+ return "Download task execution failed, please check server logs";
 }
 
 /* ── Misc helpers ──────────────────────────────────────── */

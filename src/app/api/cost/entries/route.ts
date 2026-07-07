@@ -38,7 +38,7 @@ export async function GET(request: Request) {
 			rateLimit: GENERAL_WRITE_LIMIT,
 			querySchema: costQuerySchema,
 			errorStatus: 500,
-			errorMessage: "加载成本条目失败",
+			errorMessage: "Failed to load cost entry",
 		},
 		async ({ query }) => {
 			const entries = await listCostEntries({
@@ -59,7 +59,7 @@ export async function POST(request: Request) {
 			rateLimit: GENERAL_WRITE_LIMIT,
 			bodySchema: createCostEntrySchema,
 			errorStatus: 400,
-			errorMessage: "创建成本条目失败",
+			errorMessage: "Failed to create cost entry",
 		},
 		async ({ session, body }) => {
 			const createdById = session?.userId ?? null;

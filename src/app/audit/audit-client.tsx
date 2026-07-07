@@ -251,8 +251,11 @@ export function AuditLogClient({ initialActionFilter = "" }: AuditLogClientProps
       </div>
 
       {error && (
-        <div role="alert" data-tone="rose" className="mb-4 rounded-2xl border border-[var(--danger-border)] px-4 py-3 text-sm text-[var(--danger)]">
-          {error}
+        <div role="alert" data-tone="rose" className="mb-4 flex items-center justify-between gap-3 rounded-2xl border border-[var(--danger-border)] px-4 py-3 text-sm text-[var(--danger)]">
+          <span>{error}</span>
+          <button type="button" onClick={fetchLogs} className="shrink-0 rounded-lg border border-[var(--danger-border)] px-3 py-1 text-xs font-medium text-[var(--danger)] transition hover:bg-[var(--danger)]/10">
+            {t("common.retry")}
+          </button>
         </div>
       )}
 

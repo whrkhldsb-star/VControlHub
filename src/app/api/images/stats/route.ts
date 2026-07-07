@@ -14,11 +14,11 @@ export const dynamic = "force-dynamic";
 export async function GET(request: Request) {
   return withApiRoute(
     request,
-    { requireAuth: true, errorMessage: "获取统计信息失败" },
+    { requireAuth: true, errorMessage: "Failed to fetch statistics" },
     async ({ session }) => {
       if (!session)
         return NextResponse.json(
-          { error: "未登录或会话已过期" },
+          { error: "Not authenticated or session expired" },
           { status: 401 },
         );
       const isAdmin = sessionHasPermission(session, "user:read");
@@ -67,7 +67,7 @@ export async function GET(request: Request) {
 
       // Format album breakdown
       const albums = albumBreakdown.map((album) => ({
-        album: album.album || "未分类",
+        album: album.album || "Uncategorized",
         count: album._count.id,
         sizeBytes: album._sum.sizeBytes || 0,
       }));

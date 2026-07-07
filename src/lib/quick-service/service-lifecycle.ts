@@ -83,10 +83,10 @@ export async function getQuickService(slug: string) {
 
 
 export async function uninstallService(slug: string, options: UninstallServiceOptions = {}) {
-	return withServiceOperationLock(slug, "卸载", async () => {
+	return withServiceOperationLock(slug, "uninstall", async () => {
 		const svc = await prisma.quickService.findUnique({ where: { slug } });
-		if (!svc) throw new NotFoundError("服务不存在");
-		assertServiceNotBusy(svc, "卸载");
+		if (!svc) throw new NotFoundError("Service not found");
+		assertServiceNotBusy(svc, "uninstall");
 		const before = await captureQuickServiceSnapshot(slug);
 		await writeQuickServiceAudit({
 			action: "uninstall",
@@ -101,15 +101,15 @@ export async function uninstallService(slug: string, options: UninstallServiceOp
 			dockerExecSync(["rm", "-f", containerName], 15_000);
 		} catch (err) {
 			const msg = dockerErrorMessage(err);
-			await prisma.quickService.update({ where: { slug }, data: { status: "error", error: `卸载失败: ${msg}` } });
+			await prisma.quickService.update({ where: { slug }, data: { status: "error", error: `Uninstall failed: ${msg}` } });
 			await writeQuickServiceAudit({
 				action: "uninstall",
 				slug: svc.slug,
 				status: "failed",
 				detail: { error: msg.slice(0, 500) },
-				diff: { before, after: { status: "error", error: `卸载失败: ${msg}` } },
+				diff: { before, after: { status: "error", error: `Uninstall failed: ${msg}` } },
 			});
-			throw new BusinessError(`卸载失败: ${msg}`);
+			throw new BusinessError(`Uninstall failed: ${msg}`);
 		}
 
 		if (options.deleteVolumes === true) {
@@ -127,15 +127,15 @@ export async function uninstallService(slug: string, options: UninstallServiceOp
 			// delete cleanly. The diff captures the "should have been
 			// deleted" intent for the audit reader.
 			const msg = err instanceof Error ? err.message.slice(0, 500) : String(err);
-			await prisma.quickService.update({ where: { slug }, data: { status: "stopped", error: `卸载回滚: DB 删除失败 ${msg}` } }).catch(() => {});
+			await prisma.quickService.update({ where: { slug }, data: { status: "stopped", error: `Uninstall rollback: DB delete failed ${msg}` } }).catch(() => {});
 			await writeQuickServiceAudit({
 				action: "uninstall",
 				slug: svc.slug,
 				status: "failed",
 				detail: { error: msg, phase: "db-delete" },
-				diff: { before, after: { status: "stopped", error: `卸载回滚: DB 删除失败 ${msg}` } },
+				diff: { before, after: { status: "stopped", error: `Uninstall rollback: DB delete failed ${msg}` } },
 			});
-			throw new BusinessError(`卸载回滚: 容器已删除但 DB 记录保留，请重试卸载: ${msg}`);
+			throw new BusinessError(`Uninstall rollback: container deleted but DB record retained, please retry uninstall: ${msg}`);
 		}
 		await writeQuickServiceAudit({
 			action: "uninstall",
@@ -148,10 +148,10 @@ export async function uninstallService(slug: string, options: UninstallServiceOp
 }
 
 export async function startService(slug: string) {
-	return withServiceOperationLock(slug, "启动", async () => {
+	return withServiceOperationLock(slug, "start", async () => {
 		const svc = await prisma.quickService.findUnique({ where: { slug } });
-		if (!svc) throw new NotFoundError("服务不存在");
-		assertServiceNotBusy(svc, "启动");
+		if (!svc) throw new NotFoundError("Service not found");
+		assertServiceNotBusy(svc, "start");
 		const before = await captureQuickServiceSnapshot(slug);
 		await writeQuickServiceAudit({
 			action: "start",
@@ -207,17 +207,17 @@ export async function startService(slug: string) {
 					detail: { error: msg.slice(0, 500) },
 					diff: { before, after: { status: "error", error: msg.slice(0, 500) } },
 				});
-				throw new BusinessError(`启动失败: ${msg}`);
+				throw new BusinessError(`Start failed: ${msg}`);
 			}
 		}
 	});
 }
 
 export async function updateService(slug: string) {
-	return withServiceOperationLock(slug, "更新", async () => {
+	return withServiceOperationLock(slug, "update", async () => {
 		const svc = await prisma.quickService.findUnique({ where: { slug } });
-		if (!svc) throw new NotFoundError("服务不存在");
-		assertServiceNotBusy(svc, "更新");
+		if (!svc) throw new NotFoundError("Service not found");
+		assertServiceNotBusy(svc, "update");
 		const containerName = safeContainerName(svc.slug);
 		const before = await captureQuickServiceSnapshot(slug);
 		const oldImage = svc.image;
@@ -264,24 +264,24 @@ export async function updateService(slug: string) {
 			return { status: "running", health, logTail };
 		} catch (err) {
 			const msg = dockerErrorMessage(err);
-			await prisma.quickService.update({ where: { slug }, data: { status: "error", error: `更新失败: ${msg}` } });
+			await prisma.quickService.update({ where: { slug }, data: { status: "error", error: `Update failed: ${msg}` } });
 			await writeQuickServiceAudit({
 				action: "update",
 				slug: svc.slug,
 				status: "failed",
 				detail: { image: svc.image, error: msg.slice(0, 500) },
-				diff: { before, after: { status: "error", image: oldImage, error: `更新失败: ${msg}` } },
+				diff: { before, after: { status: "error", image: oldImage, error: `Update failed: ${msg}` } },
 			});
-			throw new BusinessError(`更新失败: ${msg}`);
+			throw new BusinessError(`Update failed: ${msg}`);
 		}
 	});
 }
 
 export async function stopService(slug: string) {
-	return withServiceOperationLock(slug, "停止", async () => {
+	return withServiceOperationLock(slug, "stop", async () => {
 		const svc = await prisma.quickService.findUnique({ where: { slug } });
-		if (!svc) throw new NotFoundError("服务不存在");
-		assertServiceNotBusy(svc, "停止");
+		if (!svc) throw new NotFoundError("Service not found");
+		assertServiceNotBusy(svc, "stop");
 		const before = await captureQuickServiceSnapshot(slug);
 		await writeQuickServiceAudit({
 			action: "stop",
@@ -310,14 +310,14 @@ export async function stopService(slug: string) {
 				detail: { error: msg.slice(0, 500) },
 				diff: { before, after: { status: "error", error: msg.slice(0, 500) } },
 			});
-			throw new BusinessError(`停止失败: ${msg}`);
+			throw new BusinessError(`Stop failed: ${msg}`);
 		}
 	});
 }
 
 export async function syncServiceStatus(slug: string) {
 	const svc = await prisma.quickService.findUnique({ where: { slug } });
-	if (!svc) throw new NotFoundError("服务不存在");
+	if (!svc) throw new NotFoundError("Service not found");
 	const before = await captureQuickServiceSnapshot(slug);
 	await writeQuickServiceAudit({
 		action: "sync",
@@ -361,7 +361,7 @@ export function checkPort(port: number): { available: boolean; usedBy: string | 
 		const found = findPortLine(readListeningSockets(), port);
 		if (found) {
 			const pidMatch = found.match(/pid=(\d+)/);
-			let usedBy = "未知进程";
+			let usedBy = "Unknown process";
 			if (pidMatch) {
 				const pid = pidMatch[1]!;
 				if (!/^\d+$/.test(pid)) throw new ValidationError("Invalid PID");

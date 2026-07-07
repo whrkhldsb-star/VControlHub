@@ -47,7 +47,7 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 
 export function parseSftpSyncJobPayload(payload: Prisma.JsonValue): SftpSyncJobPayload {
   if (!isRecord(payload) || typeof payload.nodeId !== "string" || payload.nodeId.trim().length === 0) {
-    throw new Error("SFTP 同步任务缺少存储节点");
+    throw new Error("SFTP sync job missing storage node");
   }
   return {
     nodeId: payload.nodeId,
@@ -65,8 +65,8 @@ async function executeSftpSyncJob(job: { id: string; payload: Prisma.JsonValue }
   });
 
   const node = await getSftpSyncNode(payload.nodeId);
-  if (!node) throw new Error("存储节点不存在");
-  if (node.driver !== "SFTP") throw new Error("该节点不是 SFTP 类型");
+  if (!node) throw new Error("Storage node not found");
+  if (node.driver !== "SFTP") throw new Error("This node is not SFTP type");
 
   await heartbeatJob(job.id, SFTP_SYNC_WORKER_ID, {
     leaseMs: SFTP_SYNC_WORKER_LEASE_MS,

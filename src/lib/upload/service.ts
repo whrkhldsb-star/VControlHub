@@ -170,12 +170,12 @@ export async function appendMediaUploadChunk(params: {
 }): Promise<MediaUploadSessionView> {
 	const { sessionId, userId, index, size, buffer } = params;
 	if (index < 0) {
-		throw new MediaUploadError("chunk_index_invalid", "index 不能为负");
+		throw new MediaUploadError("chunk_index_invalid", "index cannot be negative");
 	}
 	if (buffer.byteLength !== size) {
 		throw new MediaUploadError(
 			"chunk_size_mismatch",
-			`chunk size ${buffer.byteLength} 不匹配声明的 ${size}`,
+			`chunk size ${buffer.byteLength} does not match declared ${size}`,
 		);
 	}
 
@@ -183,24 +183,24 @@ export async function appendMediaUploadChunk(params: {
 		where: { id: sessionId, userId },
 	});
 	if (!existing) {
-		throw new MediaUploadError("session_not_found", "上传会话不存在");
+		throw new MediaUploadError("session_not_found", "Upload session not found");
 	}
 	if (existing.status === "COMPLETED") {
-		throw new MediaUploadError("session_completed", "会话已完成, 不能再 append");
+		throw new MediaUploadError("session_completed", "Session already completed, cannot append");
 	}
 	if (existing.status === "CANCELLED" || existing.status === "FAILED") {
 		throw new MediaUploadError(
 			`session_${existing.status.toLowerCase()}`,
-			`会话已 ${existing.status}`,
+			`Session already ${existing.status}`,
 		);
 	}
 	if (existing.expiresAt.getTime() < Date.now()) {
-		throw new MediaUploadError("session_expired", "会话已过期");
+		throw new MediaUploadError("session_expired", "Session has expired");
 	}
 	if (index >= existing.totalChunks) {
 		throw new MediaUploadError(
 			"chunk_index_out_of_range",
-			`index ${index} 超出 totalChunks ${existing.totalChunks}`,
+			`index ${index} exceeds totalChunks ${existing.totalChunks}`,
 		);
 	}
 
@@ -235,7 +235,7 @@ export async function assembleMediaUploadChunks(
 		where: { id: sessionId, userId },
 	});
 	if (!row) {
-		throw new MediaUploadError("session_not_found", "上传会话不存在");
+		throw new MediaUploadError("session_not_found", "Upload session not found");
 	}
 	if (row.receivedChunks.length !== row.totalChunks) {
 		const missing: number[] = [];
@@ -244,7 +244,7 @@ export async function assembleMediaUploadChunks(
 		}
 		throw new MediaUploadError(
 			"chunks_incomplete",
-			`缺失 ${missing.length} 个 chunk: ${missing.slice(0, 5).join(",")}${missing.length > 5 ? "..." : ""}`,
+			`Missing ${missing.length} chunk(s): ${missing.slice(0, 5).join(",")}${missing.length > 5 ? "..." : ""}`,
 		);
 	}
 
@@ -279,7 +279,7 @@ export async function completeMediaUploadSession(params: {
 		},
 	});
 	if (updateResult.count === 0) {
-		throw new MediaUploadError("session_not_found", "上传会话不存在或不属于当前用户");
+		throw new MediaUploadError("session_not_found", "Upload session not found or does not belong to the current user");
 	}
 	const row = await prisma.mediaUploadSession.findUniqueOrThrow({
 		where: { id: sessionId },
@@ -301,7 +301,7 @@ export async function cancelMediaUploadSession(
 		data: { status: "CANCELLED" },
 	});
 	if (updateResult.count === 0) {
-		throw new MediaUploadError("session_not_found", "上传会话不存在或不属于当前用户");
+		throw new MediaUploadError("session_not_found", "Upload session not found or does not belong to the current user");
 	}
 	const row = await prisma.mediaUploadSession.findUniqueOrThrow({
 		where: { id: sessionId },

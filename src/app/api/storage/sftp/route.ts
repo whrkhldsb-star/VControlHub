@@ -29,7 +29,7 @@ async function handleGet(request: Request, session: SessionPayload) {
   void nodeId; // currently unused beyond existence; preserved for parity with the prior ad-hoc parser.
 
   if (!nodeId) {
-    throw new ValidationError("缺少 nodeId 参数");
+    throw new ValidationError("Missing nodeId Parameter");
   }
 
   const node = await prisma.storageNode.findUnique({
@@ -62,12 +62,12 @@ async function handleGet(request: Request, session: SessionPayload) {
   });
 
   if (!node) {
-    throw new NotFoundError("存储节点不存在");
+    throw new NotFoundError("Storage node not found");
   }
 
   if (node.driver !== "SFTP") {
     return NextResponse.json(
-      { error: "该节点不是 SFTP 类型" },
+      { error: "This Node is Not SFTP type" },
       { status: 400 },
     );
   }
@@ -78,7 +78,7 @@ async function handleGet(request: Request, session: SessionPayload) {
     } catch (error) {
       return error instanceof Error
         ? error
-        : new Error("缺少远端主机地址或连接凭据，无法连接");
+        : new Error("Missing remote host address or connection credentials, cannot connect");
     }
   })();
   if (connectionCredentials instanceof Error) {
@@ -95,7 +95,7 @@ async function handleGet(request: Request, session: SessionPayload) {
     normalizedRelativePath = normalizeRemoteRelativePath(remotePath);
   } catch {
     return NextResponse.json(
-      toClientStorageError("请求路径超出存储节点根目录"),
+      toClientStorageError("Requested path exceeds storage node root directory"),
       { status: 400 },
     );
   }
@@ -108,7 +108,7 @@ async function handleGet(request: Request, session: SessionPayload) {
   });
   if (!accessDecision.allowed) {
     return NextResponse.json(
-      { error: accessDecision.reason ?? "缺少存储访问授权" },
+      { error: accessDecision.reason ?? "Missing storage access authorization" },
       { status: 403 },
     );
   }
@@ -131,7 +131,7 @@ async function handleGet(request: Request, session: SessionPayload) {
   } catch (error) {
     logger.error("list remote directory failed", error);
     return NextResponse.json(
-      toClientStorageError("连接远端节点失败，请检查节点配置或远端路径"),
+      toClientStorageError("connectionremoteNodeFailed，pleaseCheckNodeconfiguredorremotepath"),
       { status: 502 },
     );
   }
@@ -140,10 +140,10 @@ async function handleGet(request: Request, session: SessionPayload) {
 export async function GET(request: Request) {
   return withApiRoute(
     request,
-    { permission: "storage:read", errorMessage: "列出远端目录失败" },
+    { permission: "storage:read", errorMessage: "Failed to list remote directory" },
     async ({ session }) => {
       if (!session)
-        throw new AuthError("未认证");
+        throw new AuthError("Not authenticated");
       return handleGet(request, session);
     },
   );

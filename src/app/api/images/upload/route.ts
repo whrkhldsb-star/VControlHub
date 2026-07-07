@@ -65,15 +65,15 @@ export async function POST(request: Request) {
 
   return withApiRoute(
     request,
-    { requireAuth: true, errorMessage: "上传失败" },
+    { requireAuth: true, errorMessage: "Upload failed" },
     async ({ session }) => {
       if (!session)
         return NextResponse.json(
-          { error: "未登录或会话已过期" },
+          { error: "Not authenticated or session expired" },
           { status: 401 },
         );
       if (!sessionHasPermission(session, "storage:write")) {
-        throw new ForbiddenError("缺少权限");
+        throw new ForbiddenError("Insufficient permissions");
       }
       return handleUpload(request, session.userId, session);
     },
@@ -91,13 +91,13 @@ async function handleUpload(request: Request, userId: string, session?: SessionP
       String(formData.get("relativePath") ?? "").trim() || undefined;
 
     if (!isUploadFile(file)) {
-      throw new ValidationError("缺少上传文件");
+      throw new ValidationError("Missing upload file");
     }
 
     const mimeType = file.type || "application/octet-stream";
     if (!ALLOWED_MIME_PREFIXES.some((p) => mimeType.startsWith(p))) {
       return NextResponse.json(
-        { error: "仅支持上传图片文件" },
+        { error: "Only image files are supported" },
         { status: 400 },
       );
     }
@@ -105,7 +105,7 @@ async function handleUpload(request: Request, userId: string, session?: SessionP
     const buffer = Buffer.from(await file.arrayBuffer());
     if (buffer.byteLength > MAX_FILE_SIZE) {
       return NextResponse.json(
-        { error: "文件大小超过 20MB 限制" },
+        { error: "File size exceeds 20MB limit" },
         { status: 400 },
       );
     }
@@ -186,7 +186,7 @@ async function handleUpload(request: Request, userId: string, session?: SessionP
     // If linked to a storage node, also copy there (cloud storage integration)
     if (storageNodeId && relativePath) {
       if (!session) {
-        throw new ForbiddenError("Bearer 上传暂不支持写入存储节点副本");
+        throw new ForbiddenError("Bearer upload does not support writing to storage node copy");
       }
       const access = await assertStorageAccess({
         session,
@@ -196,7 +196,7 @@ async function handleUpload(request: Request, userId: string, session?: SessionP
         writeBytes: buffer.byteLength,
       });
       if (!access.allowed) {
-        throw new ForbiddenError(access.reason ?? "无权写入该存储路径");
+        throw new ForbiddenError(access.reason ?? "No permission to write to the storage path");
       }
       try {
         const storageNode = await prisma.storageNode.findUnique({
@@ -254,6 +254,6 @@ async function handleUpload(request: Request, userId: string, session?: SessionP
     );
   } catch (error) {
     logError("image-bed:upload", error);
-    throw new AppError({ code: "INTERNAL_ERROR", message: "上传失败", status: 500 });
+    throw new AppError({ code: "INTERNAL_ERROR", message: "Upload failed", status: 500 });
   }
 }

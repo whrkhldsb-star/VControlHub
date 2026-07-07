@@ -34,7 +34,7 @@ export const costAmountSchema = z
 
 export const createCostEntrySchema = z.object({
 	category: costCategorySchema,
-	provider: z.string().trim().min(1, "服务提供方不能为空").max(128),
+	provider: z.string().trim().min(1, "Service provider is required").max(128),
 	amount: costAmountSchema,
 	currency: costCurrencySchema.optional(),
 	effectiveDate: costDateSchema,

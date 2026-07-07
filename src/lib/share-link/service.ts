@@ -106,7 +106,7 @@ export async function createShareLinkFromFileEntry(input: {
     where: { id: input.fileEntryId },
     include: { storageNode: true },
   });
-  if (!entry || entry.isDeleted) throw new NotFoundError("文件不存在或已删除");
+  if (!entry || entry.isDeleted) throw new NotFoundError("File not found or has been deleted");
 
   return createShareLink({
     session: input.session,
@@ -138,12 +138,12 @@ export async function revokeShareLink(id: string) {
 
 export async function resolveShareToken(token: string, password?: string) {
   const share = await prisma.shareLink.findUnique({ where: { tokenHash: hashShareToken(token) }, include: SHARE_STORAGE_NODE_INCLUDE });
-  if (!share || share.revokedAt) throw new NotFoundError("分享链接不存在或已撤销");
-  if (share.expiresAt && share.expiresAt.getTime() < Date.now()) throw new ValidationError("分享链接已过期");
-  if (share.maxDownloads && share.accessCount >= share.maxDownloads) throw new ValidationError("分享链接已达最大下载次数");
+  if (!share || share.revokedAt) throw new NotFoundError("Share link not found or has been revoked");
+  if (share.expiresAt && share.expiresAt.getTime() < Date.now()) throw new ValidationError("Share link has expired");
+  if (share.maxDownloads && share.accessCount >= share.maxDownloads) throw new ValidationError("Share link has reached its maximum download count");
   if (share.passwordHash) {
-    if (!password) throw new ValidationError("该分享链接需要密码访问");
-    if (hashSharePassword(password) !== share.passwordHash) throw new ValidationError("访问密码错误");
+    if (!password) throw new ValidationError("This share link requires a password");
+    if (hashSharePassword(password) !== share.passwordHash) throw new ValidationError("Access password is incorrect");
   }
   await prisma.shareLink.update({ where: { id: share.id }, data: { accessCount: { increment: 1 } } });
   return share;
@@ -155,8 +155,8 @@ export async function resolveShareToken(token: string, password?: string) {
  */
 export async function peekShareToken(token: string) {
   const share = await prisma.shareLink.findUnique({ where: { tokenHash: hashShareToken(token) }, include: SHARE_STORAGE_NODE_INCLUDE });
-  if (!share || share.revokedAt) throw new NotFoundError("分享链接不存在或已撤销");
-  if (share.expiresAt && share.expiresAt.getTime() < Date.now()) throw new ValidationError("分享链接已过期");
+  if (!share || share.revokedAt) throw new NotFoundError("Share link not found or has been revoked");
+  if (share.expiresAt && share.expiresAt.getTime() < Date.now()) throw new ValidationError("Share link has expired");
   return { ...share, hasPassword: !!share.passwordHash };
 }
 

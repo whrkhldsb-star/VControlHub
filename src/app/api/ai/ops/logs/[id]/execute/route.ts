@@ -35,14 +35,14 @@ export async function POST(
 			rateLimit: GENERAL_WRITE_LIMIT,
 			bodySchema: executeRecommendationSchema,
 			errorStatus: 500,
-			errorMessage: "执行推荐项失败",
+			errorMessage: "Failed to execute recommendation",
 		},
 		async ({ session, body }) => {
 			if (!session) {
-				throw new ForbiddenError("未登录或会话已过期");
+				throw new ForbiddenError("Not authenticated or session expired");
 			}
 			if (body.forceAutonomous && !sessionHasPermission(session, "ai:ops:autonomous")) {
-				throw new ForbiddenError("forceAutonomous 需要 ai:ops:autonomous 权限");
+				throw new ForbiddenError("forceAutonomous Requires ai:ops:autonomous Permission");
 			}
 			const result = await executeRecommendation({
 				logId: id,

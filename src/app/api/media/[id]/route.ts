@@ -18,13 +18,13 @@ export async function PATCH(
 ) {
   return withApiRoute(
     request,
-    { permission: "media:manage", errorMessage: "操作失败", bodySchema: patchSchema },
+    { permission: "media:manage", errorMessage: "OperationFailed", bodySchema: patchSchema },
     async ({ body }) => {
       const { id } = await params;
 
       const existing = await prisma.mediaItem.findUnique({ where: { id } });
       if (!existing)
-        throw new NotFoundError("媒体不存在");
+        throw new NotFoundError("Media not found");
 
       const data: Record<string, unknown> = {};
       if (body.favorite !== undefined)

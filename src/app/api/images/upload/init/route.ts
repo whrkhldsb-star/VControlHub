@@ -33,11 +33,11 @@ export async function POST(request: Request) {
       rateLimit: IMAGE_UPLOAD_LIMIT,
       bodySchema: initMediaUploadSchema,
       errorStatus: 500,
-      errorMessage: "初始化上传会话失败",
+      errorMessage: "Failed to initialize upload session",
     },
     async ({ session, body }) => {
       if (!session) {
-        throw new ForbiddenError("未登录或会话已过期");
+        throw new ForbiddenError("Not authenticated or session expired");
       }
       try {
         const view = await initMediaUploadSession({

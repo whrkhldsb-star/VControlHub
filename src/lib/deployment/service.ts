@@ -38,10 +38,10 @@ function normalizeDeploymentInput(input: {
   const requesterId = input.requesterId.trim();
   const serverIds = Array.from(new Set(input.serverIds.map((id) => id.trim()).filter(Boolean)));
   const reason = input.reason?.trim();
-  if (!templateId) throw new ValidationError("部署模板必填");
-  if (!requesterId) throw new ValidationError("请求人不能为空");
-  if (serverIds.length < 1) throw new ValidationError("至少选择 1 台目标 VPS");
-  if (reason && reason.length > 500) throw new ValidationError("原因最多 500 个字符");
+  if (!templateId) throw new ValidationError("Deployment template is required");
+  if (!requesterId) throw new ValidationError("Requester is required");
+  if (serverIds.length < 1) throw new ValidationError("At least 1 target VPS must be selected");
+  if (reason && reason.length > 500) throw new ValidationError("Reason must be at most 500 characters");
   return { ...input, templateId, requesterId, serverIds, reason };
 }
 
@@ -61,7 +61,7 @@ function assertTemplateVariables(
   ).filter(Boolean);
   const missing = required.filter((name) => !variables[name]?.trim());
   if (missing.length > 0)
-    throw new ValidationError(`部署模板变量未填写完整：${missing.join(", ")}`);
+    throw new ValidationError(`Deployment template variables not fully filled in: ${missing.join(", ")}`);
 }
 
 export async function listDeploymentTemplates() {
@@ -80,7 +80,7 @@ export async function createDeploymentRunFromTemplate(input: {
   const template = await prisma.commandTemplate.findUnique({
     where: { id: normalized.templateId },
   });
-  if (!template) throw new NotFoundError("部署模板不存在");
+  if (!template) throw new NotFoundError("Deployment template not found");
   assertTemplateVariables(
     template.command,
     template.variables,
@@ -118,9 +118,9 @@ export async function createDeploymentRunFromTemplate(input: {
 
   try {
     const command = await createCommandRequest({
-      title: `部署：${template.name}`,
+      title: `Deployment: ${template.name}`,
       command: renderedCommand,
-      reason: normalized.reason || "应用部署模板触发",
+      reason: normalized.reason || "Deployment template triggered",
       submissionMode: "assistant",
       requesterId: normalized.requesterId,
       serverIds: normalized.serverIds,
@@ -134,7 +134,7 @@ export async function createDeploymentRunFromTemplate(input: {
     });
   } catch (error) {
     const message =
-      error instanceof Error ? error.message : "命令审批链路创建失败";
+      error instanceof Error ? error.message : "Failed to create command approval chain";
     await prisma.deploymentRun.update({
       where: { id: run.id },
       data: { status: "FAILED", errorMessage: message },
@@ -178,7 +178,7 @@ function resolveDeploymentRunStatus(run: DeploymentRunWithCommand) {
   if (commandStatus === "REJECTED") {
     return {
       status: "REJECTED",
-      errorMessage: run.errorMessage ?? "关联命令请求已被拒绝，部署不会执行。",
+      errorMessage: run.errorMessage ?? "Associated command request has been rejected; deployment will not execute.",
     };
   }
   if (commandStatus === "FAILED" || commandStatus === "CANCELLED") {
@@ -186,7 +186,7 @@ function resolveDeploymentRunStatus(run: DeploymentRunWithCommand) {
       status: commandStatus,
       errorMessage:
         run.errorMessage ??
-        `关联命令请求已${commandStatus === "FAILED" ? "失败" : "取消"}。`,
+        `Associated command request has ${commandStatus === "FAILED" ? "failed" : "been cancelled"}.`,
     };
   }
   if (["RUNNING", "COMPLETED", "APPROVED"].includes(commandStatus)) {
@@ -247,12 +247,12 @@ function resolveRollbackRunStatus(run: RollbackRunWithCommand) {
   const commandStatus = run.commandRequest?.status;
   if (!commandStatus) return { status: run.status, errorMessage: run.errorMessage ?? null };
   if (commandStatus === "REJECTED") {
-    return { status: "REJECTED", errorMessage: run.errorMessage ?? "关联命令请求已被拒绝，回滚不会执行。" };
+    return { status: "REJECTED", errorMessage: run.errorMessage ?? "Associated command request has been rejected; rollback will not execute." };
   }
   if (commandStatus === "FAILED" || commandStatus === "CANCELLED") {
     return {
       status: commandStatus,
-      errorMessage: run.errorMessage ?? `关联命令请求已${commandStatus === "FAILED" ? "失败" : "取消"}。`,
+      errorMessage: run.errorMessage ?? `Associated command request has ${commandStatus === "FAILED" ? "failed" : "been cancelled"}.`,
     };
   }
   if (["RUNNING", "COMPLETED", "APPROVED"].includes(commandStatus)) {
@@ -285,10 +285,10 @@ export async function createDeploymentRollbackRun(input: { sourceRunId: string; 
     where: { id: input.sourceRunId },
     include: { snapshot: true, template: true },
   });
-  if (!sourceRun) throw new NotFoundError("部署运行不存在");
+  if (!sourceRun) throw new NotFoundError("Deployment run not found");
   const snapshot = sourceRun.snapshot;
-  if (!snapshot) throw new NotFoundError("该部署没有可回滚快照");
-  if (!snapshot.rollbackCommand?.trim()) throw new ValidationError("该部署快照没有回滚命令");
+  if (!snapshot) throw new NotFoundError("This deployment has no snapshot available for rollback");
+  if (!snapshot.rollbackCommand?.trim()) throw new ValidationError("This deployment snapshot has no rollback command");
 
   const activeRollback = await prisma.deploymentRollbackRun.findFirst({
     where: {
@@ -298,9 +298,9 @@ export async function createDeploymentRollbackRun(input: { sourceRunId: string; 
     select: { id: true, status: true },
     orderBy: { createdAt: "desc" },
   });
-  if (activeRollback) throw new ValidationError("已有回滚任务正在处理，请等待当前回滚完成后再试");
+  if (activeRollback) throw new ValidationError("A rollback task is already in progress; please wait for the current rollback to complete before retrying");
 
-  const reason = input.reason?.trim() || `真实回滚：${snapshot.templateName}`;
+  const reason = input.reason?.trim() || `Rollback: ${snapshot.templateName}`;
   const rollback = await prisma.deploymentRollbackRun.create({
     data: {
       sourceRunId: sourceRun.id,
@@ -314,7 +314,7 @@ export async function createDeploymentRollbackRun(input: { sourceRunId: string; 
   });
 
   const command = await createCommandRequest({
-    title: `回滚部署：${snapshot.templateName}`,
+    title: `Rollback deployment: ${snapshot.templateName}`,
     command: snapshot.rollbackCommand,
     reason,
     submissionMode: "assistant",

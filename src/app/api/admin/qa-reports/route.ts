@@ -22,7 +22,7 @@ export const dynamic = "force-dynamic";
 export async function GET(request: Request) {
   return withApiRoute(
     request,
-    { permission: "task:read", errorMessage: "获取 QA 报告列表失败" },
+    { permission: "task:read", errorMessage: "Failed to fetch QA report list" },
     async () => {
       const result = await listQaReports();
       return NextResponse.json(result, { status: 200 });

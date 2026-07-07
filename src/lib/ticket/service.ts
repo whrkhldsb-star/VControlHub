@@ -23,7 +23,7 @@ const TRANSITIONS: Record<string, Set<string>> = {
 };
 
 export async function createTicket(input: { title: string; description: string; priority?: string; createdBy: string }) {
-  if (!input.title.trim() || !input.description.trim()) throw new ValidationError("工单标题和描述不能为空");
+  if (!input.title.trim() || !input.description.trim()) throw new ValidationError("Ticket title and description cannot be empty");
   return prisma.ticket.create({ data: { title: input.title.trim(), description: input.description.trim(), status: "OPEN", priority: input.priority ?? "NORMAL", createdBy: input.createdBy } });
 }
 
@@ -65,17 +65,17 @@ export async function updateTicketStatus(input: { id: string; status?: string; a
   const data: { status?: string; assigneeId?: string | null; closedAt?: Date | null; priority?: string } = {};
 
   if (input.status !== undefined) {
-    if (!STATUSES.has(input.status)) throw new ValidationError("工单状态无效");
+    if (!STATUSES.has(input.status)) throw new ValidationError("Ticket status is invalid");
     // Enforce the state machine. The UI only offers the allowed
     // transitions; the API must enforce them too, otherwise an
     // authenticated caller could PATCH a CLOSED ticket straight back
     // to RESOLVED (or worse, jump OPEN→CLOSED in one hop) and break
     // the `closedAt` invariant + audit trail.
     const current = await prisma.ticket.findUnique({ where: { id: input.id }, select: { status: true } });
-    if (!current) throw new BusinessError("工单不存在");
+    if (!current) throw new BusinessError("Ticket not found");
     const allowed = TRANSITIONS[current.status] ?? new Set<string>();
     if (!allowed.has(input.status)) {
-      throw new ValidationError(`工单状态不能从 ${current.status} 变更为 ${input.status}`);
+      throw new ValidationError(`Ticket status cannot change from ${current.status} to ${input.status}`);
     }
     data.status = input.status;
     data.closedAt = input.status === "CLOSED" ? new Date() : null;
@@ -89,13 +89,13 @@ export async function updateTicketStatus(input: { id: string; status?: string; a
     data.priority = input.priority;
   }
 
-  if (Object.keys(data).length === 0) throw new ValidationError("工单更新内容不能为空");
+  if (Object.keys(data).length === 0) throw new ValidationError("Ticket update content cannot be empty");
 
   return prisma.ticket.update({ where: { id: input.id }, data });
 }
 
 export async function addTicketComment(input: { ticketId: string; authorId: string; body: string }) {
-  if (!input.body.trim()) throw new ValidationError("回复内容不能为空");
+  if (!input.body.trim()) throw new ValidationError("Reply content cannot be empty");
   return prisma.ticketComment.create({
     data: { ticketId: input.ticketId, authorId: input.authorId, body: input.body.trim() },
     include: { author: { select: { id: true, username: true, displayName: true } } },

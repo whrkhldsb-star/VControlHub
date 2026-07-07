@@ -17,8 +17,8 @@ const setupSchema = z.object({
 });
 
 function buildOtpauthUrl(secret: string, username: string): string {
-  const label = encodeURIComponent(`VPS管控平台:${username}`);
-  const issuer = encodeURIComponent("VPS管控平台");
+  const label = encodeURIComponent(`VControlHub:${username}`);
+  const issuer = encodeURIComponent("VControlHub");
   return `otpauth://totp/${label}?secret=${secret}&issuer=${issuer}&algorithm=SHA1&digits=6&period=30`;
 }
 
@@ -28,12 +28,12 @@ export async function POST(request: Request) {
     {
       requireAuth: true,
       rateLimit: GENERAL_WRITE_LIMIT,
-      errorMessage: "设置两步验证失败",
+      errorMessage: "Failed to set up two-factor authentication",
     },
     async ({ session }) => {
       if (!session)
         return NextResponse.json(
-          { error: "未登录或会话已过期" },
+          { error: "Not authenticated or session expired" },
           { status: 401 },
         );
 
@@ -44,7 +44,7 @@ export async function POST(request: Request) {
 
       if (user?.twoFactorEnabled) {
         return NextResponse.json(
-          { error: "两步验证已启用，请先禁用再重新设置" },
+          { error: "Two-factor authentication is already enabled, please disable it before re-setting up" },
           { status: 400 },
         );
       }
@@ -63,13 +63,13 @@ export function PUT(request: Request) {
     {
       requireAuth: true,
       rateLimit: GENERAL_WRITE_LIMIT,
-      errorMessage: "验证失败",
+      errorMessage: "Verification failed",
       bodySchema: setupSchema,
     },
     async ({ session, body }) => {
       if (!session)
         return NextResponse.json(
-          { error: "未登录或会话已过期" },
+          { error: "Not authenticated or session expired" },
           { status: 401 },
         );
 

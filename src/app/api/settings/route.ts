@@ -31,18 +31,18 @@ function normalizeIntegerSetting(
 ) {
 	const parsed = Number(value);
 	if (!Number.isFinite(parsed)) {
-		throw new Error(`${label} 必须是数字`);
+		throw new Error(`${label} must be a number`);
 	}
 	const integer = Math.trunc(parsed);
 	if (integer < min || integer > max) {
-		throw new Error(`${label} 必须在 ${min} 到 ${max} 之间`);
+		throw new Error(`${label} must be between ${min} and ${max} `);
 	}
 	return { key, value: String(integer) };
 }
 
 function normalizeBooleanSetting(key: string, value: string) {
 	if (value !== "true" && value !== "false") {
-		throw new Error(`${key} 必须是 true 或 false`);
+		throw new Error(`${key} must be true or false`);
 	}
 	return { key, value };
 }
@@ -54,10 +54,10 @@ function normalizeOptionalHttpUrl(key: string, value: string) {
 	try {
 		const parsed = new URL(trimmed);
 		if (parsed.protocol !== "http:" && parsed.protocol !== "https:") {
-			throw new Error("Logo URL 只支持 http(s) 或站内路径");
+			throw new Error("Logo URL only supports http(s) or internal path");
 		}
 	} catch {
-		throw new Error("Logo URL 只支持 http(s) 或站内路径");
+		throw new Error("Logo URL only supports http(s) or internal path");
 	}
 	return { key, value: trimmed };
 }
@@ -69,27 +69,27 @@ function normalizeSettingValue(key: string, value: string) {
 	switch (key) {
 		case "platform.name": {
 			const trimmed = value.trim();
-			if (!trimmed) throw new Error("平台名称不能为空");
-			if (trimmed.length > 80) throw new Error("平台名称不能超过 80 个字符");
+			if (!trimmed) throw new Error("Platform name is required");
+			if (trimmed.length > 80) throw new Error("Platform namecannot exceed 80 characters");
 			return { key, value: trimmed };
 		}
 		case "platform.logo":
 			return normalizeOptionalHttpUrl(key, value);
 		case "session.timeout":
-			return normalizeIntegerSetting(key, value, "会话超时", 300, 2_592_000);
+					return normalizeIntegerSetting(key, value, "Session timeout", 300, 2_592_000);
 		case "password.minLength":
-			return normalizeIntegerSetting(key, value, "密码最小长度", 8, 128);
+					return normalizeIntegerSetting(key, value, "Password minimum length", 8, 128);
 		case "password.requireUppercase":
 		case "password.requireNumber":
 		case "password.requireSpecial":
 		case "smtp.enabled":
 			return normalizeBooleanSetting(key, value);
 		case "smtp.port":
-			return normalizeIntegerSetting(key, value || "587", "SMTP 端口", 1, 65_535);
+					return normalizeIntegerSetting(key, value || "587", "SMTP port", 1, 65_535);
 		case "smtp.from": {
 			const trimmed = value.trim();
 			if (trimmed && !/^.+@.+\..+$/.test(trimmed)) {
-				throw new Error("发件人地址格式不正确");
+				throw new Error("Invalid sender address format");
 			}
 			return { key, value: trimmed };
 		}
@@ -100,7 +100,7 @@ function normalizeSettingValue(key: string, value: string) {
 				.filter(Boolean);
 			const invalid = recipients.find((recipient) => !/^.+@.+\..+$/.test(recipient));
 			if (invalid) {
-				throw new Error(`告警收件人地址格式不正确：${invalid}`);
+				throw new Error(`Alert recipient addressInvalid format：${invalid}`);
 			}
 			return { key, value: recipients.join(",") };
 		}
@@ -120,11 +120,11 @@ function normalizeSettingValue(key: string, value: string) {
 				.map((item) => item.trim())
 				.filter(Boolean);
 			if (tokens.length === 0) {
-				throw new Error("Telegram Chat ID 至少配置 1 个目标");
+				throw new Error("Telegram Chat ID At least 1 target must be configured");
 			}
 			const invalid = tokens.find((token) => !/^-?\d+$/.test(token) && !/^@[A-Za-z0-9_]{4,}$/.test(token));
 			if (invalid) {
-				throw new Error(`Telegram Chat ID 格式不正确：${invalid}（应为数字或 @channelusername）`);
+				throw new Error(`Telegram Chat ID Invalid format：${invalid}（expected a number or @channelusername）`);
 			}
 			return { key, value: tokens.join(",") };
 		}
@@ -136,7 +136,7 @@ function normalizeSettingValue(key: string, value: string) {
 /* ── GET ──────────────────────────────────────────────────── */
 
 export async function GET(request: Request) {
-	return withApiRoute(request, { permission: "user:manage", errorStatus: 500, errorMessage: "服务器错误" }, async () => {
+	return withApiRoute(request, { permission: "user:manage", errorStatus: 500, errorMessage: "Server error" }, async () => {
 		// getAllSettingsMasked already masks sensitive values (***)
 		const settings = await getAllSettingsMasked();
 		return NextResponse.json({ settings });
@@ -146,7 +146,7 @@ export async function GET(request: Request) {
 /* ── PATCH ────────────────────────────────────────────────── */
 
 export async function PATCH(request: Request) {
-	return withApiRoute(request, { permission: "user:manage", rateLimit: GENERAL_WRITE_LIMIT, errorStatus: 400, errorMessage: "保存失败", bodySchema: patchBodySchema }, async ({ session, body }) => {
+	return withApiRoute(request, { permission: "user:manage", rateLimit: GENERAL_WRITE_LIMIT, errorStatus: 400, errorMessage: "SaveFailed", bodySchema: patchBodySchema }, async ({ session, body }) => {
 		// 1. Validate the body is a string→string record
 		const parsed = { data: body };
 
@@ -173,7 +173,7 @@ export async function PATCH(request: Request) {
 			try {
 				entries.push(normalizeSettingValue(key, value));
 			} catch (error) {
-				validationErrors.push(error instanceof Error ? error.message : `${key} 校验失败`);
+				validationErrors.push(error instanceof Error ? error.message : `${key} ValidateFailed`);
 			}
 		}
 
@@ -181,7 +181,7 @@ export async function PATCH(request: Request) {
 			return NextResponse.json(
 				{
 					error: [
-						rejectedKeys.length > 0 ? `不允许的配置项: ${rejectedKeys.join(", ")}` : null,
+						rejectedKeys.length > 0 ? `Not allowed configuration items: ${rejectedKeys.join(", ")}` : null,
 						...validationErrors,
 					].filter(Boolean).join("；"),
 					rejectedKeys,
@@ -194,7 +194,7 @@ export async function PATCH(request: Request) {
 		if (entries.length === 0) {
 			return NextResponse.json({
 				success: true,
-				message: "无有效更新项",
+				message: "No valid update items",
 			});
 		}
 

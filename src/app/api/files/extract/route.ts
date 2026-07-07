@@ -26,7 +26,7 @@ const postSchema = z
     name: z.string().optional(),
   })
   .refine((value) => value.storageNodeId || value.serverId, {
-    message: "缺少 storageNodeId",
+    message: "Missing storageNodeId",
     path: ["storageNodeId"],
   });
 
@@ -36,12 +36,12 @@ export async function POST(request: NextRequest) {
     {
       permission: "storage:write",
       rateLimit: GENERAL_WRITE_LIMIT,
-      errorMessage: "解压失败",
+      errorMessage: "Extraction failed",
       bodySchema: postSchema,
     },
     async ({ session, body }) => {
       if (!session)
-        throw new AuthError("未授权");
+        throw new AuthError("Unauthorized");
 
       const driver = body.driver ?? "LOCAL";
       const name = body.name ?? "archive";
@@ -50,13 +50,13 @@ export async function POST(request: NextRequest) {
 
       if (driver !== "LOCAL") {
         return NextResponse.json(
-          { error: "仅支持本地存储节点的压缩包在线解压" },
+          { error: "Only local storage node archive extraction is supported" },
           { status: 400 },
         );
       }
 
       if (!nodeId || !relativePath) {
-        throw new ValidationError("缺少必要参数");
+        throw new ValidationError("Missing required parameters");
       }
 
       const node = await prisma.storageNode.findUnique({
@@ -64,7 +64,7 @@ export async function POST(request: NextRequest) {
         select: { id: true, name: true, driver: true, basePath: true },
       });
       if (!node) {
-        throw new NotFoundError("存储节点不存在");
+        throw new NotFoundError("Storage node not found");
       }
 
       const resolvedPath = resolveStoragePathWithinBase(
@@ -86,7 +86,7 @@ export async function POST(request: NextRequest) {
       });
       if (!accessDecision.allowed) {
         return NextResponse.json(
-          { error: accessDecision.reason ?? "没有该存储节点或路径的访问授权" },
+          { error: accessDecision.reason ?? "No access permission for this storage node or path" },
           { status: 403 },
         );
       }
@@ -103,7 +103,7 @@ export async function POST(request: NextRequest) {
           {
             error:
               writeAccessDecision.reason ??
-              "没有该存储节点或目标目录的写入授权",
+              "No write permission for this storage node or target directory",
           },
           { status: 403 },
         );
@@ -114,7 +114,7 @@ export async function POST(request: NextRequest) {
       try {
         await fs.access(fullPath);
       } catch {
-        throw new NotFoundError("文件不存在");
+        throw new NotFoundError("File not found");
       }
 
       const lowerName = name.toLowerCase();
@@ -148,7 +148,7 @@ export async function POST(request: NextRequest) {
           });
           if (existingOutput) {
             return NextResponse.json(
-              { error: `目标文件 /${outputRelativePath} 已存在` },
+              { error: `Target file /${outputRelativePath} already exists` },
               { status: 409 },
             );
           }
@@ -156,7 +156,7 @@ export async function POST(request: NextRequest) {
           try {
             await fs.access(outputPath.path);
             return NextResponse.json(
-              { error: `目标文件 /${outputRelativePath} 已存在` },
+              { error: `Target file /${outputRelativePath} already exists` },
               { status: 409 },
             );
           } catch {
@@ -173,7 +173,7 @@ export async function POST(request: NextRequest) {
             outputStat = await fs.stat(outputPath.path);
           } catch {
             return NextResponse.json(
-              { error: "解压命令完成但未找到输出文件" },
+              { error: "Extraction command completed but output file not found" },
               { status: 500 },
             );
           }
@@ -199,7 +199,7 @@ export async function POST(request: NextRequest) {
           return NextResponse.json(
             {
               error:
-                "为避免符号链接/硬链接穿越风险，暂不支持在线解压 zip/jar，请先在可信环境中解压",
+                "To avoid symlink/hardlink traversal risks, online extraction of zip/jar is not supported. Please extract in a trusted environment first",
             },
             { status: 400 },
           );
@@ -210,7 +210,7 @@ export async function POST(request: NextRequest) {
           return NextResponse.json(
             {
               error:
-                "为避免符号链接/硬链接穿越风险，暂不支持在线解压 tar/tgz，请先在可信环境中解压",
+                "To avoid symlink/hardlink traversal risks, online extraction of tar/tgz is not supported. Please extract in a trusted environment first",
             },
             { status: 400 },
           );
@@ -218,7 +218,7 @@ export async function POST(request: NextRequest) {
           return NextResponse.json(
             {
               error:
-                "为避免符号链接/硬链接穿越风险，暂不支持在线解压 tar，请先在可信环境中解压",
+                "To avoid symlink/hardlink traversal risks, online extraction of tar is not supported. Please extract in a trusted environment first",
             },
             { status: 400 },
           );
@@ -226,24 +226,24 @@ export async function POST(request: NextRequest) {
           return NextResponse.json(
             {
               error:
-                "为避免符号链接/硬链接穿越风险，暂不支持在线解压 7z/RAR，请先在可信环境中解压",
+                "To avoid symlink/hardlink traversal risks, online extraction of 7z/RAR is not supported. Please extract in a trusted environment first",
             },
             { status: 400 },
           );
         } else {
           return NextResponse.json(
-            { error: `不支持的压缩包格式: ${ext}` },
+            { error: `Unsupported archive format: ${ext}` },
             { status: 400 },
           );
         }
 
         return NextResponse.json({
-          message: `已将 ${name} 解压到当前目录，请刷新文件列表查看`,
+          message: `Extracted ${name} to the current directory, please refresh the file list to view`,
         });
       } catch (err) {
-        const message = err instanceof Error ? err.message : "解压失败";
+        const message = err instanceof Error ? err.message : "Extraction failed";
         return NextResponse.json(
-          { error: `解压失败: ${message}` },
+          { error: `Extraction failed: ${message}` },
           { status: 500 },
         );
       }

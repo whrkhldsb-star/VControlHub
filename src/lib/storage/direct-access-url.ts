@@ -69,13 +69,13 @@ export function isUnsafePublicHttpHost(hostname: string) {
 
 export function normalizePublicHttpUrl(value: string | null | undefined, message = PUBLIC_HTTP_URL_MESSAGE) {
   const raw = value?.trim();
-  if (!raw) throw new ValidationError("URL 不能为空");
+  if (!raw) throw new ValidationError("URL is required");
 
   let url: URL;
   try {
     url = new URL(raw);
   } catch {
-    throw new ValidationError("URL 格式不正确");
+    throw new ValidationError("Invalid URL format");
   }
 
   if (url.protocol !== "https:" && url.protocol !== "http:") {
@@ -100,7 +100,7 @@ export function normalizePublicBaseUrl(value: string | null | undefined) {
   try {
     url = new URL(raw);
   } catch {
-    throw new ValidationError("直连基础 URL 格式不正确");
+    throw new ValidationError("Invalid direct access base URL format");
   }
 
   if (url.protocol !== "https:" && url.protocol !== "http:") {

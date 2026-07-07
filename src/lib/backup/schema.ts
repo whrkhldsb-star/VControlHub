@@ -36,7 +36,7 @@ export const backupTypeSchema = z.enum(BACKUP_TYPE_VALUES, {
 const trimmedNote = z
   .string()
   .trim()
-  .max(500, "备注最多 500 个字符")
+  .max(500, "Note must be at most 500 characters")
   .transform((value) => (value ? value : undefined))
   .optional();
 
@@ -59,8 +59,8 @@ export const voidBackupSchema = z.object({
   reason: z
     .string()
     .trim()
-    .min(1, "作废原因不能为空")
-    .max(500, "作废原因最多 500 个字符"),
+    .min(1, "Void reason is required")
+    .max(500, "Void reason must be at most 500 characters"),
 });
 
 export type VoidBackupInput = z.input<typeof voidBackupSchema>;

@@ -18,19 +18,19 @@ type PlaybookRouteContext = { params: Promise<{ id?: string }> };
 async function requirePlaybookId(params: PlaybookRouteContext["params"]): Promise<string> {
   const { id } = await params;
   const normalized = id?.trim();
-  if (!normalized) throw new ValidationError("缺少 playbook id");
+  if (!normalized) throw new ValidationError("Missing playbook id");
   return normalized;
 }
 
 export async function GET(request: Request, { params }: PlaybookRouteContext) {
   return withApiRoute(
     request,
-    { permission: "playbook:read", rateLimit: GENERAL_WRITE_LIMIT, errorStatus: 500, errorMessage: "服务器错误" },
+    { permission: "playbook:read", rateLimit: GENERAL_WRITE_LIMIT, errorStatus: 500, errorMessage: "Server error" },
     async () => {
       const id = await requirePlaybookId(params);
       const playbook = await getPlaybook(id);
       if (!playbook) {
-        return apiError({ status: 404, code: "NOT_FOUND", message: "playbook 不存在" });
+        return apiError({ status: 404, code: "NOT_FOUND", message: "Playbook not found" });
       }
       return NextResponse.json({ playbook });
     },
@@ -40,7 +40,7 @@ export async function GET(request: Request, { params }: PlaybookRouteContext) {
 export async function PATCH(request: Request, { params }: PlaybookRouteContext) {
   return withApiRoute(
     request,
-    { permission: "playbook:manage", rateLimit: GENERAL_WRITE_LIMIT, errorStatus: 400, errorMessage: "更新失败", bodySchema: updatePlaybookSchema },
+    { permission: "playbook:manage", rateLimit: GENERAL_WRITE_LIMIT, errorStatus: 400, errorMessage: "UpdateFailed", bodySchema: updatePlaybookSchema },
     async ({ session, body }) => {
       const id = await requirePlaybookId(params);
       const updatedById = session?.userId ?? "";
@@ -53,7 +53,7 @@ export async function PATCH(request: Request, { params }: PlaybookRouteContext) 
 export async function DELETE(request: Request, { params }: PlaybookRouteContext) {
   return withApiRoute(
     request,
-    { permission: "playbook:manage", rateLimit: GENERAL_WRITE_LIMIT, errorStatus: 400, errorMessage: "删除失败" },
+    { permission: "playbook:manage", rateLimit: GENERAL_WRITE_LIMIT, errorStatus: 400, errorMessage: "DeleteFailed" },
     async ({ session }) => {
       const id = await requirePlaybookId(params);
       await deletePlaybook(id, session?.userId ?? "");

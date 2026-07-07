@@ -15,8 +15,8 @@ export const listAnnouncementsQuerySchema = z.object({}).optional();
 /* ── POST /api/announcements ─────────────────────────────────────────── */
 
 export const createAnnouncementSchema = z.object({
-  title: z.string().trim().min(1, "标题不能为空").max(120, "标题最多 120 个字符"),
-  content: z.string().trim().min(1, "内容不能为空").max(5_000, "内容最多 5000 个字符"),
+  title: z.string().trim().min(1, "Title is required").max(120, "Title must be at most 120 characters"),
+  content: z.string().trim().min(1, "Content is required").max(5_000, "Content must be at most 5000 characters"),
   type: z.enum(ANNOUNCEMENT_LEVELS, { message: "公告类型无效" }).optional(),
   pinned: z.boolean().optional(),
   published: z.boolean().optional(),
@@ -36,7 +36,7 @@ export type CreateAnnouncementInput = z.infer<typeof createAnnouncementSchema>;
 
 export const updateAnnouncementSchema = z
   .object({
-    id: z.string().trim().min(1, "缺少公告 ID"),
+    id: z.string().trim().min(1, "Announcement ID is required"),
     title: z.string().trim().min(1).max(120).optional(),
     content: z.string().trim().min(1).max(5_000).optional(),
     type: z.enum(ANNOUNCEMENT_LEVELS).optional(),
@@ -44,7 +44,7 @@ export const updateAnnouncementSchema = z
     published: z.boolean().optional(),
     expiresAt: z
       .union([
-        z.string().datetime({ message: "expiresAt 必须是 ISO 时间" }),
+        z.string().datetime({ message: "expiresAt Must是 ISO 时间" }),
         z.null(),
       ])
       .optional(),

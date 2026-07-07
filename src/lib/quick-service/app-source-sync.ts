@@ -36,8 +36,8 @@ type RemoteAppRow = Prisma.AppSourceAppGetPayload<{ include: { source: { select:
 
 export async function syncSource(sourceId: string): Promise<{ synced: number; errors: number }> {
 	const source = await prisma.appSource.findUnique({ where: { id: sourceId } });
-	if (!source) throw new NotFoundError("源不存在");
-	if (!source.enabled) throw new BusinessError("源已禁用");
+	if (!source) throw new NotFoundError("Source not found");
+	if (!source.enabled) throw new BusinessError("Source is disabled");
 
 	try {
 		const apps = await fetchSourceApps(source.name, source.type, source.url);

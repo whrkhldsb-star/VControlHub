@@ -19,11 +19,11 @@ export async function GET(
 ) {
   return withApiRoute(
     request,
-    { requireAuth: true, errorMessage: "未找到", errorStatus: 404 },
+    { requireAuth: true, errorMessage: "Not found", errorStatus: 404 },
     async ({ session }) => {
       if (!session)
         return NextResponse.json(
-          { error: "未登录或会话已过期" },
+          { error: "Not authenticated or session expired" },
           { status: 401 },
         );
       const { id } = await params;
@@ -42,14 +42,14 @@ export async function PATCH(
     {
       requireAuth: true,
       rateLimit: GENERAL_WRITE_LIMIT,
-      errorMessage: "更新失败",
+      errorMessage: "UpdateFailed",
       errorStatus: 400,
       bodySchema: updateConversationSchema,
     },
     async ({ session, body }) => {
       if (!session)
         return NextResponse.json(
-          { error: "未登录或会话已过期" },
+          { error: "Not authenticated or session expired" },
           { status: 401 },
         );
       const { id } = await params;
@@ -82,13 +82,13 @@ export async function DELETE(
     {
       requireAuth: true,
       rateLimit: GENERAL_WRITE_LIMIT,
-      errorMessage: "删除失败",
+      errorMessage: "DeleteFailed",
       errorStatus: 400,
     },
     async ({ session }) => {
       if (!session)
         return NextResponse.json(
-          { error: "未登录或会话已过期" },
+          { error: "Not authenticated or session expired" },
           { status: 401 },
         );
       const { id } = await params;

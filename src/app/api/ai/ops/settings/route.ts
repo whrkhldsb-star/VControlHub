@@ -35,7 +35,7 @@ export async function GET(request: Request) {
 			permission: "ai:ops:read",
 			rateLimit: GENERAL_WRITE_LIMIT,
 			errorStatus: 500,
-			errorMessage: "加载 AI 运维设置失败",
+			errorMessage: "Failed to load AI ops settings",
 		},
 		async () => {
 			const mode = await getSetting("ai.ops.mode");
@@ -57,7 +57,7 @@ export async function PATCH(request: Request) {
 			rateLimit: GENERAL_WRITE_LIMIT,
 			bodySchema: aiOpsModeSettingSchema,
 			errorStatus: 500,
-			errorMessage: "保存 AI 运维设置失败",
+			errorMessage: "Failed to save AI ops settings",
 		},
 		async ({ session, body }) => {
 			const previousMode = await getSetting("ai.ops.mode");
@@ -73,7 +73,7 @@ export async function PATCH(request: Request) {
 				return NextResponse.json(
 					{
 						error:
-							"providerId 只能包含字母/数字/点/下划线/冒号/连字符, 最长 64 个字符",
+							"providerId can only contain letters/digits/dots/underscores/colons/hyphens, up to 64 characters",
 					},
 					{ status: 400 },
 				);

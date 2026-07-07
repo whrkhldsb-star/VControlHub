@@ -42,7 +42,7 @@ function monthBoundsUtc(month: string): { start: Date; endExclusive: Date } {
 	const y = Number(parts[0]);
 	const m = Number(parts[1]);
 	if (!Number.isFinite(y) || !Number.isFinite(m) || m < 1 || m > 12) {
-		throw new Error(`无效月份: ${month}`);
+		throw new Error(`Invalid month: ${month}`);
 	}
 	// First instant of the requested month (UTC).
 	const start = new Date(Date.UTC(y, m - 1, 1, 0, 0, 0, 0));

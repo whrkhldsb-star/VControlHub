@@ -31,6 +31,7 @@ export const zh: Record<string, string> = {
 	"settingsClient.saveSuccess": "设置已保存。",
 	"settingsClient.saveFailed": "保存失败",
 	"settingsClient.categoryNav": "设置分类导航",
+	"settingsClient.tabsAria": "设置标签页",
 	"settingsClient.collapse": "折叠",
 	"settingsClient.expand": "展开",
 	"settingsClient.sectionSuffix": "设置区",

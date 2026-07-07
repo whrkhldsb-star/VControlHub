@@ -109,12 +109,12 @@ export function parseSearchParams<S extends z.ZodTypeAny>(
  * All inputs arrive as strings (URL query); zod handles coercion.
  */
 export const paginationQuerySchema = z.object({
-  page: z.coerce.number().int().min(1, "page 必须 ≥ 1").default(1),
+  page: z.coerce.number().int().min(1, "page must be ≥ 1").default(1),
   pageSize: z.coerce
     .number()
     .int()
-    .min(1, "pageSize 必须 ≥ 1")
-    .max(200, "pageSize 不能超过 200")
+    .min(1, "pageSize must be ≥ 1")
+    .max(200, "pageSize cannot exceed 200")
     .default(20),
   limit: z.coerce.number().int().min(1).max(500).optional(),
 });
@@ -125,7 +125,7 @@ export type PaginationQuery = z.infer<typeof paginationQuerySchema>;
  * query string (e.g. `/api/snippets?id=xxx`).
  */
 export const idQuerySchema = z.object({
-  id: z.string().trim().min(1, "缺少 id"),
+  id: z.string().trim().min(1, "Missing id"),
 });
 export type IdQuery = z.infer<typeof idQuerySchema>;
 

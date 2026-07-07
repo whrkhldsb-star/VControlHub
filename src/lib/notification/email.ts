@@ -60,9 +60,9 @@ export async function getSmtpConfig(): Promise<SmtpConfig> {
 }
 
 export function assertSmtpReady(config: SmtpConfig) {
-	if (!config.enabled) throw new ValidationError("SMTP 通道未启用");
-	if (!config.host) throw new ValidationError("SMTP 主机未配置");
-	if (!config.from) throw new ValidationError("SMTP 发件人未配置");
+	if (!config.enabled) throw new ValidationError("SMTP channel is not enabled");
+	if (!config.host) throw new ValidationError("SMTP host is not configured");
+	if (!config.from) throw new ValidationError("SMTP sender is not configured");
 }
 
 export async function sendEmail(input: EmailDeliveryInput): Promise<EmailDeliveryResult> {
@@ -70,7 +70,7 @@ export async function sendEmail(input: EmailDeliveryInput): Promise<EmailDeliver
 	assertSmtpReady(config);
 
 	const recipients = normalizeRecipients(input.to);
-	if (recipients.length === 0) throw new ValidationError("邮件收件人未配置");
+	if (recipients.length === 0) throw new ValidationError("Email recipients are not configured");
 
 	const transporter = nodemailer.createTransport({
 		host: config.host,
@@ -101,7 +101,7 @@ export async function sendAlertEmail(input: {
 	const settings = await getAllSettings();
 	const recipients = parseAlertEmailRecipients(settings["smtp.alertRecipients"]);
 	if (recipients.length === 0) {
-		throw new ValidationError("SMTP 告警收件人未配置");
+		throw new ValidationError("SMTP alert recipients are not configured");
 	}
 	const body = [input.message, ...(input.contextLines ?? [])]
 		.filter(Boolean)

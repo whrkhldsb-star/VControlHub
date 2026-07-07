@@ -25,6 +25,7 @@ import {
 } from "react";
 
 import { csrfFetch } from "@/lib/auth/csrf-client";
+import { useToast } from "@/components/toast-provider";
 import {
 	DEFAULT_AUTO_PROBE_INTERVAL_SEC,
 	normalizeAutoProbeIntervalSec,
@@ -49,6 +50,7 @@ export function AutoProbeProvider({ children }: { children: ReactNode }) {
 	const [enabled, setEnabledState] = useState<boolean>(DEFAULT_ENABLED);
 	const [intervalSec, setIntervalSecState] = useState<number>(DEFAULT_AUTO_PROBE_INTERVAL_SEC);
 	const [hydrated, setHydrated] = useState(false);
+	const { addToast } = useToast();
 
 	useEffect(() => {
 		let cancelled = false;
@@ -85,9 +87,9 @@ export function AutoProbeProvider({ children }: { children: ReactNode }) {
 				body: JSON.stringify(next),
 			});
 		} catch {
-			// 网络/认证失败：保留客户端 state，下次 hydrate 时被覆盖。
+			addToast("error", "Failed to save auto-probe preference");
 		}
-	}, []);
+	}, [addToast]);
 
 	const setEnabled = useCallback(
 		(next: boolean) => {

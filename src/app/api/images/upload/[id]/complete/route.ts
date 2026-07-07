@@ -57,11 +57,11 @@ export async function POST(
       permission: "storage:write",
       rateLimit: IMAGE_UPLOAD_LIMIT,
       errorStatus: 500,
-      errorMessage: "完成上传会话失败",
+      errorMessage: "Failed to complete upload session",
     },
     async ({ session }) => {
       if (!session) {
-        throw new ForbiddenError("未登录或会话已过期");
+        throw new ForbiddenError("Not authenticated or session expired");
       }
       let assembled: Buffer;
       try {
@@ -79,7 +79,7 @@ export async function POST(
         select: { filename: true, mimeType: true },
       });
       if (!existing) {
-        throw new ValidationError("上传会话不存在或不属于当前用户", {
+        throw new ValidationError("Upload session not found or does not belong to the current user", {
           code: "session_not_found",
         });
       }

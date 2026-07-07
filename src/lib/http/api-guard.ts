@@ -124,7 +124,7 @@ export async function withApiRoute<TBody = unknown, TQuery = unknown>(
           const text = await request.clone().text();
           raw = text.length === 0 ? undefined : JSON.parse(text);
         } catch {
-          throw new ValidationError("请求体不是合法的 JSON", { field: "body" });
+          throw new ValidationError("Request body is not valid JSON", { field: "body" });
         }
       }
       const parsed = options.bodySchema.safeParse(raw);
@@ -156,6 +156,6 @@ export async function withApiRoute<TBody = unknown, TQuery = unknown>(
     return await handler({ session, body, query });
   } catch (error) {
     if (options.onError) return options.onError(error);
-    return apiCatch(error, options.errorStatus ?? 500, options.errorMessage ?? "操作失败");
+    return apiCatch(error, options.errorStatus ?? 500, options.errorMessage ?? "Operation failed");
   }
 }

@@ -100,15 +100,15 @@ async function createAssistantCommandRequest(input: {
   const dialect = server?.osDialect ? deserializeDialect(server.osDialect) : undefined;
   const command = buildCommand(input.tool.actionType, input.args, dialect);
   if (!command) {
-    throw new BusinessError("AI 操作参数无效，无法生成可审批命令");
+    throw new BusinessError("AI action parameters are invalid; cannot generate an approvable command");
   }
 
   const reason = typeof input.args.reason === "string" && input.args.reason.trim()
     ? input.args.reason.trim()
-    : "AI 助手从网页会话发起，等待人工审批后执行。";
+    : "AI assistant initiated from web session; will execute after manual approval.";
 
   const request = await createCommandRequest({
-    title: `AI 助手：${input.tool.actionName}`,
+    title: `AI Assistant: ${input.tool.actionName}`,
     command,
     reason,
     requesterId: input.userId,
@@ -180,7 +180,7 @@ export async function executeSafeAction(
   context?: HostedActionExecutionContext,
 ): Promise<{ success: boolean; data: unknown; error?: string }> {
   if (context && !sessionHasPermission(context.session, context.requiredPermission ?? requiredPermissionForAction(action.actionType))) {
-    return { success: false, data: null, error: action.actionType === "list_servers" ? "你没有服务器查看权限" : "你没有服务器 SSH 执行权限" };
+    return { success: false, data: null, error: action.actionType === "list_servers" ? "You do not have server read permission" : "You do not have server SSH execution permission" };
   }
 
   if (action.actionType === "list_servers") {
@@ -193,7 +193,7 @@ export async function executeSafeAction(
   }
 
   if (!action.serverId) {
-    return { success: false, data: null, error: "未指定服务器" };
+    return { success: false, data: null, error: "No server specified" };
   }
 
   // 获取服务器连接信息 + OS 方言 (TR-041)
@@ -204,7 +204,7 @@ export async function executeSafeAction(
   });
 
   if (!server) {
-    return { success: false, data: null, error: "服务器不存在" };
+    return { success: false, data: null, error: "Server not found" };
   }
 
   try {
@@ -228,14 +228,14 @@ export async function executeSafeAction(
       sshClient.on("ready", () => {
         if (!isHostedActionType(action.actionType)) {
           sshClient.end();
-          resolve({ success: false, data: null, error: "不支持的操作类型" });
+          resolve({ success: false, data: null, error: "Unsupported action type" });
           return;
         }
         const dialect = server.osDialect ? deserializeDialect(server.osDialect) : undefined;
         const command = buildCommand(action.actionType, action.params, dialect);
         if (!command) {
           sshClient.end();
-          resolve({ success: false, data: null, error: "不支持的操作类型" });
+          resolve({ success: false, data: null, error: "Unsupported action type" });
           return;
         }
 
@@ -255,7 +255,7 @@ export async function executeSafeAction(
             resolve({
               success: code === 0,
               data: { stdout: stdout.slice(-5000), stderr: stderr.slice(-2000), exitCode: code },
-              error: code !== 0 ? `命令执行失败 (exit code ${code})` : undefined,
+              error: code !== 0 ? `Command execution failed (exit code ${code})` : undefined,
             });
           });
         });
@@ -263,13 +263,13 @@ export async function executeSafeAction(
 
       sshClient.on("error", (err) => {
         sshClient.end();
-        resolve({ success: false, data: null, error: `SSH连接失败: ${err.message}` });
+        resolve({ success: false, data: null, error: `SSH connection failed: ${err.message}` });
       });
 
       sshClient.connect(connectConfig);
     });
   } catch (err) {
-    return { success: false, data: null, error: `执行失败: ${err instanceof Error ? err.message : "未知错误"}` };
+    return { success: false, data: null, error: `Execution failed: ${err instanceof Error ? err.message : "Unknown error"}` };
   }
 }
 
@@ -277,11 +277,11 @@ export async function executeSafeAction(
 // ── 审批操作 ──────────────────────────────────────────────
 
 export async function approveHostedAction(actionId: string, approver: HostedActionSession) {
-  if (!sessionHasPermission(approver, "ai:action:approve")) throw new ForbiddenError("缺少权限：ai:action:approve");
+  if (!sessionHasPermission(approver, "ai:action:approve")) throw new ForbiddenError("Missing permission: ai:action:approve");
 
   const action = await prisma.aiHostedAction.findFirst({ where: { id: actionId } });
-  if (!action) throw new NotFoundError("操作不存在或无权审批");
-  if (action.status !== "PENDING_APPROVAL") throw new BusinessError("操作不在待审批状态");
+  if (!action) throw new NotFoundError("Action not found or not authorized to approve");
+  if (action.status !== "PENDING_APPROVAL") throw new BusinessError("Action is not pending approval");
 
   // 更新状态为已批准
   await prisma.aiHostedAction.update({
@@ -294,15 +294,15 @@ export async function approveHostedAction(actionId: string, approver: HostedActi
 }
 
 export async function confirmHostedAction(actionId: string, requester: HostedActionSession) {
-  if (!sessionHasPermission(requester, "server:ssh")) throw new ForbiddenError("缺少权限：server:ssh");
+  if (!sessionHasPermission(requester, "server:ssh")) throw new ForbiddenError("Missing permission: server:ssh");
 
   const action = await prisma.aiHostedAction.findFirst({ where: { id: actionId, requesterId: requester.userId } });
-  if (!action) throw new NotFoundError("操作不存在或无权确认");
-  if (action.status !== "PENDING_APPROVAL") throw new BusinessError("操作不在待确认状态");
-  if (action.autoApproved) throw new BusinessError("自动批准操作无需人工确认");
-  if (!isHostedActionType(action.actionType)) throw new BusinessError("不支持的操作类型");
-  if (action.actionType === "list_servers") throw new BusinessError("列表查询无需创建命令请求");
-  if (!action.serverId) throw new BusinessError("未绑定目标 VPS，无法创建命令请求");
+  if (!action) throw new NotFoundError("Action not found or not authorized to confirm");
+  if (action.status !== "PENDING_APPROVAL") throw new BusinessError("Action is not pending confirmation");
+  if (action.autoApproved) throw new BusinessError("Auto-approved actions do not require manual confirmation");
+  if (!isHostedActionType(action.actionType)) throw new BusinessError("Unsupported action type");
+  if (action.actionType === "list_servers") throw new BusinessError("List queries do not require creating a command request");
+  if (!action.serverId) throw new BusinessError("No target VPS bound; cannot create command request");
 
   const params = JSON.parse(action.params) as Record<string, unknown>;
   const commandRequest = await createAssistantCommandRequest({
@@ -337,17 +337,17 @@ export async function rejectHostedAction(actionId: string, actor: HostedActionSe
     where: canApprove ? { id: actionId } : { id: actionId, requesterId: actor.userId },
   });
   if (!action) {
-    if (canApprove) throw new NotFoundError("操作不存在或无权审批");
-    throw new NotFoundError("操作不存在或无权取消");
+    if (canApprove) throw new NotFoundError("Action not found or not authorized to approve");
+    throw new NotFoundError("Action not found or not authorized to cancel");
   }
-  if (action.status !== "PENDING_APPROVAL") throw new BusinessError(canApprove ? "操作不在待审批状态" : "操作不在待确认状态");
+  if (action.status !== "PENDING_APPROVAL") throw new BusinessError(canApprove ? "Action is not pending approval" : "Action is not pending confirmation");
 
   return prisma.aiHostedAction.update({
     where: { id: actionId },
     data: {
       status: "REJECTED",
       approverId: actor.userId,
-      errorMessage: reason || (canApprove ? "审批被拒绝" : "用户取消确认"),
+      errorMessage: reason || (canApprove ? "Approval rejected" : "User cancelled confirmation"),
     },
   });
 }

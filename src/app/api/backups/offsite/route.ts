@@ -54,7 +54,7 @@ export async function POST(request: Request) {
 			permission: "backup:create",
 			rateLimit: GENERAL_WRITE_LIMIT,
 			errorStatus: 500,
-			errorMessage: "保存异地备份配置失败",
+			errorMessage: "Failed to save offsite backup configuration",
 			bodySchema: OffsiteConfigUpdateApiSchema,
 		},
 		async ({ body }) => {

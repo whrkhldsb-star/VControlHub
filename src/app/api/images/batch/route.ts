@@ -27,13 +27,13 @@ export async function POST(request: Request) {
     {
       requireAuth: true,
       rateLimit: IMAGE_UPLOAD_LIMIT,
-      errorMessage: "批量操作失败",
+      errorMessage: "Batch operation failed",
       bodySchema: batchSchema,
     },
     async ({ session, body }) => {
       if (!session)
         return NextResponse.json(
-          { error: "未登录或会话已过期" },
+          { error: "Not authenticated or session expired" },
           { status: 401 },
         );
       const { action, ids, album } = body;
@@ -49,7 +49,7 @@ export async function POST(request: Request) {
         case "delete": {
           if (!canManageImages) {
             return NextResponse.json(
-              { error: "无权批量删除图片" },
+              { error: "No permission to batch delete images" },
               { status: 403 },
             );
           }
@@ -72,7 +72,7 @@ export async function POST(request: Request) {
         case "moveAlbum": {
           if (!album || typeof album !== "string")
             return NextResponse.json(
-              { error: "album 参数必填" },
+              { error: "album parameter is required" },
               { status: 400 },
             );
           const result = await prisma.imageUpload.updateMany({
@@ -109,7 +109,7 @@ export async function POST(request: Request) {
 
         default:
           return NextResponse.json(
-            { error: "不支持的操作，可选: delete / moveAlbum / togglePublic" },
+            { error: "Unsupported operation, options: delete / moveAlbum / togglePublic" },
             { status: 400 },
           );
       }

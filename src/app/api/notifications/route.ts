@@ -36,10 +36,10 @@ const patchSchema = z.union([
 export async function GET(request: Request) {
   return withApiRoute(
     request,
-    { requireAuth: true, errorMessage: "获取通知失败" },
+    { requireAuth: true, errorMessage: "FetchNotificationFailed" },
     async ({ session }) => {
       if (!session)
-        throw new AuthError("未认证");
+        throw new AuthError("Not authenticated");
       const [notifications, unreadCount] = await Promise.all([
         listUserNotifications(session.userId, { limit: 50 }),
         getUnreadCount(session.userId),
@@ -55,12 +55,12 @@ export async function PATCH(request: Request) {
     {
       requireAuth: true,
       rateLimit: GENERAL_WRITE_LIMIT,
-      errorMessage: "操作失败",
+      errorMessage: "OperationFailed",
       bodySchema: patchSchema,
     },
     async ({ session, body }) => {
       if (!session)
-        throw new AuthError("未认证");
+        throw new AuthError("Not authenticated");
 
       // Legacy format support
       if ("markAllAsRead" in body) {
@@ -96,11 +96,11 @@ export async function POST(request: Request) {
       permission: "notification:manage",
       rateLimit: GENERAL_WRITE_LIMIT,
       bodySchema: postSchema,
-      errorMessage: "批量操作失败",
+      errorMessage: "Batch operation failed",
     },
     async ({ session, body }) => {
       if (!session)
-        throw new AuthError("未认证");
+        throw new AuthError("Not authenticated");
 
       // Batch mark multiple notifications as read
       const results = await Promise.allSettled(
@@ -129,11 +129,11 @@ export async function DELETE(request: Request) {
     {
       requireAuth: true,
       rateLimit: GENERAL_WRITE_LIMIT,
-      errorMessage: "删除通知失败",
+      errorMessage: "DeleteNotificationFailed",
     },
     async ({ session }) => {
       if (!session)
-        throw new AuthError("未认证");
+        throw new AuthError("Not authenticated");
       const { id: notificationId } = parseSearchParams(request, idQuerySchema);
       await deleteNotification(notificationId, session.userId);
       return NextResponse.json({ success: true });

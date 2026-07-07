@@ -18,7 +18,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     {
       permission: "backup:restore",
       rateLimit: GENERAL_WRITE_LIMIT,
-      errorMessage: "恢复失败",
+      errorMessage: "Restore failed",
       bodySchema: restoreBackupSchema,
     },
     async ({ body }) => {
@@ -39,18 +39,18 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
           return NextResponse.json({ restore });
         }
         const backup = await getBackupRecord(id);
-        if (!backup) throw new NotFoundError("备份记录不存在");
+        if (!backup) throw new NotFoundError("Backup record not found");
         const job = await enqueueJob({
           type: BACKUP_RESTORE_JOB_TYPE,
-          title: "恢复备份",
+          title: "Restore backup",
           payload: { backupId: id, confirm: body.confirm },
           createdBy: null,
           maxAttempts: 1,
         });
         return NextResponse.json({ jobId: job.id, taskId: `job:${job.id}` }, { status: 202 });
       } catch (error) {
-        const message = error instanceof Error ? error.message : "恢复执行失败";
-        const status = message.includes("不存在") ? 404 : message.includes("确认") || message.includes("已完成") || message.includes("路径") ? 400 : 500;
+        const message = error instanceof Error ? error.message : "Restore execution failed";
+        const status = message.includes("not found") ? 404 : message.includes("confirm") || message.includes("completed") || message.includes("path") ? 400 : 500;
         return NextResponse.json({ error: message }, { status });
       }
     },

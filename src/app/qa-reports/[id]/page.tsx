@@ -12,16 +12,15 @@ import Link from "next/link";
 import { requireSession } from "@/lib/auth/require-session";
 import { sessionHasPermission } from "@/lib/auth/authorization";
 import { getQaReportDetail } from "@/lib/qa-reports/service";
-import { t } from "@/lib/i18n/translations";
+import { t, getServerLocale, type Locale } from "@/lib/i18n/translations";
+import { formatDateTime } from "@/lib/datetime/format";
 import { PageShell, PageHeader, EmptyState } from "@/components/page-shell";
 
 export const dynamic = "force-dynamic";
 
-function formatTime(iso: string | undefined): string {
+function formatTime(iso: string | undefined, locale: Locale): string {
 	if (!iso) return "—";
-	const ts = Date.parse(iso);
-	if (Number.isNaN(ts)) return iso;
-	return new Date(ts).toLocaleString("zh-CN", { hour12: false });
+	return formatDateTime(iso, locale);
 }
 
 function kindLabel(kind: string): string {
@@ -41,6 +40,7 @@ type Params = { params: Promise<{ id: string }> };
 
 export default async function QaReportDetailPage({ params }: Params) {
 	const session = await requireSession("/qa-reports");
+	const locale = await getServerLocale();
 	if (!sessionHasPermission(session, "task:read")) {
 		return (
 			<PageShell>
@@ -84,12 +84,12 @@ export default async function QaReportDetailPage({ params }: Params) {
 					<dl className="grid gap-3 text-xs text-[var(--text-muted)] sm:grid-cols-2">
 						<div>
 							<dt className="font-semibold uppercase tracking-[0.2em] text-[var(--text-muted)]">{t("qaReportsPage.detail.finishedAt")}</dt>
-							<dd className="mt-1 text-sm text-[var(--text-primary)]">{formatTime(detail.finishedAt)}</dd>
+							<dd className="mt-1 text-sm text-[var(--text-primary)]">{formatTime(detail.finishedAt, locale)}</dd>
 						</div>
 						{detail.startedAt ? (
 							<div>
 								<dt className="font-semibold uppercase tracking-[0.2em] text-[var(--text-muted)]">{t("qaReportsPage.detail.startedAt")}</dt>
-								<dd className="mt-1 text-sm text-[var(--text-primary)]">{formatTime(detail.startedAt)}</dd>
+								<dd className="mt-1 text-sm text-[var(--text-primary)]">{formatTime(detail.startedAt, locale)}</dd>
 							</div>
 						) : null}
 						<div>

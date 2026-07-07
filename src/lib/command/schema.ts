@@ -12,22 +12,22 @@ const normalizedServerIdsSchema = z.array(z.string()).transform((serverIds) => {
   }
 
   return normalized;
-}).pipe(z.array(z.string().min(1)).min(1, "至少选择 1 台目标 VPS"));
+}).pipe(z.array(z.string().min(1)).min(1, "At least 1 target VPS must be selected"));
 
 export const createCommandSchema = z.object({
-  title: z.string().trim().min(1, "标题不能为空").max(120, "标题最多 120 个字符"),
-  command: z.string().trim().min(1, "命令不能为空").max(10_000, "命令内容过长"),
-  reason: z.string().trim().max(500, "原因最多 500 个字符").optional(),
+  title: z.string().trim().min(1, "Title is required").max(120, "Title must be at most 120 characters"),
+  command: z.string().trim().min(1, "Command is required").max(10_000, "Command content is too long"),
+  reason: z.string().trim().max(500, "Reason must be at most 500 characters").optional(),
   submissionMode: z.enum(["user", "assistant"]),
-  requesterId: z.string().trim().min(1, "请求人不能为空"),
+  requesterId: z.string().trim().min(1, "Requester is required"),
   serverIds: normalizedServerIdsSchema,
 });
 
 export const reviewCommandSchema = z.object({
-  commandRequestId: z.string().trim().min(1, "命令请求不能为空"),
-  approverId: z.string().trim().min(1, "审批人不能为空"),
+  commandRequestId: z.string().trim().min(1, "Command request ID is required"),
+  approverId: z.string().trim().min(1, "Approver is required"),
   approved: z.boolean(),
-  comment: z.string().trim().max(500, "审批意见最多 500 个字符").optional(),
+  comment: z.string().trim().max(500, "Approval comment must be at most 500 characters").optional(),
 });
 
 export const createCommandTemplateSchema = z.object({

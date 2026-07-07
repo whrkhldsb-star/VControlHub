@@ -51,7 +51,7 @@ export async function probeSshHostKey(input: SshConnectionParams): Promise<SshHo
       timeout: 15_000,
     });
     if (!captured) {
-      throw new ValidationError("未能读取 SSH 主机指纹，请确认目标 SSH 服务支持 host key 协商。");
+      throw new ValidationError("Failed to read SSH host key fingerprint. Please verify the target SSH service supports host key negotiation.");
     }
     return { fingerprint: captured, ...result };
   } catch (error) {

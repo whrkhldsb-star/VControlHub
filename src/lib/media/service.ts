@@ -190,7 +190,7 @@ export async function listMediaTags() {
   }
   return [...counts.entries()]
     .map(([tag, count]) => ({ tag, count }))
-    .sort((a, b) => b.count - a.count || a.tag.localeCompare(b.tag, "zh-CN"))
+    .sort((a, b) => b.count - a.count || a.tag.localeCompare(b.tag))
     .slice(0, 40);
 }
 

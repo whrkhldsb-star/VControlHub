@@ -99,7 +99,7 @@ export async function deleteScheduledTask(id: string) {
 
 export async function toggleScheduledTask(id: string) {
 	const current = await prisma.scheduledTask.findUnique({ where: { id }, select: { status: true } });
-	if (!current) throw new NotFoundError("定时任务不存在");
+	if (!current) throw new NotFoundError("Scheduled task not found");
 	const newStatus = current.status === "ACTIVE" ? "PAUSED" : "ACTIVE";
 	const nextRun = newStatus === "ACTIVE" ? undefined : null;
 	return prisma.scheduledTask.update({
@@ -113,10 +113,10 @@ export async function toggleScheduledTask(id: string) {
 
 export async function retryScheduledTask(id: string) {
 	const task = await prisma.scheduledTask.findUnique({ where: { id } });
-	if (!task) throw new NotFoundError("定时任务不存在");
+	if (!task) throw new NotFoundError("Scheduled task not found");
 	if (task.serverIds.length === 0 || !task.createdById) {
-		await recordTaskRun(task.id, "手动重试失败：无目标服务器或无创建者");
-		throw new BusinessError("定时任务缺少目标服务器或创建者，无法重试");
+		await recordTaskRun(task.id, "Manual retry failed: no target server or no creator");
+		throw new BusinessError("Scheduled task missing target server or creator, cannot retry");
 	}
 
 	const result = await createCommandRequest({

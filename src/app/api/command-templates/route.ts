@@ -20,7 +20,7 @@ function auditTemplateDetail(template: { id: string; name?: string | null; isBui
 }
 
 export async function GET(request: Request) {
-	return withApiRoute(request, { permission: "command:read", errorStatus: 500, errorMessage: "服务器错误" }, async () => {
+	return withApiRoute(request, { permission: "command:read", errorStatus: 500, errorMessage: "Server error" }, async () => {
 		const templates = await listTemplates();
 		const serialized = templates.map((t) => ({
 			id: t.id, name: t.name, description: t.description,
@@ -34,7 +34,7 @@ export async function GET(request: Request) {
 }
 
 export async function POST(request: Request) {
-	return withApiRoute(request, { permission: "command:create", rateLimit: GENERAL_WRITE_LIMIT, errorStatus: 400, errorMessage: "创建失败", bodySchema: createCommandTemplateSchema }, async ({ session, body }) => {
+	return withApiRoute(request, { permission: "command:create", rateLimit: GENERAL_WRITE_LIMIT, errorStatus: 400, errorMessage: "Creation failed", bodySchema: createCommandTemplateSchema }, async ({ session, body }) => {
 		const template = await createTemplate({
 			name: body.name, description: body.description, command: body.command, rollbackCommand: body.rollbackCommand,
 			tags: body.tags, createdById: session?.userId ?? "",
@@ -45,7 +45,7 @@ export async function POST(request: Request) {
 }
 
 export async function PATCH(request: Request) {
-	return withApiRoute(request, { permission: "command:create", rateLimit: GENERAL_WRITE_LIMIT, errorStatus: 400, errorMessage: "更新失败", bodySchema: updateCommandTemplateSchema }, async ({ session, body }) => {
+	return withApiRoute(request, { permission: "command:create", rateLimit: GENERAL_WRITE_LIMIT, errorStatus: 400, errorMessage: "Update failed", bodySchema: updateCommandTemplateSchema }, async ({ session, body }) => {
 		const { id, ...updates } = body;
 		const result = await updateTemplate(id, updates);
 		auditUserAction(session?.userId ?? "", "command_template.update", auditTemplateDetail(result));
@@ -54,9 +54,9 @@ export async function PATCH(request: Request) {
 }
 
 export async function DELETE(request: Request) {
-	return withApiRoute(request, { permission: "command:create", rateLimit: GENERAL_WRITE_LIMIT, errorStatus: 400, errorMessage: "删除失败" }, async ({ session }) => {
+	return withApiRoute(request, { permission: "command:create", rateLimit: GENERAL_WRITE_LIMIT, errorStatus: 400, errorMessage: "Delete failed" }, async ({ session }) => {
 		const { id } = parseSearchParams(request, idQuerySchema);
-		if (!id) throw new ValidationError("缺少模板 ID");
+		if (!id) throw new ValidationError("Missing template ID");
 		const deleted = await deleteTemplate(id);
 		auditUserAction(session?.userId ?? "", "command_template.delete", auditTemplateDetail(deleted));
 		return NextResponse.json({ success: true });

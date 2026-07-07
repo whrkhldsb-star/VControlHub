@@ -40,7 +40,7 @@ export async function createServerProfile(input: CreateServerInput) {
   } | null = null;
 
   if (normalized.connectionType === "SSH_KEY") {
-    if (!normalized.sshKeyId) throw new ValidationError("SSH 密钥连接方式需选择密钥");
+    if (!normalized.sshKeyId) throw new ValidationError("SSH key connection method requires selecting a key");
     validatedSshKey = await prisma.sshKey.findUnique({
       where: { id: normalized.sshKeyId },
       select: {
@@ -52,7 +52,7 @@ export async function createServerProfile(input: CreateServerInput) {
         createdAt: true,
       },
     });
-    if (!validatedSshKey) throw new NotFoundError("所选 SSH 密钥不存在或已被删除");
+    if (!validatedSshKey) throw new NotFoundError("The selected SSH key does not exist or has been deleted");
   }
 
   await assertNoDuplicateServerHost(normalized);
@@ -127,7 +127,7 @@ export async function createServerProfile(input: CreateServerInput) {
   });
 
   // Auto-create associated storage node
-  const storageNodeName = `${server.name} 存储`;
+  const storageNodeName = `${server.name} storage`;
   const isLocalHost = isLocalHostLiteral(normalized.host);
   const defaultCount = await prisma.storageNode.count({
     where: { isDefault: true },
@@ -163,7 +163,7 @@ export async function createServerProfile(input: CreateServerInput) {
       });
     } catch (error) {
       onboardingWarnings.push(
-        `远端存储目录自动创建失败：${getErrorMessage(error)}。VPS 节点和存储节点已创建，请确认 SSH 可连接后在目标服务器手动创建 ${configuredPath}，或重新保存/重试相关操作。`,
+        `Failed to auto-create remote storage directory: ${getErrorMessage(error)}. VPS node and storage node have been created. After confirming SSH connectivity, please manually create ${configuredPath} on the target server, or re-save/retry the relevant operation.`,
       );
     }
   }
@@ -177,7 +177,7 @@ export async function createServerProfile(input: CreateServerInput) {
     });
     if (!directResult.enabled) {
       onboardingWarnings.push(
-        `目标服务器直连自动配置失败${directResult.errorMessage ? `：${directResult.errorMessage}` : ""}。VPS 节点和存储节点已创建，可稍后在 VPS 管理面板重试启用直连。`,
+        `Failed to auto-configure direct gateway on target server${directResult.errorMessage ? `: ${directResult.errorMessage}` : ""}. VPS node and storage node have been created. You can retry enabling the direct gateway later in the VPS management panel.`,
       );
     }
   }
@@ -205,7 +205,7 @@ export async function updateServerProfile(
     where: { id: serverId },
     include: SERVER_PROFILE_INCLUDE,
   });
-  if (!current) throw new NotFoundError("VPS 节点不存在或已删除");
+  if (!current) throw new NotFoundError("VPS node not found or has been deleted");
 
   const connectionType = input.connectionType ?? current.connectionType;
   const normalized = normalizeServerInput({
@@ -253,7 +253,7 @@ export async function updateServerProfile(
         createdAt: true,
       },
     });
-    if (!updateSshKey) throw new NotFoundError("所选 SSH 密钥不存在或已被删除");
+    if (!updateSshKey) throw new NotFoundError("The selected SSH key does not exist or has been deleted");
   }
 
   await assertNoDuplicateServerHost(normalized, { excludeId: serverId });
@@ -336,7 +336,7 @@ export async function toggleServerEnabled(serverId: string) {
     where: { id: serverId },
     select: { enabled: true },
   });
-  if (!current) throw new NotFoundError("VPS 节点不存在或已删除");
+  if (!current) throw new NotFoundError("VPS node not found or has been deleted");
   return prisma.server.update({
     where: { id: serverId },
     data: { enabled: !current.enabled },
@@ -359,7 +359,7 @@ export async function deleteServerProfile(serverId: string) {
       },
     },
   });
-  if (!current) throw new NotFoundError("VPS 节点不存在或已删除");
+  if (!current) throw new NotFoundError("VPS node not found or has been deleted");
   let cleanupSkipped = false;
   const shouldAttemptDirectGatewayCleanup =
     current.fileProxyPort &&

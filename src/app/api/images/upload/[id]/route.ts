@@ -34,15 +34,15 @@ export async function GET(
       permission: "storage:write",
       rateLimit: IMAGE_UPLOAD_LIMIT,
       errorStatus: 500,
-      errorMessage: "查询上传会话失败",
+      errorMessage: "Failed to query upload session",
     },
     async ({ session }) => {
       if (!session) {
-        throw new ForbiddenError("未登录或会话已过期");
+        throw new ForbiddenError("Not authenticated or session expired");
       }
       const view = await getMediaUploadSession(sessionId, session.userId);
       if (!view) {
-        throw new NotFoundError(`未找到上传会话 ${sessionId}`);
+        throw new NotFoundError(`Not foundUploadSession ${sessionId}`);
       }
       return NextResponse.json({ session: view });
     },
@@ -60,11 +60,11 @@ export async function DELETE(
       permission: "storage:write",
       rateLimit: IMAGE_UPLOAD_LIMIT,
       errorStatus: 500,
-      errorMessage: "取消上传会话失败",
+      errorMessage: "Failed to cancel upload session",
     },
     async ({ session }) => {
       if (!session) {
-        throw new ForbiddenError("未登录或会话已过期");
+        throw new ForbiddenError("Not authenticated or session expired");
       }
       try {
         const view = await cancelMediaUploadSession(

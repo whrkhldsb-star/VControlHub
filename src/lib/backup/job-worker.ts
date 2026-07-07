@@ -43,7 +43,7 @@ type BackupRetentionPayload = {
 function parseRetentionPayload(payload: Prisma.JsonValue): BackupRetentionPayload {
   if (payload == null) return {};
   if (!isRecord(payload)) {
-    throw new Error("备份保留任务 payload 格式无效");
+    throw new Error("Invalid backup retention job payload format");
   }
   const olderThanDays = typeof payload.olderThanDays === "number" && Number.isFinite(payload.olderThanDays) && payload.olderThanDays > 0
     ? Math.floor(payload.olderThanDays)
@@ -64,7 +64,7 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 
 function parseCreatePayload(payload: Prisma.JsonValue): BackupCreatePayload {
   if (!isRecord(payload) || typeof payload.backupId !== "string" || !payload.backupId.trim()) {
-    throw new Error("备份任务 payload 缺少 backupId");
+    throw new Error("Backup job payload missing backupId");
   }
   return {
     backupId: payload.backupId.trim(),
@@ -74,7 +74,7 @@ function parseCreatePayload(payload: Prisma.JsonValue): BackupCreatePayload {
 
 function parseRestorePayload(payload: Prisma.JsonValue): BackupRestorePayload {
   if (!isRecord(payload) || typeof payload.backupId !== "string" || !payload.backupId.trim()) {
-    throw new Error("恢复任务 payload 缺少 backupId");
+    throw new Error("Restore job payload missing backupId");
   }
   return {
     backupId: payload.backupId.trim(),
@@ -133,7 +133,7 @@ async function handleJob(job: Awaited<ReturnType<typeof claimNextJob>>) {
       return true;
     }
 
-    throw new Error(`不支持的备份任务类型：${job.type}`);
+    throw new Error(`Unsupported backup job type：${job.type}`);
   } catch (error) {
     const message = error instanceof Error ? error.message : "备份任务执行失败";
     await failJob(job.id, WORKER_ID, message.slice(0, 2000), { retryAfterMs: 60_000 });

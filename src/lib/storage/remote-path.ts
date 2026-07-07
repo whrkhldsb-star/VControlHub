@@ -23,7 +23,7 @@ export function normalizeRemotePath(
     path.posix.join(base, normalizedRelative),
   );
   if (absolutePath !== base && !absolutePath.startsWith(`${base}/`)) {
-    throw new ValidationError("请求路径超出存储节点根目录");
+    throw new ValidationError("Requested path exceeds storage node root");
   }
 
   return absolutePath;
@@ -45,7 +45,7 @@ export function normalizeRemoteRelativePath(requestedPath?: string | null): stri
     normalizedRelative.startsWith("../") ||
     path.posix.isAbsolute(normalizedRelative)
   ) {
-    throw new ValidationError("请求路径超出存储节点根目录");
+    throw new ValidationError("Requested path exceeds storage node root");
   }
 
   return normalizedRelative;
@@ -57,7 +57,7 @@ export function normalizeRemoteTargetPath(
 ): string {
   const normalized = normalizeRemotePath(basePath, requestedPath);
   if (normalized === normalizeAbsoluteBasePath(basePath)) {
-    throw new ValidationError("目标路径不能是存储节点根目录");
+    throw new ValidationError("Target path cannot be the storage node root");
   }
   return normalized;
 }

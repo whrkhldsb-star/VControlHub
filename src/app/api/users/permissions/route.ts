@@ -92,7 +92,7 @@ export async function GET(request: Request) {
   return withApiRoute(request, { permission: "user:read" }, async () => {
     const { userId } = parseSearchParams(
       request,
-      z.object({ userId: z.string().trim().min(1, "缺少 userId 参数") }),
+      z.object({ userId: z.string().trim().min(1, "Missing userId Parameter") }),
     );
 
     const [user, roles, permissions, storageNodes] = await Promise.all([
@@ -129,7 +129,7 @@ export async function GET(request: Request) {
     ]);
 
     if (!user) {
-      throw new NotFoundError("用户不存在");
+      throw new NotFoundError("User not found");
     }
 
     const effectivePermissions = Array.from(
@@ -177,17 +177,17 @@ export async function PATCH(request: Request) {
     {
       permission: "user:manage",
       rateLimit: GENERAL_WRITE_LIMIT,
-      errorMessage: "操作失败",
+      errorMessage: "OperationFailed",
       bodySchema: patchPermissionsSchema,
     },
     async ({ session, body: parsedData }) => {
       if (!session)
-        throw new AuthError("未认证");
+        throw new AuthError("Not authenticated");
 
       // Prevent self-modification of permissions (privilege escalation).
       if (parsedData.userId === session.userId) {
         return NextResponse.json(
-          { error: "不能修改自己的权限" },
+          { error: "Cannot modify your own permissions" },
           { status: 403 },
         );
       }
@@ -197,7 +197,7 @@ export async function PATCH(request: Request) {
         select: { id: true, username: true },
       });
       if (!targetUser) {
-        throw new NotFoundError("用户不存在");
+        throw new NotFoundError("User not found");
       }
 
       const roleKeys = Array.isArray(parsedData.roleKeys)
@@ -240,13 +240,13 @@ export async function PATCH(request: Request) {
           const customRole = await tx.role.upsert({
             where: { key: customRoleKey },
             update: {
-              name: `${targetUser.username} 的自定义权限`,
-              description: "用户权限配置页自动维护",
+              name: `${targetUser.username} 's custom permissions`,
+              description: "Auto-maintained by user permission config page",
             },
             create: {
               key: customRoleKey,
-              name: `${targetUser.username} 的自定义权限`,
-              description: "用户权限配置页自动维护",
+              name: `${targetUser.username} 's custom permissions`,
+              description: "Auto-maintained by user permission config page",
             },
           });
           const permissionRows = await tx.permission.findMany({

@@ -16,7 +16,7 @@ import {
 
 const allowedMimePrefixSchema = z
 	.string()
-	.min(1, "mimeType 不能为空")
+	.min(1, "mimeType is required")
 	.max(128)
 	.refine(
 		(m) => ALLOWED_MIME_PREFIXES.some((p) => m.startsWith(p)),
@@ -27,8 +27,8 @@ const allowedMimePrefixSchema = z
 export const initMediaUploadSchema = z.object({
 	filename: z
 		.string()
-		.min(1, "filename 不能为空")
-		.max(256, "filename 不能超过 256 字符")
+		.min(1, "filename is required")
+		.max(256, "filename cannot exceed 256 characters")
 		.refine((f) => !f.includes("/") && !f.includes("\\"), {
 			message: "filename 不能包含路径分隔符",
 		}),
@@ -36,18 +36,18 @@ export const initMediaUploadSchema = z.object({
 	totalSize: z
 		.number()
 		.int("totalSize 必须为整数")
-		.min(1, "totalSize 必须 > 0")
-		.max(MAX_TOTAL_SIZE, `totalSize 不能超过 ${MAX_TOTAL_SIZE} 字节`),
+		.min(1, "totalSize must be > 0")
+		.max(MAX_TOTAL_SIZE, `totalSize cannot exceed ${MAX_TOTAL_SIZE} bytes`),
 	chunkSize: z
 		.number()
 		.int("chunkSize 必须为整数")
-		.min(MIN_CHUNK_SIZE, `chunkSize 不能小于 ${MIN_CHUNK_SIZE} 字节`)
-		.max(MAX_CHUNK_SIZE, `chunkSize 不能超过 ${MAX_CHUNK_SIZE} 字节`)
+		.min(MIN_CHUNK_SIZE, `chunkSize cannot be less than ${MIN_CHUNK_SIZE} bytes`)
+		.max(MAX_CHUNK_SIZE, `chunkSize cannot exceed ${MAX_CHUNK_SIZE} bytes`)
 		.optional(),
 	storageNodeId: z.string().min(1).max(64).optional(),
 	relativePath: z
 		.string()
-		.max(512, "relativePath 不能超过 512 字符")
+		.max(512, "relativePath cannot exceed 512 characters")
 		.optional(),
 });
 
@@ -59,14 +59,14 @@ export const appendMediaChunkSchema = z.object({
 	index: z.coerce
 		.number()
 		.int("chunk.index 必须为整数")
-		.min(0, "chunk.index 不能为负"),
+		.min(0, "chunk.index cannot be negative"),
 	/** Total size of THIS chunk in bytes. Used to verify the upload
 	 *  matches the expected chunk size. */
 	size: z.coerce
 		.number()
 		.int("chunk.size 必须为整数")
-		.min(1, "chunk.size 必须 > 0")
-		.max(MAX_CHUNK_SIZE, `chunk.size 不能超过 ${MAX_CHUNK_SIZE} 字节`),
+		.min(1, "chunk.size must be > 0")
+		.max(MAX_CHUNK_SIZE, `chunk.size cannot exceed ${MAX_CHUNK_SIZE} bytes`),
 });
 
 /** Default export so the route can `import { initMediaUploadSchema } from "./schema"`. */

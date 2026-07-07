@@ -255,7 +255,7 @@ export function serializeFileTreeNode(node: FileTreeNode, depth = 0): Serialized
 	if (depth > 10) return [];
 
 	return [...node.folders.values()]
-		.sort((a, b) => a.name.localeCompare(b.name, "zh-CN"))
+		.sort((a, b) => a.name.localeCompare(b.name))
 		.map((child) => ({
 			name: child.name,
 			displayName: getFileTreeDisplayName(child),

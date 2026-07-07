@@ -214,9 +214,9 @@ export function getPreviewActionCopy(entry: StorageEntry, t: (key: string) => st
   };
 }
 
-export function formatDate(date: Date | string): string {
+export function formatDate(date: Date | string, locale?: string): string {
   const d = typeof date === "string" ? new Date(date) : date;
-  return d.toLocaleDateString("zh-CN", {
+  return d.toLocaleDateString(locale === "en" ? "en-US" : "zh-CN", {
     year: "numeric",
     month: "2-digit",
     day: "2-digit",

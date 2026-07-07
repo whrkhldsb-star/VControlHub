@@ -44,10 +44,10 @@ export async function POST(request: NextRequest) {
     request,
     { permission: "storage:manage-node", rateLimit: GENERAL_WRITE_LIMIT },
     async ({ session, body }) => {
-      if (!session) throw new AuthError("未认证");
+      if (!session) throw new AuthError("Not authenticated");
       const input = (body ?? {}) as StaleInventoryInput;
       const parsed = staleInventorySchema.safeParse(input);
-      if (!parsed.success) throw new ValidationError("输入参数无效");
+      if (!parsed.success) throw new ValidationError("Invalid input parameter");
       const data = parsed.data;
 
       const { wait } = parseSearchParams(request, sftpWaitQuerySchema);
@@ -55,7 +55,7 @@ export async function POST(request: NextRequest) {
       if (data.nodeId) {
         const nodes = await listSftpNodesForStaleInventory();
         const target = nodes.find((n) => n.id === data.nodeId);
-        if (!target) throw new NotFoundError("存储节点不存在");
+        if (!target) throw new NotFoundError("Storage node not found");
       }
 
       if (wait) {
@@ -92,7 +92,7 @@ export async function POST(request: NextRequest) {
           jobId: job.id,
           taskId: `job:${job.id}`,
           status: job.status,
-          message: "SFTP stale inventory 已加入后台任务, 可在任务中心查看进度。",
+          message: "SFTP stale inventory has been added as a background task, you can check progress in the task center。",
         },
         { status: 202 },
       );
@@ -103,7 +103,7 @@ export async function POST(request: NextRequest) {
 async function scanOneNode(input: StaleInventoryInput) {
   const nodes = await listSftpNodesForStaleInventory();
   const node = nodes.find((n) => n.id === input.nodeId);
-  if (!node) throw new NotFoundError("存储节点不存在");
+  if (!node) throw new NotFoundError("Storage node not found");
   return detectAndPruneSftpStaleInventory({
     node: node as unknown as Parameters<typeof detectAndPruneSftpStaleInventory>[0]["node"],
     maxDepth: input.maxDepth,

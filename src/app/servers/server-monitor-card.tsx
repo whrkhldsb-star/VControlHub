@@ -4,6 +4,7 @@ import { csrfFetch } from "@/lib/auth/csrf-client";
 import { getRefreshIntervalLabel } from "@/lib/preferences/refresh-interval";
 import { useRefreshInterval } from "@/lib/preferences/use-refresh-interval";
 import { useI18n } from "@/lib/i18n/use-locale";
+import { formatTime } from "@/lib/datetime/format";
 type CpuInfo = {
   usagePercent: number;
   cores: number;
@@ -100,7 +101,7 @@ function MetricRow({
   );
 }
 export function ServerMonitorCard({ serverId }: Props) {
-  const { t } = useI18n();
+  const { t, locale } = useI18n();
   const [metrics, setMetrics] = useState<Metrics | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -191,7 +192,7 @@ export function ServerMonitorCard({ serverId }: Props) {
           {" "}
           <div className="h-1.5 w-1.5 rounded-full bg-[var(--success)] shadow-[0_0_4px_rgba(52,211,153,0.5)] animate-pulse" />{" "}
           <span className="text-[10px] text-[var(--text-muted)]">
-            {new Date(metrics.timestamp).toLocaleTimeString("zh-CN")}
+            {formatTime(metrics.timestamp, locale as "zh" | "en")}
           </span>{" "}
           <span className="text-[10px] text-[var(--text-secondary)]">
             · {getRefreshIntervalLabel(refreshIntervalSeconds)}

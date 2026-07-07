@@ -14,11 +14,11 @@ export const dynamic = "force-dynamic";
 export async function GET(request: Request) {
   return withApiRoute(
     request,
-    { requireAuth: true, errorMessage: "服务器错误" },
+    { requireAuth: true, errorMessage: "Server error" },
     async ({ session }) => {
       if (!session)
         return NextResponse.json(
-          { error: "未登录或会话已过期" },
+          { error: "Not authenticated or session expired" },
           { status: 401 },
         );
       const conversations = await listConversations(session.userId);
@@ -35,13 +35,13 @@ export async function POST(request: Request) {
     {
       permission: "ai:chat",
       rateLimit: GENERAL_WRITE_LIMIT,
-      errorMessage: "创建失败",
+      errorMessage: "CreateFailed",
       bodySchema: createConversationSchema,
     },
     async ({ session, body }) => {
       if (!session)
         return NextResponse.json(
-          { error: "未登录或会话已过期" },
+          { error: "Not authenticated or session expired" },
           { status: 401 },
         );
 

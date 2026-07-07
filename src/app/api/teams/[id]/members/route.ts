@@ -10,7 +10,7 @@ export const dynamic = "force-dynamic";
 export async function POST(request: Request, { params }: { params: Promise<{ id: string }> }) {
 	return withApiRoute(
 		request,
-		{ requireAuth: true, rateLimit: GENERAL_WRITE_LIMIT, bodySchema: addTeamMemberSchema, errorMessage: "添加团队成员失败" },
+		{ requireAuth: true, rateLimit: GENERAL_WRITE_LIMIT, bodySchema: addTeamMemberSchema, errorMessage: "Failed to add team member" },
 		async ({ session, body }) => {
 			const { id } = await params;
 			const member = await addTeamMember(id, body, session!);

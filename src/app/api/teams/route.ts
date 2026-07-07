@@ -17,7 +17,7 @@ export async function GET(request: Request) {
 export async function POST(request: Request) {
 	return withApiRoute(
 		request,
-		{ permission: "team:create", rateLimit: GENERAL_WRITE_LIMIT, bodySchema: createTeamSchema, errorMessage: "创建团队空间失败" },
+		{ permission: "team:create", rateLimit: GENERAL_WRITE_LIMIT, bodySchema: createTeamSchema, errorMessage: "Failed to create team workspace" },
 		async ({ session, body }) => {
 			const team = await createTeam(body, session!);
 			return NextResponse.json({ success: true, team });

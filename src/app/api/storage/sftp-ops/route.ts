@@ -149,11 +149,11 @@ async function handlePost(body: SftpOpsBody, session: SessionPayload) {
   const { action, nodeId, path: remotePath } = body;
 
   if (!nodeId) {
-    throw new ValidationError("缺少 nodeId 参数");
+    throw new ValidationError("Missing nodeId Parameter");
   }
 
   if (!remotePath) {
-    throw new ValidationError("缺少 path 参数");
+    throw new ValidationError("Missing path Parameter");
   }
 
   // Resolve storage node connection params (same pattern as sftp/route.ts)
@@ -187,12 +187,12 @@ async function handlePost(body: SftpOpsBody, session: SessionPayload) {
   });
 
   if (!node) {
-    throw new NotFoundError("存储节点不存在");
+    throw new NotFoundError("Storage node not found");
   }
 
   if (node.driver !== "SFTP") {
     return NextResponse.json(
-      { error: "该节点不是 SFTP 类型" },
+      { error: "This Node is Not SFTP type" },
       { status: 400 },
     );
   }
@@ -203,7 +203,7 @@ async function handlePost(body: SftpOpsBody, session: SessionPayload) {
     } catch (error) {
       return error instanceof Error
         ? error
-        : new Error("缺少远端主机地址或连接凭据，无法连接");
+        : new Error("Missing remote host address or connection credentials, cannot connect");
     }
   })();
   if (connectionCredentials instanceof Error) {
@@ -220,7 +220,7 @@ async function handlePost(body: SftpOpsBody, session: SessionPayload) {
     normalizedRelativePath = normalizeRemoteRelativePath(remotePath);
   } catch {
     return NextResponse.json(
-      toClientStorageError("请求路径超出存储节点根目录"),
+      toClientStorageError("Requested path exceeds storage node root directory"),
       { status: 400 },
     );
   }
@@ -234,7 +234,7 @@ async function handlePost(body: SftpOpsBody, session: SessionPayload) {
         ? "storage:delete"
         : "storage:write";
   if (!sessionHasPermission(session, requiredPermission)) {
-    throw new ForbiddenError("缺少权限");
+    throw new ForbiddenError("MissingPermission");
   }
   const accessDecision = await assertStorageAccess({
     session,
@@ -248,7 +248,7 @@ async function handlePost(body: SftpOpsBody, session: SessionPayload) {
   });
   if (!accessDecision.allowed) {
     return NextResponse.json(
-      { error: accessDecision.reason ?? "缺少存储访问授权" },
+      { error: accessDecision.reason ?? "Missing storage access authorization" },
       { status: 403 },
     );
   }
@@ -276,7 +276,7 @@ async function handlePost(body: SftpOpsBody, session: SessionPayload) {
       case "rename": {
         if (!body.newPath) {
           return NextResponse.json(
-            { error: "缺少 newPath 参数" },
+            { error: "Missing newPath Parameter" },
             { status: 400 },
           );
         }
@@ -290,7 +290,7 @@ async function handlePost(body: SftpOpsBody, session: SessionPayload) {
           normalizedNewRelativePath = normalizeRemoteRelativePath(body.newPath);
         } catch {
           return NextResponse.json(
-            toClientStorageError("新路径超出存储节点根目录"),
+            toClientStorageError("New path exceeds storage Node root directory"),
             { status: 400 },
           );
         }
@@ -305,7 +305,7 @@ async function handlePost(body: SftpOpsBody, session: SessionPayload) {
           return NextResponse.json(
             {
               error:
-                destinationAccessDecision.reason ?? "缺少目标路径存储访问授权",
+                destinationAccessDecision.reason ?? "Missing target path storage access authorization",
             },
             { status: 403 },
           );
@@ -345,7 +345,7 @@ async function handlePost(body: SftpOpsBody, session: SessionPayload) {
         if (indexedSize !== null && indexedSize > BigInt(MAX_INLINE_REMOTE_READ_BYTES)) {
           return NextResponse.json(
             {
-              error: "文件超过 1 MB，暂不支持在线读取，请使用下载功能",
+              error: "File exceeds 1 MB, online reading is temporarily unsupported, please use the download feature",
               maxInlineBytes: MAX_INLINE_REMOTE_READ_BYTES,
               size: Number(indexedSize),
             },
@@ -361,7 +361,7 @@ async function handlePost(body: SftpOpsBody, session: SessionPayload) {
         if (buffer.byteLength > MAX_INLINE_REMOTE_READ_BYTES) {
           return NextResponse.json(
             {
-              error: "文件超过 1 MB，暂不支持在线读取，请使用下载功能",
+              error: "File exceeds 1 MB, online reading is temporarily unsupported, please use the download feature",
               maxInlineBytes: MAX_INLINE_REMOTE_READ_BYTES,
               size: buffer.byteLength,
             },
@@ -395,7 +395,7 @@ async function handlePost(body: SftpOpsBody, session: SessionPayload) {
       case "write": {
         if (body.content === undefined || body.content === null) {
           return NextResponse.json(
-            { error: "缺少 content 参数" },
+            { error: "Missing content Parameter" },
             { status: 400 },
           );
         }
@@ -445,14 +445,14 @@ async function handlePost(body: SftpOpsBody, session: SessionPayload) {
 
       default:
         return NextResponse.json(
-          { error: `不支持的操作: ${action}` },
+          { error: `Unsupported'sOperation: ${action}` },
           { status: 400 },
         );
     }
   } catch (error) {
     logger.error("remote file operation failed", error, { action, nodeId });
     return NextResponse.json(
-      toClientStorageError("远端文件操作失败，请检查节点配置、路径或权限"),
+      toClientStorageError("Remote file operation failed, please check node configuration, path or permissions"),
       { status: 502 },
     );
   }
@@ -464,12 +464,12 @@ export async function POST(request: Request) {
     {
       requireAuth: true,
       rateLimit: GENERAL_WRITE_LIMIT,
-      errorMessage: "远端文件操作失败",
+      errorMessage: "Remote file operation failed",
       bodySchema: postSchema,
     },
     async ({ session, body }) => {
       if (!session)
-        throw new AuthError("未认证");
+        throw new AuthError("Not authenticated");
       return handlePost(body, session);
     },
   );

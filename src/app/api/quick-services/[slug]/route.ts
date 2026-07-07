@@ -25,17 +25,17 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ sl
 			jobId: job.id,
 			taskId,
 			status: job.status,
-			message: reused ? "该服务已有进行中的生命周期任务，已返回现有任务。" : "QuickService 操作已加入后台任务，可在任务中心查看进度。",
+			message: reused ? "The service already has a lifecycle task in progress, returning the existing task。" : "QuickService operationalreadyaddedbackgroundtask，you can check progress in the task center。",
 		}, { status: 202 });
 	});
 }
 
 export async function DELETE(request: Request, { params }: { params: Promise<{ slug: string }> }) {
-	return withApiRoute(request, { permission: "docker:manage", rateLimit: GENERAL_WRITE_LIMIT, errorMessage: "卸载失败", bodySchema: uninstallSchema }, async ({ session, body }) => {
+	return withApiRoute(request, { permission: "docker:manage", rateLimit: GENERAL_WRITE_LIMIT, errorMessage: "Uninstall failed", bodySchema: uninstallSchema }, async ({ session, body }) => {
 		const { slug } = await params;
 		const deleteVolumes = body?.deleteVolumes === true;
 		const { job, taskId, reused } = await enqueueQuickServiceJob({
-			title: `卸载快捷服务：${slug}`,
+			title: `Uninstall quick service：${slug}`,
 			createdBy: session?.userId ?? null,
 			payload: { action: "uninstall", slug, deleteVolumes },
 		});
@@ -47,7 +47,7 @@ export async function DELETE(request: Request, { params }: { params: Promise<{ s
 			taskId,
 			status: job.status,
 			deleteVolumes,
-			message: reused ? "该服务已有进行中的生命周期任务，已返回现有任务。" : "QuickService 卸载已加入后台任务，可在任务中心查看进度。",
+			message: reused ? "The service already has a lifecycle task in progress, returning the existing task。" : "Quick service uninstall has been added as a background task，you can check progress in the task center。",
 		}, { status: 202 });
 	});
 }

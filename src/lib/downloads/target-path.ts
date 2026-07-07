@@ -21,7 +21,7 @@ export function getDownloadTargetRelativePath(
   const normalizedTarget = path.posix.normalize(resolvedTargetPath).replace(/\/+$/, "") || "/";
 
   if (!isPathWithinBase(normalizedTarget, base)) {
-    throw new ValidationError("下载目标路径超出存储节点根目录");
+    throw new ValidationError("Download target path exceeds storage node root");
   }
 
   if (normalizedTarget === base) {
@@ -57,7 +57,7 @@ export function resolveDownloadTargetPath(
     : path.posix.normalize(path.posix.join(base, normalized));
 
   if (!isPathWithinBase(candidate, base)) {
-    throw new ValidationError("下载目标路径超出存储节点根目录");
+    throw new ValidationError("Download target path exceeds storage node root");
   }
 
   return candidate;

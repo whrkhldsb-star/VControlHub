@@ -58,7 +58,7 @@ export async function applyServerDirectGatewayState(input: {
         publicBaseUrl: null,
         cleanupSkipped: true,
       };
-    throw new NotFoundError("VPS 节点不存在或已删除");
+    throw new NotFoundError("VPS node not found or deleted");
   }
   const isLocalHost = /^(127\.0\.0\.1|localhost|::1|0\.0\.0\.0)$/i.test(
     server.host.trim(),

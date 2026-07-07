@@ -37,7 +37,7 @@ export async function getApiSession(): Promise<SessionPayload | null> {
 export async function requireApiSession(): Promise<SessionPayload | NextResponse> {
 	const session = await getApiSession();
 	if (!session) {
-		return NextResponse.json({ error: "未登录或会话已过期" }, { status: 401 });
+		return NextResponse.json({ error: "Not authenticated or session expired" }, { status: 401 });
 	}
 	return session;
 }

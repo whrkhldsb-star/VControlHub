@@ -40,18 +40,18 @@ export async function PUT(
       rateLimit: GENERAL_WRITE_LIMIT,
       querySchema: appendMediaChunkSchema,
       errorStatus: 500,
-      errorMessage: "上传分片失败",
+      errorMessage: "Failed to upload chunk",
     },
     async ({ session, query }) => {
       if (!session) {
-        throw new ForbiddenError("未登录或会话已过期");
+        throw new ForbiddenError("Not authenticated or session expired");
       }
       let buffer: Buffer;
       try {
         const ab = await request.arrayBuffer();
         buffer = Buffer.from(ab);
       } catch (err) {
-        throw new ValidationError("分片内容读取失败", {
+        throw new ValidationError("Failed to read chunk content", {
           reason: err instanceof Error ? err.message : String(err),
         });
       }

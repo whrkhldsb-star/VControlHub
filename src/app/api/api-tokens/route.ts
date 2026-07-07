@@ -22,8 +22,8 @@ const createTokenSchema = z.object({
   name: z
     .string()
     .trim()
-    .min(1, "Token 名称不能为空")
-    .max(80, "Token 名称过长"),
+    .min(1, "Token name is required")
+    .max(80, "Token name is too long"),
   scopes: z.array(z.string().trim().min(1)).default(["read"]),
   expiresAt: z.string().trim().optional().nullable(),
 });
@@ -51,7 +51,7 @@ function validateScopes(scopes: string[]) {
   );
   const invalid = normalized.filter((scope) => !allowedScopes.has(scope));
   if (invalid.length > 0) {
-    throw new Error(`不支持的 scope: ${invalid.join(", ")}`);
+    throw new Error(`Unsupported scope: ${invalid.join(", ")}`);
   }
   return normalized.length > 0 ? normalized : ["read"];
 }
@@ -59,9 +59,9 @@ function validateScopes(scopes: string[]) {
 function parseExpiresAt(value?: string | null) {
   if (!value) return null;
   const expiresAt = new Date(value);
-  if (Number.isNaN(expiresAt.getTime())) throw new Error("过期时间格式无效");
+  if (Number.isNaN(expiresAt.getTime())) throw new Error("Invalid expiration time format");
   if (expiresAt.getTime() <= Date.now())
-    throw new Error("过期时间必须晚于当前时间");
+    throw new Error("Expiration time must be in the future");
   return expiresAt;
 }
 
@@ -71,7 +71,7 @@ export async function GET(request: Request) {
     { permission: "api-token:manage" },
     async ({ session }) => {
       if (!session)
-        throw new AuthError("未认证");
+        throw new AuthError("Unauthorized");
       return withCacheHeaders(
         NextResponse.json({ tokens: await listApiTokens(session.userId) }),
         CachePresets.shortLived,
@@ -87,7 +87,7 @@ export async function POST(request: Request) {
     permission: "api-token:manage" as const,
     rateLimit: GENERAL_WRITE_LIMIT,
     errorStatus: 400,
-    errorMessage: "创建 Token 失败",
+    errorMessage: "Failed to create token",
     ...(isFormSubmission ? {} : { bodySchema: createTokenSchema }),
   };
   return withApiRoute(
@@ -95,7 +95,7 @@ export async function POST(request: Request) {
     options,
     async ({ session, body }) => {
       if (!session)
-        throw new AuthError("未认证");
+        throw new AuthError("Unauthorized");
 
       const parsed = isFormSubmission ? createTokenSchema.parse(await parseCreateBody(request)) : body;
       const scopes = validateScopes(parsed.scopes);
@@ -138,11 +138,11 @@ export async function DELETE(request: Request) {
     {
       permission: "api-token:manage",
       rateLimit: GENERAL_WRITE_LIMIT,
-      errorMessage: "操作失败",
+      errorMessage: "Operation failed",
     },
     async ({ session }) => {
       if (!session)
-        throw new AuthError("未认证");
+        throw new AuthError("Unauthorized");
 
       const { id } = parseSearchParams(request, idQuerySchema);
       const token = await revokeApiToken({ userId: session.userId, id });

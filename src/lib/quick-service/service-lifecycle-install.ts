@@ -154,7 +154,7 @@ async function installServiceUnlocked(opts: InstallOptions) {
 			detail: { image: template.image, port: hostPort, error: msg, phase: "upsert" },
 			diff: { before, after: { status: "error", port: hostPort, error: msg } },
 		});
-		throw new BusinessError(`安装失败: ${msg}`);
+		throw new BusinessError(`Installation failed: ${msg}`);
 	}
 
 	try {
@@ -179,7 +179,7 @@ async function installServiceUnlocked(opts: InstallOptions) {
 			},
 		});
 		await notifyQuickServiceInstallFailure(userId, template, msg);
-		throw new BusinessError(`安装失败: ${msg}`);
+		throw new BusinessError(`Installation failed: ${msg}`);
 	}
 
 	return { ...svc, port: hostPort };

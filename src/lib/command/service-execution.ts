@@ -141,7 +141,7 @@ export async function executeCommandOverSsh(input: {
       },
     );
   }
-  throw new Error("缺少 SSH 连接凭据（私钥或密码）");
+  throw new Error("Missing SSH credentials (private key or password)");
 }
 
 export function cancelActiveCommandChild(targetId: string) {
@@ -331,7 +331,7 @@ export async function executeAndFinalizeCommand(commandRequestId: string) {
   });
 
   if (!request) {
-    throw new Error("命令请求不存在");
+    throw new Error("Command request not found");
   }
 
   const runtimeConfig = await getCommandRuntimeConfigValues();

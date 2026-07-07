@@ -22,7 +22,7 @@ const shareLinkPostSchema = z.object({
   maxDownloads: z.number().int().positive().optional().nullable(),
   password: z.string().min(1).max(128).optional(),
 }).refine((data) => Boolean(data.fileEntryId || (data.storageNodeId && data.path)), {
-  message: "必须从文件管理选择文件，或提供存储节点和路径",
+  message: "Must select a file from file manager, or provide storage node and path",
 });
 
 export const dynamic = "force-dynamic";
@@ -30,7 +30,7 @@ export const dynamic = "force-dynamic";
 export async function GET(request: Request) {
   return withApiRoute(
     request,
-    { permission: "share:read", errorMessage: "操作失败" },
+    { permission: "share:read", errorMessage: "OperationFailed" },
     async () => {
       return NextResponse.json({ shares: await listShareLinks() });
     },
@@ -43,13 +43,13 @@ export async function POST(request: Request) {
     {
       permission: "share:create",
       rateLimit: GENERAL_WRITE_LIMIT,
-      errorMessage: "操作失败",
+      errorMessage: "OperationFailed",
       bodySchema: shareLinkPostSchema,
     },
     async ({ session, body: data }) => {
       if (!session)
         return NextResponse.json(
-          { error: "未登录或会话已过期" },
+          { error: "Not authenticated or session expired" },
           { status: 401 },
         );
       const result = data.fileEntryId
@@ -85,7 +85,7 @@ export async function DELETE(request: Request) {
     {
       permission: "share:manage",
       rateLimit: GENERAL_WRITE_LIMIT,
-      errorMessage: "操作失败",
+      errorMessage: "OperationFailed",
     },
     async () => {
       const { id } = parseSearchParams(request, idQuerySchema);

@@ -67,12 +67,12 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 }
 
 function parseString(value: unknown, label: string) {
-	if (typeof value !== "string" || !value.trim()) throw new Error(`QuickService 任务缺少 ${label}`);
+	if (typeof value !== "string" || !value.trim()) throw new Error(`QuickService task missing ${label}`);
 	return value.trim();
 }
 
 function parseTemplate(value: unknown): ServiceTemplate {
-	if (!isRecord(value)) throw new Error("QuickService 安装任务缺少模板");
+	if (!isRecord(value)) throw new Error("QuickService install task missing template");
 	return value as unknown as ServiceTemplate;
 }
 
@@ -87,7 +87,7 @@ function parseNotes(value: unknown): string[] | undefined {
 }
 
 export function parseQuickServiceJobPayload(payload: Prisma.JsonValue): QuickServiceJobPayload {
-	if (!isRecord(payload)) throw new Error("QuickService 任务 payload 无效");
+	if (!isRecord(payload)) throw new Error("QuickService task payload invalid");
 	const action = parseString(payload.action, "操作");
 	const slug = parseString(payload.slug, "服务标识");
 
@@ -111,7 +111,7 @@ export function parseQuickServiceJobPayload(payload: Prisma.JsonValue): QuickSer
 		};
 	}
 
-	throw new Error(`不支持的 QuickService 操作：${action}`);
+	throw new Error(`Unsupported QuickService action: ${action}`);
 }
 
 async function findActiveQuickServiceJob(slug: string) {

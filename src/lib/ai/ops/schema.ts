@@ -22,17 +22,17 @@ export const aiOpsStatusSchema = z.enum(AI_OPS_STATUS_VALUES);
 export const aiOpsFindingSeveritySchema = z.enum(AI_OPS_FINDING_SEVERITY_VALUES);
 
 export const aiOpsFindingSchema = z.object({
-	id: z.string().min(1, "finding.id 不能为空").max(128),
+	id: z.string().min(1, "finding.id is required").max(128),
 	severity: aiOpsFindingSeveritySchema,
-	title: z.string().min(1, "finding.title 不能为空").max(256),
+	title: z.string().min(1, "finding.title is required").max(256),
 	body: z.string().max(4000).default(""),
 	source: z.string().max(256).optional(),
 	resourceRef: z.string().max(256).optional(),
 });
 
 export const aiOpsRecommendedActionSchema = z.object({
-	id: z.string().min(1, "action.id 不能为空").max(128),
-	action: z.string().min(1, "action.action 不能为空").max(256),
+	id: z.string().min(1, "action.id is required").max(128),
+	action: z.string().min(1, "action.action is required").max(256),
 	risk: z.enum(["low", "medium", "high"]),
 	requiresApproval: z.boolean().default(true),
 	reason: z.string().max(1000).optional(),
@@ -57,13 +57,13 @@ export const triggerAiOpsScanSchema = z.object({
 
 /** Schema for the body of an "execute recommendation" call. */
 export const executeRecommendationSchema = z.object({
-	actionId: z.string().min(1, "actionId 不能为空"),
+	actionId: z.string().min(1, "actionId is required"),
 	forceAutonomous: z.boolean().optional(),
 });
 
 /** Schema for the body of an "approve recommendation" call. */
 export const approveRecommendationSchema = z.object({
-	actionId: z.string().min(1, "actionId 不能为空"),
+	actionId: z.string().min(1, "actionId is required"),
 });
 
 /** Schema for the body of a "set mode" settings call.

@@ -159,7 +159,7 @@ export async function syncSftpDirectoryEntries(input: {
 }): Promise<SftpSyncResult> {
   const { node, remotePath, recursive = false, maxDepth = 1 } = input;
   if (node.driver !== "SFTP") {
-    throw new Error("该节点不是 SFTP 类型");
+    throw new Error("This node is not SFTP type");
   }
 
   let credentials: ReturnType<typeof resolveStorageSshCredentials>;

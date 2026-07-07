@@ -241,6 +241,7 @@ export default function ImageBedPage({ canWrite, canDelete }: { canWrite: boolea
 	};
 
 	const selectAll = () => {
+		if (images.length === 0) return;
 		if (selectedIds.size === images.length) {
 			setSelectedIds(new Set());
 		} else {

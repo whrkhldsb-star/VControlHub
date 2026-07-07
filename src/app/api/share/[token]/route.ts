@@ -37,7 +37,7 @@ async function openSftpFile(client: Client, remotePath: string) {
 			if (err) return reject(err);
 			sftp.stat(remotePath, (statErr, stats) => {
 				if (statErr) return reject(statErr);
-				if (!stats.isFile()) return reject(new Error("分享目标不是可下载文件"));
+				if (!stats.isFile()) return reject(new Error("Share target is Not a downloadable file"));
 				resolve({ stream: sftp.createReadStream(remotePath) as import("stream").Readable, size: stats.size });
 			});
 		});

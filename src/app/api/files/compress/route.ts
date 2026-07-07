@@ -24,11 +24,11 @@ export async function POST(request: NextRequest) {
     {
       permission: "storage:write",
       rateLimit: GENERAL_WRITE_LIMIT,
-      errorMessage: "压缩失败",
+      errorMessage: "Compression failed",
       bodySchema: compressFilesBodySchema,
     },
     async ({ session, body }) => {
-      if (!session) throw new AuthError("未授权");
+      if (!session) throw new AuthError("Unauthorized");
 
       const { storageNodeId, relativePaths, targetDir } = body;
       const outputName = normalizeArchiveName(body.outputName);
@@ -39,9 +39,9 @@ export async function POST(request: NextRequest) {
         where: { id: storageNodeId },
         select: { id: true, driver: true, basePath: true },
       });
-      if (!node) throw new NotFoundError("存储节点不存在");
+      if (!node) throw new NotFoundError("Storage node not found");
       if (node.driver !== "LOCAL") {
-        return NextResponse.json({ error: "仅支持本地存储节点批量压缩" }, { status: 400 });
+        return NextResponse.json({ error: "Only local storage node batch compression is supported" }, { status: 400 });
       }
 
       const writeDecision = await assertStorageAccess({
@@ -51,7 +51,7 @@ export async function POST(request: NextRequest) {
         operation: "write",
       });
       if (!writeDecision.allowed) {
-        return NextResponse.json({ error: writeDecision.reason ?? "没有目标目录写入授权" }, { status: 403 });
+        return NextResponse.json({ error: writeDecision.reason ?? "No write permission for target directory" }, { status: 403 });
       }
 
       const outputResolved = resolveStoragePathWithinBase(node.basePath, outputRelativePath);
@@ -62,14 +62,14 @@ export async function POST(request: NextRequest) {
         select: { id: true },
       });
       if (existingOutput || await pathExists(outputResolved.path)) {
-        return NextResponse.json({ error: `目标压缩包 /${outputRelativePath} 已存在` }, { status: 409 });
+        return NextResponse.json({ error: `Target archive /${outputRelativePath} already exists` }, { status: 409 });
       }
 
       const inputs: string[] = [];
       for (const rawRelativePath of relativePaths) {
         const relativePath = rawRelativePath.replace(/^\/+/, "");
         if (relativePath === outputRelativePath) {
-          return NextResponse.json({ error: "不能把目标压缩包加入自身" }, { status: 400 });
+          return NextResponse.json({ error: "Cannot include the target archive in itself" }, { status: 400 });
         }
         const readDecision = await assertStorageAccess({
           session,
@@ -78,11 +78,11 @@ export async function POST(request: NextRequest) {
           operation: "read",
         });
         if (!readDecision.allowed) {
-          return NextResponse.json({ error: readDecision.reason ?? `没有读取 /${relativePath} 的授权` }, { status: 403 });
+          return NextResponse.json({ error: readDecision.reason ?? `No read permission for /${relativePath}` }, { status: 403 });
         }
         const resolved = resolveStoragePathWithinBase(node.basePath, relativePath);
         if (!resolved.ok) return NextResponse.json({ error: resolved.reason }, { status: 400 });
-        if (!await pathExists(resolved.path)) throw new NotFoundError(`文件不存在: /${relativePath}`);
+        if (!await pathExists(resolved.path)) throw new NotFoundError(`File not found: /${relativePath}`);
         inputs.push(relativePath);
       }
 
@@ -95,8 +95,8 @@ export async function POST(request: NextRequest) {
         });
       } catch (error) {
         await fs.rm(outputResolved.path, { force: true });
-        const message = error instanceof Error ? error.message : "tar 命令失败";
-        return NextResponse.json({ error: `压缩失败: ${message}` }, { status: 500 });
+        const message = error instanceof Error ? error.message : "tar command failed";
+        return NextResponse.json({ error: `Compression failed: ${message}` }, { status: 500 });
       } finally {
         await fs.rm(listPath, { force: true });
       }
@@ -117,7 +117,7 @@ export async function POST(request: NextRequest) {
       }
 
       return NextResponse.json({
-        message: `已创建压缩包 /${outputRelativePath}`,
+        message: `Created archive /${outputRelativePath}`,
         relativePath: outputRelativePath,
         name: outputName,
         size: outputStat.size,

@@ -13,11 +13,11 @@ export type ListSnippetsQuery = z.infer<typeof listSnippetsQuerySchema>;
 /* ── POST /api/snippets ───────────────────────────────────────────────── */
 
 export const createSnippetSchema = z.object({
-  title: z.string().trim().min(1, "标题不能为空").max(120, "标题最多 120 个字符"),
-  content: z.string().min(1, "内容不能为空"),
+  title: z.string().trim().min(1, "Title is required").max(120, "Title must be at most 120 characters"),
+  content: z.string().min(1, "Content is required"),
   language: z.string().trim().min(1).max(40).optional(),
-  description: z.string().max(500, "描述最多 500 个字符").optional(),
-  tags: z.array(z.string()).max(20, "标签最多 20 个").optional(),
+  description: z.string().max(500, "Description must be at most 500 characters").optional(),
+  tags: z.array(z.string()).max(20, "At most 20 tags are allowed").optional(),
   isPrivate: z.boolean().optional(),
 });
 export type CreateSnippetInput = z.infer<typeof createSnippetSchema>;
@@ -26,7 +26,7 @@ export type CreateSnippetInput = z.infer<typeof createSnippetSchema>;
 
 export const updateSnippetSchema = z
   .object({
-    id: z.string().trim().min(1, "缺少片段 ID"),
+    id: z.string().trim().min(1, "Snippet ID is required"),
     title: z.string().trim().min(1).max(120).optional(),
     content: z.string().min(1).optional(),
     language: z.string().trim().min(1).max(40).optional(),

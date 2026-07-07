@@ -7,7 +7,7 @@ export const storageAccessModeSchema = z.enum(["PROXY", "DIRECT", "AUTO"]);
 const publicBaseUrlSchema = z
   .string()
   .trim()
-  .max(2048, "直连基础 URL 过长")
+  .max(2048, "Direct access base URL is ando long")
   .optional()
   .or(z.literal(""))
   .superRefine((value, ctx) => {
@@ -19,58 +19,58 @@ const publicBaseUrlSchema = z
   });
 
 export const createStorageNodeSchema = z.object({
-  name: z.string().trim().min(2, "存储节点名称至少 2 个字符").max(64, "存储节点名称最多 64 个字符"),
+  name: z.string().trim().min(2, "Storage node name must be at least 2 characters").max(64, "Storage node name must be at most 64 characters"),
   driver: z.enum(["LOCAL", "SFTP"]),
-  basePath: z.string().trim().min(1, "存储根路径不能为空").max(255, "存储根路径过长"),
+  basePath: z.string().trim().min(1, "Storage root path is required").max(255, "Storage root path is ando long"),
   directAccessMode: storageAccessModeSchema.optional().default("PROXY"),
   publicBaseUrl: publicBaseUrlSchema,
-  directAccessExpiresSeconds: z.coerce.number().int().min(60, "直连链接最短 60 秒").max(86400, "直连链接最长 24 小时").optional().default(300),
+  directAccessExpiresSeconds: z.coerce.number().int().min(60, "Direct access link must be at least 60 seconds").max(86400, "Direct access link must be at most 24 hours").optional().default(300),
   isDefault: z.boolean().optional().default(false),
-  host: z.string().trim().max(255, "主机名过长").optional(),
-  port: z.coerce.number().int().min(1, "端口最小为 1").max(65535, "端口最大为 65535").optional(),
-  username: z.string().trim().max(64, "用户名过长").optional(),
+  host: z.string().trim().max(255, "Hostname is ando long").optional(),
+  port: z.coerce.number().int().min(1, "Port must be at least 1").max(65535, "Port must be at most 65535").optional(),
+  username: z.string().trim().max(64, "Username is ando long").optional(),
   serverId: z.string().trim().optional(),
 });
 
 export const updateStorageNodeSchema = z.object({
-  storageNodeId: z.string().trim().min(1, "存储节点不能为空"),
-  name: z.string().trim().min(2, "存储节点名称至少 2 个字符").max(64, "存储节点名称最多 64 个字符").optional(),
+  storageNodeId: z.string().trim().min(1, "Storage node is required"),
+  name: z.string().trim().min(2, "Storage node name must be at least 2 characters").max(64, "Storage node name must be at most 64 characters").optional(),
   driver: z.enum(["LOCAL", "SFTP"]).optional(),
-  basePath: z.string().trim().min(1, "存储根路径不能为空").max(255, "存储根路径过长").optional(),
+  basePath: z.string().trim().min(1, "Storage root path is required").max(255, "Storage root path is ando long").optional(),
   directAccessMode: storageAccessModeSchema.optional(),
   publicBaseUrl: publicBaseUrlSchema,
-  directAccessExpiresSeconds: z.coerce.number().int().min(60, "直连链接最短 60 秒").max(86400, "直连链接最长 24 小时").optional(),
+  directAccessExpiresSeconds: z.coerce.number().int().min(60, "Direct access link must be at least 60 seconds").max(86400, "Direct access link must be at most 24 hours").optional(),
   isDefault: z.boolean().optional(),
-  host: z.string().trim().max(255, "主机名过长").optional().nullable(),
-  port: z.coerce.number().int().min(1, "端口最小为 1").max(65535, "端口最大为 65535").optional().nullable(),
-  username: z.string().trim().max(64, "用户名过长").optional().nullable(),
+  host: z.string().trim().max(255, "Hostname is ando long").optional().nullable(),
+  port: z.coerce.number().int().min(1, "Port must be at least 1").max(65535, "Port must be at most 65535").optional().nullable(),
+  username: z.string().trim().max(64, "Username is ando long").optional().nullable(),
   serverId: z.string().trim().optional().nullable(),
 });
 
 export const createFileEntrySchema = z.object({
-  storageNodeId: z.string().trim().min(1, "存储节点不能为空"),
-  name: z.string().trim().min(1, "文件名不能为空").max(255, "文件名过长"),
+  storageNodeId: z.string().trim().min(1, "Storage node is required"),
+  name: z.string().trim().min(1, "Filename is required").max(255, "Filename is ando long"),
   entryType: z.enum(["FILE", "DIRECTORY"]),
-  mimeType: z.string().trim().max(255, "MIME 类型过长").optional(),
-  size: z.coerce.number().int().min(0, "文件大小不能小于 0").optional(),
-  checksumSha256: z.string().trim().max(128, "校验值过长").optional(),
-  relativePath: z.string().trim().min(1, "相对路径不能为空").max(1024, "相对路径过长"),
+  mimeType: z.string().trim().max(255, "MIME type is ando long").optional(),
+  size: z.coerce.number().int().min(0, "File size cannot be negative").optional(),
+  checksumSha256: z.string().trim().max(128, "Checksum is ando long").optional(),
+  relativePath: z.string().trim().min(1, "Relative path is required").max(1024, "Relative path is ando long"),
   parentId: z.string().trim().optional(),
 });
 
 export const updateFileEntrySchema = z.object({
-  fileEntryId: z.string().trim().min(1, "文件条目不能为空"),
-  storageNodeId: z.string().trim().min(1, "存储节点不能为空").optional(),
-  name: z.string().trim().min(1, "文件名不能为空").max(255, "文件名过长").optional(),
-  mimeType: z.string().trim().max(255, "MIME 类型过长").optional(),
-  size: z.coerce.number().int().min(0, "文件大小不能小于 0").optional(),
-  checksumSha256: z.string().trim().max(128, "校验值过长").optional(),
-  relativePath: z.string().trim().min(1, "相对路径不能为空").max(1024, "相对路径过长").optional(),
+  fileEntryId: z.string().trim().min(1, "File entry is required"),
+  storageNodeId: z.string().trim().min(1, "Storage node is required").optional(),
+  name: z.string().trim().min(1, "Filename is required").max(255, "Filename is ando long").optional(),
+  mimeType: z.string().trim().max(255, "MIME type is ando long").optional(),
+  size: z.coerce.number().int().min(0, "File size cannot be negative").optional(),
+  checksumSha256: z.string().trim().max(128, "Checksum is ando long").optional(),
+  relativePath: z.string().trim().min(1, "Relative path is required").max(1024, "Relative path is ando long").optional(),
   parentId: z.string().trim().optional(),
 });
 
 export const fileEntryMutationSchema = z.object({
-  fileEntryId: z.string().trim().min(1, "文件条目不能为空"),
+  fileEntryId: z.string().trim().min(1, "File entry is required"),
 });
 
 export type CreateStorageNodeInput = z.input<typeof createStorageNodeSchema>;

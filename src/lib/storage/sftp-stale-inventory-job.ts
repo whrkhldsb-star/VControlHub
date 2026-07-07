@@ -139,7 +139,7 @@ async function executeStaleInventoryJob(job: {
     const nodes = await listSftpNodesForStaleInventory();
     const node = nodes.find((n) => n.id === payload.nodeId);
     if (!node) {
-      throw new Error(`存储节点不存在: ${payload.nodeId}`);
+      throw new Error(`Storage node not found: ${payload.nodeId}`);
     }
     const result = await scanOneNode({ node, maxDepth, dryRun });
     await completeJob(job.id, SFTP_STALE_INVENTORY_WORKER_ID, {

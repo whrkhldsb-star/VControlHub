@@ -71,18 +71,18 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 
 function parseMode(value: unknown): DownloadExecutionMode {
   if (value === "aria2_relay" || value === "direct") return value;
-  throw new Error("download.execute 任务 payload 缺少有效 mode");
+  throw new Error("download.execute job payload is missing a valid mode");
 }
 
 export function parseDownloadExecutionJobPayload(
   payload: Prisma.JsonValue,
 ): DownloadExecutionJobPayload {
-  if (!isRecord(payload)) throw new Error("download.execute 任务 payload 无效");
+  if (!isRecord(payload)) throw new Error("Invalid download.execute job payload");
   const taskId =
     typeof payload.taskId === "string" && payload.taskId.trim()
       ? payload.taskId.trim()
       : null;
-  if (!taskId) throw new Error("download.execute 任务缺少 taskId");
+  if (!taskId) throw new Error("download.execute job missing taskId");
   const mode = parseMode(payload.mode);
   const userId =
     typeof payload.userId === "string" && payload.userId.trim()
@@ -115,7 +115,7 @@ export async function enqueueDownloadExecutionJob(input: {
   // empty taskId to surface caller bugs early` enforces it, and removing
   // the check lets a future caller silently enqueue a dead job.
   const taskId = input.taskId?.trim();
-  if (!taskId) throw new Error("download.execute 任务缺少 taskId");
+  if (!taskId) throw new Error("download.execute job missing taskId");
   const mode = input.mode;
   return enqueueJob({
     type: DOWNLOAD_EXECUTION_JOB_TYPE,
@@ -253,7 +253,7 @@ async function handleClaimedJob(
       await failJob(
         job.id,
         DOWNLOAD_EXECUTION_WORKER_ID,
-        (task.errorMessage ?? "下载任务已失败").slice(0, 2000),
+        (task.errorMessage ?? "Download task failed").slice(0, 2000),
         // No retry: the business side is terminal.
         { retryAfterMs: undefined },
       );
@@ -267,7 +267,7 @@ async function handleClaimedJob(
       await failJob(
         job.id,
         DOWNLOAD_EXECUTION_WORKER_ID,
-        (task.errorMessage ?? "下载任务已取消").slice(0, 2000),
+        (task.errorMessage ?? "Download task cancelled").slice(0, 2000),
         { retryAfterMs: undefined },
       );
       logger.info(

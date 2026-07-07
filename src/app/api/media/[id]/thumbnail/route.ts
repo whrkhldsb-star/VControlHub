@@ -64,8 +64,8 @@ function noteBreakerSuccess(nodeId: string) {
 // the source.
 function placeholderResponse(kind: "offline" | "unsupported" = "offline"): NextResponse {
 	const palette = kind === "offline"
-		? { bg: "#1e293b", fg: "#64748b", icon: "📡", label: "暂不可用" }
-		: { bg: "#1e293b", fg: "#64748b", icon: "📄", label: "无预览" };
+		? { bg: "#1e293b", fg: "#64748b", icon: "📡", label: "Temporarily unavailable" }
+		: { bg: "#1e293b", fg: "#64748b", icon: "📄", label: "No preview" };
 	const svg = `<?xml version="1.0" encoding="UTF-8"?>
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 320" width="320" height="320">
 	<rect width="320" height="320" fill="${palette.bg}"/>
@@ -133,7 +133,7 @@ function resolveManagedLocalPath(basePath: string, relativePath: string) {
 	const allowedRoot = path.resolve(expandStorageBasePath(basePath));
 	const absolutePath = path.resolve(allowedRoot, normalized.path);
 	const relativeToRoot = path.relative(allowedRoot, absolutePath);
-	if (relativeToRoot.startsWith("..") || path.isAbsolute(relativeToRoot)) throw new Error("非法路径");
+	if (relativeToRoot.startsWith("..") || path.isAbsolute(relativeToRoot)) throw new Error("InvalidPath");
 	return absolutePath;
 }
 
@@ -162,7 +162,7 @@ function readRemoteIntoBuffer(client: Client, remotePath: string, maxBytes: numb
 			if (err) return reject(err);
 			sftp.stat(remotePath, (statErr, stats) => {
 				if (statErr) return reject(statErr);
-				if (!stats.isFile()) return reject(new Error("目标不是可读取的文件"));
+				if (!stats.isFile()) return reject(new Error("Target is not a readable file"));
 				if (stats.size > maxBytes) {
 					return reject(new Error("THUMBNAIL_SOURCE_TOO_LARGE"));
 				}
@@ -179,18 +179,18 @@ function readRemoteIntoBuffer(client: Client, remotePath: string, maxBytes: numb
 export async function GET(request: Request, { params }: { params: Promise<{ id: string }> }) {
 	return withApiRoute(
 		request,
-		{ permission: "storage:read", rateLimit: GENERAL_READ_LIMIT, errorMessage: "读取媒体缩略图失败" },
+		{ permission: "storage:read", rateLimit: GENERAL_READ_LIMIT, errorMessage: "Failed to read media thumbnail" },
 		async ({ session }) => {
-			if (!session) throw new AuthError("未认证");
+			if (!session) throw new AuthError("Not authenticated");
 			const { id } = await params;
 	const item = await getMediaItem(id);
-	if (!item || !item.storageNode) return apiError({ code: "NOT_FOUND", message: "媒体不存在", status: 404 });
+	if (!item || !item.storageNode) return apiError({ code: "NOT_FOUND", message: "Media not found", status: 404 });
 
 	const mime = (item.mimeType ?? "").toLowerCase();
 	if (!mime.startsWith(SUPPORTED_IMAGE_MIME_PREFIX)) {
 		// Tell the client we don't have a thumbnail; the UI then falls back to the
 		// generic kind icon (and avoids hammering /stream for big videos).
-		return apiError({ code: "UNSUPPORTED_MEDIA_TYPE", message: "该媒体类型暂不支持缩略图", status: 415 });
+		return apiError({ code: "UNSUPPORTED_MEDIA_TYPE", message: "This media type does not support thumbnails", status: 415 });
 	}
 
 	const accessDecision = await assertStorageAccess({
@@ -200,7 +200,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
 		operation: "read",
 	});
 	if (!accessDecision.allowed) {
-		return apiError({ code: "FORBIDDEN", message: accessDecision.reason ?? "缺少存储访问授权", status: 403 });
+		return apiError({ code: "FORBIDDEN", message: accessDecision.reason ?? "Missing storage access authorization", status: 403 });
 	}
 
 	const cacheRoot = thumbnailCacheRoot();
@@ -247,7 +247,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
 				normalizedRemotePath = normalizeRemoteTargetPath(node.basePath, item.relativePath);
 				normalizedRelativePath = normalizeRemoteRelativePath(item.relativePath);
 			} catch {
-				return NextResponse.json(toClientStorageError("请求路径超出存储节点根目录"), { status: 400 });
+				return NextResponse.json(toClientStorageError("Requested path exceeds storage node root directory"), { status: 400 });
 			}
 			const remoteAccess = await assertStorageAccess({
 				session,
@@ -256,11 +256,11 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
 				operation: "read",
 			});
 			if (!remoteAccess.allowed) {
-				return apiError({ code: "FORBIDDEN", message: remoteAccess.reason ?? "缺少存储访问授权", status: 403 });
+				return apiError({ code: "FORBIDDEN", message: remoteAccess.reason ?? "Missing storage access authorization", status: 403 });
 			}
 			const credentials = (() => {
 				try { return resolveStorageSshCredentials(node); }
-				catch (e) { return e instanceof Error ? e : new Error("缺少远端主机地址或连接凭据"); }
+				catch (e) { return e instanceof Error ? e : new Error("Missing remote host address or connection credentials"); }
 			})();
 			if (credentials instanceof Error) {
 				return apiError({ code: "VALIDATION_FAILED", message: credentials.message, status: 400 });
@@ -285,9 +285,9 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
 			return placeholderResponse("unsupported");
 		}
 	} catch (error) {
-		const message = error instanceof Error ? error.message : "未知错误";
+		const message = error instanceof Error ? error.message : "Unknown error";
 		if (message === "THUMBNAIL_SOURCE_TOO_LARGE") {
-			return apiError({ code: "REQUEST_ENTITY_TOO_LARGE", message: "原始图片过大，无法生成缩略图", status: 413 });
+			return apiError({ code: "REQUEST_ENTITY_TOO_LARGE", message: "Original image is too large, cannot generate thumbnail", status: 413 });
 		}
 		// SFTP / SSH transport failures trip the circuit breaker — the next
 		// gallery render won't try this node again until the cooldown elapses.
@@ -306,7 +306,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
 		thumbnail = await generateThumbnailFromBuffer(sourceBuffer);
 	} catch (error) {
 		logger.error("media thumbnail generate failed", error, { id });
-		return apiError({ code: "INTERNAL_ERROR", message: "缩略图生成失败", status: 500 });
+		return apiError({ code: "INTERNAL_ERROR", message: "Failed to generate thumbnail", status: 500 });
 	}
 
 	try {

@@ -23,7 +23,7 @@ export const dynamic = "force-dynamic";
 export async function GET(request: Request) {
   return withApiRoute(
     request,
-    { permission: "user:manage", errorMessage: "服务器错误" },
+    { permission: "user:manage", errorMessage: "Server error" },
     async () => {
       const { includeApps = true } = parseSearchParams(
         request,
@@ -122,9 +122,9 @@ export async function POST(request: Request) {
       rateLimit: GENERAL_WRITE_LIMIT,
       bodySchema: addSourceSchema,
       onError: (error) => {
-        const msg = error instanceof Error ? error.message : "添加源失败";
+        const msg = error instanceof Error ? error.message : "Failed to add source";
         if (msg.includes("Unique")) {
-          throw new ConflictError("源名称已存在");
+          throw new ConflictError("Source name already exists");
         }
         throw new AppError({ code: "INTERNAL_ERROR", message: msg, status: 500 });
       },
@@ -165,7 +165,7 @@ export async function PATCH(request: Request) {
     {
       permission: "user:manage",
       rateLimit: GENERAL_WRITE_LIMIT,
-      errorMessage: "操作失败",
+      errorMessage: "OperationFailed",
       bodySchema: updateSchema,
     },
     async ({ body }) => {
@@ -195,7 +195,7 @@ export async function DELETE(request: Request) {
     {
       permission: "user:manage",
       rateLimit: GENERAL_WRITE_LIMIT,
-      errorMessage: "删除失败",
+      errorMessage: "DeleteFailed",
     },
     async () => {
       const { id: sourceId } = parseSearchParams(request, idQuerySchema);

@@ -41,7 +41,7 @@ const dockerUnavailableResponse: DockerResult = {
   status: 200,
   data: { networks: [], volumes: [] },
   dockerAvailable: false,
-  message: "Docker 未安装或 Docker socket 不可用",
+  message: "Docker is not installed or Docker socket is unavailable",
 };
 
 function isDockerSocketUnavailable(error: unknown) {
@@ -102,7 +102,7 @@ function dockerRequest(apiPath: string, method = "GET", body?: string): Promise<
 }
 
 export async function GET(req: NextRequest) {
-  return withApiRoute(req, { permission: "docker:manage", errorMessage: "Docker 资源请求失败" }, async () => {
+  return withApiRoute(req, { permission: "docker:manage", errorMessage: "Failed to fetch Docker resources" }, async () => {
     const { type, name } = parseSearchParams(req, getQuerySchema);
     if (type === "networks") {
       const result = await dockerRequest(name ? `/networks/${encodeURIComponent(name)}` : "/networks");
@@ -117,9 +117,9 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   return withApiRoute(
     req,
-    { permission: "docker:manage", rateLimit: COMMAND_LIMIT, errorMessage: "Docker 资源操作失败", bodySchema: postBodySchema },
+    { permission: "docker:manage", rateLimit: COMMAND_LIMIT, errorMessage: "Docker resource operation failed", bodySchema: postBodySchema },
     async ({ session, body: input }) => {
-      if (!session) throw new AuthError("未认证");
+      if (!session) throw new AuthError("Not authenticated");
       const { type, action, name, driver = "local" } = input;
 
       const isNetwork = type === "networks";

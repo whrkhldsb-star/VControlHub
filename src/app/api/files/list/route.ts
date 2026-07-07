@@ -30,7 +30,7 @@ export const dynamic = "force-dynamic";
 export async function GET(request: NextRequest) {
   return withApiRoute(
     request,
-    { permission: "storage:read", errorMessage: "获取文件列表失败" },
+    { permission: "storage:read", errorMessage: "Failed to fetch file list" },
     async ({ session }) => {
       if (!session)
         throw new AuthError("Unauthorized");
@@ -72,7 +72,7 @@ export async function GET(request: NextRequest) {
             });
             if (syncResult.errors.length > 0) {
               syncWarning =
-                syncResult.errors[0] ?? "远端目录同步失败，已显示本地索引";
+                syncResult.errors[0] ?? "Remote directory sync failed, showing local index";
             } else {
               storage = await getStorageOverview();
             }
@@ -104,11 +104,11 @@ export async function GET(request: NextRequest) {
       const currentNode = findFileTreeNode(tree, responseCurrentPath) ?? tree;
 
       let folders = [...currentNode.folders.values()].sort((a, b) =>
-        a.name.localeCompare(b.name, "zh-CN"),
+        a.name.localeCompare(b.name),
       );
       let files = [...currentNode.files]
         .filter((entry) => !isDirectoryEntry(entry))
-        .sort((a, b) => a.name.localeCompare(b.name, "zh-CN"));
+        .sort((a, b) => a.name.localeCompare(b.name));
 
       // Apply search filter
       if (searchQuery) {

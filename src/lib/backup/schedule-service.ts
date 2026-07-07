@@ -45,24 +45,24 @@ export type UpdateBackupScheduleInput = Partial<Omit<CreateBackupScheduleInput, 
  */
 export function validateCronExpression(expr: string): string {
   const trimmed = expr.trim();
-  if (!trimmed) throw new ValidationError("cron 表达式不能为空");
+  if (!trimmed) throw new ValidationError("Cron expression is required");
   try {
     CronExpressionParser.parse(trimmed, { currentDate: new Date() });
   } catch {
-    throw new ValidationError("cron 表达式格式无效");
+    throw new ValidationError("Cron expression format is invalid");
   }
   return trimmed;
 }
 
 export function validateBackupType(value: string): BackupType {
-  if (!isBackupType(value)) throw new ValidationError("备份类型无效");
+  if (!isBackupType(value)) throw new ValidationError("Backup type is invalid");
   return value;
 }
 
 export function validateRetentionDays(value: number | null | undefined): number | null {
   if (value === null || value === undefined) return null;
   if (!Number.isFinite(value) || value < 1 || value > 3650) {
-    throw new ValidationError("保留天数必须在 1-3650 之间");
+    throw new ValidationError("Retention days must be between 1 and 3650");
   }
   return Math.floor(value);
 }
@@ -74,10 +74,10 @@ export async function createBackupSchedule(input: CreateBackupScheduleInput) {
   const backupType = validateBackupType(input.backupType);
   const retentionDays = validateRetentionDays(input.retentionDays ?? null);
   const name = input.name.trim();
-  if (!name) throw new ValidationError("计划名称不能为空");
-  if (name.length > 100) throw new ValidationError("计划名称过长");
+  if (!name) throw new ValidationError("Schedule name is required");
+  if (name.length > 100) throw new ValidationError("Schedule name is too long");
   const note = input.note?.trim() || null;
-  if (note && note.length > 500) throw new ValidationError("备注过长");
+  if (note && note.length > 500) throw new ValidationError("Note is too long");
 
   return prisma.backupSchedule.create({
     data: {
@@ -107,13 +107,13 @@ export async function getBackupSchedule(id: string) {
 
 export async function updateBackupSchedule(id: string, input: UpdateBackupScheduleInput) {
   const existing = await prisma.backupSchedule.findUnique({ where: { id } });
-  if (!existing) throw new NotFoundError("备份计划不存在");
+  if (!existing) throw new NotFoundError("Backup schedule not found");
 
   const data: Record<string, unknown> = {};
   if (input.name !== undefined) {
     const name = input.name.trim();
-    if (!name) throw new ValidationError("计划名称不能为空");
-    if (name.length > 100) throw new ValidationError("计划名称过长");
+    if (!name) throw new ValidationError("Schedule name is required");
+    if (name.length > 100) throw new ValidationError("Schedule name is too long");
     data.name = name;
   }
   if (input.cronExpression !== undefined) {
@@ -125,7 +125,7 @@ export async function updateBackupSchedule(id: string, input: UpdateBackupSchedu
   }
   if (input.note !== undefined) {
     const note = input.note.trim();
-    if (note.length > 500) throw new ValidationError("备注过长");
+    if (note.length > 500) throw new ValidationError("Note is too long");
     data.note = note || null;
   }
   if (input.retentionDays !== undefined) {
@@ -133,7 +133,7 @@ export async function updateBackupSchedule(id: string, input: UpdateBackupSchedu
   }
   if (input.status !== undefined) {
     if (!["ACTIVE", "PAUSED", "DISABLED"].includes(input.status)) {
-      throw new ValidationError("状态值无效");
+      throw new ValidationError("Status value is invalid");
     }
     data.status = input.status;
     // Pausing/disabling clears nextRunAt; (re)activating recomputes it.
@@ -152,7 +152,7 @@ export async function updateBackupSchedule(id: string, input: UpdateBackupSchedu
 
 export async function deleteBackupSchedule(id: string) {
   const existing = await prisma.backupSchedule.findUnique({ where: { id }, select: { id: true } });
-  if (!existing) throw new NotFoundError("备份计划不存在");
+  if (!existing) throw new NotFoundError("Backup schedule not found");
   await prisma.backupSchedule.delete({ where: { id } });
   return { id };
 }
@@ -162,7 +162,7 @@ export async function toggleBackupSchedule(id: string) {
     where: { id },
     select: { status: true, cronExpression: true },
   });
-  if (!existing) throw new NotFoundError("备份计划不存在");
+  if (!existing) throw new NotFoundError("Backup schedule not found");
   const newStatus: BackupScheduleStatus = existing.status === "ACTIVE" ? "PAUSED" : "ACTIVE";
   return updateBackupSchedule(id, { status: newStatus });
 }
@@ -211,17 +211,17 @@ export async function dispatchDueSchedule(schedule: {
   nextRunAt: Date | null;
 }): Promise<DispatchedBackupSchedule | null> {
   if (!schedule.createdById) {
-    await recordScheduleRun(schedule.id, "跳过：备份计划无创建者");
+    await recordScheduleRun(schedule.id, "Skipped: backup schedule has no creator");
     return null;
   }
   if (!isBackupType(schedule.backupType)) {
-    await recordScheduleRun(schedule.id, `跳过：备份类型无效 ${schedule.backupType}`);
+    await recordScheduleRun(schedule.id, `Skipped: invalid backup type ${schedule.backupType}`);
     return null;
   }
 
   const note = schedule.note
-    ? `${schedule.note}（定时：${schedule.name}）`
-    : `定时备份：${schedule.name}`;
+    ? `${schedule.note} (scheduled: ${schedule.name})`
+    : `Scheduled backup: ${schedule.name}`;
 
   const backup = await createBackupRecord({
     type: schedule.backupType,
@@ -231,7 +231,7 @@ export async function dispatchDueSchedule(schedule: {
 
   const job = await enqueueJob({
     type: BACKUP_CREATE_JOB_TYPE,
-    title: `定时备份：${schedule.name}`,
+    title: `Scheduled backup: ${schedule.name}`,
     payload: {
       backupId: backup.id,
       scheduleId: schedule.id,
@@ -241,7 +241,7 @@ export async function dispatchDueSchedule(schedule: {
     maxAttempts: 1,
   });
 
-  await recordScheduleRun(schedule.id, `已触发备份任务 ${backup.id}（job ${job.id}）`);
+  await recordScheduleRun(schedule.id, `Backup task ${backup.id} triggered (job ${job.id})`);
   return { scheduleId: schedule.id, backupRecordId: backup.id, jobId: job.id };
 }
 

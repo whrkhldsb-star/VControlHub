@@ -144,6 +144,8 @@ export function UnifiedSettingsPageClient({
         aria-label={t("settingsClient.categoryNav")}
       >
         <nav
+          role="tablist"
+          aria-label={t("settingsClient.tabsAria")}
           className="grid grid-cols-2 gap-1 rounded-xl border border-[var(--border)] bg-[var(--surface)] p-1.5 backdrop-blur-sm md:flex md:overflow-x-auto"
           data-card
         >

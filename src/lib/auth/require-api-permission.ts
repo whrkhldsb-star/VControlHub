@@ -10,10 +10,10 @@ export async function requireApiPermission(
   try {
     const session = await requireSession();
     if (!sessionHasPermission(session, permission)) {
-      return NextResponse.json({ error: "缺少权限" }, { status: 403 });
+      return NextResponse.json({ error: "Insufficient permissions" }, { status: 403 });
     }
     return { session };
   } catch {
-    return NextResponse.json({ error: "未认证" }, { status: 401 });
+    return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
   }
 }

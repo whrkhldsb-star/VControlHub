@@ -10,7 +10,7 @@ export const dynamic = "force-dynamic";
 export async function POST(request: Request) {
 	return withApiRoute(
 		request,
-		{ requireAuth: true, rateLimit: GENERAL_WRITE_LIMIT, bodySchema: switchTeamSchema, errorMessage: "切换团队空间失败" },
+		{ requireAuth: true, rateLimit: GENERAL_WRITE_LIMIT, bodySchema: switchTeamSchema, errorMessage: "Failed to switch team workspace" },
 		async ({ session, body }) => {
 			const team = await switchCurrentTeam(body.teamId, session!);
 			return NextResponse.json({ success: true, team });

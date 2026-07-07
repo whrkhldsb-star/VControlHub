@@ -4,28 +4,28 @@ export const loginSchema = z.object({
   username: z
     .string()
     .trim()
-    .min(3, "用户名至少 3 个字符")
-    .max(32, "用户名最多 32 个字符"),
+    .min(3, "Username must be at least 3 characters")
+    .max(32, "Username must be at most 32 characters"),
   password: z
     .string()
-    .min(8, "密码至少 8 位")
-    .max(128, "密码最多 128 位"),
+    .min(8, "Password must be at least 8 characters")
+    .max(128, "Password must be at most 128 characters"),
 });
 
 export const changePasswordSchema = z
   .object({
     currentPassword: z
       .string()
-      .min(8, "当前密码至少 8 位")
-      .max(128, "当前密码最多 128 位"),
+      .min(8, "Current password must be at least 8 characters")
+      .max(128, "Current password must be at most 128 characters"),
     newPassword: z
       .string()
-      .min(8, "新密码至少 8 位")
-      .max(128, "新密码最多 128 位"),
+      .min(8, "New password must be at least 8 characters")
+      .max(128, "New password must be at most 128 characters"),
     confirmPassword: z
       .string()
-      .min(8, "确认密码至少 8 位")
-      .max(128, "确认密码最多 128 位"),
+      .min(8, "Confirm password must be at least 8 characters")
+      .max(128, "Confirm password must be at most 128 characters"),
   })
   .refine((value) => value.newPassword === value.confirmPassword, {
     message: "两次输入的新密码不一致",

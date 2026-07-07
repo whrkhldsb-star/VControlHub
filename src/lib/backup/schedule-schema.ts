@@ -10,11 +10,11 @@ import { z } from "zod";
 export const backupTypeSchema = z.enum(["DATABASE", "FILES", "FULL"]);
 
 export const createBackupScheduleSchema = z.object({
-  name: z.string().trim().min(1, "计划名称不能为空").max(100, "计划名称过长"),
-  cronExpression: z.string().trim().min(1, "cron 表达式不能为空"),
+  name: z.string().trim().min(1, "Schedule name is required").max(100, "Schedule name is too long"),
+  cronExpression: z.string().trim().min(1, "Cron expression is required"),
   backupType: backupTypeSchema,
-  note: z.string().trim().max(500, "备注过长").optional(),
-  retentionDays: z.number().int().min(1).max(3650, "保留天数必须在 1-3650 之间").nullable().optional(),
+  note: z.string().trim().max(500, "Note is too long").optional(),
+  retentionDays: z.number().int().min(1).max(3650, "Retention days must be between 1 and 3650").nullable().optional(),
 });
 
 export const updateBackupScheduleSchema = createBackupScheduleSchema

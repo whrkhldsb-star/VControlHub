@@ -25,7 +25,7 @@ export async function POST(request: Request) {
 		if (!rateCheck.allowed) {
 			return apiError({
 				code: "RATE_LIMITED",
-				message: "验证尝试过于频繁，请稍后再试",
+				message: "Too many verification attempts, please try again later",
 				status: 429,
 			});
 		}
@@ -34,7 +34,7 @@ export async function POST(request: Request) {
 		if (!parsed.success) {
 			return apiError({
 				code: "VALIDATION_FAILED",
-				message: "输入参数无效",
+				message: "Invalid input parameter",
 				status: 400,
 				details: parsed.error.flatten().fieldErrors,
 			});
@@ -43,9 +43,9 @@ export async function POST(request: Request) {
 		if (!/^\d{4,8}$/.test(code)) {
 			return apiError({
 				code: "VALIDATION_FAILED",
-				message: "请输入有效的验证码",
+				message: "Please enter a valid verification code",
 				status: 400,
-				details: { fieldErrors: { code: ["格式必须为 4-8 位数字"] } },
+				details: { fieldErrors: { code: ["format must be 4-8 digits"] } },
 			});
 		}
 
@@ -55,7 +55,7 @@ export async function POST(request: Request) {
 		if (!pendingCookie?.value) {
 			return apiError({
 				code: "PENDING_2FA_EXPIRED",
-				message: "会话已过期，请重新登录",
+				message: "Session expired, please log in again",
 				status: 401,
 			});
 		}
@@ -66,7 +66,7 @@ export async function POST(request: Request) {
 			cookieStore.delete(getPending2faCookieName());
 			return apiError({
 				code: "PENDING_2FA_EXPIRED",
-				message: "会话已过期，请重新登录",
+				message: "Session expired, please log in again",
 				status: 401,
 			});
 		}
@@ -81,7 +81,7 @@ export async function POST(request: Request) {
 			cookieStore.delete(getPending2faCookieName());
 			return apiError({
 				code: "TWO_FACTOR_DISABLED",
-				message: "两步验证未启用",
+				message: "Two-factor verification is not enabled",
 				status: 400,
 			});
 		}
@@ -92,7 +92,7 @@ export async function POST(request: Request) {
 			auditSystemAction("auth.2fa_failed", { userId: sessionPayload.userId, ip: clientIp }, "WARNING");
 			return apiError({
 				code: "TWO_FACTOR_INVALID_CODE",
-				message: "验证码错误",
+				message: "VerifycodeError",
 				status: 400,
 			});
 		}
@@ -130,6 +130,6 @@ export async function POST(request: Request) {
 		return response;
 	} catch (error) {
 		// apiCatch with 500 fallback logs the error and returns INTERNAL_ERROR
-		return apiCatch(error, 500, "验证失败，请重试");
+		return apiCatch(error, 500, "VerifyFailed，pleaseRetry");
 	}
 }

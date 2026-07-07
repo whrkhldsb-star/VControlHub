@@ -27,10 +27,10 @@ const scheduledTaskPostSchema = z.object({
   reason: z.string().optional(),
   serverIds: z.array(z.string()).optional(),
 }).refine((data) => Boolean(data.cronExpression ?? data.cron), {
-  message: "Cron 表达式不能为空",
+  message: "Cron expression is required",
   path: ["cronExpression"],
 }).refine((data) => (data.serverIds?.length ?? 0) > 0 || Boolean(data.serverId), {
-  message: "请至少选择一台目标 VPS",
+  message: "Please select at least one target VPS",
   path: ["serverIds"],
 });
 
@@ -75,7 +75,7 @@ export async function GET(request: Request) {
     request,
     {
       permission: "command:read",
-      errorMessage: "服务器错误",
+      errorMessage: "Server error",
     },
     async () => {
       const tasks = await listScheduledTasks();
@@ -108,14 +108,14 @@ export async function POST(request: Request) {
       rateLimit: GENERAL_WRITE_LIMIT,
       bodySchema: scheduledTaskPostSchema,
       errorStatus: 400,
-      errorMessage: "创建失败",
+      errorMessage: "Creation failed",
     },
     async ({ session, body: data }) => {
       if (!session)
-        throw new AuthError("未认证");
+        throw new AuthError("Unauthorized");
       const cronExpression = data.cronExpression ?? data.cron;
       if (!cronExpression)
-        throw new ValidationError("Cron 表达式不能为空");
+        throw new ValidationError("Cron expression is required");
       const task = await createScheduledTask({
         name: data.name,
         cronExpression,
@@ -142,11 +142,11 @@ export async function PATCH(request: Request) {
       rateLimit: GENERAL_WRITE_LIMIT,
       bodySchema: scheduledTaskPatchSchema,
       errorStatus: 400,
-      errorMessage: "更新失败",
+      errorMessage: "Update failed",
     },
     async ({ session, body: data }) => {
       if (!session)
-        throw new AuthError("未认证");
+        throw new AuthError("Unauthorized");
       if (data.toggleId) {
         const result = await toggleScheduledTask(data.toggleId);
         auditUserAction(
@@ -166,7 +166,7 @@ export async function PATCH(request: Request) {
         return NextResponse.json({ task: result });
       }
       if (!data.id)
-        throw new ValidationError("缺少任务 ID");
+        throw new ValidationError("Missing task ID");
       const result = await updateScheduledTask(data.id, {
         name: data.name,
         cronExpression: data.cronExpression ?? data.cron,
@@ -192,11 +192,11 @@ export async function DELETE(request: Request) {
       permission: "command:create",
       rateLimit: GENERAL_WRITE_LIMIT,
       errorStatus: 400,
-      errorMessage: "删除失败",
+      errorMessage: "Delete failed",
     },
     async ({ session }) => {
       if (!session)
-        throw new AuthError("未认证");
+        throw new AuthError("Unauthorized");
       const { id } = parseSearchParams(request, idQuerySchema);
       const deleted = await deleteScheduledTask(id);
       auditUserAction(

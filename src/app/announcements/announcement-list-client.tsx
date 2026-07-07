@@ -4,6 +4,7 @@ import { memo, useCallback, useState, useMemo } from "react";
 import { csrfFetch } from "@/lib/auth/csrf-client";
 import { useToast } from "@/components/toast-provider";
 import { useI18n } from "@/lib/i18n/use-locale";
+import { formatDate, formatDateTime } from "@/lib/datetime/format";
 import { AnnouncementEditModal } from "./announcement-edit-modal";
 import { Pencil, Trash2, Search } from "@/components/icons";
 
@@ -30,12 +31,13 @@ function levelLabel(t: (k: string) => string, key: string): string {
 type AnnouncementCardProps = {
   announcement: Announcement;
   t: (k: string) => string;
+  locale: string;
   canManage: boolean;
   onEdit: (a: Announcement) => void;
   onDelete: (a: Announcement) => void;
 };
 
-const AnnouncementCard = memo(function AnnouncementCard({ announcement: a, t, canManage, onEdit, onDelete }: AnnouncementCardProps) {
+const AnnouncementCard = memo(function AnnouncementCard({ announcement: a, t, locale, canManage, onEdit, onDelete }: AnnouncementCardProps) {
   return (
     <div className={`group relative rounded-xl border p-5 ${levelColors[a.level] ?? levelColors.info}`}>
       <div className="flex items-start justify-between gap-3">
@@ -47,7 +49,7 @@ const AnnouncementCard = memo(function AnnouncementCard({ announcement: a, t, ca
           <h2 className="mt-1 text-base font-semibold text-[var(--text-primary)]">{a.title}</h2>
         </div>
         <div className="flex items-center gap-2">
-          <span className="text-xs text-[var(--text-muted)] whitespace-nowrap">{new Date(a.startsAt).toLocaleDateString("en-US")}</span>
+          <span className="text-xs text-[var(--text-muted)] whitespace-nowrap">{formatDate(a.startsAt, locale as "zh" | "en")}</span>
           {canManage && (
             <div className="flex items-center gap-1 opacity-0 transition group-hover:opacity-100">
               <button onClick={() => onEdit(a)} title={t("announcementsPage.action.edit")} aria-label={t("announcementsPage.action.edit")} className="rounded-lg p-1.5 text-[var(--text-muted)] hover:bg-[var(--surface)]/10 hover:text-[var(--color-action)]">
@@ -62,11 +64,11 @@ const AnnouncementCard = memo(function AnnouncementCard({ announcement: a, t, ca
       </div>
       <p className="mt-3 text-sm text-[var(--text-secondary)] whitespace-pre-wrap leading-relaxed">{a.body}</p>
       {a.expiresAt && (
-        <p className="mt-3 text-xs text-[var(--text-muted)]">{t("common.validUntil")} {new Date(a.expiresAt).toLocaleString("en-US")}</p>
+        <p className="mt-3 text-xs text-[var(--text-muted)]">{t("common.validUntil")} {formatDateTime(a.expiresAt, locale as "zh" | "en")}</p>
       )}
     </div>
   );
-}, (prev, next) => prev.announcement === next.announcement && prev.t === next.t && prev.canManage === next.canManage && prev.onEdit === next.onEdit && prev.onDelete === next.onDelete);
+}, (prev, next) => prev.announcement === next.announcement && prev.t === next.t && prev.locale === next.locale && prev.canManage === next.canManage && prev.onEdit === next.onEdit && prev.onDelete === next.onDelete);
 
 export function AnnouncementList({
   items: initial,
@@ -167,7 +169,7 @@ export function AnnouncementList({
           </div>
         ) : (
           filtered.map((a) => (
-            <AnnouncementCard key={a.id} announcement={a} t={t} canManage={canManage} onEdit={handleEdit} onDelete={handleDeleteClick} />
+            <AnnouncementCard key={a.id} announcement={a} t={t} locale={locale} canManage={canManage} onEdit={handleEdit} onDelete={handleDeleteClick} />
           ))
         )}
       </div>

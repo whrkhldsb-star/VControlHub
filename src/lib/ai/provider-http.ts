@@ -65,7 +65,7 @@ export async function fetchProviderModels(
 	input: ProviderModelsRequest,
 ): Promise<ProviderModelRow[]> {
 	if (!input.apiKey.trim()) {
-		throw new ValidationError("API Key 不能为空");
+		throw new ValidationError("API Key is required");
 	}
 	const baseUrl = trimTrailingSlash(input.baseUrl);
 	const response = await fetch(`${baseUrl}${MODELS_PATH}`, {

@@ -45,7 +45,7 @@ export async function GET(
 
     if (!image) {
       return NextResponse.json(
-        { error: "图片不存在或不可访问" },
+        { error: "Image not found or inaccessible" },
         { status: 404 },
       );
     }
@@ -59,7 +59,7 @@ export async function GET(
 
       if (!canReadPrivateImage) {
         return NextResponse.json(
-          { error: "图片不存在或不可访问" },
+          { error: "Image not found or inaccessible" },
           { status: 404 },
         );
       }
@@ -67,14 +67,14 @@ export async function GET(
 
     const filePath = resolveUploadPath(image.storageKey);
     if (!filePath) {
-      return apiError({ code: "VALIDATION_FAILED", message: "文件路径无效", status: 400 });
+      return apiError({ code: "VALIDATION_FAILED", message: "Invalid file path", status: 400 });
     }
 
     let fileStat;
     try {
       fileStat = await stat(filePath);
     } catch {
-      return apiError({ code: "NOT_FOUND", message: "文件已丢失", status: 404 });
+      return apiError({ code: "NOT_FOUND", message: "File is missing", status: 404 });
     }
 
     const stream = createReadStream(filePath);
@@ -103,6 +103,6 @@ export async function GET(
       },
     });
   } catch {
-    return apiError({ code: "INTERNAL_ERROR", message: "获取图片失败", status: 500 });
+    return apiError({ code: "INTERNAL_ERROR", message: "Failed to fetch image", status: 500 });
   }
 }

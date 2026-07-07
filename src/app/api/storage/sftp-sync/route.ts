@@ -34,7 +34,7 @@ export async function POST(request: Request) {
     { permission: "storage:write", rateLimit: GENERAL_WRITE_LIMIT, bodySchema: sftpSyncSchema },
     async ({ session, body }) => {
       if (!session)
-        throw new AuthError("未认证");
+        throw new AuthError("Not authenticated");
 
       const {
         nodeId,
@@ -45,11 +45,11 @@ export async function POST(request: Request) {
 
       const node = await getSftpSyncNode(nodeId);
       if (!node) {
-        throw new NotFoundError("存储节点不存在");
+        throw new NotFoundError("Storage node not found");
       }
       if (node.driver !== "SFTP") {
         return NextResponse.json(
-          { error: "该节点不是 SFTP 类型" },
+          { error: "This Node is Not SFTP type" },
           { status: 400 },
         );
       }
@@ -58,7 +58,7 @@ export async function POST(request: Request) {
         normalizeRemotePath(node.basePath, remotePath);
       } catch {
         return NextResponse.json(
-          toClientStorageError("同步路径超出存储节点根目录"),
+          toClientStorageError("SyncPathexceedsstorage noderootDirectory"),
           { status: 400 },
         );
       }
@@ -71,7 +71,7 @@ export async function POST(request: Request) {
       });
       if (!accessDecision.allowed) {
         return NextResponse.json(
-          { error: accessDecision.reason ?? "缺少存储访问授权" },
+          { error: accessDecision.reason ?? "Missing storage access authorization" },
           { status: 403 },
         );
       }
@@ -93,7 +93,7 @@ export async function POST(request: Request) {
           }, { status });
         } catch (error) {
           return NextResponse.json(
-            { error: error instanceof Error ? error.message : "同步失败" },
+            { error: error instanceof Error ? error.message : "SyncFailed" },
             { status: 400 },
           );
         }
@@ -101,7 +101,7 @@ export async function POST(request: Request) {
 
       const job = await enqueueJob({
         type: SFTP_SYNC_JOB_TYPE,
-        title: `SFTP 同步：${node.name}`,
+        title: `SFTP Sync：${node.name}`,
         payload: { nodeId, remotePath, recursive, maxDepth },
         createdBy: session.userId,
         maxAttempts: 3,
@@ -112,7 +112,7 @@ export async function POST(request: Request) {
         jobId: job.id,
         taskId: `job:${job.id}`,
         status: job.status,
-        message: "SFTP 同步已加入后台任务，可在任务中心查看进度。",
+        message: "SFTP sync has been added as a background task, you can check progress in the task center.",
       }, { status: 202 });
     },
   );

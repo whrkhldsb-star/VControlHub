@@ -78,8 +78,8 @@ export default async function AuditPage({ searchParams }: AuditPageProps) {
 							<div className="grid gap-3 sm:grid-cols-5">
 								<StatCard label={copy.statsTotal} value={String(stats.total)} />
 								<StatCard label={copy.statsRecent24h} value={String(stats.recentCount)} accent />
-								<StatCard label="WARNING" value={String(stats.bySeverity["WARNING"] ?? 0)} accentColor="amber" />
-								<StatCard label="CRITICAL" value={String(stats.bySeverity["CRITICAL"] ?? 0)} accentColor="rose" />
+								<StatCard label={t("auditPage.statsWarning", locale)} value={String(stats.bySeverity["WARNING"] ?? 0)} accentColor="amber" />
+								<StatCard label={t("auditPage.statsCritical", locale)} value={String(stats.bySeverity["CRITICAL"] ?? 0)} accentColor="rose" />
 								<StatCard label={copy.statsHighRisk} value={String(highRiskCount)} accentColor="rose" />
 							</div>
 							<div className="grid gap-3 lg:grid-cols-[1.2fr_1fr]">

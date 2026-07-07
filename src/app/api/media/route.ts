@@ -13,7 +13,7 @@ export const dynamic = "force-dynamic";
 export async function GET(request: Request) {
   return withApiRoute(
     request,
-    { permission: "storage:read", errorMessage: "获取媒体列表失败" },
+    { permission: "storage:read", errorMessage: "Failed to fetch media list" },
     async () => {
       const { type, q, favorite, tag } = parseSearchParams(
         request,
@@ -46,11 +46,11 @@ export async function POST(request: Request) {
     {
       permission: "media:manage",
       rateLimit: GENERAL_WRITE_LIMIT,
-      errorMessage: "操作失败",
+      errorMessage: "OperationFailed",
     },
     async ({ session }) => {
       if (!session)
-        throw new AuthError("未认证");
+        throw new AuthError("Not authenticated");
       return NextResponse.json(await scanMediaFromFileEntries(session.userId));
     },
   );

@@ -92,7 +92,7 @@ async function findDirectoryEntry(nodeId: string, relativePath: string) {
 export async function GET(request: Request) {
   return withApiRoute(request, { permission: "storage:read" }, async ({ session }) => {
     if (!session) {
-      throw new AuthError("未认证");
+      throw new AuthError("Not authenticated");
     }
 
     const _url = new URL(request.url);
@@ -102,10 +102,10 @@ export async function GET(request: Request) {
     );
 
     if (!nodeId) {
-      throw new ValidationError("缺少 nodeId 参数");
+      throw new ValidationError("Missing nodeId Parameter");
     }
     if (!requestedPath) {
-      throw new ValidationError("缺少 path 参数");
+      throw new ValidationError("Missing path Parameter");
     }
 
     const normalizedPath = normalizeStorageRelativePath(requestedPath);
@@ -115,10 +115,10 @@ export async function GET(request: Request) {
 
     const entry = await findDirectoryEntry(nodeId, normalizedPath.path);
     if (!entry) {
-      throw new NotFoundError("目录条目不存在");
+      throw new NotFoundError("DirectoryEntryNot found");
     }
     if (!isDirectoryEntry(entry)) {
-      throw new ValidationError("目标不是目录");
+      throw new ValidationError("Target is not a directory");
     }
 
     const accessDecision = await assertStorageAccess({
@@ -129,7 +129,7 @@ export async function GET(request: Request) {
     });
     if (!accessDecision.allowed) {
       return NextResponse.json(
-        { error: accessDecision.reason ?? "缺少存储访问授权" },
+        { error: accessDecision.reason ?? "Missing storage access authorization" },
         { status: 403 },
       );
     }
@@ -143,21 +143,21 @@ export async function GET(request: Request) {
       }
       const directoryStat = await stat(resolved.path).catch(() => null);
       if (!directoryStat?.isDirectory()) {
-        throw new NotFoundError("本机目录不存在或不可读取");
+        throw new NotFoundError("Local directory not found or cannot be read");
       }
       const stream = streamLocalTarGz(resolved.path, path.basename(resolved.path));
       return archiveStreamResponse(stream, archiveName);
     }
 
     if (entry.storageNode.driver !== "SFTP") {
-      throw new ValidationError("该存储节点暂不支持目录下载");
+      throw new ValidationError("This storage node does not support directory download");
     }
 
     const credentials = (() => {
       try {
         return resolveStorageSshCredentials(entry.storageNode);
       } catch (error) {
-        return error instanceof Error ? error : new Error("缺少远端连接凭据");
+        return error instanceof Error ? error : new Error("Missingremoteconnectioncredentials");
       }
     })();
     if (credentials instanceof Error) {
@@ -184,7 +184,7 @@ export async function GET(request: Request) {
     } catch (error) {
       client?.end();
       logger.error("archive download failed", error, { nodeId: entry.storageNode.id });
-      return NextResponse.json(toClientStorageError("目录归档下载失败"), { status: 502 });
+      return NextResponse.json(toClientStorageError("Directory archive download failed"), { status: 502 });
     }
   });
 }

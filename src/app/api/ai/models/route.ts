@@ -13,10 +13,10 @@ export const dynamic = "force-dynamic";
 export async function GET(request: Request) {
   return withApiRoute(
     request,
-    { requireAuth: true, errorStatus: 400, errorMessage: "获取模型列表失败" },
+    { requireAuth: true, errorStatus: 400, errorMessage: "Failed to fetch model list" },
     async ({ session }) => {
       if (!session)
-        throw new AuthError("未认证");
+        throw new AuthError("Not authenticated");
 
       const { providerId } = parseSearchParams(request, aiModelsQuerySchema);
 

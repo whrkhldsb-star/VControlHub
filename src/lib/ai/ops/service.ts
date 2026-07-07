@@ -232,17 +232,17 @@ export async function approveRecommendation(input: {
 }): Promise<{ ok: boolean; errorMessage?: string }> {
 	const log = await prisma.aiOpsLog.findUnique({ where: { id: input.logId } });
 	if (!log) {
-		return { ok: false, errorMessage: "日志不存在" };
+		return { ok: false, errorMessage: "Log not found" };
 	}
 	const actions = parseActions(log.actions, log.mode as AiOpsMode);
 	const match = actions.find(
 		(a) => (a as { id: string }).id === input.actionId,
 	) as AiOpsRecommendedAction | undefined;
 	if (!match) {
-		return { ok: false, errorMessage: "推荐项不存在" };
+		return { ok: false, errorMessage: "Recommendation not found" };
 	}
 	if (!match.requiresApproval) {
-		return { ok: false, errorMessage: "该推荐项无需审批" };
+		return { ok: false, errorMessage: "This recommendation does not require approval" };
 	}
 
 	// Mark the action as approved, preserving all other actions
@@ -268,14 +268,14 @@ export async function executeRecommendation(
 ): Promise<ExecuteRecommendationResult> {
 	const log = await prisma.aiOpsLog.findUnique({ where: { id: input.logId } });
 	if (!log) {
-		return { ok: false, executed: false, errorMessage: "日志不存在" };
+		return { ok: false, executed: false, errorMessage: "Log not found" };
 	}
 	const actions = parseActions(log.actions, log.mode as AiOpsMode);
 	const match = actions.find(
 		(a) => (a as { id: string }).id === input.actionId,
 	) as AiOpsRecommendedAction | undefined;
 	if (!match) {
-		return { ok: false, executed: false, errorMessage: "推荐项不存在" };
+		return { ok: false, executed: false, errorMessage: "Recommendation not found" };
 	}
 
 	const safeSet = new Set<string>(AI_OPS_SAFE_AUTONOMOUS_ACTIONS);
@@ -284,14 +284,14 @@ export async function executeRecommendation(
 		return {
 			ok: true,
 			executed: false,
-			errorMessage: "需要管理员审批, 不会自动执行",
+			errorMessage: "Admin approval required; will not execute automatically",
 		};
 	}
 	if (input.forceAutonomous && !isSafe) {
 		return {
 			ok: true,
 			executed: false,
-			errorMessage: `动作 ${match.action} 不在自主安全集合中, 需人工执行`,
+			errorMessage: `Action ${match.action} is not in the autonomous safe set; manual execution required`,
 		};
 	}
 

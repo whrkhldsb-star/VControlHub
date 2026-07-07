@@ -12,8 +12,8 @@ const logger = createLogger("api:login");
 // guardMode: login
 
 const loginFormSchema = z.object({
-  username: z.string().min(1, "用户名不能为空"),
-  password: z.string().min(1, "密码不能为空"),
+  username: z.string().min(1, "Username is required"),
+  password: z.string().min(1, "Password is required"),
   next: z.string().optional(),
   remember: z.string().optional(),
 });
@@ -62,7 +62,7 @@ export async function POST(request: Request) {
 		};
 		const parsed = loginFormSchema.safeParse(formRaw);
 		if (!parsed.success) {
-			const firstError = Object.values(parsed.error.flatten().fieldErrors)[0]?.[0] ?? "输入校验失败";
+			const firstError = Object.values(parsed.error.flatten().fieldErrors)[0]?.[0] ?? "Validation failed";
 			const params = new URLSearchParams({ error: "invalid", detail: firstError });
 			return redirectWithRelativeLocation(`/login?${params.toString()}`);
 		}

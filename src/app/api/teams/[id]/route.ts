@@ -10,7 +10,7 @@ export const dynamic = "force-dynamic";
 export async function PATCH(request: Request, { params }: { params: Promise<{ id: string }> }) {
 	return withApiRoute(
 		request,
-		{ requireAuth: true, rateLimit: GENERAL_WRITE_LIMIT, bodySchema: updateTeamSchema, errorMessage: "更新团队失败" },
+		{ requireAuth: true, rateLimit: GENERAL_WRITE_LIMIT, bodySchema: updateTeamSchema, errorMessage: "Failed to update team" },
 		async ({ session, body }) => {
 			const { id } = await params;
 			const team = await updateTeam(id, body, session!);
@@ -22,7 +22,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
 export async function DELETE(request: Request, { params }: { params: Promise<{ id: string }> }) {
 	return withApiRoute(
 		request,
-		{ requireAuth: true, rateLimit: GENERAL_WRITE_LIMIT, errorMessage: "删除团队失败" },
+		{ requireAuth: true, rateLimit: GENERAL_WRITE_LIMIT, errorMessage: "Failed to delete team" },
 		async ({ session }) => {
 			const { id } = await params;
 			await deleteTeam(id, session!);

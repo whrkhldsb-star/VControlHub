@@ -22,13 +22,13 @@ export async function POST(request: Request) {
     {
       requireAuth: true,
       rateLimit: GENERAL_WRITE_LIMIT,
-      errorMessage: "启用两步验证失败",
+      errorMessage: "Failed to enable two-factor authentication",
       bodySchema: enableSchema,
     },
     async ({ session, body }) => {
       if (!session)
         return NextResponse.json(
-          { error: "未登录或会话已过期" },
+          { error: "Not authenticated or session expired" },
           { status: 401 },
         );
 
@@ -36,7 +36,7 @@ export async function POST(request: Request) {
 
       const valid = verifyTOTP({ token: code, secret });
       if (!valid) {
-        throw new ValidationError("验证码错误");
+        throw new ValidationError("Invalid verification code");
       }
 
       await prisma.user.update({

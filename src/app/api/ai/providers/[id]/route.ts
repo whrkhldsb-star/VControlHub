@@ -53,10 +53,10 @@ export async function GET(
 ) {
   return withApiRoute(
     request,
-    { permission: "ai:manage", errorStatus: 404, errorMessage: "未找到" },
+    { permission: "ai:manage", errorStatus: 404, errorMessage: "Not found" },
     async ({ session }) => {
       if (!session)
-        throw new AuthError("未认证");
+        throw new AuthError("Not authenticated");
       const { id } = await params;
       const provider = await getProviderById(id, session.userId);
       return NextResponse.json({ provider: maskProvider(provider) });
@@ -74,12 +74,12 @@ export async function PATCH(
       permission: "ai:manage",
       rateLimit: GENERAL_WRITE_LIMIT,
       errorStatus: 400,
-      errorMessage: "更新失败",
+      errorMessage: "UpdateFailed",
       bodySchema: updateProviderSchema,
     },
     async ({ session, body }) => {
       if (!session)
-        throw new AuthError("未认证");
+        throw new AuthError("Not authenticated");
       const { id } = await params;
 
       const updateBody = {
@@ -102,11 +102,11 @@ export async function DELETE(
       permission: "ai:manage",
       rateLimit: GENERAL_WRITE_LIMIT,
       errorStatus: 400,
-      errorMessage: "删除失败",
+      errorMessage: "DeleteFailed",
     },
     async ({ session }) => {
       if (!session)
-        throw new AuthError("未认证");
+        throw new AuthError("Not authenticated");
       const { id } = await params;
       await deleteProvider(id, session.userId);
       return NextResponse.json({ ok: true });

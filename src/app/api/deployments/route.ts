@@ -14,18 +14,18 @@ import { AppError, isAppError, ValidationError } from "@/lib/errors";
 export const dynamic = "force-dynamic";
 
 const createDeploymentSchema = z.object({
-  templateId: z.string().trim().min(1, "templateId 必填"),
+  templateId: z.string().trim().min(1, "templateId is required"),
   serverIds: z
-    .array(z.string().trim().min(1, "目标 VPS 不能为空"))
-    .min(1, "至少选择 1 台目标 VPS"),
+    .array(z.string().trim().min(1, "Target VPS is required"))
+    .min(1, "At least 1 target VPS must be selected"),
   variables: z.record(z.string(), z.string()).default({}),
-  reason: z.string().trim().max(500, "原因最多 500 个字符").optional(),
+  reason: z.string().trim().max(500, "ReasonAt most 500 characters").optional(),
 });
 
 export async function GET(request: Request) {
   return withApiRoute(
     request,
-    { permission: "deploy:read", errorMessage: "获取部署列表失败" },
+    { permission: "deploy:read", errorMessage: "Failed to fetch deployment list" },
     async () => {
       const [deployments, templates] = await Promise.all([
         listDeploymentRuns(),
@@ -77,7 +77,7 @@ export async function POST(request: Request) {
   const options = {
     permission: "deploy:run" as const,
     rateLimit: GENERAL_WRITE_LIMIT,
-    errorMessage: "操作失败",
+    errorMessage: "OperationFailed",
     ...(isFormSubmission ? {} : { bodySchema: createDeploymentSchema }),
   };
   return withApiRoute(
@@ -86,13 +86,13 @@ export async function POST(request: Request) {
     async ({ session, body }) => {
       if (!session)
         return NextResponse.json(
-          { error: "未登录或会话已过期" },
+          { error: "Not authenticated or session expired" },
           { status: 401 },
         );
       try {
         const parsed = isFormSubmission ? createDeploymentSchema.safeParse(await readRequestBody(request)) : { success: true as const, data: body };
         if (!parsed.success) {
-          const message = parsed.error.issues[0]?.message ?? "部署参数无效";
+          const message = parsed.error.issues[0]?.message ?? "Invalid deployment parameters";
           if (wantsHtmlResponse(request))
             return redirectToDeploymentsWithError(request, message);
           throw new ValidationError(message);
@@ -117,7 +117,7 @@ export async function POST(request: Request) {
         // Only opaque errors (plain Error / unknown) get wrapped into a
         // generic INTERNAL_ERROR 500. TR-034 R2.
         if (isAppError(error)) throw error;
-        const message = error instanceof Error ? error.message : "操作失败";
+        const message = error instanceof Error ? error.message : "OperationFailed";
         if (wantsHtmlResponse(request))
           return redirectToDeploymentsWithError(request, message);
         throw new AppError({ code: "INTERNAL_ERROR", message: message, status: 500 });

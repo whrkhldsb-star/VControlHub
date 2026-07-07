@@ -34,10 +34,10 @@ const channels = ["in_app", "email", "telegram", "webhook"] as const;
 const silenceWindowSchema = z
   .string()
   .trim()
-  .regex(/^([01]\d|2[0-3]):[0-5]\d-([01]\d|2[0-3]):[0-5]\d$/, "静默期格式应为 HH:mm-HH:mm，例如 22:00-08:00");
+  .regex(/^([01]\d|2[0-3]):[0-5]\d-([01]\d|2[0-3]):[0-5]\d$/, "Silence period format should be HH:mm-HH:mm, e.g. 22:00-08:00");
 
 const alertRuleSchemaBase = z.object({
-  name: z.string().trim().min(1, "规则名称不能为空").max(100, "规则名称过长"),
+  name: z.string().trim().min(1, "RuleNameis required").max(100, "RuleNameToo long"),
   metric: z.enum(metrics),
   operator: z.enum(operators),
   threshold: z.coerce.number().finite().min(0).max(100000),
@@ -55,10 +55,10 @@ const alertRuleSchemaBase = z.object({
       .string()
       .trim()
       .url()
-      .startsWith("https://", "Webhook URL 必须使用 https://")
+      .startsWith("https://", "Webhook URL Mustusing https://")
       .refine(
         (value) => validateWebhookUrlSyntax(value).ok,
-        "Webhook URL 不允许指向本机或内网地址",
+        "Webhook URL is not allowed to point to localhost or internal network address",
       )
       .optional(),
   ),
@@ -75,7 +75,7 @@ function requireWebhookUrlWhenEnabled(
     ctx.addIssue({
       code: "custom",
       path: ["webhookUrl"],
-      message: "启用 Webhook 时必须填写 Webhook URL",
+      message: "Webhook URL is required when Webhook is enabled",
     });
   }
 }
@@ -167,7 +167,7 @@ export async function POST(request: Request) {
     permission: "notification:manage" as const,
     rateLimit: GENERAL_WRITE_LIMIT,
     errorStatus: 400,
-    errorMessage: "创建失败",
+    errorMessage: "CreateFailed",
     ...(isFormSubmission ? {} : { bodySchema: alertRuleSchema }),
   };
   return withApiRoute(
@@ -175,7 +175,7 @@ export async function POST(request: Request) {
     options,
     async ({ session, body }) => {
       if (!session)
-        throw new AuthError("未认证");
+        throw new AuthError("Not authenticated");
       const input = isFormSubmission
         ? alertRuleSchema.parse(await parseBody(request))
         : body;
@@ -202,12 +202,12 @@ export async function PATCH(request: Request) {
       permission: "notification:manage",
       rateLimit: GENERAL_WRITE_LIMIT,
       errorStatus: 400,
-      errorMessage: "更新失败",
+      errorMessage: "UpdateFailed",
       bodySchema: patchAlertRuleSchema,
     },
     async ({ session, body }) => {
       if (!session)
-        throw new AuthError("未认证");
+        throw new AuthError("Not authenticated");
       if ("toggleId" in body) {
         const result = await toggleAlertRule(body.toggleId);
         auditUserAction(session.userId, "alert_rule.toggle", {
@@ -243,16 +243,16 @@ export async function DELETE(request: Request) {
     { permission: "notification:manage", rateLimit: GENERAL_WRITE_LIMIT },
     async ({ session }) => {
       if (!session)
-        throw new AuthError("未认证");
+        throw new AuthError("Not authenticated");
       try {
         const { id: alertRuleId } = parseSearchParams(request, idQuerySchema);
         if (!alertRuleId)
-          throw new ValidationError("缺少规则 ID");
+          throw new ValidationError("MissingRule ID");
         await deleteAlertRule(alertRuleId);
         auditUserAction(session.userId, "alert_rule.delete", { ruleId: alertRuleId });
         return NextResponse.json({ success: true });
       } catch (err) {
-        const message = err instanceof Error ? err.message : "删除失败";
+        const message = err instanceof Error ? err.message : "DeleteFailed";
         throw new ValidationError(message);
       }
     },
@@ -265,7 +265,7 @@ export async function PUT(request: Request) {
     { permission: "notification:manage", rateLimit: GENERAL_WRITE_LIMIT },
     async ({ session }) => {
       if (!session)
-        throw new AuthError("未认证");
+        throw new AuthError("Not authenticated");
       try {
         await evaluateAlerts();
         auditUserAction(session.userId, "alert_rule.evaluate", {
@@ -273,7 +273,7 @@ export async function PUT(request: Request) {
         });
         return NextResponse.json({ success: true });
       } catch (err) {
-        const message = err instanceof Error ? err.message : "检测失败";
+        const message = err instanceof Error ? err.message : "Detection failed";
         throw new ValidationError(message);
       }
     },

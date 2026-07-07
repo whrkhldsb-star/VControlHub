@@ -24,11 +24,11 @@ export async function GET(request: Request, { params }: Params) {
   const { id } = await params;
   return withApiRoute(
     request,
-    { permission: "task:read", errorMessage: "获取 QA 报告详情失败" },
+    { permission: "task:read", errorMessage: "Failed to fetch QA report detail" },
     async () => {
       const detail = await getQaReportDetail(id);
       if (!detail) {
-        throw new NotFoundError(`未找到 QA 报告：${id}`);
+        throw new NotFoundError(`QA report not found：${id}`);
       }
       return NextResponse.json(detail, { status: 200 });
     },

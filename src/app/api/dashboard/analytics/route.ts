@@ -41,7 +41,7 @@ export async function GET(request: Request) {
     const session = await getApiSession();
     if (!session) {
       return NextResponse.json(
-        { error: "未登录或会话已过期" },
+        { error: "Not authenticated or session expired" },
         { status: 401 },
       );
     }
@@ -54,7 +54,7 @@ export async function GET(request: Request) {
     );
 
     if (requestedDomainForbidden(session, type)) {
-      return apiError({ code: "FORBIDDEN", message: "缺少仪表盘分析数据读取权限", status: 403 });
+      return apiError({ code: "FORBIDDEN", message: "Missing dashboard analytics data reading permission", status: 403 });
     }
 
     const results: Record<string, unknown> = {};
@@ -189,6 +189,6 @@ export async function GET(request: Request) {
     return withCacheHeaders(NextResponse.json(results), CachePresets.shortLived);
   } catch (error) {
     logger.error("[dashboard/analytics]", error);
-    return apiError({ code: "INTERNAL_ERROR", message: "获取分析数据失败", status: 500 });
+    return apiError({ code: "INTERNAL_ERROR", message: "FetchanalyticsDatafailed", status: 500 });
   }
 }

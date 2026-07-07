@@ -95,7 +95,7 @@ export async function readStorageFileBuffer(node: StorageFileNode, relativePath:
 		}
 	}
 
-	throw new BusinessError("不支持的存储节点类型");
+	throw new BusinessError("Unsupported storage node type");
 }
 
 function sftpMkdir(client: Client, remoteDir: string): Promise<void> {
@@ -166,7 +166,7 @@ export async function writeStorageFileBuffer(node: StorageFileNode, relativePath
 		}
 	}
 
-	throw new BusinessError("不支持的存储节点类型");
+	throw new BusinessError("Unsupported storage node type");
 }
 
 export function buildStorageFileDownloadUrl(node: Pick<StorageFileNode, "id" | "driver">, relativePath: string, download = false) {

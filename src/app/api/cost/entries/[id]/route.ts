@@ -34,12 +34,12 @@ export async function GET(
 			permission: "cost:read",
 			rateLimit: GENERAL_WRITE_LIMIT,
 			errorStatus: 500,
-			errorMessage: "加载成本条目失败",
+			errorMessage: "Failed to load cost entry",
 		},
 		async () => {
 			const entry = await getCostEntry(id);
 			if (!entry) {
-				throw new NotFoundError(`未找到成本条目 ${id}`);
+				throw new NotFoundError(`Cost entry not found ${id}`);
 			}
 			return NextResponse.json({ entry });
 		},
@@ -58,7 +58,7 @@ export async function PATCH(
 			rateLimit: GENERAL_WRITE_LIMIT,
 			bodySchema: updateCostEntrySchema,
 			errorStatus: 400,
-			errorMessage: "更新成本条目失败",
+			errorMessage: "Failed to update cost entry",
 		},
 		async ({ session, body }) => {
 			const entry = await updateCostEntry(id, body);
@@ -82,7 +82,7 @@ export async function DELETE(
 			permission: "cost:manage",
 			rateLimit: GENERAL_WRITE_LIMIT,
 			errorStatus: 400,
-			errorMessage: "删除成本条目失败",
+			errorMessage: "Failed to delete cost entry",
 		},
 		async ({ session }) => {
 			await deleteCostEntry(id);

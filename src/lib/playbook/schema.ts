@@ -22,19 +22,19 @@ import {
 const stepNameSchema = z
   .string()
   .trim()
-  .min(1, "步骤名称不能为空")
-  .max(80, "步骤名称最长 80 字符");
+  .min(1, "Step name is required")
+  .max(80, "Step name must be at most 80 characters");
 
 const runCommandConfigSchema = z.object({
-  command: z.string().trim().min(1, "命令不能为空").max(10_000),
-  serverIds: z.array(z.string().min(1)).max(64, "单步最多 64 台 VPS"),
+  command: z.string().trim().min(1, "Command is required").max(10_000),
+  serverIds: z.array(z.string().min(1)).max(64, "Single step supports at most 64 VPS"),
   variables: z.record(z.string(), z.string()).optional(),
 });
 
 const sendNotificationConfigSchema = z.object({
-  recipientUserId: z.string().trim().min(1, "收件人不能为空"),
-  subject: z.string().trim().min(1, "主题不能为空").max(200),
-  body: z.string().trim().min(1, "内容不能为空").max(2_000),
+  recipientUserId: z.string().trim().min(1, "Recipient is required"),
+  subject: z.string().trim().min(1, "Subject is required").max(200),
+  body: z.string().trim().min(1, "Content is required").max(2_000),
 });
 
 const callWebhookConfigSchema = z.object({
@@ -82,7 +82,7 @@ const cronTriggerConfigSchema = z.object({
   expression: z
     .string()
     .trim()
-    .min(1, "Cron 表达式不能为空")
+    .min(1, "Cron expression is required")
     .max(120)
     .refine(
       // 5-field cron (minute hour day-of-month month day-of-week)
@@ -103,14 +103,14 @@ const triggerConfigSchema = z.union([
 ]);
 
 const baseCreatePlaybookObject = z.object({
-  name: z.string().trim().min(1, "名称不能为空").max(120),
+  name: z.string().trim().min(1, "Name is required").max(120),
   description: z.string().trim().max(500).optional().nullable(),
   triggerType: z.enum(TRIGGER_TYPES),
   triggerConfig: triggerConfigSchema,
   steps: z
     .array(stepSchema)
-    .min(1, "至少 1 个步骤")
-    .max(32, "最多 32 个步骤"),
+    .min(1, "At least 1 step is required")
+    .max(32, "At most 32 steps are allowed"),
   chainRetry: z.number().int().min(0).max(5).default(0),
   enabled: z.boolean().default(true),
 });

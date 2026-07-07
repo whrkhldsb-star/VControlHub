@@ -28,7 +28,7 @@ const PatchBodySchema = z
 
 const CommentBodySchema = z
   .object({
-    body: z.string().trim().min(1, "回复内容不能为空"),
+    body: z.string().trim().min(1, "Reply content is required"),
   })
   .strict();
 
@@ -36,10 +36,10 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
   return withApiRoute(_request, { requireAuth: true }, async ({ session }) => {
     const { id } = await params;
     if (!session || (!sessionHasPermission(session, "ticket:manage") && !(await canViewTicket(id, session.userId)))) {
-      throw new ForbiddenError("缺少权限");
+      throw new ForbiddenError("MissingPermission");
     }
     const ticket = await getTicketById(id);
-    if (!ticket) throw new NotFoundError("工单不存在");
+    if (!ticket) throw new NotFoundError("Ticket not found");
     return NextResponse.json({ ticket });
   });
 }
@@ -66,7 +66,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     async ({ session, body }) => {
       const { id } = await params;
       if (!session || (!sessionHasPermission(session, "ticket:manage") && !(await canViewTicket(id, session.userId)))) {
-        throw new ForbiddenError("缺少权限");
+        throw new ForbiddenError("MissingPermission");
       }
       const comment = await addTicketComment({ ticketId: id, authorId: session.userId, body: body.body });
       return NextResponse.json({ comment }, { status: 201 });

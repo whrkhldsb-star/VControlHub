@@ -35,7 +35,7 @@ function getSftpStream(
 
       sftp.stat(remotePath, (statErr, stats) => {
         if (statErr) return reject(statErr);
-        if (!stats.isFile()) return reject(new Error("目标不是可下载文件"));
+        if (!stats.isFile()) return reject(new Error("TargetnotiscanDownloadFile"));
 
         const range = parseStorageRange(rangeHeader, stats.size);
         if (range instanceof Response) return resolve(range);
@@ -57,7 +57,7 @@ export async function GET(request: Request) {
     { permission: "storage:read" },
     async ({ session }) => {
       if (!session)
-        throw new AuthError("未认证");
+        throw new AuthError("Not authenticated");
 
       const _url = new URL(request.url);
       const { nodeId, path: remotePath, download } = parseSearchParams(
@@ -67,13 +67,13 @@ export async function GET(request: Request) {
 
       if (!nodeId) {
         return NextResponse.json(
-          { error: "缺少 nodeId 参数" },
+          { error: "Missing nodeId Parameter" },
           { status: 400 },
         );
       }
 
       if (!remotePath) {
-        throw new ValidationError("缺少 path 参数");
+        throw new ValidationError("Missing path Parameter");
       }
 
       const node = await prisma.storageNode.findUnique({
@@ -106,12 +106,12 @@ export async function GET(request: Request) {
       });
 
       if (!node) {
-        throw new NotFoundError("存储节点不存在");
+        throw new NotFoundError("Storage node not found");
       }
 
       if (node.driver !== "SFTP") {
         return NextResponse.json(
-          { error: "该节点不是 SFTP 类型" },
+          { error: "This Node is Not SFTP type" },
           { status: 400 },
         );
       }
@@ -122,7 +122,7 @@ export async function GET(request: Request) {
         } catch (error) {
           return error instanceof Error
             ? error
-            : new Error("缺少远端主机地址或连接凭据，无法连接");
+            : new Error("Missing remote host address or connection credentials, cannot connect");
         }
       })();
       if (connectionCredentials instanceof Error) {
@@ -142,7 +142,7 @@ export async function GET(request: Request) {
         normalizedRelativePath = normalizeRemoteRelativePath(remotePath);
       } catch {
         return NextResponse.json(
-          toClientStorageError("请求路径超出存储节点根目录"),
+          toClientStorageError("Requested path exceeds storage node root directory"),
           { status: 400 },
         );
       }
@@ -155,7 +155,7 @@ export async function GET(request: Request) {
       });
       if (!accessDecision.allowed) {
         return NextResponse.json(
-          { error: accessDecision.reason ?? "缺少存储访问授权" },
+          { error: accessDecision.reason ?? "Missing storage access authorization" },
           { status: 403 },
         );
       }
@@ -211,7 +211,7 @@ export async function GET(request: Request) {
         logger.error("read remote file for download failed", error, { nodeId });
         return NextResponse.json(
           toClientStorageError(
-            "获取远端文件失败，请检查文件是否存在或节点是否可连接",
+            "failed to fetch remote file, please check if the file exists or the node can be connected",
           ),
           { status: 502 },
         );

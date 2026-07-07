@@ -69,8 +69,8 @@ function resolveDeploymentOperationStatus(item: DeploymentTaskRow): OperationTas
 function formatWorkerProgress(input: { workerId?: string | null; workerHeartbeatAt?: Date | string | null; updatedAt?: Date | string | null }) {
   if (!input.workerId && !input.workerHeartbeatAt) return null;
   const heartbeat = input.workerHeartbeatAt ?? input.updatedAt;
-  const heartbeatText = heartbeat ? `心跳 ${new Date(heartbeat).toLocaleString("zh-CN")}` : "心跳未知";
-  return `后台执行器 ${input.workerId ?? "未知"} · ${heartbeatText}`;
+  const heartbeatText = heartbeat ? `heartbeat ${new Date(heartbeat).toISOString()}` : "heartbeat unknown";
+  return `backend executor ${input.workerId ?? "unknown"} · ${heartbeatText}`;
 }
 
 function compactLogPreview(parts: Array<string | null | undefined>) {

@@ -327,7 +327,7 @@ export async function recoverStaleRunningJobs(options: { staleBefore: Date; retr
       workerId: null,
       workerHeartbeatAt: null,
       leaseExpiresAt: null,
-      errorMessage: "后台执行器心跳过期，已重新入队",
+      errorMessage: "Backend executor heartbeat expired, re-queued",
     },
   });
 

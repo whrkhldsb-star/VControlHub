@@ -14,7 +14,7 @@ export async function POST(request: Request) {
       permission: "ai:manage",
       rateLimit: GENERAL_WRITE_LIMIT,
       errorStatus: 400,
-      errorMessage: "获取模型列表失败",
+      errorMessage: "Failed to fetch model list",
       bodySchema: probeModelsSchema,
     },
     async ({ body }) => {

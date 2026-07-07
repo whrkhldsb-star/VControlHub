@@ -89,7 +89,7 @@ export async function markAsRead(notificationId: string, userId: string) {
 		data: { isRead: true },
 	});
 	if (result.count === 0) {
-		throw new NotFoundError("通知不存在或无权操作");
+		throw new NotFoundError("Notification not found or forbidden");
 	}
 	// Push updated unread count after marking as read
 	const unreadCount = await getUnreadCount(userId);
@@ -111,7 +111,7 @@ export async function deleteNotification(notificationId: string, userId: string)
 		where: { id: notificationId, userId },
 	});
 	if (result.count === 0) {
-		throw new NotFoundError("通知不存在或无权操作");
+		throw new NotFoundError("Notification not found or forbidden");
 	}
 	// Push updated unread count after deletion
 	const unreadCount = await getUnreadCount(userId);

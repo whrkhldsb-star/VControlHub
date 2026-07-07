@@ -67,7 +67,7 @@ function buildDirectorySummaries(
   }
 
   return [...directories.values()].sort((left, right) =>
-    left.path.localeCompare(right.path, "zh-CN"),
+    left.path.localeCompare(right.path),
   );
 }
 
