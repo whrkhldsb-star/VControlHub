@@ -76,7 +76,7 @@ describe("proxy auth guard", () => {
 
     expect(response.status).toBe(401);
     await expect(response.json()).resolves.toEqual({
-      error: "未登录或会话已过期",
+      error: "Not logged in or session expired",
     });
   });
 
@@ -125,7 +125,7 @@ describe("proxy auth guard", () => {
 
     expect(response.status).toBe(401);
     await expect(response.json()).resolves.toEqual({
-      error: "未登录或会话已过期",
+      error: "Not logged in or session expired",
     });
   });
 
@@ -141,7 +141,7 @@ describe("proxy auth guard", () => {
     );
     expect(response.status).toBe(403);
     await expect(response.json()).resolves.toEqual({
-      error: "CSRF token 验证失败",
+      error: "CSRF token validation failed",
     });
   });
 

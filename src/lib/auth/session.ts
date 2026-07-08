@@ -210,7 +210,11 @@ export async function verifySessionToken(token: string) {
 const PENDING_2FA_COOKIE_NAME = `${APP_SLUG}_pending_2fa`;
 const PENDING_2FA_TTL_MS = 5 * 60 * 1000; // 5 minutes
 
-type Pending2faPayload = SessionPayload & {
+export type Pending2faSessionPayload = SessionPayload & {
+ remember?: boolean;
+};
+
+type Pending2faPayload = Pending2faSessionPayload & {
  pending2fa: true;
  nonce: string;
 };
@@ -219,7 +223,7 @@ export function getPending2faCookieName() {
 	return PENDING_2FA_COOKIE_NAME;
 }
 
-export async function createPending2faToken(payload: SessionPayload): Promise<string> {
+export async function createPending2faToken(payload: Pending2faSessionPayload): Promise<string> {
 	const now = Date.now();
 	const nonce = randomBytes(16).toString("hex");
 	const envelope: Pending2faPayload & { iss: string; aud: string; iat: number; exp: number } = {
@@ -236,7 +240,7 @@ export async function createPending2faToken(payload: SessionPayload): Promise<st
 	return `${encodedPayload}.${signature}`;
 }
 
-export async function verifyPending2faToken(token: string): Promise<SessionPayload | null> {
+export async function verifyPending2faToken(token: string): Promise<Pending2faSessionPayload | null> {
 	try {
 		const [encodedPayload, providedSignature] = token.split(".");
 		if (!encodedPayload || !providedSignature) return null;
@@ -260,6 +264,7 @@ export async function verifyPending2faToken(token: string): Promise<SessionPaylo
 			roles: payload.roles,
 			mustChangePassword: payload.mustChangePassword,
 			currentTeamId: payload.currentTeamId ?? null,
+			remember: payload.remember === true,
 		};
 	} catch {
 		return null;

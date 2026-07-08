@@ -106,4 +106,27 @@ describe("POST /api/login", () => {
     expect(response.status).toBe(303);
     expect(response.headers.get("location")).toBe("/files");
   });
+
+  it("carries remember login into the pending 2FA token", async () => {
+    authenticateUserMock.mockResolvedValueOnce({
+      id: "u_1",
+      username: "admin",
+      roles: ["admin"],
+      mustChangePassword: false,
+      preferences: { defaultPage: "/", dashboardWidgets: ["server-status"], notificationsEnabled: true, notificationSound: true, autoRefreshInterval: 30 },
+      twoFactorEnabled: true,
+      twoFactorSecret: "secret",
+      currentTeamId: null,
+    });
+
+    const response = await POST(makeLoginRequest({ username: "admin", password: "secret", remember: "on" }));
+
+    expect(response.status).toBe(303);
+    expect(response.headers.get("location")).toBe("/login/verify-2fa?next=%2F");
+    expect(createPending2faTokenMock).toHaveBeenCalledWith(expect.objectContaining({
+      userId: "u_1",
+      remember: true,
+    }));
+    expect(response.headers.getSetCookie().join("\n")).toContain("test_pending_2fa=pending-token");
+  });
 });

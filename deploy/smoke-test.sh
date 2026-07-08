@@ -203,7 +203,7 @@ if run_http_checks; then
     echo "── 7. Public HTTP Response ──"
     check "Login page (via ${PROXY_LABEL})" "curl -sSk -o /dev/null -w '%{http_code}' ${PROXY_PUBLIC_URL}/login | grep 200" 0
     check "API /api/status" "curl -sSk ${PROXY_PUBLIC_URL}/api/status | grep -qE '\"overall\"\\s*:\\s*\"(healthy|warning|critical)\"'" 0
-    check "API auth blocks unauth" "curl -sSk ${PROXY_PUBLIC_URL}/api/users | grep '未登录'" 0
+    check "API auth blocks unauth" "curl -sSk -o /tmp/vch-smoke-api-users.json -w '%{http_code}' ${PROXY_PUBLIC_URL}/api/users | grep 401 && grep -qE 'Not logged in|session expired|Not authenticated' /tmp/vch-smoke-api-users.json" 0
     check "Root redirects to login" "curl -sSk -o /dev/null -w '%{http_code}' ${PROXY_PUBLIC_URL}/ | grep 307" 0
 
     echo ""
