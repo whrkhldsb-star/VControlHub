@@ -5,6 +5,7 @@ import { csrfFetch } from "@/lib/auth/csrf-client";
 import { useToast } from "@/components/toast-provider";
 import { EmptyState } from "@/components/page-shell";
 import { useI18n } from "@/lib/i18n/use-locale";
+import { toDateLocale } from "@/lib/i18n/locale-format";
 import { useDialogFocus } from "@/lib/a11y/use-dialog-focus";
 
 type AlertRule = {
@@ -65,6 +66,9 @@ export function AlertRuleListClient({ rules: initialRules, servers, playbooks = 
 	const [testResult, setTestResult] = useState<{ ruleName: string; deliveries: TestDelivery[] } | null>(null);
 	const [busyAction, setBusyAction] = useState<string | null>(null);
 	const [rulePendingDelete, setRulePendingDelete] = useState<AlertRule | null>(null);
+
+	const closeDeleteDialog = useCallback(() => setRulePendingDelete(null), []);
+	const dialogRef = useDialogFocus<HTMLDivElement>({ open: rulePendingDelete !== null, onClose: closeDeleteDialog });
 
 	const getErrorMessage = useCallback(
 		(error: unknown, fallbackKey: string) =>
@@ -152,7 +156,7 @@ export function AlertRuleListClient({ rules: initialRules, servers, playbooks = 
 	return (
 		<div className="space-y-6">
 			{rulePendingDelete && (
-				<div className="fixed inset-0 z-50 flex items-center justify-center bg-[var(--surface)]/70 p-4 backdrop-blur-sm" role="dialog" aria-modal="true" aria-labelledby="delete-alert-rule-title">
+				<div ref={dialogRef} className="fixed inset-0 z-50 flex items-center justify-center bg-[var(--surface)]/70 p-4 backdrop-blur-sm" role="dialog" aria-modal="true" aria-labelledby="delete-alert-rule-title">
 					<div className="w-full max-w-md rounded-2xl border border-[var(--border)] bg-[var(--modal-bg)] p-5 shadow-2xl shadow-black/30">
 						<h3 id="delete-alert-rule-title" className="text-base font-semibold text-[var(--text-primary)]">{t("alertRulesPage.delete.title")}</h3>
 						<p className="mt-2 text-sm text-[var(--text-muted)]">
@@ -259,7 +263,7 @@ export function AlertRuleListClient({ rules: initialRules, servers, playbooks = 
 						)}
 						{(rule.silenceWindows?.length ?? 0) > 0 && (
 							<span className="rounded-lg border border-[var(--accent-border)] bg-[var(--accent-bg)] px-1.5 py-0.5 text-[10px] text-[var(--accent)]">
-								{t("alertRulesPage.badge.silence").replace("{windows}", rule.silenceWindows?.join("、") ?? "")}
+								{t("alertRulesPage.badge.silence").replace("{windows}", rule.silenceWindows?.join(t("alertRulesPage.badge.silenceSeparator")) ?? "")}
 							</span>
 						)}
 						{(rule.playbookIds?.length ?? 0) > 0 && (
@@ -269,7 +273,7 @@ export function AlertRuleListClient({ rules: initialRules, servers, playbooks = 
 						)}
 									</div>
 									{rule.lastTriggeredAt && (
-										<p className="mt-1 text-[11px] text-[var(--text-muted)]">{t("alertRulesPage.lastTriggered").replace("{date}", new Date(rule.lastTriggeredAt).toLocaleString(locale === "zh" ? "zh-CN" : "en-US"))}</p>
+										<p className="mt-1 text-[11px] text-[var(--text-muted)]">{t("alertRulesPage.lastTriggered").replace("{date}", new Date(rule.lastTriggeredAt).toLocaleString(toDateLocale(locale)))}</p>
 									)}
 								</div>
 								{canManage && (

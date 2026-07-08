@@ -2,6 +2,7 @@ import Link from "next/link";
 
 import { listShareDirectoryFiles, peekShareToken } from "@/lib/share-link/service";
 import { getServerLocale, t } from "@/lib/i18n/translations";
+import { toDateLocale } from "@/lib/i18n/locale-format";
 import { SharePasswordGate } from "./share-password-gate";
 
 export const dynamic = "force-dynamic";
@@ -86,7 +87,7 @@ export default async function SharePage({
                   <div className="flex justify-between gap-3 sm:col-span-2">
                     <dt>{t("sharePage.expiresAt", locale)}</dt>
                     <dd className="text-[var(--text-secondary)]">
-                      {new Date(share.expiresAt).toLocaleString(locale === "zh" ? "zh-CN" : "en-US")}
+                      {new Date(share.expiresAt).toLocaleString(toDateLocale(locale))}
                     </dd>
                   </div>
                 ) : (

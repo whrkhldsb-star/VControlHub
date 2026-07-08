@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 
+import { auditUserAction } from "@/lib/audit/service";
 import { withApiRoute } from "@/lib/http/api-guard";
 import { parseSearchParams } from "@/lib/http/parse-search-params";
 import { BACKUP_RESTORE_JOB_TYPE } from "@/lib/backup/job-worker";
@@ -21,7 +22,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       errorMessage: "Restore failed",
       bodySchema: restoreBackupSchema,
     },
-    async ({ body }) => {
+    async ({ session, body }) => {
       const { id } = await params;
       try {
         const { wait } = parseSearchParams(
@@ -36,6 +37,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
         const waitForCompletion = wait;
         if (waitForCompletion) {
           const restore = await restoreBackupRecord({ id, confirm: body.confirm });
+          auditUserAction(session!.userId, "backup.restore", { backupId: id });
           return NextResponse.json({ restore });
         }
         const backup = await getBackupRecord(id);
@@ -47,6 +49,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
           createdBy: null,
           maxAttempts: 1,
         });
+        auditUserAction(session!.userId, "backup.restore", { backupId: id });
         return NextResponse.json({ jobId: job.id, taskId: `job:${job.id}` }, { status: 202 });
       } catch (error) {
         const message = error instanceof Error ? error.message : "Restore execution failed";

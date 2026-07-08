@@ -4,9 +4,17 @@ import { useState, useMemo, useId } from "react";
 
 import {
   type NodeOption,
-  getNodeIcon,
   getNodeLabel,
 } from "./files-browser-helpers";
+import { Server, HardDrive } from "@/components/icons";
+
+function NodeDriverIcon({ driver, size = 14 }: { driver: string; size?: number }) {
+  return driver === "SFTP" ? (
+    <Server size={size} className="inline -mt-0.5 text-[var(--text-secondary)]" aria-hidden="true" />
+  ) : (
+    <HardDrive size={size} className="inline -mt-0.5 text-[var(--text-secondary)]" aria-hidden="true" />
+  );
+}
 
 export function NodeFilterSelect({
   t,
@@ -38,7 +46,7 @@ export function NodeFilterSelect({
     <div className={compact ? "space-y-2" : "w-full max-w-xl space-y-2"}>
       <div className="flex items-center justify-between gap-3 text-xs text-[var(--text-secondary)]">
         <span>
-          {t("filesBrowserSpa.currentSelectionLabel")}{getNodeIcon(selectedNode?.driver ?? "")}{" "}
+          {t("filesBrowserSpa.currentSelectionLabel")}{selectedNode ? <NodeDriverIcon driver={selectedNode.driver} /> : null}{" "}
           {getNodeLabel(t, selectedNode)}
         </span>
         {value ? (
@@ -77,7 +85,7 @@ export function NodeFilterSelect({
           <option value="">{t("filesBrowserSpa.allNodesOption")}</option>
           {filteredNodes.map((node) => (
             <option key={node.id} value={node.id}>
-              {getNodeIcon(node.driver)} {node.name}（{node.driver}）
+              {node.name} ({node.driver})
             </option>
           ))}
         </select>

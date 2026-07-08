@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback, useRef, type MouseEvent } from "react";
 import { csrfFetch } from "@/lib/auth/csrf-client";
 import { EmptyState } from "@/components/page-shell";
+import { Download } from "@/components/icons";
 import { useI18n } from "@/lib/i18n/use-locale";
 import { useDialogFocus } from "@/lib/a11y/use-dialog-focus";
 import { CreateDownloadFormLazy } from "./create-download-form-lazy";
@@ -44,17 +45,25 @@ export function DownloadsClient({ servers, canManage, canManageNode }: { servers
 		} finally { setLoading(false); }
 	}, [t]);
 
+	const fetchTasksRef = useRef(fetchTasks);
+	fetchTasksRef.current = fetchTasks;
+	const tasksRef = useRef(tasks);
+	tasksRef.current = tasks;
+
 	useEffect(() => {
 		const timer = window.setTimeout(() => { void fetchTasks(); }, 0);
 		return () => window.clearTimeout(timer);
 	}, [fetchTasks]);
 
 	useEffect(() => {
-		const hasRunning = tasks.some((t) => t.status === "RUNNING" || t.status === "PENDING");
-		if (!hasRunning) return;
-		const interval = setInterval(fetchTasks, 5000);
+		const interval = setInterval(() => {
+			const hasRunning = tasksRef.current.some((t) => t.status === "RUNNING" || t.status === "PENDING");
+			if (hasRunning) {
+				void fetchTasksRef.current();
+			}
+		}, 5000);
 		return () => clearInterval(interval);
-	}, [tasks, fetchTasks]);
+	}, []);
 
 	const invalidBatchUrls = form.batchMode
 		? form.batchText.split("\n").map((l) => l.trim()).filter(Boolean)
@@ -322,7 +331,7 @@ export function DownloadsClient({ servers, canManage, canManageNode }: { servers
 				<EmptyState>{t("downloadsPage.loading")}</EmptyState>
 			) : filteredTasks.length === 0 && message?.type !== "error" ? (
 			<div data-empty-state className="rounded-xl border border-dashed border-[var(--border)] bg-[var(--surface)]/[0.04]">
-				<div className="text-4xl mb-3">⬇️</div>
+				<div className="mb-3"><Download size={48} className="text-[var(--text-muted)]" /></div>
 				<p className="text-sm text-[var(--text-muted)]">{filter === "ALL" ? t("downloadsPage.empty") : t("downloadsPage.emptyFilter").replace("${status}", getStatusLabel(t)[filter] ?? "")}</p>
 			</div>
 		) : (
@@ -349,7 +358,7 @@ export function DownloadsClient({ servers, canManage, canManageNode }: { servers
 						<p className="mt-3 text-sm leading-6 text-[var(--text-secondary)]">{t("downloadsPage.confirm.purge").replace("${name}", pendingPurgeName)}</p>
 						<div className="mt-6 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
 							<button type="button" onClick={() => setPendingPurgeTaskId(null)} className="min-h-11 rounded-xl border border-[var(--border)] px-4 py-2 text-sm font-medium text-[var(--text-secondary)] hover:bg-[var(--surface-hover)]">{t("common.cancel")}</button>
-							<button type="button" onClick={() => handleAction(pendingPurgeTaskId, "purge")} className="min-h-11 rounded-xl bg-[var(--danger-border)] text-[var(--danger)] px-4 py-2 text-sm font-semibold text-[var(--text-primary)] hover:bg-[var(--danger-bg)] hover:text-[var(--danger)]">{t("common.confirmDelete")}</button>
+							<button type="button" onClick={() => handleAction(pendingPurgeTaskId, "purge")} className="min-h-11 rounded-xl bg-[var(--danger-bg)] px-4 py-2 text-sm font-semibold text-[var(--danger)] hover:bg-[var(--danger-bg)] hover:text-[var(--danger)]">{t("common.confirmDelete")}</button>
 						</div>
 					</section>
 				</div>

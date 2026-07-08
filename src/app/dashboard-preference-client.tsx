@@ -288,11 +288,7 @@ export function DashboardPreferenceClient({
 			) : null}
 			<div
 				ref={gridRef}
-				className={
-					isEditing
-						? "grid grid-cols-1 gap-4"
-						: "grid grid-cols-1 gap-4"
-				}
+				className="grid grid-cols-1 gap-4"
 				data-dashboard-edit={isEditing ? "true" : "false"}
 				onClick={(e) => {
 					// Only when NOT editing, and only when the click landed on

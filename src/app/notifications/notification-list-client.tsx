@@ -1,12 +1,14 @@
 "use client";
 
-import { useState, useCallback, memo } from "react";
+import { useState, useCallback, memo, type ReactNode } from "react";
 import Link from "next/link";
 import { csrfFetch } from "@/lib/auth/csrf-client";
 import { getSafeNotificationActionUrl } from "@/lib/notification/action-url";
 import { EmptyState } from "@/components/page-shell";
 import { useI18n } from "@/lib/i18n/use-locale";
+import { toDateLocale } from "@/lib/i18n/locale-format";
 import type { Locale } from "@/lib/i18n/translations";
+import { Check, X, AlertTriangle, ClipboardList, Download, Server, Bell } from "@/components/icons";
 
 type NotificationItem = {
 	id: string;
@@ -24,19 +26,19 @@ type Props = {
 	locale?: Locale;
 };
 
-const typeIcon: Record<string, string> = {
-	command_pending: "📋",
-	command_approved: "✅",
-	command_rejected: "❌",
-	command_completed: "🎉",
-	command_failed: "💥",
-	download_completed: "📥",
-	download_failed: "⚠️",
-	server_alert: "🚨",
-	system: "🔔",
+const typeIcon: Record<string, ReactNode> = {
+	command_pending: <ClipboardList size={18} aria-hidden="true" />,
+	command_approved: <Check size={18} aria-hidden="true" />,
+	command_rejected: <X size={18} aria-hidden="true" />,
+	command_completed: <Check size={18} aria-hidden="true" />,
+	command_failed: <X size={18} aria-hidden="true" />,
+	download_completed: <Download size={18} aria-hidden="true" />,
+	download_failed: <AlertTriangle size={18} aria-hidden="true" />,
+	server_alert: <Server size={18} aria-hidden="true" />,
+	system: <Bell size={18} aria-hidden="true" />,
 };
 
-function timeAgo(dateStr: string, t: (k: string) => string, locale: string): string {
+function timeAgo(dateStr: string, t: (k: string) => string, locale: Locale): string {
 	const diff = Date.now() - new Date(dateStr).getTime();
 	const mins = Math.floor(diff / 60_000);
 	if (mins < 1) return t("notificationsPage.time.justNow");
@@ -45,7 +47,7 @@ function timeAgo(dateStr: string, t: (k: string) => string, locale: string): str
 	if (hours < 24) return t("notificationsPage.time.hoursAgo").replace("{count}", String(hours));
 	const days = Math.floor(hours / 24);
 	if (days < 30) return t("notificationsPage.time.daysAgo").replace("{count}", String(days));
-	return new Date(dateStr).toLocaleDateString(locale === "zh" ? "zh-CN" : "en-US");
+	return new Date(dateStr).toLocaleDateString(toDateLocale(locale));
 }
 
 const NotificationRow = memo(function NotificationRow({
@@ -57,7 +59,7 @@ const NotificationRow = memo(function NotificationRow({
 }: {
 	notification: NotificationItem;
 	t: (k: string) => string;
-	locale: string;
+	locale: Locale;
 	onMarkRead: (id: string) => void;
 	onDelete: (id: string) => void;
 }) {
@@ -70,7 +72,7 @@ const NotificationRow = memo(function NotificationRow({
 			}`}
 		>
 			<div className="flex items-start gap-3">
-				<span className="text-lg mt-0.5 shrink-0" aria-hidden="true">{typeIcon[n.type] ?? "🔔"}</span>
+				<span className="text-lg mt-0.5 shrink-0" aria-hidden="true">{typeIcon[n.type] ?? <Bell size={18} aria-hidden="true" />}</span>
 				<div className="flex-1 min-w-0">
 					<div className="flex items-center gap-2 min-w-0">
 						<h3 className={`text-sm font-medium truncate ${n.isRead ? "text-[var(--text-muted)]" : "text-[var(--text-primary)]"}`} title={n.title}>{n.title}</h3>
@@ -89,7 +91,7 @@ const NotificationRow = memo(function NotificationRow({
 								{t("notificationsPage.action.markOne")}
 							</button>
 						)}
-						<button onClick={() => onDelete(n.id)} className="rounded-lg px-1 py-0.5 text-[var(--text-muted)] transition hover:text-[var(--danger)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--danger-border)] sm:opacity-0 sm:group-hover:opacity-100 sm:group-focus-within:opacity-100" aria-label={t("notificationsPage.action.delete")}>
+						<button onClick={() => onDelete(n.id)} className="rounded-lg px-1 py-0.5 text-[var(--text-muted)] transition hover:text-[var(--danger)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--danger-border)] light:hover:text-[var(--danger)]" aria-label={t("notificationsPage.action.delete")}>
 							{t("notificationsPage.action.delete")}
 						</button>
 					</div>
@@ -107,6 +109,7 @@ const NotificationRow = memo(function NotificationRow({
 		p.isRead === n.isRead &&
 		p.actionUrl === n.actionUrl &&
 		p.createdAt === n.createdAt &&
+		prev.locale === next.locale &&
 		prev.t === next.t &&
 		prev.onMarkRead === next.onMarkRead &&
 		prev.onDelete === next.onDelete
@@ -159,7 +162,7 @@ export function NotificationListClient({ initialNotifications, initialUnreadCoun
 
 	if (notifications.length === 0) {
 		return (
-			<EmptyState icon="🔔" variant="boxed">
+			<EmptyState icon={<Bell size={36} className="text-[var(--text-muted)]" aria-hidden="true" />} variant="boxed">
 				{t("notificationsPage.empty")}
 			</EmptyState>
 		);

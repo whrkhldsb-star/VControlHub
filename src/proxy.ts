@@ -179,7 +179,7 @@ export function proxy(request: NextRequest) {
     // API routes get 401, pages get redirected to login
     if (pathname.startsWith("/api/")) {
       return NextResponse.json(
-        { error: "未登录或会话已过期" },
+        { error: "Not logged in or session expired" },
         { status: 401 },
       );
     }
@@ -209,7 +209,7 @@ export function proxy(request: NextRequest) {
     ) {
       if (!csrfCookie || !csrfHeader || csrfCookie !== csrfHeader) {
         return NextResponse.json(
-          { error: "CSRF token 验证失败" },
+          { error: "CSRF token validation failed" },
           { status: 403 },
         );
       }

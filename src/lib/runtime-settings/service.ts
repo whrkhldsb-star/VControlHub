@@ -7,117 +7,117 @@ export const RUNTIME_SETTING_DEFINITIONS = {
     defaultValue: 5 * 60 * 1000,
     min: 5_000,
     max: 60 * 60 * 1000,
-    label: "命令执行超时",
-    unit: "毫秒",
-    applies: "立即生效到新启动的命令目标",
+    label: "Command execution timeout",
+    unit: "ms",
+    applies: "Takes effect immediately for newly started command targets",
   },
   "runtime.commandOutputLimitBytes": {
     env: "COMMAND_OUTPUT_LIMIT_BYTES",
     defaultValue: 256 * 1024,
     min: 4 * 1024,
     max: 10 * 1024 * 1024,
-    label: "命令输出保留上限",
-    unit: "字节",
-    applies: "立即生效到新启动的命令目标",
+    label: "Command output retention limit",
+    unit: "bytes",
+    applies: "Takes effect immediately for newly started command targets",
   },
   "runtime.commandStaleRunningAfterMs": {
     env: "COMMAND_STALE_RUNNING_AFTER_MS",
     defaultValue: 10 * 60 * 1000,
     min: 30_000,
     max: 24 * 60 * 60 * 1000,
-    label: "命令卡死判定时间",
-    unit: "毫秒",
-    applies: "立即生效到下一次命令维护扫描",
+    label: "Command stuck detection time",
+    unit: "ms",
+    applies: "Takes effect immediately for the next command maintenance scan",
   },
   "runtime.commandExecutionHeartbeatMs": {
     env: "COMMAND_EXECUTION_HEARTBEAT_MS",
     defaultValue: 60_000,
     min: 5_000,
     max: 10 * 60 * 1000,
-    label: "命令执行心跳间隔",
-    unit: "毫秒",
-    applies: "立即生效到新启动的后台命令执行",
+    label: "Command execution heartbeat interval",
+    unit: "ms",
+    applies: "Takes effect immediately for newly started background command executions",
   },
   "runtime.commandReconcileIntervalMs": {
     env: "COMMAND_RECONCILE_INTERVAL_MS",
     defaultValue: 60_000,
     min: 5_000,
     max: 60 * 60 * 1000,
-    label: "命令维护扫描间隔",
-    unit: "毫秒",
-    applies: "需要重启服务后重新安排后台扫描定时器",
+    label: "Command maintenance scan interval",
+    unit: "ms",
+    applies: "Requires service restart to reschedule the background scan timer",
   },
   "runtime.sftpSyncDirectoryTimeoutMs": {
     env: "SFTP_SYNC_DIRECTORY_TIMEOUT_MS",
     defaultValue: 60_000,
     min: 5_000,
     max: 30 * 60 * 1000,
-    label: "SFTP 单目录同步超时",
-    unit: "毫秒",
-    applies: "立即生效到新启动的 SFTP 同步",
+    label: "SFTP single directory sync timeout",
+    unit: "ms",
+    applies: "Takes effect immediately for newly started SFTP syncs",
   },
   "runtime.sshWsHeartbeatIntervalMs": {
     env: "SSH_WS_HEARTBEAT_INTERVAL_MS",
     defaultValue: 25_000,
     min: 5_000,
     max: 10 * 60 * 1000,
-    label: "SSH 终端 WebSocket 心跳间隔",
-    unit: "毫秒",
-    applies: "需要重启 SSH WebSocket 服务后生效",
+    label: "SSH terminal WebSocket heartbeat interval",
+    unit: "ms",
+    applies: "Requires SSH WebSocket service restart to take effect",
   },
   "runtime.sshKeepaliveIntervalMs": {
     env: "SSH_KEEPALIVE_INTERVAL_MS",
     defaultValue: 30_000,
     min: 5_000,
     max: 10 * 60 * 1000,
-    label: "SSH keepalive 间隔",
-    unit: "毫秒",
-    applies: "需要重启 SSH WebSocket 服务后生效",
+    label: "SSH keepalive interval",
+    unit: "ms",
+    applies: "Requires SSH WebSocket service restart to take effect",
   },
   "runtime.sshKeepaliveCountMax": {
     env: "SSH_KEEPALIVE_COUNT_MAX",
     defaultValue: 60,
     min: 1,
     max: 60,
-    label: "SSH keepalive 容忍次数",
-    unit: "次",
-    applies: "需要重启 SSH WebSocket 服务后生效",
+    label: "SSH keepalive tolerance count",
+    unit: "times",
+    applies: "Requires SSH WebSocket service restart to take effect",
   },
   "runtime.sshIdleTimeoutSec": {
     env: "SSH_IDLE_TIMEOUT_SEC",
     defaultValue: 0,
     min: 0,
     max: 7200,
-    label: "SSH 空闲超时",
-    unit: "秒",
-    applies: "需要重启 SSH WebSocket 服务后生效；0 表示永不（强保活）",
+    label: "SSH idle timeout",
+    unit: "seconds",
+    applies: "Requires SSH WebSocket service restart to take effect; 0 means never (forced keepalive)",
   },
   "runtime.operationTaskListLimit": {
     env: "OPERATION_TASK_LIST_LIMIT",
     defaultValue: 100,
     min: 20,
     max: 500,
-    label: "任务中心列表上限",
-    unit: "条",
-    applies: "立即生效到新的任务中心页面/API 查询",
+    label: "Task center list limit",
+    unit: "items",
+    applies: "Takes effect immediately for new task center page/API queries",
   },
   "runtime.aiProviderListLimit": {
     env: "AI_PROVIDER_LIST_LIMIT",
     defaultValue: 100,
     min: 10,
     max: 500,
-    label: "AI 提供商列表上限",
-    unit: "条",
-    applies: "立即生效到新的 AI 提供商页面/API 查询",
+    label: "AI provider list limit",
+    unit: "items",
+    applies: "Takes effect immediately for new AI provider page/API queries",
   },
   "runtime.aiConversationListLimit": {
     env: "AI_CONVERSATION_LIST_LIMIT",
     defaultValue: 200,
     min: 20,
     max: 1000,
-    label: "AI 对话列表上限",
-    unit: "条",
-    applies: "立即生效到新的 AI 对话页面/API 查询",
+    label: "AI conversation list limit",
+    unit: "items",
+    applies: "Takes effect immediately for new AI conversation page/API queries",
   },
 } as const;
 
@@ -161,18 +161,18 @@ function readPositiveEnvNumber(envName: string, fallback: number): number {
 function runtimeSettingSourceLabel(source: RuntimeSettingSource) {
   switch (source) {
     case "database":
-      return "数据库设置";
+      return "Database setting";
     case "environment":
-      return "环境变量";
+      return "Environment variable";
     case "invalid-database":
-      return "数据库值无效，已回退";
+      return "Database value invalid, fell back";
     default:
-      return "系统默认值";
+      return "System default";
   }
 }
 
 function runtimeSettingRequiresRestart(applies: string) {
-  return applies.includes("需要重启");
+  return applies.includes("Requires");
 }
 
 export function getRuntimeSettingFallback(key: RuntimeSettingKey): number {

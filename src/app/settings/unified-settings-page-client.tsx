@@ -26,6 +26,14 @@ const TAB_SECTION_IDS: Record<Exclude<SettingsTab, "personal">, string[]> = {
   advanced: ["runtime", "dashboard", "offsite", "aiOps"],
 };
 
+const PERSONAL_SECTION_IDS = [
+  "preferences-default-page",
+  "preferences-dashboard-widgets",
+  "preferences-notifications",
+  "preferences-auto-refresh",
+  "preferences-auto-probe",
+];
+
 /** Map any section hash to its parent tab. */
 const SECTION_TO_TAB: Record<string, SettingsTab> = {
   // personal preferences sections
@@ -111,11 +119,11 @@ export function UnifiedSettingsPageClient({
     }
   }, []);
 
-  const tabs = TAB_META;
+  const tabs = canManage ? TAB_META : TAB_META.filter((tab) => tab.id === "personal");
   // Count sections per tab for the badge
   const tabCounts = useMemo(() => {
     const counts: Record<SettingsTab, number> = {
-      personal: 5, // default-page, dashboard-widgets, notifications, auto-refresh, auto-probe
+      personal: PERSONAL_SECTION_IDS.length,
       security: TAB_SECTION_IDS.security.length,
       notifications: TAB_SECTION_IDS.notifications.length,
       advanced: TAB_SECTION_IDS.advanced.length,

@@ -92,11 +92,11 @@ function describeStep(step: PlaybookStep): string {
   switch (step.type) {
     case "run_command": {
       const cfg = step.config;
-      return `run_command “${truncate(cfg.command, 80)}” on ${cfg.serverIds.length} server(s)`;
+      return `run_command "${truncate(cfg.command, 80)}" on ${cfg.serverIds.length} server(s)`;
     }
     case "send_notification": {
       const cfg = step.config;
-      return `send_notification “${truncate(cfg.subject, 60)}” to ${cfg.recipientUserId}`;
+      return `send_notification "${truncate(cfg.subject, 60)}" to ${cfg.recipientUserId}`;
     }
     case "call_webhook": {
       const cfg = step.config;

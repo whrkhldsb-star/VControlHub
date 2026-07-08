@@ -41,11 +41,11 @@ const callWebhookConfigSchema = z.object({
   url: z
     .string()
     .trim()
-    .url("Webhook URL 无效")
+    .url("Webhook URL is invalid")
     .max(2_000)
     .refine(
       (raw) => raw.startsWith("https://") || raw.startsWith("http://"),
-      "Webhook URL 必须以 http(s):// 开头",
+      "Webhook URL must start with http(s)://",
     ),
   method: z.enum(["GET", "POST", "PUT"]),
   headers: z.record(z.string(), z.string()).optional(),
@@ -87,7 +87,7 @@ const cronTriggerConfigSchema = z.object({
     .refine(
       // 5-field cron (minute hour day-of-month month day-of-week)
       (expr) => /^\S+\s+\S+\s+\S+\s+\S+\s+\S+(\s+\S+)?$/.test(expr),
-      "Cron 表达式需为 5 字段（分 时 日 月 周）",
+      "Cron expression must have 5 fields (minute hour day month weekday)",
     ),
 });
 
@@ -121,14 +121,14 @@ export const createPlaybookSchema = baseCreatePlaybookObject.superRefine(
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
         path: ["triggerConfig"],
-        message: "Cron 触发器需要 expression 字段",
+        message: "Cron trigger requires the expression field",
       });
     }
     if (value.triggerType === "metric" && !("metric" in value.triggerConfig)) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
         path: ["triggerConfig"],
-        message: "指标触发器需要 metric / operator / threshold 字段",
+        message: "Metric trigger requires metric / operator / threshold fields",
       });
     }
   },
@@ -161,7 +161,7 @@ export const updatePlaybookSchema = z
         ctx.addIssue({
           code: z.ZodIssueCode.custom,
           path: ["triggerConfig"],
-          message: "Cron 触发器需要 expression 字段",
+          message: "Cron trigger requires the expression field",
         });
       }
       if (
@@ -171,7 +171,7 @@ export const updatePlaybookSchema = z
         ctx.addIssue({
           code: z.ZodIssueCode.custom,
           path: ["triggerConfig"],
-          message: "指标触发器需要 metric / operator / threshold 字段",
+          message: "Metric trigger requires metric / operator / threshold fields",
         });
       }
     }

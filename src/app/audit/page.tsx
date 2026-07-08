@@ -6,10 +6,13 @@ import { getAuditStats } from "@/lib/audit/service";
 import { getServerLocale, t, type Locale } from "@/lib/i18n/translations";
 import { AuditLogClient } from "./audit-client";
 import { PageShell, PageHeader, StatCard, EmptyState } from "@/components/page-shell";
+import { createLogger } from "@/lib/logging";
 
 const HIGH_RISK_ACTIONS = ["command.execute", "storage.file_delete", "server.delete", "user.permission_update", "docker.container_restart", "api_token.create"];
 
 export const dynamic = "force-dynamic";
+
+const logger = createLogger("audit:page");
 
 type AuditPageProps = {
 	searchParams?: Promise<{ action?: string }>;
@@ -17,6 +20,12 @@ type AuditPageProps = {
 
 function formatCopy(template: string, replacements: Record<string, string | number>) {
 	return Object.entries(replacements).reduce((text, [key, value]) => text.replaceAll(`{${key}}`, String(value)), template);
+}
+
+function formatAuditAction(action: string, locale: Locale): string {
+	const key = `audit.action.${action}`;
+	const translated = t(key, locale);
+	return translated !== key ? translated : action;
 }
 
 function getAuditPageCopy(locale: Locale) {
@@ -49,8 +58,8 @@ export default async function AuditPage({ searchParams }: AuditPageProps) {
 	if (canRead) {
 		try {
 			stats = await getAuditStats();
-		} catch {
-			// DB might be empty
+		} catch (error) {
+			logger.warn("Failed to load audit stats", error);
 		}
 	}
 	const highRiskCount = stats
@@ -95,7 +104,7 @@ export default async function AuditPage({ searchParams }: AuditPageProps) {
 												href={`/audit?action=${encodeURIComponent(action)}`}
 												className="rounded-lg border border-[var(--border)] bg-[var(--surface)]/[0.04] px-2 py-1 text-[11px] text-[var(--danger)]/80 transition hover:bg-[var(--surface)]/[0.10]"
 											>
-												{copy.highRiskFilterPrefix} {action}
+												{copy.highRiskFilterPrefix} {formatAuditAction(action, locale)}
 											</Link>
 										))}
 									</div>
@@ -107,7 +116,7 @@ export default async function AuditPage({ searchParams }: AuditPageProps) {
 											<p className="text-sm text-[var(--text-muted)]">{copy.topActionsEmpty}</p>
 										) : topActions.map(([action, count]) => (
 											<div key={action} className="flex items-center justify-between gap-3 text-sm">
-												<span className="truncate text-[var(--text-secondary)]">{action}</span>
+												<span className="truncate text-[var(--text-secondary)]">{formatAuditAction(action, locale)}</span>
 												<span className="rounded-full bg-[var(--surface)]/[0.10] px-2 py-0.5 text-xs text-[var(--text-secondary)]">{count}</span>
 											</div>
 										))}

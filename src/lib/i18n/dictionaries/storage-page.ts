@@ -19,6 +19,7 @@ export const zh: Record<string, string> = {
 	"storagePage.list.collapse": "收起",
 
 	"storagePage.list.lastChecked": "最近检测",
+	"storagePage.list.latencyMs": "{latency} 毫秒",
 
 	"storagePage.list.registeredFiles": "已注册 {count} 个文件",
 	"storagePage.list.checking": "检测中...",
@@ -111,6 +112,7 @@ export const en: Record<string, string> = {
 	"storagePage.list.collapse": "Collapse",
 
 	"storagePage.list.lastChecked": "Last checked",
+	"storagePage.list.latencyMs": "{latency} ms",
 
 	"storagePage.list.registeredFiles": "{count} registered files",
 	"storagePage.list.checking": "Checking...",

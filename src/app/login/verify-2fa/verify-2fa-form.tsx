@@ -73,7 +73,6 @@ export function Verify2faForm({ nextPath, error }: Verify2faFormProps) {
 			});
 if (data.success) {
 				router.push(nextPath);
-				router.refresh();
 				return;
 			}
 

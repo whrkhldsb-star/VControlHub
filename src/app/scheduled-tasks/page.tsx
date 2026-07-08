@@ -14,7 +14,7 @@ export default async function ScheduledTasksPage() {
 	const locale = await getServerLocale();
 	const tr = (key: string) => t(key, locale);
 	const canCreate = sessionHasPermission(session, "command:create");
-	const canManage = canCreate;
+	const canManage = sessionHasPermission(session, "command:execute");
 
 	const [tasks, servers] = await Promise.all([
 		listScheduledTasks(),

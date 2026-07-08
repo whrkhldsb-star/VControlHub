@@ -21,6 +21,12 @@ export function CancelCommandButton({ commandRequestId, commandTitle }: Props) {
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
+  const handleClose = useCallback(() => {
+    setOpen(false);
+    setError(null);
+  }, []);
+  const dialogRef = useDialogFocus<HTMLDivElement>({ open, onClose: handleClose });
+
   const submit = async () => {
     setPending(true);
     setError(null);
@@ -52,7 +58,7 @@ export function CancelCommandButton({ commandRequestId, commandTitle }: Props) {
         type="button"
         onClick={() => setOpen(true)}
         data-tone="rose" className="rounded-lg border border-[var(--danger-border)] px-3 py-1.5 text-xs font-medium text-[var(--danger)] transition hover:bg-[var(--danger-bg)]"
-        aria-label={`${t("requestsPage.cancel.ariaLabel")}：${commandTitle}`}
+        aria-label={`${t("requestsPage.cancel.ariaLabel")}: ${commandTitle}`}
       >
         {t("requestsPage.cancel.title")}
       </button>
@@ -60,7 +66,7 @@ export function CancelCommandButton({ commandRequestId, commandTitle }: Props) {
       {error && <p role="alert" className="text-xs text-[var(--danger)]">{error}</p>}
 
       {open && (
-        <div role="dialog" aria-modal="true" aria-labelledby={`cancel-command-${commandRequestId}-title`} className="fixed inset-0 z-50 flex items-center justify-center bg-[var(--surface)]/70 px-4 py-6">
+        <div ref={dialogRef} role="dialog" aria-modal="true" aria-labelledby={`cancel-command-${commandRequestId}-title`} className="fixed inset-0 z-50 flex items-center justify-center bg-[var(--surface)]/70 px-4 py-6">
           <div className="w-full max-w-md rounded-2xl border border-[var(--border)] bg-[var(--modal-bg)] p-5 shadow-2xl">
             <h3 id={`cancel-command-${commandRequestId}-title`} className="text-lg font-semibold text-[var(--text-primary)]">{t("requestsPage.cancel.confirmTitle")}</h3>
             <p className="mt-2 text-sm text-[var(--text-secondary)]">

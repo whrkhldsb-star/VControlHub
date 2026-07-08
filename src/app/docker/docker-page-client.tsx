@@ -77,6 +77,8 @@ const stateColors: Record<string, string> = {
 	paused: "bg-[var(--warning-bg)] text-[var(--warning)]",
 	created: "bg-[var(--accent-bg)] text-[var(--accent)]",
 	restarting: "bg-[var(--warning-bg)] text-[var(--warning)]",
+	dead: "bg-[var(--danger-bg)] text-[var(--danger)]",
+	removing: "bg-[var(--danger-bg)] text-[var(--danger)]",
 };
 
 export default function DockerPage() {
@@ -100,6 +102,7 @@ export default function DockerPage() {
 	const logsCloseButtonRef = useRef<HTMLButtonElement | null>(null);
 	const removalDialogRef = useDialogFocus<HTMLDivElement>({ open: pendingRemoval !== null, onClose: closeRemovalDialog, initialFocusRef: removeCancelButtonRef });
 	const logsDialogRef = useDialogFocus<HTMLDivElement>({ open: logsId !== null, onClose: closeLogsDialog, initialFocusRef: logsCloseButtonRef });
+	const fetchingStatsRef = useRef<Set<string>>(new Set());
 
 	const fetchContainers = useCallback(async () => {
 		try {
@@ -186,13 +189,15 @@ export default function DockerPage() {
 	};
 
 	const fetchStats = async (id: string) => {
+		if (fetchingStatsRef.current.has(id)) return;
+		fetchingStatsRef.current.add(id);
 		try {
 			const data = await csrfFetch(`/api/docker/containers?stats=${id}`);
 			if (data.data) {
 				setStats((prev) => ({ ...prev, [id]: data.data as ContainerStats }));
 			}
 		} finally {
-			// no-op
+			fetchingStatsRef.current.delete(id);
 		}
 	};
 

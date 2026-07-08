@@ -112,7 +112,7 @@ function StateView({ state }: { state: DryRunState }) {
 				data-tone="amber"
 				className="rounded-lg border border-[var(--warning-border)] px-2 py-1.5 text-xs text-[var(--warning)]"
 			>
-				<p className="font-medium">dry-run failed: config_invalid</p>
+				<p className="font-medium">{t("backupsPage.offsite.dryRunConfigInvalid")}</p>
 				<ul className="mt-1 list-disc pl-4">
 					{state.issues.map((issue) => (
 						<li key={issue}>{issue}</li>

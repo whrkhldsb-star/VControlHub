@@ -76,7 +76,7 @@ export async function executeAria2RelayDownload(
 
   await prisma.downloadTask.update({
    where: { id: taskId },
-   data: { aria2Gid: gid, status: "RUNNING", progress: "中转下载中（aria2 RPC）..." },
+   data: { aria2Gid: gid, status: "RUNNING", progress: "Relay download in progress (aria2 RPC)..." },
   });
 
   let done = false;
@@ -125,7 +125,7 @@ export async function executeAria2RelayDownload(
    return;
   }
 
-  await prisma.downloadTask.update({ where: { id: taskId }, data: { progress: "下载完成，正在传输到目标 VPS..." } });
+  await prisma.downloadTask.update({ where: { id: taskId }, data: { progress: "Download completed, transferring to target VPS..." } });
 
   const downloadedFiles = await fs.readdir(tempDir);
   const filesToTransfer = downloadedFiles.filter((f) => !f.endsWith(".aria2") && !f.startsWith("."));
@@ -157,7 +157,7 @@ export async function executeAria2RelayDownload(
 
   await prisma.downloadTask.update({
    where: { id: taskId },
-   data: { status: "COMPLETED", progress: "下载并传输完成", fileSize: String(totalSize), totalBytes: String(totalSize), completedBytes: String(totalSize) },
+   data: { status: "COMPLETED", progress: "Download and transfer completed", fileSize: String(totalSize), totalBytes: String(totalSize), completedBytes: String(totalSize) },
   });
   if (userId) notifyDownloadResult(userId, urls[0]!, "completed").catch(() => {});
 
@@ -191,7 +191,7 @@ export async function executeDirectDownload(
   const pid = parseInt(pidOutput.trim(), 10);
 
   if (exitCode === 0 && pid > 0) {
-   await prisma.downloadTask.update({ where: { id: taskId }, data: { pid, status: "RUNNING", progress: "下载中..." } });
+   await prisma.downloadTask.update({ where: { id: taskId }, data: { pid, status: "RUNNING", progress: "Downloading..." } });
    await indexDownloadedFileEntry({ storageNode: server.storageNode, targetPath, fileName, size: null });
   } else {
    const { stdout: logContent } = await execRemoteCommand({ ...sshParams, command: getDirectDownloadLogCommand(taskId), timeout: 8000 });

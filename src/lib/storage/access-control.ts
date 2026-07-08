@@ -108,7 +108,7 @@ export async function assertStorageAccess(input: {
 }): Promise<StorageAccessDecision> {
   const requiredPermission = input.operation === "delete" ? "storage:delete" : input.operation === "read" ? "storage:read" : "storage:write";
   if (!sessionHasPermission(input.session, requiredPermission)) {
-    return { allowed: false, reason: "缺少操作权限" };
+    return { allowed: false, reason: "Missing operation permission" };
   }
 
   // Storage managers/admins retain full access for break-glass maintenance.
@@ -127,18 +127,18 @@ export async function assertStorageAccess(input: {
     if (isLegacyGrantFallbackEnabled()) {
       return { allowed: true };
     }
-    return { allowed: false, reason: "没有该存储节点或路径的访问授权" };
+    return { allowed: false, reason: "No access authorization for this storage node or path" };
   }
 
   const targetPath = normalizeAccessPath(input.relativePath);
   if (targetPath === null) {
-    return { allowed: false, reason: "请求路径无效" };
+    return { allowed: false, reason: "Invalid request path" };
   }
   const matchingGrants = grants.filter((grant: StorageAccessGrantRow) => pathMatchesGrant(targetPath, grant.pathPrefix));
   const operationGrant = matchingGrants.find((grant: StorageAccessGrantRow) => grantAllowsOperation(grant, input.operation));
 
   if (!operationGrant) {
-    return { allowed: false, reason: "没有该存储节点或路径的访问授权" };
+    return { allowed: false, reason: "No access authorization for this storage node or path" };
   }
 
   const writeBytes = input.writeBytes === null || input.writeBytes === undefined
@@ -149,7 +149,7 @@ export async function assertStorageAccess(input: {
 
   if (input.operation === "write" && writeBytes !== null) {
     if (operationGrant.maxFileBytes !== null && writeBytes > operationGrant.maxFileBytes) {
-      return { allowed: false, reason: "上传文件超过该授权的单文件大小限制", matchedGrantId: operationGrant.id };
+      return { allowed: false, reason: "Uploaded file exceeds the single file size limit of this authorization", matchedGrantId: operationGrant.id };
     }
 
     if (operationGrant.quotaBytes !== null) {
@@ -158,7 +158,7 @@ export async function assertStorageAccess(input: {
         pathPrefix: operationGrant.pathPrefix,
       });
       if (usedBytes + writeBytes > operationGrant.quotaBytes) {
-        return { allowed: false, reason: "写入后将超过该授权的容量配额", matchedGrantId: operationGrant.id };
+        return { allowed: false, reason: "Write will exceed the capacity quota of this authorization", matchedGrantId: operationGrant.id };
       }
     }
   }

@@ -46,7 +46,7 @@ function unsupportedAction(input: ActionInput, reason: string): AiOpsExecutedAct
  */
 export async function executeAiOpsAction(input: ActionInput): Promise<AiOpsExecutedAction> {
 	if (!SAFE_ACTIONS.has(input.action)) {
-		return unsupportedAction(input, `动作 ${input.action} 不在自主安全集合中`);
+		return unsupportedAction(input, `Action ${input.action} is not in the autonomous safe set`);
 	}
 
 	try {
@@ -54,14 +54,14 @@ export async function executeAiOpsAction(input: ActionInput): Promise<AiOpsExecu
 			case "alert.evaluate": {
 				const before = await prisma.alertRule.count({ where: { enabled: true } }).catch(() => null);
 				await evaluateAlerts();
-				const suffix = before === null ? "" : `（启用规则 ${before} 条）`;
+				const suffix = before === null ? "" : ` (enabled rules: ${before})`;
 				return {
 					id: input.id,
 					action: input.action,
 					risk: input.risk,
 					executed: true,
 					executedAt: new Date().toISOString(),
-					result: `已执行告警规则评估${suffix}`,
+					result: `Alert rule evaluation executed${suffix}`,
 				};
 			}
 			case "cache.purge:stale": {
@@ -99,15 +99,15 @@ export async function executeAiOpsAction(input: ActionInput): Promise<AiOpsExecu
 					risk: input.risk,
 					executed: true,
 					executedAt: new Date().toISOString(),
-					result: `已清理 ${totalPruned} 条陈旧记录（含任务队列和运维日志）`,
+					result: `Pruned ${totalPruned} stale records (including job queue and ops logs)`,
 				};
 			}
 			case "playbook.run:low_risk":
-				return unsupportedAction(input, "低风险 Playbook 执行需要 playbookId/serverId payload，当前推荐项未携带可执行参数");
+				return unsupportedAction(input, "Low-risk Playbook execution requires a playbookId/serverId payload; the current recommendation does not carry executable parameters");
 			case "backup.snapshot:metadata_only":
-				return unsupportedAction(input, "元数据快照需要目标备份域 payload，当前推荐项未携带可执行参数");
+				return unsupportedAction(input, "Metadata snapshot requires a target backup domain payload; the current recommendation does not carry executable parameters");
 			default:
-				return unsupportedAction(input, `未知安全动作 ${input.action}`);
+				return unsupportedAction(input, `Unknown safe action ${input.action}`);
 		}
 	} catch (error) {
 		return {

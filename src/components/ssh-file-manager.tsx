@@ -105,7 +105,10 @@ export function SshFileManager({ serverId, visible }: SshFileManagerProps) {
         formData.append("path", dir);
 
         try {
-          await uploadViaXhr(serverId, formData, files.length, i, setUploads);
+          await uploadViaXhr(serverId, formData, files.length, i, setUploads, {
+            uploadFailed: (status) => t("sshFileManager.uploadFailed").replace("{status}", String(status)),
+            networkError: t("sshFileManager.networkError"),
+          });
         } catch {
           // Error state is already reflected in the upload row.
         }
@@ -201,6 +204,7 @@ function uploadViaXhr(
   fileCount: number,
   fileIndex: number,
   setUploads: React.Dispatch<React.SetStateAction<UploadProgress[]>>,
+  errorMsgs: { uploadFailed: (status: number) => string; networkError: string },
 ) {
   return new Promise<void>((resolve, reject) => {
     const xhr = new XMLHttpRequest();
@@ -219,13 +223,13 @@ function uploadViaXhr(
         resolve();
         return;
       }
-      const msg = `Upload failed (${xhr.status})`;
+      const msg = errorMsgs.uploadFailed(xhr.status);
       setUploads((prev) => updateUploadAt(prev, fileCount, fileIndex, { status: "error", error: msg }));
       reject(new Error(msg));
     };
 
     xhr.onerror = () => {
-      const msg = "Network error during upload";
+      const msg = errorMsgs.networkError;
       setUploads((prev) => updateUploadAt(prev, fileCount, fileIndex, { status: "error", error: msg }));
       reject(new Error(msg));
     };

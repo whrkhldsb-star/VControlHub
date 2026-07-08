@@ -95,7 +95,8 @@ export function DashboardAnalyticsPanel() {
     return () => {
       active = false;
     };
-  }, [t]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [locale]);
 
   const latestServerMetric = data?.servers?.at(-1);
   const downloadTotals = useMemo(() => {
@@ -219,7 +220,7 @@ function SparkBars({ points, color, locale: _locale = "zh" }: { points: Array<{ 
   const colors = {
     cyan: "bg-[var(--color-action-bg)]/70",
     violet: "bg-[var(--accent)]/70",
-    pink: "bg-pink-400/70",
+    pink: "bg-[var(--accent)]/70",
   };
   return (
     <div className="mt-4 flex h-24 items-end gap-1" aria-label={t("dashboardAnalytics.trendChart")}>

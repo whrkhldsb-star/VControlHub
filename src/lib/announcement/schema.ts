@@ -17,16 +17,16 @@ export const listAnnouncementsQuerySchema = z.object({}).optional();
 export const createAnnouncementSchema = z.object({
   title: z.string().trim().min(1, "Title is required").max(120, "Title must be at most 120 characters"),
   content: z.string().trim().min(1, "Content is required").max(5_000, "Content must be at most 5000 characters"),
-  type: z.enum(ANNOUNCEMENT_LEVELS, { message: "公告类型无效" }).optional(),
+  type: z.enum(ANNOUNCEMENT_LEVELS, { message: "Invalid announcement type" }).optional(),
   pinned: z.boolean().optional(),
   published: z.boolean().optional(),
   startsAt: z
     .string()
-    .datetime({ message: "startsAt 必须是 ISO 时间" })
+    .datetime({ message: "startsAt must be an ISO datetime" })
     .optional(),
   expiresAt: z
     .string()
-    .datetime({ message: "expiresAt 必须是 ISO 时间" })
+    .datetime({ message: "expiresAt must be an ISO datetime" })
     .nullable()
     .optional(),
 });
@@ -44,7 +44,7 @@ export const updateAnnouncementSchema = z
     published: z.boolean().optional(),
     expiresAt: z
       .union([
-        z.string().datetime({ message: "expiresAt Must是 ISO 时间" }),
+        z.string().datetime({ message: "expiresAt must be an ISO datetime" }),
         z.null(),
       ])
       .optional(),
@@ -57,7 +57,7 @@ export const updateAnnouncementSchema = z
       data.pinned !== undefined ||
       data.published !== undefined ||
       data.expiresAt !== undefined,
-    { message: "至少提供一个更新字段", path: [] },
+    { message: "At least one update field must be provided", path: [] },
   );
 export type UpdateAnnouncementInput = z.infer<typeof updateAnnouncementSchema>;
 

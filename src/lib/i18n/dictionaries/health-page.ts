@@ -138,6 +138,11 @@ export const zh: Record<string, string> = {
 	"healthPage.check.git-sync.message.no-remote": "当前提交 {head}，远端状态暂不可确认",
 	"healthPage.check.git-sync.message.no-git": "当前目录不是可识别的 Git 仓库或无法读取 HEAD",
 	"healthPage.activeIncidentsAria": "活动事件公告",
+	"healthPage.incident.level.incident": "故障",
+	"healthPage.incident.level.maintenance": "维护",
+	"healthPage.incident.started": "开始：{time}",
+	"healthPage.incident.expectedEnd": "预计结束：{time}",
+	"healthPage.incident.dismissAria": "关闭通知 {title}",
 };
 
 export const en: Record<string, string> = {
@@ -270,4 +275,9 @@ export const en: Record<string, string> = {
 	"healthPage.check.git-sync.message.no-remote": "Current commit {head}; remote status is temporarily unavailable",
 	"healthPage.check.git-sync.message.no-git": "Current directory is not a recognized Git repository or HEAD cannot be read",
 	"healthPage.activeIncidentsAria": "Active incident announcements",
+	"healthPage.incident.level.incident": "Incident",
+	"healthPage.incident.level.maintenance": "Maintenance",
+	"healthPage.incident.started": "Started: {time}",
+	"healthPage.incident.expectedEnd": "Expected end: {time}",
+	"healthPage.incident.dismissAria": "Dismiss notification {title}",
 };

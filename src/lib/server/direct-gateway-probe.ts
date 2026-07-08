@@ -129,16 +129,16 @@ export async function checkDirectGatewayPublicExposure(
 export function logDirectGatewayExposureResult(result: DirectGatewayExposureResult): void {
   if (result.exposed) {
     log.warn(
-      "Direct Gateway 公网可达：检测到 HTTP 200 响应（31888 端口监听公网），请检查 DIRECT_BIND / Caddy 反代 / 防火墙",
+      "Direct Gateway is publicly reachable: detected HTTP 200 response (port 31888 listening on public network). Please check DIRECT_BIND / Caddy reverse proxy / firewall",
       { host: result.host, port: result.port, url: result.url, status: result.status },
     );
     return;
   }
   if (result.host === "(unknown)") {
-    log.info("Direct Gateway 公网暴露探测跳过：未配置公网 host", { reason: result.reason });
+    log.info("Direct Gateway public exposure probe skipped: no public host configured", { reason: result.reason });
     return;
   }
-  log.info("Direct Gateway 公网未暴露", { host: result.host, port: result.port, reason: result.reason });
+  log.info("Direct Gateway is not publicly exposed", { host: result.host, port: result.port, reason: result.reason });
 }
 
 /**
@@ -159,7 +159,7 @@ export function scheduleDirectGatewayExposureProbe(
       })
       .catch((err: unknown) => {
         const message = err instanceof Error ? err.message : String(err);
-        log.error("Direct Gateway 公网暴露探测异常", { error: message.slice(0, 200) });
+        log.error("Direct Gateway public exposure probe exception", { error: message.slice(0, 200) });
       });
   });
 }

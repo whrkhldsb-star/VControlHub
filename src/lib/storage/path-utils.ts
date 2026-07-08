@@ -39,15 +39,15 @@ function validateSegments(rawValue: string, options: { allowEmpty: boolean }): S
   if (!normalizedInput || normalizedInput === ".") {
     return options.allowEmpty
       ? { ok: true, path: "" }
-      : { ok: false, reason: "路径不能为空" };
+      : { ok: false, reason: "Path cannot be empty" };
   }
 
   if (normalizedInput.startsWith("/")) {
-    return { ok: false, reason: "路径必须是相对路径" };
+    return { ok: false, reason: "Path must be a relative path" };
   }
 
   if (normalizedInput.length > MAX_PATH_LENGTH) {
-    return { ok: false, reason: "路径过长" };
+    return { ok: false, reason: "Path is too long" };
   }
 
   const segments = normalizedInput
@@ -58,18 +58,18 @@ function validateSegments(rawValue: string, options: { allowEmpty: boolean }): S
   if (segments.length === 0) {
     return options.allowEmpty
       ? { ok: true, path: "" }
-      : { ok: false, reason: "路径不能为空" };
+      : { ok: false, reason: "Path cannot be empty" };
   }
 
   for (const segment of segments) {
     if (segment === "." || segment === "..") {
-      return { ok: false, reason: "路径不能包含 . 或 .." };
+      return { ok: false, reason: "Path must not contain . or .." };
     }
     if (segment.length > MAX_SEGMENT_LENGTH) {
-      return { ok: false, reason: "路径片段过长" };
+      return { ok: false, reason: "Path segment is too long" };
     }
     if (INVALID_SEGMENT_CHARS.test(segment)) {
-      return { ok: false, reason: "路径包含非法字符" };
+      return { ok: false, reason: "Path contains illegal characters" };
     }
   }
 
@@ -80,7 +80,7 @@ function validateSegments(rawValue: string, options: { allowEmpty: boolean }): S
     normalized.startsWith("../") ||
     path.posix.isAbsolute(normalized)
   ) {
-    return { ok: false, reason: "路径超出允许范围" };
+    return { ok: false, reason: "Path is out of allowed bounds" };
   }
 
   return { ok: true, path: normalized };
@@ -96,9 +96,9 @@ export function normalizeStorageTargetDirectory(value: string | null | undefined
 
 export function normalizeStorageEntryName(value: string | null | undefined): StoragePathResult {
   const raw = (value ?? "").trim();
-  if (!raw) return { ok: false, reason: "名称不能为空" };
+  if (!raw) return { ok: false, reason: "Name cannot be empty" };
   if (raw.includes("/") || raw.includes("\\")) {
-    return { ok: false, reason: "名称不能包含路径分隔符" };
+    return { ok: false, reason: "Name must not contain path separators" };
   }
   return validateSegments(raw, { allowEmpty: false });
 }
@@ -129,7 +129,7 @@ export function resolveStoragePathWithinBase(basePath: string, relativePath: str
   const relativeToRoot = path.relative(allowedRoot, absolutePath);
 
   if (relativeToRoot.startsWith("..") || path.isAbsolute(relativeToRoot)) {
-    return { ok: false, reason: "路径超出允许范围" };
+    return { ok: false, reason: "Path is out of allowed bounds" };
   }
 
   return { ok: true, path: absolutePath };

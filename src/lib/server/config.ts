@@ -63,7 +63,7 @@ export function getServerConnectionSummary(input: {
   sshKeyName?: string | null;
 }) {
   if (input.connectionType === "PASSWORD") {
-    return `${input.username}@${input.host}:${input.port}，使用密码连接`;
+    return `${input.username}@${input.host}:${input.port}, using password connection`;
   }
-  return `${input.username}@${input.host}:${input.port}，使用 SSH 密钥 ${input.sshKeyName ?? "未知"} 连接`;
+  return `${input.username}@${input.host}:${input.port}, using SSH key ${input.sshKeyName ?? "unknown"}`;
 }

@@ -81,10 +81,10 @@ export function parseSearchParams<S extends z.ZodTypeAny>(
       message: typeof i.message === "string" ? i.message : "Invalid value",
     }));
     const summary = issues.length === 0
-      ? "查询参数校验失败"
+      ? "Query parameter validation failed"
       : issues.length === 1
         ? `${issues[0]!.path ? issues[0]!.path + ": " : ""}${issues[0]!.message}`
-        : `${issues.length} 个查询参数校验失败：${issues.slice(0, 3).map((i) => i.path || "?").join(", ")}${issues.length > 3 ? "…" : ""}`;
+        : `${issues.length} query parameter(s) failed validation: ${issues.slice(0, 3).map((i) => i.path || "?").join(", ")}${issues.length > 3 ? "…" : ""}`;
     // Throw a real `ValidationError` (AppError subclass) rather than a
     // bare `Error` with `.code/.status` props attached. `apiCatch` only
     // recognises the `AppError` shape, so a plain `Error` would fall

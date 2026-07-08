@@ -56,7 +56,7 @@ export async function getConfiguredSessionTtlSeconds(remember = false): Promise<
         return parsed;
       }
     } catch (error) {
-      logger.warn("读取 session.timeout 设置失败，使用默认会话时长", error);
+      logger.warn("Failed to read session.timeout setting, using default session duration", error);
     }
   }
   return getSessionTtlSeconds(remember);

@@ -92,7 +92,7 @@ export async function POST(request: NextRequest) {
           jobId: job.id,
           taskId: `job:${job.id}`,
           status: job.status,
-          message: "SFTP stale inventory has been added as a background task, you can check progress in the task center。",
+          message: "SFTP stale inventory has been added as a background task, you can check progress in the task center.",
         },
         { status: 202 },
       );

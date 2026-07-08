@@ -18,7 +18,7 @@ function safeDecrypt(value: string): string {
 
 /* ── Default settings ─────────────────────────────────────── */
 const DEFAULTS: Record<string, string> = {
-	"platform.name": "VPS 统一管控平台",
+	"platform.name": "VPS Unified Control Platform",
 	"platform.logo": "",
 	"session.timeout": "86400",
 	"password.minLength": "8",
@@ -128,7 +128,7 @@ export async function getSettingUpdateMetadata(keys: string[]): Promise<Record<s
 			result[key] = {
 				updatedAt: log.createdAt,
 				actorId: log.actorId,
-				actorName: log.actor?.displayName || log.actor?.username || log.actorId || "未知用户",
+				actorName: log.actor?.displayName || log.actor?.username || log.actorId || "Unknown user",
 			};
 		}
 	}

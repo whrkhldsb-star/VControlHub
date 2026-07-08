@@ -115,7 +115,7 @@ describe("/api/storage/direct-access", () => {
       },
     });
     await expect(response.json()).resolves.toMatchObject({
-      error: "存储节点不存在",
+      error: "Storage node not found",
     });
   });
 
@@ -135,7 +135,7 @@ describe("/api/storage/direct-access", () => {
 
     expect(response.status).toBe(400);
     await expect(response.json()).resolves.toMatchObject({
-      error: "请求路径超出存储节点根目录",
+      error: "Requested path exceeds storage node root directory",
     });
   });
 

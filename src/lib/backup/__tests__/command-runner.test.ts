@@ -121,7 +121,7 @@ describe("backup command-runner adapter", () => {
   describe("backupCommandErrorMessage", () => {
     it("returns the documented missing-binary message when the error code is ENOENT", () => {
       const err = Object.assign(new Error("spawn bash ENOENT"), { code: "ENOENT" });
-      expect(backupCommandErrorMessage(err)).toBe("bash 未安装或不在 PATH，请联系管理员安装 bash 或修复 PATH 后重试。");
+      expect(backupCommandErrorMessage(err)).toBe("bash is not installed or not in PATH. Please ask the administrator to install bash or fix PATH and retry.");
     });
 
     it("returns the original Error message for any non-ENOENT error", () => {
@@ -130,9 +130,9 @@ describe("backup command-runner adapter", () => {
     });
 
     it("falls back to a generic backup-execution message for non-Error values", () => {
-      expect(backupCommandErrorMessage(null)).toBe("备份执行失败");
-      expect(backupCommandErrorMessage(undefined)).toBe("备份执行失败");
-      expect(backupCommandErrorMessage("boom")).toBe("备份执行失败");
+      expect(backupCommandErrorMessage(null)).toBe("Backup execution failed");
+      expect(backupCommandErrorMessage(undefined)).toBe("Backup execution failed");
+      expect(backupCommandErrorMessage("boom")).toBe("Backup execution failed");
     });
   });
 });

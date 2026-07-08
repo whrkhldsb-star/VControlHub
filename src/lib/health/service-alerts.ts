@@ -111,8 +111,8 @@ export async function evaluateAlerts() {
 			if (!triggered) {
 				if (rule.lastMatchedAt) {
 					// Alert condition resolved — notify via the same channels
-					const resolvedTitle = `告警恢复: ${server.serverName} ${rule.metric === "server_offline" ? "已上线" : rule.metric.replace("_", " ")}`;
-					const resolvedMessage = `${rule.name}: ${rule.metric} 已恢复至正常范围（阈值 ${rule.operator} ${rule.threshold}）`;
+					const resolvedTitle = `Alert resolved: ${server.serverName} ${rule.metric === "server_offline" ? "back online" : rule.metric.replace("_", " ")}`;
+					const resolvedMessage = `${rule.name}: ${rule.metric} has returned to normal range (threshold ${rule.operator} ${rule.threshold})`;
 
 					if (rule.notifyChannels.includes("in_app")) {
 							const admins = await prisma.user.findMany({
@@ -165,8 +165,8 @@ export async function evaluateAlerts() {
 			}
 
 			// Fire alert
-			const title = `告警: ${server.serverName} ${rule.metric === "server_offline" ? "离线" : rule.metric.replace("_", " ")}`;
-			const message = `${rule.name}: ${rule.metric} ${rule.operator} ${rule.threshold} (当前: ${value})`;
+			const title = `Alert: ${server.serverName} ${rule.metric === "server_offline" ? "offline" : rule.metric.replace("_", " ")}`;
+			const message = `${rule.name}: ${rule.metric} ${rule.operator} ${rule.threshold} (current: ${value})`;
 
 			if (rule.notifyChannels.includes("in_app")) {
 				const admins = await prisma.user.findMany({
@@ -222,11 +222,11 @@ export async function evaluateAlerts() {
 						title,
 						message,
 						contextLines: [
-							`服务器: ${server.serverName}`,
-							`指标: ${rule.metric}`,
-							`当前值: ${value}`,
-							`阈值: ${rule.operator} ${rule.threshold}`,
-							`时间: ${new Date().toISOString()}`,
+							`Server: ${server.serverName}`,
+							`Metric: ${rule.metric}`,
+							`Current value: ${value}`,
+							`Threshold: ${rule.operator} ${rule.threshold}`,
+							`Time: ${new Date().toISOString()}`,
 						],
 					});
 				} catch {
@@ -240,11 +240,11 @@ export async function evaluateAlerts() {
 						title,
 						message,
 						contextLines: [
-							`服务器: ${server.serverName}`,
-							`指标: ${rule.metric}`,
-							`当前值: ${value}`,
-							`阈值: ${rule.operator} ${rule.threshold}`,
-							`时间: ${new Date().toISOString()}`,
+							`Server: ${server.serverName}`,
+							`Metric: ${rule.metric}`,
+							`Current value: ${value}`,
+							`Threshold: ${rule.operator} ${rule.threshold}`,
+							`Time: ${new Date().toISOString()}`,
 						],
 					});
 				} catch {

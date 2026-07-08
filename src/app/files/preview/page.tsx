@@ -1,5 +1,7 @@
 import { requireSession } from "@/lib/auth/require-session";
 import { OFFICE_MIME_TYPES, ARCHIVE_MIME_TYPES, CSV_MIME_TYPES, MARKDOWN_MIME_TYPES, EXTENDED_TEXT_MIME_TYPES } from "@/lib/storage/mime-constants";
+import { PageShell } from "@/components/page-shell";
+import { File as FileIcon } from "@/components/icons";
 import { MediaPreviewClient } from "./media-preview-client";
 import { TextPreviewClient } from "./text-preview-client";
 import { MarkdownPreviewClient } from "./markdown-preview-client";
@@ -112,8 +114,7 @@ export default async function FilePreviewPage({ searchParams }: PreviewPageProps
 	const largeTextWarning = (resolvedIsText || resolvedIsMarkdown) && size > 512 * 1024;
 
 	return (
-		<div className="min-h-screen bg-[var(--background)] text-[var(--foreground)]">
-			<div className="mx-auto max-w-6xl px-4 py-6">
+		<PageShell maxW="max-w-6xl">
 				{/* Header */}
 				<div className="mb-6 flex flex-wrap items-center justify-between gap-4">
 					<div className="flex items-center gap-3">
@@ -170,8 +171,6 @@ export default async function FilePreviewPage({ searchParams }: PreviewPageProps
 							name={name}
 							mimeType={mimeType}
 							driver={driver}
-							nodeId={nodeId}
-							relativePath={relativePath}
 						/>
 					) : isPdf && href ? (
 						<iframe
@@ -186,7 +185,7 @@ export default async function FilePreviewPage({ searchParams }: PreviewPageProps
 					) : resolvedIsText && href ? (
 							<TextPreviewClient href={href} name={name} fileEntryId={fileEntryId} editable={editable} driver={driver} nodeId={nodeId} relativePath={relativePath} serverId={serverId || undefined} reloadUnit={reloadUnit || undefined} reloadKind={reloadKind} />
 					) : isOffice && href ? (
-						<OfficePreviewClient href={href} name={name} driver={driver} />
+						<OfficePreviewClient href={href} name={name} />
 					) : isArchive ? (
 						<ArchivePreviewClient
 							name={name}
@@ -196,7 +195,7 @@ export default async function FilePreviewPage({ searchParams }: PreviewPageProps
 						/>
 					) : (
 						<div className="flex flex-col items-center gap-4 py-16 text-[var(--text-secondary)]">
-							<span className="text-6xl">📄</span>
+							<FileIcon size={48} className="text-[var(--text-muted)]" />
 							<p>{t("textPreview.preview.unsupported", locale)}</p>
 							{downloadUrl ? (
 								<a
@@ -210,7 +209,6 @@ export default async function FilePreviewPage({ searchParams }: PreviewPageProps
 						</div>
 					)}
 				</div>
-			</div>
-		</div>
+		</PageShell>
 	);
 }

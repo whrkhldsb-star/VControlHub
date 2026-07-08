@@ -3,6 +3,8 @@
  */
 export const zh: Record<string, string> = {
 	"apiDocsPage.title": "API 文档",
+	"apiDocsPage.eyebrow": "API",
+	"apiDocsPage.openApiJsonLink": "OpenAPI JSON",
 	"apiDocsPage.description": "VControlHub RESTful API 参考文档。",
 	"apiDocsPage.searchPlaceholder": "搜索路径、方法、模块或说明",
 	"apiDocsPage.searchAria": "搜索接口",
@@ -20,6 +22,8 @@ export const zh: Record<string, string> = {
 
 export const en: Record<string, string> = {
 	"apiDocsPage.title": "API Documentation",
+	"apiDocsPage.eyebrow": "API",
+	"apiDocsPage.openApiJsonLink": "OpenAPI JSON",
 	"apiDocsPage.description": "VControlHub RESTful API reference.",
 	"apiDocsPage.searchPlaceholder": "Search path, method, module, or description",
 	"apiDocsPage.searchAria": "Search endpoints",

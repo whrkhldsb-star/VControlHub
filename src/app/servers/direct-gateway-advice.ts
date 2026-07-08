@@ -117,7 +117,7 @@ export function getDirectGatewayRepairAdvice(
           result.push({
             title: t("directGatewayAdvice.transportDanger.title"),
             detail: t("directGatewayAdvice.transportDanger.detail")
-              .replace("{reasons}", risk.reasons.join("；"))
+              .replace("{reasons}", risk.reasons.join("; "))
               .replace("{recommendation}", risk.recommendations[0] ?? t("directGatewayAdvice.transportDanger.fallbackRecommendation")),
             priority: "primary",
             href: input.canManageServers ? "/servers" : null,

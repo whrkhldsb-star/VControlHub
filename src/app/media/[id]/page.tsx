@@ -1,11 +1,11 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { Download, FolderOpen, Star, Tag } from "@/components/icons";
+import { ArrowLeft, Download, FolderOpen, ImageIcon, Music2, Star, Tag, Video } from "@/components/icons";
 
 import { requireSession } from "@/lib/auth/require-session";
 import { sessionHasPermission } from "@/lib/auth/authorization";
 import { getMediaItem, listMediaItems } from "@/lib/media/service";
-import { PermissionDenied } from "@/components/page-shell";
+import { PageShell, PermissionDenied } from "@/components/page-shell";
 import { MediaPreviewClient } from "@/app/files/preview/media-preview-client";
 import {
   buildSearchHref,
@@ -128,15 +128,15 @@ export default async function MediaPlayerPage({
         : t("mediaPage.stat.video", locale);
 
   return (
-    <main className="min-h-screen bg-[var(--background)] text-[var(--foreground)]">
-      <div className="mx-auto flex min-h-screen max-w-7xl flex-col px-4 py-6">
+    <PageShell maxW="max-w-7xl">
+      <div className="flex flex-col">
         <header className="mb-5 flex flex-wrap items-center justify-between gap-3">
           <div className="flex min-w-0 flex-wrap items-center gap-3">
             <Link
               href={returnHref}
               className="rounded-lg border border-[var(--border)] px-4 py-2 text-sm text-[var(--text-secondary)] hover:border-[var(--color-action-border)]/50 hover:bg-[var(--surface)]/10 light:hover:bg-[var(--surface)]"
             >
-              ← {t("mediaPage.player.backToLibrary", locale)}
+              <ArrowLeft size={16} /> {t("mediaPage.player.backToLibrary", locale)}
             </Link>
             <div className="min-w-0">
               <p className="text-xs font-semibold uppercase tracking-[0.3em] text-[var(--color-action)]">
@@ -180,8 +180,6 @@ export default async function MediaPlayerPage({
                   name={item.name}
                   mimeType={item.mimeType}
                   driver={item.storageNode?.driver ?? "LOCAL"}
-                  nodeId={item.storageNode?.id ?? ""}
-                  relativePath={item.relativePath}
                 />
               ) : (
                 <div className="py-16 text-center text-sm text-[var(--text-secondary)]">
@@ -228,13 +226,11 @@ export default async function MediaPlayerPage({
 
           <aside className="rounded-3xl border border-[var(--border)] bg-[var(--surface)]/[0.04] p-5">
             <div className="mb-4 flex items-center gap-2">
-              <span className="text-3xl">
-                {item.mediaType === "image"
-                  ? "🖼"
+              {item.mediaType === "image"
+                  ? <ImageIcon size={28} className="text-[var(--accent)]" />
                   : item.mediaType === "audio"
-                    ? "🎵"
-                    : "🎬"}
-              </span>
+                    ? <Music2 size={28} className="text-[var(--accent)]" />
+                    : <Video size={28} className="text-[var(--accent)]" />}
               <div>
                 <p className="text-sm font-medium text-[var(--text-primary)]">
                   {mediaKindLabel}
@@ -302,6 +298,6 @@ export default async function MediaPlayerPage({
           </aside>
         </section>
       </div>
-    </main>
+    </PageShell>
   );
 }

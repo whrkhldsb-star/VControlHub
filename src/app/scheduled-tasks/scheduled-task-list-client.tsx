@@ -4,6 +4,9 @@ import { Fragment, useState, useCallback, useMemo } from "react";
 import { EmptyState } from "@/components/page-shell";
 import { csrfFetch } from "@/lib/auth/csrf-client";
 import { useI18n } from "@/lib/i18n/use-locale";
+import { useDialogFocus } from "@/lib/a11y/use-dialog-focus";
+import { toDateLocale } from "@/lib/i18n/locale-format";
+import type { Locale } from "@/lib/i18n/translations";
 
 type Task = {
 	id: string; name: string; cronExpression: string; cronDescription: string;
@@ -35,9 +38,9 @@ function statusLabelFor(status: string, t: (key: string) => string): string {
 	return status;
 }
 
-function formatTime(iso: string | null, locale?: string): string {
+function formatTime(iso: string | null, locale?: Locale): string {
 	if (!iso) return "—";
-	return new Date(iso).toLocaleString(locale === "zh" ? "zh-CN" : "en-US");
+	return new Date(iso).toLocaleString(toDateLocale(locale ?? "zh"));
 }
 
 function matchesTask(task: Task, query: string) {
@@ -72,6 +75,7 @@ export function ScheduledTaskListClient({ tasks: initialTasks, servers, canCreat
 	const [tasks, setTasks] = useState(initialTasks);
 	const [showCreate, setShowCreate] = useState(false);
 	const [taskPendingDelete, setTaskPendingDelete] = useState<Task | null>(null);
+	const dialogRef = useDialogFocus<HTMLDivElement>({ open: taskPendingDelete !== null, onClose: () => setTaskPendingDelete(null) });
 	const [actionError, setActionError] = useState<string | null>(null);
 	const [searchQuery, setSearchQuery] = useState("");
 
@@ -219,7 +223,7 @@ export function ScheduledTaskListClient({ tasks: initialTasks, servers, canCreat
 			)}
 			{taskPendingDelete && (
 				<div className="fixed inset-0 z-50 flex items-center justify-center bg-[var(--surface)]/70 px-4 backdrop-blur-sm" role="presentation">
-					<section role="dialog" aria-modal="true" aria-labelledby="delete-scheduled-task-title" className="w-full max-w-md rounded-2xl border border-[var(--danger-border)] bg-[var(--modal-bg)] p-6 shadow-[0_24px_100px_rgba(244,63,94,0.16)]">
+					<section ref={dialogRef} role="dialog" aria-modal="true" aria-labelledby="delete-scheduled-task-title" className="w-full max-w-md rounded-2xl border border-[var(--danger-border)] bg-[var(--modal-bg)] p-6 shadow-[0_24px_100px_rgba(244,63,94,0.16)]">
 						<h2 id="delete-scheduled-task-title" className="text-lg font-semibold text-[var(--text-primary)]">{t("scheduledTasksPage.delete.title")}</h2>
 						<p className="mt-3 text-sm leading-6 text-[var(--text-secondary)]">
 							<Fragment>{t("scheduledTasksPage.delete.descPrefix")}<strong className="font-semibold text-[var(--text-primary)]">{taskPendingDelete.name}</strong>{t("scheduledTasksPage.delete.descSuffix")}</Fragment>

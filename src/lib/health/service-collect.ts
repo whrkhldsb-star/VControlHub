@@ -48,7 +48,7 @@ export async function collectAllHealth(): Promise<HealthOverview> {
 				enabled: true,
 				status: "offline" as const,
 				lastCheck: new Date().toISOString(),
-				error: `网络不可达: ${probe.error ?? "未知原因"}`,
+				error: `Network unreachable: ${probe.error ?? "unknown reason"}`,
 			};
 		}
 
@@ -68,7 +68,7 @@ export async function collectAllHealth(): Promise<HealthOverview> {
 					status: "warning" as const,
 					lastCheck: new Date().toISOString(),
 					latencyMs: rtt,
-					error: `SSH 不可达 (主机在线, RTT ${rtt ?? "?"}ms): ${result.error}`,
+					error: `SSH unreachable (host online, RTT ${rtt ?? "?"}ms): ${result.error}`,
 				};
 			}
 			const metrics = result as ServerMetrics;
@@ -107,7 +107,7 @@ export async function collectAllHealth(): Promise<HealthOverview> {
 				status: "warning" as const,
 				lastCheck: new Date().toISOString(),
 				latencyMs: rtt,
-				error: `采集失败 (主机在线, RTT ${rtt ?? "?"}ms): ${err instanceof Error ? err.message : String(err)}`,
+				error: `Collection failed (host online, RTT ${rtt ?? "?"}ms): ${err instanceof Error ? err.message : String(err)}`,
 			};
 		}
 	});

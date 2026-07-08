@@ -109,6 +109,7 @@ export function FileListListView(props: FileListListViewProps) {
               <SortIcon
                 col="name"
                 label={t("fileListClient.name")}
+                ariaLabel={t("fileListClient.sortByAria").replace("{label}", t("fileListClient.name"))}
                 sortKey={sortKey}
                 sortDir={sortDir}
                 onToggle={toggleSort}
@@ -119,6 +120,7 @@ export function FileListListView(props: FileListListViewProps) {
               <SortIcon
                 col="size"
                 label={t("fileListClient.size")}
+                ariaLabel={t("fileListClient.sortByAria").replace("{label}", t("fileListClient.size"))}
                 sortKey={sortKey}
                 sortDir={sortDir}
                 onToggle={toggleSort}
@@ -129,6 +131,7 @@ export function FileListListView(props: FileListListViewProps) {
               <SortIcon
                 col="source"
                 label={t("fileListClient.source")}
+                ariaLabel={t("fileListClient.sortByAria").replace("{label}", t("fileListClient.source"))}
                 sortKey={sortKey}
                 sortDir={sortDir}
                 onToggle={toggleSort}
@@ -139,6 +142,7 @@ export function FileListListView(props: FileListListViewProps) {
               <SortIcon
                 col="updated"
                 label={t("fileListClient.modified")}
+                ariaLabel={t("fileListClient.sortByAria").replace("{label}", t("fileListClient.modified"))}
                 sortKey={sortKey}
                 sortDir={sortDir}
                 onToggle={toggleSort}
@@ -251,7 +255,7 @@ export function FileListListView(props: FileListListViewProps) {
                       <input
                         type="checkbox"
                         checked={effectiveSelectedIdSet.has(entry.id)}
-                        aria-label={`Select ${entry.name}`}
+                        aria-label={t("fileListClient.selectFileAria").replace("{name}", entry.name)}
                         onChange={() => toggleOne(entry.id)}
                         className="h-4 w-4 rounded-lg border-[var(--border)] bg-[var(--surface)] text-[var(--color-action)] focus:ring-[var(--color-action-ring)]"
                       />
@@ -395,7 +399,7 @@ export function FileListListView(props: FileListListViewProps) {
                   <input
                     type="checkbox"
                     checked={effectiveSelectedIdSet.has(entry.id)}
-                    aria-label={`Select ${entry.name}`}
+                    aria-label={t("fileListClient.selectFileAria").replace("{name}", entry.name)}
                     onChange={() => toggleOne(entry.id)}
                     className="mt-2 h-4 w-4 rounded-lg border-[var(--border)] bg-[var(--surface)] text-[var(--color-action)] focus:ring-[var(--color-action-ring)]"
                   />

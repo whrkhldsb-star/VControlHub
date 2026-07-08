@@ -46,18 +46,18 @@ export type AdminConsistencyResult =
 export async function verifyAdminPasswordConsistency(): Promise<AdminConsistencyResult> {
 	const envPassword = config.auth.adminInitialPassword;
 	if (!envPassword) {
-		return { ok: false, reason: "no_env_password", message: "ADMIN_INITIAL_PASSWORD 未设置" };
+		return { ok: false, reason: "no_env_password", message: "ADMIN_INITIAL_PASSWORD is not set" };
 	}
 	const admin = await prisma.user.findUnique({ where: { username: ADMIN_BOOTSTRAP.username } });
 	if (!admin) {
-		return { ok: false, reason: "no_admin", message: `DB 中不存在用户 ${ADMIN_BOOTSTRAP.username}` };
+		return { ok: false, reason: "no_admin", message: `User ${ADMIN_BOOTSTRAP.username} does not exist in DB` };
 	}
 	const matches = await verifyPassword(envPassword, admin.passwordHash);
 	if (!matches) {
 		return {
 			ok: false,
 			reason: "hash_mismatch",
-			message: `ADMIN_INITIAL_PASSWORD 与 DB 中 ${ADMIN_BOOTSTRAP.username}.passwordHash 不一致 (可能是历史 seed 或手动改过密码)。手动修复: prisma db seed 或重置 admin 密码。`,
+			message: `ADMIN_INITIAL_PASSWORD does not match ${ADMIN_BOOTSTRAP.username}.passwordHash in DB (possibly from historical seed or manual password change). Manual fix: prisma db seed or reset admin password.`,
 		};
 	}
 	return { ok: true, username: ADMIN_BOOTSTRAP.username };

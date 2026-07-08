@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 
 import { csrfFetch } from "@/lib/auth/csrf-client";
+import { toDateLocale } from "@/lib/i18n/locale-format";
 import { useI18n } from "@/lib/i18n/use-locale";
 
 type ActiveAnnouncement = {
@@ -18,7 +19,7 @@ type ActiveAnnouncement = {
 const INCIDENT_LEVELS = new Set(["incident", "maintenance"]);
 
 export function ActiveIncidentsBanner() {
-  const { t } = useI18n();
+  const { t, locale } = useI18n();
 	const [incidents, setIncidents] = useState<ActiveAnnouncement[]>([]);
 	const [dismissed, setDismissed] = useState<Set<string>>(new Set());
 
@@ -52,8 +53,8 @@ export function ActiveIncidentsBanner() {
 	}
 
 	function levelLabel(level: string) {
-		if (level === "incident") return "Incident";
-		if (level === "maintenance") return "Maintenance";
+		if (level === "incident") return t("healthPage.incident.level.incident");
+		if (level === "maintenance") return t("healthPage.incident.level.maintenance");
 		return level;
 	}
 
@@ -69,13 +70,13 @@ export function ActiveIncidentsBanner() {
 							</div>
 							<p className="mt-1.5 line-clamp-3 text-sm leading-6 text-[var(--text-secondary)]">{item.body}</p>
 							<p className="mt-1 text-xs text-[var(--text-muted)]">
-								Started: {new Date(item.startsAt).toLocaleString()}
-								{item.expiresAt ? ` · Expected end: ${new Date(item.expiresAt).toLocaleString()}` : ""}
+								{t("healthPage.incident.started").replace("{time}", new Date(item.startsAt).toLocaleString(toDateLocale(locale)))}
+								{item.expiresAt ? ` · ${t("healthPage.incident.expectedEnd").replace("{time}", new Date(item.expiresAt).toLocaleString(toDateLocale(locale)))}` : ""}
 							</p>
 						</div>
 						<button
 							type="button"
-							aria-label={`Dismiss notification ${item.title}`}
+							aria-label={t("healthPage.incident.dismissAria").replace("{title}", item.title)}
 							onClick={() => setDismissed((prev) => new Set(prev).add(item.id))}
 							className="shrink-0 text-xs text-[var(--text-muted)] hover:text-[var(--text-primary)]"
 						>

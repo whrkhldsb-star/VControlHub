@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { useDialogFocus } from "@/lib/a11y/use-dialog-focus";
 
 import { useI18n } from "@/lib/i18n/use-locale";
 import {
@@ -42,26 +43,9 @@ export function DashboardWidgetDetailDialog({
 	widgetRef: React.RefObject<HTMLElement | null>;
 }) {
 	const { t } = useI18n();
-	const dialogRef = useRef<HTMLDivElement | null>(null);
 	const closeRef = useRef<HTMLButtonElement | null>(null);
+	const dialogRef = useDialogFocus<HTMLDivElement>({ open: openId !== null, onClose, initialFocusRef: closeRef });
 	const [widgetEl, setWidgetEl] = useState<HTMLElement | null>(null);
-
-	// Close on ESC.
-	useEffect(() => {
-		if (!openId) return;
-		const onKey = (e: KeyboardEvent) => {
-			if (e.key === "Escape") onClose();
-		};
-		window.addEventListener("keydown", onKey);
-		return () => window.removeEventListener("keydown", onKey);
-	}, [openId, onClose]);
-
-	// Focus the close button on open.
-	useEffect(() => {
-		if (openId) {
-			closeRef.current?.focus();
-		}
-	}, [openId]);
 
 	// Resolve the widget DOM node in a layout effect (not during render)
 	// so we don't violate the React hooks rules about ref access.
@@ -83,9 +67,7 @@ export function DashboardWidgetDetailDialog({
 
 	return (
 		<div
-			role="dialog"
-			aria-modal="true"
-			aria-labelledby="dashboard-widget-detail-title"
+			role="presentation"
 			className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm"
 			data-testid="dashboard-widget-detail-dialog"
 			onClick={(e) => {
@@ -95,6 +77,9 @@ export function DashboardWidgetDetailDialog({
 		>
 			<div
 				ref={dialogRef}
+				role="dialog"
+				aria-modal="true"
+				aria-labelledby="dashboard-widget-detail-title"
 				className="relative max-h-[88vh] w-full max-w-3xl overflow-auto rounded-2xl border border-[var(--border)] bg-[var(--modal-bg)] p-6 shadow-2xl"
 				>
 				<div className="mb-4 flex items-center justify-between">

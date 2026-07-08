@@ -412,7 +412,7 @@ export function MediaItemCard({
           className="mt-2 rounded-lg border border-[var(--success-border)] px-2 py-1.5 text-[11px] text-[var(--success)]"
         >
           {" "}
-          {t("mediaItemCard.imageBedUrlGenerated")}：
+          {t("mediaItemCard.imageBedUrlGenerated")}:
           <a
             href={imageBedUrl}
             target="_blank"

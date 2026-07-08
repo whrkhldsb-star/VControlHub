@@ -264,7 +264,7 @@ wss.on("connection", async (ws, req) => {
 	});
 
 	if (!isOriginAllowed(req)) {
-		ws.send(JSON.stringify({ type: "error", data: "Origin 不被允许" }));
+		ws.send(JSON.stringify({ type: "error", data: "Origin not allowed" }));
 		ws.close();
 		return;
 	}
@@ -275,20 +275,20 @@ wss.on("connection", async (ws, req) => {
 	const handshake = url.searchParams.get("handshake");
 
  if (!serverId || !token || !handshake) {
- ws.send(JSON.stringify({ type: "error", data: "缺少 serverId、token 或 handshake 参数" }));
+ ws.send(JSON.stringify({ type: "error", data: "Missing serverId, token, or handshake parameter" }));
  ws.close();
  return;
  }
 
   const session = verifySessionToken(token);
   if (!session) {
-    ws.send(JSON.stringify({ type: "error", data: "认证失败，请重新登录" }));
+    ws.send(JSON.stringify({ type: "error", data: "Authentication failed, please log in again" }));
     ws.close();
     return;
   }
 
   if (!canUseSshTerminal(session)) {
-    ws.send(JSON.stringify({ type: "error", data: "缺少 SSH 终端权限" }));
+    ws.send(JSON.stringify({ type: "error", data: "Missing SSH terminal permission" }));
     ws.close();
     return;
   }
@@ -302,7 +302,7 @@ wss.on("connection", async (ws, req) => {
       secret: SSH_WS_SECRET,
     });
     if (!handshakePayload || handshakePayload.userId !== session.userId) {
-      ws.send(JSON.stringify({ type: "error", data: "SSH WebSocket 临时令牌无效或已过期" }));
+      ws.send(JSON.stringify({ type: "error", data: "SSH WebSocket temporary token is invalid or expired" }));
       ws.close();
       return;
     }
@@ -313,12 +313,12 @@ wss.on("connection", async (ws, req) => {
     connParams = await resolveServerConnection(serverId);
   } catch (error) {
     logger.error("failed to resolve SSH connection", error, { serverId, userId: session.userId });
-    ws.send(JSON.stringify({ type: "error", data: "无法解密或读取 VPS 连接信息，请检查节点凭据配置" }));
+    ws.send(JSON.stringify({ type: "error", data: "Unable to decrypt or read VPS connection info, please check node credential configuration" }));
     ws.close();
     return;
   }
   if (!connParams) {
-    ws.send(JSON.stringify({ type: "error", data: "无法获取 VPS 连接信息，请检查节点配置" }));
+    ws.send(JSON.stringify({ type: "error", data: "Unable to get VPS connection info, please check node configuration" }));
     ws.close();
     return;
   }
@@ -330,7 +330,7 @@ wss.on("connection", async (ws, req) => {
   sshClient.on("ready", () => {
     sshClient.shell({ term: "xterm-256color" }, (err, stream) => {
       if (err) {
-        ws.send(JSON.stringify({ type: "error", data: `Shell 创建失败: ${err.message}` }));
+        ws.send(JSON.stringify({ type: "error", data: `Shell creation failed: ${err.message}` }));
         ws.close();
         return;
       }
@@ -345,7 +345,7 @@ wss.on("connection", async (ws, req) => {
 
       stream.on("close", () => {
         if (ws.readyState === WebSocket.OPEN) {
-          ws.send(JSON.stringify({ type: "closed", data: "SSH 连接已关闭" }));
+          ws.send(JSON.stringify({ type: "closed", data: "SSH connection closed" }));
           ws.close();
         }
       });
@@ -360,14 +360,14 @@ wss.on("connection", async (ws, req) => {
 
   sshClient.on("error", (err) => {
     if (ws.readyState === WebSocket.OPEN) {
-      ws.send(JSON.stringify({ type: "error", data: `SSH 连接错误: ${err.message}` }));
+      ws.send(JSON.stringify({ type: "error", data: `SSH connection error: ${err.message}` }));
       ws.close();
     }
   });
 
   sshClient.on("close", () => {
     if (ws.readyState === WebSocket.OPEN) {
-      ws.send(JSON.stringify({ type: "closed", data: "SSH 连接已断开" }));
+      ws.send(JSON.stringify({ type: "closed", data: "SSH connection disconnected" }));
       ws.close();
     }
   });
@@ -393,7 +393,7 @@ wss.on("connection", async (ws, req) => {
  sshClient.on("end", () => {
  // SSH connection ended gracefully — notify client
  if (ws.readyState === WebSocket.OPEN) {
- ws.send(JSON.stringify({ type: "closed", data: "SSH 连接已正常断开，可尝试重连" }));
+ ws.send(JSON.stringify({ type: "closed", data: "SSH connection ended gracefully, you may try reconnecting" }));
  }
  });
 

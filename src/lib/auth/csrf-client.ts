@@ -104,7 +104,7 @@ export async function csrfFetch<T = Record<string, any>>(
 	const response = await fetch(input, { ...init, headers });
 
 	if (!response.ok) {
-		let message = `请求失败 (${response.status})`;
+		let message = `Request failed (${response.status})`;
 		try {
 			const errBody = await response.json();
 			message = errBody.error || errBody.message || message;

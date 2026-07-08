@@ -134,7 +134,7 @@ export function FolderDownloadActionLink({
     <Link
       href={href}
       title={t("fileListClient.downloadFolderArchiveTitle")}
-      aria-label={`Download folder archive ${folder.displayName ?? folder.name}`}
+      aria-label={t("fileListClient.downloadFolderArchiveAria").replace("{name}", folder.displayName ?? folder.name)}
       download
       className={
         compact

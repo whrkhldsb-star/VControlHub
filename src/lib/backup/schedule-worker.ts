@@ -80,7 +80,7 @@ async function enqueueTickJob(reason: string) {
       if (await hasActiveTickJob(tx)) return null;
       return enqueueJob({
         type: BACKUP_SCHEDULE_TICK_JOB_TYPE,
-        title: "备份计划调度 tick",
+        title: "Backup schedule dispatch tick",
         payload: { reason, requestedAt: new Date().toISOString() },
         priority: -5,
         maxAttempts: 3,
@@ -113,7 +113,7 @@ async function dispatchDueScheduleRow(schedule: {
   nextRunAt: Date | null;
 }): Promise<boolean> {
   if (!schedule.createdById) {
-    await recordScheduleRun(schedule.id, "跳过：备份计划无创建者");
+    await recordScheduleRun(schedule.id, "Skipped: backup schedule has no creator");
     return false;
   }
 
@@ -185,7 +185,7 @@ async function dispatchDueBackupSchedules(reason: string) {
         error: message,
       });
       try {
-        await recordScheduleRun(schedule.id, `执行失败：${message.slice(0, 400)}`);
+        await recordScheduleRun(schedule.id, `Execution failed: ${message.slice(0, 400)}`);
       } catch (recordError) {
         logger.error("Failed to record backup schedule run after failure", {
           reason,
@@ -219,7 +219,7 @@ export async function runBackupScheduleTickJobWorkerOnce(reason = "manual") {
     try {
       await heartbeatJob(job.id, BACKUP_SCHEDULE_WORKER_ID, {
         leaseMs: BACKUP_SCHEDULE_TICK_LEASE_MS,
-        progress: "正在分发到期的备份计划",
+        progress: "Dispatching due backup schedules",
       });
       const result = await dispatchDueBackupSchedules(reason);
       await completeJob(job.id, BACKUP_SCHEDULE_WORKER_ID, result);

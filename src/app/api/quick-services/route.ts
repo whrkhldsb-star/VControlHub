@@ -3,6 +3,7 @@ import { z } from "zod";
 
 const installSchema = z.object({ slug: z.string().min(1), customPort: z.number().int().min(1).max(65535).optional() });
 
+import { auditUserAction } from "@/lib/audit/service";
 import { SERVICE_CATALOG } from "@/lib/quick-service/catalog";
 import { config } from "@/lib/config/env";
 import { prepareInstallSecrets } from "@/lib/quick-service/install-notice";
@@ -113,12 +114,12 @@ export async function POST(request: Request) {
 		// Validate custom port if provided
 		if (customPort !== undefined) {
 			if (isNaN(customPort) || customPort < 1 || customPort > 65535) {
-				throw new ValidationError("Invalid port，please enter 1-65535 a number between");
+				throw new ValidationError("Invalid port, please enter a number between 1-65535");
 			}
 			const check = checkPort(customPort);
 			if (!check.available) {
 				return NextResponse.json(
-					{ error: `port ${customPort} is already in use（${check.usedBy}），please change port and retry`, portConflict: true, usedBy: check.usedBy },
+					{ error: `port ${customPort} is already in use (${check.usedBy}), please change port and retry`, portConflict: true, usedBy: check.usedBy },
 					{ status: 409 },
 				);
 			}
@@ -126,7 +127,7 @@ export async function POST(request: Request) {
 
 		const prepared = prepareInstallSecrets(template);
 		const { job, taskId, reused } = await enqueueQuickServiceJob({
-			title: `Installed quick service：${template.name}`,
+			title: `Installed quick service: ${template.name}`,
 			createdBy: session?.userId ?? null,
 			payload: {
 				action: "install",
@@ -137,6 +138,10 @@ export async function POST(request: Request) {
 				installNoticeNotes: prepared.notes,
 			},
 		});
+		auditUserAction(session!.userId, "quick_service.install", {
+			slug: template.slug,
+			templateName: template.name,
+		});
 		return NextResponse.json({
 			success: true,
 			queued: true,
@@ -145,7 +150,7 @@ export async function POST(request: Request) {
 			taskId,
 			status: job.status,
 			notice: { credentials: prepared.credentials, notes: prepared.notes },
-			message: reused ? "The service already has a lifecycle task in progress, returning the existing task。" : "Quick service installation has been added as a background task，you can check progress in the task center。",
+			message: reused ? "The service already has a lifecycle task in progress, returning the existing task." : "Quick service installation has been added as a background task, you can check progress in the task center.",
 		}, { status: 202 });
 	});
 }

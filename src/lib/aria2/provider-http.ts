@@ -62,7 +62,7 @@ export async function postAria2Rpc(req: Aria2RpcRequest): Promise<unknown> {
 export function aria2HttpErrorMessage(status: number, errorText: string): string {
   const trimmed = (errorText || "").trim();
   const body = trimmed.length > 0 ? trimmed.slice(0, RPC_HTTP_ERROR_BODY_MAX) : "Unknown error";
-  return `Aria2 RPC 请求失败 (${status}): ${body}`;
+  return `Aria2 RPC request failed (${status}): ${body}`;
 }
 
 export function aria2RpcErrorMessage(error: Aria2RpcErrorBody): string {

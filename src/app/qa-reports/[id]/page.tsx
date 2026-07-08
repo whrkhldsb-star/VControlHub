@@ -54,7 +54,7 @@ export default async function QaReportDetailPage({ params }: Params) {
 		return (
 			<PageShell maxW="max-w-4xl">
 				<PageHeader
-					eyebrow="QA Reports"
+					eyebrow={t("qaReportsPage.eyebrow", locale)}
 					title={t("qaReportsPage.detail.notFound")}
 					description={t("qaReportsPage.detail.notFoundDesc").replace("{id}", id)}
 				>

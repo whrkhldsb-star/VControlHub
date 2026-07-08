@@ -127,7 +127,7 @@ export function CommandCreateForm({ servers }: { servers: ServerOption[] }) {
             className="text-xs text-[var(--color-action)]/70 hover:text-[var(--color-action)] light:hover:text-[var(--color-action-strong)] transition"
           >
             {" "}
-            {selectedServerIds.size === enabledServerIds.length
+            {enabledServerIds.length > 0 && selectedServerIds.size === enabledServerIds.length
               ? t("serversPage.command.deselectAll")
               : t("serversPage.command.selectAllEnabled")}{" "}
           </button>{" "}

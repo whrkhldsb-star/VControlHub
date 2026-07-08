@@ -5,6 +5,7 @@ import { listShareLinks } from "@/lib/share-link/service";
 import { listStorageNodes } from "@/lib/storage/service";
 import { PageShell, EmptyState, PageHeader } from "@/components/page-shell";
 import { t } from "@/lib/i18n/translations";
+import { toDateLocale } from "@/lib/i18n/locale-format";
 import { CreateShareForm } from "./create-share-form";
 import { ShareFilePicker } from "./share-file-picker";
 import { ShareRowActions } from "./share-row-actions";
@@ -47,7 +48,7 @@ export default async function SharesPage() {
 									{canManage ? <ShareRowActions id={s.id} revoked={Boolean(s.revokedAt)} /> : null}
 								</div>
 							</div>
-							<p className="mt-2 text-xs text-[var(--text-muted)]">{t("shares.createdAt")}：{s.createdAt.toLocaleString(locale === "zh" ? "zh-CN" : "en-US")} · {t("shares.expiresAt")}：{s.expiresAt?.toLocaleString(locale === "zh" ? "zh-CN" : "en-US") ?? t("shares.neverExpires")}</p>
+							<p className="mt-2 text-xs text-[var(--text-muted)]">{t("shares.createdAt")}: {s.createdAt.toLocaleString(toDateLocale(locale))} · {t("shares.expiresAt")}: {s.expiresAt?.toLocaleString(toDateLocale(locale)) ?? t("shares.neverExpires")}</p>
 						</div>
 					))}
 				</div>

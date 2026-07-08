@@ -15,11 +15,11 @@ export type AutoProbeIntervalOption = {
 };
 
 export const AUTO_PROBE_INTERVAL_OPTIONS: AutoProbeIntervalOption[] = [
-	{ label: "10 秒", value: 10 },
-	{ label: "30 秒", value: 30 },
-	{ label: "1 分钟", value: 60 },
-	{ label: "2 分钟", value: 120 },
-	{ label: "5 分钟", value: 300 },
+	{ label: "10 seconds", value: 10 },
+	{ label: "30 seconds", value: 30 },
+	{ label: "1 minute", value: 60 },
+	{ label: "2 minutes", value: 120 },
+	{ label: "5 minutes", value: 300 },
 ];
 
 export const DEFAULT_AUTO_PROBE_INTERVAL_SEC = 60;

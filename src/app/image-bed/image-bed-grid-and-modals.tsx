@@ -190,16 +190,21 @@ export function PublishFromStorageModal({
   onClose: () => void;
   t: ImageBedT;
 }) {
+  const dialogRef = useDialogFocus<HTMLDivElement>({ open: true, onClose });
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4"
       onClick={onClose}
     >
       <div
+        ref={dialogRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="imageBedPublishTitle"
         className="w-full max-w-md rounded-xl border border-[var(--border)] bg-[var(--modal-bg)] p-6"
         onClick={(e) => e.stopPropagation()}
       >
-        <h3 className="mb-4 text-lg font-semibold text-[var(--text-primary)]">
+        <h3 id="imageBedPublishTitle" className="mb-4 text-lg font-semibold text-[var(--text-primary)]">
           {t("imageBedPage.publishFromStorage.title")}
         </h3>
         <div className="space-y-3">

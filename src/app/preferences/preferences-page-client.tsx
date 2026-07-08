@@ -1,7 +1,8 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { PageShell, PageHeader } from "@/components/page-shell";
+import { Bell, Home, LayoutDashboard, Radio, RefreshCw, User } from "@/components/icons";
 import { csrfFetch } from "@/lib/auth/csrf-client";
 import { REFRESH_INTERVAL_OPTIONS } from "@/lib/preferences/refresh-interval";
 import { AUTO_PROBE_INTERVAL_OPTIONS } from "@/lib/preferences/auto-probe";
@@ -99,7 +100,7 @@ type PreferencesCategorySummaryId =
 
 export type PreferencesCategorySummary = {
 	id: PreferencesCategorySummaryId;
-	icon: string;
+	icon: ReactNode;
 	title: string;
 	subtitle: string;
 };
@@ -107,37 +108,37 @@ export type PreferencesCategorySummary = {
 export const PREFERENCES_CATEGORY_SUMMARIES: PreferencesCategorySummary[] = [
 	{
 		id: "personal-preferences",
-		icon: "👤",
+		icon: <User size={18} />,
 		title: "preferencesPage.category.personal.title",
 		subtitle: "preferencesPage.category.personal.subtitle",
 	},
 	{
 		id: "preferences-default-page",
-		icon: "🏠",
+		icon: <Home size={18} />,
 		title: "preferencesPage.category.defaultPage.title",
 		subtitle: "preferencesPage.category.defaultPage.subtitle",
 	},
 	{
 		id: "preferences-dashboard-widgets",
-		icon: "📊",
+		icon: <LayoutDashboard size={18} />,
 		title: "preferencesPage.category.dashboardWidgets.title",
 		subtitle: "preferencesPage.category.dashboardWidgets.subtitle",
 	},
 	{
 		id: "preferences-notifications",
-		icon: "🔔",
+		icon: <Bell size={18} />,
 		title: "preferencesPage.category.notifications.title",
 		subtitle: "preferencesPage.category.notifications.subtitle",
 	},
 	{
 		id: "preferences-auto-refresh",
-		icon: "🔄",
+		icon: <RefreshCw size={18} />,
 		title: "preferencesPage.category.autoRefresh.title",
 		subtitle: "preferencesPage.category.autoRefresh.subtitle",
 	},
 	{
 		id: "preferences-auto-probe",
-		icon: "🛰️",
+		icon: <Radio size={18} />,
 		title: "preferencesPage.category.autoProbe.title",
 		subtitle: "preferencesPage.category.autoProbe.subtitle",
 	},
@@ -191,6 +192,7 @@ export function PreferencesSettingsContent({
 	const [loading, setLoading] = useState(true);
 	const activeLoadRequestIdRef = useRef(0);
 	const latestSaveRequestIdRef = useRef(0);
+	const savingRef = useRef(false);
 
 	const messageFromError = (err: unknown, fallback: string) => err instanceof Error && err.message ? err.message : fallback;
 
@@ -248,6 +250,8 @@ export function PreferencesSettingsContent({
 		setPrefs(normalizedPrefs);
 		setError("");
 		setSaved(false);
+		if (savingRef.current) return;
+		savingRef.current = true;
 		try {
 			const savedPrefs = await csrfFetch("/api/preferences", {
 				method: "PUT",
@@ -265,6 +269,8 @@ export function PreferencesSettingsContent({
 			setPrefs(lastSavedPrefs);
 			localStorage.setItem("vps-preferences", JSON.stringify(lastSavedPrefs));
 			setError(messageFromError(err, t("preferencesPage.error.save")));
+		} finally {
+			savingRef.current = false;
 		}
 	};
 
@@ -352,7 +358,10 @@ export function PreferencesSettingsContent({
 						{AUTO_PROBE_INTERVAL_OPTIONS.map((opt) => (
 							<button
 								key={opt.value}
-								onClick={() => save({ ...prefs, autoProbeIntervalSec: opt.value })}
+								onClick={() => {
+									if (!prefs.autoProbeEnabled) return;
+									save({ ...prefs, autoProbeIntervalSec: opt.value });
+								}}
 								disabled={!prefs.autoProbeEnabled}
 								className={`px-3 py-1.5 text-xs rounded-lg border transition ${
 									prefs.autoProbeIntervalSec === opt.value

@@ -60,7 +60,7 @@ export async function createNotification(input: CreateNotificationInput) {
 		const unreadCount = await getUnreadCount(input.userId);
 		pushUnreadCount(input.userId, unreadCount);
 	} catch (err) {
-		logger.warn("WS推送失败（用户可能不在线）", err);
+		logger.warn("WS push failed (user may be offline)", err);
 	}
 
 	return record;
@@ -135,8 +135,8 @@ export async function notifyCommandPending(requesterId: string, commandTitle: st
 				createNotification({
 					userId: admin.id,
 					type: "command_pending",
-					title: "新命令待审批",
-					message: `命令「${commandTitle}」需要你的审批。`,
+					title: "New command pending approval",
+					message: `Command "${commandTitle}" requires your approval.`,
 					actionUrl: `/requests`,
 				}),
 			),
@@ -151,16 +151,16 @@ export async function notifyCommandResult(requesterId: string, commandTitle: str
 		failed: "command_failed" as NotificationType,
 	};
 	const titleMap = {
-		approved: "命令已批准",
-		rejected: "命令已拒绝",
-		completed: "命令执行完成",
-		failed: "命令执行失败",
+		approved: "Command approved",
+		rejected: "Command rejected",
+		completed: "Command execution completed",
+		failed: "Command execution failed",
 	};
 	const msgMap = {
-		approved: `命令「${commandTitle}」已被批准，即将执行。`,
-		rejected: `命令「${commandTitle}」已被拒绝。`,
-		completed: `命令「${commandTitle}」已成功执行。`,
-		failed: `命令「${commandTitle}」执行失败。`,
+		approved: `Command "${commandTitle}" has been approved and will execute shortly.`,
+		rejected: `Command "${commandTitle}" has been rejected.`,
+		completed: `Command "${commandTitle}" executed successfully.`,
+		failed: `Command "${commandTitle}" execution failed.`,
 	};
 	return createNotification({
 		userId: requesterId,
@@ -176,8 +176,8 @@ export async function notifyDownloadResult(userId: string, url: string, status: 
 	return createNotification({
 		userId,
 		type: status === "completed" ? "download_completed" : "download_failed",
-		title: status === "completed" ? "下载完成" : "下载失败",
-		message: status === "completed" ? `下载已完成：${truncatedUrl}` : `下载失败：${truncatedUrl}${errorMsg ? ` — ${errorMsg}` : ""}`,
+		title: status === "completed" ? "Download completed" : "Download failed",
+		message: status === "completed" ? `Download completed: ${truncatedUrl}` : `Download failed: ${truncatedUrl}${errorMsg ? ` — ${errorMsg}` : ""}`,
 		actionUrl: "/downloads",
 	});
 }
@@ -186,7 +186,7 @@ export async function notifyServerAlert(userId: string, serverName: string, aler
 	return createNotification({
 		userId,
 		type: "server_alert",
-		title: `服务器告警：${serverName}`,
+		title: `Server alert: ${serverName}`,
 		message: alertMessage,
 		actionUrl: "/servers",
 	});
@@ -196,8 +196,8 @@ export async function notifyBackupCompleted(userId: string, backupType: string, 
 	return createNotification({
 		userId,
 		type: "backup_completed",
-		title: "备份完成",
-		message: `类型 ${backupType} 备份已完成，大小：${size}。`,
+		title: "Backup completed",
+		message: `${backupType} backup completed, size: ${size}.`,
 		actionUrl: "/backups",
 	});
 }
@@ -206,8 +206,8 @@ export async function notifyBackupFailed(userId: string, backupType: string, err
 	return createNotification({
 		userId,
 		type: "backup_failed",
-		title: "备份失败",
-		message: `类型 ${backupType} 备份失败：${error}。`,
+		title: "Backup failed",
+		message: `${backupType} backup failed: ${error}.`,
 		actionUrl: "/backups",
 	});
 }
@@ -216,8 +216,8 @@ export async function notifyLoginAlert(userId: string, ip: string, userAgent?: s
 	return createNotification({
 		userId,
 		type: "login_alert",
-		title: "异常登录提醒",
-		message: `检测到来自 ${ip} 的新登录${userAgent ? ` (${userAgent})` : ""}，如非本人操作请立即修改密码。`,
+		title: "Abnormal login alert",
+		message: `A new login from ${ip} was detected${userAgent ? ` (${userAgent})` : ""}. If this was not you, please change your password immediately.`,
 		actionUrl: "/settings#security",
 	});
 }
@@ -226,8 +226,8 @@ export async function notifyCronFailed(userId: string, taskName: string, error: 
 	return createNotification({
 		userId,
 		type: "cron_failed",
-		title: "定时任务失败",
-		message: `定时任务「${taskName}」执行失败：${error}。`,
+		title: "Scheduled task failed",
+		message: `Scheduled task "${taskName}" execution failed: ${error}.`,
 		actionUrl: "/scheduled-tasks",
 	});
 }
@@ -236,8 +236,8 @@ export async function notifyPlaybookFailed(userId: string, playbookName: string,
 	return createNotification({
 		userId,
 		type: "playbook_failed",
-		title: "Playbook 执行失败",
-		message: `Playbook「${playbookName}」在步骤「${stepName}」失败：${error}。`,
+		title: "Playbook execution failed",
+		message: `Playbook "${playbookName}" failed at step "${stepName}": ${error}.`,
 		actionUrl: `/playbooks/${playbookName}`,
 	});
 }
@@ -246,8 +246,8 @@ export async function notifyAlertResolved(userId: string, serverName: string, me
 	return createNotification({
 		userId,
 		type: "alert_resolved",
-		title: `告警恢复：${serverName}`,
-		message: `${serverName} 的 ${metric} 指标已恢复正常（此前阈值 ${previousThreshold}）。`,
+		title: `Alert resolved: ${serverName}`,
+		message: `${serverName}'s ${metric} metric has returned to normal (previous threshold: ${previousThreshold}).`,
 		actionUrl: "/health",
 	});
 }
@@ -256,8 +256,8 @@ export async function notifyTaskConsecutiveFailed(userId: string, taskName: stri
 	return createNotification({
 		userId,
 		type: "task_consecutive_failed",
-		title: `任务连续失败：${taskName}`,
-		message: `任务「${taskName}」已连续失败 ${failCount} 次，最近错误：${lastError}。`,
+		title: `Task consecutive failures: ${taskName}`,
+		message: `Task "${taskName}" has failed ${failCount} consecutive times. Last error: ${lastError}.`,
 		actionUrl: "/scheduled-tasks",
 	});
 }

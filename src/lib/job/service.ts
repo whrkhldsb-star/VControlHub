@@ -73,7 +73,7 @@ export async function enqueueJob(input: EnqueueJobInput) {
   safeRecordJobEvent({
     jobId: job.id,
     type: "enqueued",
-    message: `任务入队 (type=${job.type}, priority=${job.priority})`,
+    message: `Task enqueued (type=${job.type}, priority=${job.priority})`,
     level: "info",
     workerId: null,
     payload: {
@@ -179,7 +179,7 @@ export async function claimNextJob(options: ClaimJobOptions) {
     safeRecordJobEvent({
       jobId: claimedJob.id,
       type: "claimed",
-      message: `后台执行器 ${options.workerId} 认领任务`,
+      message: `Background executor ${options.workerId} claimed task`,
       workerId: options.workerId,
       payload: {
         type: claimedJob.type,
@@ -235,7 +235,7 @@ export async function completeJob(jobId: string, workerId: string, result?: JobR
     safeRecordJobEvent({
       jobId,
       type: "completed",
-      message: "任务已完成",
+      message: "Task completed",
       workerId,
       ...(result ? { payload: result as Prisma.InputJsonValue } : {}),
     });
@@ -295,7 +295,7 @@ export async function cancelJob(jobId: string) {
     safeRecordJobEvent({
       jobId,
       type: "cancelled",
-      message: "任务已取消",
+      message: "Task cancelled",
     });
   }
   return updated;
@@ -334,7 +334,7 @@ export async function recoverStaleRunningJobs(options: { staleBefore: Date; retr
   // Surface one "recovered" event per recovered job so the timeline shows
   // the moment the worker regained ownership. Batch-insert instead of
   // sequential create to avoid N round-trips.
-  const message = "后台执行器心跳过期，已重新入队";
+  const message = "Background executor heartbeat expired; re-enqueued";
   await prisma.jobEvent.createMany({
     data: staleJobs.map((job) => ({
       jobId: job.id,

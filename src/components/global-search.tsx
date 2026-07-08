@@ -7,6 +7,7 @@ import { useI18n } from "@/lib/i18n/use-locale";
 import { t as translate, type Locale } from "@/lib/i18n/translations";
 import { type Permission } from "@/lib/auth/rbac";
 import { useGateRoute } from "@/lib/auth/use-gate-route";
+import { useDialogFocus } from "@/lib/a11y/use-dialog-focus";
 
 export interface SearchItem {
 	label: string;
@@ -172,6 +173,8 @@ export function GlobalSearch({
 		setTimeout(() => returnTarget?.focus(), 0);
 	}, []);
 
+	const dialogRef = useDialogFocus<HTMLDivElement>({ open, onClose: closeSearch, initialFocusRef: inputRef });
+
 	const openSearch = useCallback(() => {
 		const activeElement = document.activeElement;
 		returnFocusRef.current = activeElement instanceof HTMLElement ? activeElement : null;
@@ -270,6 +273,7 @@ export function GlobalSearch({
 	return (
 		<div className="fixed inset-0 z-[70] flex items-start justify-center pt-[15vh] bg-black/60 backdrop-blur-sm" onClick={closeSearch}>
 			<div
+				ref={dialogRef}
 				role="dialog"
 				aria-modal="true"
 				aria-label={t("search.dialog")}

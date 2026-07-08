@@ -42,7 +42,7 @@ export const updateSnippetSchema = z
       data.description !== undefined ||
       data.tags !== undefined ||
       data.isPrivate !== undefined,
-    { message: "至少提供一个更新字段", path: [] },
+    { message: "At least one update field must be provided", path: [] },
   );
 export type UpdateSnippetInput = z.infer<typeof updateSnippetSchema>;
 

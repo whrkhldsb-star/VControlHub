@@ -115,7 +115,7 @@ export async function executeImport(
   }).catch((err: unknown) => {
     // 事务失败 → 记录错误，不部分提交
     const msg = err instanceof Error ? err.message : String(err);
-    errors.push(`事务失败: ${msg}`);
+    errors.push(`Transaction failed: ${msg}`);
     throw err;
   });
 

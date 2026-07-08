@@ -27,21 +27,21 @@ export function getDirectGatewayRiskAssessment(input: {
 	const isPublic = bind === "0.0.0.0" || bind === "::" || bind === "[::]";
 
 	if (!isPublic) {
-		return { level: "safe", reasons: [`仅监听 ${bind}，不会暴露公网`], recommendations: [] };
+		return { level: "safe", reasons: [`Only listening on ${bind}; will not be exposed to the public internet`], recommendations: [] };
 	}
 
 	if (input.publicProtocol === "https") {
-		reasons.push(`监听 ${bind} 但走 https/Caddy 反代，传输已加密`);
-		recommendations.push("确认 Caddy 已配 TLS 证书 + 反代 `/direct` 到 127.0.0.1:31888");
+		reasons.push(`Listening on ${bind} but via https/Caddy reverse proxy; transport is encrypted`);
+		recommendations.push("Confirm Caddy has TLS certificate configured + reverse proxy `/direct` to 127.0.0.1:31888");
 		return { level: "warning", reasons, recommendations };
 	}
 
-	reasons.push("监听 0.0.0.0 + http 明文直连 = 签名鉴权 ≠ 传输加密");
-	reasons.push("HMAC 签名可防篡改，但任何中间人都能读取文件内容");
-	recommendations.push("方案 A：在远端 server 上部署 Caddy 反代 `/direct` → 127.0.0.1:31888 + 自动 TLS");
-	recommendations.push("方案 B：用 VPN / WireGuard / Tailscale 把 31888 仅暴露给可信网段");
-	recommendations.push("方案 C：防火墙白名单，仅允许已知 IP 段访问 31888");
-	recommendations.push("短期兜底：把 bindAddress 改回 127.0.0.1 + 走 VControlHub 主站中转");
+	reasons.push("Listening on 0.0.0.0 + http plaintext direct connection = signature auth ≠ transport encryption");
+	reasons.push("HMAC signature prevents tampering, but any man-in-the-middle can read file contents");
+	recommendations.push("Option A: Deploy Caddy reverse proxy `/direct` → 127.0.0.1:31888 + automatic TLS on the remote server");
+	recommendations.push("Option B: Use VPN / WireGuard / Tailscale to expose 31888 only to trusted network segments");
+	recommendations.push("Option C: Firewall whitelist, allow only known IP ranges to access 31888");
+	recommendations.push("Short-term fallback: change bindAddress back to 127.0.0.1 + use VControlHub main site relay");
 	return { level: "danger", reasons, recommendations };
 }
 
@@ -66,8 +66,8 @@ export function getDirectGatewayStatusLabel(input: {
   publicUrl?: string | null;
 }) {
   return input.fileProxyPort && input.fileProxyPort > 0 && input.publicUrl
-    ? "目标直连"
-    : "网站中转";
+    ? "Target direct connection"
+    : "Website relay";
 }
 
 /**

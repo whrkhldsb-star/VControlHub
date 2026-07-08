@@ -14,7 +14,7 @@
  * down, so `isPending` remains consistent across all three actions (the
  * file-batch-toolbar reads one pending flag).
  */
-import { useCallback, type TransitionStartFunction } from "react";
+import { useCallback, useEffect, useRef, type TransitionStartFunction } from "react";
 import type { useRouter } from "next/navigation";
 
 import { csrfFetch } from "@/lib/auth/csrf-client";
@@ -256,6 +256,9 @@ export function useBatchCompress(input: UseBatchCompressInput) {
     startTransition,
   } = input;
 
+  const abortRef = useRef<AbortController | null>(null);
+  useEffect(() => () => abortRef.current?.abort(), []);
+
   return useCallback(() => {
     const ids = [...effectiveSelectedIds];
     const selectedFiles = ids
@@ -269,6 +272,9 @@ export function useBatchCompress(input: UseBatchCompressInput) {
       return;
     }
 
+    abortRef.current?.abort();
+    const controller = new AbortController();
+    abortRef.current = controller;
     setBatchAction("compressing");
     setProgress({ done: 0, total: selectedFiles.length, errors: [] });
     startTransition(async () => {
@@ -277,6 +283,7 @@ export function useBatchCompress(input: UseBatchCompressInput) {
         const data = await csrfFetch("/api/files/compress", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
+          signal: controller.signal,
           body: JSON.stringify({
             storageNodeId,
             relativePaths: selectedFiles.map((file) => file.relativePath),
@@ -301,6 +308,9 @@ export function useBatchCompress(input: UseBatchCompressInput) {
         }
         clearSelection();
       } catch (error) {
+        if (controller.signal.aborted || (error instanceof Error && error.name === "AbortError")) {
+          return;
+        }
         const message = error instanceof Error ? error.message : t("filesPage.batch.compressFailed");
         setProgress({
           done: 0,

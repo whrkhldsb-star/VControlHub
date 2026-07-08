@@ -4,6 +4,9 @@ import { useCallback, useEffect, useRef, useState } from "react";
 
 import { csrfFetch } from "@/lib/auth/csrf-client";
 import { useI18n } from "@/lib/i18n/use-locale";
+import { useDialogFocus } from "@/lib/a11y/use-dialog-focus";
+import { toDateLocale } from "@/lib/i18n/locale-format";
+import type { Locale } from "@/lib/i18n/translations";
 
 type JobEventLevel = "info" | "warn" | "error";
 
@@ -52,10 +55,10 @@ function levelTone(level: string): "info" | "warn" | "error" {
   return "info";
 }
 
-function formatTime(value: string, locale?: string) {
+function formatTime(value: string, locale?: Locale) {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return value;
-  return date.toLocaleString(locale === "zh" ? "zh-CN" : "en-US", { hour12: false });
+  return date.toLocaleString(toDateLocale(locale ?? "zh"), { hour12: false });
 }
 
 function summarizePayload(payload: unknown): string | null {
@@ -77,6 +80,7 @@ export function JobEventsDialog({ jobId, open, onClose }: JobEventsDialogProps) 
   const [error, setError] = useState<string | null>(null);
   const [hasMore, setHasMore] = useState(false);
   const closeButtonRef = useRef<HTMLButtonElement | null>(null);
+  const dialogRef = useDialogFocus<HTMLDivElement>({ open, onClose, initialFocusRef: closeButtonRef });
 
   const load = useCallback(
     async (append: boolean) => {
@@ -139,6 +143,7 @@ export function JobEventsDialog({ jobId, open, onClose }: JobEventsDialogProps) 
       role="presentation"
     >
       <div
+        ref={dialogRef}
         role="dialog"
         aria-modal="true"
         aria-labelledby="job-events-dialog-title"

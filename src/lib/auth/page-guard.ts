@@ -33,7 +33,7 @@ export async function requirePagePermission(
 ): Promise<SessionPayload> {
 	const session = await requireSession(options?.redirectTo);
 	if (!sessionHasPermission(session, permission)) {
-		throw new ForbiddenError(`Missing permission：${permission}`, {
+		throw new ForbiddenError(`Missing permission: ${permission}`, {
 			permission,
 		});
 	}

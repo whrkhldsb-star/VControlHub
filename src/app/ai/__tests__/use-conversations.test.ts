@@ -175,7 +175,7 @@ describe("useConversations", () => {
       await result.current.autoTitle("c1", "");
     });
     await act(async () => {
-      await result.current.autoTitle("c1", "(附件)");
+      await result.current.autoTitle("c1", "(attachment)");
     });
     expect(csrfFetch).not.toHaveBeenCalled();
   });

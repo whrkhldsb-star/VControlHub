@@ -38,7 +38,7 @@ export async function createBackupAction(_prev: BackupActionState, formData: For
   });
   await enqueueJob({
     type: BACKUP_CREATE_JOB_TYPE,
-    title: tr("backupsPage.action.jobTitle").replace("{type}", parsed.data.type),
+    title: tr("backupsPage.action.jobTitle").replace("{type}", tr(`backupsPage.action.typeLabel.${parsed.data.type}`)),
     payload: { backupId: backup.id },
     createdBy: session.userId,
     maxAttempts: 1,

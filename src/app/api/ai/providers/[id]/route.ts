@@ -12,7 +12,7 @@ import {
 import { withApiRoute } from "@/lib/http/api-guard";
 import { GENERAL_WRITE_LIMIT } from "@/lib/http/rate-limit-presets";
 
-import { AuthError } from "@/lib/errors";
+import { AuthError, NotFoundError } from "@/lib/errors";
 export const dynamic = "force-dynamic";
 
 function maskProvider(provider: Awaited<ReturnType<typeof getProviderById>>) {
@@ -87,6 +87,7 @@ export async function PATCH(
         ...parseAvailableModels(body),
       };
       const provider = await updateProvider(id, session.userId, updateBody);
+      if (!provider) throw new NotFoundError("Provider not found");
       return NextResponse.json({ provider: maskProvider(provider) });
     },
   );

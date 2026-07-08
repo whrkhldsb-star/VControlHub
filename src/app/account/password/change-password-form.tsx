@@ -1,9 +1,10 @@
 "use client";
 
-import { useActionState, useEffect, useId, useState } from "react";
+import { useActionState, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 
 import { SubmitButton } from "@/components/submit-button";
+import { PasswordField } from "@/components/password-field";
 import { useI18n } from "@/lib/i18n/use-locale";
 
 import { changePasswordAction, type AccountPasswordActionState } from "./actions";
@@ -50,27 +51,30 @@ export function ChangePasswordForm() {
 
 			<div className="grid gap-4">
 				<PasswordField
-					label={t("accountPasswordPage.fields.currentLabel")}
+					label={t("changePassword.currentPassword")}
 					name="currentPassword"
 					autoComplete="current-password"
-					placeholder={t("accountPasswordPage.fields.currentPlaceholder")}
+					placeholder={t("changePassword.currentPasswordPlaceholder")}
+					description={t("changePassword.currentPasswordDesc")}
 				/>
 				<PasswordField
-					label={t("accountPasswordPage.fields.newLabel")}
+					label={t("changePassword.newPassword")}
 					name="newPassword"
 					autoComplete="new-password"
-					placeholder={t("accountPasswordPage.fields.newPlaceholder")}
+					placeholder={t("changePassword.newPasswordPlaceholder")}
+					description={t("changePassword.newPasswordDesc")}
 				/>
 				<PasswordField
-					label={t("accountPasswordPage.fields.confirmLabel")}
+					label={t("changePassword.confirmPassword")}
 					name="confirmPassword"
 					autoComplete="new-password"
-					placeholder={t("accountPasswordPage.fields.confirmPlaceholder")}
+					placeholder={t("changePassword.confirmPasswordPlaceholder")}
+					description={t("changePassword.confirmPasswordDesc")}
 				/>
 			</div>
 
 			{state.error ? (
-				<div data-tone="rose" className="rounded-2xl border border-[var(--danger-border)] px-4 py-3 text-sm text-[var(--danger)]">{state.error}</div>
+				<div role="alert" data-tone="rose" className="rounded-2xl border border-[var(--danger-border)] px-4 py-3 text-sm text-[var(--danger)]">{state.error}</div>
 			) : null}
 			{state.success ? (
 				<div data-tone="emerald" className="rounded-2xl border border-[var(--success-border)] px-4 py-3 text-sm text-[var(--success)]" role="status" aria-live="polite">
@@ -97,47 +101,8 @@ export function ChangePasswordForm() {
 						{t("accountPasswordPage.redirectNow")}
 					</button>
 				) : null}
-				<SubmitButton pendingLabel={t("accountPasswordPage.saving")}>{t("common.saveNewPassword")}</SubmitButton>
+				<SubmitButton pendingLabel={t("changePassword.saving")}>{t("common.saveNewPassword")}</SubmitButton>
 			</div>
 		</form>
 	);
-}
-
-type PasswordFieldProps = {
-  label: string;
-  name: "currentPassword" | "newPassword" | "confirmPassword";
-  autoComplete: "current-password" | "new-password";
-  placeholder: string;
-};
-
-function PasswordField({ label, name, autoComplete, placeholder }: PasswordFieldProps) {
-  const { t } = useI18n();
-  const inputId = useId();
-  const [visible, setVisible] = useState(false);
-
-  return (
-    <div className="grid gap-2 text-sm text-[var(--text-secondary)]">
-      <label htmlFor={inputId}>{label}</label>
-      <div className="flex overflow-hidden rounded-2xl border border-[var(--border)] bg-[var(--input-bg)] focus-within:border-[var(--color-action-border)]/60">
-        <input
-          id={inputId}
-          name={name}
-          type={visible ? "text" : "password"}
-          required
-          autoComplete={autoComplete}
-          className="min-w-0 flex-1 bg-transparent px-4 py-3 text-[var(--text-primary)] outline-none"
-          placeholder={placeholder}
-        />
-        <button
-          type="button"
-          aria-label={`${visible ? t("accountPasswordPage.toggle.hide") : t("accountPasswordPage.toggle.show")}${label}`}
-          aria-pressed={visible}
-          onClick={() => setVisible((current) => !current)}
-          className="border-l border-[var(--border)] px-4 text-xs font-medium text-[var(--text-secondary)] transition hover:bg-[var(--surface)]/10 hover:text-[var(--text-primary)] light:hover:text-[var(--color-action-strong)] focus:outline-none focus:ring-2 focus:ring-inset focus:ring-[var(--color-action-ring)]"
-        >
-          {visible ? t("accountPasswordPage.toggle.hide") : t("accountPasswordPage.toggle.show")}
-        </button>
-      </div>
-    </div>
-  );
 }

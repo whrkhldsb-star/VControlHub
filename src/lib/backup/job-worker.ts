@@ -89,7 +89,7 @@ async function handleJob(job: Awaited<ReturnType<typeof claimNextJob>>) {
     if (job.type === BACKUP_CREATE_JOB_TYPE) {
       const payload = parseCreatePayload(job.payload);
       const record = await getBackupRecord(payload.backupId);
-      await heartbeatJob(job.id, WORKER_ID, { leaseMs: LEASE_MS, progress: `正在执行 ${record?.type ?? "UNKNOWN"} 备份` });
+      await heartbeatJob(job.id, WORKER_ID, { leaseMs: LEASE_MS, progress: `Running ${record?.type ?? "UNKNOWN"} backup` });
       const backup = await runExistingBackupRecord({ id: payload.backupId, projectRoot: payload.projectRoot });
       await completeJob(job.id, WORKER_ID, {
         backupId: backup.id,
@@ -102,7 +102,7 @@ async function handleJob(job: Awaited<ReturnType<typeof claimNextJob>>) {
 
     if (job.type === BACKUP_RESTORE_JOB_TYPE) {
       const payload = parseRestorePayload(job.payload);
-      await heartbeatJob(job.id, WORKER_ID, { leaseMs: LEASE_MS, progress: "正在恢复备份" });
+      await heartbeatJob(job.id, WORKER_ID, { leaseMs: LEASE_MS, progress: "Restoring backup" });
       const restore = await restoreBackupRecord({ id: payload.backupId, confirm: payload.confirm, projectRoot: payload.projectRoot });
       await completeJob(job.id, WORKER_ID, restore);
       return true;
@@ -110,7 +110,7 @@ async function handleJob(job: Awaited<ReturnType<typeof claimNextJob>>) {
 
     if (job.type === BACKUP_RETENTION_JOB_TYPE) {
       const payload = parseRetentionPayload(job.payload);
-      await heartbeatJob(job.id, WORKER_ID, { leaseMs: LEASE_MS, progress: "正在清理旧备份" });
+      await heartbeatJob(job.id, WORKER_ID, { leaseMs: LEASE_MS, progress: "Cleaning up old backups" });
       const summary = await pruneOldBackupRecordsNow({
         olderThanDays: payload.olderThanDays,
         keepLatestPerType: payload.keepLatestPerType,
@@ -133,9 +133,9 @@ async function handleJob(job: Awaited<ReturnType<typeof claimNextJob>>) {
       return true;
     }
 
-    throw new Error(`Unsupported backup job type：${job.type}`);
+    throw new Error(`Unsupported backup job type: ${job.type}`);
   } catch (error) {
-    const message = error instanceof Error ? error.message : "备份任务执行失败";
+    const message = error instanceof Error ? error.message : "Backup task execution failed";
     await failJob(job.id, WORKER_ID, message.slice(0, 2000), { retryAfterMs: 60_000 });
     logger.error("backup job failed", { jobId: job.id, type: job.type, error: message });
     return true;
@@ -147,7 +147,7 @@ export async function runBackupJobWorkerOnce() {
   running = true;
   try {
     const job = await claimNextJob({ workerId: WORKER_ID, types: BACKUP_JOB_TYPES, leaseMs: LEASE_MS });
-    return handleJob(job);
+    return await handleJob(job);
   } finally {
     running = false;
   }

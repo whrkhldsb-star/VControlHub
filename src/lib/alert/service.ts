@@ -85,8 +85,8 @@ export async function testAlertRule(id: string): Promise<{ rule: { id: string; n
 	if (!rule) throw new NotFoundError("Rule not found");
 
 	const deliveries: AlertRuleTestDelivery[] = [];
-	const title = `测试告警: ${rule.name}`;
-	const message = `这是一条测试告警，用于验证「${rule.name}」的通知渠道是否可达。`;
+	const title = `Test alert: ${rule.name}`;
+	const message = `This is a test alert to verify that the notification channel for "${rule.name}" is reachable.`;
 
 	if (rule.notifyChannels.includes("in_app")) {
 		const admins = await prisma.user.findMany({
@@ -115,13 +115,13 @@ export async function testAlertRule(id: string): Promise<{ rule: { id: string; n
 		deliveries.push({
 			channel: "in_app",
 			status: failed === 0 ? "sent" : "failed",
-			message: failed === 0 ? `已发送给 ${admins.length} 位管理员` : `${failed}/${admins.length} 条站内通知发送失败`,
+			message: failed === 0 ? `Sent to ${admins.length} administrators` : `${failed}/${admins.length} in-app notifications failed to send`,
 		});
 	}
 
 	if (rule.notifyChannels.includes("webhook")) {
 		if (!rule.webhookUrl) {
-			deliveries.push({ channel: "webhook", status: "skipped", message: "Webhook URL 未配置" });
+			deliveries.push({ channel: "webhook", status: "skipped", message: "Webhook URL not configured" });
 		} else {
 			try {
 				await fetchWebhookSafely(rule.webhookUrl, {
@@ -135,9 +135,9 @@ export async function testAlertRule(id: string): Promise<{ rule: { id: string; n
 						timestamp: new Date().toISOString(),
 					}),
 				});
-				deliveries.push({ channel: "webhook", status: "sent", message: "Webhook 测试请求已发送" });
+				deliveries.push({ channel: "webhook", status: "sent", message: "Webhook test request sent" });
 			} catch (error) {
-				deliveries.push({ channel: "webhook", status: "failed", message: error instanceof Error ? error.message : "Webhook 测试请求失败" });
+				deliveries.push({ channel: "webhook", status: "failed", message: error instanceof Error ? error.message : "Webhook test request failed" });
 			}
 		}
 	}
@@ -148,23 +148,23 @@ export async function testAlertRule(id: string): Promise<{ rule: { id: string; n
 				title,
 				message,
 				contextLines: [
-					`规则: ${rule.name}`,
-					`指标: ${rule.metric}`,
-					`阈值: ${rule.threshold}`,
+					`Rule: ${rule.name}`,
+					`Metric: ${rule.metric}`,
+					`Threshold: ${rule.threshold}`,
 				],
 			});
 			deliveries.push({
 				channel: "email",
 				status: result.accepted.length > 0 && result.rejected.length === 0 ? "sent" : "failed",
 				message: result.rejected.length === 0
-					? `邮件测试已发送给 ${result.accepted.length} 个收件人`
-					: `邮件测试部分失败：${result.rejected.length} 个收件人被拒收`,
+					? `Email test sent to ${result.accepted.length} recipients`
+					: `Email test partially failed: ${result.rejected.length} recipients rejected`,
 			});
 		} catch (error) {
 			deliveries.push({
 				channel: "email",
 				status: "failed",
-				message: error instanceof Error ? error.message : "邮件测试发送失败",
+				message: error instanceof Error ? error.message : "Email test send failed",
 			});
 		}
 	}
@@ -175,41 +175,41 @@ export async function testAlertRule(id: string): Promise<{ rule: { id: string; n
 				title,
 				message,
 				contextLines: [
-					`规则: ${rule.name}`,
-					`指标: ${rule.metric}`,
-					`阈值: ${rule.threshold}`,
+					`Rule: ${rule.name}`,
+					`Metric: ${rule.metric}`,
+					`Threshold: ${rule.threshold}`,
 				],
 			});
 			if (result.accepted.length === 0) {
 				deliveries.push({
 					channel: "telegram",
 					status: "failed",
-					message: result.rejected[0]?.reason ?? "Telegram 发送失败",
+					message: result.rejected[0]?.reason ?? "Telegram send failed",
 				});
 			} else if (result.rejected.length > 0) {
 				deliveries.push({
 					channel: "telegram",
 					status: "failed",
-					message: `Telegram 部分失败：${result.rejected.length}/${result.accepted.length + result.rejected.length} 个目标发送失败`,
+					message: `Telegram partially failed: ${result.rejected.length}/${result.accepted.length + result.rejected.length} targets failed to send`,
 				});
 			} else {
 				deliveries.push({
 					channel: "telegram",
 					status: "sent",
-					message: `Telegram 测试已发送给 ${result.accepted.length} 个目标`,
+					message: `Telegram test sent to ${result.accepted.length} targets`,
 				});
 			}
 		} catch (error) {
 			deliveries.push({
 				channel: "telegram",
 				status: "failed",
-				message: error instanceof Error ? error.message : "Telegram 测试发送失败",
+				message: error instanceof Error ? error.message : "Telegram test send failed",
 			});
 		}
 	}
 
 	if (deliveries.length === 0) {
-		deliveries.push({ channel: "none", status: "skipped", message: "未选择通知渠道" });
+		deliveries.push({ channel: "none", status: "skipped", message: "No notification channel selected" });
 	}
 
 	return {

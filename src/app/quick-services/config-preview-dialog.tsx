@@ -1,6 +1,7 @@
 "use client";
 
 import { useI18n } from "@/lib/i18n/use-locale";
+import { useDialogFocus } from "@/lib/a11y/use-dialog-focus";
 
 /**
  * `ConfigPreviewDialog` — final confirmation modal shown after the user
@@ -49,6 +50,7 @@ export function ConfigPreviewDialog({
 	onConfirm,
 }: ConfigPreviewDialogProps) {
 	const { t } = useI18n();
+	const dialogRef = useDialogFocus<HTMLDivElement>({ open: true, onClose: onCancel });
 	if (!configPreview) return null;
 	const { action, item, port } = configPreview;
 	const title = action === "install" ? t("qsPage.configConfirmTitle.install") : t("qsPage.configConfirmTitle.update");
@@ -82,6 +84,7 @@ export function ConfigPreviewDialog({
 			onClick={onCancel}
 		>
 			<div
+				ref={dialogRef}
 				role="dialog"
 				aria-modal="true"
 				aria-label={title}

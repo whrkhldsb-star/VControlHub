@@ -1,9 +1,9 @@
 import path from "node:path";
 import { guessContentType } from "@/lib/http/mime-types";
 
-import { Client, type ConnectConfig } from "ssh2";
+import { Client } from "ssh2";
 import { NextResponse } from "next/server";
-import { connectSsh } from "@/lib/ssh/client";
+import { connectSsh, type SshConnectionParams } from "@/lib/ssh/client";
 import { withApiRoute } from "@/lib/http/api-guard";
 import { parseSearchParams } from "@/lib/http/parse-search-params";
 
@@ -111,7 +111,7 @@ export async function GET(request: Request) {
 
       if (node.driver !== "SFTP") {
         return NextResponse.json(
-          { error: "This Node is Not SFTP type" },
+          { error: "This node is not an SFTP storage node" },
           { status: 400 },
         );
       }
@@ -166,14 +166,13 @@ export async function GET(request: Request) {
       let client: Client | null = null;
 
       try {
-        const config: ConnectConfig = {
+        const config: SshConnectionParams = {
           host: connectionCredentials.host,
           port: connectionCredentials.port,
           username: connectionCredentials.username,
           privateKey: connectionCredentials.privateKey,
           password: connectionCredentials.password,
-          readyTimeout: 15000,
-          timeout: 10000,
+          hostKeySha256: connectionCredentials.hostKeySha256,
         };
 
         client = await connectSsh(config);

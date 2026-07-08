@@ -44,28 +44,28 @@ describe("ai provider-http adapter", () => {
   describe("aiHttpErrorMessage", () => {
     it("returns a generic message for model list failures (preserves Site 1 copy)", () => {
       expect(aiHttpErrorMessage(401, "Unauthorized", "models")).toBe(
-        "模型清单获取失败，请检查 API Key 和 Base URL",
+        "Failed to fetch model list, please check API Key and Base URL",
       );
     });
 
     it("ignores errorText for the models kind", () => {
       expect(aiHttpErrorMessage(500, "internal", "models")).toBe(
-        "模型清单获取失败，请检查 API Key 和 Base URL",
+        "Failed to fetch model list, please check API Key and Base URL",
       );
     });
 
     it("formats chat kind with status code and truncated body", () => {
-      expect(aiHttpErrorMessage(429, "rate limit", "chat")).toBe("AI 请求失败 (429): rate limit");
+      expect(aiHttpErrorMessage(429, "rate limit", "chat")).toBe("AI request failed (429): rate limit");
     });
 
     it("falls back to Unknown error when chat body is empty", () => {
-      expect(aiHttpErrorMessage(500, "", "chat")).toBe("AI 请求失败 (500): Unknown error");
+      expect(aiHttpErrorMessage(500, "", "chat")).toBe("AI request failed (500): Unknown error");
     });
 
     it("truncates chat error body to 500 chars", () => {
       const long = "x".repeat(800);
       const message = aiHttpErrorMessage(500, long, "chat");
-      expect(message.length).toBe("AI 请求失败 (500): ".length + 500);
+      expect(message.length).toBe("AI request failed (500): ".length + 500);
       expect(message.endsWith("x")).toBe(true);
     });
   });
@@ -140,7 +140,7 @@ describe("ai provider-http adapter", () => {
       expect(models.map((m) => m.id)).toEqual(["valid"]);
     });
 
-    it("throws a generic 模型清单获取失败 message on non-2xx", async () => {
+    it("throws a generic model-list-fetch-failed message on non-2xx", async () => {
       const fetchMock = vi.fn(
         async () => new Response("upstream blew up", { status: 401, statusText: "Unauthorized" }),
       );
@@ -148,13 +148,13 @@ describe("ai provider-http adapter", () => {
 
       await expect(
         fetchProviderModels({ apiKey: "sk-x", baseUrl: "https://api.example.com/v1" }),
-      ).rejects.toThrow("模型清单获取失败，请检查 API Key 和 Base URL");
+      ).rejects.toThrow("Failed to fetch model list, please check API Key and Base URL");
     });
 
-    it("rejects empty API keys with the same 业务-side validation error", async () => {
+    it("rejects empty API keys with the same business-side validation error", async () => {
       await expect(
         fetchProviderModels({ apiKey: "   ", baseUrl: "https://api.example.com/v1" }),
-      ).rejects.toThrow("API Key 不能为空");
+      ).rejects.toThrow("API Key is required");
     });
   });
 
@@ -182,7 +182,7 @@ describe("ai provider-http adapter", () => {
       expect(await response.text()).toBe("ok-stream");
     });
 
-    it("throws AI 请求失败 (status): <truncated body> on non-2xx", async () => {
+    it("throws AI request failed (status): <truncated body> on non-2xx", async () => {
       const fetchMock = vi.fn(
         async () => new Response("rate limit reached", { status: 429 }),
       );
@@ -194,7 +194,7 @@ describe("ai provider-http adapter", () => {
           body: { model: "gpt-4o" },
           headers: { Authorization: "Bearer sk-test" },
         }),
-      ).rejects.toThrow("AI 请求失败 (429): rate limit reached");
+      ).rejects.toThrow("AI request failed (429): rate limit reached");
     });
 
     it("falls back to Unknown error when error body cannot be read", async () => {
@@ -212,7 +212,7 @@ describe("ai provider-http adapter", () => {
           url: "https://api.openai.com/v1/chat/completions",
           body: { model: "gpt-4o" },
         }),
-      ).rejects.toThrow("AI 请求失败 (500): Unknown error");
+      ).rejects.toThrow("AI request failed (500): Unknown error");
     });
 
     it("still applies Content-Type when caller passes no headers", async () => {

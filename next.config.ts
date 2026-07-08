@@ -8,9 +8,10 @@ const nextConfig: NextConfig = {
 	// Per-package tree-shake hints (lucide-react removed — project uses inline SVG icons now).
 	// Image optimization configuration
 	images: {
-		remotePatterns: [
-			{ protocol: "https", hostname: "**" },
-		],
+		// Restrict remote image optimization to same-origin only.
+		// Allowing arbitrary hostnames ("**") creates an SSRF vector via
+		// /_next/image?url=https://internal-service/...
+		remotePatterns: [],
 		minimumCacheTTL: 3600,
 	},
 	// Performance: enable gzip/brotli compression

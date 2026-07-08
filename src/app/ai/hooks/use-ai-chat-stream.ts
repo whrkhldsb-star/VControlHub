@@ -20,6 +20,7 @@ import {
   type Dispatch,
   type SetStateAction,
   useCallback,
+  useEffect,
   useRef,
   useState,
 } from "react";
@@ -69,6 +70,12 @@ export function useAiChatStream({
   >({});
   const abortControllerRef = useRef<AbortController | null>(null);
   const approvalBusyRef = useRef<Set<string>>(new Set());
+
+  useEffect(() => {
+    return () => {
+      abortControllerRef.current?.abort();
+    };
+  }, []);
 
   const stopGeneration = useCallback(() => {
     if (abortControllerRef.current) {

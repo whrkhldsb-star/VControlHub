@@ -49,8 +49,8 @@ describe("StorageNodeList health UI", () => {
     );
 
     expect(screen.getByText("异常")).toBeInTheDocument();
-    expect(screen.getByText(/最近检测：/)).toBeInTheDocument();
-    expect(screen.getByText(/321 ms/)).toBeInTheDocument();
+    expect(screen.getByText(/最近检测/)).toBeInTheDocument();
+    expect(screen.getByText(/321 毫秒/)).toBeInTheDocument();
     expect(screen.getByText(/connect ECONNREFUSED/)).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: "立即检测" }));

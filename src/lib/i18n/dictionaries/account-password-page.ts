@@ -19,6 +19,7 @@
 export const zh: Record<string, string> = {
 	// page.tsx (RSC)
 	"accountPasswordPage.title": "修改密码",
+	"accountPasswordPage.eyebrow": "账户",
 	"accountPasswordPage.description": "修改当前账号的后台登录密码",
 	"accountPasswordPage.securityTips": "安全建议",
 	"accountPasswordPage.tip1": "• 新密码建议使用 12 位以上，并混合大小写字母、数字与符号。",
@@ -52,6 +53,7 @@ export const zh: Record<string, string> = {
 export const en: Record<string, string> = {
 	// page.tsx (RSC)
 	"accountPasswordPage.title": "Change password",
+	"accountPasswordPage.eyebrow": "Account",
 	"accountPasswordPage.description": "Change the backend sign-in password for this account",
 	"accountPasswordPage.securityTips": "Security recommendations",
 	"accountPasswordPage.tip1":

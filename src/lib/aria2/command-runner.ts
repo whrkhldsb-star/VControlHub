@@ -12,7 +12,7 @@ import { spawn, type ChildProcess } from "child_process";
  */
 
 export const MISSING_ARIA2_BINARY_MESSAGE =
-  "aria2c 未安装，无法执行磁力/BT 中转下载，请在服务器安装 aria2";
+  "aria2c is not installed; cannot perform magnet/BT relay download. Please install aria2 on the server";
 
 export function spawnAria2Detached(args: string[]): ChildProcess {
   return spawn("aria2c", args, { detached: true, stdio: "ignore" });

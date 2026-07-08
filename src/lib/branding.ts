@@ -1,7 +1,7 @@
 const DEFAULT_APP_NAME = "VControlHub";
-const DEFAULT_SITE_NAME = "VPS 统一管控平台";
-const DEFAULT_PUBLIC_LABEL = "VPS 管理与分布式云盘";
-const DEFAULT_DESCRIPTION = "统一 VPS 管理、审批执行、分布式云盘与媒体浏览平台";
+const DEFAULT_SITE_NAME = "VPS Unified Control Platform";
+const DEFAULT_PUBLIC_LABEL = "VPS Management & Distributed Cloud Drive";
+const DEFAULT_DESCRIPTION = "Unified VPS management, approval-based command execution, distributed cloud drive, and media browsing platform";
 
 function slugifyAppName(value: string) {
   const slug = value

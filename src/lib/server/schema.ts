@@ -54,7 +54,7 @@ export const createServerSchema = z
     costMonthlyAmount: z
       .string()
       .trim()
-      .regex(/^\d+(\.\d{1,2})?$/u, "月费必须是数字, 最多 2 位小数")
+      .regex(/^\d+(\.\d{1,2})?$/u, "Monthly fee must be a number with at most 2 decimal places")
       .optional()
       .or(z.literal(""))
       .transform((value) => value || undefined),
@@ -67,7 +67,7 @@ export const createServerSchema = z
       if (data.connectionType === "PASSWORD" && !data.password) return false;
       return true;
     },
-    { message: "SSH 密钥连接方式需选择密钥，密码连接方式需填写密码" },
+    { message: "SSH key connection requires selecting a key; password connection requires entering a password" },
   );
 
 export type CreateServerInput = z.input<typeof createServerSchema>;

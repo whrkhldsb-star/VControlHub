@@ -30,23 +30,23 @@ function parseBackupSizeBytes(value: string | number | bigint | null | undefined
 }
 
 const backupFailureCategoryLabels: Record<BackupFailureCategory, string> = {
-	path: "路径无效或越界",
-	permission: "权限或只读路径",
-	timeout: "执行超时",
-	script: "备份脚本执行失败",
-	missing: "文件或目录不存在",
-	storage: "存储空间或写入失败",
-	unknown: "未归类失败",
+	path: "Invalid or out-of-bounds path",
+	permission: "Permission or read-only path",
+	timeout: "Execution timeout",
+	script: "Backup script execution failed",
+	missing: "File or directory not found",
+	storage: "Storage space or write failure",
+	unknown: "Uncategorized failure",
 };
 
 const backupFailureRemediation: Record<BackupFailureCategory, string> = {
-	path: "检查备份记录的 portable path，避免绝对路径、..、反斜杠或跨目录片段；必要时作废旧记录后重新创建备份。",
-	permission: "优先确认 BACKUP_DIR 或 /var/backups/<slug> 是可写目录，并把旧的仓库内只读路径失败记录标记作废或重试到新的系统备份根。",
-	timeout: "检查备份体积、网络/磁盘 IO 与 30 分钟执行窗口；必要时拆分文件备份或改为后台低峰执行。",
-	script: "查看对应 Durable Job 日志和 deploy/backup.sh 输出，先修复脚本依赖、环境变量或数据库连接后再重试。",
-	missing: "确认备份脚本引用的源目录、restore 目标或历史 artifact 仍存在；对已不存在的旧 artifact 保留审计并标记作废。",
-	storage: "检查磁盘空间、inode、挂载只读状态和备份目录写入权限；释放空间或切换 BACKUP_DIR 后再重试。",
-	unknown: "保留错误片段并到任务中心查看完整日志；若能稳定复现，再按路径/权限/脚本/存储方向细分处理。",
+	path: "Check the backup record's portable path; avoid absolute paths, .., backslashes, or cross-directory segments. Void old records and recreate the backup if needed.",
+	permission: "Verify that BACKUP_DIR or /var/backups/<slug> is a writable directory. Mark old read-only path failures as voided or retry with a new system backup root.",
+	timeout: "Check backup size, network/disk IO, and the 30-minute execution window. Split file backups or schedule them during off-peak hours if needed.",
+	script: "Review the corresponding Durable Job logs and deploy/backup.sh output. Fix script dependencies, environment variables, or database connections before retrying.",
+	missing: "Confirm that source directories, restore targets, and historical artifacts referenced by the backup script still exist. Preserve audit trails for missing artifacts and mark them as voided.",
+	storage: "Check disk space, inodes, mount read-only status, and backup directory write permissions. Free up space or switch BACKUP_DIR before retrying.",
+	unknown: "Preserve the error snippet and check the full logs in the task center. If reproducible, categorize by path/permission/script/storage direction.",
 };
 
 function classifyBackupFailure(message: string | null | undefined): BackupFailureCategory {
@@ -56,7 +56,7 @@ function classifyBackupFailure(message: string | null | undefined): BackupFailur
 	if (/timeout|timed out|超时/.test(value)) return "timeout";
 	if (/no such file|enoent|not found|不存在|missing/.test(value)) return "missing";
 	if (/no space|enospc|disk|write|写入|空间/.test(value)) return "storage";
-	if (/exit code|command failed|backup\.sh|restore-db\.sh|脚本|执行失败/.test(value)) return "script";
+	if (/exit code|command failed|backup\.sh|restore-db\.sh|脚本|Execution failed/.test(value)) return "script";
 	return "unknown";
 }
 
@@ -94,7 +94,7 @@ function summarizeBackupFailures(records: BackupRecordForSummary[]): BackupFailu
 
 export function formatBackupSize(value: string | number | bigint | null | undefined) {
 	const size = parseBackupSizeBytes(value);
-	if (size <= 0) return "待生成";
+	if (size <= 0) return "Pending";
 	if (size < 1024) return `${size} B`;
 	if (size < 1024 * 1024) return `${(size / 1024).toFixed(1)} KB`;
 	if (size < 1024 * 1024 * 1024) return `${(size / (1024 * 1024)).toFixed(1)} MB`;

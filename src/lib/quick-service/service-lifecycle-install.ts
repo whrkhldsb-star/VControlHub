@@ -70,7 +70,7 @@ export interface InstallOptions {
 }
 export async function installService(opts: InstallOptions) {
 	const { template } = opts;
-	return withServiceOperationLock(template.slug, "安装", () => installServiceUnlocked(opts));
+	return withServiceOperationLock(template.slug, "install", () => installServiceUnlocked(opts));
 }
 
 async function installServiceUnlocked(opts: InstallOptions) {
@@ -79,7 +79,7 @@ async function installServiceUnlocked(opts: InstallOptions) {
 	// Pre-flight: ensure Docker is available
 	const dockerStatus = getDockerEnvironmentStatus();
 	if (!dockerStatus.available) {
-		throw new BusinessError(`${dockerStatus.message}。${dockerStatus.installHint}`);
+		throw new BusinessError(`${dockerStatus.message}. ${dockerStatus.installHint}`);
 	}
 
 	validateTemplate(template);
@@ -97,7 +97,7 @@ async function installServiceUnlocked(opts: InstallOptions) {
 	assertTemplatePortsAvailable(template, hostPort);
 
 	for (const vol of template.volumesJson) {
-		const host = normalizeVolumeEndpoint(vol.host, "宿主机挂载");
+		const host = normalizeVolumeEndpoint(vol.host, "Host mount");
 		if (host !== DOCKER_SOCKET && !TRUSTED_HOST_MOUNTS.has(host)) {
 			mkdirSync(host, { recursive: true });
 		}
@@ -164,7 +164,7 @@ async function installServiceUnlocked(opts: InstallOptions) {
 		try {
 			dockerExecSync(["rm", "-f", safeContainerName(template.slug)], 15_000);
 		} catch (cleanupErr) {
-			msg = `${msg}; 清理残留容器失败: ${dockerErrorMessage(cleanupErr)}`;
+			msg = `${msg}; failed to clean up leftover container: ${dockerErrorMessage(cleanupErr)}`;
 		}
 		const rollback = await rollbackInstallToSnapshot(template.slug, before, msg.slice(0, 500));
 		await writeQuickServiceAudit({
@@ -208,7 +208,7 @@ export async function startDockerContainer(serviceId: string, tmpl: ServiceTempl
 		`${hostPort}:${internalPort}`,
 	];
 	for (const ep of tmpl.extraPorts ?? []) args.push("-p", `${ep.host}:${ep.container}`);
-	for (const vol of tmpl.volumesJson) args.push("-v", `${normalizeVolumeEndpoint(vol.host, "宿主机挂载")}:${splitContainerPathAndOptions(vol.container)}`);
+	for (const vol of tmpl.volumesJson) args.push("-v", `${normalizeVolumeEndpoint(vol.host, "Host mount")}:${splitContainerPathAndOptions(vol.container)}`);
 	for (const [key, value] of Object.entries(tmpl.envJson)) {
 		if (value !== "") args.push("-e", `${key}=${resolveEnvValue(String(value))}`);
 	}
@@ -249,7 +249,7 @@ async function notifyQuickServiceInstallSuccess(userId: string | undefined, tmpl
 		await createNotification({
 			userId,
 			type: "system",
-			title: `快捷服务安装成功：${tmpl.name}`,
+			title: `Quick service installed successfully: ${tmpl.name}`,
 			message: formatInstallNoticeMessage(tmpl.name, notice),
 			actionUrl: notice.accessUrl ?? "/quick-services",
 		});
@@ -264,8 +264,8 @@ async function notifyQuickServiceInstallFailure(userId: string | undefined, tmpl
 		await createNotification({
 			userId,
 			type: "system",
-			title: `快捷服务安装失败：${tmpl.name}`,
-			message: `${tmpl.name} 安装失败：${message}`,
+			title: `Quick service installation failed: ${tmpl.name}`,
+			message: `${tmpl.name} installation failed: ${message}`,
 			actionUrl: "/quick-services",
 		});
 	} catch {

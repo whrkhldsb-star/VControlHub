@@ -499,7 +499,7 @@ describe("FilesBrowserSpa", () => {
       />,
     );
 
-    expect(screen.getAllByText(/当前路径：45\.88\.1\.2（SFTP）：\/docs/).length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/当前路径：45\.88\.1\.2 \(SFTP\): \/docs/).length).toBeGreaterThan(0);
     expect(screen.queryByText(/存储__cmps1rmy/)).not.toBeInTheDocument();
   });
 

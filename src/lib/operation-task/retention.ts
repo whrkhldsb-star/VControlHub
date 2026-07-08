@@ -163,7 +163,7 @@ async function safeRun(source: string, fn: () => Promise<OperationTaskRetentionP
     return await fn();
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
-    logger.warn(`pruneOperationTaskHistory: ${source} 失败`, { error: message });
+    logger.warn(`pruneOperationTaskHistory: ${source} failed`, { error: message });
     return { scanned: 0, deleted: 0, error: message };
   }
 }

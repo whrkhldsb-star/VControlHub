@@ -171,7 +171,7 @@ export function FileBatchToolbar({
                 <span className="text-sm text-[var(--text-secondary)]">
                   {progress.done}/{progress.total}
                   {progress.errors.length > 0
-                    ? `（${formatCopy(copy.failureCount, { count: progress.errors.length })}）`
+                    ? `(${formatCopy(copy.failureCount, { count: progress.errors.length })})`
                     : ""}
                 </span>
               ) : null}

@@ -15,7 +15,7 @@ export async function requirePermission(permission: Permission) {
   const session = await requireSession();
 
   if (!sessionHasPermission(session, permission)) {
-    throw new ForbiddenError(`Missing permission：${permission}`);
+    throw new ForbiddenError(`Missing permission: ${permission}`);
   }
 
   return session;

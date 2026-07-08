@@ -5,6 +5,7 @@ import { computeLeaseMs } from "@/lib/job/lease";
 import { claimNextJob, completeJob, failJob, heartbeatJob } from "@/lib/job/service";
 import { createLogger } from "@/lib/logging";
 import { getSftpSyncNode, syncSftpDirectoryEntries } from "./sftp-sync";
+import { serverT } from "@/lib/i18n/server-locale";
 
 const logger = createLogger("sftp-sync-job-worker");
 
@@ -61,16 +62,17 @@ async function executeSftpSyncJob(job: { id: string; payload: Prisma.JsonValue }
   const payload = parseSftpSyncJobPayload(job.payload);
   await heartbeatJob(job.id, SFTP_SYNC_WORKER_ID, {
     leaseMs: SFTP_SYNC_WORKER_LEASE_MS,
-    progress: "正在加载 SFTP 节点",
+    progress: "Loading SFTP nodes",
   });
 
   const node = await getSftpSyncNode(payload.nodeId);
-  if (!node) throw new Error("Storage node not found");
+  const t = await serverT();
+  if (!node) throw new Error(t("backend.storage.nodeNotFoundShort"));
   if (node.driver !== "SFTP") throw new Error("This node is not SFTP type");
 
   await heartbeatJob(job.id, SFTP_SYNC_WORKER_ID, {
     leaseMs: SFTP_SYNC_WORKER_LEASE_MS,
-    progress: `正在同步 ${node.name}`,
+    progress: `Syncing ${node.name}`,
   });
   const result = await syncSftpDirectoryEntries({
     node,
@@ -80,7 +82,7 @@ async function executeSftpSyncJob(job: { id: string; payload: Prisma.JsonValue }
   });
 
   if (result.errors.length > 0 && result.synced === 0 && result.created === 0 && result.updated === 0 && result.deleted === 0) {
-    throw new Error(result.errors.join("；"));
+    throw new Error(result.errors.join("; "));
   }
 
   await completeJob(job.id, SFTP_SYNC_WORKER_ID, result as unknown as Prisma.InputJsonValue);

@@ -11,6 +11,7 @@ import { listServerProfiles } from "@/lib/server/service";
 import { getStorageOverview } from "@/lib/storage/service";
 import { listCommandRequests } from "@/lib/command/service";
 import { getUnreadCount } from "@/lib/notification/service";
+import { getSetting } from "@/lib/settings/service";
 import { prisma } from "@/lib/db";
 import { PageShell } from "@/components/page-shell";
 import { getServerLocale } from "@/lib/i18n/translations";
@@ -29,7 +30,7 @@ export const dynamic = "force-dynamic";
 
 export default async function Home() {
   const session = await requireSession("/");
-  const [servers, storage, requests, recentAuditLogs, downloadStats, unreadNotif, activeScheduled] = await Promise.all([
+  const [servers, storage, requests, recentAuditLogs, downloadStats, unreadNotif, activeScheduled, dragReorderEnabledRaw] = await Promise.all([
     listServerProfiles(),
     getStorageOverview(),
     listCommandRequests(),
@@ -41,7 +42,10 @@ export default async function Home() {
     prisma.downloadTask.groupBy({ by: ["status"], _count: true }),
     getUnreadCount(session.userId),
     prisma.scheduledTask.count({ where: { status: "ACTIVE" } }),
+    getSetting("dashboard.layout.dragReorderEnabled"),
   ]);
+
+  const dragReorderEnabled = dragReorderEnabledRaw !== "false";
 
   const pendingCount = requests.filter((r) => r.status === "PENDING_APPROVAL").length;
   const recentRequests = requests.slice(0, 5);
@@ -96,7 +100,7 @@ export default async function Home() {
           activeScheduledTasks: activeScheduled,
         }}
       />
-      <DashboardPreferenceClient>
+      <DashboardPreferenceClient dragReorderEnabled={dragReorderEnabled}>
         <DashboardServerHero
           summary={{
             total: servers.length,

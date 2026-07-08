@@ -325,7 +325,7 @@ export async function syncServerMonthlyCosts(
 				amount: new Prisma.Decimal(amount),
 				currency: server.costCurrency,
 				effectiveDate,
-				notes: `自动采集：${server.name} (${server.host}) ${month} VPS 月费`,
+				notes: `Auto-collected: ${server.name} (${server.host}) ${month} VPS monthly fee`,
 				sourceType: "server_monthly",
 				sourceRef: server.id,
 				createdById: null,
@@ -334,7 +334,7 @@ export async function syncServerMonthlyCosts(
 				provider,
 				amount: new Prisma.Decimal(amount),
 				currency: server.costCurrency,
-				notes: `自动采集：${server.name} (${server.host}) ${month} VPS 月费`,
+				notes: `Auto-collected: ${server.name} (${server.host}) ${month} VPS monthly fee`,
 			},
 		});
 		await prisma.server.update({

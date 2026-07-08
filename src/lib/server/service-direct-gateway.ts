@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/db";
 import { config } from "@/lib/config/env";
 import { BusinessError, NotFoundError, ValidationError } from "@/lib/errors";
+import { serverT } from "@/lib/i18n/server-locale";
 import {
   buildSshParamsFromServer,
   execRemoteCommand,
@@ -17,7 +18,7 @@ export function getConfiguredDirectAccessSecret() {
   const secret = config.auth.storageGatewaySecret ?? "";
   if (!secret) {
     throw new ValidationError(
-      "未配置 STORAGE_DIRECT_ACCESS_SECRET，无法启用目标服务器直连。请先在运行环境中配置同一个直连签名密钥。",
+      "STORAGE_DIRECT_ACCESS_SECRET is not configured; cannot enable target server direct connection. Please configure the same direct connection signing key in the runtime environment first.",
     );
   }
   return secret;
@@ -50,6 +51,7 @@ export async function applyServerDirectGatewayState(input: {
   // 显式传 "0.0.0.0" 才监听全部接口，需 UI 风险提示 (TLS/VPN/防火墙任一)。
   bindAddress?: string;
 }) {
+  const t = await serverT();
   const server = await loadServerForDirectGateway(input.serverId);
   if (!server) {
     if (input.bestEffort)
@@ -58,14 +60,14 @@ export async function applyServerDirectGatewayState(input: {
         publicBaseUrl: null,
         cleanupSkipped: true,
       };
-    throw new NotFoundError("VPS node not found or deleted");
+    throw new NotFoundError(t("backend.server.nodeNotFound"));
   }
   const isLocalHost = /^(127\.0\.0\.1|localhost|::1|0\.0\.0\.0)$/i.test(
     server.host.trim(),
   );
   if (input.enabled && isLocalHost) {
     const errorMessage =
-      "本机节点不需要目标服务器直连，请继续使用网站中转或本机存储访问。";
+      "The local node does not need a direct gateway to the target server. Continue using website relay or local storage access.";
     if (input.bestEffort) {
       return {
         enabled: false,
@@ -81,7 +83,7 @@ export async function applyServerDirectGatewayState(input: {
     (!server.storageNode || server.storageNode.driver !== "SFTP")
   ) {
     const errorMessage =
-      "目标服务器直连只能启用于已绑定 SFTP 存储节点的 VPS。请先创建或修复该 VPS 的远程存储节点。";
+      "Target server direct connection can only be enabled for VPS instances bound to an SFTP storage node. Please create or repair the remote storage node for this VPS first.";
     if (input.bestEffort) {
       return {
         enabled: false,
@@ -131,7 +133,7 @@ export async function applyServerDirectGatewayState(input: {
       });
       if (result.exitCode && result.exitCode !== 0)
         throw new BusinessError(
-          result.stderr || result.stdout || "目标服务器直连服务操作失败",
+          result.stderr || result.stdout || "Target server direct connection service operation failed",
         );
     } catch (error) {
       if (!input.bestEffort) throw error;

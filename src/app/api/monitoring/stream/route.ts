@@ -156,7 +156,7 @@ function collectStats() {
 export async function GET(request: Request) {
   return withApiRoute(
     request,
-    { requireAuth: true, errorMessage: "Monitoring SSE AuthenticationFailed" },
+    { requireAuth: true, errorMessage: "Monitoring SSE AuthenticationFailed", rateLimit: { maxRequests: 30, windowMs: 60_000 } },
     async () => {
       const url = new URL(request.url);
       const intervalSeconds = Math.max(2, Math.min(30, Number(url.searchParams.get("interval")) || 5));

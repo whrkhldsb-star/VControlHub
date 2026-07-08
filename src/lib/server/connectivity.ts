@@ -49,7 +49,7 @@ export function tcpProbe(
 			finish({ ok: true, latencyMs: Date.now() - start }),
 		);
 		socket.once("timeout", () =>
-			finish({ ok: false, error: `连接超时 (${timeoutMs}ms)` }),
+			finish({ ok: false, error: `Connection timeout (${timeoutMs}ms)` }),
 		);
 		socket.once("error", (err: NodeJS.ErrnoException) => {
 			// err.code is the kernel errno / DNS code; that's what we want

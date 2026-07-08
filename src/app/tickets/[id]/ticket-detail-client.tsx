@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { csrfFetch } from "@/lib/auth/csrf-client";
 import { useI18n } from "@/lib/i18n/use-locale";
+import { toDateLocale } from "@/lib/i18n/locale-format";
 import Link from "next/link";
 
 export interface TicketUser { id: string; username: string; displayName: string | null; }
@@ -114,9 +115,9 @@ export function TicketDetailClient({ initial, canManage, users = [], locale: _lo
             </div>
           </div>
           <div className="text-right text-xs text-[var(--text-muted)]">
-            <p>{t("ticketsDetail.createdAt").replace("{time}", new Date(ticket.createdAt).toLocaleString(locale === "zh" ? "zh-CN" : "en-US"))}</p>
-            <p>{t("ticketsDetail.updatedAt").replace("{time}", new Date(ticket.updatedAt).toLocaleString(locale === "zh" ? "zh-CN" : "en-US"))}</p>
-            {ticket.closedAt && <p>{t("ticketsDetail.closedAt").replace("{time}", new Date(ticket.closedAt).toLocaleString(locale === "zh" ? "zh-CN" : "en-US"))}</p>}
+            <p>{t("ticketsDetail.createdAt").replace("{time}", new Date(ticket.createdAt).toLocaleString(toDateLocale(locale)))}</p>
+            <p>{t("ticketsDetail.updatedAt").replace("{time}", new Date(ticket.updatedAt).toLocaleString(toDateLocale(locale)))}</p>
+            {ticket.closedAt && <p>{t("ticketsDetail.closedAt").replace("{time}", new Date(ticket.closedAt).toLocaleString(toDateLocale(locale)))}</p>}
           </div>
         </div>
 
@@ -176,7 +177,7 @@ export function TicketDetailClient({ initial, canManage, users = [], locale: _lo
               <div key={c.id} className="rounded-lg border border-[var(--border)]/[0.04] bg-[var(--input-bg)] p-4">
                 <div className="flex items-center justify-between mb-2">
                   <span className="text-sm font-medium text-[var(--text-primary)]">{c.author.displayName || c.author.username}</span>
-                  <span className="text-xs text-[var(--text-muted)]">{new Date(c.createdAt).toLocaleString(locale === "zh" ? "zh-CN" : "en-US")}</span>
+                  <span className="text-xs text-[var(--text-muted)]">{new Date(c.createdAt).toLocaleString(toDateLocale(locale))}</span>
                 </div>
                 <p className="whitespace-pre-wrap text-sm text-[var(--text-secondary)]">{c.body}</p>
               </div>

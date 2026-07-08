@@ -41,7 +41,7 @@ function getColorClass(uptime: number) {
   if (uptime >= 99) return "bg-[var(--success)]";
   if (uptime >= 95) return "bg-[var(--info)]";
   if (uptime >= 90) return "bg-[var(--warning)]";
-  if (uptime >= 75) return "bg-[var(--warning)]";
+  if (uptime >= 75) return "bg-[var(--danger)]/50";
   return "bg-[var(--danger)]";
 }
 

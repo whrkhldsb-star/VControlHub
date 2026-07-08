@@ -69,6 +69,7 @@ function toBytes(value: string) {
 
 export function UserPermissionPanel({ userId, username, onClose, onSaved }: Props) {
   const { t } = useI18n();
+  const dialogRef = useDialogFocus<HTMLDivElement>({ open: true, onClose });
   const [payload, setPayload] = useState<PermissionsPayload | null>(null);
   const [roleKeys, setRoleKeys] = useState<string[]>([]);
   const [permissionKeys, setPermissionKeys] = useState<string[]>([]);
@@ -147,7 +148,7 @@ const _data = await csrfFetch("/api/users/permissions", {
 
   return (
     <div className="fixed inset-0 z-50 overflow-y-auto bg-black/60 p-4 backdrop-blur">
-      <div className="mx-auto max-w-5xl rounded-3xl border border-[var(--border)] bg-[var(--modal-bg)] p-6 shadow-2xl shadow-[var(--color-action)]/40">
+      <div ref={dialogRef} role="dialog" aria-modal="true" aria-label={t("usersPerm.title")} className="mx-auto max-w-5xl rounded-3xl border border-[var(--border)] bg-[var(--modal-bg)] p-6 shadow-2xl shadow-[var(--color-action)]/40">
         <div className="mb-5 flex items-start justify-between gap-4">
           <div>
             <p className="text-xs uppercase tracking-[0.3em] text-[var(--color-action)]/70">{t("usersPerm.title")}</p>
@@ -164,7 +165,7 @@ const _data = await csrfFetch("/api/users/permissions", {
               <h4 className="font-medium text-[var(--text-primary)]">{t("usersPerm.section.roles")}</h4>
               <div className="mt-3 flex flex-wrap gap-2">
                 {payload.roles.map((role) => (
-                  <button key={role.key} type="button" onClick={() => setRoleKeys((current) => toggle(current, role.key))} data-tone={roleKeys.includes(role.key) ? "cyan" : undefined} className={`rounded-full border px-3 py-1.5 text-xs ${roleKeys.includes(role.key) ? "border-[var(--accent-border)] text-[var(--accent)]" : "border-[var(--border)] text-[var(--text-muted)] hover:bg-[var(--surface-elevated)]"}`}>{role.name}</button>
+                  <button key={role.key} type="button" onClick={() => setRoleKeys((current) => toggle(current, role.key))} data-tone={roleKeys.includes(role.key) ? "cyan" : undefined} className={`rounded-full border px-3 py-1.5 text-xs ${roleKeys.includes(role.key) ? "border-[var(--accent-border)] text-[var(--accent)]" : "border-[var(--border)] text-[var(--text-muted)] hover:bg-[var(--surface-elevated)]"}`}>{t(`usersPage.role.${role.key}`)}</button>
                 ))}
               </div>
             </section>

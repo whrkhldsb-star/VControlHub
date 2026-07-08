@@ -160,8 +160,9 @@ export function NotificationBell() {
 	}, []);
 
 	const togglePanel = async () => {
-		if (!isOpen) await fetchList();
-		setIsOpen(!isOpen);
+		let willOpen = false;
+		setIsOpen((prev) => { willOpen = !prev; return willOpen; });
+		if (willOpen) await fetchList();
 	};
 
 	const markAllRead = async () => {

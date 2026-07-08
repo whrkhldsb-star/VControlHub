@@ -18,8 +18,8 @@ function canMutateSnippet(
 }
 
 export async function createSnippet(input: { title: string; content: string; language?: string; description?: string; tags?: string[]; isPrivate?: boolean; createdBy?: string }) {
-  requireNonBlank(input.title, "代码片段标题和内容不能为空");
-  requireNonBlank(input.content, "代码片段标题和内容不能为空");
+  requireNonBlank(input.title, "Snippet title and content cannot be empty");
+  requireNonBlank(input.content, "Snippet title and content cannot be empty");
   return prisma.snippet.create({ data: { title: input.title.trim(), content: input.content, language: input.language?.trim() || "text", description: input.description?.trim() || null, tags: tags(input.tags), isPrivate: input.isPrivate ?? false, createdBy: input.createdBy ?? null } });
 }
 
@@ -44,11 +44,11 @@ export async function updateSnippet(
   }
   const data: Record<string, unknown> = {};
   if (input.title !== undefined) {
-    requireNonBlank(input.title, "代码片段标题不能为空");
+    requireNonBlank(input.title, "Snippet title cannot be empty");
     data.title = input.title.trim();
   }
   if (input.content !== undefined) {
-    requireNonBlank(input.content, "代码片段内容不能为空");
+    requireNonBlank(input.content, "Snippet content cannot be empty");
     data.content = input.content;
   }
   if (input.language !== undefined) data.language = input.language.trim() || "text";

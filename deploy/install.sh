@@ -303,6 +303,8 @@ quick_service_host_paths() {
 /opt/n8n/data
 /opt/navidrome/data
 /opt/navidrome/music
+/opt/nextcloud/data
+/opt/nextcloud/html
 /opt/outline/data
 /opt/photoprism/originals
 /opt/photoprism/storage

@@ -78,10 +78,10 @@ function zodIssueDetails(err: z.ZodError): { summary: string; issues: Array<{ pa
     message: typeof i.message === "string" ? i.message : "Invalid value",
   }));
   const summary = items.length === 0
-    ? "请求体校验失败"
+    ? "Request body validation failed"
     : items.length === 1
       ? `${items[0]!.path ? items[0]!.path + ": " : ""}${items[0]!.message}`
-      : `${items.length} 个字段校验失败：${items.slice(0, 3).map((i) => i.path || "?").join(", ")}${items.length > 3 ? "…" : ""}`;
+      : `${items.length} field(s) failed validation: ${items.slice(0, 3).map((i) => i.path || "?").join(", ")}${items.length > 3 ? "…" : ""}`;
   return { summary, issues: items };
 }
 

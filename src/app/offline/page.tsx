@@ -19,6 +19,7 @@
  * the service worker is configured to pre-cache on install.
  */
 
+import { useState } from "react";
 import { useI18n } from "@/lib/i18n/use-locale";
 
 interface CachedRoute {
@@ -35,6 +36,7 @@ const CACHED_ROUTES: ReadonlyArray<CachedRoute> = [
 
 export default function OfflinePage() {
   const { t } = useI18n();
+  const [retrying, setRetrying] = useState(false);
 
   return (
     <main
@@ -81,9 +83,11 @@ export default function OfflinePage() {
         <div className="pt-4 border-t border-[var(--border)] light:border-[var(--border)]">
           <a
             href="/dashboard"
+            onClick={() => setRetrying(true)}
+            aria-busy={retrying}
             className="inline-flex items-center justify-center min-h-11 px-5 rounded-lg bg-[var(--surface)] text-[var(--text-primary)] light:bg-[var(--surface)] light:text-[var(--color-action-fg)] text-sm font-medium hover:opacity-90 transition-opacity"
           >
-            {t("pwa.offline.retry")}
+            {retrying ? t("pwa.offline.retrying") : t("pwa.offline.retry")}
           </a>
         </div>
       </div>

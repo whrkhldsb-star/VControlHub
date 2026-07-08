@@ -54,7 +54,7 @@ async function enqueueAlertEvaluationJob(reason: string) {
   if (await hasActiveEvaluationJob()) return null;
   return enqueueJob({
     type: ALERT_EVALUATION_JOB_TYPE,
-    title: "告警规则评估",
+    title: "Alert rule evaluation",
     payload: { reason, requestedAt: new Date().toISOString() },
     priority: -10,
     maxAttempts: 3,
@@ -91,13 +91,13 @@ export async function runAlertEvaluationJobWorkerOnce(reason = "manual") {
     if (!job) return false;
 
     try {
-      await heartbeatJob(job.id, ALERT_EVALUATION_WORKER_ID, { leaseMs: ALERT_EVALUATION_LEASE_MS, progress: "正在评估告警规则" });
+      await heartbeatJob(job.id, ALERT_EVALUATION_WORKER_ID, { leaseMs: ALERT_EVALUATION_LEASE_MS, progress: "Evaluating alert rules" });
       const result = await evaluateAlerts();
       await completeJob(job.id, ALERT_EVALUATION_WORKER_ID, result ?? { evaluated: true });
       await pruneCompletedAlertEvaluationJobs();
       return true;
     } catch (error) {
-      const message = error instanceof Error ? error.message : "告警评估失败";
+      const message = error instanceof Error ? error.message : "Alert evaluation failed";
       await failJob(job.id, ALERT_EVALUATION_WORKER_ID, message.slice(0, 2000), { retryAfterMs: 60_000 });
       logger.error("Alert evaluation failed", { reason, jobId: job.id, error: message });
       return true;

@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { csrfFetch } from "@/lib/auth/csrf-client";
 import { toDateLocale } from "@/lib/i18n/locale-format";
 import { useI18n } from "@/lib/i18n/use-locale";
+import { useDialogFocus } from "@/lib/a11y/use-dialog-focus";
 
 type Props = {
   backupId: string;
@@ -13,13 +14,13 @@ type Props = {
   disabled?: boolean;
 };
 
-const CONFIRM_TEXT = "RESTORE";
-
 export function RestoreBackupButton({ backupId, backupType, disabled = false }: Props) {
   const { t, locale } = useI18n();
+  const CONFIRM_TEXT = t("backupsPage.restore.confirmToken");
   const router = useRouter();
   const [pending, setPending] = useState(false);
   const [confirmOpen, setConfirmOpen] = useState(false);
+  const dialogRef = useDialogFocus<HTMLDivElement>({ open: confirmOpen, onClose: () => setConfirmOpen(false) });
   const [confirmText, setConfirmText] = useState("");
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -76,6 +77,7 @@ export function RestoreBackupButton({ backupId, backupType, disabled = false }: 
       {confirmOpen && (
         <div className="fixed inset-0 z-50 flex items-end justify-center overflow-y-auto bg-[var(--surface)]/75 p-0 backdrop-blur-sm sm:items-center sm:p-4" role="presentation">
           <div
+            ref={dialogRef}
             role="dialog"
             aria-modal="true"
             aria-labelledby="restore-backup-title"

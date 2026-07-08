@@ -74,7 +74,7 @@ async function enqueueCostSnapshotJob(reason: string) {
 	if (await hasActiveSnapshotJob()) return null;
 	return enqueueJob({
 		type: COST_SNAPSHOT_JOB_TYPE,
-		title: "成本每日聚合快照",
+		title: "Cost daily aggregation snapshot",
 		payload: { reason, requestedAt: new Date().toISOString() },
 		priority: -3, // Low — batch aggregation, not user-blocking
 		maxAttempts: 2, // Daily cron — 1 retry is plenty
@@ -145,7 +145,7 @@ export async function runCostSnapshotWorkerOnce(reason = "manual"): Promise<bool
 		try {
 			await heartbeatJob(job.id, COST_SNAPSHOT_WORKER_ID, {
 				leaseMs: COST_SNAPSHOT_LEASE_MS,
-				progress: "正在同步 VPS 月费并聚合当日成本",
+				progress: "Syncing VPS monthly fees and aggregating daily cost",
 			});
 			const monthlySync = await syncServerMonthlyCosts();
 			const today = new Date();
@@ -172,7 +172,7 @@ export async function runCostSnapshotWorkerOnce(reason = "manual"): Promise<bool
 			return true;
 		} catch (error) {
 			const message =
-				error instanceof Error ? error.message : "成本每日快照聚合失败";
+				error instanceof Error ? error.message : "Cost daily snapshot aggregation failed";
 			await failJob(job.id, COST_SNAPSHOT_WORKER_ID, message.slice(0, 2000), {
 				retryAfterMs: 60 * 60 * 1000, // 1h retry
 			});

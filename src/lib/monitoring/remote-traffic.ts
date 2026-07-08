@@ -112,7 +112,7 @@ export async function sampleRemoteServerTraffic(
 		sampledAt,
 	};
 	if (!server.sshKey?.privateKey && !server.password) {
-		return { ...base, error: "未配置 SSH 凭据，跳过流量采样" };
+		return { ...base, error: "SSH credentials not configured, skipping traffic sampling" };
 	}
 	try {
 		const sshParams = await buildSshParamsFromServer(server, server.sshKey);
@@ -122,11 +122,11 @@ export async function sampleRemoteServerTraffic(
 			timeout: SAMPLE_TIMEOUT_MS,
 		});
 		if (exitCode !== 0) {
-			return { ...base, error: `远端命令退出码 ${exitCode}: ${stderr.trim().slice(0, 120)}` };
+			return { ...base, error: `Remote command exit code ${exitCode}: ${stderr.trim().slice(0, 120)}` };
 		}
 		const interfaces = parseNetworkDeviceStats(stdout);
 		if (interfaces.length === 0) {
-			return { ...base, error: "未能解析 /proc/net/dev" };
+			return { ...base, error: "Failed to parse /proc/net/dev" };
 		}
 		const summarized = interfaces.map((item) => summarizeRemoteInterface(server.id, item));
 		const primarySrc = selectPrimaryInterface(interfaces);
@@ -135,8 +135,8 @@ export async function sampleRemoteServerTraffic(
 			: null;
 		return { ...base, primaryInterface: primary, interfaces: summarized, error: null };
 	} catch (error) {
-		const message = error instanceof Error ? error.message : "未知错误";
-		return { ...base, error: `连接失败: ${message.slice(0, 200)}` };
+		const message = error instanceof Error ? error.message : "Unknown error";
+		return { ...base, error: `Connection failed: ${message.slice(0, 200)}` };
 	}
 }
 
@@ -157,7 +157,7 @@ export async function sampleRemoteServersTraffic(
 			primaryInterface: null,
 			interfaces: [],
 			sampledAt: new Date().toISOString(),
-			error: result.reason instanceof Error ? result.reason.message : "采样失败",
+			error: result.reason instanceof Error ? result.reason.message : "Sampling failed",
 		};
 	});
 }

@@ -27,9 +27,9 @@ export function formatSshFileSize(bytes: number): string {
   return `${(bytes / (1024 * 1024 * 1024)).toFixed(1)} GB`;
 }
 
-export function formatSshFileDate(unix: number): string {
+export function formatSshFileDate(unix: number, locale?: string): string {
   if (!unix) return "";
-  return new Date(unix * 1000).toLocaleDateString(undefined, {
+  return new Date(unix * 1000).toLocaleDateString(locale ?? undefined, {
     month: "short",
     day: "numeric",
     hour: "2-digit",

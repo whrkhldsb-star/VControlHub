@@ -28,7 +28,7 @@ export function useActionResultToast(defaults: UseActionResultToastOptions = {})
   return useCallback(
     <T,>(result: ActionResult<T>, perCall: UseActionResultToastOptions = {}): result is { ok: true; data?: T; message?: string; taskHref?: string } => {
       const showSuccess = perCall.showSuccess ?? defaults.showSuccess ?? true;
-      const successMessage = perCall.successMessage ?? defaults.successMessage ?? "操作成功";
+      const successMessage = perCall.successMessage ?? defaults.successMessage ?? "Operation succeeded";
 
       if (result.ok) {
         if (showSuccess) {
@@ -46,7 +46,7 @@ export function useActionResultToast(defaults: UseActionResultToastOptions = {})
       if (result.code === "PARTIAL_FAILURE" && Array.isArray(result.partial)) {
         const failed = result.partial.filter((p) => !p.ok).length;
         const total = result.partial.length;
-        msg = `${msg}（${failed}/${total} 失败）`;
+        msg = `${msg} (${failed}/${total} failed)`;
       }
 
       // 校验失败时附加首个字段错误
@@ -54,7 +54,7 @@ export function useActionResultToast(defaults: UseActionResultToastOptions = {})
         const detailsRecord = result.details as Record<string, string[]>;
         const firstField = Object.keys(detailsRecord)[0];
         if (firstField && Array.isArray(detailsRecord[firstField]) && detailsRecord[firstField][0]) {
-          msg = `${msg}：${detailsRecord[firstField][0]}`;
+          msg = `${msg}: ${detailsRecord[firstField][0]}`;
         }
       }
 

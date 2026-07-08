@@ -65,6 +65,10 @@ vi.mock("@/lib/storage/service", () => ({
   updateStorageNode: vi.fn(),
 }));
 
+vi.mock("@/lib/storage/access-control", () => ({
+  assertStorageAccess: vi.fn().mockResolvedValue({ allowed: true, storageNode: { id: "sn_team_alpha", userId: "u_1" } }),
+}));
+
 vi.mock("@/lib/server/service", () => ({
   listServerProfiles: vi.fn(),
 }));
@@ -132,7 +136,7 @@ describe("createFolderAction", () => {
       }),
     );
 
-    expect(result.error).toMatch(/路径/);
+    expect(result.error).toMatch(/Path/);
     expect(prismaMock.fileEntry.findFirst).not.toHaveBeenCalled();
     expect(prismaMock.storageNode.findUnique).not.toHaveBeenCalled();
     expect(mkdirMock).not.toHaveBeenCalled();
@@ -200,7 +204,7 @@ describe("createFolderAction", () => {
       server: null,
     });
     mkdirMock.mockResolvedValueOnce(undefined);
-    createFileEntryMock.mockRejectedValueOnce(new Error("索引写入失败"));
+    createFileEntryMock.mockRejectedValueOnce(new Error("Index write failed"));
 
     const result = await createFolderAction(
       null,
@@ -211,7 +215,7 @@ describe("createFolderAction", () => {
       }),
     );
 
-    expect(result).toEqual({ error: "索引写入失败" });
+    expect(result).toEqual({ error: "Index write failed" });
     expect(mkdirMock).toHaveBeenCalledWith("/srv/storage/docs/drafts", {
       recursive: false,
     });
@@ -242,7 +246,7 @@ describe("createFolderAction", () => {
       },
     });
     createRemoteDirectoryMock.mockResolvedValueOnce(undefined);
-    createFileEntryMock.mockRejectedValueOnce(new Error("索引写入失败"));
+    createFileEntryMock.mockRejectedValueOnce(new Error("Index write failed"));
 
     const result = await createFolderAction(
       null,
@@ -253,7 +257,7 @@ describe("createFolderAction", () => {
       }),
     );
 
-    expect(result).toEqual({ error: "索引写入失败" });
+    expect(result).toEqual({ error: "Index write failed" });
     expect(createRemoteDirectoryMock).toHaveBeenCalledWith(
       expect.objectContaining({
         remotePath: "/data/root/team/drafts",

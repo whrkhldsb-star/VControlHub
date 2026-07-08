@@ -10,6 +10,7 @@ import { prisma } from "@/lib/db";
 import { UPLOAD_DIR } from "@/lib/image-bed/constants";
 
 import { apiError } from "@/lib/http/api-error";
+import { withApiRoute } from "@/lib/http/api-guard";
 export const dynamic = "force-dynamic";
 
 function resolveUploadPath(storageKey: string) {
@@ -25,10 +26,10 @@ function resolveUploadPath(storageKey: string) {
 }
 
 export async function GET(
-  _request: Request,
+  request: Request,
   { params }: { params: Promise<{ id: string }> },
 ) {
-  try {
+  return withApiRoute(request, {}, async () => {
     const { id } = await params;
 
     const image = await prisma.imageUpload.findUnique({
@@ -102,7 +103,5 @@ export async function GET(
         "Content-Disposition": `inline; filename="${image.filename.replace(/["\r\n]/g, "_")}"`,
       },
     });
-  } catch {
-    return apiError({ code: "INTERNAL_ERROR", message: "Failed to fetch image", status: 500 });
-  }
+  });
 }

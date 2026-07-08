@@ -71,7 +71,7 @@ async function withDirectoryTimeout<T>(
         timer = setTimeout(() => {
           reject(
             new Error(
-              `扫描 ${dirPath} 超过 ${Math.ceil(timeoutMs / 1000)} 秒, 已停止本目录扫描`,
+              `Scanning ${dirPath} exceeded ${Math.ceil(timeoutMs / 1000)} seconds; stopped scanning this directory`,
             ),
           );
         }, timeoutMs);
@@ -151,7 +151,7 @@ export async function detectAndPruneSftpStaleInventory(input: {
   };
 
   if (node.driver !== "SFTP") {
-    result.errors.push(`节点 ${node.name} 不是 SFTP 类型, 跳过`);
+    result.errors.push(`Node ${node.name} is not SFTP type; skipped`);
     return { ...result, durationMs: Date.now() - startedAt };
   }
 
@@ -159,8 +159,8 @@ export async function detectAndPruneSftpStaleInventory(input: {
   try {
     credentials = resolveStorageSshCredentials(node);
   } catch (error) {
-    const msg = error instanceof Error ? error.message : "未知错误";
-    result.errors.push(`连接凭据不可用: ${msg}`);
+    const msg = error instanceof Error ? error.message : "Unknown error";
+    result.errors.push(`Connection credentials unavailable: ${msg}`);
     return { ...result, durationMs: Date.now() - startedAt };
   }
 
@@ -195,8 +195,8 @@ export async function detectAndPruneSftpStaleInventory(input: {
         directoryTimeoutMs,
       );
     } catch (error) {
-      const msg = error instanceof Error ? error.message : "未知错误";
-      result.errors.push(`扫描 ${dirPath} 失败: ${msg}`);
+      const msg = error instanceof Error ? error.message : "Unknown error";
+      result.errors.push(`Scanning ${dirPath} failed: ${msg}`);
       return;
     }
 
@@ -204,7 +204,7 @@ export async function detectAndPruneSftpStaleInventory(input: {
       if (entry.type === "other") continue;
       const relative = computeRelativePath(basePath, dirPath, entry.name);
       if (!relative) {
-        result.errors.push(`跳过 basePath 外的条目: ${dirPath}/${entry.name}`);
+        result.errors.push(`Skipped entry outside basePath: ${dirPath}/${entry.name}`);
         continue;
       }
       expectedRelativePaths.add(relative);
@@ -279,8 +279,8 @@ export async function detectAndPruneSftpStaleInventory(input: {
       });
     }
   } catch (error) {
-    const msg = error instanceof Error ? error.message : "未知错误";
-    result.errors.push(`DB diff 失败: ${msg}`);
+    const msg = error instanceof Error ? error.message : "Unknown error";
+    result.errors.push(`DB diff failed: ${msg}`);
   }
 
   return { ...result, durationMs: Date.now() - startedAt };

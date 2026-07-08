@@ -168,10 +168,10 @@ export async function computeQaReportTrends(): Promise<QaReportTrends> {
 	// Recent runs (last N)
 	const recentRuns: QaReportTrendRecentRun[] = parsed.slice(0, TREND_RECENT_RUN_COUNT).map((entry) => ({
 		timestamp: entry.ts,
-		module: entry.moduleName || "(未命名模块)",
+		module: entry.moduleName || "(unnamed module)",
 		result: entry.result,
 		isSuccess: isSuccessfulRun(entry.result),
-		summary: summariseSummary(coerceString(entry.row.summary, "(无摘要)"), TRUNCATE_TREND_SUMMARY_CHARS),
+		summary: summariseSummary(coerceString(entry.row.summary, "(no summary)"), TRUNCATE_TREND_SUMMARY_CHARS),
 	}));
 
 	// Headline counts
@@ -192,9 +192,9 @@ export async function computeQaReportTrends(): Promise<QaReportTrends> {
 		lastFailureEntry !== undefined
 			? {
 					timestamp: lastFailureEntry.ts,
-					module: lastFailureEntry.moduleName || "(未命名模块)",
+					module: lastFailureEntry.moduleName || "(unnamed module)",
 					summary: summariseSummary(
-						coerceString(lastFailureEntry.row.summary, "(无摘要)"),
+						coerceString(lastFailureEntry.row.summary, "(no summary)"),
 						TRUNCATE_TREND_SUMMARY_CHARS,
 					),
 				}
@@ -203,18 +203,18 @@ export async function computeQaReportTrends(): Promise<QaReportTrends> {
 	const cards: QaReportTrendCard[] = [
 		{
 			id: "totalRuns",
-			label: "总 tick 数",
+			label: "Total ticks",
 			value: String(totalRuns),
 			raw: totalRuns,
 			tone: totalRuns === 0 ? "neutral" : "info",
 			caption:
 				failureCount === 0
-					? `全 ${successCount} 次成功`
-					: `成功 ${successCount} · 失败 ${failureCount}`,
+					? `All ${successCount} runs succeeded`
+					: `Succeeded ${successCount} · Failed ${failureCount}`,
 		},
 		{
 			id: "successRate",
-			label: "成功率",
+			label: "Success rate",
 			value: totalRuns === 0 ? "—" : `${successRate}%`,
 			raw: successRate,
 			tone:
@@ -225,26 +225,26 @@ export async function computeQaReportTrends(): Promise<QaReportTrends> {
 						: successRate >= 60
 							? "info"
 							: "warn",
-			caption: totalRuns === 0 ? "暂无历史" : `${successCount}/${totalRuns} 次 deploy_committed_pushed`,
+			caption: totalRuns === 0 ? "No history yet" : `${successCount}/${totalRuns} times deploy_committed_pushed`,
 		},
 		{
 			id: "moduleCoverage",
-			label: "模块覆盖",
+			label: "Module coverage",
 			value: `${modulesCovered}/${coverageDenominator}`,
 			raw: modulesCovered,
 			tone: coverageTone,
 			caption:
 				coverageDenominator === 0
-					? "无 module_queue"
-					: `已巡检 ${modulesCovered} 个，剩余 ${coverageDenominator - modulesCovered} 个`,
+					? "No module_queue"
+					: `Inspected ${modulesCovered}, remaining ${coverageDenominator - modulesCovered}`,
 		},
 		{
 			id: "lastFailure",
-			label: "最近失败",
-			value: lastFailure ? lastFailure.module : "无",
+			label: "Latest failure",
+						value: lastFailure ? lastFailure.module : "None",
 			raw: failureCount,
 			tone: lastFailure ? "warn" : "success",
-			caption: lastFailure ? lastFailure.summary : "近 N 次全成功",
+			caption: lastFailure ? lastFailure.summary : "All recent N runs succeeded",
 		},
 	];
 

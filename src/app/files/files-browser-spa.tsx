@@ -299,7 +299,7 @@ export function FilesBrowserSpa({
                 <p className="mt-1 text-sm text-[var(--text-secondary)]">
                   {t("filesBrowserSpa.itemCountWithSource")
                     .replace("{count}", String(data.stats.totalItems))
-                    .replace("{sources}", data.sourceSummary.join("、"))}
+                    .replace("{sources}", data.sourceSummary.join(t("filesBrowserSpa.sourceListSeparator")))}
                 </p>
               </div>
               <div className="flex flex-wrap gap-3">
@@ -369,7 +369,7 @@ export function FilesBrowserSpa({
               {data.syncWarning === listError
                 ? t("filesBrowserSpa.remoteSyncNotice")
                 : t("filesBrowserSpa.fileListRefreshFailed")}
-              ：{listError}
+              : {listError}
             </div>
           ) : null}
           <FileListClient

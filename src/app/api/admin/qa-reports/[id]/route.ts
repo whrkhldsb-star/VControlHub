@@ -28,7 +28,7 @@ export async function GET(request: Request, { params }: Params) {
     async () => {
       const detail = await getQaReportDetail(id);
       if (!detail) {
-        throw new NotFoundError(`QA report not found：${id}`);
+        throw new NotFoundError(`QA report not found: ${id}`);
       }
       return NextResponse.json(detail, { status: 200 });
     },

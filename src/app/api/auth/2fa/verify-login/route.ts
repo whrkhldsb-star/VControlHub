@@ -130,6 +130,6 @@ export async function POST(request: Request) {
 		return response;
 	} catch (error) {
 		// apiCatch with 500 fallback logs the error and returns INTERNAL_ERROR
-		return apiCatch(error, 500, "VerifyFailed，pleaseRetry");
+		return apiCatch(error, 500, "Verification failed, please retry");
 	}
 }

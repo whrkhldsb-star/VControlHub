@@ -1,4 +1,4 @@
-import { createHash, randomBytes } from "node:crypto";
+import { createHash, randomBytes, scryptSync, timingSafeEqual } from "node:crypto";
 import type { Dirent } from "node:fs";
 import { readdir, stat } from "node:fs/promises";
 import path from "node:path";
@@ -45,7 +45,21 @@ export function normalizeSharePath(path: string) {
 }
 
 export function hashSharePassword(password: string) {
-  return createHash("sha256").update(`share-pw:${password}`).digest("hex");
+  const salt = randomBytes(16);
+  const hash = scryptSync(password, salt, 64);
+  return `scrypt:${salt.toString("hex")}:${hash.toString("hex")}`;
+}
+
+export function verifySharePassword(password: string, stored: string) {
+  if (stored.startsWith("scrypt:")) {
+    const parts = stored.split(":");
+    if (parts.length !== 3) return false;
+    const salt = Buffer.from(parts[1]!, "hex");
+    const expected = Buffer.from(parts[2]!, "hex");
+    const computed = scryptSync(password, salt, expected.length);
+    return computed.length === expected.length && timingSafeEqual(computed, expected);
+  }
+  return createHash("sha256").update(`share-pw:${password}`).digest("hex") === stored;
 }
 
 const SHARE_STORAGE_NODE_INCLUDE = {
@@ -102,11 +116,12 @@ export async function createShareLinkFromFileEntry(input: {
   maxDownloads?: number | null;
   password?: string;
 }) {
+  const t = await serverT();
   const entry = await prisma.fileEntry.findUnique({
     where: { id: input.fileEntryId },
     include: { storageNode: true },
   });
-  if (!entry || entry.isDeleted) throw new NotFoundError("File not found or has been deleted");
+  if (!entry || entry.isDeleted) throw new NotFoundError(t("backend.shareLink.fileNotFound"));
 
   return createShareLink({
     session: input.session,
@@ -121,8 +136,9 @@ export async function createShareLinkFromFileEntry(input: {
   });
 }
 
-export async function listShareLinks() {
+export async function listShareLinks(userId?: string) {
   return prisma.shareLink.findMany({
+    where: userId ? { createdBy: userId } : undefined,
     orderBy: { createdAt: "desc" },
     take: 200,
     include: {
@@ -132,18 +148,24 @@ export async function listShareLinks() {
   });
 }
 
-export async function revokeShareLink(id: string) {
-  return prisma.shareLink.update({ where: { id }, data: { revokedAt: new Date() } });
+export async function revokeShareLink(id: string, userId?: string) {
+  // When userId is provided, scope by ownership to prevent IDOR.
+  // Admin users with share:manage-all can pass undefined to revoke any.
+  const where = userId ? { id, createdBy: userId } : { id };
+  const share = await prisma.shareLink.findFirst({ where, select: { id: true } });
+  if (!share) throw new NotFoundError("Share link not found or not authorized to revoke");
+  return prisma.shareLink.update({ where: { id: share.id }, data: { revokedAt: new Date() } });
 }
 
 export async function resolveShareToken(token: string, password?: string) {
+  const t = await serverT();
   const share = await prisma.shareLink.findUnique({ where: { tokenHash: hashShareToken(token) }, include: SHARE_STORAGE_NODE_INCLUDE });
-  if (!share || share.revokedAt) throw new NotFoundError("Share link not found or has been revoked");
-  if (share.expiresAt && share.expiresAt.getTime() < Date.now()) throw new ValidationError("Share link has expired");
-  if (share.maxDownloads && share.accessCount >= share.maxDownloads) throw new ValidationError("Share link has reached its maximum download count");
+  if (!share || share.revokedAt) throw new NotFoundError(t("backend.shareLink.notFoundOrRevoked"));
+  if (share.expiresAt && share.expiresAt.getTime() < Date.now()) throw new ValidationError(t("backend.shareLink.expired"));
+  if (share.maxDownloads && share.accessCount >= share.maxDownloads) throw new ValidationError(t("backend.shareLink.maxDownloadsExceeded"));
   if (share.passwordHash) {
-    if (!password) throw new ValidationError("This share link requires a password");
-    if (hashSharePassword(password) !== share.passwordHash) throw new ValidationError("Access password is incorrect");
+    if (!password) throw new ValidationError(t("backend.shareLink.passwordRequired"));
+    if (!verifySharePassword(password, share.passwordHash)) throw new ValidationError(t("backend.shareLink.passwordIncorrect"));
   }
   await prisma.shareLink.update({ where: { id: share.id }, data: { accessCount: { increment: 1 } } });
   return share;
@@ -154,9 +176,10 @@ export async function resolveShareToken(token: string, password?: string) {
  * 真正的下载（/api/share/[token]）才会通过 resolveShareToken 计数。
  */
 export async function peekShareToken(token: string) {
+  const t = await serverT();
   const share = await prisma.shareLink.findUnique({ where: { tokenHash: hashShareToken(token) }, include: SHARE_STORAGE_NODE_INCLUDE });
-  if (!share || share.revokedAt) throw new NotFoundError("Share link not found or has been revoked");
-  if (share.expiresAt && share.expiresAt.getTime() < Date.now()) throw new ValidationError("Share link has expired");
+  if (!share || share.revokedAt) throw new NotFoundError(t("backend.shareLink.notFoundOrRevoked"));
+  if (share.expiresAt && share.expiresAt.getTime() < Date.now()) throw new ValidationError(t("backend.shareLink.expired"));
   return { ...share, hasPassword: !!share.passwordHash };
 }
 

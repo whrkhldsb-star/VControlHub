@@ -7,6 +7,7 @@ import { csrfFetch } from "@/lib/auth/csrf-client";
 import { getRefreshIntervalLabel } from "@/lib/preferences/refresh-interval";
 import { useRefreshInterval } from "@/lib/preferences/use-refresh-interval";
 import { useI18n } from "@/lib/i18n/use-locale";
+import { toDateLocale } from "@/lib/i18n/locale-format";
 import { TrafficSparkline, type TrafficSample } from "./traffic-sparkline";
 
 const HISTORY_LIMIT = 60; // ≈ 30 min at 30s polling cadence
@@ -258,7 +259,7 @@ export default function TrafficPage({ canManage: _canManage }: { canManage: bool
                   <option value="">{t("trafficPage.iface.auto")}</option>
                   {summary.currentServer.interfaces.map((item) => <option key={item.iface} value={item.iface}>{item.iface}</option>)}
                 </select>
-                <span className="text-[11px] text-[var(--text-muted)]">{t("trafficPage.lastUpdated").replace("{date}", new Date(summary.timestamp).toLocaleString(locale === "zh" ? "zh-CN" : "en-US"))}</span>
+                <span className="text-[11px] text-[var(--text-muted)]">{t("trafficPage.lastUpdated").replace("{date}", new Date(summary.timestamp).toLocaleString(toDateLocale(locale)))}</span>
               </div>
               {primary ? (
                 <>

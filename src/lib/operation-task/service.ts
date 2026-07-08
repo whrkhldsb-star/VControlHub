@@ -2,6 +2,7 @@ import { Prisma, type Job } from "@prisma/client";
 
 import { prisma } from "@/lib/db";
 import { getOperationTaskListLimit } from "@/lib/runtime-settings/service";
+import { serverT } from "@/lib/i18n/server-locale";
 
 // TR-039: pure DTO types live in ./dto so client code can reach them
 // without pulling the whole server-only service module. We import them
@@ -168,22 +169,22 @@ function summarizeOperationTaskSources(tasks: OperationTask[]): OperationTaskSou
   return Array.from(summary.values()).sort((a, b) => b.attention - a.attention || b.total - a.total || a.source.localeCompare(b.source));
 }
 
-function normalizeFailureReason(task: OperationTask) {
+function normalizeFailureReason(task: OperationTask, t: (key: string) => string) {
   const text = `${task.title} ${task.progress ?? ""}`.toLowerCase();
-  if (/permission|denied|forbidden|unauthorized|401|403|权限|拒绝/.test(text)) return "权限或认证失败";
-  if (/timeout|timed out|超时|deadline/.test(text)) return "执行超时";
-  if (/no such file|not found|missing|不存在|未找到/.test(text)) return "文件或资源不存在";
-  if (/connect|network|econn|dns|socket|网络|连接/.test(text)) return "网络或连接失败";
-  if (/smtp|email|mail|webhook|telegram|通知/.test(text)) return "通知发送失败";
-  if (/backup|restore|备份|恢复/.test(text)) return "备份或恢复失败";
-  return task.taskType ? `${task.taskType} 失败` : `${task.source} 失败`;
+  if (/permission|denied|forbidden|unauthorized|401|403|权限|拒绝/.test(text)) return t("backend.operationTask.failure.authOrPermission");
+  if (/timeout|timed out|超时|deadline/.test(text)) return t("backend.operationTask.failure.timeout");
+  if (/no such file|not found|missing|不存在|未找到/.test(text)) return t("backend.operationTask.failure.fileOrResourceNotFound");
+  if (/connect|network|econn|dns|socket|网络|连接/.test(text)) return t("backend.operationTask.failure.networkOrConnection");
+  if (/smtp|email|mail|webhook|telegram|通知/.test(text)) return t("backend.operationTask.failure.notification");
+  if (/backup|restore|备份|恢复/.test(text)) return t("backend.operationTask.failure.backupOrRestore");
+  return task.taskType ? t("backend.operationTask.failure.taskTypeFailed").replace("{taskType}", task.taskType) : t("backend.operationTask.failure.sourceFailed").replace("{source}", task.source);
 }
 
-function summarizeOperationTaskFailures(tasks: OperationTask[]): OperationTaskFailureSummary[] {
+function summarizeOperationTaskFailures(tasks: OperationTask[], t: (key: string) => string): OperationTaskFailureSummary[] {
   const summary = new Map<string, OperationTaskFailureSummary & { sourceSet: Set<OperationTaskSource> }>();
   for (const task of tasks) {
     if (task.status !== "failed") continue;
-    const reason = normalizeFailureReason(task);
+    const reason = normalizeFailureReason(task, t);
     const existing = summary.get(reason);
     if (!existing) {
       summary.set(reason, { reason, total: 1, sourceSet: new Set([task.source]), sources: [task.source], latestTaskId: task.id, latestTitle: task.title, latestAt: task.updatedAt });
@@ -227,16 +228,17 @@ export async function listOperationTaskResult(options: OperationTaskListOptions 
     ...scheduled.map((item: ScheduledTaskRow) => ({ id: `scheduled:${item.id}`, source: "scheduled" as const, sourceId: item.id, title: item.name, status: mapOperationStatus(item.status), createdAt: toIso(item.createdAt), updatedAt: toIso(item.updatedAt), actor: actorName(item.creator), progress: item.lastResult, logPreview: compactLogPreview([item.lastResult]), href: "/scheduled-tasks" })),
     ...downloads.map((item: DownloadTaskRow) => ({ id: `download:${item.id}`, source: "download" as const, sourceId: item.id, title: item.fileName || item.url, status: mapOperationStatus(item.status), createdAt: toIso(item.createdAt), updatedAt: toIso(item.updatedAt), actor: actorName(item.creator), progress: item.progress, logPreview: compactLogPreview([item.progress, item.targetPath]), href: "/downloads" })),
     ...syncJobs.map((item: SyncJobTaskRow) => ({ id: `sync:${item.id}`, source: "sync" as const, sourceId: item.id, title: item.name, status: mapOperationStatus(item.status), createdAt: toIso(item.createdAt), updatedAt: toIso(item.updatedAt), actor: actorName(item.creator), progress: item.lastSyncResult, logPreview: compactLogPreview([item.lastSyncResult]), href: "/files" })),
-    ...backups.map((item: BackupTaskRow) => ({ id: `backup:${item.id}`, source: "backup" as const, sourceId: item.id, title: `${item.type} 备份`, status: mapOperationStatus(item.status), createdAt: toIso(item.createdAt), updatedAt: toIso(item.updatedAt), actor: actorName(item.creator), progress: item.filePath, logPreview: compactLogPreview([item.filePath]), href: "/backups" })),
+    ...backups.map((item: BackupTaskRow) => ({ id: `backup:${item.id}`, source: "backup" as const, sourceId: item.id, title: `${item.type} backup`, status: mapOperationStatus(item.status), createdAt: toIso(item.createdAt), updatedAt: toIso(item.updatedAt), actor: actorName(item.creator), progress: item.filePath, logPreview: compactLogPreview([item.filePath]), href: "/backups" })),
     ...deployments.map((item: DeploymentTaskRow) => ({ id: `deployment:${item.id}`, source: "deployment" as const, sourceId: item.id, title: item.template.name, status: resolveDeploymentOperationStatus(item), createdAt: toIso(item.createdAt), updatedAt: toIso(item.updatedAt), actor: actorName(item.creator), progress: item.commandRequest ? formatWorkerProgress(item.commandRequest) : null, logPreview: compactLogPreview([item.commandRequest ? formatWorkerProgress(item.commandRequest) : null]), workerId: item.commandRequest?.workerId ?? null, workerHeartbeatAt: item.commandRequest?.workerHeartbeatAt ? toIso(item.commandRequest.workerHeartbeatAt) : null, href: "/deployments" })),
   ];
 
   const foldedTasks = foldCompletedPeriodicJobs(tasks);
   const filteredTasks = sortOperationTasks(filterOperationTasks(foldedTasks, options), options.sort)
     .slice(0, limit);
+  const t = await serverT();
   return {
     tasks: filteredTasks,
     sourceSummary: summarizeOperationTaskSources(filteredTasks),
-    failureSummary: summarizeOperationTaskFailures(filteredTasks),
+    failureSummary: summarizeOperationTaskFailures(filteredTasks, t),
   };
 }

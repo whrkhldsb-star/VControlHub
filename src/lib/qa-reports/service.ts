@@ -78,12 +78,12 @@ function buildSliceSummary(entry: Record<string, unknown>): QaReportSummary | nu
   const id = coerceString(entry.id);
   if (!id) return null;
   const completedAt = coerceIsoDate(entry.completedAt) ?? new Date(0).toISOString();
-  const summary = summariseSummary(coerceString(entry.summary, "(无摘要)"));
+  const summary = summariseSummary(coerceString(entry.summary, "(no summary)"));
   const evidence = Array.isArray(entry.evidence) ? entry.evidence : [];
   return {
     id: `slice:${id}`,
     kind: "slice",
-    title: `已闭环 slice · ${id}`,
+    title: `Closed-loop slice · ${id}`,
     finishedAt: completedAt,
     status: "completed",
     summary,
@@ -102,10 +102,10 @@ function buildBlockerSummary(entry: Record<string, unknown>): QaReportSummary | 
   return {
     id: `blocker:${target}:${finishedAt}`,
     kind: "blocker",
-    title: `已解除 blocker · ${target}`,
+    title: `Resolved blocker · ${target}`,
     finishedAt,
     status: `resolved · ${type}`,
-    summary: summary || "(无摘要)",
+    summary: summary || "(no summary)",
     evidenceCount: 1,
   };
 }
@@ -129,7 +129,7 @@ function buildQaRunSummary(entry: Record<string, unknown>): QaReportSummary | nu
     title: `QA loop · ${title}`,
     finishedAt,
     status,
-    summary: summary || "(无摘要)",
+    summary: summary || "(no summary)",
     evidenceCount,
   };
 }

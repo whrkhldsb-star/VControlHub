@@ -2,6 +2,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { csrfFetch } from "@/lib/auth/csrf-client";
 import { useI18n } from "@/lib/i18n/use-locale";
+import { useDialogFocus } from "@/lib/a11y/use-dialog-focus";
 type ResourceType = "networks" | "volumes";
 type DockerNetwork = {
   Id?: string;
@@ -47,6 +48,7 @@ export function DockerResourcesPanel() {
   const [error, setError] = useState("");
   const [detail, setDetail] = useState<DetailState>(null);
   const [pendingDelete, setPendingDelete] = useState<PendingDelete>(null);
+  const dialogRef = useDialogFocus<HTMLDivElement>({ open: pendingDelete !== null, onClose: () => setPendingDelete(null) });
   const resourceKind = useCallback(
     (type: ResourceType) =>
       t(
@@ -219,7 +221,7 @@ export function DockerResourcesPanel() {
                     })}
                     onClick={() => setPendingDelete({ type, name: itemName })}
                     disabled={busyKey === `delete:${key}`}
-                    className="min-h-10 rounded-lg bg-[var(--danger)]/20 px-3 py-1 text-xs text-[var(--danger)] transition hover:bg-[var(--danger)]/30 disabled:opacity-50"
+                    className="min-h-10 rounded-lg bg-[var(--danger)]/20 px-3 py-1 text-xs text-[var(--danger)] transition hover:bg-[var(--danger)]/30 focus-visible:text-[var(--text-primary)] hover:text-[var(--text-primary)] disabled:opacity-50"
                   >
                     {t("dockerResources.delete")}
                   </button>{" "}
@@ -326,6 +328,7 @@ export function DockerResourcesPanel() {
         >
           {" "}
           <section
+            ref={dialogRef}
             role="dialog"
             aria-modal="true"
             aria-labelledby="docker-resource-delete-title"

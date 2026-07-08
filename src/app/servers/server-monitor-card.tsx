@@ -5,6 +5,7 @@ import { getRefreshIntervalLabel } from "@/lib/preferences/refresh-interval";
 import { useRefreshInterval } from "@/lib/preferences/use-refresh-interval";
 import { useI18n } from "@/lib/i18n/use-locale";
 import { formatTime } from "@/lib/datetime/format";
+import { formatBytes } from "@/lib/format/bytes";
 type CpuInfo = {
   usagePercent: number;
   cores: number;
@@ -32,12 +33,6 @@ type Metrics = {
   timestamp: string;
 };
 type Props = { serverId: string; serverName: string };
-function formatBytes(bytes: number): string {
-  if (bytes >= 1_073_741_824) return `${(bytes / 1_073_741_824).toFixed(1)} GB`;
-  if (bytes >= 1_048_576) return `${(bytes / 1_048_576).toFixed(0)} MB`;
-  if (bytes >= 1024) return `${(bytes / 1024).toFixed(0)} KB`;
-  return `${bytes} B`;
-}
 function usageColor(pct: number): string {
   if (pct >= 90) return "bg-[var(--danger)]";
   if (pct >= 70) return "bg-[var(--warning)]";

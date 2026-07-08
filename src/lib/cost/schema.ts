@@ -15,21 +15,21 @@ export const costCurrencySchema = z.enum(COST_CURRENCY_VALUES);
 /** YYYY-MM-DD date string. Empty / partial strings are rejected. */
 export const costDateSchema = z
 	.string()
-	.regex(/^\d{4}-\d{2}-\d{2}$/u, "日期必须是 YYYY-MM-DD 格式")
+	.regex(/^\d{4}-\d{2}-\d{2}$/u, "Date must be in YYYY-MM-DD format")
 	.refine((s) => !Number.isNaN(Date.parse(`${s}T00:00:00Z`)), {
-		message: "日期不是合法日期",
+		message: "Date is not a valid date",
 	});
 
 /** Decimal-as-string. Allow up to 12 integer + 2 decimal digits (matches schema). */
 export const costAmountSchema = z
 	.string()
-	.regex(/^\d+(\.\d{1,2})?$/u, "金额必须是数字, 最多 2 位小数")
+	.regex(/^\d+(\.\d{1,2})?$/u, "Amount must be a number with at most 2 decimal places")
 	.refine(
 		(s) => {
 			const num = Number(s);
 			return Number.isFinite(num) && num >= 0 && num < 1e12;
 		},
-		{ message: "金额必须在 0 到 1e12 之间" },
+		{ message: "Amount must be between 0 and 1e12" },
 	);
 
 export const createCostEntrySchema = z.object({
@@ -51,12 +51,12 @@ export const updateCostEntrySchema = z
 		notes: z.string().trim().max(500).optional().nullable(),
 	})
 	.strict()
-	.refine((v) => Object.keys(v).length > 0, { message: "至少需要提供一个字段" });
+	.refine((v) => Object.keys(v).length > 0, { message: "At least one field must be provided" });
 
 /** YYYY-MM month string. Validates the month component 01-12. */
 export const costMonthSchema = z
 	.string()
-	.regex(/^\d{4}-\d{2}$/u, "month 必须是 YYYY-MM 格式")
+	.regex(/^\d{4}-\d{2}$/u, "month must be in YYYY-MM format")
 	.refine(
 		(s) => {
 			const parts = s.split("-");
@@ -64,7 +64,7 @@ export const costMonthSchema = z
 			const m = Number(parts[1]);
 			return Number.isFinite(y) && Number.isFinite(m) && m >= 1 && m <= 12;
 		},
-		{ message: "month 不是合法月份" },
+		{ message: "month is not a valid month" },
 	);
 
 /** Query string for /api/cost/entries?month=YYYY-MM&category=vps */

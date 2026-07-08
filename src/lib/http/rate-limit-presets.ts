@@ -53,7 +53,7 @@ export async function withRateLimit(
 /**
  * Create a 429 response with proper headers.
  */
-export function rateLimitResponse(retryAfterMs: number, message = "请求过于频繁，请稍后再试"): Response {
+export function rateLimitResponse(retryAfterMs: number, message = "Too many requests; please try again later"): Response {
 	return new Response(JSON.stringify({ error: message }), {
 		status: 429,
 		headers: {

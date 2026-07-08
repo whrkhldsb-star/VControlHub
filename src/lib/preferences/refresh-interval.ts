@@ -5,12 +5,12 @@ export type RefreshIntervalOption = {
 };
 
 export const REFRESH_INTERVAL_OPTIONS: RefreshIntervalOption[] = [
-	{ label: "关闭", value: 0, description: "仅手动刷新，流量最低" },
-	{ label: "5秒", value: 5, description: "接近实时，适合临时观察" },
-	{ label: "15秒", value: 15, description: "平衡实时性和开销" },
-	{ label: "30秒", value: 30, description: "推荐，明显降低请求量" },
-	{ label: "60秒", value: 60, description: "低流量巡检" },
-	{ label: "5分钟", value: 300, description: "最低后台开销" },
+	{ label: "Off", value: 0, description: "Manual refresh only; lowest traffic" },
+	{ label: "5s", value: 5, description: "Near real-time; suitable for temporary observation" },
+	{ label: "15s", value: 15, description: "Balances real-time and overhead" },
+	{ label: "30s", value: 30, description: "Recommended; significantly reduces request volume" },
+	{ label: "60s", value: 60, description: "Low-traffic inspection" },
+	{ label: "5 minutes", value: 300, description: "Lowest background overhead" },
 ];
 
 export const DEFAULT_REFRESH_INTERVAL_SECONDS = 30;
@@ -32,9 +32,9 @@ export function normalizeRefreshIntervalSeconds(value: unknown, fallback = DEFAU
 
 export function getRefreshIntervalLabel(seconds: number): string {
 	const normalized = normalizeRefreshIntervalSeconds(seconds, seconds);
-	if (normalized === 0) return "手动刷新";
+	if (normalized === 0) return "Manual refresh";
 	if (normalized < 60) return `${normalized}s`;
-	if (normalized % 60 === 0) return `${normalized / 60}分钟`;
+	if (normalized % 60 === 0) return `${normalized / 60} minutes`;
 	return `${normalized}s`;
 }
 

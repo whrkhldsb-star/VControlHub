@@ -96,12 +96,12 @@ export async function changePassword(input: ChangePasswordInput & { userId: stri
   });
 
   if (!user) {
-    return { success: false, error: "用户不存在" };
+    return { success: false, error: "User does not exist" };
   }
 
   const passwordMatches = await verifyPassword(payload.currentPassword, user.passwordHash);
   if (!passwordMatches) {
-    return { success: false, error: "当前密码错误" };
+    return { success: false, error: "Current password is incorrect" };
   }
 
   const policyError = await validatePasswordPolicy(payload.newPassword);

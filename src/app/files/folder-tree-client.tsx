@@ -1,6 +1,7 @@
 "use client";
 
 import type { TreeRootNode } from "./files-browser-helpers";
+import { Folder } from "@/components/icons";
 
 /* ── FolderTree (client-side, SPA) ──────────────────────────────── */
 
@@ -69,7 +70,7 @@ export function FolderTreeClient({
                 className="flex min-w-0 flex-1 items-center justify-between px-2 py-2 text-left text-sm"
               >
                 <span className="truncate" title={child.displayName ?? child.name}>
-                  📁 {child.displayName ?? child.name}
+                  <Folder size={14} className="inline -mt-0.5 text-[var(--warning)]" aria-hidden="true" /> {child.displayName ?? child.name}
                 </span>
                 <span
                   aria-hidden="true"

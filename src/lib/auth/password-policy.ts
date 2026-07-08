@@ -46,16 +46,16 @@ export function checkPasswordAgainstPolicy(
   policy: PasswordPolicy,
 ): string | null {
   if (password.length < policy.minLength) {
-    return `密码长度至少 ${policy.minLength} 位`;
+    return `Password must be at least ${policy.minLength} characters`;
   }
   if (policy.requireUppercase && !/[A-Z]/.test(password)) {
-    return "密码必须包含至少一个大写字母";
+    return "Password must contain at least one uppercase letter";
   }
   if (policy.requireNumber && !/[0-9]/.test(password)) {
-    return "密码必须包含至少一个数字";
+    return "Password must contain at least one digit";
   }
   if (policy.requireSpecial && !SPECIAL_CHARS.test(password)) {
-    return "密码必须包含至少一个特殊字符";
+    return "Password must contain at least one special character";
   }
   return null;
 }

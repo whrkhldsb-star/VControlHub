@@ -5,6 +5,7 @@ import { useState, useRef, useCallback } from "react";
 import { PageShell, EmptyState, ToggleChip } from "@/components/page-shell";
 import { csrfFetch } from "@/lib/auth/csrf-client";
 import { useI18n } from "@/lib/i18n/use-locale";
+import { toDateLocale } from "@/lib/i18n/locale-format";
 
 import { useImageBedList } from "./use-image-bed-list";
 import type { ImageItem, ImageStats, PendingDelete, UploadProgress } from "./image-bed-types";
@@ -53,23 +54,6 @@ export default function ImageBedPage({ canWrite, canDelete }: { canWrite: boolea
 		setToast({ message: msg, tone });
 		setTimeout(() => setToast(null), 3000);
 	};
-
-	// fetchImages now lives in `useImageBedList`; re-wrap here so the rest of
-	// the page (upload / delete / batch handlers) can keep calling it as
-	// before. Errors raised by the hook are surfaced via toast — matches the
-	// prior behaviour of the inline implementation.
-	const fetchImagesWithToast = useCallback(async (p = 1) => {
-		try {
-			await fetchImages(p);
-		} catch {
-			// Image list fetch failed — notify the user via toast.
-			showToast(t("imageBed.toast.fetchListFailed"));
-		}
-	}, [fetchImages, t]);
-	// Suppress unused warning — the variable keeps the call site stable while
-	// the hook owns the state mutations. The linter is happy if we use the
-	// result; downstream code reaches `fetchImages` directly via destructuring.
-	void fetchImagesWithToast;
 
 	const fetchStats = async () => {
 		try {
@@ -267,7 +251,7 @@ export default function ImageBedPage({ canWrite, canDelete }: { canWrite: boolea
 	const formatSize = formatImageSize;
 
 	const formatDate = (iso: string) => {
-		return new Date(iso).toLocaleString(locale === "zh" ? "zh-CN" : "en-US", { month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit" });
+		return new Date(iso).toLocaleString(toDateLocale(locale), { month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit" });
 	};
 
 	const formatPublishSource = (img: ImageItem) => {

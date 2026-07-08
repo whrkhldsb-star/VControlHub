@@ -119,7 +119,7 @@ export async function createProvider(input: CreateProviderInput) {
 
 	if (input.isDefault) {
 		await prisma.aiProvider.updateMany({
-			where: { isDefault: true, NOT: { id: { equals: undefined } } },
+			where: { isDefault: true, createdBy: input.createdBy },
 			data: { isDefault: false },
 		});
 	}
@@ -151,9 +151,9 @@ export async function listProviders(userId: string) {
 	});
 }
 
-export async function getProviderById(id: string, _userId: string) {
-	const provider = await prisma.aiProvider.findUnique({
-		where: { id },
+export async function getProviderById(id: string, userId: string) {
+	const provider = await prisma.aiProvider.findFirst({
+		where: { id, createdBy: userId },
 		select: AI_PROVIDER_LIST_SELECT,
 	});
 	if (!provider) throw new NotFoundError("Provider not found");
@@ -176,20 +176,22 @@ export async function updateProvider(id: string, userId: string, input: UpdatePr
 
 	if (input.isDefault === true) {
 		await prisma.aiProvider.updateMany({
-			where: { isDefault: true, NOT: { id } },
+			where: { isDefault: true, createdBy: userId, NOT: { id } },
 			data: { isDefault: false },
 		});
 	}
 
-	return prisma.aiProvider.update({
-		where: { id },
+	const updated = await prisma.aiProvider.updateMany({
+		where: { id, createdBy: userId },
 		data,
-		select: AI_PROVIDER_LIST_SELECT,
 	});
+	if (updated.count === 0) throw new NotFoundError("Provider not found");
+	return prisma.aiProvider.findUnique({ where: { id }, select: AI_PROVIDER_LIST_SELECT });
 }
 
-export async function deleteProvider(id: string, _userId: string) {
-	await prisma.aiProvider.delete({ where: { id } });
+export async function deleteProvider(id: string, userId: string) {
+	const deleted = await prisma.aiProvider.deleteMany({ where: { id, createdBy: userId } });
+	if (deleted.count === 0) throw new NotFoundError("Provider not found");
 }
 
 /* ── Conversation CRUD ───────────────────────────────────────── */
@@ -200,7 +202,7 @@ export async function createConversation(input: CreateConversationInput) {
 
 	return prisma.aiConversation.create({
 		data: {
-			title: input.title?.trim() || "新对话",
+			title: input.title?.trim() || "New conversation",
 			providerId: input.providerId,
 			model: input.model,
 			systemPrompt: input.systemPrompt ?? null,
@@ -252,11 +254,12 @@ export async function updateConversation(id: string, userId: string, input: Upda
 	if (input.enableVision !== undefined) data.enableVision = input.enableVision;
 	if (input.hostingEnabled !== undefined) data.hostingEnabled = input.hostingEnabled;
 
-	return prisma.aiConversation.update({
-		where: { id },
+	const updated = await prisma.aiConversation.updateMany({
+		where: { id, createdBy: userId },
 		data,
-		include: { provider: true },
 	});
+	if (updated.count === 0) throw new NotFoundError("Conversation not found");
+	return prisma.aiConversation.findUnique({ where: { id }, include: { provider: true } });
 }
 
 export async function deleteConversation(id: string, userId: string) {

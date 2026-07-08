@@ -261,7 +261,7 @@ export function SettingsClient({
         })
         .filter((message): message is string => Boolean(message));
       if (validationErrors.length > 0) {
-        setError(validationErrors.join("；"));
+        setError(validationErrors.join("; "));
         setSaved(false);
         setSavedMessage(null);
         return;

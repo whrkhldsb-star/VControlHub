@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const { mocks } = vi.hoisted(() => ({
   mocks: {
-    getApiSession: vi.fn(),
+    requireApiSession: vi.fn(),
     sessionHasPermission: vi.fn(),
     prisma: {
       metricSnapshot: { findMany: vi.fn() },
@@ -13,7 +13,7 @@ const { mocks } = vi.hoisted(() => ({
   },
 }));
 
-vi.mock("@/lib/auth/api-session", () => ({ getApiSession: mocks.getApiSession }));
+vi.mock("@/lib/auth/api-session", () => ({ requireApiSession: mocks.requireApiSession }));
 vi.mock("@/lib/auth/authorization", () => ({ sessionHasPermission: mocks.sessionHasPermission }));
 vi.mock("@/lib/db", () => ({ prisma: mocks.prisma }));
 vi.mock("@/lib/logging", () => ({ createLogger: () => ({ error: vi.fn() }) }));
@@ -25,7 +25,7 @@ const session = { userId: "u1", username: "viewer", roles: ["viewer"] };
 describe("/api/dashboard/analytics", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mocks.getApiSession.mockResolvedValue(session);
+    mocks.requireApiSession.mockResolvedValue(session);
     mocks.sessionHasPermission.mockReturnValue(false);
     mocks.prisma.metricSnapshot.findMany.mockResolvedValue([]);
     mocks.prisma.downloadTask.findMany.mockResolvedValue([]);

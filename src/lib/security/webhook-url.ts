@@ -65,19 +65,19 @@ export function validateWebhookUrlSyntax(value: string) {
 	try {
 		url = new URL(value);
 	} catch {
-		return { ok: false as const, error: "Webhook URL 格式无效" };
+		return { ok: false as const, error: "Webhook URL format is invalid" };
 	}
-	if (url.protocol !== "https:") return { ok: false as const, error: "Webhook URL 必须使用 https://" };
-	if (url.username || url.password) return { ok: false as const, error: "Webhook URL 不允许包含用户名或密码" };
+	if (url.protocol !== "https:") return { ok: false as const, error: "Webhook URL must use https://" };
+	if (url.username || url.password) return { ok: false as const, error: "Webhook URL must not contain username or password" };
 	const hostname = url.hostname.toLowerCase().replace(/^\[(.*)\]$/, "$1");
 	if (BLOCKED_HOSTS.has(hostname) || hostname.endsWith(".localhost")) {
-		return { ok: false as const, error: "Webhook URL 不允许指向本机或内网地址" };
+		return { ok: false as const, error: "Webhook URL must not point to local or intranet addresses" };
 	}
 	if (isIP(hostname) && isBlockedIpAddress(hostname)) {
-		return { ok: false as const, error: "Webhook URL 不允许指向本机或内网地址" };
+		return { ok: false as const, error: "Webhook URL must not point to local or intranet addresses" };
 	}
 	if (hostname.endsWith(".internal") || hostname.endsWith(".local") || hostname.endsWith(".lan")) {
-		return { ok: false as const, error: "Webhook URL 不允许指向内部域名" };
+		return { ok: false as const, error: "Webhook URL must not point to internal domains" };
 	}
 	return { ok: true as const, url: url.toString() };
 }
@@ -89,10 +89,10 @@ export async function assertWebhookUrlSafeForServerFetch(value: string) {
 	try {
 		const addresses = await lookup(hostname, { all: true, verbatim: true });
 		if (addresses.length === 0 || addresses.some((entry) => isBlockedIpAddress(entry.address))) {
-			return { ok: false as const, error: "Webhook URL DNS 解析到本机或内网地址" };
+			return { ok: false as const, error: "Webhook URL DNS resolved to a local or intranet address" };
 		}
 	} catch {
-		return { ok: false as const, error: "Webhook URL DNS 解析失败" };
+		return { ok: false as const, error: "Webhook URL DNS resolution failed" };
 	}
 	return syntax;
 }
@@ -103,14 +103,14 @@ export async function fetchWebhookSafely(url: string, init: Omit<Dispatcher.Requ
 	const parsed = new URL(safe.url);
 	const addresses = await lookup(parsed.hostname, { all: true, verbatim: true });
 	if (addresses.length === 0 || addresses.some((entry) => isBlockedIpAddress(entry.address))) {
-		return { ok: false as const, error: "Webhook URL DNS 解析到本机或内网地址" };
+		return { ok: false as const, error: "Webhook URL DNS resolved to a local or intranet address" };
 	}
 	const pinned = addresses[0]!;
 	const dispatcher = new Agent({
 		connect: {
 			lookup(hostname, options, callback) {
 				if (hostname !== parsed.hostname) {
-					callback(new Error("Webhook URL 重定向目标未验证"), undefined as never, undefined as never);
+					callback(new Error("Webhook URL redirect target is not verified"), undefined as never, undefined as never);
 					return;
 				}
 				if (typeof options === "object" && options?.all) {
@@ -126,7 +126,7 @@ export async function fetchWebhookSafely(url: string, init: Omit<Dispatcher.Requ
 		const response = await undiciFetch(safe.url, requestInit);
 		return { ok: true as const, response };
 	} catch {
-		return { ok: false as const, error: "Webhook 请求失败" };
+		return { ok: false as const, error: "Webhook request failed" };
 	} finally {
 		await dispatcher.close();
 	}

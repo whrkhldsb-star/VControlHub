@@ -11,6 +11,7 @@ import {
   PermissionDenied,
   EmptyState,
 } from "@/components/page-shell";
+import { ImageIcon } from "@/components/icons";
 import { MediaScanButton } from "./media-scan-button";
 import { MediaImageUploadPanel } from "./media-image-upload-panel";
 import { MediaItemCard } from "./media-item-card";
@@ -468,7 +469,7 @@ export default async function Page({
       )}{" "}
       {canManageMedia && <MediaScanButton />}{" "}
       {grouped.size === 0 && (
-        <EmptyState icon="🎬" variant="boxed">
+        <EmptyState icon={<ImageIcon size={48} className="text-[var(--text-muted)]" />} variant="boxed">
           {" "}
           {t("mediaPage.empty", locale)}{" "}
         </EmptyState>

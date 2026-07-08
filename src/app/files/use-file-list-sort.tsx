@@ -38,12 +38,14 @@ export function useFileListSort(initial: SortState = { key: "name", dir: "asc" }
 export function SortIcon({
 	col,
 	label,
+	ariaLabel,
 	sortKey,
 	sortDir,
 	onToggle,
 }: {
 	col: FileListSortKey;
 	label: string;
+	ariaLabel?: string;
 	sortKey: FileListSortKey;
 	sortDir: FileListSortDir;
 	onToggle: (key: FileListSortKey) => void;
@@ -53,7 +55,7 @@ export function SortIcon({
 		<button
 			type="button"
 			onClick={() => onToggle(col)}
-			aria-label={`Sort by ${label}`}
+			aria-label={ariaLabel ?? label}
 			className="inline-flex items-center gap-1 hover:text-[var(--text-primary)] light:hover:text-[var(--text-primary)] transition"
 		>
 			{active ? (sortDir === "asc" ? "↑" : "↓") : "↕"}

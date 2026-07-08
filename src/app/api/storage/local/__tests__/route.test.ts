@@ -111,7 +111,7 @@ describe("/api/storage/local", () => {
 
     expect(response.status).toBe(400);
     await expect(response.json()).resolves.toMatchObject({
-      error: "缺少 path 参数",
+      error: "Missing path Parameter",
     });
   });
 
@@ -122,7 +122,7 @@ describe("/api/storage/local", () => {
 
     expect(response.status).toBe(400);
     await expect(response.json()).resolves.toMatchObject({
-      error: expect.stringMatching(/路径/),
+      error: "Path must not contain . or ..",
     });
     expect(prismaMock.fileEntry.findFirst).not.toHaveBeenCalled();
   });
@@ -143,7 +143,7 @@ describe("/api/storage/local", () => {
     );
     expect(response.status).toBe(404);
     await expect(response.json()).resolves.toMatchObject({
-      error: "文件条目不存在，或未登记为本机存储文件",
+      error: "file entry not found, or not registered as local storage file",
     });
   });
 
@@ -278,7 +278,7 @@ describe("/api/storage/local", () => {
 
     expect(response.status).toBe(413);
     await expect(response.json()).resolves.toMatchObject({
-      error: expect.stringContaining("上传文件超过 100 MB"),
+      error: expect.stringContaining("upload file exceeds 100 MB"),
       maxUploadBytes: 100 * 1024 * 1024,
     });
     expect(file.arrayBuffer).not.toHaveBeenCalled();
@@ -289,6 +289,7 @@ describe("/api/storage/local", () => {
   });
 
   it("cleans up SFTP uploads when DB indexing fails after the remote write", async () => {
+    // i18n: error message now in English ("Failed to write upload index: ...")
     prismaMock.storageNode.findUnique.mockResolvedValueOnce({
       id: "node_1",
       name: "远端媒体库",
@@ -318,7 +319,7 @@ describe("/api/storage/local", () => {
 
     expect(response.status).toBe(500);
     await expect(response.json()).resolves.toMatchObject({
-      error: expect.stringContaining("上传索引写入失败"),
+      error: expect.stringContaining("Failed to write upload index"),
     });
     expect(deleteRemoteFileMock).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -347,7 +348,7 @@ describe("/api/storage/local", () => {
 
     expect(response.status).toBe(500);
     await expect(response.json()).resolves.toMatchObject({
-      error: expect.stringContaining("上传索引写入失败"),
+      error: expect.stringContaining("Failed to write upload index"),
     });
     expect(unlinkMock).toHaveBeenCalledWith("/tmp/storage/docs/notes.txt");
   });
@@ -362,7 +363,7 @@ describe("/api/storage/local", () => {
 
     expect(response.status).toBe(400);
     await expect(response.json()).resolves.toMatchObject({
-      error: expect.stringMatching(/路径/),
+      error: "Path must be a relative path",
     });
     expect(prismaMock.storageNode.findUnique).not.toHaveBeenCalled();
     expect(assertStorageAccessMock).not.toHaveBeenCalled();

@@ -30,7 +30,7 @@ export const BACKUP_TYPE_VALUES = ["DATABASE", "FILES", "FULL"] as const;
 export type BackupTypeValue = (typeof BACKUP_TYPE_VALUES)[number];
 
 export const backupTypeSchema = z.enum(BACKUP_TYPE_VALUES, {
-  message: "备份类型无效",
+  message: "Invalid backup type",
 });
 
 const trimmedNote = z
@@ -49,7 +49,7 @@ export type CreateBackupInput = z.input<typeof createBackupSchema>;
 export type CreateBackupOutput = z.output<typeof createBackupSchema>;
 
 export const restoreBackupSchema = z.object({
-  confirm: z.literal("RESTORE", { message: "恢复操作需要输入 RESTORE 确认" }),
+  confirm: z.enum(["RESTORE"], { message: "Restore confirmation text does not match" }),
 });
 
 export type RestoreBackupInput = z.input<typeof restoreBackupSchema>;

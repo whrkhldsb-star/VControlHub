@@ -1,6 +1,7 @@
 "use client";
 
 import { useI18n } from "@/lib/i18n/use-locale";
+import { useDialogFocus } from "@/lib/a11y/use-dialog-focus";
 
 /**
  * `pendingUninstall` confirmation modal — extracted from
@@ -23,6 +24,7 @@ export function PendingUninstallDialog({
 	onToggleDeleteVolumes,
 }: PendingUninstallDialogProps) {
 	const { t } = useI18n();
+	const dialogRef = useDialogFocus<HTMLDivElement>({ open: true, onClose: onCancel });
 	if (!pending) return null;
 	return (
 		<div
@@ -30,6 +32,7 @@ export function PendingUninstallDialog({
 			onClick={onCancel}
 		>
 			<div
+				ref={dialogRef}
 				role="dialog"
 				aria-modal="true"
 				aria-label={t("qsPage.uninstallAria")}

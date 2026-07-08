@@ -67,7 +67,7 @@ async function handleGet(request: Request, session: SessionPayload) {
 
   if (node.driver !== "SFTP") {
     return NextResponse.json(
-      { error: "This Node is Not SFTP type" },
+      { error: "This node is not an SFTP storage node" },
       { status: 400 },
     );
   }
@@ -131,7 +131,7 @@ async function handleGet(request: Request, session: SessionPayload) {
   } catch (error) {
     logger.error("list remote directory failed", error);
     return NextResponse.json(
-      toClientStorageError("connectionremoteNodeFailed，pleaseCheckNodeconfiguredorremotepath"),
+      toClientStorageError("Connection to remote node failed, please check node configuration or remote path"),
       { status: 502 },
     );
   }

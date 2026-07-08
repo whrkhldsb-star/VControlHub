@@ -52,10 +52,10 @@ export function buildQuickServiceAccessDescriptor(input: {
 	return {
 		url,
 		mode,
-		label: mode === "reverse-proxy" ? "反代 HTTPS" : "公开直连端口",
+		label: mode === "reverse-proxy" ? "Reverse proxy HTTPS" : "Public direct port",
 		description: mode === "reverse-proxy"
-			? "该入口看起来由 HTTPS 反向代理承载，请确认反代已配置应用侧鉴权或网络隔离。"
-			: "该入口会直接打开宿主机端口，不经过 VControlHub 登录鉴权；请只在防火墙、VPN 或应用自身鉴权就绪后暴露。",
+			? "This entry appears to be served by an HTTPS reverse proxy; please confirm the proxy has app-side authentication or network isolation configured."
+			: "This entry opens the host port directly without going through VControlHub login authentication; please expose it only after firewall, VPN or the app's own authentication is ready.",
 	};
 }
 

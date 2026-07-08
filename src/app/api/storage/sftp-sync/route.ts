@@ -49,7 +49,7 @@ export async function POST(request: Request) {
       }
       if (node.driver !== "SFTP") {
         return NextResponse.json(
-          { error: "This Node is Not SFTP type" },
+          { error: "This node is not an SFTP storage node" },
           { status: 400 },
         );
       }
@@ -58,7 +58,7 @@ export async function POST(request: Request) {
         normalizeRemotePath(node.basePath, remotePath);
       } catch {
         return NextResponse.json(
-          toClientStorageError("SyncPathexceedsstorage noderootDirectory"),
+          toClientStorageError("Sync path exceeds the storage node root directory"),
           { status: 400 },
         );
       }
@@ -101,7 +101,7 @@ export async function POST(request: Request) {
 
       const job = await enqueueJob({
         type: SFTP_SYNC_JOB_TYPE,
-        title: `SFTP Sync：${node.name}`,
+        title: `SFTP Sync: ${node.name}`,
         payload: { nodeId, remotePath, recursive, maxDepth },
         createdBy: session.userId,
         maxAttempts: 3,

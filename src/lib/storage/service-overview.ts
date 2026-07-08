@@ -97,7 +97,7 @@ export async function getStorageOverview() {
               ? Row
               : never,
           ) => node.isDefault,
-        )?.name ?? "未配置",
+        )?.name ?? "Not configured",
       localNodeCount: nodes.filter(
         (
           node: ReturnType<typeof listStorageNodes> extends Promise<

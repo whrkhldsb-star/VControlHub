@@ -169,7 +169,7 @@ export function FileListDetailsView({
                 <input
                   type="checkbox"
                   checked={effectiveSelectedIdSet.has(entry.id)}
-                  aria-label={`Select ${entry.name}`}
+                  aria-label={t("fileListClient.selectFileAria").replace("{name}", entry.name)}
                   onChange={() => toggleOne(entry.id)}
                   className="h-4 w-4 rounded-lg border-[var(--border)] bg-[var(--surface)] text-[var(--color-action)] focus:ring-[var(--color-action-ring)]"
                 />

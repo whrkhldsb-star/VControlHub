@@ -63,6 +63,12 @@ export const zh: Record<string, string> = {
 	"backend.operationTask.failure.taskTypeFailed": "{taskType} 失败",
 	"backend.operationTask.failure.sourceFailed": "{source} 失败",
 	"backend.operationTask.backupTitle": "{type} 备份",
+
+	// server/service-profiles.ts, server/service-direct-gateway.ts
+	"backend.server.nodeNotFound": "VPS 节点不存在或已删除",
+	// storage/service-nodes.ts, storage/sftp-sync-job.ts
+	"backend.storage.nodeNotFound": "存储节点不存在或已删除",
+	"backend.storage.nodeNotFoundShort": "存储节点不存在",
 };
 
 export const en: Record<string, string> = {
@@ -119,4 +125,10 @@ export const en: Record<string, string> = {
 	"backend.operationTask.failure.taskTypeFailed": "{taskType} failed",
 	"backend.operationTask.failure.sourceFailed": "{source} failed",
 	"backend.operationTask.backupTitle": "{type} backup",
+
+	// server/service-profiles.ts, server/service-direct-gateway.ts
+	"backend.server.nodeNotFound": "VPS node not found or has been deleted",
+	// storage/service-nodes.ts, storage/sftp-sync-job.ts
+	"backend.storage.nodeNotFound": "Storage node not found or has been deleted",
+	"backend.storage.nodeNotFoundShort": "Storage node not found",
 };

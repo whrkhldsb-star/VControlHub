@@ -119,11 +119,11 @@ function mapCommandRequest(
     ),
     approvalStateLabel:
       request.status === "PENDING_APPROVAL"
-        ? "待审批"
+        ? "Pending approval"
         : request.status === "APPROVED"
-          ? "已批准"
+          ? "Approved"
           : request.status === "REJECTED"
-            ? "已拒绝"
+            ? "Rejected"
             : request.status,
     targetSummary: request.targets.map(
       (
@@ -192,8 +192,8 @@ export async function cancelCommandRequest(input: { commandRequestId: string; ac
   const now = new Date();
   const reason = input.reason?.trim();
   const stderr = killedCount > 0
-    ? `命令请求已取消；已终止 ${killedCount} 个正在运行的 SSH 子进程。${reason ? `原因：${reason}` : ""}`
-    : `命令请求已取消。${reason ? `原因：${reason}` : ""}`;
+    ? `Command request cancelled; terminated ${killedCount} running SSH subprocesses.${reason ? ` Reason: ${reason}` : ""}`
+    : `Command request cancelled.${reason ? ` Reason: ${reason}` : ""}`;
 
   await prisma.commandTarget.updateMany({
     where: {
@@ -215,7 +215,7 @@ export async function cancelCommandRequest(input: { commandRequestId: string; ac
     data: {
       commandRequestId,
       serverId: null,
-      summary: `命令请求已由 ${input.actorId} 取消；${killedCount > 0 ? `已终止 ${killedCount} 个运行中的 SSH 子进程。` : "没有发现当前进程内仍在运行的 SSH 子进程。"}`,
+      summary: `Command request cancelled by ${input.actorId}; ${killedCount > 0 ? `terminated ${killedCount} running SSH subprocesses.` : "no running SSH subprocesses found in the current process."}`,
     },
   });
 
@@ -250,7 +250,7 @@ export async function createCommandRequest(input: CreateCommandInput) {
   if (!requiresApproval) {
     await enqueueApprovedCommandExecution(
       commandRequest.id,
-      "站内用户操作已进入后台 SSH 执行队列，可在任务中心查看各节点状态。",
+      "In-app user action has entered the background SSH execution queue; node statuses can be viewed in the task center.",
     );
 
     // Notify requester that command execution has started; final status will be visible on the task row/logs.
@@ -281,20 +281,27 @@ export async function reviewCommandRequest(input: ReviewCommandInput) {
 
   const nextStatus = payload.approved ? "APPROVED" : "REJECTED";
 
-  await prisma.commandApproval.create({
-    data: {
-      commandRequestId: payload.commandRequestId,
-      approverId: payload.approverId,
-      approved: payload.approved,
-      comment: payload.comment,
-    },
-  });
+  // Atomic compare-and-swap: prevent concurrent approvers from double-executing
+  await prisma.$transaction(async (tx) => {
+    await tx.commandApproval.create({
+      data: {
+        commandRequestId: payload.commandRequestId,
+        approverId: payload.approverId,
+        approved: payload.approved,
+        comment: payload.comment,
+      },
+    });
 
-  const updated = await prisma.commandRequest.update({
-    where: { id: payload.commandRequestId },
-    data: payload.approved
-      ? { status: nextStatus }
-      : { status: nextStatus, workerId: null, workerHeartbeatAt: null },
+    const claimed = await tx.commandRequest.updateMany({
+      where: { id: payload.commandRequestId, status: "PENDING_APPROVAL" },
+      data: payload.approved
+        ? { status: nextStatus }
+        : { status: nextStatus, workerId: null, workerHeartbeatAt: null },
+    });
+
+    if (claimed.count === 0) {
+      throw new BusinessError("Command request was already reviewed by another approver");
+    }
   });
 
   if (payload.approved) {
@@ -305,7 +312,7 @@ export async function reviewCommandRequest(input: ReviewCommandInput) {
 
     await enqueueApprovedCommandExecution(
       payload.commandRequestId,
-      "命令审批已通过，任务已进入后台 SSH 执行队列。",
+      "Command approval passed; the task has entered the background SSH execution queue.",
     );
 
     return prisma.commandRequest.findUniqueOrThrow({
@@ -325,7 +332,7 @@ export async function reviewCommandRequest(input: ReviewCommandInput) {
     data: {
       commandRequestId: payload.commandRequestId,
       serverId: null,
-      summary: "命令审批已拒绝，任务不会进入执行队列。",
+      summary: "Command approval rejected; the task will not enter the execution queue.",
     },
   });
 
@@ -334,7 +341,7 @@ export async function reviewCommandRequest(input: ReviewCommandInput) {
     () => {},
   );
 
-  return updated;
+  return request;
 }
 
 export async function listCommandRequests() {

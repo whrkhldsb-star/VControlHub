@@ -21,12 +21,24 @@ Group={{APP_USER}}
 # Security hardening
 NoNewPrivileges=true
 ProtectSystem=strict
-ReadWritePaths=/var/lib/{{APP_SLUG}} /var/backups/{{APP_SLUG}} /tmp {{APP_DIR}}/.next {{APP_DIR}}/uploads {{APP_DIR}}/storage {{APP_DIR}}/downloads {{APP_DIR}}/backups {{APP_DIR}}/logs{{QUICK_SERVICE_READ_WRITE_PATHS}}
+ProtectHome=true
+PrivateDevices=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX AF_NETLINK
+SystemCallFilter=@system-service
+SystemCallFilter=~@privileged @resources
+CapabilityBoundingSet=
 PrivateTmp=true
+
+ReadWritePaths=/var/lib/{{APP_SLUG}} /var/backups/{{APP_SLUG}} /tmp {{APP_DIR}}/.next {{APP_DIR}}/uploads {{APP_DIR}}/storage {{APP_DIR}}/downloads {{APP_DIR}}/backups {{APP_DIR}}/logs{{QUICK_SERVICE_READ_WRITE_PATHS}}
 
 # Resource limits (tune for your VPS)
 MemoryMax=768M
 MemoryHigh=640M
+CPUQuota=200%
+TasksMax=512
 
 # Logging
 StandardOutput=journal

@@ -49,7 +49,7 @@ describe("createBackupAction", () => {
     expect(mocks.createBackupRecord).toHaveBeenCalledWith({ type: "FULL", createdBy: "u1", note: "upgrade canary" });
     expect(mocks.enqueueJob).toHaveBeenCalledWith({
       type: "backup.create",
-      title: "创建FULL备份",
+      title: "创建完整备份",
       payload: { backupId: "bak1" },
       createdBy: "u1",
       maxAttempts: 1,

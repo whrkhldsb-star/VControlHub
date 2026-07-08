@@ -5,13 +5,13 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 
-import { getApiSession } from "@/lib/auth/api-session";
+import { withApiRoute } from "@/lib/http/api-guard";
 import { sessionHasPermission } from "@/lib/auth/authorization";
 import { prisma } from "@/lib/db";
 import { parseSearchParams } from "@/lib/http/parse-search-params";
 import { createLogger } from "@/lib/logging";
 
-import { apiError } from "@/lib/http/api-error";
+import { apiError, apiCatch } from "@/lib/http/api-error";
 import { CachePresets, withCacheHeaders } from "@/lib/cache";
 import type { SessionPayload } from "@/lib/auth/session";
 const logger = createLogger("api:dashboard:analytics");
@@ -37,15 +37,14 @@ function requestedDomainForbidden(session: SessionPayload, requested: string) {
 }
 
 export async function GET(request: Request) {
-  try {
-    const session = await getApiSession();
-    if (!session) {
-      return NextResponse.json(
-        { error: "Not authenticated or session expired" },
-        { status: 401 },
-      );
-    }
-
+  return withApiRoute(request, {
+    requireAuth: true,
+    onError: (error) => {
+      logger.error("[dashboard/analytics]", error);
+      return apiCatch(error, 500, "Fetch analytics data failed");
+    },
+  }, async ({ session }) => {
+    if (!session) return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
     const { type } = parseSearchParams(
       request,
       z.object({
@@ -187,8 +186,5 @@ export async function GET(request: Request) {
     }
 
     return withCacheHeaders(NextResponse.json(results), CachePresets.shortLived);
-  } catch (error) {
-    logger.error("[dashboard/analytics]", error);
-    return apiError({ code: "INTERNAL_ERROR", message: "FetchanalyticsDatafailed", status: 500 });
-  }
+  });
 }

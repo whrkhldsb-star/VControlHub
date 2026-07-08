@@ -318,4 +318,8 @@ export const en: Record<string, string> = {
 	"vpsBackup.preset.custom": "Custom Paths",
 	"serversPage.eyebrow": "Infrastructure",
 	"serversPage.quickActionsAria": "VPS quick actions",
+	"serverOverviewCard.eyebrow": "VPS Detail",
+	"serverOverviewCard.realtimeStatusAria": "Node realtime status: {status}",
+	"serverOverviewDetails.detectionFailed": "Detection failed",
+	"serverOverviewDetails.networkError": "Network error",
 };

@@ -83,7 +83,7 @@ export function BatchServerActionPanel({
         >
           {allSelected ? t("serversPage.batchPanel.clear") : t("serversPage.batchPanel.selectAll")}
         </button>
-        {someSelected ? <span>—</span> : null}
+        {someSelected ? <span aria-hidden="true">·</span> : null}
         <span>{t("serversPage.batchPanel.enabled")}: {enabledSelectedCount}</span>
         <span>{t("serversPage.batchPanel.disabled")}: {disabledSelectedCount}</span>
       </div>

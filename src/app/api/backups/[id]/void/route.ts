@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 
+import { auditUserAction } from "@/lib/audit/service";
 import { voidBackupSchema } from "@/lib/backup/schema";
 import { voidBackupRecord } from "@/lib/backup/service";
 import { withApiRoute } from "@/lib/http/api-guard";
@@ -17,9 +18,10 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       errorMessage: "Operation failed",
       bodySchema: voidBackupSchema,
     },
-    async ({ body }) => {
+    async ({ session, body }) => {
       const { id } = await params;
       const backup = await voidBackupRecord({ id, reason: body.reason });
+      auditUserAction(session!.userId, "backup.void", { backupId: id, reason: body.reason });
       return NextResponse.json({ backup });
     },
   );

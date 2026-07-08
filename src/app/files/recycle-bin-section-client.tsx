@@ -1,6 +1,7 @@
 "use client";
 
 import { useI18n } from "@/lib/i18n/use-locale";
+import { formatBytes } from "@/lib/format/bytes";
 import { RestoreButton } from "./restore-button";
 import { PermanentDeleteButton } from "./permanent-delete-button";
 
@@ -13,13 +14,7 @@ export type DeletedEntryProp = {
 };
 
 function formatFileSize(bytes: number | bigint | null | undefined): string {
-	if (bytes == null) return "-";
-	const size = typeof bytes === "bigint" ? Number(bytes) : bytes;
-	if (!Number.isFinite(size) || size < 0) return "-";
-	if (size < 1024) return `${size} B`;
-	if (size < 1024 * 1024) return `${(size / 1024).toFixed(1)} KB`;
-	if (size < 1024 * 1024 * 1024) return `${(size / (1024 * 1024)).toFixed(1)} MB`;
-	return `${(size / (1024 * 1024 * 1024)).toFixed(2)} GB`;
+	return formatBytes(typeof bytes === "bigint" ? Number(bytes) : bytes);
 }
 
 function entryTypeLabel(t: (key: string) => string, entryType: string): string {
@@ -84,7 +79,7 @@ export function RecycleBinSectionClient({
 									<div className="flex flex-wrap gap-2">
 										{canDelete ? (
 											<>
-												<RestoreButton fileEntryId={entry.id} entryName={entry.name} onRefresh={onRefresh} />
+												<RestoreButton fileEntryId={entry.id} onRefresh={onRefresh} />
 												<PermanentDeleteButton fileEntryId={entry.id} entryName={entry.name} onRefresh={onRefresh} />
 											</>
 										) : (
@@ -110,7 +105,7 @@ export function RecycleBinSectionClient({
 								</div>
 								{canDelete ? (
 									<div className="mt-2 flex flex-wrap gap-2">
-										<RestoreButton fileEntryId={entry.id} entryName={entry.name} onRefresh={onRefresh} />
+										<RestoreButton fileEntryId={entry.id} onRefresh={onRefresh} />
 										<PermanentDeleteButton fileEntryId={entry.id} entryName={entry.name} onRefresh={onRefresh} />
 									</div>
 								) : (

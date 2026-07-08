@@ -41,7 +41,7 @@ export function buildDirectAccessStrategy(input: {
   if (input.driver === "LOCAL") {
     return {
       mode: "managed-download" as const,
-      description: "本机文件由管理端直接提供受控下载与预览。",
+      description: "Local files are provided directly by the management side for controlled download and preview.",
       href: input.relativePath
         ? `/api/storage/local?nodeId=${encodeURIComponent(input.nodeId)}&path=${encodeURIComponent(input.relativePath)}`
         : null,
@@ -65,7 +65,7 @@ export function buildDirectAccessStrategy(input: {
   if ((mode === "DIRECT" || mode === "AUTO") && input.publicBaseUrl) {
     return {
       mode: "direct-url" as const,
-      description: `远端文件可切换为存储服务器直连（${mode === "AUTO" ? "自动优先直连" : "直连模式"}），不可用时回退到管理端 SFTP 中转（来自 ${host}:${port}）。`,
+      description: `Remote files can switch to storage server direct access (${mode === "AUTO" ? "auto prefer direct" : "direct mode"}), falling back to hub SFTP relay when unavailable (from ${host}:${port}).`,
       href: directHref,
       fallbackHref,
       publicBaseUrl: input.publicBaseUrl,
@@ -75,7 +75,7 @@ export function buildDirectAccessStrategy(input: {
 
   return {
     mode: "managed-download" as const,
-    description: `远端文件经管理端 SFTP 代理中转下载（来自 ${host}:${port}）。`,
+    description: `Remote files are downloaded via management-side SFTP proxy relay (from ${host}:${port}).`,
     href: fallbackHref,
   };
 }
@@ -89,12 +89,12 @@ export function buildStorageConnectionSummary(input: {
   serverName?: string | null;
 }) {
   if (input.driver === "LOCAL") {
-    return `本机存储：${input.basePath}`;
+    return `Local storage: ${input.basePath}`;
   }
 
   const remote = `${input.username ?? "root"}@${input.host ?? "unknown"}:${input.port ?? 22}`;
-  const serverHint = input.serverName ? `（绑定节点 ${input.serverName}）` : "";
-  return `SFTP 存储：${remote}${serverHint}，根目录 ${input.basePath}`;
+  const serverHint = input.serverName ? ` (bound node ${input.serverName})` : "";
+  return `SFTP storage: ${remote}${serverHint}, root directory ${input.basePath}`;
 }
 
 export type StorageNodeListRow = Prisma.StorageNodeGetPayload<{

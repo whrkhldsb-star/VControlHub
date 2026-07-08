@@ -47,12 +47,12 @@ export function OsDialectSection({
 			const res = await csrfFetch<Response>(`/api/servers/${encodeURIComponent(serverId)}/detect-os`, { method: "POST", raw: true });
 			const data = await res.json();
 			if (!res.ok) {
-				setError(data.error || "Detection failed");
+				setError(data.error || t("serverOverviewDetails.detectionFailed"));
 				return;
 			}
 			setResult({ osInfo: data.osInfo, dialect: data.dialect });
 		} catch {
-			setError("Network error");
+			setError(t("serverOverviewDetails.networkError"));
 		} finally {
 			setDetecting(false);
 		}

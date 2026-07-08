@@ -109,7 +109,7 @@ function markStarted(id: WorkerId, started: boolean): void {
 
 const ALERT_EVALUATION: WorkerSpec = {
   id: "alert-evaluation",
-  label: "告警规则评估",
+  label: "Alert rule evaluation",
   jobType: "alert.evaluate",
   start: async () => {
     await startAlertEvaluationWorker();
@@ -119,7 +119,7 @@ const ALERT_EVALUATION: WorkerSpec = {
 
 const BACKUP: WorkerSpec = {
   id: "backup",
-  label: "备份任务",
+  label: "Backup task",
   jobType: "backup.create / backup.restore / backup.retention",
   start: () => {
     startBackupJobWorker();
@@ -134,7 +134,7 @@ const BACKUP_SCHEDULE: WorkerSpec = {
   // BackupRecord + enqueues backup.create durable job (picked up by the
   // `backup` worker above). Separated from `backup` so schedule dispatch
   // (lightweight DB writes) doesn't block on backup execution (heavy bash).
-  label: "备份计划调度",
+  label: "Backup schedule dispatch",
   jobType: "backup-schedule.tick",
   start: async () => {
     await startBackupScheduleWorker();
@@ -144,7 +144,7 @@ const BACKUP_SCHEDULE: WorkerSpec = {
 
 const COMMAND_EXECUTION: WorkerSpec = {
   id: "command-execution",
-  label: "命令执行",
+  label: "Command execution",
   jobType: "command.execution",
   start: async () => {
     await startCommandExecutionWorker();
@@ -154,7 +154,7 @@ const COMMAND_EXECUTION: WorkerSpec = {
 
 const COMMAND_MAINTENANCE: WorkerSpec = {
   id: "command-maintenance",
-  label: "命令维护",
+  label: "Command maintenance",
   jobType: "command.maintenance",
   start: async () => {
     await startCommandMaintenanceWorker();
@@ -164,7 +164,7 @@ const COMMAND_MAINTENANCE: WorkerSpec = {
 
 const DOWNLOAD_EXECUTION: WorkerSpec = {
   id: "download-execution",
-  label: "下载执行",
+  label: "Download execution",
   jobType: "download.execute",
   start: async () => {
     await startDownloadJobWorker();
@@ -174,7 +174,7 @@ const DOWNLOAD_EXECUTION: WorkerSpec = {
 
 const QUICK_SERVICE: WorkerSpec = {
   id: "quick-service",
-  label: "快捷服务生命周期",
+  label: "Quick service lifecycle",
   jobType: "quick-service.lifecycle",
   start: async () => {
     await startQuickServiceJobWorker();
@@ -184,7 +184,7 @@ const QUICK_SERVICE: WorkerSpec = {
 
 const SCHEDULED_TASK: WorkerSpec = {
   id: "scheduled-task",
-  label: "定时任务派发",
+  label: "Scheduled task dispatch",
   jobType: "scheduled-task.tick",
   start: async () => {
     await startScheduledTaskWorker();
@@ -194,7 +194,7 @@ const SCHEDULED_TASK: WorkerSpec = {
 
 const SFTP_SYNC: WorkerSpec = {
   id: "sftp-sync",
-  label: "SFTP 同步",
+  label: "SFTP sync",
   jobType: "storage.sftp-sync",
   start: async () => {
     await startSftpSyncJobWorker();
@@ -204,7 +204,7 @@ const SFTP_SYNC: WorkerSpec = {
 
 const SFTP_STALE_INVENTORY: WorkerSpec = {
   id: "sftp-stale-inventory",
-  label: "SFTP 远端索引定期校验",
+  label: "SFTP remote inventory periodic verification",
   jobType: "storage.sftp-stale-inventory",
   start: async () => {
     await startSftpStaleInventoryWorker();
@@ -215,7 +215,7 @@ const SFTP_STALE_INVENTORY: WorkerSpec = {
 const OPERATION_TASK_RETENTION: WorkerSpec = {
   id: "operation-task-retention",
   // TR-006: 跨来源统一长期保留策略, 6h tick, 跨 command/download/sync/backup/deployment 5 来源裁剪历史
-  label: "操作任务跨来源保留策略",
+  label: "Operation task cross-source retention policy",
   jobType: "operation-task.retention",
   start: async () => {
     await startOperationTaskRetentionWorker();
@@ -226,7 +226,7 @@ const OPERATION_TASK_RETENTION: WorkerSpec = {
 const COST_SNAPSHOT: WorkerSpec = {
   id: "cost-snapshot",
   // TR-031 E01: 每日 01:00 跑 cost_entries → cost_snapshots 聚合
-  label: "成本每日聚合快照",
+  label: "Cost daily aggregation snapshot",
   jobType: "cost.snapshot",
   start: () => {
     startCostSnapshotWorker();
@@ -238,7 +238,7 @@ const COST_SNAPSHOT: WorkerSpec = {
 const AI_OPS_SCAN: WorkerSpec = {
   id: "ai-ops-scan",
   // TR-032 E02: 每日 02:00 跑 ai_ops_logs → 系统健康信号 surface
-  label: "AI 运维每日扫描",
+  label: "AI ops daily scan",
   jobType: "ai.ops.scan",
   start: () => {
     startAiOpsScanWorker();
@@ -250,7 +250,7 @@ const AI_OPS_SCAN: WorkerSpec = {
 const VPS_BACKUP: WorkerSpec = {
   id: "vps-backup",
   // TR-043: SSH exec → SFTP download → checksum → offsite upload
-  label: "VPS 远程备份",
+  label: "VPS remote backup",
   jobType: "vps-backup.create",
   start: () => {
     startVpsBackupJobWorker();
@@ -263,7 +263,7 @@ const VPS_BACKUP_SCHEDULE: WorkerSpec = {
   id: "vps-backup-schedule",
   // TR-043: 60s tick — finds due VpsBackupSchedule rows, creates PENDING
   // VpsBackupRecord + enqueues vps-backup.create durable job
-  label: "VPS 远程备份计划调度",
+  label: "VPS remote backup schedule dispatch",
   jobType: "vps-backup-schedule.tick",
   start: () => {
     startVpsBackupScheduleWorker();

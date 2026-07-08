@@ -71,11 +71,11 @@ describe("/api/storage/sftp-sync", () => {
       queued: true,
       jobId: "job_1",
       taskId: "job:job_1",
-      message: expect.stringContaining("后台任务"),
+      message: expect.stringContaining("background task"),
     });
     expect(enqueueJobMock).toHaveBeenCalledWith({
       type: "storage.sftp-sync",
-      title: "SFTP 同步：remote",
+      title: "SFTP Sync: remote",
       payload: { nodeId: "node_1", remotePath: "/", recursive: true, maxDepth: 5 },
       createdBy: "u_1",
       maxAttempts: 3,

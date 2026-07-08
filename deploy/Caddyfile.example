@@ -14,6 +14,7 @@ http://your-domain.example, https://your-domain.example {
         # Do not set X-Frame-Options here. The app emits SAMEORIGIN plus CSP
         # frame-src/media-src rules so authenticated PDF/media previews can render.
         Referrer-Policy strict-origin-when-cross-origin
+        Strict-Transport-Security "max-age=31536000; includeSubDomains; preload"
     }
 
     # 仅对 Next.js 页面路由（无扩展名路径）强制禁止缓存

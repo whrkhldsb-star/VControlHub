@@ -67,7 +67,7 @@ export const compressFilesBodySchema = z.object({
     .trim()
     .min(1)
     .max(120)
-    .regex(/^[^/\\\0]+$/, "压缩包名称不能包含路径分隔符"),
+    .regex(/^[^/\\\0]+$/, "Archive name must not contain path separators"),
   targetDir: z.string().trim().optional(),
 });
 

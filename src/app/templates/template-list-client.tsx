@@ -35,6 +35,9 @@ export function TemplateListClient({ templates: initialTemplates, servers, canCr
 	const [deploying, setDeploying] = useState<string | null>(null);
 	const [templatePendingDelete, setTemplatePendingDelete] = useState<Template | null>(null);
 
+	const closeDeleteDialog = useCallback(() => setTemplatePendingDelete(null), []);
+	const dialogRef = useDialogFocus<HTMLDivElement>({ open: templatePendingDelete !== null, onClose: closeDeleteDialog });
+
 	const allTags = [...new Set(templates.flatMap((t) => t.tags))].sort();
 
 	const filtered = filterTag
@@ -85,7 +88,7 @@ export function TemplateListClient({ templates: initialTemplates, servers, canCr
 	return (
 		<div className="space-y-6">
 			{templatePendingDelete && (
-				<div className="fixed inset-0 z-50 flex items-center justify-center bg-[var(--surface)]/70 p-4 backdrop-blur-sm" role="dialog" aria-modal="true" aria-labelledby="delete-template-title">
+				<div ref={dialogRef} className="fixed inset-0 z-50 flex items-center justify-center bg-[var(--surface)]/70 p-4 backdrop-blur-sm" role="dialog" aria-modal="true" aria-labelledby="delete-template-title">
 					<div className="w-full max-w-md rounded-2xl border border-[var(--border)] bg-[var(--modal-bg)] p-5 shadow-2xl shadow-black/30">
 						<h3 id="delete-template-title" className="text-base font-semibold text-[var(--text-primary)]">{t("templatesPage.delete.title")}</h3>
 						<p className="mt-2 text-sm text-[var(--text-muted)]">{t("templatesPage.delete.confirm").replace("{name}", templatePendingDelete.name)}</p>

@@ -28,7 +28,7 @@ export const changePasswordSchema = z
       .max(128, "Confirm password must be at most 128 characters"),
   })
   .refine((value) => value.newPassword === value.confirmPassword, {
-    message: "两次输入的新密码不一致",
+    message: "The new passwords do not match",
     path: ["confirmPassword"],
   });
 

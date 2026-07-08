@@ -12,8 +12,6 @@ export function MediaPreviewClient({
 	name: string;
 	mimeType: string;
 	driver: string;
-	nodeId: string;
-	relativePath: string;
 }) {
 	const { t } = useI18n();
 	const isVideo = mimeType.startsWith("video/");

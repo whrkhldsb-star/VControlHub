@@ -53,10 +53,10 @@ export function isMissingBackupBinaryError(error: unknown): boolean {
 
 export function backupCommandErrorMessage(error: unknown): string {
   if (isMissingBackupBinaryError(error)) {
-    return "bash 未安装或不在 PATH，请联系管理员安装 bash 或修复 PATH 后重试。";
+    return "bash is not installed or not in PATH. Please ask the administrator to install bash or fix PATH and retry.";
   }
   if (error instanceof Error) {
     return error.message;
   }
-  return "备份执行失败";
+  return "Backup execution failed";
 }

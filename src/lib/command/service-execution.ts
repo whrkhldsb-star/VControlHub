@@ -184,7 +184,7 @@ export async function executeTarget(
   const connectionType = target.server.connectionType;
 
   if (connectionType === "SSH_KEY" && !privateKey) {
-    const summary = `节点 ${target.server.name} 绑定的 SSH 密钥缺少私钥，无法执行真实 SSH 命令。`;
+    const summary = `The SSH key bound to node ${target.server.name} lacks a private key; cannot execute real SSH command.`;
     await prisma.commandTarget.update({
       where: { id: target.id },
       data: {
@@ -206,7 +206,7 @@ export async function executeTarget(
   }
 
   if (connectionType === "PASSWORD" && !password) {
-    const summary = `节点 ${target.server.name} 配置为密码连接但缺少密码，无法执行真实 SSH 命令。`;
+    const summary = `Node ${target.server.name} is configured for password connection but lacks a password; cannot execute real SSH command.`;
     await prisma.commandTarget.update({
       where: { id: target.id },
       data: {
@@ -237,7 +237,7 @@ export async function executeTarget(
     targetId: target.id,
   }).catch((error): SshExecutionResult => ({
     stdout: "",
-    stderr: error instanceof Error ? error.message : "SSH 执行失败",
+    stderr: error instanceof Error ? error.message : "SSH execution failed",
     exitCode: 255,
   }));
 
@@ -255,10 +255,10 @@ export async function executeTarget(
   });
 
   const summary = result.cancelled
-    ? `命令在 ${target.server.name}（${target.server.host}:${target.server.port}）已由操作员取消。`
+    ? `Command on ${target.server.name} (${target.server.host}:${target.server.port}) was cancelled by the operator.`
     : succeeded
-      ? `命令已在 ${target.server.name}（${target.server.host}:${target.server.port}）执行完成，退出码 0。`
-      : `命令在 ${target.server.name}（${target.server.host}:${target.server.port}）执行失败，退出码 ${result.exitCode}。`;
+      ? `Command completed on ${target.server.name} (${target.server.host}:${target.server.port}) with exit code 0.`
+      : `Command failed on ${target.server.name} (${target.server.host}:${target.server.port}) with exit code ${result.exitCode}.`;
 
   await prisma.executionLog.create({
     data: {
@@ -349,12 +349,12 @@ export async function executeAndFinalizeCommand(commandRequestId: string) {
 
     const summary =
       totalCount > 0 && completedCount === totalCount
-        ? `后台 SSH 执行已完成 ${completedCount}/${totalCount} 个目标。`
+        ? `Background SSH execution completed ${completedCount}/${totalCount} targets.`
         : completedCount > 0
-          ? `后台 SSH 执行仅完成 ${completedCount}/${totalCount} 个目标，请查看失败节点日志。`
+          ? `Background SSH execution only completed ${completedCount}/${totalCount} targets; please check failed node logs.`
           : totalCount > 0
-            ? `后台 SSH 执行失败，${totalCount} 个目标均未完成。`
-            : "后台 SSH 执行未找到可执行目标。";
+            ? `Background SSH execution failed; ${totalCount} targets all incomplete.`
+            : "Background SSH execution found no executable targets.";
     await prisma.executionLog.create({
       data: { commandRequestId, serverId: null, summary },
     });
@@ -375,7 +375,7 @@ export async function markCommandExecutionFailed(
   commandRequestId: string,
   error: unknown,
 ) {
-  const message = error instanceof Error ? error.message : "命令后台执行失败";
+  const message = error instanceof Error ? error.message : "Command background execution failed";
   await prisma.commandRequest.update({
     where: { id: commandRequestId },
     data: { status: "FAILED", workerId: null, workerHeartbeatAt: null },
@@ -393,7 +393,7 @@ export async function markCommandExecutionFailed(
     data: {
       commandRequestId,
       serverId: null,
-      summary: `命令后台执行器启动失败：${message}`,
+      summary: `Command background executor startup failed: ${message}`,
     },
   });
 }
@@ -407,7 +407,7 @@ export function scheduleCommandExecution(commandRequestId: string) {
   // now driven by startCommandExecutionWorker()'s poll loop.
   return enqueueCommandExecutionJob({
     commandRequestId,
-    summary: `命令请求 ${commandRequestId} 已写入后台执行队列`,
+    summary: `Command request ${commandRequestId} has been enqueued for background execution`,
   });
 }
 

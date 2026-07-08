@@ -107,7 +107,7 @@ describe("/api/storage/sftp-stale-inventory", () => {
       queued: true,
       jobId: "job_42",
       taskId: "job:job_42",
-      message: expect.stringContaining("后台任务"),
+      message: expect.stringContaining("background task"),
     });
     expect(enqueueJobMock).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -196,7 +196,7 @@ describe("/api/storage/sftp-stale-inventory", () => {
 
     expect(response.status).toBe(400);
     await expect(response.json()).resolves.toMatchObject({
-      error: expect.stringContaining("输入参数无效"),
+      error: expect.stringContaining("Invalid input parameter"),
     });
   });
 });

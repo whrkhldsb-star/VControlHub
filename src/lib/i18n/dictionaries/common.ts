@@ -100,6 +100,9 @@ export const zh: Record<string, string> = {
 	"changePassword.saving": "保存中…",
 	"changePassword.hide": "隐藏",
 	"changePassword.show": "显示",
+	"changePassword.currentPasswordPlaceholder": "请输入当前密码",
+	"changePassword.newPasswordPlaceholder": "至少 8 位",
+	"changePassword.confirmPasswordPlaceholder": "再次输入新密码",
 
 };
 
@@ -198,5 +201,8 @@ export const en: Record<string, string> = {
 	"changePassword.saving": "Saving...",
 	"changePassword.hide": "Hide",
 	"changePassword.show": "Show",
+	"changePassword.currentPasswordPlaceholder": "Enter current password",
+	"changePassword.newPasswordPlaceholder": "At least 8 characters",
+	"changePassword.confirmPasswordPlaceholder": "Re-enter new password",
 
 };

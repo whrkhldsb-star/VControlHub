@@ -47,9 +47,15 @@ export const zh: Record<string, string> = {
 	"monitoringPage.field.free": "可用",
 	"monitoringPage.field.diskUsage": "使用量",
 	"monitoringPage.field.noData": "无数据",
+	"monitoringPage.field.rx": "接收",
+	"monitoringPage.field.tx": "发送",
 	"monitoringPage.field.activeConnections": "活跃连接",
 	"monitoringPage.table.command": "命令",
+	"monitoringPage.table.pid": "PID",
+	"monitoringPage.table.cpu": "CPU%",
+	"monitoringPage.table.mem": "MEM%",
 	"monitoringPage.eyebrow": "监控",
+	"monitoringPage.sseLabel": "SSE",
 };
 
 export const en: Record<string, string> = {
@@ -94,7 +100,13 @@ export const en: Record<string, string> = {
 	"monitoringPage.field.free": "Free",
 	"monitoringPage.field.diskUsage": "Usage",
 	"monitoringPage.field.noData": "No data",
+	"monitoringPage.field.rx": "Rx",
+	"monitoringPage.field.tx": "Tx",
 	"monitoringPage.field.activeConnections": "Active connections",
 	"monitoringPage.table.command": "Command",
+	"monitoringPage.table.pid": "PID",
+	"monitoringPage.table.cpu": "CPU%",
+	"monitoringPage.table.mem": "MEM%",
 	"monitoringPage.eyebrow": "Monitoring",
+	"monitoringPage.sseLabel": "SSE",
 };

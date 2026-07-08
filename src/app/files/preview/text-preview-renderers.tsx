@@ -96,7 +96,7 @@ export function TextPreviewBody(props: BodyProps) {
 	}
 	return (
 		<div ref={containerRef} className="max-h-[75vh] overflow-auto rounded-2xl bg-[var(--surface)] p-4 text-sm leading-relaxed">
-			<pre className="font-mono text-[var(--text-secondary)]"><code>{lines.map((line, i) => { let html = highlightLine(line, lang); html = highlightSearch(html); html = sanitizeHighlight(html); return <div key={i} ref={(el) => { if (el) lineRef.current.set(i, el); }} className="flex transition-colors duration-500"><span className="mr-4 inline-block w-12 shrink-0 select-none text-right text-[var(--text-muted)]">{i + 1}</span><span className="whitespace-pre-wrap break-all" dangerouslySetInnerHTML={{ __html: html }} /></div>; })}</code></pre>
+			<pre className="font-mono text-[var(--text-secondary)]"><code>{lines.map((line, i) => { let html = highlightLine(line, lang); html = highlightSearch(html); html = sanitizeHighlight(html); return <div key={i} ref={(el) => { if (el) lineRef.current.set(i, el); else lineRef.current.delete(i); }} className="flex transition-colors duration-500"><span className="mr-4 inline-block w-12 shrink-0 select-none text-right text-[var(--text-muted)]">{i + 1}</span><span className="whitespace-pre-wrap break-all" dangerouslySetInnerHTML={{ __html: html }} /></div>; })}</code></pre>
 		</div>
 	);
 }

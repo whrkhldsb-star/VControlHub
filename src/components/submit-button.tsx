@@ -25,6 +25,7 @@ export function SubmitButton({
       name={name}
       value={value}
       disabled={pending || disabled}
+      aria-busy={pending}
       data-action-button={className ? undefined : ""}
       data-variant={className ? undefined : "primary"}
       className={className}

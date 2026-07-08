@@ -87,6 +87,7 @@ export const zh: Record<string, string> = {
 	"backupsPage.offsite.dryRunOk": "dry-run 成功，latency {latencyMs}ms",
 	"backupsPage.offsite.dryRunFailed": "dry-run 失败：{message}",
 	"backupsPage.offsite.dryRunDisabled": "未启用异地备份",
+	"backupsPage.offsite.dryRunConfigInvalid": "异地备份配置校验失败",
 	"backupsPage.offsite.openSettings": "前往设置",
 	"backupsPage.schedule.type.database": "数据库",
 	"backupsPage.schedule.type.files": "文件",
@@ -140,6 +141,7 @@ export const zh: Record<string, string> = {
 	"backupsPage.restore.cancel": "取消",
 	"backupsPage.restore.pending": "正在恢复...",
 	"backupsPage.restore.confirm": "确认恢复",
+	"backupsPage.restore.confirmToken": "RESTORE",
 	"backupsPage.restore.warningDetail": "恢复 {type} 备份会覆盖当前数据/文件。请输入 {confirmText} 确认恢复",
 	"backupsPage.restore.warningPrefix": "恢复",
 	"backupsPage.restore.warningSuffix": "备份会覆盖当前数据/文件。请输入",
@@ -178,6 +180,9 @@ export const zh: Record<string, string> = {
 	"backupsPage.action.noPermission": "缺少权限",
 	"backupsPage.action.invalidInput": "备份参数无效",
 	"backupsPage.action.jobTitle": "创建{type}备份",
+	"backupsPage.action.typeLabel.DATABASE": "数据库",
+	"backupsPage.action.typeLabel.FILES": "文件",
+	"backupsPage.action.typeLabel.FULL": "完整",
 
 };
 
@@ -250,6 +255,7 @@ export const en: Record<string, string> = {
 	"backupsPage.offsite.dryRunOk": "dry-run succeeded, latency {latencyMs}ms",
 	"backupsPage.offsite.dryRunFailed": "dry-run failed: {message}",
 	"backupsPage.offsite.dryRunDisabled": "Offsite backup is not enabled",
+	"backupsPage.offsite.dryRunConfigInvalid": "Offsite backup config validation failed",
 	"backupsPage.offsite.openSettings": "Open settings",
 	"backupsPage.schedule.type.database": "Database",
 	"backupsPage.schedule.type.files": "Files",
@@ -303,6 +309,7 @@ export const en: Record<string, string> = {
 	"backupsPage.restore.cancel": "Cancel",
 	"backupsPage.restore.pending": "Restoring...",
 	"backupsPage.restore.confirm": "Confirm restore",
+	"backupsPage.restore.confirmToken": "RESTORE",
 	"backupsPage.restore.warningDetail": "Restoring the {type} backup will overwrite current data/files. Enter {confirmText} to confirm.",
 	"backupsPage.restore.warningPrefix": "Restoring",
 	"backupsPage.restore.warningSuffix": "backup will overwrite current data/files. Enter",
@@ -341,4 +348,7 @@ export const en: Record<string, string> = {
 	"backupsPage.action.noPermission": "Missing permission",
 	"backupsPage.action.invalidInput": "Invalid backup parameters",
 	"backupsPage.action.jobTitle": "Create {type} backup",
+	"backupsPage.action.typeLabel.DATABASE": "Database",
+	"backupsPage.action.typeLabel.FILES": "Files",
+	"backupsPage.action.typeLabel.FULL": "Full",
 };

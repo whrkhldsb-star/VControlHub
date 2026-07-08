@@ -54,11 +54,11 @@ export function aiHttpErrorMessage(
 	kind: "models" | "chat",
 ): string {
 	if (kind === "models") {
-		return "模型清单获取失败，请检查 API Key 和 Base URL";
+		return "Failed to fetch model list, please check API Key and Base URL";
 	}
 	const trimmed = (errorText || "").trim();
 	const body = (trimmed || "Unknown error").slice(0, 500);
-	return `AI 请求失败 (${status}): ${body}`;
+	return `AI request failed (${status}): ${body}`;
 }
 
 export async function fetchProviderModels(

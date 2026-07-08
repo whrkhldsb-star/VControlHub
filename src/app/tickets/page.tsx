@@ -16,12 +16,18 @@ const statusTone: Record<string, string> = {
 	CLOSED: "border-[var(--border)] bg-[var(--surface)] text-[var(--text-secondary)]",
 };
 
+function prettyKey(key: string): string {
+	return key.replace(/_/g, " ").toLowerCase().replace(/\b\w/g, (c) => c.toUpperCase());
+}
+
 function priorityLabel(locale: Locale, key: string): string {
-	return t(`ticketsPage.priority.${key}`, locale) !== `ticketsPage.priority.${key}` ? t(`ticketsPage.priority.${key}`, locale) : key;
+	const translated = t(`ticketsPage.priority.${key}`, locale);
+	return translated !== `ticketsPage.priority.${key}` ? translated : prettyKey(key);
 }
 
 function statusLabel(locale: Locale, key: string): string {
-	return t(`ticketsPage.status.${key}`, locale) !== `ticketsPage.status.${key}` ? t(`ticketsPage.status.${key}`, locale) : key;
+	const translated = t(`ticketsPage.status.${key}`, locale);
+	return translated !== `ticketsPage.status.${key}` ? translated : prettyKey(key);
 }
 
 export default async function Page() {
@@ -31,7 +37,7 @@ export default async function Page() {
 	const locale = await getServerLocale();
 	const tickets = await listTickets(canManage ? undefined : session.userId);
 	return (
-		<PageShell maxW="max-w-4xl">
+		<PageShell maxW="max-w-7xl">
 			<PageHeader eyebrow={t("ticketsPage.eyebrow", locale)} title={t("ticketsPage.title", locale)} description={t("ticketsPage.desc", locale)} className="mb-6" />
 
 			{canCreate && <div className="mb-6"><CreateTicketForm locale={locale} /></div>}

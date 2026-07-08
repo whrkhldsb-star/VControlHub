@@ -139,48 +139,48 @@ function validateDownloadSourceUrlSyntax(
   options: ValidateDownloadSourceUrlOptions = {},
 ): DownloadSourceUrlSyntaxResult {
   const value = (rawUrl ?? "").trim();
-  if (!value) return { ok: false, reason: "下载链接不能为空" };
-  if (value.length > 4096) return { ok: false, reason: "下载链接过长" };
+  if (!value) return { ok: false, reason: "Download URL cannot be empty" };
+  if (value.length > 4096) return { ok: false, reason: "Download URL is too long" };
   if (isMagnetLink(value)) return { ok: true, url: new URL("http://magnet.invalid"), magnet: true };
 
   let parsed: URL;
   try {
     parsed = new URL(value);
   } catch {
-    return { ok: false, reason: "下载链接格式无效" };
+    return { ok: false, reason: "Download URL format is invalid" };
   }
 
   if (parsed.protocol !== "http:" && parsed.protocol !== "https:") {
-    return { ok: false, reason: "仅支持 HTTP、HTTPS 或 magnet 链接" };
+    return { ok: false, reason: "Only HTTP, HTTPS, or magnet links are supported" };
   }
 
   if (parsed.username || parsed.password) {
-    return { ok: false, reason: "下载链接不允许包含用户名或密码" };
+    return { ok: false, reason: "Download URL must not contain username or password" };
   }
 
   if (parsed.port) {
-    return { ok: false, reason: "下载链接不允许指定端口" };
+    return { ok: false, reason: "Download URL must not specify a port" };
   }
 
   const hostname = parsed.hostname.toLowerCase();
-  if (!hostname) return { ok: false, reason: "下载链接缺少主机名" };
+  if (!hostname) return { ok: false, reason: "Download URL is missing a hostname" };
 
   const blockedSuffixes = options.blockedHostnameSuffixes ?? DEFAULT_BLOCKED_HOSTNAME_SUFFIXES;
   if (hostnameMatchesBlockedSuffix(hostname, blockedSuffixes)) {
-    return { ok: false, reason: "不允许下载内网或本地域名资源" };
+    return { ok: false, reason: "Downloading intranet or local domain resources is not allowed" };
   }
 
   if (isIP(hostname) && isBlockedIpAddress(hostname)) {
-    return { ok: false, reason: "不允许下载内网、回环或链路本地地址资源" };
+    return { ok: false, reason: "Downloading intranet, loopback, or link-local address resources is not allowed" };
   }
 
   const ipv4 = parseIpv4(hostname);
   if (ipv4 && isBlockedIpv4(ipv4)) {
-    return { ok: false, reason: "不允许下载内网、回环或链路本地地址资源" };
+    return { ok: false, reason: "Downloading intranet, loopback, or link-local address resources is not allowed" };
   }
 
   if (hostname.includes(":") && isBlockedIpv6(hostname)) {
-    return { ok: false, reason: "不允许下载内网、回环或链路本地 IPv6 地址资源" };
+    return { ok: false, reason: "Downloading intranet, loopback, or link-local IPv6 address resources is not allowed" };
   }
 
   return { ok: true, url: parsed, magnet: false };
@@ -198,10 +198,10 @@ export async function assertDownloadSourceUrlSafe(
   try {
     const addresses = await lookup(hostname, { all: true, verbatim: true });
     if (addresses.length === 0 || addresses.some((entry) => isBlockedIpAddress(entry.address))) {
-      return { ok: false, reason: "下载链接 DNS 解析到内网、回环或链路本地地址" };
+      return { ok: false, reason: "Download URL DNS resolved to an intranet, loopback, or link-local address" };
     }
   } catch {
-    return { ok: false, reason: "下载链接 DNS 解析失败" };
+    return { ok: false, reason: "Download URL DNS resolution failed" };
   }
 
   return { ok: true };

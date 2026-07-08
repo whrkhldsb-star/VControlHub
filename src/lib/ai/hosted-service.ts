@@ -92,6 +92,17 @@ async function createAssistantCommandRequest(input: {
   userId: string;
   serverId: string;
 }) {
+  const payload = await buildAssistantCommandRequestPayload(input);
+  const request = await createCommandRequest(payload);
+  return { commandRequestId: request.id, requiresApproval: request.requiresApproval };
+}
+
+async function buildAssistantCommandRequestPayload(input: {
+  tool: HostedTool;
+  args: Record<string, unknown>;
+  userId: string;
+  serverId: string;
+}) {
   // TR-041: 加载 server 的 osDialect 以支持方言感知命令生成
   const server = await prisma.server.findUnique({
     where: { id: input.serverId },
@@ -107,16 +118,14 @@ async function createAssistantCommandRequest(input: {
     ? input.args.reason.trim()
     : "AI assistant initiated from web session; will execute after manual approval.";
 
-  const request = await createCommandRequest({
+  return {
     title: `AI Assistant: ${input.tool.actionName}`,
     command,
     reason,
     requesterId: input.userId,
     serverIds: [input.serverId],
-    submissionMode: "assistant",
-  });
-
-  return { commandRequestId: request.id, requiresApproval: request.requiresApproval };
+    submissionMode: "assistant" as const,
+  };
 }
 
 function requiredPermissionForAction(actionType: string): Permission {
@@ -279,17 +288,17 @@ export async function executeSafeAction(
 export async function approveHostedAction(actionId: string, approver: HostedActionSession) {
   if (!sessionHasPermission(approver, "ai:action:approve")) throw new ForbiddenError("Missing permission: ai:action:approve");
 
-  const action = await prisma.aiHostedAction.findFirst({ where: { id: actionId } });
-  if (!action) throw new NotFoundError("Action not found or not authorized to approve");
-  if (action.status !== "PENDING_APPROVAL") throw new BusinessError("Action is not pending approval");
-
-  // 更新状态为已批准
-  await prisma.aiHostedAction.update({
-    where: { id: actionId },
+  // Atomic compare-and-swap: only transition from PENDING_APPROVAL to APPROVED
+  const claimed = await prisma.aiHostedAction.updateMany({
+    where: { id: actionId, status: "PENDING_APPROVAL" },
     data: { status: "APPROVED", approverId: approver.userId, approvedAt: new Date() },
   });
+  if (claimed.count === 0) {
+    const action = await prisma.aiHostedAction.findFirst({ where: { id: actionId } });
+    if (!action) throw new NotFoundError("Action not found or not authorized to approve");
+    throw new BusinessError("Action is not pending approval");
+  }
 
-  // 执行自动批准操作
   await executeApprovedAction(actionId, approver);
 }
 
@@ -305,7 +314,7 @@ export async function confirmHostedAction(actionId: string, requester: HostedAct
   if (!action.serverId) throw new BusinessError("No target VPS bound; cannot create command request");
 
   const params = JSON.parse(action.params) as Record<string, unknown>;
-  const commandRequest = await createAssistantCommandRequest({
+  const commandRequestPayload = await buildAssistantCommandRequestPayload({
     tool: {
       name: action.actionType,
       description: "",
@@ -320,14 +329,26 @@ export async function confirmHostedAction(actionId: string, requester: HostedAct
     serverId: action.serverId,
   });
 
-  await prisma.aiHostedAction.update({
-    where: { id: actionId },
+  // Atomic compare-and-swap: prevent two concurrent confirmations from
+  // both creating a command request and overwriting APPROVED state.
+  const claimed = await prisma.aiHostedAction.updateMany({
+    where: { id: actionId, status: "PENDING_APPROVAL" },
     data: {
       status: "APPROVED",
       approverId: requester.userId,
       approvedAt: new Date(),
-      result: JSON.stringify(commandRequest),
     },
+  });
+  if (claimed.count === 0) {
+    throw new BusinessError("Action is not pending confirmation (may have just been confirmed by another request)");
+  }
+
+  const request = await createCommandRequest(commandRequestPayload);
+  const commandRequest = { commandRequestId: request.id, requiresApproval: request.requiresApproval };
+
+  await prisma.aiHostedAction.update({
+    where: { id: actionId },
+    data: { result: JSON.stringify(commandRequest) },
   });
 }
 

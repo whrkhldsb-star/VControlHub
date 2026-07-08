@@ -59,7 +59,7 @@ export function DeleteConfirmButton({
         type="button"
         onClick={() => setConfirming(true)}
         title={t("common.delete")}
-        aria-label={`Delete ${entryName}`}
+        aria-label={t("filesPage.actions.deleteAria").replace("{name}", entryName)}
         className={
           variant === "menu"
             ? "flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-left text-sm text-[var(--danger)] transition hover:bg-[var(--danger-bg)]"

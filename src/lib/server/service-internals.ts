@@ -135,13 +135,13 @@ export function serializeDate(value: Date | string) {
 }
 
 export function buildServerStatusLabel(enabled: boolean) {
-  return enabled ? "已启用" : "已停用";
+  return enabled ? "Enabled" : "Disabled";
 }
 
 export function buildServerConnectionTypeLabel(
   connectionType: "SSH_KEY" | "PASSWORD",
 ) {
-  return connectionType === "SSH_KEY" ? "SSH 密钥" : "密码";
+  return connectionType === "SSH_KEY" ? "SSH key" : "Password";
 }
 
 const SERVER_COST_CURRENCIES = ["CNY", "USD", "EUR", "JPY", "HKD"] as const;
@@ -154,7 +154,7 @@ function normalizeServerCostCurrency(value: string | null | undefined): ServerCo
 }
 
 export function getErrorMessage(error: unknown) {
-  return error instanceof Error ? error.message : String(error || "未知错误");
+  return error instanceof Error ? error.message : String(error || "Unknown error");
 }
 
 export function safeRevalidatePath(path: string) {
@@ -182,7 +182,7 @@ export function formatServerEndpoint(
 }
 
 export function buildDuplicateServerError(existing: ExistingServerForDuplicateCheck) {
-  return `已存在相同 IP/主机的 VPS 节点：${existing.name}（${formatServerEndpoint(existing)}）。为避免同一服务器重复纳管或端口填错，请编辑现有节点或先删除旧节点后再添加。`;
+  return `A VPS node with the same IP/host already exists: ${existing.name} (${formatServerEndpoint(existing)}). To avoid duplicate management of the same server or incorrect port entry, please edit the existing node or delete the old node before adding a new one.`;
 }
 
 export async function assertNoDuplicateServerHost(
@@ -235,12 +235,12 @@ export async function verifyServerSshConnectivity(
       throw new BusinessError(
         result.stderr ||
           result.stdout ||
-          `SSH 预检退出码 ${result.exitCode ?? "unknown"}`,
+          `SSH pre-check exit code ${result.exitCode ?? "unknown"}`,
       );
     }
   } catch (error) {
     throw new BusinessError(
-      `无法连接目标服务器 ${normalized.username}@${normalized.host}:${normalized.port}，节点未添加/未保存。请检查 IP、端口、用户名和认证信息后重试。详情：${getErrorMessage(error)}`,
+      `Cannot connect to target server ${normalized.username}@${normalized.host}:${normalized.port}; node was not added/saved. Please check IP, port, username, and authentication credentials and retry. Details: ${getErrorMessage(error)}`,
     );
   }
 }

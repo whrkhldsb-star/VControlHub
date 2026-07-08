@@ -23,15 +23,15 @@ export type UpdateScheduledTaskInput = Partial<CreateScheduledTaskInput> & {
 
 export function describeCron(expr: string): string {
 	const parts = expr.trim().split(/\s+/);
-	if (parts.length !== 5) return "自定义时间表达式";
+	if (parts.length !== 5) return "Custom time expression";
 	const [min, hour, day, month, dow] = parts;
-	if (min === "*" && hour === "*") return "每分钟";
-	if (min!.startsWith("*/") && hour === "*") return `每 ${min!.slice(2)} 分钟`;
-	if (hour === "*" && min !== "*") return `每小时第 ${min!} 分钟`;
-	if (min !== "*" && hour !== "*" && day === "*" && month === "*" && dow === "*") return `每天 ${hour!}:${min!.padStart(2, "0")}`;
+	if (min === "*" && hour === "*") return "Every minute";
+	if (min!.startsWith("*/") && hour === "*") return `Every ${min!.slice(2)} minutes`;
+	if (hour === "*" && min !== "*") return `Minute ${min!} of every hour`;
+	if (min !== "*" && hour !== "*" && day === "*" && month === "*" && dow === "*") return `Daily at ${hour!}:${min!.padStart(2, "0")}`;
 	if (dow !== "*" && min !== "*" && hour !== "*") {
-		const dayNames: Record<string, string> = { "0": "周日", "1": "周一", "2": "周二", "3": "周三", "4": "周四", "5": "周五", "6": "周六" };
-		return `每${dayNames[dow!] ?? "周" + dow!} ${hour!}:${min!.padStart(2, "0")}`;
+		const dayNames: Record<string, string> = { "0": "Sunday", "1": "Monday", "2": "Tuesday", "3": "Wednesday", "4": "Thursday", "5": "Friday", "6": "Saturday" };
+		return `Every ${dayNames[dow!] ?? "day " + dow!} ${hour!}:${min!.padStart(2, "0")}`;
 	}
 	return expr;
 }
@@ -120,15 +120,15 @@ export async function retryScheduledTask(id: string) {
 	}
 
 	const result = await createCommandRequest({
-		title: `定时任务重试：${task.name}`,
+		title: `Scheduled task retry: ${task.name}`,
 		command: task.command,
-		reason: task.reason ?? `手动重试定时任务 ${task.name}`,
+		reason: task.reason ?? `Manually retry scheduled task ${task.name}`,
 		submissionMode: "user",
 		requesterId: task.createdById,
 		serverIds: task.serverIds,
 	});
 
-	await recordTaskRun(task.id, `手动重试已触发命令请求 ${result.id}`);
+	await recordTaskRun(task.id, `Manual retry has triggered command request ${result.id}`);
 	return prisma.scheduledTask.findUniqueOrThrow({ where: { id } });
 }
 
@@ -137,9 +137,9 @@ export async function recordTaskRun(id: string, result: string) {
 	if (!task) return;
 
 	// Detect consecutive failures and notify the creator
-	const isFailure = result.startsWith("执行失败") || result.startsWith("手动重试失败");
+	const isFailure = result.startsWith("Execution failed") || result.startsWith("Manual retry failed");
 	if (isFailure && task.createdById) {
-		const prevWasFailure = task.lastResult?.startsWith("执行失败") || task.lastResult?.startsWith("手动重试失败");
+		const prevWasFailure = task.lastResult?.startsWith("Execution failed") || task.lastResult?.startsWith("Manual retry failed");
 		if (prevWasFailure) {
 			// At least 2 consecutive failures (current + previous) — fire alert
 			notifyTaskConsecutiveFailed(task.createdById, task.name, 2, result.slice(0, 200)).catch(() => {});

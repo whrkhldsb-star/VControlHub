@@ -56,8 +56,10 @@ export function FileDetailPanel({
   entryCanDelete,
 }: FileDetailPanelProps) {
   const { t, locale } = useI18n();
+  const dialogRef = useDialogFocus<HTMLDivElement>({ open: true, onClose });
   return (
     <div
+      ref={dialogRef}
       className="fixed inset-0 z-50 flex justify-end bg-[var(--surface-subtle)] p-3 backdrop-blur-sm"
       role="dialog"
       aria-modal="true"

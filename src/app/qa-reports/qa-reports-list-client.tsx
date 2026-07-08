@@ -6,6 +6,8 @@ import { useMemo, useState } from "react";
 import { EmptyState, ToggleChip } from "@/components/page-shell";
 import { csrfFetch } from "@/lib/auth/csrf-client";
 import { useI18n } from "@/lib/i18n/use-locale";
+import { toDateLocale } from "@/lib/i18n/locale-format";
+import type { Locale } from "@/lib/i18n/translations";
 import type {
 	QaReportTrendCard,
 	QaReportTrendRecentRun,
@@ -39,10 +41,10 @@ const toneToValueClass: Record<QaReportTrendCard["tone"], string> = {
 const MAX_DAILY_BAR_HEIGHT = 56; // px, the tallest possible bar in the mini chart
 const MAX_RECENT_RUNS = 5;
 
-function formatTime(iso: string, locale?: string): string {
+function formatTime(iso: string, locale?: Locale): string {
 	const ts = Date.parse(iso);
 	if (Number.isNaN(ts)) return iso;
-	return new Date(ts).toLocaleString(locale === "zh" ? "zh-CN" : "en-US", { hour12: false });
+	return new Date(ts).toLocaleString(toDateLocale(locale ?? "zh"), { hour12: false });
 }
 
 function formatDayShort(day: string): string {

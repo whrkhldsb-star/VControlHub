@@ -18,8 +18,9 @@ echo "==> [1/6] 修正源文件 owner (避免 root-owned 阻塞 vcontrolhub 读)
 chown -R "$APP_USER:$APP_USER" "$APP_DIR/src" "$APP_DIR/public" "$APP_DIR/scripts" "$APP_DIR/prisma" "$APP_DIR/package.json" "$APP_DIR/package-lock.json" "$APP_DIR/next.config.*" "$APP_DIR/tsconfig.json" 2>/dev/null || true
 chown -R "$APP_USER:$APP_USER" "$APP_DIR/.next" 2>/dev/null || rm -rf "$APP_DIR/.next"
 
-echo "==> [2/6] 跑 build"
+echo "==> [2/6] 跑 build (Next.js + runtime bundle)"
 sudo -u "$APP_USER" npm run build
+sudo -u "$APP_USER" npm run build:runtime
 
 echo "==> [2.5/6] 应用 prisma migration (P-001-N: deploy.sh 此前缺此步, 部署后 30 秒 worker 报列不存在)"
 sudo -u "$APP_USER" npx prisma migrate deploy 2>&1 | tail -20

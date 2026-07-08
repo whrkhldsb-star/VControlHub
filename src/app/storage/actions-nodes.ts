@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 
+import { auditUserAction } from "@/lib/audit/service";
 import { requirePermission } from "@/lib/auth/authorization";
 import { serverT } from "@/lib/i18n/server-locale";
 import {
@@ -62,7 +63,7 @@ export async function createStorageNodeAction(
   _prev: StorageActionState | null,
   formData: FormData,
 ) {
-  await requirePermission("storage:manage-node");
+  const session = await requirePermission("storage:manage-node");
 
   const t = await serverT();
   try {
@@ -74,7 +75,7 @@ export async function createStorageNodeAction(
     const hostRaw = String(formData.get("host") ?? "").trim();
     const usernameRaw = String(formData.get("username") ?? "").trim();
 
-    await createStorageNode({
+    const node = await createStorageNode({
       name: String(formData.get("name") ?? ""),
       driver,
       isDefault: String(formData.get("isDefault") ?? "") === "on",
@@ -95,6 +96,12 @@ export async function createStorageNodeAction(
       username: usernameRaw || undefined,
     });
 
+    auditUserAction(session.userId, "storage.node.create", {
+      storageNodeId: node.id,
+      name: node.name,
+      driver: node.driver,
+    });
+
     revalidatePath("/");
     revalidatePath("/servers");
     revalidatePath("/storage");
@@ -112,7 +119,7 @@ export async function updateStorageNodeAction(
   _prev: StorageActionState | null,
   formData: FormData,
 ) {
-  await requirePermission("storage:manage-node");
+  const session = await requirePermission("storage:manage-node");
 
   const t = await serverT();
   try {
@@ -159,6 +166,8 @@ export async function updateStorageNodeAction(
       username: usernameRaw || null,
     });
 
+    auditUserAction(session.userId, "storage.node.update", { storageNodeId });
+
     revalidatePath("/");
     revalidatePath("/servers");
     revalidatePath("/storage");
@@ -176,7 +185,7 @@ export async function deleteStorageNodeAction(
   _prev: StorageActionState | null,
   formData: FormData,
 ) {
-  await requirePermission("storage:manage-node");
+  const session = await requirePermission("storage:manage-node");
 
   const t = await serverT();
   try {
@@ -187,6 +196,8 @@ export async function deleteStorageNodeAction(
     }
 
     await deleteStorageNode(storageNodeId);
+
+    auditUserAction(session.userId, "storage.node.delete", { storageNodeId });
 
     revalidatePath("/");
     revalidatePath("/servers");

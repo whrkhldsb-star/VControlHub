@@ -330,4 +330,8 @@ export const zh: Record<string, string> = {
 	"vpsBackup.preset.custom": "自定义路径",
 	"serversPage.eyebrow": "基础设施",
 	"serversPage.quickActionsAria": "VPS 快捷操作",
+	"serverOverviewCard.eyebrow": "VPS 详情",
+	"serverOverviewCard.realtimeStatusAria": "节点实时状态：{status}",
+	"serverOverviewDetails.detectionFailed": "探测失败",
+	"serverOverviewDetails.networkError": "网络错误",
 };

@@ -19,6 +19,7 @@ export function PlaybookDeleteDialog({ playbook, busy, onCancel, onConfirm }: Pl
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-[var(--surface)] px-4 backdrop-blur-sm" role="presentation" onClick={onCancel}>
       <section
+        ref={dialogRef}
         role="dialog"
         aria-modal="true"
         aria-labelledby="delete-playbook-title"

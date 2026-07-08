@@ -3,6 +3,7 @@ import { access, stat } from "node:fs/promises";
 
 import { prisma } from "@/lib/db";
 import { BusinessError, NotFoundError, ValidationError } from "@/lib/errors";
+import { serverT } from "@/lib/i18n/server-locale";
 import { listRemoteDirectory } from "@/lib/ssh/client";
 import { normalizePublicBaseUrl } from "@/lib/storage/direct-access-url";
 import { normalizeRemotePath } from "@/lib/storage/remote-path";
@@ -76,8 +77,9 @@ export async function checkStorageNodeHealth(storageNodeId: string) {
     },
   });
 
+  const t = await serverT();
   if (!node) {
-    throw new NotFoundError("Storage node not found or has been deleted");
+    throw new NotFoundError(t("backend.storage.nodeNotFound"));
   }
 
   const startedAt = Date.now();
@@ -202,8 +204,9 @@ export async function updateStorageNode(input: UpdateStorageNodeInput) {
     },
   });
 
+  const t = await serverT();
   if (!current) {
-    throw new NotFoundError("Storage node not found or has been deleted");
+    throw new NotFoundError(t("backend.storage.nodeNotFound"));
   }
 
   const nextDriver = payload.driver ?? current.driver;
@@ -255,8 +258,9 @@ export async function deleteStorageNode(storageNodeId: string) {
     include: { fileEntries: { select: { id: true, isDeleted: true } } },
   });
 
+  const t = await serverT();
   if (!node) {
-    throw new NotFoundError("Storage node not found or has been deleted");
+    throw new NotFoundError(t("backend.storage.nodeNotFound"));
   }
 
   const activeEntryCount = node.fileEntries.filter(

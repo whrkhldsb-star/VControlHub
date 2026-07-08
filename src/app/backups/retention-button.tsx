@@ -99,7 +99,7 @@ export function RetentionButton({ olderThan30Days, totalRecords }: Props) {
         </p>
       )}
       {error && (
-        <p role="alert" className="text-xs text-[var(--danger)]">{t("backupsPage.retention.error")}：{error}</p>
+        <p role="alert" className="text-xs text-[var(--danger)]">{t("backupsPage.retention.error")}: {error}</p>
       )}
     </form>
   );

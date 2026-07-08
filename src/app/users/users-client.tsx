@@ -6,6 +6,7 @@ import { csrfFetch } from "@/lib/auth/csrf-client";
 import { EmptyState } from "@/components/page-shell";
 import { toDateLocale } from "@/lib/i18n/locale-format";
 import { useI18n } from "@/lib/i18n/use-locale";
+import { useDialogFocus } from "@/lib/a11y/use-dialog-focus";
 
 type RoleInfo = { key: string; name: string };
 type UserInfo = {
@@ -122,6 +123,7 @@ export function UserManagementClient({ canManage = false, currentUserId = "" }: 
   };
 
   const [resetPasswordUser, setResetPasswordUser] = useState<UserInfo | null>(null);
+  const dialogRef = useDialogFocus<HTMLDivElement>({ open: resetPasswordUser !== null, onClose: () => setResetPasswordUser(null) });
   const [resetPasswordValue, setResetPasswordValue] = useState("");
   const [resetting, setResetting] = useState(false);
 
@@ -318,14 +320,16 @@ export function UserManagementClient({ canManage = false, currentUserId = "" }: 
                           </button>
                         )
                       ) : (
-                        <button
-                          type="button"
-                          onClick={() => handleToggleStatus(user.id, user.status, user.username)}
-                          data-tone="success"
-                          className="rounded-lg border px-3 py-1.5 text-xs transition"
-                        >
-                          {t("usersPage.action.enable")}
-                        </button>
+                        user.id !== currentUserId && (
+                          <button
+                            type="button"
+                            onClick={() => handleToggleStatus(user.id, user.status, user.username)}
+                            data-tone="success"
+                            className="rounded-lg border px-3 py-1.5 text-xs transition"
+                          >
+                            {t("usersPage.action.enable")}
+                          </button>
+                        )
                       )}
                     </>
                   ) : (
@@ -352,6 +356,7 @@ export function UserManagementClient({ canManage = false, currentUserId = "" }: 
           onClick={() => setResetPasswordUser(null)}
         >
           <section
+            ref={dialogRef}
             role="dialog"
             aria-modal="true"
             aria-labelledby="reset-password-title"

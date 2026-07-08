@@ -390,7 +390,7 @@ export function ServerCardActions({
             {isConfirming ? (
               <div
                 role="alertdialog"
-                aria-modal="false"
+                aria-modal="true"
                 aria-labelledby={`delete-server-title-${serverId}`}
                 aria-describedby={`delete-server-description-${serverId}`}
                 data-tone="rose"

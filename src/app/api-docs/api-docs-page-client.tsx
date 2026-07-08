@@ -71,7 +71,8 @@ export default function ApiDocsPage() {
 		return () => {
 			cancelled = true;
 		};
-	}, [t]);
+		// eslint-disable-next-line react-hooks/exhaustive-deps
+	}, []);
 
 	const entries = useMemo(() => groupEntries(spec, t("apiDocsPage.tag.untagged")), [spec, t]);
 	const filtered = useMemo(() => {
@@ -101,7 +102,7 @@ export default function ApiDocsPage() {
 			<div className="mx-auto max-w-7xl space-y-6">
 				<header className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
 					<div>
-						<p data-page-eyebrow className="text-xs font-semibold uppercase tracking-[0.3em] text-[var(--color-action)]">OpenAPI</p>
+						<p data-page-eyebrow className="text-xs font-semibold uppercase tracking-[0.3em] text-[var(--color-action)]">{t("apiDocsPage.eyebrow")}</p>
 						<h1 className="mt-2 text-3xl font-semibold tracking-tight text-[var(--text-primary)]">{t("apiDocsPage.title")}</h1>
 						<p className="mt-1.5 max-w-2xl text-sm text-[var(--text-muted)]">
 							{spec?.info?.description ?? t("apiDocsPage.description")}
@@ -113,7 +114,7 @@ export default function ApiDocsPage() {
 						rel="noreferrer"
 						data-tone="cyan" className="inline-flex h-10 items-center justify-center rounded-lg border border-[var(--color-action-border)]/25 px-4 text-sm font-medium text-[var(--text-primary)] transition hover:bg-[var(--color-action-bg)]/15"
 					>
-						OpenAPI JSON
+						{t("apiDocsPage.openApiJsonLink")}
 					</a>
 				</header>
 

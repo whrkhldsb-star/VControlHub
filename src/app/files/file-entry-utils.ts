@@ -5,6 +5,8 @@ import {
   MARKDOWN_MIME_SET,
   OFFICE_MIME_SET,
 } from "@/lib/storage/mime-constants";
+import { toDateLocale } from "@/lib/i18n/locale-format";
+import type { Locale } from "@/lib/i18n/translations";
 
 export type EntryCapabilities = {
   canRead: boolean;
@@ -214,9 +216,9 @@ export function getPreviewActionCopy(entry: StorageEntry, t: (key: string) => st
   };
 }
 
-export function formatDate(date: Date | string, locale?: string): string {
+export function formatDate(date: Date | string, locale?: Locale): string {
   const d = typeof date === "string" ? new Date(date) : date;
-  return d.toLocaleDateString(locale === "en" ? "en-US" : "zh-CN", {
+  return d.toLocaleDateString(toDateLocale(locale ?? "zh"), {
     year: "numeric",
     month: "2-digit",
     day: "2-digit",

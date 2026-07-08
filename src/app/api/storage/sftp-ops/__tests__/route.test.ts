@@ -177,7 +177,7 @@ describe("/api/storage/sftp-ops", () => {
 
     expect(response.status).toBe(502);
     await expect(response.json()).resolves.toMatchObject({
-      error: expect.stringContaining("远端文件操作失败"),
+      error: expect.stringContaining("Remote file operation failed"),
     });
     expect(writeRemoteFileMock).toHaveBeenCalledWith(
       expect.objectContaining({ remotePath: "/data/files/new-folder/hello.txt" }),
@@ -289,7 +289,7 @@ describe("/api/storage/sftp-ops", () => {
 
     expect(response.status).toBe(413);
     await expect(response.json()).resolves.toMatchObject({
-      error: expect.stringContaining("文件超过 1 MB"),
+      error: expect.stringContaining("File exceeds 1 MB"),
       maxInlineBytes: 1024 * 1024,
     });
     expect(readRemoteFileMock).not.toHaveBeenCalled();
@@ -315,7 +315,7 @@ describe("/api/storage/sftp-ops", () => {
 
     expect(response.status).toBe(413);
     await expect(response.json()).resolves.toMatchObject({
-      error: expect.stringContaining("文件超过 1 MB"),
+      error: expect.stringContaining("File exceeds 1 MB"),
       size: 1024 * 1024 + 1,
     });
   });

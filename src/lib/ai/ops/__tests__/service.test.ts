@@ -252,7 +252,7 @@ describe("executeRecommendation — mode-aware action gating", () => {
 		const result = await executeRecommendation({ logId: log.id, actionId: "a1" });
 		expect(result.ok).toBe(true);
 		expect(result.executed).toBe(false);
-		expect(result.errorMessage).toMatch(/需要管理员审批/);
+		expect(result.errorMessage).toMatch(/Admin approval required/);
 	});
 
 	it("executes immediately when action is in the autonomous safe-set and forceAutonomous", async () => {
@@ -282,7 +282,7 @@ describe("executeRecommendation — mode-aware action gating", () => {
 		expect(result.ok).toBe(true);
 		expect(result.executed).toBe(true);
 		expect(result.action?.action).toBe(safe);
-		expect(result.action?.result).toMatch(/告警规则评估/);
+		expect(result.action?.result).toMatch(/Alert rule evaluation/);
 	});
 
 	it("refuses forceAutonomous when action is not in the safe-set", async () => {
@@ -307,14 +307,14 @@ describe("executeRecommendation — mode-aware action gating", () => {
 		});
 		expect(result.ok).toBe(true);
 		expect(result.executed).toBe(false);
-		expect(result.errorMessage).toMatch(/不在自主安全集合中/);
+		expect(result.errorMessage).toMatch(/is not in the autonomous safe set/);
 	});
 
 	it("returns ok=false when logId does not exist", async () => {
 		const result = await executeRecommendation({ logId: "missing", actionId: "x" });
 		expect(result.ok).toBe(false);
 		expect(result.executed).toBe(false);
-		expect(result.errorMessage).toMatch(/日志不存在/);
+		expect(result.errorMessage).toMatch(/Log not found/);
 	});
 
 	it("returns ok=false when actionId does not exist in the log", async () => {
@@ -322,7 +322,7 @@ describe("executeRecommendation — mode-aware action gating", () => {
 		await completeScan({ logId: log.id, status: "ok", findings: [], actions: [] });
 		const result = await executeRecommendation({ logId: log.id, actionId: "ghost" });
 		expect(result.ok).toBe(false);
-		expect(result.errorMessage).toMatch(/推荐项不存在/);
+		expect(result.errorMessage).toMatch(/Recommendation not found/);
 	});
 });
 

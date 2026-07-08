@@ -15,25 +15,25 @@ function buildStorageStatus(input: StorageHealthAggregate): SystemHealthCheck {
   if (input.total <= 0) {
     return {
       id: "storage",
-      label: "云盘服务",
+      label: "Cloud drive service",
       status: "warning",
-      message: "等待配置",
+      message: "Awaiting configuration",
     };
   }
 
   const status: SystemHealthStatus = input.unhealthy > 0 ? "warning" : input.checked > 0 ? "healthy" : "warning";
   const parts = [
-    `已配置 ${input.total} 个存储节点`,
-    `${input.healthy} 个最近探测健康`,
-    `${input.unhealthy} 个异常`,
-    `${input.unknown} 个待探测`,
+    `${input.total} storage nodes configured`,
+    `${input.healthy} recently probed healthy`,
+    `${input.unhealthy} unhealthy`,
+    `${input.unknown} pending probe`,
   ];
 
   return {
     id: "storage",
-    label: "云盘服务",
+    label: "Cloud drive service",
     status,
-    message: `${parts.join("，")}；不会在公开状态页展示 SFTP/Direct Gateway 主机、端口或路径。`,
+    message: `${parts.join(", ")}; SFTP/Direct Gateway host, port, or path will not be shown on the public status page.`,
   };
 }
 
@@ -41,10 +41,10 @@ export async function getPublicStatus() {
 	const checks: SystemHealthCheck[] = [];
 	try {
 		await prisma.$queryRaw`SELECT 1`;
-		checks.push({ id: "database", label: "数据库", status: "healthy", message: "可用" });
+		checks.push({ id: "database", label: "Database", status: "healthy", message: "Available" });
 	} catch {
 		// Database unreachable — report critical status but keep the rest of the checks running.
-		checks.push({ id: "database", label: "数据库", status: "critical", message: "不可用" });
+				checks.push({ id: "database", label: "Database", status: "critical", message: "Unavailable" });
 	}
 	const [serverCount, storageNodes] = await Promise.all([
 		prisma.server.count({ where: { enabled: true } }).catch(() => 0),
@@ -52,9 +52,9 @@ export async function getPublicStatus() {
 	]);
 	checks.push({
 		id: "servers",
-		label: "VPS 管理",
+		label: "VPS management",
 		status: serverCount > 0 ? "healthy" : "warning",
-		message: serverCount > 0 ? `已启用 ${serverCount} 台 VPS，未做实时 SSH/网络探测` : "等待配置",
+		message: serverCount > 0 ? `${serverCount} VPS instances enabled; no real-time SSH/network probing` : "Awaiting configuration",
 	});
 	const storageAggregate = storageNodes.reduce<StorageHealthAggregate>(
 		(acc, node) => {

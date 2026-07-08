@@ -4,6 +4,8 @@ import { EmptyState, StatCard } from "@/components/page-shell";
 import { useMemo, useState } from "react";
 import { csrfFetch } from "@/lib/auth/csrf-client";
 import { useI18n } from "@/lib/i18n/use-locale";
+import { toDateLocale } from "@/lib/i18n/locale-format";
+import type { Locale } from "@/lib/i18n/translations";
 import { useDialogFocus } from "@/lib/a11y/use-dialog-focus";
 
 export type SafeApiToken = {
@@ -23,11 +25,11 @@ type Props = {
   allowedScopes: readonly string[];
 };
 
-function formatDate(value: Date | string | null, locale?: string) {
+function formatDate(value: Date | string | null, locale?: Locale) {
   if (!value) return "—";
   const date = value instanceof Date ? value : new Date(value);
   if (Number.isNaN(date.getTime())) return "—";
-  return date.toLocaleString(locale === "zh" ? "zh-CN" : "en-US", { hour12: false });
+  return date.toLocaleString(toDateLocale(locale ?? "zh"), { hour12: false });
 }
 
 function tokenStatus(t: (k: string) => string, token: SafeApiToken) {
@@ -134,11 +136,11 @@ export function ApiTokenManagerClient({ initialTokens, allowedScopes }: Props) {
           <div className="grid gap-4 lg:grid-cols-[1.2fr_0.8fr]">
             <label className="space-y-1.5">
               <span className="text-xs font-medium tracking-wide text-[var(--text-primary)]/70">{t("apiTokensPage.create.nameLabel")}</span>
-              <input value={name} onChange={(event) => setName(event.target.value)} required maxLength={80} placeholder={t("apiTokensPage.create.namePlaceholder")} data-card className="w-full  px-3.5 py-2.5 text-sm text-[var(--text-primary)] outline-none placeholder:text-[var(--text-primary)]/30 focus:border-[var(--color-action-border)]/30" />
+              <input value={name} onChange={(event) => setName(event.target.value)} required maxLength={80} placeholder={t("apiTokensPage.create.namePlaceholder")} data-card className="w-full border border-[var(--border)] px-3.5 py-2.5 text-sm text-[var(--text-primary)] outline-none placeholder:text-[var(--text-primary)]/30 focus:border-[var(--color-action-border)]/30" />
             </label>
             <label className="space-y-1.5">
               <span className="text-xs font-medium tracking-wide text-[var(--text-primary)]/70">{t("apiTokensPage.create.expiresLabel")}</span>
-              <input type="datetime-local" value={expiresAt} onChange={(event) => setExpiresAt(event.target.value)} data-card className="w-full  px-3.5 py-2.5 text-sm text-[var(--text-primary)] outline-none focus:border-[var(--color-action-border)]/30" />
+              <input type="datetime-local" value={expiresAt} onChange={(event) => setExpiresAt(event.target.value)} data-card className="w-full border border-[var(--border)] px-3.5 py-2.5 text-sm text-[var(--text-primary)] outline-none focus:border-[var(--color-action-border)]/30" />
             </label>
           </div>
 

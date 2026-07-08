@@ -140,7 +140,7 @@ describe("/api/storage/archive-download", () => {
 
     expect(response.status).toBe(400);
     expect(spawnMock).not.toHaveBeenCalled();
-    await expect(response.json()).resolves.toMatchObject({ error: "目标不是目录" });
+    await expect(response.json()).resolves.toMatchObject({ error: "Target is not a directory" });
   });
 
   it("rejects denied read access before touching local disk", async () => {

@@ -79,7 +79,7 @@ async function enqueueScheduledTaskTickJob(reason: string) {
       if (await hasActiveScheduledTaskTickJob(tx)) return null;
       return enqueueJob({
         type: SCHEDULED_TASK_TICK_JOB_TYPE,
-        title: "定时任务调度 tick",
+        title: "Scheduled task dispatch tick",
         payload: { reason, requestedAt: new Date().toISOString() },
         priority: -5,
         maxAttempts: 3,
@@ -116,7 +116,7 @@ async function dispatchDueTask(task: {
   nextRunAt: Date | null;
 }): Promise<boolean> {
   if (task.serverIds.length === 0 || !task.createdById) {
-    await recordTaskRun(task.id, "跳过：无目标服务器或无创建者");
+    await recordTaskRun(task.id, "Skipped: no target server or no creator");
     return false;
   }
 
@@ -150,15 +150,15 @@ async function dispatchDueTask(task: {
 
   try {
     const result = await createCommandRequest({
-      title: `定时任务：${task.name}`,
+      title: `Scheduled task: ${task.name}`,
       command: task.command,
-      reason: task.reason ?? `由定时任务 ${task.name} 触发`,
+      reason: task.reason ?? `Triggered by scheduled task ${task.name}`,
       submissionMode: "user",
       requesterId: task.createdById,
       serverIds: task.serverIds,
     });
 
-    await recordTaskRun(task.id, `已触发命令请求 ${result.id}`);
+    await recordTaskRun(task.id, `Triggered command request ${result.id}`);
     return true;
   } catch (error) {
     // We claimed the row (so no one else will dispatch it this tick),
@@ -216,7 +216,7 @@ async function dispatchDueScheduledTasks(reason: string) {
       const message = error instanceof Error ? error.message : String(error);
       logger.error("Scheduled task execution failed", { reason, taskId: task.id, error: message });
       try {
-        await recordTaskRun(task.id, `执行失败：${message}`);
+        await recordTaskRun(task.id, `Execution failed: ${message}`);
       } catch (recordError) {
         logger.error("Failed to record scheduled task run after failure", {
           reason,
@@ -250,7 +250,7 @@ export async function runScheduledTaskTickJobWorkerOnce(reason = "manual") {
     try {
       await heartbeatJob(job.id, SCHEDULED_TASK_WORKER_ID, {
         leaseMs: SCHEDULED_TASK_LEASE_MS,
-        progress: "正在分发到期的定时任务",
+        progress: "Dispatching due scheduled tasks",
       });
       const result = await dispatchDueScheduledTasks(reason);
       await completeJob(job.id, SCHEDULED_TASK_WORKER_ID, result);

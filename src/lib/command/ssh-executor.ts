@@ -29,7 +29,7 @@ export function appendBoundedOutput(current: string, chunk: unknown, limitBytes:
   if (Buffer.byteLength(current, "utf8") >= limitBytes) return current;
   const next = Buffer.concat([Buffer.from(current), Buffer.from(String(chunk))]);
   if (next.byteLength <= limitBytes) return next.toString("utf8");
-  return `${next.subarray(0, limitBytes).toString("utf8")}\n[输出已截断，超过 ${limitBytes} 字节限制]`;
+  return `${next.subarray(0, limitBytes).toString("utf8")}\n[output truncated, exceeded ${limitBytes} bytes limit]`;
 }
 
 function registerCommandChild(targetId: string | undefined, child: ChildProcess) {
@@ -71,7 +71,7 @@ export function runSshCommandProcess(input: SshCommandInput): Promise<SshExecuti
     let timedOut = false;
     const timeout = setTimeout(() => {
       timedOut = true;
-      stderr = appendBoundedOutput(stderr, `\n命令执行超过 ${timeoutMs}ms，已终止。`, outputLimitBytes);
+      stderr = appendBoundedOutput(stderr, `\nCommand execution exceeded ${timeoutMs}ms, terminated.`, outputLimitBytes);
       child.kill("SIGTERM");
     }, timeoutMs);
 
@@ -93,7 +93,7 @@ export function runSshCommandProcess(input: SshCommandInput): Promise<SshExecuti
       ) {
         reject(
           new Error(
-            "密码连接需要 sshpass 工具，但系统未安装 sshpass。请安装 sshpass 或改用 SSH 密钥连接。",
+            "Password connection requires the sshpass tool, but sshpass is not installed on the system. Please install sshpass or switch to SSH key connection.",
           ),
         );
         return;
@@ -106,7 +106,7 @@ export function runSshCommandProcess(input: SshCommandInput): Promise<SshExecuti
       const cancelled = targetId ? cancelledCommandTargets.delete(targetId) : false;
       resolve({
         stdout,
-        stderr: cancelled ? appendBoundedOutput(stderr, "\n命令已被取消，SSH 子进程已终止。", outputLimitBytes) : stderr,
+        stderr: cancelled ? appendBoundedOutput(stderr, "\nCommand has been cancelled; SSH subprocess terminated.", outputLimitBytes) : stderr,
         exitCode: cancelled ? 130 : timedOut ? 124 : (code ?? 255),
         timedOut,
         cancelled,

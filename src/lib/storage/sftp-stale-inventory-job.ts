@@ -104,7 +104,7 @@ async function scanOneNode(input: {
       basePath: input.node.basePath,
       scanned: 0,
       stale: 0,
-      errors: [`节点健康状态为 UNHEALTHY, 跳过: ${input.node.lastHealthError ?? "未知"}`],
+      errors: [`Node health status is UNHEALTHY, skipped: ${input.node.lastHealthError ?? "unknown"}`],
       durationMs: 0,
       dryRun: input.dryRun ?? false,
     };
@@ -131,8 +131,8 @@ async function executeStaleInventoryJob(job: {
   await heartbeatJob(job.id, SFTP_STALE_INVENTORY_WORKER_ID, {
     leaseMs: SFTP_STALE_INVENTORY_LEASE_MS,
     progress: payload.nodeId
-      ? `正在扫描节点 ${payload.nodeId}`
-      : "正在扫描所有 SFTP 节点",
+      ? `Scanning node ${payload.nodeId}`
+      : "Scanning all SFTP nodes",
   });
 
   if (payload.nodeId) {
@@ -164,7 +164,7 @@ async function executeStaleInventoryJob(job: {
   for (const node of nodes) {
     await heartbeatJob(job.id, SFTP_STALE_INVENTORY_WORKER_ID, {
       leaseMs: SFTP_STALE_INVENTORY_LEASE_MS,
-      progress: `正在扫描 ${node.name} (${nodes.indexOf(node) + 1}/${nodes.length})`,
+      progress: `Scanning ${node.name} (${nodes.indexOf(node) + 1}/${nodes.length})`,
     });
     const result = await scanOneNode({ node, maxDepth, dryRun });
     results.push(result);

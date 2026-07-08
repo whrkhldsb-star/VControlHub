@@ -69,6 +69,8 @@ export function ServerOverviewCard({
 }: ServerOverviewCardProps) {
   const { locale, t } = useI18n();
   const [expanded, setExpanded] = useState(false);
+  const closeDialog = useCallback(() => setExpanded(false), []);
+  const dialogRef = useDialogFocus<HTMLDivElement>({ open: expanded, onClose: closeDialog });
   const [diagnosticRun, setDiagnosticRun] = useState<DiagnosticRunState>({ status: "idle" });
   const directLabel = server.directGateway?.statusLabel ?? t("serverOverviewCard.websiteRelay");
   const detailsId = `server-details-${server.id}`;
@@ -206,7 +208,7 @@ export function ServerOverviewCard({
         </div>
         <span
           role="status"
-          aria-label={`Node realtime status: ${listHealthLabel}`}
+          aria-label={t("serverOverviewCard.realtimeStatusAria").replace("{status}", listHealthLabel)}
           title={listHealthDescription}
           className={`shrink-0 rounded-full border px-2 py-0.5 text-[10px] font-medium ${listHealthToneClass}`}
         >
@@ -261,6 +263,7 @@ export function ServerOverviewCard({
       {expanded ? (
         <div className="fixed inset-0 z-40 flex items-start justify-center overflow-y-auto bg-black/55 px-3 py-6 backdrop-blur-sm sm:px-6" onClick={() => setExpanded(false)}>
           <div
+            ref={dialogRef}
             role="dialog"
             aria-modal="true"
             aria-labelledby={`${detailsId}-title`}
@@ -269,7 +272,7 @@ export function ServerOverviewCard({
           >
             <div className="mb-3 flex items-center justify-between gap-3 border-b border-[var(--border)] pb-3">
               <div className="min-w-0">
-                <p className="text-[11px] uppercase tracking-[0.22em] text-[var(--text-muted)]">VPS Detail</p>
+                <p className="text-[11px] uppercase tracking-[0.22em] text-[var(--text-muted)]">{t("serverOverviewCard.eyebrow")}</p>
                 <h3 id={`${detailsId}-title`} className="truncate text-base font-semibold text-[var(--text-primary)]">
                   {server.name}
                 </h3>

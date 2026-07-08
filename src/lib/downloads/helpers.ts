@@ -119,10 +119,10 @@ export function buildProgressText(st: Aria2Status): string {
   return `${pct}% · ${speed} · ${completed}/${total}${name ? ` · ${name}` : ""}`;
  }
  if (st.status === "complete") {
-  return `完成 · ${total}${name ? ` · ${name}` : ""}`;
+  return `Completed · ${total}${name ? ` · ${name}` : ""}`;
  }
  if (st.status === "error") {
-  return `失败 · ${completed}/${total}`;
+  return `Failed · ${completed}/${total}`;
  }
  return `${pct}% · ${completed}/${total}`;
 }

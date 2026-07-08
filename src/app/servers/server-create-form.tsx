@@ -37,6 +37,7 @@ function ConnectionTypeFields({
             <button
               key={type}
               type="button"
+              aria-pressed={connectionType === type}
               onClick={() => setConnectionType(type)}
               className={`flex-1 rounded-lg border px-3.5 py-2 text-sm transition ${connectionType === type ? "border-[var(--color-action-border)]/20 bg-[var(--color-action-bg)]/[0.10] text-[var(--text-primary)] font-medium" : "border-[var(--border)] bg-[var(--surface)]/[0.04] text-[var(--text-secondary)] hover:bg-[var(--surface)]/[0.10]"}`}
             >

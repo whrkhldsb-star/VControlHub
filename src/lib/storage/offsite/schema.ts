@@ -40,22 +40,22 @@ export type OffsiteConfig = z.infer<typeof OffsiteConfigSchema>;
 export function validateOffsiteConfigForUse(config: OffsiteConfig): string[] {
 	const issues: string[] = [];
 	if (!config.enabled) return issues; // not an issue, caller can short-circuit
-	if (!config.endpoint.trim()) issues.push("endpoint 未配置");
-	if (!config.region.trim()) issues.push("region 未配置");
-	if (!config.bucket.trim()) issues.push("bucket 未配置");
-	if (!config.accessKeyId.trim()) issues.push("accessKeyId 未配置");
-	if (!config.secretAccessKey.trim()) issues.push("secretAccessKey 未配置");
+	if (!config.endpoint.trim()) issues.push("Endpoint not configured");
+	if (!config.region.trim()) issues.push("Region not configured");
+	if (!config.bucket.trim()) issues.push("Bucket not configured");
+	if (!config.accessKeyId.trim()) issues.push("AccessKeyId not configured");
+	if (!config.secretAccessKey.trim()) issues.push("SecretAccessKey not configured");
 	if (config.dailyWindowHour < 0 || config.dailyWindowHour > 23) {
-		issues.push("dailyWindowHour 必须在 0 到 23 之间");
+		issues.push("dailyWindowHour must be between 0 and 23");
 	}
 	if (config.retentionDays < 1) {
-		issues.push("retentionDays 必须 >= 1");
+		issues.push("retentionDays must be >= 1");
 	}
 	if (
 		config.failureAlertRecipient.trim() &&
 		!/^.+@.+\..+$/.test(config.failureAlertRecipient.trim())
 	) {
-		issues.push("failureAlertRecipient 不是合法邮箱");
+		issues.push("failureAlertRecipient is not a valid email address");
 	}
 	return issues;
 }

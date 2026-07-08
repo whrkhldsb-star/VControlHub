@@ -1,7 +1,7 @@
 import { ValidationError } from "@/lib/errors";
 
-const PRIVATE_DIRECT_ACCESS_HOST_MESSAGE = "直连基础 URL 必须使用公网 HTTP(S) 地址，不能包含凭据、localhost、内网、回环或链路本地地址";
-const PUBLIC_HTTP_URL_MESSAGE = "URL 必须使用公网 HTTP(S) 地址，不能包含凭据、localhost、内网、回环、链路本地或 metadata 地址";
+const PRIVATE_DIRECT_ACCESS_HOST_MESSAGE = "Direct access base URL must use a public HTTP(S) address and must not contain credentials, localhost, intranet, loopback, or link-local addresses";
+const PUBLIC_HTTP_URL_MESSAGE = "URL must use a public HTTP(S) address and must not contain credentials, localhost, intranet, loopback, link-local, or metadata addresses";
 
 function isIpv4PrivateOrSpecial(hostname: string) {
   const parts = hostname.split(".").map((part) => Number(part));

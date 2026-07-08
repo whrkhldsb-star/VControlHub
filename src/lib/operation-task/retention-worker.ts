@@ -67,7 +67,7 @@ async function enqueueOperationTaskRetentionJob(reason: string) {
   if (await hasActiveRetentionJob()) return null;
   return enqueueJob({
     type: OPERATION_TASK_RETENTION_JOB_TYPE,
-    title: "操作任务跨来源保留策略裁剪",
+    title: "Operation task cross-source retention policy pruning",
     payload: { reason, requestedAt: new Date().toISOString() },
     priority: -5, // 比 alert.evaluate (-10) 略低, 业务不阻塞
     maxAttempts: 2, // 失败重试一次即可, 6h 后下次 tick 自然再跑
@@ -94,7 +94,7 @@ export async function runOperationTaskRetentionJobWorkerOnce(reason = "manual") 
     try {
       await heartbeatJob(job.id, OPERATION_TASK_RETENTION_WORKER_ID, {
         leaseMs: OPERATION_TASK_RETENTION_LEASE_MS,
-        progress: "正在跨来源裁剪历史记录",
+        progress: "Pruning historical records across sources",
       });
       const result = await pruneOperationTaskHistory();
       await completeJob(job.id, OPERATION_TASK_RETENTION_WORKER_ID, {
@@ -106,7 +106,7 @@ export async function runOperationTaskRetentionJobWorkerOnce(reason = "manual") 
       });
       return true;
     } catch (error) {
-      const message = error instanceof Error ? error.message : "操作任务保留裁剪失败";
+      const message = error instanceof Error ? error.message : "Operation task retention pruning failed";
       await failJob(job.id, OPERATION_TASK_RETENTION_WORKER_ID, message.slice(0, 2000), {
         retryAfterMs: 60 * 60 * 1000, // 1h 后重试
       });

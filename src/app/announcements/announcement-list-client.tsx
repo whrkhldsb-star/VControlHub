@@ -4,6 +4,7 @@ import { memo, useCallback, useState, useMemo } from "react";
 import { csrfFetch } from "@/lib/auth/csrf-client";
 import { useToast } from "@/components/toast-provider";
 import { useI18n } from "@/lib/i18n/use-locale";
+import { useDialogFocus } from "@/lib/a11y/use-dialog-focus";
 import { formatDate, formatDateTime } from "@/lib/datetime/format";
 import { AnnouncementEditModal } from "./announcement-edit-modal";
 import { Pencil, Trash2, Search } from "@/components/icons";
@@ -82,6 +83,7 @@ export function AnnouncementList({
   const [items, setItems] = useState(initial);
   const [editing, setEditing] = useState<Announcement | null>(null);
   const [pendingDelete, setPendingDelete] = useState<Announcement | null>(null);
+  const dialogRef = useDialogFocus<HTMLDivElement>({ open: pendingDelete !== null, onClose: () => setPendingDelete(null) });
   const [deleteError, setDeleteError] = useState<string | null>(null);
   const [deleteBusy, setDeleteBusy] = useState(false);
   const [search, setSearch] = useState("");
@@ -184,7 +186,7 @@ export function AnnouncementList({
 
       {pendingDelete && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-[var(--surface)]/70 p-4 backdrop-blur-sm" role="presentation">
-          <div role="dialog" aria-modal="true" aria-labelledby="delete-announcement-title" className="w-full max-w-md rounded-2xl border border-[var(--border)] bg-[var(--modal-bg)] p-5 shadow-2xl shadow-black/30">
+          <div ref={dialogRef} role="dialog" aria-modal="true" aria-labelledby="delete-announcement-title" className="w-full max-w-md rounded-2xl border border-[var(--border)] bg-[var(--modal-bg)] p-5 shadow-2xl shadow-black/30">
             <h3 id="delete-announcement-title" className="text-base font-semibold text-[var(--text-primary)]">{t("announcementsPage.delete.title")}</h3>
             <p className="mt-2 text-sm leading-6 text-[var(--text-muted)]">{t("announcementsPage.delete.confirm").replace("{title}", pendingDelete.title)}</p>
             {deleteError && <p role="alert" className="mt-3 text-xs text-[var(--danger)]">{deleteError}</p>}

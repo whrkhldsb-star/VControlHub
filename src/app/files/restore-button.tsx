@@ -13,7 +13,6 @@ export function RestoreButton({
 	onRefresh,
 }: {
  fileEntryId: string;
- entryName: string;
  onRefresh?: () => void;
 }) {
  const router = useRouter();

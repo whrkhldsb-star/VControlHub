@@ -209,7 +209,7 @@ export async function createRemoteDirectory(input: SshConnectionParams & { remot
             result.stdout ||
             (sftpError instanceof Error
               ? sftpError.message
-              : "远端目录创建失败"),
+              : "Remote directory creation failed"),
         );
       }
     }
@@ -246,7 +246,7 @@ export async function deleteRemoteFile(input: SshConnectionParams & { remotePath
               });
             } else {
               // Non-empty directory — reject with helpful error
-              reject(new Error("目录非空，无法删除。请先删除目录中的所有文件。"));
+              reject(new Error("Directory is not empty and cannot be deleted. Please delete all files in the directory first."));
             }
           });
         } else {

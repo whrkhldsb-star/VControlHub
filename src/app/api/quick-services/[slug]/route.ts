@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
+import { auditUserAction } from "@/lib/audit/service";
 import { enqueueQuickServiceJob } from "@/lib/quick-service/job-worker";
 import { withApiRoute } from "@/lib/http/api-guard";
 import { GENERAL_WRITE_LIMIT } from "@/lib/http/rate-limit-presets";
@@ -25,7 +26,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ sl
 			jobId: job.id,
 			taskId,
 			status: job.status,
-			message: reused ? "The service already has a lifecycle task in progress, returning the existing task。" : "QuickService operationalreadyaddedbackgroundtask，you can check progress in the task center。",
+			message: reused ? "The service already has a lifecycle task in progress, returning the existing task." : "Quick service operation already added as a background task, you can check progress in the task center.",
 		}, { status: 202 });
 	});
 }
@@ -35,10 +36,11 @@ export async function DELETE(request: Request, { params }: { params: Promise<{ s
 		const { slug } = await params;
 		const deleteVolumes = body?.deleteVolumes === true;
 		const { job, taskId, reused } = await enqueueQuickServiceJob({
-			title: `Uninstall quick service：${slug}`,
+			title: `Uninstall quick service: ${slug}`,
 			createdBy: session?.userId ?? null,
 			payload: { action: "uninstall", slug, deleteVolumes },
 		});
+		auditUserAction(session!.userId, "quick_service.uninstall", { slug });
 		return NextResponse.json({
 			success: true,
 			queued: true,
@@ -47,7 +49,7 @@ export async function DELETE(request: Request, { params }: { params: Promise<{ s
 			taskId,
 			status: job.status,
 			deleteVolumes,
-			message: reused ? "The service already has a lifecycle task in progress, returning the existing task。" : "Quick service uninstall has been added as a background task，you can check progress in the task center。",
+			message: reused ? "The service already has a lifecycle task in progress, returning the existing task." : "Quick service uninstall has been added as a background task, you can check progress in the task center.",
 		}, { status: 202 });
 	});
 }

@@ -119,7 +119,7 @@ export async function enqueueDownloadExecutionJob(input: {
   const mode = input.mode;
   return enqueueJob({
     type: DOWNLOAD_EXECUTION_JOB_TYPE,
-    title: mode === "aria2_relay" ? `中转下载 ${taskId}` : `直连下载 ${taskId}`,
+    title: mode === "aria2_relay" ? `Relay download ${taskId}` : `Direct download ${taskId}`,
     payload: {
       mode,
       taskId,
@@ -179,7 +179,7 @@ async function handleClaimedJob(
     payload = parseDownloadExecutionJobPayload(job.payload);
   } catch (parseError) {
     const message =
-      parseError instanceof Error ? parseError.message : "download.execute 任务 payload 解析失败";
+      parseError instanceof Error ? parseError.message : "download.execute task payload parsing failed";
     await failJob(job.id, DOWNLOAD_EXECUTION_WORKER_ID, message.slice(0, 2000));
     logger.error("Download execution job payload invalid", { jobId: job.id, error: message });
     return true;
@@ -190,24 +190,24 @@ async function handleClaimedJob(
       leaseMs: DOWNLOAD_EXECUTION_LEASE_MS,
       progress:
         payload.mode === "aria2_relay"
-          ? `准备 aria2 中转下载 ${payload.taskId}`
-          : `准备直连下载 ${payload.taskId}`,
+          ? `Preparing aria2 relay download ${payload.taskId}`
+          : `Preparing direct download ${payload.taskId}`,
     });
 
     const task = await loadTaskRow(payload.taskId);
     if (!task) {
-      await failJob(job.id, DOWNLOAD_EXECUTION_WORKER_ID, `下载任务 ${payload.taskId} 不存在`);
+      await failJob(job.id, DOWNLOAD_EXECUTION_WORKER_ID, `Download task ${payload.taskId} does not exist`);
       return true;
     }
     if (!task.server) {
-      await failJob(job.id, DOWNLOAD_EXECUTION_WORKER_ID, `下载任务 ${payload.taskId} 缺少 VPS 节点`);
+      await failJob(job.id, DOWNLOAD_EXECUTION_WORKER_ID, `Download task ${payload.taskId} is missing a VPS node`);
       return true;
     }
     if (!task.server.storageNode) {
       await failJob(
         job.id,
         DOWNLOAD_EXECUTION_WORKER_ID,
-        `下载任务 ${payload.taskId} 的 VPS 未绑定存储节点`,
+        `The VPS for download task ${payload.taskId} is not bound to a storage node`,
       );
       return true;
     }

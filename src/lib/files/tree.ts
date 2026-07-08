@@ -86,7 +86,7 @@ export function buildFileTree(
 	groupByNode = false,
 	nodes: Array<{ id: string; name: string; driver: string }> = [],
 ) {
-	const root = createNode("全部文件", "");
+	const root = createNode("All files", "");
 
 	const ensureFolder = (targetPath: string, source?: { id: string; label: string }) => {
 		const segments = splitFilePath(targetPath);
@@ -111,7 +111,7 @@ export function buildFileTree(
 			if (!nodeGroupMap.has(node.id)) {
 				nodeGroupMap.set(node.id, {
 					groupKey: getStorageNodeGroupKey(node),
-					groupLabel: `${node.name}（${node.driver}）`,
+					groupLabel: `${node.name} (${node.driver})`,
 				});
 			}
 		}
@@ -121,7 +121,7 @@ export function buildFileTree(
 			if (!nodeGroupMap.has(nodeId)) {
 				nodeGroupMap.set(nodeId, {
 					groupKey: getStorageNodeGroupKey(entry.storageNode),
-					groupLabel: `${entry.storageNode.name}（${entry.storageNode.driver}）`,
+					groupLabel: `${entry.storageNode.name} (${entry.storageNode.driver})`,
 				});
 			}
 		}
@@ -131,7 +131,7 @@ export function buildFileTree(
 			if (!nodeGroupMap.has(nodeId)) {
 				nodeGroupMap.set(nodeId, {
 					groupKey: getStorageNodeGroupKey({ id: directory.storageNodeId, name: directory.storageNodeName }),
-					groupLabel: `${directory.storageNodeName}（${directory.storageNodeDriver}）`,
+					groupLabel: `${directory.storageNodeName} (${directory.storageNodeDriver})`,
 				});
 			}
 		}
@@ -145,7 +145,7 @@ export function buildFileTree(
 			if (!group) continue;
 			const directoryNode = ensureFolder(`${group.groupKey}/${directory.path}`, {
 				id: directory.storageNodeId,
-				label: `${directory.storageNodeName}（${directory.storageNodeDriver}）`,
+				label: `${directory.storageNodeName} (${directory.storageNodeDriver})`,
 			});
 			directoryNode.storageNodeId = directory.storageNodeId;
 			directoryNode.relativePath = directory.path;
@@ -157,7 +157,7 @@ export function buildFileTree(
 
 			const group = nodeGroupMap.get(entry.storageNode.id);
 			if (!group) continue;
-			const source = { id: entry.storageNode.id, label: `${entry.storageNode.name}（${entry.storageNode.driver}）` };
+			const source = { id: entry.storageNode.id, label: `${entry.storageNode.name} (${entry.storageNode.driver})` };
 
 			const nodeFolder = root.folders.get(group.groupKey);
 			if (!nodeFolder) continue;
@@ -189,7 +189,7 @@ export function buildFileTree(
 		for (const directory of directories) {
 			const directoryNode = ensureFolder(directory.path, {
 				id: directory.storageNodeId,
-				label: `${directory.storageNodeName}（${directory.storageNodeDriver}）`,
+				label: `${directory.storageNodeName} (${directory.storageNodeDriver})`,
 			});
 			directoryNode.storageNodeId = directory.storageNodeId;
 			directoryNode.relativePath = directory.path;
@@ -199,7 +199,7 @@ export function buildFileTree(
 			const segments = splitFilePath(entry.relativePath);
 			if (segments.length === 0) continue;
 
-			const source = { id: entry.storageNode.id, label: `${entry.storageNode.name}（${entry.storageNode.driver}）` };
+			const source = { id: entry.storageNode.id, label: `${entry.storageNode.name} (${entry.storageNode.driver})` };
 			let cursor = root;
 			const parentSegments = segments.slice(0, -1);
 

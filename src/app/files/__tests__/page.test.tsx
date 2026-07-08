@@ -263,16 +263,15 @@ vi.mock("./move-inline-form", () => ({
 }));
 
 vi.mock("./restore-button", () => ({
-  RestoreButton: (props: { fileEntryId: string; entryName: string }) => {
+  RestoreButton: (props: { fileEntryId: string }) => {
     return React.createElement(
       "button",
       {
         type: "submit",
         "data-testid": "restore-btn",
         "data-file-entry-id": props.fileEntryId,
-        "data-entry-name": props.entryName,
       },
-      "\u6062\u590D " + props.entryName,
+      "\u6062\u590D",
     );
   },
 }));
@@ -485,12 +484,12 @@ describe("FilesPage", () => {
     );
 
     expect(
-      screen.getByRole("button", { name: "折叠 香港媒体库（SFTP）" }),
+      screen.getByRole("button", { name: "折叠 香港媒体库 (SFTP)" }),
     ).toBeInTheDocument();
     expect(
       screen.getByRole("button", { name: "打开 releases" }),
     ).toBeInTheDocument();
-    expect(screen.getAllByText(/当前路径：全部节点：\/archives/)[0]).toBeInTheDocument();
+    expect(screen.getAllByText(/当前路径：全部节点: \/archives/)[0]).toBeInTheDocument();
     expect(
       screen.getAllByRole("button", { name: "打开" }).length,
     ).toBeGreaterThan(0);
@@ -539,7 +538,7 @@ describe("FilesPage", () => {
     render(await FilesPage({ searchParams: Promise.resolve({}) }));
 
     expect(
-      screen.getByRole("button", { name: "展开 香港媒体库（SFTP）" }),
+      screen.getByRole("button", { name: "展开 香港媒体库 (SFTP)" }),
     ).toBeInTheDocument();
     expect(
       screen.queryByRole("button", { name: "打开 archives" }),
@@ -653,7 +652,7 @@ describe("FilesPage", () => {
       expect(
         restoreBtns.some(
           (btn: HTMLElement) =>
-            btn.getAttribute("data-entry-name") === "old-file.txt",
+            btn.getAttribute("data-file-entry-id") === "del_1",
         ),
       ).toBe(true);
       expect(

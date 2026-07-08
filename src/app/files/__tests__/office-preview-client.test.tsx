@@ -10,7 +10,6 @@ describe("OfficePreviewClient", () => {
       <OfficePreviewClient
         href="/api/storage/sftp-download?nodeId=node_1&path=docs%2Freport.docx"
         name="report.docx"
-        driver="SFTP"
       />,
     );
 

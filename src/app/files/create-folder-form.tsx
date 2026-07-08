@@ -97,7 +97,7 @@ export function CreateFolderForm({
           >
             {storageNodes.map((node) => (
               <option key={node.id} value={node.id}>
-                {node.name}（{node.driver}）
+                {node.name} ({node.driver})
               </option>
             ))}
           </select>

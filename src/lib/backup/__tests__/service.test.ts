@@ -16,10 +16,10 @@ vi.mock("@/lib/backup/command-runner", () => {
   };
   const backupCommandErrorMessage = (error: unknown) => {
     if (isMissingBackupBinaryError(error)) {
-      return "bash 未安装或不在 PATH，请联系管理员安装 bash 或修复 PATH 后重试。";
+      return "bash is not installed or not in PATH. Please ask the administrator to install bash or fix PATH and retry.";
     }
     if (error instanceof Error) return error.message;
-    return "备份执行失败";
+    return "Backup execution failed";
   };
   return {
     runBackupCommand: runBackupCommandMock,
@@ -164,7 +164,7 @@ describe("backup service", () => {
 
   it("rejects non-portable backup paths before resolving them", () => {
     for (const unsafe of ["/tmp/app.dump", "../app.dump", "backups/../app.dump", "backups//app.dump", "backups/app\\evil.dump", "", "."]) {
-      expect(() => resolveBackupPath("/opt/whrkhldsb", unsafe)).toThrow("备份路径必须是可移植的相对路径");
+      expect(() => resolveBackupPath("/opt/whrkhldsb", unsafe)).toThrow("Backup path must be a portable relative path");
     }
     expect(resolveBackupPath("/opt/whrkhldsb", "backups/app.dump")).toBe("/var/backups/vcontrolhub/backups/app.dump");
   });
@@ -185,19 +185,19 @@ describe("backup service", () => {
     mockPrisma.backupRecord.findUnique.mockResolvedValueOnce({ id: "bak-pending", type: "DATABASE", status: "PENDING", filePath: "backups/stale.sql.gz", errorMessage: null });
     mockPrisma.backupRecord.update.mockImplementation(async ({ data }: any) => ({ id: "bak-pending", ...data }));
 
-    const record = await voidBackupRecord({ id: "bak-pending", reason: "历史排队记录不再执行" });
+    const record = await voidBackupRecord({ id: "bak-pending", reason: "stale queued record" });
 
     expect(record.status).toBe("FAILED");
-    expect(record.errorMessage).toBe("已作废：历史排队记录不再执行");
-    expect(mockPrisma.backupRecord.update).toHaveBeenCalledWith({ where: { id: "bak-pending" }, data: { status: "FAILED", errorMessage: "已作废：历史排队记录不再执行" } });
+    expect(record.errorMessage).toMatch(/^Voided:/);
+    expect(mockPrisma.backupRecord.update).toHaveBeenCalledWith({ where: { id: "bak-pending" }, data: { status: "FAILED", errorMessage: "Voided: stale queued record" } });
   });
 
   it("refuses to void completed or running backup records", async () => {
     mockPrisma.backupRecord.findUnique.mockResolvedValueOnce({ id: "bak-completed", type: "DATABASE", status: "COMPLETED", filePath: "backups/db.sql.gz" });
-    await expect(voidBackupRecord({ id: "bak-completed", reason: "cleanup" })).rejects.toThrow("已完成备份不能作废");
+    await expect(voidBackupRecord({ id: "bak-completed", reason: "cleanup" })).rejects.toThrow("Completed backups cannot be voided");
 
     mockPrisma.backupRecord.findUnique.mockResolvedValueOnce({ id: "bak-running", type: "DATABASE", status: "RUNNING", filePath: "backups/db.sql.gz" });
-    await expect(voidBackupRecord({ id: "bak-running", reason: "cleanup" })).rejects.toThrow("运行中的备份不能作废");
+    await expect(voidBackupRecord({ id: "bak-running", reason: "cleanup" })).rejects.toThrow("Running backups cannot be voided");
   });
 
   it("prepares failed backup records for retry without deleting audit history", async () => {
@@ -213,16 +213,16 @@ describe("backup service", () => {
 
   it("refuses unsafe backup retry states and paths", async () => {
     mockPrisma.backupRecord.findUnique.mockResolvedValueOnce({ id: "bak-completed", type: "DATABASE", status: "COMPLETED", filePath: "backups/db.sql.gz" });
-    await expect(prepareBackupRecordRetry({ id: "bak-completed" })).rejects.toThrow("已完成备份不能重试");
+    await expect(prepareBackupRecordRetry({ id: "bak-completed" })).rejects.toThrow("Completed backups cannot be retried");
 
     mockPrisma.backupRecord.findUnique.mockResolvedValueOnce({ id: "bak-running", type: "DATABASE", status: "RUNNING", filePath: "backups/db.sql.gz" });
-    await expect(prepareBackupRecordRetry({ id: "bak-running" })).rejects.toThrow("运行中的备份不能重试");
+    await expect(prepareBackupRecordRetry({ id: "bak-running" })).rejects.toThrow("Running backups cannot be retried");
 
     mockPrisma.backupRecord.findUnique.mockResolvedValueOnce({ id: "bak-pending", type: "DATABASE", status: "PENDING", filePath: "backups/db.sql.gz" });
-    await expect(prepareBackupRecordRetry({ id: "bak-pending" })).rejects.toThrow("排队中的备份不能重复排队");
+    await expect(prepareBackupRecordRetry({ id: "bak-pending" })).rejects.toThrow("Pending backups cannot be re-queued");
 
     mockPrisma.backupRecord.findUnique.mockResolvedValueOnce({ id: "bak-bad-path", type: "DATABASE", status: "FAILED", filePath: "../db.sql.gz" });
-    await expect(prepareBackupRecordRetry({ id: "bak-bad-path" })).rejects.toThrow("备份路径必须是可移植的相对路径");
+    await expect(prepareBackupRecordRetry({ id: "bak-bad-path" })).rejects.toThrow("Backup path must be a portable relative path");
   });
 
   it("builds restore command from a portable backup path without auto-executing dangerous restore", () => {
@@ -275,14 +275,14 @@ describe("backup service", () => {
   });
 
   it("rejects restore before executing when confirmation, path, or status is unsafe", async () => {
-    await expect(restoreBackupRecord({ id: "bak1", confirm: "NOPE", projectRoot: "/opt/app" })).rejects.toThrow("恢复操作需要明确确认");
+    await expect(restoreBackupRecord({ id: "bak1", confirm: "NOPE", projectRoot: "/opt/app" })).rejects.toThrow("Restore operation requires explicit confirmation");
     expect(runBackupCommandMock).not.toHaveBeenCalled();
 
     mockPrisma.backupRecord.findUnique.mockResolvedValueOnce({ id: "bak3", type: "DATABASE", status: "FAILED", filePath: "backups/database.sql.gz" });
-    await expect(restoreBackupRecord({ id: "bak3", confirm: "RESTORE", projectRoot: "/opt/app" })).rejects.toThrow("只能恢复已完成的备份");
+    await expect(restoreBackupRecord({ id: "bak3", confirm: "RESTORE", projectRoot: "/opt/app" })).rejects.toThrow("Only completed backups can be restored");
 
     mockPrisma.backupRecord.findUnique.mockResolvedValueOnce({ id: "bak4", type: "DATABASE", status: "COMPLETED", filePath: "../database.sql.gz" });
-    await expect(restoreBackupRecord({ id: "bak4", confirm: "RESTORE", projectRoot: "/opt/app" })).rejects.toThrow("备份路径必须是可移植的相对路径");
+    await expect(restoreBackupRecord({ id: "bak4", confirm: "RESTORE", projectRoot: "/opt/app" })).rejects.toThrow("Backup path must be a portable relative path");
     expect(runBackupCommandMock).not.toHaveBeenCalled();
   });
 
@@ -308,16 +308,16 @@ describe("backup service", () => {
     expect(summary.failureSummary).toEqual([
       {
         category: "permission",
-        label: "权限或只读路径",
-        remediation: "优先确认 BACKUP_DIR 或 /var/backups/<slug> 是可写目录，并把旧的仓库内只读路径失败记录标记作废或重试到新的系统备份根。",
+        label: "Permission or read-only path",
+        remediation: "Verify that BACKUP_DIR or /var/backups/<slug> is a writable directory. Mark old read-only path failures as voided or retry with a new system backup root.",
         count: 2,
         latestMessage: "EACCES: permission denied",
         latestRecordPath: "backups/files-old.tar.gz",
       },
       {
         category: "missing",
-        label: "文件或目录不存在",
-        remediation: "确认备份脚本引用的源目录、restore 目标或历史 artifact 仍存在；对已不存在的旧 artifact 保留审计并标记作废。",
+        label: "File or directory not found",
+        remediation: "Confirm that source directories, restore targets, and historical artifacts referenced by the backup script still exist. Preserve audit trails for missing artifacts and mark them as voided.",
         count: 1,
         latestMessage: "No such file or directory",
         latestRecordPath: "backups/missing.sql.gz",
@@ -327,7 +327,7 @@ describe("backup service", () => {
   });
 
   it("formats backup sizes without rounding small artifacts down to 0 MB", () => {
-    expect(formatBackupSize(null)).toBe("待生成");
+    expect(formatBackupSize(null)).toBe("Pending");
     expect(formatBackupSize("512")).toBe("512 B");
     expect(formatBackupSize(1536)).toBe("1.5 KB");
     expect(formatBackupSize(2 * 1024 * 1024)).toBe("2.0 MB");

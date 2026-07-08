@@ -64,10 +64,17 @@ describe("SortIcon", () => {
 		expect(container.textContent).toBe("↓");
 	});
 
-	it("exposes a Chinese aria-label that names the column", () => {
+	it("exposes a translated aria-label that names the column", () => {
+		const { getByRole } = render(
+			<SortIcon col="size" label="大小" ariaLabel="按 大小 排序" sortKey="name" sortDir="asc" onToggle={onToggle} />,
+		);
+		expect(getByRole("button", { name: "按 大小 排序" })).toBeInTheDocument();
+	});
+
+	it("falls back to label when ariaLabel is omitted", () => {
 		const { getByRole } = render(
 			<SortIcon col="size" label="大小" sortKey="name" sortDir="asc" onToggle={onToggle} />,
 		);
-		expect(getByRole("button", { name: "Sort by 大小" })).toBeInTheDocument();
+		expect(getByRole("button", { name: "大小" })).toBeInTheDocument();
 	});
 });

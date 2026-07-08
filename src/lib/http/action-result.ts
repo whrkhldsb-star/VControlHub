@@ -81,32 +81,32 @@ export function toActionFailure(err: unknown): ActionFailure {
       const details: Record<string, string[]> = {};
       for (const issue of issues) {
         const path = Array.isArray(issue.path) ? issue.path.join(".") : "_";
-        const msg = typeof issue.message === "string" ? issue.message : "校验失败";
+        const msg = typeof issue.message === "string" ? issue.message : "Validation failed";
         details[path] = details[path] ?? [];
         details[path]!.push(msg);
       }
       return {
         ok: false,
         code: "VALIDATION_FAILED",
-        message: "输入校验失败",
+        message: "Input validation failed",
         details,
       };
     }
 
     const status = typeof anyErr.statusCode === "number" ? anyErr.statusCode : undefined;
-    if (status === 401) return { ok: false, code: "AUTH_REQUIRED", message: "未登录或会话已过期" };
-    if (status === 403) return { ok: false, code: "FORBIDDEN", message: "没有权限执行该操作" };
-    if (status === 404) return { ok: false, code: "NOT_FOUND", message: "资源不存在或已被删除" };
-    if (status === 409) return { ok: false, code: "CONFLICT", message: "资源状态冲突" };
+    if (status === 401) return { ok: false, code: "AUTH_REQUIRED", message: "Not logged in or session has expired" };
+    if (status === 403) return { ok: false, code: "FORBIDDEN", message: "No permission to perform this operation" };
+    if (status === 404) return { ok: false, code: "NOT_FOUND", message: "Resource does not exist or has been deleted" };
+    if (status === 409) return { ok: false, code: "CONFLICT", message: "Resource state conflict" };
     if (status === 429) {
-      return { ok: false, code: "RATE_LIMITED", message: "请求过于频繁，请稍后重试", retryable: true };
+      return { ok: false, code: "RATE_LIMITED", message: "Too many requests; please retry later", retryable: true };
     }
   }
 
   if (err instanceof Error) {
-    return { ok: false, code: "INTERNAL_ERROR", message: err.message || "操作失败" };
+    return { ok: false, code: "INTERNAL_ERROR", message: err.message || "Operation failed" };
   }
-  return { ok: false, code: "INTERNAL_ERROR", message: "操作失败" };
+  return { ok: false, code: "INTERNAL_ERROR", message: "Operation failed" };
 }
 
 /** 类型守卫 */

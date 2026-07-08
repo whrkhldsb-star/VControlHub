@@ -9,6 +9,8 @@ function normalizeActorTypeSearch(search: string): ActorType | null {
 
 
 import { prisma } from "@/lib/db";
+import { createLogger } from "@/lib/logging";
+const logger = createLogger("audit");
 
 // Prisma 7 Json type compatibility — must be JSON-serializable values only
 type PrismaJsonValue = string | number | boolean | null | { [key: string]: PrismaJsonValue } | PrismaJsonValue[];
@@ -206,7 +208,7 @@ export function auditUserAction(
  severity: AuditSeverity = "INFO",
 ): void {
 writeAuditLog({ actorType: "USER", actorId, action, severity, detail }).catch(
- () => {}, // audit failure must not block caller or pollute production logs
+ (err) => logger.warn("audit write failed", { action, actorId, error: err instanceof Error ? err.message : String(err) }),
 );
 }
 
@@ -217,6 +219,6 @@ export function auditSystemAction(
  severity: AuditSeverity = "INFO",
 ): void {
 writeAuditLog({ actorType: "SYSTEM", action, severity, detail }).catch(
- () => {}, // audit failure must not block caller or pollute production logs
+ (err) => logger.warn("audit write failed", { action, error: err instanceof Error ? err.message : String(err) }),
 );
 }

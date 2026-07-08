@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 
 import { requirePermission } from "@/lib/auth/authorization";
+import { auditUserAction } from "@/lib/audit/service";
 import {
   createServerProfile,
   createSshKey,
@@ -37,7 +38,7 @@ export async function createServerAction(
   _prevState: ServerActionState | null,
   formData: FormData,
 ) {
-  await requirePermission("server:write");
+  const session = await requirePermission("server:write");
   const tr = await serverActionTranslator();
 
   try {
@@ -82,6 +83,12 @@ export async function createServerAction(
       approvedHostKeySha256,
     });
 
+    auditUserAction(session.userId, "server.create", {
+      serverId: created.id,
+      name,
+      host,
+    });
+
     revalidatePath("/");
     revalidatePath("/servers");
     revalidatePath("/storage");
@@ -105,7 +112,7 @@ export async function updateServerAction(
   _prevState: ServerActionState | null,
   formData: FormData,
 ) {
-  await requirePermission("server:write");
+  const session = await requirePermission("server:write");
   const tr = await serverActionTranslator();
 
   try {
@@ -117,7 +124,7 @@ export async function updateServerAction(
     const sshKeyId = String(formData.get("sshKeyId") ?? "");
     const approvedHostKeySha256 = String(formData.get("approvedHostKeySha256") ?? "") || undefined;
 
-    await updateServerProfile(serverId, {
+    const changes = {
       name: String(formData.get("name") ?? ""),
       host: String(formData.get("host") ?? ""),
       port: Number(String(formData.get("port") ?? "22")),
@@ -134,6 +141,13 @@ export async function updateServerAction(
       costCurrency: String(formData.get("costCurrency") ?? "CNY") as "CNY" | "USD" | "EUR" | "JPY" | "HKD",
       costProvider: String(formData.get("costProvider") ?? ""),
       approvedHostKeySha256,
+    };
+
+    await updateServerProfile(serverId, changes);
+
+    auditUserAction(session.userId, "server.update", {
+      serverId,
+      fields: Object.keys(changes),
     });
 
     revalidatePath("/");
@@ -180,6 +194,10 @@ export async function createSshKeyAction(
       createdById: session.userId,
     });
 
+    auditUserAction(session.userId, "ssh_key.create", {
+      name: String(formData.get("name") ?? ""),
+    });
+
     revalidatePath("/");
     revalidatePath("/servers");
 
@@ -197,12 +215,17 @@ export async function toggleServerAction(
   _prevState: ServerActionState | null,
   formData: FormData,
 ) {
-  await requirePermission("server:write");
+  const session = await requirePermission("server:write");
   const tr = await serverActionTranslator();
 
   try {
     const serverId = String(formData.get("serverId") ?? "");
-    await toggleServerEnabled(serverId);
+    const updated = await toggleServerEnabled(serverId);
+    const newState = updated.enabled;
+    auditUserAction(session.userId, "server.toggle", {
+      serverId,
+      enabled: newState,
+    });
     revalidatePath("/");
     revalidatePath("/servers");
     return { success: tr("serversPage.action.toggleSuccess") } as ServerActionState;
@@ -284,7 +307,7 @@ export async function deleteServerAction(
   _prevState: ServerActionState | null,
   formData: FormData,
 ) {
-  await requirePermission("server:write");
+  const session = await requirePermission("server:write");
   const tr = await serverActionTranslator();
 
   try {
@@ -319,7 +342,12 @@ export async function deleteServerAction(
       } as ServerActionState;
     }
 
+    const serverName = current.name;
     await deleteServerProfile(serverId);
+    auditUserAction(session.userId, "server.delete", {
+      serverId,
+      name: serverName,
+    });
     revalidatePath("/");
     revalidatePath("/servers");
     revalidatePath("/storage");

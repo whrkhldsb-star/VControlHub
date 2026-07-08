@@ -65,7 +65,7 @@ export type DockerEnvironmentStatus = {
 
 export function getDockerEnvironmentStatus(): DockerEnvironmentStatus {
 	const DOCKER_INSTALL_HINT =
-		"快捷服务依赖 Docker。请先执行 curl -fsSL https://get.docker.com | sh，并确认 systemctl enable --now docker。";
+		"Quick services depend on Docker. Please run curl -fsSL https://get.docker.com | sh first, and confirm systemctl enable --now docker.";
 	try {
 		const version = execFileSync("docker", ["--version"], {
 			timeout: 5_000,
@@ -87,8 +87,8 @@ export function getDockerEnvironmentStatus(): DockerEnvironmentStatus {
 			running: false,
 			version: null,
 			message: notInstalled
-				? "Docker 未安装"
-				: "Docker 未运行或当前用户无权限访问 Docker daemon",
+				? "Docker is not installed"
+				: "Docker is not running or the current user has no permission to access the Docker daemon",
 			installHint: DOCKER_INSTALL_HINT,
 		};
 	}

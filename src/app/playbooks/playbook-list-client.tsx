@@ -5,6 +5,7 @@ import { csrfFetch } from "@/lib/auth/csrf-client";
 import { useI18n } from "@/lib/i18n/use-locale";
 import { useToast } from "@/components/toast-provider";
 import { EmptyState } from "@/components/page-shell";
+import { File as FileIcon } from "@/components/icons";
 import { statusLabelFor, dryRunStepCounts } from "./playbook-types";
 import type { SerializedPlaybook, RunSummary } from "./playbook-types";
 import { CreatePlaybookForm } from "./create-playbook-form";
@@ -124,7 +125,7 @@ export function PlaybookListClient({ playbooks: initial, runsByPlaybook: initial
       {showCreate && <CreatePlaybookForm onClose={() => { setShowCreate(false); void refresh(); }} />}
 
       {playbooks.length === 0 ? (
-        <EmptyState icon="🧩" variant="boxed">
+        <EmptyState icon={<FileIcon size={48} className="text-[var(--text-muted)]" />} variant="boxed">
           <p>{t("playbooksPage.empty")}</p>
           {canManage && !showCreate && (
             <button

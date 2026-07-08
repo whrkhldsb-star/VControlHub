@@ -145,24 +145,20 @@ export function getCurrentPathDisplay(t: (k: string) => string, path: string, no
     : segments.filter((segment) => !isNodeGroupSegment(segment));
   const remotePath = remotePathSegments.map((segment) => getDisplaySegment(segment, nodes)).join("/");
   const nodeLabel = selectedNode
-    ? `${selectedNode.name}（${selectedNode.driver}）`
+    ? `${selectedNode.name} (${selectedNode.driver})`
     : groupNode
-      ? `${groupNode.name}（${groupNode.driver}）`
+      ? `${groupNode.name} (${groupNode.driver})`
       : groupSegment
         ? getDisplaySegment(groupSegment, nodes)
         : t("filesBrowserSpa.allNodes");
   return {
     title: selectedNode?.name ?? groupNode?.name ?? (remotePath || t("filesBrowserSpa.allFiles")),
-    label: `${nodeLabel}：/${remotePath}`,
+    label: `${nodeLabel}: /${remotePath}`,
     uploadPathLabel: `/${remotePath}`,
   };
 }
 
-export function getNodeIcon(driver: string) {
-  return driver === "SFTP" ? "🖥" : "💾";
-}
-
 export function getNodeLabel(t: (k: string) => string, node?: NodeOption) {
   if (!node) return t("filesBrowserSpa.allNodes");
-  return `${node.name}（${node.driver}）`;
+  return `${node.name} (${node.driver})`;
 }

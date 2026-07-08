@@ -64,7 +64,7 @@ async function recoverOne(request: StaleRequest, now: Date): Promise<boolean> {
       },
       data: {
         status: "FAILED",
-        stderr: "后台 SSH 执行器可能因服务重启或进程退出而中断；已自动标记为失败，请重新提交或重试。",
+        stderr: "The background SSH executor may have been interrupted by a service restart or process exit; it has been automatically marked as failed. Please resubmit or retry.",
         exitCode: 255,
         finishedAt: now,
       },
@@ -74,13 +74,13 @@ async function recoverOne(request: StaleRequest, now: Date): Promise<boolean> {
       data: { status: "FAILED", workerId: null, workerHeartbeatAt: null },
     });
     const heartbeatDetail = request.workerHeartbeatAt
-      ? `，最后心跳 ${request.workerHeartbeatAt.toISOString()}`
-      : "，无 worker 心跳记录";
+      ? `, last heartbeat ${request.workerHeartbeatAt.toISOString()}`
+      : ", no worker heartbeat record";
     await prisma.executionLog.create({
       data: {
         commandRequestId: request.id,
         serverId: null,
-        summary: `检测到陈旧 RUNNING 命令：后台执行器 ${request.workerId ?? "未知"}${heartbeatDetail}，可能已随服务重启丢失；已自动恢复为 FAILED，避免任务中心长期卡住。`,
+        summary: `Stale RUNNING command detected: background executor ${request.workerId ?? "unknown"}${heartbeatDetail}, likely lost during service restart; automatically recovered to FAILED to avoid the task center being stuck long-term.`,
       },
     });
     return true;
@@ -93,13 +93,13 @@ async function recoverOne(request: StaleRequest, now: Date): Promise<boolean> {
     data: { status: nextStatus, workerId: null, workerHeartbeatAt: null },
   });
   const archiveHeartbeatDetail = request.workerHeartbeatAt
-    ? `，最后心跳 ${request.workerHeartbeatAt.toISOString()}`
-    : "，无 worker 心跳记录";
+    ? `, last heartbeat ${request.workerHeartbeatAt.toISOString()}`
+    : ", no worker heartbeat record";
   await prisma.executionLog.create({
     data: {
       commandRequestId: request.id,
       serverId: null,
-      summary: `检测到陈旧 RUNNING 命令：后台执行器 ${request.workerId ?? "未知"}${archiveHeartbeatDetail}；已根据目标状态自动归档为 ${nextStatus}。`,
+      summary: `Stale RUNNING command detected: background executor ${request.workerId ?? "unknown"}${archiveHeartbeatDetail}; automatically archived as ${nextStatus} based on target status.`,
     },
   });
   return true;
@@ -127,7 +127,7 @@ export async function recoverQueuedApprovedCommandRequests(limit = 20) {
       chunk.map((request) =>
         enqueueApprovedCommandExecution(
           request.id,
-          `检测到已批准但尚未进入运行态的命令：维护 worker ${COMMAND_WORKER_ID} 已重新认领并放入后台 SSH 执行队列。`,
+          `Approved but not-yet-running command detected: maintenance worker ${COMMAND_WORKER_ID} has re-claimed it and placed it in the background SSH execution queue.`,
         ),
       ),
     );

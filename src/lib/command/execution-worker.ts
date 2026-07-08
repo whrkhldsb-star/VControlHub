@@ -75,7 +75,7 @@ export async function enqueueCommandExecutionJob(input: {
   if (!commandRequestId) throw new Error("Command execution task missing commandRequestId");
   return enqueueJob({
     type: COMMAND_EXECUTION_JOB_TYPE,
-    title: `执行命令 ${commandRequestId}`,
+    title: `Execute command ${commandRequestId}`,
     payload: {
       commandRequestId,
       summary: input.summary,
@@ -103,7 +103,7 @@ async function handleClaimedJob(
   try {
     await heartbeatJob(job.id, COMMAND_EXECUTION_WORKER_ID, {
       leaseMs: COMMAND_EXECUTION_LEASE_MS,
-      progress: `正在派发命令请求 ${payload.commandRequestId}`,
+      progress: `Dispatching command request ${payload.commandRequestId}`,
     });
     const finalRequest = await executeAndFinalizeCommand(payload.commandRequestId);
     await completeJob(job.id, COMMAND_EXECUTION_WORKER_ID, {

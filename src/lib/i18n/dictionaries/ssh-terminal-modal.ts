@@ -79,6 +79,8 @@ export const zh: Record<string, string> = {
 	"sshFileManager.loading": "加载中…",
 	"sshFileManager.empty": "空目录",
 	"sshFileManager.confirmDelete": "确定删除 {name}？",
+	"sshFileManager.uploadFailed": "上传失败（{status}）",
+	"sshFileManager.networkError": "上传时网络错误",
 };
 
 export const en: Record<string, string> = {
@@ -148,4 +150,6 @@ export const en: Record<string, string> = {
 	"sshFileManager.loading": "Loading…",
 	"sshFileManager.empty": "Empty directory",
 	"sshFileManager.confirmDelete": "Delete {name}?",
+	"sshFileManager.uploadFailed": "Upload failed ({status})",
+	"sshFileManager.networkError": "Network error during upload",
 };

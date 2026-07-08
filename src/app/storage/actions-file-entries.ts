@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 
 import { writeAuditLog } from "@/lib/audit/service";
 import { requirePermission } from "@/lib/auth/authorization";
+import { assertStorageAccess } from "@/lib/storage/access-control";
 import { prisma } from "@/lib/db";
 import { serverT } from "@/lib/i18n/server-locale";
 import { restoreFileEntry } from "@/lib/storage/service";
@@ -15,7 +16,7 @@ export async function deleteFileEntryAction(
   _prev: StorageActionState | null,
   formData: FormData,
 ) {
-  await requirePermission("storage:delete");
+  const session = await requirePermission("storage:delete");
 
   const t = await serverT();
   try {
@@ -57,6 +58,16 @@ export async function deleteFileEntryAction(
 
     if (!entry) {
       return { error: t("storagePage.action.fileEntryNotFound") } satisfies StorageActionState;
+    }
+
+    const deleteAccess = await assertStorageAccess({
+      session,
+      storageNodeId: entry.storageNodeId,
+      relativePath: entry.relativePath,
+      operation: "delete",
+    });
+    if (!deleteAccess.allowed) {
+      return { error: deleteAccess.reason ?? t("storagePage.action.fileEntryNotFound") } satisfies StorageActionState;
     }
 
     if (entry.entryType === "DIRECTORY") {
@@ -128,7 +139,7 @@ export async function restoreFileEntryAction(
   _prev: StorageActionState | null,
   formData: FormData,
 ) {
-  await requirePermission("storage:delete");
+  const session = await requirePermission("storage:delete");
 
   const t = await serverT();
   try {
@@ -151,6 +162,16 @@ export async function restoreFileEntryAction(
 
     if (!entry) {
       return { error: t("storagePage.action.fileEntryNotFound") } satisfies StorageActionState;
+    }
+
+    const restoreAccess = await assertStorageAccess({
+      session,
+      storageNodeId: entry.storageNodeId,
+      relativePath: entry.relativePath,
+      operation: "delete",
+    });
+    if (!restoreAccess.allowed) {
+      return { error: restoreAccess.reason ?? t("storagePage.action.fileEntryNotFound") } satisfies StorageActionState;
     }
 
     await restoreFileEntry({ fileEntryId });
@@ -182,7 +203,7 @@ export async function permanentDeleteFileEntryAction(
   _prev: StorageActionState | null,
   formData: FormData,
 ) {
-  await requirePermission("storage:delete");
+  const session = await requirePermission("storage:delete");
 
   const t = await serverT();
   try {
@@ -224,6 +245,16 @@ export async function permanentDeleteFileEntryAction(
 
     if (!entry) {
       return { error: t("storagePage.action.fileEntryNotFound") } satisfies StorageActionState;
+    }
+
+    const permDeleteAccess = await assertStorageAccess({
+      session,
+      storageNodeId: entry.storageNodeId,
+      relativePath: entry.relativePath,
+      operation: "delete",
+    });
+    if (!permDeleteAccess.allowed) {
+      return { error: permDeleteAccess.reason ?? t("storagePage.action.fileEntryNotFound") } satisfies StorageActionState;
     }
 
     await deleteBackingObject({

@@ -62,7 +62,7 @@ export async function runExistingBackupRecord(input: { id: string; projectRoot?:
 	try {
 		outputPath = resolveBackupPath(projectRoot, record.filePath);
 	} catch (error) {
-		const message = error instanceof Error ? error.message : "备份路径无效";
+		const message = error instanceof Error ? error.message : "Invalid backup path";
 		return updateBackupRecordStatus(record.id, { status: "FAILED", errorMessage: message.slice(0, 2000) });
 	}
 	const args = record.type === "FILES" ? ["--files", outputPath] : record.type === "FULL" ? ["--full", outputPath] : [outputPath];

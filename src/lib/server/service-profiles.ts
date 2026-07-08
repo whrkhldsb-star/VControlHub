@@ -3,6 +3,7 @@ import { mkdir } from "node:fs/promises";
 
 import { prisma } from "@/lib/db";
 import { NotFoundError, ValidationError } from "@/lib/errors";
+import { serverT } from "@/lib/i18n/server-locale";
 import {
   buildSshParamsFromServer,
   createRemoteDirectory,
@@ -205,7 +206,8 @@ export async function updateServerProfile(
     where: { id: serverId },
     include: SERVER_PROFILE_INCLUDE,
   });
-  if (!current) throw new NotFoundError("VPS node not found or has been deleted");
+  const t = await serverT();
+  if (!current) throw new NotFoundError(t("backend.server.nodeNotFound"));
 
   const connectionType = input.connectionType ?? current.connectionType;
   const normalized = normalizeServerInput({
@@ -336,7 +338,8 @@ export async function toggleServerEnabled(serverId: string) {
     where: { id: serverId },
     select: { enabled: true },
   });
-  if (!current) throw new NotFoundError("VPS node not found or has been deleted");
+  const t = await serverT();
+  if (!current) throw new NotFoundError(t("backend.server.nodeNotFound"));
   return prisma.server.update({
     where: { id: serverId },
     data: { enabled: !current.enabled },
@@ -359,7 +362,8 @@ export async function deleteServerProfile(serverId: string) {
       },
     },
   });
-  if (!current) throw new NotFoundError("VPS node not found or has been deleted");
+  const t = await serverT();
+  if (!current) throw new NotFoundError(t("backend.server.nodeNotFound"));
   let cleanupSkipped = false;
   const shouldAttemptDirectGatewayCleanup =
     current.fileProxyPort &&

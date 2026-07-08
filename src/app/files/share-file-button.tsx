@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import { useI18n } from "@/lib/i18n/use-locale";
 import { csrfFetch } from "@/lib/auth/csrf-client";
+import { LinkIcon } from "@/components/icons";
 import type { StorageEntry } from "./file-entry-utils";
 
 type ShareFileButtonProps = {
@@ -81,7 +82,7 @@ export function ShareFileButton({
             : "inline-flex items-center gap-1.5 rounded-lg border border-[var(--success-border)] bg-[var(--success-bg)] px-2.5 py-1.5 text-xs text-[var(--success)] transition hover:bg-[var(--success-bg)] disabled:opacity-50"
         }
       >
-        <span aria-hidden="true">🔗</span>
+        <LinkIcon size={14} aria-hidden="true" />
         {variant === "menu" || !compact ? (
           <span>{saving ? t("sharesPage.button.submitting") : copied ? t("sharesPage.button.copied") : t("sharesPage.button.compact")}</span>
         ) : null}

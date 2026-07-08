@@ -11,6 +11,7 @@ import Image from "next/image";
 import type { Dispatch, SetStateAction } from "react";
 
 import { useI18n } from "@/lib/i18n/use-locale";
+import { Video, Music2, File } from "@/components/icons";
 import type { FileAttachment } from "./ai-types";
 
 type Props = {
@@ -77,11 +78,11 @@ export function AiAttachmentsPreview({
                   <div className="w-12 h-12 rounded border border-[var(--border)] bg-[var(--input-bg)] flex flex-col items-center justify-center">
                     {file.mimeType.startsWith("video/") ? (
                       <span className="text-base" title={t("aiPage.videoFileTitle")}>
-                        🎬
+                        <Video size={16} aria-hidden="true" />
                       </span>
                     ) : file.mimeType.startsWith("audio/") ? (
                       <span className="text-base" title={t("aiPage.audioFileTitle")}>
-                        🎵
+                        <Music2 size={16} aria-hidden="true" />
                       </span>
                     ) : file.mimeType === "application/pdf" ||
                       file.mimeType.includes("officedocument") ? (
@@ -89,7 +90,7 @@ export function AiAttachmentsPreview({
                         className="text-base"
                         title={t("aiPage.documentFileTitle")}
                       >
-                        📑
+                        <File size={16} aria-hidden="true" />
                       </span>
                     ) : (
                       <svg

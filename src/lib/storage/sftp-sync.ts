@@ -45,7 +45,7 @@ async function withDirectoryTimeout<T>(operation: Promise<T>, dirPath: string, t
       operation,
       new Promise<T>((_resolve, reject) => {
         timer = setTimeout(() => {
-          reject(new Error(`扫描 ${dirPath} 超过 ${Math.ceil(timeoutMs / 1000)} 秒，已停止本目录同步`));
+          reject(new Error(`Scanning ${dirPath} exceeded ${Math.ceil(timeoutMs / 1000)} seconds; stopped syncing this directory`));
         }, timeoutMs);
       }),
     ]);
@@ -166,8 +166,8 @@ export async function syncSftpDirectoryEntries(input: {
   try {
     credentials = resolveStorageSshCredentials(node);
   } catch (error) {
-    const msg = error instanceof Error ? error.message : "未知错误";
-    return { synced: 0, created: 0, updated: 0, deleted: 0, errors: [`连接凭据不可用：${msg}`] };
+    const msg = error instanceof Error ? error.message : "Unknown error";
+    return { synced: 0, created: 0, updated: 0, deleted: 0, errors: [`Connection credentials unavailable: ${msg}`] };
   }
 
   const basePath = normalizeRemotePath(node.basePath);
@@ -193,8 +193,8 @@ export async function syncSftpDirectoryEntries(input: {
         directoryTimeoutMs,
       );
     } catch (error) {
-      const msg = error instanceof Error ? error.message : "未知错误";
-      result.errors.push(`扫描 ${dirPath} 失败：${msg}`);
+      const msg = error instanceof Error ? error.message : "Unknown error";
+      result.errors.push(`Scanning ${dirPath} failed: ${msg}`);
       return;
     }
 
@@ -204,7 +204,7 @@ export async function syncSftpDirectoryEntries(input: {
       if (entry.type === "other") continue;
       const relativePath = computeRelativePath(basePath, dirPath, entry.name);
       if (!relativePath) {
-        result.errors.push(`跳过 basePath 外的条目：${dirPath}/${entry.name}`);
+        result.errors.push(`Skipped entry outside basePath: ${dirPath}/${entry.name}`);
         continue;
       }
 
@@ -214,8 +214,8 @@ export async function syncSftpDirectoryEntries(input: {
         const action = await upsertRemoteEntry(node.id, entry, relativePath);
         result[action] += 1;
       } catch (error) {
-        const msg = error instanceof Error ? error.message : "未知错误";
-        result.errors.push(`保存 ${relativePath} 失败：${msg}`);
+        const msg = error instanceof Error ? error.message : "Unknown error";
+        result.errors.push(`Saving ${relativePath} failed: ${msg}`);
       }
 
       if (recursive && entry.type === "directory" && currentDepth < maxDepth) {

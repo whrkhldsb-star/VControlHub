@@ -6,6 +6,7 @@ const { prismaMock } = vi.hoisted(() => ({
       findMany: vi.fn(),
       create: vi.fn(),
       findFirst: vi.fn(),
+      findUnique: vi.fn(),
       update: vi.fn(),
       updateMany: vi.fn(),
     },
@@ -34,8 +35,9 @@ describe("AI service list hydration limits", () => {
     prismaMock.aiProvider.findMany.mockResolvedValue([]);
     prismaMock.aiProvider.create.mockResolvedValue({ id: "p1" });
     prismaMock.aiProvider.findFirst.mockResolvedValue({ id: "p1" });
+    prismaMock.aiProvider.findUnique.mockResolvedValue({ id: "p1" });
     prismaMock.aiProvider.update.mockResolvedValue({ id: "p1" });
-    prismaMock.aiProvider.updateMany.mockResolvedValue({ count: 0 });
+    prismaMock.aiProvider.updateMany.mockResolvedValue({ count: 1 });
     prismaMock.aiConversation.findMany.mockResolvedValue([]);
   });
 
@@ -83,7 +85,7 @@ describe("AI service list hydration limits", () => {
       apiKey: "sk-test",
       baseUrl: "http://127.0.0.1:11434/v1",
       createdBy: "u1",
-    })).rejects.toThrow(/公网 HTTP\(S\)/);
+    })).rejects.toThrow(/public HTTP\(S\) address/);
 
     expect(prismaMock.aiProvider.create).not.toHaveBeenCalled();
   });
@@ -93,8 +95,8 @@ describe("AI service list hydration limits", () => {
       availableModels: [" claude-3 ", "claude-3", "", "claude-3.5"],
     });
 
-    expect(prismaMock.aiProvider.update).toHaveBeenCalledWith(expect.objectContaining({
-      where: { id: "p1" },
+    expect(prismaMock.aiProvider.updateMany).toHaveBeenCalledWith(expect.objectContaining({
+      where: { id: "p1", createdBy: "u1" },
       data: expect.objectContaining({
         availableModels: JSON.stringify(["claude-3", "claude-3.5"]),
       }),

@@ -17,6 +17,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { csrfFetch } from "@/lib/auth/csrf-client";
 import { useI18n } from "@/lib/i18n/use-locale";
+import { useDialogFocus } from "@/lib/a11y/use-dialog-focus";
 
 type InstallDialogItem = {
 	slug: string;
@@ -53,6 +54,7 @@ export function InstallDialog({
 	getPrimaryContainerPort,
 }: InstallDialogProps) {
 	const { t } = useI18n();
+	const dialogRef = useDialogFocus<HTMLDivElement>({ open: open !== null, onClose });
 	const [customPort, setCustomPort] = useState<string>("");
 	const [portCheck, setPortCheck] = useState<PortCheckState | null>(null);
 	const portCheckTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -140,6 +142,9 @@ export function InstallDialog({
 			onClick={onClose}
 		>
 			<div
+				ref={dialogRef}
+				role="dialog"
+				aria-modal="true"
 				className="w-full max-w-md mx-4 rounded-2xl border border-[var(--border)] bg-[var(--surface-root)] p-6 shadow-2xl"
 				onClick={(e) => e.stopPropagation()}
 			>

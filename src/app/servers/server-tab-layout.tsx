@@ -43,6 +43,7 @@ export function ServerTabLayout({
 							<button
 								key={action.key}
 								type="button"
+								aria-pressed={activePanel === action.key}
 								onClick={() => !disabled && setActivePanel(action.key)}
 								disabled={disabled}
 								className={`rounded-xl border px-4 py-3 text-left transition-colors duration-150 ${

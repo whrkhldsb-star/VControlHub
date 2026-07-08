@@ -192,7 +192,7 @@ async function handlePost(body: SftpOpsBody, session: SessionPayload) {
 
   if (node.driver !== "SFTP") {
     return NextResponse.json(
-      { error: "This Node is Not SFTP type" },
+      { error: "This node is not an SFTP storage node" },
       { status: 400 },
     );
   }

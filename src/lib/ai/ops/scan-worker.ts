@@ -82,7 +82,7 @@ async function enqueueScanJob(reason: string) {
 	if (await hasActiveScanJob()) return null;
 	return enqueueJob({
 		type: AI_OPS_SCAN_JOB_TYPE,
-		title: "AI 运维每日扫描",
+		title: "AI ops daily scan",
 		payload: { reason, requestedAt: new Date().toISOString() },
 		priority: -2, // Below user-triggered scans but above nightly snapshots
 		maxAttempts: 2,
@@ -158,8 +158,8 @@ async function collectSystemHealthSignals(): Promise<SystemHealthSignal[]> {
 		signals.push({
 			id: "alert.noise",
 			severity: "warning",
-			title: "告警规则偏多",
-			body: `当前已启用 ${alertCount} 条告警规则, 建议审视是否仍有冗余。`,
+			title: "Too many alert rules",
+			body: `Currently ${alertCount} alert rules are enabled; consider reviewing whether any are redundant.`,
 			source: "alert.rules",
 		});
 	}
@@ -167,8 +167,8 @@ async function collectSystemHealthSignals(): Promise<SystemHealthSignal[]> {
 		signals.push({
 			id: "command.failure-burst",
 			severity: "critical",
-			title: "命令执行失败聚集",
-			body: `近 24 小时有 ${recentFailures} 次非 0 退出, 可能存在脚本/凭据问题。`,
+			title: "Command execution failure burst",
+			body: `${recentFailures} non-zero exits in the last 24 hours; there may be script/credential issues.`,
 			source: "command.execution",
 		});
 	}
@@ -176,8 +176,8 @@ async function collectSystemHealthSignals(): Promise<SystemHealthSignal[]> {
 		signals.push({
 			id: "playbook.failure",
 			severity: "warning",
-			title: "Playbook 失败",
-			body: `近 24 小时 ${playbookFailures} 次 Playbook 失败, 建议检查。`,
+			title: "Playbook failures",
+			body: `${playbookFailures} Playbook failures in the last 24 hours; recommend investigating.`,
 			source: "playbook.run",
 		});
 	}
@@ -185,8 +185,8 @@ async function collectSystemHealthSignals(): Promise<SystemHealthSignal[]> {
 		signals.push({
 			id: "server.offline",
 			severity: "critical",
-			title: "服务器离线",
-			body: `${offlineServers} 台已启用服务器处于离线状态, 请检查网络或 SSH 连接。`,
+			title: "Servers offline",
+			body: `${offlineServers} enabled server(s) are offline; please check network or SSH connectivity.`,
 			source: "server.status",
 		});
 	}
@@ -194,8 +194,8 @@ async function collectSystemHealthSignals(): Promise<SystemHealthSignal[]> {
 		signals.push({
 			id: "backup.failure",
 			severity: "warning",
-			title: "备份失败",
-			body: `近 24 小时有 ${backupFailures} 次备份失败, 建议检查存储空间或凭据。`,
+			title: "Backup failures",
+			body: `${backupFailures} backup failures in the last 24 hours; recommend checking storage space or credentials.`,
 			source: "backup.records",
 		});
 	}
@@ -203,8 +203,8 @@ async function collectSystemHealthSignals(): Promise<SystemHealthSignal[]> {
 		signals.push({
 			id: "job.stale-accumulation",
 			severity: "info",
-			title: "陈旧任务堆积",
-			body: `${staleJobs} 条已完成任务超过 7 天未清理, 建议执行缓存清理。`,
+			title: "Stale job accumulation",
+			body: `${staleJobs} completed jobs have not been cleaned up for over 7 days; recommend running cache cleanup.`,
 			source: "job.queue",
 		});
 	}
@@ -233,8 +233,8 @@ async function collectSystemHealthSignals(): Promise<SystemHealthSignal[]> {
 			signals.push({
 				id: "resource.high-cpu",
 				severity: "warning",
-				title: "CPU 使用率过高",
-				body: `${highCpuCount} 台服务器 CPU 使用率超过 85%, 建议检查进程或扩容。`,
+				title: "CPU usage too high",
+				body: `${highCpuCount} server(s) have CPU usage above 85%; recommend checking processes or scaling up.`,
 				source: "metric.cpu",
 			});
 		}
@@ -242,8 +242,8 @@ async function collectSystemHealthSignals(): Promise<SystemHealthSignal[]> {
 			signals.push({
 				id: "resource.high-mem",
 				severity: "warning",
-				title: "内存使用率过高",
-				body: `${highMemCount} 台服务器内存使用率超过 90%, 可能影响服务稳定性。`,
+				title: "Memory usage too high",
+				body: `${highMemCount} server(s) have memory usage above 90%; this may affect service stability.`,
 				source: "metric.memory",
 			});
 		}
@@ -251,8 +251,8 @@ async function collectSystemHealthSignals(): Promise<SystemHealthSignal[]> {
 			signals.push({
 				id: "resource.high-disk",
 				severity: "critical",
-				title: "磁盘空间不足",
-				body: `${highDiskCount} 台服务器磁盘使用率超过 85%, 存在写满风险。`,
+				title: "Insufficient disk space",
+				body: `${highDiskCount} server(s) have disk usage above 85%; at risk of filling up.`,
 				source: "metric.disk",
 			});
 		}
@@ -287,7 +287,7 @@ function buildScan(
 				action: "alert.evaluate",
 				risk: "low" as const,
 				executed: false,
-				result: "等待自主执行器处理",
+				result: "Pending autonomous executor processing",
 			}));
 		return {
 			findings,
@@ -340,7 +340,7 @@ export async function runAiOpsScanWorkerOnce(reason = "manual"): Promise<boolean
 		try {
 			await heartbeatJob(job.id, AI_OPS_SCAN_WORKER_ID, {
 				leaseMs: AI_OPS_SCAN_LEASE_MS,
-				progress: "正在收集系统健康信号",
+				progress: "Collecting system health signals",
 			});
 
 			const mode = await readModeFromSettings();
@@ -419,7 +419,7 @@ export async function runAiOpsScanWorkerOnce(reason = "manual"): Promise<boolean
 			return true;
 		} catch (error) {
 			const message =
-				error instanceof Error ? error.message : "AI 运维扫描失败";
+				error instanceof Error ? error.message : "AI ops scan failed";
 			await failJob(job.id, AI_OPS_SCAN_WORKER_ID, message.slice(0, 2000), {
 				retryAfterMs: 60 * 60 * 1000, // 1h retry
 			});

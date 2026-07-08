@@ -33,9 +33,9 @@ export type SystemHealthReport = {
 
 const RUNTIME_DIRS = ["storage", "uploads", "downloads", "backups", "logs", "tmp"];
 const SERVICE_CHECKS = [
-	{ id: "next-service", label: "Next.js 服务", unit: "vcontrolhub-next.service" },
-	{ id: "ssh-ws-service", label: "SSH WebSocket 服务", unit: "vcontrolhub-ssh-ws.service" },
-	{ id: "caddy-service", label: "Caddy 反代服务", unit: "caddy.service" },
+	{ id: "next-service", label: "Next.js service", unit: "vcontrolhub-next.service" },
+	{ id: "ssh-ws-service", label: "SSH WebSocket service", unit: "vcontrolhub-ssh-ws.service" },
+	{ id: "caddy-service", label: "Caddy reverse proxy service", unit: "caddy.service" },
 ];
 const SECRET_PATTERNS = [/postgres:\/\/[^\s]+:[^\s]+@/gi, /(password|token|secret|private_key)=([^\s]+)/gi];
 
@@ -63,9 +63,9 @@ async function checkPathExists(projectRoot: string, dir: string): Promise<System
   const absolute = join(projectRoot, dir);
   try {
     await access(absolute);
-    return { id: `dir-${dir}`, label: `运行目录 ${dir}`, status: "healthy", message: "目录存在", detail: relative(projectRoot, absolute), params: { name: dir }, messageCode: "healthy" };
+    return { id: `dir-${dir}`, label: `Runtime directory ${dir}`, status: "healthy", message: "Directory exists", detail: relative(projectRoot, absolute), params: { name: dir }, messageCode: "healthy" };
   } catch {
-    return { id: `dir-${dir}`, label: `运行目录 ${dir}`, status: "warning", message: "目录不存在，部署脚本会自动创建", detail: dir, params: { name: dir }, messageCode: "warning" };
+    return { id: `dir-${dir}`, label: `Runtime directory ${dir}`, status: "warning", message: "Directory does not exist; deployment script will create it automatically", detail: dir, params: { name: dir }, messageCode: "warning" };
   }
 }
 
@@ -75,9 +75,9 @@ export async function collectSystemHealthChecks(options: { projectRoot?: string 
 
   try {
     await prisma.$queryRaw`SELECT 1`;
-    checks.push({ id: "database", label: "数据库连接", status: "healthy", message: "数据库可查询", messageCode: "healthy" });
+    checks.push({ id: "database", label: "Database connection", status: "healthy", message: "Database is queryable", messageCode: "healthy" });
   } catch (error) {
-    checks.push({ id: "database", label: "数据库连接", status: "critical", message: "数据库不可用", detail: sanitizeDetail(error instanceof Error ? error.message : String(error)), messageCode: "critical" });
+    checks.push({ id: "database", label: "Database connection", status: "critical", message: "Database is unavailable", detail: sanitizeDetail(error instanceof Error ? error.message : String(error)), messageCode: "critical" });
   }
 
   const [serverCount, storageNodeCount] = await Promise.all([
@@ -86,35 +86,35 @@ export async function collectSystemHealthChecks(options: { projectRoot?: string 
   ]);
   checks.push({
     id: "server-inventory",
-    label: "VPS 节点资产",
+    label: "VPS node inventory",
     status: serverCount >= 0 ? "healthy" : "warning",
-    message: serverCount >= 0 ? `已纳管 ${serverCount} 个 VPS 节点` : "无法读取 VPS 节点",
+    message: serverCount >= 0 ? `${serverCount} VPS nodes under management` : "Unable to read VPS nodes",
     params: serverCount >= 0 ? { count: serverCount } : undefined,
     messageCode: serverCount >= 0 ? "healthy" : "warning",
   });
   checks.push({
     id: "storage-inventory",
-    label: "云盘存储节点",
+    label: "Cloud drive storage nodes",
     status: storageNodeCount > 0 ? "healthy" : "warning",
-    message: storageNodeCount > 0 ? `已配置 ${storageNodeCount} 个存储节点` : "尚未配置存储节点",
+    message: storageNodeCount > 0 ? `${storageNodeCount} storage nodes configured` : "No storage nodes configured yet",
     params: storageNodeCount > 0 ? { count: storageNodeCount } : undefined,
     messageCode: storageNodeCount > 0 ? "healthy" : "warning",
   });
 
   const dirChecks = await Promise.all(RUNTIME_DIRS.map((dir) => checkPathExists(projectRoot, dir)));
   const dirOk = dirChecks.filter((c) => c.status === "healthy").length;
-  checks.push({ id: "runtime-directories", label: "运行目录基线", status: dirOk < dirChecks.length ? "warning" : "healthy", message: `${dirOk}/${dirChecks.length} 个运行目录可用`, params: { ok: dirOk, total: dirChecks.length }, messageCode: dirOk < dirChecks.length ? "warning" : "healthy" });
+  checks.push({ id: "runtime-directories", label: "Runtime directory baseline", status: dirOk < dirChecks.length ? "warning" : "healthy", message: `${dirOk}/${dirChecks.length} runtime directories available`, params: { ok: dirOk, total: dirChecks.length }, messageCode: dirOk < dirChecks.length ? "warning" : "healthy" });
   checks.push(...dirChecks);
 
   const serviceChecks = SERVICE_CHECKS.map((service): SystemHealthCheck => {
     const state = safeExecFile("systemctl", ["is-active", service.unit]);
     if (state === "active") {
-      return { id: service.id, label: service.label, status: "healthy" as const, message: `${service.unit} 正在运行`, params: { unit: service.unit }, messageCode: "running" };
+      return { id: service.id, label: service.label, status: "healthy" as const, message: `${service.unit} is running`, params: { unit: service.unit }, messageCode: "running" };
     }
     if (state) {
-      return { id: service.id, label: service.label, status: "critical" as const, message: `${service.unit} 当前状态为 ${state}`, params: { unit: service.unit, state }, messageCode: "state" };
+      return { id: service.id, label: service.label, status: "critical" as const, message: `${service.unit} current state is ${state}`, params: { unit: service.unit, state }, messageCode: "state" };
     }
-    return { id: service.id, label: service.label, status: "warning" as const, message: `${service.unit} 状态暂不可读`, params: { unit: service.unit }, messageCode: "unreadable" };
+    return { id: service.id, label: service.label, status: "warning" as const, message: `${service.unit} status temporarily unreadable`, params: { unit: service.unit }, messageCode: "unreadable" };
   });
   checks.push(...serviceChecks);
 
@@ -125,10 +125,10 @@ export async function collectSystemHealthChecks(options: { projectRoot?: string 
       return "critical";
     }
   })();
-  checks.push({ id: "env-database-url", label: "数据库环境变量", status: envState, message: envState === "healthy" ? "DATABASE_URL 已配置" : "DATABASE_URL 未配置或仍是占位符", messageCode: envState });
+  checks.push({ id: "env-database-url", label: "Database environment variable", status: envState, message: envState === "healthy" ? "DATABASE_URL is configured" : "DATABASE_URL is not configured or is still a placeholder", messageCode: envState });
 
   const settings = await prisma.setting.findMany({ where: { key: { startsWith: "notification." } }, take: 100 }).catch(() => []);
-  checks.push({ id: "notification-settings", label: "通知渠道配置", status: settings.length > 0 ? "healthy" : "warning", message: settings.length > 0 ? `已保存 ${settings.length} 项通知渠道配置` : "可在系统设置中配置通知渠道", params: settings.length > 0 ? { count: settings.length } : undefined, messageCode: settings.length > 0 ? "healthy" : "warning" });
+  checks.push({ id: "notification-settings", label: "Notification channel configuration", status: settings.length > 0 ? "healthy" : "warning", message: settings.length > 0 ? `${settings.length} notification channel configurations saved` : "Notification channels can be configured in system settings", params: settings.length > 0 ? { count: settings.length } : undefined, messageCode: settings.length > 0 ? "healthy" : "warning" });
 
   const gitHead = safeExecFile("git", ["-C", projectRoot, "rev-parse", "--short", "HEAD"]);
   const remoteLine = safeExecFile("git", ["-C", projectRoot, "ls-remote", "origin", "refs/heads/main"]);
@@ -137,13 +137,13 @@ export async function collectSystemHealthChecks(options: { projectRoot?: string 
     const gitHealthy = !gitRemoteHead || gitHead === gitRemoteHead;
     checks.push({
       id: "git-sync",
-      label: "GitHub 同步状态",
+      label: "GitHub sync status",
       status: gitHealthy ? "healthy" : "warning",
       message: gitRemoteHead
         ? gitHealthy
-          ? `本地提交 ${gitHead} 与 origin/main 一致`
-          : `本地 ${gitHead} 与 origin/main ${gitRemoteHead} 不一致`
-        : `当前提交 ${gitHead}，远端状态暂不可确认`,
+          ? `Local commit ${gitHead} matches origin/main`
+          : `Local ${gitHead} does not match origin/main ${gitRemoteHead}`
+        : `Current commit ${gitHead}; remote status cannot be confirmed`,
       params: gitRemoteHead
         ? gitHealthy
           ? { head: gitHead }
@@ -154,9 +154,9 @@ export async function collectSystemHealthChecks(options: { projectRoot?: string 
   } else {
     checks.push({
       id: "git-sync",
-      label: "GitHub 同步状态",
+      label: "GitHub sync status",
       status: "warning",
-      message: "当前目录不是可识别的 Git 仓库或无法读取 HEAD",
+      message: "Current directory is not a recognizable Git repository or HEAD cannot be read",
       messageCode: "no-git",
     });
   }

@@ -65,7 +65,7 @@ export async function uploadBackupToOffsite(input: {
 	try {
 		config = await loadOffsiteConfig();
 	} catch (err) {
-		return { ok: false, skipped: false, error: `配置加载失败: ${formatError(err)}`, code: "ConfigError" };
+		return { ok: false, skipped: false, error: `Configuration load failed: ${formatError(err)}`, code: "ConfigError" };
 	}
 	if (!config.enabled) {
 		return { ok: true, skipped: true, reason: "offsite_disabled" };
@@ -77,7 +77,7 @@ export async function uploadBackupToOffsite(input: {
 	// 2. 读 backup record
 	const record = await prisma.backupRecord.findUnique({ where: { id: input.backupId } });
 	if (!record) {
-		return { ok: false, skipped: false, error: `备份记录 ${input.backupId} 不存在`, code: "BackupNotFound" };
+		return { ok: false, skipped: false, error: `Backup record ${input.backupId} does not exist`, code: "BackupNotFound" };
 	}
 	if (record.status !== "COMPLETED") {
 		return { ok: true, skipped: true, reason: "backup_not_completed" };
@@ -87,7 +87,7 @@ export async function uploadBackupToOffsite(input: {
 	try {
 		fullPath = resolveBackupPath(projectRoot, record.filePath);
 	} catch (err) {
-		return { ok: false, skipped: false, error: `备份路径无效: ${formatError(err)}`, code: "InvalidPath" };
+		return { ok: false, skipped: false, error: `Invalid backup path: ${formatError(err)}`, code: "InvalidPath" };
 	}
 	let rawBuf: Buffer;
 	try {

@@ -6,6 +6,7 @@ import { csrfFetch } from "@/lib/auth/csrf-client";
 import { getRefreshIntervalLabel } from "@/lib/preferences/refresh-interval";
 import { useRefreshInterval } from "@/lib/preferences/use-refresh-interval";
 import { useI18n } from "@/lib/i18n/use-locale";
+import { toDateLocale } from "@/lib/i18n/locale-format";
 
 interface Stats {
   hostname: string;
@@ -42,10 +43,10 @@ function Row({ label, value }: { label: string; value: string }) {
 }
 
 /** Format an ISO timestamp into a readable local datetime; fall back to raw on parse failure. */
-function formatTimestamp(value: string): string {
+function formatTimestamp(value: string, locale?: "zh" | "en"): string {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return value;
-  return date.toLocaleString(undefined, {
+  return date.toLocaleString(locale ? toDateLocale(locale) : undefined, {
     year: "numeric",
     month: "2-digit",
     day: "2-digit",
@@ -57,7 +58,7 @@ function formatTimestamp(value: string): string {
 }
 
 export default function MonitoringPage({ canManage: _canManage }: { canManage: boolean }) {
-  const { t } = useI18n();
+  const { t, locale } = useI18n();
   const [stats, setStats] = useState<Stats | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -211,7 +212,7 @@ export default function MonitoringPage({ canManage: _canManage }: { canManage: b
         {sseConnected && autoRefresh && (
           <span className="inline-flex items-center gap-1 rounded-full bg-[var(--success-bg)] px-2 py-0.5 text-[10px] text-[var(--success)]">
             <span className="h-1.5 w-1.5 rounded-full bg-[var(--success)] animate-pulse" />
-            SSE
+            {t("monitoringPage.sseLabel")}
           </span>
         )}
       </div>
@@ -256,7 +257,7 @@ export default function MonitoringPage({ canManage: _canManage }: { canManage: b
           {stats.network.length > 0 ? stats.network.map((n) => (
             <div key={n.iface} className="py-1.5">
               <div className="font-mono text-xs text-[var(--text-primary)]">{n.iface}</div>
-              <div className="text-[10px] text-[var(--text-muted)]">↓ {n.rx} ↑ {n.tx}</div>
+              <div className="text-[10px] text-[var(--text-muted)]">↓ {t("monitoringPage.field.rx")} {n.rx} ↑ {t("monitoringPage.field.tx")} {n.tx}</div>
             </div>
           )) : <Row label={t("monitoringPage.field.noData")} value="-" />}
         </Card>
@@ -271,9 +272,9 @@ export default function MonitoringPage({ canManage: _canManage }: { canManage: b
           <table className="w-full text-xs">
             <thead>
               <tr className="border-b border-[var(--border)] text-[var(--text-muted)]">
-                <th className="py-2 text-left">PID</th>
-                <th className="py-2 text-right">CPU%</th>
-                <th className="py-2 text-right">MEM%</th>
+                <th className="py-2 text-left">{t("monitoringPage.table.pid")}</th>
+                <th className="py-2 text-right">{t("monitoringPage.table.cpu")}</th>
+                <th className="py-2 text-right">{t("monitoringPage.table.mem")}</th>
                 <th className="py-2 pl-4 text-left">{t("monitoringPage.table.command")}</th>
               </tr>
             </thead>
@@ -292,7 +293,7 @@ export default function MonitoringPage({ canManage: _canManage }: { canManage: b
       </Card>
 
       <p className="mt-4 text-[10px] text-[var(--text-muted)]">
-        {t("monitoringPage.lastUpdated").replace("{timestamp}", formatTimestamp(stats.timestamp))}
+        {t("monitoringPage.lastUpdated").replace("{timestamp}", formatTimestamp(stats.timestamp, locale))}
       </p>
     </PageShell>
   );

@@ -31,8 +31,9 @@ export async function GET(request: Request) {
   return withApiRoute(
     request,
     { permission: "share:read", errorMessage: "OperationFailed" },
-    async () => {
-      return NextResponse.json({ shares: await listShareLinks() });
+    async ({ session }) => {
+      if (!session) return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
+      return NextResponse.json({ shares: await listShareLinks(session.userId) });
     },
   );
 }
@@ -87,9 +88,10 @@ export async function DELETE(request: Request) {
       rateLimit: GENERAL_WRITE_LIMIT,
       errorMessage: "OperationFailed",
     },
-    async () => {
+    async ({ session }) => {
+      if (!session) return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
       const { id } = parseSearchParams(request, idQuerySchema);
-      return NextResponse.json({ share: await revokeShareLink(id) });
+      return NextResponse.json({ share: await revokeShareLink(id, session.userId) });
     },
   );
 }

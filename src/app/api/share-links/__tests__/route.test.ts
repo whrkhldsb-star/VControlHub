@@ -128,6 +128,6 @@ describe("/api/share-links", () => {
 
     expect(response.status).toBe(200);
     expect(requireApiPermissionMock).toHaveBeenCalledWith("share:manage");
-    expect(revokeShareLinkMock).toHaveBeenCalledWith("share_1");
+    expect(revokeShareLinkMock).toHaveBeenCalledWith("share_1", "u_1");
   });
 });

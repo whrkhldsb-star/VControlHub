@@ -2,6 +2,7 @@
 
 type TFunction = (key: string) => string;
 
+import { useI18n } from "@/lib/i18n/use-locale";
 import type { DirEntry, UploadProgress } from "./ssh-file-manager-parts";
 import { formatSshFileDate, formatSshFileSize } from "./ssh-file-manager-parts";
 
@@ -73,6 +74,7 @@ export function SshFileList({
   setSelectedEntry,
   t,
 }: ListProps) {
+  const { locale } = useI18n();
   return (
     <div
       className={`flex-1 overflow-y-auto rounded-xl border p-2 transition ${
@@ -103,7 +105,7 @@ export function SshFileList({
           {renameTarget !== entry.name && (
             <>
               <span className="shrink-0 text-[10px] text-[var(--text-muted)]">{entry.isFile ? formatSshFileSize(entry.size) : ""}</span>
-              <span className="hidden shrink-0 text-[10px] text-[var(--text-muted)] lg:block">{formatSshFileDate(entry.modifyTime)}</span>
+              <span className="hidden shrink-0 text-[10px] text-[var(--text-muted)] lg:block">{formatSshFileDate(entry.modifyTime, locale)}</span>
               {entry.isFile && <button onClick={(e) => { e.stopPropagation(); onDownload(entry); }} className="shrink-0 text-[var(--text-muted)] opacity-0 transition hover:text-[var(--color-action)] group-hover:opacity-100" aria-label={t("sshFileManager.download")} title={t("sshFileManager.download")}>⬇</button>}
               <button onClick={(e) => { e.stopPropagation(); setRenameTarget(entry.name); setRenameValue(entry.name); }} className="shrink-0 text-[var(--text-muted)] opacity-0 transition hover:text-[var(--color-action)] group-hover:opacity-100" aria-label={t("sshFileManager.rename")} title={t("sshFileManager.rename")}>✎</button>
               {entry.isFile && <button onClick={(e) => { e.stopPropagation(); onDelete(entry); }} className="shrink-0 text-[var(--text-muted)] opacity-0 transition hover:text-[var(--danger)] group-hover:opacity-100" aria-label={t("sshFileManager.delete")} title={t("sshFileManager.delete")}>🗑</button>}

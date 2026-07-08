@@ -19,6 +19,8 @@
 import { type ReactNode, type SyntheticEvent } from "react";
 
 import { useI18n } from "@/lib/i18n/use-locale";
+import { toDateLocale } from "@/lib/i18n/locale-format";
+import type { Locale } from "@/lib/i18n/translations";
 import type { RuntimeSettingSummaryDto as RuntimeSettingSummary } from "@/lib/runtime-settings/dto";
 import type { SettingUpdateMetadata } from "@/lib/settings/service";
 
@@ -38,12 +40,12 @@ import { TwoFactorSettingsLazy } from "./two-factor-settings-lazy";
 export function formatMetadataDate(
   value: Date | string | null,
   t: (key: string, locale?: string) => string,
-  locale: string = "zh",
+  locale: Locale = "zh",
 ) {
   if (!value) return t("settingsClient.metadataNoRecord");
   const date = value instanceof Date ? value : new Date(value);
   if (Number.isNaN(date.getTime())) return t("settingsClient.metadataNoRecord");
-  return date.toLocaleString(locale === "zh" ? "zh-CN" : "en-US", { hour12: false });
+  return date.toLocaleString(toDateLocale(locale), { hour12: false });
 }
 
 export function latestSectionMetadata(

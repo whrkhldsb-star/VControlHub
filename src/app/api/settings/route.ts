@@ -100,7 +100,7 @@ function normalizeSettingValue(key: string, value: string) {
 				.filter(Boolean);
 			const invalid = recipients.find((recipient) => !/^.+@.+\..+$/.test(recipient));
 			if (invalid) {
-				throw new Error(`Alert recipient addressInvalid format：${invalid}`);
+				throw new Error(`Alert recipient addressInvalid format: ${invalid}`);
 			}
 			return { key, value: recipients.join(",") };
 		}
@@ -124,7 +124,7 @@ function normalizeSettingValue(key: string, value: string) {
 			}
 			const invalid = tokens.find((token) => !/^-?\d+$/.test(token) && !/^@[A-Za-z0-9_]{4,}$/.test(token));
 			if (invalid) {
-				throw new Error(`Telegram Chat ID Invalid format：${invalid}（expected a number or @channelusername）`);
+				throw new Error(`Telegram Chat ID Invalid format: ${invalid} (expected a number or @channelusername)`);
 			}
 			return { key, value: tokens.join(",") };
 		}
@@ -183,7 +183,7 @@ export async function PATCH(request: Request) {
 					error: [
 						rejectedKeys.length > 0 ? `Not allowed configuration items: ${rejectedKeys.join(", ")}` : null,
 						...validationErrors,
-					].filter(Boolean).join("；"),
+					].filter(Boolean).join("; "),
 					rejectedKeys,
 					details: validationErrors,
 				},

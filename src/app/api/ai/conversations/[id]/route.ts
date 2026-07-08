@@ -10,6 +10,7 @@ import {
 import { updateConversationSchema } from "@/lib/ai/schema";
 import { withApiRoute } from "@/lib/http/api-guard";
 import { GENERAL_WRITE_LIMIT } from "@/lib/http/rate-limit-presets";
+import { NotFoundError } from "@/lib/errors";
 
 export const dynamic = "force-dynamic";
 
@@ -62,6 +63,7 @@ export async function PATCH(
       }
 
       const conv = await updateConversation(id, session.userId, body);
+      if (!conv) throw new NotFoundError("Conversation not found");
       return NextResponse.json({
         conversation: {
           ...conv,

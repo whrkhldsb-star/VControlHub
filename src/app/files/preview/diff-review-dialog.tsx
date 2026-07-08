@@ -29,8 +29,9 @@ export function DiffReviewDialog({
 }: DiffReviewDialogProps) {
 	const { t } = useI18n();
 	const busy = saveStatus === "saving" || saveStatus === "reloading";
+	const dialogRef = useDialogFocus<HTMLDivElement>({ open: true, onClose });
 	return (
-		<div role="dialog" aria-modal="true" aria-label={t("textPreview.diffDialog.title")} data-tone="amber" className="rounded-2xl border border-[var(--warning-border)] p-4 shadow-2xl shadow-black/20">
+		<div ref={dialogRef} role="dialog" aria-modal="true" aria-label={t("textPreview.diffDialog.title")} data-tone="amber" className="rounded-2xl border border-[var(--warning-border)] p-4 shadow-2xl shadow-black/20">
 			<div className="flex flex-wrap items-start justify-between gap-3">
 				<div>
 					<h3 className="text-sm font-semibold text-[var(--warning)]">{t("textPreview.diffDialog.title")}</h3>

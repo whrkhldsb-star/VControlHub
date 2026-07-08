@@ -2,6 +2,8 @@
 
 import type { Dispatch, SetStateAction } from "react";
 
+import { useI18n } from "@/lib/i18n/use-locale";
+import { toDateLocale } from "@/lib/i18n/locale-format";
 import type {
 	AiOpsLogRecord,
 	AiOpsMode,
@@ -31,11 +33,11 @@ const buttonGhost =
 const buttonDanger =
 	"rounded-lg border border-[var(--danger-border)] bg-[var(--danger-bg)] hover:bg-[var(--danger-bg)] px-3 py-1.5 text-xs text-[var(--danger)] transition";
 
-export function formatAiOpsTime(iso: string | null, fallback: string): string {
+export function formatAiOpsTime(iso: string | null, fallback: string, locale: "zh" | "en"): string {
 	if (!iso) return fallback;
 	const date = new Date(iso);
 	if (Number.isNaN(date.getTime())) return fallback;
-	return date.toLocaleString();
+	return date.toLocaleString(toDateLocale(locale));
 }
 
 function isExecutedAction(
@@ -53,6 +55,7 @@ function isRecommendationAction(
 type T = (key: string) => string;
 
 export function AiOpsSummarySection({ summary, t }: { summary: AiOpsSummary; t: T }) {
+	const { locale } = useI18n();
 	return (
 		<section aria-label="ai-ops-summary" className={cardClass}>
 			<h2 className={`${labelClass} mb-4`}>{t("aiOpsPage.summary.title")}</h2>
@@ -64,22 +67,22 @@ export function AiOpsSummarySection({ summary, t }: { summary: AiOpsSummary; t: 
 				<div>
 					<div className={`${labelClass} opacity-60`}>{t("aiOpsPage.summary.byStatus")}</div>
 					<div className="mt-1 text-sm text-[var(--text-primary)]">
-						{Object.entries(summary.byStatus).map(([k, v]) => `${k}=${v}`).join(" · ") || "—"}
+						{Object.entries(summary.byStatus).map(([k, v]) => `${t(`aiOpsPage.status.${k}`)}=${v}`).join(" · ") || "—"}
 					</div>
 				</div>
 				<div>
 					<div className={`${labelClass} opacity-60`}>{t("aiOpsPage.summary.byMode")}</div>
 					<div className="mt-1 text-sm text-[var(--text-primary)]">
-						{Object.entries(summary.byMode).map(([k, v]) => `${k}=${v}`).join(" · ") || "—"}
+						{Object.entries(summary.byMode).map(([k, v]) => `${t(`aiOpsPage.mode.${k}`)}=${v}`).join(" · ") || "—"}
 					</div>
 				</div>
 				<div>
 					<div className={`${labelClass} opacity-60`}>{t("aiOpsPage.summary.lastScanAt")}</div>
-					<div className="mt-1 text-sm text-[var(--text-primary)]">{formatAiOpsTime(summary.lastScanAt, t("aiOpsPage.summary.never"))}</div>
+					<div className="mt-1 text-sm text-[var(--text-primary)]">{formatAiOpsTime(summary.lastScanAt, t("aiOpsPage.summary.never"), locale)}</div>
 				</div>
 				<div>
 					<div className={`${labelClass} opacity-60`}>{t("aiOpsPage.summary.lastErrorAt")}</div>
-					<div className="mt-1 text-sm text-[var(--text-primary)]">{formatAiOpsTime(summary.lastErrorAt, t("aiOpsPage.summary.never"))}</div>
+					<div className="mt-1 text-sm text-[var(--text-primary)]">{formatAiOpsTime(summary.lastErrorAt, t("aiOpsPage.summary.never"), locale)}</div>
 				</div>
 			</div>
 		</section>
@@ -197,7 +200,7 @@ export function AiOpsSettingsSection({
 			{canManage && (
 				<div className="mt-4 flex justify-end">
 					<button type="button" className={buttonPrimary} disabled={savingSettings} onClick={onSaveSettings}>
-						{savingSettings ? t("aiOpsPage.actions.scanning") : t("aiOpsPage.actions.execute")}
+						{savingSettings ? t("aiOpsPage.actions.saving") : t("aiOpsPage.actions.execute")}
 					</button>
 				</div>
 			)}
@@ -206,6 +209,7 @@ export function AiOpsSettingsSection({
 }
 
 export function AiOpsLogsSection({ logs, selectedLogId, setSelectedLogId, t }: { logs: AiOpsLogRecord[]; selectedLogId: string | null; setSelectedLogId: Dispatch<SetStateAction<string | null>>; t: T }) {
+	const { locale } = useI18n();
 	return (
 		<section aria-label="ai-ops-logs" className={cardClass}>
 			<h2 className={`${labelClass} mb-4`}>{t("aiOpsPage.table.actions")}</h2>
@@ -229,7 +233,7 @@ export function AiOpsLogsSection({ logs, selectedLogId, setSelectedLogId, t }: {
 						<tbody>
 							{logs.map((log) => (
 								<tr key={log.id} className={selectedLogId === log.id ? "bg-[var(--color-action)]/10" : "hover:bg-[var(--surface)]/[0.04]"}>
-									<td className="py-2 pr-3 font-mono text-xs text-[var(--text-primary)]/70">{formatAiOpsTime(log.createdAt, "—")}</td>
+									<td className="py-2 pr-3 font-mono text-xs text-[var(--text-primary)]/70">{formatAiOpsTime(log.createdAt, "—", locale)}</td>
 									<td className="py-2 pr-3">{log.mode === "autonomous" ? t("aiOpsPage.mode.autonomous") : t("aiOpsPage.mode.recommendation")}</td>
 									<td className="py-2 pr-3">{log.triggerType === "scheduled" ? t("aiOpsPage.trigger.scheduled") : log.triggerType === "manual" ? t("aiOpsPage.trigger.manual") : t("aiOpsPage.trigger.recommendation_followup")}</td>
 									<td className="py-2 pr-3">{t(`aiOpsPage.status.${log.status}`)}</td>

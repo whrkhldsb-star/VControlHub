@@ -211,7 +211,7 @@ export async function executeSyncJob(jobId: string): Promise<void> {
 			data: {
 				status: "IDLE",
 				lastSyncAt: new Date(),
-				lastSyncResult: `成功: ${stats.transferredFiles} 文件, ${formatBytes(stats.totalSize)}, ${Math.round(duration / 1000)}s`,
+				lastSyncResult: `Success: ${stats.transferredFiles} files, ${formatBytes(stats.totalSize)}, ${Math.round(duration / 1000)}s`,
 			},
 		});
 
@@ -231,7 +231,7 @@ export async function executeSyncJob(jobId: string): Promise<void> {
 
 		await prisma.syncJob.update({
 			where: { id: jobId },
-			data: { status: "ERROR", lastSyncResult: `失败: ${errMsg.slice(0, 200)}` },
+			data: { status: "ERROR", lastSyncResult: `Failed: ${errMsg.slice(0, 200)}` },
 		});
 
 		logError(`[SyncService] Job ${jobId} failed:`, error);

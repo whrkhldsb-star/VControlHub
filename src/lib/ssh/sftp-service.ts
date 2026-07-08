@@ -153,7 +153,7 @@ async function openSftpSession(serverId: string): Promise<SftpSession> {
 
   return new Promise<SftpSession>((resolve, reject) => {
     const timeout = setTimeout(() => {
-      try { client.end(); } catch {}
+      try { client.end(); } catch { /* best-effort cleanup on timeout */ }
       reject(new Error("SSH connection timed out"));
     }, 15000);
 
@@ -161,7 +161,7 @@ async function openSftpSession(serverId: string): Promise<SftpSession> {
       client.sftp((err, sftp) => {
         clearTimeout(timeout);
         if (err) {
-          try { client.end(); } catch {}
+          try { client.end(); } catch { /* best-effort cleanup on SFTP error */ }
           reject(new Error(`SFTP subsystem error: ${err.message}`));
           return;
         }
@@ -169,8 +169,8 @@ async function openSftpSession(serverId: string): Promise<SftpSession> {
           sftp,
           client,
           close: () => {
-            try { sftp.end(); } catch {}
-            try { client.end(); } catch {}
+            try { sftp.end(); } catch { /* best-effort SFTP teardown */ }
+            try { client.end(); } catch { /* best-effort client teardown */ }
           },
         });
       });
@@ -327,12 +327,20 @@ export async function downloadFile(
   const session = await openSftpSession(serverId);
 
   // Get file size for Content-Length header
-  const stats = await new Promise<Stats>((resolve, reject) => {
-    session.sftp.stat(path, (err, s) => {
-      if (err) reject(err);
-      else resolve(s);
+  // Wrap stat in try/catch so a stat failure (missing file, permission denied)
+  // does not leak the SSH/SFTP session -- close before re-throwing.
+  let stats: Stats;
+  try {
+    stats = await new Promise<Stats>((resolve, reject) => {
+      session.sftp.stat(path, (err, s) => {
+        if (err) reject(err);
+        else resolve(s);
+      });
     });
-  });
+  } catch (err) {
+    session.close();
+    throw err;
+  }
 
   if (stats.isDirectory()) {
     session.close();

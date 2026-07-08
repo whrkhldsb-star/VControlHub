@@ -88,8 +88,8 @@ function parseNotes(value: unknown): string[] | undefined {
 
 export function parseQuickServiceJobPayload(payload: Prisma.JsonValue): QuickServiceJobPayload {
 	if (!isRecord(payload)) throw new Error("QuickService task payload invalid");
-	const action = parseString(payload.action, "操作");
-	const slug = parseString(payload.slug, "服务标识");
+	const action = parseString(payload.action, "action");
+	const slug = parseString(payload.slug, "service identifier");
 
 	if (action === "install") {
 		const customPort = typeof payload.customPort === "number" && Number.isInteger(payload.customPort) ? payload.customPort : undefined;
@@ -158,10 +158,10 @@ function quickServiceLogPreview(lines: Array<string | null | undefined>) {
 
 async function executeQuickServiceJob(job: { id: string; payload: Prisma.JsonValue }) {
 	const payload = parseQuickServiceJobPayload(job.payload);
-	await updateQuickServiceJobProgress(job.id, `准备执行 QuickService ${payload.action}: ${payload.slug}`);
+	await updateQuickServiceJobProgress(job.id, `Preparing to execute QuickService ${payload.action}: ${payload.slug}`);
 
 	if (payload.action === "install") {
-		await updateQuickServiceJobProgress(job.id, `正在安装 ${payload.slug}：拉取镜像并创建容器`);
+		await updateQuickServiceJobProgress(job.id, `Installing ${payload.slug}: pulling image and creating container`);
 		const service = await installService({
 			template: payload.template,
 			customPort: payload.customPort,
@@ -174,60 +174,60 @@ async function executeQuickServiceJob(job: { id: string; payload: Prisma.JsonVal
 			serviceId: service.id,
 			status: service.status,
 			logPreview: quickServiceLogPreview([
-				`安装完成：${payload.slug}`,
-				`宿主机端口：${service.port ?? payload.customPort ?? payload.template.defaultPort}`,
-				service.containerId ? `容器：${service.containerId}` : null,
+				`Installation complete: ${payload.slug}`,
+				`Host port: ${service.port ?? payload.customPort ?? payload.template.defaultPort}`,
+				service.containerId ? `Container: ${service.containerId}` : null,
 			]),
 		});
 		return;
 	}
 
 	if (payload.action === "start") {
-		await updateQuickServiceJobProgress(job.id, `正在启动 ${payload.slug}：启动或重建容器`);
+		await updateQuickServiceJobProgress(job.id, `Starting ${payload.slug}: starting or recreating container`);
 		await startService(payload.slug);
 		await completeJob(job.id, QUICK_SERVICE_WORKER_ID, {
 			action: payload.action,
 			slug: payload.slug,
 			status: "running",
-			logPreview: quickServiceLogPreview([`启动完成：${payload.slug}`, "状态：running"]),
+			logPreview: quickServiceLogPreview([`Start complete: ${payload.slug}`, "Status: running"]),
 		});
 		return;
 	}
 
 	if (payload.action === "stop") {
-		await updateQuickServiceJobProgress(job.id, `正在停止 ${payload.slug}：停止 Docker 容器`);
+		await updateQuickServiceJobProgress(job.id, `Stopping ${payload.slug}: stopping Docker container`);
 		await stopService(payload.slug);
 		await completeJob(job.id, QUICK_SERVICE_WORKER_ID, {
 			action: payload.action,
 			slug: payload.slug,
 			status: "stopped",
-			logPreview: quickServiceLogPreview([`停止完成：${payload.slug}`, "状态：stopped"]),
+			logPreview: quickServiceLogPreview([`Stop complete: ${payload.slug}`, "Status: stopped"]),
 		});
 		return;
 	}
 
 	if (payload.action === "sync") {
-		await updateQuickServiceJobProgress(job.id, `正在刷新 ${payload.slug}：读取 Docker 容器状态`);
+		await updateQuickServiceJobProgress(job.id, `Refreshing ${payload.slug}: reading Docker container status`);
 		const status = await syncServiceStatus(payload.slug);
 		await completeJob(job.id, QUICK_SERVICE_WORKER_ID, {
 			action: payload.action,
 			slug: payload.slug,
 			status,
-			logPreview: quickServiceLogPreview([`状态刷新完成：${payload.slug}`, `状态：${status}`]),
+			logPreview: quickServiceLogPreview([`Status refresh complete: ${payload.slug}`, `Status: ${status}`]),
 		});
 		return;
 	}
 
 	if (payload.action === "update") {
-		await updateQuickServiceJobProgress(job.id, `正在更新 ${payload.slug}：拉取镜像并重建容器`);
+		await updateQuickServiceJobProgress(job.id, `Updating ${payload.slug}: pulling image and recreating container`);
 		const result = await updateService(payload.slug);
 		await completeJob(job.id, QUICK_SERVICE_WORKER_ID, {
 			action: payload.action,
 			slug: payload.slug,
 			...result,
 			logPreview: quickServiceLogPreview([
-				`更新完成：${payload.slug}`,
-				result.health ? `健康状态：${result.health}` : null,
+				`Update complete: ${payload.slug}`,
+				result.health ? `Health status: ${result.health}` : null,
 				result.logTail,
 			]),
 		});
@@ -235,13 +235,13 @@ async function executeQuickServiceJob(job: { id: string; payload: Prisma.JsonVal
 	}
 
 	const options: UninstallServiceOptions = { deleteVolumes: payload.deleteVolumes === true };
-	await updateQuickServiceJobProgress(job.id, options.deleteVolumes ? `正在卸载 ${payload.slug}：删除容器并清理数据目录` : `正在卸载 ${payload.slug}：删除容器并保留数据目录`);
+	await updateQuickServiceJobProgress(job.id, options.deleteVolumes ? `Uninstalling ${payload.slug}: removing container and cleaning data directory` : `Uninstalling ${payload.slug}: removing container and keeping data directory`);
 	await uninstallService(payload.slug, options);
 	await completeJob(job.id, QUICK_SERVICE_WORKER_ID, {
 		action: payload.action,
 		slug: payload.slug,
 		deleteVolumes: options.deleteVolumes === true,
-		logPreview: quickServiceLogPreview([`卸载完成：${payload.slug}`, options.deleteVolumes ? "已清理可安全删除的数据目录" : "已保留数据目录"]),
+		logPreview: quickServiceLogPreview([`Uninstall complete: ${payload.slug}`, options.deleteVolumes ? "Cleaned safely deletable data directories" : "Kept data directory"]),
 	});
 }
 

@@ -3,6 +3,7 @@
 import { useCallback, useMemo, useState } from "react";
 import { csrfFetch } from "@/lib/auth/csrf-client";
 import { useI18n } from "@/lib/i18n/use-locale";
+import { toDateLocale } from "@/lib/i18n/locale-format";
 import { useToast } from "@/components/toast-provider";
 import { EmptyState } from "@/components/page-shell";
 import { CostDeleteDialog, CostEntryFormModal } from "./cost-entry-dialogs";
@@ -56,7 +57,7 @@ export function CostPageClient({
 	const [deletingId, setDeletingId] = useState<string | null>(null);
 	const [confirmDelete, setConfirmDelete] = useState<{ id: string; provider: string; amount: string } | null>(null);
 
-	const localeTag = locale === "en" ? "en-US" : "zh-CN";
+	const localeTag = toDateLocale(locale);
 
 	const fetchSummary = useCallback(
 		async (m: string, c: CostCurrency) => {
@@ -344,6 +345,9 @@ export function CostPageClient({
 					<h2 className="mb-3 text-base font-semibold text-[var(--text-primary)]">
 						{t("costPage.snapshot.title")}
 					</h2>
+					{trend.every((p) => p.total === 0) ? (
+						<div className="text-sm text-[var(--text-muted)]">{t("costPage.snapshot.noTrendData")}</div>
+					) : (
 					<svg
 						viewBox={`0 0 ${trend.length * 60} 80`}
 						className="h-20 w-full"
@@ -365,10 +369,11 @@ export function CostPageClient({
 								r="2.5"
 								fill="rgb(34, 211, 238)"
 							>
-								<title>{`${p.date}: ${p.total.toFixed(2)} ${currency}`}</title>
+								<title>{`${p.date}: ${p.total.toFixed(2)} ${t(`costPage.currency.${currency}`)}`}</title>
 							</circle>
 						))}
 					</svg>
+					)}
 				</section>
 			) : null}
 

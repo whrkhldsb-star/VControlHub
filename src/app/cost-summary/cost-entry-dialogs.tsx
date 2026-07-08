@@ -3,13 +3,16 @@
 import type { Dispatch, SetStateAction } from "react";
 import type { CostCategory, CostCurrency } from "@/lib/cost/types";
 import { CATEGORIES, buttonGhost, buttonPrimary, cardClass, inputClass, labelClass } from "./cost-page-shared";
+import { useDialogFocus } from "@/lib/a11y/use-dialog-focus";
 
 type T = (key: string) => string;
 type CostForm = { category: CostCategory; provider: string; amount: string; currency: CostCurrency; effectiveDate: string; notes: string };
 
 export function CostEntryFormModal({ open, editingId, form, availableCurrencies, saving, setForm, setShowForm, setEditingId, submitForm, t }: { open: boolean; editingId: string | null; form: CostForm; availableCurrencies: CostCurrency[]; saving: boolean; setForm: Dispatch<SetStateAction<CostForm>>; setShowForm: Dispatch<SetStateAction<boolean>>; setEditingId: Dispatch<SetStateAction<string | null>>; submitForm: () => void; t: T }) {
+	const dialogRef = useDialogFocus<HTMLDivElement>({ open, onClose: () => setShowForm(false) });
 	return open ? (
 				<div
+					ref={dialogRef}
 					className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4"
 					role="dialog"
 					aria-modal="true"
@@ -130,8 +133,10 @@ export function CostEntryFormModal({ open, editingId, form, availableCurrencies,
 }
 
 export function CostDeleteDialog({ confirmDelete, deletingId, setConfirmDelete, onConfirmDelete, t }: { confirmDelete: { id: string; provider: string; amount: string } | null; deletingId: string | null; setConfirmDelete: Dispatch<SetStateAction<{ id: string; provider: string; amount: string } | null>>; onConfirmDelete: () => void; t: T }) {
+	const dialogRef = useDialogFocus<HTMLDivElement>({ open: confirmDelete !== null, onClose: () => setConfirmDelete(null) });
 	return confirmDelete ? (
 				<div
+					ref={dialogRef}
 					className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4"
 					role="alertdialog"
 					aria-modal="true"

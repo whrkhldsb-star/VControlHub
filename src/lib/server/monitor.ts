@@ -117,19 +117,19 @@ export async function collectServerMetrics(serverId: string): Promise<ServerMetr
 			include: { sshKey: { select: { privateKey: true } } },
 		});
 
-		if (!server) return { error: "服务器不存在", serverId };
-		if (!server.enabled) return { error: "服务器已停用", serverId };
+		if (!server) return { error: "Server does not exist", serverId };
+		if (!server.enabled) return { error: "Server has been disabled", serverId };
 
 		const sshParams = await buildSshParamsFromServer(server, server.sshKey);
 		const { stdout, exitCode } = await execRemoteCommand({ ...sshParams, command: MONITOR_SCRIPT, timeout: 15_000 });
 
 		if (exitCode !== 0 && !stdout) {
-			return { error: "SSH 命令执行失败", serverId };
+			return { error: "SSH Command execution failed", serverId };
 		}
 
 		return parseMonitorScriptOutput(stdout);
 	} catch (err) {
-		const message = err instanceof Error ? err.message : "未知错误";
-		return { error: `连接失败: ${message}`, serverId };
+		const message = err instanceof Error ? err.message : "Unknown error";
+		return { error: `Connection failed: ${message}`, serverId };
 	}
 }

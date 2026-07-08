@@ -19,7 +19,7 @@ describe("backup schema", () => {
       const result = backupTypeSchema.safeParse("SNAPSHOT");
       expect(result.success).toBe(false);
       if (!result.success) {
-        expect(result.error.issues[0]?.message).toBe("备份类型无效");
+        expect(result.error.issues[0]?.message).toBe("Invalid backup type");
       }
     });
 
@@ -56,7 +56,7 @@ describe("backup schema", () => {
       const result = createBackupSchema.safeParse({ type: "ROOT" });
       expect(result.success).toBe(false);
       if (!result.success) {
-        expect(result.error.issues[0]?.message).toBe("备份类型无效");
+        expect(result.error.issues[0]?.message).toBe("Invalid backup type");
       }
     });
 
@@ -64,7 +64,7 @@ describe("backup schema", () => {
       const result = createBackupSchema.safeParse({ type: "FULL", note: "x".repeat(501) });
       expect(result.success).toBe(false);
       if (!result.success) {
-        expect(result.error.issues[0]?.message).toBe("备注最多 500 个字符");
+        expect(result.error.issues[0]?.message).toBe("Note must be at most 500 characters");
       }
     });
   });
@@ -79,7 +79,7 @@ describe("backup schema", () => {
       const result = restoreBackupSchema.safeParse({ confirm: "restore" });
       expect(result.success).toBe(false);
       if (!result.success) {
-        expect(result.error.issues[0]?.message).toBe("恢复操作需要输入 RESTORE 确认");
+        expect(result.error.issues[0]?.message).toBe("Restore confirmation text does not match");
       }
     });
 
@@ -102,7 +102,7 @@ describe("backup schema", () => {
       const result = voidBackupSchema.safeParse({ reason: "" });
       expect(result.success).toBe(false);
       if (!result.success) {
-        expect(result.error.issues[0]?.message).toBe("作废原因不能为空");
+        expect(result.error.issues[0]?.message).toBe("Void reason is required");
       }
     });
 
@@ -110,7 +110,7 @@ describe("backup schema", () => {
       const result = voidBackupSchema.safeParse({ reason: "   " });
       expect(result.success).toBe(false);
       if (!result.success) {
-        expect(result.error.issues[0]?.message).toBe("作废原因不能为空");
+        expect(result.error.issues[0]?.message).toBe("Void reason is required");
       }
     });
 
@@ -118,7 +118,7 @@ describe("backup schema", () => {
       const result = voidBackupSchema.safeParse({ reason: "x".repeat(501) });
       expect(result.success).toBe(false);
       if (!result.success) {
-        expect(result.error.issues[0]?.message).toBe("作废原因最多 500 个字符");
+        expect(result.error.issues[0]?.message).toBe("Void reason must be at most 500 characters");
       }
     });
   });

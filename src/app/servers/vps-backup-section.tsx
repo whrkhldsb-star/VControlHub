@@ -5,6 +5,7 @@ import { useCallback, useEffect, useState } from "react";
 import { csrfFetch } from "@/lib/auth/csrf-client";
 import { useI18n } from "@/lib/i18n/use-locale";
 import { toDateLocale } from "@/lib/i18n/locale-format";
+import { formatBytes } from "@/lib/format/bytes";
 
 type BackupSchedule = {
 	id: string;
@@ -37,16 +38,6 @@ const PRESET_OPTIONS = [
 	"website-files",
 	"custom",
 ] as const;
-
-function formatBytes(bytes: string | null): string {
-	if (!bytes) return "—";
-	const n = Number(bytes);
-	if (isNaN(n)) return bytes;
-	if (n < 1024) return `${n} B`;
-	if (n < 1024 * 1024) return `${(n / 1024).toFixed(1)} KB`;
-	if (n < 1024 * 1024 * 1024) return `${(n / (1024 * 1024)).toFixed(1)} MB`;
-	return `${(n / (1024 * 1024 * 1024)).toFixed(2)} GB`;
-}
 
 function formatDuration(ms: string | null): string {
 	if (!ms) return "—";
@@ -205,6 +196,16 @@ export function VpsBackupSection({
 			{error ? (
 				<div className="rounded-lg border border-[var(--danger-border)] bg-[var(--danger-bg)] px-3 py-2 text-xs text-[var(--danger)]">
 					{error}
+					<button
+						type="button"
+						className="ml-2 text-[var(--danger)] underline"
+						onClick={() => {
+							setError(null);
+							void fetchAll();
+						}}
+					>
+						{t("common.retry")}
+					</button>
 					<button
 						type="button"
 						className="ml-2 text-[var(--danger)] underline"

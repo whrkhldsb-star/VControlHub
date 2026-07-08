@@ -153,7 +153,7 @@ export const chatRequestSchema = z
   .refine(
     (value) =>
       Boolean(value.message?.trim()) || Boolean(value.content?.trim()),
-    { message: "消息内容不能为空", path: ["message"] },
+    { message: "Message content cannot be empty", path: ["message"] },
   );
 
 // === Hosted action schemas ===
@@ -172,7 +172,7 @@ export const hostedActionDecisionSchema = z
       ctx.addIssue({
         code: "custom",
         path: ["reason"],
-        message: "拒绝操作必须填写理由",
+        message: "A reason is required for reject actions",
       });
     }
   });

@@ -8,7 +8,6 @@ export function OfficePreviewClient({
 }: {
 	href: string;
 	name: string;
-	driver: string;
 }) {
 	const { t } = useI18n();
 	return (

@@ -2,6 +2,7 @@
 
 import type { ModelInfo } from "./ai-types";
 import { useI18n } from "@/lib/i18n/use-locale";
+import { Eye, Video, Music2, File } from "@/components/icons";
 
 interface SettingsFormState {
   model: string;
@@ -73,7 +74,7 @@ export function AiSettingsPanel({
                 {settingsForm.model}
                 {currentModelSupportsVision && (
                   <span className="text-[9px] text-[var(--color-action)] bg-[var(--color-action-bg)]/10 px-1 py-0.5 rounded-lg">
-                    👁
+                    <Eye size={10} aria-hidden="true" />
                   </span>
                 )}
               </span>
@@ -148,7 +149,7 @@ export function AiSettingsPanel({
                             className="text-[9px] text-[var(--color-action)]/60"
                             title={t("aiPage.visionCap")}
                           >
-                            👁
+                            <Eye size={10} aria-hidden="true" />
                           </span>
                         )}
                         {m.capabilities?.video && (
@@ -156,7 +157,7 @@ export function AiSettingsPanel({
                             className="text-[9px] text-[var(--info)]/60"
                             title={t("aiPage.videoCapSetting")}
                           >
-                            🎬
+                            <Video size={10} aria-hidden="true" />
                           </span>
                         )}
                         {m.capabilities?.audio && (
@@ -164,7 +165,7 @@ export function AiSettingsPanel({
                             className="text-[9px] text-[var(--accent)]"
                             title={t("aiPage.audioCapSetting")}
                           >
-                            🎵
+                            <Music2 size={10} aria-hidden="true" />
                           </span>
                         )}
                         {m.capabilities?.document && (
@@ -172,7 +173,7 @@ export function AiSettingsPanel({
                             className="text-[9px] text-[var(--success)]/60"
                             title={t("aiPage.documentCapSetting")}
                           >
-                            📑
+                            <File size={10} aria-hidden="true" />
                           </span>
                         )}
                       </span>

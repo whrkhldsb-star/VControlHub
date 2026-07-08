@@ -83,7 +83,7 @@ export function apiError(
 	if (typeof a === "number") {
 		opts = {
 			code: c ?? "GENERIC_ERROR",
-			message: b ?? "请求失败",
+			message: b ?? "Request failed",
 			status: a,
 		};
 	} else {
@@ -103,7 +103,7 @@ export function apiError(
 export function apiCatch(
 	e: unknown,
 	fallbackStatus = 500,
-	fallbackMessage = "操作失败",
+	fallbackMessage = "Operation failed",
 ): NextResponse {
 	let opts: ApiErrorOptions;
 

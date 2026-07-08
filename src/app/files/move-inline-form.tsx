@@ -69,7 +69,7 @@ export function MoveInlineForm({
         type="button"
         onClick={handleToggle}
         title={t("common.move")}
-        aria-label={`Move ${name}`}
+        aria-label={t("filesPage.actions.moveAria").replace("{name}", name)}
         className={
           variant === "menu"
             ? "flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-left text-sm text-[var(--success)] transition hover:bg-[var(--success-bg)]"

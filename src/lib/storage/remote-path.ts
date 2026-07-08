@@ -62,7 +62,7 @@ export function normalizeRemoteTargetPath(
   return normalized;
 }
 
-export function toClientStorageError(message = "远端存储操作失败") {
+export function toClientStorageError(message = "Remote storage operation failed") {
   return { error: message };
 }
 

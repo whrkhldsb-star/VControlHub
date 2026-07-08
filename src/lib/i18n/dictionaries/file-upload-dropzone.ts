@@ -96,6 +96,10 @@ export const zh: Record<string, string> = {
   "fileListClient.folderItemCount": "{count} 项",
   "fileListClient.open": "打开",
   "fileListClient.directory": "目录",
+  "fileListClient.selectFileAria": "选择 {name}",
+  "fileListClient.downloadFolderArchiveAria": "下载目录归档 {name}",
+  "fileListClient.sortByAria": "按 {label} 排序",
+  "filesBrowserSpa.sourceListSeparator": "、",
 
   // files-browser-spa R26
   "filesBrowserSpa.currentSelectionLabel": "当前：",
@@ -211,6 +215,10 @@ export const en: Record<string, string> = {
   "fileListClient.folderItemCount": "{count} item(s)",
   "fileListClient.open": "Open",
   "fileListClient.directory": "Directory",
+  "fileListClient.selectFileAria": "Select {name}",
+  "fileListClient.downloadFolderArchiveAria": "Download folder archive {name}",
+  "fileListClient.sortByAria": "Sort by {label}",
+  "filesBrowserSpa.sourceListSeparator": ", ",
 
   // files-browser-spa R26
   "filesBrowserSpa.currentSelectionLabel": "Current: ",

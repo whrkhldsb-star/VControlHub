@@ -7,6 +7,7 @@ const prismaMock = vi.hoisted(() => ({
 		findFirst: vi.fn(),
 		findUnique: vi.fn(),
 		update: vi.fn(),
+		updateMany: vi.fn(),
 	},
 	server: { findFirst: vi.fn(), findMany: vi.fn(), findUnique: vi.fn() },
 }));
@@ -22,13 +23,14 @@ vi.mock("ssh2", () => ({ Client: vi.fn() }));
 describe("AI hosted action approvals", () => {
 	beforeEach(() => {
 		vi.clearAllMocks();
+		prismaMock.aiHostedAction.updateMany.mockResolvedValue({ count: 1 });
 	});
 
 	it("requires ai:action:approve instead of letting requesters self-approve dangerous actions", async () => {
 		const { approveHostedAction } = await import("../hosted-service");
 		const requester: { userId: string; roles: RoleKey[] } = { userId: "user_a", roles: ["operator"] };
 
-		await expect(approveHostedAction("action_1", requester)).rejects.toThrow("缺少权限：ai:action:approve");
+		await expect(approveHostedAction("action_1", requester)).rejects.toThrow("Missing permission: ai:action:approve");
 
 		expect(prismaMock.aiHostedAction.findFirst).not.toHaveBeenCalled();
 		expect(prismaMock.aiHostedAction.update).not.toHaveBeenCalled();
@@ -41,7 +43,7 @@ describe("AI hosted action approvals", () => {
 			id: "action_1",
 			status: "PENDING_APPROVAL",
 			actionType: "get_status",
-			actionName: "获取服务器状态",
+			actionName: "Get server status",
 			riskLevel: "low",
 			autoApproved: true,
 			requesterId: "user_a",
@@ -54,14 +56,14 @@ describe("AI hosted action approvals", () => {
 
 		await approveHostedAction("action_1", approver);
 
-		expect(prismaMock.aiHostedAction.update).toHaveBeenCalledWith({
-			where: { id: "action_1" },
+		expect(prismaMock.aiHostedAction.updateMany).toHaveBeenCalledWith({
+			where: { id: "action_1", status: "PENDING_APPROVAL" },
 			data: expect.objectContaining({ status: "APPROVED", approverId: "admin_1" }),
 		});
 		expect(prismaMock.server.findUnique).toHaveBeenCalledWith({ where: { id: "srv_1" }, include: { sshKey: true } });
 		expect(prismaMock.aiHostedAction.update).toHaveBeenLastCalledWith({
 			where: { id: "action_1" },
-			data: expect.objectContaining({ status: "FAILED", errorMessage: "服务器不存在" }),
+			data: expect.objectContaining({ status: "FAILED", errorMessage: "Server not found" }),
 		});
 	});
 
@@ -109,7 +111,7 @@ describe("AI hosted action approvals", () => {
 				riskLevel: "medium",
 				autoApproved: false,
 				actionType: "execute_command",
-				actionName: "执行命令",
+				actionName: "Execute command",
 			},
 			args: { serverQuery: "prod", command: "systemctl restart nginx", reason: "AI requested restart" },
 			userId: "user_1",
@@ -143,7 +145,7 @@ describe("AI hosted action approvals", () => {
 			id: "action_1",
 			status: "PENDING_APPROVAL",
 			actionType: "execute_command",
-			actionName: "执行命令",
+			actionName: "Execute command",
 			riskLevel: "medium",
 			autoApproved: false,
 			requesterId: "user_1",
@@ -156,20 +158,20 @@ describe("AI hosted action approvals", () => {
 		await confirmHostedAction("action_1", requester);
 
 		expect(commandServiceMock.createCommandRequest).toHaveBeenCalledWith({
-			title: "AI 助手：执行命令",
+			title: "AI Assistant: Execute command",
 			command: "systemctl restart nginx",
 			reason: "AI requested restart",
 			requesterId: "user_1",
 			serverIds: ["srv_prod"],
 			submissionMode: "assistant",
 		});
+		expect(prismaMock.aiHostedAction.updateMany).toHaveBeenCalledWith({
+			where: { id: "action_1", status: "PENDING_APPROVAL" },
+			data: expect.objectContaining({ status: "APPROVED", approverId: "user_1" }),
+		});
 		expect(prismaMock.aiHostedAction.update).toHaveBeenCalledWith({
 			where: { id: "action_1" },
-			data: expect.objectContaining({
-				status: "APPROVED",
-				approverId: "user_1",
-				result: JSON.stringify({ commandRequestId: "cmd_req_1", requiresApproval: true }),
-			}),
+			data: { result: JSON.stringify({ commandRequestId: "cmd_req_1", requiresApproval: true }) },
 		});
 	});
 
@@ -179,7 +181,7 @@ describe("AI hosted action approvals", () => {
 			id: "action_1",
 			status: "PENDING_APPROVAL",
 			actionType: "restart_service",
-			actionName: "重启服务",
+			actionName: "Restart service",
 			riskLevel: "high",
 			autoApproved: false,
 			requesterId: "user_1",
@@ -188,7 +190,7 @@ describe("AI hosted action approvals", () => {
 		};
 		prismaMock.aiHostedAction.findFirst.mockResolvedValue(action);
 
-		await expect(confirmHostedAction("action_1", { userId: "user_1", roles: ["operator"] })).rejects.toThrow("AI 操作参数无效，无法生成可审批命令");
+		await expect(confirmHostedAction("action_1", { userId: "user_1", roles: ["operator"] })).rejects.toThrow("AI action parameters are invalid; cannot generate an approvable command");
 
 		expect(commandServiceMock.createCommandRequest).not.toHaveBeenCalled();
 		expect(prismaMock.aiHostedAction.update).not.toHaveBeenCalled();
@@ -198,7 +200,7 @@ describe("AI hosted action approvals", () => {
 		const { confirmHostedAction } = await import("../hosted-service");
 		prismaMock.aiHostedAction.findFirst.mockResolvedValue(null);
 
-		await expect(confirmHostedAction("action_1", { userId: "user_2", roles: ["operator"] })).rejects.toThrow("操作不存在或无权确认");
+		await expect(confirmHostedAction("action_1", { userId: "user_2", roles: ["operator"] })).rejects.toThrow("Action not found or not authorized to confirm");
 
 		expect(commandServiceMock.createCommandRequest).not.toHaveBeenCalled();
 		expect(prismaMock.aiHostedAction.update).not.toHaveBeenCalled();
@@ -214,14 +216,14 @@ describe("AI hosted action approvals", () => {
 		prismaMock.aiHostedAction.findFirst.mockResolvedValue(action);
 		prismaMock.aiHostedAction.update.mockResolvedValue({ ...action, status: "REJECTED" });
 
-		await rejectHostedAction("action_1", { userId: "user_1", roles: ["operator"] }, "用户拒绝");
+		await rejectHostedAction("action_1", { userId: "user_1", roles: ["operator"] }, "User rejected");
 
 		expect(prismaMock.aiHostedAction.findFirst).toHaveBeenCalledWith({
 			where: { id: "action_1", requesterId: "user_1" },
 		});
 		expect(prismaMock.aiHostedAction.update).toHaveBeenCalledWith({
 			where: { id: "action_1" },
-			data: expect.objectContaining({ status: "REJECTED", approverId: "user_1", errorMessage: "用户拒绝" }),
+			data: expect.objectContaining({ status: "REJECTED", approverId: "user_1", errorMessage: "User rejected" }),
 		});
 	});
 });

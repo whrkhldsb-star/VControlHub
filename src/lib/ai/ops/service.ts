@@ -245,7 +245,15 @@ export async function approveRecommendation(input: {
 		return { ok: false, errorMessage: "This recommendation does not require approval" };
 	}
 
-	// Mark the action as approved, preserving all other actions
+	// Atomic compare-and-swap: guard against two approvers acting on the
+	// same recommendation near-simultaneously (race loss). Use updatedAt
+	// as the optimistic-lock version token — updateMany only matches if
+	// no other write has touched the row since our read.
+	const actionsAsPlain = actions as { id: string; approved?: boolean; requiresApproval?: boolean }[];
+	if (Boolean(actionsAsPlain.find((a) => a.id === input.actionId)?.approved)) {
+		return { ok: false, errorMessage: "This recommendation has already been approved" };
+	}
+
 	const updatedActions = actions.map((a) => {
 		if ((a as { id: string }).id === input.actionId) {
 			return { ...a, approved: true } as AiOpsRecommendedAction;
@@ -253,12 +261,19 @@ export async function approveRecommendation(input: {
 		return a;
 	});
 
-	await prisma.aiOpsLog.update({
-		where: { id: log.id },
+	const claimed = await prisma.aiOpsLog.updateMany({
+		where: { id: log.id, updatedAt: log.updatedAt },
 		data: {
 			actions: updatedActions as unknown as Prisma.InputJsonValue,
 		},
 	});
+
+	if (claimed.count === 0) {
+		return {
+			ok: false,
+			errorMessage: "This recommendation was just approved by another approver; please refresh and try again",
+		};
+	}
 
 	return { ok: true };
 }

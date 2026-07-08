@@ -32,43 +32,43 @@ type AppCredentialRule = {
 };
 
 const DEFAULT_CREDENTIAL_NOTES: Record<string, string[]> = {
-	nextcloud: ["Nextcloud 首次打开会进入管理员创建向导；请在页面中设置管理员账号、密码和数据目录。"],
-	filebrowser: ["File Browser 镜像通常使用默认账号 admin / admin；如登录失败，请在容器日志或 /opt/filebrowser/config 中确认初始化配置，并首次登录后立即修改密码。"],
-	davos: ["Davos 首次打开通常需要按页面向导配置账号或连接器；该镜像未提供固定初始化密码。"],
-	emby: ["Emby 首次打开会进入媒体服务器向导；请在页面中创建管理员账号。"],
-	jellyfin: ["Jellyfin 首次打开会进入设置向导；请在页面中创建管理员账号。"],
-	navidrome: ["Navidrome 首次打开会要求创建第一个管理员用户；请在页面中完成初始化。"],
-	immich: ["Immich 首次打开会要求注册第一个管理员账号；当前快捷服务只启动应用容器，外部数据库/Redis 仍需按应用要求准备。"],
-	metube: ["MeTube 默认无登录密码；请只在可信网络中使用，必要时在反向代理层增加访问控制。"],
-	komga: ["Komga 首次打开会进入管理员创建流程；请在页面中设置账号密码。"],
-	gitea: ["Gitea 首次打开会进入安装向导；请确认数据库/站点 URL 后创建管理员账号。"],
-	vaultwarden: ["Vaultwarden 默认开放注册；请首次登录后创建账号，并按需设置管理 Token/关闭公开注册。"],
-	portainer: ["Portainer 首次打开会要求创建管理员密码；请在页面中完成初始化。"],
-	"stirling-pdf": ["Stirling PDF 当前模板关闭内置安全登录；默认无需账号密码。"],
-	"it-tools": ["IT-Tools 默认无需登录。"],
-	gladys: ["Gladys 首次打开会进入账号创建向导；请在页面中设置管理员账号。"],
-	memos: ["Memos 首次注册的用户通常会成为管理员；请在页面中创建初始账号。"],
-	outline: ["Outline 需要外部数据库/Redis/鉴权配置后才能完整初始化；请按应用页面和日志继续配置。"],
-	hedgedoc: ["HedgeDoc 首次使用通常通过页面注册/登录；生产使用前请补充数据库和认证配置。"],
-	affine: ["AFFiNE 首次打开会进入工作区/账号初始化流程；请按页面提示完成。"],
-	linkwarden: ["Linkwarden 需要数据库等依赖配置；首次打开如提示配置缺失，请按应用日志补齐环境变量。"],
-	wallabag: ["Wallabag 官方镜像常见默认账号密码为 wallabag / wallabag；如登录失败，请查看容器日志确认初始化状态，并首次登录后修改密码。"],
-	"uptime-kuma": ["Uptime Kuma 首次打开会要求创建管理员账号。"],
-	adguardhome: ["AdGuard Home 首次打开会进入安装向导；请在页面中设置管理员账号密码和 DNS 监听端口。"],
-	"speedtest-tracker": ["SpeedTest Tracker 首次登录/初始化方式随镜像版本变化；请按页面提示或容器日志完成配置。"],
-	beszel: ["Beszel 首次打开会要求创建管理员账号。"],
-	changedetection: ["changedetection.io 默认不强制登录；如需保护访问，请在应用或反向代理层配置认证。"],
-	ghost: ["Ghost 首次打开后请访问 /ghost/ 完成管理员账号创建。"],
-	wordpress: ["WordPress 需要可用数据库后进入安装向导；当前模板不会生成 WordPress 管理员密码。"],
-	typecho: ["Typecho 首次打开会进入安装向导；请在页面中创建管理员账号。"],
-	"itdog-tcping": ["ITDog TCPing 默认无需登录。"],
-	qrcode: ["QR Code 服务默认无需登录。"],
-	dufs: ["Dufs 当前模板默认无需登录；请只在可信网络中使用或自行增加访问控制。"],
-	pairdrop: ["PairDrop 默认无需登录。"],
-	tianji: ["Tianji 首次打开会进入账号/站点初始化流程；请按页面提示完成。"],
-	"lobe-chat": ["LobeChat 默认无需本地账号；请在应用中配置模型 Provider/API Key 后使用。"],
-	frps: ["FRPS 主要通过配置文件工作；请在 /opt/frps/config 中维护 frps.toml/frps.ini 后重启服务。"],
-	maxtext: ["MaxKB 首次登录信息随镜像版本变化；请按页面提示或容器日志确认默认账号，并首次登录后修改密码。"],
+	nextcloud: ["Nextcloud first launch enters the admin creation wizard; please set up the admin account, password and data directory in the page."],
+	filebrowser: ["File Browser image typically uses default credentials admin / admin; if login fails, confirm the initialization config in the container logs or /opt/filebrowser/config, and change the password immediately after first login."],
+	davos: ["Davos first launch usually requires following the page wizard to configure an account or connector; the image does not provide a fixed initial password."],
+	emby: ["Emby first launch enters the media server wizard; please create an admin account in the page."],
+	jellyfin: ["Jellyfin first launch enters the setup wizard; please create an admin account in the page."],
+	navidrome: ["Navidrome first launch requires creating the first admin user; please complete initialization in the page."],
+	immich: ["Immich first launch requires registering the first admin account; the current quick service only starts the app container, external database/Redis still needs to be prepared per the app requirements."],
+	metube: ["MeTube has no login password by default; please use it only on trusted networks, and add access control at the reverse proxy layer if needed."],
+	komga: ["Komga first launch enters the admin creation flow; please set up the account and password in the page."],
+	gitea: ["Gitea first launch enters the installation wizard; please confirm the database/site URL then create an admin account."],
+	vaultwarden: ["Vaultwarden has open registration by default; please create an account after first login, and set up an admin token/disable public registration as needed."],
+	portainer: ["Portainer first launch requires creating an admin password; please complete initialization in the page."],
+	"stirling-pdf": ["Stirling PDF current template disables built-in security login; no account or password needed by default."],
+	"it-tools": ["IT-Tools requires no login by default."],
+	gladys: ["Gladys first launch enters the account creation wizard; please set up the admin account in the page."],
+	memos: ["The first user to register on Memos usually becomes the admin; please create the initial account in the page."],
+	outline: ["Outline requires an external database/Redis/authentication config to fully initialize; please continue configuration per the app page and logs."],
+	hedgedoc: ["HedgeDoc first use is usually via page registration/login; please add database and authentication config before production use."],
+	affine: ["AFFiNE first launch enters the workspace/account initialization flow; please follow the page prompts to complete it."],
+	linkwarden: ["Linkwarden requires dependencies such as a database; if the first launch prompts about missing config, complete the environment variables per the app logs."],
+	wallabag: ["Wallabag official image commonly uses default credentials wallabag / wallabag; if login fails, check the container logs to confirm initialization status, and change the password after first login."],
+	"uptime-kuma": ["Uptime Kuma first launch requires creating an admin account."],
+	adguardhome: ["AdGuard Home first launch enters the installation wizard; please set up the admin account, password and DNS listening port in the page."],
+	"speedtest-tracker": ["SpeedTest Tracker first login/initialization method varies by image version; please complete configuration per the page prompts or container logs."],
+	beszel: ["Beszel first launch requires creating an admin account."],
+	changedetection: ["changedetection.io does not enforce login by default; if you need to protect access, configure authentication at the app or reverse proxy layer."],
+	ghost: ["After Ghost first launch, please visit /ghost/ to complete admin account creation."],
+	wordpress: ["WordPress requires an available database before entering the installation wizard; the current template does not generate a WordPress admin password."],
+	typecho: ["Typecho first launch enters the installation wizard; please create an admin account in the page."],
+	"itdog-tcping": ["ITDog TCPing requires no login by default."],
+	qrcode: ["QR Code service requires no login by default."],
+	dufs: ["Dufs current template requires no login by default; please use it only on trusted networks or add access control yourself."],
+	pairdrop: ["PairDrop requires no login by default."],
+	tianji: ["Tianji first launch enters the account/site initialization flow; please follow the page prompts to complete it."],
+	"lobe-chat": ["LobeChat requires no local account by default; please configure the model Provider/API Key in the app before use."],
+	frps: ["FRPS mainly works via config file; please maintain frps.toml/frps.ini in /opt/frps/config then restart the service."],
+	maxtext: ["MaxKB initial login info varies by image version; please confirm the default account per the page prompts or container logs, and change the password after first login."],
 };
 
 const APP_CREDENTIAL_RULES: Record<string, AppCredentialRule> = {
@@ -77,38 +77,38 @@ const APP_CREDENTIAL_RULES: Record<string, AppCredentialRule> = {
 		username: "minioadmin",
 		passwordEnv: "MINIO_ROOT_PASSWORD",
 		forceRandomWhen: (value) => !value || value === "minioadmin",
-		notes: ["MinIO Root 密码已在安装时自动生成；请首次登录后按需轮换 Root 用户或创建专用 Access Key。"],
+		notes: ["MinIO Root password has been auto-generated at install time; please rotate the Root user or create a dedicated Access Key after first login as needed."],
 	},
 	photoprism: {
 		username: "admin",
 		passwordEnv: "PHOTOPRISM_ADMIN_PASSWORD",
 		forceRandomWhen: (value) => !value || value === "pleasechange",
-		notes: ["PhotoPrism 管理员密码已在安装时自动生成。"],
+		notes: ["PhotoPrism admin password has been auto-generated at install time."],
 	},
 	"code-server": {
 		passwordEnv: "PASSWORD",
 		forceRandomWhen: (value) => !value,
-		notes: ["Code Server 浏览器登录密码已在安装时自动生成。"],
+		notes: ["Code Server browser login password has been auto-generated at install time."],
 	},
 	n8n: {
 		usernameEnv: "N8N_BASIC_AUTH_USER",
 		username: "admin",
 		passwordEnv: "N8N_BASIC_AUTH_PASSWORD",
 		forceRandomWhen: (value) => !value || value === "admin",
-		notes: ["n8n Basic Auth 密码已在安装时自动生成。"],
+		notes: ["n8n Basic Auth password has been auto-generated at install time."],
 	},
 	pihole: {
 		username: "admin",
 		passwordEnv: "WEBPASSWORD",
 		forceRandomWhen: (value) => !value || value === "changeme",
-		notes: ["Pi-hole Web 管理密码已在安装时自动生成。"],
+		notes: ["Pi-hole Web admin password has been auto-generated at install time."],
 	},
 	halo: {
 		usernameEnv: "HALO_SECURITY_INITIALIZER_SUPERADMINUSERNAME",
 		username: "admin",
 		passwordEnv: "HALO_SECURITY_INITIALIZER_SUPERADMINPASSWORD",
 		forceRandomWhen: (value) => !value || value === "admin123",
-		notes: ["Halo 超级管理员初始密码已在安装时自动生成。"],
+		notes: ["Halo super admin initial password has been auto-generated at install time."],
 	},
 };
 
@@ -120,7 +120,7 @@ function secretLabelFromEnvKey(key: string) {
 	const normalized = key.replace(/_/g, " ").toLowerCase();
 	if (normalized.includes("token")) return `${key} Token`;
 	if (normalized.includes("secret")) return `${key} Secret`;
-	if (normalized.includes("password")) return key === "PASSWORD" ? "密码" : `${key} 密码`;
+	if (normalized.includes("password")) return key === "PASSWORD" ? "Password" : `${key} Password`;
 	return key;
 }
 
@@ -143,12 +143,12 @@ function applyCredentialRule(template: ServiceTemplate, rule: AppCredentialRule)
 	const reportedKeys = new Set<string>();
 	if (rule.usernameEnv && !envJson[rule.usernameEnv]) envJson[rule.usernameEnv] = rule.username ?? "admin";
 	const username = rule.usernameEnv ? envJson[rule.usernameEnv] : rule.username;
-	if (username) credentials.push({ label: rule.usernameLabel ?? "账号", value: username });
+	if (username) credentials.push({ label: rule.usernameLabel ?? "Account", value: username });
 
 	const currentPassword = envJson[rule.passwordEnv];
 	const password = rule.forceRandomWhen?.(currentPassword) ? generatePassword() : currentPassword || generatePassword();
 	envJson[rule.passwordEnv] = password;
-	credentials.push({ label: rule.passwordLabel ?? "初始密码", value: password });
+	credentials.push({ label: rule.passwordLabel ?? "Initial password", value: password });
 	reportedKeys.add(rule.passwordEnv);
 	if (rule.usernameEnv) reportedKeys.add(rule.usernameEnv);
 
@@ -165,10 +165,10 @@ export function prepareInstallSecrets(template: ServiceTemplate): PreparedInstal
 		return {
 			template: { ...template, initialPassword: password },
 			credentials: [
-				{ label: "账号", value: "admin" },
-				{ label: "初始密码", value: password },
+				{ label: "Account", value: "admin" },
+				{ label: "Initial password", value: password },
 			],
-			notes: ["AList 初始管理员密码已在容器启动后自动设置。"],
+			notes: ["AList initial admin password has been auto-set after container startup."],
 		};
 	}
 
@@ -177,7 +177,7 @@ export function prepareInstallSecrets(template: ServiceTemplate): PreparedInstal
 
 	const reportedKeys = new Set<string>();
 	const credentials = collectStaticEnvCredentials(template.envJson, reportedKeys);
-	const notes = DEFAULT_CREDENTIAL_NOTES[template.slug] ?? ["该应用未声明固定初始化账号密码；请按首次打开页面或容器日志完成初始化。"];
+	const notes = DEFAULT_CREDENTIAL_NOTES[template.slug] ?? ["This app does not declare fixed initial credentials; please complete initialization per the first-launch page or container logs."];
 	return { template, credentials, notes };
 }
 
@@ -196,13 +196,13 @@ export function buildInstallNotice(template: ServiceTemplate, hostPort: number, 
 }
 
 export function formatInstallNoticeMessage(serviceName: string, notice: QuickServiceInstallNotice) {
-	const lines = [`${serviceName} 已安装并启动成功。`];
-	if (notice.accessUrl) lines.push(`访问地址：${notice.accessUrl}`);
+	const lines = [`${serviceName} has been installed and started successfully.`];
+	if (notice.accessUrl) lines.push(`Access URL: ${notice.accessUrl}`);
 	if (notice.credentials.length > 0) {
-		lines.push("初始化登录信息：");
-		for (const credential of notice.credentials) lines.push(`${credential.label}：${credential.value}`);
+		lines.push("Initial login information:");
+		for (const credential of notice.credentials) lines.push(`${credential.label}: ${credential.value}`);
 	} else {
-		lines.push("初始化登录信息：无固定账号密码。");
+		lines.push("Initial login information: no fixed account or password.");
 	}
 	for (const note of notice.notes) lines.push(note);
 	return lines.join("\n");
