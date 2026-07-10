@@ -27,7 +27,7 @@ describe("operation task service", () => {
     mockPrisma.job.findMany.mockResolvedValue([
       {
         id: "job1",
-        title: "后台备份任务",
+        title: "Background backup task",
         status: "RUNNING",
         createdAt: new Date("2026-01-03T00:00:00Z"),
         updatedAt: new Date("2026-01-03T00:00:00Z"),
@@ -41,7 +41,7 @@ describe("operation task service", () => {
     mockPrisma.commandRequest.findMany.mockResolvedValue([
       {
         id: "cmd1",
-        title: "重启服务",
+        title: "Restart service",
         status: "PENDING_APPROVAL",
         createdAt: new Date("2026-01-01T00:00:00Z"),
         updatedAt: new Date("2026-01-01T00:00:00Z"),
@@ -87,11 +87,11 @@ describe("operation task service", () => {
       {
         id: "alert_new",
         type: "alert.evaluate",
-        title: "告警规则评估",
+        title: "Alert rule evaluation",
         status: "COMPLETED",
         createdAt: new Date("2026-01-04T00:00:00Z"),
         updatedAt: new Date("2026-01-04T00:00:00Z"),
-        progress: "已评估 2 条规则",
+        progress: "Evaluated 2 rules",
         errorMessage: null,
         workerId: null,
         workerHeartbeatAt: null,
@@ -100,11 +100,11 @@ describe("operation task service", () => {
       {
         id: "alert_old",
         type: "alert.evaluate",
-        title: "告警规则评估",
+        title: "Alert rule evaluation",
         status: "COMPLETED",
         createdAt: new Date("2026-01-03T00:00:00Z"),
         updatedAt: new Date("2026-01-03T00:00:00Z"),
-        progress: "已评估 1 条规则",
+        progress: "Evaluated 1 rule",
         errorMessage: null,
         workerId: null,
         workerHeartbeatAt: null,
@@ -113,7 +113,7 @@ describe("operation task service", () => {
       {
         id: "alert_failed",
         type: "alert.evaluate",
-        title: "告警规则评估",
+        title: "Alert rule evaluation",
         status: "FAILED",
         createdAt: new Date("2026-01-02T00:00:00Z"),
         updatedAt: new Date("2026-01-02T00:00:00Z"),
@@ -134,7 +134,7 @@ describe("operation task service", () => {
       taskType: "alert.evaluate",
       status: "completed",
       foldedCount: 2,
-      progress: "已评估 2 条规则",
+      progress: "Evaluated 2 rules",
     });
     expect(tasks[1]).toMatchObject({
       taskType: "alert.evaluate",
@@ -149,11 +149,11 @@ describe("operation task service", () => {
       {
         id: "alert_completed",
         type: "alert.evaluate",
-        title: "告警规则评估",
+        title: "Alert rule evaluation",
         status: "COMPLETED",
         createdAt: new Date("2026-01-04T00:00:00Z"),
         updatedAt: new Date("2026-01-04T00:00:00Z"),
-        progress: "已评估 2 条规则",
+        progress: "Evaluated 2 rules",
         errorMessage: null,
         workerId: null,
         workerHeartbeatAt: null,
@@ -162,7 +162,7 @@ describe("operation task service", () => {
       {
         id: "alert_failed",
         type: "alert.evaluate",
-        title: "告警规则评估",
+        title: "Alert rule evaluation",
         status: "FAILED",
         createdAt: new Date("2026-01-03T00:00:00Z"),
         updatedAt: new Date("2026-01-03T00:00:00Z"),
@@ -175,7 +175,7 @@ describe("operation task service", () => {
       {
         id: "backup_failed",
         type: "backup.create",
-        title: "创建备份",
+        title: "Create backup",
         status: "FAILED",
         createdAt: new Date("2026-01-02T00:00:00Z"),
         updatedAt: new Date("2026-01-02T00:00:00Z"),
@@ -200,7 +200,7 @@ describe("operation task service", () => {
       {
         id: "job_failed",
         type: "backup.create",
-        title: "创建备份",
+        title: "Create backup",
         status: "FAILED",
         createdAt: new Date("2026-01-04T00:00:00Z"),
         updatedAt: new Date("2026-01-04T00:00:00Z"),
@@ -214,7 +214,7 @@ describe("operation task service", () => {
     mockPrisma.commandRequest.findMany.mockResolvedValue([
       {
         id: "cmd_pending",
-        title: "重启服务",
+        title: "Restart service",
         status: "PENDING_APPROVAL",
         createdAt: new Date("2026-01-03T00:00:00Z"),
         updatedAt: new Date("2026-01-03T00:00:00Z"),
@@ -224,7 +224,7 @@ describe("operation task service", () => {
       },
       {
         id: "cmd_done",
-        title: "查看日志",
+        title: "View logs",
         status: "COMPLETED",
         createdAt: new Date("2026-01-02T00:00:00Z"),
         updatedAt: new Date("2026-01-02T00:00:00Z"),
@@ -249,7 +249,7 @@ describe("operation task service", () => {
       {
         id: "alert_failed",
         type: "alert.evaluate",
-        title: "告警规则评估",
+        title: "Alert rule evaluation",
         status: "FAILED",
         createdAt: new Date("2026-01-04T00:00:00Z"),
         updatedAt: new Date("2026-01-04T00:00:00Z"),
@@ -262,7 +262,7 @@ describe("operation task service", () => {
       {
         id: "backup_failed",
         type: "backup.create",
-        title: "创建备份",
+        title: "Create backup",
         status: "FAILED",
         createdAt: new Date("2026-01-03T00:00:00Z"),
         updatedAt: new Date("2026-01-03T00:00:00Z"),
@@ -279,8 +279,8 @@ describe("operation task service", () => {
     const result = await listOperationTaskResult({ limit: 10, status: "failed" });
 
     expect(result.failureSummary).toEqual([
-      { reason: "通知发送失败", total: 1, sources: ["job"], latestTaskId: "job:alert_failed", latestTitle: "告警规则评估", latestAt: "2026-01-04T00:00:00.000Z" },
-      { reason: "文件或资源不存在", total: 1, sources: ["job"], latestTaskId: "job:backup_failed", latestTitle: "创建备份", latestAt: "2026-01-03T00:00:00.000Z" },
+      { reason: "Notification delivery failed", total: 1, sources: ["job"], latestTaskId: "job:alert_failed", latestTitle: "Alert rule evaluation", latestAt: "2026-01-04T00:00:00.000Z" },
+      { reason: "File or resource not found", total: 1, sources: ["job"], latestTaskId: "job:backup_failed", latestTitle: "Create backup", latestAt: "2026-01-03T00:00:00.000Z" },
     ]);
   });
 
@@ -289,7 +289,7 @@ describe("operation task service", () => {
       {
         id: "completed_new",
         type: "backup.create",
-        title: "最新完成任务",
+        title: "Latest completed task",
         status: "COMPLETED",
         createdAt: new Date("2026-01-05T00:00:00Z"),
         updatedAt: new Date("2026-01-05T00:00:00Z"),
@@ -302,7 +302,7 @@ describe("operation task service", () => {
       {
         id: "failed_old",
         type: "backup.create",
-        title: "较早失败任务",
+        title: "Earlier failed task",
         status: "FAILED",
         createdAt: new Date("2026-01-01T00:00:00Z"),
         updatedAt: new Date("2026-01-01T00:00:00Z"),
@@ -326,14 +326,14 @@ describe("operation task service", () => {
     mockPrisma.commandRequest.findMany.mockResolvedValue([
       {
         id: "cmd_logs",
-        title: "检查服务日志",
+        title: "Check service logs",
         status: "FAILED",
         createdAt: new Date("2026-01-04T00:00:00Z"),
         updatedAt: new Date("2026-01-04T00:00:00Z"),
         workerId: "worker-command",
         workerHeartbeatAt: new Date("2026-01-04T00:01:00Z"),
         requester: { username: "ops", displayName: null },
-        executionLogs: [{ summary: "开始执行" }, { summary: "目标返回错误" }],
+        executionLogs: [{ summary: "Execution started" }, { summary: "Target returned error" }],
         targets: [{ stdout: "line 1\nline 2", stderr: "fatal: service unavailable" }],
       },
     ]);
@@ -343,7 +343,7 @@ describe("operation task service", () => {
 
     expect(tasks[0]).toMatchObject({
       id: "command:cmd_logs",
-      logPreview: ["line 2", "fatal: service unavailable", expect.stringContaining("后台执行器 worker-command")],
+      logPreview: ["line 2", "fatal: service unavailable", expect.stringMatching(/backend executor worker-command/)],
     });
   });
 
@@ -377,7 +377,7 @@ describe("operation task service", () => {
         title: "Deploy app",
         status: "running",
         actor: "ops",
-        progress: expect.stringContaining("后台执行器 worker-1"),
+        progress: expect.stringMatching(/backend executor worker-1/),
         workerId: "worker-1",
         workerHeartbeatAt: "2026-01-03T00:01:00.000Z",
         href: "/deployments",

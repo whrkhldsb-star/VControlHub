@@ -64,6 +64,6 @@ describe("/api/backups/[id]/restore", () => {
     const response = await route.POST(new Request("http://local/api/backups/missing/restore", { method: "POST", body: JSON.stringify({ confirm: "RESTORE" }) }), { params: Promise.resolve({ id: "missing" }) });
 
     expect(response.status).toBe(404);
-    await expect(response.json()).resolves.toMatchObject({ error: "备份记录不存在" });
+    await expect(response.json()).resolves.toMatchObject({ error: "Backup record not found" });
   });
 });

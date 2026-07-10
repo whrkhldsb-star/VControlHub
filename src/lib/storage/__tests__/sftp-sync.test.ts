@@ -127,7 +127,7 @@ describe("sftp sync service", () => {
       created: 0,
       updated: 0,
       deleted: 0,
-      errors: ["连接凭据不可用：Unsupported state or unable to authenticate data"],
+      errors: ["Connection credentials unavailable: Unsupported state or unable to authenticate data"],
     });
     expect(listRemoteDirectoryMock).not.toHaveBeenCalled();
   });
@@ -216,7 +216,7 @@ describe("sftp sync service", () => {
     expect(result.updated).toBe(0);
     expect(result.deleted).toBe(0);
     expect(result.errors).toEqual([
-      "扫描 /data/files 失败：扫描 /data/files 超过 1 秒，已停止本目录同步",
+      "Scanning /data/files failed: Scanning /data/files exceeded 1 seconds; stopped syncing this directory",
     ]);
     expect(prismaMock.fileEntry.create).not.toHaveBeenCalled();
     expect(prismaMock.fileEntry.updateMany).not.toHaveBeenCalled();

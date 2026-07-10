@@ -55,19 +55,19 @@ describe("share link service", () => {
 
   it("rejects expired public share tokens", async () => {
     mockPrisma.shareLink.findUnique.mockResolvedValue({ id: "share1", tokenHash: "x", expiresAt: new Date("2020-01-01T00:00:00Z"), revokedAt: null });
-    await expect(resolveShareToken("abc")).rejects.toThrow(/已过期/);
+    await expect(resolveShareToken("abc")).rejects.toThrow(/has expired/);
   });
 
   it("rejects password-protected shares when no password provided", async () => {
     const { hashSharePassword } = await import("../service");
     mockPrisma.shareLink.findUnique.mockResolvedValue({ id: "share1", tokenHash: "x", expiresAt: null, revokedAt: null, maxDownloads: null, accessCount: 0, passwordHash: hashSharePassword("s3cret") });
-    await expect(resolveShareToken("abc")).rejects.toThrow(/需要密码/);
+    await expect(resolveShareToken("abc")).rejects.toThrow(/requires a password/);
   });
 
   it("rejects password-protected shares with wrong password", async () => {
     const { hashSharePassword } = await import("../service");
     mockPrisma.shareLink.findUnique.mockResolvedValue({ id: "share1", tokenHash: "x", expiresAt: null, revokedAt: null, maxDownloads: null, accessCount: 0, passwordHash: hashSharePassword("s3cret") });
-    await expect(resolveShareToken("abc", "wrong")).rejects.toThrow(/密码错误/);
+    await expect(resolveShareToken("abc", "wrong")).rejects.toThrow(/Incorrect access password/);
   });
 
   it("allows password-protected shares with correct password", async () => {

@@ -109,7 +109,7 @@ describe("/api/api-tokens", () => {
     const res = await route.POST(req);
 
     expect(res.status).toBe(400);
-    expect(await res.json()).toMatchObject({ error: "请求体不是合法的 JSON" });
+    expect(await res.json()).toMatchObject({ error: "Request body is not valid JSON" });
     expect(mocks.createApiToken).not.toHaveBeenCalled();
     expect(mocks.auditUserAction).not.toHaveBeenCalled();
   });

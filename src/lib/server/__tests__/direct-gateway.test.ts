@@ -71,13 +71,13 @@ describe("direct gateway helpers", () => {
   it("summarizes global direct access status for the server panel", () => {
     expect(
       getDirectGatewayStatusLabel({ fileProxyPort: 0, publicUrl: null }),
-    ).toBe("网站中转");
+    ).toBe("Website relay");
     expect(
       getDirectGatewayStatusLabel({
         fileProxyPort: 31888,
         publicUrl: "http://203.0.113.10:31888",
       }),
-    ).toBe("目标直连");
+    ).toBe("Target direct connection");
   });
 });
 

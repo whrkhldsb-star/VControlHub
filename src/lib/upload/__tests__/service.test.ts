@@ -325,7 +325,7 @@ describe("appendMediaUploadChunk", () => {
 				size: 100,
 				buffer: Buffer.alloc(99, 0xaa),
 			}),
-		).rejects.toThrow(/不匹配/);
+		).rejects.toThrow(/does not match/);
 	});
 
 	it("rejects out-of-range index", async () => {
@@ -344,7 +344,7 @@ describe("appendMediaUploadChunk", () => {
 				size: 100,
 				buffer: Buffer.alloc(100, 0xaa),
 			}),
-		).rejects.toThrow(/超出/);
+		).rejects.toThrow(/exceeds/);
 	});
 
 	it("refuses append after COMPLETED", async () => {
@@ -377,7 +377,7 @@ describe("appendMediaUploadChunk", () => {
 				size: 100,
 				buffer: Buffer.alloc(100, 0xaa),
 			}),
-		).rejects.toThrow(/已完成/);
+		).rejects.toThrow(/already completed/);
 	});
 });
 
@@ -421,7 +421,7 @@ describe("assembleMediaUploadChunks", () => {
 		});
 		await expect(
 			assembleMediaUploadChunks(view.id, TEST_USER),
-		).rejects.toThrow(/缺失 2 个 chunk/);
+		).rejects.toThrow(/Missing 2 chunk/);
 	});
 });
 
@@ -477,7 +477,7 @@ describe("completeMediaUploadSession", () => {
 				userId: "stranger",
 				buffer: buf,
 			}),
-		).rejects.toThrow(/不存在或不属于/);
+		).rejects.toThrow(/not found or does not belong/);
 	});
 });
 

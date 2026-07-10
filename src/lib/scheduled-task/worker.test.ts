@@ -78,7 +78,7 @@ import { startScheduledTaskWorker, stopScheduledTaskWorkerForTests } from "./wor
 function makeTask(overrides: Partial<Record<string, unknown>> = {}) {
   return {
     id: "task-1",
-    name: "备份",
+    name: "Backup",
     command: "echo hi",
     reason: null,
     serverIds: ["srv-1"],
@@ -159,7 +159,7 @@ describe("scheduled-task durable job worker", () => {
 
   it("claims via the jobs table and completes with the dispatched count", async () => {
     claimNextJobMock.mockResolvedValueOnce(makeJob());
-    scheduledTaskFindManyMock.mockResolvedValueOnce([makeTask({ reason: "夜间备份" })]);
+    scheduledTaskFindManyMock.mockResolvedValueOnce([makeTask({ reason: "Nightly backup" })]);
 
     await startScheduledTaskWorker();
     await vi.runOnlyPendingTimersAsync();
@@ -172,14 +172,14 @@ describe("scheduled-task durable job worker", () => {
       }),
     );
     expect(createCommandRequestMock).toHaveBeenCalledWith({
-      title: "定时任务：备份",
+      title: "Scheduled task: Backup",
       command: "echo hi",
-      reason: "夜间备份",
+      reason: "Nightly backup",
       submissionMode: "user",
       requesterId: "user-1",
       serverIds: ["srv-1"],
     });
-    expect(recordTaskRunMock).toHaveBeenCalledWith("task-1", "已触发命令请求 cmd-1");
+    expect(recordTaskRunMock).toHaveBeenCalledWith("task-1", "Triggered command request cmd-1");
     expect(completeJobMock).toHaveBeenCalledWith(
       "job-1",
       expect.stringContaining(":scheduled-task:"),
@@ -233,8 +233,8 @@ describe("scheduled-task durable job worker", () => {
     await Promise.resolve();
 
     expect(createCommandRequestMock).not.toHaveBeenCalled();
-    expect(recordTaskRunMock).toHaveBeenCalledWith("no-srv", "跳过：无目标服务器或无创建者");
-    expect(recordTaskRunMock).toHaveBeenCalledWith("no-creator", "跳过：无目标服务器或无创建者");
+    expect(recordTaskRunMock).toHaveBeenCalledWith("no-srv", "Skipped: no target server or no creator");
+    expect(recordTaskRunMock).toHaveBeenCalledWith("no-creator", "Skipped: no target server or no creator");
     // New-B (2026-06-15): both tasks short-circuited (no servers / no
     // creator) so they don't count as "dispatched" — only tasks that
     // actually went through createCommandRequest do.
@@ -261,8 +261,8 @@ describe("scheduled-task durable job worker", () => {
     await Promise.resolve();
     await Promise.resolve();
 
-    expect(recordTaskRunMock).toHaveBeenCalledWith("bad", "执行失败：boom");
-    expect(recordTaskRunMock).toHaveBeenCalledWith("good", "已触发命令请求 cmd-good");
+    expect(recordTaskRunMock).toHaveBeenCalledWith("bad", "Execution failed: boom");
+    expect(recordTaskRunMock).toHaveBeenCalledWith("good", "Triggered command request cmd-good");
     // New-B (2026-06-15): only the `good` task actually went through
     // createCommandRequest; `bad` failed and was caught by the per-task
     // try/catch, so it doesn't count toward `dispatched`.
@@ -320,7 +320,7 @@ describe("scheduled-task durable job worker", () => {
     expect(createCommandRequestMock).not.toHaveBeenCalled();
     expect(recordTaskRunMock).not.toHaveBeenCalledWith(
       "raced",
-      expect.stringMatching(/^已触发命令请求/),
+      expect.stringMatching(/^Triggered command request/),
     );
     expect(infoMock).toHaveBeenCalledWith(
       expect.stringContaining("already claimed by another worker"),
@@ -363,12 +363,12 @@ describe("scheduled-task durable job worker", () => {
     );
     expect(recordTaskRunMock).toHaveBeenCalledWith(
       "claim-rollback",
-      "执行失败：downstream API 503",
+      "Execution failed: downstream API 503",
     );
     // Tick job still completes — per-task failures don't fail the whole
     // tick. The `dispatched` counter is the number of tasks that actually
     // went through createCommandRequest successfully; failed dispatches
-    // are recorded via recordTaskRun("执行失败: ...") but don't count.
+    // are recorded via recordTaskRun("Execution failed: ...") but don't count.
     expect(completeJobMock).toHaveBeenCalledWith(
       "job-1",
       expect.any(String),

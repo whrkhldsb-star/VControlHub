@@ -129,9 +129,8 @@ describe("UnifiedSettingsPageClient", () => {
     expect(await screen.findByRole("button", { name: "仪表盘" })).toBeInTheDocument();
     expect(screen.getByRole("switch", { name: "启用通知" })).toBeInTheDocument();
 
-    // System settings tabs show no-permission message
-    await userEvent.click(screen.getByRole("tab", { name: /安全与账户/ }));
-    expect(screen.getByText("当前角色无系统设置权限")).toBeInTheDocument();
+    // Non-admin users only see personal settings; system-setting tabs are hidden.
+    expect(screen.queryByRole("tab", { name: /安全与账户/ })).not.toBeInTheDocument();
     expect(screen.queryByLabelText("平台名称")).not.toBeInTheDocument();
 
     // Personal tab still has content

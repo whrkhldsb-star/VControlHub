@@ -8,7 +8,7 @@ describe("ticket service", () => {
     mockPrisma.ticket.create.mockImplementation(async ({ data }: any) => ({ id: "tk1", ...data }));
     const ticket = await createTicket({ title: "Need VPS", description: "Please add node", createdBy: "u1" });
     expect(ticket.status).toBe("OPEN");
-    await expect(updateTicketStatus({ id: "tk1", status: "BAD" })).rejects.toThrow(/状态无效/);
+    await expect(updateTicketStatus({ id: "tk1", status: "BAD" })).rejects.toThrow(/status is invalid/);
   });
 
   it("updates assignee without requiring a status change", async () => {
@@ -42,15 +42,15 @@ describe("ticket service", () => {
   it("rejects invalid status transitions (state machine)", async () => {
     // OPEN → CLOSED is not a valid transition (must go through IN_PROGRESS→RESOLVED→CLOSED)
     mockPrisma.ticket.findUnique.mockResolvedValueOnce({ id: "tk1", status: "OPEN" });
-    await expect(updateTicketStatus({ id: "tk1", status: "CLOSED" })).rejects.toThrow(/不能从 OPEN 变更为 CLOSED/);
+    await expect(updateTicketStatus({ id: "tk1", status: "CLOSED" })).rejects.toThrow(/cannot change from OPEN to CLOSED/);
 
     // CLOSED → IN_PROGRESS is not valid (only CLOSED → OPEN)
     mockPrisma.ticket.findUnique.mockResolvedValueOnce({ id: "tk1", status: "CLOSED" });
-    await expect(updateTicketStatus({ id: "tk1", status: "IN_PROGRESS" })).rejects.toThrow(/不能从 CLOSED 变更为 IN_PROGRESS/);
+    await expect(updateTicketStatus({ id: "tk1", status: "IN_PROGRESS" })).rejects.toThrow(/cannot change from CLOSED to IN_PROGRESS/);
 
     // RESOLVED → OPEN is not valid
     mockPrisma.ticket.findUnique.mockResolvedValueOnce({ id: "tk1", status: "RESOLVED" });
-    await expect(updateTicketStatus({ id: "tk1", status: "OPEN" })).rejects.toThrow(/不能从 RESOLVED 变更为 OPEN/);
+    await expect(updateTicketStatus({ id: "tk1", status: "OPEN" })).rejects.toThrow(/cannot change from RESOLVED to OPEN/);
 
     // update should not have been called for any of the rejected transitions
     expect(mockPrisma.ticket.update).not.toHaveBeenCalled();
@@ -89,7 +89,7 @@ describe("ticket service", () => {
   });
 
   it("adds non-empty comments", async () => {
-    await expect(addTicketComment({ ticketId: "tk1", authorId: "u1", body: "  " })).rejects.toThrow(/不能为空/);
+    await expect(addTicketComment({ ticketId: "tk1", authorId: "u1", body: "  " })).rejects.toThrow(/cannot be empty/);
   });
 
   it("returns comment authors for newly added comments", async () => {

@@ -123,10 +123,10 @@ describe("validateOffsiteConfigForUse", () => {
 			accessKeyId: "",
 			secretAccessKey: "",
 		}));
-		expect(issues).toContain("endpoint 未配置");
-		expect(issues).toContain("bucket 未配置");
-		expect(issues).toContain("accessKeyId 未配置");
-		expect(issues).toContain("secretAccessKey 未配置");
+		expect(issues).toContain("Endpoint not configured");
+		expect(issues).toContain("Bucket not configured");
+		expect(issues).toContain("AccessKeyId not configured");
+		expect(issues).toContain("SecretAccessKey not configured");
 	});
 
 	it("flags malformed alert email when provided", () => {
@@ -134,7 +134,7 @@ describe("validateOffsiteConfigForUse", () => {
 			...VALID_INPUT,
 			failureAlertRecipient: "not-an-email",
 		}));
-		expect(issues).toContain("failureAlertRecipient 不是合法邮箱");
+		expect(issues).toContain("failureAlertRecipient is not a valid email address");
 	});
 
 	it("skipped checks when enabled=false", () => {

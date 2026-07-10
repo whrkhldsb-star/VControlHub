@@ -19,28 +19,28 @@ describe("useActionResultToast", () => {
     addToastMock.mockClear();
   });
 
-  it("成功时显示 success toast 并返回 true", () => {
+  it("shows success toast on success and returns true", () => {
     const { result } = renderHook(() => useActionResultToast(), { wrapper });
     let returned = false;
     act(() => {
-      const r: ActionResult = { ok: true, message: "已保存" };
+      const r: ActionResult = { ok: true, message: "Saved" };
       returned = result.current(r);
     });
     expect(returned).toBe(true);
-    expect(addToastMock).toHaveBeenCalledWith("success", "已保存");
+    expect(addToastMock).toHaveBeenCalledWith("success", "Saved");
   });
 
-  it("成功时无 message 用 successMessage 默认值", () => {
-    const { result } = renderHook(() => useActionResultToast({ successMessage: "已创建" }), {
+  it("uses successMessage default when no message", () => {
+    const { result } = renderHook(() => useActionResultToast({ successMessage: "Created" }), {
       wrapper,
     });
     act(() => {
       result.current({ ok: true });
     });
-    expect(addToastMock).toHaveBeenCalledWith("success", "已创建");
+    expect(addToastMock).toHaveBeenCalledWith("success", "Created");
   });
 
-  it("成功时 showSuccess=false 不显示 toast", () => {
+  it("showSuccess=false suppresses toast on success", () => {
     const { result } = renderHook(() => useActionResultToast({ showSuccess: false }), {
       wrapper,
     });
@@ -52,7 +52,7 @@ describe("useActionResultToast", () => {
     expect(addToastMock).not.toHaveBeenCalled();
   });
 
-  it("perCall 选项覆盖 defaults", () => {
+  it("perCall option overrides defaults", () => {
     const { result } = renderHook(() => useActionResultToast({ showSuccess: true }), { wrapper });
     act(() => {
       result.current({ ok: true }, { showSuccess: false });
@@ -60,31 +60,31 @@ describe("useActionResultToast", () => {
     expect(addToastMock).not.toHaveBeenCalled();
   });
 
-  it("失败时显示 error toast 并返回 false", () => {
+  it("shows error toast on failure and returns false", () => {
     const { result } = renderHook(() => useActionResultToast(), { wrapper });
     let returned = true;
     act(() => {
-      returned = result.current({ ok: false, code: "FORBIDDEN", message: "无权限" });
+      returned = result.current({ ok: false, code: "FORBIDDEN", message: "No permission" });
     });
     expect(returned).toBe(false);
-    expect(addToastMock).toHaveBeenCalledWith("error", "无权限");
+    expect(addToastMock).toHaveBeenCalledWith("error", "No permission");
   });
 
-  it("RATE_LIMITED 用 warning 而非 error", () => {
+  it("RATE_LIMITED uses warning instead of error", () => {
     const { result } = renderHook(() => useActionResultToast(), { wrapper });
     act(() => {
-      result.current({ ok: false, code: "RATE_LIMITED", message: "请求过多" });
+      result.current({ ok: false, code: "RATE_LIMITED", message: "Too many requests" });
     });
-    expect(addToastMock).toHaveBeenCalledWith("warning", "请求过多");
+    expect(addToastMock).toHaveBeenCalledWith("warning", "Too many requests");
   });
 
-  it("PARTIAL_FAILURE 附加 X/Y 失败摘要", () => {
+  it("PARTIAL_FAILURE appends X/Y failure summary", () => {
     const { result } = renderHook(() => useActionResultToast(), { wrapper });
     act(() => {
       result.current({
         ok: false,
         code: "PARTIAL_FAILURE",
-        message: "批量操作部分失败",
+        message: "Partial operation failure",
         partial: [
           { id: "a", ok: true },
           { id: "b", ok: false },
@@ -92,27 +92,27 @@ describe("useActionResultToast", () => {
         ],
       });
     });
-    expect(addToastMock).toHaveBeenCalledWith("warning", "批量操作部分失败（2/3 失败）");
+    expect(addToastMock).toHaveBeenCalledWith("warning", "Partial operation failure (2/3 failed)");
   });
 
-  it("VALIDATION_FAILED 附加首个字段错误", () => {
+  it("VALIDATION_FAILED appends first field error", () => {
     const { result } = renderHook(() => useActionResultToast(), { wrapper });
     act(() => {
       result.current({
         ok: false,
         code: "VALIDATION_FAILED",
-        message: "输入有误",
-        details: { name: ["不能为空"], email: ["格式错"] },
+        message: "Input error",
+        details: { name: ["cannot be empty"], email: ["invalid format"] },
       });
     });
-    expect(addToastMock).toHaveBeenCalledWith("error", "输入有误：不能为空");
+    expect(addToastMock).toHaveBeenCalledWith("error", "Input error: cannot be empty");
   });
 
-  it("VALIDATION_FAILED 无 details 时只显示 message", () => {
+  it("VALIDATION_FAILED without details shows only message", () => {
     const { result } = renderHook(() => useActionResultToast(), { wrapper });
     act(() => {
-      result.current({ ok: false, code: "VALIDATION_FAILED", message: "校验失败" });
+      result.current({ ok: false, code: "VALIDATION_FAILED", message: "Validation failed" });
     });
-    expect(addToastMock).toHaveBeenCalledWith("error", "校验失败");
+    expect(addToastMock).toHaveBeenCalledWith("error", "Validation failed");
   });
 });

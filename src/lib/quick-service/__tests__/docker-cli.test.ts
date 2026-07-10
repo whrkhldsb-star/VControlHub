@@ -174,7 +174,7 @@ describe("quick-service docker-cli adapter", () => {
 					available: false,
 					running: false,
 					version: null,
-					message: "Docker 未安装",
+					message: "Docker is not installed",
 					installHint: expect.stringContaining("get.docker.com"),
 				}),
 			);
@@ -190,7 +190,7 @@ describe("quick-service docker-cli adapter", () => {
 					available: false,
 					running: false,
 					version: null,
-					message: "Docker 未运行或当前用户无权限访问 Docker daemon",
+					message: expect.stringContaining("Docker is not running"),
 					installHint: expect.stringContaining("get.docker.com"),
 				}),
 			);
@@ -202,7 +202,7 @@ describe("quick-service docker-cli adapter", () => {
 			});
 
 			expect(getDockerEnvironmentStatus()).toEqual(
-				expect.objectContaining({ message: "Docker 未安装" }),
+				expect.objectContaining({ message: "Docker is not installed" }),
 			);
 		});
 	});

@@ -1,4 +1,5 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { screen, waitFor } from "@testing-library/react";
+import { renderWithI18n as render } from "@/lib/i18n/__tests__/test-helpers";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -41,7 +42,7 @@ describe("ActiveIncidentsBanner", () => {
       ],
     });
 
-    render(<ActiveIncidentsBanner />);
+    render(<ActiveIncidentsBanner />, { locale: "en" });
 
     expect(await screen.findByText("数据库主库故障")).toBeInTheDocument();
     expect(await screen.findByText("计划维护窗口")).toBeInTheDocument();
@@ -53,7 +54,7 @@ describe("ActiveIncidentsBanner", () => {
       announcements: [{ ...incident, id: "info1", level: "info", title: "日常通知" }],
     });
 
-    const { container } = render(<ActiveIncidentsBanner />);
+    const { container } = render(<ActiveIncidentsBanner />, { locale: "en" });
     await new Promise((r) => setTimeout(r, 200));
     expect(container.innerHTML).toBe("");
   });
@@ -62,7 +63,7 @@ describe("ActiveIncidentsBanner", () => {
     const user = userEvent.setup();
     csrfFetchMock.mockResolvedValue({ announcements: [incident, maintenance] });
 
-    render(<ActiveIncidentsBanner />);
+    render(<ActiveIncidentsBanner />, { locale: "en" });
 
     expect(await screen.findByText("数据库主库故障")).toBeInTheDocument();
     expect(await screen.findByText("计划维护窗口")).toBeInTheDocument();

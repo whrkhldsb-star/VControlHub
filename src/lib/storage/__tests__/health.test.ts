@@ -81,7 +81,7 @@ describe("checkStorageNodeHealth", () => {
     const result = await checkStorageNodeHealth("node-1");
 
     expect(result.healthStatus).toBe("UNHEALTHY");
-    expect(result.lastHealthError).toMatch(/不是目录/);
+    expect(result.lastHealthError).toMatch(/not a directory/);
     expect(accessMock).not.toHaveBeenCalled();
   });
 

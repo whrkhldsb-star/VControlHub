@@ -70,8 +70,8 @@ describe("runOffsiteDryRun", () => {
 		expect(result.ok).toBe(false);
 		if (result.ok === false && result.reason === "config_invalid") {
 			expect(result.issues.length).toBeGreaterThan(0);
-			expect(result.issues.some((i) => i.includes("bucket"))).toBe(true);
-			expect(result.issues.some((i) => i.includes("accessKeyId"))).toBe(true);
+			expect(result.issues.some((i) => i.toLowerCase().includes("bucket"))).toBe(true);
+			expect(result.issues.some((i) => i.toLowerCase().includes("accesskeyid"))).toBe(true);
 		} else {
 			throw new Error("expected config_invalid result");
 		}

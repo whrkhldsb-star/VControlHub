@@ -109,7 +109,7 @@ describe("POST /api/auth/2fa/enable", () => {
     const res = await enableRoute.POST(jsonRequest({ code: "111111", secret: "SECRET" }));
     expect(res.status).toBe(400);
     const body = await res.json();
-    expect(body.error).toMatch(/验证码错误/);
+    expect(body.error).toMatch(/Invalid verification code/);
     expect(prismaMock.user.update).not.toHaveBeenCalled();
   });
 
@@ -156,7 +156,7 @@ describe("POST /api/auth/2fa/disable", () => {
     const res = await disableRoute.POST(jsonRequest({ code: "123456" }));
     expect(res.status).toBe(400);
     const body = await res.json();
-    expect(body.error).toMatch(/未启用/);
+    expect(body.error).toMatch(/not enabled/i);
   });
 
   it("rejects invalid TOTP code with 400", async () => {

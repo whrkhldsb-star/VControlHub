@@ -194,7 +194,9 @@ export function SnippetList({ snippets: initial }: { snippets: Snippet[] }) {
       )}
 
       {pendingDelete && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-[var(--surface)]/70 p-4 backdrop-blur-sm" role="presentation" onClick={() => setPendingDelete(null)}>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-[var(--surface)]/70 p-4 backdrop-blur-sm" role="presentation" onClick={(event) => {
+          if (event.target === event.currentTarget) setPendingDelete(null);
+        }}>
           <div ref={dialogRef} role="dialog" aria-modal="true" aria-labelledby="delete-snippet-title" className="w-full max-w-md rounded-2xl border border-[var(--border)] bg-[var(--modal-bg)] p-5 shadow-2xl shadow-black/30">
             <h3 id="delete-snippet-title" className="text-base font-semibold text-[var(--text-primary)]">{t("snippetsPage.deleteDialog.title")}</h3>
             <p className="mt-2 text-sm leading-6 text-[var(--text-muted)]">

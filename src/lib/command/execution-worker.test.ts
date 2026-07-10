@@ -98,7 +98,7 @@ describe("command execution durable job worker", () => {
       expect(enqueueJobMock).toHaveBeenCalledWith(
         expect.objectContaining({
           type: COMMAND_EXECUTION_JOB_TYPE,
-          title: "执行命令 req-42",
+          title: "Execute command req-42",
           payload: expect.objectContaining({
             commandRequestId: "req-42",
             summary: "test summary",

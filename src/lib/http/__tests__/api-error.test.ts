@@ -107,7 +107,7 @@ describe("lib/http/api-error", () => {
 			expect(res.status).toBe(500);
 			const body = await readJson(res);
 			expect(body.code).toBe("INTERNAL_ERROR");
-			expect(body.message).toBe("操作失败");
+			expect(body.message).toBe("Operation failed");
 		});
 	});
 });

@@ -177,7 +177,7 @@ describe("/api/health", () => {
 
     expect(response.status).toBe(500);
     const body = await response.json();
-    expect(body.error).toContain("健康数据采集失败");
+    expect(body.error).toContain("Failed to collect health data: Unsupported state or unable to authenticate data");
     expect(body.error).toContain(
       "Unsupported state or unable to authenticate data",
     );
@@ -194,7 +194,7 @@ describe("/api/health", () => {
 
     expect(response.status).toBe(500);
     const body = await response.json();
-    expect(body.error).toContain("健康历史获取失败");
+    expect(body.error).toContain("Failed to fetch health history: database connection lost");
     expect(body.error).toContain("database connection lost");
   });
 });

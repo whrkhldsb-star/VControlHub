@@ -83,7 +83,7 @@ describe("collectAllHealth — TR-050 TCP probe integration", () => {
 		// host isn't even answering on the network.
 		expect(collectServerMetricsMock).not.toHaveBeenCalled();
 		expect(result.servers[0]?.status).toBe("offline");
-		expect(result.servers[0]?.error).toContain("网络不可达");
+		expect(result.servers[0]?.error).toContain("Network unreachable: ECONNREFUSED");
 		expect(result.servers[0]?.error).toContain("ECONNREFUSED");
 		expect(result.servers[0]?.latencyMs).toBeUndefined();
 	});
@@ -100,7 +100,7 @@ describe("collectAllHealth — TR-050 TCP probe integration", () => {
 		expect(tcpProbeMock).toHaveBeenCalledTimes(1);
 		expect(collectServerMetricsMock).toHaveBeenCalledTimes(1);
 		expect(result.servers[0]?.status).toBe("warning");
-		expect(result.servers[0]?.error).toContain("SSH 不可达");
+		expect(result.servers[0]?.error).toContain("SSH unreachable");
 		expect(result.servers[0]?.error).toContain("RTT 7ms");
 		expect(result.servers[0]?.latencyMs).toBe(7);
 	});
@@ -115,7 +115,7 @@ describe("collectAllHealth — TR-050 TCP probe integration", () => {
 		const result = await collectAllHealth();
 
 		expect(result.servers[0]?.status).toBe("warning");
-		expect(result.servers[0]?.error).toContain("采集失败");
+		expect(result.servers[0]?.error).toContain("Collection failed (host online, RTT 12ms): decrypt failed");
 		expect(result.servers[0]?.error).toContain("decrypt failed");
 		expect(result.servers[0]?.latencyMs).toBe(12);
 	});

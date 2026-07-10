@@ -30,7 +30,7 @@ describe("/api/backups/[id]/retry", () => {
     expect(mocks.prepareBackupRecordRetry).toHaveBeenCalledWith({ id: "bak1" });
     expect(mocks.enqueueJob).toHaveBeenCalledWith(expect.objectContaining({
       type: "backup.create",
-      title: "重试DATABASE备份",
+      title: "Retry DATABASE backup",
       payload: { backupId: "bak1" },
       createdBy: "u1",
       maxAttempts: 1,

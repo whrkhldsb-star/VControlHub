@@ -15,6 +15,7 @@ vi.mock("@/lib/auth/csrf-client", () => ({
 import { csrfFetch } from "@/lib/auth/csrf-client";
 import { CreateTicketForm } from "../create-ticket-form";
 import { renderWithI18n as render } from "@/lib/i18n/__tests__/test-helpers";
+import { ToastProvider } from "@/components/toast-provider";
 
 describe("CreateTicketForm", () => {
   beforeEach(() => {
@@ -25,17 +26,17 @@ describe("CreateTicketForm", () => {
     const user = userEvent.setup();
     vi.mocked(csrfFetch).mockResolvedValueOnce({ id: "ticket_1" });
 
-    render(<CreateTicketForm />);
+    render(<ToastProvider><CreateTicketForm /></ToastProvider>, { locale: "en" });
 
-    await user.type(screen.getByLabelText("标题"), "无法连接 VPS");
-    await user.type(screen.getByLabelText("描述"), "SSH 连接一直超时");
-    await user.selectOptions(screen.getByLabelText("优先级"), "HIGH");
-    await user.click(screen.getByRole("button", { name: "提交工单" }));
+    await user.type(screen.getByLabelText("Title"), "Cannot connect to VPS");
+    await user.type(screen.getByLabelText("Description"), "SSH connection keeps timing out");
+    await user.selectOptions(screen.getByLabelText("Priority"), "HIGH");
+    await user.click(screen.getByRole("button", { name: "Submit ticket" }));
 
     await waitFor(() => expect(csrfFetch).toHaveBeenCalledWith("/api/tickets", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ subject: "无法连接 VPS", description: "SSH 连接一直超时", priority: "HIGH" }),
+      body: JSON.stringify({ subject: "Cannot connect to VPS", description: "SSH connection keeps timing out", priority: "HIGH" }),
     }));
     expect(refreshMock).toHaveBeenCalledTimes(1);
   });

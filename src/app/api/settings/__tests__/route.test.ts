@@ -82,7 +82,7 @@ describe("/api/settings audit coverage", () => {
     }));
 
     expect(response.status).toBe(400);
-    expect(await response.json()).toMatchObject({ error: "请求体不是合法的 JSON" });
+    expect(await response.json()).toMatchObject({ error: "Request body is not valid JSON" });
     expect(mocks.setManySettings).not.toHaveBeenCalled();
     expect(mocks.auditUserAction).not.toHaveBeenCalled();
   });
@@ -141,10 +141,10 @@ describe("/api/settings audit coverage", () => {
     const payload = await response.json();
 
     expect(response.status).toBe(400);
-    expect(payload.error).toContain("Logo URL 只支持 http(s) 或站内路径");
-    expect(payload.error).toContain("会话超时 必须在 300 到 2592000 之间");
-    expect(payload.error).toContain("密码最小长度 必须在 8 到 128 之间");
-    expect(payload.error).toContain("发件人地址格式不正确");
+    expect(payload.error).toContain("Logo URL only supports http(s) or internal path; Session timeout must be between 300 and 2592000 ; Password minimum length must be between 8 and 128 ; Invalid sender address format");
+    expect(payload.error).toContain("Session timeout must be between 300 and 2592000");
+    expect(payload.error).toContain("Password minimum length must be between 8 and 128");
+    expect(payload.error).toContain("Invalid sender address format");
     expect(mocks.setManySettings).not.toHaveBeenCalled();
   });
 

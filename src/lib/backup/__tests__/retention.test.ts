@@ -116,7 +116,7 @@ describe("pruneOldBackupRecordsNow — runtime orchestrator", () => {
 
   it("returns zero counts when no records match retention", async () => {
     mockPrisma.backupRecord.findMany.mockResolvedValueOnce([
-      baseRecord({ id: "bak_recent", completedAt: new Date("2026-06-10T00:00:00Z") }),
+      baseRecord({ id: "bak_recent", completedAt: new Date() }),
     ]);
     const result = await pruneOldBackupRecordsNow({ projectRoot: "/opt/app" });
     expect(result.deletedRecords).toBe(0);

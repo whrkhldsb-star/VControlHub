@@ -170,7 +170,7 @@ describe("PreferencesPage", () => {
 		expect(await screen.findByRole("heading", { name: /VPS 自动探测/ })).toBeInTheDocument();
 		const toggle = screen.getByRole("switch", { name: "进入 VPS 管理时自动探测节点状态" }) as HTMLButtonElement;
 		expect(toggle).toHaveAttribute("aria-checked", "true");
-		expect(screen.getByRole("button", { name: "1 分钟" })).toHaveClass("border-[var(--accent-border)]");
+		expect(screen.getByRole("button", { name: "1 minute" })).toHaveClass("border-[var(--accent-border)]");
 	});
 
 	it("disables the auto-probe interval picker when 自动探测 is off", async () => {
@@ -184,7 +184,7 @@ describe("PreferencesPage", () => {
 
 		const toggle = await screen.findByRole("switch", { name: "进入 VPS 管理时自动探测节点状态" });
 		expect(toggle).toHaveAttribute("aria-checked", "false");
-		const intervalButton = screen.getByRole("button", { name: "1 分钟" });
+		const intervalButton = screen.getByRole("button", { name: "1 minute" });
 		expect(intervalButton).toBeDisabled();
 	});
 });

@@ -292,7 +292,7 @@ describe("worker registry", () => {
     const dl = getWorkerStatuses().find((s) => s.id === "download-execution");
     expect(dl).toEqual({
       id: "download-execution",
-      label: "下载执行",
+      label: "Download execution",
       jobType: "download.execute",
       started: true,
     });

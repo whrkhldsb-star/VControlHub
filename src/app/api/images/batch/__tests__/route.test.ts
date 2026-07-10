@@ -95,7 +95,7 @@ describe("/api/images/batch", () => {
     expect(response.status).toBe(403);
     expect(imageFindManyMock).not.toHaveBeenCalled();
     expect(imageDeleteManyMock).not.toHaveBeenCalled();
-    await expect(response.json()).resolves.toMatchObject({ error: "无权批量删除图片" });
+    await expect(response.json()).resolves.toMatchObject({ error: "No permission to batch delete images" });
   });
 
   it("allows storage delete managers to batch-delete selected images across owners", async () => {

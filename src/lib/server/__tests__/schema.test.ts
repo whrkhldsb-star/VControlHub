@@ -39,6 +39,6 @@ describe("createServerSchema", () => {
         username: "root",
         sshKeyId: "",
       }),
-    ).toThrow(/SSH 密钥/i);
+    ).toThrow(/SSH key|password/i);
   });
 });

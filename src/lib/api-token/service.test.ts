@@ -19,7 +19,7 @@ describe("api token service", () => {
     expect(JSON.stringify(result.apiToken)).not.toContain(data.tokenHash);
   });
   it("rejects unknown requested scopes instead of creating a misleading lower-privilege token", async () => {
-    await expect(createApiToken({ userId: "u1", name: "cli", scopes: ["read", "admin:everything"] })).rejects.toThrow("不支持的 scope: admin:everything");
+    await expect(createApiToken({ userId: "u1", name: "cli", scopes: ["read", "admin:everything"] })).rejects.toThrow("Unsupported scope: admin:everything");
     expect(mockPrisma.apiToken.create).not.toHaveBeenCalled();
   });
   it("bounds token list hydration newest-first for growing token history", async () => {

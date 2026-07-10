@@ -132,7 +132,7 @@ describe("HealthDashboardClient", () => {
 		renderHealthDashboard();
 		expect(await screen.findByText("HK Prod")).toBeInTheDocument();
 
-		expect(screen.getByText("每 1分钟")).toBeInTheDocument();
+		expect(screen.getByText("每 1 minutes")).toBeInTheDocument();
 		expect(setIntervalSpy).toHaveBeenCalledWith(expect.any(Function), 60_000);
 		expect(setIntervalSpy).not.toHaveBeenCalledWith(expect.any(Function), 30_000);
 	});

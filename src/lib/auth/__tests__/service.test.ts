@@ -130,7 +130,7 @@ describe("changePassword", () => {
  newPassword: "Newpass123",
  confirmPassword: "Newpass123",
  }),
- ).resolves.toEqual({ success: false, error: "当前密码错误" });
+ ).resolves.toEqual({ success: false, error: "Current password is incorrect" });
  expect(prisma.user.update).not.toHaveBeenCalled();
  });
 });

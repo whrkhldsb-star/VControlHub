@@ -118,7 +118,7 @@ describe("POST /api/files/extract", () => {
       operation: "write",
     });
     await expect(response.json()).resolves.toMatchObject({
-      error: expect.stringContaining("暂不支持在线解压 tar/tgz"),
+      error: expect.stringContaining("not supported"),
     });
   });
 
@@ -181,7 +181,7 @@ describe("POST /api/files/extract", () => {
 
     expect(response.status).toBe(409);
     await expect(response.json()).resolves.toMatchObject({
-      error: "目标文件 /notes.txt 已存在",
+      error: "Target file /notes.txt already exists",
     });
     expect(createFileEntryMock).not.toHaveBeenCalled();
   });

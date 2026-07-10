@@ -101,17 +101,17 @@ describe("QuickService lifecycle job worker observability", () => {
 		await expect(runQuickServiceJobWorkerOnce({ started: true, running: false, timer: null }, "test")).resolves.toBe(true);
 
 		expect(mocks.heartbeatJob).toHaveBeenNthCalledWith(1, "job_update", expect.stringContaining(":quick-service:"), expect.objectContaining({
-			progress: "准备执行 QuickService update: alist",
+			progress: "Preparing to execute QuickService update: alist",
 		}));
 		expect(mocks.heartbeatJob).toHaveBeenNthCalledWith(2, "job_update", expect.stringContaining(":quick-service:"), expect.objectContaining({
-			progress: "正在更新 alist：拉取镜像并重建容器",
+			progress: "Updating alist: pulling image and recreating container",
 		}));
 		expect(mocks.completeJob).toHaveBeenCalledWith("job_update", expect.stringContaining(":quick-service:"), expect.objectContaining({
 			action: "update",
 			slug: "alist",
 			status: "running",
 			health: "healthy",
-			logPreview: "更新完成：alist\n健康状态：healthy\nold line\nservice ready",
+			logPreview: "Update complete: alist\nHealth status: healthy\nold line\nservice ready",
 		}));
 	});
 });

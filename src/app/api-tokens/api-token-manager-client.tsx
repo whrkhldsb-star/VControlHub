@@ -207,7 +207,9 @@ export function ApiTokenManagerClient({ initialTokens, allowedScopes }: Props) {
         )}
       </section>
       {tokenPendingRevoke && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-[var(--surface)]/70 px-4 backdrop-blur-sm" role="presentation" onClick={() => setTokenPendingRevoke(null)}>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-[var(--surface)]/70 px-4 backdrop-blur-sm" role="presentation" onClick={(event) => {
+          if (event.target === event.currentTarget) setTokenPendingRevoke(null);
+        }}>
           <section ref={revokeDialogRef} role="dialog" aria-modal="true" aria-labelledby="revoke-api-token-title" className="w-full max-w-md rounded-2xl border border-[var(--danger-border)] bg-[var(--modal-bg)] p-6 shadow-[0_24px_100px_rgba(244,63,94,0.16)]">
             <h2 id="revoke-api-token-title" className="text-lg font-semibold text-[var(--text-primary)]">{t("apiTokensPage.revoke.confirmTitle")}</h2>
             <p className="mt-3 text-sm leading-6 text-[var(--text-secondary)]">

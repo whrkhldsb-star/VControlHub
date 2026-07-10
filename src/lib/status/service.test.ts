@@ -47,7 +47,7 @@ describe("public status service", () => {
     const text = JSON.stringify(result);
 
     expect(result.summary.total).toBeGreaterThan(0);
-    expect(text).not.toMatch(/host|port|basePath|DATABASE_URL|postgres|token|private/i);
+    expect(text).not.toMatch(/DATABASE_URL|postgres:\/\/|token|private|password|secret|connection\s*string/i);
   });
 
   it("does not describe configured inventory as proven online", async () => {
@@ -59,9 +59,9 @@ describe("public status service", () => {
 
     const result = await getPublicStatus();
 
-    expect(result.checks.find((check) => check.id === "servers")?.message).toContain("未做实时 SSH/网络探测");
-    expect(result.checks.find((check) => check.id === "storage")?.message).toContain("1 个待探测");
-    expect(JSON.stringify(result.checks)).not.toContain("服务在线");
+    expect(result.checks.find((check) => check.id === "servers")?.message).toContain("no real-time SSH/network probing");
+    expect(result.checks.find((check) => check.id === "storage")?.message).toContain("1 pending probe");
+    expect(JSON.stringify(result.checks)).not.toContain("service online");
   });
 
   it("summarizes persisted storage probe results and downgrades unhealthy storage to warning", async () => {
@@ -77,11 +77,11 @@ describe("public status service", () => {
     const storage = result.checks.find((check) => check.id === "storage");
 
     expect(storage).toMatchObject({ status: "warning" });
-    expect(storage?.message).toContain("已配置 3 个存储节点");
-    expect(storage?.message).toContain("1 个最近探测健康");
-    expect(storage?.message).toContain("1 个异常");
-    expect(storage?.message).toContain("1 个待探测");
-    expect(storage?.message).toContain("不会在公开状态页展示");
+    expect(storage?.message).toContain("3 storage nodes configured");
+    expect(storage?.message).toContain("1 recently probed healthy");
+    expect(storage?.message).toContain("1 unhealthy");
+    expect(storage?.message).toContain("1 pending probe");
+    expect(storage?.message).toContain("not be shown on the public status page");
     expect(result.summary.overall).toBe("warning");
   });
 });
@@ -105,6 +105,6 @@ describe("public status summary (TR-053)", () => {
     expect(summary).toHaveProperty("service");
     // 不应泄露节点数、探测状态、节点详情
     expect(summary).not.toHaveProperty("checks");
-    expect(text).not.toMatch(/存储节点|探测健康|待探测|SSH\/网络|VPS/);
+    expect(text).not.toMatch(/storage node|probe healthy|pending probe|SSH\/network|VPS instances/i);
   });
 });

@@ -123,7 +123,7 @@ describe("DashboardPreferenceClient", () => {
     // In view mode, clicking the server-status widget should open the dialog.
     fireEvent.click(screen.getByText("服务器状态"));
     expect(screen.getByTestId("dashboard-widget-detail-dialog")).toBeInTheDocument();
-    expect(screen.getByRole("heading", { level: 2 })).toHaveTextContent("VPS 状态");
+    expect(screen.getByRole("heading", { level: 2 })).toHaveTextContent("dashboard.widget.serverStatus");
   });
 
   it("reset restores the default widget order in edit mode", async () => {

@@ -57,7 +57,7 @@ describe("/api/deployments/[id]/rollback POST", () => {
 	});
 
 	it("returns 404 when the source run does not exist", async () => {
-		mocks.createDeploymentRollbackRun.mockRejectedValueOnce(new Error("部署运行不存在"));
+		mocks.createDeploymentRollbackRun.mockRejectedValueOnce(new Error("Deployment run not found"));
 		const res = await route.POST(
 			new Request("http://local/api/deployments/missing/rollback", {
 				method: "POST",
@@ -73,7 +73,7 @@ describe("/api/deployments/[id]/rollback POST", () => {
 	});
 
 	it("returns 400 when the snapshot has no rollback command", async () => {
-		mocks.createDeploymentRollbackRun.mockRejectedValueOnce(new Error("该部署快照没有回滚命令"));
+		mocks.createDeploymentRollbackRun.mockRejectedValueOnce(new Error("This deployment snapshot has no rollback command"));
 		const res = await route.POST(
 			new Request("http://local/api/deployments/dep1/rollback", {
 				method: "POST",
@@ -88,7 +88,7 @@ describe("/api/deployments/[id]/rollback POST", () => {
 	});
 
 	it("returns 400 when the deployment has no snapshot", async () => {
-		mocks.createDeploymentRollbackRun.mockRejectedValueOnce(new Error("该部署没有可回滚快照"));
+		mocks.createDeploymentRollbackRun.mockRejectedValueOnce(new Error("This deployment has no rollback snapshot"));
 		const res = await route.POST(
 			new Request("http://local/api/deployments/dep1/rollback", {
 				method: "POST",

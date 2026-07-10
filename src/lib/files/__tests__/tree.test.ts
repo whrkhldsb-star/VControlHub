@@ -79,7 +79,7 @@ describe("file tree helpers", () => {
 
     const rootFolders = [...tree.folders.values()].map((folder) => serializeFileTreeFolder(folder));
     expect(rootFolders).toHaveLength(2);
-    expect(rootFolders.map((folder) => folder.displayName).sort()).toEqual(["本地（LOCAL）", "远端（SFTP）"]);
+    expect(rootFolders.map((folder) => folder.displayName).sort()).toEqual(["本地 (LOCAL)", "远端 (SFTP)"]);
     expect(rootFolders.every((folder) => folder.path.includes("__"))).toBe(true);
   });
 
@@ -105,10 +105,10 @@ describe("file tree helpers", () => {
 
     const rootFolders = serializeFileTreeNode(tree);
     expect(rootFolders.map((folder) => folder.displayName).sort()).toEqual([
-      "本地（LOCAL）",
-      "远端（SFTP）",
+      "本地 (LOCAL)",
+      "远端 (SFTP)",
     ]);
-    const remote = rootFolders.find((folder) => folder.displayName === "远端（SFTP）");
+    const remote = rootFolders.find((folder) => folder.displayName === "远端 (SFTP)");
     expect(remote?.fileCount).toBe(1);
     expect(remote?.folderCount).toBe(1);
     const movies = remote?.children.find((folder) => folder.name === "movies");

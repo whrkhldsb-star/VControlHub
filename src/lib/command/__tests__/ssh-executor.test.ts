@@ -102,7 +102,7 @@ describe("command ssh-executor adapter", () => {
       runtimeConfig: RUNTIME_CONFIG,
     });
 
-    expect(result.stdout.endsWith("\n[输出已截断，超过 80 字节限制]")).toBe(true);
+    expect(result.stdout.endsWith("\n[output truncated, exceeded 80 bytes limit]")).toBe(true);
   });
 
   it("caps stderr at outputLimitBytes and appends a truncation marker", async () => {
@@ -123,7 +123,7 @@ describe("command ssh-executor adapter", () => {
       runtimeConfig: RUNTIME_CONFIG,
     });
 
-    expect(result.stderr.endsWith("\n[输出已截断，超过 80 字节限制]")).toBe(true);
+    expect(result.stderr.endsWith("\n[output truncated, exceeded 80 bytes limit]")).toBe(true);
     expect(result.exitCode).toBe(1);
   });
 
@@ -150,7 +150,7 @@ describe("command ssh-executor adapter", () => {
     expect(result.exitCode).toBe(124);
     expect(result.timedOut).toBe(true);
     expect(result.cancelled).toBe(false);
-    expect(result.stderr).toContain("命令执行超过 200ms");
+    expect(result.stderr).toContain("Command execution exceeded 200ms");
   });
 
   it("reports exitCode 130 + cancelled=true when the target was pre-marked cancelled", async () => {
@@ -172,7 +172,7 @@ describe("command ssh-executor adapter", () => {
 
     expect(result.exitCode).toBe(130);
     expect(result.cancelled).toBe(true);
-    expect(result.stderr).toContain("命令已被取消");
+    expect(result.stderr).toContain("cancelled");
   });
 
   it("rejects with the sshpass-missing message when spawn emits an ENOENT error", async () => {
@@ -231,7 +231,7 @@ describe("command ssh-executor appendBoundedOutput", () => {
 
   it("truncates and appends marker when total exceeds the limit", () => {
     const next = appendBoundedOutput("A".repeat(70), "B".repeat(20), 80);
-    expect(next.endsWith("\n[输出已截断，超过 80 字节限制]")).toBe(true);
+    expect(next.endsWith("\n[output truncated, exceeded 80 bytes limit]")).toBe(true);
     expect(Buffer.byteLength(next, "utf8")).toBeGreaterThan(80);
   });
 });

@@ -169,7 +169,7 @@ describe("logDirectGatewayExposureResult", () => {
     });
     expect(warnSpy).toHaveBeenCalledTimes(1);
     const line = warnSpy.mock.calls[0]?.[0] as string | undefined;
-    expect(line).toContain("Direct Gateway 公网可达");
+    expect(line).toContain("Direct Gateway is publicly reachable");
     expect(line).toContain("82.158.91.159");
     expect(infoSpy).not.toHaveBeenCalled();
   });

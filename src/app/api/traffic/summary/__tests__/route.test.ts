@@ -16,7 +16,7 @@ vi.mock("@/lib/db", () => ({
       findMany: vi.fn(async () => [
         {
           id: "local-storage",
-          name: "本地存储",
+          name: "Local storage",
           driver: "LOCAL",
           serverId: null,
           server: null,
@@ -26,17 +26,17 @@ vi.mock("@/lib/db", () => ({
         },
         {
           id: "bound-sftp",
-          name: "绑定 SFTP",
+          name: "Bound SFTP",
           driver: "SFTP",
           serverId: "srv",
-          server: { id: "srv", name: "主机", host: "127.0.0.1", port: 22 },
+          server: { id: "srv", name: "host", host: "127.0.0.1", port: 22 },
           host: "127.0.0.1",
           port: 22,
           healthStatus: "HEALTHY",
         },
         {
           id: "bare-sftp",
-          name: "裸 SFTP",
+          name: "Standalone SFTP",
           driver: "SFTP",
           serverId: null,
           server: null,
@@ -48,7 +48,7 @@ vi.mock("@/lib/db", () => ({
     },
     server: {
       findMany: vi.fn(async () => [
-        { id: "srv", name: "主机", host: "127.0.0.1", port: 22 },
+        { id: "srv", name: "host", host: "127.0.0.1", port: 22 },
       ]),
     },
   },
@@ -89,20 +89,20 @@ describe("traffic summary route", () => {
     expect(body.currentServer.primaryInterface.rxLabel).toMatch(/B$/);
     expect(body.storageNodes[0]).toMatchObject({
       id: "local-storage",
-      trafficSource: "当前服务器",
-      trafficSourceLabel: "当前服务器网卡",
-      trafficSourceDetail: expect.stringContaining("本机流量"),
+      trafficSource: "current server",
+      trafficSourceLabel: "current server NIC",
+      trafficSourceDetail: expect.stringContaining("Using current server NIC statistics"),
     });
     expect(body.storageNodes[1]).toMatchObject({
       id: "bound-sftp",
-      trafficSource: "绑定服务器",
-      trafficSourceLabel: "绑定服务器：主机",
+      trafficSource: "bound server",
+      trafficSourceLabel: "bound server: host",
       trafficSourceDetail: expect.stringContaining("127.0.0.1:22"),
     });
     expect(body.storageNodes[2]).toMatchObject({
       id: "bare-sftp",
-      trafficSource: "远程 SFTP 主机",
-      trafficSourceLabel: "远程 SFTP：10.0.0.8",
+      trafficSource: "Remote SFTP host",
+      trafficSourceLabel: "Remote SFTP: 10.0.0.8",
       trafficSourceDetail: expect.stringContaining("10.0.0.8:2022"),
     });
     expect(body.servers[0]).toMatchObject({ id: "srv", host: "127.0.0.1" });

@@ -33,7 +33,7 @@ describe("storage access control", () => {
       storageNodeId: "node-1",
       relativePath: "docs/a.txt",
       operation: "read",
-    })).resolves.toMatchObject({ allowed: false, reason: "没有该存储节点或路径的访问授权" });
+    })).resolves.toMatchObject({ allowed: false, reason: "No access authorization for this storage node or path" });
   });
 
   it("allows no-grant role-based access only when the legacy fallback flag is enabled", async () => {
@@ -106,7 +106,7 @@ describe("storage access control", () => {
       relativePath: "team-a/new.txt",
       operation: "write",
       writeBytes: 55,
-    })).resolves.toMatchObject({ allowed: false, reason: "写入后将超过该授权的容量配额" });
+    })).resolves.toMatchObject({ allowed: false, reason: "Write will exceed the capacity quota of this authorization" });
     expect(prisma.fileEntry.aggregate).toHaveBeenCalledWith({
       where: {
         storageNodeId: "node-1",

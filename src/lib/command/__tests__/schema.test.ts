@@ -25,7 +25,7 @@ describe("command schema", () => {
         requesterId: "u_1",
         serverIds: [],
       }),
-    ).toThrow(/至少选择 1 台目标 VPS/i);
+    ).toThrow(/At least 1 target VPS must be selected/i);
   });
 
   it("accepts approval reviews", () => {

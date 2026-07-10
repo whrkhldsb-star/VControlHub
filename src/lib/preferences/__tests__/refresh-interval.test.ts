@@ -28,8 +28,8 @@ describe("refresh interval preferences", () => {
 	});
 
 	it("formats intervals for UI labels", () => {
-		expect(getRefreshIntervalLabel(0)).toBe("手动刷新");
+		expect(getRefreshIntervalLabel(0)).toBe("Manual refresh");
 		expect(getRefreshIntervalLabel(30)).toBe("30s");
-		expect(getRefreshIntervalLabel(300)).toBe("5分钟");
+		expect(getRefreshIntervalLabel(300)).toBe("5 minutes");
 	});
 });

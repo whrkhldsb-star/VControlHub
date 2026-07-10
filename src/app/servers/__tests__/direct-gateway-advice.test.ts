@@ -211,7 +211,7 @@ describe("TR-002 R3 risk banner", () => {
     expect(banner).toBeDefined();
     expect(banner?.tone).toBe("rose");
     expect(banner?.priority).toBe("primary");
-    expect(banner?.detail).toMatch(/签名鉴权/);
+    expect(banner?.detail).toMatch(/signature auth/);
   });
 
   it("adds an amber 'scheme unrecognized' secondary hint when protocol is unknown", () => {

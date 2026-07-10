@@ -9,8 +9,6 @@ import { ScheduleBackupForm } from "../schedule-backup-form";
 vi.mock("@/lib/auth/csrf-client", () => ({ csrfFetch: vi.fn() }));
 
 const schedulesResponse = {
-  ok: true,
-  json: async () => ({
     schedules: [
       {
         id: "sched_1",
@@ -27,7 +25,6 @@ const schedulesResponse = {
         createdAt: "2026-01-01T00:00:00.000Z",
       },
     ],
-  }),
 };
 
 describe("ScheduleBackupForm", () => {
@@ -56,7 +53,8 @@ describe("ScheduleBackupForm", () => {
 
     renderWithI18n(<ScheduleBackupForm />, { locale: "zh" });
 
-    await user.click(await screen.findByRole("button", { name: "删除" }));
+    await screen.findByText("每日数据库备份");
+    await user.click(screen.getAllByRole("button", { name: "删除" }).at(-1)! as HTMLElement);
     const dialog = await screen.findByRole("dialog", { name: "确认删除" });
     await user.click(within(dialog).getByRole("button", { name: "确认删除" }));
 

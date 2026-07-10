@@ -62,7 +62,7 @@ describe("alert service", () => {
 		expect(createNotificationMock).toHaveBeenCalledWith(expect.objectContaining({
 			userId: "admin1",
 			type: "server_alert",
-			title: "测试告警: CPU hot",
+			title: "Test alert: CPU hot",
 			actionUrl: "/alert-rules",
 		}));
 		expect(fetchWebhookSafelyMock).toHaveBeenCalledWith(
@@ -97,12 +97,12 @@ describe("alert service", () => {
 		const result = await testAlertRule("rule_email");
 
 		expect(sendAlertEmailMock).toHaveBeenCalledWith(expect.objectContaining({
-			title: "测试告警: Email rule",
-			message: "这是一条测试告警，用于验证「Email rule」的通知渠道是否可达。",
-			contextLines: expect.arrayContaining(["规则: Email rule", "指标: cpu_usage"]),
+			title: "Test alert: Email rule",
+			message: "This is a test alert to verify that the notification channel for \"Email rule\" is reachable.",
+			contextLines: expect.arrayContaining(["Rule: Email rule", "Metric: cpu_usage"]),
 		}));
 		expect(result.deliveries).toEqual([
-			expect.objectContaining({ channel: "email", status: "sent", message: "邮件测试已发送给 1 个收件人" }),
+			expect.objectContaining({ channel: "email", status: "sent", message: "Email test sent to 1 recipients" }),
 		]);
 	});
 
@@ -132,11 +132,11 @@ describe("alert service", () => {
 		const result = await testAlertRule("rule_telegram_ok");
 
 		expect(sendAlertTelegramMock).toHaveBeenCalledWith(expect.objectContaining({
-			title: "测试告警: Telegram rule",
-			contextLines: expect.arrayContaining(["规则: Telegram rule", "指标: cpu_usage"]),
+			title: "Test alert: Telegram rule",
+			contextLines: expect.arrayContaining(["Rule: Telegram rule", "Metric: cpu_usage"]),
 		}));
 		expect(result.deliveries).toEqual([
-			expect.objectContaining({ channel: "telegram", status: "sent", message: "Telegram 测试已发送给 2 个目标" }),
+			expect.objectContaining({ channel: "telegram", status: "sent", message: "Telegram test sent to 2 targets" }),
 		]);
 	});
 

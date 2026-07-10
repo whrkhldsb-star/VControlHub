@@ -52,7 +52,7 @@ describe("/api/auth/2fa/setup", () => {
 			const res = await route.POST(new Request("http://local/api/auth/2fa/setup", { method: "POST" }));
 			expect(res.status).toBe(400);
 			const json = await res.json();
-			expect(json.error).toContain("已启用");
+			expect(json.error).toContain("Two-factor authentication is already enabled");
 		});
 
 		it("returns 401 when not authenticated", async () => {

@@ -352,7 +352,7 @@ describe("/api/downloads", () => {
     }));
 
     expect(response.status).toBe(400);
-    await expect(response.json()).resolves.toMatchObject({ error: expect.stringMatching(/文件名|名称|路径/) });
+    await expect(response.json()).resolves.toMatchObject({ error: expect.stringMatching(/filename|name|path/i) });
     expect(prismaMock.downloadTask.create).not.toHaveBeenCalled();
     expect(execRemoteCommandMock).not.toHaveBeenCalled();
   });
@@ -368,7 +368,7 @@ describe("/api/downloads", () => {
     }));
 
     expect(response.status).toBe(400);
-    await expect(response.json()).resolves.toMatchObject({ error: "下载链接 DNS 解析到内网、回环或链路本地地址" });
+    await expect(response.json()).resolves.toMatchObject({ error: "Download URL DNS resolved to an intranet, loopback, or link-local address" });
     expect(lookupMock).toHaveBeenCalledWith("evil.example", { all: true, verbatim: true });
     expect(prismaMock.server.findUnique).not.toHaveBeenCalled();
     expect(assertStorageAccessMock).not.toHaveBeenCalled();
@@ -432,7 +432,7 @@ describe("/api/downloads", () => {
     await vi.waitFor(() => expect(prismaMock.fileEntry.create).toHaveBeenCalled());
     await vi.waitFor(() => expect(prismaMock.downloadTask.update).toHaveBeenCalledWith(expect.objectContaining({
       where: { id: "task_direct" },
-      data: expect.objectContaining({ pid: 12345, status: "RUNNING", progress: "下载中..." }),
+      data: expect.objectContaining({ pid: 12345, status: "RUNNING", progress: "Downloading..." }),
     })));
     expect(prismaMock.fileEntry.create).toHaveBeenCalledWith(expect.objectContaining({
       data: expect.objectContaining({
@@ -645,7 +645,7 @@ describe("/api/downloads", () => {
       createdBy: "u_1",
       url: "https://example.com/file.iso",
       status: "RUNNING",
-      progress: "下载中...",
+      progress: "Downloading...",
       pid: 12345,
       aria2Gid: null,
       relayMode: false,
@@ -720,7 +720,7 @@ describe("/api/downloads", () => {
     expect(response.status).toBe(200);
     await expect(response.json()).resolves.toMatchObject({
       status: "COMPLETED",
-      progress: "完成 · 4096 B",
+      progress: "Completed · 4096 B",
       completedBytes: "4096",
       totalBytes: "4096",
       downloadSpeed: "0",

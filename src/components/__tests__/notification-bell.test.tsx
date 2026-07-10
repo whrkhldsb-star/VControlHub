@@ -43,66 +43,64 @@ describe("NotificationBell", () => {
 
   it("surfaces notification list load errors in the dropdown", async () => {
     const user = userEvent.setup();
-    vi.mocked(csrfFetch).mockRejectedValue(new Error("通知接口不可用"));
+    vi.mocked(csrfFetch).mockRejectedValue(new Error("Notification API unavailable"));
 
-    render(<NotificationBell />);
-    await user.click(screen.getByRole("button", { name: "通知" }));
+    render(<NotificationBell />, { locale: "en" });
+    await user.click(screen.getByRole("button", { name: "Notifications" }));
 
-    expect(await screen.findByText("通知接口不可用")).toBeInTheDocument();
-    expect(screen.queryByText("暂无通知")).not.toBeInTheDocument();
+    expect(await screen.findByText("Notification API unavailable")).toBeInTheDocument();
+    expect(screen.queryByText("No notifications")).not.toBeInTheDocument();
   });
 
   it("does not optimistically mark all as read when the API fails", async () => {
     const user = userEvent.setup();
-    vi.mocked(csrfFetch)
-      .mockResolvedValueOnce({ unreadCount: 1 })
-      .mockResolvedValueOnce({
+    vi.mocked(csrfFetch).mockImplementation(async (_url, options) => {
+      if (options?.method === "PATCH") throw new Error("Mark all read API failed");
+      return {
         unreadCount: 1,
         notifications: [{
           id: "n_unread",
           type: "system",
-          title: "待处理通知",
-          message: "接口失败时仍应保持未读状态",
+          title: "Pending notification",
+          message: "Should remain unread when API fails",
           isRead: false,
           actionUrl: "/notifications",
           createdAt: "2026-05-25T00:00:00.000Z",
         }],
-      })
-      .mockRejectedValueOnce(new Error("全部已读接口失败"));
+      };
+    });
+    window.localStorage.setItem("vps-preferences", JSON.stringify({ autoRefreshInterval: 0 }));
 
-    render(<NotificationBell />);
-    await waitFor(() => expect(csrfFetch).toHaveBeenCalledWith("/api/notifications"));
-    await user.click(screen.getByRole("button", { name: "通知" }));
-    expect(await screen.findByText("待处理通知")).toBeInTheDocument();
+    render(<NotificationBell />, { locale: "en" });
+    await user.click(screen.getByRole("button", { name: "Notifications" }));
+    expect(await screen.findByText("Pending notification")).toBeInTheDocument();
 
-    await user.click(screen.getByRole("button", { name: "全部已读" }));
+    await user.click(screen.getByRole("button", { name: "Mark all read" }));
 
-    expect(await screen.findByRole("alert")).toHaveTextContent("全部已读接口失败");
-    expect(screen.getByText("待处理通知").closest("a")).not.toHaveClass("opacity-60");
+    expect(await screen.findByRole("alert")).toHaveTextContent("Mark all read API failed");
+    expect(screen.getByText("Pending notification").closest("a")).not.toHaveClass("opacity-60");
   });
 
   it("falls back to notifications page for unsafe notification action URLs", async () => {
     const user = userEvent.setup();
-    vi.mocked(csrfFetch)
-      .mockResolvedValueOnce({ unreadCount: 1 })
-      .mockResolvedValueOnce({
+    vi.mocked(csrfFetch).mockResolvedValue({
         unreadCount: 1,
         notifications: [{
           id: "n_unsafe",
           type: "system",
-          title: "危险通知入口",
-          message: "不应打开脚本链接",
+          title: "Dangerous notification link",
+          message: "Should not open script links",
           isRead: false,
           actionUrl: "javascript:alert(1)",
           createdAt: "2026-05-25T00:00:00.000Z",
         }],
       });
+    window.localStorage.setItem("vps-preferences", JSON.stringify({ autoRefreshInterval: 0 }));
 
-    render(<NotificationBell />);
-    await waitFor(() => expect(csrfFetch).toHaveBeenCalledWith("/api/notifications"));
-    await user.click(screen.getByRole("button", { name: "通知" }));
+    render(<NotificationBell />, { locale: "en" });
+    await user.click(screen.getByRole("button", { name: "Notifications" }));
 
-    const notificationLink = (await screen.findByText("危险通知入口")).closest("a");
+    const notificationLink = (await screen.findByText("Dangerous notification link")).closest("a");
     expect(notificationLink).toHaveAttribute("href", "/notifications");
   });
 
@@ -111,7 +109,7 @@ describe("NotificationBell", () => {
     window.localStorage.setItem("vps-preferences", JSON.stringify({ autoRefreshInterval: 60 }));
     const setIntervalSpy = vi.spyOn(window, "setInterval");
 
-    render(<NotificationBell />);
+    render(<NotificationBell />, { locale: "en" });
 
     await act(async () => {
       await vi.advanceTimersByTimeAsync(60_000);
@@ -125,7 +123,7 @@ describe("NotificationBell", () => {
     window.localStorage.setItem("vps-preferences", JSON.stringify({ autoRefreshInterval: 0 }));
     const setIntervalSpy = vi.spyOn(window, "setInterval");
 
-    render(<NotificationBell />);
+    render(<NotificationBell />, { locale: "en" });
 
     expect(setIntervalSpy).not.toHaveBeenCalledWith(expect.any(Function), 30_000);
     expect(csrfFetch).not.toHaveBeenCalled();
@@ -137,45 +135,43 @@ describe("NotificationBell", () => {
       .mockResolvedValueOnce({ unreadCount: 0 })
       .mockResolvedValueOnce({ unreadCount: 0, notifications: [] });
 
-    render(<NotificationBell />);
-    const trigger = screen.getByRole("button", { name: "通知" });
+    render(<NotificationBell />, { locale: "en" });
+    const trigger = screen.getByRole("button", { name: "Notifications" });
     expect(trigger).toHaveAttribute("aria-haspopup", "dialog");
     expect(trigger).toHaveAttribute("aria-expanded", "false");
 
     await user.click(trigger);
 
-    expect(await screen.findByRole("dialog", { name: "通知" })).toBeInTheDocument();
+    expect(await screen.findByRole("dialog", { name: "Notifications" })).toBeInTheDocument();
     expect(trigger).toHaveAttribute("aria-expanded", "true");
-    expect(screen.getByText("暂无通知")).toHaveClass("text-[var(--text-secondary)]");
+    expect(screen.getByText("No notifications")).toHaveClass("text-[var(--text-secondary)]");
 
     await user.keyboard("{Escape}");
 
-    expect(screen.queryByRole("dialog", { name: "通知" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("dialog", { name: "Notifications" })).not.toBeInTheDocument();
     expect(trigger).toHaveAttribute("aria-expanded", "false");
   });
 
   it("uses client-side Next links for notification navigation targets", async () => {
     const user = userEvent.setup();
-    vi.mocked(csrfFetch)
-      .mockResolvedValueOnce({ unreadCount: 1 })
-      .mockResolvedValueOnce({
+    vi.mocked(csrfFetch).mockResolvedValue({
         unreadCount: 1,
         notifications: [{
           id: "n_internal",
           type: "system",
-          title: "内部通知入口",
-          message: "应通过 Next Link 进行客户端导航",
+          title: "Internal notification link",
+          message: "Should use Next Link for client-side navigation",
           isRead: false,
           actionUrl: "/servers",
           createdAt: "2026-05-25T00:00:00.000Z",
         }],
       });
+    window.localStorage.setItem("vps-preferences", JSON.stringify({ autoRefreshInterval: 0 }));
 
-    render(<NotificationBell />);
-    await waitFor(() => expect(csrfFetch).toHaveBeenCalledWith("/api/notifications"));
-    await user.click(screen.getByRole("button", { name: "通知" }));
+    render(<NotificationBell />, { locale: "en" });
+    await user.click(screen.getByRole("button", { name: "Notifications" }));
 
-    expect(await screen.findByRole("link", { name: /内部通知入口/ })).toHaveAttribute("href", "/servers");
-    expect(screen.getByRole("link", { name: "查看全部通知 →" })).toHaveAttribute("href", "/notifications");
+    expect(await screen.findByRole("link", { name: /Internal notification link/ })).toHaveAttribute("href", "/servers");
+    expect(screen.getByRole("link", { name: "View all notifications →" })).toHaveAttribute("href", "/notifications");
   });
 });

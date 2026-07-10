@@ -2,6 +2,7 @@ import { screen, waitFor } from "@testing-library/react";
 import { renderWithI18n as render } from "@/lib/i18n/__tests__/test-helpers";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { ToastProvider } from "@/components/toast-provider";
 
 const serviceMocks = vi.hoisted(() => ({
   listServerProfilesMock: vi.fn(),
@@ -132,11 +133,15 @@ afterEach(() => {
 
 import ServersPage from "../page";
 
+function renderPage(ui: React.ReactElement) {
+  return render(<ToastProvider>{ui}</ToastProvider>);
+}
+
 describe("ServersPage", () => {
   it("renders managed server cards and management form", async () => {
     serviceMocks.listServerProfilesMock.mockResolvedValueOnce([defaultServer]);
 
-    render(await ServersPage());
+    renderPage(await ServersPage());
     await waitForAutoProbePreferences();
 
     expect(
@@ -166,7 +171,7 @@ describe("ServersPage", () => {
       "aria-controls",
       "server-details-srv_1",
     );
-    expect(screen.getByRole("status", { name: "Node realtime status: 启用 · 待探测" })).toHaveTextContent("启用 · 待探测");
+    expect(screen.getByRole("status", { name: "节点实时状态：启用 · 待探测" })).toHaveTextContent("启用 · 待探测");
     expect(screen.getByText(/列表状态未代表 SSH\/SFTP\/直连实时在线/)).toBeInTheDocument();
     expect(screen.queryByRole("region", { name: "hk-prod-1 VPS 详情" })).not.toBeInTheDocument();
     expect(screen.queryByText("连接与状态")).not.toBeInTheDocument();
@@ -190,7 +195,7 @@ describe("ServersPage", () => {
     const user = userEvent.setup();
     serviceMocks.listServerProfilesMock.mockResolvedValueOnce([defaultServer]);
 
-    render(await ServersPage());
+    renderPage(await ServersPage());
     await waitForAutoProbePreferences();
     await user.click(screen.getByRole("button", { name: /查看详情/ }));
 
@@ -241,7 +246,7 @@ describe("ServersPage", () => {
     vi.stubGlobal("fetch", fetchMock);
     serviceMocks.listServerProfilesMock.mockResolvedValueOnce([defaultServer]);
 
-    render(await ServersPage());
+    renderPage(await ServersPage());
     await waitForAutoProbePreferences();
     await user.click(screen.getByRole("button", { name: /查看详情/ }));
     await user.click(screen.getByRole("button", { name: "运行实时探测" }));
@@ -271,7 +276,7 @@ describe("ServersPage", () => {
     }));
     serviceMocks.listServerProfilesMock.mockResolvedValueOnce([defaultServer]);
 
-    render(await ServersPage());
+    renderPage(await ServersPage());
     await waitForAutoProbePreferences();
     await user.click(screen.getByRole("button", { name: /查看详情/ }));
     await user.click(screen.getByRole("button", { name: "运行实时探测" }));
@@ -300,7 +305,7 @@ describe("ServersPage", () => {
       },
     ]);
 
-    render(await ServersPage());
+    renderPage(await ServersPage());
     await waitForAutoProbePreferences();
 
     expect(screen.getAllByText("local-node").length).toBeGreaterThan(0);
@@ -335,7 +340,7 @@ describe("ServersPage", () => {
     vi.stubGlobal("fetch", fetchMock);
     serviceMocks.listServerProfilesMock.mockResolvedValueOnce([defaultServer]);
 
-    render(await ServersPage());
+    renderPage(await ServersPage());
     await waitForAutoProbePreferences();
 
     await waitFor(() => {
@@ -348,7 +353,7 @@ describe("ServersPage", () => {
     // 状态徽章应当从「启用 · 待探测」过渡到「在线 · …」（成功路径）
     await waitFor(() => {
       expect(
-        screen.getByRole("status", { name: /Node realtime status: 在线/ }),
+        screen.getByRole("status", { name: /节点实时状态：在线/ }),
       ).toBeInTheDocument();
     });
 
@@ -361,7 +366,7 @@ describe("ServersPage", () => {
     const fetchMock = vi.fn();
     vi.stubGlobal("fetch", fetchMock);
 
-    render(await ServersPage());
+    renderPage(await ServersPage());
     await waitForAutoProbePreferences();
 
     // 等 hydrate 完

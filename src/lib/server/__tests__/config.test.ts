@@ -57,6 +57,6 @@ describe("server config helpers", () => {
         connectionType: "SSH_KEY",
         sshKeyName: "prod-root-key",
       }),
-    ).toContain("SSH 密钥 prod-root-key");
+    ).toContain("ubuntu@10.0.0.8:22, using SSH key prod-root-key");
   });
 });

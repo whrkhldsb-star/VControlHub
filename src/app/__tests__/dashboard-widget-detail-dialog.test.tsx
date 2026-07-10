@@ -40,7 +40,7 @@ describe("DashboardWidgetDetailDialog", () => {
 			/>,
 		);
 		expect(screen.getByTestId("dashboard-widget-detail-dialog")).toBeInTheDocument();
-		expect(screen.getByRole("heading", { level: 2 })).toHaveTextContent("VPS 状态");
+		expect(screen.getByRole("heading", { level: 2 })).toHaveTextContent("dashboard.widget.serverStatus");
 		expect(screen.getByText("VPS Status Content")).toBeInTheDocument();
 	});
 

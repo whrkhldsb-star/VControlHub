@@ -64,7 +64,7 @@ describe("assertDownloadSourceUrlSafe", () => {
 
     await expect(assertDownloadSourceUrlSafe("https://evil.example/file.iso")).resolves.toMatchObject({
       ok: false,
-      reason: "下载链接 DNS 解析到内网、回环或链路本地地址",
+      reason: "Download URL DNS resolved to an intranet, loopback, or link-local address",
     });
     expect(lookupMock).toHaveBeenCalledWith("evil.example", { all: true, verbatim: true });
   });
@@ -74,7 +74,7 @@ describe("assertDownloadSourceUrlSafe", () => {
 
     await expect(assertDownloadSourceUrlSafe("https://ipv6.example/file.iso")).resolves.toMatchObject({
       ok: false,
-      reason: "下载链接 DNS 解析到内网、回环或链路本地地址",
+      reason: "Download URL DNS resolved to an intranet, loopback, or link-local address",
     });
   });
 

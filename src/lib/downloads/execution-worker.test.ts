@@ -142,7 +142,7 @@ describe("download execution durable job worker", () => {
       expect(enqueueJobMock).toHaveBeenCalledWith(
         expect.objectContaining({
           type: DOWNLOAD_EXECUTION_JOB_TYPE,
-          title: "中转下载 task-42",
+          title: "Relay download task-42",
           payload: expect.objectContaining({
             mode: "aria2_relay",
             taskId: "task-42",
@@ -167,7 +167,7 @@ describe("download execution durable job worker", () => {
 
       expect(enqueueJobMock).toHaveBeenCalledWith(
         expect.objectContaining({
-          title: "直连下载 task-7",
+          title: "Direct download task-7",
           payload: expect.objectContaining({
             mode: "direct",
             taskId: "task-7",
@@ -496,7 +496,7 @@ describe("download execution durable job worker", () => {
       prismaDownloadTaskFindUniqueMock.mockResolvedValueOnce({
         ...makeTaskRow(),
         status: "CANCELLED",
-        errorMessage: "用户手动取消",
+        errorMessage: "User manually cancelled",
       });
 
       const result = await runDownloadExecutionJobWorkerOnce();
@@ -506,7 +506,7 @@ describe("download execution durable job worker", () => {
       expect(failJobMock).toHaveBeenCalledWith(
         "job-dl-1",
         expect.stringContaining(":download-execution:"),
-        "用户手动取消",
+        "User manually cancelled",
         expect.objectContaining({ retryAfterMs: undefined }),
       );
       expect(completeJobMock).not.toHaveBeenCalled();

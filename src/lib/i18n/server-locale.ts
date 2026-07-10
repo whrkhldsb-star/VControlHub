@@ -20,8 +20,8 @@ export async function getServerLocale(): Promise<Locale> {
 		return raw === "en" ? "en" : "zh";
 	} catch {
 		// Called outside a request scope (e.g. from a vitest unit test or a
-		// background task). Default to zh so messages still resolve.
-		return "zh";
+		// background task). Default to en so messages are in English.
+		return "en";
 	}
 }
 

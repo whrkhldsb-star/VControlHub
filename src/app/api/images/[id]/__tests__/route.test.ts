@@ -103,7 +103,7 @@ describe("/api/images/[id]", () => {
     expect(response.status).toBe(502);
     expect(imageDeleteMock).not.toHaveBeenCalled();
     await expect(response.json()).resolves.toMatchObject({
-      error: "图片文件删除失败，记录未删除",
+      error: "Failed to delete image file, record not deleted",
     });
   });
 
@@ -167,7 +167,7 @@ describe("/api/images/[id]", () => {
     expect(response.status).toBe(502);
     expect(imageDeleteMock).not.toHaveBeenCalled();
     await expect(response.json()).resolves.toMatchObject({
-      error: "存储节点图片副本删除失败，记录未删除",
+      error: "Failed to delete image copy from storage node, record not deleted",
     });
   });
 

@@ -104,6 +104,9 @@ vi.mock("@/lib/db", () => ({
     scheduledTask: {
       count: vi.fn().mockResolvedValue(1),
     },
+    setting: {
+      findUnique: vi.fn().mockResolvedValue(null),
+    },
   },
 }));
 

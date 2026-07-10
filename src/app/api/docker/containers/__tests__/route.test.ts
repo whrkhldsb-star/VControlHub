@@ -71,11 +71,11 @@ describe("/api/docker/containers audit coverage", () => {
       status: 200,
       data: [],
       dockerAvailable: false,
-      message: "Docker 未安装或 Docker socket 不可用",
+      message: "Docker is not installed or Docker socket is unavailable",
       dockerScope: {
         scope: "hub-host",
         socketPath: "/var/run/docker.sock",
-        warning: expect.stringContaining("不是跨 VPS 容器控制台"),
+        warning: expect.stringContaining("not a cross-VPS container console"),
       },
     });
     expect(loggerMock.error).not.toHaveBeenCalled();

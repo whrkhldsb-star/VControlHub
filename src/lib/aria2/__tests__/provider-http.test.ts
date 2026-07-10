@@ -70,14 +70,14 @@ describe("aria2 provider-http adapter", () => {
       const fetchMock = vi.fn(async () => new Response("connection refused", { status: 502 }));
       globalThis.fetch = fetchMock as unknown as typeof fetch;
 
-      await expect(postAria2Rpc(req)).rejects.toThrow("Aria2 RPC 请求失败 (502): connection refused");
+      await expect(postAria2Rpc(req)).rejects.toThrow("Aria2 RPC request failed (502): connection refused");
     });
 
     it("falls back to 'Unknown error' when the non-2xx body is empty", async () => {
       const fetchMock = vi.fn(async () => new Response("", { status: 500 }));
       globalThis.fetch = fetchMock as unknown as typeof fetch;
 
-      await expect(postAria2Rpc(req)).rejects.toThrow("Aria2 RPC 请求失败 (500): Unknown error");
+      await expect(postAria2Rpc(req)).rejects.toThrow("Aria2 RPC request failed (500): Unknown error");
     });
 
     it("truncates a long non-2xx body to 500 chars in the error message", async () => {
@@ -90,9 +90,9 @@ describe("aria2 provider-http adapter", () => {
         throw new Error("expected postAria2Rpc to throw");
       } catch (error) {
         const message = (error as Error).message;
-        expect(message).toContain("Aria2 RPC 请求失败 (500): ");
+        expect(message).toContain("Aria2 RPC request failed (500): ");
         expect(message.endsWith("x")).toBe(true);
-        expect(message.length).toBe("Aria2 RPC 请求失败 (500): ".length + 500);
+        expect(message.length).toBe("Aria2 RPC request failed (500): ".length + 500);
       }
     });
 
@@ -108,19 +108,19 @@ describe("aria2 provider-http adapter", () => {
   describe("aria2HttpErrorMessage", () => {
     it("formats the status code and a trimmed body", () => {
       expect(aria2HttpErrorMessage(502, "  connection refused  ")).toBe(
-        "Aria2 RPC 请求失败 (502): connection refused",
+        "Aria2 RPC request failed (502): connection refused",
       );
     });
 
     it("falls back to 'Unknown error' when body is empty or whitespace", () => {
-      expect(aria2HttpErrorMessage(500, "")).toBe("Aria2 RPC 请求失败 (500): Unknown error");
-      expect(aria2HttpErrorMessage(500, "   ")).toBe("Aria2 RPC 请求失败 (500): Unknown error");
+      expect(aria2HttpErrorMessage(500, "")).toBe("Aria2 RPC request failed (500): Unknown error");
+      expect(aria2HttpErrorMessage(500, "   ")).toBe("Aria2 RPC request failed (500): Unknown error");
     });
 
     it("truncates the body to 500 chars", () => {
       const long = "y".repeat(1000);
       const message = aria2HttpErrorMessage(500, long);
-      expect(message).toBe("Aria2 RPC 请求失败 (500): " + "y".repeat(500));
+      expect(message).toBe("Aria2 RPC request failed (500): " + "y".repeat(500));
     });
   });
 

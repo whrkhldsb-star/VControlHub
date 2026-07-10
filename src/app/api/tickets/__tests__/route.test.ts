@@ -111,7 +111,7 @@ describe("/api/tickets", () => {
     }));
 
     expect(response.status).toBe(400);
-    expect(await response.json()).toMatchObject({ error: "请求体不是合法的 JSON" });
+    expect(await response.json()).toMatchObject({ error: "Request body is not valid JSON" });
     expect(mocks.createTicket).not.toHaveBeenCalled();
     expect(mocks.addTicketComment).not.toHaveBeenCalled();
   });

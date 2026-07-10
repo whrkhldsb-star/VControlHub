@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { EventEmitter } from "node:events";
 
 type MockChildProcess = EventEmitter & {
@@ -7,7 +7,7 @@ type MockChildProcess = EventEmitter & {
   kill: ReturnType<typeof vi.fn>;
 };
 
-const { mockPrisma, spawnMock } = vi.hoisted(() => ({
+const { mockPrisma, spawnMock, pendingExecutions } = vi.hoisted(() => ({
   mockPrisma: {
     commandRequest: {
       updateMany: vi.fn(),
@@ -31,8 +31,10 @@ const { mockPrisma, spawnMock } = vi.hoisted(() => ({
     setting: {
       findUnique: vi.fn(),
     },
+    $transaction: vi.fn(),
   },
   spawnMock: vi.fn(),
+  pendingExecutions: new Set<Promise<void>>(),
 }));
 
 vi.mock("node:child_process", async (importOriginal) => {
@@ -69,7 +71,9 @@ vi.mock("@/lib/command/execution-worker", async (importOriginal) => {
     ...actual,
     enqueueCommandExecutionJob: vi.fn(async ({ commandRequestId }: { commandRequestId: string; summary?: string }) => {
       const { executeAndFinalizeCommand } = await import("../service-execution");
-      void executeAndFinalizeCommand(commandRequestId).catch(() => {});
+      const execution = executeAndFinalizeCommand(commandRequestId).then(() => undefined, () => undefined);
+      pendingExecutions.add(execution);
+      void execution.finally(() => pendingExecutions.delete(execution));
       return { id: "job-test-1", type: actual.COMMAND_EXECUTION_JOB_TYPE, status: "PENDING" };
     }),
     runCommandExecutionJobWorkerOnce: vi.fn(async () => false),
@@ -92,6 +96,7 @@ describe("command service execution flow", () => {
     delete process.env.COMMAND_EXECUTION_HEARTBEAT_MS;
 
     mockPrisma.setting.findUnique.mockResolvedValue(null);
+    mockPrisma.$transaction.mockImplementation(async (callback: (tx: typeof mockPrisma) => unknown) => callback(mockPrisma));
     mockPrisma.commandRequest.updateMany.mockResolvedValue({ count: 1 });
     spawnMock.mockImplementation(() => {
       const child = new EventEmitter() as MockChildProcess;
@@ -104,6 +109,11 @@ describe("command service execution flow", () => {
       });
       return child;
     });
+  });
+
+  afterEach(async () => {
+    await Promise.allSettled([...pendingExecutions]);
+    pendingExecutions.clear();
   });
 
   it("enqueues user-initiated execution without blocking the API caller", async () => {
@@ -148,7 +158,7 @@ describe("command service execution flow", () => {
       expect.objectContaining({
         data: expect.objectContaining({
           commandRequestId: "req_user_1",
-          summary: expect.stringContaining("后台 SSH 执行队列"),
+          summary: expect.stringContaining("background SSH execution queue"),
         }),
       }),
     );
@@ -356,7 +366,7 @@ describe("command service execution flow", () => {
       requesterId: "u_1",
       submissionMode: "assistant",
       serverIds: ["", "   "],
-    })).rejects.toThrow("至少选择 1 台目标 VPS");
+    })).rejects.toThrow("At least 1 target VPS must be selected");
 
     expect(mockPrisma.commandRequest.create).not.toHaveBeenCalled();
   });
@@ -442,7 +452,7 @@ describe("command service execution flow", () => {
         data: expect.objectContaining({
           commandRequestId: "req_partial_1",
           serverId: null,
-          summary: expect.stringContaining("仅完成 1/2 个目标"),
+          summary: expect.stringContaining("only completed 1/2 targets"),
         }),
       }),
     );
@@ -596,14 +606,14 @@ describe("command service execution flow", () => {
       expect.objectContaining({
         data: expect.objectContaining({
           commandRequestId: "req_queued_1",
-          summary: expect.stringContaining("重新认领"),
+          summary: expect.stringContaining("re-claimed"),
         }),
       }),
     );
     expect(mockPrisma.executionLog.create).toHaveBeenCalledWith(
       expect.objectContaining({
         data: expect.objectContaining({
-          summary: expect.stringMatching(/维护 worker .+重新认领/),
+          summary: expect.stringMatching(/maintenance worker .+re-claimed/),
         }),
       }),
     );
@@ -678,7 +688,7 @@ describe("command service execution flow", () => {
         data: expect.objectContaining({
           status: "FAILED",
           exitCode: 124,
-          stderr: expect.stringContaining("已终止"),
+          stderr: expect.stringContaining("terminated"),
         }),
       }),
     );
@@ -812,7 +822,7 @@ describe("command service execution flow", () => {
         where: { id: "target_output" },
         data: expect.objectContaining({
           status: "COMPLETED",
-          stdout: expect.stringContaining("输出已截断"),
+          stdout: expect.stringContaining("output truncated"),
           exitCode: 0,
         }),
       }),
@@ -863,7 +873,7 @@ describe("command service execution flow", () => {
       expect.objectContaining({
         data: expect.objectContaining({
           commandRequestId: "req_assistant_1",
-          summary: "命令审批已通过，任务已进入后台 SSH 执行队列。",
+          summary: "Command approval passed; the task has entered the background SSH execution queue.",
         }),
       }),
     );
@@ -884,7 +894,7 @@ describe("command service execution flow", () => {
         approved: false,
         comment: "late review",
       }),
-    ).rejects.toThrow("当前命令请求不在待审批状态");
+    ).rejects.toThrow("Command request is not pending approval");
   });
 
   it("recovers stale running command requests that lost their in-process worker", async () => {
@@ -923,7 +933,7 @@ describe("command service execution flow", () => {
       },
       data: expect.objectContaining({
         status: "FAILED",
-        stderr: expect.stringContaining("服务重启"),
+        stderr: expect.stringContaining("service restart"),
         exitCode: 255,
         finishedAt: now,
       }),
@@ -935,7 +945,7 @@ describe("command service execution flow", () => {
     expect(mockPrisma.executionLog.create).toHaveBeenCalledWith(expect.objectContaining({
       data: expect.objectContaining({
         commandRequestId: "req_stale_1",
-        summary: expect.stringContaining("陈旧 RUNNING 命令"),
+        summary: expect.stringContaining("Stale RUNNING command"),
       }),
     }));
     expect(mockPrisma.executionLog.create).toHaveBeenCalledWith(expect.objectContaining({
@@ -969,7 +979,7 @@ describe("command service execution flow", () => {
     expect(mockPrisma.executionLog.create).toHaveBeenCalledWith(expect.objectContaining({
       data: expect.objectContaining({
         commandRequestId: "req_stale_done",
-        summary: expect.stringContaining("自动归档为 COMPLETED"),
+        summary: expect.stringContaining("automatically archived as COMPLETED"),
       }),
     }));
     expect(mockPrisma.executionLog.create).toHaveBeenCalledWith(expect.objectContaining({

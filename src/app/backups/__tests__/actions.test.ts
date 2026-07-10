@@ -61,7 +61,7 @@ describe("createBackupAction", () => {
     const formData = new FormData();
     formData.set("type", "SNAPSHOT");
 
-    await expect(createBackupAction({ success: false }, formData)).resolves.toEqual({ success: false, error: "备份类型无效" });
+    await expect(createBackupAction({ success: false }, formData)).resolves.toEqual({ success: false, error: "Invalid backup type" });
 
     expect(mocks.createBackupRecord).not.toHaveBeenCalled();
     expect(mocks.enqueueJob).not.toHaveBeenCalled();

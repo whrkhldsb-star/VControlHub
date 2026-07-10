@@ -49,7 +49,7 @@ describe("SFTP sync durable job worker", () => {
 
   it("parses a valid payload and rejects missing node ids", () => {
     expect(parseSftpSyncJobPayload(job.payload)).toEqual({ nodeId: "node_1", remotePath: "/logs", recursive: true, maxDepth: 3 });
-    expect(() => parseSftpSyncJobPayload({ remotePath: "/logs" })).toThrow("缺少存储节点");
+    expect(() => parseSftpSyncJobPayload({ remotePath: "/logs" })).toThrow("SFTP sync job missing storage node");
   });
 
   it("claims and completes one queued SFTP sync job", async () => {

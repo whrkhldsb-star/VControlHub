@@ -119,9 +119,9 @@ describe("BackupsPage", () => {
     expect(screen.getByRole("heading", { name: "备份失败原因聚合" })).toBeInTheDocument();
     expect(screen.getByText(/按最近 200 条备份记录中的 FAILED 错误文本归类/)).toBeInTheDocument();
     expect(screen.getByText("失败记录：1")).toBeInTheDocument();
-    expect(screen.getByText("权限或只读路径")).toBeInTheDocument();
+    expect(screen.getByText("Permission or read-only path")).toBeInTheDocument();
     expect(screen.getByText("最新记录：backups/failed.sql.gz")).toBeInTheDocument();
-    expect(screen.getByText(/建议：优先确认 BACKUP_DIR 或 \/var\/backups\/<slug> 是可写目录/)).toBeInTheDocument();
+    expect(screen.getByText(/Verify that BACKUP_DIR or \/var\/backups\/<slug> is a writable directory/)).toBeInTheDocument();
     expect(screen.getByText("readonly path")).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "创建定时备份" })).toBeInTheDocument();
     expect(screen.getByText(/选择备份类型与 Cron 表达式后/)).toBeInTheDocument();

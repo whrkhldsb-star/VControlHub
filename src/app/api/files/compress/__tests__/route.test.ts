@@ -124,7 +124,7 @@ describe("POST /api/files/compress", () => {
 
     expect(response.status).toBe(409);
     await expect(response.json()).resolves.toMatchObject({
-      error: "目标压缩包 /docs/selected.tar.gz 已存在",
+      error: "Target archive /docs/selected.tar.gz already exists",
     });
     expect(createFileEntryMock).not.toHaveBeenCalled();
   });

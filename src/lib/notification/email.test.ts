@@ -89,7 +89,7 @@ describe("email notification delivery", () => {
 			"smtp.alertRecipients": "",
 		});
 
-		await expect(sendAlertEmail({ title: "CPU high", message: "Body" })).rejects.toThrow("SMTP 告警收件人未配置");
+		await expect(sendAlertEmail({ title: "CPU high", message: "Body" })).rejects.toThrow("SMTP alert recipients are not configured");
 		expect(sendMailMock).not.toHaveBeenCalled();
 	});
 });

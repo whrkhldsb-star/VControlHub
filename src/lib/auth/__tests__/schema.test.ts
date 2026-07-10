@@ -18,6 +18,6 @@ describe("loginSchema", () => {
         username: "admin",
         password: "123",
       }),
-    ).toThrow(/至少 8 位/);
+    ).toThrow(/Password must be at least 8 characters/);
   });
 });

@@ -81,12 +81,12 @@ describe("scheduled task service", () => {
       .mockResolvedValueOnce({ cronExpression: "0 2 * * *", runCount: 3 });
     mockCreateCommandRequest.mockResolvedValue({ id: "cmd1" });
     mockPrisma.scheduledTask.update.mockResolvedValue({ id: "task1", runCount: 4 });
-    mockPrisma.scheduledTask.findUniqueOrThrow.mockResolvedValue({ id: "task1", lastResult: "手动重试已触发命令请求 cmd1" });
+    mockPrisma.scheduledTask.findUniqueOrThrow.mockResolvedValue({ id: "task1", lastResult: "Manual retry has triggered command request cmd1" });
 
     const result = await service.retryScheduledTask("task1");
 
     expect(mockCreateCommandRequest).toHaveBeenCalledWith({
-      title: "定时任务重试：Clean logs",
+      title: "Scheduled task retry: Clean logs",
       command: "df -h",
       reason: "maintenance",
       submissionMode: "user",
@@ -96,10 +96,10 @@ describe("scheduled task service", () => {
     expect(mockPrisma.scheduledTask.update).toHaveBeenCalledWith({
       where: { id: "task1" },
       data: expect.objectContaining({
-        lastResult: "手动重试已触发命令请求 cmd1",
+        lastResult: "Manual retry has triggered command request cmd1",
         runCount: 4,
       }),
     });
-    expect(result).toEqual({ id: "task1", lastResult: "手动重试已触发命令请求 cmd1" });
+    expect(result).toEqual({ id: "task1", lastResult: "Manual retry has triggered command request cmd1" });
   });
 });

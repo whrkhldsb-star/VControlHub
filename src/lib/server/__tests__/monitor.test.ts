@@ -66,7 +66,7 @@ describe("collectServerMetrics", () => {
 
 		expect(result).toEqual({
 			serverId: "server_1",
-			error: "连接失败: Unsupported state or unable to authenticate data",
+			error: "Connection failed: Unsupported state or unable to authenticate data",
 		});
 		expect(execRemoteCommandMock).not.toHaveBeenCalled();
 	});

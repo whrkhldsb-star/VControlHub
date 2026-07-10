@@ -116,13 +116,13 @@ describe("operation task retention worker", () => {
     );
     expect(jobMocks.heartbeatJob).toHaveBeenCalledWith(
       "job-1",
-      expect.stringContaining(":operation-task-retention:"),
-      expect.objectContaining({ leaseMs: expect.any(Number), progress: "正在跨来源裁剪历史记录" }),
+      expect.stringContaining("operation-task-retention:"),
+      expect.objectContaining({ leaseMs: expect.any(Number), progress: "Pruning historical records across sources" }),
     );
     expect(pruneHistoryMock).toHaveBeenCalledTimes(1);
     expect(jobMocks.completeJob).toHaveBeenCalledWith(
       "job-1",
-      expect.stringContaining(":operation-task-retention:"),
+      expect.stringContaining("operation-task-retention:"),
       expect.objectContaining({ totalDeleted: 7, perSource: expect.any(Object) }),
     );
   });
@@ -135,7 +135,7 @@ describe("operation task retention worker", () => {
     expect(ran).toBe(true);
     expect(jobMocks.failJob).toHaveBeenCalledWith(
       "job-1",
-      expect.stringContaining(":operation-task-retention:"),
+      expect.stringContaining("operation-task-retention:"),
       "prune boom",
       expect.objectContaining({ retryAfterMs: expect.any(Number) }),
     );

@@ -87,6 +87,6 @@ describe("system health service", () => {
     const gitSync = result.checks.find((check) => check.id === "git-sync");
 
     expect(gitSync?.status).toBe("warning");
-    expect(gitSync?.message).toContain("不一致");
+    expect(gitSync?.message).toContain("Local abc123 does not match origin/main def4567");
   });
 });

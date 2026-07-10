@@ -156,7 +156,7 @@ describe("resolveManagedLocalEntryPath", () => {
         basePath: "/srv/storage",
         relativePath: "../etc/passwd",
       }),
-    ).rejects.toThrow(/存储根目录/);
+    ).rejects.toThrow(/exceeds storage root/);
   });
 
   it("strips leading slashes from the relative path before joining", async () => {

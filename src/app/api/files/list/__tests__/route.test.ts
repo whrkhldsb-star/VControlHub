@@ -288,11 +288,11 @@ describe("/api/files/list", () => {
 
     expect(response.status).toBe(200);
     expect(body.folders.map((folder: { displayName: string }) => folder.displayName)).toEqual([
-      "本地存储（LOCAL）",
-      "远端存储（SFTP）",
+      "本地存储 (LOCAL)",
+      "远端存储 (SFTP)",
     ]);
     const remote = body.folders.find(
-      (folder: { displayName: string }) => folder.displayName === "远端存储（SFTP）",
+      (folder: { displayName: string }) => folder.displayName === "远端存储 (SFTP)",
     );
     expect(remote).toMatchObject({ fileCount: 1, folderCount: 1 });
   });

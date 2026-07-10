@@ -59,13 +59,13 @@ describe("normalizeAutoProbeIntervalSec", () => {
 
 describe("getAutoProbeIntervalLabel", () => {
 	it("returns the matching preset label", () => {
-		expect(getAutoProbeIntervalLabel(10)).toBe("10 秒");
-		expect(getAutoProbeIntervalLabel(60)).toBe("1 分钟");
-		expect(getAutoProbeIntervalLabel(300)).toBe("5 分钟");
+		expect(getAutoProbeIntervalLabel(10)).toBe("10 seconds");
+		expect(getAutoProbeIntervalLabel(60)).toBe("1 minute");
+		expect(getAutoProbeIntervalLabel(300)).toBe("5 minutes");
 	});
 
 	it("falls back to the default label for unknown values", () => {
-		expect(getAutoProbeIntervalLabel(0)).toBe("1 分钟");
-		expect(getAutoProbeIntervalLabel(9999)).toBe("1 分钟");
+		expect(getAutoProbeIntervalLabel(0)).toBe("1 minute");
+		expect(getAutoProbeIntervalLabel(9999)).toBe("1 minute");
 	});
 });

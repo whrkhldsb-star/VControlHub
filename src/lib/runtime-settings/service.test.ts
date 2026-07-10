@@ -59,7 +59,7 @@ describe("runtime settings", () => {
   });
 
   it("rejects out-of-range runtime values", () => {
-    expect(() => normalizeRuntimeSettingValue("runtime.commandExecutionTimeoutMs", "1")).toThrow(/必须在/);
+    expect(() => normalizeRuntimeSettingValue("runtime.commandExecutionTimeoutMs", "1")).toThrow(/must be between/);
   });
 
   it("reads SSH terminal keepalive settings from persisted runtime settings", async () => {
@@ -113,7 +113,7 @@ describe("runtime settings", () => {
     prismaMock.setting.findUnique.mockResolvedValueOnce({ value: "250" });
 
     await expect(getOperationTaskListLimit()).resolves.toBe(250);
-    expect(() => normalizeRuntimeSettingValue("runtime.operationTaskListLimit", "9999")).toThrow(/任务中心列表上限/);
+    expect(() => normalizeRuntimeSettingValue("runtime.operationTaskListLimit", "9999")).toThrow(/Task center list limit/);
   });
 
   it("reads AI list limits from runtime settings", async () => {
@@ -123,8 +123,8 @@ describe("runtime settings", () => {
 
     await expect(getAiProviderListLimit()).resolves.toBe(80);
     await expect(getAiConversationListLimit()).resolves.toBe(350);
-    expect(() => normalizeRuntimeSettingValue("runtime.aiProviderListLimit", "1")).toThrow(/AI 提供商列表上限/);
-    expect(() => normalizeRuntimeSettingValue("runtime.aiConversationListLimit", "5000")).toThrow(/AI 对话列表上限/);
+    expect(() => normalizeRuntimeSettingValue("runtime.aiProviderListLimit", "1")).toThrow(/AI provider list limit/);
+    expect(() => normalizeRuntimeSettingValue("runtime.aiConversationListLimit", "5000")).toThrow(/AI conversation list limit/);
   });
 
   it("uses environment fallback when summarizing runtime values without persisted rows", () => {
@@ -144,8 +144,8 @@ describe("runtime settings", () => {
     const reconcile = summaries.find((item) => item.key === "runtime.commandReconcileIntervalMs");
     const invalidIdle = summaries.find((item) => item.key === "runtime.sshIdleTimeoutSec");
 
-    expect(commandTimeout).toMatchObject({ value: 180000, source: "environment", sourceLabel: "环境变量", requiresRestart: false });
-    expect(reconcile).toMatchObject({ value: 45000, source: "database", sourceLabel: "数据库设置", requiresRestart: true });
-    expect(invalidIdle).toMatchObject({ value: 0, source: "invalid-database", sourceLabel: "数据库值无效，已回退", requiresRestart: true });
+    expect(commandTimeout).toMatchObject({ value: 180000, source: "environment", sourceLabel: "Environment variable", requiresRestart: false });
+    expect(reconcile).toMatchObject({ value: 45000, source: "database", sourceLabel: "Database setting", requiresRestart: true });
+    expect(invalidIdle).toMatchObject({ value: 0, source: "invalid-database", sourceLabel: "Database value invalid, fell back", requiresRestart: true });
   });
 });

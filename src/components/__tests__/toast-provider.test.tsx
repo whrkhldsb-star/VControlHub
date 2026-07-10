@@ -27,6 +27,7 @@ function renderToast() {
 		<ToastProvider>
 			<ToastHarness />
 		</ToastProvider>,
+		{ locale: "en" },
 	);
 }
 

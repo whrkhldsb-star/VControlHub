@@ -156,7 +156,7 @@ describe("durable job service", () => {
     }));
     expect(mockPrisma.job.updateMany).toHaveBeenLastCalledWith(expect.objectContaining({
       where: expect.objectContaining({ status: "RUNNING" }),
-      data: expect.objectContaining({ status: "PENDING", errorMessage: "后台执行器心跳过期，已重新入队" }),
+      data: expect.objectContaining({ status: "PENDING", errorMessage: "Backend executor heartbeat expired, re-queued" }),
     }));
     // TR-001 T13a: return shape now includes the recovered id list so callers
     // can emit per-job events or surface what was rescued this tick. The

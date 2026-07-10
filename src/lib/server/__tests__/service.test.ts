@@ -78,7 +78,7 @@ describe("server service", () => {
     process.env.STORAGE_DIRECT_ACCESS_SECRET = "test-direct-secret";
     vi.clearAllMocks();
     execRemoteCommandMock.mockImplementation(async (input) => {
-      input.onHostKeySha256?.("SHA256:test-host-key");
+      input.onHostKeySha256?.("hk-prod-1 storage");
       return {
         stdout: input.command === "printf vcontrolhub-ssh-host-key-probe" ? "vcontrolhub-ssh-host-key-probe" : "vcontrolhub-ssh-ready",
         stderr: "",
@@ -191,13 +191,13 @@ describe("server service", () => {
         ppkContent: "PuTTY-User-Key-File-3: ssh-ed25519\n...",
         privateKeyEncryptionMode: "custom",
       }),
-    ).rejects.toThrow("选择自定义加密格式时，必须填写新的私钥口令。");
+    ).rejects.toThrow("When choosing a custom encryption format, you must provide a new private key passphrase.");
   });
 
   it("rejects adding the same host for a different port before creating records", async () => {
     vi.mocked(prisma.server.findFirst).mockResolvedValueOnce({
       id: "srv_existing",
-      name: "慈云",
+      name: "existing-node",
       host: "45.207.216.45",
       port: 22,
       username: "root",
@@ -206,15 +206,15 @@ describe("server service", () => {
 
     await expect(
       createServerProfile({
-        name: "慈云",
+        name: "existing-node",
         host: "45.207.216.45",
         port: 61834,
         username: "root",
         connectionType: "PASSWORD",
         password: "secret123",
-        approvedHostKeySha256: "SHA256:test-host-key",
+        approvedHostKeySha256: "hk-prod-1 storage",
       }),
-    ).rejects.toThrow("已存在相同 IP/主机的 VPS 节点");
+    ).rejects.toThrow("A VPS node with the same IP/host already exists: existing-node (root@45.207.216.45:22). To avoid duplicate management of the same server or incorrect port entry, please edit the existing node or delete the old node before adding a new one.");
 
     expect(prisma.server.create).not.toHaveBeenCalled();
     expect(prisma.storageNode.create).not.toHaveBeenCalled();
@@ -232,9 +232,9 @@ describe("server service", () => {
         username: "root",
         connectionType: "PASSWORD",
         password: "secret123",
-        approvedHostKeySha256: "SHA256:test-host-key",
+        approvedHostKeySha256: "hk-prod-1 storage",
       }),
-    ).rejects.toThrow("无法连接目标服务器");
+    ).rejects.toThrow("Cannot connect to target server root@203.0.113.44:61834; node was not added/saved. Please check IP, port, username, and authentication credentials and retry. Details: connect ETIMEDOUT");
 
     expect(execRemoteCommandMock).toHaveBeenCalledWith(
       expect.objectContaining({ command: "printf vcontrolhub-ssh-ready" }),
@@ -264,7 +264,7 @@ describe("server service", () => {
     } as any);
     vi.mocked(prisma.server.findFirst).mockResolvedValueOnce({
       id: "srv_other",
-      name: "慈云",
+      name: "existing-node",
       host: "45.207.216.45",
       port: 22,
       username: "root",
@@ -278,7 +278,7 @@ describe("server service", () => {
         username: "root",
         connectionType: "PASSWORD",
       }),
-    ).rejects.toThrow("已存在相同 IP/主机的 VPS 节点");
+    ).rejects.toThrow("A VPS node with the same IP/host already exists: existing-node (root@45.207.216.45:22). To avoid duplicate management of the same server or incorrect port entry, please edit the existing node or delete the old node before adding a new one.");
 
     expect(prisma.server.update).not.toHaveBeenCalled();
   });
@@ -314,7 +314,7 @@ describe("server service", () => {
     vi.mocked(prisma.storageNode.count).mockResolvedValueOnce(0);
     vi.mocked(prisma.storageNode.create).mockResolvedValueOnce({
       id: "sn_1",
-      name: "hk-prod-1 存储",
+      name: "hk-prod-1 storage",
       driver: "SFTP",
       basePath: "/root",
       isDefault: true,
@@ -341,7 +341,7 @@ describe("server service", () => {
       sshKey: { id: "key_1", name: "prod-root-key", fingerprint: "SHA256:abc" },
       storageNode: {
         id: "sn_1",
-        name: "hk-prod-1 存储",
+        name: "hk-prod-1 storage",
         driver: "SFTP",
         isDefault: true,
         basePath: "/root",
@@ -360,7 +360,7 @@ describe("server service", () => {
       sshKeyId: " key_1 ",
       description: " primary node ",
       tags: ["prod", " hk "],
-      approvedHostKeySha256: "SHA256:test-host-key",
+      approvedHostKeySha256: "hk-prod-1 storage",
       });
 
     expect(prisma.server.create).toHaveBeenCalledWith(
@@ -377,7 +377,7 @@ describe("server service", () => {
     expect(prisma.storageNode.create).toHaveBeenCalledWith(
       expect.objectContaining({
         data: expect.objectContaining({
-          name: "hk-prod-1 存储",
+          name: "hk-prod-1 storage",
           driver: "SFTP",
           serverId: "srv_1",
           basePath: "/root/drive",
@@ -393,7 +393,7 @@ describe("server service", () => {
         recursive: true,
       }),
     );
-    expect(result.connectionSummary).toContain("SSH 密钥 prod-root-key");
+    expect(result.connectionSummary).toContain("SSH key prod-root-key");
   });
 
   it("creates a server profile with password authentication", async () => {
@@ -467,7 +467,7 @@ describe("server service", () => {
       password: "secret123",
       description: "password node",
       tags: [],
-      approvedHostKeySha256: "SHA256:test-host-key",
+      approvedHostKeySha256: "hk-prod-1 storage",
       });
 
     expect(prisma.server.create).toHaveBeenCalledWith(
@@ -481,7 +481,7 @@ describe("server service", () => {
         }),
       }),
     );
-    expect(result.connectionSummary).toContain("使用密码连接");
+    expect(result.connectionSummary).toContain("admin@10.0.0.1:22, using password connection");
   });
 
   it("creates a server with global direct gateway enabled during onboarding", async () => {
@@ -598,7 +598,7 @@ describe("server service", () => {
       sshKeyId: "key_1",
       tags: [],
       enableDirectGateway: true,
-      approvedHostKeySha256: "SHA256:test-host-key",
+      approvedHostKeySha256: "hk-prod-1 storage",
       });
 
     expect(execRemoteCommandMock).toHaveBeenCalledWith(
@@ -662,7 +662,7 @@ describe("server service", () => {
     } as any);
     vi.mocked(prisma.storageNode.findFirst).mockResolvedValueOnce({
       id: "orphan_same_name",
-      name: "shared-name 存储",
+      name: "shared-name storage",
       driver: "SFTP",
       basePath: "/root",
       serverId: null,
@@ -670,7 +670,7 @@ describe("server service", () => {
     vi.mocked(prisma.storageNode.count).mockResolvedValueOnce(1);
     vi.mocked(prisma.storageNode.create).mockResolvedValueOnce({
       id: "sn_same_name",
-      name: "shared-name 存储",
+      name: "shared-name storage",
       driver: "SFTP",
       basePath: "/data/custom",
       isDefault: false,
@@ -695,7 +695,7 @@ describe("server service", () => {
       },
       storageNode: {
         id: "sn_same_name",
-        name: "shared-name 存储",
+        name: "shared-name storage",
         driver: "SFTP",
         isDefault: false,
         basePath: "/data/custom",
@@ -714,13 +714,13 @@ describe("server service", () => {
       sshKeyId: "key_same_name",
       storagePath: "/data/custom",
       tags: [],
-      approvedHostKeySha256: "SHA256:test-host-key",
+      approvedHostKeySha256: "hk-prod-1 storage",
       });
 
     expect(prisma.storageNode.create).toHaveBeenCalledWith(
       expect.objectContaining({
         data: expect.objectContaining({
-          name: "shared-name 存储",
+          name: "shared-name storage",
           basePath: "/data/custom",
           serverId: "srv_same_name",
         }),
@@ -838,7 +838,7 @@ describe("server service", () => {
       storagePath: " /data/vch-files ",
       enableDirectGateway: true,
       tags: [],
-      approvedHostKeySha256: "SHA256:test-host-key",
+      approvedHostKeySha256: "hk-prod-1 storage",
       });
 
     expect(prisma.storageNode.create).toHaveBeenCalledWith(
@@ -969,7 +969,7 @@ describe("server service", () => {
       storagePath: "/data/warn",
       enableDirectGateway: true,
       tags: [],
-      approvedHostKeySha256: "SHA256:test-host-key",
+      approvedHostKeySha256: "hk-prod-1 storage",
       });
 
     expect(createRemoteDirectory).toHaveBeenCalledWith(
@@ -983,8 +983,8 @@ describe("server service", () => {
     expect(prisma.server.update).not.toHaveBeenCalled();
     expect(prisma.storageNode.updateMany).not.toHaveBeenCalled();
     expect(result.onboardingWarnings).toEqual([
-      expect.stringContaining("远端存储目录自动创建失败"),
-      expect.stringContaining("目标服务器直连自动配置失败"),
+      expect.stringContaining("Failed to auto-create remote storage directory"),
+      expect.stringContaining("Failed to auto-configure direct gateway"),
     ]);
   });
 
@@ -1011,7 +1011,7 @@ describe("server service", () => {
 
     await expect(
       setServerDirectGatewayEnabled("srv_local", true),
-    ).rejects.toThrow("本机节点不需要目标服务器直连");
+    ).rejects.toThrow("The local node does not need a direct gateway to the target server. Continue using website relay or local storage access.");
 
     expect(execRemoteCommandMock).not.toHaveBeenCalled();
     expect(prisma.server.update).not.toHaveBeenCalled();
@@ -1035,7 +1035,7 @@ describe("server service", () => {
 
     await expect(
       setServerDirectGatewayEnabled("srv_orphan", true),
-    ).rejects.toThrow("目标服务器直连只能启用于已绑定 SFTP 存储节点");
+    ).rejects.toThrow("Target server direct connection can only be enabled for VPS instances bound to an SFTP storage node. Please create or repair the remote storage node for this VPS first.");
 
     expect(execRemoteCommandMock).not.toHaveBeenCalled();
     expect(prisma.server.update).not.toHaveBeenCalled();
@@ -1360,12 +1360,12 @@ describe("server service", () => {
       sshKeyId: "key_1",
       tags: [],
       enableDirectGateway: true,
-      approvedHostKeySha256: "SHA256:test-host-key",
+      approvedHostKeySha256: "hk-prod-1 storage",
       });
 
     expect(result.directGateway.enabled).toBe(false);
     expect(result.onboardingWarnings).toEqual([
-      "目标服务器直连自动配置失败：connect ETIMEDOUT。VPS 节点和存储节点已创建，可稍后在 VPS 管理面板重试启用直连。",
+      "Failed to auto-configure direct gateway on target server: connect ETIMEDOUT. VPS node and storage node have been created. You can retry enabling the direct gateway later in the VPS management panel.",
     ]);
     expect(prisma.server.update).not.toHaveBeenCalled();
     expect(prisma.storageNode.updateMany).not.toHaveBeenCalled();
@@ -1389,9 +1389,9 @@ describe("server service", () => {
         connectionType: "PASSWORD",
         password: "secret123",
         tags: [],
-        approvedHostKeySha256: "SHA256:test-host-key",
+        approvedHostKeySha256: "hk-prod-1 storage",
       }),
-    ).rejects.toThrow("已存在相同 IP/主机的 VPS 节点");
+    ).rejects.toThrow("A VPS node with the same IP/host already exists: existing-node (root@203.0.113.10:22). To avoid duplicate management of the same server or incorrect port entry, please edit the existing node or delete the old node before adding a new one.");
 
     expect(prisma.server.create).not.toHaveBeenCalled();
     expect(prisma.storageNode.create).not.toHaveBeenCalled();
@@ -1454,6 +1454,6 @@ describe("server service", () => {
     const result = await listServerProfiles();
 
     expect(result).toHaveLength(1);
-    expect(result[0]?.connectionSummary).toContain("使用密码连接");
+    expect(result[0]?.connectionSummary).toContain("admin@10.0.0.1:22, using password connection");
   });
 });

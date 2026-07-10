@@ -32,13 +32,13 @@ describe("ApiTokenManagerClient", () => {
 		});
 		vi.stubGlobal("fetch", fetchMock);
 
-		render(<ApiTokenManagerClient initialTokens={[token]} allowedScopes={["read", "health:read", "status:read"]} />);
+		render(<ApiTokenManagerClient initialTokens={[token]} allowedScopes={["read", "health:read", "status:read"]} />, { locale: "en" });
 
-		fireEvent.change(screen.getByLabelText("Token 名称"), { target: { value: "mobile" } });
+		fireEvent.change(screen.getByLabelText("Token name"), { target: { value: "mobile" } });
 		fireEvent.click(screen.getByLabelText("status:read"));
-		fireEvent.click(screen.getByRole("button", { name: "创建 Token" }));
+		fireEvent.click(screen.getByRole("button", { name: "Create Token" }));
 
-		await screen.findByText("请立即复制，此明文 Token 离开页面后无法再次查看。");
+		await screen.findByText("Copy it now. The plaintext Token cannot be retrieved after you leave this page.");
 		expect(screen.getByText("whr_plain_once")).toBeInTheDocument();
 		expect(fetchMock).toHaveBeenCalledWith("/api/api-tokens", expect.objectContaining({
 			method: "POST",
@@ -55,16 +55,16 @@ describe("ApiTokenManagerClient", () => {
 		});
 		vi.stubGlobal("fetch", fetchMock);
 
-		render(<ApiTokenManagerClient initialTokens={[token]} allowedScopes={["read", "health:read"]} />);
-		fireEvent.click(screen.getByRole("button", { name: "撤销 CLI" }));
+		render(<ApiTokenManagerClient initialTokens={[token]} allowedScopes={["read", "health:read"]} />, { locale: "en" });
+		fireEvent.click(screen.getByRole("button", { name: "Revoke CLI" }));
 
-		const dialog = await screen.findByRole("dialog", { name: "确认撤销 API Token" });
+		const dialog = await screen.findByRole("dialog", { name: "Confirm revoke API Token" });
 		expect(confirmSpy).not.toHaveBeenCalled();
 		expect(within(dialog).getByText((_, el) => el !== null && el.tagName === "P" && (el.textContent ?? "").includes("CLI"))).toBeInTheDocument();
 		expect(fetchMock).not.toHaveBeenCalled();
 
-		fireEvent.click(within(dialog).getByRole("button", { name: "取消" }));
-		expect(screen.queryByRole("dialog", { name: "确认撤销 API Token" })).not.toBeInTheDocument();
+		fireEvent.click(within(dialog).getByRole("button", { name: "Cancel" }));
+		expect(screen.queryByRole("dialog", { name: "Confirm revoke API Token" })).not.toBeInTheDocument();
 		expect(fetchMock).not.toHaveBeenCalled();
 	});
 
@@ -72,18 +72,18 @@ describe("ApiTokenManagerClient", () => {
 		const fetchMock = vi.fn().mockResolvedValue({
 			ok: false,
 			status: 500,
-			json: async () => ({ error: "数据库暂时不可用" }),
+			json: async () => ({ error: "Database temporarily unavailable" }),
 		});
 		vi.stubGlobal("fetch", fetchMock);
 
-		render(<ApiTokenManagerClient initialTokens={[token]} allowedScopes={["read", "health:read"]} />);
-		fireEvent.click(screen.getByRole("button", { name: "撤销 CLI" }));
-		const dialog = await screen.findByRole("dialog", { name: "确认撤销 API Token" });
-		fireEvent.click(within(dialog).getByRole("button", { name: "确认撤销" }));
+		render(<ApiTokenManagerClient initialTokens={[token]} allowedScopes={["read", "health:read"]} />, { locale: "en" });
+		fireEvent.click(screen.getByRole("button", { name: "Revoke CLI" }));
+		const dialog = await screen.findByRole("dialog", { name: "Confirm revoke API Token" });
+		fireEvent.click(within(dialog).getByRole("button", { name: "Confirm revoke" }));
 
-		expect(await screen.findByText("数据库暂时不可用")).toBeInTheDocument();
-		expect(screen.getByRole("dialog", { name: "确认撤销 API Token" })).toBeInTheDocument();
-		expect(within(dialog).queryByText("已撤销")).not.toBeInTheDocument();
+		expect(await screen.findByText("Database temporarily unavailable")).toBeInTheDocument();
+		expect(screen.getByRole("dialog", { name: "Confirm revoke API Token" })).toBeInTheDocument();
+		expect(within(dialog).queryByText("Revoked")).not.toBeInTheDocument();
 	});
 
 	it("revokes an API token after in-app confirmation and updates the list", async () => {
@@ -93,14 +93,14 @@ describe("ApiTokenManagerClient", () => {
 		});
 		vi.stubGlobal("fetch", fetchMock);
 
-		render(<ApiTokenManagerClient initialTokens={[token]} allowedScopes={["read", "health:read"]} />);
-		fireEvent.click(screen.getByRole("button", { name: "撤销 CLI" }));
-		const dialog = await screen.findByRole("dialog", { name: "确认撤销 API Token" });
-		fireEvent.click(within(dialog).getByRole("button", { name: "确认撤销" }));
+		render(<ApiTokenManagerClient initialTokens={[token]} allowedScopes={["read", "health:read"]} />, { locale: "en" });
+		fireEvent.click(screen.getByRole("button", { name: "Revoke CLI" }));
+		const dialog = await screen.findByRole("dialog", { name: "Confirm revoke API Token" });
+		fireEvent.click(within(dialog).getByRole("button", { name: "Confirm revoke" }));
 
 		await waitFor(() => expect(fetchMock).toHaveBeenCalledWith("/api/api-tokens?id=tok_1", expect.objectContaining({
 			method: "DELETE",
 		})));
-		expect(await screen.findByText("已撤销")).toBeInTheDocument();
+		expect(await screen.findByText("Revoked")).toBeInTheDocument();
 	});
 });

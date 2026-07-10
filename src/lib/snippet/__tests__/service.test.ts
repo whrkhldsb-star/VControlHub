@@ -44,13 +44,13 @@ describe("snippet service", () => {
     it("rejects an empty title", async () => {
       await expect(
         createSnippet({ title: "  ", content: "x" }),
-      ).rejects.toThrow(/标题和内容/);
+      ).rejects.toThrow(/Snippet title and content cannot be empty/);
     });
 
     it("rejects an empty content", async () => {
       await expect(
         createSnippet({ title: "t", content: "" }),
-      ).rejects.toThrow(/标题和内容/);
+      ).rejects.toThrow(/Snippet title and content cannot be empty/);
     });
 
     it("trims title/description, defaults language to 'text'", async () => {
@@ -90,20 +90,20 @@ describe("snippet service", () => {
     it("rejects an empty title when title is provided", async () => {
       await expect(
         updateSnippet("snippet-1", { title: "   " }, { userId: "user-1" }),
-      ).rejects.toThrow(/标题不能为空/);
+      ).rejects.toThrow(/Snippet title cannot be empty/);
     });
 
     it("rejects an empty content when content is provided", async () => {
       await expect(
         updateSnippet("snippet-1", { content: "" }, { userId: "user-1" }),
-      ).rejects.toThrow(/内容不能为空/);
+      ).rejects.toThrow(/Snippet content cannot be empty/);
     });
 
     it("rejects when actor is not owner and has no canManageAll", async () => {
       state.snippet = { id: "snippet-1", createdBy: "user-1" };
       await expect(
         updateSnippet("snippet-1", { title: "new" }, { userId: "user-2" }),
-      ).rejects.toThrow(/无权修改/);
+      ).rejects.toThrow(/No permission to modify/);
     });
 
     it("allows when actor is owner", async () => {
@@ -129,7 +129,7 @@ describe("snippet service", () => {
       state.snippet = null;
       await expect(
         updateSnippet("missing", { title: "x" }, { userId: "user-1" }),
-      ).rejects.toThrow(/不存在/);
+      ).rejects.toThrow(/not found/);
     });
   });
 
@@ -138,7 +138,7 @@ describe("snippet service", () => {
       state.snippet = { id: "snippet-1", createdBy: "user-1" };
       await expect(
         deleteSnippet("snippet-1", { userId: "user-2" }),
-      ).rejects.toThrow(/无权删除/);
+      ).rejects.toThrow(/No permission to delete/);
     });
 
     it("deletes when actor is owner", async () => {
@@ -153,7 +153,7 @@ describe("snippet service", () => {
 
     it("404s when the snippet does not exist", async () => {
       state.snippet = null;
-      await expect(deleteSnippet("missing")).rejects.toThrow(/不存在/);
+      await expect(deleteSnippet("missing")).rejects.toThrow(/not found/);
     });
   });
 });

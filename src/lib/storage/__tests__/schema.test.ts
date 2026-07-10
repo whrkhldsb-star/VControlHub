@@ -50,7 +50,7 @@ describe("storage schema", () => {
         basePath: "/data/media",
         port: 70000,
       }),
-    ).toThrow(/端口最大为 65535/);
+    ).toThrow(/at most 65535/i);
   });
 
   it("rejects private or credentialed direct-access base URLs before persistence", () => {
@@ -71,7 +71,7 @@ describe("storage schema", () => {
           directAccessMode: "DIRECT",
           publicBaseUrl,
         }),
-      ).toThrow(/公网 HTTP\(S\) 地址|格式不正确/);
+      ).toThrow(/public HTTP\(S\)|credentials|intranet/);
     }
   });
 });

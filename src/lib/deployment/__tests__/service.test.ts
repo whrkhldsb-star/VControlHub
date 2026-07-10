@@ -58,35 +58,35 @@ describe("deployment service", () => {
   });
 
   it("rejects deployment requests without at least one target server", async () => {
-    await expect(createDeploymentRunFromTemplate({ templateId: "tmpl1", serverIds: [], variables: { pkg: "nginx" }, requesterId: "u1" })).rejects.toThrow("至少选择 1 台目标 VPS");
+    await expect(createDeploymentRunFromTemplate({ templateId: "tmpl1", serverIds: [], variables: { pkg: "nginx" }, requesterId: "u1" })).rejects.toThrow("At least 1 target VPS must be selected");
     expect(mockPrisma.deploymentRun.create).not.toHaveBeenCalled();
   });
 
   it("rejects missing required template variables before creating command requests", async () => {
-    await expect(createDeploymentRunFromTemplate({ templateId: "tmpl1", serverIds: ["srv1"], variables: {}, requesterId: "u1" })).rejects.toThrow("部署模板变量未填写完整");
+    await expect(createDeploymentRunFromTemplate({ templateId: "tmpl1", serverIds: ["srv1"], variables: {}, requesterId: "u1" })).rejects.toThrow("Deployment template variables not fully filled in: pkg");
     expect(mockPrisma.deploymentRun.create).not.toHaveBeenCalled();
   });
 
   it("rejects missing variables declared on the template even when they are not placeholders", async () => {
     mockPrisma.commandTemplate.findUnique.mockResolvedValueOnce({ id: "tmpl_explicit", name: "Explicit", command: "deploy static", variables: ["version"] });
 
-    await expect(createDeploymentRunFromTemplate({ templateId: "tmpl_explicit", serverIds: ["srv1"], variables: {}, requesterId: "u1" })).rejects.toThrow("部署模板变量未填写完整：version");
+    await expect(createDeploymentRunFromTemplate({ templateId: "tmpl_explicit", serverIds: ["srv1"], variables: {}, requesterId: "u1" })).rejects.toThrow("Deployment template variables not fully filled in: version");
     expect(mockPrisma.deploymentRun.create).not.toHaveBeenCalled();
   });
 
   it("preserves deployment run failure when command request creation fails", async () => {
-    vi.mocked(commandService.createCommandRequest).mockRejectedValueOnce(new Error("审批链路不可用"));
+    vi.mocked(commandService.createCommandRequest).mockRejectedValueOnce(new Error("Approval chain not available"));
 
     await expect(
       createDeploymentRunFromTemplate({ templateId: "tmpl1", serverIds: ["srv1"], variables: { pkg: "nginx" }, requesterId: "u1" }),
-    ).rejects.toThrow("审批链路不可用");
+    ).rejects.toThrow("Approval chain not available");
 
     expect(mockPrisma.deploymentRun.create).toHaveBeenCalledWith(expect.objectContaining({
       data: expect.objectContaining({ status: "PENDING" }),
     }));
     expect(mockPrisma.deploymentRun.update).toHaveBeenCalledWith({
       where: { id: "dep1" },
-      data: { status: "FAILED", errorMessage: "审批链路不可用" },
+      data: { status: "FAILED", errorMessage: "Approval chain not available" },
     });
   });
 
@@ -107,7 +107,7 @@ describe("deployment service", () => {
     const rollback = await createDeploymentRollbackRun({ sourceRunId: "dep1", requesterId: "u1", reason: "bad deploy" });
 
     expect(commandService.createCommandRequest).toHaveBeenCalledWith(expect.objectContaining({
-      title: "回滚部署：Nginx",
+      title: "Rollback deployment: Nginx",
       command: "apt remove nginx",
       reason: "bad deploy",
       serverIds: ["srv1"],
@@ -130,7 +130,7 @@ describe("deployment service", () => {
     });
     mockPrisma.deploymentRollbackRun.findFirst.mockResolvedValueOnce({ id: "rb_active", status: "PENDING" });
 
-    await expect(createDeploymentRollbackRun({ sourceRunId: "dep1", requesterId: "u1" })).rejects.toThrow("已有回滚任务正在处理");
+    await expect(createDeploymentRollbackRun({ sourceRunId: "dep1", requesterId: "u1" })).rejects.toThrow("A rollback task is already in progress; please wait for the current rollback to complete before retrying");
     expect(mockPrisma.deploymentRollbackRun.create).not.toHaveBeenCalled();
     expect(commandService.createCommandRequest).not.toHaveBeenCalled();
   });
@@ -168,7 +168,7 @@ describe("deployment service", () => {
     expect(runs[0]).toMatchObject({
       id: "dep_rejected",
       status: "REJECTED",
-      errorMessage: "关联命令请求已被拒绝，部署不会执行。",
+      errorMessage: "Associated command request has been rejected; deployment will not execute.",
     });
   });
 
@@ -217,7 +217,7 @@ describe("deployment service", () => {
       where: { id: "dep_failed" },
       data: {
         status: "FAILED",
-        errorMessage: "关联命令请求已失败。",
+        errorMessage: "Associated command request has failed.",
         completedAt: expect.any(Date),
       },
       include: expect.objectContaining({
@@ -229,7 +229,7 @@ describe("deployment service", () => {
     expect(runs[0]).toMatchObject({
       id: "dep_failed",
       status: "FAILED",
-      errorMessage: "关联命令请求已失败。",
+      errorMessage: "Associated command request has failed.",
     });
     expect(runs[0]!.completedAt).toBeInstanceOf(Date);
   });

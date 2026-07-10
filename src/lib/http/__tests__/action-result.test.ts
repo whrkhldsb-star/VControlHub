@@ -62,7 +62,7 @@ describe("toActionFailure", () => {
     const r = toActionFailure(zodErr);
     expect(r.ok).toBe(false);
     expect(r.code).toBe("VALIDATION_FAILED");
-    expect(r.message).toBe("输入校验失败");
+    expect(r.message).toBe("Input validation failed");
     expect(r.details).toEqual({
       name: ["不能为空", "至少 2 字符"],
       email: ["格式错误"],
@@ -115,13 +115,13 @@ describe("toActionFailure", () => {
 
   it("空 Error → 默认文案", () => {
     const r = toActionFailure(new Error(""));
-    expect(r.message).toBe("操作失败");
+    expect(r.message).toBe("Operation failed");
   });
 
   it("非 Error 非对象 → 默认 INTERNAL_ERROR", () => {
     const r = toActionFailure("oops");
     expect(r.code).toBe("INTERNAL_ERROR");
-    expect(r.message).toBe("操作失败");
+    expect(r.message).toBe("Operation failed");
   });
 
   it("null/undefined → 默认 INTERNAL_ERROR", () => {

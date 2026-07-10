@@ -154,7 +154,7 @@ describe("pruneOperationTaskHistory — TR-006 跨来源保留策略", () => {
     expect(result.perSource.command?.deleted).toBe(0);
     expect(result.perSource.download?.deleted).toBe(5);
     expect(result.totalDeleted).toBe(5);
-    expect(warnMock).toHaveBeenCalledWith("pruneOperationTaskHistory: command 失败", { error: "DB down" });
+    expect(warnMock).toHaveBeenCalledWith("pruneOperationTaskHistory: command failed", { error: "DB down" });
   });
 
   it("keepLatest=0 (无效值) → 兜底 1, scan/delete 仍跑", async () => {

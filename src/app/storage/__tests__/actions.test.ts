@@ -171,7 +171,7 @@ describe("createFolderAction", () => {
       }),
     );
 
-    expect(result).toEqual({ success: "文件夹 /team/alpha/docs 已创建" });
+    expect(result).toEqual({ success: "Folder /team/alpha/docs created" });
     expect(prismaMock.fileEntry.findFirst).toHaveBeenCalledWith(
       expect.objectContaining({
         where: expect.objectContaining({ relativePath: "team/alpha/docs" }),
@@ -356,7 +356,7 @@ describe("SFTP file entry actions", () => {
 
     const result = await restoreFileEntryAction(null, entryForm("entry-1"));
 
-    expect(result).toEqual({ success: "已恢复 old.txt" });
+    expect(result).toEqual({ success: "old.txt restored" });
     expect(restoreFileEntryMock).toHaveBeenCalledWith({ fileEntryId: "entry-1" });
     expect(prismaMock.fileEntry.update).not.toHaveBeenCalled();
   });
@@ -401,7 +401,7 @@ describe("SFTP file entry actions", () => {
       entryForm("entry-1"),
     );
 
-    expect(result).toEqual({ success: "已永久删除 old.txt" });
+    expect(result).toEqual({ success: "old.txt permanently deleted" });
     expect(deleteRemoteFileMock).toHaveBeenCalledWith(
       expect.objectContaining({
         remotePath: "/data/root/docs/old.txt",
@@ -467,8 +467,8 @@ describe("SFTP file entry actions", () => {
         data: { isDeleted: true },
       }),
     );
-    expect(result.success).toContain("已将 report.txt 移至回收站");
-    expect(result.success).toContain("物理文件删除失败");
+    expect(result.success).toContain("report.txt moved to recycle bin");
+    expect(result.success).toContain("physical file deletion failed");
     expect(result.success).toContain("disk busy");
   });
 
@@ -497,7 +497,7 @@ describe("SFTP file entry actions", () => {
       entryForm("local-file", { newName: "new.txt" }),
     );
 
-    expect(result).toEqual({ success: "已重命名为 new.txt" });
+    expect(result).toEqual({ success: "Renamed to new.txt" });
     expect(mkdirMock).toHaveBeenCalledWith("/srv/storage/docs", {
       recursive: true,
     });

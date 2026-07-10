@@ -62,7 +62,7 @@ describe("telegram notification delivery", () => {
 
 	it("rejects disabled channel and missing bot token / chat ids", () => {
 		// 三个独立场景; 用裸 TelegramConfig 验证 assertTelegramReady 内部逻辑
-		expect(() => assertTelegramReady({ enabled: false, botToken: "x", chatIds: ["1"] })).toThrow("未启用");
+		expect(() => assertTelegramReady({ enabled: false, botToken: "x", chatIds: ["1"] })).toThrow("Telegram channel not enabled");
 		expect(() => assertTelegramReady({ enabled: true, botToken: "", chatIds: ["1"] })).toThrow("Bot Token");
 		expect(() => assertTelegramReady({ enabled: true, botToken: "x", chatIds: [] })).toThrow("Chat ID");
 	});
@@ -149,7 +149,7 @@ describe("telegram notification delivery", () => {
 		const fetcher = vi.fn();
 		__setTelegramFetch(fetcher);
 
-		await expect(sendAlertTelegram({ title: "x", message: "y" })).rejects.toThrow(/未启用/);
+		await expect(sendAlertTelegram({ title: "x", message: "y" })).rejects.toThrow(/not enabled/);
 		expect(fetcher).not.toHaveBeenCalled();
 	});
 });

@@ -306,7 +306,7 @@ describe("QuickServicesClient", () => {
 
 		await screen.findByText(/最近同步：LinuxServer/);
 		expect(screen.queryByRole("link", { name: /访问.*未配置访问入口/ })).not.toBeInTheDocument();
-		expect(screen.queryByRole("link", { name: /访问.*公开直连端口/ })).not.toBeInTheDocument();
+		expect(screen.queryByRole("link", { name: /.*访问入口，公开直连端口/ })).not.toBeInTheDocument();
 		expect(document.querySelector('a[href="#"]')).not.toBeInTheDocument();
 	});
 
@@ -316,10 +316,10 @@ describe("QuickServicesClient", () => {
 		render(<QuickServicesClient canManage />);
 		await userEvent.click(await screen.findByRole("button", { name: /已安装/ }));
 
-		const accessLink = (await screen.findAllByRole("link", { name: /访问.*公开直连端口/ })).find((link) => link.getAttribute("title"));
+		const accessLink = await screen.findByRole("link", { name: "访问 AList（Public direct port）" });
 		expect(accessLink).toHaveAttribute("href", "http://82.158.91.159:5244/");
-		expect(accessLink).toHaveAttribute("title", expect.stringContaining("不经过 VControlHub 登录鉴权"));
-		expect(await screen.findByText("公开直连端口")).toBeInTheDocument();
+		expect(accessLink).toHaveAttribute("title", expect.stringContaining("without going through VControlHub login authentication"));
+		expect(await screen.findByText("Public direct port")).toBeInTheDocument();
 	});
 
 	it("renders the uninstall confirm dialog as a mobile bottom sheet with 44px touch targets (TR-022 R10)", async () => {

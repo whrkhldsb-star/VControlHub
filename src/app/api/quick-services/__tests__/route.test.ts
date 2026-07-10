@@ -92,12 +92,12 @@ describe("/api/quick-services routes", () => {
   });
 
   it("short-circuits when the user lacks Quick Services manage permission", async () => {
-    mocks.requireApiPermission.mockResolvedValueOnce(Response.json({ error: "权限不足" }, { status: 403 }));
+    mocks.requireApiPermission.mockResolvedValueOnce(Response.json({ error: "Insufficient permissions" }, { status: 403 }));
 
     const response = await rootRoute.GET(new Request("http://local/api/quick-services"));
 
     expect(response.status).toBe(403);
-    expect(await body(response)).toEqual({ error: "权限不足" });
+    expect(await body(response)).toEqual({ error: "Insufficient permissions" });
     expect(mocks.listQuickServices).not.toHaveBeenCalled();
   });
 
@@ -123,7 +123,7 @@ describe("/api/quick-services routes", () => {
 
     expect(response.status).toBe(202);
     expect(mocks.enqueueQuickServiceJob).toHaveBeenCalledWith({
-      title: "安装快捷服务：AList",
+      title: "Installed quick service: AList",
       createdBy: "u1",
       payload: expect.objectContaining({
         action: "install",
@@ -131,18 +131,18 @@ describe("/api/quick-services routes", () => {
         template: expect.objectContaining({ slug: "alist", initialPassword: expect.any(String) }),
         customPort: 5244,
         installNoticeCredentials: [
-          { label: "账号", value: "admin" },
-          { label: "初始密码", value: expect.any(String) },
+          { label: "Account", value: "admin" },
+          { label: "Initial password", value: expect.any(String) },
         ],
-        installNoticeNotes: ["AList 初始管理员密码已在容器启动后自动设置。"],
+        installNoticeNotes: ["AList initial admin password has been auto-set after container startup."],
       }),
     });
     expect(mocks.installService).not.toHaveBeenCalled();
     const json = await body(response) as { notice: { credentials: Array<{ label: string; value: string }> }; queued: boolean; jobId: string; taskId: string };
     expect(json).toMatchObject({ queued: true, jobId: "job_qs_1", taskId: "job:job_qs_1" });
     expect(json.notice.credentials).toEqual([
-      { label: "账号", value: "admin" },
-      { label: "初始密码", value: expect.any(String) },
+      { label: "Account", value: "admin" },
+      { label: "Initial password", value: expect.any(String) },
     ]);
   });
 
@@ -156,12 +156,12 @@ describe("/api/quick-services routes", () => {
     }));
 
     expect(response.status).toBe(409);
-    expect(await body(response)).toEqual({ error: "端口 5244 已被占用（AList），请更换端口后重试", portConflict: true, usedBy: "AList" });
+    expect(await body(response)).toEqual({ error: "port 5244 is already in use (AList), please change port and retry", portConflict: true, usedBy: "AList" });
     expect(mocks.installService).not.toHaveBeenCalled();
   });
 
   it("maps enqueue-time port conflicts to 409", async () => {
-    mocks.enqueueQuickServiceJob.mockRejectedValueOnce(new Error("端口 5244 已被占用"));
+    mocks.enqueueQuickServiceJob.mockRejectedValueOnce(new Error("port 5244 is already in use"));
 
     const response = await rootRoute.POST(new Request("http://local/api/quick-services", {
       method: "POST",
@@ -170,7 +170,7 @@ describe("/api/quick-services routes", () => {
     }));
 
     expect(response.status).toBe(409);
-    expect(await body(response)).toEqual({ error: "端口 5244 已被占用", portConflict: true });
+    expect(await body(response)).toEqual({ error: "port 5244 is already in use", portConflict: true });
   });
 
   it("queues slug actions through the guarded route", async () => {

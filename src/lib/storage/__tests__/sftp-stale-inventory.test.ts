@@ -71,7 +71,7 @@ describe("detectAndPruneSftpStaleInventory", () => {
     });
     expect(result.scanned).toBe(0);
     expect(result.stale).toBe(0);
-    expect(result.errors[0]).toContain("不是 SFTP 类型");
+    expect(result.errors[0]).toContain("Node remote is not SFTP type; skipped");
     expect(listRemoteDirectoryMock).not.toHaveBeenCalled();
   });
 
