@@ -183,7 +183,7 @@ describe("ImageBedPage", () => {
     render(<ImageBedPageClient canWrite canDelete />);
 
     await screen.findByText("cat.png");
-    await user.click(screen.getByTitle("删除"));
+    await user.click(screen.getByTitle("删除图片"));
 
     const dialog = await screen.findByRole("dialog", { name: "确认删除图片" });
     expect(confirmSpy).not.toHaveBeenCalled();
@@ -202,7 +202,7 @@ describe("ImageBedPage", () => {
       expect.anything(),
     );
 
-    await user.click(screen.getByTitle("删除"));
+    await user.click(screen.getByTitle("删除图片"));
     await user.click(
       within(
         await screen.findByRole("dialog", { name: "确认删除图片" }),

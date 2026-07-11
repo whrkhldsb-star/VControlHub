@@ -349,7 +349,7 @@ body > main {
 :root [data-card] {
 	border-radius: var(--radius-xl) !important;
 	border: 1px solid var(--border);
-	background-color: var(--surface);
+	background: linear-gradient(145deg, color-mix(in srgb, var(--surface-elevated) 32%, var(--surface)), var(--surface) 55%);
 	padding: 1rem;
 	transition: border-color 0.2s, box-shadow 0.2s, transform 0.15s;
 }
@@ -357,6 +357,18 @@ body > main {
 :root [data-card]:hover {
 	border-color: var(--border-strong);
 	box-shadow: var(--shadow-md);
+	transform: translateY(-1px);
+}
+
+@media (prefers-reduced-motion: reduce) {
+	:root article,
+	:root [data-card] {
+		transition: none;
+	}
+	:root article:hover,
+	:root [data-card]:hover {
+		transform: none;
+	}
 }
 
 /* S2. 按钮三级语义：primary / secondary / ghost */
@@ -686,21 +698,6 @@ html.light { --surface-root: #f8fafc; }
 .table-wrapper {
 	overflow: hidden;
 	border-radius: var(--radius-lg);
-}
-
-/* T5. Tabs 底部高亮线过渡 */
-[role="tab"] {
-	position: relative;
-}
-[role="tab"][aria-selected="true"]::after {
-	content: '';
-	position: absolute;
-	bottom: -1px;
-	left: 0;
-	right: 0;
-	height: 2px;
-	background: var(--accent);
-	border-radius: 2px 2px 0 0;
 }
 
 /* T6. Modal 弹窗入场动画 */

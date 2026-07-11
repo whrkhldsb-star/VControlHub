@@ -309,7 +309,7 @@ function CreateTemplateForm({ onClose }: { onClose: () => void }) {
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify({
-					name, description: description || null, command, rollbackCommand: rollbackCommand.trim() || null,
+					name, ...(description.trim() ? { description: description.trim() } : {}), command, rollbackCommand: rollbackCommand.trim() || null,
 					tags: tags.split(",").map((tag) => tag.trim()).filter(Boolean),
 				}),
 			});

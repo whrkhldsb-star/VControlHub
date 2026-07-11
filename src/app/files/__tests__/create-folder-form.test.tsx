@@ -49,7 +49,7 @@ describe("CreateFolderForm", () => {
   it("refreshes SPA data after the server action succeeds", async () => {
     const onCreated = vi.fn();
     const user = userEvent.setup();
-    render(
+    const view = render(
       <CreateFolderForm
         storageNodes={nodes}
         currentPath="docs"
@@ -63,6 +63,16 @@ describe("CreateFolderForm", () => {
     await user.click(screen.getByRole("button", { name: "创建" }));
 
     await waitFor(() => expect(onCreated).toHaveBeenCalledTimes(1));
-    expect(refreshMock).toHaveBeenCalled();
+    expect(refreshMock).not.toHaveBeenCalled();
+
+    view.rerender(
+      <CreateFolderForm
+        storageNodes={nodes}
+        currentPath="docs"
+        initialNodeId="node_sftp"
+        onCreated={() => onCreated()}
+      />,
+    );
+    expect(onCreated).toHaveBeenCalledTimes(1);
   });
 });

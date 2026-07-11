@@ -324,8 +324,11 @@ export function stopWorker(id: WorkerId): void {
  */
 export async function startAllWorkers(options: {
   logger?: (msg: string, meta?: Record<string, unknown>) => void;
+  /** Stagger immediate first ticks so DB-backed workers do not exhaust the transaction pool at boot. */
+  betweenWorkerDelayMs?: number;
 } = {}): Promise<{ started: WorkerId[]; failed: Array<{ id: WorkerId; error: string }> }> {
   const log = options.logger ?? (() => {});
+  const betweenWorkerDelayMs = Math.max(0, options.betweenWorkerDelayMs ?? 0);
   const started: WorkerId[] = [];
   const failed: Array<{ id: WorkerId; error: string }> = [];
   for (const spec of WORKER_REGISTRY) {
@@ -337,6 +340,9 @@ export async function startAllWorkers(options: {
       const message = error instanceof Error ? error.message : String(error);
       failed.push({ id: spec.id, error: message });
       log("worker start failed", { id: spec.id, jobType: spec.jobType, error: message });
+    }
+    if (betweenWorkerDelayMs > 0 && spec !== WORKER_REGISTRY.at(-1)) {
+      await new Promise((resolve) => setTimeout(resolve, betweenWorkerDelayMs));
     }
   }
   return { started, failed };

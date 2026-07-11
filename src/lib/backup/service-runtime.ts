@@ -143,6 +143,13 @@ export async function restoreBackupRecord(input: { id: string; confirm: string; 
 	const projectRoot = input.projectRoot || config.app.appDir || process.cwd();
 	const execution = buildRestoreExecution(record, projectRoot);
 	await stat(execution.backupPath);
+	if (!record.checksumSha256) {
+		throw new BusinessError("Backup checksum is missing; refusing to restore an unverifiable artifact");
+	}
+	const actualChecksum = await calculateFileSha256(execution.backupPath);
+	if (actualChecksum !== record.checksumSha256) {
+		throw new BusinessError("Backup checksum verification failed; the artifact may be corrupted or modified");
+	}
 	await runBackupCommand({
 		file: execution.file,
 		args: execution.args,

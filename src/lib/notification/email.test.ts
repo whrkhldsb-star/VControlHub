@@ -56,6 +56,9 @@ describe("email notification delivery", () => {
 			port: 587,
 			secure: false,
 			auth: { user: "mailer@example.com", pass: "secret" },
+			connectionTimeout: 10_000,
+			greetingTimeout: 10_000,
+			socketTimeout: 30_000,
 		});
 		expect(sendMailMock).toHaveBeenCalledWith(expect.objectContaining({
 			from: "noreply@example.com",

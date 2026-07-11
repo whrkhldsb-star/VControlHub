@@ -64,7 +64,7 @@ describe("backup service", () => {
       return lastCreatedBackupRecord;
     });
     mockPrisma.backupRecord.findMany.mockResolvedValue([]);
-    mockPrisma.backupRecord.findUnique.mockImplementation(async () => lastCreatedBackupRecord ?? { id: "bak1", type: "DATABASE", status: "COMPLETED", filePath: "backups/database.sql.gz" });
+    mockPrisma.backupRecord.findUnique.mockImplementation(async () => lastCreatedBackupRecord ?? { id: "bak1", type: "DATABASE", status: "COMPLETED", filePath: "backups/database.sql.gz", checksumSha256: "a92e0ec81286ff0f9ccf5982a22a83a0b70082446d5fd7af0eb9a3ceacd16c86" });
     mockPrisma.backupRecord.update.mockImplementation(async ({ data }: any) => ({ id: "bak1", ...data }));
     runBackupCommandMock.mockResolvedValue({ stdout: "ok", stderr: "" });
     statMock.mockResolvedValue({ size: 1234 });
@@ -262,7 +262,7 @@ describe("backup service", () => {
   });
 
   it("uses tar extraction for completed FILES/FULL restore records", async () => {
-    mockPrisma.backupRecord.findUnique.mockResolvedValueOnce({ id: "bak2", type: "FILES", status: "COMPLETED", filePath: "backups/files.tar.gz" });
+    mockPrisma.backupRecord.findUnique.mockResolvedValueOnce({ id: "bak2", type: "FILES", status: "COMPLETED", filePath: "backups/files.tar.gz", checksumSha256: "a92e0ec81286ff0f9ccf5982a22a83a0b70082446d5fd7af0eb9a3ceacd16c86" });
 
     await restoreBackupRecord({ id: "bak2", confirm: "RESTORE", projectRoot: "/opt/app" });
 
@@ -274,7 +274,7 @@ describe("backup service", () => {
     }));
   });
 
-  it("rejects restore before executing when confirmation, path, or status is unsafe", async () => {
+	it("rejects restore before executing when confirmation, path, or status is unsafe", async () => {
     await expect(restoreBackupRecord({ id: "bak1", confirm: "NOPE", projectRoot: "/opt/app" })).rejects.toThrow("Restore operation requires explicit confirmation");
     expect(runBackupCommandMock).not.toHaveBeenCalled();
 
@@ -284,7 +284,16 @@ describe("backup service", () => {
     mockPrisma.backupRecord.findUnique.mockResolvedValueOnce({ id: "bak4", type: "DATABASE", status: "COMPLETED", filePath: "../database.sql.gz" });
     await expect(restoreBackupRecord({ id: "bak4", confirm: "RESTORE", projectRoot: "/opt/app" })).rejects.toThrow("Backup path must be a portable relative path");
     expect(runBackupCommandMock).not.toHaveBeenCalled();
-  });
+	});
+
+	it("refuses restore when the artifact checksum is missing or mismatched", async () => {
+		mockPrisma.backupRecord.findUnique.mockResolvedValueOnce({ id: "bak5", type: "DATABASE", status: "COMPLETED", filePath: "backups/database.sql.gz", checksumSha256: null });
+		await expect(restoreBackupRecord({ id: "bak5", confirm: "RESTORE", projectRoot: "/opt/app" })).rejects.toThrow("checksum is missing");
+
+		mockPrisma.backupRecord.findUnique.mockResolvedValueOnce({ id: "bak6", type: "DATABASE", status: "COMPLETED", filePath: "backups/database.sql.gz", checksumSha256: "0".repeat(64) });
+		await expect(restoreBackupRecord({ id: "bak6", confirm: "RESTORE", projectRoot: "/opt/app" })).rejects.toThrow("checksum verification failed");
+		expect(runBackupCommandMock).not.toHaveBeenCalled();
+	});
 
   it("summarizes backup policy capacity, type mix, retention hints, and failure reasons", () => {
     const summary = summarizeBackupPolicy([

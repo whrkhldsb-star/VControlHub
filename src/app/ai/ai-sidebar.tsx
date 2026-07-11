@@ -39,7 +39,7 @@ export function AiSidebar({
         <div className="w-64 flex-shrink-0 border-r border-[var(--border)] bg-[var(--surface-subtle)] flex flex-col max-md:fixed max-md:inset-y-0 max-md:left-0 max-md:z-40 max-md:w-72">
           {/* Header */}
           <div className="px-4 py-3 border-b border-[var(--border)] flex items-center justify-between">
-            <h2 className="text-sm font-semibold text-[var(--text-primary)]">{t("aiPage.sidebarTitle")}</h2>
+            <h1 className="text-sm font-semibold text-[var(--text-primary)]">{t("aiPage.sidebarTitle")}</h1>
             <button
               onClick={onNewConv}
               className="h-7 px-2.5 rounded-lg bg-[var(--color-action)]/20 text-[var(--color-action)] text-xs font-medium hover:bg-[var(--color-action)]/30 transition"

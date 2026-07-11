@@ -24,9 +24,6 @@ Shared UI primitives live here. Prefer these exports before adding one-off Tailw
 - `SubmitButton` (`submit-button.tsx`) — form-action submit button wired to `useFormStatus()`.
   - Props: `pendingLabel`, `children`, optional `className`, `name`, `value`, `disabled`.
   - With no `className`, it uses the same `[data-action-button]` token styling as `ActionButton`.
-- `InputBase` (`input-base.tsx`) — unified input / textarea / select primitive kept for new componentized forms.
-  - Props: native input props plus `as="input" | "textarea" | "select"`, optional `size="sm" | "md" | "lg"`, optional `className`.
-  - For existing route-local forms, `src/lib/styles.ts` also exposes `INPUT_CLS`, `INPUT_DARK_CLS`, `INPUT_ERROR_CLS`, `FORM_FIELD_CLS`, `CHIP_CLS`, and `TABLE_TH_CLS`; do not duplicate those class strings inline.
 
 ## Navigation and shell
 
@@ -57,4 +54,4 @@ Shared UI primitives live here. Prefer these exports before adding one-off Tailw
 
 - Keep user-visible strings localized through `useI18n()` / dictionaries unless the caller passes already-localized text.
 - Prefer semantic CSS tokens (`var(--text-secondary)`, `var(--border)`, `--accent*`) over new hard-coded color classes.
-- Before adding a new shared component, check whether a route-local pattern can be expressed by the primitives above plus `src/lib/styles.ts` constants.
+- Before adding a new shared component, check whether a route-local pattern can be expressed by the primitives above and semantic CSS tokens.

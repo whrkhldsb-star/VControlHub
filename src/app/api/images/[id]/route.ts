@@ -112,7 +112,13 @@ export async function DELETE(
             );
           }
           try {
-            await unlinkIfPresent(path.join(resolvedDir.path, image.storageKey));
+            // New records store the full relative file path; legacy records
+            // stored only the directory. Support both shapes during deletion.
+            const linkedFilePath =
+              path.basename(image.relativePath) === image.storageKey
+                ? resolvedDir.path
+                : path.join(resolvedDir.path, image.storageKey);
+            await unlinkIfPresent(linkedFilePath);
           } catch (error) {
             logError("image-bed:delete-storage-copy", error);
             return NextResponse.json(

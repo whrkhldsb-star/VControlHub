@@ -99,6 +99,9 @@ export function ImageGrid({
             {!batchMode && (
               <div
                 data-testid="image-card-overlay"
+                onClick={(event) => {
+                  if (event.target === event.currentTarget) setPreviewImage(img);
+                }}
                 className="absolute inset-0 flex items-center justify-center gap-1 bg-black/50 p-2 md:bg-black/60 md:p-0 md:opacity-0 md:group-hover:opacity-100"
               >
                 <button

@@ -1,0 +1,2 @@
+VControlHub browser E2E fixture.
+This file is safe to upload, preview, edit, download, share, and delete.

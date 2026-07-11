@@ -77,6 +77,9 @@ export async function sendEmail(input: EmailDeliveryInput): Promise<EmailDeliver
 		port: config.port,
 		secure: config.port === 465,
 		auth: config.user || config.pass ? { user: config.user, pass: config.pass } : undefined,
+		connectionTimeout: 10_000,
+		greetingTimeout: 10_000,
+		socketTimeout: 30_000,
 	});
 	const result = await transporter.sendMail({
 		from: config.from,

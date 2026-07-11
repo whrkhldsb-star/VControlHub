@@ -251,7 +251,7 @@ export async function POST(req: NextRequest) {
         },
         action === "remove" ? "WARNING" : "INFO",
       );
-      return NextResponse.json(result);
+      return NextResponse.json(result, { status: result.ok ? 200 : result.status });
     },
   );
 }

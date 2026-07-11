@@ -26,7 +26,7 @@ export const zh: Record<string, string> = {
 	"imageBedPage.delete.desc.singleWithName": "将删除 {filename}，图片外链将失效。",
 	"imageBedPage.delete.desc.batchWithCount": "将删除 {count} 张图片，对应外链将失效。",
 	"imageBedPage.delete.deleting": "删除中...",
-	"imageBedPage.image.delete.aria": "删除",
+	"imageBedPage.image.delete.aria": "删除图片",
 	"imageBedPage.image.public": "公开",
 	"imageBedPage.image.private": "私有",
 	"imageBedPage.image.source": "来源：",

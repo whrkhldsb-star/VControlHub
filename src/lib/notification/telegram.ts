@@ -94,6 +94,7 @@ export async function sendTelegramMessage(
 			disable_web_page_preview: true,
 			...(options.parseMode ? { parse_mode: options.parseMode } : {}),
 		}),
+		signal: AbortSignal.timeout(15_000),
 	});
 
 	if (!response.ok) {

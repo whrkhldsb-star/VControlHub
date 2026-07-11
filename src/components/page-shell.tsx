@@ -60,8 +60,9 @@ export function PageShell({
 	maxW?: string;
 }) {
 	return (
-		<div className="min-h-screen [background:var(--page-bg)] text-[var(--text-primary)]">
-			<div className={`mx-auto ${maxW} px-4 pb-32 pt-20 sm:px-6 sm:py-8 lg:px-12 lg:py-10`}>{children}</div>
+		<div className="relative min-h-screen overflow-hidden [background:var(--page-bg)] text-[var(--text-primary)]">
+			<div aria-hidden="true" className="pointer-events-none absolute inset-x-0 top-0 h-64 bg-[radial-gradient(ellipse_at_top,rgba(56,139,253,0.10),transparent_68%)]" />
+			<div className={`relative mx-auto ${maxW} px-4 pb-32 pt-20 sm:px-6 sm:py-10 lg:px-12 lg:py-12`}>{children}</div>
 		</div>
 	);
 }
@@ -78,18 +79,18 @@ type PageHeaderProps = {
 
 export function PageHeader({ eyebrow, title, description, children, className = "mb-8" }: PageHeaderProps) {
 	return (
-		<header className={className}>
+		<header className={`${className} relative border-b border-[var(--border-subtle)] pb-6`}>
 			<div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
-				<div>
+				<div className="max-w-3xl">
 					{eyebrow ? (
 						<p data-page-eyebrow className="mb-2 text-xs font-semibold uppercase tracking-[0.3em] text-[var(--accent)]">
 							{eyebrow}
 						</p>
 					) : null}
-					<h1 className="text-3xl font-semibold tracking-tight text-[var(--text-primary)]">{title}</h1>
-					{description ? <p className="mt-1.5 text-sm text-[var(--text-muted)]">{description}</p> : null}
+					<h1 className="text-3xl font-semibold tracking-[-0.035em] text-[var(--text-primary)] sm:text-[2rem]">{title}</h1>
+					{description ? <p className="mt-2 max-w-2xl text-sm leading-6 text-[var(--text-muted)]">{description}</p> : null}
 				</div>
-				{children ? <div>{children}</div> : null}
+				{children ? <div className="flex shrink-0 flex-wrap items-center gap-2">{children}</div> : null}
 			</div>
 		</header>
 	);

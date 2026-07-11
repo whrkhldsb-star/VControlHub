@@ -33,8 +33,10 @@ export async function POST(request: Request) {
 	try {
 		// Rate limiting — check both fast and slow windows
 		const clientIp = getClientIp(request);
-		const fastCheck = await checkRateLimitAsync(clientIp, LOGIN_RATE_LIMIT);
-		const slowCheck = await checkRateLimitAsync(clientIp, LOGIN_SLOW_RATE_LIMIT);
+		// Keep the fast and slow windows in separate buckets. Sharing the raw IP
+		// makes one login consume two entries and causes premature lockouts.
+		const fastCheck = await checkRateLimitAsync(`login:fast:${clientIp}`, LOGIN_RATE_LIMIT);
+		const slowCheck = await checkRateLimitAsync(`login:slow:${clientIp}`, LOGIN_SLOW_RATE_LIMIT);
 
 		if (!fastCheck.allowed || !slowCheck.allowed) {
 			const retryAfter = !fastCheck.allowed

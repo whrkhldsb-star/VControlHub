@@ -14,6 +14,7 @@ import {
   withRateLimit,
 } from "@/lib/http/rate-limit-presets";
 import { UPLOAD_DIR } from "@/lib/image-bed/constants";
+import { indexLinkedStorageImage } from "@/lib/image-bed/linked-storage";
 import {
   convertToAVIF,
   convertToWebP,
@@ -233,8 +234,21 @@ async function handleUpload(request: Request, userId: string, session?: SessionP
           userId: userId,
         },
       });
+      if (linkedStorageRelativePath && storageNodeId) {
+        await indexLinkedStorageImage({
+          storageNodeId,
+          relativePath: linkedStorageRelativePath,
+          originalName,
+          mimeType,
+          size: buffer.byteLength,
+          checksum,
+        });
+      }
     } catch (error) {
       await Promise.allSettled([
+        image?.id
+          ? prisma.imageUpload.delete({ where: { id: image.id } })
+          : Promise.resolve(),
         ...writtenPaths.map((filePath) => rm(filePath, { force: true })),
         linkedStorageCopyPath
           ? rm(linkedStorageCopyPath, { force: true })

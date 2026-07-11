@@ -23,6 +23,7 @@ import { NextResponse } from "next/server";
 import { withApiRoute } from "@/lib/http/api-guard";
 import { IMAGE_UPLOAD_LIMIT } from "@/lib/http/rate-limit-presets";
 import { UPLOAD_DIR } from "@/lib/image-bed/constants";
+import { indexLinkedStorageImage } from "@/lib/image-bed/linked-storage";
 import {
   convertToAVIF,
   convertToWebP,
@@ -38,6 +39,8 @@ import {
 } from "@/lib/upload/service";
 import { auditUserAction } from "@/lib/audit/service";
 import { ForbiddenError, ValidationError } from "@/lib/errors";
+import { assertStorageAccess } from "@/lib/storage/access-control";
+import { storageFileNodeSelect, writeStorageFileBuffer } from "@/lib/storage/file-content";
 
 export const dynamic = "force-dynamic";
 
@@ -76,7 +79,7 @@ export async function POST(
       // Resolve the session filename for storage key derivation.
       const existing = await prisma.mediaUploadSession.findFirst({
         where: { id: sessionId, userId: session.userId },
-        select: { filename: true, mimeType: true },
+        select: { filename: true, mimeType: true, storageNodeId: true, relativePath: true },
       });
       if (!existing) {
         throw new ValidationError("Upload session not found or does not belong to the current user", {
@@ -113,6 +116,8 @@ export async function POST(
       await mkdir(UPLOAD_DIR, { recursive: true });
 
       const writtenPaths: string[] = [];
+      let linkedStorageCopyPath: string | null = null;
+      let linkedStorageRelativePath: string | null = null;
       try {
         await Promise.all([
           writeFile(originalPath, assembled).then(() => {
@@ -157,6 +162,29 @@ export async function POST(
         throw err;
       }
 
+      if (existing.storageNodeId && existing.relativePath) {
+        const access = await assertStorageAccess({
+          session,
+          storageNodeId: existing.storageNodeId,
+          relativePath: existing.relativePath,
+          operation: "write",
+          writeBytes: assembled.byteLength,
+        });
+        if (!access.allowed) {
+          throw new ForbiddenError(access.reason ?? "No permission to write to the storage path");
+        }
+        const storageNode = await prisma.storageNode.findUnique({
+          where: { id: existing.storageNodeId },
+          select: storageFileNodeSelect,
+        });
+        if (!storageNode || (storageNode.driver !== "LOCAL" && storageNode.driver !== "SFTP")) {
+          throw new ValidationError("Storage node does not support media uploads");
+        }
+        linkedStorageRelativePath = `${existing.relativePath.replace(/\/$/, "")}/${storageKey}`;
+        const written = await writeStorageFileBuffer(storageNode, linkedStorageRelativePath, assembled);
+        if (storageNode.driver === "LOCAL") linkedStorageCopyPath = written;
+      }
+
       let image;
       try {
         image = await prisma.imageUpload.create({
@@ -169,13 +197,29 @@ export async function POST(
             height: imgHeight,
             checksum,
             isPublic: true,
+            storageNodeId: linkedStorageRelativePath ? existing.storageNodeId : undefined,
+            relativePath: linkedStorageRelativePath || undefined,
             userId: session.userId,
           },
         });
+        if (linkedStorageRelativePath && existing.storageNodeId) {
+          await indexLinkedStorageImage({
+            storageNodeId: existing.storageNodeId,
+            relativePath: linkedStorageRelativePath,
+            originalName: filename,
+            mimeType,
+            size: assembled.byteLength,
+            checksum,
+          });
+        }
       } catch (err) {
-        await Promise.allSettled(
-          writtenPaths.map((filePath) => rm(filePath, { force: true })),
-        );
+        await Promise.allSettled([
+          image?.id
+            ? prisma.imageUpload.delete({ where: { id: image.id } })
+            : Promise.resolve(),
+          ...writtenPaths.map((filePath) => rm(filePath, { force: true })),
+          linkedStorageCopyPath ? rm(linkedStorageCopyPath, { force: true }) : Promise.resolve(),
+        ]);
         throw err;
       }
 

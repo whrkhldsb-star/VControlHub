@@ -199,7 +199,7 @@ export async function evaluateAlerts() {
 
 			if (rule.notifyChannels.includes("webhook") && rule.webhookUrl) {
 				try {
-					await fetchWebhookSafely(rule.webhookUrl, {
+					const delivery = await fetchWebhookSafely(rule.webhookUrl, {
 						method: "POST",
 						headers: { "Content-Type": "application/json" },
 						body: JSON.stringify({
@@ -211,6 +211,8 @@ export async function evaluateAlerts() {
 							timestamp: new Date().toISOString(),
 						}),
 					});
+					if (!delivery.ok) throw new Error(delivery.error);
+					if (!delivery.response.ok) throw new Error(`HTTP ${delivery.response.status}`);
 				} catch {
 					/* webhook best-effort */
 				}

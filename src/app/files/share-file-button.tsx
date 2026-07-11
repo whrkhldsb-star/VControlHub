@@ -89,12 +89,24 @@ export function ShareFileButton({
       </button>
       {shareUrl || error ? (
         <div className="absolute right-0 top-10 z-30 w-72 rounded-xl border border-[var(--border)] bg-[var(--modal-bg)] p-3 text-left text-xs shadow-xl">
+          <button
+            type="button"
+            aria-label={t("common.close")}
+            onClick={() => {
+              setShareUrl("");
+              setError("");
+              setCopied(false);
+            }}
+            className="absolute right-2 top-2 grid h-7 w-7 place-items-center rounded-lg text-[var(--text-muted)] hover:bg-[var(--surface-hover)] hover:text-[var(--text-primary)]"
+          >
+            ×
+          </button>
           {error ? (
-            <p className="text-[var(--danger)]">{error}</p>
+            <p className="pr-8 text-[var(--danger)]">{error}</p>
           ) : null}
           {shareUrl ? (
             <div className="space-y-2">
-              <p className="font-medium text-[var(--success)]">
+              <p className="pr-8 font-medium text-[var(--success)]">
                 {copied ? t("sharesPage.button.generatedAndCopied") : t("sharesPage.button.generated")}
               </p>
               <code className="block break-all rounded-lg bg-[var(--surface)]/[0.04] p-2 text-[var(--text-secondary)]">

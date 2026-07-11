@@ -102,6 +102,6 @@ async function listImages(request: Request, userId: string, isAdmin: boolean) {
       limit,
       totalPages: Math.ceil(total / limit),
     }),
-    CachePresets.shortLived,
+    CachePresets.noStore,
   );
 }

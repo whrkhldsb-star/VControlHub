@@ -124,7 +124,7 @@ export async function testAlertRule(id: string): Promise<{ rule: { id: string; n
 			deliveries.push({ channel: "webhook", status: "skipped", message: "Webhook URL not configured" });
 		} else {
 			try {
-				await fetchWebhookSafely(rule.webhookUrl, {
+				const delivery = await fetchWebhookSafely(rule.webhookUrl, {
 					method: "POST",
 					headers: { "Content-Type": "application/json" },
 					body: JSON.stringify({
@@ -135,6 +135,12 @@ export async function testAlertRule(id: string): Promise<{ rule: { id: string; n
 						timestamp: new Date().toISOString(),
 					}),
 				});
+				if (!delivery.ok) {
+					throw new Error(delivery.error);
+				}
+				if (!delivery.response.ok) {
+					throw new Error(`HTTP ${delivery.response.status}`);
+				}
 				deliveries.push({ channel: "webhook", status: "sent", message: "Webhook test request sent" });
 			} catch (error) {
 				deliveries.push({ channel: "webhook", status: "failed", message: error instanceof Error ? error.message : "Webhook test request failed" });

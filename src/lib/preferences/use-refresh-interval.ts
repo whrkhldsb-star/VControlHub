@@ -13,7 +13,7 @@ import {
  *
  * This consolidates an init + dual-listener `useEffect` block that was
  * duplicated byte-for-byte across docker / monitoring / traffic /
- * server-monitor-card. The hook:
+ * monitoring surfaces. The hook:
  *   - SSR-safe initial read (returns `fallback` when `window` is undefined)
  *   - listens for cross-tab `storage` events
  *   - listens for the in-page `vps-preferences-updated` custom event

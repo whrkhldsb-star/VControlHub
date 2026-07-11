@@ -6,7 +6,7 @@
  */
 
 export const zh: Record<string, string> = {
-	"mediaItemCard.addTag": "添加",
+	"mediaItemCard.addTag": "添加标签",
 	"mediaItemCard.directAccess": "目标服务器直连",
 	"mediaItemCard.downloadButton": "下载",
 	"mediaItemCard.favoriteAdd": "收藏",
@@ -36,7 +36,7 @@ export const zh: Record<string, string> = {
 };
 
 export const en: Record<string, string> = {
-	"mediaItemCard.addTag": "Add",
+	"mediaItemCard.addTag": "Add tag",
 	"mediaItemCard.directAccess": "Direct server access",
 	"mediaItemCard.downloadButton": "Download",
 	"mediaItemCard.favoriteAdd": "Favorite",

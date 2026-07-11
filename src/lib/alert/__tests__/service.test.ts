@@ -31,7 +31,7 @@ describe("alert service", () => {
 	beforeEach(() => {
 		vi.clearAllMocks();
 		createNotificationMock.mockResolvedValue({ id: "n1" });
-		fetchWebhookSafelyMock.mockResolvedValue({ ok: true });
+		fetchWebhookSafelyMock.mockResolvedValue({ ok: true, response: { ok: true, status: 204 } });
 		sendAlertEmailMock.mockResolvedValue({ accepted: ["ops@example.com"], rejected: [] });
 		sendAlertTelegramMock.mockResolvedValue({ accepted: [{ chatId: "100200300", messageId: 1 }], rejected: [] });
 		prismaMock.user.findMany.mockResolvedValue([{ id: "admin1" }, { id: "admin2" }]);
@@ -194,6 +194,37 @@ describe("alert service", () => {
 
 		expect(result.deliveries).toEqual([
 			expect.objectContaining({ channel: "webhook", status: "failed", message: "HTTP 500" }),
+		]);
+		expect(JSON.stringify(result)).not.toContain("secret-token");
+	});
+
+	it.each([
+		[{ ok: false, error: "Webhook request failed" }, "Webhook request failed"],
+		[{ ok: true, response: { ok: false, status: 500 } }, "HTTP 500"],
+	])("reports structured webhook delivery failures: %s", async (delivery, expectedMessage) => {
+		prismaMock.alertRule.findUnique.mockResolvedValue({
+			id: "rule_structured_failure",
+			name: "Webhook rule",
+			metric: "cpu_usage",
+			operator: "gte",
+			threshold: 90,
+			durationSeconds: 0,
+			serverIds: [],
+			notifyChannels: ["webhook"],
+			webhookUrl: "https://hooks.example.com/secret-token",
+			cooldownMinutes: 30,
+			enabled: true,
+			lastMatchedAt: null,
+			lastTriggeredAt: null,
+			createdAt: new Date("2026-01-01T00:00:00.000Z"),
+			updatedAt: new Date("2026-01-01T00:00:00.000Z"),
+		});
+		fetchWebhookSafelyMock.mockResolvedValueOnce(delivery);
+
+		const result = await testAlertRule("rule_structured_failure");
+
+		expect(result.deliveries).toEqual([
+			expect.objectContaining({ channel: "webhook", status: "failed", message: expectedMessage }),
 		]);
 		expect(JSON.stringify(result)).not.toContain("secret-token");
 	});

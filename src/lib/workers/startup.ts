@@ -134,6 +134,9 @@ export async function startWorkerLifecycle(): Promise<{
 
   const result = await startAllWorkers({
     logger: (msg, meta) => logger.info(msg, meta),
+    // Most workers run an immediate DB-backed tick. A short stagger prevents
+    // all 15 ticks from competing for Prisma transactions during process boot.
+    betweenWorkerDelayMs: 200,
   });
 
   state.started = true;

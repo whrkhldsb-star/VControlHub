@@ -76,9 +76,12 @@ function parseRestorePayload(payload: Prisma.JsonValue): BackupRestorePayload {
   if (!isRecord(payload) || typeof payload.backupId !== "string" || !payload.backupId.trim()) {
     throw new Error("Restore job payload missing backupId");
   }
+  if (payload.confirm !== "RESTORE") {
+    throw new Error("Restore job payload missing explicit RESTORE confirmation");
+  }
   return {
     backupId: payload.backupId.trim(),
-    confirm: "RESTORE",
+    confirm: payload.confirm,
     projectRoot: typeof payload.projectRoot === "string" && payload.projectRoot.trim() ? payload.projectRoot.trim() : undefined,
   };
 }

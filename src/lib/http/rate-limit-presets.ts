@@ -18,7 +18,12 @@
 
 import { checkRateLimitAsync, getClientIp } from "@/lib/rate-limit";
 
-export type RateLimitConfig = { maxRequests: number; windowMs: number };
+export type RateLimitConfig = {
+	maxRequests: number;
+	windowMs: number;
+	/** Optional stable bucket name. By default each API pathname has its own bucket. */
+	bucketKey?: string;
+};
 
 /** AI chat: 20 messages per minute per IP */
 export const AI_CHAT_LIMIT: RateLimitConfig = { maxRequests: 20, windowMs: 60_000 };
@@ -47,7 +52,14 @@ export async function withRateLimit(
 	config: RateLimitConfig,
 ): Promise<{ allowed: boolean; retryAfterMs: number; remaining: number }> {
 	const ip = getClientIp(request);
-	return checkRateLimitAsync(ip, config);
+	let pathname = "unknown";
+	try {
+		pathname = new URL(request.url).pathname;
+	} catch {
+		// Request.url is expected to be absolute, but keep a stable fallback for tests/adapters.
+	}
+	const bucket = config.bucketKey?.trim() || pathname;
+	return checkRateLimitAsync(`${bucket}:${ip}`, config);
 }
 
 /**

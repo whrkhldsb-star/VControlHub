@@ -128,14 +128,6 @@ describe("SettingsClient high-risk field blur warning (TR-014 M02)", () => {
 		});
 	});
 
-	it.skip("clears all high-risk warnings after a successful save", async () => {
-		// Skipped: the modal-open flow is already covered by the diff-confirm sibling test
-		// ("calls the API only after 确认保存 is clicked"). Adding an additional render here
-		// in the same file fights jsdom's focus/click timing in subtle ways; the production
-		// path (handleSave → setBlurredHighRiskKeys(new Set()) after csrfFetch resolves) is
-		// a one-liner that's covered by code review.
-	});
-
 	it("does NOT show a high-risk warning for low-risk fields on blur", async () => {
 		// platform.name is in the platform section (defaultOpen) and has no explicit riskLevel
 		// (i.e. low risk per FieldDef.riskLevel default).

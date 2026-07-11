@@ -11,14 +11,29 @@ set -euo pipefail
 APP_USER="vcontrolhub"
 APP_DIR="/opt/VControlHub"
 SERVICE_NAME="vcontrolhub-next"
+service_stopped=0
+
+restore_service_on_failure() {
+	status=$?
+	if [ "$status" -ne 0 ] && [ "$service_stopped" -eq 1 ]; then
+		echo "==> 部署失败，恢复启动 $SERVICE_NAME"
+		systemctl reset-failed "$SERVICE_NAME" 2>/dev/null || true
+		systemctl start "$SERVICE_NAME" || true
+	fi
+	exit "$status"
+}
+trap restore_service_on_failure EXIT
 
 cd "$APP_DIR"
 
 echo "==> [1/6] 修正源文件 owner (避免 root-owned 阻塞 vcontrolhub 读)"
-chown -R "$APP_USER:$APP_USER" "$APP_DIR/src" "$APP_DIR/public" "$APP_DIR/scripts" "$APP_DIR/prisma" "$APP_DIR/package.json" "$APP_DIR/package-lock.json" "$APP_DIR/next.config.*" "$APP_DIR/tsconfig.json" 2>/dev/null || true
+chown -R "$APP_USER:$APP_USER" "$APP_DIR/src" "$APP_DIR/public" "$APP_DIR/scripts" "$APP_DIR/prisma" "$APP_DIR/e2e" "$APP_DIR/package.json" "$APP_DIR/package-lock.json" "$APP_DIR/next.config.*" "$APP_DIR/tsconfig.json" "$APP_DIR/playwright.config.ts" 2>/dev/null || true
+chmod -R u+rwX,go+rX "$APP_DIR/e2e"
 chown -R "$APP_USER:$APP_USER" "$APP_DIR/.next" 2>/dev/null || rm -rf "$APP_DIR/.next"
 
-echo "==> [2/6] 跑 build (Next.js + runtime bundle)"
+echo "==> [2/6] 停止 Next 服务后 build（禁止覆盖运行中进程的 Client Manifest）"
+systemctl stop "$SERVICE_NAME"
+service_stopped=1
 sudo -u "$APP_USER" npm run build
 sudo -u "$APP_USER" npm run build:runtime
 
@@ -94,8 +109,11 @@ fi
 echo "==> [3/6] 修正 .next owner"
 chown -R "$APP_USER:$APP_USER" "$APP_DIR/.next" "$APP_DIR/.next/cache" 2>/dev/null || true
 
-echo "==> [4/6] 重启服务"
-systemctl restart "$SERVICE_NAME" vcontrolhub-ssh-ws caddy
+echo "==> [4/6] 启动服务"
+systemctl reset-failed "$SERVICE_NAME" 2>/dev/null || true
+systemctl start "$SERVICE_NAME"
+service_stopped=0
+systemctl restart vcontrolhub-ssh-ws caddy
 sleep 2
 
 echo "==> [5/6] 验证服务 active"

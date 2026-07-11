@@ -56,7 +56,7 @@ describe("FileUploadDropzone", () => {
         size: 12,
       }),
     );
-    expect(refreshMock).toHaveBeenCalledTimes(1);
+    expect(refreshMock).not.toHaveBeenCalled();
     expect(screen.getByText(/上传完成：docs\/report\.txt/)).toBeInTheDocument();
   });
 
@@ -173,7 +173,7 @@ describe("FileUploadDropzone", () => {
       relativePath: "docs/b.txt",
       size: second.size,
     });
-    expect(refreshMock).toHaveBeenCalledTimes(1);
+    expect(refreshMock).not.toHaveBeenCalled();
     expect(screen.getByText("上传完成 2/2 个文件")).toBeInTheDocument();
     expect(screen.getByText(/a\.txt/)).toBeInTheDocument();
     expect(screen.getByText(/b\.txt/)).toBeInTheDocument();
@@ -232,7 +232,7 @@ describe("FileUploadDropzone", () => {
     expect(screen.getByText(/bad\.txt/)).toHaveTextContent(
       "失败：磁盘空间不足",
     );
-    expect(refreshMock).toHaveBeenCalledTimes(1);
+    expect(refreshMock).not.toHaveBeenCalled();
   });
 
   it("allows uploading to SFTP nodes instead of disabling the picker", async () => {

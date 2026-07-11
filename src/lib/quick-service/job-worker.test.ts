@@ -44,17 +44,16 @@ describe("QuickService lifecycle job enqueue", () => {
 		vi.clearAllMocks();
 	});
 
-	it("reuses an active same-slug lifecycle job instead of enqueueing a conflicting operation", async () => {
+	it("rejects a different operation while the same service already has active work", async () => {
 		const existing = { id: "job_existing", status: "RUNNING", payload: { action: "update", slug: "alist" } };
 		mocks.findFirst.mockResolvedValueOnce(existing);
 
-		const result = await enqueueQuickServiceJob({
+		await expect(enqueueQuickServiceJob({
 			title: "QuickService stop: alist",
 			createdBy: "u1",
 			payload: { action: "stop", slug: "alist" },
-		});
+		})).rejects.toThrow("already has a different lifecycle task in progress");
 
-		expect(result).toEqual({ job: existing, taskId: "job:job_existing", reused: true });
 		expect(mocks.findFirst).toHaveBeenCalledWith({
 			where: {
 				type: QUICK_SERVICE_JOB_TYPE,
@@ -63,6 +62,19 @@ describe("QuickService lifecycle job enqueue", () => {
 			},
 			orderBy: [{ priority: "desc" }, { availableAt: "asc" }, { createdAt: "asc" }],
 		});
+		expect(mocks.enqueueJob).not.toHaveBeenCalled();
+	});
+
+	it("reuses only an equivalent active operation", async () => {
+		const existing = { id: "job_existing", status: "RUNNING", payload: { action: "uninstall", slug: "alist", deleteVolumes: false } };
+		mocks.findFirst.mockResolvedValueOnce(existing);
+
+		const result = await enqueueQuickServiceJob({
+			title: "Uninstall alist",
+			payload: { action: "uninstall", slug: "alist", deleteVolumes: false },
+		});
+
+		expect(result).toEqual({ job: existing, taskId: "job:job_existing", reused: true });
 		expect(mocks.enqueueJob).not.toHaveBeenCalled();
 	});
 

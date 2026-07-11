@@ -55,6 +55,29 @@ async function main() {
 	server.listen(port, hostname, () => {
 		logger.info(`Next.js (${dev ? "dev" : "prod"}) + WS listening on http://${hostname}:${port}`);
 	});
+
+	let shuttingDown = false;
+	const shutdown = (signal: NodeJS.Signals) => {
+		if (shuttingDown) return;
+		shuttingDown = true;
+		logger.info("HTTP server shutdown started", { signal });
+		const forceTimer = setTimeout(() => {
+			logger.error("HTTP server graceful shutdown timed out; forcing exit");
+			process.exit(1);
+		}, 15_000);
+		forceTimer.unref();
+		server.close((error) => {
+			clearTimeout(forceTimer);
+			if (error) {
+				logger.error("HTTP server shutdown failed", error);
+				process.exit(1);
+			}
+			logger.info("HTTP server shutdown complete");
+			process.exit(0);
+		});
+	};
+	process.once("SIGTERM", shutdown);
+	process.once("SIGINT", shutdown);
 }
 
 main().catch((err) => {

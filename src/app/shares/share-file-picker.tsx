@@ -72,6 +72,12 @@ function entryKey(input: { storageNodeId: string; path: string; entryType: strin
 	return `${input.entryType}:${input.storageNodeId}:${normalizePath(input.path)}`;
 }
 
+function buildFileListParams(nodeId: string, path: string) {
+	const params = new URLSearchParams({ nodeId });
+	if (path) params.set("path", path);
+	return params;
+}
+
 export function ShareFilePicker({ nodes }: { nodes: StorageNode[] }) {
 	const router = useRouter();
 	const { t } = useI18n();
@@ -121,7 +127,7 @@ export function ShareFilePicker({ nodes }: { nodes: StorageNode[] }) {
 		setLoading(true);
 		setError("");
 		try {
-			const params = new URLSearchParams({ nodeId, path });
+			const params = buildFileListParams(nodeId, path);
 			const response = await csrfFetch<FileListResponse>(`/api/files/list?${params.toString()}`);
 			setData(response);
 		} catch (err) {
@@ -134,7 +140,7 @@ export function ShareFilePicker({ nodes }: { nodes: StorageNode[] }) {
 	useEffect(() => {
 		if (!nodeId) return;
 		let active = true;
-		const params = new URLSearchParams({ nodeId, path });
+		const params = buildFileListParams(nodeId, path);
 		void csrfFetch<FileListResponse>(`/api/files/list?${params.toString()}`)
 			.then((response) => {
 				if (active) setData(response);

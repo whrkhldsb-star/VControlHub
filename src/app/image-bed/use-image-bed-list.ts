@@ -49,7 +49,7 @@ export function useImageBedList(opts: { canWrite: boolean }): UseImageBedListRet
 			const params = new URLSearchParams({ page: String(p), limit: String(PAGE_SIZE) });
 			if (search.trim()) params.set("q", search.trim());
 			if (showAll) params.set("all", "true");
-			const data = (await csrfFetch(`/api/images/list?${params}`)) as {
+			const data = (await csrfFetch(`/api/images/list?${params}`, { cache: "no-store" })) as {
 				images?: ImageItem[];
 				total?: number;
 				totalPages?: number;

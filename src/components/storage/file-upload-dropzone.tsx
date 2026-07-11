@@ -289,7 +289,10 @@ export function FileUploadDropzone({
         }),
       });
     }
-    router.refresh();
+    // The file browser owns an SPA listing and supplies a targeted refresh
+    // callback. Running router.refresh() as well can race that request and
+    // replace the newly selected directory with stale server props.
+    if (!onUploadComplete) router.refresh();
     setSubmitting(false);
     if (inputRef.current) {
       inputRef.current.value = "";

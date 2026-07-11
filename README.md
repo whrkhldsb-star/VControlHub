@@ -6,10 +6,10 @@
 
 [![Next.js](https://img.shields.io/badge/Next.js-16-black?logo=next.js)](https://nextjs.org/)
 [![React](https://img.shields.io/badge/React-19-61DAFB?logo=react.dev)](https://react.dev/)
-[![PostgreSQL](https://img.shields.io/badge/PostgreSQL-15-336791?logo=postgresql)](https://www.postgresql.org/)
-[![Prisma](https://img.shields.io/badge/Prisma-7.7-2D3748?logo=prisma.io)](https://www.prisma.org/)
+[![PostgreSQL](https://img.shields.io/badge/PostgreSQL-14%2B-336791?logo=postgresql)](https://www.postgresql.org/)
+[![Prisma](https://img.shields.io/badge/Prisma-7.8-2D3748?logo=prisma.io)](https://www.prisma.org/)
 [![Docker](https://img.shields.io/badge/Docker-Ready-2496ED?logo=docker.com)](https://www.docker.com/)
-[![License](https://img.shields.io/badge/License-Private-red)]()
+![License](https://img.shields.io/badge/License-Private-red)
 
 </div>
 
@@ -44,7 +44,7 @@
 ### 🐳 应用商店 (QuickService)
 
 - **精选商店** — 44+ 本地 Docker 应用模板，一键部署
-- **社区推荐** — LinuxServer.io 等第三方源，187+ 应用实时同步
+- **社区推荐** — LinuxServer.io 等第三方应用源实时同步；可用数量以当前源返回结果为准
 - **应用源管理** — 自定义添加/同步第三方应用目录
 - **端口自动分配** — 智能检测可用端口，避免冲突
 
@@ -83,8 +83,8 @@
 ### 🎨 用户体验
 
 - **深色 / 浅色主题** — 默认暗色 UI，Q-layer 兼容层自动映射旧硬编码到 CSS 变量，支持浅色模式
-- **多语言** — 中文 / 英文切换，76 字典文件全覆盖
-- **响应式布局** — 适配桌面和平板
+- **多语言** — 中文 / 英文切换，78 个字典文件全覆盖
+- **响应式布局** — 适配桌面、平板和移动端
 - **全局搜索** — 快速跳转任意功能模块
 
 ---
@@ -135,7 +135,7 @@
 
 - **OS** — Debian / Ubuntu 22.04+（root 权限）
 - **域名** — 可选（无域名时自动配置 Apache/IP 直连模式）
-- **端口** — 80/443（Web）+ 3001（SSH-WS）
+- **端口** — 对公网仅需 80/443（Web）；3000/3001 分别供 Next.js 与 SSH-WS 在本机回环地址监听，不应直接开放到公网
 
 ### 真正一行 fresh server 安装（推荐）
 
@@ -170,15 +170,15 @@ sudo /opt/vcontrolhub/deploy/install.sh --show-credentials
 # 1. 克隆代码
 git clone https://github.com/whrkhldsb-star/VControlHub.git /opt/vcontrolhub
 
-# 2. 首次运行（自动安装 Node.js 22、PostgreSQL 15、Caddy 等依赖）
+# 2. 运行安装器（自动安装 Node.js 22、发行版 PostgreSQL、Caddy/Apache 等依赖）
 sudo APP_DIR=/opt/vcontrolhub /opt/vcontrolhub/deploy/install.sh
 
-# 3. 编辑环境变量后再次运行
+# 3. 可选：检查或覆盖安装器自动生成的环境变量，然后重新运行以应用修改
 sudoedit /opt/vcontrolhub/.env.local
 sudo APP_DIR=/opt/vcontrolhub /opt/vcontrolhub/deploy/install.sh
 ```
 
-> 首次运行会自动生成 `.env.local` 模板并暂停，填写数据库密码、密钥后重新运行即可。
+> 首次运行会从生产模板创建 `.env.local`，自动生成数据库密码、Session/SSH/加密密钥和管理员初始密码，并继续完成安装；请保存安装输出的管理员密码。只有需要自定义数据库、端口或外部服务时才需要手动编辑后重跑。
 
 ### 自定义品牌部署
 
@@ -207,14 +207,14 @@ sudo APP_NAME="MyCloud" APP_SLUG=mycloud SITE_NAME="My Cloud Platform" \
 | -------- | ------------------------------------------- | -------- |
 | 框架     | Next.js (App Router)                        | 16.2.10  |
 | UI       | React + Tailwind CSS                        | 19 / 4   |
-| 数据库   | PostgreSQL + Prisma                         | 15 / 7.7 |
+| 数据库   | PostgreSQL + Prisma                         | 14+（Docker 模式为 16）/ 7.8 |
 | 认证     | 自定义 Session + bcryptjs                   | —        |
 | SSH      | ssh2 + WebSocket                            | 1.17     |
 | 下载     | Aria2 JSON-RPC                              | —        |
 | 反向代理 | Caddy (自动HTTPS) / Apache                  | —        |
 | 进程管理 | systemd                                     | —        |
 | 容器     | Docker (应用商店)                           | —        |
-| 代码量   | **~163,800 行** TypeScript/TSX（`src` 扫描） | —        |
+| 代码量   | 以“项目规模”自动生成指标为准               | —        |
 
 ---
 
@@ -230,7 +230,7 @@ sudo APP_NAME="MyCloud" APP_SLUG=mycloud SITE_NAME="My Cloud Platform" \
 │   │   ├── monitoring/         # 监控面板
 │   │   ├── ai/                 # AI 助手
 │   │   └── ...                 # 其他功能模块
-│   ├── components/             # 共享 UI 组件 (36 个)
+│   ├── components/             # 共享 UI 组件（当前自动统计 37 个）
 │   └── lib/                    # 业务逻辑 + 工具库
 │       ├── auth/               # 认证 & 权限（自定义 Session + bcryptjs + RBAC）
 │       ├── ssh/                # SSH 客户端 + SFTP 服务
@@ -281,9 +281,13 @@ npm test
 npm run build
 npm run build:runtime
 
-# 一次性完整质量门禁
+# 一次性代码、测试、构建、部署资产和文档质量门禁
 npm run verify
 ```
+
+> `npm run verify` 不启动浏览器 E2E；Playwright 需要可访问的应用和测试账号，按 `playwright.config.ts` 或设置 `PLAYWRIGHT_BASE_URL`、`E2E_USER`、`E2E_PASS` 后单独运行 `npx playwright test`。
+>
+> 在 systemd 服务正从当前目录运行时，`npm run build` 会拒绝直接覆盖 `.next`，避免运行进程与 Client Manifest 不一致。生产更新请使用 `sudo bash deploy.sh`；脚本会先停服务再构建，构建失败时自动恢复服务，成功后执行 smoke test。
 
 生产服务器上推荐使用仓库自带 Makefile，避免忘记 runtime bundle 或 smoke：
 
@@ -342,22 +346,22 @@ make logs SERVICE_PREFIX=vcontrolhub
 | 功能页面            | 47                                               |
 | API 路由文件        | 138                                              |
 | 数据模型            | 60                                               |
-| UI 组件           | 37                                               |
-| 代码行数            | ~181,691（src 扫描）                                 |
-| 测试              | 403 文件                                           |
+| UI 组件           | 35                                               |
+| 代码行数            | ~181,386（src 扫描）                                 |
+| 测试              | 409 文件                                           |
 | Docker 应用模板     | 44 (本地) + 社区源实时同步                                |
-| i18n            | 216 useI18n() 调用点，78 字典文件                        |
+| i18n            | 214 useI18n() 调用点，78 字典文件                        |
 <!-- README_METRICS_END -->
 
 ---
 
 ## 📋 代码审查与深度审计记录
 
-> 全面复核与修复日期：**2026-07-10**。范围包括 47 个页面、138 个 API 路由、60 个 Prisma 模型，以及认证、RBAC、CSRF、SSH/SFTP、文件一致性、后台任务、部署资产、依赖和文档一致性。
+> 全面复核与修复日期：**2026-07-11**。范围包括 47 个页面、138 个 API 路由、60 个 Prisma 模型，以及认证、RBAC、CSRF、SSH/SFTP、文件一致性、前端浏览器行为、后台任务、部署资产、依赖和文档一致性。
 
 ### 修复结论
 
-本轮审查记录的 23 项问题均已处理。质量门禁已经收紧：Lint 不再允许 warning，Prisma 格式检查和 README 指标检查已加入 `npm run verify`。安全方面增加 SFTP home 目录隔离、DNS rebinding 防护、SSE 并发控制和 nonce CSP；可靠性方面增加文件移动事务/补偿、等待式审计写入、前端后台轮询治理和真实浏览器回归测试。
+本轮审查记录的 39 项问题均已处理。质量门禁已经收紧：Lint 不再允许 warning，Prisma 格式检查和 README 指标检查已加入 `npm run verify`。安全方面增加 SFTP home 目录隔离、DNS rebinding 防护、SSE 并发控制和 nonce CSP；可靠性方面增加文件移动事务/补偿、等待式审计写入、前端后台轮询治理和真实浏览器回归测试。
 
 ### 已完成修复
 
@@ -386,23 +390,41 @@ make logs SERVICE_PREFIX=vcontrolhub
 | REV-21 | ✅ | 新增统一 `ConfirmDialog`，迁移 Playbook、SSH 文件、备份计划、定时任务和团队空间的危险操作确认流程；集中复用焦点锁定、Esc、遮罩、忙碌态与危险按钮样式，并补充组件回归测试。 |
 | REV-22 | ✅ | 服务器监控卡迁移到可见性感知轮询；快捷服务的目录合并、搜索、排序、分组、推荐项和状态汇总抽成可缓存纯函数，降低主客户端组件职责并补充派生模型测试。 |
 | REV-23 | ✅ | 改进无障碍审计器对 JSX runtime text、通用透传组件和源码注释的识别，消除 45 个按钮与 7 个字段误报；当前 306 个表单字段全部有可访问名称，icon-only button 可信告警为 0。 |
+| REV-24 | ✅ | 修复生产运行中覆盖 `.next` 导致 Client Manifest 与进程内模块映射失配的整站 500；自定义 HTTP server 现在可在 SIGTERM 下约 1 秒优雅退出，`deploy.sh` 改为停服务后构建且失败自动恢复，构建入口会阻止对当前运行目录执行危险 live build。生产实例随后完成 Chromium 真实登录、核心页面、移动端、键盘、5xx 与 pageerror 回归。 |
+| REV-25 | ✅ | 修复公告增删改后页面缓存与客户端状态不同步、模板可选描述发送 `null`、备份计划动态路由参数读取错误、登录快慢限流窗口共用 bucket 等真实 CRUD 问题。 |
+| REV-26 | ✅ | 修复文件夹创建与上传完成时 `router.refresh()` 和 SPA 目录刷新竞争，以及内联回调引用变化造成成功 effect 重复执行；分享结果增加关闭入口，公开分享空路径不再发送无效 `path=`。 |
+| REV-27 | ✅ | 图片上传到 LOCAL/SFTP 后同步创建或恢复 `FileEntry`，普通上传和分片上传统一打通“写入存储 → 文件索引 → 媒体扫描”；失败时补偿图床文件、存储副本和数据库记录。 |
+| REV-28 | ✅ | API 限流默认按 pathname 隔离 bucket，避免上传、扫描、收藏、标签与发布等不同正常操作互相消耗额度并误报 429。 |
+| REV-29 | ✅ | 修复图床桌面悬浮操作层拦截图片预览点击，补齐空白区预览行为，并将“添加”“删除”等模糊按钮名称改为“添加标签”“删除图片”。 |
+| REV-30 | ✅ | 修复图床删除对新旧 `relativePath` 存储格式不兼容导致的 502；已认证图片列表改为不复用陈旧缓存，删除成功后卡片立即从界面消失。 |
+| REV-31 | ✅ | 媒体上传、扫描、搜索、收藏、标签、动态详情、发布外链、图床搜索、预览、复制和删除已在生产 Chromium 中逐步真实操作通过。 |
+| REV-32 | ✅ | 增加真实 CRUD、文件管理、媒体图床和剩余用户工作流 Playwright 套件，覆盖设置标签、偏好持久化、通知已读、流量、Docker 日志、快捷服务、QA 详情、审计、AI/AI Ops、下载任务及服务器探测。 |
+| REV-33 | ✅ | AI 助手页面补齐唯一一级标题，修复页面从 `h2` 开始的语义层级缺口，改善屏幕阅读器和页面大纲导航。 |
+| REV-34 | ✅ | Webhook 测试与真实告警发送同时检查安全 fetch 的结构化失败和 HTTP 状态，不再把 DNS/SSRF 拒绝、网络失败或 HTTP 5xx 误报为成功。 |
+| REV-35 | ✅ | 备份恢复 worker 不再自行伪造 `RESTORE` 确认；缺失或篡改确认字段时 fail closed，执行器仍保留独立二次校验。 |
+| REV-36 | ✅ | 备份恢复前强制重新计算并比对 SHA-256；缺少校验值或归档被修改时拒绝执行。 |
+| REV-37 | ✅ | SMTP 增加连接、问候和 socket 超时，Telegram 增加 15 秒请求超时，防止外部服务异常时长期占用请求或 worker。 |
+| REV-38 | ✅ | Docker 操作失败返回真实非 2xx 状态；QuickService 仅复用操作和删除数据选项完全一致的任务，不同操作改为冲突拒绝。 |
+| REV-39 | ✅ | 完成源码与测试瘦身审计：移除 6 个全仓零引用组件/工具、零引用 `clsx` 与冗余 DOMPurify 类型包、重复 Tab CSS 和空的 skipped 测试；保留跨模块安全契约测试，完整套件现为 2776/2776 通过且无 skipped。 |
 
-### 验证状态（2026-07-10）
+### 验证状态（2026-07-11）
 
 | 检查 | 结果 |
 |---|---|
 | `npm run typecheck` | ✅ 通过 |
 | `npm run lint` | ✅ 0 errors / 0 warnings |
 | `npm run i18n:key-check` | ✅ missing 0 / orphan 0 / zh-en mismatch 0 |
-| `npm test` | ✅ 399 files passed；2771 passed / 1 skipped |
+| `npm test` | ✅ 400 files passed；2776 passed / 0 skipped |
 | `npm run route:verify` | ✅ 47 pages / 138 API routes / 54 permissions |
 | `npm run rbac:audit` | ✅ 0 drift |
 | `npx prisma validate` / `npx prisma format --check` | ✅ 通过 |
 | `npm audit --omit=dev` | ✅ 0 vulnerabilities |
 | `npm run build` / `npm run build:runtime` | ✅ Next.js 生产构建与两个 Node runtime bundle 均通过 |
-| Playwright Chromium | ✅ 登录与公开页面、7 个核心受保护页面、390px 移动端、键盘操作、HTTP 5xx 与浏览器异常检查通过 |
+| Playwright Chromium | ✅ 全部静态页面巡检、桌面导航、390px 移动端、键盘、CRUD、文件/分享、媒体/图床、设置/偏好、通知、Docker、流量、快捷服务、QA、审计、AI、下载及服务器安全探测流程通过 |
 | `npm run verify:deploy-assets` | ✅ 通过；无 Docker Compose 插件时自动执行离线 YAML/部署契约校验，不再跳过 |
 | `npm run docs:check` | ✅ README 指标为最新 |
+
+> “项目规模”的测试文件数量包含 Vitest、Playwright E2E 和其他测试资产；`npm test` 的 400 个文件仅统计 Vitest 实际执行的测试文件，两者口径不同。
 
 > 最后一次完整 `npm run verify` 已通过。Next.js 仍会提示自定义 `/_next/static/*` Cache-Control 可能影响开发模式；Caddy 对同时声明 HTTP/HTTPS 的 Flexible 模式会提示不自动重定向，这是该示例的预期行为。
 
@@ -413,12 +435,12 @@ make logs SERVICE_PREFIX=vcontrolhub
 - 密码使用 bcrypt，敏感凭据有加密存储路径，分享 token 使用带盐派生；仓库未发现被 Git 跟踪的 `.env`、私钥或数据库文件。
 - Prisma schema 大量使用唯一约束、索引和级联策略；原始 SQL 调用使用 Prisma 参数化模板。
 - 依赖锁文件存在，生产依赖审计为 0 已知漏洞；部署模板、systemd/Caddy 资产和环境变量占位检查较完整。
-- 后台命令、备份、下载和 AI 审批已有 durable job/CAS/worker ownership 等并发保护，测试总量充足。
+- 后台命令、备份、下载和 AI 审批已有 durable job/CAS/worker ownership 等并发保护；本轮还逐层复核了危险操作的前端确认、权限、schema、队列载荷、worker 和执行器边界。
 
 ### 审查边界
 
-- 未连接真实生产数据库、SSH 主机、S3、Aria2、Caddy/Apache 或邮件/Telegram 服务，因此没有验证真实灾备恢复、密钥轮换、网络隔离和第三方故障行为。
-- 未执行 Playwright 浏览器 E2E、`npm run test:coverage`、容器镜像扫描、DAST、SAST 专用扫描器或高并发压测。
+- 本轮已连接当前生产 PostgreSQL、systemd、Caddy、Docker、已配置服务器探测和下载 worker，并在隔离账号/唯一前缀数据下复测；关机、删除现有容器、安装/卸载真实服务、真实备份恢复、强制 AI 自主执行、密钥轮换和通知外发采用完整调用链静态推演、配置核对及 mock/隔离验证，未对生产资源产生这些不可逆或外部副作用。
+- Playwright 已覆盖 Chromium 桌面端、390px 移动端和主要安全可逆流程，但未执行 Firefox/WebKit 跨浏览器矩阵；也未执行 `npm run test:coverage`、容器镜像扫描、DAST、SAST 专用扫描器或高并发压测。
 - 当前工作区在本次审查前已有部署模板与 RBAC 报告的未提交修改；本节结论以审查时工作树为准。
 
 ---

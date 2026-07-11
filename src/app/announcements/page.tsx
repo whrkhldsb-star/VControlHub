@@ -6,7 +6,9 @@ import { CreateAnnouncementForm } from "./create-announcement-form";
 import { AnnouncementList } from "./announcement-list-client";
 import { getServerLocale, t } from "@/lib/i18n/translations";
 
-export const revalidate = 60;
+// Management mutations call router.refresh(); this page must not serve a
+// minute-old cached list immediately after create/edit/delete.
+export const dynamic = "force-dynamic";
 
 export default async function AnnouncementsPage() {
 	const session = await requireSession("/announcements");
@@ -30,7 +32,11 @@ export default async function AnnouncementsPage() {
 
 			{canManage && <div className="mb-6"><CreateAnnouncementForm /></div>}
 
-			<AnnouncementList items={serialized} canManage={canManage} />
+			<AnnouncementList
+				key={serialized.map((item) => item.id).join("|")}
+				items={serialized}
+				canManage={canManage}
+			/>
 		</PageShell>
 	);
 }

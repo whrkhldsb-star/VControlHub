@@ -23,16 +23,21 @@ export function CreateFolderForm({
   storageNodes: StorageNodeOption[];
   currentPath: string;
   initialNodeId?: string;
-  onCreated?: () => void;
+  onCreated?: () => void | Promise<void>;
 }) {
   const { t } = useI18n();
   const router = useRouter();
+  const refreshPage = router.refresh;
   const defaultNodeId = initialNodeId && storageNodes.some((node) => node.id === initialNodeId)
     ? initialNodeId
     : storageNodes.length > 0 ? storageNodes[0]!.id : "";
   const [expanded, setExpanded] = useState(false);
   const [folderName, setFolderName] = useState("");
   const [selectedNodeId, setSelectedNodeId] = useState(defaultNodeId);
+  const onCreatedRef = useRef(onCreated);
+  useEffect(() => {
+    onCreatedRef.current = onCreated;
+  }, [onCreated]);
   const inputRef = useRef<HTMLInputElement | null>(null);
   const [state, formAction] = useActionState(createFolderAction, initialState);
 
@@ -60,12 +65,15 @@ export function CreateFolderForm({
 
   useEffect(() => {
     if (state.success) {
-      router.refresh();
-      onCreated?.();
       setExpanded(false);
       setFolderName("");
+      if (onCreatedRef.current) {
+        void onCreatedRef.current();
+      } else {
+        refreshPage();
+      }
     }
-  }, [state.success, router, onCreated]);
+  }, [state.success, refreshPage]);
   /* eslint-enable react-hooks/set-state-in-effect */
 
   if (!expanded) {

@@ -5,6 +5,7 @@ import { prisma } from "@/lib/db";
 import { computeLeaseMs } from "@/lib/job/lease";
 import { enqueueJob, claimNextJob, completeJob, failJob, heartbeatJob } from "@/lib/job/service";
 import { createLogger } from "@/lib/logging";
+import { ConflictError } from "@/lib/errors";
 import type { QuickServiceCredential } from "@/lib/quick-service/install-notice";
 import type { ServiceTemplate } from "@/lib/quick-service/types";
 import {
@@ -132,7 +133,15 @@ export async function enqueueQuickServiceJob(input: {
 	priority?: number;
 }) {
 	const activeJob = await findActiveQuickServiceJob(input.payload.slug);
-	if (activeJob) return { job: activeJob, taskId: `job:${activeJob.id}`, reused: true };
+	if (activeJob) {
+		const activePayload = parseQuickServiceJobPayload(activeJob.payload);
+		const sameOperation = activePayload.action === input.payload.action
+			&& (activePayload.action !== "uninstall"
+				|| input.payload.action !== "uninstall"
+				|| Boolean(activePayload.deleteVolumes) === Boolean(input.payload.deleteVolumes));
+		if (sameOperation) return { job: activeJob, taskId: `job:${activeJob.id}`, reused: true };
+		throw new ConflictError(`Service ${input.payload.slug} already has a different lifecycle task in progress`);
+	}
 
 	const job = await enqueueJob({
 		type: QUICK_SERVICE_JOB_TYPE,
