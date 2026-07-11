@@ -37,6 +37,13 @@ yarn-error.log*
 .pnpm-debug.log*
 *.log
 
+# browser test artifacts (also keep Tailwind v4 source discovery away from traces)
+test-results/
+playwright-report/
+.playwright-output/
+login-dark.png
+login-light.png
+
 # env files / local secrets
 .env*
 !.env.example

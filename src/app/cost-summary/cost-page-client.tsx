@@ -10,7 +10,6 @@ import { CostDeleteDialog, CostEntryFormModal } from "./cost-entry-dialogs";
 import { CATEGORIES, buttonDanger, buttonGhost, buttonPrimary, cardClass, emptyForm, formatAmount, inputClass, isValidDate, labelClass } from "./cost-page-shared";
 
 import type {
-	CostCategory,
 	CostCurrency,
 	CostEntryRecord,
 	CostSummary,

@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback, useEffect, useMemo } from "react";
 import { csrfFetch } from "@/lib/auth/csrf-client";
 import { buildQuickServiceAccessDescriptor } from "@/lib/quick-service/access-url";
 import { EmptyState } from "@/components/page-shell";
@@ -18,7 +18,7 @@ import {
 import { ServiceCard } from "./quick-service-card";
 import { InstallDialog } from "./install-dialog";
 import { SourcesPanel } from "./quick-services-sources-panel";
-import { CATEGORY_ORDER, QUICK_SERVICE_PUBLIC_HOST, RECOMMENDED_SERVICE_SLUGS, buildCategoryLabels, getEnvCount, getPrimaryContainerPort, getVolumeMounts, sortByPriority, type AppSource, type CatalogItem, type DockerEnvironmentStatus, type Tab } from "./quick-services-shared";
+import { CATEGORY_ORDER, QUICK_SERVICE_PUBLIC_HOST, buildCategoryLabels, buildQuickServiceViewModel, getEnvCount, getPrimaryContainerPort, getVolumeMounts, type AppSource, type CatalogItem, type DockerEnvironmentStatus, type Tab } from "./quick-services-shared";
 
 /* ── Main Component ─────────────────────────────────────────────── */
 
@@ -156,6 +156,10 @@ export function QuickServicesClient({ canManage }: { canManage: boolean }) {
 		setPendingSourceDelete(null);
 		await actions.doDeleteSource(id);
 	};
+	const { installed, localAvailable, remoteAvailable, summary, grouped, recommendedItems, runningItems, errorItems } = useMemo(
+		() => buildQuickServiceViewModel(catalog, remoteCatalog, tab, search),
+		[catalog, remoteCatalog, search, tab],
+	);
 
 	if (loading) return <div className="text-sm text-[var(--text-muted)] py-12 text-center">{t("qsPage.loading")}</div>;
 	if (error) return <div className="text-sm text-[var(--danger)] py-12 text-center">{error}</div>;
@@ -169,52 +173,6 @@ export function QuickServicesClient({ canManage }: { canManage: boolean }) {
 		);
 	}
 
-	const allItems = [...catalog, ...remoteCatalog];
-	const installed = allItems.filter((s) => s.status !== "available");
-	const localAvailable = catalog.filter((s) => s.status === "available");
-	const remoteAvailable = remoteCatalog.filter((s) => s.status === "available");
-
-	const summary = {
-		running: allItems.filter((s) => s.status === "running").length,
-		stopped: allItems.filter((s) => s.status === "stopped").length,
-		error: allItems.filter((s) => s.status === "error").length,
-		available: localAvailable.length + remoteAvailable.length,
-	};
-
-	const filterBySearch = (items: CatalogItem[]) => {
-		if (!search.trim()) return items;
-		const q = search.toLowerCase();
-		return items.filter(
-			(i) =>
-				i.name.toLowerCase().includes(q) ||
-				i.description.toLowerCase().includes(q) ||
-				i.category.toLowerCase().includes(q) ||
-				i.image.toLowerCase().includes(q)
-		);
-	};
-
-	// Group by category
-	const groupByCategory = (items: CatalogItem[]) => {
-		const grouped: Record<string, CatalogItem[]> = {};
-		for (const cat of CATEGORY_ORDER) grouped[cat] = [];
-		for (const item of items) {
-			const cat = CATEGORY_ORDER.includes(item.category) ? item.category : "other";
-			grouped[cat]!.push(item);
-		}
-		return grouped;
-	};
-
-	const currentItems = tab === "store"
-		? sortByPriority(filterBySearch(localAvailable))
-		: tab === "community"
-			? sortByPriority(filterBySearch(remoteAvailable))
-			: sortByPriority(filterBySearch(installed));
-	const grouped = groupByCategory(currentItems);
-	const recommendedItems = RECOMMENDED_SERVICE_SLUGS
-		.map((slug) => catalog.find((item) => item.slug === slug) ?? remoteCatalog.find((item) => item.slug === slug))
-		.filter((item): item is CatalogItem => Boolean(item));
-	const runningItems = installed.filter((item) => item.status === "running");
-	const errorItems = installed.filter((item) => item.status === "error");
 	const quickServiceAccess = (item: CatalogItem) => buildQuickServiceAccessDescriptor({
 		port: item.port,
 		defaultPort: item.defaultPort,

@@ -95,7 +95,7 @@ export async function POST(
 					createdById: session.userId,
 				});
 
-				auditUserAction(
+				await auditUserAction(
 					session.userId,
 					"vps-backup.schedule.create",
 					{ serverId, scheduleId: schedule.id, name: body.name },

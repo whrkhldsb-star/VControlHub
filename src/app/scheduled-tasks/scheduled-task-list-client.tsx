@@ -1,10 +1,10 @@
 "use client";
 
-import { Fragment, useState, useCallback, useMemo } from "react";
+import { useState, useCallback, useMemo } from "react";
 import { EmptyState } from "@/components/page-shell";
 import { csrfFetch } from "@/lib/auth/csrf-client";
 import { useI18n } from "@/lib/i18n/use-locale";
-import { useDialogFocus } from "@/lib/a11y/use-dialog-focus";
+import { ConfirmDialog } from "@/components/confirm-dialog";
 import { toDateLocale } from "@/lib/i18n/locale-format";
 import type { Locale } from "@/lib/i18n/translations";
 
@@ -71,11 +71,10 @@ function describeCronPreview(expr: string, t: (key: string) => string) {
 }
 
 export function ScheduledTaskListClient({ tasks: initialTasks, servers, canCreate, canManage }: Props) {
-	const { t, locale } = useI18n();
+		const { t } = useI18n();
 	const [tasks, setTasks] = useState(initialTasks);
 	const [showCreate, setShowCreate] = useState(false);
 	const [taskPendingDelete, setTaskPendingDelete] = useState<Task | null>(null);
-	const dialogRef = useDialogFocus<HTMLDivElement>({ open: taskPendingDelete !== null, onClose: () => setTaskPendingDelete(null) });
 	const [actionError, setActionError] = useState<string | null>(null);
 	const [searchQuery, setSearchQuery] = useState("");
 
@@ -221,24 +220,7 @@ export function ScheduledTaskListClient({ tasks: initialTasks, servers, canCreat
 					))}
 				</div>
 			)}
-			{taskPendingDelete && (
-				<div className="fixed inset-0 z-50 flex items-center justify-center bg-[var(--surface)]/70 px-4 backdrop-blur-sm" role="presentation">
-					<section ref={dialogRef} role="dialog" aria-modal="true" aria-labelledby="delete-scheduled-task-title" className="w-full max-w-md rounded-2xl border border-[var(--danger-border)] bg-[var(--modal-bg)] p-6 shadow-[0_24px_100px_rgba(244,63,94,0.16)]">
-						<h2 id="delete-scheduled-task-title" className="text-lg font-semibold text-[var(--text-primary)]">{t("scheduledTasksPage.delete.title")}</h2>
-						<p className="mt-3 text-sm leading-6 text-[var(--text-secondary)]">
-							<Fragment>{t("scheduledTasksPage.delete.descPrefix")}<strong className="font-semibold text-[var(--text-primary)]">{taskPendingDelete.name}</strong>{t("scheduledTasksPage.delete.descSuffix")}</Fragment>
-						</p>
-						<div className="mt-6 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
-							<button type="button" onClick={() => setTaskPendingDelete(null)} className="min-h-11 rounded-xl border border-[var(--border)] px-4 py-2 text-sm font-medium text-[var(--text-secondary)] hover:bg-[var(--surface-hover)]">
-								{t("scheduledTasksPage.cancel")}
-							</button>
-							<button type="button" onClick={() => deleteTask(taskPendingDelete)} className="min-h-11 rounded-xl bg-[var(--danger)] px-4 py-2 text-sm font-semibold text-[var(--text-primary)] hover:bg-[var(--danger-bg)] hover:text-[var(--danger)]">
-								{t("scheduledTasksPage.delete.confirm")}
-							</button>
-						</div>
-					</section>
-				</div>
-			)}
+			<ConfirmDialog open={taskPendingDelete !== null} title={t("scheduledTasksPage.delete.title")} description={<>{t("scheduledTasksPage.delete.descPrefix")}<strong className="font-semibold text-[var(--text-primary)]">{taskPendingDelete?.name}</strong>{t("scheduledTasksPage.delete.descSuffix")}</>} cancelLabel={t("scheduledTasksPage.cancel")} confirmLabel={t("scheduledTasksPage.delete.confirm")} onCancel={() => setTaskPendingDelete(null)} onConfirm={() => taskPendingDelete && deleteTask(taskPendingDelete)} closeOnBackdrop={false} />
 		</div>
 	);
 }
@@ -246,7 +228,7 @@ export function ScheduledTaskListClient({ tasks: initialTasks, servers, canCreat
 /* ── Create form ──────────────────────────────────────────── */
 
 function CreateTaskForm({ servers, onClose }: { servers: ServerOption[]; onClose: () => void }) {
-	const { t, locale } = useI18n();
+		const { t } = useI18n();
 	const [name, setName] = useState("");
 	const [cronExpression, setCron] = useState("0 3 * * *");
 	const [command, setCommand] = useState("");

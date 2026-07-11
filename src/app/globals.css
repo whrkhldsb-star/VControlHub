@@ -1,4 +1,7 @@
-@import "tailwindcss";
+/* Limit class discovery to application sources. Browser traces and reports may
+ * contain arbitrary HTML/CSS fragments and must never become Tailwind input. */
+@import "tailwindcss" source(none);
+@source "../";
 
 @custom-variant light (&:where(.light, .light *));
 

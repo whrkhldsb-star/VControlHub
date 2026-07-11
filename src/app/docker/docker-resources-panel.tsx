@@ -269,6 +269,7 @@ export function DockerResourcesPanel() {
       <div className="mb-4 flex flex-wrap items-end gap-2">
         {" "}
         <select
+          aria-label={t("dockerResources.title")}
           value={activeType}
           onChange={(event) =>
             setActiveType(event.currentTarget.value as ResourceType)

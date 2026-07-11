@@ -36,6 +36,7 @@ export const zh: Record<string, string> = {
 };
 
 export const en: Record<string, string> = {
+	"ticketsPage.form.success.created": "Ticket created",
 	"ticketsPage.assignee": "Assignee: {name}",
 	"ticketsPage.createdAt": "Created: {time}",
 	"ticketsPage.creator": "Creator: {name}",

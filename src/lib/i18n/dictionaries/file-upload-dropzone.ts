@@ -109,9 +109,6 @@ export const zh: Record<string, string> = {
   "filesBrowserSpa.noMatchingNode": "没有匹配的节点",
   "filesBrowserSpa.openChild": "打开 {name}",
   "filesBrowserSpa.filterByNode": "按节点筛选",
-  "filesBrowserSpa.switchStorageNode": "切换存储节点",
-  "filesBrowserSpa.switchStorageNodeDesc":
-    "节点变多后可以先搜索，再从下拉框切换到目标节点；列表会自动按 LOCAL 或 SFTP 节点类型执行浏览、上传、下载和文件操作。",
   "filesBrowserSpa.loading": "加载中…",
   "filesBrowserSpa.searchFileName": "搜索文件名",
   "filesBrowserSpa.searchResults":
@@ -228,9 +225,6 @@ export const en: Record<string, string> = {
   "filesBrowserSpa.noMatchingNode": "No matching nodes",
   "filesBrowserSpa.openChild": "Open {name}",
   "filesBrowserSpa.filterByNode": "Filter by node",
-  "filesBrowserSpa.switchStorageNode": "Switch storage node",
-  "filesBrowserSpa.switchStorageNodeDesc":
-    "When there are many nodes, search first and switch from the dropdown. The list will automatically browse, upload, download, and operate files by LOCAL or SFTP node type.",
   "filesBrowserSpa.loading": "Loading…",
   "filesBrowserSpa.searchFileName": "Search file name",
   "filesBrowserSpa.searchResults":

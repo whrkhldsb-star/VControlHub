@@ -1,44 +1,44 @@
 {
-    auto_https disable_redirects
+	auto_https disable_redirects
 }
 
 http://your-domain.example, https://your-domain.example {
-    encode gzip zstd
+	encode gzip zstd
 
-    # Cloudflare can connect to the origin over HTTP while the visitor URL is
-    # already HTTPS. Disable Caddy's automatic HTTP->HTTPS redirect to avoid an
-    # external 308 loop when Cloudflare SSL mode is Flexible.
+	# Cloudflare can connect to the origin over HTTP while the visitor URL is
+	# already HTTPS. Disable Caddy's automatic HTTP->HTTPS redirect to avoid an
+	# external 308 loop when Cloudflare SSL mode is Flexible.
 
-    header {
-        X-Content-Type-Options nosniff
-        # Do not set X-Frame-Options here. The app emits SAMEORIGIN plus CSP
-        # frame-src/media-src rules so authenticated PDF/media previews can render.
-        Referrer-Policy strict-origin-when-cross-origin
-        Strict-Transport-Security "max-age=31536000; includeSubDomains; preload"
-    }
+	header {
+		X-Content-Type-Options nosniff
+		# Do not set X-Frame-Options here. The app emits SAMEORIGIN plus CSP
+		# frame-src/media-src rules so authenticated PDF/media previews can render.
+		Referrer-Policy strict-origin-when-cross-origin
+		Strict-Transport-Security "max-age=31536000; includeSubDomains; preload"
+	}
 
-    # 仅对 Next.js 页面路由（无扩展名路径）强制禁止缓存
-    # 防止 Cloudflare 缓存旧 HTML 后引用过期 CSS/JS hash 导致样式崩溃
-    # sw.js / *.png / *.svg 等静态文件不受影响，保留正常缓存
-    @html {
-        path_regexp ^/[^.]*$
-        not path /api/*
-        not path /direct/*
-    }
-    header @html Cache-Control "no-cache, no-store, must-revalidate"
+	# Disable caching for Next.js page routes (paths without file extensions)
+	# Prevents Cloudflare from caching stale HTML that references expired CSS/JS hashes
+	# Static files like sw.js, *.png, *.svg are unaffected and keep normal caching
+	@html {
+		path_regexp ^/[^.]*$
+		not path /api/*
+		not path /direct/*
+	}
+	header @html Cache-Control "no-cache, no-store, must-revalidate"
 
-    reverse_proxy /ssh 127.0.0.1:3001
-    reverse_proxy /ssh/* 127.0.0.1:3001
+	reverse_proxy /ssh 127.0.0.1:3001
+	reverse_proxy /ssh/* 127.0.0.1:3001
 
-    # Optional AList
-    reverse_proxy /files-proxy 127.0.0.1:5244
-    reverse_proxy /files-proxy/* 127.0.0.1:5244
+	# Optional AList
+	reverse_proxy /files-proxy 127.0.0.1:5244
+	reverse_proxy /files-proxy/* 127.0.0.1:5244
 
-    # Optional Emby
-    reverse_proxy /emby 127.0.0.1:8096
-    reverse_proxy /emby/* 127.0.0.1:8096
-    reverse_proxy /web/* 127.0.0.1:8096
-    reverse_proxy /Startup/* 127.0.0.1:8096
+	# Optional Emby
+	reverse_proxy /emby 127.0.0.1:8096
+	reverse_proxy /emby/* 127.0.0.1:8096
+	reverse_proxy /web/* 127.0.0.1:8096
+	reverse_proxy /Startup/* 127.0.0.1:8096
 
-    reverse_proxy 127.0.0.1:3000
+	reverse_proxy 127.0.0.1:3000
 }

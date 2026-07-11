@@ -1,5 +1,5 @@
 "use client"; /** * PwaRegister — registers the VControlHub service worker and exposes the * user-visible PWA state: offline banner + update prompt. */
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useToast } from "@/components/toast-provider";
 import { createLogger } from "@/lib/logging";
 import { useI18n } from "@/lib/i18n/use-locale";
@@ -30,6 +30,7 @@ export function PwaRegister() {
     waiting: null,
     visible: false,
   });
+  const updateRequestedRef = useRef(false);
   useEffect(() => {
     if (typeof window === "undefined") return;
     setTimeout(() => setIsOffline(!navigator.onLine), 0);
@@ -64,7 +65,9 @@ export function PwaRegister() {
     const sw = navigator.serviceWorker;
     let refreshing = false;
     const handleControllerChange = () => {
-      if (refreshing) return;
+      // A first-time service-worker install also emits controllerchange. Do
+      // not reload in that case: it can race with login/form navigation.
+      if (!updateRequestedRef.current || refreshing) return;
       refreshing = true;
       window.location.reload();
     };
@@ -118,6 +121,7 @@ export function PwaRegister() {
   const refreshToUpdate = () => {
     const worker = updateState.waiting;
     if (worker) {
+      updateRequestedRef.current = true;
       worker.postMessage({ type: "VCH_PWA_SKIP_WAITING" });
       return;
     }

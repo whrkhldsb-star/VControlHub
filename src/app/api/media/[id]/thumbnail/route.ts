@@ -4,7 +4,7 @@ import { createReadStream } from "node:fs";
 import os from "node:os";
 import path from "node:path";
 
-import { Client, type ConnectConfig } from "ssh2";
+import { Client } from "ssh2";
 import { NextResponse } from "next/server";
 
 import { connectSsh } from "@/lib/ssh/client";

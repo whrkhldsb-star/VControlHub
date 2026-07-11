@@ -15,7 +15,6 @@
 
 import {
 	Children,
-	cloneElement,
 	type ReactElement,
 	type ReactNode,
 	useActionState,
@@ -56,11 +55,14 @@ export function BatchReviewToolbar({
 
 	// Reset selection if the underlying pending list shrinks (e.g. after revalidate)
 	useEffect(() => {
-		setSelected((prev) => {
-			const next = new Set<string>();
-			for (const id of prev) if (pendingIds.includes(id)) next.add(id);
-			return next.size === prev.size ? prev : next;
-		});
+		const timer = window.setTimeout(() => {
+			setSelected((prev) => {
+				const next = new Set<string>();
+				for (const id of prev) if (pendingIds.includes(id)) next.add(id);
+				return next.size === prev.size ? prev : next;
+			});
+		}, 0);
+		return () => window.clearTimeout(timer);
 	}, [pendingIds]);
 
 	const [state, formAction, isPending] = useActionState(
@@ -70,10 +72,12 @@ export function BatchReviewToolbar({
 
 	// Clear selection on successful batch
 	useEffect(() => {
-		if (state.success && !state.error) {
+		if (!state.success || state.error) return;
+		const timer = window.setTimeout(() => {
 			setSelected(new Set());
 			setComment("");
-		}
+		}, 0);
+		return () => window.clearTimeout(timer);
 	}, [state.success, state.error]);
 
 	function toggleAll() {

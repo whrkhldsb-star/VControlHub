@@ -2,7 +2,6 @@
  * i18n dictionary: `csvPreview.*` (8 keys).
  */
 export const zh: Record<string, string> = {
-	"csvPreview.title": "CSV 预览",
 	"csvPreview.tableBadge": "CSV 表格预览",
 	"csvPreview.loading": "正在加载…",
 	"csvPreview.empty": "CSV 文件为空",
@@ -15,7 +14,6 @@ export const zh: Record<string, string> = {
 };
 
 export const en: Record<string, string> = {
-	"csvPreview.title": "CSV preview",
 	"csvPreview.tableBadge": "CSV table preview",
 	"csvPreview.loading": "Loading…",
 	"csvPreview.empty": "CSV file is empty",

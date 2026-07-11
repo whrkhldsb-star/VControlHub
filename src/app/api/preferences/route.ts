@@ -13,7 +13,7 @@ import { GENERAL_WRITE_LIMIT } from "@/lib/http/rate-limit-presets";
 import { defaultUserPreferences, normalizeUserPreferences } from "@/lib/preferences/user-preferences";
 import { withCacheHeaders, CachePresets } from "@/lib/cache";
 
-import { AuthError, ValidationError } from "@/lib/errors";
+import { AuthError } from "@/lib/errors";
 const prefsSchema = z.object({
   defaultPage: z.string().optional(),
   dashboardWidgets: z.array(z.string()).optional(),

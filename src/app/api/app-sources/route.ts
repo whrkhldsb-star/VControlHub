@@ -16,6 +16,7 @@ import { listQuickServices } from "@/lib/quick-service/service";
 import { normalizePublicHttpUrl } from "@/lib/storage/direct-access-url";
 
 import { AppError, ConflictError } from "@/lib/errors";
+import { auditUserAction } from "@/lib/audit/service";
 export const dynamic = "force-dynamic";
 
 /* ── GET /api/app-sources — list sources + remote apps ────────── */
@@ -129,7 +130,7 @@ export async function POST(request: Request) {
         throw new AppError({ code: "INTERNAL_ERROR", message: msg, status: 500 });
       },
     },
-    async ({ body }) => {
+    async ({ body, session }) => {
       const source = await prisma.appSource.create({
         data: {
           name: body.name,
@@ -139,6 +140,7 @@ export async function POST(request: Request) {
         },
       });
 
+      await auditUserAction(session?.userId ?? "", "app-source.create", { sourceId: source.id });
       return NextResponse.json({ source }, { status: 201 });
     },
   );
@@ -197,9 +199,10 @@ export async function DELETE(request: Request) {
       rateLimit: GENERAL_WRITE_LIMIT,
       errorMessage: "DeleteFailed",
     },
-    async () => {
+    async ({ session }) => {
       const { id: sourceId } = parseSearchParams(request, idQuerySchema);
       await prisma.appSource.delete({ where: { id: sourceId } });
+      await auditUserAction(session?.userId ?? "", "app-source.delete", { sourceId });
       return NextResponse.json({ ok: true });
     },
   );

@@ -11,6 +11,7 @@ import {
   listSnippetsQuerySchema,
   updateSnippetSchema,
 } from "@/lib/snippet/schema";
+import { auditUserAction } from "@/lib/audit/service";
 
 export const dynamic = "force-dynamic";
 
@@ -39,8 +40,10 @@ export async function POST(request: Request) {
       bodySchema: createSnippetSchema,
     },
     async ({ session, body }) => {
+      const snippet = await createSnippet({ ...body, createdBy: session?.userId });
+      await auditUserAction(session?.userId ?? "", "snippet.create", { snippetId: snippet.id });
       return NextResponse.json(
-        { snippet: await createSnippet({ ...body, createdBy: session?.userId }) },
+        { snippet },
         { status: 201 },
       );
     },
@@ -62,7 +65,9 @@ export async function PATCH(request: Request) {
         canManageAll: session ? sessionHasPermission(session, "role:manage") : false,
       };
       try {
-        return NextResponse.json({ snippet: await updateSnippet(id, data, actor) });
+        const snippet = await updateSnippet(id, data, actor);
+        await auditUserAction(session?.userId ?? "", "snippet.update", { snippetId: id });
+        return NextResponse.json({ snippet });
       } catch (err) {
         const message = err instanceof Error ? err.message : "Update failed";
         if (message.includes("Forbidden")) return apiError({ status: 403, code: "PERMISSION_DENIED", message });
@@ -88,7 +93,8 @@ export async function DELETE(request: Request) {
       };
       try {
         await deleteSnippet(query.id, actor);
-        return NextResponse.json({ success: true });
+        await auditUserAction(session?.userId ?? "", "snippet.delete", { snippetId: query.id });
+      return NextResponse.json({ success: true });
       } catch (err) {
         const message = err instanceof Error ? err.message : "Delete failed";
         if (message.includes("Forbidden")) return apiError({ status: 403, code: "PERMISSION_DENIED", message });

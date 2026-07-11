@@ -1,7 +1,7 @@
 {
-  "generatedAt": "2026-07-06T03:36:15.505Z",
+  "generatedAt": "2026-07-10T14:22:45.476Z",
   "summary": {
-    "files": 352,
+    "files": 358,
     "filesWithStrings": 0,
     "totalStrings": 0,
     "coveredStrings": 0,
@@ -11,6 +11,27 @@
   "perModule": [],
   "missingByString": [],
   "reportsByFile": {
+    "src/app/account/error.tsx": {
+      "path": "src/app/account/error.tsx",
+      "total": 0,
+      "covered": 0,
+      "missing": 0,
+      "candidates": []
+    },
+    "src/app/account/loading.tsx": {
+      "path": "src/app/account/loading.tsx",
+      "total": 0,
+      "covered": 0,
+      "missing": 0,
+      "candidates": []
+    },
+    "src/app/account/page.tsx": {
+      "path": "src/app/account/page.tsx",
+      "total": 0,
+      "covered": 0,
+      "missing": 0,
+      "candidates": []
+    },
     "src/app/account/password/change-password-form.tsx": {
       "path": "src/app/account/password/change-password-form.tsx",
       "total": 0,
@@ -1929,6 +1950,20 @@
       "missing": 0,
       "candidates": []
     },
+    "src/app/share/error.tsx": {
+      "path": "src/app/share/error.tsx",
+      "total": 0,
+      "covered": 0,
+      "missing": 0,
+      "candidates": []
+    },
+    "src/app/share/loading.tsx": {
+      "path": "src/app/share/loading.tsx",
+      "total": 0,
+      "covered": 0,
+      "missing": 0,
+      "candidates": []
+    },
     "src/app/shares/create-share-form.tsx": {
       "path": "src/app/shares/create-share-form.tsx",
       "total": 0,
@@ -2323,6 +2358,13 @@
     },
     "src/components/page-shell.tsx": {
       "path": "src/components/page-shell.tsx",
+      "total": 0,
+      "covered": 0,
+      "missing": 0,
+      "candidates": []
+    },
+    "src/components/password-field.tsx": {
+      "path": "src/components/password-field.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,

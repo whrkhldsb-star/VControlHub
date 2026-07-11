@@ -102,7 +102,7 @@ export async function POST(request: Request) {
         return createdUser;
       });
 
-      auditUserAction(session!.userId, "user.create", {
+      await auditUserAction(session!.userId, "user.create", {
         targetUsername: username,
         roles: roleKeys,
       });
@@ -141,7 +141,7 @@ export async function PATCH(request: Request) {
           where: { id: userId },
           data: { status: "DISABLED" },
         });
-        auditUserAction(session!.userId, "user.disable", {
+        await auditUserAction(session!.userId, "user.disable", {
           targetUsername: targetUser.username,
         });
       } else if (userAction === "enable") {
@@ -149,7 +149,7 @@ export async function PATCH(request: Request) {
           where: { id: userId },
           data: { status: "ACTIVE" },
         });
-        auditUserAction(session!.userId, "user.enable", {
+        await auditUserAction(session!.userId, "user.enable", {
           targetUsername: targetUser.username,
         });
       } else if (userAction === "reset_password" && newPassword) {
@@ -166,7 +166,7 @@ export async function PATCH(request: Request) {
             status: "PENDING_PASSWORD_RESET",
           },
         });
-        auditUserAction(
+        await auditUserAction(
           session!.userId,
           "user.password_reset",
           { targetUsername: targetUser.username },
@@ -188,7 +188,7 @@ export async function PATCH(request: Request) {
             });
           }
         });
-        auditUserAction(session!.userId, "user.role_update", {
+        await auditUserAction(session!.userId, "user.role_update", {
           targetUsername: targetUser.username,
           roles: roleKeys,
         });

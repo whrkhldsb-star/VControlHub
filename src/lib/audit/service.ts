@@ -200,25 +200,29 @@ export async function getAuditStats(): Promise<{
  };
 }
 
-/** Convenience: log with USER actor type and fire-and-forget */
-export function auditUserAction(
+/** Convenience: persist a USER audit record before the caller completes. */
+export async function auditUserAction(
  actorId: string,
  action: string,
  detail: Record<string, PrismaJsonValue>,
  severity: AuditSeverity = "INFO",
-): void {
-writeAuditLog({ actorType: "USER", actorId, action, severity, detail }).catch(
- (err) => logger.warn("audit write failed", { action, actorId, error: err instanceof Error ? err.message : String(err) }),
-);
+): Promise<void> {
+	try {
+		await writeAuditLog({ actorType: "USER", actorId, action, severity, detail });
+	} catch (err) {
+		logger.error("audit write failed", err, { action, actorId });
+	}
 }
 
-/** Convenience: log with SYSTEM actor type and fire-and-forget */
-export function auditSystemAction(
+/** Convenience: persist a SYSTEM audit record before the caller completes. */
+export async function auditSystemAction(
  action: string,
  detail: Record<string, PrismaJsonValue>,
  severity: AuditSeverity = "INFO",
-): void {
-writeAuditLog({ actorType: "SYSTEM", action, severity, detail }).catch(
- (err) => logger.warn("audit write failed", { action, error: err instanceof Error ? err.message : String(err) }),
-);
+): Promise<void> {
+	try {
+		await writeAuditLog({ actorType: "SYSTEM", action, severity, detail });
+	} catch (err) {
+		logger.error("audit write failed", err, { action });
+	}
 }

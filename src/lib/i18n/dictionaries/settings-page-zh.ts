@@ -17,13 +17,6 @@ export const zh: Record<string, string> = {
 	"settingsPage.tab.notifications.desc": "邮件告警、Telegram 推送",
 	"settingsPage.tab.advanced": "高级配置",
 	"settingsPage.tab.advanced.desc": "运行参数、备份、AI 运维",
-	"settingsPage.tab.expandAll": "展开全部",
-	"settingsPage.tab.collapseAll": "折叠全部",
-	"settingsPage.tab.sectionCount": "{count} 项",
-
-	// ── Legacy keys preserved from earlier rounds (UI strings + risk + restore + diff table + audit metadata) ──
-	"settingsPage.unified.categoryDescription": "按个人偏好、账户安全、平台、通知、运行参数、备份与 AI 运维分类查找。",
-	"settingsPage.unified.categoryTitle": "设置分类",
 	"settingsPage.unified.description": "个人使用习惯、界面行为、账户安全与平台级参数集中在一个入口中管理。",
 	"settingsPage.unified.eyebrow": "个性化设置",
 	"settingsPage.unified.title": "设置",
@@ -35,12 +28,8 @@ export const zh: Record<string, string> = {
 	"settingsClient.collapse": "折叠",
 	"settingsClient.expand": "展开",
 	"settingsClient.sectionSuffix": "设置区",
-	"settingsClient.pendingChangesLabel": "项已修改",
-	"settingsClient.changesList": "改动列表",
 	"settingsClient.saving": "保存中…",
 	"settingsClient.save": "保存",
-	"settingsClient.unsavedChanges": "未保存的修改",
-	"settingsClient.confirmSave": "确认保存",
 
 	"settingsClient.metadataNoRecord": "暂无记录",
 	"settingsClient.emptyValue": "（空）",
@@ -278,7 +267,6 @@ export const zh: Record<string, string> = {
 	"settingsClient.validate.sshIdle.outOfRange": "SSH 空闲超时 必须在 60 到 7200 秒之间 (0 表示永不)",
 	"settingsClient.validate.telegram.chatId.required": "Telegram Chat ID 至少配置 1 个目标",
 	"settingsClient.validate.telegram.chatId.invalidPrefix": "Telegram Chat ID 格式不正确：{invalid}（应为数字或 @channelusername）",
-	"settingsClient.validate.telegram.chatId.invalidSuffix": "（应为数字或 @channelusername）",
 	"settingsClient.validate.offsite.pathPrefix.noSlash": "路径前缀必须以 / 结尾",
 	"settingsClient.validate.offsite.failureRecipient.invalid": "失败告警收件人不是合法邮箱",
 	// ── Team workspace section ──

@@ -11,11 +11,6 @@
  */
 
 export const zh: Record<string, string> = {
-	"servers.add": "添加服务器",
-	"servers.connect": "连接",
-	"servers.offline": "离线",
-	"servers.online": "在线",
-	"servers.title": "服务器管理",
 	"serversPage.create.title": "添加 VPS 节点",
 	"serversPage.sshKeyCreate.title": "添加 SSH 密钥",
 	"serversPage.sshKeyCreate.desc": "用于节点纳管的 SSH 密钥对",
@@ -31,10 +26,7 @@ export const zh: Record<string, string> = {
 	"serverMonitor.uptime": "运行",
 	"serversPage.create.desc": "录入 SSH 密钥、IP 与端口完成纳管",
 	"serversPage.create.connectionType": "连接方式",
-	"serversPage.create.connectionType.SSH_KEY": "SSH 密钥",
-	"serversPage.create.connectionType.PASSWORD": "密码",
 	"serversPage.create.sshKey": "SSH 密钥",
-	"serversPage.create.sshKeyPlaceholder": "选择密钥",
 	"serversPage.create.username": "用户名",
 	"serversPage.create.password": "密码",
 	"serversPage.create.passwordPlaceholder": "留空则使用密钥认证",
@@ -92,10 +84,8 @@ export const zh: Record<string, string> = {
 	"serversPage.sshKeyCreate.passphraseLabel": "私钥口令（可选）",
 	"serversPage.sshKeyCreate.passphraseHint": "OpenSSH/PEM 加密私钥需要填写口令。PPK 文件请使用下方 PPK 口令字段。",
 	"serversPage.sshKeyCreate.ppkPassphraseLabel": "PPK 口令（仅 PPK 文件）",
-	"serversPage.sshKeyCreate.fileInputLabel": "密钥文件（.ppk / .pem / OpenSSH，可选）",
 	"serversPage.sshKeyCreate.selectedFile": "已选择：{name}",
 	"serverMonitor.title": "实时监控",
-	"serverMonitor.running": "运行中",
 	"serverMonitor.cpu": "CPU",
 	"serverMonitor.memory": "内存",
 	"serverMonitor.disk": "磁盘",

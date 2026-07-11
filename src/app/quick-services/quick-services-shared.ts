@@ -96,3 +96,36 @@ export function sortByPriority(items: CatalogItem[]): CatalogItem[] {
 		return a.name.localeCompare(b.name, "zh-Hans-CN");
 	});
 }
+
+export function buildQuickServiceViewModel(catalog: CatalogItem[], remoteCatalog: CatalogItem[], tab: Tab, search: string) {
+	const allItems = [...catalog, ...remoteCatalog];
+	const installed = allItems.filter((item) => item.status !== "available");
+	const localAvailable = catalog.filter((item) => item.status === "available");
+	const remoteAvailable = remoteCatalog.filter((item) => item.status === "available");
+	const query = search.trim().toLowerCase();
+	const filter = (items: CatalogItem[]) => query
+		? items.filter((item) => [item.name, item.description, item.category, item.image].some((value) => value.toLowerCase().includes(query)))
+		: items;
+	const currentItems = tab === "store" ? filter(localAvailable) : tab === "community" ? filter(remoteAvailable) : filter(installed);
+	const grouped: Record<string, CatalogItem[]> = Object.fromEntries(CATEGORY_ORDER.map((category) => [category, []]));
+	for (const item of sortByPriority(currentItems)) {
+		const category = CATEGORY_ORDER.includes(item.category) ? item.category : "other";
+		grouped[category]!.push(item);
+	}
+	return {
+		allItems,
+		installed,
+		localAvailable,
+		remoteAvailable,
+		grouped,
+		recommendedItems: RECOMMENDED_SERVICE_SLUGS.map((slug) => allItems.find((item) => item.slug === slug)).filter((item): item is CatalogItem => Boolean(item)),
+		runningItems: installed.filter((item) => item.status === "running"),
+		errorItems: installed.filter((item) => item.status === "error"),
+		summary: {
+			running: allItems.filter((item) => item.status === "running").length,
+			stopped: allItems.filter((item) => item.status === "stopped").length,
+			error: allItems.filter((item) => item.status === "error").length,
+			available: localAvailable.length + remoteAvailable.length,
+		},
+	};
+}

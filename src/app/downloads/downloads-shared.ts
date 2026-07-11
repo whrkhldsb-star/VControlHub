@@ -29,14 +29,6 @@ export type GlobalStat = { downloadSpeed: string; uploadSpeed: string; numActive
 
 /* ── Status helpers ───────────────────────────────────────── */
 
-const statusBadge: Record<string, string> = {
-	PENDING: "border-[var(--warning-border)] bg-[var(--warning-bg)] text-[var(--warning)]",
-	RUNNING: "border-[var(--color-action-border)]/30 bg-[var(--color-action-bg)]/10 text-[var(--text-primary)]",
-	COMPLETED: "border-[var(--success-border)] bg-[var(--success-bg)] text-[var(--success)]",
-	FAILED: "border-[var(--danger-border)] bg-[var(--danger-bg)] text-[var(--danger)]",
-	CANCELLED: "border-[var(--border)] bg-[var(--surface-hover)] text-[var(--text-primary)]",
-};
-
 export function getStatusLabel(t: (k: string) => string): Record<string, string> {
 	return {
 		PENDING: t("downloadsPage.status.PENDING"),
@@ -46,10 +38,6 @@ export function getStatusLabel(t: (k: string) => string): Record<string, string>
 		CANCELLED: t("downloadsPage.status.CANCELLED"),
 	};
 }
-
-const categoryIcon: Record<string, string> = {
-	video: "🎬", music: "🎵", software: "💿", document: "📄", image: "🖼️", other: "📦",
-};
 
 export function getCategories(t: (k: string) => string) {
 	return [
@@ -62,22 +50,6 @@ export function getCategories(t: (k: string) => string) {
 	];
 }
 
-function urlTypeLabel(url: string, t: (k: string) => string) {
-	if (url.startsWith("magnet:?")) return t("downloadsPage.linkType.magnet");
-	if (url.startsWith("https://")) return "🔒 HTTPS";
-	if (url.startsWith("http://")) return "🔓 HTTP";
-	return t("downloadsPage.linkType.unknown");
-}
-
-function formatBytes(b: string | number | null): string {
-	if (!b) return "—";
-	const n = typeof b === "string" ? parseInt(b, 10) : b;
-	if (isNaN(n) || n === 0) return "0 B";
-	const units = ["B", "KB", "MB", "GB", "TB"];
-	const i = Math.floor(Math.log(n) / Math.log(1024));
-	return `${(n / Math.pow(1024, i)).toFixed(i > 0 ? 1 : 0)} ${units[i]}`;
-}
-
 export function formatSpeed(b: string | number | null): string {
 	if (!b) return "—";
 	const n = typeof b === "string" ? parseInt(b, 10) : b;
@@ -87,14 +59,6 @@ export function formatSpeed(b: string | number | null): string {
 	return `${(n / Math.pow(1024, i)).toFixed(i > 0 ? 1 : 0)} ${units[i]}`;
 }
 
-function computePct(completed: string | null, total: string | null): number {
-	const c = parseInt(completed ?? "0", 10);
-	const t = parseInt(total ?? "0", 10);
-	if (isNaN(c) || isNaN(t) || t === 0) return 0;
-	return Math.min(100, Math.round((c / t) * 10) / 10);
-}
-
 export function getErrorMessage(error: unknown, fallback: string): string {
 	return error instanceof Error && error.message ? error.message : fallback;
 }
-

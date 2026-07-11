@@ -8,9 +8,10 @@ import { config } from "@/lib/config/env";
 import { prisma } from "@/lib/db";
 import { withApiRoute } from "@/lib/http/api-guard";
 import { UPLOAD_LIMIT } from "@/lib/http/rate-limit-presets";
+import { auditUserAction } from "@/lib/audit/service";
 import { parseSearchParams } from "@/lib/http/parse-search-params";
 import { assertStorageAccess } from "@/lib/storage/access-control";
-import { normalizePublicBaseUrl } from "@/lib/storage/direct-access-url";
+import { assertPublicBaseUrlResolvesPublic, normalizePublicBaseUrl } from "@/lib/storage/direct-access-url";
 import { AuthError, ForbiddenError, NotFoundError } from "@/lib/errors";
 import {
   normalizeRemoteTargetPath,
@@ -24,7 +25,7 @@ import {
 export const dynamic = "force-dynamic";
 
 // `directAccessSchema` is now a re-export of the shared boundary schema in
-// `src/lib/storage/schema.ts`. Both `parseDirectAccessJson` (POST body) and
+// `src/lib/storage/schema.ts`. Both POST validation and
 // `parseDirectAccessQuery` (GET, when the route builds a synthetic object
 // from `URLSearchParams`) validate against the same shape.
 const directAccessSchema = directAccessInputSchema;
@@ -117,6 +118,7 @@ function buildSignedDirectUrl(input: {
 }
 
 async function isDirectGatewayHealthy(publicBaseUrl: string) {
+	await assertPublicBaseUrlResolvesPublic(publicBaseUrl);
   const healthUrl = new URL(
     "/__vch_health",
     publicBaseUrl.endsWith("/") ? publicBaseUrl : `${publicBaseUrl}/`,
@@ -223,10 +225,6 @@ async function resolveDirectAccessPayload(input: {
   return { mode: "managed-download", fallbackUrl: fallback };
 }
 
-function parseDirectAccessJson(body: unknown) {
-  return directAccessSchema.safeParse(body);
-}
-
 function parseDirectAccessQuery(request: Request) {
   const url = new URL(request.url);
   return directAccessSchema.safeParse({
@@ -296,7 +294,8 @@ export async function DELETE(request: Request) {
   return withApiRoute(
     request,
     { permission: "storage:read", rateLimit: UPLOAD_LIMIT },
-    async () => {
+    async ({ session }) => {
+      await auditUserAction(session?.userId ?? "", "storage.direct-access.stop", {});
       return NextResponse.json({ stopped: true, mode: "managed-download" });
     },
   );

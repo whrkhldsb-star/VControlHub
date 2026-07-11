@@ -122,8 +122,8 @@ wait_for_public_readiness() {
 
     while [ "${SECONDS}" -le "${deadline}" ]; do
         public_status="$(curl -sSk --max-time 2 "${PROXY_PUBLIC_URL}/api/status" 2>/dev/null || true)"
-        # TR-053 之后公开 /api/status 只返 {generatedAt, service, summary:{overall}}, 不再含 "healthy" 字面量
-        # 检查 overall 字段是 healthy / warning / critical 之一 (即服务在跑, 不是 5xx / 502 之类的 dead 响应)
+        # After TR-053, public /api/status returns {generatedAt, service, summary:{overall}} without literal "healthy"
+        # Check that overall field is one of healthy / warning / critical (service is running, not 5xx / 502 dead response)
         if printf '%s' "${public_status}" | grep -qE '"overall"\s*:\s*"(healthy|warning|critical)"'; then
             return 0
         fi

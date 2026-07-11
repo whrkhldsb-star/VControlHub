@@ -1,9 +1,10 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { csrfFetch } from "@/lib/auth/csrf-client";
 import { useI18n } from "@/lib/i18n/use-locale";
-import { useDialogFocus } from "@/lib/a11y/use-dialog-focus";
+import { ConfirmDialog } from "@/components/confirm-dialog";
 
 type TeamMemberDto = {
 	role: string;
@@ -32,6 +33,7 @@ function formatCopy(template: string, replacements: Record<string, string | numb
 
 export function TeamWorkspaceSection({ canManage }: { canManage: boolean }) {
 	const { t } = useI18n();
+	const router = useRouter();
 	const [teams, setTeams] = useState<TeamDto[]>([]);
 	const [currentTeamId, setCurrentTeamId] = useState<string | null>(null);
 	const [name, setName] = useState("");
@@ -47,7 +49,6 @@ export function TeamWorkspaceSection({ canManage }: { canManage: boolean }) {
 	const [editName, setEditName] = useState("");
 	const [editDesc, setEditDesc] = useState("");
 	const [pendingConfirm, setPendingConfirm] = useState<PendingConfirm>(null);
-	const dialogRef = useDialogFocus<HTMLDivElement>({ open: pendingConfirm !== null, onClose: () => setPendingConfirm(null) });
 
 	async function refresh() {
 		setLoading(true);
@@ -64,7 +65,8 @@ export function TeamWorkspaceSection({ canManage }: { canManage: boolean }) {
 	}
 
 	useEffect(() => {
-		void refresh();
+		const timer = window.setTimeout(() => { void refresh(); }, 0);
+		return () => window.clearTimeout(timer);
 		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, []);
 
@@ -100,8 +102,10 @@ export function TeamWorkspaceSection({ canManage }: { canManage: boolean }) {
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify({ teamId }),
 			});
+			setCurrentTeamId(teamId);
 			setMessage(t("settingsTeam.message.switched"));
-			setTimeout(() => window.location.reload(), 800);
+			await refresh();
+			router.refresh();
 		} catch (err) {
 			setError(err instanceof Error ? err.message : t("settingsTeam.error.switch"));
 		} finally {
@@ -279,11 +283,11 @@ export function TeamWorkspaceSection({ canManage }: { canManage: boolean }) {
 					</div>
 					<div className="space-y-2">
 						<h3 className="text-sm font-semibold text-[var(--text-primary)]">{t("settingsTeam.addMemberTitle")}</h3>
-						<select value={targetTeamId} onChange={(e) => setTargetTeamId(e.target.value)} className="w-full rounded-xl border border-[var(--border)] bg-[var(--surface)] px-3 py-2 text-sm">
+						<select aria-label={t("settingsTeam.addMemberTitle")} value={targetTeamId} onChange={(e) => setTargetTeamId(e.target.value)} className="w-full rounded-xl border border-[var(--border)] bg-[var(--surface)] px-3 py-2 text-sm">
 							{teams.map((team) => <option key={team.id} value={team.id}>{team.name}</option>)}
 						</select>
 						<input value={memberUsername} aria-label={t("settingsTeam.usernamePlaceholder")} onChange={(e) => setMemberUsername(e.target.value)} placeholder={t("settingsTeam.usernamePlaceholder")} className="w-full rounded-xl border border-[var(--border)] bg-[var(--surface)] px-3 py-2 text-sm" />
-						<select value={memberRole} onChange={(e) => setMemberRole(e.target.value as "admin" | "member")} className="w-full rounded-xl border border-[var(--border)] bg-[var(--surface)] px-3 py-2 text-sm">
+						<select aria-label="role" value={memberRole} onChange={(e) => setMemberRole(e.target.value as "admin" | "member")} className="w-full rounded-xl border border-[var(--border)] bg-[var(--surface)] px-3 py-2 text-sm">
 							<option value="member">member</option>
 							<option value="admin">admin</option>
 						</select>
@@ -292,18 +296,7 @@ export function TeamWorkspaceSection({ canManage }: { canManage: boolean }) {
 				</div>
 			)}
 
-			{pendingConfirm ? (
-				<div className="fixed inset-0 z-50 flex items-center justify-center bg-[var(--surface)]/70 px-4 backdrop-blur-sm" role="presentation">
-					<section ref={dialogRef} role="dialog" aria-modal="true" aria-labelledby="team-workspace-confirm-title" className="w-full max-w-md rounded-2xl border border-[var(--danger-border)] bg-[var(--modal-bg)] p-6 shadow-[0_24px_100px_rgba(244,63,94,0.16)]">
-						<h3 id="team-workspace-confirm-title" className="text-lg font-semibold text-[var(--text-primary)]">{confirmTitle}</h3>
-						<p className="mt-3 text-sm leading-6 text-[var(--text-secondary)]">{confirmDesc}</p>
-						<div className="mt-6 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
-							<button type="button" onClick={() => setPendingConfirm(null)} className="min-h-11 rounded-xl border border-[var(--border)] px-4 py-2 text-sm font-medium text-[var(--text-secondary)] hover:bg-[var(--surface-hover)]">{t("settingsTeam.confirm.cancel")}</button>
-							<button type="button" onClick={() => void confirmPendingAction()} disabled={busy} className="min-h-11 rounded-xl bg-[var(--danger)] px-4 py-2 text-sm font-semibold text-[var(--text-primary)] hover:bg-[var(--danger-bg)] hover:text-[var(--danger)] disabled:opacity-60">{t("settingsTeam.confirm.submit")}</button>
-						</div>
-					</section>
-				</div>
-			) : null}
+			<ConfirmDialog open={pendingConfirm !== null} title={confirmTitle} description={confirmDesc} cancelLabel={t("settingsTeam.confirm.cancel")} confirmLabel={t("settingsTeam.confirm.submit")} onCancel={() => setPendingConfirm(null)} onConfirm={() => void confirmPendingAction()} busy={busy} closeOnBackdrop={false} />
 		</section>
 	);
 }

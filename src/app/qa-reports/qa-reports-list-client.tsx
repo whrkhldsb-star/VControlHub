@@ -82,7 +82,7 @@ type TrendSectionProps = {
 };
 
 function TrendSection({ trends }: TrendSectionProps) {
-	const { t, locale } = useI18n();
+		const { t } = useI18n();
 	const dailyMax = useMemo(() => {
 		let max = 0;
 		for (const bucket of trends.dailyBuckets) {
@@ -228,7 +228,7 @@ export function QaReportsListClient({
 	initialUpdatedAt: string | null;
 	initialTrends: QaReportTrends;
 }) {
-	const { t, locale } = useI18n();
+		const { t } = useI18n();
 	const [reports, setReports] = useState(initialReports);
 	const [totals, setTotals] = useState(initialTotals);
 	const [updatedAt, setUpdatedAt] = useState<string | null>(initialUpdatedAt);

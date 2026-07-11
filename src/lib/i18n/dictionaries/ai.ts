@@ -28,12 +28,6 @@ export const zh: Record<string, string> = {
 
 	// client — attachments / input
 	"aiPage.attachmentHint": "(附件)",
-	"aiPage.pasteUpload": "粘贴上传",
-	"aiPage.sendHint": "回车添加",
-	"aiPage.inputImage": "输入图片",
-	"aiPage.videoFile": "视频文件",
-	"aiPage.audioFile": "音频文件",
-	"aiPage.imageFile": "图片",
 
 	// client — stream / tool call
 	"aiPage.requestFailed": "请求失败",
@@ -44,8 +38,6 @@ export const zh: Record<string, string> = {
 	"aiPage.toolCallSuccess": "✅ 操作执行成功",
 	"aiPage.toolCallFailed": "❌ 操作执行失败: {detail}",
 	"aiPage.waitingApproval": "⏳ 等待审批: {name} (风险: {risk})",
-	"aiPage.user": "用户",
-	"aiPage.system": "系统",
 
 	// client — toasts
 	"aiPage.noProviderToast": "请先添加一个 AI 提供商",
@@ -53,14 +45,9 @@ export const zh: Record<string, string> = {
 	"aiPage.nameAndKeyRequired": "名称和 API Key 不能为空",
 	"aiPage.addProviderFailed": "添加失败",
 	"aiPage.saveTitlePrompt": "请输入新的对话标题。",
-	"aiPage.saveTitle": "保存标题",
-	"aiPage.saving": "保存中",
 	"aiPage.titleUpdated": "对话标题已更新",
 	"aiPage.renameFailed": "重命名失败",
 	"aiPage.saveFailed": "保存失败",
-	"aiPage.deleteConvFailed": "删除失败",
-	"aiPage.clearFailed": "清空失败",
-	"aiPage.copied": "已复制",
 
 	// client — confirm dialogs
 	"aiPage.deleteConvTitle": "删除对话",
@@ -113,7 +100,6 @@ export const zh: Record<string, string> = {
 	"aiPage.documentFileTitle": "文档文件",
 	"aiPage.imageUrlPlaceholder": "输入图片 URL（回车添加）",
 	"aiPage.imageUrlAria": "图片 URL",
-	"aiPage.pasteHint": "粘贴上传",
 	"aiPage.uploadFileTitle": "上传文件 (支持: {types})",
 	"aiPage.fileRejectionDismissAria": "关闭文件提示",
 	"aiPage.inputAria": "消息输入",
@@ -181,9 +167,6 @@ export const zh: Record<string, string> = {
 	"aiPage.pendingApprovalsTitle": "🔒 待审批操作 ({count})",
 	"aiPage.riskLabel": "风险: ",
 	"aiPage.serverLabel": "服务器: {id}",
-	"aiPage.highRisk": "高",
-	"aiPage.mediumRisk": "中",
-	"aiPage.lowRisk": "低",
 
 	// client — file capability messages
 	"aiPage.allowedType.text": "文本文件",
@@ -232,12 +215,6 @@ export const en: Record<string, string> = {
 
 	// client — attachments / input
 	"aiPage.attachmentHint": "(attachment)",
-	"aiPage.pasteUpload": "Paste to upload",
-	"aiPage.sendHint": "Press Enter to add",
-	"aiPage.inputImage": "Image URL",
-	"aiPage.videoFile": "Video file",
-	"aiPage.audioFile": "Audio file",
-	"aiPage.imageFile": "Image",
 
 	// client — stream / tool call
 	"aiPage.requestFailed": "Request failed",
@@ -248,8 +225,6 @@ export const en: Record<string, string> = {
 	"aiPage.toolCallSuccess": "✅ Operation succeeded",
 	"aiPage.toolCallFailed": "❌ Operation failed: {detail}",
 	"aiPage.waitingApproval": "⏳ Waiting for approval: {name} (risk: {risk})",
-	"aiPage.user": "User",
-	"aiPage.system": "System",
 
 	// client — toasts
 	"aiPage.noProviderToast": "Please add an AI provider first",
@@ -257,14 +232,9 @@ export const en: Record<string, string> = {
 	"aiPage.nameAndKeyRequired": "Name and API Key are required",
 	"aiPage.addProviderFailed": "Failed to add",
 	"aiPage.saveTitlePrompt": "Please enter a new conversation title.",
-	"aiPage.saveTitle": "Save title",
-	"aiPage.saving": "Saving",
 	"aiPage.titleUpdated": "Conversation title updated",
 	"aiPage.renameFailed": "Failed to rename",
 	"aiPage.saveFailed": "Failed to save",
-	"aiPage.deleteConvFailed": "Failed to delete",
-	"aiPage.clearFailed": "Failed to clear",
-	"aiPage.copied": "Copied",
 
 	// client — confirm dialogs
 	"aiPage.deleteConvTitle": "Delete conversation",
@@ -317,7 +287,6 @@ export const en: Record<string, string> = {
 	"aiPage.documentFileTitle": "Document file",
 	"aiPage.imageUrlPlaceholder": "Enter image URL (Enter to add)",
 	"aiPage.imageUrlAria": "Image URL",
-	"aiPage.pasteHint": "Paste to upload",
 	"aiPage.uploadFileTitle": "Upload file (supports: {types})",
 	"aiPage.fileRejectionDismissAria": "Dismiss file notice",
 	"aiPage.inputAria": "Message input",
@@ -385,9 +354,6 @@ export const en: Record<string, string> = {
 	"aiPage.pendingApprovalsTitle": "🔒 Pending approvals ({count})",
 	"aiPage.riskLabel": "Risk: ",
 	"aiPage.serverLabel": "Server: {id}",
-	"aiPage.highRisk": "high",
-	"aiPage.mediumRisk": "medium",
-	"aiPage.lowRisk": "low",
 
 	// client — file capability messages
 	"aiPage.allowedType.text": "text files",

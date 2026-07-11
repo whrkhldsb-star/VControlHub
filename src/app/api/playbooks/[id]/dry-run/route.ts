@@ -4,6 +4,7 @@ import { runPlaybook } from "@/lib/playbook/service";
 import { withApiRoute } from "@/lib/http/api-guard";
 import { GENERAL_WRITE_LIMIT } from "@/lib/http/rate-limit-presets";
 import { ValidationError } from "@/lib/errors";
+import { auditUserAction } from "@/lib/audit/service";
 
 export const dynamic = "force-dynamic";
 
@@ -35,6 +36,7 @@ export async function POST(request: Request, { params }: PlaybookRouteContext) {
         triggerContext: { source: "dry-run", at: new Date().toISOString() },
         createdById: session?.userId ?? undefined,
       });
+      await auditUserAction(session?.userId ?? "", "playbook.dry-run", { playbookId: id });
       return NextResponse.json({ run });
     },
   );

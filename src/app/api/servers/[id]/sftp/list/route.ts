@@ -7,6 +7,7 @@ import { withApiRoute } from "@/lib/http/api-guard";
 import { GENERAL_WRITE_LIMIT } from "@/lib/http/rate-limit-presets";
 import { listDirectory } from "@/lib/ssh/sftp-service";
 import { listDirSchema } from "@/lib/ssh/sftp-schema";
+import { assertSftpPathAccess } from "@/lib/ssh/sftp-access-control";
 
 export const dynamic = "force-dynamic";
 
@@ -22,8 +23,9 @@ export async function POST(
       errorMessage: "SFTP list failed",
       bodySchema: listDirSchema,
     },
-    async ({ body }) => {
+    async ({ body, session }) => {
       const { id } = await params;
+			await assertSftpPathAccess({ session: session!, serverId: id, paths: [body.path] });
       const entries = await listDirectory(id, body.path);
       return NextResponse.json({ path: body.path, entries });
     },

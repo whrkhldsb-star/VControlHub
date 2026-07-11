@@ -22,7 +22,7 @@ import { logError } from "@/lib/logging";
 import { assertStorageAccess } from "@/lib/storage/access-control";
 import { readStorageFileBuffer, storageFileNodeSelect } from "@/lib/storage/file-content";
 
-import { ForbiddenError, ValidationError } from "@/lib/errors";
+import { ForbiddenError } from "@/lib/errors";
 const publishSchema = z.object({
   storageNodeId: z.string().min(1),
   relativePath: z.string().min(1),

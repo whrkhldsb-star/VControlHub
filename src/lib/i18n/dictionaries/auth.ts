@@ -35,9 +35,7 @@ export const zh: Record<string, string> = {
 	"auth.change-password": "修改密码",
 	"auth.login": "登录",
 	"auth.logout": "退出登录",
-	"auth.password": "密码",
 	"auth.two-factor": "两步验证",
-	"auth.username": "用户名",
 };
 
 export const en: Record<string, string> = {
@@ -65,7 +63,5 @@ export const en: Record<string, string> = {
 	"auth.change-password": "Change Password",
 	"auth.login": "Login",
 	"auth.logout": "Sign Out",
-	"auth.password": "Password",
 	"auth.two-factor": "Two-Factor Auth",
-	"auth.username": "Username",
 };

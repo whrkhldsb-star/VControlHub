@@ -230,10 +230,11 @@ export function SystemConfigSection() {
 
         {/* File selection */}
         <div className="space-y-1">
-          <label className="text-sm text-[var(--text-secondary)]">
+          <label htmlFor="system-config-import-file" className="text-sm text-[var(--text-secondary)]">
             {t("systemConfig.import.fileLabel")}
           </label>
           <input
+            id="system-config-import-file"
             ref={fileInputRef}
             type="file"
             accept=".json"

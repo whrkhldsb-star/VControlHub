@@ -87,7 +87,6 @@ export function UptimeHeatmap({ data, serverName }: UptimeHeatmapProps) {
           <div key={weekIndex} className="flex gap-1">
             {" "}
             {week.map((day, dayIndex) => {
-              const isFirstDayOfWeek = dayIndex === 0;
               const dayDate = day.date.toISOString().split("T")[0] || "";
               return (
                 <div

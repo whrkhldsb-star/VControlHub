@@ -29,7 +29,7 @@ export async function POST(request: Request) {
     async ({ session, body }) => {
       const createdById = session?.userId ?? "";
       const playbook = await createPlaybook(body, createdById);
-      auditUserAction(createdById, "playbook.create", {
+      await auditUserAction(createdById, "playbook.create", {
         playbookId: playbook.id,
         name: playbook.name,
         stepCount: playbook.steps.length,

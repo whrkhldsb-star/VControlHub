@@ -322,7 +322,7 @@ export async function PATCH(request: Request) {
         }
       });
 
-      auditUserAction(
+      await auditUserAction(
         session.userId,
         "user.permission_update",
         {

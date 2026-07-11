@@ -26,8 +26,6 @@ export const zh: Record<string, string> = {
 	"usersPage.resetPassword.desc": "用户下次登录时需要使用新密码。",
 	"usersPage.success.passwordReset": "已重置 {name} 的密码",
 	"usersPage.error.resetFailed": "重置 {name} 的密码失败",
-	"usersPage.desc1": "管理后台账号、角色与登录状态。",
-	"usersPage.desc2": "Only system administrators can manage users.",
 	"usersPage.empty": "暂无用户。",
 	"usersPage.error.createFailed": "创建失败",
 	"usersPage.error.disableFailed": "禁用 {name} 失败",
@@ -42,7 +40,6 @@ export const zh: Record<string, string> = {
 	"usersPage.form.usernamePlaceholder": "用户名",
 	"usersPage.loadFailedHint": "用户列表加载失败，请稍后重试。",
 	"usersPage.loading": "加载中…",
-	"usersPage.noPerm": "无访问权限",
 	"usersPage.role.admin": "管理员",
 	"usersPage.role.operator": "运维",
 	"usersPage.role.storage_manager": "存储管理员",
@@ -53,7 +50,6 @@ export const zh: Record<string, string> = {
 	"usersPage.success.created": "用户 {name} 创建成功",
 	"usersPage.success.disabled": "已禁用 {name}",
 	"usersPage.success.enabled": "已启用 {name}",
-	"usersPage.title": "用户管理",
 	"usersPage.title2": "用户列表",
 };
 
@@ -78,8 +74,6 @@ export const en: Record<string, string> = {
 	"usersPage.resetPassword.desc": "The user will need to use the new password on next login.",
 	"usersPage.success.passwordReset": "Password reset for {name}",
 	"usersPage.error.resetFailed": "Failed to reset {name}'s password",
-	"usersPage.desc1": "Manage backend accounts, roles, and login status.",
-	"usersPage.desc2": "Only system administrators can manage users.",
 	"usersPage.empty": "No users yet.",
 	"usersPage.error.createFailed": "Failed to create user",
 	"usersPage.error.disableFailed": "Failed to disable {name}",
@@ -94,7 +88,6 @@ export const en: Record<string, string> = {
 	"usersPage.form.usernamePlaceholder": "Username",
 	"usersPage.loadFailedHint": "Failed to load users. Please retry.",
 	"usersPage.loading": "Loading…",
-	"usersPage.noPerm": "No access",
 	"usersPage.role.admin": "Admin",
 	"usersPage.role.operator": "Operator",
 	"usersPage.role.storage_manager": "Storage Manager",
@@ -105,6 +98,5 @@ export const en: Record<string, string> = {
 	"usersPage.success.created": "User {name} created",
 	"usersPage.success.disabled": "Disabled {name}",
 	"usersPage.success.enabled": "Enabled {name}",
-	"usersPage.title": "User Management",
 	"usersPage.title2": "Users",
 };

@@ -6,6 +6,7 @@ import { EmptyState } from "@/components/page-shell";
 import { Download } from "@/components/icons";
 import { useI18n } from "@/lib/i18n/use-locale";
 import { useDialogFocus } from "@/lib/a11y/use-dialog-focus";
+import { useVisibilityInterval } from "@/lib/hooks/use-visibility-interval";
 import { CreateDownloadFormLazy } from "./create-download-form-lazy";
 import { DownloadTaskRow } from "./downloads-task-row";
 import { getCategories, getErrorMessage, getStatusLabel, formatSpeed, type DownloadTask, type GlobalStat, type ServerOption } from "./downloads-shared";
@@ -46,24 +47,24 @@ export function DownloadsClient({ servers, canManage, canManageNode }: { servers
 	}, [t]);
 
 	const fetchTasksRef = useRef(fetchTasks);
-	fetchTasksRef.current = fetchTasks;
 	const tasksRef = useRef(tasks);
-	tasksRef.current = tasks;
+
+	useEffect(() => {
+		fetchTasksRef.current = fetchTasks;
+		tasksRef.current = tasks;
+	}, [fetchTasks, tasks]);
 
 	useEffect(() => {
 		const timer = window.setTimeout(() => { void fetchTasks(); }, 0);
 		return () => window.clearTimeout(timer);
 	}, [fetchTasks]);
 
-	useEffect(() => {
-		const interval = setInterval(() => {
+	useVisibilityInterval(() => {
 			const hasRunning = tasksRef.current.some((t) => t.status === "RUNNING" || t.status === "PENDING");
 			if (hasRunning) {
 				void fetchTasksRef.current();
 			}
-		}, 5000);
-		return () => clearInterval(interval);
-	}, []);
+	}, 5000);
 
 	const invalidBatchUrls = form.batchMode
 		? form.batchText.split("\n").map((l) => l.trim()).filter(Boolean)
@@ -353,7 +354,7 @@ export function DownloadsClient({ servers, canManage, canManageNode }: { servers
 			)}
 			{pendingPurgeTaskId ? (
 				<div className="fixed inset-0 z-50 flex items-center justify-center bg-[var(--surface)]/70 px-4 backdrop-blur-sm" role="presentation" onClick={() => setPendingPurgeTaskId(null)}>
-					<section ref={dialogRef} role="dialog" aria-modal="true" aria-labelledby="download-purge-title" className="w-full max-w-md rounded-2xl border border-[var(--danger-border)] bg-[var(--modal-bg)] p-6 shadow-[0_24px_100px_rgba(244,63,94,0.16)]">
+					<section ref={dialogRef} role="dialog" aria-modal="true" aria-labelledby="download-purge-title" onClick={(event) => event.stopPropagation()} className="w-full max-w-md rounded-2xl border border-[var(--danger-border)] bg-[var(--modal-bg)] p-6 shadow-[0_24px_100px_rgba(244,63,94,0.16)]">
 						<h3 id="download-purge-title" className="text-lg font-semibold text-[var(--text-primary)]">{t("common.confirmDelete")}</h3>
 						<p className="mt-3 text-sm leading-6 text-[var(--text-secondary)]">{t("downloadsPage.confirm.purge").replace("${name}", pendingPurgeName)}</p>
 						<div className="mt-6 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">

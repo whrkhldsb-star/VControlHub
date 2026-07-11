@@ -9,6 +9,7 @@ import {
   updateBackupSchedule,
 } from "@/lib/backup/schedule-service";
 import { createBackupScheduleSchema, patchBackupScheduleSchema } from "@/lib/backup/schedule-schema";
+import { auditUserAction } from "@/lib/audit/service";
 
 export const dynamic = "force-dynamic";
 
@@ -36,6 +37,7 @@ export async function POST(request: Request) {
         ...body,
         createdById: session?.userId,
       });
+      await auditUserAction(session?.userId ?? "", "backup-schedule.create", { scheduleId: schedule.id });
       return NextResponse.json({ schedule }, { status: 201 });
     },
   );

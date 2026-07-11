@@ -34,7 +34,7 @@ export async function POST(request: Request) {
 		async ({ session, body }) => {
 			const triggered = await runAiOpsScanWorkerOnce("manual");
 			const latest = await listAiOpsLogs({ limit: 1 });
-			auditUserAction(
+			await auditUserAction(
 				session?.userId ?? "anonymous",
 				"ai.ops.scan.manual",
 				{

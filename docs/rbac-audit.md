@@ -1,6 +1,6 @@
 # VControlHub RBAC Audit Report
 
-> Generated: 2026-06-15T11:35:55.568Z | Permissions: 41 | Roles: 4 | API routes: 86 | Pages: 41 | Drift: 0
+> Generated: 2026-07-10T13:15:26.659Z | Permissions: 54 | Roles: 4 | API routes: 138 | Pages: 47 | Drift: 0
 
 This report cross-references four RBAC sources of truth:
 1. `src/lib/auth/rbac.ts` — `PERMISSIONS` tuple + `DEFAULT_ROLE_PERMISSIONS` map
@@ -24,46 +24,59 @@ This report cross-references four RBAC sources of truth:
 
 | Permission | Granted to roles | Pages using | API routes using | Files |
 |---|---|---|---|---|
-| `ai:action:approve` | admin | 0 | 0 | 1 |
-| `ai:chat` | admin, operator, viewer, storage_manager | 0 | 0 | 2 |
-| `ai:manage` | admin, operator | 0 | 0 | 4 |
-| `announcement:manage` | admin, operator | 1 | 1 | 5 |
-| `api-token:manage` | admin, operator | 1 | 0 | 4 |
-| `audit:read` | admin, operator, viewer, storage_manager | 1 | 0 | 2 |
-| `backup:create` | admin, operator | 1 | 0 | 6 |
-| `backup:read` | admin, operator, viewer, storage_manager | 1 | 0 | 3 |
-| `backup:restore` | admin | 1 | 0 | 2 |
-| `command:approve` | admin | 1 | 1 | 2 |
-| `command:create` | admin, operator | 2 | 1 | 10 |
-| `command:execute` | admin, operator | 0 | 1 | 2 |
-| `command:read` | admin, operator, viewer, storage_manager | 0 | 0 | 3 |
-| `deploy:export` | admin, operator | 1 | 0 | 3 |
+| `ai:action:approve` | admin | 0 | 0 | 0 |
+| `ai:chat` | admin, operator, viewer, storage_manager | 0 | 0 | 6 |
+| `ai:manage` | admin, operator | 0 | 0 | 12 |
+| `ai:ops:autonomous` | admin | 1 | 1 | 2 |
+| `ai:ops:manage` | admin | 1 | 0 | 9 |
+| `ai:ops:read` | admin, operator, viewer | 0 | 0 | 8 |
+| `announcement:manage` | admin, operator | 1 | 1 | 8 |
+| `api-token:manage` | admin, operator | 1 | 0 | 6 |
+| `audit:read` | admin, operator, viewer, storage_manager | 1 | 1 | 6 |
+| `backup:create` | admin, operator | 1 | 0 | 19 |
+| `backup:read` | admin, operator, viewer, storage_manager | 1 | 0 | 9 |
+| `backup:restore` | admin | 1 | 0 | 3 |
+| `command:approve` | admin | 1 | 1 | 3 |
+| `command:create` | admin, operator | 2 | 1 | 17 |
+| `command:execute` | admin, operator | 1 | 1 | 4 |
+| `command:read` | admin, operator, viewer, storage_manager | 0 | 0 | 6 |
+| `cost:manage` | admin, operator | 1 | 0 | 9 |
+| `cost:read` | admin, operator, viewer | 1 | 0 | 9 |
+| `deploy:export` | admin, operator | 1 | 0 | 7 |
 | `deploy:manage` | admin | 0 | 0 | 0 |
-| `deploy:read` | admin, operator, viewer | 1 | 0 | 2 |
-| `deploy:run` | admin, operator | 2 | 0 | 4 |
-| `docker:manage` | admin, operator | 3 | 0 | 10 |
-| `health:read` | admin, operator, viewer, storage_manager | 2 | 0 | 5 |
-| `image:read` | admin | 1 | 0 | 2 |
-| `image:write` | admin | 1 | 0 | 2 |
-| `media:manage` | admin, operator, storage_manager | 1 | 0 | 3 |
-| `notification:manage` | admin, operator | 1 | 0 | 7 |
+| `deploy:read` | admin, operator, viewer | 1 | 0 | 3 |
+| `deploy:run` | admin, operator | 2 | 0 | 5 |
+| `docker:manage` | admin, operator | 2 | 1 | 21 |
+| `health:read` | admin, operator, viewer, storage_manager | 1 | 1 | 7 |
+| `image:read` | admin | 0 | 2 | 3 |
+| `image:write` | admin | 1 | 1 | 3 |
+| `media:manage` | admin, operator, storage_manager | 1 | 1 | 6 |
+| `notification:manage` | admin, operator | 1 | 0 | 12 |
+| `playbook:manage` | admin | 1 | 0 | 7 |
+| `playbook:read` | admin, operator | 1 | 1 | 6 |
+| `playbook:run` | admin, operator | 1 | 0 | 5 |
 | `role:manage` | admin | 0 | 3 | 4 |
-| `server:read` | admin, operator, viewer, storage_manager | 1 | 0 | 3 |
-| `server:ssh` | admin, operator | 1 | 2 | 6 |
-| `server:write` | admin, operator | 2 | 1 | 10 |
-| `share:create` | admin, operator, storage_manager | 2 | 1 | 4 |
-| `share:manage` | admin, operator, storage_manager | 1 | 0 | 2 |
-| `share:read` | admin, operator, viewer, storage_manager | 1 | 0 | 2 |
-| `snippet:manage` | admin, operator, storage_manager | 1 | 0 | 5 |
+| `server:read` | admin, operator, viewer, storage_manager | 0 | 5 | 15 |
+| `server:sftp:unrestricted` | admin | 0 | 0 | 0 |
+| `server:ssh` | admin, operator | 1 | 3 | 19 |
+| `server:write` | admin, operator | 2 | 5 | 15 |
+| `share:create` | admin, operator, storage_manager | 2 | 1 | 5 |
+| `share:manage` | admin, operator, storage_manager | 1 | 0 | 3 |
+| `share:read` | admin, operator, viewer, storage_manager | 1 | 0 | 3 |
+| `snippet:manage` | admin, operator, storage_manager | 0 | 0 | 8 |
 | `storage:delete` | admin, storage_manager | 2 | 4 | 8 |
-| `storage:manage-node` | admin, storage_manager | 2 | 3 | 8 |
-| `storage:read` | admin, operator, viewer, storage_manager | 3 | 2 | 19 |
-| `storage:write` | admin, operator, storage_manager | 2 | 4 | 14 |
-| `task:read` | admin, operator, viewer, storage_manager | 3 | 0 | 8 |
+| `storage:manage-node` | admin, storage_manager | 2 | 3 | 10 |
+| `storage:read` | admin, operator, viewer, storage_manager | 3 | 1 | 35 |
+| `storage:write` | admin, operator, storage_manager | 2 | 4 | 30 |
+| `task:read` | admin, operator, viewer, storage_manager | 3 | 0 | 13 |
+| `team:create` | admin, operator | 0 | 0 | 2 |
+| `team:manage` | admin | 0 | 0 | 0 |
+| `team:member:manage` | admin, operator | 0 | 0 | 0 |
+| `team:read` | admin, operator, viewer, storage_manager | 0 | 0 | 0 |
 | `ticket:create` | admin, operator, viewer, storage_manager | 1 | 1 | 2 |
-| `ticket:manage` | admin, operator, storage_manager | 2 | 2 | 8 |
-| `ticket:read` | admin, operator, viewer, storage_manager | 0 | 0 | 1 |
-| `user:manage` | admin | 2 | 0 | 11 |
-| `user:read` | admin, operator, viewer, storage_manager | 1 | 3 | 6 |
+| `ticket:manage` | admin, operator, storage_manager | 2 | 2 | 10 |
+| `ticket:read` | admin, operator, viewer, storage_manager | 0 | 0 | 2 |
+| `user:manage` | admin | 2 | 0 | 24 |
+| `user:read` | admin, operator, viewer, storage_manager | 1 | 2 | 7 |
 
 ## ✅ No drift detected

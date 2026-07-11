@@ -29,6 +29,7 @@ import {
   sftpWaitQuerySchema,
   type SftpStaleInventoryBody as SharedSftpStaleInventoryBody,
 } from "@/lib/storage/schema";
+import { auditUserAction } from "@/lib/audit/service";
 
 export const dynamic = "force-dynamic";
 
@@ -62,6 +63,7 @@ export async function POST(request: NextRequest) {
         const result = data.nodeId
           ? await scanOneNode(data)
           : await scanAllNodes(data);
+        await auditUserAction(session?.userId ?? "", "storage.sftp-stale-cleanup", { nodeId: data.nodeId ?? "all", dryRun: data.dryRun ?? false });
         return NextResponse.json({
           success: true,
           queued: false,

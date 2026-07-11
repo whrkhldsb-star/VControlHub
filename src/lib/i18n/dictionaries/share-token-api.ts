@@ -12,7 +12,6 @@ export const zh: Record<string, string> = {
 	"apiShareToken.missingRemoteCredentials": "缺少远端连接凭据",
 	"apiShareToken.remoteNotFound": "远端文件不存在或暂时无法读取",
 	"apiShareToken.unsupportedDriver": "该存储节点暂不支持公开分享下载",
-	"apiShareToken.maxDownloadsExceeded": "分享链接已达最大下载次数",
 };
 
 export const en: Record<string, string> = {
@@ -26,5 +25,4 @@ export const en: Record<string, string> = {
 	"apiShareToken.missingRemoteCredentials": "Missing remote connection credentials.",
 	"apiShareToken.remoteNotFound": "Remote file does not exist or is temporarily unreadable.",
 	"apiShareToken.unsupportedDriver": "This storage node does not support public share downloads.",
-	"apiShareToken.maxDownloadsExceeded": "Share link has reached the maximum number of downloads",
 };

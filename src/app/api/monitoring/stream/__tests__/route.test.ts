@@ -12,7 +12,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("@/lib/http/api-guard", () => ({
-  withApiRoute: vi.fn((_req, _opts, handler) => handler()),
+  withApiRoute: vi.fn((_req, _opts, handler) => handler({ session: { userId: "test-user" } })),
 }));
 
 vi.mock("node:fs", async (importOriginal) => {

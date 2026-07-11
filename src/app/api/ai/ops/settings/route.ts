@@ -96,7 +96,7 @@ export async function PATCH(request: Request) {
 					: body.providerId.trim() !== ""
 						? body.providerId
 						: null;
-			auditUserAction(
+			await auditUserAction(
 				session?.userId ?? "anonymous",
 				"ai.ops.settings.update",
 				{

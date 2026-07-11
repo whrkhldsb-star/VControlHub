@@ -3,7 +3,7 @@
  * interval and re-reads it on `storage` / `vps-preferences-updated` events.
  */
 import { act, renderHook } from "@testing-library/react";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { useRefreshInterval } from "../use-refresh-interval";
 

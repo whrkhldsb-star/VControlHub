@@ -160,7 +160,7 @@ export async function POST(
         });
 
         const success = exitCode === 0;
-        auditUserAction(
+        await auditUserAction(
           session.userId,
           success ? "server.reload_ok" : "server.reload_failed",
           { ...auditBase, exitCode: exitCode ?? -1, stdoutBytes: stdout.length, stderrBytes: stderr.length },
@@ -177,7 +177,7 @@ export async function POST(
       } catch (error) {
         const message = error instanceof Error ? error.message : t("apiServersReload.remoteExecutionFailed", locale);
         logger.warn("server reload raised", { serverId: id, error: message });
-        auditUserAction(
+        await auditUserAction(
           session.userId,
           "server.reload_error",
           { ...auditBase, error: message },

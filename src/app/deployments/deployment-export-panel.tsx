@@ -438,10 +438,11 @@ function DeploymentFilePreview({
   return (
     <div className="flex flex-col gap-2">
       <div className="flex flex-wrap items-center gap-2">
-        <label className="text-[10px] font-semibold uppercase tracking-[0.2em] text-[var(--text-secondary)]/70">
+        <label htmlFor="deploy-export-file-select" className="text-[10px] font-semibold uppercase tracking-[0.2em] text-[var(--text-secondary)]/70">
           {t("deploymentsPage.export.rollbackFile")}
         </label>
         <select
+          id="deploy-export-file-select"
           data-testid="deploy-export-file-select"
           value={activePath}
           onChange={(event) => onSelect(event.target.value)}

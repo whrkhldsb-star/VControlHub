@@ -41,7 +41,7 @@ export async function POST(request: Request) {
 				? Math.ceil(fastCheck.retryAfterMs / 1000)
 				: Math.ceil(slowCheck.retryAfterMs / 1000);
 			const params = new URLSearchParams({ error: "rate_limited" });
-			auditSystemAction("auth.login_rate_limited", { ip: clientIp, retryAfter }, "WARNING");
+			await auditSystemAction("auth.login_rate_limited", { ip: clientIp, retryAfter }, "WARNING");
 			const response = redirectWithRelativeLocation(`/login?${params.toString()}`);
 			response.headers.set("Retry-After", String(retryAfter));
 			return response;
@@ -85,11 +85,11 @@ export async function POST(request: Request) {
 			const lockResult = recordLoginFailure(username);
 			if (lockResult.locked) {
 				const remainingMin = Math.ceil((lockResult.lockedUntil! - Date.now()) / 60000);
-				auditSystemAction("auth.account_locked", { username, ip: clientIp, failCount: lockResult.failCount }, "WARNING");
+				await auditSystemAction("auth.account_locked", { username, ip: clientIp, failCount: lockResult.failCount }, "WARNING");
 				const params = new URLSearchParams({ error: "locked", minutes: String(remainingMin) });
 				return redirectWithRelativeLocation(`/login?${params.toString()}`);
 			}
-			auditSystemAction("auth.login_failed", { username, ip: clientIp, failCount: lockResult.failCount }, "WARNING");
+			await auditSystemAction("auth.login_failed", { username, ip: clientIp, failCount: lockResult.failCount }, "WARNING");
 			const invalidPath = new URLSearchParams(
 				requestedNextPath === "/"
 					? { error: "invalid" }
@@ -102,7 +102,7 @@ export async function POST(request: Request) {
 
 		// Log successful login & clear any previous failure count
 		clearLoginFailure(username);
-		auditUserAction(user.id, "auth.login_password_ok", { username, ip: clientIp });
+		await auditUserAction(user.id, "auth.login_password_ok", { username, ip: clientIp });
 
 		// ── 2FA Check ──
 		// If the user has 2FA enabled, redirect to the verification page

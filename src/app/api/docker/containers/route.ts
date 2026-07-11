@@ -241,7 +241,7 @@ export async function POST(req: NextRequest) {
 
       const target = actionMap[action]!;
       const result = await dockerRequest(target.path, target.method);
-      auditUserAction(
+      await auditUserAction(
         session.userId,
         `docker.container.${action}`,
         {

@@ -9,6 +9,7 @@ export default defineConfig({
 	fullyParallel: true,
 	retries: process.env.CI ? 2 : 0,
 	reporter: process.env.CI ? "github" : "list",
+	outputDir: process.env.PLAYWRIGHT_OUTPUT_DIR ?? ".playwright-output/test-results",
 	use: {
 		baseURL,
 		trace: "retain-on-failure",

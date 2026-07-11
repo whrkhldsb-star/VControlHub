@@ -98,7 +98,7 @@ export function CollapsibleSection({
   asForm = false,
   children,
 }: CollapsibleSectionProps) {
-  const { t, locale } = useI18n();
+  const { t } = useI18n();
   const Inner = asForm ? "form" : "div";
   const badgeClass = BADGE_COLOR_CLASSES[badgeTone] ?? BADGE_COLOR_CLASSES.cyan;
   return (
@@ -160,7 +160,7 @@ export function AuditSummary({
 }: {
   metadata: SettingUpdateMetadata | null;
 }) {
-  const { t, locale } = useI18n();
+  const { t } = useI18n();
   return (
     <div
       data-tone="amber"
@@ -217,7 +217,7 @@ export function SchemaDrivenSection({
   onHighRiskBlur,
   onHighRiskChange,
 }: SchemaDrivenSectionProps) {
-  const { t, locale } = useI18n();
+  const { t } = useI18n();
   const saveKeys = getSectionSaveKeys(section);
   const hasSaveButton = saveKeys.length > 0;
   const descriptionKey =

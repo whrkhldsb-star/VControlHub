@@ -11,7 +11,7 @@
 import { Client } from "ssh2";
 import { createVerifiedSshConfig } from "@/lib/ssh/client";
 import type { Stats, FileEntryWithStats } from "ssh2";
-import { Readable, Writable, PassThrough } from "node:stream";
+import { Readable, PassThrough } from "node:stream";
 import { prisma } from "@/lib/db";
 import { decryptServerPassword, decryptSshPrivateKey, decryptSshKeyPassphrase } from "@/lib/ssh/ssh-key-crypto";
 import { createLogger } from "@/lib/logging";

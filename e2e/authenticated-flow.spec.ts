@@ -13,43 +13,36 @@ import { expect, test } from "@playwright/test";
 const TEST_USER = process.env.E2E_USER ?? "admin";
 const TEST_PASS = process.env.E2E_PASS ?? "admin123";
 
-test.describe.serial("authenticated golden path", () => {
-	test("logs in and reaches the dashboard", async ({ page }) => {
-		await page.goto("/login");
-		await page.getByLabel(/用户名|Username/i).fill(TEST_USER);
-		await page.getByLabel(/密码|Password/i).fill(TEST_PASS);
-		await page.getByRole("button", { name: /登录|Sign in|Log in/i }).click();
+async function login(page: import("@playwright/test").Page) {
+	await page.goto("/login");
+	await page.getByLabel(/用户名|Username/i).fill(TEST_USER);
+	await page.getByLabel(/密码|Password/i).fill(TEST_PASS);
+	await Promise.all([
+		page.waitForURL((url) => !url.pathname.startsWith("/login")),
+		page.getByRole("button", { name: /登录|Sign in|Log in/i }).click(),
+	]);
+}
 
-		// After login the user lands on the dashboard (or a 2FA page).
-		// Accept either outcome; the key assertion is leaving /login.
-		await page.waitForURL((url) => !url.pathname.startsWith("/login"), {
-			timeout: 15_000,
-		});
+test.describe("authenticated golden path", () => {
+	test("login, navigation and settings remain usable", async ({ page }) => {
+		test.setTimeout(90_000);
+		await login(page);
 		await expect(page.locator("body")).toBeVisible();
-	});
 
-	test("navigates to the servers page", async ({ page }) => {
-		// Reuse the logged-in session by sharing storage state.
-		await page.goto("/servers");
-		// The servers page should render the main shell (sidebar + content),
-		// or redirect to login if the session was not persisted. Either way the
-		// app must not crash — assert a non-empty body.
+		await page.goto("/servers", { waitUntil: "domcontentloaded" });
+		await expect(page).toHaveURL(/\/servers$/);
 		await expect(page.locator("body")).not.toBeEmpty();
-	});
 
-	test("opens the settings page and can locate a save button", async ({ page }) => {
-		await page.goto("/settings");
+		await page.goto("/settings", { waitUntil: "domcontentloaded" });
+		await expect(page).toHaveURL(/\/settings$/);
 		await expect(page.locator("body")).not.toBeEmpty();
-		// The settings page renders at least one section save button.
-		const saveButtons = page.getByRole("button", { name: /保存|Save/i });
-		// Don't click — just assert presence so the test is non-destructive.
-		await expect(saveButtons.first()).toBeVisible({ timeout: 10_000 });
-	});
+		// Personal preferences auto-save; verify the interactive settings UI
+		// instead of assuming a manual save button exists.
+		await expect(page.getByRole("heading", { name: /默认页面|Default page/i })).toBeVisible();
+		await expect(page.getByRole("switch").first()).toBeVisible();
 
-	test("navigation sidebar renders top-level sections", async ({ page }) => {
-		await page.goto("/");
-		// The sidebar should expose primary navigation landmarks.
-		const nav = page.locator("nav, aside").first();
-		await expect(nav).toBeVisible();
+		await page.goto("/", { waitUntil: "domcontentloaded" });
+		// The authenticated chrome should expose primary navigation links.
+		await expect(page.getByRole("link", { name: /设置|Settings/i }).first()).toBeVisible();
 	});
 });

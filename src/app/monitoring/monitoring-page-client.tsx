@@ -105,12 +105,33 @@ export default function MonitoringPage({ canManage: _canManage }: { canManage: b
 
     let es: EventSource | null = null;
     let fallbackTimer: ReturnType<typeof setInterval> | null = null;
+    let fallbackEnabled = false;
     let disposed = false;
 
     function closeSse() {
       if (es) { es.close(); es = null; }
       setSseConnected(false);
     }
+
+    function stopFallback() {
+      if (fallbackTimer) clearInterval(fallbackTimer);
+      fallbackTimer = null;
+    }
+
+    function startFallback() {
+      fallbackEnabled = true;
+      if (disposed || fallbackTimer || document.visibilityState === "hidden") return;
+      fallbackTimer = setInterval(() => { void fetchStats(); }, refreshIntervalSeconds * 1000);
+    }
+
+    function onVisibilityChange() {
+      if (!fallbackEnabled) return;
+      if (document.visibilityState === "hidden") return stopFallback();
+      void fetchStats();
+      startFallback();
+    }
+
+    document.addEventListener("visibilitychange", onVisibilityChange);
 
     try {
       es = new EventSource("/api/monitoring/stream");
@@ -126,20 +147,19 @@ export default function MonitoringPage({ canManage: _canManage }: { canManage: b
       es.onerror = () => {
         closeSse();
         // Fallback: use HTTP polling at the user's configured interval.
-        if (!disposed) {
-          fallbackTimer = setInterval(() => { void fetchStats(); }, refreshIntervalSeconds * 1000);
-        }
+        startFallback();
       };
       es.onopen = () => { setSseConnected(true); };
     } catch {
       // EventSource constructor failed (very old browser?) → fallback to polling.
-      fallbackTimer = setInterval(() => { void fetchStats(); }, refreshIntervalSeconds * 1000);
+      startFallback();
     }
 
     return () => {
       disposed = true;
+      document.removeEventListener("visibilitychange", onVisibilityChange);
       closeSse();
-      if (fallbackTimer) clearInterval(fallbackTimer);
+      stopFallback();
     };
   }, [autoRefresh, fetchStats, refreshIntervalSeconds]);
 

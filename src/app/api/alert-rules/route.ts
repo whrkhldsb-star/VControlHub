@@ -180,7 +180,7 @@ export async function POST(request: Request) {
         ? alertRuleSchema.parse(await parseBody(request))
         : body;
       const rule = await createAlertRule(input);
-      auditUserAction(
+      await auditUserAction(
         session.userId,
         "alert_rule.create",
         auditRuleDetail(rule),
@@ -210,7 +210,7 @@ export async function PATCH(request: Request) {
         throw new AuthError("Not authenticated");
       if ("toggleId" in body) {
         const result = await toggleAlertRule(body.toggleId);
-        auditUserAction(session.userId, "alert_rule.toggle", {
+        await auditUserAction(session.userId, "alert_rule.toggle", {
           ruleId: body.toggleId,
           enabled: Boolean(result.enabled),
         });
@@ -218,7 +218,7 @@ export async function PATCH(request: Request) {
       }
       if ("testId" in body) {
         const result = await testAlertRule(body.testId);
-        auditUserAction(session.userId, "alert_rule.test", {
+        await auditUserAction(session.userId, "alert_rule.test", {
           ruleId: result.rule.id,
           name: result.rule.name,
           channels: result.deliveries.map((delivery) => delivery.channel),
@@ -227,7 +227,7 @@ export async function PATCH(request: Request) {
         return NextResponse.json(result);
       }
       const result = await updateAlertRule(body.id, body);
-      auditUserAction(
+      await auditUserAction(
         session.userId,
         "alert_rule.update",
         auditRuleDetail(result),
@@ -249,7 +249,7 @@ export async function DELETE(request: Request) {
         if (!alertRuleId)
           throw new ValidationError("MissingRule ID");
         await deleteAlertRule(alertRuleId);
-        auditUserAction(session.userId, "alert_rule.delete", { ruleId: alertRuleId });
+        await auditUserAction(session.userId, "alert_rule.delete", { ruleId: alertRuleId });
         return NextResponse.json({ success: true });
       } catch (err) {
         const message = err instanceof Error ? err.message : "DeleteFailed";
@@ -268,7 +268,7 @@ export async function PUT(request: Request) {
         throw new AuthError("Not authenticated");
       try {
         await evaluateAlerts();
-        auditUserAction(session.userId, "alert_rule.evaluate", {
+        await auditUserAction(session.userId, "alert_rule.evaluate", {
           manual: true,
         });
         return NextResponse.json({ success: true });

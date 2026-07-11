@@ -2,7 +2,7 @@ import { createReadStream } from "node:fs";
 import { stat } from "node:fs/promises";
 import { NextResponse } from "next/server";
 import path from "node:path";
-import { Client, type ConnectConfig } from "ssh2";
+import { Client } from "ssh2";
 import { z } from "zod";
 
 import { connectSsh } from "@/lib/ssh/client";

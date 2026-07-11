@@ -19,6 +19,7 @@ import { useCallback, useEffect, useState } from "react";
 import { csrfFetch } from "@/lib/auth/csrf-client";
 import { t } from "@/lib/i18n/translations";
 import { getRefreshIntervalFromStorage } from "@/lib/preferences/refresh-interval";
+import { useVisibilityInterval } from "@/lib/hooks/use-visibility-interval";
 
 import type {
 	HealthOverview,
@@ -154,14 +155,10 @@ export function useHealthData({
 
 	// Auto-refresh on the configured interval (disabled when the user
 	// toggles it off, or when the saved interval is 0).
-	useEffect(() => {
-		if (!autoRefresh || refreshIntervalSeconds <= 0) return;
-		const interval = window.setInterval(() => {
+	useVisibilityInterval(() => {
 			void fetchHealth();
 			void fetchSystemHealth();
-		}, refreshIntervalSeconds * 1000);
-		return () => window.clearInterval(interval);
-	}, [autoRefresh, fetchHealth, fetchSystemHealth, refreshIntervalSeconds]);
+	}, autoRefresh && refreshIntervalSeconds > 0 ? refreshIntervalSeconds * 1000 : null);
 
 	return {
 		overview,

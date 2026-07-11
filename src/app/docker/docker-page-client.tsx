@@ -7,6 +7,7 @@ import { useDialogFocus } from "@/lib/a11y/use-dialog-focus";
 import { getRefreshIntervalLabel } from "@/lib/preferences/refresh-interval";
 import { useRefreshInterval } from "@/lib/preferences/use-refresh-interval";
 import { useI18n } from "@/lib/i18n/use-locale";
+import { useVisibilityInterval } from "@/lib/hooks/use-visibility-interval";
 import { DockerResourcesPanel } from "./docker-resources-panel";
 
 interface Container {
@@ -218,15 +219,11 @@ export default function DockerPage() {
 		}
 	}, [runningContainers]); // eslint-disable-line react-hooks/exhaustive-deps
 
-	useEffect(() => {
-		if (!statsAutoRefresh || refreshIntervalSeconds <= 0 || runningContainers.length === 0) return;
-		const id = setInterval(() => {
+	useVisibilityInterval(() => {
 			for (const container of runningContainers) {
 				void fetchStats(container.Id);
 			}
-		}, refreshIntervalSeconds * 1000);
-		return () => clearInterval(id);
-	}, [refreshIntervalSeconds, runningContainers, statsAutoRefresh]);
+	}, statsAutoRefresh && refreshIntervalSeconds > 0 && runningContainers.length > 0 ? refreshIntervalSeconds * 1000 : null);
 
 	const projectCount = useMemo(() => grouped.length, [grouped]);
 	const refreshLabel = getRefreshIntervalLabel(refreshIntervalSeconds);

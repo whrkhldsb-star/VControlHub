@@ -107,7 +107,7 @@ export async function POST(request: Request) {
         expiresAt,
       });
 
-      auditUserAction(session.userId, "api_token.create", {
+      await auditUserAction(session.userId, "api_token.create", {
         tokenId: result.apiToken.id,
         name: result.apiToken.name,
         tokenPrefix: result.apiToken.tokenPrefix,
@@ -146,7 +146,7 @@ export async function DELETE(request: Request) {
 
       const { id } = parseSearchParams(request, idQuerySchema);
       const token = await revokeApiToken({ userId: session.userId, id });
-      auditUserAction(session.userId, "api_token.revoke", {
+      await auditUserAction(session.userId, "api_token.revoke", {
         tokenId: token.id,
         tokenPrefix: token.tokenPrefix,
         tokenSuffix: token.tokenSuffix,

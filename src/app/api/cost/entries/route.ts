@@ -64,7 +64,7 @@ export async function POST(request: Request) {
 		async ({ session, body }) => {
 			const createdById = session?.userId ?? null;
 			const entry = await createCostEntry(body, createdById);
-			auditUserAction(createdById ?? "anonymous", "cost.create", {
+			await auditUserAction(createdById ?? "anonymous", "cost.create", {
 				entryId: entry.id,
 				category: entry.category,
 				provider: entry.provider,

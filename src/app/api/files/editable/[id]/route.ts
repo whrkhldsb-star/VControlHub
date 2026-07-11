@@ -8,6 +8,7 @@ import {
   getLocalEditableFileDraft,
   saveLocalEditableFileDraft,
 } from "@/lib/storage/service";
+import { auditUserAction } from "@/lib/audit/service";
 
 export const dynamic = "force-dynamic";
 
@@ -51,6 +52,7 @@ export async function PUT(
         expectedUpdatedAt: body.expectedUpdatedAt,
         expectedLastModifiedMs: body.expectedLastModifiedMs,
       });
+      await auditUserAction(session?.userId ?? "", "file.edit", { fileId: id });
       return NextResponse.json({ success: true, file: result });
     },
   );

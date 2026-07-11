@@ -72,6 +72,7 @@ function hasValidSessionCookie(request: NextRequest): boolean {
 function addSecurityHeaders(
   response: NextResponse,
   request: NextRequest,
+  nonce?: string,
 ): NextResponse {
   const headers = response.headers;
 
@@ -101,28 +102,27 @@ function addSecurityHeaders(
     );
   }
 
-  // Content-Security-Policy — development-friendly, production should tighten
-  if (process.env.NODE_ENV === "production") {
-    headers.set(
-      "Content-Security-Policy",
-      [
-        "default-src 'self'",
-        "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.jsdelivr.net https://static.cloudflareinsights.com", // Next.js needs unsafe-inline/eval; API docs embed Scalar from jsDelivr; Cloudflare may inject Web Analytics at the edge
-        "style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net", // Tailwind needs unsafe-inline; Scalar docs CSS is loaded from jsDelivr
-        "img-src 'self' data: blob: https://chart.googleapis.com https://api.qrserver.com",
-        "font-src 'self' data: https://fonts.scalar.com", // Scalar API docs load Inter/mono fonts from its CDN
-        "connect-src 'self' ws: wss:", // WebSocket for SSH terminal
-        "media-src 'self' blob:", // Files preview streams audio/video through same-origin managed routes
-        "frame-src 'self'", // File previews stay on same-origin managed routes
-        "frame-ancestors 'self'", // equivalent to X-Frame-Options SAMEORIGIN
-        "object-src 'self'",
-        "base-uri 'self'",
-        "form-action 'self'",
-      ].join("; "),
-    );
-  }
+  if (nonce) headers.set("Content-Security-Policy", buildContentSecurityPolicy(nonce));
 
   return response;
+}
+
+function buildContentSecurityPolicy(nonce: string) {
+	return [
+		"default-src 'self'",
+		`script-src 'self' 'nonce-${nonce}' 'strict-dynamic' https://cdn.jsdelivr.net https://static.cloudflareinsights.com`,
+		// Tailwind and several existing components still use inline style attributes.
+		"style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net",
+		"img-src 'self' data: blob: https://chart.googleapis.com https://api.qrserver.com",
+		"font-src 'self' data: https://fonts.scalar.com",
+		"connect-src 'self' ws: wss:",
+		"media-src 'self' blob:",
+		"frame-src 'self'",
+		"frame-ancestors 'self'",
+		"object-src 'none'",
+		"base-uri 'self'",
+		"form-action 'self'",
+	].join("; ");
 }
 
 const BEARER_TOKEN_API_BYPASS: Array<{ method: string; pattern: RegExp }> = [
@@ -148,6 +148,14 @@ function requestUrlIsHttps(request: NextRequest): boolean {
 // ── Main middleware ───────────────────────────────────────────────
 export function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
+	const nonce = process.env.NODE_ENV === "production"
+		? btoa(crypto.randomUUID())
+		: undefined;
+	const forwardedHeaders = new Headers(request.headers);
+	if (nonce) {
+		forwardedHeaders.set("x-nonce", nonce);
+		forwardedHeaders.set("Content-Security-Policy", buildContentSecurityPolicy(nonce));
+	}
   const hasBearerToken =
     request.headers
       .get("authorization")
@@ -161,17 +169,17 @@ export function proxy(request: NextRequest) {
   // the protected shell/sidebar behind the sign-in form. Server layouts read
   // request headers, so forward the marker on the request, not only the response.
   if (pathname === "/login" || pathname === "/login/verify-2fa") {
-    const forwardedHeaders = new Headers(request.headers);
     forwardedHeaders.set("x-vcontrolhub-public-auth-page", "1");
     const response = NextResponse.next({
       request: { headers: forwardedHeaders },
     });
-    return addSecurityHeaders(response, request);
+    return addSecurityHeaders(response, request, nonce);
   }
 
   // 1) Allow public paths through
   if (isPublicPath(pathname, request.method)) {
-    return addSecurityHeaders(NextResponse.next(), request);
+    const response = NextResponse.next({ request: { headers: forwardedHeaders } });
+		return addSecurityHeaders(response, request, nonce);
   }
 
   // 2) Check session cookie for protected paths
@@ -186,7 +194,7 @@ export function proxy(request: NextRequest) {
     const loginUrl = request.nextUrl.clone();
     loginUrl.pathname = "/login";
     loginUrl.searchParams.set("next", pathname);
-    return addSecurityHeaders(NextResponse.redirect(loginUrl), request);
+    return addSecurityHeaders(NextResponse.redirect(loginUrl), request, nonce);
   }
 
   // 3) CSRF protection for state-changing API requests
@@ -217,7 +225,8 @@ export function proxy(request: NextRequest) {
   }
 
   // 4) Authenticated — pass through with security headers
-  return addSecurityHeaders(NextResponse.next(), request);
+  const response = NextResponse.next({ request: { headers: forwardedHeaders } });
+	return addSecurityHeaders(response, request, nonce);
 }
 
 export const config = {

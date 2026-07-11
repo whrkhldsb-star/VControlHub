@@ -12,7 +12,6 @@ import { IMAGE_UPLOAD_LIMIT } from "@/lib/http/rate-limit-presets";
 import { deleteImageVariants } from "@/lib/image/service";
 import { UPLOAD_DIR } from "@/lib/image-bed/constants";
 
-import { ValidationError } from "@/lib/errors";
 const batchSchema = z.object({
   action: z.enum(["delete", "moveAlbum", "togglePublic"]),
   ids: z.array(z.string()).min(1).max(100),

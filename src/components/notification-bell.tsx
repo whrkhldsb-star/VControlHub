@@ -8,6 +8,7 @@ import { csrfFetch } from "@/lib/auth/csrf-client";
 import { getSafeNotificationActionUrl } from "@/lib/notification/action-url";
 import { getRefreshIntervalFromStorage, getRefreshIntervalLabel } from "@/lib/preferences/refresh-interval";
 import { useI18n } from "@/lib/i18n/use-locale";
+import { useVisibilityInterval } from "@/lib/hooks/use-visibility-interval";
 
 /* ── Notification bell with real-time WebSocket push ──────── */
 
@@ -86,9 +87,12 @@ export function NotificationBell() {
 	useEffect(() => {
 		if (wsConnected || refreshIntervalSeconds <= 0) return;
 		const timer = window.setTimeout(() => { void fetchUnread(); }, 0);
-		const interval = setInterval(fetchUnread, refreshIntervalSeconds * 1000);
-		return () => { window.clearTimeout(timer); clearInterval(interval); };
+		return () => window.clearTimeout(timer);
 	}, [fetchUnread, wsConnected, refreshIntervalSeconds]);
+	useVisibilityInterval(
+		() => { void fetchUnread(); },
+		!wsConnected && refreshIntervalSeconds > 0 ? refreshIntervalSeconds * 1000 : null,
+	);
 
 	// Toast effect when new notification arrives via WS
 	useEffect(() => {

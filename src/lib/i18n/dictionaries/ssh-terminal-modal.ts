@@ -61,7 +61,6 @@ export const zh: Record<string, string> = {
 	"sshTerminalManager.title": "SSH 终端",
 	"sshTerminalManager.tabsSuffix": "个标签",
 	"sshTerminalManager.closeTab": "关闭 {serverName} 标签",
-	"sshTerminalManager.newTab": "新建标签",
 	"sshTerminalManager.minimize": "最小化",
 	"sshTerminalManager.expand": "展开",
 
@@ -132,7 +131,6 @@ export const en: Record<string, string> = {
 	"sshTerminalManager.title": "SSH Terminal",
 	"sshTerminalManager.tabsSuffix": "tabs",
 	"sshTerminalManager.closeTab": "Close {serverName} tab",
-	"sshTerminalManager.newTab": "New tab",
 	"sshTerminalManager.minimize": "Minimize",
 	"sshTerminalManager.expand": "Expand",
 

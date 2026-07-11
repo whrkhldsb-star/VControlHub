@@ -229,7 +229,7 @@ export async function POST(request: Request) {
           break;
         }
 
-        auditUserAction(session.userId, "download.create", {
+        await auditUserAction(session.userId, "download.create", {
           url: taskUrl!,
           serverId,
           targetPath: resolvedTargetPath,
@@ -266,7 +266,7 @@ export async function POST(request: Request) {
         // Audit the failure so the operation-tasks center / 运维看板 still
         // see the attempt; we do NOT audit it as a successful
         // `download.create`.
-        auditUserAction(session.userId, "download.dispatch_failed", {
+        await auditUserAction(session.userId, "download.dispatch_failed", {
           taskId: dispatchError.taskId,
           taskIds: allRolledBackIds,
           errorMessage: dispatchError.message,

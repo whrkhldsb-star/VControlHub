@@ -6,14 +6,6 @@
  */
 
 export const zh: Record<string, string> = {
-	"docker.exited": "已停止",
-	"docker.logs": "日志",
-	"docker.remove": "删除",
-	"docker.restart": "重启",
-	"docker.running": "运行中",
-	"docker.start": "启动",
-	"docker.stop": "停止",
-	"docker.title": "Docker 容器",
 	"dockerPage.action.logs": "日志",
 	"dockerPage.action.remove": "删除",
 	"dockerPage.action.restart": "重启",
@@ -88,14 +80,6 @@ export const zh: Record<string, string> = {
 };
 
 export const en: Record<string, string> = {
-	"docker.exited": "Exited",
-	"docker.logs": "Logs",
-	"docker.remove": "Remove",
-	"docker.restart": "Restart",
-	"docker.running": "Running",
-	"docker.start": "Start",
-	"docker.stop": "Stop",
-	"docker.title": "Docker Containers",
 	"dockerPage.action.logs": "Logs",
 	"dockerPage.action.remove": "Delete",
 	"dockerPage.action.restart": "Restart",

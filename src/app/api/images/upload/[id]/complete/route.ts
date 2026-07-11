@@ -186,7 +186,7 @@ export async function POST(
         resultImageId: image.id,
       });
 
-      auditUserAction(
+      await auditUserAction(
         session.userId,
         "media.upload.complete",
         {

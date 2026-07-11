@@ -89,7 +89,7 @@ export async function POST(request: Request) {
 		// Verify the TOTP code
 		const valid = verifyTOTP({ token: code, secret: user.twoFactorSecret });
 		if (!valid) {
-			auditSystemAction("auth.2fa_failed", { userId: sessionPayload.userId, ip: clientIp }, "WARNING");
+			await auditSystemAction("auth.2fa_failed", { userId: sessionPayload.userId, ip: clientIp }, "WARNING");
 			return apiError({
 				code: "TWO_FACTOR_INVALID_CODE",
 				message: "VerifycodeError",
@@ -107,7 +107,7 @@ export async function POST(request: Request) {
 		// Clear the pending 2FA cookie
 		cookieStore.delete(getPending2faCookieName());
 
-		auditUserAction(sessionPayload.userId, "auth.login_2fa_ok", { username: sessionPayload.username, ip: clientIp });
+		await auditUserAction(sessionPayload.userId, "auth.login_2fa_ok", { username: sessionPayload.username, ip: clientIp });
 
 		const response = NextResponse.json({ success: true });
 		response.cookies.set(getSessionCookieName(), token, {

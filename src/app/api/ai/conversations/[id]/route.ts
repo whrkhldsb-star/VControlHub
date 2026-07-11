@@ -11,6 +11,7 @@ import { updateConversationSchema } from "@/lib/ai/schema";
 import { withApiRoute } from "@/lib/http/api-guard";
 import { GENERAL_WRITE_LIMIT } from "@/lib/http/rate-limit-presets";
 import { NotFoundError } from "@/lib/errors";
+import { auditUserAction } from "@/lib/audit/service";
 
 export const dynamic = "force-dynamic";
 
@@ -64,6 +65,7 @@ export async function PATCH(
 
       const conv = await updateConversation(id, session.userId, body);
       if (!conv) throw new NotFoundError("Conversation not found");
+      await auditUserAction(session?.userId ?? "", "conversation.update", { conversationId: id });
       return NextResponse.json({
         conversation: {
           ...conv,
@@ -95,6 +97,7 @@ export async function DELETE(
         );
       const { id } = await params;
       await deleteConversation(id, session.userId);
+      await auditUserAction(session?.userId ?? "", "conversation.delete", { conversationId: id });
       return NextResponse.json({ ok: true });
     },
   );

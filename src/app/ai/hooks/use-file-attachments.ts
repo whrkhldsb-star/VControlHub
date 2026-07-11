@@ -10,7 +10,7 @@
  *
  * TR-017 (ai-client 拆分)
  */
-import { useCallback, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import type { FileAttachment, ModelCapabilities } from "../ai-types";
 import {
   categorizeFile,
@@ -50,7 +50,7 @@ export function useFileAttachments({
   onReject,
   t,
 }: UseFileAttachmentsOptions): UseFileAttachmentsReturn {
-  const tr = t ?? ((key: string) => key);
+  const tr = useMemo(() => t ?? ((key: string) => key), [t]);
   const [fileAttachments, setFileAttachments] = useState<FileAttachment[]>([]);
   const [fileRejectionMsg, setFileRejectionMsg] = useState<string | null>(null);
 

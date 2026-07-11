@@ -9,7 +9,7 @@
     "start": "node dist/server.js",
     "start:ssh-ws": "node dist/ssh-ws-proxy.js",
     "start:dev": "next dev",
-    "lint": "eslint",
+    "lint": "eslint --max-warnings=0",
     "test": "vitest run",
     "test:coverage": "vitest run --coverage",
     "test:watch": "vitest",
@@ -26,6 +26,7 @@
     "i18n:coverage": "tsx scripts/i18n-coverage.ts",
     "i18n:coverage:diff": "tsx scripts/i18n-coverage.ts --diff",
     "i18n:key-check": "tsx scripts/i18n-key-completeness.ts",
+    "compose:validate": "node scripts/validate-compose.mjs docker-compose.yml",
     "rbac:audit": "tsx scripts/rbac-audit.ts",
     "admin:consistency-check": "tsx scripts/admin-consistency-check.ts",
     "readme:reconcile": "tsx scripts/readme-reconcile.ts",
@@ -34,7 +35,7 @@
     "readme:metrics": "tsx scripts/readme-metrics.ts",
     "readme:metrics:write": "tsx scripts/readme-metrics.ts --write",
     "docs:check": "npm run readme:metrics",
-    "verify": "npm run prisma:generate && npm run typecheck && npm run lint && npm run i18n:key-check && npm test && npm run build && npm run build:runtime && npm run verify:deploy-assets",
+    "verify": "npm run prisma:generate && npx prisma format --check && npm run typecheck && npm run lint && npm run i18n:key-check && npm test && npm run build && npm run build:runtime && npm run verify:deploy-assets && npm run docs:check",
     "build:turbopack": "next build",
     "build:webpack": "next build --webpack"
   },
@@ -66,6 +67,7 @@
     "zod": "^4.3.6"
   },
   "devDependencies": {
+    "@playwright/test": "^1.61.1",
     "@tailwindcss/postcss": "^4",
     "@testing-library/jest-dom": "^6.9.1",
     "@testing-library/react": "^16.3.2",
@@ -83,6 +85,7 @@
     "eslint": "9.39.4",
     "eslint-config-next": "^16.2.10",
     "eslint-plugin-react-hooks": "^7.1.1",
+    "js-yaml": "^4.3.0",
     "jsdom": "^29.0.2",
     "prisma": "^7.7.0",
     "tailwindcss": "^4",

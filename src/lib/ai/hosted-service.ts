@@ -86,17 +86,6 @@ async function resolveServerId(args: Record<string, unknown>): Promise<string | 
   return server?.id ?? null;
 }
 
-async function createAssistantCommandRequest(input: {
-  tool: HostedTool;
-  args: Record<string, unknown>;
-  userId: string;
-  serverId: string;
-}) {
-  const payload = await buildAssistantCommandRequestPayload(input);
-  const request = await createCommandRequest(payload);
-  return { commandRequestId: request.id, requiresApproval: request.requiresApproval };
-}
-
 async function buildAssistantCommandRequestPayload(input: {
   tool: HostedTool;
   args: Record<string, unknown>;

@@ -7,7 +7,7 @@ import { ChangePasswordForm } from "./change-password-form";
 export const dynamic = "force-dynamic";
 
 export default async function AccountPasswordPage() {
-  const session = await requireSession("/account/password");
+  await requireSession("/account/password");
   const locale = await getServerLocale();
 
   return (

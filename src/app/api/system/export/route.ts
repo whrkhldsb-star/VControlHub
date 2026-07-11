@@ -23,7 +23,7 @@ export async function GET(request: Request) {
     const file = await buildExportFile(sourceDomain, mode);
     const summary = getExportSummary(file);
 
-    auditUserAction(session?.userId ?? "", "system.export", {
+    await auditUserAction(session?.userId ?? "", "system.export", {
       sourceDomain,
       exportMode: mode,
       recordCounts: summary,

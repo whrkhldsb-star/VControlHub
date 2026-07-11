@@ -117,7 +117,7 @@ export function SshFileManager({ serverId, visible }: SshFileManagerProps) {
       loadDir(currentPath);
       setTimeout(() => setUploads((prev) => prev.filter((u) => u.status === "uploading")), 3000);
     },
-    [currentPath, serverId, loadDir],
+    [currentPath, serverId, loadDir, t],
   );
 
   function handleDownload(entry: DirEntry) {

@@ -1,7 +1,7 @@
 "use client";
 
 import { useI18n } from "@/lib/i18n/use-locale";
-import { useDialogFocus } from "@/lib/a11y/use-dialog-focus";
+import { ConfirmDialog } from "@/components/confirm-dialog";
 import type { SerializedPlaybook } from "./playbook-types";
 
 type PlaybookDeleteDialogProps = {
@@ -13,42 +13,5 @@ type PlaybookDeleteDialogProps = {
 
 export function PlaybookDeleteDialog({ playbook, busy, onCancel, onConfirm }: PlaybookDeleteDialogProps) {
   const { t } = useI18n();
-  const dialogRef = useDialogFocus<HTMLDivElement>({ open: playbook !== null, onClose: onCancel });
-
-  if (!playbook) return null;
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-[var(--surface)] px-4 backdrop-blur-sm" role="presentation" onClick={onCancel}>
-      <section
-        ref={dialogRef}
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="delete-playbook-title"
-        className="w-full max-w-md rounded-2xl border border-[var(--danger-border)] bg-[var(--modal-bg)] p-6 shadow-2xl"
-      >
-        <h2 id="delete-playbook-title" className="text-lg font-semibold text-[var(--text-primary)]">
-          {t("playbooksPage.delete.title")}
-        </h2>
-        <p className="mt-3 text-sm leading-6 text-[var(--text-secondary)]">
-          {t("playbooksPage.delete.confirm").replace("{name}", playbook.name)}
-        </p>
-        <div className="mt-6 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
-          <button
-            type="button"
-            onClick={onCancel}
-            className="min-h-11 rounded-xl border border-[var(--border)] px-4 py-2 text-sm font-medium text-[var(--text-secondary)] hover:bg-[var(--surface-hover)]"
-          >
-            {t("playbooksPage.delete.cancel")}
-          </button>
-          <button
-            type="button"
-            onClick={onConfirm}
-            disabled={busy}
-            className="min-h-11 rounded-xl bg-[var(--danger)] px-4 py-2 text-sm font-semibold text-[var(--text-primary)] hover:bg-[var(--danger-bg)] hover:text-[var(--danger)] disabled:opacity-50"
-          >
-            {busy ? t("playbooksPage.action.deleting") : t("playbooksPage.delete.confirmBtn")}
-          </button>
-        </div>
-      </section>
-    </div>
-  );
+  return <ConfirmDialog open={playbook !== null} title={t("playbooksPage.delete.title")} description={playbook ? t("playbooksPage.delete.confirm").replace("{name}", playbook.name) : ""} cancelLabel={t("playbooksPage.delete.cancel")} confirmLabel={busy ? t("playbooksPage.action.deleting") : t("playbooksPage.delete.confirmBtn")} onCancel={onCancel} onConfirm={onConfirm} busy={busy} />;
 }

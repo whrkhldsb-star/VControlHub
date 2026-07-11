@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { auditUserAction } from "@/lib/audit/service";
 
 import {
   createProvider,
@@ -41,6 +42,7 @@ export async function POST(request: Request) {
         availableModels: parseModels(body),
         createdBy: session.userId,
       });
+      await auditUserAction(session.userId, "ai.provider.create", { providerId: provider.id });
       return NextResponse.json(
         { provider: serializeProvider(provider) },
         { status: 201 },

@@ -90,7 +90,7 @@ export function VpsBackupSection({
 		} finally {
 			setLoading(false);
 		}
-	}, [serverId]);
+		}, [serverId, t]);
 
 	useEffect(() => {
 		// Initial data fetch — setState happens inside async callback, not synchronously

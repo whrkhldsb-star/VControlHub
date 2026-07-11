@@ -34,7 +34,7 @@ export async function POST(request: Request) {
       if (options.dryRun) {
         // 预览模式：不写入
         const preview = await previewImport(file, options);
-        auditUserAction(session?.userId ?? "", "system.import.preview", {
+        await auditUserAction(session?.userId ?? "", "system.import.preview", {
           totalRecords: preview.totalRecords,
           schemaVersion: file.schemaVersion,
         });
@@ -43,7 +43,7 @@ export async function POST(request: Request) {
 
       // 实际导入
       const result = await executeImport(file, options);
-      auditUserAction(session?.userId ?? "", "system.import", {
+      await auditUserAction(session?.userId ?? "", "system.import", {
         created: result.created,
         updated: result.updated,
         skipped: result.skipped,

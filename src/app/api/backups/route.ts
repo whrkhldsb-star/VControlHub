@@ -14,6 +14,7 @@ import { GENERAL_WRITE_LIMIT } from "@/lib/http/rate-limit-presets";
 import { enqueueJob } from "@/lib/job/service";
 
 import { ValidationError } from "@/lib/errors";
+import { auditUserAction } from "@/lib/audit/service";
 export const dynamic = "force-dynamic";
 
 export async function GET(request: Request) {
@@ -58,6 +59,7 @@ export async function POST(request: Request) {
       if ((request.headers.get("accept") || "").includes("text/html")) {
         return NextResponse.redirect(new URL("/backups", request.url), { status: 303 });
       }
+      await auditUserAction(session?.userId ?? "", "backup.create", { backupId: backup.id });
       return NextResponse.json({ backup }, { status: 201 });
     }
 

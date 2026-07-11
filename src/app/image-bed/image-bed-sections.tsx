@@ -1,24 +1,11 @@
 "use client";
 
-import Image from "next/image";
-import type { Dispatch, SetStateAction } from "react";
-import { Card } from "@/components/page-shell";
 import type {
-  ImageItem,
   ImageStats,
-  PendingDelete,
   UploadProgress,
 } from "./image-bed-types";
 
 export type ImageBedT = (key: string) => string;
-
-type PublishForm = {
-  storageNodeId: string;
-  relativePath: string;
-  filename: string;
-  album: string;
-};
-type StorageNodeOption = { id: string; name: string };
 
 export function formatImageSize(bytes: number) {
   if (bytes < 1024) return `${bytes} B`;

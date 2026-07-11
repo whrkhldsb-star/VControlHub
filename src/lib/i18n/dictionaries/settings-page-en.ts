@@ -8,13 +8,6 @@ export const en: Record<string, string> = {
 	"settingsPage.tab.notifications.desc": "Email alerts, Telegram push",
 	"settingsPage.tab.advanced": "Advanced",
 	"settingsPage.tab.advanced.desc": "Runtime, backups, AI ops",
-	"settingsPage.tab.expandAll": "Expand all",
-	"settingsPage.tab.collapseAll": "Collapse all",
-	"settingsPage.tab.sectionCount": "{count} items",
-
-	// ── Legacy keys preserved from earlier rounds ──
-	"settingsPage.unified.categoryDescription": "Find settings by personal preferences, account security, platform, notifications, runtime, backups, and AI Ops.",
-	"settingsPage.unified.categoryTitle": "Settings Categories",
 	"settingsPage.unified.description": "Personal habits, interface behavior, account security, and platform-level parameters are managed from one place.",
 	"settingsPage.unified.eyebrow": "Personalized settings",
 	"settingsPage.unified.title": "Settings",
@@ -25,12 +18,8 @@ export const en: Record<string, string> = {
 	"settingsClient.collapse": "Collapse",
 	"settingsClient.expand": "Expand",
 	"settingsClient.sectionSuffix": "section",
-	"settingsClient.pendingChangesLabel": "changes pending",
-	"settingsClient.changesList": "change list",
 	"settingsClient.saving": "Saving…",
 	"settingsClient.save": "Save",
-	"settingsClient.unsavedChanges": "Unsaved changes",
-	"settingsClient.confirmSave": "Confirm save",
 
 	"settingsClient.metadataNoRecord": "No record yet",
 	"settingsClient.emptyValue": "(empty)",
@@ -255,7 +244,6 @@ export const en: Record<string, string> = {
 	"settingsClient.validate.sshIdle.outOfRange": "SSH idle timeout must be between 60 and 7200 seconds (0 means never)",
 	"settingsClient.validate.telegram.chatId.required": "Telegram Chat ID must configure at least 1 target",
 	"settingsClient.validate.telegram.chatId.invalidPrefix": "Telegram Chat ID format invalid: {invalid} (expected a number or @channelusername)",
-	"settingsClient.validate.telegram.chatId.invalidSuffix": " (expected a number or @channelusername)",
 	"settingsClient.validate.offsite.pathPrefix.noSlash": "Path prefix must end with /",
 	"settingsClient.validate.offsite.failureRecipient.invalid": "Failure alert recipient is not a valid email",
 	// ── Team workspace section ──

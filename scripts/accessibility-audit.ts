@@ -191,16 +191,17 @@ function isInvisibleField(raw: string, type: string | undefined): boolean {
 function collectNodes(text: string): { fields: Field[]; labels: Label[] } {
   const fields: Field[] = [];
   const labels: Label[] = [];
+  const scanText = text.replace(/\/\*[\s\S]*?\*\//g, (comment) => " ".repeat(comment.length)).replace(/\/\/[^\n]*/g, (comment) => " ".repeat(comment.length));
   const tagRe = /<(input|textarea|select|label)\b/g;
   let m: RegExpExecArray | null;
 
-  while ((m = tagRe.exec(text)) !== null) {
+  while ((m = tagRe.exec(scanText)) !== null) {
     const tagKind = m[1]!.toLowerCase() as FieldKind | "label";
     const tagStart = m.index;
     const tagNameEnd = tagStart + 1 + tagKind.length;
-    const tagEnd = findTagEnd(text, tagNameEnd);
+    const tagEnd = findTagEnd(scanText, tagNameEnd);
     if (tagEnd < 0) continue;
-    const inner = text.slice(tagNameEnd, tagEnd);
+    const inner = scanText.slice(tagNameEnd, tagEnd);
     const attrs = extractAttrs(inner);
     const line = lineForOffset(text, tagStart);
     const raw = `<${tagKind}${inner}>`;
@@ -211,7 +212,7 @@ function collectNodes(text: string): { fields: Field[]; labels: Label[] } {
       labels.push({ line, raw, htmlFor: attrs.htmlfor });
     } else {
       // input / textarea / select
-      if (isInvisibleField(raw, attrs.type)) continue;
+      if (isInvisibleField(raw, attrs.type) || /\{\.\.\.\w+\}/.test(raw)) continue;
       fields.push({
         kind: tagKind as FieldKind,
         line,
@@ -370,16 +371,14 @@ function findClosingButton(text: string, startOffset: number): number {
  *
  * We strip HTML tags and JSX comments, then look at what's left. JSX expressions
  * with literal string contents (e.g. `cond ? "yes" : "no"`) are kept; variable
- * references (e.g. `{label}`) are NOT evaluated and contribute no text, which is
- * a conservative choice (tends to over-flag — fine for an audit, since a manual
- * reviewer can confirm).
+ * references (e.g. `{label}` / `{children}`) represent runtime-visible content
+ * and are retained as a marker. Icon JSX expressions are still removed with
+ * their tags, so a genuinely icon-only button remains flagged.
  */
 function extractJsxVisibleText(body: string): string {
   let result = body;
   // Remove HTML comments
   result = result.replace(/<!--[\s\S]*?-->/g, "");
-  // Remove all HTML tags
-  result = result.replace(/<[^>]+>/g, "");
   // For each JSX expression, pull out string literals (for ternaries / fallbacks)
   result = result.replace(/\{([^{}]*)\}/g, (_match, inner: string) => {
     const stringLiterals: string[] = [];
@@ -388,8 +387,18 @@ function extractJsxVisibleText(body: string): string {
     while ((sm = strRe.exec(inner)) !== null) {
       stringLiterals.push(sm[1] ?? sm[2] ?? "");
     }
-    return stringLiterals.join(" ");
+    if (stringLiterals.length > 0) return stringLiterals.join(" ");
+    const expression = inner.trim();
+    if (/<\/?[A-Za-z]/.test(expression)) return "";
+    if (/^[A-Za-z_$][\w$]*(?:\??\.[A-Za-z_$][\w$]*)*$/.test(expression)) {
+      return "runtime-label";
+    }
+    if (/[A-Za-z_$][\w$]*/.test(expression)) return "runtime-label";
+    return "";
   });
+  // Remove HTML tags after inspecting JSX expressions so icon components
+  // inside expressions can be distinguished from runtime text expressions.
+  result = result.replace(/<[^>]+>/g, "");
   return result.replace(/\s+/g, " ").trim();
 }
 

@@ -59,7 +59,7 @@ export async function DELETE(request: Request) {
           );
         }
         await prisma.downloadTask.delete({ where: { id: taskId } });
-        auditUserAction(session.userId, "download.purge", {
+        await auditUserAction(session.userId, "download.purge", {
           taskId,
           url: task.url,
         });
@@ -118,7 +118,7 @@ export async function DELETE(request: Request) {
         data: { status: "CANCELLED", errorMessage: t("apiDownloads.userCancelled", locale) },
       });
 
-      auditUserAction(session.userId, "download.cancel", {
+      await auditUserAction(session.userId, "download.cancel", {
         taskId,
         url: task.url,
       });

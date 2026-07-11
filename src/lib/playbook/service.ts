@@ -118,7 +118,7 @@ export async function createPlaybook(
     },
   });
   const narrowed = narrowPlaybook(row);
-  auditUserAction(createdById, "playbook.create", {
+  await auditUserAction(createdById, "playbook.create", {
     playbookId: narrowed.id,
     name: narrowed.name,
     triggerType: narrowed.triggerType,
@@ -147,7 +147,7 @@ export async function updatePlaybook(
   if (rest.enabled !== undefined) data.enabled = rest.enabled;
   const row = await prisma.playbook.update({ where: { id }, data });
   const narrowed = narrowPlaybook(row);
-  auditUserAction(updatedById, "playbook.update", {
+  await auditUserAction(updatedById, "playbook.update", {
     playbookId: narrowed.id,
     name: narrowed.name,
     enabled: narrowed.enabled,
@@ -158,7 +158,7 @@ export async function updatePlaybook(
 
 export async function deletePlaybook(id: string, deletedById: string): Promise<void> {
   await prisma.playbook.delete({ where: { id } });
-  auditUserAction(deletedById, "playbook.delete", { playbookId: id });
+  await auditUserAction(deletedById, "playbook.delete", { playbookId: id });
 }
 
 export async function listPlaybookRuns(playbookId: string): Promise<PlaybookRunRecord[]> {
@@ -241,7 +241,7 @@ export async function runPlaybook(input: {
   });
 
   if (input.createdById) {
-    auditUserAction(input.createdById, "playbook.run", {
+    await auditUserAction(input.createdById, "playbook.run", {
       playbookId: input.playbookId,
       runId: run.id,
       dryRun: input.dryRun,

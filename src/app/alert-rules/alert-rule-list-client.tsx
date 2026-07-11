@@ -317,7 +317,7 @@ export function AlertRuleListClient({ rules: initialRules, servers, playbooks = 
 /* ── Create form ──────────────────────────────────────────── */
 
 function CreateRuleForm({ servers, playbooks, onClose }: { servers: ServerOption[]; playbooks: PlaybookOption[]; onClose: () => void }) {
-	const { t, locale } = useI18n();
+	const { t } = useI18n();
 	const [name, setName] = useState("");
 	const [metric, setMetric] = useState("cpu_usage");
 	const [operator, setOperator] = useState("gte");

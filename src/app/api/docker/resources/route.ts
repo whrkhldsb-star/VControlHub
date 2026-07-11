@@ -136,7 +136,7 @@ export async function POST(req: NextRequest) {
         : undefined;
 
       const result = await dockerRequest(path, method, body);
-      auditUserAction(
+      await auditUserAction(
         session.userId,
         `docker.${isNetwork ? "network" : "volume"}.${action}`,
         { name, driver, status: result.status, ok: result.ok },

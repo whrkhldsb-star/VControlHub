@@ -48,7 +48,10 @@ if docker compose version >/dev/null 2>&1; then
 elif command -v docker-compose >/dev/null 2>&1; then
   env "${compose_env[@]}" docker-compose -f "${ROOT}/docker-compose.yml" config >/dev/null
 else
-  echo "docker compose not installed; skipping compose config validate"
+	# Keep CI/fresh-host checks meaningful even when the Docker Compose plugin
+	# is not installed yet. This validates YAML plus the deployment contract;
+	# native `docker compose config` remains preferred when available.
+	node "${ROOT}/scripts/validate-compose.mjs" "${ROOT}/docker-compose.yml"
 fi
 
 echo "deploy-assets-ok"

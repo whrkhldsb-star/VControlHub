@@ -280,6 +280,15 @@ export function scanCallSites(files: string[]): CallSite[] {
     const perFileSeen = new Set<string>();
     const recordLineKey = (perm: string, lineNum: number) =>
       perFileSeen.add(`${perm}@${lineNum}`);
+		// Route options are sometimes assembled in a local variable before being
+		// passed to withApiRoute(), or enforced through enforceApiGuard(). Treat
+		// permission literals in those guarded route files as real enforcement.
+		if (file.endsWith("/route.ts") && (text.includes("withApiRoute(") || text.includes("enforceApiGuard("))) {
+			for (const match of text.matchAll(permArgRe)) {
+				const lineNum = text.slice(0, match.index ?? 0).split("\n").length;
+				sites.push({ permission: match[1]!, kind: "withApiRoutePermission", file, line: lineNum });
+			}
+		}
     for (let i = 0; i < lines.length; i++) {
       const line = lines[i]!;
       // variable assignment: `const canX = sessionHasPermission(...)`
@@ -487,6 +496,13 @@ export function buildUsage(
     "/src/app/api/ai/conversations/[id]",
     "/src/app/api/ai/hosted-actions",
     "/src/app/api/ai/models",
+		"/src/app/api/ai/hosted-actions/[id]",
+		"/src/app/api/downloads",
+		"/src/app/api/monitoring/stream",
+		"/src/app/api/teams/[id]",
+		"/src/app/api/teams/[id]/members",
+		"/src/app/api/teams/[id]/members/[userId]",
+		"/src/app/api/teams/switch",
   ]);
   // TR-043: routes whose enforcement uses a dynamic permission variable
   // (e.g. ternary-derived). Static analysis can't follow these, so we

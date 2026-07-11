@@ -7,11 +7,8 @@
 
 export const zh: Record<string, string> = {
 	"monitoring.auto-refresh": "自动刷新",
-	"monitoring.cpu": "CPU",
 	"monitoring.disk": "磁盘",
 	"monitoring.memory": "内存",
-	"monitoring.network": "网络",
-	"monitoring.title": "服务器监控",
 	"monitoring.top-processes": "Top 进程",
 	"monitoringPage.title": "服务器监控",
 	"monitoringPage.desc": "实时系统资源监控",
@@ -60,11 +57,8 @@ export const zh: Record<string, string> = {
 
 export const en: Record<string, string> = {
 	"monitoring.auto-refresh": "Auto Refresh",
-	"monitoring.cpu": "CPU",
 	"monitoring.disk": "Disk",
 	"monitoring.memory": "Memory",
-	"monitoring.network": "Network",
-	"monitoring.title": "Server Monitoring",
 	"monitoring.top-processes": "Top Processes",
 	"monitoringPage.title": "Server Monitoring",
 	"monitoringPage.desc": "Real-time system resource monitoring",

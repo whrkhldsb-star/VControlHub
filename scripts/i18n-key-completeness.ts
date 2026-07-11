@@ -18,8 +18,9 @@
  * be wired into CI / pre-commit.
  */
 
-import { readFileSync, readdirSync } from "node:fs";
+import { readFileSync, readdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
+import ts from "typescript";
 
 const ROOT = join(__dirname, "..");
 const SRC = join(ROOT, "src");
@@ -44,8 +45,10 @@ const DICT_FILES = readdirSync(DICT_DIR)
   .filter((f) => f.endsWith(".ts"))
   .map((f) => join(DICT_DIR, f));
 
-// --- Collect t("...") keys used in code ---
+// --- Collect translation keys referenced in code ---
 const used = new Set<string>();
+const referencedLiterals = new Set<string>();
+const dynamicKeyPatterns: RegExp[] = [];
 const _tRegex = /\bt(?:\(\s*|plT\(\s*|rTpl\(\s*|\s+extends\s+\w+\s*\?\s*)['"]([a-zA-Z][a-zA-Z0-9_.]+)['"]/g;
 // Match the simple dominant patterns: t("..."), tplT("..."), trTpl("...") — and the rare t("k", ...)
 const tSimple = /\b(?:t|tplT|trTpl)\(\s*['"]([a-zA-Z][a-zA-Z0-9_.]+)['"]/g;
@@ -66,6 +69,31 @@ for (const f of CODE_FILES) {
     const key = m[1];
     if (key) used.add(key);
   }
+	// Keys are frequently routed through small wrappers (`tt(key)`, schema
+	// metadata, label maps) before reaching t(). Count any dictionary-shaped
+	// string literal in executable source as an indirect reference.
+	for (const m of src.matchAll(/['"]([a-zA-Z][a-zA-Z0-9_.]+)['"]/g)) {
+		if (m[1]) referencedLiterals.add(m[1]);
+	}
+	// Also understand template-prefix lookups such as
+	// t(`audit.action.${action}`) and t(`status.${kind}.label`).
+	for (const m of src.matchAll(/`([^`]*\$\{[^`]+)`/g)) {
+		const template = m[1];
+		if (!template) continue;
+		const staticParts = template.split(/\$\{[^}]+\}/g);
+		const staticText = staticParts.join("");
+		// Ignore generic templates such as `${value}` or URLs. A translation
+		// family must retain a stable dotted namespace in its static portion.
+		if (!/[a-zA-Z][a-zA-Z0-9_]*\./.test(staticText)) continue;
+		const escaped = staticParts
+			.map((part) => part.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"))
+			.join(".+");
+		dynamicKeyPatterns.push(new RegExp(`^${escaped}$`));
+	}
+	for (const m of src.matchAll(/['"]([a-zA-Z][a-zA-Z0-9_.]*\.)['"]\s*\+/g)) {
+		const prefix = m[1];
+		if (prefix) dynamicKeyPatterns.push(new RegExp(`^${prefix.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}.+$`));
+	}
 }
 
 // --- Collect keys defined in dictionaries ---
@@ -103,10 +131,46 @@ for (const f of DICT_FILES) {
 
 const definedAll = new Set<string>([...definedZh, ...definedEn]);
 
+for (const key of definedAll) {
+	if (referencedLiterals.has(key) || dynamicKeyPatterns.some((pattern) => pattern.test(key))) {
+		used.add(key);
+	}
+}
+
 // --- Diff ---
 const missingInDict = [...used].filter((k) => !definedAll.has(k)).sort();
 const orphanInDict = [...definedAll].filter((k) => !used.has(k)).sort();
 const zhEnMismatch = [...definedAll].filter((k) => definedZh.has(k) !== definedEn.has(k)).sort();
+
+if (process.argv.includes("--prune") && orphanInDict.length > 0) {
+	const orphanSet = new Set(orphanInDict);
+	let removed = 0;
+	for (const file of DICT_FILES) {
+		const source = readFileSync(file, "utf8");
+		const sourceFile = ts.createSourceFile(file, source, ts.ScriptTarget.Latest, true, ts.ScriptKind.TS);
+		const edits: Array<{ start: number; end: number }> = [];
+		function visit(node: ts.Node) {
+			if (ts.isPropertyAssignment(node) && (ts.isStringLiteral(node.name) || ts.isNoSubstitutionTemplateLiteral(node.name))) {
+				if (orphanSet.has(node.name.text)) {
+					let end = node.end;
+					while (end < source.length && (source[end] === " " || source[end] === "\t")) end++;
+					if (source[end] === ",") end++;
+					edits.push({ start: node.getFullStart(), end });
+					removed++;
+				}
+			}
+			ts.forEachChild(node, visit);
+		}
+		visit(sourceFile);
+		let next = source;
+		for (const edit of edits.sort((a, b) => b.start - a.start)) {
+			next = next.slice(0, edit.start) + next.slice(edit.end);
+		}
+		if (edits.length > 0) writeFileSync(file, next, "utf8");
+	}
+	console.log(`[PRUNE] removed ${removed} locale entries for ${orphanInDict.length} orphan keys`);
+	process.exit(0);
+}
 
 console.log(`\n[ i18n-key-completeness ]`);
 console.log(`  used=${used.size}  definedZh=${definedZh.size}  definedEn=${definedEn.size}`);
@@ -128,11 +192,12 @@ if (zhEnMismatch.length > 0) {
 
 if (orphanInDict.length > 0) {
   console.warn(`\n[WARN] ${orphanInDict.length} dict key(s) not referenced by any t() call (likely dead, may be referenced via template-prefix patterns):`);
-  for (const k of orphanInDict.slice(0, 30)) console.warn(`  - ${k}`);
-  if (orphanInDict.length > 30) console.warn(`  ... and ${orphanInDict.length - 30} more`);
+	const orphanPreview = process.env.I18N_SHOW_ALL_ORPHANS === "1" ? orphanInDict : orphanInDict.slice(0, 30);
+  for (const k of orphanPreview) console.warn(`  - ${k}`);
+  if (orphanInDict.length > orphanPreview.length) console.warn(`  ... and ${orphanInDict.length - orphanPreview.length} more`);
 }
 
-if (missingInDict.length > 0 || zhEnMismatch.length > 0) {
+if (missingInDict.length > 0 || zhEnMismatch.length > 0 || orphanInDict.length > 0) {
   process.exit(1);
 }
-console.log("\n[OK] all t() keys resolved in zh+en dictionaries");
+console.log("\n[OK] all t() keys resolved in zh+en dictionaries; no orphan keys");

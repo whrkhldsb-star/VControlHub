@@ -60,7 +60,7 @@ export async function PATCH(
 
 			try {
 				const updated = await updateVpsBackupSchedule(scheduleId, body);
-				auditUserAction(session.userId, "vps-backup.schedule.update", { serverId, scheduleId });
+				await auditUserAction(session.userId, "vps-backup.schedule.update", { serverId, scheduleId });
 				return Response.json({ schedule: updated });
 			} catch (err) {
 				logger.error("Failed to update VPS backup schedule", { error: err, scheduleId });
@@ -100,7 +100,7 @@ export async function DELETE(
 
 			try {
 				await deleteVpsBackupSchedule(scheduleId);
-				auditUserAction(session.userId, "vps-backup.schedule.delete", { serverId, scheduleId });
+				await auditUserAction(session.userId, "vps-backup.schedule.delete", { serverId, scheduleId });
 				return Response.json({ success: true });
 			} catch (err) {
 				logger.error("Failed to delete VPS backup schedule", { error: err, scheduleId });

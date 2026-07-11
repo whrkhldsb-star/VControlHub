@@ -72,7 +72,7 @@ function summarizePayload(payload: unknown): string | null {
 }
 
 export function JobEventsDialog({ jobId, open, onClose }: JobEventsDialogProps) {
-  const { t, locale } = useI18n();
+  const { t } = useI18n();
   const levelLabels = buildLevelLabels(t);
   const typeLabels = buildTypeLabels(t);
   const [events, setEvents] = useState<JobEventRow[]>([]);

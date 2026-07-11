@@ -1,8 +1,6 @@
 import fs from 'fs/promises';
 import path from 'path';
 
-const SRC_DIR = './src/app/servers';
-
 // Common mapping from tailwind hardcoded classes to design tokens
 const tokenMap = {
   // Emerald / Green -> Success

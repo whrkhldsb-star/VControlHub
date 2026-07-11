@@ -71,7 +71,7 @@ export async function GET(
         throw new NotFoundError("Deployment export package has no downloadable files");
       }
       const zip = buildZip(entries, { mtime: record.createdAt });
-      auditUserAction(session.userId, "deployment.export.download", {
+      await auditUserAction(session.userId, "deployment.export.download", {
         exportId: record.id,
         fileCount: entries.length,
         size: zip.length,

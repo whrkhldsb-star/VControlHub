@@ -44,7 +44,7 @@ export async function POST(
 				logId: id,
 				actionId: body.actionId,
 			});
-			auditUserAction(
+			await auditUserAction(
 				session?.userId ?? "anonymous",
 				"ai.ops.recommendation.approve",
 				{

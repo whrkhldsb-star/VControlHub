@@ -7,7 +7,8 @@ import { enqueueJob } from "@/lib/job/service";
 import { SFTP_SYNC_JOB_TYPE } from "@/lib/storage/sftp-sync-job";
 
 import { assertStorageAccess } from "@/lib/storage/access-control";
-import { AuthError, NotFoundError, ValidationError } from "@/lib/errors";
+import { AuthError, NotFoundError } from "@/lib/errors";
+import { auditUserAction } from "@/lib/audit/service";
 import {
   getSftpSyncNode,
   syncSftpDirectoryEntries,
@@ -106,6 +107,7 @@ export async function POST(request: Request) {
         createdBy: session.userId,
         maxAttempts: 3,
       });
+      await auditUserAction(session.userId, "storage.sftp-sync", { nodeId, remotePath: remotePath ?? null });
       return NextResponse.json({
         success: true,
         queued: true,

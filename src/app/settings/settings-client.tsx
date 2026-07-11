@@ -36,7 +36,6 @@ import {
   SETTINGS_SCHEMA,
   getSectionSaveKeys,
   type FieldDef,
-  type FieldValidationError,
   type SectionDef,
 } from "./field-schema";
 import {
@@ -89,11 +88,11 @@ export function SettingsClient({
   // Schema now holds i18n keys directly — rendering components call t()/tt()
   // to resolve them. No bridge layer needed.
   const schema = SETTINGS_SCHEMA;
-  const tt = (key: string, vars?: Record<string, string | number>) => {
+  const tt = useCallback((key: string, vars?: Record<string, string | number>) => {
     let s = t(key);
     if (vars) for (const [k, v] of Object.entries(vars)) s = s.replace(`{${k}}`, String(v));
     return s;
-  };
+  }, [t]);
   const tocItems = useMemo(() =>
     SETTINGS_SCHEMA.map((s) => {
       const subtitleKey = TOC_SUBTITLE_KEYS[s.id] ?? `settingsClient.toc.fieldsCount.suffix`;

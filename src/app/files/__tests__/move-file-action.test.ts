@@ -1,7 +1,13 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const { moveBackingObjectMock } = vi.hoisted(() => ({
+const { moveBackingObjectMock, fileEntryMock } = vi.hoisted(() => ({
   moveBackingObjectMock: vi.fn(),
+	fileEntryMock: {
+		findUnique: vi.fn(),
+		findFirst: vi.fn(),
+		findMany: vi.fn(),
+		update: vi.fn(),
+	},
 }));
 
 vi.mock("@/lib/auth/authorization", () => ({
@@ -15,12 +21,8 @@ vi.mock("@/lib/auth/authorization", () => ({
 
 vi.mock("@/lib/db", () => ({
   prisma: {
-    fileEntry: {
-      findUnique: vi.fn(),
-      findFirst: vi.fn(),
-      findMany: vi.fn(),
-      update: vi.fn(),
-    },
+		fileEntry: fileEntryMock,
+		$transaction: vi.fn(async (callback) => callback({ fileEntry: fileEntryMock })),
   },
 }));
 

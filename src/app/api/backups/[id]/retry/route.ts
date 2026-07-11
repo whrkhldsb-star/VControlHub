@@ -20,7 +20,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       createdBy: session?.userId ?? null,
       maxAttempts: 1,
     });
-    auditUserAction(session!.userId, "backup.retry", { backupId: id });
+    await auditUserAction(session!.userId, "backup.retry", { backupId: id });
     return NextResponse.json({ backup, jobId: job.id, taskId: `job:${job.id}` }, { status: 202 });
   });
 }

@@ -49,11 +49,7 @@ export default function GlobalError({
 	error: Error & { digest?: string };
 	reset: () => void;
 }) {
-	const [locale, setLocale] = useState<Locale>("zh");
-
-	useEffect(() => {
-		setLocale(detectLocale());
-	}, []);
+	const [locale] = useState<Locale>(detectLocale);
 
 	useEffect(() => {
 		logger.error("global error boundary captured error", error);

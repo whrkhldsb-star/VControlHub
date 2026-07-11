@@ -1,181 +1,18 @@
 {
-  "generatedAt": "2026-06-16T00:39:22.338Z",
+  "generatedAt": "2026-07-11T07:33:11.832Z",
   "summary": {
-    "files": 254,
-    "total": 231,
-    "ok": 231,
+    "files": 359,
+    "total": 306,
+    "ok": 306,
     "flagged": 0
   },
   "flaggedByFile": {},
   "phase2": {
     "description": "Icon-only <button> elements with no visible text, no aria-label, no aria-labelledby, and no title attribute. Screen readers will announce these as unlabeled buttons.",
     "summary": {
-      "total": 32,
-      "flagged": 32
+      "total": 0,
+      "flagged": 0
     },
-    "iconOnlyByFile": {
-      "src/app/ai/ai-settings-panel.tsx": [
-        {
-          "line": 62,
-          "raw": "<button\n              onClick={() => setModelDropdownOpen(!modelDropdownOpen)}\n              className=\"w-full flex items-center justify-between bg-black/30 border border-[var(--border)] rounded-lg px-2.5 py-1.5 text-xs text-white hover:border-cyan-400/30 transition\"\n            >"
-        }
-      ],
-      "src/app/alert-rules/alert-rule-list-client.tsx": [
-        {
-          "line": 385,
-          "raw": "<button key={server.id} type=\"button\" onClick={() => toggleServer(server.id)} className={`rounded-md border px-2.5 py-1 text-[11px] transition ${selectedServerIds.includes(server.id) ? \"border-cyan-400/30 bg-cyan-400/10 text-cyan-200\" : \"border-white/[0.06] bg-white/[0.03] text-slate-500 hover:bg-white/[0.05]\"}`}>"
-        },
-        {
-          "line": 399,
-          "raw": "<button key={key} type=\"button\" onClick={() => toggleChannel(key)}\n\t\t\t\t\t\t\tclassName={`rounded-lg border px-3 py-1.5 text-xs font-medium transition ${channels.includes(key) ? \"border-cyan-400/30 bg-cyan-400/10 text-cyan-200\" : \"border-white/[0.06] bg-white/[0.03] text-slate-500 hover:bg-white/[0.05]\"}`}\n\t\t\t\t\t\t>"
-        }
-      ],
-      "src/app/audit/audit-client.tsx": [
-        {
-          "line": 181,
-          "raw": "<button\n              key={action}\n              type=\"button\"\n              onClick={() => {\n                setActionFilter(action);\n                setPage(1);\n              }}\n              data-tone={actionFilter === action ? \"accent\" : undefined}\n              className={`rounded-full border px-3 py-1 text-xs transition ${actionFilter === action ? \"\" : \"border-white/10 bg-white/5 text-slate-300 hover:bg-white/10\"}`}\n            >"
-        }
-      ],
-      "src/app/downloads/downloads-client.tsx": [
-        {
-          "line": 338,
-          "raw": "<button key={c.value} type=\"button\" onClick={() => setCategoryFilter(categoryFilter === c.value ? null : c.value)}\n\t\t\t\t\t\t\tclassName={`rounded-full border px-2.5 py-1 text-[11px] transition ${\n\t\t\t\t\t\t\t\tcategoryFilter === c.value ? \"border-cyan-400/30 bg-cyan-400/10 text-cyan-100\" : \"border-white/[0.06] bg-white/[0.02] text-slate-500 hover:bg-white/[0.05]\"\n\t\t\t\t\t\t\t}`}\n\t\t\t\t\t\t>"
-        }
-      ],
-      "src/app/files/file-list-client.tsx": [
-        {
-          "line": 607,
-          "raw": "<button\n                type=\"button\"\n                onClick={() => navigateToFolder(folder.path)}\n                className=\"truncate font-medium text-cyan-100 hover:text-white light:hover:text-slate-900 transition text-left text-sm\"\n              >"
-        },
-        {
-          "line": 813,
-          "raw": "<button\n                      type=\"button\"\n                      onClick={() => navigateToFolder(folder.path)}\n                      className=\"truncate font-medium text-cyan-100 hover:text-cyan-50 text-left\"\n                    >"
-        },
-        {
-          "line": 951,
-          "raw": "<button\n                    type=\"button\"\n                    onClick={() => navigateToFolder(folder.path)}\n                    className=\"truncate font-medium text-cyan-100 hover:text-cyan-50 text-left text-sm\"\n                  >"
-        }
-      ],
-      "src/app/files/files-browser-spa.tsx": [
-        {
-          "line": 419,
-          "raw": "<button\n                type=\"button\"\n                onClick={() => onNavigate(nextPath)}\n                className=\"rounded-full border border-[var(--border)] px-3 py-1.5 text-slate-200 hover:bg-white/5\"\n              >"
-        }
-      ],
-      "src/app/health/health-dashboard-client.tsx": [
-        {
-          "line": 387,
-          "raw": "<button type=\"button\" disabled className=\"min-h-11 inline-flex items-center rounded-lg border border-white/[0.06] bg-white/[0.03] px-3 text-xs text-slate-500 opacity-60\">"
-        },
-        {
-          "line": 431,
-          "raw": "<button\n\t\t\t\t\ttype=\"button\"\n\t\t\t\t\tonClick={fetchHealth}\n\t\t\t\t\tdisabled={isRefreshing}\n\t\t\t\t\tclassName=\"mt-3 rounded-lg border border-rose-300/40 px-3 py-1.5 text-xs transition hover:bg-rose-300/10 disabled:cursor-not-allowed disabled:opacity-60\"\n\t\t\t\t>"
-        },
-        {
-          "line": 587,
-          "raw": "<button\n\t\t\t\t\t\t\t\t\t\t\t\tonClick={() => toggleExpand(server.serverId)}\n\t\t\t\t\t\t\t\t\t\t\t\tclassName=\"text-[11px] text-cyan-400/70 hover:text-cyan-300 transition\"\n\t\t\t\t\t\t\t\t\t\t\t>"
-        }
-      ],
-      "src/app/preferences/preferences-page-client.tsx": [
-        {
-          "line": 205,
-          "raw": "<button\n\t\t\t\t\t\t\t\tkey={opt.value}\n\t\t\t\t\t\t\t\tonClick={() => save({ ...prefs, defaultPage: opt.value })}\n\t\t\t\t\t\t\t\tclassName={`px-3 py-2 text-xs rounded-lg border transition ${\n\t\t\t\t\t\t\t\t\tprefs.defaultPage === opt.value\n\t\t\t\t\t\t\t\t\t\t? \"border-cyan-500/50 bg-cyan-500/10 text-cyan-400\"\n\t\t\t\t\t\t\t\t\t\t: \"border-white/[0.06] bg-white/[0.02] text-slate-400 hover:bg-white/[0.04]\"\n\t\t\t\t\t\t\t\t}`}\n\t\t\t\t\t\t\t>"
-        },
-        {
-          "line": 241,
-          "raw": "<button\n\t\t\t\t\t\t\t\tkey={opt.value}\n\t\t\t\t\t\t\t\tonClick={() => save({ ...prefs, autoRefreshInterval: opt.value })}\n\t\t\t\t\t\t\t\tclassName={`px-3 py-1.5 text-xs rounded-lg border transition ${\n\t\t\t\t\t\t\t\t\tprefs.autoRefreshInterval === opt.value\n\t\t\t\t\t\t\t\t\t\t? \"border-cyan-500/50 bg-cyan-500/10 text-cyan-400\"\n\t\t\t\t\t\t\t\t\t\t: \"border-white/[0.06] bg-white/[0.02] text-slate-400 hover:bg-white/[0.04]\"\n\t\t\t\t\t\t\t\t}`}\n\t\t\t\t\t\t\t>"
-        },
-        {
-          "line": 265,
-          "raw": "<button\n\t\t\t\t\t\t\t\tkey={opt.value}\n\t\t\t\t\t\t\t\tonClick={() => save({ ...prefs, autoProbeIntervalSec: opt.value })}\n\t\t\t\t\t\t\t\tdisabled={!prefs.autoProbeEnabled}\n\t\t\t\t\t\t\t\tclassName={`px-3 py-1.5 text-xs rounded-lg border transition ${\n\t\t\t\t\t\t\t\t\tprefs.autoProbeIntervalSec === opt.value\n\t\t\t\t\t\t\t\t\t\t? \"border-cyan-500/50 bg-cyan-500/10 text-cyan-400\"\n\t\t\t\t\t\t\t\t\t\t: \"border-white/[0.06] bg-white/[0.02] text-slate-400 hover:bg-white/[0.04]\"\n\t\t\t\t\t\t\t\t} disabled:opacity-50 disabled:cursor-not-allowed`}\n\t\t\t\t\t\t\t>"
-        }
-      ],
-      "src/app/quick-services/quick-services-client.tsx": [
-        {
-          "line": 435,
-          "raw": "<button type=\"button\" onClick={() => setTab(nextAction.tab)}\n\t\t\t\t\t\t\tclassName={`rounded-full border px-3 py-1.5 text-xs transition ${nextAction.tone === \"rose\" ? \"border-rose-400/30 bg-rose-400/10 text-rose-100 hover:bg-rose-400/15\" : nextAction.tone === \"emerald\" ? \"border-emerald-400/30 bg-emerald-400/10 text-emerald-100 hover:bg-emerald-400/15\" : \"border-cyan-400/30 bg-cyan-400/10 text-cyan-100 hover:bg-cyan-400/15\"}`}\n\t\t\t\t\t\t>"
-        },
-        {
-          "line": 558,
-          "raw": "<button key={preset.key} type=\"button\" onClick={() => applySourcePreset(preset.key)} className={`rounded-xl border p-3 text-left transition ${active ? \"border-cyan-400/30 bg-cyan-400/10 text-cyan-100\" : \"border-white/[0.08] bg-white/[0.03] text-slate-300 hover:bg-white/[0.06] light:hover:bg-white\"}`}>"
-        },
-        {
-          "line": 586,
-          "raw": "<button key={type} type=\"button\" onClick={() => setNewSourceType(type)} className={`rounded-lg border px-3 py-1.5 text-xs transition ${newSourceType === type ? \"border-violet-400/30 bg-violet-400/10 text-violet-100\" : \"border-white/[0.08] text-slate-300 hover:bg-white/[0.06]\"}`}>"
-        }
-      ],
-      "src/app/scheduled-tasks/scheduled-task-list-client.tsx": [
-        {
-          "line": 309,
-          "raw": "<button key={p.expr} type=\"button\" onClick={() => setCron(p.expr)}\n\t\t\t\t\t\t\tclassName={`min-h-11 rounded-md border px-2.5 py-1 text-[11px] transition ${\n\t\t\t\t\t\t\t\tcronExpression === p.expr\n\t\t\t\t\t\t\t\t\t? \"border-[var(--accent-border)] bg-[var(--accent-bg)] text-[var(--accent)]\"\n\t\t\t\t\t\t\t\t\t: \"border-white/[0.06] bg-white/[0.02] text-slate-500 hover:bg-white/[0.04]\"\n\t\t\t\t\t\t\t}`}\n\t\t\t\t\t\t>"
-        }
-      ],
-      "src/app/servers/server-tab-layout.tsx": [
-        {
-          "line": 41,
-          "raw": "<button\n\t\t\t\t\t\t\t\tkey={action.key}\n\t\t\t\t\t\t\t\ttype=\"button\"\n\t\t\t\t\t\t\t\tonClick={() => !disabled && setActivePanel(action.key)}\n\t\t\t\t\t\t\t\tdisabled={disabled}\n\t\t\t\t\t\t\t\tclassName={`rounded-xl border px-4 py-3 text-left transition-all duration-150 ${\n\t\t\t\t\t\t\t\t\tactivePanel === action.key\n\t\t\t\t\t\t\t\t\t\t?\"border-cyan-400/25 bg-cyan-400/10 text-cyan-100 shadow-[0_0_0_1px_rgba(34,211,238,0.1)]\"\n\t\t\t\t\t\t\t\t\t\t:\"border-white/[0.06] bg-white/[0.03] text-slate-300 hover:bg-white/[0.06]\"\n\t\t\t\t\t\t\t\t} ${disabled ?\"cursor-not-allowed opacity-45\" :\"\"}`}\n\t\t\t\t\t\t\t>"
-        }
-      ],
-      "src/app/shares/share-file-picker.tsx": [
-        {
-          "line": 269,
-          "raw": "<button\n\t\t\t\t\t\ttype=\"button\"\n\t\t\t\t\t\tonClick={() => void loadFiles()}\n\t\t\t\t\t\tclassName=\"min-h-11 inline-flex items-center gap-2 rounded-xl border border-white/10 px-3 py-2 text-sm text-slate-300 hover:bg-white/10 light:hover:bg-slate-50\"\n\t\t\t\t\t>"
-        },
-        {
-          "line": 280,
-          "raw": "<button type=\"button\" onClick={() => setPath(\"\")} className=\"min-h-11 min-w-11 rounded-full border border-white/10 px-2.5 py-1 hover:text-cyan-200 light:hover:text-cyan-700\">"
-        },
-        {
-          "line": 284,
-          "raw": "<button type=\"button\" onClick={() => jumpToCrumb(index)} className=\"min-h-11 min-w-11 rounded-full border border-white/10 px-2.5 py-1 hover:text-cyan-200 light:hover:text-cyan-700\">"
-        },
-        {
-          "line": 315,
-          "raw": "<button type=\"button\" onClick={() => openFolder(folder)} className=\"min-h-11 flex min-w-0 items-center gap-2 text-left text-slate-200 hover:text-cyan-200 light:hover:text-cyan-700\">"
-        },
-        {
-          "line": 354,
-          "raw": "<button type=\"button\" onClick={() => setSelected({})} className=\"min-h-11 min-w-11 text-xs text-slate-500 hover:text-slate-200 light:hover:text-slate-700\">"
-        },
-        {
-          "line": 364,
-          "raw": "<button\n\t\t\t\t\t\ttype=\"button\"\n\t\t\t\t\t\tonClick={() => void createShares()}\n\t\t\t\t\t\tdisabled={creating || selectedItems.length === 0}\n\t\t\t\t\t\tclassName=\"min-h-11 mt-4 inline-flex w-full items-center justify-center gap-2 rounded-xl bg-cyan-500 px-4 py-2.5 text-sm font-semibold text-slate-950 transition hover:bg-cyan-400 disabled:cursor-not-allowed disabled:opacity-50\"\n\t\t\t\t\t>"
-        },
-        {
-          "line": 382,
-          "raw": "<button type=\"button\" onClick={() => void copy(item)} className=\"min-h-11 min-w-11 inline-flex items-center gap-1 rounded-md border border-emerald-400/30 px-2 py-1 text-emerald-100\">"
-        }
-      ],
-      "src/app/users/user-permission-panel.tsx": [
-        {
-          "line": 164,
-          "raw": "<button key={role.key} type=\"button\" onClick={() => setRoleKeys((current) => toggle(current, role.key))} className={`rounded-full border px-3 py-1.5 text-xs ${roleKeys.includes(role.key) ? \"border-cyan-400/40 bg-cyan-400/15 text-cyan-100\" : \"border-white/10 bg-white/5 text-slate-400\"}`}>"
-        }
-      ],
-      "src/app/users/users-client.tsx": [
-        {
-          "line": 206,
-          "raw": "<button\n                  key={role.key}\n                  type=\"button\"\n                  onClick={() => toggleRole(role.key)}\n                  className={`rounded-full border px-3 py-1.5 text-xs transition ${\n                    createForm.roleKeys.includes(role.key)\n                      ? \"\"\n                      : \"border-white/10 bg-white/5 text-slate-500\"\n                  }`}\n                  data-tone={createForm.roleKeys.includes(role.key) ? roleBadgeTone(role.key) : undefined}\n                >"
-        }
-      ],
-      "src/components/global-search.tsx": [
-        {
-          "line": 214,
-          "raw": "<button\n\t\t\t\t\t\t\t\tonClick={() => navigate(item)}\n\t\t\t\t\t\t\t\tclassName={`w-full flex items-center gap-3 px-4 py-2.5 text-sm transition ${\n\t\t\t\t\t\t\t\t\ti === selectedIndex ?\"bg-white/[0.06] text-white\" :\"text-[var(--text-secondary)] hover:bg-white/[0.03]\"\n\t\t\t\t\t\t\t\t}`}\n\t\t\t\t\t\t\t>"
-        }
-      ],
-      "src/components/notification-bell.tsx": [
-        {
-          "line": 192,
-          "raw": "<button onClick={markAllRead} className=\"text-[11px] text-cyan-400/80 hover:text-cyan-300 transition\">"
-        }
-      ],
-      "src/components/submit-button.tsx": [
-        {
-          "line": 23,
-          "raw": "<button\n      type=\"submit\"\n      name={name}\n      value={value}\n      disabled={pending || disabled}\n      className={className ?? \"rounded-2xl bg-cyan-500 px-4 py-2 text-sm font-medium text-slate-950 transition hover:bg-cyan-400 disabled:cursor-not-allowed disabled:opacity-60\"}\n    >"
-        }
-      ]
-    }
+    "iconOnlyByFile": {}
   }
 }

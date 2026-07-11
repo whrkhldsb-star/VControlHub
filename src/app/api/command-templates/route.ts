@@ -39,7 +39,7 @@ export async function POST(request: Request) {
 			name: body.name, description: body.description, command: body.command, rollbackCommand: body.rollbackCommand,
 			tags: body.tags, createdById: session?.userId ?? "",
 		});
-		auditUserAction(session?.userId ?? "", "command_template.create", auditTemplateDetail(template));
+		await auditUserAction(session?.userId ?? "", "command_template.create", auditTemplateDetail(template));
 		return NextResponse.json({ template });
 	});
 }
@@ -48,7 +48,7 @@ export async function PATCH(request: Request) {
 	return withApiRoute(request, { permission: "command:create", rateLimit: GENERAL_WRITE_LIMIT, errorStatus: 400, errorMessage: "Update failed", bodySchema: updateCommandTemplateSchema }, async ({ session, body }) => {
 		const { id, ...updates } = body;
 		const result = await updateTemplate(id, updates);
-		auditUserAction(session?.userId ?? "", "command_template.update", auditTemplateDetail(result));
+		await auditUserAction(session?.userId ?? "", "command_template.update", auditTemplateDetail(result));
 		return NextResponse.json({ template: result });
 	});
 }
@@ -58,7 +58,7 @@ export async function DELETE(request: Request) {
 		const { id } = parseSearchParams(request, idQuerySchema);
 		if (!id) throw new ValidationError("Missing template ID");
 		const deleted = await deleteTemplate(id);
-		auditUserAction(session?.userId ?? "", "command_template.delete", auditTemplateDetail(deleted));
+		await auditUserAction(session?.userId ?? "", "command_template.delete", auditTemplateDetail(deleted));
 		return NextResponse.json({ success: true });
 	});
 }

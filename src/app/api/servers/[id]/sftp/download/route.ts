@@ -8,6 +8,7 @@ import { withApiRoute } from "@/lib/http/api-guard";
 import { GENERAL_WRITE_LIMIT } from "@/lib/http/rate-limit-presets";
 import { downloadFile } from "@/lib/ssh/sftp-service";
 import { downloadQuerySchema } from "@/lib/ssh/sftp-schema";
+import { assertSftpPathAccess } from "@/lib/ssh/sftp-access-control";
 
 export const dynamic = "force-dynamic";
 
@@ -23,8 +24,9 @@ export async function GET(
       errorMessage: "SFTP download failed",
       querySchema: downloadQuerySchema,
     },
-    async ({ query }) => {
+    async ({ query, session }) => {
       const { id } = await params;
+			await assertSftpPathAccess({ session: session!, serverId: id, paths: [query.path] });
       const { stream, size } = await downloadFile(id, query.path);
 
       // Extract filename for Content-Disposition

@@ -83,7 +83,7 @@ export async function createServerAction(
       approvedHostKeySha256,
     });
 
-    auditUserAction(session.userId, "server.create", {
+    await auditUserAction(session.userId, "server.create", {
       serverId: created.id,
       name,
       host,
@@ -145,7 +145,7 @@ export async function updateServerAction(
 
     await updateServerProfile(serverId, changes);
 
-    auditUserAction(session.userId, "server.update", {
+    await auditUserAction(session.userId, "server.update", {
       serverId,
       fields: Object.keys(changes),
     });
@@ -194,7 +194,7 @@ export async function createSshKeyAction(
       createdById: session.userId,
     });
 
-    auditUserAction(session.userId, "ssh_key.create", {
+    await auditUserAction(session.userId, "ssh_key.create", {
       name: String(formData.get("name") ?? ""),
     });
 
@@ -222,7 +222,7 @@ export async function toggleServerAction(
     const serverId = String(formData.get("serverId") ?? "");
     const updated = await toggleServerEnabled(serverId);
     const newState = updated.enabled;
-    auditUserAction(session.userId, "server.toggle", {
+    await auditUserAction(session.userId, "server.toggle", {
       serverId,
       enabled: newState,
     });
@@ -344,7 +344,7 @@ export async function deleteServerAction(
 
     const serverName = current.name;
     await deleteServerProfile(serverId);
-    auditUserAction(session.userId, "server.delete", {
+    await auditUserAction(session.userId, "server.delete", {
       serverId,
       name: serverName,
     });

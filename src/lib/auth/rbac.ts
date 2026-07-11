@@ -35,6 +35,7 @@ export const PERMISSIONS = [
 	"role:manage",
 	"server:read",
 	"server:ssh",
+	"server:sftp:unrestricted",
 	"server:write",
 	"share:create",
 	"share:manage",

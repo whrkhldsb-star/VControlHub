@@ -100,7 +100,7 @@ export async function POST(
 					payload: { recordId },
 				});
 
-				auditUserAction(
+				await auditUserAction(
 					session.userId,
 					"vps-backup.record.trigger",
 					{ serverId, recordId, backupType: body.backupType },

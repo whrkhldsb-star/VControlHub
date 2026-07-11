@@ -1,10 +1,11 @@
 import { test } from '@playwright/test';
 test('screenshot login', async ({ page }) => {
-  await page.goto('http://localhost:3000/login');
-  await page.screenshot({ path: 'login-dark.png' });
+  await page.goto('/login');
+  await page.screenshot({ path: '.playwright-output/login-dark.png' });
   
   // Set theme cookie to light
-  await page.context().addCookies([{ name: 'vps-theme', value: 'light', url: 'http://localhost:3000' }]);
-  await page.goto('http://localhost:3000/login');
-  await page.screenshot({ path: 'login-light.png' });
+  const origin = new URL(page.url()).origin;
+  await page.context().addCookies([{ name: 'vps-theme', value: 'light', url: origin }]);
+  await page.goto('/login');
+  await page.screenshot({ path: '.playwright-output/login-light.png' });
 });

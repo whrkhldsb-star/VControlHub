@@ -24,6 +24,11 @@ vi.mock("@/lib/storage/access-control", () => ({
   assertStorageAccess: assertStorageAccessMock,
 }));
 
+vi.mock("node:dns/promises", () => ({
+	lookup: vi.fn().mockResolvedValue([{ address: "203.0.113.10", family: 4 }]),
+	default: { lookup: vi.fn().mockResolvedValue([{ address: "203.0.113.10", family: 4 }]) },
+}));
+
 import { DELETE, GET, POST } from "../route";
 
 function directNode(overrides: Record<string, unknown> = {}) {

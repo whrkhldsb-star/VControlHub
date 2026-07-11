@@ -49,7 +49,7 @@ export async function POST(request: Request) {
           ...(body.storageNodeId ? { storageNodeId: body.storageNodeId } : {}),
           ...(body.relativePath ? { relativePath: body.relativePath } : {}),
         });
-        auditUserAction(
+        await auditUserAction(
           session.userId,
           "media.upload.init",
           {

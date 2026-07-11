@@ -205,7 +205,7 @@ sudo APP_NAME="MyCloud" APP_SLUG=mycloud SITE_NAME="My Cloud Platform" \
 
 | 层级     | 技术                                        | 版本     |
 | -------- | ------------------------------------------- | -------- |
-| 框架     | Next.js (App Router)                        | 16.2.6   |
+| 框架     | Next.js (App Router)                        | 16.2.10  |
 | UI       | React + Tailwind CSS                        | 19 / 4   |
 | 数据库   | PostgreSQL + Prisma                         | 15 / 7.7 |
 | 认证     | 自定义 Session + bcryptjs                   | —        |
@@ -222,7 +222,7 @@ sudo APP_NAME="MyCloud" APP_SLUG=mycloud SITE_NAME="My Cloud Platform" \
 
 ```
 ├── src/
-│   ├── app/                    # Next.js App Router (46 页面 + 122 API)
+│   ├── app/                    # Next.js App Router (47 页面 + 138 API)
 │   │   ├── api/                # API Routes (RESTful)
 │   │   ├── servers/            # VPS 管理
 │   │   ├── files/              # 文件管理
@@ -230,14 +230,14 @@ sudo APP_NAME="MyCloud" APP_SLUG=mycloud SITE_NAME="My Cloud Platform" \
 │   │   ├── monitoring/         # 监控面板
 │   │   ├── ai/                 # AI 助手
 │   │   └── ...                 # 其他功能模块
-│   ├── components/             # 共享 UI 组件 (29 个)
+│   ├── components/             # 共享 UI 组件 (36 个)
 │   └── lib/                    # 业务逻辑 + 工具库
 │       ├── auth/               # 认证 & 权限（自定义 Session + bcryptjs + RBAC）
 │       ├── ssh/                # SSH 客户端 + SFTP 服务
 │       ├── quick-service/      # 应用商店引擎
 │       ├── ai/                 # AI 服务 + 工具
 │       ├── backup/             # 备份 job worker + 调度
-│       ├── i18n/               # 国际化（76 字典文件）
+│       ├── i18n/               # 国际化（78 字典文件）
 │       ├── storage/            # 分布式存储
 │       └── ...                 # 其他模块
 ├── deploy/                     # 部署脚本 & 配置模板
@@ -256,7 +256,7 @@ sudo APP_NAME="MyCloud" APP_SLUG=mycloud SITE_NAME="My Cloud Platform" \
 │   ├── Caddyfile.example       # Caddy 配置示例
 │   ├── apache-next-proxy.example.conf  # Apache 配置示例
 │   └── env.production.example  # 环境变量模板
-├── prisma/                     # 数据库 Schema (55 模型) + 迁移
+├── prisma/                     # 数据库 Schema (60 模型) + 迁移
 ├── scripts/                    # 运维脚本
 └── public/                     # 静态资源
 ```
@@ -339,55 +339,87 @@ make logs SERVICE_PREFIX=vcontrolhub
 <!-- README_METRICS_START -->
 | 指标            | 数量                                             |
 | --------------- | ------------------------------------------------ |
-| 功能页面            | 46                                               |
+| 功能页面            | 47                                               |
 | API 路由文件        | 138                                              |
 | 数据模型            | 60                                               |
-| UI 组件           | 35                                               |
-| 代码行数            | ~180,235（src 扫描）                                 |
-| 测试              | 393 文件                                           |
+| UI 组件           | 37                                               |
+| 代码行数            | ~181,691（src 扫描）                                 |
+| 测试              | 403 文件                                           |
 | Docker 应用模板     | 44 (本地) + 社区源实时同步                                |
-| i18n            | 211 useI18n() 调用点，77 字典文件                        |
+| i18n            | 216 useI18n() 调用点，78 字典文件                        |
 <!-- README_METRICS_END -->
 
 ---
 
 ## 📋 代码审查与深度审计记录
 
-> 在 2026-07-05 至 2026-07-07 期间，对整个项目完成了两轮审查：首轮聚焦 i18n 硬编码、模态无障碍、空 catch 块与 UX/a11y 细节修复（共 112 项已全部修复）；第二轮系统性地审计安全、审计日志、部署加固与测试覆盖，下表仅保留仍需跟进的待处理项，已修复的发现已清理。深度审计完整范围：47 页面 / 57 组件 / 78 i18n 字典 / 138 API 路由 / 59 lib 模块 / 60 Prisma 模型 / ~180,235 行 TypeScript/TSX。
+> 全面复核与修复日期：**2026-07-10**。范围包括 47 个页面、138 个 API 路由、60 个 Prisma 模型，以及认证、RBAC、CSRF、SSH/SFTP、文件一致性、后台任务、部署资产、依赖和文档一致性。
 
-### 📋 待处理项
+### 修复结论
 
-| # | 问题 | 位置 | 说明 |
-|---|------|------|------|
-| AUD-2 | CSP 允许 `'unsafe-eval'`（生产环境） | `src/proxy.ts:110` | ⚠️ 已知限制：Next.js 16 生产构建依赖此权限，无法移除 |
-| AUD-11 | 48/138 API 路由缺少测试文件（35%） | `src/app/api/` | 📋 长期待补：优先补齐关键路径（备份恢复、存储节点、AI provider、审批流）的单测。本轮已新增 4 个测试文件覆盖 AI provider/conversation IDOR + approve CAS guard |
-| AUD-13 | `.next/` 目录构建产物体积较大（~1.3GB） | `.next/` | ℹ️ 已在 .gitignore 排除，但部署同机时需关注磁盘容量 |
-| FND-6 | SFTP 文件管理器路由接受任意远程路径 | `src/app/api/servers/[id]/sftp/*` | ⚠️ 威胁模型待确认：`server:ssh` 权限用户可读写删除远程主机任意路径（`/etc/passwd`、`~/.ssh/authorized_keys`）。如为 SSH 文件管理器的设计意图则需文档化；否则应加路径前缀策略或升级权限要求 |
-| FND-8 | `moveFileAction` 无事务保护（目标碰撞 TOCTOU） | `src/app/files/move-file-action.ts` | 📋 并发移动到同一路径可绕过碰撞检查导致背ing对象覆盖。需在事务内重检或加唯一约束 |
+本轮审查记录的 23 项问题均已处理。质量门禁已经收紧：Lint 不再允许 warning，Prisma 格式检查和 README 指标检查已加入 `npm run verify`。安全方面增加 SFTP home 目录隔离、DNS rebinding 防护、SSE 并发控制和 nonce CSP；可靠性方面增加文件移动事务/补偿、等待式审计写入、前端后台轮询治理和真实浏览器回归测试。
 
-### ✅ 已验证为良好实现的特性（无需跟进）
+### 已完成修复
 
-- 原始 SQL 查询使用 Prisma 模板字面量（无注入风险）
-- `dangerouslySetInnerHTML` 使用 DOMPurify + 自定义 `stripDangerousText` + href allowlist
-- 密码使用 bcrypt 哈希，Session token 使用 `timingSafeEqual` 比较；分享链接使用 scrypt + salt
-- CSRF 保护：SameSite=Strict + Secure，Cookie 安全标志正确
-- 所有 `findMany` 查询都有 `take` 上限（最大 10,000）
-- npm audit: 0 漏洞；0 空 catch 块；0 硬编码 zh-CN/en-US locale 字符串
-- 42 个 `useDialogFocus` 使用（模态无障碍），32 个 `toDateLocale` 使用（日期 i18n）
-- 46 个 loading.tsx + 46 个 error.tsx（全页面覆盖）
-- 16 个 dynamic() 导入 + 10 个 -lazy.tsx 文件（代码分割）
-- 86 个 Prisma cascade/onDelete 规则，100+ 个 @@index/@@unique 数据库索引
-- 上传大小限制：MAX_FILE_SIZE=20MB, MAX_TOTAL_SIZE=200MB
-- 认证路由有专用 LOGIN_RATE_LIMIT
-- `tsc --noEmit`: 0 错误，`next build`: 成功
-- **SSH 主机密钥验证**：所有 SFTP/存储下载路由（sftp-download、archive-download、share）均通过 `hostKeySha256` + `hostVerifier` 强制验证远程主机身份（FND-1 已修复）
-- **文件条目 IDOR 防护**：`deleteFileEntryAction`/`restoreFileEntryAction`/`permanentDeleteFileEntryAction` 均通过 `assertStorageAccess` 检查存储节点级访问授权（FND-2 已修复）
-- **SFTP 会话泄漏防护**：`downloadFile` 在 `sftp.stat` 失败时正确关闭 SSH 会话（FND-3 已修复）
-- **AI 动作审批 CAS 保护**：`confirmHostedAction` 和 `approveHostedAction` 均使用 `updateMany` 原子 CAS 防止并发审批竞态（FND-4 已修复）；`approveRecommendation` 同样已加 CAS guard（BCK-3 已修复）
-- **Backup worker 并发保护**：`runBackupJobWorkerOnce` 正确 `await` 内部 handler，防止 `running` 标志提前释放（FND-5 已修复）
-- **Share link IDOR 防护**：`revokeShareLink`/`listShareLinks` 按 `createdBy` 过滤，非 admin 用户只能管理自己的分享（FND-7 已修复）
-- **审计日志失败可观测**：`auditUserAction`/`auditSystemAction` 的 catch 不再静默吞错，改为 `logger.warn` 记录（FND-10 已修复）
-- **AI provider/conversation 路由 ownership 测试**：4 个测试文件 14 个用例覆盖 IDOR 防护回归
+| ID | 状态 | 修复内容 |
+|---|---|---|
+| REV-01 | ✅ | 修复 React ref render 写入；i18n missing key 45→0、zh/en mismatch 1→0；Prisma schema 已格式化。 |
+| REV-02 | ✅ | SFTP 上传改为直接消费 `File.stream()`，移除 `arrayBuffer()` 与 `Buffer.from()` 的整文件堆内存复制。 |
+| REV-03 | ✅ | 文件移动的主记录与目录子项改为 Prisma 事务；数据库失败时执行 backing object 补偿移动。 |
+| REV-04 | ✅ | 新增 `server:sftp:unrestricted` 权限；普通 operator 仅能访问 SSH 用户 home，管理员可显式获得全路径权限。 |
+| REV-05 | ✅ | 存储直连在实际 fetch 前重新解析 DNS，并拒绝 loopback、私网、link-local、metadata 和其他保留地址。 |
+| REV-06 | ✅ | 监控 SSE 增加每用户最多 3 条活跃连接、30 分钟最长连接时间，并在 abort/cancel 时可靠释放计数和 timer。 |
+| REV-07 | ✅ | 生产脚本 CSP 使用逐请求 nonce + `strict-dynamic`，移除脚本 `'unsafe-inline'` 与 `'unsafe-eval'`；`object-src` 收紧为 `none`。 |
+| REV-08 | ✅ | `auditUserAction`/`auditSystemAction` 改为 Promise，业务调用点统一 `await`，请求结束前完成审计落库尝试；失败提升为 error 日志。 |
+| REV-09 | ✅ | 新增 SFTP 路径隔离、DNS rebinding、CSP nonce 和文件移动事务回归测试；route catalog 继续对全部 138 条 API 的 guard mode 做全量检查。 |
+| REV-10 | ✅ | RBAC 扫描器支持动态 options 与 manual guard；当前 54 个权限、138 条 API、47 个页面的 drift 为 0。 |
+| REV-11 | ✅ | Prisma schema 已统一格式化，`prisma format --check` 加入完整门禁。 |
+| REV-12 | ✅ | 清理全部 61 个 Lint warning，包括死代码、无用导入、Hook 依赖和 effect 状态更新；Lint 使用 `--max-warnings=0`。 |
+| REV-13 | ✅ | 修复重置密码与下载清理弹窗的点击冒泡，内容区交互不再误触遮罩关闭。 |
+| REV-14 | ✅ | 补齐部署导出、Docker 资源、Playbook、系统导入、团队成员和密码重置表单的可访问名称；字段静态告警由 17 降至 7，剩余项均为通用透传组件或注释误报。 |
+| REV-15 | ✅ | 新增可见性感知定时器；流量、Docker、下载、健康、通知和服务器自动探测在后台标签页暂停，恢复可见时立即同步，且继续防止重叠请求。 |
+| REV-16 | ✅ | 监控 SSE fallback 防止重复 interval，并随页面可见性暂停；团队切换移除延迟整页 reload，改为本地状态同步、数据刷新和 Router refresh。 |
+| REV-17 | ✅ | 移除会在 React selective hydration 期间修改未完成节点的 DOM 翻译桥；完整 i18n 字典继续作为唯一翻译来源，消除登录页 hydration mismatch。 |
+| REV-18 | ✅ | PWA 首次安装不再因 `controllerchange` 无条件刷新页面；只有用户明确确认更新后才刷新，修复首次登录成功后被竞态拉回登录页。 |
+| REV-19 | ✅ | Tailwind v4 class discovery 限定到 `src/`；Playwright trace/report 移至隐藏产物目录并加入忽略规则，避免失败报告中的 HTML 片段破坏 CSS 编译。 |
+| REV-20 | ✅ | 修复客户端 branding 环境变量未被 Next.js 内联导致的中英文 hydration mismatch；重构认证 E2E 会话假设，并新增核心页面、移动端溢出、键盘登录、5xx 与 pageerror 浏览器测试。 |
+| REV-21 | ✅ | 新增统一 `ConfirmDialog`，迁移 Playbook、SSH 文件、备份计划、定时任务和团队空间的危险操作确认流程；集中复用焦点锁定、Esc、遮罩、忙碌态与危险按钮样式，并补充组件回归测试。 |
+| REV-22 | ✅ | 服务器监控卡迁移到可见性感知轮询；快捷服务的目录合并、搜索、排序、分组、推荐项和状态汇总抽成可缓存纯函数，降低主客户端组件职责并补充派生模型测试。 |
+| REV-23 | ✅ | 改进无障碍审计器对 JSX runtime text、通用透传组件和源码注释的识别，消除 45 个按钮与 7 个字段误报；当前 306 个表单字段全部有可访问名称，icon-only button 可信告警为 0。 |
+
+### 验证状态（2026-07-10）
+
+| 检查 | 结果 |
+|---|---|
+| `npm run typecheck` | ✅ 通过 |
+| `npm run lint` | ✅ 0 errors / 0 warnings |
+| `npm run i18n:key-check` | ✅ missing 0 / orphan 0 / zh-en mismatch 0 |
+| `npm test` | ✅ 399 files passed；2771 passed / 1 skipped |
+| `npm run route:verify` | ✅ 47 pages / 138 API routes / 54 permissions |
+| `npm run rbac:audit` | ✅ 0 drift |
+| `npx prisma validate` / `npx prisma format --check` | ✅ 通过 |
+| `npm audit --omit=dev` | ✅ 0 vulnerabilities |
+| `npm run build` / `npm run build:runtime` | ✅ Next.js 生产构建与两个 Node runtime bundle 均通过 |
+| Playwright Chromium | ✅ 登录与公开页面、7 个核心受保护页面、390px 移动端、键盘操作、HTTP 5xx 与浏览器异常检查通过 |
+| `npm run verify:deploy-assets` | ✅ 通过；无 Docker Compose 插件时自动执行离线 YAML/部署契约校验，不再跳过 |
+| `npm run docs:check` | ✅ README 指标为最新 |
+
+> 最后一次完整 `npm run verify` 已通过。Next.js 仍会提示自定义 `/_next/static/*` Cache-Control 可能影响开发模式；Caddy 对同时声明 HTTP/HTTPS 的 Flexible 模式会提示不自动重定向，这是该示例的预期行为。
+
+### 已确认的良好实现
+
+- Session、CSRF、API guard、RBAC service-layer 检查和登录限流已形成多层防护；公开路径和 bearer-token bypass 范围较窄。
+- SSH/SFTP 关键连接使用主机密钥校验；存储路径工具普遍采用规范化与根目录边界检查。
+- 密码使用 bcrypt，敏感凭据有加密存储路径，分享 token 使用带盐派生；仓库未发现被 Git 跟踪的 `.env`、私钥或数据库文件。
+- Prisma schema 大量使用唯一约束、索引和级联策略；原始 SQL 调用使用 Prisma 参数化模板。
+- 依赖锁文件存在，生产依赖审计为 0 已知漏洞；部署模板、systemd/Caddy 资产和环境变量占位检查较完整。
+- 后台命令、备份、下载和 AI 审批已有 durable job/CAS/worker ownership 等并发保护，测试总量充足。
+
+### 审查边界
+
+- 未连接真实生产数据库、SSH 主机、S3、Aria2、Caddy/Apache 或邮件/Telegram 服务，因此没有验证真实灾备恢复、密钥轮换、网络隔离和第三方故障行为。
+- 未执行 Playwright 浏览器 E2E、`npm run test:coverage`、容器镜像扫描、DAST、SAST 专用扫描器或高并发压测。
+- 当前工作区在本次审查前已有部署模板与 RBAC 报告的未提交修改；本节结论以审查时工作树为准。
 
 ---
 

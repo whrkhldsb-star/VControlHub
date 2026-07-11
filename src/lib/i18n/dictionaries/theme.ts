@@ -6,17 +6,11 @@
  */
 
 export const zh: Record<string, string> = {
-	"theme.dark": "深色模式",
-	"theme.light": "浅色模式",
-	"theme.toggle": "切换主题",
 	"theme.toggleToLight": "切换到浅色模式",
 	"theme.toggleToDark": "切换到深色模式",
 };
 
 export const en: Record<string, string> = {
-	"theme.dark": "Dark Mode",
-	"theme.light": "Light Mode",
-	"theme.toggle": "Toggle Theme",
 	"theme.toggleToLight": "Switch to light mode",
 	"theme.toggleToDark": "Switch to dark mode",
 };

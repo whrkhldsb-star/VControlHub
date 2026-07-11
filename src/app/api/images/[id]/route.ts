@@ -13,6 +13,7 @@ import { logError } from "@/lib/logging";
 import { resolveStoragePathWithinBase } from "@/lib/storage/path-utils";
 
 import { ForbiddenError, NotFoundError } from "@/lib/errors";
+import { auditUserAction } from "@/lib/audit/service";
 export const dynamic = "force-dynamic";
 
 function isNotFoundError(error: unknown) {
@@ -139,6 +140,7 @@ export async function DELETE(
 
       await prisma.imageUpload.delete({ where: { id } });
 
+      await auditUserAction(session?.userId ?? "", "image.delete", { imageId: id });
       return NextResponse.json({ success: true });
     },
   );

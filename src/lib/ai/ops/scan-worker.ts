@@ -30,7 +30,6 @@ import { createLogger } from "@/lib/logging";
 import { getSetting } from "@/lib/settings/service";
 
 import {
-	AI_OPS_DEFAULT_SCHEDULE_HOUR,
 	AI_OPS_SCAN_JOB_TYPE,
 	type AiOpsExecutedAction,
 	type AiOpsFinding,

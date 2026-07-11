@@ -22,6 +22,10 @@ import os from "os";
 
 import { withApiRoute } from "@/lib/http/api-guard";
 
+const MAX_SSE_CONNECTIONS_PER_USER = 3;
+const MAX_SSE_CONNECTION_AGE_MS = 30 * 60_000;
+const activeConnectionsByUser = new Map<string, number>();
+
 // ---- Shared /proc helpers (mirror of ../stats/route.ts) ----
 
 function readProc(path: string): string {
@@ -157,9 +161,29 @@ export async function GET(request: Request) {
   return withApiRoute(
     request,
     { requireAuth: true, errorMessage: "Monitoring SSE AuthenticationFailed", rateLimit: { maxRequests: 30, windowMs: 60_000 } },
-    async () => {
+    async ({ session }) => {
+			const userId = session!.userId;
+			const activeCount = activeConnectionsByUser.get(userId) ?? 0;
+			if (activeCount >= MAX_SSE_CONNECTIONS_PER_USER) {
+				return Response.json({ error: "Too many active monitoring streams" }, { status: 429 });
+			}
+			activeConnectionsByUser.set(userId, activeCount + 1);
       const url = new URL(request.url);
       const intervalSeconds = Math.max(2, Math.min(30, Number(url.searchParams.get("interval")) || 5));
+			let released = false;
+			let timer: ReturnType<typeof setInterval> | undefined;
+			let keepAlive: ReturnType<typeof setInterval> | undefined;
+			let maxAgeTimer: ReturnType<typeof setTimeout> | undefined;
+			const release = () => {
+				if (released) return;
+				released = true;
+				if (timer) clearInterval(timer);
+				if (keepAlive) clearInterval(keepAlive);
+				if (maxAgeTimer) clearTimeout(maxAgeTimer);
+				const current = activeConnectionsByUser.get(userId) ?? 1;
+				if (current <= 1) activeConnectionsByUser.delete(userId);
+				else activeConnectionsByUser.set(userId, current - 1);
+			};
 
       const stream = new ReadableStream({
         start(controller) {
@@ -169,35 +193,40 @@ export async function GET(request: Request) {
             try {
               controller.enqueue(encoder.encode(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`));
             } catch {
-              // Stream closed — stop interval.
-              clearInterval(timer);
+						release();
             }
           }
 
           // Send initial snapshot immediately.
           sendEvent("stats", collectStats());
 
-          const timer = setInterval(() => {
+				timer = setInterval(() => {
             sendEvent("stats", collectStats());
           }, intervalSeconds * 1000);
 
           // Keep-alive comment every 15s to prevent idle proxy close.
-          const keepAlive = setInterval(() => {
+				keepAlive = setInterval(() => {
             try {
               controller.enqueue(encoder.encode(":keep-alive\n\n"));
             } catch {
-              clearInterval(keepAlive);
-              clearInterval(timer);
+						release();
             }
           }, 15_000);
 
           // Client disconnected → clean up.
           request.signal.addEventListener("abort", () => {
-            clearInterval(timer);
-            clearInterval(keepAlive);
+					release();
             try { controller.close(); } catch { /* already closed */ }
           }, { once: true });
+
+					maxAgeTimer = setTimeout(() => {
+						release();
+						try { controller.close(); } catch { /* already closed */ }
+					}, MAX_SSE_CONNECTION_AGE_MS);
         },
+			cancel() {
+				release();
+			},
       });
 
       return new Response(stream, {

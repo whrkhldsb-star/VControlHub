@@ -49,7 +49,7 @@ export async function POST(
 				actionId: body.actionId,
 				forceAutonomous: body.forceAutonomous,
 			});
-			auditUserAction(
+			await auditUserAction(
 				session?.userId ?? "anonymous",
 				"ai.ops.recommendation.execute",
 				{

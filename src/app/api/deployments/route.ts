@@ -101,7 +101,7 @@ export async function POST(request: Request) {
           ...parsed.data,
           requesterId: session.userId,
         });
-        auditUserAction(session.userId, "deployment.create", {
+        await auditUserAction(session.userId, "deployment.create", {
           deploymentId: deployment.id,
           templateId: parsed.data.templateId,
           serverIds: parsed.data.serverIds,

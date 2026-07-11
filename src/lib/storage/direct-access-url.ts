@@ -1,4 +1,5 @@
 import { ValidationError } from "@/lib/errors";
+import { lookup } from "node:dns/promises";
 
 const PRIVATE_DIRECT_ACCESS_HOST_MESSAGE = "Direct access base URL must use a public HTTP(S) address and must not contain credentials, localhost, intranet, loopback, or link-local addresses";
 const PUBLIC_HTTP_URL_MESSAGE = "URL must use a public HTTP(S) address and must not contain credentials, localhost, intranet, loopback, link-local, or metadata addresses";
@@ -127,4 +128,21 @@ export function safeNormalizePublicBaseUrl(value: string | null | undefined) {
       error: error instanceof Error ? error.message : PRIVATE_DIRECT_ACCESS_HOST_MESSAGE,
     };
   }
+}
+
+/** Resolve immediately before a server-side request to prevent DNS rebinding. */
+export async function assertPublicBaseUrlResolvesPublic(value: string) {
+	const normalized = normalizePublicBaseUrl(value);
+	if (!normalized) throw new ValidationError(PRIVATE_DIRECT_ACCESS_HOST_MESSAGE);
+	const hostname = new URL(normalized).hostname;
+	let addresses: Array<{ address: string; family: number }>;
+	try {
+		addresses = await lookup(hostname, { all: true, verbatim: true });
+	} catch {
+		throw new ValidationError("Direct access base URL DNS resolution failed");
+	}
+	if (addresses.length === 0 || addresses.some((entry) => isUnsafePublicHttpHost(entry.address))) {
+		throw new ValidationError(PRIVATE_DIRECT_ACCESS_HOST_MESSAGE);
+	}
+	return normalized;
 }

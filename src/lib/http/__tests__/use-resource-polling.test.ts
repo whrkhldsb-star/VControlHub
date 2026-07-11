@@ -7,7 +7,7 @@
  * Timers are faked for deterministic interval assertions.
  */
 import { act, renderHook, waitFor } from "@testing-library/react";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { useResourcePolling } from "../use-resource-polling";
 

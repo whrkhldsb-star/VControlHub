@@ -15,6 +15,7 @@ import {
   deleteAnnouncementQuerySchema,
   updateAnnouncementSchema,
 } from "@/lib/announcement/schema";
+import { auditUserAction } from "@/lib/audit/service";
 
 export const dynamic = "force-dynamic";
 
@@ -44,6 +45,7 @@ export async function POST(request: Request) {
         startsAt: body.startsAt ? new Date(body.startsAt) : undefined,
         expiresAt: body.expiresAt ? new Date(body.expiresAt) : null,
       });
+      await auditUserAction(session?.userId ?? "", "announcement.create", { announcementId: created.id });
       return NextResponse.json({ announcement: created }, { status: 201 });
     },
   );
@@ -78,8 +80,9 @@ export async function DELETE(request: Request) {
       rateLimit: GENERAL_WRITE_LIMIT,
       querySchema: deleteAnnouncementQuerySchema,
     },
-    async ({ query }) => {
+    async ({ query, session }) => {
       await deleteAnnouncement(query.id);
+      await auditUserAction(session?.userId ?? "", "announcement.delete", { announcementId: query.id });
       return NextResponse.json({ success: true });
     },
   );

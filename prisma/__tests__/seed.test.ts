@@ -107,6 +107,7 @@ beforeEach(() => {
     { id: "perm_role:manage", key: "role:manage" },
     { id: "perm_server:read", key: "server:read" },
     { id: "perm_server:ssh", key: "server:ssh" },
+    { id: "perm_server:sftp:unrestricted", key: "server:sftp:unrestricted" },
     { id: "perm_server:write", key: "server:write" },
     { id: "perm_storage:delete", key: "storage:delete" },
     { id: "perm_storage:manage-node", key: "storage:manage-node" },

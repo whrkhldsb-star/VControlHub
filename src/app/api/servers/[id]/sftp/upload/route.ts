@@ -14,6 +14,7 @@ import { Readable } from "node:stream";
 import { enforceApiGuard } from "@/lib/http/api-guard";
 import { GENERAL_WRITE_LIMIT, withRateLimit, rateLimitResponse } from "@/lib/http/rate-limit-presets";
 import { uploadFile, sanitizeRemotePath, sanitizeFileName } from "@/lib/ssh/sftp-service";
+import { assertSftpPathAccess } from "@/lib/ssh/sftp-access-control";
 
 export const dynamic = "force-dynamic";
 // guardMode: manual
@@ -61,11 +62,12 @@ export async function POST(
     const safeName = sanitizeFileName(file.name);
     const safeDir = sanitizeRemotePath(remoteDir);
     const fullPath = `${safeDir.replace(/\/$/, "")}/${safeName}`;
+		if (!guard) return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
+		await assertSftpPathAccess({ session: guard, serverId: id, paths: [fullPath] });
 
-    // Convert File body to a Readable stream for piping
-    const arrayBuffer = await file.arrayBuffer();
-    const buffer = Buffer.from(arrayBuffer);
-    const stream = Readable.from(buffer);
+    // Consume the Web File stream directly. Avoid arrayBuffer()/Buffer.from(),
+    // which duplicated the complete upload in the Node.js heap.
+    const stream = Readable.fromWeb(file.stream() as import("node:stream/web").ReadableStream);
 
     const bytesWritten = await uploadFile(id, fullPath, stream);
 

@@ -44,7 +44,7 @@ export async function POST(request: Request) {
         parsed.submissionMode = "assistant";
       }
       const command = await createCommandRequest(parsed);
-      auditUserAction(session!.userId, "command.submit", {
+      await auditUserAction(session!.userId, "command.submit", {
         commandRequestId: command.id,
         title: command.title,
         status: command.status,
@@ -68,7 +68,7 @@ export async function PATCH(request: Request) {
         actorId: session!.userId,
         reason: body.reason,
       });
-      auditUserAction(session!.userId, "command.cancel", {
+      await auditUserAction(session!.userId, "command.cancel", {
         commandRequestId: command.id,
         status: command.status,
       });

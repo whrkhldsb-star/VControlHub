@@ -36,7 +36,7 @@ describe("LoginPage", () => {
 		// (Q5b border-slate-* → var(--border), Q6 text-cyan-100 → var(--text-primary) 等)
 		// 此处断言 dark 默认底色未变, light 主题不依赖源码 light: 修饰符
 
-		const username = screen.getByLabelText("用户名");
+			screen.getByLabelText("用户名");
 		// skip bg check for new input
 		// skip text check
 		// globals.css Q17 将深色 input 的 text-[var(--text-primary)] 强制映射到 var(--text-primary)，

@@ -7,6 +7,7 @@ import { withApiRoute } from "@/lib/http/api-guard";
 import { GENERAL_WRITE_LIMIT } from "@/lib/http/rate-limit-presets";
 
 import { ForbiddenError, NotFoundError } from "@/lib/errors";
+import { auditUserAction } from "@/lib/audit/service";
 export const dynamic = "force-dynamic";
 
 /**
@@ -48,12 +49,13 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
   return withApiRoute(
     request,
     { permission: "ticket:manage", rateLimit: GENERAL_WRITE_LIMIT, bodySchema: PatchBodySchema },
-    async ({ body }) => {
+    async ({ body, session }) => {
       const { id } = await params;
       const updates: { id: string; status?: string; assigneeId?: string | null } = { id };
       if (body.status) updates.status = body.status;
       if (body.assigneeId !== undefined) updates.assigneeId = body.assigneeId;
       const ticket = await updateTicketStatus(updates);
+      await auditUserAction(session?.userId ?? "", "ticket.update", { ticketId: id });
       return NextResponse.json({ ticket });
     },
   );
@@ -69,6 +71,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
         throw new ForbiddenError("MissingPermission");
       }
       const comment = await addTicketComment({ ticketId: id, authorId: session.userId, body: body.body });
+      await auditUserAction(session?.userId ?? "", "ticket.comment", { ticketId: id });
       return NextResponse.json({ comment }, { status: 201 });
     },
   );

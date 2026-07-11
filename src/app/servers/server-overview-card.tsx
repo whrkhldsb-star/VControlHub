@@ -5,6 +5,7 @@ import { toDateLocale } from "@/lib/i18n/locale-format";
 
 import { useI18n } from "@/lib/i18n/use-locale";
 import { useDialogFocus } from "@/lib/a11y/use-dialog-focus";
+import { useVisibilityInterval } from "@/lib/hooks/use-visibility-interval";
 import { ServerCardActions } from "./server-card-actions";
 import { useAutoProbeSettings } from "./auto-probe-context";
 import { ServerOverviewDetailsLazy } from "./server-overview-details-lazy";
@@ -180,14 +181,14 @@ export function ServerOverviewCard({
     };
 
     void trigger();
-    const ms = Math.max(5, intervalSec) * 1000;
-    const handle = window.setInterval(() => {
-      void trigger();
-    }, ms);
-    return () => {
-      window.clearInterval(handle);
-    };
+    return undefined;
   }, [autoProbeEnabled, intervalSec, hydrated, server.enabled, server.id]);
+
+  useVisibilityInterval(() => {
+    if (inFlightRef.current) return;
+    inFlightRef.current = true;
+    void runRef.current().finally(() => { inFlightRef.current = false; });
+  }, hydrated && autoProbeEnabled && server.enabled ? Math.max(5, intervalSec) * 1000 : null);
 
   return (
     <article data-card className="bg-[var(--surface)]/[0.025] p-3 transition-colors hover:bg-[var(--surface)]/[0.04]">

@@ -6,6 +6,7 @@ import { useRefreshInterval } from "@/lib/preferences/use-refresh-interval";
 import { useI18n } from "@/lib/i18n/use-locale";
 import { formatTime } from "@/lib/datetime/format";
 import { formatBytes } from "@/lib/format/bytes";
+import { useVisibilityInterval } from "@/lib/hooks/use-visibility-interval";
 type CpuInfo = {
   usagePercent: number;
   cores: number;
@@ -121,20 +122,17 @@ export function ServerMonitorCard({ serverId }: Props) {
     } finally {
       setLoading(false);
     }
-  }, [serverId]);
+  }, [serverId, t]);
   useEffect(() => {
     const timer = window.setTimeout(() => {
       void fetchMetrics();
     }, 0);
-    if (refreshIntervalSeconds <= 0) return () => window.clearTimeout(timer);
-    const interval = setInterval(() => {
-      void fetchMetrics();
-    }, refreshIntervalSeconds * 1000);
-    return () => {
-      window.clearTimeout(timer);
-      clearInterval(interval);
-    };
-  }, [fetchMetrics, refreshIntervalSeconds]);
+    return () => window.clearTimeout(timer);
+  }, [fetchMetrics]);
+  useVisibilityInterval(
+    () => { void fetchMetrics(); },
+    refreshIntervalSeconds > 0 ? refreshIntervalSeconds * 1000 : null,
+  );
   if (loading) {
     return (
       <div data-card className=" p-4 space-y-2 animate-pulse">

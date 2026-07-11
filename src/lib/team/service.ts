@@ -75,7 +75,7 @@ export async function createTeam(input: CreateTeamInput, session: SessionPayload
 		await tx.user.update({ where: { id: session.userId }, data: { currentTeamId: created.id } });
 		return created;
 	});
-	auditUserAction(session.userId, "team.create", { teamId: team.id, slug: team.slug, name: team.name });
+	await auditUserAction(session.userId, "team.create", { teamId: team.id, slug: team.slug, name: team.name });
 	return team;
 }
 
@@ -97,7 +97,7 @@ export async function switchCurrentTeam(teamId: string, session: SessionPayload)
 	});
 	if (!membership) throw new ForbiddenError("Can only switch to a team workspace you belong to");
 	await prisma.user.update({ where: { id: session.userId }, data: { currentTeamId: teamId } });
-	auditUserAction(session.userId, "team.switch", { teamId, slug: membership.team.slug });
+	await auditUserAction(session.userId, "team.switch", { teamId, slug: membership.team.slug });
 	return membership.team;
 }
 
@@ -113,7 +113,7 @@ export async function addTeamMember(teamId: string, input: AddTeamMemberInput, s
 		create: { teamId, userId: user.id, role: input.role },
 		select: { role: true, user: { select: { id: true, username: true, displayName: true, status: true } } },
 	});
-	auditUserAction(session.userId, "team.member.upsert", { teamId, teamSlug: team.slug, username: user.username, role: input.role });
+	await auditUserAction(session.userId, "team.member.upsert", { teamId, teamSlug: team.slug, username: user.username, role: input.role });
 	return member;
 }
 
@@ -151,7 +151,7 @@ export async function removeTeamMember(teamId: string, userId: string, session: 
 		data: { currentTeamId: null },
 	});
 
-	auditUserAction(session.userId, "team.member.remove", { teamId, teamSlug: team.slug, removedUserId: userId });
+	await auditUserAction(session.userId, "team.member.remove", { teamId, teamSlug: team.slug, removedUserId: userId });
 	return { removed: true };
 }
 
@@ -170,7 +170,7 @@ export async function updateTeam(teamId: string, input: UpdateTeamInput, session
 		select: { id: true, slug: true, name: true, description: true },
 	});
 
-	auditUserAction(session.userId, "team.update", { teamId, teamSlug: team.slug, fields: Object.keys(data) });
+	await auditUserAction(session.userId, "team.update", { teamId, teamSlug: team.slug, fields: Object.keys(data) });
 	return updated;
 }
 
@@ -209,6 +209,6 @@ export async function deleteTeam(teamId: string, session: SessionPayload) {
 		await tx.team.delete({ where: { id: teamId } });
 	});
 
-	auditUserAction(session.userId, "team.delete", { teamId, teamSlug: team.slug, teamName: team.name });
+	await auditUserAction(session.userId, "team.delete", { teamId, teamSlug: team.slug, teamName: team.name });
 	return { deleted: true };
 }

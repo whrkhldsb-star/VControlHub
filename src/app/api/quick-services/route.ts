@@ -138,7 +138,7 @@ export async function POST(request: Request) {
 				installNoticeNotes: prepared.notes,
 			},
 		});
-		auditUserAction(session!.userId, "quick_service.install", {
+		await auditUserAction(session!.userId, "quick_service.install", {
 			slug: template.slug,
 			templateName: template.name,
 		});

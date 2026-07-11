@@ -1,7 +1,7 @@
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 
-import { Client, type ConnectConfig } from "ssh2";
+import { Client } from "ssh2";
 
 import { connectSsh } from "@/lib/ssh/client";
 import { prisma } from "@/lib/db";

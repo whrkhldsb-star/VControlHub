@@ -86,7 +86,7 @@ describe("loadRbac — real rbac.ts fixture", () => {
   it("extracts all current permissions from the PERMISSIONS tuple", () => {
     if (!existsSync(RBAC_FIXTURE)) return; // skip if fixture missing
     const { permissions } = loadRbac();
-    expect(permissions.length).toBe(53);
+    expect(permissions.length).toBe(54);
     expect(permissions).toContain("ai:chat");
     expect(permissions).toContain("command:execute");
     expect(permissions).toContain("storage:write");
@@ -101,7 +101,7 @@ describe("loadRbac — real rbac.ts fixture", () => {
   it("returns the admin role with all permissions via ALL_PERMISSIONS reference", () => {
     if (!existsSync(RBAC_FIXTURE)) return;
     const { roleMap } = loadRbac();
-    expect(roleMap.admin.length).toBe(53);
+    expect(roleMap.admin.length).toBe(54);
     expect(roleMap.admin).toContain("ai:chat");
     expect(roleMap.admin).toContain("server:write");
     expect(roleMap.admin).toContain("ai:ops:read");

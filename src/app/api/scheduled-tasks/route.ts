@@ -124,7 +124,7 @@ export async function POST(request: Request) {
         serverIds: data.serverIds ?? (data.serverId ? [data.serverId] : []),
         createdById: session.userId,
       });
-      auditUserAction(
+      await auditUserAction(
         session.userId,
         "scheduled_task.create",
         auditScheduledTaskDetail(task),
@@ -149,7 +149,7 @@ export async function PATCH(request: Request) {
         throw new AuthError("Unauthorized");
       if (data.toggleId) {
         const result = await toggleScheduledTask(data.toggleId);
-        auditUserAction(
+        await auditUserAction(
           session.userId,
           "scheduled_task.toggle",
           auditScheduledTaskDetail(result),
@@ -158,7 +158,7 @@ export async function PATCH(request: Request) {
       }
       if (data.retryId) {
         const result = await retryScheduledTask(data.retryId);
-        auditUserAction(
+        await auditUserAction(
           session.userId,
           "scheduled_task.retry",
           auditScheduledTaskDetail(result),
@@ -175,7 +175,7 @@ export async function PATCH(request: Request) {
         serverIds: data.serverIds ?? (data.serverId ? [data.serverId] : undefined),
         status: data.status,
       });
-      auditUserAction(
+      await auditUserAction(
         session.userId,
         "scheduled_task.update",
         auditScheduledTaskDetail(result),
@@ -199,7 +199,7 @@ export async function DELETE(request: Request) {
         throw new AuthError("Unauthorized");
       const { id } = parseSearchParams(request, idQuerySchema);
       const deleted = await deleteScheduledTask(id);
-      auditUserAction(
+      await auditUserAction(
         session.userId,
         "scheduled_task.delete",
         auditScheduledTaskDetail(deleted),

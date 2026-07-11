@@ -5,6 +5,7 @@ import { withApiRoute } from "@/lib/http/api-guard";
 import { GENERAL_WRITE_LIMIT } from "@/lib/http/rate-limit-presets";
 import { idQuerySchema, parseSearchParams } from "@/lib/http/parse-search-params";
 import { AuthError } from "@/lib/errors";
+import { auditUserAction } from "@/lib/audit/service";
 import {
   deleteNotification,
   getUnreadCount,
@@ -65,6 +66,7 @@ export async function PATCH(request: Request) {
       // Legacy format support
       if ("markAllAsRead" in body) {
         await markAllAsRead(session.userId);
+        await auditUserAction(session?.userId ?? "", "notification.update", { scope: "markAllAsRead" });
         return NextResponse.json({ success: true });
       }
       if (!("action" in body) && "notificationId" in body) {
@@ -136,6 +138,7 @@ export async function DELETE(request: Request) {
         throw new AuthError("Not authenticated");
       const { id: notificationId } = parseSearchParams(request, idQuerySchema);
       await deleteNotification(notificationId, session.userId);
+      await auditUserAction(session?.userId ?? "", "notification.delete", { notificationId });
       return NextResponse.json({ success: true });
     },
   );

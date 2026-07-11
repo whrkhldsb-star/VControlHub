@@ -62,7 +62,7 @@ export async function PATCH(
 		},
 		async ({ session, body }) => {
 			const entry = await updateCostEntry(id, body);
-			auditUserAction(session?.userId ?? "anonymous", "cost.update", {
+			await auditUserAction(session?.userId ?? "anonymous", "cost.update", {
 				entryId: entry.id,
 				updatedFields: Object.keys(body),
 			});
@@ -86,7 +86,7 @@ export async function DELETE(
 		},
 		async ({ session }) => {
 			await deleteCostEntry(id);
-			auditUserAction(session?.userId ?? "anonymous", "cost.delete", {
+			await auditUserAction(session?.userId ?? "anonymous", "cost.delete", {
 				entryId: id,
 			});
 			return NextResponse.json({ success: true });

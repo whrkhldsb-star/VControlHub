@@ -8,6 +8,7 @@ import { getRefreshIntervalLabel } from "@/lib/preferences/refresh-interval";
 import { useRefreshInterval } from "@/lib/preferences/use-refresh-interval";
 import { useI18n } from "@/lib/i18n/use-locale";
 import { toDateLocale } from "@/lib/i18n/locale-format";
+import { useVisibilityInterval } from "@/lib/hooks/use-visibility-interval";
 import { TrafficSparkline, type TrafficSample } from "./traffic-sparkline";
 
 const HISTORY_LIMIT = 60; // ≈ 30 min at 30s polling cadence
@@ -204,15 +205,11 @@ export default function TrafficPage({ canManage: _canManage }: { canManage: bool
     const timer = setTimeout(() => { void fetchRemote(); }, 0);
     return () => clearTimeout(timer);
   }, [fetchRemote]);
-  useEffect(() => {
-    if (!autoRefresh || refreshIntervalSeconds <= 0) return;
-    const id = setInterval(() => {
+  useVisibilityInterval(() => {
       void fetchSummary();
       void fetchRemote();
       void fetchHistory(historyScope);
-    }, refreshIntervalSeconds * 1000);
-    return () => clearInterval(id);
-  }, [autoRefresh, fetchHistory, fetchRemote, fetchSummary, historyScope, refreshIntervalSeconds]);
+  }, autoRefresh && refreshIntervalSeconds > 0 ? refreshIntervalSeconds * 1000 : null);
 
   const primary = summary?.currentServer.primaryInterface ?? null;
   const refreshLabel = getRefreshIntervalLabel(refreshIntervalSeconds);

@@ -1,12 +1,12 @@
 {
-  "generatedAt": "2026-07-05T14:26:26.174Z",
+  "generatedAt": "2026-07-10T12:55:20.587Z",
   "summary": {
     "sidebarMain": 27,
     "sidebarSystem": 5,
     "sidebarMobile": 5,
-    "pages": 46,
+    "pages": 47,
     "apiRoutes": 138,
-    "permissionsDefined": 53
+    "permissionsDefined": 54
   },
   "sidebar": {
     "main": [
@@ -150,6 +150,13 @@
     ]
   },
   "pages": [
+    {
+      "path": "/account",
+      "file": "src/app/account/page.tsx",
+      "inSidebarMain": false,
+      "inSidebarSystem": false,
+      "declaredPermissions": []
+    },
     {
       "path": "/account/password",
       "file": "src/app/account/password/page.tsx",
@@ -449,7 +456,8 @@
       "inSidebarMain": true,
       "inSidebarSystem": false,
       "declaredPermissions": [
-        "command:create"
+        "command:create",
+        "command:execute"
       ]
     },
     {
@@ -1105,7 +1113,7 @@
       "methods": [
         "GET"
       ],
-      "guardMode": "session",
+      "guardMode": "withApiRoute",
       "declaredPermissions": [
         "audit:read",
         "health:read",
@@ -1295,7 +1303,7 @@
       "methods": [
         "GET"
       ],
-      "guardMode": "session",
+      "guardMode": "withApiRoute",
       "declaredPermissions": [
         "image:read"
       ]
@@ -2201,6 +2209,7 @@
     "role:manage",
     "server:read",
     "server:ssh",
+    "server:sftp:unrestricted",
     "server:write",
     "share:create",
     "share:manage",

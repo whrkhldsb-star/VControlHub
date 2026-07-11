@@ -71,7 +71,7 @@ export async function DELETE(
           sessionId,
           session.userId,
         );
-        auditUserAction(
+        await auditUserAction(
           session.userId,
           "media.upload.cancel",
           { sessionId, status: view.status },

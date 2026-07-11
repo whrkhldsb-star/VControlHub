@@ -30,7 +30,9 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
 	const nextPath = resolvedSearchParams.next ?? "/";
 	const locale = await getServerLocale();
 	const error = resolveErrorMessage(locale, resolvedSearchParams.error, resolvedSearchParams.minutes);
-	const publicLabel = getPublicLabel();
+	// Server component: read the live environment so tests and runtime config
+	// changes are reflected. Client components use the inlined public value.
+	const publicLabel = getPublicLabel(process.env);
 	const siteName = getSiteName();
 
 	return (

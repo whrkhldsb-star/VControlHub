@@ -67,7 +67,6 @@ enum AiHostedActionStatus {
 }
 
 model User {
-  @@map("User")
   id                     String                  @id @default(cuid())
   username               String                  @unique
   displayName            String?
@@ -111,7 +110,7 @@ model User {
   aiHostedRequests       AiHostedAction[]        @relation("AiHostedRequester")
   aiHostedApprovals      AiHostedAction[]        @relation("AiHostedApprover")
   costEntries            CostEntry[]             @relation("CostEntryCreatedBy")
-  aiOpsLogs              AiOpsLog[]             @relation("AiOpsLogTriggeredBy")
+  aiOpsLogs              AiOpsLog[]              @relation("AiOpsLogTriggeredBy")
   mediaUploadSessions    MediaUploadSession[]
   ownedTeams             Team[]                  @relation("TeamOwner")
   teamMemberships        TeamMember[]
@@ -120,6 +119,8 @@ model User {
   twoFactorEnabled       Boolean                 @default(false)
   twoFactorSecret        String?
   preferences            Json?
+
+  @@map("User")
 }
 
 model Team {
@@ -153,7 +154,6 @@ model TeamMember {
 }
 
 model Role {
-  @@map("Role")
   id          String           @id @default(cuid())
   key         String           @unique
   name        String
@@ -162,19 +162,21 @@ model Role {
   updatedAt   DateTime         @updatedAt
   permissions RolePermission[]
   users       UserRole[]
+
+  @@map("Role")
 }
 
 model Permission {
-  @@map("Permission")
   id          String           @id @default(cuid())
   key         String           @unique
   name        String
   description String?
   roles       RolePermission[]
+
+  @@map("Permission")
 }
 
 model UserRole {
-  @@map("UserRole")
   userId     String
   roleId     String
   assignedAt DateTime @default(now())
@@ -183,10 +185,10 @@ model UserRole {
 
   @@id([userId, roleId])
   @@index([roleId])
+  @@map("UserRole")
 }
 
 model RolePermission {
-  @@map("RolePermission")
   roleId       String
   permissionId String
   role         Role       @relation(fields: [roleId], references: [id], onDelete: Cascade)
@@ -194,10 +196,10 @@ model RolePermission {
 
   @@id([roleId, permissionId])
   @@index([permissionId])
+  @@map("RolePermission")
 }
 
 model SshKey {
-  @@map("SshKey")
   id          String   @id @default(cuid())
   name        String
   fingerprint String   @unique
@@ -212,44 +214,45 @@ model SshKey {
   servers     Server[]
 
   @@index([createdById])
+  @@map("SshKey")
 }
 
 model Server {
-  id              String               @id @default(cuid())
-  name            String
-  host            String
-  port            Int                  @default(22)
-  username        String
-  sshKeyId        String?
-  password        String?
-  description     String?
-  tags            String[]
-  enabled         Boolean              @default(true)
-  connectionType  ServerConnectionType @default(SSH_KEY)
-  createdAt       DateTime             @default(now())
-  updatedAt       DateTime             @updatedAt
-  sshKey          SshKey?              @relation(fields: [sshKeyId], references: [id], onDelete: SetNull)
-  storageNode     StorageNode?
-  commandTargets  CommandTarget[]
-  metricSnapshots MetricSnapshot[]
-  trafficSnapshots TrafficSnapshot[]
-  downloadTasks   DownloadTask[]
-  sourceSyncs     SyncJob[]            @relation("SourceSyncs")
-  targetSyncs     SyncJob[]            @relation("TargetSyncs")
-  publicUrl       String? // 目标服务器公网访问地址（直连模式）
-  fileProxyPort   Int                  @default(0) // 文件代理端口（0=未启用）
-  osDialect       String? // TR-041: JSON 序列化的 OsDialect（包管理器/服务管理器/路径等）
-  osInfo          String? // TR-041: /etc/os-release 原始摘要（distro name + version）
-  hostKeySha256   String? // SHA256 SSH host key fingerprint used for strict host verification
-  costAutoSync    Boolean  @default(false) // TR-031: 是否自动同步 VPS 月费到成本条目
-  costMonthlyAmount Decimal? @db.Decimal(12, 2) // TR-031: VPS 月费
-  costCurrency    String   @default("CNY") // TR-031: VPS 月费币种
-  costProvider    String? // TR-031: 账单提供方（为空时使用节点名称）
-  costLastSyncedAt DateTime? // TR-031: 最近一次自动同步时间
-  teamId          String? // TR-030: 多租户资源隔离
-  team            Team?   @relation("TeamServers", fields: [teamId], references: [id], onDelete: SetNull)
-  hostedActions   AiHostedAction[]
-  fileProxies     ServerFileProxy[]
+  id                 String                 @id @default(cuid())
+  name               String
+  host               String
+  port               Int                    @default(22)
+  username           String
+  sshKeyId           String?
+  password           String?
+  description        String?
+  tags               String[]
+  enabled            Boolean                @default(true)
+  connectionType     ServerConnectionType   @default(SSH_KEY)
+  createdAt          DateTime               @default(now())
+  updatedAt          DateTime               @updatedAt
+  sshKey             SshKey?                @relation(fields: [sshKeyId], references: [id], onDelete: SetNull)
+  storageNode        StorageNode?
+  commandTargets     CommandTarget[]
+  metricSnapshots    MetricSnapshot[]
+  trafficSnapshots   TrafficSnapshot[]
+  downloadTasks      DownloadTask[]
+  sourceSyncs        SyncJob[]              @relation("SourceSyncs")
+  targetSyncs        SyncJob[]              @relation("TargetSyncs")
+  publicUrl          String? // 目标服务器公网访问地址（直连模式）
+  fileProxyPort      Int                    @default(0) // 文件代理端口（0=未启用）
+  osDialect          String? // TR-041: JSON 序列化的 OsDialect（包管理器/服务管理器/路径等）
+  osInfo             String? // TR-041: /etc/os-release 原始摘要（distro name + version）
+  hostKeySha256      String? // SHA256 SSH host key fingerprint used for strict host verification
+  costAutoSync       Boolean                @default(false) // TR-031: 是否自动同步 VPS 月费到成本条目
+  costMonthlyAmount  Decimal?               @db.Decimal(12, 2) // TR-031: VPS 月费
+  costCurrency       String                 @default("CNY") // TR-031: VPS 月费币种
+  costProvider       String? // TR-031: 账单提供方（为空时使用节点名称）
+  costLastSyncedAt   DateTime? // TR-031: 最近一次自动同步时间
+  teamId             String? // TR-030: 多租户资源隔离
+  team               Team?                  @relation("TeamServers", fields: [teamId], references: [id], onDelete: SetNull)
+  hostedActions      AiHostedAction[]
+  fileProxies        ServerFileProxy[]
   vpsBackupSchedules VpsBackupSchedule[]
   vpsBackupRecords   VpsBackupRecord[]
   uptimeSnapshots    ServerUptimeSnapshot[]
@@ -332,7 +335,6 @@ model ExecutionLog {
 }
 
 model StorageNode {
-  @@map("StorageNode")
   id                         String               @id @default(cuid())
   name                       String
   driver                     StorageDriver
@@ -359,6 +361,8 @@ model StorageNode {
   imageUploads               ImageUpload[]
   mediaItems                 MediaItem[]
   mediaUploadSessions        MediaUploadSession[]
+
+  @@map("StorageNode")
 }
 
 model UserStorageAccess {
@@ -609,7 +613,9 @@ model MetricSnapshot {
 
 model TrafficSnapshot {
   id        String   @id @default(cuid())
-  /** "local" for the app host, or "server" for a managed VPS sampled over SSH. */
+  /**
+   * "local" for the app host, or "server" for a managed VPS sampled over SSH.
+   */
   source    String
   serverId  String?
   iface     String
@@ -838,7 +844,7 @@ model BackupRecord {
 // existing backup-job-worker picks up and runs locally via
 // runExistingBackupRecord. No serverIds — backups are host-local.
 model BackupSchedule {
-  id             String   @id @default(cuid())
+  id             String    @id @default(cuid())
   name           String
   cronExpression String
   // "DATABASE" | "FILES" | "FULL" — validated at the service layer via isBackupType
@@ -849,14 +855,14 @@ model BackupSchedule {
   retentionDays  Int?
   // "ACTIVE" | "PAUSED" | "DISABLED" — plain string (not enum) to mirror
   // BackupRecord.status convention and avoid enum migration churn.
-  status         String   @default("ACTIVE")
+  status         String    @default("ACTIVE")
   createdById    String?
   lastRunAt      DateTime?
   nextRunAt      DateTime?
   lastResult     String?
-  runCount       Int      @default(0)
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
+  runCount       Int       @default(0)
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
 
   creator User? @relation(fields: [createdById], references: [id], onDelete: SetNull)
 
@@ -869,7 +875,7 @@ model BackupSchedule {
 // download. Distinct from BackupSchedule/BackupRecord which are
 // host-local (VControlHub self-backup via deploy/backup.sh).
 model VpsBackupSchedule {
-  id             String   @id @default(cuid())
+  id             String    @id @default(cuid())
   serverId       String
   name           String
   cronExpression String
@@ -881,18 +887,18 @@ model VpsBackupSchedule {
   note           String?
   retentionDays  Int?
   // "ACTIVE" | "PAUSED" — plain string convention (no enum migration churn)
-  status         String   @default("ACTIVE")
+  status         String    @default("ACTIVE")
   createdById    String?
   lastRunAt      DateTime?
   nextRunAt      DateTime?
   lastResult     String?
-  runCount       Int      @default(0)
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
+  runCount       Int       @default(0)
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
 
-  server   Server             @relation(fields: [serverId], references: [id], onDelete: Cascade)
-  creator  User?              @relation(fields: [createdById], references: [id], onDelete: SetNull)
-  records  VpsBackupRecord[]
+  server  Server            @relation(fields: [serverId], references: [id], onDelete: Cascade)
+  creator User?             @relation(fields: [createdById], references: [id], onDelete: SetNull)
+  records VpsBackupRecord[]
 
   @@index([status, nextRunAt])
   @@index([serverId])
@@ -900,24 +906,24 @@ model VpsBackupSchedule {
 }
 
 model VpsBackupRecord {
-  id              String    @id @default(cuid())
+  id                String    @id @default(cuid())
   // null for manual (ad-hoc) triggers; non-null for scheduled runs
-  scheduleId      String?
-  serverId        String
-  backupType      String
+  scheduleId        String?
+  serverId          String
+  backupType        String
   // PENDING | RUNNING | COMPLETED | FAILED — plain string convention
-  status          String    @default("PENDING")
+  status            String    @default("PENDING")
   // Path on remote VPS where the backup archive was created (before SFTP download)
-  remotePath      String?
+  remotePath        String?
   // Local storage path after SFTP download (relative to storage root)
-  localPath       String?
-  fileSize        String?   // BigInt stored as String
-  checksumSha256  String?
-  errorMessage    String?
-  createdBy       String?
-  createdAt       DateTime  @default(now())
-  updatedAt       DateTime  @updatedAt
-  completedAt     DateTime?
+  localPath         String?
+  fileSize          String? // BigInt stored as String
+  checksumSha256    String?
+  errorMessage      String?
+  createdBy         String?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+  completedAt       DateTime?
   // TR-009: best-effort offsite S3 upload status
   offsiteKey        String?
   offsiteUploadedAt DateTime?
@@ -1339,11 +1345,11 @@ model CostEntry {
 
   createdBy User? @relation("CostEntryCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
 
+  @@unique([sourceType, sourceRef, effectiveDate])
   @@index([category, effectiveDate])
   @@index([effectiveDate])
   @@index([createdById, effectiveDate])
   @@index([sourceType, sourceRef, effectiveDate])
-  @@unique([sourceType, sourceRef, effectiveDate])
   @@map("cost_entries")
 }
 
@@ -1514,14 +1520,14 @@ enum MediaUploadSessionStatus {
 }
 
 model ServerUptimeSnapshot {
-  id            String   @id @default(cuid())
-  serverId      String
-  date          DateTime // 当天开始时间 (UTC 00:00:00)
-  uptimePercent Float    // 当天可用率 (0-100)
-  onlineMinutes Int      // 当天在线分钟数 (0-1440)
-  offlineMinutes Int     // 当天离线分钟数 (0-1440)
-  checkCount    Int      // 当天检查次数
-  createdAt     DateTime @default(now())
+  id             String   @id @default(cuid())
+  serverId       String
+  date           DateTime // 当天开始时间 (UTC 00:00:00)
+  uptimePercent  Float // 当天可用率 (0-100)
+  onlineMinutes  Int // 当天在线分钟数 (0-1440)
+  offlineMinutes Int // 当天离线分钟数 (0-1440)
+  checkCount     Int // 当天检查次数
+  createdAt      DateTime @default(now())
 
   server Server @relation(fields: [serverId], references: [id], onDelete: Cascade)
 

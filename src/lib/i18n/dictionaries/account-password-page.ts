@@ -29,19 +29,6 @@ export const zh: Record<string, string> = {
 	// change-password-form.tsx (client)
 	"accountPasswordPage.formDescription":
 		"输入当前密码后设置新密码。修改后不会强制退出，但下次登录需使用新密码。",
-	"accountPasswordPage.fields.currentLabel": "当前密码",
-	"accountPasswordPage.fields.currentPlaceholder": "请输入当前密码",
-	"accountPasswordPage.fields.newLabel": "新密码",
-	"accountPasswordPage.fields.newPlaceholder": "至少 8 位",
-	"accountPasswordPage.fields.confirmLabel": "确认新密码",
-	"accountPasswordPage.fields.confirmPlaceholder": "再次输入新密码",
-
-	// visibility toggle + submit pending
-	"accountPasswordPage.toggle.show": "显示",
-	"accountPasswordPage.toggle.hide": "隐藏",
-	"accountPasswordPage.toggle.ariaShow": "显示 {label}",
-	"accountPasswordPage.toggle.ariaHide": "隐藏 {label}",
-	"accountPasswordPage.saving": "保存中...",
 
 	// post-success redirect (countdown template + immediate button)
 	"accountPasswordPage.redirectCountdown": "（{seconds}s 后自动跳到仪表盘…）",
@@ -66,19 +53,6 @@ export const en: Record<string, string> = {
 	// change-password-form.tsx (client)
 	"accountPasswordPage.formDescription":
 		"Enter your current password to set a new one. Existing sessions will not be terminated, but the new password will be required at next sign-in.",
-	"accountPasswordPage.fields.currentLabel": "Current password",
-	"accountPasswordPage.fields.currentPlaceholder": "Enter current password",
-	"accountPasswordPage.fields.newLabel": "New password",
-	"accountPasswordPage.fields.newPlaceholder": "At least 8 characters",
-	"accountPasswordPage.fields.confirmLabel": "Confirm new password",
-	"accountPasswordPage.fields.confirmPlaceholder": "Re-enter new password",
-
-	// visibility toggle + submit pending
-	"accountPasswordPage.toggle.show": "Show",
-	"accountPasswordPage.toggle.hide": "Hide",
-	"accountPasswordPage.toggle.ariaShow": "Show {label}",
-	"accountPasswordPage.toggle.ariaHide": "Hide {label}",
-	"accountPasswordPage.saving": "Saving...",
 
 	// post-success redirect (countdown template + immediate button)
 	"accountPasswordPage.redirectCountdown": "({seconds}s until redirect to dashboard...)",

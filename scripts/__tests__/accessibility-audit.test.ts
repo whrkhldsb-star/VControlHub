@@ -126,6 +126,14 @@ describe("scanFile — negative / flag cases", () => {
 });
 
 describe("scanFile — skip rules", () => {
+	it("skips field-like markup inside comments", () => {
+		expect(scanFile("comment.tsx", `// previously rendered <select>\n/* <input /> */`)).toHaveLength(0);
+	});
+
+	it("skips reusable primitives that forward their accessibility props", () => {
+		expect(scanFile("input.tsx", `<input className={className} {...rest} />`)).toHaveLength(0);
+	});
+
   it("skips type=hidden inputs entirely", () => {
     const text = `
       <form>
@@ -344,11 +352,16 @@ describe("scanIconOnlyButtons — negative / flag cases", () => {
     expect(findings).toHaveLength(1);
   });
 
-  it("flags a button with {variable} reference (conservative — var is not evaluated)", () => {
+  it("passes a button with a runtime text variable", () => {
     const text = `<button>{label}</button>`;
     const findings = scanIconOnlyButtons("x.tsx", text);
-    expect(findings).toHaveLength(1);
+    expect(findings).toHaveLength(0);
   });
+
+	it("still flags a button whose only JSX expression is an icon", () => {
+		const text = `<button>{enabled && <CloseIcon />}</button>`;
+		expect(scanIconOnlyButtons("x.tsx", text)).toHaveLength(1);
+	});
 
   it("flags a multi-line button correctly with correct line number", () => {
     const text = `

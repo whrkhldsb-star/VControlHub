@@ -48,12 +48,6 @@ export const zh: Record<string, string> = {
 	"backend.shareLink.maxDownloadsExceeded": "分享链接已达最大下载次数",
 	"backend.shareLink.passwordRequired": "该分享链接需要密码访问",
 	"backend.shareLink.passwordIncorrect": "访问密码错误",
-
-	// operation-task/service.ts
-	"backend.operationTask.heartbeat": "心跳",
-	"backend.operationTask.heartbeatUnknown": "心跳未知",
-	"backend.operationTask.workerUnknown": "未知",
-	"backend.operationTask.workerProgress": "后台执行器 {workerId} · {heartbeat}",
 	"backend.operationTask.failure.authOrPermission": "权限或认证失败",
 	"backend.operationTask.failure.timeout": "执行超时",
 	"backend.operationTask.failure.fileOrResourceNotFound": "文件或资源不存在",
@@ -62,7 +56,6 @@ export const zh: Record<string, string> = {
 	"backend.operationTask.failure.backupOrRestore": "备份或恢复失败",
 	"backend.operationTask.failure.taskTypeFailed": "{taskType} 失败",
 	"backend.operationTask.failure.sourceFailed": "{source} 失败",
-	"backend.operationTask.backupTitle": "{type} 备份",
 
 	// server/service-profiles.ts, server/service-direct-gateway.ts
 	"backend.server.nodeNotFound": "VPS 节点不存在或已删除",
@@ -110,12 +103,6 @@ export const en: Record<string, string> = {
 	"backend.shareLink.maxDownloadsExceeded": "Share link has reached the maximum number of downloads",
 	"backend.shareLink.passwordRequired": "This share link requires a password to access",
 	"backend.shareLink.passwordIncorrect": "Incorrect access password",
-
-	// operation-task/service.ts
-	"backend.operationTask.heartbeat": "Heartbeat",
-	"backend.operationTask.heartbeatUnknown": "Heartbeat unknown",
-	"backend.operationTask.workerUnknown": "unknown",
-	"backend.operationTask.workerProgress": "Worker {workerId} · {heartbeat}",
 	"backend.operationTask.failure.authOrPermission": "Permission or authentication failure",
 	"backend.operationTask.failure.timeout": "Execution timed out",
 	"backend.operationTask.failure.fileOrResourceNotFound": "File or resource not found",
@@ -124,7 +111,6 @@ export const en: Record<string, string> = {
 	"backend.operationTask.failure.backupOrRestore": "Backup or restore failed",
 	"backend.operationTask.failure.taskTypeFailed": "{taskType} failed",
 	"backend.operationTask.failure.sourceFailed": "{source} failed",
-	"backend.operationTask.backupTitle": "{type} backup",
 
 	// server/service-profiles.ts, server/service-direct-gateway.ts
 	"backend.server.nodeNotFound": "VPS node not found or has been deleted",

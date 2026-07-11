@@ -360,6 +360,7 @@ export function UserManagementClient({ canManage = false, currentUserId = "" }: 
             role="dialog"
             aria-modal="true"
             aria-labelledby="reset-password-title"
+            onClick={(event) => event.stopPropagation()}
             className="w-full max-w-md rounded-2xl border border-[var(--warning-border)] bg-[var(--modal-bg)] p-6 shadow-lg"
           >
             <h2 id="reset-password-title" className="text-lg font-semibold text-[var(--text-primary)]">
@@ -370,6 +371,7 @@ export function UserManagementClient({ canManage = false, currentUserId = "" }: 
             </p>
             <input
               type="password"
+              aria-label={t("usersPage.form.passwordPlaceholder")}
               value={resetPasswordValue}
               onChange={(e) => setResetPasswordValue(e.target.value)}
               className="mt-4 w-full rounded-xl border border-[var(--border)] bg-[var(--input-bg)] px-4 py-2 text-sm text-[var(--text-primary)] focus:outline-none focus:border-[var(--color-action-border)]/50"

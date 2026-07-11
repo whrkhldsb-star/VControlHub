@@ -96,7 +96,7 @@ export async function createStorageNodeAction(
       username: usernameRaw || undefined,
     });
 
-    auditUserAction(session.userId, "storage.node.create", {
+    await auditUserAction(session.userId, "storage.node.create", {
       storageNodeId: node.id,
       name: node.name,
       driver: node.driver,
@@ -166,7 +166,7 @@ export async function updateStorageNodeAction(
       username: usernameRaw || null,
     });
 
-    auditUserAction(session.userId, "storage.node.update", { storageNodeId });
+    await auditUserAction(session.userId, "storage.node.update", { storageNodeId });
 
     revalidatePath("/");
     revalidatePath("/servers");
@@ -197,7 +197,7 @@ export async function deleteStorageNodeAction(
 
     await deleteStorageNode(storageNodeId);
 
-    auditUserAction(session.userId, "storage.node.delete", { storageNodeId });
+    await auditUserAction(session.userId, "storage.node.delete", { storageNodeId });
 
     revalidatePath("/");
     revalidatePath("/servers");

@@ -136,36 +136,51 @@ export async function moveFileAction(
       } satisfies MoveFileActionState;
     }
 
-    // 如果是目录，还需要更新所有子条目的路径
-    if (entry.entryType === "DIRECTORY") {
-      const oldPrefix = entry.relativePath + "/";
-      const newPrefix = newRelativePath + "/";
-
-      const children = await prisma.fileEntry.findMany({
-        where: {
-          storageNodeId: entry.storageNodeId,
-          relativePath: { startsWith: oldPrefix },
-        },
-        select: { id: true, relativePath: true },
-        take: 10_000,
-      });
-
-      // N+1 acceptable: non-uniform per-item writes (each row gets a computed relativePath)
-      for (const child of children) {
-        await prisma.fileEntry.update({
-          where: { id: child.id },
-          data: {
-            relativePath: child.relativePath.replace(oldPrefix, newPrefix),
-          },
+    try {
+      await prisma.$transaction(async (tx) => {
+        // Update the root first so the unique constraint reserves the target
+        // path before any descendant rows are changed.
+        await tx.fileEntry.update({
+          where: { id: fileEntryId },
+          data: { relativePath: newRelativePath },
         });
-      }
-    }
 
-    // 更新文件条目路径
-    await prisma.fileEntry.update({
-      where: { id: fileEntryId },
-      data: { relativePath: newRelativePath },
-    });
+        if (entry.entryType === "DIRECTORY") {
+          const oldPrefix = entry.relativePath + "/";
+          const newPrefix = newRelativePath + "/";
+          const children = await tx.fileEntry.findMany({
+            where: {
+              storageNodeId: entry.storageNodeId,
+              relativePath: { startsWith: oldPrefix },
+            },
+            select: { id: true, relativePath: true },
+            take: 10_000,
+          });
+
+          for (const child of children) {
+            await tx.fileEntry.update({
+              where: { id: child.id },
+              data: { relativePath: child.relativePath.replace(oldPrefix, newPrefix) },
+            });
+          }
+        }
+      });
+    } catch (databaseError) {
+      // The backing move already succeeded. Compensate it if the atomic DB
+      // update fails so storage and metadata do not remain permanently split.
+      try {
+        await moveBackingObject({
+          storageNode: entry.storageNode,
+          oldRelativePath: newRelativePath,
+          newRelativePath: normalizedCurrentPath.path,
+        });
+      } catch (compensationError) {
+        throw new Error(
+          `Database update failed and backing move rollback also failed: ${databaseError instanceof Error ? databaseError.message : String(databaseError)}; rollback: ${compensationError instanceof Error ? compensationError.message : String(compensationError)}`,
+        );
+      }
+      throw databaseError;
+    }
 
     revalidatePath("/");
     revalidatePath("/storage");

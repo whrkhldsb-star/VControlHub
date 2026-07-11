@@ -40,7 +40,7 @@ export async function DELETE(request: Request, { params }: { params: Promise<{ s
 			createdBy: session?.userId ?? null,
 			payload: { action: "uninstall", slug, deleteVolumes },
 		});
-		auditUserAction(session!.userId, "quick_service.uninstall", { slug });
+		await auditUserAction(session!.userId, "quick_service.uninstall", { slug });
 		return NextResponse.json({
 			success: true,
 			queued: true,

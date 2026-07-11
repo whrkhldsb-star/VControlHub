@@ -10,6 +10,7 @@ import {
   listShareLinks,
   revokeShareLink,
 } from "@/lib/share-link/service";
+import { auditUserAction } from "@/lib/audit/service";
 
 const shareLinkPostSchema = z.object({
   fileEntryId: z.string().min(1).optional(),
@@ -72,6 +73,7 @@ export async function POST(request: Request) {
             maxDownloads: data.maxDownloads,
             password: data.password,
           });
+      await auditUserAction(session!.userId, "share-link.create", { shareId: result.share.id });
       return NextResponse.json(
         { share: result.share, token: result.token },
         { status: 201 },
@@ -91,7 +93,9 @@ export async function DELETE(request: Request) {
     async ({ session }) => {
       if (!session) return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
       const { id } = parseSearchParams(request, idQuerySchema);
-      return NextResponse.json({ share: await revokeShareLink(id, session.userId) });
+      const share = await revokeShareLink(id, session.userId);
+      await auditUserAction(session.userId, "share-link.delete", { shareId: id });
+      return NextResponse.json({ share });
     },
   );
 }

@@ -46,7 +46,7 @@ function scopeLabel(t: (k: string) => string, scope: string): string {
 }
 
 export function ApiTokenManagerClient({ initialTokens, allowedScopes }: Props) {
-  const { t, locale } = useI18n();
+  const { t } = useI18n();
   const [tokens, setTokens] = useState(initialTokens);
   const [name, setName] = useState("");
   const [selectedScopes, setSelectedScopes] = useState<string[]>(["read"]);
