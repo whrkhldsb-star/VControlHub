@@ -466,6 +466,10 @@ make logs SERVICE_PREFIX=vcontrolhub
 | 审计残留 | ✅ | server batch/gateway、image batch、app-source sync/toggle、media scan/update、storage create/rename/delete/restore/permanent、backup create/offsite/retention |
 | BE-20 | ✅ | Share 旧 SHA-256 密码：成功校验后透明升级为 scrypt 并 CAS 回写；新密码只写 scrypt |
 | 静默 catch 收紧 | ✅ | auth 改密审计 `await auditUserAction`；downloads/command/scheduled-task/health/vps-backup 等关键路径空 catch 改为结构化 warn |
+| BE-21 | ✅ | VPS backup 本地下载路径校验：拒绝 `..`/绝对路径，限制在 `storage/vps-backups/`；删除/下载共用解析 |
+| BE-22 | ✅ | VPS backup `PENDING/FAILED → RUNNING` CAS，避免双 worker 同跑 |
+| BE-23 | ✅ | AI hosted action `reject` 改为 `updateMany` CAS（含非审批人的 requester 范围） |
+| 文档 | ✅ | openapi.json 路由注释修正为 delegated（实际仍 requireAuth） |
 
 #### 有意未做 / 待迁移窗口（不要误当“漏修”）
 

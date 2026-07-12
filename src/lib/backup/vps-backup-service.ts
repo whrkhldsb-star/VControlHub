@@ -12,7 +12,7 @@
 
 import { createHash } from "node:crypto";
 import { createWriteStream, mkdirSync, statSync } from "node:fs";
-import { dirname, join } from "node:path";
+import { dirname, join, resolve as resolvePath } from "node:path";
 import { pipeline } from "node:stream/promises";
 
 import { prisma } from "@/lib/db";
@@ -38,6 +38,32 @@ function getVpsBackupStorageRoot(): string {
 		"storage",
 		"vps-backups",
 	);
+}
+
+/**
+ * Validate a portable VPS backup relative path (as stored in DB).
+ * Rejects absolute paths, null bytes, backslashes, and `..` segments.
+ */
+export function assertPortableVpsBackupPath(localPath: string): string {
+	const value = localPath.trim();
+	if (
+		!value ||
+		value.startsWith("/") ||
+		value.includes("\0") ||
+		value.includes("\\") ||
+		value.includes("//")
+	) {
+		throw new Error("VPS backup path must be a portable relative path");
+	}
+	const parts = value.split("/");
+	if (parts.some((part) => !part || part === "." || part === "..")) {
+		throw new Error("VPS backup path must be a portable relative path");
+	}
+	// Expected layout written by this service.
+	if (!value.startsWith("storage/vps-backups/")) {
+		throw new Error("VPS backup path must be under storage/vps-backups/");
+	}
+	return value;
 }
 
 /** Build the local storage path for a VPS backup record */
@@ -123,11 +149,21 @@ export async function runVpsBackupRecord(recordId: string): Promise<VpsBackupRes
 		return failRecord(record.id, `Unknown backup type: ${record.backupType}`);
 	}
 
-	// Mark as RUNNING
-	await prisma.vpsBackupRecord.update({
-		where: { id: recordId },
-		data: { status: "RUNNING", updatedAt: new Date() },
+	// Mark as RUNNING via CAS — only claim PENDING (or re-queue from FAILED).
+	const claimed = await prisma.vpsBackupRecord.updateMany({
+		where: { id: recordId, status: { in: ["PENDING", "FAILED"] } },
+		data: { status: "RUNNING", updatedAt: new Date(), errorMessage: null },
 	});
+	if (claimed.count === 0) {
+		return {
+			success: false,
+			fileSize: null,
+			checksumSha256: null,
+			localPath: null,
+			remotePath: null,
+			errorMessage: `VpsBackupRecord ${recordId} is already running or completed`,
+		};
+	}
 
 	const remoteFilePath = generateRemoteBackupPath();
 	const customPaths = record.schedule?.paths ?? [];
@@ -362,15 +398,16 @@ export async function deleteVpsBackupRecord(recordId: string): Promise<void> {
 	});
 
 	if (record?.localPath) {
-		const absPath = join(
-			process.env.VCH_STORAGE_ROOT || process.cwd(),
-			record.localPath,
-		);
 		try {
+			const absPath = resolveVpsBackupFilePath(record.localPath);
 			const { unlinkSync } = await import("node:fs");
 			unlinkSync(absPath);
-		} catch {
-			// File may not exist; ignore
+		} catch (err) {
+			// File missing or path rejected — still remove the DB row.
+			vpsBackupLogger.warn("deleteVpsBackupRecord: local file cleanup skipped", {
+				recordId,
+				error: err instanceof Error ? err.message : String(err),
+			});
 		}
 	}
 
@@ -379,10 +416,14 @@ export async function deleteVpsBackupRecord(recordId: string): Promise<void> {
 
 /** Get the absolute local path for a VpsBackupRecord (for download) */
 export function resolveVpsBackupFilePath(localPath: string): string {
-	return join(
-		process.env.VCH_STORAGE_ROOT || process.cwd(),
-		localPath,
-	);
+	const portable = assertPortableVpsBackupPath(localPath);
+	const root = resolvePath(process.env.VCH_STORAGE_ROOT || process.cwd());
+	const abs = resolvePath(root, portable);
+	const prefix = root.endsWith("/") ? root : root + "/";
+	if (abs !== root && !abs.startsWith(prefix)) {
+		throw new Error("VPS backup path escapes storage root");
+	}
+	return abs;
 }
 
 /* ── Retention ───────────────────────────────────────────── */

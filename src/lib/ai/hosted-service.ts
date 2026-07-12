@@ -343,23 +343,29 @@ export async function confirmHostedAction(actionId: string, requester: HostedAct
 
 export async function rejectHostedAction(actionId: string, actor: HostedActionSession, reason?: string) {
   const canApprove = sessionHasPermission(actor, "ai:action:approve");
-  const action = await prisma.aiHostedAction.findFirst({
-    where: canApprove ? { id: actionId } : { id: actionId, requesterId: actor.userId },
-  });
-  if (!action) {
-    if (canApprove) throw new NotFoundError("Action not found or not authorized to approve");
-    throw new NotFoundError("Action not found or not authorized to cancel");
-  }
-  if (action.status !== "PENDING_APPROVAL") throw new BusinessError(canApprove ? "Action is not pending approval" : "Action is not pending confirmation");
-
-  return prisma.aiHostedAction.update({
-    where: { id: actionId },
+  // Scope claim by ownership unless the actor can approve any pending action.
+  const where = canApprove
+    ? { id: actionId, status: "PENDING_APPROVAL" as const }
+    : { id: actionId, status: "PENDING_APPROVAL" as const, requesterId: actor.userId };
+  const claimed = await prisma.aiHostedAction.updateMany({
+    where,
     data: {
       status: "REJECTED",
       approverId: actor.userId,
       errorMessage: reason || (canApprove ? "Approval rejected" : "User cancelled confirmation"),
     },
   });
+  if (claimed.count === 0) {
+    const action = await prisma.aiHostedAction.findFirst({
+      where: canApprove ? { id: actionId } : { id: actionId, requesterId: actor.userId },
+    });
+    if (!action) {
+      if (canApprove) throw new NotFoundError("Action not found or not authorized to approve");
+      throw new NotFoundError("Action not found or not authorized to cancel");
+    }
+    throw new BusinessError(canApprove ? "Action is not pending approval" : "Action is not pending confirmation");
+  }
+  return prisma.aiHostedAction.findUniqueOrThrow({ where: { id: actionId } });
 }
 
 // ── 执行已批准的操作 ──────────────────────────────────────

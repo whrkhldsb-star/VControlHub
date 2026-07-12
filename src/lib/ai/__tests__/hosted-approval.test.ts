@@ -6,6 +6,7 @@ const prismaMock = vi.hoisted(() => ({
 		create: vi.fn(),
 		findFirst: vi.fn(),
 		findUnique: vi.fn(),
+		findUniqueOrThrow: vi.fn(),
 		update: vi.fn(),
 		updateMany: vi.fn(),
 	},
@@ -213,17 +214,15 @@ describe("AI hosted action approvals", () => {
 			status: "PENDING_APPROVAL",
 			requesterId: "user_1",
 		};
-		prismaMock.aiHostedAction.findFirst.mockResolvedValue(action);
-		prismaMock.aiHostedAction.update.mockResolvedValue({ ...action, status: "REJECTED" });
+		prismaMock.aiHostedAction.updateMany.mockResolvedValue({ count: 1 });
+		prismaMock.aiHostedAction.findUniqueOrThrow.mockResolvedValue({ ...action, status: "REJECTED" });
 
 		await rejectHostedAction("action_1", { userId: "user_1", roles: ["operator"] }, "User rejected");
 
-		expect(prismaMock.aiHostedAction.findFirst).toHaveBeenCalledWith({
-			where: { id: "action_1", requesterId: "user_1" },
-		});
-		expect(prismaMock.aiHostedAction.update).toHaveBeenCalledWith({
-			where: { id: "action_1" },
+		expect(prismaMock.aiHostedAction.updateMany).toHaveBeenCalledWith({
+			where: { id: "action_1", status: "PENDING_APPROVAL", requesterId: "user_1" },
 			data: expect.objectContaining({ status: "REJECTED", approverId: "user_1", errorMessage: "User rejected" }),
 		});
+		expect(prismaMock.aiHostedAction.findUniqueOrThrow).toHaveBeenCalledWith({ where: { id: "action_1" } });
 	});
 });

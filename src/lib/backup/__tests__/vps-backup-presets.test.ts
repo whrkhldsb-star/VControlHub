@@ -112,3 +112,20 @@ describe("computeNextRun", () => {
 		expect(next.getHours()).toBe(0);
 	});
 });
+
+describe("resolveVpsBackupFilePath", () => {
+	it("accepts portable storage/vps-backups paths", async () => {
+		const { resolveVpsBackupFilePath } = await import("../vps-backup-service");
+		const abs = resolveVpsBackupFilePath("storage/vps-backups/srv1/mysql-rec1.tar.gz");
+		expect(abs).toContain("storage/vps-backups/srv1/mysql-rec1.tar.gz");
+		expect(abs.startsWith("/")).toBe(true);
+	});
+
+	it("rejects path traversal and absolute paths", async () => {
+		const { resolveVpsBackupFilePath } = await import("../vps-backup-service");
+		expect(() => resolveVpsBackupFilePath("../etc/passwd")).toThrow(/portable relative path/);
+		expect(() => resolveVpsBackupFilePath("/etc/passwd")).toThrow(/portable relative path/);
+		expect(() => resolveVpsBackupFilePath("storage/vps-backups/../secret")).toThrow(/portable relative path/);
+		expect(() => resolveVpsBackupFilePath("other/place/file.tar.gz")).toThrow(/storage\/vps-backups/);
+	});
+});
