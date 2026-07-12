@@ -18,6 +18,7 @@ import {
 import { execRemoteCommand, buildSshParamsFromServer } from "@/lib/ssh/client";
 import { decryptServerPassword, decryptSshPrivateKey } from "@/lib/ssh/ssh-key-crypto";
 import { execFile } from "child_process";
+import { createReadStream } from "fs";
 import { randomUUID } from "crypto";
 import { promisify } from "util";
 import fs from "fs/promises";
@@ -46,6 +47,7 @@ export type DownloadServer = {
  username: string;
  sshKeyId: string | null;
  password: string | null;
+ hostKeySha256?: string | null;
  storageNode?: { id: string; basePath: string | null } | null;
  sshKey?: { privateKey: string } | null;
 };
@@ -218,6 +220,39 @@ export async function transferFileViaSsh2(
  remoteFilePath: string,
  taskId: string,
 ): Promise<void> {
+ // Prefer verified ssh2 path when a host fingerprint is pinned.
+ if (server.hostKeySha256?.trim()) {
+  const { connectSsh, createVerifiedSshConfig } = await import("@/lib/ssh/client");
+  const config = createVerifiedSshConfig({
+   host: server.host,
+   port: server.port || 22,
+   username: server.username || "root",
+   hostKeySha256: server.hostKeySha256,
+   ...(decryptSshPrivateKey(server.sshKey?.privateKey ?? "")
+    ? { privateKey: decryptSshPrivateKey(server.sshKey!.privateKey!) }
+    : server.password
+     ? { password: decryptServerPassword(server.password) }
+     : {}),
+  });
+  const client = await connectSsh(config);
+  try {
+   await new Promise<void>((resolve, reject) => {
+    client.sftp((err, sftp) => {
+     if (err) return reject(err);
+     const read = createReadStream(localFilePath);
+     const write = sftp.createWriteStream(remoteFilePath);
+     read.on("error", reject);
+     write.on("error", reject);
+     write.on("close", () => resolve());
+     read.pipe(write);
+    });
+   });
+  } finally {
+   client.end();
+  }
+  return;
+ }
+
  const scpArgs = ["-o", "StrictHostKeyChecking=accept-new", "-o", "UserKnownHostsFile=/dev/null", "-P", String(server.port || 22)];
  const target = toScpTarget(server.username || "root", server.host, remoteFilePath);
 

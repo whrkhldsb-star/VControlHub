@@ -18,41 +18,71 @@ let running = false;
 
 /**
  * Process a single tick: dispatch due VPS backup schedules.
- * Uses a transient Job row as a distributed lock to prevent
- * overlapping ticks across multiple processes.
+ * Uses a PostgreSQL session advisory lock so multi-process ticks cannot
+ * both observe "no RUNNING tick" and create overlapping dispatch work.
  */
 export async function runVpsBackupScheduleTickOnce(): Promise<number> {
-	// Prevent overlapping ticks
-	const existing = await prisma.job.findFirst({
-		where: { type: "vps-backup-schedule.tick", status: "RUNNING" },
-		select: { id: true },
-	});
-
-	if (existing) return 0; // Another tick is running
-
-	// Create a transient tick job (payload is required by schema)
-	const tickJob = await prisma.job.create({
-		data: {
-			type: "vps-backup-schedule.tick",
-			title: "VPS backup schedule tick",
-			status: "RUNNING",
-			workerId: WORKER_ID,
-			payload: {},
-			leaseExpiresAt: new Date(Date.now() + 120_000),
-		},
-	});
-
+	// Stable int4 keys for pg_advisory_lock (namespace + resource).
+	const LOCK_K1 = 0x56505342; // 'VPSB'
+	const LOCK_K2 = 0x53434844; // 'SCHD'
+	await prisma.$executeRaw`SELECT pg_advisory_lock(${LOCK_K1}, ${LOCK_K2})`;
 	try {
-		const dispatched = await dispatchDueVpsBackupSchedules();
-		await completeJob(tickJob.id, WORKER_ID, { dispatched });
-		return dispatched;
-	} catch (err) {
-		const errMsg = err instanceof Error ? err.message : String(err);
-		await prisma.job.update({
-			where: { id: tickJob.id },
-			data: { status: "FAILED", errorMessage: errMsg },
+		// Prevent overlapping ticks (re-check under lock)
+		const existing = await prisma.job.findFirst({
+			where: {
+				type: "vps-backup-schedule.tick",
+				status: "RUNNING",
+				// Ignore expired leases so a crashed worker cannot block forever.
+				OR: [{ leaseExpiresAt: null }, { leaseExpiresAt: { gt: new Date() } }],
+			},
+			select: { id: true },
 		});
-		return 0;
+
+		if (existing) return 0;
+
+		// Mark any expired RUNNING ticks as failed before creating a new one.
+		await prisma.job.updateMany({
+			where: {
+				type: "vps-backup-schedule.tick",
+				status: "RUNNING",
+				leaseExpiresAt: { lte: new Date() },
+			},
+			data: {
+				status: "FAILED",
+				errorMessage: "Stale VPS backup schedule tick lease expired",
+			},
+		});
+
+		// Create a transient tick job (payload is required by schema)
+		const tickJob = await prisma.job.create({
+			data: {
+				type: "vps-backup-schedule.tick",
+				title: "VPS backup schedule tick",
+				status: "RUNNING",
+				workerId: WORKER_ID,
+				payload: {},
+				leaseExpiresAt: new Date(Date.now() + 120_000),
+			},
+		});
+
+		try {
+			const dispatched = await dispatchDueVpsBackupSchedules();
+			await completeJob(tickJob.id, WORKER_ID, { dispatched });
+			return dispatched;
+		} catch (err) {
+			const errMsg = err instanceof Error ? err.message : String(err);
+			await prisma.job.update({
+				where: { id: tickJob.id },
+				data: { status: "FAILED", errorMessage: errMsg },
+			});
+			return 0;
+		}
+	} finally {
+		try {
+			await prisma.$executeRaw`SELECT pg_advisory_unlock(${LOCK_K1}, ${LOCK_K2})`;
+		} catch {
+			// Session end will release; ignore unlock races.
+		}
 	}
 }
 

@@ -470,6 +470,54 @@ make logs SERVICE_PREFIX=vcontrolhub
 | BE-22 | ✅ | VPS backup `PENDING/FAILED → RUNNING` CAS，避免双 worker 同跑 |
 | BE-23 | ✅ | AI hosted action `reject` 改为 `updateMany` CAS（含非审批人的 requester 范围） |
 | 文档 | ✅ | openapi.json 路由注释修正为 delegated（实际仍 requireAuth） |
+| BE-24 | ✅ | VPS backup schedule tick：`findFirst RUNNING` 竞态 → PostgreSQL advisory lock + 过期 lease 回收 |
+| BE-25 | ✅ | 命令执行 / 下载 SCP：已 pin 的 `hostKeySha256` 经 ssh2 校验后再连；未 pin 仍 accept-new 引导 |
+
+#### 全量扫描记录（2026-07-12 第三轮）
+
+> 范围：138 个 API 路由、`src/lib` 竞态/路径/SSRF/静默失败、SSH 主机密钥路径。只记录 **HIGH/MEDIUM** 与经确认的产品边界，不重复 BE-1…BE-23 已修项。
+
+##### 扫描方法
+
+| 维度 | 方法 |
+|---|---|
+| API 鉴权 | 全量 `route.ts` 是否经 `withApiRoute` / 登录专用 / public share |
+| IDOR | 动态 `[id]` 路由：权限角色 vs service 层 ownership |
+| 竞态 | `status: RUNNING`、`findUnique`+`update` 无 `updateMany`、schedule tick 锁 |
+| 路径 | `join/resolve` + 用户可控 path、backup/storage 可移植路径 |
+| SSRF | 裸 `fetch(` 是否经安全 URL 断言 |
+| 静默失败 | 生产路径 `.catch(() => {})` / 空 `catch {}` |
+
+##### 本轮新发现 → 已修
+
+| ID | 严重度 | 位置 | 问题 | 处理 |
+|---|---|---|---|---|
+| BE-24 | MEDIUM | `src/lib/backup/vps-backup-schedule-worker.ts` | tick 用「查有无 RUNNING job」非原子，多进程可双 tick | `pg_advisory_lock` + 过期 lease 标记 FAILED |
+| BE-25 | HIGH | `command/service-execution.ts`、`downloads/execution.ts` | CLI `StrictHostKeyChecking=accept-new` + 丢弃 known_hosts，**已 pin 指纹未参与校验** | pin 存在时先 ssh2 `hostVerifier` 校验；下载走 sftp；未 pin 保持引导 |
+
+##### 扫描结论：未发现新的 CRITICAL 未修项
+
+| 区域 | 结论 |
+|---|---|
+| API 无 guard | 仅 login、2FA verify-login、share token（预期）；downloads 为 reexport；openapi 实际 `requireAuth` |
+| requireAuth-only 路由 | teams/AI hosted-actions 在 **service 层**做成员/权限；monitoring/status/signout 为预期设计；image file 对非公开图做 owner/`image:read` |
+| Job events / operation-tasks | `task:read` 角色可读运维任务流——**有意的运营可见性**，非匿名 IDOR |
+| Backup/VPS/AI/Sync CAS | 关键状态机已 CAS 或 advisory lock（含 BE-1…23 + 24） |
+| 存储/图床路径 | image `resolveUploadPath` 有 root 边界；share path normalize 拒 `..` |
+| direct-access fetch | 先 `assertPublicBaseUrlResolvesPublic` 再 health fetch |
+| 裸 fetch 其它 | AI provider / Telegram / aria2 / 客户端 api-client：配置端点或同站，非用户任意 URL |
+| 空 catch 残留 | 仅 unlink 清理、ssh stream close 等 best-effort；非业务假成功 |
+
+##### 有意接受 / 待产品决策（写入升级路线，非本次硬修）
+
+| ID | 严重度 | 项 | 说明 |
+|---|---|---|---|
+| OPEN-1 | LOW–MED | 未 pin 主机的 `accept-new` | 首次连接仍 TOFU；需在 UI 强制完成指纹确认后写入 `hostKeySha256`（已有 probe/审批流） |
+| OPEN-2 | LOW | Sync rsync SSH 仍 `accept-new` | 与 BE-25 同族；建议下一轮统一走 `buildSshParamsFromServer` + pin |
+| OPEN-3 | LOW | Download 任务状态更新非 CAS | 单 worker 按 taskId 串行执行，重复 claim 风险低；若多 worker 同任务需 CAS |
+| OPEN-4 | 产品 | `task:read` 可见他人 job events | 若需多租户硬隔离，改为 createdBy 或管理员-only |
+| OPEN-5 | 产品 | Share 旧 SHA 分支 | 透明升级已上线；需报表 + 窗口后删兼容 |
+| OPEN-6 | 范围外 | 全浏览器 E2E / DAST / 压测 / 不可逆生产实测 | 见审查边界 |
 
 #### 有意未做 / 待迁移窗口（不要误当“漏修”）
 
@@ -477,20 +525,22 @@ make logs SERVICE_PREFIX=vcontrolhub
 
 | 项 | 原因 | 建议路径 |
 |---|---|---|
-| **旧 Share 密码 SHA-256 兼容** | 历史 `passwordHash` 可能仍是无盐 SHA；立即删除校验会让旧分享链失效 | ✅ 校验成功时透明升级为 `scrypt:salt:hash` 并 CAS 回写（`d2c2e760` 后续）；运维窗口后仍可扫描非 scrypt 活跃链接再强制重置/吊销，最后删除 SHA 分支 |
+| **旧 Share 密码 SHA-256 兼容** | 历史 `passwordHash` 可能仍是无盐 SHA；立即删除校验会让旧分享链失效 | ✅ 校验成功时透明升级为 `scrypt:salt:hash` 并 CAS 回写；运维窗口后仍可扫描非 scrypt 活跃链接再强制重置/吊销，最后删除 SHA 分支 |
 | **前端交互层全量 E2E 矩阵** | 本轮优先服务端竞态/审计/一致性；Playwright 已有主路径但非 Firefox/WebKit 全矩阵 | 继续扩展可逆 CRUD / 文件 / 分享 / 媒体套件；跨浏览器放入 nightly |
-| **危险操作跨进程硬锁（全集）** | restore advisory lock 与 job lease 已覆盖关键路径；全站服务级跨进程锁需统一 lease 中心 | 见下方「持续升级路线」P1 |
+| **危险操作跨进程硬锁（全集）** | restore + VPS schedule tick advisory lock 与 job lease 已覆盖关键路径；全站统一 lease 中心仍开放 | 见「持续升级路线」P1 |
 | **不可逆生产副作用实测** | 关机、删生产容器、真实全量 restore、密钥轮换、外发通知等未在生产上硬跑 | 隔离环境 + 调用链静态推演 + mock；见「审查边界」 |
 | **覆盖率 / DAST / SAST / 压测** | 非本轮交付范围 | `test:coverage`、容器扫描、专用安全扫描、高并发压测单独排期 |
+| **Sync CLI SSH 主机密钥 pin** | OPEN-2 | 与 BE-25 对齐 |
+| **task:read 多租户收窄** | OPEN-4 | 产品确认后改查询范围 |
 
-#### 验证（本轮残余修复后）
+#### 验证（全量扫描 + BE-24/25 后）
 
 | 检查 | 结果 |
 |---|---|
-| `npx tsc --noEmit` | ✅ |
-| 聚焦 Vitest（share / backup / webhook / playbook / images batch 等） | ✅ |
-| `npm run build:runtime` + `npx next build --webpack` | ✅ |
-| 生产 `vcontrolhub-next` smoke（login / status） | ✅ |
+| `npx tsc --noEmit` | ✅（提交前复核） |
+| 聚焦 Vitest（command / share / backup / ai hosted 等） | ✅（提交前复核） |
+| `npm run build:runtime` + `npx next build --webpack` | ✅（提交前复核） |
+| 生产 `vcontrolhub-next` smoke（login / status） | ✅（提交前复核） |
 
 ### 审查边界
 
@@ -507,9 +557,10 @@ make logs SERVICE_PREFIX=vcontrolhub
 | P0 | 进行中 | 收敛大型 Client Component，将数据获取、mutation、展示区块和弹窗拆到稳定边界 | 页面行为不变；减少客户端边界与重复状态；桌面/移动浏览器回归通过 |
 | P0 | 进行中 | 收敛 `globals.css` 历史兼容规则，迁移到明确的 primitives 与 `data-*` hooks | 删除零命中/重复选择器；深浅主题、focus、dialog、表格和卡片视觉回归通过 |
 | P1 | 进行中 | 合并文件动作的重复核心 | Docker、Monitoring 与 SFTP 连接层已统一；继续收敛移动/重命名及目录操作 |
-| P1 | 进行中 | 强化危险操作跨进程锁和崩溃恢复 | lease 续期、AI CAS、backup restore advisory lock 已完成；继续处理服务级跨进程锁和中断补偿 |
+| P1 | 进行中 | 强化危险操作跨进程锁和崩溃恢复 | lease、AI CAS、backup restore / VPS schedule tick advisory lock 已完成；继续服务级统一 lease 中心 |
 | P1 | 进行中 | 正式化 E2E 隔离账号与本机数据库会话保护 | 已拒绝非回环数据库；继续自动创建/清理隔离账号并移除管理员依赖 |
 | P1 | 进行中 | Share 密码哈希迁移收口 | ✅ 透明升级已上线；剩余：活跃旧哈希扫描报表 + 窗口结束后移除 SHA 校验分支 |
+| P1 | 进行中 | SSH 主机密钥 pin 全路径收口 | ✅ 命令执行 + 下载 pin 校验；剩余 Sync rsync CLI（OPEN-2）与强制首次 TOFU 入库 |
 | P2 | 进行中 | 增加 Web Vitals、API 延迟、队列积压、WebSocket、轮询和通知投递可观测性 | request ID 已覆盖 guarded API；继续补充指标查询与前端关联 |
 
 > 当前功能优先保持稳定，不以引入大型状态管理框架或无收益的文件拆分为“升级”；优化必须带来更小的重复面、更清晰的所有权或更可靠的运行时行为。

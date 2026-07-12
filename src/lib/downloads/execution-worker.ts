@@ -147,6 +147,7 @@ function buildServerForExec(server: {
   username: string;
   sshKeyId: string | null;
   password: string | null;
+  hostKeySha256?: string | null;
   storageNode?: { id: string; basePath: string | null } | null;
   sshKey?: { privateKey: string | null } | null;
 }): DownloadServer {
@@ -159,6 +160,7 @@ function buildServerForExec(server: {
     username: server.username,
     sshKeyId: server.sshKeyId,
     password: server.password,
+    hostKeySha256: server.hostKeySha256 ?? null,
     storageNode: server.storageNode
       ? { id: server.storageNode.id, basePath: server.storageNode.basePath }
       : null,

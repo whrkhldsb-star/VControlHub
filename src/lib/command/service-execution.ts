@@ -39,12 +39,24 @@ async function executeCommandOverSshWithKey(input: {
   privateKey: string;
   command: string;
   targetId?: string;
+  hostKeySha256?: string | null;
 }): Promise<SshExecutionResult> {
   const tempDir = await mkdtemp(join(tmpdir(), "app-ssh-"));
   const keyPath = join(tempDir, "id_key");
 
   try {
     await writeFile(keyPath, `${input.privateKey.trim()}\n`, { mode: 0o600 });
+    await assertPinnedSshHostKey({
+      host: input.host,
+      port: input.port,
+      username: input.username,
+      privateKey: input.privateKey,
+      hostKeySha256: input.hostKeySha256,
+    });
+
+    const hostKeyMode = input.hostKeySha256?.trim()
+      ? (["-o", "StrictHostKeyChecking=yes"] as const)
+      : (["-o", "StrictHostKeyChecking=accept-new"] as const);
 
     const args = [
       "-i",
@@ -53,8 +65,7 @@ async function executeCommandOverSshWithKey(input: {
       String(input.port),
       "-o",
       "BatchMode=yes",
-      "-o",
-      "StrictHostKeyChecking=accept-new",
+      ...hostKeyMode,
       "-o",
       "UserKnownHostsFile=/dev/null",
       "-o",
@@ -84,12 +95,24 @@ async function executeCommandOverSshWithPassword(input: {
   password: string;
   command: string;
   targetId?: string;
+  hostKeySha256?: string | null;
 }): Promise<SshExecutionResult> {
+  await assertPinnedSshHostKey({
+    host: input.host,
+    port: input.port,
+    username: input.username,
+    password: input.password,
+    hostKeySha256: input.hostKeySha256,
+  });
+
+  const hostKeyMode = input.hostKeySha256?.trim()
+    ? (["-o", "StrictHostKeyChecking=yes"] as const)
+    : (["-o", "StrictHostKeyChecking=accept-new"] as const);
+
   const args = [
     "-p",
     String(input.port),
-    "-o",
-    "StrictHostKeyChecking=accept-new",
+    ...hostKeyMode,
     "-o",
     "UserKnownHostsFile=/dev/null",
     "-o",
@@ -112,6 +135,35 @@ async function executeCommandOverSshWithPassword(input: {
   });
 }
 
+/**
+ * When the server has a pinned host fingerprint, verify it via ssh2 before
+ * spawning OpenSSH CLI (which cannot enforce SHA256-only pins without a
+ * known_hosts entry). Unpinned servers keep accept-new bootstrap behaviour.
+ */
+async function assertPinnedSshHostKey(input: {
+  host: string;
+  port: number;
+  username: string;
+  privateKey?: string;
+  password?: string;
+  hostKeySha256?: string | null;
+}) {
+  const pin = input.hostKeySha256?.trim();
+  if (!pin) return;
+  const { connectSsh, createVerifiedSshConfig } = await import("@/lib/ssh/client");
+  const client = await connectSsh(
+    createVerifiedSshConfig({
+      host: input.host,
+      port: input.port,
+      username: input.username,
+      privateKey: input.privateKey,
+      password: input.password,
+      hostKeySha256: pin,
+    }),
+  );
+  client.end();
+}
+
 export async function executeCommandOverSsh(input: {
   host: string;
   port: number;
@@ -120,6 +172,7 @@ export async function executeCommandOverSsh(input: {
   password?: string;
   command: string;
   targetId?: string;
+  hostKeySha256?: string | null;
 }): Promise<SshExecutionResult> {
   if (input.privateKey) {
     return executeCommandOverSshWithKey(
@@ -130,6 +183,7 @@ export async function executeCommandOverSsh(input: {
         privateKey: string;
         command: string;
         targetId?: string;
+        hostKeySha256?: string | null;
       },
     );
   } else if (input.password) {
@@ -141,6 +195,7 @@ export async function executeCommandOverSsh(input: {
         password: string;
         command: string;
         targetId?: string;
+        hostKeySha256?: string | null;
       },
     );
   }
@@ -238,6 +293,7 @@ export async function executeTarget(
     password,
     command: target.commandRequest.command,
     targetId: target.id,
+    hostKeySha256: (target.server as { hostKeySha256?: string | null }).hostKeySha256,
   }).catch((error): SshExecutionResult => ({
     stdout: "",
     stderr: error instanceof Error ? error.message : "SSH execution failed",
@@ -287,6 +343,7 @@ export async function executeTargets(commandRequestId: string) {
           username: true,
           connectionType: true,
           password: true,
+          hostKeySha256: true,
           sshKey: {
             select: {
               id: true,
