@@ -37,7 +37,7 @@ const patchSchema = z.union([
 export async function GET(request: Request) {
   return withApiRoute(
     request,
-    { requireAuth: true, errorMessage: "FetchNotificationFailed" },
+    { requireAuth: true, errorMessage: "Failed to fetch notifications" },
     async ({ session }) => {
       if (!session)
         throw new AuthError("Not authenticated");
@@ -56,7 +56,7 @@ export async function PATCH(request: Request) {
     {
       requireAuth: true,
       rateLimit: GENERAL_WRITE_LIMIT,
-      errorMessage: "OperationFailed",
+      errorMessage: "Operation failed",
       bodySchema: patchSchema,
     },
     async ({ session, body }) => {
@@ -131,7 +131,7 @@ export async function DELETE(request: Request) {
     {
       requireAuth: true,
       rateLimit: GENERAL_WRITE_LIMIT,
-      errorMessage: "DeleteNotificationFailed",
+      errorMessage: "Failed to delete notification",
     },
     async ({ session }) => {
       if (!session)

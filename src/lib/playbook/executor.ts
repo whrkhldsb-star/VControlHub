@@ -188,22 +188,28 @@ async function dispatchStep(
       // ever making the HTTP request — a real functional gap. We now
       // perform the request and let any non-2xx response fail the step
       // so the operator sees the broken integration in the run log.
+      // SSRF: reuse shared webhook safety (HTTPS-only + private/metadata block).
       const cfg = step.config as {
         url: string;
         method: "GET" | "POST" | "PUT";
         headers?: Record<string, string>;
         body?: string;
       };
+      const { fetchWebhookSafely } = await import("@/lib/security/webhook-url");
       const controller = new AbortController();
       const timeoutMs = Math.max(1, step.timeoutSec) * 1000;
       const timer = setTimeout(() => controller.abort(), timeoutMs);
       try {
-        const response = await fetch(cfg.url, {
+        const result = await fetchWebhookSafely(cfg.url, {
           method: cfg.method,
           headers: cfg.headers ?? { "Content-Type": "application/json" },
           body: cfg.method === "GET" ? undefined : cfg.body,
           signal: controller.signal,
         });
+        if (!result.ok) {
+          throw new Error(result.error ?? `webhook URL blocked: ${cfg.url}`);
+        }
+        const response = result.response;
         if (!response.ok) {
           throw new Error(`webhook ${cfg.method} ${cfg.url} returned ${response.status} ${response.statusText}`);
         }

@@ -149,11 +149,11 @@ async function handlePost(body: SftpOpsBody, session: SessionPayload) {
   const { action, nodeId, path: remotePath } = body;
 
   if (!nodeId) {
-    throw new ValidationError("Missing nodeId Parameter");
+    throw new ValidationError("Missing nodeId parameter");
   }
 
   if (!remotePath) {
-    throw new ValidationError("Missing path Parameter");
+    throw new ValidationError("Missing path parameter");
   }
 
   // Resolve storage node connection params (same pattern as sftp/route.ts)
@@ -180,7 +180,7 @@ async function handlePost(body: SftpOpsBody, session: SessionPayload) {
         ? "storage:delete"
         : "storage:write";
   if (!sessionHasPermission(session, requiredPermission)) {
-    throw new ForbiddenError("MissingPermission");
+    throw new ForbiddenError("Missing permission");
   }
   const accessDecision = await assertStorageAccess({
     session,

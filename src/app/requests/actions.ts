@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 
 import { requirePermission } from "@/lib/auth/authorization";
+import { auditUserAction } from "@/lib/audit/service";
 import { reviewCommandRequest } from "@/lib/command/service";
 import { getServerLocale, t } from "@/lib/i18n/translations";
 
@@ -33,6 +34,10 @@ export async function reviewCommandAction(_prevState: ReviewActionState | null, 
       approverId: session.userId,
       approved,
       comment,
+    });
+    await auditUserAction(session.userId, approved ? "command.approve" : "command.reject", {
+      commandRequestId,
+      comment: comment || null,
     });
 
     revalidatePath("/");
@@ -93,6 +98,11 @@ export async function batchReviewCommandAction(
         approverId: session.userId,
         approved,
         comment,
+      });
+      await auditUserAction(session.userId, approved ? "command.approve" : "command.reject", {
+        commandRequestId,
+        comment: comment || null,
+        batch: true,
       });
       results[commandRequestId] = "ok";
       okCount++;

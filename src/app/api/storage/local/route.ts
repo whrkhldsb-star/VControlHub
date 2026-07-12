@@ -58,7 +58,7 @@ function resolveManagedLocalPath(basePath: string, relativePath: string) {
   const relativeToRoot = path.relative(allowedRoot, absolutePath);
 
   if (relativeToRoot.startsWith("..") || path.isAbsolute(relativeToRoot)) {
-    throw new Error("InvalidPath");
+    throw new ValidationError("Invalid path");
   }
 
   return {
@@ -75,7 +75,7 @@ async function handleGet(request: Request, session: SessionPayload) {
   );
 
   if (!relativePath) {
-    throw new ValidationError("Missing path Parameter");
+    throw new ValidationError("Missing path parameter");
   }
 
   const normalizedDownloadPath = normalizeStorageRelativePath(relativePath);
@@ -205,7 +205,7 @@ async function handlePost(request: Request, session: SessionPayload) {
   }
 
   if (!isUploadLike(file)) {
-    throw new ValidationError("MissingUploadFile");
+    throw new ValidationError("Missing upload file");
   }
 
   const declaredFileSize =

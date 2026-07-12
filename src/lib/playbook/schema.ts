@@ -18,6 +18,7 @@ import {
   STEP_TYPES,
   TRIGGER_TYPES,
 } from "./types";
+import { validateWebhookUrlSyntax } from "@/lib/security/webhook-url";
 
 const stepNameSchema = z
   .string()
@@ -41,12 +42,13 @@ const callWebhookConfigSchema = z.object({
   url: z
     .string()
     .trim()
-    .url("Webhook URL is invalid")
     .max(2_000)
-    .refine(
-      (raw) => raw.startsWith("https://") || raw.startsWith("http://"),
-      "Webhook URL must start with http(s)://",
-    ),
+    .superRefine((raw, ctx) => {
+      const result = validateWebhookUrlSyntax(raw);
+      if (!result.ok) {
+        ctx.addIssue({ code: z.ZodIssueCode.custom, message: result.error });
+      }
+    }),
   method: z.enum(["GET", "POST", "PUT"]),
   headers: z.record(z.string(), z.string()).optional(),
   body: z.string().max(20_000).optional(),

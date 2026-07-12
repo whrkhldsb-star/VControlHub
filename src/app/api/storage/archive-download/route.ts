@@ -102,10 +102,10 @@ export async function GET(request: Request) {
     );
 
     if (!nodeId) {
-      throw new ValidationError("Missing nodeId Parameter");
+      throw new ValidationError("Missing nodeId parameter");
     }
     if (!requestedPath) {
-      throw new ValidationError("Missing path Parameter");
+      throw new ValidationError("Missing path parameter");
     }
 
     const normalizedPath = normalizeStorageRelativePath(requestedPath);
@@ -115,7 +115,7 @@ export async function GET(request: Request) {
 
     const entry = await findDirectoryEntry(nodeId, normalizedPath.path);
     if (!entry) {
-      throw new NotFoundError("DirectoryEntryNot found");
+      throw new NotFoundError("Directory entry not found");
     }
     if (!isDirectoryEntry(entry)) {
       throw new ValidationError("Target is not a directory");

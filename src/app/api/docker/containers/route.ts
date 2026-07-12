@@ -137,7 +137,7 @@ export async function POST(req: NextRequest) {
     {
       permission: "docker:manage",
       rateLimit: COMMAND_LIMIT,
-      errorMessage: "Docker OperationFailed",
+      errorMessage: "Docker operation failed",
       bodySchema: containerActionSchema,
     },
     async ({ session, body }) => {

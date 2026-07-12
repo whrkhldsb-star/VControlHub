@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { sessionHasPermission } from "@/lib/auth/authorization";
+import { auditUserAction } from "@/lib/audit/service";
 import { addTicketComment, canViewTicket, createTicket, listTickets, updateTicketStatus } from "@/lib/ticket/service";
 import { withApiRoute } from "@/lib/http/api-guard";
 import { GENERAL_WRITE_LIMIT } from "@/lib/http/rate-limit-presets";
@@ -59,19 +60,25 @@ export async function POST(request: Request) {
   return withApiRoute(request, { requireAuth: true, rateLimit: GENERAL_WRITE_LIMIT, bodySchema: ticketPostSchema }, async ({ session, body }) => {
     if ("ticketId" in body) {
       if (!session || (!sessionHasPermission(session, "ticket:manage") && !(await canViewTicket(body.ticketId, session.userId)))) {
-        throw new ForbiddenError("MissingPermission");
+        throw new ForbiddenError("Missing permission");
       }
-      return NextResponse.json({ comment: await addTicketComment({ ticketId: body.ticketId, authorId: session?.userId ?? "", body: body.body }) }, { status: 201 });
+      const comment = await addTicketComment({ ticketId: body.ticketId, authorId: session?.userId ?? "", body: body.body });
+      await auditUserAction(session?.userId ?? "", "ticket.comment", { ticketId: body.ticketId, commentId: comment.id });
+      return NextResponse.json({ comment }, { status: 201 });
     }
     if (!session || !sessionHasPermission(session, "ticket:create")) {
-      throw new ForbiddenError("MissingPermission");
+      throw new ForbiddenError("Missing permission");
     }
-    return NextResponse.json({ ticket: await createTicket({ title: body.subject ?? body.title ?? "", description: body.description, priority: normalizePriority(body.priority), createdBy: session?.userId ?? "" }) }, { status: 201 });
+    const ticket = await createTicket({ title: body.subject ?? body.title ?? "", description: body.description, priority: normalizePriority(body.priority), createdBy: session?.userId ?? "" });
+    await auditUserAction(session?.userId ?? "", "ticket.create", { ticketId: ticket.id, title: ticket.title });
+    return NextResponse.json({ ticket }, { status: 201 });
   });
 }
 
 export async function PATCH(request: Request) {
-  return withApiRoute(request, { permission: "ticket:manage", rateLimit: GENERAL_WRITE_LIMIT, bodySchema: ticketPatchSchema }, async ({ body }) => {
-    return NextResponse.json({ ticket: await updateTicketStatus({ id: body.id, status: normalizeStatus(body.status), assigneeId: body.assigneeId, priority: normalizePriority(body.priority) }) });
+  return withApiRoute(request, { permission: "ticket:manage", rateLimit: GENERAL_WRITE_LIMIT, bodySchema: ticketPatchSchema }, async ({ session, body }) => {
+    const ticket = await updateTicketStatus({ id: body.id, status: normalizeStatus(body.status), assigneeId: body.assigneeId, priority: normalizePriority(body.priority) });
+    await auditUserAction(session?.userId ?? "", "ticket.update", { ticketId: body.id, status: body.status });
+    return NextResponse.json({ ticket });
   });
 }

@@ -60,7 +60,7 @@ export async function runOffsiteDryRun(): Promise<OffsiteDryRunResult> {
 		throw new S3Error(
 			err instanceof Error ? err.message : String(err),
 			0,
-			"DryRunFailed",
+			"Dry-run failed",
 		);
 	}
 	const latencyMs = Date.now() - start;

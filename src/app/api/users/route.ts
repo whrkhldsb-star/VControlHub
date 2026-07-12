@@ -68,7 +68,7 @@ export async function POST(request: Request) {
       const user = await prisma.$transaction(async (tx) => {
         const existing = await tx.user.findUnique({ where: { username } });
         if (existing) {
-          throw new Error("UsernameAlready exists");
+          throw new ValidationError("Username already exists");
         }
 
         const roles = await tx.role.findMany({
@@ -78,7 +78,7 @@ export async function POST(request: Request) {
         const foundRoleKeys = new Set(roles.map((role) => role.key));
         const missingRoleKeys = roleKeys.filter((key) => !foundRoleKeys.has(key));
         if (missingRoleKeys.length > 0) {
-          throw new Error(`RoleNot found: ${missingRoleKeys.join(", ")}`);
+          throw new ValidationError(`Role not found: ${missingRoleKeys.join(", ")}`);
         }
 
         const passwordHash = await hashPassword(body.password);

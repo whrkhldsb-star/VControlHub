@@ -177,7 +177,7 @@ export async function PATCH(request: Request) {
     {
       permission: "user:manage",
       rateLimit: GENERAL_WRITE_LIMIT,
-      errorMessage: "OperationFailed",
+      errorMessage: "Operation failed",
       bodySchema: patchPermissionsSchema,
     },
     async ({ session, body: parsedData }) => {

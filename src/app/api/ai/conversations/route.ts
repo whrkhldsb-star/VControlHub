@@ -35,7 +35,7 @@ export async function POST(request: Request) {
     {
       permission: "ai:chat",
       rateLimit: GENERAL_WRITE_LIMIT,
-      errorMessage: "CreateFailed",
+      errorMessage: "Failed to create",
       bodySchema: createConversationSchema,
     },
     async ({ session, body }) => {

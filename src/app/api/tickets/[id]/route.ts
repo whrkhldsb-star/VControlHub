@@ -37,7 +37,7 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
   return withApiRoute(_request, { requireAuth: true }, async ({ session }) => {
     const { id } = await params;
     if (!session || (!sessionHasPermission(session, "ticket:manage") && !(await canViewTicket(id, session.userId)))) {
-      throw new ForbiddenError("MissingPermission");
+      throw new ForbiddenError("Missing permission");
     }
     const ticket = await getTicketById(id);
     if (!ticket) throw new NotFoundError("Ticket not found");
@@ -68,7 +68,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     async ({ session, body }) => {
       const { id } = await params;
       if (!session || (!sessionHasPermission(session, "ticket:manage") && !(await canViewTicket(id, session.userId)))) {
-        throw new ForbiddenError("MissingPermission");
+        throw new ForbiddenError("Missing permission");
       }
       const comment = await addTicketComment({ ticketId: id, authorId: session.userId, body: body.body });
       await auditUserAction(session?.userId ?? "", "ticket.comment", { ticketId: id });

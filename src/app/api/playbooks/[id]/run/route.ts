@@ -27,7 +27,7 @@ async function requirePlaybookId(params: PlaybookRouteContext["params"]): Promis
 export async function POST(request: Request, { params }: PlaybookRouteContext) {
   return withApiRoute(
     request,
-    { permission: "playbook:run", rateLimit: GENERAL_WRITE_LIMIT, errorStatus: 400, errorMessage: "RunFailed" },
+    { permission: "playbook:run", rateLimit: GENERAL_WRITE_LIMIT, errorStatus: 400, errorMessage: "Failed to run" },
     async ({ session }) => {
       const id = await requirePlaybookId(params);
       const run = await runPlaybook({

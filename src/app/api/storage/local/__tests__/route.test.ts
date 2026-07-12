@@ -111,7 +111,7 @@ describe("/api/storage/local", () => {
 
     expect(response.status).toBe(400);
     await expect(response.json()).resolves.toMatchObject({
-      error: "Missing path Parameter",
+      error: "Missing path parameter",
     });
   });
 

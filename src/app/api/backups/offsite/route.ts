@@ -9,6 +9,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 
+import { auditUserAction } from "@/lib/audit/service";
 import { withApiRoute } from "@/lib/http/api-guard";
 import { GENERAL_WRITE_LIMIT } from "@/lib/http/rate-limit-presets";
 import { loadOffsiteConfig, saveOffsiteConfig } from "@/lib/storage/offsite/service";
@@ -57,8 +58,21 @@ export async function POST(request: Request) {
 			errorMessage: "Failed to save offsite backup configuration",
 			bodySchema: OffsiteConfigUpdateApiSchema,
 		},
-		async ({ body }) => {
+		async ({ session, body }) => {
 			const next = await saveOffsiteConfig(body);
+			await auditUserAction(session?.userId ?? "", "backup.offsite.update", {
+				enabled: next.enabled,
+				provider: next.provider,
+				bucket: next.bucket,
+				endpoint: next.endpoint,
+				region: next.region,
+				pathPrefix: next.pathPrefix,
+				dailyWindowHour: next.dailyWindowHour,
+				retentionDays: next.retentionDays,
+				// never log secretAccessKey / accessKeyId values
+				hasAccessKeyId: Boolean(next.accessKeyId),
+				hasSecretAccessKey: Boolean(next.secretAccessKey),
+			});
 			return NextResponse.json({ config: maskConfig(next) });
 		},
 	);

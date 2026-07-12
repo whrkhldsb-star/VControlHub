@@ -18,7 +18,7 @@ import { resolveStorageSshCredentials } from "@/lib/storage/ssh-credentials";
 
 import { withApiRoute } from "@/lib/http/api-guard";
 import { GENERAL_READ_LIMIT } from "@/lib/http/rate-limit-presets";
-import { AuthError } from "@/lib/errors";
+import { AuthError, ValidationError } from "@/lib/errors";
 
 import { apiError } from "@/lib/http/api-error";
 export const dynamic = "force-dynamic";
@@ -133,7 +133,7 @@ function resolveManagedLocalPath(basePath: string, relativePath: string) {
 	const allowedRoot = path.resolve(expandStorageBasePath(basePath));
 	const absolutePath = path.resolve(allowedRoot, normalized.path);
 	const relativeToRoot = path.relative(allowedRoot, absolutePath);
-	if (relativeToRoot.startsWith("..") || path.isAbsolute(relativeToRoot)) throw new Error("InvalidPath");
+	if (relativeToRoot.startsWith("..") || path.isAbsolute(relativeToRoot)) throw new ValidationError("Invalid path");
 	return absolutePath;
 }
 

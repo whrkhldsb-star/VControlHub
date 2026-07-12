@@ -25,16 +25,16 @@ export async function GET(
 ) {
   return withApiRoute(
     request,
-    { permission: "task:read", errorMessage: "FetchTaskEventFailed" },
+    { permission: "task:read", errorMessage: "Failed to fetch task events" },
     async () => {
       const { id: rawId } = await params;
       const id = rawId?.trim();
       if (!id) {
-        throw new ValidationError("MissingTask ID");
+        throw new ValidationError("Missing task ID");
       }
       const job = await prisma.job.findUnique({ where: { id }, select: { id: true } });
       if (!job) {
-        throw new NotFoundError("TaskNot found");
+        throw new NotFoundError("Task not found");
       }
       const { limit, beforeId } = parseSearchParams(
         request,

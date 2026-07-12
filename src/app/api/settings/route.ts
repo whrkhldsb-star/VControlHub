@@ -146,7 +146,7 @@ export async function GET(request: Request) {
 /* ── PATCH ────────────────────────────────────────────────── */
 
 export async function PATCH(request: Request) {
-	return withApiRoute(request, { permission: "user:manage", rateLimit: GENERAL_WRITE_LIMIT, errorStatus: 400, errorMessage: "SaveFailed", bodySchema: patchBodySchema }, async ({ session, body }) => {
+	return withApiRoute(request, { permission: "user:manage", rateLimit: GENERAL_WRITE_LIMIT, errorStatus: 400, errorMessage: "Failed to save", bodySchema: patchBodySchema }, async ({ session, body }) => {
 		// 1. Validate the body is a string→string record
 		const parsed = { data: body };
 

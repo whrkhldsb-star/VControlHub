@@ -7,7 +7,7 @@
  * (mark-as-void, queue-for-retry) that compose the CRUD primitives.
  */
 import { prisma } from "@/lib/db";
-import { BusinessError, NotFoundError, ValidationError } from "@/lib/errors";
+import { BusinessError, ConflictError, NotFoundError, ValidationError } from "@/lib/errors";
 import {
 	assertPortableBackupPath,
 	buildBackupFilePath,
@@ -70,7 +70,20 @@ export async function voidBackupRecord(input: { id: string; reason: string }) {
 	const errorMessage = record.errorMessage?.includes(prefix)
 		? record.errorMessage
 		: `${prefix}: ${reason}`;
-	return updateBackupRecordStatus(record.id, { status: "FAILED", errorMessage });
+	// CAS: only void if still in a voidable terminal/non-running state.
+	const claimed = await prisma.backupRecord.updateMany({
+		where: {
+			id: record.id,
+			status: { in: ["PENDING", "FAILED"] },
+		},
+		data: { status: "FAILED", errorMessage },
+	});
+	if (claimed.count === 0) {
+		throw new ConflictError("Backup status changed concurrently; cannot void");
+	}
+	const updated = await getBackupRecord(record.id);
+	if (!updated) throw new NotFoundError("Backup record not found");
+	return updated;
 }
 
 export async function prepareBackupRecordRetry(input: { id: string }) {
@@ -82,7 +95,17 @@ export async function prepareBackupRecordRetry(input: { id: string }) {
 	if (record.status !== "FAILED") throw new BusinessError("Only failed backups can be retried");
 	if (!isBackupType(record.type)) throw new ValidationError("Invalid backup type");
 	assertPortableBackupPath(record.filePath);
-	return updateBackupRecordStatus(record.id, { status: "PENDING", errorMessage: null });
+	// CAS: only re-queue while still FAILED.
+	const claimed = await prisma.backupRecord.updateMany({
+		where: { id: record.id, status: "FAILED" },
+		data: { status: "PENDING", errorMessage: null },
+	});
+	if (claimed.count === 0) {
+		throw new ConflictError("Backup status changed concurrently; cannot retry");
+	}
+	const updated = await getBackupRecord(record.id);
+	if (!updated) throw new NotFoundError("Backup record not found");
+	return updated;
 }
 
 /** Re-exported for callers that import the constant from `./service`. */

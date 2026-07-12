@@ -66,13 +66,13 @@ export async function GET(request: Request) {
 
       if (!nodeId) {
         return NextResponse.json(
-          { error: "Missing nodeId Parameter" },
+          { error: "Missing nodeId parameter" },
           { status: 400 },
         );
       }
 
       if (!remotePath) {
-        throw new ValidationError("Missing path Parameter");
+        throw new ValidationError("Missing path parameter");
       }
 
       const { node, credentials: connectionCredentials } = await getSftpNodeConnection(nodeId);

@@ -28,7 +28,7 @@ async function handleGet(request: Request, session: SessionPayload) {
   void nodeId; // currently unused beyond existence; preserved for parity with the prior ad-hoc parser.
 
   if (!nodeId) {
-    throw new ValidationError("Missing nodeId Parameter");
+    throw new ValidationError("Missing nodeId parameter");
   }
 
   const { node, credentials: connectionCredentials } = await getSftpNodeConnection(nodeId);

@@ -167,7 +167,7 @@ export async function PATCH(request: Request) {
     {
       permission: "user:manage",
       rateLimit: GENERAL_WRITE_LIMIT,
-      errorMessage: "OperationFailed",
+      errorMessage: "Operation failed",
       bodySchema: updateSchema,
     },
     async ({ body }) => {
@@ -197,7 +197,7 @@ export async function DELETE(request: Request) {
     {
       permission: "user:manage",
       rateLimit: GENERAL_WRITE_LIMIT,
-      errorMessage: "DeleteFailed",
+      errorMessage: "Failed to delete",
     },
     async ({ session }) => {
       const { id: sourceId } = parseSearchParams(request, idQuerySchema);

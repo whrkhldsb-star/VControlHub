@@ -77,7 +77,7 @@ export async function POST(request: Request) {
   const options = {
     permission: "deploy:run" as const,
     rateLimit: GENERAL_WRITE_LIMIT,
-    errorMessage: "OperationFailed",
+    errorMessage: "Operation failed",
     ...(isFormSubmission ? {} : { bodySchema: createDeploymentSchema }),
   };
   return withApiRoute(
@@ -117,7 +117,7 @@ export async function POST(request: Request) {
         // Only opaque errors (plain Error / unknown) get wrapped into a
         // generic INTERNAL_ERROR 500. TR-034 R2.
         if (isAppError(error)) throw error;
-        const message = error instanceof Error ? error.message : "OperationFailed";
+        const message = error instanceof Error ? error.message : "Operation failed";
         if (wantsHtmlResponse(request))
           return redirectToDeploymentsWithError(request, message);
         throw new AppError({ code: "INTERNAL_ERROR", message: message, status: 500 });

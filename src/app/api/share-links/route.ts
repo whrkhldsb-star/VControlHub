@@ -31,7 +31,7 @@ export const dynamic = "force-dynamic";
 export async function GET(request: Request) {
   return withApiRoute(
     request,
-    { permission: "share:read", errorMessage: "OperationFailed" },
+    { permission: "share:read", errorMessage: "Operation failed" },
     async ({ session }) => {
       if (!session) return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
       return NextResponse.json({ shares: await listShareLinks(session.userId) });
@@ -45,7 +45,7 @@ export async function POST(request: Request) {
     {
       permission: "share:create",
       rateLimit: GENERAL_WRITE_LIMIT,
-      errorMessage: "OperationFailed",
+      errorMessage: "Operation failed",
       bodySchema: shareLinkPostSchema,
     },
     async ({ session, body: data }) => {
@@ -88,7 +88,7 @@ export async function DELETE(request: Request) {
     {
       permission: "share:manage",
       rateLimit: GENERAL_WRITE_LIMIT,
-      errorMessage: "OperationFailed",
+      errorMessage: "Operation failed",
     },
     async ({ session }) => {
       if (!session) return NextResponse.json({ error: "Not authenticated" }, { status: 401 });

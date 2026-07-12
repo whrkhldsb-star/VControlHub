@@ -2,7 +2,7 @@ import { describe, expect, it, vi, beforeEach } from "vitest";
 import { Readable } from "node:stream";
 
 const { mockPrisma, runBackupCommandMock, statMock, createReadStreamMock } = vi.hoisted(() => ({
-  mockPrisma: { backupRecord: { create: vi.fn(), findMany: vi.fn(), findUnique: vi.fn(), update: vi.fn() } },
+  mockPrisma: { backupRecord: { create: vi.fn(), findMany: vi.fn(), findUnique: vi.fn(), update: vi.fn(), updateMany: vi.fn() } },
   runBackupCommandMock: vi.fn(),
   statMock: vi.fn(),
   createReadStreamMock: vi.fn(),
@@ -66,6 +66,12 @@ describe("backup service", () => {
     mockPrisma.backupRecord.findMany.mockResolvedValue([]);
     mockPrisma.backupRecord.findUnique.mockImplementation(async () => lastCreatedBackupRecord ?? { id: "bak1", type: "DATABASE", status: "COMPLETED", filePath: "backups/database.sql.gz", checksumSha256: "a92e0ec81286ff0f9ccf5982a22a83a0b70082446d5fd7af0eb9a3ceacd16c86" });
     mockPrisma.backupRecord.update.mockImplementation(async ({ data }: any) => ({ id: "bak1", ...data }));
+    mockPrisma.backupRecord.updateMany.mockImplementation(async ({ data }: any) => {
+      if (lastCreatedBackupRecord) {
+        lastCreatedBackupRecord = { ...lastCreatedBackupRecord, ...data };
+      }
+      return { count: 1 };
+    });
     runBackupCommandMock.mockResolvedValue({ stdout: "ok", stderr: "" });
     statMock.mockResolvedValue({ size: 1234 });
     createReadStreamMock.mockImplementation(() => Readable.from(["backup-content"]));
@@ -182,14 +188,23 @@ describe("backup service", () => {
   });
 
   it("marks stale pending or failed backup records void without deleting audit history", async () => {
-    mockPrisma.backupRecord.findUnique.mockResolvedValueOnce({ id: "bak-pending", type: "DATABASE", status: "PENDING", filePath: "backups/stale.sql.gz", errorMessage: null });
-    mockPrisma.backupRecord.update.mockImplementation(async ({ data }: any) => ({ id: "bak-pending", ...data }));
+    const current = { id: "bak-pending", type: "DATABASE", status: "PENDING", filePath: "backups/stale.sql.gz", errorMessage: null as string | null };
+    mockPrisma.backupRecord.findUnique
+      .mockResolvedValueOnce(current)
+      .mockImplementation(async () => current);
+    mockPrisma.backupRecord.updateMany.mockImplementation(async ({ data }: any) => {
+      Object.assign(current, data);
+      return { count: 1 };
+    });
 
     const record = await voidBackupRecord({ id: "bak-pending", reason: "stale queued record" });
 
     expect(record.status).toBe("FAILED");
     expect(record.errorMessage).toMatch(/^Voided:/);
-    expect(mockPrisma.backupRecord.update).toHaveBeenCalledWith({ where: { id: "bak-pending" }, data: { status: "FAILED", errorMessage: "Voided: stale queued record" } });
+    expect(mockPrisma.backupRecord.updateMany).toHaveBeenCalledWith({
+      where: { id: "bak-pending", status: { in: ["PENDING", "FAILED"] } },
+      data: { status: "FAILED", errorMessage: "Voided: stale queued record" },
+    });
   });
 
   it("refuses to void completed or running backup records", async () => {
@@ -201,14 +216,23 @@ describe("backup service", () => {
   });
 
   it("prepares failed backup records for retry without deleting audit history", async () => {
-    mockPrisma.backupRecord.findUnique.mockResolvedValueOnce({ id: "bak-failed", type: "DATABASE", status: "FAILED", filePath: "backups/failed.sql.gz", errorMessage: "readonly path" });
-    mockPrisma.backupRecord.update.mockImplementation(async ({ data }: any) => ({ id: "bak-failed", ...data }));
+    const current = { id: "bak-failed", type: "DATABASE", status: "FAILED", filePath: "backups/failed.sql.gz", errorMessage: "readonly path" as string | null };
+    mockPrisma.backupRecord.findUnique
+      .mockResolvedValueOnce(current)
+      .mockImplementation(async () => current);
+    mockPrisma.backupRecord.updateMany.mockImplementation(async ({ data }: any) => {
+      Object.assign(current, data);
+      return { count: 1 };
+    });
 
     const record = await prepareBackupRecordRetry({ id: "bak-failed" });
 
     expect(record.status).toBe("PENDING");
     expect(record.errorMessage).toBeNull();
-    expect(mockPrisma.backupRecord.update).toHaveBeenCalledWith({ where: { id: "bak-failed" }, data: { status: "PENDING", errorMessage: null } });
+    expect(mockPrisma.backupRecord.updateMany).toHaveBeenCalledWith({
+      where: { id: "bak-failed", status: "FAILED" },
+      data: { status: "PENDING", errorMessage: null },
+    });
   });
 
   it("refuses unsafe backup retry states and paths", async () => {

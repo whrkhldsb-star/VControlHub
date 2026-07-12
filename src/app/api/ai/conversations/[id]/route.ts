@@ -44,7 +44,7 @@ export async function PATCH(
     {
       requireAuth: true,
       rateLimit: GENERAL_WRITE_LIMIT,
-      errorMessage: "UpdateFailed",
+      errorMessage: "Failed to update",
       errorStatus: 400,
       bodySchema: updateConversationSchema,
     },
@@ -86,7 +86,7 @@ export async function DELETE(
     {
       requireAuth: true,
       rateLimit: GENERAL_WRITE_LIMIT,
-      errorMessage: "DeleteFailed",
+      errorMessage: "Failed to delete",
       errorStatus: 400,
     },
     async ({ session }) => {

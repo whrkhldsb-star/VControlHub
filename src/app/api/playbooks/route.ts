@@ -25,7 +25,7 @@ export async function GET(request: Request) {
 export async function POST(request: Request) {
   return withApiRoute(
     request,
-    { permission: "playbook:manage", rateLimit: GENERAL_WRITE_LIMIT, errorStatus: 400, errorMessage: "CreateFailed", bodySchema: createPlaybookSchema },
+    { permission: "playbook:manage", rateLimit: GENERAL_WRITE_LIMIT, errorStatus: 400, errorMessage: "Failed to create", bodySchema: createPlaybookSchema },
     async ({ session, body }) => {
       const createdById = session?.userId ?? "";
       const playbook = await createPlaybook(body, createdById);

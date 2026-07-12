@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 
 import { sessionHasPermission } from "@/lib/auth/authorization";
 import { requireSession } from "@/lib/auth/require-session";
+import { auditUserAction } from "@/lib/audit/service";
 import { enqueueJob } from "@/lib/job/service";
 import { BACKUP_CREATE_JOB_TYPE } from "@/lib/backup/job-worker";
 import { createBackupSchema } from "@/lib/backup/schema";
@@ -36,12 +37,18 @@ export async function createBackupAction(_prev: BackupActionState, formData: For
     createdBy: session.userId,
     note: parsed.data.note,
   });
-  await enqueueJob({
+  const job = await enqueueJob({
     type: BACKUP_CREATE_JOB_TYPE,
     title: tr("backupsPage.action.jobTitle").replace("{type}", tr(`backupsPage.action.typeLabel.${parsed.data.type}`)),
     payload: { backupId: backup.id },
     createdBy: session.userId,
     maxAttempts: 1,
+  });
+  await auditUserAction(session.userId, "backup.create", {
+    backupId: backup.id,
+    jobId: job.id,
+    async: true,
+    via: "server-action",
   });
   revalidatePath("/backups");
   return { success: true };

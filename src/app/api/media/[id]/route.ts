@@ -18,7 +18,7 @@ export async function PATCH(
 ) {
   return withApiRoute(
     request,
-    { permission: "media:manage", errorMessage: "OperationFailed", bodySchema: patchSchema },
+    { permission: "media:manage", errorMessage: "Operation failed", bodySchema: patchSchema },
     async ({ body }) => {
       const { id } = await params;
 

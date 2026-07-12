@@ -167,7 +167,7 @@ export async function POST(request: Request) {
     permission: "notification:manage" as const,
     rateLimit: GENERAL_WRITE_LIMIT,
     errorStatus: 400,
-    errorMessage: "CreateFailed",
+    errorMessage: "Failed to create",
     ...(isFormSubmission ? {} : { bodySchema: alertRuleSchema }),
   };
   return withApiRoute(
@@ -202,7 +202,7 @@ export async function PATCH(request: Request) {
       permission: "notification:manage",
       rateLimit: GENERAL_WRITE_LIMIT,
       errorStatus: 400,
-      errorMessage: "UpdateFailed",
+      errorMessage: "Failed to update",
       bodySchema: patchAlertRuleSchema,
     },
     async ({ session, body }) => {
@@ -247,12 +247,12 @@ export async function DELETE(request: Request) {
       try {
         const { id: alertRuleId } = parseSearchParams(request, idQuerySchema);
         if (!alertRuleId)
-          throw new ValidationError("MissingRule ID");
+          throw new ValidationError("Missing rule ID");
         await deleteAlertRule(alertRuleId);
         await auditUserAction(session.userId, "alert_rule.delete", { ruleId: alertRuleId });
         return NextResponse.json({ success: true });
       } catch (err) {
-        const message = err instanceof Error ? err.message : "DeleteFailed";
+        const message = err instanceof Error ? err.message : "Failed to delete";
         throw new ValidationError(message);
       }
     },

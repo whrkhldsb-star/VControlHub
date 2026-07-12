@@ -1,4 +1,4 @@
-import { ValidationError, BusinessError } from "@/lib/errors";
+import { ValidationError, ConflictError, NotFoundError } from "@/lib/errors";
 import { prisma } from "@/lib/db";
 
 const STATUSES = new Set(["OPEN", "IN_PROGRESS", "RESOLVED", "CLOSED"]);
@@ -66,19 +66,30 @@ export async function updateTicketStatus(input: { id: string; status?: string; a
 
   if (input.status !== undefined) {
     if (!STATUSES.has(input.status)) throw new ValidationError("Ticket status is invalid");
-    // Enforce the state machine. The UI only offers the allowed
-    // transitions; the API must enforce them too, otherwise an
-    // authenticated caller could PATCH a CLOSED ticket straight back
-    // to RESOLVED (or worse, jump OPEN→CLOSED in one hop) and break
-    // the `closedAt` invariant + audit trail.
+    // Enforce the state machine with CAS so concurrent PATCHes cannot
+    // both win illegal transitions (e.g. OPEN→IN_PROGRESS and OPEN→CLOSED).
     const current = await prisma.ticket.findUnique({ where: { id: input.id }, select: { status: true } });
-    if (!current) throw new BusinessError("Ticket not found");
+    if (!current) throw new NotFoundError("Ticket not found");
     const allowed = TRANSITIONS[current.status] ?? new Set<string>();
     if (!allowed.has(input.status)) {
       throw new ValidationError(`Ticket status cannot change from ${current.status} to ${input.status}`);
     }
     data.status = input.status;
     data.closedAt = input.status === "CLOSED" ? new Date() : null;
+
+    if (input.assigneeId !== undefined) data.assigneeId = input.assigneeId;
+    if (input.priority !== undefined) data.priority = input.priority;
+
+    const claimed = await prisma.ticket.updateMany({
+      where: { id: input.id, status: current.status },
+      data,
+    });
+    if (claimed.count === 0) {
+      throw new ConflictError("Ticket status changed concurrently; please retry");
+    }
+    const updated = await prisma.ticket.findUnique({ where: { id: input.id } });
+    if (!updated) throw new NotFoundError("Ticket not found");
+    return updated;
   }
 
   if (input.assigneeId !== undefined) {

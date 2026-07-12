@@ -75,7 +75,7 @@ export async function PATCH(
       permission: "ai:manage",
       rateLimit: GENERAL_WRITE_LIMIT,
       errorStatus: 400,
-      errorMessage: "UpdateFailed",
+      errorMessage: "Failed to update",
       bodySchema: updateProviderSchema,
     },
     async ({ session, body }) => {
@@ -105,7 +105,7 @@ export async function DELETE(
       permission: "ai:manage",
       rateLimit: GENERAL_WRITE_LIMIT,
       errorStatus: 400,
-      errorMessage: "DeleteFailed",
+      errorMessage: "Failed to delete",
     },
     async ({ session }) => {
       if (!session)

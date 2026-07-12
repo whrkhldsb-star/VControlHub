@@ -7,7 +7,7 @@ import { CachePresets, withCacheHeaders } from "@/lib/cache";
 export const dynamic = "force-dynamic";
 
 export async function GET(request: Request) {
-	return withApiRoute(request, { errorMessage: "StatusFetchFailed" }, async () => {
+	return withApiRoute(request, { errorMessage: "Failed to fetch status" }, async () => {
 		const session = await getApiSession();
 		// TR-053: 公开端点（未登录）只返 overall；详细 checks 仅登录用户可见。
 		const payload = session ? await getPublicStatus() : await getPublicStatusSummary();

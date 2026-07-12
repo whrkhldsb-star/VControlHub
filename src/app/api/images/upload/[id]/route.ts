@@ -42,7 +42,7 @@ export async function GET(
       }
       const view = await getMediaUploadSession(sessionId, session.userId);
       if (!view) {
-        throw new NotFoundError(`Not foundUploadSession ${sessionId}`);
+        throw new NotFoundError(`Upload session not found: ${sessionId}`);
       }
       return NextResponse.json({ session: view });
     },

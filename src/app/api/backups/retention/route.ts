@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 
+import { auditUserAction } from "@/lib/audit/service";
 import { BACKUP_RETENTION_JOB_TYPE } from "@/lib/backup/job-worker";
 import { getBackupPolicySummary } from "@/lib/backup/service";
 import { backupRetentionInputSchema } from "@/lib/backup/schema";
@@ -34,6 +35,10 @@ export async function POST(request: Request) {
       payload: body,
       createdBy: session?.userId ?? null,
       maxAttempts: 1,
+    });
+    await auditUserAction(session?.userId ?? "", "backup.retention.enqueue", {
+      jobId: job.id,
+      payload: body,
     });
     return NextResponse.json({ jobId: job.id, taskId: `job:${job.id}` }, { status: 202 });
   });

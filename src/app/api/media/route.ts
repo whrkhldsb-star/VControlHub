@@ -46,7 +46,7 @@ export async function POST(request: Request) {
     {
       permission: "media:manage",
       rateLimit: GENERAL_WRITE_LIMIT,
-      errorMessage: "OperationFailed",
+      errorMessage: "Operation failed",
     },
     async ({ session }) => {
       if (!session)

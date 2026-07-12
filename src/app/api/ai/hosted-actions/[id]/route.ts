@@ -31,7 +31,7 @@ export async function PATCH(
       requireAuth: true,
       rateLimit: GENERAL_WRITE_LIMIT,
       errorStatus: 400,
-      errorMessage: "OperationFailed",
+      errorMessage: "Operation failed",
       bodySchema: hostedActionDecisionSchema,
     },
     async ({ session, body }) => {

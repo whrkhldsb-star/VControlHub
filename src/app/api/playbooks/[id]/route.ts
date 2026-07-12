@@ -41,7 +41,7 @@ export async function GET(request: Request, { params }: PlaybookRouteContext) {
 export async function PATCH(request: Request, { params }: PlaybookRouteContext) {
   return withApiRoute(
     request,
-    { permission: "playbook:manage", rateLimit: GENERAL_WRITE_LIMIT, errorStatus: 400, errorMessage: "UpdateFailed", bodySchema: updatePlaybookSchema },
+    { permission: "playbook:manage", rateLimit: GENERAL_WRITE_LIMIT, errorStatus: 400, errorMessage: "Failed to update", bodySchema: updatePlaybookSchema },
     async ({ session, body }) => {
       const id = await requirePlaybookId(params);
       const updatedById = session?.userId ?? "";
@@ -55,7 +55,7 @@ export async function PATCH(request: Request, { params }: PlaybookRouteContext) 
 export async function DELETE(request: Request, { params }: PlaybookRouteContext) {
   return withApiRoute(
     request,
-    { permission: "playbook:manage", rateLimit: GENERAL_WRITE_LIMIT, errorStatus: 400, errorMessage: "DeleteFailed" },
+    { permission: "playbook:manage", rateLimit: GENERAL_WRITE_LIMIT, errorStatus: 400, errorMessage: "Failed to delete" },
     async ({ session }) => {
       const id = await requirePlaybookId(params);
       await deletePlaybook(id, session?.userId ?? "");

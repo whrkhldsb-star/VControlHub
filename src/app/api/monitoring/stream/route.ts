@@ -29,7 +29,7 @@ const activeConnectionsByUser = new Map<string, number>();
 export async function GET(request: Request) {
   return withApiRoute(
     request,
-    { requireAuth: true, errorMessage: "Monitoring SSE AuthenticationFailed", rateLimit: { maxRequests: 30, windowMs: 60_000 } },
+    { requireAuth: true, errorMessage: "Monitoring SSE authentication failed", rateLimit: { maxRequests: 30, windowMs: 60_000 } },
     async ({ session }) => {
 			const userId = session!.userId;
 			const activeCount = activeConnectionsByUser.get(userId) ?? 0;

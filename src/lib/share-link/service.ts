@@ -162,12 +162,28 @@ export async function resolveShareToken(token: string, password?: string) {
   const share = await prisma.shareLink.findUnique({ where: { tokenHash: hashShareToken(token) }, include: SHARE_STORAGE_NODE_INCLUDE });
   if (!share || share.revokedAt) throw new NotFoundError(t("backend.shareLink.notFoundOrRevoked"));
   if (share.expiresAt && share.expiresAt.getTime() < Date.now()) throw new ValidationError(t("backend.shareLink.expired"));
-  if (share.maxDownloads && share.accessCount >= share.maxDownloads) throw new ValidationError(t("backend.shareLink.maxDownloadsExceeded"));
   if (share.passwordHash) {
     if (!password) throw new ValidationError(t("backend.shareLink.passwordRequired"));
     if (!verifySharePassword(password, share.passwordHash)) throw new ValidationError(t("backend.shareLink.passwordIncorrect"));
   }
-  await prisma.shareLink.update({ where: { id: share.id }, data: { accessCount: { increment: 1 } } });
+  // Atomic quota claim: only increment when still under maxDownloads (or unlimited).
+  // Prevents concurrent downloads from exceeding the cap, and avoids a separate
+  // read-then-write race on accessCount.
+  if (share.maxDownloads != null) {
+    const claimed = await prisma.shareLink.updateMany({
+      where: {
+        id: share.id,
+        revokedAt: null,
+        accessCount: { lt: share.maxDownloads },
+      },
+      data: { accessCount: { increment: 1 } },
+    });
+    if (claimed.count === 0) {
+      throw new ValidationError(t("backend.shareLink.maxDownloadsExceeded"));
+    }
+  } else {
+    await prisma.shareLink.update({ where: { id: share.id }, data: { accessCount: { increment: 1 } } });
+  }
   return share;
 }
 

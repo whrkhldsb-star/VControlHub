@@ -71,6 +71,11 @@ export async function POST(request: Request) {
       createdBy: session?.userId ?? null,
       maxAttempts: 1,
     });
+    await auditUserAction(session?.userId ?? "", "backup.create", {
+      backupId: backup.id,
+      jobId: job.id,
+      async: true,
+    });
     if ((request.headers.get("accept") || "").includes("text/html")) {
       return NextResponse.redirect(new URL("/backups", request.url), { status: 303 });
     }
