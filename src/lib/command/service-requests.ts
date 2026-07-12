@@ -12,6 +12,9 @@ import {
   type ReviewCommandInput,
 } from "./schema";
 import { cancelActiveCommandChild, enqueueApprovedCommandExecution } from "./service-execution";
+import { createLogger } from "@/lib/logging";
+
+const commandLogger = createLogger("command-requests");
 
 function toApprovalActorType(submissionMode: "user" | "assistant") {
   return submissionMode;
@@ -254,12 +257,10 @@ export async function createCommandRequest(input: CreateCommandInput) {
     );
 
     // Notify requester that command execution has started; final status will be visible on the task row/logs.
-    notifyCommandResult(payload.requesterId, payload.title, "approved").catch(
-      () => {},
-    );
+    notifyCommandResult(payload.requesterId, payload.title, "approved").catch((err) => { commandLogger.warn("notifyCommandResult failed", { error: err instanceof Error ? err.message : String(err) }); });
   } else {
     // Notify admins about pending command approval
-    notifyCommandPending(payload.requesterId, payload.title).catch(() => {});
+    notifyCommandPending(payload.requesterId, payload.title).catch((err) => { commandLogger.warn("notifyCommandPending failed", { error: err instanceof Error ? err.message : String(err) }); });
   }
 
   return { ...commandRequest, requiresApproval };
@@ -306,9 +307,7 @@ export async function reviewCommandRequest(input: ReviewCommandInput) {
 
   if (payload.approved) {
     // Notify requester: command approved
-    notifyCommandResult(request.requesterId, request.title, "approved").catch(
-      () => {},
-    );
+    notifyCommandResult(request.requesterId, request.title, "approved").catch((err) => { commandLogger.warn("notifyCommandResult failed", { error: err instanceof Error ? err.message : String(err) }); });
 
     await enqueueApprovedCommandExecution(
       payload.commandRequestId,
@@ -337,9 +336,7 @@ export async function reviewCommandRequest(input: ReviewCommandInput) {
   });
 
   // Notify requester: command rejected
-  notifyCommandResult(request.requesterId, request.title, "rejected").catch(
-    () => {},
-  );
+  notifyCommandResult(request.requesterId, request.title, "rejected").catch((err) => { commandLogger.warn("notifyCommandResult failed", { error: err instanceof Error ? err.message : String(err) }); });
 
   return request;
 }

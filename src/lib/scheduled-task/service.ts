@@ -3,6 +3,9 @@ import { prisma } from "@/lib/db";
 import { createCommandRequest } from "@/lib/command/service";
 import { BusinessError, NotFoundError } from "@/lib/errors";
 import { notifyTaskConsecutiveFailed } from "@/lib/notification/service";
+import { createLogger } from "@/lib/logging";
+
+const taskLogger = createLogger("scheduled-task");
 
 /* ── Types ────────────────────────────────────────────────── */
 
@@ -142,7 +145,7 @@ export async function recordTaskRun(id: string, result: string) {
 		const prevWasFailure = task.lastResult?.startsWith("Execution failed") || task.lastResult?.startsWith("Manual retry failed");
 		if (prevWasFailure) {
 			// At least 2 consecutive failures (current + previous) — fire alert
-			notifyTaskConsecutiveFailed(task.createdById, task.name, 2, result.slice(0, 200)).catch(() => {});
+			notifyTaskConsecutiveFailed(task.createdById, task.name, 2, result.slice(0, 200)).catch((err) => { taskLogger.warn("notifyTaskConsecutiveFailed failed", { error: err instanceof Error ? err.message : String(err) }); });
 		}
 	}
 

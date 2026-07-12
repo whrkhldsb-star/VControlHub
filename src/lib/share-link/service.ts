@@ -5,6 +5,9 @@ import path from "node:path";
 
 import { prisma } from "@/lib/db";
 import { ForbiddenError, NotFoundError, ValidationError } from "@/lib/errors";
+import { createLogger } from "@/lib/logging";
+
+const shareLogger = createLogger("share-link");
 import { serverT } from "@/lib/i18n/server-locale";
 import { t } from "@/lib/i18n/translations";
 import { guessMimeType } from "@/lib/image-bed/constants";
@@ -50,16 +53,38 @@ export function hashSharePassword(password: string) {
   return `scrypt:${salt.toString("hex")}:${hash.toString("hex")}`;
 }
 
+/** True when the stored hash is already the modern salted scrypt format. */
+export function isModernSharePasswordHash(stored: string) {
+  return stored.startsWith("scrypt:");
+}
+
+/**
+ * Legacy unsalted SHA-256 format used before scrypt migration.
+ * Kept only for verification + transparent rehash; never write new hashes in this form.
+ */
+export function hashSharePasswordLegacySha256(password: string) {
+  return createHash("sha256").update(`share-pw:${password}`).digest("hex");
+}
+
 export function verifySharePassword(password: string, stored: string) {
-  if (stored.startsWith("scrypt:")) {
+  if (isModernSharePasswordHash(stored)) {
     const parts = stored.split(":");
     if (parts.length !== 3) return false;
     const salt = Buffer.from(parts[1]!, "hex");
     const expected = Buffer.from(parts[2]!, "hex");
+    if (salt.length === 0 || expected.length === 0) return false;
     const computed = scryptSync(password, salt, expected.length);
     return computed.length === expected.length && timingSafeEqual(computed, expected);
   }
-  return createHash("sha256").update(`share-pw:${password}`).digest("hex") === stored;
+  // Legacy: unsalted SHA-256 with a fixed prefix (timing-safe compare on digests).
+  const legacy = hashSharePasswordLegacySha256(password);
+  try {
+    const a = Buffer.from(legacy, "hex");
+    const b = Buffer.from(stored, "hex");
+    return a.length === b.length && a.length > 0 && timingSafeEqual(a, b);
+  } catch {
+    return false;
+  }
 }
 
 const SHARE_STORAGE_NODE_INCLUDE = {
@@ -165,6 +190,17 @@ export async function resolveShareToken(token: string, password?: string) {
   if (share.passwordHash) {
     if (!password) throw new ValidationError(t("backend.shareLink.passwordRequired"));
     if (!verifySharePassword(password, share.passwordHash)) throw new ValidationError(t("backend.shareLink.passwordIncorrect"));
+    // Transparent upgrade: successful login with a legacy SHA hash rewrites to scrypt.
+    // Best-effort — never fail the download if rehash write races or fails.
+    if (!isModernSharePasswordHash(share.passwordHash)) {
+      const upgraded = hashSharePassword(password);
+      void prisma.shareLink
+        .updateMany({
+          where: { id: share.id, passwordHash: share.passwordHash },
+          data: { passwordHash: upgraded },
+        })
+        .catch((err) => { shareLogger.warn("legacy share password rehash failed", { error: err instanceof Error ? err.message : String(err) }); });
+    }
   }
   // Atomic quota claim: only increment when still under maxDownloads (or unlimited).
   // Prevents concurrent downloads from exceeding the cap, and avoids a separate

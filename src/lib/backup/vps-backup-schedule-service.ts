@@ -6,6 +6,9 @@ import { prisma } from "@/lib/db";
 import { enqueueJob } from "@/lib/job/service";
 import { createVpsBackupRecord, VPS_BACKUP_CREATE_JOB_TYPE, pruneOldVpsBackupRecords } from "./vps-backup-service";
 import { isVpsBackupPresetType } from "./vps-backup-presets";
+import { createLogger } from "@/lib/logging";
+
+const vpsSchedLogger = createLogger("vps-backup-schedule");
 
 /* ── CRUD ────────────────────────────────────────────────── */
 
@@ -145,7 +148,7 @@ export async function dispatchDueVpsBackupSchedules(): Promise<number> {
 
 			// Auto-prune old records if retentionDays is set
 			if (schedule.retentionDays && schedule.retentionDays > 0) {
-				await pruneOldVpsBackupRecords(schedule.serverId, schedule.retentionDays).catch(() => {});
+				await pruneOldVpsBackupRecords(schedule.serverId, schedule.retentionDays).catch((err) => { vpsSchedLogger.warn("pruneOldVpsBackupRecords failed", { error: err instanceof Error ? err.message : String(err) }); });
 			}
 
 			dispatched++;

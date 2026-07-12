@@ -7,6 +7,9 @@ import { parseSearchParams } from "@/lib/http/parse-search-params";
 import { collectAllHealth, getMetricHistory, snapshotMetrics } from "@/lib/health/service";
 
 import { apiError } from "@/lib/http/api-error";
+import { createLogger } from "@/lib/logging";
+
+const healthLogger = createLogger("health-api");
 export const dynamic = "force-dynamic";
 
 function parseHistoryHours(value: string | null) {
@@ -86,7 +89,7 @@ async function handleHealthRequest(request: Request) {
         s.mem ?? 0,
         s.diskMax ?? 0,
         s.status !== "offline",
-      ).catch(() => {});
+      ).catch((err) => { healthLogger.warn("snapshotMetrics failed", { error: err instanceof Error ? err.message : String(err) }); });
     }
   }
 

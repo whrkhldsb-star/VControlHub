@@ -1,6 +1,6 @@
 import { prisma } from "@/lib/db";
 
-import { writeAuditLog } from "@/lib/audit/service";
+import { auditUserAction } from "@/lib/audit/service";
 import { hashPassword, verifyPassword } from "./password";
 import { validatePasswordPolicy } from "./password-policy";
 import { changePasswordSchema, loginSchema, type ChangePasswordInput, type LoginInput } from "./schema";
@@ -120,13 +120,7 @@ export async function changePassword(input: ChangePasswordInput & { userId: stri
 		},
 	});
 
-	writeAuditLog({
-		actorType: "USER",
-		actorId: input.userId,
-		action: "auth.password_change",
-		severity: "INFO",
-		detail: { userId: input.userId },
- }).catch(() => {}); // audit failure must not block or pollute production logs
+	await auditUserAction(input.userId, "auth.password_change", { userId: input.userId });
 
 	return { success: true };
 }

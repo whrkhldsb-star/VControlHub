@@ -24,6 +24,9 @@ import {
 	getPreset,
 } from "./vps-backup-presets";
 import { downloadFile } from "@/lib/ssh/sftp-service";
+import { createLogger } from "@/lib/logging";
+
+const vpsBackupLogger = createLogger("vps-backup");
 
 /** Job type for the durable job queue */
 export const VPS_BACKUP_CREATE_JOB_TYPE = "vps-backup.create";
@@ -292,7 +295,7 @@ async function failRecord(
 			...sshParams,
 			command: cleanupCommand,
 			timeout: 10_000,
-		}).catch(() => {});
+		}).catch((err) => { vpsBackupLogger.warn("best-effort operation failed", { error: err instanceof Error ? err.message : String(err) }); });
 	}
 
 	return {

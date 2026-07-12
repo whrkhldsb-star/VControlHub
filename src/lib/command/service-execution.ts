@@ -16,6 +16,9 @@ import {
   runSshCommandProcess,
 } from "./ssh-executor";
 import { enqueueCommandExecutionJob } from "./execution-worker";
+import { createLogger } from "@/lib/logging";
+
+const cmdExecLogger = createLogger("command-execution");
 
 export const COMMAND_WORKER_ID = `${process.pid}-${randomUUID()}`;
 
@@ -337,7 +340,7 @@ export async function executeAndFinalizeCommand(commandRequestId: string) {
   const runtimeConfig = await getCommandRuntimeConfigValues();
   const heartbeatIntervalMs = runtimeConfig.executionHeartbeatMs;
   let heartbeat: NodeJS.Timeout | null = setInterval(() => {
-    heartbeatRunningCommandRequest(commandRequestId).catch(() => {});
+    heartbeatRunningCommandRequest(commandRequestId).catch((err) => { cmdExecLogger.warn("heartbeatRunningCommandRequest failed", { error: err instanceof Error ? err.message : String(err) }); });
   }, heartbeatIntervalMs);
   heartbeat.unref?.();
 

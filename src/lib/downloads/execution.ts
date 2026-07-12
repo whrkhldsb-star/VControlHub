@@ -122,7 +122,7 @@ export async function executeAria2RelayDownload(
   if (!done) {
    try { await removeDownload(gid, true); } catch (err) { logError("[DownloadAPI] Failed to remove aria2 download on timeout:", err); }
    await prisma.downloadTask.update({ where: { id: taskId }, data: { status: "FAILED", errorMessage: "Download timed out (2 hour limit)" } });
-   if (userId) notifyDownloadResult(userId, urls[0]!, "failed", "Download timed out (2 hour limit)").catch(() => {});
+   if (userId) notifyDownloadResult(userId, urls[0]!, "failed", "Download timed out (2 hour limit)").catch((err) => { notifyLogger.warn("notifyDownloadResult failed", { error: err instanceof Error ? err.message : String(err) }); });
    await cleanupTemp(tempDir);
    return;
   }
@@ -168,7 +168,7 @@ export async function executeAria2RelayDownload(
   logError("[DownloadAPI] Relay download execution failed:", error);
   try {
    await prisma.downloadTask.update({ where: { id: taskId }, data: { status: "FAILED", errorMessage: getPublicAria2Error(error) } });
-   if (userId) notifyDownloadResult(userId, urls[0]!, "failed", getPublicAria2Error(error)).catch(() => {});
+   if (userId) notifyDownloadResult(userId, urls[0]!, "failed", getPublicAria2Error(error)).catch((err) => { notifyLogger.warn("notifyDownloadResult failed", { error: err instanceof Error ? err.message : String(err) }); });
   } catch (err) { logError("[DownloadAPI] Failed to update task status after relay failure:", err); }
   await cleanupTemp(tempDir);
  }
@@ -205,7 +205,7 @@ export async function executeDirectDownload(
   logError("[DownloadAPI] Direct download execution failed:", error);
   try {
    await prisma.downloadTask.update({ where: { id: taskId }, data: { status: "FAILED", errorMessage: getPublicDownloadError(error) } });
-   if (userId) notifyDownloadResult(userId, url, "failed", getPublicDownloadError(error)).catch(() => {});
+   if (userId) notifyDownloadResult(userId, url, "failed", getPublicDownloadError(error)).catch((err) => { notifyLogger.warn("notifyDownloadResult failed", { error: err instanceof Error ? err.message : String(err) }); });
   } catch (err) { logError("[DownloadAPI] Failed to update task status after direct download failure:", err); }
  }
 }

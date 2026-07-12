@@ -445,6 +445,49 @@ make logs SERVICE_PREFIX=vcontrolhub
 - 依赖锁文件存在，生产依赖审计为 0 已知漏洞；部署模板、systemd/Caddy 资产和环境变量占位检查较完整。
 - 后台命令、备份、下载和 AI 审批已有 durable job/CAS/worker ownership 等并发保护；本轮还逐层复核了危险操作的前端确认、权限、schema、队列载荷、worker 和执行器边界。
 
+### 2026-07-12 残余深度审计（续）
+
+> 在 REV-01…REV-47 之上，对竞态、审计缺口、假成功路径、webhook SSRF、错误文案和删除一致性做了第二轮落地修复。提交：`113f5a7a`、`d2c2e760` 及后续。
+
+#### 本轮已修复
+
+| ID | 状态 | 内容 |
+|---|---|---|
+| BE-1 | ✅ | Ticket 状态机 TOCTOU → `updateMany` CAS（期望旧 status） |
+| BE-2 | ✅ | Backup void/retry TOCTOU → 仅 PENDING/FAILED 可 void、仅 FAILED 可 retry |
+| BE-3 | ✅ | 同备份并发 restore → PostgreSQL session advisory lock + 进行中 restore job 去重 |
+| BE-4 | ✅ | Share 下载配额竞态 → `accessCount < maxDownloads` 原子 claim |
+| BE-5 | ✅ | Playbook webhook SSRF → schema 语法校验 + `fetchWebhookSafely` 执行路径 |
+| BE-6/7 | ✅ | 存储软删/永久删：索引先更新/删除（事务），物理删 best-effort；软删返回 `physicalDeleted` / `needsReconcile` |
+| BE-8 | ✅ | Sync job `IDLE/ERROR → RUNNING` CAS claim |
+| BE-9/10 | ✅ | 工单创建/评论、命令审批/驳回审计补齐 |
+| BE-18/19 | ✅ | downloads notify、quick-service status 的空 `.catch` 改为结构化 warn 日志 |
+| 文案 | ✅ | API 粘连英文错误（如 `CreateFailed` / `UsernameAlready exists`）改为可读英文 |
+| 审计残留 | ✅ | server batch/gateway、image batch、app-source sync/toggle、media scan/update、storage create/rename/delete/restore/permanent、backup create/offsite/retention |
+| BE-20 | ✅ | Share 旧 SHA-256 密码：成功校验后透明升级为 scrypt 并 CAS 回写；新密码只写 scrypt |
+| 静默 catch 收紧 | ✅ | auth 改密审计 `await auditUserAction`；downloads/command/scheduled-task/health/vps-backup 等关键路径空 catch 改为结构化 warn |
+
+#### 有意未做 / 待迁移窗口（不要误当“漏修”）
+
+以下项**不是遗忘**，而是需要产品策略、数据迁移窗口或更大架构改动；在完成前保持兼容或接受已知边界：
+
+| 项 | 原因 | 建议路径 |
+|---|---|---|
+| **旧 Share 密码 SHA-256 兼容** | 历史 `passwordHash` 可能仍是无盐 SHA；立即删除校验会让旧分享链失效 | ✅ 校验成功时透明升级为 `scrypt:salt:hash` 并 CAS 回写（`d2c2e760` 后续）；运维窗口后仍可扫描非 scrypt 活跃链接再强制重置/吊销，最后删除 SHA 分支 |
+| **前端交互层全量 E2E 矩阵** | 本轮优先服务端竞态/审计/一致性；Playwright 已有主路径但非 Firefox/WebKit 全矩阵 | 继续扩展可逆 CRUD / 文件 / 分享 / 媒体套件；跨浏览器放入 nightly |
+| **危险操作跨进程硬锁（全集）** | restore advisory lock 与 job lease 已覆盖关键路径；全站服务级跨进程锁需统一 lease 中心 | 见下方「持续升级路线」P1 |
+| **不可逆生产副作用实测** | 关机、删生产容器、真实全量 restore、密钥轮换、外发通知等未在生产上硬跑 | 隔离环境 + 调用链静态推演 + mock；见「审查边界」 |
+| **覆盖率 / DAST / SAST / 压测** | 非本轮交付范围 | `test:coverage`、容器扫描、专用安全扫描、高并发压测单独排期 |
+
+#### 验证（本轮残余修复后）
+
+| 检查 | 结果 |
+|---|---|
+| `npx tsc --noEmit` | ✅ |
+| 聚焦 Vitest（share / backup / webhook / playbook / images batch 等） | ✅ |
+| `npm run build:runtime` + `npx next build --webpack` | ✅ |
+| 生产 `vcontrolhub-next` smoke（login / status） | ✅ |
+
 ### 审查边界
 
 - 本轮已连接当前生产 PostgreSQL、systemd、Caddy、Docker、已配置服务器探测和下载 worker，并在隔离账号/唯一前缀数据下复测；关机、删除现有容器、安装/卸载真实服务、真实备份恢复、强制 AI 自主执行、密钥轮换和通知外发采用完整调用链静态推演、配置核对及 mock/隔离验证，未对生产资源产生这些不可逆或外部副作用。
@@ -460,11 +503,12 @@ make logs SERVICE_PREFIX=vcontrolhub
 | P0 | 进行中 | 收敛大型 Client Component，将数据获取、mutation、展示区块和弹窗拆到稳定边界 | 页面行为不变；减少客户端边界与重复状态；桌面/移动浏览器回归通过 |
 | P0 | 进行中 | 收敛 `globals.css` 历史兼容规则，迁移到明确的 primitives 与 `data-*` hooks | 删除零命中/重复选择器；深浅主题、focus、dialog、表格和卡片视觉回归通过 |
 | P1 | 进行中 | 合并文件动作的重复核心 | Docker、Monitoring 与 SFTP 连接层已统一；继续收敛移动/重命名及目录操作 |
-| P1 | 进行中 | 强化危险操作跨进程锁和崩溃恢复 | lease 续期与 AI CAS 已完成；继续处理服务级跨进程锁和中断补偿 |
+| P1 | 进行中 | 强化危险操作跨进程锁和崩溃恢复 | lease 续期、AI CAS、backup restore advisory lock 已完成；继续处理服务级跨进程锁和中断补偿 |
 | P1 | 进行中 | 正式化 E2E 隔离账号与本机数据库会话保护 | 已拒绝非回环数据库；继续自动创建/清理隔离账号并移除管理员依赖 |
+| P1 | 进行中 | Share 密码哈希迁移收口 | ✅ 透明升级已上线；剩余：活跃旧哈希扫描报表 + 窗口结束后移除 SHA 校验分支 |
 | P2 | 进行中 | 增加 Web Vitals、API 延迟、队列积压、WebSocket、轮询和通知投递可观测性 | request ID 已覆盖 guarded API；继续补充指标查询与前端关联 |
 
-> 当前功能优先保持稳定，不以引入大型状态管理框架或无收益的文件拆分作为“升级”；优化必须带来更小的重复面、更清晰的所有权或更可靠的运行时行为。
+> 当前功能优先保持稳定，不以引入大型状态管理框架或无收益的文件拆分为“升级”；优化必须带来更小的重复面、更清晰的所有权或更可靠的运行时行为。
 
 ---
 

@@ -78,4 +78,29 @@ describe("share link service", () => {
     expect(result.id).toBe("share1");
     expect(mockPrisma.shareLink.update).toHaveBeenCalled();
   });
+
+  it("accepts legacy SHA-256 share passwords and upgrades them to scrypt", async () => {
+    const { hashSharePasswordLegacySha256 } = await import("../service");
+    const legacyHash = hashSharePasswordLegacySha256("legacy-pass");
+    mockPrisma.shareLink.findUnique.mockResolvedValue({
+      id: "share-legacy",
+      tokenHash: "x",
+      expiresAt: null,
+      revokedAt: null,
+      maxDownloads: null,
+      accessCount: 0,
+      passwordHash: legacyHash,
+    });
+    mockPrisma.shareLink.update.mockResolvedValue({ id: "share-legacy" });
+    mockPrisma.shareLink.updateMany.mockResolvedValue({ count: 1 });
+
+    const result = await resolveShareToken("abc", "legacy-pass");
+    expect(result.id).toBe("share-legacy");
+    expect(mockPrisma.shareLink.updateMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: "share-legacy", passwordHash: legacyHash },
+        data: { passwordHash: expect.stringMatching(/^scrypt:/) },
+      }),
+    );
+  });
 });
