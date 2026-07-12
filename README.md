@@ -519,6 +519,25 @@ make logs SERVICE_PREFIX=vcontrolhub
 | OPEN-5 | 产品 | Share 旧 SHA 分支 | 透明升级已上线；需报表 + 窗口后删兼容 |
 | OPEN-6 | 范围外 | 全浏览器 E2E / DAST / 压测 / 不可逆生产实测 | 见审查边界 |
 
+##### 补扫确认（防漏项）
+
+在第三轮主扫之后又做了一轮**防漏补扫**，结论如下（均不构成新的未记录 CRITICAL）：
+
+| 区域 | 结果 |
+|---|---|
+| API `route.ts` 138 + downloads 子模块 4 | 无 guard 仅 login / 2FA / share；子模块均 `withApiRoute` |
+| Server Actions（`actions*.ts`） | 业务 action 均有 session/权限；`actions.ts` / `actions-helpers` 仅为 barrel/类型 |
+| Edge 鉴权 | Next 16 使用 `src/proxy.ts`（非 middleware.ts）：公开路径白名单 + session cookie 形态检查 |
+| SSH / 通知 WS | `ssh-ws-proxy` 校验 session JWT + `canUseSshTerminal`；`notification-ws` 校验 token |
+| 自定义 `server.ts` | 仅挂 Next + 通知 WS，鉴权在 WS 层 |
+| SQL | 仅参数化 `$executeRaw` / `$queryRaw`，**无** `*RawUnsafe` |
+| XSS 预览 | `dangerouslySetInnerHTML` 仅 markdown/代码高亮，经 `sanitizeHtml` / `sanitizeHighlight` |
+| 空 catch 残留 | unlink / stream close 清理类 |
+| 密钥入库 | 仓库仅 `.env.example`，无跟踪私钥/真实 env |
+| 已知残留 OPEN | Sync `accept-new`（OPEN-2）、未 pin TOFU（OPEN-1）、download 非 CAS（OPEN-3）等已在上表 |
+
+**结论**：服务端高/中优先级安全与一致性问题已在 BE-1…BE-25 覆盖；剩余项均为产品边界、引导路径或范围外验证，**未发现扫描漏掉的新 CRITICAL/HIGH 未修缺陷**。
+
 #### 有意未做 / 待迁移窗口（不要误当“漏修”）
 
 以下项**不是遗忘**，而是需要产品策略、数据迁移窗口或更大架构改动；在完成前保持兼容或接受已知边界：
