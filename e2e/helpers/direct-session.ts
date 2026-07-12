@@ -8,7 +8,16 @@ export async function installDirectSession(context: BrowserContext) {
 	process.loadEnvFile(`${process.cwd()}/.env.local`);
 	const username = process.env.E2E_USER ?? "admin";
 	const password = process.env.E2E_PASS ?? "admin123";
-	const client = new Client({ connectionString: process.env.DATABASE_URL });
+	const connectionString = process.env.DATABASE_URL;
+	if (!connectionString) throw new Error("DATABASE_URL is required for direct E2E sessions");
+	const trustLocalDbSession = process.env.E2E_TRUST_LOCAL_DB_SESSION === "1";
+	if (trustLocalDbSession) {
+		const hostname = new URL(connectionString).hostname.toLowerCase();
+		if (!["localhost", "127.0.0.1", "::1"].includes(hostname)) {
+			throw new Error("E2E_TRUST_LOCAL_DB_SESSION only permits a loopback DATABASE_URL");
+		}
+	}
+	const client = new Client({ connectionString });
 	await client.connect();
 	try {
 		const result = await client.query<{
@@ -26,7 +35,6 @@ export async function installDirectSession(context: BrowserContext) {
 			WHERE u.username = $1 AND u.status = 'ACTIVE'
 			GROUP BY u.id`, [username]);
 		const user = result.rows[0];
-		const trustLocalDbSession = process.env.E2E_TRUST_LOCAL_DB_SESSION === "1";
 		if (!user || (!trustLocalDbSession && !(await bcrypt.compare(password, user.passwordHash)))) {
 			throw new Error(`Unable to create E2E session for ${username}`);
 		}

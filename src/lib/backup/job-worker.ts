@@ -8,6 +8,7 @@ import {
 } from "@/lib/backup/service";
 import { config } from "@/lib/config/env";
 import { computeLeaseMs } from "@/lib/job/lease";
+import { runWithLeaseHeartbeat } from "@/lib/job/heartbeat-runner";
 import { claimNextJob, completeJob, failJob, heartbeatJob } from "@/lib/job/service";
 import { createLogger } from "@/lib/logging";
 
@@ -93,7 +94,12 @@ async function handleJob(job: Awaited<ReturnType<typeof claimNextJob>>) {
       const payload = parseCreatePayload(job.payload);
       const record = await getBackupRecord(payload.backupId);
       await heartbeatJob(job.id, WORKER_ID, { leaseMs: LEASE_MS, progress: `Running ${record?.type ?? "UNKNOWN"} backup` });
-      const backup = await runExistingBackupRecord({ id: payload.backupId, projectRoot: payload.projectRoot });
+      const backup = await runWithLeaseHeartbeat({
+        jobId: job.id,
+        leaseMs: LEASE_MS,
+        heartbeat: () => heartbeatJob(job.id, WORKER_ID, { leaseMs: LEASE_MS, progress: `Running ${record?.type ?? "UNKNOWN"} backup` }),
+        run: () => runExistingBackupRecord({ id: payload.backupId, projectRoot: payload.projectRoot }),
+      });
       await completeJob(job.id, WORKER_ID, {
         backupId: backup.id,
         status: backup.status,
@@ -106,7 +112,12 @@ async function handleJob(job: Awaited<ReturnType<typeof claimNextJob>>) {
     if (job.type === BACKUP_RESTORE_JOB_TYPE) {
       const payload = parseRestorePayload(job.payload);
       await heartbeatJob(job.id, WORKER_ID, { leaseMs: LEASE_MS, progress: "Restoring backup" });
-      const restore = await restoreBackupRecord({ id: payload.backupId, confirm: payload.confirm, projectRoot: payload.projectRoot });
+      const restore = await runWithLeaseHeartbeat({
+        jobId: job.id,
+        leaseMs: LEASE_MS,
+        heartbeat: () => heartbeatJob(job.id, WORKER_ID, { leaseMs: LEASE_MS, progress: "Restoring backup" }),
+        run: () => restoreBackupRecord({ id: payload.backupId, confirm: payload.confirm, projectRoot: payload.projectRoot }),
+      });
       await completeJob(job.id, WORKER_ID, restore);
       return true;
     }

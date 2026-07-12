@@ -81,6 +81,10 @@ export function ServerCardActions({
   useEffect(() => {
     if (toggleState.success) router.refresh();
   }, [toggleState.success, router]);
+
+  useEffect(() => {
+    if (deleteState.success) router.refresh();
+  }, [deleteState.success, router]);
   const { openTerminal } = useSshTerminal();
   const isConfirming =
     deleteState.relatedStorageCount !== undefined &&

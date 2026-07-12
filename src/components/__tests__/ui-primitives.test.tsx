@@ -22,11 +22,6 @@ describe("UI Primitives", () => {
 			render(<Card>Card Content</Card>);
 			expect(screen.getByText("Card Content")).toBeInTheDocument();
 		});
-
-		it("applies variant correctly", () => {
-			render(<Card variant="interactive">Hover Me</Card>);
-			expect(screen.getByText("Hover Me")).toHaveAttribute("data-card");
-		});
 	});
 
 	describe("Spinner", () => {

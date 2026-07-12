@@ -103,6 +103,12 @@ function makePrismaMock() {
 					return next;
 				},
 			),
+			updateMany: vi.fn(async ({ where, data }: { where: { id: string; updatedAt?: Date }; data: Partial<AiOpsLogRow> }) => {
+				const row = store.logs.get(where.id);
+				if (!row || (where.updatedAt && row.updatedAt.getTime() !== where.updatedAt.getTime())) return { count: 0 };
+				store.logs.set(row.id, { ...row, ...data });
+				return { count: 1 };
+			}),
 			count: vi.fn(async () => store.logs.size),
 		},
 	};
@@ -323,6 +329,24 @@ describe("executeRecommendation — mode-aware action gating", () => {
 		const result = await executeRecommendation({ logId: log.id, actionId: "ghost" });
 		expect(result.ok).toBe(false);
 		expect(result.errorMessage).toMatch(/Recommendation not found/);
+	});
+
+	it("allows only one concurrent executor to claim the same recommendation", async () => {
+		const log = await createAiOpsLog({ triggerType: "manual", mode: "autonomous" });
+		await completeScan({
+			logId: log.id,
+			status: "warning",
+			findings: [],
+			actions: [{ id: "a1", action: "alert.evaluate", risk: "low", executed: false }],
+		});
+
+		const results = await Promise.all([
+			executeRecommendation({ logId: log.id, actionId: "a1", forceAutonomous: true }),
+			executeRecommendation({ logId: log.id, actionId: "a1", forceAutonomous: true }),
+		]);
+
+		expect(results.filter((result) => result.executed)).toHaveLength(1);
+		expect(results.filter((result) => result.errorMessage?.includes("already being executed"))).toHaveLength(1);
 	});
 });
 

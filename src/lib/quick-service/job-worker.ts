@@ -3,6 +3,7 @@ import { JobStatus, Prisma } from "@prisma/client";
 import { config } from "@/lib/config/env";
 import { prisma } from "@/lib/db";
 import { computeLeaseMs } from "@/lib/job/lease";
+import { runWithLeaseHeartbeat } from "@/lib/job/heartbeat-runner";
 import { enqueueJob, claimNextJob, completeJob, failJob, heartbeatJob } from "@/lib/job/service";
 import { createLogger } from "@/lib/logging";
 import { ConflictError } from "@/lib/errors";
@@ -270,7 +271,12 @@ export async function runQuickServiceJobWorkerOnce(state = getWorkerState(), rea
 		if (!job) return false;
 
 		try {
-			await executeQuickServiceJob(job);
+			await runWithLeaseHeartbeat({
+				jobId: job.id,
+				leaseMs: QUICK_SERVICE_WORKER_LEASE_MS,
+				heartbeat: () => heartbeatJob(job.id, QUICK_SERVICE_WORKER_ID, { leaseMs: QUICK_SERVICE_WORKER_LEASE_MS }),
+				run: () => executeQuickServiceJob(job),
+			});
 		} catch (error) {
 			const message = error instanceof Error ? error.message : String(error);
 			logger.error("QuickService job failed", { reason, jobId: job.id, error: message });

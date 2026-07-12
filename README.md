@@ -346,22 +346,22 @@ make logs SERVICE_PREFIX=vcontrolhub
 | 功能页面            | 47                                               |
 | API 路由文件        | 138                                              |
 | 数据模型            | 60                                               |
-| UI 组件           | 35                                               |
-| 代码行数            | ~181,386（src 扫描）                                 |
-| 测试              | 409 文件                                           |
+| UI 组件           | 33                                               |
+| 代码行数            | ~180,078（src 扫描）                                 |
+| 测试              | 408 文件                                           |
 | Docker 应用模板     | 44 (本地) + 社区源实时同步                                |
-| i18n            | 214 useI18n() 调用点，78 字典文件                        |
+| i18n            | 212 useI18n() 调用点，78 字典文件                        |
 <!-- README_METRICS_END -->
 
 ---
 
 ## 📋 代码审查与深度审计记录
 
-> 全面复核与修复日期：**2026-07-11**。范围包括 47 个页面、138 个 API 路由、60 个 Prisma 模型，以及认证、RBAC、CSRF、SSH/SFTP、文件一致性、前端浏览器行为、后台任务、部署资产、依赖和文档一致性。
+> 全面复核与修复日期：**2026-07-12**。范围包括 47 个页面、138 个 API 路由、60 个 Prisma 模型，以及认证、RBAC、CSRF、SSH/SFTP、文件一致性、前端浏览器行为、后台任务、部署资产、依赖和文档一致性。
 
 ### 修复结论
 
-本轮审查记录的 39 项问题均已处理。质量门禁已经收紧：Lint 不再允许 warning，Prisma 格式检查和 README 指标检查已加入 `npm run verify`。安全方面增加 SFTP home 目录隔离、DNS rebinding 防护、SSE 并发控制和 nonce CSP；可靠性方面增加文件移动事务/补偿、等待式审计写入、前端后台轮询治理和真实浏览器回归测试。
+本轮审查记录的 47 项问题均已处理。质量门禁已经收紧：Lint 不再允许 warning，Prisma 格式检查和 README 指标检查已加入 `npm run verify`。安全方面增加 SFTP home 目录隔离、DNS rebinding 防护、SSE 并发控制和 nonce CSP；可靠性方面增加文件移动事务/补偿、等待式审计写入、前端后台轮询治理和真实浏览器回归测试。
 
 ### 已完成修复
 
@@ -405,7 +405,15 @@ make logs SERVICE_PREFIX=vcontrolhub
 | REV-36 | ✅ | 备份恢复前强制重新计算并比对 SHA-256；缺少校验值或归档被修改时拒绝执行。 |
 | REV-37 | ✅ | SMTP 增加连接、问候和 socket 超时，Telegram 增加 15 秒请求超时，防止外部服务异常时长期占用请求或 worker。 |
 | REV-38 | ✅ | Docker 操作失败返回真实非 2xx 状态；QuickService 仅复用操作和删除数据选项完全一致的任务，不同操作改为冲突拒绝。 |
-| REV-39 | ✅ | 完成源码与测试瘦身审计：移除 6 个全仓零引用组件/工具、零引用 `clsx` 与冗余 DOMPurify 类型包、重复 Tab CSS 和空的 skipped 测试；保留跨模块安全契约测试，完整套件现为 2776/2776 通过且无 skipped。 |
+| REV-39 | ✅ | 完成源码与测试瘦身审计：移除 6 个全仓零引用组件/工具、零引用 `clsx` 与冗余 DOMPurify 类型包、重复 Tab CSS 和空的 skipped 测试；保留跨模块安全契约测试，完整套件无 skipped。 |
+| REV-40 | ✅ | 升级共享前端 primitives：移除整包 `use client` 边界和 14 个未使用导出，重写为 6 个真实使用、格式清晰且 server-safe 的展示/表单组件；删除失效 CSS hooks，并补充组件边界规范。 |
+| REV-41 | ✅ | 基于重复代码扫描继续瘦身：删除已无生产调用、仅由自身测试保活的旧 SSH Terminal Modal/SidePanel，实现统一到多标签 TerminalPanel；合并 `/` 与 `/dashboard` 的重复查询和渲染为单一 DashboardContent。 |
+| REV-42 | ✅ | 合并代码片段新建/编辑弹窗为单一模式化 SnippetModal，共享字段、标签解析、提交状态和错误处理；POST/PATCH、初始值与成功提示继续按模式隔离，减少约 160 行重复代码。 |
+| REV-43 | ✅ | Docker 容器与资源 API 统一复用 Unix Socket 客户端；E2E trusted session 强制数据库为回环地址；备份恢复和 QuickService 长任务增加周期 lease heartbeat，降低超时后重复领取风险。 |
+| REV-44 | ✅ | AI action 执行增加数据库 optimistic CAS claim 和已执行拒绝，避免并发重复执行；所有 `withApiRoute` 响应增加 `x-request-id`；新增 quick/merge/deploy/nightly 四层测试命令。 |
+| REV-45 | ✅ | Monitoring JSON 与 SSE 路由统一复用单一 `/proc` 指标采集器，消除 CPU、内存、磁盘、网络、Top 进程和 TCP 连接的双份实现。 |
+| REV-46 | ✅ | SFTP 列表、下载与操作路由统一复用 StorageNode 查询、SFTP 类型校验和 SSH 凭据解析，保留各路由独立的路径、授权和流式资源管理。 |
+| REV-47 | ✅ | 修复服务启动后另一构建入口覆盖 `.next` 导致生产静态资产 500：所有 Next build 脚本统一强制运行保护器，未协调的生产构建一律拒绝；`deploy.sh` 增加跨进程 `flock`，仅在持锁且服务停止后授权构建。重新部署后 smoke 25/25、生产 HTML 引用的 15 个 JS/CSS 资产全部 200，Chromium 全页面/桌面/移动端/全局控件真实回归 4/4 通过。 |
 
 ### 验证状态（2026-07-11）
 
@@ -414,13 +422,13 @@ make logs SERVICE_PREFIX=vcontrolhub
 | `npm run typecheck` | ✅ 通过 |
 | `npm run lint` | ✅ 0 errors / 0 warnings |
 | `npm run i18n:key-check` | ✅ missing 0 / orphan 0 / zh-en mismatch 0 |
-| `npm test` | ✅ 400 files passed；2776 passed / 0 skipped |
+| `npm test` | ✅ 399 files passed；2771 passed / 0 skipped |
 | `npm run route:verify` | ✅ 47 pages / 138 API routes / 54 permissions |
 | `npm run rbac:audit` | ✅ 0 drift |
 | `npx prisma validate` / `npx prisma format --check` | ✅ 通过 |
 | `npm audit --omit=dev` | ✅ 0 vulnerabilities |
 | `npm run build` / `npm run build:runtime` | ✅ Next.js 生产构建与两个 Node runtime bundle 均通过 |
-| Playwright Chromium | ✅ 全部静态页面巡检、桌面导航、390px 移动端、键盘、CRUD、文件/分享、媒体/图床、设置/偏好、通知、Docker、流量、快捷服务、QA、审计、AI、下载及服务器安全探测流程通过 |
+| Playwright Chromium | ✅ 全部静态页面巡检、桌面导航、390px 移动端、键盘、CRUD、文件/分享、媒体/图床、设置/偏好、通知、Docker、流量、快捷服务、QA、审计、AI、下载及服务器安全探测流程通过；REV-47 部署后探索式生产回归 4/4 通过 |
 | `npm run verify:deploy-assets` | ✅ 通过；无 Docker Compose 插件时自动执行离线 YAML/部署契约校验，不再跳过 |
 | `npm run docs:check` | ✅ README 指标为最新 |
 
@@ -442,6 +450,21 @@ make logs SERVICE_PREFIX=vcontrolhub
 - 本轮已连接当前生产 PostgreSQL、systemd、Caddy、Docker、已配置服务器探测和下载 worker，并在隔离账号/唯一前缀数据下复测；关机、删除现有容器、安装/卸载真实服务、真实备份恢复、强制 AI 自主执行、密钥轮换和通知外发采用完整调用链静态推演、配置核对及 mock/隔离验证，未对生产资源产生这些不可逆或外部副作用。
 - Playwright 已覆盖 Chromium 桌面端、390px 移动端和主要安全可逆流程，但未执行 Firefox/WebKit 跨浏览器矩阵；也未执行 `npm run test:coverage`、容器镜像扫描、DAST、SAST 专用扫描器或高并发压测。
 - 当前工作区在本次审查前已有部署模板与 RBAC 报告的未提交修改；本节结论以审查时工作树为准。
+
+### 持续升级路线（2026-07-12）
+
+以下项目是当前架构升级的正式工作清单。只有通过类型检查、完整测试、生产构建、部署 smoke 和真实浏览器复核后，才会从“进行中”调整为“已完成”。
+
+| 优先级 | 状态 | 升级方向 | 验收标准 |
+|---|---|---|---|
+| P0 | 进行中 | 收敛大型 Client Component，将数据获取、mutation、展示区块和弹窗拆到稳定边界 | 页面行为不变；减少客户端边界与重复状态；桌面/移动浏览器回归通过 |
+| P0 | 进行中 | 收敛 `globals.css` 历史兼容规则，迁移到明确的 primitives 与 `data-*` hooks | 删除零命中/重复选择器；深浅主题、focus、dialog、表格和卡片视觉回归通过 |
+| P1 | 进行中 | 合并文件动作的重复核心 | Docker、Monitoring 与 SFTP 连接层已统一；继续收敛移动/重命名及目录操作 |
+| P1 | 进行中 | 强化危险操作跨进程锁和崩溃恢复 | lease 续期与 AI CAS 已完成；继续处理服务级跨进程锁和中断补偿 |
+| P1 | 进行中 | 正式化 E2E 隔离账号与本机数据库会话保护 | 已拒绝非回环数据库；继续自动创建/清理隔离账号并移除管理员依赖 |
+| P2 | 进行中 | 增加 Web Vitals、API 延迟、队列积压、WebSocket、轮询和通知投递可观测性 | request ID 已覆盖 guarded API；继续补充指标查询与前端关联 |
+
+> 当前功能优先保持稳定，不以引入大型状态管理框架或无收益的文件拆分作为“升级”；优化必须带来更小的重复面、更清晰的所有权或更可靠的运行时行为。
 
 ---
 

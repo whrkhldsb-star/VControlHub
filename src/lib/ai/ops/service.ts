@@ -292,6 +292,9 @@ export async function executeRecommendation(
 	if (!match) {
 		return { ok: false, executed: false, errorMessage: "Recommendation not found" };
 	}
+	if ("executedAt" in match && match.executedAt) {
+		return { ok: true, executed: false, errorMessage: "Recommendation has already been executed" };
+	}
 
 	const safeSet = new Set<string>(AI_OPS_SAFE_AUTONOMOUS_ACTIONS);
 	const isSafe = safeSet.has(match.action);
@@ -307,6 +310,19 @@ export async function executeRecommendation(
 			ok: true,
 			executed: false,
 			errorMessage: `Action ${match.action} is not in the autonomous safe set; manual execution required`,
+		};
+	}
+
+	const claimedAt = new Date();
+	const claim = await prisma.aiOpsLog.updateMany({
+		where: { id: log.id, updatedAt: log.updatedAt },
+		data: { updatedAt: claimedAt },
+	});
+	if (claim.count !== 1) {
+		return {
+			ok: true,
+			executed: false,
+			errorMessage: "Recommendation is already being executed; refresh to view the latest result",
 		};
 	}
 

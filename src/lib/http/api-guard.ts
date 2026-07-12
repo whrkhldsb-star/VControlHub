@@ -1,4 +1,5 @@
 import type { z } from "zod";
+import { randomUUID } from "node:crypto";
 
 import type { SessionPayload } from "@/lib/auth/session";
 import type { Permission } from "@/lib/auth/rbac";
@@ -43,7 +44,14 @@ export type ApiRouteContext<TBody = unknown, TQuery = unknown> = {
   session: SessionPayload | null;
   body: TBody;
   query: TQuery;
+  requestId: string;
 };
+
+function attachRequestId(response: Response, requestId: string) {
+  const headers = new Headers(response.headers);
+  headers.set("x-request-id", requestId);
+  return new Response(response.body, { status: response.status, statusText: response.statusText, headers });
+}
 
 export async function enforceApiGuard(options: ApiGuardOptions): Promise<Response | SessionPayload | null> {
   const { request, permission, rateLimit } = options;
@@ -101,14 +109,16 @@ export async function withApiRoute<TBody = unknown, TQuery = unknown>(
   options: ApiRouteOptions<TBody, TQuery>,
   handler: (context: ApiRouteContext<TBody, TQuery>) => Promise<Response>,
 ): Promise<Response> {
+  const incomingRequestId = request.headers?.get?.("x-request-id")?.trim();
+  const requestId = incomingRequestId && /^[a-zA-Z0-9._:-]{1,128}$/.test(incomingRequestId) ? incomingRequestId : randomUUID();
   try {
     const guard = await enforceApiGuard({ request, permission: options.permission, rateLimit: options.rateLimit });
-    if (guard instanceof Response) return guard;
+    if (guard instanceof Response) return attachRequestId(guard, requestId);
 
     let session = guard;
     if (!session && options.requireAuth) {
       const apiSession = await requireApiSession();
-      if (apiSession instanceof Response) return apiSession;
+      if (apiSession instanceof Response) return attachRequestId(apiSession, requestId);
       session = apiSession;
     }
 
@@ -153,9 +163,9 @@ export async function withApiRoute<TBody = unknown, TQuery = unknown>(
       query = parsed.data;
     }
 
-    return await handler({ session, body, query });
+    return attachRequestId(await handler({ session, body, query, requestId }), requestId);
   } catch (error) {
-    if (options.onError) return options.onError(error);
-    return apiCatch(error, options.errorStatus ?? 500, options.errorMessage ?? "Operation failed");
+    if (options.onError) return attachRequestId(options.onError(error), requestId);
+    return attachRequestId(apiCatch(error, options.errorStatus ?? 500, options.errorMessage ?? "Operation failed"), requestId);
   }
 }

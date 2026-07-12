@@ -13,6 +13,10 @@
     "test": "vitest run",
     "test:coverage": "vitest run --coverage",
     "test:watch": "vitest",
+    "test:quick": "npm run typecheck && npm run lint",
+    "test:merge": "npm run test:quick && npm test && npm run route:verify && npm run rbac:audit",
+    "test:deploy": "npm run build && npm run build:runtime && npm run verify:deploy-assets && npm run docs:check",
+    "test:e2e:nightly": "E2E_DIRECT_SESSION=1 E2E_TRUST_LOCAL_DB_SESSION=1 playwright test --project=chromium --workers=1",
     "prisma:generate": "prisma generate",
     "prisma:format": "prisma format",
     "prisma:seed": "tsx prisma/seed.ts",
@@ -36,8 +40,8 @@
     "readme:metrics:write": "tsx scripts/readme-metrics.ts --write",
     "docs:check": "npm run readme:metrics",
     "verify": "npm run prisma:generate && npx prisma format --check && npm run typecheck && npm run lint && npm run i18n:key-check && npm test && npm run build && npm run build:runtime && npm run verify:deploy-assets && npm run docs:check",
-    "build:turbopack": "next build",
-    "build:webpack": "next build --webpack"
+    "build:turbopack": "node scripts/guard-live-next-build.mjs && next build",
+    "build:webpack": "node scripts/guard-live-next-build.mjs && next build --webpack"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",

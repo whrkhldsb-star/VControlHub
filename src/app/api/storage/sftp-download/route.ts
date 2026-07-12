@@ -7,10 +7,9 @@ import { connectSsh, type SshConnectionParams } from "@/lib/ssh/client";
 import { withApiRoute } from "@/lib/http/api-guard";
 import { parseSearchParams } from "@/lib/http/parse-search-params";
 
-import { prisma } from "@/lib/db";
 import { createLogger } from "@/lib/logging";
 import { assertStorageAccess } from "@/lib/storage/access-control";
-import { resolveStorageSshCredentials } from "@/lib/storage/ssh-credentials";
+import { getSftpNodeConnection } from "@/lib/storage/sftp-node";
 import {
   normalizeRemoteTargetPath,
   normalizeRemoteRelativePath,
@@ -19,7 +18,7 @@ import {
 import { contentDownloadQuerySchema } from "@/lib/storage/schema";
 import { parseStorageRange, storageStreamResponse, type StorageByteRange } from "@/lib/storage/streaming";
 
-import { AuthError, NotFoundError, ValidationError } from "@/lib/errors";
+import { AuthError, ValidationError } from "@/lib/errors";
 const logger = createLogger("api:storage:sftp-download");
 
 export const dynamic = "force-dynamic";
@@ -76,61 +75,7 @@ export async function GET(request: Request) {
         throw new ValidationError("Missing path Parameter");
       }
 
-      const node = await prisma.storageNode.findUnique({
-        where: { id: nodeId },
-        select: {
-          id: true,
-          name: true,
-          driver: true,
-          basePath: true,
-          host: true,
-          port: true,
-          username: true,
-          serverId: true,
-          server: {
-            select: {
-              id: true,
-              host: true,
-              port: true,
-              username: true,
-              connectionType: true,
-              password: true,
-              sshKey: {
-                select: {
-                  privateKey: true,
-                },
-              },
-            },
-          },
-        },
-      });
-
-      if (!node) {
-        throw new NotFoundError("Storage node not found");
-      }
-
-      if (node.driver !== "SFTP") {
-        return NextResponse.json(
-          { error: "This node is not an SFTP storage node" },
-          { status: 400 },
-        );
-      }
-
-      const connectionCredentials = (() => {
-        try {
-          return resolveStorageSshCredentials(node);
-        } catch (error) {
-          return error instanceof Error
-            ? error
-            : new Error("Missing remote host address or connection credentials, cannot connect");
-        }
-      })();
-      if (connectionCredentials instanceof Error) {
-        return NextResponse.json(
-          { error: connectionCredentials.message },
-          { status: 400 },
-        );
-      }
+      const { node, credentials: connectionCredentials } = await getSftpNodeConnection(nodeId);
 
       let normalizedRemotePath: string;
       let normalizedRelativePath: string;

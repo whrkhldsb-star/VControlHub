@@ -24,6 +24,8 @@ Shared UI primitives live here. Prefer these exports before adding one-off Tailw
 - `SubmitButton` (`submit-button.tsx`) — form-action submit button wired to `useFormStatus()`.
   - Props: `pendingLabel`, `children`, optional `className`, `name`, `value`, `disabled`.
   - With no `className`, it uses the same `[data-action-button]` token styling as `ActionButton`.
+- `Input` / `StateBox` (`ui-primitives.tsx`) — server-safe form and feedback primitives used by authentication surfaces.
+- `Badge` / `Card` / `Spinner` / `ProgressBar` (`ui-primitives.tsx`) — server-safe presentation primitives. Keep this module free of hooks and browser APIs so importing it does not create a client boundary.
 
 ## Navigation and shell
 
@@ -32,6 +34,7 @@ Shared UI primitives live here. Prefer these exports before adding one-off Tailw
 - `NotificationBell` — notification popover trigger and list.
 - `LanguageToggle` / `ThemeToggle` — global locale and theme controls.
 - `SidebarLoader` — skeleton for lazy sidebar states.
+- `SshTerminalPanel` — canonical multi-tab SSH terminal implementation; keep terminal connection behavior here instead of adding a second modal implementation.
 
 ## Feedback and system surfaces
 

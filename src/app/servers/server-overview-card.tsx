@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState, useTransition } from "react";
 import { toDateLocale } from "@/lib/i18n/locale-format";
 
 import { useI18n } from "@/lib/i18n/use-locale";
@@ -8,7 +8,7 @@ import { useDialogFocus } from "@/lib/a11y/use-dialog-focus";
 import { useVisibilityInterval } from "@/lib/hooks/use-visibility-interval";
 import { ServerCardActions } from "./server-card-actions";
 import { useAutoProbeSettings } from "./auto-probe-context";
-import { ServerOverviewDetailsLazy } from "./server-overview-details-lazy";
+import { ServerOverviewDetails } from "./server-overview-details";
 
 type DiagnosticRunState =
   | { status: "idle" }
@@ -70,7 +70,13 @@ export function ServerOverviewCard({
 }: ServerOverviewCardProps) {
   const { locale, t } = useI18n();
   const [expanded, setExpanded] = useState(false);
-  const closeDialog = useCallback(() => setExpanded(false), []);
+  const [isPending, startTransition] = useTransition();
+  const closeDialog = useCallback(() => {
+    startTransition(() => setExpanded(false));
+  }, []);
+  const openDialog = useCallback(() => {
+    startTransition(() => setExpanded(true));
+  }, []);
   const dialogRef = useDialogFocus<HTMLDivElement>({ open: expanded, onClose: closeDialog });
   const [diagnosticRun, setDiagnosticRun] = useState<DiagnosticRunState>({ status: "idle" });
   const directLabel = server.directGateway?.statusLabel ?? t("serverOverviewCard.websiteRelay");
@@ -252,17 +258,18 @@ export function ServerOverviewCard({
         ) : null}
         <button
           type="button"
-          onClick={() => setExpanded((value) => !value)}
+          onClick={() => (expanded ? closeDialog() : openDialog())}
           aria-expanded={expanded}
           aria-controls={detailsId}
-          className="rounded-lg border border-[var(--border)] bg-[var(--surface)]/[0.04] px-3 py-1 text-xs text-[var(--text-secondary)] transition hover:bg-[var(--surface)]/[0.10] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-action)] light:hover:bg-[var(--surface)]"
+          disabled={isPending}
+          className="rounded-lg border border-[var(--border)] bg-[var(--surface)]/[0.04] px-3 py-1 text-xs text-[var(--text-secondary)] transition hover:bg-[var(--surface)]/[0.10] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-action)] light:hover:bg-[var(--surface)] disabled:opacity-60"
         >
           {expanded ? t("serverOverviewCard.collapseDetails") : t("serverOverviewCard.viewDetails")}
         </button>
       </div>
 
       {expanded ? (
-        <div className="fixed inset-0 z-40 flex items-start justify-center overflow-y-auto bg-black/55 px-3 py-6 backdrop-blur-sm sm:px-6" onClick={() => setExpanded(false)}>
+        <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/70 px-3 py-6 backdrop-blur-md sm:px-6" onClick={closeDialog}>
           <div
             ref={dialogRef}
             role="dialog"
@@ -280,14 +287,15 @@ export function ServerOverviewCard({
               </div>
               <button
                 type="button"
-                onClick={() => setExpanded(false)}
-                className="shrink-0 rounded-lg border border-[var(--border)] bg-[var(--surface)]/[0.04] px-3 py-1.5 text-xs text-[var(--text-secondary)] transition hover:bg-[var(--surface)]/[0.10]"
+                onClick={closeDialog}
+                className="shrink-0 rounded-lg border border-[var(--border)] bg-[var(--surface)]/[0.04] px-3 py-1.5 text-xs text-[var(--text-secondary)] transition hover:bg-[var(--surface)]/[0.10] disabled:opacity-60"
+                disabled={isPending}
               >
                 {t("serverOverviewCard.collapseDetails")}
               </button>
             </div>
             <div className="max-h-[78vh] overflow-y-auto pr-1">
-              <ServerOverviewDetailsLazy
+              <ServerOverviewDetails
                 server={server}
                 sessionToken={sessionToken}
                 canManageServers={canManageServers}

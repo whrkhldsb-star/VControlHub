@@ -659,8 +659,7 @@ html.light { --surface-root: #f8fafc; }
 }
 
 /* ============================================================
- * 精修第 9 轮：UI 架构升级 — 新增 primitives CSS + 美化增强
- * 基于 ui-primitives.tsx 组件库，补齐 data-* 钩子样式
+ * 共享交互与语义 data-* 钩子样式
  * ============================================================ */
 
 /* T1. Spinner 旋转器 — 纯 CSS 动画 */
@@ -683,14 +682,6 @@ html.light { --surface-root: #f8fafc; }
 	transform: translateY(-2px);
 	box-shadow: var(--shadow-lg);
 	border-color: var(--border-strong);
-}
-
-/* T3. ProgressBar 填充动画 — 从 0 渐入 */
-@keyframes progress-fill {
-	from { width: 0%; }
-}
-[data-progressbar] > * {
-	animation: progress-fill 0.4s ease-out;
 }
 
 /* T4. Table wrapper 圆角裁切 */
@@ -721,14 +712,6 @@ html.light { --surface-root: #f8fafc; }
 /* T8. IconButton 统一 */
 button[class*="h-9"][class*="w-9"][class*="items-center"][class*="justify-center"][class*="rounded-lg"] {
 	flex-shrink: 0;
-}
-
-/* T9. SectionTitle 标题与操作区响应式 */
-@media (max-width: 640px) {
-	[data-section-title] {
-		flex-direction: column;
-		align-items: flex-start;
-	}
 }
 
 /* T10. 卡片内嵌微渐变 — 顶部高光 */

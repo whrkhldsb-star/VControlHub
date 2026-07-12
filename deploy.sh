@@ -8,6 +8,13 @@
 # 用法: sudo bash deploy.sh
 set -euo pipefail
 
+DEPLOY_LOCK="/run/lock/vcontrolhub-deploy.lock"
+exec 9>"$DEPLOY_LOCK"
+if ! flock -n 9; then
+	echo "ERROR: another VControlHub deployment/build is already running ($DEPLOY_LOCK)"
+	exit 75
+fi
+
 APP_USER="vcontrolhub"
 APP_DIR="/opt/VControlHub"
 SERVICE_NAME="vcontrolhub-next"
@@ -34,7 +41,7 @@ chown -R "$APP_USER:$APP_USER" "$APP_DIR/.next" 2>/dev/null || rm -rf "$APP_DIR/
 echo "==> [2/6] 停止 Next 服务后 build（禁止覆盖运行中进程的 Client Manifest）"
 systemctl stop "$SERVICE_NAME"
 service_stopped=1
-sudo -u "$APP_USER" npm run build
+sudo -u "$APP_USER" env VCONTROLHUB_DEPLOY_BUILD=1 npm run build
 sudo -u "$APP_USER" npm run build:runtime
 
 echo "==> [2.5/6] 应用 prisma migration (P-001-N: deploy.sh 此前缺此步, 部署后 30 秒 worker 报列不存在)"

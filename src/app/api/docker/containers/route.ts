@@ -8,47 +8,28 @@
  * POST /api/docker/containers — start/stop/restart {id, action}
  * GET /api/docker/containers?logs=xxx — get container logs
  */
-import http from "node:http";
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 
 import { auditUserAction } from "@/lib/audit/service";
+import { requestDockerEngine } from "@/lib/docker/engine-client";
 import { parseDockerStats } from "@/lib/docker/stats";
 import { withApiRoute } from "@/lib/http/api-guard";
 import { COMMAND_LIMIT } from "@/lib/http/rate-limit-presets";
 import { parseSearchParams } from "@/lib/http/parse-search-params";
-import { createLogger } from "@/lib/logging";
-
 import { AuthError } from "@/lib/errors";
-const logger = createLogger("api:docker:containers");
 
 const containerActionSchema = z.object({
   id: z.string().min(1),
   action: z.enum(["start", "stop", "restart", "remove"]),
 });
 
-const DOCKER_SOCKET = "/var/run/docker.sock";
-const DOCKER_API_HOST = "localhost";
-const DOCKER_UNAVAILABLE_CODES = new Set(["ENOENT", "ECONNREFUSED", "EACCES"]);
 const hubHostDockerScope = {
   scope: "hub-host",
-  socketPath: DOCKER_SOCKET,
+  socketPath: "/var/run/docker.sock",
   warning:
     "The Docker module only operates on the VControlHub host's Docker socket; it is not a cross-VPS container console. Users with docker:manage permission can manage local containers.",
 };
-const dockerUnavailableResponse = {
-  ok: true,
-  status: 200,
-  data: [],
-  dockerAvailable: false,
-  message: "Docker is not installed or Docker socket is unavailable",
-  dockerScope: hubHostDockerScope,
-};
-
-function isDockerSocketUnavailable(error: unknown) {
-  const code = (error as NodeJS.ErrnoException | undefined)?.code;
-  return typeof code === "string" && DOCKER_UNAVAILABLE_CODES.has(code);
-}
 
 /** Validate Docker container ID: only allow hex chars and names (alphanumeric + _.-) */
 function isValidDockerId(value: string): boolean {
@@ -64,73 +45,14 @@ function isValidTail(value: string): boolean {
  * Call Docker Engine API via Node.js HTTP over unix socket.
  * No curl, no child_process — pure Node.js http.request.
  */
-function dockerRequest(
-  apiPath: string,
-  method = "GET",
-  body?: string,
-): Promise<{ ok: boolean; status: number; data: unknown; dockerScope?: typeof hubHostDockerScope; dockerAvailable?: boolean; message?: string }> {
-  return new Promise((resolve) => {
-    const options: http.RequestOptions = {
-      socketPath: DOCKER_SOCKET,
-      path: apiPath,
-      method,
-      host: DOCKER_API_HOST,
-      headers: body
-        ? {
-            "Content-Type": "application/json",
-            "Content-Length": Buffer.byteLength(body),
-          }
-        : {},
-      timeout: 10000,
-    };
-
-    const req = http.request(options, (res) => {
-      const chunks: Buffer[] = [];
-      res.on("data", (chunk: Buffer) => chunks.push(chunk));
-      res.on("end", () => {
-        const raw = Buffer.concat(chunks).toString("utf-8");
-        let data: unknown;
-        try {
-          data = JSON.parse(raw);
-        } catch {
-          // Response is not valid JSON — return the raw string as-is.
-          data = raw;
-        }
-        resolve({
-          ok: res.statusCode! >= 200 && res.statusCode! < 300,
-          status: res.statusCode!,
-          data,
-          dockerScope: hubHostDockerScope,
-        });
-      });
-    });
-
-    req.on("error", (err) => {
-      if (isDockerSocketUnavailable(err)) {
-        logger.warn("Docker socket unavailable", err, { apiPath, method });
-        resolve(dockerUnavailableResponse);
-        return;
-      }
-      logger.error("Docker socket request failed", err, { apiPath, method });
-      resolve({
-        ok: false,
-        status: 502,
-        data: { message: "Docker daemon unreachable" },
-      });
-    });
-
-    req.on("timeout", () => {
-      req.destroy();
-      resolve({
-        ok: false,
-        status: 504,
-        data: { message: "Docker API timeout" },
-      });
-    });
-
-    if (body) req.write(body);
-    req.end();
+async function dockerRequest(apiPath: string, method = "GET", body?: string) {
+  const result = await requestDockerEngine(apiPath, {
+    method,
+    body,
+    unavailableData: [],
+    loggerScope: "api:docker:containers",
   });
+  return { ...result, dockerScope: hubHostDockerScope };
 }
 
 export async function GET(req: NextRequest) {
