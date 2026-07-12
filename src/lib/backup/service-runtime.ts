@@ -19,7 +19,7 @@ import { createHash } from "node:crypto";
 
 import { prisma } from "@/lib/db";
 import { config } from "@/lib/config/env";
-import { BusinessError, NotFoundError, ValidationError } from "@/lib/errors";
+import { BusinessError, ConflictError, NotFoundError, ValidationError } from "@/lib/errors";
 import { createLogger } from "@/lib/logging";
 
 import { backupCommandErrorMessage, runBackupCommand } from "./command-runner";
@@ -37,6 +37,22 @@ import { pruneOldBackupRecords, summarizeBackupPolicy } from "./service-policy";
 import { uploadBackupToOffsite } from "./offsite-uploader";
 
 const offsiteUploadLogger = createLogger("backup-offsite-uploader");
+const restoreLogger = createLogger("backup-restore");
+
+/** Stable 2-int key pair for PostgreSQL session advisory locks (restore serialization). */
+function restoreAdvisoryKeys(backupId: string): [number, number] {
+	let h1 = 0x811c9dc5;
+	let h2 = 0x01000193;
+	for (let i = 0; i < backupId.length; i++) {
+		const c = backupId.charCodeAt(i);
+		h1 = Math.imul(h1 ^ c, 0x01000193) >>> 0;
+		h2 = Math.imul(h2 ^ c, 0x811c9dc5) >>> 0;
+	}
+	// signed 32-bit range for pg int4
+	const k1 = h1 > 0x7fffffff ? h1 - 0x100000000 : h1;
+	const k2 = h2 > 0x7fffffff ? h2 - 0x100000000 : h2;
+	return [k1, k2];
+}
 
 async function calculateFileSha256(filePath: string): Promise<string> {
 	return new Promise((resolve, reject) => {
@@ -67,7 +83,21 @@ export async function runExistingBackupRecord(input: { id: string; projectRoot?:
 	}
 	const args = record.type === "FILES" ? ["--files", outputPath] : record.type === "FULL" ? ["--full", outputPath] : [outputPath];
 
-	await updateBackupRecordStatus(record.id, { status: "RUNNING" });
+	// CAS claim: only one worker can move PENDING → RUNNING.
+	const claimed = await prisma.backupRecord.updateMany({
+		where: { id: record.id, status: "PENDING" },
+		data: { status: "RUNNING", errorMessage: null },
+	});
+	if (claimed.count === 0) {
+		const latest = await getBackupRecord(record.id);
+		if (latest?.status === "RUNNING") {
+			throw new ConflictError("Backup is already running");
+		}
+		if (latest?.status === "COMPLETED") {
+			return latest;
+		}
+		throw new ConflictError(`Backup cannot start from status ${latest?.status ?? "unknown"}`);
+	}
 
 	try {
 		await runBackupCommand({
@@ -133,29 +163,44 @@ export async function restoreBackupRecord(input: { id: string; confirm: string; 
 	if (input.confirm !== "RESTORE") {
 		throw new ValidationError("Restore operation requires explicit confirmation");
 	}
-	const record = await getBackupRecord(input.id);
-	if (!record) {
-		throw new NotFoundError("Backup record not found");
+	const [k1, k2] = restoreAdvisoryKeys(input.id);
+	// Session-level advisory lock serializes concurrent restores of the same backup
+	// across workers without a schema migration.
+	await prisma.$executeRaw`SELECT pg_advisory_lock(${k1}, ${k2})`;
+	try {
+		const record = await getBackupRecord(input.id);
+		if (!record) {
+			throw new NotFoundError("Backup record not found");
+		}
+		if (record.status !== "COMPLETED") {
+			throw new BusinessError("Only completed backups can be restored");
+		}
+		const projectRoot = input.projectRoot || config.app.appDir || process.cwd();
+		const execution = buildRestoreExecution(record, projectRoot);
+		await stat(execution.backupPath);
+		if (!record.checksumSha256) {
+			throw new BusinessError("Backup checksum is missing; refusing to restore an unverifiable artifact");
+		}
+		const actualChecksum = await calculateFileSha256(execution.backupPath);
+		if (actualChecksum !== record.checksumSha256) {
+			throw new BusinessError("Backup checksum verification failed; the artifact may be corrupted or modified");
+		}
+		await runBackupCommand({
+			file: execution.file,
+			args: execution.args,
+			options: { cwd: projectRoot, env: { ...process.env, APP_DIR: projectRoot, CONFIRM_RESTORE: "1" } },
+		});
+		return { id: record.id, type: record.type, filePath: record.filePath, restoredAt: new Date().toISOString() };
+	} finally {
+		try {
+			await prisma.$executeRaw`SELECT pg_advisory_unlock(${k1}, ${k2})`;
+		} catch (err) {
+			restoreLogger.warn("failed to release restore advisory lock", {
+				backupId: input.id,
+				error: err instanceof Error ? err.message : String(err),
+			});
+		}
 	}
-	if (record.status !== "COMPLETED") {
-		throw new BusinessError("Only completed backups can be restored");
-	}
-	const projectRoot = input.projectRoot || config.app.appDir || process.cwd();
-	const execution = buildRestoreExecution(record, projectRoot);
-	await stat(execution.backupPath);
-	if (!record.checksumSha256) {
-		throw new BusinessError("Backup checksum is missing; refusing to restore an unverifiable artifact");
-	}
-	const actualChecksum = await calculateFileSha256(execution.backupPath);
-	if (actualChecksum !== record.checksumSha256) {
-		throw new BusinessError("Backup checksum verification failed; the artifact may be corrupted or modified");
-	}
-	await runBackupCommand({
-		file: execution.file,
-		args: execution.args,
-		options: { cwd: projectRoot, env: { ...process.env, APP_DIR: projectRoot, CONFIRM_RESTORE: "1" } },
-	});
-	return { id: record.id, type: record.type, filePath: record.filePath, restoredAt: new Date().toISOString() };
 }
 
 export async function getBackupPolicySummary() {

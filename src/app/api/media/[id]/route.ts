@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 
+import { auditUserAction } from "@/lib/audit/service";
 import { prisma } from "@/lib/db";
 import { withApiRoute } from "@/lib/http/api-guard";
 
@@ -19,7 +20,7 @@ export async function PATCH(
   return withApiRoute(
     request,
     { permission: "media:manage", errorMessage: "Operation failed", bodySchema: patchSchema },
-    async ({ body }) => {
+    async ({ session, body }) => {
       const { id } = await params;
 
       const existing = await prisma.mediaItem.findUnique({ where: { id } });
@@ -35,6 +36,11 @@ export async function PATCH(
         return NextResponse.json({ item: existing });
 
       const updated = await prisma.mediaItem.update({ where: { id }, data });
+      await auditUserAction(session?.userId ?? "", "media.update", {
+        mediaId: id,
+        favorite: body.favorite ?? null,
+        tagsUpdated: body.tags !== undefined,
+      });
       return NextResponse.json({ item: updated });
     },
   );

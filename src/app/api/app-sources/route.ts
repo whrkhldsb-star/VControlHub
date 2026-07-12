@@ -170,19 +170,31 @@ export async function PATCH(request: Request) {
       errorMessage: "Operation failed",
       bodySchema: updateSchema,
     },
-    async ({ body }) => {
+    async ({ session, body }) => {
       if (body.action === "sync") {
         if (body.sourceId) {
           const result = await syncSource(body.sourceId);
+          await auditUserAction(session?.userId ?? "", "app-source.sync", {
+            sourceId: body.sourceId,
+            mode: "single",
+          });
           return NextResponse.json({ result });
         }
         const results = await syncAllSources();
+        await auditUserAction(session?.userId ?? "", "app-source.sync", {
+          mode: "all",
+          resultCount: Array.isArray(results) ? results.length : null,
+        });
         return NextResponse.json({ results });
       }
 
       await prisma.appSource.update({
         where: { id: body.sourceId },
         data: { enabled: body.enabled },
+      });
+      await auditUserAction(session?.userId ?? "", "app-source.toggle", {
+        sourceId: body.sourceId,
+        enabled: body.enabled,
       });
       return NextResponse.json({ ok: true });
     },

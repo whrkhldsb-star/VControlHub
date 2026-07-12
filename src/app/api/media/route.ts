@@ -8,6 +8,7 @@ import { parseSearchParams } from "@/lib/http/parse-search-params";
 import { listMediaItems, scanMediaFromFileEntries } from "@/lib/media/service";
 
 import { AuthError } from "@/lib/errors";
+import { auditUserAction } from "@/lib/audit/service";
 export const dynamic = "force-dynamic";
 
 export async function GET(request: Request) {
@@ -51,7 +52,16 @@ export async function POST(request: Request) {
     async ({ session }) => {
       if (!session)
         throw new AuthError("Not authenticated");
-      return NextResponse.json(await scanMediaFromFileEntries(session.userId));
+      const result = await scanMediaFromFileEntries(session.userId);
+      await auditUserAction(session.userId, "media.scan", {
+        scanned: typeof result === "object" && result !== null && "scanned" in result
+          ? Number((result as { scanned?: unknown }).scanned ?? 0)
+          : null,
+        created: typeof result === "object" && result !== null && "created" in result
+          ? Number((result as { created?: unknown }).created ?? 0)
+          : null,
+      });
+      return NextResponse.json(result);
     },
   );
 }

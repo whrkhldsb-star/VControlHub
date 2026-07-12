@@ -42,18 +42,40 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
         }
         const backup = await getBackupRecord(id);
         if (!backup) throw new NotFoundError("Backup record not found");
+        if (backup.status !== "COMPLETED") {
+          return NextResponse.json({ error: "Only completed backups can be restored" }, { status: 400 });
+        }
+        // Deduplicate in-flight restore jobs for the same backupId.
+        const { prisma } = await import("@/lib/db");
+        const existing = await prisma.job.findFirst({
+          where: {
+            type: BACKUP_RESTORE_JOB_TYPE,
+            status: { in: ["PENDING", "RUNNING"] },
+            // JSON path filter for backupId
+            payload: { path: ["backupId"], equals: id },
+          },
+          select: { id: true },
+        });
+        if (existing) {
+          await auditUserAction(session!.userId, "backup.restore", {
+            backupId: id,
+            jobId: existing.id,
+            deduped: true,
+          });
+          return NextResponse.json({ jobId: existing.id, taskId: `job:${existing.id}`, deduped: true }, { status: 202 });
+        }
         const job = await enqueueJob({
           type: BACKUP_RESTORE_JOB_TYPE,
           title: "Restore backup",
           payload: { backupId: id, confirm: body.confirm },
-          createdBy: null,
+          createdBy: session?.userId ?? null,
           maxAttempts: 1,
         });
-        await auditUserAction(session!.userId, "backup.restore", { backupId: id });
+        await auditUserAction(session!.userId, "backup.restore", { backupId: id, jobId: job.id });
         return NextResponse.json({ jobId: job.id, taskId: `job:${job.id}` }, { status: 202 });
       } catch (error) {
         const message = error instanceof Error ? error.message : "Restore execution failed";
-        const status = message.includes("not found") ? 404 : message.includes("confirm") || message.includes("completed") || message.includes("path") ? 400 : 500;
+        const status = message.includes("not found") ? 404 : message.includes("confirm") || message.includes("completed") || message.includes("path") || message.includes("checksum") ? 400 : 500;
         return NextResponse.json({ error: message }, { status });
       }
     },

@@ -240,7 +240,7 @@ export async function toggleDirectGatewayAction(
   _prevState: ServerActionState | null,
   formData: FormData,
 ) {
-  await requirePermission("server:write");
+  const session = await requirePermission("server:write");
   const tr = await serverActionTranslator();
 
   try {
@@ -250,6 +250,11 @@ export async function toggleDirectGatewayAction(
       formData.get("directGatewayProtocol") === "https" ? "https" : "http";
     await setServerDirectGatewayEnabled(serverId, enabled, {
       publicProtocol: directGatewayProtocol,
+    });
+    await auditUserAction(session.userId, "server.direct_gateway.toggle", {
+      serverId,
+      enabled,
+      protocol: directGatewayProtocol,
     });
     revalidatePath("/");
     revalidatePath("/servers");
@@ -271,7 +276,7 @@ export async function batchToggleServerAction(
   _prevState: ServerActionState | null,
   formData: FormData,
 ) {
-  await requirePermission("server:write");
+  const session = await requirePermission("server:write");
   const tr = await serverActionTranslator();
 
   try {
@@ -286,6 +291,12 @@ export async function batchToggleServerAction(
     const result = await prisma.server.updateMany({
       where: { id: { in: serverIds } },
       data: { enabled },
+    });
+    await auditUserAction(session.userId, "server.batch_toggle", {
+      enabled,
+      requestedCount: serverIds.length,
+      updatedCount: result.count,
+      serverIds,
     });
 
     revalidatePath("/");

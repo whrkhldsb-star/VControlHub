@@ -27,6 +27,9 @@ import {
 	__internals,
 } from "./service-internals";
 import type { ServiceTemplate } from "./types";
+import { createLogger } from "@/lib/logging";
+
+const qsLogger = createLogger("quick-service-lifecycle");
 
 const runFile = promisify(execFile);
 const { normalizeVolumeEndpoint, splitContainerPathAndOptions, mkdirSync, DOCKER_SOCKET, TRUSTED_HOST_MOUNTS } = __internals;
@@ -37,7 +40,7 @@ async function rollbackInstallToSnapshot(slug: string, before: QuickServiceSnaps
 			await prisma.quickService.delete({ where: { slug } });
 		} catch {
 			// Record no longer exists (concurrent delete) — mark as errored instead.
-			await prisma.quickService.update({ where: { slug }, data: { status: "error", error } }).catch(() => {});
+			await prisma.quickService.update({ where: { slug }, data: { status: "error", error } }).catch((err) => { qsLogger.warn("quickService status update failed", { error: err instanceof Error ? err.message : String(err) }); });
 		}
 		return { status: "deleted", reason: "fresh-install-failed" };
 	}

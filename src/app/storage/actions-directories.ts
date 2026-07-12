@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 
+import { auditUserAction } from "@/lib/audit/service";
 import { requirePermission } from "@/lib/auth/authorization";
 import { prisma } from "@/lib/db";
 import { serverT } from "@/lib/i18n/server-locale";
@@ -23,7 +24,7 @@ export async function createFolderAction(
   _prev: StorageActionState | null,
   formData: FormData,
 ) {
-  await requirePermission("storage:write");
+  const session = await requirePermission("storage:write");
 
   const t = await serverT();
   try {
@@ -145,6 +146,12 @@ export async function createFolderAction(
     revalidatePath("/storage");
     revalidatePath("/files");
 
+    await auditUserAction(session.userId, "storage.folder.create", {
+      storageNodeId,
+      relativePath,
+      folderName,
+    });
+
     return {
       success: t("storagePage.action.folderCreated").replace("{path}", relativePath),
     } satisfies StorageActionState;
@@ -159,7 +166,7 @@ export async function renameFileEntryAction(
   _prev: StorageActionState | null,
   formData: FormData,
 ) {
-  await requirePermission("storage:write");
+  const session = await requirePermission("storage:write");
 
   const t = await serverT();
   try {
@@ -267,6 +274,14 @@ export async function renameFileEntryAction(
     await prisma.fileEntry.update({
       where: { id: fileEntryId },
       data: { name: newName, relativePath: newRelativePath },
+    });
+
+    await auditUserAction(session.userId, "storage.file_rename", {
+      entryId: entry.id,
+      oldName: entry.name,
+      newName,
+      oldPath: entry.relativePath,
+      newPath: newRelativePath,
     });
 
     revalidatePath("/");

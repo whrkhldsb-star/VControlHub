@@ -2,7 +2,10 @@ import { describe, expect, it, vi, beforeEach } from "vitest";
 import { Readable } from "node:stream";
 
 const { mockPrisma, runBackupCommandMock, statMock, createReadStreamMock } = vi.hoisted(() => ({
-  mockPrisma: { backupRecord: { create: vi.fn(), findMany: vi.fn(), findUnique: vi.fn(), update: vi.fn(), updateMany: vi.fn() } },
+  mockPrisma: {
+    backupRecord: { create: vi.fn(), findMany: vi.fn(), findUnique: vi.fn(), update: vi.fn(), updateMany: vi.fn() },
+    $executeRaw: vi.fn().mockResolvedValue(undefined),
+  },
   runBackupCommandMock: vi.fn(),
   statMock: vi.fn(),
   createReadStreamMock: vi.fn(),
@@ -72,6 +75,7 @@ describe("backup service", () => {
       }
       return { count: 1 };
     });
+    mockPrisma.$executeRaw.mockResolvedValue(undefined);
     runBackupCommandMock.mockResolvedValue({ stdout: "ok", stderr: "" });
     statMock.mockResolvedValue({ size: 1234 });
     createReadStreamMock.mockImplementation(() => Readable.from(["backup-content"]));
@@ -104,8 +108,11 @@ describe("backup service", () => {
       args: ["deploy/backup.sh", "--full", expect.stringMatching(/\/var\/backups\/vcontrolhub\/backups\/full-.*\.tar\.gz$/)],
       options: expect.objectContaining({ cwd: "/opt/app", env: expect.objectContaining({ APP_DIR: "/opt/app" }) }),
     }));
-    expect(mockPrisma.backupRecord.update).toHaveBeenNthCalledWith(1, { where: { id: "bak1" }, data: { status: "RUNNING" } });
-    expect(mockPrisma.backupRecord.update).toHaveBeenNthCalledWith(2, {
+    expect(mockPrisma.backupRecord.updateMany).toHaveBeenCalledWith({
+      where: { id: "bak1", status: "PENDING" },
+      data: { status: "RUNNING", errorMessage: null },
+    });
+    expect(mockPrisma.backupRecord.update).toHaveBeenCalledWith({
       where: { id: "bak1" },
       data: expect.objectContaining({ status: "COMPLETED", fileSize: "1234", errorMessage: null, checksumSha256: expect.stringMatching(/^[a-f0-9]{64}$/) }),
     });

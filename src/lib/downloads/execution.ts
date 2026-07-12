@@ -4,7 +4,9 @@
  */
 
 import { prisma } from "@/lib/db";
-import { logError } from "@/lib/logging";
+import { createLogger, logError } from "@/lib/logging";
+
+const notifyLogger = createLogger("downloads-notify");
 import { notifyDownloadResult } from "@/lib/notification/service";
 import {
  ensureAria2Daemon,
@@ -102,7 +104,7 @@ export async function executeAria2RelayDownload(
       where: { id: taskId },
       data: { status: "FAILED", errorMessage: `aria2 download failed: ${st.status}` },
      });
-     if (userId) notifyDownloadResult(userId, urls[0]!, "failed", `aria2 download failed: ${st.status}`).catch(() => {});
+     if (userId) notifyDownloadResult(userId, urls[0]!, "failed", `aria2 download failed: ${st.status}`).catch((err) => { notifyLogger.warn("notifyDownloadResult failed", { error: err instanceof Error ? err.message : String(err) }); });
      await cleanupTemp(tempDir);
      return;
      }
@@ -132,7 +134,7 @@ export async function executeAria2RelayDownload(
 
   if (filesToTransfer.length === 0) {
    await prisma.downloadTask.update({ where: { id: taskId }, data: { status: "FAILED", errorMessage: "Download completed but file not found" } });
-   if (userId) notifyDownloadResult(userId, urls[0]!, "failed", "Download completed but file not found").catch(() => {});
+   if (userId) notifyDownloadResult(userId, urls[0]!, "failed", "Download completed but file not found").catch((err) => { notifyLogger.warn("notifyDownloadResult failed", { error: err instanceof Error ? err.message : String(err) }); });
    await cleanupTemp(tempDir);
    return;
   }
@@ -159,7 +161,7 @@ export async function executeAria2RelayDownload(
    where: { id: taskId },
    data: { status: "COMPLETED", progress: "Download and transfer completed", fileSize: String(totalSize), totalBytes: String(totalSize), completedBytes: String(totalSize) },
   });
-  if (userId) notifyDownloadResult(userId, urls[0]!, "completed").catch(() => {});
+  if (userId) notifyDownloadResult(userId, urls[0]!, "completed").catch((err) => { notifyLogger.warn("notifyDownloadResult failed", { error: err instanceof Error ? err.message : String(err) }); });
 
   await cleanupTemp(tempDir);
  } catch (error) {
@@ -197,7 +199,7 @@ export async function executeDirectDownload(
    const { stdout: logContent } = await execRemoteCommand({ ...sshParams, command: getDirectDownloadLogCommand(taskId), timeout: 8000 });
    const errMsg = logContent.trim() || "Failed to start download process";
    await prisma.downloadTask.update({ where: { id: taskId }, data: { status: "FAILED", errorMessage: errMsg } });
-   if (userId) notifyDownloadResult(userId, url, "failed", errMsg).catch(() => {});
+   if (userId) notifyDownloadResult(userId, url, "failed", errMsg).catch((err) => { notifyLogger.warn("notifyDownloadResult failed", { error: err instanceof Error ? err.message : String(err) }); });
   }
  } catch (error) {
   logError("[DownloadAPI] Direct download execution failed:", error);

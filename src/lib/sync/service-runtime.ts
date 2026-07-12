@@ -110,7 +110,14 @@ export async function executeSyncJob(jobId: string): Promise<void> {
 	const job = await getSyncJob(jobId);
 	if (!job) throw new Error("Sync job not found");
 
-	await prisma.syncJob.update({ where: { id: jobId }, data: { status: "RUNNING" } });
+	// CAS claim: only one runner can move IDLE/ERROR → RUNNING.
+	const claimed = await prisma.syncJob.updateMany({
+		where: { id: jobId, status: { in: ["IDLE", "ERROR"] } },
+		data: { status: "RUNNING" },
+	});
+	if (claimed.count === 0) {
+		throw new Error("Sync job is already running or paused");
+	}
 
 	const logEntry = await prisma.syncLog.create({
 		data: { syncJobId: jobId, status: "RUNNING" },

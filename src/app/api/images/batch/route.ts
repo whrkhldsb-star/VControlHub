@@ -5,6 +5,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 
+import { auditUserAction } from "@/lib/audit/service";
 import { sessionHasPermission } from "@/lib/auth/authorization";
 import { prisma } from "@/lib/db";
 import { withApiRoute } from "@/lib/http/api-guard";
@@ -65,6 +66,11 @@ export async function POST(request: Request) {
           await Promise.allSettled(
             images.map((img) => deleteImageVariants(img.storageKey, UPLOAD_DIR)),
           );
+          await auditUserAction(session.userId, "image.batch.delete", {
+            requestedCount: ids.length,
+            deleted: result.count,
+            ids: images.map((img) => img.id),
+          }, "WARNING");
           return NextResponse.json({ deleted: result.count });
         }
 
@@ -77,6 +83,11 @@ export async function POST(request: Request) {
           const result = await prisma.imageUpload.updateMany({
             where: whereClause,
             data: { album: album.trim() || null },
+          });
+          await auditUserAction(session.userId, "image.batch.moveAlbum", {
+            requestedCount: ids.length,
+            updated: result.count,
+            album: album.trim() || null,
           });
           return NextResponse.json({ updated: result.count });
         }
@@ -103,6 +114,12 @@ export async function POST(request: Request) {
               data: { isPublic: false },
             });
           }
+          await auditUserAction(session.userId, "image.batch.togglePublic", {
+            requestedCount: ids.length,
+            updated: images.length,
+            toPublicCount: toPublic.length,
+            toPrivateCount: toPrivate.length,
+          });
           return NextResponse.json({ updated: images.length });
         }
 

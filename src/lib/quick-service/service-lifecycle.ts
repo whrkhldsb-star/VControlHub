@@ -26,6 +26,9 @@ import {
 } from "./service-internals";
 import { installService, startDockerContainer, type InstallOptions } from "./service-lifecycle-install";
 import type { ServiceTemplate } from "./types";
+import { createLogger } from "@/lib/logging";
+
+const qsLogger = createLogger("quick-service-lifecycle");
 
 const { rmSync } = __internals;
 
@@ -127,7 +130,7 @@ export async function uninstallService(slug: string, options: UninstallServiceOp
 			// delete cleanly. The diff captures the "should have been
 			// deleted" intent for the audit reader.
 			const msg = err instanceof Error ? err.message.slice(0, 500) : String(err);
-			await prisma.quickService.update({ where: { slug }, data: { status: "stopped", error: `Uninstall rollback: DB delete failed ${msg}` } }).catch(() => {});
+			await prisma.quickService.update({ where: { slug }, data: { status: "stopped", error: `Uninstall rollback: DB delete failed ${msg}` } }).catch((err) => { qsLogger.warn("quickService status update failed", { error: err instanceof Error ? err.message : String(err) }); });
 			await writeQuickServiceAudit({
 				action: "uninstall",
 				slug: svc.slug,
