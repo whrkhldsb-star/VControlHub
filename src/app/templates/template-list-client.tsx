@@ -120,7 +120,7 @@ export function TemplateListClient({ templates: initialTemplates, servers, canCr
 						<button
 							onClick={() => setFilterTag(null)}
 							data-tone={!filterTag ? "accent" : undefined}
-							className={`rounded-lg border px-2 py-0.5 text-[11px] transition ${!filterTag ? "" : "border-[var(--border)] bg-[var(--surface)]/[0.04] text-[var(--text-muted)] hover:bg-[var(--surface)]/[0.10]"}`}
+							className={`rounded-full border px-2.5 py-1 text-[11px] font-medium transition ${!filterTag ? "border-[var(--accent-border)] bg-[var(--accent-bg)] text-[var(--accent)]" : "border-[var(--border)] bg-[var(--surface-elevated)] text-[var(--text-muted)] hover:bg-[var(--surface-hover)]"}`}
 						>
 							{t("templatesPage.filter.all")}
 						</button>
@@ -129,7 +129,7 @@ export function TemplateListClient({ templates: initialTemplates, servers, canCr
 								key={tag}
 								onClick={() => setFilterTag(filterTag === tag ? null : tag)}
 								data-tone={filterTag === tag ? "accent" : undefined}
-								className={`rounded-lg border px-2 py-0.5 text-[11px] transition ${filterTag === tag ? "" : "border-[var(--border)] bg-[var(--surface)]/[0.04] text-[var(--text-muted)] hover:bg-[var(--surface)]/[0.10]"}`}
+								className={`rounded-full border px-2.5 py-1 text-[11px] font-medium transition ${filterTag === tag ? "border-[var(--accent-border)] bg-[var(--accent-bg)] text-[var(--accent)]" : "border-[var(--border)] bg-[var(--surface-elevated)] text-[var(--text-muted)] hover:bg-[var(--surface-hover)]"}`}
 							>
 								#{tag}
 							</button>
@@ -139,8 +139,8 @@ export function TemplateListClient({ templates: initialTemplates, servers, canCr
 				{canCreate && !showCreate && (
 					<button
 						onClick={() => setShowCreate(true)}
-						data-tone="accent"
-						className="min-h-11 rounded-2xl border px-5 py-2.5 text-sm font-medium transition"
+						data-primary
+						className="min-h-11 rounded-xl bg-[var(--accent)] px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-[var(--accent-hover)]"
 					>
 						{t("templatesPage.action.create")}
 					</button>
@@ -159,7 +159,7 @@ export function TemplateListClient({ templates: initialTemplates, servers, canCr
 			) : (
 				<div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
 					{filtered.map((tmpl) => (
-						<article key={tmpl.id} data-card className=" p-4 hover:bg-[var(--surface)]/[0.04] transition-colors duration-150 flex flex-col">
+						<article key={tmpl.id} data-card className="flex flex-col p-4 transition-colors duration-150 hover:bg-[var(--surface-elevated)]">
 							<div className="flex items-start justify-between gap-2">
 								<div>
 									<h3 className="text-sm font-semibold text-[var(--text-primary)]">{tmpl.name}</h3>
@@ -169,7 +169,7 @@ export function TemplateListClient({ templates: initialTemplates, servers, canCr
 									<span data-tone="accent" className="rounded-lg border px-1.5 py-0.5 text-[9px] font-medium shrink-0">{t("templatesPage.badge.builtin")}</span>
 								)}
 							</div>
-							<div className="mt-2.5 rounded-lg border border-[var(--border)] bg-[var(--surface)]/70 px-3 py-2 font-mono text-xs text-[var(--text-secondary)] line-clamp-2">
+							<div className="mt-2.5 line-clamp-2 rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-subtle)] px-3 py-2 font-mono text-xs text-[var(--text-secondary)]">
 								{tmpl.command}
 							</div>
 							{tmpl.rollbackCommand && (
@@ -235,7 +235,7 @@ function DeployButton({ template, servers, onDeploy, loading }: {
 		return (
 			<button
 				onClick={() => setOpen(true)}
-				className="min-h-11 rounded-lg bg-[var(--color-action)]/80 px-3 py-1 text-[11px] font-medium text-[var(--color-action-fg)] hover:bg-[var(--color-action-bg)] transition"
+				data-primary className="min-h-11 rounded-xl bg-[var(--accent)] px-3 py-1.5 text-[11px] font-semibold text-white transition hover:bg-[var(--accent-hover)]"
 			>
 				{t("templatesPage.action.deploy")}
 			</button>
@@ -263,7 +263,7 @@ function DeployButton({ template, servers, onDeploy, loading }: {
 			)})}
 			<div className="flex flex-wrap gap-1">
 				{enabledServers.map((s) => (
-					<label key={s.id} className={`flex items-center gap-1.5 rounded-lg border px-2 py-1 text-[11px] cursor-pointer transition ${selectedIds.has(s.id) ? "border-[var(--color-action-border)]/20 bg-[var(--color-action-bg)]/[0.10] text-[var(--text-primary)]" : "border-[var(--border)] bg-[var(--surface)]/[0.04] text-[var(--text-muted)]"}`}>
+					<label key={s.id} className={`flex items-center gap-1.5 rounded-lg border px-2 py-1 text-[11px] cursor-pointer transition ${selectedIds.has(s.id) ? "border-[var(--accent-border)] bg-[var(--accent-bg)] text-[var(--text-primary)]" : "border-[var(--border)] bg-[var(--surface-elevated)] text-[var(--text-muted)]"}`}>
 						<input type="checkbox" checked={selectedIds.has(s.id)} onChange={() => {
 							setSelectedIds((prev) => { const n = new Set(prev); if (n.has(s.id)) n.delete(s.id); else n.add(s.id); return n; });
 						}} className="accent-[var(--color-action)]" />
@@ -275,7 +275,7 @@ function DeployButton({ template, servers, onDeploy, loading }: {
 				<button
 					onClick={() => onDeploy(template, [...selectedIds], vars)}
 					disabled={loading || selectedIds.size === 0}
-					className="min-h-11 rounded-lg bg-[var(--color-action)] px-3 py-1 text-[11px] font-medium text-[var(--color-action-fg)] hover:bg-[var(--color-action-bg)] disabled:opacity-60 transition"
+					data-primary className="min-h-11 rounded-xl bg-[var(--accent)] px-3 py-1.5 text-[11px] font-semibold text-white transition hover:bg-[var(--accent-hover)] disabled:opacity-60"
 				>
 					{loading ? t("templatesPage.action.submitting") : t("templatesPage.action.submit")}
 				</button>
@@ -322,7 +322,7 @@ function CreateTemplateForm({ onClose }: { onClose: () => void }) {
 	};
 
 	return (
-		<form onSubmit={handleSubmit} data-card className=" space-y-4">
+		<form onSubmit={handleSubmit} data-card className="space-y-4 p-5">
 			<h3 className="text-lg font-semibold text-[var(--text-primary)]">{t("templatesPage.create.title")}</h3>
 			{error && <div className="rounded-lg bg-[var(--danger)]/[0.10] border border-[var(--danger-border)] px-3.5 py-2.5 text-sm text-[var(--danger)]">{error}</div>}
 			<div className="space-y-1.5">
@@ -348,7 +348,7 @@ function CreateTemplateForm({ onClose }: { onClose: () => void }) {
 				<input id={`${createFormId}-tags`} value={tags} onChange={(e) => setTags(e.target.value)} placeholder={t("templatesPage.create.tagsPlaceholder")} className="w-full rounded-lg border border-[var(--border)] bg-[var(--surface)]/[0.04] px-3.5 py-2.5 text-sm text-[var(--text-primary)] outline-none transition placeholder:text-[var(--text-primary)]/30 focus:border-[var(--color-action-border)]/30" />
 			</div>
 			<div className="flex gap-3 pt-2">
-				<button type="submit" disabled={submitting} className="min-h-11 rounded-2xl bg-[var(--color-action)] px-5 py-2 text-sm font-medium text-[var(--color-action-fg)] transition hover:bg-[var(--color-action-bg)] disabled:opacity-60">
+				<button type="submit" disabled={submitting} data-primary className="min-h-11 rounded-xl bg-[var(--accent)] px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-[var(--accent-hover)] disabled:opacity-60">
 					{submitting ? t("templatesPage.create.submitting") : t("templatesPage.create.submit")}
 				</button>
 				<button type="button" onClick={onClose} className="min-h-11 rounded-2xl border border-[var(--border)] px-5 py-2 text-sm text-[var(--text-secondary)] hover:bg-[var(--surface)]/10 transition">

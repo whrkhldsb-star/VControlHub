@@ -30,7 +30,7 @@ type SnippetCardProps = {
 
 const SnippetCard = memo(function SnippetCard({ snippet: s, t, copied, onCopy, onEdit, onDelete }: SnippetCardProps) {
   return (
-    <div data-card className="group  p-4 transition hover:border-[var(--border)]/[0.12]">
+    <div data-card className="group p-4 transition hover:bg-[var(--surface-elevated)]">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
           <b className="text-sm text-[var(--text-primary)]">{s.title}</b>
@@ -45,10 +45,10 @@ const SnippetCard = memo(function SnippetCard({ snippet: s, t, copied, onCopy, o
           )}
         </div>
         <div className="flex items-center gap-1 opacity-100 transition sm:opacity-0 sm:group-hover:opacity-100 sm:group-focus-within:opacity-100">
-          <button onClick={() => onCopy(s.content, s.id)} title={t("snippetsPage.action.copy")} aria-label={t("snippetsPage.action.copy")} className="min-h-11 min-w-11 rounded-lg p-1.5 text-[var(--text-muted)] hover:bg-[var(--surface)]/10 hover:text-[var(--color-action)]">
+          <button onClick={() => onCopy(s.content, s.id)} title={t("snippetsPage.action.copy")} aria-label={t("snippetsPage.action.copy")} className="min-h-11 min-w-11 rounded-lg p-1.5 text-[var(--text-muted)] hover:bg-[var(--surface)]/10 hover:text-[var(--accent)]">
             {copied ? <Check size={14} /> : <Copy size={14} />}
           </button>
-          <button onClick={() => onEdit(s)} title={t("snippetsPage.action.edit")} aria-label={t("snippetsPage.action.edit")} className="min-h-11 min-w-11 rounded-lg p-1.5 text-[var(--text-muted)] hover:bg-[var(--surface)]/10 hover:text-[var(--color-action)]">
+          <button onClick={() => onEdit(s)} title={t("snippetsPage.action.edit")} aria-label={t("snippetsPage.action.edit")} className="min-h-11 min-w-11 rounded-lg p-1.5 text-[var(--text-muted)] hover:bg-[var(--surface)]/10 hover:text-[var(--accent)]">
             <Pencil size={14} />
           </button>
           <button onClick={() => onDelete(s)} title={t("snippetsPage.action.delete")} aria-label={t("snippetsPage.deleteDialog.title") + " " + s.title} className="min-h-11 min-w-11 rounded-lg p-1.5 text-[var(--text-muted)] hover:bg-[var(--surface)]/10 hover:text-[var(--danger)]">
@@ -158,7 +158,7 @@ export function SnippetList({ snippets: initial }: { snippets: Snippet[] }) {
         <span className="text-xs text-[var(--text-muted)]">{t("snippetsPage.count").replace("{count}", String(filtered.length))}</span>
         <button
           onClick={() => setCreating(true)}
-          className="min-h-11 inline-flex items-center gap-1.5 rounded-lg bg-[var(--color-action-strong)] px-3 py-2 text-sm font-medium text-[var(--text-primary)] transition hover:bg-[var(--color-action)]"
+          className="min-h-11 inline-flex items-center gap-1.5 rounded-lg bg-[var(--accent)] px-3 py-2 text-sm font-medium text-white transition hover:bg-[var(--accent-hover)]"
         >
           <Plus size={14} /> {t("snippetsPage.new")}
         </button>
@@ -169,7 +169,7 @@ export function SnippetList({ snippets: initial }: { snippets: Snippet[] }) {
           <SnippetCard key={s.id} snippet={s} t={t} copied={copiedId === s.id} onCopy={handleCopy} onEdit={handleEdit} onDelete={handleDeleteClick} />
         ))}
         {filtered.length === 0 && (
-          <div data-card className=" p-8 text-center text-sm text-[var(--text-muted)]">
+          <div data-card className="p-8 text-center text-sm text-[var(--text-muted)]">
             {items.length === 0 ? t("snippetsPage.empty") : t("snippetsPage.noMatch")}
           </div>
         )}

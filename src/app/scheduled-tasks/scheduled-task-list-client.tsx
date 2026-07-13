@@ -52,7 +52,7 @@ function matchesTask(task: Task, query: string) {
 }
 
 const fieldLabelClass = "text-xs font-medium text-[var(--text-secondary)] tracking-wide";
-const fieldInputClass = "w-full rounded-lg border border-[var(--border)]/[0.10] bg-[var(--surface)]/[0.04] px-3.5 py-2.5 text-sm text-[var(--text-primary)] outline-none transition placeholder:text-[var(--text-primary)]/30 focus:border-[var(--color-action-border)]/30";
+const fieldInputClass = "w-full rounded-xl border border-[var(--border)] bg-[var(--input-bg)] px-3.5 py-2.5 text-sm text-[var(--text-primary)] outline-none transition placeholder:text-[var(--text-muted)] focus:border-[var(--accent-border)]";
 const monoFieldInputClass = `${fieldInputClass} font-mono`;
 
 function describeCronPreview(expr: string, t: (key: string) => string) {
@@ -136,14 +136,14 @@ export function ScheduledTaskListClient({ tasks: initialTasks, servers, canCreat
 						value={searchQuery}
 						onChange={(e) => setSearchQuery(e.target.value)}
 						placeholder={t("scheduledTasks.searchPlaceholder")}
-						data-card className="w-full min-w-[18rem]  px-3.5 py-2 text-sm text-[var(--text-primary)] outline-none placeholder:text-[var(--text-primary)]/30 focus:border-[var(--color-action-border)]/40"
+						className="w-full min-w-[18rem] rounded-xl border border-[var(--border)] bg-[var(--input-bg)] px-3.5 py-2.5 text-sm text-[var(--text-primary)] outline-none placeholder:text-[var(--text-muted)] focus:border-[var(--accent-border)]"
 					/>
 				</div>
 				{canCreate && !showCreate && (
 					<button
 						onClick={() => setShowCreate(true)}
-						data-tone="accent"
-						className="min-h-11 rounded-2xl border px-5 py-2.5 text-sm font-medium transition"
+						data-primary
+						className="min-h-11 rounded-xl bg-[var(--accent)] px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-[var(--accent-hover)]"
 					>
 						{t("scheduledTasksPage.create")}
 						</button>
@@ -161,7 +161,7 @@ export function ScheduledTaskListClient({ tasks: initialTasks, servers, canCreat
 			) : (
 				<div className="space-y-3">
 					{filteredTasks.map((task) => (
-						<article key={task.id} data-card className=" hover:bg-[var(--surface)]/[0.04] transition-colors duration-150">
+						<article key={task.id} data-card className="p-5 transition-colors duration-150 hover:bg-[var(--surface-elevated)]">
 							<div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
 								<div className="min-w-0 flex-1">
 									<div className="flex flex-wrap items-center gap-2.5">
@@ -170,8 +170,8 @@ export function ScheduledTaskListClient({ tasks: initialTasks, servers, canCreat
 											{statusLabelFor(task.status, t)}
 										</span>
 									</div>
-									<p className="mt-1 text-xs text-[var(--text-muted)]">Cron: <code className="text-[var(--color-action)] font-mono">{task.cronExpression}</code> — {task.cronDescription}</p>
-									<div className="mt-2.5 rounded-lg bg-[var(--surface-subtle)] px-3 py-1.5 font-mono text-xs text-[var(--color-action)] border border-[var(--border)]">
+									<p className="mt-1 text-xs text-[var(--text-muted)]">Cron: <code className="font-mono text-[var(--accent)]">{task.cronExpression}</code> — {task.cronDescription}</p>
+									<div className="mt-2.5 rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-subtle)] px-3 py-1.5 font-mono text-xs text-[var(--accent)]">
 										{task.command}
 									</div>
 									{task.reason && <p className="mt-1.5 text-xs text-[var(--text-muted)]">{t("scheduledTasksPage.reason").replace("{reason}", task.reason)}</p>}
@@ -282,7 +282,7 @@ function CreateTaskForm({ servers, onClose }: { servers: ServerOption[]; onClose
 	const enabledServers = servers.filter((s) => s.enabled);
 
 	return (
-		<form onSubmit={handleSubmit} data-card className=" space-y-4">
+		<form onSubmit={handleSubmit} data-card className="space-y-4 p-5">
 			<h3 className="text-lg font-semibold text-[var(--text-primary)]">{t("scheduledTasksPage.createTitle")}</h3>
 			{error && <div role="alert" className="rounded-lg bg-[var(--danger)]/[0.10] border border-[var(--danger-border)] px-3.5 py-2.5 text-sm text-[var(--danger)]">{error}</div>}
 
@@ -294,7 +294,7 @@ function CreateTaskForm({ servers, onClose }: { servers: ServerOption[]; onClose
 			<div className="space-y-1.5">
 				<label htmlFor="scheduled-task-cron" className={fieldLabelClass}>{t("scheduledTasksPage.cron")}</label>
 				<input id="scheduled-task-cron" value={cronExpression} onChange={(e) => setCron(e.target.value)} required placeholder="0 3 * * *" className={monoFieldInputClass} />
-				<p data-tone="cyan" className="rounded-lg border border-[var(--color-action-border)]/10 px-3 py-2 text-xs text-[var(--text-primary)]">{t("scheduledTasksPage.preview.label").replace("{value}", cronPreview)}</p>
+				<p className="rounded-xl border border-[var(--accent-border)] bg-[var(--accent-bg)] px-3 py-2 text-xs text-[var(--text-primary)]">{t("scheduledTasksPage.preview.label").replace("{value}", cronPreview)}</p>
 				<div className="flex flex-wrap gap-1.5">
 					{presetCrons.map((p) => (
 						<button key={p.expr} type="button" onClick={() => setCron(p.expr)}
@@ -326,7 +326,7 @@ function CreateTaskForm({ servers, onClose }: { servers: ServerOption[]; onClose
 					<div className="grid gap-1.5 sm:grid-cols-2" role="group" aria-labelledby="scheduled-task-target-nodes-label">
 						{enabledServers.map((s) => (
 							<label key={s.id} className={`min-h-11 flex items-center gap-2 rounded-lg border px-3 py-2 text-sm cursor-pointer transition ${
-								selectedServerIds.has(s.id) ? "border-[var(--color-action-border)]/20 bg-[var(--color-action-bg)]/[0.10] text-[var(--text-primary)]" : "border-[var(--border)]/[0.10] bg-[var(--surface)]/[0.04] text-[var(--text-secondary)] hover:bg-[var(--surface)]/[0.10]"
+								selectedServerIds.has(s.id) ? "border-[var(--accent-border)] bg-[var(--accent-bg)] text-[var(--text-primary)]" : "border-[var(--border)] bg-[var(--surface-elevated)] text-[var(--text-secondary)] hover:bg-[var(--surface-hover)]"
 							}`}>
 								<input type="checkbox" checked={selectedServerIds.has(s.id)} onChange={() => toggleServer(s.id)} className="accent-[var(--color-action)]" />
 								<span>{s.name}</span>
@@ -337,7 +337,7 @@ function CreateTaskForm({ servers, onClose }: { servers: ServerOption[]; onClose
 			)}
 
 			<div className="flex gap-3 pt-2">
-				<button type="submit" disabled={submitting} className="min-h-11 rounded-2xl bg-[var(--color-action)] px-5 py-2 text-sm font-medium text-[var(--color-action-fg)] transition hover:bg-[var(--color-action-bg)] disabled:opacity-60">
+				<button type="submit" disabled={submitting} data-primary className="min-h-11 rounded-xl bg-[var(--accent)] px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-[var(--accent-hover)] disabled:opacity-60">
 					{submitting ? t("scheduledTasks.submit.creating") : t("scheduledTasks.submit.create")}
 				</button>
 				<button type="button" onClick={onClose} className="min-h-11 rounded-2xl border border-[var(--border)] px-5 py-2 text-sm text-[var(--text-secondary)] hover:bg-[var(--surface)]/10 transition">

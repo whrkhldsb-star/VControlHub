@@ -12,7 +12,7 @@ export default async function HealthPage() {
 	if (!sessionHasPermission(session, "health:read")) {
 		return (
 			<PageShell>
-				<section data-tone="amber" className="rounded-xl border border-[var(--warning-border)] bg-[var(--warning-bg)] p-6 text-sm text-[var(--warning)]">
+				<section className="rounded-2xl border border-[var(--warning-border)] bg-[color-mix(in_srgb,var(--warning-bg)_45%,var(--surface))] p-6 text-sm text-[var(--warning)]">
 					<p className="text-base font-semibold text-[var(--warning)]">{t("healthPage.noPermission")}</p>
 					<p className="mt-2 text-[var(--warning)] opacity-80">{t("healthPage.noPermissionHint")}</p>
 				</section>
@@ -25,7 +25,7 @@ export default async function HealthPage() {
 	return (
 		<PageShell>
 			<PageHeader eyebrow={t("healthPage.eyebrow", locale)} title={t("healthPage.title")} description={t("healthPage.description")} className="mb-6">
-				<div className="rounded-lg border border-[var(--border)] bg-[var(--surface-elevated)] px-4 py-2 text-sm text-[var(--text-secondary)]">
+				<div className="rounded-xl border border-[var(--border)] bg-[var(--surface-elevated)] px-4 py-2 text-sm font-medium text-[var(--text-secondary)]">
 					{t("healthPage.serverCount").replace("{count}", String(servers.length))}
 				</div>
 			</PageHeader>

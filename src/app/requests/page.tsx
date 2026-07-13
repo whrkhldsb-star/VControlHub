@@ -41,7 +41,7 @@ export default async function RequestsPage() {
 				</div>
 			</PageHeader>
 
-			<section className="grid gap-3 sm:grid-cols-5 mb-8">
+			<section className="mb-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
 				<StatCard label={t("requestsPage.stat.aiPending", locale)} value={String(aiActions.length)} accent={aiActions.length > 0} accentColor="cyan" />
 				<StatCard label={t("requestsPage.stat.cmdPending", locale)} value={String(pendingCommands)} accent={pendingCommands > 0} accentColor="amber" />
 				<StatCard label={t("requestsPage.stat.assistant", locale)} value={String(assistantCommands)} accent={assistantCommands > 0} accentColor="cyan" />
@@ -53,10 +53,10 @@ export default async function RequestsPage() {
 				<section aria-labelledby="ai-approval-heading" className="space-y-3">
 					<div className="flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
 						<div>
-							<h2 id="ai-approval-heading" className="text-xl font-semibold text-[var(--text-primary)]">{t("requestsPage.ai.title", locale)}</h2>
+							<h2 id="ai-approval-heading" className="text-lg font-semibold tracking-tight text-[var(--text-primary)]">{t("requestsPage.ai.title", locale)}</h2>
 							<p className="mt-1 text-sm text-[var(--text-muted)]">{t("requestsPage.ai.desc", locale)}</p>
 						</div>
-						<span data-tone="cyan" className="rounded-lg border border-[var(--color-action-border)]/20 px-3 py-1 text-xs text-[var(--text-secondary)]">{t("requestsPage.ai.scopeBadge", locale)}</span>
+						<span className="rounded-full border border-[var(--accent-border)] bg-[var(--accent-bg)] px-3 py-1 text-xs font-medium text-[var(--accent)]">{t("requestsPage.ai.scopeBadge", locale)}</span>
 					</div>
 					{aiActions.length === 0 ? (
 						<EmptyState text={t("requestsPage.ai.empty", locale)} variant="boxed" />
@@ -70,10 +70,10 @@ export default async function RequestsPage() {
 				<section aria-labelledby="command-approval-heading" className="space-y-3">
 					<div className="flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
 						<div>
-							<h2 id="command-approval-heading" className="text-xl font-semibold text-[var(--text-primary)]">{t("requestsPage.cmd.title", locale)}</h2>
+							<h2 id="command-approval-heading" className="text-lg font-semibold tracking-tight text-[var(--text-primary)]">{t("requestsPage.cmd.title", locale)}</h2>
 							<p className="mt-1 text-sm text-[var(--text-muted)]">{t("requestsPage.cmd.desc", locale)}</p>
 						</div>
-						<span data-tone="amber" className="rounded-lg border border-[var(--warning-border)] px-3 py-1 text-xs text-[var(--warning)]">{t("requestsPage.cmd.scopeBadge", locale)}</span>
+						<span className="rounded-full border border-[var(--warning-border)] bg-[var(--warning-bg)] px-3 py-1 text-xs font-medium text-[var(--warning)]">{t("requestsPage.cmd.scopeBadge", locale)}</span>
 					</div>
 
 					{requests.length === 0 ? (
@@ -89,7 +89,7 @@ export default async function RequestsPage() {
 							}
 						>
 							{requests.map((request) => (
-								<article key={request.id} data-id={request.id} data-card className=" hover:bg-[var(--surface)]/[0.04] transition-colors duration-150">
+								<article key={request.id} data-id={request.id} data-card className="p-5 transition-colors duration-150 hover:bg-[var(--surface-elevated)]">
 								<div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
 									<div className="min-w-0 flex-1">
 										<div className="flex flex-wrap items-center gap-2">
@@ -105,7 +105,7 @@ export default async function RequestsPage() {
 										{request.reason && <p className="mt-2 text-sm text-[var(--text-secondary)]">{t("requestsPage.card.reason", locale)}{request.reason}</p>}
 										<p className="mt-1 text-[11px] text-[var(--text-muted)]">{t("requestsPage.card.requester", locale)}{request.requester.displayName || request.requester.username}</p>
 										</div>
-										<div className="rounded-lg border border-[var(--border)] bg-[var(--surface)]/[0.04] px-3 py-2 text-xs text-[var(--text-secondary)] shrink-0">
+										<div className="shrink-0 rounded-xl border border-[var(--border)] bg-[var(--surface-elevated)] px-3 py-2 text-xs text-[var(--text-secondary)]">
 										{t("requestsPage.card.targetCount", locale).replace("{count}", String(request.targets.length))}
 										</div>
 								</div>
@@ -225,7 +225,7 @@ function InitiatorBadge({ assistant, label }: { assistant: boolean; label: strin
 		<span
 			data-tone={assistant ? "accent" : "neutral"}
 			className={`inline-flex items-center rounded-full border px-2 py-0.5 text-[11px] font-medium ${
-				assistant ? "border-[var(--color-action-border)]/20 text-[var(--text-secondary)]" : "border-[var(--border)] text-[var(--text-muted)]"
+				assistant ? "border-[var(--accent-border)] bg-[var(--accent-bg)] text-[var(--accent)]" : "border-[var(--border)] text-[var(--text-muted)]"
 			}`}
 		>
 			{label}
@@ -235,7 +235,7 @@ function InitiatorBadge({ assistant, label }: { assistant: boolean; label: strin
 
 function InfoSection({ title, children }: { title: string; children: ReactNode }) {
 	return (
-		<section className="rounded-lg border border-[var(--border)] bg-[var(--surface-subtle)] p-4">
+		<section className="rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-subtle)] p-4">
 			<h4 className="text-xs font-medium text-[var(--text-primary)]/70 uppercase tracking-wider mb-3">{title}</h4>
 			{children}
 		</section>
@@ -244,7 +244,7 @@ function InfoSection({ title, children }: { title: string; children: ReactNode }
 
 function InfoItem({ children, className }: { children: ReactNode; className?: string }) {
 	return (
-		<div className={`rounded-lg bg-[var(--surface)]/[0.04] border border-[var(--border)] px-3 py-2 ${className ?? ""}`}>
+		<div className={`rounded-xl border border-[var(--border-subtle)] bg-[var(--surface)] px-3 py-2 ${className ?? ""}`}>
 			{children}
 		</div>
 	);

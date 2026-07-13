@@ -31,18 +31,25 @@ export default async function SharesPage() {
 				</div>
 			) : null}
 
-			<div data-card className="">
-				<div className="border-b border-[var(--border)] px-5 py-4 text-sm font-semibold text-[var(--text-primary)]">{t("shares.records")}</div>
-				<div className="divide-y divide-[var(--border)]">
+			<div data-card className="overflow-hidden !p-0">
+				<div className="flex items-center justify-between gap-3 border-b border-[var(--border)] px-5 py-4">
+					<div className="text-sm font-semibold text-[var(--text-primary)]">{t("shares.records")}</div>
+					<span className="rounded-full border border-[var(--border)] bg-[var(--surface-elevated)] px-2.5 py-1 text-[11px] font-medium text-[var(--text-secondary)]">{shares.length}</span>
+				</div>
+				<div className="divide-y divide-[var(--border-subtle)]">
 					{shares.length === 0 ? <EmptyState text={t("shares.empty")} /> : shares.map((s) => (
-						<div key={s.id} className="px-5 py-4">
-							<div className="flex items-center justify-between gap-3">
-								<div>
-									<h3 className="text-sm font-medium text-[var(--text-primary)]">{s.name || s.path}</h3>
+						<div key={s.id} className="px-5 py-4 transition hover:bg-[var(--surface-hover)]">
+							<div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+								<div className="min-w-0">
+									<h3 className="truncate text-sm font-semibold text-[var(--text-primary)]">{s.name || s.path}</h3>
 									<p className="mt-1 text-xs text-[var(--text-muted)]">{s.storageNode.name} · {s.path} · {t("shares.accessCountPrefix")}{s.accessCount}{t("shares.accessCountSuffix")}</p>
 								</div>
 								<div className="flex items-center gap-3">
-									<span className="rounded-lg border border-[var(--border)] px-2 py-1 text-xs text-[var(--text-muted)]">
+									<span className={`rounded-full border px-2.5 py-1 text-xs font-medium ${
+										s.revokedAt ? "border-[var(--border)] bg-[var(--surface-elevated)] text-[var(--text-muted)]"
+										: s.expiresAt && s.expiresAt < new Date() ? "border-[var(--warning-border)] bg-[var(--warning-bg)] text-[var(--warning)]"
+										: "border-[var(--success-border)] bg-[var(--success-bg)] text-[var(--success)]"
+									}`}>
 										{s.revokedAt ? t("shares.status.revoked") : s.expiresAt && s.expiresAt < new Date() ? t("shares.status.expired") : t("shares.status.active")}
 									</span>
 									{canManage ? <ShareRowActions id={s.id} revoked={Boolean(s.revokedAt)} /> : null}
