@@ -124,7 +124,7 @@ export function CommandCreateForm({ servers }: { servers: ServerOption[] }) {
           <button
             type="button"
             onClick={selectAll}
-            className="text-xs text-[var(--color-action)]/70 hover:text-[var(--color-action)] light:hover:text-[var(--color-action-strong)] transition"
+            className="text-xs text-[var(--color-action)]/70 hover:text-[var(--color-action)] light:hover:text-[var(--accent)] transition"
           >
             {" "}
             {enabledServerIds.length > 0 && selectedServerIds.size === enabledServerIds.length

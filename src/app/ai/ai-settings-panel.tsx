@@ -117,7 +117,7 @@ export function AiSettingsPanel({
                       {t("aiPage.noModels")}{" "}
                       <button
                         onClick={onRefreshModels}
-                        className="ml-2 text-[var(--color-action)] hover:text-[var(--color-action)] light:hover:text-[var(--color-action-strong)]"
+                        className="ml-2 text-[var(--color-action)] hover:text-[var(--color-action)] light:hover:text-[var(--accent)]"
                       >
                         {" "}
                         {t("aiPage.refresh")}{" "}

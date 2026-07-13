@@ -256,11 +256,11 @@ export function ShareFilePicker({ nodes }: { nodes: StorageNode[] }) {
 			</div>
 
 			<div className="mt-4 flex flex-wrap items-center gap-2 text-xs text-[var(--text-muted)]">
-				<button type="button" onClick={() => setPath("")} className="min-h-11 min-w-11 rounded-lg border border-[var(--border)]/10 px-2.5 py-1 hover:text-[var(--text-secondary)] light:hover:text-[var(--color-action-strong)]">{copyText.root}</button>
+				<button type="button" onClick={() => setPath("")} className="min-h-11 min-w-11 rounded-lg border border-[var(--border)]/10 px-2.5 py-1 hover:text-[var(--text-secondary)] light:hover:text-[var(--accent)]">{copyText.root}</button>
 				{breadcrumb.map((segment, index) => (
 					<span key={`${segment}-${index}`} className="inline-flex items-center gap-2">
 						<ChevronRight size={12} />
-						<button type="button" onClick={() => jumpToCrumb(index)} className="min-h-11 min-w-11 rounded-lg border border-[var(--border)]/10 px-2.5 py-1 hover:text-[var(--text-secondary)] light:hover:text-[var(--color-action-strong)]">{segment}</button>
+						<button type="button" onClick={() => jumpToCrumb(index)} className="min-h-11 min-w-11 rounded-lg border border-[var(--border)]/10 px-2.5 py-1 hover:text-[var(--text-secondary)] light:hover:text-[var(--accent)]">{segment}</button>
 					</span>
 				))}
 			</div>
@@ -291,7 +291,7 @@ export function ShareFilePicker({ nodes }: { nodes: StorageNode[] }) {
 								return (
 									<div key={item.key} className="grid grid-cols-[2rem_minmax(0,1fr)_8rem_6rem] items-center gap-2 px-3 py-2.5 text-sm hover:bg-[var(--surface)] light:hover:bg-[var(--surface)]">
 										<input type="checkbox" checked={Boolean(selected[item.key])} aria-label={`${copyText.selectFolder} ${folder.name}`} onChange={() => toggleSelection(item)} className="h-4 w-4 accent-[var(--color-action)]" />
-										<button type="button" onClick={() => openFolder(folder)} className="min-h-11 flex min-w-0 items-center gap-2 text-left text-[var(--text-primary)] hover:text-[var(--text-secondary)] light:hover:text-[var(--color-action-strong)]">
+										<button type="button" onClick={() => openFolder(folder)} className="min-h-11 flex min-w-0 items-center gap-2 text-left text-[var(--text-primary)] hover:text-[var(--text-secondary)] light:hover:text-[var(--accent)]">
 											<Folder size={17} className="shrink-0 text-[var(--color-action)]" />
 											<span className="truncate">{folder.name}</span>
 										</button>

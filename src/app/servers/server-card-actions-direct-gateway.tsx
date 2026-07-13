@@ -83,7 +83,7 @@ export function ServerCardDirectGatewayForm({
             href={directGateway.publicUrl}
             target="_blank"
             rel="noreferrer"
-            className="block break-all text-xs font-medium text-[var(--text-primary)] underline decoration-[var(--color-action)]/30 underline-offset-2 hover:text-[var(--text-primary)] light:hover:text-[var(--text-primary)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-action)] light:hover:text-[var(--color-action-strong)]"
+            className="block break-all text-xs font-medium text-[var(--text-primary)] underline decoration-[var(--color-action)]/30 underline-offset-2 hover:text-[var(--text-primary)] light:hover:text-[var(--text-primary)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-action)] light:hover:text-[var(--accent)]"
           >
             {directGateway.publicUrl}
           </a>

@@ -203,7 +203,7 @@ export function DirectGatewayAdviceList({
 						{item.href && item.hrefLabel ? (
 							<Link
 								href={item.href}
-								className="ml-auto text-[var(--text-secondary)] underline-offset-4 hover:underline light:text-[var(--color-action-strong)]"
+								className="ml-auto text-[var(--text-secondary)] underline-offset-4 hover:underline light:text-[var(--accent)]"
 								aria-label={item.hrefLabel}
 							>
 								{item.hrefLabel}

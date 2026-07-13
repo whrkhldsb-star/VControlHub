@@ -67,7 +67,7 @@ export function FieldRollbackButton({
         "{label}",
         t(field.labelKey),
       )}
-      className="inline-flex items-center gap-0.5 rounded border border-[var(--border)] bg-[var(--surface)]/[0.04] px-1.5 py-0.5 text-[10px] font-medium text-[var(--text-secondary)] transition hover:border-[var(--color-action-border)]/30 hover:bg-[var(--color-action-bg)]/[0.10] hover:text-[var(--text-secondary)] disabled:cursor-not-allowed disabled:opacity-40 light:bg-[var(--surface-subtle)] light:hover:border-[var(--color-action-border)]/40 light:hover:text-[var(--color-action-strong)]"
+      className="inline-flex items-center gap-0.5 rounded border border-[var(--border)] bg-[var(--surface)]/[0.04] px-1.5 py-0.5 text-[10px] font-medium text-[var(--text-secondary)] transition hover:border-[var(--color-action-border)]/30 hover:bg-[var(--color-action-bg)]/[0.10] hover:text-[var(--text-secondary)] disabled:cursor-not-allowed disabled:opacity-40 light:bg-[var(--surface-subtle)] light:hover:border-[var(--color-action-border)]/40 light:hover:text-[var(--accent)]"
     >
       {" "}
       <span aria-hidden>↺</span>{" "}

@@ -179,7 +179,7 @@ export function SaveButtonWithDiff({
                   <td className="px-3 py-2 text-[var(--text-muted)] line-through">
                     {renderDiffValue(change.oldValue, t)}
                   </td>
-                  <td className="px-3 py-2 text-[var(--text-primary)] light:text-[var(--color-action-strong)]">
+                  <td className="px-3 py-2 text-[var(--text-primary)] light:text-[var(--accent)]">
                     {renderDiffValue(change.newValue, t)}
                   </td>
                   <td className="px-3 py-2">
