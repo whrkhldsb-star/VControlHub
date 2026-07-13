@@ -20,7 +20,7 @@ interface Announcement {
 }
 
 const levelColors: Record<string, string> = {
-  info: "border-[var(--color-action-border)]/20 bg-[var(--color-action-bg)]/[0.04]",
+  info: "border-[var(--accent-border)] bg-[var(--accent-bg)]",
   warning: "border-[var(--warning-border)] bg-[var(--warning-bg)]",
   urgent: "border-[var(--danger-border)] bg-[var(--danger-bg)]",
 };
@@ -53,7 +53,7 @@ const AnnouncementCard = memo(function AnnouncementCard({ announcement: a, t, lo
           <span className="text-xs text-[var(--text-muted)] whitespace-nowrap">{formatDate(a.startsAt, locale as "zh" | "en")}</span>
           {canManage && (
             <div className="flex items-center gap-1 opacity-0 transition group-hover:opacity-100">
-              <button onClick={() => onEdit(a)} title={t("announcementsPage.action.edit")} aria-label={t("announcementsPage.action.edit")} className="rounded-lg p-1.5 text-[var(--text-muted)] hover:bg-[var(--surface)]/10 hover:text-[var(--color-action)]">
+              <button onClick={() => onEdit(a)} title={t("announcementsPage.action.edit")} aria-label={t("announcementsPage.action.edit")} className="rounded-lg p-1.5 text-[var(--text-muted)] hover:bg-[var(--surface)]/10 hover:text-[var(--accent)]">
                 <Pencil size={14} />
               </button>
               <button onClick={() => onDelete(a)} title={t("announcementsPage.action.delete")} aria-label={t("announcementsPage.action.deleteAria").replace("{title}", a.title)} className="rounded-lg p-1.5 text-[var(--text-muted)] hover:bg-[var(--surface)]/10 hover:text-[var(--danger)]">
@@ -148,14 +148,14 @@ export function AnnouncementList({
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder={t("announcementsPage.search.placeholder")}
-            className="w-full rounded-lg border border-[var(--border)] bg-[var(--surface)]/[0.04] pl-9 pr-4 py-2 text-sm text-[var(--text-primary)] outline-none placeholder:text-[var(--text-muted)]"
+            className="w-full rounded-xl border border-[var(--border)] bg-[var(--input-bg)] py-2.5 pl-9 pr-4 text-sm text-[var(--text-primary)] outline-none placeholder:text-[var(--text-muted)]"
           />
         </div>
         <select
           value={levelFilter}
           onChange={(e) => setLevelFilter(e.target.value)}
           aria-label={t("announcementsPage.filter.label")}
-          className="rounded-lg border border-[var(--border)] bg-[var(--surface)]/[0.04] px-3 py-2 text-sm text-[var(--text-primary)] outline-none"
+          className="rounded-xl border border-[var(--border)] bg-[var(--input-bg)] px-3 py-2.5 text-sm text-[var(--text-primary)] outline-none"
         >
           {levels.map((l) => (
             <option key={l} value={l}>{l === "ALL" ? t("announcementsPage.filter.all") : levelLabel(t, l)}</option>
@@ -166,7 +166,7 @@ export function AnnouncementList({
 
       <div className="grid gap-4">
         {filtered.length === 0 ? (
-          <div data-card className=" p-8 text-center text-sm text-[var(--text-muted)]">
+          <div data-card className="p-8 text-center text-sm text-[var(--text-muted)]">
             {items.length === 0 ? t("announcementsPage.empty") : t("announcementsPage.emptyFiltered")}
           </div>
         ) : (

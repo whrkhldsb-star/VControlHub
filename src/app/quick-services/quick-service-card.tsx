@@ -86,7 +86,7 @@ export function ServiceCard({
 	const isRemote = item.source !== "local";
 
 	return (
-		<div data-card className=" p-4 flex flex-col gap-3 hover:border-[var(--border)]/[0.12] transition light:hover:border-[var(--border)]">
+		<div data-card className="flex flex-col gap-3 p-4 transition hover:bg-[var(--surface-elevated)]">
 			{/* Header */}
 			<div className="flex items-start justify-between">
 				<div className="flex items-center gap-2.5">
@@ -127,7 +127,7 @@ export function ServiceCard({
 			{/* Actions */}
 			<div className="flex items-center gap-2 mt-auto pt-1">
 				{tab !== "installed" && item.status === "available" && (
-					<button onClick={onInstall} disabled={busy} className={`rounded-lg px-3.5 py-1.5 text-xs font-semibold text-[var(--color-action-fg)] transition disabled:opacity-50 ${isRemote ? "bg-[var(--color-action)] hover:bg-[var(--color-action-bg)]" : "bg-[var(--color-action)] hover:bg-[var(--color-action-bg)]"}`}>
+					<button onClick={onInstall} disabled={busy} data-primary className="rounded-xl bg-[var(--accent)] px-3.5 py-1.5 text-xs font-semibold text-white transition hover:bg-[var(--accent-hover)] disabled:opacity-50">
 						{busy ? t("qsPage.installingLabel") : t("qsPage.installNow")}
 					</button>
 				)}
@@ -139,7 +139,7 @@ export function ServiceCard({
 							</a>
 						)}
 						{item.status === "running" && (
-							<button onClick={onStop} disabled={busy} className="rounded-lg border border-[var(--border)]/[0.1] px-3 py-1.5 text-xs text-[var(--text-secondary)] hover:bg-[var(--surface)]/[0.10] transition disabled:opacity-50">
+							<button onClick={onStop} disabled={busy} className="rounded-xl border border-[var(--border)] bg-[var(--surface-elevated)] px-3 py-1.5 text-xs text-[var(--text-secondary)] transition hover:bg-[var(--surface-hover)] disabled:opacity-50">
 								{busy ? t("qsPage.busy") : t("qsPage.stop")}
 							</button>
 						)}
@@ -152,12 +152,12 @@ export function ServiceCard({
 							<span className="text-xs text-[var(--warning)] animate-pulse">{t("qsPage.pullingImage")}</span>
 						)}
 						{item.status === "error" && (
-							<button onClick={onSync} disabled={busy} className="rounded-lg border border-[var(--border)]/[0.1] px-3 py-1.5 text-xs text-[var(--text-secondary)] hover:bg-[var(--surface)]/[0.10] transition disabled:opacity-50">
+							<button onClick={onSync} disabled={busy} className="rounded-xl border border-[var(--border)] bg-[var(--surface-elevated)] px-3 py-1.5 text-xs text-[var(--text-secondary)] transition hover:bg-[var(--surface-hover)] disabled:opacity-50">
 								{t("qsPage.refreshStatus")}
 							</button>
 						)}
 						{(item.status === "running" || item.status === "stopped" || item.status === "error") && (
-							<button onClick={onUpdate} disabled={busy} className="rounded-lg border border-[var(--color-action-border)]/25 px-3 py-1.5 text-xs text-[var(--text-secondary)] hover:bg-[var(--color-action)]/[0.10] transition disabled:opacity-50">
+							<button onClick={onUpdate} disabled={busy} className="rounded-xl border border-[var(--accent-border)] px-3 py-1.5 text-xs text-[var(--accent)] transition hover:bg-[var(--accent-bg)] disabled:opacity-50">
 								{busy ? t("qsPage.busy") : t("qsPage.update")}
 							</button>
 						)}

@@ -137,7 +137,7 @@ export function SnippetModal({
 				{error && <p className="mt-2 text-xs text-[var(--danger)]">{error}</p>}
 				<div className="mt-5 flex justify-end gap-3">
 					<button onClick={onClose} className="min-h-11 rounded-lg border border-[var(--border)] px-4 py-2 text-sm text-[var(--text-muted)] transition hover:bg-[var(--surface)]/10">{t("snippetsPage.modal.action.cancel")}</button>
-					<button onClick={handleSave} disabled={saving || !title.trim() || !content.trim()} className="min-h-11 rounded-lg bg-[var(--color-action-strong)] px-4 py-2 text-sm font-medium text-[var(--text-primary)] transition hover:bg-[var(--color-action)] disabled:opacity-40">
+					<button onClick={handleSave} disabled={saving || !title.trim() || !content.trim()} className="min-h-11 rounded-lg bg-[var(--accent)] px-4 py-2 text-sm font-semibold text-white transition hover:bg-[var(--accent-hover)] disabled:opacity-40">
 						{t(`snippetsPage.modal.action.${saving ? (mode === "create" ? "creating" : "saving") : mode === "create" ? "create" : "save"}`)}
 					</button>
 				</div>

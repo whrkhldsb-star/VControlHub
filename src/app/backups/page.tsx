@@ -34,22 +34,22 @@ export default async function BackupsPage() {
 
 			<section className="mb-6 grid gap-3 md:grid-cols-4">
 				<div data-card className="p-4">
-					<p className="text-xs text-[var(--text-muted)]">{t("backupsPage.summary.completed")}</p>
+					<p className="text-xs font-medium uppercase tracking-wider text-[var(--text-muted)]">{t("backupsPage.summary.completed")}</p>
 					<p className="mt-1 text-2xl font-semibold text-[var(--text-primary)]">{summary.completedRecords}</p>
 					<p className="mt-1 text-xs text-[var(--text-muted)]">{t("backupsPage.summary.totalRecords").replace("{count}", String(summary.totalRecords))}</p>
 				</div>
 				<div data-card className="p-4">
-					<p className="text-xs text-[var(--text-muted)]">{t("backupsPage.summary.usedSpace")}</p>
+					<p className="text-xs font-medium uppercase tracking-wider text-[var(--text-muted)]">{t("backupsPage.summary.usedSpace")}</p>
 					<p className="mt-1 text-2xl font-semibold text-[var(--text-primary)]">{formatBackupSize(summary.totalCompletedSizeBytes)}</p>
 					<p className="mt-1 text-xs text-[var(--text-muted)]">{summary.largestCompleted ? t("backupsPage.summary.largestRecord").replace("{type}", summary.largestCompleted.type).replace("{size}", formatBackupSize(summary.largestCompleted.sizeBytes)) : t("backupsPage.summary.largestNone")}</p>
 				</div>
 				<div data-card className="p-4">
-					<p className="text-xs text-[var(--text-muted)]">{t("backupsPage.summary.retentionNote")}</p>
+					<p className="text-xs font-medium uppercase tracking-wider text-[var(--text-muted)]">{t("backupsPage.summary.retentionNote")}</p>
 					<p className="mt-1 text-2xl font-semibold text-[var(--text-primary)]">{summary.recordsOlderThan30Days}</p>
 					<p className="mt-1 text-xs text-[var(--text-muted)]">{t("backupsPage.summary.retentionHint")}</p>
 				</div>
 				<div data-card className="p-4">
-					<p className="text-xs text-[var(--text-muted)]">{t("backupsPage.summary.exceptions")}</p>
+					<p className="text-xs font-medium uppercase tracking-wider text-[var(--text-muted)]">{t("backupsPage.summary.exceptions")}</p>
 					<p className="mt-1 text-2xl font-semibold text-[var(--text-primary)]">{summary.failedRecords} / {summary.runningRecords}</p>
 					<p className="mt-1 text-xs text-[var(--text-muted)]">{t("backupsPage.summary.exceptionsHint")}</p>
 				</div>

@@ -79,7 +79,7 @@ export function SharePasswordGate({ token, label, placeholder, submitLabel }: Sh
         <button
           type="submit"
           disabled={!pw || busy}
-          className="shrink-0 rounded-lg bg-[var(--color-action-strong)] px-4 py-2 text-center text-sm font-medium text-[var(--text-primary)] transition hover:bg-[var(--color-action)] disabled:opacity-40"
+          className="shrink-0 rounded-lg bg-[var(--accent)] px-4 py-2 text-center text-sm font-medium text-[var(--text-primary)] transition hover:bg-[var(--accent-hover)] disabled:opacity-40"
         >
           {submitLabel}
         </button>

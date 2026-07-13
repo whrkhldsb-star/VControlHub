@@ -106,7 +106,7 @@ export function ImageGrid({
               >
                 <button
                   onClick={() => copyLink(img.publicUrl)}
-                  className="min-h-11 min-w-11 rounded-lg bg-[var(--color-action)]/20 px-2 text-xs text-[var(--color-action)] hover:bg-[var(--color-action)]/30"
+                  className="min-h-11 min-w-11 rounded-lg bg-[var(--color-action)]/20 px-2 text-xs text-[var(--color-action)] hover:bg-[var(--accent-hover)]/30"
                   title={t("imageBedPage.copy.title.url")}
                   aria-label={t("imageBedPage.copy.title.url")}
                 >
@@ -308,7 +308,7 @@ export function PublishFromStorageModal({
           <button
             onClick={handlePublishFromStorage}
             disabled={!publishForm.storageNodeId || !publishForm.relativePath}
-            className="rounded-lg bg-[var(--color-action-strong)] px-4 py-2 text-sm text-[var(--text-primary)] transition hover:bg-[var(--color-action)] disabled:opacity-30"
+            className="rounded-lg bg-[var(--accent)] px-4 py-2 text-sm text-[var(--text-primary)] transition hover:bg-[var(--accent-hover)] disabled:opacity-30"
           >
             {t("imageBedPage.publishFromStorage.submit")}
           </button>

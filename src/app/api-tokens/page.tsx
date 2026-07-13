@@ -13,7 +13,7 @@ export default async function Page() {
 	if (!sessionHasPermission(session, "api-token:manage")) {
 		return (
 			<PageShell>
-				<section data-tone="rose" className="rounded-2xl border border-[var(--danger-border)] p-6">
+				<section className="rounded-2xl border border-[var(--danger-border)] bg-[var(--danger-bg)] p-6">
 					<h1 className="text-xl font-semibold text-[var(--danger)]">{t("common.insufficientPermissions", locale)}</h1>
 					<p className="mt-2 text-sm text-[var(--danger)]/70">{t("apiTokensPage.permissionDeniedHint", locale)}</p>
 				</section>
@@ -24,7 +24,7 @@ export default async function Page() {
 	return (
 		<PageShell>
 			<PageHeader eyebrow={t("apiTokensPage.eyebrow", locale)} title={t("apiTokensPage.title", locale)} description={t("apiTokensPage.desc", locale)}>
-				<div className="rounded-2xl border border-[var(--border)] bg-[var(--surface)]/[0.04] px-4 py-3 text-xs text-[var(--text-muted)]">
+				<div className="rounded-2xl border border-[var(--border)] bg-[var(--surface-elevated)] px-4 py-3 text-xs text-[var(--text-muted)]">
 					{t("apiTokensPage.hint", locale)}
 				</div>
 			</PageHeader>

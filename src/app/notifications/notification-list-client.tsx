@@ -65,10 +65,10 @@ const NotificationRow = memo(function NotificationRow({
 }) {
 	return (
 		<article
-			className={`group rounded-xl border p-4 transition-colors duration-150 focus-within:ring-2 focus-within:ring-[var(--color-action-ring)] light:focus-within:ring-[var(--color-action-ring)] ${
+			className={`group rounded-2xl border p-4 transition-colors duration-150 focus-within:ring-2 focus-within:ring-[var(--accent)]/40 ${
 				n.isRead
-					? "border-[var(--border)] bg-[var(--surface)]/[0.04] hover:bg-[var(--surface)]/[0.04] light:hover:bg-[var(--surface-hover)]"
-					: "border-[var(--color-action-border)]/20 bg-[var(--color-action-bg)]/[0.04] hover:bg-[var(--color-action-bg)]/[0.10] light:border-[var(--color-action-border)]/30 light:bg-[var(--color-action-bg)] light:hover:bg-[var(--color-action-bg)]/70"
+					? "border-[var(--border)] bg-[var(--surface)] hover:bg-[var(--surface-hover)]"
+					: "border-[var(--accent-border)] bg-[var(--accent-bg)] hover:bg-[color-mix(in_srgb,var(--accent-bg)_80%,var(--surface))]"
 			}`}
 		>
 			<div className="flex items-start gap-3">
@@ -76,18 +76,18 @@ const NotificationRow = memo(function NotificationRow({
 				<div className="flex-1 min-w-0">
 					<div className="flex items-center gap-2 min-w-0">
 						<h3 className={`text-sm font-medium truncate ${n.isRead ? "text-[var(--text-muted)]" : "text-[var(--text-primary)]"}`} title={n.title}>{n.title}</h3>
-						{!n.isRead && <div className="h-1.5 w-1.5 rounded-full bg-[var(--color-action-bg)] shrink-0 light:bg-[var(--color-action-strong)]" aria-label={t("notificationsPage.unreadBadge")} />}
+						{!n.isRead && <div className="h-1.5 w-1.5 shrink-0 rounded-full bg-[var(--accent)]" aria-label={t("notificationsPage.unreadBadge")} />}
 					</div>
 					<p className="mt-1 text-xs text-[var(--text-muted)] leading-relaxed">{n.message}</p>
 					<div className="mt-2 flex flex-wrap items-center gap-3 text-[11px]">
 						<span className="text-[var(--text-muted)]">{timeAgo(n.createdAt, t, locale)}</span>
 						{n.actionUrl && (
-							<Link href={getSafeNotificationActionUrl(n.actionUrl)} className="rounded-lg px-1 py-0.5 text-[var(--color-action)]/70 transition hover:text-[var(--color-action)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-action-ring)] light:hover:text-[var(--color-action-strong)] light:focus-visible:ring-[var(--color-action-ring)]">
+							<Link href={getSafeNotificationActionUrl(n.actionUrl)} className="rounded-lg px-1 py-0.5 font-medium text-[var(--accent)] transition hover:opacity-80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]/40">
 								{t("notificationsPage.action.view")}
 							</Link>
 						)}
 						{!n.isRead && (
-							<button onClick={() => onMarkRead(n.id)} className="rounded-lg px-1 py-0.5 text-[var(--text-muted)] transition hover:text-[var(--text-secondary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-action-ring)] light:hover:text-[var(--text-primary)] light:focus-visible:ring-[var(--color-action-ring)]">
+							<button onClick={() => onMarkRead(n.id)} className="rounded-lg px-1 py-0.5 text-[var(--text-muted)] transition hover:text-[var(--text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]/40">
 								{t("notificationsPage.action.markOne")}
 							</button>
 						)}
@@ -171,13 +171,13 @@ export function NotificationListClient({ initialNotifications, initialUnreadCoun
 	return (
 		<div className="space-y-3">
 			{error && (
-				<div role="alert" data-tone="rose" className="rounded-lg border border-[var(--danger-border)] px-3 py-2 text-xs text-[var(--danger)]">
+				<div role="alert" className="rounded-xl border border-[var(--danger-border)] bg-[var(--danger-bg)] px-3 py-2 text-xs text-[var(--danger)]">
 					{error}
 				</div>
 			)}
 			{unreadCount > 0 && (
 				<div className="flex justify-end">
-					<button onClick={markAllRead} className="rounded-lg px-1.5 py-1 text-xs text-[var(--color-action)]/80 transition hover:text-[var(--color-action)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-action-ring)] light:hover:text-[var(--color-action-strong)] light:focus-visible:ring-[var(--color-action-ring)]">
+					<button onClick={markAllRead} className="rounded-lg px-1.5 py-1 text-xs font-medium text-[var(--accent)] transition hover:opacity-80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]/40">
 						{t("notificationsPage.action.markAll")}
 					</button>
 				</div>

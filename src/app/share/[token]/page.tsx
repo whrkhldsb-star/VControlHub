@@ -126,7 +126,7 @@ export default async function SharePage({
                   {!share.hasPassword && (
                     <a
                       href={`/api/share/${encodeURIComponent(token)}?archive=1`}
-                      className="shrink-0 rounded-lg border border-[var(--color-action-border)]/40 px-3 py-1.5 text-center text-xs font-medium text-[var(--text-primary)] transition hover:bg-[var(--color-action)]/10"
+                      className="shrink-0 rounded-lg border border-[var(--color-action-border)]/40 px-3 py-1.5 text-center text-xs font-medium text-[var(--text-primary)] transition hover:bg-[var(--accent-hover)]/10"
                     >
                       {t("sharePage.downloadDirectory", locale)}
                     </a>
@@ -147,7 +147,7 @@ export default async function SharePage({
                         {!share.hasPassword && (
                           <a
                             href={`/api/share/${encodeURIComponent(token)}?path=${encodeURIComponent(file.relativePath)}`}
-                            className="shrink-0 rounded-lg bg-[var(--color-action-strong)] px-3 py-1.5 text-xs font-medium text-[var(--text-primary)] transition hover:bg-[var(--color-action)]"
+                            className="shrink-0 rounded-lg bg-[var(--accent)] px-3 py-1.5 text-xs font-medium text-[var(--text-primary)] transition hover:bg-[var(--accent-hover)]"
                           >
                             {t("sharePage.download", locale)}
                           </a>

@@ -65,7 +65,7 @@ export const PlaybookCard = memo(function PlaybookCard({
   const playbookRuns = runs ?? [];
 
   return (
-    <article data-card className="hover:bg-[var(--surface-elevated)] transition-colors duration-150">
+    <article data-card className="p-5 transition-colors duration-150 hover:bg-[var(--surface-elevated)]">
       <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-2.5">
@@ -76,7 +76,7 @@ export const PlaybookCard = memo(function PlaybookCard({
             >
               {playbook.enabled ? t("playbooksPage.status.enabled") : t("playbooksPage.status.disabled")}
             </span>
-            <span data-tone="cyan" className="inline-flex items-center rounded-full border px-2 py-0.5 text-[11px] font-medium">
+            <span className="inline-flex items-center rounded-full border border-[var(--accent-border)] bg-[var(--accent-bg)] px-2 py-0.5 text-[11px] font-medium text-[var(--accent)]">
               {playbook.triggerType}
             </span>
           </div>

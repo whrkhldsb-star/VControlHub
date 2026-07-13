@@ -363,7 +363,7 @@ export default async function Page({
         </div>{" "}
         <button
           type="submit"
-          className="rounded-xl bg-[var(--color-action-strong)] px-4 py-2 text-sm font-medium text-[var(--text-primary)] transition hover:bg-[var(--color-action)]"
+          className="rounded-xl bg-[var(--accent)] px-4 py-2 text-sm font-semibold text-white transition hover:bg-[var(--accent-hover)]"
         >
           {t("mediaPage.search.submit", locale)}
         </button>{" "}

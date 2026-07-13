@@ -16,9 +16,9 @@ export default async function QuickServicesPage() {
 		<PageShell>
 			<PageHeader eyebrow={t("qsPage.eyebrow", locale)} title={t("qsPage.title", locale)} description={t("qsPage.description", locale)}>
 				<div className="flex flex-wrap gap-2 text-xs text-[var(--text-secondary)]">
-					<Link href="/deployments" className="rounded-lg border border-[var(--border)] bg-[var(--surface)]/[0.04] px-3 py-1.5 transition hover:bg-[var(--surface)]/[0.10]">{t("qsPage.deployPanelLink", locale)}</Link>
-					<Link href="/docker" className="rounded-lg border border-[var(--border)] bg-[var(--surface)]/[0.04] px-3 py-1.5 transition hover:bg-[var(--surface)]/[0.10]">{t("qsPage.dockerLink", locale)}</Link>
-					<Link href="/files" className="rounded-lg border border-[var(--border)] bg-[var(--surface)]/[0.04] px-3 py-1.5 transition hover:bg-[var(--surface)]/[0.10]">{t("qsPage.filesLink", locale)}</Link>
+					<Link href="/deployments" data-variant="secondary" className="rounded-xl px-3 py-1.5">{t("qsPage.deployPanelLink", locale)}</Link>
+					<Link href="/docker" data-variant="secondary" className="rounded-xl px-3 py-1.5">{t("qsPage.dockerLink", locale)}</Link>
+					<Link href="/files" data-variant="secondary" className="rounded-xl px-3 py-1.5">{t("qsPage.filesLink", locale)}</Link>
 				</div>
 			</PageHeader>
 			<QuickServicesClient canManage={canManage} />
