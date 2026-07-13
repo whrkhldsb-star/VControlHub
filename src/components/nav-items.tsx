@@ -7,6 +7,13 @@ export interface AppNavItem {
 	icon: ReactNode;
 }
 
+export interface AppNavGroup {
+	id: string;
+	labelKey: string;
+	fallbackLabel: string;
+	items: AppNavItem[];
+}
+
 export const IconDashboard = () => <svg width="18" height="18" className="w-[18px] h-[18px]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-4 0a1 1 0 01-1-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 01-1 1h-2z" /></svg>;
 export const IconServer = () => <svg width="18" height="18" className="w-[18px] h-[18px]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M5 12h14M5 12a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v4a2 2 0 01-2 2M5 12a2 2 0 00-2 2v4a2 2 0 002 2h14a2 2 0 002-2v-4a2 2 0 00-2-2m-2-4h.01M17 16h.01" /></svg>;
 export const IconFolder = () => <svg width="18" height="18" className="w-[18px] h-[18px]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" /></svg>;
@@ -33,37 +40,78 @@ export const IconTraffic = () => <svg width="18" height="18" className="w-[18px]
 export const IconDeploy = () => <svg width="18" height="18" className="w-[18px] h-[18px]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>;
 export const IconAi = () => <svg width="18" height="18" className="w-[18px] h-[18px]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9.75 3.104v5.714a2.25 2.25 0 01-.659 1.591L5 14.5M9.75 3.104c-.251.023-.501.09-.75.202-.25.112-.499.268-.75.468M9.75 3.104c.251.023.501.09.75.202.25.112.499.268.75.468M5 14.5l-1.43 1.43a2.25 2.25 0 01-3.182 0l-.03-.03a2.25 2.25 0 010-3.182L5 14.5zm0 0l6.25-6.25" /></svg>;
 export const IconImage = () => <svg width="18" height="18" className="w-[18px] h-[18px]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>;
-export const IconStore = () => <svg width="18" height="18" className="w-[18px] h-[18px]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M13 10V3L4 14h7v7l9-11h-7z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M3.75 6A2.25 2.25 0 016 3.75h2.25A2.25 2.25 0 0110.5 6v0A2.25 2.25 0 018.25 8.25H6A2.25 2.25 0 013.75 6v0zM13.5 6a2.25 2.25 0 012.25-2.25h2.25A2.25 2.25 0 0120.25 6v0a2.25 2.25 0 01-2.25 2.25h-2.25A2.25 2.25 0 0113.5 6v0zM3.75 15.75A2.25 2.25 0 016 13.5h2.25a2.25 2.25 0 012.25 2.25v0a2.25 2.25 0 01-2.25 2.25H6a2.25 2.25 0 01-2.25-2.25v0z" /></svg>;
+export const IconStore = () => <svg width="18" height="18" className="w-[18px] h-[18px]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>;
+export const IconMonitor = () => <svg width="18" height="18" className="w-[18px] h-[18px]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" /></svg>;
+export const IconCost = () => <svg width="18" height="18" className="w-[18px] h-[18px]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>;
 
-export const mainNavItems: AppNavItem[] = [
-	{ href: "/dashboard", labelKey: "nav.dashboard", fallbackLabel: "Dashboard", icon: <IconDashboard /> },
-	{ href: "/servers", labelKey: "nav.servers", fallbackLabel: "VPS Management", icon: <IconServer /> },
-	{ href: "/health", labelKey: "nav.health", fallbackLabel: "Health", icon: <IconHeart /> },
-	{ href: "/monitoring", labelKey: "nav.monitoring", fallbackLabel: "Monitoring", icon: <IconTraffic /> },
-	{ href: "/traffic", labelKey: "nav.traffic", fallbackLabel: "Traffic", icon: <IconTraffic /> },
-	{ href: "/files", labelKey: "nav.storage", fallbackLabel: "Files", icon: <IconFolder /> },
-	{ href: "/downloads", labelKey: "nav.downloads", fallbackLabel: "Downloads", icon: <IconDownload /> },
-	{ href: "/operation-tasks", labelKey: "nav.operation-tasks", fallbackLabel: "Tasks", icon: <IconTask /> },
-	{ href: "/shares", labelKey: "nav.share-links", fallbackLabel: "Share Links", icon: <IconShare /> },
-	{ href: "/backups", labelKey: "nav.backup", fallbackLabel: "Backups", icon: <IconBackup /> },
-	{ href: "/cost-summary", labelKey: "nav.cost-summary", fallbackLabel: "Costs", icon: <IconTraffic /> },
-	{ href: "/templates", labelKey: "nav.command-templates", fallbackLabel: "Command Templates", icon: <IconTemplate /> },
-	{ href: "/deployments", labelKey: "nav.deployments", fallbackLabel: "Deployments", icon: <IconDeploy /> },
-	{ href: "/quick-services", labelKey: "nav.quickservice", fallbackLabel: "Quick Services", icon: <IconStore /> },
-	{ href: "/snippets", labelKey: "nav.snippets", fallbackLabel: "Snippets", icon: <IconCode /> },
-	{ href: "/media", labelKey: "nav.media", fallbackLabel: "Media", icon: <IconMovie /> },
-	{ href: "/image-bed", labelKey: "nav.image-bed", fallbackLabel: "Image Links", icon: <IconImage /> },
-	{ href: "/ai", labelKey: "nav.ai", fallbackLabel: "AI Assistant", icon: <IconAi /> },
-	{ href: "/ai-ops", labelKey: "nav.ai-ops", fallbackLabel: "AI Ops", icon: <IconAi /> },
-	{ href: "/announcements", labelKey: "nav.announcements", fallbackLabel: "Announcements", icon: <IconBell /> },
-	{ href: "/tickets", labelKey: "nav.tickets", fallbackLabel: "Tickets", icon: <IconTicket /> },
-	{ href: "/requests", labelKey: "nav.requests", fallbackLabel: "Approvals", icon: <IconCheck /> },
-	{ href: "/scheduled-tasks", labelKey: "nav.scheduled-tasks", fallbackLabel: "Scheduled Tasks", icon: <IconClock /> },
-	{ href: "/playbooks", labelKey: "nav.playbooks", fallbackLabel: "Playbook Automation", icon: <IconAlert /> },
-	{ href: "/alert-rules", labelKey: "nav.alert-rules", fallbackLabel: "Alert Rules", icon: <IconAlert /> },
-	{ href: "/notifications", labelKey: "nav.notifications", fallbackLabel: "Notifications", icon: <IconBell /> },
-	{ href: "/settings", labelKey: "nav.settings", fallbackLabel: "Settings", icon: <IconSettings /> },
+/** Grouped primary navigation — clearer IA than a 27-item flat list. */
+export const mainNavGroups: AppNavGroup[] = [
+	{
+		id: "overview",
+		labelKey: "nav.group.overview",
+		fallbackLabel: "Overview",
+		items: [
+			{ href: "/dashboard", labelKey: "nav.dashboard", fallbackLabel: "Dashboard", icon: <IconDashboard /> },
+			{ href: "/servers", labelKey: "nav.servers", fallbackLabel: "VPS Management", icon: <IconServer /> },
+			{ href: "/health", labelKey: "nav.health", fallbackLabel: "Health", icon: <IconHeart /> },
+			{ href: "/monitoring", labelKey: "nav.monitoring", fallbackLabel: "Monitoring", icon: <IconMonitor /> },
+			{ href: "/traffic", labelKey: "nav.traffic", fallbackLabel: "Traffic", icon: <IconTraffic /> },
+			{ href: "/cost-summary", labelKey: "nav.cost-summary", fallbackLabel: "Costs", icon: <IconCost /> },
+		],
+	},
+	{
+		id: "files",
+		labelKey: "nav.group.files",
+		fallbackLabel: "Files & transfer",
+		items: [
+			{ href: "/files", labelKey: "nav.storage", fallbackLabel: "Files", icon: <IconFolder /> },
+			{ href: "/downloads", labelKey: "nav.downloads", fallbackLabel: "Downloads", icon: <IconDownload /> },
+			{ href: "/shares", labelKey: "nav.share-links", fallbackLabel: "Share Links", icon: <IconShare /> },
+			{ href: "/media", labelKey: "nav.media", fallbackLabel: "Media", icon: <IconMovie /> },
+			{ href: "/image-bed", labelKey: "nav.image-bed", fallbackLabel: "Image Links", icon: <IconImage /> },
+		],
+	},
+	{
+		id: "ops",
+		labelKey: "nav.group.ops",
+		fallbackLabel: "Operations",
+		items: [
+			{ href: "/operation-tasks", labelKey: "nav.operation-tasks", fallbackLabel: "Tasks", icon: <IconTask /> },
+			{ href: "/backups", labelKey: "nav.backup", fallbackLabel: "Backups", icon: <IconBackup /> },
+			{ href: "/templates", labelKey: "nav.command-templates", fallbackLabel: "Command Templates", icon: <IconTemplate /> },
+			{ href: "/deployments", labelKey: "nav.deployments", fallbackLabel: "Deployments", icon: <IconDeploy /> },
+			{ href: "/quick-services", labelKey: "nav.quickservice", fallbackLabel: "Quick Services", icon: <IconStore /> },
+			{ href: "/snippets", labelKey: "nav.snippets", fallbackLabel: "Snippets", icon: <IconCode /> },
+			{ href: "/scheduled-tasks", labelKey: "nav.scheduled-tasks", fallbackLabel: "Scheduled Tasks", icon: <IconClock /> },
+			{ href: "/playbooks", labelKey: "nav.playbooks", fallbackLabel: "Playbook Automation", icon: <IconAlert /> },
+			{ href: "/alert-rules", labelKey: "nav.alert-rules", fallbackLabel: "Alert Rules", icon: <IconAlert /> },
+		],
+	},
+	{
+		id: "collab",
+		labelKey: "nav.group.collab",
+		fallbackLabel: "AI & collaboration",
+		items: [
+			{ href: "/ai", labelKey: "nav.ai", fallbackLabel: "AI Assistant", icon: <IconAi /> },
+			{ href: "/ai-ops", labelKey: "nav.ai-ops", fallbackLabel: "AI Ops", icon: <IconAi /> },
+			{ href: "/announcements", labelKey: "nav.announcements", fallbackLabel: "Announcements", icon: <IconBell /> },
+			{ href: "/tickets", labelKey: "nav.tickets", fallbackLabel: "Tickets", icon: <IconTicket /> },
+			{ href: "/requests", labelKey: "nav.requests", fallbackLabel: "Approvals", icon: <IconCheck /> },
+			{ href: "/notifications", labelKey: "nav.notifications", fallbackLabel: "Notifications", icon: <IconBell /> },
+		],
+	},
+	{
+		id: "config",
+		labelKey: "nav.group.config",
+		fallbackLabel: "Settings",
+		items: [
+			{ href: "/settings", labelKey: "nav.settings", fallbackLabel: "Settings", icon: <IconSettings /> },
+		],
+	},
 ];
+
+/** Flat list derived from groups — used by mobile nav, search, and tests. */
+export const mainNavItems: AppNavItem[] = mainNavGroups.flatMap((group) => group.items);
 
 export const systemNavItems: AppNavItem[] = [
 	{ href: "/users", labelKey: "nav.users", fallbackLabel: "Users", icon: <IconUsers /> },

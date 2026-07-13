@@ -20,7 +20,7 @@ export function MobileNav() {
 		<nav
 			aria-label={t("nav.mobile")}
 			data-i18n-skip
-			className="fixed bottom-0 left-0 right-0 z-50 overflow-hidden border-t border-[var(--border)] bg-[var(--modal-bg)] px-1 pb-[calc(0.35rem+env(safe-area-inset-bottom))] pt-1.5 shadow-[0_-16px_40px_rgba(0,0,0,0.28)] md:hidden"
+			className="fixed bottom-0 left-0 right-0 z-50 overflow-hidden border-t border-[var(--border)] bg-[color-mix(in_srgb,var(--modal-bg)_92%,transparent)] px-1.5 pb-[calc(0.4rem+env(safe-area-inset-bottom))] pt-1.5 shadow-[0_-12px_36px_rgba(0,0,0,0.28)] backdrop-blur-xl md:hidden"
 		>
 			<div className="grid w-full grid-cols-[repeat(5,minmax(0,1fr))_auto] items-center gap-0.5">
 				{mobileNavItems.map((tab) => {
@@ -30,8 +30,11 @@ export function MobileNav() {
 						<Link
 							key={tab.href}
 							href={tab.href}
-							className={`flex min-w-0 flex-col items-center gap-0.5 rounded-lg px-1 py-0.5 transition ${
-								active ?"text-[var(--color-action)]" :"text-[var(--text-muted)]"
+							aria-current={active ? "page" : undefined}
+							className={`flex min-w-0 flex-col items-center gap-0.5 rounded-xl px-1 py-1.5 transition ${
+								active
+									? "bg-[var(--color-action-bg)] text-[var(--color-action)]"
+									: "text-[var(--text-muted)] hover:bg-[var(--surface-hover)] hover:text-[var(--text-secondary)]"
 							}`}
 						>
 							<span className="[&>svg]:h-5 [&>svg]:w-5">{tab.icon}</span>

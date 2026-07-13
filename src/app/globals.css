@@ -251,7 +251,7 @@ body > main {
 @media (min-width: 1024px) {
 	body:has(> aside),
 	body:has(> div[aria-hidden="true"] + aside) {
-		background: linear-gradient(90deg, var(--sidebar-bg) 0 18rem, var(--page-bg) 18rem 100%);
+		background: linear-gradient(90deg, var(--sidebar-bg) 0 17.5rem, var(--page-bg) 17.5rem 100%);
 	}
 }
 
@@ -349,15 +349,26 @@ body > main {
 :root [data-card] {
 	border-radius: var(--radius-xl) !important;
 	border: 1px solid var(--border);
-	background: linear-gradient(145deg, color-mix(in srgb, var(--surface-elevated) 32%, var(--surface)), var(--surface) 55%);
-	padding: 1rem;
-	transition: border-color 0.2s, box-shadow 0.2s, transform 0.15s;
+	background: linear-gradient(160deg, color-mix(in srgb, var(--surface-elevated) 40%, var(--surface)), var(--surface) 62%);
+	padding: 1rem 1.1rem;
+	box-shadow: var(--shadow-sm);
+	transition: border-color 0.2s, box-shadow 0.2s, transform 0.15s, background 0.2s;
 }
 :root article:hover,
 :root [data-card]:hover {
 	border-color: var(--border-strong);
 	box-shadow: var(--shadow-md);
 	transform: translateY(-1px);
+}
+
+/* Nested cards / dense lists: avoid double “float” noise */
+:root [data-card] [data-card],
+:root article [data-card],
+:root [data-stat-card] {
+	box-shadow: none;
+}
+:root [data-stat-card]:hover {
+	transform: none;
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -512,6 +523,52 @@ html.light textarea:focus-visible {
 	border: 1px dashed var(--border);
 	background: color-mix(in srgb, var(--surface) 72%, transparent);
 	padding: 3rem 1.5rem;
+}
+
+/* S11b. 工具栏 / 页面区段 */
+:root [data-toolbar] {
+	border-radius: var(--radius-xl);
+	border: 1px solid var(--border-subtle);
+	background: color-mix(in srgb, var(--surface) 88%, transparent);
+	box-shadow: var(--shadow-sm);
+	backdrop-filter: blur(10px);
+}
+
+:root [data-page-header] h1 {
+	margin-bottom: 0;
+}
+
+:root [data-input],
+:root input[data-input] {
+	border-radius: var(--radius-md);
+	border: 1px solid var(--input-border);
+	background: var(--input-bg);
+	color: var(--text-primary);
+	transition: border-color 0.15s, box-shadow 0.15s, background 0.15s;
+}
+
+/* Dense data tables: calmer header + row hover */
+:root table {
+	border-collapse: separate;
+	border-spacing: 0;
+	width: 100%;
+}
+:root thead th {
+	background: color-mix(in srgb, var(--surface-elevated) 70%, transparent);
+	color: var(--text-muted);
+	font-size: 11px;
+	font-weight: 600;
+	letter-spacing: 0.06em;
+	text-transform: uppercase;
+	padding: 0.65rem 0.85rem;
+}
+:root tbody td {
+	padding: 0.75rem 0.85rem;
+	border-top: 1px solid var(--border-subtle);
+	vertical-align: middle;
+}
+:root tbody tr:hover td {
+	background: color-mix(in srgb, var(--surface-hover) 55%, transparent);
 }
 
 /* S12. 加载骨架屏统一动画 */

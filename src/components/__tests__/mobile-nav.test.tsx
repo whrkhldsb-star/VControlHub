@@ -45,8 +45,8 @@ describe("MobileNav", () => {
 		const nav = screen.getByRole("navigation", { name: "移动端导航" });
 		expect(nav).toHaveClass("md:hidden");
 		expect(nav).toHaveClass("overflow-hidden");
-		expect(nav).toHaveClass("pb-[calc(0.35rem+env(safe-area-inset-bottom))]");
-		expect(nav).toHaveClass("px-1");
+		expect(nav).toHaveClass("pb-[calc(0.4rem+env(safe-area-inset-bottom))]");
+		expect(nav).toHaveClass("px-1.5");
 		expect(screen.getAllByRole("link")).toHaveLength(5);
 	});
 

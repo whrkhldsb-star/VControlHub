@@ -562,6 +562,21 @@ make logs SERVICE_PREFIX=vcontrolhub
 | FE-OPEN-2 | 大型 Client 拆分 | 见架构升级路线 P0 |
 | FE-OPEN-3 | 部分表单仅 id 无 name 的受控组件 | 走 API JSON，非原生 form POST，可接受 |
 
+### 2026-07-12 前端美化重构（FE-UI）
+
+> 目标：信息架构更直观、全局壳更统一，而不是逐页重写业务逻辑。
+
+| 项 | 内容 |
+|---|---|
+| 导航 IA | 27 个主入口改为 5 组（总览 / 文件 / 运维 / AI 协作 / 配置）+ 系统管理；侧栏内筛选；分组可折叠 |
+| 侧栏视觉 | 更紧凑的链接、活动态左侧 accent 条、账户区卡片化、筛选框 |
+| Page shell | `PageHeader` / `Toolbar` / `Section` / `EmptyState` / `StatCard` 视觉升级 |
+| globals | 卡片阴影层次、嵌套卡降噪、表格表头/行 hover、`data-toolbar` / `data-input` |
+| 移动底栏 | 毛玻璃 + 活动 tab 底色高亮 |
+| 图标 | monitoring / cost 独立图标，减少重复 |
+
+下一阶段可继续：关键业务页（servers/files/dashboard）接入 `Toolbar`/`Section`、收敛巨型 client 组件。
+
 ##### 补扫确认（防漏项 · 后端）
 
 在第三轮主扫之后又做了一轮**防漏补扫**，结论如下（均不构成新的未记录 CRITICAL）：
@@ -617,6 +632,7 @@ make logs SERVICE_PREFIX=vcontrolhub
 | 优先级 | 状态 | 升级方向 | 验收标准 |
 |---|---|---|---|
 | P0 | 进行中 | 收敛大型 Client Component，将数据获取、mutation、展示区块和弹窗拆到稳定边界 | 页面行为不变；减少客户端边界与重复状态；桌面/移动浏览器回归通过 |
+| P0 | ✅ 阶段性 | 导航信息架构 + 全局页面壳美化 | 侧栏分组/筛选、PageHeader/Toolbar/EmptyState 升级、表格/卡片/移动底栏统一；提交见 FE-UI 记录 |
 | P0 | 进行中 | 收敛 `globals.css` 历史兼容规则，迁移到明确的 primitives 与 `data-*` hooks | 删除零命中/重复选择器；深浅主题、focus、dialog、表格和卡片视觉回归通过 |
 | P1 | 进行中 | 合并文件动作的重复核心 | Docker、Monitoring 与 SFTP 连接层已统一；继续收敛移动/重命名及目录操作 |
 | P1 | 进行中 | 强化危险操作跨进程锁和崩溃恢复 | lease、AI CAS、backup restore / VPS schedule tick advisory lock 已完成；继续服务级统一 lease 中心 |
