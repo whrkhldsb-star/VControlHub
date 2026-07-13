@@ -173,14 +173,16 @@ export function UserManagementClient({ canManage = false, currentUserId = "" }: 
       )}
 
       {/* Create button */}
-      <div className="mb-6 flex items-center justify-between">
-        <h2 className="text-lg font-medium text-[var(--text-primary)]">{t("usersPage.title2")}</h2>
+      <div className="mb-5 flex items-center justify-between gap-3">
+        <div>
+          <h2 className="text-base font-semibold text-[var(--text-primary)]">{t("usersPage.title2")}</h2>
+        </div>
         {canManage ? (
           <button
             type="button"
             onClick={() => setShowCreateForm(!showCreateForm)}
-            data-tone="accent"
-            className="rounded-lg border px-4 py-2 text-sm transition"
+            data-primary
+            className="rounded-xl bg-[var(--accent)] px-4 py-2 text-sm font-semibold text-white transition hover:bg-[var(--accent-hover)]"
           >
             {showCreateForm ? t("usersPage.action.cancel") : t("usersPage.action.create")}
           </button>
@@ -189,45 +191,45 @@ export function UserManagementClient({ canManage = false, currentUserId = "" }: 
 
       {/* Create form */}
       {showCreateForm && (
-        <div className="mb-6 rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-6 space-y-4">
+        <div data-card className="mb-6 space-y-4 p-5">
           <div className="grid gap-4 sm:grid-cols-2">
             <div>
-              <label className="block text-sm text-[var(--text-muted)] mb-1" htmlFor="createUserUsername">{t("usersPage.form.username")}</label>
+              <label className="mb-1 block text-sm text-[var(--text-muted)]" htmlFor="createUserUsername">{t("usersPage.form.username")}</label>
               <input
                 id="createUserUsername"
                 type="text"
                 value={createForm.username}
                 onChange={(e) => setCreateForm((p) => ({ ...p, username: e.target.value }))}
-                className="w-full rounded-2xl border border-[var(--border)] bg-[var(--input-bg)] px-4 py-2 text-sm text-[var(--text-primary)] focus:border-[var(--color-action-border)]/50 focus:outline-none"
+                className="w-full rounded-xl border border-[var(--border)] bg-[var(--input-bg)] px-4 py-2.5 text-sm text-[var(--text-primary)] focus:border-[var(--accent-border)] focus:outline-none"
                 placeholder={t("usersPage.form.usernamePlaceholder")}
               />
             </div>
             <div>
-              <label className="block text-sm text-[var(--text-muted)] mb-1" htmlFor="createUserDisplayName">{t("usersPage.form.displayName")}</label>
+              <label className="mb-1 block text-sm text-[var(--text-muted)]" htmlFor="createUserDisplayName">{t("usersPage.form.displayName")}</label>
               <input
                 id="createUserDisplayName"
                 type="text"
                 value={createForm.displayName}
                 onChange={(e) => setCreateForm((p) => ({ ...p, displayName: e.target.value }))}
-                className="w-full rounded-2xl border border-[var(--border)] bg-[var(--input-bg)] px-4 py-2 text-sm text-[var(--text-primary)] focus:border-[var(--color-action-border)]/50 focus:outline-none"
+                className="w-full rounded-xl border border-[var(--border)] bg-[var(--input-bg)] px-4 py-2.5 text-sm text-[var(--text-primary)] focus:border-[var(--accent-border)] focus:outline-none"
                 placeholder={t("usersPage.form.displayNamePlaceholder")}
               />
             </div>
             <div className="sm:col-span-2">
-              <label className="block text-sm text-[var(--text-muted)] mb-1" htmlFor="createUserPassword">{t("usersPage.form.password")}</label>
+              <label className="mb-1 block text-sm text-[var(--text-muted)]" htmlFor="createUserPassword">{t("usersPage.form.password")}</label>
               <input
                 id="createUserPassword"
                 type="password"
                 autoComplete="new-password"
                 value={createForm.password}
                 onChange={(e) => setCreateForm((p) => ({ ...p, password: e.target.value }))}
-                className="w-full rounded-2xl border border-[var(--border)] bg-[var(--input-bg)] px-4 py-2 text-sm text-[var(--text-primary)] focus:border-[var(--color-action-border)]/50 focus:outline-none"
+                className="w-full rounded-xl border border-[var(--border)] bg-[var(--input-bg)] px-4 py-2.5 text-sm text-[var(--text-primary)] focus:border-[var(--accent-border)] focus:outline-none"
                 placeholder={t("usersPage.form.passwordPlaceholder")}
               />
             </div>
           </div>
           <div>
-            <label className="block text-sm text-[var(--text-secondary)] mb-2">{t("usersPage.form.roles")}</label>
+            <label className="mb-2 block text-sm text-[var(--text-secondary)]">{t("usersPage.form.roles")}</label>
             <div className="flex flex-wrap gap-2">
               {ROLE_KEYS.map((key) => (
                 <button

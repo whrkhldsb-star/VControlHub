@@ -31,51 +31,55 @@ export function AiSidebar({
       {/* Mobile sidebar backdrop */}
       {showSidebar && (
         <div
-          className="hidden max-md:block fixed inset-0 z-30 bg-black/50"
+          className="fixed inset-0 z-30 bg-black/50 max-md:block hidden"
           onClick={() => onToggleSidebar(false)}
         />
       )}
       {showSidebar && (
-        <div className="w-64 flex-shrink-0 border-r border-[var(--border)] bg-[var(--surface-subtle)] flex flex-col max-md:fixed max-md:inset-y-0 max-md:left-0 max-md:z-40 max-md:w-72">
+        <div className="flex w-64 flex-shrink-0 flex-col border-r border-[var(--border)] bg-[color-mix(in_srgb,var(--surface)_96%,transparent)] max-md:fixed max-md:inset-y-0 max-md:left-0 max-md:z-40 max-md:w-72">
           {/* Header */}
-          <div className="px-4 py-3 border-b border-[var(--border)] flex items-center justify-between">
-            <h1 className="text-sm font-semibold text-[var(--text-primary)]">{t("aiPage.sidebarTitle")}</h1>
+          <div className="flex items-center justify-between border-b border-[var(--border)] px-4 py-3">
+            <div>
+              <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-[var(--accent)]">AI</p>
+              <h1 className="text-sm font-semibold text-[var(--text-primary)]">{t("aiPage.sidebarTitle")}</h1>
+            </div>
             <button
               onClick={onNewConv}
-              className="h-7 px-2.5 rounded-lg bg-[var(--color-action)]/20 text-[var(--color-action)] text-xs font-medium hover:bg-[var(--color-action)]/30 transition"
+              data-primary
+              className="h-8 rounded-xl bg-[var(--accent)] px-3 text-xs font-semibold text-white transition hover:bg-[var(--accent-hover)]"
             >
               {t("aiPage.newConversation")}
             </button>
           </div>
 
           {/* Conversation list */}
-          <div className="flex-1 overflow-y-auto py-2 px-2 space-y-0.5">
+          <div className="flex-1 space-y-0.5 overflow-y-auto px-2 py-2">
             {conversations.length === 0 && (
               <EmptyState>{t("aiPage.emptyConversations")}</EmptyState>
             )}
             {conversations.map((conv) => (
               <div
                 key={conv.id}
-                className={`group flex items-center gap-2 rounded-lg px-3 py-2 cursor-pointer transition ${
+                className={`group flex cursor-pointer items-center gap-2 rounded-xl px-3 py-2 transition ${
  activeConvId === conv.id
- ?"bg-[var(--color-action-bg)]/[0.10] text-[var(--text-primary)]"
- :"text-[var(--text-secondary)] hover:bg-[var(--surface)]/[0.04] hover:text-[var(--text-secondary)] light:hover:text-[var(--text-disabled)]"
+ ? "border border-[var(--accent-border)] bg-[var(--accent-bg)] text-[var(--text-primary)]"
+ : "border border-transparent text-[var(--text-secondary)] hover:bg-[var(--surface-hover)] hover:text-[var(--text-primary)]"
  }`}
                 onClick={() => onSelectConv(conv.id)}
               >
-                <svg className="w-4 h-4 flex-shrink-0 opacity-50" fill="none" stroke="currentColor" width="24" height="24" viewBox="0 0 24 24">
+                <svg className="h-4 w-4 flex-shrink-0 opacity-50" fill="none" stroke="currentColor" width="24" height="24" viewBox="0 0 24 24" aria-hidden="true">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
                 </svg>
-                <span className="text-xs truncate flex-1">{conv.title}</span>
+                <span className="flex-1 truncate text-xs font-medium">{conv.title}</span>
                 <button
                   onClick={(e) => {
                     e.stopPropagation();
                     onDeleteConv(conv.id);
                   }}
                   aria-label={t("aiPage.deleteConversationAria").replace("{title}", conv.title)}
-                  className="opacity-0 group-hover:opacity-100 text-[var(--danger)]/60 hover:text-[var(--danger)] transition"
+                  className="text-[var(--danger)]/60 opacity-0 transition group-hover:opacity-100 hover:text-[var(--danger)]"
                 >
-                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" width="24" height="24" viewBox="0 0 24 24">
+                  <svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" width="24" height="24" viewBox="0 0 24 24" aria-hidden="true">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                   </svg>
                 </button>
@@ -84,21 +88,21 @@ export function AiSidebar({
           </div>
 
           {/* Bottom actions */}
-          <div className="border-t border-[var(--border)] p-2 space-y-1">
+          <div className="space-y-1 border-t border-[var(--border)] p-2">
             <button
               onClick={onToggleProviders}
-              className="w-full flex items-center gap-2 rounded-lg px-3 py-2 text-xs text-[var(--text-secondary)] hover:bg-[var(--surface)]/[0.04] hover:text-[var(--text-secondary)] light:hover:text-[var(--text-disabled)] transition"
+              className="flex w-full items-center gap-2 rounded-xl px-3 py-2 text-xs text-[var(--text-secondary)] transition hover:bg-[var(--surface-hover)] hover:text-[var(--text-primary)]"
             >
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" width="24" height="24" viewBox="0 0 24 24">
+              <svg className="h-4 w-4" fill="none" stroke="currentColor" width="24" height="24" viewBox="0 0 24 24" aria-hidden="true">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.857L8 16H6v2H4v2H2v-2.586l7.44-7.44A6 6 0 0121 9z" />
               </svg>
               {t("aiPage.providerManagement")}
             </button>
             <button
               onClick={() => onToggleSidebar(false)}
-              className="w-full flex items-center gap-2 rounded-lg px-3 py-2 text-xs text-[var(--text-secondary)] hover:bg-[var(--surface)]/[0.04] hover:text-[var(--text-secondary)] light:hover:text-[var(--text-disabled)] transition lg:hidden"
+              className="flex w-full items-center gap-2 rounded-xl px-3 py-2 text-xs text-[var(--text-secondary)] transition hover:bg-[var(--surface-hover)] hover:text-[var(--text-primary)] lg:hidden"
             >
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" width="24" height="24" viewBox="0 0 24 24">
+              <svg className="h-4 w-4" fill="none" stroke="currentColor" width="24" height="24" viewBox="0 0 24 24" aria-hidden="true">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M11 19l-7-7 7-7m8 14l-7-7 7-7" />
               </svg>
               {t("aiPage.collapseSidebar")}
@@ -113,7 +117,7 @@ export function AiSidebar({
           className="hidden"
           aria-label={t("aiPage.openSidebar")}
         >
-          <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+          <svg width="20" height="20" viewBox="0 0 20 20" fill="none" aria-hidden="true">
             <path d="M3 5h14M3 10h14M3 15h14" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
           </svg>
         </button>

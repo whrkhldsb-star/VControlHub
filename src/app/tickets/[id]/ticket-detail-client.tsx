@@ -22,10 +22,10 @@ interface TicketDetailClientProps {
 }
 
 const STATUS_TONE: Record<string, string> = {
-  OPEN: "border-[var(--color-action-border)]/30 bg-[var(--color-action-bg)]/10 text-[var(--text-primary)]",
+  OPEN: "border-[var(--accent-border)] bg-[var(--accent-bg)] text-[var(--accent)]",
   IN_PROGRESS: "border-[var(--warning-border)] bg-[var(--warning-bg)] text-[var(--warning)]",
   RESOLVED: "border-[var(--success-border)] bg-[var(--success-bg)] text-[var(--success)]",
-  CLOSED: "border-[var(--border)] bg-[var(--surface)] text-[var(--text-secondary)]",
+  CLOSED: "border-[var(--border)] bg-[var(--surface-elevated)] text-[var(--text-secondary)]",
 };
 const PRIORITY_TONE: Record<string, string> = {
   LOW: "text-[var(--text-secondary)]", NORMAL: "text-[var(--text-secondary)]", HIGH: "text-[var(--warning)]", URGENT: "text-[var(--danger)]",
@@ -96,49 +96,49 @@ export function TicketDetailClient({ initial, canManage, users = [], locale: _lo
   };
 
   return (
-    <div data-card className="space-y-6">
-      <Link href="/tickets" className="inline-flex items-center gap-1 text-xs text-[var(--text-muted)] hover:text-[var(--text-secondary)] light:hover:text-[var(--text-disabled)] transition-colors">
+    <div className="space-y-5">
+      <Link href="/tickets" className="inline-flex items-center gap-1 text-xs font-medium text-[var(--text-muted)] transition-colors hover:text-[var(--text-primary)]">
         {t("ticketsDetail.backToList")}
       </Link>
       {/* Ticket header */}
-      <div className="p-6">
-        <div className="flex items-start justify-between gap-4">
-          <div>
-            <h1 className="text-xl font-semibold text-[var(--text-primary)]">{ticket.title}</h1>
+      <div data-card className="p-5 sm:p-6">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+          <div className="min-w-0">
+            <h1 className="text-xl font-semibold tracking-tight text-[var(--text-primary)]">{ticket.title}</h1>
             <div className="mt-2 flex flex-wrap items-center gap-2">
-              <span className={`rounded-full border px-2.5 py-1 text-xs ${STATUS_TONE[ticket.status] ?? ""}`}>
+              <span className={`rounded-full border px-2.5 py-1 text-xs font-medium ${STATUS_TONE[ticket.status] ?? ""}`}>
                 {statusLabel(t, ticket.status)}
               </span>
-              <span className={`text-xs ${PRIORITY_TONE[ticket.priority] ?? ""}`}>
+              <span className={`text-xs font-semibold uppercase tracking-[0.08em] ${PRIORITY_TONE[ticket.priority] ?? ""}`}>
                 {priorityLabel(t, ticket.priority)}
               </span>
             </div>
           </div>
-          <div className="text-right text-xs text-[var(--text-muted)]">
+          <div className="text-left text-xs text-[var(--text-muted)] sm:text-right">
             <p>{t("ticketsDetail.createdAt").replace("{time}", new Date(ticket.createdAt).toLocaleString(toDateLocale(locale)))}</p>
             <p>{t("ticketsDetail.updatedAt").replace("{time}", new Date(ticket.updatedAt).toLocaleString(toDateLocale(locale)))}</p>
             {ticket.closedAt && <p>{t("ticketsDetail.closedAt").replace("{time}", new Date(ticket.closedAt).toLocaleString(toDateLocale(locale)))}</p>}
           </div>
         </div>
 
-        <div className="mt-4 rounded-lg border border-[var(--border)]/[0.04] bg-[var(--input-bg)] p-4">
-          <p className="whitespace-pre-wrap text-sm text-[var(--text-secondary)]">{ticket.description}</p>
+        <div className="mt-4 rounded-2xl border border-[var(--border-subtle)] bg-[var(--surface-subtle)] p-4">
+          <p className="whitespace-pre-wrap text-sm leading-6 text-[var(--text-secondary)]">{ticket.description}</p>
         </div>
 
-        <div className="mt-4 flex flex-wrap gap-x-4 text-xs text-[var(--text-muted)]">
+        <div className="mt-4 flex flex-wrap gap-x-4 gap-y-1 text-xs text-[var(--text-muted)]">
           <span>{t("ticketsDetail.creator").replace("{name}", ticket.creator.displayName || ticket.creator.username)}</span>
           {ticket.assignee && <span>{t("ticketsDetail.assignee").replace("{name}", ticket.assignee.displayName || ticket.assignee.username)}</span>}
         </div>
 
         {canManage && (
-          <div className="mt-3 flex items-center gap-2 text-xs">
-            <span className="text-[var(--text-muted)] shrink-0">{t("ticketsDetail.assignTo")}</span>
+          <div className="mt-4 flex flex-wrap items-center gap-2 text-xs">
+            <span className="shrink-0 text-[var(--text-muted)]">{t("ticketsDetail.assignTo")}</span>
             <select
               value={assigneeId}
               onChange={(e) => { setAssigneeId(e.target.value); void updateAssignee(e.target.value); }}
               disabled={saving}
               aria-label={t("ticketsDetail.assignAria")}
-              className="rounded-lg border border-[var(--border)] bg-[var(--input-bg)] px-2 py-1 text-sm text-[var(--text-secondary)] outline-none disabled:opacity-50"
+              className="rounded-xl border border-[var(--border)] bg-[var(--input-bg)] px-2.5 py-1.5 text-sm text-[var(--text-secondary)] outline-none disabled:opacity-50"
             >
               <option value="">{t("ticketsDetail.unassigned")}</option>
               {users.map((u) => (
@@ -151,12 +151,12 @@ export function TicketDetailClient({ initial, canManage, users = [], locale: _lo
 
       {/* Status transitions */}
       {canManage && (TRANSITIONS[ticket.status]?.length ?? 0) > 0 && (
- <div data-card className="">
-          <h3 className="text-sm font-medium text-[var(--text-primary)] mb-3">{t("ticketsDetail.transitionsTitle")}</h3>
+ <div data-card className="p-5">
+          <h3 className="mb-3 text-sm font-semibold text-[var(--text-primary)]">{t("ticketsDetail.transitionsTitle")}</h3>
           <div className="flex flex-wrap gap-2">
             {TRANSITIONS[ticket.status]!.map((s) => (
               <button key={s} onClick={() => updateStatus(s)} disabled={saving}
-                className="rounded-lg border border-[var(--border)] bg-[var(--surface)]/[0.04] px-4 py-2 text-sm text-[var(--text-primary)] hover:bg-[var(--surface)]/[0.10] transition-colors disabled:opacity-40">
+                className="rounded-xl border border-[var(--border)] bg-[var(--surface-elevated)] px-4 py-2 text-sm font-medium text-[var(--text-primary)] transition-colors hover:bg-[var(--surface-hover)] disabled:opacity-40">
                 {t("ticketsDetail.transitionTo").replace("{status}", statusLabel(t, s))}
               </button>
             ))}
@@ -164,22 +164,22 @@ export function TicketDetailClient({ initial, canManage, users = [], locale: _lo
         </div>
       )}
 
-      {error && <p className="text-sm text-[var(--danger)]">{error}</p>}
+      {error && <p role="alert" className="rounded-xl border border-[var(--danger-border)] bg-[var(--danger-bg)] px-3 py-2 text-sm text-[var(--danger)]">{error}</p>}
 
       {/* Comments */}
- <div data-card className="">
-        <h3 className="text-sm font-medium text-[var(--text-primary)] mb-4">{t("ticketsDetail.commentsTitle").replace("{count}", String(ticket.comments.length))}</h3>
+ <div data-card className="p-5">
+        <h3 className="mb-4 text-sm font-semibold text-[var(--text-primary)]">{t("ticketsDetail.commentsTitle").replace("{count}", String(ticket.comments.length))}</h3>
         {ticket.comments.length === 0 ? (
           <p className="text-sm text-[var(--text-muted)]">{t("ticketsDetail.commentsEmpty")}</p>
         ) : (
-          <div className="space-y-4">
+          <div className="space-y-3">
             {ticket.comments.map((c) => (
-              <div key={c.id} className="rounded-lg border border-[var(--border)]/[0.04] bg-[var(--input-bg)] p-4">
-                <div className="flex items-center justify-between mb-2">
+              <div key={c.id} className="rounded-2xl border border-[var(--border-subtle)] bg-[var(--surface-subtle)] p-4">
+                <div className="mb-2 flex items-center justify-between gap-3">
                   <span className="text-sm font-medium text-[var(--text-primary)]">{c.author.displayName || c.author.username}</span>
                   <span className="text-xs text-[var(--text-muted)]">{new Date(c.createdAt).toLocaleString(toDateLocale(locale))}</span>
                 </div>
-                <p className="whitespace-pre-wrap text-sm text-[var(--text-secondary)]">{c.body}</p>
+                <p className="whitespace-pre-wrap text-sm leading-6 text-[var(--text-secondary)]">{c.body}</p>
               </div>
             ))}
           </div>
@@ -190,9 +190,9 @@ export function TicketDetailClient({ initial, canManage, users = [], locale: _lo
           <label htmlFor="ticketComment" className="sr-only">{t("ticketsDetail.commentAria")}</label>
           <textarea id="ticketComment" value={comment} onChange={(e) => setComment(e.target.value)} placeholder={t("ticketsDetail.commentPlaceholder")}
             rows={3}
-            className="w-full rounded-lg border border-[var(--border)] bg-[var(--surface)]/[0.04] px-4 py-3 text-sm text-[var(--text-primary)] outline-none placeholder:text-[var(--text-muted)] resize-none" />
-          <button onClick={addComment} disabled={saving || !comment.trim()}
-            className="mt-2 rounded-lg bg-[var(--color-action-strong)] px-4 py-2 text-sm font-medium text-[var(--text-primary)] transition hover:bg-[var(--color-action)] disabled:opacity-40">
+            className="w-full resize-none rounded-xl border border-[var(--border)] bg-[var(--input-bg)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none placeholder:text-[var(--text-muted)]" />
+          <button onClick={addComment} disabled={saving || !comment.trim()} data-primary
+            className="mt-2 rounded-xl bg-[var(--accent)] px-4 py-2 text-sm font-semibold text-white transition hover:bg-[var(--accent-hover)] disabled:opacity-40">
             {saving ? t("ticketsDetail.commentSubmitting") : t("ticketsDetail.commentSubmit")}
           </button>
         </div>

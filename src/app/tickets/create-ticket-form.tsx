@@ -40,17 +40,37 @@ export function CreateTicketForm(_props: Props = {}) {
 	}, [state, addToast, t]);
 
 	return (
-		<form action={formAction} data-card className=" space-y-4">
-			<h2 className="text-sm font-semibold text-[var(--text-primary)]">{t("ticketsPage.form.title")}</h2>
-			{state?.error && <p className="text-xs text-[var(--danger)]">{state.error}</p>}
+		<form action={formAction} data-card className="space-y-4 p-5">
+			<div className="flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
+				<div>
+					<p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[var(--accent)]">
+						{t("ticketsPage.form.title")}
+					</p>
+					<h2 className="mt-1 text-sm font-semibold text-[var(--text-primary)]">{t("ticketsPage.form.title")}</h2>
+				</div>
+			</div>
+			{state?.error && (
+				<p role="alert" className="rounded-xl border border-[var(--danger-border)] bg-[var(--danger-bg)] px-3 py-2 text-xs text-[var(--danger)]">
+					{state.error}
+				</p>
+			)}
 			<div className="grid gap-3 md:grid-cols-2">
 				<label className="grid gap-1.5 text-xs font-medium text-[var(--text-secondary)]">
 					{t("ticketsPage.form.label.title")}
-					<input name="subject" required placeholder={t("ticketsPage.form.subject")} className="rounded-lg border border-[var(--border)] bg-[var(--input-bg)] px-3 py-2 text-sm text-[var(--text-primary)] placeholder:text-[var(--text-muted)]" />
+					<input
+						name="subject"
+						required
+						placeholder={t("ticketsPage.form.subject")}
+						className="rounded-xl border border-[var(--border)] bg-[var(--input-bg)] px-3 py-2.5 text-sm text-[var(--text-primary)] placeholder:text-[var(--text-muted)]"
+					/>
 				</label>
 				<label className="grid gap-1.5 text-xs font-medium text-[var(--text-secondary)]">
 					{t("ticketsPage.form.label.priority")}
-					<select name="priority" defaultValue="NORMAL" className="rounded-lg border border-[var(--border)] bg-[var(--input-bg)] px-3 py-2 text-sm text-[var(--text-primary)]">
+					<select
+						name="priority"
+						defaultValue="NORMAL"
+						className="rounded-xl border border-[var(--border)] bg-[var(--input-bg)] px-3 py-2.5 text-sm text-[var(--text-primary)]"
+					>
 						<option value="LOW">{t("ticketsPage.priority.LOW")}</option>
 						<option value="NORMAL">{t("ticketsPage.priority.NORMAL")}</option>
 						<option value="HIGH">{t("ticketsPage.priority.HIGH")}</option>
@@ -60,9 +80,19 @@ export function CreateTicketForm(_props: Props = {}) {
 			</div>
 			<label className="grid gap-1.5 text-xs font-medium text-[var(--text-secondary)]">
 				{t("ticketsPage.form.label.description")}
-				<textarea name="description" required rows={4} placeholder={t("ticketsPage.form.description")} className="rounded-lg border border-[var(--border)] bg-[var(--input-bg)] px-3 py-2 text-sm text-[var(--text-primary)] placeholder:text-[var(--text-muted)] resize-y" />
+				<textarea
+					name="description"
+					required
+					rows={4}
+					placeholder={t("ticketsPage.form.description")}
+					className="resize-y rounded-xl border border-[var(--border)] bg-[var(--input-bg)] px-3 py-2.5 text-sm text-[var(--text-primary)] placeholder:text-[var(--text-muted)]"
+				/>
 			</label>
-			<button disabled={pending} className="w-fit rounded-lg bg-[var(--color-action-bg)] px-4 py-2 text-sm font-semibold text-[var(--color-action-fg)] disabled:cursor-not-allowed disabled:opacity-60">
+			<button
+				disabled={pending}
+				data-primary
+				className="w-fit rounded-xl bg-[var(--accent)] px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-[var(--accent-hover)] disabled:cursor-not-allowed disabled:opacity-60"
+			>
 				{pending ? t("ticketsPage.form.submitting") : t("ticketsPage.form.submit")}
 			</button>
 		</form>
