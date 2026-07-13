@@ -112,7 +112,7 @@ function MediaCover({
   const coverClass =
     "absolute inset-0 h-full w-full object-cover transition duration-300 group-hover:scale-105";
   const typeBadge = (
-    <span className="absolute left-2 top-2 z-10 rounded-lg border border-black/10 bg-black/50 px-2 py-0.5 text-[10px] font-medium text-[var(--text-primary)] backdrop-blur light:border-[var(--border)]/30">
+    <span className="absolute left-2 top-2 z-10 rounded-lg border border-black/10 bg-[color-mix(in_srgb,var(--surface)_40%,#000)] px-2 py-0.5 text-[10px] font-medium text-[var(--text-primary)] backdrop-blur light:border-[var(--border)]/30">
       {" "}
       {mediaTypeLabel(item.mediaType, t)}{" "}
     </span>
@@ -126,7 +126,7 @@ function MediaCover({
       <ImageIcon size={32} />
     );
   const fallback = (
-    <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 bg-[radial-gradient(circle_at_top,rgba(34,211,238,0.24),transparent_45%),linear-gradient(135deg,color-mix(in srgb, var(--surface) 92%, transparent),rgba(30,41,59,0.88))] text-[var(--text-primary)] light:bg-[radial-gradient(circle_at_top,rgba(14,165,233,0.18),transparent_45%),linear-gradient(135deg,#e2e8f0,#f8fafc)]">
+    <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 bg-[radial-gradient(circle_at_top,rgba(34,211,238,0.24),transparent_45%),linear-gradient(135deg,color-mix(in srgb, var(--surface) 92%, transparent),rgba(30,41,59,0.88))] text-[var(--text-primary)] ">
       {" "}
       <div className="rounded-2xl border border-[var(--border)]/10 bg-[var(--surface)]/10 p-3 shadow-inner">
         {icon}
@@ -166,7 +166,7 @@ function MediaCover({
       {item.mediaType !== "audio" && (
         <div className="pointer-events-none absolute inset-x-0 bottom-0 h-16 bg-gradient-to-t from-black/70 to-transparent" />
       )}{" "}
-      <div className="absolute bottom-2 right-2 rounded-lg border border-[var(--border)]/10 bg-black/50 px-2 py-0.5 text-[10px] text-[var(--text-primary)] backdrop-blur">
+      <div className="absolute bottom-2 right-2 rounded-lg border border-[var(--border)]/10 bg-[color-mix(in_srgb,var(--surface)_40%,#000)] px-2 py-0.5 text-[10px] text-[var(--text-primary)] backdrop-blur">
         {formatSize(item.size, t)}
       </div>
     </>

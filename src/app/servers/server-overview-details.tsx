@@ -293,7 +293,7 @@ export function ServerOverviewDetails({
 							type="button"
 							onClick={onRunRealtimeDiagnostics}
 							disabled={diagnosticRun.status === "loading" || !server.enabled}
-							className="inline-flex shrink-0 items-center justify-center rounded-lg border border-[var(--success-border)] bg-[var(--success-bg)] px-3 py-1.5 text-xs text-[var(--success)] transition hover:bg-[var(--success-bg)] disabled:cursor-not-allowed disabled:opacity-60 light:border-[var(--success-border)] light:bg-[var(--success)]"
+							className="inline-flex shrink-0 items-center justify-center rounded-lg border border-[var(--success-border)] bg-[var(--success-bg)] px-3 py-1.5 text-xs text-[var(--success)] transition hover:bg-[var(--success-bg)] disabled:cursor-not-allowed disabled:opacity-60 light:border-[var(--success-border)]"
 						>
 							{diagnosticRun.status === "loading" ? t("serverOverviewDetails.diagnosing") : t("serverOverviewDetails.runRealtimeDiagnostics")}
 						</button>
@@ -302,7 +302,7 @@ export function ServerOverviewDetails({
 						<div
 							role="status"
 							data-tone="emerald"
-							className="mt-3 rounded-lg border border-[var(--success-border)] p-2 text-[11px] leading-5 text-[var(--success)] light:border-[var(--success-border)] light:bg-[var(--success)]"
+							className="mt-3 rounded-lg border border-[var(--success-border)] p-2 text-[11px] leading-5 text-[var(--success)] light:border-[var(--success-border)]"
 						>
 							{t("serverOverviewDetails.diagnosticSuccess").replace("{summary}", diagnosticRun.summary).replace("{checkedAt}", diagnosticRun.checkedAt)}
 						</div>
@@ -311,7 +311,7 @@ export function ServerOverviewDetails({
 						<div
 							role="alert"
 							data-tone="rose"
-							className="mt-3 rounded-lg border border-[var(--danger-border)] p-2 text-[11px] leading-5 text-[var(--danger)] light:border-[var(--danger-border)] light:bg-[var(--danger)]"
+							className="mt-3 rounded-lg border border-[var(--danger-border)] p-2 text-[11px] leading-5 text-[var(--danger)] light:border-[var(--danger-border)]"
 						>
 							{t("serverOverviewDetails.diagnosticFailure").replace("{message}", diagnosticRun.message).replace("{checkedAt}", diagnosticRun.checkedAt)}
 						</div>

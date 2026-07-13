@@ -136,7 +136,7 @@ export function FilesBrowserSpa({
         onClick={() => setMobileSidebarOpen((value) => !value)}
         aria-expanded={mobileSidebarOpen}
         aria-controls="files-browser-sidebar"
-        className="flex min-h-11 w-full items-center justify-between rounded-2xl border border-[var(--border)] bg-[var(--surface)] px-4 py-2 text-sm font-medium text-[var(--text-primary)] hover:bg-[var(--surface-hover)] xl:hidden"
+        className="flex min-h-11 w-full items-center justify-between rounded-2xl border border-[var(--border)] bg-[var(--surface)] px-4 py-2.5 text-sm font-medium text-[var(--text-primary)] hover:bg-[var(--surface-hover)] active:bg-[var(--surface-elevated)] xl:hidden"
       >
         <span>{mobileSidebarOpen ? t("filesBrowserSpa.collapseDirectoryTree") : t("filesBrowserSpa.expandDirectoryTree")}</span>
         <span aria-hidden="true" className="text-xs">
@@ -147,7 +147,7 @@ export function FilesBrowserSpa({
       <aside
         id="files-browser-sidebar"
         aria-label={t("filesBrowserSpa.sidebarAria")}
-        className={`w-full min-w-0 self-start rounded-3xl border border-[var(--border)] bg-[var(--surface)] p-4 shadow-[var(--shadow-sm)] xl:sticky xl:top-6 ${
+        className={`w-full min-w-0 self-start rounded-3xl border border-[var(--border)] bg-[var(--surface)] p-4 shadow-[var(--shadow-sm)] xl:sticky xl:top-4 ${
           mobileSidebarOpen ? "block" : "hidden xl:block"
         }`}
       >

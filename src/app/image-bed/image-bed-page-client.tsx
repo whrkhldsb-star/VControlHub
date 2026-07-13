@@ -346,7 +346,7 @@ export default function ImageBedPage({ canWrite, canDelete }: { canWrite: boolea
 
 			{/* Upload Area */}
 			{showLegacyUpload && canWrite && (
-				<div data-tone="amber" className="mt-4 rounded-xl border border-[var(--warning-border)] p-4 light:border-[var(--warning-border)] light:bg-[var(--warning)]">
+				<div data-tone="amber" className="mt-4 rounded-xl border border-[var(--warning-border)] p-4 light:border-[var(--warning-border)]">
 					<div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
 						<div>
 							<h2 className="text-sm font-semibold text-[var(--text-primary)]">{t("imageBedPage.legacy.title")}</h2>

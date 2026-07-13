@@ -99,7 +99,7 @@ export default async function Page({
   return (
     <PageShell>
       {" "}
-      <header className="mb-6 overflow-hidden rounded-3xl border border-[var(--border)] bg-[radial-gradient(circle_at_top_left,rgba(34,211,238,0.18),transparent_36%),linear-gradient(145deg,color-mix(in srgb,var(--surface-elevated) 55%, var(--surface)), var(--surface))] p-6 shadow-2xl shadow-[var(--color-action)]/20 light:bg-[radial-gradient(circle_at_top_left,rgba(14,165,233,0.16),transparent_34%),linear-gradient(135deg,#ffffff,#f8fafc)] light:shadow-[var(--border)]/30">
+      <header className="mb-6 overflow-hidden rounded-3xl border border-[var(--border)] bg-[radial-gradient(circle_at_top_left,rgba(34,211,238,0.18),transparent_36%),linear-gradient(145deg,color-mix(in srgb,var(--surface-elevated) 55%, var(--surface)), var(--surface))] p-6 shadow-2xl shadow-[var(--color-action)]/20 light:shadow-[var(--shadow-sm)]">
         {" "}
         <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
           {" "}

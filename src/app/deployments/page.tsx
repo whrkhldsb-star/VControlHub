@@ -124,7 +124,7 @@ export default async function DeploymentsPage({ searchParams }: { searchParams?:
 								<span className={`rounded-lg border px-2 py-1 text-xs ${deploymentStatusTone(r.status)}`}>{r.status}</span>
 							</div>
 							<code className="mt-3 block overflow-auto rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-subtle)] p-3 font-mono text-xs text-[var(--text-secondary)]">{r.renderedCommand}</code>
-							{r.snapshot?.rollbackCommand && <code data-tone="emerald" className="mt-2 block overflow-auto rounded-lg border border-[var(--success-border)] p-3 font-mono text-xs text-[var(--success)] light:border-[var(--success-border)] light:bg-[var(--success)]">{tr("deploymentsPage.page.runsSection.rollback")}{r.snapshot.rollbackCommand}</code>}
+							{r.snapshot?.rollbackCommand && <code data-tone="emerald" className="mt-2 block overflow-auto rounded-lg border border-[var(--success-border)] p-3 font-mono text-xs text-[var(--success)] light:border-[var(--success-border)]">{tr("deploymentsPage.page.runsSection.rollback")}{r.snapshot.rollbackCommand}</code>}
 							{r.rollbackAttempts?.length > 0 && (
 								<div data-tone="emerald" className="mt-2 rounded-lg border border-[var(--success-border)] px-3 py-2 text-xs text-[var(--success)]">
 									{trTpl("deploymentsPage.page.runsSection.rollbackMeta", { status: r.rollbackAttempts[0]!.status, request: r.rollbackAttempts[0]!.commandRequestId || tr("deploymentsPage.page.runsSection.requestPending"), date: r.rollbackAttempts[0]!.createdAt.toLocaleString(dateLocale) })}

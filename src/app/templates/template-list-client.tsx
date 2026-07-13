@@ -173,7 +173,7 @@ export function TemplateListClient({ templates: initialTemplates, servers, canCr
 								{tmpl.command}
 							</div>
 							{tmpl.rollbackCommand && (
-								<div data-tone="emerald" className="mt-2 rounded-lg border border-[var(--success-border)] px-3 py-2 font-mono text-xs text-[var(--success)] line-clamp-2 light:border-[var(--success-border)] light:bg-[var(--success)]">
+								<div data-tone="emerald" className="mt-2 rounded-lg border border-[var(--success-border)] px-3 py-2 font-mono text-xs text-[var(--success)] line-clamp-2 light:border-[var(--success-border)]">
 									<span className="mr-2 font-sans text-[10px] uppercase tracking-[0.2em] text-[var(--success)]">Rollback</span>{tmpl.rollbackCommand}
 								</div>
 							)}
@@ -340,7 +340,7 @@ function CreateTemplateForm({ onClose }: { onClose: () => void }) {
 			</div>
 			<div className="space-y-1.5">
 				<label htmlFor={`${createFormId}-rollback-command`} className="text-xs font-medium text-[var(--text-primary)]/70 tracking-wide">{t("templatesPage.create.rollbackLabel")}</label>
-				<textarea id={`${createFormId}-rollback-command`} value={rollbackCommand} onChange={(e) => setRollbackCommand(e.target.value)} rows={3} placeholder={t("templatesPage.create.rollbackPlaceholder")} data-tone="emerald" className="w-full rounded-lg border border-[var(--success-border)] px-3.5 py-2.5 text-sm text-[var(--text-primary)] light:border-[var(--success-border)] light:bg-[var(--success)] font-mono outline-none transition placeholder:text-[var(--text-primary)]/30 focus:border-[var(--success-border)] resize-y" />
+				<textarea id={`${createFormId}-rollback-command`} value={rollbackCommand} onChange={(e) => setRollbackCommand(e.target.value)} rows={3} placeholder={t("templatesPage.create.rollbackPlaceholder")} data-tone="emerald" className="w-full rounded-lg border border-[var(--success-border)] px-3.5 py-2.5 text-sm text-[var(--text-primary)] light:border-[var(--success-border)] font-mono outline-none transition placeholder:text-[var(--text-primary)]/30 focus:border-[var(--success-border)] resize-y" />
 				<p className="text-[11px] text-[var(--text-muted)]">{t("templatesPage.create.rollbackHint")}</p>
 			</div>
 			<div className="space-y-1.5">

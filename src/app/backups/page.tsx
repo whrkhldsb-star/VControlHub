@@ -65,7 +65,7 @@ export default async function BackupsPage() {
 				</div>
 				<div className="mt-4 grid gap-3 md:grid-cols-3">
 					{(["DATABASE", "FILES", "FULL"] as const).map((type) => (
-						<div key={type} className="rounded-lg border border-[var(--border)] bg-black/10 p-3">
+						<div key={type} className="rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-subtle)] p-3">
 							<p className="text-xs font-semibold text-[var(--text-secondary)]">{type}</p>
 							<p className="mt-1 text-sm text-[var(--text-primary)]">{t("backupsPage.overview.typeSummary").replace("{count}", String(summary.byType[type].count)).replace("{size}", formatBackupSize(summary.byType[type].sizeBytes))}</p>
 						</div>
@@ -86,13 +86,13 @@ export default async function BackupsPage() {
 				) : (
 					<div className="mt-4 grid gap-3 md:grid-cols-2">
 						{summary.failureSummary.map((item) => (
-							<div key={item.category} data-tone="rose" className="rounded-lg border border-[var(--danger-border)] p-3 light:bg-[var(--danger)]">
+							<div key={item.category} className="rounded-xl border border-[var(--danger-border)] bg-[color-mix(in_srgb,var(--danger-bg)_40%,var(--surface))] p-3">
 								<div className="flex items-center justify-between gap-3">
 									<p className="text-xs font-semibold text-[var(--danger)]">{item.label}</p>
 									<span className="rounded-full bg-[var(--danger-bg)] px-2 py-0.5 text-xs text-[var(--danger)]">{t("backupsPage.failures.itemCount").replace("{count}", String(item.count))}</span>
 								</div>
 								{item.latestRecordPath && <p className="mt-2 text-xs text-[var(--text-muted)]">{t("backupsPage.failures.latestRecord").replace("{path}", item.latestRecordPath)}</p>}
-								<p className="mt-2 rounded-lg border border-[var(--border)] bg-black/10 px-2 py-1.5 text-xs text-[var(--text-secondary)]/70">{t("backupsPage.failures.remediation").replace("{remediation}", item.remediation)}</p>
+								<p className="mt-2 rounded-lg border border-[var(--border-subtle)] bg-[var(--surface)] px-2 py-1.5 text-xs text-[var(--text-secondary)]">{t("backupsPage.failures.remediation").replace("{remediation}", item.remediation)}</p>
 								{item.latestMessage && <p className="mt-1 line-clamp-2 text-xs text-[var(--text-muted)]">{item.latestMessage}</p>}
 							</div>
 						))}

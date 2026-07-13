@@ -78,7 +78,7 @@ export default async function RootLayout({
 								</SessionGateProvider>
 							)}
 							<PwaRegister />
-							<main className="flex-1 min-w-0 min-h-screen overflow-x-clip pb-24 md:pb-0">
+							<main className="min-h-screen min-w-0 flex-1 overflow-x-clip pb-[calc(5.5rem+env(safe-area-inset-bottom))] md:pb-0">
 								{children}
 							</main>
 							{shouldRenderAuthenticatedChrome && (

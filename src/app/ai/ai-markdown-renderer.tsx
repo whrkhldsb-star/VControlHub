@@ -138,7 +138,7 @@ export const renderContent = (content: string) => {
  const lang = blockLines[0]?.trim() || "";
  const code = lang ? blockLines.slice(1).join("\n") : blockLines.join("\n");
  elements.push(
- <div key={`cb-${elements.length}`} className="relative group/code bg-black/50 rounded-lg my-2 overflow-hidden">
+ <div key={`cb-${elements.length}`} className="relative group/code bg-[color-mix(in_srgb,var(--surface-subtle)_85%,#000)] rounded-lg my-2 overflow-hidden">
  <div className="flex items-center justify-between px-3 py-1.5 border-b border-[var(--border)]/10">
  <span className="text-[10px] text-[var(--color-action)]/60 font-mono">{lang || "code"}</span>
  <button

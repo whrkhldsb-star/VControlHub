@@ -49,11 +49,11 @@ export default async function RequestsPage() {
 				<StatCard label={t("requestsPage.stat.completed", locale)} value={String(completed)} />
 			</section>
 
-			<div className="space-y-8">
+			<div className="space-y-6">
 				<section aria-labelledby="ai-approval-heading" className="space-y-3">
 					<div className="flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
 						<div>
-							<h2 id="ai-approval-heading" className="text-lg font-semibold tracking-tight text-[var(--text-primary)]">{t("requestsPage.ai.title", locale)}</h2>
+							<h2 id="ai-approval-heading" className="text-base font-semibold tracking-tight text-[var(--text-primary)] sm:text-lg">{t("requestsPage.ai.title", locale)}</h2>
 							<p className="mt-1 text-sm text-[var(--text-muted)]">{t("requestsPage.ai.desc", locale)}</p>
 						</div>
 						<span className="rounded-full border border-[var(--accent-border)] bg-[var(--accent-bg)] px-3 py-1 text-xs font-medium text-[var(--accent)]">{t("requestsPage.ai.scopeBadge", locale)}</span>
@@ -70,7 +70,7 @@ export default async function RequestsPage() {
 				<section aria-labelledby="command-approval-heading" className="space-y-3">
 					<div className="flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
 						<div>
-							<h2 id="command-approval-heading" className="text-lg font-semibold tracking-tight text-[var(--text-primary)]">{t("requestsPage.cmd.title", locale)}</h2>
+							<h2 id="command-approval-heading" className="text-base font-semibold tracking-tight text-[var(--text-primary)] sm:text-lg">{t("requestsPage.cmd.title", locale)}</h2>
 							<p className="mt-1 text-sm text-[var(--text-muted)]">{t("requestsPage.cmd.desc", locale)}</p>
 						</div>
 						<span className="rounded-full border border-[var(--warning-border)] bg-[var(--warning-bg)] px-3 py-1 text-xs font-medium text-[var(--warning)]">{t("requestsPage.cmd.scopeBadge", locale)}</span>

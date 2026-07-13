@@ -73,7 +73,7 @@ export default async function ServersPage() {
 						<p className="mt-0.5 text-xs leading-5 text-[var(--text-muted)]">{t("serversPage.statusPriority.desc")}</p>
 					</div>
 					<span className="mt-2 inline-flex w-fit items-center rounded-full border border-[var(--accent-border)] bg-[var(--surface)] px-2.5 py-1 text-[11px] font-medium text-[var(--accent)] sm:mt-0">
-						{enabledCount}/{servers.length} online
+						{enabledCount}/{servers.length}
 					</span>
 				</div>
 			</section>

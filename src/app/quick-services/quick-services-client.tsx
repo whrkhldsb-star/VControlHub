@@ -344,7 +344,7 @@ export function QuickServicesClient({ canManage }: { canManage: boolean }) {
 				<button onClick={() => setTab("installed")} className={`px-4 py-2 rounded-lg text-sm font-medium transition ${tab === "installed" ? "bg-[var(--color-action)]/20 text-[var(--color-action)] light:bg-[var(--color-action-bg)]" : "text-[var(--text-muted)] hover:text-[var(--text-primary)] light:hover:bg-[var(--surface)] light:hover:text-[var(--text-primary)]"}`}>
 					{t("qsPage.tabInstalled").replace("{count}", String(installed.length))}
 				</button>
-				<button onClick={() => setTab("sources")} className={`px-4 py-2 rounded-lg text-sm font-medium transition ${tab === "sources" ? "bg-[var(--warning-bg)] text-[var(--warning)] light:bg-[var(--warning)]" : "text-[var(--text-muted)] hover:text-[var(--text-primary)] light:hover:bg-[var(--surface)] light:hover:text-[var(--text-primary)]"}`}>
+				<button onClick={() => setTab("sources")} className={`px-4 py-2 rounded-lg text-sm font-medium transition ${tab === "sources" ? "bg-[var(--warning-bg)] text-[var(--warning)]" : "text-[var(--text-muted)] hover:text-[var(--text-primary)] light:hover:bg-[var(--surface)] light:hover:text-[var(--text-primary)]"}`}>
 					{t("qsPage.tabSources").replace("{count}", String(sources.length))}
 				</button>
 			</div>

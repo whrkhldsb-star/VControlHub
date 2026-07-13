@@ -313,7 +313,7 @@ export function FileListListView(props: FileListListViewProps) {
       </div>
 
       {/* Mobile card view (below md) */}
-      <div className="md:hidden divide-y divide-white/[0.04] light:divide-[var(--border)]">
+      <div className="divide-y divide-[var(--border-subtle)] md:hidden">
         {sortedFolders.length === 0 && sortedFiles.length === 0 ? (
           <div className="px-6 py-16 text-center text-sm text-[var(--text-muted)]">
             {emptyMessage}

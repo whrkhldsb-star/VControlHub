@@ -445,7 +445,7 @@ export default function DockerPage() {
 								<svg className="w-5 h-5" aria-hidden="true" fill="none" stroke="currentColor" width="24" height="24" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
 							</button>
 						</div>
-						<pre className="flex-1 overflow-auto text-[11px] text-[var(--text-secondary)] bg-black/50 rounded-lg p-3 font-mono whitespace-pre-wrap">{logs}</pre>
+						<pre className="flex-1 overflow-auto text-[11px] text-[var(--text-secondary)] bg-[color-mix(in_srgb,var(--surface-subtle)_85%,#000)] rounded-lg p-3 font-mono whitespace-pre-wrap">{logs}</pre>
 					</div>
 				</div>
 			)}

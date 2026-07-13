@@ -370,7 +370,7 @@ export function DockerResourcesPanel() {
         </div>
       ) : null}{" "}
       {detail ? (
-        <div className="mt-4 rounded-xl border border-[var(--border)] bg-black/50 p-3">
+        <div className="mt-4 rounded-xl border border-[var(--border)] bg-[color-mix(in_srgb,var(--surface-subtle)_85%,#000)] p-3">
           <div className="mb-2 flex items-center justify-between gap-3">
             <h3 className="text-sm font-medium text-[var(--text-primary)]">
               {detail.title}

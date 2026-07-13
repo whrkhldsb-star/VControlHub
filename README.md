@@ -637,6 +637,15 @@ make logs SERVICE_PREFIX=vcontrolhub
 | **Playbooks / 备份** | 卡片层级与摘要标签 |
 | **全局扫尾** | 残留 `color-action-strong` 主按钮收敛为 accent |
 
+### 2026-07-13 UX 走查 + 主题一致性 + 移动端（FE-UI Round 8）
+
+| 方向 | 改动 |
+|---|---|
+| **真实路径 UX** | 请求审批区更紧凑；Toast 避开底栏；PageShell/主区预留 bottom-nav + safe-area |
+| **明暗主题** | 遮罩/代码井/`bg-black/*` 主题化；浅色下危险 `light:bg-[var(--danger)]` 等实心色清除；accent 兼容旧 color-action |
+| **移动端** | 底栏 active/shadow token 化；文件列表分隔线；表格横向滚动容器；AI 高度用 `dvh`；全局搜索/底栏安全区 |
+
+
 
 
 

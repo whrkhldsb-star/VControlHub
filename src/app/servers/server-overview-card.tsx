@@ -102,7 +102,7 @@ export function ServerOverviewCard({
   } else if (diagnosticRun.status === "success") {
     listHealthLabel = `${t("serverOverviewCard.online")} · ${diagnosticRun.checkedAt.split(" ").pop() ?? ""}`.trim();
     listHealthToneClass =
-      "border-[var(--success-border)] bg-[var(--success-bg)] text-[var(--success)] light:border-[var(--success-border)] light:bg-[var(--success)]";
+      "border-[var(--success-border)] bg-[var(--success-bg)] text-[var(--success)] light:border-[var(--success-border)]";
     listHealthDescription =
       diagnosticRun.summary
         ? t("serverOverviewCard.lastProbeSuccessWithSummary").replace("{summary}", diagnosticRun.summary).replace("{checkedAt}", diagnosticRun.checkedAt)
@@ -110,12 +110,12 @@ export function ServerOverviewCard({
   } else if (diagnosticRun.status === "error") {
     listHealthLabel = t("serverOverviewCard.offline");
     listHealthToneClass =
-      "border-[var(--danger-border)] bg-[var(--danger-bg)] text-[var(--danger)] light:border-[var(--danger-border)] light:bg-[var(--danger)]";
+      "border-[var(--danger-border)] bg-[var(--danger-bg)] text-[var(--danger)] light:border-[var(--danger-border)]";
     listHealthDescription = t("serverOverviewCard.lastProbeFailed").replace("{message}", diagnosticRun.message).replace("{checkedAt}", diagnosticRun.checkedAt);
   } else {
     listHealthLabel = t("serverOverviewCard.enabledPendingProbe");
     listHealthToneClass =
-      "border-[var(--warning-border)] bg-[var(--warning-bg)] text-[var(--warning)] light:border-[var(--warning-border)] light:bg-[var(--warning)]";
+      "border-[var(--warning-border)] bg-[var(--warning-bg)] text-[var(--warning)] light:border-[var(--warning-border)]";
     listHealthDescription =
       t("serverOverviewCard.enabledPendingProbeDescription");
   }
