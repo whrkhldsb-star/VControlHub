@@ -223,7 +223,7 @@ export function AiClient({
     });
 
   return (
-    <div className="flex h-[calc(100vh-5.5rem)] overflow-hidden pt-16 md:h-screen md:pt-0">
+    <div className="flex h-[calc(100vh-5.5rem)] overflow-hidden bg-[var(--page-bg)] pt-16 md:h-screen md:pt-0">
       {confirm.copy && (
         <AiConfirmDialog
           open

@@ -7,16 +7,6 @@
  * This page is intentionally public (no session required) so the SW can
  * always render it without a 401 redirect. Read-only content only — no
  * data fetching, no client-side state that would fail without network.
- *
- * Why a client component: the SW caches the rendered HTML, and we want
- * the page to respect the user's `localStorage` locale setting on each
- * visit. The cached HTML is the React markup + a hydration script that
- * reads useI18n() on the client, so locale changes are picked up.
- *
- * The list of "available offline" routes is a static hint; the real cache
- * status is determined by the service worker. We list the four PWA cache
- * targets (dashboard / servers / files / settings static sections) that
- * the service worker is configured to pre-cache on install.
  */
 
 import { useState } from "react";
@@ -40,30 +30,33 @@ export default function OfflinePage() {
 
   return (
     <main
-      className="min-h-screen flex flex-col items-center justify-center px-6 py-16 bg-[var(--surface)] text-[var(--text-primary)] light:bg-[var(--surface)] light:text-[var(--color-action-fg)]"
+      className="relative flex min-h-screen flex-col items-center justify-center overflow-hidden px-6 py-16 text-[var(--text-primary)]"
       aria-labelledby="offline-title"
     >
-      <div className="max-w-md w-full text-center space-y-6">
+      <div
+        aria-hidden="true"
+        className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_top,rgba(56,139,253,0.12),transparent_55%),var(--page-bg)]"
+      />
+      <div className="relative w-full max-w-md space-y-6 rounded-3xl border border-[var(--border)] bg-[color-mix(in_srgb,var(--surface)_92%,transparent)] p-8 text-center shadow-[var(--shadow-lg)] backdrop-blur-xl">
         <div
           aria-hidden="true"
-          className="mx-auto w-16 h-16 rounded-full border-2 border-[var(--border)] light:border-[var(--border)] flex items-center justify-center"
+          className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl border border-[var(--border)] bg-[var(--surface-elevated)]"
         >
           <span className="text-3xl">📡</span>
         </div>
 
-        <h1
-          id="offline-title"
-          className="text-2xl font-semibold tracking-tight"
-        >
-          {t("pwa.offline.title")}
-        </h1>
+        <div>
+          <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-[var(--accent)]">Offline</p>
+          <h1 id="offline-title" className="mt-2 text-2xl font-semibold tracking-tight">
+            {t("pwa.offline.title")}
+          </h1>
+          <p className="mt-3 text-sm leading-relaxed text-[var(--text-secondary)]">
+            {t("pwa.offline.description")}
+          </p>
+        </div>
 
-        <p className="text-sm leading-relaxed text-[var(--text-secondary)] light:text-[var(--text-muted)]">
-          {t("pwa.offline.description")}
-        </p>
-
-        <div className="pt-2">
-          <h2 className="text-xs uppercase tracking-wider text-[var(--text-muted)] mb-3">
+        <div className="pt-1 text-left">
+          <h2 className="mb-3 text-xs font-semibold uppercase tracking-[0.16em] text-[var(--text-muted)]">
             {t("pwa.offline.cachedRoutes")}
           </h2>
           <ul className="grid grid-cols-2 gap-2 text-sm" role="list">
@@ -71,7 +64,7 @@ export default function OfflinePage() {
               <li key={route.href}>
                 <a
                   href={route.href}
-                  className="block rounded-lg border border-[var(--border)] light:border-[var(--border)] bg-[var(--surface)] px-3 py-2 hover:border-[var(--border)] light:hover:border-[var(--border)] transition-colors"
+                  className="block rounded-xl border border-[var(--border)] bg-[var(--surface)] px-3 py-2.5 transition hover:border-[var(--border-strong)] hover:bg-[var(--surface-elevated)]"
                 >
                   {t(route.labelKey)}
                 </a>
@@ -80,12 +73,13 @@ export default function OfflinePage() {
           </ul>
         </div>
 
-        <div className="pt-4 border-t border-[var(--border)] light:border-[var(--border)]">
+        <div className="border-t border-[var(--border-subtle)] pt-5">
           <a
             href="/dashboard"
             onClick={() => setRetrying(true)}
             aria-busy={retrying}
-            className="inline-flex items-center justify-center min-h-11 px-5 rounded-lg bg-[var(--surface)] text-[var(--text-primary)] light:bg-[var(--surface)] light:text-[var(--color-action-fg)] text-sm font-medium hover:opacity-90 transition-opacity"
+            data-primary
+            className="inline-flex min-h-11 items-center justify-center rounded-xl bg-[var(--accent)] px-5 text-sm font-semibold text-white transition hover:bg-[var(--accent-hover)]"
           >
             {retrying ? t("pwa.offline.retrying") : t("pwa.offline.retry")}
           </a>

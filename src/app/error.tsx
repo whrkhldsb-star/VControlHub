@@ -45,31 +45,37 @@ export default function RootError({
 	}
 
 	return (
-		<div className="mx-auto max-w-[600px] px-6 py-20 text-center">
-			<h2 className="mb-3 text-2xl font-semibold text-[var(--text-primary)]">
-				{t("error.title")}
-			</h2>
-			<p className="mb-2 text-sm leading-relaxed text-[var(--text-secondary)]">
-				{error.message || t("error.unknown")}
-			</p>
-			{error.digest && (
-				<p className="mb-4 text-xs text-[var(--text-muted)]">
-					{t("error.digest-label")} {error.digest}
+		<div className="mx-auto flex min-h-[60vh] max-w-lg flex-col items-center justify-center px-6 py-16 text-center">
+			<div className="w-full rounded-3xl border border-[var(--border)] bg-[color-mix(in_srgb,var(--surface)_92%,transparent)] p-8 shadow-[var(--shadow-md)] backdrop-blur">
+				<div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-2xl border border-[var(--danger-border)] bg-[var(--danger-bg)] text-xl" aria-hidden="true">
+					!
+				</div>
+				<h2 className="mb-3 text-2xl font-semibold text-[var(--text-primary)]">
+					{t("error.title")}
+				</h2>
+				<p className="mb-2 text-sm leading-relaxed text-[var(--text-secondary)]">
+					{error.message || t("error.unknown")}
 				</p>
-			)}
-			<div className="mt-5 flex justify-center gap-3">
-				<button
-					onClick={reset}
-					className="cursor-pointer rounded-lg border-none bg-[var(--color-action)] px-6 py-2 text-sm text-[var(--text-primary)] transition-colors hover:bg-[var(--color-action-hover)]"
-				>
-					{t("common.retry")}
-				</button>
-				<NextLink
-					href="/"
-					className="inline-flex items-center rounded-lg bg-[var(--surface-elevated)] light:bg-[var(--surface-elevated)] px-6 py-2 text-sm text-[var(--text-secondary)] no-underline hover:bg-[var(--surface-hover)] light:hover:bg-[var(--surface-hover)]"
-				>
-					{t("error.back-home")}
-				</NextLink>
+				{error.digest && (
+					<p className="mb-4 text-xs text-[var(--text-muted)]">
+						{t("error.digest-label")} {error.digest}
+					</p>
+				)}
+				<div className="mt-5 flex justify-center gap-3">
+					<button
+						onClick={reset}
+						data-primary
+						className="cursor-pointer rounded-xl border-none bg-[var(--accent)] px-6 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-[var(--accent-hover)]"
+					>
+						{t("common.retry")}
+					</button>
+					<NextLink
+						href="/"
+						className="inline-flex items-center rounded-xl border border-[var(--border)] bg-[var(--surface-elevated)] px-6 py-2.5 text-sm text-[var(--text-secondary)] no-underline hover:bg-[var(--surface-hover)]"
+					>
+						{t("error.back-home")}
+					</NextLink>
+				</div>
 			</div>
 		</div>
 	);

@@ -67,12 +67,19 @@ export default async function Page() {
   const uptimeData = await getAllUptimeData();
 
   return (
-    <main className="min-h-screen bg-[var(--surface)] text-[var(--text-primary)]">
-      <div className="mx-auto max-w-5xl px-6 py-14">
-        <h1 className="text-3xl font-semibold">{t("statusPage.title", locale)}</h1>
-        <p className="mt-2 text-sm text-[var(--text-secondary)]">
-          {t("statusPage.desc", locale)}
-        </p>
+    <main className="relative min-h-screen overflow-hidden text-[var(--text-primary)]">
+      <div
+        aria-hidden="true"
+        className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_top,rgba(56,139,253,0.10),transparent_55%),var(--page-bg)]"
+      />
+      <div className="relative mx-auto max-w-5xl px-6 py-14">
+        <header className="mb-8 border-b border-[var(--border-subtle)] pb-6">
+          <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-[var(--accent)]">Status</p>
+          <h1 className="mt-2 text-3xl font-semibold tracking-tight">{t("statusPage.title", locale)}</h1>
+          <p className="mt-2 max-w-2xl text-sm leading-6 text-[var(--text-secondary)]">
+            {t("statusPage.desc", locale)}
+          </p>
+        </header>
 
         <div data-card className="mt-6">
           <div className="flex items-center gap-3">

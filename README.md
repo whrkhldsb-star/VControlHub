@@ -577,6 +577,17 @@ make logs SERVICE_PREFIX=vcontrolhub
 
 下一阶段可继续：关键业务页（servers/files/dashboard）接入 `Toolbar`/`Section`、收敛巨型 client 组件。
 
+### 2026-07-12 前端全站视觉升级（FE-UI Round 2）
+
+| 覆盖面 | 内容 |
+|---|---|
+| 全局 CSS | 全站面板/输入/表格/嵌套卡/工具栏统一；减少硬编码深色噪声 |
+| 公开页 | 登录、2FA、分享页、公开状态、offline、404、route/root error 卡片化与背景统一 |
+| 业务页 | API Docs 接入 PageShell/Toolbar；图床/媒体 hero 与 token 化背景；AI 壳背景对齐 |
+| 已有壳 | docker/monitoring/traffic/preferences 等已用 PageShell，随全局样式一并受益 |
+
+说明：47 个路由中绝大多数业务页此前已使用 `PageShell`；本轮重点把**全局样式 + 公开页 + 遗漏壳**补齐，使“每个页面都有可见升级”。
+
 ##### 补扫确认（防漏项 · 后端）
 
 在第三轮主扫之后又做了一轮**防漏补扫**，结论如下（均不构成新的未记录 CRITICAL）：

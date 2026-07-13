@@ -36,14 +36,14 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
 	const siteName = getSiteName();
 
 	return (
-		<main className="relative min-h-screen overflow-hidden bg-[var(--surface-root)] text-[var(--text-primary)]">
+		<main className="relative min-h-screen overflow-hidden text-[var(--text-primary)]">
 			{/* Background effects */}
-			<div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,var(--accent-bg),transparent_50%),radial-gradient(circle_at_bottom_left,rgba(99,102,241,0.06),transparent_35%),linear-gradient(180deg,var(--background)_0%,var(--surface-subtle)_100%)]" />
+			<div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,var(--accent-bg),transparent_50%),radial-gradient(circle_at_bottom_left,rgba(99,102,241,0.06),transparent_35%),var(--page-bg)]" />
 			<div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-[var(--border-strong)] to-transparent" />
 
 			{/* Grid pattern overlay */}
 			<div
-				className="absolute inset-0 opacity-[0.015] light:opacity-[0.10]"
+				className="absolute inset-0 opacity-[0.015] light:opacity-[0.08]"
 				style={{
 					backgroundImage:
 						"linear-gradient(rgba(255,255,255,0.1) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.1) 1px, transparent 1px)",
@@ -55,14 +55,14 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
 				<div className="grid w-full gap-12 lg:grid-cols-[1fr_400px] lg:items-center">
 					{/* Left: Branding */}
 					<section className="max-w-xl">
-						<div className="inline-flex items-center gap-2 rounded-full bg-[var(--surface-elevated)] border border-[var(--border)] px-3.5 py-1.5 text-[11px] font-bold uppercase tracking-[0.2em] text-[var(--text-primary)] shadow-sm backdrop-blur">
+						<div className="inline-flex items-center gap-2 rounded-full border border-[var(--border)] bg-[var(--surface-elevated)] px-3.5 py-1.5 text-[11px] font-bold uppercase tracking-[0.2em] text-[var(--text-primary)] shadow-sm backdrop-blur">
 							<div className="h-1.5 w-1.5 rounded-full bg-[var(--accent)] shadow-[0_0_8px_var(--accent-border)]" />
 							{publicLabel}
 						</div>
 						<h1 className="mt-6 text-5xl font-semibold tracking-[-0.05em] text-[var(--text-primary)] sm:text-6xl">
 							{siteName}<span className="text-[var(--accent)]">.</span>
 						</h1>
-						<p className="mt-4 max-w-md text-base leading-7 text-[var(--text-primary)]">
+						<p className="mt-4 max-w-md text-base leading-7 text-[var(--text-secondary)]">
 							{publicLabel}{t("login.branding.tagline", locale)}
 						</p>
 
@@ -92,11 +92,11 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
 					</section>
 
 					{/* Right: Login Form */}
-					<section className="rounded-[1.75rem] bg-[var(--surface)] border border-[var(--border)] p-6 shadow-[var(--shadow-xl)] sm:p-8">
+					<section className="rounded-3xl border border-[var(--border)] bg-[color-mix(in_srgb,var(--surface)_94%,transparent)] p-6 shadow-[var(--shadow-lg)] backdrop-blur-xl sm:p-8">
 						<div className="mb-7">
-							<p className="text-[11px] font-bold uppercase tracking-[0.2em] text-[var(--text-primary)]">{t("login.branding.signInTag", locale)}</p>
+							<p className="text-[11px] font-bold uppercase tracking-[0.2em] text-[var(--accent)]">{t("login.branding.signInTag", locale)}</p>
 							<h2 className="mt-2.5 text-2xl font-semibold tracking-[-0.03em] text-[var(--text-primary)]">{t("login.branding.welcome", locale)}</h2>
-							<p className="mt-2 text-sm text-[var(--text-primary)]">{t("login.branding.subtitle", locale)}</p>
+							<p className="mt-2 text-sm text-[var(--text-secondary)]">{t("login.branding.subtitle", locale)}</p>
 						</div>
 						<LoginForm nextPath={nextPath} error={error} locale={locale} />
 					</section>
@@ -108,10 +108,10 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
 
 function FeatureCard({ icon, title, desc }: { icon: React.ReactNode; title: string; desc: string }) {
 	return (
-		<div className="rounded-2xl bg-[var(--surface-subtle)] border border-[var(--border)] p-3.5 shadow-sm">
-			<div className="text-[var(--accent)]/80">{icon}</div>
+		<div className="rounded-2xl border border-[var(--border)] bg-[color-mix(in_srgb,var(--surface)_80%,transparent)] p-3.5 shadow-sm backdrop-blur">
+			<div className="text-[var(--accent)]">{icon}</div>
 			<div className="mt-2 text-sm font-semibold text-[var(--text-primary)]">{title}</div>
-			<div className="mt-0.5 text-xs text-[var(--text-primary)]">{desc}</div>
+			<div className="mt-0.5 text-xs text-[var(--text-muted)]">{desc}</div>
 		</div>
 	);
 }

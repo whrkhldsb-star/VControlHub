@@ -262,7 +262,7 @@ export default function ImageBedPage({ canWrite, canDelete }: { canWrite: boolea
 
 	return (
 		<PageShell>
-			<div className="mb-5 overflow-hidden rounded-3xl border border-[var(--border)]/[0.10] bg-[radial-gradient(circle_at_top_left,rgba(16,185,129,0.18),transparent_34%),linear-gradient(135deg,rgba(15,23,42,0.96),rgba(2,6,23,0.9))] p-6 shadow-2xl shadow-[var(--success-bg)] light:bg-[radial-gradient(circle_at_top_left,rgba(16,185,129,0.14),transparent_34%),linear-gradient(135deg,#ffffff,#f8fafc)] light:shadow-[var(--border)]/30">
+			<div className="mb-5 overflow-hidden rounded-3xl border border-[var(--border)] bg-[radial-gradient(circle_at_top_left,rgba(16,185,129,0.16),transparent_34%),linear-gradient(145deg,color-mix(in_srgb,var(--surface-elevated)_55%,var(--surface)),var(--surface))] p-6 shadow-[var(--shadow-md)]">
 				<div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
 					<div>
 						<p data-page-eyebrow className="text-xs font-semibold uppercase tracking-[0.3em] text-[var(--color-action)]">{t("imageBedPage.hero.eyebrow")}</p>
@@ -270,14 +270,14 @@ export default function ImageBedPage({ canWrite, canDelete }: { canWrite: boolea
 						<p className="mt-2 max-w-2xl text-sm leading-6 text-[var(--text-secondary)]">{t("imageBedPage.hero.desc")}</p>
 					</div>
 					<div className="flex flex-wrap items-center gap-2 text-xs">
-						<Link href="/media?type=image" className="rounded-xl bg-[var(--success)] px-4 py-2 font-medium text-[var(--text-primary)] transition hover:bg-[var(--success-bg)] hover:text-[var(--success)]">{t("imageBedPage.hero.openMedia")}</Link>
-						{canWrite && <button onClick={() => { fetchStorageNodes(); setShowPublishModal(true); }} className="rounded-xl border border-[var(--accent-border)] bg-[var(--accent-bg)] px-4 py-2 font-medium text-[var(--accent)] transition hover:bg-[var(--accent-hover)] hover:text-[var(--text-primary)]">{t("imageBedPage.hero.publishFromStorage")}</button>}
+						<Link href="/media?type=image" data-primary className="rounded-xl bg-[var(--accent)] px-4 py-2 font-semibold text-white transition hover:bg-[var(--accent-hover)]">{t("imageBedPage.hero.openMedia")}</Link>
+						{canWrite && <button onClick={() => { fetchStorageNodes(); setShowPublishModal(true); }} className="rounded-xl border border-[var(--accent-border)] bg-[var(--accent-bg)] px-4 py-2 font-medium text-[var(--accent)] transition hover:bg-[var(--accent-hover)] hover:text-white">{t("imageBedPage.hero.publishFromStorage")}</button>}
 					</div>
 				</div>
 				<div className="mt-5 grid gap-2 text-xs sm:grid-cols-3">
-					<div className="rounded-2xl border border-[var(--border)]/[0.10] bg-[var(--surface-elevated)] p-3"><div className="text-lg font-semibold text-[var(--text-primary)]">{total}</div><div className="text-[var(--text-secondary)]">{t("imageBedPage.stat.total")}</div></div>
-					<div className="rounded-2xl border border-[var(--border)]/[0.10] bg-[var(--surface-elevated)] p-3"><div className="text-lg font-semibold text-[var(--text-primary)]">{images.filter((img) => img.storageNodeId && img.relativePath).length}</div><div className="text-[var(--text-secondary)]">{t("imageBedPage.stat.traceable")}</div></div>
-					<div className="rounded-2xl border border-[var(--border)]/[0.10] bg-[var(--surface-elevated)] p-3"><div className="text-lg font-semibold text-[var(--text-primary)]">{images.filter((img) => img.isPublic).length}</div><div className="text-[var(--text-secondary)]">{t("imageBedPage.stat.publicOnPage")}</div></div>
+					<div className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-3"><div className="text-lg font-semibold text-[var(--text-primary)]">{total}</div><div className="text-[var(--text-secondary)]">{t("imageBedPage.stat.total")}</div></div>
+					<div className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-3"><div className="text-lg font-semibold text-[var(--text-primary)]">{images.filter((img) => img.storageNodeId && img.relativePath).length}</div><div className="text-[var(--text-secondary)]">{t("imageBedPage.stat.traceable")}</div></div>
+					<div className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-3"><div className="text-lg font-semibold text-[var(--text-primary)]">{images.filter((img) => img.isPublic).length}</div><div className="text-[var(--text-secondary)]">{t("imageBedPage.stat.publicOnPage")}</div></div>
 				</div>
 			</div>
 

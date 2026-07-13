@@ -219,7 +219,7 @@ export function ShareFilePicker({ nodes }: { nodes: StorageNode[] }) {
 	};
 
 	return (
-		<section data-i18n-skip className="rounded-2xl border border-[var(--border)]/[0.10] bg-[var(--surface)]/[0.04] p-4 shadow-[0_18px_60px_rgba(2,6,23,0.22)] light:shadow-[0_18px_50px_rgba(15,23,42,0.08)]">
+		<section data-i18n-skip className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-4 shadow-[var(--shadow-md)]">
 			<div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
 				<div>
 					<p className="text-xs font-semibold uppercase tracking-[0.22em] text-[var(--color-action)]">{copyText.eyebrow}</p>
@@ -269,8 +269,8 @@ export function ShareFilePicker({ nodes }: { nodes: StorageNode[] }) {
 			{data?.syncWarning ? <p data-tone="amber" className="mt-3 rounded-xl border border-[var(--warning-border)] px-3 py-2 text-sm text-[var(--warning)]">{data.syncWarning}</p> : null}
 
 			<div className="mt-4 grid gap-4 lg:grid-cols-[minmax(0,1fr)_20rem]">
-				<div className="overflow-hidden rounded-xl border border-[var(--border)]/[0.10]">
-					<div className="grid grid-cols-[2rem_minmax(0,1fr)_8rem_6rem] gap-2 border-b border-[var(--border)]/[0.10] bg-[var(--surface)]/[0.04] px-3 py-2 text-xs font-medium uppercase tracking-wide text-[var(--text-muted)]">
+				<div className="overflow-hidden rounded-xl border border-[var(--border)]">
+					<div className="grid grid-cols-[2rem_minmax(0,1fr)_8rem_6rem] gap-2 border-b border-[var(--border)] bg-[var(--surface)] px-3 py-2 text-xs font-medium uppercase tracking-wide text-[var(--text-muted)]">
 						<span />
 						<span>{copyText.name}</span>
 						<span>{copyText.type}</span>
@@ -289,7 +289,7 @@ export function ShareFilePicker({ nodes }: { nodes: StorageNode[] }) {
 									entryType: "DIRECTORY",
 								};
 								return (
-									<div key={item.key} className="grid grid-cols-[2rem_minmax(0,1fr)_8rem_6rem] items-center gap-2 px-3 py-2.5 text-sm hover:bg-[var(--surface)]/[0.04] light:hover:bg-[var(--surface)]">
+									<div key={item.key} className="grid grid-cols-[2rem_minmax(0,1fr)_8rem_6rem] items-center gap-2 px-3 py-2.5 text-sm hover:bg-[var(--surface)] light:hover:bg-[var(--surface)]">
 										<input type="checkbox" checked={Boolean(selected[item.key])} aria-label={`${copyText.selectFolder} ${folder.name}`} onChange={() => toggleSelection(item)} className="h-4 w-4 accent-[var(--color-action)]" />
 										<button type="button" onClick={() => openFolder(folder)} className="min-h-11 flex min-w-0 items-center gap-2 text-left text-[var(--text-primary)] hover:text-[var(--text-secondary)] light:hover:text-[var(--color-action-strong)]">
 											<Folder size={17} className="shrink-0 text-[var(--color-action)]" />
@@ -310,7 +310,7 @@ export function ShareFilePicker({ nodes }: { nodes: StorageNode[] }) {
 									sizeLabel: file.sizeLabel,
 								};
 								return (
-									<label key={item.key} className="grid grid-cols-[2rem_minmax(0,1fr)_8rem_6rem] items-center gap-2 px-3 py-2.5 text-sm hover:bg-[var(--surface)]/[0.04] light:hover:bg-[var(--surface)]">
+									<label key={item.key} className="grid grid-cols-[2rem_minmax(0,1fr)_8rem_6rem] items-center gap-2 px-3 py-2.5 text-sm hover:bg-[var(--surface)] light:hover:bg-[var(--surface)]">
 										<input type="checkbox" checked={Boolean(selected[item.key])} aria-label={`${copyText.selectFile} ${file.name}`} onChange={() => toggleSelection(item)} className="h-4 w-4 accent-[var(--color-action)]" />
 										<span className="flex min-w-0 items-center gap-2 text-[var(--text-primary)]"><File size={16} className="shrink-0 text-[var(--text-secondary)]" /><span className="truncate">{file.name}</span></span>
 										<span className="text-xs text-[var(--text-muted)]">{copyText.file}</span>
@@ -334,11 +334,11 @@ export function ShareFilePicker({ nodes }: { nodes: StorageNode[] }) {
 					</div>
 					<div className="mt-3 max-h-48 space-y-2 overflow-auto pr-1">
 						{selectedItems.length ? selectedItems.map((item) => (
-							<div key={item.key} className="rounded-lg border border-[var(--border)]/[0.07] bg-[var(--surface)]/[0.04] px-3 py-2 text-xs">
+							<div key={item.key} className="rounded-lg border border-[var(--border)]/[0.07] bg-[var(--surface)] px-3 py-2 text-xs">
 								<div className="truncate font-medium text-[var(--text-primary)]">{item.name}</div>
 								<div className="mt-0.5 truncate text-[var(--text-muted)]">{item.entryType === "DIRECTORY" ? copyText.folder : copyText.file} · {item.path}</div>
 							</div>
-						)) : <p className="rounded-lg border border-dashed border-[var(--border)]/[0.10] p-4 text-center text-xs text-[var(--text-muted)]">{copyText.selectedEmpty}</p>}
+						)) : <p className="rounded-lg border border-dashed border-[var(--border)] p-4 text-center text-xs text-[var(--text-muted)]">{copyText.selectedEmpty}</p>}
 					</div>
 					<button
 						type="button"

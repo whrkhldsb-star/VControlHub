@@ -38,13 +38,20 @@ export default async function SharePage({
   }
 
   return (
-    <main className="flex min-h-screen items-center justify-center bg-[var(--input-bg)] px-4 py-16 text-[var(--text-primary)]">
-      <div className="w-full max-w-3xl rounded-2xl border border-[var(--border)] bg-[var(--surface)]/[0.04] p-8 shadow-2xl">
+    <main className="relative flex min-h-screen items-center justify-center overflow-hidden px-4 py-16 text-[var(--text-primary)]">
+      <div
+        aria-hidden="true"
+        className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_top,rgba(34,211,238,0.12),transparent_55%),var(--page-bg)]"
+      />
+      <div className="relative w-full max-w-3xl rounded-3xl border border-[var(--border)] bg-[color-mix(in_srgb,var(--surface)_94%,transparent)] p-8 shadow-[var(--shadow-lg)] backdrop-blur-xl">
         <div className="mb-6 text-center">
-          <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-[var(--color-action)]/10 text-2xl">
+          <div className="mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-2xl border border-[var(--accent-border)] bg-[var(--accent-bg)] text-2xl">
             {errorMessage ? "🔒" : share?.entryType === "DIRECTORY" ? "📁" : "📦"}
           </div>
-          <h1 className="text-lg font-semibold text-[var(--text-primary)]">
+          <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-[var(--accent)]">
+            {t("sharePage.brand", locale)}
+          </p>
+          <h1 className="mt-2 text-xl font-semibold tracking-tight text-[var(--text-primary)]">
             {errorMessage ? t("sharePage.errorTitle", locale) : share?.entryType === "DIRECTORY" ? t("sharePage.directoryTitle", locale) : t("sharePage.fileTitle", locale)}
           </h1>
         </div>
@@ -64,7 +71,7 @@ export default async function SharePage({
               />
             )}
 
-            <div className="rounded-lg border border-[var(--border)] bg-[var(--surface)]/[0.04] p-4">
+            <div className="rounded-2xl border border-[var(--border)] bg-[var(--surface-elevated)] p-4">
               <p className="break-all text-base font-medium text-[var(--text-primary)]">
                 {share.name || share.path}
               </p>
@@ -102,7 +109,8 @@ export default async function SharePage({
             {!share.hasPassword && share.entryType !== "DIRECTORY" && (
               <a
                 href={`/api/share/${encodeURIComponent(token)}`}
-                className="block rounded-lg bg-[var(--color-action-strong)] px-4 py-3 text-center text-sm font-medium text-[var(--text-primary)] transition hover:bg-[var(--color-action)]"
+                data-primary
+                className="block rounded-xl bg-[var(--accent)] px-4 py-3 text-center text-sm font-semibold text-white transition hover:bg-[var(--accent-hover)]"
               >
                 {t("sharePage.downloadFile", locale)}
               </a>

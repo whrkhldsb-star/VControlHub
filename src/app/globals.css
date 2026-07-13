@@ -1263,3 +1263,155 @@ html.light .hover\:bg-emerald-500\/10:hover { background-color: var(--success-bg
 	border-color: var(--accent-border);
 	color: var(--accent);
 }
+
+/* ============================================================
+ * FE-UI Round 2 — site-wide surface / form / panel polish
+ * Applies across all pages without per-page rewrites.
+ * ============================================================ */
+
+/* Soft panels used by many list clients (legacy opacity surfaces) */
+:root main .rounded-2xl.border,
+:root main .rounded-xl.border {
+	border-color: var(--border) !important;
+	background-image: linear-gradient(
+		160deg,
+		color-mix(in srgb, var(--surface-elevated) 28%, var(--surface)),
+		var(--surface) 70%
+	);
+	box-shadow: var(--shadow-sm);
+}
+
+/* Keep pure utility chips/pills from becoming heavy "cards" */
+:root main .rounded-full.border {
+	box-shadow: none !important;
+	background-image: none !important;
+}
+
+/* Primary content stacks: slightly airier rhythm */
+:root main .space-y-6 > * + * {
+	margin-top: 1.35rem;
+}
+:root main .space-y-4 > * + * {
+	margin-top: 1rem;
+}
+
+/* Standard text inputs / selects / textareas inside main */
+:root main input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="file"]):not([type="hidden"]):not([type="submit"]):not([type="button"]),
+:root main select,
+:root main textarea {
+	border-radius: var(--radius-md);
+	border-color: var(--input-border);
+	background-color: var(--input-bg);
+	color: var(--text-primary);
+	transition: border-color 0.15s ease, box-shadow 0.15s ease, background-color 0.15s ease;
+}
+:root main input::placeholder,
+:root main textarea::placeholder {
+	color: var(--text-disabled);
+}
+
+/* Secondary action buttons that are only border+hover utilities */
+:root main button.rounded-lg.border,
+:root main a.rounded-lg.border {
+	transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease, box-shadow 0.15s ease;
+}
+:root main button.rounded-lg.border:hover,
+:root main a.rounded-lg.border:hover {
+	border-color: var(--border-strong);
+	background-color: color-mix(in srgb, var(--surface-hover) 70%, transparent);
+}
+
+/* Tab strips / filter chips */
+:root main [role="tablist"],
+:root main [data-tabs] {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 0.35rem;
+	padding: 0.35rem;
+	border-radius: var(--radius-xl);
+	border: 1px solid var(--border-subtle);
+	background: color-mix(in srgb, var(--surface) 80%, transparent);
+}
+
+/* List / table containers */
+:root main .overflow-x-auto,
+:root main .overflow-auto {
+	border-radius: var(--radius-lg);
+}
+:root main table {
+	font-size: 0.875rem;
+}
+:root main tbody tr {
+	transition: background-color 0.12s ease;
+}
+
+/* Dialog / modal surfaces already have role=dialog rules; strengthen overlay feel */
+:root [role="dialog"] {
+	backdrop-filter: none;
+}
+:root [data-modal-overlay],
+:root .fixed.inset-0.bg-black\/60,
+:root .fixed.inset-0.bg-black\/50 {
+	backdrop-filter: blur(4px);
+}
+
+/* Public / standalone pages (login, status, share, offline, not-found) */
+:root body > main > main,
+:root body > main:has(> .min-h-screen) {
+	/* keep nested full-bleed pages full width */
+}
+
+/* Stat grids common pattern */
+:root main .grid[class*="grid-cols"] > article,
+:root main .grid[class*="grid-cols"] > [data-card],
+:root main .grid[class*="grid-cols"] > [data-stat-card] {
+	min-height: 5.5rem;
+}
+
+/* Labels above fields */
+:root main label.text-xs,
+:root main label.text-sm,
+:root main label .text-xs {
+	letter-spacing: 0.01em;
+}
+
+/* Danger / warning / success callouts */
+:root main [data-state-box="danger"],
+:root main [role="alert"] {
+	border-radius: var(--radius-lg);
+}
+
+/* Reduce double borders on nested rounded panels */
+:root main .rounded-2xl.border .rounded-2xl.border,
+:root main .rounded-xl.border .rounded-xl.border {
+	box-shadow: none;
+	background-image: none;
+	background-color: color-mix(in srgb, var(--surface-elevated) 55%, transparent);
+}
+
+/* Sticky toolbars / filter bars inside clients */
+:root main .sticky {
+	backdrop-filter: blur(10px);
+}
+
+/* Code / mono fields */
+:root main .font-mono,
+:root main code {
+	font-feature-settings: "ss01", "tnum";
+}
+
+/* Mobile: less aggressive hover lift */
+@media (hover: none) {
+	:root article:hover,
+	:root [data-card]:hover {
+		transform: none;
+		box-shadow: var(--shadow-sm);
+	}
+}
+
+/* Light theme: panels stay crisp on white page bg */
+html.light main .rounded-2xl.border,
+html.light main .rounded-xl.border {
+	background-image: linear-gradient(180deg, #ffffff, #f8fafc 100%);
+	box-shadow: var(--shadow-sm);
+}
