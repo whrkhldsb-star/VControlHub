@@ -639,6 +639,9 @@ make logs SERVICE_PREFIX=vcontrolhub
 
 ### 2026-07-13 UX 走查 + 主题一致性 + 移动端（FE-UI Round 8）
 
+真实账号路径验收（登录→VPS→文件→下载→审批）：见 [`docs/path-walkthrough-checklist.md`](docs/path-walkthrough-checklist.md)；无登录网关冒烟：`bash scripts/path-walkthrough-smoke.sh`。
+
+
 | 方向 | 改动 |
 |---|---|
 | **真实路径 UX** | 请求审批区更紧凑；Toast 避开底栏；PageShell/主区预留 bottom-nav + safe-area |
