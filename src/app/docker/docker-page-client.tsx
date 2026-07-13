@@ -238,7 +238,7 @@ export default function DockerPage() {
 			<PageHeader eyebrow={t("dockerPage.eyebrow")} title={t("dockerPage.title")} description={t("dockerPage.desc")} />
 			<section
 				aria-labelledby="docker-scope-title"
-				data-tone="amber" className="mb-4 rounded-2xl border border-[var(--warning-border)] p-4 text-sm text-[var(--warning)] light:border-[var(--warning-border)] light:bg-[var(--warning)]"
+				className="mb-4 rounded-2xl border border-[var(--warning-border)] bg-[color-mix(in_srgb,var(--warning-bg)_45%,var(--surface))] p-4 text-sm text-[var(--warning)]"
 			>
 				<h2 id="docker-scope-title" className="text-sm font-semibold">{t("dockerPage.scope.title")}</h2>
 				<p className="mt-1 leading-relaxed">
@@ -248,20 +248,18 @@ export default function DockerPage() {
 					{scopeSocketText}
 				</p>
 			</section>
-			<div className="flex flex-wrap items-center gap-3 text-xs text-[var(--text-muted)] mb-6">
-				<span>{t("dockerPage.toolbar.compose")}</span>
-				<span className="text-[var(--text-muted)]">·</span>
-				<span>{t("dockerPage.toolbar.groupCount").replace("{count}", String(projectCount))}</span>
-				<span className="text-[var(--text-muted)]">·</span>
-				<span>{t("dockerPage.toolbar.ungroupedCount").replace("{count}", String(ungrouped.length))}</span>
+			<div data-toolbar className="mb-4 flex flex-wrap items-center gap-2 p-2.5 text-xs text-[var(--text-muted)]">
+				<span className="rounded-full border border-[var(--border-subtle)] bg-[var(--surface-elevated)] px-2.5 py-1 font-medium text-[var(--text-secondary)]">{t("dockerPage.toolbar.compose")}</span>
+				<span className="rounded-full border border-[var(--border-subtle)] bg-[var(--surface)] px-2.5 py-1">{t("dockerPage.toolbar.groupCount").replace("{count}", String(projectCount))}</span>
+				<span className="rounded-full border border-[var(--border-subtle)] bg-[var(--surface)] px-2.5 py-1">{t("dockerPage.toolbar.ungroupedCount").replace("{count}", String(ungrouped.length))}</span>
 			</div>
-			<div className="flex flex-wrap items-center gap-3 mb-6">
+			<div className="mb-6 flex flex-wrap items-center gap-2">
 				<button
 					onClick={() => {
 						setLoading(true);
 						void fetchContainers();
 					}}
-					className="min-h-11 px-3 py-1.5 text-xs font-medium bg-[var(--color-action)]/10 text-[var(--color-action)] rounded-lg hover:bg-[var(--color-action)]/20 transition"
+					className="min-h-11 rounded-xl bg-[var(--accent-bg)] px-3 py-1.5 text-xs font-semibold text-[var(--accent)] transition hover:bg-[var(--accent-hover)] hover:text-white"
 				>
 					{t("dockerPage.refresh.list")}
 				</button>
@@ -269,14 +267,14 @@ export default function DockerPage() {
 					onClick={() => {
 						for (const container of runningContainers) void fetchStats(container.Id);
 					}}
-					className="min-h-11 px-3 py-1.5 text-xs font-medium bg-[var(--accent-bg)] text-[var(--accent)] rounded-lg hover:bg-[var(--accent-bg)] transition"
+					className="min-h-11 rounded-xl border border-[var(--border)] bg-[var(--surface-elevated)] px-3 py-1.5 text-xs font-medium text-[var(--text-secondary)] transition hover:bg-[var(--surface-hover)]"
 				>
 					{t("dockerPage.refresh.stats")}
 				</button>
 				<button
 					onClick={() => setStatsAutoRefresh((v) => !v)}
 					disabled={refreshIntervalSeconds <= 0 || runningContainers.length === 0}
-					className={`min-h-11 px-3 py-1.5 text-xs font-medium rounded-lg transition disabled:cursor-not-allowed disabled:opacity-50 ${statsAutoRefresh ? "bg-[var(--success-bg)] text-[var(--success)]" : "bg-[var(--surface-hover)]/50 text-[var(--text-muted)]"}`}
+					className={`min-h-11 rounded-xl px-3 py-1.5 text-xs font-medium transition disabled:cursor-not-allowed disabled:opacity-50 ${statsAutoRefresh ? "border border-[var(--success-border)] bg-[var(--success-bg)] text-[var(--success)]" : "border border-[var(--border)] bg-[var(--surface-elevated)] text-[var(--text-muted)]"}`}
 				>
 					{statsAutoRefresh
 						? t("dockerPage.autoRefreshOn").replace("{label}", refreshLabel)
@@ -286,7 +284,7 @@ export default function DockerPage() {
 				</button>
 			</div>
 
-			{error && <div className="mb-4 text-sm text-[var(--danger)] bg-[var(--danger-bg)] rounded-lg px-4 py-3">{error}</div>}
+			{error && <div className="mb-4 rounded-xl border border-[var(--danger-border)] bg-[var(--danger-bg)] px-4 py-3 text-sm text-[var(--danger)]">{error}</div>}
 
 			<DockerResourcesPanel />
 
@@ -308,24 +306,24 @@ export default function DockerPage() {
 								{group.containers.map((c) => {
 									const stat = stats[c.Id];
 									return (
-										<div key={c.Id} className="rounded-lg border border-[var(--border)] bg-[var(--input-bg)] p-4">
-											<div className="flex items-center justify-between gap-3 mb-2">
-												<div className="flex items-center gap-3 min-w-0">
-													<span className={`text-[10px] px-2 py-0.5 rounded-full font-medium ${stateColors[c.State] || "bg-[var(--surface-hover)]/50 text-[var(--text-muted)]"}`}>
+										<div key={c.Id} className="rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-subtle)] p-4">
+											<div className="mb-2 flex items-center justify-between gap-3">
+												<div className="flex min-w-0 items-center gap-3">
+													<span className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${stateColors[c.State] || "bg-[var(--surface-hover)]/50 text-[var(--text-muted)]"}`}>
 														{stateLabel(t, c.State)}
 													</span>
-													<span className="text-sm font-medium text-[var(--text-primary)] truncate">{(c.Names?.[0] || c.Id?.slice(0, 12)).replace(/^\//, "")}</span>
+													<span className="truncate text-sm font-medium text-[var(--text-primary)]">{(c.Names?.[0] || c.Id?.slice(0, 12)).replace(/^\//, "")}</span>
 												</div>
-												<span className="text-[10px] text-[var(--text-muted)] truncate ml-3">{c.Image}</span>
+												<span className="ml-3 truncate text-[10px] text-[var(--text-muted)]">{c.Image}</span>
 											</div>
-											<div className="flex flex-wrap items-center gap-2 text-[11px] text-[var(--text-muted)] mb-3">
+											<div className="mb-3 flex flex-wrap items-center gap-2 text-[11px] text-[var(--text-muted)]">
 												<span>{c.Status}</span>
 												{c.Labels?.["com.docker.compose.service"] ? <span>{t("dockerPage.label.service").replace("{name}", c.Labels["com.docker.compose.service"])}</span> : null}
 												{c.Labels?.["com.docker.compose.version"] ? <span>{t("dockerPage.label.version").replace("{version}", c.Labels["com.docker.compose.version"])}</span> : null}
 											</div>
 											{stat && (
 												<div className="mb-3 grid grid-cols-2 gap-2 text-[11px] md:grid-cols-4">
-													<div className="rounded-lg bg-[var(--color-action)]/10 px-2 py-1.5 text-[var(--color-action)]">{t("dockerPage.stat.cpu").replace("{percent}", stat.cpuPercent.toFixed(1))}</div>
+													<div className="rounded-lg bg-[var(--accent-bg)] px-2 py-1.5 text-[var(--accent)]">{t("dockerPage.stat.cpu").replace("{percent}", stat.cpuPercent.toFixed(1))}</div>
 													<div className="rounded-lg bg-[var(--accent-bg)] px-2 py-1.5 text-[var(--accent)]">{t("dockerPage.stat.memory").replace("{used}", formatBytes(stat.memoryUsageBytes)).replace("{percent}", stat.memoryPercent.toFixed(1))}</div>
 													<div className="rounded-lg bg-[var(--success-bg)] px-2 py-1.5 text-[var(--success)]">{t("dockerPage.stat.netRx").replace("{bytes}", formatBytes(stat.networkRxBytes))}</div>
 													<div className="rounded-lg bg-[var(--warning-bg)] px-2 py-1.5 text-[var(--warning)]">{t("dockerPage.stat.netTx").replace("{bytes}", formatBytes(stat.networkTxBytes))}</div>
@@ -356,17 +354,17 @@ export default function DockerPage() {
 							<h2 className="text-sm font-medium text-[var(--text-primary)] mb-3">{t("dockerPage.ungrouped.title")}</h2>
 							<div className="space-y-3">
 								{ungrouped.map((c) => (
-									<div key={c.Id} className="rounded-lg border border-[var(--border)] bg-[var(--input-bg)] p-4">
-										<div className="flex items-center justify-between gap-3 mb-2">
-											<div className="flex items-center gap-3 min-w-0">
-												<span className={`text-[10px] px-2 py-0.5 rounded-full font-medium ${stateColors[c.State] || "bg-[var(--surface-hover)]/50 text-[var(--text-muted)]"}`}>
+									<div key={c.Id} className="rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-subtle)] p-4">
+										<div className="mb-2 flex items-center justify-between gap-3">
+											<div className="flex min-w-0 items-center gap-3">
+												<span className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${stateColors[c.State] || "bg-[var(--surface-hover)]/50 text-[var(--text-muted)]"}`}>
 													{stateLabel(t, c.State)}
 												</span>
-												<span className="text-sm font-medium text-[var(--text-primary)] truncate">{(c.Names?.[0] || c.Id?.slice(0, 12)).replace(/^\//, "")}</span>
+												<span className="truncate text-sm font-medium text-[var(--text-primary)]">{(c.Names?.[0] || c.Id?.slice(0, 12)).replace(/^\//, "")}</span>
 											</div>
-											<span className="text-[10px] text-[var(--text-muted)] truncate ml-3">{c.Image}</span>
+											<span className="ml-3 truncate text-[10px] text-[var(--text-muted)]">{c.Image}</span>
 										</div>
-										<div className="flex flex-wrap items-center gap-2 text-[11px] text-[var(--text-muted)] mb-3">
+										<div className="mb-3 flex flex-wrap items-center gap-2 text-[11px] text-[var(--text-muted)]">
 											<span>{c.Status}</span>
 										</div>
 										<div className="flex flex-wrap items-center gap-2">

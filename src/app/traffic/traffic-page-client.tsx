@@ -69,19 +69,19 @@ type TrafficHistoryPoint = TrafficSample & {
 
 function Card({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <section className="rounded-2xl border border-[var(--border)] bg-[var(--surface)]/[0.04] p-5">
-      <h2 className="mb-4 text-sm font-medium text-[var(--text-secondary)]">{title}</h2>
+    <section data-card className="p-5">
+      <h2 className="mb-4 text-sm font-semibold text-[var(--text-primary)]">{title}</h2>
       {children}
     </section>
   );
 }
 
 function RateBadge({ label, value, color }: { label: string; value: string; color: "cyan" | "emerald" }) {
-  const styles = color === "cyan" ? "bg-[var(--color-action)]/10 text-[var(--color-action)]" : "bg-[var(--success-bg)] text-[var(--success)]";
+  const styles = color === "cyan" ? "border border-[var(--accent-border)] bg-[var(--accent-bg)] text-[var(--accent)]" : "border border-[var(--success-border)] bg-[var(--success-bg)] text-[var(--success)]";
   return (
-    <div className={`rounded-xl px-4 py-3 ${styles}`}>
-      <div className="text-[11px] opacity-70">{label}</div>
-      <div className="mt-1 text-lg font-semibold tabular-nums">{value}</div>
+    <div className={`rounded-2xl px-4 py-3 ${styles}`}>
+      <div className="text-[11px] font-medium opacity-80">{label}</div>
+      <div className="mt-1 text-lg font-semibold tabular-nums tracking-tight">{value}</div>
     </div>
   );
 }

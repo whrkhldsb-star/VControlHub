@@ -25,8 +25,8 @@ interface Stats {
 /** Card wrapper — extracted to module top to avoid re-creation on every render */
 function Card({ title, children }: { title: string; children: React.ReactNode }) {
   return (
- <div data-card className="">
-      <h3 className="mb-3 text-xs font-medium text-[var(--text-muted)]">{title}</h3>
+    <div data-card className="p-4">
+      <h3 className="mb-3 text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--text-muted)]">{title}</h3>
       {children}
     </div>
   );
@@ -174,7 +174,7 @@ export default function MonitoringPage({ canManage: _canManage }: { canManage: b
   if (!stats) {
     return (
       <PageShell>
-        <div data-tone="rose" className="rounded-2xl border border-[var(--danger-border)] p-5 text-sm text-[var(--danger)]">
+        <div className="rounded-2xl border border-[var(--danger-border)] bg-[var(--danger-bg)] p-5 text-sm text-[var(--danger)]">
           <h1 className="mb-2 text-xl font-semibold text-[var(--danger)]">{t("monitoringPage.errorTitle")}</h1>
           <p className="text-[var(--danger)]/80">{errorMessage ?? t("monitoringPage.errorUnavailable")}</p>
           <button
@@ -207,17 +207,17 @@ export default function MonitoringPage({ canManage: _canManage }: { canManage: b
       />
 
       {errorMessage ? (
-        <div data-tone="amber" className="mb-4 rounded-xl border border-[var(--warning-border)] px-4 py-3 text-xs text-[var(--warning)]">
+        <div className="mb-4 rounded-xl border border-[var(--warning-border)] bg-[var(--warning-bg)] px-4 py-3 text-xs text-[var(--warning)]">
           {t("monitoringPage.lastRefreshFailed").replace("{message}", errorMessage)}
         </div>
       ) : null}
 
-      <div className="mb-6 flex items-center gap-3">
+      <div className="mb-6 flex flex-wrap items-center gap-3" data-toolbar>
         <button
           type="button"
           onClick={fetchStats}
           disabled={refreshing}
-          className="rounded-lg bg-[var(--color-action)]/10 px-3 py-1.5 text-xs font-medium text-[var(--color-action)] transition hover:bg-[var(--color-action)]/20 disabled:cursor-not-allowed disabled:opacity-60"
+          className="rounded-xl bg-[var(--accent-bg)] px-3 py-1.5 text-xs font-semibold text-[var(--accent)] transition hover:bg-[var(--accent-hover)] hover:text-white disabled:cursor-not-allowed disabled:opacity-60"
         >
           {refreshing ? t("monitoringPage.refreshing") : t("monitoringPage.refresh")}
         </button>
@@ -225,7 +225,7 @@ export default function MonitoringPage({ canManage: _canManage }: { canManage: b
           type="button"
           onClick={() => setAutoRefresh(!autoRefresh)}
           disabled={refreshIntervalSeconds <= 0}
-          className={`rounded-lg px-3 py-1.5 text-xs font-medium transition disabled:cursor-not-allowed disabled:opacity-50 ${autoRefresh ?"bg-[var(--success-bg)] text-[var(--success)]" :"bg-[var(--surface-hover)]/50 light:bg-[var(--surface)] text-[var(--text-muted)]"}`}
+          className={`rounded-xl px-3 py-1.5 text-xs font-medium transition disabled:cursor-not-allowed disabled:opacity-50 ${autoRefresh ? "border border-[var(--success-border)] bg-[var(--success-bg)] text-[var(--success)]" : "border border-[var(--border)] bg-[var(--surface-elevated)] text-[var(--text-muted)]"}`}
         >
           {autoRefreshLabel}
         </button>
@@ -262,7 +262,7 @@ export default function MonitoringPage({ canManage: _canManage }: { canManage: b
             </div>
             <div className="h-1.5 overflow-hidden rounded-full bg-[var(--surface-hover)]">
               <div
-                className="h-full rounded-full bg-[var(--color-action)] transition-[width]"
+                className="h-full rounded-full bg-[var(--accent)] transition-[width]"
                 style={{ width: `${stats.memory.usagePercent}%` }}
               />
             </div>
@@ -303,7 +303,7 @@ export default function MonitoringPage({ canManage: _canManage }: { canManage: b
                 <tr key={p.pid} className="border-b border-[var(--border)]">
                   <td className="py-1.5 font-mono text-[var(--text-muted)]">{p.pid}</td>
                   <td className="py-1.5 text-right text-[var(--warning)]">{p.cpu}</td>
-                  <td className="py-1.5 text-right text-[var(--color-action)]">{p.mem}</td>
+                  <td className="py-1.5 text-right text-[var(--accent)]">{p.mem}</td>
                   <td className="max-w-[200px] truncate py-1.5 pl-4 text-[var(--text-primary)]">{p.cmd}</td>
                 </tr>
               ))}
