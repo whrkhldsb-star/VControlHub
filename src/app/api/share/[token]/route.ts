@@ -73,10 +73,13 @@ export async function GET(
 
 	let share: Awaited<ReturnType<typeof resolveShareToken>>;
 	try {
-		const { password } = parseSearchParams(
+		const { password: queryPassword } = parseSearchParams(
 			request,
 			z.object({ password: z.string().min(1).max(128).optional() }),
 		);
+		// Prefer header so clients can avoid putting secrets in URLs / access logs.
+		const headerPassword = request.headers.get("x-share-password")?.trim() || undefined;
+		const password = headerPassword || queryPassword;
 		if (password) {
 			const passwordLimit = await withRateLimit(
 				new Request(request.url, { headers: { "x-forwarded-for": `${clientIp}:share:${token}` } }),

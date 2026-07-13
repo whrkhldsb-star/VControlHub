@@ -519,7 +519,50 @@ make logs SERVICE_PREFIX=vcontrolhub
 | OPEN-5 | 产品 | Share 旧 SHA 分支 | 透明升级已上线；需报表 + 窗口后删兼容 |
 | OPEN-6 | 范围外 | 全浏览器 E2E / DAST / 压测 / 不可逆生产实测 | 见审查边界 |
 
-##### 补扫确认（防漏项）
+### 2026-07-12 前端专项扫描
+
+> 范围：约 230 个 `"use client"` 组件、表单、预览 XSS 面、轮询/定时器、密码字段、公开分享 UI。后端 API 扫描见上文；本节约前端。
+
+#### 扫描方法
+
+| 维度 | 方法 |
+|---|---|
+| XSS | `dangerouslySetInnerHTML` / `innerHTML` / `eval` / markdown 渲染 |
+| 敏感信息 | localStorage 键、密码是否进 URL/history |
+| 网络 | 客户端 `fetch` vs `csrfFetch`、`.ok` 检查 |
+| 状态 | `setInterval` 清理、visibility 轮询、假成功 |
+| a11y 基线 | icon button aria、password autocomplete、confirm 对话框 |
+
+#### 已修复
+
+| ID | 严重度 | 内容 |
+|---|---|---|
+| FE-1 | **HIGH** | 公开分享密码门：原先用 `<a href="...?password=">` 把密码放进 URL（历史/日志/Referer 泄露）。改为 `fetch` + `X-Share-Password` 头下载；API 支持 header，query 仍兼容旧书签 |
+| FE-2 | LOW | 用户创建/重置、AI API Key、SSH 密钥口令等密码框补 `autoComplete` |
+
+#### 扫描结论（未发现其它 CRITICAL）
+
+| 区域 | 结论 |
+|---|---|
+| XSS 预览 | markdown 经 `sanitizeHtml`；代码高亮先 `escapeHtml`；AI markdown 用 React 节点 + escape，外链 `rel=noopener noreferrer` |
+| `eval` / `document.write` | 未发现 |
+| localStorage | 偏好/主题/SSH 收藏命令等，无 session/token 密钥 |
+| `target=_blank` | 未发现缺 `rel` 的问题样本 |
+| 轮询 | `useVisibilityInterval` / monitoring SSE fallback 有 cleanup；`auto-probe-context` 的 setInterval 为误报（setter 名） |
+| 危险 confirm | 未发现裸 `window.confirm`（已统一 ConfirmDialog 方向） |
+| error.tsx | 主要路由段均有 `error.tsx`（约 48 个） |
+| 客户端 GET fetch | 预览/搜索/监控等只读路径用 `fetch` 合理；写操作普遍 `csrfFetch` |
+| icon-only 按钮 | 启发式 0 个无 aria-label |
+
+#### 有意接受 / 后续（前端）
+
+| ID | 项 | 说明 |
+|---|---|---|
+| FE-OPEN-1 | 全量视觉/交互 E2E | Chromium 主路径已有 Playwright；非本轮全矩阵 |
+| FE-OPEN-2 | 大型 Client 拆分 | 见架构升级路线 P0 |
+| FE-OPEN-3 | 部分表单仅 id 无 name 的受控组件 | 走 API JSON，非原生 form POST，可接受 |
+
+##### 补扫确认（防漏项 · 后端）
 
 在第三轮主扫之后又做了一轮**防漏补扫**，结论如下（均不构成新的未记录 CRITICAL）：
 
@@ -536,7 +579,7 @@ make logs SERVICE_PREFIX=vcontrolhub
 | 密钥入库 | 仓库仅 `.env.example`，无跟踪私钥/真实 env |
 | 已知残留 OPEN | Sync `accept-new`（OPEN-2）、未 pin TOFU（OPEN-1）、download 非 CAS（OPEN-3）等已在上表 |
 
-**结论**：服务端高/中优先级安全与一致性问题已在 BE-1…BE-25 覆盖；剩余项均为产品边界、引导路径或范围外验证，**未发现扫描漏掉的新 CRITICAL/HIGH 未修缺陷**。
+**结论**：服务端高/中优先级安全与一致性问题已在 BE-1…BE-25 覆盖；前端 FE-1 已修；剩余项均为产品边界、引导路径或范围外验证，**未发现扫描漏掉的新 CRITICAL/HIGH 未修缺陷**。
 
 #### 有意未做 / 待迁移窗口（不要误当“漏修”）
 

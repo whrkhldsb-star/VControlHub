@@ -119,6 +119,7 @@ export function SshKeyCreateForm() {
           id="passphrase"
           name="passphrase"
           type="password"
+          autoComplete="new-password"
           placeholder={t("serversPage.sshKeyCreate.passphrasePlaceholder")}
           className="w-full rounded-lg border border-[var(--border)] bg-[var(--surface)]/[0.04] px-3.5 py-2.5 text-sm text-[var(--text-primary)] outline-none transition placeholder:text-[var(--text-primary)]/30 focus:border-[var(--color-action-border)]/30 focus:bg-[var(--surface)]/[0.10]"
         />{" "}
@@ -138,6 +139,7 @@ export function SshKeyCreateForm() {
           id="ppkPassphrase"
           name="ppkPassphrase"
           type="password"
+          autoComplete="new-password"
           placeholder={t("serversPage.sshKeyCreate.ppkPassphrasePlaceholder")}
           className="w-full rounded-lg border border-[var(--border)] bg-[var(--surface)]/[0.04] px-3.5 py-2.5 text-sm text-[var(--text-primary)] outline-none transition placeholder:text-[var(--text-primary)]/30 focus:border-[var(--color-action-border)]/30 focus:bg-[var(--surface)]/[0.10]"
         />{" "}

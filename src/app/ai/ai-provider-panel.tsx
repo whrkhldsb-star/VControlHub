@@ -236,6 +236,7 @@ export function AiProviderPanel({
                 <div className="col-span-2 max-sm:col-span-1">
                   <label className="text-[10px] text-[var(--text-muted)]" htmlFor="ai-provider-edit-key">API Key</label>
                   <input id="ai-provider-edit-key" type="password" value={editForm.apiKey} onChange={(e) => setEditForm((f) => f ? ({ ...f, apiKey: e.target.value }) : f)} placeholder={t("aiPage.apiKeyPlaceholder")} className="w-full mt-1 bg-[var(--input-bg)] border border-[var(--border)] rounded-lg px-2.5 py-1.5 text-xs text-[var(--text-primary)] font-mono" />
+                  autoComplete="off"
                 </div>
                 <div>
                   <label className="text-[10px] text-[var(--text-muted)]" htmlFor="ai-provider-edit-base-url">Base URL</label>
@@ -273,6 +274,7 @@ export function AiProviderPanel({
                 <div className="col-span-2 max-sm:col-span-1">
                   <label className="text-[10px] text-[var(--text-muted)]" htmlFor="ai-provider-key">API Key</label>
                   <input id="ai-provider-key" type="password" value={provForm.apiKey} onChange={(e) => setProvForm((f) => ({ ...f, apiKey: e.target.value }))} placeholder="sk-..." className="w-full mt-1 bg-[var(--input-bg)] border border-[var(--border)] rounded-lg px-2.5 py-1.5 text-xs text-[var(--text-primary)] font-mono" />
+                  autoComplete="off"
                 </div>
                 <div>
                   <label className="text-[10px] text-[var(--text-muted)]" htmlFor="ai-provider-base-url">Base URL</label>

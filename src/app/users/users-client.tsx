@@ -218,6 +218,7 @@ export function UserManagementClient({ canManage = false, currentUserId = "" }: 
               <input
                 id="createUserPassword"
                 type="password"
+                autoComplete="new-password"
                 value={createForm.password}
                 onChange={(e) => setCreateForm((p) => ({ ...p, password: e.target.value }))}
                 className="w-full rounded-2xl border border-[var(--border)] bg-[var(--input-bg)] px-4 py-2 text-sm text-[var(--text-primary)] focus:border-[var(--color-action-border)]/50 focus:outline-none"
@@ -371,6 +372,7 @@ export function UserManagementClient({ canManage = false, currentUserId = "" }: 
             </p>
             <input
               type="password"
+              autoComplete="new-password"
               aria-label={t("usersPage.form.passwordPlaceholder")}
               value={resetPasswordValue}
               onChange={(e) => setResetPasswordValue(e.target.value)}
