@@ -61,14 +61,21 @@ export default async function ServersPage() {
 				</div>
 			</PageHeader>
 
-			<section className="grid gap-3 sm:grid-cols-3 mb-8">
+			<section className="grid gap-3 sm:grid-cols-3 mb-6">
 				<StatCard label={t("serversPage.stat.total")} value={String(servers.length)} />
-				<StatCard label={t("serversPage.stat.enabled")} value={String(enabledCount)} accent={enabledCount > 0} />
-				<StatCard label={t("serversPage.stat.storage")} value={String(storageCount)} accent={storageCount > 0} />
+				<StatCard label={t("serversPage.stat.enabled")} value={String(enabledCount)} accent={enabledCount > 0} accentColor="emerald" />
+				<StatCard label={t("serversPage.stat.storage")} value={String(storageCount)} accent={storageCount > 0} accentColor="cyan" />
 			</section>
-			<section data-tone="cyan" className="mb-4 rounded-xl border border-[var(--color-action-border)]/15 p-4">
-				<h2 className="text-sm font-medium text-[var(--text-primary)]">{t("serversPage.statusPriority.title")}</h2>
-				<p className="mt-1 text-xs text-[var(--text-muted)]">{t("serversPage.statusPriority.desc")}</p>
+			<section className="mb-5 rounded-2xl border border-[var(--border)] bg-[color-mix(in_srgb,var(--accent-bg)_45%,var(--surface))] px-4 py-3.5">
+				<div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
+					<div>
+						<h2 className="text-sm font-semibold text-[var(--text-primary)]">{t("serversPage.statusPriority.title")}</h2>
+						<p className="mt-0.5 text-xs leading-5 text-[var(--text-muted)]">{t("serversPage.statusPriority.desc")}</p>
+					</div>
+					<span className="mt-2 inline-flex w-fit items-center rounded-full border border-[var(--accent-border)] bg-[var(--surface)] px-2.5 py-1 text-[11px] font-medium text-[var(--accent)] sm:mt-0">
+						{enabledCount}/{servers.length} online
+					</span>
+				</div>
 			</section>
 
 			<SshTerminalProvider>

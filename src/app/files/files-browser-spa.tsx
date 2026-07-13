@@ -129,14 +129,14 @@ export function FilesBrowserSpa({
   );
 
   return (
-    <section className="mt-8 grid min-w-0 gap-8 xl:grid-cols-[360px_minmax(0,1fr)]">
+    <section className="mt-8 grid min-w-0 gap-6 xl:grid-cols-[300px_minmax(0,1fr)]">
       {/* Mobile-only sidebar toggle (hidden on xl+) */}
       <button
         type="button"
         onClick={() => setMobileSidebarOpen((value) => !value)}
         aria-expanded={mobileSidebarOpen}
         aria-controls="files-browser-sidebar"
-        className="flex min-h-11 w-full items-center justify-between rounded-2xl border border-[var(--border)] bg-[var(--surface)] px-4 py-2 text-sm font-medium text-[var(--text-primary)] hover:bg-[var(--surface-hover)] light:bg-[var(--surface)] light:hover:bg-[var(--surface-hover)] xl:hidden"
+        className="flex min-h-11 w-full items-center justify-between rounded-2xl border border-[var(--border)] bg-[var(--surface)] px-4 py-2 text-sm font-medium text-[var(--text-primary)] hover:bg-[var(--surface-hover)] xl:hidden"
       >
         <span>{mobileSidebarOpen ? t("filesBrowserSpa.collapseDirectoryTree") : t("filesBrowserSpa.expandDirectoryTree")}</span>
         <span aria-hidden="true" className="text-xs">
@@ -147,14 +147,14 @@ export function FilesBrowserSpa({
       <aside
         id="files-browser-sidebar"
         aria-label={t("filesBrowserSpa.sidebarAria")}
-        className={`w-full min-w-0 self-start rounded-3xl border border-[var(--border)] bg-[var(--surface)] p-6 xl:sticky xl:top-6 ${
+        className={`w-full min-w-0 self-start rounded-3xl border border-[var(--border)] bg-[var(--surface)] p-4 shadow-[var(--shadow-sm)] xl:sticky xl:top-6 ${
           mobileSidebarOpen ? "block" : "hidden xl:block"
         }`}
       >
         <div className="flex items-center justify-between gap-3">
           <div>
-            <h2 className="text-2xl font-semibold text-[var(--text-primary)]">{t("filesBrowserSpa.directoryTree")}</h2>
-            <p className="mt-2 text-sm leading-7 text-[var(--text-secondary)]">
+            <h2 className="text-base font-semibold text-[var(--text-primary)]">{t("filesBrowserSpa.directoryTree")}</h2>
+            <p className="mt-1 text-xs leading-5 text-[var(--text-muted)]">
               {t("filesBrowserSpa.hierarchyDescription")}
             </p>
           </div>
@@ -176,18 +176,18 @@ export function FilesBrowserSpa({
           </div>
         ) : null}
 
-        <div className="mt-5 max-h-[28rem] overflow-x-auto overflow-y-auto rounded-2xl border border-[var(--border)] bg-[var(--surface-subtle)] p-4 pr-2">
+        <div className="mt-4 max-h-[28rem] overflow-x-auto overflow-y-auto rounded-2xl border border-[var(--border-subtle)] bg-[var(--surface-subtle)] p-3 pr-2">
           <button
             type="button"
             onClick={() => handleTreeNavigate("")}
-            className={`flex min-h-11 w-full items-center justify-between rounded-2xl px-3 py-2 text-left text-sm ${
+            className={`flex min-h-10 w-full items-center justify-between rounded-xl px-3 py-2 text-left text-sm transition ${
               data.currentPath === ""
-                ? "bg-[var(--color-action-bg)]/10 text-[var(--text-primary)]"
-                : "text-[var(--text-primary)] hover:bg-[var(--surface)]/10"
+                ? "bg-[var(--accent-bg)] font-medium text-[var(--text-primary)]"
+                : "text-[var(--text-primary)] hover:bg-[var(--surface-hover)]"
             }`}
           >
             <span>{t("filesBrowserSpa.allFiles")}</span>
-            <span className="text-xs text-[var(--text-secondary)]/70">
+            <span className="text-xs text-[var(--text-muted)]">
               {data.stats.totalEntries}
             </span>
           </button>
@@ -205,15 +205,15 @@ export function FilesBrowserSpa({
       </aside>
 
       {/* Main content area */}
-      <section className="min-w-0 space-y-8">
+      <section className="min-w-0 space-y-5">
         {/* Search + Toolbar */}
-        <article className="rounded-3xl border border-[var(--border)] bg-[var(--surface)] p-6">
+        <article className="rounded-3xl border border-[var(--border)] bg-[var(--surface)] p-4 shadow-[var(--shadow-sm)] sm:p-5">
           <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
             <div>
-              <h2 className="text-2xl font-semibold text-[var(--text-primary)]">
+              <h2 className="text-lg font-semibold tracking-tight text-[var(--text-primary)]">
                 {currentPathDisplay.title}
                 {loading ? (
-                  <span className="ml-2 text-sm text-[var(--color-action)] animate-pulse">
+                  <span className="ml-2 text-sm text-[var(--accent)] animate-pulse">
                     {t("filesBrowserSpa.loading")}
                   </span>
                 ) : null}

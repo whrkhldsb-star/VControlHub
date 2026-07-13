@@ -243,73 +243,73 @@ export default async function FilesPage({ searchParams }: FilesPageProps) {
         </div>
       </PageHeader>
 
-      <section className="grid gap-3 sm:grid-cols-4 mb-8">
-        <article data-card className=" p-4 hover:bg-[var(--surface)]/[0.10] transition-colors duration-150">
-          <div className="text-xs font-medium text-[var(--text-muted)] uppercase tracking-wider">
-            {t("filesPage.statTotalNodes", locale)}
-          </div>
-          <div className="mt-1.5 text-2xl font-semibold text-[var(--text-primary)]">
-            {storage.stats.totalNodes}
-          </div>
-        </article>
-        <article data-card className=" p-4 hover:bg-[var(--surface)]/[0.10] transition-colors duration-150">
-          <div className="text-xs font-medium text-[var(--text-muted)] uppercase tracking-wider">
-            {t("filesPage.statActiveFiles", locale)}
-          </div>
-          <div className="mt-1.5 text-2xl font-semibold text-[var(--text-primary)]">
-            {storage.stats.totalEntries}
-          </div>
-        </article>
-        <article data-card className=" p-4 hover:bg-[var(--surface)]/[0.10] transition-colors duration-150">
-          <div className="text-xs font-medium text-[var(--text-muted)] uppercase tracking-wider">
-            {t("filesPage.statCurrentDirectory", locale)}
-          </div>
-          <div className="mt-1.5 text-2xl font-semibold text-[var(--text-primary)]">
-            {totalItems}
-          </div>
-        </article>
-        <article data-card className=" p-4 hover:bg-[var(--surface)]/[0.10] transition-colors duration-150">
-          <div className="text-xs font-medium text-[var(--text-muted)] uppercase tracking-wider">
-            {t("filesPage.statRecycleBin", locale)}
-          </div>
-          <div className="mt-1.5 text-2xl font-semibold text-[var(--text-primary)]">
-            {storage.stats.deletedEntries}
-          </div>
-        </article>
-      </section>
+      <section className="mb-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+              <article data-stat-card data-card className="p-4">
+                <div className="text-xs font-medium uppercase tracking-wider text-[var(--text-muted)]">
+                  {t("filesPage.statTotalNodes", locale)}
+                </div>
+                <div className="mt-1.5 text-2xl font-semibold text-[var(--text-primary)]">
+                  {storage.stats.totalNodes}
+                </div>
+              </article>
+              <article data-stat-card data-card className="p-4">
+                <div className="text-xs font-medium uppercase tracking-wider text-[var(--text-muted)]">
+                  {t("filesPage.statActiveFiles", locale)}
+                </div>
+                <div className="mt-1.5 text-2xl font-semibold text-[var(--text-primary)]">
+                  {storage.stats.totalEntries}
+                </div>
+              </article>
+              <article data-stat-card data-card className="p-4">
+                <div className="text-xs font-medium uppercase tracking-wider text-[var(--text-muted)]">
+                  {t("filesPage.statCurrentDirectory", locale)}
+                </div>
+                <div className="mt-1.5 text-2xl font-semibold text-[var(--text-primary)]">
+                  {totalItems}
+                </div>
+              </article>
+              <article data-stat-card data-card className="p-4">
+                <div className="text-xs font-medium uppercase tracking-wider text-[var(--text-muted)]">
+                  {t("filesPage.statRecycleBin", locale)}
+                </div>
+                <div className="mt-1.5 text-2xl font-semibold text-[var(--text-primary)]">
+                  {storage.stats.deletedEntries}
+                </div>
+              </article>
+            </section>
 
-      <section className="mb-8 grid gap-3 lg:grid-cols-3">
-        <Link
-          href="/files?scope=all"
-          data-tone="cyan" className="rounded-xl border border-[var(--color-action-border)]/20 p-4 transition hover:bg-[var(--color-action-bg)]/[0.1]"
-        >
-          <div className="text-sm font-semibold text-[var(--text-primary)]">{t("filesPage.globalSearchTitle", locale)}</div>
-          <p className="mt-1.5 text-sm leading-6 text-[var(--text-secondary)]">
-            {t("filesPage.globalSearchDesc", locale)}
-          </p>
-          <div className="mt-3 text-xs text-[var(--text-secondary)]">{t("filesPage.globalSearchCta", locale)}</div>
-        </Link>
-        <Link
-          href="/files?scope=current"
-          data-card className=" p-4 transition hover:bg-[var(--surface)]/[0.10]"
-        >
-          <div className="text-sm font-semibold text-[var(--text-primary)]">{t("filesPage.currentSearchTitle", locale)}</div>
-          <p className="mt-1.5 text-sm leading-6 text-[var(--text-secondary)]">
-            {t("filesPage.currentSearchDesc", locale)}
-          </p>
-          <div className="mt-3 text-xs text-[var(--text-muted)]">{t("filesPage.currentSearchCta", locale)}</div>
-        </Link>
-        <Link
-          href="/files?tab=recycle"
-          data-card className=" p-4 transition hover:bg-[var(--surface)]/[0.10]"
-        >
-          <div className="text-sm font-semibold text-[var(--text-primary)]">{t("filesPage.recycleTitle", locale)}</div>
-          <p className="mt-1.5 text-sm leading-6 text-[var(--text-secondary)]">
-            {t("filesPage.recycleDesc", locale)}
-          </p>
-          <div className="mt-3 text-xs text-[var(--text-muted)]">{t("filesPage.recycleCta", locale)}</div>
-        </Link>
-      </section>
+            <section className="mb-6 grid gap-3 lg:grid-cols-3">
+              <Link
+                href="/files?scope=all"
+                className="rounded-2xl border border-[var(--accent-border)] bg-[color-mix(in_srgb,var(--accent-bg)_40%,var(--surface))] p-4 transition hover:bg-[var(--accent-bg)]"
+              >
+                <div className="text-sm font-semibold text-[var(--text-primary)]">{t("filesPage.globalSearchTitle", locale)}</div>
+                <p className="mt-1.5 text-sm leading-6 text-[var(--text-secondary)]">
+                  {t("filesPage.globalSearchDesc", locale)}
+                </p>
+                <div className="mt-3 text-xs font-medium text-[var(--accent)]">{t("filesPage.globalSearchCta", locale)}</div>
+              </Link>
+              <Link
+                href="/files?scope=current"
+                data-card className="p-4 transition hover:bg-[var(--surface-elevated)]"
+              >
+                <div className="text-sm font-semibold text-[var(--text-primary)]">{t("filesPage.currentSearchTitle", locale)}</div>
+                <p className="mt-1.5 text-sm leading-6 text-[var(--text-secondary)]">
+                  {t("filesPage.currentSearchDesc", locale)}
+                </p>
+                <div className="mt-3 text-xs text-[var(--text-muted)]">{t("filesPage.currentSearchCta", locale)}</div>
+              </Link>
+              <Link
+                href="/files?tab=recycle"
+                data-card className="p-4 transition hover:bg-[var(--surface-elevated)]"
+              >
+                <div className="text-sm font-semibold text-[var(--text-primary)]">{t("filesPage.recycleTitle", locale)}</div>
+                <p className="mt-1.5 text-sm leading-6 text-[var(--text-secondary)]">
+                  {t("filesPage.recycleDesc", locale)}
+                </p>
+                <div className="mt-3 text-xs text-[var(--text-muted)]">{t("filesPage.recycleCta", locale)}</div>
+              </Link>
+            </section>
 
       <StorageNodeManager
         nodes={storage.nodes}

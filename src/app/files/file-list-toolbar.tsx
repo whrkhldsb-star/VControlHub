@@ -17,6 +17,38 @@ export type FileListToolbarProps = {
   onChangeViewMode: (mode: ViewMode) => void;
 };
 
+function ViewButton({
+  active,
+  label,
+  title,
+  onClick,
+  children,
+}: {
+  active: boolean;
+  label: string;
+  title: string;
+  onClick: () => void;
+  children: React.ReactNode;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      title={title}
+      aria-label={title}
+      aria-pressed={active}
+      className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium transition ${
+        active
+          ? "border border-[var(--accent-border)] bg-[var(--accent-bg)] text-[var(--text-primary)] shadow-sm"
+          : "border border-transparent text-[var(--text-muted)] hover:bg-[var(--surface-hover)] hover:text-[var(--text-primary)]"
+      }`}
+    >
+      {children}
+      <span className="hidden sm:inline">{label}</span>
+    </button>
+  );
+}
+
 export function FileListToolbar({
   itemCount,
   selectedCount,
@@ -25,38 +57,28 @@ export function FileListToolbar({
 }: FileListToolbarProps) {
   const { t } = useI18n();
   return (
-    <div className="flex items-center justify-between bg-[var(--surface)]/[0.04] px-5 py-2.5 border-b border-[var(--border)]">
-      <div className="flex items-center gap-2 text-sm text-[var(--text-muted)]">
-        <span>{t("filesPage.list.itemCount").replace("{count}", String(itemCount))}</span>
+    <div
+      data-toolbar
+      className="flex flex-wrap items-center justify-between gap-2 border-b border-[var(--border)] bg-[color-mix(in_srgb,var(--surface)_92%,transparent)] px-4 py-2.5 sm:px-5"
+    >
+      <div className="flex flex-wrap items-center gap-2 text-sm text-[var(--text-muted)]">
+        <span className="inline-flex items-center rounded-full border border-[var(--border-subtle)] bg-[var(--surface-elevated)] px-2.5 py-0.5 text-xs font-medium text-[var(--text-secondary)]">
+          {t("filesPage.list.itemCount").replace("{count}", String(itemCount))}
+        </span>
         {selectedCount > 0 ? (
-          <span className="text-[var(--color-action)] font-medium">
+          <span className="inline-flex items-center rounded-full border border-[var(--accent-border)] bg-[var(--accent-bg)] px-2.5 py-0.5 text-xs font-semibold text-[var(--accent)]">
             {t("filesPage.list.selectedCount").replace("{count}", String(selectedCount))}
           </span>
         ) : null}
       </div>
       <div className="flex items-center gap-1 rounded-xl border border-[var(--border)] bg-[var(--modal-bg)] p-1">
-        <button
-          type="button"
-          onClick={() => onChangeViewMode("list")}
+        <ViewButton
+          active={viewMode === "list"}
+          label={t("filesPage.list.viewList")}
           title={t("fileListClient.listView")}
-          aria-label={t("fileListClient.listView")}
-          aria-pressed={viewMode === "list"}
-          className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium transition ${
-            viewMode === "list"
-              ? "bg-[var(--color-action-bg)]/20 text-[var(--text-primary)] border border-[var(--color-action-border)]/30 shadow-sm shadow-[var(--color-action)]/10"
-              : "text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:bg-[var(--surface)]/10 border border-transparent"
-          }`}
+          onClick={() => onChangeViewMode("list")}
         >
-          <svg
-            width="14"
-            height="14"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          >
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
             <line x1="8" y1="6" x2="21" y2="6" />
             <line x1="8" y1="12" x2="21" y2="12" />
             <line x1="8" y1="18" x2="21" y2="18" />
@@ -64,66 +86,33 @@ export function FileListToolbar({
             <line x1="3" y1="12" x2="3.01" y2="12" />
             <line x1="3" y1="18" x2="3.01" y2="18" />
           </svg>
-          {t("filesPage.list.viewList")}
-        </button>
-        <button
-          type="button"
-          onClick={() => onChangeViewMode("grid")}
+        </ViewButton>
+        <ViewButton
+          active={viewMode === "grid"}
+          label={t("filesPage.list.viewGrid")}
           title={t("fileListClient.iconView")}
-          aria-label={t("fileListClient.iconView")}
-          aria-pressed={viewMode === "grid"}
-          className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium transition ${
-            viewMode === "grid"
-              ? "bg-[var(--color-action-bg)]/20 text-[var(--text-primary)] border border-[var(--color-action-border)]/30 shadow-sm shadow-[var(--color-action)]/10"
-              : "text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:bg-[var(--surface)]/10 border border-transparent"
-          }`}
+          onClick={() => onChangeViewMode("grid")}
         >
-          <svg
-            width="14"
-            height="14"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          >
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
             <rect x="3" y="3" width="7" height="7" />
             <rect x="14" y="3" width="7" height="7" />
             <rect x="14" y="14" width="7" height="7" />
             <rect x="3" y="14" width="7" height="7" />
           </svg>
-          {t("filesPage.list.viewGrid")}
-        </button>
-        <button
-          type="button"
-          onClick={() => onChangeViewMode("details")}
+        </ViewButton>
+        <ViewButton
+          active={viewMode === "details"}
+          label={t("filesPage.list.viewDetails")}
           title={t("fileListClient.detailView")}
-          aria-label={t("fileListClient.detailView")}
-          aria-pressed={viewMode === "details"}
-          className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium transition ${
-            viewMode === "details"
-              ? "bg-[var(--color-action-bg)]/20 text-[var(--text-primary)] border border-[var(--color-action-border)]/30 shadow-sm shadow-[var(--color-action)]/10"
-              : "text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:bg-[var(--surface)]/10 border border-transparent"
-          }`}
+          onClick={() => onChangeViewMode("details")}
         >
-          <svg
-            width="14"
-            height="14"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          >
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
             <rect x="3" y="3" width="18" height="18" rx="2" />
             <line x1="9" y1="3" x2="9" y2="21" />
             <line x1="3" y1="9" x2="9" y2="9" />
             <line x1="3" y1="15" x2="9" y2="15" />
           </svg>
-          {t("filesPage.list.viewDetails")}
-        </button>
+        </ViewButton>
       </div>
     </div>
   );

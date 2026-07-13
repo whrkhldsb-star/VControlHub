@@ -244,24 +244,24 @@ export function DownloadsClient({ servers, canManage, canManageNode }: { servers
 
 			{/* Global Stats Bar */}
 			{globalStat && (
-				<div data-card className="mb-6 p-4 flex flex-wrap items-center gap-6 text-sm">
+				<div data-card className="mb-5 flex flex-wrap items-center gap-5 p-4 text-sm">
 					<div>
 						<span className="text-[var(--text-muted)]">{t("downloadsPage.stats.globalSpeed")}</span>
-						<span className="ml-2 text-[var(--color-action)] font-mono">{formatSpeed(globalStat.downloadSpeed)}</span>
+						<span className="ml-2 font-mono font-semibold text-[var(--accent)]">{formatSpeed(globalStat.downloadSpeed)}</span>
 					</div>
 					<div>
 						<span className="text-[var(--text-muted)]">{t("downloadsPage.stats.active")}</span>
-						<span className="ml-2 text-[var(--text-primary)] font-medium">{globalStat.numActive}</span>
+						<span className="ml-2 font-medium text-[var(--text-primary)]">{globalStat.numActive}</span>
 					</div>
 					<div>
 						<span className="text-[var(--text-muted)]">{t("downloadsPage.stats.pending")}</span>
 						<span className="ml-2 text-[var(--warning)]">{globalStat.numWaiting}</span>
 					</div>
-					<div className="ml-auto flex items-center gap-2">
+					<div className="ml-auto flex flex-wrap items-center gap-2">
 						<span className="text-xs text-[var(--text-muted)]">{t("downloadsPage.stats.globalLimit")}</span>
 						{canManageNode ? [0, 1024, 5120, 10240].map((kb) => (
 							<button key={kb} onClick={() => handleGlobalSpeedLimit(kb)}
-								className="rounded-lg border border-[var(--border)] bg-[var(--surface)]/[0.04] px-2 py-1 text-[11px] text-[var(--text-muted)] hover:bg-[var(--surface)]/[0.10] transition"
+								className="rounded-lg border border-[var(--border)] bg-[var(--surface-elevated)] px-2.5 py-1 text-[11px] text-[var(--text-muted)] transition hover:bg-[var(--surface-hover)] hover:text-[var(--text-primary)]"
 							>
 								{kb === 0 ? t("downloadsPage.stats.unlimited") : `${kb >= 1024 ? (kb / 1024) + "M" : kb + "K"}`}
 							</button>
@@ -273,28 +273,28 @@ export function DownloadsClient({ servers, canManage, canManageNode }: { servers
 			{/* Quick Stats */}
 			{!globalStat && (runningCount > 0 || pendingCount > 0) && (
 				<div className="mb-4 flex gap-3 text-xs text-[var(--text-muted)]">
-					{runningCount > 0 && <span className="text-[var(--color-action)]">{t("downloadsPage.stats.runningCount").replace("${count}", String(runningCount))}</span>}
+					{runningCount > 0 && <span className="text-[var(--accent)]">{t("downloadsPage.stats.runningCount").replace("${count}", String(runningCount))}</span>}
 					{pendingCount > 0 && <span className="text-[var(--warning)]">{t("downloadsPage.stats.pendingCount").replace("${count}", String(pendingCount))}</span>}
 				</div>
 			)}
 
 			{/* Filter bar */}
-			<div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+			<div data-toolbar className="mb-5 flex flex-col gap-3 p-2.5 sm:flex-row sm:items-center sm:justify-between">
 				<div className="flex flex-wrap items-center gap-2">
 					{["ALL", "RUNNING", "COMPLETED", "FAILED", "CANCELLED"].map((f) => (
 						<button key={f} type="button" onClick={() => setFilter(f)}
-							className={`rounded-full border px-3 py-1.5 text-xs transition ${
-								filter === f ? "border-[var(--color-action-border)]/30 bg-[var(--color-action-bg)]/10 text-[var(--text-primary)]" : "border-[var(--border)] bg-[var(--surface)]/10 text-[var(--text-muted)] hover:text-[var(--text-primary)]"
+							className={`rounded-full border px-3 py-1.5 text-xs font-medium transition ${
+								filter === f ? "border-[var(--accent-border)] bg-[var(--accent-bg)] text-[var(--text-primary)]" : "border-[var(--border)] bg-[var(--surface)] text-[var(--text-muted)] hover:text-[var(--text-primary)]"
 							}`}
 						>
 							{f === "ALL" ? t("downloadsPage.filter.all") : getStatusLabel(t)[f]}
 						</button>
 					))}
-					<div className="w-px h-4 bg-[var(--surface)]/10" />
+					<div className="h-4 w-px bg-[var(--border)]" />
 					{categories.map((c) => (
 						<button key={c.value} type="button" onClick={() => setCategoryFilter(categoryFilter === c.value ? null : c.value)}
 							className={`rounded-full border px-2.5 py-1 text-[11px] transition ${
-								categoryFilter === c.value ? "border-[var(--color-action-border)]/30 bg-[var(--color-action-bg)]/10 text-[var(--text-primary)]" : "border-[var(--border)] bg-[var(--surface)]/[0.04] text-[var(--text-muted)] hover:bg-[var(--surface)]/[0.10]"
+								categoryFilter === c.value ? "border-[var(--accent-border)] bg-[var(--accent-bg)] text-[var(--text-primary)]" : "border-[var(--border)] bg-[var(--surface-elevated)] text-[var(--text-muted)] hover:bg-[var(--surface-hover)]"
 							}`}
 						>
 							{c.icon} {c.label}
@@ -303,12 +303,13 @@ export function DownloadsClient({ servers, canManage, canManageNode }: { servers
 				</div>
 				{canManage && servers.length > 0 ? (
 					<button type="button" onClick={() => setShowForm(!showForm)}
-						data-tone="cyan" className="rounded-2xl border border-[var(--color-action-border)]/30 px-5 py-2 text-sm text-[var(--text-primary)] transition hover:bg-[var(--color-action-bg)]/20"
+						data-primary
+						className="rounded-xl bg-[var(--accent)] px-5 py-2 text-sm font-semibold text-white transition hover:bg-[var(--accent-hover)]"
 					>
 						{showForm ? t("downloadsPage.form.cancelLabel") : t("downloadsPage.form.createLabel")}
 					</button>
 				) : canManage ? (
-					<div data-tone="amber" className="rounded-2xl border border-[var(--warning-border)] px-4 py-2 text-xs text-[var(--warning)]">
+					<div className="rounded-2xl border border-[var(--warning-border)] bg-[var(--warning-bg)] px-4 py-2 text-xs text-[var(--warning)]">
 						{t("downloadsPage.form.noTarget")}
 					</div>
 				) : null}

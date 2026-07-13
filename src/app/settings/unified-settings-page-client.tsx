@@ -147,15 +147,14 @@ export function UnifiedSettingsPageClient({
 
       {/* ── Tab bar ─────────────────────────────────────────────── */}
       <div
-        className="sticky top-[3.5rem] z-30 -mx-1 px-1"
+        className="sticky top-3 z-30 -mx-1 px-1"
         role="tablist"
         aria-label={t("settingsClient.categoryNav")}
       >
         <nav
           role="tablist"
           aria-label={t("settingsClient.tabsAria")}
-          className="grid grid-cols-2 gap-1 rounded-xl border border-[var(--border)] bg-[var(--surface)] p-1.5 backdrop-blur-sm md:flex md:overflow-x-auto"
-          data-card
+          className="grid grid-cols-2 gap-1 rounded-2xl border border-[var(--border)] bg-[color-mix(in_srgb,var(--surface)_94%,transparent)] p-1.5 shadow-[var(--shadow-sm)] backdrop-blur-md md:flex md:overflow-x-auto"
         >
           {tabs.map((tab) => {
             const isActive = activeTab === tab.id;

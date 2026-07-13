@@ -38,9 +38,26 @@ export function DashboardLocalizedHeader({ username }: { username: string }) {
   const title = t("dashboard.title");
   const currentUser = t("dashboard.current-user");
   return (
-    <header className="mb-8">
-      <h1 className="text-3xl font-semibold tracking-tight text-[var(--text-primary)]">{title}</h1>
-      <p className="mt-1.5 text-sm text-[var(--text-muted)]">{currentUser}: {username}</p>
+    <header className="mb-6 border-b border-[var(--border-subtle)] pb-5" data-page-header>
+      <p className="mb-2 text-[11px] font-semibold uppercase tracking-[0.22em] text-[var(--accent)]">
+        {t("nav.dashboard") === "nav.dashboard" ? "Overview" : t("nav.dashboard")}
+      </p>
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+        <div>
+          <h1 className="text-[1.75rem] font-semibold tracking-tight text-[var(--text-primary)] sm:text-[2rem]">{title}</h1>
+          <p className="mt-1.5 text-sm text-[var(--text-muted)]">
+            {currentUser}: <span className="font-medium text-[var(--text-secondary)]">{username}</span>
+          </p>
+        </div>
+        <div className="flex flex-wrap gap-2">
+          <Link href="/servers" data-variant="primary" className="rounded-xl px-3.5 py-2 text-sm font-medium">
+            {t("dashboard.manage-vps-keys") === "dashboard.manage-vps-keys" ? "Manage VPS" : t("dashboard.manage-vps-keys")}
+          </Link>
+          <Link href="/operation-tasks" data-variant="secondary" className="rounded-xl px-3.5 py-2 text-sm">
+            {t("nav.operation-tasks") === "nav.operation-tasks" ? "Tasks" : t("nav.operation-tasks")}
+          </Link>
+        </div>
+      </div>
     </header>
   );
 }
@@ -60,23 +77,23 @@ export function DashboardServerHero({ summary }: { summary: DashboardServerSumma
   const gatewayLabel = t("dashboard.direct-gateway");
 
   return (
-    <section data-dashboard-widget="server-status" data-tone="cyan" className="mb-8 rounded-2xl border border-[var(--color-action-border)] p-5">
+    <section data-dashboard-widget="server-status" className="mb-6 overflow-hidden rounded-3xl border border-[var(--border)] bg-[linear-gradient(145deg,color-mix(in_srgb,var(--accent-bg)_55%,var(--surface)),var(--surface))] p-5 shadow-[var(--shadow-sm)]">
       <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
         <div>
-          <p className="text-xs uppercase tracking-[0.22em] text-[var(--color-action)]">{eyebrow}</p>
-          <h2 className="mt-2 text-2xl font-semibold text-[var(--text-primary)]">{summary.enabled} {onlineSuffix}</h2>
-          <p className="mt-1 text-sm text-[var(--text-secondary)]">
+          <p className="text-xs font-semibold uppercase tracking-[0.22em] text-[var(--accent)]">{eyebrow}</p>
+          <h2 className="mt-2 text-2xl font-semibold tracking-tight text-[var(--text-primary)]">{summary.enabled} {onlineSuffix}</h2>
+          <p className="mt-1 max-w-2xl text-sm leading-6 text-[var(--text-secondary)]">
             {managedPrefix} {summary.total} {managedSuffix}, {summary.sshKey} {sshSuffix}, {summary.directGateway} {gatewaySuffix}.
           </p>
         </div>
-        <Link href="/servers" data-variant="primary" className="px-4 py-2 text-sm">
+        <Link href="/servers" data-variant="primary" className="rounded-xl px-4 py-2.5 text-sm font-semibold">
           {cta}
         </Link>
       </div>
       <div className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-        <StatCard label={onlineLabel} value={String(summary.enabled)} accent={summary.enabled > 0} accentColor="cyan" />
+        <StatCard label={onlineLabel} value={String(summary.enabled)} accent={summary.enabled > 0} accentColor="emerald" />
         <StatCard label={disabledLabel} value={String(summary.disabled)} accent={summary.disabled > 0} accentColor="amber" />
-        <StatCard label={sshLabel} value={`${summary.sshKey}/${summary.total}`} accent={summary.sshKey > 0} />
+        <StatCard label={sshLabel} value={`${summary.sshKey}/${summary.total}`} accent={summary.sshKey > 0} accentColor="cyan" />
         <StatCard label={gatewayLabel} value={String(summary.directGateway)} accent={summary.directGateway > 0} accentColor="cyan" />
       </div>
     </section>

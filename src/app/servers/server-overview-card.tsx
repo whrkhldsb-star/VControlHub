@@ -197,19 +197,25 @@ export function ServerOverviewCard({
   }, hydrated && autoProbeEnabled && server.enabled ? Math.max(5, intervalSec) * 1000 : null);
 
   return (
-    <article data-card className="bg-[var(--surface)]/[0.025] p-3 transition-colors hover:bg-[var(--surface)]/[0.04]">
+    <article
+      data-card
+      data-server-card
+      className="group relative overflow-hidden !p-0 transition-colors"
+    >
+      <div className="absolute inset-x-0 top-0 h-0.5 bg-[linear-gradient(90deg,var(--accent),transparent)] opacity-70" aria-hidden="true" />
+      <div className="p-3.5">
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <div className="flex items-center gap-2">
             <span
-              className={`h-2 w-2 shrink-0 rounded-full ${server.enabled ? "bg-[var(--success)]" : "bg-[var(--surface)]"}`}
+              className={`h-2.5 w-2.5 shrink-0 rounded-full ring-2 ring-[var(--surface)] ${server.enabled ? "bg-[var(--success)] shadow-[0_0_0_3px_color-mix(in_srgb,var(--success)_20%,transparent)]" : "bg-[var(--text-disabled)]"}`}
               aria-hidden="true"
             />
-            <h2 className="truncate text-sm font-semibold text-[var(--text-primary)]">
+            <h2 className="truncate text-sm font-semibold tracking-tight text-[var(--text-primary)]">
               {server.name}
             </h2>
           </div>
-          <p className="mt-1 truncate text-[11px] text-[var(--text-muted)]" title={`${server.username}@${server.host}:${server.port}`}>
+          <p className="mt-1.5 truncate font-mono text-[11px] text-[var(--text-muted)]" title={`${server.username}@${server.host}:${server.port}`}>
             {server.username}@{server.host}:{server.port}
           </p>
         </div>
@@ -217,7 +223,7 @@ export function ServerOverviewCard({
           role="status"
           aria-label={t("serverOverviewCard.realtimeStatusAria").replace("{status}", listHealthLabel)}
           title={listHealthDescription}
-          className={`shrink-0 rounded-full border px-2 py-0.5 text-[10px] font-medium ${listHealthToneClass}`}
+          className={`shrink-0 rounded-full border px-2.5 py-0.5 text-[10px] font-semibold tracking-wide ${listHealthToneClass}`}
         >
           {listHealthLabel}
         </span>
@@ -235,11 +241,11 @@ export function ServerOverviewCard({
           value={`${server.pendingCommandCount} ${t("serverOverviewCard.itemsCount")}`}
         />
       </div>
-      <p data-tone="amber" className="mt-2 rounded-lg border border-[var(--warning-border)] px-2 py-1.5 text-[11px] leading-5 text-[var(--text-muted)] light:border-[var(--warning-border)] light:bg-[var(--warning)]">
+      <p className="mt-2.5 rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-subtle)] px-2.5 py-2 text-[11px] leading-5 text-[var(--text-muted)]">
         {listHealthDescription}
       </p>
 
-      <div className="mt-3 flex flex-wrap gap-2">
+      <div className="mt-3 flex flex-wrap gap-2 border-t border-[var(--border-subtle)] pt-3">
         {server.enabled && canUseSshTerminal ? (
           <ServerCardActions
             serverId={server.id}
@@ -262,10 +268,11 @@ export function ServerOverviewCard({
           aria-expanded={expanded}
           aria-controls={detailsId}
           disabled={isPending}
-          className="rounded-lg border border-[var(--border)] bg-[var(--surface)]/[0.04] px-3 py-1 text-xs text-[var(--text-secondary)] transition hover:bg-[var(--surface)]/[0.10] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-action)] light:hover:bg-[var(--surface)] disabled:opacity-60"
+          className="rounded-lg border border-[var(--border)] bg-[var(--surface-elevated)] px-3 py-1.5 text-xs font-medium text-[var(--text-secondary)] transition hover:border-[var(--border-strong)] hover:bg-[var(--surface-hover)] hover:text-[var(--text-primary)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--accent)] disabled:opacity-60"
         >
           {expanded ? t("serverOverviewCard.collapseDetails") : t("serverOverviewCard.viewDetails")}
         </button>
+      </div>
       </div>
 
       {expanded ? (
@@ -288,7 +295,7 @@ export function ServerOverviewCard({
               <button
                 type="button"
                 onClick={closeDialog}
-                className="shrink-0 rounded-lg border border-[var(--border)] bg-[var(--surface)]/[0.04] px-3 py-1.5 text-xs text-[var(--text-secondary)] transition hover:bg-[var(--surface)]/[0.10] disabled:opacity-60"
+                className="shrink-0 rounded-lg border border-[var(--border)] bg-[var(--surface-elevated)] px-3 py-1.5 text-xs text-[var(--text-secondary)] transition hover:bg-[var(--surface-hover)] disabled:opacity-60"
                 disabled={isPending}
               >
                 {t("serverOverviewCard.collapseDetails")}
@@ -315,9 +322,9 @@ export function ServerOverviewCard({
 
 function CompactField({ label, value }: { label: string; value: string }) {
   return (
-    <div className="min-w-0 rounded-lg border border-[var(--border)] bg-[var(--surface-subtle)] px-2 py-1.5">
-      <div className="text-[10px] text-[var(--text-muted)]">{label}</div>
-      <div className="truncate text-[11px] text-[var(--text-secondary)]">{value}</div>
+    <div className="min-w-0 rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-subtle)] px-2.5 py-1.5">
+      <div className="text-[10px] font-medium uppercase tracking-[0.08em] text-[var(--text-muted)]">{label}</div>
+      <div className="mt-0.5 truncate text-[11px] text-[var(--text-secondary)]">{value}</div>
     </div>
   );
 }

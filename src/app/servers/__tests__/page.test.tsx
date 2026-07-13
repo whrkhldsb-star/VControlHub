@@ -181,13 +181,13 @@ describe("ServersPage", () => {
     expect(screen.queryByText("关联资源")).not.toBeInTheDocument();
     expect(screen.queryByTestId("server-create-form")).not.toBeInTheDocument();
     expect(
-      screen.getByRole("button", { name: "添加 VPS" }),
+      screen.getByRole("tab", { name: "添加 VPS" }),
     ).toBeInTheDocument();
     expect(
-      screen.getByRole("button", { name: "添加密钥" }),
+      screen.getByRole("tab", { name: "添加密钥" }),
     ).toBeInTheDocument();
     expect(
-      screen.getByRole("button", { name: "批量操作" }),
+      screen.getByRole("tab", { name: "批量操作" }),
     ).toBeInTheDocument();
   });
 
