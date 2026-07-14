@@ -207,15 +207,20 @@ async function searchSftpNode(
 		node.server.sshKey,
 	);
 
-	// Build the remote search path
-	const remoteSearchPath = searchPath
-		? `${basePath}/${searchPath.replace(/^\/+/, "")}`
+	// Build the remote search path — validate against path traversal
+	const sanitizedSearchPath = (searchPath || "").replace(/^\/+/, "");
+	if (sanitizedSearchPath.includes("..")) {
+		logger.warn("SFTP content search rejected: path traversal detected", { nodeId, searchPath });
+		return [];
+	}
+	const remoteSearchPath = sanitizedSearchPath
+		? `${basePath}/${sanitizedSearchPath}`
 		: basePath;
 
 	// Use grep -r (recursive) -F (fixed string, no regex) -I (skip binary)
 	// -l (list filenames only) --include to limit file types
 	// Then for each matching file, grep -n to get line numbers + content
-	const grepCmd = `grep -rFIl --include='*.txt' --include='*.log' --include='*.md' --include='*.json' --include='*.yaml' --include='*.yml' --include='*.conf' --include='*.cfg' --include='*.sh' --include='*.py' --include='*.js' --include='*.ts' --include='*.html' --include='*.css' --include='*.xml' --include='*.sql' --include='*.env' --include='*.ini' --include='*.toml' --max-count=${MAX_SNIPPETS_PER_FILE} -- ${shellQuote(sanitizedQuery)} ${shellQuote(remoteSearchPath)} 2>/dev/null | head -${MAX_RESULTS}`;
+	const grepCmd = `grep -rFIl --include='*.txt' --include='*.log' --include='*.md' --include='*.json' --include='*.yaml' --include='*.yml' --include='*.toml' --include='*.ini' --include='*.cfg' --include='*.conf' --include='*.env' --include='*.sh' --include='*.bash' --include='*.py' --include='*.js' --include='*.ts' --include='*.jsx' --include='*.tsx' --include='*.html' --include='*.css' --include='*.scss' --include='*.xml' --include='*.sql' --include='*.csv' --include='*.tsv' --include='*.go' --include='*.rs' --include='*.java' --include='*.c' --include='*.cpp' --include='*.h' --include='*.hpp' --include='*.rb' --include='*.php' --include='*.pl' --include='*.swift' --include='*.kt' --include='*.scala' --include='*.lua' --include='*.r' --include='*.vue' --include='*.svelte' --include='*.properties' --max-count=${MAX_SNIPPETS_PER_FILE} -- ${shellQuote(sanitizedQuery)} ${shellQuote(remoteSearchPath)} 2>/dev/null | head -${MAX_RESULTS}`;
 
 	logger.debug("Remote content search", { nodeId, remoteSearchPath, query: sanitizedQuery });
 

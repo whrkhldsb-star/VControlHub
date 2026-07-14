@@ -27,6 +27,17 @@ export function PlaybookRunHistory({ runs, t }: PlaybookRunHistoryProps) {
                 {statusLabelFor(t, r.status)}{r.dryRun ? " · dry-run" : ""}
               </span>
               <span className="text-[var(--text-muted)]">{formatTime(r.startedAt, locale)}</span>
+              {r.stepResults && r.stepResults.length > 0 && (
+                <span className="flex items-center gap-0.5">
+                  {r.stepResults.map((sr, si) => (
+                    <span
+                      key={si}
+                      title={`${sr.stepId}: ${sr.status}${sr.summary ? ` - ${sr.summary}` : ""}`}
+                      className={`inline-block h-1.5 w-3 rounded-sm ${sr.status === "ok" ? "bg-[var(--success)]" : sr.status === "failed" ? "bg-[var(--danger)]" : sr.status === "dry_run" ? "bg-[var(--accent)]" : "bg-[var(--surface-hover)]"}`}
+                    />
+                  ))}
+                </span>
+              )}
               {r.errorMessage && <span className="text-[var(--danger)] truncate">{r.errorMessage}</span>}
             </div>
           ))

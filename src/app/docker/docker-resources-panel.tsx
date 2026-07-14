@@ -83,7 +83,7 @@ export function DockerResourcesPanel({ serverId }: { serverId?: string }) {
     } finally {
       setLoading(false);
     }
-  }, [t]);
+  }, [t, serverId]);
   useEffect(() => {
     const timer = window.setTimeout(() => {
       void fetchResources();
@@ -104,6 +104,7 @@ export function DockerResourcesPanel({ serverId }: { serverId?: string }) {
           action: "create",
           name: cleanName,
           driver: driver.trim() || "local",
+          ...(serverId ? { serverId } : {}),
         }),
       });
       if (data.error) throw new Error(data.error);
@@ -122,7 +123,7 @@ export function DockerResourcesPanel({ serverId }: { serverId?: string }) {
     setError("");
     try {
       const data = await csrfFetch(
-        `/api/docker/resources?type=${type}&name=${encodeURIComponent(itemName)}`,
+        `/api/docker/resources?type=${type}&name=${encodeURIComponent(itemName)}${serverId ? `&serverId=${serverId}` : ""}`,
       );
       if (data.error) throw new Error(data.error);
       setDetail({
@@ -149,7 +150,7 @@ export function DockerResourcesPanel({ serverId }: { serverId?: string }) {
       const data = await csrfFetch("/api/docker/resources", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ type, action: "delete", name: itemName }),
+        body: JSON.stringify({ type, action: "delete", name: itemName, ...(serverId ? { serverId } : {}) }),
       });
       if (data.error) throw new Error(data.error);
       setPendingDelete(null);

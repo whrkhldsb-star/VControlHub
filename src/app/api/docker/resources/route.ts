@@ -71,7 +71,7 @@ export async function POST(req: NextRequest) {
       await auditUserAction(
         session.userId,
         `docker.${isNetwork ? "network" : "volume"}.${action}`,
-        { name, driver, status: result.status, ok: result.ok },
+        { name, driver, serverId: serverId || "hub-host", status: result.status, ok: result.ok },
         action === "delete" ? "WARNING" : "INFO",
       );
       return NextResponse.json(result);

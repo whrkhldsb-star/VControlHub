@@ -801,7 +801,19 @@ make logs SERVICE_PREFIX=vcontrolhub
 | FEAT-P1-BR | **备份细粒度恢复** | FULL 备份恢复支持选择范围：全部 / 仅数据库 / 仅文件；`buildRestoreExecution` 按 component 分发不同命令；UI 加三选一按钮组；schema/API/job-worker 全链路传参 | ✅ tsc + 119 tests |
 
 **验证**：tsc 0；playbook executor 测试通过；build 成功；服务 active；path smoke 11/11 通过。  
-**P0 全部完成。待后续**：FEAT-P1 其余项（AI 工具编排、告警远程统一、成本自动归集）。
+**P0 全部完成（已审计修复）。待后续**：FEAT-P1 其余项（AI 工具编排、告警远程统一、成本自动归集）。
+
+### P0 完整性审计修复（2026-07-14）
+
+| 审计项 | 发现的问题 | 修复 |
+|---|---|---|
+| P0-2 远程Docker | docker-resources-panel 的 createResource/inspectResource/confirmDeleteResource 3 个函数缺 serverId，远程操作会误操作本地 Docker | 补齐所有 3 个函数的 serverId 传递 |
+| P0-2 远程Docker | resources API 审计日志缺 serverId | 审计日志加 `serverId: serverId \|\| "hub-host"` |
+| P0-2 远程Docker | engine-client 的 method 参数未做白名单验证 | 加 ALLOWED_METHODS 白名单（GET/POST/PUT/DELETE/PATCH/HEAD） |
+| P0-4 文件检索 | SFTP 搜索路径未验证 `..` 段，存在路径穿越风险 | 加 `sanitizedSearchPath.includes("..")` 检查 |
+| P0-4 文件检索 | SFTP grep --include 只覆盖 18 种类型，LOCAL 覆盖 40+ 种，不一致 | 扩展 SFTP --include 到 40+ 种与 LOCAL 对齐 |
+| P0-4 文件检索 | 7 个 content search i18n 键在字典文件中缺失 | 补全中英文 7 个键 |
+| P0-5 Playbook | 前端只显示 run 状态，不显示 step-by-step 进度 | playbook-card 加 stepResults 进度条（彩色方块序列） |
 
 ### 功能修复进展（2026-07-13 FEAT Round 2）
 

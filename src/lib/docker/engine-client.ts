@@ -130,6 +130,13 @@ export async function requestRemoteDockerEngine(
 		return { ok: false, status: 400, data: { message: "Invalid Docker API path" } };
 	}
 
+	// Validate HTTP method (whitelist to prevent injection)
+	const ALLOWED_METHODS = new Set(["GET", "POST", "PUT", "DELETE", "PATCH", "HEAD"]);
+	if (!ALLOWED_METHODS.has(method.toUpperCase())) {
+		logger.error("Invalid HTTP method rejected", undefined, { method });
+		return { ok: false, status: 400, data: { message: "Invalid HTTP method" } };
+	}
+
 	// Fetch server + SSH key from DB
 	const server = await prisma.server.findUnique({
 		where: { id: serverId },
