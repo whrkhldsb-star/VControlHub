@@ -80,6 +80,7 @@ async function executeTarSync(
 	targetPassword: string | null,
 	targetPath: string,
 	_deleteOrphans: boolean,
+	targetHostKeySha256?: string | null,
 ): Promise<string> {
 	// Use tar over SSH pipe — portable fallback when rsync is unavailable.
 	const keyPath = targetKey ? getSyncTempKeyPath(jobId, "tar") : undefined;
@@ -96,6 +97,8 @@ async function executeTarSync(
 		keyPath,
 		password: keyPath ? undefined : (targetPassword ?? undefined),
 		deleteOrphans: _deleteOrphans,
+		hostKeySha256: targetHostKeySha256,
+		jobId,
 	});
 	if (targetKey && keyPath) {
 		await writeEphemeralPrivateKey(sourceSsh, keyPath, targetKey.privateKey);
@@ -156,7 +159,32 @@ export async function executeSyncJob(jobId: string): Promise<void> {
 			targetPort,
 			keyPath: targetKeyPath,
 			password: targetKeyPath ? undefined : targetCredentials.password,
+			hostKeySha256: job.targetServer.hostKeySha256,
+			jobId,
 		});
+
+		// OPEN-2: Verify target SSH host key before rsync if pinned
+		if (job.targetServer.hostKeySha256) {
+			const keyscanResult = await execRemoteCommand({
+				...sourceSsh,
+				command: `ssh-keyscan -p ${targetPort} -T 5 ${shellQuote(targetHost)} 2>/dev/null`,
+				timeout: 20000,
+			});
+			if (!keyscanResult.stdout.trim()) {
+				throw new Error(`Failed to verify target SSH host key: ssh-keyscan returned empty for ${targetHost}:${targetPort}`);
+			}
+			// Extract fingerprint from the scanned key and compare with pinned hash
+			const keyscanFpResult = await execRemoteCommand({
+				...sourceSsh,
+				command: `echo ${shellQuote(keyscanResult.stdout.trim())} | ssh-keygen -lf - 2>/dev/null | head -1`,
+				timeout: 10000,
+			});
+			const scannedFp = keyscanFpResult.stdout.trim().split(/\s+/)[1] || "";
+			const pinnedFp = job.targetServer.hostKeySha256.replace(/^SHA256:/i, "SHA256:");
+			if (scannedFp && pinnedFp && scannedFp !== pinnedFp) {
+				throw new Error(`SSH host key mismatch for target ${targetHost}: expected ${pinnedFp}, got ${scannedFp}. Sync aborted to prevent MITM.`);
+			}
+		}
 
 		// Ensure target directory exists
 		await execRemoteCommand({

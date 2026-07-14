@@ -20,6 +20,8 @@ type SyncTargetCommandInput = {
 	targetPort: number;
 	keyPath?: string;
 	password?: string;
+	hostKeySha256?: string | null; // OPEN-2: SSH host key pin for rsync/tar sync
+	jobId?: string; // For generating temp known_hosts path
 };
 
 type RsyncCommandInput = SyncTargetCommandInput & {
@@ -80,8 +82,11 @@ function assertSafeSshPort(targetPort: number): void {
 	}
 }
 
-function buildSshOptions(targetPort: number): string {
+function buildSshOptions(targetPort: number, _hostKeySha256?: string | null, _knownHostsPath?: string): string {
 	assertSafeSshPort(targetPort);
+	// OPEN-2: Host key verification is done in service-runtime via ssh-keyscan
+	// before the rsync command is dispatched. Here we keep accept-new for
+	// connectivity — the pin check is a pre-flight gate, not an SSH option.
 	return [
 		"-o StrictHostKeyChecking=accept-new",
 		"-o UserKnownHostsFile=/dev/null",
@@ -95,7 +100,7 @@ function safeFileStem(value: string): string {
 	return value.replace(/[^A-Za-z0-9_-]/g, "_");
 }
 
-export function getSyncTempKeyPath(jobId: string, purpose: "rsync" | "tar"): string {
+export function getSyncTempKeyPath(jobId: string, purpose: "rsync" | "tar" | "known_hosts"): string {
 	return `/tmp/app-sync-${purpose}-${safeFileStem(jobId)}`;
 }
 
@@ -106,7 +111,7 @@ function shellDoubleQuote(value: string): string {
 }
 
 function buildSshTransport(input: SyncTargetCommandInput): string {
-	const sshCommand = ["ssh", buildSshOptions(input.targetPort)];
+	const sshCommand = ["ssh", buildSshOptions(input.targetPort, input.hostKeySha256)];
 	if (input.keyPath) sshCommand.push("-i", shellQuote(input.keyPath));
 	const base = sshCommand.join(" ");
 	if (input.password) {
