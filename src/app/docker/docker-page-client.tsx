@@ -40,9 +40,17 @@ type ContainerStats = {
 };
 
 type DockerScope = {
-	scope: "hub-host";
+	scope: "hub-host" | "remote-vps";
 	socketPath: string;
+	serverId?: string;
+	serverName?: string;
 	warning: string;
+};
+
+type ServerOption = {
+	id: string;
+	name: string;
+	host: string;
 };
 
 function formatBytes(bytes: number) {
@@ -82,7 +90,7 @@ const stateColors: Record<string, string> = {
 	removing: "bg-[var(--danger-bg)] text-[var(--danger)]",
 };
 
-export default function DockerPage() {
+export default function DockerPage({ initialServers }: { initialServers: { id: string; name: string; host: string }[] }) {
 	const { t } = useI18n();
 	const [containers, setContainers] = useState<Container[]>([]);
 	const [loading, setLoading] = useState(true);
@@ -97,6 +105,8 @@ export default function DockerPage() {
 	const [grouped, setGrouped] = useState<ComposeGroup[]>([]);
 	const [ungrouped, setUngrouped] = useState<Container[]>([]);
 	const [dockerScope, setDockerScope] = useState<DockerScope | null>(null);
+	const [serverList] = useState<ServerOption[]>(initialServers);
+	const [selectedServerId, setSelectedServerId] = useState<string>(""); // "" = hub-host
 	const closeRemovalDialog = useCallback(() => setPendingRemoval(null), []);
 	const closeLogsDialog = useCallback(() => setLogsId(null), []);
 	const removeCancelButtonRef = useRef<HTMLButtonElement | null>(null);
@@ -107,7 +117,10 @@ export default function DockerPage() {
 
 	const fetchContainers = useCallback(async () => {
 		try {
-			const data = await csrfFetch("/api/docker/containers");
+			const url = selectedServerId
+				? `/api/docker/containers?serverId=${encodeURIComponent(selectedServerId)}`
+				: "/api/docker/containers";
+			const data = await csrfFetch(url);
 			if (data.error) {
 				setError(data.error);
 				return;
@@ -146,7 +159,7 @@ export default function DockerPage() {
 		} finally {
 			setLoading(false);
 		}
-	}, [t]);
+	}, [t, selectedServerId]);
 
 	const handleAction = async (container: Container, action: "start" | "stop" | "restart" | "remove") => {
 		const id = container.Id;
@@ -156,7 +169,7 @@ export default function DockerPage() {
 			await csrfFetch("/api/docker/containers", {
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
-				body: JSON.stringify({ id, action }),
+				body: JSON.stringify({ id, action, ...(selectedServerId ? { serverId: selectedServerId } : {}) }),
 			});
 			await fetchContainers();
 		} catch (err) {
@@ -181,7 +194,9 @@ export default function DockerPage() {
 	const fetchLogs = async (id: string) => {
 		setLogsId(id);
 		try {
-			const data = await csrfFetch(`/api/docker/containers?logs=${id}&tail=50`);
+			const params = new URLSearchParams({ logs: id, tail: "50" });
+		if (selectedServerId) params.set("serverId", selectedServerId);
+		const data = await csrfFetch(`/api/docker/containers?${params}`);
 			setLogs(typeof data.data === "string" ? data.data : JSON.stringify(data.data, null, 2));
 		} catch {
 			// Failed to fetch container logs — show an error message in the logs panel.
@@ -193,7 +208,9 @@ export default function DockerPage() {
 		if (fetchingStatsRef.current.has(id)) return;
 		fetchingStatsRef.current.add(id);
 		try {
-			const data = await csrfFetch(`/api/docker/containers?stats=${id}`);
+			const statsParams = new URLSearchParams({ stats: id });
+		if (selectedServerId) statsParams.set("serverId", selectedServerId);
+		const data = await csrfFetch(`/api/docker/containers?${statsParams}`);
 			if (data.data) {
 				setStats((prev) => ({ ...prev, [id]: data.data as ContainerStats }));
 			}
@@ -203,6 +220,11 @@ export default function DockerPage() {
 	};
 
 	useEffect(() => {
+		setLoading(true);
+		setContainers([]);
+		setStats({});
+		setGrouped([]);
+		setUngrouped([]);
 		const timer = window.setTimeout(() => {
 			void fetchContainers();
 		}, 0);
@@ -236,6 +258,30 @@ export default function DockerPage() {
 	return (
 		<PageShell maxW="max-w-7xl">
 			<PageHeader eyebrow={t("dockerPage.eyebrow")} title={t("dockerPage.title")} description={t("dockerPage.desc")} />
+			{/* FEAT-P0-2: Server selector for remote Docker management */}
+			{serverList.length > 0 && (
+				<div className="mb-4 flex flex-wrap items-center gap-3 rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-3">
+					<label className="text-xs font-medium text-[var(--text-secondary)]" htmlFor="docker-server-select">
+						{t("dockerPage.scope.serverSelect")}
+					</label>
+					<select
+						id="docker-server-select"
+						value={selectedServerId}
+						onChange={(e) => setSelectedServerId(e.target.value)}
+						className="min-h-11 rounded-lg border border-[var(--border)] bg-[var(--surface-elevated)] px-3 text-sm text-[var(--text-primary)] focus:outline-none focus:ring-1 focus:ring-[var(--color-action-ring)]"
+					>
+						<option value="">{t("dockerPage.scope.hubHost")}</option>
+						{serverList.map((s) => (
+							<option key={s.id} value={s.id}>{s.name} ({s.host})</option>
+						))}
+					</select>
+					{selectedServerId && (
+						<span className="rounded-full border border-[var(--accent-border)] bg-[var(--accent-bg)] px-2.5 py-1 text-[10px] font-medium text-[var(--accent)]">
+							{t("dockerPage.scope.remoteActive")}
+						</span>
+					)}
+				</div>
+			)}
 			<section
 				aria-labelledby="docker-scope-title"
 				className="mb-4 rounded-2xl border border-[var(--warning-border)] bg-[color-mix(in_srgb,var(--warning-bg)_45%,var(--surface))] p-4 text-sm text-[var(--warning)]"
@@ -286,7 +332,7 @@ export default function DockerPage() {
 
 			{error && <div className="mb-4 rounded-xl border border-[var(--danger-border)] bg-[var(--danger-bg)] px-4 py-3 text-sm text-[var(--danger)]">{error}</div>}
 
-			<DockerResourcesPanel />
+			<DockerResourcesPanel serverId={selectedServerId} />
 
 			{loading ? (
 				<div className="text-sm text-[var(--text-muted)]">{t("dockerPage.loading")}</div>

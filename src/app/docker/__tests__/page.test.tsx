@@ -60,7 +60,7 @@ describe("DockerPage", () => {
 	});
 
 	it("shows the hub-host Docker socket boundary before container actions", async () => {
-		render(wrap(<DockerPageClient />));
+		render(wrap(<DockerPageClient initialServers={[]} />));
 
 		expect(await screen.findByText("web")).toBeInTheDocument();
 		expect(screen.getByRole("heading", { name: "运行边界：本机 Docker socket" })).toBeInTheDocument();
@@ -87,7 +87,7 @@ describe("DockerPage", () => {
 			return { data: [runningContainer] };
 		});
 
-		render(wrap(<DockerPageClient />));
+		render(wrap(<DockerPageClient initialServers={[]} />));
 
 		expect(await screen.findByText("bridge")).toBeInTheDocument();
 		expect(screen.getByText("cache")).toBeInTheDocument();
@@ -127,7 +127,7 @@ describe("DockerPage", () => {
 			return { data: [runningContainer] };
 		});
 
-		render(wrap(<DockerPageClient />));
+		render(wrap(<DockerPageClient initialServers={[]} />));
 
 		expect(await screen.findByText("web")).toBeInTheDocument();
 		await user.click(screen.getByRole("button", { name: "停止" }));
@@ -146,7 +146,7 @@ describe("DockerPage", () => {
 		const user = userEvent.setup();
 		const confirmSpy = vi.spyOn(window, "confirm");
 
-		render(wrap(<DockerPageClient />));
+		render(wrap(<DockerPageClient initialServers={[]} />));
 
 		expect(await screen.findByText("web")).toBeInTheDocument();
 		await user.click(screen.getByRole("button", { name: "删除" }));
@@ -169,7 +169,7 @@ describe("DockerPage", () => {
 	it("submits the remove action only after the in-app confirmation", async () => {
 		const user = userEvent.setup();
 
-		render(wrap(<DockerPageClient />));
+		render(wrap(<DockerPageClient initialServers={[]} />));
 
 		expect(await screen.findByText("web")).toBeInTheDocument();
 		await user.click(screen.getByRole("button", { name: "删除" }));
@@ -193,7 +193,7 @@ describe("DockerPage", () => {
 			return { data: [runningContainer] };
 		});
 
-		render(wrap(<DockerPageClient />));
+		render(wrap(<DockerPageClient initialServers={[]} />));
 
 		expect(await screen.findByText("web")).toBeInTheDocument();
 		const logsButton = screen.getByRole("button", { name: "日志" });
@@ -216,7 +216,7 @@ describe("DockerPage", () => {
 			return { data: [runningContainer] };
 		});
 
-		render(wrap(<DockerPageClient />));
+		render(wrap(<DockerPageClient initialServers={[]} />));
 		expect(await screen.findByText("web")).toBeInTheDocument();
 
 		const refreshList = screen.getByRole("button", { name: "刷新列表" });
@@ -245,7 +245,7 @@ describe("DockerPage", () => {
 			return { data: [runningContainer] };
 		});
 
-		render(wrap(<DockerPageClient />));
+		render(wrap(<DockerPageClient initialServers={[]} />));
 		expect(await screen.findByText("web")).toBeInTheDocument();
 
 		// Open the logs dialog and verify the scrollable backdrop is a mobile sheet

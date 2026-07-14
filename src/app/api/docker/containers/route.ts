@@ -12,7 +12,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 
 import { auditUserAction } from "@/lib/audit/service";
-import { requestDockerEngine } from "@/lib/docker/engine-client";
+import { dockerRequest } from "@/lib/docker/engine-client";
 import { parseDockerStats } from "@/lib/docker/stats";
 import { withApiRoute } from "@/lib/http/api-guard";
 import { COMMAND_LIMIT } from "@/lib/http/rate-limit-presets";
@@ -22,14 +22,10 @@ import { AuthError } from "@/lib/errors";
 const containerActionSchema = z.object({
   id: z.string().min(1),
   action: z.enum(["start", "stop", "restart", "remove"]),
+  serverId: z.string().trim().min(1).optional(),
 });
 
-const hubHostDockerScope = {
-  scope: "hub-host",
-  socketPath: "/var/run/docker.sock",
-  warning:
-    "The Docker module only operates on the VControlHub host's Docker socket; it is not a cross-VPS container console. Users with docker:manage permission can manage local containers.",
-};
+
 
 /** Validate Docker container ID: only allow hex chars and names (alphanumeric + _.-) */
 function isValidDockerId(value: string): boolean {
@@ -45,28 +41,19 @@ function isValidTail(value: string): boolean {
  * Call Docker Engine API via Node.js HTTP over unix socket.
  * No curl, no child_process — pure Node.js http.request.
  */
-async function dockerRequest(apiPath: string, method = "GET", body?: string) {
-  const result = await requestDockerEngine(apiPath, {
-    method,
-    body,
-    unavailableData: [],
-    loggerScope: "api:docker:containers",
-  });
-  return { ...result, dockerScope: hubHostDockerScope };
-}
-
 export async function GET(req: NextRequest) {
   return withApiRoute(
     req,
     { permission: "docker:manage", errorMessage: "Docker API RequestFailed" },
     async () => {
-      const { id, logs, stats, tail: tailRaw } = parseSearchParams(
+      const { id, logs, stats, tail: tailRaw, serverId } = parseSearchParams(
         req,
         z.object({
           id: z.string().trim().min(1).optional(),
           logs: z.string().trim().min(1).optional(),
           stats: z.string().trim().min(1).optional(),
           tail: z.string().trim().min(1).optional(),
+          serverId: z.string().trim().min(1).optional(),
         }),
       );
       const tail = tailRaw && isValidTail(tailRaw) ? tailRaw : "100";
@@ -92,41 +79,52 @@ export async function GET(req: NextRequest) {
       }
 
       if (stats) {
-        const result = await dockerRequest(
+        const { result: statsResult } = await dockerRequest(
           `/containers/${stats}/stats?stream=false`,
+          { serverId, unavailableData: {}, loggerScope: "api:docker:containers" },
         );
-        if (!result.ok) return NextResponse.json(result);
-        const detail = await dockerRequest(`/containers/${stats}/json`);
+        if (!statsResult.ok) return NextResponse.json(statsResult);
+        const { result: detailResult } = await dockerRequest(
+          `/containers/${stats}/json`,
+          { serverId, unavailableData: {}, loggerScope: "api:docker:containers" },
+        );
         const detailData =
-          detail.data && typeof detail.data === "object"
-            ? (detail.data as { Name?: string })
+          detailResult.data && typeof detailResult.data === "object"
+            ? (detailResult.data as { Name?: string })
             : {};
         const name = detailData.Name?.replace(/^\//, "") || stats.slice(0, 12);
         return NextResponse.json({
           ok: true,
-          status: result.status,
+          status: statsResult.status,
           data: parseDockerStats(
             stats,
             name,
-            result.data as Record<string, unknown>,
+            statsResult.data as Record<string, unknown>,
           ),
         });
       }
 
       if (logs) {
-        const result = await dockerRequest(
+        const { result: logsResult, scope: logsScope } = await dockerRequest(
           `/containers/${logs}/logs?stdout=true&stderr=true&tail=${tail}`,
+          { serverId, unavailableData: {}, loggerScope: "api:docker:containers" },
         );
-        return NextResponse.json(result);
+        return NextResponse.json({ ...logsResult, dockerScope: logsScope });
       }
 
       if (id) {
-        const result = await dockerRequest(`/containers/${id}/json`);
-        return NextResponse.json(result);
+        const { result: inspectResult, scope: inspectScope } = await dockerRequest(
+          `/containers/${id}/json`,
+          { serverId, unavailableData: {}, loggerScope: "api:docker:containers" },
+        );
+        return NextResponse.json({ ...inspectResult, dockerScope: inspectScope });
       }
 
-      const result = await dockerRequest("/containers/json?all=true");
-      return NextResponse.json({ ...result, dockerScope: hubHostDockerScope });
+      const { result: listResult, scope: listScope } = await dockerRequest(
+        "/containers/json?all=true",
+        { serverId, unavailableData: [], loggerScope: "api:docker:containers" },
+      );
+      return NextResponse.json({ ...listResult, dockerScope: listScope });
     },
   );
 }
@@ -144,7 +142,7 @@ export async function POST(req: NextRequest) {
       if (!session)
         throw new AuthError("Not authenticated");
 
-      const { id, action } = body;
+      const { id, action, serverId } = body;
 
       // Validate container ID to prevent path traversal
       if (!isValidDockerId(id)) {
@@ -162,12 +160,18 @@ export async function POST(req: NextRequest) {
       };
 
       const target = actionMap[action]!;
-      const result = await dockerRequest(target.path, target.method);
+      const { result } = await dockerRequest(target.path, {
+        method: target.method,
+        serverId,
+        unavailableData: {},
+        loggerScope: "api:docker:containers",
+      });
       await auditUserAction(
         session.userId,
         `docker.container.${action}`,
         {
           containerId: id,
+          serverId: serverId || "hub-host",
           status: result.status,
           ok: result.ok,
         },

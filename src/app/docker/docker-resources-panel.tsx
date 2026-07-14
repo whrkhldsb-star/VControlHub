@@ -36,7 +36,7 @@ function formatCopy(
     template,
   );
 }
-export function DockerResourcesPanel() {
+export function DockerResourcesPanel({ serverId }: { serverId?: string }) {
   const { t } = useI18n();
   const [networks, setNetworks] = useState<DockerNetwork[]>([]);
   const [volumes, setVolumes] = useState<DockerVolume[]>([]);
@@ -63,8 +63,8 @@ export function DockerResourcesPanel() {
     setError("");
     try {
       const [networkData, volumeData] = await Promise.all([
-        csrfFetch("/api/docker/resources?type=networks"),
-        csrfFetch("/api/docker/resources?type=volumes"),
+        csrfFetch(`/api/docker/resources?type=networks${serverId ? `&serverId=${serverId}` : ""}`),
+        csrfFetch(`/api/docker/resources?type=volumes${serverId ? `&serverId=${serverId}` : ""}`),
       ]);
       if (networkData.error) throw new Error(networkData.error);
       if (volumeData.error) throw new Error(volumeData.error);
