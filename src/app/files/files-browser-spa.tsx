@@ -5,6 +5,7 @@ import { useState, useCallback } from "react";
 import { useI18n } from "@/lib/i18n/use-locale";
 import { FileListClient } from "./file-list-client";
 import { SearchScopeToggle } from "./search-scope-toggle";
+import { ContentSearchPanel } from "./content-search-panel";
 import { FileUploadDropzoneLazy } from "./file-upload-dropzone-lazy";
 import { CreateFolderForm } from "./create-folder-form";
 import { RecycleBinSectionClientLazy } from "./recycle-bin-section-client-lazy";
@@ -286,6 +287,15 @@ export function FilesBrowserSpa({
               </p>
             ) : null}
           </form>
+
+          {/* FEAT-P0-4: Content search panel */}
+          <div className="mt-4">
+            <ContentSearchPanel
+              searchInput={searchInput}
+              nodeId={data.nodeIdFilter || undefined}
+              searchPath={data.currentPath || undefined}
+            />
+          </div>
 
           <div data-tone="cyan" className="mt-6 rounded-3xl border border-[var(--color-action-border)]/20 p-5">
             <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
