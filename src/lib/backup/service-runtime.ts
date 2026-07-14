@@ -21,6 +21,7 @@ import { prisma } from "@/lib/db";
 import { config } from "@/lib/config/env";
 import { BusinessError, ConflictError, NotFoundError, ValidationError } from "@/lib/errors";
 import { createLogger } from "@/lib/logging";
+import { acquireAdvisoryLock } from "@/lib/concurrency/advisory-lock";
 
 import { backupCommandErrorMessage, runBackupCommand } from "./command-runner";
 import {
@@ -39,20 +40,6 @@ import { uploadBackupToOffsite } from "./offsite-uploader";
 const offsiteUploadLogger = createLogger("backup-offsite-uploader");
 const restoreLogger = createLogger("backup-restore");
 
-/** Stable 2-int key pair for PostgreSQL session advisory locks (restore serialization). */
-function restoreAdvisoryKeys(backupId: string): [number, number] {
-	let h1 = 0x811c9dc5;
-	let h2 = 0x01000193;
-	for (let i = 0; i < backupId.length; i++) {
-		const c = backupId.charCodeAt(i);
-		h1 = Math.imul(h1 ^ c, 0x01000193) >>> 0;
-		h2 = Math.imul(h2 ^ c, 0x811c9dc5) >>> 0;
-	}
-	// signed 32-bit range for pg int4
-	const k1 = h1 > 0x7fffffff ? h1 - 0x100000000 : h1;
-	const k2 = h2 > 0x7fffffff ? h2 - 0x100000000 : h2;
-	return [k1, k2];
-}
 
 async function calculateFileSha256(filePath: string): Promise<string> {
 	return new Promise((resolve, reject) => {
@@ -179,10 +166,7 @@ export async function restoreBackupRecord(input: { id: string; confirm: string; 
 	if (input.confirm !== "RESTORE") {
 		throw new ValidationError("Restore operation requires explicit confirmation");
 	}
-	const [k1, k2] = restoreAdvisoryKeys(input.id);
-	// Session-level advisory lock serializes concurrent restores of the same backup
-	// across workers without a schema migration.
-	await prisma.$executeRaw`SELECT pg_advisory_lock(${k1}, ${k2})`;
+	const releaseLock = await acquireAdvisoryLock("backup-restore", input.id);
 	try {
 		const record = await getBackupRecord(input.id);
 		if (!record) {
@@ -208,14 +192,7 @@ export async function restoreBackupRecord(input: { id: string; confirm: string; 
 		});
 		return { id: record.id, type: record.type, filePath: record.filePath, restoredAt: new Date().toISOString() };
 	} finally {
-		try {
-			await prisma.$executeRaw`SELECT pg_advisory_unlock(${k1}, ${k2})`;
-		} catch (err) {
-			restoreLogger.warn("failed to release restore advisory lock", {
-				backupId: input.id,
-				error: err instanceof Error ? err.message : String(err),
-			});
-		}
+		await releaseLock();
 	}
 }
 

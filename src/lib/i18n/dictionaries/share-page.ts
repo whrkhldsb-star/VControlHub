@@ -24,6 +24,10 @@ export const zh: Record<string, string> = {
 	"sharePage.downloadFile": "⬇ 下载文件",
 	"sharePage.passwordRequired": "🔒 此分享链接需要密码访问，请在下载时输入密码",
 	"sharePage.brand": "VControlHub",
+	"sharePage.permissionLevel": "权限级别",
+	"sharePage.permissionPreview": "仅预览",
+	"sharePage.permissionDownload": "可下载",
+	"sharePage.previewOnly": "🔒 此分享为仅预览模式，不支持下载",
 };
 
 export const en: Record<string, string> = {

@@ -8,6 +8,7 @@
 
 import { completeJob } from "@/lib/job/service";
 import { prisma } from "@/lib/db";
+import { acquireAdvisoryLock } from "@/lib/concurrency/advisory-lock";
 import { dispatchDueVpsBackupSchedules } from "./vps-backup-schedule-service";
 
 const TICK_INTERVAL_MS = 60_000; // 60 seconds
@@ -22,10 +23,7 @@ let running = false;
  * both observe "no RUNNING tick" and create overlapping dispatch work.
  */
 export async function runVpsBackupScheduleTickOnce(): Promise<number> {
-	// Stable int4 keys for pg_advisory_lock (namespace + resource).
-	const LOCK_K1 = 0x56505342; // 'VPSB'
-	const LOCK_K2 = 0x53434844; // 'SCHD'
-	await prisma.$executeRaw`SELECT pg_advisory_lock(${LOCK_K1}, ${LOCK_K2})`;
+	const releaseLock = await acquireAdvisoryLock("vps-backup-schedule", "global-tick");
 	try {
 		// Prevent overlapping ticks (re-check under lock)
 		const existing = await prisma.job.findFirst({
@@ -78,11 +76,7 @@ export async function runVpsBackupScheduleTickOnce(): Promise<number> {
 			return 0;
 		}
 	} finally {
-		try {
-			await prisma.$executeRaw`SELECT pg_advisory_unlock(${LOCK_K1}, ${LOCK_K2})`;
-		} catch {
-			// Session end will release; ignore unlock races.
-		}
+		await releaseLock();
 	}
 }
 

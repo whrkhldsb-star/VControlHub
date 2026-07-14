@@ -17,6 +17,7 @@ export function CreateShareForm({ nodes }: { nodes: StorageNode[] }) {
   const [nodeId, setNodeId] = useState(nodes[0]?.id ?? "");
   const [path, setPath] = useState("");
   const [entryType, setEntryType] = useState<"FILE" | "DIRECTORY">("DIRECTORY");
+  const [permissionLevel, setPermissionLevel] = useState<"preview" | "download">("download");
   const [name, setName] = useState("");
   const [expiresIn, setExpiresIn] = useState("");
   const [password, setPassword] = useState("");
@@ -45,7 +46,7 @@ export function CreateShareForm({ nodes }: { nodes: StorageNode[] }) {
     setError("");
     setResult(null);
     try {
-      const body: Record<string, unknown> = { storageNodeId: nodeId, path, entryType };
+      const body: Record<string, unknown> = { storageNodeId: nodeId, path, entryType, permissionLevel };
       if (name.trim()) body.name = name.trim();
       if (expiresIn) body.expiresInHours = Number(expiresIn);
       if (password.trim()) body.password = password.trim();
@@ -102,6 +103,13 @@ export function CreateShareForm({ nodes }: { nodes: StorageNode[] }) {
               <select id="createShareEntryType" value={entryType} onChange={(e) => setEntryType(e.target.value as "FILE" | "DIRECTORY")} data-input className="w-full rounded-xl border border-[var(--border)] bg-[var(--input-bg)] px-3 py-2.5 text-sm outline-none">
                 <option value="DIRECTORY">{t("sharesPage.create.entryType.DIRECTORY")}</option>
                 <option value="FILE">{t("sharesPage.create.entryType.FILE")}</option>
+              </select>
+            </div>
+            <div>
+              <label className="block text-xs text-[var(--text-secondary)] mb-1" htmlFor="createSharePermissionLevel">{t("sharesPage.create.permissionLevel")}</label>
+              <select id="createSharePermissionLevel" value={permissionLevel} onChange={(e) => setPermissionLevel(e.target.value as "preview" | "download")} data-input className="w-full rounded-xl border border-[var(--border)] bg-[var(--input-bg)] px-3 py-2.5 text-sm outline-none">
+                <option value="download">{t("sharesPage.create.permissionLevel.download")}</option>
+                <option value="preview">{t("sharesPage.create.permissionLevel.preview")}</option>
               </select>
             </div>
             <div>

@@ -46,6 +46,27 @@ function normalizeConfigPath(value: unknown): string | null {
   return path;
 }
 
+function normalizeAbsolutePath(value: unknown): string | null {
+  const path = typeof value === "string" ? value.trim() : "";
+  if (!path.startsWith("/") || /[\0\n\r]/.test(path)) return null;
+  if (path.split("/").some((segment) => segment === "..")) return null;
+  if (!/^[/A-Za-z0-9._+@:\- ]+$/.test(path)) return null;
+  return path;
+}
+
+function normalizeLiteralQuery(value: unknown): string | null {
+  if (typeof value !== "string") return null;
+  const query = value.trim();
+  return !query || query.length > 200 || /[\0\n\r]/.test(query) ? null : query;
+}
+
+function normalizeFilePattern(value: unknown): string | null {
+  if (value === undefined || value === null || value === "") return "*";
+  if (typeof value !== "string") return null;
+  const pattern = value.trim();
+  return /^[A-Za-z0-9*?._-]{1,80}$/.test(pattern) ? pattern : null;
+}
+
 function normalizeShellLiteral(value: unknown, maxLength = 10_000): string | null {
   if (typeof value !== "string") return null;
   if (value.includes("\0") || value.length > maxLength) return null;
@@ -117,6 +138,34 @@ export function buildCommand(actionType: HostedActionType, params: Record<string
 
     case "list_docker_containers":
       return "docker ps -a --format 'table {{.Names}}\t{{.Image}}\t{{.Status}}\t{{.Ports}}'";
+
+    case "list_files": {
+      const path = normalizeAbsolutePath(params.path);
+      if (!path) return null;
+      return `find ${shellQuote(path)} -mindepth 1 -maxdepth 1 -printf '%y\t%s\t%f\n' 2>/dev/null | head -200`;
+    }
+
+    case "search_files": {
+      const path = normalizeAbsolutePath(params.path);
+      const query = normalizeLiteralQuery(params.query);
+      const pattern = normalizeFilePattern(params.filePattern);
+      if (!path || !query || !pattern) return null;
+      return `grep -rFInI --include=${shellQuote(pattern)} -- ${shellQuote(query)} ${shellQuote(path)} 2>/dev/null | head -200`;
+    }
+
+    case "read_file": {
+      const filePath = normalizeAbsolutePath(params.filePath);
+      const tail = normalizeTail(params.tail ?? 100);
+      if (!filePath || !tail) return null;
+      return `tail -n ${tail} -- ${shellQuote(filePath)}`;
+    }
+
+    case "get_docker_logs": {
+      const containerId = normalizeIdentifier(params.containerId);
+      const tail = normalizeTail(params.tail ?? 100);
+      if (!containerId || !tail) return null;
+      return `docker logs --tail ${tail} -- ${shellQuote(containerId)} 2>&1`;
+    }
 
     case "check_service_status": {
       const svc = normalizeIdentifier(params.serviceName);

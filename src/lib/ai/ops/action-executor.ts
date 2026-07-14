@@ -33,16 +33,11 @@ function unsupportedAction(input: ActionInput, reason: string): AiOpsExecutedAct
 /**
  * Execute one whitelisted AI ops action and return an auditable result row.
  *
- * Supported real side effects:
- * - `alert.evaluate`: runs the same alert evaluation logic used by the durable
- *   alert worker. This may update alert rule match/trigger timestamps and send
- *   configured notifications.
- * - `cache.purge:stale`: prunes old completed jobs from the durable job queue,
- *   keeping only the most recent 25 per type. This directly addresses the
- *   "stale job accumulation" signal.
+ * Supported real side effects (FEAT-P1-3 expanded):
+ * - `alert.evaluate`: runs alert evaluation, may trigger notifications.
+ * - `cache.purge:stale`: prunes old completed jobs and AI ops logs.
  *
- * Safe-set entries that still need domain-specific payloads are recorded as
- * non-executed with an explicit reason rather than silently faking success.
+ * All executions produce an auditable result row with structured output.
  */
 export async function executeAiOpsAction(input: ActionInput): Promise<AiOpsExecutedAction> {
 	if (!SAFE_ACTIONS.has(input.action)) {
@@ -102,10 +97,6 @@ export async function executeAiOpsAction(input: ActionInput): Promise<AiOpsExecu
 					result: `Pruned ${totalPruned} stale records (including job queue and ops logs)`,
 				};
 			}
-			case "playbook.run:low_risk":
-				return unsupportedAction(input, "Low-risk Playbook execution requires a playbookId/serverId payload; the current recommendation does not carry executable parameters");
-			case "backup.snapshot:metadata_only":
-				return unsupportedAction(input, "Metadata snapshot requires a target backup domain payload; the current recommendation does not carry executable parameters");
 			default:
 				return unsupportedAction(input, `Unknown safe action ${input.action}`);
 		}

@@ -3,6 +3,7 @@ import { z } from "zod";
 import { sessionHasPermission } from "@/lib/auth/authorization";
 import { auditUserAction } from "@/lib/audit/service";
 import { addTicketComment, canViewTicket, createTicket, listTickets, updateTicketStatus } from "@/lib/ticket/service";
+import { listTicketsAdvanced, getTicketKanban, escalateBreachedTickets } from "@/lib/ticket/sla";
 import { withApiRoute } from "@/lib/http/api-guard";
 import { GENERAL_WRITE_LIMIT } from "@/lib/http/rate-limit-presets";
 
@@ -49,10 +50,44 @@ export const dynamic = "force-dynamic";
 
 export async function GET(request: Request) {
   return withApiRoute(request, { permission: "ticket:read" }, async ({ session }) => {
+    const url = new URL(request.url);
+    const view = url.searchParams.get("view");
+    const status = url.searchParams.get("status") ?? undefined;
+    const priority = url.searchParams.get("priority") ?? undefined;
+    const category = url.searchParams.get("category") ?? undefined;
+    const assigneeId = url.searchParams.get("assigneeId") ?? undefined;
+    const slaStatus = url.searchParams.get("slaStatus") ?? undefined;
+    const search = url.searchParams.get("search") ?? undefined;
+
+    if (!session) return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
+
+    // FEAT-P1-1: Kanban view
+    if (view === "kanban") {
+      const columns = await getTicketKanban({ session });
+      return NextResponse.json({ columns });
+    }
+
+    // FEAT-P1-1: Advanced filtered list
+    const hasFilters = status || priority || category || assigneeId || slaStatus || search;
+    if (hasFilters) {
+      const tickets = await listTicketsAdvanced({
+        session,
+        status: status?.toUpperCase(),
+        priority: priority?.toUpperCase(),
+        category,
+        assigneeId,
+        slaStatus: slaStatus as "ok" | "warning" | "breached" | "none" | undefined,
+        search,
+      });
+      return NextResponse.json({ tickets });
+    }
+
+    // Default: backward-compatible list
     return NextResponse.json({
       tickets: await listTickets({
         userId: session?.userId,
         includeAll: Boolean(session && sessionHasPermission(session, "ticket:manage")),
+        session: session ?? undefined,
       }),
     });
   });
@@ -71,7 +106,16 @@ export async function POST(request: Request) {
     if (!session || !sessionHasPermission(session, "ticket:create")) {
       throw new ForbiddenError("Missing permission");
     }
-    const ticket = await createTicket({ title: body.subject ?? body.title ?? "", description: body.description, priority: normalizePriority(body.priority), createdBy: session?.userId ?? "" });
+    const ticket = await createTicket({
+      title: body.subject ?? body.title ?? "",
+      description: body.description,
+      priority: normalizePriority(body.priority),
+      category: body.category,
+      createdBy: session?.userId ?? "",
+      relatedServerId: body.relatedServerId,
+      relatedCommandId: body.relatedCommandId,
+      session,
+    });
     await auditUserAction(session?.userId ?? "", "ticket.create", { ticketId: ticket.id, title: ticket.title });
     return NextResponse.json({ ticket }, { status: 201 });
   });

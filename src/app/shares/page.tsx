@@ -9,6 +9,7 @@ import { toDateLocale } from "@/lib/i18n/locale-format";
 import { CreateShareForm } from "./create-share-form";
 import { ShareFilePicker } from "./share-file-picker";
 import { ShareRowActions } from "./share-row-actions";
+import { ShareAccessLogsButton } from "./share-access-logs";
 
 export const revalidate = 60;
 
@@ -52,6 +53,14 @@ export default async function SharesPage() {
 									}`}>
 										{s.revokedAt ? t("shares.status.revoked") : s.expiresAt && s.expiresAt < new Date() ? t("shares.status.expired") : t("shares.status.active")}
 									</span>
+									<span className={`rounded-full border px-2 py-0.5 text-[10px] font-medium ${
+										s.permissionLevel === "preview"
+										? "border-[var(--warning-border)] bg-[var(--warning-bg)] text-[var(--warning)]"
+										: "border-[var(--accent-border)] bg-[var(--accent-bg)] text-[var(--accent)]"
+									}`}>
+										{s.permissionLevel === "preview" ? t("sharesPage.permissionLevel.preview") : t("sharesPage.permissionLevel.download")}
+									</span>
+									<ShareAccessLogsButton shareId={s.id} />
 									{canManage ? <ShareRowActions id={s.id} revoked={Boolean(s.revokedAt)} /> : null}
 								</div>
 							</div>

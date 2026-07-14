@@ -22,6 +22,7 @@ import { normalizeRemoteTargetPath } from "@/lib/storage/remote-path";
 import { resolveStorageSshCredentials } from "@/lib/storage/ssh-credentials";
 
 import { apiError } from "@/lib/http/api-error";
+import { ForbiddenError } from "@/lib/errors";
 import { getClientIp } from "@/lib/rate-limit";
 import { rateLimitResponse, withRateLimit, type RateLimitConfig } from "@/lib/http/rate-limit-presets";
 import { getServerLocale, t } from "@/lib/i18n/translations";
@@ -87,11 +88,12 @@ export async function GET(
 			);
 			if (!passwordLimit.allowed) return rateLimitResponse(passwordLimit.retryAfterMs);
 		}
-		share = await resolveShareToken(token, password);
+		share = await resolveShareToken(token, password, { ip: clientIp ?? undefined, userAgent: request.headers.get("user-agent") ?? undefined });
 	} catch (err) {
 		const message = err instanceof Error ? err.message : t("apiShareToken.invalidToken", locale);
-		return apiError({ code: "NOT_FOUND", message: message, status: 404 });
+		return apiError({ code: err instanceof ForbiddenError ? "FORBIDDEN" : "NOT_FOUND", message, status: err instanceof ForbiddenError ? 403 : 404 });
 	}
+
 
 	let targetPath = share.path;
 	const { path: childPath, archive } = parseSearchParams(

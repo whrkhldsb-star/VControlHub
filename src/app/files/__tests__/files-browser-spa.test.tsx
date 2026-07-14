@@ -61,6 +61,14 @@ vi.mock("../recycle-bin-section-client", () => ({
   RecycleBinSectionClient: () => React.createElement("div", null, "回收站"),
 }));
 
+vi.mock("../recent-downloads-panel", () => ({
+  RecentDownloadsPanel: (props: { onNavigate: (path: string, nodeId: string) => void }) =>
+    React.createElement("button", {
+      type: "button",
+      onClick: () => props.onNavigate("downloads/releases", "node_2"),
+    }, "打开最近下载"),
+}));
+
 vi.mock("../file-list-client", () => ({
   FileListClient: (props: { files: Array<{ name: string }> }) =>
     React.createElement(
@@ -574,6 +582,34 @@ describe("FilesBrowserSpa", () => {
     ).toHaveAttribute("aria-expanded", "false");
     const sidebar = document.getElementById("files-browser-sidebar");
     expect(sidebar?.className.split(/\s+/)).toContain("hidden");
+  });
+
+  it("navigates recent downloads inside the SPA and switches to their storage node", async () => {
+    const fetchMock = vi.mocked(globalThis.fetch);
+    fetchMock.mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({
+        ...baseData,
+        nodeIdFilter: "node_2",
+        currentPath: "downloads/releases",
+        files: [],
+      }),
+    } as Response);
+
+    renderWithI18n(
+      <FilesBrowserSpa
+        initialData={baseData}
+        deletedEntries={[]}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "打开最近下载" }));
+
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledWith(
+      "/api/files/list?path=downloads%2Freleases&nodeId=node_2",
+      expect.any(Object),
+    ));
+    expect(window.history.pushState).toBeDefined();
   });
 
   it("auto-closes the directory tree sidebar on mobile after a tree navigation click", async () => {

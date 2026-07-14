@@ -100,8 +100,6 @@ export const AI_OPS_SCAN_JOB_TYPE = "ai.ops.scan";
 /** Safe action set — these can run autonomously without explicit approval. */
 export const AI_OPS_SAFE_AUTONOMOUS_ACTIONS = [
 	"alert.evaluate",
-	"playbook.run:low_risk",
-	"backup.snapshot:metadata_only",
 	"cache.purge:stale",
 ] as const;
 export type AiOpsSafeAutonomousAction =

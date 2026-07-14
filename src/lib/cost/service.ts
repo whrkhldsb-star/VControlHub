@@ -17,9 +17,12 @@
 import { Prisma } from "@prisma/client";
 
 import { prisma } from "@/lib/db";
+import { createNotification } from "@/lib/notification/service";
 
-import { createCostEntrySchema, updateCostEntrySchema } from "./schema";
+import { createCostBudgetSchema, createCostEntrySchema, updateCostBudgetSchema, updateCostEntrySchema } from "./schema";
 import type {
+	CostBudgetPeriod,
+	CostBudgetRecord,
 	CostCategory,
 	CostCurrency,
 	CostEntryRecord,
@@ -79,6 +82,7 @@ function toRecord(entry: {
 	createdById: string | null;
 	sourceType: string | null;
 	sourceRef: string | null;
+	tags: string[];
 	createdAt: Date;
 	updatedAt: Date;
 }): CostEntryRecord {
@@ -93,9 +97,23 @@ function toRecord(entry: {
 		createdById: entry.createdById,
 		sourceType: entry.sourceType,
 		sourceRef: entry.sourceRef,
+		tags: entry.tags,
 		createdAt: entry.createdAt.toISOString(),
 		updatedAt: entry.updatedAt.toISOString(),
 	};
+}
+
+function tagValue(value: string): string {
+	return value.trim().toLocaleLowerCase().replace(/\s+/gu, "-").slice(0, 128);
+}
+
+function automaticTags(sourceType: string, category: CostCategory, provider: string, sourceRef?: string | null): string[] {
+	return [
+		`source:${tagValue(sourceType)}`,
+		`category:${category}`,
+		`provider:${tagValue(provider)}`,
+		...(sourceRef ? [`server:${tagValue(sourceRef)}`] : []),
+	];
 }
 
 function toSnapshot(snap: {
@@ -151,6 +169,7 @@ export async function createCostEntry(
 			notes: parsed.notes ?? null,
 			sourceType: "manual",
 			sourceRef: null,
+			tags: automaticTags("manual", parsed.category, parsed.provider),
 			createdById: createdById ?? null,
 		},
 	});
@@ -171,6 +190,17 @@ export async function updateCostEntry(
 		data.effectiveDate = new Date(`${parsed.effectiveDate}T00:00:00Z`);
 	}
 	if (parsed.notes !== undefined) data.notes = parsed.notes;
+	if (parsed.category !== undefined || parsed.provider !== undefined) {
+		const current = await prisma.costEntry.findUnique({ where: { id } });
+		if (current) {
+			data.tags = automaticTags(
+				current.sourceType ?? "manual",
+				(parsed.category ?? current.category) as CostCategory,
+				parsed.provider ?? current.provider,
+				current.sourceRef,
+			);
+		}
+	}
 	const entry = await prisma.costEntry.update({ where: { id }, data });
 	return toRecord(entry);
 }
@@ -329,12 +359,14 @@ export async function syncServerMonthlyCosts(
 				sourceType: "server_monthly",
 				sourceRef: server.id,
 				createdById: null,
+				tags: automaticTags("server_monthly", "vps", provider, server.id),
 			},
 			update: {
 				provider,
 				amount: new Prisma.Decimal(amount),
 				currency: server.costCurrency,
 				notes: `Auto-collected: ${server.name} (${server.host}) ${month} VPS monthly fee`,
+				tags: automaticTags("server_monthly", "vps", provider, server.id),
 			},
 		});
 		await prisma.server.update({
@@ -345,6 +377,137 @@ export async function syncServerMonthlyCosts(
 	}
 
 	return { month, synced: entries.length, skipped, entries };
+}
+
+/* ── Budgets ─────────────────────────────────────────────── */
+
+type BudgetRow = {
+	id: string;
+	category: string;
+	name: string;
+	limitAmount: Prisma.Decimal;
+	currency: string;
+	period: string;
+	alertThresholdPercent: number;
+	enabled: boolean;
+	createdAt: Date;
+	updatedAt: Date;
+};
+
+export function getBudgetPeriodRange(period: CostBudgetPeriod, now = new Date()): { start: Date; endExclusive: Date } {
+	const year = now.getUTCFullYear();
+	const month = now.getUTCMonth();
+	if (period === "monthly") {
+		return { start: new Date(Date.UTC(year, month, 1)), endExclusive: new Date(Date.UTC(year, month + 1, 1)) };
+	}
+	if (period === "quarterly") {
+		const quarterStart = Math.floor(month / 3) * 3;
+		return { start: new Date(Date.UTC(year, quarterStart, 1)), endExclusive: new Date(Date.UTC(year, quarterStart + 3, 1)) };
+	}
+	return { start: new Date(Date.UTC(year, 0, 1)), endExclusive: new Date(Date.UTC(year + 1, 0, 1)) };
+}
+
+async function budgetToRecord(row: BudgetRow, now = new Date()): Promise<CostBudgetRecord> {
+	const range = getBudgetPeriodRange(row.period as CostBudgetPeriod, now);
+	const aggregate = await prisma.costEntry.aggregate({
+		where: {
+			category: row.category,
+			currency: row.currency,
+			effectiveDate: { gte: range.start, lt: range.endExclusive },
+		},
+		_sum: { amount: true },
+	});
+	const usageAmount = aggregate._sum.amount?.toFixed(2) ?? "0.00";
+	const limitAmount = row.limitAmount.toFixed(2);
+	return {
+		id: row.id,
+		category: row.category as CostCategory,
+		name: row.name,
+		limitAmount,
+		currency: row.currency as CostCurrency,
+		period: row.period as CostBudgetPeriod,
+		alertThresholdPercent: row.alertThresholdPercent,
+		enabled: row.enabled,
+		usageAmount,
+		usagePercent: Number(((Number(usageAmount) / Number(limitAmount)) * 100).toFixed(1)),
+		periodStart: isoDateOnly(range.start),
+		periodEnd: isoDateOnly(new Date(range.endExclusive.getTime() - 1)),
+		createdAt: row.createdAt.toISOString(),
+		updatedAt: row.updatedAt.toISOString(),
+	};
+}
+
+export async function createCostBudget(input: unknown): Promise<CostBudgetRecord> {
+	const parsed = createCostBudgetSchema.parse(input);
+	const row = await prisma.costBudget.create({
+		data: {
+			category: parsed.category,
+			name: parsed.name,
+			limitAmount: new Prisma.Decimal(parsed.limitAmount),
+			currency: parsed.currency ?? DEFAULT_CURRENCY,
+			period: parsed.period ?? "monthly",
+			alertThresholdPercent: parsed.alertThresholdPercent ?? 80,
+			enabled: parsed.enabled ?? true,
+		},
+	});
+	return budgetToRecord(row);
+}
+
+export async function listCostBudgets(now = new Date()): Promise<CostBudgetRecord[]> {
+	const rows = await prisma.costBudget.findMany({ orderBy: { createdAt: "desc" } });
+	return Promise.all(rows.map((row) => budgetToRecord(row, now)));
+}
+
+export async function getCostBudget(id: string, now = new Date()): Promise<CostBudgetRecord | null> {
+	const row = await prisma.costBudget.findUnique({ where: { id } });
+	return row ? budgetToRecord(row, now) : null;
+}
+
+export async function updateCostBudget(id: string, input: unknown): Promise<CostBudgetRecord> {
+	const parsed = updateCostBudgetSchema.parse(input);
+	const data: Prisma.CostBudgetUpdateInput = { ...parsed };
+	if (parsed.limitAmount !== undefined) data.limitAmount = new Prisma.Decimal(parsed.limitAmount);
+	const row = await prisma.costBudget.update({ where: { id }, data });
+	return budgetToRecord(row);
+}
+
+export async function deleteCostBudget(id: string): Promise<void> {
+	await prisma.costBudget.delete({ where: { id } });
+}
+
+export async function checkBudgetAlerts(now = new Date()) {
+	const budgets = await listCostBudgets(now);
+	const managers = await prisma.user.findMany({
+		where: { roles: { some: { role: { permissions: { some: { permission: { key: "cost:manage" } } } } } } },
+		select: { id: true },
+		take: 1000,
+	});
+	let triggered = 0;
+	let notificationsSent = 0;
+	let duplicatesSkipped = 0;
+	for (const budget of budgets) {
+		if (!budget.enabled || budget.usagePercent < budget.alertThresholdPercent) continue;
+		triggered += 1;
+		const actionUrl = `/cost-summary?budget=${budget.id}&periodStart=${budget.periodStart}`;
+		for (const manager of managers) {
+			const duplicate = await prisma.notification.findFirst({
+				where: { userId: manager.id, type: "system", actionUrl },
+			});
+			if (duplicate) {
+				duplicatesSkipped += 1;
+				continue;
+			}
+			await createNotification({
+				userId: manager.id,
+				type: "system",
+				title: `Cost budget alert: ${budget.name}`,
+				message: `${budget.usageAmount} ${budget.currency} used (${budget.usagePercent}%), threshold ${budget.alertThresholdPercent}% of ${budget.limitAmount} ${budget.currency}.`,
+				actionUrl,
+			});
+			notificationsSent += 1;
+		}
+	}
+	return { checked: budgets.length, triggered, notificationsSent, duplicatesSkipped, budgets };
 }
 
 /* ── Snapshot writer (called by daily snapshot worker) ─────── */

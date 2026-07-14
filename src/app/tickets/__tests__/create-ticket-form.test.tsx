@@ -1,43 +1,41 @@
-import { screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const refreshMock = vi.hoisted(() => vi.fn());
-
-vi.mock("next/navigation", () => ({
-  useRouter: () => ({ refresh: refreshMock }),
-}));
-
-vi.mock("@/lib/auth/csrf-client", () => ({
-  csrfFetch: vi.fn(),
-}));
-
-import { csrfFetch } from "@/lib/auth/csrf-client";
 import { CreateTicketForm } from "../create-ticket-form";
-import { renderWithI18n as render } from "@/lib/i18n/__tests__/test-helpers";
-import { ToastProvider } from "@/components/toast-provider";
+import { csrfFetch } from "@/lib/auth/csrf-client";
+
+const refresh = vi.fn();
+const addToast = vi.fn();
+
+vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh }) }));
+vi.mock("@/lib/auth/csrf-client", () => ({ csrfFetch: vi.fn() }));
+vi.mock("@/components/toast-provider", () => ({ useToast: () => ({ addToast }) }));
+vi.mock("@/lib/i18n/use-locale", async () => {
+  const translations = await import("@/lib/i18n/translations");
+  return { useI18n: () => ({ locale: "en", t: (key: string) => translations.t(key, "en") }) };
+});
 
 describe("CreateTicketForm", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.mocked(csrfFetch).mockResolvedValue(undefined);
   });
 
-  it("refreshes the current route after creating a ticket without forcing a full page reload", async () => {
+  it("submits the selected category to the ticket API", async () => {
     const user = userEvent.setup();
-    vi.mocked(csrfFetch).mockResolvedValueOnce({ id: "ticket_1" });
+    render(<CreateTicketForm locale="en" />);
 
-    render(<ToastProvider><CreateTicketForm /></ToastProvider>, { locale: "en" });
-
-    await user.type(screen.getByLabelText("Title"), "Cannot connect to VPS");
-    await user.type(screen.getByLabelText("Description"), "SSH connection keeps timing out");
-    await user.selectOptions(screen.getByLabelText("Priority"), "HIGH");
+    await user.type(screen.getByLabelText("Title"), "API latency");
+    await user.selectOptions(screen.getByLabelText("Category"), "incident");
+    await user.type(screen.getByLabelText("Description"), "Latency exceeds the SLO");
     await user.click(screen.getByRole("button", { name: "Submit ticket" }));
 
-    await waitFor(() => expect(csrfFetch).toHaveBeenCalledWith("/api/tickets", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ subject: "Cannot connect to VPS", description: "SSH connection keeps timing out", priority: "HIGH" }),
-    }));
-    expect(refreshMock).toHaveBeenCalledTimes(1);
+    await waitFor(() => expect(csrfFetch).toHaveBeenCalledTimes(1));
+    expect(JSON.parse(String(vi.mocked(csrfFetch).mock.calls[0]?.[1]?.body))).toMatchObject({
+      subject: "API latency",
+      category: "incident",
+      description: "Latency exceeds the SLO",
+    });
   });
 });

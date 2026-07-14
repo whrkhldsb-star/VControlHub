@@ -71,6 +71,12 @@ const SHARE_STORAGE_NODE_INCLUDE = {
   },
 } as const;
 
+async function recordShareAccess(input: { shareLinkId: string; action: string; ip?: string; userAgent?: string }) {
+  const model = prisma.shareAccessLog;
+  if (!model) return;
+  await model.create({ data: { shareLinkId: input.shareLinkId, action: input.action, ip: input.ip ?? null, userAgent: input.userAgent ?? null } }).catch(() => undefined);
+}
+
 export async function createShareLink(input: {
   session: SessionPayload;
   fileEntryId?: string;
@@ -81,6 +87,7 @@ export async function createShareLink(input: {
   expiresInHours?: number;
   maxDownloads?: number | null;
   password?: string;
+  permissionLevel?: "preview" | "download";
 }) {
   const normalizedPath = normalizeSharePath(input.path);
   const access = await assertStorageAccess({ session: input.session, storageNodeId: input.storageNodeId, relativePath: normalizedPath, operation: "read" });
@@ -101,6 +108,7 @@ export async function createShareLink(input: {
       expiresAt,
       maxDownloads: input.maxDownloads ?? null,
       passwordHash: input.password ? hashSharePassword(input.password) : null,
+      permissionLevel: input.permissionLevel ?? "download",
       createdBy: input.session.userId,
     },
   });
@@ -114,6 +122,7 @@ export async function createShareLinkFromFileEntry(input: {
   expiresInHours?: number;
   maxDownloads?: number | null;
   password?: string;
+  permissionLevel?: "preview" | "download";
 }) {
   const t = await serverT();
   const entry = await prisma.fileEntry.findUnique({
@@ -132,6 +141,7 @@ export async function createShareLinkFromFileEntry(input: {
     expiresInHours: input.expiresInHours,
     maxDownloads: input.maxDownloads,
     password: input.password,
+    permissionLevel: input.permissionLevel,
   });
 }
 
@@ -159,14 +169,21 @@ export async function revokeShareLink(id: string, userId?: string) {
   return prisma.shareLink.update({ where: { id: share.id }, data: { revokedAt: new Date() } });
 }
 
-export async function resolveShareToken(token: string, password?: string) {
+export async function resolveShareToken(token: string, password?: string, context?: { ip?: string; userAgent?: string }) {
   const t = await serverT();
   const share = await prisma.shareLink.findUnique({ where: { tokenHash: hashShareToken(token) }, include: SHARE_STORAGE_NODE_INCLUDE });
   if (!share || share.revokedAt) throw new NotFoundError(t("backend.shareLink.notFoundOrRevoked"));
   if (share.expiresAt && share.expiresAt.getTime() < Date.now()) throw new ValidationError(t("backend.shareLink.expired"));
+  if (share.permissionLevel === "preview") throw new ForbiddenError("This share is preview-only; downloads are not permitted");
   if (share.passwordHash) {
-    if (!password) throw new ValidationError(t("backend.shareLink.passwordRequired"));
-    if (!verifySharePassword(password, share.passwordHash)) throw new ValidationError(t("backend.shareLink.passwordIncorrect"));
+    if (!password) {
+      await recordShareAccess({ shareLinkId: share.id, action: "password_attempt", ip: context?.ip, userAgent: context?.userAgent });
+      throw new ValidationError(t("backend.shareLink.passwordRequired"));
+    }
+    if (!verifySharePassword(password, share.passwordHash)) {
+      await recordShareAccess({ shareLinkId: share.id, action: "password_attempt", ip: context?.ip, userAgent: context?.userAgent });
+      throw new ValidationError(t("backend.shareLink.passwordIncorrect"));
+    }
   }
   // Atomic quota claim: only increment when still under maxDownloads (or unlimited).
   // Prevents concurrent downloads from exceeding the cap, and avoids a separate
@@ -186,6 +203,8 @@ export async function resolveShareToken(token: string, password?: string) {
   } else {
     await prisma.shareLink.update({ where: { id: share.id }, data: { accessCount: { increment: 1 } } });
   }
+  // Record access log (best-effort, non-blocking on failure).
+  await recordShareAccess({ shareLinkId: share.id, action: "download", ip: context?.ip, userAgent: context?.userAgent });
   return share;
 }
 
@@ -193,11 +212,13 @@ export async function resolveShareToken(token: string, password?: string) {
  * 只读解析分享 token，用于落地页展示，不递增访问计数。
  * 真正的下载（/api/share/[token]）才会通过 resolveShareToken 计数。
  */
-export async function peekShareToken(token: string) {
+export async function peekShareToken(token: string, context?: { ip?: string; userAgent?: string }) {
   const t = await serverT();
   const share = await prisma.shareLink.findUnique({ where: { tokenHash: hashShareToken(token) }, include: SHARE_STORAGE_NODE_INCLUDE });
   if (!share || share.revokedAt) throw new NotFoundError(t("backend.shareLink.notFoundOrRevoked"));
   if (share.expiresAt && share.expiresAt.getTime() < Date.now()) throw new ValidationError(t("backend.shareLink.expired"));
+  // Record view access log (best-effort, non-blocking on failure).
+  await recordShareAccess({ shareLinkId: share.id, action: "view", ip: context?.ip, userAgent: context?.userAgent });
   return { ...share, hasPassword: !!share.passwordHash };
 }
 
@@ -320,5 +341,26 @@ export async function listShareDirectoryFiles(share: Awaited<ReturnType<typeof p
     orderBy: [{ relativePath: "asc" }],
     take: 200,
     select: { id: true, name: true, relativePath: true, size: true, mimeType: true, updatedAt: true },
+  });
+}
+
+export async function listShareAccessLogs(
+  shareLinkId: string,
+  session: { userId: string; roles: import("@/lib/auth/rbac").RoleKey[]; currentTeamId: string | null },
+  take = 100,
+) {
+  const share = await prisma.shareLink.findFirst({
+    where: { id: shareLinkId, ...teamWhere(session) },
+    select: { id: true, createdBy: true },
+  });
+  if (!share) throw new NotFoundError("Share link not found");
+  const { sessionHasPermission } = await import("@/lib/auth/authorization");
+  if (share.createdBy !== session.userId && !sessionHasPermission(session, "share:manage")) {
+    throw new ForbiddenError("Missing permission to view share access logs");
+  }
+  return prisma.shareAccessLog.findMany({
+    where: { shareLinkId },
+    orderBy: { accessedAt: "desc" },
+    take,
   });
 }

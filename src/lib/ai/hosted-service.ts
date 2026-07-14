@@ -118,7 +118,12 @@ async function buildAssistantCommandRequestPayload(input: {
 }
 
 function requiredPermissionForAction(actionType: string): Permission {
-  return actionType === "list_servers" ? "server:read" : "server:ssh";
+  if (actionType === "list_servers") return "server:read";
+  if (actionType === "list_backups") return "backup:read";
+  if (actionType === "run_playbook") return "playbook:run";
+  if (actionType === "query_traffic") return "health:read";
+  if (actionType === "manage_cron") return "task:read";
+  return "server:ssh";
 }
 
 const HOSTED_ACTION_TYPES = new Set<HostedActionType>([
@@ -131,6 +136,10 @@ const HOSTED_ACTION_TYPES = new Set<HostedActionType>([
   "restart_service",
   "modify_config",
   "deploy_docker",
+  "list_files",
+  "search_files",
+  "read_file",
+  "get_docker_logs",
 ]);
 
 function isHostedActionType(actionType: string): actionType is HostedActionType {

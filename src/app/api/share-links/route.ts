@@ -22,6 +22,7 @@ const shareLinkPostSchema = z.object({
   expiresIn: z.number().positive().optional(),
   maxDownloads: z.number().int().positive().optional().nullable(),
   password: z.string().min(1).max(128).optional(),
+  permissionLevel: z.enum(["preview", "download"]).optional(),
 }).refine((data) => Boolean(data.fileEntryId || (data.storageNodeId && data.path)), {
   message: "Must select a file from file manager, or provide storage node and path",
 });
@@ -62,6 +63,7 @@ export async function POST(request: Request) {
             expiresInHours: data.expiresInHours ?? data.expiresIn,
             maxDownloads: data.maxDownloads,
             password: data.password,
+            permissionLevel: data.permissionLevel,
           })
         : await createShareLink({
             session,
@@ -72,6 +74,7 @@ export async function POST(request: Request) {
             expiresInHours: data.expiresInHours ?? data.expiresIn,
             maxDownloads: data.maxDownloads,
             password: data.password,
+            permissionLevel: data.permissionLevel,
           });
       await auditUserAction(session!.userId, "share-link.create", { shareId: result.share.id });
       return NextResponse.json(

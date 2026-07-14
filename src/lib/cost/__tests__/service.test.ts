@@ -18,6 +18,7 @@ type CostEntryRow = {
 	createdById: string | null;
 	sourceType: string | null;
 	sourceRef: string | null;
+	tags: string[];
 	createdAt: Date;
 	updatedAt: Date;
 };
@@ -248,6 +249,7 @@ describe("createCostEntry", () => {
 		expect(rec.amount).toBe("12.50");
 		expect(rec.effectiveDate).toBe("2026-06-15");
 		expect(rec.createdById).toBeNull();
+		expect(rec.tags).toEqual(["source:manual", "category:vps", "provider:阿里云"]);
 	});
 
 	it("stores optional notes + custom currency", async () => {
@@ -464,6 +466,12 @@ describe("syncServerMonthlyCosts", () => {
 		expect(first.entries[0]?.sourceType).toBe("server_monthly");
 		expect(first.entries[0]?.sourceRef).toBe("srv_1");
 		expect(first.entries[0]?.effectiveDate).toBe("2026-06-01");
+		expect(first.entries[0]?.tags).toEqual([
+			"source:server_monthly",
+			"category:vps",
+			"provider:linode",
+			"server:srv_1",
+		]);
 
 		store.servers.set("srv_1", {
 			...store.servers.get("srv_1")!,

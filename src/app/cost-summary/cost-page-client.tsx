@@ -7,6 +7,7 @@ import { toDateLocale } from "@/lib/i18n/locale-format";
 import { useToast } from "@/components/toast-provider";
 import { EmptyState } from "@/components/page-shell";
 import { CostDeleteDialog, CostEntryFormModal } from "./cost-entry-dialogs";
+import { CostBudgetPanel } from "./cost-budget-panel";
 import { CATEGORIES, buttonDanger, buttonGhost, buttonPrimary, cardClass, emptyForm, formatAmount, inputClass, isValidDate, labelClass } from "./cost-page-shared";
 
 import type {
@@ -14,6 +15,7 @@ import type {
 	CostEntryRecord,
 	CostSummary,
 	DailySnapshot,
+	CostBudgetRecord,
 } from "@/lib/cost/types";
 
 type Props = {
@@ -22,6 +24,7 @@ type Props = {
 	initialSummary: CostSummary | null;
 	initialEntries: CostEntryRecord[];
 	initialSnapshots: DailySnapshot[];
+	initialBudgets: CostBudgetRecord[];
 	canRead: boolean;
 	canManage: boolean;
 	availableCurrencies: CostCurrency[];
@@ -35,6 +38,7 @@ export function CostPageClient({
 	initialSummary,
 	initialEntries,
 	initialSnapshots,
+	initialBudgets,
 	canRead,
 	canManage,
 	availableCurrencies,
@@ -262,6 +266,7 @@ export function CostPageClient({
 
 	return (
 		<div className="space-y-6">
+			<CostBudgetPanel initialBudgets={initialBudgets} canManage={canManage} currencies={availableCurrencies} />
 			{/* Summary card */}
 			<section className={cardClass}>
 				<div className="mb-4 flex flex-wrap items-center justify-between gap-3">

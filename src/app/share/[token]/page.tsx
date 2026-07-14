@@ -3,6 +3,7 @@ import Link from "next/link";
 import { listShareDirectoryFiles, peekShareToken } from "@/lib/share-link/service";
 import { getServerLocale, t } from "@/lib/i18n/translations";
 import { toDateLocale } from "@/lib/i18n/locale-format";
+import { headers } from "next/headers";
 import { SharePasswordGate } from "./share-password-gate";
 
 export const dynamic = "force-dynamic";
@@ -24,18 +25,25 @@ export default async function SharePage({
   const { token } = await params;
   const locale = await getServerLocale();
 
+  // Extract client IP and user-agent for access logging.
+  const hdrs = await headers();
+  const ip = hdrs.get("x-forwarded-for")?.split(",")[0]?.trim() || hdrs.get("cf-connecting-ip") || null;
+  const userAgent = hdrs.get("user-agent") || null;
+
   let share: Awaited<ReturnType<typeof peekShareToken>> | null = null;
   let files: Awaited<ReturnType<typeof listShareDirectoryFiles>> = [];
   let errorMessage = "";
 
   try {
-    share = await peekShareToken(token);
+    share = await peekShareToken(token, { ip: ip ?? undefined, userAgent: userAgent ?? undefined });
     if (share.entryType === "DIRECTORY") {
       files = await listShareDirectoryFiles(share);
     }
   } catch (err) {
     errorMessage = err instanceof Error ? err.message : t("sharePage.invalidToken", locale);
   }
+
+  const isPreviewOnly = share?.permissionLevel === "preview";
 
   return (
     <main className="relative flex min-h-screen items-center justify-center overflow-hidden px-4 py-16 text-[var(--text-primary)]">
@@ -76,7 +84,7 @@ export default async function SharePage({
           </div>
         ) : share ? (
           <div className="space-y-5">
-            {share.hasPassword && (
+            {share.hasPassword && !isPreviewOnly && (
               <SharePasswordGate
                 token={token}
                 label={t("sharePage.passwordRequired", locale)}
@@ -100,6 +108,12 @@ export default async function SharePage({
                     {share.entryType === "DIRECTORY" ? t("sharePage.typeDirectory", locale) : t("sharePage.typeFile", locale)}
                   </dd>
                 </div>
+                <div className="flex justify-between gap-3">
+                  <dt>{t("sharePage.permissionLevel", locale)}</dt>
+                  <dd className="text-[var(--text-secondary)]">
+                    {share.permissionLevel === "preview" ? t("sharePage.permissionPreview", locale) : t("sharePage.permissionDownload", locale)}
+                  </dd>
+                </div>
                 <div className="flex justify-between gap-3 sm:col-span-2">
                   <dt>{t("sharePage.path", locale)}</dt>
                   <dd className="break-all text-right text-[var(--text-secondary)]">{share.path}</dd>
@@ -121,13 +135,19 @@ export default async function SharePage({
             </div>
 
             {!share.hasPassword && share.entryType !== "DIRECTORY" && (
-              <a
-                href={`/api/share/${encodeURIComponent(token)}`}
-                data-primary
-                className="block rounded-xl bg-[var(--accent)] px-4 py-3 text-center text-sm font-semibold text-white transition hover:bg-[var(--accent-hover)]"
-              >
-                {t("sharePage.downloadFile", locale)}
-              </a>
+              isPreviewOnly ? (
+                <div data-tone="amber" className="rounded-lg border border-[var(--warning-border)] px-4 py-3 text-center text-sm text-[var(--warning)]">
+                  {t("sharePage.previewOnly", locale)}
+                </div>
+              ) : (
+                <a
+                  href={`/api/share/${encodeURIComponent(token)}`}
+                  data-primary
+                  className="block rounded-xl bg-[var(--accent)] px-4 py-3 text-center text-sm font-semibold text-white transition hover:bg-[var(--accent-hover)]"
+                >
+                  {t("sharePage.downloadFile", locale)}
+                </a>
+              )
             )}
 
             {share.entryType === "DIRECTORY" && (
@@ -137,7 +157,7 @@ export default async function SharePage({
                     <h2 className="text-sm font-semibold text-[var(--text-primary)]">{t("sharePage.downloadable", locale)}</h2>
                     <span className="text-xs text-[var(--text-muted)]">{t("sharePage.maxIndexed", locale)}</span>
                   </div>
-                  {!share.hasPassword && (
+                  {!share.hasPassword && !isPreviewOnly && (
                     <a
                       href={`/api/share/${encodeURIComponent(token)}?archive=1`}
                       className="shrink-0 rounded-lg border border-[var(--color-action-border)]/40 px-3 py-1.5 text-center text-xs font-medium text-[var(--text-primary)] transition hover:bg-[var(--accent-hover)]/10"
@@ -146,6 +166,11 @@ export default async function SharePage({
                     </a>
                   )}
                 </div>
+                {isPreviewOnly && (
+                  <div data-tone="amber" className="mb-3 rounded-lg border border-[var(--warning-border)] px-4 py-2 text-center text-xs text-[var(--warning)]">
+                    {t("sharePage.previewOnly", locale)}
+                  </div>
+                )}
                 {files.length === 0 ? (
                   <div data-tone="amber" className="rounded-lg border border-[var(--warning-border)] px-4 py-3 text-center text-xs text-[var(--warning)]">
                     {t("sharePage.noFiles", locale)}
@@ -158,7 +183,7 @@ export default async function SharePage({
                           <div className="truncate text-sm font-medium text-[var(--text-primary)]">{file.name}</div>
                           <div className="truncate text-xs text-[var(--text-muted)]" title={file.relativePath}>{file.relativePath} · {formatSize(locale, file.size)}</div>
                         </div>
-                        {!share.hasPassword && (
+                        {!share.hasPassword && !isPreviewOnly && (
                           <a
                             href={`/api/share/${encodeURIComponent(token)}?path=${encodeURIComponent(file.relativePath)}`}
                             className="shrink-0 rounded-lg bg-[var(--accent)] px-3 py-1.5 text-xs font-medium text-[var(--text-primary)] transition hover:bg-[var(--accent-hover)]"

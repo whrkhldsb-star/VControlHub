@@ -8,7 +8,7 @@
  */
 import { requireSession } from "@/lib/auth/require-session";
 import { sessionHasPermission } from "@/lib/auth/authorization";
-import { listCostEntries, listRecentSnapshots, summarizeMonth } from "@/lib/cost/service";
+import { listCostEntries, listRecentSnapshots, summarizeMonth, listCostBudgets } from "@/lib/cost/service";
 import { COST_CURRENCY_VALUES, type CostCurrency } from "@/lib/cost/types";
 import { getServerLocale, t } from "@/lib/i18n/translations";
 import { PageHeader, PageShell } from "@/components/page-shell";
@@ -36,6 +36,7 @@ export default async function CostSummaryPage() {
 		: null;
 	const entries = canRead ? await listCostEntries({ limit: 200 }) : [];
 	const snapshots = canRead ? await listRecentSnapshots(30) : [];
+	const budgets = canRead ? await listCostBudgets() : [];
 
 	return (
 		<PageShell maxW="max-w-7xl">
@@ -50,6 +51,7 @@ export default async function CostSummaryPage() {
 				initialSummary={summary}
 				initialEntries={entries}
 				initialSnapshots={snapshots}
+				initialBudgets={budgets}
 				canRead={canRead}
 				canManage={canManage}
 				availableCurrencies={[...COST_CURRENCY_VALUES]}

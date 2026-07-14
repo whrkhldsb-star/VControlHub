@@ -9,6 +9,19 @@
  */
 
 export const zh: Record<string, string> = {
+	"costPage.budget.title": "预算与自动告警",
+	"costPage.budget.desc": "按分类和周期跟踪预算，达到阈值时通知成本管理员。",
+	"costPage.budget.name": "预算名称",
+	"costPage.budget.limit": "预算额度",
+	"costPage.budget.monthly": "月度",
+	"costPage.budget.quarterly": "季度",
+	"costPage.budget.yearly": "年度",
+	"costPage.budget.create": "创建预算",
+	"costPage.budget.delete": "删除",
+	"costPage.budget.empty": "暂无预算",
+	"costPage.budget.check": "立即检查预算",
+	"costPage.budget.created": "预算已创建",
+	"costPage.budget.checkDone": "预算检查完成，发送 {count} 条通知",
 	"costPage.title": "成本追踪",
 	"costPage.eyebrow": "Cost tracking",
 	"costPage.desc": "按月份汇总 VPS / 带宽 / 存储 / 其它支出。支持多币种,月报按所选币种单独累加,避免混合币种静默累加。",
@@ -73,6 +86,19 @@ export const zh: Record<string, string> = {
 };
 
 export const en: Record<string, string> = {
+	"costPage.budget.title": "Budgets and automatic alerts",
+	"costPage.budget.desc": "Track budgets by category and period; notify cost managers when thresholds are reached.",
+	"costPage.budget.name": "Budget name",
+	"costPage.budget.limit": "Budget limit",
+	"costPage.budget.monthly": "Monthly",
+	"costPage.budget.quarterly": "Quarterly",
+	"costPage.budget.yearly": "Yearly",
+	"costPage.budget.create": "Create budget",
+	"costPage.budget.delete": "Delete",
+	"costPage.budget.empty": "No budgets",
+	"costPage.budget.check": "Check budgets now",
+	"costPage.budget.created": "Budget created",
+	"costPage.budget.checkDone": "Budget check complete; sent {count} notifications",
 	"costPage.title": "Cost Tracking",
 	"costPage.eyebrow": "Cost tracking",
 	"costPage.desc": "Monthly roll-up of VPS, bandwidth, storage, and other spend. Multi-currency entries are summed only in the selected currency to avoid silently mixing them.",

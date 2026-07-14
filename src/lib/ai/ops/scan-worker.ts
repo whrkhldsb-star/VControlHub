@@ -262,6 +262,23 @@ async function collectSystemHealthSignals(): Promise<SystemHealthSignal[]> {
 	return signals;
 }
 
+export function buildExplainableReport(
+	mode: AiOpsMode,
+	signals: SystemHealthSignal[],
+	actions: Array<AiOpsRecommendedAction | AiOpsExecutedAction>,
+): string {
+	const severityCounts = { info: 0, warning: 0, critical: 0 };
+	for (const signal of signals) severityCounts[signal.severity] += 1;
+	const executed = actions.filter((action) => "executed" in action && action.executed).length;
+	const failed = actions.filter((action) => "executed" in action && !action.executed).length;
+	return [
+		`mode=${mode}`,
+		`findings=${signals.length} (critical=${severityCounts.critical}, warning=${severityCounts.warning}, info=${severityCounts.info})`,
+		`actions=${actions.length} (executed=${executed}, not_executed=${failed})`,
+		...signals.slice(0, 10).map((signal) => `[${signal.severity}] ${signal.title}: ${signal.body} (source=${signal.source})`),
+	].join("\n");
+}
+
 function buildScan(
 	mode: AiOpsMode,
 	signals: SystemHealthSignal[],
@@ -279,15 +296,20 @@ function buildScan(
 	}));
 
 	if (mode === "autonomous") {
-		const actions: AiOpsExecutedAction[] = signals
-			.filter((s) => s.severity === "warning")
-			.map((s) => ({
-				id: `${s.id}.autonomous`,
-				action: "alert.evaluate",
-				risk: "low" as const,
-				executed: false,
-				result: "Pending autonomous executor processing",
-			}));
+		const actions = signals.reduce<AiOpsExecutedAction[]>((out, s) => {
+			const action = s.id === "job.stale-accumulation"
+				? "cache.purge:stale"
+				: s.severity === "warning"
+					? "alert.evaluate"
+					: null;
+			if (action) {
+				out.push({
+					id: `${s.id}.autonomous`, action, risk: "low",
+					executed: false, result: `Pending safe executor processing; source=${s.source}`,
+				});
+			}
+			return out;
+		}, []);
 		return {
 			findings,
 			actions,
@@ -369,7 +391,7 @@ export async function runAiOpsScanWorkerOnce(reason = "manual"): Promise<boolean
 				status,
 				findings,
 				actions,
-				notes: `ai.ops.scan reason=${reason}`,
+				notes: `ai.ops.scan reason=${reason}\n${buildExplainableReport(mode, signals, actions)}`,
 			});
 
 			await completeJob(job.id, AI_OPS_SCAN_WORKER_ID, {

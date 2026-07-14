@@ -75,13 +75,11 @@ vi.mock("@/lib/config/env", () => ({
 
 // Mock the cost service's upsertDailySnapshot (avoid pulling decimal types
 // into the test).
-vi.mock("@/lib/cost/service", async (importOriginal) => {
-	const actual = await importOriginal<typeof import("@/lib/cost/service")>();
-	return {
-		...actual,
-		upsertDailySnapshot: upsertDailySnapshotMock,
-	};
-});
+vi.mock("@/lib/cost/service", () => ({
+	upsertDailySnapshot: upsertDailySnapshotMock,
+	syncServerMonthlyCosts: vi.fn(async () => ({ month: "2026-01", synced: 0, skipped: 0, entries: [] })),
+	checkBudgetAlerts: vi.fn(async () => ({ checked: 0, triggered: 0, notificationsSent: 0, duplicatesSkipped: 0, budgets: [] })),
+}));
 
 const worker = await import("../snapshot-worker");
 

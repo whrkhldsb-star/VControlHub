@@ -6,6 +6,14 @@
  */
 
 export const zh: Record<string, string> = {
+	"usersPerm.template.title": "岗位权限模板",
+	"usersPerm.template.desc": "模板同时包含角色、权限和存储路径数据范围。",
+	"usersPerm.template.select": "选择岗位模板",
+	"usersPerm.template.apply": "应用模板",
+	"usersPerm.template.saveCurrent": "保存当前配置为模板",
+	"usersPerm.template.namePrompt": "请输入岗位模板名称",
+	"usersPerm.template.applied": "模板已应用，保存后生效",
+	"usersPerm.template.saved": "岗位模板已保存",
 	"usersPerm.action.addGrant": "+ 添加授权",
 	"usersPerm.action.cancel": "取消",
 	"usersPerm.action.close": "关闭",
@@ -39,6 +47,14 @@ export const zh: Record<string, string> = {
 };
 
 export const en: Record<string, string> = {
+	"usersPerm.template.title": "Position permission templates",
+	"usersPerm.template.desc": "Templates include roles, permissions, and storage path data scope.",
+	"usersPerm.template.select": "Select a position template",
+	"usersPerm.template.apply": "Apply template",
+	"usersPerm.template.saveCurrent": "Save current configuration as template",
+	"usersPerm.template.namePrompt": "Enter a position template name",
+	"usersPerm.template.applied": "Template applied; save to persist changes",
+	"usersPerm.template.saved": "Position template saved",
 	"usersPerm.action.addGrant": "+ Add grant",
 	"usersPerm.action.cancel": "Cancel",
 	"usersPerm.action.close": "Close",

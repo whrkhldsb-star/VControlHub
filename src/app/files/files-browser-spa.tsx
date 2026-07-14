@@ -20,6 +20,7 @@ import {
 import { NodeFilterSelect } from "./node-filter-select";
 import { FolderTreeClient } from "./folder-tree-client";
 import { BreadcrumbsClient } from "./breadcrumbs-client";
+import { RecentDownloadsPanel } from "./recent-downloads-panel";
 
 /* ── Navigation hook ────────────────────────────────────────────── */
 
@@ -47,7 +48,17 @@ function useFolderNavigation(
     [fetchFiles],
   );
 
-  return { navigateToFolder };
+  const navigateToNodeFolder = useCallback(
+    (path: string, nodeId: string) => {
+      fetchFiles(path, undefined, undefined, nodeId, {
+        resetSelection: true,
+        history: "push",
+      });
+    },
+    [fetchFiles],
+  );
+
+  return { navigateToFolder, navigateToNodeFolder };
 }
 
 /* ── Main Component ─────────────────────────────────────────────── */
@@ -77,7 +88,7 @@ export function FilesBrowserSpa({
   } = useFileBrowserListing({ initialData });
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
 
-  const { navigateToFolder } = useFolderNavigation(fetchFiles);
+  const { navigateToFolder, navigateToNodeFolder } = useFolderNavigation(fetchFiles);
 
   const uploadNodes = data.nodes.filter(
     (n) => n.driver === "LOCAL" || n.driver === "SFTP",
@@ -207,6 +218,8 @@ export function FilesBrowserSpa({
 
       {/* Main content area */}
       <section className="min-w-0 space-y-5">
+        <RecentDownloadsPanel onNavigate={navigateToNodeFolder} />
+
         {/* Search + Toolbar */}
         <article className="rounded-3xl border border-[var(--border)] bg-[var(--surface)] p-4 shadow-[var(--shadow-sm)] sm:p-5">
           <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">

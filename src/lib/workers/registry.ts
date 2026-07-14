@@ -32,6 +32,7 @@ import { startOperationTaskRetentionWorker, stopOperationTaskRetentionWorkerForT
 import { startCostSnapshotWorker, stopCostSnapshotWorkerForTests } from "@/lib/cost/snapshot-worker";
 import { startVpsBackupJobWorker, stopVpsBackupForTests } from "@/lib/backup/vps-backup-job-worker";
 import { startVpsBackupScheduleWorker, stopVpsBackupScheduleForTests } from "@/lib/backup/vps-backup-schedule-worker";
+import { startTicketSlaWorker, stopTicketSlaWorkerForTests } from "@/lib/ticket/sla-worker";
 
 export type WorkerId =
   | "ai-ops-scan"
@@ -47,6 +48,7 @@ export type WorkerId =
   | "sftp-sync"
   | "sftp-stale-inventory"
   | "operation-task-retention"
+  | "ticket-sla"
   | "vps-backup"
   | "vps-backup-schedule";
 
@@ -95,6 +97,7 @@ function getRegistryState(): Record<WorkerId, { started: boolean }> {
       "sftp-sync": { started: false },
       "sftp-stale-inventory": { started: false },
       "operation-task-retention": { started: false },
+      "ticket-sla": { started: false },
       "vps-backup": { started: false },
       "vps-backup-schedule": { started: false },
     };
@@ -247,6 +250,16 @@ const AI_OPS_SCAN: WorkerSpec = {
   stop: () => stopAiOpsScanWorkerForTests(),
 };
 
+const TICKET_SLA: WorkerSpec = {
+  id: "ticket-sla",
+  label: "Ticket SLA escalation",
+  jobType: "ticket.sla-escalate",
+  start: async () => {
+    await startTicketSlaWorker();
+  },
+  stop: () => stopTicketSlaWorkerForTests(),
+};
+
 const VPS_BACKUP: WorkerSpec = {
   id: "vps-backup",
   // TR-043: SSH exec → SFTP download → checksum → offsite upload
@@ -286,6 +299,7 @@ export const WORKER_REGISTRY: readonly WorkerSpec[] = Object.freeze([
   SFTP_SYNC,
   SFTP_STALE_INVENTORY,
   OPERATION_TASK_RETENTION,
+  TICKET_SLA,
   VPS_BACKUP,
   VPS_BACKUP_SCHEDULE,
 ]);

@@ -21,7 +21,11 @@ export type HostedActionType =
   | "list_backups"
   | "run_playbook"
   | "query_traffic"
-  | "manage_cron";
+  | "manage_cron"
+  | "list_files"
+  | "search_files"
+  | "read_file"
+  | "get_docker_logs";
 
 export interface HostedTool {
   name: string;
@@ -260,6 +264,30 @@ export const HOSTED_TOOLS: HostedTool[] = [
     autoApproved: true,
     actionType: "manage_cron",
     actionName: "Manage scheduled tasks",
+  },
+  {
+    name: "list_files",
+    description: "List files and directories on a VPS. The path must be absolute and cannot contain traversal segments.",
+    parameters: { type: "object", properties: { serverId: { type: "string" }, serverQuery: { type: "string" }, path: { type: "string", description: "Absolute directory path" } }, required: ["path"] },
+    riskLevel: "low", autoApproved: true, actionType: "list_files", actionName: "List files",
+  },
+  {
+    name: "search_file_contents",
+    description: "Search text content under a VPS directory using a literal query. Results are capped for safety.",
+    parameters: { type: "object", properties: { serverId: { type: "string" }, serverQuery: { type: "string" }, path: { type: "string" }, query: { type: "string" }, filePattern: { type: "string" } }, required: ["path", "query"] },
+    riskLevel: "low", autoApproved: true, actionType: "search_files", actionName: "Search file contents",
+  },
+  {
+    name: "read_file",
+    description: "Read the tail of a text file on a VPS. Output is capped at 1000 lines.",
+    parameters: { type: "object", properties: { serverId: { type: "string" }, serverQuery: { type: "string" }, filePath: { type: "string" }, tail: { type: "number" } }, required: ["filePath"] },
+    riskLevel: "low", autoApproved: true, actionType: "read_file", actionName: "Read file",
+  },
+  {
+    name: "get_docker_logs",
+    description: "Read recent Docker container logs from a VPS.",
+    parameters: { type: "object", properties: { serverId: { type: "string" }, serverQuery: { type: "string" }, containerId: { type: "string" }, tail: { type: "number" } }, required: ["containerId"] },
+    riskLevel: "low", autoApproved: true, actionType: "get_docker_logs", actionName: "Read Docker logs",
   },
 ];
 

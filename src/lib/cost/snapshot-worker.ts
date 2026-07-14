@@ -30,7 +30,7 @@ import {
 	COST_CATEGORY_VALUES,
 	type CostCategory,
 } from "./types";
-import { syncServerMonthlyCosts, upsertDailySnapshot } from "./service";
+import { checkBudgetAlerts, syncServerMonthlyCosts, upsertDailySnapshot } from "./service";
 
 const logger = createLogger("cost-snapshot-worker");
 
@@ -151,6 +151,7 @@ export async function runCostSnapshotWorkerOnce(reason = "manual"): Promise<bool
 			const today = new Date();
 			const payload = await buildTodaySnapshot(today);
 			const snapshot = await upsertDailySnapshot(payload);
+			const budgetAlerts = await checkBudgetAlerts(today);
 			await completeJob(job.id, COST_SNAPSHOT_WORKER_ID, {
 				snapshotId: snapshot.id,
 				snapshotDate: snapshot.snapshotDate,
@@ -160,6 +161,11 @@ export async function runCostSnapshotWorkerOnce(reason = "manual"): Promise<bool
 					month: monthlySync.month,
 					synced: monthlySync.synced,
 					skipped: monthlySync.skipped,
+				},
+				budgetAlerts: {
+					checked: budgetAlerts.checked,
+					triggered: budgetAlerts.triggered,
+					notificationsSent: budgetAlerts.notificationsSent,
 				},
 				reason,
 			});

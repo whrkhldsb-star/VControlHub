@@ -17,12 +17,13 @@ export function CreateTicketForm({ locale: _locale, servers = [] }: Props = {}) 
 		const title = String(formData.get("subject") ?? "").trim();
 		const description = String(formData.get("description") ?? "").trim();
 		const priority = String(formData.get("priority") ?? "NORMAL").toUpperCase();
+		const category = String(formData.get("category") ?? "request");
 		if (!title || !description) return { error: t("ticketsPage.form.error.empty") };
 		try {
 			await csrfFetch("/api/tickets", {
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
-				body: JSON.stringify({ subject: title, description, priority, relatedServerId: String(formData.get("relatedServerId") ?? "") || undefined }),
+				body: JSON.stringify({ subject: title, description, priority, category, relatedServerId: String(formData.get("relatedServerId") ?? "") || undefined }),
 			});
 			router.refresh();
 			return { success: true };
@@ -54,7 +55,7 @@ export function CreateTicketForm({ locale: _locale, servers = [] }: Props = {}) 
 					{state.error}
 				</p>
 			)}
-			<div className="grid gap-3 md:grid-cols-2">
+			<div className="grid gap-3 md:grid-cols-3">
 				<label className="grid gap-1.5 text-xs font-medium text-[var(--text-secondary)]">
 					{t("ticketsPage.form.label.title")}
 					<input
@@ -63,6 +64,19 @@ export function CreateTicketForm({ locale: _locale, servers = [] }: Props = {}) 
 						placeholder={t("ticketsPage.form.subject")}
 						className="rounded-xl border border-[var(--border)] bg-[var(--input-bg)] px-3 py-2.5 text-sm text-[var(--text-primary)] placeholder:text-[var(--text-muted)]"
 					/>
+				</label>
+				<label className="grid gap-1.5 text-xs font-medium text-[var(--text-secondary)]">
+					{t("ticketsPage.form.label.category")}
+					<select
+						name="category"
+						defaultValue="request"
+						className="rounded-xl border border-[var(--border)] bg-[var(--input-bg)] px-3 py-2.5 text-sm text-[var(--text-primary)]"
+					>
+						<option value="incident">{t("ticketsPage.category.incident")}</option>
+						<option value="request">{t("ticketsPage.category.request")}</option>
+						<option value="question">{t("ticketsPage.category.question")}</option>
+						<option value="feedback">{t("ticketsPage.category.feedback")}</option>
+					</select>
 				</label>
 				<label className="grid gap-1.5 text-xs font-medium text-[var(--text-secondary)]">
 					{t("ticketsPage.form.label.priority")}

@@ -36,6 +36,15 @@ type PermissionsPayload = {
   storageNodes: StorageNodeInfo[];
 };
 
+type RoleTemplate = {
+  id: string;
+  name: string;
+  description: string | null;
+  roleKeys: string[];
+  permissions: string[];
+  storageAccess: StorageGrant[];
+};
+
 type Props = {
   userId: string;
   username: string;
@@ -77,6 +86,8 @@ export function UserPermissionPanel({ userId, username, onClose, onSaved }: Prop
   const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [templates, setTemplates] = useState<RoleTemplate[]>([]);
+  const [selectedTemplateId, setSelectedTemplateId] = useState("");
 
   useEffect(() => {
     let cancelled = false;
@@ -95,6 +106,12 @@ return data as PermissionsPayload;
       .finally(() => !cancelled && setLoading(false));
     return () => { cancelled = true; };
   }, [userId, t]);
+
+  useEffect(() => {
+    csrfFetch("/api/role-templates")
+      .then((data) => setTemplates((data as { templates?: RoleTemplate[] }).templates ?? []))
+      .catch(() => setTemplates([]));
+  }, []);
 
   const storageNodeMap = useMemo(() => new Map(payload?.storageNodes.map((node) => [node.id, node]) ?? []), [payload]);
 
@@ -116,6 +133,31 @@ return data as PermissionsPayload;
 
   const updateGrant = (index: number, patch: Partial<StorageGrant>) => {
     setGrants((current) => current.map((grant, i) => i === index ? { ...grant, ...patch } : grant));
+  };
+
+  const applyTemplate = () => {
+    const template = templates.find((item) => item.id === selectedTemplateId);
+    if (!template) return;
+    setRoleKeys([...template.roleKeys]);
+    setPermissionKeys([...template.permissions]);
+    setGrants(template.storageAccess.map((grant) => ({ ...grant })));
+    setMessage({ type: "success", text: t("usersPerm.template.applied") });
+  };
+
+  const saveTemplate = async () => {
+    const name = window.prompt(t("usersPerm.template.namePrompt"));
+    if (!name?.trim()) return;
+    try {
+      const data = await csrfFetch("/api/role-templates", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: name.trim(), roleKeys, permissions: permissionKeys, storageAccess: grants }),
+      }) as { template: RoleTemplate };
+      setTemplates((current) => [...current, data.template].sort((a, b) => a.name.localeCompare(b.name)));
+      setSelectedTemplateId(data.template.id);
+      setMessage({ type: "success", text: t("usersPerm.template.saved") });
+    } catch (error) {
+      setMessage({ type: "error", text: error instanceof Error ? error.message : t("usersPerm.error.saveFailed") });
+    }
   };
 
   const save = async () => {
@@ -161,6 +203,18 @@ const _data = await csrfFetch("/api/users/permissions", {
         {message && <div className={`mb-4 rounded-2xl border px-4 py-3 text-sm ${message.type === "success" ? "border-[var(--success-border)] bg-[var(--success-bg)] text-[var(--success)]" : "border-[var(--danger-border)] bg-[var(--danger-bg)] text-[var(--danger)]"}`}>{message.text}</div>}
         {loading || !payload ? <EmptyState>{t("usersPerm.loading")}</EmptyState> : (
           <div className="space-y-6">
+            <section className="rounded-2xl border border-[var(--accent-border)] bg-[var(--accent-bg)] p-4">
+              <h4 className="font-medium text-[var(--text-primary)]">{t("usersPerm.template.title")}</h4>
+              <p className="mt-1 text-xs text-[var(--text-muted)]">{t("usersPerm.template.desc")}</p>
+              <div className="mt-3 flex flex-wrap gap-2">
+                <select value={selectedTemplateId} onChange={(event) => setSelectedTemplateId(event.target.value)} className="min-h-10 rounded-xl border border-[var(--border)] bg-[var(--input-bg)] px-3 text-sm text-[var(--text-primary)]">
+                  <option value="">{t("usersPerm.template.select")}</option>
+                  {templates.map((template) => <option key={template.id} value={template.id}>{template.name}</option>)}
+                </select>
+                <button type="button" onClick={applyTemplate} disabled={!selectedTemplateId} className="rounded-xl border border-[var(--accent-border)] px-3 py-2 text-xs text-[var(--accent)] disabled:opacity-40">{t("usersPerm.template.apply")}</button>
+                <button type="button" onClick={saveTemplate} className="rounded-xl border border-[var(--border)] px-3 py-2 text-xs text-[var(--text-secondary)]">{t("usersPerm.template.saveCurrent")}</button>
+              </div>
+            </section>
             <section className="rounded-2xl border border-[var(--border)] bg-[var(--surface-subtle)] p-4">
               <h4 className="font-medium text-[var(--text-primary)]">{t("usersPerm.section.roles")}</h4>
               <div className="mt-3 flex flex-wrap gap-2">
