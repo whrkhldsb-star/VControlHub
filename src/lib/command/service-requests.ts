@@ -1,4 +1,5 @@
 import { isProtectedByApproval } from "@/lib/auth/rbac";
+import { teamWhere } from "@/lib/auth/team-scope";
 import { prisma } from "@/lib/db";
 import { BusinessError, NotFoundError, ValidationError } from "@/lib/errors";
 import {
@@ -341,8 +342,10 @@ export async function reviewCommandRequest(input: ReviewCommandInput) {
   return request;
 }
 
-export async function listCommandRequests() {
+export async function listCommandRequests(session?: { userId: string; roles: import("@/lib/auth/rbac").RoleKey[]; currentTeamId: string | null }) {
+  const where = session ? { ...teamWhere(session) } : {};
   const requests = await prisma.commandRequest.findMany({
+    where,
     orderBy: { createdAt: "desc" },
     take: 100,
     include: {

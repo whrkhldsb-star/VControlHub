@@ -1,5 +1,6 @@
 import { ValidationError, ConflictError, NotFoundError } from "@/lib/errors";
 import { prisma } from "@/lib/db";
+import { teamWhere } from "@/lib/auth/team-scope";
 
 const STATUSES = new Set(["OPEN", "IN_PROGRESS", "RESOLVED", "CLOSED"]);
 
@@ -22,16 +23,20 @@ const TRANSITIONS: Record<string, Set<string>> = {
   CLOSED: new Set(["OPEN"]),
 };
 
-export async function createTicket(input: { title: string; description: string; priority?: string; createdBy: string }) {
+export async function createTicket(input: { title: string; description: string; priority?: string; createdBy: string; relatedServerId?: string; relatedCommandId?: string }) {
   if (!input.title.trim() || !input.description.trim()) throw new ValidationError("Ticket title and description cannot be empty");
   return prisma.ticket.create({ data: { title: input.title.trim(), description: input.description.trim(), status: "OPEN", priority: input.priority ?? "NORMAL", createdBy: input.createdBy } });
 }
 
-export async function listTickets(input?: { userId?: string; includeAll?: boolean } | string) {
+export async function listTickets(input?: { userId?: string; includeAll?: boolean; session?: { userId: string; roles: import("@/lib/auth/rbac").RoleKey[]; currentTeamId: string | null } } | string) {
   const userId = typeof input === "string" ? input : input?.userId;
   const includeAll = typeof input === "object" ? input.includeAll === true : false;
+  const session = typeof input === "object" ? input.session : undefined;
+  const teamFilter = session ? teamWhere(session) : {};
+  const baseWhere: Record<string, unknown> = !includeAll && userId ? { OR: [{ createdBy: userId }, { assigneeId: userId }] } : {};
+  if (session) Object.assign(baseWhere, teamFilter);
   return prisma.ticket.findMany({
-    where: !includeAll && userId ? { OR: [{ createdBy: userId }, { assigneeId: userId }] } : {},
+    where: baseWhere,
     include: {
       creator: { select: { username: true, displayName: true } },
       assignee: { select: { username: true, displayName: true } },

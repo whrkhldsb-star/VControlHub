@@ -15,8 +15,8 @@ export async function GET(request: Request) {
   return withApiRoute(
     request,
     { permission: "playbook:read", rateLimit: GENERAL_WRITE_LIMIT, errorStatus: 500, errorMessage: "Server error" },
-    async () => {
-      const playbooks = await listPlaybooks();
+    async (ctx) => {
+      const playbooks = await listPlaybooks(ctx.session ?? undefined);
       return NextResponse.json({ playbooks });
     },
   );

@@ -8,6 +8,7 @@
  */
 
 import { Prisma } from "@prisma/client";
+import { teamWhere } from "@/lib/auth/team-scope";
 
 import { prisma } from "@/lib/db";
 import { auditUserAction } from "@/lib/audit/service";
@@ -88,8 +89,10 @@ function narrowPlaybookRun(row: RawPlaybookRun): PlaybookRunRecord {
   };
 }
 
-export async function listPlaybooks(): Promise<PlaybookRecord[]> {
+export async function listPlaybooks(session?: { userId: string; roles: import("@/lib/auth/rbac").RoleKey[]; currentTeamId: string | null }): Promise<PlaybookRecord[]> {
+  const where = session ? { ...teamWhere(session) } : {};
   const rows = await prisma.playbook.findMany({
+    where,
     orderBy: { createdAt: "desc" },
     take: 500, // P2: playbook 总数有限
   });
@@ -214,11 +217,12 @@ export async function runPlaybook(input: {
   let finalStatus: "completed" | "failed" = "completed";
   let errorMessage: string | null = null;
   try {
-    stepResults = await executePlaybookChain({
+    const chainResult = await executePlaybookChain({
       playbook: narrowedPlaybook,
       runId: run.id,
       dryRun: input.dryRun,
     });
+    stepResults = chainResult.results;
     const anyFailed = stepResults.some((r) => r.status === "failed");
     if (anyFailed) {
       finalStatus = "failed";

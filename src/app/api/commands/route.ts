@@ -24,9 +24,9 @@ const cancelCommandRequestBodySchema = z.object({
 });
 
 export async function GET(request: Request) {
-  return withApiRoute(request, { permission: "command:read" }, async () => {
+  return withApiRoute(request, { permission: "command:read" }, async (ctx) => {
     await recoverStaleRunningCommandRequests();
-    return NextResponse.json({ requests: await listCommandRequests() });
+    return NextResponse.json({ requests: await listCommandRequests(ctx.session ?? undefined) });
   });
 }
 

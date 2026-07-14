@@ -132,7 +132,21 @@ model Team {
   owner       User?        @relation("TeamOwner", fields: [ownerId], references: [id], onDelete: SetNull)
   members     TeamMember[]
   currentFor  User[]       @relation("UserCurrentTeam")
-  servers     Server[]     @relation("TeamServers")
+  servers           Server[]          @relation("TeamServers")
+  storageNodes      StorageNode[]     @relation("TeamStorageNodes")
+  commandRequests   CommandRequest[] @relation("TeamCommandRequests")
+  downloadTasks     DownloadTask[]   @relation("TeamDownloadTasks")
+  syncJobs          SyncJob[]        @relation("TeamSyncJobs")
+  backupRecords     BackupRecord[]   @relation("TeamBackupRecords")
+  deploymentRuns    DeploymentRun[]  @relation("TeamDeploymentRuns")
+  jobs              Job[]            @relation("TeamJobs")
+  scheduledTasks    ScheduledTask[]  @relation("TeamScheduledTasks")
+  shareLinks        ShareLink[]      @relation("TeamShareLinks")
+  tickets           Ticket[]         @relation("TeamTickets")
+  playbooks         Playbook[]       @relation("TeamPlaybooks")
+  playbookRuns      PlaybookRun[]    @relation("TeamPlaybookRuns")
+  notifications     Notification[]   @relation("TeamNotifications")
+  auditLogs         AuditLog[]       @relation("TeamAuditLogs")
   createdAt   DateTime     @default(now())
   updatedAt   DateTime     @updatedAt
 
@@ -282,9 +296,12 @@ model CommandRequest {
   deploymentRuns         DeploymentRun[]
   deploymentRollbackRuns DeploymentRollbackRun[]
 
+  teamId              String? // TR-030: 多租户资源隔离
+  team                Team?   @relation("TeamCommandRequests", fields: [teamId], references: [id], onDelete: SetNull)
   @@index([status, createdAt])
   @@index([requesterId, createdAt])
   @@index([status, workerHeartbeatAt])
+  @@index([teamId])
   @@map("command_requests")
 }
 
@@ -362,6 +379,9 @@ model StorageNode {
   mediaItems                 MediaItem[]
   mediaUploadSessions        MediaUploadSession[]
 
+  teamId              String? // TR-030: 多租户资源隔离
+  team                Team?   @relation("TeamStorageNodes", fields: [teamId], references: [id], onDelete: SetNull)
+  @@index([teamId])
   @@map("StorageNode")
 }
 
@@ -418,9 +438,12 @@ model AuditLog {
   createdAt DateTime      @default(now())
   actor     User?         @relation(fields: [actorId], references: [id], onDelete: SetNull)
 
+  teamId              String? // TR-030: 多租户资源隔离
+  team                Team?   @relation("TeamAuditLogs", fields: [teamId], references: [id], onDelete: SetNull)
   @@index([createdAt])
   @@index([action, createdAt])
   @@index([actorId, createdAt])
+  @@index([teamId])
   @@map("audit_logs")
 }
 
@@ -480,11 +503,14 @@ model Job {
   creator User?      @relation("jobCreator", fields: [createdBy], references: [id], onDelete: SetNull)
   events  JobEvent[]
 
+  teamId              String? // TR-030: 多租户资源隔离
+  team                Team?   @relation("TeamJobs", fields: [teamId], references: [id], onDelete: SetNull)
   @@index([status, availableAt, priority, createdAt])
   @@index([status, leaseExpiresAt])
   @@index([type, status])
   @@index([createdBy, createdAt])
   @@index([targetStorageNodeId, status])
+  @@index([teamId])
   @@map("jobs")
 }
 
@@ -528,7 +554,10 @@ model ScheduledTask {
   updatedAt      DateTime            @updatedAt
   creator        User?               @relation(fields: [createdById], references: [id], onDelete: SetNull)
 
+  teamId              String? // TR-030: 多租户资源隔离
+  team                Team?   @relation("TeamScheduledTasks", fields: [teamId], references: [id], onDelete: SetNull)
   @@index([status, nextRunAt])
+  @@index([teamId])
   @@map("scheduled_tasks")
 }
 
@@ -563,7 +592,10 @@ model Playbook {
   creator User?         @relation(fields: [createdById], references: [id], onDelete: SetNull)
   runs    PlaybookRun[]
 
+  teamId              String? // TR-030: 多租户资源隔离
+  team                Team?   @relation("TeamPlaybooks", fields: [teamId], references: [id], onDelete: SetNull)
   @@index([enabled, createdAt])
+  @@index([teamId])
   @@map("playbooks")
 }
 
@@ -590,8 +622,11 @@ model PlaybookRun {
   playbook Playbook @relation(fields: [playbookId], references: [id], onDelete: Cascade)
   creator  User?    @relation(fields: [createdById], references: [id], onDelete: SetNull)
 
+  teamId              String? // TR-030: 多租户资源隔离
+  team                Team?   @relation("TeamPlaybookRuns", fields: [teamId], references: [id], onDelete: SetNull)
   @@index([playbookId, createdAt])
   @@index([status, createdAt])
+  @@index([teamId])
   @@map("playbook_runs")
 }
 
@@ -692,8 +727,11 @@ model Notification {
   createdAt DateTime @default(now())
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
+  teamId              String? // TR-030: 多租户资源隔离
+  team                Team?   @relation("TeamNotifications", fields: [teamId], references: [id], onDelete: SetNull)
   @@index([userId, isRead])
   @@index([userId, createdAt])
+  @@index([teamId])
   @@map("notifications")
 }
 
@@ -720,6 +758,9 @@ model SyncJob {
   creator      User?     @relation(fields: [createdBy], references: [id], onDelete: SetNull)
   syncLogs     SyncLog[]
 
+  teamId              String? // TR-030: 多租户资源隔离
+  team                Team?   @relation("TeamSyncJobs", fields: [teamId], references: [id], onDelete: SetNull)
+  @@index([teamId])
   @@map("sync_jobs")
 }
 
@@ -777,9 +818,12 @@ model DownloadTask {
   server  Server @relation(fields: [serverId], references: [id], onDelete: Cascade)
   creator User?  @relation(fields: [createdBy], references: [id], onDelete: SetNull)
 
+  teamId              String? // TR-030: 多租户资源隔离
+  team                Team?   @relation("TeamDownloadTasks", fields: [teamId], references: [id], onDelete: SetNull)
   @@index([serverId, status])
   @@index([status, createdAt])
   @@index([createdAt])
+  @@index([teamId])
   @@map("download_tasks")
 }
 
@@ -802,8 +846,11 @@ model ShareLink {
   storageNode StorageNode @relation(fields: [storageNodeId], references: [id], onDelete: Cascade)
   creator     User?       @relation(fields: [createdBy], references: [id], onDelete: SetNull)
 
+  teamId              String? // TR-030: 多租户资源隔离
+  team                Team?   @relation("TeamShareLinks", fields: [teamId], references: [id], onDelete: SetNull)
   @@index([storageNodeId, path])
   @@index([expiresAt])
+  @@index([teamId])
   @@map("share_links")
 }
 
@@ -827,8 +874,11 @@ model BackupRecord {
 
   creator User? @relation(fields: [createdBy], references: [id], onDelete: SetNull)
 
+  teamId              String? // TR-030: 多租户资源隔离
+  team                Team?   @relation("TeamBackupRecords", fields: [teamId], references: [id], onDelete: SetNull)
   @@index([status, createdAt])
   @@index([offsiteUploadedAt])
+  @@index([teamId])
   @@map("backup_records")
 }
 
@@ -963,9 +1013,12 @@ model DeploymentRun {
   rollbackRuns     DeploymentRun[]         @relation("deploymentRollbackRuns")
   rollbackAttempts DeploymentRollbackRun[] @relation("deploymentRollbackSource")
 
+  teamId              String? // TR-030: 多租户资源隔离
+  team                Team?   @relation("TeamDeploymentRuns", fields: [teamId], references: [id], onDelete: SetNull)
   @@index([status, createdAt])
   @@index([snapshotId])
   @@index([rollbackOfRunId])
+  @@index([teamId])
   @@map("deployment_runs")
 }
 
@@ -1108,9 +1161,17 @@ model Ticket {
   assignee    User?           @relation("TicketAssignee", fields: [assigneeId], references: [id], onDelete: SetNull)
   comments    TicketComment[]
 
+  teamId              String? // TR-030: 多租户资源隔离
+  team                Team?   @relation("TeamTickets", fields: [teamId], references: [id], onDelete: SetNull)
+  // P1: Ticket ↔ VPS/命令关联
+  relatedServerId     String? // 关联的 VPS（可选）
+  relatedCommandId    String? // 关联的命令请求（可选）
   @@index([status, priority, createdAt])
   @@index([createdBy])
   @@index([assigneeId])
+  @@index([teamId])
+  @@index([relatedServerId])
+  @@index([relatedCommandId])
   @@map("tickets")
 }
 

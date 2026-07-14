@@ -14,7 +14,7 @@ export default async function OperationTasksPage() {
 	if (!sessionHasPermission(session, "task:read")) {
 		return <PageShell maxW="max-w-7xl"><EmptyState text={tr("operationTasksPage.noPermission")} variant="boxed" /></PageShell>;
 	}
-	const { tasks, sourceSummary, failureSummary } = await listOperationTaskResult();
+	const { tasks, sourceSummary, failureSummary } = await listOperationTaskResult({}, session);
 	return (
 		<PageShell maxW="max-w-7xl">
 			<PageHeader eyebrow={t("operationTasksPage.eyebrow", locale)} title={tr("operationTasksPage.header.title")} description={tr("operationTasksPage.header.description")} />

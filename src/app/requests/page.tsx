@@ -19,7 +19,7 @@ export default async function RequestsPage() {
 	const locale = await getServerLocale();
 	const dateLocale = toDateLocale(locale);
 	const [requests, aiActions] = await Promise.all([
-		listCommandRequests(),
+		listCommandRequests(session),
 		getPendingActions(session.userId),
 	]);
 

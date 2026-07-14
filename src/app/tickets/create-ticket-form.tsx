@@ -7,9 +7,9 @@ import { useI18n } from "@/lib/i18n/use-locale";
 import { useToast } from "@/components/toast-provider";
 import type { Locale } from "@/lib/i18n/translations";
 
-type Props = { locale?: Locale };
+type Props = { locale?: Locale; servers?: { id: string; name: string; host: string }[] };
 
-export function CreateTicketForm(_props: Props = {}) {
+export function CreateTicketForm({ locale: _locale, servers = [] }: Props = {}) {
 	const router = useRouter();
 	const { t } = useI18n();
 	const { addToast } = useToast();
@@ -22,7 +22,7 @@ export function CreateTicketForm(_props: Props = {}) {
 			await csrfFetch("/api/tickets", {
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
-				body: JSON.stringify({ subject: title, description, priority }),
+				body: JSON.stringify({ subject: title, description, priority, relatedServerId: String(formData.get("relatedServerId") ?? "") || undefined }),
 			});
 			router.refresh();
 			return { success: true };
@@ -78,6 +78,21 @@ export function CreateTicketForm(_props: Props = {}) {
 					</select>
 				</label>
 			</div>
+			{servers.length > 0 && (
+				<label className="grid gap-1.5 text-xs font-medium text-[var(--text-secondary)]">
+					{t("ticketsPage.form.label.relatedServer")}
+					<select
+						name="relatedServerId"
+						defaultValue=""
+						className="rounded-xl border border-[var(--border)] bg-[var(--input-bg)] px-3 py-2.5 text-sm text-[var(--text-primary)]"
+					>
+						<option value="">{t("ticketsPage.form.noRelatedServer")}</option>
+						{servers.map((s) => (
+							<option key={s.id} value={s.id}>{s.name} ({s.host})</option>
+						))}
+					</select>
+				</label>
+			)}
 			<label className="grid gap-1.5 text-xs font-medium text-[var(--text-secondary)]">
 				{t("ticketsPage.form.label.description")}
 				<textarea

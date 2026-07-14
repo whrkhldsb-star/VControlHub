@@ -236,31 +236,59 @@ export async function executePlaybookChain(input: {
   playbook: Pick<PlaybookRecord, "id" | "steps">;
   runId: string;
   dryRun: boolean;
-}): Promise<PlaybookStepResult[]> {
+}): Promise<{ results: PlaybookStepResult[]; summary: string }> {
   const results: PlaybookStepResult[] = [];
-  for (const step of input.playbook.steps) {
+  const totalSteps = input.playbook.steps.length;
+
+  for (let i = 0; i < totalSteps; i++) {
+    const step = input.playbook.steps[i]!;
     const result = await executeStep(step, {
       playbookId: input.playbook.id,
       runId: input.runId,
       dryRun: input.dryRun,
     });
     results.push(result);
+
     await recordJobEvent({
       jobId: input.runId,
       type: "progress",
       level: result.status === "failed" ? "warn" : "info",
-      message: `step ${step.id} ${result.status}`,
+      message: `step ${step.id} ${result.status} (${i + 1}/${totalSteps})`,
       workerId: null,
       payload: {
         stepId: step.id,
         status: result.status,
         summary: result.summary,
         error: result.error,
+        stepIndex: i,
+        totalSteps,
       },
     });
+
+    // FEAT-P0-5: Incremental progress persistence
+    if (!input.dryRun) {
+      try {
+        await prisma.playbookRun.update({
+          where: { id: input.runId },
+          data: { stepResults: results as unknown as Prisma.InputJsonValue },
+        });
+      } catch {
+        // Non-fatal: run may have been cancelled or deleted.
+      }
+    }
+
     if (result.status === "failed" && !input.dryRun) {
       break;
     }
   }
-  return results;
+
+  // FEAT-P0-5: Result summary for cross-node aggregation
+  const okCount = results.filter((r) => r.status === "ok").length;
+  const failedCount = results.filter((r) => r.status === "failed").length;
+  const dryRunCount = results.filter((r) => r.status === "dry_run").length;
+  const summary = input.dryRun
+    ? `dry-run: ${dryRunCount}/${totalSteps} steps planned`
+    : `completed ${okCount}/${totalSteps} steps${failedCount > 0 ? `, ${failedCount} failed` : ""}`;
+
+  return { results, summary };
 }

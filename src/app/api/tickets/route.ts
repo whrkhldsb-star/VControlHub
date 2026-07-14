@@ -14,6 +14,8 @@ const ticketCreateSchema = z.object({
   priority: z.enum(["low", "medium", "high", "critical", "normal", "urgent", "LOW", "MEDIUM", "HIGH", "CRITICAL", "NORMAL", "URGENT"]).optional(),
   category: z.string().optional(),
   serverId: z.string().optional(),
+  relatedServerId: z.string().optional(),
+  relatedCommandId: z.string().optional(),
 }).refine((data) => Boolean(data.subject || data.title), {
   message: "Ticket title is required",
   path: ["subject"],

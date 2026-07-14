@@ -16,7 +16,7 @@ export default async function SharesPage() {
 	const locale = await getServerLocale();
 	const session = await requireSession("/shares");
 	if (!sessionHasPermission(session, "share:read")) return <PageShell><EmptyState text={t("shares.noPermission")} /></PageShell>;
-	const [shares, nodes] = await Promise.all([listShareLinks(), listStorageNodes()]);
+	const [shares, nodes] = await Promise.all([listShareLinks(undefined, session), listStorageNodes()]);
 	const canCreate = sessionHasPermission(session, "share:create");
 	const canManage = sessionHasPermission(session, "share:manage");
 

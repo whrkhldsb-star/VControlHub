@@ -3,6 +3,7 @@ import { sessionHasPermission } from "@/lib/auth/authorization";
 import { listTickets } from "@/lib/ticket/service";
 import { PageShell, EmptyState, PageHeader, StatCard } from "@/components/page-shell";
 import { CreateTicketForm } from "./create-ticket-form";
+import { listServerProfiles } from "@/lib/server/service-profiles";
 import Link from "next/link";
 import { toDateLocale } from "@/lib/i18n/locale-format";
 import { getServerLocale, t, type Locale } from "@/lib/i18n/translations";
@@ -42,7 +43,8 @@ export default async function Page() {
 	const canManage = sessionHasPermission(session, "ticket:manage");
 	const canCreate = sessionHasPermission(session, "ticket:create");
 	const locale = await getServerLocale();
-	const tickets = await listTickets(canManage ? undefined : session.userId);
+	const servers = await listServerProfiles();
+	const tickets = await listTickets(canManage ? { session } : { userId: session.userId, session });
 
 	const openCount = tickets.filter((ticket) => ticket.status === "OPEN").length;
 	const progressCount = tickets.filter((ticket) => ticket.status === "IN_PROGRESS").length;
@@ -67,7 +69,7 @@ export default async function Page() {
 
 			{canCreate && (
 				<div className="mb-6">
-					<CreateTicketForm locale={locale} />
+					<CreateTicketForm locale={locale} servers={servers.map((s: { id: string; name: string; host: string }) => ({ id: s.id, name: s.name, host: s.host }))} />
 				</div>
 			)}
 

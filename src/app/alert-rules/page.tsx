@@ -18,7 +18,7 @@ export default async function AlertRulesPage() {
 	const [rules, servers, playbooks] = await Promise.all([
 		canManage ? listAlertRules() : Promise.resolve([]),
 		listServerProfiles(),
-		canManage ? listPlaybooks() : Promise.resolve([]),
+		canManage ? listPlaybooks(session) : Promise.resolve([]),
 	]);
 
 	const serialized = rules.map((r) => ({

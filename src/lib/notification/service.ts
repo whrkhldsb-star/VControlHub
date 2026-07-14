@@ -1,3 +1,4 @@
+import { teamWhere } from "@/lib/auth/team-scope";
 import { prisma } from "@/lib/db";
 import { pushNotification, pushUnreadCount } from "@/lib/ws/notification-ws";
 import { createLogger } from "@/lib/logging";
@@ -66,7 +67,7 @@ export async function createNotification(input: CreateNotificationInput) {
 	return record;
 }
 
-export async function listUserNotifications(userId: string, opts?: { unreadOnly?: boolean; limit?: number }) {
+export async function listUserNotifications(userId: string, opts?: { unreadOnly?: boolean; limit?: number; session?: { userId: string; roles: import("@/lib/auth/rbac").RoleKey[]; currentTeamId: string | null } }) {
 	return prisma.notification.findMany({
 		where: {
 			userId,

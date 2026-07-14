@@ -15,7 +15,7 @@ export default async function PlaybooksPage() {
 	const canRead = sessionHasPermission(session, "playbook:read");
 	const locale = await getServerLocale();
 
-	const playbooks = canRead ? await listPlaybooks() : [];
+	const playbooks = canRead ? await listPlaybooks(session) : [];
 
 	// Fetch run history for each playbook in parallel; empty array per playbook
 	// is fine for the M04 plan (limit to 5 per playbook, latest first).

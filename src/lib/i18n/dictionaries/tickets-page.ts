@@ -19,6 +19,8 @@ export const zh: Record<string, string> = {
 	"ticketsPage.form.label.description": "描述",
 	"ticketsPage.form.label.priority": "优先级",
 	"ticketsPage.form.label.title": "标题",
+	"ticketsPage.form.label.relatedServer": "关联 VPS",
+	"ticketsPage.form.noRelatedServer": "不关联",
 	"ticketsPage.form.subject": "简要描述问题",
 	"ticketsPage.form.submit": "提交工单",
 	"ticketsPage.form.submitting": "提交中…",

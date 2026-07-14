@@ -68,7 +68,7 @@ describe("executePlaybookChain", () => {
 				timeoutSec: 60,
 			},
 		]);
-		const results = await executePlaybookChain({
+		const { results: results, summary: _chainSummary } = await executePlaybookChain({
 			playbook,
 			runId: "run-1",
 			dryRun: true,
@@ -91,7 +91,7 @@ describe("executePlaybookChain", () => {
 				timeoutSec: 60,
 			},
 		]);
-		const results = await executePlaybookChain({
+		const { results: results, summary: _chainSummary } = await executePlaybookChain({
 			playbook,
 			runId: "run-1",
 			dryRun: false,
@@ -116,7 +116,7 @@ describe("executePlaybookChain", () => {
 				timeoutSec: 60,
 			},
 		]);
-		const results = await executePlaybookChain({
+		const { results: results, summary: _chainSummary } = await executePlaybookChain({
 			playbook,
 			runId: "run-1",
 			dryRun: false,
@@ -147,7 +147,7 @@ describe("executePlaybookChain", () => {
 				timeoutSec: 60,
 			},
 		]);
-		const results = await executePlaybookChain({
+		const { results: results, summary: _chainSummary } = await executePlaybookChain({
 			playbook,
 			runId: "run-1",
 			dryRun: false,
@@ -175,7 +175,7 @@ describe("executePlaybookChain", () => {
 				timeoutSec: 60,
 			},
 		]);
-		const results = await executePlaybookChain({
+		const { results: results, summary: _chainSummary } = await executePlaybookChain({
 			playbook,
 			runId: "run-1",
 			dryRun: false,
@@ -204,7 +204,7 @@ describe("executePlaybookChain", () => {
 				timeoutSec: 60,
 			},
 		]);
-		const results = await executePlaybookChain({
+		const { results: results, summary: _chainSummary } = await executePlaybookChain({
 			playbook,
 			runId: "run-1",
 			dryRun: false,

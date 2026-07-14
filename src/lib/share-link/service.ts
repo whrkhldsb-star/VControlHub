@@ -2,6 +2,7 @@ import { createHash, randomBytes, scryptSync, timingSafeEqual } from "node:crypt
 import type { Dirent } from "node:fs";
 import { readdir, stat } from "node:fs/promises";
 import path from "node:path";
+import { teamWhere } from "@/lib/auth/team-scope";
 
 import { prisma } from "@/lib/db";
 import { ForbiddenError, NotFoundError, ValidationError } from "@/lib/errors";
@@ -161,9 +162,12 @@ export async function createShareLinkFromFileEntry(input: {
   });
 }
 
-export async function listShareLinks(userId?: string) {
+export async function listShareLinks(userId?: string, session?: { userId: string; roles: import("@/lib/auth/rbac").RoleKey[]; currentTeamId: string | null }) {
+  const teamFilter = session ? teamWhere(session) : {};
+  const where: Record<string, unknown> = userId ? { createdBy: userId } : {};
+  if (session) Object.assign(where, teamFilter);
   return prisma.shareLink.findMany({
-    where: userId ? { createdBy: userId } : undefined,
+    where,
     orderBy: { createdAt: "desc" },
     take: 200,
     include: {

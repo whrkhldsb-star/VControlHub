@@ -24,7 +24,7 @@ export async function DashboardContent({ sessionPath }: { sessionPath: "/" | "/d
 	const [servers, storage, requests, recentAuditLogs, downloadStats, unreadNotifications, activeScheduledTasks, dragReorderEnabledRaw] = await Promise.all([
 		listServerProfiles(),
 		getStorageOverview(),
-		listCommandRequests(),
+		listCommandRequests(session),
 		prisma.auditLog.findMany({
 			take: 5,
 			orderBy: { createdAt: "desc" },
