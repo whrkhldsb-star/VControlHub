@@ -195,7 +195,15 @@ export async function executeDirectDownload(
   const pid = parseInt(pidOutput.trim(), 10);
 
   if (exitCode === 0 && pid > 0) {
-   await prisma.downloadTask.update({ where: { id: taskId }, data: { pid, status: "RUNNING", progress: "Downloading..." } });
+   // FEAT-P1: CAS — only transition PENDING -> RUNNING
+  const claimed = await prisma.downloadTask.updateMany({
+    where: { id: taskId, status: "PENDING" },
+    data: { pid, status: "RUNNING", progress: "Downloading..." },
+  });
+  if (claimed.count === 0) {
+    logError(`[DownloadAPI] Task ${taskId} was not in PENDING state; aborting to prevent duplicate execution`);
+    return;
+  }
    await indexDownloadedFileEntry({ storageNode: server.storageNode, targetPath, fileName, size: null });
   } else {
    const { stdout: logContent } = await execRemoteCommand({ ...sshParams, command: getDirectDownloadLogCommand(taskId), timeout: 8000 });

@@ -44,6 +44,20 @@ export default async function SharePage({
         className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_top,rgba(34,211,238,0.12),transparent_55%),var(--page-bg)]"
       />
       <div className="relative w-full max-w-3xl rounded-3xl border border-[var(--border)] bg-[color-mix(in_srgb,var(--surface)_94%,transparent)] p-8 shadow-[var(--shadow-lg)] backdrop-blur-xl">
+          {/* FEAT-P1: Share watermark — traceable token ID overlay */}
+          <div
+            aria-hidden="true"
+            className="pointer-events-none absolute right-4 top-4 select-none text-[10px] font-medium tracking-wider text-[var(--text-muted)] opacity-40"
+          >
+            {token.slice(0, 8)} · {new Date().toISOString().slice(0, 10)}
+          </div>
+          <div
+            aria-hidden="true"
+            className="pointer-events-none absolute inset-0 overflow-hidden rounded-3xl"
+            style={{
+              backgroundImage: `repeating-linear-gradient(135deg, transparent, transparent 120px, color-mix(in srgb, var(--text-muted) 3%, transparent) 120px, color-mix(in srgb, var(--text-muted) 3%, transparent) 240px)`,
+            }}
+          />
         <div className="mb-6 text-center">
           <div className="mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-2xl border border-[var(--accent-border)] bg-[var(--accent-bg)] text-2xl">
             {errorMessage ? "🔒" : share?.entryType === "DIRECTORY" ? "📁" : "📦"}

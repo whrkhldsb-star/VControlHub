@@ -800,6 +800,8 @@ make logs SERVICE_PREFIX=vcontrolhub
 | FEAT-P0-5 | **Playbook 异步化增强** | 增量进度持久化（每步写 stepResults）；结果汇总 summary（`completed N/total, M failed`）；步骤索引写入 job event | ✅ tsc + test |
 | FEAT-P1 | **工单↔VPS/命令关联** | Ticket 模型加 `relatedServerId` / `relatedCommandId`；创建表单加关联 VPS 下拉；API 接收并传入 service | ✅ tsc + build |
 | FEAT-OPEN-4 | **task:read 多租户收窄** | `listOperationTaskResult` 接受 session 并对各 findMany 加 `teamWhere` 过滤 | ✅ tsc |
+| FEAT-P1-CAS | **下载任务 CAS 防重** | aria2 relay + direct download 的 `PENDING→RUNNING` 状态转换改用 `updateMany` + `where: { status: "PENDING" }` CAS，防止多 worker 重复执行 | ✅ tsc + 38 tests |
+| FEAT-P1-WM | **分享页水印** | 分享页加 token 前8位 + 日期水印 overlay（`pointer-events-none`，不影响交互），可追溯分享来源 | ✅ tsc + build |
 
 **验证**：tsc 0；playbook executor 测试通过；build 成功；服务 active；path smoke 11/11 通过。  
 **待后续**：FEAT-P0-2（远程 Docker）、FEAT-P0-3（舰队监控一张图）、FEAT-P0-4（文件全文检索/版本历史）、FEAT-P1 其余项（AI 工具编排、告警远程统一、备份细粒度恢复、成本自动归集、分享水印）。
