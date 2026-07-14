@@ -515,11 +515,11 @@ make logs SERVICE_PREFIX=vcontrolhub
 
 | ID | 严重度 | 项 | 说明 |
 |---|---|---|---|
-| OPEN-1 | LOW–MED | 未 pin 主机的 `accept-new` | 首次连接仍 TOFU；需在 UI 强制完成指纹确认后写入 `hostKeySha256`（已有 probe/审批流） |
+| OPEN-1 | ✅ 已修复 | 未 pin 主机的 `accept-new` | FEAT-OPEN-1: 新增 `SSH_ENFORCE_HOST_KEY_PIN` 配置项；启用后无 `hostKeySha256` 的服务器连接被拒绝，强制用户先完成指纹审批；`createSshConfig` 和 `buildSshParamsFromServer` 全链路支持 |
 | OPEN-2 | ✅ 已修复 | Sync rsync SSH 仍 `accept-new` | FEAT-OPEN-2: rsync/tar 同步前通过 ssh-keyscan + 指纹比对验证目标主机密钥 |
-| OPEN-3 | LOW | Download 任务状态更新非 CAS | 单 worker 按 taskId 串行执行，重复 claim 风险低；若多 worker 同任务需 CAS |
+| OPEN-3 | ✅ 已修复 | Download 任务状态更新非 CAS | FEAT-OPEN-3: PENDING→RUNNING 状态转换改用 updateMany + where status=PENDING，CAS 防重 |
 | OPEN-4 | 产品 | `task:read` 可见他人 job events | 若需多租户硬隔离，改为 createdBy 或管理员-only |
-| OPEN-5 | 产品 | Share 旧 SHA 分支 | 透明升级已上线；需报表 + 窗口后删兼容 |
+| OPEN-5 | ✅ 无需修复 | Share 旧 SHA 分支 | 审查确认：tokenHash 已全量使用 SHA-256，无旧 SHA-1 兼容分支 |
 | OPEN-6 | 范围外 | 全浏览器 E2E / DAST / 压测 / 不可逆生产实测 | 见审查边界 |
 
 ### 2026-07-12 前端专项扫描

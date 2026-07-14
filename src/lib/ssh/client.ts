@@ -1,6 +1,7 @@
 import { Client, type ConnectConfig } from "ssh2";
 import type { SFTPWrapper } from "ssh2";
 import { BusinessError } from "@/lib/errors";
+import { config } from "@/lib/config/env";
 import { decryptServerPassword, decryptSshPrivateKey, decryptSshKeyPassphrase } from "@/lib/ssh/ssh-key-crypto";
 
 export type SshConnectionParams = {
@@ -15,6 +16,9 @@ export type SshConnectionParams = {
   onHostKeySha256?: (fingerprint: string) => void;
   /** Abort immediately after host-key capture so first-contact TOFU never sends credentials. */
   rejectUnknownHostKeyAfterCapture?: boolean;
+  /** OPEN-1: When true, reject connection if hostKeySha256 is not pinned.
+   *  The fingerprint is still captured via onHostKeySha256 before rejection. */
+  enforceHostKeyPin?: boolean;
 };
 
 export type SftpListEntry = {
@@ -49,11 +53,15 @@ function createSshConfig(input: SshConnectionParams): ConnectConfig {
  }
 
  const expectedHostKey = normalizeHostKeySha256(input.hostKeySha256);
- if (expectedHostKey || input.onHostKeySha256) {
+ const needsVerifier = expectedHostKey || input.onHostKeySha256 || input.enforceHostKeyPin;
+ if (needsVerifier) {
   config.hostHash = "sha256";
   config.hostVerifier = (hashedKey: string) => {
    input.onHostKeySha256?.(`SHA256:${hashedKey}`);
    if (expectedHostKey) return hashedKey === expectedHostKey;
+   // OPEN-1: No pinned key — if enforceHostKeyPin is set, reject to force
+   // explicit approval. Otherwise accept (backward-compatible TOFU).
+   if (input.enforceHostKeyPin) return false;
    return !input.rejectUnknownHostKeyAfterCapture;
   };
  }

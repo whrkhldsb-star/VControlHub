@@ -153,6 +153,8 @@ export const config = {
 		get wsHeartbeatIntervalMs(): number { return readInt("SSH_WS_HEARTBEAT_INTERVAL_MS", 30_000); },
 		get wsMaxConnections(): number { return readInt("SSH_WS_MAX_CONNECTIONS", 50); },
 		get wsSecret(): string | undefined { return readOptionalString("SSH_WS_SECRET"); },
+		/** OPEN-1: When true, reject SSH connections to servers without a pinned hostKeySha256. */
+		get enforceHostKeyPin(): boolean { return readBool("SSH_ENFORCE_HOST_KEY_PIN", false); },
 	},
 
 	/** Storage / direct-access gateway. */
