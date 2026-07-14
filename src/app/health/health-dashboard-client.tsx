@@ -8,7 +8,7 @@ import { getRefreshIntervalLabel } from "@/lib/preferences/refresh-interval";
 
 import { useHealthData } from "./use-health-data";
 import { ActiveIncidentsBanner } from "./active-incidents-banner";
-import type { SystemHealthReport } from "./health-types";
+import type { HealthOverview, ServerHealth, SystemHealthReport } from "./health-types";
 import { SparklineChartLazy } from "./sparkline-chart-lazy";
 
 type SystemHealthStatus = "healthy" | "warning" | "critical";
@@ -320,6 +320,9 @@ export function HealthDashboardClient({ serverCount, initialSystemHealth }: Prop
 				<SummaryCard label={t("healthPage.summary.critical")} value={critical} color="rose" />
 				<SummaryCard label={t("healthPage.summary.offline")} value={offline} color="slate" />
 			</section>
+			{overview && overview.servers.length > 0 && (
+				<FleetResourceSummary overview={overview} t={t} tt={tt} />
+			)}
 			<div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
 				<div className="text-xs text-[var(--text-muted)]">
 					{t("healthPage.ui.lastRefresh")}: {lastRefresh || "—"}
@@ -433,6 +436,108 @@ export function HealthDashboardClient({ serverCount, initialSystemHealth }: Prop
 }
 
 /* ── Sub-components ───────────────────────────────────────── */
+
+/* ── FEAT-P0-3: Fleet Resource Summary ────────────────────── */
+
+function FleetResourceSummary({ overview, t, tt }: {
+	overview: HealthOverview;
+	t: (key: string) => string;
+	tt: (key: string, vars?: Record<string, string | number>) => string;
+}) {
+	const onlineServers = overview.servers.filter(
+		(s) => s.status !== "offline" && s.cpu !== undefined,
+	);
+
+	if (onlineServers.length === 0) return null;
+
+	const avg = (arr: number[]) => arr.length ? Math.round(arr.reduce((a, b) => a + b, 0) / arr.length) : 0;
+	const cpus = onlineServers.map((s) => s.cpu ?? 0);
+	const mems = onlineServers.map((s) => s.mem ?? 0);
+	const disks = onlineServers.map((s) => s.diskMax ?? 0);
+	const loads = onlineServers.map((s) => s.loadAvg1m ?? 0).filter((v) => v > 0);
+
+	const avgCpu = avg(cpus);
+	const avgMem = avg(mems);
+	const avgDisk = avg(disks);
+	const avgLoad = loads.length ? (Math.round(loads.reduce((a, b) => a + b, 0) / loads.length * 100) / 100) : 0;
+
+	// Top 5 resource-hungry servers
+	const top5 = [...onlineServers]
+		.sort((a, b) => (b.cpu ?? 0) + (b.mem ?? 0) + (b.diskMax ?? 0) - ((a.cpu ?? 0) + (a.mem ?? 0) + (a.diskMax ?? 0)))
+		.slice(0, 5);
+
+	const netInTotal = onlineServers.reduce((sum, s) => sum + (s.networkInKbps ?? 0), 0);
+	const netOutTotal = onlineServers.reduce((sum, s) => sum + (s.networkOutKbps ?? 0), 0);
+
+	const fmtKbps = (kbps: number) => {
+		if (kbps >= 1_000_000) return `${(kbps / 1_000_000).toFixed(1)} Gbps`;
+		if (kbps >= 1_000) return `${(kbps / 1_000).toFixed(1)} Mbps`;
+		return `${Math.round(kbps)} Kbps`;
+	};
+
+	return (
+		<section className="space-y-3 rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-4">
+			<div className="flex items-center justify-between">
+				<div>
+					<p className="text-xs uppercase tracking-[0.25em] text-[var(--text-muted)]">{t("healthPage.fleet.eyebrow")}</p>
+					<h2 className="mt-1 text-lg font-semibold text-[var(--text-primary)]">{t("healthPage.fleet.title")}</h2>
+				</div>
+				<span className="text-xs text-[var(--text-muted)]">{tt("healthPage.fleet.basedOn", { count: onlineServers.length })}</span>
+			</div>
+			{/* Avg resource bars */}
+			<div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+				<FleetMetricBar label={t("healthPage.fleet.avgCpu")} value={avgCpu} unit="%" />
+				<FleetMetricBar label={t("healthPage.fleet.avgMem")} value={avgMem} unit="%" />
+				<FleetMetricBar label={t("healthPage.fleet.avgDisk")} value={avgDisk} unit="%" />
+				<div className="rounded-xl border border-white/[0.08] bg-[var(--surface)]/[0.04] p-3">
+					<p className="text-[10px] uppercase tracking-wide text-[var(--text-muted)]">{t("healthPage.fleet.avgLoad")}</p>
+					<p className="mt-1 text-xl font-bold text-[var(--text-primary)]">{avgLoad}</p>
+				</div>
+			</div>
+			{/* Network totals */}
+			<div className="flex flex-wrap gap-4 text-xs text-[var(--text-secondary)]">
+				<span>{t("healthPage.fleet.netIn")}: <strong className="text-[var(--text-primary)]">{fmtKbps(netInTotal)}</strong></span>
+				<span>{t("healthPage.fleet.netOut")}: <strong className="text-[var(--text-primary)]">{fmtKbps(netOutTotal)}</strong></span>
+			</div>
+			{/* Top 5 resource-hungry */}
+			{top5.length > 0 && (
+				<div className="space-y-1.5">
+					<p className="text-[10px] uppercase tracking-wide text-[var(--text-muted)]">{t("healthPage.fleet.top5")}</p>
+					{top5.map((s, i) => {
+						const score = (s.cpu ?? 0) + (s.mem ?? 0) + (s.diskMax ?? 0);
+						return (
+							<div key={s.serverId} className="flex items-center gap-2 text-xs">
+								<span className="w-4 text-[var(--text-muted)]">{i + 1}.</span>
+								<span className="min-w-0 flex-1 truncate font-medium text-[var(--text-primary)]">{s.serverName}</span>
+								<span className={usageColor(s.cpu)}>CPU {s.cpu ?? "-"}%</span>
+								<span className={usageColor(s.mem)}>MEM {s.mem ?? "-"}%</span>
+								<span className={usageColor(s.diskMax)}>DISK {s.diskMax ?? "-"}%</span>
+								<span className="text-[var(--text-muted)]">({score})</span>
+							</div>
+						);
+					})}
+				</div>
+			)}
+		</section>
+	);
+}
+
+function FleetMetricBar({ label, value, unit }: { label: string; value: number; unit: string }) {
+	return (
+		<div className="rounded-xl border border-white/[0.08] bg-[var(--surface)]/[0.04] p-3">
+			<div className="flex items-baseline justify-between">
+				<p className="text-[10px] uppercase tracking-wide text-[var(--text-muted)]">{label}</p>
+				<p className={`text-xl font-bold ${usageColor(value)}`}>{value}{unit}</p>
+			</div>
+			<div className="mt-2 h-1.5 overflow-hidden rounded-full bg-[var(--surface)]">
+				<div
+					className={`h-full rounded-full transition-all ${usageBarColor(value)}`}
+					style={{ width: `${Math.min(value, 100)}%` }}
+				/>
+			</div>
+		</div>
+	);
+}
 
 function SummaryCard({ label, value, color }: { label: string; value: number | string; color: string }) {
 	const colorMap: Record<string, string> = {

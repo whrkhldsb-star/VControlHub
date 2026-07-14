@@ -31,6 +31,16 @@ export const zh: Record<string, string> = {
 	"healthPage.summary.warning": "性能警告",
 	"healthPage.summary.critical": "严重告警",
 	"healthPage.summary.offline": "离线/停用",
+	"healthPage.fleet.eyebrow": "舰队资源总览",
+	"healthPage.fleet.title": "跨节点资源汇总",
+	"healthPage.fleet.basedOn": "基于 {count} 台在线节点",
+	"healthPage.fleet.avgCpu": "平均 CPU",
+	"healthPage.fleet.avgMem": "平均内存",
+	"healthPage.fleet.avgDisk": "平均磁盘",
+	"healthPage.fleet.avgLoad": "平均负载(1m)",
+	"healthPage.fleet.netIn": "总入站流量",
+	"healthPage.fleet.netOut": "总出站流量",
+	"healthPage.fleet.top5": "资源占用 Top 5",
 
 	// UI strings
 	"healthPage.ui.selfCheck": "系统自检",
@@ -168,6 +178,16 @@ export const en: Record<string, string> = {
 	"healthPage.summary.warning": "Performance Warnings",
 	"healthPage.summary.critical": "Critical Alerts",
 	"healthPage.summary.offline": "Offline/Disabled",
+	"healthPage.fleet.eyebrow": "Fleet Resource Overview",
+	"healthPage.fleet.title": "Cross-Node Resource Summary",
+	"healthPage.fleet.basedOn": "Based on {count} online nodes",
+	"healthPage.fleet.avgCpu": "Avg CPU",
+	"healthPage.fleet.avgMem": "Avg Memory",
+	"healthPage.fleet.avgDisk": "Avg Disk",
+	"healthPage.fleet.avgLoad": "Avg Load (1m)",
+	"healthPage.fleet.netIn": "Total Inbound",
+	"healthPage.fleet.netOut": "Total Outbound",
+	"healthPage.fleet.top5": "Top 5 Resource Usage",
 
 	// UI strings
 	"healthPage.ui.selfCheck": "System Self-check",

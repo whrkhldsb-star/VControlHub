@@ -23,6 +23,10 @@ export type ServerHealth = {
 	cpu?: number;
 	mem?: number;
 	diskMax?: number;
+	loadAvg1m?: number;
+	networkInKbps?: number;
+	networkOutKbps?: number;
+	swapUsagePercent?: number;
 	uptime?: string;
 	lastCheck: string;
 	error?: string;
