@@ -50,6 +50,7 @@ export type CreateBackupOutput = z.output<typeof createBackupSchema>;
 
 export const restoreBackupSchema = z.object({
   confirm: z.enum(["RESTORE"], { message: "Restore confirmation text does not match" }),
+  component: z.enum(["database", "files", "all"]).optional().default("all"),
 });
 
 export type RestoreBackupInput = z.input<typeof restoreBackupSchema>;

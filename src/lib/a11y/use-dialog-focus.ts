@@ -27,6 +27,11 @@ function getFocusableElements(container: HTMLElement) {
 export function useDialogFocus<TElement extends HTMLElement>({ open, onClose, initialFocusRef, restoreFocus = true }: DialogFocusOptions) {
 	const dialogRef = useRef<TElement>(null);
 	const returnFocusRef = useRef<HTMLElement | null>(null);
+	const onCloseRef = useRef(onClose);
+
+	useEffect(() => {
+		onCloseRef.current = onClose;
+	}, [onClose]);
 
 	useEffect(() => {
 		if (!open) return;
@@ -47,7 +52,7 @@ export function useDialogFocus<TElement extends HTMLElement>({ open, onClose, in
 
 			if (event.key === "Escape") {
 				event.preventDefault();
-				onClose();
+				onCloseRef.current();
 				return;
 			}
 
@@ -84,7 +89,7 @@ export function useDialogFocus<TElement extends HTMLElement>({ open, onClose, in
 				window.setTimeout(() => returnTarget?.focus(), 0);
 			}
 		};
-	}, [initialFocusRef, onClose, open, restoreFocus]);
+	}, [initialFocusRef, open, restoreFocus]);
 
 	return dialogRef;
 }

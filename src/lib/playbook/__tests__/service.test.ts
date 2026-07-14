@@ -68,7 +68,7 @@ describe("playbook service", () => {
 	beforeEach(() => {
 		vi.clearAllMocks();
 		mocks.auditUserAction.mockReturnValue(undefined);
-		mocks.executePlaybookChain.mockResolvedValue([]);
+		mocks.executePlaybookChain.mockResolvedValue({ results: [] });
 	});
 
 	it("listPlaybooks narrows the raw rows", async () => {
@@ -166,9 +166,9 @@ describe("playbook service", () => {
 		mocks.create
 			.mockResolvedValueOnce({ id: "run-1", playbookId: "pb1", status: "running", dryRun: true, stepResults: [], errorMessage: null, startedAt: new Date(), completedAt: null, createdById: null, createdAt: new Date(), updatedAt: new Date(), triggerContext: null })
 			.mockResolvedValueOnce({ id: "run-1-final", playbookId: "pb1", status: "completed", dryRun: true, stepResults: [], errorMessage: null, startedAt: new Date(), completedAt: new Date(), createdById: null, createdAt: new Date(), updatedAt: new Date(), triggerContext: null });
-		mocks.executePlaybookChain.mockResolvedValue([
+		mocks.executePlaybookChain.mockResolvedValue({ results: [
 			{ stepId: "s1", status: "dry_run", startedAt: "2026-01-01T00:00:00Z", completedAt: "2026-01-01T00:00:01Z", summary: "ok" },
-		]);
+		] });
 		mocks.update.mockResolvedValue({
 			id: "run-1-final",
 			playbookId: "pb1",
@@ -213,9 +213,9 @@ describe("playbook service", () => {
 			updatedAt: new Date(),
 			triggerContext: null,
 		});
-		mocks.executePlaybookChain.mockResolvedValue([
+		mocks.executePlaybookChain.mockResolvedValue({ results: [
 			{ stepId: "s1", status: "failed", startedAt: "2026-01-01T00:00:00Z", completedAt: "2026-01-01T00:00:01Z", summary: "", error: "boom" },
-		]);
+		] });
 		mocks.update.mockResolvedValue({
 			id: "run-2",
 			playbookId: "pb1",

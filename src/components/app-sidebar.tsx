@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
@@ -132,22 +132,6 @@ export function AppSidebar({
 		() => filterByPermissions(systemNavItems, declaredPermissionsByHref, gate.canAny),
 		[declaredPermissionsByHref, gate],
 	);
-
-	// Expand the group that contains the active route; default new groups to open
-	// so the full IA stays discoverable (users can still collapse sections).
-	useEffect(() => {
-		setOpenGroups((prev) => {
-			const next = { ...prev };
-			for (const group of mainNavGroups) {
-				const hasActive = group.items.some((item) =>
-					item.href === "/" ? pathname === "/" : pathname.startsWith(item.href),
-				);
-				if (hasActive) next[group.id] = true;
-				else if (next[group.id] === undefined) next[group.id] = true;
-			}
-			return next;
-		});
-	}, [pathname]);
 
 	if (!shouldRenderSidebar) return null;
 

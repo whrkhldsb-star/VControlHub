@@ -54,7 +54,7 @@ export function teamWhere(
  * teamId columns, swap this to `teamWhere`.
  */
 export function teamWhereOptional(
-	session: Pick<SessionPayload, "userId" | "roles" | "currentTeamId">,
+	_session: Pick<SessionPayload, "userId" | "roles" | "currentTeamId">,
 ): Record<string, unknown> {
 	return {};
 }

@@ -6,12 +6,14 @@ const { mocks } = vi.hoisted(() => ({
     restoreBackupRecord: vi.fn(),
     getBackupRecord: vi.fn(),
     enqueueJob: vi.fn(),
+    findPendingJob: vi.fn(),
   },
 }));
 
 vi.mock("@/lib/auth/require-api-permission", () => ({ requireApiPermission: mocks.requireApiPermission }));
 vi.mock("@/lib/backup/service", () => ({ restoreBackupRecord: mocks.restoreBackupRecord, getBackupRecord: mocks.getBackupRecord }));
 vi.mock("@/lib/job/service", () => ({ enqueueJob: mocks.enqueueJob }));
+vi.mock("@/lib/db", () => ({ prisma: { job: { findFirst: mocks.findPendingJob } } }));
 vi.mock("@/lib/backup/job-worker", () => ({ BACKUP_RESTORE_JOB_TYPE: "backup.restore" }));
 
 const route = await import("../route");
@@ -20,7 +22,8 @@ describe("/api/backups/[id]/restore", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mocks.requireApiPermission.mockResolvedValue({ session: { userId: "u1", user: { id: "u1" } } });
-    mocks.getBackupRecord.mockResolvedValue({ id: "bak1" });
+    mocks.getBackupRecord.mockResolvedValue({ id: "bak1", status: "COMPLETED" });
+    mocks.findPendingJob.mockResolvedValue(null);
     mocks.enqueueJob.mockResolvedValue({ id: "job1", status: "PENDING" });
     mocks.restoreBackupRecord.mockResolvedValue({ id: "bak1", restoredAt: "2026-05-30T00:00:00.000Z" });
   });

@@ -42,6 +42,7 @@ const {
       findMany: vi.fn(),
       findUnique: vi.fn(),
       update: vi.fn(),
+      updateMany: vi.fn(),
       delete: vi.fn(),
     },
     fileEntry: {
@@ -275,6 +276,7 @@ describe("/api/downloads", () => {
     prismaMock.server.findUnique.mockResolvedValue(serverFixture());
     prismaMock.downloadTask.create.mockReset();
     prismaMock.downloadTask.create.mockResolvedValue({ id: "task_1" });
+    prismaMock.downloadTask.updateMany.mockResolvedValue({ count: 1 });
     buildSshParamsFromServerMock.mockResolvedValue({ host: "203.0.113.10", port: 22, username: "root" });
     execRemoteCommandMock.mockResolvedValue({ stdout: "12345\n", stderr: "", exitCode: 0 });
     statMock.mockResolvedValue({ size: 1024 });
@@ -430,8 +432,8 @@ describe("/api/downloads", () => {
     // downstream downloadTask.update that executeDirectDownload issues right
     // after.
     await vi.waitFor(() => expect(prismaMock.fileEntry.create).toHaveBeenCalled());
-    await vi.waitFor(() => expect(prismaMock.downloadTask.update).toHaveBeenCalledWith(expect.objectContaining({
-      where: { id: "task_direct" },
+    await vi.waitFor(() => expect(prismaMock.downloadTask.updateMany).toHaveBeenCalledWith(expect.objectContaining({
+      where: { id: "task_direct", status: "PENDING" },
       data: expect.objectContaining({ pid: 12345, status: "RUNNING", progress: "Downloading..." }),
     })));
     expect(prismaMock.fileEntry.create).toHaveBeenCalledWith(expect.objectContaining({

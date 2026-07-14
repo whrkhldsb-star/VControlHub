@@ -22,6 +22,7 @@ export function RestoreBackupButton({ backupId, backupType, disabled = false }: 
   const [confirmOpen, setConfirmOpen] = useState(false);
   const dialogRef = useDialogFocus<HTMLDivElement>({ open: confirmOpen, onClose: () => setConfirmOpen(false) });
   const [confirmText, setConfirmText] = useState("");
+  const [component, setComponent] = useState<"all" | "database" | "files">("all");
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -45,7 +46,7 @@ export function RestoreBackupButton({ backupId, backupType, disabled = false }: 
       const result = await csrfFetch(`/api/backups/${backupId}/restore`, {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ confirm: CONFIRM_TEXT }),
+        body: JSON.stringify({ confirm: CONFIRM_TEXT, component }),
       }) as { restoredAt?: string; error?: string };
       setMessage(
         result.restoredAt
@@ -88,6 +89,21 @@ export function RestoreBackupButton({ backupId, backupType, disabled = false }: 
             <p id="restore-backup-description" className="mt-2 text-sm leading-6 text-[var(--text-secondary)]">
               {t("backupsPage.restore.warningPrefix")} <span className="font-semibold text-[var(--text-primary)]">{backupType}</span> {t("backupsPage.restore.warningSuffix")} <span className="font-mono font-semibold text-[var(--danger)]">{CONFIRM_TEXT}</span> {t("backupsPage.restore.warningContinue")}
             </p>
+            <div className="mt-4 grid gap-2">
+              <span className="text-sm text-[var(--text-secondary)]">{t("backupsPage.restore.component.label")}</span>
+              <div className="flex gap-2">
+                {(["all", "database", "files"] as const).map((c) => (
+                  <button
+                    key={c}
+                    type="button"
+                    onClick={() => setComponent(c)}
+                    className={`rounded-lg border px-3 py-1.5 text-xs font-medium transition ${component === c ? "border-[var(--danger-border)] bg-[var(--danger-bg)] text-[var(--danger)]" : "border-[var(--border)] text-[var(--text-secondary)] hover:bg-[var(--surface-hover)]"}`}
+                  >
+                    {t(`backupsPage.restore.component.${c}`)}
+                  </button>
+                ))}
+              </div>
+            </div>
             <label className="mt-4 grid gap-1 text-sm text-[var(--text-secondary)]">
               {t("backupsPage.restore.inputLabel").replace("{confirmText}", CONFIRM_TEXT)}
               <input

@@ -81,7 +81,7 @@ test("traffic history, quick-service tabs/search, Docker refresh/logs and QA det
 	}
 
 	await page.goto("/quick-services");
-	const search = page.getByRole("searchbox");
+	const search = page.getByRole("searchbox", { name: /搜索快捷服务|Search quick services/i });
 	await search.fill("__qa_no_such_service__");
 	await expect(page.locator("body")).toContainText(/没有|No .*found|暂无/i);
 	await search.fill("");
@@ -114,7 +114,7 @@ test("traffic history, quick-service tabs/search, Docker refresh/logs and QA det
 test("audit filters and AI/AI Ops unavailable-provider experience stay usable", async ({ page }) => {
 	await login(page);
 	await page.goto("/audit");
-	const search = page.getByRole("searchbox");
+	const search = page.getByRole("searchbox", { name: /搜索动作、用户名或显示名|Search action, user or display name/i });
 	await search.fill("qa-image");
 	await page.getByRole("button", { name: /^(搜索|Search)$/i }).click();
 	await search.fill("");

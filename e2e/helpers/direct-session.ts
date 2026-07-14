@@ -6,7 +6,7 @@ import { Client } from "pg";
 
 export async function installDirectSession(context: BrowserContext) {
 	process.loadEnvFile(`${process.cwd()}/.env.local`);
-	const username = process.env.E2E_USER ?? "admin";
+	const username = process.env.E2E_DIRECT_USER ?? process.env.E2E_USER ?? "admin";
 	const password = process.env.E2E_PASS ?? "admin123";
 	const connectionString = process.env.DATABASE_URL;
 	if (!connectionString) throw new Error("DATABASE_URL is required for direct E2E sessions");

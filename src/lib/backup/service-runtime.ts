@@ -150,16 +150,32 @@ export async function runExistingBackupRecord(input: { id: string; projectRoot?:
 	}
 }
 
-function buildRestoreExecution(record: { type: string; filePath: string }, projectRoot: string) {
+function buildRestoreExecution(record: { type: string; filePath: string }, projectRoot: string, component: "database" | "files" | "all" = "all") {
 	const backupPath = resolveBackupPath(projectRoot, record.filePath);
 	const type = isBackupType(record.type) ? record.type : "DATABASE";
-	if (type === "FILES" || type === "FULL") {
+
+	// FEAT-P1: 细粒度恢复 — 根据 component 选择恢复范围
+	if (type === "DATABASE") {
+		return { file: "bash", args: ["scripts/restore-db.sh", backupPath], backupPath };
+	}
+	if (type === "FILES") {
 		return { file: "tar", args: ["-xzf", backupPath, "-C", projectRoot], backupPath };
+	}
+	// FULL backup: component controls what to restore
+	if (type === "FULL") {
+		if (component === "database") {
+			return { file: "bash", args: ["scripts/restore-db.sh", backupPath], backupPath };
+		}
+		if (component === "files") {
+			return { file: "tar", args: ["-xzf", backupPath, "-C", projectRoot], backupPath };
+		}
+		// all: restore DB first, then files — use a combined command
+		return { file: "bash", args: ["-c", `scripts/restore-db.sh '${backupPath}' && tar -xzf '${backupPath}' -C '${projectRoot}'`], backupPath };
 	}
 	return { file: "bash", args: ["scripts/restore-db.sh", backupPath], backupPath };
 }
 
-export async function restoreBackupRecord(input: { id: string; confirm: string; projectRoot?: string }) {
+export async function restoreBackupRecord(input: { id: string; confirm: string; projectRoot?: string; component?: "database" | "files" | "all" }) {
 	if (input.confirm !== "RESTORE") {
 		throw new ValidationError("Restore operation requires explicit confirmation");
 	}
@@ -176,7 +192,7 @@ export async function restoreBackupRecord(input: { id: string; confirm: string; 
 			throw new BusinessError("Only completed backups can be restored");
 		}
 		const projectRoot = input.projectRoot || config.app.appDir || process.cwd();
-		const execution = buildRestoreExecution(record, projectRoot);
+		const execution = buildRestoreExecution(record, projectRoot, input.component ?? "all");
 		await stat(execution.backupPath);
 		if (!record.checksumSha256) {
 			throw new BusinessError("Backup checksum is missing; refusing to restore an unverifiable artifact");

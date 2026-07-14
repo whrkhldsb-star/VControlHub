@@ -133,10 +133,10 @@ describe("Dashboard", () => {
   it("renders dashboard sections for servers and storage overview", async () => {
     render(<I18nProvider initialLocale="zh">{await Dashboard()}</I18nProvider>);
 
-    expect(screen.getByText("仪表盘")).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "仪表盘" })).toBeInTheDocument();
     expect(screen.getByText("VPS 状态总览")).toBeInTheDocument();
     expect(screen.getByText("在线 VPS")).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: /管理 VPS 与密钥/ })).toHaveAttribute("href", "/servers");
+    expect(screen.getAllByRole("link", { name: /管理 VPS 与密钥/ })[0]).toHaveAttribute("href", "/servers");
     expect(screen.getByText("VPS 节点")).toBeInTheDocument();
     expect(screen.getByText("核心资源")).toBeInTheDocument();
     expect(screen.getByText("运维队列")).toBeInTheDocument();

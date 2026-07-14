@@ -36,7 +36,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
         );
         const waitForCompletion = wait;
         if (waitForCompletion) {
-          const restore = await restoreBackupRecord({ id, confirm: body.confirm });
+          const restore = await restoreBackupRecord({ id, confirm: body.confirm, component: body.component });
           await auditUserAction(session!.userId, "backup.restore", { backupId: id });
           return NextResponse.json({ restore });
         }
@@ -67,7 +67,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
         const job = await enqueueJob({
           type: BACKUP_RESTORE_JOB_TYPE,
           title: "Restore backup",
-          payload: { backupId: id, confirm: body.confirm },
+          payload: { backupId: id, confirm: body.confirm, component: body.component },
           createdBy: session?.userId ?? null,
           maxAttempts: 1,
         });

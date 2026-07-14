@@ -1,4 +1,3 @@
-import { teamWhere } from "@/lib/auth/team-scope";
 /**
  * Command service barrel.
  *

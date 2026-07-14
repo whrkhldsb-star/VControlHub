@@ -103,7 +103,6 @@ export function ServerTabLayout({
 								role="tab"
 								aria-label={t(action.labelKey)}
 								aria-selected={active}
-								aria-pressed={active}
 								onClick={() => !disabled && setActivePanel(action.key)}
 								disabled={disabled}
 								className={`group rounded-xl border px-3.5 py-3 text-left transition ${

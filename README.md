@@ -350,10 +350,10 @@ make logs SERVICE_PREFIX=vcontrolhub
 | API 路由文件        | 138                                              |
 | 数据模型            | 60                                               |
 | UI 组件           | 33                                               |
-| 代码行数            | ~180,078（src 扫描）                                 |
+| 代码行数            | ~181,527（src 扫描）                                 |
 | 测试              | 408 文件                                           |
 | Docker 应用模板     | 44 (本地) + 社区源实时同步                                |
-| i18n            | 212 useI18n() 调用点，78 字典文件                        |
+| i18n            | 211 useI18n() 调用点，78 字典文件                        |
 <!-- README_METRICS_END -->
 
 ---
@@ -683,13 +683,11 @@ make logs SERVICE_PREFIX=vcontrolhub
 
 | 项 | 原因 | 建议路径 |
 |---|---|---|
-| **旧 Share 密码 SHA-256 兼容** | 历史 `passwordHash` 可能仍是无盐 SHA；立即删除校验会让旧分享链失效 | ✅ 校验成功时透明升级为 `scrypt:salt:hash` 并 CAS 回写；运维窗口后仍可扫描非 scrypt 活跃链接再强制重置/吊销，最后删除 SHA 分支 |
 | **前端交互层全量 E2E 矩阵** | 本轮优先服务端竞态/审计/一致性；Playwright 已有主路径但非 Firefox/WebKit 全矩阵 | 继续扩展可逆 CRUD / 文件 / 分享 / 媒体套件；跨浏览器放入 nightly |
 | **危险操作跨进程硬锁（全集）** | restore + VPS schedule tick advisory lock 与 job lease 已覆盖关键路径；全站统一 lease 中心仍开放 | 见「持续升级路线」P1 |
 | **不可逆生产副作用实测** | 关机、删生产容器、真实全量 restore、密钥轮换、外发通知等未在生产上硬跑 | 隔离环境 + 调用链静态推演 + mock；见「审查边界」 |
 | **覆盖率 / DAST / SAST / 压测** | 非本轮交付范围 | `test:coverage`、容器扫描、专用安全扫描、高并发压测单独排期 |
 | **Sync CLI SSH 主机密钥 pin** | OPEN-2 | 与 BE-25 对齐 |
-| **task:read 多租户收窄** | OPEN-4 | 产品确认后改查询范围 |
 
 #### 验证（全量扫描 + BE-24/25 后）
 
@@ -717,8 +715,6 @@ make logs SERVICE_PREFIX=vcontrolhub
 | P0 | 进行中 | 收敛 `globals.css` 历史兼容规则，迁移到明确的 primitives 与 `data-*` hooks | 删除零命中/重复选择器；深浅主题、focus、dialog、表格和卡片视觉回归通过 |
 | P1 | 进行中 | 合并文件动作的重复核心 | Docker、Monitoring 与 SFTP 连接层已统一；继续收敛移动/重命名及目录操作 |
 | P1 | 进行中 | 强化危险操作跨进程锁和崩溃恢复 | lease、AI CAS、backup restore / VPS schedule tick advisory lock 已完成；继续服务级统一 lease 中心 |
-| P1 | 进行中 | 正式化 E2E 隔离账号与本机数据库会话保护 | 已拒绝非回环数据库；继续自动创建/清理隔离账号并移除管理员依赖 |
-| P1 | 进行中 | Share 密码哈希迁移收口 | ✅ 透明升级已上线；剩余：活跃旧哈希扫描报表 + 窗口结束后移除 SHA 校验分支 |
 | P1 | 进行中 | SSH 主机密钥 pin 全路径收口 | ✅ 命令执行 + 下载 pin 校验；剩余 Sync rsync CLI（OPEN-2）与强制首次 TOFU 入库 |
 | P2 | 进行中 | 增加 Web Vitals、API 延迟、队列积压、WebSocket、轮询和通知投递可观测性 | request ID 已覆盖 guarded API；继续补充指标查询与前端关联 |
 
@@ -757,8 +753,8 @@ make logs SERVICE_PREFIX=vcontrolhub
 | **告警规则** | 指标源与远程 VPS 统一；渠道主要靠 Setting（邮件/TG）；静默/升级体验 |
 | **备份** | 细粒度恢复（单库/单目录）、演练报告、跨环境迁移向导 |
 | **成本 Cost** | 账单 API、标签自动归集、预算告警自动化 |
-| **分享** | 仅预览等细粒度权限、水印、外发审计报表；旧密码哈希窗口（OPEN-5） |
-| **下载中心** | 多 worker CAS（OPEN-3）、与文件页一体任务托盘 |
+| **分享** | 仅预览等细粒度权限、外发审计报表；密码哈希已统一为 salted scrypt，页面水印已上线 |
+| **下载中心** | 多 worker CAS 已完成；继续与文件页整合任务托盘 |
 | **用户/角色** | 岗位模板 + **数据范围**（不只权限点列表） |
 
 #### P2 — 工程债也会表现为「功能不顺」
@@ -796,15 +792,27 @@ make logs SERVICE_PREFIX=vcontrolhub
 
 | ID | 修复项 | 内容 | 状态 |
 |---|---|---|---|
-| FEAT-P0-1 | **多租户数据隔离基础** | 14 个模型加 `teamId` + Team 关联 + 索引（CommandRequest/StorageNode/Job/ScheduledTask/Playbook/PlaybookRun/Notification/SyncJob/DownloadTask/ShareLink/BackupRecord/DeploymentRun/Ticket/AuditLog）；`teamWhere()` service 层过滤函数；服务/审批/分享/工单/Playbook/通知/操作任务列表接入 team scope | ✅ schema + db push + tsc |
+| FEAT-P0-1 | **多租户数据隔离基础** | 14 个模型加 `teamId` + Team 关联 + 索引（CommandRequest/StorageNode/Job/ScheduledTask/Playbook/PlaybookRun/Notification/SyncJob/DownloadTask/ShareLink/BackupRecord/DeploymentRun/Ticket/AuditLog）；`teamWhere()` service 层过滤函数；服务/审批/分享/工单/Playbook/通知/操作任务列表接入 team scope | ✅ 正式 migration + 生产 deploy + tsc |
 | FEAT-P0-5 | **Playbook 异步化增强** | 增量进度持久化（每步写 stepResults）；结果汇总 summary（`completed N/total, M failed`）；步骤索引写入 job event | ✅ tsc + test |
 | FEAT-P1 | **工单↔VPS/命令关联** | Ticket 模型加 `relatedServerId` / `relatedCommandId`；创建表单加关联 VPS 下拉；API 接收并传入 service | ✅ tsc + build |
 | FEAT-OPEN-4 | **task:read 多租户收窄** | `listOperationTaskResult` 接受 session 并对各 findMany 加 `teamWhere` 过滤 | ✅ tsc |
 | FEAT-P1-CAS | **下载任务 CAS 防重** | aria2 relay + direct download 的 `PENDING→RUNNING` 状态转换改用 `updateMany` + `where: { status: "PENDING" }` CAS，防止多 worker 重复执行 | ✅ tsc + 38 tests |
 | FEAT-P1-WM | **分享页水印** | 分享页加 token 前8位 + 日期水印 overlay（`pointer-events-none`，不影响交互），可追溯分享来源 | ✅ tsc + build |
+| FEAT-P1-BR | **备份细粒度恢复** | FULL 备份恢复支持选择范围：全部 / 仅数据库 / 仅文件；`buildRestoreExecution` 按 component 分发不同命令；UI 加三选一按钮组；schema/API/job-worker 全链路传参 | ✅ tsc + 119 tests |
 
 **验证**：tsc 0；playbook executor 测试通过；build 成功；服务 active；path smoke 11/11 通过。  
-**待后续**：FEAT-P0-2（远程 Docker）、FEAT-P0-3（舰队监控一张图）、FEAT-P0-4（文件全文检索/版本历史）、FEAT-P1 其余项（AI 工具编排、告警远程统一、备份细粒度恢复、成本自动归集、分享水印）。
+**待后续**：FEAT-P0-2（远程 Docker）、FEAT-P0-3（舰队监控一张图）、FEAT-P0-4（文件全文检索/版本历史）、FEAT-P1 其余项（AI 工具编排、告警远程统一、备份细粒度恢复、成本自动归集）。
+
+### 功能修复进展（2026-07-13 FEAT Round 2）
+
+| ID | 修复项 | 内容 | 状态 |
+|---|---|---|---|
+| FEAT-MIGRATION | **多租户结构正式迁移** | 补齐 14 个 team scope 字段、索引、外键及 Ticket 关联字段 migration；兼容已执行 `db push` 的生产库与空库重放，并修复旧安全迁移对 StorageNode 历史表名的硬编码 | ✅ production migrate deploy + shadow replay |
+| FEAT-E2E-ISO | **E2E 隔离账号** | Playwright global setup 自动创建唯一测试账号并授予测试角色，global teardown 级联清理；数据库强制为 loopback，nightly 不再依赖 admin | ✅ Chromium 真实回归 4/4，结束后账号残留 0 |
+| FEAT-SHARE-HASH | **Share 哈希迁移收口** | 新增活跃/过期/撤销旧哈希扫描及 strict 门禁；生产扫描旧哈希为 0 后删除 SHA-256 校验与透明升级分支，只接受 salted scrypt | ✅ audit strict + 8 tests |
+| FEAT-QUALITY | **新增代码质量回归** | 修复 AI Key 输入属性误渲染、VPS Tab 非法 ARIA、侧栏同步 effect setState，以及新增模块无用导入 | ✅ lint 0 warnings |
+| FEAT-USABILITY | **近期改动实际使用复核** | E2E 表单登录与 direct-session 统一使用可自动创建/删除的临时账号；Quick Service/Audit 搜索使用唯一可访问名称；Dialog 焦点监听不再因父组件回调变化反复重装，修复团队删除确认按钮持续抖动、无法点击 | ✅ Chromium 全套 33/33 |
+| FEAT-MEDIA-CLEANUP | **图床删除一致性** | 删除图床图片时，同一存储路径的 MediaItem、FileEntry 与 ImageUpload 改为事务清理，避免文件已删但媒体索引残留、缩略图持续 ENOENT；E2E teardown 同步清理唯一测试前缀 | ✅ 15 tests + 实际媒体生命周期复核 |
 
 ---
 

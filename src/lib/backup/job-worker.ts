@@ -33,6 +33,7 @@ type BackupRestorePayload = {
   backupId: string;
   confirm: "RESTORE";
   projectRoot?: string;
+  component?: "database" | "files" | "all";
 };
 
 type BackupRetentionPayload = {
@@ -84,6 +85,7 @@ function parseRestorePayload(payload: Prisma.JsonValue): BackupRestorePayload {
     backupId: payload.backupId.trim(),
     confirm: payload.confirm,
     projectRoot: typeof payload.projectRoot === "string" && payload.projectRoot.trim() ? payload.projectRoot.trim() : undefined,
+    component: (payload.component as BackupRestorePayload["component"]) ?? "all",
   };
 }
 
@@ -116,7 +118,7 @@ async function handleJob(job: Awaited<ReturnType<typeof claimNextJob>>) {
         jobId: job.id,
         leaseMs: LEASE_MS,
         heartbeat: () => heartbeatJob(job.id, WORKER_ID, { leaseMs: LEASE_MS, progress: "Restoring backup" }),
-        run: () => restoreBackupRecord({ id: payload.backupId, confirm: payload.confirm, projectRoot: payload.projectRoot }),
+        run: () => restoreBackupRecord({ id: payload.backupId, confirm: payload.confirm, projectRoot: payload.projectRoot, component: payload.component ?? "all" }),
       });
       await completeJob(job.id, WORKER_ID, restore);
       return true;

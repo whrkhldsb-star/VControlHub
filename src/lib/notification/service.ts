@@ -1,4 +1,3 @@
-import { teamWhere } from "@/lib/auth/team-scope";
 import { prisma } from "@/lib/db";
 import { pushNotification, pushUnreadCount } from "@/lib/ws/notification-ws";
 import { createLogger } from "@/lib/logging";

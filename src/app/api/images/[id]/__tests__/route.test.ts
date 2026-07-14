@@ -6,6 +6,9 @@ const {
   imageFindUniqueMock,
   imageDeleteMock,
   storageFindUniqueMock,
+  mediaDeleteManyMock,
+  fileDeleteManyMock,
+  transactionMock,
   unlinkMock,
 } = vi.hoisted(() => ({
   requireApiSessionMock: vi.fn(),
@@ -13,6 +16,9 @@ const {
   imageFindUniqueMock: vi.fn(),
   imageDeleteMock: vi.fn(),
   storageFindUniqueMock: vi.fn(),
+  mediaDeleteManyMock: vi.fn(),
+  fileDeleteManyMock: vi.fn(),
+  transactionMock: vi.fn(async (operations: Array<Promise<unknown>>) => Promise.all(operations)),
   unlinkMock: vi.fn(),
 }));
 
@@ -35,6 +41,9 @@ vi.mock("@/lib/db", () => ({
     storageNode: {
       findUnique: storageFindUniqueMock,
     },
+    mediaItem: { deleteMany: mediaDeleteManyMock },
+    fileEntry: { deleteMany: fileDeleteManyMock },
+    $transaction: transactionMock,
   },
 }));
 vi.mock("@/lib/image-bed/constants", () => ({
@@ -116,7 +125,7 @@ describe("/api/images/[id]", () => {
       userId: "u_1",
       storageKey: "img.png",
       storageNodeId: "node_1",
-      relativePath: "album/subdir",
+      relativePath: "album/img.png",
     });
     storageFindUniqueMock.mockResolvedValueOnce({
       driver: "LOCAL",
@@ -136,7 +145,14 @@ describe("/api/images/[id]", () => {
     expect(unlinkMock).toHaveBeenCalledWith(
       "/tmp/vcontrolhub-image-delete-test/img.png",
     );
-    expect(unlinkMock).toHaveBeenCalledWith("/srv/images/album/subdir/img.png");
+    expect(unlinkMock).toHaveBeenCalledWith("/srv/images/album/img.png");
+    expect(mediaDeleteManyMock).toHaveBeenCalledWith({
+      where: { storageNodeId: "node_1", relativePath: "album/img.png" },
+    });
+    expect(fileDeleteManyMock).toHaveBeenCalledWith({
+      where: { storageNodeId: "node_1", relativePath: "album/img.png" },
+    });
+    expect(transactionMock).toHaveBeenCalled();
     expect(imageDeleteMock).toHaveBeenCalledWith({ where: { id: "img_1" } });
   });
 

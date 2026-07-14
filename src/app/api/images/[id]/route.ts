@@ -144,7 +144,30 @@ export async function DELETE(
         );
       }
 
-      await prisma.imageUpload.delete({ where: { id } });
+      const ownsLinkedStorageCopy = Boolean(
+        image.storageNodeId &&
+        image.relativePath &&
+        path.basename(image.relativePath) === image.storageKey,
+      );
+      if (ownsLinkedStorageCopy) {
+        await prisma.$transaction([
+          prisma.mediaItem.deleteMany({
+            where: {
+              storageNodeId: image.storageNodeId!,
+              relativePath: image.relativePath!,
+            },
+          }),
+          prisma.fileEntry.deleteMany({
+            where: {
+              storageNodeId: image.storageNodeId!,
+              relativePath: image.relativePath!,
+            },
+          }),
+          prisma.imageUpload.delete({ where: { id } }),
+        ]);
+      } else {
+        await prisma.imageUpload.delete({ where: { id } });
+      }
 
       await auditUserAction(session?.userId ?? "", "image.delete", { imageId: id });
       return NextResponse.json({ success: true });

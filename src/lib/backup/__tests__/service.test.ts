@@ -266,15 +266,27 @@ describe("backup service", () => {
   it("builds restore commands that match the stored backup artifact type", () => {
     const databaseCommand = buildBackupRestoreCommand({ projectRoot: "/opt/whrkhldsb", backupPath: "backups/database.sql.gz", type: "DATABASE" });
     const filesCommand = buildBackupRestoreCommand({ projectRoot: "/opt/whrkhldsb", backupPath: "backups/files.tar.gz", type: "FILES" });
-    const fullCommand = buildBackupRestoreCommand({ projectRoot: "/opt/whrkhldsb", backupPath: "backups/full.tar.gz", type: "FULL" });
+    // FEAT-P1: FULL + component=all now restores both DB and files
+    const fullAllCommand = buildBackupRestoreCommand({ projectRoot: "/opt/whrkhldsb", backupPath: "backups/full.tar.gz", type: "FULL", component: "all" });
+    const fullDbOnlyCommand = buildBackupRestoreCommand({ projectRoot: "/opt/whrkhldsb", backupPath: "backups/full.tar.gz", type: "FULL", component: "database" });
+    const fullFilesOnlyCommand = buildBackupRestoreCommand({ projectRoot: "/opt/whrkhldsb", backupPath: "backups/full.tar.gz", type: "FULL", component: "files" });
 
     expect(databaseCommand).toContain("scripts/restore-db.sh");
     expect(databaseCommand).toContain("backups/database.sql.gz");
     expect(filesCommand).toContain("tar -xzf 'backups/files.tar.gz'");
     expect(filesCommand).not.toContain("restore-db.sh");
-    expect(fullCommand).toContain("tar -xzf 'backups/full.tar.gz'");
-    expect(fullCommand).not.toContain("restore-db.sh");
-    for (const command of [databaseCommand, filesCommand, fullCommand]) {
+
+    // FULL + all: both DB restore and tar extract
+    expect(fullAllCommand).toContain("tar -xzf 'backups/full.tar.gz'");
+    expect(fullAllCommand).toContain("restore-db.sh");
+    // FULL + database only: just DB restore
+    expect(fullDbOnlyCommand).toContain("restore-db.sh");
+    expect(fullDbOnlyCommand).not.toContain("tar -xzf");
+    // FULL + files only: just tar extract
+    expect(fullFilesOnlyCommand).toContain("tar -xzf 'backups/full.tar.gz'");
+    expect(fullFilesOnlyCommand).not.toContain("restore-db.sh");
+
+    for (const command of [databaseCommand, filesCommand, fullAllCommand, fullDbOnlyCommand, fullFilesOnlyCommand]) {
       expect(command).not.toMatch(/DATABASE_URL=.*postgres|PASSWORD|TOKEN|SECRET|PRIVATE_KEY/i);
     }
   });

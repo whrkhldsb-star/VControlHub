@@ -20,6 +20,7 @@ const {
     mustChangePassword: false,
   }),
   prismaMock: {
+	$transaction: vi.fn(async (operations: Array<Promise<unknown>>) => Promise.all(operations)),
     fileEntry: {
       findFirst: vi.fn(),
       findUnique: vi.fn(),
@@ -361,7 +362,7 @@ describe("SFTP file entry actions", () => {
     expect(prismaMock.fileEntry.update).not.toHaveBeenCalled();
   });
 
-  it("permanently deletes the remote SFTP directory before deleting DB rows", async () => {
+  it("removes directory index rows and then cleans up the remote SFTP directory", async () => {
     prismaMock.fileEntry.findUnique.mockResolvedValueOnce(
       sftpEntry({
         name: "docs",
