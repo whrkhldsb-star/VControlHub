@@ -7,6 +7,8 @@
  * (mark-as-void, queue-for-retry) that compose the CRUD primitives.
  */
 import { prisma } from "@/lib/db";
+import { teamWhere } from "@/lib/auth/team-scope";
+import type { SessionPayload } from "@/lib/auth/session";
 import { BusinessError, ConflictError, NotFoundError, ValidationError } from "@/lib/errors";
 import {
 	assertPortableBackupPath,
@@ -17,28 +19,32 @@ import { RESTORE_CONFIRM_TEXT } from "./service-types";
 
 type BackupStatus = "PENDING" | "RUNNING" | "COMPLETED" | "FAILED";
 
-export async function createBackupRecord(input: { type: "DATABASE" | "FILES" | "FULL"; createdBy?: string; note?: string }) {
+export async function createBackupRecord(input: { type: "DATABASE" | "FILES" | "FULL"; createdBy?: string; note?: string; teamId?: string | null }) {
 	return prisma.backupRecord.create({
 		data: {
 			type: input.type,
 			status: "PENDING",
 			filePath: buildBackupFilePath(input.type),
 			createdBy: input.createdBy,
+			teamId: input.teamId ?? null,
 			note: input.note?.trim() || undefined,
 		},
 	});
 }
 
-export async function listBackupRecords() {
+export async function listBackupRecords(session?: Pick<SessionPayload, "userId" | "roles" | "currentTeamId">) {
 	return prisma.backupRecord.findMany({
+		where: session ? teamWhere(session) : {},
 		orderBy: { createdAt: "desc" },
 		take: 200,
 		include: { creator: { select: { username: true, displayName: true } } },
 	});
 }
 
-export async function getBackupRecord(id: string) {
-	return prisma.backupRecord.findUnique({ where: { id } });
+export async function getBackupRecord(id: string, session?: Pick<SessionPayload, "userId" | "roles" | "currentTeamId">) {
+	return session
+		? prisma.backupRecord.findFirst({ where: { id, ...teamWhere(session) } })
+		: prisma.backupRecord.findUnique({ where: { id } });
 }
 
 export async function updateBackupRecordStatus(
@@ -59,8 +65,8 @@ export async function updateBackupRecordStatus(
 	return prisma.backupRecord.update({ where: { id }, data });
 }
 
-export async function voidBackupRecord(input: { id: string; reason: string }) {
-	const record = await getBackupRecord(input.id);
+export async function voidBackupRecord(input: { id: string; reason: string; session?: Pick<SessionPayload, "userId" | "roles" | "currentTeamId"> }) {
+	const record = await getBackupRecord(input.id, input.session);
 	if (!record) throw new NotFoundError("Backup record not found");
 	if (record.status === "COMPLETED") throw new BusinessError("Completed backups cannot be voided");
 	if (record.status === "RUNNING") throw new BusinessError("Running backups cannot be voided");
@@ -86,8 +92,8 @@ export async function voidBackupRecord(input: { id: string; reason: string }) {
 	return updated;
 }
 
-export async function prepareBackupRecordRetry(input: { id: string }) {
-	const record = await getBackupRecord(input.id);
+export async function prepareBackupRecordRetry(input: { id: string; session?: Pick<SessionPayload, "userId" | "roles" | "currentTeamId"> }) {
+	const record = await getBackupRecord(input.id, input.session);
 	if (!record) throw new NotFoundError("Backup record not found");
 	if (record.status === "COMPLETED") throw new BusinessError("Completed backups cannot be retried");
 	if (record.status === "RUNNING") throw new BusinessError("Running backups cannot be retried");

@@ -69,6 +69,12 @@ export const zh: Record<string, string> = {
 	"backupsPage.records.error": "错误：{message}",
 	"backupsPage.records.restoreHint": "只有 COMPLETED 状态的备份可以执行恢复。",
 	"backupsPage.records.voidHint": "对历史 PENDING/FAILED 记录写入作废说明，不删除备份审计记录。",
+	"backupsPage.drill.submit": "执行无损恢复演练",
+	"backupsPage.drill.pending": "演练排队中…",
+	"backupsPage.drill.queued": "演练任务已创建：{taskId}",
+	"backupsPage.drill.deduped": "该备份已有演练任务：{taskId}",
+	"backupsPage.drill.openTasks": "查看任务报告",
+	"backupsPage.drill.error": "创建备份演练失败",
 
 	// TR-007 M03: 异地备份 (S3-compatible) 概览 section
 	"backupsPage.offsite.title": "异地备份 (S3-compatible)",
@@ -177,6 +183,12 @@ export const zh: Record<string, string> = {
 };
 
 export const en: Record<string, string> = {
+	"backupsPage.drill.submit": "Run non-destructive restore drill",
+	"backupsPage.drill.pending": "Queueing drill…",
+	"backupsPage.drill.queued": "Drill task created: {taskId}",
+	"backupsPage.drill.deduped": "A drill is already active for this backup: {taskId}",
+	"backupsPage.drill.openTasks": "View task report",
+	"backupsPage.drill.error": "Failed to create backup drill",
 	"backupsPage.eyebrow": "Portable",
 	"backupsPage.title": "Backups & migration",
 	"backupsPage.description": "Records database, file, and full backups, combined with deploy/backup.sh and restore-db.sh to support migration to other systems. Restore commands are shown only and will not bypass approval.",
@@ -293,6 +305,10 @@ export const en: Record<string, string> = {
 	"backupsPage.restore.confirmTitle": "Confirm restore backup",
 	"backupsPage.restore.pending": "Restoring...",
 	"backupsPage.restore.confirm": "Confirm restore",
+	"backupsPage.restore.component.label": "Restore scope",
+	"backupsPage.restore.component.all": "All",
+	"backupsPage.restore.component.database": "Database only",
+	"backupsPage.restore.component.files": "Files only",
 	"backupsPage.restore.confirmToken": "RESTORE",
 	"backupsPage.restore.warningPrefix": "Restoring",
 	"backupsPage.restore.warningSuffix": "backup will overwrite current data/files. Enter",

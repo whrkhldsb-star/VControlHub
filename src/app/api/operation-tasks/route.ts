@@ -91,14 +91,14 @@ export async function GET(request: Request) {
   return withApiRoute(
     request,
     { permission: "task:read", errorMessage: "Failed to fetch task list" },
-    async () => {
+    async ({ session }) => {
       const q = parseSearchParams(request, operationTasksQuerySchema);
       const result = await listOperationTaskResult({
         limit: q.limit,
         status: parseStatusFilter(q.status),
         taskType: parseTaskTypeFilter(q.taskType),
         sort: parseSort(q.sort),
-      });
+      }, session!);
       if (q.format === "csv") {
         return new Response(operationTasksCsv(result.tasks), {
           headers: {

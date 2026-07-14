@@ -59,7 +59,7 @@ describe("sync service command helpers", () => {
 
     expect(command).toContain("trap 'rm -f -- ");
     expect(command).toContain("rsync -avz --stats");
-    expect(command).toContain("ssh -o StrictHostKeyChecking=accept-new -o UserKnownHostsFile=/dev/null -p 2222 -i ");
+    expect(command).toContain("ssh -o StrictHostKeyChecking=accept-new -o UserKnownHostsFile='/dev/null' -p 2222 -i ");
     expect(command).toContain("deploy@[2001:db8::10]:");
     expect(command).not.toContain("TEST_KEY_PLACEHOLDER");
   });
@@ -81,6 +81,21 @@ describe("sync service command helpers", () => {
     expect(command).toContain("root@example.com");
     expect(command).not.toContain("TEST_KEY_PLACEHOLDER");
   });
+
+	it("uses the exact pinned known_hosts file for the real rsync and tar SSH connection", () => {
+		const common = {
+			sourcePath: "/src", targetPath: "/dst", targetUser: "deploy", targetHost: "example.com", targetPort: 2222,
+			hostKeySha256: "SHA256:abc", jobId: "job-1",
+		};
+		const rsync = buildRsyncCommand({ ...common, flags: ["-avz"] });
+		const tar = buildTarSyncCommand({ ...common, deleteOrphans: false });
+		for (const command of [rsync, tar]) {
+			expect(command).toContain("StrictHostKeyChecking=yes");
+			expect(command).toContain("UserKnownHostsFile='/tmp/app-sync-known_hosts-job-1'");
+			expect(command).not.toContain("StrictHostKeyChecking=accept-new");
+			expect(command).toContain("/tmp/app-sync-known_hosts-job-1");
+		}
+	});
 
   it("decrypts target credentials once before building remote sync commands", () => {
     const credentials = decryptSyncTargetCredentials({

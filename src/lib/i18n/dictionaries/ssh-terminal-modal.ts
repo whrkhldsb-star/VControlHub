@@ -18,11 +18,7 @@ export const zh: Record<string, string> = {
 	"sshTerminalModal.statusConnecting": "连接中",
 	"sshTerminalModal.statusError": "连接失败",
 	"sshTerminalModal.statusClosed": "已断开",
-
-	// Header — title, panel toggle, reconnect, close
-	"sshTerminalModal.title": "SSH 终端 — {serverName}",
 	"sshTerminalModal.panelToggle": "📋 命令面板",
-	"sshTerminalModal.panelToggleTitle": "命令面板",
 	"sshTerminalModal.ariaClose": "关闭 SSH 终端",
 	"sshTerminalModal.reconnect": "重连",
 	"sshTerminalModal.close": "关闭",
@@ -88,11 +84,7 @@ export const en: Record<string, string> = {
 	"sshTerminalModal.statusConnecting": "Connecting",
 	"sshTerminalModal.statusError": "Connection failed",
 	"sshTerminalModal.statusClosed": "Disconnected",
-
-	// Header — title, panel toggle, reconnect, close
-	"sshTerminalModal.title": "SSH Terminal — {serverName}",
 	"sshTerminalModal.panelToggle": "📋 Command panel",
-	"sshTerminalModal.panelToggleTitle": "Command panel",
 	"sshTerminalModal.ariaClose": "Close SSH terminal",
 	"sshTerminalModal.reconnect": "Reconnect",
 	"sshTerminalModal.close": "Close",

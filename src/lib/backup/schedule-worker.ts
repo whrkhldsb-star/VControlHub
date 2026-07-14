@@ -110,6 +110,7 @@ async function dispatchDueScheduleRow(schedule: {
   note: string | null;
   retentionDays: number | null;
   createdById: string | null;
+  teamId: string | null;
   nextRunAt: Date | null;
 }): Promise<boolean> {
   if (!schedule.createdById) {

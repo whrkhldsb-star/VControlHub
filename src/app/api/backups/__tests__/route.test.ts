@@ -42,7 +42,7 @@ describe("/api/backups", () => {
     const req = new Request("http://local/api/backups", { method: "POST", body: JSON.stringify({ type: "FULL", note: "  before upgrade  " }) });
     const res = await route.POST(req);
     expect(res.status).toBe(202);
-    expect(mocks.createBackupRecord).toHaveBeenCalledWith({ type: "FULL", createdBy: "u1", note: "before upgrade" });
+    expect(mocks.createBackupRecord).toHaveBeenCalledWith({ type: "FULL", createdBy: "u1", note: "before upgrade", teamId: null });
     expect(mocks.enqueueJob).toHaveBeenCalledWith(expect.objectContaining({ type: "backup.create", payload: { backupId: "bak1" } }));
     await expect(res.json()).resolves.toMatchObject({ backup: { id: "bak1" }, jobId: "job1", taskId: "job:job1" });
   });
@@ -51,7 +51,7 @@ describe("/api/backups", () => {
     const req = new Request("http://local/api/backups?wait=1", { method: "POST", body: JSON.stringify({ type: "FULL", note: "  before upgrade  " }) });
     const res = await route.POST(req);
     expect(res.status).toBe(201);
-    expect(mocks.runBackupRecord).toHaveBeenCalledWith({ type: "FULL", createdBy: "u1", note: "before upgrade" });
+    expect(mocks.runBackupRecord).toHaveBeenCalledWith({ type: "FULL", createdBy: "u1", note: "before upgrade", teamId: null });
   });
 
   it("rejects malformed backup JSON with the shared bodySchema error envelope", async () => {
@@ -78,7 +78,7 @@ describe("/api/backups", () => {
     const res = await route.POST(req);
     expect(res.status).toBe(303);
     expect(res.headers.get("location")).toBe("http://local/backups");
-    expect(mocks.createBackupRecord).toHaveBeenCalledWith({ type: "DATABASE", createdBy: "u1", note: "pre upgrade" });
+    expect(mocks.createBackupRecord).toHaveBeenCalledWith({ type: "DATABASE", createdBy: "u1", note: "pre upgrade", teamId: null });
     expect(mocks.enqueueJob).toHaveBeenCalledWith(expect.objectContaining({ type: "backup.create", payload: { backupId: "bak1" } }));
   });
 

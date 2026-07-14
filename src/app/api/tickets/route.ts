@@ -3,7 +3,7 @@ import { z } from "zod";
 import { sessionHasPermission } from "@/lib/auth/authorization";
 import { auditUserAction } from "@/lib/audit/service";
 import { addTicketComment, canViewTicket, createTicket, listTickets, updateTicketStatus } from "@/lib/ticket/service";
-import { listTicketsAdvanced, getTicketKanban, escalateBreachedTickets } from "@/lib/ticket/sla";
+import { listTicketsAdvanced, getTicketKanban } from "@/lib/ticket/sla";
 import { withApiRoute } from "@/lib/http/api-guard";
 import { GENERAL_WRITE_LIMIT } from "@/lib/http/rate-limit-presets";
 

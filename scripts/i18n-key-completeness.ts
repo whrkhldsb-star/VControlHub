@@ -94,6 +94,12 @@ for (const f of CODE_FILES) {
 		const prefix = m[1];
 		if (prefix) dynamicKeyPatterns.push(new RegExp(`^${prefix.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}.+$`));
 	}
+	// Translation helpers may receive a namespace and append a runtime enum,
+	// e.g. label(locale, "ticketsPage.status", ticket.status).
+	for (const m of src.matchAll(/\blabel\([^,]+,\s*['"]([a-zA-Z][a-zA-Z0-9_.]+)['"]\s*,/g)) {
+		const prefix = m[1];
+		if (prefix) dynamicKeyPatterns.push(new RegExp(`^${prefix.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\..+$`));
+	}
 }
 
 // --- Collect keys defined in dictionaries ---

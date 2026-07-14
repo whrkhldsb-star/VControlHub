@@ -83,6 +83,7 @@ export const zh: Record<string, string> = {
 };
 
 export const en: Record<string, string> = {
+	"dockerPage.desc": "Manage Docker containers on the Hub host or a selected remote VPS",
 	"dockerPage.action.logs": "Logs",
 	"dockerPage.action.remove": "Delete",
 	"dockerPage.action.restart": "Restart",

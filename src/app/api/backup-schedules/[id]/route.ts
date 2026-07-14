@@ -22,7 +22,7 @@ export async function DELETE(
     },
     async ({ session }) => {
       if (!id) return NextResponse.json({ error: "Missing schedule ID" }, { status: 400 });
-      const result = await deleteBackupSchedule(id);
+      const result = await deleteBackupSchedule(id, session!);
       await auditUserAction(session?.userId ?? "", "backup-schedule.delete", { scheduleId: id });
       return NextResponse.json(result);
     },

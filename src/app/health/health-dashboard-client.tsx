@@ -8,7 +8,7 @@ import { getRefreshIntervalLabel } from "@/lib/preferences/refresh-interval";
 
 import { useHealthData } from "./use-health-data";
 import { ActiveIncidentsBanner } from "./active-incidents-banner";
-import type { HealthOverview, ServerHealth, SystemHealthReport } from "./health-types";
+import type { HealthOverview, SystemHealthReport } from "./health-types";
 import { SparklineChartLazy } from "./sparkline-chart-lazy";
 
 type SystemHealthStatus = "healthy" | "warning" | "critical";

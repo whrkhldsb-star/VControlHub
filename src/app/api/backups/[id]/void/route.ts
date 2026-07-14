@@ -20,7 +20,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     },
     async ({ session, body }) => {
       const { id } = await params;
-      const backup = await voidBackupRecord({ id, reason: body.reason });
+      const backup = await voidBackupRecord({ id, reason: body.reason, session: session! });
       await auditUserAction(session!.userId, "backup.void", { backupId: id, reason: body.reason });
       return NextResponse.json({ backup });
     },

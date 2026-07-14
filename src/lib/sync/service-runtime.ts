@@ -65,6 +65,26 @@ async function writeEphemeralPrivateKey(sourceSsh: SshConnectionParams, keyPath:
 	});
 }
 
+async function writePinnedKnownHosts(sourceSsh: SshConnectionParams, jobId: string, targetHost: string, targetPort: number, expectedFingerprint?: string | null): Promise<void> {
+	const pin = expectedFingerprint?.trim();
+	if (!pin) return;
+	const knownHostsPath = getSyncTempKeyPath(jobId, "known_hosts");
+	const keyscanResult = await execRemoteCommand({ ...sourceSsh, command: `ssh-keyscan -p ${targetPort} -T 5 ${shellQuote(targetHost)} 2>/dev/null`, timeout: 20000 });
+	if (!keyscanResult.stdout.trim()) throw new Error(`Failed to verify target SSH host key: ssh-keyscan returned empty for ${targetHost}:${targetPort}`);
+	const lines = keyscanResult.stdout.split(/\r?\n/).map((line) => line.trim()).filter(Boolean);
+	let matchedLine = "";
+	const observed: string[] = [];
+	for (const line of lines) {
+		const fingerprintResult = await execRemoteCommand({ ...sourceSsh, command: `printf '%s\n' ${shellQuote(line)} | ssh-keygen -lf - 2>/dev/null`, timeout: 10000 });
+		const fingerprint = fingerprintResult.stdout.trim().split(/\s+/)[1] || "";
+		if (fingerprint) observed.push(fingerprint);
+		if (fingerprint === pin) { matchedLine = line; break; }
+	}
+	if (!matchedLine) throw new Error(`SSH host key mismatch for target ${targetHost}: expected ${pin}, got ${observed.join(", ") || "none"}. Sync aborted to prevent MITM.`);
+	await execRemoteCommand({ ...sourceSsh, command: `rm -f -- ${shellQuote(knownHostsPath)} && umask 077 && : > ${shellQuote(knownHostsPath)} && chmod 600 -- ${shellQuote(knownHostsPath)}`, timeout: 15000 });
+	await writeRemoteFile({ ...sourceSsh, remotePath: knownHostsPath, content: `${matchedLine}\n` });
+}
+
 /* ── tar fallback ──────────────────────────────────────────── */
 
 /** Fallback tar-based sync when rsync is not available */
@@ -163,28 +183,7 @@ export async function executeSyncJob(jobId: string): Promise<void> {
 			jobId,
 		});
 
-		// OPEN-2: Verify target SSH host key before rsync if pinned
-		if (job.targetServer.hostKeySha256) {
-			const keyscanResult = await execRemoteCommand({
-				...sourceSsh,
-				command: `ssh-keyscan -p ${targetPort} -T 5 ${shellQuote(targetHost)} 2>/dev/null`,
-				timeout: 20000,
-			});
-			if (!keyscanResult.stdout.trim()) {
-				throw new Error(`Failed to verify target SSH host key: ssh-keyscan returned empty for ${targetHost}:${targetPort}`);
-			}
-			// Extract fingerprint from the scanned key and compare with pinned hash
-			const keyscanFpResult = await execRemoteCommand({
-				...sourceSsh,
-				command: `echo ${shellQuote(keyscanResult.stdout.trim())} | ssh-keygen -lf - 2>/dev/null | head -1`,
-				timeout: 10000,
-			});
-			const scannedFp = keyscanFpResult.stdout.trim().split(/\s+/)[1] || "";
-			const pinnedFp = job.targetServer.hostKeySha256.replace(/^SHA256:/i, "SHA256:");
-			if (scannedFp && pinnedFp && scannedFp !== pinnedFp) {
-				throw new Error(`SSH host key mismatch for target ${targetHost}: expected ${pinnedFp}, got ${scannedFp}. Sync aborted to prevent MITM.`);
-			}
-		}
+		await writePinnedKnownHosts(sourceSsh, jobId, targetHost, targetPort, job.targetServer.hostKeySha256);
 
 		// Ensure target directory exists
 		await execRemoteCommand({
@@ -212,7 +211,7 @@ export async function executeSyncJob(jobId: string): Promise<void> {
 		if (whichRsync.trim() === "MISSING") {
 			// Fallback: use tar + ssh for incremental sync
 			const targetSshKey = targetCredentials.privateKey ? { privateKey: targetCredentials.privateKey } : null;
-			output = await executeTarSync(sourceSsh, jobId, job.sourcePath, targetSsh, targetHost, targetPort, targetUser, targetSshKey, targetCredentials.password ?? null, job.targetPath, job.deleteOrphans);
+			output = await executeTarSync(sourceSsh, jobId, job.sourcePath, targetSsh, targetHost, targetPort, targetUser, targetSshKey, targetCredentials.password ?? null, job.targetPath, job.deleteOrphans, job.targetServer.hostKeySha256);
 		} else {
 			if (targetCredentials.privateKey && targetKeyPath) {
 				await writeEphemeralPrivateKey(sourceSsh, targetKeyPath, targetCredentials.privateKey);

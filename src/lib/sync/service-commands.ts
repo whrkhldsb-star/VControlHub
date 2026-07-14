@@ -82,14 +82,13 @@ function assertSafeSshPort(targetPort: number): void {
 	}
 }
 
-function buildSshOptions(targetPort: number, _hostKeySha256?: string | null, _knownHostsPath?: string): string {
+function buildSshOptions(targetPort: number, hostKeySha256?: string | null, knownHostsPath?: string): string {
 	assertSafeSshPort(targetPort);
-	// OPEN-2: Host key verification is done in service-runtime via ssh-keyscan
-	// before the rsync command is dispatched. Here we keep accept-new for
-	// connectivity — the pin check is a pre-flight gate, not an SSH option.
+	const pinned = Boolean(hostKeySha256?.trim());
+	if (pinned && !knownHostsPath) throw new ValidationError("Pinned SSH sync requires a known_hosts path");
 	return [
-		"-o StrictHostKeyChecking=accept-new",
-		"-o UserKnownHostsFile=/dev/null",
+		`-o StrictHostKeyChecking=${pinned ? "yes" : "accept-new"}`,
+		`-o UserKnownHostsFile=${shellQuote(pinned ? knownHostsPath! : "/dev/null")}`,
 		`-p ${targetPort}`,
 	].join(" ");
 }
@@ -111,7 +110,7 @@ function shellDoubleQuote(value: string): string {
 }
 
 function buildSshTransport(input: SyncTargetCommandInput): string {
-	const sshCommand = ["ssh", buildSshOptions(input.targetPort, input.hostKeySha256)];
+	const sshCommand = ["ssh", buildSshOptions(input.targetPort, input.hostKeySha256, input.hostKeySha256?.trim() ? getSyncTempKeyPath(input.jobId ?? "sync", "known_hosts") : undefined)];
 	if (input.keyPath) sshCommand.push("-i", shellQuote(input.keyPath));
 	const base = sshCommand.join(" ");
 	if (input.password) {
@@ -121,17 +120,17 @@ function buildSshTransport(input: SyncTargetCommandInput): string {
 	return base;
 }
 
-function withKeyCleanup(command: string, keyPath?: string): string {
-	if (!keyPath) return command;
-	const quotedKeyPath = shellQuote(keyPath);
-	return `trap 'rm -f -- ${quotedKeyPath}' EXIT\n${command}`;
+function withCredentialCleanup(command: string, input: SyncTargetCommandInput): string {
+	const paths = [input.keyPath, input.hostKeySha256?.trim() ? getSyncTempKeyPath(input.jobId ?? "sync", "known_hosts") : undefined].filter((value): value is string => Boolean(value));
+	if (paths.length === 0) return command;
+	return `trap 'rm -f -- ${paths.map(shellQuote).join(" ")}' EXIT\n${command}`;
 }
 
 export function buildRsyncCommand(input: RsyncCommandInput): string {
 	const transport = buildSshTransport(input);
 	const target = `${buildRsyncTargetAddress(input.targetUser, input.targetHost)}:${input.targetPath.replace(/\/$/, "")}/`;
 	const command = `rsync ${input.flags.join(" ")} -e ${shellDoubleQuote(transport)} ${shellQuote(`${input.sourcePath.replace(/\/$/, "")}/`)} ${shellQuote(target)} 2>&1`;
-	return withKeyCleanup(command, input.keyPath);
+	return withCredentialCleanup(command, input);
 }
 
 export function buildTarSyncCommand(input: TarSyncCommandInput): string {
@@ -141,5 +140,5 @@ export function buildTarSyncCommand(input: TarSyncCommandInput): string {
 		? `mkdir -p -- ${shellQuote(input.targetPath)} && cd -- ${shellQuote(input.targetPath)} && find . -mindepth 1 -maxdepth 1 -exec rm -rf -- {} + && tar xf - -C ${shellQuote(input.targetPath)}`
 		: `mkdir -p -- ${shellQuote(input.targetPath)} && tar xf - -C ${shellQuote(input.targetPath)}`;
 	const command = `tar cf - -C ${shellQuote(input.sourcePath)} . | ${transport} ${shellQuote(targetAddress)} ${shellQuote(prepareTarget)} 2>&1`;
-	return withKeyCleanup(command, input.keyPath);
+	return withCredentialCleanup(command, input);
 }

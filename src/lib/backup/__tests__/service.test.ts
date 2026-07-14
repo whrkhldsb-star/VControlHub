@@ -3,7 +3,7 @@ import { Readable } from "node:stream";
 
 const { mockPrisma, runBackupCommandMock, statMock, createReadStreamMock } = vi.hoisted(() => ({
   mockPrisma: {
-    backupRecord: { create: vi.fn(), findMany: vi.fn(), findUnique: vi.fn(), update: vi.fn(), updateMany: vi.fn() },
+    backupRecord: { create: vi.fn(), findMany: vi.fn(), findUnique: vi.fn(), findFirst: vi.fn(), update: vi.fn(), updateMany: vi.fn() },
     $executeRaw: vi.fn().mockResolvedValue(undefined),
   },
   runBackupCommandMock: vi.fn(),
@@ -12,6 +12,9 @@ const { mockPrisma, runBackupCommandMock, statMock, createReadStreamMock } = vi.
 }));
 
 vi.mock("@/lib/db", () => ({ prisma: mockPrisma }));
+vi.mock("@/lib/concurrency/advisory-lock", () => ({
+  acquireAdvisoryLock: vi.fn(async () => async () => undefined),
+}));
 vi.mock("@/lib/backup/command-runner", () => {
   const isMissingBackupBinaryError = (error: unknown) => {
     if (!error || typeof error !== "object") return false;
@@ -53,6 +56,7 @@ const {
   prepareBackupRecordRetry,
   restoreBackupRecord,
   listBackupRecords,
+  getBackupRecord,
   formatBackupSize,
   summarizeBackupPolicy,
 } = await import("../service");
@@ -85,10 +89,20 @@ describe("backup service", () => {
     await listBackupRecords();
 
     expect(mockPrisma.backupRecord.findMany).toHaveBeenCalledWith({
+      where: {},
       orderBy: { createdAt: "desc" },
       take: 200,
       include: { creator: { select: { username: true, displayName: true } } },
     });
+  });
+
+  it("scopes backup history and direct lookup to the active team", async () => {
+    const session = { userId: "u1", roles: ["viewer"] as const, currentTeamId: "team-1" };
+    mockPrisma.backupRecord.findFirst.mockResolvedValue({ id: "bak1" });
+    await listBackupRecords(session as never);
+    expect(mockPrisma.backupRecord.findMany).toHaveBeenLastCalledWith(expect.objectContaining({ where: { OR: [{ teamId: "team-1" }, { teamId: null }] } }));
+    await getBackupRecord("bak1", session as never);
+    expect(mockPrisma.backupRecord.findFirst).toHaveBeenCalledWith({ where: { id: "bak1", OR: [{ teamId: "team-1" }, { teamId: null }] } });
   });
 
   it("creates auditable backup records with portable relative paths", async () => {
@@ -98,6 +112,11 @@ describe("backup service", () => {
     expect(record.status).toBe("PENDING");
     expect(record.filePath).toMatch(/^backups\//);
     expect(record.filePath).not.toMatch(/^\/root\//);
+  });
+
+  it("persists the current team on newly created backup records", async () => {
+    await createBackupRecord({ type: "DATABASE", createdBy: "u1", teamId: "team-1" });
+    expect(mockPrisma.backupRecord.create).toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({ teamId: "team-1" }) }));
   });
 
   it("executes the requested backup command and records the real artifact size", async () => {

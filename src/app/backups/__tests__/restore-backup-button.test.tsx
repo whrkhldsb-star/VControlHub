@@ -54,7 +54,7 @@ describe("RestoreBackupButton", () => {
     await userEvent.type(screen.getByLabelText("输入 RESTORE 确认恢复"), "RESTORE");
     await userEvent.click(screen.getByRole("button", { name: "确认恢复" }));
 
-    await waitFor(() => expect(csrfFetch).toHaveBeenCalledWith("/api/backups/bak1/restore", expect.objectContaining({ method: "POST", body: JSON.stringify({ confirm: "RESTORE" }) })));
+    await waitFor(() => expect(csrfFetch).toHaveBeenCalledWith("/api/backups/bak1/restore", expect.objectContaining({ method: "POST", body: JSON.stringify({ confirm: "RESTORE", component: "all" }) })));
     expect(refreshMock).toHaveBeenCalledOnce();
     expect(screen.getByText(/恢复已执行/)).toBeInTheDocument();
     expect(screen.queryByRole("dialog", { name: "确认恢复备份" })).not.toBeInTheDocument();

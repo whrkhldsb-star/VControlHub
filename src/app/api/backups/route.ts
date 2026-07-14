@@ -18,8 +18,8 @@ import { auditUserAction } from "@/lib/audit/service";
 export const dynamic = "force-dynamic";
 
 export async function GET(request: Request) {
-  return withApiRoute(request, { permission: "backup:read" }, async () => {
-    return NextResponse.json({ backups: await listBackupRecords() });
+  return withApiRoute(request, { permission: "backup:read" }, async ({ session }) => {
+    return NextResponse.json({ backups: await listBackupRecords(session!) });
   });
 }
 
@@ -55,7 +55,7 @@ export async function POST(request: Request) {
     );
     const waitForCompletion = wait;
     if (waitForCompletion) {
-      const backup = await runBackupRecord({ type: parsed.data.type, createdBy: session?.userId ?? "", note: parsed.data.note });
+      const backup = await runBackupRecord({ type: parsed.data.type, createdBy: session?.userId ?? "", note: parsed.data.note, teamId: session?.currentTeamId ?? null });
       if ((request.headers.get("accept") || "").includes("text/html")) {
         return NextResponse.redirect(new URL("/backups", request.url), { status: 303 });
       }
@@ -63,12 +63,13 @@ export async function POST(request: Request) {
       return NextResponse.json({ backup }, { status: 201 });
     }
 
-    const backup = await createBackupRecord({ type: parsed.data.type, createdBy: session?.userId ?? "", note: parsed.data.note });
+    const backup = await createBackupRecord({ type: parsed.data.type, createdBy: session?.userId ?? "", note: parsed.data.note, teamId: session?.currentTeamId ?? null });
     const job = await enqueueJob({
       type: BACKUP_CREATE_JOB_TYPE,
       title: `Create ${parsed.data.type} backup`,
       payload: { backupId: backup.id },
       createdBy: session?.userId ?? null,
+      teamId: session?.currentTeamId ?? null,
       maxAttempts: 1,
     });
     await auditUserAction(session?.userId ?? "", "backup.create", {

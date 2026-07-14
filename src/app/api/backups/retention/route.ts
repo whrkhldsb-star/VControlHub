@@ -15,8 +15,8 @@ export const dynamic = "force-dynamic";
  * decide whether to enqueue a retention cleanup.
  */
 export async function GET(request: Request) {
-  return withApiRoute(request, { permission: "backup:read" }, async () => {
-    const summary = await getBackupPolicySummary();
+  return withApiRoute(request, { permission: "backup:read" }, async ({ session }) => {
+    const summary = await getBackupPolicySummary(session!);
     return NextResponse.json({ summary });
   });
 }
@@ -32,8 +32,9 @@ export async function POST(request: Request) {
     const job = await enqueueJob({
       type: BACKUP_RETENTION_JOB_TYPE,
       title: "Clean up old backups (automatic retention policy)",
-      payload: body,
+      payload: { ...body, teamId: session?.currentTeamId ?? null },
       createdBy: session?.userId ?? null,
+      teamId: session?.currentTeamId ?? null,
       maxAttempts: 1,
     });
     await auditUserAction(session?.userId ?? "", "backup.retention.enqueue", {

@@ -347,13 +347,13 @@ make logs SERVICE_PREFIX=vcontrolhub
 | 指标            | 数量                                             |
 | --------------- | ------------------------------------------------ |
 | 功能页面            | 47                                               |
-| API 路由文件        | 138                                              |
-| 数据模型            | 60                                               |
+| API 路由文件        | 149                                              |
+| 数据模型            | 64                                               |
 | UI 组件           | 33                                               |
-| 代码行数            | ~181,527（src 扫描）                                 |
-| 测试              | 408 文件                                           |
+| 代码行数            | ~186,166（src 扫描）                                 |
+| 测试              | 432 文件                                           |
 | Docker 应用模板     | 44 (本地) + 社区源实时同步                                |
-| i18n            | 211 useI18n() 调用点，78 字典文件                        |
+| i18n            | 217 useI18n() 调用点，78 字典文件                        |
 <!-- README_METRICS_END -->
 
 ---
@@ -518,7 +518,7 @@ make logs SERVICE_PREFIX=vcontrolhub
 | OPEN-1 | ✅ 已修复 | 未 pin 主机的 `accept-new` | FEAT-OPEN-1: 新增 `SSH_ENFORCE_HOST_KEY_PIN` 配置项；启用后无 `hostKeySha256` 的服务器连接被拒绝，强制用户先完成指纹审批；`createSshConfig` 和 `buildSshParamsFromServer` 全链路支持 |
 | OPEN-2 | ✅ 已修复 | Sync rsync SSH 仍 `accept-new` | FEAT-OPEN-2: rsync/tar 同步前通过 ssh-keyscan + 指纹比对验证目标主机密钥 |
 | OPEN-3 | ✅ 已修复 | Download 任务状态更新非 CAS | FEAT-OPEN-3: PENDING→RUNNING 状态转换改用 updateMany + where status=PENDING，CAS 防重 |
-| OPEN-4 | 产品 | `task:read` 可见他人 job events | 若需多租户硬隔离，改为 createdBy 或管理员-only |
+| OPEN-4 | ✅ 已修复 | `task:read` 任务和 job events 可见性 | 普通用户仅可见自己创建/请求的任务；`team:manage` 可见团队范围；列表、CSV 和事件时间线统一 scoped lookup |
 | OPEN-5 | ✅ 无需修复 | Share 旧 SHA 分支 | 审查确认：tokenHash 已全量使用 SHA-256，无旧 SHA-1 兼容分支 |
 | OPEN-6 | 范围外 | 全浏览器 E2E / DAST / 压测 / 不可逆生产实测 | 见审查边界 |
 
@@ -684,10 +684,10 @@ make logs SERVICE_PREFIX=vcontrolhub
 | 项 | 原因 | 建议路径 |
 |---|---|---|
 | **前端交互层全量 E2E 矩阵** | 本轮优先服务端竞态/审计/一致性；Playwright 已有主路径但非 Firefox/WebKit 全矩阵 | 继续扩展可逆 CRUD / 文件 / 分享 / 媒体套件；跨浏览器放入 nightly |
-| **危险操作跨进程硬锁（全集）** | restore + VPS schedule tick advisory lock 与 job lease 已覆盖关键路径；全站统一 lease 中心仍开放 | 见「持续升级路线」P1 |
+| **危险操作跨进程硬锁（全集）** | restore + VPS schedule tick 使用统一 advisory lock；2026-07-14 已修复连接池下 session lock 获取/释放不在同一 PostgreSQL 会话的问题 | 后续按风险逐项扩展到更多危险操作 |
 | **不可逆生产副作用实测** | 关机、删生产容器、真实全量 restore、密钥轮换、外发通知等未在生产上硬跑 | 隔离环境 + 调用链静态推演 + mock；见「审查边界」 |
 | **覆盖率 / DAST / SAST / 压测** | 非本轮交付范围 | `test:coverage`、容器扫描、专用安全扫描、高并发压测单独排期 |
-| **Sync CLI SSH 主机密钥 pin** | OPEN-2 | 与 BE-25 对齐 |
+| **Sync CLI SSH 主机密钥 pin** | ✅ 已收口：实际 rsync/tar 连接使用经过 SHA-256 pin 匹配的临时 known_hosts，StrictHostKeyChecking=yes | 临时凭据与 known_hosts 在命令结束后清理 |
 
 #### 验证（全量扫描 + BE-24/25 后）
 
@@ -714,8 +714,8 @@ make logs SERVICE_PREFIX=vcontrolhub
 | P0 | ✅ 阶段性 | 导航信息架构 + 全局页面壳美化 | 侧栏分组/筛选、PageHeader/Toolbar/EmptyState 升级、表格/卡片/移动底栏统一；提交见 FE-UI 记录 |
 | P0 | 进行中 | 收敛 `globals.css` 历史兼容规则，迁移到明确的 primitives 与 `data-*` hooks | 删除零命中/重复选择器；深浅主题、focus、dialog、表格和卡片视觉回归通过 |
 | P1 | 进行中 | 合并文件动作的重复核心 | Docker、Monitoring 与 SFTP 连接层已统一；继续收敛移动/重命名及目录操作 |
-| P1 | 进行中 | 强化危险操作跨进程锁和崩溃恢复 | lease、AI CAS、backup restore / VPS schedule tick advisory lock 已完成；继续服务级统一 lease 中心 |
-| P1 | 进行中 | SSH 主机密钥 pin 全路径收口 | ✅ 命令执行 + 下载 pin 校验；剩余 Sync rsync CLI（OPEN-2）与强制首次 TOFU 入库 |
+| P1 | ✅ 关键路径完成 | 强化危险操作跨进程锁和崩溃恢复 | lease、AI CAS、backup restore / VPS schedule tick advisory lock 已完成；锁使用专用 pg 连接保证同 session 持有/释放，并有真实双连接集成测试 |
+| P1 | ✅ CLI 路径完成 | SSH 主机密钥 pin 全路径收口 | 命令执行和 Sync rsync/tar 均生成匹配已保存 SHA-256 pin 的临时 known_hosts，实际连接强制 StrictHostKeyChecking=yes；首次连接仍需显式指纹审批 |
 | P2 | 进行中 | 增加 Web Vitals、API 延迟、队列积压、WebSocket、轮询和通知投递可观测性 | request ID 已覆盖 guarded API；继续补充指标查询与前端关联 |
 
 > 当前功能优先保持稳定，不以引入大型状态管理框架或无收益的文件拆分为“升级”；优化必须带来更小的重复面、更清晰的所有权或更可靠的运行时行为。
@@ -737,11 +737,11 @@ make logs SERVICE_PREFIX=vcontrolhub
 
 | ID | 能力缺口 | 现状 | 建议方向 |
 |---|---|---|---|
-| FEAT-P0-1 | **多租户 / 团队数据隔离不完整** | 已有 `team:*`、设置团队区、`currentTeamId`；大量列表仍是全局视角；`task:read` 可见他人 job 流（OPEN-4） | 按团队/项目过滤 VPS、存储节点、任务、审批、审计；产品确认后收窄 OPEN-4 |
-| FEAT-P0-2 | **Docker 仅控制台本机** | UI/API 明确 `hub-host` socket，非「选中某台 VPS 的 Docker」 | 远程节点 Docker/Compose（SSH 或 agent）；Quick Services 与节点绑定 |
-| FEAT-P0-3 | **监控「中心节点」vs「舰队」分裂** | `/monitoring` 偏本机；远程靠 probe / traffic / health 拼凑 | 每台 VPS 关键指标 + 历史曲线 + 告警一张图 |
-| FEAT-P0-4 | **文件仍非网盘级** | 多节点、回收站、分享、预览、上传已有；Office 多为下载提示式预览 | 全文检索、版本历史、更强断点续传；可选 WebDAV/同步协议 |
-| FEAT-P0-5 | **编排偏人肉流水线** | 模板→部署→命令请求→审批扎实；Playbook 执行器同步走步、不落 Job 队列 | 长步骤异步化、失败半恢复、跨节点并行与结果汇总 |
+| FEAT-P0-1 | **多租户 / 团队数据隔离** | ✅ 核心模型、任务列表/CSV/events、分享审计、备份记录/计划/恢复/保留策略已接入 Team scope；普通任务读者仅见本人任务 | 继续对新增模型执行 route/service 双层 scope 审查 |
+| FEAT-P0-2 | **远程 Docker 主体已完成** | ✅ 容器/日志/stats/network/volume 支持选择远程 VPS；Compose 当前按标签聚合到容器操作 | 真实 Compose project 生命周期与 Quick Services 节点绑定仍待后续 |
+| FEAT-P0-3 | **舰队监控主体已完成** | ✅ 远程节点实时资源、CPU/内存/磁盘历史、节点过滤告警及 Playbook 联动 | 历史采样脱离页面访问、统一容量趋势仍可增强 |
+| FEAT-P0-4 | **文件网盘能力部分完成** | ✅ 多节点、回收站、分享、预览、上传和 LOCAL/SFTP 全文检索 | 文件版本历史、普通文件断点续传及可选 WebDAV/同步协议仍待后续 |
+| FEAT-P0-5 | **Playbook 仍需深度异步化** | command step 会创建 durable job，stepResults/汇总已持久化；但 Playbook 主链仍在请求生命周期内推进，排队不等于远端完成 | 主链 worker 化、等待子任务真实结果、跨节点并行、崩溃续跑 |
 
 #### P1 — 有入口、业务深度不够
 
@@ -751,9 +751,9 @@ make logs SERVICE_PREFIX=vcontrolhub
 | **AI 助手** | ✅ VPS/日志/Docker/文件全文搜索等受控工具编排已完成；知识库/RAG 仍待后续 |
 | **AI Ops** | ✅ 安全自动闭环和结构化可解释报告已完成；目标依赖动作仍坚持显式参数/审批 |
 | **告警规则** | 指标源与远程 VPS 统一；渠道主要靠 Setting（邮件/TG）；静默/升级体验 |
-| **备份** | 细粒度恢复（单库/单目录）、演练报告、跨环境迁移向导 |
+| **备份** | ✅ 细粒度恢复和无损恢复演练报告已完成；跨环境迁移向导仍待后续 |
 | **成本 Cost** | ✅ 标签自动归集、周期预算和自动告警已完成；云厂商账单 API 对接仍待后续 |
-| **分享** | ✅ 仅预览/允许下载、服务端强制、访问日志和水印已完成；聚合外发报表仍待后续 |
+| **分享** | ✅ 仅预览/允许下载、服务端强制、访问日志、水印、团队级聚合报表和 CSV 导出已完成 |
 | **下载中心** | ✅ 多 worker CAS 与文件页最近下载任务托盘已完成 |
 | **用户/角色** | ✅ 岗位模板已支持角色、权限和存储路径/配额数据范围 |
 

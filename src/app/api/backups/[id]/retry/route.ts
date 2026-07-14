@@ -12,12 +12,13 @@ export const dynamic = "force-dynamic";
 export async function POST(request: Request, { params }: { params: Promise<{ id: string }> }) {
   return withApiRoute(request, { permission: "backup:create", rateLimit: GENERAL_WRITE_LIMIT, errorStatus: 500, errorMessage: "Operation failed" }, async ({ session }) => {
     const { id } = await params;
-    const backup = await prepareBackupRecordRetry({ id });
+    const backup = await prepareBackupRecordRetry({ id, session: session! });
     const job = await enqueueJob({
       type: BACKUP_CREATE_JOB_TYPE,
       title: `Retry ${backup.type} backup`,
       payload: { backupId: backup.id },
       createdBy: session?.userId ?? null,
+      teamId: session?.currentTeamId ?? null,
       maxAttempts: 1,
     });
     await auditUserAction(session!.userId, "backup.retry", { backupId: id });

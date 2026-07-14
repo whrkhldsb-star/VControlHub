@@ -22,6 +22,7 @@ import { config } from "@/lib/config/env";
 import { BusinessError, ConflictError, NotFoundError, ValidationError } from "@/lib/errors";
 import { createLogger } from "@/lib/logging";
 import { acquireAdvisoryLock } from "@/lib/concurrency/advisory-lock";
+import type { SessionPayload } from "@/lib/auth/session";
 
 import { backupCommandErrorMessage, runBackupCommand } from "./command-runner";
 import {
@@ -38,7 +39,7 @@ import { pruneOldBackupRecords, summarizeBackupPolicy } from "./service-policy";
 import { uploadBackupToOffsite } from "./offsite-uploader";
 
 const offsiteUploadLogger = createLogger("backup-offsite-uploader");
-const restoreLogger = createLogger("backup-restore");
+
 
 
 async function calculateFileSha256(filePath: string): Promise<string> {
@@ -51,7 +52,7 @@ async function calculateFileSha256(filePath: string): Promise<string> {
 	});
 }
 
-export async function runBackupRecord(input: { type: "DATABASE" | "FILES" | "FULL"; createdBy?: string; note?: string; projectRoot?: string }) {
+export async function runBackupRecord(input: { type: "DATABASE" | "FILES" | "FULL"; createdBy?: string; note?: string; projectRoot?: string; teamId?: string | null }) {
 	const record = await createBackupRecord(input);
 	return runExistingBackupRecord({ id: record.id, projectRoot: input.projectRoot });
 }
@@ -162,13 +163,13 @@ function buildRestoreExecution(record: { type: string; filePath: string }, proje
 	return { file: "bash", args: ["scripts/restore-db.sh", backupPath], backupPath };
 }
 
-export async function restoreBackupRecord(input: { id: string; confirm: string; projectRoot?: string; component?: "database" | "files" | "all" }) {
+export async function restoreBackupRecord(input: { id: string; confirm: string; projectRoot?: string; component?: "database" | "files" | "all"; session?: Pick<SessionPayload, "userId" | "roles" | "currentTeamId"> }) {
 	if (input.confirm !== "RESTORE") {
 		throw new ValidationError("Restore operation requires explicit confirmation");
 	}
 	const releaseLock = await acquireAdvisoryLock("backup-restore", input.id);
 	try {
-		const record = await getBackupRecord(input.id);
+		const record = await getBackupRecord(input.id, input.session);
 		if (!record) {
 			throw new NotFoundError("Backup record not found");
 		}
@@ -196,8 +197,53 @@ export async function restoreBackupRecord(input: { id: string; confirm: string; 
 	}
 }
 
-export async function getBackupPolicySummary() {
-	const records = await listBackupRecords();
+export type BackupDrillReport = {
+	id: string;
+	type: string;
+	filePath: string;
+	fileSize: number;
+	checksum: { expected: string; actual: string; matched: boolean };
+	checks: Array<{ name: string; status: "passed" | "failed"; detail: string }>;
+	startedAt: string;
+	completedAt: string;
+	durationMs: number;
+	safe: true;
+};
+
+/** Non-destructive restore drill: validates the restore artifact without changing data. */
+export async function drillBackupRecord(input: { id: string; projectRoot?: string }): Promise<BackupDrillReport> {
+	const started = new Date();
+	const record = await getBackupRecord(input.id);
+	if (!record) throw new NotFoundError("Backup record not found");
+	if (record.status !== "COMPLETED") throw new BusinessError("Only completed backups can be drilled");
+	if (!record.checksumSha256) throw new BusinessError("Backup checksum is missing; drill cannot verify the artifact");
+	if (!isBackupType(record.type)) throw new ValidationError("Invalid backup type");
+	const projectRoot = input.projectRoot || config.app.appDir || process.cwd();
+	const backupPath = resolveBackupPath(projectRoot, record.filePath);
+	const info = await stat(backupPath);
+	if (!info.isFile() || info.size <= 0) throw new BusinessError("Backup artifact is empty or not a regular file");
+	const actualChecksum = await calculateFileSha256(backupPath);
+	if (actualChecksum !== record.checksumSha256) throw new BusinessError("Backup checksum verification failed; the artifact may be corrupted or modified");
+	const checks: BackupDrillReport["checks"] = [
+		{ name: "artifact", status: "passed", detail: `Readable regular file (${info.size} bytes)` },
+		{ name: "sha256", status: "passed", detail: actualChecksum },
+	];
+	await runBackupCommand({ file: "gzip", args: ["-t", backupPath], options: { cwd: projectRoot, timeout: 5 * 60 * 1000 } });
+	checks.push({ name: "gzip", status: "passed", detail: "Compressed stream integrity verified" });
+	if (record.type === "DATABASE") {
+		const probe = await runBackupCommand({ file: "bash", args: ["-c", "set -o pipefail; gzip -cd -- \"$1\" | head -c 8192", "backup-drill", backupPath], options: { cwd: projectRoot, timeout: 5 * 60 * 1000, maxBuffer: 16 * 1024 } });
+		if (!/PostgreSQL|SET |CREATE |DROP |COPY /i.test(probe.stdout)) throw new BusinessError("Database backup drill could not identify PostgreSQL SQL content");
+		checks.push({ name: "database-format", status: "passed", detail: "PostgreSQL SQL stream detected" });
+	} else {
+		await runBackupCommand({ file: "bash", args: ["-c", "tar -tzf -- \"$1\" >/dev/null", "backup-drill", backupPath], options: { cwd: projectRoot, timeout: 10 * 60 * 1000 } });
+		checks.push({ name: "archive-index", status: "passed", detail: "tar archive index parsed without extraction" });
+	}
+	const completed = new Date();
+	return { id: record.id, type: record.type, filePath: record.filePath, fileSize: info.size, checksum: { expected: record.checksumSha256, actual: actualChecksum, matched: true }, checks, startedAt: started.toISOString(), completedAt: completed.toISOString(), durationMs: completed.getTime() - started.getTime(), safe: true };
+}
+
+export async function getBackupPolicySummary(session?: Pick<SessionPayload, "userId" | "roles" | "currentTeamId">) {
+	const records = await listBackupRecords(session);
 	return summarizeBackupPolicy(records);
 }
 
@@ -234,9 +280,12 @@ export async function pruneOldBackupRecordsNow(input: {
 	olderThanDays?: number;
 	keepLatestPerType?: number;
 	projectRoot?: string;
+	teamId?: string | null;
 } = {}): Promise<PruneOldBackupRecordsResult> {
 	const projectRoot = input.projectRoot || config.app.appDir || process.cwd();
-	const records = await listBackupRecords();
+	const records = input.teamId
+		? await prisma.backupRecord.findMany({ where: { teamId: input.teamId }, orderBy: { createdAt: "desc" }, take: 200 })
+		: await listBackupRecords();
 	const plan = pruneOldBackupRecords(records, {
 		olderThanDays: input.olderThanDays,
 		keepLatestPerType: input.keepLatestPerType,

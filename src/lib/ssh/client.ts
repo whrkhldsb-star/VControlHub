@@ -1,7 +1,7 @@
 import { Client, type ConnectConfig } from "ssh2";
 import type { SFTPWrapper } from "ssh2";
 import { BusinessError } from "@/lib/errors";
-import { config } from "@/lib/config/env";
+
 import { decryptServerPassword, decryptSshPrivateKey, decryptSshKeyPassphrase } from "@/lib/ssh/ssh-key-crypto";
 
 export type SshConnectionParams = {

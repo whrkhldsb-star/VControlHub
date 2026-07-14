@@ -26,7 +26,7 @@ const route = await import("../route");
 describe("/api/operation-tasks zod validation (TR-037 R5+)", () => {
 	beforeEach(() => {
 		vi.clearAllMocks();
-		mocks.requireApiPermission.mockResolvedValue({ session: { userId: "u1" } });
+		mocks.requireApiPermission.mockResolvedValue({ session: { userId: "u1", roles: ["viewer"], currentTeamId: "team-1" } });
 		mocks.listOperationTaskResult.mockResolvedValue({
 			tasks: [],
 			sourceSummary: [],
@@ -78,12 +78,10 @@ describe("/api/operation-tasks zod validation (TR-037 R5+)", () => {
 		);
 
 		expect(response.status).toBe(200);
-		expect(mocks.listOperationTaskResult).toHaveBeenCalledWith({
-			limit: undefined,
-			status: undefined,
-			taskType: undefined,
-			sort: undefined,
-		});
+		expect(mocks.listOperationTaskResult).toHaveBeenCalledWith(
+			{ limit: undefined, status: undefined, taskType: undefined, sort: undefined },
+			{ userId: "u1", roles: ["viewer"], currentTeamId: "team-1" },
+		);
 	});
 
 	it("still drops unknown status tokens silently inside the handler (legacy contract)", async () => {
@@ -94,12 +92,10 @@ describe("/api/operation-tasks zod validation (TR-037 R5+)", () => {
 		);
 
 		expect(response.status).toBe(200);
-		expect(mocks.listOperationTaskResult).toHaveBeenCalledWith({
-			limit: undefined,
-			status: "pending",
-			taskType: undefined,
-			sort: undefined,
-		});
+		expect(mocks.listOperationTaskResult).toHaveBeenCalledWith(
+			{ limit: undefined, status: "pending", taskType: undefined, sort: undefined },
+			{ userId: "u1", roles: ["viewer"], currentTeamId: "team-1" },
+		);
 	});
 
 	it("still drops unknown sort values silently inside the handler (legacy contract)", async () => {
@@ -108,11 +104,9 @@ describe("/api/operation-tasks zod validation (TR-037 R5+)", () => {
 		);
 
 		expect(response.status).toBe(200);
-		expect(mocks.listOperationTaskResult).toHaveBeenCalledWith({
-			limit: undefined,
-			status: undefined,
-			taskType: undefined,
-			sort: undefined,
-		});
+		expect(mocks.listOperationTaskResult).toHaveBeenCalledWith(
+			{ limit: undefined, status: undefined, taskType: undefined, sort: undefined },
+			{ userId: "u1", roles: ["viewer"], currentTeamId: "team-1" },
+		);
 	});
 });

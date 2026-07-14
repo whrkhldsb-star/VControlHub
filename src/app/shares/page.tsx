@@ -10,6 +10,7 @@ import { CreateShareForm } from "./create-share-form";
 import { ShareFilePicker } from "./share-file-picker";
 import { ShareRowActions } from "./share-row-actions";
 import { ShareAccessLogsButton } from "./share-access-logs";
+import { ShareAccessReport } from "./share-access-report";
 
 export const revalidate = 60;
 
@@ -24,6 +25,7 @@ export default async function SharesPage() {
 	return (
 		<PageShell>
 			<PageHeader eyebrow={t("sharesPage.eyebrow", locale)} title={t("shares.title")} description={t("shares.desc")} />
+			{canManage ? <ShareAccessReport /> : null}
 
 			{canCreate ? (
 				<div className="mb-6 space-y-4">

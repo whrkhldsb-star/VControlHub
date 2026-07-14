@@ -5,6 +5,8 @@ import { withApiRoute } from "@/lib/http/api-guard";
 import { parseSearchParams } from "@/lib/http/parse-search-params";
 import { prisma } from "@/lib/db";
 import { listJobEvents } from "@/lib/job/events";
+import { teamWhere } from "@/lib/auth/team-scope";
+import { sessionHasPermission } from "@/lib/auth/authorization";
 
 import { NotFoundError, ValidationError } from "@/lib/errors";
 export const dynamic = "force-dynamic";
@@ -26,13 +28,17 @@ export async function GET(
   return withApiRoute(
     request,
     { permission: "task:read", errorMessage: "Failed to fetch task events" },
-    async () => {
+    async ({ session }) => {
       const { id: rawId } = await params;
       const id = rawId?.trim();
       if (!id) {
         throw new ValidationError("Missing task ID");
       }
-      const job = await prisma.job.findUnique({ where: { id }, select: { id: true } });
+      const teamScope = teamWhere(session!);
+      const where = sessionHasPermission(session!, "team:manage")
+        ? { id, ...teamScope }
+        : { AND: [{ id }, teamScope, { createdBy: session!.userId }] };
+      const job = await prisma.job.findFirst({ where, select: { id: true } });
       if (!job) {
         throw new NotFoundError("Task not found");
       }

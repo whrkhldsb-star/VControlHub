@@ -36,11 +36,11 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
         );
         const waitForCompletion = wait;
         if (waitForCompletion) {
-          const restore = await restoreBackupRecord({ id, confirm: body.confirm, component: body.component });
+          const restore = await restoreBackupRecord({ id, confirm: body.confirm, component: body.component, session: session! });
           await auditUserAction(session!.userId, "backup.restore", { backupId: id });
           return NextResponse.json({ restore });
         }
-        const backup = await getBackupRecord(id);
+        const backup = await getBackupRecord(id, session!);
         if (!backup) throw new NotFoundError("Backup record not found");
         if (backup.status !== "COMPLETED") {
           return NextResponse.json({ error: "Only completed backups can be restored" }, { status: 400 });
@@ -69,6 +69,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
           title: "Restore backup",
           payload: { backupId: id, confirm: body.confirm, component: body.component },
           createdBy: session?.userId ?? null,
+          teamId: session?.currentTeamId ?? null,
           maxAttempts: 1,
         });
         await auditUserAction(session!.userId, "backup.restore", { backupId: id, jobId: job.id });

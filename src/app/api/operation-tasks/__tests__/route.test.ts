@@ -19,7 +19,7 @@ const route = await import("../route");
 describe("/api/operation-tasks", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mocks.requireApiPermission.mockResolvedValue({ session: { userId: "u1" } });
+    mocks.requireApiPermission.mockResolvedValue({ session: { userId: "u1", roles: ["viewer"], currentTeamId: "team-1" } });
     mocks.listOperationTaskResult.mockResolvedValue({
       tasks: [{ id: "download:dl1", title: "a.iso" }],
       sourceSummary: [{ source: "download", total: 1, attention: 1, failed: 0, running: 1, pending: 0 }],
@@ -34,7 +34,10 @@ describe("/api/operation-tasks", () => {
 
     expect(response.status).toBe(200);
     expect(mocks.requireApiPermission).toHaveBeenCalledWith("task:read");
-    expect(mocks.listOperationTaskResult).toHaveBeenCalledWith({ limit: 999, status: undefined, taskType: undefined, sort: undefined });
+    expect(mocks.listOperationTaskResult).toHaveBeenCalledWith(
+      { limit: 999, status: undefined, taskType: undefined, sort: undefined },
+      { userId: "u1", roles: ["viewer"], currentTeamId: "team-1" },
+    );
     await expect(response.json()).resolves.toEqual({
       tasks: [{ id: "download:dl1", title: "a.iso" }],
       sourceSummary: [{ source: "download", total: 1, attention: 1, failed: 0, running: 1, pending: 0 }],
@@ -48,7 +51,10 @@ describe("/api/operation-tasks", () => {
     );
 
     expect(response.status).toBe(200);
-    expect(mocks.listOperationTaskResult).toHaveBeenCalledWith({ limit: 50, status: ["failed", "running"], taskType: "alert.evaluate", sort: "attention" });
+    expect(mocks.listOperationTaskResult).toHaveBeenCalledWith(
+      { limit: 50, status: ["failed", "running"], taskType: "alert.evaluate", sort: "attention" },
+      { userId: "u1", roles: ["viewer"], currentTeamId: "team-1" },
+    );
   });
 
   it("exports the current filtered task list as escaped CSV", async () => {
@@ -79,7 +85,10 @@ describe("/api/operation-tasks", () => {
 
     expect(response.headers.get("content-type")).toContain("text/csv");
     expect(response.headers.get("content-disposition")).toContain("operation-tasks.csv");
-    expect(mocks.listOperationTaskResult).toHaveBeenCalledWith({ limit: undefined, status: ["failed", "running"], taskType: "backup.create", sort: undefined });
+    expect(mocks.listOperationTaskResult).toHaveBeenCalledWith(
+      { limit: undefined, status: ["failed", "running"], taskType: "backup.create", sort: undefined },
+      { userId: "u1", roles: ["viewer"], currentTeamId: "team-1" },
+    );
     expect(body).toContain("id,source,sourceId,taskType,status,title,actor,createdAt,updatedAt,progress,logPreview,foldedCount,href");
     expect(body).toContain('"备份失败, 需要处理"');
     expect(body).toContain('"stderr: a,b\nquoted ""value"""');
@@ -91,7 +100,10 @@ describe("/api/operation-tasks", () => {
     );
 
     expect(response.status).toBe(200);
-    expect(mocks.listOperationTaskResult).toHaveBeenCalledWith({ limit: undefined, status: undefined, taskType: undefined, sort: undefined });
+    expect(mocks.listOperationTaskResult).toHaveBeenCalledWith(
+      { limit: undefined, status: undefined, taskType: undefined, sort: undefined },
+      { userId: "u1", roles: ["viewer"], currentTeamId: "team-1" },
+    );
   });
 
   it("returns shared API permission failures without calling the service", async () => {

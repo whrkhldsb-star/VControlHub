@@ -82,6 +82,32 @@ describe("operation task service", () => {
     expect(mockPrisma.commandRequest.findMany).toHaveBeenLastCalledWith(expect.objectContaining({ take: 42 }));
   });
 
+  it("limits ordinary task readers to their own records inside the active team", async () => {
+    await listOperationTaskResult(
+      { limit: 10 },
+      { userId: "user-1", roles: ["viewer"], currentTeamId: "team-1" },
+    );
+
+    const teamScope = { OR: [{ teamId: "team-1" }, { teamId: null }] };
+    expect(mockPrisma.job.findMany).toHaveBeenCalledWith(expect.objectContaining({ where: { AND: [teamScope, { createdBy: "user-1" }] } }));
+    expect(mockPrisma.commandRequest.findMany).toHaveBeenCalledWith(expect.objectContaining({ where: { AND: [teamScope, { requesterId: "user-1" }] } }));
+    expect(mockPrisma.scheduledTask.findMany).toHaveBeenCalledWith(expect.objectContaining({ where: { AND: [teamScope, { createdById: "user-1" }] } }));
+    expect(mockPrisma.downloadTask.findMany).toHaveBeenCalledWith(expect.objectContaining({ where: { AND: [teamScope, { createdBy: "user-1" }] } }));
+    expect(mockPrisma.syncJob.findMany).toHaveBeenCalledWith(expect.objectContaining({ where: { AND: [teamScope, { createdBy: "user-1" }] } }));
+    expect(mockPrisma.backupRecord.findMany).toHaveBeenCalledWith(expect.objectContaining({ where: { AND: [teamScope, { createdBy: "user-1" }] } }));
+    expect(mockPrisma.deploymentRun.findMany).toHaveBeenCalledWith(expect.objectContaining({ where: { AND: [teamScope, { createdBy: "user-1" }] } }));
+  });
+
+  it("allows team managers to inspect all tasks in the current team scope", async () => {
+    await listOperationTaskResult(
+      { limit: 10 },
+      { userId: "admin-1", roles: ["admin"], currentTeamId: "team-1" },
+    );
+
+    expect(mockPrisma.job.findMany).toHaveBeenCalledWith(expect.objectContaining({ where: {} }));
+    expect(mockPrisma.commandRequest.findMany).toHaveBeenCalledWith(expect.objectContaining({ where: {} }));
+  });
+
   it("folds completed high-frequency alert evaluation jobs without hiding active or failed evaluations", async () => {
     mockPrisma.job.findMany.mockResolvedValue([
       {

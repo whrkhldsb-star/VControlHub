@@ -48,8 +48,8 @@ describe("/api/backups/[id]/restore", () => {
     const response = await route.POST(new Request("http://local/api/backups/bak1/restore", { method: "POST", body: JSON.stringify({ confirm: "RESTORE" }) }), { params: Promise.resolve({ id: "bak1" }) });
 
     expect(response.status).toBe(202);
-    expect(mocks.getBackupRecord).toHaveBeenCalledWith("bak1");
-    expect(mocks.enqueueJob).toHaveBeenCalledWith(expect.objectContaining({ type: "backup.restore", payload: { backupId: "bak1", confirm: "RESTORE" } }));
+    expect(mocks.getBackupRecord).toHaveBeenCalledWith("bak1", expect.objectContaining({ userId: "u1" }));
+    expect(mocks.enqueueJob).toHaveBeenCalledWith(expect.objectContaining({ type: "backup.restore", payload: { backupId: "bak1", confirm: "RESTORE", component: "all" }, teamId: null }));
     await expect(response.json()).resolves.toMatchObject({ jobId: "job1", taskId: "job:job1" });
   });
 
@@ -57,7 +57,7 @@ describe("/api/backups/[id]/restore", () => {
     const response = await route.POST(new Request("http://local/api/backups/bak1/restore?wait=1", { method: "POST", body: JSON.stringify({ confirm: "RESTORE" }) }), { params: Promise.resolve({ id: "bak1" }) });
 
     expect(response.status).toBe(200);
-    expect(mocks.restoreBackupRecord).toHaveBeenCalledWith({ id: "bak1", confirm: "RESTORE" });
+    expect(mocks.restoreBackupRecord).toHaveBeenCalledWith({ id: "bak1", confirm: "RESTORE", component: "all", session: expect.objectContaining({ userId: "u1" }) });
     await expect(response.json()).resolves.toMatchObject({ restore: { id: "bak1" } });
   });
 

@@ -6,7 +6,6 @@
  */
 
 export const zh: Record<string, string> = {
-	"uptimeHeatmap.sla90": "90 天 SLA",
 	"common.colon": "：",
 	"common.noPermission": "缺少权限",
 	"common.backupType": "备份类型",
@@ -79,7 +78,6 @@ export const zh: Record<string, string> = {
 };
 
 export const en: Record<string, string> = {
-	"uptimeHeatmap.sla90": "90-day SLA",
 	"common.colon": ": ",
 	"common.noPermission": "Missing permission",
 	"common.backupType": "Backup type",

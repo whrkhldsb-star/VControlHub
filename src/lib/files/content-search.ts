@@ -18,7 +18,7 @@ import { createLogger } from "@/lib/logging";
 import { prisma } from "@/lib/db";
 import { execRemoteCommand, buildSshParamsFromServer } from "@/lib/ssh/client";
 import { resolveLocalAbsolutePath } from "@/lib/storage/service-entries";
-import { resolveStorageSshCredentials } from "@/lib/storage/ssh-credentials";
+
 
 const logger = createLogger("files:content-search");
 

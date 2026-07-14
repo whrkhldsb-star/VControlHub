@@ -32,7 +32,7 @@ describe("/api/backups/[id]/void", () => {
     const res = await route.POST(new Request("http://local/api/backups/bak1/void", { method: "POST", body: JSON.stringify({ reason: " 历史记录不再执行 " }) }), { params: Promise.resolve({ id: "bak1" }) });
 
     expect(res.status).toBe(200);
-    expect(mocks.voidBackupRecord).toHaveBeenCalledWith({ id: "bak1", reason: "历史记录不再执行" });
+    expect(mocks.voidBackupRecord).toHaveBeenCalledWith({ id: "bak1", reason: "历史记录不再执行", session: expect.objectContaining({ userId: "u1" }) });
     await expect(res.json()).resolves.toMatchObject({ backup: { id: "bak1", status: "FAILED" } });
   });
 

@@ -220,12 +220,12 @@ export default function DockerPage({ initialServers }: { initialServers: { id: s
 	};
 
 	useEffect(() => {
-		setLoading(true);
-		setContainers([]);
-		setStats({});
-		setGrouped([]);
-		setUngrouped([]);
 		const timer = window.setTimeout(() => {
+			setLoading(true);
+			setContainers([]);
+			setStats({});
+			setGrouped([]);
+			setUngrouped([]);
 			void fetchContainers();
 		}, 0);
 		return () => window.clearTimeout(timer);

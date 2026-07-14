@@ -79,6 +79,7 @@ const mockPrisma = prisma as unknown as {
 	};
 };
 const mockGetSetting = getSetting as unknown as ReturnType<typeof vi.fn>;
+const originalBackupDir = process.env.BACKUP_DIR;
 
 const baseConfig = {
 	enabled: true,
@@ -112,6 +113,7 @@ const baseRecord = {
 };
 
 beforeEach(() => {
+	delete process.env.BACKUP_DIR;
 	loadConfigMock.mockReset();
 	validateForUseMock.mockReset();
 	validateForUseMock.mockReturnValue([]);
@@ -128,6 +130,8 @@ beforeEach(() => {
 
 afterEach(() => {
 	vi.clearAllMocks();
+	if (originalBackupDir === undefined) delete process.env.BACKUP_DIR;
+	else process.env.BACKUP_DIR = originalBackupDir;
 });
 
 describe("uploadBackupToOffsite", () => {

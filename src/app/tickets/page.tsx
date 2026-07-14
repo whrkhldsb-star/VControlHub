@@ -61,7 +61,7 @@ export default async function Page() {
         </div>
       )}
 
-      <TicketWorkspace initialTickets={initialTickets} canManage={canManage} locale={locale} />
+      <TicketWorkspace initialTickets={initialTickets} canManage={canManage} locale={locale} now={new Date().toISOString()} />
     </PageShell>
   );
 }

@@ -11,6 +11,7 @@ import { RetentionButton } from "./retention-button";
 import { RetryBackupRecordButton } from "./retry-backup-record-button";
 import { VoidBackupRecordButton } from "./void-backup-record-button";
 import { OffsiteDryRunButton } from "./offsite-dry-run-button";
+import { BackupDrillButton } from "./backup-drill-button";
 import { loadOffsiteConfig } from "@/lib/storage/offsite/service";
 import { formatZhDateTime } from "@/lib/datetime/format";
 
@@ -24,7 +25,7 @@ export default async function BackupsPage() {
 	const canCreate = sessionHasPermission(session, "backup:create");
 	const canRestore = sessionHasPermission(session, "backup:restore");
 	const [backups, offsite] = await Promise.all([
-		listBackupRecords(),
+		listBackupRecords(session),
 		loadOffsiteConfig().catch(() => null),
 	]);
 	const summary = summarizeBackupPolicy(backups);
@@ -195,6 +196,7 @@ export default async function BackupsPage() {
 									<code className="block overflow-auto rounded-lg border border-[var(--border)] bg-[var(--surface)]/70 p-3 font-mono text-xs text-[var(--text-secondary)]">{buildPortableBackupCommand({ projectRoot, outputPath: b.filePath, type: isBackupType(b.type) ? b.type : undefined })}</code>
 									<code className="block overflow-auto rounded-lg border border-[var(--border)] bg-[var(--surface)]/70 p-3 font-mono text-xs text-[var(--text-secondary)]">{buildBackupRestoreCommand({ projectRoot, backupPath: b.filePath, type: isBackupType(b.type) ? b.type : undefined })}</code>
 									<RestoreBackupButton backupId={b.id} backupType={b.type} disabled={b.status !== "COMPLETED"} />
+									<BackupDrillButton backupId={b.id} disabled={b.status !== "COMPLETED"} />
 									{b.status !== "COMPLETED" && <p className="text-xs text-[var(--text-muted)]">{t("backupsPage.records.restoreHint")}</p>}
 								</div>
 							)}

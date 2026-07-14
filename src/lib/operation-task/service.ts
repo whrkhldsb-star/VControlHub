@@ -1,6 +1,7 @@
 import { Prisma, type Job } from "@prisma/client";
 
 import { teamWhere } from "@/lib/auth/team-scope";
+import { sessionHasPermission } from "@/lib/auth/authorization";
 import { prisma } from "@/lib/db";
 import { getOperationTaskListLimit } from "@/lib/runtime-settings/service";
 import { serverT } from "@/lib/i18n/server-locale";
@@ -213,14 +214,20 @@ export async function listOperationTaskResult(options: OperationTaskListOptions 
   const configuredLimit = await getOperationTaskListLimit();
   const requestedLimit = options.limit ?? configuredLimit;
   const limit = Math.min(Math.max(Number.isFinite(requestedLimit) ? requestedLimit : configuredLimit, 1), configuredLimit);
+  const teamScope = session ? teamWhere(session) : {};
+  const canReadTeamTasks = Boolean(session && sessionHasPermission(session, "team:manage"));
+  const scopedWhere = (ownerField: string): Record<string, unknown> => {
+    if (!session || canReadTeamTasks) return teamScope;
+    return { AND: [teamScope, { [ownerField]: session.userId }] };
+  };
   const [jobs, commands, scheduled, downloads, syncJobs, backups, deployments] = await Promise.all([
-    prisma.job.findMany({ where: session ? teamWhere(session) : {}, take: limit, orderBy: { createdAt: "desc" }, include: { creator: { select: { username: true, displayName: true } }, _count: { select: { events: true } } } }),
-    prisma.commandRequest.findMany({ where: session ? teamWhere(session) : {}, take: limit, orderBy: { createdAt: "desc" }, include: { requester: { select: { username: true, displayName: true } }, targets: { take: 2, orderBy: { finishedAt: "desc" }, select: { stdout: true, stderr: true, status: true, finishedAt: true, startedAt: true } }, executionLogs: { take: 2, orderBy: { createdAt: "desc" }, select: { summary: true, createdAt: true } } } }),
-    prisma.scheduledTask.findMany({ where: session ? teamWhere(session) : {}, take: limit, orderBy: { createdAt: "desc" }, include: { creator: { select: { username: true, displayName: true } } } }),
-    prisma.downloadTask.findMany({ where: session ? teamWhere(session) : {}, take: limit, orderBy: { createdAt: "desc" }, include: { creator: { select: { username: true, displayName: true } } } }),
-    prisma.syncJob.findMany({ where: session ? teamWhere(session) : {}, take: limit, orderBy: { createdAt: "desc" }, include: { creator: { select: { username: true, displayName: true } } } }),
-    prisma.backupRecord.findMany({ where: session ? teamWhere(session) : {}, take: limit, orderBy: { createdAt: "desc" }, include: { creator: { select: { username: true, displayName: true } } } }),
-    prisma.deploymentRun.findMany({ where: session ? teamWhere(session) : {}, take: limit, orderBy: { createdAt: "desc" }, include: { creator: { select: { username: true, displayName: true } }, template: { select: { name: true } }, commandRequest: { select: { status: true, workerId: true, workerHeartbeatAt: true, updatedAt: true } } } }),
+    prisma.job.findMany({ where: scopedWhere("createdBy"), take: limit, orderBy: { createdAt: "desc" }, include: { creator: { select: { username: true, displayName: true } }, _count: { select: { events: true } } } }),
+    prisma.commandRequest.findMany({ where: scopedWhere("requesterId"), take: limit, orderBy: { createdAt: "desc" }, include: { requester: { select: { username: true, displayName: true } }, targets: { take: 2, orderBy: { finishedAt: "desc" }, select: { stdout: true, stderr: true, status: true, finishedAt: true, startedAt: true } }, executionLogs: { take: 2, orderBy: { createdAt: "desc" }, select: { summary: true, createdAt: true } } } }),
+    prisma.scheduledTask.findMany({ where: scopedWhere("createdById"), take: limit, orderBy: { createdAt: "desc" }, include: { creator: { select: { username: true, displayName: true } } } }),
+    prisma.downloadTask.findMany({ where: scopedWhere("createdBy"), take: limit, orderBy: { createdAt: "desc" }, include: { creator: { select: { username: true, displayName: true } } } }),
+    prisma.syncJob.findMany({ where: scopedWhere("createdBy"), take: limit, orderBy: { createdAt: "desc" }, include: { creator: { select: { username: true, displayName: true } } } }),
+    prisma.backupRecord.findMany({ where: scopedWhere("createdBy"), take: limit, orderBy: { createdAt: "desc" }, include: { creator: { select: { username: true, displayName: true } } } }),
+    prisma.deploymentRun.findMany({ where: scopedWhere("createdBy"), take: limit, orderBy: { createdAt: "desc" }, include: { creator: { select: { username: true, displayName: true } }, template: { select: { name: true } }, commandRequest: { select: { status: true, workerId: true, workerHeartbeatAt: true, updatedAt: true } } } }),
   ]);
 
   const tasks: OperationTask[] = [

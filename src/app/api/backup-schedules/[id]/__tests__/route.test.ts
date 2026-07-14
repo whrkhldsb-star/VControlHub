@@ -25,6 +25,6 @@ describe("DELETE /api/backup-schedules/[id]", () => {
 			{ params: Promise.resolve({ id: "schedule-1" }) },
 		);
 		expect(response.status).toBe(200);
-		expect(deleteBackupScheduleMock).toHaveBeenCalledWith("schedule-1");
+		expect(deleteBackupScheduleMock).toHaveBeenCalledWith("schedule-1", expect.objectContaining({ userId: "u1" }));
 	});
 });

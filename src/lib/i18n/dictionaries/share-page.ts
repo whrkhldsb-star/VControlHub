@@ -31,6 +31,10 @@ export const zh: Record<string, string> = {
 };
 
 export const en: Record<string, string> = {
+	"sharePage.permissionLevel": "Permission level",
+	"sharePage.permissionPreview": "Preview only",
+	"sharePage.permissionDownload": "Download allowed",
+	"sharePage.previewOnly": "🔒 This share is preview-only and cannot be downloaded",
 	"sharePage.sizeUnknown": "Unknown",
 	"sharePage.invalidToken": "Invalid share link",
 	"sharePage.errorTitle": "Cannot access this share",

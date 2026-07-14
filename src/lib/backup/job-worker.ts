@@ -2,6 +2,7 @@ import { Prisma } from "@prisma/client";
 
 import {
   getBackupRecord,
+  drillBackupRecord,
   pruneOldBackupRecordsNow,
   restoreBackupRecord,
   runExistingBackupRecord,
@@ -17,8 +18,9 @@ const logger = createLogger("backup-job-worker");
 export const BACKUP_CREATE_JOB_TYPE = "backup.create";
 export const BACKUP_RESTORE_JOB_TYPE = "backup.restore";
 export const BACKUP_RETENTION_JOB_TYPE = "backup.retention";
+export const BACKUP_DRILL_JOB_TYPE = "backup.drill";
 
-const BACKUP_JOB_TYPES = [BACKUP_CREATE_JOB_TYPE, BACKUP_RESTORE_JOB_TYPE, BACKUP_RETENTION_JOB_TYPE];
+const BACKUP_JOB_TYPES = [BACKUP_CREATE_JOB_TYPE, BACKUP_RESTORE_JOB_TYPE, BACKUP_RETENTION_JOB_TYPE, BACKUP_DRILL_JOB_TYPE];
 const DEFAULT_POLL_MS = 5_000;
 const WORKER_ID = `${config.app.hostname || "vcontrolhub"}:backup:${process.pid}`;
 // TR-002 R2: 跨 worker lease 公式统一。computeLeaseMs 默认返 preset (= 30s, 等同原 LEASE_MS)。
@@ -40,6 +42,7 @@ type BackupRetentionPayload = {
   olderThanDays?: number;
   keepLatestPerType?: number;
   projectRoot?: string;
+  teamId?: string | null;
 };
 
 function parseRetentionPayload(payload: Prisma.JsonValue): BackupRetentionPayload {
@@ -54,7 +57,8 @@ function parseRetentionPayload(payload: Prisma.JsonValue): BackupRetentionPayloa
     ? Math.floor(payload.keepLatestPerType)
     : undefined;
   const projectRoot = typeof payload.projectRoot === "string" && payload.projectRoot.trim() ? payload.projectRoot.trim() : undefined;
-  return { olderThanDays, keepLatestPerType, projectRoot };
+  const teamId = typeof payload.teamId === "string" && payload.teamId.trim() ? payload.teamId.trim() : null;
+  return { olderThanDays, keepLatestPerType, projectRoot, teamId };
 }
 
 let timer: NodeJS.Timeout | null = null;
@@ -131,6 +135,7 @@ async function handleJob(job: Awaited<ReturnType<typeof claimNextJob>>) {
         olderThanDays: payload.olderThanDays,
         keepLatestPerType: payload.keepLatestPerType,
         projectRoot: payload.projectRoot,
+        teamId: payload.teamId,
       });
       await completeJob(job.id, WORKER_ID, {
         retention: {
@@ -146,6 +151,19 @@ async function handleJob(job: Awaited<ReturnType<typeof claimNextJob>>) {
           ),
         },
       });
+      return true;
+    }
+
+    if (job.type === BACKUP_DRILL_JOB_TYPE) {
+      const payload = parseCreatePayload(job.payload);
+      await heartbeatJob(job.id, WORKER_ID, { leaseMs: LEASE_MS, progress: "Running non-destructive restore drill" });
+      const report = await runWithLeaseHeartbeat({
+        jobId: job.id,
+        leaseMs: LEASE_MS,
+        heartbeat: () => heartbeatJob(job.id, WORKER_ID, { leaseMs: LEASE_MS, progress: "Verifying backup checksum and archive format" }),
+        run: () => drillBackupRecord({ id: payload.backupId, projectRoot: payload.projectRoot }),
+      });
+      await completeJob(job.id, WORKER_ID, { drillReport: report });
       return true;
     }
 

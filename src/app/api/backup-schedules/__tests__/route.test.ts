@@ -123,7 +123,7 @@ describe("/api/backup-schedules", () => {
       jsonRequest("PATCH", { toggleId: "s1" }),
     );
     expect(res.status).toBe(200);
-    expect(toggleBackupScheduleMock).toHaveBeenCalledWith("s1");
+    expect(toggleBackupScheduleMock).toHaveBeenCalledWith("s1", expect.objectContaining({ userId: "u1" }));
     expect(updateBackupScheduleMock).not.toHaveBeenCalled();
   });
 
@@ -132,7 +132,7 @@ describe("/api/backup-schedules", () => {
       jsonRequest("PATCH", { id: "s1", name: "Renamed" }),
     );
     expect(res.status).toBe(200);
-    expect(updateBackupScheduleMock).toHaveBeenCalledWith("s1", { name: "Renamed" });
+    expect(updateBackupScheduleMock).toHaveBeenCalledWith("s1", { name: "Renamed" }, expect.objectContaining({ userId: "u1" }));
     expect(toggleBackupScheduleMock).not.toHaveBeenCalled();
   });
 

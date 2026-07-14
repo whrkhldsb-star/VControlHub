@@ -3,7 +3,6 @@
  */
 export const zh: Record<string, string> = {
 	"apiShareToken.invalidToken": "分享链接无效",
-	"apiShareToken.previewOnly": "此分享仅允许预览，禁止下载",
 	"apiShareToken.directoryNeedsChild": "请选择目录中的具体文件或使用 archive=1 下载整个目录",
 	"apiShareToken.invalidPath": "非法路径",
 	"apiShareToken.outOfRange": "文件不在分享目录范围内",
@@ -17,7 +16,6 @@ export const zh: Record<string, string> = {
 
 export const en: Record<string, string> = {
 	"apiShareToken.invalidToken": "Invalid share link",
-	"apiShareToken.previewOnly": "This share is preview-only; downloads are not permitted.",
 	"apiShareToken.directoryNeedsChild": "Select a file in the directory or use archive=1 to download the whole directory.",
 	"apiShareToken.invalidPath": "Invalid path",
 	"apiShareToken.outOfRange": "File is outside the shared directory scope.",

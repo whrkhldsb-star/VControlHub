@@ -17,6 +17,7 @@ import {
 } from "./ssh-executor";
 import { enqueueCommandExecutionJob } from "./execution-worker";
 import { createLogger } from "@/lib/logging";
+import { scanPinnedKnownHost } from "@/lib/ssh/known-hosts";
 
 const cmdExecLogger = createLogger("command-execution");
 
@@ -43,18 +44,16 @@ async function executeCommandOverSshWithKey(input: {
 }): Promise<SshExecutionResult> {
   const tempDir = await mkdtemp(join(tmpdir(), "app-ssh-"));
   const keyPath = join(tempDir, "id_key");
+  const knownHostsPath = join(tempDir, "known_hosts");
 
   try {
     await writeFile(keyPath, `${input.privateKey.trim()}\n`, { mode: 0o600 });
-    await assertPinnedSshHostKey({
-      host: input.host,
-      port: input.port,
-      username: input.username,
-      privateKey: input.privateKey,
-      hostKeySha256: input.hostKeySha256,
-    });
-
-    const hostKeyMode = input.hostKeySha256?.trim()
+    const pin = input.hostKeySha256?.trim();
+    if (pin) {
+      const knownHostLine = await scanPinnedKnownHost({ host: input.host, port: input.port, expectedFingerprint: pin });
+      await writeFile(knownHostsPath, `${knownHostLine}\n`, { mode: 0o600 });
+    }
+    const hostKeyMode = pin
       ? (["-o", "StrictHostKeyChecking=yes"] as const)
       : (["-o", "StrictHostKeyChecking=accept-new"] as const);
 
@@ -67,7 +66,7 @@ async function executeCommandOverSshWithKey(input: {
       "BatchMode=yes",
       ...hostKeyMode,
       "-o",
-      "UserKnownHostsFile=/dev/null",
+      `UserKnownHostsFile=${pin ? knownHostsPath : "/dev/null"}`,
       "-o",
       "LogLevel=ERROR",
       "-o",
@@ -97,24 +96,24 @@ async function executeCommandOverSshWithPassword(input: {
   targetId?: string;
   hostKeySha256?: string | null;
 }): Promise<SshExecutionResult> {
-  await assertPinnedSshHostKey({
-    host: input.host,
-    port: input.port,
-    username: input.username,
-    password: input.password,
-    hostKeySha256: input.hostKeySha256,
-  });
+  const tempDir = await mkdtemp(join(tmpdir(), "app-ssh-known-hosts-"));
+  const knownHostsPath = join(tempDir, "known_hosts");
+  const pin = input.hostKeySha256?.trim();
+  try {
+    if (pin) {
+      const knownHostLine = await scanPinnedKnownHost({ host: input.host, port: input.port, expectedFingerprint: pin });
+      await writeFile(knownHostsPath, `${knownHostLine}\n`, { mode: 0o600 });
+    }
+    const hostKeyMode = pin
+      ? (["-o", "StrictHostKeyChecking=yes"] as const)
+      : (["-o", "StrictHostKeyChecking=accept-new"] as const);
 
-  const hostKeyMode = input.hostKeySha256?.trim()
-    ? (["-o", "StrictHostKeyChecking=yes"] as const)
-    : (["-o", "StrictHostKeyChecking=accept-new"] as const);
-
-  const args = [
+    const args = [
     "-p",
     String(input.port),
     ...hostKeyMode,
     "-o",
-    "UserKnownHostsFile=/dev/null",
+    `UserKnownHostsFile=${pin ? knownHostsPath : "/dev/null"}`,
     "-o",
     "LogLevel=ERROR",
     "-o",
@@ -126,42 +125,16 @@ async function executeCommandOverSshWithPassword(input: {
   // Use SSHPASS env var instead of -p flag to avoid leaking password in /proc/cmdline
   const env = { ...process.env, SSHPASS: input.password };
 
-  return await runSshCommandProcess({
-    command: "sshpass",
-    args: ["-e", "ssh", ...args],
-    env,
-    targetId: input.targetId,
-    runtimeConfig: await getCommandRuntimeConfigValues(),
-  });
-}
-
-/**
- * When the server has a pinned host fingerprint, verify it via ssh2 before
- * spawning OpenSSH CLI (which cannot enforce SHA256-only pins without a
- * known_hosts entry). Unpinned servers keep accept-new bootstrap behaviour.
- */
-async function assertPinnedSshHostKey(input: {
-  host: string;
-  port: number;
-  username: string;
-  privateKey?: string;
-  password?: string;
-  hostKeySha256?: string | null;
-}) {
-  const pin = input.hostKeySha256?.trim();
-  if (!pin) return;
-  const { connectSsh, createVerifiedSshConfig } = await import("@/lib/ssh/client");
-  const client = await connectSsh(
-    createVerifiedSshConfig({
-      host: input.host,
-      port: input.port,
-      username: input.username,
-      privateKey: input.privateKey,
-      password: input.password,
-      hostKeySha256: pin,
-    }),
-  );
-  client.end();
+    return await runSshCommandProcess({
+      command: "sshpass",
+      args: ["-e", "ssh", ...args],
+      env,
+      targetId: input.targetId,
+      runtimeConfig: await getCommandRuntimeConfigValues(),
+    });
+  } finally {
+    await rm(tempDir, { recursive: true, force: true });
+  }
 }
 
 export async function executeCommandOverSsh(input: {

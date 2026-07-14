@@ -364,3 +364,65 @@ export async function listShareAccessLogs(
     take,
   });
 }
+
+export type ShareAccessReportAction = "all" | "view" | "download" | "password_attempt";
+
+export async function getShareAccessReport(input: {
+  session: Pick<SessionPayload, "userId" | "roles" | "currentTeamId">;
+  days?: number;
+  action?: ShareAccessReportAction;
+  take?: number;
+}) {
+  const days = Math.min(Math.max(input.days ?? 30, 1), 365);
+  const take = Math.min(Math.max(input.take ?? 100, 1), 500);
+  const since = new Date(Date.now() - days * 24 * 60 * 60 * 1000);
+  const action = input.action ?? "all";
+  const where = {
+    accessedAt: { gte: since },
+    ...(action === "all" ? {} : { action }),
+    shareLink: teamWhere(input.session),
+  };
+  const [logs, grouped, uniqueIpRows] = await Promise.all([
+    prisma.shareAccessLog.findMany({
+      where,
+      orderBy: { accessedAt: "desc" },
+      take,
+      select: {
+        id: true, action: true, ip: true, userAgent: true, accessedAt: true,
+        shareLink: { select: { id: true, name: true, path: true, permissionLevel: true, revokedAt: true } },
+      },
+    }),
+    prisma.shareAccessLog.groupBy({
+      by: ["shareLinkId", "action"], where, _count: { _all: true }, orderBy: { _count: { shareLinkId: "desc" } }, take: 2000,
+    }),
+    prisma.shareAccessLog.findMany({ where: { ...where, ip: { not: null } }, distinct: ["ip"], select: { ip: true }, take: 10000 }),
+  ]);
+  const shareIds = Array.from(new Set(grouped.map((row) => row.shareLinkId)));
+  const shares = shareIds.length > 0 ? await prisma.shareLink.findMany({
+    where: { id: { in: shareIds }, ...teamWhere(input.session) },
+    select: { id: true, name: true, path: true, permissionLevel: true, revokedAt: true },
+  }) : [];
+  const shareMap = new Map(shares.map((share) => [share.id, share]));
+  const byShareMap = new Map<string, { shareId: string; name: string; path: string; permissionLevel: string; revoked: boolean; view: number; download: number; passwordAttempt: number; total: number }>();
+  const totals = { total: 0, view: 0, download: 0, passwordAttempt: 0, uniqueIps: uniqueIpRows.length };
+  for (const row of grouped) {
+    const count = row._count._all;
+    const share = shareMap.get(row.shareLinkId);
+    const current = byShareMap.get(row.shareLinkId) ?? {
+      shareId: row.shareLinkId, name: share?.name ?? share?.path ?? row.shareLinkId, path: share?.path ?? "", permissionLevel: share?.permissionLevel ?? "download", revoked: Boolean(share?.revokedAt),
+      view: 0, download: 0, passwordAttempt: 0, total: 0,
+    };
+    current.total += count;
+    totals.total += count;
+    if (row.action === "view") { current.view += count; totals.view += count; }
+    else if (row.action === "download") { current.download += count; totals.download += count; }
+    else if (row.action === "password_attempt") { current.passwordAttempt += count; totals.passwordAttempt += count; }
+    byShareMap.set(row.shareLinkId, current);
+  }
+  return {
+    range: { days, since: since.toISOString(), until: new Date().toISOString(), action },
+    totals,
+    byShare: Array.from(byShareMap.values()).sort((a, b) => b.total - a.total || a.name.localeCompare(b.name)).slice(0, 100),
+    logs: logs.map((log) => ({ ...log, accessedAt: log.accessedAt.toISOString(), share: log.shareLink })),
+  };
+}

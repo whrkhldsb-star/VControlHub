@@ -19,6 +19,7 @@ export type EnqueueJobInput = {
   title: string;
   payload?: JobPayload;
   createdBy?: string | null;
+  teamId?: string | null;
   priority?: number;
   maxAttempts?: number;
   availableAt?: Date;
@@ -62,6 +63,7 @@ export async function enqueueJob(input: EnqueueJobInput) {
       title: input.title.trim(),
       payload: input.payload ?? {},
       createdBy: input.createdBy ?? null,
+      teamId: input.teamId ?? null,
       priority: input.priority ?? 0,
       maxAttempts: sanitizeAttempts(input.maxAttempts),
       availableAt: input.availableAt ?? new Date(),

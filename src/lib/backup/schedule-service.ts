@@ -11,6 +11,8 @@
  * so cron semantics stay identical across both schedule kinds.
  */
 import { prisma } from "@/lib/db";
+import { teamWhere } from "@/lib/auth/team-scope";
+import type { SessionPayload } from "@/lib/auth/session";
 import { NotFoundError, ValidationError } from "@/lib/errors";
 import { computeNextRun, describeCron } from "@/lib/scheduled-task/service";
 import { CronExpressionParser } from "cron-parser";
@@ -30,6 +32,7 @@ export type CreateBackupScheduleInput = {
   note?: string;
   retentionDays?: number | null;
   createdById?: string;
+  teamId?: string | null;
 };
 
 export type UpdateBackupScheduleInput = Partial<Omit<CreateBackupScheduleInput, "createdById">> & {
@@ -87,26 +90,28 @@ export async function createBackupSchedule(input: CreateBackupScheduleInput) {
       note,
       retentionDays,
       createdById: input.createdById ?? null,
+      teamId: input.teamId ?? null,
       nextRunAt: computeNextRun(cronExpression),
     },
     include: { creator: { select: { username: true, displayName: true } } },
   });
 }
 
-export async function listBackupSchedules(limit = 200) {
+export async function listBackupSchedules(limit = 200, session?: Pick<SessionPayload, "userId" | "roles" | "currentTeamId">) {
   return prisma.backupSchedule.findMany({
+    where: session ? teamWhere(session) : {},
     orderBy: { createdAt: "desc" },
     take: limit,
     include: { creator: { select: { username: true, displayName: true } } },
   });
 }
 
-export async function getBackupSchedule(id: string) {
-  return prisma.backupSchedule.findUnique({ where: { id } });
+export async function getBackupSchedule(id: string, session?: Pick<SessionPayload, "userId" | "roles" | "currentTeamId">) {
+  return session ? prisma.backupSchedule.findFirst({ where: { id, ...teamWhere(session) } }) : prisma.backupSchedule.findUnique({ where: { id } });
 }
 
-export async function updateBackupSchedule(id: string, input: UpdateBackupScheduleInput) {
-  const existing = await prisma.backupSchedule.findUnique({ where: { id } });
+export async function updateBackupSchedule(id: string, input: UpdateBackupScheduleInput, session?: Pick<SessionPayload, "userId" | "roles" | "currentTeamId">) {
+  const existing = await getBackupSchedule(id, session);
   if (!existing) throw new NotFoundError("Backup schedule not found");
 
   const data: Record<string, unknown> = {};
@@ -150,21 +155,18 @@ export async function updateBackupSchedule(id: string, input: UpdateBackupSchedu
   });
 }
 
-export async function deleteBackupSchedule(id: string) {
-  const existing = await prisma.backupSchedule.findUnique({ where: { id }, select: { id: true } });
+export async function deleteBackupSchedule(id: string, session?: Pick<SessionPayload, "userId" | "roles" | "currentTeamId">) {
+  const existing = await getBackupSchedule(id, session);
   if (!existing) throw new NotFoundError("Backup schedule not found");
   await prisma.backupSchedule.delete({ where: { id } });
   return { id };
 }
 
-export async function toggleBackupSchedule(id: string) {
-  const existing = await prisma.backupSchedule.findUnique({
-    where: { id },
-    select: { status: true, cronExpression: true },
-  });
+export async function toggleBackupSchedule(id: string, session?: Pick<SessionPayload, "userId" | "roles" | "currentTeamId">) {
+  const existing = await getBackupSchedule(id, session);
   if (!existing) throw new NotFoundError("Backup schedule not found");
   const newStatus: BackupScheduleStatus = existing.status === "ACTIVE" ? "PAUSED" : "ACTIVE";
-  return updateBackupSchedule(id, { status: newStatus });
+  return updateBackupSchedule(id, { status: newStatus }, session);
 }
 
 /* ── Run recording ────────────────────────────────────────── */
@@ -207,6 +209,7 @@ export async function dispatchDueSchedule(schedule: {
   backupType: string;
   note: string | null;
   createdById: string | null;
+  teamId?: string | null;
   retentionDays: number | null;
   nextRunAt: Date | null;
 }): Promise<DispatchedBackupSchedule | null> {
@@ -226,6 +229,7 @@ export async function dispatchDueSchedule(schedule: {
   const backup = await createBackupRecord({
     type: schedule.backupType,
     createdBy: schedule.createdById,
+    teamId: schedule.teamId ?? null,
     note,
   });
 
@@ -238,6 +242,7 @@ export async function dispatchDueSchedule(schedule: {
       retentionDays: schedule.retentionDays,
     },
     createdBy: schedule.createdById,
+    teamId: schedule.teamId,
     maxAttempts: 1,
   });
 

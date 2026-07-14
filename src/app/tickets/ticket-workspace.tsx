@@ -24,7 +24,7 @@ type Props = {
   initialTickets: TicketWorkspaceTicket[];
   canManage: boolean;
   locale: Locale;
-  now?: string;
+  now: string;
 };
 
 type SlaStatus = "ok" | "warning" | "breached" | "none";
@@ -122,7 +122,7 @@ export function TicketWorkspace({ initialTickets, canManage, locale, now }: Prop
   const [category, setCategory] = useState("");
   const [slaStatus, setSlaStatus] = useState("");
   const [search, setSearch] = useState("");
-  const nowMs = useMemo(() => new Date(now ?? Date.now()).getTime(), [now]);
+  const nowMs = useMemo(() => new Date(now).getTime(), [now]);
 
   const filteredTickets = useMemo(() => {
     const query = search.trim().toLocaleLowerCase(locale === "zh" ? "zh-CN" : "en-US");

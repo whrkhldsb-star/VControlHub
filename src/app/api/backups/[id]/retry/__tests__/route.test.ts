@@ -27,7 +27,7 @@ describe("/api/backups/[id]/retry", () => {
     const res = await route.POST(new Request("http://local/api/backups/bak1/retry", { method: "POST" }), { params: Promise.resolve({ id: "bak1" }) });
 
     expect(res.status).toBe(202);
-    expect(mocks.prepareBackupRecordRetry).toHaveBeenCalledWith({ id: "bak1" });
+    expect(mocks.prepareBackupRecordRetry).toHaveBeenCalledWith({ id: "bak1", session: expect.objectContaining({ userId: "u1" }) });
     expect(mocks.enqueueJob).toHaveBeenCalledWith(expect.objectContaining({
       type: "backup.create",
       title: "Retry DATABASE backup",
