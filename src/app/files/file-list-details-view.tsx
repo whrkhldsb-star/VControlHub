@@ -36,6 +36,8 @@ export type FileListDetailsViewProps = {
   sortedFolders: FolderProp[];
   sortedFiles: FileProp[];
   emptyMessage: string;
+  parentPath?: string | null;
+  onGoUp?: () => void;
   effectiveSelectedIdSet: Set<string>;
   toggleOne: (id: string) => void;
   navigateToFolder: (path: string) => void;
@@ -54,6 +56,7 @@ export function FileListDetailsView({
   sortedFolders,
   sortedFiles,
   emptyMessage,
+  onGoUp,
   effectiveSelectedIdSet,
   toggleOne,
   navigateToFolder,
@@ -73,6 +76,20 @@ export function FileListDetailsView({
       {sortedFolders.length === 0 && sortedFiles.length === 0 ? (
         <div className="px-6 py-16 text-center">
           <p className="text-sm text-[var(--text-muted)]">{emptyMessage}</p>
+          {onGoUp ? (
+            <>
+              <button
+                type="button"
+                onClick={onGoUp}
+                data-testid="files-empty-up-level"
+                className="mt-4 inline-flex items-center gap-1.5 rounded-xl border border-[var(--border)] bg-[var(--surface-elevated)] px-4 py-2 text-sm font-medium text-[var(--text-primary)] transition hover:bg-[var(--surface-hover)]"
+              >
+                <span aria-hidden="true">↑</span>
+                {t("fileListClient.upLevel")}
+              </button>
+              <p className="mt-2 text-xs text-[var(--text-muted)]">{t("fileListClient.upLevelHint")}</p>
+            </>
+          ) : null}
         </div>
       ) : null}
 

@@ -71,6 +71,13 @@ export function splitPath(path: string) {
   return path ? path.split("/").filter(Boolean) : [];
 }
 
+/** Parent virtual path for SPA browser; empty string is root, null means already root. */
+export function getParentPath(path: string): string | null {
+  const segments = splitPath(path);
+  if (segments.length === 0) return null;
+  return segments.slice(0, -1).join("/");
+}
+
 export function treePathMatchesCurrentPath(treePath: string, currentPath: string) {
   const normalizedTreePath = treePath.replace(/^\/+|\/+$/g, "");
   const normalizedCurrentPath = currentPath.replace(/^\/+|\/+$/g, "");

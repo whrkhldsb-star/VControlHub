@@ -355,7 +355,7 @@ export function HealthDashboardClient({ serverCount, initialSystemHealth }: Prop
 			</div>
 
 			{/* Server table */}
-			<section data-card className=" overflow-hidden">
+			<section data-card className="overflow-hidden">
 				<div className="overflow-x-auto">
 					<table className="w-full text-sm">
 						<thead>
@@ -418,7 +418,7 @@ export function HealthDashboardClient({ serverCount, initialSystemHealth }: Prop
 
 			{/* Expanded trend section */}
 			{expandedServer && (history[expandedServer] || historyErrors[expandedServer]) && (
-				<section data-card className=" ">
+				<section data-card className="">
 					<h3 className="text-sm font-medium text-[var(--text-secondary)] mb-4">
 						{tt("healthPage.ui.trendHeading", { name: overview.servers.find((s) => s.serverId === expandedServer)?.serverName ?? "" })}
 					</h3>
@@ -547,7 +547,7 @@ function SummaryCard({ label, value, color }: { label: string; value: number | s
 		rose: "text-[var(--danger)]",
 	};
 	return (
-		<article data-card className=" p-4">
+		<article data-card className="p-4">
 			<div className="text-xs font-medium text-[var(--text-muted)] uppercase tracking-wider">{label}</div>
 			<div className={`mt-1.5 text-2xl sm:text-3xl font-semibold ${colorMap[color] ?? "text-[var(--text-primary)]"}`}>{value}</div>
 		</article>

@@ -31,6 +31,8 @@ export type FileListGridViewProps = {
   sortedFolders: FolderProp[];
   sortedFiles: FileProp[];
   emptyMessage: string;
+  parentPath?: string | null;
+  onGoUp?: () => void;
   effectiveSelectedIdSet: Set<string>;
   toggleOne: (id: string) => void;
   navigateToFolder: (path: string) => void;
@@ -48,6 +50,7 @@ export function FileListGridView({
   sortedFolders,
   sortedFiles,
   emptyMessage,
+  onGoUp,
   effectiveSelectedIdSet,
   toggleOne,
   navigateToFolder,
@@ -77,6 +80,20 @@ export function FileListGridView({
             <path d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z" />
           </svg>
           <p className="text-sm text-[var(--text-muted)]">{emptyMessage}</p>
+          {onGoUp ? (
+            <>
+              <button
+                type="button"
+                onClick={onGoUp}
+                data-testid="files-empty-up-level"
+                className="mt-4 inline-flex items-center gap-1.5 rounded-xl border border-[var(--border)] bg-[var(--surface-elevated)] px-4 py-2 text-sm font-medium text-[var(--text-primary)] transition hover:bg-[var(--surface-hover)]"
+              >
+                <span aria-hidden="true">↑</span>
+                {t("fileListClient.upLevel")}
+              </button>
+              <p className="mt-2 text-xs text-[var(--text-muted)]">{t("fileListClient.upLevelHint")}</p>
+            </>
+          ) : null}
         </div>
       ) : null}
 

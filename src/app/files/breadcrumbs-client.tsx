@@ -4,6 +4,7 @@ import {
   type NodeOption,
   splitPath,
   getDisplaySegment,
+  getParentPath,
 } from "./files-browser-helpers";
 
 /* ── Breadcrumbs (client-side, SPA) ─────────────────────────────── */
@@ -20,16 +21,29 @@ export function BreadcrumbsClient({
   onNavigate: (path: string) => void;
 }) {
   const segments = splitPath(path);
+  const parentPath = getParentPath(path);
 
   return (
     <nav
       aria-label={t("filesBrowserSpa.breadcrumbAria")}
       className="flex flex-wrap items-center gap-2 text-sm text-[var(--text-secondary)]"
     >
+      {parentPath !== null ? (
+        <button
+          type="button"
+          onClick={() => onNavigate(parentPath)}
+          data-testid="files-up-level"
+          className="inline-flex items-center gap-1.5 rounded-lg border border-[var(--border)] bg-[var(--surface-elevated)] px-3 py-1.5 font-medium text-[var(--text-primary)] transition hover:bg-[var(--surface-hover)]"
+          title={t("filesBrowserSpa.upLevel")}
+        >
+          <span aria-hidden="true">↑</span>
+          {t("filesBrowserSpa.upLevel")}
+        </button>
+      ) : null}
       <button
         type="button"
         onClick={() => onNavigate("")}
-        className="rounded-lg border border-[var(--border)] px-3 py-1.5 text-[var(--text-secondary)] hover:bg-[var(--surface)]/10"
+        className="rounded-lg border border-[var(--border)] px-3 py-1.5 text-[var(--text-secondary)] hover:bg-[var(--surface-hover)]"
       >
         {t("filesBrowserSpa.allFiles")}
       </button>
@@ -39,16 +53,16 @@ export function BreadcrumbsClient({
         const displaySegment = getDisplaySegment(segment, nodes);
         return (
           <span key={nextPath} className="flex items-center gap-2">
-            <span>/</span>
+            <span className="text-[var(--text-muted)]">/</span>
             {isLast ? (
-              <span data-tone="cyan" className="rounded-lg border border-[var(--color-action-border)]/30 px-3 py-1.5 text-[var(--text-primary)]">
+              <span data-tone="cyan" className="rounded-lg border border-[var(--accent-border)] bg-[var(--accent-bg)] px-3 py-1.5 text-[var(--text-primary)]">
                 {displaySegment}
               </span>
             ) : (
               <button
                 type="button"
                 onClick={() => onNavigate(nextPath)}
-                className="rounded-lg border border-[var(--border)] px-3 py-1.5 text-[var(--text-secondary)] hover:bg-[var(--surface)]/10"
+                className="rounded-lg border border-[var(--border)] px-3 py-1.5 text-[var(--text-secondary)] hover:bg-[var(--surface-hover)]"
               >
                 {displaySegment}
               </button>

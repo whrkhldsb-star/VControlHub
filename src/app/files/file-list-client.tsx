@@ -37,6 +37,7 @@ import {
   sortFolders,
   type FolderProp,
 } from "./file-list-model";
+import { getParentPath } from "./files-browser-helpers";
 import { useFileListSort } from "./use-file-list-sort";
 import { useFileSelection } from "./use-file-selection";
 import { useFileToast } from "./use-file-toast";
@@ -247,6 +248,11 @@ export function FileListClient({
   const emptyMessage = searchQuery
     ? t("fileListClient.searchEmpty").replace("{query}", searchQuery)
     : t("fileListClient.emptyFolder");
+  const parentPath = useMemo(() => getParentPath(currentPath), [currentPath]);
+  const goToParent = useCallback(() => {
+    if (parentPath === null) return;
+    navigateToFolder(parentPath);
+  }, [navigateToFolder, parentPath]);
 
   const [detailEntryId, setDetailEntryId] = useState<string | null>(null);
   const detailEntry = useMemo(() => {
@@ -261,6 +267,8 @@ export function FileListClient({
     sortedFolders,
     sortedFiles,
     emptyMessage,
+    parentPath,
+    onGoUp: parentPath !== null ? goToParent : undefined,
     effectiveSelectedIdSet,
     toggleOne,
     navigateToFolder,
@@ -284,6 +292,7 @@ export function FileListClient({
           selectedCount={selectedCount}
           viewMode={viewMode}
           onChangeViewMode={handleViewModeChange}
+          onGoUp={parentPath !== null ? goToParent : undefined}
         />
 
         {viewMode === "list" ? (

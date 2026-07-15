@@ -44,6 +44,7 @@ type ListProps = {
   onDragOver: (event: React.DragEvent) => void;
   onDrop: (event: React.DragEvent) => void;
   onNavigateInto: (dirName: string) => void;
+  onGoUp?: () => void;
   onRename: () => void;
   renameTarget: string | null;
   renameValue: string;
@@ -65,6 +66,7 @@ export function SshFileList({
   onDragOver,
   onDrop,
   onNavigateInto,
+  onGoUp,
   onRename,
   renameTarget,
   renameValue,
@@ -87,7 +89,23 @@ export function SshFileList({
     >
       {dragOver && <div className="flex h-full items-center justify-center text-sm text-[var(--color-action-fg)]">📥 {t("sshFileManager.dropHere")}</div>}
       {!dragOver && loading && <div className="flex h-full items-center justify-center text-xs text-[var(--text-muted)]">{t("sshFileManager.loading")}</div>}
-      {!dragOver && !loading && entries.length === 0 && !error && <div className="flex h-full items-center justify-center text-xs text-[var(--text-muted)]">{t("sshFileManager.empty")}</div>}
+      {!dragOver && !loading && entries.length === 0 && !error && (
+        <div className="flex h-full flex-col items-center justify-center gap-3 px-3 text-center text-xs text-[var(--text-muted)]">
+          <p>{t("sshFileManager.empty")}</p>
+          {onGoUp ? (
+            <button
+              type="button"
+              onClick={onGoUp}
+              data-testid="ssh-files-up-level"
+              className="inline-flex items-center gap-1 rounded-lg border border-[var(--border)] bg-[var(--surface-elevated)] px-3 py-1.5 text-xs font-medium text-[var(--text-primary)] transition hover:bg-[var(--surface-hover)]"
+              aria-label={t("sshFileManager.upLevelAria")}
+            >
+              <span aria-hidden="true">↑</span>
+              {t("sshFileManager.upLevel")}
+            </button>
+          ) : null}
+        </div>
+      )}
       {!dragOver && !loading && entries.map((entry) => (
         <div key={entry.name} className={`group flex items-center gap-2 rounded-lg px-2 py-1.5 text-xs transition hover:bg-[var(--surface-hover)] ${selectedEntry === entry.name ? "bg-[var(--surface-elevated)]" : ""}`} onClick={() => setSelectedEntry(entry.name)} onDoubleClick={() => { if (entry.isDirectory) onNavigateInto(entry.name); else onDownload(entry); }}>
           <span className="shrink-0" aria-hidden="true">{entry.isDirectory ? "📁" : entry.isSymlink ? "🔗" : "📄"}</span>

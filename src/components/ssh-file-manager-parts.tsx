@@ -48,6 +48,7 @@ type HeaderProps = {
   mkdirName: string;
   onMkdir: () => void;
   onNavigateToBreadcrumb: (index: number) => void;
+  onGoUp?: () => void;
   onSelectFiles: (files: FileList) => void;
   setMkdirName: (name: string) => void;
   setShowMkdir: (show: boolean) => void;
@@ -61,6 +62,7 @@ export function SshFileManagerHeader({
   mkdirName,
   onMkdir,
   onNavigateToBreadcrumb,
+  onGoUp,
   onSelectFiles,
   setMkdirName,
   setShowMkdir,
@@ -87,6 +89,18 @@ export function SshFileManagerHeader({
       </div>
 
       <div className="flex flex-wrap items-center gap-0.5 text-xs">
+        {onGoUp ? (
+          <button
+            type="button"
+            onClick={onGoUp}
+            data-testid="ssh-files-header-up"
+            className="mr-1 rounded border border-[var(--border)] bg-[var(--surface-elevated)] px-1.5 py-0.5 font-medium text-[var(--text-primary)] transition hover:bg-[var(--surface-hover)]"
+            aria-label={t("sshFileManager.upLevelAria")}
+            title={t("sshFileManager.upLevel")}
+          >
+            ↑ {t("sshFileManager.upLevel")}
+          </button>
+        ) : null}
         <button type="button" onClick={() => onNavigateToBreadcrumb(-1)} className="rounded px-1.5 py-0.5 text-[var(--text-muted)] transition hover:bg-[var(--surface-hover)] hover:text-[var(--color-action-fg)]">/</button>
         {breadcrumbs.map((crumb, i) => (
           <span key={i} className="flex items-center gap-0.5">

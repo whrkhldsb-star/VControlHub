@@ -15,6 +15,7 @@ export type FileListToolbarProps = {
   selectedCount: number;
   viewMode: ViewMode;
   onChangeViewMode: (mode: ViewMode) => void;
+  onGoUp?: () => void;
 };
 
 function ViewButton({
@@ -54,6 +55,7 @@ export function FileListToolbar({
   selectedCount,
   viewMode,
   onChangeViewMode,
+  onGoUp,
 }: FileListToolbarProps) {
   const { t } = useI18n();
   return (
@@ -62,6 +64,18 @@ export function FileListToolbar({
       className="flex flex-wrap items-center justify-between gap-2 border-b border-[var(--border)] bg-[color-mix(in_srgb,var(--surface)_92%,transparent)] px-4 py-2.5 sm:px-5"
     >
       <div className="flex flex-wrap items-center gap-2 text-sm text-[var(--text-muted)]">
+        {onGoUp ? (
+          <button
+            type="button"
+            onClick={onGoUp}
+            data-testid="files-list-up-level"
+            className="inline-flex items-center gap-1.5 rounded-lg border border-[var(--border)] bg-[var(--surface)] px-2.5 py-1 text-xs font-medium text-[var(--text-primary)] transition hover:bg-[var(--surface-hover)]"
+            title={t("fileListClient.upLevel")}
+          >
+            <span aria-hidden="true">↑</span>
+            {t("fileListClient.upLevel")}
+          </button>
+        ) : null}
         <span className="inline-flex items-center rounded-full border border-[var(--border-subtle)] bg-[var(--surface-elevated)] px-2.5 py-0.5 text-xs font-medium text-[var(--text-secondary)]">
           {t("filesPage.list.itemCount").replace("{count}", String(itemCount))}
         </span>

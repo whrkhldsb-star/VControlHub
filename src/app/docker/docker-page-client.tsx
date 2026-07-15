@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { PageShell, PageHeader } from "@/components/page-shell";
+import { PageShell, PageHeader, EmptyState } from "@/components/page-shell";
 import { csrfFetch } from "@/lib/auth/csrf-client";
 import { useDialogFocus } from "@/lib/a11y/use-dialog-focus";
 import { getRefreshIntervalLabel } from "@/lib/preferences/refresh-interval";
@@ -268,7 +268,7 @@ export default function DockerPage({ initialServers }: { initialServers: { id: s
 						id="docker-server-select"
 						value={selectedServerId}
 						onChange={(e) => setSelectedServerId(e.target.value)}
-						className="min-h-11 rounded-lg border border-[var(--border)] bg-[var(--surface-elevated)] px-3 text-sm text-[var(--text-primary)] focus:outline-none focus:ring-1 focus:ring-[var(--color-action-ring)]"
+						data-input className="min-h-11 rounded-xl border border-[var(--border)] bg-[var(--input-bg)] px-3 text-sm text-[var(--text-primary)] focus:border-[var(--accent-border)] focus:outline-none"
 					>
 						<option value="">{t("dockerPage.scope.hubHost")}</option>
 						{serverList.map((s) => (
@@ -337,9 +337,7 @@ export default function DockerPage({ initialServers }: { initialServers: { id: s
 			{loading ? (
 				<div className="text-sm text-[var(--text-muted)]">{t("dockerPage.loading")}</div>
 			) : containers.length === 0 ? (
-				<div data-empty-state className="bg-[var(--surface)]/[0.04]">
-					{t("dockerPage.empty")}
-				</div>
+				<EmptyState text={t("dockerPage.empty")} variant="boxed" />
 			) : (
 				<div className="space-y-4">
 					{grouped.map((group) => (

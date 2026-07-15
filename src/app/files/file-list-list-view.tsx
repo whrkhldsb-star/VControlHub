@@ -37,6 +37,8 @@ export type FileListListViewProps = {
   sortedFiles: FileProp[];
   visibleFilesCount: number;
   emptyMessage: string;
+  parentPath?: string | null;
+  onGoUp?: () => void;
   allSelected: boolean;
   someSelected: boolean;
   effectiveSelectedIdSet: Set<string>;
@@ -64,6 +66,7 @@ export function FileListListView(props: FileListListViewProps) {
     sortedFiles,
     visibleFilesCount,
     emptyMessage,
+  onGoUp,
     allSelected,
     someSelected,
     effectiveSelectedIdSet,
@@ -153,7 +156,21 @@ export function FileListListView(props: FileListListViewProps) {
           <div className="divide-y divide-white/[0.04] light:divide-[var(--border)]">
             {sortedFolders.length === 0 && sortedFiles.length === 0 ? (
               <div className="px-6 py-16 text-center text-sm text-[var(--text-muted)]">
-                {emptyMessage}
+                <p>{emptyMessage}</p>
+                {onGoUp ? (
+                  <>
+                    <button
+                      type="button"
+                      onClick={onGoUp}
+                      data-testid="files-empty-up-level"
+                      className="mt-4 inline-flex items-center gap-1.5 rounded-xl border border-[var(--border)] bg-[var(--surface-elevated)] px-4 py-2 text-sm font-medium text-[var(--text-primary)] transition hover:bg-[var(--surface-hover)]"
+                    >
+                      <span aria-hidden="true">↑</span>
+                      {t("fileListClient.upLevel")}
+                    </button>
+                    <p className="mt-2 text-xs text-[var(--text-muted)]">{t("fileListClient.upLevelHint")}</p>
+                  </>
+                ) : null}
               </div>
             ) : null}
 
@@ -316,7 +333,21 @@ export function FileListListView(props: FileListListViewProps) {
       <div className="divide-y divide-[var(--border-subtle)] md:hidden">
         {sortedFolders.length === 0 && sortedFiles.length === 0 ? (
           <div className="px-6 py-16 text-center text-sm text-[var(--text-muted)]">
-            {emptyMessage}
+            <p>{emptyMessage}</p>
+            {onGoUp ? (
+              <>
+                <button
+                  type="button"
+                  onClick={onGoUp}
+                  data-testid="files-empty-up-level"
+                  className="mt-4 inline-flex items-center gap-1.5 rounded-xl border border-[var(--border)] bg-[var(--surface-elevated)] px-4 py-2 text-sm font-medium text-[var(--text-primary)] transition hover:bg-[var(--surface-hover)]"
+                >
+                  <span aria-hidden="true">↑</span>
+                  {t("fileListClient.upLevel")}
+                </button>
+                <p className="mt-2 text-xs text-[var(--text-muted)]">{t("fileListClient.upLevelHint")}</p>
+              </>
+            ) : null}
           </div>
         ) : null}
 

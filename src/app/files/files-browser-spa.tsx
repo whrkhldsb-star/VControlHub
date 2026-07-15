@@ -268,12 +268,12 @@ export function FilesBrowserSpa({
                         ? t("filesBrowserSpa.searchAllFiles")
                         : t("filesBrowserSpa.searchCurrentFolder")
                     }
-                    className="rounded-2xl border border-[var(--border)] bg-[var(--input-bg)] px-4 py-2.5 text-sm text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus:border-[var(--color-action-border)]/50 focus:outline-none"
+                    data-input className="rounded-xl border border-[var(--border)] bg-[var(--input-bg)] px-4 py-2.5 text-sm text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus:border-[var(--accent-border)] focus:outline-none"
                   />
                 </div>
                 <button
                   type="submit"
-                  data-tone="cyan" className="rounded-lg border border-[var(--color-action-border)]/30 px-5 py-2.5 text-sm font-medium text-[var(--text-primary)] transition hover:bg-[var(--color-action-bg)]/20"
+                  data-primary className="rounded-xl bg-[var(--accent)] px-5 py-2.5 text-sm font-semibold text-[var(--on-accent)] transition hover:bg-[var(--accent-hover)]"
                 >
                   {t("filesBrowserSpa.searchLabel")}
                 </button>
@@ -284,7 +284,7 @@ export function FilesBrowserSpa({
                       setSearchInput("");
                       fetchFiles(data.currentPath);
                     }}
-                    className="rounded-lg border border-[var(--border)] bg-[var(--surface)]/10 px-5 py-2.5 text-sm font-medium text-[var(--text-secondary)] transition hover:bg-[var(--surface)]/10"
+                    className="rounded-xl border border-[var(--border)] bg-[var(--surface-elevated)] px-5 py-2.5 text-sm font-medium text-[var(--text-secondary)] transition hover:bg-[var(--surface-hover)]"
                   >
                     {t("filesBrowserSpa.clear")}
                   </button>
@@ -310,7 +310,7 @@ export function FilesBrowserSpa({
             />
           </div>
 
-          <div data-tone="cyan" className="mt-6 rounded-3xl border border-[var(--color-action-border)]/20 p-5">
+          <div data-tone="cyan" className="mt-6 rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-5 shadow-[var(--shadow-sm)]">
             <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
               <div>
                 <h3 className="text-xl font-semibold text-[var(--text-primary)]">

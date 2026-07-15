@@ -92,6 +92,17 @@ export function SshFileManager({ serverId, visible }: SshFileManagerProps) {
     loadDir(currentPath.replace(/\/$/, "") + "/" + dirName);
   }
 
+  function navigateUp() {
+    const parts = currentPath.replace(/\/+$/, "").split("/").filter(Boolean);
+    if (parts.length === 0) {
+      loadDir("/");
+      return;
+    }
+    loadDir("/" + parts.slice(0, -1).join("/"));
+  }
+
+  const canGoUp = currentPath.replace(/\/+$/, "") !== "" && currentPath !== "/";
+
   const handleUpload = useCallback(
     async (files: FileList) => {
       const dir = currentPath.replace(/\/$/, "");
@@ -189,10 +200,10 @@ export function SshFileManager({ serverId, visible }: SshFileManagerProps) {
 
   return (
     <div className="flex max-h-[50vh] w-full shrink-0 flex-col gap-2 overflow-y-auto lg:ml-3 lg:max-h-none lg:w-72" data-testid={`ssh-file-manager-${serverId}`}>
-      <SshFileManagerHeader breadcrumbs={breadcrumbs} fileInputRef={fileInputRef} mkdirName={mkdirName} onMkdir={handleMkdir} onNavigateToBreadcrumb={navigateToBreadcrumb} onSelectFiles={handleUpload} setMkdirName={setMkdirName} setShowMkdir={setShowMkdir} showMkdir={showMkdir} t={t} />
+      <SshFileManagerHeader breadcrumbs={breadcrumbs} fileInputRef={fileInputRef} mkdirName={mkdirName} onMkdir={handleMkdir} onNavigateToBreadcrumb={navigateToBreadcrumb} onGoUp={canGoUp ? navigateUp : undefined} onSelectFiles={handleUpload} setMkdirName={setMkdirName} setShowMkdir={setShowMkdir} showMkdir={showMkdir} t={t} />
       {error && <div className="rounded-xl border border-[var(--danger-border)] px-3 py-2 text-xs text-[var(--danger)]">❌ {error}</div>}
       <SshUploadProgressList uploads={uploads} />
-      <SshFileList dragOver={dragOver} entries={entries} error={error} loading={loading} onDelete={setPendingDeleteEntry} onDownload={handleDownload} onDragLeave={onDragLeave} onDragOver={onDragOver} onDrop={onDrop} onNavigateInto={navigateInto} onRename={handleRename} renameTarget={renameTarget} renameValue={renameValue} selectedEntry={selectedEntry} setRenameTarget={setRenameTarget} setRenameValue={setRenameValue} setSelectedEntry={setSelectedEntry} t={t} />
+      <SshFileList dragOver={dragOver} entries={entries} error={error} loading={loading} onDelete={setPendingDeleteEntry} onDownload={handleDownload} onDragLeave={onDragLeave} onDragOver={onDragOver} onDrop={onDrop} onNavigateInto={navigateInto} onGoUp={canGoUp ? navigateUp : undefined} onRename={handleRename} renameTarget={renameTarget} renameValue={renameValue} selectedEntry={selectedEntry} setRenameTarget={setRenameTarget} setRenameValue={setRenameValue} setSelectedEntry={setSelectedEntry} t={t} />
       <SshDeleteDialog entry={pendingDeleteEntry} onCancel={() => setPendingDeleteEntry(null)} onConfirm={(entry) => void handleDelete(entry)} t={t} />
     </div>
   );
