@@ -194,8 +194,9 @@ export function NotificationBell() {
 		<div className="relative" ref={panelRef}>
 			<button
 				ref={buttonRef}
+				type="button"
 				onClick={togglePanel}
-				className="relative flex items-center justify-center w-11 h-11 rounded-lg text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--surface-elevated)] transition"
+				className="relative flex h-9 w-9 items-center justify-center rounded-lg text-[var(--text-muted)] transition hover:bg-[var(--surface-elevated)] hover:text-[var(--text-primary)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--accent)]"
 				aria-label={notificationLabel}
 				aria-haspopup="dialog"
 				aria-expanded={isOpen}
@@ -205,7 +206,7 @@ export function NotificationBell() {
 					<path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
 				</svg>
 				{effectiveUnread > 0 && (
-					<span className="absolute -top-0.5 -right-0.5 flex h-4 min-w-[16px] items-center justify-center rounded-full bg-[var(--danger)] px-1 text-[9px] font-bold text-white animate-pulse">
+					<span className="absolute -right-0.5 -top-0.5 flex h-4 min-w-[16px] animate-pulse items-center justify-center rounded-full bg-[var(--danger)] px-1 text-[9px] font-bold text-[var(--on-accent)]">
 						{effectiveUnread > 99 ? "99+" : effectiveUnread}
 					</span>
 				)}
@@ -229,10 +230,10 @@ export function NotificationBell() {
 						maxHeight: popoverPos ? `${popoverPos.maxHeight}px` : "60vh",
 						visibility: popoverPos ? "visible" : "hidden",
 					}}
-					className="w-80 rounded-xl border border-[var(--border)] bg-[var(--modal-bg)] backdrop-blur-xl shadow-2xl z-[9999] overflow-y-auto"
+					className="z-[9999] w-80 overflow-y-auto rounded-2xl border border-[var(--border)] bg-[var(--modal-bg)] shadow-[var(--shadow-lg)] backdrop-blur-xl"
 					>
-					<div className="sticky top-0 bg-[var(--modal-bg)] backdrop-blur border-b border-[var(--border)] px-4 py-3 flex items-center justify-between">
-						<span id="notification-popover-title" className="text-sm font-medium text-[var(--text-primary)]">{notificationLabel}</span>
+					<div className="sticky top-0 flex items-center justify-between border-b border-[var(--border)] bg-[color-mix(in_srgb,var(--modal-bg)_92%,transparent)] px-4 py-3 backdrop-blur">
+						<span id="notification-popover-title" className="text-sm font-semibold text-[var(--text-primary)]">{notificationLabel}</span>
 						<div className="flex items-center gap-2">
 							{wsConnected ? (
 								<span className="text-[10px] text-[var(--success)]/70 light:text-[var(--success)]">{realtimeLabel}</span>
@@ -242,7 +243,7 @@ export function NotificationBell() {
 								<span className="text-[10px] text-[var(--text-muted)]">{pollingPrefix} {getRefreshIntervalLabel(refreshIntervalSeconds)}</span>
 							)}
 							{effectiveUnread > 0 && (
-								<button onClick={markAllRead} className="text-[11px] text-[var(--color-action)] hover:opacity-80 transition">
+								<button type="button" onClick={markAllRead} className="text-[11px] font-medium text-[var(--accent)] transition hover:text-[var(--accent-hover)]">
 									{markAllReadLabel}
 								</button>
 							)}
@@ -254,17 +255,17 @@ export function NotificationBell() {
 						</div>
 					)}
 					{notifications.length === 0 && !feedback ? (
-						<div className="p-6 text-center text-xs text-[var(--text-secondary)]">{emptyLabel}</div>
+						<div className="px-4 py-10 text-center text-xs text-[var(--text-muted)]">{emptyLabel}</div>
 					) : notifications.length > 0 ? (
-						<ul className="divide-y divide-white/[0.04] light:divide-[var(--border)]" aria-label={recentListLabel}>
+						<ul className="divide-y divide-[var(--border-subtle)]" aria-label={recentListLabel}>
 							{notifications.slice(0, 10).map((n) => (
 								<li key={n.id}>
 									<Link
 										href={getSafeNotificationActionUrl(n.actionUrl)}
-										className={`block px-4 py-3 hover:bg-[var(--surface-elevated)] transition ${n.isRead ? "opacity-70" : ""}`}
+										className={`block px-4 py-3 transition hover:bg-[var(--surface-hover)] ${n.isRead ? "opacity-70" : "bg-[color-mix(in_srgb,var(--accent-bg)_35%,transparent)]"}`}
 									>
 										<div className="flex items-center gap-2">
-											{!n.isRead && <div className="h-1.5 w-1.5 rounded-full bg-[var(--color-action-bg)] shrink-0" />}
+											{!n.isRead && <div className="h-1.5 w-1.5 shrink-0 rounded-full bg-[var(--accent)]" aria-hidden="true" />}
 											<span className={`text-xs font-medium truncate ${n.isRead ? "text-[var(--text-secondary)]" : "text-[var(--text-primary)]"}`}>{n.title}</span>
 											</div>
 											<p className="mt-1 text-[11px] text-[var(--text-muted)] truncate">{n.message}</p>
@@ -273,8 +274,8 @@ export function NotificationBell() {
 							))}
 						</ul>
 					) : null}
-					<div className="sticky bottom-0 border-t border-[var(--border)] bg-[var(--modal-bg)]">
-						<Link href="/notifications" className="block px-4 py-2.5 text-center text-xs text-[var(--color-action)]/80 hover:text-[var(--color-action)] transition light:hover:text-[var(--color-action-strong)]">
+					<div className="sticky bottom-0 border-t border-[var(--border)] bg-[color-mix(in_srgb,var(--modal-bg)_94%,transparent)] backdrop-blur">
+						<Link href="/notifications" className="block px-4 py-2.5 text-center text-xs font-medium text-[var(--accent)] transition hover:bg-[var(--surface-hover)] hover:text-[var(--accent-hover)]">
 							{viewAllLabel}
 						</Link>
 					</div>

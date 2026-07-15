@@ -271,18 +271,34 @@ export function GlobalSearch({
 	if (!open) return null;
 
 	return (
-		<div className="fixed inset-0 pb-[env(safe-area-inset-bottom)] z-[70] flex items-start justify-center pt-[15vh] bg-[var(--overlay)] backdrop-blur-sm" onClick={closeSearch}>
+		<div
+			className="fixed inset-0 z-[70] flex items-start justify-center bg-[var(--overlay)] pb-[env(safe-area-inset-bottom)] pt-[12vh] backdrop-blur-sm sm:pt-[15vh]"
+			onClick={closeSearch}
+		>
 			<div
 				ref={dialogRef}
 				role="dialog"
 				aria-modal="true"
 				aria-label={t("search.dialog")}
-				className="w-full max-w-lg mx-4 bg-[var(--modal-bg)] border border-[var(--border)] rounded-2xl shadow-2xl overflow-hidden"
+				className="mx-4 w-full max-w-lg overflow-hidden rounded-2xl border border-[var(--border)] bg-[var(--modal-bg)] shadow-[var(--shadow-lg)]"
 				onClick={(e) => e.stopPropagation()}
-				>
-				<div className="flex items-center px-4 border-b border-[var(--border)]">
-					<svg className="w-4 h-4 text-[var(--text-muted)] shrink-0" fill="none" stroke="currentColor" width="24" height="24" viewBox="0 0 24 24">
-						<path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+			>
+				<div className="flex items-center gap-2 border-b border-[var(--border)] px-4">
+					<svg
+						className="h-4 w-4 shrink-0 text-[var(--text-muted)]"
+						fill="none"
+						stroke="currentColor"
+						width="24"
+						height="24"
+						viewBox="0 0 24 24"
+						aria-hidden="true"
+					>
+						<path
+							strokeLinecap="round"
+							strokeLinejoin="round"
+							strokeWidth={2}
+							d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
+						/>
 					</svg>
 					<input
 						ref={inputRef}
@@ -291,21 +307,59 @@ export function GlobalSearch({
 						aria-label={t("search.input-label")}
 						aria-expanded="true"
 						aria-controls="global-search-results"
-						aria-activedescendant={filtered[selectedIndex] ? `global-search-result-${selectedIndex}`: undefined} aria-autocomplete="list" value={query} onChange={(e) => setQuery(e.target.value)} onKeyDown={handleKeyDown} placeholder={t("search.placeholder")} className="flex-1 bg-transparent px-3 py-3.5 text-sm text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus:outline-none" /> <kbd className="text-[10px] text-[var(--text-muted)] bg-[var(--surface-hover)] rounded px-1.5 py-0.5">ESC</kbd> </div> <ul id="global-search-results" role="listbox" className="max-h-72 overflow-y-auto py-2"> {filtered.length === 0 && ( <li className="px-4 py-6 text-center text-sm text-[var(--text-muted)]">{t("search.no-results")}</li> )} {filtered.map((item, i) => ( <li key={item.href + item.label} id={`global-search-result-${i}`} role="option" aria-selected={i === selectedIndex}>
+						aria-activedescendant={
+							filtered[selectedIndex] ? `global-search-result-${selectedIndex}` : undefined
+						}
+						aria-autocomplete="list"
+						value={query}
+						onChange={(e) => setQuery(e.target.value)}
+						onKeyDown={handleKeyDown}
+						placeholder={t("search.placeholder")}
+						className="min-w-0 flex-1 bg-transparent py-3.5 text-sm text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus:outline-none"
+					/>
+					<kbd className="hidden rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-elevated)] px-1.5 py-0.5 text-[10px] font-medium text-[var(--text-muted)] sm:inline">
+						ESC
+					</kbd>
+				</div>
+				<ul id="global-search-results" role="listbox" className="max-h-72 overflow-y-auto py-1.5">
+					{filtered.length === 0 && (
+						<li className="px-4 py-8 text-center text-sm text-[var(--text-muted)]">{t("search.no-results")}</li>
+					)}
+					{filtered.map((item, i) => (
+						<li
+							key={item.href + item.label}
+							id={`global-search-result-${i}`}
+							role="option"
+							aria-selected={i === selectedIndex}
+						>
 							<button
+								type="button"
 								onClick={() => navigate(item)}
-								className={`w-full flex items-center gap-3 px-4 py-2.5 text-sm transition ${
-									i === selectedIndex ?"bg-[var(--surface-elevated)] text-[var(--text-primary)]" :"text-[var(--text-secondary)] hover:bg-[var(--surface-elevated)]"
+								className={`flex w-full items-center gap-3 px-4 py-2.5 text-sm transition ${
+									i === selectedIndex
+										? "bg-[var(--accent-bg)] text-[var(--text-primary)]"
+										: "text-[var(--text-secondary)] hover:bg-[var(--surface-hover)]"
 								}`}
 							>
-								<span className="text-base">{item.icon}</span>
-								<span className="flex-1 text-left">{item.label}</span>
-								<span className="text-[10px] text-[var(--text-muted)]">{item.category}</span>
+								<span
+									className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-xl border text-base ${
+										i === selectedIndex
+											? "border-[var(--accent-border)] bg-[var(--surface-elevated)]"
+											: "border-[var(--border-subtle)] bg-[var(--surface-elevated)]"
+									}`}
+									aria-hidden="true"
+								>
+									{item.icon}
+								</span>
+								<span className="min-w-0 flex-1 truncate text-left font-medium">{item.label}</span>
+								<span className="shrink-0 rounded-full border border-[var(--border-subtle)] bg-[var(--surface)] px-2 py-0.5 text-[10px] text-[var(--text-muted)]">
+									{item.category}
+								</span>
 							</button>
 						</li>
 					))}
 				</ul>
-				<div className="border-t border-[var(--border-subtle)] px-4 py-2 flex items-center gap-4 text-[10px] text-[var(--text-muted)]">
+				<div className="flex flex-wrap items-center gap-x-4 gap-y-1 border-t border-[var(--border-subtle)] bg-[color-mix(in_srgb,var(--surface)_50%,transparent)] px-4 py-2.5 text-[10px] text-[var(--text-muted)]">
 					<span>{t("search.shortcut-select")}</span>
 					<span>{t("search.shortcut-confirm")}</span>
 					<span>{t("search.shortcut-close")}</span>
