@@ -19,7 +19,7 @@ export default function NotFoundPage() {
 				<Link
 					href="/"
 					data-primary
-					className="mt-7 inline-flex h-11 items-center justify-center rounded-xl bg-[var(--accent)] px-6 text-sm font-semibold text-white transition hover:bg-[var(--accent-hover)]"
+					className="mt-7 inline-flex h-11 items-center justify-center rounded-xl bg-[var(--accent)] px-6 text-sm font-semibold text-[var(--on-accent)] transition hover:bg-[var(--accent-hover)]"
 				>
 					{t("notFound.returnHome")}
 				</Link>

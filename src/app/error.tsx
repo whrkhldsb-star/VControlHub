@@ -65,7 +65,7 @@ export default function RootError({
 					<button
 						onClick={reset}
 						data-primary
-						className="cursor-pointer rounded-xl border-none bg-[var(--accent)] px-6 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-[var(--accent-hover)]"
+						className="cursor-pointer rounded-xl border-none bg-[var(--accent)] px-6 py-2.5 text-sm font-semibold text-[var(--on-accent)] transition-colors hover:bg-[var(--accent-hover)]"
 					>
 						{t("common.retry")}
 					</button>

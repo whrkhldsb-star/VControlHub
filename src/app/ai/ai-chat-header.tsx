@@ -27,7 +27,7 @@ export function AiChatHeader({
 }: ChatHeaderProps) {
   const { t } = useI18n();
   return (
-    <div className="flex items-center gap-3 border-b border-[var(--border)] bg-[color-mix(in_srgb,var(--surface)_94%,transparent)] px-4 py-3 backdrop-blur">
+    <div className="flex items-center gap-3 border-b border-[var(--border)] bg-[color-mix(in_srgb,var(--surface)_96%,transparent)] px-4 py-3 shadow-[var(--shadow-sm)] backdrop-blur">
       {/* Mobile sidebar toggle */}
       <button
         onClick={onToggleSidebar}

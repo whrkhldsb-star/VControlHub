@@ -56,7 +56,7 @@ export function AiInputArea({
   const allowedTypes = formatAllowedTypes(currentModelCaps, t);
 
   return (
-    <div className="px-4 py-3 border-t border-[var(--border)] bg-[var(--surface-subtle)]">
+    <div className="border-t border-[var(--border)] bg-[color-mix(in_srgb,var(--surface)_94%,transparent)] px-4 py-3 backdrop-blur">
       {/* File rejection toast */}
       {fileRejectionMsg && (
         <div className="mb-2 px-3 py-2 rounded-lg bg-[var(--danger-bg)] border border-[var(--danger-border)] text-xs text-[var(--danger)] flex items-center gap-2 animate-in fade-in slide-in-from-bottom-2 duration-300">
@@ -64,15 +64,16 @@ export function AiInputArea({
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
           </svg>
           <span>{fileRejectionMsg}</span>
-          <button onClick={clearRejection} aria-label={t("aiPage.fileRejectionDismissAria")} className="ml-auto text-[var(--danger)]/60 hover:text-[var(--danger)] flex-shrink-0">×</button>
+          <button type="button" onClick={clearRejection} aria-label={t("aiPage.fileRejectionDismissAria")} className="ml-auto text-[var(--danger)]/60 hover:text-[var(--danger)] flex-shrink-0">×</button>
         </div>
       )}
       <div className="flex gap-2 items-end">
         {/* File upload button */}
         <button
+          type="button"
           onClick={() => fileInputRef.current?.click()}
           disabled={streaming}
-          className="h-10 w-10 rounded-xl bg-[var(--surface)]/[0.04] text-[var(--text-secondary)] flex items-center justify-center hover:bg-[var(--surface)]/[0.10] hover:text-[var(--text-secondary)] light:hover:text-[var(--text-disabled)] transition disabled:opacity-30"
+          className="flex h-10 w-10 items-center justify-center rounded-xl border border-[var(--border)] bg-[var(--surface-elevated)] text-[var(--text-secondary)] transition hover:bg-[var(--surface-hover)] hover:text-[var(--text-primary)] disabled:opacity-30"
           aria-label={t("aiPage.uploadFileTitle").replace("{types}", allowedTypes)}
           title={t("aiPage.uploadFileTitle").replace("{types}", allowedTypes)}
         >
@@ -110,7 +111,8 @@ export function AiInputArea({
           }
           rows={1}
           disabled={streaming}
-          className="flex-1 bg-[var(--input-bg)] border border-[var(--border)] rounded-xl px-4 py-2.5 text-sm text-[var(--text-primary)] placeholder-slate-600 resize-none focus:outline-none focus:border-[var(--color-action-border)]/30 transition disabled:opacity-50"
+          data-input
+          className="flex-1 resize-none rounded-xl border border-[var(--border)] bg-[var(--input-bg)] px-4 py-2.5 text-sm text-[var(--text-primary)] placeholder:text-[var(--text-muted)] transition focus:border-[var(--accent-border)] focus:outline-none disabled:opacity-50"
           style={{ maxHeight: "120px" }}
           onInput={(e) => {
             const el = e.currentTarget;
@@ -119,9 +121,10 @@ export function AiInputArea({
           }}
         />
         <button
+          type="button"
           onClick={handleSend}
           disabled={streaming || (!input.trim() && fileAttachments.length === 0)}
-          className="h-10 w-10 rounded-xl bg-[var(--color-action)]/20 text-[var(--color-action)] flex items-center justify-center hover:bg-[var(--color-action)]/30 transition disabled:opacity-30 disabled:cursor-not-allowed"
+          className="flex h-10 w-10 items-center justify-center rounded-xl bg-[var(--accent)] text-[var(--on-accent)] transition hover:bg-[var(--accent-hover)] disabled:cursor-not-allowed disabled:opacity-30"
           aria-label={t("aiPage.sendAria")}
         >
           <svg className="w-5 h-5" fill="none" stroke="currentColor" width="24" height="24" viewBox="0 0 24 24">
@@ -130,8 +133,9 @@ export function AiInputArea({
         </button>
         {streaming && (
           <button
+            type="button"
             onClick={handleStopGeneration}
-            className="h-10 w-10 rounded-xl bg-[var(--danger-bg)] text-[var(--danger)] flex items-center justify-center hover:bg-[var(--danger-bg)] transition"
+            className="flex h-10 w-10 items-center justify-center rounded-xl border border-[var(--danger-border)] bg-[var(--danger-bg)] text-[var(--danger)] transition hover:opacity-90"
             aria-label={t("aiPage.stopGenTitle")}
             title={t("aiPage.stopGenTitle")}
           >

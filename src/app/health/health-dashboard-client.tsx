@@ -181,7 +181,7 @@ export function HealthDashboardClient({ serverCount, initialSystemHealth }: Prop
 					</div>
 					<div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
 						{[1, 2, 3].map((i) => (
-							<div key={i} className="animate-pulse rounded-xl border border-white/[0.10] light:border-[var(--border)] bg-[var(--surface)] p-4 h-24" />
+							<div key={i} className="animate-pulse rounded-xl border border-[var(--border)] bg-[var(--surface)] p-4 h-24" />
 						))}
 					</div>
 				</section>
@@ -197,7 +197,7 @@ export function HealthDashboardClient({ serverCount, initialSystemHealth }: Prop
 				<div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
 					<div className="text-xs text-[var(--text-muted)]">{t("healthPage.ui.lastRefresh")}: —</div>
 					<div className="flex flex-wrap items-center gap-3">
-						<button type="button" disabled className="min-h-11 inline-flex items-center rounded-lg border border-white/[0.10] light:border-[var(--border)] bg-[var(--surface)] px-3 text-xs text-[var(--text-muted)] opacity-60">
+						<button type="button" disabled className="min-h-11 inline-flex items-center rounded-lg border border-[var(--border)] bg-[var(--surface)] px-3 text-xs text-[var(--text-muted)] opacity-60">
 							{t("healthPage.ui.refreshing")}
 						</button>
 					</div>
@@ -207,7 +207,7 @@ export function HealthDashboardClient({ serverCount, initialSystemHealth }: Prop
 					<div className="overflow-x-auto">
 						<table className="w-full text-sm">
 							<thead>
-								<tr className="border-b border-white/[0.10] light:border-[var(--border)] bg-[var(--surface)]">
+								<tr className="border-b border-[var(--border)] bg-[var(--surface-elevated)]">
 									<th className="px-4 py-3 text-left text-xs font-medium text-[var(--text-muted)] uppercase tracking-wider">{t("healthPage.ui.node")}</th>
 									<th className="px-4 py-3 text-left text-xs font-medium text-[var(--text-muted)] uppercase tracking-wider">{t("healthPage.ui.status")}</th>
 									<th className="px-4 py-3 text-left text-xs font-medium text-[var(--text-muted)] uppercase tracking-wider">CPU</th>
@@ -217,7 +217,7 @@ export function HealthDashboardClient({ serverCount, initialSystemHealth }: Prop
 									<th className="px-4 py-3 text-left text-xs font-medium text-[var(--text-muted)] uppercase tracking-wider">{t("healthPage.ui.details")}</th>
 								</tr>
 							</thead>
-							<tbody className="divide-y divide-white/[0.04] light:divide-[var(--border)]">
+							<tbody className="divide-y divide-[var(--border-subtle)]">
 								{Array.from({ length: skeletonRowCount }).map((_, i) => (
 									<tr key={i} className="animate-pulse">
 										<td className="px-4 py-4"><div className="h-3 w-32 rounded-lg bg-[var(--surface-elevated)]" /></td>
@@ -334,7 +334,7 @@ export function HealthDashboardClient({ serverCount, initialSystemHealth }: Prop
 						onClick={fetchHealth}
 						disabled={isRefreshing}
 						aria-label={t("healthPage.ui.refreshAria")}
-						className="min-h-11 inline-flex items-center rounded-lg border border-white/[0.10] light:border-[var(--border)] bg-[var(--surface)] px-3 text-xs text-[var(--text-secondary)] hover:bg-[var(--sidebar-hover)] transition disabled:cursor-not-allowed disabled:opacity-60"
+						className="min-h-11 inline-flex items-center rounded-xl border border-[var(--border)] bg-[var(--surface-elevated)] px-3 text-xs font-medium text-[var(--text-secondary)] transition hover:bg-[var(--surface-hover)] disabled:cursor-not-allowed disabled:opacity-60"
 					>
 						{isRefreshing ? t("healthPage.ui.refreshing") : t("healthPage.ui.refresh")}
 					</button>
@@ -359,7 +359,7 @@ export function HealthDashboardClient({ serverCount, initialSystemHealth }: Prop
 				<div className="overflow-x-auto">
 					<table className="w-full text-sm">
 						<thead>
-							<tr className="border-b border-white/[0.10] light:border-[var(--border)] bg-[var(--surface)]">
+							<tr className="border-b border-[var(--border)] bg-[var(--surface-elevated)]">
 								<th className="px-4 py-3 text-left text-xs font-medium text-[var(--text-muted)] uppercase tracking-wider">{t("healthPage.ui.node")}</th>
 								<th className="px-4 py-3 text-left text-xs font-medium text-[var(--text-muted)] uppercase tracking-wider">{t("healthPage.ui.status")}</th>
 								<th className="px-4 py-3 text-left text-xs font-medium text-[var(--text-muted)] uppercase tracking-wider">CPU</th>
@@ -369,7 +369,7 @@ export function HealthDashboardClient({ serverCount, initialSystemHealth }: Prop
 								<th className="px-4 py-3 text-left text-xs font-medium text-[var(--text-muted)] uppercase tracking-wider">{t("healthPage.ui.details")}</th>
 							</tr>
 						</thead>
-						<tbody className="divide-y divide-white/[0.04] light:divide-[var(--border)]">
+						<tbody className="divide-y divide-[var(--border-subtle)]">
 							{overview.servers.map((server) => {
 								const sc = statusToneClasses[server.status] ?? unknownTone;
 								return (
@@ -489,7 +489,7 @@ function FleetResourceSummary({ overview, t, tt }: {
 				<FleetMetricBar label={t("healthPage.fleet.avgCpu")} value={avgCpu} unit="%" />
 				<FleetMetricBar label={t("healthPage.fleet.avgMem")} value={avgMem} unit="%" />
 				<FleetMetricBar label={t("healthPage.fleet.avgDisk")} value={avgDisk} unit="%" />
-				<div className="rounded-xl border border-white/[0.08] bg-[var(--surface)]/[0.04] p-3">
+				<div className="rounded-xl border border-[var(--border)] bg-[var(--surface-elevated)] p-3">
 					<p className="text-[10px] uppercase tracking-wide text-[var(--text-muted)]">{t("healthPage.fleet.avgLoad")}</p>
 					<p className="mt-1 text-xl font-bold text-[var(--text-primary)]">{avgLoad}</p>
 				</div>
@@ -524,7 +524,7 @@ function FleetResourceSummary({ overview, t, tt }: {
 
 function FleetMetricBar({ label, value, unit }: { label: string; value: number; unit: string }) {
 	return (
-		<div className="rounded-xl border border-white/[0.08] bg-[var(--surface)]/[0.04] p-3">
+		<div className="rounded-xl border border-[var(--border)] bg-[var(--surface-elevated)] p-3">
 			<div className="flex items-baseline justify-between">
 				<p className="text-[10px] uppercase tracking-wide text-[var(--text-muted)]">{label}</p>
 				<p className={`text-xl font-bold ${usageColor(value)}`}>{value}{unit}</p>
@@ -546,10 +546,17 @@ function SummaryCard({ label, value, color }: { label: string; value: number | s
 		amber: "text-[var(--warning)]",
 		rose: "text-[var(--danger)]",
 	};
+	const barMap: Record<string, string> = {
+		slate: "bg-[var(--border)]",
+		emerald: "bg-[var(--success)]",
+		amber: "bg-[var(--warning)]",
+		rose: "bg-[var(--danger)]",
+	};
 	return (
-		<article data-card className="p-4">
-			<div className="text-xs font-medium text-[var(--text-muted)] uppercase tracking-wider">{label}</div>
-			<div className={`mt-1.5 text-2xl sm:text-3xl font-semibold ${colorMap[color] ?? "text-[var(--text-primary)]"}`}>{value}</div>
+		<article data-card data-stat-card className="relative overflow-hidden p-4">
+			<div className={`absolute inset-x-0 top-0 h-0.5 ${barMap[color] ?? barMap.slate}`} aria-hidden="true" />
+			<div className="text-[11px] font-medium uppercase tracking-[0.14em] text-[var(--text-muted)]">{label}</div>
+			<div className={`mt-2 text-2xl font-semibold tabular-nums tracking-tight sm:text-3xl ${colorMap[color] ?? "text-[var(--text-primary)]"}`}>{value}</div>
 		</article>
 	);
 }

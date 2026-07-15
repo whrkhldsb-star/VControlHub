@@ -333,7 +333,7 @@ export function SegmentedTabs({
 							<span
 								className={`ml-auto inline-flex h-5 min-w-5 shrink-0 items-center justify-center rounded-full px-1.5 text-[10px] font-semibold ${
 									active
-										? "bg-[var(--accent)] text-white"
+										? "bg-[var(--accent)] text-[var(--on-accent)]"
 										: "bg-[var(--surface-elevated)] text-[var(--text-muted)]"
 								}`}
 							>

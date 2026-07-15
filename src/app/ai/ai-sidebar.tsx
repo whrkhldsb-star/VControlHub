@@ -44,9 +44,10 @@ export function AiSidebar({
               <h1 className="text-sm font-semibold text-[var(--text-primary)]">{t("aiPage.sidebarTitle")}</h1>
             </div>
             <button
+              type="button"
               onClick={onNewConv}
               data-primary
-              className="h-8 rounded-xl bg-[var(--accent)] px-3 text-xs font-semibold text-white transition hover:bg-[var(--accent-hover)]"
+              className="h-8 rounded-xl bg-[var(--accent)] px-3 text-xs font-semibold text-[var(--on-accent)] transition hover:bg-[var(--accent-hover)]"
             >
               {t("aiPage.newConversation")}
             </button>
@@ -61,9 +62,9 @@ export function AiSidebar({
               <div
                 key={conv.id}
                 className={`group flex cursor-pointer items-center gap-2 rounded-xl px-3 py-2 transition ${
- activeConvId === conv.id
- ? "border border-[var(--accent-border)] bg-[var(--accent-bg)] text-[var(--text-primary)]"
- : "border border-transparent text-[var(--text-secondary)] hover:bg-[var(--surface-hover)] hover:text-[var(--text-primary)]"
+                  activeConvId === conv.id
+                    ? "border border-[var(--accent-border)] bg-[var(--accent-bg)] text-[var(--accent)]"
+                    : "border border-transparent text-[var(--text-secondary)] hover:bg-[var(--surface-hover)] hover:text-[var(--text-primary)]"
  }`}
                 onClick={() => onSelectConv(conv.id)}
               >
@@ -72,6 +73,7 @@ export function AiSidebar({
                 </svg>
                 <span className="flex-1 truncate text-xs font-medium">{conv.title}</span>
                 <button
+                  type="button"
                   onClick={(e) => {
                     e.stopPropagation();
                     onDeleteConv(conv.id);
@@ -89,7 +91,7 @@ export function AiSidebar({
 
           {/* Bottom actions */}
           <div className="space-y-1 border-t border-[var(--border)] p-2">
-            <button
+            <button type="button"
               onClick={onToggleProviders}
               className="flex w-full items-center gap-2 rounded-xl px-3 py-2 text-xs text-[var(--text-secondary)] transition hover:bg-[var(--surface-hover)] hover:text-[var(--text-primary)]"
             >
@@ -99,6 +101,7 @@ export function AiSidebar({
               {t("aiPage.providerManagement")}
             </button>
             <button
+              type="button"
               onClick={() => onToggleSidebar(false)}
               className="flex w-full items-center gap-2 rounded-xl px-3 py-2 text-xs text-[var(--text-secondary)] transition hover:bg-[var(--surface-hover)] hover:text-[var(--text-primary)] lg:hidden"
             >
@@ -113,6 +116,7 @@ export function AiSidebar({
 
       {!showSidebar && (
         <button
+          type="button"
           onClick={() => onToggleSidebar(true)}
           className="hidden"
           aria-label={t("aiPage.openSidebar")}

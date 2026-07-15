@@ -59,7 +59,7 @@ export function CostBudgetPanel({ initialBudgets, canManage, currencies }: { ini
       <input className={inputClass} value={form.limitAmount} onChange={(e) => setForm({ ...form, limitAmount: e.target.value })} placeholder={t("costPage.budget.limit")} />
       <select className={inputClass} value={form.currency} onChange={(e) => setForm({ ...form, currency: e.target.value as CostCurrency })}>{currencies.map((c) => <option key={c}>{c}</option>)}</select>
       <select className={inputClass} value={form.period} onChange={(e) => setForm({ ...form, period: e.target.value })}><option value="monthly">{t("costPage.budget.monthly")}</option><option value="quarterly">{t("costPage.budget.quarterly")}</option><option value="yearly">{t("costPage.budget.yearly")}</option></select>
-      <button type="button" disabled={busy} onClick={create} className="rounded-xl bg-[var(--accent)] px-3 py-2 text-sm font-medium text-white">{t("costPage.budget.create")}</button>
+      <button type="button" disabled={busy} onClick={create} className="rounded-xl bg-[var(--accent)] px-3 py-2 text-sm font-medium text-[var(--on-accent)]">{t("costPage.budget.create")}</button>
     </div>}
     <div className="mt-4 grid gap-3 md:grid-cols-2">
       {budgets.length === 0 ? <p className="text-sm text-[var(--text-muted)]">{t("costPage.budget.empty")}</p> : budgets.map((budget) => <article key={budget.id} className="rounded-2xl border border-[var(--border)] p-4">

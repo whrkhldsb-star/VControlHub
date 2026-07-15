@@ -237,7 +237,7 @@ function DeployButton({ template, servers, onDeploy, loading }: {
 		return (
 			<button
 				onClick={() => setOpen(true)}
-				data-primary className="min-h-11 rounded-xl bg-[var(--accent)] px-3 py-1.5 text-[11px] font-semibold text-white transition hover:bg-[var(--accent-hover)]"
+				data-primary className="min-h-11 rounded-xl bg-[var(--accent)] px-3 py-1.5 text-[11px] font-semibold text-[var(--on-accent)] transition hover:bg-[var(--accent-hover)]"
 			>
 				{t("templatesPage.action.deploy")}
 			</button>
@@ -277,7 +277,7 @@ function DeployButton({ template, servers, onDeploy, loading }: {
 				<button
 					onClick={() => onDeploy(template, [...selectedIds], vars)}
 					disabled={loading || selectedIds.size === 0}
-					data-primary className="min-h-11 rounded-xl bg-[var(--accent)] px-3 py-1.5 text-[11px] font-semibold text-white transition hover:bg-[var(--accent-hover)] disabled:opacity-60"
+					data-primary className="min-h-11 rounded-xl bg-[var(--accent)] px-3 py-1.5 text-[11px] font-semibold text-[var(--on-accent)] transition hover:bg-[var(--accent-hover)] disabled:opacity-60"
 				>
 					{loading ? t("templatesPage.action.submitting") : t("templatesPage.action.submit")}
 				</button>
