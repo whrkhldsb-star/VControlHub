@@ -8,7 +8,6 @@ import { cn } from "@/lib/ui/cn";
 import { PageShell, EmptyState, ToggleChip } from "@/components/page-shell";
 import { csrfFetch } from "@/lib/auth/csrf-client";
 import { useI18n } from "@/lib/i18n/use-locale";
-import { toDateLocale } from "@/lib/i18n/locale-format";
 
 import { useImageBedList } from "./use-image-bed-list";
 import {
@@ -19,7 +18,8 @@ import {
 	type UploadProgress,
 } from "./image-bed-types";
 import { ImagePreviewModalLazy } from "./image-preview-modal-lazy";
-import { ImageBedStatsPanel, UploadProgressPanel, formatImageSize } from "./image-bed-sections";
+import { ImageBedStatsPanel, UploadProgressPanel } from "./image-bed-sections";
+import { formatImageDate, formatImageSize, formatPublishSource } from "./image-bed-format";
 import { DeleteImageDialog, ImageGrid, PublishFromStorageModal } from "./image-bed-grid-and-modals";
 import { FloatingToast } from "./floating-toast";
 
@@ -254,16 +254,8 @@ export default function ImageBedPage({ canWrite, canDelete }: { canWrite: boolea
 	};
 
 	const formatSize = formatImageSize;
-
-	const formatDate = (iso: string) => {
-		return new Date(iso).toLocaleString(toDateLocale(locale), { month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit" });
-	};
-
-	const formatPublishSource = (img: ImageItem) => {
-		if (!img.storageNodeId || !img.relativePath) return t("imageBedPage.source.directUpload");
-		const nodeName = img.storageNode?.server?.name ? `${img.storageNode.name} · ${img.storageNode.server.name}` : img.storageNode?.name ?? t("imageBedPage.source.storageNode");
-		return `${nodeName} / ${img.relativePath}`;
-	};
+	const formatDate = (iso: string) => formatImageDate(iso, locale);
+	const formatSource = (img: ImageItem) => formatPublishSource(img, t);
 
 	return (
 		<PageShell>
@@ -276,7 +268,7 @@ export default function ImageBedPage({ canWrite, canDelete }: { canWrite: boolea
 					</div>
 					<div className="flex flex-wrap items-center gap-2 text-xs">
 						<Link href="/media?type=image" data-action-button data-variant="primary" className="px-4 py-2 text-sm font-semibold">{t("imageBedPage.hero.openMedia")}</Link>
-						{canWrite && <button type="button" onClick={() => { fetchStorageNodes(); setShowPublishModal(true); }} className="rounded-xl border border-[var(--accent-border)] bg-[var(--accent-bg)] px-4 py-2 font-medium text-[var(--accent)] transition hover:bg-[var(--accent-hover)] hover:text-[var(--on-accent)]">{t("imageBedPage.hero.publishFromStorage")}</button>}
+						{canWrite && <ActionButton type="button" variant="outline" onClick={() => { fetchStorageNodes(); setShowPublishModal(true); }} className="px-4 py-2 text-sm font-medium">{t("imageBedPage.hero.publishFromStorage")}</ActionButton>}
 					</div>
 				</div>
 				<div className="mt-5 grid gap-2 text-xs sm:grid-cols-3">
@@ -366,12 +358,12 @@ export default function ImageBedPage({ canWrite, canDelete }: { canWrite: boolea
 				<div className="mt-2 flex items-center gap-2 text-xs">
 					<span className="text-[var(--text-muted)]">{t("imageBedPage.legacy.uploadTo")}</span>
 					<label className="sr-only" htmlFor="imageBedLegacyNode">{t("imageBedPage.legacy.nodeLabel")}</label>
-					<select id="imageBedLegacyNode" value={publishForm.storageNodeId} onChange={(e) => setPublishForm(pf => ({ ...pf, storageNodeId: e.target.value }))} onClick={(e) => e.stopPropagation()} className="bg-[var(--input-bg)] border border-[var(--input-border)] rounded-lg px-2 py-1 text-xs text-[var(--text-secondary)] focus:outline-none focus:border-[var(--color-action-border)]/50">
+					<select id="imageBedLegacyNode" value={publishForm.storageNodeId} onChange={(e) => setPublishForm(pf => ({ ...pf, storageNodeId: e.target.value }))} onClick={(e) => e.stopPropagation()} className={cn(UI_INPUT, "px-2 py-1 text-xs text-[var(--text-secondary)]")}>
 						<option value="">{t("imageBedPage.legacy.defaultNode")}</option>
 						{storageNodes.map(n => <option key={n.id} value={n.id}>{n.name}</option>)}
 					</select>
 					<label className="sr-only" htmlFor="imageBedLegacyPath">{t("imageBedPage.legacy.pathLabel")}</label>
-					<input id="imageBedLegacyPath" type="text" value={publishForm.relativePath} onChange={(e) => setPublishForm(pf => ({ ...pf, relativePath: e.target.value }))} onClick={(e) => e.stopPropagation()} placeholder={t("imageBedPage.legacy.pathPlaceholder")} className="bg-[var(--input-bg)] border border-[var(--input-border)] rounded-lg px-2 py-1 text-xs text-[var(--text-secondary)] w-32 focus:outline-none focus:border-[var(--color-action-border)]/50" />
+					<input id="imageBedLegacyPath" type="text" value={publishForm.relativePath} onChange={(e) => setPublishForm(pf => ({ ...pf, relativePath: e.target.value }))} onClick={(e) => e.stopPropagation()} placeholder={t("imageBedPage.legacy.pathPlaceholder")} className={cn(UI_INPUT, "w-32 px-2 py-1 text-xs text-[var(--text-secondary)]")} />
 					{!storageNodes.length && <button onClick={(e) => { e.stopPropagation(); fetchStorageNodes(); }} className="text-[var(--color-action)] hover:underline">{t("imageBedPage.legacy.loadNodes")}</button>}
 				</div>
 				<div
@@ -427,7 +419,7 @@ export default function ImageBedPage({ canWrite, canDelete }: { canWrite: boolea
 					selectedIds={selectedIds}
 					canDelete={canDelete}
 					formatDate={formatDate}
-					formatPublishSource={formatPublishSource}
+					formatPublishSource={formatSource}
 					toggleSelect={toggleSelect}
 					setPreviewImage={setPreviewImage}
 					copyLink={copyLink}

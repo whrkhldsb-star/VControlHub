@@ -167,7 +167,7 @@ export function InstallDialog({
 										? portCheck.available
 											? "border-[var(--success-border)] focus:border-[var(--success-border)]"
 											: "border-[var(--danger-border)] focus:border-[var(--danger-border)]"
-										: "border-[var(--border)] focus:border-[var(--color-action-border)]"
+										: "border-[var(--border)] focus:border-[var(--color-action-border)]/40"
 								}`}
 								placeholder="1-65535"
 							/>

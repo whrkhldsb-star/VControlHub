@@ -3,6 +3,8 @@
 import { memo, type MouseEvent } from "react";
 import type { DownloadTask } from "./downloads-shared";
 import { getStatusLabel, formatSpeed } from "./downloads-shared";
+import { UI_INPUT } from "@/lib/ui/classes";
+import { cn } from "@/lib/ui/cn";
 
 const statusBadge: Record<string, string> = {
 	PENDING: "border-[var(--warning-border)] bg-[var(--warning-bg)] text-[var(--warning)]",
@@ -120,7 +122,7 @@ export const DownloadTaskRow = memo(function DownloadTaskRow({
 						<input id={`limit-${task.id}`} type="number" min={0} step={1024} placeholder="KB/s"
 							defaultValue={task.maxSpeedKb ?? ""}
 							onBlur={(e) => { const v = parseInt(e.target.value); if (!isNaN(v) && v >= 0) onAction(task.id, `limit:${v}`); }}
-							className="w-16 bg-[var(--input-bg)] border-[var(--input-border)] rounded-lg px-1.5 py-0.5 text-xs text-[var(--text-secondary)] focus:outline-none focus:border-[var(--color-action-border)]/50"
+							className={cn(UI_INPUT, "w-16 px-1.5 py-0.5 text-xs text-[var(--text-secondary)]")}
 						/>
 					</span>
 				)}

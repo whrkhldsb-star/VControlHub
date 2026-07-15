@@ -89,12 +89,13 @@ describe("RequestsPage", () => {
     render(await RequestsPage());
 
     expect(screen.getByText("AI 助手授权与用户命令审批")).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "AI 助手授权" })).toBeInTheDocument();
+    // Page hero + section title both expose this label; assert at least one heading.
+    expect(screen.getAllByRole("heading", { name: "AI 助手授权" }).length).toBeGreaterThanOrEqual(1);
     expect(screen.getByText("重启服务")).toBeInTheDocument();
     expect(screen.getByText("需要你确认 AI 是否可以执行该高风险操作；只处理当前账号的 AI 托管请求。")).toBeInTheDocument();
     expect(screen.getByText("restart_service")).toBeInTheDocument();
 
-    expect(screen.getByRole("heading", { name: "用户命令审批" })).toBeInTheDocument();
+    expect(screen.getAllByRole("heading", { name: "用户命令审批" }).length).toBeGreaterThanOrEqual(1);
     expect(screen.getByText("Restart nginx")).toBeInTheDocument();
     expect(screen.getByText("Deploy app")).toBeInTheDocument();
     expect(screen.getByText(/运维同事/)).toBeInTheDocument();

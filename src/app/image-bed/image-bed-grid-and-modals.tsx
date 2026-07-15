@@ -7,6 +7,7 @@ import { useDialogFocus } from "@/lib/a11y/use-dialog-focus";
 import type { ImageItem, PendingDelete } from "./image-bed-types";
 import { formatImageSize, type ImageBedT } from "./image-bed-sections";
 
+import { ActionButton } from "@/components/action-button";
 import { UI_INPUT } from "@/lib/ui/classes";
 
 type PublishForm = {
@@ -307,13 +308,14 @@ export function PublishFromStorageModal({
           >
             {t("imageBedPage.publishFromStorage.cancel")}
           </button>
-          <button
+          <ActionButton
+            type="button"
             onClick={handlePublishFromStorage}
             disabled={!publishForm.storageNodeId || !publishForm.relativePath}
-            className="rounded-lg bg-[var(--accent)] px-4 py-2 text-sm text-[var(--text-primary)] transition hover:bg-[var(--accent-hover)] disabled:opacity-30"
+            className="px-4 py-2 text-sm"
           >
             {t("imageBedPage.publishFromStorage.submit")}
-          </button>
+          </ActionButton>
         </div>
       </div>
     </div>

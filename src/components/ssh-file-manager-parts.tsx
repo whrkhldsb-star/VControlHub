@@ -1,6 +1,8 @@
 "use client";
 
 import type { RefObject } from "react";
+import { UI_INPUT } from "@/lib/ui/classes";
+import { cn } from "@/lib/ui/cn";
 
 type TFunction = (key: string) => string;
 
@@ -112,7 +114,7 @@ export function SshFileManagerHeader({
 
       {showMkdir && (
         <div className="mt-2 flex gap-1.5">
-          <input value={mkdirName} aria-label={t("sshFileManager.folderName")} onChange={(e) => setMkdirName(e.target.value)} onKeyDown={(e) => e.key === "Enter" && onMkdir()} placeholder={t("sshFileManager.folderName")} className="min-h-9 min-w-0 flex-1 rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-elevated)] px-3 py-1 text-xs text-[var(--text-primary)] outline-none placeholder:text-[var(--text-muted)] focus:border-[var(--color-action-border)]/30" autoFocus />
+          <input value={mkdirName} aria-label={t("sshFileManager.folderName")} onChange={(e) => setMkdirName(e.target.value)} onKeyDown={(e) => e.key === "Enter" && onMkdir()} placeholder={t("sshFileManager.folderName")} className={cn(UI_INPUT, "min-h-9 min-w-0 flex-1 py-1 text-xs")} autoFocus />
           <button onClick={onMkdir} aria-label={t("common.confirm")} data-tone="cyan" className="min-h-9 min-w-9 shrink-0 rounded-lg border border-[var(--color-action-border)]/20 px-2 text-xs text-[var(--color-action-fg)] transition hover:bg-[var(--color-action-bg)]/20">✓</button>
           <button onClick={() => { setShowMkdir(false); setMkdirName(""); }} aria-label={t("common.cancel")} className="min-h-9 min-w-9 shrink-0 rounded-lg border border-[var(--border)] px-2 text-xs text-[var(--text-muted)] transition hover:bg-[var(--surface-hover)]">✕</button>
         </div>

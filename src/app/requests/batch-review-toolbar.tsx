@@ -25,6 +25,8 @@ import {
 } from "react";
 
 import { useI18n } from "@/lib/i18n/use-locale";
+import { UI_INPUT } from "@/lib/ui/classes";
+import { cn } from "@/lib/ui/cn";
 
 import {
 	batchReviewCommandAction,
@@ -172,14 +174,16 @@ export function BatchReviewToolbar({
 						value={comment}
 						onChange={(e) => setComment(e.target.value)}
 						placeholder={t("requestsPage.batch.commentPlaceholder")}
-						className="flex-1 rounded-lg border border-[var(--border)] bg-[var(--input-bg)] px-3 py-2 text-sm text-[var(--text-primary)] outline-none focus:border-[var(--color-action-border)]/40"
+						className={cn(UI_INPUT, "flex-1")}
 					/>
 					<button
 						type="submit"
 						name="decision"
 						value="approve"
 						disabled={isPending}
-						className="rounded-lg bg-[var(--success)] px-4 py-2 text-sm font-medium text-[var(--color-action-fg)] transition hover:bg-[var(--success-bg)] hover:text-[var(--success)] disabled:cursor-not-allowed disabled:opacity-60"
+						data-action-button
+						data-variant="success"
+						className="px-4 py-2 text-sm"
 					>
 						{isPending ? t("requestsPage.batch.pending") : t("requestsPage.batch.approve").replace("{count}", String(selected.size))}
 					</button>
@@ -188,7 +192,9 @@ export function BatchReviewToolbar({
 						name="decision"
 						value="reject"
 						disabled={isPending}
-						className="rounded-lg border border-[var(--danger-border)] px-4 py-2 text-sm font-medium text-[var(--danger)] transition hover:bg-[var(--danger-bg)] disabled:cursor-not-allowed disabled:opacity-60"
+						data-action-button
+						data-variant="danger"
+						className="px-4 py-2 text-sm"
 					>
 						{isPending ? t("requestsPage.batch.pending") : t("requestsPage.batch.reject").replace("{count}", String(selected.size))}
 					</button>
