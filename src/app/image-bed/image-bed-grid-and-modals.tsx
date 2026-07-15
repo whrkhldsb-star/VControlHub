@@ -106,7 +106,7 @@ export function ImageGrid({
               >
                 <button
                   onClick={() => copyLink(img.publicUrl)}
-                  className="min-h-11 min-w-11 rounded-lg bg-[var(--color-action)]/20 px-2 text-xs text-[var(--color-action)] hover:bg-[var(--accent-hover)]/30"
+                  data-action-button data-variant="ghost" className="min-h-11 min-w-11 px-2 text-xs"
                   title={t("imageBedPage.copy.title.url")}
                   aria-label={t("imageBedPage.copy.title.url")}
                 >

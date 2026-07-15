@@ -7,6 +7,7 @@ import { csrfFetch } from "@/lib/auth/csrf-client";
 import { useI18n } from "@/lib/i18n/use-locale";
 import { useToast } from "@/components/toast-provider";
 
+import { ActionButton } from "@/components/action-button";
 export interface SnippetFormValue {
 	id: string;
 	title: string;
@@ -136,10 +137,12 @@ export function SnippetModal({
 				</div>
 				{error && <p className="mt-2 text-xs text-[var(--danger)]">{error}</p>}
 				<div className="mt-5 flex justify-end gap-3">
-					<button onClick={onClose} className="min-h-11 rounded-lg border border-[var(--border)] px-4 py-2 text-sm text-[var(--text-muted)] transition hover:bg-[var(--surface)]/10">{t("snippetsPage.modal.action.cancel")}</button>
-					<button onClick={handleSave} disabled={saving || !title.trim() || !content.trim()} className="min-h-11 rounded-lg bg-[var(--accent)] px-4 py-2 text-sm font-semibold text-[var(--on-accent)] transition hover:bg-[var(--accent-hover)] disabled:opacity-40">
+					<ActionButton type="button" variant="secondary" onClick={onClose} className="min-h-11 text-sm">
+						{t("snippetsPage.modal.action.cancel")}
+					</ActionButton>
+					<ActionButton type="button" onClick={handleSave} disabled={saving || !title.trim() || !content.trim()} className="min-h-11 text-sm">
 						{t(`snippetsPage.modal.action.${saving ? (mode === "create" ? "creating" : "saving") : mode === "create" ? "create" : "save"}`)}
-					</button>
+					</ActionButton>
 				</div>
 			</div>
 		</div>

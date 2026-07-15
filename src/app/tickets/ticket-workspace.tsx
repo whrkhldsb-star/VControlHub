@@ -158,7 +158,7 @@ export function TicketWorkspace({ initialTickets, canManage, locale, now }: Prop
           </div>
           <div className="inline-flex w-fit rounded-xl border border-[var(--border)] bg-[var(--surface-elevated)] p-1">
             {(["list", "board"] as const).map((mode) => (
-              <button key={mode} type="button" onClick={() => setView(mode)} aria-pressed={view === mode} className={`rounded-lg px-3 py-2 text-xs font-semibold ${view === mode ? "bg-[var(--accent)] text-[var(--on-accent)]" : "text-[var(--text-secondary)]"}`}>
+              <button key={mode} type="button" onClick={() => setView(mode)} aria-pressed={view === mode} data-action-button={view === mode ? "" : undefined} data-variant={view === mode ? "primary" : undefined} className={`rounded-lg px-3 py-2 text-xs font-semibold ${view === mode ? "" : "text-[var(--text-secondary)] hover:bg-[var(--surface-hover)]"}`}>
                 {t(mode === "list" ? "ticketsPage.kanban.list" : "ticketsPage.kanban.toggle", locale)}
               </button>
             ))}

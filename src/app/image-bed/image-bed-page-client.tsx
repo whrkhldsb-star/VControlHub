@@ -2,22 +2,24 @@
 
 import Link from "next/link";
 import { useState, useRef } from "react";
+import { ActionButton } from "@/components/action-button";
 import { PageShell, EmptyState, ToggleChip } from "@/components/page-shell";
 import { csrfFetch } from "@/lib/auth/csrf-client";
 import { useI18n } from "@/lib/i18n/use-locale";
 import { toDateLocale } from "@/lib/i18n/locale-format";
 
 import { useImageBedList } from "./use-image-bed-list";
-import type { ImageItem, ImageStats, PendingDelete, UploadProgress } from "./image-bed-types";
+import {
+	getErrorMessage,
+	type ImageItem,
+	type ImageStats,
+	type PendingDelete,
+	type UploadProgress,
+} from "./image-bed-types";
 import { ImagePreviewModalLazy } from "./image-preview-modal-lazy";
 import { ImageBedStatsPanel, UploadProgressPanel, formatImageSize } from "./image-bed-sections";
 import { DeleteImageDialog, ImageGrid, PublishFromStorageModal } from "./image-bed-grid-and-modals";
 import { FloatingToast } from "./floating-toast";
-
-import { ActionButton } from "@/components/action-button";
-function getErrorMessage(error: unknown, fallback: string): string {
-	return error instanceof Error && error.message ? error.message : fallback;
-}
 
 export default function ImageBedPage({ canWrite, canDelete }: { canWrite: boolean; canDelete: boolean }) {
 	const {
