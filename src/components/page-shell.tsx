@@ -269,6 +269,158 @@ export function Section({
 	);
 }
 
+/* ── StatGrid ───────────────────────────────────────────────────────── */
+
+/** Responsive metric row under page headers. */
+export function StatGrid({
+	children,
+	className = "",
+	cols = 4,
+}: {
+	children: ReactNode;
+	className?: string;
+	/** Preferred desktop column count (2–5). */
+	cols?: 2 | 3 | 4 | 5;
+}) {
+	const colCls =
+		cols === 2
+			? "sm:grid-cols-2"
+			: cols === 3
+				? "sm:grid-cols-2 lg:grid-cols-3"
+				: cols === 5
+					? "sm:grid-cols-2 lg:grid-cols-5"
+					: "sm:grid-cols-2 lg:grid-cols-4";
+	return (
+		<section data-stat-grid className={`mb-5 grid gap-3 ${colCls} ${className}`}>
+			{children}
+		</section>
+	);
+}
+
+/* ── ListPanel ──────────────────────────────────────────────────────── */
+
+/**
+ * Unified list/table chrome: header + divided body.
+ * Use for shares, users, audit, tokens, tickets, etc.
+ */
+export function ListPanel({
+	title,
+	count,
+	actions,
+	children,
+	className = "",
+	bodyClassName = "",
+	empty,
+}: {
+	title?: ReactNode;
+	count?: ReactNode;
+	actions?: ReactNode;
+	children?: ReactNode;
+	className?: string;
+	bodyClassName?: string;
+	/** When provided and truthy, replaces body content (typical empty state). */
+	empty?: ReactNode;
+}) {
+	return (
+		<div data-list-panel data-card className={`overflow-hidden !p-0 ${className}`}>
+			{(title != null || count != null || actions != null) && (
+				<div
+					data-list-panel-header
+					className="flex flex-wrap items-center justify-between gap-3 border-b border-[var(--border)] px-4 py-3.5 sm:px-5"
+				>
+					<div className="flex min-w-0 items-center gap-2.5">
+						{title != null ? (
+							<div className="text-sm font-semibold text-[var(--text-primary)]">{title}</div>
+						) : null}
+						{count != null ? (
+							<span className="inline-flex min-w-6 items-center justify-center rounded-full border border-[var(--border)] bg-[var(--surface-elevated)] px-2 py-0.5 text-[11px] font-medium tabular-nums text-[var(--text-secondary)]">
+								{count}
+							</span>
+						) : null}
+					</div>
+					{actions ? <div className="flex shrink-0 flex-wrap items-center gap-2">{actions}</div> : null}
+				</div>
+			)}
+			<div
+				data-list-panel-body
+				className={`divide-y divide-[var(--border-subtle)] bg-[color-mix(in_srgb,var(--surface-subtle)_55%,var(--surface))] ${bodyClassName}`}
+			>
+				{empty ?? children}
+			</div>
+		</div>
+	);
+}
+
+/** One row inside ListPanel — consistent padding + hover. */
+export function ListRow({
+	children,
+	className = "",
+	onClick,
+}: {
+	children: ReactNode;
+	className?: string;
+	onClick?: () => void;
+}) {
+	const interactive = typeof onClick === "function";
+	return (
+		<div
+			data-list-row
+			role={interactive ? "button" : undefined}
+			tabIndex={interactive ? 0 : undefined}
+			onClick={onClick}
+			onKeyDown={
+				interactive
+					? (e) => {
+							if (e.key === "Enter" || e.key === " ") {
+								e.preventDefault();
+								onClick?.();
+							}
+						}
+					: undefined
+			}
+			className={`px-4 py-3.5 transition hover:bg-[var(--surface-hover)] sm:px-5 ${
+				interactive ? "cursor-pointer focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-[var(--accent)]" : ""
+			} ${className}`}
+		>
+			{children}
+		</div>
+	);
+}
+
+/** Soft surface panel for create forms / secondary blocks. */
+export function SurfacePanel({
+	children,
+	className = "",
+	title,
+	description,
+	actions,
+}: {
+	children: ReactNode;
+	className?: string;
+	title?: ReactNode;
+	description?: ReactNode;
+	actions?: ReactNode;
+}) {
+	return (
+		<div
+			data-surface-panel
+			data-card
+			className={`space-y-4 p-4 sm:p-5 ${className}`}
+		>
+			{(title || actions) && (
+				<div className="flex flex-wrap items-start justify-between gap-3 border-b border-[var(--border-subtle)] pb-3">
+					<div className="min-w-0">
+						{title ? <h2 className="text-sm font-semibold text-[var(--text-primary)] sm:text-base">{title}</h2> : null}
+						{description ? <p className="mt-0.5 text-xs leading-5 text-[var(--text-muted)]">{description}</p> : null}
+					</div>
+					{actions ? <div className="flex shrink-0 flex-wrap items-center gap-2">{actions}</div> : null}
+				</div>
+			)}
+			{children}
+		</div>
+	);
+}
+
 /* ── PermissionDenied ───────────────────────────────────────────────── */
 
 export function PermissionDenied() {

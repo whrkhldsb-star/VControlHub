@@ -1,7 +1,7 @@
 import { requireSession } from "@/lib/auth/require-session";
 import { sessionHasPermission } from "@/lib/auth/authorization";
 import { listActiveAnnouncements, listAnnouncements } from "@/lib/announcement/service";
-import { PageShell, PageHeader } from "@/components/page-shell";
+import { PageShell, PageHeader, SurfacePanel } from "@/components/page-shell";
 import { CreateAnnouncementForm } from "./create-announcement-form";
 import { AnnouncementList } from "./announcement-list-client";
 import { getServerLocale, t } from "@/lib/i18n/translations";
@@ -30,7 +30,13 @@ export default async function AnnouncementsPage() {
 		<PageShell maxW="max-w-4xl">
 			<PageHeader eyebrow={t("announcementsPage.eyebrow", locale)} title={t("announcementsPage.title", locale)} description={t("announcementsPage.desc", locale)} className="mb-6" />
 
-			{canManage && <div className="mb-6"><CreateAnnouncementForm /></div>}
+			{canManage && (
+				<div className="mb-5">
+					<SurfacePanel title={t("announcementsPage.title", locale)}>
+						<CreateAnnouncementForm />
+					</SurfacePanel>
+				</div>
+			)}
 
 			<AnnouncementList
 				key={serialized.map((item) => item.id).join("|")}

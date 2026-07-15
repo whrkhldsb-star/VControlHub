@@ -3,7 +3,8 @@ import { sessionHasPermission } from "@/lib/auth/authorization";
 import { ALLOWED_API_TOKEN_SCOPES, listApiTokens } from "@/lib/api-token/service";
 import { getServerLocale, t } from "@/lib/i18n/translations";
 import { ApiTokenManagerClient } from "./api-token-manager-client";
-import { PageShell, PageHeader } from "@/components/page-shell";
+import { PageShell, PageHeader, EmptyState } from "@/components/page-shell";
+import { Callout } from "@/components/ui-primitives";
 
 export const revalidate = 60;
 
@@ -13,21 +14,28 @@ export default async function Page() {
 	if (!sessionHasPermission(session, "api-token:manage")) {
 		return (
 			<PageShell>
-				<section className="rounded-2xl border border-[var(--danger-border)] bg-[var(--danger-bg)] p-6">
-					<h1 className="text-xl font-semibold text-[var(--danger)]">{t("common.insufficientPermissions", locale)}</h1>
-					<p className="mt-2 text-sm text-[var(--danger)]/70">{t("apiTokensPage.permissionDeniedHint", locale)}</p>
-				</section>
+				<EmptyState variant="boxed">
+					<div>
+						<div className="text-sm font-medium text-[var(--text-primary)]">{t("common.insufficientPermissions", locale)}</div>
+						<p className="mt-2 text-sm text-[var(--text-muted)]">
+							{t("apiTokensPage.permissionDeniedHint", locale)}
+						</p>
+					</div>
+				</EmptyState>
 			</PageShell>
 		);
 	}
 	const tokens = await listApiTokens(session.userId, 200);
 	return (
 		<PageShell>
-			<PageHeader eyebrow={t("apiTokensPage.eyebrow", locale)} title={t("apiTokensPage.title", locale)} description={t("apiTokensPage.desc", locale)}>
-				<div className="rounded-2xl border border-[var(--border)] bg-[var(--surface-elevated)] px-4 py-3 text-xs text-[var(--text-muted)]">
-					{t("apiTokensPage.hint", locale)}
-				</div>
-			</PageHeader>
+			<PageHeader
+				eyebrow={t("apiTokensPage.eyebrow", locale)}
+				title={t("apiTokensPage.title", locale)}
+				description={t("apiTokensPage.desc", locale)}
+			/>
+			<div className="mb-5">
+				<Callout tone="neutral" title={t("apiTokensPage.hint", locale)} />
+			</div>
 			<ApiTokenManagerClient initialTokens={tokens} allowedScopes={ALLOWED_API_TOKEN_SCOPES} />
 		</PageShell>
 	);

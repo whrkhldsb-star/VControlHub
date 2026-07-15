@@ -1,7 +1,7 @@
 import { requireSession } from "@/lib/auth/require-session";
 import { sessionHasPermission } from "@/lib/auth/authorization";
 import { listTickets } from "@/lib/ticket/service";
-import { PageShell, PageHeader, StatCard } from "@/components/page-shell";
+import { PageShell, PageHeader, StatCard, StatGrid } from "@/components/page-shell";
 import { CreateTicketForm } from "./create-ticket-form";
 import { TicketWorkspace, type TicketWorkspaceTicket } from "./ticket-workspace";
 import { listServerProfiles } from "@/lib/server/service-profiles";
@@ -48,12 +48,12 @@ export default async function Page() {
     <PageShell maxW="max-w-7xl">
       <PageHeader eyebrow={t("ticketsPage.eyebrow", locale)} title={t("ticketsPage.title", locale)} description={t("ticketsPage.desc", locale)} className="mb-6" />
 
-      <section className="mb-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+      <StatGrid cols={4}>
         <StatCard label={t("ticketsPage.status.OPEN", locale)} value={String(openCount)} accent={openCount > 0} accentColor="cyan" />
         <StatCard label={t("ticketsPage.status.IN_PROGRESS", locale)} value={String(progressCount)} accent={progressCount > 0} accentColor="amber" />
         <StatCard label={t("ticketsPage.status.RESOLVED", locale)} value={String(resolvedCount)} accent={resolvedCount > 0} accentColor="emerald" />
         <StatCard label={priorityLabel(locale, "HIGH")} value={String(urgentCount)} accent={urgentCount > 0} accentColor="rose" />
-      </section>
+      </StatGrid>
 
       {canCreate && (
         <div className="mb-6">

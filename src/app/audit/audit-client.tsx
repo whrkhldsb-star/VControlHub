@@ -2,7 +2,8 @@
 
 import { useState, useCallback } from "react";
 import { csrfFetch } from "@/lib/auth/csrf-client";
-import { EmptyState } from "@/components/page-shell";
+import { EmptyState, ListPanel, Toolbar } from "@/components/page-shell";
+import { CONTROL_CLASS } from "@/components/ui-primitives";
 import { useResourcePolling } from "@/lib/http/use-resource-polling";
 import { toDateLocale } from "@/lib/i18n/locale-format";
 import { useI18n } from "@/lib/i18n/use-locale";
@@ -185,11 +186,11 @@ export function AuditLogClient({ initialActionFilter = "" }: AuditLogClientProps
 
   return (
     <div>
-      {/* Filters */}
-      <div className="mb-6 space-y-3">
-        <div className="flex flex-wrap gap-3">
+      <Toolbar className="mb-4 flex-col items-stretch gap-3 sm:items-stretch">
+        <div className="flex flex-wrap gap-2">
           <input
             type="search"
+            data-input
             value={searchQuery}
             aria-label={t("audit.search-placeholder")}
             onChange={(e) => {
@@ -197,7 +198,7 @@ export function AuditLogClient({ initialActionFilter = "" }: AuditLogClientProps
               setPage(1);
             }}
             placeholder={t("audit.search-placeholder")}
-            className="min-w-[240px] flex-1 rounded-2xl border border-[var(--border)] bg-[var(--input-bg)] px-4 py-2 text-sm text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus:border-[var(--color-action-border)]/50 focus:outline-none"
+            className={`${CONTROL_CLASS} min-w-[240px] flex-1`}
           />
           <button
             type="button"
@@ -226,7 +227,7 @@ export function AuditLogClient({ initialActionFilter = "" }: AuditLogClientProps
               setPage(1);
             }}
             aria-label={t("audit.filterBySeverity")}
-            className="rounded-2xl border border-[var(--border)] bg-[var(--input-bg)] px-4 py-2 text-sm text-[var(--text-primary)] focus:border-[var(--color-action-border)]/50 focus:outline-none"
+            className={`${CONTROL_CLASS} !w-auto min-w-[10rem]`}
           >
             <option value="">{t("audit.all-severities")}</option>
             <option value="INFO">INFO</option>
@@ -240,7 +241,7 @@ export function AuditLogClient({ initialActionFilter = "" }: AuditLogClientProps
               setPage(1);
             }}
             aria-label={t("audit.filterByAction")}
-            className="rounded-2xl border border-[var(--border)] bg-[var(--input-bg)] px-4 py-2 text-sm text-[var(--text-primary)] focus:border-[var(--color-action-border)]/50 focus:outline-none"
+            className={`${CONTROL_CLASS} !w-auto min-w-[10rem]`}
           >
             <option value="">{t("audit.all-types")}</option>
             <option value="auth.login">{t("audit.action.auth.login")}</option>
@@ -283,13 +284,13 @@ export function AuditLogClient({ initialActionFilter = "" }: AuditLogClientProps
                 setPage(1);
               }}
               data-tone={actionFilter === action ? "accent" : undefined}
-              className={`rounded-full border px-3 py-1 text-xs transition ${actionFilter === action ? "" : "border-[var(--border)] bg-[var(--surface)]/10 text-[var(--text-secondary)] hover:bg-[var(--surface)]/10"}`}
+              className={`rounded-full border px-3 py-1 text-xs transition ${actionFilter === action ? "" : "border-[var(--border)] bg-[var(--surface-elevated)] text-[var(--text-secondary)] hover:bg-[var(--surface-hover)]"}`}
             >
               {formatAction(action, t)}
             </button>
           ))}
         </div>
-      </div>
+      </Toolbar>
 
       {error && (
         <div role="alert" data-tone="rose" className="mb-4 flex items-center justify-between gap-3 rounded-2xl border border-[var(--danger-border)] px-4 py-3 text-sm text-[var(--danger)]">
@@ -300,11 +301,10 @@ export function AuditLogClient({ initialActionFilter = "" }: AuditLogClientProps
         </div>
       )}
 
-      {/* Table */}
-      <div className="overflow-hidden rounded-2xl border border-[var(--border)]">
+      <ListPanel title={t("audit.details")} count={data?.total ?? (loading ? "…" : 0)}>
         {/* Desktop */}
         <div className="hidden md:block">
-          <div className="grid grid-cols-[140px_100px_120px_minmax(0,1.5fr)_minmax(0,2fr)_160px] bg-[var(--surface)]/10 px-4 py-3 text-xs uppercase tracking-[0.2em] text-[var(--text-muted)]">
+          <div className="grid grid-cols-[140px_100px_120px_minmax(0,1.5fr)_minmax(0,2fr)_160px] border-b border-[var(--border-subtle)] bg-[var(--surface-elevated)] px-4 py-3 text-xs uppercase tracking-[0.14em] text-[var(--text-muted)]">
             <div>{t("audit.header.time")}</div>
             <div>{t("audit.header.level")}</div>
             <div>{t("audit.header.type")}</div>
@@ -312,7 +312,7 @@ export function AuditLogClient({ initialActionFilter = "" }: AuditLogClientProps
             <div>{t("audit.details")}</div>
             <div>{t("audit.source")}</div>
           </div>
-          <div className="divide-y divide-[var(--border)] bg-[var(--surface-subtle)]">
+          <div className="divide-y divide-[var(--border-subtle)]">
             {loading ? (
               <EmptyState>{t("audit.loading")}</EmptyState>
             ) : error && !data ? (
@@ -345,7 +345,7 @@ export function AuditLogClient({ initialActionFilter = "" }: AuditLogClientProps
         </div>
 
         {/* Mobile */}
-        <div className="md:hidden divide-y divide-[var(--border)] bg-[var(--surface-subtle)]">
+        <div className="divide-y divide-[var(--border-subtle)] md:hidden">
           {loading ? (
             <EmptyState>{t("audit.loading")}</EmptyState>
           ) : error ? (
@@ -371,7 +371,7 @@ export function AuditLogClient({ initialActionFilter = "" }: AuditLogClientProps
             ))
           )}
         </div>
-      </div>
+      </ListPanel>
 
       {/* Pagination */}
       {data && data.totalPages > 1 && (

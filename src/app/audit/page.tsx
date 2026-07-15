@@ -5,7 +5,7 @@ import { sessionHasPermission } from "@/lib/auth/authorization";
 import { getAuditStats } from "@/lib/audit/service";
 import { getServerLocale, t, type Locale } from "@/lib/i18n/translations";
 import { AuditLogClient } from "./audit-client";
-import { PageShell, PageHeader, StatCard, EmptyState } from "@/components/page-shell";
+import { PageShell, PageHeader, StatCard, EmptyState, StatGrid, SurfacePanel } from "@/components/page-shell";
 import { createLogger } from "@/lib/logging";
 
 const HIGH_RISK_ACTIONS = ["command.execute", "storage.file_delete", "server.delete", "user.permission_update", "docker.container_restart", "api_token.create"];
@@ -83,16 +83,16 @@ export default async function AuditPage({ searchParams }: AuditPageProps) {
 			) : (
 				<>
 					{stats && (
-						<section className="mb-8 space-y-4">
-							<div className="grid gap-3 sm:grid-cols-5">
+						<section className="mb-6 space-y-4">
+							<StatGrid cols={5} className="mb-0">
 								<StatCard label={copy.statsTotal} value={String(stats.total)} />
 								<StatCard label={copy.statsRecent24h} value={String(stats.recentCount)} accent />
 								<StatCard label={t("auditPage.statsWarning", locale)} value={String(stats.bySeverity["WARNING"] ?? 0)} accentColor="amber" />
 								<StatCard label={t("auditPage.statsCritical", locale)} value={String(stats.bySeverity["CRITICAL"] ?? 0)} accentColor="rose" />
 								<StatCard label={copy.statsHighRisk} value={String(highRiskCount)} accentColor="rose" />
-							</div>
+							</StatGrid>
 							<div className="grid gap-3 lg:grid-cols-[1.2fr_1fr]">
-								<div data-tone="rose" className="rounded-xl border border-[var(--danger-border)] p-4">
+								<div data-tone="rose" className="rounded-2xl border border-[var(--danger-border)] bg-[color-mix(in_srgb,var(--danger-bg)_55%,var(--surface))] p-4 shadow-[var(--shadow-sm)]">
 									<h2 className="text-sm font-semibold text-[var(--text-primary)]">{copy.highRiskTitle}</h2>
 									<p className="mt-2 text-sm leading-6 text-[var(--text-secondary)]">
 										{formatCopy(copy.highRiskDescription, { warningRatio, criticalRatio })}
@@ -102,26 +102,27 @@ export default async function AuditPage({ searchParams }: AuditPageProps) {
 											<Link
 												key={`quick-${action}`}
 												href={`/audit?action=${encodeURIComponent(action)}`}
-												className="rounded-lg border border-[var(--border)] bg-[var(--surface)]/[0.04] px-2 py-1 text-[11px] text-[var(--danger)]/80 transition hover:bg-[var(--surface)]/[0.10]"
+												className="rounded-lg border border-[var(--border)] bg-[var(--surface)] px-2 py-1 text-[11px] text-[var(--danger)] transition hover:bg-[var(--surface-hover)]"
 											>
 												{copy.highRiskFilterPrefix} {formatAuditAction(action, locale)}
 											</Link>
 										))}
 									</div>
 								</div>
-								<div className="rounded-xl border border-[var(--border)] bg-[var(--surface)]/[0.04] p-4">
-									<h2 className="text-sm font-semibold text-[var(--text-primary)]">{copy.topActionsTitle}</h2>
-									<div className="mt-3 space-y-2">
+								<SurfacePanel title={copy.topActionsTitle} className="!space-y-3">
+									<div className="space-y-2">
 										{topActions.length === 0 ? (
 											<p className="text-sm text-[var(--text-muted)]">{copy.topActionsEmpty}</p>
-										) : topActions.map(([action, count]) => (
-											<div key={action} className="flex items-center justify-between gap-3 text-sm">
-												<span className="truncate text-[var(--text-secondary)]">{formatAuditAction(action, locale)}</span>
-												<span className="rounded-full bg-[var(--surface)]/[0.10] px-2 py-0.5 text-xs text-[var(--text-secondary)]">{count}</span>
-											</div>
-										))}
+										) : (
+											topActions.map(([action, count]) => (
+												<div key={action} className="flex items-center justify-between gap-3 text-sm">
+													<span className="truncate text-[var(--text-secondary)]">{formatAuditAction(action, locale)}</span>
+													<span className="rounded-full border border-[var(--border)] bg-[var(--surface-elevated)] px-2 py-0.5 text-xs tabular-nums text-[var(--text-secondary)]">{count}</span>
+												</div>
+											))
+										)}
 									</div>
-								</div>
+								</SurfacePanel>
 							</div>
 						</section>
 					)}

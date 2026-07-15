@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { UserPermissionPanel } from "./user-permission-panel";
 import { csrfFetch } from "@/lib/auth/csrf-client";
-import { EmptyState } from "@/components/page-shell";
+import { EmptyState, ListPanel, ListRow, SurfacePanel, Toolbar } from "@/components/page-shell";
 import { toDateLocale } from "@/lib/i18n/locale-format";
 import { useI18n } from "@/lib/i18n/use-locale";
 import { useDialogFocus } from "@/lib/a11y/use-dialog-focus";
@@ -172,26 +172,23 @@ export function UserManagementClient({ canManage = false, currentUserId = "" }: 
         </div>
       )}
 
-      {/* Create button */}
-      <div className="mb-5 flex items-center justify-between gap-3">
-        <div>
-          <h2 className="text-base font-semibold text-[var(--text-primary)]">{t("usersPage.title2")}</h2>
-        </div>
+      <Toolbar className="mb-5 justify-between">
+        <h2 className="px-1 text-sm font-semibold text-[var(--text-primary)] sm:text-base">{t("usersPage.title2")}</h2>
         {canManage ? (
           <button
             type="button"
             onClick={() => setShowCreateForm(!showCreateForm)}
             data-primary
-            className="rounded-xl bg-[var(--accent)] px-4 py-2 text-sm font-semibold text-white transition hover:bg-[var(--accent-hover)]"
+            className="rounded-xl bg-[var(--accent)] px-4 py-2 text-sm font-semibold text-[var(--on-accent)] transition hover:bg-[var(--accent-hover)]"
           >
             {showCreateForm ? t("usersPage.action.cancel") : t("usersPage.action.create")}
           </button>
         ) : null}
-      </div>
+      </Toolbar>
 
       {/* Create form */}
       {showCreateForm && (
-        <div data-card className="mb-6 space-y-4 p-5">
+        <SurfacePanel className="mb-6" title={t("usersPage.action.create")}>
           <div className="grid gap-4 sm:grid-cols-2">
             <div>
               <label className="mb-1 block text-sm text-[var(--text-muted)]" htmlFor="createUserUsername">{t("usersPage.form.username")}</label>
@@ -257,21 +254,24 @@ export function UserManagementClient({ canManage = false, currentUserId = "" }: 
           >
             {creating ? t("usersPage.action.creating") : t("usersPage.action.confirm")}
           </button>
-        </div>
+        </SurfacePanel>
       )}
 
-      {/* User list */}
-      <div className="overflow-hidden rounded-2xl border border-[var(--border)]">
-        <div className="divide-y divide-[var(--border)] bg-[var(--surface-subtle)]">
-          {loading ? (
+      <ListPanel
+        title={t("usersPage.title2")}
+        count={loading ? "…" : users.length}
+        empty={
+          loading ? (
             <EmptyState>{t("usersPage.loading")}</EmptyState>
           ) : loadFailed ? (
-            <div className="px-4 py-10 text-sm text-[var(--text-secondary)]">{t("usersPage.loadFailedHint")}</div>
+            <EmptyState variant="boxed">{t("usersPage.loadFailedHint")}</EmptyState>
           ) : users.length === 0 ? (
             <EmptyState>{t("usersPage.empty")}</EmptyState>
-          ) : (
-            users.map((user) => (
-              <div key={user.id} className="px-4 py-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          ) : undefined
+        }
+      >
+            {!loading && !loadFailed && users.map((user) => (
+              <ListRow key={user.id} className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <div className="min-w-0">
                   <div className="flex items-center gap-3">
                     <span className="text-[var(--text-primary)] font-medium">{user.displayName ?? user.username}</span>
@@ -339,11 +339,9 @@ export function UserManagementClient({ canManage = false, currentUserId = "" }: 
                     <span className="text-xs text-[var(--text-muted)]">{t("usersPage.action.readonly")}</span>
                   )}
                 </div>
-              </div>
-            ))
-          )}
-        </div>
-      </div>
+              </ListRow>
+            ))}
+      </ListPanel>
       {editingPermissionsUser && (
         <UserPermissionPanel
           userId={editingPermissionsUser.id}
@@ -354,7 +352,7 @@ export function UserManagementClient({ canManage = false, currentUserId = "" }: 
       )}
       {resetPasswordUser && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-[var(--surface)]/70 px-4 backdrop-blur-sm"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-[var(--overlay)] px-4 backdrop-blur-sm"
           role="presentation"
           onClick={() => setResetPasswordUser(null)}
         >

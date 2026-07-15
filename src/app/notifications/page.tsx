@@ -26,13 +26,21 @@ export default async function NotificationsPage() {
 	}));
 
 	return (
-		<PageShell maxW="max-w-7xl">
-				<PageHeader
+		<PageShell maxW="max-w-3xl">
+			<PageHeader
 				eyebrow={t("notificationsPage.eyebrow", locale)}
 				title={t("notificationsPage.title", locale)}
-				description={unreadCount > 0 ? t("notificationsPage.unread", locale).replace("{count}", String(unreadCount)) : t("notificationsPage.allRead", locale)}
-				/>
-				<NotificationListClient initialNotifications={serialized} initialUnreadCount={unreadCount} locale={locale} />
+				description={
+					unreadCount > 0
+						? t("notificationsPage.unread", locale).replace("{count}", String(unreadCount))
+						: t("notificationsPage.allRead", locale)
+				}
+			/>
+			<NotificationListClient
+				initialNotifications={serialized}
+				initialUnreadCount={unreadCount}
+				locale={locale}
+			/>
 		</PageShell>
 	);
 }
