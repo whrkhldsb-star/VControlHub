@@ -172,9 +172,9 @@ export function AppSidebar({
 				href={item.href}
 				onClick={() => setMobileOpen(false)}
 				aria-current={active ? "page" : undefined}
-				className={`group relative flex min-w-0 items-center gap-2.5 rounded-lg px-2.5 py-2 text-[13px] transition-colors duration-150 ${
+				className={`group relative flex min-w-0 items-center gap-2.5 rounded-xl px-2.5 py-2 text-[13px] transition-colors duration-150 ${
 					active
-						? "bg-[var(--sidebar-active)] font-medium text-[var(--sidebar-active-fg)] shadow-[inset_3px_0_0_var(--accent)]"
+						? "bg-[var(--sidebar-active)] font-semibold text-[var(--sidebar-active-fg)] shadow-[inset_3px_0_0_var(--accent)]"
 						: "text-[var(--text-muted)] hover:bg-[var(--sidebar-hover)] hover:text-[var(--text-secondary)]"
 				}`}
 			>
@@ -247,7 +247,7 @@ export function AppSidebar({
 				</label>
 			</div>
 
-			<div className="min-w-0 flex-1 space-y-1 overflow-y-auto overflow-x-hidden px-2.5 py-3">
+			<div className="min-w-0 flex-1 space-y-2 overflow-y-auto overflow-x-hidden px-2.5 py-3">
 				{filteredGroups.map(renderGroup)}
 
 				{filteredSystem.length > 0 && (
@@ -272,7 +272,7 @@ export function AppSidebar({
 									target="_blank"
 									rel="noopener noreferrer"
 									onClick={() => setMobileOpen(false)}
-									className="flex items-center gap-2.5 rounded-lg px-2.5 py-2 text-[13px] text-[var(--text-muted)] transition-colors duration-150 hover:bg-[var(--sidebar-hover)] hover:text-[var(--text-secondary)]"
+									className="flex items-center gap-2.5 rounded-xl px-2.5 py-2 text-[13px] text-[var(--text-muted)] transition-colors duration-150 hover:bg-[var(--sidebar-hover)] hover:text-[var(--text-secondary)]"
 								>
 									<span className="shrink-0 text-[16px] leading-none">{item.icon}</span>
 									<span className="min-w-0 flex-1 truncate" title={item.name}>
@@ -292,8 +292,8 @@ export function AppSidebar({
 				) : null}
 			</div>
 
-			<div className="space-y-1 border-t border-[var(--sidebar-border)] bg-[color-mix(in_srgb,var(--surface)_40%,transparent)] px-3 py-3">
-				<div className="flex items-center gap-2 rounded-xl border border-[var(--border-subtle)] bg-[var(--surface)] px-2.5 py-2">
+			<div className="space-y-1.5 border-t border-[var(--sidebar-border)] bg-[color-mix(in_srgb,var(--surface)_55%,transparent)] px-3 py-3">
+				<div className="flex items-center gap-2 rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-elevated)] px-2.5 py-2 shadow-[var(--shadow-sm)]">
 					<div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[var(--accent-bg)] text-xs font-semibold uppercase text-[var(--accent)]">
 						{iconInitial}
 					</div>
@@ -325,7 +325,7 @@ export function AppSidebar({
 			<button
 				type="button"
 				onClick={() => setMobileOpen(true)}
-				className="fixed left-4 top-4 z-50 rounded-xl border border-[var(--border)] bg-[var(--surface)]/90 p-2.5 text-[var(--text-secondary)] shadow-[var(--shadow-md)] backdrop-blur transition hover:bg-[var(--surface-elevated)] lg:hidden"
+				className="fixed left-4 top-4 z-50 rounded-xl border border-[var(--border)] bg-[color-mix(in_srgb,var(--surface)_94%,transparent)] p-2.5 text-[var(--text-secondary)] shadow-[var(--shadow-md)] backdrop-blur transition hover:bg-[var(--surface-elevated)] lg:hidden"
 				aria-label={t("nav.openMenu")}
 			>
 				<svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">

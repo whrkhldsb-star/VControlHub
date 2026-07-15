@@ -68,7 +68,7 @@ export function DashboardWidgetDetailDialog({
 	return (
 		<div
 			role="presentation"
-			className="fixed inset-0 z-50 flex items-center justify-center bg-[var(--overlay-strong)] p-4 backdrop-blur-sm"
+			className="fixed inset-0 z-50 flex items-center justify-center bg-[var(--overlay)] p-4 backdrop-blur-sm"
 			data-testid="dashboard-widget-detail-dialog"
 			onClick={(e) => {
 				// Click on backdrop closes; clicks on the dialog body do not.
@@ -80,7 +80,7 @@ export function DashboardWidgetDetailDialog({
 				role="dialog"
 				aria-modal="true"
 				aria-labelledby="dashboard-widget-detail-title"
-				className="relative max-h-[88vh] w-full max-w-3xl overflow-auto rounded-2xl border border-[var(--border)] bg-[var(--modal-bg)] p-6 shadow-2xl"
+				className="relative max-h-[88vh] w-full max-w-3xl overflow-auto rounded-2xl border border-[var(--border)] bg-[var(--modal-bg)] p-5 shadow-[var(--shadow-lg)] sm:p-6"
 				>
 				<div className="mb-4 flex items-center justify-between">
 					<h2

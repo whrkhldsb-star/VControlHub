@@ -65,11 +65,11 @@ export function DashboardCustomizeToolbar({
 
 	return (
 		<div
-			className="mb-3 flex flex-wrap items-center justify-between gap-2 rounded-xl border border-[var(--warning-border)] bg-[var(--warning-bg)] p-2"
+			className="mb-4 flex flex-wrap items-center justify-between gap-2 rounded-2xl border border-[var(--warning-border)] bg-[var(--warning-bg)] p-3 shadow-[var(--shadow-sm)]"
 			role="region"
 			aria-label={t("dashboard.customize")}
 		>
-			<p className="px-2 text-xs text-[var(--warning)]/80">
+			<p className="px-1 text-xs leading-5 text-[var(--warning)]">
 				{t("dashboard.customize-drag-tip")}
 			</p>
 			<div className="flex flex-wrap items-center gap-1.5">

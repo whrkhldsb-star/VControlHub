@@ -112,13 +112,13 @@ export function DashboardAnalyticsPanel() {
   }, [data?.downloads]);
 
   return (
-    <section data-card className="mt-8 p-4" aria-labelledby="dashboard-analytics-title">
-      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+    <section data-surface-panel data-card className="mt-6 space-y-4 p-4 sm:p-5" aria-labelledby="dashboard-analytics-title">
+      <div className="flex flex-col gap-2 border-b border-[var(--border-subtle)] pb-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h2 id="dashboard-analytics-title" className="text-lg font-semibold text-[var(--text-primary)]">{t("dashboard.data-trends")}</h2>
-          <p className="mt-1 text-xs text-[var(--text-muted)]">{t("dashboard.analytics.description")}</p>
+          <h2 id="dashboard-analytics-title" className="text-base font-semibold text-[var(--text-primary)] sm:text-lg">{t("dashboard.data-trends")}</h2>
+          <p className="mt-1 text-xs leading-5 text-[var(--text-muted)]">{t("dashboard.analytics.description")}</p>
         </div>
-        {loading ? <span className="text-xs text-[var(--color-action)]">{t("dashboard.analytics.loading")}</span> : null}
+        {loading ? <span className="text-xs font-medium text-[var(--accent)]">{t("dashboard.analytics.loading")}</span> : null}
       </div>
 
       {error ? (
@@ -129,7 +129,7 @@ export function DashboardAnalyticsPanel() {
 
       {!loading && !error && data ? (
         <div className="mt-4 grid gap-4 xl:grid-cols-2">
-          <div data-card className="bg-[var(--surface-subtle)] p-4">
+          <div className="rounded-2xl border border-[var(--border-subtle)] bg-[var(--surface-elevated)] p-4">
             <div className="flex items-center justify-between gap-3">
               <h3 className="text-sm font-medium text-[var(--text-primary)]">{t("dashboard.analytics.server-trend")}</h3>
               {latestServerMetric ? <span className="text-xs text-[var(--text-muted)]">{t("dashboard.analytics.recent")} {formatShortTime(latestServerMetric.time, locale)}</span> : null}
@@ -150,7 +150,7 @@ export function DashboardAnalyticsPanel() {
             )}
           </div>
 
-          <div data-card className="bg-[var(--surface-subtle)] p-4">
+          <div className="rounded-2xl border border-[var(--border-subtle)] bg-[var(--surface-elevated)] p-4">
             <h3 className="text-sm font-medium text-[var(--text-primary)]">{t("dashboard.analytics.download-trend")}</h3>
             {data.downloads?.length ? (
               <div className="mt-4" data-testid="download-analytics-chart">
@@ -167,7 +167,7 @@ export function DashboardAnalyticsPanel() {
             )}
           </div>
 
-          <div data-card className="bg-[var(--surface-subtle)] p-4">
+          <div className="rounded-2xl border border-[var(--border-subtle)] bg-[var(--surface-elevated)] p-4">
             <h3 className="text-sm font-medium text-[var(--text-primary)]">{t("dashboard.analytics.audit-activity")}</h3>
             {data.audit?.length ? (
               <SparkBars points={data.audit.map((point) => ({ label: formatShortDate(point.date), value: point.total }))} color="violet" locale={locale} />
@@ -176,7 +176,7 @@ export function DashboardAnalyticsPanel() {
             )}
           </div>
 
-          <div data-card className="bg-[var(--surface-subtle)] p-4">
+          <div className="rounded-2xl border border-[var(--border-subtle)] bg-[var(--surface-elevated)] p-4">
             <h3 className="text-sm font-medium text-[var(--text-primary)]">{t("dashboard.analytics.image-bed")}</h3>
             {data.imageBed?.length ? (
               <div className="mt-4">
@@ -207,7 +207,7 @@ function MetricLine({ label, value, color }: { label: string; value: number; col
         <span>{label}</span>
         <span>{value}%</span>
       </div>
-      <div className="h-2 rounded-full bg-[var(--surface)]/10">
+      <div className="h-2 rounded-full bg-[var(--surface-hover)]">
         <div className={`h-full rounded-full ${colors[color]}`} style={{ width: `${value}%` }} />
       </div>
     </div>
@@ -259,9 +259,9 @@ function StackedDownloadBars({ points, locale: _locale = "zh" }: { points: Downl
         const showLabel = index % labelInterval === 0 || index === points.length - 1;
         return (
           <div key={point.date} className="flex min-w-0 flex-1 flex-col items-center gap-1">
-            <div className="flex w-full flex-col justify-end overflow-hidden rounded-t bg-[var(--surface)]/10" style={{ height: `${height}px` }} title={`${point.date}: ${total}`}>
+            <div className="flex w-full flex-col justify-end overflow-hidden rounded-t bg-[var(--surface-hover)]" style={{ height: `${height}px` }} title={`${point.date}: ${total}`}>
               <Segment value={point.failed} total={total} className="bg-[var(--danger-bg)]" />
-              <Segment value={point.running} total={total} className="bg-[var(--color-action-bg)]/70" />
+              <Segment value={point.running} total={total} className="bg-[var(--accent-bg)]" />
               <Segment value={point.pending} total={total} className="bg-[var(--warning-bg)]" />
               <Segment value={point.completed} total={total} className="bg-[var(--success-bg)]" />
             </div>

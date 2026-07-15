@@ -1,4 +1,5 @@
 import { render, screen } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import type { ReactNode } from "react";
 import { describe, expect, it, vi } from "vitest";
 
@@ -83,6 +84,18 @@ const STORAGE_GATE: SessionGate = {
 };
 const ADMIN_GATE: SessionGate = gateFromRoles(["admin"]);
 
+/** Ops/collab groups are collapsed by default for scanability — expand when asserting nested links. */
+async function expandNavGroup(name: RegExp) {
+	const user = userEvent.setup();
+	// Desktop + mobile sidebars both mount the same nav tree in tests.
+	const groups = screen.getAllByRole("button", { name });
+	for (const group of groups) {
+		if (group.getAttribute("aria-expanded") !== "true") {
+			await user.click(group);
+		}
+	}
+}
+
 describe("AppSidebar permission-gated render", () => {
 	it("hides main nav items whose declared permissions the session lacks", () => {
 		renderWithGate(READ_ONLY_GATE, SAMPLE_DECLARED);
@@ -112,8 +125,11 @@ describe("AppSidebar permission-gated render", () => {
 		expect(screen.queryByRole("link", { name: /用户管理/ })).not.toBeInTheDocument();
 	});
 
-	it("admits every item for admin role (no filter triggers)", () => {
+	it("admits every item for admin role (no filter triggers)", async () => {
 		renderWithGate(ADMIN_GATE, SAMPLE_DECLARED);
+
+		// Ops group is collapsed by default; expand so nested links are queryable.
+		await expandNavGroup(/运维自动化/);
 
 		expect(screen.getAllByRole("link", { name: /仪表盘/ }).length).toBeGreaterThan(0);
 		expect(screen.getAllByRole("link", { name: /VPS 管理/ }).length).toBeGreaterThan(0);

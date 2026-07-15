@@ -77,7 +77,7 @@ export function DashboardServerHero({ summary }: { summary: DashboardServerSumma
   const gatewayLabel = t("dashboard.direct-gateway");
 
   return (
-    <section data-dashboard-widget="server-status" className="mb-6 overflow-hidden rounded-3xl border border-[var(--border)] bg-[linear-gradient(145deg,color-mix(in_srgb,var(--accent-bg)_55%,var(--surface)),var(--surface))] p-5 shadow-[var(--shadow-sm)]">
+    <section data-dashboard-widget="server-status" className="mb-6 overflow-hidden rounded-2xl border border-[var(--border)] bg-[linear-gradient(145deg,color-mix(in_srgb,var(--accent-bg)_55%,var(--surface)),var(--surface))] p-5 shadow-[var(--shadow-sm)]">
       <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
         <div>
           <p className="text-xs font-semibold uppercase tracking-[0.22em] text-[var(--accent)]">{eyebrow}</p>
