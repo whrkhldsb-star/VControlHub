@@ -673,7 +673,7 @@ make logs SERVICE_PREFIX=vcontrolhub
 | XSS 预览 | `dangerouslySetInnerHTML` 仅 markdown/代码高亮，经 `sanitizeHtml` / `sanitizeHighlight` |
 | 空 catch 残留 | unlink / stream close 清理类 |
 | 密钥入库 | 仓库仅 `.env.example`，无跟踪私钥/真实 env |
-| 已知残留 OPEN | Sync `accept-new`（OPEN-2）、未 pin TOFU（OPEN-1）、download 非 CAS（OPEN-3）等已在上表 |
+|| 已知残留 OPEN | download 非 CAS（OPEN-3）等已在上表；OPEN-1/OPEN-2（SSH pin）已于 2026-07-14 全路径收口 |
 
 **结论**：服务端高/中优先级安全与一致性问题已在 BE-1…BE-25 覆盖；前端 FE-1 已修；剩余项均为产品边界、引导路径或范围外验证，**未发现扫描漏掉的新 CRITICAL/HIGH 未修缺陷**。
 
@@ -689,14 +689,19 @@ make logs SERVICE_PREFIX=vcontrolhub
 | **覆盖率 / DAST / SAST / 压测** | 非本轮交付范围 | `test:coverage`、容器扫描、专用安全扫描、高并发压测单独排期 |
 | **Sync CLI SSH 主机密钥 pin** | ✅ 已收口：实际 rsync/tar 连接使用经过 SHA-256 pin 匹配的临时 known_hosts，StrictHostKeyChecking=yes | 临时凭据与 known_hosts 在命令结束后清理 |
 
-#### 验证（全量扫描 + BE-24/25 后）
+#### 验证（全量扫描 + BE-24/25 + 安全架构修复后）
 
 | 检查 | 结果 |
 |---|---|
-| `npx tsc --noEmit` | ✅（提交前复核） |
-| 聚焦 Vitest（command / share / backup / ai hosted 等） | ✅（提交前复核） |
-| `npm run build:runtime` + `npx next build --webpack` | ✅（提交前复核） |
-| 生产 `vcontrolhub-next` smoke（login / status） | ✅（提交前复核） |
+| `npx tsc --noEmit` | ✅ |
+| ESLint `--max-warnings=0` | ✅ |
+| i18n key completeness (3946/3946, 0 orphan) | ✅ |
+| RBAC audit (54 perms, 0 drift) | ✅ |
+| Route verify (47 pages, 138 routes) | ✅ |
+| 聚焦 Vitest（377 项） | ✅ |
+| `npm run build:runtime` + `npx next build --webpack` | ✅ |
+| 生产部署 smoke（25/25） | ✅ |
+| Git commit + push `main` | ✅ `eb03bc98` + `908eabe6` |
 
 ### 审查边界
 
@@ -710,9 +715,9 @@ make logs SERVICE_PREFIX=vcontrolhub
 
 | 优先级 | 状态 | 升级方向 | 验收标准 |
 |---|---|---|---|
-| P0 | 进行中 | 收敛大型 Client Component，将数据获取、mutation、展示区块和弹窗拆到稳定边界 | 页面行为不变；减少客户端边界与重复状态；桌面/移动浏览器回归通过 |
+| P0 | ✅ 第一批完成 | 收敛大型 Client Component，将数据获取、mutation、展示区块和弹窗拆到稳定边界 | 已无 1000+ 行巨型组件；当前高复杂候选为 alert-rule-list(505行)、docker-page(501行)、text-preview(499行)；桌面/移动浏览器回归通过 |
 | P0 | ✅ 阶段性 | 导航信息架构 + 全局页面壳美化 | 侧栏分组/筛选、PageHeader/Toolbar/EmptyState 升级、表格/卡片/移动底栏统一；提交见 FE-UI 记录 |
-| P0 | 进行中 | 收敛 `globals.css` 历史兼容规则，迁移到明确的 primitives 与 `data-*` hooks | 删除零命中/重复选择器；深浅主题、focus、dialog、表格和卡片视觉回归通过 |
+| P0 | ✅ 第一批完成 | 收敛 `globals.css` 历史兼容规则，迁移到明确的 primitives 与 `data-*` hooks | 已删除 59 行零命中暗色主题 shim（bg-slate-950/900/800、bg-white/*、border-white/*、table-wrapper）；深浅主题视觉回归通过 |
 | P1 | ✅ sftp-ops 已迁移 | 合并文件动作的重复核心 | sftp-ops delete/rename 已迁移到统一 `fs-backend`，采用 index-first 语义（先更新索引再删物理文件）；继续收敛 write/create 路径 |
 | P1 | ✅ 关键路径完成 | 强化危险操作跨进程锁和崩溃恢复 | lease、AI CAS、backup restore / VPS schedule tick advisory lock 已完成；锁使用专用 pg 连接保证同 session 持有/释放，并有真实双连接集成测试 |
 | P1 | ✅ CLI 路径完成 | SSH 主机密钥 pin 全路径收口 | 命令执行和 Sync rsync/tar 均生成匹配已保存 SHA-256 pin 的临时 known_hosts，实际连接强制 StrictHostKeyChecking=yes；首次连接仍需显式指纹审批 |
@@ -730,8 +735,8 @@ make logs SERVICE_PREFIX=vcontrolhub
 
 | 维度 | 判断 |
 |---|---|
-| 已很强 | 命令审批链、模板/部署、文件与分享、备份/审计、RBAC 粒度 |
-| 仍偏弱 | 远程运行时（Docker 舰队）、统一节点观测、多租户数据边界、自动化编排深度、网盘级文件能力、工单/AI 业务闭环 |
+| 已很强 | 命令审批链、模板/部署、文件与分享、备份/审计、RBAC 粒度、多租户 Team scope |
+| 仍偏弱 | 远程运行时（Docker 舰队 Compose 生命周期）、自动化编排深度（Playbook 主链 worker 化）、网盘级文件能力（版本历史/断点续传）、工单/AI 业务闭环 |
 
 #### P0 — 最影响「能不能当主力系统用」
 
@@ -779,12 +784,12 @@ make logs SERVICE_PREFIX=vcontrolhub
 
 #### 建议功能补齐顺序（4～6 周视角，可按场景裁剪）
 
-1. 远程 Docker / 统一节点运行时（否则 Docker/快服务永远像插件）  
-2. 数据范围隔离（team/项目过滤任务、文件节点、VPS）  
-3. 舰队监控一张图（每台机关键指标 + 告警打通）  
-4. Playbook/部署异步化与结果汇总（真·批量运维）  
-5. 文件：全文搜 + 更好预览/传输（网盘感）  
-6. 工单 ↔ 机器/命令/审批对象关联（协作闭环）  
+1. ✅ ~~远程 Docker / 统一节点运行时~~ — 远程容器/日志/stats/volume 已支持选择 VPS
+2. ✅ ~~数据范围隔离~~ — 核心模型已接入 Team scope（FEAT-P0-1 + OPEN-4 + 备份域全量闭环）
+3. ✅ ~~舰队监控一张图~~ — 远程节点实时资源 + 历史趋势 + 告警联动
+4. Playbook/部署异步化与结果汇总 — stepResults 已持久化，主链 worker 化仍待后续
+5. ✅ ~~文件：全文搜~~ — LOCAL/SFTP 全文检索已完成；文件版本历史、断点续传仍待后续
+6. ✅ ~~工单 ↔ 机器/命令/审批对象关联~~ — Ticket 关联 VPS/命令已完成
 
 > 与上文「持续升级路线」关系：架构 P0/P1 偏**可维护性与运行时可靠性**；本节偏**产品功能边界**。两者可并行，但功能交付仍以 typecheck / 测试 / 构建 / smoke / 真实路径复核为准。
 
@@ -817,6 +822,19 @@ make logs SERVICE_PREFIX=vcontrolhub
 | ARCH-P1-2 | 统一跨进程锁 | advisory lock 统一服务接管备份恢复和 VPS 备份计划锁，统一 namespace/key/release/error handling |
 
 **验证**：Prisma `db push`/generate 成功；`tsc --noEmit` 通过；P1 聚焦回归 45 files / 358 tests 全部通过；生产构建、部署与 smoke 见本轮提交记录。
+
+### 安全架构修复与可观测性增强（2026-07-14）
+
+| ID | 修复项 | 发现的问题 | 修复方案 | 验证 |
+|---|---|---|---|---|
+| SEC-P0-1 | **Advisory lock 会话语义** | 原实现使用 Prisma `$executeRaw` 获取/释放锁，两条 SQL 经连接池后不保证在同一 PostgreSQL session，可能导致锁无法释放或错误释放 | 重写为专用 `pg.Pool`：每把锁通过 `PoolClient.connect()` 持有独立连接，acquire/release 始终在同一 session；release 幂等；获取失败自动归还连接 | 单元测试 5 项 + 真实双连接集成测试 1 项（第一连接持锁时第二连接 busy，释放后可获取） |
+| SEC-P0-2 | **SSH host-key pin 执行链** | 原实现预检校验 fingerprint 但实际 OpenSSH 连接用 `UserKnownHostsFile=/dev/null`，Sync rsync 用 `accept-new`；存在 TOCTOU 风险 | 新增 `scanPinnedKnownHost()`：`ssh-keyscan` 获取主机密钥→选 SHA-256 与 pin 匹配的行→写入临时 `known_hosts`（0600）→实际连接强制 `StrictHostKeyChecking=yes`；临时文件执行后清理 | 指纹匹配测试 + 命令执行 pin 链测试 + Sync transport 测试共 32 项 |
+| SEC-P0-3 | **备份域系统性跨团队 IDOR** | BackupRecord 创建不写入 teamId；BackupSchedule 无 teamId；备份列表/恢复/重试/作废/保留策略均可通过全局 ID 查询 | BackupRecord/BackupSchedule/Job 全部写入 teamId；列表、详情、恢复、重试、作废、保留策略全部按 Team scope 查询；正式 migration `20260714120000`；生产库已标记 applied | 234 项回归测试通过 |
+| SEC-P1-1 | **SFTP 文件动作 index-first** | sftp-ops delete 先删物理文件后更新索引，如果 DB 更新失败则索引仍显示但文件已消失；rename 同理 | delete 改为先 `softDeleteSftpIndex` 再 best-effort 删物理文件（失败只记日志）；rename 改为先更新索引再物理重命名，失败则回滚索引；统一使用 `fs-backend` 适配器 | tsc + lint + 293 项相关测试通过 |
+| FEAT-P2-1 | **API 延迟与队列积压可观测性** | 缺少 API 请求耗时指标和 Job 队列积压可视化 | `withApiRoute` 增加 `Server-Timing` 响应头和结构化耗时日志（method/path/status/durationMs/requestId）；新增 `/api/jobs/backlog` 聚合查询（pending/running/expiredLease/failed/byType/oldestPendingMs） | 2 项单元测试 + 25/25 部署 smoke |
+| FEAT-P0-2 | **globals.css 零命中规则清理** | 49 个暗色主题 shim CSS 选择器在代码中无任何引用 | 删除 59 行零命中规则（bg-slate-950/900/800 及 opacity 变体、bg-white/*、border-white/*、aside.bg-slate-950、table-wrapper） | tsc + lint + build 通过 |
+
+**验证**：tsc 0；ESLint --max-warnings=0；i18n 3946/3946 零 orphan；RBAC 0 drift；377 项测试全通过；生产构建 + 25/25 smoke；提交 `eb03bc98` + `908eabe6` 已推送 `main`。
 
 ### P0 完整性审计修复（2026-07-14）
 
