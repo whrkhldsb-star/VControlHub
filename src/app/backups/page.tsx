@@ -3,7 +3,7 @@ import { sessionHasPermission } from "@/lib/auth/authorization";
 import { buildBackupRestoreCommand, buildPortableBackupCommand, formatBackupSize, isBackupType, listBackupRecords, summarizeBackupPolicy } from "@/lib/backup/service";
 import { config } from "@/lib/config/env";
 import { t } from "@/lib/i18n/translations";
-import { PageShell, EmptyState, PageHeader } from "@/components/page-shell";
+import { PageShell, EmptyState, PageHeader, StatCard, StatGrid, SurfacePanel, ListPanel, ListRow } from "@/components/page-shell";
 import { CreateBackupForm } from "./create-backup-form";
 import { ScheduleBackupForm } from "./schedule-backup-form";
 import { RestoreBackupButton } from "./restore-backup-button";
@@ -21,7 +21,7 @@ const projectRoot = config.app.appDir || process.cwd();
 
 export default async function BackupsPage() {
 	const session = await requireSession("/backups");
-	if (!sessionHasPermission(session, "backup:read")) return <PageShell><EmptyState text={t("backupsPage.noPermission")} /></PageShell>;
+	if (!sessionHasPermission(session, "backup:read")) return <PageShell><EmptyState text={t("backupsPage.noPermission")} variant="boxed" /></PageShell>;
 	const canCreate = sessionHasPermission(session, "backup:create");
 	const canRestore = sessionHasPermission(session, "backup:restore");
 	const [backups, offsite] = await Promise.all([
@@ -33,55 +33,36 @@ export default async function BackupsPage() {
 		<PageShell>
 			<PageHeader eyebrow={t("backupsPage.eyebrow")} title={t("backupsPage.title")} description={t("backupsPage.description")} />
 
-			<section className="mb-6 grid gap-3 md:grid-cols-4">
-				<div data-card className="p-4">
-					<p className="text-xs font-medium uppercase tracking-wider text-[var(--text-muted)]">{t("backupsPage.summary.completed")}</p>
-					<p className="mt-1 text-2xl font-semibold text-[var(--text-primary)]">{summary.completedRecords}</p>
-					<p className="mt-1 text-xs text-[var(--text-muted)]">{t("backupsPage.summary.totalRecords").replace("{count}", String(summary.totalRecords))}</p>
-				</div>
-				<div data-card className="p-4">
-					<p className="text-xs font-medium uppercase tracking-wider text-[var(--text-muted)]">{t("backupsPage.summary.usedSpace")}</p>
-					<p className="mt-1 text-2xl font-semibold text-[var(--text-primary)]">{formatBackupSize(summary.totalCompletedSizeBytes)}</p>
-					<p className="mt-1 text-xs text-[var(--text-muted)]">{summary.largestCompleted ? t("backupsPage.summary.largestRecord").replace("{type}", summary.largestCompleted.type).replace("{size}", formatBackupSize(summary.largestCompleted.sizeBytes)) : t("backupsPage.summary.largestNone")}</p>
-				</div>
-				<div data-card className="p-4">
-					<p className="text-xs font-medium uppercase tracking-wider text-[var(--text-muted)]">{t("backupsPage.summary.retentionNote")}</p>
-					<p className="mt-1 text-2xl font-semibold text-[var(--text-primary)]">{summary.recordsOlderThan30Days}</p>
-					<p className="mt-1 text-xs text-[var(--text-muted)]">{t("backupsPage.summary.retentionHint")}</p>
-				</div>
-				<div data-card className="p-4">
-					<p className="text-xs font-medium uppercase tracking-wider text-[var(--text-muted)]">{t("backupsPage.summary.exceptions")}</p>
-					<p className="mt-1 text-2xl font-semibold text-[var(--text-primary)]">{summary.failedRecords} / {summary.runningRecords}</p>
-					<p className="mt-1 text-xs text-[var(--text-muted)]">{t("backupsPage.summary.exceptionsHint")}</p>
-				</div>
-			</section>
+			<StatGrid cols={4}>
+				<StatCard label={t("backupsPage.summary.completed")} value={String(summary.completedRecords)} detail={t("backupsPage.summary.totalRecords").replace("{count}", String(summary.totalRecords))} accent={summary.completedRecords > 0} accentColor="emerald" />
+				<StatCard label={t("backupsPage.summary.usedSpace")} value={formatBackupSize(summary.totalCompletedSizeBytes)} detail={summary.largestCompleted ? t("backupsPage.summary.largestRecord").replace("{type}", summary.largestCompleted.type).replace("{size}", formatBackupSize(summary.largestCompleted.sizeBytes)) : t("backupsPage.summary.largestNone")} />
+				<StatCard label={t("backupsPage.summary.retentionNote")} value={String(summary.recordsOlderThan30Days)} detail={t("backupsPage.summary.retentionHint")} accent={summary.recordsOlderThan30Days > 0} accentColor="amber" />
+				<StatCard label={t("backupsPage.summary.exceptions")} value={`${summary.failedRecords} / ${summary.runningRecords}`} detail={t("backupsPage.summary.exceptionsHint")} accent={summary.failedRecords > 0} accentColor="rose" />
+			</StatGrid>
 
-			<section data-card className="mb-6 ">
-				<div className="flex flex-wrap items-start justify-between gap-4">
-					<div>
-						<h2 className="text-sm font-semibold text-[var(--text-primary)]">{t("backupsPage.overview.title")}</h2>
-						<p className="mt-1 text-xs text-[var(--text-muted)]">{t("backupsPage.overview.description")}</p>
+			<div className="mb-5">
+				<SurfacePanel
+					title={t("backupsPage.overview.title")}
+					description={t("backupsPage.overview.description")}
+					actions={<span className="text-xs text-[var(--text-muted)]">{t("backupsPage.overview.latestCompleted").replace("{date}", formatZhDateTime(summary.latestCompletedAt, t("backupsPage.overview.latestNone")))}</span>}
+				>
+					<div className="grid gap-3 md:grid-cols-3">
+						{(["DATABASE", "FILES", "FULL"] as const).map((type) => (
+							<div key={type} className="rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-subtle)] p-3">
+								<p className="text-xs font-semibold text-[var(--text-secondary)]">{type}</p>
+								<p className="mt-1 text-sm text-[var(--text-primary)]">{t("backupsPage.overview.typeSummary").replace("{count}", String(summary.byType[type].count)).replace("{size}", formatBackupSize(summary.byType[type].sizeBytes))}</p>
+							</div>
+						))}
 					</div>
-					<p className="text-xs text-[var(--text-muted)]">{t("backupsPage.overview.latestCompleted").replace("{date}", formatZhDateTime(summary.latestCompletedAt, t("backupsPage.overview.latestNone")))}</p>
-				</div>
-				<div className="mt-4 grid gap-3 md:grid-cols-3">
-					{(["DATABASE", "FILES", "FULL"] as const).map((type) => (
-						<div key={type} className="rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-subtle)] p-3">
-							<p className="text-xs font-semibold text-[var(--text-secondary)]">{type}</p>
-							<p className="mt-1 text-sm text-[var(--text-primary)]">{t("backupsPage.overview.typeSummary").replace("{count}", String(summary.byType[type].count)).replace("{size}", formatBackupSize(summary.byType[type].sizeBytes))}</p>
-						</div>
-					))}
-				</div>
-			</section>
+				</SurfacePanel>
+			</div>
 
-			<section data-card className="mb-6 ">
-				<div className="flex flex-wrap items-start justify-between gap-4">
-					<div>
-						<h2 className="text-sm font-semibold text-[var(--text-primary)]">{t("backupsPage.failures.title")}</h2>
-						<p className="mt-1 text-xs text-[var(--text-muted)]">{t("backupsPage.failures.description")}</p>
-					</div>
-					<p className="text-xs text-[var(--text-muted)]">{t("backupsPage.failures.count").replace("{count}", String(summary.failedRecords))}</p>
-				</div>
+			<div className="mb-5">
+			<SurfacePanel
+				title={t("backupsPage.failures.title")}
+				description={t("backupsPage.failures.description")}
+				actions={<span className="text-xs text-[var(--text-muted)]">{t("backupsPage.failures.count").replace("{count}", String(summary.failedRecords))}</span>}
+			>
 				{summary.failureSummary.length === 0 ? (
 					<p data-tone="emerald" className="mt-4 rounded-lg border border-[var(--success-border)] px-3 py-2 text-xs text-[var(--success)]">{t("backupsPage.failures.empty")}</p>
 				) : (
@@ -99,44 +80,39 @@ export default async function BackupsPage() {
 						))}
 					</div>
 				)}
-			</section>
+			</SurfacePanel>
+			</div>
 
 			{canCreate && (
-				<section data-card className="mb-6 ">
-					<div className="flex flex-wrap items-start justify-between gap-4">
-						<div>
-							<h2 className="text-sm font-semibold text-[var(--text-primary)]">{t("backupsPage.retention.title")}</h2>
-							<p className="mt-1 text-xs text-[var(--text-muted)]">{t("backupsPage.retention.description")}</p>
-						</div>
-					</div>
-					<div className="mt-4">
+				<div className="mb-5">
+					<SurfacePanel title={t("backupsPage.retention.title")} description={t("backupsPage.retention.description")}>
 						<RetentionButton olderThan30Days={summary.recordsOlderThan30Days} totalRecords={summary.totalRecords} />
-					</div>
-				</section>
+					</SurfacePanel>
+				</div>
 			)}
 
 			{canCreate && (
-				<section data-card className="mb-6 ">
-					<h2 className="text-sm font-semibold text-[var(--text-primary)]">{t("backupsPage.create.title")}</h2>
-					<p className="mt-1 text-xs text-[var(--text-muted)]">{t("backupsPage.create.description")}</p>
-					<CreateBackupForm />
-				</section>
+				<div className="mb-5">
+					<SurfacePanel title={t("backupsPage.create.title")} description={t("backupsPage.create.description")}>
+						<CreateBackupForm />
+					</SurfacePanel>
+				</div>
 			)}
 
 			{canCreate && (
-				<section data-card className="mb-6 ">
-					<div className="flex flex-wrap items-start justify-between gap-4">
-						<div>
-							<h2 className="text-sm font-semibold text-[var(--text-primary)]">{t("backupsPage.offsite.title")}</h2>
-							<p className="mt-1 text-xs text-[var(--text-muted)]">{t("backupsPage.offsite.description")}</p>
-						</div>
-						<a
-							href="/settings#offsite"
-							className="rounded-lg border border-[var(--border)] px-2 py-1 text-xs text-[var(--text-muted)] transition hover:border-[var(--border)]/[0.16] hover:text-[var(--text-secondary)]"
-						>
-							{t("backupsPage.offsite.openSettings")}
-						</a>
-					</div>
+				<div className="mb-5">
+					<SurfacePanel
+						title={t("backupsPage.offsite.title")}
+						description={t("backupsPage.offsite.description")}
+						actions={
+							<a
+								href="/settings#offsite"
+								className="rounded-lg border border-[var(--border)] px-2 py-1 text-xs text-[var(--text-muted)] transition hover:bg-[var(--surface-hover)] hover:text-[var(--text-secondary)]"
+							>
+								{t("backupsPage.offsite.openSettings")}
+							</a>
+						}
+					>
 					{offsite ? (
 						<div className="mt-4 grid gap-3 text-xs text-[var(--text-secondary)] md:grid-cols-2">
 							<p>
@@ -156,28 +132,28 @@ export default async function BackupsPage() {
 					) : (
 						<p className="mt-4 text-xs text-[var(--text-muted)]">{t("backupsPage.offsite.dryRunNever")}</p>
 					)}
-					<div className="mt-4">
+					<div className="mt-2">
 						<OffsiteDryRunButton />
 					</div>
-				</section>
+					</SurfacePanel>
+				</div>
 			)}
 
 			{canCreate && (
-				<section data-card className="mb-6 ">
-					<h2 className="text-sm font-semibold text-[var(--text-primary)]">{t("backupsPage.schedule.title")}</h2>
-					<p className="mt-1 text-xs text-[var(--text-muted)]">{t("backupsPage.schedule.description")}</p>
-					<ScheduleBackupForm />
-				</section>
+				<div className="mb-5">
+					<SurfacePanel title={t("backupsPage.schedule.title")} description={t("backupsPage.schedule.description")}>
+						<ScheduleBackupForm />
+					</SurfacePanel>
+				</div>
 			)}
 
-			<section data-card className="">
-				<div className="flex items-center justify-between border-b border-[var(--border)] px-5 py-4">
-					<h2 className="text-sm font-semibold text-[var(--text-primary)]">{t("backupsPage.records.title")}</h2>
-					<span className="text-xs text-[var(--text-muted)]">{t("backupsPage.records.count").replace("{count}", String(backups.length))}</span>
-				</div>
-				<div className="divide-y divide-[var(--border)]">
-					{backups.length === 0 ? <EmptyState text={t("backupsPage.records.empty")} /> : backups.map((b) => (
-						<div key={b.id} className="px-5 py-4">
+			<ListPanel
+				title={t("backupsPage.records.title")}
+				count={backups.length}
+				empty={backups.length === 0 ? <EmptyState text={t("backupsPage.records.empty")} /> : undefined}
+			>
+					{backups.map((b) => (
+						<ListRow key={b.id}>
 							<div className="flex items-center justify-between gap-3">
 								<div>
 									<h3 className="text-sm font-medium text-[var(--text-primary)]">{t("backupsPage.records.typeStatus").replace("{type}", b.type).replace("{status}", b.status)}</h3>
@@ -193,8 +169,8 @@ export default async function BackupsPage() {
 							{b.note && <p className="mt-2 text-xs text-[var(--text-muted)]">{b.note}</p>}
 							{canRestore && (
 								<div className="mt-3 grid gap-2">
-									<code className="block overflow-auto rounded-lg border border-[var(--border)] bg-[var(--overlay)] p-3 font-mono text-xs text-[var(--text-secondary)]">{buildPortableBackupCommand({ projectRoot, outputPath: b.filePath, type: isBackupType(b.type) ? b.type : undefined })}</code>
-									<code className="block overflow-auto rounded-lg border border-[var(--border)] bg-[var(--overlay)] p-3 font-mono text-xs text-[var(--text-secondary)]">{buildBackupRestoreCommand({ projectRoot, backupPath: b.filePath, type: isBackupType(b.type) ? b.type : undefined })}</code>
+									<code className="block overflow-auto rounded-lg border border-[var(--border)] bg-[var(--surface-subtle)] p-3 font-mono text-xs text-[var(--text-secondary)]">{buildPortableBackupCommand({ projectRoot, outputPath: b.filePath, type: isBackupType(b.type) ? b.type : undefined })}</code>
+									<code className="block overflow-auto rounded-lg border border-[var(--border)] bg-[var(--surface-subtle)] p-3 font-mono text-xs text-[var(--text-secondary)]">{buildBackupRestoreCommand({ projectRoot, backupPath: b.filePath, type: isBackupType(b.type) ? b.type : undefined })}</code>
 									<RestoreBackupButton backupId={b.id} backupType={b.type} disabled={b.status !== "COMPLETED"} />
 									<BackupDrillButton backupId={b.id} disabled={b.status !== "COMPLETED"} />
 									{b.status !== "COMPLETED" && <p className="text-xs text-[var(--text-muted)]">{t("backupsPage.records.restoreHint")}</p>}
@@ -207,10 +183,9 @@ export default async function BackupsPage() {
 									<p className="mt-1 text-xs text-[var(--text-muted)]">{t("backupsPage.records.voidHint")}</p>
 								</div>
 							)}
-						</div>
+						</ListRow>
 					))}
-				</div>
-			</section>
+			</ListPanel>
 		</PageShell>
 	);
 }

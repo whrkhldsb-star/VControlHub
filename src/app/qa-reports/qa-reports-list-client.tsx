@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useMemo, useState } from "react";
 
-import { EmptyState, ToggleChip } from "@/components/page-shell";
+import { EmptyState, ToggleChip, StatCard, StatGrid, ListPanel, SurfacePanel } from "@/components/page-shell";
 import { csrfFetch } from "@/lib/auth/csrf-client";
 import { useI18n } from "@/lib/i18n/use-locale";
 import { toDateLocale } from "@/lib/i18n/locale-format";
@@ -272,91 +272,86 @@ export function QaReportsListClient({
 					{error}
 				</div>
 			) : null}
-			<section aria-label={t("qaReportsPage.summaryAria")} data-card className="p-4">
-				<div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
-					<div>
-						<h2 className="text-sm font-semibold text-[var(--text-primary)]">{t("qaReportsPage.summaryTitle")}</h2>
-						<p className="mt-1 text-xs text-[var(--text-muted)]">{t("qaReportsPage.summaryDesc")}</p>
-					</div>
-					<div className="flex flex-col items-end gap-1 text-xs text-[var(--text-muted)]">
-						<div>
-							{updatedAt
-								? t("qaReportsPage.summaryUpdatedAt").replace("{time}", formatTime(updatedAt))
-								: t("qaReportsPage.summaryUpdatedAtEmpty")}
+			<section aria-label={t("qaReportsPage.summaryAria")}>
+				<SurfacePanel
+					title={t("qaReportsPage.summaryTitle")}
+					description={t("qaReportsPage.summaryDesc")}
+					actions={
+						<div className="flex flex-col items-end gap-1 text-xs text-[var(--text-muted)]">
+							<div>
+								{updatedAt
+									? t("qaReportsPage.summaryUpdatedAt").replace("{time}", formatTime(updatedAt))
+									: t("qaReportsPage.summaryUpdatedAtEmpty")}
+							</div>
+							<button
+								type="button"
+								onClick={refresh}
+								disabled={refreshing}
+								className="rounded-lg border border-[var(--border)] px-3 py-1.5 text-xs text-[var(--text-secondary)] hover:bg-[var(--surface-hover)] disabled:opacity-50"
+							>
+								{refreshing ? t("qaReportsPage.refreshing") : t("qaReportsPage.refreshReadHermes")}
+							</button>
 						</div>
-						<button
-							type="button"
-							onClick={refresh}
-							disabled={refreshing}
-							className="rounded-lg border border-[var(--border)] px-3 py-1.5 text-xs text-[var(--text-secondary)] hover:bg-[var(--surface)]/[0.10] disabled:opacity-50"
-						>
-							{refreshing ? t("qaReportsPage.refreshing") : t("qaReportsPage.refreshReadHermes")}
-						</button>
-					</div>
-				</div>
-				<div className="mt-4 grid gap-3 sm:grid-cols-4">
-					{[
-						[t("qaReportsPage.totalReports"), totals.total],
-						[t("qaReportsPage.closedSlices"), totals.slices],
-						[t("qaReportsPage.resolvedBlockers"), totals.blockers],
-						[t("qaReportsPage.qaLoop"), totals.qaRuns],
-					].map(([label, value]) => (
-						<div key={String(label)} data-card className="p-4">
-							<div className="text-xs text-[var(--text-muted)]">{String(label)}</div>
-							<div className="mt-2 text-2xl font-semibold text-[var(--text-primary)]">{String(value)}</div>
-						</div>
-					))}
-				</div>
+					}
+				>
+					<StatGrid cols={4} className="mb-0">
+						<StatCard label={t("qaReportsPage.totalReports")} value={String(totals.total)} />
+						<StatCard label={t("qaReportsPage.closedSlices")} value={String(totals.slices)} accent={totals.slices > 0} accentColor="cyan" />
+						<StatCard label={t("qaReportsPage.resolvedBlockers")} value={String(totals.blockers)} accent={totals.blockers > 0} accentColor="amber" />
+						<StatCard label={t("qaReportsPage.qaLoop")} value={String(totals.qaRuns)} accent={totals.qaRuns > 0} accentColor="emerald" />
+					</StatGrid>
+				</SurfacePanel>
 			</section>
 			<TrendSection trends={trends} />
-			<section aria-label={t("qaReportsPage.listAria")} data-card>
-				<div className="flex flex-col gap-3 border-b border-[var(--border)] px-5 py-4 lg:flex-row lg:items-center lg:justify-between">
-					<div>
-						<h2 className="text-sm font-semibold text-[var(--text-primary)]">{t("qaReportsPage.listTitle")}</h2>
-						<p className="mt-1 text-xs text-[var(--text-muted)]">{t("qaReportsPage.listDesc")}</p>
-					</div>
-					<div
-						className="flex flex-wrap items-center gap-2"
-						role="group"
-						aria-label={t("qaReportsPage.filterAria")}
-					>
-						{kindFilters.map((filter) => (
-							<ToggleChip
-								key={filter.value}
-								active={kindFilter === filter.value}
-								onClick={() => setKindFilter(filter.value)}
-								ariaLabel={t("qaReportsPage.filterChipAria").replace("{label}", filter.label)}
-							>
-								{filter.label}
-							</ToggleChip>
-						))}
-					</div>
-				</div>
-				{filtered.length === 0 ? (
-					<div className="px-5 py-8">
-						{reports.length === 0 ? (
-							<EmptyState variant="boxed" icon="📋">
-								<div className="space-y-2">
-									<p className="text-sm text-[var(--text-primary)]">{t("qaReportsPage.emptyAll")}</p>
-									<p className="text-xs text-[var(--text-muted)]">{t("qaReportsPage.emptyAllHint")}</p>
-								</div>
-							</EmptyState>
-						) : (
-							<EmptyState
-								text={t("qaReportsPage.emptyFiltered").replace(
-									"{kind}",
-									kindFilter === "all"
-										? ""
-										: (kindLabel(t, kindFilter as Exclude<KindFilter, "all">) ?? kindFilter),
-								)}
-								variant="boxed"
-							/>
-						)}
-					</div>
-				) : (
-					<ul className="divide-y divide-[var(--border)]">
+			<section aria-label={t("qaReportsPage.listAria")}>
+				<ListPanel
+					title={t("qaReportsPage.listTitle")}
+					count={filtered.length}
+					actions={
+						<div
+							className="flex flex-wrap items-center gap-2"
+							role="group"
+							aria-label={t("qaReportsPage.filterAria")}
+						>
+							{kindFilters.map((filter) => (
+								<ToggleChip
+									key={filter.value}
+									active={kindFilter === filter.value}
+									onClick={() => setKindFilter(filter.value)}
+									ariaLabel={t("qaReportsPage.filterChipAria").replace("{label}", filter.label)}
+								>
+									{filter.label}
+								</ToggleChip>
+							))}
+						</div>
+					}
+					empty={
+						filtered.length === 0 ? (
+							reports.length === 0 ? (
+								<EmptyState variant="boxed" icon="📋">
+									<div className="space-y-2">
+										<p className="text-sm text-[var(--text-primary)]">{t("qaReportsPage.emptyAll")}</p>
+										<p className="text-xs text-[var(--text-muted)]">{t("qaReportsPage.emptyAllHint")}</p>
+									</div>
+								</EmptyState>
+							) : (
+								<EmptyState
+									text={t("qaReportsPage.emptyFiltered").replace(
+										"{kind}",
+										kindFilter === "all"
+											? ""
+											: (kindLabel(t, kindFilter as Exclude<KindFilter, "all">) ?? kindFilter),
+									)}
+									variant="boxed"
+								/>
+							)
+						) : undefined
+					}
+				>
+					{filtered.length > 0 ? (
+					<ul>
 						{filtered.map((report) => (
-							<li key={report.id} className="px-5 py-4">
+							<li key={report.id} className="border-b border-[var(--border-subtle)] px-5 py-4 last:border-b-0">
 								<div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
 									<div className="min-w-0 flex-1">
 										<div className="flex flex-wrap items-center gap-2">
@@ -400,7 +395,8 @@ export function QaReportsListClient({
 							</li>
 						))}
 					</ul>
-				)}
+					) : null}
+				</ListPanel>
 			</section>
 		</div>
 	);

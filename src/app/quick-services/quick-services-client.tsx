@@ -4,7 +4,8 @@ import Link from "next/link";
 import { useState, useCallback, useEffect, useMemo } from "react";
 import { csrfFetch } from "@/lib/auth/csrf-client";
 import { buildQuickServiceAccessDescriptor } from "@/lib/quick-service/access-url";
-import { EmptyState } from "@/components/page-shell";
+import { EmptyState, Toolbar, StatCard, StatGrid } from "@/components/page-shell";
+import { CONTROL_CLASS, SegmentedTabs } from "@/components/ui-primitives";
 import { useI18n } from "@/lib/i18n/use-locale";
 import {
   useQuickServiceActions,
@@ -165,12 +166,7 @@ export function QuickServicesClient({ canManage }: { canManage: boolean }) {
 	if (error) return <div className="text-sm text-[var(--danger)] py-12 text-center">{error}</div>;
 
 	if (!canManage) {
-		return (
-			<div className="rounded-xl border border-dashed border-[var(--border)] bg-[var(--surface)]/[0.04] p-12 text-center">
-				<div className="text-4xl mb-3">🔒</div>
-				<p className="text-sm text-[var(--text-muted)]">{t("qsPage.permissionDenied")}</p>
-			</div>
-		);
+		return <EmptyState text={t("qsPage.permissionDenied")} variant="boxed" icon="🔒" />;
 	}
 
 	const quickServiceAccess = (item: CatalogItem) => buildQuickServiceAccessDescriptor({
@@ -214,12 +210,12 @@ export function QuickServicesClient({ canManage }: { canManage: boolean }) {
 				</div>
 			)}
 
-			<div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-				<SummaryPill label={t("qsPage.summaryRunning")} value={summary.running} tone="emerald" />
-				<SummaryPill label={t("qsPage.summaryStopped")} value={summary.stopped} tone="amber" />
-				<SummaryPill label={t("qsPage.summaryError")} value={summary.error} tone="rose" />
-				<SummaryPill label={t("qsPage.summaryAvailable")} value={summary.available} tone="cyan" />
-			</div>
+			<StatGrid cols={4}>
+				<StatCard label={t("qsPage.summaryRunning")} value={String(summary.running)} accent={summary.running > 0} accentColor="emerald" />
+				<StatCard label={t("qsPage.summaryStopped")} value={String(summary.stopped)} accent={summary.stopped > 0} accentColor="amber" />
+				<StatCard label={t("qsPage.summaryError")} value={String(summary.error)} accent={summary.error > 0} accentColor="rose" />
+				<StatCard label={t("qsPage.summaryAvailable")} value={String(summary.available)} accent={summary.available > 0} accentColor="cyan" />
+			</StatGrid>
 
 			<section className="grid gap-3 lg:grid-cols-3">
 				<div className="rounded-2xl border border-[var(--border)] bg-[var(--surface)]/[0.025] p-4">
@@ -282,27 +278,29 @@ export function QuickServicesClient({ canManage }: { canManage: boolean }) {
 				</div>
 			</section>
 
-			{/* Search bar */}
-			<div className="space-y-1.5">
-				<label htmlFor="quick-service-search" className="block text-xs font-medium text-[var(--text-muted)]">
-					{t("qsPage.searchLabel")}
-				</label>
-				<div className="relative">
-					<input
-						id="quick-service-search"
-						type="search"
-						value={search}
-						onChange={(e) => setSearch(e.target.value)}
-						placeholder={t("qsPage.searchPlaceholder")}
-						data-card className="w-full  px-4 py-2.5 text-sm text-[var(--text-primary)] placeholder-slate-500 outline-none focus:border-[var(--color-action-border)]/40 transition"
-					/>
-					{search && (
-						<button onClick={() => setSearch("")} className="absolute right-3 top-1/2 -translate-y-1/2 text-[var(--text-muted)] hover:text-[var(--text-primary)] light:hover:text-[var(--text-primary)] text-xs">
-							✕
-						</button>
-					)}
+			<Toolbar className="flex-col items-stretch gap-3 sm:flex-row sm:items-end">
+				<div className="min-w-0 flex-1 space-y-1.5">
+					<label htmlFor="quick-service-search" className="block text-xs font-medium text-[var(--text-muted)]">
+						{t("qsPage.searchLabel")}
+					</label>
+					<div className="relative">
+						<input
+							id="quick-service-search"
+							type="search"
+							data-input
+							value={search}
+							onChange={(e) => setSearch(e.target.value)}
+							placeholder={t("qsPage.searchPlaceholder")}
+							className={`${CONTROL_CLASS} pr-9`}
+						/>
+						{search ? (
+							<button type="button" onClick={() => setSearch("")} className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-[var(--text-muted)] hover:text-[var(--text-primary)]">
+								✕
+							</button>
+						) : null}
+					</div>
 				</div>
-			</div>
+			</Toolbar>
 
 			{tab === "store" && !search && recommendedItems.length > 0 && (
 				<section data-tone="cyan" className="space-y-3 rounded-2xl border border-[var(--color-action-border)]/20 p-4">
@@ -333,21 +331,17 @@ export function QuickServicesClient({ canManage }: { canManage: boolean }) {
 				</section>
 			)}
 
-			{/* Tab bar */}
-			<div data-card className="flex flex-wrap gap-1  p-1 w-fit">
-				<button onClick={() => setTab("store")} className={`px-4 py-2 rounded-lg text-sm font-medium transition ${tab === "store" ? "bg-[var(--color-action)]/20 text-[var(--color-action)] light:bg-[var(--color-action-bg)]" : "text-[var(--text-muted)] hover:text-[var(--text-primary)] light:hover:bg-[var(--surface)] light:hover:text-[var(--text-primary)]"}`}>
-					{t("qsPage.tabStore").replace("{count}", String(localAvailable.length))}
-				</button>
-				<button onClick={() => setTab("community")} className={`px-4 py-2 rounded-lg text-sm font-medium transition ${tab === "community" ? "bg-[var(--accent-bg)] text-[var(--accent)] bg-[var(--accent-bg)]" : "text-[var(--text-muted)] hover:text-[var(--text-primary)] light:hover:bg-[var(--surface)] light:hover:text-[var(--text-primary)]"}`}>
-					{t("qsPage.tabCommunity").replace("{count}", String(remoteAvailable.length))}
-				</button>
-				<button onClick={() => setTab("installed")} className={`px-4 py-2 rounded-lg text-sm font-medium transition ${tab === "installed" ? "bg-[var(--color-action)]/20 text-[var(--color-action)] light:bg-[var(--color-action-bg)]" : "text-[var(--text-muted)] hover:text-[var(--text-primary)] light:hover:bg-[var(--surface)] light:hover:text-[var(--text-primary)]"}`}>
-					{t("qsPage.tabInstalled").replace("{count}", String(installed.length))}
-				</button>
-				<button onClick={() => setTab("sources")} className={`px-4 py-2 rounded-lg text-sm font-medium transition ${tab === "sources" ? "bg-[var(--warning-bg)] text-[var(--warning)]" : "text-[var(--text-muted)] hover:text-[var(--text-primary)] light:hover:bg-[var(--surface)] light:hover:text-[var(--text-primary)]"}`}>
-					{t("qsPage.tabSources").replace("{count}", String(sources.length))}
-				</button>
-			</div>
+			<SegmentedTabs
+				ariaLabel={t("qsPage.title")}
+				value={tab}
+				onChange={(value) => setTab(value as Tab)}
+				items={[
+					{ id: "store", label: t("qsPage.tabStore").replace("{count}", String(localAvailable.length)) },
+					{ id: "community", label: t("qsPage.tabCommunity").replace("{count}", String(remoteAvailable.length)) },
+					{ id: "installed", label: t("qsPage.tabInstalled").replace("{count}", String(installed.length)) },
+					{ id: "sources", label: t("qsPage.tabSources").replace("{count}", String(sources.length)) },
+				]}
+			/>
 			{/* Sources management tab (extracted to <SourcesPanel /> in TR-036 T37) */}
 			{tab === "sources" && (
 				<SourcesPanel
@@ -440,22 +434,6 @@ export function QuickServicesClient({ canManage }: { canManage: boolean }) {
 				onCancel={() => setPendingSourceDelete(null)}
 				onConfirm={doDeleteSource}
 			/>
-		</div>
-	);
-}
-
-function SummaryPill({ label, value, tone }: { label: string; value: number; tone: "emerald" | "amber" | "rose" | "cyan" }) {
-	const toneClass = {
-		emerald: "border-[var(--success-border)] bg-[var(--success)]/[0.10] text-[var(--success)]",
-		amber: "border-[var(--warning-border)] bg-[var(--warning)]/[0.10] text-[var(--warning)]",
-		rose: "border-[var(--danger-border)] bg-[var(--danger)]/[0.10] text-[var(--danger)]",
-		cyan: "border-[var(--color-action-border)]/20 bg-[var(--color-action)]/[0.10] text-[var(--text-secondary)]",
-	}[tone];
-
-	return (
-		<div className={`rounded-xl border p-4 ${toneClass}`}>
-			<div className="text-[11px] uppercase tracking-wider text-current/70">{label}</div>
-			<div className="mt-1 text-2xl font-semibold text-[var(--text-primary)]">{value}</div>
 		</div>
 	);
 }

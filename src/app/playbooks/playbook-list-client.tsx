@@ -4,7 +4,7 @@ import { useCallback, useState } from "react";
 import { csrfFetch } from "@/lib/auth/csrf-client";
 import { useI18n } from "@/lib/i18n/use-locale";
 import { useToast } from "@/components/toast-provider";
-import { EmptyState } from "@/components/page-shell";
+import { EmptyState, Toolbar, SurfacePanel, ListPanel } from "@/components/page-shell";
 import { File as FileIcon } from "@/components/icons";
 import { statusLabelFor, dryRunStepCounts } from "./playbook-types";
 import type { SerializedPlaybook, RunSummary } from "./playbook-types";
@@ -109,40 +109,50 @@ export function PlaybookListClient({ playbooks: initial, runsByPlaybook: initial
           {actionError}
         </div>
       )}
-      <div className="flex justify-end">
+      <Toolbar className="justify-end">
         {canManage && !showCreate && (
           <button
             type="button"
             onClick={() => setShowCreate(true)}
-            data-tone="accent"
-            className="min-h-11 rounded-2xl border px-5 py-2.5 text-sm font-medium transition"
+            data-primary
+            className="min-h-11 rounded-xl bg-[var(--accent)] px-5 py-2.5 text-sm font-semibold text-[var(--on-accent)] transition hover:bg-[var(--accent-hover)]"
           >
             {t("playbooksPage.action.create")}
           </button>
         )}
-      </div>
+      </Toolbar>
 
-      {showCreate && <CreatePlaybookForm onClose={() => { setShowCreate(false); void refresh(); }} />}
+      {showCreate && (
+        <SurfacePanel title={t("playbooksPage.action.create")}>
+          <CreatePlaybookForm onClose={() => { setShowCreate(false); void refresh(); }} />
+        </SurfacePanel>
+      )}
 
-      {playbooks.length === 0 ? (
-        <EmptyState icon={<FileIcon size={48} className="text-[var(--text-muted)]" />} variant="boxed">
-          <p>{t("playbooksPage.empty")}</p>
-          {canManage && !showCreate && (
-            <button
-              type="button"
-              onClick={() => setShowCreate(true)}
-              data-tone="accent"
-              className="mt-4 min-h-9 rounded-xl border px-4 py-2 text-sm font-medium transition-colors"
-            >
-              {t("playbooksPage.action.create")}
-            </button>
-          )}
-        </EmptyState>
-      ) : (
-        <div className="space-y-3">
-          {playbooks.map((playbook) => (
+      <ListPanel
+        title={t("playbooksPage.title")}
+        count={playbooks.length}
+        empty={
+          playbooks.length === 0 ? (
+            <EmptyState icon={<FileIcon size={32} className="text-[var(--text-muted)]" />} variant="boxed">
+              <p>{t("playbooksPage.empty")}</p>
+              {canManage && !showCreate && (
+                <button
+                  type="button"
+                  onClick={() => setShowCreate(true)}
+                  data-tone="accent"
+                  className="mt-4 min-h-9 rounded-xl border px-4 py-2 text-sm font-medium transition-colors"
+                >
+                  {t("playbooksPage.action.create")}
+                </button>
+              )}
+            </EmptyState>
+          ) : undefined
+        }
+        bodyClassName={playbooks.length === 0 ? undefined : "!divide-y-0 space-y-0 bg-transparent p-3"}
+      >
+        {playbooks.map((playbook) => (
+          <div key={playbook.id} className="mb-3 last:mb-0">
             <PlaybookCard
-              key={playbook.id}
               playbook={playbook}
               runs={runsByPlaybook[playbook.id]}
               canRun={canRun}
@@ -152,9 +162,9 @@ export function PlaybookListClient({ playbooks: initial, runsByPlaybook: initial
               onToggle={handleToggle}
               onDelete={setPendingDelete}
             />
-          ))}
-        </div>
-      )}
+          </div>
+        ))}
+      </ListPanel>
 
       <PlaybookDeleteDialog
         playbook={pendingDelete}

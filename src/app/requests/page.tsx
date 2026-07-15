@@ -7,7 +7,7 @@ import { ReviewCommandForm } from "./review-command-form";
 import { CancelCommandButton } from "./cancel-command-button";
 import { AiHostedApprovalCard } from "./ai-hosted-approval-card";
 import { BatchReviewToolbar } from "./batch-review-toolbar";
-import { PageShell, PageHeader, StatCard, EmptyState } from "@/components/page-shell";
+import { PageShell, PageHeader, StatCard, StatGrid, EmptyState, ListPanel } from "@/components/page-shell";
 import { getServerLocale, t } from "@/lib/i18n/translations";
 import { toDateLocale } from "@/lib/i18n/locale-format";
 
@@ -35,50 +35,48 @@ export default async function RequestsPage() {
 			title={t("requestsPage.title", locale)}
 			description={t("requestsPage.desc", locale)}
 		>
-				<div data-card className="px-4 py-3 text-xs text-[var(--text-secondary)]">
-					<div className="font-medium text-[var(--text-secondary)]">{t("requestsPage.workflowNote.title", locale)}</div>
-					<div className="mt-1">{t("requestsPage.workflowNote.desc", locale)}</div>
+				<div className="max-w-sm text-left">
+					<div className="text-xs font-medium text-[var(--text-secondary)]">{t("requestsPage.workflowNote.title", locale)}</div>
+					<div className="mt-1 text-xs text-[var(--text-muted)]">{t("requestsPage.workflowNote.desc", locale)}</div>
 				</div>
 			</PageHeader>
 
-			<section className="mb-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
+			<StatGrid cols={5}>
 				<StatCard label={t("requestsPage.stat.aiPending", locale)} value={String(aiActions.length)} accent={aiActions.length > 0} accentColor="cyan" />
 				<StatCard label={t("requestsPage.stat.cmdPending", locale)} value={String(pendingCommands)} accent={pendingCommands > 0} accentColor="amber" />
 				<StatCard label={t("requestsPage.stat.assistant", locale)} value={String(assistantCommands)} accent={assistantCommands > 0} accentColor="cyan" />
 				<StatCard label={t("requestsPage.stat.user", locale)} value={String(userCommands)} />
 				<StatCard label={t("requestsPage.stat.completed", locale)} value={String(completed)} />
-			</section>
+			</StatGrid>
 
 			<div className="space-y-6">
-				<section aria-labelledby="ai-approval-heading" className="space-y-3">
-					<div className="flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
-						<div>
-							<h2 id="ai-approval-heading" className="text-base font-semibold tracking-tight text-[var(--text-primary)] sm:text-lg">{t("requestsPage.ai.title", locale)}</h2>
-							<p className="mt-1 text-sm text-[var(--text-muted)]">{t("requestsPage.ai.desc", locale)}</p>
-						</div>
-						<span className="rounded-full border border-[var(--accent-border)] bg-[var(--accent-bg)] px-3 py-1 text-xs font-medium text-[var(--accent)]">{t("requestsPage.ai.scopeBadge", locale)}</span>
-					</div>
-					{aiActions.length === 0 ? (
-						<EmptyState text={t("requestsPage.ai.empty", locale)} variant="boxed" />
-					) : (
-						<div className="space-y-3">
-							{aiActions.map((action) => <AiHostedApprovalCard key={action.id} action={action} />)}
-						</div>
-					)}
+				<section aria-labelledby="ai-approval-heading">
+					<h2 id="ai-approval-heading" className="sr-only">{t("requestsPage.ai.title", locale)}</h2>
+					<ListPanel
+						title={t("requestsPage.ai.title", locale)}
+						count={aiActions.length}
+						actions={<span className="rounded-full border border-[var(--accent-border)] bg-[var(--accent-bg)] px-3 py-1 text-xs font-medium text-[var(--accent)]">{t("requestsPage.ai.scopeBadge", locale)}</span>}
+						empty={aiActions.length === 0 ? <EmptyState text={t("requestsPage.ai.empty", locale)} /> : undefined}
+						bodyClassName={aiActions.length === 0 ? undefined : "!divide-y-0 space-y-0 bg-transparent p-3"}
+					>
+						{aiActions.map((action) => (
+							<div key={action.id} className="mb-3 last:mb-0">
+								<AiHostedApprovalCard action={action} />
+							</div>
+						))}
+					</ListPanel>
 				</section>
 
-				<section aria-labelledby="command-approval-heading" className="space-y-3">
-					<div className="flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
-						<div>
-							<h2 id="command-approval-heading" className="text-base font-semibold tracking-tight text-[var(--text-primary)] sm:text-lg">{t("requestsPage.cmd.title", locale)}</h2>
-							<p className="mt-1 text-sm text-[var(--text-muted)]">{t("requestsPage.cmd.desc", locale)}</p>
-						</div>
-						<span className="rounded-full border border-[var(--warning-border)] bg-[var(--warning-bg)] px-3 py-1 text-xs font-medium text-[var(--warning)]">{t("requestsPage.cmd.scopeBadge", locale)}</span>
-					</div>
-
-					{requests.length === 0 ? (
-						<EmptyState text={t("requestsPage.cmd.empty", locale)} variant="boxed" />
-					) : (
+				<section aria-labelledby="command-approval-heading">
+					<h2 id="command-approval-heading" className="sr-only">{t("requestsPage.cmd.title", locale)}</h2>
+					<ListPanel
+						title={t("requestsPage.cmd.title", locale)}
+						count={requests.length}
+						actions={<span className="rounded-full border border-[var(--warning-border)] bg-[var(--warning-bg)] px-3 py-1 text-xs font-medium text-[var(--warning)]">{t("requestsPage.cmd.scopeBadge", locale)}</span>}
+						empty={requests.length === 0 ? <EmptyState text={t("requestsPage.cmd.empty", locale)} /> : undefined}
+						bodyClassName={requests.length === 0 ? undefined : "!divide-y-0 space-y-0 bg-transparent p-3"}
+					>
+					{requests.length > 0 ? (
 						<BatchReviewToolbar
 							pendingIds={
 								canApprove
@@ -161,7 +159,8 @@ export default async function RequestsPage() {
 								</article>
 							))}
 						</BatchReviewToolbar>
-					)}
+					) : null}
+					</ListPanel>
 				</section>
 			</div>
 		</PageShell>

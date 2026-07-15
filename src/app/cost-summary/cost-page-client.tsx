@@ -5,7 +5,7 @@ import { csrfFetch } from "@/lib/auth/csrf-client";
 import { useI18n } from "@/lib/i18n/use-locale";
 import { toDateLocale } from "@/lib/i18n/locale-format";
 import { useToast } from "@/components/toast-provider";
-import { EmptyState } from "@/components/page-shell";
+import { EmptyState, ListPanel } from "@/components/page-shell";
 import { CostDeleteDialog, CostEntryFormModal } from "./cost-entry-dialogs";
 import { CostBudgetPanel } from "./cost-budget-panel";
 import { CATEGORIES, buttonDanger, buttonGhost, buttonPrimary, cardClass, emptyForm, formatAmount, inputClass, isValidDate, labelClass } from "./cost-page-shared";
@@ -381,13 +381,11 @@ export function CostPageClient({
 				</section>
 			) : null}
 
-			{/* Entries list + new entry button */}
-			<section className={cardClass}>
-				<div className="mb-3 flex items-center justify-between">
-					<h2 className="text-base font-semibold text-[var(--text-primary)]">
-						{t("costPage.list.title")}
-					</h2>
-					<div className="flex gap-2">
+			<ListPanel
+				title={t("costPage.list.title")}
+				count={entries.length}
+				actions={
+					<div className="flex flex-wrap gap-2">
 						<button type="button" className={buttonGhost} onClick={refreshAll}>
 							{t("costPage.actions.refresh")}
 						</button>
@@ -402,15 +400,15 @@ export function CostPageClient({
 							</button>
 						) : null}
 					</div>
-				</div>
-
-				{entries.length === 0 ? (
-					<EmptyState text={t("costPage.list.empty")} variant="boxed" />
-				) : (
+				}
+				empty={entries.length === 0 ? <EmptyState text={t("costPage.list.empty")} variant="boxed" /> : undefined}
+				bodyClassName={entries.length === 0 ? undefined : "!p-0"}
+			>
+				{entries.length > 0 ? (
 					<div className="overflow-x-auto">
 						<table className="w-full text-sm text-[var(--text-primary)]">
 							<thead>
-								<tr className="border-b border-[var(--border)] text-left text-xs uppercase tracking-wide text-[var(--text-primary)]/70">
+								<tr className="border-b border-[var(--border)] bg-[var(--surface-elevated)] text-left text-xs uppercase tracking-wide text-[var(--text-muted)]">
 									<th className="px-3 py-2">{t("costPage.list.column.date")}</th>
 									<th className="px-3 py-2">{t("costPage.list.column.category")}</th>
 									<th className="px-3 py-2">{t("costPage.list.column.provider")}</th>
@@ -463,8 +461,8 @@ export function CostPageClient({
 							</tbody>
 						</table>
 					</div>
-				)}
-			</section>
+				) : null}
+			</ListPanel>
 
 			<CostEntryFormModal
 				open={showForm && canManage}

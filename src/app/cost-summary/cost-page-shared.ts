@@ -2,14 +2,14 @@ import type { CostCategory, CostCurrency } from "@/lib/cost/types";
 
 export const CATEGORIES: CostCategory[] = ["vps", "bandwidth", "storage", "other"];
 
-export const cardClass = "rounded-2xl border border-[var(--border)] bg-[var(--surface)]/[0.04] p-5";
-export const labelClass = "text-xs font-medium text-[var(--text-secondary)] tracking-wide";
+export const cardClass = "rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-5 shadow-[var(--shadow-sm)]";
+export const labelClass = "text-xs font-medium tracking-wide text-[var(--text-secondary)]";
 export const inputClass =
-	"w-full rounded-lg border border-[var(--border)] bg-[var(--surface)]/[0.04] px-3.5 py-2.5 text-sm text-[var(--text-primary)] outline-none transition placeholder:text-[var(--text-primary)]/30 focus:border-[var(--color-action-border)]/30";
+	"w-full rounded-xl border border-[var(--border)] bg-[var(--input-bg)] px-3.5 py-2.5 text-sm text-[var(--text-primary)] outline-none transition placeholder:text-[var(--text-muted)] focus:border-[var(--accent-border)]";
 export const buttonPrimary =
-	"rounded-lg bg-[var(--color-action)]/80 hover:bg-[var(--color-action)] px-4 py-2 text-sm font-medium text-[var(--color-action-fg)] transition disabled:opacity-50 disabled:cursor-not-allowed";
+	"rounded-xl bg-[var(--accent)] px-4 py-2 text-sm font-medium text-[var(--on-accent)] transition hover:bg-[var(--accent-hover)] disabled:cursor-not-allowed disabled:opacity-50";
 export const buttonGhost =
-	"rounded-lg border border-[var(--border)] bg-[var(--surface)]/[0.04] hover:bg-[var(--surface)]/[0.10] px-4 py-2 text-sm text-[var(--text-primary)] transition";
+	"rounded-xl border border-[var(--border)] bg-[var(--surface-elevated)] px-4 py-2 text-sm text-[var(--text-primary)] transition hover:bg-[var(--surface-hover)]";
 export const buttonDanger =
 	"rounded-lg border border-[var(--danger-border)] bg-[var(--danger-bg)] hover:bg-[var(--danger-bg)] px-3 py-1.5 text-xs text-[var(--danger)] transition";
 

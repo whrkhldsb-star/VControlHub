@@ -104,7 +104,7 @@ describe("QuickServicesClient", () => {
 		mockInitialLoads();
 
 		render(<QuickServicesClient canManage />);
-		await user.click(await screen.findByRole("button", { name: /已安装/ }));
+		await user.click(await screen.findByRole("tab", { name: /已安装/ }));
 		await user.click(screen.getByRole("button", { name: "卸载" }));
 
 		expect(confirmSpy).not.toHaveBeenCalled();
@@ -125,7 +125,7 @@ describe("QuickServicesClient", () => {
 			.mockResolvedValueOnce(catalogResponse);
 
 		render(<QuickServicesClient canManage />);
-		await user.click(await screen.findByRole("button", { name: /已安装/ }));
+		await user.click(await screen.findByRole("tab", { name: /已安装/ }));
 		await user.click(screen.getByRole("button", { name: "卸载" }));
 		await user.click(screen.getByRole("button", { name: "确认卸载" }));
 
@@ -148,7 +148,7 @@ describe("QuickServicesClient", () => {
 			.mockResolvedValueOnce(catalogResponse);
 
 		render(<QuickServicesClient canManage />);
-		await user.click(await screen.findByRole("button", { name: /已安装/ }));
+		await user.click(await screen.findByRole("tab", { name: /已安装/ }));
 		await user.click(screen.getByRole("button", { name: "卸载" }));
 		const dialog = screen.getByRole("dialog", { name: "确认卸载快捷服务" });
 		await user.click(within(dialog).getByLabelText(/同时删除数据目录/));
@@ -184,7 +184,7 @@ describe("QuickServicesClient", () => {
 			.mockResolvedValueOnce(catalogResponse);
 
 		render(<QuickServicesClient canManage />);
-		await user.click(await screen.findByRole("button", { name: /已安装/ }));
+		await user.click(await screen.findByRole("tab", { name: /已安装/ }));
 		await user.click(screen.getByRole("button", { name: "更新" }));
 
 		const dialog = screen.getByRole("dialog", { name: "确认更新配置" });
@@ -213,7 +213,7 @@ describe("QuickServicesClient", () => {
 			.mockResolvedValueOnce({ available: true, usedBy: null });
 
 		render(<QuickServicesClient canManage />);
-		await user.click(await screen.findByRole("button", { name: /本地精选/ }));
+		await user.click(await screen.findByRole("tab", { name: /本地精选/ }));
 		await user.click(screen.getAllByRole("button", { name: "一键安装" })[0]!);
 		await waitFor(() => expect(screen.getByText("✓ 可用")).toBeInTheDocument());
 		expect(screen.getByText("安装前配置预览")).toBeInTheDocument();
@@ -237,7 +237,7 @@ describe("QuickServicesClient", () => {
 			.mockResolvedValueOnce(catalogResponse);
 
 		render(<QuickServicesClient canManage />);
-		await user.click(await screen.findByRole("button", { name: /本地精选/ }));
+		await user.click(await screen.findByRole("tab", { name: /本地精选/ }));
 		await user.click(screen.getAllByRole("button", { name: "一键安装" })[0]!);
 		await waitFor(() => expect(screen.getByText("✓ 可用")).toBeInTheDocument());
 		await user.click(screen.getByRole("button", { name: "确认安装" }));
@@ -264,7 +264,7 @@ describe("QuickServicesClient", () => {
 
 		render(<QuickServicesClient canManage />);
 		await screen.findByText(/最近同步：LinuxServer/);
-		await user.click(screen.getByRole("button", { name: /^⚙️ 应用源/ }));
+		await user.click(screen.getByRole("tab", { name: /^⚙️ 应用源/ }));
 		await user.click(screen.getByRole("button", { name: "删除" }));
 
 		expect(confirmSpy).not.toHaveBeenCalled();
@@ -286,7 +286,7 @@ describe("QuickServicesClient", () => {
 
 		render(<QuickServicesClient canManage />);
 		await screen.findByText(/最近同步：LinuxServer/);
-		await user.click(screen.getByRole("button", { name: /^⚙️ 应用源/ }));
+		await user.click(screen.getByRole("tab", { name: /^⚙️ 应用源/ }));
 		await user.click(screen.getByRole("button", { name: "删除" }));
 		await user.click(screen.getByRole("button", { name: "确认删除" }));
 
@@ -314,7 +314,7 @@ describe("QuickServicesClient", () => {
 		mockInitialLoads();
 
 		render(<QuickServicesClient canManage />);
-		await userEvent.click(await screen.findByRole("button", { name: /已安装/ }));
+		await userEvent.click(await screen.findByRole("tab", { name: /已安装/ }));
 
 		const accessLink = await screen.findByRole("link", { name: "访问 AList（Public direct port）" });
 		expect(accessLink).toHaveAttribute("href", "http://82.158.91.159:5244/");
@@ -327,7 +327,7 @@ describe("QuickServicesClient", () => {
 		mockInitialLoads();
 
 		render(<QuickServicesClient canManage />);
-		await user.click(await screen.findByRole("button", { name: /已安装/ }));
+		await user.click(await screen.findByRole("tab", { name: /已安装/ }));
 		await user.click(screen.getByRole("button", { name: "卸载" }));
 
 		const dialog = await screen.findByRole("dialog", { name: "确认卸载快捷服务" });
@@ -353,7 +353,7 @@ describe("QuickServicesClient", () => {
 		mockInitialLoads();
 
 		render(<QuickServicesClient canManage />);
-		await user.click(await screen.findByRole("button", { name: /已安装/ }));
+		await user.click(await screen.findByRole("tab", { name: /已安装/ }));
 		await user.click(screen.getByRole("button", { name: "更新" }));
 
 		const dialog = await screen.findByRole("dialog", { name: "确认更新配置" });
@@ -380,7 +380,7 @@ describe("QuickServicesClient", () => {
 
 		render(<QuickServicesClient canManage />);
 		await screen.findByText(/最近同步：LinuxServer/);
-		await user.click(screen.getByRole("button", { name: /^⚙️ 应用源/ }));
+		await user.click(screen.getByRole("tab", { name: /^⚙️ 应用源/ }));
 		await user.click(screen.getByRole("button", { name: "删除" }));
 
 		const dialog = await screen.findByRole("dialog", { name: "确认删除应用源" });
