@@ -238,6 +238,7 @@ export async function moveBackingObject(input: {
       input.storageNode.basePath,
       input.newRelativePath,
     );
+    const credentials = resolveStorageSshCredentials(input.storageNode);
     const path = await import("node:path");
     const targetParentDirectory = path.posix.dirname(newPath);
     if (
@@ -245,18 +246,12 @@ export async function moveBackingObject(input: {
       targetParentDirectory !== "." &&
       targetParentDirectory !== "/"
     ) {
-      const credentials = resolveStorageSshCredentials(input.storageNode);
       await createRemoteDirectory({
         ...credentials,
         remotePath: targetParentDirectory,
         recursive: true,
       });
     }
-    const renameCredentials = resolveStorageSshCredentials(input.storageNode);
-    await renameRemoteFile({
-      ...renameCredentials,
-      oldPath,
-      newPath,
-    });
+    await renameRemoteFile({ ...credentials, oldPath, newPath });
   }
 }

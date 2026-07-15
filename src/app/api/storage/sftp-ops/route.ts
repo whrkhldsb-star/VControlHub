@@ -283,7 +283,11 @@ async function handlePost(body: SftpOpsBody, session: SessionPayload) {
         } catch (physicalError) {
           // Physical rename failed — roll back the index to the old path.
           logger.warn("physical rename failed after index update; rolling back index", physicalError, { nodeId, oldPath: normalizedRelativePath, newPath: normalizedNewRelativePath });
-          await renameSftpIndex(node.id, normalizedNewRelativePath, normalizedRelativePath, body.isDirectory ?? false);
+          try {
+            await renameSftpIndex(node.id, normalizedNewRelativePath, normalizedRelativePath, body.isDirectory ?? false);
+          } catch (rollbackError) {
+            logger.error("index rollback failed after physical rename error; index may be inconsistent", rollbackError, { nodeId, oldPath: normalizedRelativePath, newPath: normalizedNewRelativePath });
+          }
           throw physicalError;
         }
         return NextResponse.json({ success: true });
