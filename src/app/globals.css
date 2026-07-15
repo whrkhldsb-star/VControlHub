@@ -404,25 +404,26 @@ body > main {
 	overflow: hidden;
 }
 
-/* S5. 页面标题节奏统一 */
+/* S5. 页面标题节奏统一 — 不锁死 line-height/字号到会裁切中文的值 */
 :root main h1 {
-	font-size: 1.625rem;
 	font-weight: 700;
 	letter-spacing: -0.015em;
-	line-height: 1.3;
+	line-height: 1.35;
 	color: var(--text-primary);
-	margin-bottom: 0.5rem;
+	overflow: visible;
 }
 :root main h2 {
 	font-size: 1.125rem;
 	font-weight: 600;
 	letter-spacing: -0.01em;
+	line-height: 1.35;
 	color: var(--text-primary);
 	margin-bottom: 0.375rem;
 }
 :root main h3 {
 	font-size: 0.9375rem;
 	font-weight: 600;
+	line-height: 1.4;
 	color: var(--text-primary);
 }
 
@@ -1468,8 +1469,8 @@ html.light main .text-\[var\(--text-secondary\)\]\/70 {
 }
 
 /* ============================================================
- * Light theme polish (2026-07)
- * 让浅色模式从“白底贴片”变成“软画布 + 浮起白卡片”
+ * Light theme polish (2026-07) — revised after header regression
+ * 目标：层次清晰，但不给页头/全局输入框加破坏性背景框
  * ============================================================ */
 
 /* Cards float on cool canvas */
@@ -1498,13 +1499,11 @@ html.light [data-stat-card] {
 	box-shadow: none !important;
 }
 
-/* Sidebar: soft frosted strip with clearer edge */
+/* Sidebar: soft strip — do NOT force overflow/backdrop that clips nav labels */
 html.light aside {
-	background:
-		linear-gradient(180deg, rgba(255,255,255,0.92) 0%, rgba(248,250,252,0.96) 100%) !important;
+	background: color-mix(in srgb, #ffffff 92%, var(--sidebar-bg)) !important;
 	border-right: 1px solid var(--sidebar-border);
-	box-shadow: 1px 0 0 rgba(15,23,42,0.02), 8px 0 24px rgba(15,23,42,0.03);
-	backdrop-filter: blur(12px);
+	box-shadow: 1px 0 0 rgba(15, 23, 42, 0.02), 8px 0 24px rgba(15, 23, 42, 0.03);
 }
 
 html.light aside nav a:hover {
@@ -1518,36 +1517,55 @@ html.light aside nav a.active {
 	font-weight: 600;
 }
 
-/* Inputs: clearer wells on light canvas */
-html.light [data-input],
-html.light input[data-input],
-html.light input:not([type="checkbox"]):not([type="radio"]),
-html.light select,
-html.light textarea {
-	background-color: var(--input-bg);
-	border-color: var(--input-border);
-	color: var(--text-primary);
-	box-shadow: inset 0 1px 2px rgba(15,23,42,0.03);
-}
-
-html.light input:focus,
-html.light select:focus,
-html.light textarea:focus,
-html.light [data-input]:focus {
-	border-color: var(--input-border-focus) !important;
-	box-shadow: 0 0 0 3px var(--input-ring), 0 1px 2px rgba(15,23,42,0.04) !important;
-	background-color: #ffffff !important;
-}
-
-/* Toolbars / page headers */
-html.light [data-toolbar],
+/*
+ * Page header must stay transparent.
+ * Previous rule painted a white box + shadow on [data-page-header] with no
+ * padding, which made titles look clipped/incomplete at the top of pages.
+ */
 html.light [data-page-header] {
-	background: color-mix(in srgb, #ffffff 88%, var(--surface-subtle)) !important;
+	background: transparent !important;
+	border-color: transparent !important;
+	box-shadow: none !important;
+	overflow: visible !important;
+}
+
+html.light [data-page-header] h1,
+html.light main h1 {
+	overflow: visible !important;
+	line-height: 1.35 !important;
+	/* Avoid ultra-tight tracking clipping CJK/Latin glyphs */
+	letter-spacing: -0.015em !important;
+}
+
+/* Toolbars only — not page titles */
+html.light [data-toolbar] {
+	background: color-mix(in srgb, #ffffff 90%, var(--surface-subtle)) !important;
 	border-color: var(--border-subtle) !important;
 	box-shadow: var(--shadow-sm);
 }
 
-/* Tables: cleaner header strip */
+/* Inputs: only semantic data-input / native form fields with explicit classes stay clean.
+   Avoid blanket `input:not(...)` which over-styles search, file, and icon buttons. */
+html.light [data-input],
+html.light input[data-input],
+html.light select[data-input],
+html.light textarea[data-input] {
+	background-color: var(--input-bg);
+	border-color: var(--input-border);
+	color: var(--text-primary);
+	box-shadow: inset 0 1px 2px rgba(15, 23, 42, 0.03);
+}
+
+html.light [data-input]:focus,
+html.light input[data-input]:focus,
+html.light select[data-input]:focus,
+html.light textarea[data-input]:focus {
+	border-color: var(--input-border-focus) !important;
+	box-shadow: 0 0 0 3px var(--input-ring), 0 1px 2px rgba(15, 23, 42, 0.04) !important;
+	background-color: #ffffff !important;
+}
+
+/* Tables */
 html.light thead th {
 	background: color-mix(in srgb, var(--surface-subtle) 88%, #ffffff) !important;
 	color: var(--text-muted) !important;
@@ -1571,7 +1589,7 @@ html.light [data-empty-state="boxed"] {
 	border-color: var(--border) !important;
 }
 
-/* Secondary / ghost buttons read better on light canvas */
+/* Secondary buttons */
 html.light [data-variant="secondary"],
 html.light button[data-secondary] {
 	background: #ffffff;
@@ -1582,11 +1600,6 @@ html.light [data-variant="secondary"]:hover,
 html.light button[data-secondary]:hover {
 	background: var(--surface-hover);
 	border-color: var(--border-strong);
-}
-
-/* Page shell hero wash — softer blue, not neon */
-html.light .bg-\[radial-gradient\(ellipse_at_top\,color-mix\(in_srgb\,var\(--accent\)_14\%\,transparent\)\,transparent_65\%\)\] {
-	opacity: 0.85;
 }
 
 /* Desktop body split: sidebar strip vs canvas */
@@ -1613,7 +1626,7 @@ html.light .animate-pulse {
 	background-size: 200% 100% !important;
 }
 
-/* Badge / tone chips slightly more opaque on light */
+/* Badge / tone chips */
 html.light [data-tone] {
 	box-shadow: inset 0 0 0 1px color-mix(in srgb, currentColor 8%, transparent);
 }

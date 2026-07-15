@@ -44,7 +44,7 @@ export function DashboardLocalizedHeader({ username }: { username: string }) {
       </p>
       <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <h1 className="text-[1.75rem] font-semibold tracking-tight text-[var(--text-primary)] sm:text-[2rem]">{title}</h1>
+          <h1 className="break-words text-[1.75rem] font-semibold leading-snug tracking-[-0.02em] text-[var(--text-primary)] sm:text-[2rem]">{title}</h1>
           <p className="mt-1.5 text-sm text-[var(--text-muted)]">
             {currentUser}: <span className="font-medium text-[var(--text-secondary)]">{username}</span>
           </p>

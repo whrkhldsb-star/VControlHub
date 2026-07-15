@@ -62,15 +62,18 @@ export function PageShell({
 }) {
 	return (
 		<div className="relative min-h-screen overflow-x-clip text-[var(--text-primary)]">
+			{/* Decorative wash only — never intercept layout/overflow for titles */}
 			<div
 				aria-hidden="true"
-				className="pointer-events-none absolute inset-x-0 top-0 h-80 bg-[radial-gradient(ellipse_at_top,color-mix(in_srgb,var(--accent)_12%,transparent),transparent_68%)] light:opacity-90"
+				className="pointer-events-none absolute inset-x-0 top-0 h-72 bg-[radial-gradient(ellipse_at_top,color-mix(in_srgb,var(--accent)_12%,transparent),transparent_65%)]"
 			/>
+			{/*
+			  Mobile needs extra top padding for the fixed hamburger (left-4 top-4).
+			  Keep overflow visible on the content column so large titles are not clipped.
+			*/}
 			<div
-				aria-hidden="true"
-				className="pointer-events-none absolute inset-x-0 top-0 h-56 bg-[radial-gradient(ellipse_at_80%_0%,color-mix(in_srgb,var(--color-action)_8%,transparent),transparent_60%)] opacity-70"
-			/>
-			<div className={`relative mx-auto ${maxW} px-4 pb-[calc(6.5rem+env(safe-area-inset-bottom))] pt-16 sm:px-6 sm:pb-16 sm:pt-8 lg:px-10 lg:py-10`}>
+				className={`relative mx-auto min-w-0 ${maxW} px-4 pb-[calc(6.5rem+env(safe-area-inset-bottom))] pt-20 sm:px-6 sm:pb-16 sm:pt-8 lg:px-10 lg:py-10`}
+			>
 				{children}
 			</div>
 		</div>
@@ -89,9 +92,9 @@ type PageHeaderProps = {
 
 export function PageHeader({ eyebrow, title, description, children, className = "mb-6 sm:mb-8" }: PageHeaderProps) {
 	return (
-		<header className={`${className} relative`} data-page-header>
+		<header className={`${className} relative overflow-visible`} data-page-header>
 			<div className="flex flex-col gap-4 sm:gap-5 lg:flex-row lg:items-end lg:justify-between">
-				<div className="min-w-0 max-w-3xl">
+				<div className="min-w-0 max-w-3xl overflow-visible">
 					{eyebrow ? (
 						<p
 							data-page-eyebrow
@@ -101,7 +104,8 @@ export function PageHeader({ eyebrow, title, description, children, className = 
 							{eyebrow}
 						</p>
 					) : null}
-					<h1 className="text-[1.75rem] font-semibold leading-tight tracking-[-0.03em] text-[var(--text-primary)] sm:text-[2rem]">
+					{/* leading-snug avoids Chinese glyph clipping from leading-tight + negative tracking */}
+					<h1 className="break-words text-[1.75rem] font-semibold leading-snug tracking-[-0.02em] text-[var(--text-primary)] sm:text-[2rem]">
 						{title}
 					</h1>
 					{description ? (
