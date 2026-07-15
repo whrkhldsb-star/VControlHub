@@ -23,8 +23,8 @@ describe("cn", () => {
 
 describe("ui classes", () => {
 	it("uses design tokens instead of hard-coded white/black", () => {
-		expect(UI_BTN_PRIMARY).toContain("var(--accent)");
-		expect(UI_BTN_PRIMARY).toContain("var(--on-accent)");
+		expect(UI_BTN_PRIMARY).toContain("var(--color-action)");
+		expect(UI_BTN_PRIMARY).toContain("var(--color-action-fg)");
 		expect(UI_BTN_PRIMARY).not.toMatch(/text-white|border-white|bg-black/);
 		expect(UI_INPUT).toContain("var(--input-bg)");
 		expect(UI_INPUT).toContain("placeholder:text-[var(--text-muted)]");

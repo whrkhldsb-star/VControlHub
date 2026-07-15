@@ -18,7 +18,8 @@ Shared UI primitives live here. Prefer these exports before adding one-off Tailw
 
 ## Actions and forms
 
-- `ActionButton` (`action-button.tsx`) — canonical token-backed button for primary/secondary CTAs.
+- `ActionButton` (`action-button.tsx`) — canonical token-backed button (`primary` | `outline` | `ghost` | `success` | `danger` | `secondary`).
+- `SubmitButton` — same token variants + pending label for forms; use `className` for layout only (`w-full`).
   - Props: native button props plus `variant="primary" | "outline" | "ghost"`.
   - Use this instead of hand-written `bg-cyan-*` classes for new action buttons.
 - `SubmitButton` (`submit-button.tsx`) — form-action submit button wired to `useFormStatus()`.

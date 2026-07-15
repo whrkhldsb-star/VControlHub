@@ -6,11 +6,16 @@
  * that cannot (yet) adopt a component without a larger rewrite.
  *
  * Keep fragments short and token-based — never hard-code white/black opacity.
+ *
+ * Token roles:
+ *   - `--color-action*` = brand CTA cyan (ActionButton / SubmitButton primary)
+ *   - `--accent*` = link / selection blue (nav active, text links)
+ * Do not blindly replace one with the other; they are intentionally distinct.
  */
 
-/** Solid primary CTA — prefer <ActionButton> when possible. */
+/** Solid primary CTA — prefer <ActionButton> / SubmitButton when possible. */
 export const UI_BTN_PRIMARY =
-	"inline-flex items-center justify-center rounded-xl bg-[var(--accent)] px-4 py-2 text-sm font-semibold text-[var(--on-accent)] transition hover:bg-[var(--accent-hover)] disabled:cursor-not-allowed disabled:opacity-50";
+	"inline-flex items-center justify-center rounded-xl bg-[var(--color-action)] px-4 py-2 text-sm font-semibold text-[var(--color-action-fg)] transition hover:bg-[var(--color-action-hover)] disabled:cursor-not-allowed disabled:opacity-50";
 
 /** Quiet secondary / cancel control. */
 export const UI_BTN_SECONDARY =

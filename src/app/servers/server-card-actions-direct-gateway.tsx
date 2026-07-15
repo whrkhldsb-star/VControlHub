@@ -128,8 +128,8 @@ export function ServerCardDirectGatewayForm({
             ? t("serverCardActions.directGateway.pendingDisable")
             : t("serverCardActions.directGateway.pendingEnable")
         }
-        data-tone="cyan"
-        className="w-full rounded-2xl border border-[var(--accent-border)] bg-[var(--accent-bg)] px-4 py-2 text-sm font-medium text-[var(--accent)] transition hover:bg-[var(--accent-bg)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--accent)]"
+        variant="ghost"
+        className="w-full"
       >
         {directGateway.enabled
           ? t("serverCardActions.directGateway.disableLabel")

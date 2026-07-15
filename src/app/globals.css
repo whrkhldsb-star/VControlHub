@@ -673,6 +673,32 @@ html.light { --surface-root: #eef2f7; }
 [data-action-button][data-variant="ghost"]:hover:not(:disabled) {
 	background-color: var(--color-action-bg-hover);
 }
+/* Soft success/danger outline CTAs (forms, confirmations) */
+[data-action-button][data-variant="success"] {
+	background-color: var(--success-bg);
+	color: var(--success);
+	border: 1px solid var(--success-border);
+}
+[data-action-button][data-variant="success"]:hover:not(:disabled) {
+	filter: brightness(1.05);
+}
+[data-action-button][data-variant="danger"] {
+	background-color: transparent;
+	color: var(--danger);
+	border: 1px solid var(--danger-border);
+}
+[data-action-button][data-variant="danger"]:hover:not(:disabled) {
+	background-color: var(--danger-bg);
+}
+[data-action-button][data-variant="secondary"] {
+	background-color: var(--surface-elevated);
+	color: var(--text-secondary);
+	border: 1px solid var(--border);
+}
+[data-action-button][data-variant="secondary"]:hover:not(:disabled) {
+	background-color: var(--surface-hover);
+	color: var(--text-primary);
+}
 [data-action-button]:focus-visible {
 	outline: none;
 	box-shadow: 0 0 0 3px var(--color-action-ring);

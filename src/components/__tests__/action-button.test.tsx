@@ -22,6 +22,15 @@ describe("ActionButton", () => {
 		expect(screen.getByRole("button").getAttribute("data-variant")).toBe("ghost");
 	});
 
+	it("honors semantic success/danger/secondary variants", () => {
+		const { rerender } = render(<ActionButton variant="success">OK</ActionButton>);
+		expect(screen.getByRole("button").getAttribute("data-variant")).toBe("success");
+		rerender(<ActionButton variant="danger">Del</ActionButton>);
+		expect(screen.getByRole("button").getAttribute("data-variant")).toBe("danger");
+		rerender(<ActionButton variant="secondary">Skip</ActionButton>);
+		expect(screen.getByRole("button").getAttribute("data-variant")).toBe("secondary");
+	});
+
 	it("passes through onClick, type=submit, and disabled", () => {
 		let clicked = 0;
 		render(

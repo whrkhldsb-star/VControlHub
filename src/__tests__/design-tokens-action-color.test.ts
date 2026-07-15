@@ -21,8 +21,8 @@ describe("globals.css — action color tokens", () => {
 	});
 
 	it("overrides --color-action under html.light for contrast", () => {
-		// light theme has cyan-600 (#0891b2) instead of cyan-400
-		expect(css).toMatch(/--color-action:\s*#0891b2/);
+		// light theme has cyan-700 (#0e7490) for readable contrast on pale canvas
+		expect(css).toMatch(/--color-action:\s*#0e7490/);
 	});
 
 	it("ships the [data-action-button] utility rules", () => {
@@ -30,6 +30,9 @@ describe("globals.css — action color tokens", () => {
 		expect(css).toMatch(/\[data-action-button\]\[data-variant="primary"\]/);
 		expect(css).toMatch(/\[data-action-button\]\[data-variant="outline"\]/);
 		expect(css).toMatch(/\[data-action-button\]\[data-variant="ghost"\]/);
+		expect(css).toMatch(/\[data-action-button\]\[data-variant="success"\]/);
+		expect(css).toMatch(/\[data-action-button\]\[data-variant="danger"\]/);
+		expect(css).toMatch(/\[data-action-button\]\[data-variant="secondary"\]/);
 	});
 
 	it("uses var(--color-action) on the primary variant", () => {
