@@ -8,6 +8,7 @@ import { csrfFetch } from "@/lib/auth/csrf-client";
 import { EmptyState } from "@/components/page-shell";
 import { useI18n } from "@/lib/i18n/use-locale";
 
+import { ActionButton } from "@/components/action-button";
 interface StorageNode {
 	id: string;
 	name: string;
@@ -340,15 +341,15 @@ export function ShareFilePicker({ nodes }: { nodes: StorageNode[] }) {
 							</div>
 						)) : <p className="rounded-lg border border-dashed border-[var(--border)] p-4 text-center text-xs text-[var(--text-muted)]">{copyText.selectedEmpty}</p>}
 					</div>
-					<button
+					<ActionButton
 						type="button"
 						onClick={() => void createShares()}
 						disabled={creating || selectedItems.length === 0}
-						className="min-h-11 mt-4 inline-flex w-full items-center justify-center gap-2 rounded-xl bg-[var(--color-action)] px-4 py-2.5 text-sm font-semibold text-[var(--color-action-fg)] transition hover:bg-[var(--color-action-bg)] disabled:cursor-not-allowed disabled:opacity-50"
+						className="mt-4 min-h-11 w-full gap-2 text-sm"
 					>
 						{creating ? <Loader2 size={16} className="animate-spin" /> : <Share2 size={16} />}
 						{creating ? copyText.creating : copyText.create}
-					</button>
+					</ActionButton>
 
 					{results.length ? (
 						<div className="mt-4 space-y-2">

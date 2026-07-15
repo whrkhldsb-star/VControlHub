@@ -3,6 +3,7 @@
 import { useI18n } from "@/lib/i18n/use-locale";
 import { useDialogFocus } from "@/lib/a11y/use-dialog-focus";
 
+import { ActionButton } from "@/components/action-button";
 /**
  * `ConfigPreviewDialog` — final confirmation modal shown after the user
  * picks a port in the install dialog (or hits "更新" on an installed
@@ -129,20 +130,12 @@ export function ConfigPreviewDialog({
 					{warning}
 				</div>
 				<div className="mt-6 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
-					<button
-						type="button"
-						onClick={onCancel}
-						className="min-h-11 rounded-lg border border-[var(--border-subtle)] px-4 py-2 text-xs text-[var(--text-muted)] hover:bg-[var(--surface-elevated)] transition"
-					>
+					<ActionButton type="button" variant="secondary" onClick={onCancel} className="min-h-11 text-xs">
 						{cancelLabel}
-					</button>
-					<button
-						type="button"
-						onClick={onConfirm}
-						className="min-h-11 rounded-lg bg-[var(--color-action)] px-4 py-2 text-xs font-semibold text-[var(--color-action-fg)] hover:bg-[var(--color-action-bg)] transition"
-					>
+					</ActionButton>
+					<ActionButton type="button" onClick={onConfirm} className="min-h-11 text-xs">
 						{confirmLabel}
-					</button>
+					</ActionButton>
 				</div>
 			</div>
 		</div>

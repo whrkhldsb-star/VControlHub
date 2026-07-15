@@ -1,5 +1,6 @@
 "use client";
 
+import { ActionButton } from "@/components/action-button";
 /**
  * `InstallDialog` — port-picker modal shown when the user clicks
  * "一键安装" on a Quick Service card. Lets the user override the
@@ -218,21 +219,12 @@ export function InstallDialog({
 				</div>
 
 				<div className="flex items-center justify-end gap-3 mt-6">
-					<button
-						type="button"
-						onClick={onClose}
-						className="rounded-lg border border-[var(--border-subtle)] px-4 py-2 text-xs text-[var(--text-muted)] hover:bg-[var(--surface-elevated)] transition"
-					>
+					<ActionButton type="button" variant="secondary" onClick={onClose} className="text-xs">
 						{t("qsPage.cancel")}
-					</button>
-					<button
-						type="button"
-						onClick={handleAdvance}
-						disabled={advanceDisabled}
-						className="rounded-lg bg-[var(--color-action)] px-4 py-2 text-xs font-semibold text-[var(--color-action-fg)] hover:bg-[var(--color-action-bg)] transition disabled:opacity-40 disabled:cursor-not-allowed"
-					>
+					</ActionButton>
+					<ActionButton type="button" onClick={handleAdvance} disabled={advanceDisabled} className="text-xs">
 						{t("qsPage.confirmInstall")}
-					</button>
+					</ActionButton>
 				</div>
 			</div>
 		</div>

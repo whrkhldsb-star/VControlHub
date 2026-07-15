@@ -1,5 +1,6 @@
 "use client";
 
+import { ActionButton } from "@/components/action-button";
 /**
  * `SourcesPanel` — the "应用源" tab body. Renders the preset picker
  * + new-source form, then lists every configured app source with
@@ -178,25 +179,16 @@ export function SourcesPanel({ sources, actions, onRequestDeleteSource }: Source
 							</button>
 						))}
 					</div>
-					<button
-						type="button"
-						onClick={doAddSource}
-						className="rounded-lg bg-[var(--color-action)] px-4 py-2 text-xs font-semibold text-[var(--color-action-fg)] hover:bg-[var(--color-action-bg)] transition"
-					>
+					<ActionButton type="button" onClick={doAddSource} className="text-xs">
 						{t("quickServicesPage.sources.add")}
-					</button>
+					</ActionButton>
 				</div>
 			</div>
 			<div className="flex items-center justify-between">
 				<p className="text-xs text-[var(--text-muted)]">{t("quickServicesPage.sources.manageDesc")}</p>
-				<button
-					type="button"
-					onClick={() => actions.doSync()}
-					disabled={actions.syncing !== null}
-					className="rounded-lg bg-[var(--color-action)] px-4 py-2 text-xs font-semibold text-[var(--color-action-fg)] hover:bg-[var(--color-action-bg)] transition disabled:opacity-40"
-				>
+				<ActionButton type="button" onClick={() => actions.doSync()} disabled={actions.syncing !== null} className="text-xs">
 					{actions.syncing === "all" ? t("quickServicesPage.sources.syncing") : t("quickServicesPage.sources.syncAll")}
-				</button>
+				</ActionButton>
 			</div>
 			{sources.length === 0 && (
 				<EmptyState icon="🔗" variant="boxed">
