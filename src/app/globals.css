@@ -1635,6 +1635,16 @@ html.light .animate-pulse {
 	background-size: 200% 100% !important;
 }
 
+
+/* Dashboard quick links + monitoring surfaces */
+html.light [data-dashboard-widget="quick-links"] [data-card] {
+  background: var(--surface);
+  box-shadow: var(--shadow-sm);
+}
+html.light [data-dashboard-widget="server-status"] {
+  box-shadow: var(--shadow-md);
+}
+
 /* ============================================================
  * Shared layout chrome for segmented tabs / split panes / form fields
  * ============================================================ */

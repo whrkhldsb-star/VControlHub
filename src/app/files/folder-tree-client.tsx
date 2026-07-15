@@ -41,10 +41,10 @@ export function FolderTreeClient({
         return (
           <li key={child.path || child.name}>
             <div
-              className={`flex items-center gap-1 rounded-2xl transition ${
+              className={`flex items-center gap-1 rounded-xl transition ${
                 isCurrent
-                  ? "bg-[var(--color-action-bg)]/10 text-[var(--text-primary)]"
-                  : "text-[var(--text-secondary)] hover:bg-[var(--surface)]/10 hover:text-[var(--text-primary)]"
+                  ? "bg-[var(--accent-bg)] text-[var(--accent)] shadow-[var(--shadow-sm)]"
+                  : "text-[var(--text-secondary)] hover:bg-[var(--surface-hover)] hover:text-[var(--text-primary)]"
               }`}
             >
               <button
@@ -58,7 +58,7 @@ export function FolderTreeClient({
                     : t("filesBrowserSpa.openChild").replace("{name}", child.displayName ?? child.name)
                 }
                 aria-expanded={hasChildren ? isExpanded : undefined}
-                className="grid h-8 w-8 flex-none place-items-center rounded-xl text-xs text-[var(--text-secondary)] hover:bg-[var(--surface)]/10 hover:text-[var(--text-primary)] light:hover:text-[var(--text-primary)]"
+                className="grid h-8 w-8 flex-none place-items-center rounded-lg text-xs text-[var(--text-secondary)] hover:bg-[var(--surface-elevated)] hover:text-[var(--text-primary)]"
               >
                 {hasChildren ? (isExpanded ? "▾" : "▸") : "•"}
               </button>

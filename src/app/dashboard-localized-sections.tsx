@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 
-import { EmptyState, StatCard } from "@/components/page-shell";
+import { EmptyState, StatCard, SurfacePanel, ListPanel, ListRow } from "@/components/page-shell";
 import { useI18n } from "@/lib/i18n/use-locale";
 
 type DashboardServerSummary = {
@@ -122,23 +122,21 @@ export function DashboardStatsSection({ storage, queue }: { storage: DashboardSt
 
   return (
     <section className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(0,0.85fr)]">
-      <div data-card className="p-4">
-        <h2 className="text-sm font-medium text-[var(--text-primary)]">{coreTitle}</h2>
-        <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-2">
+      <SurfacePanel title={coreTitle}>
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-2">
           <StatCard label={vpsNodes} value={String(storage.serverTotal)} accent={false} />
           <StatCard label={enabledNodes} value={String(storage.serverEnabled)} accent={false} />
           <StatCard label={storageNodes} value={String(storage.totalNodes)} accent={false} />
           <StatCard label={fileEntries} value={String(storage.totalEntries)} accent={false} />
         </div>
-      </div>
-      <div data-card className="p-4">
-        <h2 className="text-sm font-medium text-[var(--text-primary)]">{queueTitle}</h2>
-        <div className="mt-3 grid gap-3 sm:grid-cols-2 xl:grid-cols-1">
+      </SurfacePanel>
+      <SurfacePanel title={queueTitle}>
+        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-1">
           <StatCard label={pending} value={String(queue.pendingApprovals)} accent={queue.pendingApprovals > 0} accentColor="amber" />
           <StatCard label={downloads} value={downloadValue} accent={queue.downloads.running > 0} accentColor="cyan" detail={downloadDetail} />
           <StatCard label={notificationScheduled} value={`${queue.unreadNotifications} ${unread} / ${queue.activeScheduledTasks} ${active}`} accent={queue.unreadNotifications > 0 || queue.activeScheduledTasks > 0} accentColor={queue.unreadNotifications > 0 ? "amber" : "cyan"} />
         </div>
-      </div>
+      </SurfacePanel>
     </section>
   );
 }
@@ -165,7 +163,7 @@ export function DashboardQuickLinks({ pendingApprovals, downloads, unreadNotific
   };
 
   return (
-    <section data-dashboard-widget="quick-links" className="mt-8 grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
+    <section data-dashboard-widget="quick-links" className="mt-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
       <QuickLink href="/servers" title={labels.servers} desc={labels.serversDesc} icon={<ServerIcon />} />
       <QuickLink href="/files" title={labels.files} desc={labels.filesDesc} icon={<FilesIcon />} />
       <QuickLink href="/downloads" title={labels.downloads} desc={labels.downloadsDesc} icon={<DownloadsIcon />} badge={downloads.running > 0 ? `${downloads.running} ${labels.running}` : undefined} badgeColor="cyan" />
@@ -210,67 +208,66 @@ export function DashboardRecentActivity({ recentRequests, recentAuditLogs }: { r
   const viewAll = t("dashboard.view-all");
 
   return (
-    <section data-dashboard-widget="audit-log" className="mt-8 grid gap-6 lg:grid-cols-2">
-      <div>
-        <h2 className="mb-4 text-lg font-semibold text-[var(--text-primary)]">{approvalsTitle}</h2>
-        {recentRequests.length === 0 ? (
-          <EmptyState text={noRequests} />
-        ) : (
-          <div className="space-y-2.5">
-            {recentRequests.map((request) => (
-              <article data-card key={request.id} className="p-4 hover:bg-[var(--surface)]/[0.04]">
-                <div className="flex flex-wrap items-center justify-between gap-2">
-                  <div className="min-w-0 flex-1">
-                    <h3 className="text-sm font-medium text-[var(--text-primary)] truncate">{request.title}</h3>
-                    <p className="mt-0.5 text-xs text-[var(--text-muted)]">
-                      {request.requester.displayName || request.requester.username}
-                      {request.isAssistantInitiated ? ` · ${assistant}` : ` · ${user}`}
-                    </p>
-                  </div>
-                  <div className="flex shrink-0 items-center gap-1.5">
-                    <Badge color={request.status === "PENDING_APPROVAL" ? "amber" : request.status === "APPROVED" ? "emerald" : "slate"}>{request.approvalStateLabel}</Badge>
-                    <Badge color="slate">{targetPrefix} {request.targetCount} {targetSuffix}</Badge>
-                  </div>
-                </div>
-                <p className="mt-2.5 rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-subtle)] px-3 py-1.5 font-mono text-xs text-[var(--color-action)]">{request.command}</p>
-              </article>
-            ))}
-          </div>
-        )}
-      </div>
-      <div>
-        <div className="mb-4 flex items-center justify-between">
-          <h2 className="text-lg font-semibold text-[var(--text-primary)]">{auditTitle}</h2>
-          <Link href="/audit" className="text-xs text-[var(--color-action)] transition-colors hover:text-[var(--color-action-hover)]">{viewAll}</Link>
-        </div>
-        {recentAuditLogs.length === 0 ? (
-          <EmptyState text={noAudit} />
-        ) : (
-          <div className="space-y-1.5">
-            {recentAuditLogs.map((log) => (
-              <div key={log.id} className="rounded-lg border border-[var(--border)] bg-[var(--surface)]/[0.04] px-3.5 py-2.5 transition-colors duration-150 hover:bg-[var(--surface)]/[0.04]">
-                <div className="flex items-center gap-2 text-xs">
-                  <Badge color={log.severity === "WARNING" ? "amber" : log.severity === "CRITICAL" ? "rose" : "slate"}>{log.action}</Badge>
-                  <span className="min-w-0 flex-1 truncate text-[var(--text-muted)]">{log.actor?.displayName ?? log.actor?.username ?? (log.actorType === "SYSTEM" ? t("dashboard.actor-system") : log.actorType)}</span>
-                  <time className="shrink-0 whitespace-nowrap text-[var(--text-muted)]" dateTime={log.createdAt} suppressHydrationWarning>{log.formattedCreatedAt}</time>
-                </div>
+    <section data-dashboard-widget="audit-log" className="mt-6 grid gap-4 lg:grid-cols-2">
+      <ListPanel
+        title={approvalsTitle}
+        count={recentRequests.length}
+        empty={recentRequests.length === 0 ? <EmptyState text={noRequests} /> : undefined}
+        bodyClassName={recentRequests.length === 0 ? undefined : "!divide-y-0 space-y-0 bg-transparent p-2"}
+      >
+        {recentRequests.map((request) => (
+          <article key={request.id} className="mb-2 rounded-xl border border-[var(--border-subtle)] bg-[var(--surface)] p-3.5 last:mb-0 hover:bg-[var(--surface-hover)]">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <div className="min-w-0 flex-1">
+                <h3 className="truncate text-sm font-medium text-[var(--text-primary)]">{request.title}</h3>
+                <p className="mt-0.5 text-xs text-[var(--text-muted)]">
+                  {request.requester.displayName || request.requester.username}
+                  {request.isAssistantInitiated ? ` · ${assistant}` : ` · ${user}`}
+                </p>
               </div>
-            ))}
-          </div>
-        )}
-      </div>
+              <div className="flex shrink-0 items-center gap-1.5">
+                <Badge color={request.status === "PENDING_APPROVAL" ? "amber" : request.status === "APPROVED" ? "emerald" : "slate"}>{request.approvalStateLabel}</Badge>
+                <Badge color="slate">{targetPrefix} {request.targetCount} {targetSuffix}</Badge>
+              </div>
+            </div>
+            <p className="mt-2.5 rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-subtle)] px-3 py-1.5 font-mono text-xs text-[var(--accent)]">{request.command}</p>
+          </article>
+        ))}
+      </ListPanel>
+      <ListPanel
+        title={auditTitle}
+        count={recentAuditLogs.length}
+        actions={<Link href="/audit" className="text-xs font-medium text-[var(--accent)] transition hover:text-[var(--accent-hover)]">{viewAll}</Link>}
+        empty={recentAuditLogs.length === 0 ? <EmptyState text={noAudit} /> : undefined}
+      >
+        {recentAuditLogs.map((log) => (
+          <ListRow key={log.id}>
+            <div className="flex items-center gap-2 text-xs">
+              <Badge color={log.severity === "WARNING" ? "amber" : log.severity === "CRITICAL" ? "rose" : "slate"}>{log.action}</Badge>
+              <span className="min-w-0 flex-1 truncate text-[var(--text-muted)]">{log.actor?.displayName ?? log.actor?.username ?? (log.actorType === "SYSTEM" ? t("dashboard.actor-system") : log.actorType)}</span>
+              <time className="shrink-0 whitespace-nowrap text-[var(--text-muted)]" dateTime={log.createdAt} suppressHydrationWarning>{log.formattedCreatedAt}</time>
+            </div>
+          </ListRow>
+        ))}
+      </ListPanel>
     </section>
   );
 }
 
 function QuickLink({ href, title, desc, icon, badge, badgeColor }: { href: string; title: string; desc: string; icon: React.ReactNode; badge?: string; badgeColor?: "cyan" | "amber" }) {
-  const badgeBg = badgeColor === "cyan" ? "border-[var(--color-action-border)] bg-[var(--color-action-bg)] text-[var(--color-action)]" : "border-[var(--warning-border)] bg-[var(--warning-bg)] text-[var(--warning)]";
+  const badgeBg = badgeColor === "cyan" ? "border-[var(--accent-border)] bg-[var(--accent-bg)] text-[var(--accent)]" : "border-[var(--warning-border)] bg-[var(--warning-bg)] text-[var(--warning)]";
   return (
- <Link data-card href={href} className="group transition-colors duration-150 hover:border-[var(--color-action-border)] hover:bg-[var(--color-action-bg)]">
-      <div className="text-[var(--text-secondary)] transition-colors duration-150 group-hover:text-[var(--color-action)]">{icon}</div>
-      <div className="mt-3 text-sm font-medium text-[var(--text-primary)]">{title}</div>
-      <p className="mt-1 text-xs text-[var(--text-muted)]">{desc}</p>
-      {badge && <span className={`mt-2.5 inline-block rounded-full border px-2.5 py-0.5 text-[11px] font-medium ${badgeBg}`}>{badge}</span>}
+    <Link
+      data-card
+      href={href}
+      className="group p-4 transition duration-150 hover:border-[var(--accent-border)] hover:bg-[color-mix(in_srgb,var(--accent-bg)_35%,var(--surface))]"
+    >
+      <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-elevated)] text-[var(--text-secondary)] transition group-hover:border-[var(--accent-border)] group-hover:text-[var(--accent)]">
+        {icon}
+      </div>
+      <div className="mt-3 text-sm font-semibold text-[var(--text-primary)]">{title}</div>
+      <p className="mt-1 text-xs leading-5 text-[var(--text-muted)]">{desc}</p>
+      {badge ? <span className={`mt-2.5 inline-block rounded-full border px-2.5 py-0.5 text-[11px] font-medium ${badgeBg}`}>{badge}</span> : null}
     </Link>
   );
 }

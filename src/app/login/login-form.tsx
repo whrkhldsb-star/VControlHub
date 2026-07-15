@@ -39,7 +39,7 @@ export function LoginForm({ nextPath, error, locale }: LoginFormProps) {
 					 />
 			</div>
 
-			<label className="flex items-center gap-3 rounded-2xl border border-[var(--border)] bg-[var(--surface)]/[0.04] px-4 py-3 text-xs font-medium text-[var(--text-primary)] shadow-sm">
+			<label className="flex items-center gap-3 rounded-2xl border border-[var(--border)] bg-[var(--surface-elevated)] px-4 py-3 text-xs font-medium text-[var(--text-primary)] shadow-sm light:bg-[var(--surface)]">
 				<input
 					type="checkbox"
 					name="remember"

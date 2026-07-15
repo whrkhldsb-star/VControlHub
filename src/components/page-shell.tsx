@@ -330,7 +330,11 @@ export function ListPanel({
 				>
 					<div className="flex min-w-0 items-center gap-2.5">
 						{title != null ? (
-							<div className="text-sm font-semibold text-[var(--text-primary)]">{title}</div>
+							typeof title === "string" || typeof title === "number" ? (
+								<h2 className="text-sm font-semibold text-[var(--text-primary)]">{title}</h2>
+							) : (
+								<div className="text-sm font-semibold text-[var(--text-primary)]">{title}</div>
+							)
 						) : null}
 						{count != null ? (
 							<span className="inline-flex min-w-6 items-center justify-center rounded-full border border-[var(--border)] bg-[var(--surface-elevated)] px-2 py-0.5 text-[11px] font-medium tabular-nums text-[var(--text-secondary)]">

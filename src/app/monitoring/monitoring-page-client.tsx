@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { PageShell, PageHeader } from "@/components/page-shell";
+import { PageShell, PageHeader, SurfacePanel } from "@/components/page-shell";
 import { csrfFetch } from "@/lib/auth/csrf-client";
 import { getRefreshIntervalLabel } from "@/lib/preferences/refresh-interval";
 import { useRefreshInterval } from "@/lib/preferences/use-refresh-interval";
@@ -25,10 +25,9 @@ interface Stats {
 /** Card wrapper — extracted to module top to avoid re-creation on every render */
 function Card({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <div data-card className="p-4">
-      <h3 className="mb-3 text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--text-muted)]">{title}</h3>
+    <SurfacePanel title={title} className="h-full">
       {children}
-    </div>
+    </SurfacePanel>
   );
 }
 
@@ -181,7 +180,7 @@ export default function MonitoringPage({ canManage: _canManage }: { canManage: b
             type="button"
             onClick={fetchStats}
             disabled={refreshing}
-            className="mt-4 rounded-lg bg-[var(--danger)] px-4 py-2 text-xs font-semibold text-[var(--text-primary)] transition hover:bg-[var(--danger-bg)] hover:text-[var(--danger)] disabled:cursor-not-allowed disabled:opacity-60"
+            className="mt-4 rounded-xl bg-[var(--danger)] px-4 py-2 text-xs font-semibold text-[var(--on-accent)] transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
           >
             {refreshing ? t("monitoringPage.retrying") : t("monitoringPage.retry")}
           </button>
@@ -287,11 +286,12 @@ export default function MonitoringPage({ canManage: _canManage }: { canManage: b
         </Card>
       </div>
 
+      <div className="mt-4">
       <Card title={t("monitoringPage.card.topProcesses")}>
         <div className="overflow-x-auto">
           <table className="w-full text-xs">
             <thead>
-              <tr className="border-b border-[var(--border)] text-[var(--text-muted)]">
+              <tr className="border-b border-[var(--border)] bg-[var(--surface-elevated)] text-[var(--text-muted)]">
                 <th className="py-2 text-left">{t("monitoringPage.table.pid")}</th>
                 <th className="py-2 text-right">{t("monitoringPage.table.cpu")}</th>
                 <th className="py-2 text-right">{t("monitoringPage.table.mem")}</th>
@@ -311,6 +311,7 @@ export default function MonitoringPage({ canManage: _canManage }: { canManage: b
           </table>
         </div>
       </Card>
+      </div>
 
       <p className="mt-4 text-[10px] text-[var(--text-muted)]">
         {t("monitoringPage.lastUpdated").replace("{timestamp}", formatTimestamp(stats.timestamp, locale))}

@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
-import { PageShell, PageHeader } from "@/components/page-shell";
+import { PageShell, PageHeader, SurfacePanel } from "@/components/page-shell";
 import { csrfFetch } from "@/lib/auth/csrf-client";
 import { getRefreshIntervalLabel } from "@/lib/preferences/refresh-interval";
 import { useRefreshInterval } from "@/lib/preferences/use-refresh-interval";
@@ -69,10 +69,9 @@ type TrafficHistoryPoint = TrafficSample & {
 
 function Card({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <section data-card className="p-5">
-      <h2 className="mb-4 text-sm font-semibold text-[var(--text-primary)]">{title}</h2>
+    <SurfacePanel title={title}>
       {children}
-    </section>
+    </SurfacePanel>
   );
 }
 

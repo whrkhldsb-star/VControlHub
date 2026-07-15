@@ -159,7 +159,7 @@ export function FilesBrowserSpa({
       <aside
         id="files-browser-sidebar"
         aria-label={t("filesBrowserSpa.sidebarAria")}
-        className={`w-full min-w-0 self-start rounded-3xl border border-[var(--border)] bg-[var(--surface)] p-4 shadow-[var(--shadow-sm)] xl:sticky xl:top-4 ${
+        className={`w-full min-w-0 self-start rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-4 shadow-[var(--shadow-sm)] xl:sticky xl:top-4 ${
           mobileSidebarOpen ? "block" : "hidden xl:block"
         }`}
       >
@@ -194,7 +194,7 @@ export function FilesBrowserSpa({
             onClick={() => handleTreeNavigate("")}
             className={`flex min-h-10 w-full items-center justify-between rounded-xl px-3 py-2 text-left text-sm transition ${
               data.currentPath === ""
-                ? "bg-[var(--accent-bg)] font-medium text-[var(--text-primary)]"
+                ? "bg-[var(--accent-bg)] font-medium text-[var(--accent)] shadow-[var(--shadow-sm)]"
                 : "text-[var(--text-primary)] hover:bg-[var(--surface-hover)]"
             }`}
           >
@@ -221,7 +221,7 @@ export function FilesBrowserSpa({
         <RecentDownloadsPanel onNavigate={navigateToNodeFolder} />
 
         {/* Search + Toolbar */}
-        <article className="rounded-3xl border border-[var(--border)] bg-[var(--surface)] p-4 shadow-[var(--shadow-sm)] sm:p-5">
+        <article className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-4 shadow-[var(--shadow-sm)] sm:p-5">
           <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
             <div>
               <h2 className="text-lg font-semibold tracking-tight text-[var(--text-primary)]">

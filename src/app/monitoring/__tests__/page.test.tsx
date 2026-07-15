@@ -17,6 +17,12 @@ vi.mock("@/components/page-shell", () => ({
       {children}
     </div>
   ),
+  SurfacePanel: ({ title, children }: { title?: React.ReactNode; children: React.ReactNode }) => (
+    <section>
+      {title ? <h2>{title}</h2> : null}
+      {children}
+    </section>
+  ),
 }));
 
 vi.mock("@/lib/auth/csrf-client", () => ({
