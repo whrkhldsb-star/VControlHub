@@ -305,6 +305,7 @@ export function StatGrid({
  */
 export function ListPanel({
 	title,
+	description,
 	count,
 	actions,
 	children,
@@ -313,6 +314,8 @@ export function ListPanel({
 	empty,
 }: {
 	title?: ReactNode;
+	/** Optional helper copy under the title (list scope / filter guidance). */
+	description?: ReactNode;
 	count?: ReactNode;
 	actions?: ReactNode;
 	children?: ReactNode;
@@ -323,23 +326,32 @@ export function ListPanel({
 }) {
 	return (
 		<div data-list-panel data-card className={`overflow-hidden !p-0 ${className}`}>
-			{(title != null || count != null || actions != null) && (
+			{(title != null || description != null || count != null || actions != null) && (
 				<div
 					data-list-panel-header
 					className="flex flex-wrap items-center justify-between gap-3 border-b border-[var(--border)] px-4 py-3.5 sm:px-5"
 				>
-					<div className="flex min-w-0 items-center gap-2.5">
-						{title != null ? (
-							typeof title === "string" || typeof title === "number" ? (
-								<h2 className="text-sm font-semibold text-[var(--text-primary)]">{title}</h2>
+					<div className="min-w-0">
+						<div className="flex min-w-0 items-center gap-2.5">
+							{title != null ? (
+								typeof title === "string" || typeof title === "number" ? (
+									<h2 className="text-sm font-semibold text-[var(--text-primary)]">{title}</h2>
+								) : (
+									<div className="text-sm font-semibold text-[var(--text-primary)]">{title}</div>
+								)
+							) : null}
+							{count != null ? (
+								<span className="inline-flex min-w-6 items-center justify-center rounded-full border border-[var(--border)] bg-[var(--surface-elevated)] px-2 py-0.5 text-[11px] font-medium tabular-nums text-[var(--text-secondary)]">
+									{count}
+								</span>
+							) : null}
+						</div>
+						{description != null ? (
+							typeof description === "string" || typeof description === "number" ? (
+								<p className="mt-1 max-w-2xl text-xs text-[var(--text-muted)]">{description}</p>
 							) : (
-								<div className="text-sm font-semibold text-[var(--text-primary)]">{title}</div>
+								<div className="mt-1 max-w-2xl text-xs text-[var(--text-muted)]">{description}</div>
 							)
-						) : null}
-						{count != null ? (
-							<span className="inline-flex min-w-6 items-center justify-center rounded-full border border-[var(--border)] bg-[var(--surface-elevated)] px-2 py-0.5 text-[11px] font-medium tabular-nums text-[var(--text-secondary)]">
-								{count}
-							</span>
 						) : null}
 					</div>
 					{actions ? <div className="flex shrink-0 flex-wrap items-center gap-2">{actions}</div> : null}

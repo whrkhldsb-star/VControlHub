@@ -54,6 +54,7 @@ export default async function RequestsPage() {
 					<h2 id="ai-approval-heading" className="sr-only">{t("requestsPage.ai.title", locale)}</h2>
 					<ListPanel
 						title={t("requestsPage.ai.title", locale)}
+						description={t("requestsPage.ai.desc", locale)}
 						count={aiActions.length}
 						actions={<span className="rounded-full border border-[var(--accent-border)] bg-[var(--accent-bg)] px-3 py-1 text-xs font-medium text-[var(--accent)]">{t("requestsPage.ai.scopeBadge", locale)}</span>}
 						empty={aiActions.length === 0 ? <EmptyState text={t("requestsPage.ai.empty", locale)} /> : undefined}
@@ -71,6 +72,7 @@ export default async function RequestsPage() {
 					<h2 id="command-approval-heading" className="sr-only">{t("requestsPage.cmd.title", locale)}</h2>
 					<ListPanel
 						title={t("requestsPage.cmd.title", locale)}
+						description={t("requestsPage.cmd.desc", locale)}
 						count={requests.length}
 						actions={<span className="rounded-full border border-[var(--warning-border)] bg-[var(--warning-bg)] px-3 py-1 text-xs font-medium text-[var(--warning)]">{t("requestsPage.cmd.scopeBadge", locale)}</span>}
 						empty={requests.length === 0 ? <EmptyState text={t("requestsPage.cmd.empty", locale)} /> : undefined}

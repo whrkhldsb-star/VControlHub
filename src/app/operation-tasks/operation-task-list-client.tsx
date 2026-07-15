@@ -168,6 +168,7 @@ export function OperationTaskListClient({ initialTasks, initialSourceSummary = [
     </section>
     <ListPanel
       title={t("operationTasksPage.recentTasks")}
+      description={t("operationTasksPage.recentTasksHint")}
       count={tasks.length}
       actions={
         <Toolbar className="!mb-0 flex-col gap-2 border-0 bg-transparent p-0 shadow-none sm:flex-row sm:items-end">

@@ -149,7 +149,7 @@ export default async function BackupsPage() {
 
 			<ListPanel
 				title={t("backupsPage.records.title")}
-				count={backups.length}
+				count={t("backupsPage.records.count").replace("{count}", String(backups.length))}
 				empty={backups.length === 0 ? <EmptyState text={t("backupsPage.records.empty")} /> : undefined}
 			>
 					{backups.map((b) => (

@@ -81,14 +81,15 @@ describe("PageShell Components", () => {
 			expect(screen.getByText("B")).toBeInTheDocument();
 		});
 
-		it("renders ListPanel header, count, and rows", () => {
+		it("renders ListPanel header, count, description, and rows", () => {
 			render(
-				<ListPanel title="Records" count={2}>
+				<ListPanel title="Records" description="Helper copy" count={2}>
 					<ListRow>Row one</ListRow>
 					<ListRow>Row two</ListRow>
 				</ListPanel>
 			);
 			expect(screen.getByText("Records")).toBeInTheDocument();
+			expect(screen.getByText("Helper copy")).toBeInTheDocument();
 			expect(screen.getByText("2")).toBeInTheDocument();
 			expect(screen.getByText("Row one")).toBeInTheDocument();
 			expect(screen.getByText("Row two")).toBeInTheDocument();

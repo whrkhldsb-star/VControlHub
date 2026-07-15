@@ -306,6 +306,7 @@ export function QaReportsListClient({
 			<section aria-label={t("qaReportsPage.listAria")}>
 				<ListPanel
 					title={t("qaReportsPage.listTitle")}
+					description={t("qaReportsPage.listDesc")}
 					count={filtered.length}
 					actions={
 						<div
