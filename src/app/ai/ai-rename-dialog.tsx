@@ -1,5 +1,6 @@
 "use client";
 
+import { ActionButton } from "@/components/action-button";
 /**
  * Modal dialog for renaming an AI conversation.
  *
@@ -70,22 +71,12 @@ export function AiRenameDialog({
           </p>
         )}
         <div className="mt-5 flex justify-end gap-2">
-          <button
-            type="button"
-            disabled={busy}
-            onClick={onCancel}
-            className="rounded-xl border border-[var(--border)] px-3 py-2 text-xs text-[var(--text-secondary)] transition hover:bg-[var(--surface)]/10 disabled:opacity-50"
-          >
+          <ActionButton type="button" variant="secondary" disabled={busy} onClick={onCancel} className="text-xs">
             {t("aiPage.cancel")}
-          </button>
-          <button
-            type="button"
-            disabled={busy || !title.trim()}
-            onClick={onConfirm}
-            className="rounded-xl bg-[var(--color-action)]/20 px-3 py-2 text-xs font-medium text-[var(--text-secondary)] transition hover:bg-[var(--color-action)]/30 disabled:opacity-50"
-          >
+          </ActionButton>
+          <ActionButton type="button" variant="ghost" disabled={busy || !title.trim()} onClick={onConfirm} className="text-xs">
             {busy ? t("aiPage.savingLabel") : t("aiPage.saveTitleLabel")}
-          </button>
+          </ActionButton>
         </div>
       </div>
     </div>

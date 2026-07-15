@@ -14,6 +14,7 @@ import { ImageBedStatsPanel, UploadProgressPanel, formatImageSize } from "./imag
 import { DeleteImageDialog, ImageGrid, PublishFromStorageModal } from "./image-bed-grid-and-modals";
 import { FloatingToast } from "./floating-toast";
 
+import { ActionButton } from "@/components/action-button";
 function getErrorMessage(error: unknown, fallback: string): string {
 	return error instanceof Error && error.message ? error.message : fallback;
 }
@@ -333,7 +334,7 @@ export default function ImageBedPage({ canWrite, canDelete }: { canWrite: boolea
 					)}
 					<div className="flex items-center gap-1">
 						<input type="text" value={batchAlbum} aria-label={t("imageBedPage.batch.albumLabel")} onChange={(e) => setBatchAlbum(e.target.value)} placeholder={t("imageBedPage.batch.albumPlaceholder")} className="min-h-11 bg-[var(--input-bg)] border border-[var(--border)] rounded-lg px-2 py-1 text-xs text-[var(--text-primary)] w-28 focus:outline-none focus:border-[var(--color-action-border)]/50" />
-						<button onClick={() => runBatchAction("moveAlbum")} disabled={selectedIds.size === 0 || !batchAlbum} className="min-h-11 rounded-lg px-3 text-xs bg-[var(--color-action)]/20 text-[var(--color-action)] hover:bg-[var(--color-action)]/30 transition disabled:opacity-30">{t("imageBedPage.batch.move")}</button>
+						<ActionButton type="button" variant="ghost" onClick={() => runBatchAction("moveAlbum")} disabled={selectedIds.size === 0 || !batchAlbum} className="min-h-11 px-3 text-xs">{t("imageBedPage.batch.move")}</ActionButton>
 					</div>
 					<button onClick={() => runBatchAction("togglePublic")} disabled={selectedIds.size === 0} className="min-h-11 rounded-lg px-3 text-xs bg-[var(--success-bg)] text-[var(--success)] hover:bg-[var(--success-bg)] transition disabled:opacity-30">{t("imageBedPage.batch.togglePublic")}</button>
 				</div>
@@ -404,7 +405,7 @@ export default function ImageBedPage({ canWrite, canDelete }: { canWrite: boolea
 						className="min-h-11 w-full rounded-lg border-[var(--input-border)] bg-[var(--input-bg)] px-3 py-2 text-sm text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus:outline-none focus:border-[var(--color-action-border)]/50 sm:w-72"
 					/>
 				</label>
-				<button onClick={() => fetchImages(1)} className="min-h-11 rounded-lg bg-[var(--color-action)]/10 px-4 py-2 text-sm text-[var(--color-action)] hover:bg-[var(--color-action)]/20 transition">{t("imageBedPage.search.submit")}</button>
+				<ActionButton type="button" variant="ghost" onClick={() => fetchImages(1)} className="min-h-11 px-4 text-sm">{t("imageBedPage.search.submit")}</ActionButton>
 				<button onClick={() => { setSearch(""); fetchImages(1); }} className="min-h-11 rounded-lg px-4 py-2 text-sm text-[var(--text-secondary)] hover:text-[var(--text-primary)] light:hover:text-[var(--text-disabled)] transition">{t("imageBedPage.search.reset")}</button>
 			</div>
 

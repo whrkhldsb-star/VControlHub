@@ -218,7 +218,7 @@ export function AiSettingsPanel({
                           setModelSearch("");
                         }
                       }}
-                      className="px-2 py-1 text-[10px] bg-[var(--color-action)]/20 text-[var(--color-action)] rounded-lg hover:bg-[var(--accent-hover)]/30"
+                      className="px-2 py-1 text-[10px]" data-action-button data-variant="ghost"
                     >
                       {t("aiPage.apply")}
                     </button>
@@ -430,7 +430,7 @@ export function AiSettingsPanel({
         <div className="flex items-end gap-2">
           <button
             onClick={onSaveSettings}
-            className="h-7 px-3 rounded-lg bg-[var(--color-action)]/20 text-[var(--color-action)] text-xs font-medium hover:bg-[var(--accent-hover)]/30 transition"
+            data-action-button data-variant="ghost" className="h-7 px-3 text-xs"
           >
             {t("aiPage.saveSettings")}
           </button>

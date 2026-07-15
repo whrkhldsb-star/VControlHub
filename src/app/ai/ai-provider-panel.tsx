@@ -8,6 +8,7 @@ import { useI18n } from "@/lib/i18n/use-locale";
 import { useMemo, useState } from "react";
 import { useDialogFocus } from "@/lib/a11y/use-dialog-focus";
 
+import { ActionButton } from "@/components/action-button";
 export interface ProviderFormState {
   name: string;
   type: string;
@@ -294,9 +295,9 @@ export function AiProviderPanel({
                       <div className="text-[10px] text-[var(--text-secondary)]">{t("aiPage.modelListLabel")}</div>
                       <p className="text-[11px] text-[var(--text-muted)]">{t("aiPage.modelListHint")}</p>
                     </div>
-                    <button type="button" onClick={fetchProviderModels} disabled={modelsLoading} className="h-8 px-3 rounded-lg bg-[var(--color-action)]/20 text-[var(--color-action)] text-xs font-medium hover:bg-[var(--color-action)]/30 transition disabled:opacity-50">
+                    <ActionButton type="button" variant="ghost" onClick={fetchProviderModels} disabled={modelsLoading} className="h-8 px-3 text-xs">
                       {modelsLoading ? t("aiPage.fetchingModels") : t("aiPage.fetchModels")}
-                    </button>
+                    </ActionButton>
                   </div>
                   {modelOptions.length > 0 && <div className="max-h-24 overflow-y-auto rounded-lg bg-[var(--input-bg)] p-2 text-[11px] text-[var(--text-secondary)]">{modelOptions.slice(0, 20).join("、")}{modelOptions.length > 20 ? t("aiPage.modelsMore").replace("{count}", String(modelOptions.length)) : ""}</div>}
                 </div>
@@ -305,7 +306,7 @@ export function AiProviderPanel({
                   <span className="text-xs text-[var(--text-secondary)]">{t("common.setAsDefault")}</span>
                 </label>
               </div>
-              <button onClick={onCreateProvider} className="h-9 w-full rounded-xl bg-[var(--accent)] text-sm font-semibold text-[var(--on-accent)] transition hover:bg-[var(--accent-hover)]">{t("aiPage.addProviderButton")}</button>
+              <ActionButton type="button" onClick={onCreateProvider} className="h-9 w-full text-sm">{t("aiPage.addProviderButton")}</ActionButton>
             </div>
           )}
         </div>

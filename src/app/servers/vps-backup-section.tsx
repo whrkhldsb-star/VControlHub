@@ -7,6 +7,7 @@ import { useI18n } from "@/lib/i18n/use-locale";
 import { toDateLocale } from "@/lib/i18n/locale-format";
 import { formatBytes } from "@/lib/format/bytes";
 
+import { ActionButton } from "@/components/action-button";
 type BackupSchedule = {
 	id: string;
 	name: string;
@@ -309,14 +310,14 @@ export function VpsBackupSection({
 								onChange={(e) => setCreateForm({ ...createForm, retentionDays: e.target.value })}
 								className="w-24 rounded-lg border border-[var(--border)] bg-[var(--surface-elevated)] px-3 py-1.5 text-sm text-[var(--text-primary)]"
 							/>
-							<button
+							<ActionButton
 								type="button"
 								onClick={handleCreate}
 								disabled={!createForm.name.trim()}
-								className="rounded-lg bg-[var(--accent)] px-4 py-1.5 text-sm font-medium text-[var(--on-accent)] transition-colors hover:bg-[var(--color-action)] disabled:cursor-not-allowed disabled:opacity-50"
+								className="px-4 py-1.5 text-sm"
 							>
 								{t("vpsBackup.create")}
-							</button>
+							</ActionButton>
 						</div>
 					</div>
 				) : null}

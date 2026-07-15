@@ -3,6 +3,7 @@ import { useCallback, useEffect, useState } from "react";
 import { csrfFetch } from "@/lib/auth/csrf-client";
 import { useI18n } from "@/lib/i18n/use-locale";
 import { useDialogFocus } from "@/lib/a11y/use-dialog-focus";
+import { ActionButton } from "@/components/action-button";
 type ResourceType = "networks" | "volumes";
 type DockerNetwork = {
   Id?: string;
@@ -202,30 +203,32 @@ export function DockerResourcesPanel({ serverId }: { serverId?: string }) {
                 </div>{" "}
                 <div className="flex items-center gap-2">
                   {" "}
-                  <button
+                  <ActionButton
                     type="button"
+                    variant="ghost"
                     aria-label={formatCopy(t("dockerResources.inspectAria"), {
                       kind,
                       name: itemName,
                     })}
                     onClick={() => inspectResource(type, itemName)}
                     disabled={busyKey === `inspect:${key}`}
-                    className="min-h-10 rounded-lg bg-[var(--color-action)]/10 px-3 py-1 text-xs text-[var(--color-action)] transition hover:bg-[var(--color-action)]/20 disabled:opacity-50"
+                    className="min-h-10 px-3 text-xs"
                   >
                     {t("dockerResources.inspect")}
-                  </button>{" "}
-                  <button
+                  </ActionButton>{" "}
+                  <ActionButton
                     type="button"
+                    variant="danger"
                     aria-label={formatCopy(t("dockerResources.deleteAria"), {
                       kind,
                       name: itemName,
                     })}
                     onClick={() => setPendingDelete({ type, name: itemName })}
                     disabled={busyKey === `delete:${key}`}
-                    className="min-h-10 rounded-lg bg-[var(--danger)]/20 px-3 py-1 text-xs text-[var(--danger)] transition hover:bg-[var(--danger)]/30 focus-visible:text-[var(--text-primary)] hover:text-[var(--text-primary)] disabled:opacity-50"
+                    className="min-h-10 px-3 text-xs"
                   >
                     {t("dockerResources.delete")}
-                  </button>{" "}
+                  </ActionButton>{" "}
                 </div>{" "}
               </div>{" "}
             </div>
