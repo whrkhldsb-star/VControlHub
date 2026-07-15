@@ -2,6 +2,8 @@
 
 import { useState, useMemo, useId } from "react";
 
+import { UI_INPUT } from "@/lib/ui/classes";
+import { cn } from "@/lib/ui/cn";
 import {
   type NodeOption,
   getNodeLabel,
@@ -69,7 +71,7 @@ export function NodeFilterSelect({
           value={query}
           onChange={(event) => setQuery(event.currentTarget.value)}
           placeholder={t("filesBrowserSpa.searchPlaceholder")}
-          className="w-full rounded-2xl border border-[var(--border)] bg-[var(--input-bg)] px-3 py-2 text-sm text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus:border-[var(--color-action-border)]/50 focus:outline-none"
+          className={cn(UI_INPUT, "rounded-2xl")}
         />
       </div>
       <div className="space-y-1">
@@ -80,7 +82,7 @@ export function NodeFilterSelect({
           id={selectInputId}
           value={value}
           onChange={(event) => onChange(event.currentTarget.value)}
-          className="w-full rounded-2xl border border-[var(--color-action-border)]/30 bg-[var(--input-bg)] px-3 py-2 text-sm text-[var(--text-primary)] focus:border-[var(--color-action-border)]/50 focus:outline-none light:border-[var(--color-action-border)]/40"
+          className={cn(UI_INPUT, "rounded-2xl border-[var(--color-action-border)]/30 light:border-[var(--color-action-border)]/40")}
         >
           <option value="">{t("filesBrowserSpa.allNodesOption")}</option>
           {filteredNodes.map((node) => (

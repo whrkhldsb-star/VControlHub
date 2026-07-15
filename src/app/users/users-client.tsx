@@ -8,6 +8,8 @@ import { toDateLocale } from "@/lib/i18n/locale-format";
 import { useI18n } from "@/lib/i18n/use-locale";
 import { useDialogFocus } from "@/lib/a11y/use-dialog-focus";
 
+import { UI_INPUT } from "@/lib/ui/classes";
+import { cn } from "@/lib/ui/cn";
 type RoleInfo = { key: string; name: string };
 type UserInfo = {
   id: string;
@@ -376,7 +378,7 @@ export function UserManagementClient({ canManage = false, currentUserId = "" }: 
               aria-label={t("usersPage.form.passwordPlaceholder")}
               value={resetPasswordValue}
               onChange={(e) => setResetPasswordValue(e.target.value)}
-              className="mt-4 w-full rounded-xl border border-[var(--border)] bg-[var(--input-bg)] px-4 py-2 text-sm text-[var(--text-primary)] focus:outline-none focus:border-[var(--color-action-border)]/50"
+              className={cn(UI_INPUT, "mt-4 px-4")}
               placeholder={t("usersPage.form.passwordPlaceholder")}
               autoFocus
             />

@@ -1,6 +1,8 @@
 "use client";
 
 import { decodeBase64, encodeBase64 } from "@/components/ssh-terminal-codec";
+import { UI_INPUT } from "@/lib/ui/classes";
+import { cn } from "@/lib/ui/cn";
 
 import { useEffect, useRef, useState } from "react";
 import { csrfFetch } from "@/lib/auth/csrf-client";
@@ -404,7 +406,7 @@ export function SshTerminalPanel({ serverId, serverName, host, sessionToken, vis
 								if (e.key === "Escape") clearTerminalSearch();
 							}}
 							placeholder={t("sshTerminalModal.searchPlaceholder")}
-							className="min-h-10 min-w-[180px] flex-1 rounded-xl border border-[var(--border-subtle)] light:border-[var(--border)] bg-[var(--surface-subtle)] light:bg-[var(--surface)] px-3 py-2 text-sm text-[var(--text-primary)] light:text-[var(--text-disabled)] outline-none placeholder:text-[var(--text-muted)]/20 light:placeholder:text-[var(--text-primary)]/20 focus:border-[var(--color-action-border)]/30"
+							className={cn(UI_INPUT, "min-h-10 min-w-[180px] flex-1 light:text-[var(--text-disabled)] placeholder:text-[var(--text-muted)]/20")}
 						/>
 						<button type="button" onClick={() => searchTerminal("previous")} className="min-h-10 rounded-xl border border-[var(--border-subtle)] light:border-[var(--border)] px-3 text-xs text-[var(--text-secondary)] light:text-[var(--text-primary)] hover:bg-[var(--surface-subtle)] light:hover:bg-[var(--surface)]">{t("sshTerminalModal.searchPrevious")}</button>
 						<button type="button" onClick={() => searchTerminal("next")} data-tone="cyan" className="min-h-10 rounded-xl border border-[var(--color-action-border)]/20 px-3 text-xs text-[var(--color-action-fg)] hover:bg-[var(--color-action-bg)]/20">{t("sshTerminalModal.searchNext")}</button>
@@ -431,7 +433,7 @@ export function SshTerminalPanel({ serverId, serverName, host, sessionToken, vis
 									onChange={(e) => setNewFavorite(e.target.value)}
 									onKeyDown={(e) => e.key === "Enter" && addFavorite()}
 									placeholder={t("sshTerminalModal.favoritesPlaceholder")}
-									className="min-h-11 min-w-0 flex-1 rounded-lg border border-[var(--border-subtle)] light:border-[var(--border)] bg-[var(--surface-subtle)] light:bg-[var(--surface)] px-3 py-1 text-[13px] font-mono text-[var(--text-primary)] light:text-[var(--text-disabled)] outline-none placeholder:text-[var(--text-muted)]/20 light:placeholder:text-[var(--text-primary)]/20 focus:border-[var(--color-action-border)]/30"
+									className={cn(UI_INPUT, "min-h-11 min-w-0 flex-1 py-1 font-mono text-[13px] light:text-[var(--text-disabled)] placeholder:text-[var(--text-muted)]/20")}
 									/>
 									<button onClick={addFavorite} aria-label={t("sshTerminalModal.favoritesAdd")} data-tone="cyan" className="min-h-11 min-w-11 shrink-0 rounded-lg border border-[var(--color-action-border)]/20 px-2 py-1 text-[13px] text-[var(--color-action-fg)] transition hover:bg-[var(--color-action-bg)]/20">+</button>
 							</div>

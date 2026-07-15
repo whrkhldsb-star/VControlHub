@@ -1,5 +1,7 @@
 "use client";
 
+import { UI_INPUT } from "@/lib/ui/classes";
+import { cn } from "@/lib/ui/cn";
 /**
  * FileBatchToolbar — the fixed bottom toolbar that appears once the
  * user selects one or more files. Hosts bulk delete / move actions
@@ -187,7 +189,7 @@ export function FileBatchToolbar({
                 aria-label={t("filesPage.batchMove.targetPathAria")}
                 onChange={(e) => setMoveTargetDir(e.currentTarget.value)}
                 placeholder={currentPath || copy.targetPathPlaceholder}
-                className="w-40 rounded-2xl border border-[var(--border)] bg-[var(--input-bg)] px-3 py-1.5 text-sm text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus:border-[var(--color-action-border)]/50 focus:outline-none"
+                className={cn(UI_INPUT, "w-40 rounded-2xl py-1.5")}
               />
               {moveProgress.total > 0 ? (
                 <span className="text-sm text-[var(--text-secondary)]">

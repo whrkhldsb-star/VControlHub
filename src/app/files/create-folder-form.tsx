@@ -6,6 +6,8 @@ import { useI18n } from "@/lib/i18n/use-locale";
 
 import { createFolderAction, type StorageActionState } from "../storage/actions";
 
+import { UI_INPUT } from "@/lib/ui/classes";
+import { cn } from "@/lib/ui/cn";
 const initialState: StorageActionState = {};
 
 type StorageNodeOption = {
@@ -101,7 +103,7 @@ export function CreateFolderForm({
             name="storageNodeId"
             value={selectedNodeId}
             onChange={(event) => setSelectedNodeId(event.currentTarget.value)}
-            className="rounded-2xl border border-[var(--border)] bg-[var(--input-bg)] px-3 py-2 text-sm text-[var(--text-primary)] focus:border-[var(--color-action-border)]/50 focus:outline-none"
+            className={cn(UI_INPUT, "rounded-2xl")}
           >
             {storageNodes.map((node) => (
               <option key={node.id} value={node.id}>
@@ -125,7 +127,7 @@ export function CreateFolderForm({
           maxLength={255}
           pattern={String.raw`^[^\s/\\:*?"<>|]+$`}
           placeholder={t("common.folderNamePlaceholder")}
-          className="rounded-2xl border border-[var(--border)] bg-[var(--input-bg)] px-4 py-2 text-sm text-[var(--text-primary)] placeholder:text-[var(--text-muted)]"
+          className={cn(UI_INPUT, "rounded-2xl")}
         />
       </label>
       {folderName.trim() ? (

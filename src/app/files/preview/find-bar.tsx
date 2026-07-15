@@ -1,22 +1,16 @@
+"use client";
+
 /**
  * Real `FindBar` component.
  *
  * TR-036: Split out from `text-preview-client.tsx` so the search
  * input + jump-to-line control only ship in the client chunk when
- * the user enters the text preview. The page itself ships the
- * language label, edit controls and content viewer; the find/jump
- * chunk arrives on first view.
- *
- * State (`searchQuery` / `jumpLine`) and the jump-to-line callback
- * stay owned by the parent so closing the preview (route change)
- * resets them and the chunk boundary is purely about deferring
- * code, not about data flow. The lazy wrapper renders nothing when
- * `editMode === true` (the find/jump affordances are hidden in
- * edit mode), letting the parent drop the conditional.
+ * the user enters the text preview.
  */
-"use client";
 
 import { useI18n } from "@/lib/i18n/use-locale";
+import { UI_INPUT } from "@/lib/ui/classes";
+import { cn } from "@/lib/ui/cn";
 
 export interface FindBarProps {
 	searchQuery: string;
@@ -49,7 +43,7 @@ export function FindBar({
 					value={searchQuery}
 					onChange={(e) => onSearchQueryChange(e.target.value)}
 					placeholder={t("textPreview.find.searchPlaceholder")}
-					className="w-36 rounded-lg border border-[var(--border)] bg-[var(--surface)] px-2 py-1 text-xs text-[var(--text-secondary)] placeholder:text-[var(--text-muted)] focus:border-[var(--color-action-border)]/50 focus:outline-none"
+					className={cn(UI_INPUT, "w-36 px-2 py-1 text-xs text-[var(--text-secondary)]")}
 				/>
 			</div>
 			<div className="flex items-end gap-1">
@@ -68,7 +62,7 @@ export function FindBar({
 						onChange={(e) => onJumpLineChange(e.target.value)}
 						onKeyDown={(e) => e.key === "Enter" && onJumpToLine()}
 						placeholder={t("textPreview.find.jumpPlaceholder")}
-						className="w-24 rounded-lg border border-[var(--border)] bg-[var(--surface)] px-2 py-1 text-xs text-[var(--text-secondary)] placeholder:text-[var(--text-muted)] focus:border-[var(--color-action-border)]/50 focus:outline-none"
+						className={cn(UI_INPUT, "w-24 px-2 py-1 text-xs text-[var(--text-secondary)]")}
 					/>
 				</div>
 				<button

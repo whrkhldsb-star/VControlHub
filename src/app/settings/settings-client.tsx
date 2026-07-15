@@ -47,22 +47,11 @@ import {
   SchemaDrivenSection,
   latestSectionMetadata,
 } from "./settings-section";
+import { TOC_SUBTITLE_KEYS } from "./settings-toc";
 
 // Re-export so test files importing from `settings-client` keep working.
 export { FieldRiskBadge, FieldRollbackButton } from "./settings-field-risk";
 export type { PendingChange } from "./settings-save-confirm";
-
-const TOC_SUBTITLE_KEYS: Record<string, string> = {
-  "2fa": "settingsClient.toc.twoFactor.subtitle",
-  platform: "settingsClient.toc.platform.subtitle",
-  password: "settingsClient.toc.password.subtitle",
-  smtp: "settingsClient.toc.smtp.subtitle",
-  telegram: "settingsClient.toc.telegram.subtitle",
-  runtime: "settingsClient.toc.runtime.subtitle",
-  dashboard: "settingsClient.toc.dashboard.subtitle",
-  offsite: "settingsClient.toc.offsite.subtitle",
-  aiOps: "settingsClient.toc.aiOps.subtitle",
-};
 
 type Props = {
   settings: Record<string, string>;

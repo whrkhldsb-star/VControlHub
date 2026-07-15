@@ -12,6 +12,7 @@ import {
   EmptyState,
 } from "@/components/page-shell";
 import { ImageIcon } from "@/components/icons";
+import { UI_INPUT } from "@/lib/ui/classes";
 import { MediaScanButton } from "./media-scan-button";
 import { MediaImageUploadPanel } from "./media-image-upload-panel";
 import { MediaItemCard } from "./media-item-card";
@@ -335,7 +336,7 @@ export default async function Page({
             name="q"
             defaultValue={q ?? ""}
             placeholder={t("mediaPage.search.placeholder", locale)}
-            className="w-full rounded-xl border border-[var(--border)] bg-[var(--surface-elevated)] px-3 py-2 text-sm text-[var(--text-primary)] outline-none placeholder:text-[var(--text-muted)] focus:border-[var(--color-action-border)]/50"
+            className={UI_INPUT}
           />
         </div>
         <button

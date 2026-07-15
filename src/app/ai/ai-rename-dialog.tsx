@@ -1,6 +1,7 @@
 "use client";
 
 import { ActionButton } from "@/components/action-button";
+import { UI_INPUT } from "@/lib/ui/classes";
 /**
  * Modal dialog for renaming an AI conversation.
  *
@@ -61,7 +62,7 @@ export function AiRenameDialog({
             value={title}
             onChange={(event) => onChangeTitle(event.target.value)}
             autoFocus
-            className="rounded-xl border border-[var(--border)] bg-[var(--surface-elevated)] px-3 py-2 text-sm text-[var(--text-primary)] outline-none placeholder:text-[var(--text-muted)] focus:border-[var(--color-action-border)]/60"
+            className={UI_INPUT}
             placeholder={t("aiPage.newTitlePlaceholder")}
           />
         </label>

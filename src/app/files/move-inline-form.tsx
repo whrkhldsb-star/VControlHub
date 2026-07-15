@@ -6,6 +6,8 @@ import { useRouter } from "next/navigation";
 import { useI18n } from "@/lib/i18n/use-locale";
 import { type MoveFileActionState, moveFileAction } from "./move-file-action";
 
+import { UI_INPUT } from "@/lib/ui/classes";
+import { cn } from "@/lib/ui/cn";
 const initialState: MoveFileActionState = {};
 
 export function MoveInlineForm({
@@ -116,7 +118,7 @@ export function MoveInlineForm({
           required
           minLength={1}
           placeholder={currentDir || t("filesPage.actions.targetPath")}
-          className="rounded-2xl border border-[var(--border)] bg-[var(--input-bg)] px-3 py-1.5 text-xs text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus:border-[var(--color-action-border)]/50 focus:outline-none"
+          className={cn(UI_INPUT, "rounded-2xl py-1.5 text-xs")}
         />
       </label>
       <span className="text-xs text-[var(--text-secondary)]">

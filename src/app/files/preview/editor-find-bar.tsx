@@ -3,6 +3,8 @@
 import { useI18n } from "@/lib/i18n/use-locale";
 import type { EditorFindState } from "./text-preview-types";
 
+import { UI_INPUT } from "@/lib/ui/classes";
+import { cn } from "@/lib/ui/cn";
 /**
  * In-editor find toolbar shown above the textarea while editing.
  *
@@ -42,7 +44,7 @@ export function EditorFindBar({ inputRef, find, onQueryChange, onMove, onClose }
 					}
 				}}
 				placeholder={t("textPreview.editor.findPlaceholder")}
-				className="w-48 rounded-lg border border-[var(--border)] bg-[var(--surface)] px-2 py-1 text-xs text-[var(--text-secondary)] placeholder:text-[var(--text-muted)] focus:border-[var(--color-action-border)] focus:outline-none"
+				className={cn(UI_INPUT, "w-48 px-2 py-1 text-xs text-[var(--text-secondary)]")}
 			/>
 			<span className="text-xs text-[var(--text-secondary)]" data-testid="editor-find-count">
 				{find.query === ""
