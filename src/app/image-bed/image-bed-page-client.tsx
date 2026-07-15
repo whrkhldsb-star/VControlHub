@@ -262,41 +262,41 @@ export default function ImageBedPage({ canWrite, canDelete }: { canWrite: boolea
 
 	return (
 		<PageShell>
-			<div className="mb-5 overflow-hidden rounded-3xl border border-[var(--border)] bg-[radial-gradient(circle_at_top_left,rgba(16,185,129,0.16),transparent_34%),linear-gradient(145deg,color-mix(in_srgb,var(--surface-elevated)_55%,var(--surface)),var(--surface))] p-6 shadow-[var(--shadow-md)]">
+			<div className="mb-5 overflow-hidden rounded-3xl border border-[var(--border)] bg-[linear-gradient(145deg,color-mix(in_srgb,var(--success-bg)_45%,var(--surface)),var(--surface))] p-5 shadow-[var(--shadow-sm)] sm:p-6">
 				<div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
-					<div>
-						<p data-page-eyebrow className="text-xs font-semibold uppercase tracking-[0.3em] text-[var(--color-action)]">{t("imageBedPage.hero.eyebrow")}</p>
-						<h1 className="mt-2 text-3xl font-semibold tracking-tight text-[var(--text-primary)]">{t("imageBedPage.hero.title")}</h1>
-						<p className="mt-2 max-w-2xl text-sm leading-6 text-[var(--text-secondary)]">{t("imageBedPage.hero.desc")}</p>
+					<div className="min-w-0">
+						<p data-page-eyebrow className="text-[11px] font-semibold uppercase tracking-[0.22em] text-[var(--accent)]">{t("imageBedPage.hero.eyebrow")}</p>
+						<h1 className="mt-2 break-words text-[1.75rem] font-semibold leading-snug tracking-[-0.02em] text-[var(--text-primary)] sm:text-[2rem]">{t("imageBedPage.hero.title")}</h1>
+						<p className="mt-2 max-w-2xl text-sm leading-6 text-[var(--text-muted)]">{t("imageBedPage.hero.desc")}</p>
 					</div>
 					<div className="flex flex-wrap items-center gap-2 text-xs">
-						<Link href="/media?type=image" data-primary className="rounded-xl bg-[var(--accent)] px-4 py-2 font-semibold text-white transition hover:bg-[var(--accent-hover)]">{t("imageBedPage.hero.openMedia")}</Link>
-						{canWrite && <button onClick={() => { fetchStorageNodes(); setShowPublishModal(true); }} className="rounded-xl border border-[var(--accent-border)] bg-[var(--accent-bg)] px-4 py-2 font-medium text-[var(--accent)] transition hover:bg-[var(--accent-hover)] hover:text-white">{t("imageBedPage.hero.publishFromStorage")}</button>}
+						<Link href="/media?type=image" data-primary className="rounded-xl bg-[var(--accent)] px-4 py-2 font-semibold text-[var(--on-accent)] transition hover:bg-[var(--accent-hover)]">{t("imageBedPage.hero.openMedia")}</Link>
+						{canWrite && <button type="button" onClick={() => { fetchStorageNodes(); setShowPublishModal(true); }} className="rounded-xl border border-[var(--accent-border)] bg-[var(--accent-bg)] px-4 py-2 font-medium text-[var(--accent)] transition hover:bg-[var(--accent-hover)] hover:text-[var(--on-accent)]">{t("imageBedPage.hero.publishFromStorage")}</button>}
 					</div>
 				</div>
 				<div className="mt-5 grid gap-2 text-xs sm:grid-cols-3">
-					<div className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-3"><div className="text-lg font-semibold text-[var(--text-primary)]">{total}</div><div className="text-[var(--text-secondary)]">{t("imageBedPage.stat.total")}</div></div>
-					<div className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-3"><div className="text-lg font-semibold text-[var(--text-primary)]">{images.filter((img) => img.storageNodeId && img.relativePath).length}</div><div className="text-[var(--text-secondary)]">{t("imageBedPage.stat.traceable")}</div></div>
-					<div className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-3"><div className="text-lg font-semibold text-[var(--text-primary)]">{images.filter((img) => img.isPublic).length}</div><div className="text-[var(--text-secondary)]">{t("imageBedPage.stat.publicOnPage")}</div></div>
+					<div className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-3 shadow-[var(--shadow-sm)]"><div className="text-lg font-semibold text-[var(--text-primary)]">{total}</div><div className="text-[var(--text-secondary)]">{t("imageBedPage.stat.total")}</div></div>
+					<div className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-3 shadow-[var(--shadow-sm)]"><div className="text-lg font-semibold text-[var(--text-primary)]">{images.filter((img) => img.storageNodeId && img.relativePath).length}</div><div className="text-[var(--text-secondary)]">{t("imageBedPage.stat.traceable")}</div></div>
+					<div className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-3 shadow-[var(--shadow-sm)]"><div className="text-lg font-semibold text-[var(--text-primary)]">{images.filter((img) => img.isPublic).length}</div><div className="text-[var(--text-secondary)]">{t("imageBedPage.stat.publicOnPage")}</div></div>
 				</div>
 			</div>
 
 			<div className="mb-5 grid gap-3 lg:grid-cols-[1.1fr_0.9fr]">
-				<div className="rounded-2xl border border-[var(--border)]/[0.07] bg-[var(--surface)] p-4">
+				<div className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-4 shadow-[var(--shadow-sm)]">
 					<h2 className="text-sm font-semibold text-[var(--text-primary)]">{t("imageBedPage.publish.title")}</h2>
 					<div className="mt-3 grid gap-2 text-sm sm:grid-cols-3">
 						<Link href="/media?type=image" data-tone="emerald" className="rounded-2xl border border-[var(--success-border)] p-3 text-[var(--text-primary)] transition hover:bg-[var(--success-bg)]"><span className="block text-lg">{t("imageBedPage.publish.media.title")}</span><span className="mt-1 block text-xs opacity-75">{t("imageBedPage.publish.media.desc")}</span></Link>
-						<button type="button" onClick={() => { fetchStorageNodes(); setShowPublishModal(true); }} className="rounded-2xl border border-[var(--info-border)] bg-[var(--info-bg)] p-3 text-left text-[var(--text-primary)] transition hover:bg-[var(--info-bg)]"><span className="block text-lg">{t("imageBedPage.publish.storage.title")}</span><span className="mt-1 block text-xs opacity-75">{t("imageBedPage.publish.storage.desc")}</span></button>
+						<button type="button" onClick={() => { fetchStorageNodes(); setShowPublishModal(true); }} className="rounded-2xl border border-[var(--info-border)] bg-[var(--info-bg)] p-3 text-left text-[var(--text-primary)] transition hover:opacity-90"><span className="block text-lg">{t("imageBedPage.publish.storage.title")}</span><span className="mt-1 block text-xs opacity-75">{t("imageBedPage.publish.storage.desc")}</span></button>
 						<button type="button" onClick={() => setShowLegacyUpload((value) => !value)} data-tone="amber" className="rounded-2xl border border-[var(--warning-border)] p-3 text-left text-[var(--text-primary)] transition hover:bg-[var(--warning-bg)]"><span className="block text-lg">{t("imageBedPage.publish.legacy.title")}</span><span className="mt-1 block text-xs opacity-75">{t("imageBedPage.publish.legacy.desc")}</span></button>
 					</div>
 				</div>
-				<div className="rounded-2xl border border-[var(--border)]/[0.07] bg-[var(--surface)] p-4">
+				<div className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-4 shadow-[var(--shadow-sm)]">
 					<div className="flex items-center justify-between gap-2">
 						<div>
 							<h2 className="text-sm font-semibold text-[var(--text-primary)]">{t("imageBedPage.manage.title")}</h2>
 							<p className="mt-1 text-xs text-[var(--text-muted)]">{t("imageBedPage.manage.desc")}</p>
 						</div>
-						<button onClick={fetchStats} className="rounded-lg bg-[var(--accent-bg)] px-3 py-1.5 text-xs text-[var(--accent)] transition hover:bg-[var(--accent-bg)] text-[var(--accent)]">{t("imageBedPage.manage.stats")}</button>
+						<button type="button" onClick={fetchStats} className="rounded-lg bg-[var(--accent-bg)] px-3 py-1.5 text-xs text-[var(--accent)] transition hover:bg-[var(--accent-bg-hover,var(--accent-bg))]">{t("imageBedPage.manage.stats")}</button>
 					</div>
 					<div className="mt-3 flex flex-wrap gap-2 text-xs">
 						<ToggleChip active={showAll} onClick={() => { setShowAll(!showAll); }} ariaLabel={t("imageBedPage.toggle.toggleScope")}>

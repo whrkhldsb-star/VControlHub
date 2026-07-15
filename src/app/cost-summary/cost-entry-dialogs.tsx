@@ -13,7 +13,7 @@ export function CostEntryFormModal({ open, editingId, form, availableCurrencies,
 	return open ? (
 				<div
 					ref={dialogRef}
-					className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4"
+					className="fixed inset-0 z-50 flex items-center justify-center bg-[var(--overlay)] p-4"
 					role="dialog"
 					aria-modal="true"
 				>
@@ -137,7 +137,7 @@ export function CostDeleteDialog({ confirmDelete, deletingId, setConfirmDelete, 
 	return confirmDelete ? (
 				<div
 					ref={dialogRef}
-					className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4"
+					className="fixed inset-0 z-50 flex items-center justify-center bg-[var(--overlay)] p-4"
 					role="alertdialog"
 					aria-modal="true"
 				>

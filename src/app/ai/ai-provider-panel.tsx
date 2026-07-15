@@ -136,7 +136,7 @@ export function AiProviderPanel({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm max-sm:items-end"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-[var(--overlay)] backdrop-blur-sm max-sm:items-end"
       onClick={onClose}
     >
       <div

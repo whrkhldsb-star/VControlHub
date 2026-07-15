@@ -105,6 +105,11 @@
 	--shadow-md: 0 4px 12px rgba(0,0,0,0.4), 0 0 0 1px rgba(255,255,255,0.04);
 	--shadow-lg: 0 12px 32px rgba(0,0,0,0.5), 0 0 0 1px rgba(255,255,255,0.06);
 
+	/* Modal scrim — theme-aware so light mode is not pure black wash */
+	--overlay: rgba(1, 4, 9, 0.62);
+	--overlay-strong: rgba(1, 4, 9, 0.78);
+	--on-accent: #ffffff;
+
 	--radius-sm: 6px;
 	--radius-md: 8px;
 	--radius-lg: 12px;
@@ -203,6 +208,10 @@ html.light {
 	--shadow-sm: 0 1px 2px rgba(15,23,42,0.05), 0 0 0 1px rgba(15,23,42,0.03);
 	--shadow-md: 0 4px 14px rgba(15,23,42,0.08), 0 1px 3px rgba(15,23,42,0.05), 0 0 0 1px rgba(15,23,42,0.04);
 	--shadow-lg: 0 16px 40px rgba(15,23,42,0.12), 0 4px 12px rgba(15,23,42,0.06), 0 0 0 1px rgba(15,23,42,0.05);
+
+	--overlay: rgba(15, 23, 42, 0.42);
+	--overlay-strong: rgba(15, 23, 42, 0.55);
+	--on-accent: #ffffff;
 }
 
 @theme inline {
@@ -1638,25 +1647,30 @@ html.light .animate-pulse {
 	position: relative;
 }
 
-[data-side-nav] button[class*="bg-[var(--accent-bg)]"]::before,
-html.light [data-side-nav] button.bg-\[var\(--accent-bg\)\]::before {
-	content: "";
-	position: absolute;
-	left: 0;
-	top: 50%;
-	transform: translateY(-50%);
-	height: 55%;
-	width: 3px;
-	border-radius: 0 3px 3px 0;
-	background: var(--accent);
-}
-
 [data-form-field] {
 	transition: border-color 0.15s, background 0.15s, box-shadow 0.15s;
 }
 
 [data-callout] {
 	box-shadow: var(--shadow-sm);
+}
+
+/* Primary filled buttons: ensure readable label on accent fill */
+:root [data-variant="primary"],
+:root button[data-primary],
+:root a[data-primary] {
+	color: var(--on-accent);
+}
+
+/* Modal/dialog scrim consistency when authors still use black utilities */
+.bg-\[var\(--overlay\)\],
+.bg-\[var\(--overlay-strong\)\] {
+	backdrop-filter: blur(4px);
+}
+
+/* AI full-height workspace: sit cleanly under mobile top chrome */
+[data-ai-workspace] {
+	background: var(--page-bg);
 }
 
 html.light [data-segmented-tabs] {
@@ -1669,4 +1683,9 @@ html.light [data-side-nav] {
 
 html.light [data-form-field] {
 	background: color-mix(in srgb, var(--surface-subtle) 40%, #ffffff);
+}
+
+/* Soften hard neon hero washes that ignore light mode */
+html.light [data-hero-panel] {
+	box-shadow: var(--shadow-sm) !important;
 }

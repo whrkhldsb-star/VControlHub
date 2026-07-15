@@ -70,18 +70,20 @@ export default async function Page() {
     <main className="relative min-h-screen overflow-hidden text-[var(--text-primary)]">
       <div
         aria-hidden="true"
-        className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_top,rgba(56,139,253,0.10),transparent_55%),var(--page-bg)]"
+        className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_top,color-mix(in_srgb,var(--accent)_12%,transparent),transparent_55%),var(--page-bg)]"
       />
       <div className="relative mx-auto max-w-5xl px-6 py-14">
         <header className="mb-8 border-b border-[var(--border-subtle)] pb-6">
           <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-[var(--accent)]">Status</p>
-          <h1 className="mt-2 text-3xl font-semibold tracking-tight">{t("statusPage.title", locale)}</h1>
-          <p className="mt-2 max-w-2xl text-sm leading-6 text-[var(--text-secondary)]">
+          <h1 className="mt-2 break-words text-[1.75rem] font-semibold leading-snug tracking-[-0.02em] text-[var(--text-primary)] sm:text-[2rem]">
+            {t("statusPage.title", locale)}
+          </h1>
+          <p className="mt-2 max-w-2xl text-sm leading-6 text-[var(--text-muted)]">
             {t("statusPage.desc", locale)}
           </p>
         </header>
 
-        <div data-card className="mt-6">
+        <div data-card className="mt-6 p-5">
           <div className="flex items-center gap-3">
             <span
               className={`inline-block h-3 w-3 rounded-full ${
@@ -92,7 +94,7 @@ export default async function Page() {
                   : "bg-[var(--danger)]"
               }`}
             />
-            <span className="text-lg font-medium">
+            <span className="text-lg font-medium text-[var(--text-primary)]">
               {t("statusPage.overallLabel", locale)}
               {getHealthLabel(status.summary.overall, locale)}
             </span>

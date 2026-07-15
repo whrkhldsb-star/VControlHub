@@ -20,7 +20,7 @@ export function MobileNav() {
 		<nav
 			aria-label={t("nav.mobile")}
 			data-i18n-skip
-			className="fixed bottom-0 left-0 right-0 z-50 overflow-hidden border-t border-[var(--border)] bg-[color-mix(in_srgb,var(--modal-bg)_94%,transparent)] px-1.5 pb-[calc(0.4rem+env(safe-area-inset-bottom))] pt-1.5 shadow-[0_-8px_28px_color-mix(in_srgb,var(--text-primary)_12%,transparent)] backdrop-blur-xl md:hidden"
+			className="fixed bottom-0 left-0 right-0 z-50 overflow-hidden border-t border-[var(--border)] bg-[color-mix(in_srgb,var(--modal-bg)_94%,transparent)] px-1.5 pb-[calc(0.4rem+env(safe-area-inset-bottom))] pt-1.5 shadow-[0_-8px_28px_color-mix(in_srgb,var(--text-primary)_8%,transparent)] backdrop-blur-xl light:bg-[color-mix(in_srgb,#ffffff_92%,var(--surface-subtle))] light:shadow-[0_-6px_20px_rgba(15,23,42,0.06)] md:hidden"
 		>
 			<div className="grid w-full grid-cols-[repeat(5,minmax(0,1fr))_auto] items-center gap-0.5">
 				{mobileNavItems.map((tab) => {

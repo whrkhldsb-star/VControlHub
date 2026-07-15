@@ -189,7 +189,7 @@ const _data = await csrfFetch("/api/users/permissions", {
   };
 
   return (
-    <div className="fixed inset-0 z-50 overflow-y-auto bg-black/60 p-4 backdrop-blur">
+    <div className="fixed inset-0 z-50 overflow-y-auto bg-[var(--overlay)] p-4 backdrop-blur">
       <div ref={dialogRef} role="dialog" aria-modal="true" aria-label={t("usersPerm.title")} className="mx-auto max-w-5xl rounded-3xl border border-[var(--border)] bg-[var(--modal-bg)] p-6 shadow-2xl shadow-[var(--color-action)]/40">
         <div className="mb-5 flex items-start justify-between gap-4">
           <div>

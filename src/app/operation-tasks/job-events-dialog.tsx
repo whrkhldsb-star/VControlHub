@@ -138,7 +138,7 @@ export function JobEventsDialog({ jobId, open, onClose }: JobEventsDialogProps) 
 
   return (
     <div
-      className="fixed inset-0 z-[60] flex items-start justify-center bg-black/60 backdrop-blur-sm px-4 pt-[10vh] pb-8"
+      className="fixed inset-0 z-[60] flex items-start justify-center bg-[var(--overlay)] backdrop-blur-sm px-4 pt-[10vh] pb-8"
       onClick={onClose}
       role="presentation"
     >

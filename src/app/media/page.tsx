@@ -98,102 +98,79 @@ export default async function Page({
   const modeDescriptionText = modeDescription(locale, mediaType);
   return (
     <PageShell>
-      {" "}
-      <header className="mb-6 overflow-hidden rounded-3xl border border-[var(--border)] bg-[radial-gradient(circle_at_top_left,rgba(34,211,238,0.18),transparent_36%),linear-gradient(145deg,color-mix(in srgb,var(--surface-elevated) 55%, var(--surface)), var(--surface))] p-6 shadow-2xl shadow-[var(--color-action)]/20 light:shadow-[var(--shadow-sm)]">
-        {" "}
+      <header className="mb-6 overflow-hidden rounded-3xl border border-[var(--border)] bg-[linear-gradient(145deg,color-mix(in_srgb,var(--accent-bg)_40%,var(--surface)),var(--surface))] p-5 shadow-[var(--shadow-sm)] sm:p-6">
         <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
-          {" "}
-          <div>
-            {" "}
+          <div className="min-w-0">
             <p
               data-page-eyebrow
-              className="text-xs font-semibold uppercase tracking-[0.3em] text-[var(--color-action)]"
+              className="text-[11px] font-semibold uppercase tracking-[0.22em] text-[var(--accent)]"
             >
               {t("mediaPage.eyebrow", locale)}
-            </p>{" "}
-            <h1 className="mt-2 text-3xl font-semibold tracking-tight text-[var(--text-primary)]">
+            </p>
+            <h1 className="mt-2 break-words text-[1.75rem] font-semibold leading-snug tracking-[-0.02em] text-[var(--text-primary)] sm:text-[2rem]">
               {t("mediaPage.title", locale)}
-            </h1>{" "}
-            <p className="mt-2 max-w-2xl text-sm leading-6 text-[var(--text-secondary)]">
+            </h1>
+            <p className="mt-2 max-w-2xl text-sm leading-6 text-[var(--text-muted)]">
               {t("mediaPage.desc", locale)}
-            </p>{" "}
-          </div>{" "}
-          <div className="grid min-w-[260px] grid-cols-3 gap-2 rounded-2xl border border-[var(--border)] bg-[var(--surface)]/[0.10] p-2 text-center">
-            {" "}
+            </p>
+          </div>
+          <div className="grid min-w-[240px] grid-cols-3 gap-2 rounded-2xl border border-[var(--border)] bg-[var(--surface-subtle)] p-2 text-center">
             <div className="rounded-xl bg-[var(--info-bg)] px-3 py-2">
-              <div className="text-lg font-semibold text-[var(--info)] ">
-                {imageCount}
-              </div>
-              <div className="text-[10px] text-[var(--info)]/70 ">
-                {t("mediaPage.stat.image", locale)}
-              </div>
-            </div>{" "}
+              <div className="text-lg font-semibold text-[var(--info)]">{imageCount}</div>
+              <div className="text-[10px] text-[var(--info)]/70">{t("mediaPage.stat.image", locale)}</div>
+            </div>
             <div className="rounded-xl bg-[var(--accent-bg)] px-3 py-2">
-              <div className="text-lg font-semibold text-[var(--accent)] ">
-                {videoCount}
-              </div>
-              <div className="text-[10px] text-[var(--accent)]/70 ">
-                {t("mediaPage.stat.video", locale)}
-              </div>
-            </div>{" "}
-            <div className="rounded-xl bg-[var(--success)] px-3 py-2">
-              <div className="text-lg font-semibold text-[var(--success)] ">
-                {audioCount}
-              </div>
-              <div className="text-[10px] text-[var(--success)] ">
-                {t("mediaPage.stat.audio", locale)}
-              </div>
-            </div>{" "}
-          </div>{" "}
-        </div>{" "}
-      </header>{" "}
+              <div className="text-lg font-semibold text-[var(--accent)]">{videoCount}</div>
+              <div className="text-[10px] text-[var(--accent)]/70">{t("mediaPage.stat.video", locale)}</div>
+            </div>
+            <div className="rounded-xl bg-[var(--success-bg)] px-3 py-2">
+              <div className="text-lg font-semibold text-[var(--success)]">{audioCount}</div>
+              <div className="text-[10px] text-[var(--success)]/70">{t("mediaPage.stat.audio", locale)}</div>
+            </div>
+          </div>
+        </div>
+      </header>
       <section className="mb-5 grid gap-3 lg:grid-cols-[1.2fr_0.8fr]">
-        {" "}
-        <div className="rounded-2xl border border-[var(--border)]/[0.07] bg-[var(--surface)]/[0.04] p-4">
-          {" "}
+        <div className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-4 shadow-[var(--shadow-sm)]">
           <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-            {" "}
             <div>
-              {" "}
-              <p className="text-xs font-semibold uppercase tracking-[0.22em] text-[var(--color-action)]/70">
+              <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-[var(--accent)]">
                 {t("mediaPage.workspace.label", locale)}
-              </p>{" "}
+              </p>
               <h2 className="mt-1 text-xl font-semibold text-[var(--text-primary)]">
                 {modeTitleText}
-              </h2>{" "}
+              </h2>
               <p className="mt-1 text-sm text-[var(--text-muted)]">
                 {modeDescriptionText}
-              </p>{" "}
-            </div>{" "}
+              </p>
+            </div>
             <div className="flex flex-wrap gap-2 text-xs">
-              {" "}
               {mediaType === "image" ? (
                 <Link
                   href="/image-bed"
                   data-tone="emerald"
                   className="inline-flex items-center gap-1 rounded-lg border border-[var(--success-border)] px-3 py-1.5 font-medium text-[var(--success)] transition hover:bg-[var(--success-bg)] hover:text-[var(--success)]"
                 >
-                  {" "}
-                  {t("mediaPage.linkHub.label", locale)}{" "}
+                  {t("mediaPage.linkHub.label", locale)}
                 </Link>
-              ) : null}{" "}
+              ) : null}
               <span
                 data-tone="cyan"
-                className="inline-flex items-center rounded-lg border border-[var(--color-action-border)]/20 px-3 py-1.5 text-[var(--text-secondary)]"
+                className="inline-flex items-center rounded-lg border border-[var(--accent-border)] px-3 py-1.5 text-[var(--text-secondary)]"
               >
                 {t("mediaPage.viewCount", locale).replace(
                   "{count}",
                   String(media.length),
                 )}
-              </span>{" "}
-            </div>{" "}
-          </div>{" "}
+              </span>
+            </div>
+          </div>
           <div
             role="tablist"
             aria-label={t("mediaPage.aria.mediaType", locale)}
             className="mt-4 grid gap-2 text-sm sm:grid-cols-4"
           >
-            {" "}
+
             <FilterLink
               href={mediaHref({ favorite, q, tag })}
               active={!mediaType}
@@ -201,7 +178,7 @@ export default async function Page({
               inactiveClassName="border-[var(--border)] bg-[var(--surface)]/[0.04] text-[var(--text-secondary)] hover:bg-[var(--surface)]/[0.10]"
               className="rounded-2xl border px-4 py-3 transition"
             >
-              {" "}
+
               <span className="block text-base">
                 {t("mediaPage.filter.allTab", locale)}
               </span>
@@ -210,8 +187,8 @@ export default async function Page({
                   "{count}",
                   String(totalCount),
                 )}
-              </span>{" "}
-            </FilterLink>{" "}
+              </span>
+            </FilterLink>
             <FilterLink
               href={toggleTypeHref(filters, "image")}
               active={mediaType === "image"}
@@ -230,18 +207,18 @@ export default async function Page({
                     )
               }
             >
-              {" "}
+
               <span className="flex items-center justify-between">
                 <span>{t("mediaPage.filter.imageTab", locale)}</span>
                 <span>{imageCount}</span>
               </span>
               <span className="mt-1 block text-xs opacity-70">
-                {t("mediaPage.filter.imageDesc", locale)}{" "}
+                {t("mediaPage.filter.imageDesc", locale)}
                 {mediaType === "image"
                   ? t("mediaPage.filter.toggleOff", locale)
                   : ""}
-              </span>{" "}
-            </FilterLink>{" "}
+              </span>
+            </FilterLink>
             <FilterLink
               href={toggleTypeHref(filters, "video")}
               active={mediaType === "video"}
@@ -260,18 +237,18 @@ export default async function Page({
                     )
               }
             >
-              {" "}
+
               <span className="flex items-center justify-between">
                 <span>{t("mediaPage.filter.videoTab", locale)}</span>
                 <span>{videoCount}</span>
               </span>
               <span className="mt-1 block text-xs opacity-70">
-                {t("mediaPage.filter.videoDesc", locale)}{" "}
+                {t("mediaPage.filter.videoDesc", locale)}
                 {mediaType === "video"
                   ? t("mediaPage.filter.toggleOff", locale)
                   : ""}
-              </span>{" "}
-            </FilterLink>{" "}
+              </span>
+            </FilterLink>
             <FilterLink
               href={toggleTypeHref(filters, "audio")}
               active={mediaType === "audio"}
@@ -290,68 +267,68 @@ export default async function Page({
                     )
               }
             >
-              {" "}
+
               <span className="flex items-center justify-between">
                 <span>{t("mediaPage.filter.audioTab", locale)}</span>
                 <span>{audioCount}</span>
               </span>
               <span className="mt-1 block text-xs opacity-70">
-                {t("mediaPage.filter.audioDesc", locale)}{" "}
+                {t("mediaPage.filter.audioDesc", locale)}
                 {mediaType === "audio"
                   ? t("mediaPage.filter.toggleOff", locale)
                   : ""}
-              </span>{" "}
-            </FilterLink>{" "}
-          </div>{" "}
-        </div>{" "}
+              </span>
+            </FilterLink>
+          </div>
+        </div>
         <aside className="rounded-2xl border border-[var(--border)]/[0.07] bg-[var(--surface)]/[0.04] p-4">
-          {" "}
+
           <h2 className="text-sm font-semibold text-[var(--text-primary)]">
             {t("mediaPage.flow.title", locale)}
-          </h2>{" "}
+          </h2>
           <ol className="mt-3 space-y-3 text-sm text-[var(--text-muted)]">
-            {" "}
+
             <li className="flex gap-3">
               <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-[var(--color-action-bg)]/15 text-xs text-[var(--text-secondary)]">
                 1
               </span>
               <span>{t("mediaPage.flow.step1", locale)}</span>
-            </li>{" "}
+            </li>
             <li className="flex gap-3">
               <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-[var(--color-action-bg)]/15 text-xs text-[var(--text-secondary)]">
                 2
               </span>
               <span>{t("mediaPage.flow.step2", locale)}</span>
-            </li>{" "}
+            </li>
             <li className="flex gap-3">
               <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-[var(--color-action-bg)]/15 text-xs text-[var(--text-secondary)]">
                 3
               </span>
               <span>{t("mediaPage.flow.step3", locale)}</span>
-            </li>{" "}
-          </ol>{" "}
-        </aside>{" "}
-      </section>{" "}
+            </li>
+          </ol>
+        </aside>
+      </section>
       <form
         method="GET"
         action="/media"
         className="mb-4 flex flex-wrap items-center gap-2 rounded-2xl border border-[var(--border)]/[0.07] bg-[var(--surface)]/[0.025] p-3"
       >
-        {" "}
+
         {mediaType && (
           <input type="hidden" name="type" value={mediaType} />
-        )}{" "}
-        {favorite && <input type="hidden" name="favorite" value="1" />}{" "}
-        {tag && <input type="hidden" name="tag" value={tag} />}{" "}
+        )}
+        {favorite && <input type="hidden" name="favorite" value="1" />}
+        {tag && <input type="hidden" name="tag" value={tag} />}
         <div className="flex w-full max-w-sm flex-col gap-1">
-          {" "}
+
           <label
             htmlFor="media-search"
             className="text-xs font-medium text-[var(--text-muted)]"
           >
-            {" "}
-            {t("mediaPage.search.label", locale)}{" "}
-          </label>{" "}
+
+            {t("mediaPage.search.label", locale)}
+          </label>
           <input
             id="media-search"
             type="search"
@@ -359,14 +336,14 @@ export default async function Page({
             defaultValue={q ?? ""}
             placeholder={t("mediaPage.search.placeholder", locale)}
             className="w-full rounded-xl border border-[var(--border)] bg-[var(--surface)]/[0.04] px-3 py-2 text-sm text-[var(--text-primary)] outline-none placeholder:text-[var(--text-muted)] focus:border-[var(--color-action-border)]/50"
-          />{" "}
-        </div>{" "}
+          />
+        </div>
         <button
           type="submit"
           className="rounded-xl bg-[var(--accent)] px-4 py-2 text-sm font-semibold text-white transition hover:bg-[var(--accent-hover)]"
         >
           {t("mediaPage.search.submit", locale)}
-        </button>{" "}
+        </button>
         {(q || tag || mediaType || favorite) && (
           <FilterLink
             href="/media"
@@ -374,13 +351,13 @@ export default async function Page({
             activeClassName=""
             inactiveClassName="rounded-xl border border-[var(--border)] px-3 py-2 text-sm text-[var(--text-muted)] transition hover:bg-[var(--surface)]/10"
           >
-            {" "}
-            {t("mediaPage.search.clearFilters", locale)}{" "}
+
+            {t("mediaPage.search.clearFilters", locale)}
           </FilterLink>
-        )}{" "}
-      </form>{" "}
+        )}
+      </form>
       <div className="mb-4 flex flex-wrap items-center gap-2 text-xs">
-        {" "}
+
         <FilterLink
           href={toggleFavoriteHref(filters)}
           active={favorite === true}
@@ -393,21 +370,21 @@ export default async function Page({
               : t("mediaPage.filter.titleOnlyFav", locale)
           }
         >
-          {" "}
+
           {t("mediaPage.favoriteFilter", locale).replace(
             "{count}",
             String(favCount),
-          )}{" "}
-        </FilterLink>{" "}
-      </div>{" "}
+          )}
+        </FilterLink>
+      </div>
       {tagCloud.length > 0 && (
         <div data-card className="mb-5 p-3">
-          {" "}
+
           <div className="mb-2 text-xs font-semibold text-[var(--text-muted)]">
             {t("mediaPage.tagFilter.title", locale)}
-          </div>{" "}
+          </div>
           <div className="flex flex-wrap gap-2 text-xs">
-            {" "}
+
             {tagCloud.map((entry) => (
               <FilterLink
                 key={entry.tag}
@@ -428,80 +405,80 @@ export default async function Page({
                       )
                 }
               >
-                {" "}
-                #{entry.tag} <span className="opacity-60">{entry.count}</span>{" "}
+
+                #{entry.tag} <span className="opacity-60">{entry.count}</span>
                 {tag === entry.tag ? (
                   <span className="ml-1 opacity-70">×</span>
-                ) : null}{" "}
+                ) : null}
               </FilterLink>
-            ))}{" "}
-          </div>{" "}
+            ))}
+          </div>
         </div>
-      )}{" "}
+      )}
       {canManageMedia && mediaType === "image" && (
         <section
           data-tone="emerald"
           className="mb-5 rounded-2xl border border-[var(--success-border)] p-4 light:bg-[var(--success-bg)]"
         >
-          {" "}
+
           <div className="mb-3 flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
-            {" "}
+
             <div>
-              {" "}
+
               <h2 className="text-sm font-semibold text-[var(--success)]">
                 {t("mediaPage.upload.title", locale)}
-              </h2>{" "}
+              </h2>
               <p className="mt-1 text-xs text-[var(--success)]">
                 {t("mediaPage.upload.desc", locale)}
-              </p>{" "}
-            </div>{" "}
+              </p>
+            </div>
             <Link
               href="/image-bed"
               data-tone="emerald"
               className="inline-flex items-center justify-center rounded-xl border border-[var(--success-border)] px-3 py-2 text-xs font-medium text-[var(--success)] transition hover:bg-[var(--success-bg)] hover:text-[var(--success)]"
             >
-              {" "}
-              {t("mediaPage.linkHub.open", locale)}{" "}
-            </Link>{" "}
-          </div>{" "}
-          <MediaImageUploadPanel />{" "}
+
+              {t("mediaPage.linkHub.open", locale)}
+            </Link>
+          </div>
+          <MediaImageUploadPanel />
         </section>
-      )}{" "}
-      {canManageMedia && <MediaScanButton />}{" "}
+      )}
+      {canManageMedia && <MediaScanButton />}
       {grouped.size === 0 && (
         <EmptyState icon={<ImageIcon size={48} className="text-[var(--text-muted)]" />} variant="boxed">
-          {" "}
-          {t("mediaPage.empty", locale)}{" "}
+
+          {t("mediaPage.empty", locale)}
         </EmptyState>
-      )}{" "}
+      )}
       {Array.from(grouped.entries()).map(([serverName, items]) => (
         <section key={serverName} className="mb-6">
-          {" "}
+
           <div className="mb-3 flex items-center gap-2">
-            {" "}
-            <span className="text-lg">🖥️</span>{" "}
+
+            <span className="text-lg">🖥️</span>
             <h2 className="text-sm font-semibold text-[var(--text-primary)]">
               {serverName}
-            </h2>{" "}
+            </h2>
             <span className="rounded-lg border border-[var(--border)] px-2 py-0.5 text-[10px] text-[var(--text-muted)]">
               {t("mediaPage.itemCount", locale).replace(
                 "{count}",
                 String(items.length),
               )}
-            </span>{" "}
-          </div>{" "}
+            </span>
+          </div>
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-            {" "}
+
             {items.map((m) => (
               <MediaItemCard
                 key={m.id}
                 item={m as unknown as import("./media-item-card").MediaItem}
                 canManage={canManageMedia}
               />
-            ))}{" "}
-          </div>{" "}
+            ))}
+          </div>
         </section>
-      ))}{" "}
+      ))}
     </PageShell>
   );
 }

@@ -31,7 +31,7 @@ export function AiSidebar({
       {/* Mobile sidebar backdrop */}
       {showSidebar && (
         <div
-          className="fixed inset-0 z-30 bg-black/50 max-md:block hidden"
+          className="fixed inset-0 z-30 bg-[var(--overlay)] max-md:block hidden"
           onClick={() => onToggleSidebar(false)}
         />
       )}

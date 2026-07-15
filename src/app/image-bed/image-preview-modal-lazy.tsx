@@ -30,7 +30,7 @@ function ImagePreviewModalStub() {
 	return (
 		<div
 			aria-hidden
-			className="fixed inset-0 z-50 flex items-center justify-center bg-black/60"
+			className="fixed inset-0 z-50 flex items-center justify-center bg-[var(--overlay)]"
 		>
 			<div className="h-[60vh] w-full max-w-4xl animate-pulse rounded-lg bg-[var(--surface-hover)]" />
 		</div>

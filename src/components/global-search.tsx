@@ -271,7 +271,7 @@ export function GlobalSearch({
 	if (!open) return null;
 
 	return (
-		<div className="fixed inset-0 pb-[env(safe-area-inset-bottom)] z-[70] flex items-start justify-center pt-[15vh] bg-black/60 backdrop-blur-sm" onClick={closeSearch}>
+		<div className="fixed inset-0 pb-[env(safe-area-inset-bottom)] z-[70] flex items-start justify-center pt-[15vh] bg-[var(--overlay)] backdrop-blur-sm" onClick={closeSearch}>
 			<div
 				ref={dialogRef}
 				role="dialog"

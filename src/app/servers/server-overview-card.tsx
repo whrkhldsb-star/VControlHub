@@ -276,7 +276,7 @@ export function ServerOverviewCard({
       </div>
 
       {expanded ? (
-        <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/70 px-3 py-6 backdrop-blur-md sm:px-6" onClick={closeDialog}>
+        <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-[var(--overlay-strong)] px-3 py-6 backdrop-blur-md sm:px-6" onClick={closeDialog}>
           <div
             ref={dialogRef}
             role="dialog"

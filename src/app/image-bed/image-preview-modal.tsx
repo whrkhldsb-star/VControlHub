@@ -49,7 +49,7 @@ export function ImagePreviewModal({
 	return (
 		<div
 			ref={dialogRef}
-			className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4"
+			className="fixed inset-0 z-50 bg-[var(--overlay-strong)] flex items-center justify-center p-4"
 			onClick={onClose}
 			role="dialog"
 			aria-modal="true"

@@ -217,7 +217,7 @@ export default function MonitoringPage({ canManage: _canManage }: { canManage: b
           type="button"
           onClick={fetchStats}
           disabled={refreshing}
-          className="rounded-xl bg-[var(--accent-bg)] px-3 py-1.5 text-xs font-semibold text-[var(--accent)] transition hover:bg-[var(--accent-hover)] hover:text-white disabled:cursor-not-allowed disabled:opacity-60"
+          className="rounded-xl bg-[var(--accent-bg)] px-3 py-1.5 text-xs font-semibold text-[var(--accent)] transition hover:bg-[var(--accent-hover)] hover:text-[var(--on-accent)] disabled:cursor-not-allowed disabled:opacity-60"
         >
           {refreshing ? t("monitoringPage.refreshing") : t("monitoringPage.refresh")}
         </button>

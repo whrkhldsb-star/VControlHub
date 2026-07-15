@@ -305,7 +305,7 @@ export default function DockerPage({ initialServers }: { initialServers: { id: s
 						setLoading(true);
 						void fetchContainers();
 					}}
-					className="min-h-11 rounded-xl bg-[var(--accent-bg)] px-3 py-1.5 text-xs font-semibold text-[var(--accent)] transition hover:bg-[var(--accent-hover)] hover:text-white"
+					className="min-h-11 rounded-xl bg-[var(--accent-bg)] px-3 py-1.5 text-xs font-semibold text-[var(--accent)] transition hover:bg-[var(--accent-hover)] hover:text-[var(--on-accent)]"
 				>
 					{t("dockerPage.refresh.list")}
 				</button>
@@ -433,7 +433,7 @@ export default function DockerPage({ initialServers }: { initialServers: { id: s
 			)}
 
 			{pendingRemoval && (
-				<div className="fixed inset-0 z-50 flex items-end justify-center overflow-y-auto bg-black/60 p-0 backdrop-blur-sm sm:items-center sm:p-4" role="presentation" onClick={closeRemovalDialog}>
+				<div className="fixed inset-0 z-50 flex items-end justify-center overflow-y-auto bg-[var(--overlay)] p-0 backdrop-blur-sm sm:items-center sm:p-4" role="presentation" onClick={closeRemovalDialog}>
 					<div
 						ref={removalDialogRef}
 						role="dialog"
@@ -469,7 +469,7 @@ export default function DockerPage({ initialServers }: { initialServers: { id: s
 			)}
 
 			{logsId && (
-				<div className="fixed inset-0 z-50 flex items-end justify-center overflow-y-auto bg-black/60 p-0 backdrop-blur-sm sm:items-center sm:p-4" role="presentation" onClick={closeLogsDialog}>
+				<div className="fixed inset-0 z-50 flex items-end justify-center overflow-y-auto bg-[var(--overlay)] p-0 backdrop-blur-sm sm:items-center sm:p-4" role="presentation" onClick={closeLogsDialog}>
 					<div
 						ref={logsDialogRef}
 						role="dialog"

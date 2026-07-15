@@ -52,7 +52,7 @@ export function AnnouncementEditModal({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-[var(--overlay)] backdrop-blur-sm">
       <div ref={dialogRef} role="dialog" aria-modal="true" aria-label={t("announcementsPage.edit.title")} className="w-full max-w-lg rounded-2xl border border-[var(--border)] bg-[var(--modal-bg)] p-6 shadow-2xl">
         <h3 className="text-lg font-semibold text-[var(--text-primary)]">{t("announcementsPage.edit.title")}</h3>
 

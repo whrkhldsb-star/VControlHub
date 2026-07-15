@@ -115,7 +115,14 @@ export function AppSidebar({
 	const [mobileOpen, setMobileOpen] = useState(false);
 	const [passwordModalOpen, setPasswordModalOpen] = useState(false);
 	const [filter, setFilter] = useState("");
-	const [openGroups, setOpenGroups] = useState<Record<string, boolean>>({});
+	// Default: keep Overview + Files open; collapse denser ops/collab groups for scanability.
+	const [openGroups, setOpenGroups] = useState<Record<string, boolean>>({
+		overview: true,
+		files: true,
+		ops: false,
+		collab: false,
+		config: true,
+	});
 	const shouldRenderSidebar = Boolean(username);
 	const iconInitial = username?.trim().charAt(0).toUpperCase() ?? "";
 
@@ -328,7 +335,7 @@ export function AppSidebar({
 
 			{mobileOpen && (
 				<div
-					className="fixed inset-0 z-40 bg-black/60 backdrop-blur-sm lg:hidden"
+					className="fixed inset-0 z-40 bg-[var(--overlay)] backdrop-blur-sm lg:hidden"
 					onClick={() => setMobileOpen(false)}
 				/>
 			)}

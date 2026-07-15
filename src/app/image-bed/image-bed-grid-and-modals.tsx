@@ -69,7 +69,7 @@ export function ImageGrid({
                     toggleSelect(img.id);
                   }
                 }}
-                className={`absolute left-2 top-2 z-10 flex h-6 w-6 cursor-pointer items-center justify-center rounded-lg border-2 transition focus:outline-none focus:ring-2 focus:ring-[var(--color-action)] ${selectedIds.has(img.id) ? "border-[var(--color-action-border)] bg-[var(--color-action)] text-[var(--text-primary)]" : "border-[var(--border)] bg-black/50 hover:border-[var(--border)]"}`}
+                className={`absolute left-2 top-2 z-10 flex h-6 w-6 cursor-pointer items-center justify-center rounded-lg border-2 transition focus:outline-none focus:ring-2 focus:ring-[var(--color-action)] ${selectedIds.has(img.id) ? "border-[var(--color-action-border)] bg-[var(--color-action)] text-[var(--text-primary)]" : "border-[var(--border)] bg-[var(--overlay)] hover:border-[var(--border)]"}`}
               >
                 {selectedIds.has(img.id) && "✓"}
               </div>
@@ -102,7 +102,7 @@ export function ImageGrid({
                 onClick={(event) => {
                   if (event.target === event.currentTarget) setPreviewImage(img);
                 }}
-                className="absolute inset-0 flex items-center justify-center gap-1 bg-black/50 p-2 md:bg-black/60 md:p-0 md:opacity-0 md:group-hover:opacity-100"
+                className="absolute inset-0 flex items-center justify-center gap-1 bg-[var(--overlay)] p-2 md:bg-[var(--overlay)] md:p-0 md:opacity-0 md:group-hover:opacity-100"
               >
                 <button
                   onClick={() => copyLink(img.publicUrl)}
@@ -196,7 +196,7 @@ export function PublishFromStorageModal({
   const dialogRef = useDialogFocus<HTMLDivElement>({ open: true, onClose });
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-[var(--overlay-strong)] p-4"
       onClick={onClose}
     >
       <div
@@ -336,7 +336,7 @@ export function DeleteImageDialog({
 
 return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-[var(--overlay-strong)] p-4"
       onClick={onClose}
     >
       <div

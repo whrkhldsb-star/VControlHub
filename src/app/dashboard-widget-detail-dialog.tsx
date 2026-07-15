@@ -68,7 +68,7 @@ export function DashboardWidgetDetailDialog({
 	return (
 		<div
 			role="presentation"
-			className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm"
+			className="fixed inset-0 z-50 flex items-center justify-center bg-[var(--overlay-strong)] p-4 backdrop-blur-sm"
 			data-testid="dashboard-widget-detail-dialog"
 			onClick={(e) => {
 				// Click on backdrop closes; clicks on the dialog body do not.

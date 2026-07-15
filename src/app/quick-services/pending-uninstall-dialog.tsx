@@ -28,7 +28,7 @@ export function PendingUninstallDialog({
 	if (!pending) return null;
 	return (
 		<div
-			className="fixed inset-0 z-50 flex items-end justify-center overflow-y-auto bg-black/60 p-0 backdrop-blur-sm sm:items-center sm:p-4"
+			className="fixed inset-0 z-50 flex items-end justify-center overflow-y-auto bg-[var(--overlay)] p-0 backdrop-blur-sm sm:items-center sm:p-4"
 			onClick={onCancel}
 		>
 			<div
