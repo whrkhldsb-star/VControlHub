@@ -8,6 +8,9 @@ import { requireApiSession } from "@/lib/auth/api-session";
 import { ValidationError } from "@/lib/errors";
 import { apiCatch } from "@/lib/http/api-error";
 import { type RateLimitConfig, rateLimitResponse, withRateLimit } from "@/lib/http/rate-limit-presets";
+import { createLogger } from "@/lib/logging";
+
+const apiLogger = createLogger("api");
 
 export type ApiGuardOptions = {
   request: Request;
@@ -47,9 +50,10 @@ export type ApiRouteContext<TBody = unknown, TQuery = unknown> = {
   requestId: string;
 };
 
-function attachRequestId(response: Response, requestId: string) {
+function attachRequestId(response: Response, requestId: string, durationMs?: number) {
   const headers = new Headers(response.headers);
   headers.set("x-request-id", requestId);
+  if (durationMs !== undefined) headers.set("Server-Timing", `api;dur=${durationMs.toFixed(1)}`);
   return new Response(response.body, { status: response.status, statusText: response.statusText, headers });
 }
 
@@ -111,6 +115,9 @@ export async function withApiRoute<TBody = unknown, TQuery = unknown>(
 ): Promise<Response> {
   const incomingRequestId = request.headers?.get?.("x-request-id")?.trim();
   const requestId = incomingRequestId && /^[a-zA-Z0-9._:-]{1,128}$/.test(incomingRequestId) ? incomingRequestId : randomUUID();
+  const startTime = performance.now();
+  const method = request.method;
+  const path = (() => { try { return new URL(request.url).pathname; } catch { return request.url; } })();
   try {
     const guard = await enforceApiGuard({ request, permission: options.permission, rateLimit: options.rateLimit });
     if (guard instanceof Response) return attachRequestId(guard, requestId);
@@ -163,9 +170,14 @@ export async function withApiRoute<TBody = unknown, TQuery = unknown>(
       query = parsed.data;
     }
 
-    return attachRequestId(await handler({ session, body, query, requestId }), requestId);
+    const response = await handler({ session, body, query, requestId });
+    const durationMs = performance.now() - startTime;
+    apiLogger.info("request completed", { method, path, status: response.status, durationMs: Math.round(durationMs), requestId });
+    return attachRequestId(response, requestId, durationMs);
   } catch (error) {
-    if (options.onError) return attachRequestId(options.onError(error), requestId);
-    return attachRequestId(apiCatch(error, options.errorStatus ?? 500, options.errorMessage ?? "Operation failed"), requestId);
+    const durationMs = performance.now() - startTime;
+    apiLogger.warn("request failed", { method, path, durationMs: Math.round(durationMs), requestId, error: error instanceof Error ? error.message : String(error) });
+    if (options.onError) return attachRequestId(options.onError(error), requestId, durationMs);
+    return attachRequestId(apiCatch(error, options.errorStatus ?? 500, options.errorMessage ?? "Operation failed"), requestId, durationMs);
   }
 }

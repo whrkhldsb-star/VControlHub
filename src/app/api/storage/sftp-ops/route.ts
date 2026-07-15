@@ -5,9 +5,12 @@ import type { SessionPayload } from "@/lib/auth/session";
 import { prisma } from "@/lib/db";
 import { assertStorageAccess } from "@/lib/storage/access-control";
 import {
+  deleteBackingObject,
+  renameBackingObject,
+} from "@/lib/storage/fs-backend";
+import {
   createRemoteDirectory,
   deleteRemoteFile,
-  renameRemoteFile,
   readRemoteFile,
   writeRemoteFile,
 } from "@/lib/ssh/client";
@@ -210,12 +213,23 @@ async function handlePost(body: SftpOpsBody, session: SessionPayload) {
   try {
     switch (action) {
       case "delete": {
-        await deleteRemoteFile({
-          ...connParams,
-          remotePath: normalizedRemotePath,
-          isDirectory: body.isDirectory ?? false,
-        });
+        // Index-first: mark DB entries as deleted before removing the physical
+        // backing object. If the physical delete fails, the index is already
+        // soft-deleted so the UI no longer shows the entry — but the file
+        // remains on disk and can be cleaned up manually or by a future
+        // reconciliation pass. This avoids the previous "file gone but index
+        // still shows" inconsistency.
         await softDeleteSftpIndex(node.id, normalizedRelativePath, body.isDirectory ?? false);
+        try {
+          await deleteBackingObject({
+            storageNode: { driver: "SFTP", basePath: node.basePath, ...connParams },
+            relativePath: normalizedRelativePath,
+            isDirectory: body.isDirectory ?? false,
+            tolerateMissing: true,
+          });
+        } catch (physicalError) {
+          logger.warn("physical delete failed after index soft-delete; file may remain on disk", physicalError, { nodeId, relativePath: normalizedRelativePath });
+        }
         return NextResponse.json({ success: true });
       }
 
@@ -226,10 +240,10 @@ async function handlePost(body: SftpOpsBody, session: SessionPayload) {
             { status: 400 },
           );
         }
-        let normalizedNewPath: string;
+        let _normalizedNewPath: string;
         let normalizedNewRelativePath: string;
         try {
-          normalizedNewPath = normalizeRemoteTargetPath(
+          _normalizedNewPath = normalizeRemoteTargetPath(
             node.basePath,
             body.newPath,
           );
@@ -257,24 +271,23 @@ async function handlePost(body: SftpOpsBody, session: SessionPayload) {
           );
         }
 
-        const targetParentDirectory = path.posix.dirname(normalizedNewPath);
-        if (
-          targetParentDirectory &&
-          targetParentDirectory !== "." &&
-          targetParentDirectory !== "/"
-        ) {
-          await createRemoteDirectory({
-            ...connParams,
-            remotePath: targetParentDirectory,
-            recursive: true,
-          });
-        }
-        await renameRemoteFile({
-          ...connParams,
-          oldPath: normalizedRemotePath,
-          newPath: normalizedNewPath,
-        });
+        // Index-first: update DB entries before renaming the physical file.
+        // If the physical rename fails, the index can be rolled back by the
+        // caller; if it succeeds but a later error occurs, the index already
+        // reflects the correct state.
         await renameSftpIndex(node.id, normalizedRelativePath, normalizedNewRelativePath, body.isDirectory ?? false);
+        try {
+          await renameBackingObject({
+            storageNode: { driver: "SFTP", basePath: node.basePath, ...connParams },
+            oldRelativePath: normalizedRelativePath,
+            newRelativePath: normalizedNewRelativePath,
+          });
+        } catch (physicalError) {
+          // Physical rename failed — roll back the index to the old path.
+          logger.warn("physical rename failed after index update; rolling back index", physicalError, { nodeId, oldPath: normalizedRelativePath, newPath: normalizedNewRelativePath });
+          await renameSftpIndex(node.id, normalizedNewRelativePath, normalizedRelativePath, body.isDirectory ?? false);
+          throw physicalError;
+        }
         return NextResponse.json({ success: true });
       }
 

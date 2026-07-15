@@ -1,11 +1,11 @@
 {
-  "generatedAt": "2026-07-14T15:58:27.166Z",
+  "generatedAt": "2026-07-14T23:52:42.784Z",
   "summary": {
     "permissionsInList": 54,
     "rolesDefined": 4,
     "apiRoutesAudited": 138,
     "pagesAudited": 47,
-    "callSitesAudited": 467,
+    "callSitesAudited": 469,
     "driftCount": 0,
     "driftByCode": {
       "perm-not-in-list": 0,
@@ -343,6 +343,14 @@
         {
           "path": "src/app/api/dashboard/analytics/route.ts",
           "line": 24
+        },
+        {
+          "path": "src/app/api/jobs/backlog/route.ts",
+          "line": 9
+        },
+        {
+          "path": "src/app/api/jobs/backlog/route.ts",
+          "line": 9
         },
         {
           "path": "src/app/audit/page.tsx",

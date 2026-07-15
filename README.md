@@ -347,11 +347,11 @@ make logs SERVICE_PREFIX=vcontrolhub
 | 指标            | 数量                                             |
 | --------------- | ------------------------------------------------ |
 | 功能页面            | 47                                               |
-| API 路由文件        | 149                                              |
+| API 路由文件        | 150                                              |
 | 数据模型            | 64                                               |
 | UI 组件           | 33                                               |
-| 代码行数            | ~186,166（src 扫描）                                 |
-| 测试              | 432 文件                                           |
+| 代码行数            | ~186,332（src 扫描）                                 |
+| 测试              | 433 文件                                           |
 | Docker 应用模板     | 44 (本地) + 社区源实时同步                                |
 | i18n            | 217 useI18n() 调用点，78 字典文件                        |
 <!-- README_METRICS_END -->
@@ -713,10 +713,10 @@ make logs SERVICE_PREFIX=vcontrolhub
 | P0 | 进行中 | 收敛大型 Client Component，将数据获取、mutation、展示区块和弹窗拆到稳定边界 | 页面行为不变；减少客户端边界与重复状态；桌面/移动浏览器回归通过 |
 | P0 | ✅ 阶段性 | 导航信息架构 + 全局页面壳美化 | 侧栏分组/筛选、PageHeader/Toolbar/EmptyState 升级、表格/卡片/移动底栏统一；提交见 FE-UI 记录 |
 | P0 | 进行中 | 收敛 `globals.css` 历史兼容规则，迁移到明确的 primitives 与 `data-*` hooks | 删除零命中/重复选择器；深浅主题、focus、dialog、表格和卡片视觉回归通过 |
-| P1 | 进行中 | 合并文件动作的重复核心 | Docker、Monitoring 与 SFTP 连接层已统一；继续收敛移动/重命名及目录操作 |
+| P1 | ✅ sftp-ops 已迁移 | 合并文件动作的重复核心 | sftp-ops delete/rename 已迁移到统一 `fs-backend`，采用 index-first 语义（先更新索引再删物理文件）；继续收敛 write/create 路径 |
 | P1 | ✅ 关键路径完成 | 强化危险操作跨进程锁和崩溃恢复 | lease、AI CAS、backup restore / VPS schedule tick advisory lock 已完成；锁使用专用 pg 连接保证同 session 持有/释放，并有真实双连接集成测试 |
 | P1 | ✅ CLI 路径完成 | SSH 主机密钥 pin 全路径收口 | 命令执行和 Sync rsync/tar 均生成匹配已保存 SHA-256 pin 的临时 known_hosts，实际连接强制 StrictHostKeyChecking=yes；首次连接仍需显式指纹审批 |
-| P2 | 进行中 | 增加 Web Vitals、API 延迟、队列积压、WebSocket、轮询和通知投递可观测性 | request ID 已覆盖 guarded API；继续补充指标查询与前端关联 |
+| P2 | ✅ 第一批完成 | API 延迟与队列积压可观测性 | `withApiRoute` 增加 `Server-Timing` 响应头和结构化耗时日志；新增 `/api/jobs/backlog` 聚合查询（pending/running/expired/failed/byType） |
 
 > 当前功能优先保持稳定，不以引入大型状态管理框架或无收益的文件拆分为“升级”；优化必须带来更小的重复面、更清晰的所有权或更可靠的运行时行为。
 
@@ -761,8 +761,8 @@ make logs SERVICE_PREFIX=vcontrolhub
 
 | 项 | 说明 | 关联 |
 |---|---|---|
-| 巨型 Client | files/docker/downloads/settings 等状态分叉 | FE-OPEN-2 / 架构 P0 |
-| SSH 主机密钥 | 命令/下载已 pin；Sync rsync CLI 仍 TOFU 族 | OPEN-1 / OPEN-2 |
+| 巨型 Client | 已无 1000+ 行巨型组件；当前高复杂候选为 alert-rule-list(505行)、docker-page(501行)、text-preview(499行) | FE-OPEN-2 / 架构 P0 |
+| SSH 主机密钥 | ✅ 命令执行、Sync rsync/tar 均使用匹配 SHA-256 pin 的临时 known_hosts，StrictHostKeyChecking=yes | OPEN-1 / OPEN-2 |
 | E2E 全矩阵 | 主路径有 Playwright，非跨浏览器全覆盖 | OPEN-6 / FE-OPEN-1 |
 | 移动端运维 | 可浏览；终端/批量文件/重审批仍桌面优先 | FE-UI Round 8 |
 | 对外集成 | Webhook/邮件/TG 有；缺完整事件总线与 ITSM/IM 双向 | 产品 |
@@ -774,7 +774,7 @@ make logs SERVICE_PREFIX=vcontrolhub
 | 多机 Docker / K8s 面板 | 本机 Docker + 远程 SSH/命令 |
 | 企业网盘 | 多存储节点 Web 文件柜 + 分享 |
 | 完整 APM | 主机监控 + 探针 + 任务日志拼盘 |
-| 多租户 SaaS | 权限很强的**单盘运维台**，团队隔离未做满 |
+| 多租户 SaaS | 权限强的运维台，核心模型已接入 Team scope；新增模型仍需 route/service 双层审查 |
 | 多机应用商店 | Quick Services 偏本机/快速装 |
 
 #### 建议功能补齐顺序（4～6 周视角，可按场景裁剪）

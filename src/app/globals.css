@@ -283,61 +283,6 @@ body > main {
  * 浅色模式下：映射到浅色面板/边框
  * ============================================================ */
 
-/* ---- DARK MODE: 统一硬编码深色到设计令牌 ---- */
-:root .bg-slate-950,
-:root .bg-slate-950\/40,
-:root .bg-slate-950\/50,
-:root .bg-slate-950\/70,
-:root .bg-slate-950\/80,
-:root .bg-slate-950\/90,
-:root .bg-\[\#0a0e1a\],
-:root .bg-\[\#0c0f1a\] {
-	background-color: var(--background);
-}
-
-:root .bg-slate-900,
-:root .bg-slate-900\/40,
-:root .bg-slate-900\/50,
-:root .bg-slate-900\/60,
-:root .bg-slate-900\/70,
-:root .bg-slate-900\/80,
-:root .bg-slate-900\/95 {
-	background-color: var(--surface);
-}
-
-:root .bg-slate-800,
-:root .bg-slate-800\/50,
-:root .bg-slate-700\/50,
-:root .bg-slate-700\/60 {
-	background-color: var(--surface-elevated);
-}
-
-:root .bg-white\/5,
-:root .bg-white\/\[0\.02\],
-:root .bg-white\/\[0\.03\],
-:root .bg-white\/\[0\.04\],
-:root .bg-white\/\[0\.05\],
-:root .bg-white\/\[0\.06\],
-:root .bg-white\/\[0\.08\],
-:root .bg-white\/10 {
-	background-color: var(--surface);
-}
-
-:root .border-white\/10,
-:root .border-white\/\[0\.04\],
-:root .border-white\/\[0\.06\],
-:root .border-white\/\[0\.08\],
-:root .border-white\/\[0\.1\],
-:root .border-white\/\[0\.12\] {
-	border-color: var(--border-subtle);
-}
-
-/* 深色 sidebar */
-:root aside.bg-slate-950,
-:root aside.bg-\[\#0a0e1a\] {
-	background-color: var(--sidebar-bg);
-	border-right: 1px solid var(--sidebar-border);
-}
 
 /* ============================================================
  * 精修第 8 轮：UI 美化升级 — 统一组件样式
@@ -743,10 +688,6 @@ html.light { --surface-root: #f8fafc; }
 
 /* T4. Table wrapper 圆角裁切 */
 [data-card] table,
-.table-wrapper {
-	overflow: hidden;
-	border-radius: var(--radius-lg);
-}
 
 /* T6. Modal 弹窗入场动画 */
 @keyframes modal-enter {
