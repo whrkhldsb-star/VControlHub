@@ -43,10 +43,10 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
 
 			{/* Grid pattern overlay */}
 			<div
-				className="absolute inset-0 opacity-[0.015] light:opacity-[0.08]"
+				className="absolute inset-0 opacity-[0.015] light:opacity-[0.045]"
 				style={{
 					backgroundImage:
-						"linear-gradient(rgba(255,255,255,0.1) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.1) 1px, transparent 1px)",
+						"linear-gradient(color-mix(in srgb, var(--text-primary) 18%, transparent) 1px, transparent 1px), linear-gradient(90deg, color-mix(in srgb, var(--text-primary) 18%, transparent) 1px, transparent 1px)",
 					backgroundSize: "60px 60px",
 				}}
 			/>
@@ -92,7 +92,7 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
 					</section>
 
 					{/* Right: Login Form */}
-					<section className="rounded-3xl border border-[var(--border)] bg-[color-mix(in_srgb,var(--surface)_94%,transparent)] p-6 shadow-[var(--shadow-lg)] backdrop-blur-xl sm:p-8">
+					<section className="rounded-3xl border border-[var(--border)] bg-[color-mix(in_srgb,var(--surface)_96%,transparent)] p-6 shadow-[var(--shadow-lg)] backdrop-blur-xl sm:p-8 light:bg-white light:shadow-[0_20px_50px_rgba(15,23,42,0.10)]">
 						<div className="mb-7">
 							<p className="text-[11px] font-bold uppercase tracking-[0.2em] text-[var(--accent)]">{t("login.branding.signInTag", locale)}</p>
 							<h2 className="mt-2.5 text-2xl font-semibold tracking-[-0.03em] text-[var(--text-primary)]">{t("login.branding.welcome", locale)}</h2>
@@ -108,7 +108,7 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
 
 function FeatureCard({ icon, title, desc }: { icon: React.ReactNode; title: string; desc: string }) {
 	return (
-		<div className="rounded-2xl border border-[var(--border)] bg-[color-mix(in_srgb,var(--surface)_80%,transparent)] p-3.5 shadow-sm backdrop-blur">
+		<div className="rounded-2xl border border-[var(--border)] bg-[color-mix(in_srgb,var(--surface)_88%,transparent)] p-3.5 shadow-sm backdrop-blur light:bg-white/90 light:shadow-[0_4px_14px_rgba(15,23,42,0.06)]">
 			<div className="text-[var(--accent)]">{icon}</div>
 			<div className="mt-2 text-sm font-semibold text-[var(--text-primary)]">{title}</div>
 			<div className="mt-0.5 text-xs text-[var(--text-muted)]">{desc}</div>

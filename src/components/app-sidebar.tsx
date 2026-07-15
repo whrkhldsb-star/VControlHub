@@ -344,7 +344,7 @@ export function AppSidebar({
 
 			{/* Desktop spacer + fixed rail */}
 			<div className="hidden w-[17.5rem] shrink-0 bg-[var(--sidebar-bg)] lg:block" aria-hidden="true" />
-			<aside className="hidden h-screen w-[17.5rem] shrink-0 border-r border-[var(--sidebar-border)] bg-[color-mix(in_srgb,var(--sidebar-bg)_96%,transparent)] shadow-[12px_0_40px_rgba(0,0,0,0.08)] backdrop-blur-xl lg:fixed lg:inset-y-0 lg:left-0 lg:z-40 lg:flex">
+			<aside className="hidden h-screen w-[17.5rem] shrink-0 border-r border-[var(--sidebar-border)] bg-[color-mix(in_srgb,var(--sidebar-bg)_96%,transparent)] shadow-[12px_0_40px_rgba(0,0,0,0.08)] backdrop-blur-xl lg:fixed lg:inset-y-0 lg:left-0 lg:z-40 lg:flex light:shadow-[8px_0_28px_rgba(15,23,42,0.04)]">
 				{nav}
 			</aside>
 

@@ -64,7 +64,11 @@ export function PageShell({
 		<div className="relative min-h-screen overflow-x-clip text-[var(--text-primary)]">
 			<div
 				aria-hidden="true"
-				className="pointer-events-none absolute inset-x-0 top-0 h-72 bg-[radial-gradient(ellipse_at_top,color-mix(in_srgb,var(--accent)_14%,transparent),transparent_65%)]"
+				className="pointer-events-none absolute inset-x-0 top-0 h-80 bg-[radial-gradient(ellipse_at_top,color-mix(in_srgb,var(--accent)_12%,transparent),transparent_68%)] light:opacity-90"
+			/>
+			<div
+				aria-hidden="true"
+				className="pointer-events-none absolute inset-x-0 top-0 h-56 bg-[radial-gradient(ellipse_at_80%_0%,color-mix(in_srgb,var(--color-action)_8%,transparent),transparent_60%)] opacity-70"
 			/>
 			<div className={`relative mx-auto ${maxW} px-4 pb-[calc(6.5rem+env(safe-area-inset-bottom))] pt-16 sm:px-6 sm:pb-16 sm:pt-8 lg:px-10 lg:py-10`}>
 				{children}

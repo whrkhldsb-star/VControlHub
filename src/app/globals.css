@@ -112,89 +112,97 @@
 }
 
 html.light {
-	/* === Light theme (GitHub Light 启发) === */
-	--background: #ffffff;
-	--surface: #ffffff;
-	--surface-elevated: #f6f8fa;
-	--surface-hover: #eaeef2;
-	--surface-subtle: #f6f8fa;
-	--modal-bg: #ffffff;               /* modal / dialog surface */
-	--foreground: #1f2328;
-	--text-primary: #1f2328;
-	--text-secondary: #59636e;
-	--text-muted: #6e7781;
-	--text-disabled: #8b949e;
+	/*
+	 * Light theme — soft canvas + floating white surfaces
+	 * 关键: page/surface 同色导致卡片“贴死”背景；层次与阴影过弱。
+	 * 策略: 冷灰画布 + 纯白卡片 + 更清晰边框/阴影 + 克制蓝青点缀。
+	 */
+	--background: #eef2f7;            /* page canvas (cool gray-blue) */
+	--surface: #ffffff;               /* cards / panels */
+	--surface-elevated: #ffffff;      /* elevated panels (same white, lift via shadow) */
+	--surface-hover: #f1f5f9;         /* row / control hover */
+	--surface-subtle: #f4f7fb;        /* inset wells, code, filters */
+	--modal-bg: #ffffff;
+	--foreground: #0f172a;
+	--text-primary: #0f172a;          /* slate-900 */
+	--text-secondary: #475569;        /* slate-600 */
+	--text-muted: #64748b;            /* slate-500 */
+	--text-disabled: #94a3b8;         /* slate-400 */
 
-	--border: #d0d7de;
-	--border-strong: #afb8c1;
-	--border-subtle: #eaeef2;
+	--border: #d8e0ea;
+	--border-strong: #b6c3d4;
+	--border-subtle: #e8eef6;
 
-	--accent: #0969da;
-	--accent-hover: #0550ae;
-	--accent-bg: rgba(9,105,218,0.08);
-	--accent-border: rgba(9,105,218,0.4);
+	--accent: #2563eb;                /* blue-600 — clearer on light canvas */
+	--accent-hover: #1d4ed8;          /* blue-700 */
+	--accent-bg: rgba(37,99,235,0.09);
+	--accent-border: rgba(37,99,235,0.28);
 
-	/* Light-theme cyan tokens — slightly stronger contrast for legibility. */
-	--color-action: #0891b2;             /* cyan-600 */
-	--color-action-hover: #0e7490;       /* cyan-700 */
-	--color-action-strong: #155e75;      /* cyan-800 */
+	/* Action cyan — slightly deeper for WCAG on white */
+	--color-action: #0e7490;          /* cyan-700 */
+	--color-action-hover: #155e75;    /* cyan-800 */
+	--color-action-strong: #164e63;   /* cyan-900 */
 	--color-action-fg: #ffffff;
-	--color-action-bg: rgba(8,145,178,0.10);
-	--color-action-bg-hover: rgba(8,145,178,0.18);
-	--color-action-border: rgba(8,145,178,0.45);
-	--color-action-ring: rgba(8,145,178,0.30);
+	--color-action-bg: rgba(14,116,144,0.10);
+	--color-action-bg-hover: rgba(14,116,144,0.16);
+	--color-action-border: rgba(14,116,144,0.35);
+	--color-action-ring: rgba(14,116,144,0.28);
 
-	--success: #1a7f37;
-	--success-bg: rgba(26,127,55,0.08);
-	--success-border: rgba(26,127,55,0.4);
+	--success: #15803d;
+	--success-bg: rgba(21,128,61,0.09);
+	--success-border: rgba(21,128,61,0.28);
 
-	--warning: #9a6700;
-	--warning-bg: rgba(154,103,0,0.08);
-	--warning-border: rgba(154,103,0,0.4);
+	--warning: #b45309;
+	--warning-bg: rgba(180,83,9,0.09);
+	--warning-border: rgba(180,83,9,0.28);
 
-	--danger: #cf222e;
-	--danger-hover: #a52734;
-	--danger-bg: rgba(207,34,46,0.08);
-	--danger-border: rgba(207,34,46,0.4);
+	--danger: #dc2626;
+	--danger-hover: #b91c1c;
+	--danger-bg: rgba(220,38,38,0.08);
+	--danger-border: rgba(220,38,38,0.28);
 
-	--info: #0969da;
-	--info-bg: rgba(9,105,218,0.08);
-	--info-border: rgba(9,105,218,0.4);
+	--info: #2563eb;
+	--info-bg: rgba(37,99,235,0.09);
+	--info-border: rgba(37,99,235,0.28);
 
 	--indigo: #4f46e5;
-	--indigo-bg: rgba(79,70,229,0.08);
-	--indigo-border: rgba(79,70,229,0.4);
+	--indigo-bg: rgba(79,70,229,0.09);
+	--indigo-border: rgba(79,70,229,0.28);
 
 	--purple: #9333ea;
-	--purple-bg: rgba(147,51,234,0.08);
-	--purple-border: rgba(147,51,234,0.4);
+	--purple-bg: rgba(147,51,234,0.09);
+	--purple-border: rgba(147,51,234,0.28);
 
-	--sidebar-bg: #f6f8fa;
-	--sidebar-border: #d0d7de;
-	--sidebar-hover: #eaeef2;
-	--sidebar-active: rgba(9,105,218,0.12);
-	--sidebar-active-fg: #0969da;
+	--sidebar-bg: #f8fafc;
+	--sidebar-border: #dbe3ee;
+	--sidebar-hover: #eef3f9;
+	--sidebar-active: rgba(37,99,235,0.12);
+	--sidebar-active-fg: #1d4ed8;
 
 	--input-bg: #ffffff;
 	--input-bg-focus: #ffffff;
-	--input-ring: rgba(9,105,218,0.2);
-	--input-ring-danger: rgba(207,34,46,0.2);
-	--input-ring-success: rgba(26,127,55,0.2);
-	--input-border: #d0d7de;
-	--input-border-focus: #0969da;
+	--input-ring: rgba(37,99,235,0.18);
+	--input-ring-danger: rgba(220,38,38,0.18);
+	--input-ring-success: rgba(21,128,61,0.18);
+	--input-border: #cfd9e6;
+	--input-border-focus: #2563eb;
 
-	--scrollbar-thumb: rgba(110,118,129,0.35);
-	--scrollbar-thumb-hover: rgba(110,118,129,0.6);
+	--scrollbar-thumb: rgba(100,116,139,0.32);
+	--scrollbar-thumb-hover: rgba(100,116,139,0.52);
 
-	--focus-ring: rgba(9,105,218,0.5);
-	--selection-bg: rgba(9,105,218,0.18);
-	--selection-fg: #0550ae;
+	--focus-ring: rgba(37,99,235,0.42);
+	--selection-bg: rgba(37,99,235,0.16);
+	--selection-fg: #1e3a8a;
 
-	--page-bg: linear-gradient(180deg, #ffffff 0%, #f6f8fa 100%);
+	/* Soft blue wash + cool canvas — not flat white */
+	--page-bg:
+		radial-gradient(ellipse 1100px 520px at 12% -8%, rgba(37,99,235,0.10), transparent 58%),
+		radial-gradient(ellipse 900px 480px at 92% 0%, rgba(14,116,144,0.07), transparent 55%),
+		linear-gradient(180deg, #f5f8fc 0%, #eef2f7 48%, #e9eef5 100%);
 
-	--shadow-sm: 0 1px 2px rgba(31,35,40,0.06);
-	--shadow-md: 0 3px 12px rgba(31,35,40,0.08), 0 0 0 1px rgba(31,35,40,0.04);
-	--shadow-lg: 0 8px 24px rgba(31,35,40,0.12), 0 0 0 1px rgba(31,35,40,0.06);
+	--shadow-sm: 0 1px 2px rgba(15,23,42,0.05), 0 0 0 1px rgba(15,23,42,0.03);
+	--shadow-md: 0 4px 14px rgba(15,23,42,0.08), 0 1px 3px rgba(15,23,42,0.05), 0 0 0 1px rgba(15,23,42,0.04);
+	--shadow-lg: 0 16px 40px rgba(15,23,42,0.12), 0 4px 12px rgba(15,23,42,0.06), 0 0 0 1px rgba(15,23,42,0.05);
 }
 
 @theme inline {
@@ -614,7 +622,7 @@ html.light [data-tone="violet"] { --tone-bg: #f5f3ff; }  /* violet-50 */
 
 /* S17. 页面底色统一 token */
 :root { --surface-root: #050508; }
-html.light { --surface-root: #f8fafc; }
+html.light { --surface-root: #eef2f7; }
 
 /* S18. 主操作按钮 token utility — 用 [data-action-button] 触发，统一品牌 cyan 档位。
    迁移路径: 把散落 cyan-400/500/600 逐步替换为这套 token。
@@ -1457,4 +1465,155 @@ html.light main .text-\[var\(--text-secondary\)\]\/70 {
 :root .border-\[var\(--color-action-border\)\]\/25,
 :root .border-\[var\(--color-action-border\)\]\/30 {
 	border-color: var(--accent-border) !important;
+}
+
+/* ============================================================
+ * Light theme polish (2026-07)
+ * 让浅色模式从“白底贴片”变成“软画布 + 浮起白卡片”
+ * ============================================================ */
+
+/* Cards float on cool canvas */
+html.light article,
+html.light [data-card] {
+	background: linear-gradient(
+		165deg,
+		#ffffff 0%,
+		color-mix(in srgb, var(--surface-subtle) 35%, #ffffff) 100%
+	) !important;
+	border-color: var(--border) !important;
+	box-shadow: var(--shadow-sm) !important;
+}
+
+html.light article:hover,
+html.light [data-card]:hover {
+	border-color: var(--border-strong) !important;
+	box-shadow: var(--shadow-md) !important;
+}
+
+/* Nested / stat cards stay calmer */
+html.light [data-card] [data-card],
+html.light article [data-card],
+html.light [data-stat-card] {
+	background: var(--surface-subtle) !important;
+	box-shadow: none !important;
+}
+
+/* Sidebar: soft frosted strip with clearer edge */
+html.light aside {
+	background:
+		linear-gradient(180deg, rgba(255,255,255,0.92) 0%, rgba(248,250,252,0.96) 100%) !important;
+	border-right: 1px solid var(--sidebar-border);
+	box-shadow: 1px 0 0 rgba(15,23,42,0.02), 8px 0 24px rgba(15,23,42,0.03);
+	backdrop-filter: blur(12px);
+}
+
+html.light aside nav a:hover {
+	background: var(--sidebar-hover) !important;
+}
+
+html.light aside nav a[aria-current="page"],
+html.light aside nav a.active {
+	background: var(--sidebar-active) !important;
+	color: var(--sidebar-active-fg) !important;
+	font-weight: 600;
+}
+
+/* Inputs: clearer wells on light canvas */
+html.light [data-input],
+html.light input[data-input],
+html.light input:not([type="checkbox"]):not([type="radio"]),
+html.light select,
+html.light textarea {
+	background-color: var(--input-bg);
+	border-color: var(--input-border);
+	color: var(--text-primary);
+	box-shadow: inset 0 1px 2px rgba(15,23,42,0.03);
+}
+
+html.light input:focus,
+html.light select:focus,
+html.light textarea:focus,
+html.light [data-input]:focus {
+	border-color: var(--input-border-focus) !important;
+	box-shadow: 0 0 0 3px var(--input-ring), 0 1px 2px rgba(15,23,42,0.04) !important;
+	background-color: #ffffff !important;
+}
+
+/* Toolbars / page headers */
+html.light [data-toolbar],
+html.light [data-page-header] {
+	background: color-mix(in srgb, #ffffff 88%, var(--surface-subtle)) !important;
+	border-color: var(--border-subtle) !important;
+	box-shadow: var(--shadow-sm);
+}
+
+/* Tables: cleaner header strip */
+html.light thead th {
+	background: color-mix(in srgb, var(--surface-subtle) 88%, #ffffff) !important;
+	color: var(--text-muted) !important;
+	border-bottom-color: var(--border) !important;
+}
+
+html.light tbody tr:hover td {
+	background: color-mix(in srgb, var(--accent) 4%, #ffffff) !important;
+}
+
+/* Dialogs / modals */
+html.light [role="dialog"] {
+	background: #ffffff !important;
+	border-color: var(--border) !important;
+	box-shadow: var(--shadow-lg) !important;
+}
+
+/* Empty states */
+html.light [data-empty-state="boxed"] {
+	background: color-mix(in srgb, #ffffff 70%, var(--surface-subtle)) !important;
+	border-color: var(--border) !important;
+}
+
+/* Secondary / ghost buttons read better on light canvas */
+html.light [data-variant="secondary"],
+html.light button[data-secondary] {
+	background: #ffffff;
+	border-color: var(--border);
+}
+
+html.light [data-variant="secondary"]:hover,
+html.light button[data-secondary]:hover {
+	background: var(--surface-hover);
+	border-color: var(--border-strong);
+}
+
+/* Page shell hero wash — softer blue, not neon */
+html.light .bg-\[radial-gradient\(ellipse_at_top\,color-mix\(in_srgb\,var\(--accent\)_14\%\,transparent\)\,transparent_65\%\)\] {
+	opacity: 0.85;
+}
+
+/* Desktop body split: sidebar strip vs canvas */
+@media (min-width: 1024px) {
+	html.light body:has(> aside),
+	html.light body:has(> div[aria-hidden="true"] + aside) {
+		background: linear-gradient(
+			90deg,
+			#f8fafc 0 17.5rem,
+			var(--page-bg) 17.5rem 100%
+		) !important;
+	}
+}
+
+/* Soften skeleton shimmer for light mode */
+html.light [data-skeleton],
+html.light .animate-pulse {
+	background: linear-gradient(
+		90deg,
+		var(--surface-subtle) 0%,
+		#ffffff 45%,
+		var(--surface-subtle) 100%
+	) !important;
+	background-size: 200% 100% !important;
+}
+
+/* Badge / tone chips slightly more opaque on light */
+html.light [data-tone] {
+	box-shadow: inset 0 0 0 1px color-mix(in srgb, currentColor 8%, transparent);
 }
