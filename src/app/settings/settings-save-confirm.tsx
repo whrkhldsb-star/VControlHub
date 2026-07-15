@@ -139,14 +139,13 @@ export function SaveButtonWithDiff({
           </button>
         )}
         <button
+          type="button"
           onClick={onClick}
           disabled={saving}
           data-component="save-button"
-          className={`rounded-2xl px-5 py-2 text-sm font-medium transition disabled:opacity-60 ${
-            highCount > 0
-              ? "bg-[var(--danger)] text-[var(--text-primary)] hover:bg-[var(--danger-bg)] hover:text-[var(--danger)]"
-              : "bg-[var(--color-action)] text-[var(--color-action-fg)] hover:bg-[var(--color-action-bg)]"
-          }`}
+          data-action-button
+          data-variant={highCount > 0 ? "danger" : "primary"}
+          className="px-5 text-sm"
         >
           {saving ? t("settingsClient.saving") : t("settingsClient.save")}
         </button>

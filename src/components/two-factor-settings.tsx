@@ -6,6 +6,9 @@ import { useState } from "react";
 import { csrfFetch } from "@/lib/auth/csrf-client";
 import { useI18n } from "@/lib/i18n/use-locale";
 
+import { ActionButton } from "@/components/action-button";
+import { UI_INPUT } from "@/lib/ui/classes";
+import { cn } from "@/lib/ui/cn";
 type Step = "idle" | "setup" | "verify" | "disable";
 
 export function TwoFactorSettings({ enabled }: { enabled: boolean }) {
@@ -95,13 +98,9 @@ export function TwoFactorSettings({ enabled }: { enabled: boolean }) {
 					<p className="text-xs text-[var(--text-secondary)] mb-3">
 						{t("auth.2fa-setup-description")}
 					</p>
-					<button
-						onClick={handleSetup}
-						disabled={loading}
-						className="px-4 py-2 text-xs font-medium bg-[var(--color-action)]/10 text-[var(--color-action)] rounded-lg hover:bg-[var(--color-action)]/20 transition disabled:opacity-50"
-					>
+					<ActionButton type="button" variant="ghost" onClick={handleSetup} disabled={loading} className="text-xs">
 						{loading ? t("auth.2fa-generating") : t("auth.2fa-enable")}
-					</button>
+					</ActionButton>
 				</div>
 			)}
 
@@ -110,12 +109,9 @@ export function TwoFactorSettings({ enabled }: { enabled: boolean }) {
 					<p className="text-xs text-[var(--text-secondary)] mb-3">
 						{t("auth.2fa-disable-description")}
 					</p>
-					<button
-						onClick={() => { setStep("disable"); setCode(""); setError(""); }}
-						className="px-4 py-2 text-xs font-medium bg-[var(--danger-bg)] text-[var(--danger)] rounded-lg hover:bg-[var(--danger-bg)] transition"
-					>
+					<ActionButton type="button" variant="danger" onClick={() => { setStep("disable"); setCode(""); setError(""); }} className="text-xs">
 						{t("auth.2fa-disable")}
-					</button>
+					</ActionButton>
 				</div>
 			)}
 
@@ -150,15 +146,11 @@ export function TwoFactorSettings({ enabled }: { enabled: boolean }) {
 							value={code}
 							onChange={(e) => setCode(e.target.value.replace(/\D/g, ""))}
 							placeholder="000000"
-							className="flex-1 px-3 py-2 text-sm bg-[var(--surface-elevated)] border border-[var(--border)] rounded-lg text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus:border-[var(--color-action-border)]/50 focus:outline-none"
+							className={cn(UI_INPUT, "flex-1")}
 						/>
-						<button
-							onClick={handleVerify}
-							disabled={loading || code.length !== 6}
-							className="px-4 py-2 text-xs font-medium bg-[var(--color-action)]/10 text-[var(--color-action)] rounded-lg hover:bg-[var(--color-action)]/20 transition disabled:opacity-50"
-						>
+						<ActionButton type="button" onClick={handleVerify} disabled={loading || code.length !== 6} className="text-xs">
 							{loading ? t("auth.2fa-verifying") : t("auth.2fa-confirm-enable")}
-						</button>
+						</ActionButton>
 					</div>
 					<button
 						onClick={() => { setStep("idle"); setCode(""); setError(""); }}
@@ -183,7 +175,7 @@ export function TwoFactorSettings({ enabled }: { enabled: boolean }) {
 							value={code}
 							onChange={(e) => setCode(e.target.value.replace(/\D/g, ""))}
 							placeholder="000000"
-							className="flex-1 px-3 py-2 text-sm bg-[var(--surface-elevated)] border border-[var(--border)] rounded-lg text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus:border-[var(--color-action-border)]/50 focus:outline-none"
+							className={cn(UI_INPUT, "flex-1")}
 						/>
 						<button
 							onClick={handleDisable}

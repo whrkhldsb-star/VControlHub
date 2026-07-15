@@ -11,6 +11,7 @@ import type {
 	AiOpsTriggerType,
 } from "@/lib/ai/ops/types";
 import type { AiOpsSummary } from "@/lib/ai/ops/service";
+import { UI_INPUT } from "@/lib/ui/classes";
 
 export type AiOpsSettings = {
 	mode: AiOpsMode;
@@ -22,16 +23,14 @@ const cardClass =
 	"rounded-2xl border border-[var(--border)] bg-[var(--surface-elevated)] p-5";
 const labelClass =
 	"text-xs font-medium text-[var(--text-secondary)] tracking-wide";
-const selectClass =
-	"rounded-lg border border-[var(--border)] bg-[var(--surface-elevated)] px-3 py-2 text-sm text-[var(--text-primary)] outline-none focus:border-[var(--color-action-border)]/30";
-const inputClass =
-	"w-full rounded-lg border border-[var(--border)] bg-[var(--surface-elevated)] px-3.5 py-2.5 text-sm text-[var(--text-primary)] outline-none transition placeholder:text-[var(--text-primary)]/30 focus:border-[var(--color-action-border)]/30";
+const selectClass = UI_INPUT;
+const inputClass = UI_INPUT;
 const buttonPrimary =
-	"rounded-lg bg-[var(--color-action)]/80 hover:bg-[var(--color-action)] px-4 py-2 text-sm font-medium text-[var(--color-action-fg)] transition disabled:opacity-50 disabled:cursor-not-allowed";
+	"text-sm font-medium disabled:cursor-not-allowed disabled:opacity-50";
 const buttonGhost =
-	"rounded-lg border border-[var(--border)] bg-[var(--surface-elevated)] hover:bg-[var(--surface-hover)] px-4 py-2 text-sm text-[var(--text-primary)] transition";
+	"text-sm";
 const buttonDanger =
-	"rounded-lg border border-[var(--danger-border)] bg-[var(--danger-bg)] hover:bg-[var(--danger-bg)] px-3 py-1.5 text-xs text-[var(--danger)] transition";
+	"text-xs";
 
 export function formatAiOpsTime(iso: string | null, fallback: string, locale: "zh" | "en"): string {
 	if (!iso) return fallback;
@@ -117,11 +116,11 @@ export function AiOpsActionsToolbar({
 	return (
 		<section aria-label="ai-ops-actions" className={`${cardClass} flex flex-wrap items-center gap-3`}>
 			{canManage && (
-				<button type="button" className={buttonPrimary} disabled={scanning} onClick={onTriggerScan}>
+				<button type="button" data-action-button data-variant="primary" className={buttonPrimary} disabled={scanning} onClick={onTriggerScan}>
 					{scanning ? t("aiOpsPage.actions.scanning") : t("aiOpsPage.actions.triggerScan")}
 				</button>
 			)}
-			<button type="button" className={buttonGhost} onClick={onReload}>{t("aiOpsPage.actions.refresh")}</button>
+			<button type="button" data-action-button data-variant="secondary" className={buttonGhost} onClick={onReload}>{t("aiOpsPage.actions.refresh")}</button>
 			<label className={`${labelClass} flex items-center gap-2`}>
 				<span>{t("aiOpsPage.filter.mode")}</span>
 				<select className={selectClass} value={modeFilter} onChange={(e) => setModeFilter(e.target.value as "all" | AiOpsMode)}>
@@ -199,7 +198,7 @@ export function AiOpsSettingsSection({
 			</div>
 			{canManage && (
 				<div className="mt-4 flex justify-end">
-					<button type="button" className={buttonPrimary} disabled={savingSettings} onClick={onSaveSettings}>
+					<button type="button" data-action-button data-variant="primary" className={buttonPrimary} disabled={savingSettings} onClick={onSaveSettings}>
 						{savingSettings ? t("aiOpsPage.actions.saving") : t("aiOpsPage.actions.execute")}
 					</button>
 				</div>
@@ -240,7 +239,7 @@ export function AiOpsLogsSection({ logs, selectedLogId, setSelectedLogId, t }: {
 									<td className="py-2 pr-3">{log.findings.length}</td>
 									<td className="py-2 pr-3">{log.actions.length}</td>
 									<td className="py-2 pr-3 font-mono text-xs">{log.durationMs !== null ? t("aiOpsPage.detail.durationMs").replace("{ms}", String(log.durationMs)) : "—"}</td>
-									<td className="py-2"><button type="button" className={buttonGhost} onClick={() => setSelectedLogId(log.id)}>{t("aiOpsPage.table.viewDetail")}</button></td>
+									<td className="py-2"><button type="button" data-action-button data-variant="secondary" className={buttonGhost} onClick={() => setSelectedLogId(log.id)}>{t("aiOpsPage.table.viewDetail")}</button></td>
 								</tr>
 							))}
 						</tbody>
@@ -308,13 +307,13 @@ export function AiOpsDetailSection({
 										{recommendation && canManage && (
 											<div className="flex flex-col gap-1">
 												{recommendation.requiresApproval && !recommendation.approved ? (
-													<button type="button" className={buttonPrimary} disabled={executing === action.id} onClick={() => onApproveAction(selectedLog.id, action.id)}>{t("aiOpsPage.actions.approve")}</button>
+													<button type="button" data-action-button data-variant="primary" className={buttonPrimary} disabled={executing === action.id} onClick={() => onApproveAction(selectedLog.id, action.id)}>{t("aiOpsPage.actions.approve")}</button>
 												) : recommendation.requiresApproval && recommendation.approved ? (
-													<button type="button" className={buttonPrimary} disabled={executing === action.id} onClick={() => onExecuteAction(selectedLog.id, action.id, false)}>{t("aiOpsPage.actions.execute")}</button>
+													<button type="button" data-action-button data-variant="primary" className={buttonPrimary} disabled={executing === action.id} onClick={() => onExecuteAction(selectedLog.id, action.id, false)}>{t("aiOpsPage.actions.execute")}</button>
 												) : (
-													<button type="button" className={buttonGhost} disabled={executing === action.id} onClick={() => onExecuteAction(selectedLog.id, action.id, false)}>{t("aiOpsPage.actions.execute")}</button>
+													<button type="button" data-action-button data-variant="secondary" className={buttonGhost} disabled={executing === action.id} onClick={() => onExecuteAction(selectedLog.id, action.id, false)}>{t("aiOpsPage.actions.execute")}</button>
 												)}
-												{canAutonomous && <button type="button" className={buttonDanger} disabled={executing === action.id} onClick={() => onExecuteAction(selectedLog.id, action.id, true)}>{t("aiOpsPage.actions.forceAutonomous")}</button>}
+												{canAutonomous && <button type="button" data-action-button data-variant="danger" className={buttonDanger} disabled={executing === action.id} onClick={() => onExecuteAction(selectedLog.id, action.id, true)}>{t("aiOpsPage.actions.forceAutonomous")}</button>}
 											</div>
 										)}
 									</li>

@@ -1,31 +1,26 @@
 "use client";
 
-import { useState, useCallback } from "react";
-import { csrfFetch } from "@/lib/auth/csrf-client";
+import { useCallback, useState } from "react";
+
+import { ActionButton } from "@/components/action-button";
+import { EmptyState, SurfacePanel, Toolbar } from "@/components/page-shell";
 import { useToast } from "@/components/toast-provider";
-import { EmptyState, Toolbar, SurfacePanel } from "@/components/page-shell";
-import { useI18n } from "@/lib/i18n/use-locale";
-import { toDateLocale } from "@/lib/i18n/locale-format";
 import { useDialogFocus } from "@/lib/a11y/use-dialog-focus";
+import { csrfFetch } from "@/lib/auth/csrf-client";
+import { toDateLocale } from "@/lib/i18n/locale-format";
+import { useI18n } from "@/lib/i18n/use-locale";
 
-type AlertRule = {
-	id: string; name: string; metric: string; operator: string;
-	threshold: number; durationSeconds: number; serverIds: string[];
-	notifyChannels: string[]; webhookConfigured: boolean;
-	playbookIds?: string[];
-	cooldownMinutes: number; enabled: boolean;
-	silenceWindows?: string[];
-	lastTriggeredAt: string | null; createdAt: string;
-};
-
-type TestDelivery = {
-	channel: string;
-	status: "sent" | "skipped" | "failed";
-	message: string;
-};
-
-type ServerOption = { id: string; name: string };
-type PlaybookOption = { id: string; name: string; enabled: boolean };
+import {
+	channelLabel,
+	deliveryStatusLabel,
+	metricLabel,
+	operatorLabel,
+	type AlertRule,
+	type PlaybookOption,
+	type ServerOption,
+	type TestDelivery,
+} from "./alert-rule-types";
+import { CreateRuleForm } from "./create-rule-form";
 
 type Props = {
 	rules: AlertRule[];
@@ -34,41 +29,29 @@ type Props = {
 	canManage: boolean;
 };
 
-function metricLabel(t: (key: string) => string, metric: string): string {
-	const key = `alertRulesPage.metric.${metric}`;
-	const value = t(key);
-	return value === key ? metric : value;
-}
-
-function operatorLabel(t: (key: string) => string, op: string): string {
-	const key = `alertRulesPage.operator.${op}`;
-	const value = t(key);
-	return value === key ? op : value;
-}
-
-function channelLabel(t: (key: string) => string, ch: string): string {
-	const key = `alertRulesPage.channel.${ch}`;
-	const value = t(key);
-	return value === key ? ch : value;
-}
-
-function deliveryStatusLabel(t: (key: string) => string, status: TestDelivery["status"]): string {
-	return t(`alertRulesPage.delivery.${status}`);
-}
-
-export function AlertRuleListClient({ rules: initialRules, servers, playbooks = [], canManage }: Props) {
+export function AlertRuleListClient({
+	rules: initialRules,
+	servers,
+	playbooks = [],
+	canManage,
+}: Props) {
 	const { t, locale } = useI18n();
-
 	const { addToast } = useToast();
 	const [rules, setRules] = useState(initialRules);
 	const [showCreate, setShowCreate] = useState(false);
 	const [actionError, setActionError] = useState<string | null>(null);
-	const [testResult, setTestResult] = useState<{ ruleName: string; deliveries: TestDelivery[] } | null>(null);
+	const [testResult, setTestResult] = useState<{
+		ruleName: string;
+		deliveries: TestDelivery[];
+	} | null>(null);
 	const [busyAction, setBusyAction] = useState<string | null>(null);
 	const [rulePendingDelete, setRulePendingDelete] = useState<AlertRule | null>(null);
 
 	const closeDeleteDialog = useCallback(() => setRulePendingDelete(null), []);
-	const dialogRef = useDialogFocus<HTMLDivElement>({ open: rulePendingDelete !== null, onClose: closeDeleteDialog });
+	const dialogRef = useDialogFocus<HTMLDivElement>({
+		open: rulePendingDelete !== null,
+		onClose: closeDeleteDialog,
+	});
 
 	const getErrorMessage = useCallback(
 		(error: unknown, fallbackKey: string) =>
@@ -81,38 +64,44 @@ export function AlertRuleListClient({ rules: initialRules, servers, playbooks = 
 		setRules(data?.rules ?? []);
 	}, []);
 
-	const toggleRule = useCallback(async (id: string) => {
-		setActionError(null);
-		setTestResult(null);
-		setBusyAction(`toggle:${id}`);
-		try {
-			await csrfFetch("/api/alert-rules", {
-				method: "PATCH",
-				headers: { "Content-Type": "application/json" },
-				body: JSON.stringify({ toggleId: id }),
-			});
-			await refresh();
-		} catch (error) {
-			setActionError(getErrorMessage(error, "alertRulesPage.error.toggle"));
-		} finally {
-			setBusyAction(null);
-		}
-	}, [refresh, getErrorMessage]);
+	const toggleRule = useCallback(
+		async (id: string) => {
+			setActionError(null);
+			setTestResult(null);
+			setBusyAction(`toggle:${id}`);
+			try {
+				await csrfFetch("/api/alert-rules", {
+					method: "PATCH",
+					headers: { "Content-Type": "application/json" },
+					body: JSON.stringify({ toggleId: id }),
+				});
+				await refresh();
+			} catch (error) {
+				setActionError(getErrorMessage(error, "alertRulesPage.error.toggle"));
+			} finally {
+				setBusyAction(null);
+			}
+		},
+		[refresh, getErrorMessage],
+	);
 
-	const deleteRule = useCallback(async (id: string) => {
-		setActionError(null);
-		setTestResult(null);
-		setBusyAction(`delete:${id}`);
-		try {
-			await csrfFetch(`/api/alert-rules?id=${id}`, { method: "DELETE" });
-			setRulePendingDelete(null);
-			await refresh();
-		} catch (error) {
-			setActionError(getErrorMessage(error, "alertRulesPage.error.delete"));
-		} finally {
-			setBusyAction(null);
-		}
-	}, [refresh, getErrorMessage]);
+	const deleteRule = useCallback(
+		async (id: string) => {
+			setActionError(null);
+			setTestResult(null);
+			setBusyAction(`delete:${id}`);
+			try {
+				await csrfFetch(`/api/alert-rules?id=${id}`, { method: "DELETE" });
+				setRulePendingDelete(null);
+				await refresh();
+			} catch (error) {
+				setActionError(getErrorMessage(error, "alertRulesPage.error.delete"));
+			} finally {
+				setBusyAction(null);
+			}
+		},
+		[refresh, getErrorMessage],
+	);
 
 	const triggerNow = useCallback(async () => {
 		setActionError(null);
@@ -129,86 +118,122 @@ export function AlertRuleListClient({ rules: initialRules, servers, playbooks = 
 		}
 	}, [addToast, refresh, t, getErrorMessage]);
 
-	const testRule = useCallback(async (rule: AlertRule) => {
-		setActionError(null);
-		setTestResult(null);
-		setBusyAction(`test:${rule.id}`);
-		try {
-			const data = await csrfFetch("/api/alert-rules", {
-				method: "PATCH",
-				headers: { "Content-Type": "application/json" },
-				body: JSON.stringify({ testId: rule.id }),
-			});
-			const deliveries = Array.isArray(data?.deliveries) ? data?.deliveries : [];
-			setTestResult({ ruleName: rule.name, deliveries });
-			const failed = deliveries.filter((delivery: TestDelivery) => delivery.status === "failed").length;
-			addToast(
-				failed > 0 ? "warning" : "success",
-				failed > 0 ? t("alertRulesPage.toast.testPartial") : t("alertRulesPage.toast.testSucceeded"),
-			);
-		} catch (error) {
-			setActionError(getErrorMessage(error, "alertRulesPage.error.test"));
-		} finally {
-			setBusyAction(null);
-		}
-	}, [addToast, t, getErrorMessage]);
+	const testRule = useCallback(
+		async (rule: AlertRule) => {
+			setActionError(null);
+			setTestResult(null);
+			setBusyAction(`test:${rule.id}`);
+			try {
+				const data = await csrfFetch("/api/alert-rules", {
+					method: "PATCH",
+					headers: { "Content-Type": "application/json" },
+					body: JSON.stringify({ testId: rule.id }),
+				});
+				const deliveries = Array.isArray(data?.deliveries) ? data?.deliveries : [];
+				setTestResult({ ruleName: rule.name, deliveries });
+				const failed = deliveries.filter(
+					(delivery: TestDelivery) => delivery.status === "failed",
+				).length;
+				addToast(
+					failed > 0 ? "warning" : "success",
+					failed > 0
+						? t("alertRulesPage.toast.testPartial")
+						: t("alertRulesPage.toast.testSucceeded"),
+				);
+			} catch (error) {
+				setActionError(getErrorMessage(error, "alertRulesPage.error.test"));
+			} finally {
+				setBusyAction(null);
+			}
+		},
+		[addToast, t, getErrorMessage],
+	);
 
 	return (
 		<div className="space-y-6">
 			{rulePendingDelete && (
-				<div ref={dialogRef} className="fixed inset-0 z-50 flex items-center justify-center bg-[var(--overlay)] p-4 backdrop-blur-sm" role="dialog" aria-modal="true" aria-labelledby="delete-alert-rule-title">
+				<div
+					ref={dialogRef}
+					className="fixed inset-0 z-50 flex items-center justify-center bg-[var(--overlay)] p-4 backdrop-blur-sm"
+					role="dialog"
+					aria-modal="true"
+					aria-labelledby="delete-alert-rule-title"
+				>
 					<div className="w-full max-w-md rounded-2xl border border-[var(--border)] bg-[var(--modal-bg)] p-5 shadow-2xl shadow-black/30">
-						<h3 id="delete-alert-rule-title" className="text-base font-semibold text-[var(--text-primary)]">{t("alertRulesPage.delete.title")}</h3>
+						<h3
+							id="delete-alert-rule-title"
+							className="text-base font-semibold text-[var(--text-primary)]"
+						>
+							{t("alertRulesPage.delete.title")}
+						</h3>
 						<p className="mt-2 text-sm text-[var(--text-muted)]">
-							{t("alertRulesPage.delete.confirm").replace("{name}", rulePendingDelete.name)}
+							{t("alertRulesPage.delete.confirm").replace(
+								"{name}",
+								rulePendingDelete.name,
+							)}
 						</p>
 						<div className="mt-5 flex justify-end gap-2">
-							<button
+							<ActionButton
 								type="button"
+								variant="secondary"
 								onClick={() => setRulePendingDelete(null)}
-								data-card className=" px-4 py-2 text-sm text-[var(--text-secondary)] transition hover:bg-[var(--surface-hover)]"
 							>
 								{t("alertRulesPage.delete.cancel")}
-							</button>
-							<button
+							</ActionButton>
+							<ActionButton
 								type="button"
+								variant="danger"
 								onClick={() => deleteRule(rulePendingDelete.id)}
 								disabled={busyAction === `delete:${rulePendingDelete.id}`}
-								data-tone="rose" className="rounded-xl border border-[var(--danger-border)] px-4 py-2 text-sm font-medium text-[var(--danger)] transition hover:bg-[var(--danger-bg)] disabled:cursor-not-allowed disabled:opacity-60"
 							>
-								{busyAction === `delete:${rulePendingDelete.id}` ? t("alertRulesPage.delete.deleting") : t("alertRulesPage.delete.confirmBtn")}
-							</button>
+								{busyAction === `delete:${rulePendingDelete.id}`
+									? t("alertRulesPage.delete.deleting")
+									: t("alertRulesPage.delete.confirmBtn")}
+							</ActionButton>
 						</div>
 					</div>
 				</div>
 			)}
+
 			<Toolbar className="flex-wrap">
 				{canManage && !showCreate && (
-					<button type="button" onClick={() => setShowCreate(true)} data-tone="cyan" className="rounded-2xl border border-[var(--color-action-border)]/30 px-5 py-2.5 text-sm font-medium text-[var(--text-primary)] hover:bg-[var(--color-action-bg)]/20 transition">
+					<ActionButton type="button" variant="outline" onClick={() => setShowCreate(true)}>
 						{t("alertRulesPage.create")}
-					</button>
+					</ActionButton>
 				)}
 				{canManage && (
-					<button
+					<ActionButton
 						type="button"
+						variant="secondary"
 						onClick={triggerNow}
 						disabled={busyAction === "trigger"}
-						className="rounded-2xl border border-[var(--border)] bg-[var(--surface-elevated)] px-5 py-2.5 text-sm text-[var(--text-secondary)] hover:bg-[var(--surface-hover)] transition disabled:cursor-not-allowed disabled:opacity-60"
 					>
-						{busyAction === "trigger" ? t("alertRulesPage.triggering") : t("alertRulesPage.triggerNow")}
-					</button>
+						{busyAction === "trigger"
+							? t("alertRulesPage.triggering")
+							: t("alertRulesPage.triggerNow")}
+					</ActionButton>
 				)}
 			</Toolbar>
 
 			{actionError && (
-				<div role="alert" data-tone="rose" className="rounded-xl border border-[var(--danger-border)] px-4 py-3 text-sm text-[var(--danger)]">
+				<div
+					role="alert"
+					data-tone="rose"
+					className="rounded-xl border border-[var(--danger-border)] px-4 py-3 text-sm text-[var(--danger)]"
+				>
 					{actionError}
 				</div>
 			)}
 
 			{testResult && (
-				<div role="status" data-tone="cyan" className="rounded-xl border border-[var(--color-action-border)]/20 px-4 py-3 text-sm text-[var(--text-primary)]">
-					<p className="font-medium">{t("alertRulesPage.testResult").replace("{ruleName}", testResult.ruleName)}</p>
+				<div
+					role="status"
+					data-tone="cyan"
+					className="rounded-xl border border-[var(--color-action-border)]/20 px-4 py-3 text-sm text-[var(--text-primary)]"
+				>
+					<p className="font-medium">
+						{t("alertRulesPage.testResult").replace("{ruleName}", testResult.ruleName)}
+					</p>
 					<ul className="mt-2 space-y-1">
 						{testResult.deliveries.map((delivery, index) => (
 							<li key={`${delivery.channel}-${index}`} className="flex flex-wrap gap-2 text-xs">
@@ -224,7 +249,14 @@ export function AlertRuleListClient({ rules: initialRules, servers, playbooks = 
 			{showCreate && (
 				<div className="mb-1">
 					<SurfacePanel title={t("alertRulesPage.create")}>
-						<CreateRuleForm servers={servers} playbooks={playbooks} onClose={() => { setShowCreate(false); refresh(); }} />
+						<CreateRuleForm
+							servers={servers}
+							playbooks={playbooks}
+							onClose={() => {
+								setShowCreate(false);
+								void refresh();
+							}}
+						/>
 					</SurfacePanel>
 				</div>
 			)}
@@ -236,77 +268,144 @@ export function AlertRuleListClient({ rules: initialRules, servers, playbooks = 
 			) : (
 				<div className="space-y-3">
 					{rules.map((rule) => (
-						<article key={rule.id} className={`rounded-xl border bg-[var(--surface-elevated)] transition-colors duration-150 ${rule.enabled ? "border-[var(--border)] hover:bg-[var(--surface-elevated)]" : "border-[var(--border)] opacity-60"}`}>
+						<article
+							key={rule.id}
+							className={`rounded-xl border bg-[var(--surface-elevated)] transition-colors duration-150 ${
+								rule.enabled
+									? "border-[var(--border)] hover:bg-[var(--surface-elevated)]"
+									: "border-[var(--border)] opacity-60"
+							}`}
+						>
 							<div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
 								<div>
-									<h2 className="text-lg font-semibold text-[var(--text-primary)]">{rule.name}</h2>
+									<h2 className="text-lg font-semibold text-[var(--text-primary)]">
+										{rule.name}
+									</h2>
 									<p className="mt-1 text-xs text-[var(--text-muted)]">
-										{t("alertRulesPage.condition.when")} <span className="text-[var(--color-action)]/80">{metricLabel(t, rule.metric)}</span>{" "}
-										{rule.metric !== "server_offline" && <>
-											<span className="text-[var(--text-primary)]/70">{operatorLabel(t, rule.operator)}</span>{" "}
-											<span className="text-[var(--warning)] font-mono">{rule.threshold}%</span>
-										</>}
-										{rule.durationSeconds > 0 && <span className="text-[var(--text-muted)]">{t("alertRulesPage.condition.duration").replace("{seconds}", String(rule.durationSeconds))}</span>}
-										{rule.serverIds.length === 0 ? t("alertRulesPage.condition.allNodes") : t("alertRulesPage.condition.nodeCount").replace("{count}", String(rule.serverIds.length))}
+										{t("alertRulesPage.condition.when")}{" "}
+										<span className="text-[var(--color-action)]/80">
+											{metricLabel(t, rule.metric)}
+										</span>{" "}
+										{rule.metric !== "server_offline" && (
+											<>
+												<span className="text-[var(--text-primary)]/70">
+													{operatorLabel(t, rule.operator)}
+												</span>{" "}
+												<span className="font-mono text-[var(--warning)]">
+													{rule.threshold}%
+												</span>
+											</>
+										)}
+										{rule.durationSeconds > 0 && (
+											<span className="text-[var(--text-muted)]">
+												{t("alertRulesPage.condition.duration").replace(
+													"{seconds}",
+													String(rule.durationSeconds),
+												)}
+											</span>
+										)}
+										{rule.serverIds.length === 0
+											? t("alertRulesPage.condition.allNodes")
+											: t("alertRulesPage.condition.nodeCount").replace(
+													"{count}",
+													String(rule.serverIds.length),
+												)}
 									</p>
 									<div className="mt-2 flex flex-wrap gap-1.5">
 										{rule.notifyChannels.map((ch) => (
-											<span key={ch} className="rounded-lg border border-[var(--border)] bg-[var(--surface-elevated)] px-1.5 py-0.5 text-[10px] text-[var(--text-muted)]">
+											<span
+												key={ch}
+												className="rounded-lg border border-[var(--border)] bg-[var(--surface-elevated)] px-1.5 py-0.5 text-[10px] text-[var(--text-muted)]"
+											>
 												{channelLabel(t, ch)}
 											</span>
 										))}
-						{rule.webhookConfigured && (
-							<span data-tone="emerald" className="rounded-lg border border-[var(--success-border)] px-1.5 py-0.5 text-[10px] text-[var(--success)]">
-								{t("alertRulesPage.badge.webhookConfigured")}
-							</span>
-						)}
-						{rule.cooldownMinutes > 0 && (
-							<span className="rounded-lg border border-[var(--border)] bg-[var(--surface-elevated)] px-1.5 py-0.5 text-[10px] text-[var(--text-muted)]">
-								{t("alertRulesPage.badge.cooldown").replace("{minutes}", String(rule.cooldownMinutes))}
-							</span>
-						)}
-						{(rule.silenceWindows?.length ?? 0) > 0 && (
-							<span className="rounded-lg border border-[var(--accent-border)] bg-[var(--accent-bg)] px-1.5 py-0.5 text-[10px] text-[var(--accent)]">
-								{t("alertRulesPage.badge.silence").replace("{windows}", rule.silenceWindows?.join(t("alertRulesPage.badge.silenceSeparator")) ?? "")}
-							</span>
-						)}
-						{(rule.playbookIds?.length ?? 0) > 0 && (
-							<span className="rounded-lg border border-[var(--color-action-border)]/20 bg-[var(--color-action-bg)]/10 px-1.5 py-0.5 text-[10px] text-[var(--color-action)]">
-								{t("alertRulesPage.badge.playbooks").replace("{count}", String(rule.playbookIds?.length ?? 0))}
-							</span>
-						)}
+										{rule.webhookConfigured && (
+											<span
+												data-tone="emerald"
+												className="rounded-lg border border-[var(--success-border)] px-1.5 py-0.5 text-[10px] text-[var(--success)]"
+											>
+												{t("alertRulesPage.badge.webhookConfigured")}
+											</span>
+										)}
+										{rule.cooldownMinutes > 0 && (
+											<span className="rounded-lg border border-[var(--border)] bg-[var(--surface-elevated)] px-1.5 py-0.5 text-[10px] text-[var(--text-muted)]">
+												{t("alertRulesPage.badge.cooldown").replace(
+													"{minutes}",
+													String(rule.cooldownMinutes),
+												)}
+											</span>
+										)}
+										{(rule.silenceWindows?.length ?? 0) > 0 && (
+											<span className="rounded-lg border border-[var(--accent-border)] bg-[var(--accent-bg)] px-1.5 py-0.5 text-[10px] text-[var(--accent)]">
+												{t("alertRulesPage.badge.silence").replace(
+													"{windows}",
+													rule.silenceWindows?.join(
+														t("alertRulesPage.badge.silenceSeparator"),
+													) ?? "",
+												)}
+											</span>
+										)}
+										{(rule.playbookIds?.length ?? 0) > 0 && (
+											<span className="rounded-lg border border-[var(--color-action-border)]/20 bg-[var(--color-action-bg)]/10 px-1.5 py-0.5 text-[10px] text-[var(--color-action)]">
+												{t("alertRulesPage.badge.playbooks").replace(
+													"{count}",
+													String(rule.playbookIds?.length ?? 0),
+												)}
+											</span>
+										)}
 									</div>
 									{rule.lastTriggeredAt && (
-										<p className="mt-1 text-[11px] text-[var(--text-muted)]">{t("alertRulesPage.lastTriggered").replace("{date}", new Date(rule.lastTriggeredAt).toLocaleString(toDateLocale(locale)))}</p>
+										<p className="mt-1 text-[11px] text-[var(--text-muted)]">
+											{t("alertRulesPage.lastTriggered").replace(
+												"{date}",
+												new Date(rule.lastTriggeredAt).toLocaleString(
+													toDateLocale(locale),
+												),
+											)}
+										</p>
 									)}
 								</div>
 								{canManage && (
-									<div className="flex flex-col gap-2 shrink-0">
-						<button
-							onClick={() => toggleRule(rule.id)}
-							disabled={busyAction === `toggle:${rule.id}`}
-							className={`rounded-2xl border px-4 py-2 text-xs font-medium transition disabled:cursor-not-allowed disabled:opacity-60 ${
-								rule.enabled
-									? "border-[var(--warning-border)] bg-[var(--warning-bg)] text-[var(--warning)] hover:bg-[var(--warning-bg)]/60"
-									: "border-[var(--success-border)] bg-[var(--success-bg)] text-[var(--success)] hover:bg-[var(--success-bg)]/60"
-							}`}
-						>
-							{busyAction === `toggle:${rule.id}` ? t("alertRulesPage.action.processing") : rule.enabled ? t("alertRulesPage.action.pause") : t("alertRulesPage.action.enable")}
-						</button>
-						<button
-							onClick={() => testRule(rule)}
-							disabled={busyAction === `test:${rule.id}`}
-							data-tone="cyan" className="rounded-2xl border border-[var(--color-action-border)]/30 px-4 py-2 text-xs font-medium text-[var(--text-primary)] hover:bg-[var(--color-action-bg)]/20 transition disabled:cursor-not-allowed disabled:opacity-60"
-						>
-							{busyAction === `test:${rule.id}` ? t("alertRulesPage.action.sending") : t("alertRulesPage.action.testSend")}
-						</button>
-						<button
-							onClick={() => setRulePendingDelete(rule)}
-							disabled={busyAction === `delete:${rule.id}`}
-							data-tone="rose" className="rounded-2xl border border-[var(--danger-border)] px-4 py-2 text-xs font-medium text-[var(--danger)] hover:bg-[var(--danger-bg)] transition disabled:cursor-not-allowed disabled:opacity-60"
-						>
-							{busyAction === `delete:${rule.id}` ? t("alertRulesPage.action.deleting") : t("alertRulesPage.action.delete")}
-						</button>
+									<div className="flex shrink-0 flex-col gap-2">
+										<button
+											type="button"
+											onClick={() => toggleRule(rule.id)}
+											disabled={busyAction === `toggle:${rule.id}`}
+											className={`rounded-2xl border px-4 py-2 text-xs font-medium transition disabled:cursor-not-allowed disabled:opacity-60 ${
+												rule.enabled
+													? "border-[var(--warning-border)] bg-[var(--warning-bg)] text-[var(--warning)] hover:bg-[var(--warning-bg)]/60"
+													: "border-[var(--success-border)] bg-[var(--success-bg)] text-[var(--success)] hover:bg-[var(--success-bg)]/60"
+											}`}
+										>
+											{busyAction === `toggle:${rule.id}`
+												? t("alertRulesPage.action.processing")
+												: rule.enabled
+													? t("alertRulesPage.action.pause")
+													: t("alertRulesPage.action.enable")}
+										</button>
+										<ActionButton
+											type="button"
+											variant="outline"
+											onClick={() => testRule(rule)}
+											disabled={busyAction === `test:${rule.id}`}
+											className="text-xs"
+										>
+											{busyAction === `test:${rule.id}`
+												? t("alertRulesPage.action.sending")
+												: t("alertRulesPage.action.testSend")}
+										</ActionButton>
+										<ActionButton
+											type="button"
+											variant="danger"
+											onClick={() => setRulePendingDelete(rule)}
+											disabled={busyAction === `delete:${rule.id}`}
+											className="text-xs"
+										>
+											{busyAction === `delete:${rule.id}`
+												? t("alertRulesPage.action.deleting")
+												: t("alertRulesPage.action.delete")}
+										</ActionButton>
 									</div>
 								)}
 							</div>
@@ -315,194 +414,5 @@ export function AlertRuleListClient({ rules: initialRules, servers, playbooks = 
 				</div>
 			)}
 		</div>
-	);
-}
-
-/* ── Create form ──────────────────────────────────────────── */
-
-function CreateRuleForm({ servers, playbooks, onClose }: { servers: ServerOption[]; playbooks: PlaybookOption[]; onClose: () => void }) {
-	const { t } = useI18n();
-	const [name, setName] = useState("");
-	const [metric, setMetric] = useState("cpu_usage");
-	const [operator, setOperator] = useState("gte");
-	const [threshold, setThreshold] = useState(85);
-	const [durationSeconds, setDurationSeconds] = useState(0);
-	const [selectedServerIds, setSelectedServerIds] = useState<string[]>([]);
-	const [selectedPlaybookIds, setSelectedPlaybookIds] = useState<string[]>([]);
-	const [cooldown, setCooldown] = useState(30);
-	const [silenceWindowsText, setSilenceWindowsText] = useState("");
-	const [channels, setChannels] = useState<string[]>(["in_app"]);
-	const [webhookUrl, setWebhookUrl] = useState("");
-	const [submitting, setSubmitting] = useState(false);
-	const [error, setError] = useState<string | null>(null);
-
-	const toggleChannel = (ch: string) => {
-		setChannels((prev) => prev.includes(ch) ? prev.filter((c) => c !== ch) : [...prev, ch]);
-	};
-
-	const toggleServer = (serverId: string) => {
-		setSelectedServerIds((prev) => prev.includes(serverId) ? prev.filter((id) => id !== serverId) : [...prev, serverId]);
-	};
-
-	const togglePlaybook = (playbookId: string) => {
-		setSelectedPlaybookIds((prev) => prev.includes(playbookId) ? prev.filter((id) => id !== playbookId) : [...prev, playbookId]);
-	};
-
-	const handleSubmit = async (e: React.FormEvent) => {
-		e.preventDefault();
-		setSubmitting(true);
-		setError(null);
-		const silenceWindows = silenceWindowsText.split(/[\n,，]+/).map((item) => item.trim()).filter(Boolean);
-		try {
-			await csrfFetch("/api/alert-rules", {
-				method: "POST",
-				headers: { "Content-Type": "application/json" },
-				body: JSON.stringify({
-					name,
-					metric,
-					operator,
-					threshold,
-					durationSeconds,
-					serverIds: selectedServerIds,
-					playbookIds: selectedPlaybookIds,
-					notifyChannels: channels,
-					cooldownMinutes: cooldown,
-					silenceWindows,
-					webhookUrl: channels.includes("webhook") && webhookUrl.trim() ? webhookUrl.trim() : undefined,
-				}),
-			});
-			onClose();
-		} catch (err) {
-			setError(err instanceof Error ? err.message : t("alertRulesPage.createForm.error"));
-		} finally {
-			setSubmitting(false);
-		}
-	};
-
-	return (
-		<form onSubmit={handleSubmit} data-card className=" space-y-4">
-			<h3 className="text-lg font-semibold text-[var(--text-primary)]">{t("alertRulesPage.createForm.title")}</h3>
-			{error && <div className="rounded-lg bg-[var(--danger)]/[0.10] border border-[var(--danger-border)] px-3.5 py-2.5 text-sm text-[var(--danger)]">{error}</div>}
-
-			<div className="space-y-1.5">
-				<label className="text-xs font-medium text-[var(--text-primary)]/70 tracking-wide" htmlFor="alertRuleName">{t("alertRulesPage.createForm.name")}</label>
-				<input id="alertRuleName" value={name} onChange={(e) => setName(e.target.value)} required placeholder={t("alertRulesPage.createForm.namePlaceholder")} className="w-full rounded-lg border border-[var(--border)] bg-[var(--surface-elevated)] px-3.5 py-2.5 text-sm text-[var(--text-primary)] outline-none transition placeholder:text-[var(--text-primary)]/30 focus:border-[var(--color-action-border)]/30" />
-			</div>
-
-			<div className="grid gap-3 sm:grid-cols-3">
-				<div className="space-y-1.5">
-					<label className="text-xs font-medium text-[var(--text-primary)]/70 tracking-wide" htmlFor="alertRuleMetric">{t("alertRulesPage.createForm.metric")}</label>
-					<select id="alertRuleMetric" value={metric} onChange={(e) => setMetric(e.target.value)} className="w-full rounded-lg border border-[var(--border)] bg-[var(--surface-elevated)] px-3 py-2.5 text-sm text-[var(--text-primary)] outline-none">
-							<option value="cpu_usage">{t("alertRulesPage.createForm.metric.cpu_usage")}</option>
-							<option value="mem_usage">{t("alertRulesPage.createForm.metric.mem_usage")}</option>
-							<option value="disk_usage">{t("alertRulesPage.createForm.metric.disk_usage")}</option>
-							<option value="server_offline">{t("alertRulesPage.createForm.metric.server_offline")}</option>
-							<option value="network_in">{t("alertRulesPage.createForm.metric.network_in")}</option>
-							<option value="network_out">{t("alertRulesPage.createForm.metric.network_out")}</option>
-							<option value="load_avg">{t("alertRulesPage.createForm.metric.load_avg")}</option>
-							<option value="swap_usage">{t("alertRulesPage.createForm.metric.swap_usage")}</option>
-					</select>
-				</div>
-				{metric !== "server_offline" && <div className="space-y-1.5">
-					<label className="text-xs font-medium text-[var(--text-primary)]/70 tracking-wide" htmlFor="alertRuleOperator">{t("alertRulesPage.createForm.operator")}</label>
-					<select id="alertRuleOperator" value={operator} onChange={(e) => setOperator(e.target.value)} className="w-full rounded-lg border border-[var(--border)] bg-[var(--surface-elevated)] px-3 py-2.5 text-sm text-[var(--text-primary)] outline-none">
-							<option value="gt">{t("alertRulesPage.createForm.operator.gt")}</option>
-							<option value="gte">{t("alertRulesPage.createForm.operator.gte")}</option>
-							<option value="lt">{t("alertRulesPage.createForm.operator.lt")}</option>
-							<option value="lte">{t("alertRulesPage.createForm.operator.lte")}</option>
-					</select>
-				</div>}
-				{metric !== "server_offline" && <div className="space-y-1.5">
-					<label className="text-xs font-medium text-[var(--text-primary)]/70 tracking-wide" htmlFor="alertThreshold">{t("alertRulesPage.createForm.threshold")}</label>
-					<input id="alertThreshold" type="number" value={threshold} onChange={(e) => setThreshold(Number(e.target.value))} min={0} max={100} className="w-full rounded-lg border border-[var(--border)] bg-[var(--surface-elevated)] px-3 py-2.5 text-sm text-[var(--text-primary)] font-mono outline-none focus:border-[var(--color-action-border)]/30" />
-				</div>}
-			</div>
-
-			<div className="grid gap-3 sm:grid-cols-2">
-				<div className="space-y-1.5">
-					<label className="text-xs font-medium text-[var(--text-primary)]/70 tracking-wide" htmlFor="alertDurationSeconds">{t("alertRulesPage.createForm.duration")}</label>
-					<input id="alertDurationSeconds" type="number" value={durationSeconds} onChange={(e) => setDurationSeconds(Number(e.target.value))} min={0} className="w-full rounded-lg border border-[var(--border)] bg-[var(--surface-elevated)] px-3.5 py-2.5 text-sm text-[var(--text-primary)] font-mono outline-none focus:border-[var(--color-action-border)]/30" />
-					<p className="text-xs text-[var(--text-muted)]">{t("alertRulesPage.createForm.durationHint")}</p>
-				</div>
-				<div className="space-y-1.5">
-					<label className="text-xs font-medium text-[var(--text-primary)]/70 tracking-wide">{t("alertRulesPage.createForm.targetNodes")}</label>
-					<div className="flex flex-wrap gap-1.5 rounded-lg border border-[var(--border)] bg-[var(--surface-elevated)] p-2">
-						{servers.length === 0 ? (
-							<span className="text-xs text-[var(--text-muted)]">{t("alertRulesPage.createForm.noNodes")}</span>
-						) : (
-							<>
-								<button type="button" onClick={() => setSelectedServerIds([])} className={`rounded-lg border px-2.5 py-1 text-[11px] transition ${selectedServerIds.length === 0 ? "border-[var(--color-action-border)]/30 bg-[var(--color-action-bg)]/10 text-[var(--text-secondary)]" : "border-[var(--border)] bg-[var(--surface-elevated)] text-[var(--text-muted)]"}`}>{t("alertRulesPage.createForm.allNodes")}</button>
-								{servers.map((server) => (
-									<button key={server.id} type="button" onClick={() => toggleServer(server.id)} className={`rounded-lg border px-2.5 py-1 text-[11px] transition ${selectedServerIds.includes(server.id) ? "border-[var(--color-action-border)]/30 bg-[var(--color-action-bg)]/10 text-[var(--text-secondary)]" : "border-[var(--border)] bg-[var(--surface-elevated)] text-[var(--text-muted)] hover:bg-[var(--surface-hover)]"}`}>
-											{server.name}
-									</button>
-								))}
-							</>
-						)}
-					</div>
-				</div>
-			</div>
-
-			<div className="space-y-1.5 rounded-xl border border-[var(--border)] bg-[var(--surface-elevated)] p-3">
-				<label className="text-xs font-medium text-[var(--text-primary)]/70 tracking-wide">{t("alertRulesPage.createForm.playbooks")}</label>
-				<p className="text-xs text-[var(--text-muted)]">{t("alertRulesPage.createForm.playbooksHint")}</p>
-				<div className="mt-2 flex flex-wrap gap-1.5">
-					{playbooks.length === 0 ? (
-						<span className="text-xs text-[var(--text-muted)]">{t("alertRulesPage.createForm.noPlaybooks")}</span>
-					) : (
-						playbooks.map((playbook) => (
-							<button key={playbook.id} type="button" onClick={() => togglePlaybook(playbook.id)} disabled={!playbook.enabled} className={`rounded-lg border px-2.5 py-1 text-[11px] transition disabled:cursor-not-allowed disabled:opacity-50 ${selectedPlaybookIds.includes(playbook.id) ? "border-[var(--color-action-border)]/30 bg-[var(--color-action-bg)]/10 text-[var(--text-secondary)]" : "border-[var(--border)] bg-[var(--surface-elevated)] text-[var(--text-muted)] hover:bg-[var(--surface-hover)]"}`}>
-								{playbook.name}{!playbook.enabled ? ` · ${t("alertRulesPage.createForm.playbookDisabled")}` : ""}
-							</button>
-						))
-					)}
-				</div>
-			</div>
-
-			<div className="space-y-1.5">
-				<label className="text-xs font-medium text-[var(--text-primary)]/70 tracking-wide">{t("alertRulesPage.createForm.channels")}</label>
-				<div className="flex flex-wrap gap-2">
-					{[
-						{ key: "in_app", i18nKey: "alertRulesPage.createForm.channel.in_app" },
-						{ key: "email", i18nKey: "alertRulesPage.createForm.channel.email" },
-						{ key: "telegram", i18nKey: "alertRulesPage.createForm.channel.telegram" },
-						{ key: "webhook", i18nKey: "alertRulesPage.createForm.channel.webhook" },
-					].map(({ key, i18nKey }) => (
-						<button key={key} type="button" onClick={() => toggleChannel(key)}
-							className={`rounded-lg border px-3 py-1.5 text-xs font-medium transition ${channels.includes(key) ? "border-[var(--color-action-border)]/30 bg-[var(--color-action-bg)]/10 text-[var(--text-secondary)]" : "border-[var(--border)] bg-[var(--surface-elevated)] text-[var(--text-muted)] hover:bg-[var(--surface-hover)]"}`}
-						>
-								{t(i18nKey)}
-						</button>
-					))}
-				</div>
-			</div>
-
-			{channels.includes("webhook") && (
-				<div className="space-y-1.5">
-					<label className="text-xs font-medium text-[var(--text-primary)]/70 tracking-wide" htmlFor="alertRuleWebhookUrl">{t("alertRulesPage.createForm.webhookUrl")}</label>
-					<input id="alertRuleWebhookUrl" value={webhookUrl} onChange={(e) => setWebhookUrl(e.target.value)} placeholder="https://hooks.example.com/..." className="w-full rounded-lg border border-[var(--border)] bg-[var(--surface-elevated)] px-3.5 py-2.5 text-sm text-[var(--text-primary)] font-mono outline-none transition placeholder:text-[var(--text-primary)]/30 focus:border-[var(--color-action-border)]/30" />
-				</div>
-			)}
-
-			<div className="space-y-1.5">
-				<label className="text-xs font-medium text-[var(--text-primary)]/70 tracking-wide" htmlFor="alertRuleCooldown">{t("alertRulesPage.createForm.cooldown")}</label>
-				<input id="alertRuleCooldown" type="number" value={cooldown} onChange={(e) => setCooldown(Number(e.target.value))} min={1} className="w-full rounded-lg border border-[var(--border)] bg-[var(--surface-elevated)] px-3.5 py-2.5 text-sm text-[var(--text-primary)] font-mono outline-none focus:border-[var(--color-action-border)]/30 w-32" />
-			</div>
-
-			<div className="space-y-1.5">
-				<label className="text-xs font-medium text-[var(--text-primary)]/70 tracking-wide" htmlFor="alertSilenceWindows">{t("alertRulesPage.createForm.silenceWindows")}</label>
-				<textarea id="alertSilenceWindows" value={silenceWindowsText} onChange={(e) => setSilenceWindowsText(e.target.value)} rows={2} placeholder={t("alertRulesPage.createForm.silenceWindowsPlaceholder")} className="w-full rounded-lg border border-[var(--border)] bg-[var(--surface-elevated)] px-3.5 py-2.5 text-sm text-[var(--text-primary)] font-mono outline-none transition placeholder:text-[var(--text-primary)]/30 focus:border-[var(--color-action-border)]/30" />
-				<p className="text-xs text-[var(--text-muted)]">{t("alertRulesPage.createForm.silenceWindowsHint")}</p>
-			</div>
-
-			<div className="flex gap-3 pt-2">
-				<button type="submit" disabled={submitting} data-action-button data-variant="primary" className="px-5 text-sm disabled:opacity-60">
-					{submitting ? t("alertRulesPage.createForm.submitting") : t("alertRulesPage.createForm.submit")}
-				</button>
-				<button type="button" onClick={onClose} className="rounded-2xl border border-[var(--border)] px-5 py-2 text-sm text-[var(--text-secondary)] hover:bg-[var(--surface)]/10 transition">
-					{t("alertRulesPage.createForm.cancel")}
-				</button>
-			</div>
-		</form>
 	);
 }
