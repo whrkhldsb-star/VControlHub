@@ -72,7 +72,7 @@ export function OffsiteDryRunButton() {
 				onClick={run}
 				disabled={isRunning}
 				data-action="offsite-dry-run"
-				className="rounded-lg border border-[var(--color-action-border)]/30 bg-[var(--color-action)]/10 px-3 py-1.5 text-xs font-medium text-[var(--text-primary)] transition hover:border-[var(--color-action-border)] hover:bg-[var(--color-action)]/20 disabled:cursor-not-allowed disabled:opacity-50"
+				className="rounded-xl border border-[var(--accent-border)] bg-[var(--accent-bg)] px-3 py-1.5 text-xs font-medium text-[var(--accent)] transition hover:border-[var(--accent)] hover:bg-[var(--accent-bg)] disabled:cursor-not-allowed disabled:opacity-50"
 			>
 				{isRunning ? t("backupsPage.offsite.dryRunning") : t("backupsPage.offsite.dryRunButton")}
 			</button>

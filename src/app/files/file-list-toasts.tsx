@@ -37,7 +37,7 @@ export function FileListToasts({ toasts, onDismiss }: FileListToastsProps) {
               ? "border-[var(--danger-border)] bg-[var(--danger-bg)] text-[var(--text-primary)] shadow-[var(--danger-bg)]"
               : "",
             toast.type === "info"
-              ? "border-[var(--color-action-border)]/40 bg-[var(--color-action)]/95 text-[var(--text-primary)] shadow-[var(--color-action)]/30"
+              ? "border-[var(--color-action-border)]/40 bg-[var(--accent)] text-[var(--on-accent)] shadow-[var(--shadow-md)]"
               : "",
           ].join(" ")}
         >

@@ -72,7 +72,7 @@ export function FileListDetailsView({
 }: FileListDetailsViewProps) {
   const { t } = useI18n();
   return (
-    <div className="divide-y divide-white/[0.04] light:divide-[var(--border)]">
+    <div className="divide-y divide-[var(--border-subtle)] light:divide-[var(--border)]">
       {sortedFolders.length === 0 && sortedFiles.length === 0 ? (
         <div className="px-6 py-16 text-center">
           <p className="text-sm text-[var(--text-muted)]">{emptyMessage}</p>
@@ -122,7 +122,7 @@ export function FileListDetailsView({
               type="button"
               onClick={() => navigateToFolder(folder.path)}
               data-tone="cyan"
-              className="inline-flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-medium border border-[var(--color-action-border)]/30 text-[var(--text-primary)] hover:bg-[var(--color-action)]/25 hover:border-[var(--color-action-border)]/50 transition"
+              className="inline-flex items-center gap-2 rounded-xl border border-[var(--accent-border)] px-4 py-2 text-sm font-medium text-[var(--accent)] transition hover:border-[var(--accent)] hover:bg-[var(--accent-bg)]"
             >
               <svg
                 width="14"

@@ -2,6 +2,8 @@
 
 import type { ButtonHTMLAttributes, ReactNode } from "react";
 
+import { cn } from "@/lib/ui/cn";
+
 /**
  * Primary action button using the brand `--color-action` (cyan) tokens.
  *
@@ -34,7 +36,7 @@ export function ActionButton({
 			type={type}
 			data-action-button
 			data-variant={variant}
-			className={className}
+			className={cn(className)}
 			{...rest}
 		>
 			{children}

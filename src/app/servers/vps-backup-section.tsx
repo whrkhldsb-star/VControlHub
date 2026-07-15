@@ -313,7 +313,7 @@ export function VpsBackupSection({
 								type="button"
 								onClick={handleCreate}
 								disabled={!createForm.name.trim()}
-								className="rounded-lg bg-[var(--color-action)]/80 px-4 py-1.5 text-sm font-medium text-[var(--text-primary)] transition-colors hover:bg-[var(--color-action)] disabled:cursor-not-allowed disabled:opacity-50"
+								className="rounded-lg bg-[var(--accent)] px-4 py-1.5 text-sm font-medium text-[var(--on-accent)] transition-colors hover:bg-[var(--color-action)] disabled:cursor-not-allowed disabled:opacity-50"
 							>
 								{t("vpsBackup.create")}
 							</button>

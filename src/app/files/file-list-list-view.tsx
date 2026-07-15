@@ -153,7 +153,7 @@ export function FileListListView(props: FileListListViewProps) {
             </div>
             <div>{t("fileListClient.actions")}</div>
           </div>
-          <div className="divide-y divide-white/[0.04] light:divide-[var(--border)]">
+          <div className="divide-y divide-[var(--border-subtle)] light:divide-[var(--border)]">
             {sortedFolders.length === 0 && sortedFiles.length === 0 ? (
               <div className="px-6 py-16 text-center text-sm text-[var(--text-muted)]">
                 <p>{emptyMessage}</p>

@@ -119,7 +119,6 @@ export function BatchServerActionPanel({
         <SubmitButton
           disabled={selectedIds.length === 0}
           pendingLabel={t("serversPage.batchPanel.processing")}
-          className="rounded-lg bg-[var(--color-action)] px-4 py-2 text-sm font-medium text-[var(--text-primary)] disabled:opacity-50"
         >
           {t("serverCardActions.toggle.enable")}
         </SubmitButton>

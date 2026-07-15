@@ -129,7 +129,7 @@ export function ServerCardDirectGatewayForm({
             : t("serverCardActions.directGateway.pendingEnable")
         }
         data-tone="cyan"
-        className="w-full rounded-2xl border border-[var(--color-action-border)]/30 px-4 py-2 text-sm font-medium text-[var(--text-primary)] transition hover:bg-[var(--color-action-bg)]/20 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-action)] light:border-[var(--color-action-border)]/30 light:bg-[var(--color-action-bg)] light:hover:bg-[var(--color-action-bg)]"
+        className="w-full rounded-2xl border border-[var(--accent-border)] bg-[var(--accent-bg)] px-4 py-2 text-sm font-medium text-[var(--accent)] transition hover:bg-[var(--accent-bg)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--accent)]"
       >
         {directGateway.enabled
           ? t("serverCardActions.directGateway.disableLabel")

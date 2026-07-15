@@ -70,7 +70,7 @@ export default function GlobalError({
 					)}
 					<button
 						onClick={reset}
-						className="rounded-lg bg-[var(--color-action)] px-7 py-2.5 text-sm font-medium text-[var(--text-primary)] transition-colors hover:bg-[var(--color-action-hover)]"
+						className="rounded-xl bg-[var(--accent)] px-7 py-2.5 text-sm font-medium text-[var(--on-accent)] transition-colors hover:bg-[var(--accent-hover)]"
 					>
 						{c.retry}
 					</button>

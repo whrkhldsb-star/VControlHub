@@ -135,7 +135,7 @@ export function PwaRegister() {
     >
       {" "}
       {isOffline && (
-        <div className="rounded-2xl border border-[var(--warning-border)] bg-[var(--warning-bg)] px-4 py-3 text-sm text-[var(--warning)] shadow-2xl backdrop-blur light:bg-[var(--warning-bg)] ">
+        <div className="rounded-2xl border border-[var(--warning-border)] bg-[var(--warning-bg)] px-4 py-3 text-sm text-[var(--warning)] shadow-[var(--shadow-lg)] backdrop-blur">
           {" "}
           <div className="font-medium">{t("pwa.status.offlineTitle")}</div>{" "}
           <div className="mt-1 text-xs opacity-80">
@@ -144,7 +144,7 @@ export function PwaRegister() {
         </div>
       )}{" "}
       {updateState.visible && (
-        <div className="flex items-center justify-between gap-3 rounded-2xl border border-[var(--color-action-border)] bg-[var(--surface-elevated)] px-4 py-3 text-sm text-[var(--text-primary)] shadow-2xl backdrop-blur">
+        <div className="flex items-center justify-between gap-3 rounded-2xl border border-[var(--accent-border)] bg-[var(--surface-elevated)] px-4 py-3 text-sm text-[var(--text-primary)] shadow-[var(--shadow-lg)] backdrop-blur">
           {" "}
           <div>
             {" "}
@@ -157,7 +157,7 @@ export function PwaRegister() {
             {" "}
             <button
               type="button"
-              className="rounded-lg px-2 py-1 text-xs text-[var(--text-muted)] hover:text-[var(--text-primary)]"
+              className="rounded-lg px-2 py-1 text-xs text-[var(--text-muted)] transition hover:bg-[var(--surface-hover)] hover:text-[var(--text-primary)]"
               onClick={() =>
                 setUpdateState((state) => ({ ...state, visible: false }))
               }
@@ -167,7 +167,7 @@ export function PwaRegister() {
             </button>{" "}
             <button
               type="button"
-              className="rounded-lg bg-[var(--color-action)] px-3 py-1.5 text-xs font-medium text-[var(--color-action-fg)] hover:bg-[var(--color-action-hover)]"
+              className="rounded-xl bg-[var(--accent)] px-3 py-1.5 text-xs font-semibold text-[var(--on-accent)] transition hover:bg-[var(--accent-hover)]"
               onClick={refreshToUpdate}
             >
               {" "}

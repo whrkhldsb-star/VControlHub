@@ -29,11 +29,11 @@ export function ReviewCommandForm({ commandRequestId }: { commandRequestId: stri
           pendingLabel={t("requestsPage.review.pending")}
           name="decision"
           value="approve"
-          className="rounded-2xl bg-[var(--success)] px-4 py-2 text-sm font-medium text-[var(--color-action-fg)] transition hover:bg-[var(--success-bg)] hover:text-[var(--success)] disabled:cursor-not-allowed disabled:opacity-60"
+          className="rounded-2xl bg-[var(--success)] px-4 py-2 text-sm font-medium text-[var(--on-accent)] transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
         >
           <span>{t("requestsPage.review.approve")}</span>
         </SubmitButton>
-        <button type="submit" name="decision" value="reject" className="rounded-2xl border border-[var(--border)] px-4 py-2 text-sm font-medium text-[var(--text-primary)] transition hover:bg-[var(--surface)]/10">
+        <button type="submit" name="decision" value="reject" className="rounded-2xl border border-[var(--border)] bg-[var(--surface-elevated)] px-4 py-2 text-sm font-medium text-[var(--text-primary)] transition hover:bg-[var(--surface-hover)]">
           {t("requestsPage.review.reject")}
         </button>
       </div>

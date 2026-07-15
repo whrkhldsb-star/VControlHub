@@ -58,3 +58,10 @@ Shared UI primitives live here. Prefer these exports before adding one-off Tailw
 - Keep user-visible strings localized through `useI18n()` / dictionaries unless the caller passes already-localized text.
 - Prefer semantic CSS tokens (`var(--text-secondary)`, `var(--border)`, `--accent*`) over new hard-coded color classes.
 - Before adding a new shared component, check whether a route-local pattern can be expressed by the primitives above and semantic CSS tokens.
+
+
+## Shared class utilities (`src/lib/ui/`)
+
+- `cn` — tiny className combiner (no clsx dependency).
+- `classes` — reusable token-backed Tailwind fragments (`UI_BTN_PRIMARY`, `UI_INPUT`, …).
+- Prefer `ActionButton` / `page-shell` / `ui-primitives` components over copying fragment strings when a full control fits.

@@ -98,7 +98,7 @@ export function DashboardCustomizeToolbar({
 				<button
 					type="button"
 					onClick={onReset}
-					className="rounded-lg border border-[var(--border)] bg-[var(--surface-hover)] px-3 py-1.5 text-xs text-[var(--text-secondary)] transition hover:bg-[var(--surface-hover)]/40"
+					className="rounded-xl border border-[var(--border)] bg-[var(--surface-elevated)] px-3 py-1.5 text-xs font-medium text-[var(--text-secondary)] transition hover:bg-[var(--surface-hover)]"
 				>
 					{t("dashboard.customize-reset")}
 				</button>
@@ -106,7 +106,7 @@ export function DashboardCustomizeToolbar({
 					type="button"
 					onClick={onExitEdit}
 					data-testid="customize-done"
-					className="rounded-lg bg-[var(--color-action)] px-3 py-1.5 text-xs text-[var(--text-primary)] transition-colors hover:bg-[var(--color-action-hover)]"
+					className="rounded-lg bg-[var(--accent)] px-3 py-1.5 text-xs font-semibold text-[var(--on-accent)] transition-colors hover:bg-[var(--accent-hover)]"
 				>
 					{t("dashboard.customize-done")}
 				</button>

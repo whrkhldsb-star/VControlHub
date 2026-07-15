@@ -1,3 +1,4 @@
+import { cn } from "@/lib/ui/cn";
 import type {
 	ButtonHTMLAttributes,
 	HTMLAttributes,
@@ -48,7 +49,11 @@ export function Badge({
 	return (
 		<span
 			data-tone={tone}
-			className={`inline-flex items-center gap-1 rounded-full border px-2.5 py-0.5 text-xs font-semibold tracking-wide ${TONE_STYLES[tone]} ${className ?? ""}`}
+			className={cn(
+				"inline-flex items-center gap-1 rounded-full border px-2.5 py-0.5 text-xs font-semibold tracking-wide",
+				TONE_STYLES[tone],
+				className,
+			)}
 			{...rest}
 		>
 			{children}
@@ -471,7 +476,10 @@ export function IconButton({
 	return (
 		<button
 			type="button"
-			className={`inline-flex h-9 w-9 items-center justify-center rounded-lg text-[var(--text-muted)] transition hover:bg-[var(--surface-hover)] hover:text-[var(--text-primary)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--accent)] ${className ?? ""}`}
+			className={cn(
+				"inline-flex h-9 w-9 items-center justify-center rounded-lg text-[var(--text-muted)] transition hover:bg-[var(--surface-hover)] hover:text-[var(--text-primary)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--accent)]",
+				className,
+			)}
 			{...rest}
 		>
 			{children}
