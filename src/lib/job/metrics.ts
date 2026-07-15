@@ -37,23 +37,14 @@ export async function getJobBacklogMetrics(): Promise<JobBacklogMetrics> {
     ? Math.max(0, now.getTime() - oldestPending.availableAt.getTime())
     : null;
 
+  // Group by type to find the top job types, then run per-status counts for each
   const grouped = await prisma.job.groupBy({
     by: ["type"],
     where: { status: { in: [JobStatus.PENDING, JobStatus.RUNNING, JobStatus.FAILED] } },
     _count: true,
   });
 
-  const byTypeMap = new Map<string, { type: string; pending: number; running: number; failed: number }>();
-  for (const row of grouped) {
-    const existing = byTypeMap.get(row.type) ?? { type: row.type, pending: 0, running: 0, failed: 0 };
-    // _count gives total across the filtered statuses; split by individual queries would be more precise
-    // but for a metrics dashboard, the total per type is the useful signal
-    existing.pending += row._count;
-    byTypeMap.set(row.type, existing);
-  }
-
-  // For more precision, run per-status counts per type (limited to top types)
-  const topTypes = Array.from(byTypeMap.keys()).slice(0, 20);
+  const topTypes = grouped.sort((a, b) => b._count - a._count).slice(0, 20).map((r) => r.type);
   const byType: Array<{ type: string; pending: number; running: number; failed: number }> = [];
   for (const type of topTypes) {
     const [p, r, f] = await Promise.all([

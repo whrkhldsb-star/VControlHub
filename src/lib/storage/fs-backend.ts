@@ -184,6 +184,19 @@ export async function renameBackingObject(input: {
       input.newRelativePath,
     );
     const credentials = resolveStorageSshCredentials(input.storageNode);
+    const path = await import("node:path");
+    const targetParentDirectory = path.posix.dirname(newPath);
+    if (
+      targetParentDirectory &&
+      targetParentDirectory !== "." &&
+      targetParentDirectory !== "/"
+    ) {
+      await createRemoteDirectory({
+        ...credentials,
+        remotePath: targetParentDirectory,
+        recursive: true,
+      });
+    }
     await renameRemoteFile({ ...credentials, oldPath, newPath });
   }
 }

@@ -222,7 +222,7 @@ async function handlePost(body: SftpOpsBody, session: SessionPayload) {
         await softDeleteSftpIndex(node.id, normalizedRelativePath, body.isDirectory ?? false);
         try {
           await deleteBackingObject({
-            storageNode: { driver: "SFTP", basePath: node.basePath, ...connParams },
+            storageNode: node,
             relativePath: normalizedRelativePath,
             isDirectory: body.isDirectory ?? false,
             tolerateMissing: true,
@@ -240,13 +240,11 @@ async function handlePost(body: SftpOpsBody, session: SessionPayload) {
             { status: 400 },
           );
         }
-        let _normalizedNewPath: string;
         let normalizedNewRelativePath: string;
         try {
-          _normalizedNewPath = normalizeRemoteTargetPath(
-            node.basePath,
-            body.newPath,
-          );
+          // Validate the new path is within the storage root; the result is
+          // used implicitly by fs-backend which re-derives the absolute path.
+          normalizeRemoteTargetPath(node.basePath, body.newPath);
           normalizedNewRelativePath = normalizeRemoteRelativePath(body.newPath);
         } catch {
           return NextResponse.json(
@@ -278,7 +276,7 @@ async function handlePost(body: SftpOpsBody, session: SessionPayload) {
         await renameSftpIndex(node.id, normalizedRelativePath, normalizedNewRelativePath, body.isDirectory ?? false);
         try {
           await renameBackingObject({
-            storageNode: { driver: "SFTP", basePath: node.basePath, ...connParams },
+            storageNode: node,
             oldRelativePath: normalizedRelativePath,
             newRelativePath: normalizedNewRelativePath,
           });

@@ -120,12 +120,20 @@ export async function withApiRoute<TBody = unknown, TQuery = unknown>(
   const path = (() => { try { return new URL(request.url).pathname; } catch { return request.url; } })();
   try {
     const guard = await enforceApiGuard({ request, permission: options.permission, rateLimit: options.rateLimit });
-    if (guard instanceof Response) return attachRequestId(guard, requestId);
+    if (guard instanceof Response) {
+      const dur = performance.now() - startTime;
+      apiLogger.info("request rejected", { method, path, status: guard.status, durationMs: Math.round(dur), requestId });
+      return attachRequestId(guard, requestId, dur);
+    }
 
     let session = guard;
     if (!session && options.requireAuth) {
       const apiSession = await requireApiSession();
-      if (apiSession instanceof Response) return attachRequestId(apiSession, requestId);
+      if (apiSession instanceof Response) {
+        const dur = performance.now() - startTime;
+        apiLogger.info("request auth rejected", { method, path, status: apiSession.status, durationMs: Math.round(dur), requestId });
+        return attachRequestId(apiSession, requestId, dur);
+      }
       session = apiSession;
     }
 
