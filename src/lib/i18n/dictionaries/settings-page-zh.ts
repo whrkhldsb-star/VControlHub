@@ -20,6 +20,8 @@ export const zh: Record<string, string> = {
 	"settingsPage.unified.description": "个人使用习惯、界面行为、账户安全与平台级参数集中在一个入口中管理。",
 	"settingsPage.unified.eyebrow": "个性化设置",
 	"settingsPage.unified.title": "设置",
+	"settingsPage.layout.tipTitle": "怎么更快找到配置？",
+	"settingsPage.layout.tipBody": "上方切换大类，左侧（或顶部芯片）跳到具体分区；系统设置分区可折叠，改完后在分区内保存。个人偏好会自动保存。",
 
 	"settingsClient.saveSuccess": "设置已保存。",
 	"settingsClient.saveFailed": "保存失败",

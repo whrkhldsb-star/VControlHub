@@ -2,13 +2,15 @@
 
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { PageHeader } from "@/components/page-shell";
+import { SegmentedTabs, SideNav, SplitPane, Callout } from "@/components/ui-primitives";
 import type { RuntimeSettingSummaryDto as RuntimeSettingSummary } from "@/lib/runtime-settings/dto";
 import type { SettingUpdateMetadata } from "@/lib/settings/service";
 import { useI18n } from "@/lib/i18n/use-locale";
-import { PreferencesSettingsContent } from "../preferences/preferences-page-client";
+import { PreferencesSettingsContent, PREFERENCES_CATEGORY_SUMMARIES } from "../preferences/preferences-page-client";
 import { SettingsClient } from "./settings-client";
 import { SystemConfigSection } from "./system-config-section";
 import { TeamWorkspaceSection } from "./team-workspace-section";
+import { SETTINGS_SCHEMA } from "./field-schema";
 
 type Props = {
   settings: Record<string, string>;
@@ -36,16 +38,13 @@ const PERSONAL_SECTION_IDS = [
 
 /** Map any section hash to its parent tab. */
 const SECTION_TO_TAB: Record<string, SettingsTab> = {
-  // personal preferences sections
   "personal-preferences": "personal",
   "preferences-default-page": "personal",
   "preferences-dashboard-widgets": "personal",
   "preferences-notifications": "personal",
   "preferences-auto-refresh": "personal",
   "preferences-auto-probe": "personal",
-  // legacy aliases (backward-compat with existing deep links)
   security: "security",
-  // system settings sections (from SETTINGS_SCHEMA)
   ...Object.fromEntries(
     Object.entries(TAB_SECTION_IDS).flatMap(([tab, ids]) =>
       ids.map((id) => [id, tab] as const),
@@ -53,7 +52,12 @@ const SECTION_TO_TAB: Record<string, SettingsTab> = {
   ),
 };
 
-const TAB_META: { id: SettingsTab; icon: string; labelKey: string; descKey: string }[] = [
+const TAB_META: {
+  id: SettingsTab;
+  icon: string;
+  labelKey: string;
+  descKey: string;
+}[] = [
   { id: "personal", icon: "👤", labelKey: "settingsPage.tab.personal", descKey: "settingsPage.tab.personal.desc" },
   { id: "security", icon: "🔒", labelKey: "settingsPage.tab.security", descKey: "settingsPage.tab.security.desc" },
   { id: "notifications", icon: "📢", labelKey: "settingsPage.tab.notifications", descKey: "settingsPage.tab.notifications.desc" },
@@ -69,8 +73,8 @@ export function UnifiedSettingsPageClient({
 }: Props) {
   const { t } = useI18n();
   const [activeTab, setActiveTab] = useState<SettingsTab>("personal");
+  const [activeSection, setActiveSection] = useState<string>("preferences-default-page");
 
-  // Resolve a hash fragment to its parent tab + section id.
   const resolveHash = useCallback((hash: string): { tab: SettingsTab; sectionId: string } | null => {
     const id = hash.replace(/^#/, "");
     if (!id) return null;
@@ -79,8 +83,6 @@ export function UnifiedSettingsPageClient({
     return { tab, sectionId: id };
   }, []);
 
-  // On mount + hashchange, switch to the correct tab and let SettingsClient
-  // handle opening/scrolling to the section within the tab.
   useEffect(() => {
     if (typeof window === "undefined") return;
 
@@ -88,8 +90,7 @@ export function UnifiedSettingsPageClient({
       const resolved = resolveHash(window.location.hash);
       if (resolved) {
         setActiveTab(resolved.tab);
-        // For system-settings sections, dispatch the open-section event so
-        // SettingsClient (if mounted) opens and scrolls to the section.
+        setActiveSection(resolved.sectionId);
         if (resolved.tab !== "personal") {
           setTimeout(() => {
             window.dispatchEvent(
@@ -97,6 +98,14 @@ export function UnifiedSettingsPageClient({
                 detail: { id: resolved.sectionId },
               }),
             );
+          }, 80);
+        } else {
+          // Scroll personal section into view
+          setTimeout(() => {
+            document.getElementById(resolved.sectionId)?.scrollIntoView({
+              behavior: "smooth",
+              block: "start",
+            });
           }, 80);
         }
       }
@@ -109,120 +118,164 @@ export function UnifiedSettingsPageClient({
 
   const handleTabClick = useCallback((tab: SettingsTab) => {
     setActiveTab(tab);
-    // Update URL hash to the first section of the tab so deep-linking works
     const firstSection =
-      tab === "personal"
-        ? "personal-preferences"
-        : TAB_SECTION_IDS[tab]?.[0] ?? "";
+      tab === "personal" ? "preferences-default-page" : TAB_SECTION_IDS[tab]?.[0] ?? "";
     if (firstSection && typeof window !== "undefined") {
+      setActiveSection(firstSection);
       window.history.replaceState(null, "", `#${firstSection}`);
     }
   }, []);
 
+  const handleSectionSelect = useCallback(
+    (sectionId: string) => {
+      setActiveSection(sectionId);
+      if (typeof window !== "undefined") {
+        window.history.replaceState(null, "", `#${sectionId}`);
+      }
+      if (activeTab !== "personal") {
+        window.dispatchEvent(
+          new CustomEvent("vcontrolhub:settings-open-section", {
+            detail: { id: sectionId },
+          }),
+        );
+      }
+      setTimeout(() => {
+        document.getElementById(sectionId)?.scrollIntoView({
+          behavior: "smooth",
+          block: "start",
+        });
+      }, 40);
+    },
+    [activeTab],
+  );
+
   const tabs = canManage ? TAB_META : TAB_META.filter((tab) => tab.id === "personal");
-  // Count sections per tab for the badge
+
   const tabCounts = useMemo(() => {
-    const counts: Record<SettingsTab, number> = {
+    return {
       personal: PERSONAL_SECTION_IDS.length,
       security: TAB_SECTION_IDS.security.length,
       notifications: TAB_SECTION_IDS.notifications.length,
-      advanced: TAB_SECTION_IDS.advanced.length,
-    };
-    return counts;
-  }, []);
+      advanced: TAB_SECTION_IDS.advanced.length + (canManage ? 1 : 0),
+    } as Record<SettingsTab, number>;
+  }, [canManage]);
 
-  // For non-personal tabs, SettingsClient stays mounted (hidden via CSS) so
-  // that unsaved changes are preserved when switching between system-settings
-  // tabs.  Only one SettingsClient instance is ever in the DOM.
   const systemTab = activeTab !== "personal" ? activeTab : null;
   const visibleSectionIds = systemTab ? TAB_SECTION_IDS[systemTab] : TAB_SECTION_IDS.security;
 
+  const sideItems = useMemo(() => {
+    if (activeTab === "personal") {
+      return PREFERENCES_CATEGORY_SUMMARIES.filter((s) => s.id !== "personal-preferences").map(
+        (s) => ({
+          id: s.id,
+          icon: s.icon,
+          label: t(s.title),
+          description: t(s.subtitle),
+        }),
+      );
+    }
+    const ids = TAB_SECTION_IDS[activeTab] ?? [];
+    return ids.map((id) => {
+      const section = SETTINGS_SCHEMA.find((s) => s.id === id);
+      let description: string | undefined;
+      if (section) {
+        const raw = section.descriptionKey;
+        // descriptionKey may be a dynamic function of settings — use a short TOC hint instead
+        description =
+          typeof raw === "string"
+            ? t(raw)
+            : t(`settingsClient.toc.${id}.subtitle`) !== `settingsClient.toc.${id}.subtitle`
+              ? t(`settingsClient.toc.${id}.subtitle`)
+              : undefined;
+      }
+      return {
+        id,
+        icon: section?.icon ?? "•",
+        label: section ? t(section.titleKey) : id,
+        description,
+      };
+    });
+  }, [activeTab, t]);
+
   return (
-    <div className="space-y-6">
+    <div className="space-y-5">
       <PageHeader
         eyebrow={t("settingsPage.unified.eyebrow")}
         title={t("settingsPage.unified.title")}
         description={t("settingsPage.unified.description")}
       />
 
-      {/* ── Tab bar ─────────────────────────────────────────────── */}
-      <div
-        className="sticky top-3 z-30 -mx-1 px-1"
-        role="tablist"
-        aria-label={t("settingsClient.categoryNav")}
+      <Callout tone="accent" title={t("settingsPage.layout.tipTitle")}>
+        {t("settingsPage.layout.tipBody")}
+      </Callout>
+
+      <div className="sticky top-2 z-30 -mx-1 px-1 sm:top-3">
+        <SegmentedTabs
+          ariaLabel={t("settingsClient.tabsAria")}
+          value={activeTab}
+          onChange={(id) => handleTabClick(id as SettingsTab)}
+          items={tabs.map((tab) => ({
+            id: tab.id,
+            icon: tab.icon,
+            label: t(tab.labelKey),
+            description: t(tab.descKey),
+            badge: tabCounts[tab.id],
+          }))}
+        />
+      </div>
+
+      <SplitPane
+        rail={
+          <SideNav
+            ariaLabel={t("settingsClient.categoryNav")}
+            items={sideItems}
+            activeId={activeSection}
+            onSelect={handleSectionSelect}
+            className="hidden lg:block"
+          />
+        }
       >
-        <nav
-          role="tablist"
-          aria-label={t("settingsClient.tabsAria")}
-          className="grid grid-cols-2 gap-1 rounded-2xl border border-[var(--border)] bg-[color-mix(in_srgb,var(--surface)_94%,transparent)] p-1.5 shadow-[var(--shadow-sm)] backdrop-blur-md md:flex md:overflow-x-auto"
-        >
-          {tabs.map((tab) => {
-            const isActive = activeTab === tab.id;
-            const count = tabCounts[tab.id];
+        {/* Mobile section chips — same destinations as side rail */}
+        <div className="flex gap-1.5 overflow-x-auto pb-1 lg:hidden" role="navigation" aria-label={t("settingsClient.categoryNav")}>
+          {sideItems.map((item) => {
+            const active = item.id === activeSection;
             return (
               <button
-                key={tab.id}
-                role="tab"
-                aria-selected={isActive}
-                onClick={() => handleTabClick(tab.id)}
-                className={`group relative flex min-w-0 items-center gap-2 rounded-lg px-2.5 py-2.5 text-left text-sm font-medium transition md:gap-2.5 md:px-3.5 md:whitespace-nowrap ${
-                  isActive
-                    ? "bg-[var(--accent-bg)] text-[var(--accent)]"
-                    : "text-[var(--text-secondary)] hover:bg-[var(--surface-hover)] hover:text-[var(--text-primary)]"
+                key={item.id}
+                type="button"
+                onClick={() => handleSectionSelect(item.id)}
+                className={`shrink-0 rounded-full border px-3 py-1.5 text-xs font-medium transition ${
+                  active
+                    ? "border-[var(--accent-border)] bg-[var(--accent-bg)] text-[var(--accent)]"
+                    : "border-[var(--border)] bg-[var(--surface)] text-[var(--text-secondary)]"
                 }`}
               >
-                <span className="text-base" aria-hidden>
-                  {tab.icon}
-                </span>
-                <span className="flex min-w-0 flex-1 flex-col items-start leading-tight">
-                  <span className="truncate">{t(tab.labelKey)}</span>
-                  <span
-                    className={`hidden truncate text-[10px] font-normal sm:block ${
-                      isActive ? "text-[var(--accent)] opacity-70" : "text-[var(--text-muted)]"
-                    }`}
-                  >
-                    {t(tab.descKey)}
-                  </span>
-                </span>
-                <span
-                  className={`ml-auto inline-flex h-5 min-w-5 shrink-0 items-center justify-center rounded-full px-1.5 text-[10px] font-semibold ${
-                    isActive
-                      ? "bg-[var(--accent)] text-[var(--surface-root)]"
-                      : "bg-[var(--surface-elevated)] text-[var(--text-muted)]"
-                  }`}
-                >
-                  {count}
-                </span>
+                {item.label}
               </button>
             );
           })}
-        </nav>
-      </div>
-
-      {/* ── Tab content ─────────────────────────────────────────── */}
-      {activeTab === "personal" && (
-        <div className="space-y-6">
-          <PreferencesSettingsContent showHeader={false} wrapInShell={false} />
-          <TeamWorkspaceSection canManage={canManage} />
         </div>
-      )}
 
-      {/* SettingsClient stays mounted across system-settings tabs.
-          When the personal tab is active it's hidden via CSS to preserve
-          any unsaved field edits.  visibleSectionIds changes based on the
-          active system tab, so only the relevant sections render. */}
-      <div className={activeTab === "personal" ? "hidden" : ""}>
-        <SettingsClient
-          settings={settings}
-          runtimeSettings={runtimeSettings}
-          settingUpdateMetadata={settingUpdateMetadata}
-          canManage={canManage}
-          twoFactorEnabled={twoFactorEnabled}
-          showCategoryNav={false}
-          visibleSectionIds={visibleSectionIds}
-        />
-        {activeTab === "advanced" && canManage && <SystemConfigSection />}
-      </div>
+        {activeTab === "personal" && (
+          <div className="space-y-5">
+            <PreferencesSettingsContent showHeader={false} wrapInShell={false} />
+            <TeamWorkspaceSection canManage={canManage} />
+          </div>
+        )}
+
+        <div className={activeTab === "personal" ? "hidden" : "space-y-5"}>
+          <SettingsClient
+            settings={settings}
+            runtimeSettings={runtimeSettings}
+            settingUpdateMetadata={settingUpdateMetadata}
+            canManage={canManage}
+            twoFactorEnabled={twoFactorEnabled}
+            showCategoryNav={false}
+            visibleSectionIds={visibleSectionIds}
+          />
+          {activeTab === "advanced" && canManage && <SystemConfigSection />}
+        </div>
+      </SplitPane>
     </div>
   );
 }

@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { PageShell, PageHeader } from "@/components/page-shell";
+import { Switch } from "@/components/ui-primitives";
 import { Bell, Home, LayoutDashboard, Radio, RefreshCw, User } from "@/components/icons";
 import { csrfFetch } from "@/lib/auth/csrf-client";
 import { REFRESH_INTERVAL_OPTIONS } from "@/lib/preferences/refresh-interval";
@@ -72,19 +73,19 @@ function Section({
 	const title = summary ? t(summary.title) : summaryId;
 	const subtitle = summary ? t(summary.subtitle) : "";
 	return (
-		<section id={summaryId} className="scroll-mt-24" data-card>
-			<div className="p-5 space-y-4">
-				<div className="flex flex-col gap-1">
+		<section id={summaryId} className="scroll-mt-28" data-card>
+			<div className="space-y-4 p-5 sm:p-6">
+				<div className="flex flex-col gap-1 border-b border-[var(--border-subtle)] pb-3">
 					<div className="flex items-center gap-2 text-[11px] font-medium uppercase tracking-wide text-[var(--text-muted)]">
 						<span>{t("preferencesPage.group.personal")}</span>
 					</div>
-					<h2 className="text-lg font-semibold text-[var(--text-primary)] flex items-center gap-2 flex-wrap">
+					<h2 className="flex flex-wrap items-center gap-2 text-base font-semibold text-[var(--text-primary)] sm:text-lg">
 						{summary?.icon && <span aria-hidden>{summary.icon}</span>}
 						<span>{title}</span>
 					</h2>
-					{subtitle && <p className="text-xs text-[var(--text-muted)]">{subtitle}</p>}
+					{subtitle && <p className="text-xs leading-5 text-[var(--text-muted)]">{subtitle}</p>}
 				</div>
-				<div className="space-y-4">{children}</div>
+				<div className="space-y-3">{children}</div>
 			</div>
 		</section>
 	);
@@ -146,22 +147,18 @@ export const PREFERENCES_CATEGORY_SUMMARIES: PreferencesCategorySummary[] = [
 
 /** Toggle switch — extracted to module top to avoid re-creation on every render */
 function Toggle({ label, checked, onChange }: { label: string; checked: boolean; onChange: (v: boolean) => void }) {
-	// HTML id 不允许空格 / 斜杠 / 中文等字符; 用稳定 hash 替代文字 id,
-	// 这样 aria-labelledby 在长 label (含中点 / URL) 下也能正确解析。
 	const sanitizedId = `preference-toggle-${hashLabel(label)}`;
 	return (
-		<div className="flex items-center justify-between">
-			<span id={sanitizedId} className="text-sm text-[var(--text-secondary)]">{label}</span>
-			<button
-				type="button"
-				role="switch"
-				aria-checked={checked}
-				aria-labelledby={sanitizedId}
-				onClick={() => onChange(!checked)}
-				className={`relative w-10 h-5 rounded-full transition focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--surface-root)] ${checked ? "bg-[var(--accent)]" : "bg-[var(--border-strong)]"}`}
-			>
-				<span aria-hidden="true" className={`absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-[var(--surface)] transition ${checked ? "translate-x-5" : ""}`} />
-			</button>
+		<div className="flex items-center justify-between gap-3 rounded-xl border border-[var(--border-subtle)] bg-[color-mix(in_srgb,var(--surface-subtle)_50%,var(--surface))] px-3.5 py-3">
+			<span id={`${sanitizedId}-label`} className="text-sm text-[var(--text-secondary)]">
+				{label}
+			</span>
+			<Switch
+				id={sanitizedId}
+				label={label}
+				checked={checked}
+				onCheckedChange={onChange}
+			/>
 		</div>
 	);
 }

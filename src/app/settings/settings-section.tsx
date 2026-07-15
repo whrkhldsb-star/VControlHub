@@ -102,33 +102,33 @@ export function CollapsibleSection({
   const Inner = asForm ? "form" : "div";
   const badgeClass = BADGE_COLOR_CLASSES[badgeTone] ?? BADGE_COLOR_CLASSES.cyan;
   return (
-    <section id={id} className="scroll-mt-24" data-card>
+    <section id={id} className="scroll-mt-28" data-card>
       <details open={open} onToggle={onToggle} className="group">
         <summary
-          className="cursor-pointer list-none p-5 transition hover:bg-[var(--surface-hover)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-[var(--accent)] rounded-xl"
+          className="cursor-pointer list-none rounded-xl p-5 transition hover:bg-[var(--surface-hover)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-[var(--accent)]"
           aria-label={`${open ? t("settingsClient.collapse") : t("settingsClient.expand")} ${title} ${t("settingsClient.sectionSuffix")}`}
         >
           <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
-            <div className="flex items-start gap-3 min-w-0 flex-1">
+            <div className="flex min-w-0 flex-1 items-start gap-3">
               <span
                 aria-hidden
-                className="mt-0.5 inline-flex h-6 w-6 items-center justify-center rounded-lg text-[var(--text-muted)] transition group-open:rotate-90"
+                className="mt-0.5 inline-flex h-7 w-7 items-center justify-center rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-subtle)] text-[10px] text-[var(--text-muted)] transition group-open:rotate-90"
               >
                 ▶
               </span>
               <div className="min-w-0 flex-1">
-                <h2 className="text-lg font-semibold text-[var(--text-primary)] flex items-center gap-2 flex-wrap">
+                <h2 className="flex flex-wrap items-center gap-2 text-base font-semibold text-[var(--text-primary)] sm:text-lg">
                   <span aria-hidden>{icon}</span>
                   <span>{title}</span>
                   {badge && (
                     <span
-                      className={`text-[11px] font-medium px-2 py-0.5 rounded-full border ${badgeClass}`}
+                      className={`rounded-full border px-2 py-0.5 text-[11px] font-medium ${badgeClass}`}
                     >
                       {badge}
                     </span>
                   )}
                 </h2>
-                <p className="mt-1 text-xs text-[var(--text-muted)]">{description}</p>
+                <p className="mt-1 text-xs leading-5 text-[var(--text-muted)]">{description}</p>
               </div>
             </div>
             {headerExtra && (
@@ -143,7 +143,7 @@ export function CollapsibleSection({
           </div>
         </summary>
         <Inner
-          className="px-5 pb-5 pt-1 space-y-4"
+          className="space-y-4 border-t border-[var(--border-subtle)] px-5 pb-5 pt-4"
           {...(asForm
             ? { onSubmit: (event: React.FormEvent) => event.preventDefault() }
             : {})}

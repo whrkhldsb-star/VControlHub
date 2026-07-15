@@ -11,6 +11,8 @@ export const en: Record<string, string> = {
 	"settingsPage.unified.description": "Personal habits, interface behavior, account security, and platform-level parameters are managed from one place.",
 	"settingsPage.unified.eyebrow": "Personalized settings",
 	"settingsPage.unified.title": "Settings",
+	"settingsPage.layout.tipTitle": "Find settings faster",
+	"settingsPage.layout.tipBody": "Use the top tabs for major categories and the left rail (or mobile chips) to jump to a section. System sections are collapsible and save per section; personal preferences auto-save.",
 	"settingsClient.saveSuccess": "Settings saved.",
 	"settingsClient.saveFailed": "Save failed",
 	"settingsClient.categoryNav": "Settings category navigation",

@@ -1,9 +1,8 @@
-import { cookies } from "next/headers";
-import Link from "next/link";
 import { requireSession } from "@/lib/auth/require-session";
 import { sessionHasPermission } from "@/lib/auth/authorization";
 import { listServerProfiles } from "@/lib/server/service";
 import { PageShell, PageHeader, StatCard, EmptyState } from "@/components/page-shell";
+import { Callout } from "@/components/ui-primitives";
 import { getSessionCookieName } from "@/lib/auth/session";
 import { logError } from "@/lib/logging";
 import { getServerLocale, t } from "@/lib/i18n/translations";
@@ -16,6 +15,8 @@ import { ServerTabLayout } from "./server-tab-layout";
 import { ServerOverviewCard } from "./server-overview-card";
 import { AutoProbeProvider } from "./auto-probe-context";
 import { SshTerminalProvider } from "./ssh-terminal-context";
+import Link from "next/link";
+import { cookies } from "next/headers";
 
 export const dynamic = "force-dynamic";
 
@@ -61,21 +62,23 @@ export default async function ServersPage() {
 				</div>
 			</PageHeader>
 
-			<section className="grid gap-3 sm:grid-cols-3 mb-6">
+			<section className="mb-5 grid gap-3 sm:grid-cols-3">
 				<StatCard label={t("serversPage.stat.total")} value={String(servers.length)} />
 				<StatCard label={t("serversPage.stat.enabled")} value={String(enabledCount)} accent={enabledCount > 0} accentColor="emerald" />
 				<StatCard label={t("serversPage.stat.storage")} value={String(storageCount)} accent={storageCount > 0} accentColor="cyan" />
 			</section>
-			<section className="mb-5 rounded-2xl border border-[var(--border)] bg-[color-mix(in_srgb,var(--accent-bg)_45%,var(--surface))] px-4 py-3.5">
-				<div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
-					<div>
-						<h2 className="text-sm font-semibold text-[var(--text-primary)]">{t("serversPage.statusPriority.title")}</h2>
-						<p className="mt-0.5 text-xs leading-5 text-[var(--text-muted)]">{t("serversPage.statusPriority.desc")}</p>
-					</div>
-					<span className="mt-2 inline-flex w-fit items-center rounded-full border border-[var(--accent-border)] bg-[var(--surface)] px-2.5 py-1 text-[11px] font-medium text-[var(--accent)] sm:mt-0">
-						{enabledCount}/{servers.length}
-					</span>
-				</div>
+			<section className="mb-5">
+				<Callout
+					tone="accent"
+					title={t("serversPage.statusPriority.title")}
+					action={
+						<span className="inline-flex items-center rounded-full border border-[var(--accent-border)] bg-[var(--surface)] px-2.5 py-1 text-[11px] font-medium text-[var(--accent)]">
+							{enabledCount}/{servers.length}
+						</span>
+					}
+				>
+					{t("serversPage.statusPriority.desc")}
+				</Callout>
 			</section>
 
 			<SshTerminalProvider>

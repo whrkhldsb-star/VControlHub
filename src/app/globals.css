@@ -1626,7 +1626,47 @@ html.light .animate-pulse {
 	background-size: 200% 100% !important;
 }
 
-/* Badge / tone chips */
-html.light [data-tone] {
-	box-shadow: inset 0 0 0 1px color-mix(in srgb, currentColor 8%, transparent);
+/* ============================================================
+ * Shared layout chrome for segmented tabs / split panes / form fields
+ * ============================================================ */
+
+[data-segmented-tabs] {
+	scrollbar-width: none;
+}
+
+[data-side-nav] button {
+	position: relative;
+}
+
+[data-side-nav] button[class*="bg-[var(--accent-bg)]"]::before,
+html.light [data-side-nav] button.bg-\[var\(--accent-bg\)\]::before {
+	content: "";
+	position: absolute;
+	left: 0;
+	top: 50%;
+	transform: translateY(-50%);
+	height: 55%;
+	width: 3px;
+	border-radius: 0 3px 3px 0;
+	background: var(--accent);
+}
+
+[data-form-field] {
+	transition: border-color 0.15s, background 0.15s, box-shadow 0.15s;
+}
+
+[data-callout] {
+	box-shadow: var(--shadow-sm);
+}
+
+html.light [data-segmented-tabs] {
+	background: color-mix(in srgb, #ffffff 92%, var(--surface-subtle)) !important;
+}
+
+html.light [data-side-nav] {
+	background: color-mix(in srgb, #ffffff 94%, var(--surface-subtle)) !important;
+}
+
+html.light [data-form-field] {
+	background: color-mix(in srgb, var(--surface-subtle) 40%, #ffffff);
 }

@@ -12,6 +12,7 @@
 import { useId } from "react";
 
 import { useI18n } from "@/lib/i18n/use-locale";
+import { CONTROL_CLASS, Switch } from "@/components/ui-primitives";
 import type { RuntimeSettingSummaryDto as RuntimeSettingSummary } from "@/lib/runtime-settings/dto";
 import type { FieldDef } from "./field-schema";
 import {
@@ -186,10 +187,11 @@ export function SelectField({
     : field.defaultValue ?? options[0]?.value ?? "";
   return (
     <div
-      className={`space-y-1.5 rounded-lg border p-3 transition ${
+      data-form-field
+      className={`space-y-1.5 rounded-xl border p-3.5 transition ${
         disabled
-          ? "border-[var(--border)] bg-[var(--surface-subtle)] opacity-70 light:bg-[var(--surface)]/80"
-          : "border-transparent bg-[var(--surface)]/[0.04]"
+          ? "border-[var(--border)] bg-[var(--surface-subtle)] opacity-70"
+          : "border-[var(--border-subtle)] bg-[color-mix(in_srgb,var(--surface-subtle)_55%,var(--surface))] focus-within:border-[var(--accent-border)] focus-within:bg-[var(--surface)]"
       }`}
     >
       <div className="flex items-center justify-between gap-2">
@@ -209,12 +211,13 @@ export function SelectField({
       </div>
       <select
         id={inputId}
+        data-input
         value={normalizedValue}
         onChange={(e) => onChange(e.target.value)}
         onBlur={() => onHighRiskBlur(normalizedValue)}
         disabled={disabled}
         aria-describedby={describedBy}
-        className="w-full rounded-lg border border-[var(--border)] bg-[var(--surface)]/[0.04] px-3.5 py-2.5 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--color-action-border)]/30 disabled:cursor-not-allowed disabled:border-[var(--border)] disabled:bg-[var(--surface-subtle)] disabled:text-[var(--text-muted)]"
+        className={CONTROL_CLASS}
       >
         {options.map((opt) => (
           <option key={opt.value} value={opt.value} className="bg-[var(--surface)] text-[var(--text-primary)]">
@@ -260,10 +263,11 @@ export function InputField({
       .join(" ") || undefined;
   return (
     <div
-      className={`space-y-1.5 rounded-lg border p-3 transition ${
+      data-form-field
+      className={`space-y-1.5 rounded-xl border p-3.5 transition ${
         disabled
-          ? "border-[var(--border)] bg-[var(--surface-subtle)] opacity-70 light:bg-[var(--surface)]/80"
-          : "border-transparent bg-[var(--surface)]/[0.04]"
+          ? "border-[var(--border)] bg-[var(--surface-subtle)] opacity-70"
+          : "border-[var(--border-subtle)] bg-[color-mix(in_srgb,var(--surface-subtle)_55%,var(--surface))] focus-within:border-[var(--accent-border)] focus-within:bg-[var(--surface)]"
       }`}
     >
       <div className="flex items-center justify-between gap-2">
@@ -283,6 +287,7 @@ export function InputField({
       </div>
       <input
         id={inputId}
+        data-input
         type={field.type}
         value={value}
         onChange={(e) => onChange(e.target.value)}
@@ -291,11 +296,11 @@ export function InputField({
         autoComplete={field.autoComplete}
         disabled={disabled}
         aria-describedby={describedBy}
-        className="w-full rounded-lg border border-[var(--border)] bg-[var(--surface)]/[0.04] px-3.5 py-2.5 text-sm text-[var(--text-primary)] outline-none transition placeholder:text-[var(--text-primary)]/30 focus:border-[var(--color-action-border)]/30 disabled:cursor-not-allowed disabled:border-[var(--border)] disabled:bg-[var(--surface-subtle)] disabled:text-[var(--text-muted)] disabled:placeholder:text-[var(--text-primary)]/10 light:disabled:placeholder:text-[var(--text-secondary)]"
+        className={CONTROL_CLASS}
       />
       {showHighRiskWarning && <HighRiskBlurWarning id={warningId} />}
       {helperText && (
-        <p id={helperId} className="text-xs text-[var(--text-primary)]">
+        <p id={helperId} className="text-xs leading-5 text-[var(--text-muted)]">
           {helperText}
         </p>
       )}
@@ -321,10 +326,11 @@ export function TextAreaField({
   const warningId = useId();
   return (
     <div
-      className={`space-y-1.5 rounded-lg border p-3 transition ${
+      data-form-field
+      className={`space-y-1.5 rounded-xl border p-3.5 transition ${
         disabled
           ? "border-[var(--border)] bg-[var(--surface-subtle)] opacity-70"
-          : "border-transparent bg-[var(--surface)]/[0.04]"
+          : "border-[var(--border-subtle)] bg-[color-mix(in_srgb,var(--surface-subtle)_55%,var(--surface))] focus-within:border-[var(--accent-border)] focus-within:bg-[var(--surface)]"
       }`}
     >
       <div className="flex items-center justify-between gap-2">
@@ -344,6 +350,7 @@ export function TextAreaField({
       </div>
       <textarea
         id={inputId}
+        data-input
         value={value}
         onChange={(e) => onChange(e.target.value)}
         onBlur={() => onHighRiskBlur(value)}
@@ -355,11 +362,11 @@ export function TextAreaField({
             .join(" ") || undefined
         }
         rows={4}
-        className="w-full rounded-lg border border-[var(--border)] bg-[var(--surface)]/[0.04] px-3.5 py-2.5 text-sm text-[var(--text-primary)] outline-none transition placeholder:text-[var(--text-primary)]/30 focus:border-[var(--color-action-border)]/30 disabled:cursor-not-allowed"
+        className={`${CONTROL_CLASS} min-h-[6rem] resize-y`}
       />
       {showHighRiskWarning && <HighRiskBlurWarning id={warningId} />}
       {helperText && (
-        <p id={helperId} className="text-xs text-[var(--text-primary)]">
+        <p id={helperId} className="text-xs leading-5 text-[var(--text-muted)]">
           {helperText}
         </p>
       )}
@@ -384,18 +391,7 @@ export function SwitchField({
         {label}
         <FieldRiskBadge level={riskLevel} />
       </span>
-      <button
-        type="button"
-        role="switch"
-        aria-checked={value}
-        aria-label={label}
-        onClick={() => onChange(!value)}
-        className={`relative w-10 h-5 rounded-full transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-action)] ${value ? "bg-[var(--color-action)]" : "bg-[var(--surface-hover)]"}`}
-      >
-        <span
-          className={`absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-[var(--surface)] shadow transition-transform ${value ? "translate-x-5" : ""}`}
-        />
-      </button>
+      <Switch label={label} checked={value} onCheckedChange={onChange} />
     </div>
   );
 }
