@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useCallback, useMemo } from "react";
-import { EmptyState } from "@/components/page-shell";
+import { EmptyState, Toolbar, SurfacePanel } from "@/components/page-shell";
 import { csrfFetch } from "@/lib/auth/csrf-client";
 import { useI18n } from "@/lib/i18n/use-locale";
 import { ConfirmDialog } from "@/components/confirm-dialog";
@@ -127,7 +127,7 @@ export function ScheduledTaskListClient({ tasks: initialTasks, servers, canCreat
 	return (
 		<div className="space-y-6">
 			{actionError && <div role="alert" className="rounded-lg bg-[var(--danger)]/[0.10] border border-[var(--danger-border)] px-3.5 py-2.5 text-sm text-[var(--danger)]">{actionError}</div>}
-			<div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+			<Toolbar className="flex-col gap-3 md:flex-row md:items-center md:justify-between">
 				<div className="space-y-1">
 					<label htmlFor="scheduled-task-log-search" className="text-xs font-medium text-[var(--text-secondary)]">{t("scheduledTasksPage.search.label")}</label>
 					<input
@@ -141,17 +141,22 @@ export function ScheduledTaskListClient({ tasks: initialTasks, servers, canCreat
 				</div>
 				{canCreate && !showCreate && (
 					<button
+						type="button"
 						onClick={() => setShowCreate(true)}
 						data-primary
-						className="min-h-11 rounded-xl bg-[var(--accent)] px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-[var(--accent-hover)]"
+						className="min-h-11 rounded-xl bg-[var(--accent)] px-5 py-2.5 text-sm font-semibold text-[var(--on-accent)] transition hover:bg-[var(--accent-hover)]"
 					>
 						{t("scheduledTasksPage.create")}
 						</button>
 				)}
-			</div>
+			</Toolbar>
 
 			{showCreate && (
-				<CreateTaskForm servers={servers} onClose={() => { setShowCreate(false); void refresh(); }} />
+				<div className="mb-1">
+					<SurfacePanel title={t("scheduledTasksPage.create")}>
+						<CreateTaskForm servers={servers} onClose={() => { setShowCreate(false); void refresh(); }} />
+					</SurfacePanel>
+				</div>
 			)}
 
 			{tasks.length === 0 && !showCreate ? (
@@ -337,7 +342,7 @@ function CreateTaskForm({ servers, onClose }: { servers: ServerOption[]; onClose
 			)}
 
 			<div className="flex gap-3 pt-2">
-				<button type="submit" disabled={submitting} data-primary className="min-h-11 rounded-xl bg-[var(--accent)] px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-[var(--accent-hover)] disabled:opacity-60">
+				<button type="submit" disabled={submitting} data-primary className="min-h-11 rounded-xl bg-[var(--accent)] px-5 py-2.5 text-sm font-semibold text-[var(--on-accent)] transition hover:bg-[var(--accent-hover)] disabled:opacity-60">
 					{submitting ? t("scheduledTasks.submit.creating") : t("scheduledTasks.submit.create")}
 				</button>
 				<button type="button" onClick={onClose} className="min-h-11 rounded-2xl border border-[var(--border)] px-5 py-2 text-sm text-[var(--text-secondary)] hover:bg-[var(--surface)]/10 transition">

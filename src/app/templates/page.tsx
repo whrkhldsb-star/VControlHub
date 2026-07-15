@@ -32,12 +32,12 @@ export default async function CommandTemplatesPage() {
 
 	return (
 		<PageShell maxW="max-w-7xl">
-				<PageHeader
+			<PageHeader
 				eyebrow={t("templatesPage.eyebrow", locale)}
 				title={t("templatesPage.title", locale)}
 				description={t("templatesPage.desc", locale)}
-				/>
-				<TemplateListClient templates={serialized} servers={serverOptions} canCreate={canCreate} canDeploy={canDeploy} locale={locale} />
+			/>
+			<TemplateListClient templates={serialized} servers={serverOptions} canCreate={canCreate} canDeploy={canDeploy} locale={locale} />
 		</PageShell>
 	);
 }

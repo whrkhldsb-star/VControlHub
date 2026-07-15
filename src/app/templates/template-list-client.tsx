@@ -3,7 +3,7 @@
 import { useState, useCallback, useId } from "react";
 import { csrfFetch } from "@/lib/auth/csrf-client";
 import { useToast } from "@/components/toast-provider";
-import { EmptyState } from "@/components/page-shell";
+import { EmptyState, Toolbar, SurfacePanel } from "@/components/page-shell";
 import { useI18n } from "@/lib/i18n/use-locale";
 import { useDialogFocus } from "@/lib/a11y/use-dialog-focus";
 import type { Locale } from "@/lib/i18n/translations";
@@ -88,7 +88,7 @@ export function TemplateListClient({ templates: initialTemplates, servers, canCr
 	return (
 		<div className="space-y-6">
 			{templatePendingDelete && (
-				<div ref={dialogRef} className="fixed inset-0 z-50 flex items-center justify-center bg-[var(--surface)]/70 p-4 backdrop-blur-sm" role="dialog" aria-modal="true" aria-labelledby="delete-template-title">
+				<div ref={dialogRef} className="fixed inset-0 z-50 flex items-center justify-center bg-[var(--overlay)] p-4 backdrop-blur-sm" role="dialog" aria-modal="true" aria-labelledby="delete-template-title">
 					<div className="w-full max-w-md rounded-2xl border border-[var(--border)] bg-[var(--modal-bg)] p-5 shadow-2xl shadow-black/30">
 						<h3 id="delete-template-title" className="text-base font-semibold text-[var(--text-primary)]">{t("templatesPage.delete.title")}</h3>
 						<p className="mt-2 text-sm text-[var(--text-muted)]">{t("templatesPage.delete.confirm").replace("{name}", templatePendingDelete.name)}</p>
@@ -111,9 +111,7 @@ export function TemplateListClient({ templates: initialTemplates, servers, canCr
 					</div>
 				</div>
 			)}
-			{/* Controls */}
-			<div className="flex items-center justify-between flex-wrap gap-3">
-				{/* Tag filter */}
+			<Toolbar className="justify-between">
 				{allTags.length > 0 && (
 					<div className="flex flex-wrap items-center gap-1.5">
 						<span className="text-xs text-[var(--text-muted)]">{t("templatesPage.filter.label")}</span>
@@ -138,20 +136,24 @@ export function TemplateListClient({ templates: initialTemplates, servers, canCr
 				)}
 				{canCreate && !showCreate && (
 					<button
+						type="button"
 						onClick={() => setShowCreate(true)}
 						data-primary
-						className="min-h-11 rounded-xl bg-[var(--accent)] px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-[var(--accent-hover)]"
+						className="min-h-11 rounded-xl bg-[var(--accent)] px-5 py-2.5 text-sm font-semibold text-[var(--on-accent)] transition hover:bg-[var(--accent-hover)]"
 					>
 						{t("templatesPage.action.create")}
 					</button>
 				)}
-			</div>
+			</Toolbar>
 
 			{showCreate && (
-				<CreateTemplateForm onClose={() => { setShowCreate(false); refresh(); }} />
+				<div className="mb-1">
+					<SurfacePanel title={t("templatesPage.action.create")}>
+						<CreateTemplateForm onClose={() => { setShowCreate(false); refresh(); }} />
+					</SurfacePanel>
+				</div>
 			)}
 
-			{/* Template grid */}
 			{filtered.length === 0 ? (
 				<EmptyState icon="📝" variant="boxed">
 					{t("templatesPage.empty")}
@@ -348,7 +350,7 @@ function CreateTemplateForm({ onClose }: { onClose: () => void }) {
 				<input id={`${createFormId}-tags`} value={tags} onChange={(e) => setTags(e.target.value)} placeholder={t("templatesPage.create.tagsPlaceholder")} className="w-full rounded-lg border border-[var(--border)] bg-[var(--surface)]/[0.04] px-3.5 py-2.5 text-sm text-[var(--text-primary)] outline-none transition placeholder:text-[var(--text-primary)]/30 focus:border-[var(--color-action-border)]/30" />
 			</div>
 			<div className="flex gap-3 pt-2">
-				<button type="submit" disabled={submitting} data-primary className="min-h-11 rounded-xl bg-[var(--accent)] px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-[var(--accent-hover)] disabled:opacity-60">
+				<button type="submit" disabled={submitting} data-primary className="min-h-11 rounded-xl bg-[var(--accent)] px-5 py-2.5 text-sm font-semibold text-[var(--on-accent)] transition hover:bg-[var(--accent-hover)] disabled:opacity-60">
 					{submitting ? t("templatesPage.create.submitting") : t("templatesPage.create.submit")}
 				</button>
 				<button type="button" onClick={onClose} className="min-h-11 rounded-2xl border border-[var(--border)] px-5 py-2 text-sm text-[var(--text-secondary)] hover:bg-[var(--surface)]/10 transition">

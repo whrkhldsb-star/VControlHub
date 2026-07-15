@@ -8,6 +8,7 @@ import { useDialogFocus } from "@/lib/a11y/use-dialog-focus";
 import { SnippetEditModal } from "./snippet-edit-modal";
 import { CreateSnippetModal } from "./create-snippet-modal";
 import { Pencil, Trash2, Copy, Check, Search, Plus } from "@/components/icons";
+import { EmptyState, Toolbar, ListPanel } from "@/components/page-shell";
 
 interface Snippet {
   id: string;
@@ -127,8 +128,8 @@ export function SnippetList({ snippets: initial }: { snippets: Snippet[] }) {
 
   return (
     <>
-      <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center">
-        <div className="relative flex-1">
+      <Toolbar className="mb-4 flex-col items-stretch gap-3 sm:flex-row sm:items-end">
+        <div className="relative min-w-0 flex-1">
           <label
             htmlFor="snippets-search"
             className="mb-1 block text-xs font-medium text-[var(--text-secondary)]"
@@ -139,41 +140,53 @@ export function SnippetList({ snippets: initial }: { snippets: Snippet[] }) {
           <input
             id="snippets-search"
             type="search"
+            data-input
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder={t("snippetsPage.titlePlaceholder")}
-            className="w-full rounded-lg border border-[var(--border)] bg-[var(--surface)]/[0.04] pl-9 pr-4 py-2 text-sm text-[var(--text-primary)] outline-none placeholder:text-[var(--text-muted)]"
+            className="w-full rounded-xl border border-[var(--border)] bg-[var(--input-bg)] py-2 pl-9 pr-4 text-sm text-[var(--text-primary)] outline-none placeholder:text-[var(--text-muted)] focus:border-[var(--accent-border)]"
           />
         </div>
         <select
+          data-input
           value={langFilter}
           onChange={(e) => setLangFilter(e.target.value)}
           aria-label={t("snippetsPage.filter.placeholder")}
-          className="rounded-lg border border-[var(--border)] bg-[var(--surface)]/[0.04] px-3 py-2 text-sm text-[var(--text-primary)] outline-none"
+          className="rounded-xl border border-[var(--border)] bg-[var(--input-bg)] px-3 py-2 text-sm text-[var(--text-primary)] outline-none"
         >
           {languages.map((l) => (
             <option key={l} value={l}>{l === "ALL" ? t("snippetsPage.filter.allLanguages") : l}</option>
           ))}
         </select>
-        <span className="text-xs text-[var(--text-muted)]">{t("snippetsPage.count").replace("{count}", String(filtered.length))}</span>
+        <span className="px-1 text-xs text-[var(--text-muted)]">{t("snippetsPage.count").replace("{count}", String(filtered.length))}</span>
         <button
+          type="button"
           onClick={() => setCreating(true)}
-          className="min-h-11 inline-flex items-center gap-1.5 rounded-lg bg-[var(--accent)] px-3 py-2 text-sm font-medium text-white transition hover:bg-[var(--accent-hover)]"
+          data-primary
+          className="inline-flex min-h-11 items-center gap-1.5 rounded-xl bg-[var(--accent)] px-3 py-2 text-sm font-medium text-[var(--on-accent)] transition hover:bg-[var(--accent-hover)]"
         >
           <Plus size={14} /> {t("snippetsPage.new")}
         </button>
-      </div>
+      </Toolbar>
 
-      <div className="grid gap-3">
+      <ListPanel
+        title={t("snippetsPage.pageTitle")}
+        count={filtered.length}
+        empty={
+          filtered.length === 0 ? (
+            <EmptyState variant="boxed">
+              {items.length === 0 ? t("snippetsPage.empty") : t("snippetsPage.noMatch")}
+            </EmptyState>
+          ) : undefined
+        }
+        bodyClassName="!divide-y-0 space-y-0 bg-transparent p-2.5"
+      >
         {filtered.map((s) => (
-          <SnippetCard key={s.id} snippet={s} t={t} copied={copiedId === s.id} onCopy={handleCopy} onEdit={handleEdit} onDelete={handleDeleteClick} />
-        ))}
-        {filtered.length === 0 && (
-          <div data-card className="p-8 text-center text-sm text-[var(--text-muted)]">
-            {items.length === 0 ? t("snippetsPage.empty") : t("snippetsPage.noMatch")}
+          <div key={s.id} className="mb-2.5 last:mb-0">
+            <SnippetCard snippet={s} t={t} copied={copiedId === s.id} onCopy={handleCopy} onEdit={handleEdit} onDelete={handleDeleteClick} />
           </div>
-        )}
-      </div>
+        ))}
+      </ListPanel>
 
       {creating && (
         <CreateSnippetModal
@@ -194,7 +207,7 @@ export function SnippetList({ snippets: initial }: { snippets: Snippet[] }) {
       )}
 
       {pendingDelete && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-[var(--surface)]/70 p-4 backdrop-blur-sm" role="presentation" onClick={(event) => {
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-[var(--overlay)] p-4 backdrop-blur-sm" role="presentation" onClick={(event) => {
           if (event.target === event.currentTarget) setPendingDelete(null);
         }}>
           <div ref={dialogRef} role="dialog" aria-modal="true" aria-labelledby="delete-snippet-title" className="w-full max-w-md rounded-2xl border border-[var(--border)] bg-[var(--modal-bg)] p-5 shadow-2xl shadow-black/30">

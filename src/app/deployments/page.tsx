@@ -2,7 +2,7 @@ import { requireSession } from "@/lib/auth/require-session";
 import { sessionHasPermission } from "@/lib/auth/authorization";
 import { listDeploymentRuns, listDeploymentTemplates } from "@/lib/deployment/service";
 import { prisma } from "@/lib/db";
-import { PageShell, EmptyState, PageHeader } from "@/components/page-shell";
+import { PageShell, EmptyState, PageHeader, ListPanel, ListRow, SurfacePanel } from "@/components/page-shell";
 import { DeploymentLaunchForm } from "./deployment-launch-form";
 import { DeploymentExportPanel } from "./deployment-export-panel";
 import { ResendDeployButton } from "./resend-deploy-button";
@@ -27,7 +27,7 @@ export default async function DeploymentsPage({ searchParams }: { searchParams?:
 	const tr = (key: string) => t(key, locale);
 	const trTpl = (key: string, vars: Record<string, string>) =>
 		Object.entries(vars).reduce((s, [k, v]) => s.replaceAll(`{${k}}`, v), tr(key));
-	if (!sessionHasPermission(session, "deploy:read")) return <PageShell><EmptyState text={tr("deploymentsPage.page.noPermission")} /></PageShell>;
+	if (!sessionHasPermission(session, "deploy:read")) return <PageShell><EmptyState text={tr("deploymentsPage.page.noPermission")} variant="boxed" /></PageShell>;
 	const canRun = sessionHasPermission(session, "deploy:run");
 	const canExport = sessionHasPermission(session, "deploy:export");
 	const params = await searchParams;
@@ -43,8 +43,8 @@ export default async function DeploymentsPage({ searchParams }: { searchParams?:
 			<PageHeader eyebrow={tr("deploymentsPage.page.eyebrow")} title={tr("deploymentsPage.page.title")} description={tr("deploymentsPage.page.description")} />
 
 			{/* How it works */}
-			<section className="mb-6 rounded-2xl border border-[var(--border)] bg-[color-mix(in_srgb,var(--accent-bg)_40%,var(--surface))] p-5">
-				<h2 className="text-sm font-semibold text-[var(--text-primary)] mb-3">{tr("deploymentsPage.page.howItWorks.title")}</h2>
+			<section className="mb-5 rounded-2xl border border-[var(--border)] bg-[color-mix(in_srgb,var(--accent-bg)_40%,var(--surface))] p-5 shadow-[var(--shadow-sm)]">
+				<h2 className="mb-3 text-sm font-semibold text-[var(--text-primary)]">{tr("deploymentsPage.page.howItWorks.title")}</h2>
 				<div className="grid gap-2 text-xs text-[var(--text-secondary)] md:grid-cols-5">
 					<div className="rounded-xl border border-[var(--border-subtle)] bg-[var(--surface)] p-3 text-center">
 						<div className="text-lg mb-1">📝</div>
@@ -81,14 +81,14 @@ export default async function DeploymentsPage({ searchParams }: { searchParams?:
 			)}
 			{canExport && <DeploymentExportPanel />}
 			{canRun && (
-				<section data-card className="mb-6 p-5">
-					<h2 className="text-sm font-semibold text-[var(--text-primary)]">{tr("deploymentsPage.page.launchSection.title")}</h2>
-					<p className="mt-1 text-xs text-[var(--text-muted)]">{tr("deploymentsPage.page.launchSection.desc")}</p>
-					<DeploymentLaunchForm templates={templates} servers={servers} />
-				</section>
+				<div className="mb-5">
+					<SurfacePanel title={tr("deploymentsPage.page.launchSection.title")} description={tr("deploymentsPage.page.launchSection.desc")}>
+						<DeploymentLaunchForm templates={templates} servers={servers} />
+					</SurfacePanel>
+				</div>
 			)}
 			{canRun && latestRun && (
-				<section className="mb-6 rounded-2xl border border-[var(--success-border)] bg-[color-mix(in_srgb,var(--success-bg)_40%,var(--surface))] p-5">
+				<section className="mb-5 rounded-2xl border border-[var(--success-border)] bg-[color-mix(in_srgb,var(--success-bg)_40%,var(--surface))] p-5 shadow-[var(--shadow-sm)]">
 					<div className="flex flex-wrap items-start justify-between gap-3">
 						<div>
 							<p className="text-xs font-semibold uppercase tracking-[0.2em] text-[var(--success)]/70">{tr("deploymentsPage.page.latestDeploy.eyebrow")}</p>
@@ -111,11 +111,13 @@ export default async function DeploymentsPage({ searchParams }: { searchParams?:
 					</div>
 				</section>
 			)}
-			<section data-card className="overflow-hidden !p-0">
-				<div className="border-b border-[var(--border)] px-5 py-4 text-sm font-semibold text-[var(--text-primary)]">{tr("deploymentsPage.page.runsSection.title")}</div>
-				<div className="divide-y divide-[var(--border-subtle)]">
-					{runs.length === 0 ? <EmptyState text={tr("deploymentsPage.page.runsSection.empty")} /> : runs.map((r) => (
-						<div key={r.id} className="px-5 py-4 transition hover:bg-[var(--surface-hover)]">
+			<ListPanel
+				title={tr("deploymentsPage.page.runsSection.title")}
+				count={runs.length}
+				empty={runs.length === 0 ? <EmptyState text={tr("deploymentsPage.page.runsSection.empty")} /> : undefined}
+			>
+					{runs.map((r) => (
+						<ListRow key={r.id}>
 							<div className="flex items-center justify-between gap-3">
 								<div>
 									<h3 className="text-sm font-medium text-[var(--text-primary)]">{r.template.name}</h3>
@@ -143,10 +145,9 @@ export default async function DeploymentsPage({ searchParams }: { searchParams?:
 									/>
 								</div>
 							)}
-						</div>
+						</ListRow>
 					))}
-				</div>
-			</section>
+			</ListPanel>
 		</PageShell>
 	);
 }

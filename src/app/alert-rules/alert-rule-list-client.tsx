@@ -3,7 +3,7 @@
 import { useState, useCallback } from "react";
 import { csrfFetch } from "@/lib/auth/csrf-client";
 import { useToast } from "@/components/toast-provider";
-import { EmptyState } from "@/components/page-shell";
+import { EmptyState, Toolbar, SurfacePanel } from "@/components/page-shell";
 import { useI18n } from "@/lib/i18n/use-locale";
 import { toDateLocale } from "@/lib/i18n/locale-format";
 import { useDialogFocus } from "@/lib/a11y/use-dialog-focus";
@@ -156,7 +156,7 @@ export function AlertRuleListClient({ rules: initialRules, servers, playbooks = 
 	return (
 		<div className="space-y-6">
 			{rulePendingDelete && (
-				<div ref={dialogRef} className="fixed inset-0 z-50 flex items-center justify-center bg-[var(--surface)]/70 p-4 backdrop-blur-sm" role="dialog" aria-modal="true" aria-labelledby="delete-alert-rule-title">
+				<div ref={dialogRef} className="fixed inset-0 z-50 flex items-center justify-center bg-[var(--overlay)] p-4 backdrop-blur-sm" role="dialog" aria-modal="true" aria-labelledby="delete-alert-rule-title">
 					<div className="w-full max-w-md rounded-2xl border border-[var(--border)] bg-[var(--modal-bg)] p-5 shadow-2xl shadow-black/30">
 						<h3 id="delete-alert-rule-title" className="text-base font-semibold text-[var(--text-primary)]">{t("alertRulesPage.delete.title")}</h3>
 						<p className="mt-2 text-sm text-[var(--text-muted)]">
@@ -182,9 +182,9 @@ export function AlertRuleListClient({ rules: initialRules, servers, playbooks = 
 					</div>
 				</div>
 			)}
-			<div className="flex items-center gap-3 flex-wrap">
+			<Toolbar className="flex-wrap">
 				{canManage && !showCreate && (
-					<button onClick={() => setShowCreate(true)} data-tone="cyan" className="rounded-2xl border border-[var(--color-action-border)]/30 px-5 py-2.5 text-sm font-medium text-[var(--text-primary)] hover:bg-[var(--color-action-bg)]/20 transition">
+					<button type="button" onClick={() => setShowCreate(true)} data-tone="cyan" className="rounded-2xl border border-[var(--color-action-border)]/30 px-5 py-2.5 text-sm font-medium text-[var(--text-primary)] hover:bg-[var(--color-action-bg)]/20 transition">
 						{t("alertRulesPage.create")}
 					</button>
 				)}
@@ -198,7 +198,7 @@ export function AlertRuleListClient({ rules: initialRules, servers, playbooks = 
 						{busyAction === "trigger" ? t("alertRulesPage.triggering") : t("alertRulesPage.triggerNow")}
 					</button>
 				)}
-			</div>
+			</Toolbar>
 
 			{actionError && (
 				<div role="alert" data-tone="rose" className="rounded-xl border border-[var(--danger-border)] px-4 py-3 text-sm text-[var(--danger)]">
@@ -222,7 +222,11 @@ export function AlertRuleListClient({ rules: initialRules, servers, playbooks = 
 			)}
 
 			{showCreate && (
-				<CreateRuleForm servers={servers} playbooks={playbooks} onClose={() => { setShowCreate(false); refresh(); }} />
+				<div className="mb-1">
+					<SurfacePanel title={t("alertRulesPage.create")}>
+						<CreateRuleForm servers={servers} playbooks={playbooks} onClose={() => { setShowCreate(false); refresh(); }} />
+					</SurfacePanel>
+				</div>
 			)}
 
 			{rules.length === 0 ? (

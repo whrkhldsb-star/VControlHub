@@ -42,12 +42,12 @@ export default async function ScheduledTasksPage() {
 
 	return (
 		<PageShell maxW="max-w-7xl">
-				<PageHeader
-					eyebrow={t("scheduledTasksPage.eyebrow", locale)}
-					title={tr("scheduledTasksPage.header.title")}
-					description={tr("scheduledTasksPage.header.description")}
-				/>
-				<ScheduledTaskListClient tasks={serialized} servers={serverOptions} canCreate={canCreate} canManage={canManage} />
+			<PageHeader
+				eyebrow={t("scheduledTasksPage.eyebrow", locale)}
+				title={tr("scheduledTasksPage.header.title")}
+				description={tr("scheduledTasksPage.header.description")}
+			/>
+			<ScheduledTaskListClient tasks={serialized} servers={serverOptions} canCreate={canCreate} canManage={canManage} />
 		</PageShell>
 	);
 }

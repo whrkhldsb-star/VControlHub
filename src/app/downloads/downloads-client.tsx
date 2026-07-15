@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef, type MouseEvent } from "react";
 import { csrfFetch } from "@/lib/auth/csrf-client";
-import { EmptyState } from "@/components/page-shell";
+import { EmptyState, ListPanel, SurfacePanel, Toolbar } from "@/components/page-shell";
 import { Download } from "@/components/icons";
 import { useI18n } from "@/lib/i18n/use-locale";
 import { useDialogFocus } from "@/lib/a11y/use-dialog-focus";
@@ -242,9 +242,9 @@ export function DownloadsClient({ servers, canManage, canManageNode }: { servers
 				</div>
 			)}
 
-			{/* Global Stats Bar */}
 			{globalStat && (
-				<div data-card className="mb-5 flex flex-wrap items-center gap-5 p-4 text-sm">
+				<SurfacePanel className="mb-5" title={t("downloadsPage.stats.globalSpeed")}>
+				<div className="flex flex-wrap items-center gap-5 text-sm">
 					<div>
 						<span className="text-[var(--text-muted)]">{t("downloadsPage.stats.globalSpeed")}</span>
 						<span className="ml-2 font-mono font-semibold text-[var(--accent)]">{formatSpeed(globalStat.downloadSpeed)}</span>
@@ -260,7 +260,7 @@ export function DownloadsClient({ servers, canManage, canManageNode }: { servers
 					<div className="ml-auto flex flex-wrap items-center gap-2">
 						<span className="text-xs text-[var(--text-muted)]">{t("downloadsPage.stats.globalLimit")}</span>
 						{canManageNode ? [0, 1024, 5120, 10240].map((kb) => (
-							<button key={kb} onClick={() => handleGlobalSpeedLimit(kb)}
+							<button type="button" key={kb} onClick={() => handleGlobalSpeedLimit(kb)}
 								className="rounded-lg border border-[var(--border)] bg-[var(--surface-elevated)] px-2.5 py-1 text-[11px] text-[var(--text-muted)] transition hover:bg-[var(--surface-hover)] hover:text-[var(--text-primary)]"
 							>
 								{kb === 0 ? t("downloadsPage.stats.unlimited") : `${kb >= 1024 ? (kb / 1024) + "M" : kb + "K"}`}
@@ -268,6 +268,7 @@ export function DownloadsClient({ servers, canManage, canManageNode }: { servers
 						)) : <span className="text-xs text-[var(--text-muted)]">{t("downloadsPage.stats.needPermission")}</span>}
 					</div>
 				</div>
+				</SurfacePanel>
 			)}
 
 			{/* Quick Stats */}
@@ -278,8 +279,7 @@ export function DownloadsClient({ servers, canManage, canManageNode }: { servers
 				</div>
 			)}
 
-			{/* Filter bar */}
-			<div data-toolbar className="mb-5 flex flex-col gap-3 p-2.5 sm:flex-row sm:items-center sm:justify-between">
+			<Toolbar className="mb-5 flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
 				<div className="flex flex-wrap items-center gap-2">
 					{["ALL", "RUNNING", "COMPLETED", "FAILED", "CANCELLED"].map((f) => (
 						<button key={f} type="button" onClick={() => setFilter(f)}
@@ -304,7 +304,7 @@ export function DownloadsClient({ servers, canManage, canManageNode }: { servers
 				{canManage && servers.length > 0 ? (
 					<button type="button" onClick={() => setShowForm(!showForm)}
 						data-primary
-						className="rounded-xl bg-[var(--accent)] px-5 py-2 text-sm font-semibold text-white transition hover:bg-[var(--accent-hover)]"
+						className="rounded-xl bg-[var(--accent)] px-5 py-2 text-sm font-semibold text-[var(--on-accent)] transition hover:bg-[var(--accent-hover)]"
 					>
 						{showForm ? t("downloadsPage.form.cancelLabel") : t("downloadsPage.form.createLabel")}
 					</button>
@@ -313,7 +313,7 @@ export function DownloadsClient({ servers, canManage, canManageNode }: { servers
 						{t("downloadsPage.form.noTarget")}
 					</div>
 				) : null}
-			</div>
+			</Toolbar>
 
 			{/* Create form — TR-036 lazy chunk, only fetched on first open */}
 			<CreateDownloadFormLazy
@@ -328,33 +328,39 @@ export function DownloadsClient({ servers, canManage, canManageNode }: { servers
 				onSubmit={handleSubmit}
 			/>
 
-			{/* Task list */}
-			{loading ? (
-				<EmptyState>{t("downloadsPage.loading")}</EmptyState>
-			) : filteredTasks.length === 0 && message?.type !== "error" ? (
-			<div data-empty-state className="rounded-xl border border-dashed border-[var(--border)] bg-[var(--surface)]/[0.04]">
-				<div className="mb-3"><Download size={48} className="text-[var(--text-muted)]" /></div>
-				<p className="text-sm text-[var(--text-muted)]">{filter === "ALL" ? t("downloadsPage.empty") : t("downloadsPage.emptyFilter").replace("${status}", getStatusLabel(t)[filter] ?? "")}</p>
-			</div>
-		) : (
-			<div className="space-y-2.5">
-				{filteredTasks.map((task) => (
-					<DownloadTaskRow
-						key={task.id}
-						task={task}
-						t={t}
-						canManage={canManage}
-						busyActions={busyActions}
-						downloadingIds={downloadingIds}
-						onAction={handleAction}
-						onDownloadClick={handleDownloadClick}
-						onPendingPurge={setPendingPurgeTaskId}
-					/>
+			<ListPanel
+				title={t("downloadsPage.header.title")}
+				count={loading ? "…" : filteredTasks.length}
+				empty={
+					loading ? (
+						<EmptyState>{t("downloadsPage.loading")}</EmptyState>
+					) : filteredTasks.length === 0 && message?.type !== "error" ? (
+						<EmptyState variant="boxed" icon={<Download size={32} className="text-[var(--text-muted)]" />}>
+							{filter === "ALL"
+								? t("downloadsPage.empty")
+								: t("downloadsPage.emptyFilter").replace("${status}", getStatusLabel(t)[filter] ?? "")}
+						</EmptyState>
+					) : undefined
+				}
+				bodyClassName="!divide-y-0 space-y-0 bg-transparent p-2.5"
+			>
+				{!loading && filteredTasks.map((task) => (
+					<div key={task.id} className="mb-2.5 last:mb-0">
+						<DownloadTaskRow
+							task={task}
+							t={t}
+							canManage={canManage}
+							busyActions={busyActions}
+							downloadingIds={downloadingIds}
+							onAction={handleAction}
+							onDownloadClick={handleDownloadClick}
+							onPendingPurge={setPendingPurgeTaskId}
+						/>
+					</div>
 				))}
-				</div>
-			)}
+			</ListPanel>
 			{pendingPurgeTaskId ? (
-				<div className="fixed inset-0 z-50 flex items-center justify-center bg-[var(--surface)]/70 px-4 backdrop-blur-sm" role="presentation" onClick={() => setPendingPurgeTaskId(null)}>
+				<div className="fixed inset-0 z-50 flex items-center justify-center bg-[var(--overlay)] px-4 backdrop-blur-sm" role="presentation" onClick={() => setPendingPurgeTaskId(null)}>
 					<section ref={dialogRef} role="dialog" aria-modal="true" aria-labelledby="download-purge-title" onClick={(event) => event.stopPropagation()} className="w-full max-w-md rounded-2xl border border-[var(--danger-border)] bg-[var(--modal-bg)] p-6 shadow-[0_24px_100px_rgba(244,63,94,0.16)]">
 						<h3 id="download-purge-title" className="text-lg font-semibold text-[var(--text-primary)]">{t("common.confirmDelete")}</h3>
 						<p className="mt-3 text-sm leading-6 text-[var(--text-secondary)]">{t("downloadsPage.confirm.purge").replace("${name}", pendingPurgeName)}</p>

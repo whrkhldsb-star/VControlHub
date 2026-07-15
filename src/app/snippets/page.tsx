@@ -16,15 +16,13 @@ export default async function Page() {
 	}));
 
 	return (
-		<PageShell>
+		<PageShell maxW="max-w-7xl">
 			<PageHeader
 				eyebrow={t("snippetsPage.eyebrow", locale)}
 				title={t("snippetsPage.pageTitle")}
 				description={t("snippetsPage.pageDescription")}
 			/>
-			<div className="mt-6">
-				<SnippetList snippets={serialized} />
-			</div>
+			<SnippetList snippets={serialized} />
 		</PageShell>
 	);
 }
