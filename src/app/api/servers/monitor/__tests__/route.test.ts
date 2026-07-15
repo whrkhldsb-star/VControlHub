@@ -1,14 +1,29 @@
 import { describe, expect, it, vi } from "vitest";
 
-const { requireApiPermissionMock, collectServerMetricsMock } = vi.hoisted(
+const { requireApiPermissionMock, collectServerMetricsMock, serverFindUniqueMock } = vi.hoisted(
   () => ({
     requireApiPermissionMock: vi.fn(),
     collectServerMetricsMock: vi.fn(),
+    serverFindUniqueMock: vi.fn(async () => ({ id: "srv_1", teamId: null })),
   }),
 );
 
 vi.mock("@/lib/auth/require-api-permission", () => ({
   requireApiPermission: requireApiPermissionMock,
+}));
+
+vi.mock("@/lib/auth/api-session", () => ({
+  requireApiSession: vi.fn(async () => ({ userId: "u_1", username: "admin", roles: ["admin"] })),
+}));
+
+vi.mock("@/lib/auth/authorization", () => ({
+  sessionHasPermission: vi.fn(() => true),
+}));
+
+vi.mock("@/lib/db", () => ({
+  prisma: {
+    server: { findUnique: serverFindUniqueMock },
+  },
 }));
 
 vi.mock("@/lib/server/monitor", () => ({

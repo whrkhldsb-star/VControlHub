@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 
 import { sessionHasPermission } from "@/lib/auth/authorization";
+import { teamWhere } from "@/lib/auth/team-scope";
 import { prisma } from "@/lib/db";
 import { withApiRoute } from "@/lib/http/api-guard";
 import { SERVICE_CATALOG } from "@/lib/quick-service/catalog";
@@ -38,6 +39,7 @@ export async function GET(request: Request) {
 		if (session && sessionHasPermission(session, "server:read")) {
 			const servers = await prisma.server.findMany({
 				where: {
+					...teamWhere(session),
 					OR: [
 						{ name: { contains: q, mode: "insensitive" } },
 						{ host: { contains: q, mode: "insensitive" } },

@@ -30,6 +30,7 @@ import { createLogger } from "@/lib/logging";
 import { buildSshParamsFromServer, execRemoteCommand } from "@/lib/ssh/client";
 import { deserializeDialect, serviceCommand, type OsDialect } from "@/lib/ssh/os-dialect";
 import { getServerLocale, t } from "@/lib/i18n/translations";
+import { assertServerTeamAccess } from "@/lib/server/team-access";
 
 export const dynamic = "force-dynamic";
 const logger = createLogger("api:servers:reload");
@@ -132,6 +133,9 @@ export async function POST(
       if (!sessionHasPermission(session, "server:ssh")) {
         return Response.json({ error: t("apiServersReload.missingSshPermission", locale) }, { status: 403 });
       }
+
+      const teamAccess = await assertServerTeamAccess(session, id);
+      if (!teamAccess.ok) return teamAccess.response;
 
       const server = await loadServer(id);
       if (!server) {

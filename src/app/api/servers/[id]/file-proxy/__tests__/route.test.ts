@@ -57,6 +57,7 @@ describe("/api/servers/[id]/file-proxy", () => {
       sshKey: null,
       publicUrl: "https://node.example.com",
       fileProxyPort: 0,
+      teamId: null,
       storageNode: { id: "node_1", basePath: "/srv/vcontrolhub/storage" },
     });
     proxyFindUniqueMock.mockResolvedValue(null);
@@ -111,6 +112,10 @@ describe("/api/servers/[id]/file-proxy", () => {
   });
 
   it("requires a bound storage node before starting a file proxy", async () => {
+    serverFindUniqueMock.mockResolvedValueOnce({
+      id: "srv_1",
+      teamId: null,
+    });
     serverFindUniqueMock.mockResolvedValueOnce({
       id: "srv_1",
       host: "127.0.0.1",

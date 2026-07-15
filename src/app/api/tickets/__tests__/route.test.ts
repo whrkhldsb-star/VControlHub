@@ -66,14 +66,14 @@ describe("/api/tickets", () => {
 
     expect(response.status).toBe(200);
     expect(mocks.requireApiPermission).toHaveBeenCalledWith("ticket:read");
-    expect(mocks.listTickets).toHaveBeenCalledWith({ userId: "manager", includeAll: true });
+    expect(mocks.listTickets).toHaveBeenCalledWith({ userId: "manager", includeAll: true, session: expect.objectContaining({ userId: "manager" }) });
   });
 
   it("lists only owned or assigned tickets for non-manager readers", async () => {
     const response = await route.GET(new Request("http://local/api/tickets"));
 
     expect(response.status).toBe(200);
-    expect(mocks.listTickets).toHaveBeenCalledWith({ userId: "u1", includeAll: false });
+    expect(mocks.listTickets).toHaveBeenCalledWith({ userId: "u1", includeAll: false, session: expect.objectContaining({ userId: "u1" }) });
   });
 
   it("updates tickets with normalized uppercase statuses", async () => {

@@ -7,6 +7,7 @@ import { NextRequest, NextResponse } from "next/server";
 
 import { prisma } from "@/lib/db";
 import { withApiRoute } from "@/lib/http/api-guard";
+import { assertServerTeamAccess } from "@/lib/server/team-access";
 
 interface UptimeDay {
   date: string;
@@ -30,8 +31,10 @@ export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> },
 ) {
-  return withApiRoute(request, { permission: "server:read" }, async () => {
+  return withApiRoute(request, { permission: "server:read" }, async ({ session }) => {
     const { id } = await params;
+    const teamAccess = await assertServerTeamAccess(session, id);
+    if (!teamAccess.ok) return teamAccess.response;
     const ninetyDaysAgo = new Date();
     ninetyDaysAgo.setUTCDate(ninetyDaysAgo.getUTCDate() - 89);
     ninetyDaysAgo.setUTCHours(0, 0, 0, 0);

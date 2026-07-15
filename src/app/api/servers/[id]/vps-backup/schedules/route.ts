@@ -19,6 +19,7 @@ import {
 	createVpsBackupSchedule,
 } from "@/lib/backup/vps-backup-schedule-service";
 import { VALID_PRESET_TYPES } from "@/lib/backup/vps-backup-presets";
+import { assertServerTeamAccess } from "@/lib/server/team-access";
 
 export const dynamic = "force-dynamic";
 const logger = createLogger("api:servers:vps-backup:schedules");
@@ -44,6 +45,9 @@ export async function GET(
 			if (!session || !sessionHasPermission(session, "server:read")) {
 				return Response.json({ error: "Forbidden" }, { status: 403 });
 			}
+
+   const teamAccess = await assertServerTeamAccess(session, serverId);
+   if (!teamAccess.ok) return teamAccess.response;
 
 			const server = await prisma.server.findUnique({
 				where: { id: serverId },
@@ -79,6 +83,9 @@ export async function POST(
 					{ status: 403 },
 				);
 			}
+
+			const teamAccess = await assertServerTeamAccess(session, serverId);
+			if (!teamAccess.ok) return teamAccess.response;
 
 			const server = await prisma.server.findUnique({
 				where: { id: serverId },

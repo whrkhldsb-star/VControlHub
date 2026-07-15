@@ -28,6 +28,7 @@ import {
 } from "@/lib/ssh/ssh-key-crypto";
 import { createVerifiedSshConfig } from "@/lib/ssh/client";
 import { getServerLocale, t } from "@/lib/i18n/translations";
+import { assertServerTeamAccess } from "@/lib/server/team-access";
 
 export const dynamic = "force-dynamic";
 const FILE_PROXY_TTL_MS = 2 * 60 * 60 * 1000;
@@ -116,6 +117,9 @@ export async function GET(
         );
       }
       const { id } = await params;
+
+      const teamAccess = await assertServerTeamAccess(session, id);
+      if (!teamAccess.ok) return teamAccess.response;
 
       const server = await prisma.server.findUnique({
         where: { id },
@@ -219,6 +223,8 @@ export async function POST(
         );
       }
       const { id } = await params;
+      const teamAccessPost = await assertServerTeamAccess(session, id);
+      if (!teamAccessPost.ok) return teamAccessPost.response;
       try {
         const server = await prisma.server.findUnique({
           where: { id },
@@ -407,6 +413,8 @@ export async function DELETE(
         );
       }
       const { id } = await params;
+      const teamAccessDelete = await assertServerTeamAccess(session, id);
+      if (!teamAccessDelete.ok) return teamAccessDelete.response;
       try {
         const proxy = await prisma.serverFileProxy.findUnique({
           where: {

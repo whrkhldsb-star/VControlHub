@@ -130,6 +130,7 @@ describe("/api/docker/containers audit coverage", () => {
       "docker.container.remove",
       {
         containerId: "app_1",
+        serverId: "hub-host",
         status: 204,
         ok: true,
       },

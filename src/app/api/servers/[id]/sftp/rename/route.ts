@@ -9,6 +9,7 @@ import { renameEntry } from "@/lib/ssh/sftp-service";
 import { renameSchema } from "@/lib/ssh/sftp-schema";
 import { assertSftpPathAccess } from "@/lib/ssh/sftp-access-control";
 import { auditUserAction } from "@/lib/audit/service";
+import { assertServerTeamAccess } from "@/lib/server/team-access";
 
 export const dynamic = "force-dynamic";
 
@@ -26,6 +27,8 @@ export async function POST(
     },
     async ({ body, session }) => {
       const { id } = await params;
+      const teamAccess = await assertServerTeamAccess(session, id);
+      if (!teamAccess.ok) return teamAccess.response;
 			await assertSftpPathAccess({ session: session!, serverId: id, paths: [body.oldPath, body.newPath] });
       await renameEntry(id, body.oldPath, body.newPath);
       await auditUserAction(session!.userId, "sftp.rename", { serverId: id, oldPath: body.oldPath, newPath: body.newPath });

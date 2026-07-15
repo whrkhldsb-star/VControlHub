@@ -65,7 +65,7 @@ function mockServer(overrides: Partial<{
   sshKey: { privateKey: string } | null;
   osDialect: string | null;
 }> = {}) {
-  serverFindUniqueMock.mockResolvedValueOnce({
+  serverFindUniqueMock.mockResolvedValue({
     id: "srv_1",
     host: "203.0.113.10",
     port: 22,
@@ -73,6 +73,7 @@ function mockServer(overrides: Partial<{
     password: null,
     sshKey: { privateKey: "PRIVATE_KEY_BLOB" },
     osDialect: null, // TR-041: null = not detected, defaults to Debian/systemd
+    teamId: null, // team scope: unassigned server visible to all
     ...overrides,
   });
   buildSshParamsFromServerMock.mockResolvedValueOnce({

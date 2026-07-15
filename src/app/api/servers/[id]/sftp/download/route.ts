@@ -9,6 +9,7 @@ import { GENERAL_WRITE_LIMIT } from "@/lib/http/rate-limit-presets";
 import { downloadFile } from "@/lib/ssh/sftp-service";
 import { downloadQuerySchema } from "@/lib/ssh/sftp-schema";
 import { assertSftpPathAccess } from "@/lib/ssh/sftp-access-control";
+import { assertServerTeamAccess } from "@/lib/server/team-access";
 
 export const dynamic = "force-dynamic";
 
@@ -26,6 +27,8 @@ export async function GET(
     },
     async ({ query, session }) => {
       const { id } = await params;
+      const teamAccess = await assertServerTeamAccess(session, id);
+      if (!teamAccess.ok) return teamAccess.response;
 			await assertSftpPathAccess({ session: session!, serverId: id, paths: [query.path] });
       const { stream, size } = await downloadFile(id, query.path);
 

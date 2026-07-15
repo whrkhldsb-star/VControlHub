@@ -77,11 +77,11 @@ describe("HealthDashboardClient", () => {
 
 		renderHealthDashboard();
 
-		expect(await screen.findByText("HK Prod")).toBeInTheDocument();
+		expect((await screen.findAllByText("HK Prod"))[0]).toBeInTheDocument();
 		await user.click(screen.getByRole("button", { name: "刷新健康状态" }));
 
 		expect(await screen.findByRole("alert")).toHaveTextContent("刷新健康状态失败");
-		expect(screen.getByText("HK Prod")).toBeInTheDocument();
+		expect(screen.getAllByText("HK Prod")[0]).toBeInTheDocument();
 	});
 
 	it("shows a history load error while keeping the server row expanded", async () => {
@@ -97,7 +97,7 @@ describe("HealthDashboardClient", () => {
 
 		renderHealthDashboard();
 
-		expect(await screen.findByText("HK Prod")).toBeInTheDocument();
+		expect((await screen.findAllByText("HK Prod"))[0]).toBeInTheDocument();
 		await user.click(screen.getByRole("button", { name: "趋势 ▼" }));
 
 		await waitFor(() => {
@@ -118,7 +118,7 @@ describe("HealthDashboardClient", () => {
 			},
 		});
 
-		expect(await screen.findByText("HK Prod")).toBeInTheDocument();
+		expect((await screen.findAllByText("HK Prod"))[0]).toBeInTheDocument();
 		expect(screen.getByText(/vcontrolhub-next\.service \/ vcontrolhub-ssh-ws\.service \/ caddy\.service/)).toBeInTheDocument();
 		expect(screen.queryByText(/whrkhldsb-next\.service/)).not.toBeInTheDocument();
 		expect(screen.queryByText(/whrkhldsb-ssh-ws\.service/)).not.toBeInTheDocument();
@@ -130,7 +130,7 @@ describe("HealthDashboardClient", () => {
 		vi.mocked(csrfFetch).mockResolvedValue(overview);
 
 		renderHealthDashboard();
-		expect(await screen.findByText("HK Prod")).toBeInTheDocument();
+		expect((await screen.findAllByText("HK Prod"))[0]).toBeInTheDocument();
 
 		expect(screen.getByText("每 1 minutes")).toBeInTheDocument();
 		expect(setIntervalSpy).toHaveBeenCalledWith(expect.any(Function), 60_000);
@@ -143,7 +143,7 @@ describe("HealthDashboardClient", () => {
 		vi.mocked(csrfFetch).mockResolvedValue(overview);
 
 		renderHealthDashboard();
-		expect(await screen.findByText("HK Prod")).toBeInTheDocument();
+		expect((await screen.findAllByText("HK Prod"))[0]).toBeInTheDocument();
 
 		expect(screen.getByText("已关闭")).toBeInTheDocument();
 		expect(screen.getByRole("button", { name: "切换健康状态自动刷新" })).toBeDisabled();
@@ -165,7 +165,7 @@ describe("HealthDashboardClient", () => {
 
 		renderHealthDashboard();
 
-		expect(await screen.findByText("HK Prod")).toBeInTheDocument();
+		expect((await screen.findAllByText("HK Prod"))[0]).toBeInTheDocument();
 		expect(csrfFetch).toHaveBeenCalledWith("/api/health");
 		expect(csrfFetch).toHaveBeenCalledWith("/api/system-health");
 		expect(screen.getByText("2 项检查 · 1 正常 · 1 警告 · 0 严重")).toBeInTheDocument();
@@ -190,7 +190,7 @@ describe("HealthDashboardClient", () => {
 			},
 		});
 
-		expect(await screen.findByText("HK Prod")).toBeInTheDocument();
+		expect((await screen.findAllByText("HK Prod"))[0]).toBeInTheDocument();
 
 		// Last refresh + refresh button + auto-refresh switch sit in a single
 		// flex row at sm+. On mobile they must stack instead of overflowing
@@ -219,7 +219,7 @@ describe("HealthDashboardClient", () => {
 	it("uses 44px touch targets for the refresh and auto-refresh controls", async () => {
 		renderHealthDashboard();
 
-		expect(await screen.findByText("HK Prod")).toBeInTheDocument();
+		expect((await screen.findAllByText("HK Prod"))[0]).toBeInTheDocument();
 
 		const refreshButton = screen.getByRole("button", { name: "刷新健康状态" });
 		expect(refreshButton.className).toContain("min-h-11");
@@ -245,7 +245,7 @@ describe("HealthDashboardClient", () => {
 			},
 		});
 
-		expect(await screen.findByText("HK Prod")).toBeInTheDocument();
+		expect((await screen.findAllByText("HK Prod"))[0]).toBeInTheDocument();
 
 		// SummaryCard value must stay readable on mobile (text-2xl) but
 		// grow on desktop (sm:text-3xl) to match the dashboard's data
@@ -282,7 +282,7 @@ describe("HealthDashboardClient", () => {
 
 		renderHealthDashboard("en");
 
-		expect(await screen.findByText("HK Prod")).toBeInTheDocument();
+		expect((await screen.findAllByText("HK Prod"))[0]).toBeInTheDocument();
 		expect(screen.getByText("System Self-check")).toBeInTheDocument();
 		expect(screen.getByText("2 checks · 1 healthy · 1 warnings · 0 critical")).toBeInTheDocument();
 		expect(screen.getByText("Database Connection")).toBeInTheDocument();

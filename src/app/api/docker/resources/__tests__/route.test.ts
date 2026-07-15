@@ -90,7 +90,7 @@ describe("/api/docker/resources", () => {
     expect(mocks.auditUserAction).toHaveBeenCalledWith(
       "u1",
       "docker.volume.create",
-      { name: "cache", driver: "local", status: 201, ok: true },
+      { name: "cache", driver: "local", status: 201, ok: true, serverId: "hub-host" },
       "INFO",
     );
   });
@@ -114,7 +114,7 @@ describe("/api/docker/resources", () => {
     expect(mocks.auditUserAction).toHaveBeenCalledWith(
       "u1",
       "docker.network.delete",
-      { name: "old_net", driver: "local", status: 204, ok: true },
+      { name: "old_net", driver: "local", status: 204, ok: true, serverId: "hub-host" },
       "WARNING",
     );
   });

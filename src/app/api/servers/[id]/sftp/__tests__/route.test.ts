@@ -16,6 +16,12 @@ vi.mock("@/lib/auth/require-api-permission", () => ({
   requireApiPermission: mocks.requireApiPermission,
 }));
 
+vi.mock("@/lib/db", () => ({
+  prisma: {
+    server: { findUnique: vi.fn(async () => ({ id: "srv1", teamId: null })) },
+  },
+}));
+
 vi.mock("@/lib/ssh/sftp-service", () => ({
   listDirectory: mocks.listDirectory,
   makeDirectory: mocks.makeDirectory,

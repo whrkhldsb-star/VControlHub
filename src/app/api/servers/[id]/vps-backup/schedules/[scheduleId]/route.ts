@@ -19,6 +19,7 @@ import {
 	deleteVpsBackupSchedule,
 } from "@/lib/backup/vps-backup-schedule-service";
 import { VALID_PRESET_TYPES } from "@/lib/backup/vps-backup-presets";
+import { assertServerTeamAccess } from "@/lib/server/team-access";
 
 export const dynamic = "force-dynamic";
 const logger = createLogger("api:servers:vps-backup:schedule");
@@ -49,6 +50,9 @@ export async function PATCH(
 					{ status: 403 },
 				);
 			}
+
+			const teamAccess = await assertServerTeamAccess(session, serverId);
+			if (!teamAccess.ok) return teamAccess.response;
 
 			const existing = await prisma.vpsBackupSchedule.findFirst({
 				where: { id: scheduleId, serverId },

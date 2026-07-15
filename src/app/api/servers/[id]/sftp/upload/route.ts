@@ -12,9 +12,11 @@
 import { NextResponse } from "next/server";
 import { Readable } from "node:stream";
 import { enforceApiGuard } from "@/lib/http/api-guard";
+import type { SessionPayload } from "@/lib/auth/session";
 import { GENERAL_WRITE_LIMIT, withRateLimit, rateLimitResponse } from "@/lib/http/rate-limit-presets";
 import { uploadFile, sanitizeRemotePath, sanitizeFileName } from "@/lib/ssh/sftp-service";
 import { assertSftpPathAccess } from "@/lib/ssh/sftp-access-control";
+import { assertServerTeamAccess } from "@/lib/server/team-access";
 
 export const dynamic = "force-dynamic";
 // guardMode: manual
@@ -33,6 +35,8 @@ export async function POST(
   if (guard instanceof Response) return guard;
 
   const { id } = await params;
+  const teamAccess = await assertServerTeamAccess(guard as SessionPayload, id);
+  if (!teamAccess.ok) return teamAccess.response;
 
   try {
     const formData = await request.formData();

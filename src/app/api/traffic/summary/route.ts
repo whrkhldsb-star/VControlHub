@@ -4,6 +4,7 @@ import { z } from "zod";
 
 import { prisma } from "@/lib/db";
 import { withApiRoute } from "@/lib/http/api-guard";
+import { teamWhere } from "@/lib/auth/team-scope";
 import { parseSearchParams } from "@/lib/http/parse-search-params";
 import {
   calculateTrafficRate,
@@ -151,7 +152,9 @@ export async function GET(req: NextRequest) {
   return withApiRoute(
     req,
     { permission: "server:read", errorMessage: "Failed to fetch traffic summary" },
-    async () => {
+    async (ctx) => {
+      const session = ctx.session;
+      if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
       const q = parseSearchParams(req, trafficSummaryQuerySchema);
       const selectedIface = q.iface ?? "";
       const includeRemote =
@@ -162,7 +165,9 @@ export async function GET(req: NextRequest) {
         ? (interfaces.find((item) => item.iface === selectedIface) ?? selectPrimaryInterface(interfaces))
         : selectPrimaryInterface(interfaces);
 
+      const teamFilter = teamWhere(session);
       const storageNodes = await prisma.storageNode.findMany({
+        where: teamFilter,
         select: {
           id: true,
           name: true,
@@ -180,7 +185,7 @@ export async function GET(req: NextRequest) {
       });
 
       const servers = await prisma.server.findMany({
-        where: { enabled: true },
+        where: { enabled: true, ...teamFilter },
         select: {
           id: true,
           name: true,

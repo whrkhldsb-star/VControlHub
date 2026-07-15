@@ -12,6 +12,7 @@ import { GENERAL_WRITE_LIMIT } from "@/lib/http/rate-limit-presets";
 import { createLogger } from "@/lib/logging";
 import { getServerLocale, t } from "@/lib/i18n/translations";
 import { resolveVpsBackupFilePath } from "@/lib/backup/vps-backup-service";
+import { assertServerTeamAccess } from "@/lib/server/team-access";
 
 export const dynamic = "force-dynamic";
 const logger = createLogger("api:servers:vps-backup:download");
@@ -32,6 +33,9 @@ export async function GET(
 					{ status: 403 },
 				);
 			}
+
+			const teamAccess = await assertServerTeamAccess(session, serverId);
+			if (!teamAccess.ok) return teamAccess.response;
 
 			const record = await prisma.vpsBackupRecord.findFirst({
 				where: { id: recordId, serverId },

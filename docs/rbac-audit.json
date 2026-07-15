@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-07-15T03:57:18.455Z",
+  "generatedAt": "2026-07-15T07:49:10.863Z",
   "summary": {
     "permissionsInList": 54,
     "rolesDefined": 4,
@@ -1046,7 +1046,7 @@
         },
         {
           "path": "src/app/api/search/route.ts",
-          "line": 79
+          "line": 81
         },
         {
           "path": "src/app/monitoring/page.tsx",
@@ -1327,7 +1327,7 @@
         },
         {
           "path": "src/app/api/search/route.ts",
-          "line": 62
+          "line": 64
         },
         {
           "path": "src/app/playbooks/page.tsx",
@@ -1441,35 +1441,35 @@
         },
         {
           "path": "src/app/api/search/route.ts",
-          "line": 38
+          "line": 39
         },
         {
           "path": "src/app/api/servers/[id]/uptime/route.ts",
-          "line": 33
+          "line": 34
         },
         {
           "path": "src/app/api/servers/[id]/uptime/route.ts",
-          "line": 33
+          "line": 34
         },
         {
           "path": "src/app/api/servers/[id]/vps-backup/records/[recordId]/download/route.ts",
-          "line": 29
+          "line": 30
         },
         {
           "path": "src/app/api/servers/[id]/vps-backup/records/route.ts",
-          "line": 41
+          "line": 42
         },
         {
           "path": "src/app/api/servers/[id]/vps-backup/schedules/route.ts",
-          "line": 44
+          "line": 45
         },
         {
           "path": "src/app/api/servers/monitor/route.ts",
-          "line": 17
+          "line": 18
         },
         {
           "path": "src/app/api/servers/monitor/route.ts",
-          "line": 17
+          "line": 18
         },
         {
           "path": "src/app/api/system/uptime/all/route.ts",
@@ -1489,11 +1489,11 @@
         },
         {
           "path": "src/app/api/traffic/summary/route.ts",
-          "line": 153
+          "line": 154
         },
         {
           "path": "src/app/api/traffic/summary/route.ts",
-          "line": 153
+          "line": 154
         }
       ],
       "pages": [],
@@ -1533,67 +1533,67 @@
         },
         {
           "path": "src/app/api/servers/[id]/detect-os/route.ts",
-          "line": 70
+          "line": 71
         },
         {
           "path": "src/app/api/servers/[id]/file-proxy/route.ts",
-          "line": 112
+          "line": 113
         },
         {
           "path": "src/app/api/servers/[id]/file-proxy/route.ts",
-          "line": 215
+          "line": 219
         },
         {
           "path": "src/app/api/servers/[id]/file-proxy/route.ts",
-          "line": 403
+          "line": 409
         },
         {
           "path": "src/app/api/servers/[id]/reload/route.ts",
-          "line": 132
+          "line": 133
         },
         {
           "path": "src/app/api/servers/[id]/sftp/delete/route.ts",
-          "line": 22
+          "line": 23
         },
         {
           "path": "src/app/api/servers/[id]/sftp/delete/route.ts",
-          "line": 22
+          "line": 23
         },
         {
           "path": "src/app/api/servers/[id]/sftp/download/route.ts",
-          "line": 22
+          "line": 23
         },
         {
           "path": "src/app/api/servers/[id]/sftp/download/route.ts",
+          "line": 23
+        },
+        {
+          "path": "src/app/api/servers/[id]/sftp/list/route.ts",
           "line": 22
         },
         {
           "path": "src/app/api/servers/[id]/sftp/list/route.ts",
-          "line": 21
-        },
-        {
-          "path": "src/app/api/servers/[id]/sftp/list/route.ts",
-          "line": 21
-        },
-        {
-          "path": "src/app/api/servers/[id]/sftp/mkdir/route.ts",
           "line": 22
         },
         {
           "path": "src/app/api/servers/[id]/sftp/mkdir/route.ts",
-          "line": 22
+          "line": 23
+        },
+        {
+          "path": "src/app/api/servers/[id]/sftp/mkdir/route.ts",
+          "line": 23
         },
         {
           "path": "src/app/api/servers/[id]/sftp/rename/route.ts",
-          "line": 22
+          "line": 23
         },
         {
           "path": "src/app/api/servers/[id]/sftp/rename/route.ts",
-          "line": 22
+          "line": 23
         },
         {
           "path": "src/app/api/servers/[id]/sftp/upload/route.ts",
-          "line": 32
+          "line": 34
         },
         {
           "path": "src/app/servers/page.tsx",
@@ -1618,23 +1618,23 @@
       "files": [
         {
           "path": "src/app/api/servers/[id]/vps-backup/records/[recordId]/route.ts",
-          "line": 29
+          "line": 30
         },
         {
           "path": "src/app/api/servers/[id]/vps-backup/records/route.ts",
-          "line": 69
+          "line": 73
         },
         {
           "path": "src/app/api/servers/[id]/vps-backup/schedules/[scheduleId]/route.ts",
-          "line": 46
+          "line": 47
         },
         {
           "path": "src/app/api/servers/[id]/vps-backup/schedules/[scheduleId]/route.ts",
-          "line": 86
+          "line": 90
         },
         {
           "path": "src/app/api/servers/[id]/vps-backup/schedules/route.ts",
-          "line": 76
+          "line": 80
         },
         {
           "path": "src/app/servers/actions.ts",

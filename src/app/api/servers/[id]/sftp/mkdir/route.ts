@@ -9,6 +9,7 @@ import { makeDirectory } from "@/lib/ssh/sftp-service";
 import { mkdirSchema } from "@/lib/ssh/sftp-schema";
 import { assertSftpPathAccess } from "@/lib/ssh/sftp-access-control";
 import { auditUserAction } from "@/lib/audit/service";
+import { assertServerTeamAccess } from "@/lib/server/team-access";
 
 export const dynamic = "force-dynamic";
 
@@ -26,6 +27,8 @@ export async function POST(
     },
     async ({ body, session }) => {
       const { id } = await params;
+      const teamAccess = await assertServerTeamAccess(session, id);
+      if (!teamAccess.ok) return teamAccess.response;
 			await assertSftpPathAccess({ session: session!, serverId: id, paths: [body.path] });
       await makeDirectory(id, body.path);
       await auditUserAction(session!.userId, "sftp.mkdir", { serverId: id, path: body.path });
