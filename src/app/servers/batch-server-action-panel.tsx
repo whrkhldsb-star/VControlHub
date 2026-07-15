@@ -78,7 +78,7 @@ export function BatchServerActionPanel({
         <button
           type="button"
           onClick={toggleAll}
-          className="rounded-lg border border-[var(--border)] px-3 py-1.5 text-[var(--text-secondary)] transition hover:bg-[var(--surface)]/[0.10]"
+          className="rounded-lg border border-[var(--border)] px-3 py-1.5 text-[var(--text-secondary)] transition hover:bg-[var(--surface-hover)]"
           aria-pressed={allSelected}
         >
           {allSelected ? t("serversPage.batchPanel.clear") : t("serversPage.batchPanel.selectAll")}
@@ -94,7 +94,7 @@ export function BatchServerActionPanel({
           return (
             <label
               key={server.id}
-              className="flex items-center gap-3 rounded-xl border border-[var(--border)] bg-[var(--surface)]/[0.04] px-3 py-2 text-sm text-[var(--text-secondary)]"
+              className="flex items-center gap-3 rounded-xl border border-[var(--border)] bg-[var(--surface-elevated)] px-3 py-2 text-sm text-[var(--text-secondary)]"
             >
               <input
                 type="checkbox"

@@ -306,7 +306,7 @@ function CreateTaskForm({ servers, onClose }: { servers: ServerOption[]; onClose
 							className={`min-h-11 rounded-lg border px-2.5 py-1 text-[11px] transition ${
 								cronExpression === p.expr
 									? "border-[var(--accent-border)] bg-[var(--accent-bg)] text-[var(--accent)]"
-									: "border-[var(--border)]/[0.10] bg-[var(--surface)]/[0.04] text-[var(--text-muted)] hover:bg-[var(--surface)]/[0.04]"
+									: "border-[var(--border)]/[0.10] bg-[var(--surface-elevated)] text-[var(--text-muted)] hover:bg-[var(--surface-elevated)]"
 							}`}
 						>
 							{p.label}

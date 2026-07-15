@@ -96,7 +96,7 @@ export function TemplateListClient({ templates: initialTemplates, servers, canCr
 							<button
 								type="button"
 								onClick={() => setTemplatePendingDelete(null)}
-								data-card className="min-h-11 px-4 py-2 text-sm text-[var(--text-secondary)] transition hover:bg-[var(--surface)]/[0.10]"
+								data-card className="min-h-11 px-4 py-2 text-sm text-[var(--text-secondary)] transition hover:bg-[var(--surface-hover)]"
 							>
 								{t("templatesPage.delete.cancel")}
 							</button>
@@ -190,7 +190,7 @@ export function TemplateListClient({ templates: initialTemplates, servers, canCr
 							{tmpl.tags.length > 0 && (
 								<div className="mt-2 flex flex-wrap gap-1">
 									{tmpl.tags.map((tag) => (
-										<span key={tag} className="rounded-lg bg-[var(--surface)]/[0.04] border border-[var(--border)] px-1.5 py-0.5 text-[10px] text-[var(--text-muted)]">#{tag}</span>
+										<span key={tag} className="rounded-lg bg-[var(--surface-elevated)] border border-[var(--border)] px-1.5 py-0.5 text-[10px] text-[var(--text-muted)]">#{tag}</span>
 									))}
 								</div>
 							)}
@@ -259,7 +259,7 @@ function DeployButton({ template, servers, onDeploy, loading }: {
 							value={vars[v] ?? ""}
 							onChange={(e) => setVars((prev) => ({ ...prev, [v]: e.target.value }))}
 							placeholder={`{{${v}}}`}
-							className="flex-1 rounded-lg border border-[var(--border)] bg-[var(--surface)]/[0.04] px-2 py-1 text-[11px] text-[var(--text-primary)] font-mono outline-none placeholder:text-[var(--text-primary)]/30 focus:border-[var(--color-action-border)]/30"
+							className="flex-1 rounded-lg border border-[var(--border)] bg-[var(--surface-elevated)] px-2 py-1 text-[11px] text-[var(--text-primary)] font-mono outline-none placeholder:text-[var(--text-primary)]/30 focus:border-[var(--color-action-border)]/30"
 						/>
 					</div>
 			)})}
@@ -281,7 +281,7 @@ function DeployButton({ template, servers, onDeploy, loading }: {
 				>
 					{loading ? t("templatesPage.action.submitting") : t("templatesPage.action.submit")}
 				</button>
-				<button onClick={() => setOpen(false)} className="min-h-11 rounded-lg border border-[var(--border)] bg-[var(--surface)]/[0.04] px-3 py-1 text-[11px] text-[var(--text-muted)] hover:bg-[var(--surface)]/[0.10] transition">
+				<button onClick={() => setOpen(false)} className="min-h-11 rounded-lg border border-[var(--border)] bg-[var(--surface-elevated)] px-3 py-1 text-[11px] text-[var(--text-muted)] hover:bg-[var(--surface-hover)] transition">
 					{t("templatesPage.action.cancel")}
 				</button>
 			</div>
@@ -329,15 +329,15 @@ function CreateTemplateForm({ onClose }: { onClose: () => void }) {
 			{error && <div className="rounded-lg bg-[var(--danger)]/[0.10] border border-[var(--danger-border)] px-3.5 py-2.5 text-sm text-[var(--danger)]">{error}</div>}
 			<div className="space-y-1.5">
 				<label htmlFor={`${createFormId}-name`} className="text-xs font-medium text-[var(--text-primary)]/70 tracking-wide">{t("templatesPage.create.nameLabel")}</label>
-				<input id={`${createFormId}-name`} value={name} onChange={(e) => setName(e.target.value)} required placeholder={t("templatesPage.create.namePlaceholder")} className="w-full rounded-lg border border-[var(--border)] bg-[var(--surface)]/[0.04] px-3.5 py-2.5 text-sm text-[var(--text-primary)] outline-none transition placeholder:text-[var(--text-primary)]/30 focus:border-[var(--color-action-border)]/30" />
+				<input id={`${createFormId}-name`} value={name} onChange={(e) => setName(e.target.value)} required placeholder={t("templatesPage.create.namePlaceholder")} className="w-full rounded-lg border border-[var(--border)] bg-[var(--surface-elevated)] px-3.5 py-2.5 text-sm text-[var(--text-primary)] outline-none transition placeholder:text-[var(--text-primary)]/30 focus:border-[var(--color-action-border)]/30" />
 			</div>
 			<div className="space-y-1.5">
 				<label htmlFor={`${createFormId}-description`} className="text-xs font-medium text-[var(--text-primary)]/70 tracking-wide">{t("templatesPage.create.descLabel")}</label>
-				<input id={`${createFormId}-description`} value={description} onChange={(e) => setDescription(e.target.value)} placeholder={t("templatesPage.create.descPlaceholder")} className="w-full rounded-lg border border-[var(--border)] bg-[var(--surface)]/[0.04] px-3.5 py-2.5 text-sm text-[var(--text-primary)] outline-none transition placeholder:text-[var(--text-primary)]/30 focus:border-[var(--color-action-border)]/30" />
+				<input id={`${createFormId}-description`} value={description} onChange={(e) => setDescription(e.target.value)} placeholder={t("templatesPage.create.descPlaceholder")} className="w-full rounded-lg border border-[var(--border)] bg-[var(--surface-elevated)] px-3.5 py-2.5 text-sm text-[var(--text-primary)] outline-none transition placeholder:text-[var(--text-primary)]/30 focus:border-[var(--color-action-border)]/30" />
 			</div>
 			<div className="space-y-1.5">
 				<label htmlFor={`${createFormId}-command`} className="text-xs font-medium text-[var(--text-primary)]/70 tracking-wide">{t("templatesPage.create.commandLabel")}</label>
-				<textarea id={`${createFormId}-command`} value={command} onChange={(e) => setCommand(e.target.value)} required rows={3} placeholder={t("templatesPage.create.commandPlaceholder")} className="w-full rounded-lg border border-[var(--border)] bg-[var(--surface)]/[0.04] px-3.5 py-2.5 text-sm text-[var(--text-primary)] font-mono outline-none transition placeholder:text-[var(--text-primary)]/30 focus:border-[var(--color-action-border)]/30 resize-y" />
+				<textarea id={`${createFormId}-command`} value={command} onChange={(e) => setCommand(e.target.value)} required rows={3} placeholder={t("templatesPage.create.commandPlaceholder")} className="w-full rounded-lg border border-[var(--border)] bg-[var(--surface-elevated)] px-3.5 py-2.5 text-sm text-[var(--text-primary)] font-mono outline-none transition placeholder:text-[var(--text-primary)]/30 focus:border-[var(--color-action-border)]/30 resize-y" />
 				<p className="text-[11px] text-[var(--text-muted)]">{t("templatesPage.create.commandHint")}</p>
 			</div>
 			<div className="space-y-1.5">
@@ -347,7 +347,7 @@ function CreateTemplateForm({ onClose }: { onClose: () => void }) {
 			</div>
 			<div className="space-y-1.5">
 				<label htmlFor={`${createFormId}-tags`} className="text-xs font-medium text-[var(--text-primary)]/70 tracking-wide">{t("templatesPage.create.tagsLabel")}</label>
-				<input id={`${createFormId}-tags`} value={tags} onChange={(e) => setTags(e.target.value)} placeholder={t("templatesPage.create.tagsPlaceholder")} className="w-full rounded-lg border border-[var(--border)] bg-[var(--surface)]/[0.04] px-3.5 py-2.5 text-sm text-[var(--text-primary)] outline-none transition placeholder:text-[var(--text-primary)]/30 focus:border-[var(--color-action-border)]/30" />
+				<input id={`${createFormId}-tags`} value={tags} onChange={(e) => setTags(e.target.value)} placeholder={t("templatesPage.create.tagsPlaceholder")} className="w-full rounded-lg border border-[var(--border)] bg-[var(--surface-elevated)] px-3.5 py-2.5 text-sm text-[var(--text-primary)] outline-none transition placeholder:text-[var(--text-primary)]/30 focus:border-[var(--color-action-border)]/30" />
 			</div>
 			<div className="flex gap-3 pt-2">
 				<button type="submit" disabled={submitting} data-primary className="min-h-11 rounded-xl bg-[var(--accent)] px-5 py-2.5 text-sm font-semibold text-[var(--on-accent)] transition hover:bg-[var(--accent-hover)] disabled:opacity-60">

@@ -53,7 +53,7 @@ export function AiSettingsPanel({
   );
 
   return (
-    <div className="border-b border-[var(--border)] bg-[var(--surface-subtle)] p-4 max-h-[50vh] overflow-y-auto">
+    <div className="max-h-[50vh] overflow-y-auto border-b border-[var(--border)] bg-[color-mix(in_srgb,var(--surface)_96%,transparent)] p-4">
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         {/* Model selector */}
         <div className="col-span-2 md:col-span-2 relative">
@@ -67,8 +67,9 @@ export function AiSettingsPanel({
           </label>
           <div className="relative mt-1">
             <button
+              type="button"
               onClick={() => setModelDropdownOpen(!modelDropdownOpen)}
-              className="w-full flex items-center justify-between bg-[var(--input-bg)] border border-[var(--border)] rounded-lg px-2.5 py-1.5 text-xs text-[var(--text-primary)] hover:border-[var(--color-action-border)]/30 transition"
+              className="flex w-full items-center justify-between rounded-xl border border-[var(--border)] bg-[var(--input-bg)] px-2.5 py-1.5 text-xs text-[var(--text-primary)] transition hover:border-[var(--accent-border)]"
             >
               <span className="truncate flex items-center gap-1.5">
                 {settingsForm.model}
@@ -86,46 +87,42 @@ export function AiSettingsPanel({
                 height="24"
                 viewBox="0 0 24 24"
               >
-                {" "}
                 <path
                   strokeLinecap="round"
                   strokeLinejoin="round"
                   strokeWidth={2}
                   d="M19 9l-7 7-7-7"
-                />{" "}
-              </svg>{" "}
-            </button>{" "}
+                />
+              </svg>
+            </button>
             {modelDropdownOpen && (
-              <div className="absolute z-50 top-full left-0 right-0 mt-1 bg-[var(--surface)] border border-[var(--border)] rounded-lg shadow-xl max-h-60 overflow-hidden flex flex-col">
-                {" "}
-                <div className="p-2 border-b border-[var(--border)]/10">
-                  {" "}
+              <div className="absolute left-0 right-0 top-full z-50 mt-1 flex max-h-60 flex-col overflow-hidden rounded-xl border border-[var(--border)] bg-[var(--surface)] shadow-[var(--shadow-lg)]">
+                <div className="border-b border-[var(--border-subtle)] p-2">
                   <input
                     value={modelSearch}
                     aria-label={t("aiPage.searchModelAria")}
                     onChange={(e) => setModelSearch(e.target.value)}
                     placeholder={t("aiPage.searchModel")}
-                    className="w-full bg-[var(--input-bg)] border border-[var(--border)]/10 rounded-lg px-2 py-1 text-xs text-[var(--text-primary)] placeholder-slate-600 focus:outline-none focus:border-[var(--color-action-border)]/30"
+                    className="w-full rounded-lg border border-[var(--border-subtle)] bg-[var(--input-bg)] px-2 py-1 text-xs text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus:border-[var(--accent-border)] focus:outline-none"
                     autoFocus
-                  />{" "}
-                </div>{" "}
-                <div className="overflow-y-auto max-h-48">
-                  {" "}
+                  />
+                </div>
+                <div className="max-h-48 overflow-y-auto">
                   {filteredModels.length === 0 && !modelsLoading && (
-                    <div className="px-3 py-4 text-xs text-[var(--text-muted)] text-center">
-                      {" "}
+                    <div className="px-3 py-4 text-center text-xs text-[var(--text-muted)]">
                       {t("aiPage.noModels")}{" "}
                       <button
+                        type="button"
                         onClick={onRefreshModels}
-                        className="ml-2 text-[var(--color-action)] hover:text-[var(--color-action)] light:hover:text-[var(--accent)]"
+                        className="ml-2 text-[var(--accent)] hover:text-[var(--accent-hover)]"
                       >
-                        {" "}
-                        {t("aiPage.refresh")}{" "}
-                      </button>{" "}
+                        {t("aiPage.refresh")}
+                      </button>
                     </div>
-                  )}{" "}
+                  )}
                   {filteredModels.map((m) => (
                     <button
+                      type="button"
                       key={m.id}
                       onClick={() => {
                         setSettingsForm((f) => ({
@@ -136,9 +133,9 @@ export function AiSettingsPanel({
                         setModelDropdownOpen(false);
                         setModelSearch("");
                       }}
-                      className={`w-full text-left px-3 py-2 text-xs hover:bg-[var(--surface)]/[0.04] transition flex items-center gap-2 ${
+                      className={`flex w-full items-center gap-2 px-3 py-2 text-left text-xs transition hover:bg-[var(--surface-hover)] ${
                         settingsForm.model === m.id
-                          ? "text-[var(--color-action)] bg-[var(--color-action-bg)]/[0.10]"
+                          ? "bg-[var(--accent-bg)] text-[var(--accent)]"
                           : "text-[var(--text-primary)]"
                       }`}
                     >
@@ -191,7 +188,7 @@ export function AiSettingsPanel({
                   ))}
                 </div>
                 {/* Manual model input fallback */}
-                <div className="border-t border-[var(--border)]/10 p-2">
+                <div className="border-t border-[var(--border-subtle)] p-2">
                   <div className="flex gap-1.5">
                     <input
                       value={modelSearch || settingsForm.model}
@@ -208,7 +205,7 @@ export function AiSettingsPanel({
                         }
                       }}
                       placeholder={t("aiPage.manualModelIdPlaceholder")}
-                      className="flex-1 bg-[var(--input-bg)] border border-[var(--border)]/10 rounded-lg px-2 py-1 text-xs text-[var(--text-primary)] placeholder-slate-600 focus:outline-none"
+                      className="flex-1 bg-[var(--input-bg)] border border-[var(--border-subtle)] rounded-lg px-2 py-1 text-xs text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus:outline-none"
                     />
                     <button
                       onClick={() => {
@@ -257,7 +254,7 @@ export function AiSettingsPanel({
                   temperature: parseFloat(e.target.value),
                 }))
               }
-              className="flex-1 h-1.5 bg-[var(--surface)]/10 rounded-full appearance-none cursor-pointer accent-[var(--color-action)] [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-3 [&::-webkit-slider-thumb]:h-3 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-[var(--color-action-bg)]"
+              className="flex-1 h-1.5 bg-[var(--surface-elevated)] rounded-full appearance-none cursor-pointer accent-[var(--color-action)] [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-3 [&::-webkit-slider-thumb]:h-3 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-[var(--color-action-bg)]"
             />
           </div>
         </div>
@@ -316,7 +313,7 @@ export function AiSettingsPanel({
                   topP: parseFloat(e.target.value),
                 }))
               }
-              className="flex-1 h-1.5 bg-[var(--surface)]/10 rounded-full appearance-none cursor-pointer accent-[var(--color-action)] [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-3 [&::-webkit-slider-thumb]:h-3 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-[var(--color-action-bg)]"
+              className="flex-1 h-1.5 bg-[var(--surface-elevated)] rounded-full appearance-none cursor-pointer accent-[var(--color-action)] [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-3 [&::-webkit-slider-thumb]:h-3 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-[var(--color-action-bg)]"
             />
           </div>
         </div>
@@ -346,7 +343,7 @@ export function AiSettingsPanel({
                   frequencyPenalty: parseFloat(e.target.value),
                 }))
               }
-              className="flex-1 h-1.5 bg-[var(--surface)]/10 rounded-full appearance-none cursor-pointer accent-[var(--color-action)] [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-3 [&::-webkit-slider-thumb]:h-3 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-[var(--color-action-bg)]"
+              className="flex-1 h-1.5 bg-[var(--surface-elevated)] rounded-full appearance-none cursor-pointer accent-[var(--color-action)] [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-3 [&::-webkit-slider-thumb]:h-3 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-[var(--color-action-bg)]"
             />
           </div>
         </div>
@@ -376,7 +373,7 @@ export function AiSettingsPanel({
                   presencePenalty: parseFloat(e.target.value),
                 }))
               }
-              className="flex-1 h-1.5 bg-[var(--surface)]/10 rounded-full appearance-none cursor-pointer accent-[var(--color-action)] [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-3 [&::-webkit-slider-thumb]:h-3 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-[var(--color-action-bg)]"
+              className="flex-1 h-1.5 bg-[var(--surface-elevated)] rounded-full appearance-none cursor-pointer accent-[var(--color-action)] [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-3 [&::-webkit-slider-thumb]:h-3 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-[var(--color-action-bg)]"
             />
           </div>
         </div>
@@ -456,7 +453,7 @@ export function AiSettingsPanel({
           }
           rows={2}
           placeholder={t("aiPage.systemPromptPlaceholder")}
-          className="w-full mt-1 bg-[var(--input-bg)] border border-[var(--border)] rounded-lg px-2.5 py-1.5 text-xs text-[var(--text-primary)] placeholder-slate-600 resize-none focus:outline-none focus:border-[var(--color-action-border)]/30"
+          className="w-full mt-1 bg-[var(--input-bg)] border border-[var(--border)] rounded-lg px-2.5 py-1.5 text-xs text-[var(--text-primary)] placeholder:text-[var(--text-muted)] resize-none focus:outline-none focus:border-[var(--color-action-border)]/30"
         />
       </div>
     </div>

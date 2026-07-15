@@ -144,7 +144,7 @@ export function ServerCardActions({
           <form
             action={editAction}
             aria-label={t("serverCardActions.edit.formAria")}
-            className="space-y-3 rounded-2xl border border-[var(--border)] bg-[var(--surface)]/[0.04] p-3"
+            className="space-y-3 rounded-2xl border border-[var(--border)] bg-[var(--surface-elevated)] p-3"
           >
             {" "}
             <input type="hidden" name="serverId" value={serverId} />{" "}
@@ -299,13 +299,13 @@ export function ServerCardActions({
                   inputMode="decimal"
                   defaultValue={costMonthlyAmount ?? ""}
                   placeholder="0.00"
-                  className="w-full rounded-lg border border-[var(--border)] bg-[var(--surface)]/[0.04] px-3 py-2 text-sm text-[var(--text-primary)]"
+                  className="w-full rounded-lg border border-[var(--border)] bg-[var(--surface-elevated)] px-3 py-2 text-sm text-[var(--text-primary)]"
                   aria-label={t("serverCardActions.edit.costMonthlyAmount")}
                 />{" "}
                 <select
                   name="costCurrency"
                   defaultValue={costCurrency}
-                  className="w-full rounded-lg border border-[var(--border)] bg-[var(--surface)]/[0.04] px-3 py-2 text-sm text-[var(--text-primary)]"
+                  className="w-full rounded-lg border border-[var(--border)] bg-[var(--surface-elevated)] px-3 py-2 text-sm text-[var(--text-primary)]"
                   aria-label={t("serverCardActions.edit.costCurrency")}
                 >
                   {" "}
@@ -325,7 +325,7 @@ export function ServerCardActions({
                 placeholder={t(
                   "serverCardActions.edit.costProviderPlaceholder",
                 )}
-                className="w-full rounded-lg border border-[var(--border)] bg-[var(--surface)]/[0.04] px-3 py-2 text-sm text-[var(--text-primary)]"
+                className="w-full rounded-lg border border-[var(--border)] bg-[var(--surface-elevated)] px-3 py-2 text-sm text-[var(--text-primary)]"
                 aria-label={t("serverCardActions.edit.costProvider")}
               />{" "}
               {costLastSyncedAt ? (

@@ -33,9 +33,9 @@ function TwoFactorSettingsStub() {
 			data-testid="two-factor-settings-loading"
 			className="space-y-3"
 		>
-			<div className="h-4 w-2/3 animate-pulse rounded bg-[var(--surface)]/[0.10]" />
-			<div className="h-10 w-full animate-pulse rounded-lg bg-[var(--surface)]/[0.04]" />
-			<div className="h-10 w-1/3 animate-pulse rounded-lg bg-[var(--surface)]/[0.04]" />
+			<div className="h-4 w-2/3 animate-pulse rounded bg-[var(--surface-elevated)]" />
+			<div className="h-10 w-full animate-pulse rounded-lg bg-[var(--surface-elevated)]" />
+			<div className="h-10 w-1/3 animate-pulse rounded-lg bg-[var(--surface-elevated)]" />
 		</div>
 	);
 }

@@ -123,7 +123,7 @@ export function BatchReviewToolbar({
 
 	return (
 		<div className="space-y-3" data-batch-review>
-			<div className="flex flex-wrap items-center gap-3 rounded-lg border border-[var(--border)] bg-[var(--surface)]/[0.04] px-3 py-2 text-sm">
+			<div className="flex flex-wrap items-center gap-3 rounded-lg border border-[var(--border)] bg-[var(--surface-elevated)] px-3 py-2 text-sm">
 				<label className="inline-flex items-center gap-2 cursor-pointer">
 					<input
 						type="checkbox"

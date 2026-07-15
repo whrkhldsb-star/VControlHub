@@ -144,7 +144,7 @@ export function DeploymentLaunchForm({ templates, servers }: { templates: Deploy
 				</div>
 				<div className="grid gap-2 md:grid-cols-2">
 					{servers.map((server) => (
-						<label key={server.id} className="flex items-center gap-2 rounded-lg border border-[var(--border)] bg-[var(--surface)]/[0.04] px-3 py-2 text-xs text-[var(--text-secondary)]">
+						<label key={server.id} className="flex items-center gap-2 rounded-lg border border-[var(--border)] bg-[var(--surface-elevated)] px-3 py-2 text-xs text-[var(--text-secondary)]">
 							<input type="checkbox" name="serverIds" value={server.id} />
 							<span>{server.name} · {server.username}@{server.host}</span>
 						</label>

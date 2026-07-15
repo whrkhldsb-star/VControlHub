@@ -124,7 +124,7 @@ export function SourcesPanel({ sources, actions, onRequestDeleteSource }: Source
 								key={preset.key}
 								type="button"
 								onClick={() => applySourcePreset(preset.key as SourcePresetKey)}
-								className={`rounded-xl border p-3 text-left transition ${active ? "border-[var(--color-action-border)]/30 bg-[var(--color-action-bg)]/10 text-[var(--text-primary)]" : "border-[var(--border)] bg-[var(--surface)]/[0.04] text-[var(--text-secondary)] hover:bg-[var(--surface)]/[0.10] light:hover:bg-[var(--surface)]"}`}
+								className={`rounded-xl border p-3 text-left transition ${active ? "border-[var(--color-action-border)]/30 bg-[var(--color-action-bg)]/10 text-[var(--text-primary)]" : "border-[var(--border)] bg-[var(--surface-elevated)] text-[var(--text-secondary)] hover:bg-[var(--surface-hover)] light:hover:bg-[var(--surface)]"}`}
 							>
 								<div className="flex items-center justify-between gap-2">
 									<span className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--text-muted)]">{preset.badge}</span>
@@ -142,7 +142,7 @@ export function SourcesPanel({ sources, actions, onRequestDeleteSource }: Source
 						<input
 							value={newSourceName}
 							onChange={(e) => setNewSourceName(e.target.value)}
-							className="w-full rounded-lg border border-[var(--border)] bg-[var(--surface)]/[0.04] px-3 py-2 text-sm text-[var(--text-primary)] outline-none focus:border-[var(--color-action-border)]/40"
+							className="w-full rounded-lg border border-[var(--border)] bg-[var(--surface-elevated)] px-3 py-2 text-sm text-[var(--text-primary)] outline-none focus:border-[var(--color-action-border)]/40"
 							placeholder="linuxserver"
 						/>
 					</label>
@@ -151,7 +151,7 @@ export function SourcesPanel({ sources, actions, onRequestDeleteSource }: Source
 						<input
 							value={newSourceDisplayName}
 							onChange={(e) => setNewSourceDisplayName(e.target.value)}
-							className="w-full rounded-lg border border-[var(--border)] bg-[var(--surface)]/[0.04] px-3 py-2 text-sm text-[var(--text-primary)] outline-none focus:border-[var(--color-action-border)]/40"
+							className="w-full rounded-lg border border-[var(--border)] bg-[var(--surface-elevated)] px-3 py-2 text-sm text-[var(--text-primary)] outline-none focus:border-[var(--color-action-border)]/40"
 							placeholder="LinuxServer.io"
 						/>
 					</label>
@@ -160,7 +160,7 @@ export function SourcesPanel({ sources, actions, onRequestDeleteSource }: Source
 						<input
 							value={newSourceUrl}
 							onChange={(e) => setNewSourceUrl(e.target.value)}
-							className="w-full rounded-lg border border-[var(--border)] bg-[var(--surface)]/[0.04] px-3 py-2 text-sm text-[var(--text-primary)] outline-none focus:border-[var(--color-action-border)]/40"
+							className="w-full rounded-lg border border-[var(--border)] bg-[var(--surface-elevated)] px-3 py-2 text-sm text-[var(--text-primary)] outline-none focus:border-[var(--color-action-border)]/40"
 							placeholder="https://..."
 						/>
 					</label>
@@ -172,7 +172,7 @@ export function SourcesPanel({ sources, actions, onRequestDeleteSource }: Source
 								key={type}
 								type="button"
 								onClick={() => setNewSourceType(type)}
-								className={`rounded-lg border px-3 py-1.5 text-xs transition ${newSourceType === type ? "border-[var(--accent-border)] bg-[var(--accent-bg)] text-[var(--accent)]" : "border-[var(--border)] text-[var(--text-secondary)] hover:bg-[var(--surface)]/[0.10]"}`}
+								className={`rounded-lg border px-3 py-1.5 text-xs transition ${newSourceType === type ? "border-[var(--accent-border)] bg-[var(--accent-bg)] text-[var(--accent)]" : "border-[var(--border)] text-[var(--text-secondary)] hover:bg-[var(--surface-hover)]"}`}
 							>
 								{type}
 							</button>
@@ -237,7 +237,7 @@ export function SourcesPanel({ sources, actions, onRequestDeleteSource }: Source
 							type="button"
 							onClick={() => actions.doSync(src.id)}
 							disabled={actions.syncing !== null}
-							className="rounded-lg border border-[var(--border)]/[0.1] px-3 py-1.5 text-xs text-[var(--text-secondary)] hover:bg-[var(--surface)]/[0.10] transition disabled:opacity-50"
+							className="rounded-lg border border-[var(--border-subtle)] px-3 py-1.5 text-xs text-[var(--text-secondary)] hover:bg-[var(--surface-hover)] transition disabled:opacity-50"
 						>
 							{actions.syncing === src.id ? t("quickServicesPage.sources.syncing") : t("quickServicesPage.sources.syncNow")}
 						</button>

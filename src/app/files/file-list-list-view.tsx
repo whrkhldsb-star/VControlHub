@@ -177,7 +177,7 @@ export function FileListListView(props: FileListListViewProps) {
             {sortedFolders.map((folder) => (
               <div
                 key={folder.path}
-                className="grid grid-cols-[44px_44px_minmax(280px,2.6fr)_120px_170px_160px_minmax(240px,auto)] items-center gap-3 px-5 py-3 text-sm hover:bg-[var(--surface)]/[0.04] transition"
+                className="grid grid-cols-[44px_44px_minmax(280px,2.6fr)_120px_170px_160px_minmax(240px,auto)] items-center gap-3 px-5 py-3 text-sm hover:bg-[var(--surface-elevated)] transition"
               >
                 <div>
                   <input
@@ -265,7 +265,7 @@ export function FileListListView(props: FileListListViewProps) {
               return (
                 <div
                   key={entry.id}
-                  className={`grid grid-cols-[44px_44px_minmax(280px,2.6fr)_120px_170px_160px_minmax(240px,auto)] items-center gap-3 px-5 py-3 text-sm hover:bg-[var(--surface)]/[0.04] transition ${isChecked ? "bg-[var(--color-action-bg)]/[0.04]" : ""}`}
+                  className={`grid grid-cols-[44px_44px_minmax(280px,2.6fr)_120px_170px_160px_minmax(240px,auto)] items-center gap-3 px-5 py-3 text-sm hover:bg-[var(--surface-elevated)] transition ${isChecked ? "bg-[var(--color-action-bg)]/[0.04]" : ""}`}
                 >
                   <div>
                     {entryCanWrite(entry) || entryCanDelete(entry) ? (
@@ -354,7 +354,7 @@ export function FileListListView(props: FileListListViewProps) {
         {sortedFolders.map((folder) => (
           <div
             key={folder.path}
-            className="px-4 py-3 hover:bg-[var(--surface)]/[0.04] transition"
+            className="px-4 py-3 hover:bg-[var(--surface-elevated)] transition"
           >
             <div className="flex items-center gap-3">
               <div className="rounded-lg bg-[var(--warning-bg)] p-1.5">
@@ -435,7 +435,7 @@ export function FileListListView(props: FileListListViewProps) {
                     className="mt-2 h-4 w-4 rounded-lg border-[var(--border)] bg-[var(--surface)] text-[var(--color-action)] focus:ring-[var(--color-action-ring)]"
                   />
                 ) : null}
-                <div className="shrink-0 mt-0.5 rounded-lg bg-[var(--surface)]/[0.04] p-1">
+                <div className="shrink-0 mt-0.5 rounded-lg bg-[var(--surface-elevated)] p-1">
                   <FileTypeIcon entry={entry} size={22} />
                 </div>
                 <div className="min-w-0 flex-1">

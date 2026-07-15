@@ -194,7 +194,7 @@ export default async function MediaPlayerPage({
               {previousItem ? (
                 <Link
                   href={`/media/${encodeURIComponent(previousItem.id)}?from=${navigationFrom}`}
-                  className="rounded-2xl border border-[var(--border)] bg-[var(--surface)]/[0.04] px-4 py-3 text-sm text-[var(--text-secondary)] transition hover:bg-[var(--surface)]/[0.10]"
+                  className="rounded-2xl border border-[var(--border)] bg-[var(--surface-elevated)] px-4 py-3 text-sm text-[var(--text-secondary)] transition hover:bg-[var(--surface-hover)]"
                 >
                   <span className="block text-xs text-[var(--text-muted)]">{t("mediaPage.player.previousLabel", locale)}</span>
                   <span className="mt-1 block truncate font-medium">
@@ -209,7 +209,7 @@ export default async function MediaPlayerPage({
               {nextItem ? (
                 <Link
                   href={`/media/${encodeURIComponent(nextItem.id)}?from=${navigationFrom}`}
-                  className="rounded-2xl border border-[var(--border)] bg-[var(--surface)]/[0.04] px-4 py-3 text-right text-sm text-[var(--text-secondary)] transition hover:bg-[var(--surface)]/[0.10]"
+                  className="rounded-2xl border border-[var(--border)] bg-[var(--surface-elevated)] px-4 py-3 text-right text-sm text-[var(--text-secondary)] transition hover:bg-[var(--surface-hover)]"
                 >
                   <span className="block text-xs text-[var(--text-muted)]">{t("mediaPage.player.nextLabel", locale)}</span>
                   <span className="mt-1 block truncate font-medium">
@@ -224,7 +224,7 @@ export default async function MediaPlayerPage({
             </nav>
           </div>
 
-          <aside className="rounded-3xl border border-[var(--border)] bg-[var(--surface)]/[0.04] p-5">
+          <aside className="rounded-3xl border border-[var(--border)] bg-[var(--surface-elevated)] p-5">
             <div className="mb-4 flex items-center gap-2">
               {item.mediaType === "image"
                   ? <ImageIcon size={28} className="text-[var(--accent)]" />

@@ -31,12 +31,12 @@ function FindBarStub() {
 			className="flex items-end gap-2"
 		>
 			<div className="flex flex-col gap-1">
-				<div className="h-3 w-12 animate-pulse rounded bg-[var(--surface)]/[0.10]" />
-				<div className="h-7 w-36 animate-pulse rounded-lg bg-[var(--surface)]/[0.04]" />
+				<div className="h-3 w-12 animate-pulse rounded bg-[var(--surface-elevated)]" />
+				<div className="h-7 w-36 animate-pulse rounded-lg bg-[var(--surface-elevated)]" />
 			</div>
 			<div className="flex flex-col gap-1">
-				<div className="h-3 w-12 animate-pulse rounded bg-[var(--surface)]/[0.10]" />
-				<div className="h-7 w-24 animate-pulse rounded-lg bg-[var(--surface)]/[0.04]" />
+				<div className="h-3 w-12 animate-pulse rounded bg-[var(--surface-elevated)]" />
+				<div className="h-7 w-24 animate-pulse rounded-lg bg-[var(--surface-elevated)]" />
 			</div>
 		</div>
 	);

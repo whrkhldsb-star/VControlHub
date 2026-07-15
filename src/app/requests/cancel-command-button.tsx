@@ -79,7 +79,7 @@ export function CancelCommandButton({ commandRequestId, commandTitle }: Props) {
               id={`cancel-command-${commandRequestId}-reason`}
               value={reason}
               onChange={(event) => setReason(event.target.value)}
-              className="mt-2 min-h-20 w-full rounded-xl border border-[var(--border)] bg-[var(--surface)]/[0.04] px-3 py-2 text-sm text-[var(--text-primary)] outline-none focus:border-[var(--danger-border)]"
+              className="mt-2 min-h-20 w-full rounded-xl border border-[var(--border)] bg-[var(--surface-elevated)] px-3 py-2 text-sm text-[var(--text-primary)] outline-none focus:border-[var(--danger-border)]"
               placeholder={t("requestsPage.cancel.reasonPlaceholder")}
             />
             <div className="mt-5 flex flex-col gap-2 sm:flex-row sm:justify-end">

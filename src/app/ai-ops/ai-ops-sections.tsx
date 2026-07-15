@@ -19,17 +19,17 @@ export type AiOpsSettings = {
 };
 
 const cardClass =
-	"rounded-2xl border border-[var(--border)] bg-[var(--surface)]/[0.04] p-5";
+	"rounded-2xl border border-[var(--border)] bg-[var(--surface-elevated)] p-5";
 const labelClass =
 	"text-xs font-medium text-[var(--text-secondary)] tracking-wide";
 const selectClass =
-	"rounded-lg border border-[var(--border)] bg-[var(--surface)]/[0.04] px-3 py-2 text-sm text-[var(--text-primary)] outline-none focus:border-[var(--color-action-border)]/30";
+	"rounded-lg border border-[var(--border)] bg-[var(--surface-elevated)] px-3 py-2 text-sm text-[var(--text-primary)] outline-none focus:border-[var(--color-action-border)]/30";
 const inputClass =
-	"w-full rounded-lg border border-[var(--border)] bg-[var(--surface)]/[0.04] px-3.5 py-2.5 text-sm text-[var(--text-primary)] outline-none transition placeholder:text-[var(--text-primary)]/30 focus:border-[var(--color-action-border)]/30";
+	"w-full rounded-lg border border-[var(--border)] bg-[var(--surface-elevated)] px-3.5 py-2.5 text-sm text-[var(--text-primary)] outline-none transition placeholder:text-[var(--text-primary)]/30 focus:border-[var(--color-action-border)]/30";
 const buttonPrimary =
 	"rounded-lg bg-[var(--color-action)]/80 hover:bg-[var(--color-action)] px-4 py-2 text-sm font-medium text-[var(--color-action-fg)] transition disabled:opacity-50 disabled:cursor-not-allowed";
 const buttonGhost =
-	"rounded-lg border border-[var(--border)] bg-[var(--surface)]/[0.04] hover:bg-[var(--surface)]/[0.10] px-4 py-2 text-sm text-[var(--text-primary)] transition";
+	"rounded-lg border border-[var(--border)] bg-[var(--surface-elevated)] hover:bg-[var(--surface-hover)] px-4 py-2 text-sm text-[var(--text-primary)] transition";
 const buttonDanger =
 	"rounded-lg border border-[var(--danger-border)] bg-[var(--danger-bg)] hover:bg-[var(--danger-bg)] px-3 py-1.5 text-xs text-[var(--danger)] transition";
 
@@ -232,7 +232,7 @@ export function AiOpsLogsSection({ logs, selectedLogId, setSelectedLogId, t }: {
 						</thead>
 						<tbody>
 							{logs.map((log) => (
-								<tr key={log.id} className={selectedLogId === log.id ? "bg-[var(--color-action)]/10" : "hover:bg-[var(--surface)]/[0.04]"}>
+								<tr key={log.id} className={selectedLogId === log.id ? "bg-[var(--color-action)]/10" : "hover:bg-[var(--surface-elevated)]"}>
 									<td className="py-2 pr-3 font-mono text-xs text-[var(--text-primary)]/70">{formatAiOpsTime(log.createdAt, "—", locale)}</td>
 									<td className="py-2 pr-3">{log.mode === "autonomous" ? t("aiOpsPage.mode.autonomous") : t("aiOpsPage.mode.recommendation")}</td>
 									<td className="py-2 pr-3">{log.triggerType === "scheduled" ? t("aiOpsPage.trigger.scheduled") : log.triggerType === "manual" ? t("aiOpsPage.trigger.manual") : t("aiOpsPage.trigger.recommendation_followup")}</td>
@@ -279,7 +279,7 @@ export function AiOpsDetailSection({
 					) : (
 						<ul className="space-y-2 text-sm text-[var(--text-primary)]">
 							{selectedLog.findings.map((f) => (
-								<li key={f.id} className="rounded-lg border border-[var(--border)] bg-[var(--surface)]/[0.04] p-3">
+								<li key={f.id} className="rounded-lg border border-[var(--border)] bg-[var(--surface-elevated)] p-3">
 									<div className="font-medium text-[var(--text-primary)]">{f.title}</div>
 									<div className="text-xs text-[var(--text-primary)]/70">{t(`aiOpsPage.severity.${f.severity}`)}</div>
 									<div className="mt-1 text-xs text-[var(--text-primary)]/70">{f.body}</div>
@@ -298,7 +298,7 @@ export function AiOpsDetailSection({
 								const recommendation = isRecommendationAction(action) ? action : null;
 								const executed = isExecutedAction(action) ? action : null;
 								return (
-									<li key={action.id} className="flex items-start justify-between gap-3 rounded-lg border border-[var(--border)] bg-[var(--surface)]/[0.04] p-3">
+									<li key={action.id} className="flex items-start justify-between gap-3 rounded-lg border border-[var(--border)] bg-[var(--surface-elevated)] p-3">
 										<div>
 											<div className="font-medium text-[var(--text-primary)]">{action.action}</div>
 											<div className="text-xs text-[var(--text-primary)]/70">{t(`aiOpsPage.risk.${action.risk}`)}</div>

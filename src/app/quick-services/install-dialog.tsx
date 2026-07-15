@@ -161,7 +161,7 @@ export function InstallDialog({
 								max={65535}
 								value={customPort}
 								onChange={(e) => handlePortInput(e.target.value)}
-								className={`w-full rounded-lg border bg-[var(--surface)]/[0.04] px-4 py-2.5 text-sm text-[var(--text-primary)] placeholder-slate-600 outline-none transition ${
+								className={`w-full rounded-lg border bg-[var(--surface-elevated)] px-4 py-2.5 text-sm text-[var(--text-primary)] placeholder:text-[var(--text-muted)] outline-none transition ${
 									portCheck
 										? portCheck.available
 											? "border-[var(--success-border)] focus:border-[var(--success-border)]"
@@ -221,7 +221,7 @@ export function InstallDialog({
 					<button
 						type="button"
 						onClick={onClose}
-						className="rounded-lg border border-[var(--border)]/[0.1] px-4 py-2 text-xs text-[var(--text-muted)] hover:bg-[var(--surface)]/[0.04] transition"
+						className="rounded-lg border border-[var(--border-subtle)] px-4 py-2 text-xs text-[var(--text-muted)] hover:bg-[var(--surface-elevated)] transition"
 					>
 						{t("qsPage.cancel")}
 					</button>

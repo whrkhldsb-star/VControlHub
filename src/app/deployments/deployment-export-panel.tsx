@@ -395,7 +395,7 @@ function TreeRow({
         className={`flex w-full items-center gap-1 rounded-lg px-1 py-0.5 text-left transition ${
           isActive
             ? "bg-[var(--color-action-bg)]/20 text-[var(--text-primary)]"
-            : "hover:bg-[var(--surface)]/[0.04] text-[var(--text-secondary)]"
+            : "hover:bg-[var(--surface-elevated)] text-[var(--text-secondary)]"
         }`}
         style={{ paddingLeft: depth * 12 }}
       >

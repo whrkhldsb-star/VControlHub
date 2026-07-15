@@ -111,7 +111,7 @@ function TrendSection({ trends }: TrendSectionProps) {
 					<div
 						key={card.id}
 						data-card
-						className={`rounded-xl border bg-[var(--surface)]/[0.04] p-4 ${toneToCardClass[card.tone]}`}
+						className={`rounded-xl border bg-[var(--surface-elevated)] p-4 ${toneToCardClass[card.tone]}`}
 					>
 						<div className="text-xs text-[var(--text-muted)]">{card.label}</div>
 						<div className={`mt-2 text-2xl font-semibold ${toneToValueClass[card.tone]}`}>{card.value}</div>
@@ -138,7 +138,7 @@ function TrendSection({ trends }: TrendSectionProps) {
 							return (
 								<div key={bucket.day} className="flex flex-1 flex-col items-center gap-1">
 									<div
-										className="flex w-full max-w-[40px] flex-col-reverse overflow-hidden rounded-lg border border-[var(--border)] bg-[var(--surface)]/[0.04]"
+										className="flex w-full max-w-[40px] flex-col-reverse overflow-hidden rounded-lg border border-[var(--border)] bg-[var(--surface-elevated)]"
 										style={{ height: `${MAX_DAILY_BAR_HEIGHT}px` }}
 										title={t("qaReportsPage.dailyTickTitle")
 											.replace("{day}", bucket.day)
@@ -167,7 +167,7 @@ function TrendSection({ trends }: TrendSectionProps) {
 						{topModules.map((row) => (
 							<li
 								key={row.module}
-								className="flex items-center justify-between rounded-lg border border-[var(--border)] bg-[var(--surface)]/[0.04] px-3 py-2 text-xs"
+								className="flex items-center justify-between rounded-lg border border-[var(--border)] bg-[var(--surface-elevated)] px-3 py-2 text-xs"
 							>
 								<span className="truncate text-[var(--text-secondary)]">{row.module}</span>
 								<span className="ml-2 shrink-0 text-[var(--text-muted)]">

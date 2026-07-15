@@ -91,9 +91,9 @@ export function AiMessageList({
           className={`flex gap-3 ${msg.role === "user" ? "justify-end" : ""}`}
         >
           {msg.role !== "user" && (
-            <div className="flex-shrink-0 w-7 h-7 rounded-lg bg-gradient-to-br from-[var(--color-action)] to-[var(--info)] flex items-center justify-center">
+            <div className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-xl border border-[var(--accent-border)] bg-[var(--accent-bg)]">
               <svg
-                className="w-4 h-4 text-[var(--text-primary)]"
+                className="h-4 w-4 text-[var(--accent)]"
                 fill="none"
                 stroke="currentColor"
                 width="24" height="24" viewBox="0 0 24 24"
@@ -108,10 +108,10 @@ export function AiMessageList({
             </div>
           )}
           <div
-            className={`max-w-[88%] sm:max-w-[80%] rounded-2xl px-3 py-2 sm:px-4 sm:py-2.5 text-sm leading-relaxed ${
+            className={`max-w-[88%] sm:max-w-[80%] rounded-2xl border px-3 py-2 text-sm leading-relaxed sm:px-4 sm:py-2.5 ${
               msg.role === "user"
-                ? "bg-[var(--color-action)]/15 text-[var(--text-primary)]"
-                : "bg-[var(--surface)]/[0.04] text-[var(--text-secondary)]"
+                ? "border-[var(--accent-border)] bg-[var(--accent-bg)] text-[var(--text-primary)]"
+                : "border-[var(--border-subtle)] bg-[var(--surface-elevated)] text-[var(--text-secondary)]"
             }`}
           >
             {msg.reasoningContent && (
@@ -174,7 +174,7 @@ export function AiMessageList({
                   setTimeout(() => setCopyFeedback(null), 2000);
                 }
               }}
-              className="mt-1.5 text-[10px] text-[var(--text-muted)] hover:text-[var(--color-action)] transition flex items-center gap-1"
+              className="mt-1.5 flex items-center gap-1 text-[10px] text-[var(--text-muted)] transition hover:text-[var(--accent)]"
             >
               <svg
                 className="w-3 h-3"
@@ -195,7 +195,7 @@ export function AiMessageList({
             </button>
           </div>
           {msg.role === "user" && (
-            <div className="flex-shrink-0 w-7 h-7 rounded-lg bg-[var(--surface-hover)] flex items-center justify-center text-[11px] font-semibold text-[var(--color-action)] uppercase">
+            <div className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-xl border border-[var(--border)] bg-[var(--surface-elevated)] text-[11px] font-semibold uppercase text-[var(--accent)]">
               U
             </div>
           )}
@@ -204,9 +204,9 @@ export function AiMessageList({
 
       {streaming && streamContent && (
         <div className="flex gap-3">
-          <div className="flex-shrink-0 w-7 h-7 rounded-lg bg-gradient-to-br from-[var(--color-action)] to-[var(--info)] flex items-center justify-center">
+          <div className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-xl border border-[var(--accent-border)] bg-[var(--accent-bg)]">
             <svg
-              className="w-4 h-4 text-[var(--text-primary)] animate-pulse"
+              className="h-4 w-4 animate-pulse text-[var(--accent)]"
               fill="none"
               stroke="currentColor"
               width="24" height="24" viewBox="0 0 24 24"
@@ -219,7 +219,7 @@ export function AiMessageList({
               />
             </svg>
           </div>
-          <div className="max-w-[88%] sm:max-w-[80%] rounded-2xl px-3 py-2 sm:px-4 sm:py-2.5 bg-[var(--surface)]/[0.04] text-[var(--text-secondary)] text-sm leading-relaxed">
+          <div className="max-w-[88%] rounded-2xl border border-[var(--border-subtle)] bg-[var(--surface-elevated)] px-3 py-2 text-sm leading-relaxed text-[var(--text-secondary)] sm:max-w-[80%] sm:px-4 sm:py-2.5">
             {streamReasoning && (
               <details open className="mb-2">
                 <summary className="text-[10px] text-[var(--color-action)]/60 cursor-pointer">
@@ -236,14 +236,14 @@ export function AiMessageList({
       )}
       {streaming && !streamContent && !streamReasoning && (
         <div className="flex gap-3">
-          <div className="flex-shrink-0 w-7 h-7 rounded-lg bg-gradient-to-br from-[var(--color-action)] to-[var(--info)] flex items-center justify-center">
+          <div className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-xl border border-[var(--accent-border)] bg-[var(--accent-bg)]">
             <div className="flex gap-0.5">
-              <span className="w-1 h-1 bg-[var(--surface)] rounded-full animate-bounce [animation-delay:0ms]" />
-              <span className="w-1 h-1 bg-[var(--surface)] rounded-full animate-bounce [animation-delay:150ms]" />
-              <span className="w-1 h-1 bg-[var(--surface)] rounded-full animate-bounce [animation-delay:300ms]" />
+              <span className="h-1 w-1 animate-bounce rounded-full bg-[var(--accent)] [animation-delay:0ms]" />
+              <span className="h-1 w-1 animate-bounce rounded-full bg-[var(--accent)] [animation-delay:150ms]" />
+              <span className="h-1 w-1 animate-bounce rounded-full bg-[var(--accent)] [animation-delay:300ms]" />
             </div>
           </div>
-          <div className="rounded-2xl px-4 py-2.5 bg-[var(--surface)]/[0.04] text-[var(--text-muted)] text-sm">
+          <div className="rounded-2xl border border-[var(--border-subtle)] bg-[var(--surface-elevated)] px-4 py-2.5 text-sm text-[var(--text-muted)]">
             {t("aiPage.thinkingDetail")}
           </div>
         </div>

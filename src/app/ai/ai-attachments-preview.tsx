@@ -134,7 +134,7 @@ export function AiAttachmentsPreview({
               aria-label={t("aiPage.imageUrlAria")}
               onChange={(e) => setImageUrlInput(e.target.value)}
               placeholder={t("aiPage.imageUrlPlaceholder")}
-              className="flex-1 bg-[var(--input-bg)] border border-[var(--border)]/10 rounded-lg px-3 py-1.5 text-xs text-[var(--text-primary)] placeholder-slate-600"
+              className="flex-1 bg-[var(--input-bg)] border border-[var(--border)]/10 rounded-lg px-3 py-1.5 text-xs text-[var(--text-primary)] placeholder:text-[var(--text-muted)]"
               onKeyDown={(e) => {
                 if (e.key === "Enter" && imageUrlInput.trim()) {
                   setImageUrls((prev) => [...prev, imageUrlInput.trim()]);

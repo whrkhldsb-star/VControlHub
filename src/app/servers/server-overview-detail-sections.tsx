@@ -74,7 +74,7 @@ export function OsDialectSection({
 	const sm = displayDialect?.serviceManager ?? parsedDialect?.serviceManager;
 
 	return (
-		<div className="mt-2 rounded-lg border border-[var(--border)] bg-[var(--surface)]/[0.04] p-2.5">
+		<div className="mt-2 rounded-lg border border-[var(--border)] bg-[var(--surface-elevated)] p-2.5">
 			<div className="flex items-center justify-between gap-2">
 				<div className="min-w-0 flex-1">
 					<span className="text-[11px] text-[var(--text-muted)]">{t("serverOverviewDetails.osDialect")}</span>
@@ -97,12 +97,12 @@ export function OsDialectSection({
 			{hasDialect && (pm || sm) ? (
 				<div className="mt-1.5 flex flex-wrap gap-1.5">
 					{pm ? (
-						<span className="rounded border border-[var(--border)] bg-[var(--surface)]/[0.04] px-1.5 py-0.5 text-[10px] text-[var(--text-muted)]">
+						<span className="rounded border border-[var(--border)] bg-[var(--surface-elevated)] px-1.5 py-0.5 text-[10px] text-[var(--text-muted)]">
 							{t("serverOverviewDetails.packageManager")}: {pm}
 						</span>
 					) : null}
 					{sm ? (
-						<span className="rounded border border-[var(--border)] bg-[var(--surface)]/[0.04] px-1.5 py-0.5 text-[10px] text-[var(--text-muted)]">
+						<span className="rounded border border-[var(--border)] bg-[var(--surface-elevated)] px-1.5 py-0.5 text-[10px] text-[var(--text-muted)]">
 							{t("serverOverviewDetails.serviceManager")}: {sm}
 						</span>
 					) : null}

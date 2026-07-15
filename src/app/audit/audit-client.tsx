@@ -269,7 +269,7 @@ export function AuditLogClient({ initialActionFilter = "" }: AuditLogClientProps
               if (searchQuery.trim()) params.set("search", searchQuery.trim());
               window.open(`/api/audit/export?${params.toString()}`, "_self");
             }}
-            className="rounded-lg border border-[var(--border)] bg-[var(--surface)]/[0.04] px-4 py-2 text-sm text-[var(--text-secondary)] transition hover:bg-[var(--surface)]/10"
+            className="rounded-lg border border-[var(--border)] bg-[var(--surface-elevated)] px-4 py-2 text-sm text-[var(--text-secondary)] transition hover:bg-[var(--surface)]/10"
           >
             {t("audit.exportCsv")}
           </button>

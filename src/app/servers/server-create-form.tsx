@@ -39,7 +39,7 @@ function ConnectionTypeFields({
               type="button"
               aria-pressed={connectionType === type}
               onClick={() => setConnectionType(type)}
-              className={`flex-1 rounded-lg border px-3.5 py-2 text-sm transition ${connectionType === type ? "border-[var(--color-action-border)]/20 bg-[var(--color-action-bg)]/[0.10] text-[var(--text-primary)] font-medium" : "border-[var(--border)] bg-[var(--surface)]/[0.04] text-[var(--text-secondary)] hover:bg-[var(--surface)]/[0.10]"}`}
+              className={`flex-1 rounded-lg border px-3.5 py-2 text-sm transition ${connectionType === type ? "border-[var(--color-action-border)]/20 bg-[var(--color-action-bg)]/[0.10] text-[var(--text-primary)] font-medium" : "border-[var(--border)] bg-[var(--surface-elevated)] text-[var(--text-secondary)] hover:bg-[var(--surface-hover)]"}`}
             >
               {" "}
               {type === "SSH_KEY"
@@ -69,7 +69,7 @@ function ConnectionTypeFields({
               id="sshKeyId"
               name="sshKeyId"
               required
-              className="w-full rounded-lg border border-[var(--border)] bg-[var(--surface)]/[0.04] px-3.5 py-2.5 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--color-action-border)]/30 focus:bg-[var(--surface)]/[0.10]"
+              className="w-full rounded-lg border border-[var(--border)] bg-[var(--surface-elevated)] px-3.5 py-2.5 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--color-action-border)]/30 focus:bg-[var(--surface-elevated)]"
             >
               {" "}
               <option value="">{t("serversPage.create.selectKey")}</option>{" "}
@@ -96,7 +96,7 @@ function ConnectionTypeFields({
               type="text"
               defaultValue="root"
               placeholder="root"
-              className="w-full rounded-lg border border-[var(--border)] bg-[var(--surface)]/[0.04] px-3.5 py-2.5 text-sm text-[var(--text-primary)] outline-none transition placeholder:text-[var(--text-primary)]/30 focus:border-[var(--color-action-border)]/30 focus:bg-[var(--surface)]/[0.10]"
+              className="w-full rounded-lg border border-[var(--border)] bg-[var(--surface-elevated)] px-3.5 py-2.5 text-sm text-[var(--text-primary)] outline-none transition placeholder:text-[var(--text-primary)]/30 focus:border-[var(--color-action-border)]/30 focus:bg-[var(--surface-elevated)]"
             />{" "}
           </div>{" "}
         </div>
@@ -118,7 +118,7 @@ function ConnectionTypeFields({
               type="text"
               defaultValue="root"
               placeholder="root"
-              className="w-full rounded-lg border border-[var(--border)] bg-[var(--surface)]/[0.04] px-3.5 py-2.5 text-sm text-[var(--text-primary)] outline-none transition placeholder:text-[var(--text-primary)]/30 focus:border-[var(--color-action-border)]/30 focus:bg-[var(--surface)]/[0.10]"
+              className="w-full rounded-lg border border-[var(--border)] bg-[var(--surface-elevated)] px-3.5 py-2.5 text-sm text-[var(--text-primary)] outline-none transition placeholder:text-[var(--text-primary)]/30 focus:border-[var(--color-action-border)]/30 focus:bg-[var(--surface-elevated)]"
             />{" "}
           </div>{" "}
           <div className="space-y-1.5">
@@ -137,7 +137,7 @@ function ConnectionTypeFields({
               defaultValue=""
               autoComplete="new-password"
               placeholder={t("serversPage.create.passwordPlaceholder")}
-              className="w-full rounded-lg border border-[var(--border)] bg-[var(--surface)]/[0.04] px-3.5 py-2.5 text-sm text-[var(--text-primary)] outline-none transition placeholder:text-[var(--text-primary)]/30 focus:border-[var(--color-action-border)]/30 focus:bg-[var(--surface)]/[0.10]"
+              className="w-full rounded-lg border border-[var(--border)] bg-[var(--surface-elevated)] px-3.5 py-2.5 text-sm text-[var(--text-primary)] outline-none transition placeholder:text-[var(--text-primary)]/30 focus:border-[var(--color-action-border)]/30 focus:bg-[var(--surface-elevated)]"
             />{" "}
             <p className="text-[11px] text-[var(--text-muted)]">
               {t("serversPage.create.passwordHint")}
@@ -200,7 +200,7 @@ export function ServerCreateForm({
             type="text"
             required
             placeholder={t("serversPage.create.namePlaceholder")}
-            className="w-full rounded-lg border border-[var(--border)] bg-[var(--surface)]/[0.04] px-3.5 py-2.5 text-sm text-[var(--text-primary)] outline-none transition placeholder:text-[var(--text-primary)]/30 focus:border-[var(--color-action-border)]/30 focus:bg-[var(--surface)]/[0.10]"
+            className="w-full rounded-lg border border-[var(--border)] bg-[var(--surface-elevated)] px-3.5 py-2.5 text-sm text-[var(--text-primary)] outline-none transition placeholder:text-[var(--text-primary)]/30 focus:border-[var(--color-action-border)]/30 focus:bg-[var(--surface-elevated)]"
           />{" "}
         </div>{" "}
         <div className="space-y-1.5">
@@ -216,7 +216,7 @@ export function ServerCreateForm({
             name="description"
             type="text"
             placeholder={t("serversPage.create.descriptionPlaceholder")}
-            className="w-full rounded-lg border border-[var(--border)] bg-[var(--surface)]/[0.04] px-3.5 py-2.5 text-sm text-[var(--text-primary)] outline-none transition placeholder:text-[var(--text-primary)]/30 focus:border-[var(--color-action-border)]/30 focus:bg-[var(--surface)]/[0.10]"
+            className="w-full rounded-lg border border-[var(--border)] bg-[var(--surface-elevated)] px-3.5 py-2.5 text-sm text-[var(--text-primary)] outline-none transition placeholder:text-[var(--text-primary)]/30 focus:border-[var(--color-action-border)]/30 focus:bg-[var(--surface-elevated)]"
           />{" "}
         </div>{" "}
       </div>{" "}
@@ -236,7 +236,7 @@ export function ServerCreateForm({
             type="text"
             required
             placeholder="1.2.3.4"
-            className="w-full rounded-lg border border-[var(--border)] bg-[var(--surface)]/[0.04] px-3.5 py-2.5 text-sm text-[var(--text-primary)] outline-none transition placeholder:text-[var(--text-primary)]/30 focus:border-[var(--color-action-border)]/30 focus:bg-[var(--surface)]/[0.10]"
+            className="w-full rounded-lg border border-[var(--border)] bg-[var(--surface-elevated)] px-3.5 py-2.5 text-sm text-[var(--text-primary)] outline-none transition placeholder:text-[var(--text-primary)]/30 focus:border-[var(--color-action-border)]/30 focus:bg-[var(--surface-elevated)]"
           />{" "}
         </div>{" "}
         <div className="space-y-1.5">
@@ -254,11 +254,11 @@ export function ServerCreateForm({
             defaultValue={22}
             min={1}
             max={65535}
-            className="w-full rounded-lg border border-[var(--border)] bg-[var(--surface)]/[0.04] px-3.5 py-2.5 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--color-action-border)]/30 focus:bg-[var(--surface)]/[0.10]"
+            className="w-full rounded-lg border border-[var(--border)] bg-[var(--surface-elevated)] px-3.5 py-2.5 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--color-action-border)]/30 focus:bg-[var(--surface-elevated)]"
           />{" "}
         </div>{" "}
       </div>{" "}
-      <div className="space-y-3 rounded-xl border border-[var(--border)] bg-[var(--surface)]/[0.04] p-4">
+      <div className="space-y-3 rounded-xl border border-[var(--border)] bg-[var(--surface-elevated)] p-4">
         {" "}
         <label className="flex items-start gap-3 text-sm text-[var(--text-secondary)]">
           {" "}
@@ -294,7 +294,7 @@ export function ServerCreateForm({
               type="text"
               inputMode="decimal"
               placeholder="0.00"
-              className="w-full rounded-lg border border-[var(--border)] bg-[var(--surface)]/[0.04] px-3.5 py-2.5 text-sm text-[var(--text-primary)] outline-none transition placeholder:text-[var(--text-primary)]/30 focus:border-[var(--color-action-border)]/30 focus:bg-[var(--surface)]/[0.10]"
+              className="w-full rounded-lg border border-[var(--border)] bg-[var(--surface-elevated)] px-3.5 py-2.5 text-sm text-[var(--text-primary)] outline-none transition placeholder:text-[var(--text-primary)]/30 focus:border-[var(--color-action-border)]/30 focus:bg-[var(--surface-elevated)]"
             />{" "}
           </div>{" "}
           <div className="space-y-1.5">
@@ -310,7 +310,7 @@ export function ServerCreateForm({
               id="serverCostCurrency"
               name="costCurrency"
               defaultValue="CNY"
-              className="w-full rounded-lg border border-[var(--border)] bg-[var(--surface)]/[0.04] px-3.5 py-2.5 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--color-action-border)]/30 focus:bg-[var(--surface)]/[0.10]"
+              className="w-full rounded-lg border border-[var(--border)] bg-[var(--surface-elevated)] px-3.5 py-2.5 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--color-action-border)]/30 focus:bg-[var(--surface-elevated)]"
             >
               {" "}
               {(["CNY", "USD", "EUR", "JPY", "HKD"] as const).map(
@@ -337,7 +337,7 @@ export function ServerCreateForm({
             name="costProvider"
             type="text"
             placeholder={t("serversPage.create.costProviderPlaceholder")}
-            className="w-full rounded-lg border border-[var(--border)] bg-[var(--surface)]/[0.04] px-3.5 py-2.5 text-sm text-[var(--text-primary)] outline-none transition placeholder:text-[var(--text-primary)]/30 focus:border-[var(--color-action-border)]/30 focus:bg-[var(--surface)]/[0.10]"
+            className="w-full rounded-lg border border-[var(--border)] bg-[var(--surface-elevated)] px-3.5 py-2.5 text-sm text-[var(--text-primary)] outline-none transition placeholder:text-[var(--text-primary)]/30 focus:border-[var(--color-action-border)]/30 focus:bg-[var(--surface-elevated)]"
           />{" "}
         </div>{" "}
       </div>{" "}
@@ -377,7 +377,7 @@ export function ServerCreateForm({
           type="text"
           defaultValue={t("serversPage.create.storagePathDefault")}
           placeholder="/root/drive"
-          className="w-full rounded-lg border border-[var(--border)] bg-[var(--surface)]/[0.04] px-3.5 py-2.5 text-sm text-[var(--text-primary)] outline-none transition placeholder:text-[var(--text-primary)]/30 focus:border-[var(--color-action-border)]/30 focus:bg-[var(--surface)]/[0.10]"
+          className="w-full rounded-lg border border-[var(--border)] bg-[var(--surface-elevated)] px-3.5 py-2.5 text-sm text-[var(--text-primary)] outline-none transition placeholder:text-[var(--text-primary)]/30 focus:border-[var(--color-action-border)]/30 focus:bg-[var(--surface-elevated)]"
         />{" "}
         <p className="mt-1 text-xs text-[var(--text-muted)]">
           {" "}
@@ -448,7 +448,7 @@ export function ServerCreateForm({
           name="tags"
           type="text"
           placeholder={t("serversPage.create.tagsPlaceholder")}
-          className="w-full rounded-lg border border-[var(--border)] bg-[var(--surface)]/[0.04] px-3.5 py-2.5 text-sm text-[var(--text-primary)] outline-none transition placeholder:text-[var(--text-primary)]/30 focus:border-[var(--color-action-border)]/30 focus:bg-[var(--surface)]/[0.10]"
+          className="w-full rounded-lg border border-[var(--border)] bg-[var(--surface-elevated)] px-3.5 py-2.5 text-sm text-[var(--text-primary)] outline-none transition placeholder:text-[var(--text-primary)]/30 focus:border-[var(--color-action-border)]/30 focus:bg-[var(--surface-elevated)]"
         />{" "}
       </div>{" "}
       <SubmitButton pendingLabel={t("serversPage.create.submitting")}>

@@ -120,7 +120,7 @@ export function ArchivePreviewClient({
 						{entries.map((entry, i) => (
 							<div
 								key={`${entry.name}-${i}`}
-								className="grid grid-cols-[auto_minmax(0,2fr)_100px] gap-4 items-center px-4 py-2 text-sm hover:bg-[var(--surface)]/[0.04] transition"
+								className="grid grid-cols-[auto_minmax(0,2fr)_100px] gap-4 items-center px-4 py-2 text-sm hover:bg-[var(--surface-elevated)] transition"
 							>
 								<div className="text-[var(--text-muted)]">
 									{entry.isDirectory ? (

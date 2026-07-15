@@ -14,7 +14,7 @@ export function ReviewCommandForm({ commandRequestId }: { commandRequestId: stri
   const [state, formAction] = useActionState(reviewCommandAction, initialState);
 
   return (
-    <form action={formAction} className="mt-4 rounded-lg border border-[var(--border)] bg-[var(--surface)]/[0.04] p-4 text-sm text-[var(--text-secondary)]">
+    <form action={formAction} className="mt-4 rounded-lg border border-[var(--border)] bg-[var(--surface-elevated)] p-4 text-sm text-[var(--text-secondary)]">
       <input type="hidden" name="commandRequestId" value={commandRequestId} />
       <label className="grid gap-2">
         <span className="text-[var(--text-secondary)]">{t("requestsPage.review.commentLabel")}</span>

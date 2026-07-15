@@ -97,7 +97,7 @@ export function FileListDetailsView({
       {sortedFolders.map((folder) => (
         <div
           key={folder.path}
-          className="flex items-center gap-4 px-5 py-4 hover:bg-[var(--surface)]/[0.04] transition group"
+          className="flex items-center gap-4 px-5 py-4 hover:bg-[var(--surface-elevated)] transition group"
         >
           <div className="shrink-0">
             <div className="rounded-xl bg-[var(--warning-bg)] p-2">
@@ -178,7 +178,7 @@ export function FileListDetailsView({
         return (
           <div
             key={entry.id}
-            className={`flex items-center gap-4 px-5 py-4 hover:bg-[var(--surface)]/[0.04] transition ${isChecked ? "bg-[var(--color-action-bg)]/[0.04]" : ""}`}
+            className={`flex items-center gap-4 px-5 py-4 hover:bg-[var(--surface-elevated)] transition ${isChecked ? "bg-[var(--color-action-bg)]/[0.04]" : ""}`}
           >
             {/* Checkbox */}
             <div className="shrink-0">

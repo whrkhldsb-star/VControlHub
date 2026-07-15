@@ -94,7 +94,7 @@ export function FileDetailPanel({
           </button>
         </div>
         <div className="flex-1 space-y-5 overflow-y-auto px-5 py-5">
-          <div className="rounded-2xl border border-[var(--border)] bg-[var(--surface)]/[0.04] p-4">
+          <div className="rounded-2xl border border-[var(--border)] bg-[var(--surface-elevated)] p-4">
             <div className="grid gap-3 text-sm sm:grid-cols-2">
               <div>
                 <p className="text-xs text-[var(--text-muted)]">{t("fileDetailPanel.storageNode")}</p>

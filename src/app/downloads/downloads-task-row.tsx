@@ -60,7 +60,7 @@ export const DownloadTaskRow = memo(function DownloadTaskRow({
 }) {
 	const pct = computePct(task.completedBytes, task.totalBytes);
 	return (
-		<article data-card className="p-4 hover:bg-[var(--surface)]/[0.04]">
+		<article data-card className="p-4 hover:bg-[var(--surface-elevated)]">
 			{/* Header row */}
 			<div className="flex flex-wrap items-center gap-2 mb-2.5">
 				<span className={`rounded-full border px-2 py-0.5 text-[10px] font-medium ${statusBadge[task.status] ?? ""}`}>
@@ -82,7 +82,7 @@ export const DownloadTaskRow = memo(function DownloadTaskRow({
 						<span>{formatBytes(task.completedBytes)} / {formatBytes(task.totalBytes)}</span>
 						<span>{pct}% · {formatSpeed(task.downloadSpeed)}</span>
 					</div>
-					<div className="h-1.5 rounded-full bg-[var(--surface)]/[0.10] overflow-hidden">
+					<div className="h-1.5 rounded-full bg-[var(--surface-elevated)] overflow-hidden">
 						<div className="h-full rounded-full bg-gradient-to-r from-[var(--color-action-hover)] to-[var(--color-action)] transition-[width] duration-500"
 							style={{ width: `${pct}%` }}
 						/>
@@ -140,7 +140,7 @@ export const DownloadTaskRow = memo(function DownloadTaskRow({
 				)}
 				{canManage && (
 					<button type="button" onClick={() => onAction(task.id, "refresh")}
-						className="rounded-lg border border-[var(--border)] bg-[var(--surface)]/[0.04] px-3 py-1.5 text-xs text-[var(--text-muted)] hover:bg-[var(--surface)]/[0.10] transition"
+						className="rounded-lg border border-[var(--border)] bg-[var(--surface-elevated)] px-3 py-1.5 text-xs text-[var(--text-muted)] hover:bg-[var(--surface-hover)] transition"
 					>
 						{busyActions[`${task.id}:refresh`] ? t("downloadsPage.action.refreshing") : t("downloadsPage.action.refresh")}
 					</button>

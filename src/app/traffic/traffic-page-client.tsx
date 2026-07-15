@@ -238,8 +238,8 @@ export default function TrafficPage({ canManage: _canManage }: { canManage: bool
       {error && <div className="mb-4 rounded-lg bg-[var(--danger-bg)] px-4 py-3 text-sm text-[var(--danger)]">{error}</div>}
 
       <div className="mb-5 flex flex-wrap items-center gap-2">
-        <button type="button" onClick={() => { setHistoryScope("24h"); void fetchHistory("24h"); }} className={`rounded-lg px-3 py-1.5 text-xs font-medium ${historyScope === "24h" ? "bg-[var(--color-action)]/15 text-[var(--text-secondary)]" : "bg-[var(--surface)]/[0.04] text-[var(--text-secondary)]"}`}>24h</button>
-        <button type="button" onClick={() => { setHistoryScope("7d"); void fetchHistory("7d"); }} className={`rounded-lg px-3 py-1.5 text-xs font-medium ${historyScope === "7d" ? "bg-[var(--color-action)]/15 text-[var(--text-secondary)]" : "bg-[var(--surface)]/[0.04] text-[var(--text-secondary)]"}`}>7d</button>
+        <button type="button" onClick={() => { setHistoryScope("24h"); void fetchHistory("24h"); }} className={`rounded-lg px-3 py-1.5 text-xs font-medium ${historyScope === "24h" ? "bg-[var(--color-action)]/15 text-[var(--text-secondary)]" : "bg-[var(--surface-elevated)] text-[var(--text-secondary)]"}`}>24h</button>
+        <button type="button" onClick={() => { setHistoryScope("7d"); void fetchHistory("7d"); }} className={`rounded-lg px-3 py-1.5 text-xs font-medium ${historyScope === "7d" ? "bg-[var(--color-action)]/15 text-[var(--text-secondary)]" : "bg-[var(--surface-elevated)] text-[var(--text-secondary)]"}`}>7d</button>
         <span className="text-xs text-[var(--text-muted)]">{historyScope === "24h" ? t("trafficPage.historyHint24h") : t("trafficPage.historyHint7d")}</span>
       </div>
 

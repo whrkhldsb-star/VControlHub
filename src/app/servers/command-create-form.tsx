@@ -78,7 +78,7 @@ export function CommandCreateForm({ servers }: { servers: ServerOption[] }) {
           type="text"
           required
           placeholder={t("serversPage.command.titlePlaceholder")}
-          className="w-full rounded-lg border border-[var(--border)] bg-[var(--surface)]/[0.04] px-3.5 py-2.5 text-sm text-[var(--text-primary)] outline-none transition placeholder:text-[var(--text-primary)]/30 focus:border-[var(--color-action-border)]/30 focus:bg-[var(--surface)]/[0.10]"
+          className="w-full rounded-lg border border-[var(--border)] bg-[var(--surface-elevated)] px-3.5 py-2.5 text-sm text-[var(--text-primary)] outline-none transition placeholder:text-[var(--text-primary)]/30 focus:border-[var(--color-action-border)]/30 focus:bg-[var(--surface-elevated)]"
         />{" "}
       </div>{" "}
       <div className="space-y-1.5">
@@ -95,7 +95,7 @@ export function CommandCreateForm({ servers }: { servers: ServerOption[] }) {
           rows={4}
           required
           placeholder="df -h"
-          className="w-full rounded-lg border border-[var(--border)] bg-[var(--surface)]/[0.04] px-3.5 py-2.5 text-sm text-[var(--text-primary)] font-mono outline-none transition placeholder:text-[var(--text-primary)]/30 focus:border-[var(--color-action-border)]/30 focus:bg-[var(--surface)]/[0.10] resize-y"
+          className="w-full rounded-lg border border-[var(--border)] bg-[var(--surface-elevated)] px-3.5 py-2.5 text-sm text-[var(--text-primary)] font-mono outline-none transition placeholder:text-[var(--text-primary)]/30 focus:border-[var(--color-action-border)]/30 focus:bg-[var(--surface-elevated)] resize-y"
         />{" "}
       </div>{" "}
       <div className="space-y-1.5">
@@ -111,7 +111,7 @@ export function CommandCreateForm({ servers }: { servers: ServerOption[] }) {
           name="reason"
           rows={2}
           placeholder={t("common.optional")}
-          className="w-full rounded-lg border border-[var(--border)] bg-[var(--surface)]/[0.04] px-3.5 py-2.5 text-sm text-[var(--text-primary)] outline-none transition placeholder:text-[var(--text-primary)]/30 focus:border-[var(--color-action-border)]/30 focus:bg-[var(--surface)]/[0.10] resize-y"
+          className="w-full rounded-lg border border-[var(--border)] bg-[var(--surface-elevated)] px-3.5 py-2.5 text-sm text-[var(--text-primary)] outline-none transition placeholder:text-[var(--text-primary)]/30 focus:border-[var(--color-action-border)]/30 focus:bg-[var(--surface-elevated)] resize-y"
         />{" "}
       </div>{" "}
       <div className="space-y-2">
@@ -142,7 +142,7 @@ export function CommandCreateForm({ servers }: { servers: ServerOption[] }) {
             {servers.map((server) => (
               <label
                 key={server.id}
-                className={`flex items-center gap-2.5 rounded-lg border px-3 py-2 text-sm cursor-pointer transition ${!server.enabled ? "border-[var(--border)] bg-[var(--surface)]/[0.04] text-[var(--text-muted)] cursor-not-allowed opacity-50" : selectedServerIds.has(server.id) ? "border-[var(--color-action-border)]/20 bg-[var(--color-action-bg)]/[0.10] text-[var(--text-primary)]" : "border-[var(--border)] bg-[var(--surface)]/[0.04] text-[var(--text-secondary)] hover:bg-[var(--surface)]/[0.10]"}`}
+                className={`flex items-center gap-2.5 rounded-lg border px-3 py-2 text-sm cursor-pointer transition ${!server.enabled ? "border-[var(--border)] bg-[var(--surface-elevated)] text-[var(--text-muted)] cursor-not-allowed opacity-50" : selectedServerIds.has(server.id) ? "border-[var(--color-action-border)]/20 bg-[var(--color-action-bg)]/[0.10] text-[var(--text-primary)]" : "border-[var(--border)] bg-[var(--surface-elevated)] text-[var(--text-secondary)] hover:bg-[var(--surface-hover)]"}`}
               >
                 {" "}
                 <input

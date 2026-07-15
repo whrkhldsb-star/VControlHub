@@ -109,7 +109,7 @@ export function ShareFileButton({
               <p className="pr-8 font-medium text-[var(--success)]">
                 {copied ? t("sharesPage.button.generatedAndCopied") : t("sharesPage.button.generated")}
               </p>
-              <code className="block break-all rounded-lg bg-[var(--surface)]/[0.04] p-2 text-[var(--text-secondary)]">
+              <code className="block break-all rounded-lg bg-[var(--surface-elevated)] p-2 text-[var(--text-secondary)]">
                 {shareUrl}
               </code>
               <button

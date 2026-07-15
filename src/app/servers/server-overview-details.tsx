@@ -199,7 +199,7 @@ export function ServerOverviewDetails({
 						{(server.tags ?? []).map((tag) => (
 							<span
 								key={tag}
-								className="rounded-lg border border-[var(--border)] bg-[var(--surface)]/[0.04] px-2 py-0.5 text-[11px] text-[var(--text-muted)]"
+								className="rounded-lg border border-[var(--border)] bg-[var(--surface-elevated)] px-2 py-0.5 text-[11px] text-[var(--text-muted)]"
 							>
 								#{tag}
 							</span>
@@ -356,7 +356,7 @@ export function ServerOverviewDetails({
 						{server.latestCommands.map((command) => (
 							<div
 								key={command.id}
-								className="rounded-lg border border-[var(--border)] bg-[var(--surface)]/[0.04] p-3"
+								className="rounded-lg border border-[var(--border)] bg-[var(--surface-elevated)] p-3"
 							>
 								<div className="flex items-center justify-between gap-2">
 									<span className="truncate text-sm font-medium text-[var(--text-primary)]">

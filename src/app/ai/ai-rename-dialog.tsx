@@ -60,7 +60,7 @@ export function AiRenameDialog({
             value={title}
             onChange={(event) => onChangeTitle(event.target.value)}
             autoFocus
-            className="rounded-xl border border-[var(--border)] bg-[var(--surface)]/[0.04] px-3 py-2 text-sm text-[var(--text-primary)] outline-none placeholder:text-[var(--text-muted)] focus:border-[var(--color-action-border)]/60"
+            className="rounded-xl border border-[var(--border)] bg-[var(--surface-elevated)] px-3 py-2 text-sm text-[var(--text-primary)] outline-none placeholder:text-[var(--text-muted)] focus:border-[var(--color-action-border)]/60"
             placeholder={t("aiPage.newTitlePlaceholder")}
           />
         </label>

@@ -49,7 +49,7 @@ export function ActiveIncidentsBanner() {
 	function levelColor(level: string) {
 		if (level === "incident") return "border-[var(--warning-border)] bg-[var(--warning-bg)]";
 		if (level === "maintenance") return "border-[var(--color-action-border)]/30 bg-[var(--color-action-bg)]/10";
-		return "border-[var(--border)] bg-[var(--surface)]/[0.04]";
+		return "border-[var(--border)] bg-[var(--surface-elevated)]";
 	}
 
 	function levelLabel(level: string) {

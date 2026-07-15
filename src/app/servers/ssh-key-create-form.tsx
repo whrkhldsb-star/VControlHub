@@ -50,7 +50,7 @@ export function SshKeyCreateForm() {
           type="text"
           required
           placeholder={t("serversPage.sshKeyCreate.namePlaceholder")}
-          className="w-full rounded-lg border border-[var(--border)] bg-[var(--surface)]/[0.04] px-3.5 py-2.5 text-sm text-[var(--text-primary)] outline-none transition placeholder:text-[var(--text-primary)]/30 focus:border-[var(--color-action-border)]/30 focus:bg-[var(--surface)]/[0.10]"
+          className="w-full rounded-lg border border-[var(--border)] bg-[var(--surface-elevated)] px-3.5 py-2.5 text-sm text-[var(--text-primary)] outline-none transition placeholder:text-[var(--text-primary)]/30 focus:border-[var(--color-action-border)]/30 focus:bg-[var(--surface-elevated)]"
         />{" "}
       </div>{" "}
       <div className="space-y-1.5">
@@ -66,7 +66,7 @@ export function SshKeyCreateForm() {
           name="description"
           type="text"
           placeholder={t("common.optional")}
-          className="w-full rounded-lg border border-[var(--border)] bg-[var(--surface)]/[0.04] px-3.5 py-2.5 text-sm text-[var(--text-primary)] outline-none transition placeholder:text-[var(--text-primary)]/30 focus:border-[var(--color-action-border)]/30 focus:bg-[var(--surface)]/[0.10]"
+          className="w-full rounded-lg border border-[var(--border)] bg-[var(--surface-elevated)] px-3.5 py-2.5 text-sm text-[var(--text-primary)] outline-none transition placeholder:text-[var(--text-primary)]/30 focus:border-[var(--color-action-border)]/30 focus:bg-[var(--surface-elevated)]"
         />{" "}
       </div>{" "}
       <div
@@ -88,7 +88,7 @@ export function SshKeyCreateForm() {
           name="privateKey"
           rows={4}
           placeholder={t("serversPage.sshKeyCreate.privateKeyPlaceholder")}
-          className="w-full rounded-lg border border-[var(--border)] bg-[var(--surface)]/[0.04] px-3.5 py-2.5 text-sm text-[var(--text-primary)] font-mono outline-none transition placeholder:text-[var(--text-primary)]/30 focus:border-[var(--color-action-border)]/30 focus:bg-[var(--surface)]/[0.10] resize-y"
+          className="w-full rounded-lg border border-[var(--border)] bg-[var(--surface-elevated)] px-3.5 py-2.5 text-sm text-[var(--text-primary)] font-mono outline-none transition placeholder:text-[var(--text-primary)]/30 focus:border-[var(--color-action-border)]/30 focus:bg-[var(--surface-elevated)] resize-y"
         />{" "}
       </div>{" "}
       <div className="space-y-1.5">
@@ -104,7 +104,7 @@ export function SshKeyCreateForm() {
           name="publicKey"
           rows={2}
           placeholder="ssh-rsa AAAA..."
-          className="w-full rounded-lg border border-[var(--border)] bg-[var(--surface)]/[0.04] px-3.5 py-2.5 text-sm text-[var(--text-primary)] font-mono outline-none transition placeholder:text-[var(--text-primary)]/30 focus:border-[var(--color-action-border)]/30 focus:bg-[var(--surface)]/[0.10] resize-y"
+          className="w-full rounded-lg border border-[var(--border)] bg-[var(--surface-elevated)] px-3.5 py-2.5 text-sm text-[var(--text-primary)] font-mono outline-none transition placeholder:text-[var(--text-primary)]/30 focus:border-[var(--color-action-border)]/30 focus:bg-[var(--surface-elevated)] resize-y"
         />{" "}
       </div>{" "}
       <div className="space-y-1.5">
@@ -121,7 +121,7 @@ export function SshKeyCreateForm() {
           type="password"
           autoComplete="new-password"
           placeholder={t("serversPage.sshKeyCreate.passphrasePlaceholder")}
-          className="w-full rounded-lg border border-[var(--border)] bg-[var(--surface)]/[0.04] px-3.5 py-2.5 text-sm text-[var(--text-primary)] outline-none transition placeholder:text-[var(--text-primary)]/30 focus:border-[var(--color-action-border)]/30 focus:bg-[var(--surface)]/[0.10]"
+          className="w-full rounded-lg border border-[var(--border)] bg-[var(--surface-elevated)] px-3.5 py-2.5 text-sm text-[var(--text-primary)] outline-none transition placeholder:text-[var(--text-primary)]/30 focus:border-[var(--color-action-border)]/30 focus:bg-[var(--surface-elevated)]"
         />{" "}
         <p className="text-xs text-[var(--text-muted)]">
           {t("serversPage.sshKeyCreate.passphraseHint")}
@@ -141,7 +141,7 @@ export function SshKeyCreateForm() {
           type="password"
           autoComplete="new-password"
           placeholder={t("serversPage.sshKeyCreate.ppkPassphrasePlaceholder")}
-          className="w-full rounded-lg border border-[var(--border)] bg-[var(--surface)]/[0.04] px-3.5 py-2.5 text-sm text-[var(--text-primary)] outline-none transition placeholder:text-[var(--text-primary)]/30 focus:border-[var(--color-action-border)]/30 focus:bg-[var(--surface)]/[0.10]"
+          className="w-full rounded-lg border border-[var(--border)] bg-[var(--surface-elevated)] px-3.5 py-2.5 text-sm text-[var(--text-primary)] outline-none transition placeholder:text-[var(--text-primary)]/30 focus:border-[var(--color-action-border)]/30 focus:bg-[var(--surface-elevated)]"
         />{" "}
       </div>{" "}
       <div className="space-y-1.5">
@@ -151,7 +151,7 @@ export function SshKeyCreateForm() {
         </label>{" "}
         <div className="flex items-center gap-3">
           {" "}
-          <label className="cursor-pointer rounded-lg border border-dashed border-[var(--border)]/[0.1] bg-[var(--surface)]/[0.04] px-4 py-2.5 text-sm text-[var(--text-secondary)] hover:bg-[var(--surface)]/[0.04] transition">
+          <label className="cursor-pointer rounded-lg border border-dashed border-[var(--border-subtle)] bg-[var(--surface-elevated)] px-4 py-2.5 text-sm text-[var(--text-secondary)] hover:bg-[var(--surface-elevated)] transition">
             {" "}
             {selectedPpkFileName ??
               t("serversPage.sshKeyCreate.fileLabel")}{" "}

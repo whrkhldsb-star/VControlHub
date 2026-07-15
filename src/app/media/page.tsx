@@ -175,7 +175,7 @@ export default async function Page({
               href={mediaHref({ favorite, q, tag })}
               active={!mediaType}
               activeClassName="border-[var(--color-action-border)]/45 bg-[var(--color-action-bg)]/20 text-[var(--text-primary)]"
-              inactiveClassName="border-[var(--border)] bg-[var(--surface)]/[0.04] text-[var(--text-secondary)] hover:bg-[var(--surface)]/[0.10]"
+              inactiveClassName="border-[var(--border)] bg-[var(--surface-elevated)] text-[var(--text-secondary)] hover:bg-[var(--surface-hover)]"
               className="rounded-2xl border px-4 py-3 transition"
             >
 
@@ -281,7 +281,7 @@ export default async function Page({
             </FilterLink>
           </div>
         </div>
-        <aside className="rounded-2xl border border-[var(--border)]/[0.07] bg-[var(--surface)]/[0.04] p-4">
+        <aside className="rounded-2xl border border-[var(--border)]/[0.07] bg-[var(--surface-elevated)] p-4">
 
           <h2 className="text-sm font-semibold text-[var(--text-primary)]">
             {t("mediaPage.flow.title", locale)}
@@ -335,7 +335,7 @@ export default async function Page({
             name="q"
             defaultValue={q ?? ""}
             placeholder={t("mediaPage.search.placeholder", locale)}
-            className="w-full rounded-xl border border-[var(--border)] bg-[var(--surface)]/[0.04] px-3 py-2 text-sm text-[var(--text-primary)] outline-none placeholder:text-[var(--text-muted)] focus:border-[var(--color-action-border)]/50"
+            className="w-full rounded-xl border border-[var(--border)] bg-[var(--surface-elevated)] px-3 py-2 text-sm text-[var(--text-primary)] outline-none placeholder:text-[var(--text-muted)] focus:border-[var(--color-action-border)]/50"
           />
         </div>
         <button
@@ -391,7 +391,7 @@ export default async function Page({
                 href={toggleTagHref(filters, entry.tag)}
                 active={tag === entry.tag}
                 activeClassName="border-[var(--color-action-border)]/40 bg-[var(--color-action-bg)]/20 text-[var(--text-primary)]"
-                inactiveClassName="border-[var(--border)] bg-[var(--surface)]/[0.04] text-[var(--text-secondary)] hover:bg-[var(--surface)]/[0.10]"
+                inactiveClassName="border-[var(--border)] bg-[var(--surface-elevated)] text-[var(--text-secondary)] hover:bg-[var(--surface-hover)]"
                 className="rounded-full border px-2.5 py-1 transition"
                 title={
                   tag === entry.tag

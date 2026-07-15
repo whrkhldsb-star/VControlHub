@@ -191,7 +191,7 @@ export function JobEventsDialog({ jobId, open, onClose }: JobEventsDialogProps) 
                   <li
                     key={event.id}
                     data-tone={tone}
-                    className="rounded-lg border border-[var(--border)]/[0.10] bg-[var(--surface)]/[0.04] px-3 py-2 text-xs text-[var(--text-primary)]"
+                    className="rounded-lg border border-[var(--border)]/[0.10] bg-[var(--surface-elevated)] px-3 py-2 text-xs text-[var(--text-primary)]"
                   >
                     <div className="flex flex-wrap items-center gap-2">
                       <span className="font-medium text-[var(--text-primary)]">{typeLabel}</span>
@@ -224,7 +224,7 @@ export function JobEventsDialog({ jobId, open, onClose }: JobEventsDialogProps) 
               type="button"
               onClick={() => void load(false)}
               disabled={loading}
-              className="rounded-lg border border-[var(--border)]/[0.10] px-3 py-1.5 text-[var(--text-secondary)] hover:bg-[var(--surface)]/[0.10] disabled:opacity-50"
+              className="rounded-lg border border-[var(--border)]/[0.10] px-3 py-1.5 text-[var(--text-secondary)] hover:bg-[var(--surface-hover)] disabled:opacity-50"
             >
               {t("jobEventsDialog.refresh")}
             </button>
@@ -233,7 +233,7 @@ export function JobEventsDialog({ jobId, open, onClose }: JobEventsDialogProps) 
                 type="button"
                 onClick={() => void load(true)}
                 disabled={loading}
-                className="rounded-lg border border-[var(--border)]/[0.10] px-3 py-1.5 text-[var(--text-secondary)] hover:bg-[var(--surface)]/[0.10] disabled:opacity-50"
+                className="rounded-lg border border-[var(--border)]/[0.10] px-3 py-1.5 text-[var(--text-secondary)] hover:bg-[var(--surface-hover)] disabled:opacity-50"
               >
                 {t("jobEventsDialog.loadMore")}
               </button>

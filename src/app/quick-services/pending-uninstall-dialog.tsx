@@ -64,7 +64,7 @@ export function PendingUninstallDialog({
 					<button
 						type="button"
 						onClick={onCancel}
-						className="min-h-11 rounded-lg border border-[var(--border)]/[0.1] px-4 py-2 text-xs text-[var(--text-muted)] hover:bg-[var(--surface)]/[0.04] transition"
+						className="min-h-11 rounded-lg border border-[var(--border-subtle)] px-4 py-2 text-xs text-[var(--text-muted)] hover:bg-[var(--surface-elevated)] transition"
 					>
 						{t("qsPage.cancel")}
 					</button>
