@@ -1,8 +1,6 @@
 "use client";
 
 import { decodeBase64, encodeBase64 } from "@/components/ssh-terminal-codec";
-import { UI_INPUT } from "@/lib/ui/classes";
-import { cn } from "@/lib/ui/cn";
 
 import { useEffect, useRef, useState } from "react";
 import { csrfFetch } from "@/lib/auth/csrf-client";
@@ -10,6 +8,9 @@ import { buildSshWebSocketUrl } from "@/components/ssh-terminal-url";
 import { useI18n } from "@/lib/i18n/use-locale";
 import { SshFileManager } from "@/components/ssh-file-manager";
 import { SshTerminalSidePanel } from "@/components/ssh-terminal-side-panel";
+import { SshTerminalSearchBar, SshTerminalToolbar } from "@/components/ssh-terminal-chrome";
+import type { TerminalStatus } from "@/components/ssh-terminal-types";
+export type { TerminalStatus } from "@/components/ssh-terminal-types";
 
 /* ------------------------------------------------------------------ */
 /* SshTerminalPanel — single-tab terminal logic (extracted from modal) */
@@ -28,8 +29,6 @@ export type SshTerminalPanelProps = {
 	/** Called when connection status changes (for tab badge display). */
 	onStatusChange?: (status: TerminalStatus) => void;
 };
-
-export type TerminalStatus = "connecting" | "connected" | "error" | "closed";
 
 export function SshTerminalPanel({ serverId, serverName, host, sessionToken, visible, onClose, onStatusChange }: SshTerminalPanelProps) {
 	const { t } = useI18n();
@@ -322,69 +321,18 @@ export function SshTerminalPanel({ serverId, serverName, host, sessionToken, vis
 			style={{ display: visible ? "flex" : "none" }}
 			data-testid={`ssh-terminal-panel-${serverId}`}
 		>
-			{/* Toolbar */}
-			<div className="flex flex-wrap items-center gap-2 border-b border-[var(--border-subtle)] light:border-[var(--border)] px-4 py-2">
-				<div className="flex items-center gap-2">
-					<span className="text-sm" aria-hidden="true">💻</span>
-					<span className="text-sm font-medium text-[var(--text-primary)] light:text-[var(--text-disabled)]">{serverName}</span>
-					<span className="text-xs text-[var(--text-secondary)]">{host}</span>
-				</div>
-				<div className="ml-auto flex flex-wrap items-center gap-2">
-					<span
-						role="status"
-						aria-live="polite"
-						className={`rounded-full px-3 py-1 text-xs ${
-							status === "connected"
-								? "border border-[var(--success-border)] bg-[var(--success-bg)] text-[var(--success)]"
-								: status === "connecting"
-								? "border border-[var(--warning-border)] bg-[var(--warning-bg)] text-[var(--warning)]"
-								: "border border-[var(--danger-border)] bg-[var(--danger-bg)] text-[var(--danger)]"
-						}`}
-					>
-						{status === "connected"
-							? t("sshTerminalModal.statusConnected")
-							: status === "connecting"
-							? t("sshTerminalModal.statusConnecting")
-							: status === "error"
-							? t("sshTerminalModal.statusError")
-							: t("sshTerminalModal.statusClosed")}
-					</span>
-					<button
-						type="button"
-						onClick={() => setShowSidePanel(!showSidePanel)}
-						aria-expanded={showSidePanel}
-						className={`min-h-9 rounded-full border px-3 py-1 text-xs transition ${showSidePanel ? "border-[var(--color-action-border)]/30 bg-[var(--color-action-bg)]/10 text-[var(--color-action-fg)]" : "border-[var(--border-subtle)] light:border-[var(--border)] bg-[var(--surface-subtle)] light:bg-[var(--surface)] text-[var(--text-secondary)] light:text-[var(--text-muted)] hover:bg-[var(--surface-elevated)] light:hover:bg-[var(--surface-hover)]/50"}`}
-					>
-						{t("sshTerminalModal.panelToggle")}
-					</button>
-					<button
-						type="button"
-						onClick={() => setShowFileManager(!showFileManager)}
-						aria-expanded={showFileManager}
-						className={`min-h-9 rounded-full border px-3 py-1 text-xs transition ${showFileManager ? "border-[var(--color-action-border)]/30 bg-[var(--color-action-bg)]/10 text-[var(--color-action-fg)]" : "border-[var(--border-subtle)] light:border-[var(--border)] bg-[var(--surface-subtle)] light:bg-[var(--surface)] text-[var(--text-secondary)] light:text-[var(--text-muted)] hover:bg-[var(--surface-elevated)] light:hover:bg-[var(--surface-hover)]/50"}`}
-					>
-						{t("sshFileManager.toggle")}
-					</button>
-					{(status === "error" || status === "closed") && (
-						<button
-							type="button"
-							onClick={handleReconnect}
-							data-tone="cyan"
-							className="min-h-9 rounded-full border border-[var(--color-action-border)]/30 px-3 py-1 text-xs text-[var(--color-action-fg)] transition hover:bg-[var(--color-action-bg)]/20"
-						>
-							{t("sshTerminalModal.reconnect")}
-						</button>
-					)}
-					<button
-						type="button"
-						onClick={onClose}
-						aria-label={t("sshTerminalModal.ariaClose")}
-						className="min-h-9 rounded-full border border-[var(--border-subtle)] light:border-[var(--border)] bg-[var(--surface-subtle)] light:bg-[var(--surface)] px-3 py-1 text-xs text-[var(--text-secondary)] light:text-[var(--text-muted)] transition hover:bg-[var(--surface-elevated)] light:hover:bg-[var(--surface-hover)]/50"
-					>
-						{t("sshTerminalModal.close")}
-					</button>
-				</div>
-			</div>
+			<SshTerminalToolbar
+				serverName={serverName}
+				host={host}
+				status={status}
+				t={t}
+				showSidePanel={showSidePanel}
+				showFileManager={showFileManager}
+				onToggleSidePanel={() => setShowSidePanel(!showSidePanel)}
+				onToggleFileManager={() => setShowFileManager(!showFileManager)}
+				onReconnect={handleReconnect}
+				onClose={onClose}
+			/>
 
 			{/* Error banner */}
 			{errorMsg && (status === "error" || status === "closed") && (
@@ -396,23 +344,14 @@ export function SshTerminalPanel({ serverId, serverName, host, sessionToken, vis
 			{/* Terminal + side panel */}
 			<div className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto p-3 lg:flex-row lg:overflow-hidden">
 				<div className="flex min-h-0 flex-1 flex-col gap-2 overflow-hidden">
-					<div className="flex flex-wrap items-center gap-2 rounded-xl border border-[var(--border-subtle)] light:border-[var(--border)] bg-[var(--surface-subtle)] light:bg-[var(--surface)] p-2">
-						<label htmlFor={`ssh-terminal-search-${serverId}`} className="sr-only">{t("sshTerminalModal.searchLabel")}</label>
-						<input
-							id={`ssh-terminal-search-${serverId}`}
-							value={terminalSearch}
-							onChange={(e) => setTerminalSearch(e.target.value)}
-							onKeyDown={(e) => {
-								if (e.key === "Enter") searchTerminal(e.shiftKey ? "previous" : "next");
-								if (e.key === "Escape") clearTerminalSearch();
-							}}
-							placeholder={t("sshTerminalModal.searchPlaceholder")}
-							className={cn(UI_INPUT, "min-h-10 min-w-[180px] flex-1 light:text-[var(--text-disabled)] placeholder:text-[var(--text-muted)]/20")}
-						/>
-						<button type="button" onClick={() => searchTerminal("previous")} className="min-h-10 rounded-xl border border-[var(--border-subtle)] light:border-[var(--border)] px-3 text-xs text-[var(--text-secondary)] light:text-[var(--text-primary)] hover:bg-[var(--surface-subtle)] light:hover:bg-[var(--surface)]">{t("sshTerminalModal.searchPrevious")}</button>
-						<button type="button" onClick={() => searchTerminal("next")} data-tone="cyan" className="min-h-10 rounded-xl border border-[var(--color-action-border)]/20 px-3 text-xs text-[var(--color-action-fg)] hover:bg-[var(--color-action-bg)]/20">{t("sshTerminalModal.searchNext")}</button>
-						<button type="button" onClick={clearTerminalSearch} className="min-h-10 rounded-xl border border-[var(--border-subtle)] light:border-[var(--border)] px-3 text-xs text-[var(--text-muted)] hover:bg-[var(--surface-subtle)] light:hover:bg-[var(--surface)]">{t("sshTerminalModal.searchClear")}</button>
-					</div>
+					<SshTerminalSearchBar
+						serverId={serverId}
+						t={t}
+						terminalSearch={terminalSearch}
+						onSearchChange={setTerminalSearch}
+						onSearch={searchTerminal}
+						onClear={clearTerminalSearch}
+					/>
 					<div
 						ref={termRef}
 						data-testid="ssh-terminal-surface"

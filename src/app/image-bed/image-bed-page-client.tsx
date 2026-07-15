@@ -1,22 +1,15 @@
 "use client";
 
 import Link from "next/link";
-import { useState, useRef } from "react";
 import { ActionButton } from "@/components/action-button";
 import { UI_INPUT } from "@/lib/ui/classes";
 import { cn } from "@/lib/ui/cn";
 import { PageShell, EmptyState, ToggleChip } from "@/components/page-shell";
-import { csrfFetch } from "@/lib/auth/csrf-client";
 import { useI18n } from "@/lib/i18n/use-locale";
 
 import { useImageBedList } from "./use-image-bed-list";
-import {
-	getErrorMessage,
-	type ImageItem,
-	type ImageStats,
-	type PendingDelete,
-	type UploadProgress,
-} from "./image-bed-types";
+import { useImageBedActions } from "./use-image-bed-actions";
+import type { ImageItem } from "./image-bed-types";
 import { ImagePreviewModalLazy } from "./image-preview-modal-lazy";
 import { ImageBedStatsPanel, UploadProgressPanel } from "./image-bed-sections";
 import { formatImageDate, formatImageSize, formatPublishSource } from "./image-bed-format";
@@ -37,221 +30,48 @@ export default function ImageBedPage({ canWrite, canDelete }: { canWrite: boolea
 		setShowAll,
 	} = useImageBedList({ canWrite });
 	const { t, locale } = useI18n();
-	const [uploading, setUploading] = useState(false);
-	const [dragOver, setDragOver] = useState(false);
-	const [toast, setToast] = useState<{ message: string; tone: "status" | "alert" } | null>(null);
-	const [previewImage, setPreviewImage] = useState<ImageItem | null>(null);
-	const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
-	const [showStats, setShowStats] = useState(false);
-	const [stats, setStats] = useState<ImageStats | null>(null);
-	const [batchMode, setBatchMode] = useState(false);
-	const [batchAlbum, setBatchAlbum] = useState("");
-	const [showPublishModal, setShowPublishModal] = useState(false);
-	const [deleting, setDeleting] = useState(false);
-	const [showLegacyUpload, setShowLegacyUpload] = useState(false);
-	const [storageNodes, setStorageNodes] = useState<Array<{ id: string; name: string }>>([]);
-	const [publishForm, setPublishForm] = useState({ storageNodeId: "", relativePath: "", filename: "", album: "" });
-	const [uploadProgress, setUploadProgress] = useState<UploadProgress>(null);
-	const [pendingDelete, setPendingDelete] = useState<PendingDelete | null>(null);
-	const fileInputRef = useRef<HTMLInputElement>(null);
-
-	const showToast = (msg: string, tone: "status" | "alert" = "status") => {
-		setToast({ message: msg, tone });
-		setTimeout(() => setToast(null), 3000);
-	};
-
-	const fetchStats = async () => {
-		try {
-			const data = await csrfFetch("/api/images/stats") as ImageStats;
-			setStats(data);
-			setShowStats(true);
-		} catch {
-			// Failed to fetch image stats — notify the user via toast.
-			showToast(t("imageBed.toast.fetchStatsFailed"));
-		}
-	};
-
-	const fetchStorageNodes = async () => {
-		try {
-			const data = await csrfFetch("/api/storage/nodes");
-			const nodes = (data.nodes || data || []).map((n: { id: string; name: string; driver?: string; serverName?: string | null }) => ({ id: n.id, name: n.serverName ? `${n.name} · ${n.serverName}` : n.name }));
-			if (nodes.length === 0) showToast(t("imageBed.toast.noPublishNodes"));
-			else setStorageNodes(nodes);
-		} catch (err) {
-			showToast(err instanceof Error ? err.message : t("imageBed.toast.fetchNodesFailed"));
-		}
-	};
-
-	// Initial fetch lives in `useImageBedList`; the inline useEffect that
-	// used to trigger the first load here has been removed.
-
-	const handleUpload = async (files: FileList | File[]) => {
-		const uploadItems = Array.from(files);
-		if (uploadItems.length === 0) return;
-
-		setUploading(true);
-		setUploadProgress({
-			total: uploadItems.length,
-			current: 0,
-			success: 0,
-			failure: 0,
-			queue: uploadItems.map((file) => ({ name: file.name, status: "pending", message: t("imageBedPage.queue.pending") })),
-		});
-
-		let success = 0;
-		let failure = 0;
-		for (let index = 0; index < uploadItems.length; index++) {
-			const file = uploadItems[index]!;
-			setUploadProgress((prev) => prev ? {
-				...prev,
-				current: index + 1,
-				queue: prev.queue.map((item, i) => i === index ? { ...item, status: "uploading", message: t("imageBedPage.queue.uploadingItem").replace("{current}", String(index + 1)).replace("{total}", String(uploadItems.length)) } : item),
-			} : prev);
-
-			if (!file.type.startsWith("image/")) {
-				failure++;
-				setUploadProgress((prev) => prev ? {
-					...prev,
-					failure,
-					queue: prev.queue.map((item, i) => i === index ? { ...item, status: "skipped", message: t("imageBedPage.queue.notImage") } : item),
-				} : prev);
-				continue;
-			}
-			if (file.size > 20 * 1024 * 1024) {
-				failure++;
-				setUploadProgress((prev) => prev ? {
-					...prev,
-					failure,
-					queue: prev.queue.map((item, i) => i === index ? { ...item, status: "error", message: t("imageBedPage.queue.tooLarge") } : item),
-				} : prev);
-				continue;
-			}
-			const formData = new FormData();
-			formData.append("file", file);
-			if (search) formData.append("album", search);
-			if (publishForm.storageNodeId) formData.append("storageNodeId", publishForm.storageNodeId);
-			if (publishForm.relativePath) formData.append("relativePath", publishForm.relativePath);
-			try {
-				await csrfFetch("/api/images/upload", { method: "POST", body: formData });
-				success++;
-				setUploadProgress((prev) => prev ? {
-					...prev,
-					success,
-					queue: prev.queue.map((item, i) => i === index ? { ...item, status: "success", message: t("imageBedPage.queue.success") } : item),
-				} : prev);
-			} catch (error) {
-				failure++;
-				const errorMessage = getErrorMessage(error, t("imageBedPage.error.upload"));
-				setUploadProgress((prev) => prev ? {
-					...prev,
-					failure,
-					queue: prev.queue.map((item, i) => i === index ? { ...item, status: "error", message: t("imageBedPage.queue.failedPrefix").replace("{message}", errorMessage) } : item),
-				} : prev);
-			}
-		}
-		setUploading(false);
-		if (fileInputRef.current) fileInputRef.current.value = "";
-		if (success > 0 && failure === 0) {
-			showToast(t("imageBedPage.summary.successAll").replace("{count}", String(success)));
-			void fetchImages(1);
-		} else if (success > 0) {
-			showToast(t("imageBedPage.summary.partial").replace("{success}", String(success)).replace("{total}", String(uploadItems.length)).replace("{failure}", String(failure)), "alert");
-			void fetchImages(1);
-		} else {
-			showToast(t("imageBedPage.summary.allFailed").replace("{failure}", String(failure)).replace("{total}", String(uploadItems.length)), "alert");
-		}
-	};
-
-	const requestDelete = (img: ImageItem) => {
-		setPendingDelete({ type: "single", id: img.id, filename: img.filename });
-	};
-
-	const requestBatchDelete = () => {
-		if (selectedIds.size === 0) { showToast(t("imageBed.toast.selectFirst")); return; }
-		setPendingDelete({ type: "batch", count: selectedIds.size });
-	};
-
-	const confirmDelete = async () => {
-		if (!pendingDelete || deleting) return;
-		setDeleting(true);
-		const target = pendingDelete;
-		setPendingDelete(null);
-		if (target.type === "single") {
-			try {
-				await csrfFetch(`/api/images/${target.id}`, { method: "DELETE" });
-				showToast(t("imageBed.toast.deleted"));
-				setPreviewImage(null);
-				fetchImages(page);
-			} catch { showToast(t("imageBed.toast.deleteError")); }
-			finally { setDeleting(false); }
-			return;
-		}
-		await runBatchAction("delete");
-		setDeleting(false);
-	};
-
-	const runBatchAction = async (action: "delete" | "moveAlbum" | "togglePublic") => {
-		if (selectedIds.size === 0) { showToast(t("imageBed.toast.selectFirst")); return; }
-		try {
-			const body: Record<string, unknown> = { action, ids: Array.from(selectedIds) };
-			if (action === "moveAlbum") body.album = batchAlbum;
-			const data = await csrfFetch("/api/images/batch", {
-				method: "POST",
-				headers: { "Content-Type": "application/json" },
-				body: JSON.stringify(body),
-			});
-			showToast(t("imageBedPage.batchSuccess").replace("{count}", String(data.deleted || data.updated || 0)));
-			setSelectedIds(new Set());
-			setBatchMode(false);
-			fetchImages(page);
-		} catch { showToast(t("imageBed.toast.batchError")); }
-	};
-
-	const handlePublishFromStorage = async () => {
-		try {
-			await csrfFetch("/api/images/publish-from-storage", {
-				method: "POST",
-				headers: { "Content-Type": "application/json" },
-				body: JSON.stringify(publishForm),
-			});
-			showToast(t("imageBed.toast.published"));
-			setShowPublishModal(false);
-			setPublishForm({ storageNodeId: "", relativePath: "", filename: "", album: "" });
-			fetchImages(1);
-		} catch (err) {
-			showToast(err instanceof Error ? err.message : t("imageBed.toast.publishError"));
-		}
-	};
-
-	const toggleSelect = (id: string) => {
-		const next = new Set(selectedIds);
-		if (next.has(id)) next.delete(id); else next.add(id);
-		setSelectedIds(next);
-	};
-
-	const selectAll = () => {
-		if (images.length === 0) return;
-		if (selectedIds.size === images.length) {
-			setSelectedIds(new Set());
-		} else {
-			setSelectedIds(new Set(images.map((i) => i.id)));
-		}
-	};
-
-	const copyLink = (url: string) => {
-		const fullUrl = `${window.location.origin}${url}`;
-		navigator.clipboard.writeText(fullUrl).then(() => showToast(t("imageBed.toast.urlCopied")), () => showToast(t("imageBed.toast.copyFailed")));
-	};
-
-	const copyMarkdown = (img: ImageItem) => {
-		const fullUrl = `${window.location.origin}${img.publicUrl}`;
-		navigator.clipboard.writeText(`![${img.filename}](${fullUrl})`).then(() => showToast(t("imageBed.toast.markdownCopied")), () => showToast(t("imageBed.toast.copyFailed")));
-	};
-
-	const copyHTML = (img: ImageItem) => {
-		const fullUrl = `${window.location.origin}${img.publicUrl}`;
-		navigator.clipboard.writeText(`<img src="${fullUrl}" alt="${img.filename}" />`).then(() => showToast(t("imageBed.toast.htmlCopied")), () => showToast(t("imageBed.toast.copyFailed")));
-	};
+	const {
+		uploading,
+		dragOver,
+		setDragOver,
+		toast,
+		previewImage,
+		setPreviewImage,
+		selectedIds,
+		showStats,
+		setShowStats,
+		stats,
+		batchMode,
+		batchAlbum,
+		setBatchAlbum,
+		showPublishModal,
+		setShowPublishModal,
+		deleting,
+		showLegacyUpload,
+		setShowLegacyUpload,
+		storageNodes,
+		publishForm,
+		setPublishForm,
+		uploadProgress,
+		pendingDelete,
+		setPendingDelete,
+		fileInputRef,
+		fetchStats,
+		fetchStorageNodes,
+		handleUpload,
+		requestDelete,
+		requestBatchDelete,
+		confirmDelete,
+		runBatchAction,
+		handlePublishFromStorage,
+		toggleSelect,
+		selectAll,
+		toggleBatchMode,
+		copyLink,
+		copyMarkdown,
+		copyHTML,
+		openPublishModal,
+	} = useImageBedActions({ t, search, page, images, fetchImages });
 
 	const formatSize = formatImageSize;
 	const formatDate = (iso: string) => formatImageDate(iso, locale);
@@ -268,7 +88,7 @@ export default function ImageBedPage({ canWrite, canDelete }: { canWrite: boolea
 					</div>
 					<div className="flex flex-wrap items-center gap-2 text-xs">
 						<Link href="/media?type=image" data-action-button data-variant="primary" className="px-4 py-2 text-sm font-semibold">{t("imageBedPage.hero.openMedia")}</Link>
-						{canWrite && <ActionButton type="button" variant="outline" onClick={() => { fetchStorageNodes(); setShowPublishModal(true); }} className="px-4 py-2 text-sm font-medium">{t("imageBedPage.hero.publishFromStorage")}</ActionButton>}
+						{canWrite && <ActionButton type="button" variant="outline" onClick={openPublishModal} className="px-4 py-2 text-sm font-medium">{t("imageBedPage.hero.publishFromStorage")}</ActionButton>}
 					</div>
 				</div>
 				<div className="mt-5 grid gap-2 text-xs sm:grid-cols-3">
@@ -283,7 +103,7 @@ export default function ImageBedPage({ canWrite, canDelete }: { canWrite: boolea
 					<h2 className="text-sm font-semibold text-[var(--text-primary)]">{t("imageBedPage.publish.title")}</h2>
 					<div className="mt-3 grid gap-2 text-sm sm:grid-cols-3">
 						<Link href="/media?type=image" data-tone="emerald" className="rounded-2xl border border-[var(--success-border)] p-3 text-[var(--text-primary)] transition hover:bg-[var(--success-bg)]"><span className="block text-lg">{t("imageBedPage.publish.media.title")}</span><span className="mt-1 block text-xs opacity-75">{t("imageBedPage.publish.media.desc")}</span></Link>
-						<button type="button" onClick={() => { fetchStorageNodes(); setShowPublishModal(true); }} className="rounded-2xl border border-[var(--info-border)] bg-[var(--info-bg)] p-3 text-left text-[var(--text-primary)] transition hover:opacity-90"><span className="block text-lg">{t("imageBedPage.publish.storage.title")}</span><span className="mt-1 block text-xs opacity-75">{t("imageBedPage.publish.storage.desc")}</span></button>
+						<button type="button" onClick={openPublishModal} className="rounded-2xl border border-[var(--info-border)] bg-[var(--info-bg)] p-3 text-left text-[var(--text-primary)] transition hover:opacity-90"><span className="block text-lg">{t("imageBedPage.publish.storage.title")}</span><span className="mt-1 block text-xs opacity-75">{t("imageBedPage.publish.storage.desc")}</span></button>
 						<button type="button" onClick={() => setShowLegacyUpload((value) => !value)} data-tone="amber" className="rounded-2xl border border-[var(--warning-border)] p-3 text-left text-[var(--text-primary)] transition hover:bg-[var(--warning-bg)]"><span className="block text-lg">{t("imageBedPage.publish.legacy.title")}</span><span className="mt-1 block text-xs opacity-75">{t("imageBedPage.publish.legacy.desc")}</span></button>
 					</div>
 				</div>
@@ -303,7 +123,7 @@ export default function ImageBedPage({ canWrite, canDelete }: { canWrite: boolea
 							<ToggleChip
 								active={batchMode}
 								tone="warn"
-								onClick={() => { setBatchMode(!batchMode); setSelectedIds(new Set()); }}
+								onClick={toggleBatchMode}
 								ariaLabel={t("imageBedPage.toggle.toggleBatch")}
 							>
 								{batchMode ? t("imageBedPage.toggle.batchOn") : t("imageBedPage.toggle.batchOff")}

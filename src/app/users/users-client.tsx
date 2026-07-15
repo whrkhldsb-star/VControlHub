@@ -3,13 +3,19 @@
 import { useState, useEffect, useCallback } from "react";
 import { UserPermissionPanel } from "./user-permission-panel";
 import { csrfFetch } from "@/lib/auth/csrf-client";
-import { EmptyState, ListPanel, ListRow, SurfacePanel, Toolbar } from "@/components/page-shell";
+import { EmptyState, ListPanel, ListRow, Toolbar } from "@/components/page-shell";
 import { toDateLocale } from "@/lib/i18n/locale-format";
 import { useI18n } from "@/lib/i18n/use-locale";
 import { useDialogFocus } from "@/lib/a11y/use-dialog-focus";
+import {
+  UsersCreateForm,
+  UsersResetPasswordDialog,
+  roleBadgeTone,
+  statusLabel,
+  statusTone,
+  type CreateUserFormState,
+} from "./users-forms";
 
-import { UI_INPUT } from "@/lib/ui/classes";
-import { cn } from "@/lib/ui/cn";
 type RoleInfo = { key: string; name: string };
 type UserInfo = {
   id: string;
@@ -21,41 +27,12 @@ type UserInfo = {
   roles: RoleInfo[];
 };
 
-const ROLE_KEYS = ["admin", "operator", "storage_manager", "viewer"] as const;
-type RoleKey = (typeof ROLE_KEYS)[number];
-
-type Tone = "accent" | "success" | "warning" | "danger" | "neutral";
-
-const ROLE_COLORS: Record<RoleKey, "danger" | "warning" | "success" | "accent"> = {
-  admin: "danger",
-  operator: "warning",
-  storage_manager: "success",
-  viewer: "accent",
-};
-
-function roleBadgeTone(key: string): Tone {
-  return (ROLE_COLORS as Record<string, Tone>)[key] ?? "accent";
-}
-
-function statusTone(status: string): Tone {
-  if (status === "ACTIVE") return "success";
-  if (status === "DISABLED") return "danger";
-  return "warning";
-}
-
-function statusLabel(status: string, t: (k: string) => string) {
-  if (status === "ACTIVE") return t("usersPage.status.active");
-  if (status === "DISABLED") return t("usersPage.status.disabled");
-  if (status === "PENDING_PASSWORD_RESET") return t("usersPage.status.pending");
-  return status;
-}
-
 export function UserManagementClient({ canManage = false, currentUserId = "" }: { canManage?: boolean; currentUserId?: string }) {
   const { t, locale } = useI18n();
   const [users, setUsers] = useState<UserInfo[]>([]);
   const [loading, setLoading] = useState(true);
   const [showCreateForm, setShowCreateForm] = useState(false);
-  const [createForm, setCreateForm] = useState({ username: "", displayName: "", password: "", roleKeys: ["viewer"] });
+  const [createForm, setCreateForm] = useState<CreateUserFormState>({ username: "", displayName: "", password: "", roleKeys: ["viewer"] });
   const [creating, setCreating] = useState(false);
   const [editingPermissionsUser, setEditingPermissionsUser] = useState<UserInfo | null>(null);
   const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
@@ -187,76 +164,15 @@ export function UserManagementClient({ canManage = false, currentUserId = "" }: 
           </button>
         ) : null}
       </Toolbar>
-
-      {/* Create form */}
       {showCreateForm && (
-        <SurfacePanel className="mb-6" title={t("usersPage.action.create")}>
-          <div className="grid gap-4 sm:grid-cols-2">
-            <div>
-              <label className="mb-1 block text-sm text-[var(--text-muted)]" htmlFor="createUserUsername">{t("usersPage.form.username")}</label>
-              <input
-                id="createUserUsername"
-                type="text"
-                value={createForm.username}
-                onChange={(e) => setCreateForm((p) => ({ ...p, username: e.target.value }))}
-                className="w-full rounded-xl border border-[var(--border)] bg-[var(--input-bg)] px-4 py-2.5 text-sm text-[var(--text-primary)] focus:border-[var(--accent-border)] focus:outline-none"
-                placeholder={t("usersPage.form.usernamePlaceholder")}
-              />
-            </div>
-            <div>
-              <label className="mb-1 block text-sm text-[var(--text-muted)]" htmlFor="createUserDisplayName">{t("usersPage.form.displayName")}</label>
-              <input
-                id="createUserDisplayName"
-                type="text"
-                value={createForm.displayName}
-                onChange={(e) => setCreateForm((p) => ({ ...p, displayName: e.target.value }))}
-                className="w-full rounded-xl border border-[var(--border)] bg-[var(--input-bg)] px-4 py-2.5 text-sm text-[var(--text-primary)] focus:border-[var(--accent-border)] focus:outline-none"
-                placeholder={t("usersPage.form.displayNamePlaceholder")}
-              />
-            </div>
-            <div className="sm:col-span-2">
-              <label className="mb-1 block text-sm text-[var(--text-muted)]" htmlFor="createUserPassword">{t("usersPage.form.password")}</label>
-              <input
-                id="createUserPassword"
-                type="password"
-                autoComplete="new-password"
-                value={createForm.password}
-                onChange={(e) => setCreateForm((p) => ({ ...p, password: e.target.value }))}
-                className="w-full rounded-xl border border-[var(--border)] bg-[var(--input-bg)] px-4 py-2.5 text-sm text-[var(--text-primary)] focus:border-[var(--accent-border)] focus:outline-none"
-                placeholder={t("usersPage.form.passwordPlaceholder")}
-              />
-            </div>
-          </div>
-          <div>
-            <label className="mb-2 block text-sm text-[var(--text-secondary)]">{t("usersPage.form.roles")}</label>
-            <div className="flex flex-wrap gap-2">
-              {ROLE_KEYS.map((key) => (
-                <button
-                  key={key}
-                  type="button"
-                  onClick={() => toggleRole(key)}
-                  className={`rounded-full border px-3 py-1.5 text-xs transition ${
-                    createForm.roleKeys.includes(key)
-                      ? ""
-                      : "border-[var(--border)]/10 bg-[var(--surface)]/10 text-[var(--text-muted)]"
-                  }`}
-                  data-tone={createForm.roleKeys.includes(key) ? roleBadgeTone(key) : undefined}
-                >
-                  {t(`usersPage.role.${key}`)}
-                </button>
-              ))}
-            </div>
-          </div>
-          <button
-            type="button"
-            onClick={handleCreate}
-            disabled={creating || !createForm.username || !createForm.password}
-            data-tone="accent"
-            className="rounded-lg border px-6 py-2 text-sm font-medium transition disabled:opacity-50"
-          >
-            {creating ? t("usersPage.action.creating") : t("usersPage.action.confirm")}
-          </button>
-        </SurfacePanel>
+        <UsersCreateForm
+          t={t}
+          createForm={createForm}
+          setCreateForm={setCreateForm}
+          creating={creating}
+          onSubmit={handleCreate}
+          onToggleRole={toggleRole}
+        />
       )}
 
       <ListPanel
@@ -353,55 +269,16 @@ export function UserManagementClient({ canManage = false, currentUserId = "" }: 
         />
       )}
       {resetPasswordUser && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-[var(--overlay)] px-4 backdrop-blur-sm"
-          role="presentation"
-          onClick={() => setResetPasswordUser(null)}
-        >
-          <section
-            ref={dialogRef}
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="reset-password-title"
-            onClick={(event) => event.stopPropagation()}
-            className="w-full max-w-md rounded-2xl border border-[var(--warning-border)] bg-[var(--modal-bg)] p-6 shadow-lg"
-          >
-            <h2 id="reset-password-title" className="text-lg font-semibold text-[var(--text-primary)]">
-              {t("usersPage.resetPassword.title").replace("{name}", resetPasswordUser.username)}
-            </h2>
-            <p className="mt-2 text-sm text-[var(--text-secondary)]">
-              {t("usersPage.resetPassword.desc")}
-            </p>
-            <input
-              type="password"
-              autoComplete="new-password"
-              aria-label={t("usersPage.form.passwordPlaceholder")}
-              value={resetPasswordValue}
-              onChange={(e) => setResetPasswordValue(e.target.value)}
-              className={cn(UI_INPUT, "mt-4 px-4")}
-              placeholder={t("usersPage.form.passwordPlaceholder")}
-              autoFocus
-            />
-            <div className="mt-6 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
-              <button
-                type="button"
-                onClick={() => setResetPasswordUser(null)}
-                className="rounded-xl border border-[var(--border)] px-4 py-2 text-sm font-medium text-[var(--text-secondary)] hover:bg-[var(--surface-hover)]"
-              >
-                {t("usersPage.action.cancel")}
-              </button>
-              <button
-                type="button"
-                onClick={handleResetPassword}
-                disabled={resetting || !resetPasswordValue}
-                data-tone="warning"
-                className="rounded-xl border px-4 py-2 text-sm font-medium transition disabled:opacity-50"
-              >
-                {resetting ? t("usersPage.action.resetting") : t("usersPage.action.confirmReset")}
-              </button>
-            </div>
-          </section>
-        </div>
+        <UsersResetPasswordDialog
+          t={t}
+          username={resetPasswordUser.username}
+          dialogRef={dialogRef}
+          password={resetPasswordValue}
+          setPassword={setResetPasswordValue}
+          resetting={resetting}
+          onCancel={() => setResetPasswordUser(null)}
+          onConfirm={handleResetPassword}
+        />
       )}
     </div>
   );
