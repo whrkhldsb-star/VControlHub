@@ -304,7 +304,7 @@ export function DownloadsClient({ servers, canManage, canManageNode }: { servers
 				{canManage && servers.length > 0 ? (
 					<button type="button" onClick={() => setShowForm(!showForm)}
 						data-primary
-						className="rounded-xl bg-[var(--accent)] px-5 py-2 text-sm font-semibold text-[var(--on-accent)] transition hover:bg-[var(--accent-hover)]"
+						data-action-button data-variant="primary" className="px-5 py-2 text-sm"
 					>
 						{showForm ? t("downloadsPage.form.cancelLabel") : t("downloadsPage.form.createLabel")}
 					</button>

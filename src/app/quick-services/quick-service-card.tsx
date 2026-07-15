@@ -1,5 +1,6 @@
 "use client";
 
+import { ActionButton } from "@/components/action-button";
 /**
  * `ServiceCard` — single Quick Service tile used in both the
  * "推荐快速服务" rail and the per-category grid.
@@ -127,9 +128,9 @@ export function ServiceCard({
 			{/* Actions */}
 			<div className="flex items-center gap-2 mt-auto pt-1">
 				{tab !== "installed" && item.status === "available" && (
-					<button onClick={onInstall} disabled={busy} data-primary className="rounded-xl bg-[var(--accent)] px-3.5 py-1.5 text-xs font-semibold text-[var(--on-accent)] transition hover:bg-[var(--accent-hover)] disabled:opacity-50">
+					<ActionButton type="button" onClick={onInstall} disabled={busy} className="px-3.5 py-1.5 text-xs">
 						{busy ? t("qsPage.installingLabel") : t("qsPage.installNow")}
-					</button>
+					</ActionButton>
 				)}
 				{tab === "installed" && (
 					<>

@@ -106,7 +106,7 @@ export function DashboardCustomizeToolbar({
 					type="button"
 					onClick={onExitEdit}
 					data-testid="customize-done"
-					className="rounded-lg bg-[var(--accent)] px-3 py-1.5 text-xs font-semibold text-[var(--on-accent)] transition-colors hover:bg-[var(--accent-hover)]"
+					data-action-button data-variant="primary" className="px-3 py-1.5 text-xs"
 				>
 					{t("dashboard.customize-done")}
 				</button>

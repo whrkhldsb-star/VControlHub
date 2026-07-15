@@ -251,7 +251,7 @@ export function AiProviderPanel({
                   <span className="text-xs text-[var(--text-secondary)]">{t("common.setAsDefault")}</span>
                 </label>
               </div>
-              <button type="button" onClick={saveEditing} className="h-9 w-full rounded-xl bg-[var(--accent)] text-sm font-semibold text-[var(--on-accent)] transition hover:bg-[var(--accent-hover)]">{t("common.saveChanges")}</button>
+              <ActionButton type="button" onClick={saveEditing} className="h-9 w-full text-sm">{t("common.saveChanges")}</ActionButton>
             </div>
           ) : (
             <div className="space-y-3">

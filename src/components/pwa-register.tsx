@@ -167,7 +167,7 @@ export function PwaRegister() {
             </button>{" "}
             <button
               type="button"
-              className="rounded-xl bg-[var(--accent)] px-3 py-1.5 text-xs font-semibold text-[var(--on-accent)] transition hover:bg-[var(--accent-hover)]"
+              data-action-button data-variant="primary" className="px-3 py-1.5 text-xs"
               onClick={refreshToUpdate}
             >
               {" "}

@@ -191,7 +191,7 @@ export function OperationTaskListClient({ initialTasks, initialSourceSummary = [
             </select>
           </label>
           <button type="button" onClick={refresh} disabled={refreshing} className="rounded-xl border border-[var(--border)] bg-[var(--surface-elevated)] px-3 py-2 text-xs font-medium text-[var(--text-secondary)] hover:bg-[var(--surface-hover)] disabled:opacity-50">{refreshing ? t("operationTasks.action.refreshing") : t("operationTasks.action.applyFilter")}</button>
-          <a href={getExportPath(statusFilter, taskTypeFilter, sort)} data-primary className="rounded-xl bg-[var(--accent)] px-3 py-2 text-xs font-semibold text-[var(--on-accent)] hover:bg-[var(--accent-hover)]">{t("operationTasksPage.export.csv")}</a>
+          <a href={getExportPath(statusFilter, taskTypeFilter, sort)} data-action-button data-variant="primary" className="px-3 py-2 text-xs">{t("operationTasksPage.export.csv")}</a>
         </Toolbar>
       }
       empty={tasks.length === 0 ? <EmptyState text={t("operationTasks.tasks.empty")} /> : undefined}

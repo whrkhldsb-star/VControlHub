@@ -62,7 +62,7 @@ export function RouteError({
 					<button
 						onClick={reset}
 						data-primary
-						className="rounded-xl bg-[var(--accent)] px-4 py-2.5 text-sm font-semibold text-[var(--on-accent)] transition-colors hover:bg-[var(--accent-hover)] focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/40"
+						data-action-button data-variant="primary" className="px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/40"
 					>
 						{t("common.retry")}
 					</button>

@@ -158,7 +158,7 @@ export function ApiTokenManagerClient({ initialTokens, allowedScopes }: Props) {
           </div>
 
           <div>
-            <button type="submit" disabled={submitting} data-primary className="rounded-xl bg-[var(--accent)] px-5 py-2.5 text-sm font-semibold text-[var(--on-accent)] transition hover:bg-[var(--accent-hover)] disabled:opacity-60">
+            <button type="submit" disabled={submitting} data-action-button data-variant="primary" className="px-5 py-2.5 text-sm">
               {submitting ? t("apiTokensPage.create.submitting") : t("apiTokensPage.create.submit")}
             </button>
           </div>

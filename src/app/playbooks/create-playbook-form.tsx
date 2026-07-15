@@ -283,7 +283,7 @@ export function CreatePlaybookForm({ onClose }: { onClose: () => void }) {
 				<button
 					type="submit"
 					disabled={submitting}
-					className="min-h-11 rounded-2xl bg-[var(--accent)] px-5 py-2 text-sm font-medium text-[var(--on-accent)] transition hover:bg-[var(--accent-hover)] disabled:opacity-60"
+					data-action-button data-variant="primary" className="min-h-11 px-5 py-2 text-sm"
 				>
 					{submitting ? t("playbooksPage.createForm.submitting") : t("playbooksPage.createForm.submit")}
 				</button>

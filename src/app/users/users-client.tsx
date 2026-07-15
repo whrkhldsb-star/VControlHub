@@ -179,7 +179,7 @@ export function UserManagementClient({ canManage = false, currentUserId = "" }: 
             type="button"
             onClick={() => setShowCreateForm(!showCreateForm)}
             data-primary
-            className="rounded-xl bg-[var(--accent)] px-4 py-2 text-sm font-semibold text-[var(--on-accent)] transition hover:bg-[var(--accent-hover)]"
+            className="px-4 py-2 text-sm" data-action-button data-variant="primary"
           >
             {showCreateForm ? t("usersPage.action.cancel") : t("usersPage.action.create")}
           </button>

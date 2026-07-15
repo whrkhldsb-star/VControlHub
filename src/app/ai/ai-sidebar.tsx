@@ -47,7 +47,7 @@ export function AiSidebar({
               type="button"
               onClick={onNewConv}
               data-primary
-              className="h-8 rounded-xl bg-[var(--accent)] px-3 text-xs font-semibold text-[var(--on-accent)] transition hover:bg-[var(--accent-hover)]"
+              data-action-button data-variant="primary" className="h-8 px-3 text-xs"
             >
               {t("aiPage.newConversation")}
             </button>

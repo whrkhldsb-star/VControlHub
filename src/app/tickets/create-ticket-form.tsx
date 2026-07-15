@@ -120,7 +120,7 @@ export function CreateTicketForm({ locale: _locale, servers = [] }: Props = {}) 
 			<button
 				disabled={pending}
 				data-primary
-				className="w-fit rounded-xl bg-[var(--accent)] px-4 py-2.5 text-sm font-semibold text-[var(--on-accent)] transition hover:bg-[var(--accent-hover)] disabled:cursor-not-allowed disabled:opacity-60"
+				data-action-button data-variant="primary" className="w-fit px-4 py-2.5 text-sm"
 			>
 				{pending ? t("ticketsPage.form.submitting") : t("ticketsPage.form.submit")}
 			</button>

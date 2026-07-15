@@ -271,7 +271,7 @@ export default function ImageBedPage({ canWrite, canDelete }: { canWrite: boolea
 						<p className="mt-2 max-w-2xl text-sm leading-6 text-[var(--text-muted)]">{t("imageBedPage.hero.desc")}</p>
 					</div>
 					<div className="flex flex-wrap items-center gap-2 text-xs">
-						<Link href="/media?type=image" data-primary className="rounded-xl bg-[var(--accent)] px-4 py-2 font-semibold text-[var(--on-accent)] transition hover:bg-[var(--accent-hover)]">{t("imageBedPage.hero.openMedia")}</Link>
+						<Link href="/media?type=image" data-action-button data-variant="primary" className="px-4 py-2 text-sm font-semibold">{t("imageBedPage.hero.openMedia")}</Link>
 						{canWrite && <button type="button" onClick={() => { fetchStorageNodes(); setShowPublishModal(true); }} className="rounded-xl border border-[var(--accent-border)] bg-[var(--accent-bg)] px-4 py-2 font-medium text-[var(--accent)] transition hover:bg-[var(--accent-hover)] hover:text-[var(--on-accent)]">{t("imageBedPage.hero.publishFromStorage")}</button>}
 					</div>
 				</div>

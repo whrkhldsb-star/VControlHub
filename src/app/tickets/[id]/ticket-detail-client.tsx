@@ -192,7 +192,7 @@ export function TicketDetailClient({ initial, canManage, users = [], locale: _lo
             rows={3}
             className="w-full resize-none rounded-xl border border-[var(--border)] bg-[var(--input-bg)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none placeholder:text-[var(--text-muted)]" />
           <button onClick={addComment} disabled={saving || !comment.trim()} data-primary
-            className="mt-2 rounded-xl bg-[var(--accent)] px-4 py-2 text-sm font-semibold text-[var(--on-accent)] transition hover:bg-[var(--accent-hover)] disabled:opacity-40">
+            data-action-button data-variant="primary" className="mt-2 px-4 py-2 text-sm">
             {saving ? t("ticketsDetail.commentSubmitting") : t("ticketsDetail.commentSubmit")}
           </button>
         </div>

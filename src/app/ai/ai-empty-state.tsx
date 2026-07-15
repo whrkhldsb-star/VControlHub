@@ -52,7 +52,7 @@ export function AiEmptyState({
               type="button"
               onClick={onOpenProviders}
               data-primary
-              className="mt-5 h-9 rounded-xl bg-[var(--accent)] px-4 text-sm font-semibold text-[var(--on-accent)] transition hover:bg-[var(--accent-hover)]"
+              data-action-button data-variant="primary" className="mt-5 h-9 px-4 text-sm"
             >
               {t("aiPage.configProviders")}
             </button>
@@ -64,7 +64,7 @@ export function AiEmptyState({
               type="button"
               onClick={onNewConv}
               data-primary
-              className="h-9 rounded-xl bg-[var(--accent)] px-4 text-sm font-semibold text-[var(--on-accent)] transition hover:bg-[var(--accent-hover)]"
+              data-action-button data-variant="primary" className="h-9 px-4 text-sm"
             >
               {t("aiPage.newConversation")}
             </button>

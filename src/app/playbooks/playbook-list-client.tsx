@@ -115,7 +115,7 @@ export function PlaybookListClient({ playbooks: initial, runsByPlaybook: initial
             type="button"
             onClick={() => setShowCreate(true)}
             data-primary
-            className="min-h-11 rounded-xl bg-[var(--accent)] px-5 py-2.5 text-sm font-semibold text-[var(--on-accent)] transition hover:bg-[var(--accent-hover)]"
+            data-action-button data-variant="primary" className="min-h-11 px-5 py-2.5 text-sm"
           >
             {t("playbooksPage.action.create")}
           </button>

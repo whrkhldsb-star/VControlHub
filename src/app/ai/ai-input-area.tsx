@@ -124,7 +124,7 @@ export function AiInputArea({
           type="button"
           onClick={handleSend}
           disabled={streaming || (!input.trim() && fileAttachments.length === 0)}
-          className="flex h-10 w-10 items-center justify-center rounded-xl bg-[var(--accent)] text-[var(--on-accent)] transition hover:bg-[var(--accent-hover)] disabled:cursor-not-allowed disabled:opacity-30"
+          data-action-button data-variant="primary" className="flex h-10 w-10 items-center justify-center p-0"
           aria-label={t("aiPage.sendAria")}
         >
           <svg className="w-5 h-5" fill="none" stroke="currentColor" width="24" height="24" viewBox="0 0 24 24">

@@ -144,7 +144,7 @@ export function ScheduledTaskListClient({ tasks: initialTasks, servers, canCreat
 						type="button"
 						onClick={() => setShowCreate(true)}
 						data-primary
-						className="min-h-11 rounded-xl bg-[var(--accent)] px-5 py-2.5 text-sm font-semibold text-[var(--on-accent)] transition hover:bg-[var(--accent-hover)]"
+						data-action-button data-variant="primary" className="min-h-11 px-5 py-2.5 text-sm"
 					>
 						{t("scheduledTasksPage.create")}
 						</button>
@@ -342,7 +342,7 @@ function CreateTaskForm({ servers, onClose }: { servers: ServerOption[]; onClose
 			)}
 
 			<div className="flex gap-3 pt-2">
-				<button type="submit" disabled={submitting} data-primary className="min-h-11 rounded-xl bg-[var(--accent)] px-5 py-2.5 text-sm font-semibold text-[var(--on-accent)] transition hover:bg-[var(--accent-hover)] disabled:opacity-60">
+				<button type="submit" disabled={submitting} data-action-button data-variant="primary" className="min-h-11 px-5 py-2.5 text-sm">
 					{submitting ? t("scheduledTasks.submit.creating") : t("scheduledTasks.submit.create")}
 				</button>
 				<button type="button" onClick={onClose} className="min-h-11 rounded-2xl border border-[var(--border)] px-5 py-2 text-sm text-[var(--text-secondary)] hover:bg-[var(--surface)]/10 transition">

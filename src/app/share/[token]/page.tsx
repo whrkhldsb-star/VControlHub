@@ -143,7 +143,7 @@ export default async function SharePage({
                 <a
                   href={`/api/share/${encodeURIComponent(token)}`}
                   data-primary
-                  className="block rounded-xl bg-[var(--accent)] px-4 py-3 text-center text-sm font-semibold text-[var(--on-accent)] transition hover:bg-[var(--accent-hover)]"
+                  data-action-button data-variant="primary" className="block px-4 py-3 text-center text-sm"
                 >
                   {t("sharePage.downloadFile", locale)}
                 </a>

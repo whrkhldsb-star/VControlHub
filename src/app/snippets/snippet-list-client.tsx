@@ -163,7 +163,7 @@ export function SnippetList({ snippets: initial }: { snippets: Snippet[] }) {
           type="button"
           onClick={() => setCreating(true)}
           data-primary
-          className="inline-flex min-h-11 items-center gap-1.5 rounded-xl bg-[var(--accent)] px-3 py-2 text-sm font-medium text-[var(--on-accent)] transition hover:bg-[var(--accent-hover)]"
+          data-action-button data-variant="primary" className="inline-flex min-h-11 items-center gap-1.5 px-3 py-2 text-sm"
         >
           <Plus size={14} /> {t("snippetsPage.new")}
         </button>
