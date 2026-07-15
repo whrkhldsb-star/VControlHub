@@ -1,6 +1,7 @@
 "use client";
 
 import { ActionButton } from "@/components/action-button";
+import { UI_INPUT } from "@/lib/ui/classes";
 /**
  * `SourcesPanel` — the "应用源" tab body. Renders the preset picker
  * + new-source form, then lists every configured app source with
@@ -143,7 +144,7 @@ export function SourcesPanel({ sources, actions, onRequestDeleteSource }: Source
 						<input
 							value={newSourceName}
 							onChange={(e) => setNewSourceName(e.target.value)}
-							className="w-full rounded-lg border border-[var(--border)] bg-[var(--surface-elevated)] px-3 py-2 text-sm text-[var(--text-primary)] outline-none focus:border-[var(--color-action-border)]/40"
+							className={UI_INPUT}
 							placeholder="linuxserver"
 						/>
 					</label>
@@ -152,7 +153,7 @@ export function SourcesPanel({ sources, actions, onRequestDeleteSource }: Source
 						<input
 							value={newSourceDisplayName}
 							onChange={(e) => setNewSourceDisplayName(e.target.value)}
-							className="w-full rounded-lg border border-[var(--border)] bg-[var(--surface-elevated)] px-3 py-2 text-sm text-[var(--text-primary)] outline-none focus:border-[var(--color-action-border)]/40"
+							className={UI_INPUT}
 							placeholder="LinuxServer.io"
 						/>
 					</label>
@@ -161,7 +162,7 @@ export function SourcesPanel({ sources, actions, onRequestDeleteSource }: Source
 						<input
 							value={newSourceUrl}
 							onChange={(e) => setNewSourceUrl(e.target.value)}
-							className="w-full rounded-lg border border-[var(--border)] bg-[var(--surface-elevated)] px-3 py-2 text-sm text-[var(--text-primary)] outline-none focus:border-[var(--color-action-border)]/40"
+							className={UI_INPUT}
 							placeholder="https://..."
 						/>
 					</label>

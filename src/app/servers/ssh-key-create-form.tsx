@@ -4,6 +4,7 @@ import { SubmitButton } from "@/components/submit-button";
 import { createSshKeyAction, type ServerActionState } from "./actions";
 import { useI18n } from "@/lib/i18n/use-locale";
 import { UI_INPUT } from "@/lib/ui/classes";
+import { cn } from "@/lib/ui/cn";
 const initialState: ServerActionState = {
   error: undefined,
   success: undefined,
@@ -89,7 +90,7 @@ export function SshKeyCreateForm() {
           name="privateKey"
           rows={4}
           placeholder={t("serversPage.sshKeyCreate.privateKeyPlaceholder")}
-          className="w-full rounded-lg border border-[var(--border)] bg-[var(--surface-elevated)] px-3.5 py-2.5 text-sm text-[var(--text-primary)] font-mono outline-none transition placeholder:text-[var(--text-primary)]/30 focus:border-[var(--color-action-border)]/30 focus:bg-[var(--surface-elevated)] resize-y"
+          className={cn(UI_INPUT, "resize-y font-mono")}
         />{" "}
       </div>{" "}
       <div className="space-y-1.5">
@@ -105,7 +106,7 @@ export function SshKeyCreateForm() {
           name="publicKey"
           rows={2}
           placeholder="ssh-rsa AAAA..."
-          className="w-full rounded-lg border border-[var(--border)] bg-[var(--surface-elevated)] px-3.5 py-2.5 text-sm text-[var(--text-primary)] font-mono outline-none transition placeholder:text-[var(--text-primary)]/30 focus:border-[var(--color-action-border)]/30 focus:bg-[var(--surface-elevated)] resize-y"
+          className={cn(UI_INPUT, "resize-y font-mono")}
         />{" "}
       </div>{" "}
       <div className="space-y-1.5">

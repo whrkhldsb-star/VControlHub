@@ -1,35 +1,10 @@
 "use client";
 
-import type { ModelInfo } from "./ai-types";
+import type { SettingsPanelProps } from "./ai-settings-types";
 import { useI18n } from "@/lib/i18n/use-locale";
+import { UI_INPUT } from "@/lib/ui/classes";
+import { cn } from "@/lib/ui/cn";
 import { Eye, Video, Music2, File } from "@/components/icons";
-
-interface SettingsFormState {
-  model: string;
-  systemPrompt: string;
-  temperature: number;
-  maxTokens: number;
-  topP: number;
-  frequencyPenalty: number;
-  presencePenalty: number;
-  enableVision: boolean;
-  hostingEnabled: boolean;
-}
-
-interface SettingsPanelProps {
-  show: boolean;
-  settingsForm: SettingsFormState;
-  setSettingsForm: React.Dispatch<React.SetStateAction<SettingsFormState>>;
-  modelList: ModelInfo[];
-  modelsLoading: boolean;
-  modelDropdownOpen: boolean;
-  setModelDropdownOpen: React.Dispatch<React.SetStateAction<boolean>>;
-  modelSearch: string;
-  setModelSearch: React.Dispatch<React.SetStateAction<string>>;
-  currentModelSupportsVision: boolean;
-  onSaveSettings: () => void;
-  onRefreshModels: () => void;
-}
 
 export function AiSettingsPanel({
   show,
@@ -103,7 +78,7 @@ export function AiSettingsPanel({
                     aria-label={t("aiPage.searchModelAria")}
                     onChange={(e) => setModelSearch(e.target.value)}
                     placeholder={t("aiPage.searchModel")}
-                    className="w-full rounded-lg border border-[var(--border-subtle)] bg-[var(--input-bg)] px-2 py-1 text-xs text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus:border-[var(--accent-border)] focus:outline-none"
+                    className={cn(UI_INPUT, "px-2 py-1 text-xs")}
                     autoFocus
                   />
                 </div>
@@ -453,7 +428,7 @@ export function AiSettingsPanel({
           }
           rows={2}
           placeholder={t("aiPage.systemPromptPlaceholder")}
-          className="w-full mt-1 bg-[var(--input-bg)] border border-[var(--border)] rounded-lg px-2.5 py-1.5 text-xs text-[var(--text-primary)] placeholder:text-[var(--text-muted)] resize-none focus:outline-none focus:border-[var(--color-action-border)]/30"
+          className={cn(UI_INPUT, "mt-1 resize-none text-xs")}
         />
       </div>
     </div>
