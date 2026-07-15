@@ -6,6 +6,9 @@ import {
   createCommandRequestAction,
   type CommandActionState,
 } from "./command-actions";
+import { UI_INPUT } from "@/lib/ui/classes";
+import { cn } from "@/lib/ui/cn";
+
 const initialState: CommandActionState = {};
 type ServerOption = {
   id: string;
@@ -78,7 +81,7 @@ export function CommandCreateForm({ servers }: { servers: ServerOption[] }) {
           type="text"
           required
           placeholder={t("serversPage.command.titlePlaceholder")}
-          className="w-full rounded-lg border border-[var(--border)] bg-[var(--surface-elevated)] px-3.5 py-2.5 text-sm text-[var(--text-primary)] outline-none transition placeholder:text-[var(--text-primary)]/30 focus:border-[var(--color-action-border)]/30 focus:bg-[var(--surface-elevated)]"
+          className={UI_INPUT}
         />{" "}
       </div>{" "}
       <div className="space-y-1.5">
@@ -95,7 +98,7 @@ export function CommandCreateForm({ servers }: { servers: ServerOption[] }) {
           rows={4}
           required
           placeholder="df -h"
-          className="w-full rounded-lg border border-[var(--border)] bg-[var(--surface-elevated)] px-3.5 py-2.5 text-sm text-[var(--text-primary)] font-mono outline-none transition placeholder:text-[var(--text-primary)]/30 focus:border-[var(--color-action-border)]/30 focus:bg-[var(--surface-elevated)] resize-y"
+          className={cn(UI_INPUT, "resize-y font-mono")}
         />{" "}
       </div>{" "}
       <div className="space-y-1.5">
@@ -111,7 +114,7 @@ export function CommandCreateForm({ servers }: { servers: ServerOption[] }) {
           name="reason"
           rows={2}
           placeholder={t("common.optional")}
-          className="w-full rounded-lg border border-[var(--border)] bg-[var(--surface-elevated)] px-3.5 py-2.5 text-sm text-[var(--text-primary)] outline-none transition placeholder:text-[var(--text-primary)]/30 focus:border-[var(--color-action-border)]/30 focus:bg-[var(--surface-elevated)] resize-y"
+          className={cn(UI_INPUT, "resize-y")}
         />{" "}
       </div>{" "}
       <div className="space-y-2">

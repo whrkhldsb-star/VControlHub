@@ -3,6 +3,7 @@ import { useActionState, useState } from "react";
 import { SubmitButton } from "@/components/submit-button";
 import { createSshKeyAction, type ServerActionState } from "./actions";
 import { useI18n } from "@/lib/i18n/use-locale";
+import { UI_INPUT } from "@/lib/ui/classes";
 const initialState: ServerActionState = {
   error: undefined,
   success: undefined,
@@ -50,7 +51,7 @@ export function SshKeyCreateForm() {
           type="text"
           required
           placeholder={t("serversPage.sshKeyCreate.namePlaceholder")}
-          className="w-full rounded-lg border border-[var(--border)] bg-[var(--surface-elevated)] px-3.5 py-2.5 text-sm text-[var(--text-primary)] outline-none transition placeholder:text-[var(--text-primary)]/30 focus:border-[var(--color-action-border)]/30 focus:bg-[var(--surface-elevated)]"
+          className={UI_INPUT}
         />{" "}
       </div>{" "}
       <div className="space-y-1.5">
@@ -66,7 +67,7 @@ export function SshKeyCreateForm() {
           name="description"
           type="text"
           placeholder={t("common.optional")}
-          className="w-full rounded-lg border border-[var(--border)] bg-[var(--surface-elevated)] px-3.5 py-2.5 text-sm text-[var(--text-primary)] outline-none transition placeholder:text-[var(--text-primary)]/30 focus:border-[var(--color-action-border)]/30 focus:bg-[var(--surface-elevated)]"
+          className={UI_INPUT}
         />{" "}
       </div>{" "}
       <div
@@ -121,7 +122,7 @@ export function SshKeyCreateForm() {
           type="password"
           autoComplete="new-password"
           placeholder={t("serversPage.sshKeyCreate.passphrasePlaceholder")}
-          className="w-full rounded-lg border border-[var(--border)] bg-[var(--surface-elevated)] px-3.5 py-2.5 text-sm text-[var(--text-primary)] outline-none transition placeholder:text-[var(--text-primary)]/30 focus:border-[var(--color-action-border)]/30 focus:bg-[var(--surface-elevated)]"
+          className={UI_INPUT}
         />{" "}
         <p className="text-xs text-[var(--text-muted)]">
           {t("serversPage.sshKeyCreate.passphraseHint")}
@@ -141,7 +142,7 @@ export function SshKeyCreateForm() {
           type="password"
           autoComplete="new-password"
           placeholder={t("serversPage.sshKeyCreate.ppkPassphrasePlaceholder")}
-          className="w-full rounded-lg border border-[var(--border)] bg-[var(--surface-elevated)] px-3.5 py-2.5 text-sm text-[var(--text-primary)] outline-none transition placeholder:text-[var(--text-primary)]/30 focus:border-[var(--color-action-border)]/30 focus:bg-[var(--surface-elevated)]"
+          className={UI_INPUT}
         />{" "}
       </div>{" "}
       <div className="space-y-1.5">

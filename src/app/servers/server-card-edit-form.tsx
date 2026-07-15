@@ -4,6 +4,7 @@ import { SubmitButton } from "@/components/submit-button";
 import { useI18n } from "@/lib/i18n/use-locale";
 import type { ServerActionState } from "./actions";
 
+import { UI_INPUT } from "@/lib/ui/classes";
 type Props = {
   serverId: string;
   serverName: string;
@@ -57,7 +58,7 @@ export function ServerCardEditForm({
         name="name"
         type="text"
         defaultValue={serverName}
-        className="w-full rounded-lg border border-[var(--border)] bg-[var(--surface-subtle)] px-3 py-2 text-sm text-[var(--text-primary)]"
+        className={UI_INPUT}
       />
       <label className="block text-xs text-[var(--text-muted)]" htmlFor={`edit-host-${serverId}`}>
         {t("serverCardActions.edit.host")}
@@ -67,7 +68,7 @@ export function ServerCardEditForm({
         name="host"
         type="text"
         defaultValue={host}
-        className="w-full rounded-lg border border-[var(--border)] bg-[var(--surface-subtle)] px-3 py-2 text-sm text-[var(--text-primary)]"
+        className={UI_INPUT}
       />
       <label className="block text-xs text-[var(--text-muted)]" htmlFor={`edit-port-${serverId}`}>
         {t("serverCardActions.edit.port")}
@@ -79,7 +80,7 @@ export function ServerCardEditForm({
         min={1}
         max={65535}
         defaultValue={port}
-        className="w-full rounded-lg border border-[var(--border)] bg-[var(--surface-subtle)] px-3 py-2 text-sm text-[var(--text-primary)]"
+        className={UI_INPUT}
       />
       <label className="block text-xs text-[var(--text-muted)]" htmlFor={`edit-username-${serverId}`}>
         {t("serverCardActions.edit.username")}
@@ -89,7 +90,7 @@ export function ServerCardEditForm({
         name="username"
         type="text"
         defaultValue={username}
-        className="w-full rounded-lg border border-[var(--border)] bg-[var(--surface-subtle)] px-3 py-2 text-sm text-[var(--text-primary)]"
+        className={UI_INPUT}
       />
       <label
         className="grid gap-2 rounded-xl border border-[var(--warning-border)] bg-[var(--warning-bg)] p-3 text-xs text-[var(--text-secondary)]"
@@ -121,7 +122,7 @@ export function ServerCardEditForm({
             type="password"
             defaultValue=""
             autoComplete="new-password"
-            className="w-full rounded-lg border border-[var(--border)] bg-[var(--surface-subtle)] px-3 py-2 text-sm text-[var(--text-primary)]"
+            className={UI_INPUT}
           />
         </>
       ) : null}
@@ -133,7 +134,7 @@ export function ServerCardEditForm({
         name="description"
         defaultValue={description ?? ""}
         rows={2}
-        className="w-full rounded-lg border border-[var(--border)] bg-[var(--surface-subtle)] px-3 py-2 text-sm text-[var(--text-primary)]"
+        className={UI_INPUT}
       />
       <label className="block text-xs text-[var(--text-muted)]" htmlFor={`edit-tags-${serverId}`}>
         {t("serverCardActions.edit.tags")}
@@ -143,7 +144,7 @@ export function ServerCardEditForm({
         name="tags"
         type="text"
         defaultValue={(tags ?? []).join(",")}
-        className="w-full rounded-lg border border-[var(--border)] bg-[var(--surface-subtle)] px-3 py-2 text-sm text-[var(--text-primary)]"
+        className={UI_INPUT}
       />
       <div className="space-y-2 rounded-xl border border-[var(--border)] bg-[var(--surface-subtle)] p-3">
         <label className="flex items-start gap-2 text-xs text-[var(--text-secondary)]">
@@ -169,13 +170,13 @@ export function ServerCardEditForm({
             inputMode="decimal"
             defaultValue={costMonthlyAmount ?? ""}
             placeholder="0.00"
-            className="w-full rounded-lg border border-[var(--border)] bg-[var(--surface-elevated)] px-3 py-2 text-sm text-[var(--text-primary)]"
+            className={UI_INPUT}
             aria-label={t("serverCardActions.edit.costMonthlyAmount")}
           />
           <select
             name="costCurrency"
             defaultValue={costCurrency}
-            className="w-full rounded-lg border border-[var(--border)] bg-[var(--surface-elevated)] px-3 py-2 text-sm text-[var(--text-primary)]"
+            className={UI_INPUT}
             aria-label={t("serverCardActions.edit.costCurrency")}
           >
             {(["CNY", "USD", "EUR", "JPY", "HKD"] as const).map((currency) => (
@@ -190,7 +191,7 @@ export function ServerCardEditForm({
           type="text"
           defaultValue={costProvider ?? ""}
           placeholder={t("serverCardActions.edit.costProviderPlaceholder")}
-          className="w-full rounded-lg border border-[var(--border)] bg-[var(--surface-elevated)] px-3 py-2 text-sm text-[var(--text-primary)]"
+          className={UI_INPUT}
           aria-label={t("serverCardActions.edit.costProvider")}
         />
         {costLastSyncedAt ? (

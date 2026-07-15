@@ -17,6 +17,7 @@
 "use client";
 
 import { useI18n } from "@/lib/i18n/use-locale";
+import { UI_INPUT } from "@/lib/ui/classes";
 
 export interface DownloadFormState {
 	url: string;
@@ -120,7 +121,7 @@ export function CreateDownloadForm({
 						onChange={(e) => onFormChange({ ...form, batchText: e.target.value })}
 						rows={6}
 						placeholder={"https://example.com/file1.zip\nhttps://example.com/file2.zip\nhttps://example.com/file3.iso"}
-						className="w-full rounded-lg border border-[var(--border)] bg-[var(--surface-elevated)] px-3.5 py-2.5 text-sm text-[var(--text-primary)] font-mono outline-none focus:border-[var(--color-action-border)]/30 placeholder:text-[var(--text-primary)]/30 resize-y"
+						className={UI_INPUT}
 					/>
 					<p className="text-[11px] text-[var(--text-muted)]">
 						{t("downloadsPage.form.batchNotice")}
@@ -141,7 +142,7 @@ export function CreateDownloadForm({
 						value={form.url}
 						onChange={(e) => onFormChange({ ...form, url: e.target.value })}
 						placeholder={t("downloadsPage.form.linkPlaceholder")}
-						className="w-full rounded-lg border border-[var(--border)] bg-[var(--surface-elevated)] px-3.5 py-2.5 text-sm text-[var(--text-primary)] outline-none focus:border-[var(--color-action-border)]/30 placeholder:text-[var(--text-primary)]/30"
+						className={UI_INPUT}
 					/>
 					{form.url && <p className="text-[11px] text-[var(--text-muted)]">{urlTypeLabel(form.url, t)}</p>}
 				</div>
@@ -154,7 +155,7 @@ export function CreateDownloadForm({
 						id="downloadServer"
 						value={form.serverId}
 						onChange={(e) => onServerChange(e.target.value)}
-						className="w-full rounded-lg border border-[var(--border)] bg-[var(--surface-elevated)] px-3.5 py-2.5 text-sm text-[var(--text-primary)] outline-none focus:border-[var(--color-action-border)]/30"
+						className={UI_INPUT}
 					>
 						{servers.map((s) => (
 							<option key={s.id} value={s.id}>
@@ -182,7 +183,7 @@ export function CreateDownloadForm({
 						value={form.targetPath}
 						onChange={(e) => onFormChange({ ...form, targetPath: e.target.value })}
 						placeholder="/root/downloads"
-						className="w-full rounded-lg border border-[var(--border)] bg-[var(--surface-elevated)] px-3.5 py-2.5 text-sm text-[var(--text-primary)] outline-none focus:border-[var(--color-action-border)]/30 placeholder:text-[var(--text-primary)]/30"
+						className={UI_INPUT}
 					/>
 				</div>
 			</div>
@@ -195,7 +196,7 @@ export function CreateDownloadForm({
 						value={form.fileName}
 						onChange={(e) => onFormChange({ ...form, fileName: e.target.value })}
 						placeholder={t("downloadsPage.form.savePathPlaceholder")}
-						className="w-full rounded-lg border border-[var(--border)] bg-[var(--surface-elevated)] px-3.5 py-2.5 text-sm text-[var(--text-primary)] outline-none focus:border-[var(--color-action-border)]/30 placeholder:text-[var(--text-primary)]/30"
+						className={UI_INPUT}
 					/>
 				</div>
 				<div className="space-y-1.5">
@@ -204,7 +205,7 @@ export function CreateDownloadForm({
 						id="downloadCategory"
 						value={form.category}
 						onChange={(e) => onFormChange({ ...form, category: e.target.value })}
-						className="w-full rounded-lg border border-[var(--border)] bg-[var(--surface-elevated)] px-3.5 py-2.5 text-sm text-[var(--text-primary)] outline-none focus:border-[var(--color-action-border)]/30"
+						className={UI_INPUT}
 					>
 						{getCategories(t).map((c) => (
 							<option key={c.value} value={c.value}>
@@ -221,7 +222,7 @@ export function CreateDownloadForm({
 						onChange={(e) => onFormChange({ ...form, maxSpeedKb: e.target.value })}
 						type="number"
 						placeholder={t("downloadsPage.form.speedLimitPlaceholder")}
-						className="w-full rounded-lg border border-[var(--border)] bg-[var(--surface-elevated)] px-3.5 py-2.5 text-sm text-[var(--text-primary)] outline-none focus:border-[var(--color-action-border)]/30 placeholder:text-[var(--text-primary)]/30"
+						className={UI_INPUT}
 					/>
 				</div>
 			</div>

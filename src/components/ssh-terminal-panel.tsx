@@ -1,5 +1,7 @@
 "use client";
 
+import { decodeBase64, encodeBase64 } from "@/components/ssh-terminal-codec";
+
 import { useEffect, useRef, useState } from "react";
 import { csrfFetch } from "@/lib/auth/csrf-client";
 import { buildSshWebSocketUrl } from "@/components/ssh-terminal-url";
@@ -10,17 +12,6 @@ import { SshFileManager } from "@/components/ssh-file-manager";
 /* SshTerminalPanel — single-tab terminal logic (extracted from modal) */
 /* ------------------------------------------------------------------ */
 
-function decodeBase64(b64: string): string {
-	try {
-		return new TextDecoder().decode(Uint8Array.from(atob(b64), (c) => c.charCodeAt(0)));
-	} catch {
-		return atob(b64);
-	}
-}
-
-function encodeBase64(str: string): string {
-	return btoa(unescape(encodeURIComponent(str)));
-}
 
 export type SshTerminalPanelProps = {
 	serverId: string;
