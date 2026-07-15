@@ -1,11 +1,11 @@
 {
-  "generatedAt": "2026-07-15T07:49:10.863Z",
+  "generatedAt": "2026-07-15T16:17:20.005Z",
   "summary": {
     "permissionsInList": 54,
     "rolesDefined": 4,
     "apiRoutesAudited": 138,
     "pagesAudited": 47,
-    "callSitesAudited": 469,
+    "callSitesAudited": 471,
     "driftCount": 0,
     "driftByCode": {
       "perm-not-in-list": 0,
@@ -309,7 +309,7 @@
         },
         {
           "path": "src/app/api-tokens/page.tsx",
-          "line": 13
+          "line": 14
         }
       ],
       "pages": [
@@ -1078,15 +1078,15 @@
         },
         {
           "path": "src/app/api/health/route.ts",
-          "line": 34
+          "line": 57
         },
         {
           "path": "src/app/api/health/route.ts",
-          "line": 26
+          "line": 48
         },
         {
           "path": "src/app/api/health/route.ts",
-          "line": 34
+          "line": 57
         },
         {
           "path": "src/app/api/system-health/route.ts",
@@ -1190,7 +1190,7 @@
         },
         {
           "path": "src/app/media/page.tsx",
-          "line": 65
+          "line": 66
         }
       ],
       "pages": [
@@ -1318,6 +1318,14 @@
           "line": 29
         },
         {
+          "path": "src/app/api/playbooks/[id]/runs/route.ts",
+          "line": 15
+        },
+        {
+          "path": "src/app/api/playbooks/[id]/runs/route.ts",
+          "line": 15
+        },
+        {
           "path": "src/app/api/playbooks/route.ts",
           "line": 17
         },
@@ -1350,19 +1358,19 @@
       "files": [
         {
           "path": "src/app/api/playbooks/[id]/dry-run/route.ts",
-          "line": 30
+          "line": 28
         },
         {
           "path": "src/app/api/playbooks/[id]/dry-run/route.ts",
-          "line": 30
+          "line": 28
         },
         {
           "path": "src/app/api/playbooks/[id]/run/route.ts",
-          "line": 30
+          "line": 28
         },
         {
           "path": "src/app/api/playbooks/[id]/run/route.ts",
-          "line": 30
+          "line": 28
         },
         {
           "path": "src/app/playbooks/page.tsx",
@@ -1597,7 +1605,7 @@
         },
         {
           "path": "src/app/servers/page.tsx",
-          "line": 26
+          "line": 27
         }
       ],
       "pages": [
@@ -1670,7 +1678,7 @@
         },
         {
           "path": "src/app/servers/page.tsx",
-          "line": 25
+          "line": 26
         },
         {
           "path": "src/app/traffic/page.tsx",
@@ -1714,7 +1722,7 @@
         },
         {
           "path": "src/app/shares/page.tsx",
-          "line": 22
+          "line": 28
         }
       ],
       "pages": [
@@ -1751,7 +1759,7 @@
         },
         {
           "path": "src/app/shares/page.tsx",
-          "line": 23
+          "line": 29
         }
       ],
       "pages": [
@@ -2109,7 +2117,7 @@
         },
         {
           "path": "src/app/media/page.tsx",
-          "line": 63
+          "line": 64
         }
       ],
       "pages": [

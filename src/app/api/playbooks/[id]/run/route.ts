@@ -4,7 +4,6 @@ import { runPlaybook } from "@/lib/playbook/service";
 import { withApiRoute } from "@/lib/http/api-guard";
 import { GENERAL_WRITE_LIMIT } from "@/lib/http/rate-limit-presets";
 import { ValidationError } from "@/lib/errors";
-import { auditUserAction } from "@/lib/audit/service";
 
 export const dynamic = "force-dynamic";
 
@@ -20,9 +19,8 @@ async function requirePlaybookId(params: PlaybookRouteContext["params"]): Promis
 /**
  * POST /api/playbooks/[id]/run
  *
- * Real run. Triggers the chain executor; side effects (run_command,
- * send_notification) DO happen. Caller must have `playbook:run` and
- * the playbook must be `enabled=true` (service enforces the latter).
+ * Durable enqueue. Creates PlaybookRun + playbook.run job and returns 202.
+ * Side effects run in the playbook worker (not the request lifecycle).
  */
 export async function POST(request: Request, { params }: PlaybookRouteContext) {
   return withApiRoute(
@@ -35,9 +33,9 @@ export async function POST(request: Request, { params }: PlaybookRouteContext) {
         dryRun: false,
         triggerContext: { source: "manual", at: new Date().toISOString(), userId: session?.userId ?? null },
         createdById: session?.userId ?? undefined,
+        session: session ?? undefined,
       });
-      await auditUserAction(session?.userId ?? "", "playbook.run", { playbookId: id, runId: run.id });
-      return NextResponse.json({ run });
+      return NextResponse.json({ run }, { status: 202 });
     },
   );
 }

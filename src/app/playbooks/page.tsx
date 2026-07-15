@@ -31,7 +31,7 @@ export default async function PlaybooksPage() {
 	if (canRead) {
 		const runLists = await Promise.all(
 			playbooks.map(async (p) => {
-				const runs = await listPlaybookRuns(p.id);
+				const runs = await listPlaybookRuns(p.id, session);
 				return { id: p.id, runs: runs.slice(0, 5).map((r) => ({
 					id: r.id,
 					status: r.status,

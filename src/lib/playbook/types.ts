@@ -63,13 +63,16 @@ export type StepConfig =
 
 export type PlaybookStepResult = {
   stepId: string;
-  status: "ok" | "failed" | "skipped" | "dry_run";
+  status: "running" | "ok" | "failed" | "skipped" | "dry_run";
   startedAt: string;
   completedAt: string;
   // Truncated summary of the step's output; raw output is NOT persisted
   // to keep `stepResults` bounded.
   summary: string;
   error?: string;
+  // Persisted before a command is awaited, allowing a reclaimed parent job
+  // to resume polling without dispatching the remote command a second time.
+  commandRequestId?: string;
 };
 
 /**

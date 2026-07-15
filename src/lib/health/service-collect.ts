@@ -11,13 +11,18 @@ import { collectServerMetrics, type ServerMetrics } from "@/lib/server/monitor";
 import { tcpProbe } from "@/lib/server/connectivity";
 import type { HealthOverview, ServerHealth } from "./service-types";
 import { evaluateHealth } from "./service-types";
+import { teamWhere } from "@/lib/auth/team-scope";
+import type { SessionPayload } from "@/lib/auth/session";
 
 /** Default TCP probe deadline; tight enough to keep the health rollup snappy
  *  even when dozens of servers are probed in parallel. */
 const TCP_PROBE_TIMEOUT_MS = 2_000;
 
-export async function collectAllHealth(): Promise<HealthOverview> {
+export async function collectAllHealth(
+	session?: Pick<SessionPayload, "userId" | "roles" | "currentTeamId">,
+): Promise<HealthOverview> {
 	const servers = await prisma.server.findMany({
+		where: session ? teamWhere(session) : {},
 		select: { id: true, name: true, host: true, port: true, enabled: true },
 		orderBy: { name: "asc" },
 		take: 200,

@@ -4,7 +4,6 @@ import { runPlaybook } from "@/lib/playbook/service";
 import { withApiRoute } from "@/lib/http/api-guard";
 import { GENERAL_WRITE_LIMIT } from "@/lib/http/rate-limit-presets";
 import { ValidationError } from "@/lib/errors";
-import { auditUserAction } from "@/lib/audit/service";
 
 export const dynamic = "force-dynamic";
 
@@ -20,9 +19,8 @@ async function requirePlaybookId(params: PlaybookRouteContext["params"]): Promis
 /**
  * POST /api/playbooks/[id]/dry-run
  *
- * Walks the chain without persisting side effects. The returned
- * PlaybookRun record is persisted with `dryRun: true` so the UI can
- * show "this is what would happen" alongside the real run history.
+ * Durable enqueue of a dry-run. Side effects are skipped by the worker;
+ * returns 202 with a queued PlaybookRun immediately.
  */
 export async function POST(request: Request, { params }: PlaybookRouteContext) {
   return withApiRoute(
@@ -35,9 +33,9 @@ export async function POST(request: Request, { params }: PlaybookRouteContext) {
         dryRun: true,
         triggerContext: { source: "dry-run", at: new Date().toISOString() },
         createdById: session?.userId ?? undefined,
+        session: session ?? undefined,
       });
-      await auditUserAction(session?.userId ?? "", "playbook.dry-run", { playbookId: id });
-      return NextResponse.json({ run });
+      return NextResponse.json({ run }, { status: 202 });
     },
   );
 }

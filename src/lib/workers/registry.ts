@@ -18,6 +18,7 @@
  * to a follow-up TR per the README New-D note).
  */
 import { startAlertEvaluationWorker, stopAlertEvaluationWorkerForTests } from "@/lib/health/alert-worker";
+import { startHealthSamplingWorker, stopHealthSamplingWorkerForTests } from "@/lib/health/sampling-worker";
 import { startAiOpsScanWorker, stopAiOpsScanWorkerForTests } from "@/lib/ai/ops/scan-worker";
 import { startBackupJobWorker, stopBackupJobWorkerForTests } from "@/lib/backup/job-worker";
 import { startBackupScheduleWorker, stopBackupScheduleWorkerForTests } from "@/lib/backup/schedule-worker";
@@ -26,6 +27,7 @@ import { startCommandMaintenanceWorker, stopCommandMaintenanceWorkerForTests } f
 import { startDownloadJobWorker, stopDownloadJobWorkerForTests } from "@/lib/downloads/execution-worker";
 import { startQuickServiceJobWorker, stopQuickServiceJobWorkerForTests } from "@/lib/quick-service/job-worker";
 import { startScheduledTaskWorker, stopScheduledTaskWorkerForTests } from "@/lib/scheduled-task/worker";
+import { startPlaybookRunWorker, stopPlaybookRunWorkerForTests } from "@/lib/playbook/worker";
 import { startSftpSyncJobWorker, stopSftpSyncJobWorkerForTests } from "@/lib/storage/sftp-sync-job";
 import { startSftpStaleInventoryWorker, stopSftpStaleInventoryWorkerForTests } from "@/lib/storage/sftp-stale-inventory-job";
 import { startOperationTaskRetentionWorker, stopOperationTaskRetentionWorkerForTests } from "@/lib/operation-task/retention-worker";
@@ -43,11 +45,13 @@ export type WorkerId =
   | "command-maintenance"
   | "cost-snapshot"
   | "download-execution"
+  | "health-sampling"
   | "quick-service"
   | "scheduled-task"
   | "sftp-sync"
   | "sftp-stale-inventory"
   | "operation-task-retention"
+  | "playbook-run"
   | "ticket-sla"
   | "vps-backup"
   | "vps-backup-schedule";
@@ -92,11 +96,13 @@ function getRegistryState(): Record<WorkerId, { started: boolean }> {
       "command-maintenance": { started: false },
       "cost-snapshot": { started: false },
       "download-execution": { started: false },
+      "health-sampling": { started: false },
       "quick-service": { started: false },
       "scheduled-task": { started: false },
       "sftp-sync": { started: false },
       "sftp-stale-inventory": { started: false },
       "operation-task-retention": { started: false },
+      "playbook-run": { started: false },
       "ticket-sla": { started: false },
       "vps-backup": { started: false },
       "vps-backup-schedule": { started: false },
@@ -165,6 +171,16 @@ const COMMAND_MAINTENANCE: WorkerSpec = {
   stop: () => stopCommandMaintenanceWorkerForTests(),
 };
 
+const HEALTH_SAMPLING: WorkerSpec = {
+  id: "health-sampling",
+  label: "Fleet health background sampling",
+  jobType: "health.sample",
+  start: async () => {
+    await startHealthSamplingWorker();
+  },
+  stop: () => stopHealthSamplingWorkerForTests(),
+};
+
 const DOWNLOAD_EXECUTION: WorkerSpec = {
   id: "download-execution",
   label: "Download execution",
@@ -183,6 +199,16 @@ const QUICK_SERVICE: WorkerSpec = {
     await startQuickServiceJobWorker();
   },
   stop: () => stopQuickServiceJobWorkerForTests(),
+};
+
+const PLAYBOOK_RUN: WorkerSpec = {
+  id: "playbook-run",
+  label: "Durable playbook chain execution",
+  jobType: "playbook.run",
+  start: async () => {
+    await startPlaybookRunWorker();
+  },
+  stop: () => stopPlaybookRunWorkerForTests(),
 };
 
 const SCHEDULED_TASK: WorkerSpec = {
@@ -293,12 +319,14 @@ export const WORKER_REGISTRY: readonly WorkerSpec[] = Object.freeze([
   COMMAND_EXECUTION,
   COMMAND_MAINTENANCE,
   COST_SNAPSHOT,
+  HEALTH_SAMPLING,
   DOWNLOAD_EXECUTION,
   QUICK_SERVICE,
   SCHEDULED_TASK,
   SFTP_SYNC,
   SFTP_STALE_INVENTORY,
   OPERATION_TASK_RETENTION,
+  PLAYBOOK_RUN,
   TICKET_SLA,
   VPS_BACKUP,
   VPS_BACKUP_SCHEDULE,

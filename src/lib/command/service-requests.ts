@@ -228,6 +228,13 @@ export async function cancelCommandRequest(input: { commandRequestId: string; ac
 
 export async function createCommandRequest(input: CreateCommandInput) {
   const payload = createCommandSchema.parse(input);
+  if (payload.idempotencyKey) {
+    const existing = await prisma.commandRequest.findUnique({
+      where: { idempotencyKey: payload.idempotencyKey },
+      include: { targets: true },
+    });
+    if (existing) return { ...existing, requiresApproval: existing.status === "PENDING_APPROVAL" };
+  }
   const requiresApproval = isProtectedByApproval({
     actorType: toApprovalActorType(payload.submissionMode),
     actionType: "command.execute",
@@ -244,6 +251,8 @@ export async function createCommandRequest(input: CreateCommandInput) {
         | "USER"
         | "ASSISTANT",
       status,
+      teamId: payload.teamId ?? null,
+      idempotencyKey: payload.idempotencyKey ?? null,
       targets: {
         create: payload.serverIds.map((serverId) => ({ serverId, status })),
       },

@@ -32,7 +32,7 @@ describe("/api/playbooks/[id]/run POST", () => {
 			ctx("pb1"),
 		);
 		const json = await res.json();
-		expect(res.status).toBe(200);
+		expect(res.status).toBe(202);
 		expect(mocks.requireApiPermission).toHaveBeenCalledWith("playbook:run");
 		expect(mocks.runPlaybook).toHaveBeenCalledWith(
 			expect.objectContaining({

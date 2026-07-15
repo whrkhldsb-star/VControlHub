@@ -2,18 +2,22 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const { mocks } = vi.hoisted(() => ({
 	mocks: {
-		enqueueJob: vi.fn(),
+		createCommandRequest: vi.fn(),
+		playbookRunUpdateMany: vi.fn(),
+		commandRequestFindUnique: vi.fn(),
 		recordJobEvent: vi.fn(),
 		notificationCreate: vi.fn(),
 		fetchWebhookSafely: vi.fn(),
 	},
 }));
 
-vi.mock("@/lib/job/service", () => ({ enqueueJob: mocks.enqueueJob }));
+vi.mock("@/lib/command/service", () => ({ createCommandRequest: mocks.createCommandRequest }));
 vi.mock("@/lib/job/events", () => ({ recordJobEvent: mocks.recordJobEvent }));
 vi.mock("@/lib/db", () => ({
 	prisma: {
 		notification: { create: mocks.notificationCreate },
+		playbookRun: { updateMany: mocks.playbookRunUpdateMany },
+		commandRequest: { findUnique: mocks.commandRequestFindUnique },
 	},
 }));
 vi.mock("@/lib/security/webhook-url", () => ({
@@ -44,7 +48,9 @@ function buildPlaybook(steps: PlaybookRecord["steps"]): PlaybookRecord {
 describe("executePlaybookChain", () => {
 	beforeEach(() => {
 		vi.clearAllMocks();
-		mocks.enqueueJob.mockResolvedValue({ id: "job-1" });
+		mocks.createCommandRequest.mockResolvedValue({ id: "request-1" });
+		mocks.playbookRunUpdateMany.mockResolvedValue({ count: 1 });
+		mocks.commandRequestFindUnique.mockResolvedValue({ status: "COMPLETED" });
 		mocks.recordJobEvent.mockResolvedValue(undefined);
 		mocks.notificationCreate.mockResolvedValue({ id: "n-1" });
 	});
@@ -76,11 +82,11 @@ describe("executePlaybookChain", () => {
 		expect(results).toHaveLength(2);
 		expect(results[0]?.status).toBe("dry_run");
 		expect(results[1]?.status).toBe("dry_run");
-		expect(mocks.enqueueJob).not.toHaveBeenCalled();
+		expect(mocks.createCommandRequest).not.toHaveBeenCalled();
 		expect(mocks.notificationCreate).not.toHaveBeenCalled();
 	});
 
-	it("dispatches a run_command step via enqueueJob", async () => {
+	it("dispatches a run_command step and waits for its real command result", async () => {
 		const playbook = buildPlaybook([
 			{
 				id: "s1",
@@ -97,11 +103,11 @@ describe("executePlaybookChain", () => {
 			dryRun: false,
 		});
 		expect(results[0]?.status).toBe("ok");
-		expect(mocks.enqueueJob).toHaveBeenCalledWith(
-			expect.objectContaining({
-				type: "playbook.command",
-				payload: expect.objectContaining({ command: "ls -la", serverIds: ["srv1", "srv2"] }),
-			}),
+		expect(mocks.createCommandRequest).toHaveBeenCalledWith(
+			expect.objectContaining({ command: "ls -la", serverIds: ["srv1", "srv2"] }),
+		);
+		expect(mocks.commandRequestFindUnique).toHaveBeenCalledWith(
+			expect.objectContaining({ where: { id: "request-1" } }),
 		);
 	});
 
@@ -128,6 +134,7 @@ describe("executePlaybookChain", () => {
 				type: "playbook",
 				title: "hi",
 				message: "world",
+				teamId: null,
 			},
 		});
 	});
@@ -185,7 +192,7 @@ describe("executePlaybookChain", () => {
 	});
 
 	it("aborts the chain on the first failed step in non-dryRun mode (no synthetic skipped entry)", async () => {
-		mocks.enqueueJob.mockRejectedValueOnce(new Error("queue down"));
+		mocks.createCommandRequest.mockRejectedValueOnce(new Error("queue down"));
 		const playbook = buildPlaybook([
 			{
 				id: "s1",

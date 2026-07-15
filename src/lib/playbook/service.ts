@@ -8,7 +8,8 @@
  */
 
 import { Prisma } from "@prisma/client";
-import { teamWhere } from "@/lib/auth/team-scope";
+import { teamCreateData, teamWhere } from "@/lib/auth/team-scope";
+import type { SessionPayload } from "@/lib/auth/session";
 
 import { prisma } from "@/lib/db";
 import { auditUserAction } from "@/lib/audit/service";
@@ -25,7 +26,6 @@ import type {
   TriggerConfig,
   TriggerType,
 } from "./types";
-import { executePlaybookChain } from "./executor";
 
 type RawPlaybook = {
   id: string;
@@ -164,9 +164,12 @@ export async function deletePlaybook(id: string, deletedById: string): Promise<v
   await auditUserAction(deletedById, "playbook.delete", { playbookId: id });
 }
 
-export async function listPlaybookRuns(playbookId: string): Promise<PlaybookRunRecord[]> {
+export async function listPlaybookRuns(
+  playbookId: string,
+  session?: Pick<SessionPayload, "userId" | "roles" | "currentTeamId">,
+): Promise<PlaybookRunRecord[]> {
   const rows = await prisma.playbookRun.findMany({
-    where: { playbookId },
+    where: { playbookId, ...(session ? teamWhere(session) : {}) },
     orderBy: { createdAt: "desc" },
     take: 50,
   });
@@ -174,85 +177,68 @@ export async function listPlaybookRuns(playbookId: string): Promise<PlaybookRunR
 }
 
 /**
- * Run a playbook chain. The `dryRun` flag is forwarded to the executor;
- * when true, side-effecting steps (run_command, send_notification) are
- * skipped — only the planning + audit trail happens.
- *
- * Returns the persisted run record (status=failed/completed) so the API
- * route can stream it back to the client. The function awaits the full
- * chain; in production we may want to enqueue `playbook.run` as a Job
- * instead — that lives in the `playbook.run` worker registered in
- * `src/lib/command/worker.ts` for follow-up work.
+ * Persist a queued run and enqueue the durable parent job. The API returns
+ * immediately; the playbook worker owns execution, retries and recovery.
  */
 export async function runPlaybook(input: {
   playbookId: string;
   dryRun: boolean;
   triggerContext?: unknown;
   createdById?: string;
+  session?: Pick<SessionPayload, "userId" | "roles" | "currentTeamId">;
 }): Promise<PlaybookRunRecord> {
-  const playbook = await prisma.playbook.findUnique({
-    where: { id: input.playbookId },
+  const scope = input.session ? teamWhere(input.session) : {};
+  const playbook = await prisma.playbook.findFirst({
+    where: { id: input.playbookId, ...scope },
   });
-  if (!playbook) {
-    throw new Error(`playbook not found: ${input.playbookId}`);
-  }
+  if (!playbook) throw new Error(`playbook not found: ${input.playbookId}`);
   const narrowedPlaybook = narrowPlaybook(playbook);
-  if (!narrowedPlaybook.enabled) {
-    throw new Error(`playbook is disabled: ${input.playbookId}`);
-  }
+  if (!narrowedPlaybook.enabled) throw new Error(`playbook is disabled: ${input.playbookId}`);
 
-  const run = await prisma.playbookRun.create({
-    data: {
-      playbookId: input.playbookId,
-      status: "running",
-      dryRun: input.dryRun,
-      triggerContext: (input.triggerContext ?? null) as Prisma.InputJsonValue,
-      stepResults: [] as unknown as Prisma.InputJsonValue,
-      startedAt: new Date(),
-      createdById: input.createdById ?? null,
-    },
-  });
-
-  let stepResults: PlaybookStepResult[] = [];
-  let finalStatus: "completed" | "failed" = "completed";
-  let errorMessage: string | null = null;
-  try {
-    const chainResult = await executePlaybookChain({
-      playbook: narrowedPlaybook,
-      runId: run.id,
-      dryRun: input.dryRun,
+  const teamData = input.session ? teamCreateData(input.session) : { teamId: playbook.teamId ?? null };
+  const executionState = {
+    schemaVersion: 1,
+    stepsSnapshot: narrowedPlaybook.steps,
+  } as unknown as Prisma.InputJsonValue;
+  const run = await prisma.$transaction(async (tx) => {
+    const created = await tx.playbookRun.create({
+      data: {
+        playbookId: input.playbookId,
+        status: "queued",
+        dryRun: input.dryRun,
+        triggerContext: (input.triggerContext ?? null) as Prisma.InputJsonValue,
+        stepResults: [] as unknown as Prisma.InputJsonValue,
+        executionState,
+        startedAt: null,
+        createdById: input.createdById ?? null,
+        ...teamData,
+      },
     });
-    stepResults = chainResult.results;
-    const anyFailed = stepResults.some((r) => r.status === "failed");
-    if (anyFailed) {
-      finalStatus = "failed";
-      const failed = stepResults.find((r) => r.status === "failed");
-      errorMessage = failed?.error ?? "step failed";
-    }
-  } catch (err) {
-    finalStatus = "failed";
-    errorMessage = err instanceof Error ? err.message : String(err);
-  }
-
-  const updated = await prisma.playbookRun.update({
-    where: { id: run.id },
-    data: {
-      status: finalStatus,
-      stepResults: stepResults as unknown as Prisma.InputJsonValue,
-      errorMessage,
-      completedAt: new Date(),
-    },
+    const job = await tx.job.create({
+      data: {
+        type: "playbook.run",
+        title: `Run playbook ${narrowedPlaybook.name}`,
+        payload: { runId: created.id },
+        createdBy: input.createdById ?? null,
+        teamId: teamData.teamId ?? null,
+        priority: 0,
+        maxAttempts: Math.max(1, narrowedPlaybook.chainRetry + 1),
+      },
+    });
+    return tx.playbookRun.update({
+      where: { id: created.id },
+      data: { jobId: job.id },
+    });
   });
 
   if (input.createdById) {
-    await auditUserAction(input.createdById, "playbook.run", {
+    await auditUserAction(input.createdById, input.dryRun ? "playbook.dry-run" : "playbook.run", {
       playbookId: input.playbookId,
       runId: run.id,
       dryRun: input.dryRun,
-      status: finalStatus,
-      stepCount: stepResults.length,
+      status: "queued",
+      stepCount: narrowedPlaybook.steps.length,
     });
   }
-
-  return narrowPlaybookRun(updated);
+  return narrowPlaybookRun(run);
 }

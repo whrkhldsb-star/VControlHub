@@ -578,7 +578,7 @@ make logs SERVICE_PREFIX=vcontrolhub
 | 移动底栏 | 毛玻璃 + 活动 tab 底色高亮 |
 | 图标 | monitoring / cost 独立图标，减少重复 |
 
-下一阶段可继续：关键业务页（servers/files/dashboard）接入 `Toolbar`/`Section`、收敛巨型 client 组件。
+下一阶段已完成：关键业务页（servers/files/dashboard）均已接入 `PageShell` / `PageHeader` 和共享列表/表面 primitives；后续只按真实复杂度或验收缺口继续拆分，不以行数机械重构。
 
 ### 2026-07-12 前端全站视觉升级（FE-UI Round 2）
 
@@ -744,9 +744,9 @@ make logs SERVICE_PREFIX=vcontrolhub
 |---|---|---|---|
 | FEAT-P0-1 | **多租户 / 团队数据隔离** | ✅ 核心模型、任务列表/CSV/events、分享审计、备份记录/计划/恢复/保留策略已接入 Team scope；普通任务读者仅见本人任务 | 继续对新增模型执行 route/service 双层 scope 审查 |
 | FEAT-P0-2 | **远程 Docker 主体已完成** | ✅ 容器/日志/stats/network/volume 支持选择远程 VPS；Compose 当前按标签聚合到容器操作 | 真实 Compose project 生命周期与 Quick Services 节点绑定仍待后续 |
-| FEAT-P0-3 | **舰队监控主体已完成** | ✅ 远程节点实时资源、CPU/内存/磁盘历史、节点过滤告警及 Playbook 联动 | 历史采样脱离页面访问、统一容量趋势仍可增强 |
-| FEAT-P0-4 | **文件网盘能力部分完成** | ✅ 多节点、回收站、分享、预览、上传和 LOCAL/SFTP 全文检索 | 文件版本历史、普通文件断点续传及可选 WebDAV/同步协议仍待后续 |
-| FEAT-P0-5 | **Playbook 仍需深度异步化** | command step 会创建 durable job，stepResults/汇总已持久化；但 Playbook 主链仍在请求生命周期内推进，排队不等于远端完成 | 主链 worker 化、等待子任务真实结果、跨节点并行、崩溃续跑 |
+| FEAT-P0-3 | **舰队监控后台采样已完成** | ✅ 远程节点实时资源、CPU/内存/磁盘历史、节点过滤告警及 Playbook 联动；独立 `health.sample` durable worker 每 5 分钟采样，不再依赖页面访问，保留 30 天并记录离线断点 | 后续可在现有样本上增加跨节点统一容量预测 |
+| FEAT-P0-4 | **文件网盘能力部分完成** | ✅ 多节点、回收站、分享、预览、上传和 LOCAL/SFTP 全文检索；媒体/图片已有分片断点续传 | 文件管理器普通文件尚未复用 resumable 协议；文件版本历史及可选 WebDAV/同步协议仍待独立产品批次 |
+| FEAT-P0-5 | **Playbook 深度异步化已完成** | ✅ API 原子创建 `PlaybookRun` + `playbook.run` durable job 后立即返回；worker 持 lease/heartbeat，等待真实 CommandRequest 终态并逐步持久化 | 崩溃重领按已持久化 `commandRequestId` 续跑，不重复下发；步骤 retry 与链级 retry 均生效 |
 
 #### P1 — 有入口、业务深度不够
 
@@ -755,7 +755,7 @@ make logs SERVICE_PREFIX=vcontrolhub
 | **工单 Tickets** | ✅ SLA、自动升级、VPS/命令关联、看板和高级过滤已完成；后续可加审批对象双向时间线 |
 | **AI 助手** | ✅ VPS/日志/Docker/文件全文搜索等受控工具编排已完成；知识库/RAG 仍待后续 |
 | **AI Ops** | ✅ 安全自动闭环和结构化可解释报告已完成；目标依赖动作仍坚持显式参数/审批 |
-| **告警规则** | 指标源与远程 VPS 统一；渠道主要靠 Setting（邮件/TG）；静默/升级体验 |
+| **告警规则** | 指标源与远程 VPS 统一；静默窗口、冷却和持续时长已完成；后续可加多级升级策略、值班路由与通知确认 |
 | **备份** | ✅ 细粒度恢复和无损恢复演练报告已完成；跨环境迁移向导仍待后续 |
 | **成本 Cost** | ✅ 标签自动归集、周期预算和自动告警已完成；云厂商账单 API 对接仍待后续 |
 | **分享** | ✅ 仅预览/允许下载、服务端强制、访问日志、水印、团队级聚合报表和 CSV 导出已完成 |
@@ -787,7 +787,7 @@ make logs SERVICE_PREFIX=vcontrolhub
 1. ✅ ~~远程 Docker / 统一节点运行时~~ — 远程容器/日志/stats/volume 已支持选择 VPS
 2. ✅ ~~数据范围隔离~~ — 核心模型已接入 Team scope（FEAT-P0-1 + OPEN-4 + 备份域全量闭环）
 3. ✅ ~~舰队监控一张图~~ — 远程节点实时资源 + 历史趋势 + 告警联动
-4. Playbook/部署异步化与结果汇总 — stepResults 已持久化，主链 worker 化仍待后续
+4. ✅ ~~Playbook/部署异步化与结果汇总~~ — `playbook.run` durable worker 等待真实命令结果、逐步持久化并支持崩溃续跑
 5. ✅ ~~文件：全文搜~~ — LOCAL/SFTP 全文检索已完成；文件版本历史、断点续传仍待后续
 6. ✅ ~~工单 ↔ 机器/命令/审批对象关联~~ — Ticket 关联 VPS/命令已完成
 
@@ -806,7 +806,7 @@ make logs SERVICE_PREFIX=vcontrolhub
 | FEAT-P1-BR | **备份细粒度恢复** | FULL 备份恢复支持选择范围：全部 / 仅数据库 / 仅文件；`buildRestoreExecution` 按 component 分发不同命令；UI 加三选一按钮组；schema/API/job-worker 全链路传参 | ✅ tsc + 119 tests |
 
 **验证**：tsc 0；playbook executor 测试通过；build 成功；服务 active；path smoke 11/11 通过。  
-**P0 全部完成（已审计修复）。P1 主体能力已完成**；后续保留知识库/RAG、云厂商账单 API、聚合外发报表和 ITSM/IM 双向集成。
+**P0 主体全部完成（已审计修复）**：Playbook 主链已迁移为 durable worker，舰队监控历史已由后台独立采样；**P1 主体能力已完成**。仍保留为明确独立产品批次的方向：远程 Compose project 生命周期、普通文件断点续传/版本历史、知识库/RAG、云厂商账单 API 与 ITSM/IM 双向集成。
 
 ### P1 全面补齐（2026-07-14）
 

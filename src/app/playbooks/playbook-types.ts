@@ -27,9 +27,10 @@ export type SerializedPlaybook = {
 
 export type RunStepSummary = {
 	stepId: string;
-	status: "ok" | "failed" | "skipped" | "dry_run" | string;
+	status: "running" | "ok" | "failed" | "skipped" | "dry_run" | string;
 	summary?: string;
 	error?: string;
+	commandRequestId?: string;
 };
 
 export type RunSummary = {

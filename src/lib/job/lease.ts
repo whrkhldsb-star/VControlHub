@@ -41,9 +41,11 @@ export const LEASE_PRESETS_MS: Record<string, number> = {
 	"command-execution": 5 * 60 * 1000,
 	"scheduled-task": 5 * 60 * 1000,
 	"backup-schedule": 5 * 60 * 1000,
+	"health-sampling": 5 * 60 * 1000,
 	"sftp-sync": 5 * 60 * 1000,
 	"sftp-stale-inventory": 5 * 60 * 1000,
 	"quick-service": 10 * 60 * 1000,
+	"playbook-run": 30 * 60 * 1000,
 	"download-execution": 150 * 60 * 1000,
 	// TR-006: 跨来源裁剪历史 5min lease 足够 (pruneOperationTaskHistory 大型实例 30s-1min)
 	"operation-task-retention": 5 * 60 * 1000,

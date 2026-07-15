@@ -6,15 +6,18 @@ const {
   verifyBearerTokenMock,
   collectAllHealthMock,
   getMetricHistoryMock,
-  snapshotMetricsMock,
+  assertServerTeamAccessMock,
+  userFindUniqueMock,
 } = vi.hoisted(() => ({
   requireApiPermissionMock: vi.fn(),
   verifyBearerTokenMock: vi.fn(),
   collectAllHealthMock: vi.fn(),
   getMetricHistoryMock: vi.fn(),
-  snapshotMetricsMock: vi.fn(),
+  assertServerTeamAccessMock: vi.fn(),
+  userFindUniqueMock: vi.fn(),
 }));
 
+vi.mock("@/lib/db", () => ({ prisma: { user: { findUnique: userFindUniqueMock } } }));
 vi.mock("@/lib/auth/require-api-permission", () => ({
   requireApiPermission: requireApiPermissionMock,
 }));
@@ -24,8 +27,8 @@ vi.mock("@/lib/auth/bearer-token", () => ({
 vi.mock("@/lib/health/service", () => ({
   collectAllHealth: collectAllHealthMock,
   getMetricHistory: getMetricHistoryMock,
-  snapshotMetrics: snapshotMetricsMock,
 }));
+vi.mock("@/lib/server/team-access", () => ({ assertServerTeamAccess: assertServerTeamAccessMock }));
 
 import { GET } from "../route";
 
@@ -66,7 +69,8 @@ describe("/api/health", () => {
         createdAt: new Date("2026-05-06T00:00:00.000Z"),
       },
     ]);
-    snapshotMetricsMock.mockResolvedValue(undefined);
+    assertServerTeamAccessMock.mockResolvedValue({ ok: true, server: { id: "srv_1" } });
+    userFindUniqueMock.mockResolvedValue({ id: "user_1", username: "viewer", mustChangePassword: false, currentTeamId: null, roles: [{ role: { key: "viewer" } }] });
   });
 
   it("returns 401 when the session is missing", async () => {
@@ -130,18 +134,11 @@ describe("/api/health", () => {
     expect(collectAllHealthMock).not.toHaveBeenCalled();
   });
 
-  it("collects health and snapshots metrics when the session has health read permission", async () => {
+  it("collects real-time health without coupling history snapshots to page requests", async () => {
     const response = await GET(new Request("https://example.com/api/health"));
 
     expect(response.status).toBe(200);
     expect(collectAllHealthMock).toHaveBeenCalledOnce();
-    expect(snapshotMetricsMock).toHaveBeenCalledWith(
-      "srv_1",
-      12.3,
-      45.6,
-      50,
-      true,
-    );
     await expect(response.json()).resolves.toMatchObject({
       total: 1,
       servers: [{ serverId: "srv_1" }],
@@ -154,6 +151,7 @@ describe("/api/health", () => {
     );
 
     expect(response.status).toBe(200);
+    expect(assertServerTeamAccessMock).toHaveBeenCalledWith(expect.any(Object), "srv_1");
     expect(getMetricHistoryMock).toHaveBeenCalledWith("srv_1", 6);
     await expect(response.json()).resolves.toMatchObject({
       history: [

@@ -289,6 +289,7 @@ model CommandRequest {
   requesterId            String
   workerId               String?
   workerHeartbeatAt      DateTime?
+  idempotencyKey         String?                 @unique
   createdAt              DateTime                @default(now())
   updatedAt              DateTime                @updatedAt
   requester              User                    @relation("requester", fields: [requesterId], references: [id], onDelete: Cascade)
@@ -621,6 +622,9 @@ model PlaybookRun {
   triggerContext Json?
   stepResults    Json?
   errorMessage   String?
+  jobId          String?   @unique
+  executionState Json?
+  version        Int       @default(0)
   startedAt      DateTime?
   completedAt    DateTime?
   createdById    String?

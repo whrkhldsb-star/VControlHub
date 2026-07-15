@@ -189,6 +189,7 @@ export const config = {
 	worker: {
 		get commandExecutionIntervalMs(): number { return readInt("COMMAND_EXECUTION_INTERVAL_MS", 2_000); },
 		get downloadExecutionIntervalMs(): number { return readInt("DOWNLOAD_EXECUTION_INTERVAL_MS", 5_000); },
+		get playbookRunIntervalMs(): number { return readInt("PLAYBOOK_RUN_INTERVAL_MS", 2_000); },
 	},
 
 	/**

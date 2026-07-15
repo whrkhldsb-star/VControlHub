@@ -22,10 +22,14 @@ const {
   stopCommandMaintenanceWorkerForTestsMock,
   startDownloadJobWorkerMock,
   stopDownloadJobWorkerForTestsMock,
+  startHealthSamplingWorkerMock,
+  stopHealthSamplingWorkerForTestsMock,
   startQuickServiceJobWorkerMock,
   stopQuickServiceJobWorkerForTestsMock,
   startScheduledTaskWorkerMock,
   stopScheduledTaskWorkerForTestsMock,
+  startPlaybookRunWorkerMock,
+  stopPlaybookRunWorkerForTestsMock,
   startSftpSyncJobWorkerMock,
   stopSftpSyncJobWorkerForTestsMock,
   startSftpStaleInventoryWorkerMock,
@@ -51,10 +55,14 @@ const {
   stopCommandMaintenanceWorkerForTestsMock: vi.fn(),
   startDownloadJobWorkerMock: vi.fn(async () => undefined),
   stopDownloadJobWorkerForTestsMock: vi.fn(),
+  startHealthSamplingWorkerMock: vi.fn(async () => undefined),
+  stopHealthSamplingWorkerForTestsMock: vi.fn(),
   startQuickServiceJobWorkerMock: vi.fn(async () => undefined),
   stopQuickServiceJobWorkerForTestsMock: vi.fn(),
   startScheduledTaskWorkerMock: vi.fn(async () => undefined),
   stopScheduledTaskWorkerForTestsMock: vi.fn(),
+  startPlaybookRunWorkerMock: vi.fn(async () => undefined),
+  stopPlaybookRunWorkerForTestsMock: vi.fn(),
   startSftpSyncJobWorkerMock: vi.fn(async () => undefined),
   stopSftpSyncJobWorkerForTestsMock: vi.fn(),
   startSftpStaleInventoryWorkerMock: vi.fn(async () => undefined),
@@ -91,6 +99,10 @@ vi.mock("@/lib/command/worker", () => ({
   startCommandMaintenanceWorker: startCommandMaintenanceWorkerMock,
   stopCommandMaintenanceWorkerForTests: stopCommandMaintenanceWorkerForTestsMock,
 }));
+vi.mock("@/lib/health/sampling-worker", () => ({
+  startHealthSamplingWorker: startHealthSamplingWorkerMock,
+  stopHealthSamplingWorkerForTests: stopHealthSamplingWorkerForTestsMock,
+}));
 vi.mock("@/lib/downloads/execution-worker", () => ({
   startDownloadJobWorker: startDownloadJobWorkerMock,
   stopDownloadJobWorkerForTests: stopDownloadJobWorkerForTestsMock,
@@ -102,6 +114,10 @@ vi.mock("@/lib/quick-service/job-worker", () => ({
 vi.mock("@/lib/scheduled-task/worker", () => ({
   startScheduledTaskWorker: startScheduledTaskWorkerMock,
   stopScheduledTaskWorkerForTests: stopScheduledTaskWorkerForTestsMock,
+}));
+vi.mock("@/lib/playbook/worker", () => ({
+  startPlaybookRunWorker: startPlaybookRunWorkerMock,
+  stopPlaybookRunWorkerForTests: stopPlaybookRunWorkerForTestsMock,
 }));
 vi.mock("@/lib/storage/sftp-sync-job", () => ({
   startSftpSyncJobWorker: startSftpSyncJobWorkerMock,
@@ -144,8 +160,10 @@ function resetAllMocks() {
     startCommandExecutionWorkerMock,
     startCommandMaintenanceWorkerMock,
     startDownloadJobWorkerMock,
+    startHealthSamplingWorkerMock,
     startQuickServiceJobWorkerMock,
     startScheduledTaskWorkerMock,
+    startPlaybookRunWorkerMock,
     startSftpSyncJobWorkerMock,
     startSftpStaleInventoryWorkerMock,
     startVpsBackupJobWorkerMock,
@@ -162,8 +180,10 @@ function resetAllMocks() {
     stopCommandExecutionWorkerForTestsMock,
     stopCommandMaintenanceWorkerForTestsMock,
     stopDownloadJobWorkerForTestsMock,
+    stopHealthSamplingWorkerForTestsMock,
     stopQuickServiceJobWorkerForTestsMock,
     stopScheduledTaskWorkerForTestsMock,
+    stopPlaybookRunWorkerForTestsMock,
     stopSftpSyncJobWorkerForTestsMock,
     stopSftpStaleInventoryWorkerForTestsMock,
     stopVpsBackupForTestsMock,
@@ -182,12 +202,14 @@ const EXPECTED_WORKER_IDS: WorkerId[] = [
   "command-execution",
   "command-maintenance",
   "cost-snapshot",
+  "health-sampling",
   "download-execution",
   "quick-service",
   "scheduled-task",
   "sftp-sync",
   "sftp-stale-inventory",
   "operation-task-retention",
+  "playbook-run",
   "ticket-sla",
   "vps-backup",
   "vps-backup-schedule",
@@ -203,7 +225,7 @@ describe("worker registry", () => {
     _resetWorkerRegistryForTests();
   });
 
-  it("describes all 16 workers in the canonical order", () => {
+  it("describes all 18 workers in the canonical order", () => {
     expect(WORKER_REGISTRY.map((w) => w.id)).toEqual(EXPECTED_WORKER_IDS);
     for (const w of WORKER_REGISTRY) {
       expect(w.label).toBeTruthy();
@@ -215,7 +237,7 @@ describe("worker registry", () => {
 
   it("getWorkerStatuses reports every worker as not started initially", () => {
     const statuses = getWorkerStatuses();
-    expect(statuses).toHaveLength(16);
+    expect(statuses).toHaveLength(18);
     expect(statuses.every((s) => s.started === false)).toBe(true);
   });
 
@@ -253,9 +275,9 @@ describe("worker registry", () => {
       ]),
     );
     expect(result.started).not.toContain("backup");
-    // 15/16 should be reported started.
+    // 17/18 should be reported started.
     const startedCount = getWorkerStatuses().filter((s) => s.started).length;
-    expect(startedCount).toBe(15);
+    expect(startedCount).toBe(17);
   });
 
   it("startAllWorkers starts every worker once", async () => {
@@ -285,8 +307,10 @@ describe("worker registry", () => {
     expect(stopCommandExecutionWorkerForTestsMock).toHaveBeenCalledTimes(1);
     expect(stopCommandMaintenanceWorkerForTestsMock).toHaveBeenCalledTimes(1);
     expect(stopDownloadJobWorkerForTestsMock).toHaveBeenCalledTimes(1);
+    expect(stopHealthSamplingWorkerForTestsMock).toHaveBeenCalledTimes(1);
     expect(stopQuickServiceJobWorkerForTestsMock).toHaveBeenCalledTimes(1);
     expect(stopScheduledTaskWorkerForTestsMock).toHaveBeenCalledTimes(1);
+    expect(stopPlaybookRunWorkerForTestsMock).toHaveBeenCalledTimes(1);
     expect(stopSftpSyncJobWorkerForTestsMock).toHaveBeenCalledTimes(1);
   });
 

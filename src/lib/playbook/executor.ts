@@ -1,294 +1,266 @@
-/**
- * TR-023 M04: Playbook executor — walks the step chain.
+/** Durable Playbook chain executor.
  *
- * Responsibilities:
- * 1. Walk a `Playbook.steps` array in order, applying per-step timeouts and
- *    per-step retry budgets.
- * 2. Honor `dryRun`: the executor MUST NOT mutate durable state when
- *    `dryRun === true`; instead, each step is reported as `dry_run` with a
- *    "would do X" summary so the UI can show the planned chain.
- * 3. Emit a `PlaybookStepResult[]` for persistence back into the
- *    `PlaybookRun.stepResults` JSON column.
- *
- * What the executor does NOT do:
- * - It does NOT enqueue `Job` records. The M04 plan says steps are walked
- *   inside a single durable chain (the run itself is a job of type
- *   `playbook.run`); a future iteration can promote long steps to
- *   per-step jobs once we have evidence the synchronous chain is too slow.
- * - It does NOT retry the whole chain on a step failure; `chainRetry` is
- *   applied at the caller level (the durable job's `maxAttempts`).
+ * The parent `playbook.run` job owns the chain lease. Command steps create a
+ * real CommandRequest and wait for its terminal state; the request id is
+ * persisted before waiting so a reclaimed parent job resumes instead of
+ * dispatching the command twice.
  */
-
 import type { Prisma } from "@prisma/client";
 
-import { enqueueJob } from "@/lib/job/service";
-import { recordJobEvent } from "@/lib/job/events";
 import { prisma } from "@/lib/db";
+import { createCommandRequest } from "@/lib/command/service";
+import { recordJobEvent } from "@/lib/job/events";
+import { fetchWebhookSafely } from "@/lib/security/webhook-url";
 
-import type {
-  PlaybookRecord,
-  PlaybookStep,
-  PlaybookStepResult,
-} from "./types";
+import type { PlaybookRecord, PlaybookStep, PlaybookStepResult } from "./types";
 
 const TRUNCATE_AT = 280;
+const COMMAND_POLL_MS = 1_000;
+const COMMAND_TERMINAL = new Set(["COMPLETED", "FAILED", "REJECTED", "CANCELLED"]);
 
 function truncate(input: string, max = TRUNCATE_AT): string {
-  if (input.length <= max) return input;
-  return `${input.slice(0, max)}…`;
+  return input.length <= max ? input : `${input.slice(0, max)}…`;
 }
 
 function nowIso(): string {
   return new Date().toISOString();
 }
 
-function okResult(
-  step: PlaybookStep,
-  summary: string,
-  startedAt: string,
-): PlaybookStepResult {
-  return {
-    stepId: step.id,
-    status: "ok",
-    startedAt,
-    completedAt: nowIso(),
-    summary,
-  };
+function describeStep(step: PlaybookStep): string {
+  switch (step.type) {
+    case "run_command":
+      return `run_command "${truncate(step.config.command, 80)}" on ${step.config.serverIds.length} server(s)`;
+    case "send_notification":
+      return `send_notification "${truncate(step.config.subject, 60)}" to ${step.config.recipientUserId}`;
+    case "call_webhook":
+      return `call_webhook ${step.config.method} ${truncate(step.config.url, 80)}`;
+  }
 }
 
-function dryRunResult(step: PlaybookStep, startedAt: string): PlaybookStepResult {
-  const summary = describeStep(step);
-  return {
-    stepId: step.id,
-    status: "dry_run",
-    startedAt,
-    completedAt: nowIso(),
-    summary: `dry-run: ${summary}`,
-  };
-}
-
-function failedResult(
-  step: PlaybookStep,
-  error: string,
-  startedAt: string,
-): PlaybookStepResult {
+function failedResult(step: PlaybookStep, error: unknown, startedAt: string): PlaybookStepResult {
   return {
     stepId: step.id,
     status: "failed",
     startedAt,
     completedAt: nowIso(),
     summary: "",
-    error: truncate(error),
+    error: truncate(error instanceof Error ? error.message : String(error)),
   };
 }
 
-/**
- * Render a one-line description of a step. Used by the executor for both
- * dry-run summaries and the audit trail; intentionally human-readable so
- * the UI can show "would have run `docker compose up` on 3 servers"
- * without parsing JSON.
- */
-function describeStep(step: PlaybookStep): string {
-  switch (step.type) {
-    case "run_command": {
-      const cfg = step.config;
-      return `run_command "${truncate(cfg.command, 80)}" on ${cfg.serverIds.length} server(s)`;
-    }
-    case "send_notification": {
-      const cfg = step.config;
-      return `send_notification "${truncate(cfg.subject, 60)}" to ${cfg.recipientUserId}`;
-    }
-    case "call_webhook": {
-      const cfg = step.config;
-      return `call_webhook ${cfg.method} ${truncate(cfg.url, 80)}`;
-    }
-    default: {
-      // Discriminated union exhaustiveness: every step type is handled.
-      const exhaustive: never = step;
-      void exhaustive;
-      return `unknown step`;
-    }
-  }
+async function persistProgress(runId: string, results: PlaybookStepResult[]): Promise<void> {
+  await prisma.playbookRun.updateMany({
+    where: { id: runId, status: "running" },
+    data: { stepResults: results as unknown as Prisma.InputJsonValue },
+  });
 }
 
-/**
- * Run a single step, returning the result. Each step type has its own
- * branch; failures bubble up as a `failed` result with the error message.
- *
- * In `dryRun` mode the executor short-circuits and returns a `dry_run`
- * result; the dispatch is not attempted.
- */
-async function executeStep(
-  step: PlaybookStep,
-  ctx: { dryRun: boolean; playbookId: string; runId: string },
-): Promise<PlaybookStepResult> {
-  const startedAt = nowIso();
-  if (ctx.dryRun) {
-    return dryRunResult(step, startedAt);
-  }
-  try {
-    const summary = await dispatchStep(step, ctx);
-    return okResult(step, truncate(summary), startedAt);
-  } catch (err) {
-    return failedResult(step, err instanceof Error ? err.message : String(err), startedAt);
-  }
+function substituteVariables(command: string, variables: Record<string, string>): string {
+  return command.replace(/\{\{\s*([A-Za-z0-9_.-]+)\s*\}\}/g, (match, key: string) =>
+    Object.prototype.hasOwnProperty.call(variables, key) ? variables[key]! : match,
+  );
 }
 
-async function dispatchStep(
-  step: PlaybookStep,
-  ctx: { playbookId: string; runId: string },
-): Promise<string> {
+async function waitForCommand(commandRequestId: string, timeoutSec: number): Promise<string> {
+  const deadline = Date.now() + Math.max(1, timeoutSec) * 1_000;
+  while (Date.now() <= deadline) {
+    const request = await prisma.commandRequest.findUnique({
+      where: { id: commandRequestId },
+      select: { status: true },
+    });
+    if (!request) throw new Error(`command request disappeared: ${commandRequestId}`);
+    if (COMMAND_TERMINAL.has(request.status)) {
+      if (request.status !== "COMPLETED") {
+        throw new Error(`command request ${commandRequestId} ended with ${request.status}`);
+      }
+      return `command request ${commandRequestId} completed`;
+    }
+    await new Promise((resolve) => setTimeout(resolve, COMMAND_POLL_MS));
+  }
+  throw new Error(`command request ${commandRequestId} timed out after ${timeoutSec}s`);
+}
+
+async function dispatchStep(input: {
+  step: PlaybookStep;
+  playbookId: string;
+  runId: string;
+  requesterId: string;
+  teamId: string | null;
+  results: PlaybookStepResult[];
+  existing?: PlaybookStepResult;
+}): Promise<string> {
+  const { step } = input;
   switch (step.type) {
     case "run_command": {
-      // M04 ships the chain executor only — the run_command step queues a
-      // command job and waits for it (timeout enforced by the caller). We
-      // intentionally do NOT inline the SSH executor here to keep the
-      // chain durable.
-      const cfg = step.config as {
-        command: string;
-        serverIds: string[];
-        variables?: Record<string, string>;
-      };
-      const job = await enqueueJob({
-        type: "playbook.command",
-        title: `playbook:${ctx.playbookId} step:${step.id}`,
-        payload: {
-          command: cfg.command,
-          serverIds: cfg.serverIds,
-          variables: cfg.variables ?? {},
-          runId: ctx.runId,
-        } as Prisma.InputJsonValue,
-        priority: 0,
-      });
-      return `queued command job ${job.id}`;
+      let commandRequestId = input.existing?.commandRequestId ?? input.results.find((result) => result.stepId === step.id)?.commandRequestId;
+      if (!commandRequestId) {
+        const request = await createCommandRequest({
+          title: `Playbook ${input.playbookId}: ${step.name || step.id}`,
+          command: substituteVariables(step.config.command, step.config.variables ?? {}),
+          reason: `Playbook run ${input.runId}, step ${step.id}`,
+          submissionMode: "user",
+          requesterId: input.requesterId,
+          teamId: input.teamId ?? null,
+          idempotencyKey: `playbook:${input.runId}:step:${step.id}`,
+          serverIds: step.config.serverIds,
+        });
+        commandRequestId = request.id;
+        const running: PlaybookStepResult = {
+          stepId: step.id,
+          status: "running",
+          startedAt: input.existing?.startedAt ?? nowIso(),
+          completedAt: "",
+          summary: `command request ${commandRequestId} dispatched`,
+          commandRequestId,
+        };
+        const index = input.results.findIndex((result) => result.stepId === step.id);
+        if (index >= 0) input.results[index] = running;
+        else input.results.push(running);
+        await persistProgress(input.runId, input.results);
+      }
+      return waitForCommand(commandRequestId, step.timeoutSec);
     }
-    case "send_notification": {
-      // The notification worker reads recipient/subject/body and writes
-      // a Notification row. The chain records the dispatched event for
-      // auditability.
-      const cfg = step.config as {
-        recipientUserId: string;
-        subject: string;
-        body: string;
-      };
+    case "send_notification":
       await prisma.notification.create({
         data: {
-          userId: cfg.recipientUserId,
+          userId: step.config.recipientUserId,
           type: "playbook",
-          title: cfg.subject,
-          message: cfg.body,
+          title: step.config.subject,
+          message: step.config.body,
+          teamId: input.teamId,
         },
       });
-      return `notification sent to ${cfg.recipientUserId}`;
-    }
+      return `notification sent to ${step.config.recipientUserId}`;
     case "call_webhook": {
-      // Actually call the webhook URL. Previously this branch was a
-      // silent no-op ("skipped in M04"), which meant a playbook that
-      // *looked* configured to call out would silently succeed without
-      // ever making the HTTP request — a real functional gap. We now
-      // perform the request and let any non-2xx response fail the step
-      // so the operator sees the broken integration in the run log.
-      // SSRF: reuse shared webhook safety (HTTPS-only + private/metadata block).
-      const cfg = step.config as {
-        url: string;
-        method: "GET" | "POST" | "PUT";
-        headers?: Record<string, string>;
-        body?: string;
-      };
-      const { fetchWebhookSafely } = await import("@/lib/security/webhook-url");
       const controller = new AbortController();
-      const timeoutMs = Math.max(1, step.timeoutSec) * 1000;
-      const timer = setTimeout(() => controller.abort(), timeoutMs);
+      const timer = setTimeout(() => controller.abort(), Math.max(1, step.timeoutSec) * 1_000);
       try {
-        const result = await fetchWebhookSafely(cfg.url, {
-          method: cfg.method,
-          headers: cfg.headers ?? { "Content-Type": "application/json" },
-          body: cfg.method === "GET" ? undefined : cfg.body,
+        const result = await fetchWebhookSafely(step.config.url, {
+          method: step.config.method,
+          headers: step.config.headers ?? { "Content-Type": "application/json" },
+          body: step.config.method === "GET" ? undefined : step.config.body,
           signal: controller.signal,
         });
-        if (!result.ok) {
-          throw new Error(result.error ?? `webhook URL blocked: ${cfg.url}`);
+        if (!result.ok) throw new Error(result.error ?? `webhook URL blocked: ${step.config.url}`);
+        if (!result.response.ok) {
+          throw new Error(`webhook ${step.config.method} ${step.config.url} returned ${result.response.status} ${result.response.statusText}`);
         }
-        const response = result.response;
-        if (!response.ok) {
-          throw new Error(`webhook ${cfg.method} ${cfg.url} returned ${response.status} ${response.statusText}`);
-        }
-        return `webhook ${cfg.method} ${cfg.url} → ${response.status}`;
+        return `webhook ${step.config.method} ${step.config.url} → ${result.response.status}`;
       } finally {
         clearTimeout(timer);
       }
     }
-    default: {
-      // Discriminated union exhaustiveness: every step type is handled.
-      const exhaustive: never = step;
-      void exhaustive;
-      throw new Error(`unknown step type`);
-    }
   }
 }
 
-/**
- * Walk the chain. If any step fails the chain aborts and the run is
- * marked failed; the executor does NOT skip failed steps silently. The
- * chain result is the list of `PlaybookStepResult`s in step order.
- */
+async function executeWithRetries<T>(
+  attempts: number,
+  run: () => Promise<T>,
+  onRetry?: (error: unknown) => Promise<void>,
+): Promise<T> {
+  let lastError: unknown;
+  for (let attempt = 0; attempt < attempts; attempt += 1) {
+    try {
+      return await run();
+    } catch (error) {
+      lastError = error;
+      if (attempt + 1 < attempts) await onRetry?.(error);
+    }
+  }
+  throw lastError;
+}
+
 export async function executePlaybookChain(input: {
   playbook: Pick<PlaybookRecord, "id" | "steps">;
   runId: string;
   dryRun: boolean;
+  requesterId?: string;
+  teamId?: string | null;
+  resumeResults?: PlaybookStepResult[];
+  onProgress?: (progress: string) => Promise<unknown>;
+  eventJobId?: string;
 }): Promise<{ results: PlaybookStepResult[]; summary: string }> {
-  const results: PlaybookStepResult[] = [];
+  const results = [...(input.resumeResults ?? [])];
   const totalSteps = input.playbook.steps.length;
 
-  for (let i = 0; i < totalSteps; i++) {
-    const step = input.playbook.steps[i]!;
-    const result = await executeStep(step, {
-      playbookId: input.playbook.id,
-      runId: input.runId,
-      dryRun: input.dryRun,
-    });
-    results.push(result);
+  for (let index = 0; index < totalSteps; index += 1) {
+    const step = input.playbook.steps[index]!;
+    const existingIndex = results.findIndex((result) => result.stepId === step.id);
+    const existing = existingIndex >= 0 ? results[existingIndex] : undefined;
+    if (existing && ["ok", "dry_run"].includes(existing.status)) continue;
 
-    await recordJobEvent({
-      jobId: input.runId,
-      type: "progress",
-      level: result.status === "failed" ? "warn" : "info",
-      message: `step ${step.id} ${result.status} (${i + 1}/${totalSteps})`,
-      workerId: null,
-      payload: {
+    const startedAt = existing?.startedAt || nowIso();
+    let result: PlaybookStepResult;
+    if (input.dryRun) {
+      result = {
         stepId: step.id,
-        status: result.status,
-        summary: result.summary,
-        error: result.error,
-        stepIndex: i,
-        totalSteps,
-      },
-    });
-
-    // FEAT-P0-5: Incremental progress persistence
-    if (!input.dryRun) {
+        status: "dry_run",
+        startedAt,
+        completedAt: nowIso(),
+        summary: `dry-run: ${describeStep(step)}`,
+      };
+    } else {
       try {
-        await prisma.playbookRun.update({
-          where: { id: input.runId },
-          data: { stepResults: results as unknown as Prisma.InputJsonValue },
-        });
-      } catch {
-        // Non-fatal: run may have been cancelled or deleted.
+        const summary = await executeWithRetries(Math.max(1, step.retry + 1), () =>
+          dispatchStep({
+            step,
+            playbookId: input.playbook.id,
+            runId: input.runId,
+            requesterId: input.requesterId ?? "system",
+            teamId: input.teamId ?? null,
+            results,
+            existing,
+          }),
+          async () => {
+            const liveIndex = results.findIndex((item) => item.stepId === step.id);
+            if (liveIndex >= 0 && results[liveIndex]?.status === "running") {
+              results.splice(liveIndex, 1);
+              await persistProgress(input.runId, results);
+            }
+          },
+        );
+        result = {
+          stepId: step.id,
+          status: "ok",
+          startedAt,
+          completedAt: nowIso(),
+          summary: truncate(summary),
+          ...(existing?.commandRequestId ? { commandRequestId: existing.commandRequestId } : {}),
+        };
+        const live = results.find((item) => item.stepId === step.id);
+        if (live?.commandRequestId) result.commandRequestId = live.commandRequestId;
+      } catch (error) {
+        result = failedResult(step, error, startedAt);
+        const live = results.find((item) => item.stepId === step.id);
+        if (live?.commandRequestId) result.commandRequestId = live.commandRequestId;
       }
     }
 
-    if (result.status === "failed" && !input.dryRun) {
-      break;
+    if (existingIndex >= 0) results[existingIndex] = result;
+    else {
+      const liveIndex = results.findIndex((item) => item.stepId === step.id);
+      if (liveIndex >= 0) results[liveIndex] = result;
+      else results.push(result);
     }
+    await persistProgress(input.runId, results);
+    await input.onProgress?.(`step ${index + 1}/${totalSteps}: ${step.name || step.id} ${result.status}`);
+    await recordJobEvent({
+      jobId: input.eventJobId ?? input.runId,
+      type: "progress",
+      level: result.status === "failed" ? "warn" : "info",
+      message: `step ${step.id} ${result.status} (${index + 1}/${totalSteps})`,
+      payload: { stepId: step.id, status: result.status, stepIndex: index, totalSteps },
+    });
+    if (result.status === "failed" && !input.dryRun) break;
   }
 
-  // FEAT-P0-5: Result summary for cross-node aggregation
-  const okCount = results.filter((r) => r.status === "ok").length;
-  const failedCount = results.filter((r) => r.status === "failed").length;
-  const dryRunCount = results.filter((r) => r.status === "dry_run").length;
-  const summary = input.dryRun
-    ? `dry-run: ${dryRunCount}/${totalSteps} steps planned`
-    : `completed ${okCount}/${totalSteps} steps${failedCount > 0 ? `, ${failedCount} failed` : ""}`;
-
-  return { results, summary };
+  const okCount = results.filter((result) => result.status === "ok").length;
+  const failedCount = results.filter((result) => result.status === "failed").length;
+  const dryRunCount = results.filter((result) => result.status === "dry_run").length;
+  return {
+    results,
+    summary: input.dryRun
+      ? `dry-run: ${dryRunCount}/${totalSteps} steps planned`
+      : `completed ${okCount}/${totalSteps} steps${failedCount ? `, ${failedCount} failed` : ""}`,
+  };
 }

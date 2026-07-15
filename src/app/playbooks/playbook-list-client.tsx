@@ -29,6 +29,11 @@ export function PlaybookListClient({ playbooks: initial, runsByPlaybook: initial
   const [actionError, setActionError] = useState<string | null>(null);
   const [busyAction, setBusyAction] = useState<string | null>(null);
 
+  const refreshRuns = useCallback(async (playbookId: string) => {
+    const data = await csrfFetch<{ runs: RunSummary[] }>(`/api/playbooks/${playbookId}/runs`);
+    setRunsByPlaybook((prev) => ({ ...prev, [playbookId]: data.runs ?? [] }));
+  }, []);
+
   const refresh = useCallback(async () => {
     const data = await csrfFetch<{ playbooks: SerializedPlaybook[] }>("/api/playbooks");
     setPlaybooks(data.playbooks ?? []);
@@ -45,9 +50,29 @@ export function PlaybookListClient({ playbooks: initial, runsByPlaybook: initial
           ...prev,
           [id]: [run, ...(prev[id] ?? [])].slice(0, 5),
         }));
+        if (run.status === "queued" || run.status === "running") {
+          // Durable worker finishes asynchronously; poll a few times for step progress.
+          window.setTimeout(() => { void refreshRuns(id); }, 2_000);
+          window.setTimeout(() => { void refreshRuns(id); }, 6_000);
+          window.setTimeout(() => { void refreshRuns(id); }, 15_000);
+        }
         if (kind === "dry-run") {
-          const counts = dryRunStepCounts(run);
-          addToast("success", t("playbooksPage.toast.dryRun").replace("{ok}", String(counts.ok)).replace("{total}", String(counts.total)));
+          if (run.status === "queued" || run.status === "running") {
+            addToast("success", t("playbooksPage.toast.dryRunQueued"));
+          } else {
+            const counts = dryRunStepCounts(run);
+            addToast(
+              "success",
+              t("playbooksPage.toast.dryRun")
+                .replace("{ok}", String(counts.ok))
+                .replace("{total}", String(counts.total)),
+            );
+          }
+        } else if (run.status === "queued" || run.status === "running") {
+          addToast(
+            "success",
+            t("playbooksPage.toast.runQueued").replace("{status}", statusLabelFor(t, run.status)),
+          );
         } else {
           addToast(
             run.status === "failed" ? "error" : "success",
@@ -60,7 +85,7 @@ export function PlaybookListClient({ playbooks: initial, runsByPlaybook: initial
         setBusyAction(null);
       }
     },
-    [addToast, t],
+    [addToast, refreshRuns, t],
   );
 
   const handleToggle = useCallback(

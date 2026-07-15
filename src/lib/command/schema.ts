@@ -20,6 +20,8 @@ export const createCommandSchema = z.object({
   reason: z.string().trim().max(500, "Reason must be at most 500 characters").optional(),
   submissionMode: z.enum(["user", "assistant"]),
   requesterId: z.string().trim().min(1, "Requester is required"),
+  teamId: z.string().trim().min(1).nullable().optional(),
+  idempotencyKey: z.string().trim().min(1).max(300).optional(),
   serverIds: normalizedServerIdsSchema,
 });
 
