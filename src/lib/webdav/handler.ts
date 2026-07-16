@@ -11,6 +11,7 @@ import { createHash } from "node:crypto";
 
 import { prisma } from "@/lib/db";
 import type { SessionPayload } from "@/lib/auth/session";
+import { teamWhere } from "@/lib/auth/team-scope";
 import {
   BusinessError,
   ConflictError,
@@ -80,9 +81,20 @@ export function normalizeWebDavRelativePath(raw: string | string[] | undefined):
   return normalized.path;
 }
 
-async function loadNode(storageNodeId: string): Promise<StorageFileNode & { name: string }> {
-  const node = await prisma.storageNode.findUnique({
-    where: { id: storageNodeId },
+/**
+ * Load a WebDAV-capable StorageNode. Always team-scopes via session so
+ * storage:manage-node (break-glass on assertStorageAccess) cannot open
+ * another team's node by id after list/CRUD were team-scoped.
+ */
+async function loadNode(
+  storageNodeId: string,
+  session: Pick<SessionPayload, "userId" | "roles" | "currentTeamId">,
+): Promise<StorageFileNode & { name: string }> {
+  const node = await prisma.storageNode.findFirst({
+    where: {
+      id: storageNodeId,
+      ...teamWhere(session),
+    },
     select: { ...storageFileNodeSelect, name: true },
   });
   if (!node || !["LOCAL", "SFTP"].includes(node.driver)) {
@@ -206,7 +218,7 @@ export async function handleWebDavPropFind(ctx: WebDavContext, depthHeader: stri
   }
 
   await requireAccess(ctx.session, ctx.storageNodeId, ctx.relativePath, "read");
-  const node = await loadNode(ctx.storageNodeId);
+  const node = await loadNode(ctx.storageNodeId, ctx.session);
   const items: PropFindItem[] = [];
 
   if (!ctx.relativePath) {
@@ -330,7 +342,7 @@ export async function handleWebDavGetHead(
     });
   }
 
-  const node = await loadNode(ctx.storageNodeId);
+  const node = await loadNode(ctx.storageNodeId, ctx.session);
   const buffer = await readStorageFileBuffer(node, ctx.relativePath);
   const contentType =
     entry.mimeType || guessContentType(entry.name) || "application/octet-stream";
@@ -366,7 +378,7 @@ export async function handleWebDavPut(ctx: WebDavContext, request: Request): Pro
     body.byteLength,
   );
 
-  const node = await loadNode(ctx.storageNodeId);
+  const node = await loadNode(ctx.storageNodeId, ctx.session);
   const existing = await findEntry(ctx.storageNodeId, ctx.relativePath);
   if (existing?.entryType === "DIRECTORY") {
     throw new ConflictError("Cannot overwrite a collection with a file");
@@ -433,7 +445,7 @@ export async function handleWebDavMkcol(ctx: WebDavContext): Promise<Response> {
   const existing = await findEntry(ctx.storageNodeId, ctx.relativePath);
   if (existing) throw new ConflictError("Resource already exists");
 
-  const node = await loadNode(ctx.storageNodeId);
+  const node = await loadNode(ctx.storageNodeId, ctx.session);
   const parentPath = parentRelativePath(ctx.relativePath);
   if (parentPath) {
     await ensureDirectoryIndexAndBacking({
@@ -466,7 +478,7 @@ export async function handleWebDavDelete(ctx: WebDavContext): Promise<Response> 
   const entry = await findEntry(ctx.storageNodeId, ctx.relativePath);
   if (!entry) throw new NotFoundError("Resource not found");
 
-  const node = await loadNode(ctx.storageNodeId);
+  const node = await loadNode(ctx.storageNodeId, ctx.session);
 
   if (entry.entryType === "DIRECTORY") {
     const children = await prisma.fileEntry.findMany({
@@ -549,7 +561,7 @@ export async function handleWebDavMove(ctx: WebDavContext, request: Request): Pr
     throw new ConflictError("Destination exists and Overwrite is F");
   }
 
-  const node = await loadNode(ctx.storageNodeId);
+  const node = await loadNode(ctx.storageNodeId, ctx.session);
   if (existingDest) {
     await deleteBackingObject({ storageNode: node, relativePath: destPath, isDirectory: existingDest.entryType === "DIRECTORY", tolerateMissing: true }).catch(() => undefined);
     await softDeleteFileEntry({ fileEntryId: existingDest.id });
@@ -629,7 +641,7 @@ export async function handleWebDavCopy(ctx: WebDavContext, request: Request): Pr
     throw new ConflictError("Destination exists and Overwrite is F");
   }
 
-  const node = await loadNode(ctx.storageNodeId);
+  const node = await loadNode(ctx.storageNodeId, ctx.session);
   const buffer = await readStorageFileBuffer(node, ctx.relativePath);
   if (existingDest) {
     await snapshotFileVersionBeforeOverwrite({

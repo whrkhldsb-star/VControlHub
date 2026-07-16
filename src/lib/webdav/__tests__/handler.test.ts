@@ -13,7 +13,7 @@ const {
   snapshotMock,
 } = vi.hoisted(() => ({
   prismaMock: {
-    storageNode: { findUnique: vi.fn() },
+    storageNode: { findUnique: vi.fn(), findFirst: vi.fn() },
     fileEntry: {
       findFirst: vi.fn(),
       findMany: vi.fn(),
@@ -108,12 +108,14 @@ describe("webdav handlers", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     assertAccessMock.mockResolvedValue({ allowed: true });
-    prismaMock.storageNode.findUnique.mockResolvedValue({
+    const node = {
       id: "node1",
       name: "Local",
       driver: "LOCAL",
       basePath: "/data",
-    });
+    };
+    prismaMock.storageNode.findFirst.mockResolvedValue(node);
+    prismaMock.storageNode.findUnique.mockResolvedValue(node);
   });
 
   it("OPTIONS returns DAV allow headers", async () => {
@@ -194,5 +196,45 @@ describe("webdav handlers", () => {
     expect(res.status).toBe(201);
     expect(writeBufferMock).toHaveBeenCalled();
     expect(createEntryMock).toHaveBeenCalled();
+  });
+
+  it("loadNode team-scopes StorageNode via findFirst + teamWhere", async () => {
+    prismaMock.storageNode.findFirst.mockResolvedValue(null);
+    prismaMock.fileEntry.findFirst.mockResolvedValue({
+      id: "f1",
+      name: "a.txt",
+      relativePath: "a.txt",
+      entryType: "FILE",
+      size: BigInt(5),
+      mimeType: "text/plain",
+      updatedAt: new Date(),
+    });
+    await expect(
+      handleWebDavGetHead(
+        {
+          session: {
+            userId: "u2",
+            username: "op",
+            roles: ["operator"],
+            mustChangePassword: false,
+            currentTeamId: "team-a",
+          } as never,
+          storageNodeId: "other-team-node",
+          relativePath: "a.txt",
+          requestUrl: new URL("http://localhost/api/webdav/other-team-node/a.txt"),
+        },
+        "GET",
+      ),
+    ).rejects.toMatchObject({ name: "NotFoundError" });
+    expect(prismaMock.storageNode.findFirst).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          id: "other-team-node",
+          OR: [{ teamId: "team-a" }, { teamId: null }],
+        }),
+      }),
+    );
+    expect(prismaMock.storageNode.findUnique).not.toHaveBeenCalled();
+    expect(readBufferMock).not.toHaveBeenCalled();
   });
 });
