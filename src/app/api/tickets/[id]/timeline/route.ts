@@ -7,11 +7,12 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 
 import { sessionHasPermission } from "@/lib/auth/authorization";
+import type { SessionPayload } from "@/lib/auth/session";
 import { auditUserAction } from "@/lib/audit/service";
 import { ForbiddenError } from "@/lib/errors";
 import { withApiRoute } from "@/lib/http/api-guard";
 import { GENERAL_READ_LIMIT, GENERAL_WRITE_LIMIT } from "@/lib/http/rate-limit-presets";
-import { canViewTicket } from "@/lib/ticket/service";
+import { canViewTicket, getTicketById } from "@/lib/ticket/service";
 import {
   getTicketTimeline,
   linkTicketCommand,
@@ -35,9 +36,12 @@ const postSchema = z.discriminatedUnion("action", [
   }),
 ]);
 
-async function assertCanAccess(ticketId: string, session: { userId: string; roles: string[] }) {
-  const canManage = sessionHasPermission(session as never, "ticket:manage");
-  if (!canManage && !(await canViewTicket(ticketId, session.userId))) {
+async function assertCanAccess(ticketId: string, session: SessionPayload) {
+  // Team-scoped existence first — ticket:manage is not a cross-tenant superpower.
+  const ticket = await getTicketById(ticketId, session);
+  if (!ticket) throw new ForbiddenError("You cannot access this ticket");
+  const canManage = sessionHasPermission(session, "ticket:manage");
+  if (!canManage && !(await canViewTicket(ticketId, session.userId, session))) {
     throw new ForbiddenError("You cannot access this ticket");
   }
   return canManage;
@@ -57,7 +61,7 @@ export async function GET(
     async ({ session }) => {
       const { id } = await context.params;
       await assertCanAccess(id, session!);
-      const timeline = await getTicketTimeline(id);
+      const timeline = await getTicketTimeline(id, session!);
       return NextResponse.json(timeline);
     },
   );
@@ -84,6 +88,7 @@ export async function POST(
           ticketId: id,
           commandRequestId: body.commandRequestId,
           actorId: session!.userId,
+          session: session!,
         });
         await auditUserAction(session!.userId, "ticket.link_command", {
           ticketId: id,
@@ -94,6 +99,7 @@ export async function POST(
           ticketId: id,
           commandRequestId: null,
           actorId: session!.userId,
+          session: session!,
         });
         await auditUserAction(session!.userId, "ticket.unlink_command", {
           ticketId: id,
@@ -103,6 +109,7 @@ export async function POST(
           ticketId: id,
           serverId: body.serverId,
           actorId: session!.userId,
+          session: session!,
         });
         await auditUserAction(session!.userId, "ticket.link_server", {
           ticketId: id,
@@ -113,13 +120,14 @@ export async function POST(
           ticketId: id,
           serverId: null,
           actorId: session!.userId,
+          session: session!,
         });
         await auditUserAction(session!.userId, "ticket.unlink_server", {
           ticketId: id,
         });
       }
 
-      const timeline = await getTicketTimeline(id);
+      const timeline = await getTicketTimeline(id, session!);
       return NextResponse.json(timeline);
     },
   );

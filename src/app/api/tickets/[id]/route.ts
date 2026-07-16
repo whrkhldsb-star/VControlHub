@@ -36,11 +36,16 @@ const CommentBodySchema = z
 export async function GET(_request: Request, { params }: { params: Promise<{ id: string }> }) {
   return withApiRoute(_request, { requireAuth: true }, async ({ session }) => {
     const { id } = await params;
-    if (!session || (!sessionHasPermission(session, "ticket:manage") && !(await canViewTicket(id, session.userId)))) {
+    if (!session) throw new ForbiddenError("Missing permission");
+    // Team-scoped load first (ticket:manage is not cross-tenant).
+    const ticket = await getTicketById(id, session);
+    if (!ticket) throw new NotFoundError("Ticket not found");
+    if (
+      !sessionHasPermission(session, "ticket:manage") &&
+      !(await canViewTicket(id, session.userId, session))
+    ) {
       throw new ForbiddenError("Missing permission");
     }
-    const ticket = await getTicketById(id);
-    if (!ticket) throw new NotFoundError("Ticket not found");
     return NextResponse.json({ ticket });
   });
 }
@@ -51,7 +56,10 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     { permission: "ticket:manage", rateLimit: GENERAL_WRITE_LIMIT, bodySchema: PatchBodySchema },
     async ({ body, session }) => {
       const { id } = await params;
-      const updates: { id: string; status?: string; assigneeId?: string | null } = { id };
+      const updates: { id: string; status?: string; assigneeId?: string | null; session?: typeof session } = {
+        id,
+        session: session ?? undefined,
+      };
       if (body.status) updates.status = body.status;
       if (body.assigneeId !== undefined) updates.assigneeId = body.assigneeId;
       const ticket = await updateTicketStatus(updates);
@@ -67,10 +75,18 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     { requireAuth: true, rateLimit: GENERAL_WRITE_LIMIT, bodySchema: CommentBodySchema },
     async ({ session, body }) => {
       const { id } = await params;
-      if (!session || (!sessionHasPermission(session, "ticket:manage") && !(await canViewTicket(id, session.userId)))) {
+      if (
+        !session ||
+        (!sessionHasPermission(session, "ticket:manage") && !(await canViewTicket(id, session.userId, session)))
+      ) {
         throw new ForbiddenError("Missing permission");
       }
-      const comment = await addTicketComment({ ticketId: id, authorId: session.userId, body: body.body });
+      const comment = await addTicketComment({
+        ticketId: id,
+        authorId: session.userId,
+        body: body.body,
+        session,
+      });
       await auditUserAction(session?.userId ?? "", "ticket.comment", { ticketId: id });
       return NextResponse.json({ comment }, { status: 201 });
     },

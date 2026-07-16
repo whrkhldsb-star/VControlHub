@@ -96,10 +96,18 @@ export async function GET(request: Request) {
 export async function POST(request: Request) {
   return withApiRoute(request, { requireAuth: true, rateLimit: GENERAL_WRITE_LIMIT, bodySchema: ticketPostSchema }, async ({ session, body }) => {
     if ("ticketId" in body) {
-      if (!session || (!sessionHasPermission(session, "ticket:manage") && !(await canViewTicket(body.ticketId, session.userId)))) {
+      if (
+        !session ||
+        (!sessionHasPermission(session, "ticket:manage") && !(await canViewTicket(body.ticketId, session.userId, session)))
+      ) {
         throw new ForbiddenError("Missing permission");
       }
-      const comment = await addTicketComment({ ticketId: body.ticketId, authorId: session?.userId ?? "", body: body.body });
+      const comment = await addTicketComment({
+        ticketId: body.ticketId,
+        authorId: session?.userId ?? "",
+        body: body.body,
+        session: session ?? undefined,
+      });
       await auditUserAction(session?.userId ?? "", "ticket.comment", { ticketId: body.ticketId, commentId: comment.id });
       return NextResponse.json({ comment }, { status: 201 });
     }
@@ -123,7 +131,13 @@ export async function POST(request: Request) {
 
 export async function PATCH(request: Request) {
   return withApiRoute(request, { permission: "ticket:manage", rateLimit: GENERAL_WRITE_LIMIT, bodySchema: ticketPatchSchema }, async ({ session, body }) => {
-    const ticket = await updateTicketStatus({ id: body.id, status: normalizeStatus(body.status), assigneeId: body.assigneeId, priority: normalizePriority(body.priority) });
+    const ticket = await updateTicketStatus({
+      id: body.id,
+      status: normalizeStatus(body.status),
+      assigneeId: body.assigneeId,
+      priority: normalizePriority(body.priority),
+      session: session ?? undefined,
+    });
     await auditUserAction(session?.userId ?? "", "ticket.update", { ticketId: body.id, status: body.status });
     return NextResponse.json({ ticket });
   });

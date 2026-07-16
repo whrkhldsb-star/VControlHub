@@ -18,9 +18,9 @@ export async function GET(
       rateLimit: GENERAL_READ_LIMIT,
       errorMessage: "Failed to list linked tickets",
     },
-    async () => {
+    async ({ session }) => {
       const { id } = await context.params;
-      const tickets = await listTicketsForCommand(id);
+      const tickets = await listTicketsForCommand(id, session ?? undefined);
       return NextResponse.json({
         commandRequestId: id,
         tickets: tickets.map((t) => ({

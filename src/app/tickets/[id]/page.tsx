@@ -14,10 +14,10 @@ export default async function TicketDetailPage({ params }: { params: Promise<{ i
   const { id } = await params;
   const canManage = sessionHasPermission(session, "ticket:manage");
   const locale = await getServerLocale();
-  if (!canManage && !(await canViewTicket(id, session.userId))) {
+  if (!canManage && !(await canViewTicket(id, session.userId, session))) {
     return <PageShell><EmptyState text={t("ticketsDetail.permissionDenied", locale)} /></PageShell>;
   }
-  const ticket = await getTicketById(id);
+  const ticket = await getTicketById(id, session);
   if (!ticket) notFound();
 
   // Populate the assignee dropdown — previously the <select> rendered

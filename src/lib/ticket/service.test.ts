@@ -1,11 +1,32 @@
 import { describe, expect, it, vi, beforeEach } from "vitest";
-const { mockPrisma } = vi.hoisted(() => ({ mockPrisma: { ticket: { create: vi.fn(), findMany: vi.fn(), findUnique: vi.fn(), update: vi.fn(), updateMany: vi.fn() }, ticketComment: { create: vi.fn() }, itsmConnection: { findMany: vi.fn().mockResolvedValue([]) } } }));
+const { mockPrisma } = vi.hoisted(() => ({
+  mockPrisma: {
+    ticket: {
+      create: vi.fn(),
+      findMany: vi.fn(),
+      findUnique: vi.fn(),
+      findFirst: vi.fn(),
+      update: vi.fn(),
+      updateMany: vi.fn(),
+    },
+    ticketComment: { create: vi.fn() },
+    itsmConnection: { findMany: vi.fn().mockResolvedValue([]) },
+  },
+}));
 vi.mock("@/lib/db", () => ({ prisma: mockPrisma }));
 vi.mock("@/lib/itsm/service", () => ({
   safeFanOutTicketEvent: vi.fn(async () => undefined),
   fanOutTicketEvent: vi.fn(async () => ({ sent: 0, failed: 0 })),
 }));
-const { createTicket, updateTicketStatus, addTicketComment, canViewTicket, listTickets } = await import("./service");
+vi.mock("@/lib/auth/authorization", () => ({
+  sessionHasPermission: (session: { roles?: string[] }, permission: string) =>
+    permission === "team:manage" && session.roles?.includes("admin"),
+}));
+const { createTicket, updateTicketStatus, addTicketComment, canViewTicket, listTickets, getTicketById } = await import("./service");
+
+const teamSession = { userId: "u1", roles: ["operator"] as never[], currentTeamId: "team-a" };
+const adminSession = { userId: "admin", roles: ["admin"] as never[], currentTeamId: "team-a" };
+
 describe("ticket service", () => {
   beforeEach(() => vi.clearAllMocks());
   it("creates tickets and validates status transitions", async () => {
@@ -139,5 +160,90 @@ describe("ticket service", () => {
     expect(mockPrisma.ticket.findMany).toHaveBeenNthCalledWith(2, expect.objectContaining({
       where: {},
     }));
+  });
+
+  it("scopes getTicketById with teamWhere for non-admin sessions", async () => {
+    mockPrisma.ticket.findFirst.mockResolvedValueOnce({ id: "tk1", teamId: "team-a", title: "A" });
+
+    await getTicketById("tk1", teamSession);
+
+    expect(mockPrisma.ticket.findFirst).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: {
+          id: "tk1",
+          OR: [{ teamId: "team-a" }, { teamId: null }],
+        },
+      }),
+    );
+    expect(mockPrisma.ticket.findUnique).not.toHaveBeenCalled();
+  });
+
+  it("keeps getTicketById unscoped without session (system path)", async () => {
+    mockPrisma.ticket.findUnique.mockResolvedValueOnce({ id: "tk1", title: "A" });
+
+    await getTicketById("tk1");
+
+    expect(mockPrisma.ticket.findUnique).toHaveBeenCalledWith(expect.objectContaining({ where: { id: "tk1" } }));
+  });
+
+  it("scopes canViewTicket with teamWhere so foreign-team tickets are invisible", async () => {
+    mockPrisma.ticket.findFirst.mockResolvedValueOnce(null);
+
+    await expect(canViewTicket("tk-other", "u1", teamSession)).resolves.toBe(false);
+    expect(mockPrisma.ticket.findFirst).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: {
+          id: "tk-other",
+          OR: [{ teamId: "team-a" }, { teamId: null }],
+        },
+      }),
+    );
+  });
+
+  it("scopes updateTicketStatus mutations with teamWhere", async () => {
+    mockPrisma.ticket.findFirst
+      .mockResolvedValueOnce({ id: "tk1", status: "OPEN" })
+      .mockResolvedValueOnce({ id: "tk1", status: "IN_PROGRESS", title: "t", description: "d", priority: "NORMAL", category: null, teamId: "team-a" });
+    mockPrisma.ticket.updateMany.mockResolvedValue({ count: 1 });
+
+    await updateTicketStatus({ id: "tk1", status: "IN_PROGRESS", session: teamSession });
+
+    expect(mockPrisma.ticket.updateMany).toHaveBeenCalledWith({
+      where: {
+        id: "tk1",
+        status: "OPEN",
+        OR: [{ teamId: "team-a" }, { teamId: null }],
+      },
+      data: { status: "IN_PROGRESS", closedAt: null },
+    });
+  });
+
+  it("throws NotFound when updateTicketStatus targets a foreign-team ticket", async () => {
+    mockPrisma.ticket.findFirst.mockResolvedValueOnce(null);
+
+    await expect(updateTicketStatus({ id: "tk-x", status: "IN_PROGRESS", session: teamSession })).rejects.toThrow(
+      /Ticket not found/,
+    );
+  });
+
+  it("guards addTicketComment with team-scoped existence check", async () => {
+    mockPrisma.ticket.findFirst.mockResolvedValueOnce(null);
+
+    await expect(
+      addTicketComment({ ticketId: "tk-x", authorId: "u1", body: "hi", session: teamSession }),
+    ).rejects.toThrow(/Ticket not found/);
+    expect(mockPrisma.ticketComment.create).not.toHaveBeenCalled();
+  });
+
+  it("admin session does not apply team filter on getTicketById", async () => {
+    mockPrisma.ticket.findFirst.mockResolvedValueOnce({ id: "tk1" });
+
+    await getTicketById("tk1", adminSession);
+
+    expect(mockPrisma.ticket.findFirst).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: "tk1" },
+      }),
+    );
   });
 });

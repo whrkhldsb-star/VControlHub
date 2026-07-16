@@ -28,11 +28,14 @@ function params(id = "tk1") {
   return { params: Promise.resolve({ id }) };
 }
 
+const viewerSession = { userId: "u1", username: "alice", roles: ["viewer"], currentTeamId: "team-a" };
+const adminSession = { userId: "admin", username: "root", roles: ["operator"], currentTeamId: "team-a" };
+
 describe("/api/tickets/[id]", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mocks.requireApiSession.mockResolvedValue({ userId: "u1", username: "alice", roles: ["viewer"] });
-    mocks.requireApiPermission.mockResolvedValue({ session: { userId: "admin", username: "root", roles: ["operator"] } });
+    mocks.requireApiSession.mockResolvedValue(viewerSession);
+    mocks.requireApiPermission.mockResolvedValue({ session: adminSession });
     mocks.sessionHasPermission.mockReturnValue(false);
     mocks.canViewTicket.mockResolvedValue(true);
     mocks.getTicketById.mockResolvedValue({ id: "tk1", title: "Need help" });
@@ -44,7 +47,8 @@ describe("/api/tickets/[id]", () => {
     const response = await route.GET(new Request("http://local/api/tickets/tk1"), params());
 
     expect(response.status).toBe(200);
-    expect(mocks.canViewTicket).toHaveBeenCalledWith("tk1", "u1");
+    expect(mocks.canViewTicket).toHaveBeenCalledWith("tk1", "u1", viewerSession);
+    expect(mocks.getTicketById).toHaveBeenCalledWith("tk1", viewerSession);
     await expect(response.json()).resolves.toEqual({ ticket: { id: "tk1", title: "Need help" } });
   });
 
@@ -53,8 +57,9 @@ describe("/api/tickets/[id]", () => {
 
     const response = await route.GET(new Request("http://local/api/tickets/tk1"), params());
 
+    // Team-scoped load runs first; missing ticket or no participant access → 403/404.
+    expect(mocks.getTicketById).toHaveBeenCalledWith("tk1", viewerSession);
     expect(response.status).toBe(403);
-    expect(mocks.getTicketById).not.toHaveBeenCalled();
   });
 
   it("requires ticket management permission for status updates", async () => {
@@ -67,7 +72,11 @@ describe("/api/tickets/[id]", () => {
 
     expect(response.status).toBe(200);
     expect(mocks.requireApiPermission).toHaveBeenCalledWith("ticket:manage");
-    expect(mocks.updateTicketStatus).toHaveBeenCalledWith({ id: "tk1", status: "RESOLVED" });
+    expect(mocks.updateTicketStatus).toHaveBeenCalledWith({
+      id: "tk1",
+      status: "RESOLVED",
+      session: adminSession,
+    });
   });
 
   it("allows ticket participants to add comments", async () => {
@@ -78,6 +87,11 @@ describe("/api/tickets/[id]", () => {
     }), params());
 
     expect(response.status).toBe(201);
-    expect(mocks.addTicketComment).toHaveBeenCalledWith({ ticketId: "tk1", authorId: "u1", body: "please check" });
+    expect(mocks.addTicketComment).toHaveBeenCalledWith({
+      ticketId: "tk1",
+      authorId: "u1",
+      body: "please check",
+      session: viewerSession,
+    });
   });
 });

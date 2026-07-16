@@ -26,11 +26,14 @@ vi.mock("@/lib/ticket/service", () => ({
 
 const route = await import("../route");
 
+const viewerSession = { userId: "u1", username: "alice", roles: ["viewer"], currentTeamId: "team-a" };
+const managerSession = { userId: "manager", username: "ops", roles: ["operator"], currentTeamId: "team-a" };
+
 describe("/api/tickets", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mocks.requireApiPermission.mockResolvedValue({ session: { userId: "u1", username: "alice", roles: ["viewer"] } });
-    mocks.requireApiSession.mockResolvedValue({ userId: "u1", username: "alice", roles: ["viewer"] });
+    mocks.requireApiPermission.mockResolvedValue({ session: viewerSession });
+    mocks.requireApiSession.mockResolvedValue(viewerSession);
     mocks.sessionHasPermission.mockImplementation((session, permission) => (
       permission === "ticket:create" || permission === "ticket:read" || session.roles?.includes("operator")
     ));
@@ -56,27 +59,37 @@ describe("/api/tickets", () => {
       description: "Please check",
       priority: "HIGH",
       createdBy: "u1",
+      session: viewerSession,
     }));
   });
 
   it("lists all tickets for ticket managers", async () => {
-    mocks.requireApiPermission.mockResolvedValue({ session: { userId: "manager", username: "ops", roles: ["operator"] } });
+    mocks.requireApiPermission.mockResolvedValue({ session: managerSession });
 
     const response = await route.GET(new Request("http://local/api/tickets"));
 
     expect(response.status).toBe(200);
     expect(mocks.requireApiPermission).toHaveBeenCalledWith("ticket:read");
-    expect(mocks.listTickets).toHaveBeenCalledWith({ userId: "manager", includeAll: true, session: expect.objectContaining({ userId: "manager" }) });
+    expect(mocks.listTickets).toHaveBeenCalledWith({
+      userId: "manager",
+      includeAll: true,
+      session: expect.objectContaining({ userId: "manager" }),
+    });
   });
 
   it("lists only owned or assigned tickets for non-manager readers", async () => {
     const response = await route.GET(new Request("http://local/api/tickets"));
 
     expect(response.status).toBe(200);
-    expect(mocks.listTickets).toHaveBeenCalledWith({ userId: "u1", includeAll: false, session: expect.objectContaining({ userId: "u1" }) });
+    expect(mocks.listTickets).toHaveBeenCalledWith({
+      userId: "u1",
+      includeAll: false,
+      session: expect.objectContaining({ userId: "u1" }),
+    });
   });
 
   it("updates tickets with normalized uppercase statuses", async () => {
+    mocks.requireApiPermission.mockResolvedValue({ session: managerSession });
     const response = await route.PATCH(new Request("http://local/api/tickets", {
       method: "PATCH",
       headers: { "content-type": "application/json" },
@@ -87,6 +100,7 @@ describe("/api/tickets", () => {
     expect(mocks.updateTicketStatus).toHaveBeenCalledWith(expect.objectContaining({
       id: "tk1",
       status: "IN_PROGRESS",
+      session: managerSession,
     }));
   });
 
@@ -98,8 +112,13 @@ describe("/api/tickets", () => {
     }));
 
     expect(response.status).toBe(201);
-    expect(mocks.canViewTicket).toHaveBeenCalledWith("tk1", "u1");
-    expect(mocks.addTicketComment).toHaveBeenCalledWith({ ticketId: "tk1", authorId: "u1", body: " Please update " });
+    expect(mocks.canViewTicket).toHaveBeenCalledWith("tk1", "u1", viewerSession);
+    expect(mocks.addTicketComment).toHaveBeenCalledWith({
+      ticketId: "tk1",
+      authorId: "u1",
+      body: " Please update ",
+      session: viewerSession,
+    });
     expect(mocks.createTicket).not.toHaveBeenCalled();
   });
 
