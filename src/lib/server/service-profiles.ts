@@ -14,6 +14,7 @@ import { normalizeServerInput } from "./config";
 import { SERVER_PROFILE_INCLUDE } from "./service-profile-includes";
 import { createServerSchema, type CreateServerInput } from "./schema";
 import { applyServerDirectGatewayState } from "./service-direct-gateway";
+import { acquireAdvisoryLock } from "@/lib/concurrency/advisory-lock";
 import {
   assertNoDuplicateServerHost,
   enrichServer,
@@ -347,6 +348,8 @@ export async function toggleServerEnabled(serverId: string) {
 }
 
 export async function deleteServerProfile(serverId: string) {
+  const releaseLock = await acquireAdvisoryLock("server-delete", serverId);
+  try {
   const current = await prisma.server.findUnique({
     where: { id: serverId },
     include: {
@@ -388,6 +391,9 @@ export async function deleteServerProfile(serverId: string) {
   return cleanupSkipped
     ? { deleted: true, cleanupSkipped: true }
     : { deleted: true };
+  } finally {
+    await releaseLock();
+  }
 }
 
 export async function listServerProfiles(teamId?: string | null) {

@@ -12,6 +12,10 @@ const { dockerRequestMock, execRemoteMock, buildSshMock, prismaMock, runFileImpl
   },
 }));
 
+vi.mock("@/lib/concurrency/advisory-lock", () => ({
+  acquireAdvisoryLock: vi.fn(async () => async () => undefined),
+}));
+
 vi.mock("@/lib/docker/engine-client", async () => {
   const actual = await vi.importActual<typeof import("../engine-client")>("../engine-client");
   return {

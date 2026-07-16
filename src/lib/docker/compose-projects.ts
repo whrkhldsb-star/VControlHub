@@ -19,6 +19,7 @@ import {
   buildSshParamsFromServer,
   execRemoteCommand,
 } from "@/lib/ssh/client";
+import { acquireAdvisoryLock } from "@/lib/concurrency/advisory-lock";
 import {
   dockerRequest,
   type DockerScope,
@@ -421,6 +422,14 @@ export async function runComposeProjectAction(input: {
   const project = assertValidComposeProjectName(input.project);
   const action = input.action;
   const scope = await resolveScope(input.serverId);
+  // Concurrent lifecycle ops on the same project (esp. down/up) race on engine state.
+  // ps stays unlocked (read-only). Resource key includes server scope.
+  const lockResource = `${scope.scope}:${scope.serverId ?? "local"}:${project}`;
+  const releaseLock =
+    action === "ps"
+      ? null
+      : await acquireAdvisoryLock("docker-compose", lockResource);
+  try {
 
   // Snapshot labels for working dir / compose files
   const listed = await listAllContainers(input.serverId);
@@ -528,4 +537,7 @@ export async function runComposeProjectAction(input: {
   }
 
   throw new BusinessError(`Unsupported compose action: ${action}`);
+  } finally {
+    if (releaseLock) await releaseLock();
+  }
 }

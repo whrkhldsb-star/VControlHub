@@ -7,6 +7,7 @@ import { computeLeaseMs } from "@/lib/job/lease";
 import { claimNextJob, completeJob, failJob, heartbeatJob } from "@/lib/job/service";
 import { createLogger } from "@/lib/logging";
 
+import { acquireAdvisoryLock } from "@/lib/concurrency/advisory-lock";
 import { executePlaybookChain } from "./executor";
 import type { PlaybookStep, PlaybookStepResult } from "./types";
 
@@ -58,31 +59,37 @@ export async function processPlaybookRun(runId: string, jobId: string): Promise<
     throw new Error("playbook command step requires a creator/requester");
   }
 
-  const chain = await executePlaybookChain({
-    playbook: {
-      id: run.playbook.id,
-      steps,
-    },
-    runId,
-    dryRun: run.dryRun,
-    requesterId: requesterId ?? "system",
-    teamId: run.teamId,
-    resumeResults: (run.stepResults ?? []) as unknown as PlaybookStepResult[],
-    eventJobId: jobId,
-    onProgress: (progress) => heartbeatJob(jobId, WORKER_ID, { leaseMs: LEASE_MS, progress }),
-  });
-  const failed = chain.results.find((result) => result.status === "failed");
-  const status = failed ? "failed" : "completed";
-  await prisma.playbookRun.update({
-    where: { id: runId },
-    data: {
-      status,
-      stepResults: chain.results as unknown as Prisma.InputJsonValue,
-      errorMessage: failed?.error ?? null,
-      completedAt: new Date(),
-    },
-  });
-  return { status, summary: chain.summary };
+  // Serialize concurrent runs of the same playbook (shared target servers / commands).
+  const releaseLock = await acquireAdvisoryLock("playbook-execute", run.playbook.id);
+  try {
+    const chain = await executePlaybookChain({
+      playbook: {
+        id: run.playbook.id,
+        steps,
+      },
+      runId,
+      dryRun: run.dryRun,
+      requesterId: requesterId ?? "system",
+      teamId: run.teamId,
+      resumeResults: (run.stepResults ?? []) as unknown as PlaybookStepResult[],
+      eventJobId: jobId,
+      onProgress: (progress) => heartbeatJob(jobId, WORKER_ID, { leaseMs: LEASE_MS, progress }),
+    });
+    const failed = chain.results.find((result) => result.status === "failed");
+    const status = failed ? "failed" : "completed";
+    await prisma.playbookRun.update({
+      where: { id: runId },
+      data: {
+        status,
+        stepResults: chain.results as unknown as Prisma.InputJsonValue,
+        errorMessage: failed?.error ?? null,
+        completedAt: new Date(),
+      },
+    });
+    return { status, summary: chain.summary };
+  } finally {
+    await releaseLock();
+  }
 }
 
 async function handleJob(job: NonNullable<Awaited<ReturnType<typeof claimNextJob>>>): Promise<boolean> {

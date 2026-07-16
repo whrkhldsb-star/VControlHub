@@ -57,3 +57,11 @@ describe("advisory-lock service", () => {
     expect(mocks.release).toHaveBeenCalledTimes(1);
   });
 });
+
+describe("advisory-lock namespaces", () => {
+  it("maps extended dangerous-op namespaces to stable keys", () => {
+    expect(getLockKeys("docker-compose", "hub:local:site").k1).toBe(45062);
+    expect(getLockKeys("server-delete", "srv_1").k1).toBe(45063);
+    expect(getLockKeys("playbook-execute", "pb_1").k1).toBe(45061);
+  });
+});

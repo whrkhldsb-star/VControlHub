@@ -26,6 +26,10 @@ const NAMESPACE_KEYS: Record<string, number> = {
 	"deployment": 45059,
 	"ticket-escalation": 45060,
 	"playbook-execute": 45061,
+	/** Serialize Compose project lifecycle mutations (up/down/start/stop/restart). */
+	"docker-compose": 45062,
+	/** Serialize destructive server profile deletion (gateway cleanup + cascades). */
+	"server-delete": 45063,
 };
 
 function connectionStringForPg() {
