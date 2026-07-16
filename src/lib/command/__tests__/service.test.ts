@@ -28,6 +28,16 @@ const { mockPrisma, spawnMock, pendingExecutions } = vi.hoisted(() => ({
     executionLog: {
       create: vi.fn(),
     },
+    auditLog: {
+      create: vi.fn(),
+    },
+    notification: {
+      create: vi.fn(),
+      count: vi.fn(),
+    },
+    user: {
+      findMany: vi.fn(),
+    },
     setting: {
       findUnique: vi.fn(),
     },
@@ -96,6 +106,19 @@ describe("command service execution flow", () => {
     delete process.env.COMMAND_EXECUTION_HEARTBEAT_MS;
 
     mockPrisma.setting.findUnique.mockResolvedValue(null);
+    mockPrisma.auditLog.create.mockResolvedValue({ id: "audit_1" });
+    mockPrisma.notification.create.mockResolvedValue({
+      id: "notif_1",
+      userId: "u1",
+      type: "command",
+      title: "t",
+      message: "m",
+      createdAt: new Date(),
+      readAt: null,
+      teamId: null,
+    });
+    mockPrisma.user.findMany.mockResolvedValue([]);
+    mockPrisma.notification.count.mockResolvedValue(0);
     mockPrisma.$transaction.mockImplementation(async (callback: (tx: typeof mockPrisma) => unknown) => callback(mockPrisma));
     mockPrisma.commandRequest.updateMany.mockResolvedValue({ count: 1 });
     spawnMock.mockImplementation(() => {

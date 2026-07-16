@@ -8,6 +8,7 @@ const {
   failJobMock,
   heartbeatJobMock,
   executeAndFinalizeCommandMock,
+  markCommandExecutionFailedMock,
   infoMock,
   warnMock,
   errorMock,
@@ -18,6 +19,7 @@ const {
   failJobMock: vi.fn(),
   heartbeatJobMock: vi.fn(),
   executeAndFinalizeCommandMock: vi.fn(),
+  markCommandExecutionFailedMock: vi.fn(),
   infoMock: vi.fn(),
   warnMock: vi.fn(),
   errorMock: vi.fn(),
@@ -36,6 +38,7 @@ vi.mock("./service-execution", async (importOriginal) => {
   return {
     ...actual,
     executeAndFinalizeCommand: executeAndFinalizeCommandMock,
+    markCommandExecutionFailed: markCommandExecutionFailedMock,
   };
 });
 
@@ -171,6 +174,24 @@ describe("command execution durable job worker", () => {
       expect(failJobMock).not.toHaveBeenCalled();
     });
 
+    it("fails the job when commandRequest ends FAILED (no false job success)", async () => {
+      claimNextJobMock.mockResolvedValueOnce(makeJob());
+      executeAndFinalizeCommandMock.mockResolvedValueOnce({
+        id: "req-1",
+        status: "FAILED",
+      });
+
+      const result = await runCommandExecutionJobWorkerOnce();
+
+      expect(result).toBe(true);
+      expect(failJobMock).toHaveBeenCalledWith(
+        "job-cmd-1",
+        expect.stringContaining(":command-execution:"),
+        expect.stringContaining("FAILED"),
+      );
+      expect(completeJobMock).not.toHaveBeenCalled();
+    });
+
     it("skips dispatch entirely when the claim returns no job", async () => {
       claimNextJobMock.mockResolvedValueOnce(null);
 
@@ -183,13 +204,15 @@ describe("command execution durable job worker", () => {
       expect(failJobMock).not.toHaveBeenCalled();
     });
 
-    it("fails the job when the underlying execution throws (e.g. process crash mid-execution)", async () => {
+    it("marks command failed then fails job when finalize throws", async () => {
       claimNextJobMock.mockResolvedValueOnce(makeJob());
       executeAndFinalizeCommandMock.mockRejectedValueOnce(new Error("prisma down"));
+      markCommandExecutionFailedMock.mockResolvedValueOnce(undefined);
 
       const result = await runCommandExecutionJobWorkerOnce();
 
       expect(result).toBe(true);
+      expect(markCommandExecutionFailedMock).toHaveBeenCalledWith("req-1", expect.any(Error));
       expect(failJobMock).toHaveBeenCalledWith(
         "job-cmd-1",
         expect.stringContaining(":command-execution:"),

@@ -6,6 +6,7 @@ import { runWithLeaseHeartbeat } from "@/lib/job/heartbeat-runner";
 import { computeLeaseMs } from "@/lib/job/lease";
 import { claimNextJob, completeJob, failJob, heartbeatJob } from "@/lib/job/service";
 import { createLogger } from "@/lib/logging";
+import { auditSystemAction } from "@/lib/audit/service";
 
 import { acquireAdvisoryLock } from "@/lib/concurrency/advisory-lock";
 import { executePlaybookChain } from "./executor";
@@ -86,6 +87,23 @@ export async function processPlaybookRun(runId: string, jobId: string): Promise<
         completedAt: new Date(),
       },
     });
+    // Terminal audit: queue-time playbook.run exists, but operators had no
+    // audit trail when a step failed after the job was already queued.
+    await auditSystemAction(
+      status === "completed" ? "playbook.run.completed" : "playbook.run.failed",
+      {
+        playbookId: run.playbook.id,
+        runId,
+        jobId,
+        status,
+        dryRun: run.dryRun,
+        summary: chain.summary,
+        failedStepId: failed?.stepId ?? null,
+        failedError: failed?.error ?? null,
+        stepCount: chain.results.length,
+      },
+      status === "completed" ? "INFO" : "WARNING",
+    );
     return { status, summary: chain.summary };
   } finally {
     await releaseLock();

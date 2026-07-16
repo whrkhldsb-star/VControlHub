@@ -18,6 +18,8 @@ import {
 import { enqueueCommandExecutionJob } from "./execution-worker";
 import { createLogger } from "@/lib/logging";
 import { scanPinnedKnownHost } from "@/lib/ssh/known-hosts";
+import { auditSystemAction } from "@/lib/audit/service";
+import { notifyCommandResult } from "@/lib/notification/service";
 
 const cmdExecLogger = createLogger("command-execution");
 
@@ -336,6 +338,42 @@ export async function executeTargets(commandRequestId: string) {
   const results = await Promise.allSettled(
     targets.map((target) => executeTarget(commandRequestId, target)),
   );
+  // Rejected promises leave targets RUNNING with no stderr — surface them as
+  // FAILED so finalize counts and UI do not show a permanent "still running".
+  const rejectedIndexes: number[] = [];
+  results.forEach((result, index) => {
+    if (result.status === "rejected") rejectedIndexes.push(index);
+  });
+  if (rejectedIndexes.length > 0) {
+    await Promise.all(
+      rejectedIndexes.map(async (index) => {
+        const target = targets[index];
+        const settled = results[index];
+        if (!target || !settled || settled.status !== "rejected") return;
+        const reason =
+          settled.reason instanceof Error
+            ? settled.reason.message
+            : String(settled.reason);
+        const summary = `Command executor threw on ${target.server.name} (${target.server.host}:${target.server.port}): ${reason}`;
+        await prisma.commandTarget.updateMany({
+          where: { id: target.id, status: "RUNNING" },
+          data: {
+            status: "FAILED",
+            stderr: summary.slice(0, 4000),
+            exitCode: 255,
+            finishedAt: new Date(),
+          },
+        });
+        await prisma.executionLog.create({
+          data: {
+            commandRequestId,
+            serverId: target.server.id,
+            summary: summary.slice(0, 2000),
+          },
+        });
+      }),
+    );
+  }
   const completedCount = results.filter(
     (result) => result.status === "fulfilled" && result.value,
   ).length;
@@ -392,10 +430,38 @@ export async function executeAndFinalizeCommand(commandRequestId: string) {
       data: { commandRequestId, serverId: null, summary },
     });
 
-    return prisma.commandRequest.update({
+    const updated = await prisma.commandRequest.update({
       where: { id: commandRequestId },
       data: { status: nextStatus, workerId: null, workerHeartbeatAt: null },
     });
+
+    // Terminal observability: audit + in-app notification (approve path only
+    // notified "approved", so operators saw no failure signal after SSH fail).
+    await auditSystemAction(
+      nextStatus === "COMPLETED" ? "command.execute.completed" : "command.execute.failed",
+      {
+        commandRequestId,
+        title: request.title,
+        status: nextStatus,
+        completedCount,
+        totalCount,
+        summary,
+        requesterId: request.requesterId,
+      },
+      nextStatus === "COMPLETED" ? "INFO" : "WARNING",
+    );
+    notifyCommandResult(
+      request.requesterId,
+      request.title,
+      nextStatus === "COMPLETED" ? "completed" : "failed",
+    ).catch((err) => {
+      cmdExecLogger.warn("notifyCommandResult failed", {
+        error: err instanceof Error ? err.message : String(err),
+        commandRequestId,
+      });
+    });
+
+    return updated;
   } finally {
     if (heartbeat) {
       clearInterval(heartbeat);
@@ -409,6 +475,10 @@ export async function markCommandExecutionFailed(
   error: unknown,
 ) {
   const message = error instanceof Error ? error.message : "Command background execution failed";
+  const request = await prisma.commandRequest.findUnique({
+    where: { id: commandRequestId },
+    select: { id: true, title: true, requesterId: true, status: true },
+  });
   await prisma.commandRequest.update({
     where: { id: commandRequestId },
     data: { status: "FAILED", workerId: null, workerHeartbeatAt: null },
@@ -429,6 +499,26 @@ export async function markCommandExecutionFailed(
       summary: `Command background executor startup failed: ${message}`,
     },
   });
+  await auditSystemAction(
+    "command.execute.failed",
+    {
+      commandRequestId,
+      title: request?.title ?? null,
+      status: "FAILED",
+      summary: message.slice(0, 500),
+      requesterId: request?.requesterId ?? null,
+      phase: "executor_error",
+    },
+    "WARNING",
+  );
+  if (request?.requesterId) {
+    notifyCommandResult(request.requesterId, request.title, "failed").catch((err) => {
+      cmdExecLogger.warn("notifyCommandResult failed", {
+        error: err instanceof Error ? err.message : String(err),
+        commandRequestId,
+      });
+    });
+  }
 }
 
 export function scheduleCommandExecution(commandRequestId: string) {

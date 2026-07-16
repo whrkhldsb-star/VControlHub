@@ -371,6 +371,7 @@ make logs SERVICE_PREFIX=vcontrolhub
 | 多租户 | 核心模型 Team scope；知识库 / ITSM 连接 / 告警事件列表按团队过滤；任务可见性收窄 |
 | 远程运行时 | 远程 Docker；Quick Services 本机/VPS；Compose 项目生命周期 |
 | 监控告警 | 后台采样；容量预测；**预测指标可挂告警规则**（days-to-85）；升级/值班/确认 |
+| 命令 / Playbook | 审批与 durable 执行；**失败路径可观测**（job 不假成功、终端审计、结果通知、rejected target 收口） |
 | 文件 | 检索、断点续传、版本历史、WebDAV；sftp-ops write/delete/rename → `fs-backend` |
 | 备份 | 细粒度恢复、演练、跨环境迁移向导（不自动 restore） |
 | 工单 / AI | 双向时间线；知识库 RAG；AI Ops 安全闭环 |
@@ -400,10 +401,9 @@ make logs SERVICE_PREFIX=vcontrolhub
 
 ### 下一步（优先完善现有）
 
-1. Playbook/命令失败路径可观测性（减少假成功感）  
-2. sftp-ops **read** 可选统一到 `fs-backend`（与 write 对称）  
-3. 云账单账户补 `teamId`（当前靠 cost 权限）  
-4. 有密钥与合规时再加深 live 云账单；有明确需求再评估双向文件同步  
+1. sftp-ops **read** 可选统一到 `fs-backend`（与 write 对称）  
+2. 云账单账户补 `teamId`（当前靠 cost 权限）  
+3. 有密钥与合规时再加深 live 云账单；有明确需求再评估双向文件同步  
 
 ### 期望 vs 实际
 

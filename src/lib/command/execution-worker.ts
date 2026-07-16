@@ -5,7 +5,7 @@ import { computeLeaseMs } from "@/lib/job/lease";
 import { claimNextJob, completeJob, enqueueJob, failJob, heartbeatJob } from "@/lib/job/service";
 import { createLogger } from "@/lib/logging";
 
-import { executeAndFinalizeCommand } from "./service-execution";
+import { executeAndFinalizeCommand, markCommandExecutionFailed } from "./service-execution";
 
 const logger = createLogger("command-execution-worker");
 
@@ -106,19 +106,37 @@ async function handleClaimedJob(
       progress: `Dispatching command request ${payload.commandRequestId}`,
     });
     const finalRequest = await executeAndFinalizeCommand(payload.commandRequestId);
+    const terminalStatus = finalRequest?.status ?? null;
+    // Avoid "false success": COMPLETED job must not hide a FAILED command.
+    // Operation Tasks previously showed job COMPLETED even when every SSH
+    // target failed — only the command row status reflected failure.
+    if (terminalStatus === "FAILED" || terminalStatus === "CANCELLED") {
+      await failJob(
+        job.id,
+        COMMAND_EXECUTION_WORKER_ID,
+        `Command request ${payload.commandRequestId} ended with ${terminalStatus}`,
+      );
+      return true;
+    }
     await completeJob(job.id, COMMAND_EXECUTION_WORKER_ID, {
       commandRequestId: payload.commandRequestId,
-      status: finalRequest?.status ?? null,
+      status: terminalStatus,
     });
     return true;
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
-    // executeAndFinalizeCommand already marks the commandRequest/commandTarget
-    // FAILED via markCommandExecutionFailed in its own catch chain. From the
-    // job's perspective the dispatch attempt is still considered "failed"
-    // (transient prisma error or worker crash mid-execution), so we record
-    // the failure on the job but rely on maxAttempts=1 to avoid retrying
-    // SSH work that has already been recorded as FAILED on the request row.
+    // Ensure commandRequest/targets leave RUNNING if finalize threw mid-flight.
+    // Previously this path only failed the job row, so the request could stay
+    // RUNNING until a separate recovery sweep (false "still running" UX).
+    try {
+      await markCommandExecutionFailed(payload.commandRequestId, error);
+    } catch (markError) {
+      logger.error("markCommandExecutionFailed failed after execution error", {
+        jobId: job.id,
+        commandRequestId: payload.commandRequestId,
+        error: markError instanceof Error ? markError.message : String(markError),
+      });
+    }
     await failJob(job.id, COMMAND_EXECUTION_WORKER_ID, message.slice(0, 2000));
     logger.error("Command execution job failed", {
       jobId: job.id,
