@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/db";
+import { BusinessError, NotFoundError } from "@/lib/errors";
 
 /* ── Types ────────────────────────────────────────────────── */
 
@@ -102,15 +103,24 @@ export async function createTemplate(input: CreateTemplateInput) {
 }
 
 export async function updateTemplate(id: string, input: UpdateTemplateInput) {
+	const existingRow = await prisma.commandTemplate.findUnique({
+		where: { id },
+		select: { id: true, isBuiltin: true, command: true, rollbackCommand: true },
+	});
+	if (!existingRow) {
+		throw new NotFoundError("Command template not found");
+	}
+	if (existingRow.isBuiltin) {
+		throw new BusinessError("Built-in command templates cannot be modified");
+	}
+
 	const data: Record<string, unknown> = {};
 	if (input.name !== undefined) data.name = input.name;
 	if (input.description !== undefined) data.description = input.description;
 	if (input.command !== undefined || input.rollbackCommand !== undefined) {
-		const existing = input.command !== undefined && input.rollbackCommand !== undefined
-			? null
-			: await prisma.commandTemplate.findUnique({ where: { id }, select: { command: true, rollbackCommand: true } });
-		const command = input.command ?? existing?.command ?? "";
-		const rollbackCommand = input.rollbackCommand !== undefined ? input.rollbackCommand : existing?.rollbackCommand;
+		const command = input.command ?? existingRow.command ?? "";
+		const rollbackCommand =
+			input.rollbackCommand !== undefined ? input.rollbackCommand : existingRow.rollbackCommand;
 		if (input.command !== undefined) data.command = input.command;
 		if (input.rollbackCommand !== undefined) data.rollbackCommand = input.rollbackCommand?.trim() || null;
 		data.variables = input.variables ?? extractTemplateVariables(command, rollbackCommand);
@@ -120,5 +130,16 @@ export async function updateTemplate(id: string, input: UpdateTemplateInput) {
 }
 
 export async function deleteTemplate(id: string) {
-	return prisma.commandTemplate.delete({ where: { id } });
+	const existingRow = await prisma.commandTemplate.findUnique({
+		where: { id },
+		select: { id: true, name: true, isBuiltin: true, tags: true, variables: true },
+	});
+	if (!existingRow) {
+		throw new NotFoundError("Command template not found");
+	}
+	if (existingRow.isBuiltin) {
+		throw new BusinessError("Built-in command templates cannot be deleted");
+	}
+	await prisma.commandTemplate.delete({ where: { id } });
+	return existingRow;
 }

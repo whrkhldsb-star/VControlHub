@@ -7,6 +7,9 @@ const { mockPrisma } = vi.hoisted(() => ({
       create: vi.fn(),
       createMany: vi.fn(),
       findMany: vi.fn(),
+      findUnique: vi.fn(),
+      update: vi.fn(),
+      delete: vi.fn(),
     },
   },
 }));
@@ -62,5 +65,55 @@ describe("command template service", () => {
 
     expect(mockPrisma.commandTemplate.createMany).not.toHaveBeenCalled();
     expect(mockPrisma.commandTemplate.create).not.toHaveBeenCalled();
+  });
+
+  it("refuses to update or delete built-in templates", async () => {
+    mockPrisma.commandTemplate.findUnique.mockResolvedValue({
+      id: "builtin_1",
+      isBuiltin: true,
+      command: "systemctl restart nginx",
+      rollbackCommand: null,
+      name: "Nginx Restart",
+      tags: ["web"],
+      variables: [],
+    });
+
+    await expect(
+      service.updateTemplate("builtin_1", { name: "Hijacked" }),
+    ).rejects.toThrow("Built-in command templates cannot be modified");
+    expect(mockPrisma.commandTemplate.update).not.toHaveBeenCalled();
+
+    await expect(service.deleteTemplate("builtin_1")).rejects.toThrow(
+      "Built-in command templates cannot be deleted",
+    );
+    expect(mockPrisma.commandTemplate.delete).not.toHaveBeenCalled();
+  });
+
+  it("updates and deletes non-builtin templates", async () => {
+    mockPrisma.commandTemplate.findUnique
+      .mockResolvedValueOnce({
+        id: "user_1",
+        isBuiltin: false,
+        command: "echo hi",
+        rollbackCommand: null,
+      })
+      .mockResolvedValueOnce({
+        id: "user_1",
+        name: "User tmpl",
+        isBuiltin: false,
+        tags: [],
+        variables: [],
+      });
+    mockPrisma.commandTemplate.update.mockResolvedValue({ id: "user_1", name: "Renamed" });
+    mockPrisma.commandTemplate.delete.mockResolvedValue({ id: "user_1" });
+
+    await service.updateTemplate("user_1", { name: "Renamed" });
+    expect(mockPrisma.commandTemplate.update).toHaveBeenCalledWith({
+      where: { id: "user_1" },
+      data: { name: "Renamed" },
+    });
+
+    await service.deleteTemplate("user_1");
+    expect(mockPrisma.commandTemplate.delete).toHaveBeenCalledWith({ where: { id: "user_1" } });
   });
 });

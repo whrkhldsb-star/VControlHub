@@ -291,8 +291,13 @@ export async function createCommandRequest(
 ) {
   const payload = createCommandSchema.parse(input);
   if (payload.idempotencyKey) {
-    const existing = await prisma.commandRequest.findUnique({
-      where: { idempotencyKey: payload.idempotencyKey },
+    // Scope idempotency replay by team so a shared/global key cannot return
+    // another tenant's CommandRequest (and its command text / targets).
+    const existing = await prisma.commandRequest.findFirst({
+      where: {
+        idempotencyKey: payload.idempotencyKey,
+        ...(session ? teamWhere(session) : {}),
+      },
       include: { targets: true },
     });
     if (existing) return { ...existing, requiresApproval: existing.status === "PENDING_APPROVAL" };
@@ -307,24 +312,52 @@ export async function createCommandRequest(
   });
 
   const status = requiresApproval ? "PENDING_APPROVAL" : "APPROVED";
-  const commandRequest = await prisma.commandRequest.create({
-    data: {
-      title: payload.title,
-      command: payload.command,
-      reason: payload.reason,
-      requesterId: payload.requesterId,
-      initiatedByType: toInitiatedByType(payload.submissionMode) as
-        | "USER"
-        | "ASSISTANT",
-      status,
-      teamId,
-      idempotencyKey: payload.idempotencyKey ?? null,
-      targets: {
-        create: payload.serverIds.map((serverId) => ({ serverId, status })),
+  let commandRequest: Awaited<ReturnType<typeof prisma.commandRequest.create>> & {
+    targets: Awaited<ReturnType<typeof prisma.commandTarget.findMany>>;
+  };
+  try {
+    commandRequest = await prisma.commandRequest.create({
+      data: {
+        title: payload.title,
+        command: payload.command,
+        reason: payload.reason,
+        requesterId: payload.requesterId,
+        initiatedByType: toInitiatedByType(payload.submissionMode) as
+          | "USER"
+          | "ASSISTANT",
+        status,
+        teamId,
+        idempotencyKey: payload.idempotencyKey ?? null,
+        targets: {
+          create: payload.serverIds.map((serverId) => ({ serverId, status })),
+        },
       },
-    },
-    include: { targets: true },
-  });
+      include: { targets: true },
+    });
+  } catch (error) {
+    // Global unique on idempotencyKey: another team may already own this key.
+    // Never return foreign rows; surface a conflict instead of P2002 leak.
+    const code =
+      error && typeof error === "object" && "code" in error
+        ? String((error as { code?: unknown }).code)
+        : "";
+    if (payload.idempotencyKey && (code === "P2002" || /Unique constraint/i.test(String(error)))) {
+      const scopedReplay = await prisma.commandRequest.findFirst({
+        where: {
+          idempotencyKey: payload.idempotencyKey,
+          ...(session ? teamWhere(session) : {}),
+        },
+        include: { targets: true },
+      });
+      if (scopedReplay) {
+        return { ...scopedReplay, requiresApproval: scopedReplay.status === "PENDING_APPROVAL" };
+      }
+      throw new ValidationError(
+        "Idempotency key is already in use; choose a different key",
+      );
+    }
+    throw error;
+  }
 
   if (!requiresApproval) {
     await enqueueApprovedCommandExecution(

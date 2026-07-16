@@ -994,6 +994,76 @@ describe("command service execution flow", () => {
     );
   });
 
+  it("does not replay another team's command via shared idempotencyKey", async () => {
+    mockPrisma.server.findMany.mockResolvedValueOnce([{ id: "srv_1" }]);
+    // Scoped findFirst sees nothing for team_a even if the global key exists elsewhere.
+    mockPrisma.commandRequest.findFirst.mockResolvedValueOnce(null);
+    const uniqueError = Object.assign(new Error("Unique constraint failed on the fields: (`idempotencyKey`)"), {
+      code: "P2002",
+    });
+    mockPrisma.commandRequest.create.mockRejectedValueOnce(uniqueError);
+    // After P2002, second scoped lookup still finds nothing → ValidationError, not foreign row.
+    mockPrisma.commandRequest.findFirst.mockResolvedValueOnce(null);
+
+    await expect(
+      createCommandRequest(
+        {
+          title: "Replay attack",
+          command: "cat /etc/shadow",
+          requesterId: "u_team_a",
+          submissionMode: "assistant",
+          serverIds: ["srv_1"],
+          idempotencyKey: "playbook:shared-key",
+        },
+        {
+          userId: "u_team_a",
+          roles: ["operator"],
+          currentTeamId: "team_a",
+        },
+      ),
+    ).rejects.toThrow("Idempotency key is already in use");
+
+    expect(mockPrisma.commandRequest.findFirst).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          idempotencyKey: "playbook:shared-key",
+          OR: [{ teamId: "team_a" }, { teamId: null }],
+        }),
+      }),
+    );
+  });
+
+  it("replays same-team idempotencyKey without creating a second request", async () => {
+    mockPrisma.commandRequest.findFirst.mockResolvedValueOnce({
+      id: "req_existing",
+      status: "PENDING_APPROVAL",
+      teamId: "team_a",
+      command: "uptime",
+      targets: [{ id: "t1" }],
+    });
+
+    const result = await createCommandRequest(
+      {
+        title: "Replay same team",
+        command: "uptime",
+        requesterId: "u_team_a",
+        submissionMode: "assistant",
+        serverIds: ["srv_1"],
+        idempotencyKey: "playbook:team-a-key",
+      },
+      {
+        userId: "u_team_a",
+        roles: ["operator"],
+        currentTeamId: "team_a",
+      },
+    );
+
+    expect(result.id).toBe("req_existing");
+    expect(result.requiresApproval).toBe(true);
+    expect(mockPrisma.commandRequest.create).not.toHaveBeenCalled();
+    expect(mockPrisma.server.findMany).not.toHaveBeenCalled();
+  });
+
   it("scopes cancel/review loads with teamWhere when session is provided", async () => {
     mockPrisma.commandRequest.findFirst.mockResolvedValue(null);
 
