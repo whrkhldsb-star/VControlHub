@@ -18,7 +18,7 @@ export async function GET(request: Request) {
 			errorStatus: 500,
 			errorMessage: "Failed to list ITSM events",
 		},
-		async () => {
+		async ({ session }) => {
 			const url = new URL(request.url);
 			const connectionId = url.searchParams.get("connectionId") ?? undefined;
 			const ticketId = url.searchParams.get("ticketId") ?? undefined;
@@ -27,6 +27,7 @@ export async function GET(request: Request) {
 				connectionId,
 				ticketId,
 				limit: Number.isFinite(limit) ? limit : 50,
+				session: session ?? undefined,
 			});
 			return NextResponse.json({ events });
 		},

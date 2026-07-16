@@ -9,6 +9,8 @@
  * On-call users (rule.onCallUserIds) receive in-app first; empty = notification:manage admins.
  */
 import { prisma } from "@/lib/db";
+import { teamWhere } from "@/lib/auth/team-scope";
+import type { SessionPayload } from "@/lib/auth/session";
 import { NotFoundError, ValidationError } from "@/lib/errors";
 import { createLogger } from "@/lib/logging";
 import { createNotification, type NotificationType } from "@/lib/notification/service";
@@ -380,10 +382,31 @@ export async function escalateOverdueAlertIncidents(): Promise<{ escalated: numb
 export async function listAlertIncidents(options?: {
   status?: string;
   take?: number;
+  session?: Pick<SessionPayload, "userId" | "roles" | "currentTeamId">;
 }) {
   const status = options?.status?.trim();
+  // AlertIncident has serverId but no Prisma relation to Server — resolve
+  // team-scoped server IDs first when a non-admin session is present.
+  let serverScope: Record<string, unknown> = {};
+  if (options?.session) {
+    const teamFilter = teamWhere(options.session);
+    if (Object.keys(teamFilter).length > 0) {
+      const servers = await prisma.server.findMany({
+        where: teamFilter,
+        select: { id: true },
+        take: 5000,
+      });
+      const ids = servers.map((s) => s.id);
+      serverScope = {
+        OR: [{ serverId: null }, { serverId: { in: ids } }],
+      };
+    }
+  }
   return prisma.alertIncident.findMany({
-    where: status ? { status } : undefined,
+    where: {
+      ...(status ? { status } : {}),
+      ...serverScope,
+    },
     orderBy: [{ status: "asc" }, { level: "desc" }, { createdAt: "desc" }],
     take: options?.take ?? 100,
     include: {

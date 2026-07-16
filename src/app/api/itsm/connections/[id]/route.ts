@@ -27,8 +27,8 @@ export async function GET(request: Request, context: RouteContext) {
 			errorStatus: 500,
 			errorMessage: "Failed to load ITSM connection",
 		},
-		async () => {
-			const connection = await getItsmConnection(id);
+		async ({ session }) => {
+			const connection = await getItsmConnection(id, session ?? undefined);
 			return NextResponse.json({ connection });
 		},
 	);
@@ -46,7 +46,7 @@ export async function PATCH(request: Request, context: RouteContext) {
 			errorMessage: "Failed to update ITSM connection",
 		},
 		async ({ session, body }) => {
-			const connection = await updateItsmConnection(id, body);
+			const connection = await updateItsmConnection(id, body, session ?? undefined);
 			await auditUserAction(session?.userId ?? "anonymous", "itsm.connection.update", {
 				connectionId: connection.id,
 				provider: connection.provider,
@@ -67,7 +67,7 @@ export async function DELETE(request: Request, context: RouteContext) {
 			errorMessage: "Failed to delete ITSM connection",
 		},
 		async ({ session }) => {
-			await deleteItsmConnection(id);
+			await deleteItsmConnection(id, session ?? undefined);
 			await auditUserAction(session?.userId ?? "anonymous", "itsm.connection.delete", {
 				connectionId: id,
 			});

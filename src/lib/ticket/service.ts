@@ -39,6 +39,7 @@ export async function createTicket(input: { title: string; description: string; 
       status: ticket.status,
       priority: ticket.priority,
       category: ticket.category,
+      teamId: ticket.teamId,
     });
   }
   return ticket;
@@ -120,6 +121,7 @@ export async function updateTicketStatus(input: { id: string; status?: string; a
         status: updated.status,
         priority: updated.priority,
         category: updated.category,
+        teamId: updated.teamId,
       });
     }
     return updated;
@@ -146,6 +148,7 @@ export async function updateTicketStatus(input: { id: string; status?: string; a
       status: updated.status,
       priority: updated.priority,
       category: updated.category,
+      teamId: updated.teamId,
     });
   }
   return updated;
@@ -170,6 +173,7 @@ export async function addTicketComment(input: { ticketId: string; authorId: stri
         priority: ticket.priority,
         category: ticket.category,
         commentBody: comment.body,
+        teamId: ticket.teamId,
       });
     }
   }

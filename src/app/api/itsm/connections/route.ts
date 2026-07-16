@@ -21,8 +21,8 @@ export async function GET(request: Request) {
 			errorStatus: 500,
 			errorMessage: "Failed to list ITSM connections",
 		},
-		async () => {
-			const connections = await listItsmConnections();
+		async ({ session }) => {
+			const connections = await listItsmConnections(session ?? undefined);
 			return NextResponse.json({ connections });
 		},
 	);
@@ -39,9 +39,8 @@ export async function POST(request: Request) {
 			errorMessage: "Failed to create ITSM connection",
 		},
 		async ({ session, body }) => {
-			const createdById = session?.userId ?? null;
-			const connection = await createItsmConnection(body, createdById);
-			await auditUserAction(createdById ?? "anonymous", "itsm.connection.create", {
+			const connection = await createItsmConnection(body, session ?? undefined);
+			await auditUserAction(session?.userId ?? "anonymous", "itsm.connection.create", {
 				connectionId: connection.id,
 				provider: connection.provider,
 				name: connection.name,

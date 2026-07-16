@@ -30,9 +30,9 @@ export async function GET(request: Request) {
       rateLimit: GENERAL_READ_LIMIT,
       errorMessage: "Failed to list alert incidents",
     },
-    async () => {
+    async ({ session }) => {
       const { status } = parseSearchParams(request, listQuerySchema);
-      const incidents = await listAlertIncidents({ status });
+      const incidents = await listAlertIncidents({ status, session: session ?? undefined });
       return NextResponse.json({
         incidents: incidents.map((i) => ({
           id: i.id,
