@@ -2,10 +2,10 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 
 import { auditUserAction } from "@/lib/audit/service";
-import { prisma } from "@/lib/db";
 import { withApiRoute } from "@/lib/http/api-guard";
+import { GENERAL_WRITE_LIMIT } from "@/lib/http/rate-limit-presets";
+import { updateMediaTags } from "@/lib/media/service";
 
-import { NotFoundError } from "@/lib/errors";
 export const dynamic = "force-dynamic";
 
 const patchSchema = z.object({
@@ -19,23 +19,23 @@ export async function PATCH(
 ) {
   return withApiRoute(
     request,
-    { permission: "media:manage", errorMessage: "Operation failed", bodySchema: patchSchema },
+    {
+      permission: "media:manage",
+      rateLimit: GENERAL_WRITE_LIMIT,
+      errorMessage: "Operation failed",
+      bodySchema: patchSchema,
+    },
     async ({ session, body }) => {
       const { id } = await params;
 
-      const existing = await prisma.mediaItem.findUnique({ where: { id } });
-      if (!existing)
-        throw new NotFoundError("Media not found");
+      // Team scope via StorageNode.teamId — never mutate by bare media id.
+      const updated = await updateMediaTags({
+        id,
+        tags: body.tags,
+        favorite: body.favorite,
+        session,
+      });
 
-      const data: Record<string, unknown> = {};
-      if (body.favorite !== undefined)
-        data.favorite = body.favorite;
-      if (body.tags !== undefined) data.tags = body.tags;
-
-      if (Object.keys(data).length === 0)
-        return NextResponse.json({ item: existing });
-
-      const updated = await prisma.mediaItem.update({ where: { id }, data });
       await auditUserAction(session?.userId ?? "", "media.update", {
         mediaId: id,
         favorite: body.favorite ?? null,

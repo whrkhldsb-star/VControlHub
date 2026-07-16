@@ -338,8 +338,17 @@ export async function updateMediaTags(input: {
 }) {
   const existing = await getMediaItem(input.id, input.session);
   if (!existing) throw new NotFoundError("Media item not found");
+  const data: { tags?: string[]; favorite?: boolean } = {};
+  if (input.tags !== undefined) data.tags = input.tags;
+  if (input.favorite !== undefined) data.favorite = input.favorite;
+  if (Object.keys(data).length === 0) {
+    return prisma.mediaItem.findFirst({
+      where: { id: input.id, ...mediaTeamWhere(input.session) },
+      select: mediaItemSelect,
+    });
+  }
   return prisma.mediaItem.update({
     where: { id: input.id },
-    data: { tags: input.tags, favorite: input.favorite },
+    data,
   });
 }

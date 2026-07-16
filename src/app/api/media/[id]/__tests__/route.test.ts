@@ -1,39 +1,27 @@
 import { describe, expect, it, vi } from "vitest";
 
-const { requireApiPermissionMock, mediaFindUniqueMock, mediaUpdateMock } =
-  vi.hoisted(() => ({
-    requireApiPermissionMock: vi.fn(),
-    mediaFindUniqueMock: vi.fn(),
-    mediaUpdateMock: vi.fn(),
-  }));
+const { requireApiPermissionMock, updateMediaTagsMock } = vi.hoisted(() => ({
+  requireApiPermissionMock: vi.fn(),
+  updateMediaTagsMock: vi.fn(),
+}));
 
 vi.mock("@/lib/auth/require-api-permission", () => ({
   requireApiPermission: requireApiPermissionMock,
 }));
 
-vi.mock("@/lib/db", () => ({
-  prisma: {
-    mediaItem: {
-      findUnique: mediaFindUniqueMock,
-      update: mediaUpdateMock,
-    },
-  },
+vi.mock("@/lib/media/service", () => ({
+  updateMediaTags: updateMediaTagsMock,
 }));
 
 import { PATCH } from "../route";
 
-const session = { userId: "u_1", username: "alice" };
+const session = { userId: "u_1", username: "alice", roles: ["operator"], currentTeamId: "team_a" };
 
 describe("/api/media/[id]", () => {
-  it("updates media metadata with media manage permission", async () => {
+  it("updates media metadata via team-scoped updateMediaTags", async () => {
     vi.clearAllMocks();
     requireApiPermissionMock.mockResolvedValueOnce({ session });
-    mediaFindUniqueMock.mockResolvedValueOnce({
-      id: "m_1",
-      favorite: false,
-      tags: [],
-    });
-    mediaUpdateMock.mockResolvedValueOnce({
+    updateMediaTagsMock.mockResolvedValueOnce({
       id: "m_1",
       favorite: true,
       tags: ["cat"],
@@ -50,17 +38,20 @@ describe("/api/media/[id]", () => {
 
     expect(response.status).toBe(200);
     expect(requireApiPermissionMock).toHaveBeenCalledWith("media:manage");
-    expect(mediaUpdateMock).toHaveBeenCalledWith({
-      where: { id: "m_1" },
-      data: { favorite: true, tags: ["cat"] },
+    expect(updateMediaTagsMock).toHaveBeenCalledWith({
+      id: "m_1",
+      tags: ["cat"],
+      favorite: true,
+      session,
     });
     expect(body.item).toMatchObject({ favorite: true });
   });
 
-  it("returns 404 when media item does not exist", async () => {
+  it("returns 404 when media item is missing or out of team scope", async () => {
     vi.clearAllMocks();
     requireApiPermissionMock.mockResolvedValueOnce({ session });
-    mediaFindUniqueMock.mockResolvedValueOnce(null);
+    const { NotFoundError } = await import("@/lib/errors");
+    updateMediaTagsMock.mockRejectedValueOnce(new NotFoundError("Media item not found"));
 
     const response = await PATCH(
       new Request("https://example.com/api/media/missing", {
@@ -71,6 +62,11 @@ describe("/api/media/[id]", () => {
     );
 
     expect(response.status).toBe(404);
-    expect(mediaUpdateMock).not.toHaveBeenCalled();
+    expect(updateMediaTagsMock).toHaveBeenCalledWith({
+      id: "missing",
+      tags: undefined,
+      favorite: true,
+      session,
+    });
   });
 });
