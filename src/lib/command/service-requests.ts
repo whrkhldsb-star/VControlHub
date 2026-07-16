@@ -49,15 +49,27 @@ function resolveCommandTeamId(
  * Ensure every serverId is visible under the caller's team scope (or exists
  * for unscoped system callers). Prevents command.execute IDOR onto other
  * teams' VPS after Server list/CRUD became team-scoped.
+ *
+ * When there is no session but a stamped teamId (playbook worker, deployment,
+ * scheduled-task), still enforce that targets belong to that team or are
+ * shared (teamId=null). Fully unscoped system callers keep existence-only.
  */
 async function assertCommandTargetServersInScope(
   serverIds: string[],
   session?: CommandSessionScope | null,
+  teamId?: string | null,
 ): Promise<void> {
+  let scope: Record<string, unknown> = {};
+  if (session) {
+    scope = teamWhere(session);
+  } else if (teamId) {
+    // Mirror non-admin teamWhere for a concrete team stamp (no admin bypass).
+    scope = { OR: [{ teamId }, { teamId: null }] };
+  }
   const servers = await prisma.server.findMany({
     where: {
       id: { in: serverIds },
-      ...(session ? teamWhere(session) : {}),
+      ...scope,
     },
     select: { id: true },
   });
@@ -303,8 +315,10 @@ export async function createCommandRequest(
     if (existing) return { ...existing, requiresApproval: existing.status === "PENDING_APPROVAL" };
   }
 
-  await assertCommandTargetServersInScope(payload.serverIds, session);
   const teamId = resolveCommandTeamId(payload.teamId, session);
+  // Scope servers by session teamWhere, or by stamped teamId on system paths
+  // (playbook executor never has a session but always passes teamId).
+  await assertCommandTargetServersInScope(payload.serverIds, session, teamId);
 
   const requiresApproval = isProtectedByApproval({
     actorType: toApprovalActorType(payload.submissionMode),

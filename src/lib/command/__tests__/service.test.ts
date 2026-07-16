@@ -960,6 +960,31 @@ describe("command service execution flow", () => {
     );
   });
 
+  it("rejects system create with stamped teamId when targets are outside that team (playbook path)", async () => {
+    mockPrisma.server.findMany.mockResolvedValueOnce([{ id: "srv_in_team" }]);
+
+    await expect(
+      createCommandRequest({
+        title: "Playbook cross-team",
+        command: "id",
+        requesterId: "u_playbook",
+        submissionMode: "user",
+        serverIds: ["srv_in_team", "srv_other_team"],
+        teamId: "team_a",
+      }),
+    ).rejects.toThrow("outside your team scope");
+
+    expect(mockPrisma.commandRequest.create).not.toHaveBeenCalled();
+    expect(mockPrisma.server.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          id: { in: ["srv_in_team", "srv_other_team"] },
+          OR: [{ teamId: "team_a" }, { teamId: null }],
+        }),
+      }),
+    );
+  });
+
   it("stamps CommandRequest.teamId from session and accepts in-scope servers", async () => {
     mockPrisma.server.findMany.mockResolvedValueOnce([{ id: "srv_1" }]);
     mockPrisma.commandRequest.create.mockResolvedValue({

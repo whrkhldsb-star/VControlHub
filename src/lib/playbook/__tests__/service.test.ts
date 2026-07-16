@@ -14,6 +14,7 @@ const { mocks } = vi.hoisted(() => ({
     jobCreate: vi.fn(),
     transaction: vi.fn(),
     auditUserAction: vi.fn(),
+    serverFindMany: vi.fn(),
   },
 }));
 
@@ -28,6 +29,7 @@ vi.mock("@/lib/db", () => ({
       delete: mocks.playbookDelete,
     },
     playbookRun: { findMany: mocks.runFindMany },
+    server: { findMany: mocks.serverFindMany },
     $transaction: mocks.transaction,
   },
 }));
@@ -70,6 +72,11 @@ describe("playbook service", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mocks.auditUserAction.mockResolvedValue(undefined);
+    // Default: all referenced servers exist and are in scope.
+    mocks.serverFindMany.mockImplementation(async ({ where }: { where?: { id?: { in?: string[] } } }) => {
+      const ids = where?.id?.in ?? [];
+      return ids.map((id) => ({ id }));
+    });
     mocks.transaction.mockImplementation(async (callback: (tx: unknown) => unknown) => callback({
       playbookRun: { create: mocks.runCreate, update: mocks.runUpdate },
       job: { create: mocks.jobCreate },
@@ -110,10 +117,73 @@ describe("playbook service", () => {
     expect(mocks.playbookCreate).toHaveBeenCalledWith({
       data: expect.objectContaining({ teamId: "team1", createdById: "u1" }),
     });
+    expect(mocks.serverFindMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          id: { in: ["srv1"] },
+          OR: [{ teamId: "team1" }, { teamId: null }],
+        }),
+      }),
+    );
     await updatePlaybook({ id: "pb1", name: "Renamed" }, "u1", session);
     await deletePlaybook("pb1", "u1", session);
     expect(mocks.playbookDelete).toHaveBeenCalledWith({ where: { id: "pb1" } });
     expect(mocks.auditUserAction).toHaveBeenCalledTimes(3);
+  });
+
+  it("rejects create when run_command targets servers outside team scope", async () => {
+    mocks.serverFindMany.mockResolvedValueOnce([{ id: "srv1" }]); // missing srv-other
+    const session = { userId: "u1", roles: ["operator"] as import("@/lib/auth/rbac").RoleKey[], currentTeamId: "team1" };
+    await expect(
+      createPlaybook(
+        {
+          name: "Cross-team shell",
+          triggerType: "cron",
+          triggerConfig: { expression: "0 3 * * *" },
+          steps: [
+            {
+              id: "s1",
+              name: "run",
+              type: "run_command",
+              config: { command: "id", serverIds: ["srv1", "srv-other"] },
+              retry: 0,
+              timeoutSec: 60,
+            },
+          ] as never,
+          chainRetry: 0,
+          enabled: true,
+        },
+        "u1",
+        session,
+      ),
+    ).rejects.toThrow(/outside your team scope/i);
+    expect(mocks.playbookCreate).not.toHaveBeenCalled();
+  });
+
+  it("rejects update when new steps target out-of-scope servers", async () => {
+    mocks.playbookFindFirst.mockResolvedValue(baseRow);
+    mocks.serverFindMany.mockResolvedValueOnce([]); // no servers visible
+    const session = { userId: "u1", roles: ["operator"] as import("@/lib/auth/rbac").RoleKey[], currentTeamId: "team1" };
+    await expect(
+      updatePlaybook(
+        {
+          id: "pb1",
+          steps: [
+            {
+              id: "s1",
+              name: "run",
+              type: "run_command",
+              config: { command: "id", serverIds: ["srv-other-team"] },
+              retry: 0,
+              timeoutSec: 60,
+            },
+          ] as never,
+        },
+        "u1",
+        session,
+      ),
+    ).rejects.toThrow(/outside your team scope/i);
+    expect(mocks.playbookUpdate).not.toHaveBeenCalled();
   });
 
   it("rejects update/delete outside team scope", async () => {

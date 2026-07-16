@@ -13,7 +13,7 @@ import type { SessionPayload } from "@/lib/auth/session";
 
 import { prisma } from "@/lib/db";
 import { auditUserAction } from "@/lib/audit/service";
-import { NotFoundError } from "@/lib/errors";
+import { NotFoundError, ValidationError } from "@/lib/errors";
 
 import type {
   CreatePlaybookInput,
@@ -29,6 +29,37 @@ import type {
 } from "./types";
 
 type TeamSession = Pick<SessionPayload, "userId" | "roles" | "currentTeamId">;
+
+/**
+ * Reject playbook steps that target servers outside the caller's team.
+ * Defense-in-depth: executor also scopes createCommandRequest by teamId,
+ * but validation at write-time prevents storing an IDOR payload that would
+ * later fail (or worse, succeed under a stale null teamId stamp).
+ */
+async function assertPlaybookCommandServersInScope(
+  steps: PlaybookStep[],
+  session?: TeamSession | null,
+): Promise<void> {
+  const serverIds = [
+    ...new Set(
+      steps
+        .filter((step): step is Extract<PlaybookStep, { type: "run_command" }> => step.type === "run_command")
+        .flatMap((step) => step.config.serverIds),
+    ),
+  ];
+  if (serverIds.length === 0) return;
+
+  const scope = session ? teamWhere(session) : {};
+  const servers = await prisma.server.findMany({
+    where: { id: { in: serverIds }, ...scope },
+    select: { id: true },
+  });
+  if (servers.length !== serverIds.length) {
+    throw new ValidationError(
+      "One or more playbook command targets were not found or are outside your team scope",
+    );
+  }
+}
 
 type RawPlaybook = {
   id: string;
@@ -117,6 +148,7 @@ export async function createPlaybook(
   createdById: string,
   session?: TeamSession | null,
 ): Promise<PlaybookRecord> {
+  await assertPlaybookCommandServersInScope(input.steps as PlaybookStep[], session);
   const teamData = session ? teamCreateData(session) : {};
   const row = await prisma.playbook.create({
     data: {
@@ -150,6 +182,9 @@ export async function updatePlaybook(
   const { id, ...rest } = input;
   const existing = await getPlaybook(id, session);
   if (!existing) throw new NotFoundError("Playbook not found");
+  if (rest.steps !== undefined) {
+    await assertPlaybookCommandServersInScope(rest.steps as PlaybookStep[], session);
+  }
   const data: Prisma.PlaybookUpdateInput = {};
   if (rest.name !== undefined) data.name = rest.name;
   if (rest.description !== undefined) data.description = rest.description;

@@ -101,10 +101,16 @@ describe("executePlaybookChain", () => {
 			playbook,
 			runId: "run-1",
 			dryRun: false,
+			teamId: "team1",
 		});
 		expect(results[0]?.status).toBe("ok");
 		expect(mocks.createCommandRequest).toHaveBeenCalledWith(
-			expect.objectContaining({ command: "ls -la", serverIds: ["srv1", "srv2"] }),
+			expect.objectContaining({
+				command: "ls -la",
+				serverIds: ["srv1", "srv2"],
+				teamId: "team1",
+				idempotencyKey: "playbook:run-1:step:s1",
+			}),
 		);
 		expect(mocks.commandRequestFindUnique).toHaveBeenCalledWith(
 			expect.objectContaining({ where: { id: "request-1" } }),
