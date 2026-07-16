@@ -1,6 +1,8 @@
 import { prisma } from "@/lib/db";
 import { createCommandRequest } from "@/lib/command/service";
 import { renderCommand, seedBuiltinTemplates } from "@/lib/command-template/service";
+import type { SessionPayload } from "@/lib/auth/session";
+import { teamCreateData, teamWhere } from "@/lib/auth/team-scope";
 import { NotFoundError, ValidationError } from "@/lib/errors";
 
 // TR-039: pure DTO types live in ./dto so client code can reach them
@@ -26,6 +28,33 @@ export type {
   DeploymentStatusDto,
   DeploymentTemplateDto,
 };
+
+export type SessionScope = Pick<SessionPayload, "userId" | "roles" | "currentTeamId">;
+
+function teamScopeWhere(session?: SessionScope | null): Record<string, unknown> {
+  return session ? teamWhere(session) : {};
+}
+
+/**
+ * Load a deployment run by id under optional team scope.
+ * Mutate paths (rollback) use this so cross-team IDs resolve as not-found (no IDOR).
+ */
+async function getDeploymentRunForSession(
+  id: string,
+  session?: SessionScope | null,
+  include?: {
+    snapshot?: boolean;
+    template?: boolean;
+  },
+) {
+  return prisma.deploymentRun.findFirst({
+    where: { id, ...teamScopeWhere(session) },
+    include: {
+      snapshot: include?.snapshot ?? false,
+      template: include?.template ?? false,
+    },
+  });
+}
 
 function normalizeDeploymentInput(input: {
   templateId: string;
@@ -69,13 +98,16 @@ export async function listDeploymentTemplates() {
   return prisma.commandTemplate.findMany({ orderBy: [{ isBuiltin: "desc" }, { name: "asc" }], take: 200 });
 }
 
-export async function createDeploymentRunFromTemplate(input: {
-  templateId: string;
-  serverIds: string[];
-  variables: Record<string, string>;
-  requesterId: string;
-  reason?: string;
-}) {
+export async function createDeploymentRunFromTemplate(
+  input: {
+    templateId: string;
+    serverIds: string[];
+    variables: Record<string, string>;
+    requesterId: string;
+    reason?: string;
+  },
+  session?: SessionScope | null,
+) {
   const normalized = normalizeDeploymentInput(input);
   const template = await prisma.commandTemplate.findUnique({
     where: { id: normalized.templateId },
@@ -91,6 +123,8 @@ export async function createDeploymentRunFromTemplate(input: {
     ? renderCommand(template.rollbackCommand, normalized.variables)
     : null;
 
+  const teamId = session ? (teamCreateData(session).teamId ?? null) : null;
+
   const run = await prisma.deploymentRun.create({
     data: {
       templateId: template.id,
@@ -99,6 +133,7 @@ export async function createDeploymentRunFromTemplate(input: {
       serverIds: normalized.serverIds,
       createdBy: normalized.requesterId,
       status: "PENDING",
+      teamId,
     },
   });
 
@@ -223,8 +258,9 @@ async function persistResolvedDeploymentRunStatus<
   return { ...updated, ...resolveDeploymentRunStatus(updated) };
 }
 
-export async function listDeploymentRuns() {
+export async function listDeploymentRuns(session?: SessionScope | null) {
   const runs = await prisma.deploymentRun.findMany({
+    where: teamScopeWhere(session),
     orderBy: { createdAt: "desc" },
     take: 100,
     include: DEPLOYMENT_RUN_INCLUDE,
@@ -280,10 +316,13 @@ async function refreshDeploymentRollbackStatuses(runs: RollbackRunWithCommand[])
   }));
 }
 
-export async function createDeploymentRollbackRun(input: { sourceRunId: string; requesterId: string; reason?: string }) {
-  const sourceRun = await prisma.deploymentRun.findUnique({
-    where: { id: input.sourceRunId },
-    include: { snapshot: true, template: true },
+export async function createDeploymentRollbackRun(
+  input: { sourceRunId: string; requesterId: string; reason?: string },
+  session?: SessionScope | null,
+) {
+  const sourceRun = await getDeploymentRunForSession(input.sourceRunId, session, {
+    snapshot: true,
+    template: true,
   });
   if (!sourceRun) throw new NotFoundError("Deployment run not found");
   const snapshot = sourceRun.snapshot;

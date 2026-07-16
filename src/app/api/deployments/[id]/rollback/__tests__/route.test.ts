@@ -18,7 +18,7 @@ vi.mock("@/lib/audit/service", () => ({ auditUserAction: mocks.auditUserAction }
 
 const route = await import("../route");
 
-const session = { userId: "u1", username: "alice", user: { id: "u1" } };
+const session = { userId: "u1", username: "alice", roles: ["operator"], currentTeamId: null, user: { id: "u1" } };
 
 describe("/api/deployments/[id]/rollback POST", () => {
 	beforeEach(() => {
@@ -47,7 +47,7 @@ describe("/api/deployments/[id]/rollback POST", () => {
 			sourceRunId: "dep1",
 			requesterId: "u1",
 			reason: "bad deploy",
-		});
+		}, expect.objectContaining({ userId: "u1" }));
 		expect(mocks.auditUserAction).toHaveBeenCalledWith(
 			"u1",
 			"deployment.rollback",

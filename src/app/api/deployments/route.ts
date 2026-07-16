@@ -26,9 +26,9 @@ export async function GET(request: Request) {
   return withApiRoute(
     request,
     { permission: "deploy:read", errorMessage: "Failed to fetch deployment list" },
-    async () => {
+    async ({ session }) => {
       const [deployments, templates] = await Promise.all([
-        listDeploymentRuns(),
+        listDeploymentRuns(session),
         listDeploymentTemplates(),
       ]);
       return NextResponse.json({ deployments, templates });
@@ -100,7 +100,7 @@ export async function POST(request: Request) {
         const deployment = await createDeploymentRunFromTemplate({
           ...parsed.data,
           requesterId: session.userId,
-        });
+        }, session);
         await auditUserAction(session.userId, "deployment.create", {
           deploymentId: deployment.id,
           templateId: parsed.data.templateId,

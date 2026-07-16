@@ -33,7 +33,7 @@ export default async function DeploymentsPage({ searchParams }: { searchParams?:
 	const params = await searchParams;
 	const formError = params?.error;
 	const [runs, templates, servers] = await Promise.all([
-		listDeploymentRuns(),
+		listDeploymentRuns(session),
 		listDeploymentTemplates(),
 		prisma.server.findMany({ where: { enabled: true }, orderBy: { createdAt: "desc" }, take: 200, select: { id: true, name: true, host: true, username: true } }),
 	]);

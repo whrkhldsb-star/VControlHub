@@ -28,7 +28,7 @@ describe("/api/deployments", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mocks.requireApiPermission.mockResolvedValue({
-      session: { userId: "u1", user: { id: "u1" } },
+      session: { userId: "u1", roles: ["operator"], currentTeamId: null, user: { id: "u1" } },
     });
     mocks.listDeploymentRuns.mockResolvedValue([{ id: "dep1" }]);
     mocks.listDeploymentTemplates.mockResolvedValue([{ id: "tmpl1" }]);
@@ -42,6 +42,9 @@ describe("/api/deployments", () => {
       deployments: [{ id: "dep1" }],
       templates: [{ id: "tmpl1" }],
     });
+    expect(mocks.listDeploymentRuns).toHaveBeenCalledWith(
+      expect.objectContaining({ userId: "u1" }),
+    );
   });
 
   it("rejects deployment creation without target servers", async () => {
@@ -91,7 +94,7 @@ describe("/api/deployments", () => {
       variables: { version: "v1" },
       requesterId: "u1",
       reason: "upgrade",
-    });
+    }, expect.objectContaining({ userId: "u1" }));
   });
   it("accepts browser form submissions and redirects back to deployments page", async () => {
     const req = new Request("http://local/api/deployments", {
@@ -118,7 +121,7 @@ describe("/api/deployments", () => {
       variables: { version: "v2.1.0", service: "api" },
       requesterId: "u1",
       reason: "deploy",
-    });
+    }, expect.objectContaining({ userId: "u1" }));
   });
 
   it("returns a deployment error page for browser form failures instead of raw JSON", async () => {

@@ -31,7 +31,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
           sourceRunId: id,
           requesterId: session.userId,
           reason: body.reason,
-        });
+        }, session);
         await auditUserAction(session.userId, "deployment.rollback", {
           sourceRunId: id,
           rollbackId: rollback.id,
