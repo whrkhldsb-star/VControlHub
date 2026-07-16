@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-07-16T11:11:23.806Z",
+  "generatedAt": "2026-07-16T11:35:53.281Z",
   "summary": {
     "permissionsInList": 54,
     "rolesDefined": 4,
@@ -2063,7 +2063,7 @@
       "files": [
         {
           "path": "src/app/api/downloads/route-patch.ts",
-          "line": 54
+          "line": 55
         },
         {
           "path": "src/app/api/storage/nodes/route.ts",
@@ -2133,7 +2133,7 @@
         },
         {
           "path": "src/app/api/downloads/route-get.ts",
-          "line": 18
+          "line": 19
         },
         {
           "path": "src/app/api/files/[id]/versions/[versionId]/download/route.ts",
@@ -2320,15 +2320,15 @@
       "files": [
         {
           "path": "src/app/api/downloads/route-delete.ts",
-          "line": 23
+          "line": 24
         },
         {
           "path": "src/app/api/downloads/route-patch.ts",
-          "line": 41
+          "line": 42
         },
         {
           "path": "src/app/api/downloads/route-post.ts",
-          "line": 39
+          "line": 40
         },
         {
           "path": "src/app/api/files/[id]/versions/[versionId]/restore/route.ts",

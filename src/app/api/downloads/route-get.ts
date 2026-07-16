@@ -8,6 +8,7 @@ import { buildProgressText } from "@/lib/downloads/helpers";
 import { withApiRoute } from "@/lib/http/api-guard";
 import { AuthError } from "@/lib/errors";
 import { getServerLocale, t } from "@/lib/i18n/translations";
+import { teamWhere } from "@/lib/auth/team-scope";
 import { canAccessDownloadTask, taskDownloadAccess } from "@/lib/downloads/route-helpers";
 
 /* ── GET: List tasks with real-time aria2 progress ────────── */
@@ -28,7 +29,9 @@ export async function GET(request: Request) {
         }),
       );
 
-      const where: Record<string, unknown> = {};
+      // Team prefilter first (perf + defense if ownership/storage ACL misses team);
+      // canAccessDownloadTask still applies creator/storage ACL on the reduced set.
+      const where: Record<string, unknown> = { ...teamWhere(session) };
       if (serverId) where.serverId = serverId;
       if (category) where.category = category;
 

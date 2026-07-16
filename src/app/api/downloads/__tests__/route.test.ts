@@ -33,7 +33,7 @@ const {
 } = vi.hoisted(() => ({
   lookupMock: vi.fn(),
   requireSessionMock: vi.fn(),
-  sessionHasPermissionMock: vi.fn(() => true),
+  sessionHasPermissionMock: vi.fn((_session?: unknown, _permission?: string) => true),
   assertStorageAccessMock: vi.fn<() => Promise<StorageAccessDecision>>(() => Promise.resolve({ allowed: true })),
   prismaMock: {
     server: { findUnique: vi.fn() },
@@ -41,6 +41,7 @@ const {
       create: vi.fn(),
       findMany: vi.fn(),
       findUnique: vi.fn(),
+      findFirst: vi.fn(),
       update: vi.fn(),
       updateMany: vi.fn(),
       delete: vi.fn(),
@@ -232,7 +233,7 @@ vi.mock("@/lib/downloads/execution-worker", async (importOriginal) => {
 
 import { DELETE, GET, PATCH, POST } from "../route";
 
-const session = { userId: "u_1", username: "alice", roles: ["admin"] };
+const session = { userId: "u_1", username: "alice", roles: ["admin"] as string[], currentTeamId: "team_1" as string | null };
 
 function request(body: unknown) {
   return new Request("https://example.com/api/downloads", {
@@ -272,11 +273,24 @@ describe("/api/downloads", () => {
     vi.clearAllMocks();
     lookupMock.mockResolvedValue([{ address: "93.184.216.34", family: 4 }]);
     requireSessionMock.mockResolvedValue(session);
+    // Prefer mockReset so mockImplementation from team-scope tests cannot leak.
+    sessionHasPermissionMock.mockReset();
     sessionHasPermissionMock.mockReturnValue(true);
+    assertStorageAccessMock.mockReset();
+    assertStorageAccessMock.mockResolvedValue({ allowed: true });
     prismaMock.server.findUnique.mockResolvedValue(serverFixture());
     prismaMock.downloadTask.create.mockReset();
     prismaMock.downloadTask.create.mockResolvedValue({ id: "task_1" });
+    prismaMock.downloadTask.findMany.mockReset();
+    prismaMock.downloadTask.findFirst.mockReset();
+    prismaMock.downloadTask.findUnique.mockReset();
+    prismaMock.downloadTask.update.mockReset();
+    prismaMock.downloadTask.updateMany.mockReset();
+    prismaMock.downloadTask.delete.mockReset();
     prismaMock.downloadTask.updateMany.mockResolvedValue({ count: 1 });
+    prismaMock.fileEntry.findFirst.mockReset();
+    prismaMock.fileEntry.create.mockReset();
+    prismaMock.fileEntry.update.mockReset();
     buildSshParamsFromServerMock.mockResolvedValue({ host: "203.0.113.10", port: 22, username: "root" });
     execRemoteCommandMock.mockResolvedValue({ stdout: "12345\n", stderr: "", exitCode: 0 });
     statMock.mockResolvedValue({ size: 1024 });
@@ -550,6 +564,12 @@ describe("/api/downloads", () => {
     const response = await GET(new Request("https://example.com/api/downloads"));
 
     expect(response.status).toBe(200);
+    // Admin (team:manage) uses empty teamWhere — still filters by creator/storage ACL.
+    expect(prismaMock.downloadTask.findMany).toHaveBeenCalledWith(expect.objectContaining({
+      where: {},
+      orderBy: { createdAt: "desc" },
+      take: 200,
+    }));
     const body = await response.json();
     expect(body.tasks.map((task: { id: string }) => task.id)).toEqual(["owned_task", "shared_task"]);
     expect(tellStatusMock).not.toHaveBeenCalledWith("gid_private");
@@ -561,6 +581,57 @@ describe("/api/downloads", () => {
     }));
     assertStorageAccessMock.mockReset();
     assertStorageAccessMock.mockResolvedValue({ allowed: true });
+  });
+
+  it("prefilters download list with teamWhere for non-admin sessions", async () => {
+    sessionHasPermissionMock.mockImplementation((_sess, permission) => permission !== "team:manage");
+    prismaMock.downloadTask.findMany.mockResolvedValueOnce([]);
+
+    const response = await GET(new Request("https://example.com/api/downloads?serverId=srv_1&category=iso"));
+    expect(response.status).toBe(200);
+    expect(prismaMock.downloadTask.findMany).toHaveBeenCalledWith(expect.objectContaining({
+      where: {
+        OR: [{ teamId: "team_1" }, { teamId: null }],
+        serverId: "srv_1",
+        category: "iso",
+      },
+      take: 200,
+    }));
+  });
+
+  it("stamps teamId from session on create", async () => {
+    sessionHasPermissionMock.mockReturnValue(true);
+    prismaMock.downloadTask.create.mockResolvedValueOnce({ id: "task_team" });
+    const response = await POST(request({
+      url: "https://example.com/file.iso",
+      serverId: "srv_1",
+      targetPath: "downloads",
+    }));
+    expect(response.status).toBe(200);
+    expect(prismaMock.downloadTask.create).toHaveBeenCalledWith(expect.objectContaining({
+      data: expect.objectContaining({
+        teamId: "team_1",
+        createdBy: "u_1",
+        url: "https://example.com/file.iso",
+      }),
+    }));
+  });
+
+  it("returns 404 for cross-team task control (teamAccessFilter)", async () => {
+    sessionHasPermissionMock.mockImplementation((_sess, permission) => permission !== "team:manage");
+    prismaMock.downloadTask.findFirst.mockResolvedValueOnce(null);
+
+    const response = await PATCH(new Request("https://example.com/api/downloads", {
+      method: "PATCH",
+      body: JSON.stringify({ taskId: "other_team_task", action: "pause" }),
+    }));
+    expect(response.status).toBe(404);
+    expect(prismaMock.downloadTask.findFirst).toHaveBeenCalledWith(expect.objectContaining({
+      where: {
+        id: "other_team_task",
+        OR: [{ teamId: "team_1" }, { teamId: null }],
+      },
+    }));
   });
 
   it("exposes completed download files through the storage direct/proxy policy route", async () => {
@@ -642,7 +713,7 @@ describe("/api/downloads", () => {
   });
 
   it("refreshes a completed direct download from the remote process exit state", async () => {
-    prismaMock.downloadTask.findUnique.mockResolvedValueOnce({
+    prismaMock.downloadTask.findFirst.mockResolvedValueOnce({
       id: "task_direct",
       createdBy: "u_1",
       url: "https://example.com/file.iso",
@@ -694,7 +765,7 @@ describe("/api/downloads", () => {
   });
 
   it("returns aria2 refresh byte counters so the Downloads page can update immediately", async () => {
-    prismaMock.downloadTask.findUnique.mockResolvedValueOnce({
+    prismaMock.downloadTask.findFirst.mockResolvedValueOnce({
       id: "task_relay",
       createdBy: "u_1",
       status: "RUNNING",
@@ -747,7 +818,7 @@ describe("/api/downloads", () => {
   });
 
   it("forbids cross-user task control when storage write access is absent", async () => {
-    prismaMock.downloadTask.findUnique.mockResolvedValueOnce({
+    prismaMock.downloadTask.findFirst.mockResolvedValueOnce({
       id: "task_private",
       createdBy: "u_2",
       status: "RUNNING",
@@ -776,7 +847,7 @@ describe("/api/downloads", () => {
   });
 
   it("forbids cross-user task cancellation when storage delete access is absent", async () => {
-    prismaMock.downloadTask.findUnique.mockResolvedValueOnce({
+    prismaMock.downloadTask.findFirst.mockResolvedValueOnce({
       id: "task_private",
       createdBy: "u_2",
       url: "https://example.com/file.iso",
@@ -819,7 +890,7 @@ describe("/api/downloads", () => {
   });
 
   it("does not mark an aria2 task paused when the real pause operation fails", async () => {
-    prismaMock.downloadTask.findUnique.mockResolvedValueOnce({
+    prismaMock.downloadTask.findFirst.mockResolvedValueOnce({
       id: "task_relay",
       createdBy: "u_1",
       targetPath: "/srv/cloud/downloads/file.iso",
@@ -844,7 +915,7 @@ describe("/api/downloads", () => {
   });
 
   it("does not mark an aria2 task resumed when the real resume operation fails", async () => {
-    prismaMock.downloadTask.findUnique.mockResolvedValueOnce({
+    prismaMock.downloadTask.findFirst.mockResolvedValueOnce({
       id: "task_relay",
       createdBy: "u_1",
       targetPath: "/srv/cloud/downloads/file.iso",
@@ -869,7 +940,7 @@ describe("/api/downloads", () => {
   });
 
   it("does not mark a direct task cancelled when remote process termination fails", async () => {
-    prismaMock.downloadTask.findUnique.mockResolvedValueOnce({
+    prismaMock.downloadTask.findFirst.mockResolvedValueOnce({
       id: "task_direct",
       createdBy: "u_1",
       targetPath: "/srv/cloud/downloads/file.iso",
@@ -894,7 +965,7 @@ describe("/api/downloads", () => {
   });
 
   it("does not mark an aria2 task cancelled when removeDownload fails", async () => {
-    prismaMock.downloadTask.findUnique.mockResolvedValueOnce({
+    prismaMock.downloadTask.findFirst.mockResolvedValueOnce({
       id: "task_relay",
       createdBy: "u_1",
       targetPath: "/srv/cloud/downloads/file.iso",
@@ -919,7 +990,7 @@ describe("/api/downloads", () => {
   });
 
   it("purges terminal download task records without touching remote processes", async () => {
-    prismaMock.downloadTask.findUnique.mockResolvedValueOnce({
+    prismaMock.downloadTask.findFirst.mockResolvedValueOnce({
       id: "task_done",
       createdBy: "u_1",
       targetPath: "/srv/cloud/downloads/file.iso",
@@ -946,7 +1017,7 @@ describe("/api/downloads", () => {
   });
 
   it("rejects purging an active download task before cancellation", async () => {
-    prismaMock.downloadTask.findUnique.mockResolvedValueOnce({
+    prismaMock.downloadTask.findFirst.mockResolvedValueOnce({
       id: "task_running",
       createdBy: "u_1",
       targetPath: "/srv/cloud/downloads/file.iso",
@@ -967,7 +1038,7 @@ describe("/api/downloads", () => {
   });
 
   it("cleans the relay temp directory when cancelling a relay task even if pid is missing", async () => {
-    prismaMock.downloadTask.findUnique.mockResolvedValueOnce({
+    prismaMock.downloadTask.findFirst.mockResolvedValueOnce({
       id: "task_relay",
       createdBy: "u_1",
       targetPath: "/srv/cloud/downloads/file.iso",

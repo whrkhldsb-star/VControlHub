@@ -22,6 +22,7 @@ import {
 import { withApiRoute } from "@/lib/http/api-guard";
 import { GENERAL_WRITE_LIMIT } from "@/lib/http/rate-limit-presets";
 import { AppError, AuthError, ForbiddenError, NotFoundError, ValidationError } from "@/lib/errors";
+import { teamAccessFilter } from "@/lib/auth/team-scope";
 import { getServerLocale, t } from "@/lib/i18n/translations";
 import { canAccessDownloadTask, taskDownloadAccess } from "@/lib/downloads/route-helpers";
 
@@ -72,8 +73,9 @@ export async function PATCH(request: Request) {
       if (!taskId)
         throw new ValidationError(t("apiDownloads.missingTaskId", locale));
 
-      const task = await prisma.downloadTask.findUnique({
-        where: { id: taskId },
+      const teamFilter = teamAccessFilter(session);
+      const task = await prisma.downloadTask.findFirst({
+        where: { id: taskId, ...(teamFilter ?? {}) },
         include: { server: { include: { sshKey: true, storageNode: true } } },
       });
       if (!task)
