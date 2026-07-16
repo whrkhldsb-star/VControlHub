@@ -15,6 +15,13 @@ import { shellQuote } from "@/lib/shell-quote";
 
 import { buildRsyncCommand, buildTarSyncCommand, getSyncTempKeyPath } from "./service-commands";
 import { decryptSyncTargetCredentials } from "./service-credentials";
+import {
+  formatBidirectionalResult,
+  isBidirectionalSyncType,
+  mergeSyncStats,
+  rsyncFlagsForJob,
+  type OneWaySyncStats,
+} from "./bidirectional";
 import { getSyncJob } from "./service-crud";
 
 /* ── rsync output parsing ─────────────────────────────────── */
@@ -127,6 +134,95 @@ async function executeTarSync(
 	return result.stdout;
 }
 
+
+/** Push sourcePath → targetPath once (rsync or tar). Returns parsed stats + raw output. */
+async function runOneWayRsync(input: {
+  jobId: string;
+  sourceServer: NonNullable<Awaited<ReturnType<typeof getSyncJob>>>["sourceServer"];
+  targetServer: NonNullable<Awaited<ReturnType<typeof getSyncJob>>>["targetServer"];
+  sourcePath: string;
+  targetPath: string;
+  flags: string[];
+  deleteOrphans: boolean;
+}): Promise<{ output: string; stats: OneWaySyncStats }> {
+  const sourceSsh = await buildSshParamsFromServer(input.sourceServer, input.sourceServer.sshKey);
+  const targetSsh = await buildSshParamsFromServer(input.targetServer, input.targetServer.sshKey);
+  const targetHost = input.targetServer.host;
+  const targetPort = input.targetServer.port || 22;
+  const targetUser = input.targetServer.username || "root";
+  const targetCredentials = decryptSyncTargetCredentials(input.targetServer);
+  const targetKeyPath = targetCredentials.privateKey ? getSyncTempKeyPath(input.jobId, "rsync") : undefined;
+  if (!targetCredentials.privateKey && !targetCredentials.password) {
+    throw new Error("Target server has no SSH key or password configured");
+  }
+  const legJobId = `${input.jobId}-leg`;
+  const rsyncCmd = buildRsyncCommand({
+    flags: input.flags,
+    sourcePath: input.sourcePath,
+    targetPath: input.targetPath,
+    targetUser,
+    targetHost,
+    targetPort,
+    keyPath: targetKeyPath,
+    password: targetKeyPath ? undefined : targetCredentials.password,
+    hostKeySha256: input.targetServer.hostKeySha256,
+    jobId: legJobId,
+  });
+  await writePinnedKnownHosts(sourceSsh, legJobId, targetHost, targetPort, input.targetServer.hostKeySha256);
+  await execRemoteCommand({
+    ...targetSsh,
+    command: `mkdir -p -- ${shellQuote(input.targetPath)}`,
+    timeout: 15000,
+  });
+  await execRemoteCommand({
+    ...sourceSsh,
+    command: `mkdir -p -- ${shellQuote(input.sourcePath)}`,
+    timeout: 15000,
+  });
+  const { stdout: whichRsync } = await execRemoteCommand({
+    ...sourceSsh,
+    command: "which rsync 2>/dev/null || echo MISSING",
+    timeout: 8000,
+  });
+  let output: string;
+  if (whichRsync.trim() === "MISSING") {
+    const targetSshKey = targetCredentials.privateKey ? { privateKey: targetCredentials.privateKey } : null;
+    output = await executeTarSync(
+      sourceSsh,
+      legJobId,
+      input.sourcePath,
+      targetSsh,
+      targetHost,
+      targetPort,
+      targetUser,
+      targetSshKey,
+      targetCredentials.password ?? null,
+      input.targetPath,
+      input.deleteOrphans,
+      input.targetServer.hostKeySha256,
+    );
+  } else {
+    if (targetCredentials.privateKey && targetKeyPath) {
+      await writeEphemeralPrivateKey(sourceSsh, targetKeyPath, targetCredentials.privateKey);
+    }
+    const result = await execRemoteCommand({
+      ...sourceSsh,
+      command: rsyncCmd,
+      timeout: 600_000,
+    });
+    output = result.stdout;
+  }
+  const stats = parseRsyncOutput(output);
+  return {
+    output,
+    stats: {
+      totalFiles: stats.totalFiles,
+      transferredFiles: stats.transferredFiles,
+      totalSize: stats.totalSize,
+    },
+  };
+}
+
 /* ── Main entry point ─────────────────────────────────────── */
 
 export async function executeSyncJob(jobId: string): Promise<void> {
@@ -149,92 +245,56 @@ export async function executeSyncJob(jobId: string): Promise<void> {
 	const startTime = Date.now();
 
 	try {
-		// Build rsync command executed on the source server, pushing to target
-		const sourceSsh = await buildSshParamsFromServer(job.sourceServer, job.sourceServer.sshKey);
-		const targetSsh = await buildSshParamsFromServer(job.targetServer, job.targetServer.sshKey);
+		const bidirectional = isBidirectionalSyncType(job.syncType);
+		const deleteOrphans = bidirectional ? false : job.deleteOrphans;
+		const flags = rsyncFlagsForJob({
+			syncType: job.syncType,
+			deleteOrphans: job.deleteOrphans,
+			compress: job.compress,
+		});
 
-		// Determine rsync flags
-		const flags: string[] = ["-avz", "--stats"];
-		if (job.deleteOrphans) flags.push("--delete");
-		if (job.compress) flags.push("--compress");
-
-		// Build the remote-to-remote rsync command.
-		// We run rsync from the source server, pushing to target via SSH.
-		const targetHost = job.targetServer.host;
-		const targetPort = job.targetServer.port || 22;
-		const targetUser = job.targetServer.username || "root";
-		const targetCredentials = decryptSyncTargetCredentials(job.targetServer);
-		const targetKeyPath = targetCredentials.privateKey ? getSyncTempKeyPath(jobId, "rsync") : undefined;
-
-		if (!targetCredentials.privateKey && !targetCredentials.password) {
-			throw new Error("Target server has no SSH key or password configured");
-		}
-
-		const rsyncCmd = buildRsyncCommand({
-			flags,
+		// Forward: source → target
+		const forward = await runOneWayRsync({
+			jobId: `${jobId}-fwd`,
+			sourceServer: job.sourceServer,
+			targetServer: job.targetServer,
 			sourcePath: job.sourcePath,
 			targetPath: job.targetPath,
-			targetUser,
-			targetHost,
-			targetPort,
-			keyPath: targetKeyPath,
-			password: targetKeyPath ? undefined : targetCredentials.password,
-			hostKeySha256: job.targetServer.hostKeySha256,
-			jobId,
+			flags,
+			deleteOrphans,
 		});
 
-		await writePinnedKnownHosts(sourceSsh, jobId, targetHost, targetPort, job.targetServer.hostKeySha256);
-
-		// Ensure target directory exists
-		await execRemoteCommand({
-			...targetSsh,
-			command: `mkdir -p -- ${shellQuote(job.targetPath)}`,
-			timeout: 15000,
-		});
-
-		// Ensure source directory exists
-		await execRemoteCommand({
-			...sourceSsh,
-			command: `mkdir -p -- ${shellQuote(job.sourcePath)}`,
-			timeout: 15000,
-		});
-
-		// Check if rsync is available on source
-		const { stdout: whichRsync } = await execRemoteCommand({
-			...sourceSsh,
-			command: "which rsync 2>/dev/null || echo MISSING",
-			timeout: 8000,
-		});
-
-		let output: string;
-
-		if (whichRsync.trim() === "MISSING") {
-			// Fallback: use tar + ssh for incremental sync
-			const targetSshKey = targetCredentials.privateKey ? { privateKey: targetCredentials.privateKey } : null;
-			output = await executeTarSync(sourceSsh, jobId, job.sourcePath, targetSsh, targetHost, targetPort, targetUser, targetSshKey, targetCredentials.password ?? null, job.targetPath, job.deleteOrphans, job.targetServer.hostKeySha256);
-		} else {
-			if (targetCredentials.privateKey && targetKeyPath) {
-				await writeEphemeralPrivateKey(sourceSsh, targetKeyPath, targetCredentials.privateKey);
-			}
-			const result = await execRemoteCommand({
-				...sourceSsh,
-				command: rsyncCmd,
-				timeout: 600_000, // 10 min max
+		let reverse: { stats: OneWaySyncStats } | null = null;
+		if (bidirectional) {
+			// Reverse: target → source (newer-wins via --update)
+			reverse = await runOneWayRsync({
+				jobId: `${jobId}-rev`,
+				sourceServer: job.targetServer,
+				targetServer: job.sourceServer,
+				sourcePath: job.targetPath,
+				targetPath: job.sourcePath,
+				flags,
+				deleteOrphans: false,
 			});
-			output = result.stdout;
 		}
 
-		// Parse rsync output for stats
-		const stats = parseRsyncOutput(output);
 		const duration = Date.now() - startTime;
+		const merged = mergeSyncStats(forward.stats, reverse?.stats);
+		const lastSyncResult = reverse
+			? formatBidirectionalResult({
+					forward: forward.stats,
+					reverse: reverse.stats,
+					durationMs: duration,
+				})
+			: `Success: ${forward.stats.transferredFiles} files, ${formatBytes(forward.stats.totalSize)}, ${Math.round(duration / 1000)}s`;
 
 		await prisma.syncLog.update({
 			where: { id: logEntry.id },
 			data: {
 				status: "COMPLETED",
-				filesScanned: stats.totalFiles,
-				filesTransferred: stats.transferredFiles,
-				bytesTransferred: String(stats.totalSize),
+				filesScanned: merged.totalFiles,
+				filesTransferred: merged.transferredFiles,
+				bytesTransferred: String(merged.totalSize),
 				durationMs: duration,
 				completedAt: new Date(),
 			},
@@ -245,10 +305,9 @@ export async function executeSyncJob(jobId: string): Promise<void> {
 			data: {
 				status: "IDLE",
 				lastSyncAt: new Date(),
-				lastSyncResult: `Success: ${stats.transferredFiles} files, ${formatBytes(stats.totalSize)}, ${Math.round(duration / 1000)}s`,
+				lastSyncResult,
 			},
 		});
-
 	} catch (error) {
 		const duration = Date.now() - startTime;
 		const errMsg = error instanceof Error ? error.message : String(error);

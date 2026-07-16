@@ -24,6 +24,7 @@ import { getServerLocale, t } from "@/lib/i18n/translations";
 import { FilesBrowserSpa } from "./files-browser-spa";
 import { PageShell, PageHeader, SurfacePanel } from "@/components/page-shell";
 import { WebDavSetupPanel } from "@/components/storage/webdav-setup-panel";
+import { BidirectionalSyncPanel } from "@/components/storage/bidirectional-sync-panel";
 import { StorageNodeManager } from "./storage-node-manager";
 
 export const dynamic = "force-dynamic";
@@ -250,6 +251,18 @@ export default async function FilesPage({ searchParams }: FilesPageProps) {
             nodes={storage.nodes
               .filter((n) => n.driver === "LOCAL" || n.driver === "SFTP")
               .map((n) => ({ id: n.id, name: n.name, driver: n.driver }))}
+          />
+        </SurfacePanel>
+      </div>
+
+      <div className="mb-5">
+        <SurfacePanel title={t("filesPage.syncJobs.title", locale)} description={t("filesPage.syncJobs.desc", locale)}>
+          <BidirectionalSyncPanel
+            servers={formOptions.servers.map((s: { id: string; name: string; host?: string | null }) => ({
+              id: s.id,
+              name: s.name,
+              host: s.host ?? null,
+            }))}
           />
         </SurfacePanel>
       </div>

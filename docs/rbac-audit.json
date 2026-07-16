@@ -1,11 +1,11 @@
 {
-  "generatedAt": "2026-07-16T10:47:48.424Z",
+  "generatedAt": "2026-07-16T11:11:23.806Z",
   "summary": {
     "permissionsInList": 54,
     "rolesDefined": 4,
     "apiRoutesAudited": 138,
     "pagesAudited": 47,
-    "callSitesAudited": 542,
+    "callSitesAudited": 550,
     "driftCount": 0,
     "driftByCode": {
       "perm-not-in-list": 0,
@@ -1874,7 +1874,7 @@
         },
         {
           "path": "src/app/files/page.tsx",
-          "line": 46
+          "line": 47
         },
         {
           "path": "src/app/shares/page.tsx",
@@ -2024,7 +2024,7 @@
         },
         {
           "path": "src/app/files/page.tsx",
-          "line": 45
+          "line": 46
         },
         {
           "path": "src/app/image-bed/page.tsx",
@@ -2083,7 +2083,7 @@
         },
         {
           "path": "src/app/files/page.tsx",
-          "line": 47
+          "line": 48
         },
         {
           "path": "src/app/storage/actions-nodes.ts",
@@ -2280,6 +2280,14 @@
           "line": 56
         },
         {
+          "path": "src/app/api/sync-jobs/route.ts",
+          "line": 35
+        },
+        {
+          "path": "src/app/api/sync-jobs/route.ts",
+          "line": 35
+        },
+        {
           "path": "src/app/downloads/page.tsx",
           "line": 16
         },
@@ -2443,6 +2451,30 @@
           "line": 28
         },
         {
+          "path": "src/app/api/sync-jobs/[id]/route.ts",
+          "line": 21
+        },
+        {
+          "path": "src/app/api/sync-jobs/[id]/route.ts",
+          "line": 21
+        },
+        {
+          "path": "src/app/api/sync-jobs/[id]/run/route.ts",
+          "line": 23
+        },
+        {
+          "path": "src/app/api/sync-jobs/[id]/run/route.ts",
+          "line": 23
+        },
+        {
+          "path": "src/app/api/sync-jobs/route.ts",
+          "line": 71
+        },
+        {
+          "path": "src/app/api/sync-jobs/route.ts",
+          "line": 71
+        },
+        {
           "path": "src/app/downloads/page.tsx",
           "line": 14
         },
@@ -2452,7 +2484,7 @@
         },
         {
           "path": "src/app/files/page.tsx",
-          "line": 44
+          "line": 45
         },
         {
           "path": "src/app/storage/actions-directories.ts",

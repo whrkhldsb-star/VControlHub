@@ -372,7 +372,7 @@ make logs SERVICE_PREFIX=vcontrolhub
 | 远程运行时 | 远程 Docker；Quick Services 本机/VPS；Compose 项目生命周期 |
 | 监控告警 | 后台采样；容量预测；**预测指标可挂告警规则**（days-to-85）；升级/值班/确认 |
 | 命令 / Playbook | 审批与 durable 执行；**失败路径可观测**（job 不假成功、终端审计、结果通知、rejected target 收口） |
-| 文件 | 检索、断点续传、版本历史、WebDAV；sftp-ops read/write/delete/rename → `fs-backend` |
+| 文件 | 检索、断点续传、版本历史、WebDAV；**节点间双向/镜像同步**（较新优先，不自动删）；sftp-ops → `fs-backend` |
 | 备份 | 细粒度恢复、演练、跨环境迁移向导（不自动 restore） |
 | 工单 / AI | 双向时间线；知识库 RAG；AI Ops 安全闭环 |
 | 集成 | 云账单账户（`teamId` scope + CSV/探针）；ITSM/IM 双向 |
@@ -382,10 +382,10 @@ make logs SERVICE_PREFIX=vcontrolhub
 | 项 | 说明 |
 |---|---|
 | K8s 全集群控制面 | 定位是 VPS/SSH 运维台，不是云原生控制平面 |
-| 企业级双向网盘同步 | WebDAV + 既有 Sync 任务覆盖挂载/调度；全量同步协议成本高 |
+| 企业级冲突解决网盘（版本树/锁文件） | 已提供 VPS 路径级双向合并（newer-wins）；非 Dropbox 式冲突中心 |
 | 强制向量库 / 商用 embedding | lexical RAG 已闭环；有检索质量硬需求再加深 |
 | 云账单 live SDK 默认路径 | 无密钥时易假成功；当前 CSV/探针 + live 显式失败 |
-| 跨浏览器全矩阵 / DAST / 压测 | 工程专项；Chromium 主路径已有 |
+| 跨浏览器全矩阵 / DAST / 压测 | 工程专项：同一套 E2E 在 Chromium+Firefox+WebKit 全跑；当前主路径 Chromium 已有，全矩阵成本高 |
 | 按行数机械拆前端 | 仅在真实复杂度或验收缺口时拆 |
 | 生产硬跑不可逆操作 | 关机、真全量 restore、密钥轮换等仅隔离验证 |
 
@@ -399,8 +399,9 @@ make logs SERVICE_PREFIX=vcontrolhub
 
 ### 下一步（优先完善现有）
 
-1. README 可做项已清；进入全量审计与持续升级（安全/正确性优先）  
-2. 有密钥与合规时再加深 live 云账单；有明确需求再评估双向文件同步（有意不做边界内）  
+1. 全量审计与持续升级（安全/正确性优先；如 DownloadTask/MediaItem scope）  
+2. 有密钥与合规时再加深 live 云账单  
+3. 双向同步后续可选：冲突报告面板、定时调度 UI 深化  
 
 ### 期望 vs 实际
 
