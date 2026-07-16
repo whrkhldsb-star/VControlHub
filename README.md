@@ -25,7 +25,7 @@
 
 ## ✨ 功能全景
 
-> 能力边界与功能向不足（多租户、远程 Docker、舰队监控等）见文末「[功能向不足与产品路线（2026-07-13）](#功能向不足与产品路线2026-07-13)」。
+> 能力边界、有意不做项与下一步见文末「[当前状态与路线](#-当前状态与路线)」。
 
 
 ### 🖧 服务器管理
@@ -38,31 +38,30 @@
 
 ### 📁 分布式云盘
 
-- **多节点挂载** — 统一浏览/上传/下载跨服务器文件
-- **在线预览** — 图片、视频、音频、文档、压缩包内容一览
-- **媒体库** — 聚合图片/视频/音频，支持可视化缩略图/视频首帧/音频封面、标签收藏、类型切换筛选和一键回到源文件/发布外链
-- **Aria2 下载** — 内置下载中心，远程任务管理
-- **图床外链中心** — 已发布图片外链复制、来源审计、批量管理与兼容直传入口
+- **多节点挂载** — LOCAL/SFTP 统一浏览、上传/下载、回收站与分享
+- **断点续传 / 版本历史** — 大文件分片续传；覆盖前自动快照，可恢复
+- **WebDAV** — `/api/webdav/{nodeId}`，Bearer/Basic API Token，可挂载客户端
+- **在线预览与检索** — 预览常见格式；LOCAL/SFTP 全文检索
+- **媒体库 / 图床 / Aria2** — 媒体聚合、外链发布、下载中心
 
-### 🐳 应用商店 (QuickService)
+### 🐳 应用商店与 Docker
 
-- **精选商店** — 44+ 本地 Docker 应用模板，一键部署
-- **社区推荐** — LinuxServer.io 等第三方应用源实时同步；可用数量以当前源返回结果为准
-- **应用源管理** — 自定义添加/同步第三方应用目录
-- **端口自动分配** — 智能检测可用端口，避免冲突
+- **Quick Services** — 44+ 模板；可安装到**本机或远程 VPS**
+- **Compose 项目生命周期** — 按项目 ps/up/down/start/stop/restart（CLI 优先，Engine 标签回退）
+- **社区源 / 端口分配** — 第三方源同步；智能分配端口
 
 ### 📊 监控与告警
 
-- **系统监控** — CPU / 内存 / 磁盘 / 网络实时图表
-- **自定义告警规则** — 灵活配置阈值和触发条件
-- **通知中心** — 站内通知 + WebSocket 实时推送
+- **舰队监控** — 远程节点资源；后台 `health.sample` 采样与历史
+- **容量预测** — 跨节点 CPU/内存/磁盘趋势，估算逼近 85%/95% 天数
+- **告警** — 阈值/冷却/静默；多级升级、值班路由、事件确认
+- **通知中心** — 站内 + 邮件/Telegram/Webhook 等渠道
 
 ### 🤖 AI 助手
 
-- **多模型支持** — OpenAI / Anthropic / 本地模型自由切换
-- **内置工具调用** — 13 项 hosted tools：服务器状态/日志/Docker/服务管理/命令执行/配置修改/Docker 部署/备份列表/Playbook 运行/流量查询/Cron 管理
-- **对话历史** — 多轮对话管理 + 上下文保持
-- **智能运维** — `/ai-ops` 页面提供 AI 驱动的运维建议与自动诊断
+- **多模型 + 受控工具** — OpenAI / Anthropic / 本地；VPS/日志/Docker/文件等 hosted tools
+- **知识库 / RAG** — 文档分块入库，聊天自动检索注入
+- **AI Ops** — 低风险自动动作 + 可解释报告；高风险仍需审批
 
 ### 🔐 安全与权限
 
@@ -75,13 +74,12 @@
 
 ### 🛠️ 运维工具
 
-- **定时任务** — Cron 风格调度 + 执行日志
-- **命令模板** — 可复用的 SSH 命令模板库
-- **Playbook 编排** — 多步骤命令编排，变量替换，条件执行
-- **数据备份** — 数据库 / 文件 / 全量三种备份模式，支持定时自动备份（cron 调度 + 保留策略）+ 异地 S3 上传
-- **部署管理** — 版本导出、最近部署重发、基于部署快照的真实回滚
-- **成本追踪** — 资源成本汇总与趋势分析
-- **智能运维** — AI 驱动的运维建议与自动诊断
+- **命令审批 / 模板 / Playbook** — 人在回路；Playbook durable 执行与崩溃续跑
+- **定时任务** — Cron 调度 + 执行日志
+- **备份** — DB/文件/全量；细粒度恢复；跨环境迁移包；演练不自动 restore
+- **工单** — SLA、看板；关联 VPS/命令；与审批执行双向时间线
+- **成本 / ITSM** — 预算与云账单账户（CSV/探针）；ITSM/IM 双向集成
+- **部署管理** — 导出版本、重发与快照级回滚
 
 ### 🎨 用户体验
 
@@ -128,7 +126,9 @@
 | API Token    | `/api-tokens`      | 集成用 Token 管理                                              |
 | 系统设置     | `/settings`        | 全局配置                                                       |
 | 个人偏好     | `/preferences`     | 用户偏好设置                                                   |
-| 健康检查     | `/health`          | 服务健康状态                                                   |
+| 健康检查     | `/health`          | 舰队健康 + 容量预测                                            |
+| 知识库       | `/knowledge`       | AI RAG 文档入库与试检索                                        |
+| ITSM 集成    | `/itsm`            | Slack/Telegram/钉钉/飞书等双向连接                             |
 
 ---
 
@@ -346,619 +346,75 @@ make logs SERVICE_PREFIX=vcontrolhub
 <!-- README_METRICS_START -->
 | 指标            | 数量                                             |
 | --------------- | ------------------------------------------------ |
-| 功能页面            | 47                                               |
-| API 路由文件        | 150                                              |
-| 数据模型            | 64                                               |
-| UI 组件           | 33                                               |
-| 代码行数            | ~186,341（src 扫描）                                 |
-| 测试              | 433 文件                                           |
+| 功能页面            | 49                                               |
+| API 路由文件        | 173                                              |
+| 数据模型            | 73                                               |
+| UI 组件           | 40                                               |
+| 代码行数            | ~203,844（src 扫描）                                 |
+| 测试              | 448 文件                                           |
 | Docker 应用模板     | 44 (本地) + 社区源实时同步                                |
-| i18n            | 217 useI18n() 调用点，78 字典文件                        |
+| i18n            | 228 useI18n() 调用点，81 字典文件                        |
 <!-- README_METRICS_END -->
 
 ---
 
-## 📋 代码审查与深度审计记录
+## 📌 当前状态与路线
 
-> 全面复核与修复日期：**2026-07-12**。范围包括 47 个页面、138 个 API 路由、60 个 Prisma 模型，以及认证、RBAC、CSRF、SSH/SFTP、文件一致性、前端浏览器行为、后台任务、部署资产、依赖和文档一致性。
+> 定位：单控制台管理 **VPS + 文件 + 运维审批**。P0/P1 主体能力已可作主力使用。  
+> 交付默认门禁：`tsc` / `lint --max-warnings=0` / i18n 成对 / RBAC 0 drift / `sudo bash deploy.sh` smoke 25/25。
 
-### 修复结论
+### 已具备（摘要）
 
-本轮审查记录的 47 项问题均已处理。质量门禁已经收紧：Lint 不再允许 warning，Prisma 格式检查和 README 指标检查已加入 `npm run verify`。安全方面增加 SFTP home 目录隔离、DNS rebinding 防护、SSE 并发控制和 nonce CSP；可靠性方面增加文件移动事务/补偿、等待式审计写入、前端后台轮询治理和真实浏览器回归测试。
-
-### 已完成修复
-
-| ID | 状态 | 修复内容 |
-|---|---|---|
-| REV-01 | ✅ | 修复 React ref render 写入；i18n missing key 45→0、zh/en mismatch 1→0；Prisma schema 已格式化。 |
-| REV-02 | ✅ | SFTP 上传改为直接消费 `File.stream()`，移除 `arrayBuffer()` 与 `Buffer.from()` 的整文件堆内存复制。 |
-| REV-03 | ✅ | 文件移动的主记录与目录子项改为 Prisma 事务；数据库失败时执行 backing object 补偿移动。 |
-| REV-04 | ✅ | 新增 `server:sftp:unrestricted` 权限；普通 operator 仅能访问 SSH 用户 home，管理员可显式获得全路径权限。 |
-| REV-05 | ✅ | 存储直连在实际 fetch 前重新解析 DNS，并拒绝 loopback、私网、link-local、metadata 和其他保留地址。 |
-| REV-06 | ✅ | 监控 SSE 增加每用户最多 3 条活跃连接、30 分钟最长连接时间，并在 abort/cancel 时可靠释放计数和 timer。 |
-| REV-07 | ✅ | 生产脚本 CSP 使用逐请求 nonce + `strict-dynamic`，移除脚本 `'unsafe-inline'` 与 `'unsafe-eval'`；`object-src` 收紧为 `none`。 |
-| REV-08 | ✅ | `auditUserAction`/`auditSystemAction` 改为 Promise，业务调用点统一 `await`，请求结束前完成审计落库尝试；失败提升为 error 日志。 |
-| REV-09 | ✅ | 新增 SFTP 路径隔离、DNS rebinding、CSP nonce 和文件移动事务回归测试；route catalog 继续对全部 138 条 API 的 guard mode 做全量检查。 |
-| REV-10 | ✅ | RBAC 扫描器支持动态 options 与 manual guard；当前 54 个权限、138 条 API、47 个页面的 drift 为 0。 |
-| REV-11 | ✅ | Prisma schema 已统一格式化，`prisma format --check` 加入完整门禁。 |
-| REV-12 | ✅ | 清理全部 61 个 Lint warning，包括死代码、无用导入、Hook 依赖和 effect 状态更新；Lint 使用 `--max-warnings=0`。 |
-| REV-13 | ✅ | 修复重置密码与下载清理弹窗的点击冒泡，内容区交互不再误触遮罩关闭。 |
-| REV-14 | ✅ | 补齐部署导出、Docker 资源、Playbook、系统导入、团队成员和密码重置表单的可访问名称；字段静态告警由 17 降至 7，剩余项均为通用透传组件或注释误报。 |
-| REV-15 | ✅ | 新增可见性感知定时器；流量、Docker、下载、健康、通知和服务器自动探测在后台标签页暂停，恢复可见时立即同步，且继续防止重叠请求。 |
-| REV-16 | ✅ | 监控 SSE fallback 防止重复 interval，并随页面可见性暂停；团队切换移除延迟整页 reload，改为本地状态同步、数据刷新和 Router refresh。 |
-| REV-17 | ✅ | 移除会在 React selective hydration 期间修改未完成节点的 DOM 翻译桥；完整 i18n 字典继续作为唯一翻译来源，消除登录页 hydration mismatch。 |
-| REV-18 | ✅ | PWA 首次安装不再因 `controllerchange` 无条件刷新页面；只有用户明确确认更新后才刷新，修复首次登录成功后被竞态拉回登录页。 |
-| REV-19 | ✅ | Tailwind v4 class discovery 限定到 `src/`；Playwright trace/report 移至隐藏产物目录并加入忽略规则，避免失败报告中的 HTML 片段破坏 CSS 编译。 |
-| REV-20 | ✅ | 修复客户端 branding 环境变量未被 Next.js 内联导致的中英文 hydration mismatch；重构认证 E2E 会话假设，并新增核心页面、移动端溢出、键盘登录、5xx 与 pageerror 浏览器测试。 |
-| REV-21 | ✅ | 新增统一 `ConfirmDialog`，迁移 Playbook、SSH 文件、备份计划、定时任务和团队空间的危险操作确认流程；集中复用焦点锁定、Esc、遮罩、忙碌态与危险按钮样式，并补充组件回归测试。 |
-| REV-22 | ✅ | 服务器监控卡迁移到可见性感知轮询；快捷服务的目录合并、搜索、排序、分组、推荐项和状态汇总抽成可缓存纯函数，降低主客户端组件职责并补充派生模型测试。 |
-| REV-23 | ✅ | 改进无障碍审计器对 JSX runtime text、通用透传组件和源码注释的识别，消除 45 个按钮与 7 个字段误报；当前 306 个表单字段全部有可访问名称，icon-only button 可信告警为 0。 |
-| REV-24 | ✅ | 修复生产运行中覆盖 `.next` 导致 Client Manifest 与进程内模块映射失配的整站 500；自定义 HTTP server 现在可在 SIGTERM 下约 1 秒优雅退出，`deploy.sh` 改为停服务后构建且失败自动恢复，构建入口会阻止对当前运行目录执行危险 live build。生产实例随后完成 Chromium 真实登录、核心页面、移动端、键盘、5xx 与 pageerror 回归。 |
-| REV-25 | ✅ | 修复公告增删改后页面缓存与客户端状态不同步、模板可选描述发送 `null`、备份计划动态路由参数读取错误、登录快慢限流窗口共用 bucket 等真实 CRUD 问题。 |
-| REV-26 | ✅ | 修复文件夹创建与上传完成时 `router.refresh()` 和 SPA 目录刷新竞争，以及内联回调引用变化造成成功 effect 重复执行；分享结果增加关闭入口，公开分享空路径不再发送无效 `path=`。 |
-| REV-27 | ✅ | 图片上传到 LOCAL/SFTP 后同步创建或恢复 `FileEntry`，普通上传和分片上传统一打通“写入存储 → 文件索引 → 媒体扫描”；失败时补偿图床文件、存储副本和数据库记录。 |
-| REV-28 | ✅ | API 限流默认按 pathname 隔离 bucket，避免上传、扫描、收藏、标签与发布等不同正常操作互相消耗额度并误报 429。 |
-| REV-29 | ✅ | 修复图床桌面悬浮操作层拦截图片预览点击，补齐空白区预览行为，并将“添加”“删除”等模糊按钮名称改为“添加标签”“删除图片”。 |
-| REV-30 | ✅ | 修复图床删除对新旧 `relativePath` 存储格式不兼容导致的 502；已认证图片列表改为不复用陈旧缓存，删除成功后卡片立即从界面消失。 |
-| REV-31 | ✅ | 媒体上传、扫描、搜索、收藏、标签、动态详情、发布外链、图床搜索、预览、复制和删除已在生产 Chromium 中逐步真实操作通过。 |
-| REV-32 | ✅ | 增加真实 CRUD、文件管理、媒体图床和剩余用户工作流 Playwright 套件，覆盖设置标签、偏好持久化、通知已读、流量、Docker 日志、快捷服务、QA 详情、审计、AI/AI Ops、下载任务及服务器探测。 |
-| REV-33 | ✅ | AI 助手页面补齐唯一一级标题，修复页面从 `h2` 开始的语义层级缺口，改善屏幕阅读器和页面大纲导航。 |
-| REV-34 | ✅ | Webhook 测试与真实告警发送同时检查安全 fetch 的结构化失败和 HTTP 状态，不再把 DNS/SSRF 拒绝、网络失败或 HTTP 5xx 误报为成功。 |
-| REV-35 | ✅ | 备份恢复 worker 不再自行伪造 `RESTORE` 确认；缺失或篡改确认字段时 fail closed，执行器仍保留独立二次校验。 |
-| REV-36 | ✅ | 备份恢复前强制重新计算并比对 SHA-256；缺少校验值或归档被修改时拒绝执行。 |
-| REV-37 | ✅ | SMTP 增加连接、问候和 socket 超时，Telegram 增加 15 秒请求超时，防止外部服务异常时长期占用请求或 worker。 |
-| REV-38 | ✅ | Docker 操作失败返回真实非 2xx 状态；QuickService 仅复用操作和删除数据选项完全一致的任务，不同操作改为冲突拒绝。 |
-| REV-39 | ✅ | 完成源码与测试瘦身审计：移除 6 个全仓零引用组件/工具、零引用 `clsx` 与冗余 DOMPurify 类型包、重复 Tab CSS 和空的 skipped 测试；保留跨模块安全契约测试，完整套件无 skipped。 |
-| REV-40 | ✅ | 升级共享前端 primitives：移除整包 `use client` 边界和 14 个未使用导出，重写为 6 个真实使用、格式清晰且 server-safe 的展示/表单组件；删除失效 CSS hooks，并补充组件边界规范。 |
-| REV-41 | ✅ | 基于重复代码扫描继续瘦身：删除已无生产调用、仅由自身测试保活的旧 SSH Terminal Modal/SidePanel，实现统一到多标签 TerminalPanel；合并 `/` 与 `/dashboard` 的重复查询和渲染为单一 DashboardContent。 |
-| REV-42 | ✅ | 合并代码片段新建/编辑弹窗为单一模式化 SnippetModal，共享字段、标签解析、提交状态和错误处理；POST/PATCH、初始值与成功提示继续按模式隔离，减少约 160 行重复代码。 |
-| REV-43 | ✅ | Docker 容器与资源 API 统一复用 Unix Socket 客户端；E2E trusted session 强制数据库为回环地址；备份恢复和 QuickService 长任务增加周期 lease heartbeat，降低超时后重复领取风险。 |
-| REV-44 | ✅ | AI action 执行增加数据库 optimistic CAS claim 和已执行拒绝，避免并发重复执行；所有 `withApiRoute` 响应增加 `x-request-id`；新增 quick/merge/deploy/nightly 四层测试命令。 |
-| REV-45 | ✅ | Monitoring JSON 与 SSE 路由统一复用单一 `/proc` 指标采集器，消除 CPU、内存、磁盘、网络、Top 进程和 TCP 连接的双份实现。 |
-| REV-46 | ✅ | SFTP 列表、下载与操作路由统一复用 StorageNode 查询、SFTP 类型校验和 SSH 凭据解析，保留各路由独立的路径、授权和流式资源管理。 |
-| REV-47 | ✅ | 修复服务启动后另一构建入口覆盖 `.next` 导致生产静态资产 500：所有 Next build 脚本统一强制运行保护器，未协调的生产构建一律拒绝；`deploy.sh` 增加跨进程 `flock`，仅在持锁且服务停止后授权构建。重新部署后 smoke 25/25、生产 HTML 引用的 15 个 JS/CSS 资产全部 200，Chromium 全页面/桌面/移动端/全局控件真实回归 4/4 通过。 |
-
-### 验证状态（2026-07-11）
-
-| 检查 | 结果 |
+| 域 | 能力 |
 |---|---|
-| `npm run typecheck` | ✅ 通过 |
-| `npm run lint` | ✅ 0 errors / 0 warnings |
-| `npm run i18n:key-check` | ✅ missing 0 / orphan 0 / zh-en mismatch 0 |
-| `npm test` | ✅ 399 files passed；2771 passed / 0 skipped |
-| `npm run route:verify` | ✅ 47 pages / 138 API routes / 54 permissions |
-| `npm run rbac:audit` | ✅ 0 drift |
-| `npx prisma validate` / `npx prisma format --check` | ✅ 通过 |
-| `npm audit --omit=dev` | ✅ 0 vulnerabilities |
-| `npm run build` / `npm run build:runtime` | ✅ Next.js 生产构建与两个 Node runtime bundle 均通过 |
-| Playwright Chromium | ✅ 全部静态页面巡检、桌面导航、390px 移动端、键盘、CRUD、文件/分享、媒体/图床、设置/偏好、通知、Docker、流量、快捷服务、QA、审计、AI、下载及服务器安全探测流程通过；REV-47 部署后探索式生产回归 4/4 通过 |
-| `npm run verify:deploy-assets` | ✅ 通过；无 Docker Compose 插件时自动执行离线 YAML/部署契约校验，不再跳过 |
-| `npm run docs:check` | ✅ README 指标为最新 |
+| 安全 | RBAC、CSRF、限流、审计、advisory lock 同 session、SSH host-key pin |
+| 多租户 | 核心模型 Team scope；任务列表可见性收窄 |
+| 远程运行时 | 远程 Docker；Quick Services 本机/VPS；Compose 项目生命周期 |
+| 监控告警 | 后台采样；容量预测；告警升级/值班/确认 |
+| 文件 | 检索、断点续传、版本历史、WebDAV |
+| 备份 | 细粒度恢复、演练、跨环境迁移向导（不自动 restore） |
+| 工单 / AI | 双向时间线；知识库 RAG；AI Ops 安全闭环 |
+| 集成 | 云账单账户 + CSV/探针；ITSM/IM 双向 |
 
-> “项目规模”的测试文件数量包含 Vitest、Playwright E2E 和其他测试资产；`npm test` 的 400 个文件仅统计 Vitest 实际执行的测试文件，两者口径不同。
+### 有意不做 / 产品边界
 
-> 最后一次完整 `npm run verify` 已通过。Next.js 仍会提示自定义 `/_next/static/*` Cache-Control 可能影响开发模式；Caddy 对同时声明 HTTP/HTTPS 的 Flexible 模式会提示不自动重定向，这是该示例的预期行为。
-
-### 已确认的良好实现
-
-- Session、CSRF、API guard、RBAC service-layer 检查和登录限流已形成多层防护；公开路径和 bearer-token bypass 范围较窄。
-- SSH/SFTP 关键连接使用主机密钥校验；存储路径工具普遍采用规范化与根目录边界检查。
-- 密码使用 bcrypt，敏感凭据有加密存储路径，分享 token 使用带盐派生；仓库未发现被 Git 跟踪的 `.env`、私钥或数据库文件。
-- Prisma schema 大量使用唯一约束、索引和级联策略；原始 SQL 调用使用 Prisma 参数化模板。
-- 依赖锁文件存在，生产依赖审计为 0 已知漏洞；部署模板、systemd/Caddy 资产和环境变量占位检查较完整。
-- 后台命令、备份、下载和 AI 审批已有 durable job/CAS/worker ownership 等并发保护；本轮还逐层复核了危险操作的前端确认、权限、schema、队列载荷、worker 和执行器边界。
-
-### 2026-07-12 残余深度审计（续）
-
-> 在 REV-01…REV-47 之上，对竞态、审计缺口、假成功路径、webhook SSRF、错误文案和删除一致性做了第二轮落地修复。提交：`113f5a7a`、`d2c2e760` 及后续。
-
-#### 本轮已修复
-
-| ID | 状态 | 内容 |
-|---|---|---|
-| BE-1 | ✅ | Ticket 状态机 TOCTOU → `updateMany` CAS（期望旧 status） |
-| BE-2 | ✅ | Backup void/retry TOCTOU → 仅 PENDING/FAILED 可 void、仅 FAILED 可 retry |
-| BE-3 | ✅ | 同备份并发 restore → PostgreSQL session advisory lock + 进行中 restore job 去重 |
-| BE-4 | ✅ | Share 下载配额竞态 → `accessCount < maxDownloads` 原子 claim |
-| BE-5 | ✅ | Playbook webhook SSRF → schema 语法校验 + `fetchWebhookSafely` 执行路径 |
-| BE-6/7 | ✅ | 存储软删/永久删：索引先更新/删除（事务），物理删 best-effort；软删返回 `physicalDeleted` / `needsReconcile` |
-| BE-8 | ✅ | Sync job `IDLE/ERROR → RUNNING` CAS claim |
-| BE-9/10 | ✅ | 工单创建/评论、命令审批/驳回审计补齐 |
-| BE-18/19 | ✅ | downloads notify、quick-service status 的空 `.catch` 改为结构化 warn 日志 |
-| 文案 | ✅ | API 粘连英文错误（如 `CreateFailed` / `UsernameAlready exists`）改为可读英文 |
-| 审计残留 | ✅ | server batch/gateway、image batch、app-source sync/toggle、media scan/update、storage create/rename/delete/restore/permanent、backup create/offsite/retention |
-| BE-20 | ✅ | Share 旧 SHA-256 密码：成功校验后透明升级为 scrypt 并 CAS 回写；新密码只写 scrypt |
-| 静默 catch 收紧 | ✅ | auth 改密审计 `await auditUserAction`；downloads/command/scheduled-task/health/vps-backup 等关键路径空 catch 改为结构化 warn |
-| BE-21 | ✅ | VPS backup 本地下载路径校验：拒绝 `..`/绝对路径，限制在 `storage/vps-backups/`；删除/下载共用解析 |
-| BE-22 | ✅ | VPS backup `PENDING/FAILED → RUNNING` CAS，避免双 worker 同跑 |
-| BE-23 | ✅ | AI hosted action `reject` 改为 `updateMany` CAS（含非审批人的 requester 范围） |
-| 文档 | ✅ | openapi.json 路由注释修正为 delegated（实际仍 requireAuth） |
-| BE-24 | ✅ | VPS backup schedule tick：`findFirst RUNNING` 竞态 → PostgreSQL advisory lock + 过期 lease 回收 |
-| BE-25 | ✅ | 命令执行 / 下载 SCP：已 pin 的 `hostKeySha256` 经 ssh2 校验后再连；未 pin 仍 accept-new 引导 |
-
-#### 全量扫描记录（2026-07-12 第三轮）
-
-> 范围：138 个 API 路由、`src/lib` 竞态/路径/SSRF/静默失败、SSH 主机密钥路径。只记录 **HIGH/MEDIUM** 与经确认的产品边界，不重复 BE-1…BE-23 已修项。
-
-##### 扫描方法
-
-| 维度 | 方法 |
+| 项 | 说明 |
 |---|---|
-| API 鉴权 | 全量 `route.ts` 是否经 `withApiRoute` / 登录专用 / public share |
-| IDOR | 动态 `[id]` 路由：权限角色 vs service 层 ownership |
-| 竞态 | `status: RUNNING`、`findUnique`+`update` 无 `updateMany`、schedule tick 锁 |
-| 路径 | `join/resolve` + 用户可控 path、backup/storage 可移植路径 |
-| SSRF | 裸 `fetch(` 是否经安全 URL 断言 |
-| 静默失败 | 生产路径 `.catch(() => {})` / 空 `catch {}` |
+| K8s 全集群控制面 | 定位是 VPS/SSH 运维台，不是云原生控制平面 |
+| 企业级双向网盘同步 | WebDAV + 既有 Sync 任务覆盖挂载/调度；全量同步协议成本高 |
+| 强制向量库 / 商用 embedding | lexical RAG 已闭环；有检索质量硬需求再加深 |
+| 云账单 live SDK 默认路径 | 无密钥时易假成功；当前 CSV/探针 + live 显式失败 |
+| 跨浏览器全矩阵 / DAST / 压测 | 工程专项；Chromium 主路径已有 |
+| 按行数机械拆前端 | 仅在真实复杂度或验收缺口时拆 |
+| 生产硬跑不可逆操作 | 关机、真全量 restore、密钥轮换等仅隔离验证 |
 
-##### 本轮新发现 → 已修
+### 仍有边界（非「系统不可用」）
 
-| ID | 严重度 | 位置 | 问题 | 处理 |
-|---|---|---|---|---|
-| BE-24 | MEDIUM | `src/lib/backup/vps-backup-schedule-worker.ts` | tick 用「查有无 RUNNING job」非原子，多进程可双 tick | `pg_advisory_lock` + 过期 lease 标记 FAILED |
-| BE-25 | HIGH | `command/service-execution.ts`、`downloads/execution.ts` | CLI `StrictHostKeyChecking=accept-new` + 丢弃 known_hosts，**已 pin 指纹未参与校验** | pin 存在时先 ssh2 `hostVerifier` 校验；下载走 sftp；未 pin 保持引导 |
-
-##### 扫描结论：未发现新的 CRITICAL 未修项
-
-| 区域 | 结论 |
+| 级别 | 项 |
 |---|---|
-| API 无 guard | 仅 login、2FA verify-login、share token（预期）；downloads 为 reexport；openapi 实际 `requireAuth` |
-| requireAuth-only 路由 | teams/AI hosted-actions 在 **service 层**做成员/权限；monitoring/status/signout 为预期设计；image file 对非公开图做 owner/`image:read` |
-| Job events / operation-tasks | `task:read` 角色可读运维任务流——**有意的运营可见性**，非匿名 IDOR |
-| Backup/VPS/AI/Sync CAS | 关键状态机已 CAS 或 advisory lock（含 BE-1…23 + 24） |
-| 存储/图床路径 | image `resolveUploadPath` 有 root 边界；share path normalize 拒 `..` |
-| direct-access fetch | 先 `assertPublicBaseUrlResolvesPublic` 再 health fetch |
-| 裸 fetch 其它 | AI provider / Telegram / aria2 / 客户端 api-client：配置端点或同站，非用户任意 URL |
-| 空 catch 残留 | 仅 unlink 清理、ssh stream close 等 best-effort；非业务假成功 |
-
-##### 有意接受 / 待产品决策（写入升级路线，非本次硬修）
-
-| ID | 严重度 | 项 | 说明 |
-|---|---|---|---|
-| OPEN-1 | ✅ 已修复 | 未 pin 主机的 `accept-new` | FEAT-OPEN-1: 新增 `SSH_ENFORCE_HOST_KEY_PIN` 配置项；启用后无 `hostKeySha256` 的服务器连接被拒绝，强制用户先完成指纹审批；`createSshConfig` 和 `buildSshParamsFromServer` 全链路支持 |
-| OPEN-2 | ✅ 已修复 | Sync rsync SSH 仍 `accept-new` | FEAT-OPEN-2: rsync/tar 同步前通过 ssh-keyscan + 指纹比对验证目标主机密钥 |
-| OPEN-3 | ✅ 已修复 | Download 任务状态更新非 CAS | FEAT-OPEN-3: PENDING→RUNNING 状态转换改用 updateMany + where status=PENDING，CAS 防重 |
-| OPEN-4 | ✅ 已修复 | `task:read` 任务和 job events 可见性 | 普通用户仅可见自己创建/请求的任务；`team:manage` 可见团队范围；列表、CSV 和事件时间线统一 scoped lookup |
-| OPEN-5 | ✅ 无需修复 | Share 旧 SHA 分支 | 审查确认：tokenHash 已全量使用 SHA-256，无旧 SHA-1 兼容分支 |
-| OPEN-6 | 范围外 | 全浏览器 E2E / DAST / 压测 / 不可逆生产实测 | 见审查边界 |
-
-### 2026-07-12 前端专项扫描
-
-> 范围：约 230 个 `"use client"` 组件、表单、预览 XSS 面、轮询/定时器、密码字段、公开分享 UI。后端 API 扫描见上文；本节约前端。
-
-#### 扫描方法
-
-| 维度 | 方法 |
-|---|---|
-| XSS | `dangerouslySetInnerHTML` / `innerHTML` / `eval` / markdown 渲染 |
-| 敏感信息 | localStorage 键、密码是否进 URL/history |
-| 网络 | 客户端 `fetch` vs `csrfFetch`、`.ok` 检查 |
-| 状态 | `setInterval` 清理、visibility 轮询、假成功 |
-| a11y 基线 | icon button aria、password autocomplete、confirm 对话框 |
-
-#### 已修复
-
-| ID | 严重度 | 内容 |
-|---|---|---|
-| FE-1 | **HIGH** | 公开分享密码门：原先用 `<a href="...?password=">` 把密码放进 URL（历史/日志/Referer 泄露）。改为 `fetch` + `X-Share-Password` 头下载；API 支持 header，query 仍兼容旧书签 |
-| FE-2 | LOW | 用户创建/重置、AI API Key、SSH 密钥口令等密码框补 `autoComplete` |
-
-#### 扫描结论（未发现其它 CRITICAL）
-
-| 区域 | 结论 |
-|---|---|
-| XSS 预览 | markdown 经 `sanitizeHtml`；代码高亮先 `escapeHtml`；AI markdown 用 React 节点 + escape，外链 `rel=noopener noreferrer` |
-| `eval` / `document.write` | 未发现 |
-| localStorage | 偏好/主题/SSH 收藏命令等，无 session/token 密钥 |
-| `target=_blank` | 未发现缺 `rel` 的问题样本 |
-| 轮询 | `useVisibilityInterval` / monitoring SSE fallback 有 cleanup；`auto-probe-context` 的 setInterval 为误报（setter 名） |
-| 危险 confirm | 未发现裸 `window.confirm`（已统一 ConfirmDialog 方向） |
-| error.tsx | 主要路由段均有 `error.tsx`（约 48 个） |
-| 客户端 GET fetch | 预览/搜索/监控等只读路径用 `fetch` 合理；写操作普遍 `csrfFetch` |
-| icon-only 按钮 | 启发式 0 个无 aria-label |
-
-#### 有意接受 / 后续（前端）
-
-| ID | 项 | 说明 |
-|---|---|---|
-| FE-OPEN-1 | 全量视觉/交互 E2E | Chromium 主路径已有 Playwright；非本轮全矩阵 |
-| FE-OPEN-2 | 大型 Client 拆分 | 见架构升级路线 P0 |
-| FE-OPEN-3 | 部分表单仅 id 无 name 的受控组件 | 走 API JSON，非原生 form POST，可接受 |
-
-### 2026-07-12 前端美化重构（FE-UI）
-
-> 目标：信息架构更直观、全局壳更统一，而不是逐页重写业务逻辑。
-
-| 项 | 内容 |
-|---|---|
-| 导航 IA | 27 个主入口改为 5 组（总览 / 文件 / 运维 / AI 协作 / 配置）+ 系统管理；侧栏内筛选；分组可折叠 |
-| 侧栏视觉 | 更紧凑的链接、活动态左侧 accent 条、账户区卡片化、筛选框 |
-| Page shell | `PageHeader` / `Toolbar` / `Section` / `EmptyState` / `StatCard` 视觉升级 |
-| globals | 卡片阴影层次、嵌套卡降噪、表格表头/行 hover、`data-toolbar` / `data-input` |
-| 移动底栏 | 毛玻璃 + 活动 tab 底色高亮 |
-| 图标 | monitoring / cost 独立图标，减少重复 |
-
-下一阶段已完成：关键业务页（servers/files/dashboard）均已接入 `PageShell` / `PageHeader` 和共享列表/表面 primitives；后续只按真实复杂度或验收缺口继续拆分，不以行数机械重构。
-
-### 2026-07-12 前端全站视觉升级（FE-UI Round 2）
-
-| 覆盖面 | 内容 |
-|---|---|
-| 全局 CSS | 全站面板/输入/表格/嵌套卡/工具栏统一；减少硬编码深色噪声 |
-| 公开页 | 登录、2FA、分享页、公开状态、offline、404、route/root error 卡片化与背景统一 |
-| 业务页 | API Docs 接入 PageShell/Toolbar；图床/媒体 hero 与 token 化背景；AI 壳背景对齐 |
-| 已有壳 | docker/monitoring/traffic/preferences 等已用 PageShell，随全局样式一并受益 |
-
-说明：47 个路由中绝大多数业务页此前已使用 `PageShell`；本轮重点把**全局样式 + 公开页 + 遗漏壳**补齐，使“每个页面都有可见升级”。
-
-### 2026-07-13 模块精细美化（FE-UI Round 3）
-
-| 模块 | 改动 |
-|---|---|
-| **VPS 管理** | Tab 改为图标+说明的信息架构；节点卡片层级/状态点/字段块重排；页头统计与优先级提示条升级 |
-| **文件管理** | 列表工具栏选择态/视图切换；侧栏树更紧凑；顶部统计与快捷入口卡片统一 |
-| **仪表盘** | 页头快捷入口；服务器英雄区与 Stat 色阶统一 |
-| **下载中心** | 状态筛选条工具栏化、主 CTA 强化、全局速度条语义色 |
-| **设置** | 粘性分类 Tab 毛玻璃与圆角统一 |
-
-### 2026-07-13 模块精细美化（FE-UI Round 4）
-
-| 模块 | 改动 |
-|---|---|
-| **工单** | 列表统计卡、状态/优先级色阶、创建表单与详情页卡片层级 |
-| **运维任务** | 状态 Stat 色阶、失败摘要区、筛选工具栏与任务行 hover |
-| **AI** | 侧栏会话选中态、聊天头毛玻璃、空状态卡片化主 CTA |
-| **用户/审计** | 创建用户主按钮与表单圆角；审计页快捷链接统一 |
-
-### 2026-07-13 模块精细美化（FE-UI Round 5）
-
-| 模块 | 改动 |
-|---|---|
-| **部署** | 流程步骤卡、最新部署区、运行列表 hover 与状态色 token 化 |
-| **Docker** | 作用域提示、工具栏徽章、刷新按钮与容器卡层级 |
-| **监控** | 卡片标题层级、工具栏按钮、内存条与危险/警告提示统一 |
-| **流量** | Card/RateBadge 语义色与边框统一 |
-
-### 2026-07-13 模块精细美化（FE-UI Round 6）
-
-| 模块 | 改动 |
-|---|---|
-| **模板** | 标签筛选胶囊、创建/部署主 CTA、模板卡与命令块层级 |
-| **计划任务** | 搜索框/创建按钮、任务卡与 Cron 语义色、表单输入 token 化 |
-| **分享** | 列表状态色、行 hover、创建表单主按钮 |
-| **请求审批** | 分区徽章、请求卡与 Info 区块统一 |
-| **健康/片段** | 页头计数与无权限面、片段主色收敛 |
-
-### 2026-07-13 模块精细美化（FE-UI Round 7 · 扫尾）
-
-| 模块 | 改动 |
-|---|---|
-| **通知** | 未读/已读卡片态、动作链接 accent 化 |
-| **API Token** | 创建表单/列表卡 token 化，主 CTA 统一 |
-| **公告** | 级别色、搜索筛选输入、编辑主色 |
-| **快速服务** | 页头链接、服务卡与安装按钮 |
-| **Playbooks / 备份** | 卡片层级与摘要标签 |
-| **全局扫尾** | 残留 `color-action-strong` 主按钮收敛为 accent |
-
-### 2026-07-13 UX 走查 + 主题一致性 + 移动端（FE-UI Round 8）
-
-真实账号路径验收（登录→VPS→文件→下载→审批）：见 [`docs/path-walkthrough-checklist.md`](docs/path-walkthrough-checklist.md)；无登录网关冒烟：`bash scripts/path-walkthrough-smoke.sh`。
-
-
-| 方向 | 改动 |
-|---|---|
-| **真实路径 UX** | 请求审批区更紧凑；Toast 避开底栏；PageShell/主区预留 bottom-nav + safe-area |
-| **明暗主题** | 遮罩/代码井/`bg-black/*` 主题化；浅色下危险 `light:bg-[var(--danger)]` 等实心色清除；accent 兼容旧 color-action |
-| **移动端** | 底栏 active/shadow token 化；文件列表分隔线；表格横向滚动容器；AI 高度用 `dvh`；全局搜索/底栏安全区 |
-
-
-
-
-
-
-
-
-##### 补扫确认（防漏项 · 后端）
-
-在第三轮主扫之后又做了一轮**防漏补扫**，结论如下（均不构成新的未记录 CRITICAL）：
-
-| 区域 | 结果 |
-|---|---|
-| API `route.ts` 138 + downloads 子模块 4 | 无 guard 仅 login / 2FA / share；子模块均 `withApiRoute` |
-| Server Actions（`actions*.ts`） | 业务 action 均有 session/权限；`actions.ts` / `actions-helpers` 仅为 barrel/类型 |
-| Edge 鉴权 | Next 16 使用 `src/proxy.ts`（非 middleware.ts）：公开路径白名单 + session cookie 形态检查 |
-| SSH / 通知 WS | `ssh-ws-proxy` 校验 session JWT + `canUseSshTerminal`；`notification-ws` 校验 token |
-| 自定义 `server.ts` | 仅挂 Next + 通知 WS，鉴权在 WS 层 |
-| SQL | 仅参数化 `$executeRaw` / `$queryRaw`，**无** `*RawUnsafe` |
-| XSS 预览 | `dangerouslySetInnerHTML` 仅 markdown/代码高亮，经 `sanitizeHtml` / `sanitizeHighlight` |
-| 空 catch 残留 | unlink / stream close 清理类 |
-| 密钥入库 | 仓库仅 `.env.example`，无跟踪私钥/真实 env |
-|| 已知残留 OPEN | download 非 CAS（OPEN-3）等已在上表；OPEN-1/OPEN-2（SSH pin）已于 2026-07-14 全路径收口 |
-
-**结论**：服务端高/中优先级安全与一致性问题已在 BE-1…BE-25 覆盖；前端 FE-1 已修；剩余项均为产品边界、引导路径或范围外验证，**未发现扫描漏掉的新 CRITICAL/HIGH 未修缺陷**。
-
-#### 有意未做 / 待迁移窗口（不要误当“漏修”）
-
-以下项**不是遗忘**，而是需要产品策略、数据迁移窗口或更大架构改动；在完成前保持兼容或接受已知边界：
-
-| 项 | 原因 | 建议路径 |
-|---|---|---|
-| **前端交互层全量 E2E 矩阵** | 本轮优先服务端竞态/审计/一致性；Playwright 已有主路径但非 Firefox/WebKit 全矩阵 | 继续扩展可逆 CRUD / 文件 / 分享 / 媒体套件；跨浏览器放入 nightly |
-| **危险操作跨进程硬锁（全集）** | restore + VPS schedule tick 使用统一 advisory lock；2026-07-14 已修复连接池下 session lock 获取/释放不在同一 PostgreSQL 会话的问题 | 后续按风险逐项扩展到更多危险操作 |
-| **不可逆生产副作用实测** | 关机、删生产容器、真实全量 restore、密钥轮换、外发通知等未在生产上硬跑 | 隔离环境 + 调用链静态推演 + mock；见「审查边界」 |
-| **覆盖率 / DAST / SAST / 压测** | 非本轮交付范围 | `test:coverage`、容器扫描、专用安全扫描、高并发压测单独排期 |
-| **Sync CLI SSH 主机密钥 pin** | ✅ 已收口：实际 rsync/tar 连接使用经过 SHA-256 pin 匹配的临时 known_hosts，StrictHostKeyChecking=yes | 临时凭据与 known_hosts 在命令结束后清理 |
-
-#### 验证（全量扫描 + BE-24/25 + 安全架构修复后）
-
-| 检查 | 结果 |
-|---|---|
-| `npx tsc --noEmit` | ✅ |
-| ESLint `--max-warnings=0` | ✅ |
-| i18n key completeness (3946/3946, 0 orphan) | ✅ |
-| RBAC audit (54 perms, 0 drift) | ✅ |
-| Route verify (47 pages, 138 routes) | ✅ |
-| 聚焦 Vitest（377 项） | ✅ |
-| `npm run build:runtime` + `npx next build --webpack` | ✅ |
-| 生产部署 smoke（25/25） | ✅ |
-| Git commit + push `main` | ✅ `eb03bc98` + `908eabe6` |
-
-### 审查边界
-
-- 本轮已连接当前生产 PostgreSQL、systemd、Caddy、Docker、已配置服务器探测和下载 worker，并在隔离账号/唯一前缀数据下复测；关机、删除现有容器、安装/卸载真实服务、真实备份恢复、强制 AI 自主执行、密钥轮换和通知外发采用完整调用链静态推演、配置核对及 mock/隔离验证，未对生产资源产生这些不可逆或外部副作用。
-- Playwright 已覆盖 Chromium 桌面端、390px 移动端和主要安全可逆流程，但未执行 Firefox/WebKit 跨浏览器矩阵；也未执行 `npm run test:coverage`、容器镜像扫描、DAST、SAST 专用扫描器或高并发压测。
-- 当前工作区在本次审查前已有部署模板与 RBAC 报告的未提交修改；本节结论以审查时工作树为准。
-
-### 持续升级路线（2026-07-12）
-
-以下项目是当前架构升级的正式工作清单。只有通过类型检查、完整测试、生产构建、部署 smoke 和真实浏览器复核后，才会从“进行中”调整为“已完成”。
-
-| 优先级 | 状态 | 升级方向 | 验收标准 |
-|---|---|---|---|
-| P0 | ✅ 第一批完成 | 收敛大型 Client Component，将数据获取、mutation、展示区块和弹窗拆到稳定边界 | 已无 1000+ 行巨型组件；当前高复杂候选为 alert-rule-list-client(418行)、docker-page-client(430行)、text-preview-client(498行)；桌面/移动浏览器回归通过 |
-| P0 | ✅ 阶段性 | 导航信息架构 + 全局页面壳美化 | 侧栏分组/筛选、PageHeader/Toolbar/EmptyState 升级、表格/卡片/移动底栏统一；提交见 FE-UI 记录 |
-| P0 | ✅ 第一批完成 | 收敛 `globals.css` 历史兼容规则，迁移到明确的 primitives 与 `data-*` hooks | 已删除 59 行零命中暗色主题 shim（bg-slate-950/900/800、bg-white/*、border-white/*、table-wrapper）；深浅主题视觉回归通过 |
-| P1 | ✅ sftp-ops 已迁移 | 合并文件动作的重复核心 | sftp-ops delete/rename 已迁移到统一 `fs-backend`，采用 index-first 语义（先更新索引再删物理文件）；继续收敛 write/create 路径 |
-| P1 | ✅ 关键路径完成 | 强化危险操作跨进程锁和崩溃恢复 | lease、AI CAS、backup restore / VPS schedule tick advisory lock 已完成；锁使用专用 pg 连接保证同 session 持有/释放，并有真实双连接集成测试 |
-| P1 | ✅ CLI 路径完成 | SSH 主机密钥 pin 全路径收口 | 命令执行和 Sync rsync/tar 均生成匹配已保存 SHA-256 pin 的临时 known_hosts，实际连接强制 StrictHostKeyChecking=yes；首次连接仍需显式指纹审批 |
-| P2 | ✅ 第一批完成 | API 延迟与队列积压可观测性 | `withApiRoute` 增加 `Server-Timing` 响应头和结构化耗时日志；新增 `/api/jobs/backlog` 聚合查询（pending/running/expired/failed/byType） |
-
-> 当前功能优先保持稳定，不以引入大型状态管理框架或无收益的文件拆分为“升级”；优化必须带来更小的重复面、更清晰的所有权或更可靠的运行时行为。
-
-### 功能向不足与产品路线（2026-07-13）
-
-> **定位**：VControlHub 作为「单控制台管 VPS + 文件 + 运维审批」能力已经完整；下列不足是**产品/能力边界**，不是安全扫描漏修。  
-> 强项仍是：VPS 生命周期、命令审批、模板部署、文件/分享/下载、备份与审计（人在回路的运维控制台）。  
-> 路径验收清单：[`docs/path-walkthrough-checklist.md`](docs/path-walkthrough-checklist.md)；无登录网关冒烟：`bash scripts/path-walkthrough-smoke.sh`。
-
-#### 一句话
-
-| 维度 | 判断 |
-|---|---|
-| 已很强 | 命令审批链、模板/部署、文件与分享、备份/审计、RBAC 粒度、多租户 Team scope |
-| 仍可加深 | 非阻塞：sftp write/create 统一 backend、Team scope 新增模型审查、容量预测→告警联动；可选：live 云账单 SDK、双向文件同步、事件总线 |
-
-#### P0 — 最影响「能不能当主力系统用」
-
-| ID | 能力缺口 | 现状 | 建议方向 |
-|---|---|---|---|
-| FEAT-P0-1 | **多租户 / 团队数据隔离** | ✅ 核心模型、任务列表/CSV/events、分享审计、备份记录/计划/恢复/保留策略已接入 Team scope；普通任务读者仅见本人任务 | 继续对新增模型执行 route/service 双层 scope 审查 |
-| FEAT-P0-2 | **远程 Docker + Quick Services + Compose 项目生命周期已完成** | ✅ 容器/日志/stats/network/volume 支持选择远程 VPS；**Compose project 级 ps/up/down/start/stop/restart**（优先 `docker compose -p`，CLI 不可用时按项目标签 Engine 回退）；**Quick Services 可选择本机或远程 VPS** | 可选：从仓库拉 compose 文件一键部署（与现有 project 生命周期独立） |
-| FEAT-P0-3 | **舰队监控后台采样已完成** | ✅ 远程节点实时资源、CPU/内存/磁盘历史、节点过滤告警及 Playbook 联动；独立 `health.sample` durable worker 每 5 分钟采样，不再依赖页面访问，保留 30 天并记录离线断点；**跨节点统一容量预测**（`/api/health/capacity` + `/health` 面板，线性趋势投影 CPU/内存/磁盘至 85%/95%） | 可选：季节性模型 / 告警规则联动预测风险 |
-| FEAT-P0-4 | **文件网盘能力主体完成** | ✅ 多节点、回收站、分享、预览、上传、LOCAL/SFTP 全文检索；媒体/普通文件分片断点续传；**文件版本历史**；**WebDAV**（`/api/webdav/{nodeId}`，Bearer/Basic+API Token，PROPFIND/GET/PUT/DELETE/MKCOL/MOVE/COPY，复用路径授权） | 更深层同步协议仍属对外集成批次 |
-| FEAT-P0-5 | **Playbook 深度异步化已完成** | ✅ API 原子创建 `PlaybookRun` + `playbook.run` durable job 后立即返回；worker 持 lease/heartbeat，等待真实 CommandRequest 终态并逐步持久化 | 崩溃重领按已持久化 `commandRequestId` 续跑，不重复下发；步骤 retry 与链级 retry 均生效 |
-
-#### P1 — 有入口、业务深度不够
-
-| 模块 | 功能不足（摘要） |
-|---|---|
-| **工单 Tickets** | ✅ SLA、自动升级、VPS/命令关联、看板和高级过滤；**审批对象双向时间线**（工单事件+命令审批/执行合并；反向列出同命令工单） |
-| **AI 助手** | ✅ VPS/日志/Docker/文件全文搜索等受控工具编排；**知识库/RAG**（文档分块入库、关键词/中文检索、聊天自动注入、`search_knowledge` 工具） |
-| **AI Ops** | ✅ 安全自动闭环和结构化可解释报告已完成；目标依赖动作仍坚持显式参数/审批 |
-| **告警规则** | ✅ 指标源与远程 VPS 统一；静默窗口、冷却和持续时长；**多级升级（L1→L3）+ 值班路由（onCallUserIds）+ 事件确认（Acknowledge）+ 告警事件面板** |
-| **备份** | ✅ 细粒度恢复和无损恢复演练报告；**跨环境迁移向导**（export 带 manifest 包 → 目标机 validate/import 登记 → 标准 restore/drill，不自动恢复） |
-| **成本 Cost** | ✅ 标签自动归集、周期预算和自动告警；**云账单账户 + CSV/探针导入**（凭证加密、sync 导入 CostEntry）；live 厂商 SDK 未接时**显式失败、不假成功** |
-| **分享** | ✅ 仅预览/允许下载、服务端强制、访问日志、水印、团队级聚合报表和 CSV 导出已完成 |
-| **下载中心** | ✅ 多 worker CAS 与文件页最近下载任务托盘已完成 |
-| **用户/角色** | ✅ 岗位模板已支持角色、权限和存储路径/配额数据范围 |
-
-#### P2 — 工程债也会表现为「功能不顺」
-
-| 项 | 说明 | 关联 |
-|---|---|---|
-| 巨型 Client | 已无 1000+ 行巨型组件；当前高复杂候选为 alert-rule-list-client(418行)、docker-page-client(430行)、text-preview-client(498行) | FE-OPEN-2 / 架构 P0 |
-| SSH 主机密钥 | ✅ 命令执行、Sync rsync/tar 均使用匹配 SHA-256 pin 的临时 known_hosts，StrictHostKeyChecking=yes | OPEN-1 / OPEN-2 |
-| E2E 全矩阵 | 主路径有 Playwright，非跨浏览器全覆盖 | OPEN-6 / FE-OPEN-1 |
-| 移动端运维 | 可浏览；终端/批量文件/重审批仍桌面优先 | FE-UI Round 8 |
-| 对外集成 | Webhook/邮件/TG 有；**云账单账户+CSV/探针导入**已落地；**ITSM/IM 双向**已落地；完整事件总线可继续加深 | 产品 |
-
-#### 期望 vs 实际（避免误解）
+| 中 | sftp-ops **write/create** 尚未与 delete/rename 完全统一到 `fs-backend` |
+| 中 | **新增模型** 需持续 Team scope 双层审查 |
+| 低 | 容量预测为线性模型；样本不足标 `insufficient_data` |
+| 低 | 部分 Client 仍约 400–500 行；重运维路径偏桌面 |
+| 信息 | 无全域统一 event bus（通知渠道 + ITSM fan-out 已有） |
+
+### 下一步（优先完善现有）
+
+1. sftp-ops write/create → 统一 `fs-backend`  
+2. 新模型 / 新 API 的 Team scope 审计  
+3. 容量预测可选联动告警（不新造监控体系）  
+4. 危险操作 advisory lock 按真实风险扩展  
+5. Playbook/命令失败路径可观测性（减少假成功感）  
+6. 有密钥与合规时再加深 live 云账单；有明确需求再评估双向文件同步  
+
+### 期望 vs 实际
 
 | 常见期望 | 当前更接近 |
 |---|---|
-| 多机 Docker / K8s 面板 | 本机 Docker + 远程 SSH/命令 |
-| 企业网盘 | 多存储节点 Web 文件柜 + 分享 |
-| 完整 APM | 主机监控 + 探针 + 任务日志拼盘 |
-| 多租户 SaaS | 权限强的运维台，核心模型已接入 Team scope；新增模型仍需 route/service 双层审查 |
-| 多机应用商店 | ✅ Quick Services 已支持选择本机或远程 VPS 安装/生命周期 |
-
-#### 建议功能补齐顺序（4～6 周视角，可按场景裁剪）
-
-1. ✅ ~~远程 Docker / 统一节点运行时~~ — 远程容器/日志/stats/volume 已支持选择 VPS
-2. ✅ ~~数据范围隔离~~ — 核心模型已接入 Team scope（FEAT-P0-1 + OPEN-4 + 备份域全量闭环）
-3. ✅ ~~舰队监控一张图~~ — 远程节点实时资源 + 历史趋势 + 告警联动
-4. ✅ ~~Playbook/部署异步化与结果汇总~~ — `playbook.run` durable worker 等待真实命令结果、逐步持久化并支持崩溃续跑
-5. ✅ ~~文件：全文搜 + 普通文件断点续传 + 版本历史~~ — LOCAL/SFTP 全文检索；≥5MB 分片续传；覆盖上传/编辑自动快照、手动快照、下载与恢复（默认保留 20 个，单版本 ≤50MB）
-6. ✅ ~~工单 ↔ 机器/命令/审批对象关联~~ — Ticket 关联 VPS/命令已完成
-
-> 与上文「持续升级路线」关系：架构 P0/P1 偏**可维护性与运行时可靠性**；本节偏**产品功能边界**。两者可并行，但功能交付仍以 typecheck / 测试 / 构建 / smoke / 真实路径复核为准。
-
-### 功能修复进展（2026-07-13 FEAT Round 1）
-
-| ID | 修复项 | 内容 | 状态 |
-|---|---|---|---|
-| FEAT-P0-1 | **多租户数据隔离基础** | 14 个模型加 `teamId` + Team 关联 + 索引（CommandRequest/StorageNode/Job/ScheduledTask/Playbook/PlaybookRun/Notification/SyncJob/DownloadTask/ShareLink/BackupRecord/DeploymentRun/Ticket/AuditLog）；`teamWhere()` service 层过滤函数；服务/审批/分享/工单/Playbook/通知/操作任务列表接入 team scope | ✅ 正式 migration + 生产 deploy + tsc |
-| FEAT-P0-5 | **Playbook 异步化增强** | 增量进度持久化（每步写 stepResults）；结果汇总 summary（`completed N/total, M failed`）；步骤索引写入 job event | ✅ tsc + test |
-| FEAT-P1 | **工单↔VPS/命令关联** | Ticket 模型加 `relatedServerId` / `relatedCommandId`；创建表单加关联 VPS 下拉；API 接收并传入 service | ✅ tsc + build |
-| FEAT-OPEN-4 | **task:read 多租户收窄** | `listOperationTaskResult` 接受 session 并对各 findMany 加 `teamWhere` 过滤 | ✅ tsc |
-| FEAT-P1-CAS | **下载任务 CAS 防重** | aria2 relay + direct download 的 `PENDING→RUNNING` 状态转换改用 `updateMany` + `where: { status: "PENDING" }` CAS，防止多 worker 重复执行 | ✅ tsc + 38 tests |
-| FEAT-P1-WM | **分享页水印** | 分享页加 token 前8位 + 日期水印 overlay（`pointer-events-none`，不影响交互），可追溯分享来源 | ✅ tsc + build |
-| FEAT-P1-BR | **备份细粒度恢复** | FULL 备份恢复支持选择范围：全部 / 仅数据库 / 仅文件；`buildRestoreExecution` 按 component 分发不同命令；UI 加三选一按钮组；schema/API/job-worker 全链路传参 | ✅ tsc + 119 tests |
-
-**验证**：tsc 0；playbook executor 测试通过；build 成功；服务 active；path smoke 11/11 通过。  
-**P0/P1 主体全部完成（已审计修复）**：Playbook durable worker、舰队采样、容量预测、WebDAV、RAG、工单时间线、ITSM/IM、云账单账户+CSV/探针等均已落地。剩余以**完善现有能力**与可选对外加深为主，见下文「2026-07-16 整体审查结论」。
-
-### FEAT-CAPACITY-PREDICT（2026-07-16）
-
-| ID | 修复项 | 完成内容 |
-|---|---|---|
-| FEAT-CAPACITY-PREDICT | **跨节点统一容量预测** | 复用 `MetricSnapshot`（`health.sample` 30 天历史）；OLS 线性回归投影 CPU/内存/磁盘；`daysUntil85/95` + 风险分级；`GET /api/health/capacity`（`health:read` + team scope）；`/health` 容量预测面板；中英 i18n |
-
-**验证**：`tsc --noEmit`；`eslint --max-warnings=0`；vitest capacity 15；i18n 成对；RBAC 0 drift；`deploy.sh` smoke 25/25。
-
-### FEAT-ITSM-IM-BIDI（2026-07-16）
-
-| ID | 修复项 | 完成内容 |
-|---|---|---|
-| FEAT-ITSM-IM-BIDI | **ITSM/IM 双向集成** | `ItsmConnection` / `ItsmEvent`；凭证 AES 加密；generic_webhook/Slack/Telegram/钉钉/飞书适配器；出站 SSRF 安全 Webhook + 入站 HMAC 签名；`/api/itsm/connections` CRUD + `/test` + `/api/itsm/inbound/[id]` + `/api/itsm/events`；工单创建/状态/评论 fan-out；`/itsm` 管理页 + 中英 i18n + nav |
-
-**验证**：`tsc --noEmit`；eslint 聚焦 0 warn；vitest itsm+ticket 17 tests；i18n key-check 4174/4174；migrate deploy。
-
-### FEAT-COST-CLOUD-BILLING（2026-07-16）
-
-| ID | 修复项 | 完成内容 |
-|---|---|---|
-| FEAT-COST-CLOUD-BILLING | **云厂商账单 API 对接** | `CloudBillingAccount` / `CloudBillingSyncRun`；凭证 AES 加密；AWS/阿里云/腾讯云/generic_csv 适配器（CSV 导入 + mock 探针；live SDK 显式失败不假成功）；`/api/cost/billing-accounts` CRUD + `/sync`；导入 `CostEntry` `sourceType=cloud_billing`；`/cost-summary` 云账单面板；中英 i18n |
-
-**验证**：`tsc --noEmit`；eslint 聚焦 0 warn；vitest cloud-billing + cost 23 tests；i18n key-check 4129/4129。
-
-
-### 2026-07-16 整体审查结论
-
-> 对照代码 + 近期交付（`09e52fc0`…`b5359e85` + 容量预测）与 README 路线图的一次**产品/工程状态盘点**。  
-> 原则：**完善现有功能优先**；不把「可选项」写成「系统不可用」；不虚勾。
-
-#### 1. 我认为已经做完（可当主力能力用）
-
-| 域 | 证据（摘要） |
-|---|---|
-| 安全底座 | RBAC 0 drift、CSRF、限流、审计 await、advisory lock 同 session、SSH pin StrictHostKeyChecking |
-| 多租户 | 核心模型 Team scope + task 可见性收窄；备份域 IDOR 已闭环 |
-| 命令/Playbook | 审批链 + durable `playbook.run` 等待真实命令终态、崩溃续跑 |
-| 远程运行时 | 远程 Docker 资源、Quick Services 本机/VPS 绑定、Compose project 生命周期 |
-| 舰队监控 | `health.sample` 后台采样 30 天；**跨节点容量预测**（线性趋势 → 85%/95%） |
-| 文件网盘 | 多节点/分享/检索/断点续传/版本历史/**WebDAV** |
-| 备份 | 细粒度恢复、演练、**跨环境迁移包**（不自动 restore） |
-| 告警 | 冷却/静默 + **L1–L3 升级、值班、确认** |
-| 工单 | SLA/看板 + **↔ 命令审批双向时间线** |
-| AI | 受控工具编排 + **知识库/RAG 注入** |
-| 成本/ITSM | 预算告警；**云账单账户+CSV/探针**；**ITSM/IM 双向**（出站 fan-out + 入站签名） |
-| 工程门禁 | tsc / lint 0 warn / i18n 成对 / deploy smoke 25/25 为交付默认 |
-
-#### 2. 我认为不必做 / 有意不做（别当漏项）
-
-| 项 | 理由 |
-|---|---|
-| K8s 全集群控制面 | 产品定位是 VPS+SSH 运维台，不是云原生控制平面 |
-| 企业级双向文件同步 / 类 Dropbox | WebDAV + 现有 Sync 任务已覆盖「可挂载/可调度」；全量同步协议成本高、收益边际 |
-| 向量数据库 + 商用 embedding 强制依赖 | 当前 lexical RAG 已可闭环；向量层仅在有明确检索质量诉求时再加 |
-| 云账单 **live SDK** 作为默认路径 | 无厂商密钥/合规环境时易假成功；现实现 **CSV/探针 + live 显式失败** 更诚实 |
-| 跨浏览器 E2E 全矩阵 / DAST / 压测 | 工程专项，不阻塞主力功能；Chromium 主路径已有 |
-| 按行数机械拆 Client | 用户明确拒绝；只在真实复杂度/验收缺口时拆 |
-| 生产上硬跑不可逆操作 | 关机/真全量 restore/密钥轮换等保持隔离验证 |
-
-#### 3. 仍有问题或边界（要心里有数）
-
-| 严重度 | 项 | 说明 |
-|---|---|---|
-| 中 | **sftp-ops write/create** | delete/rename 已 index-first + `fs-backend`；write 仍偏直连路径，与统一 backend 未完全收敛 |
-| 中 | **Team scope 新增模型** | 老核心模型已覆盖；新表（如知识库/ITSM/账单等）需持续 route+service 双层审查，避免回归 IDOR |
-| 低 | **容量预测模型** | 线性 OLS，无季节性；样本不足节点会标 `insufficient_data`，不是故障 |
-| 低 | **云账单 live** | 未接 SDK 时 live 同步会失败（设计如此）；生产靠 CSV/探针 |
-| 低 | **巨型 Client** | 最高约 400–500 行量级，可维护但非紧急 |
-| 低 | **移动端重运维** | 终端/批量/重审批仍桌面优先 |
-| 信息 | **事件总线** | ITSM fan-out + 通知渠道已有；全域统一 event bus 未做 |
-
-#### 4. 下一步建议（优先完善现有，不新开大功能）
-
-按收益/风险排序：
-
-1. **sftp-ops write/create → 统一 `fs-backend`**（与 delete/rename 同语义；减少双实现漂移）  
-2. **Team scope 审计脚本/清单**（扫新模型 API 是否漏 `teamWhere` / 所有权校验）  
-3. **容量预测 → 告警规则可选联动**（预测 risk≥warning 时写 finding 或可选通知，不新造监控体系）  
-4. **危险操作 advisory lock 扩展**（在 restore/VPS schedule 之外，按真实并发风险逐项加，不做全集教条）  
-5. **Playbook/命令失败路径可观测**（用户可见错误与 job event 对齐，消灭残余假成功感）  
-6. **仅在有密钥与合规时** 再加深云账单 live SDK；**仅在明确双向同步需求时** 再评估文件同步协议  
-
-不建议近期新开：完整事件总线重写、K8s、向量库标配、Firefox/WebKit 全矩阵（除非有合规硬要求）。
-
-#### 5. 审查时门禁快照
-
-| 检查 | 结果 |
-|---|---|
-| `tsc --noEmit` | ✅ |
-| `eslint --max-warnings=0` | ✅ |
-| i18n key completeness | ✅ 成对 0 missing/orphan |
-| RBAC audit | ✅ 0 drift |
-| capacity vitest | ✅ predict + route |
-| `deploy.sh` smoke | ✅ 25/25 |
-
-
-### P1 全面补齐（2026-07-14）
-
-| ID | 修复项 | 完成内容 |
-|---|---|---|
-| FEAT-P1-1 | 工单 SLA 与协作工作台 | 优先级 SLA、持久化升级 worker、升级审计/通知、列表/看板、状态/优先级/分类/SLA/搜索过滤 |
-| FEAT-P1-2 | AI 工具编排 | 补齐 VPS 文件列举、全文搜索、读取文件、Docker 日志；路径/模式/容器 ID 校验及权限映射 |
-| FEAT-P1-3 | AI Ops 安全闭环 | 自动模式仅执行无歧义低风险动作（告警评估/过期任务清理），生成 finding/action/来源统计可解释报告 |
-| FEAT-P1-4 | 成本归集与预算 | CostEntry tags、VPS 月费标签、月/季/年预算 CRUD、进度 UI、手动及每日 worker 自动预算告警、防重复通知 |
-| FEAT-P1-5 | 分享权限与审计 | preview/download 权限、公开 API 服务端强制、访问/下载/密码尝试日志、IP/User-Agent、团队/所有权校验 |
-| FEAT-P1-6 | 下载与文件页整合 | 最近完成下载 API、任务级权限校验、StorageNode 路径映射、文件页任务托盘和目录定位 |
-| FEAT-ALERT-ESCALATION | **告警多级升级/值班/确认** | AlertIncident 事件模型；规则 `escalationMinutes` + `onCallUserIds`；未确认超时 L2/L3 再通知；`/api/alert-incidents` 列表与 Acknowledge；评估 worker 串入升级 |
-| FEAT-BACKUP-MIGRATION | **跨环境备份迁移向导** | 导出 COMPLETED 备份为 `migration-packages/<id>/{manifest.json,payload.*}`（可选 tar.gz）；目标环境 validate（sha256/size）后 import 登记为 COMPLETED BackupRecord；恢复仍走 RESTORE 确认 |
-| FEAT-WEBDAV | **存储 WebDAV 协议** | `/api/webdav/{storageNodeId}/...`；自定义 server 转发 PROPFIND/MKCOL/MOVE/COPY；API Token `storage:read|write|delete`；复用 assertStorageAccess 与 LOCAL/SFTP 后端 |
-| FEAT-KNOWLEDGE-RAG | **AI 知识库 / RAG** | KnowledgeBase/Document/Chunk；分块索引 + 关键词/CJK 排序检索；`/knowledge` 管理页；AI 聊天自动注入；hosted `search_knowledge` 工具；team scope |
-| FEAT-TICKET-TIMELINE | **工单 ↔ 命令审批双向时间线** | `getTicketTimeline` 合并创建/状态/评论/关联与命令审批/执行/目标；`/api/tickets/[id]/timeline` 读写关联；`/api/commands/[id]/tickets` 反向查询 |
-| FEAT-P1-7 | 岗位模板和数据范围 | 模板保存角色、权限、存储节点路径、读写删除范围、配额和单文件限制；用户面板一键应用 |
-| ARCH-P1-2 | 统一跨进程锁 | advisory lock 统一服务接管备份恢复和 VPS 备份计划锁，统一 namespace/key/release/error handling |
-
-**验证**：Prisma `db push`/generate 成功；`tsc --noEmit` 通过；P1 聚焦回归 45 files / 358 tests 全部通过；生产构建、部署与 smoke 见本轮提交记录。
-
-### 安全架构修复与可观测性增强（2026-07-14）
-
-| ID | 修复项 | 发现的问题 | 修复方案 | 验证 |
-|---|---|---|---|---|
-| SEC-P0-1 | **Advisory lock 会话语义** | 原实现使用 Prisma `$executeRaw` 获取/释放锁，两条 SQL 经连接池后不保证在同一 PostgreSQL session，可能导致锁无法释放或错误释放 | 重写为专用 `pg.Pool`：每把锁通过 `PoolClient.connect()` 持有独立连接，acquire/release 始终在同一 session；release 幂等；获取失败自动归还连接 | 单元测试 5 项 + 真实双连接集成测试 1 项（第一连接持锁时第二连接 busy，释放后可获取） |
-| SEC-P0-2 | **SSH host-key pin 执行链** | 原实现预检校验 fingerprint 但实际 OpenSSH 连接用 `UserKnownHostsFile=/dev/null`，Sync rsync 用 `accept-new`；存在 TOCTOU 风险 | 新增 `scanPinnedKnownHost()`：`ssh-keyscan` 获取主机密钥→选 SHA-256 与 pin 匹配的行→写入临时 `known_hosts`（0600）→实际连接强制 `StrictHostKeyChecking=yes`；临时文件执行后清理 | 指纹匹配测试 + 命令执行 pin 链测试 + Sync transport 测试共 32 项 |
-| SEC-P0-3 | **备份域系统性跨团队 IDOR** | BackupRecord 创建不写入 teamId；BackupSchedule 无 teamId；备份列表/恢复/重试/作废/保留策略均可通过全局 ID 查询 | BackupRecord/BackupSchedule/Job 全部写入 teamId；列表、详情、恢复、重试、作废、保留策略全部按 Team scope 查询；正式 migration `20260714120000`；生产库已标记 applied | 234 项回归测试通过 |
-| SEC-P1-1 | **SFTP 文件动作 index-first** | sftp-ops delete 先删物理文件后更新索引，如果 DB 更新失败则索引仍显示但文件已消失；rename 同理 | delete 改为先 `softDeleteSftpIndex` 再 best-effort 删物理文件（失败只记日志）；rename 改为先更新索引再物理重命名，失败则回滚索引；统一使用 `fs-backend` 适配器 | tsc + lint + 293 项相关测试通过 |
-| FEAT-P2-1 | **API 延迟与队列积压可观测性** | 缺少 API 请求耗时指标和 Job 队列积压可视化 | `withApiRoute` 增加 `Server-Timing` 响应头和结构化耗时日志（method/path/status/durationMs/requestId）；新增 `/api/jobs/backlog` 聚合查询（pending/running/expiredLease/failed/byType/oldestPendingMs） | 2 项单元测试 + 25/25 部署 smoke |
-| FEAT-P0-2 | **globals.css 零命中规则清理** | 49 个暗色主题 shim CSS 选择器在代码中无任何引用 | 删除 59 行零命中规则（bg-slate-950/900/800 及 opacity 变体、bg-white/*、border-white/*、aside.bg-slate-950、table-wrapper） | tsc + lint + build 通过 |
-
-**验证**：tsc 0；ESLint --max-warnings=0；i18n 3946/3946 零 orphan；RBAC 0 drift；377 项测试全通过；生产构建 + 25/25 smoke；提交 `eb03bc98` + `908eabe6` 已推送 `main`。
-
-### P0 完整性审计修复（2026-07-14）
-
-| 审计项 | 发现的问题 | 修复 |
-|---|---|---|
-| P0-2 远程Docker | docker-resources-panel 的 createResource/inspectResource/confirmDeleteResource 3 个函数缺 serverId，远程操作会误操作本地 Docker | 补齐所有 3 个函数的 serverId 传递 |
-| P0-2 远程Docker | resources API 审计日志缺 serverId | 审计日志加 `serverId: serverId \|\| "hub-host"` |
-| P0-2 远程Docker | engine-client 的 method 参数未做白名单验证 | 加 ALLOWED_METHODS 白名单（GET/POST/PUT/DELETE/PATCH/HEAD） |
-| P0-4 文件检索 | SFTP 搜索路径未验证 `..` 段，存在路径穿越风险 | 加 `sanitizedSearchPath.includes("..")` 检查 |
-| P0-4 文件检索 | SFTP grep --include 只覆盖 18 种类型，LOCAL 覆盖 40+ 种，不一致 | 扩展 SFTP --include 到 40+ 种与 LOCAL 对齐 |
-| P0-4 文件检索 | 7 个 content search i18n 键在字典文件中缺失 | 补全中英文 7 个键 |
-| P0-5 Playbook | 前端只显示 run 状态，不显示 step-by-step 进度 | playbook-card 加 stepResults 进度条（彩色方块序列） |
-
-### 功能修复进展（2026-07-13 FEAT Round 2）
-
-| ID | 修复项 | 内容 | 状态 |
-|---|---|---|---|
-| FEAT-MIGRATION | **多租户结构正式迁移** | 补齐 14 个 team scope 字段、索引、外键及 Ticket 关联字段 migration；兼容已执行 `db push` 的生产库与空库重放，并修复旧安全迁移对 StorageNode 历史表名的硬编码 | ✅ production migrate deploy + shadow replay |
-| FEAT-E2E-ISO | **E2E 隔离账号** | Playwright global setup 自动创建唯一测试账号并授予测试角色，global teardown 级联清理；数据库强制为 loopback，nightly 不再依赖 admin | ✅ Chromium 真实回归 4/4，结束后账号残留 0 |
-| FEAT-SHARE-HASH | **Share 哈希迁移收口** | 新增活跃/过期/撤销旧哈希扫描及 strict 门禁；生产扫描旧哈希为 0 后删除 SHA-256 校验与透明升级分支，只接受 salted scrypt | ✅ audit strict + 8 tests |
-| FEAT-QUALITY | **新增代码质量回归** | 修复 AI Key 输入属性误渲染、VPS Tab 非法 ARIA、侧栏同步 effect setState，以及新增模块无用导入 | ✅ lint 0 warnings |
-| FEAT-USABILITY | **近期改动实际使用复核** | E2E 表单登录与 direct-session 统一使用可自动创建/删除的临时账号；Quick Service/Audit 搜索使用唯一可访问名称；Dialog 焦点监听不再因父组件回调变化反复重装，修复团队删除确认按钮持续抖动、无法点击 | ✅ Chromium 全套 33/33 |
-| FEAT-MEDIA-CLEANUP | **图床删除一致性** | 删除图床图片时，同一存储路径的 MediaItem、FileEntry 与 ImageUpload 改为事务清理，避免文件已删但媒体索引残留、缩略图持续 ENOENT；E2E teardown 同步清理唯一测试前缀 | ✅ 15 tests + 实际媒体生命周期复核 |
+| 多机 Docker / K8s 面板 | 本机 Docker + 远程 SSH/Compose/Quick Services |
+| 企业网盘 | 多存储节点 Web 文件柜 + 分享 + WebDAV |
+| 完整 APM | 主机监控 + 采样历史 + 任务/审计日志 |
+| 多租户 SaaS | 权限强的运维台 + 核心 Team scope |
 
 ---
 
