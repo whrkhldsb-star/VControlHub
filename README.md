@@ -736,7 +736,7 @@ make logs SERVICE_PREFIX=vcontrolhub
 | 维度 | 判断 |
 |---|---|
 | 已很强 | 命令审批链、模板/部署、文件与分享、备份/审计、RBAC 粒度、多租户 Team scope |
-| 仍偏弱 | 对外集成深度（云账单 live SDK 可按需加深；跨节点容量预测；更深层同步协议） |
+| 仍可加深 | 非阻塞：sftp write/create 统一 backend、Team scope 新增模型审查、容量预测→告警联动；可选：live 云账单 SDK、双向文件同步、事件总线 |
 
 #### P0 — 最影响「能不能当主力系统用」
 
@@ -744,7 +744,7 @@ make logs SERVICE_PREFIX=vcontrolhub
 |---|---|---|---|
 | FEAT-P0-1 | **多租户 / 团队数据隔离** | ✅ 核心模型、任务列表/CSV/events、分享审计、备份记录/计划/恢复/保留策略已接入 Team scope；普通任务读者仅见本人任务 | 继续对新增模型执行 route/service 双层 scope 审查 |
 | FEAT-P0-2 | **远程 Docker + Quick Services + Compose 项目生命周期已完成** | ✅ 容器/日志/stats/network/volume 支持选择远程 VPS；**Compose project 级 ps/up/down/start/stop/restart**（优先 `docker compose -p`，CLI 不可用时按项目标签 Engine 回退）；**Quick Services 可选择本机或远程 VPS** | 可选：从仓库拉 compose 文件一键部署（与现有 project 生命周期独立） |
-| FEAT-P0-3 | **舰队监控后台采样已完成** | ✅ 远程节点实时资源、CPU/内存/磁盘历史、节点过滤告警及 Playbook 联动；独立 `health.sample` durable worker 每 5 分钟采样，不再依赖页面访问，保留 30 天并记录离线断点 | 后续可在现有样本上增加跨节点统一容量预测 |
+| FEAT-P0-3 | **舰队监控后台采样已完成** | ✅ 远程节点实时资源、CPU/内存/磁盘历史、节点过滤告警及 Playbook 联动；独立 `health.sample` durable worker 每 5 分钟采样，不再依赖页面访问，保留 30 天并记录离线断点；**跨节点统一容量预测**（`/api/health/capacity` + `/health` 面板，线性趋势投影 CPU/内存/磁盘至 85%/95%） | 可选：季节性模型 / 告警规则联动预测风险 |
 | FEAT-P0-4 | **文件网盘能力主体完成** | ✅ 多节点、回收站、分享、预览、上传、LOCAL/SFTP 全文检索；媒体/普通文件分片断点续传；**文件版本历史**；**WebDAV**（`/api/webdav/{nodeId}`，Bearer/Basic+API Token，PROPFIND/GET/PUT/DELETE/MKCOL/MOVE/COPY，复用路径授权） | 更深层同步协议仍属对外集成批次 |
 | FEAT-P0-5 | **Playbook 深度异步化已完成** | ✅ API 原子创建 `PlaybookRun` + `playbook.run` durable job 后立即返回；worker 持 lease/heartbeat，等待真实 CommandRequest 终态并逐步持久化 | 崩溃重领按已持久化 `commandRequestId` 续跑，不重复下发；步骤 retry 与链级 retry 均生效 |
 
@@ -757,7 +757,7 @@ make logs SERVICE_PREFIX=vcontrolhub
 | **AI Ops** | ✅ 安全自动闭环和结构化可解释报告已完成；目标依赖动作仍坚持显式参数/审批 |
 | **告警规则** | ✅ 指标源与远程 VPS 统一；静默窗口、冷却和持续时长；**多级升级（L1→L3）+ 值班路由（onCallUserIds）+ 事件确认（Acknowledge）+ 告警事件面板** |
 | **备份** | ✅ 细粒度恢复和无损恢复演练报告；**跨环境迁移向导**（export 带 manifest 包 → 目标机 validate/import 登记 → 标准 restore/drill，不自动恢复） |
-| **成本 Cost** | ✅ 标签自动归集、周期预算和自动告警已完成；**云厂商账单 API 对接**（AWS/阿里云/腾讯云/CSV 账户、凭证加密、同步导入 CostEntry、`/cost-summary` 面板） |
+| **成本 Cost** | ✅ 标签自动归集、周期预算和自动告警；**云账单账户 + CSV/探针导入**（凭证加密、sync 导入 CostEntry）；live 厂商 SDK 未接时**显式失败、不假成功** |
 | **分享** | ✅ 仅预览/允许下载、服务端强制、访问日志、水印、团队级聚合报表和 CSV 导出已完成 |
 | **下载中心** | ✅ 多 worker CAS 与文件页最近下载任务托盘已完成 |
 | **用户/角色** | ✅ 岗位模板已支持角色、权限和存储路径/配额数据范围 |
@@ -806,8 +806,15 @@ make logs SERVICE_PREFIX=vcontrolhub
 | FEAT-P1-BR | **备份细粒度恢复** | FULL 备份恢复支持选择范围：全部 / 仅数据库 / 仅文件；`buildRestoreExecution` 按 component 分发不同命令；UI 加三选一按钮组；schema/API/job-worker 全链路传参 | ✅ tsc + 119 tests |
 
 **验证**：tsc 0；playbook executor 测试通过；build 成功；服务 active；path smoke 11/11 通过。  
-**P0 主体全部完成（已审计修复）**：Playbook 主链已迁移为 durable worker，舰队监控历史已由后台独立采样；**P1 主体能力已完成**。仍保留为明确独立产品批次的方向：跨节点统一容量预测；云账单 live 厂商 SDK 可按环境加深；更深层文件同步协议。
+**P0/P1 主体全部完成（已审计修复）**：Playbook durable worker、舰队采样、容量预测、WebDAV、RAG、工单时间线、ITSM/IM、云账单账户+CSV/探针等均已落地。剩余以**完善现有能力**与可选对外加深为主，见下文「2026-07-16 整体审查结论」。
 
+### FEAT-CAPACITY-PREDICT（2026-07-16）
+
+| ID | 修复项 | 完成内容 |
+|---|---|---|
+| FEAT-CAPACITY-PREDICT | **跨节点统一容量预测** | 复用 `MetricSnapshot`（`health.sample` 30 天历史）；OLS 线性回归投影 CPU/内存/磁盘；`daysUntil85/95` + 风险分级；`GET /api/health/capacity`（`health:read` + team scope）；`/health` 容量预测面板；中英 i18n |
+
+**验证**：`tsc --noEmit`；`eslint --max-warnings=0`；vitest capacity 15；i18n 成对；RBAC 0 drift；`deploy.sh` smoke 25/25。
 
 ### FEAT-ITSM-IM-BIDI（2026-07-16）
 
@@ -824,6 +831,78 @@ make logs SERVICE_PREFIX=vcontrolhub
 | FEAT-COST-CLOUD-BILLING | **云厂商账单 API 对接** | `CloudBillingAccount` / `CloudBillingSyncRun`；凭证 AES 加密；AWS/阿里云/腾讯云/generic_csv 适配器（CSV 导入 + mock 探针；live SDK 显式失败不假成功）；`/api/cost/billing-accounts` CRUD + `/sync`；导入 `CostEntry` `sourceType=cloud_billing`；`/cost-summary` 云账单面板；中英 i18n |
 
 **验证**：`tsc --noEmit`；eslint 聚焦 0 warn；vitest cloud-billing + cost 23 tests；i18n key-check 4129/4129。
+
+
+### 2026-07-16 整体审查结论
+
+> 对照代码 + 近期交付（`09e52fc0`…`b5359e85` + 容量预测）与 README 路线图的一次**产品/工程状态盘点**。  
+> 原则：**完善现有功能优先**；不把「可选项」写成「系统不可用」；不虚勾。
+
+#### 1. 我认为已经做完（可当主力能力用）
+
+| 域 | 证据（摘要） |
+|---|---|
+| 安全底座 | RBAC 0 drift、CSRF、限流、审计 await、advisory lock 同 session、SSH pin StrictHostKeyChecking |
+| 多租户 | 核心模型 Team scope + task 可见性收窄；备份域 IDOR 已闭环 |
+| 命令/Playbook | 审批链 + durable `playbook.run` 等待真实命令终态、崩溃续跑 |
+| 远程运行时 | 远程 Docker 资源、Quick Services 本机/VPS 绑定、Compose project 生命周期 |
+| 舰队监控 | `health.sample` 后台采样 30 天；**跨节点容量预测**（线性趋势 → 85%/95%） |
+| 文件网盘 | 多节点/分享/检索/断点续传/版本历史/**WebDAV** |
+| 备份 | 细粒度恢复、演练、**跨环境迁移包**（不自动 restore） |
+| 告警 | 冷却/静默 + **L1–L3 升级、值班、确认** |
+| 工单 | SLA/看板 + **↔ 命令审批双向时间线** |
+| AI | 受控工具编排 + **知识库/RAG 注入** |
+| 成本/ITSM | 预算告警；**云账单账户+CSV/探针**；**ITSM/IM 双向**（出站 fan-out + 入站签名） |
+| 工程门禁 | tsc / lint 0 warn / i18n 成对 / deploy smoke 25/25 为交付默认 |
+
+#### 2. 我认为不必做 / 有意不做（别当漏项）
+
+| 项 | 理由 |
+|---|---|
+| K8s 全集群控制面 | 产品定位是 VPS+SSH 运维台，不是云原生控制平面 |
+| 企业级双向文件同步 / 类 Dropbox | WebDAV + 现有 Sync 任务已覆盖「可挂载/可调度」；全量同步协议成本高、收益边际 |
+| 向量数据库 + 商用 embedding 强制依赖 | 当前 lexical RAG 已可闭环；向量层仅在有明确检索质量诉求时再加 |
+| 云账单 **live SDK** 作为默认路径 | 无厂商密钥/合规环境时易假成功；现实现 **CSV/探针 + live 显式失败** 更诚实 |
+| 跨浏览器 E2E 全矩阵 / DAST / 压测 | 工程专项，不阻塞主力功能；Chromium 主路径已有 |
+| 按行数机械拆 Client | 用户明确拒绝；只在真实复杂度/验收缺口时拆 |
+| 生产上硬跑不可逆操作 | 关机/真全量 restore/密钥轮换等保持隔离验证 |
+
+#### 3. 仍有问题或边界（要心里有数）
+
+| 严重度 | 项 | 说明 |
+|---|---|---|
+| 中 | **sftp-ops write/create** | delete/rename 已 index-first + `fs-backend`；write 仍偏直连路径，与统一 backend 未完全收敛 |
+| 中 | **Team scope 新增模型** | 老核心模型已覆盖；新表（如知识库/ITSM/账单等）需持续 route+service 双层审查，避免回归 IDOR |
+| 低 | **容量预测模型** | 线性 OLS，无季节性；样本不足节点会标 `insufficient_data`，不是故障 |
+| 低 | **云账单 live** | 未接 SDK 时 live 同步会失败（设计如此）；生产靠 CSV/探针 |
+| 低 | **巨型 Client** | 最高约 400–500 行量级，可维护但非紧急 |
+| 低 | **移动端重运维** | 终端/批量/重审批仍桌面优先 |
+| 信息 | **事件总线** | ITSM fan-out + 通知渠道已有；全域统一 event bus 未做 |
+
+#### 4. 下一步建议（优先完善现有，不新开大功能）
+
+按收益/风险排序：
+
+1. **sftp-ops write/create → 统一 `fs-backend`**（与 delete/rename 同语义；减少双实现漂移）  
+2. **Team scope 审计脚本/清单**（扫新模型 API 是否漏 `teamWhere` / 所有权校验）  
+3. **容量预测 → 告警规则可选联动**（预测 risk≥warning 时写 finding 或可选通知，不新造监控体系）  
+4. **危险操作 advisory lock 扩展**（在 restore/VPS schedule 之外，按真实并发风险逐项加，不做全集教条）  
+5. **Playbook/命令失败路径可观测**（用户可见错误与 job event 对齐，消灭残余假成功感）  
+6. **仅在有密钥与合规时** 再加深云账单 live SDK；**仅在明确双向同步需求时** 再评估文件同步协议  
+
+不建议近期新开：完整事件总线重写、K8s、向量库标配、Firefox/WebKit 全矩阵（除非有合规硬要求）。
+
+#### 5. 审查时门禁快照
+
+| 检查 | 结果 |
+|---|---|
+| `tsc --noEmit` | ✅ |
+| `eslint --max-warnings=0` | ✅ |
+| i18n key completeness | ✅ 成对 0 missing/orphan |
+| RBAC audit | ✅ 0 drift |
+| capacity vitest | ✅ predict + route |
+| `deploy.sh` smoke | ✅ 25/25 |
+
 
 ### P1 全面补齐（2026-07-14）
 

@@ -15,3 +15,5 @@ export * from "./service-types";
 export * from "./service-collect";
 export * from "./service-metrics";
 export * from "./service-alerts";
+export * from "./capacity-predict";
+export * from "./capacity-service";

@@ -1,11 +1,11 @@
 {
-  "generatedAt": "2026-07-16T04:30:36.074Z",
+  "generatedAt": "2026-07-16T05:56:53.333Z",
   "summary": {
     "permissionsInList": 54,
     "rolesDefined": 4,
     "apiRoutesAudited": 138,
     "pagesAudited": 47,
-    "callSitesAudited": 512,
+    "callSitesAudited": 542,
     "driftCount": 0,
     "driftByCode": {
       "perm-not-in-list": 0,
@@ -792,6 +792,38 @@
       "permission": "cost:manage",
       "files": [
         {
+          "path": "src/app/api/cost/billing-accounts/[id]/route.ts",
+          "line": 43
+        },
+        {
+          "path": "src/app/api/cost/billing-accounts/[id]/route.ts",
+          "line": 65
+        },
+        {
+          "path": "src/app/api/cost/billing-accounts/[id]/route.ts",
+          "line": 43
+        },
+        {
+          "path": "src/app/api/cost/billing-accounts/[id]/route.ts",
+          "line": 65
+        },
+        {
+          "path": "src/app/api/cost/billing-accounts/[id]/sync/route.ts",
+          "line": 23
+        },
+        {
+          "path": "src/app/api/cost/billing-accounts/[id]/sync/route.ts",
+          "line": 23
+        },
+        {
+          "path": "src/app/api/cost/billing-accounts/route.ts",
+          "line": 38
+        },
+        {
+          "path": "src/app/api/cost/billing-accounts/route.ts",
+          "line": 38
+        },
+        {
           "path": "src/app/api/cost/budgets/[id]/route.ts",
           "line": 9
         },
@@ -857,7 +889,7 @@
         },
         {
           "path": "src/app/cost-summary/page.tsx",
-          "line": 28
+          "line": 29
         }
       ],
       "pages": [
@@ -873,6 +905,22 @@
       "permission": "cost:read",
       "files": [
         {
+          "path": "src/app/api/cost/billing-accounts/[id]/route.ts",
+          "line": 26
+        },
+        {
+          "path": "src/app/api/cost/billing-accounts/[id]/route.ts",
+          "line": 26
+        },
+        {
+          "path": "src/app/api/cost/billing-accounts/route.ts",
+          "line": 22
+        },
+        {
+          "path": "src/app/api/cost/billing-accounts/route.ts",
+          "line": 22
+        },
+        {
           "path": "src/app/api/cost/budgets/route.ts",
           "line": 11
         },
@@ -914,7 +962,7 @@
         },
         {
           "path": "src/app/cost-summary/page.tsx",
-          "line": 27
+          "line": 28
         }
       ],
       "pages": [
@@ -1159,6 +1207,14 @@
         {
           "path": "src/app/api/dashboard/analytics/route.ts",
           "line": 22
+        },
+        {
+          "path": "src/app/api/health/capacity/route.ts",
+          "line": 45
+        },
+        {
+          "path": "src/app/api/health/capacity/route.ts",
+          "line": 45
         },
         {
           "path": "src/app/api/health/route.ts",
@@ -2578,6 +2634,62 @@
       "permission": "ticket:manage",
       "files": [
         {
+          "path": "src/app/api/itsm/connections/[id]/route.ts",
+          "line": 25
+        },
+        {
+          "path": "src/app/api/itsm/connections/[id]/route.ts",
+          "line": 42
+        },
+        {
+          "path": "src/app/api/itsm/connections/[id]/route.ts",
+          "line": 64
+        },
+        {
+          "path": "src/app/api/itsm/connections/[id]/route.ts",
+          "line": 25
+        },
+        {
+          "path": "src/app/api/itsm/connections/[id]/route.ts",
+          "line": 42
+        },
+        {
+          "path": "src/app/api/itsm/connections/[id]/route.ts",
+          "line": 64
+        },
+        {
+          "path": "src/app/api/itsm/connections/[id]/test/route.ts",
+          "line": 29
+        },
+        {
+          "path": "src/app/api/itsm/connections/[id]/test/route.ts",
+          "line": 29
+        },
+        {
+          "path": "src/app/api/itsm/connections/route.ts",
+          "line": 19
+        },
+        {
+          "path": "src/app/api/itsm/connections/route.ts",
+          "line": 35
+        },
+        {
+          "path": "src/app/api/itsm/connections/route.ts",
+          "line": 19
+        },
+        {
+          "path": "src/app/api/itsm/connections/route.ts",
+          "line": 35
+        },
+        {
+          "path": "src/app/api/itsm/events/route.ts",
+          "line": 16
+        },
+        {
+          "path": "src/app/api/itsm/events/route.ts",
+          "line": 16
+        },
+        {
           "path": "src/app/api/tickets/[id]/route.ts",
           "line": 51
         },
@@ -2630,6 +2742,10 @@
           "line": 13
         },
         {
+          "path": "src/app/itsm/page.tsx",
+          "line": 12
+        },
+        {
           "path": "src/app/tickets/[id]/page.tsx",
           "line": 15
         },
@@ -2639,6 +2755,7 @@
         }
       ],
       "pages": [
+        "itsm",
         "tickets/[id]",
         "tickets"
       ],
@@ -2671,9 +2788,15 @@
         {
           "path": "src/app/api/tickets/route.ts",
           "line": 52
+        },
+        {
+          "path": "src/app/itsm/page.tsx",
+          "line": 15
         }
       ],
-      "pages": [],
+      "pages": [
+        "itsm"
+      ],
       "apiRoutes": [],
       "grantedToRoles": [
         "admin",

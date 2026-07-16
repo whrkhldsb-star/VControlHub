@@ -1,6 +1,6 @@
 # VControlHub RBAC Audit Report
 
-> Generated: 2026-07-16T04:30:36.074Z | Permissions: 54 | Roles: 4 | API routes: 138 | Pages: 47 | Drift: 0
+> Generated: 2026-07-16T05:56:53.333Z | Permissions: 54 | Roles: 4 | API routes: 138 | Pages: 47 | Drift: 0
 
 This report cross-references four RBAC sources of truth:
 1. `src/lib/auth/rbac.ts` — `PERMISSIONS` tuple + `DEFAULT_ROLE_PERMISSIONS` map
@@ -40,14 +40,14 @@ This report cross-references four RBAC sources of truth:
 | `command:create` | admin, operator | 2 | 1 | 17 |
 | `command:execute` | admin, operator | 1 | 1 | 4 |
 | `command:read` | admin, operator, viewer, storage_manager | 0 | 0 | 8 |
-| `cost:manage` | admin, operator | 1 | 0 | 17 |
-| `cost:read` | admin, operator, viewer | 1 | 0 | 11 |
+| `cost:manage` | admin, operator | 1 | 0 | 25 |
+| `cost:read` | admin, operator, viewer | 1 | 0 | 15 |
 | `deploy:export` | admin, operator | 1 | 0 | 7 |
 | `deploy:manage` | admin | 0 | 0 | 0 |
 | `deploy:read` | admin, operator, viewer | 1 | 0 | 3 |
 | `deploy:run` | admin, operator | 2 | 0 | 5 |
 | `docker:manage` | admin, operator | 2 | 1 | 25 |
-| `health:read` | admin, operator, viewer, storage_manager | 1 | 1 | 7 |
+| `health:read` | admin, operator, viewer, storage_manager | 1 | 1 | 9 |
 | `image:read` | admin | 0 | 2 | 3 |
 | `image:write` | admin | 1 | 1 | 3 |
 | `media:manage` | admin, operator, storage_manager | 1 | 1 | 6 |
@@ -74,8 +74,8 @@ This report cross-references four RBAC sources of truth:
 | `team:member:manage` | admin, operator | 0 | 0 | 0 |
 | `team:read` | admin, operator, viewer, storage_manager | 0 | 0 | 0 |
 | `ticket:create` | admin, operator, viewer, storage_manager | 1 | 1 | 2 |
-| `ticket:manage` | admin, operator, storage_manager | 2 | 3 | 15 |
-| `ticket:read` | admin, operator, viewer, storage_manager | 0 | 0 | 4 |
+| `ticket:manage` | admin, operator, storage_manager | 3 | 3 | 30 |
+| `ticket:read` | admin, operator, viewer, storage_manager | 1 | 0 | 5 |
 | `user:manage` | admin | 2 | 0 | 24 |
 | `user:read` | admin, operator, viewer, storage_manager | 1 | 2 | 9 |
 

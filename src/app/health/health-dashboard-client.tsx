@@ -8,6 +8,7 @@ import { useI18n } from "@/lib/i18n/use-locale";
 import { getRefreshIntervalLabel } from "@/lib/preferences/refresh-interval";
 
 import { ActiveIncidentsBanner } from "./active-incidents-banner";
+import { CapacityForecastPanel } from "./capacity-forecast-panel";
 import {
 	repairSuggestions,
 	repairToneClasses,
@@ -215,6 +216,7 @@ export function HealthDashboardClient({ serverCount, initialSystemHealth }: Prop
 				<SummaryCard label={t("healthPage.summary.offline")} value={offline} color="slate" />
 			</section>
 			{overview.servers.length > 0 && <FleetResourceSummary overview={overview} t={t} tt={tt} />}
+			<CapacityForecastPanel />
 			<div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
 				<div className="text-xs text-[var(--text-muted)]">
 					{t("healthPage.ui.lastRefresh")}: {lastRefresh || "—"}
