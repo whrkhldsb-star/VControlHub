@@ -10,6 +10,7 @@ import type { SessionPayload } from "@/lib/auth/session";
 import { prisma } from "@/lib/db";
 import { assertStorageAccess } from "@/lib/storage/access-control";
 import { logError } from "@/lib/logging";
+import { snapshotFileVersionBeforeOverwrite } from "@/lib/storage/file-versions";
 import {
   expandStorageBasePath,
   normalizeStorageRelativePath,
@@ -311,7 +312,24 @@ async function handlePost(request: Request, session: SessionPayload) {
   let sftpCredentials: ReturnType<typeof resolveStorageSshCredentials> | null =
     null;
 
-  if (storageNode.driver === "LOCAL") {
+  // Look up existing index early so we can snapshot before overwrite.
+  const existingEntryForVersion = await prisma.fileEntry.findFirst({
+    where: {
+      storageNodeId,
+      relativePath: normalizedRelativePath,
+    },
+    select: { id: true },
+  });
+  if (existingEntryForVersion) {
+    await snapshotFileVersionBeforeOverwrite({
+      fileEntryId: existingEntryForVersion.id,
+      userId: session.userId,
+      reason: "UPLOAD",
+      note: "Before single-shot upload overwrite",
+    });
+  }
+
+    if (storageNode.driver === "LOCAL") {
     if (!absolutePath) {
       return NextResponse.json(
         { error: "failed to resolve local storage path" },
@@ -360,15 +378,7 @@ async function handlePost(request: Request, session: SessionPayload) {
   }
 
   try {
-    const existingEntry = await prisma.fileEntry.findFirst({
-      where: {
-        storageNodeId,
-        relativePath: normalizedRelativePath,
-      },
-      select: {
-        id: true,
-      },
-    });
+    const existingEntry = existingEntryForVersion;
 
     if (existingEntry) {
       await prisma.fileEntry.update({

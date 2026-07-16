@@ -1,11 +1,11 @@
 {
-  "generatedAt": "2026-07-16T01:27:07.338Z",
+  "generatedAt": "2026-07-16T01:46:56.151Z",
   "summary": {
     "permissionsInList": 54,
     "rolesDefined": 4,
     "apiRoutesAudited": 138,
     "pagesAudited": 47,
-    "callSitesAudited": 475,
+    "callSitesAudited": 483,
     "driftCount": 0,
     "driftByCode": {
       "perm-not-in-list": 0,
@@ -1980,6 +1980,22 @@
           "line": 18
         },
         {
+          "path": "src/app/api/files/[id]/versions/[versionId]/download/route.ts",
+          "line": 27
+        },
+        {
+          "path": "src/app/api/files/[id]/versions/[versionId]/download/route.ts",
+          "line": 27
+        },
+        {
+          "path": "src/app/api/files/[id]/versions/route.ts",
+          "line": 30
+        },
+        {
+          "path": "src/app/api/files/[id]/versions/route.ts",
+          "line": 30
+        },
+        {
           "path": "src/app/api/files/archive-list/route.ts",
           "line": 30
         },
@@ -2077,11 +2093,11 @@
         },
         {
           "path": "src/app/api/storage/local/route.ts",
-          "line": 439
+          "line": 449
         },
         {
           "path": "src/app/api/storage/local/route.ts",
-          "line": 439
+          "line": 449
         },
         {
           "path": "src/app/api/storage/nodes/route.ts",
@@ -2149,6 +2165,22 @@
         {
           "path": "src/app/api/downloads/route-post.ts",
           "line": 39
+        },
+        {
+          "path": "src/app/api/files/[id]/versions/[versionId]/restore/route.ts",
+          "line": 21
+        },
+        {
+          "path": "src/app/api/files/[id]/versions/[versionId]/restore/route.ts",
+          "line": 21
+        },
+        {
+          "path": "src/app/api/files/[id]/versions/route.ts",
+          "line": 52
+        },
+        {
+          "path": "src/app/api/files/[id]/versions/route.ts",
+          "line": 52
         },
         {
           "path": "src/app/api/files/compress/route.ts",
@@ -2224,11 +2256,11 @@
         },
         {
           "path": "src/app/api/storage/local/route.ts",
-          "line": 452
+          "line": 462
         },
         {
           "path": "src/app/api/storage/local/route.ts",
-          "line": 452
+          "line": 462
         },
         {
           "path": "src/app/api/storage/sftp-sync/route.ts",

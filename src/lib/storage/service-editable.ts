@@ -10,6 +10,7 @@ import {
   isEditableTextFile,
   resolveLocalAbsolutePath,
 } from "./service-entries";
+import { snapshotFileVersionBeforeOverwrite } from "./file-versions";
 
 async function resolveLocalEditableFileEntry(input: {
   fileEntryId: string;
@@ -139,6 +140,14 @@ export async function saveLocalEditableFileDraft(input: {
   ) {
     throw new ConflictError(t("backend.storage.editableFileChangedOnDisk"));
   }
+
+  // Snapshot previous body before overwrite (best-effort).
+  await snapshotFileVersionBeforeOverwrite({
+    fileEntryId: entry.id,
+    userId: input.session.userId,
+    reason: "EDIT",
+    note: "Before text editor save",
+  });
 
   await writeFile(absolutePath, content, "utf8");
   const nextStat = await stat(absolutePath);

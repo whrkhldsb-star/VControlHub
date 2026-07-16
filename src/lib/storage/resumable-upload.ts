@@ -19,6 +19,7 @@ import {
   completeMediaUploadSession,
   MediaUploadError,
 } from "@/lib/upload/service";
+import { snapshotFileVersionBeforeOverwrite } from "@/lib/storage/file-versions";
 import type { MediaUploadSessionView } from "@/lib/upload/types";
 import type { SessionPayload } from "@/lib/auth/session";
 
@@ -88,12 +89,7 @@ export async function completeStorageFileUpload(params: {
     throw new ValidationError("Storage node does not support file uploads");
   }
 
-  await writeStorageFileBuffer(storageNode, normalizedRelativePath, assembled);
-
-  const fileName = path.posix.basename(normalizedRelativePath);
-  const mimeType = existing.mimeType || null;
-  const byteSize = assembled.byteLength;
-
+  // Snapshot existing body before overwrite when index already exists.
   const existingEntry = await prisma.fileEntry.findFirst({
     where: {
       storageNodeId: existing.storageNodeId,
@@ -101,6 +97,20 @@ export async function completeStorageFileUpload(params: {
     },
     select: { id: true },
   });
+  if (existingEntry) {
+    await snapshotFileVersionBeforeOverwrite({
+      fileEntryId: existingEntry.id,
+      userId: session.userId,
+      reason: "UPLOAD",
+      note: "Before resumable upload overwrite",
+    });
+  }
+
+  await writeStorageFileBuffer(storageNode, normalizedRelativePath, assembled);
+
+  const fileName = path.posix.basename(normalizedRelativePath);
+  const mimeType = existing.mimeType || null;
+  const byteSize = assembled.byteLength;
 
   if (existingEntry) {
     await prisma.fileEntry.update({

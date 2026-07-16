@@ -1,0 +1,51 @@
+/**
+ * i18n dictionary: `fileVersionHistory.*`
+ */
+
+export const zh: Record<string, string> = {
+	"fileVersionHistory.title": "版本历史",
+	"fileVersionHistory.description": "覆盖上传、在线编辑或手动快照会保留历史版本（默认最多 20 个，单版本 ≤50MB）。可下载或一键恢复。",
+	"fileVersionHistory.refresh": "刷新",
+	"fileVersionHistory.loading": "加载版本中…",
+	"fileVersionHistory.empty": "暂无历史版本。覆盖上传、保存编辑后会自动生成；也可手动创建快照。",
+	"fileVersionHistory.notePlaceholder": "可选备注（例如：发布前备份）",
+	"fileVersionHistory.snapshotNow": "创建快照",
+	"fileVersionHistory.snapshotPending": "创建中…",
+	"fileVersionHistory.snapshotCreated": "已创建版本快照",
+	"fileVersionHistory.snapshotError": "创建快照失败",
+	"fileVersionHistory.loadError": "加载版本历史失败",
+	"fileVersionHistory.download": "下载",
+	"fileVersionHistory.restore": "恢复",
+	"fileVersionHistory.restorePending": "恢复中…",
+	"fileVersionHistory.restoreConfirm": "确认将当前文件恢复为 v{n}？恢复前会自动再保存一个当前版本快照。",
+	"fileVersionHistory.restoreSuccess": "已恢复到所选版本",
+	"fileVersionHistory.restoreError": "恢复失败",
+	"fileVersionHistory.reason.UPLOAD": "上传覆盖",
+	"fileVersionHistory.reason.EDIT": "在线编辑",
+	"fileVersionHistory.reason.MANUAL": "手动快照",
+	"fileVersionHistory.reason.RESTORE_POINT": "恢复前快照",
+};
+
+export const en: Record<string, string> = {
+	"fileVersionHistory.title": "Version history",
+	"fileVersionHistory.description": "Overwrite uploads, online edits, and manual snapshots keep history (default latest 20, each ≤50MB). Download or restore any version.",
+	"fileVersionHistory.refresh": "Refresh",
+	"fileVersionHistory.loading": "Loading versions…",
+	"fileVersionHistory.empty": "No versions yet. Overwrite uploads and editor saves create them automatically; you can also snapshot manually.",
+	"fileVersionHistory.notePlaceholder": "Optional note (e.g. pre-release backup)",
+	"fileVersionHistory.snapshotNow": "Create snapshot",
+	"fileVersionHistory.snapshotPending": "Creating…",
+	"fileVersionHistory.snapshotCreated": "Version snapshot created",
+	"fileVersionHistory.snapshotError": "Failed to create snapshot",
+	"fileVersionHistory.loadError": "Failed to load version history",
+	"fileVersionHistory.download": "Download",
+	"fileVersionHistory.restore": "Restore",
+	"fileVersionHistory.restorePending": "Restoring…",
+	"fileVersionHistory.restoreConfirm": "Restore this file to v{n}? A snapshot of the current content will be saved first.",
+	"fileVersionHistory.restoreSuccess": "Restored to the selected version",
+	"fileVersionHistory.restoreError": "Restore failed",
+	"fileVersionHistory.reason.UPLOAD": "Upload overwrite",
+	"fileVersionHistory.reason.EDIT": "Online edit",
+	"fileVersionHistory.reason.MANUAL": "Manual snapshot",
+	"fileVersionHistory.reason.RESTORE_POINT": "Pre-restore snapshot",
+};

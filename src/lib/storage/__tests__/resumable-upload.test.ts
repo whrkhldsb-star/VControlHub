@@ -51,6 +51,7 @@ vi.mock("@/lib/db", () => ({
     },
     fileEntry: {
       findFirst: fileEntryFindFirstMock,
+      findUnique: vi.fn(async () => null),
       update: fileEntryUpdateMock,
       create: fileEntryCreateMock,
     },

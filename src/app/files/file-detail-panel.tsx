@@ -28,6 +28,7 @@ import {
   getPreviewHref,
   type StorageEntry,
 } from "./file-entry-utils";
+import { FileVersionHistoryPanel } from "./file-version-history-panel";
 
 export type FileDetailPanelProps = {
   detailEntry: StorageEntry;
@@ -166,6 +167,18 @@ export function FileDetailPanel({
               ) : null}
             </div>
           </div>
+
+
+          {detailEntry.entryType === "FILE" && entryCanRead(detailEntry) ? (
+            <div className="border-t border-[var(--border)] pt-5">
+              <FileVersionHistoryPanel
+                fileEntryId={detailEntry.id}
+                canWrite={entryCanWrite(detailEntry)}
+                onNotify={onNotify}
+                onRestored={onRefresh}
+              />
+            </div>
+          ) : null}
 
           <div>
             <h3 className="text-sm font-semibold text-[var(--text-secondary)]">

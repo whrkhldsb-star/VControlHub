@@ -112,6 +112,7 @@ model User {
   costEntries            CostEntry[]             @relation("CostEntryCreatedBy")
   aiOpsLogs              AiOpsLog[]              @relation("AiOpsLogTriggeredBy")
   mediaUploadSessions    MediaUploadSession[]
+  fileVersions           FileVersion[]
   ownedTeams             Team[]                  @relation("TeamOwner")
   teamMemberships        TeamMember[]
   currentTeamId          String?
@@ -382,6 +383,7 @@ model StorageNode {
   imageUploads               ImageUpload[]
   mediaItems                 MediaItem[]
   mediaUploadSessions        MediaUploadSession[]
+  fileVersions               FileVersion[]
 
   teamId String? // TR-030: 多租户资源隔离
   team   Team?   @relation("TeamStorageNodes", fields: [teamId], references: [id], onDelete: SetNull)
@@ -426,11 +428,49 @@ model FileEntry {
   storageNode    StorageNode   @relation(fields: [storageNodeId], references: [id], onDelete: Cascade)
   parent         FileEntry?    @relation("FileEntryChildren", fields: [parentId], references: [id], onDelete: SetNull)
   children       FileEntry[]   @relation("FileEntryChildren")
+  versions       FileVersion[]
 
   @@unique([storageNodeId, relativePath])
   @@index([parentId])
   @@index([storageNodeId, entryType, isDeleted])
   @@map("file_entries")
+}
+
+enum FileVersionReason {
+  UPLOAD
+  EDIT
+  MANUAL
+  RESTORE_POINT
+}
+
+/// Immutable historical snapshot of a file body, stored on the control plane.
+/// Snapshots are taken before overwrite (upload/edit/restore) so users can
+/// download or restore previous content. Blobs live under FILE_VERSION_DIR.
+model FileVersion {
+  id              String            @id @default(cuid())
+  fileEntryId     String
+  storageNodeId   String
+  versionNumber   Int
+  name            String
+  relativePath    String
+  mimeType        String?
+  sizeBytes       BigInt
+  checksumSha256  String
+  /// Absolute-or-managed relative blob path under FILE_VERSION_DIR
+  blobRelativePath String
+  reason          FileVersionReason @default(UPLOAD)
+  note            String?
+  createdByUserId String?
+  createdAt       DateTime          @default(now())
+
+  fileEntry   FileEntry   @relation(fields: [fileEntryId], references: [id], onDelete: Cascade)
+  storageNode StorageNode @relation(fields: [storageNodeId], references: [id], onDelete: Cascade)
+  createdBy   User?       @relation(fields: [createdByUserId], references: [id], onDelete: SetNull)
+
+  @@unique([fileEntryId, versionNumber])
+  @@index([fileEntryId, createdAt])
+  @@index([storageNodeId, createdAt])
+  @@map("file_versions")
 }
 
 model AuditLog {

@@ -31,6 +31,7 @@ import { zh as downloadsapiZh, en as downloadsapiEn } from "./dictionaries/downl
 import { zh as settingspageZh, en as settingspageEn } from "./dictionaries/settings-page";
 import { zh as sharetokenapiZh, en as sharetokenapiEn } from "./dictionaries/share-token-api";
 import { zh as filedetailpanelZh, en as filedetailpanelEn } from "./dictionaries/file-detail-panel";
+import { zh as fileversionhistoryZh, en as fileversionhistoryEn } from "./dictionaries/file-version-history";
 import { zh as filespageZh, en as filespageEn } from "./dictionaries/files-page";
 import { zh as deploymentspageZh, en as deploymentspageEn } from "./dictionaries/deployments-page";
 import { zh as commonZh, en as commonEn } from "./dictionaries/common";
@@ -113,6 +114,7 @@ const zh: Record<string, string> = {
 	...errorZh,
 	...fileUploadDropzoneZh,
 	...filedetailpanelZh,
+  ...fileversionhistoryZh,
 	...filespageZh,
 	...healthpageZh,
 	...imagebedZh,
@@ -190,6 +192,7 @@ const en: Record<string, string> = {
 	...errorEn,
 	...fileUploadDropzoneEn,
 	...filedetailpanelEn,
+  ...fileversionhistoryEn,
 	...filespageEn,
 	...healthpageEn,
 	...imagebedEn,
