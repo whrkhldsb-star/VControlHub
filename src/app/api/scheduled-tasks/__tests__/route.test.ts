@@ -120,6 +120,7 @@ describe("/api/scheduled-tasks audit coverage", () => {
     await route.GET(new Request("http://local/api/scheduled-tasks"));
 
     expect(mocks.requireApiPermission).toHaveBeenCalledWith("command:read");
+    expect(mocks.listScheduledTasks).toHaveBeenCalledWith(200, session);
   });
 
   it("accepts create payloads from the current client without legacy cron/serverId fields", async () => {
@@ -138,14 +139,17 @@ describe("/api/scheduled-tasks audit coverage", () => {
     );
 
     expect(res.status).toBe(200);
-    expect(mocks.createScheduledTask).toHaveBeenCalledWith({
-      name: "Clean logs",
-      cronExpression: "0 2 * * *",
-      command: "journalctl --vacuum-time=7d",
-      reason: "maintenance",
-      serverIds: ["srv1", "srv2"],
-      createdById: "u1",
-    });
+    expect(mocks.createScheduledTask).toHaveBeenCalledWith(
+      {
+        name: "Clean logs",
+        cronExpression: "0 2 * * *",
+        command: "journalctl --vacuum-time=7d",
+        reason: "maintenance",
+        serverIds: ["srv1", "srv2"],
+        createdById: "u1",
+      },
+      session,
+    );
   });
 
   it("maps update aliases to scheduled task service fields", async () => {
@@ -163,14 +167,18 @@ describe("/api/scheduled-tasks audit coverage", () => {
     );
 
     expect(res.status).toBe(200);
-    expect(mocks.updateScheduledTask).toHaveBeenCalledWith("task1", {
-      name: undefined,
-      cronExpression: "0 2 * * 1",
-      command: undefined,
-      reason: "weekly maintenance",
-      serverIds: ["srv1"],
-      status: undefined,
-    });
+    expect(mocks.updateScheduledTask).toHaveBeenCalledWith(
+      "task1",
+      {
+        name: undefined,
+        cronExpression: "0 2 * * 1",
+        command: undefined,
+        reason: "weekly maintenance",
+        serverIds: ["srv1"],
+        status: undefined,
+      },
+      session,
+    );
   });
 
   it("retries scheduled tasks from the API and audits without leaking command text", async () => {
@@ -183,7 +191,7 @@ describe("/api/scheduled-tasks audit coverage", () => {
     );
 
     expect(res.status).toBe(200);
-    expect(mocks.retryScheduledTask).toHaveBeenCalledWith("task1");
+    expect(mocks.retryScheduledTask).toHaveBeenCalledWith("task1", session);
     expect(mocks.auditUserAction).toHaveBeenCalledWith(
       "u1",
       "scheduled_task.retry",

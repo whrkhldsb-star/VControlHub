@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-07-16T09:19:15.739Z",
+  "generatedAt": "2026-07-16T10:06:20.866Z",
   "summary": {
     "permissionsInList": 54,
     "rolesDefined": 4,
@@ -665,27 +665,27 @@
         },
         {
           "path": "src/app/api/scheduled-tasks/route.ts",
-          "line": 107
+          "line": 108
         },
         {
           "path": "src/app/api/scheduled-tasks/route.ts",
-          "line": 141
+          "line": 145
         },
         {
           "path": "src/app/api/scheduled-tasks/route.ts",
-          "line": 192
+          "line": 200
         },
         {
           "path": "src/app/api/scheduled-tasks/route.ts",
-          "line": 107
+          "line": 108
         },
         {
           "path": "src/app/api/scheduled-tasks/route.ts",
-          "line": 141
+          "line": 145
         },
         {
           "path": "src/app/api/scheduled-tasks/route.ts",
-          "line": 192
+          "line": 200
         },
         {
           "path": "src/app/scheduled-tasks/page.tsx",

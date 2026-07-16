@@ -17,7 +17,7 @@ export default async function ScheduledTasksPage() {
 	const canManage = sessionHasPermission(session, "command:execute");
 
 	const [tasks, servers] = await Promise.all([
-		listScheduledTasks(),
+		listScheduledTasks(200, session),
 		listServerProfiles(),
 	]);
 

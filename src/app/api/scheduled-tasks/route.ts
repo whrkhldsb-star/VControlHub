@@ -77,8 +77,9 @@ export async function GET(request: Request) {
       permission: "command:read",
       errorMessage: "Server error",
     },
-    async () => {
-      const tasks = await listScheduledTasks();
+    async ({ session }) => {
+      if (!session) throw new AuthError("Unauthorized");
+      const tasks = await listScheduledTasks(200, session);
       const serialized = tasks.map((task) => ({
         id: task.id,
         name: task.name,
@@ -116,14 +117,17 @@ export async function POST(request: Request) {
       const cronExpression = data.cronExpression ?? data.cron;
       if (!cronExpression)
         throw new ValidationError("Cron expression is required");
-      const task = await createScheduledTask({
-        name: data.name,
-        cronExpression,
-        command: data.command,
-        reason: data.reason ?? data.description,
-        serverIds: data.serverIds ?? (data.serverId ? [data.serverId] : []),
-        createdById: session.userId,
-      });
+      const task = await createScheduledTask(
+        {
+          name: data.name,
+          cronExpression,
+          command: data.command,
+          reason: data.reason ?? data.description,
+          serverIds: data.serverIds ?? (data.serverId ? [data.serverId] : []),
+          createdById: session.userId,
+        },
+        session,
+      );
       await auditUserAction(
         session.userId,
         "scheduled_task.create",
@@ -148,7 +152,7 @@ export async function PATCH(request: Request) {
       if (!session)
         throw new AuthError("Unauthorized");
       if (data.toggleId) {
-        const result = await toggleScheduledTask(data.toggleId);
+        const result = await toggleScheduledTask(data.toggleId, session);
         await auditUserAction(
           session.userId,
           "scheduled_task.toggle",
@@ -157,7 +161,7 @@ export async function PATCH(request: Request) {
         return NextResponse.json({ task: result });
       }
       if (data.retryId) {
-        const result = await retryScheduledTask(data.retryId);
+        const result = await retryScheduledTask(data.retryId, session);
         await auditUserAction(
           session.userId,
           "scheduled_task.retry",
@@ -167,14 +171,18 @@ export async function PATCH(request: Request) {
       }
       if (!data.id)
         throw new ValidationError("Missing task ID");
-      const result = await updateScheduledTask(data.id, {
-        name: data.name,
-        cronExpression: data.cronExpression ?? data.cron,
-        command: data.command,
-        reason: data.reason ?? data.description,
-        serverIds: data.serverIds ?? (data.serverId ? [data.serverId] : undefined),
-        status: data.status,
-      });
+      const result = await updateScheduledTask(
+        data.id,
+        {
+          name: data.name,
+          cronExpression: data.cronExpression ?? data.cron,
+          command: data.command,
+          reason: data.reason ?? data.description,
+          serverIds: data.serverIds ?? (data.serverId ? [data.serverId] : undefined),
+          status: data.status,
+        },
+        session,
+      );
       await auditUserAction(
         session.userId,
         "scheduled_task.update",
@@ -198,7 +206,7 @@ export async function DELETE(request: Request) {
       if (!session)
         throw new AuthError("Unauthorized");
       const { id } = parseSearchParams(request, idQuerySchema);
-      const deleted = await deleteScheduledTask(id);
+      const deleted = await deleteScheduledTask(id, session);
       await auditUserAction(
         session.userId,
         "scheduled_task.delete",

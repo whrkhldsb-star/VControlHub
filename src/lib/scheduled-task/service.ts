@@ -4,10 +4,14 @@ import { createCommandRequest } from "@/lib/command/service";
 import { BusinessError, NotFoundError } from "@/lib/errors";
 import { notifyTaskConsecutiveFailed } from "@/lib/notification/service";
 import { createLogger } from "@/lib/logging";
+import type { SessionPayload } from "@/lib/auth/session";
+import { teamCreateData, teamWhere } from "@/lib/auth/team-scope";
 
 const taskLogger = createLogger("scheduled-task");
 
 /* ── Types ────────────────────────────────────────────────── */
+
+export type SessionScope = Pick<SessionPayload, "userId" | "roles" | "currentTeamId">;
 
 export type CreateScheduledTaskInput = {
 	name: string;
@@ -16,6 +20,8 @@ export type CreateScheduledTaskInput = {
 	reason?: string;
 	serverIds: string[];
 	createdById?: string;
+	/** Optional explicit team; defaults to session.currentTeamId when session is provided. */
+	teamId?: string | null;
 };
 
 export type UpdateScheduledTaskInput = Partial<CreateScheduledTaskInput> & {
@@ -57,10 +63,30 @@ function normalizeServerIds(serverIds: string[]) {
 	return Array.from(new Set(serverIds.map((id) => id.trim()).filter(Boolean)));
 }
 
+function teamScopeWhere(session?: SessionScope | null): Record<string, unknown> {
+	return session ? teamWhere(session) : {};
+}
+
+/**
+ * Load a scheduled task by id under optional team scope.
+ * Used by mutate paths so cross-team IDs resolve as not-found (no IDOR).
+ */
+async function getScheduledTaskForSession(id: string, session?: SessionScope | null) {
+	return prisma.scheduledTask.findFirst({
+		where: { id, ...teamScopeWhere(session) },
+	});
+}
+
 /* ── CRUD ─────────────────────────────────────────────────── */
 
-export async function createScheduledTask(input: CreateScheduledTaskInput) {
+export async function createScheduledTask(
+	input: CreateScheduledTaskInput,
+	session?: SessionScope | null,
+) {
 	const nextRun = computeNextRun(input.cronExpression);
+	const teamFromSession = session ? teamCreateData(session).teamId : undefined;
+	const teamId =
+		input.teamId !== undefined ? input.teamId : (teamFromSession ?? null);
 	return prisma.scheduledTask.create({
 		data: {
 			name: input.name,
@@ -68,21 +94,42 @@ export async function createScheduledTask(input: CreateScheduledTaskInput) {
 			command: input.command,
 			reason: input.reason ?? null,
 			serverIds: normalizeServerIds(input.serverIds),
-			createdById: input.createdById ?? null,
+			createdById: input.createdById ?? session?.userId ?? null,
 			nextRunAt: nextRun,
+			teamId,
 		},
 	});
 }
 
-export async function listScheduledTasks(limit = 200) {
+export async function listScheduledTasks(
+	limit = 200,
+	session?: SessionScope | null,
+) {
 	return prisma.scheduledTask.findMany({
+		where: teamScopeWhere(session),
 		orderBy: { createdAt: "desc" },
 		take: limit,
 		include: { creator: { select: { username: true, displayName: true } } },
 	});
 }
 
-export async function updateScheduledTask(id: string, input: UpdateScheduledTaskInput) {
+export async function getScheduledTask(
+	id: string,
+	session?: SessionScope | null,
+) {
+	const task = await getScheduledTaskForSession(id, session);
+	if (!task) throw new NotFoundError("Scheduled task not found");
+	return task;
+}
+
+export async function updateScheduledTask(
+	id: string,
+	input: UpdateScheduledTaskInput,
+	session?: SessionScope | null,
+) {
+	const existing = await getScheduledTaskForSession(id, session);
+	if (!existing) throw new NotFoundError("Scheduled task not found");
+
 	const data: Record<string, unknown> = {};
 	if (input.name !== undefined) data.name = input.name;
 	if (input.cronExpression !== undefined) {
@@ -93,29 +140,42 @@ export async function updateScheduledTask(id: string, input: UpdateScheduledTask
 	if (input.reason !== undefined) data.reason = input.reason;
 	if (input.serverIds !== undefined) data.serverIds = normalizeServerIds(input.serverIds);
 	if (input.status !== undefined) data.status = input.status;
+	if (input.teamId !== undefined) data.teamId = input.teamId;
 	return prisma.scheduledTask.update({ where: { id }, data });
 }
 
-export async function deleteScheduledTask(id: string) {
+export async function deleteScheduledTask(
+	id: string,
+	session?: SessionScope | null,
+) {
+	const existing = await getScheduledTaskForSession(id, session);
+	if (!existing) throw new NotFoundError("Scheduled task not found");
 	return prisma.scheduledTask.delete({ where: { id } });
 }
 
-export async function toggleScheduledTask(id: string) {
-	const current = await prisma.scheduledTask.findUnique({ where: { id }, select: { status: true } });
+export async function toggleScheduledTask(
+	id: string,
+	session?: SessionScope | null,
+) {
+	const current = await getScheduledTaskForSession(id, session);
 	if (!current) throw new NotFoundError("Scheduled task not found");
 	const newStatus = current.status === "ACTIVE" ? "PAUSED" : "ACTIVE";
-	const nextRun = newStatus === "ACTIVE" ? undefined : null;
 	return prisma.scheduledTask.update({
 		where: { id },
 		data: {
 			status: newStatus,
-			...(nextRun === null ? { nextRunAt: null } : { nextRunAt: computeNextRun((await prisma.scheduledTask.findUnique({ where: { id }, select: { cronExpression: true } }))!.cronExpression) }),
+			...(newStatus === "ACTIVE"
+				? { nextRunAt: computeNextRun(current.cronExpression) }
+				: { nextRunAt: null }),
 		},
 	});
 }
 
-export async function retryScheduledTask(id: string) {
-	const task = await prisma.scheduledTask.findUnique({ where: { id } });
+export async function retryScheduledTask(
+	id: string,
+	session?: SessionScope | null,
+) {
+	const task = await getScheduledTaskForSession(id, session);
 	if (!task) throw new NotFoundError("Scheduled task not found");
 	if (task.serverIds.length === 0 || !task.createdById) {
 		await recordTaskRun(task.id, "Manual retry failed: no target server or no creator");
