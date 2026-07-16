@@ -22,7 +22,7 @@ import { DashboardPreferenceClient } from "./dashboard-preference-client";
 export async function DashboardContent({ sessionPath }: { sessionPath: "/" | "/dashboard" }) {
 	const session = await requireSession(sessionPath);
 	const [servers, storage, requests, recentAuditLogs, downloadStats, unreadNotifications, activeScheduledTasks, dragReorderEnabledRaw] = await Promise.all([
-		listServerProfiles(),
+		listServerProfiles(session),
 		getStorageOverview(),
 		listCommandRequests(session),
 		prisma.auditLog.findMany({

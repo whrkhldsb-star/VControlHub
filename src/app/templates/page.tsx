@@ -17,7 +17,7 @@ export default async function CommandTemplatesPage() {
 
 	const [templates, servers] = await Promise.all([
 		listTemplates(),
-		listServerProfiles(),
+		listServerProfiles(session),
 	]);
 
 	const serialized = templates.map((t) => ({

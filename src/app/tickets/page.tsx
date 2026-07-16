@@ -19,7 +19,7 @@ export default async function Page() {
   const canManage = sessionHasPermission(session, "ticket:manage");
   const canCreate = sessionHasPermission(session, "ticket:create");
   const locale = await getServerLocale();
-  const servers = await listServerProfiles();
+  const servers = await listServerProfiles(session);
   const tickets = await listTickets({
     userId: session.userId,
     includeAll: canManage,

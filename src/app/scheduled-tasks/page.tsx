@@ -18,7 +18,7 @@ export default async function ScheduledTasksPage() {
 
 	const [tasks, servers] = await Promise.all([
 		listScheduledTasks(200, session),
-		listServerProfiles(),
+		listServerProfiles(session),
 	]);
 
 	const serialized = tasks.map((t) => ({

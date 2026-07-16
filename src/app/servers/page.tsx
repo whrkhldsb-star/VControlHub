@@ -30,7 +30,7 @@ export default async function ServersPage() {
 	let servers, formOptions;
 	try {
 		[servers, formOptions] = await Promise.all([
-			listServerProfiles(),
+			listServerProfiles(session),
 			canManageServers ? getServerFormOptions() : Promise.resolve({ sshKeys: [] }),
 		]);
 	} catch (e) {

@@ -3,19 +3,23 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const {
   createServerProfileMock,
   deleteServerProfileMock,
-  prismaServerFindUniqueMock,
+  prismaServerFindFirstMock,
   prismaStorageNodeCountMock,
   updateServerProfileMock,
   requirePermissionMock,
   revalidatePathMock,
+  sessionHasPermissionMock,
+  teamWhereMock,
 } = vi.hoisted(() => ({
   createServerProfileMock: vi.fn(),
   deleteServerProfileMock: vi.fn(),
-  prismaServerFindUniqueMock: vi.fn(),
+  prismaServerFindFirstMock: vi.fn(),
   prismaStorageNodeCountMock: vi.fn(),
   updateServerProfileMock: vi.fn(),
   requirePermissionMock: vi.fn(),
   revalidatePathMock: vi.fn(),
+  sessionHasPermissionMock: vi.fn(() => true),
+  teamWhereMock: vi.fn(() => ({})),
 }));
 
 vi.mock("next/cache", () => ({
@@ -24,6 +28,13 @@ vi.mock("next/cache", () => ({
 
 vi.mock("@/lib/auth/authorization", () => ({
   requirePermission: requirePermissionMock,
+  sessionHasPermission: sessionHasPermissionMock,
+}));
+
+vi.mock("@/lib/auth/team-scope", () => ({
+  teamWhere: teamWhereMock,
+  teamCreateData: vi.fn(() => ({})),
+  teamAccessFilter: vi.fn(() => undefined),
 }));
 
 vi.mock("@/lib/server/service", () => ({
@@ -37,7 +48,7 @@ vi.mock("@/lib/server/service", () => ({
 
 vi.mock("@/lib/db", () => ({
   prisma: {
-    server: { findUnique: prismaServerFindUniqueMock },
+    server: { findFirst: prismaServerFindFirstMock, findUnique: prismaServerFindFirstMock },
     storageNode: { count: prismaStorageNodeCountMock },
   },
 }));
@@ -45,8 +56,8 @@ vi.mock("@/lib/db", () => ({
 describe("server actions", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    requirePermissionMock.mockResolvedValue({ userId: "user_1" });
-    prismaServerFindUniqueMock.mockResolvedValue({ name: "prod" });
+    requirePermissionMock.mockResolvedValue({ userId: "user_1", roles: ["admin"], currentTeamId: null, username: "admin", mustChangePassword: false });
+    prismaServerFindFirstMock.mockResolvedValue({ name: "prod" });
     prismaStorageNodeCountMock.mockResolvedValue(0);
   });
 
@@ -78,6 +89,7 @@ describe("server actions", () => {
         enableDirectGateway: true,
         storagePath: "/data/vch-files",
       }),
+      expect.objectContaining({ userId: "user_1" }),
     );
     expect(revalidatePathMock).toHaveBeenCalledWith("/servers");
   });
@@ -113,6 +125,7 @@ describe("server actions", () => {
         password: "new-secret",
         tags: ["prod", "cy"],
       }),
+      expect.objectContaining({ userId: "user_1" }),
     );
     expect(revalidatePathMock).toHaveBeenCalledWith("/servers");
   });
@@ -145,7 +158,7 @@ describe("server actions", () => {
 
     expect(result.error).toBeUndefined();
     expect(result.success).toBe("节点已删除。");
-    expect(deleteServerProfileMock).toHaveBeenCalledWith("srv_1");
+    expect(deleteServerProfileMock).toHaveBeenCalledWith("srv_1", expect.objectContaining({ userId: "user_1" }));
     expect(revalidatePathMock).toHaveBeenCalledWith("/servers");
     expect(revalidatePathMock).toHaveBeenCalledWith("/storage");
   });

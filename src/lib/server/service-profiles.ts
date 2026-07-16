@@ -1,6 +1,8 @@
 import { Prisma } from "@prisma/client";
 import { mkdir } from "node:fs/promises";
 
+import type { SessionPayload } from "@/lib/auth/session";
+import { teamCreateData, teamWhere } from "@/lib/auth/team-scope";
 import { prisma } from "@/lib/db";
 import { NotFoundError, ValidationError } from "@/lib/errors";
 import { serverT } from "@/lib/i18n/server-locale";
@@ -26,10 +28,33 @@ import {
   type ServerWithRelations,
 } from "./service-internals";
 
-export async function createServerProfile(input: CreateServerInput) {
+type TeamSession = Pick<SessionPayload, "userId" | "roles" | "currentTeamId">;
+
+async function findServerProfileForSession(
+  serverId: string,
+  session?: TeamSession | null,
+  include: typeof SERVER_PROFILE_INCLUDE | undefined = SERVER_PROFILE_INCLUDE,
+) {
+  if (session) {
+    return prisma.server.findFirst({
+      where: { id: serverId, ...teamWhere(session) },
+      include,
+    });
+  }
+  return prisma.server.findUnique({
+    where: { id: serverId },
+    include,
+  });
+}
+
+export async function createServerProfile(
+  input: CreateServerInput,
+  session?: Pick<SessionPayload, "currentTeamId"> | null,
+) {
   const payload = createServerSchema.parse(input);
   const normalized = normalizeServerInput(payload);
   const onboardingWarnings: string[] = [];
+  const teamData = session ? teamCreateData(session) : {};
 
   let validatedSshKey: {
     id: string;
@@ -124,6 +149,7 @@ export async function createServerProfile(input: CreateServerInput) {
       costCurrency: normalized.costCurrency,
       costProvider: normalized.costProvider,
       enabled: true,
+      ...teamData,
     },
     include: SERVER_PROFILE_INCLUDE,
   });
@@ -147,6 +173,7 @@ export async function createServerProfile(input: CreateServerInput) {
       directAccessMode: "PROXY",
       publicBaseUrl: null,
       hostKeySha256,
+      ...(teamData.teamId !== undefined ? { teamId: teamData.teamId } : {}),
     },
   });
 
@@ -202,11 +229,9 @@ export async function createServerProfile(input: CreateServerInput) {
 export async function updateServerProfile(
   serverId: string,
   input: Partial<CreateServerInput> & { enabled?: boolean },
+  session?: TeamSession | null,
 ) {
-  const current = await prisma.server.findUnique({
-    where: { id: serverId },
-    include: SERVER_PROFILE_INCLUDE,
-  });
+  const current = await findServerProfileForSession(serverId, session);
   const t = await serverT();
   if (!current) throw new NotFoundError(t("backend.server.nodeNotFound"));
 
@@ -334,11 +359,19 @@ export async function updateServerProfile(
   return enrichServer(updated);
 }
 
-export async function toggleServerEnabled(serverId: string) {
-  const current = await prisma.server.findUnique({
-    where: { id: serverId },
-    select: { enabled: true },
-  });
+export async function toggleServerEnabled(
+  serverId: string,
+  session?: TeamSession | null,
+) {
+  const current = session
+    ? await prisma.server.findFirst({
+        where: { id: serverId, ...teamWhere(session) },
+        select: { enabled: true },
+      })
+    : await prisma.server.findUnique({
+        where: { id: serverId },
+        select: { enabled: true },
+      });
   const t = await serverT();
   if (!current) throw new NotFoundError(t("backend.server.nodeNotFound"));
   return prisma.server.update({
@@ -347,24 +380,43 @@ export async function toggleServerEnabled(serverId: string) {
   });
 }
 
-export async function deleteServerProfile(serverId: string) {
+export async function deleteServerProfile(
+  serverId: string,
+  session?: TeamSession | null,
+) {
   const releaseLock = await acquireAdvisoryLock("server-delete", serverId);
   try {
-  const current = await prisma.server.findUnique({
-    where: { id: serverId },
-    include: {
-      sshKey: { select: { privateKey: true, passphrase: true } },
-      storageNode: {
-        select: {
-          id: true,
-          basePath: true,
-          driver: true,
-          fileEntries: { select: { id: true }, take: 1 },
-          mediaItems: { select: { id: true }, take: 1 },
+  const current = session
+    ? await prisma.server.findFirst({
+        where: { id: serverId, ...teamWhere(session) },
+        include: {
+          sshKey: { select: { privateKey: true, passphrase: true } },
+          storageNode: {
+            select: {
+              id: true,
+              basePath: true,
+              driver: true,
+              fileEntries: { select: { id: true }, take: 1 },
+              mediaItems: { select: { id: true }, take: 1 },
+            },
+          },
         },
-      },
-    },
-  });
+      })
+    : await prisma.server.findUnique({
+        where: { id: serverId },
+        include: {
+          sshKey: { select: { privateKey: true, passphrase: true } },
+          storageNode: {
+            select: {
+              id: true,
+              basePath: true,
+              driver: true,
+              fileEntries: { select: { id: true }, take: 1 },
+              mediaItems: { select: { id: true }, take: 1 },
+            },
+          },
+        },
+      });
   const t = await serverT();
   if (!current) throw new NotFoundError(t("backend.server.nodeNotFound"));
   let cleanupSkipped = false;
@@ -396,9 +448,19 @@ export async function deleteServerProfile(serverId: string) {
   }
 }
 
-export async function listServerProfiles(teamId?: string | null) {
+export async function listServerProfiles(
+  sessionOrTeamId?: TeamSession | string | null,
+) {
+  let where: Record<string, unknown> | undefined;
+  if (sessionOrTeamId && typeof sessionOrTeamId === "object") {
+    where = teamWhere(sessionOrTeamId);
+  } else if (sessionOrTeamId !== undefined) {
+    // Backward-compat: listServerProfiles(teamId) still accepted by internal callers
+    where = { teamId: sessionOrTeamId ?? null };
+  }
+
   const servers = await prisma.server.findMany({
-    where: teamId === undefined ? undefined : { teamId: teamId ?? null },
+    where,
     orderBy: { createdAt: "desc" },
     include: SERVER_PROFILE_INCLUDE,
     take: 500, // P2: server 总数有限

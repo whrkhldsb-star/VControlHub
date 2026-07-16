@@ -17,7 +17,7 @@ export default async function AlertRulesPage() {
 
 	const [rules, servers, playbooks] = await Promise.all([
 		canManage ? listAlertRules() : Promise.resolve([]),
-		listServerProfiles(),
+		listServerProfiles(session),
 		canManage ? listPlaybooks(session) : Promise.resolve([]),
 	]);
 

@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 
 import { auditUserAction } from "@/lib/audit/service";
 import { requirePermission } from "@/lib/auth/authorization";
+import { requireSession } from "@/lib/auth/require-session";
 import { serverT } from "@/lib/i18n/server-locale";
 import {
   checkStorageNodeHealth,
@@ -17,8 +18,11 @@ import { listServerProfiles } from "@/lib/server/service";
 import type { StorageActionState } from "./actions-helpers";
 
 export async function getStorageFormOptions() {
+  // Called from files page for users with storage:write OR storage:manage-node.
+  // Scope servers by session team; do not require manage-node here.
+  const session = await requireSession();
   const [servers, nodes] = await Promise.all([
-    listServerProfiles(),
+    listServerProfiles(session),
     listStorageNodes(),
   ]);
   return {

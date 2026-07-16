@@ -81,7 +81,7 @@ export async function createServerAction(
       costCurrency,
       costProvider,
       approvedHostKeySha256,
-    });
+    }, session);
 
     await auditUserAction(session.userId, "server.create", {
       serverId: created.id,
@@ -143,7 +143,7 @@ export async function updateServerAction(
       approvedHostKeySha256,
     };
 
-    await updateServerProfile(serverId, changes);
+    await updateServerProfile(serverId, changes, session);
 
     await auditUserAction(session.userId, "server.update", {
       serverId,
@@ -220,7 +220,7 @@ export async function toggleServerAction(
 
   try {
     const serverId = String(formData.get("serverId") ?? "");
-    const updated = await toggleServerEnabled(serverId);
+    const updated = await toggleServerEnabled(serverId, session);
     const newState = updated.enabled;
     await auditUserAction(session.userId, "server.toggle", {
       serverId,
@@ -288,8 +288,9 @@ export async function batchToggleServerAction(
     }
 
     const { prisma } = await import("@/lib/db");
+    const { teamWhere } = await import("@/lib/auth/team-scope");
     const result = await prisma.server.updateMany({
-      where: { id: { in: serverIds } },
+      where: { id: { in: serverIds }, ...teamWhere(session) },
       data: { enabled },
     });
     await auditUserAction(session.userId, "server.batch_toggle", {
@@ -326,8 +327,9 @@ export async function deleteServerAction(
     const confirmDelete = formData.get("confirmDelete") === "true";
 
     const { prisma } = await import("@/lib/db");
-    const current = await prisma.server.findUnique({
-      where: { id: serverId },
+    const { teamWhere } = await import("@/lib/auth/team-scope");
+    const current = await prisma.server.findFirst({
+      where: { id: serverId, ...teamWhere(session) },
       select: { name: true },
     });
     if (!current) {
@@ -354,7 +356,7 @@ export async function deleteServerAction(
     }
 
     const serverName = current.name;
-    await deleteServerProfile(serverId);
+    await deleteServerProfile(serverId, session);
     await auditUserAction(session.userId, "server.delete", {
       serverId,
       name: serverName,

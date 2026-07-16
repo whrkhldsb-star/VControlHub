@@ -20,7 +20,7 @@ export default async function HealthPage() {
 		);
 	}
 
-	const servers = await listServerProfiles();
+	const servers = await listServerProfiles(session);
 
 	return (
 		<PageShell>
