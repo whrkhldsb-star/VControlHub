@@ -152,6 +152,8 @@ export async function createDeploymentRunFromTemplate(
   await prisma.deploymentRun.update({ where: { id: run.id }, data: { snapshotId: snapshot.id } });
 
   try {
+    // No session on createCommandRequest: stamp teamId from the DeploymentRun so the
+    // spawned CommandRequest is not null-team (shared across all tenants in list views).
     const command = await createCommandRequest({
       title: `Deployment: ${template.name}`,
       command: renderedCommand,
@@ -159,6 +161,7 @@ export async function createDeploymentRunFromTemplate(
       submissionMode: "assistant",
       requesterId: normalized.requesterId,
       serverIds: normalized.serverIds,
+      teamId,
     });
     return prisma.deploymentRun.update({
       where: { id: run.id },
@@ -340,6 +343,7 @@ export async function createDeploymentRollbackRun(
   if (activeRollback) throw new ValidationError("A rollback task is already in progress; please wait for the current rollback to complete before retrying");
 
   const reason = input.reason?.trim() || `Rollback: ${snapshot.templateName}`;
+  const rollbackTeamId = sourceRun.teamId ?? null;
   const rollback = await prisma.deploymentRollbackRun.create({
     data: {
       sourceRunId: sourceRun.id,
@@ -352,6 +356,7 @@ export async function createDeploymentRollbackRun(
     },
   });
 
+  // Propagate parent DeploymentRun.teamId onto the CommandRequest (system path, no session).
   const command = await createCommandRequest({
     title: `Rollback deployment: ${snapshot.templateName}`,
     command: snapshot.rollbackCommand,
@@ -359,6 +364,7 @@ export async function createDeploymentRollbackRun(
     submissionMode: "assistant",
     requesterId: input.requesterId,
     serverIds: snapshot.serverIds,
+    teamId: rollbackTeamId,
   });
 
   return prisma.deploymentRollbackRun.update({

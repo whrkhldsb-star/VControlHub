@@ -180,6 +180,7 @@ describe("scheduled task service", () => {
       submissionMode: "user",
       requesterId: "u1",
       serverIds: ["srv1"],
+      teamId: null,
     });
     expect(mockPrisma.scheduledTask.update).toHaveBeenCalledWith({
       where: { id: "task1" },

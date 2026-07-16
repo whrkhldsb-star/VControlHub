@@ -182,6 +182,7 @@ export async function retryScheduledTask(
 		throw new BusinessError("Scheduled task missing target server or creator, cannot retry");
 	}
 
+	// System path (no session on createCommandRequest): stamp teamId from the parent task.
 	const result = await createCommandRequest({
 		title: `Scheduled task retry: ${task.name}`,
 		command: task.command,
@@ -189,6 +190,7 @@ export async function retryScheduledTask(
 		submissionMode: "user",
 		requesterId: task.createdById,
 		serverIds: task.serverIds,
+		teamId: task.teamId ?? null,
 	});
 
 	await recordTaskRun(task.id, `Manual retry has triggered command request ${result.id}`);

@@ -69,6 +69,9 @@ describe("deployment service", () => {
 
     expect(mockTeamCreateData).toHaveBeenCalledWith(teamSession);
     expect(mockPrisma.deploymentRun.create.mock.calls[0]![0].data.teamId).toBe("team_a");
+    expect(commandService.createCommandRequest).toHaveBeenCalledWith(
+      expect.objectContaining({ teamId: "team_a", submissionMode: "assistant" }),
+    );
   });
 
   it("deduplicates deployment target server ids before creating run and command targets", async () => {
@@ -117,9 +120,41 @@ describe("deployment service", () => {
     });
   });
 
+  it("propagates source DeploymentRun.teamId onto rollback CommandRequest", async () => {
+    mockPrisma.deploymentRun.findFirst.mockResolvedValue({
+      id: "dep1",
+      teamId: "team_a",
+      template: { id: "tmpl1", name: "Nginx" },
+      snapshot: {
+        id: "snap1",
+        templateName: "Nginx",
+        rollbackCommand: "apt remove nginx",
+        serverIds: ["srv1"],
+      },
+    });
+    mockPrisma.deploymentRollbackRun.create.mockImplementation(async ({ data }: any) => ({ id: "rb1", ...data }));
+    mockPrisma.deploymentRollbackRun.update.mockImplementation(async ({ where, data }: any) => ({ id: where.id, ...data }));
+
+    const rollback = await createDeploymentRollbackRun(
+      { sourceRunId: "dep1", requesterId: "u1", reason: "bad deploy" },
+      teamSession,
+    );
+
+    expect(commandService.createCommandRequest).toHaveBeenCalledWith(expect.objectContaining({
+      title: "Rollback deployment: Nginx",
+      command: "apt remove nginx",
+      reason: "bad deploy",
+      serverIds: ["srv1"],
+      submissionMode: "assistant",
+      teamId: "team_a",
+    }));
+    expect(rollback).toMatchObject({ id: "rb1", commandRequestId: "cmd1", status: "PENDING" });
+  });
+
   it("creates a real rollback run from the immutable deployment snapshot", async () => {
     mockPrisma.deploymentRun.findFirst.mockResolvedValue({
       id: "dep1",
+      teamId: null,
       template: { id: "tmpl1", name: "Nginx" },
       snapshot: {
         id: "snap1",
@@ -139,6 +174,7 @@ describe("deployment service", () => {
       reason: "bad deploy",
       serverIds: ["srv1"],
       submissionMode: "assistant",
+      teamId: null,
     }));
     expect(rollback).toMatchObject({ id: "rb1", commandRequestId: "cmd1", status: "PENDING" });
   });

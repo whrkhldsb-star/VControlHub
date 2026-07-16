@@ -33,6 +33,8 @@ interface ToolCall {
 type HostedActionSession = {
   userId: string;
   roles: RoleKey[];
+  /** Optional; used to stamp CommandRequest.teamId on confirm. */
+  currentTeamId?: string | null;
 };
 
 type HostedActionExecutionContext = {
@@ -91,11 +93,13 @@ async function buildAssistantCommandRequestPayload(input: {
   args: Record<string, unknown>;
   userId: string;
   serverId: string;
+  /** Optional team stamp for the spawned CommandRequest (system path has no session). */
+  teamId?: string | null;
 }) {
   // TR-041: 加载 server 的 osDialect 以支持方言感知命令生成
   const server = await prisma.server.findUnique({
     where: { id: input.serverId },
-    select: { osDialect: true },
+    select: { osDialect: true, teamId: true },
   });
   const dialect = server?.osDialect ? deserializeDialect(server.osDialect) : undefined;
   const command = buildCommand(input.tool.actionType, input.args, dialect);
@@ -107,6 +111,13 @@ async function buildAssistantCommandRequestPayload(input: {
     ? input.args.reason.trim()
     : "AI assistant initiated from web session; will execute after manual approval.";
 
+  // Prefer explicit teamId (session); fall back to target server's team so the
+  // CommandRequest is not left null-team (shared across all tenants in list views).
+  const teamId =
+    input.teamId !== undefined && input.teamId !== null
+      ? input.teamId
+      : (server?.teamId ?? null);
+
   return {
     title: `AI Assistant: ${input.tool.actionName}`,
     command,
@@ -114,6 +125,7 @@ async function buildAssistantCommandRequestPayload(input: {
     requesterId: input.userId,
     serverIds: [input.serverId],
     submissionMode: "assistant" as const,
+    teamId,
   };
 }
 
@@ -367,6 +379,7 @@ export async function confirmHostedAction(actionId: string, requester: HostedAct
     args: params,
     userId: requester.userId,
     serverId: action.serverId,
+    teamId: requester.currentTeamId ?? null,
   });
 
   // Atomic compare-and-swap: prevent two concurrent confirmations from

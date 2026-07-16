@@ -114,6 +114,8 @@ async function dispatchDueTask(task: {
   serverIds: string[];
   createdById: string | null;
   nextRunAt: Date | null;
+  /** Propagate parent ScheduledTask.teamId so the spawned CommandRequest is not global (null = shared). */
+  teamId: string | null;
 }): Promise<boolean> {
   if (task.serverIds.length === 0 || !task.createdById) {
     await recordTaskRun(task.id, "Skipped: no target server or no creator");
@@ -149,6 +151,8 @@ async function dispatchDueTask(task: {
   }
 
   try {
+    // System worker has no session: stamp teamId from the parent task so
+    // listCommandRequests(teamWhere) does not treat the request as shared null-team.
     const result = await createCommandRequest({
       title: `Scheduled task: ${task.name}`,
       command: task.command,
@@ -156,6 +160,7 @@ async function dispatchDueTask(task: {
       submissionMode: "user",
       requesterId: task.createdById,
       serverIds: task.serverIds,
+      teamId: task.teamId,
     });
 
     await recordTaskRun(task.id, `Triggered command request ${result.id}`);
