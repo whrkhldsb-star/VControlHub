@@ -28,7 +28,12 @@ const stepNameSchema = z
 
 const runCommandConfigSchema = z.object({
   command: z.string().trim().min(1, "Command is required").max(10_000),
-  serverIds: z.array(z.string().min(1)).max(64, "Single step supports at most 64 VPS"),
+  // Must pick targets at write-time: createCommandRequest requires ≥1 serverId
+  // and the create UI previously left this empty, so runs always failed at execute.
+  serverIds: z
+    .array(z.string().min(1))
+    .min(1, "At least 1 target VPS must be selected")
+    .max(64, "Single step supports at most 64 VPS"),
   variables: z.record(z.string(), z.string()).optional(),
 });
 

@@ -1,6 +1,7 @@
 import { requireSession } from "@/lib/auth/require-session";
 import { sessionHasPermission } from "@/lib/auth/authorization";
 import { listPlaybookRuns, listPlaybooks } from "@/lib/playbook/service";
+import { listServerProfiles } from "@/lib/server/service";
 import { getServerLocale, t } from "@/lib/i18n/translations";
 
 import { PageShell, PageHeader } from "@/components/page-shell";
@@ -16,6 +17,15 @@ export default async function PlaybooksPage() {
 	const locale = await getServerLocale();
 
 	const playbooks = canRead ? await listPlaybooks(session) : [];
+	// Team-scoped VPS options for run_command step target picker (create form).
+	const serverOptions = canManage
+		? (await listServerProfiles(session)).map((s) => ({
+				id: s.id,
+				name: s.name,
+				host: s.host,
+				enabled: s.enabled,
+			}))
+		: [];
 
 	// Fetch run history for each playbook in parallel; empty array per playbook
 	// is fine for the M04 plan (limit to 5 per playbook, latest first).
@@ -70,6 +80,7 @@ export default async function PlaybooksPage() {
 			<PlaybookListClient
 				playbooks={serialized}
 				runsByPlaybook={runsByPlaybook}
+				servers={serverOptions}
 				canManage={canManage}
 				canRun={canRun}
 			/>

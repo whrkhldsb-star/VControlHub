@@ -17,9 +17,9 @@ vi.mock("@/components/toast-provider", () => ({
 	useToast: () => ({ addToast: addToastMock }),
 }));
 
-const stepA = { id: "a", name: "第一步", type: "run_command" as const, config: { command: "echo first", serverIds: [] }, retry: 0, timeoutSec: 60 };
-const stepB = { id: "b", name: "第二步", type: "run_command" as const, config: { command: "echo second", serverIds: [] }, retry: 0, timeoutSec: 60 };
-const stepC = { id: "c", name: "第三步", type: "run_command" as const, config: { command: "echo third", serverIds: [] }, retry: 0, timeoutSec: 60 };
+const stepA = { id: "a", name: "第一步", type: "run_command" as const, config: { command: "echo first", serverIds: ["srv1"] }, retry: 0, timeoutSec: 60 };
+const stepB = { id: "b", name: "第二步", type: "run_command" as const, config: { command: "echo second", serverIds: ["srv1"] }, retry: 0, timeoutSec: 60 };
+const stepC = { id: "c", name: "第三步", type: "run_command" as const, config: { command: "echo third", serverIds: ["srv1"] }, retry: 0, timeoutSec: 60 };
 
 const playbook = {
 	id: "pb_1",
@@ -33,9 +33,14 @@ const playbook = {
 	createdAt: "2026-01-01T00:00:00.000Z",
 };
 
+const testServers = [
+	{ id: "srv1", name: "主节点", host: "10.0.0.1", enabled: true },
+	{ id: "srv2", name: "备节点", host: "10.0.0.2", enabled: true },
+];
+
 function renderClient() {
 	return renderWithI18n(
-		<PlaybookListClient playbooks={[]} runsByPlaybook={{}} canManage canRun />,
+		<PlaybookListClient playbooks={[]} runsByPlaybook={{}} servers={testServers} canManage canRun />,
 		{ locale: "zh" },
 	);
 }
@@ -76,7 +81,7 @@ describe("PlaybookListClient run feedback", () => {
 			},
 		});
 
-		renderWithI18n(<PlaybookListClient playbooks={[playbook]} runsByPlaybook={{ pb_1: [] }} canManage canRun />, { locale: "zh" });
+		renderWithI18n(<PlaybookListClient playbooks={[playbook]} runsByPlaybook={{ pb_1: [] }} servers={testServers} canManage canRun />, { locale: "zh" });
 
 		await user.click(screen.getByRole("button", { name: /Dry-run 演练/ }));
 
@@ -116,12 +121,22 @@ describe("PlaybookListClient sortable steps", () => {
 		await user.type(commandBoxes[1]!, "echo second");
 		await user.type(commandBoxes[2]!, "echo third");
 
+		// Select at least one target VPS per run_command step (required by schema).
+		const checkboxes = screen.getAllByRole("checkbox");
+		// 3 steps × 2 servers = 6 checkboxes; pick first server on each step (indices 0,2,4)
+		await user.click(checkboxes[0]!);
+		await user.click(checkboxes[2]!);
+		await user.click(checkboxes[4]!);
+
 		await user.click(screen.getByRole("button", { name: "保存 Playbook" }));
 
 		await waitFor(() => expect(csrfFetch).toHaveBeenCalledWith("/api/playbooks", expect.objectContaining({ method: "POST" })));
 		const [, options] = vi.mocked(csrfFetch).mock.calls.find(([url]) => url === "/api/playbooks")!;
 		const body = JSON.parse(String(options?.body));
 		expect(body.steps.map((step: { name: string }) => step.name)).toEqual(["第一步", "第二步", "第三步"]);
+		for (const step of body.steps) {
+			expect(step.config.serverIds).toEqual(["srv1"]);
+		}
 		expect(addToastMock).toHaveBeenCalledWith("success", "Playbook 已创建");
 	});
 });

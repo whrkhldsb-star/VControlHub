@@ -4,13 +4,14 @@ import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { useI18n } from "@/lib/i18n/use-locale";
 import { fieldInputClass, stepTypeLabel, defaultConfigFor } from "./playbook-types";
-import type { SerializedStep, StepType } from "./playbook-types";
+import type { SerializedStep, StepType, ServerOption } from "./playbook-types";
 import { StepConfigEditor } from "./step-config-editor";
 
 export function SortableStepCard({
 	step,
 	index,
 	stepCount,
+	servers,
 	onRemove,
 	onUpdate,
 	onConfigChange,
@@ -18,6 +19,7 @@ export function SortableStepCard({
 	step: SerializedStep;
 	index: number;
 	stepCount: number;
+	servers: ServerOption[];
 	onRemove: (id: string) => void;
 	onUpdate: (id: string, patch: Partial<SerializedStep>) => void;
 	onConfigChange: (id: string, patch: Record<string, unknown>) => void;
@@ -82,7 +84,7 @@ export function SortableStepCard({
 					</button>
 				)}
 			</div>
-			<StepConfigEditor step={step} onConfigChange={(p) => onConfigChange(step.id, p)} />
+			<StepConfigEditor step={step} servers={servers} onConfigChange={(p) => onConfigChange(step.id, p)} />
 			<div className="grid gap-2 md:grid-cols-2">
 				<div className="space-y-1">
 					<label className="text-[11px] text-[var(--text-secondary)]">{t("playbooksPage.createForm.retry")}</label>

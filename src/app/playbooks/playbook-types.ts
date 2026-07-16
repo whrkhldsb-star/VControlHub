@@ -4,6 +4,13 @@ import { formatDateTime } from "@/lib/datetime/format";
 export type TriggerType = "cron" | "metric";
 export type StepType = "run_command" | "send_notification" | "call_webhook";
 
+export type ServerOption = {
+	id: string;
+	name: string;
+	host: string;
+	enabled: boolean;
+};
+
 export type SerializedStep = {
 	id: string;
 	name: string;

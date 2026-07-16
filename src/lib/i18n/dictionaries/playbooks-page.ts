@@ -20,7 +20,7 @@ export const zh: Record<string, string> = {
 	"playbooksPage.createForm.addStep": "+ 添加步骤",
 	"playbooksPage.createForm.cancel": "取消",
 	"playbooksPage.createForm.chainRetry": "整链失败重试次数",
-	"playbooksPage.createForm.runCommandHint": "serverIds 默认为空，命令会按 cron/手动触发时再解析；此处只保存命令字符串。",
+	"playbooksPage.createForm.runCommandHint": "请至少选择一台目标 VPS；保存时会校验 serverIds 并在执行时按所选节点下发命令。",
 	"playbooksPage.createForm.description": "说明（可选）",
 	"playbooksPage.createForm.enabled": "保存后默认启用",
 	"playbooksPage.createForm.error": "保存失败",
@@ -88,6 +88,13 @@ export const zh: Record<string, string> = {
 	"playbooksPage.step.recipientAria": "收件人用户ID",
 	"playbooksPage.step.subjectAria": "主题",
 	"playbooksPage.step.urlAria": "URL",
+	"playbooksPage.step.commandLabel": "命令",
+	"playbooksPage.step.serversLabel": "目标 VPS",
+	"playbooksPage.step.serversRequired": "至少选择一台目标 VPS（执行命令步骤必填）",
+	"playbooksPage.step.noServers": "当前团队暂无可用 VPS，无法配置执行命令步骤",
+	"playbooksPage.step.selectAllEnabledServers": "全选启用节点",
+	"playbooksPage.step.deselectAllServers": "取消全选",
+	"playbooksPage.step.serverDisabled": "已停用",
 };
 
 export const en: Record<string, string> = {
@@ -103,7 +110,7 @@ export const en: Record<string, string> = {
 	"playbooksPage.createForm.addStep": "+ Add Step",
 	"playbooksPage.createForm.cancel": "Cancel",
 	"playbooksPage.createForm.chainRetry": "Chain Retry Count",
-	"playbooksPage.createForm.runCommandHint": "serverIds defaults to empty; the command resolves targets later when the cron / manual trigger fires. Only the command string is saved here.",
+	"playbooksPage.createForm.runCommandHint": "Select at least one target VPS; serverIds are validated on save and used when the step dispatches the command.",
 	"playbooksPage.createForm.description": "Description (optional)",
 	"playbooksPage.createForm.enabled": "Enable on save",
 	"playbooksPage.createForm.error": "Save failed",
@@ -171,4 +178,11 @@ export const en: Record<string, string> = {
 	"playbooksPage.step.recipientAria": "Recipient user ID",
 	"playbooksPage.step.subjectAria": "Subject",
 	"playbooksPage.step.urlAria": "URL",
+	"playbooksPage.step.commandLabel": "Command",
+	"playbooksPage.step.serversLabel": "Target VPS",
+	"playbooksPage.step.serversRequired": "Select at least one target VPS (required for run_command steps)",
+	"playbooksPage.step.noServers": "No VPS available in this team; cannot configure run_command steps",
+	"playbooksPage.step.selectAllEnabledServers": "Select all enabled",
+	"playbooksPage.step.deselectAllServers": "Deselect all",
+	"playbooksPage.step.serverDisabled": "Disabled",
 };

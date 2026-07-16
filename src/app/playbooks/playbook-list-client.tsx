@@ -7,7 +7,7 @@ import { useToast } from "@/components/toast-provider";
 import { EmptyState, Toolbar, SurfacePanel, ListPanel } from "@/components/page-shell";
 import { File as FileIcon } from "@/components/icons";
 import { statusLabelFor, dryRunStepCounts } from "./playbook-types";
-import type { SerializedPlaybook, RunSummary } from "./playbook-types";
+import type { SerializedPlaybook, RunSummary, ServerOption } from "./playbook-types";
 import { CreatePlaybookForm } from "./create-playbook-form";
 import { PlaybookCard } from "./playbook-card";
 import { PlaybookDeleteDialog } from "./playbook-delete-dialog";
@@ -15,11 +15,18 @@ import { PlaybookDeleteDialog } from "./playbook-delete-dialog";
 type Props = {
   playbooks: SerializedPlaybook[];
   runsByPlaybook: Record<string, RunSummary[]>;
+  servers: ServerOption[];
   canManage: boolean;
   canRun: boolean;
 };
 
-export function PlaybookListClient({ playbooks: initial, runsByPlaybook: initialRuns, canManage, canRun }: Props) {
+export function PlaybookListClient({
+  playbooks: initial,
+  runsByPlaybook: initialRuns,
+  servers,
+  canManage,
+  canRun,
+}: Props) {
   const { t } = useI18n();
   const { addToast } = useToast();
   const [playbooks, setPlaybooks] = useState(initial);
@@ -149,7 +156,7 @@ export function PlaybookListClient({ playbooks: initial, runsByPlaybook: initial
 
       {showCreate && (
         <SurfacePanel title={t("playbooksPage.action.create")}>
-          <CreatePlaybookForm onClose={() => { setShowCreate(false); void refresh(); }} />
+          <CreatePlaybookForm servers={servers} onClose={() => { setShowCreate(false); void refresh(); }} />
         </SurfacePanel>
       )}
 

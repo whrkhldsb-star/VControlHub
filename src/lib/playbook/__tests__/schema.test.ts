@@ -67,7 +67,7 @@ describe("playbook createPlaybookSchema", () => {
 		expect(parsed.success).toBe(false);
 	});
 
-	it("accepts a run_command step with an empty serverIds (M04 ships as no-op)", () => {
+	it("rejects a run_command step with empty serverIds (targets required at write-time)", () => {
 		const parsed = createPlaybookSchema.safeParse({
 			name: "Dry plan",
 			triggerType: "cron",
@@ -83,7 +83,7 @@ describe("playbook createPlaybookSchema", () => {
 				},
 			],
 		});
-		expect(parsed.success).toBe(true);
+		expect(parsed.success).toBe(false);
 	});
 
 	it("rejects when run_command has more than 64 serverIds", () => {

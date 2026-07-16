@@ -19,10 +19,16 @@ import { csrfFetch } from "@/lib/auth/csrf-client";
 import { useI18n } from "@/lib/i18n/use-locale";
 import { useToast } from "@/components/toast-provider";
 import { fieldLabelClass, fieldInputClass, monoFieldInputClass, makeNewStep, reorderSteps } from "./playbook-types";
-import type { TriggerType, SerializedStep } from "./playbook-types";
+import type { TriggerType, SerializedStep, ServerOption } from "./playbook-types";
 import { SortableStepCard } from "./sortable-step-card";
 
-export function CreatePlaybookForm({ onClose }: { onClose: () => void }) {
+export function CreatePlaybookForm({
+	onClose,
+	servers,
+}: {
+	onClose: () => void;
+	servers: ServerOption[];
+}) {
 	const { t } = useI18n();
 	const { addToast } = useToast();
 	const [name, setName] = useState("");
@@ -61,6 +67,16 @@ export function CreatePlaybookForm({ onClose }: { onClose: () => void }) {
 		setSubmitting(true);
 		setError(null);
 		try {
+			const missingTargets = steps.some(
+				(s) =>
+					s.type === "run_command" &&
+					(!Array.isArray(s.config.serverIds) || (s.config.serverIds as string[]).length === 0),
+			);
+			if (missingTargets) {
+				setError(t("playbooksPage.step.serversRequired"));
+				setSubmitting(false);
+				return;
+			}
 			const triggerConfig =
 				triggerType === "cron"
 					? { expression: cronExpression }
@@ -259,6 +275,7 @@ export function CreatePlaybookForm({ onClose }: { onClose: () => void }) {
 									step={step}
 									index={idx}
 									stepCount={steps.length}
+									servers={servers}
 									onRemove={removeStep}
 									onUpdate={updateStep}
 									onConfigChange={updateStepConfig}
