@@ -736,7 +736,7 @@ make logs SERVICE_PREFIX=vcontrolhub
 | 维度 | 判断 |
 |---|---|
 | 已很强 | 命令审批链、模板/部署、文件与分享、备份/审计、RBAC 粒度、多租户 Team scope |
-| 仍偏弱 | 对外集成深度（ITSM/IM 双向；云账单 live SDK 可按需加深） |
+| 仍偏弱 | 对外集成深度（云账单 live SDK 可按需加深；跨节点容量预测；更深层同步协议） |
 
 #### P0 — 最影响「能不能当主力系统用」
 
@@ -745,7 +745,7 @@ make logs SERVICE_PREFIX=vcontrolhub
 | FEAT-P0-1 | **多租户 / 团队数据隔离** | ✅ 核心模型、任务列表/CSV/events、分享审计、备份记录/计划/恢复/保留策略已接入 Team scope；普通任务读者仅见本人任务 | 继续对新增模型执行 route/service 双层 scope 审查 |
 | FEAT-P0-2 | **远程 Docker + Quick Services + Compose 项目生命周期已完成** | ✅ 容器/日志/stats/network/volume 支持选择远程 VPS；**Compose project 级 ps/up/down/start/stop/restart**（优先 `docker compose -p`，CLI 不可用时按项目标签 Engine 回退）；**Quick Services 可选择本机或远程 VPS** | 可选：从仓库拉 compose 文件一键部署（与现有 project 生命周期独立） |
 | FEAT-P0-3 | **舰队监控后台采样已完成** | ✅ 远程节点实时资源、CPU/内存/磁盘历史、节点过滤告警及 Playbook 联动；独立 `health.sample` durable worker 每 5 分钟采样，不再依赖页面访问，保留 30 天并记录离线断点 | 后续可在现有样本上增加跨节点统一容量预测 |
-| FEAT-P0-4 | **文件网盘能力主体完成** | ✅ 多节点、回收站、分享、预览、上传、LOCAL/SFTP 全文检索；媒体/普通文件分片断点续传；**文件版本历史**；**WebDAV**（`/api/webdav/{nodeId}`，Bearer/Basic+API Token，PROPFIND/GET/PUT/DELETE/MKCOL/MOVE/COPY，复用路径授权） | 更深层同步协议/双向 ITSM 等仍属对外集成批次 |
+| FEAT-P0-4 | **文件网盘能力主体完成** | ✅ 多节点、回收站、分享、预览、上传、LOCAL/SFTP 全文检索；媒体/普通文件分片断点续传；**文件版本历史**；**WebDAV**（`/api/webdav/{nodeId}`，Bearer/Basic+API Token，PROPFIND/GET/PUT/DELETE/MKCOL/MOVE/COPY，复用路径授权） | 更深层同步协议仍属对外集成批次 |
 | FEAT-P0-5 | **Playbook 深度异步化已完成** | ✅ API 原子创建 `PlaybookRun` + `playbook.run` durable job 后立即返回；worker 持 lease/heartbeat，等待真实 CommandRequest 终态并逐步持久化 | 崩溃重领按已持久化 `commandRequestId` 续跑，不重复下发；步骤 retry 与链级 retry 均生效 |
 
 #### P1 — 有入口、业务深度不够
@@ -770,7 +770,7 @@ make logs SERVICE_PREFIX=vcontrolhub
 | SSH 主机密钥 | ✅ 命令执行、Sync rsync/tar 均使用匹配 SHA-256 pin 的临时 known_hosts，StrictHostKeyChecking=yes | OPEN-1 / OPEN-2 |
 | E2E 全矩阵 | 主路径有 Playwright，非跨浏览器全覆盖 | OPEN-6 / FE-OPEN-1 |
 | 移动端运维 | 可浏览；终端/批量文件/重审批仍桌面优先 | FE-UI Round 8 |
-| 对外集成 | Webhook/邮件/TG 有；**云账单账户+CSV/探针导入**已落地；缺完整事件总线与 ITSM/IM 双向 | 产品 |
+| 对外集成 | Webhook/邮件/TG 有；**云账单账户+CSV/探针导入**已落地；**ITSM/IM 双向**已落地；完整事件总线可继续加深 | 产品 |
 
 #### 期望 vs 实际（避免误解）
 
@@ -806,7 +806,16 @@ make logs SERVICE_PREFIX=vcontrolhub
 | FEAT-P1-BR | **备份细粒度恢复** | FULL 备份恢复支持选择范围：全部 / 仅数据库 / 仅文件；`buildRestoreExecution` 按 component 分发不同命令；UI 加三选一按钮组；schema/API/job-worker 全链路传参 | ✅ tsc + 119 tests |
 
 **验证**：tsc 0；playbook executor 测试通过；build 成功；服务 active；path smoke 11/11 通过。  
-**P0 主体全部完成（已审计修复）**：Playbook 主链已迁移为 durable worker，舰队监控历史已由后台独立采样；**P1 主体能力已完成**。仍保留为明确独立产品批次的方向：ITSM/IM 双向集成；云账单 live 厂商 SDK 可按环境加深。
+**P0 主体全部完成（已审计修复）**：Playbook 主链已迁移为 durable worker，舰队监控历史已由后台独立采样；**P1 主体能力已完成**。仍保留为明确独立产品批次的方向：跨节点统一容量预测；云账单 live 厂商 SDK 可按环境加深；更深层文件同步协议。
+
+
+### FEAT-ITSM-IM-BIDI（2026-07-16）
+
+| ID | 修复项 | 完成内容 |
+|---|---|---|
+| FEAT-ITSM-IM-BIDI | **ITSM/IM 双向集成** | `ItsmConnection` / `ItsmEvent`；凭证 AES 加密；generic_webhook/Slack/Telegram/钉钉/飞书适配器；出站 SSRF 安全 Webhook + 入站 HMAC 签名；`/api/itsm/connections` CRUD + `/test` + `/api/itsm/inbound/[id]` + `/api/itsm/events`；工单创建/状态/评论 fan-out；`/itsm` 管理页 + 中英 i18n + nav |
+
+**验证**：`tsc --noEmit`；eslint 聚焦 0 warn；vitest itsm+ticket 17 tests；i18n key-check 4174/4174；migrate deploy。
 
 ### FEAT-COST-CLOUD-BILLING（2026-07-16）
 

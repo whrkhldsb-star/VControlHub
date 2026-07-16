@@ -97,6 +97,7 @@ export const mainNavGroups: AppNavGroup[] = [
 			{ href: "/ai-ops", labelKey: "nav.ai-ops", fallbackLabel: "AI Ops", icon: <IconAi /> },
 			{ href: "/announcements", labelKey: "nav.announcements", fallbackLabel: "Announcements", icon: <IconBell /> },
 			{ href: "/tickets", labelKey: "nav.tickets", fallbackLabel: "Tickets", icon: <IconTicket /> },
+			{ href: "/itsm", labelKey: "nav.itsm", fallbackLabel: "ITSM", icon: <IconShare /> },
 			{ href: "/requests", labelKey: "nav.requests", fallbackLabel: "Approvals", icon: <IconCheck /> },
 			{ href: "/notifications", labelKey: "nav.notifications", fallbackLabel: "Notifications", icon: <IconBell /> },
 		],

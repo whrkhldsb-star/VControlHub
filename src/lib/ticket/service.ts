@@ -23,12 +23,25 @@ const TRANSITIONS: Record<string, Set<string>> = {
   CLOSED: new Set(["OPEN"]),
 };
 
-export async function createTicket(input: { title: string; description: string; priority?: string; createdBy: string; relatedServerId?: string; relatedCommandId?: string; category?: string; slaDueAt?: Date; session?: { currentTeamId: string | null } }) {
+export async function createTicket(input: { title: string; description: string; priority?: string; createdBy: string; relatedServerId?: string; relatedCommandId?: string; category?: string; slaDueAt?: Date; session?: { currentTeamId: string | null }; skipItsmFanOut?: boolean }) {
   if (!input.title.trim() || !input.description.trim()) throw new ValidationError("Ticket title and description cannot be empty");
   const priority = input.priority ?? "NORMAL";
   const { computeSlaDueAt } = await import("./sla");
   const slaDueAt = input.slaDueAt ?? computeSlaDueAt(new Date(), priority);
-  return prisma.ticket.create({ data: { title: input.title.trim(), description: input.description.trim(), status: "OPEN", priority, category: input.category, slaDueAt, createdBy: input.createdBy, relatedServerId: input.relatedServerId, relatedCommandId: input.relatedCommandId, ...(input.session ? teamCreateData(input.session) : {}) } });
+  const ticket = await prisma.ticket.create({ data: { title: input.title.trim(), description: input.description.trim(), status: "OPEN", priority, category: input.category, slaDueAt, createdBy: input.createdBy, relatedServerId: input.relatedServerId, relatedCommandId: input.relatedCommandId, ...(input.session ? teamCreateData(input.session) : {}) } });
+  if (!input.skipItsmFanOut) {
+    const { safeFanOutTicketEvent } = await import("@/lib/itsm/service");
+    await safeFanOutTicketEvent({
+      ticketId: ticket.id,
+      eventType: "ticket.created",
+      title: ticket.title,
+      description: ticket.description,
+      status: ticket.status,
+      priority: ticket.priority,
+      category: ticket.category,
+    });
+  }
+  return ticket;
 }
 
 export async function listTickets(input?: { userId?: string; includeAll?: boolean; session?: { userId: string; roles: import("@/lib/auth/rbac").RoleKey[]; currentTeamId: string | null } } | string) {
@@ -69,7 +82,7 @@ export async function canViewTicket(id: string, userId: string) {
   return ticket?.createdBy === userId || ticket?.assigneeId === userId;
 }
 
-export async function updateTicketStatus(input: { id: string; status?: string; assigneeId?: string | null; priority?: string }) {
+export async function updateTicketStatus(input: { id: string; status?: string; assigneeId?: string | null; priority?: string; skipItsmFanOut?: boolean }) {
   const data: { status?: string; assigneeId?: string | null; closedAt?: Date | null; priority?: string } = {};
 
   if (input.status !== undefined) {
@@ -97,6 +110,18 @@ export async function updateTicketStatus(input: { id: string; status?: string; a
     }
     const updated = await prisma.ticket.findUnique({ where: { id: input.id } });
     if (!updated) throw new NotFoundError("Ticket not found");
+    if (!input.skipItsmFanOut) {
+      const { safeFanOutTicketEvent } = await import("@/lib/itsm/service");
+      await safeFanOutTicketEvent({
+        ticketId: updated.id,
+        eventType: "ticket.status_changed",
+        title: updated.title,
+        description: updated.description,
+        status: updated.status,
+        priority: updated.priority,
+        category: updated.category,
+      });
+    }
     return updated;
   }
 
@@ -110,13 +135,43 @@ export async function updateTicketStatus(input: { id: string; status?: string; a
 
   if (Object.keys(data).length === 0) throw new ValidationError("Ticket update content cannot be empty");
 
-  return prisma.ticket.update({ where: { id: input.id }, data });
+  const updated = await prisma.ticket.update({ where: { id: input.id }, data });
+  if (!input.skipItsmFanOut) {
+    const { safeFanOutTicketEvent } = await import("@/lib/itsm/service");
+    await safeFanOutTicketEvent({
+      ticketId: updated.id,
+      eventType: "ticket.updated",
+      title: updated.title,
+      description: updated.description,
+      status: updated.status,
+      priority: updated.priority,
+      category: updated.category,
+    });
+  }
+  return updated;
 }
 
-export async function addTicketComment(input: { ticketId: string; authorId: string; body: string }) {
+export async function addTicketComment(input: { ticketId: string; authorId: string; body: string; skipItsmFanOut?: boolean }) {
   if (!input.body.trim()) throw new ValidationError("Reply content cannot be empty");
-  return prisma.ticketComment.create({
+  const comment = await prisma.ticketComment.create({
     data: { ticketId: input.ticketId, authorId: input.authorId, body: input.body.trim() },
     include: { author: { select: { id: true, username: true, displayName: true } } },
   });
+  if (!input.skipItsmFanOut) {
+    const ticket = await prisma.ticket.findUnique({ where: { id: input.ticketId } });
+    if (ticket) {
+      const { safeFanOutTicketEvent } = await import("@/lib/itsm/service");
+      await safeFanOutTicketEvent({
+        ticketId: ticket.id,
+        eventType: "ticket.comment",
+        title: ticket.title,
+        description: ticket.description,
+        status: ticket.status,
+        priority: ticket.priority,
+        category: ticket.category,
+        commentBody: comment.body,
+      });
+    }
+  }
+  return comment;
 }

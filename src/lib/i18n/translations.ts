@@ -84,6 +84,7 @@ import { zh as textpreviewZh, en as textpreviewEn } from "./dictionaries/text-pr
 import { zh as themeZh, en as themeEn } from "./dictionaries/theme";
 import { zh as ticketsdetailZh, en as ticketsdetailEn } from "./dictionaries/tickets-detail";
 import { zh as ticketspageZh, en as ticketspageEn } from "./dictionaries/tickets-page";
+import { zh as itsmpageZh, en as itsmpageEn } from "./dictionaries/itsm-page";
 import { zh as trafficpageZh, en as trafficpageEn } from "./dictionaries/traffic-page";
 import { zh as usersZh, en as usersEn } from "./dictionaries/users";
 import { zh as userspermZh, en as userspermEn } from "./dictionaries/users-perm";
@@ -162,6 +163,7 @@ const zh: Record<string, string> = {
 	...themeZh,
 	...ticketsdetailZh,
 	...ticketspageZh,
+	...itsmpageZh,
 	...trafficpageZh,
 	...usersZh,
 	...userspermZh,
@@ -241,6 +243,7 @@ const en: Record<string, string> = {
 	...themeEn,
 	...ticketsdetailEn,
 	...ticketspageEn,
+	...itsmpageEn,
 	...trafficpageEn,
 	...usersEn,
 	...userspermEn,

@@ -114,6 +114,7 @@ model User {
   aiHostedApprovals      AiHostedAction[]        @relation("AiHostedApprover")
   costEntries            CostEntry[]             @relation("CostEntryCreatedBy")
   cloudBillingAccounts   CloudBillingAccount[]   @relation("CloudBillingAccountCreatedBy")
+  itsmConnections        ItsmConnection[]         @relation("ItsmConnectionCreatedBy")
   aiOpsLogs              AiOpsLog[]              @relation("AiOpsLogTriggeredBy")
   mediaUploadSessions    MediaUploadSession[]
   fileVersions           FileVersion[]
@@ -1901,5 +1902,54 @@ model KnowledgeChunk {
   @@unique([documentId, chunkIndex])
   @@index([knowledgeBaseId, chunkIndex])
   @@map("knowledge_chunks")
+}
+
+// FEAT-ITSM-IM-BIDI: ITSM/IM bidirectional integration (ticket <-> external webhook/IM)
+model ItsmConnection {
+  id             String   @id @default(cuid())
+  name           String
+  provider       String // generic_webhook | slack | telegram | dingtalk | feishu
+  direction      String   @default("bidirectional") // outbound | inbound | bidirectional
+  enabled        Boolean  @default(true)
+  // Encrypted secrets JSON: webhookSecret, botToken, signingSecret (never returned raw)
+  credentialsEnc String   @default("")
+  // Plain config: webhookUrl, chatId, defaultPriority, defaultCategory, createOnInbound
+  config         Json     @default("{}")
+  teamId         String?
+  lastOutboundAt DateTime?
+  lastInboundAt  DateTime?
+  lastError      String?
+  createdById    String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  createdBy User?       @relation("ItsmConnectionCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  events    ItsmEvent[]
+
+  @@index([provider, enabled])
+  @@index([teamId])
+  @@index([createdById])
+  @@map("itsm_connections")
+}
+
+model ItsmEvent {
+  id           String   @id @default(cuid())
+  connectionId String?
+  direction    String // inbound | outbound
+  eventType    String
+  ticketId     String?
+  status       String   @default("pending") // pending | ok | error | ignored
+  externalId   String?
+  payload      Json     @default("{}")
+  errorMessage String?
+  createdAt    DateTime @default(now())
+
+  connection ItsmConnection? @relation(fields: [connectionId], references: [id], onDelete: SetNull)
+
+  @@unique([connectionId, externalId])
+  @@index([ticketId, createdAt])
+  @@index([direction, createdAt])
+  @@index([status, createdAt])
+  @@map("itsm_events")
 }
 

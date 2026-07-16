@@ -1,6 +1,10 @@
 import { describe, expect, it, vi, beforeEach } from "vitest";
-const { mockPrisma } = vi.hoisted(() => ({ mockPrisma: { ticket: { create: vi.fn(), findMany: vi.fn(), findUnique: vi.fn(), update: vi.fn(), updateMany: vi.fn() }, ticketComment: { create: vi.fn() } } }));
+const { mockPrisma } = vi.hoisted(() => ({ mockPrisma: { ticket: { create: vi.fn(), findMany: vi.fn(), findUnique: vi.fn(), update: vi.fn(), updateMany: vi.fn() }, ticketComment: { create: vi.fn() }, itsmConnection: { findMany: vi.fn().mockResolvedValue([]) } } }));
 vi.mock("@/lib/db", () => ({ prisma: mockPrisma }));
+vi.mock("@/lib/itsm/service", () => ({
+  safeFanOutTicketEvent: vi.fn(async () => undefined),
+  fanOutTicketEvent: vi.fn(async () => ({ sent: 0, failed: 0 })),
+}));
 const { createTicket, updateTicketStatus, addTicketComment, canViewTicket, listTickets } = await import("./service");
 describe("ticket service", () => {
   beforeEach(() => vi.clearAllMocks());
