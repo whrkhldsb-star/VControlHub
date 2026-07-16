@@ -139,7 +139,12 @@ describe("/api/storage/local", () => {
 
     expect(prismaMock.fileEntry.findFirst).toHaveBeenCalledWith(
       expect.objectContaining({
-        where: expect.objectContaining({ relativePath: "docs/notes.txt" }),
+        where: expect.objectContaining({
+          relativePath: "docs/notes.txt",
+          storageNode: expect.objectContaining({
+            driver: "LOCAL",
+          }),
+        }),
       }),
     );
     expect(response.status).toBe(404);
@@ -148,6 +153,35 @@ describe("/api/storage/local", () => {
     });
   });
 
+  it("team-scopes local download fileEntry lookup via storageNode relation", async () => {
+    requireApiPermissionMock.mockResolvedValueOnce({
+      session: {
+        userId: "u_ops",
+        username: "ops",
+        roles: ["operator"],
+        mustChangePassword: false,
+        currentTeamId: "team_a",
+      },
+    });
+    prismaMock.fileEntry.findFirst.mockResolvedValueOnce(null);
+
+    await GET(
+      new Request(
+        "https://example.com/api/storage/local?path=docs%2Fnotes.txt",
+      ),
+    );
+
+    expect(prismaMock.fileEntry.findFirst).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          storageNode: expect.objectContaining({
+            driver: "LOCAL",
+            OR: [{ teamId: "team_a" }, { teamId: null }],
+          }),
+        }),
+      }),
+    );
+  });
   it("normalizes safe Windows-style upload paths and creates a file entry", async () => {
     prismaMock.storageNode.findUnique.mockResolvedValueOnce({
       id: "node_1",

@@ -12,6 +12,7 @@ const SFTP_NODE_SELECT = {
 	host: true,
 	port: true,
 	username: true,
+	hostKeySha256: true,
 	serverId: true,
 	server: {
 		select: {
@@ -21,6 +22,7 @@ const SFTP_NODE_SELECT = {
 			username: true,
 			connectionType: true,
 			password: true,
+			hostKeySha256: true,
 			sshKey: { select: { privateKey: true } },
 		},
 	},

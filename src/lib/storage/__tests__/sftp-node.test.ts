@@ -33,6 +33,7 @@ const sftpNode = {
   host: null,
   port: null,
   username: null,
+  hostKeySha256: "SHA256:nodepin",
   serverId: "srv_1",
   server: {
     id: "srv_1",
@@ -41,6 +42,7 @@ const sftpNode = {
     username: "root",
     connectionType: "SSH_KEY",
     password: null,
+    hostKeySha256: "SHA256:serverpin",
     sshKey: { privateKey: "PRIVATE" },
   },
 };
@@ -48,6 +50,29 @@ const sftpNode = {
 describe("getSftpNodeConnection team scope", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+  });
+
+  it("selects hostKeySha256 from node and linked server for pin verification", async () => {
+    prismaMock.storageNode.findFirst.mockResolvedValueOnce(sftpNode);
+
+    await getSftpNodeConnection("node_other_team", {
+      userId: "u_1",
+      roles: ["operator"],
+      currentTeamId: "team_a",
+    });
+
+    expect(prismaMock.storageNode.findFirst).toHaveBeenCalledWith(
+      expect.objectContaining({
+        select: expect.objectContaining({
+          hostKeySha256: true,
+          server: expect.objectContaining({
+            select: expect.objectContaining({
+              hostKeySha256: true,
+            }),
+          }),
+        }),
+      }),
+    );
   });
 
   it("applies teamWhere for non-admin sessions when loading by id", async () => {

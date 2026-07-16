@@ -23,12 +23,14 @@ export type StorageNodeWithCredentials = {
   host?: string | null;
   port?: number | null;
   username?: string | null;
+  hostKeySha256?: string | null;
   server?: {
     host?: string | null;
     port?: number | null;
     username?: string | null;
     connectionType?: string | null;
     password?: string | null;
+    hostKeySha256?: string | null;
     sshKey?: { privateKey?: string | null } | null;
   } | null;
 };

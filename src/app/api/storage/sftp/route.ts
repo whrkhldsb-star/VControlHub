@@ -65,6 +65,7 @@ async function handleGet(request: Request, session: SessionPayload) {
       username: connectionCredentials.username,
       privateKey: connectionCredentials.privateKey,
       password: connectionCredentials.password,
+      hostKeySha256: connectionCredentials.hostKeySha256,
       remotePath: normalizedRemotePath,
     });
     return NextResponse.json({

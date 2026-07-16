@@ -3,6 +3,8 @@ import path from "node:path";
 
 import { Client } from "ssh2";
 
+import type { SessionPayload } from "@/lib/auth/session";
+import { teamWhere } from "@/lib/auth/team-scope";
 import { connectSsh } from "@/lib/ssh/client";
 import { prisma } from "@/lib/db";
 import { BusinessError, ValidationError } from "@/lib/errors";
@@ -18,6 +20,7 @@ export type StorageFileNode = {
 	port?: number | null;
 	username?: string | null;
 	password?: string | null;
+	hostKeySha256?: string | null;
 	serverId?: string | null;
 	server?: {
 		id?: string;
@@ -26,6 +29,7 @@ export type StorageFileNode = {
 		username?: string | null;
 		connectionType?: string | null;
 		password?: string | null;
+		hostKeySha256?: string | null;
 		sshKey?: { privateKey?: string | null } | null;
 	} | null;
 };
@@ -37,6 +41,7 @@ export const storageFileNodeSelect = {
 	host: true,
 	port: true,
 	username: true,
+	hostKeySha256: true,
 	serverId: true,
 	server: {
 		select: {
@@ -46,6 +51,7 @@ export const storageFileNodeSelect = {
 			username: true,
 			connectionType: true,
 			password: true,
+			hostKeySha256: true,
 			sshKey: {
 				select: {
 					privateKey: true,
@@ -176,9 +182,21 @@ export function buildStorageFileDownloadUrl(node: Pick<StorageFileNode, "id" | "
 	return `/api/storage/local?${params.toString()}`;
 }
 
-export async function getStorageFileNode(storageNodeId: string) {
-	return prisma.storageNode.findUnique({
-		where: { id: storageNodeId },
+type TeamSession = Pick<SessionPayload, "userId" | "roles" | "currentTeamId">;
+
+/**
+ * Load a storage node for file I/O. When `session` is provided, applies
+ * `teamWhere` so callers cannot open another team's node by id (IDOR).
+ */
+export async function getStorageFileNode(
+	storageNodeId: string,
+	session?: TeamSession | null,
+) {
+	return prisma.storageNode.findFirst({
+		where: {
+			id: storageNodeId,
+			...(session ? teamWhere(session) : {}),
+		},
 		select: storageFileNodeSelect,
 	});
 }

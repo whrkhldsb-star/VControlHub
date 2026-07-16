@@ -93,6 +93,7 @@ async function handleGet(request: Request, session: SessionPayload) {
     isDeleted: false,
     storageNode: {
       driver: "LOCAL",
+      ...teamWhere(session),
     },
   };
   // If nodeId specified, scope to that specific node to avoid cross-node path collisions
@@ -109,6 +110,7 @@ async function handleGet(request: Request, session: SessionPayload) {
           name: true,
           basePath: true,
           driver: true,
+          teamId: true,
         },
       },
     },
@@ -235,6 +237,7 @@ async function handlePost(request: Request, session: SessionPayload) {
       host: true,
       port: true,
       username: true,
+      hostKeySha256: true,
       server: {
         select: {
           host: true,
@@ -242,6 +245,7 @@ async function handlePost(request: Request, session: SessionPayload) {
           username: true,
           connectionType: true,
           password: true,
+          hostKeySha256: true,
           sshKey: { select: { privateKey: true } },
         },
       },
