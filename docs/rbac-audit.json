@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-07-16T14:53:21.167Z",
+  "generatedAt": "2026-07-16T16:27:23.770Z",
   "summary": {
     "permissionsInList": 54,
     "rolesDefined": 4,
@@ -2658,7 +2658,7 @@
       "files": [
         {
           "path": "src/app/api/tickets/route.ts",
-          "line": 106
+          "line": 114
         },
         {
           "path": "src/app/tickets/page.tsx",
@@ -2739,35 +2739,35 @@
         },
         {
           "path": "src/app/api/tickets/[id]/route.ts",
-          "line": 51
+          "line": 56
         },
         {
           "path": "src/app/api/tickets/[id]/route.ts",
-          "line": 39
+          "line": 44
         },
         {
           "path": "src/app/api/tickets/[id]/route.ts",
-          "line": 51
+          "line": 56
         },
         {
           "path": "src/app/api/tickets/[id]/route.ts",
-          "line": 70
+          "line": 80
         },
         {
           "path": "src/app/api/tickets/[id]/timeline/route.ts",
-          "line": 73
+          "line": 77
         },
         {
           "path": "src/app/api/tickets/[id]/timeline/route.ts",
-          "line": 39
+          "line": 43
         },
         {
           "path": "src/app/api/tickets/[id]/timeline/route.ts",
-          "line": 73
+          "line": 77
         },
         {
           "path": "src/app/api/tickets/route.ts",
-          "line": 125
+          "line": 133
         },
         {
           "path": "src/app/api/tickets/route.ts",
@@ -2775,11 +2775,11 @@
         },
         {
           "path": "src/app/api/tickets/route.ts",
-          "line": 99
+          "line": 101
         },
         {
           "path": "src/app/api/tickets/route.ts",
-          "line": 125
+          "line": 133
         },
         {
           "path": "src/app/api/tickets/sla/escalate/route.ts",
@@ -2823,11 +2823,11 @@
       "files": [
         {
           "path": "src/app/api/tickets/[id]/timeline/route.ts",
-          "line": 53
+          "line": 57
         },
         {
           "path": "src/app/api/tickets/[id]/timeline/route.ts",
-          "line": 53
+          "line": 57
         },
         {
           "path": "src/app/api/tickets/route.ts",
