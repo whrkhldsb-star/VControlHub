@@ -250,6 +250,7 @@ model Server {
   updatedAt          DateTime               @updatedAt
   sshKey             SshKey?                @relation(fields: [sshKeyId], references: [id], onDelete: SetNull)
   storageNode        StorageNode?
+  quickServices      QuickService[]
   commandTargets     CommandTarget[]
   metricSnapshots    MetricSnapshot[]
   trafficSnapshots   TrafficSnapshot[]
@@ -1389,10 +1390,15 @@ model AiMessage {
 
 model QuickService {
   id             String   @id @default(cuid())
-  slug           String   @unique // e.g. "alist", "emby", "jellyfin"
-  name           String // display name e.g. "AList 云盘"
+  /// Catalog slug e.g. "alist". Unique only within a target node (instanceKey).
+  slug           String
+  /// "hub-host" for control-plane Docker, or Server.id for remote VPS installs.
+  instanceKey    String   @default("hub-host")
+  /// Optional FK to Server when instanceKey is a remote VPS id.
+  serverId       String?
+  name           String // display name e.g. "AList"
   category       String   @default("other") // storage|media|devtools|network|other
-  icon           String   @default("☁️") // emoji icon for sidebar
+  icon           String   @default("☁️")
   description    String   @default("")
   image          String // docker image e.g. "xhofe/alist:latest"
   port           Int // host port to expose
@@ -1408,8 +1414,12 @@ model QuickService {
   createdBy      String?
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
+  server         Server?  @relation(fields: [serverId], references: [id], onDelete: SetNull)
 
+  @@unique([instanceKey, slug])
   @@index([category, status])
+  @@index([serverId, status])
+  @@index([instanceKey, status])
   @@map("quick_services")
 }
 

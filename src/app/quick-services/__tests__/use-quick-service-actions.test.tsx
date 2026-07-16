@@ -84,7 +84,7 @@ describe("useQuickServiceActions", () => {
       "/api/quick-services",
       expect.objectContaining({
         method: "POST",
-        body: JSON.stringify({ slug: "alist", customPort: 5244 }),
+        body: JSON.stringify({ slug: "alist", customPort: 5244, serverId: null }),
       }),
     );
   });
@@ -148,7 +148,7 @@ describe("useQuickServiceActions", () => {
       "/api/quick-services/alist",
       expect.objectContaining({
         method: "DELETE",
-        body: JSON.stringify({ deleteVolumes: true }),
+        body: JSON.stringify({ deleteVolumes: true, serverId: null }),
       }),
     );
     expect(result.current.message?.text).toMatch(/卸载并删除数据目录已排队/);

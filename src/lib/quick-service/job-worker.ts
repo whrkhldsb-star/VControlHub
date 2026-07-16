@@ -18,6 +18,7 @@ import {
 	updateService,
 	type UninstallServiceOptions,
 } from "./service";
+import { HUB_HOST_INSTANCE_KEY, type DockerTarget } from "./docker-cli";
 
 const logger = createLogger("quick-service-job-worker");
 
@@ -32,6 +33,9 @@ type QuickServiceInstallJobPayload = {
 	slug: string;
 	template: ServiceTemplate;
 	customPort?: number;
+	/** "hub-host" or Server.id */
+	instanceKey?: string;
+	serverId?: string | null;
 	installNoticeCredentials?: QuickServiceCredential[];
 	installNoticeNotes?: string[];
 };
@@ -39,6 +43,8 @@ type QuickServiceInstallJobPayload = {
 type QuickServiceExistingJobPayload = {
 	action: "start" | "stop" | "sync" | "update" | "uninstall";
 	slug: string;
+	instanceKey?: string;
+	serverId?: string | null;
 	deleteVolumes?: boolean;
 };
 
@@ -93,6 +99,13 @@ export function parseQuickServiceJobPayload(payload: Prisma.JsonValue): QuickSer
 	const action = parseString(payload.action, "action");
 	const slug = parseString(payload.slug, "service identifier");
 
+	const instanceKey = typeof payload.instanceKey === "string" && payload.instanceKey.trim()
+		? payload.instanceKey.trim()
+		: HUB_HOST_INSTANCE_KEY;
+	const serverId = typeof payload.serverId === "string" && payload.serverId.trim()
+		? payload.serverId.trim()
+		: instanceKey !== HUB_HOST_INSTANCE_KEY ? instanceKey : null;
+
 	if (action === "install") {
 		const customPort = typeof payload.customPort === "number" && Number.isInteger(payload.customPort) ? payload.customPort : undefined;
 		return {
@@ -100,6 +113,8 @@ export function parseQuickServiceJobPayload(payload: Prisma.JsonValue): QuickSer
 			slug,
 			template: parseTemplate(payload.template),
 			customPort,
+			instanceKey,
+			serverId,
 			installNoticeCredentials: parseCredentials(payload.installNoticeCredentials),
 			installNoticeNotes: parseNotes(payload.installNoticeNotes),
 		};
@@ -109,6 +124,8 @@ export function parseQuickServiceJobPayload(payload: Prisma.JsonValue): QuickSer
 		return {
 			action,
 			slug,
+			instanceKey,
+			serverId,
 			deleteVolumes: typeof payload.deleteVolumes === "boolean" ? payload.deleteVolumes : undefined,
 		};
 	}
@@ -116,15 +133,25 @@ export function parseQuickServiceJobPayload(payload: Prisma.JsonValue): QuickSer
 	throw new Error(`Unsupported QuickService action: ${action}`);
 }
 
-async function findActiveQuickServiceJob(slug: string) {
-	return prisma.job.findFirst({
+async function findActiveQuickServiceJob(slug: string, instanceKey: string = HUB_HOST_INSTANCE_KEY) {
+	const candidates = await prisma.job.findMany({
 		where: {
 			type: QUICK_SERVICE_JOB_TYPE,
 			status: { in: [JobStatus.PENDING, JobStatus.RUNNING] },
 			payload: { path: ["slug"], equals: slug },
 		},
 		orderBy: [{ priority: "desc" }, { availableAt: "asc" }, { createdAt: "asc" }],
+		take: 20,
 	});
+	for (const job of candidates) {
+		try {
+			const p = parseQuickServiceJobPayload(job.payload);
+			if ((p.instanceKey ?? HUB_HOST_INSTANCE_KEY) === instanceKey) return job;
+		} catch {
+			// ignore malformed
+		}
+	}
+	return null;
 }
 
 export async function enqueueQuickServiceJob(input: {
@@ -133,7 +160,7 @@ export async function enqueueQuickServiceJob(input: {
 	createdBy?: string | null;
 	priority?: number;
 }) {
-	const activeJob = await findActiveQuickServiceJob(input.payload.slug);
+	const activeJob = await findActiveQuickServiceJob(input.payload.slug, input.payload.instanceKey ?? HUB_HOST_INSTANCE_KEY);
 	if (activeJob) {
 		const activePayload = parseQuickServiceJobPayload(activeJob.payload);
 		const sameOperation = activePayload.action === input.payload.action
@@ -171,10 +198,15 @@ async function executeQuickServiceJob(job: { id: string; payload: Prisma.JsonVal
 	await updateQuickServiceJobProgress(job.id, `Preparing to execute QuickService ${payload.action}: ${payload.slug}`);
 
 	if (payload.action === "install") {
-		await updateQuickServiceJobProgress(job.id, `Installing ${payload.slug}: pulling image and creating container`);
+		const instanceKey = payload.instanceKey ?? HUB_HOST_INSTANCE_KEY;
+		const target: DockerTarget = instanceKey === HUB_HOST_INSTANCE_KEY
+			? { kind: "local" }
+			: { kind: "remote", serverId: payload.serverId || instanceKey };
+		await updateQuickServiceJobProgress(job.id, `Installing ${payload.slug} on ${instanceKey}: pulling image and creating container`);
 		const service = await installService({
 			template: payload.template,
 			customPort: payload.customPort,
+			target,
 			installNoticeCredentials: payload.installNoticeCredentials,
 			installNoticeNotes: payload.installNoticeNotes,
 		});
@@ -194,7 +226,7 @@ async function executeQuickServiceJob(job: { id: string; payload: Prisma.JsonVal
 
 	if (payload.action === "start") {
 		await updateQuickServiceJobProgress(job.id, `Starting ${payload.slug}: starting or recreating container`);
-		await startService(payload.slug);
+		await startService(payload.slug, payload.instanceKey ?? HUB_HOST_INSTANCE_KEY);
 		await completeJob(job.id, QUICK_SERVICE_WORKER_ID, {
 			action: payload.action,
 			slug: payload.slug,
@@ -206,7 +238,7 @@ async function executeQuickServiceJob(job: { id: string; payload: Prisma.JsonVal
 
 	if (payload.action === "stop") {
 		await updateQuickServiceJobProgress(job.id, `Stopping ${payload.slug}: stopping Docker container`);
-		await stopService(payload.slug);
+		await stopService(payload.slug, payload.instanceKey ?? HUB_HOST_INSTANCE_KEY);
 		await completeJob(job.id, QUICK_SERVICE_WORKER_ID, {
 			action: payload.action,
 			slug: payload.slug,
@@ -218,7 +250,7 @@ async function executeQuickServiceJob(job: { id: string; payload: Prisma.JsonVal
 
 	if (payload.action === "sync") {
 		await updateQuickServiceJobProgress(job.id, `Refreshing ${payload.slug}: reading Docker container status`);
-		const status = await syncServiceStatus(payload.slug);
+		const status = await syncServiceStatus(payload.slug, payload.instanceKey ?? HUB_HOST_INSTANCE_KEY);
 		await completeJob(job.id, QUICK_SERVICE_WORKER_ID, {
 			action: payload.action,
 			slug: payload.slug,
@@ -230,7 +262,7 @@ async function executeQuickServiceJob(job: { id: string; payload: Prisma.JsonVal
 
 	if (payload.action === "update") {
 		await updateQuickServiceJobProgress(job.id, `Updating ${payload.slug}: pulling image and recreating container`);
-		const result = await updateService(payload.slug);
+		const result = await updateService(payload.slug, payload.instanceKey ?? HUB_HOST_INSTANCE_KEY);
 		await completeJob(job.id, QUICK_SERVICE_WORKER_ID, {
 			action: payload.action,
 			slug: payload.slug,
@@ -246,7 +278,7 @@ async function executeQuickServiceJob(job: { id: string; payload: Prisma.JsonVal
 
 	const options: UninstallServiceOptions = { deleteVolumes: payload.deleteVolumes === true };
 	await updateQuickServiceJobProgress(job.id, options.deleteVolumes ? `Uninstalling ${payload.slug}: removing container and cleaning data directory` : `Uninstalling ${payload.slug}: removing container and keeping data directory`);
-	await uninstallService(payload.slug, options);
+	await uninstallService(payload.slug, { ...options, instanceKey: payload.instanceKey ?? HUB_HOST_INSTANCE_KEY });
 	await completeJob(job.id, QUICK_SERVICE_WORKER_ID, {
 		action: payload.action,
 		slug: payload.slug,

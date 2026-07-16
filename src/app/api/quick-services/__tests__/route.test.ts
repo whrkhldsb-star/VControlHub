@@ -36,6 +36,8 @@ vi.mock("@/lib/quick-service/service", () => ({
   updateService: mocks.updateService,
 }));
 vi.mock("@/lib/quick-service/docker-cli", () => ({
+  HUB_HOST_INSTANCE_KEY: "hub-host",
+  getDockerEnvironmentStatusFor: vi.fn(async () => ({ available: true, running: true, version: "Docker", message: null, installHint: null, scope: "hub-host" })),
   getDockerEnvironmentStatus: mocks.getDockerEnvironmentStatus,
   dockerExecSync: vi.fn(),
   dockerErrorMessage: vi.fn(),
@@ -44,6 +46,14 @@ vi.mock("@/lib/quick-service/docker-cli", () => ({
 }));
 vi.mock("@/lib/quick-service/job-worker", () => ({
   enqueueQuickServiceJob: mocks.enqueueQuickServiceJob,
+}));
+vi.mock("@/lib/db", () => ({
+  prisma: {
+    server: {
+      findMany: vi.fn(async () => []),
+      findUnique: vi.fn(async () => ({ id: "srv1", enabled: true, name: "vps-1" })),
+    },
+  },
 }));
 vi.mock("@/lib/quick-service/app-source-sync", () => ({
   getRemoteApps: mocks.getRemoteApps,
@@ -128,6 +138,8 @@ describe("/api/quick-services routes", () => {
       payload: expect.objectContaining({
         action: "install",
         slug: "alist",
+        instanceKey: "hub-host",
+        serverId: null,
         template: expect.objectContaining({ slug: "alist", initialPassword: expect.any(String) }),
         customPort: 5244,
         installNoticeCredentials: [
@@ -182,7 +194,7 @@ describe("/api/quick-services routes", () => {
 
     expect(response.status).toBe(202);
     expect(await body(response)).toMatchObject({ success: true, queued: true, jobId: "job_qs_1", taskId: "job:job_qs_1", status: "PENDING" });
-    expect(mocks.enqueueQuickServiceJob).toHaveBeenCalledWith(expect.objectContaining({ createdBy: "u1", payload: { action: "sync", slug: "alist" } }));
+    expect(mocks.enqueueQuickServiceJob).toHaveBeenCalledWith(expect.objectContaining({ createdBy: "u1", payload: { action: "sync", slug: "alist", instanceKey: "hub-host", serverId: null } }));
     expect(mocks.syncServiceStatus).not.toHaveBeenCalled();
   });
 
@@ -195,7 +207,7 @@ describe("/api/quick-services routes", () => {
 
     expect(response.status).toBe(202);
     expect(await body(response)).toMatchObject({ success: true, queued: true, jobId: "job_qs_1", taskId: "job:job_qs_1" });
-    expect(mocks.enqueueQuickServiceJob).toHaveBeenCalledWith(expect.objectContaining({ payload: { action: "update", slug: "alist" } }));
+    expect(mocks.enqueueQuickServiceJob).toHaveBeenCalledWith(expect.objectContaining({ payload: { action: "update", slug: "alist", instanceKey: "hub-host", serverId: null } }));
     expect(mocks.updateService).not.toHaveBeenCalled();
   });
 
@@ -204,7 +216,7 @@ describe("/api/quick-services routes", () => {
 
     expect(response.status).toBe(202);
     expect(await body(response)).toMatchObject({ success: true, queued: true, deleteVolumes: false, jobId: "job_qs_1", taskId: "job:job_qs_1" });
-    expect(mocks.enqueueQuickServiceJob).toHaveBeenCalledWith(expect.objectContaining({ payload: { action: "uninstall", slug: "alist", deleteVolumes: false } }));
+    expect(mocks.enqueueQuickServiceJob).toHaveBeenCalledWith(expect.objectContaining({ payload: { action: "uninstall", slug: "alist", deleteVolumes: false, instanceKey: "hub-host", serverId: null } }));
     expect(mocks.uninstallService).not.toHaveBeenCalled();
   });
 
@@ -217,7 +229,7 @@ describe("/api/quick-services routes", () => {
 
     expect(response.status).toBe(202);
     expect(await body(response)).toMatchObject({ success: true, queued: true, deleteVolumes: true });
-    expect(mocks.enqueueQuickServiceJob).toHaveBeenCalledWith(expect.objectContaining({ payload: { action: "uninstall", slug: "alist", deleteVolumes: true } }));
+    expect(mocks.enqueueQuickServiceJob).toHaveBeenCalledWith(expect.objectContaining({ payload: { action: "uninstall", slug: "alist", deleteVolumes: true, instanceKey: "hub-host", serverId: null } }));
   });
 
   it("checks and allocates ports", async () => {

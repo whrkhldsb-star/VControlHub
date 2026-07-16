@@ -255,10 +255,10 @@ export async function writeQuickServiceAudit(input: {
  * audit log can render a real "before/after" diff. Returns null for new
  * slugs that have never been installed.
  */
-export async function captureQuickServiceSnapshot(slug: string): Promise<QuickServiceSnapshot | null> {
+export async function captureQuickServiceSnapshot(slug: string, instanceKey: string = "hub-host"): Promise<QuickServiceSnapshot | null> {
 	try {
 		const row = await prisma.quickService.findUnique({
-			where: { slug },
+			where: { instanceKey_slug: { instanceKey, slug } },
 			select: {
 				status: true,
 				port: true,

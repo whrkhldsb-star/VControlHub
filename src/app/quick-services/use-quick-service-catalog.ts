@@ -11,6 +11,12 @@ import {
   type DockerEnvironmentStatus,
 } from "./quick-services-shared";
 
+export type QuickServiceServerOption = {
+  id: string;
+  name: string;
+  host: string;
+};
+
 type TFn = (key: string) => string;
 
 export function useQuickServiceCatalog(t: TFn) {
@@ -19,6 +25,9 @@ export function useQuickServiceCatalog(t: TFn) {
   const [sources, setSources] = useState<AppSource[]>([]);
   const [usedPorts, setUsedPorts] = useState<number[]>([]);
   const [dockerStatus, setDockerStatus] = useState<DockerEnvironmentStatus | null>(null);
+  const [servers, setServers] = useState<QuickServiceServerOption[]>([]);
+  /** empty string = hub-host */
+  const [selectedServerId, setSelectedServerId] = useState("");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [hostName, setHostName] = useState("");
@@ -26,18 +35,30 @@ export function useQuickServiceCatalog(t: TFn) {
 
   const fetchCatalog = useCallback(async () => {
     try {
-      const data = await csrfFetch("/api/quick-services");
+      const qs = selectedServerId
+        ? `?serverId=${encodeURIComponent(selectedServerId)}`
+        : "";
+      const data = await csrfFetch(`/api/quick-services${qs}`);
       setCatalog(data.catalog ?? []);
       setRemoteCatalog(data.remoteCatalog ?? []);
       setUsedPorts(Array.isArray(data.usedPorts) ? data.usedPorts : []);
       setDockerStatus(data.docker ?? null);
+      if (Array.isArray(data.servers)) {
+        setServers(
+          data.servers.map((s: QuickServiceServerOption) => ({
+            id: s.id,
+            name: s.name,
+            host: s.host,
+          })),
+        );
+      }
       if (typeof data.publicHost === "string") setQuickServicePublicHost(data.publicHost);
     } catch (err) {
       setError(err instanceof Error ? err.message : t("qsPage.loadFailedFallback"));
     } finally {
       setLoading(false);
     }
-  }, [t]);
+  }, [selectedServerId, t]);
 
   const fetchSources = useCallback(async () => {
     try {
@@ -50,6 +71,7 @@ export function useQuickServiceCatalog(t: TFn) {
 
   /* eslint-disable react-hooks/set-state-in-effect -- catalog bootstrap + hostName browser capability read. */
   useEffect(() => {
+    setLoading(true);
     void fetchCatalog();
     void fetchSources();
   }, [fetchCatalog, fetchSources]);
@@ -76,6 +98,9 @@ export function useQuickServiceCatalog(t: TFn) {
     sources,
     usedPorts,
     dockerStatus,
+    servers,
+    selectedServerId,
+    setSelectedServerId,
     loading,
     error,
     hostName,

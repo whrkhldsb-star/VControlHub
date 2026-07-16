@@ -32,6 +32,9 @@ export function QuickServicesClient({ canManage }: { canManage: boolean }) {
 		sources,
 		usedPorts,
 		dockerStatus,
+		servers,
+		selectedServerId,
+		setSelectedServerId,
 		loading,
 		error,
 		hostName,
@@ -51,7 +54,7 @@ export function QuickServicesClient({ canManage }: { canManage: boolean }) {
 
 	// Action handlers + message + actionSlug + syncing now live in the
 	// useQuickServiceActions hook (extracted in R23).
-	const actions = useQuickServiceActions({ fetchCatalog, fetchSources });
+	const actions = useQuickServiceActions({ fetchCatalog, fetchSources, selectedServerId });
 
 	const openInstallDialog = (item: CatalogItem) => {
 		if (dockerStatus && !dockerStatus.available) {
@@ -295,6 +298,32 @@ export function QuickServicesClient({ canManage }: { canManage: boolean }) {
 				</section>
 			)}
 
+
+			<div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+				<div>
+					<p className="text-xs font-medium uppercase tracking-[0.16em] text-[var(--text-muted)]">
+						{t("qsPage.targetNode")}
+					</p>
+					<p className="mt-1 text-xs text-[var(--text-secondary)]">
+						{selectedServerId
+							? t("qsPage.targetNodeRemoteHint")
+							: t("qsPage.targetNodeHubHint")}
+					</p>
+				</div>
+				<select
+					value={selectedServerId}
+					onChange={(e) => setSelectedServerId(e.target.value)}
+					className={`${CONTROL_CLASS} min-w-[16rem]`}
+					aria-label={t("qsPage.targetNode")}
+				>
+					<option value="">{t("qsPage.targetHubHost")}</option>
+					{servers.map((server) => (
+						<option key={server.id} value={server.id}>
+							{server.name} ({server.host})
+						</option>
+					))}
+				</select>
+			</div>
 			<SegmentedTabs
 				ariaLabel={t("qsPage.title")}
 				value={tab}

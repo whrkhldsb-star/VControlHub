@@ -5,14 +5,18 @@
  * stay small while the install rollback/audit/notification path remains
  * isolated and testable.
  */
-import { execFile } from "child_process";
-import { promisify } from "util";
-
 import { prisma } from "@/lib/db";
 import { BusinessError } from "@/lib/errors";
 import { createNotification } from "@/lib/notification/service";
 import { buildInstallNotice, formatInstallNoticeMessage, type QuickServiceCredential } from "./install-notice";
-import { dockerErrorMessage, dockerExecSync, getDockerEnvironmentStatus } from "./docker-cli";
+import {
+	dockerErrorMessage,
+	dockerExec,
+	dockerRun,
+	getDockerEnvironmentStatusFor,
+	instanceKeyForTarget,
+	type DockerTarget,
+} from "./docker-cli";
 import {
 	allocatePort,
 	assertTemplatePortsAvailable,
@@ -31,22 +35,27 @@ import { createLogger } from "@/lib/logging";
 
 const qsLogger = createLogger("quick-service-lifecycle");
 
-const runFile = promisify(execFile);
 const { normalizeVolumeEndpoint, splitContainerPathAndOptions, mkdirSync, DOCKER_SOCKET, TRUSTED_HOST_MOUNTS } = __internals;
 
-async function rollbackInstallToSnapshot(slug: string, before: QuickServiceSnapshot | null, error: string) {
+async function rollbackInstallToSnapshot(
+	slug: string,
+	before: QuickServiceSnapshot | null,
+	error: string,
+	instanceKey: string = "hub-host",
+) {
+	const where = { instanceKey_slug: { instanceKey, slug } } as const;
 	if (!before) {
 		try {
-			await prisma.quickService.delete({ where: { slug } });
+			await prisma.quickService.delete({ where });
 		} catch {
 			// Record no longer exists (concurrent delete) — mark as errored instead.
-			await prisma.quickService.update({ where: { slug }, data: { status: "error", error } }).catch((err) => { qsLogger.warn("quickService status update failed", { error: err instanceof Error ? err.message : String(err) }); });
+			await prisma.quickService.update({ where, data: { status: "error", error } }).catch((err) => { qsLogger.warn("quickService status update failed", { error: err instanceof Error ? err.message : String(err) }); });
 		}
 		return { status: "deleted", reason: "fresh-install-failed" };
 	}
 
 	await prisma.quickService.update({
-		where: { slug },
+		where,
 		data: {
 			status: before.status,
 			port: before.port,
@@ -68,25 +77,31 @@ export interface InstallOptions {
 	template: ServiceTemplate;
 	userId?: string;
 	customPort?: number;
+	/** Defaults to hub-host local Docker. Remote installs set {kind:"remote", serverId}. */
+	target?: DockerTarget;
 	installNoticeCredentials?: QuickServiceCredential[];
 	installNoticeNotes?: string[];
 }
 export async function installService(opts: InstallOptions) {
-	const { template } = opts;
-	return withServiceOperationLock(template.slug, "install", () => installServiceUnlocked(opts));
+	const target: DockerTarget = opts.target ?? { kind: "local" };
+	const lockKey = `${instanceKeyForTarget(target)}:${opts.template.slug}`;
+	return withServiceOperationLock(lockKey, "install", () => installServiceUnlocked(opts));
 }
 
 async function installServiceUnlocked(opts: InstallOptions) {
 	const { template, userId, customPort, installNoticeCredentials = [], installNoticeNotes = [] } = opts;
+	const target: DockerTarget = opts.target ?? { kind: "local" };
+	const instanceKey = instanceKeyForTarget(target);
+	const serverId = target.kind === "remote" ? target.serverId : null;
 
-	// Pre-flight: ensure Docker is available
-	const dockerStatus = getDockerEnvironmentStatus();
+	// Pre-flight: ensure Docker is available on the selected target
+	const dockerStatus = await getDockerEnvironmentStatusFor(target);
 	if (!dockerStatus.available) {
 		throw new BusinessError(`${dockerStatus.message}. ${dockerStatus.installHint}`);
 	}
 
 	validateTemplate(template);
-	const before = await captureQuickServiceSnapshot(template.slug);
+	const before = await captureQuickServiceSnapshot(template.slug, instanceKey);
 	await writeQuickServiceAudit({
 		userId,
 		action: "install",
@@ -99,10 +114,12 @@ async function installServiceUnlocked(opts: InstallOptions) {
 	const hostPort = customPort ?? allocatePort(template.defaultPort);
 	assertTemplatePortsAvailable(template, hostPort);
 
-	for (const vol of template.volumesJson) {
-		const host = normalizeVolumeEndpoint(vol.host, "Host mount");
-		if (host !== DOCKER_SOCKET && !TRUSTED_HOST_MOUNTS.has(host)) {
-			mkdirSync(host, { recursive: true });
+	if (target.kind === "local") {
+		for (const vol of template.volumesJson) {
+			const host = normalizeVolumeEndpoint(vol.host, "Host mount");
+			if (host !== DOCKER_SOCKET && !TRUSTED_HOST_MOUNTS.has(host)) {
+				mkdirSync(host, { recursive: true });
+			}
 		}
 	}
 
@@ -113,7 +130,7 @@ async function installServiceUnlocked(opts: InstallOptions) {
 	let svc;
 	try {
 		svc = await prisma.quickService.upsert({
-			where: { slug: template.slug },
+			where: { instanceKey_slug: { instanceKey, slug: template.slug } },
 			update: {
 				status: "installing",
 				image: template.image,
@@ -124,10 +141,13 @@ async function installServiceUnlocked(opts: InstallOptions) {
 				command: template.command ?? null,
 				envJson: envStr,
 				volumesJson: volStr,
+				serverId,
 				error: null,
 			},
 			create: {
 				slug: template.slug,
+				instanceKey,
+				serverId,
 				name: template.name,
 				category: template.category,
 				icon: template.icon,
@@ -161,15 +181,15 @@ async function installServiceUnlocked(opts: InstallOptions) {
 	}
 
 	try {
-		await startDockerContainer(svc.id, template, hostPort, { userId, credentials: installNoticeCredentials, notes: installNoticeNotes });
+		await startDockerContainer(svc.id, template, hostPort, { userId, credentials: installNoticeCredentials, notes: installNoticeNotes, target });
 	} catch (err) {
 		let msg = dockerErrorMessage(err);
 		try {
-			dockerExecSync(["rm", "-f", safeContainerName(template.slug)], 15_000);
+			await dockerExec(target, ["rm", "-f", safeContainerName(template.slug)], 15_000);
 		} catch (cleanupErr) {
 			msg = `${msg}; failed to clean up leftover container: ${dockerErrorMessage(cleanupErr)}`;
 		}
-		const rollback = await rollbackInstallToSnapshot(template.slug, before, msg.slice(0, 500));
+		const rollback = await rollbackInstallToSnapshot(template.slug, before, msg.slice(0, 500), instanceKey);
 		await writeQuickServiceAudit({
 			userId,
 			action: "install",
@@ -188,12 +208,18 @@ async function installServiceUnlocked(opts: InstallOptions) {
 	return { ...svc, port: hostPort };
 }
 
-export async function startDockerContainer(serviceId: string, tmpl: ServiceTemplate, hostPort: number, notice?: { userId?: string; credentials?: QuickServiceCredential[]; notes?: string[] }) {
+export async function startDockerContainer(
+	serviceId: string,
+	tmpl: ServiceTemplate,
+	hostPort: number,
+	notice?: { userId?: string; credentials?: QuickServiceCredential[]; notes?: string[]; target?: DockerTarget },
+) {
 	validateTemplate(tmpl);
+	const target: DockerTarget = notice?.target ?? { kind: "local" };
 	const containerName = safeContainerName(tmpl.slug);
 
 	try {
-		dockerExecSync(["rm", "-f", containerName], 15_000);
+		await dockerExec(target, ["rm", "-f", containerName], 15_000);
 	} catch {
 		// Container does not exist; continue.
 	}
@@ -211,16 +237,24 @@ export async function startDockerContainer(serviceId: string, tmpl: ServiceTempl
 		`${hostPort}:${internalPort}`,
 	];
 	for (const ep of tmpl.extraPorts ?? []) args.push("-p", `${ep.host}:${ep.container}`);
-	for (const vol of tmpl.volumesJson) args.push("-v", `${normalizeVolumeEndpoint(vol.host, "Host mount")}:${splitContainerPathAndOptions(vol.container)}`);
+	// Remote nodes only get non-socket volume mounts as-is; host mkdir is skipped for remote.
+	for (const vol of tmpl.volumesJson) {
+		const host = normalizeVolumeEndpoint(vol.host, "Host mount");
+		if (target.kind === "remote" && host === DOCKER_SOCKET) {
+			// Avoid binding control-plane docker socket semantics onto remote hosts by default.
+			continue;
+		}
+		args.push("-v", `${host}:${splitContainerPathAndOptions(vol.container)}`);
+	}
 	for (const [key, value] of Object.entries(tmpl.envJson)) {
 		if (value !== "") args.push("-e", `${key}=${resolveEnvValue(String(value))}`);
 	}
 	args.push(tmpl.image, ...parseCommandArgs(tmpl.command));
 
-	const { stdout } = await runFile("docker", args, { timeout: 300_000 });
+	const { stdout } = await dockerRun(target, args, 300_000);
 	const containerId = stdout.trim().substring(0, 12);
 
-	await applyPostInstallSetup(tmpl, containerName);
+	await applyPostInstallSetup(target, tmpl, containerName);
 
 	await prisma.quickService.update({
 		where: { id: serviceId },
@@ -239,9 +273,13 @@ export async function startDockerContainer(serviceId: string, tmpl: ServiceTempl
 	await notifyQuickServiceInstallSuccess(notice?.userId, tmpl, hostPort, notice?.credentials ?? [], notice?.notes ?? []);
 }
 
-async function applyPostInstallSetup(tmpl: ServiceTemplate, containerName: string) {
+async function applyPostInstallSetup(target: DockerTarget, tmpl: ServiceTemplate, containerName: string) {
 	if (tmpl.slug === "alist" && tmpl.initialPassword) {
-		dockerExecSync(["exec", containerName, "/opt/alist/alist", "admin", "set", tmpl.initialPassword, "--data", "/opt/alist/data"], 30_000);
+		await dockerExec(
+			target,
+			["exec", containerName, "/opt/alist/alist", "admin", "set", tmpl.initialPassword, "--data", "/opt/alist/data"],
+			30_000,
+		);
 	}
 }
 

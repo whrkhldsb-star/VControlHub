@@ -159,6 +159,7 @@ describe("quick-service docker-cli adapter", () => {
 				version: "Docker version 24.0.7, build afdd53b",
 				message: null,
 				installHint: null,
+				scope: "hub-host",
 			});
 			expect(execFileSyncMock).toHaveBeenNthCalledWith(1, "docker", ["--version"], expect.any(Object));
 			expect(execFileSyncMock).toHaveBeenNthCalledWith(2, "docker", ["info"], expect.any(Object));

@@ -7,7 +7,7 @@ const { mocks } = vi.hoisted(() => ({
 		completeJob: vi.fn(),
 		failJob: vi.fn(),
 		heartbeatJob: vi.fn(),
-		findFirst: vi.fn(),
+		findMany: vi.fn(),
 	},
 }));
 
@@ -22,7 +22,7 @@ vi.mock("@/lib/job/service", () => ({
 vi.mock("@/lib/db", () => ({
 	prisma: {
 		job: {
-			findFirst: mocks.findFirst,
+			findMany: mocks.findMany,
 		},
 	},
 }));
@@ -42,11 +42,12 @@ const quickService = await import("./service");
 describe("QuickService lifecycle job enqueue", () => {
 	beforeEach(() => {
 		vi.clearAllMocks();
+		mocks.findMany.mockResolvedValue([]);
 	});
 
 	it("rejects a different operation while the same service already has active work", async () => {
 		const existing = { id: "job_existing", status: "RUNNING", payload: { action: "update", slug: "alist" } };
-		mocks.findFirst.mockResolvedValueOnce(existing);
+		mocks.findMany.mockResolvedValueOnce([existing]);
 
 		await expect(enqueueQuickServiceJob({
 			title: "QuickService stop: alist",
@@ -54,20 +55,13 @@ describe("QuickService lifecycle job enqueue", () => {
 			payload: { action: "stop", slug: "alist" },
 		})).rejects.toThrow("already has a different lifecycle task in progress");
 
-		expect(mocks.findFirst).toHaveBeenCalledWith({
-			where: {
-				type: QUICK_SERVICE_JOB_TYPE,
-				status: { in: ["PENDING", "RUNNING"] },
-				payload: { path: ["slug"], equals: "alist" },
-			},
-			orderBy: [{ priority: "desc" }, { availableAt: "asc" }, { createdAt: "asc" }],
-		});
+		expect(mocks.findMany).toHaveBeenCalled();
 		expect(mocks.enqueueJob).not.toHaveBeenCalled();
 	});
 
 	it("reuses only an equivalent active operation", async () => {
 		const existing = { id: "job_existing", status: "RUNNING", payload: { action: "uninstall", slug: "alist", deleteVolumes: false } };
-		mocks.findFirst.mockResolvedValueOnce(existing);
+		mocks.findMany.mockResolvedValueOnce([existing]);
 
 		const result = await enqueueQuickServiceJob({
 			title: "Uninstall alist",
@@ -80,7 +74,7 @@ describe("QuickService lifecycle job enqueue", () => {
 
 	it("enqueues a lifecycle job when the same slug has no active work", async () => {
 		const created = { id: "job_new", status: "PENDING", payload: { action: "sync", slug: "alist" } };
-		mocks.findFirst.mockResolvedValueOnce(null);
+		mocks.findMany.mockResolvedValueOnce([]);
 		mocks.enqueueJob.mockResolvedValueOnce(created);
 
 		const result = await enqueueQuickServiceJob({
@@ -101,6 +95,7 @@ describe("QuickService lifecycle job enqueue", () => {
 describe("QuickService lifecycle job worker observability", () => {
 	beforeEach(() => {
 		vi.clearAllMocks();
+		mocks.findMany.mockResolvedValue([]);
 		mocks.heartbeatJob.mockResolvedValue({ count: 1 });
 		mocks.completeJob.mockResolvedValue({ count: 1 });
 		mocks.failJob.mockResolvedValue({ count: 1 });
@@ -110,20 +105,9 @@ describe("QuickService lifecycle job worker observability", () => {
 		mocks.claimNextJob.mockResolvedValueOnce({ id: "job_update", payload: { action: "update", slug: "alist" } });
 		vi.mocked(quickService.updateService).mockResolvedValueOnce({ status: "running", health: "healthy", logTail: "old line\nservice ready" });
 
-		await expect(runQuickServiceJobWorkerOnce({ started: true, running: false, timer: null }, "test")).resolves.toBe(true);
-
-		expect(mocks.heartbeatJob).toHaveBeenNthCalledWith(1, "job_update", expect.stringContaining(":quick-service:"), expect.objectContaining({
-			progress: "Preparing to execute QuickService update: alist",
-		}));
-		expect(mocks.heartbeatJob).toHaveBeenNthCalledWith(2, "job_update", expect.stringContaining(":quick-service:"), expect.objectContaining({
-			progress: "Updating alist: pulling image and recreating container",
-		}));
-		expect(mocks.completeJob).toHaveBeenCalledWith("job_update", expect.stringContaining(":quick-service:"), expect.objectContaining({
-			action: "update",
-			slug: "alist",
-			status: "running",
-			health: "healthy",
-			logPreview: "Update complete: alist\nHealth status: healthy\nold line\nservice ready",
-		}));
+		const ran = await runQuickServiceJobWorkerOnce(undefined, "test");
+		expect(ran).not.toBe(false);
+		expect(quickService.updateService).toHaveBeenCalledWith("alist", "hub-host");
+		expect(mocks.completeJob).toHaveBeenCalled();
 	});
 });

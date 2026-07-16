@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-07-16T01:46:56.151Z",
+  "generatedAt": "2026-07-16T02:24:44.829Z",
   "summary": {
     "permissionsInList": 54,
     "rolesDefined": 4,
@@ -1006,19 +1006,19 @@
         },
         {
           "path": "src/app/api/quick-services/[slug]/route.ts",
-          "line": 14
+          "line": 21
         },
         {
           "path": "src/app/api/quick-services/[slug]/route.ts",
-          "line": 35
+          "line": 44
         },
         {
           "path": "src/app/api/quick-services/[slug]/route.ts",
-          "line": 14
+          "line": 21
         },
         {
           "path": "src/app/api/quick-services/[slug]/route.ts",
-          "line": 35
+          "line": 44
         },
         {
           "path": "src/app/api/quick-services/check-port/route.ts",
@@ -1030,19 +1030,19 @@
         },
         {
           "path": "src/app/api/quick-services/route.ts",
-          "line": 26
+          "line": 32
         },
         {
           "path": "src/app/api/quick-services/route.ts",
-          "line": 86
+          "line": 113
         },
         {
           "path": "src/app/api/quick-services/route.ts",
-          "line": 26
+          "line": 32
         },
         {
           "path": "src/app/api/quick-services/route.ts",
-          "line": 86
+          "line": 113
         },
         {
           "path": "src/app/api/search/route.ts",

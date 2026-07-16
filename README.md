@@ -743,7 +743,7 @@ make logs SERVICE_PREFIX=vcontrolhub
 | ID | 能力缺口 | 现状 | 建议方向 |
 |---|---|---|---|
 | FEAT-P0-1 | **多租户 / 团队数据隔离** | ✅ 核心模型、任务列表/CSV/events、分享审计、备份记录/计划/恢复/保留策略已接入 Team scope；普通任务读者仅见本人任务 | 继续对新增模型执行 route/service 双层 scope 审查 |
-| FEAT-P0-2 | **远程 Docker 主体已完成** | ✅ 容器/日志/stats/network/volume 支持选择远程 VPS；Compose 当前按标签聚合到容器操作 | 真实 Compose project 生命周期与 Quick Services 节点绑定仍待后续 |
+| FEAT-P0-2 | **远程 Docker + Quick Services 节点绑定已完成** | ✅ 容器/日志/stats/network/volume 支持选择远程 VPS；Compose 当前按标签聚合到容器操作；**Quick Services 可选择本机或远程 VPS**（`instanceKey/serverId`、SSH 执行 docker、安装/启停/更新/卸载全链路） | 真实 Compose project 生命周期（project up/down/ps 作为独立产品批次）仍待后续 |
 | FEAT-P0-3 | **舰队监控后台采样已完成** | ✅ 远程节点实时资源、CPU/内存/磁盘历史、节点过滤告警及 Playbook 联动；独立 `health.sample` durable worker 每 5 分钟采样，不再依赖页面访问，保留 30 天并记录离线断点 | 后续可在现有样本上增加跨节点统一容量预测 |
 | FEAT-P0-4 | **文件网盘能力主体完成** | ✅ 多节点、回收站、分享、预览、上传、LOCAL/SFTP 全文检索；媒体/普通文件分片断点续传；**文件版本历史**（覆盖上传/在线编辑自动快照、手动快照、下载、恢复、保留策略） | 可选 WebDAV/同步协议仍待独立产品批次 |
 | FEAT-P0-5 | **Playbook 深度异步化已完成** | ✅ API 原子创建 `PlaybookRun` + `playbook.run` durable job 后立即返回；worker 持 lease/heartbeat，等待真实 CommandRequest 终态并逐步持久化 | 崩溃重领按已持久化 `commandRequestId` 续跑，不重复下发；步骤 retry 与链级 retry 均生效 |
@@ -780,7 +780,7 @@ make logs SERVICE_PREFIX=vcontrolhub
 | 企业网盘 | 多存储节点 Web 文件柜 + 分享 |
 | 完整 APM | 主机监控 + 探针 + 任务日志拼盘 |
 | 多租户 SaaS | 权限强的运维台，核心模型已接入 Team scope；新增模型仍需 route/service 双层审查 |
-| 多机应用商店 | Quick Services 偏本机/快速装 |
+| 多机应用商店 | ✅ Quick Services 已支持选择本机或远程 VPS 安装/生命周期 |
 
 #### 建议功能补齐顺序（4～6 周视角，可按场景裁剪）
 
@@ -806,7 +806,7 @@ make logs SERVICE_PREFIX=vcontrolhub
 | FEAT-P1-BR | **备份细粒度恢复** | FULL 备份恢复支持选择范围：全部 / 仅数据库 / 仅文件；`buildRestoreExecution` 按 component 分发不同命令；UI 加三选一按钮组；schema/API/job-worker 全链路传参 | ✅ tsc + 119 tests |
 
 **验证**：tsc 0；playbook executor 测试通过；build 成功；服务 active；path smoke 11/11 通过。  
-**P0 主体全部完成（已审计修复）**：Playbook 主链已迁移为 durable worker，舰队监控历史已由后台独立采样；**P1 主体能力已完成**。仍保留为明确独立产品批次的方向：远程 Compose project 生命周期、WebDAV/同步协议、知识库/RAG、云厂商账单 API 与 ITSM/IM 双向集成。
+**P0 主体全部完成（已审计修复）**：Playbook 主链已迁移为 durable worker，舰队监控历史已由后台独立采样；**P1 主体能力已完成**。仍保留为明确独立产品批次的方向：真实 Compose project 生命周期、WebDAV/同步协议、知识库/RAG、云厂商账单 API 与 ITSM/IM 双向集成。
 
 ### P1 全面补齐（2026-07-14）
 

@@ -172,7 +172,7 @@ describe("quick service docker lifecycle", () => {
 		await expect(installService({ template, userId: "user-1", customPort: 12345 })).rejects.toThrow("Installation failed: image pull denied");
 
 		expect(execFileSyncMock).toHaveBeenCalledWith("docker", ["rm", "-f", "qs-demo"], expect.objectContaining({ timeout: 15_000, encoding: "utf8" }));
-		expect(prismaMock.quickService.delete).toHaveBeenCalledWith({ where: { slug: "demo" } });
+		expect(prismaMock.quickService.delete).toHaveBeenCalledWith({ where: { instanceKey_slug: { instanceKey: "hub-host", slug: "demo" } } });
 		expect(writeAuditLogMock).toHaveBeenCalledWith(expect.objectContaining({
 			action: "quick_service.install.failed",
 			detail: expect.objectContaining({
@@ -197,7 +197,7 @@ describe("quick service docker lifecycle", () => {
 		});
 
 		await expect(installService({ template, userId: "user-1", customPort: 12345 })).rejects.toThrow("failed to clean up leftover container");
-		expect(prismaMock.quickService.delete).toHaveBeenCalledWith({ where: { slug: "demo" } });
+		expect(prismaMock.quickService.delete).toHaveBeenCalledWith({ where: { instanceKey_slug: { instanceKey: "hub-host", slug: "demo" } } });
 		expect(writeAuditLogMock).toHaveBeenCalledWith(expect.objectContaining({
 			action: "quick_service.install.failed",
 			detail: expect.objectContaining({ error: expect.stringContaining("failed to clean up leftover container"), rollback: "deleted" }),
@@ -231,7 +231,7 @@ describe("quick service docker lifecycle", () => {
 		await expect(installService({ template, userId: "user-1", customPort: 12345 })).rejects.toThrow("Installation failed");
 
 		expect(prismaMock.quickService.update).toHaveBeenCalledWith({
-			where: { slug: "demo" },
+			where: { instanceKey_slug: { instanceKey: "hub-host", slug: "demo" } },
 			data: expect.objectContaining({
 				status: "running",
 				port: 18080,
@@ -268,7 +268,7 @@ describe("quick service docker lifecycle", () => {
 		await expect(uninstallService("demo")).rejects.toThrow("Uninstall failed");
 		expect(prismaMock.quickService.delete).not.toHaveBeenCalled();
 		expect(prismaMock.quickService.update).toHaveBeenCalledWith({
-			where: { slug: "demo" },
+			where: { instanceKey_slug: { instanceKey: "hub-host", slug: "demo" } },
 			data: expect.objectContaining({ status: "error" }),
 		});
 	});
@@ -290,7 +290,7 @@ describe("quick service docker lifecycle", () => {
 		expect(rmSyncMock).toHaveBeenCalledWith("/opt/demo/data", { recursive: true, force: true });
 		expect(rmSyncMock).toHaveBeenCalledWith("/srv/demo/cache", { recursive: true, force: true });
 		expect(rmSyncMock).not.toHaveBeenCalledWith("/etc/localtime", expect.anything());
-		expect(prismaMock.quickService.delete).toHaveBeenCalledWith({ where: { slug: "demo" } });
+		expect(prismaMock.quickService.delete).toHaveBeenCalledWith({ where: { instanceKey_slug: { instanceKey: "hub-host", slug: "demo" } } });
 	});
 
 	it("preserves service host data directories by default when uninstalling", async () => {
@@ -303,7 +303,7 @@ describe("quick service docker lifecycle", () => {
 		await uninstallService("demo");
 
 		expect(rmSyncMock).not.toHaveBeenCalled();
-		expect(prismaMock.quickService.delete).toHaveBeenCalledWith({ where: { slug: "demo" } });
+		expect(prismaMock.quickService.delete).toHaveBeenCalledWith({ where: { instanceKey_slug: { instanceKey: "hub-host", slug: "demo" } } });
 	});
 
 	it("marks the service error when recreating a missing container fails", async () => {
@@ -334,7 +334,7 @@ describe("quick service docker lifecycle", () => {
 
 		await expect(startService("demo")).rejects.toThrow("Start failed");
 		expect(prismaMock.quickService.update).toHaveBeenCalledWith({
-			where: { slug: "demo" },
+			where: { instanceKey_slug: { instanceKey: "hub-host", slug: "demo" } },
 			data: { status: "error", error: expect.stringContaining("docker daemon unavailable") },
 		});
 	});
@@ -350,11 +350,11 @@ describe("quick service docker lifecycle", () => {
 		await stopService("demo");
 
 		expect(prismaMock.quickService.update).toHaveBeenNthCalledWith(1, {
-			where: { slug: "demo" },
+			where: { instanceKey_slug: { instanceKey: "hub-host", slug: "demo" } },
 			data: { status: "running", error: null },
 		});
 		expect(prismaMock.quickService.update).toHaveBeenNthCalledWith(2, {
-			where: { slug: "demo" },
+			where: { instanceKey_slug: { instanceKey: "hub-host", slug: "demo" } },
 			data: { status: "stopped", error: null },
 		});
 		expect(writeAuditLogMock).toHaveBeenCalledWith(expect.objectContaining({ action: "quick_service.start.started" }));
@@ -442,7 +442,7 @@ describe("quick service docker lifecycle", () => {
 		await expect(updateService("demo")).resolves.toEqual({ status: "running", health: "healthy", logTail: "old line\nservice ready" });
 
 		expect(execFileSyncMock).toHaveBeenCalledWith("docker", ["pull", "example/demo:latest"], expect.objectContaining({ timeout: 300_000, encoding: "utf8" }));
-		expect(prismaMock.quickService.update).toHaveBeenCalledWith({ where: { slug: "demo" }, data: { status: "installing", error: null } });
+		expect(prismaMock.quickService.update).toHaveBeenCalledWith({ where: { instanceKey_slug: { instanceKey: "hub-host", slug: "demo" } }, data: { status: "installing", error: null } });
 		const dockerArgs = execFileMock.mock.calls[0]![1] as string[];
 		expect(dockerArgs).toEqual(expect.arrayContaining(["run", "-d", "--name", "qs-demo", "-p", "18080:8080", "example/demo:latest"]));
 		expect(prismaMock.quickService.update).toHaveBeenCalledWith({
@@ -481,7 +481,7 @@ describe("quick service docker lifecycle", () => {
 
 		await expect(updateService("demo")).rejects.toThrow("Update failed: manifest unknown");
 		expect(prismaMock.quickService.update).toHaveBeenCalledWith({
-			where: { slug: "demo" },
+			where: { instanceKey_slug: { instanceKey: "hub-host", slug: "demo" } },
 			data: { status: "error", error: "Update failed: manifest unknown" },
 		});
 		expect(writeAuditLogMock).toHaveBeenCalledWith(expect.objectContaining({
@@ -547,7 +547,7 @@ describe("quick service docker lifecycle", () => {
 			["inspect", "--format={{.State.Status}}", "qs-demo"],
 			expect.objectContaining({ timeout: 10_000, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] }),
 		);
-		expect(prismaMock.quickService.update).toHaveBeenCalledWith({ where: { slug: "demo" }, data: { status: "stopped" } });
+		expect(prismaMock.quickService.update).toHaveBeenCalledWith({ where: { instanceKey_slug: { instanceKey: "hub-host", slug: "demo" } }, data: { status: "stopped" } });
 		expect(writeAuditLogMock).toHaveBeenCalledWith(expect.objectContaining({ action: "quick_service.sync.started" }));
 		expect(writeAuditLogMock).toHaveBeenCalledWith(expect.objectContaining({
 			action: "quick_service.sync.succeeded",
@@ -638,7 +638,7 @@ describe("quick service docker lifecycle", () => {
 
 		expect(prismaMock.quickService.update).toHaveBeenCalledWith(
 			expect.objectContaining({
-				where: { slug: "demo" },
+				where: { instanceKey_slug: { instanceKey: "hub-host", slug: "demo" } },
 				data: expect.objectContaining({ status: "stopped" }),
 			}),
 		);

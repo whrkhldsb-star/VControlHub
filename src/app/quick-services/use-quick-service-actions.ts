@@ -60,6 +60,8 @@ export type UninstallTarget = {
 export type UseQuickServiceActionsInput = {
   fetchCatalog: () => Promise<void>;
   fetchSources: () => Promise<void>;
+  /** empty = hub-host */
+  selectedServerId?: string;
 };
 
 export type UseQuickServiceActionsResult = {
@@ -91,6 +93,7 @@ export type UseQuickServiceActionsResult = {
 export function useQuickServiceActions({
   fetchCatalog,
   fetchSources,
+  selectedServerId = "",
 }: UseQuickServiceActionsInput): UseQuickServiceActionsResult {
   const { t } = useI18n();
   const [message, setMessage] = useState<QuickServiceMessage | null>(null);
@@ -117,7 +120,7 @@ export function useQuickServiceActions({
           {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ slug: preview.item.slug, customPort: preview.port }),
+            body: JSON.stringify({ slug: preview.item.slug, customPort: preview.port, serverId: selectedServerId || null }),
           },
         );
         setMessage({
@@ -137,7 +140,7 @@ export function useQuickServiceActions({
         setActionSlug(null);
       }
     },
-    [fetchCatalog, t],
+    [fetchCatalog, selectedServerId, t],
   );
 
   const doAction = useCallback(
@@ -149,7 +152,7 @@ export function useQuickServiceActions({
           {
             method: "PATCH",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ action }),
+            body: JSON.stringify({ action, serverId: selectedServerId || null }),
           },
         );
         const updateDetails = [
@@ -194,7 +197,7 @@ export function useQuickServiceActions({
         setActionSlug(null);
       }
     },
-    [fetchCatalog, t],
+    [fetchCatalog, selectedServerId, t],
   );
 
   const doUninstall = useCallback(
@@ -206,7 +209,7 @@ export function useQuickServiceActions({
           {
             method: "DELETE",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ deleteVolumes: target.deleteVolumes }),
+            body: JSON.stringify({ deleteVolumes: target.deleteVolumes, serverId: selectedServerId || null }),
           },
         );
         const taskLabel = data.taskId ? t("qsActions.taskSuffix").replace("{id}", data.taskId) : "";
@@ -231,7 +234,7 @@ export function useQuickServiceActions({
         setActionSlug(null);
       }
     },
-    [fetchCatalog, t],
+    [fetchCatalog, selectedServerId, t],
   );
 
   const doSync = useCallback(

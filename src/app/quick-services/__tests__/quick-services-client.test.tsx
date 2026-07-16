@@ -66,6 +66,9 @@ const availableCatalogResponse = {
 	],
 	remoteCatalog: [],
 	usedPorts: [],
+		servers: [],
+		selectedServerId: "",
+		setSelectedServerId: vi.fn(),
 	publicHost: "82.158.91.159",
 };
 
@@ -133,7 +136,7 @@ describe("QuickServicesClient", () => {
 			expect(csrfFetch).toHaveBeenCalledWith("/api/quick-services/alist", {
 				method: "DELETE",
 				headers: { "Content-Type": "application/json" },
-				body: JSON.stringify({ deleteVolumes: false }),
+				body: JSON.stringify({ deleteVolumes: false, serverId: null }),
 			});
 		});
 		expect(await screen.findByText(/卸载已排队（job:job_qs_1），数据目录将保留/)).toBeInTheDocument();
@@ -158,7 +161,7 @@ describe("QuickServicesClient", () => {
 			expect(csrfFetch).toHaveBeenCalledWith("/api/quick-services/alist", {
 				method: "DELETE",
 				headers: { "Content-Type": "application/json" },
-				body: JSON.stringify({ deleteVolumes: true }),
+				body: JSON.stringify({ deleteVolumes: true, serverId: null }),
 			});
 		});
 		expect(await screen.findByText(/卸载并删除数据目录已排队（job:job_qs_2）/)).toBeInTheDocument();
@@ -198,7 +201,7 @@ describe("QuickServicesClient", () => {
 		await waitFor(() => {
 			expect(csrfFetch).toHaveBeenCalledWith("/api/quick-services/alist", expect.objectContaining({
 				method: "PATCH",
-				body: JSON.stringify({ action: "update" }),
+				body: JSON.stringify({ action: "update", serverId: null }),
 			}));
 		});
 		expect(await screen.findByText(/更新已排队（job:job_qs_3），后台将拉取镜像并重建容器/)).toBeInTheDocument();
@@ -250,7 +253,7 @@ describe("QuickServicesClient", () => {
 		await waitFor(() => {
 			expect(csrfFetch).toHaveBeenCalledWith("/api/quick-services", expect.objectContaining({
 				method: "POST",
-				body: JSON.stringify({ slug: "alist", customPort: 5244 }),
+				body: JSON.stringify({ slug: "alist", customPort: 5244, serverId: null }),
 			}));
 		});
 		expect(await screen.findByText(/AList 安装已排队（job:job_qs_4）/)).toBeInTheDocument();
