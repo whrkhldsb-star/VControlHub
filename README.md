@@ -715,7 +715,7 @@ make logs SERVICE_PREFIX=vcontrolhub
 
 | 优先级 | 状态 | 升级方向 | 验收标准 |
 |---|---|---|---|
-| P0 | ✅ 第一批完成 | 收敛大型 Client Component，将数据获取、mutation、展示区块和弹窗拆到稳定边界 | 已无 1000+ 行巨型组件；当前高复杂候选为 alert-rule-list(505行)、docker-page(501行)、text-preview(499行)；桌面/移动浏览器回归通过 |
+| P0 | ✅ 第一批完成 | 收敛大型 Client Component，将数据获取、mutation、展示区块和弹窗拆到稳定边界 | 已无 1000+ 行巨型组件；当前高复杂候选为 alert-rule-list-client(418行)、docker-page-client(430行)、text-preview-client(498行)；桌面/移动浏览器回归通过 |
 | P0 | ✅ 阶段性 | 导航信息架构 + 全局页面壳美化 | 侧栏分组/筛选、PageHeader/Toolbar/EmptyState 升级、表格/卡片/移动底栏统一；提交见 FE-UI 记录 |
 | P0 | ✅ 第一批完成 | 收敛 `globals.css` 历史兼容规则，迁移到明确的 primitives 与 `data-*` hooks | 已删除 59 行零命中暗色主题 shim（bg-slate-950/900/800、bg-white/*、border-white/*、table-wrapper）；深浅主题视觉回归通过 |
 | P1 | ✅ sftp-ops 已迁移 | 合并文件动作的重复核心 | sftp-ops delete/rename 已迁移到统一 `fs-backend`，采用 index-first 语义（先更新索引再删物理文件）；继续收敛 write/create 路径 |
@@ -766,7 +766,7 @@ make logs SERVICE_PREFIX=vcontrolhub
 
 | 项 | 说明 | 关联 |
 |---|---|---|
-| 巨型 Client | 已无 1000+ 行巨型组件；当前高复杂候选为 alert-rule-list(505行)、docker-page(501行)、text-preview(499行) | FE-OPEN-2 / 架构 P0 |
+| 巨型 Client | 已无 1000+ 行巨型组件；当前高复杂候选为 alert-rule-list-client(418行)、docker-page-client(430行)、text-preview-client(498行) | FE-OPEN-2 / 架构 P0 |
 | SSH 主机密钥 | ✅ 命令执行、Sync rsync/tar 均使用匹配 SHA-256 pin 的临时 known_hosts，StrictHostKeyChecking=yes | OPEN-1 / OPEN-2 |
 | E2E 全矩阵 | 主路径有 Playwright，非跨浏览器全覆盖 | OPEN-6 / FE-OPEN-1 |
 | 移动端运维 | 可浏览；终端/批量文件/重审批仍桌面优先 | FE-UI Round 8 |
