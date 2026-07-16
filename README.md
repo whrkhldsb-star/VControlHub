@@ -752,7 +752,7 @@ make logs SERVICE_PREFIX=vcontrolhub
 
 | 模块 | 功能不足（摘要） |
 |---|---|
-| **工单 Tickets** | ✅ SLA、自动升级、VPS/命令关联、看板和高级过滤已完成；后续可加审批对象双向时间线 |
+| **工单 Tickets** | ✅ SLA、自动升级、VPS/命令关联、看板和高级过滤；**审批对象双向时间线**（工单事件+命令审批/执行合并；反向列出同命令工单） |
 | **AI 助手** | ✅ VPS/日志/Docker/文件全文搜索等受控工具编排；**知识库/RAG**（文档分块入库、关键词/中文检索、聊天自动注入、`search_knowledge` 工具） |
 | **AI Ops** | ✅ 安全自动闭环和结构化可解释报告已完成；目标依赖动作仍坚持显式参数/审批 |
 | **告警规则** | ✅ 指标源与远程 VPS 统一；静默窗口、冷却和持续时长；**多级升级（L1→L3）+ 值班路由（onCallUserIds）+ 事件确认（Acknowledge）+ 告警事件面板** |
@@ -822,6 +822,7 @@ make logs SERVICE_PREFIX=vcontrolhub
 | FEAT-BACKUP-MIGRATION | **跨环境备份迁移向导** | 导出 COMPLETED 备份为 `migration-packages/<id>/{manifest.json,payload.*}`（可选 tar.gz）；目标环境 validate（sha256/size）后 import 登记为 COMPLETED BackupRecord；恢复仍走 RESTORE 确认 |
 | FEAT-WEBDAV | **存储 WebDAV 协议** | `/api/webdav/{storageNodeId}/...`；自定义 server 转发 PROPFIND/MKCOL/MOVE/COPY；API Token `storage:read|write|delete`；复用 assertStorageAccess 与 LOCAL/SFTP 后端 |
 | FEAT-KNOWLEDGE-RAG | **AI 知识库 / RAG** | KnowledgeBase/Document/Chunk；分块索引 + 关键词/CJK 排序检索；`/knowledge` 管理页；AI 聊天自动注入；hosted `search_knowledge` 工具；team scope |
+| FEAT-TICKET-TIMELINE | **工单 ↔ 命令审批双向时间线** | `getTicketTimeline` 合并创建/状态/评论/关联与命令审批/执行/目标；`/api/tickets/[id]/timeline` 读写关联；`/api/commands/[id]/tickets` 反向查询 |
 | FEAT-P1-7 | 岗位模板和数据范围 | 模板保存角色、权限、存储节点路径、读写删除范围、配额和单文件限制；用户面板一键应用 |
 | ARCH-P1-2 | 统一跨进程锁 | advisory lock 统一服务接管备份恢复和 VPS 备份计划锁，统一 namespace/key/release/error handling |
 

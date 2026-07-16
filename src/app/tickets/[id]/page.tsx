@@ -37,6 +37,8 @@ export default async function TicketDetailPage({ params }: { params: Promise<{ i
     createdAt: ticket.createdAt.toISOString(),
     updatedAt: ticket.updatedAt.toISOString(),
     closedAt: ticket.closedAt?.toISOString() ?? null,
+    relatedServerId: ticket.relatedServerId ?? null,
+    relatedCommandId: ticket.relatedCommandId ?? null,
     comments: ticket.comments.map((c) => ({ ...c, createdAt: c.createdAt.toISOString() })),
   };
 

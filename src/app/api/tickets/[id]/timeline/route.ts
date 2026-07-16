@@ -1,0 +1,126 @@
+/**
+ * GET  /api/tickets/[id]/timeline — unified ticket ↔ command timeline
+ * POST /api/tickets/[id]/timeline — link/unlink command or server
+ *      { action: "link_command"|"unlink_command"|"link_server"|"unlink_server", commandRequestId?, serverId? }
+ */
+import { NextResponse } from "next/server";
+import { z } from "zod";
+
+import { sessionHasPermission } from "@/lib/auth/authorization";
+import { auditUserAction } from "@/lib/audit/service";
+import { ForbiddenError } from "@/lib/errors";
+import { withApiRoute } from "@/lib/http/api-guard";
+import { GENERAL_READ_LIMIT, GENERAL_WRITE_LIMIT } from "@/lib/http/rate-limit-presets";
+import { canViewTicket } from "@/lib/ticket/service";
+import {
+  getTicketTimeline,
+  linkTicketCommand,
+  linkTicketServer,
+} from "@/lib/ticket/timeline";
+
+const postSchema = z.discriminatedUnion("action", [
+  z.object({
+    action: z.literal("link_command"),
+    commandRequestId: z.string().trim().min(1),
+  }),
+  z.object({
+    action: z.literal("unlink_command"),
+  }),
+  z.object({
+    action: z.literal("link_server"),
+    serverId: z.string().trim().min(1),
+  }),
+  z.object({
+    action: z.literal("unlink_server"),
+  }),
+]);
+
+async function assertCanAccess(ticketId: string, session: { userId: string; roles: string[] }) {
+  const canManage = sessionHasPermission(session as never, "ticket:manage");
+  if (!canManage && !(await canViewTicket(ticketId, session.userId))) {
+    throw new ForbiddenError("You cannot access this ticket");
+  }
+  return canManage;
+}
+
+export async function GET(
+  request: Request,
+  context: { params: Promise<{ id: string }> },
+) {
+  return withApiRoute(
+    request,
+    {
+      permission: "ticket:read",
+      rateLimit: GENERAL_READ_LIMIT,
+      errorMessage: "Failed to load ticket timeline",
+    },
+    async ({ session }) => {
+      const { id } = await context.params;
+      await assertCanAccess(id, session!);
+      const timeline = await getTicketTimeline(id);
+      return NextResponse.json(timeline);
+    },
+  );
+}
+
+export async function POST(
+  request: Request,
+  context: { params: Promise<{ id: string }> },
+) {
+  return withApiRoute(
+    request,
+    {
+      permission: "ticket:manage",
+      rateLimit: GENERAL_WRITE_LIMIT,
+      bodySchema: postSchema,
+      errorMessage: "Failed to update ticket links",
+    },
+    async ({ session, body }) => {
+      const { id } = await context.params;
+      await assertCanAccess(id, session!);
+
+      if (body.action === "link_command") {
+        await linkTicketCommand({
+          ticketId: id,
+          commandRequestId: body.commandRequestId,
+          actorId: session!.userId,
+        });
+        await auditUserAction(session!.userId, "ticket.link_command", {
+          ticketId: id,
+          commandRequestId: body.commandRequestId,
+        });
+      } else if (body.action === "unlink_command") {
+        await linkTicketCommand({
+          ticketId: id,
+          commandRequestId: null,
+          actorId: session!.userId,
+        });
+        await auditUserAction(session!.userId, "ticket.unlink_command", {
+          ticketId: id,
+        });
+      } else if (body.action === "link_server") {
+        await linkTicketServer({
+          ticketId: id,
+          serverId: body.serverId,
+          actorId: session!.userId,
+        });
+        await auditUserAction(session!.userId, "ticket.link_server", {
+          ticketId: id,
+          serverId: body.serverId,
+        });
+      } else {
+        await linkTicketServer({
+          ticketId: id,
+          serverId: null,
+          actorId: session!.userId,
+        });
+        await auditUserAction(session!.userId, "ticket.unlink_server", {
+          ticketId: id,
+        });
+      }
+
+      const timeline = await getTicketTimeline(id);
+      return NextResponse.json(timeline);
+    },
+  );
+}

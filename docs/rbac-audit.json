@@ -1,11 +1,11 @@
 {
-  "generatedAt": "2026-07-16T04:14:15.409Z",
+  "generatedAt": "2026-07-16T04:30:36.074Z",
   "summary": {
     "permissionsInList": 54,
     "rolesDefined": 4,
     "apiRoutesAudited": 138,
     "pagesAudited": 47,
-    "callSitesAudited": 505,
+    "callSitesAudited": 512,
     "driftCount": 0,
     "driftByCode": {
       "perm-not-in-list": 0,
@@ -753,6 +753,14 @@
         {
           "path": "src/app/api/command-templates/route.ts",
           "line": 23
+        },
+        {
+          "path": "src/app/api/commands/[id]/tickets/route.ts",
+          "line": 17
+        },
+        {
+          "path": "src/app/api/commands/[id]/tickets/route.ts",
+          "line": 17
         },
         {
           "path": "src/app/api/commands/route.ts",
@@ -2586,6 +2594,18 @@
           "line": 70
         },
         {
+          "path": "src/app/api/tickets/[id]/timeline/route.ts",
+          "line": 73
+        },
+        {
+          "path": "src/app/api/tickets/[id]/timeline/route.ts",
+          "line": 39
+        },
+        {
+          "path": "src/app/api/tickets/[id]/timeline/route.ts",
+          "line": 73
+        },
+        {
           "path": "src/app/api/tickets/route.ts",
           "line": 125
         },
@@ -2624,6 +2644,7 @@
       ],
       "apiRoutes": [
         "/api/tickets/[id]",
+        "/api/tickets/[id]/timeline",
         "/api/tickets"
       ],
       "grantedToRoles": [
@@ -2635,6 +2656,14 @@
     {
       "permission": "ticket:read",
       "files": [
+        {
+          "path": "src/app/api/tickets/[id]/timeline/route.ts",
+          "line": 53
+        },
+        {
+          "path": "src/app/api/tickets/[id]/timeline/route.ts",
+          "line": 53
+        },
         {
           "path": "src/app/api/tickets/route.ts",
           "line": 52
