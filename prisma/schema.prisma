@@ -113,6 +113,7 @@ model User {
   aiHostedRequests       AiHostedAction[]        @relation("AiHostedRequester")
   aiHostedApprovals      AiHostedAction[]        @relation("AiHostedApprover")
   costEntries            CostEntry[]             @relation("CostEntryCreatedBy")
+  cloudBillingAccounts   CloudBillingAccount[]   @relation("CloudBillingAccountCreatedBy")
   aiOpsLogs              AiOpsLog[]              @relation("AiOpsLogTriggeredBy")
   mediaUploadSessions    MediaUploadSession[]
   fileVersions           FileVersion[]
@@ -1602,6 +1603,54 @@ model CostBudget {
 
   @@index([category, period])
   @@map("cost_budgets")
+}
+
+// FEAT-COST-CLOUD-BILLING: 云厂商账单 API 对接
+// Stores encrypted credentials for cloud providers and tracks import runs.
+// Imported line items land in CostEntry with sourceType=cloud_billing.
+model CloudBillingAccount {
+  id                 String    @id @default(cuid())
+  name               String
+  provider           String // aws | aliyun | tencent | generic_csv
+  // JSON credentials encrypted via AES-256-GCM (never returned raw to clients).
+  credentialsEnc     String
+  // Optional path/region/accountId hints for the adapter (plain JSON, no secrets).
+  config             Json      @default("{}")
+  currency           String    @default("USD")
+  enabled            Boolean   @default(true)
+  lastSyncAt         DateTime?
+  lastSyncStatus     String? // ok | error | partial
+  lastSyncError      String?
+  lastSyncImported   Int       @default(0)
+  lastSyncSkipped    Int       @default(0)
+  createdById        String?
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+
+  createdBy User?                 @relation("CloudBillingAccountCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  syncRuns  CloudBillingSyncRun[]
+
+  @@index([provider, enabled])
+  @@index([createdById])
+  @@map("cloud_billing_accounts")
+}
+
+model CloudBillingSyncRun {
+  id          String   @id @default(cuid())
+  accountId   String
+  month       String // YYYY-MM
+  status      String // running | ok | error | partial
+  imported    Int      @default(0)
+  skipped     Int      @default(0)
+  errorMessage String?
+  startedAt   DateTime @default(now())
+  finishedAt  DateTime?
+
+  account CloudBillingAccount @relation(fields: [accountId], references: [id], onDelete: Cascade)
+
+  @@index([accountId, startedAt])
+  @@index([month])
+  @@map("cloud_billing_sync_runs")
 }
 
 // TR-032 E02: Smart AI ops (recommendation + autonomous modes).

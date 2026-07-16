@@ -5,6 +5,7 @@ import { useToast } from "@/components/toast-provider";
 import { EmptyState, ListPanel } from "@/components/page-shell";
 import { CostDeleteDialog, CostEntryFormModal } from "./cost-entry-dialogs";
 import { CostBudgetPanel } from "./cost-budget-panel";
+import { CostCloudBillingPanel } from "./cost-cloud-billing-panel";
 import {
 	CATEGORIES,
 	buttonDanger,
@@ -17,6 +18,7 @@ import {
 } from "./cost-page-shared";
 import { useCostPageState } from "./use-cost-page-state";
 
+import type { CloudBillingAccountRecord } from "@/lib/cost/cloud-billing/types";
 import type {
 	CostCurrency,
 	CostEntryRecord,
@@ -33,6 +35,7 @@ type Props = {
 	initialEntries: CostEntryRecord[];
 	initialSnapshots: DailySnapshot[];
 	initialBudgets: CostBudgetRecord[];
+	initialBillingAccounts: CloudBillingAccountRecord[];
 	canRead: boolean;
 	canManage: boolean;
 	availableCurrencies: CostCurrency[];
@@ -47,6 +50,7 @@ export function CostPageClient({
 	initialEntries,
 	initialSnapshots,
 	initialBudgets,
+	initialBillingAccounts,
 	canRead,
 	canManage,
 	availableCurrencies,
@@ -102,6 +106,13 @@ export function CostPageClient({
 	return (
 		<div className="space-y-6">
 			<CostBudgetPanel initialBudgets={initialBudgets} canManage={canManage} currencies={availableCurrencies} />
+			<CostCloudBillingPanel
+				initialAccounts={initialBillingAccounts}
+				canManage={canManage}
+				currencies={availableCurrencies}
+				month={month}
+				onImported={() => void refreshAll()}
+			/>
 			<section className={cardClass}>
 				<div className="mb-4 flex flex-wrap items-center justify-between gap-3">
 					<h2 className="text-lg font-semibold text-[var(--text-primary)]">{t("costPage.summary.title")}</h2>

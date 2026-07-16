@@ -736,7 +736,7 @@ make logs SERVICE_PREFIX=vcontrolhub
 | 维度 | 判断 |
 |---|---|
 | 已很强 | 命令审批链、模板/部署、文件与分享、备份/审计、RBAC 粒度、多租户 Team scope |
-| 仍偏弱 | 对外集成深度（云账单 API/ITSM 双向） |
+| 仍偏弱 | 对外集成深度（ITSM/IM 双向；云账单 live SDK 可按需加深） |
 
 #### P0 — 最影响「能不能当主力系统用」
 
@@ -757,7 +757,7 @@ make logs SERVICE_PREFIX=vcontrolhub
 | **AI Ops** | ✅ 安全自动闭环和结构化可解释报告已完成；目标依赖动作仍坚持显式参数/审批 |
 | **告警规则** | ✅ 指标源与远程 VPS 统一；静默窗口、冷却和持续时长；**多级升级（L1→L3）+ 值班路由（onCallUserIds）+ 事件确认（Acknowledge）+ 告警事件面板** |
 | **备份** | ✅ 细粒度恢复和无损恢复演练报告；**跨环境迁移向导**（export 带 manifest 包 → 目标机 validate/import 登记 → 标准 restore/drill，不自动恢复） |
-| **成本 Cost** | ✅ 标签自动归集、周期预算和自动告警已完成；云厂商账单 API 对接仍待后续 |
+| **成本 Cost** | ✅ 标签自动归集、周期预算和自动告警已完成；**云厂商账单 API 对接**（AWS/阿里云/腾讯云/CSV 账户、凭证加密、同步导入 CostEntry、`/cost-summary` 面板） |
 | **分享** | ✅ 仅预览/允许下载、服务端强制、访问日志、水印、团队级聚合报表和 CSV 导出已完成 |
 | **下载中心** | ✅ 多 worker CAS 与文件页最近下载任务托盘已完成 |
 | **用户/角色** | ✅ 岗位模板已支持角色、权限和存储路径/配额数据范围 |
@@ -770,7 +770,7 @@ make logs SERVICE_PREFIX=vcontrolhub
 | SSH 主机密钥 | ✅ 命令执行、Sync rsync/tar 均使用匹配 SHA-256 pin 的临时 known_hosts，StrictHostKeyChecking=yes | OPEN-1 / OPEN-2 |
 | E2E 全矩阵 | 主路径有 Playwright，非跨浏览器全覆盖 | OPEN-6 / FE-OPEN-1 |
 | 移动端运维 | 可浏览；终端/批量文件/重审批仍桌面优先 | FE-UI Round 8 |
-| 对外集成 | Webhook/邮件/TG 有；缺完整事件总线与 ITSM/IM 双向 | 产品 |
+| 对外集成 | Webhook/邮件/TG 有；**云账单账户+CSV/探针导入**已落地；缺完整事件总线与 ITSM/IM 双向 | 产品 |
 
 #### 期望 vs 实际（避免误解）
 
@@ -806,7 +806,15 @@ make logs SERVICE_PREFIX=vcontrolhub
 | FEAT-P1-BR | **备份细粒度恢复** | FULL 备份恢复支持选择范围：全部 / 仅数据库 / 仅文件；`buildRestoreExecution` 按 component 分发不同命令；UI 加三选一按钮组；schema/API/job-worker 全链路传参 | ✅ tsc + 119 tests |
 
 **验证**：tsc 0；playbook executor 测试通过；build 成功；服务 active；path smoke 11/11 通过。  
-**P0 主体全部完成（已审计修复）**：Playbook 主链已迁移为 durable worker，舰队监控历史已由后台独立采样；**P1 主体能力已完成**。仍保留为明确独立产品批次的方向：云厂商账单 API 与 ITSM/IM 双向集成。
+**P0 主体全部完成（已审计修复）**：Playbook 主链已迁移为 durable worker，舰队监控历史已由后台独立采样；**P1 主体能力已完成**。仍保留为明确独立产品批次的方向：ITSM/IM 双向集成；云账单 live 厂商 SDK 可按环境加深。
+
+### FEAT-COST-CLOUD-BILLING（2026-07-16）
+
+| ID | 修复项 | 完成内容 |
+|---|---|---|
+| FEAT-COST-CLOUD-BILLING | **云厂商账单 API 对接** | `CloudBillingAccount` / `CloudBillingSyncRun`；凭证 AES 加密；AWS/阿里云/腾讯云/generic_csv 适配器（CSV 导入 + mock 探针；live SDK 显式失败不假成功）；`/api/cost/billing-accounts` CRUD + `/sync`；导入 `CostEntry` `sourceType=cloud_billing`；`/cost-summary` 云账单面板；中英 i18n |
+
+**验证**：`tsc --noEmit`；eslint 聚焦 0 warn；vitest cloud-billing + cost 23 tests；i18n key-check 4129/4129。
 
 ### P1 全面补齐（2026-07-14）
 
