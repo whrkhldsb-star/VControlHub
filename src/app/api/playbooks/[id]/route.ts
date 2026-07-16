@@ -10,7 +10,6 @@ import { withApiRoute } from "@/lib/http/api-guard";
 import { apiError } from "@/lib/http/api-error";
 import { GENERAL_WRITE_LIMIT } from "@/lib/http/rate-limit-presets";
 import { ValidationError } from "@/lib/errors";
-import { auditUserAction } from "@/lib/audit/service";
 
 export const dynamic = "force-dynamic";
 
@@ -45,8 +44,8 @@ export async function PATCH(request: Request, { params }: PlaybookRouteContext) 
     async ({ session, body }) => {
       const id = await requirePlaybookId(params);
       const updatedById = session?.userId ?? "";
+      // updatePlaybook already audits playbook.update
       const playbook = await updatePlaybook({ ...(body as object), id }, updatedById, session ?? undefined);
-      await auditUserAction(session?.userId ?? "", "playbook.update", { playbookId: id });
       return NextResponse.json({ playbook });
     },
   );
@@ -58,8 +57,8 @@ export async function DELETE(request: Request, { params }: PlaybookRouteContext)
     { permission: "playbook:manage", rateLimit: GENERAL_WRITE_LIMIT, errorStatus: 400, errorMessage: "Failed to delete" },
     async ({ session }) => {
       const id = await requirePlaybookId(params);
+      // deletePlaybook already audits playbook.delete
       await deletePlaybook(id, session?.userId ?? "", session ?? undefined);
-      await auditUserAction(session?.userId ?? "", "playbook.delete", { playbookId: id });
       return NextResponse.json({ success: true });
     },
   );

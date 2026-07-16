@@ -119,11 +119,11 @@ async function handleJob(job: NonNullable<Awaited<ReturnType<typeof claimNextJob
       heartbeat: () => heartbeatJob(job.id, WORKER_ID, { leaseMs: LEASE_MS }),
       run: () => processPlaybookRun(runId, job.id),
     });
-    if (result.status === "failed") {
-      await failJob(job.id, WORKER_ID, result.summary, { retryAfterMs: 5_000 });
-    } else {
-      await completeJob(job.id, WORKER_ID, result);
-    }
+    // Logical step failure already wrote PlaybookRun status=failed. Do NOT
+    // failJob() here: failJob requeues PENDING while attempts < maxAttempts,
+    // which re-runs a terminal business outcome and can re-dispatch side effects.
+    // Persist the chain outcome on the Job row as COMPLETED with status in result.
+    await completeJob(job.id, WORKER_ID, result);
     return true;
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
@@ -140,6 +140,7 @@ async function handleJob(job: NonNullable<Awaited<ReturnType<typeof claimNextJob
         },
       });
     }
+    // Infrastructure / unexpected throw: allow durable job retry via failJob.
     await failJob(job.id, WORKER_ID, message.slice(0, 2000), { retryAfterMs: 5_000 });
     logger.error("playbook run job failed", { jobId: job.id, error: message });
     return true;

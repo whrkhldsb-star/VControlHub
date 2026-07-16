@@ -80,6 +80,22 @@ async function waitForCommand(commandRequestId: string, timeoutSec: number): Pro
   throw new Error(`command request ${commandRequestId} timed out after ${timeoutSec}s`);
 }
 
+async function resolveResumableCommandRequestId(
+  candidateId: string | undefined,
+): Promise<string | undefined> {
+  if (!candidateId) return undefined;
+  const request = await prisma.commandRequest.findUnique({
+    where: { id: candidateId },
+    select: { status: true },
+  });
+  if (!request) return undefined;
+  // Resume only non-terminal (or completed) requests. A FAILED/REJECTED/CANCELLED
+  // id must not be reused: createCommandRequest would also idempotency-replay it.
+  if (request.status === "COMPLETED") return candidateId;
+  if (COMMAND_TERMINAL.has(request.status)) return undefined;
+  return candidateId;
+}
+
 async function dispatchStep(input: {
   step: PlaybookStep;
   playbookId: string;
@@ -88,20 +104,40 @@ async function dispatchStep(input: {
   teamId: string | null;
   results: PlaybookStepResult[];
   existing?: PlaybookStepResult;
+  /** 0-based attempt within step.retry+1; each attempt gets a distinct command + idempotency key. */
+  attempt: number;
 }): Promise<string> {
   const { step } = input;
   switch (step.type) {
     case "run_command": {
-      let commandRequestId = input.existing?.commandRequestId ?? input.results.find((result) => result.stepId === step.id)?.commandRequestId;
+      // Attempt 0 may resume a prior commandRequestId (durable reclaim mid-wait).
+      // Later attempts must not inherit a failed request id from `existing` or results.
+      const liveId = input.results.find((result) => result.stepId === step.id)?.commandRequestId;
+      const resumeCandidate =
+        input.attempt === 0
+          ? (liveId ?? input.existing?.commandRequestId)
+          : liveId;
+      let commandRequestId = await resolveResumableCommandRequestId(resumeCandidate);
+      if (commandRequestId) {
+        const request = await prisma.commandRequest.findUnique({
+          where: { id: commandRequestId },
+          select: { status: true },
+        });
+        if (request?.status === "COMPLETED") {
+          return `command request ${commandRequestId} completed`;
+        }
+      }
       if (!commandRequestId) {
         const request = await createCommandRequest({
           title: `Playbook ${input.playbookId}: ${step.name || step.id}`,
           command: substituteVariables(step.config.command, step.config.variables ?? {}),
-          reason: `Playbook run ${input.runId}, step ${step.id}`,
+          reason: `Playbook run ${input.runId}, step ${step.id}, attempt ${input.attempt + 1}`,
           submissionMode: "user",
           requesterId: input.requesterId,
           teamId: input.teamId ?? null,
-          idempotencyKey: `playbook:${input.runId}:step:${step.id}`,
+          // Distinct key per attempt so a FAILED first try is not idempotency-replayed
+          // as a "success path" that immediately fails waitForCommand again.
+          idempotencyKey: `playbook:${input.runId}:step:${step.id}:a${input.attempt}`,
           serverIds: step.config.serverIds,
         });
         commandRequestId = request.id;
@@ -110,7 +146,7 @@ async function dispatchStep(input: {
           status: "running",
           startedAt: input.existing?.startedAt ?? nowIso(),
           completedAt: "",
-          summary: `command request ${commandRequestId} dispatched`,
+          summary: `command request ${commandRequestId} dispatched (attempt ${input.attempt + 1})`,
           commandRequestId,
         };
         const index = input.results.findIndex((result) => result.stepId === step.id);
@@ -201,19 +237,28 @@ export async function executePlaybookChain(input: {
       };
     } else {
       try {
-        const summary = await executeWithRetries(Math.max(1, step.retry + 1), () =>
-          dispatchStep({
-            step,
-            playbookId: input.playbook.id,
-            runId: input.runId,
-            requesterId: input.requesterId ?? "system",
-            teamId: input.teamId ?? null,
-            results,
-            existing,
-          }),
+        let attemptIndex = 0;
+        const summary = await executeWithRetries(
+          Math.max(1, step.retry + 1),
+          () => {
+            const attempt = attemptIndex;
+            attemptIndex += 1;
+            return dispatchStep({
+              step,
+              playbookId: input.playbook.id,
+              runId: input.runId,
+              requesterId: input.requesterId ?? "system",
+              teamId: input.teamId ?? null,
+              results,
+              existing,
+              attempt,
+            });
+          },
           async () => {
+            // Drop the failed attempt's running row so the next attempt can
+            // create a fresh commandRequestId (not resume the FAILED one).
             const liveIndex = results.findIndex((item) => item.stepId === step.id);
-            if (liveIndex >= 0 && results[liveIndex]?.status === "running") {
+            if (liveIndex >= 0) {
               results.splice(liveIndex, 1);
               await persistProgress(input.runId, results);
             }

@@ -109,7 +109,7 @@ describe("executePlaybookChain", () => {
 				command: "ls -la",
 				serverIds: ["srv1", "srv2"],
 				teamId: "team1",
-				idempotencyKey: "playbook:run-1:step:s1",
+				idempotencyKey: "playbook:run-1:step:s1:a0",
 			}),
 		);
 		expect(mocks.commandRequestFindUnique).toHaveBeenCalledWith(
@@ -225,5 +225,89 @@ describe("executePlaybookChain", () => {
 		expect(results).toHaveLength(1);
 		expect(results[0]?.status).toBe("failed");
 		expect(mocks.notificationCreate).not.toHaveBeenCalled();
+	});
+
+	it("retries run_command with a fresh idempotency key after a terminal FAILED request", async () => {
+		// First attempt: create request-1 which later ends FAILED.
+		// Second attempt must NOT resume request-1 / key :a0 — must create request-2 with :a1.
+		mocks.createCommandRequest
+			.mockResolvedValueOnce({ id: "request-1" })
+			.mockResolvedValueOnce({ id: "request-2" });
+		mocks.commandRequestFindUnique
+			// waitForCommand poll for request-1 → FAILED
+			.mockResolvedValueOnce({ status: "FAILED" })
+			// resolveResumableCommandRequestId on attempt 1 should not see live running id
+			// (cleared by onRetry); create request-2 then wait COMPLETED
+			.mockResolvedValueOnce({ status: "COMPLETED" });
+
+		const playbook = buildPlaybook([
+			{
+				id: "s1",
+				name: "run",
+				type: "run_command",
+				config: { command: "echo retry-me", serverIds: ["srv1"] },
+				retry: 1,
+				timeoutSec: 60,
+			},
+		]);
+		const { results } = await executePlaybookChain({
+			playbook,
+			runId: "run-1",
+			dryRun: false,
+			teamId: "team1",
+		});
+		expect(results[0]?.status).toBe("ok");
+		expect(mocks.createCommandRequest).toHaveBeenCalledTimes(2);
+		expect(mocks.createCommandRequest).toHaveBeenNthCalledWith(
+			1,
+			expect.objectContaining({ idempotencyKey: "playbook:run-1:step:s1:a0" }),
+		);
+		expect(mocks.createCommandRequest).toHaveBeenNthCalledWith(
+			2,
+			expect.objectContaining({ idempotencyKey: "playbook:run-1:step:s1:a1" }),
+		);
+		expect(results[0]?.commandRequestId).toBe("request-2");
+	});
+
+	it("does not resume a FAILED commandRequestId from resumeResults (reclaim after fail)", async () => {
+		mocks.createCommandRequest.mockResolvedValueOnce({ id: "request-fresh" });
+		// resolveResumableCommandRequestId sees FAILED on old id → discard
+		mocks.commandRequestFindUnique
+			.mockResolvedValueOnce({ status: "FAILED" })
+			// waitForCommand for fresh request
+			.mockResolvedValueOnce({ status: "COMPLETED" });
+
+		const playbook = buildPlaybook([
+			{
+				id: "s1",
+				name: "run",
+				type: "run_command",
+				config: { command: "echo reclaim", serverIds: ["srv1"] },
+				retry: 0,
+				timeoutSec: 60,
+			},
+		]);
+		const { results } = await executePlaybookChain({
+			playbook,
+			runId: "run-1",
+			dryRun: false,
+			resumeResults: [
+				{
+					stepId: "s1",
+					status: "running",
+					startedAt: new Date().toISOString(),
+					completedAt: "",
+					summary: "command request request-old dispatched",
+					commandRequestId: "request-old",
+				},
+			],
+		});
+		expect(results[0]?.status).toBe("ok");
+		expect(mocks.createCommandRequest).toHaveBeenCalledWith(
+			expect.objectContaining({
+				idempotencyKey: "playbook:run-1:step:s1:a0",
+			}),
+		);
+		expect(results[0]?.commandRequestId).toBe("request-fresh");
 	});
 });

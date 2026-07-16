@@ -54,13 +54,14 @@ describe("/api/playbooks/[id]/run POST", () => {
 		expect(res.status).toBe(404);
 	});
 
-	it("returns 400 when the playbook is disabled", async () => {
-		mocks.runPlaybook.mockRejectedValueOnce(new Error("该 playbook 已禁用"));
+	it("returns 422 when the playbook is disabled", async () => {
+		const { BusinessError } = await import("@/lib/errors");
+		mocks.runPlaybook.mockRejectedValueOnce(new BusinessError("playbook is disabled: pb1"));
 		const res = await route.POST(
 			new Request("http://local/api/playbooks/pb1/run", { method: "POST" }),
 			ctx("pb1"),
 		);
-		expect(res.status).toBe(400);
+		expect(res.status).toBe(422);
 	});
 
 	it("returns 400 when path id is missing", async () => {

@@ -13,7 +13,7 @@ import type { SessionPayload } from "@/lib/auth/session";
 
 import { prisma } from "@/lib/db";
 import { auditUserAction } from "@/lib/audit/service";
-import { NotFoundError, ValidationError } from "@/lib/errors";
+import { NotFoundError, ValidationError, BusinessError } from "@/lib/errors";
 
 import type {
   CreatePlaybookInput,
@@ -253,7 +253,9 @@ export async function runPlaybook(input: {
   });
   if (!playbook) throw new NotFoundError(`playbook not found: ${input.playbookId}`);
   const narrowedPlaybook = narrowPlaybook(playbook);
-  if (!narrowedPlaybook.enabled) throw new Error(`playbook is disabled: ${input.playbookId}`);
+  if (!narrowedPlaybook.enabled) {
+    throw new BusinessError(`playbook is disabled: ${input.playbookId}`);
+  }
 
   const teamData = input.session ? teamCreateData(input.session) : { teamId: playbook.teamId ?? null };
   const executionState = {

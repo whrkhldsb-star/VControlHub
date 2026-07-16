@@ -36,7 +36,8 @@ export type StepType = (typeof STEP_TYPES)[number];
 
 export type RunCommandStepConfig = {
   command: string;
-  serverIds: string[]; // empty = no-op
+  // Validated min(1) at the API boundary; empty is rejected at write-time.
+  serverIds: string[];
   // Variables are interpolated as {{var}} into the command.
   variables?: Record<string, string>;
 };
