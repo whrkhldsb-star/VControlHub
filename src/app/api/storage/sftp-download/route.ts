@@ -75,7 +75,7 @@ export async function GET(request: Request) {
         throw new ValidationError("Missing path parameter");
       }
 
-      const { node, credentials: connectionCredentials } = await getSftpNodeConnection(nodeId);
+      const { node, credentials: connectionCredentials } = await getSftpNodeConnection(nodeId, session);
 
       let normalizedRemotePath: string;
       let normalizedRelativePath: string;

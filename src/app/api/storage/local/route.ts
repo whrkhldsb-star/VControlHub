@@ -7,6 +7,7 @@ import { NextResponse } from "next/server";
 
 import type { SessionPayload } from "@/lib/auth/session";
 
+import { teamWhere } from "@/lib/auth/team-scope";
 import { prisma } from "@/lib/db";
 import { assertStorageAccess } from "@/lib/storage/access-control";
 import { logError } from "@/lib/logging";
@@ -224,8 +225,8 @@ async function handlePost(request: Request, session: SessionPayload) {
     );
   }
 
-  const storageNode = await prisma.storageNode.findUnique({
-    where: { id: storageNodeId },
+  const storageNode = await prisma.storageNode.findFirst({
+    where: { id: storageNodeId, ...teamWhere(session) },
     select: {
       id: true,
       name: true,

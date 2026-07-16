@@ -31,7 +31,7 @@ async function handleGet(request: Request, session: SessionPayload) {
     throw new ValidationError("Missing nodeId parameter");
   }
 
-  const { node, credentials: connectionCredentials } = await getSftpNodeConnection(nodeId);
+  const { node, credentials: connectionCredentials } = await getSftpNodeConnection(nodeId, session);
 
   let normalizedRemotePath: string;
   let normalizedRelativePath: string;

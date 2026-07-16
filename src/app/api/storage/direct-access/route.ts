@@ -4,6 +4,7 @@ import posixPath from "node:path/posix";
 import { NextResponse } from "next/server";
 
 import type { SessionPayload } from "@/lib/auth/session";
+import { teamWhere } from "@/lib/auth/team-scope";
 import { config } from "@/lib/config/env";
 import { prisma } from "@/lib/db";
 import { withApiRoute } from "@/lib/http/api-guard";
@@ -145,8 +146,8 @@ async function resolveDirectAccessPayload(input: {
   session: SessionPayload;
 }): Promise<DirectAccessPayload | NextResponse> {
   const { nodeId, relativePath, session } = input;
-  const node = await prisma.storageNode.findUnique({
-    where: { id: nodeId },
+  const node = await prisma.storageNode.findFirst({
+    where: { id: nodeId, ...teamWhere(session) },
     select: {
       basePath: true,
       driver: true,

@@ -19,6 +19,7 @@ const {
   prismaMock: {
     storageNode: {
       findUnique: vi.fn(),
+      findFirst: vi.fn(),
     },
     fileEntry: {
       upsert: vi.fn(),
@@ -74,7 +75,7 @@ function request(body: unknown) {
 }
 
 function mockSftpNode() {
-  prismaMock.storageNode.findUnique.mockResolvedValueOnce({
+  const node = {
     id: "node_1",
     name: "remote",
     driver: "SFTP",
@@ -92,7 +93,9 @@ function mockSftpNode() {
       password: null,
       sshKey: { privateKey: "PRIVATE KEY" },
     },
-  });
+  };
+  prismaMock.storageNode.findFirst.mockResolvedValueOnce(node);
+  prismaMock.storageNode.findUnique.mockResolvedValueOnce(node);
 }
 
 describe("/api/storage/sftp-ops", () => {
@@ -101,6 +104,8 @@ describe("/api/storage/sftp-ops", () => {
     requireApiSessionMock.mockResolvedValueOnce({
       userId: "u_1",
       username: "alice",
+      roles: ["admin"],
+      currentTeamId: null,
     });
     mockSftpNode();
 
@@ -162,6 +167,8 @@ describe("/api/storage/sftp-ops", () => {
     requireApiSessionMock.mockResolvedValueOnce({
       userId: "u_1",
       username: "alice",
+      roles: ["admin"],
+      currentTeamId: null,
     });
     mockSftpNode();
     prismaMock.fileEntry.upsert.mockRejectedValueOnce(new Error("db unavailable"));
@@ -192,6 +199,8 @@ describe("/api/storage/sftp-ops", () => {
     requireApiSessionMock.mockResolvedValueOnce({
       userId: "u_1",
       username: "alice",
+      roles: ["admin"],
+      currentTeamId: null,
     });
     mockSftpNode();
 
@@ -237,6 +246,8 @@ describe("/api/storage/sftp-ops", () => {
     requireApiSessionMock.mockResolvedValueOnce({
       userId: "u_1",
       username: "alice",
+      roles: ["admin"],
+      currentTeamId: null,
     });
     mockSftpNode();
 
@@ -273,6 +284,8 @@ describe("/api/storage/sftp-ops", () => {
     requireApiSessionMock.mockResolvedValueOnce({
       userId: "u_1",
       username: "alice",
+      roles: ["admin"],
+      currentTeamId: null,
     });
     mockSftpNode();
     prismaMock.fileEntry.findFirst.mockResolvedValueOnce({
@@ -300,6 +313,8 @@ describe("/api/storage/sftp-ops", () => {
     requireApiSessionMock.mockResolvedValueOnce({
       userId: "u_1",
       username: "alice",
+      roles: ["admin"],
+      currentTeamId: null,
     });
     mockSftpNode();
     prismaMock.fileEntry.findFirst.mockResolvedValueOnce({
@@ -333,6 +348,8 @@ describe("/api/storage/sftp-ops", () => {
     requireApiSessionMock.mockResolvedValueOnce({
       userId: "u_1",
       username: "alice",
+      roles: ["admin"],
+      currentTeamId: null,
     });
     mockSftpNode();
     prismaMock.fileEntry.findFirst.mockResolvedValueOnce(null);
@@ -358,6 +375,8 @@ describe("/api/storage/sftp-ops", () => {
     requireApiSessionMock.mockResolvedValueOnce({
       userId: "u_1",
       username: "alice",
+      roles: ["admin"],
+      currentTeamId: null,
     });
     mockSftpNode();
 
@@ -384,6 +403,8 @@ describe("/api/storage/sftp-ops", () => {
     requireApiSessionMock.mockResolvedValueOnce({
       userId: "u_1",
       username: "alice",
+      roles: ["admin"],
+      currentTeamId: null,
     });
     mockSftpNode();
 
@@ -420,6 +441,8 @@ describe("/api/storage/sftp-ops", () => {
     requireApiSessionMock.mockResolvedValueOnce({
       userId: "u_1",
       username: "alice",
+      roles: ["admin"],
+      currentTeamId: null,
     });
     mockSftpNode();
     prismaMock.fileEntry.findMany.mockResolvedValueOnce([
@@ -471,6 +494,8 @@ describe("/api/storage/sftp-ops", () => {
     requireApiSessionMock.mockResolvedValueOnce({
       userId: "u_1",
       username: "alice",
+      roles: ["admin"],
+      currentTeamId: null,
     });
     mockSftpNode();
     assertStorageAccessMock

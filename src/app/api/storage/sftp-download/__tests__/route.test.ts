@@ -17,6 +17,7 @@ const {
 	prismaMock: {
 		storageNode: {
 			findUnique: vi.fn(),
+			findFirst: vi.fn(),
 		},
 	},
 	requireHandlerMock: vi.fn(),
@@ -115,6 +116,7 @@ describe("/api/storage/sftp-download", () => {
 		vi.clearAllMocks();
 		requireHandlerMock.mockImplementation(async (request, _options, handler) => handler({ session }));
 		prismaMock.storageNode.findUnique.mockResolvedValue(sftpNode);
+		prismaMock.storageNode.findFirst.mockResolvedValue(sftpNode);
 		assertStorageAccessMock.mockResolvedValue({ allowed: true });
 		sftpStatMock.mockImplementation((_path: string, callback: (err: Error | undefined, stats: unknown) => void) => {
 			callback(undefined, { isFile: () => true, size: 12 });

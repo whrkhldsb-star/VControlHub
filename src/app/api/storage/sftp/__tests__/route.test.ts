@@ -13,6 +13,7 @@ const {
   prismaMock: {
     storageNode: {
       findUnique: vi.fn(),
+      findFirst: vi.fn(),
     },
   },
   listRemoteDirectoryMock: vi.fn(),
@@ -49,7 +50,7 @@ function request(path = "/") {
 }
 
 function mockSftpNode(overrides: Record<string, unknown> = {}) {
-  prismaMock.storageNode.findUnique.mockResolvedValueOnce({
+  const node = {
     id: "node_1",
     name: "remote",
     driver: "SFTP",
@@ -68,14 +69,16 @@ function mockSftpNode(overrides: Record<string, unknown> = {}) {
       sshKey: { privateKey: "PRIVATE KEY" },
     },
     ...overrides,
-  });
+  };
+  prismaMock.storageNode.findFirst.mockResolvedValueOnce(node);
+  prismaMock.storageNode.findUnique.mockResolvedValueOnce(node);
 }
 
 describe("/api/storage/sftp", () => {
   it("lists a remote directory through the canonical storage API", async () => {
     vi.clearAllMocks();
     requireApiPermissionMock.mockResolvedValueOnce({
-      session: { userId: "u_1", username: "alice" },
+      session: { userId: "u_1", username: "alice", roles: ["admin"], currentTeamId: null },
     });
     mockSftpNode();
     listRemoteDirectoryMock.mockResolvedValueOnce([
@@ -112,7 +115,7 @@ describe("/api/storage/sftp", () => {
   it("returns the browser-facing relative path while using the normalized absolute path for SSH", async () => {
     vi.clearAllMocks();
     requireApiPermissionMock.mockResolvedValueOnce({
-      session: { userId: "u_1", username: "alice" },
+      session: { userId: "u_1", username: "alice", roles: ["admin"], currentTeamId: null },
     });
     mockSftpNode();
     listRemoteDirectoryMock.mockResolvedValueOnce([]);
@@ -138,7 +141,7 @@ describe("/api/storage/sftp", () => {
   it("decrypts password-based VPS credentials before listing a remote directory", async () => {
     vi.clearAllMocks();
     requireApiPermissionMock.mockResolvedValueOnce({
-      session: { userId: "u_1", username: "alice" },
+      session: { userId: "u_1", username: "alice", roles: ["admin"], currentTeamId: null },
     });
     mockSftpNode({
       server: {

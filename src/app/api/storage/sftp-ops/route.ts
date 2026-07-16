@@ -156,7 +156,7 @@ async function handlePost(body: SftpOpsBody, session: SessionPayload) {
   }
 
   // Resolve storage node (credentials resolved inside fs-backend for SFTP).
-  const { node } = await getSftpNodeConnection(nodeId);
+  const { node } = await getSftpNodeConnection(nodeId, session);
 
   // Path containment only — physical ops go through fs-backend which
   // re-derives absolute/remote paths from the storage node.

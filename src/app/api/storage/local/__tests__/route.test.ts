@@ -18,6 +18,7 @@ const {
   prismaMock: {
     storageNode: {
       findUnique: vi.fn(),
+      findFirst: vi.fn(),
     },
     fileEntry: {
       create: vi.fn(),
@@ -154,6 +155,12 @@ describe("/api/storage/local", () => {
       driver: "LOCAL",
       basePath: "/tmp/storage",
     });
+    prismaMock.storageNode.findFirst.mockResolvedValueOnce({
+      id: "node_1",
+      name: "主控本机",
+      driver: "LOCAL",
+      basePath: "/tmp/storage",
+    });
     prismaMock.fileEntry.findFirst.mockResolvedValueOnce(null);
     prismaMock.fileEntry.create.mockResolvedValueOnce({ id: "file_1" });
 
@@ -191,6 +198,23 @@ describe("/api/storage/local", () => {
 
   it("uploads files to SFTP nodes through the same endpoint", async () => {
     prismaMock.storageNode.findUnique.mockResolvedValueOnce({
+      id: "node_1",
+      name: "远端媒体库",
+      driver: "SFTP",
+      basePath: "/data/storage",
+      host: null,
+      port: null,
+      username: null,
+      server: {
+        host: "203.0.113.20",
+        port: 2222,
+        username: "deploy",
+        connectionType: "PASSWORD",
+        password: "secret",
+        sshKey: null,
+      },
+    });
+    prismaMock.storageNode.findFirst.mockResolvedValueOnce({
       id: "node_1",
       name: "远端媒体库",
       driver: "SFTP",
@@ -283,6 +307,7 @@ describe("/api/storage/local", () => {
     });
     expect(file.arrayBuffer).not.toHaveBeenCalled();
     expect(prismaMock.storageNode.findUnique).not.toHaveBeenCalled();
+    expect(prismaMock.storageNode.findFirst).not.toHaveBeenCalled();
     expect(assertStorageAccessMock).not.toHaveBeenCalled();
     expect(writeFileMock).not.toHaveBeenCalled();
     expect(writeRemoteFileMock).not.toHaveBeenCalled();
@@ -291,6 +316,23 @@ describe("/api/storage/local", () => {
   it("cleans up SFTP uploads when DB indexing fails after the remote write", async () => {
     // i18n: error message now in English ("Failed to write upload index: ...")
     prismaMock.storageNode.findUnique.mockResolvedValueOnce({
+      id: "node_1",
+      name: "远端媒体库",
+      driver: "SFTP",
+      basePath: "/data/storage",
+      host: null,
+      port: null,
+      username: null,
+      server: {
+        host: "203.0.113.20",
+        port: 2222,
+        username: "deploy",
+        connectionType: "PASSWORD",
+        password: "secret",
+        sshKey: null,
+      },
+    });
+    prismaMock.storageNode.findFirst.mockResolvedValueOnce({
       id: "node_1",
       name: "远端媒体库",
       driver: "SFTP",
@@ -336,6 +378,12 @@ describe("/api/storage/local", () => {
       driver: "LOCAL",
       basePath: "/tmp/storage",
     });
+    prismaMock.storageNode.findFirst.mockResolvedValueOnce({
+      id: "node_1",
+      name: "主控本机",
+      driver: "LOCAL",
+      basePath: "/tmp/storage",
+    });
     prismaMock.fileEntry.findFirst.mockResolvedValueOnce(null);
     prismaMock.fileEntry.create.mockRejectedValueOnce(new Error("db down"));
 
@@ -366,6 +414,7 @@ describe("/api/storage/local", () => {
       error: "Path must be a relative path",
     });
     expect(prismaMock.storageNode.findUnique).not.toHaveBeenCalled();
+    expect(prismaMock.storageNode.findFirst).not.toHaveBeenCalled();
     expect(assertStorageAccessMock).not.toHaveBeenCalled();
     expect(mkdirMock).not.toHaveBeenCalled();
     expect(writeFileMock).not.toHaveBeenCalled();
