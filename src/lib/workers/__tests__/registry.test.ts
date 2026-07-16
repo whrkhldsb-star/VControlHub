@@ -119,6 +119,10 @@ vi.mock("@/lib/playbook/worker", () => ({
   startPlaybookRunWorker: startPlaybookRunWorkerMock,
   stopPlaybookRunWorkerForTests: stopPlaybookRunWorkerForTestsMock,
 }));
+vi.mock("@/lib/sync/sync-schedule-worker", () => ({
+  startSyncScheduleWorker: vi.fn(async () => undefined),
+  stopSyncScheduleWorkerForTests: vi.fn(),
+}));
 vi.mock("@/lib/storage/sftp-sync-job", () => ({
   startSftpSyncJobWorker: startSftpSyncJobWorkerMock,
   stopSftpSyncJobWorkerForTests: stopSftpSyncJobWorkerForTestsMock,
@@ -208,6 +212,7 @@ const EXPECTED_WORKER_IDS: WorkerId[] = [
   "scheduled-task",
   "sftp-sync",
   "sftp-stale-inventory",
+  "sync-schedule",
   "operation-task-retention",
   "playbook-run",
   "ticket-sla",
@@ -225,7 +230,7 @@ describe("worker registry", () => {
     _resetWorkerRegistryForTests();
   });
 
-  it("describes all 18 workers in the canonical order", () => {
+  it("describes all 19 workers in the canonical order", () => {
     expect(WORKER_REGISTRY.map((w) => w.id)).toEqual(EXPECTED_WORKER_IDS);
     for (const w of WORKER_REGISTRY) {
       expect(w.label).toBeTruthy();
@@ -237,7 +242,7 @@ describe("worker registry", () => {
 
   it("getWorkerStatuses reports every worker as not started initially", () => {
     const statuses = getWorkerStatuses();
-    expect(statuses).toHaveLength(18);
+    expect(statuses).toHaveLength(19);
     expect(statuses.every((s) => s.started === false)).toBe(true);
   });
 
@@ -269,15 +274,16 @@ describe("worker registry", () => {
         "scheduled-task",
         "sftp-sync",
         "sftp-stale-inventory",
+  "sync-schedule",
         "operation-task-retention",
         "vps-backup",
         "vps-backup-schedule",
       ]),
     );
     expect(result.started).not.toContain("backup");
-    // 17/18 should be reported started.
+    // 18 workers should be reported started.
     const startedCount = getWorkerStatuses().filter((s) => s.started).length;
-    expect(startedCount).toBe(17);
+    expect(startedCount).toBe(18);
   });
 
   it("startAllWorkers starts every worker once", async () => {

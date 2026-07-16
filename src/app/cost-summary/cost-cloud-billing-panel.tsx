@@ -49,6 +49,7 @@ export function CostCloudBillingPanel({
 		secretAccessKey: "",
 		region: "",
 		sampleCsv: EMPTY_CSV_SAMPLE,
+		billingCsvUrl: "",
 	});
 
 	const reload = useCallback(async () => {
@@ -77,6 +78,9 @@ export function CostCloudBillingPanel({
 					...(form.region.trim() ? { region: form.region.trim() } : {}),
 					...(form.provider === "generic_csv" || form.sampleCsv.trim()
 						? { sampleCsv: form.sampleCsv }
+						: {}),
+					...(form.billingCsvUrl.trim()
+						? { billingCsvUrl: form.billingCsvUrl.trim() }
 						: {}),
 				},
 			};
@@ -213,6 +217,13 @@ export function CostCloudBillingPanel({
 							/>
 						</>
 					) : null}
+					<input
+						className="w-full rounded-md border border-[var(--border)] bg-[var(--surface)] px-3 py-2 text-sm"
+						value={form.billingCsvUrl}
+						onChange={(e) => setForm({ ...form, billingCsvUrl: e.target.value })}
+						placeholder={t("costPage.billing.billingCsvUrl")}
+						aria-label={t("costPage.billing.billingCsvUrl")}
+					/>
 					{form.provider === "generic_csv" || form.sampleCsv ? (
 						<textarea
 							className={`${inputClass} md:col-span-2 lg:col-span-3 min-h-[88px] font-mono text-xs`}

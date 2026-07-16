@@ -30,6 +30,7 @@ const NAMESPACE_KEYS: Record<string, number> = {
 	"docker-compose": 45062,
 	/** Serialize destructive server profile deletion (gateway cleanup + cascades). */
 	"server-delete": 45063,
+	"sync-schedule": 45064,
 };
 
 function connectionStringForPg() {

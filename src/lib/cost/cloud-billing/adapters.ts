@@ -171,21 +171,84 @@ function mockItemsForProvider(
 	};
 }
 
+async function fetchBillingCsvFromUrl(
+	url: string,
+	provider: CloudBillingProvider,
+	month: string,
+	currency: CostCurrency,
+): Promise<CloudBillingFetchResult> {
+	let parsed: URL;
+	try {
+		parsed = new URL(url);
+	} catch {
+		throw new ValidationError("billingCsvUrl is not a valid URL");
+	}
+	if (parsed.protocol !== "https:" && parsed.protocol !== "http:") {
+		throw new ValidationError("billingCsvUrl must be http(s)");
+	}
+	// Block obvious SSRF targets (loopback / link-local / metadata).
+	const host = parsed.hostname.toLowerCase();
+	if (
+		host === "localhost" ||
+		host === "127.0.0.1" ||
+		host === "0.0.0.0" ||
+		host === "::1" ||
+		host.endsWith(".local") ||
+		host.startsWith("169.254.") ||
+		host.startsWith("10.") ||
+		host.startsWith("192.168.") ||
+		/^172\.(1[6-9]|2\d|3[0-1])\./.test(host) ||
+		host === "metadata.google.internal"
+	) {
+		throw new ValidationError("billingCsvUrl host is not allowed (SSRF protection)");
+	}
+	const controller = new AbortController();
+	const timer = setTimeout(() => controller.abort(), 20_000);
+	try {
+		const res = await fetch(parsed.toString(), {
+			method: "GET",
+			redirect: "error",
+			signal: controller.signal,
+			headers: { Accept: "text/csv,text/plain,*/*" },
+		});
+		if (!res.ok) {
+			throw new ValidationError(`billingCsvUrl HTTP ${res.status}`);
+		}
+		const text = await res.text();
+		if (text.length > 2_000_000) {
+			throw new ValidationError("billingCsvUrl response too large");
+		}
+		return {
+			items: parseBillingCsv(text, {
+				currency,
+				providerLabel: provider.toUpperCase(),
+			}).filter((i) => i.effectiveDate.startsWith(month)),
+			warnings: [`Imported from billingCsvUrl (${provider})`],
+		};
+	} catch (error) {
+		if (error instanceof ValidationError) throw error;
+		const msg = error instanceof Error ? error.message : String(error);
+		throw new ValidationError(`Failed to fetch billingCsvUrl: ${msg}`);
+	} finally {
+		clearTimeout(timer);
+	}
+}
+
 async function fetchLiveItems(
 	provider: CloudBillingProvider,
 	_creds: CloudBillingCredentials,
-	_config: CloudBillingAccountConfig,
-	_month: string,
-	_currency: CostCurrency,
+	config: CloudBillingAccountConfig,
+	month: string,
+	currency: CostCurrency,
 ): Promise<CloudBillingFetchResult> {
-	// Real SDK integration points (not implemented in this environment):
-	// - aws: Cost Explorer GetCostAndUsage / CUR Athena
-	// - aliyun: BSS OpenAPI QueryBillOverview
-	// - tencent: Billing DescribeBillSummaryByProduct
-	// Until SDKs are wired, surface a clear error so operators never see
-	// a silent "ok" with zero data when they expected live pulls.
+	// Pragmatic live path without heavy vendor SDKs: HTTPS CSV export URL
+	// (CUR export, custom bill dump, etc.). Native Cost Explorer / BSS SDKs
+	// remain out of scope until credentials + compliance require them.
+	if (config.billingCsvUrl?.trim()) {
+		return fetchBillingCsvFromUrl(config.billingCsvUrl.trim(), provider, month, currency);
+	}
 	throw new ValidationError(
-		`Live billing API for ${provider} is not enabled in this build. Provide config.sampleCsv for CSV import, or set VCONTROLHUB_CLOUD_BILLING_MOCK=1 for probe data.`,
+		`Live billing API for ${provider} is not enabled without config.billingCsvUrl. Provide an HTTPS CSV export URL, config.sampleCsv, or set VCONTROLHUB_CLOUD_BILLING_MOCK=1 for probe data.`,
 	);
 }
 

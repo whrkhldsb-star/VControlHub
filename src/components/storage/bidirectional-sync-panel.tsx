@@ -15,12 +15,42 @@ type SyncJobRow = {
   status: string;
   sourcePath: string;
   targetPath: string;
+  schedule: string | null;
   deleteOrphans: boolean;
   lastSyncAt: string | null;
   lastSyncResult: string | null;
   sourceServer: { id: string; name: string; host: string | null };
   targetServer: { id: string; name: string; host: string | null };
 };
+
+type ReportPayload = {
+  report: {
+    summary: {
+      mode: string;
+      transferredFiles: number;
+      durationSec: number;
+      notes: string[];
+      legs: { direction: string; transferredFiles: number }[];
+    } | null;
+    conflictHints: string[];
+    history: {
+      id: string;
+      status: string;
+      filesTransferred: number;
+      durationMs: number;
+      startedAt: string;
+      errorMessage: string | null;
+    }[];
+  };
+};
+
+const SCHEDULES = [
+  { value: "manual", key: "filesPage.syncJobs.schedule.manual" },
+  { value: "every:15m", key: "filesPage.syncJobs.schedule.every15m" },
+  { value: "every:1h", key: "filesPage.syncJobs.schedule.every1h" },
+  { value: "every:6h", key: "filesPage.syncJobs.schedule.every6h" },
+  { value: "every:24h", key: "filesPage.syncJobs.schedule.every24h" },
+] as const;
 
 export function BidirectionalSyncPanel({ servers }: { servers: ServerOption[] }) {
   const { t } = useI18n();
@@ -34,6 +64,9 @@ export function BidirectionalSyncPanel({ servers }: { servers: ServerOption[] })
   const [sourcePath, setSourcePath] = useState("/data/share");
   const [targetPath, setTargetPath] = useState("/data/share");
   const [syncType, setSyncType] = useState<"MIRROR" | "BIDIRECTIONAL">("BIDIRECTIONAL");
+  const [schedule, setSchedule] = useState("manual");
+  const [reportJobId, setReportJobId] = useState<string | null>(null);
+  const [report, setReport] = useState<ReportPayload["report"] | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -50,7 +83,6 @@ export function BidirectionalSyncPanel({ servers }: { servers: ServerOption[] })
     }
   }, [t]);
 
-  // Initial fetch without setState-in-effect lint: fire-and-forget from event-like bootstrap.
   useEffect(() => {
     let cancelled = false;
     (async () => {
@@ -58,15 +90,10 @@ export function BidirectionalSyncPanel({ servers }: { servers: ServerOption[] })
         const res = await fetch("/api/sync-jobs", { credentials: "include" });
         const data = (await res.json().catch(() => ({}))) as { jobs?: SyncJobRow[]; error?: string };
         if (cancelled) return;
-        if (!res.ok) {
-          setError(data.error || t("filesPage.syncJobs.loadFailed"));
-        } else {
-          setJobs(data.jobs ?? []);
-        }
+        if (!res.ok) setError(data.error || t("filesPage.syncJobs.loadFailed"));
+        else setJobs(data.jobs ?? []);
       } catch (e) {
-        if (!cancelled) {
-          setError(e instanceof Error ? e.message : t("filesPage.syncJobs.loadFailed"));
-        }
+        if (!cancelled) setError(e instanceof Error ? e.message : t("filesPage.syncJobs.loadFailed"));
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -91,6 +118,7 @@ export function BidirectionalSyncPanel({ servers }: { servers: ServerOption[] })
           sourcePath,
           targetPath,
           syncType,
+          schedule: schedule === "manual" ? null : schedule,
           deleteOrphans: false,
           compress: false,
         }),
@@ -121,6 +149,41 @@ export function BidirectionalSyncPanel({ servers }: { servers: ServerOption[] })
     }
   };
 
+  const patchSchedule = async (id: string, next: string) => {
+    setBusyId(`sch-${id}`);
+    setError(null);
+    try {
+      const res = await csrfFetch(`/api/sync-jobs/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ schedule: next === "manual" ? null : next }),
+      });
+      const data = (await res.json().catch(() => ({}))) as { error?: string };
+      if (!res.ok) throw new Error(data.error || t("filesPage.syncJobs.scheduleFailed"));
+      await load();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : t("filesPage.syncJobs.scheduleFailed"));
+    } finally {
+      setBusyId(null);
+    }
+  };
+
+  const openReport = async (id: string) => {
+    setBusyId(`rep-${id}`);
+    setError(null);
+    try {
+      const res = await fetch(`/api/sync-jobs/${id}/report`, { credentials: "include" });
+      const data = (await res.json().catch(() => ({}))) as ReportPayload & { error?: string };
+      if (!res.ok) throw new Error(data.error || t("filesPage.syncJobs.reportFailed"));
+      setReportJobId(id);
+      setReport(data.report);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : t("filesPage.syncJobs.reportFailed"));
+    } finally {
+      setBusyId(null);
+    }
+  };
+
   const removeJob = async (id: string) => {
     setBusyId(id);
     setError(null);
@@ -128,6 +191,10 @@ export function BidirectionalSyncPanel({ servers }: { servers: ServerOption[] })
       const res = await csrfFetch(`/api/sync-jobs/${id}`, { method: "DELETE" });
       const data = (await res.json().catch(() => ({}))) as { error?: string };
       if (!res.ok) throw new Error(data.error || t("filesPage.syncJobs.deleteFailed"));
+      if (reportJobId === id) {
+        setReportJobId(null);
+        setReport(null);
+      }
       await load();
     } catch (e) {
       setError(e instanceof Error ? e.message : t("filesPage.syncJobs.deleteFailed"));
@@ -165,6 +232,13 @@ export function BidirectionalSyncPanel({ servers }: { servers: ServerOption[] })
         >
           <option value="BIDIRECTIONAL">{t("filesPage.syncJobs.type.bidirectional")}</option>
           <option value="MIRROR">{t("filesPage.syncJobs.type.mirror")}</option>
+        </select>
+        <select className={UI_INPUT} value={schedule} onChange={(e) => setSchedule(e.target.value)}>
+          {SCHEDULES.map((s) => (
+            <option key={s.value} value={s.value}>
+              {t(s.key)}
+            </option>
+          ))}
         </select>
         <select
           className={UI_INPUT}
@@ -228,10 +302,30 @@ export function BidirectionalSyncPanel({ servers }: { servers: ServerOption[] })
                 <div>
                   <span className="font-medium text-[var(--text-primary)]">{job.name}</span>
                   <span className="ml-2 text-[var(--text-muted)]">
-                    {job.syncType} · {job.status}
+                    {job.syncType} · {job.status} · {job.schedule || "manual"}
                   </span>
                 </div>
-                <div className="flex gap-2">
+                <div className="flex flex-wrap gap-2">
+                  <select
+                    className={`${UI_INPUT} !py-1 !text-xs`}
+                    value={job.schedule || "manual"}
+                    disabled={busyId === `sch-${job.id}`}
+                    onChange={(e) => void patchSchedule(job.id, e.target.value)}
+                  >
+                    {SCHEDULES.map((s) => (
+                      <option key={s.value} value={s.value}>
+                        {t(s.key)}
+                      </option>
+                    ))}
+                  </select>
+                  <button
+                    type="button"
+                    className="rounded border border-[var(--border)] px-2 py-1 hover:bg-[var(--surface-hover)] disabled:opacity-50"
+                    disabled={busyId === `rep-${job.id}`}
+                    onClick={() => void openReport(job.id)}
+                  >
+                    {t("filesPage.syncJobs.report")}
+                  </button>
                   <button
                     type="button"
                     className="rounded border border-[var(--border)] px-2 py-1 hover:bg-[var(--surface-hover)] disabled:opacity-50"
@@ -255,6 +349,38 @@ export function BidirectionalSyncPanel({ servers }: { servers: ServerOption[] })
               </p>
               {job.lastSyncResult ? (
                 <p className="mt-1 text-[var(--text-secondary)]">{job.lastSyncResult}</p>
+              ) : null}
+              {reportJobId === job.id && report ? (
+                <div className="mt-2 rounded border border-[var(--border)] bg-[var(--surface-elevated)] p-2">
+                  <p className="font-medium text-[var(--text-primary)]">
+                    {t("filesPage.syncJobs.reportTitle")}
+                  </p>
+                  {report.summary ? (
+                    <p className="mt-1 text-[var(--text-secondary)]">
+                      {report.summary.mode}: {report.summary.transferredFiles} files /{" "}
+                      {report.summary.durationSec}s
+                    </p>
+                  ) : null}
+                  {report.conflictHints.length > 0 ? (
+                    <ul className="mt-1 list-disc pl-4 text-[var(--text-muted)]">
+                      {report.conflictHints.map((h) => (
+                        <li key={h}>{h}</li>
+                      ))}
+                    </ul>
+                  ) : null}
+                  {report.history.length > 0 ? (
+                    <div className="mt-2 space-y-1">
+                      <p className="text-[var(--text-muted)]">{t("filesPage.syncJobs.history")}</p>
+                      {report.history.slice(0, 5).map((h) => (
+                        <p key={h.id} className="text-[var(--text-secondary)]">
+                          {h.startedAt.slice(0, 19)} · {h.status} · xfer {h.filesTransferred} ·{" "}
+                          {Math.round(h.durationMs / 1000)}s
+                          {h.errorMessage ? ` · ${h.errorMessage}` : ""}
+                        </p>
+                      ))}
+                    </div>
+                  ) : null}
+                </div>
               ) : null}
             </div>
           ))

@@ -10,6 +10,8 @@ import { withApiRoute } from "@/lib/http/api-guard";
 import { GENERAL_READ_LIMIT, GENERAL_WRITE_LIMIT } from "@/lib/http/rate-limit-presets";
 import { createSyncJob, listSyncJobs } from "@/lib/sync/service-crud";
 import { effectiveDeleteOrphans } from "@/lib/sync/bidirectional";
+import { isValidSyncSchedule, normalizeSyncSchedule } from "@/lib/sync/schedule";
+import { ValidationError } from "@/lib/errors";
 
 export const dynamic = "force-dynamic";
 
@@ -74,6 +76,9 @@ export async function POST(request: Request) {
       errorMessage: "Failed to create sync job",
     },
     async ({ session, body }) => {
+      if (body.schedule != null && body.schedule !== "" && !isValidSyncSchedule(body.schedule)) {
+        throw new ValidationError("Invalid schedule (use manual, every:15m|1h|6h|24h, or 5-field cron)");
+      }
       const job = await createSyncJob({
         name: body.name,
         sourceServerId: body.sourceServerId,
@@ -81,7 +86,7 @@ export async function POST(request: Request) {
         targetServerId: body.targetServerId,
         targetPath: body.targetPath,
         syncType: body.syncType,
-        schedule: body.schedule ?? undefined,
+        schedule: normalizeSyncSchedule(body.schedule) ?? undefined,
         deleteOrphans: effectiveDeleteOrphans(body.syncType, body.deleteOrphans),
         compress: body.compress,
         createdBy: session?.userId,

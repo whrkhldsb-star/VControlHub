@@ -1,11 +1,11 @@
 {
-  "generatedAt": "2026-07-16T11:35:53.281Z",
+  "generatedAt": "2026-07-16T12:17:20.279Z",
   "summary": {
     "permissionsInList": 54,
     "rolesDefined": 4,
     "apiRoutesAudited": 138,
     "pagesAudited": 47,
-    "callSitesAudited": 550,
+    "callSitesAudited": 554,
     "driftCount": 0,
     "driftByCode": {
       "perm-not-in-list": 0,
@@ -2280,12 +2280,20 @@
           "line": 56
         },
         {
-          "path": "src/app/api/sync-jobs/route.ts",
-          "line": 35
+          "path": "src/app/api/sync-jobs/[id]/report/route.ts",
+          "line": 22
+        },
+        {
+          "path": "src/app/api/sync-jobs/[id]/report/route.ts",
+          "line": 22
         },
         {
           "path": "src/app/api/sync-jobs/route.ts",
-          "line": 35
+          "line": 37
+        },
+        {
+          "path": "src/app/api/sync-jobs/route.ts",
+          "line": 37
         },
         {
           "path": "src/app/downloads/page.tsx",
@@ -2452,11 +2460,19 @@
         },
         {
           "path": "src/app/api/sync-jobs/[id]/route.ts",
-          "line": 21
+          "line": 33
         },
         {
           "path": "src/app/api/sync-jobs/[id]/route.ts",
-          "line": 21
+          "line": 74
+        },
+        {
+          "path": "src/app/api/sync-jobs/[id]/route.ts",
+          "line": 33
+        },
+        {
+          "path": "src/app/api/sync-jobs/[id]/route.ts",
+          "line": 74
         },
         {
           "path": "src/app/api/sync-jobs/[id]/run/route.ts",
@@ -2468,11 +2484,11 @@
         },
         {
           "path": "src/app/api/sync-jobs/route.ts",
-          "line": 71
+          "line": 73
         },
         {
           "path": "src/app/api/sync-jobs/route.ts",
-          "line": 71
+          "line": 73
         },
         {
           "path": "src/app/downloads/page.tsx",

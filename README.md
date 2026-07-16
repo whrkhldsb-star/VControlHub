@@ -372,10 +372,10 @@ make logs SERVICE_PREFIX=vcontrolhub
 | 远程运行时 | 远程 Docker；Quick Services 本机/VPS；Compose 项目生命周期 |
 | 监控告警 | 后台采样；容量预测；**预测指标可挂告警规则**（days-to-85）；升级/值班/确认 |
 | 命令 / Playbook | 审批与 durable 执行；**失败路径可观测**（job 不假成功、终端审计、结果通知、rejected target 收口） |
-| 文件 | 检索、断点续传、版本历史、WebDAV；**节点间双向/镜像同步**（较新优先，不自动删）；sftp-ops → `fs-backend` |
+| 文件 | 检索、断点续传、版本历史、WebDAV；**节点间双向/镜像同步**（较新优先、调度、报告/冲突说明）；sftp-ops → `fs-backend` |
 | 备份 | 细粒度恢复、演练、跨环境迁移向导（不自动 restore） |
 | 工单 / AI | 双向时间线；知识库 RAG；AI Ops 安全闭环 |
-| 集成 | 云账单账户（`teamId` scope + CSV/探针）；ITSM/IM 双向 |
+| 集成 | 云账单账户（`teamId` + CSV/探针 + **HTTPS CSV URL live 导入**）；ITSM/IM 双向 |
 
 ### 有意不做 / 产品边界
 
@@ -399,9 +399,9 @@ make logs SERVICE_PREFIX=vcontrolhub
 
 ### 下一步（优先完善现有）
 
-1. 全量审计与持续升级（安全/正确性优先；如 MediaItem scope、剩余 list 预过滤缺口）
-2. 有密钥与合规时再加深 live 云账单
-3. 双向同步后续可选：冲突报告面板、定时调度 UI 深化
+1. 全量审计与持续升级由后台 deep-audit 负责（本对话不抢主线）
+2. live 云账单：HTTPS CSV URL 已可用；原生厂商 SDK 仍按密钥/合规按需
+3. 双向同步：调度 + 报告/冲突说明已落地；企业冲突中心仍属有意边界
 
 ### 期望 vs 实际
 

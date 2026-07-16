@@ -90,17 +90,31 @@ export async function deleteSyncJob(
 
 export async function updateSyncJob(
 	id: string,
-	data: Partial<Pick<SyncJobInput, "name" | "sourcePath" | "targetPath" | "syncType" | "schedule" | "deleteOrphans" | "compress">>,
+	data: Partial<
+		Pick<SyncJobInput, "name" | "sourcePath" | "targetPath" | "syncType" | "deleteOrphans" | "compress">
+	> & { schedule?: string | null },
 	session?: Pick<SessionPayload, "userId" | "roles" | "currentTeamId">,
 ) {
 	const existing = await getSyncJob(id, session);
 	if (!existing) throw new NotFoundError("Sync job not found");
-	const patch: Record<string, unknown> = { ...data };
+	const patch: Record<string, unknown> = {};
+	if (data.name !== undefined) patch.name = data.name;
+	if (data.sourcePath !== undefined) patch.sourcePath = data.sourcePath;
+	if (data.targetPath !== undefined) patch.targetPath = data.targetPath;
+	if (data.compress !== undefined) patch.compress = data.compress;
+	if (data.schedule !== undefined) patch.schedule = data.schedule; // null clears
 	if (data.syncType !== undefined || data.deleteOrphans !== undefined) {
 		const syncType = data.syncType ?? existing.syncType;
 		const deleteOrphans = data.deleteOrphans ?? existing.deleteOrphans;
-		patch.deleteOrphans = effectiveDeleteOrphans(syncType, deleteOrphans);
+		patch.deleteOrphans = effectiveDeleteOrphans(syncType, Boolean(deleteOrphans));
 		if (data.syncType !== undefined) patch.syncType = data.syncType;
 	}
-	return prisma.syncJob.update({ where: { id }, data: patch });
+	return prisma.syncJob.update({
+		where: { id },
+		data: patch,
+		include: {
+			sourceServer: { select: { id: true, name: true, host: true } },
+			targetServer: { select: { id: true, name: true, host: true } },
+		},
+	});
 }

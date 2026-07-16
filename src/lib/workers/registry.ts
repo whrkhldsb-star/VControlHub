@@ -29,6 +29,7 @@ import { startQuickServiceJobWorker, stopQuickServiceJobWorkerForTests } from "@
 import { startScheduledTaskWorker, stopScheduledTaskWorkerForTests } from "@/lib/scheduled-task/worker";
 import { startPlaybookRunWorker, stopPlaybookRunWorkerForTests } from "@/lib/playbook/worker";
 import { startSftpSyncJobWorker, stopSftpSyncJobWorkerForTests } from "@/lib/storage/sftp-sync-job";
+import { startSyncScheduleWorker, stopSyncScheduleWorkerForTests } from "@/lib/sync/sync-schedule-worker";
 import { startSftpStaleInventoryWorker, stopSftpStaleInventoryWorkerForTests } from "@/lib/storage/sftp-stale-inventory-job";
 import { startOperationTaskRetentionWorker, stopOperationTaskRetentionWorkerForTests } from "@/lib/operation-task/retention-worker";
 import { startCostSnapshotWorker, stopCostSnapshotWorkerForTests } from "@/lib/cost/snapshot-worker";
@@ -49,6 +50,7 @@ export type WorkerId =
   | "quick-service"
   | "scheduled-task"
   | "sftp-sync"
+  | "sync-schedule"
   | "sftp-stale-inventory"
   | "operation-task-retention"
   | "playbook-run"
@@ -100,6 +102,7 @@ function getRegistryState(): Record<WorkerId, { started: boolean }> {
       "quick-service": { started: false },
       "scheduled-task": { started: false },
       "sftp-sync": { started: false },
+      "sync-schedule": { started: false },
       "sftp-stale-inventory": { started: false },
       "operation-task-retention": { started: false },
       "playbook-run": { started: false },
@@ -241,6 +244,16 @@ const SFTP_STALE_INVENTORY: WorkerSpec = {
   stop: () => stopSftpStaleInventoryWorkerForTests(),
 };
 
+const SYNC_SCHEDULE: WorkerSpec = {
+  id: "sync-schedule",
+  label: "VPS path sync schedule dispatch",
+  jobType: "sync.schedule.tick",
+  start: async () => {
+    await startSyncScheduleWorker();
+  },
+  stop: () => stopSyncScheduleWorkerForTests(),
+};
+
 const OPERATION_TASK_RETENTION: WorkerSpec = {
   id: "operation-task-retention",
   // TR-006: 跨来源统一长期保留策略, 6h tick, 跨 command/download/sync/backup/deployment 5 来源裁剪历史
@@ -325,6 +338,7 @@ export const WORKER_REGISTRY: readonly WorkerSpec[] = Object.freeze([
   SCHEDULED_TASK,
   SFTP_SYNC,
   SFTP_STALE_INVENTORY,
+  SYNC_SCHEDULE,
   OPERATION_TASK_RETENTION,
   PLAYBOOK_RUN,
   TICKET_SLA,

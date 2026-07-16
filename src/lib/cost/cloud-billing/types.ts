@@ -30,6 +30,8 @@ export type CloudBillingAccountConfig = {
 	accountId?: string;
 	/** generic_csv: sample payload embedded for dry-run import tests */
 	sampleCsv?: string;
+	/** Optional HTTPS URL returning CSV (date,amount,...) for live-ish import without vendor SDK */
+	billingCsvUrl?: string;
 	/** Map product family → CostCategory override */
 	categoryMap?: Record<string, CostCategory>;
 };
