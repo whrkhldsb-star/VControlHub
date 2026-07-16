@@ -27,6 +27,7 @@ vi.mock("@/lib/db", () => ({
 					lastSyncError: null,
 					lastSyncImported: 0,
 					lastSyncSkipped: 0,
+					teamId: null,
 					createdAt: new Date("2026-07-01T00:00:00Z"),
 					updatedAt: new Date("2026-07-01T00:00:00Z"),
 					...data,
@@ -34,18 +35,74 @@ vi.mock("@/lib/db", () => ({
 				accountStore.set(row.id as string, row);
 				return row;
 			}),
-			findMany: vi.fn(async () => Array.from(accountStore.values())),
+			findMany: vi.fn(async ({ where }: { where?: Record<string, unknown> } = {}) => {
+				const rows = Array.from(accountStore.values());
+				if (!where || Object.keys(where).length === 0) return rows;
+				if (where.teamId === null) {
+					return rows.filter((r) => r.teamId == null);
+				}
+				const or = where.OR as Array<Record<string, unknown>> | undefined;
+				if (or) {
+					const teamIds = or
+						.map((c) => c.teamId)
+						.filter((v): v is string | null => v !== undefined);
+					return rows.filter((r) => teamIds.includes(r.teamId as string | null) || r.teamId == null);
+				}
+				return rows;
+			}),
 			findUnique: vi.fn(async ({ where }: { where: { id: string } }) => accountStore.get(where.id) ?? null),
+			findFirst: vi.fn(async ({ where }: { where: Record<string, unknown> }) => {
+				const rows = Array.from(accountStore.values());
+				const id = where.id as string | undefined;
+				const candidates = id ? rows.filter((r) => r.id === id) : rows;
+				if (candidates.length === 0) return null;
+				if (where.teamId === null) {
+					return candidates.find((r) => r.teamId == null) ?? null;
+				}
+				const or = where.OR as Array<Record<string, unknown>> | undefined;
+				if (or) {
+					const teamIds = or
+						.map((c) => c.teamId)
+						.filter((v): v is string | null => v !== undefined);
+					return (
+						candidates.find(
+							(r) => teamIds.includes(r.teamId as string | null) || r.teamId == null,
+						) ?? null
+					);
+				}
+				return candidates[0] ?? null;
+			}),
 			update: vi.fn(async ({ where, data }: { where: { id: string }; data: Record<string, unknown> }) => {
 				const prev = accountStore.get(where.id);
 				if (!prev) throw new Error("missing");
-				const next = { ...prev, ...data, updatedAt: new Date("2026-07-02T00:00:00Z") };
+				// Prisma relation style: team: { connect } | { disconnect }
+				const teamRel = data.team as
+					| { connect?: { id: string }; disconnect?: boolean }
+					| undefined;
+				const nextData = { ...data };
+				delete nextData.team;
+				if (teamRel?.disconnect) nextData.teamId = null;
+				if (teamRel?.connect?.id) nextData.teamId = teamRel.connect.id;
+				const next = { ...prev, ...nextData, updatedAt: new Date("2026-07-02T00:00:00Z") };
 				accountStore.set(where.id, next);
 				return next;
 			}),
-			deleteMany: vi.fn(async ({ where }: { where: { id: string } }) => {
-				const existed = accountStore.delete(where.id);
-				return { count: existed ? 1 : 0 };
+			deleteMany: vi.fn(async ({ where }: { where: Record<string, unknown> }) => {
+				const id = where.id as string;
+				const row = accountStore.get(id);
+				if (!row) return { count: 0 };
+				if (where.teamId === null && row.teamId != null) return { count: 0 };
+				const or = where.OR as Array<Record<string, unknown>> | undefined;
+				if (or) {
+					const teamIds = or
+						.map((c) => c.teamId)
+						.filter((v): v is string | null => v !== undefined);
+					if (!(teamIds.includes(row.teamId as string | null) || row.teamId == null)) {
+						return { count: 0 };
+					}
+				}
+				accountStore.delete(id);
+				return { count: 1 };
 			}),
 		},
 		cloudBillingSyncRun: {
@@ -115,10 +172,18 @@ vi.mock("@/lib/logging", () => ({
 	createLogger: () => ({ info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() }),
 }));
 
+vi.mock("@/lib/auth/authorization", () => ({
+	sessionHasPermission: vi.fn((session: { roles?: string[] }, perm: string) => {
+		if (perm === "team:manage" && session.roles?.includes("admin")) return true;
+		return false;
+	}),
+}));
+
 import { parseBillingCsv } from "../adapters";
 import {
 	createCloudBillingAccount,
 	deleteCloudBillingAccount,
+	getCloudBillingAccount,
 	listCloudBillingAccounts,
 	syncCloudBillingAccount,
 } from "../service";
@@ -164,12 +229,72 @@ describe("cloud billing service", () => {
 				credentials: { accessKeyId: "AKIA", secretAccessKey: "secret" },
 				config: { region: "us-east-1" },
 			},
-			"user_1",
+			{ userId: "user_1", roles: ["operator"], currentTeamId: null },
 		);
 		expect(account.name).toBe("prod-aws");
 		expect(account.hasCredentials).toBe(true);
+		expect(account.teamId).toBeNull();
 		expect(JSON.stringify(account)).not.toContain("secret");
 		expect(JSON.stringify(account)).not.toContain("AKIA");
+	});
+
+	it("assigns currentTeamId on create when body omits teamId", async () => {
+		const account = await createCloudBillingAccount(
+			{
+				name: "team-aws",
+				provider: "aws",
+				currency: "USD",
+				credentials: { accessKeyId: "AKIA", secretAccessKey: "secret" },
+			},
+			{ userId: "u1", roles: ["operator"], currentTeamId: "team_a" },
+		);
+		expect(account.teamId).toBe("team_a");
+		expect(account.createdById).toBe("u1");
+	});
+
+	it("list scopes by team for non-admin session", async () => {
+		await createCloudBillingAccount(
+			{
+				name: "a",
+				provider: "aws",
+				credentials: { accessKeyId: "A", secretAccessKey: "s" },
+			},
+			{ userId: "u1", roles: ["operator"], currentTeamId: "team_a" },
+		);
+		await createCloudBillingAccount(
+			{
+				name: "b",
+				provider: "aws",
+				credentials: { accessKeyId: "B", secretAccessKey: "s" },
+				teamId: "team_b",
+			},
+			{ userId: "u2", roles: ["operator"], currentTeamId: null },
+		);
+		const listed = await listCloudBillingAccounts({
+			userId: "u1",
+			roles: ["operator"],
+			currentTeamId: "team_a",
+		});
+		expect(listed.map((a) => a.name)).toEqual(["a"]);
+	});
+
+	it("get denies foreign team account", async () => {
+		const foreign = await createCloudBillingAccount(
+			{
+				name: "foreign",
+				provider: "aws",
+				credentials: { accessKeyId: "A", secretAccessKey: "s" },
+				teamId: "team_b",
+			},
+			null,
+		);
+		await expect(
+			getCloudBillingAccount(foreign.id, {
+				userId: "u1",
+				roles: ["operator"],
+				currentTeamId: "team_a",
+			}),
+		).rejects.toThrow(/not found/i);
 	});
 
 	it("imports CSV line items into cost entries on sync", async () => {
@@ -186,7 +311,7 @@ describe("cloud billing service", () => {
 `,
 				},
 			},
-			"user_1",
+			{ userId: "user_1", roles: ["operator"], currentTeamId: null },
 		);
 		const result = await syncCloudBillingAccount(account.id, "2026-07");
 		expect(result.imported).toBe(2);

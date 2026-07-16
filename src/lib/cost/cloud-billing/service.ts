@@ -5,9 +5,12 @@
  * - Sync upserts CostEntry rows with sourceType=cloud_billing
  * - Unique key: sourceType + sourceRef + effectiveDate
  *   sourceRef = `${accountId}:${externalId}` (truncated to stay within index limits)
+ * - Team scope via teamWhere / teamCreateData (multi-tenant)
  */
 import { Prisma } from "@prisma/client";
 
+import type { SessionPayload } from "@/lib/auth/session";
+import { teamCreateData, teamWhere } from "@/lib/auth/team-scope";
 import { encrypt, decrypt, isEncrypted } from "@/lib/crypto/service";
 import { prisma } from "@/lib/db";
 import { NotFoundError, ValidationError } from "@/lib/errors";
@@ -31,6 +34,8 @@ import type {
 const logger = createLogger("cloud-billing");
 const DEFAULT_CURRENCY: CostCurrency = "USD";
 const SOURCE_TYPE = "cloud_billing";
+
+type SessionScope = Pick<SessionPayload, "userId" | "roles" | "currentTeamId">;
 
 function tagValue(value: string): string {
 	return value.trim().toLocaleLowerCase().replace(/\s+/gu, "-").slice(0, 128);
@@ -67,6 +72,7 @@ function toAccountRecord(row: {
 	config: Prisma.JsonValue;
 	currency: string;
 	enabled: boolean;
+	teamId: string | null;
 	lastSyncAt: Date | null;
 	lastSyncStatus: string | null;
 	lastSyncError: string | null;
@@ -84,6 +90,7 @@ function toAccountRecord(row: {
 		enabled: row.enabled,
 		config: parseConfig(row.config),
 		hasCredentials: Boolean(row.credentialsEnc),
+		teamId: row.teamId ?? null,
 		lastSyncAt: iso(row.lastSyncAt),
 		lastSyncStatus: (row.lastSyncStatus as CloudBillingSyncStatus | null) ?? null,
 		lastSyncError: row.lastSyncError,
@@ -131,9 +138,10 @@ function sourceRefFor(accountId: string, externalId: string): string {
 
 export async function createCloudBillingAccount(
 	input: unknown,
-	createdById?: string | null,
+	session?: SessionScope | null,
 ): Promise<CloudBillingAccountRecord> {
 	const parsed = createCloudBillingAccountSchema.parse(input);
+	const teamFromSession = session ? teamCreateData(session).teamId : undefined;
 	const row = await prisma.cloudBillingAccount.create({
 		data: {
 			name: parsed.name,
@@ -142,22 +150,31 @@ export async function createCloudBillingAccount(
 			config: (parsed.config ?? {}) as Prisma.InputJsonValue,
 			currency: parsed.currency ?? DEFAULT_CURRENCY,
 			enabled: parsed.enabled ?? true,
-			createdById: createdById ?? null,
+			teamId: parsed.teamId !== undefined ? parsed.teamId : (teamFromSession ?? null),
+			createdById: session?.userId ?? null,
 		},
 	});
 	return toAccountRecord(row);
 }
 
-export async function listCloudBillingAccounts(): Promise<CloudBillingAccountRecord[]> {
+export async function listCloudBillingAccounts(
+	session?: SessionScope,
+): Promise<CloudBillingAccountRecord[]> {
 	const rows = await prisma.cloudBillingAccount.findMany({
+		where: session ? teamWhere(session) : {},
 		orderBy: [{ enabled: "desc" }, { updatedAt: "desc" }],
 		take: 200,
 	});
 	return rows.map(toAccountRecord);
 }
 
-export async function getCloudBillingAccount(id: string): Promise<CloudBillingAccountRecord> {
-	const row = await prisma.cloudBillingAccount.findUnique({ where: { id } });
+export async function getCloudBillingAccount(
+	id: string,
+	session?: SessionScope,
+): Promise<CloudBillingAccountRecord> {
+	const row = await prisma.cloudBillingAccount.findFirst({
+		where: { id, ...(session ? teamWhere(session) : {}) },
+	});
 	if (!row) throw new NotFoundError("Cloud billing account not found");
 	return toAccountRecord(row);
 }
@@ -165,9 +182,12 @@ export async function getCloudBillingAccount(id: string): Promise<CloudBillingAc
 export async function updateCloudBillingAccount(
 	id: string,
 	input: unknown,
+	session?: SessionScope,
 ): Promise<CloudBillingAccountRecord> {
 	const parsed = updateCloudBillingAccountSchema.parse(input);
-	const existing = await prisma.cloudBillingAccount.findUnique({ where: { id } });
+	const existing = await prisma.cloudBillingAccount.findFirst({
+		where: { id, ...(session ? teamWhere(session) : {}) },
+	});
 	if (!existing) throw new NotFoundError("Cloud billing account not found");
 
 	const data: Prisma.CloudBillingAccountUpdateInput = {};
@@ -175,6 +195,12 @@ export async function updateCloudBillingAccount(
 	if (parsed.currency !== undefined) data.currency = parsed.currency;
 	if (parsed.enabled !== undefined) data.enabled = parsed.enabled;
 	if (parsed.config !== undefined) data.config = parsed.config as Prisma.InputJsonValue;
+	if (parsed.teamId !== undefined) {
+		data.team =
+			parsed.teamId === null
+				? { disconnect: true }
+				: { connect: { id: parsed.teamId } };
+	}
 	if (parsed.credentials !== undefined) {
 		const prev = decryptCredentials(existing.credentialsEnc);
 		data.credentialsEnc = encryptCredentials({
@@ -187,8 +213,13 @@ export async function updateCloudBillingAccount(
 	return toAccountRecord(row);
 }
 
-export async function deleteCloudBillingAccount(id: string): Promise<void> {
-	const deleted = await prisma.cloudBillingAccount.deleteMany({ where: { id } });
+export async function deleteCloudBillingAccount(
+	id: string,
+	session?: SessionScope,
+): Promise<void> {
+	const deleted = await prisma.cloudBillingAccount.deleteMany({
+		where: { id, ...(session ? teamWhere(session) : {}) },
+	});
 	if (deleted.count === 0) throw new NotFoundError("Cloud billing account not found");
 }
 
@@ -203,8 +234,11 @@ export interface CloudBillingSyncResult {
 export async function syncCloudBillingAccount(
 	accountId: string,
 	month = currentMonthUtc(),
+	session?: SessionScope,
 ): Promise<CloudBillingSyncResult> {
-	const account = await prisma.cloudBillingAccount.findUnique({ where: { id: accountId } });
+	const account = await prisma.cloudBillingAccount.findFirst({
+		where: { id: accountId, ...(session ? teamWhere(session) : {}) },
+	});
 	if (!account) throw new NotFoundError("Cloud billing account not found");
 	if (!account.enabled) {
 		throw new ValidationError("Cloud billing account is disabled");
@@ -342,9 +376,10 @@ export async function syncCloudBillingAccount(
 export async function listCloudBillingSyncRuns(
 	accountId: string,
 	limit = 20,
+	session?: SessionScope,
 ): Promise<CloudBillingSyncRunRecord[]> {
-	const account = await prisma.cloudBillingAccount.findUnique({
-		where: { id: accountId },
+	const account = await prisma.cloudBillingAccount.findFirst({
+		where: { id: accountId, ...(session ? teamWhere(session) : {}) },
 		select: { id: true },
 	});
 	if (!account) throw new NotFoundError("Cloud billing account not found");

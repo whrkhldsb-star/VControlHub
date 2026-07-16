@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-07-16T08:32:06.769Z",
+  "generatedAt": "2026-07-16T09:19:15.739Z",
   "summary": {
     "permissionsInList": 54,
     "rolesDefined": 4,
@@ -793,19 +793,19 @@
       "files": [
         {
           "path": "src/app/api/cost/billing-accounts/[id]/route.ts",
-          "line": 43
+          "line": 44
         },
         {
           "path": "src/app/api/cost/billing-accounts/[id]/route.ts",
-          "line": 65
+          "line": 67
         },
         {
           "path": "src/app/api/cost/billing-accounts/[id]/route.ts",
-          "line": 43
+          "line": 44
         },
         {
           "path": "src/app/api/cost/billing-accounts/[id]/route.ts",
-          "line": 65
+          "line": 67
         },
         {
           "path": "src/app/api/cost/billing-accounts/[id]/sync/route.ts",
@@ -906,11 +906,11 @@
       "files": [
         {
           "path": "src/app/api/cost/billing-accounts/[id]/route.ts",
-          "line": 26
+          "line": 27
         },
         {
           "path": "src/app/api/cost/billing-accounts/[id]/route.ts",
-          "line": 26
+          "line": 27
         },
         {
           "path": "src/app/api/cost/billing-accounts/route.ts",

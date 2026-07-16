@@ -156,6 +156,7 @@ model Team {
   notifications   Notification[]   @relation("TeamNotifications")
   auditLogs       AuditLog[]       @relation("TeamAuditLogs")
   knowledgeBases  KnowledgeBase[]  @relation("TeamKnowledgeBases")
+  cloudBillingAccounts CloudBillingAccount[] @relation("TeamCloudBillingAccounts")
   createdAt       DateTime         @default(now())
   updatedAt       DateTime         @updatedAt
 
@@ -1619,6 +1620,7 @@ model CloudBillingAccount {
   config             Json      @default("{}")
   currency           String    @default("USD")
   enabled            Boolean   @default(true)
+  teamId             String? // multi-tenant scope (null = shared/legacy)
   lastSyncAt         DateTime?
   lastSyncStatus     String? // ok | error | partial
   lastSyncError      String?
@@ -1628,10 +1630,12 @@ model CloudBillingAccount {
   createdAt          DateTime  @default(now())
   updatedAt          DateTime  @updatedAt
 
+  team      Team?                 @relation("TeamCloudBillingAccounts", fields: [teamId], references: [id], onDelete: SetNull)
   createdBy User?                 @relation("CloudBillingAccountCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
   syncRuns  CloudBillingSyncRun[]
 
   @@index([provider, enabled])
+  @@index([teamId])
   @@index([createdById])
   @@map("cloud_billing_accounts")
 }

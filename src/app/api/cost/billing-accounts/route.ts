@@ -24,8 +24,8 @@ export async function GET(request: Request) {
 			errorStatus: 500,
 			errorMessage: "Failed to list cloud billing accounts",
 		},
-		async () => {
-			const accounts = await listCloudBillingAccounts();
+		async ({ session }) => {
+			const accounts = await listCloudBillingAccounts(session ?? undefined);
 			return NextResponse.json({ accounts });
 		},
 	);
@@ -42,12 +42,12 @@ export async function POST(request: Request) {
 			errorMessage: "Failed to create cloud billing account",
 		},
 		async ({ session, body }) => {
-			const createdById = session?.userId ?? null;
-			const account = await createCloudBillingAccount(body, createdById);
-			await auditUserAction(createdById ?? "anonymous", "cost.billing_account.create", {
+			const account = await createCloudBillingAccount(body, session ?? null);
+			await auditUserAction(session?.userId ?? "anonymous", "cost.billing_account.create", {
 				accountId: account.id,
 				provider: account.provider,
 				name: account.name,
+				teamId: account.teamId,
 			});
 			return NextResponse.json({ account }, { status: 201 });
 		},

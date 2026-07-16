@@ -1,4 +1,5 @@
 /**
+ * GET    /api/cost/billing-accounts/[id]
  * PATCH  /api/cost/billing-accounts/[id]
  * DELETE /api/cost/billing-accounts/[id]
  */
@@ -28,8 +29,8 @@ export async function GET(request: Request, context: RouteContext) {
 			errorStatus: 500,
 			errorMessage: "Failed to load cloud billing account",
 		},
-		async () => {
-			const account = await getCloudBillingAccount(id);
+		async ({ session }) => {
+			const account = await getCloudBillingAccount(id, session ?? undefined);
 			return NextResponse.json({ account });
 		},
 	);
@@ -47,10 +48,11 @@ export async function PATCH(request: Request, context: RouteContext) {
 			errorMessage: "Failed to update cloud billing account",
 		},
 		async ({ session, body }) => {
-			const account = await updateCloudBillingAccount(id, body);
+			const account = await updateCloudBillingAccount(id, body, session ?? undefined);
 			await auditUserAction(session?.userId ?? "anonymous", "cost.billing_account.update", {
 				accountId: account.id,
 				provider: account.provider,
+				teamId: account.teamId,
 			});
 			return NextResponse.json({ account });
 		},
@@ -68,7 +70,7 @@ export async function DELETE(request: Request, context: RouteContext) {
 			errorMessage: "Failed to delete cloud billing account",
 		},
 		async ({ session }) => {
-			await deleteCloudBillingAccount(id);
+			await deleteCloudBillingAccount(id, session ?? undefined);
 			await auditUserAction(session?.userId ?? "anonymous", "cost.billing_account.delete", {
 				accountId: id,
 			});

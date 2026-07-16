@@ -27,7 +27,7 @@ export async function POST(request: Request, context: RouteContext) {
 			errorMessage: "Failed to sync cloud billing account",
 		},
 		async ({ session, body }) => {
-			const result = await syncCloudBillingAccount(id, body.month);
+			const result = await syncCloudBillingAccount(id, body.month, session ?? undefined);
 			await auditUserAction(session?.userId ?? "anonymous", "cost.billing_account.sync", {
 				accountId: id,
 				month: result.run.month,

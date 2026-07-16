@@ -375,7 +375,7 @@ make logs SERVICE_PREFIX=vcontrolhub
 | 文件 | 检索、断点续传、版本历史、WebDAV；sftp-ops read/write/delete/rename → `fs-backend` |
 | 备份 | 细粒度恢复、演练、跨环境迁移向导（不自动 restore） |
 | 工单 / AI | 双向时间线；知识库 RAG；AI Ops 安全闭环 |
-| 集成 | 云账单账户 + CSV/探针；ITSM/IM 双向 |
+| 集成 | 云账单账户（`teamId` scope + CSV/探针）；ITSM/IM 双向 |
 
 ### 有意不做 / 产品边界
 
@@ -393,15 +393,14 @@ make logs SERVICE_PREFIX=vcontrolhub
 
 | 级别 | 项 |
 |---|---|
-| 中 | 云账单账户等仍无 `teamId` 列的模型：靠 `cost:manage` 权限边界；后续可补列 |
 | 低 | 容量预测为线性模型；样本不足不触发 `capacity_*` 告警并自动 resolve |
 | 低 | 部分 Client 仍约 400–500 行；重运维路径偏桌面 |
 | 信息 | 无全域统一 event bus（通知渠道 + ITSM fan-out 已有） |
 
 ### 下一步（优先完善现有）
 
-1. 云账单账户补 `teamId`（当前靠 cost 权限）  
-2. 有密钥与合规时再加深 live 云账单；有明确需求再评估双向文件同步  
+1. README 可做项已清；进入全量审计与持续升级（安全/正确性优先）  
+2. 有密钥与合规时再加深 live 云账单；有明确需求再评估双向文件同步（有意不做边界内）  
 
 ### 期望 vs 实际
 

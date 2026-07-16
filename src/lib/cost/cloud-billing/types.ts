@@ -53,6 +53,7 @@ export interface CloudBillingAccountRecord {
 	enabled: boolean;
 	config: CloudBillingAccountConfig;
 	hasCredentials: boolean;
+	teamId: string | null;
 	lastSyncAt: string | null;
 	lastSyncStatus: CloudBillingSyncStatus | null;
 	lastSyncError: string | null;

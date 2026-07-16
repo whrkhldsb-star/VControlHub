@@ -38,7 +38,7 @@ export default async function CostSummaryPage() {
 	const entries = canRead ? await listCostEntries({ limit: 200 }) : [];
 	const snapshots = canRead ? await listRecentSnapshots(30) : [];
 	const budgets = canRead ? await listCostBudgets() : [];
-	const billingAccounts = canRead ? await listCloudBillingAccounts() : [];
+	const billingAccounts = canRead ? await listCloudBillingAccounts(session) : [];
 
 	return (
 		<PageShell maxW="max-w-7xl">
