@@ -13,6 +13,7 @@ import type { SessionPayload } from "@/lib/auth/session";
 
 import { prisma } from "@/lib/db";
 import { auditUserAction } from "@/lib/audit/service";
+import { NotFoundError } from "@/lib/errors";
 
 import type {
   CreatePlaybookInput,
@@ -26,6 +27,8 @@ import type {
   TriggerConfig,
   TriggerType,
 } from "./types";
+
+type TeamSession = Pick<SessionPayload, "userId" | "roles" | "currentTeamId">;
 
 type RawPlaybook = {
   id: string;
@@ -89,7 +92,7 @@ function narrowPlaybookRun(row: RawPlaybookRun): PlaybookRunRecord {
   };
 }
 
-export async function listPlaybooks(session?: { userId: string; roles: import("@/lib/auth/rbac").RoleKey[]; currentTeamId: string | null }): Promise<PlaybookRecord[]> {
+export async function listPlaybooks(session?: TeamSession): Promise<PlaybookRecord[]> {
   const where = session ? { ...teamWhere(session) } : {};
   const rows = await prisma.playbook.findMany({
     where,
@@ -99,15 +102,22 @@ export async function listPlaybooks(session?: { userId: string; roles: import("@
   return rows.map(narrowPlaybook);
 }
 
-export async function getPlaybook(id: string): Promise<PlaybookRecord | null> {
-  const row = await prisma.playbook.findUnique({ where: { id } });
+export async function getPlaybook(
+  id: string,
+  session?: TeamSession | null,
+): Promise<PlaybookRecord | null> {
+  const row = session
+    ? await prisma.playbook.findFirst({ where: { id, ...teamWhere(session) } })
+    : await prisma.playbook.findUnique({ where: { id } });
   return row ? narrowPlaybook(row) : null;
 }
 
 export async function createPlaybook(
   input: CreatePlaybookInput,
   createdById: string,
+  session?: TeamSession | null,
 ): Promise<PlaybookRecord> {
+  const teamData = session ? teamCreateData(session) : {};
   const row = await prisma.playbook.create({
     data: {
       name: input.name,
@@ -118,6 +128,7 @@ export async function createPlaybook(
       chainRetry: input.chainRetry,
       enabled: input.enabled,
       createdById,
+      ...teamData,
     },
   });
   const narrowed = narrowPlaybook(row);
@@ -134,8 +145,11 @@ export async function createPlaybook(
 export async function updatePlaybook(
   input: UpdatePlaybookInput,
   updatedById: string,
+  session?: TeamSession | null,
 ): Promise<PlaybookRecord> {
   const { id, ...rest } = input;
+  const existing = await getPlaybook(id, session);
+  if (!existing) throw new NotFoundError("Playbook not found");
   const data: Prisma.PlaybookUpdateInput = {};
   if (rest.name !== undefined) data.name = rest.name;
   if (rest.description !== undefined) data.description = rest.description;
@@ -159,15 +173,26 @@ export async function updatePlaybook(
   return narrowed;
 }
 
-export async function deletePlaybook(id: string, deletedById: string): Promise<void> {
+export async function deletePlaybook(
+  id: string,
+  deletedById: string,
+  session?: TeamSession | null,
+): Promise<void> {
+  const existing = await getPlaybook(id, session);
+  if (!existing) throw new NotFoundError("Playbook not found");
   await prisma.playbook.delete({ where: { id } });
   await auditUserAction(deletedById, "playbook.delete", { playbookId: id });
 }
 
 export async function listPlaybookRuns(
   playbookId: string,
-  session?: Pick<SessionPayload, "userId" | "roles" | "currentTeamId">,
+  session?: TeamSession,
 ): Promise<PlaybookRunRecord[]> {
+  // Ensure the parent playbook itself is in scope before leaking run history.
+  if (session) {
+    const playbook = await getPlaybook(playbookId, session);
+    if (!playbook) throw new NotFoundError("Playbook not found");
+  }
   const rows = await prisma.playbookRun.findMany({
     where: { playbookId, ...(session ? teamWhere(session) : {}) },
     orderBy: { createdAt: "desc" },
@@ -185,13 +210,13 @@ export async function runPlaybook(input: {
   dryRun: boolean;
   triggerContext?: unknown;
   createdById?: string;
-  session?: Pick<SessionPayload, "userId" | "roles" | "currentTeamId">;
+  session?: TeamSession;
 }): Promise<PlaybookRunRecord> {
   const scope = input.session ? teamWhere(input.session) : {};
   const playbook = await prisma.playbook.findFirst({
     where: { id: input.playbookId, ...scope },
   });
-  if (!playbook) throw new Error(`playbook not found: ${input.playbookId}`);
+  if (!playbook) throw new NotFoundError(`playbook not found: ${input.playbookId}`);
   const narrowedPlaybook = narrowPlaybook(playbook);
   if (!narrowedPlaybook.enabled) throw new Error(`playbook is disabled: ${input.playbookId}`);
 

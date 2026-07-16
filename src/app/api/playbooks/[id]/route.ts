@@ -27,9 +27,9 @@ export async function GET(request: Request, { params }: PlaybookRouteContext) {
   return withApiRoute(
     request,
     { permission: "playbook:read", rateLimit: GENERAL_WRITE_LIMIT, errorStatus: 500, errorMessage: "Server error" },
-    async () => {
+    async ({ session }) => {
       const id = await requirePlaybookId(params);
-      const playbook = await getPlaybook(id);
+      const playbook = await getPlaybook(id, session ?? undefined);
       if (!playbook) {
         return apiError({ status: 404, code: "NOT_FOUND", message: "Playbook not found" });
       }
@@ -45,7 +45,7 @@ export async function PATCH(request: Request, { params }: PlaybookRouteContext) 
     async ({ session, body }) => {
       const id = await requirePlaybookId(params);
       const updatedById = session?.userId ?? "";
-      const playbook = await updatePlaybook({ ...(body as object), id }, updatedById);
+      const playbook = await updatePlaybook({ ...(body as object), id }, updatedById, session ?? undefined);
       await auditUserAction(session?.userId ?? "", "playbook.update", { playbookId: id });
       return NextResponse.json({ playbook });
     },
@@ -58,7 +58,7 @@ export async function DELETE(request: Request, { params }: PlaybookRouteContext)
     { permission: "playbook:manage", rateLimit: GENERAL_WRITE_LIMIT, errorStatus: 400, errorMessage: "Failed to delete" },
     async ({ session }) => {
       const id = await requirePlaybookId(params);
-      await deletePlaybook(id, session?.userId ?? "");
+      await deletePlaybook(id, session?.userId ?? "", session ?? undefined);
       await auditUserAction(session?.userId ?? "", "playbook.delete", { playbookId: id });
       return NextResponse.json({ success: true });
     },

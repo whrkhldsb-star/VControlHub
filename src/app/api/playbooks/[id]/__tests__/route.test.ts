@@ -38,7 +38,7 @@ describe("/api/playbooks/[id]", () => {
 		const json = await res.json();
 		expect(res.status).toBe(200);
 		expect(mocks.requireApiPermission).toHaveBeenCalledWith("playbook:read");
-		expect(mocks.getPlaybook).toHaveBeenCalledWith("pb1");
+		expect(mocks.getPlaybook).toHaveBeenCalledWith("pb1", session);
 		expect(json.playbook).toEqual(playbookFixture);
 	});
 
@@ -70,7 +70,7 @@ describe("/api/playbooks/[id]", () => {
 		const json = await res.json();
 		expect(res.status).toBe(200);
 		expect(mocks.requireApiPermission).toHaveBeenCalledWith("playbook:manage");
-		expect(mocks.updatePlaybook).toHaveBeenCalledWith(updated, "u1");
+		expect(mocks.updatePlaybook).toHaveBeenCalledWith(updated, "u1", session);
 		expect(json.playbook).toMatchObject({ id: "pb1", name: "Cleanup v2" });
 	});
 
@@ -79,7 +79,7 @@ describe("/api/playbooks/[id]", () => {
 		const json = await res.json();
 		expect(res.status).toBe(200);
 		expect(mocks.requireApiPermission).toHaveBeenCalledWith("playbook:manage");
-		expect(mocks.deletePlaybook).toHaveBeenCalledWith("pb1", "u1");
+		expect(mocks.deletePlaybook).toHaveBeenCalledWith("pb1", "u1", session);
 		expect(json).toEqual({ success: true });
 	});
 

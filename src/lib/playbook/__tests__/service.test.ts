@@ -88,20 +88,45 @@ describe("playbook service", () => {
     expect(await getPlaybook("missing")).toBeNull();
   });
 
-  it("creates, updates and deletes with audit", async () => {
+  it("scopes getPlaybook by team when session is provided", async () => {
+    mocks.playbookFindFirst.mockResolvedValueOnce(baseRow).mockResolvedValueOnce(null);
+    const session = { userId: "u1", roles: ["operator"] as import("@/lib/auth/rbac").RoleKey[], currentTeamId: "team1" };
+    expect((await getPlaybook("pb1", session))?.id).toBe("pb1");
+    expect(mocks.playbookFindFirst).toHaveBeenCalledWith({
+      where: expect.objectContaining({ id: "pb1" }),
+    });
+    expect(await getPlaybook("other-team-pb", session)).toBeNull();
+  });
+
+  it("creates, updates and deletes with audit and stamps teamId on create", async () => {
     mocks.playbookCreate.mockResolvedValue(baseRow);
+    mocks.playbookFindFirst.mockResolvedValue(baseRow);
     mocks.playbookUpdate.mockResolvedValue({ ...baseRow, name: "Renamed" });
+    const session = { userId: "u1", roles: ["operator"] as import("@/lib/auth/rbac").RoleKey[], currentTeamId: "team1" };
     await createPlaybook({
       name: "Cleanup", triggerType: "cron", triggerConfig: { expression: "0 3 * * *" },
       steps: baseRow.steps as never, chainRetry: 2, enabled: true,
-    }, "u1");
-    await updatePlaybook({ id: "pb1", name: "Renamed" }, "u1");
-    await deletePlaybook("pb1", "u1");
+    }, "u1", session);
+    expect(mocks.playbookCreate).toHaveBeenCalledWith({
+      data: expect.objectContaining({ teamId: "team1", createdById: "u1" }),
+    });
+    await updatePlaybook({ id: "pb1", name: "Renamed" }, "u1", session);
+    await deletePlaybook("pb1", "u1", session);
     expect(mocks.playbookDelete).toHaveBeenCalledWith({ where: { id: "pb1" } });
     expect(mocks.auditUserAction).toHaveBeenCalledTimes(3);
   });
 
+  it("rejects update/delete outside team scope", async () => {
+    mocks.playbookFindFirst.mockResolvedValue(null);
+    const session = { userId: "u1", roles: ["operator"] as import("@/lib/auth/rbac").RoleKey[], currentTeamId: "team1" };
+    await expect(updatePlaybook({ id: "pb-other", name: "x" }, "u1", session)).rejects.toThrow(/not found/i);
+    await expect(deletePlaybook("pb-other", "u1", session)).rejects.toThrow(/not found/i);
+    expect(mocks.playbookUpdate).not.toHaveBeenCalled();
+    expect(mocks.playbookDelete).not.toHaveBeenCalled();
+  });
+
   it("scopes run history and limits it to 50", async () => {
+    mocks.playbookFindFirst.mockResolvedValue(baseRow);
     mocks.runFindMany.mockResolvedValue([]);
     const session = { userId: "u1", roles: ["operator"] as import("@/lib/auth/rbac").RoleKey[], currentTeamId: "team1" };
     await listPlaybookRuns("pb1", session);
@@ -109,6 +134,13 @@ describe("playbook service", () => {
       where: expect.objectContaining({ playbookId: "pb1" }),
       take: 50,
     }));
+  });
+
+  it("rejects run history for out-of-scope playbooks", async () => {
+    mocks.playbookFindFirst.mockResolvedValue(null);
+    const session = { userId: "u1", roles: ["operator"] as import("@/lib/auth/rbac").RoleKey[], currentTeamId: "team1" };
+    await expect(listPlaybookRuns("pb-other", session)).rejects.toThrow(/not found/i);
+    expect(mocks.runFindMany).not.toHaveBeenCalled();
   });
 
   it("rejects missing and disabled playbooks", async () => {

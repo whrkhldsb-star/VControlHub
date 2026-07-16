@@ -72,7 +72,7 @@ describe("/api/playbooks", () => {
 		const json = await res.json();
 		expect(res.status).toBe(200);
 		expect(mocks.requireApiPermission).toHaveBeenCalledWith("playbook:manage");
-		expect(mocks.createPlaybook).toHaveBeenCalledWith(validPayload, "u1");
+		expect(mocks.createPlaybook).toHaveBeenCalledWith(validPayload, "u1", session);
 		expect(json.playbook).toEqual({ id: "pb1", name: "Cleanup", steps: [{ id: "s1" }] });
 	});
 

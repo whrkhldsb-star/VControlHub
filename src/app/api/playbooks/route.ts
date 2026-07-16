@@ -28,7 +28,7 @@ export async function POST(request: Request) {
     { permission: "playbook:manage", rateLimit: GENERAL_WRITE_LIMIT, errorStatus: 400, errorMessage: "Failed to create", bodySchema: createPlaybookSchema },
     async ({ session, body }) => {
       const createdById = session?.userId ?? "";
-      const playbook = await createPlaybook(body, createdById);
+      const playbook = await createPlaybook(body, createdById, session ?? undefined);
       await auditUserAction(createdById, "playbook.create", {
         playbookId: playbook.id,
         name: playbook.name,
