@@ -21,6 +21,8 @@ vi.mock("@/lib/api-token/service", () => ({
     "read",
     "server:read",
     "storage:read",
+    "storage:write",
+    "storage:delete",
     "health:read",
     "status:read",
   ],

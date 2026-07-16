@@ -45,7 +45,25 @@ async function main() {
 
 	await app.prepare();
 
+	// Next.js App Router only dispatches standard HTTP methods. Map WebDAV
+	// verbs to POST + X-HTTP-Method-Override so /api/webdav/* can handle them.
+	const WEBDAV_OVERRIDE_METHODS = new Set([
+		"PROPFIND",
+		"PROPPATCH",
+		"MKCOL",
+		"COPY",
+		"MOVE",
+		"LOCK",
+		"UNLOCK",
+	]);
+
 	const server = createServer(async (req, res) => {
+		const url = req.url ?? "";
+		const method = (req.method ?? "GET").toUpperCase();
+		if (url.startsWith("/api/webdav") && WEBDAV_OVERRIDE_METHODS.has(method)) {
+			req.headers["x-http-method-override"] = method;
+			req.method = "POST";
+		}
 		await handle(req, res);
 	});
 

@@ -9,6 +9,8 @@ export const ALLOWED_API_TOKEN_SCOPES = [
 	"read",
 	"server:read",
 	"storage:read",
+	"storage:write",
+	"storage:delete",
 	"health:read",
 	"status:read",
 	"image:read",

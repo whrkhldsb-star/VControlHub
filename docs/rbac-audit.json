@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-07-16T03:28:19.180Z",
+  "generatedAt": "2026-07-16T04:00:34.294Z",
   "summary": {
     "permissionsInList": 54,
     "rolesDefined": 4,
@@ -1766,7 +1766,7 @@
         },
         {
           "path": "src/app/files/page.tsx",
-          "line": 45
+          "line": 46
         },
         {
           "path": "src/app/shares/page.tsx",
@@ -1916,7 +1916,7 @@
         },
         {
           "path": "src/app/files/page.tsx",
-          "line": 44
+          "line": 45
         },
         {
           "path": "src/app/image-bed/page.tsx",
@@ -1975,7 +1975,7 @@
         },
         {
           "path": "src/app/files/page.tsx",
-          "line": 46
+          "line": 47
         },
         {
           "path": "src/app/storage/actions-nodes.ts",
@@ -2344,7 +2344,7 @@
         },
         {
           "path": "src/app/files/page.tsx",
-          "line": 43
+          "line": 44
         },
         {
           "path": "src/app/storage/actions-directories.ts",

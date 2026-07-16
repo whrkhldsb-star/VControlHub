@@ -736,7 +736,7 @@ make logs SERVICE_PREFIX=vcontrolhub
 | 维度 | 判断 |
 |---|---|
 | 已很强 | 命令审批链、模板/部署、文件与分享、备份/审计、RBAC 粒度、多租户 Team scope |
-| 仍偏弱 | 对外集成深度（WebDAV/知识库 RAG/云账单 API/ITSM 双向） |
+| 仍偏弱 | 对外集成深度（知识库 RAG/云账单 API/ITSM 双向） |
 
 #### P0 — 最影响「能不能当主力系统用」
 
@@ -745,7 +745,7 @@ make logs SERVICE_PREFIX=vcontrolhub
 | FEAT-P0-1 | **多租户 / 团队数据隔离** | ✅ 核心模型、任务列表/CSV/events、分享审计、备份记录/计划/恢复/保留策略已接入 Team scope；普通任务读者仅见本人任务 | 继续对新增模型执行 route/service 双层 scope 审查 |
 | FEAT-P0-2 | **远程 Docker + Quick Services + Compose 项目生命周期已完成** | ✅ 容器/日志/stats/network/volume 支持选择远程 VPS；**Compose project 级 ps/up/down/start/stop/restart**（优先 `docker compose -p`，CLI 不可用时按项目标签 Engine 回退）；**Quick Services 可选择本机或远程 VPS** | 可选：从仓库拉 compose 文件一键部署（与现有 project 生命周期独立） |
 | FEAT-P0-3 | **舰队监控后台采样已完成** | ✅ 远程节点实时资源、CPU/内存/磁盘历史、节点过滤告警及 Playbook 联动；独立 `health.sample` durable worker 每 5 分钟采样，不再依赖页面访问，保留 30 天并记录离线断点 | 后续可在现有样本上增加跨节点统一容量预测 |
-| FEAT-P0-4 | **文件网盘能力主体完成** | ✅ 多节点、回收站、分享、预览、上传、LOCAL/SFTP 全文检索；媒体/普通文件分片断点续传；**文件版本历史**（覆盖上传/在线编辑自动快照、手动快照、下载、恢复、保留策略） | 可选 WebDAV/同步协议仍待独立产品批次 |
+| FEAT-P0-4 | **文件网盘能力主体完成** | ✅ 多节点、回收站、分享、预览、上传、LOCAL/SFTP 全文检索；媒体/普通文件分片断点续传；**文件版本历史**；**WebDAV**（`/api/webdav/{nodeId}`，Bearer/Basic+API Token，PROPFIND/GET/PUT/DELETE/MKCOL/MOVE/COPY，复用路径授权） | 更深层同步协议/双向 ITSM 等仍属对外集成批次 |
 | FEAT-P0-5 | **Playbook 深度异步化已完成** | ✅ API 原子创建 `PlaybookRun` + `playbook.run` durable job 后立即返回；worker 持 lease/heartbeat，等待真实 CommandRequest 终态并逐步持久化 | 崩溃重领按已持久化 `commandRequestId` 续跑，不重复下发；步骤 retry 与链级 retry 均生效 |
 
 #### P1 — 有入口、业务深度不够
@@ -806,7 +806,7 @@ make logs SERVICE_PREFIX=vcontrolhub
 | FEAT-P1-BR | **备份细粒度恢复** | FULL 备份恢复支持选择范围：全部 / 仅数据库 / 仅文件；`buildRestoreExecution` 按 component 分发不同命令；UI 加三选一按钮组；schema/API/job-worker 全链路传参 | ✅ tsc + 119 tests |
 
 **验证**：tsc 0；playbook executor 测试通过；build 成功；服务 active；path smoke 11/11 通过。  
-**P0 主体全部完成（已审计修复）**：Playbook 主链已迁移为 durable worker，舰队监控历史已由后台独立采样；**P1 主体能力已完成**。仍保留为明确独立产品批次的方向：WebDAV/同步协议、知识库/RAG、云厂商账单 API 与 ITSM/IM 双向集成。
+**P0 主体全部完成（已审计修复）**：Playbook 主链已迁移为 durable worker，舰队监控历史已由后台独立采样；**P1 主体能力已完成**。仍保留为明确独立产品批次的方向：知识库/RAG、云厂商账单 API 与 ITSM/IM 双向集成。
 
 ### P1 全面补齐（2026-07-14）
 
@@ -820,6 +820,7 @@ make logs SERVICE_PREFIX=vcontrolhub
 | FEAT-P1-6 | 下载与文件页整合 | 最近完成下载 API、任务级权限校验、StorageNode 路径映射、文件页任务托盘和目录定位 |
 | FEAT-ALERT-ESCALATION | **告警多级升级/值班/确认** | AlertIncident 事件模型；规则 `escalationMinutes` + `onCallUserIds`；未确认超时 L2/L3 再通知；`/api/alert-incidents` 列表与 Acknowledge；评估 worker 串入升级 |
 | FEAT-BACKUP-MIGRATION | **跨环境备份迁移向导** | 导出 COMPLETED 备份为 `migration-packages/<id>/{manifest.json,payload.*}`（可选 tar.gz）；目标环境 validate（sha256/size）后 import 登记为 COMPLETED BackupRecord；恢复仍走 RESTORE 确认 |
+| FEAT-WEBDAV | **存储 WebDAV 协议** | `/api/webdav/{storageNodeId}/...`；自定义 server 转发 PROPFIND/MKCOL/MOVE/COPY；API Token `storage:read|write|delete`；复用 assertStorageAccess 与 LOCAL/SFTP 后端 |
 | FEAT-P1-7 | 岗位模板和数据范围 | 模板保存角色、权限、存储节点路径、读写删除范围、配额和单文件限制；用户面板一键应用 |
 | ARCH-P1-2 | 统一跨进程锁 | advisory lock 统一服务接管备份恢复和 VPS 备份计划锁，统一 namespace/key/release/error handling |
 

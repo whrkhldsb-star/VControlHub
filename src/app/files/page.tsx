@@ -22,7 +22,8 @@ import { getStorageFormOptions } from "@/app/storage/actions";
 import { getSftpSyncNode, syncSftpDirectoryEntries } from "@/lib/storage/sftp-sync";
 import { getServerLocale, t } from "@/lib/i18n/translations";
 import { FilesBrowserSpa } from "./files-browser-spa";
-import { PageShell, PageHeader } from "@/components/page-shell";
+import { PageShell, PageHeader, SurfacePanel } from "@/components/page-shell";
+import { WebDavSetupPanel } from "@/components/storage/webdav-setup-panel";
 import { StorageNodeManager } from "./storage-node-manager";
 
 export const dynamic = "force-dynamic";
@@ -242,6 +243,16 @@ export default async function FilesPage({ searchParams }: FilesPageProps) {
           </Link>
         </div>
       </PageHeader>
+
+      <div className="mb-5">
+        <SurfacePanel title={t("filesPage.webdav.title", locale)} description={t("filesPage.webdav.description", locale)}>
+          <WebDavSetupPanel
+            nodes={storage.nodes
+              .filter((n) => n.driver === "LOCAL" || n.driver === "SFTP")
+              .map((n) => ({ id: n.id, name: n.name, driver: n.driver }))}
+          />
+        </SurfacePanel>
+      </div>
 
       <section className="mb-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
               <article data-stat-card data-card className="p-4">

@@ -2,6 +2,17 @@
  * i18n dictionary: `filesPage.*` — Files & Storage management page (R26).
  */
 export const zh: Record<string, string> = {
+	"filesPage.webdav.title": "WebDAV 接入",
+	"filesPage.webdav.description": "用 API Token 把存储节点挂到 Finder / Cyberduck / rclone 等客户端。",
+	"filesPage.webdav.help": "选择 LOCAL/SFTP 节点后复制 URL。认证使用 Bearer API Token，或 Basic（密码填 Token）。权限仍走用户角色与路径授权。",
+	"filesPage.webdav.selectNode": "存储节点",
+	"filesPage.webdav.pickNode": "请选择节点",
+	"filesPage.webdav.noNodes": "暂无可用的 LOCAL/SFTP 存储节点。",
+	"filesPage.webdav.authBearer": "Authorization: Bearer <api-token>",
+	"filesPage.webdav.authBasic": "Basic 认证：用户名任意，密码为 API Token",
+	"filesPage.webdav.scopes": "Token 需包含 storage:read；写入再加 storage:write；删除再加 storage:delete",
+	"filesPage.webdav.methods": "支持 OPTIONS / PROPFIND / GET / PUT / DELETE / MKCOL / MOVE / COPY",
+	"filesPage.webdav.manageTokens": "管理 API Token",
 	"filesPage.title": "文件与存储管理",
 	"filesPage.description": "文件浏览、上传下载、存储节点管理一体化",
 	"filesPage.linkAuditLog": "审计日志",
@@ -96,6 +107,17 @@ export const zh: Record<string, string> = {
 };
 
 export const en: Record<string, string> = {
+	"filesPage.webdav.title": "WebDAV access",
+	"filesPage.webdav.description": "Mount a storage node in Finder / Cyberduck / rclone with an API token.",
+	"filesPage.webdav.help": "Pick a LOCAL/SFTP node and copy the URL. Authenticate with Bearer API token, or Basic (password = token). RBAC and path grants still apply.",
+	"filesPage.webdav.selectNode": "Storage node",
+	"filesPage.webdav.pickNode": "Select a node",
+	"filesPage.webdav.noNodes": "No LOCAL/SFTP storage nodes available.",
+	"filesPage.webdav.authBearer": "Authorization: Bearer <api-token>",
+	"filesPage.webdav.authBasic": "Basic auth: any username, password = API token",
+	"filesPage.webdav.scopes": "Token needs storage:read; add storage:write for uploads; storage:delete for deletes",
+	"filesPage.webdav.methods": "Supports OPTIONS / PROPFIND / GET / PUT / DELETE / MKCOL / MOVE / COPY",
+	"filesPage.webdav.manageTokens": "Manage API tokens",
 	"filesPage.title": "Files & Storage",
 	"filesPage.description": "Browse files, upload and download, and manage storage nodes in one place.",
 	"filesPage.linkAuditLog": "Audit log",
