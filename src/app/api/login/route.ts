@@ -7,6 +7,7 @@ import { auditUserAction, auditSystemAction } from "@/lib/audit/service";
 import { createLogger } from "@/lib/logging";
 import { checkRateLimitAsync, getClientIp, LOGIN_RATE_LIMIT, LOGIN_SLOW_RATE_LIMIT, isAccountLocked, recordLoginFailure, clearLoginFailure } from "@/lib/rate-limit";
 import { generateCsrfToken, getCsrfCookieName } from "@/lib/auth/csrf";
+import { isRequestHttps } from "@/lib/http/request-https";
 
 const logger = createLogger("api:login");
 // guardMode: login
@@ -118,13 +119,13 @@ export async function POST(request: Request) {
 				currentTeamId: user.currentTeamId,
 				remember: rememberSession,
 			});
-			const requestUrl = new URL(request.url);
+			const cookieSecure = isRequestHttps(request);
 			const params = new URLSearchParams({ next: nextPath });
 			const response = redirectWithRelativeLocation(`/login/verify-2fa?${params.toString()}`);
 			response.cookies.set(getPending2faCookieName(), pendingToken, {
 				httpOnly: true,
 				sameSite: "lax",
-				secure: requestUrl.protocol === "https:",
+				secure: cookieSecure,
 				path: "/",
 				maxAge: 5 * 60, // 5-minute expiry for 2FA pending token
 			});
@@ -141,12 +142,12 @@ export async function POST(request: Request) {
 			currentTeamId: user.currentTeamId,
 		}, { remember: rememberSession });
 
-		const requestUrl = new URL(request.url);
+		const cookieSecure = isRequestHttps(request);
 		const response = redirectWithRelativeLocation(nextPath);
 		response.cookies.set(getSessionCookieName(), token, {
 			httpOnly: true,
 			sameSite: "lax",
-			secure: requestUrl.protocol === "https:",
+			secure: cookieSecure,
 			path: "/",
 			maxAge: sessionMaxAge,
 		});
@@ -155,7 +156,7 @@ export async function POST(request: Request) {
 		response.cookies.set(getCsrfCookieName(), csrfToken, {
 			httpOnly: false,
 			sameSite: "lax",
-			secure: requestUrl.protocol === "https:",
+			secure: cookieSecure,
 			path: "/",
 			maxAge: sessionMaxAge,
 		});

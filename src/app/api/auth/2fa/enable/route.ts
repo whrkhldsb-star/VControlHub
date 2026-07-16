@@ -34,6 +34,23 @@ export async function POST(request: Request) {
 
       const { code, secret } = body;
 
+      // Refuse to overwrite an already-enabled 2FA secret. Re-setup requires
+      // disable (with a valid current TOTP) first so a stolen session cannot
+      // silently replace the authenticator seed.
+      const existing = await prisma.user.findUnique({
+        where: { id: session.userId },
+        select: { twoFactorEnabled: true, twoFactorSecret: true },
+      });
+      if (existing?.twoFactorEnabled && existing.twoFactorSecret) {
+        return NextResponse.json(
+          {
+            error:
+              "Two-factor authentication is already enabled, please disable it before re-setting up",
+          },
+          { status: 400 },
+        );
+      }
+
       const valid = verifyTOTP({ token: code, secret });
       if (!valid) {
         throw new ValidationError("Invalid verification code");

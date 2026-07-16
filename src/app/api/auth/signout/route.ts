@@ -4,6 +4,7 @@ import { z } from "zod";
 import { getSessionCookieName } from "@/lib/auth/session";
 import { withApiRoute } from "@/lib/http/api-guard";
 import { GENERAL_WRITE_LIMIT } from "@/lib/http/rate-limit-presets";
+import { isRequestHttps } from "@/lib/http/request-https";
 
 /**
  * POST /api/auth/signout — clears the session cookie and redirects.
@@ -22,7 +23,7 @@ export async function POST(request: Request) {
       response.cookies.set(getSessionCookieName(), "", {
         httpOnly: true,
         sameSite: "lax",
-        secure: requestUrl.protocol === "https:",
+        secure: isRequestHttps(request),
         path: "/",
         maxAge: 0,
       });

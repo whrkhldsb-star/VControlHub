@@ -129,4 +129,22 @@ describe("POST /api/login", () => {
     }));
     expect(response.headers.getSetCookie().join("\n")).toContain("test_pending_2fa=pending-token");
   });
+
+  it("sets Secure on session cookies when X-Forwarded-Proto is https behind Caddy", async () => {
+    const response = await POST(
+      new Request("http://127.0.0.1:3000/api/login", {
+        method: "POST",
+        headers: {
+          "content-type": "application/x-www-form-urlencoded",
+          "x-forwarded-proto": "https",
+        },
+        body: new URLSearchParams({ username: "admin", password: "secret", next: "/servers" }),
+      }),
+    );
+
+    expect(response.status).toBe(303);
+    const cookies = response.headers.getSetCookie().join("\n");
+    expect(cookies).toMatch(/test_session=session-token;[^\n]*Secure/i);
+    expect(cookies).toMatch(/csrf_token=csrf-token;[^\n]*Secure/i);
+  });
 });

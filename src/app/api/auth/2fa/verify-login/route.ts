@@ -13,6 +13,7 @@ import { generateCsrfToken, getCsrfCookieName } from "@/lib/auth/csrf";
 import { auditUserAction, auditSystemAction } from "@/lib/audit/service";
 import { checkRateLimitAsync, getClientIp, LOGIN_RATE_LIMIT } from "@/lib/rate-limit";
 import { apiCatch, apiError } from "@/lib/http/api-error";
+import { isRequestHttps } from "@/lib/http/request-https";
 
 const verifyLoginSchema = z.object({ code: z.string().min(1) });
 // guardMode: login
@@ -103,6 +104,7 @@ export async function POST(request: Request) {
 		const sessionMaxAge = await getConfiguredSessionTtlSeconds(rememberSession);
 		const token = await createSessionToken(fullSessionPayload, { remember: rememberSession });
 		const csrfToken = generateCsrfToken();
+		const cookieSecure = isRequestHttps(request);
 
 		// Clear the pending 2FA cookie
 		cookieStore.delete(getPending2faCookieName());
@@ -115,20 +117,20 @@ export async function POST(request: Request) {
 			sameSite: "lax",
 			path: "/",
 			maxAge: sessionMaxAge,
-			secure: request.url.startsWith("https://") || request.headers.get("x-forwarded-proto") === "https",
+			secure: cookieSecure,
 		});
 		response.cookies.set(getCsrfCookieName(), csrfToken, {
 			sameSite: "lax",
 			path: "/",
 			maxAge: sessionMaxAge,
-			secure: request.url.startsWith("https://") || request.headers.get("x-forwarded-proto") === "https",
+			secure: cookieSecure,
 		});
 		response.cookies.set(getPending2faCookieName(), "", {
 			httpOnly: true,
 			sameSite: "lax",
 			path: "/",
 			maxAge: 0,
-			secure: request.url.startsWith("https://") || request.headers.get("x-forwarded-proto") === "https",
+			secure: cookieSecure,
 		});
 		return response;
 	} catch (error) {

@@ -84,7 +84,12 @@ describe("POST /api/auth/2fa/enable", () => {
     requireSessionMock.mockReset();
     verifyTotpMock.mockReset();
     prismaMock.user.update.mockReset();
+    prismaMock.user.findUnique.mockReset();
     requireSessionMock.mockReturnValue({ userId: "u1" });
+    prismaMock.user.findUnique.mockResolvedValue({
+      twoFactorEnabled: false,
+      twoFactorSecret: null,
+    });
   });
   afterEach(() => vi.restoreAllMocks());
 
@@ -110,6 +115,20 @@ describe("POST /api/auth/2fa/enable", () => {
     expect(res.status).toBe(400);
     const body = await res.json();
     expect(body.error).toMatch(/Invalid verification code/);
+    expect(prismaMock.user.update).not.toHaveBeenCalled();
+  });
+
+  it("refuses to overwrite an already-enabled 2FA secret", async () => {
+    prismaMock.user.findUnique.mockResolvedValueOnce({
+      twoFactorEnabled: true,
+      twoFactorSecret: "EXISTING_SECRET",
+    });
+    verifyTotpMock.mockReturnValueOnce(true);
+    const res = await enableRoute.POST(jsonRequest({ code: "123456", secret: "NEW_SECRET" }));
+    expect(res.status).toBe(400);
+    const body = await res.json();
+    expect(body.error).toMatch(/already enabled/i);
+    expect(verifyTotpMock).not.toHaveBeenCalled();
     expect(prismaMock.user.update).not.toHaveBeenCalled();
   });
 
