@@ -1,11 +1,11 @@
 {
-  "generatedAt": "2026-07-16T04:00:34.294Z",
+  "generatedAt": "2026-07-16T04:14:15.409Z",
   "summary": {
     "permissionsInList": 54,
     "rolesDefined": 4,
     "apiRoutesAudited": 138,
     "pagesAudited": 47,
-    "callSitesAudited": 495,
+    "callSitesAudited": 505,
     "driftCount": 0,
     "driftByCode": {
       "perm-not-in-list": 0,
@@ -32,11 +32,11 @@
       "files": [
         {
           "path": "src/app/api/ai/chat/route.ts",
-          "line": 40
+          "line": 41
         },
         {
           "path": "src/app/api/ai/chat/route.ts",
-          "line": 40
+          "line": 41
         },
         {
           "path": "src/app/api/ai/conversations/route.ts",
@@ -53,9 +53,39 @@
         {
           "path": "src/app/api/ai/hosted-actions/route.ts",
           "line": 15
+        },
+        {
+          "path": "src/app/api/knowledge/[id]/route.ts",
+          "line": 18
+        },
+        {
+          "path": "src/app/api/knowledge/[id]/route.ts",
+          "line": 18
+        },
+        {
+          "path": "src/app/api/knowledge/route.ts",
+          "line": 49
+        },
+        {
+          "path": "src/app/api/knowledge/route.ts",
+          "line": 75
+        },
+        {
+          "path": "src/app/api/knowledge/route.ts",
+          "line": 49
+        },
+        {
+          "path": "src/app/api/knowledge/route.ts",
+          "line": 75
+        },
+        {
+          "path": "src/app/knowledge/page.tsx",
+          "line": 12
         }
       ],
-      "pages": [],
+      "pages": [
+        "knowledge"
+      ],
       "apiRoutes": [],
       "grantedToRoles": [
         "admin",
@@ -114,9 +144,23 @@
         {
           "path": "src/app/api/ai/providers/route.ts",
           "line": 35
+        },
+        {
+          "path": "src/app/api/knowledge/route.ts",
+          "line": 132
+        },
+        {
+          "path": "src/app/api/knowledge/route.ts",
+          "line": 132
+        },
+        {
+          "path": "src/app/knowledge/page.tsx",
+          "line": 19
         }
       ],
-      "pages": [],
+      "pages": [
+        "knowledge"
+      ],
       "apiRoutes": [],
       "grantedToRoles": [
         "admin",

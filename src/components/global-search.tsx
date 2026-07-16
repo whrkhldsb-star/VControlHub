@@ -40,6 +40,7 @@ const searchItemMetadata: Record<string, SearchMetadata> = {
 	"/media": { icon: "🎞️", keywordsKey: "search.keywords.media" },
 	"/image-bed": { icon: "🖼️", keywordsKey: "search.keywords.imageBed" },
 	"/ai": { icon: "🤖", keywordsKey: "search.keywords.ai" },
+	"/knowledge": { icon: "📚", keywordsKey: "search.keywords.knowledge" },
 	"/announcements": { icon: "📣", keywordsKey: "search.keywords.announcements" },
 	"/tickets": { icon: "🎫", keywordsKey: "search.keywords.tickets" },
 	"/requests": { icon: "✅", keywordsKey: "search.keywords.requests" },

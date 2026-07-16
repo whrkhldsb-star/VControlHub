@@ -9,6 +9,7 @@ import { withApiRoute } from "@/lib/http/api-guard";
 import { checkRateLimitAsync, getClientIp } from "@/lib/rate-limit";
 import { prisma } from "@/lib/db";
 import { getOpenAIToolsFormat } from "@/lib/ai/hosted-tools";
+import { buildKnowledgeContextForPrompt } from "@/lib/ai/knowledge";
 import { AppError, NotFoundError, ValidationError } from "@/lib/errors";
 import {
   parseToolCall,
@@ -79,6 +80,22 @@ export async function POST(request: Request) {
 
       // ── AI 请求 + Tool Calling 流 ──────────────────────────────
       const currentMessages = [...historyMessages];
+      try {
+        const { context: knowledgeContext } = await buildKnowledgeContextForPrompt({
+          query: userText,
+          session: session!,
+          limit: 4,
+        });
+        if (knowledgeContext) {
+          currentMessages.unshift({
+            role: "system",
+            content: knowledgeContext,
+          });
+        }
+      } catch {
+        // knowledge retrieval is best-effort; never block chat
+      }
+
       let totalInputTokens = 0;
       let totalOutputTokens = 0;
       const allToolResults: Array<{

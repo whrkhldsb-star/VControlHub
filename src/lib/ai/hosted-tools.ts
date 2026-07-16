@@ -25,7 +25,8 @@ export type HostedActionType =
   | "list_files"
   | "search_files"
   | "read_file"
-  | "get_docker_logs";
+  | "get_docker_logs"
+  | "search_knowledge";
 
 export interface HostedTool {
   name: string;
@@ -288,6 +289,24 @@ export const HOSTED_TOOLS: HostedTool[] = [
     description: "Read recent Docker container logs from a VPS.",
     parameters: { type: "object", properties: { serverId: { type: "string" }, serverQuery: { type: "string" }, containerId: { type: "string" }, tail: { type: "number" } }, required: ["containerId"] },
     riskLevel: "low", autoApproved: true, actionType: "get_docker_logs", actionName: "Read Docker logs",
+  },
+
+  {
+    name: "search_knowledge",
+    description: "Search the organization's knowledge base / runbooks (RAG). Use when the user asks about internal procedures, architecture notes, SOPs, or previously stored operational knowledge. Returns relevant document excerpts with titles.",
+    parameters: {
+      type: "object",
+      properties: {
+        query: { type: "string", description: "Natural language search query" },
+        knowledgeBaseId: { type: "string", description: "Optional knowledge base id to scope search" },
+        limit: { type: "number", description: "Max excerpts, default 5, max 8" },
+      },
+      required: ["query"],
+    },
+    riskLevel: "low",
+    autoApproved: true,
+    actionType: "search_knowledge",
+    actionName: "Search knowledge base",
   },
 ];
 

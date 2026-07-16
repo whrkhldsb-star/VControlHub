@@ -42,6 +42,7 @@ import { zh as dockerZh, en as dockerEn } from "./dictionaries/docker";
 import { zh as errorZh, en as errorEn } from "./dictionaries/error";
 import { zh as fileUploadDropzoneZh, en as fileUploadDropzoneEn } from "./dictionaries/file-upload-dropzone";
 import { zh as healthpageZh, en as healthpageEn } from "./dictionaries/health-page";
+import { zh as knowledgepageZh, en as knowledgepageEn } from "./dictionaries/knowledge-page";
 import { zh as imagebedZh, en as imagebedEn } from "./dictionaries/image-bed";
 import { zh as imagebedpageZh, en as imagebedpageEn } from "./dictionaries/image-bed-page";
 import { zh as languagetoggleZh, en as languagetoggleEn } from "./dictionaries/language-toggle";
@@ -117,6 +118,7 @@ const zh: Record<string, string> = {
   ...fileversionhistoryZh,
 	...filespageZh,
 	...healthpageZh,
+  ...knowledgepageZh,
 	...imagebedZh,
 	...imagebedpageZh,
 	...languagetoggleZh,
@@ -195,6 +197,7 @@ const en: Record<string, string> = {
   ...fileversionhistoryEn,
 	...filespageEn,
 	...healthpageEn,
+  ...knowledgepageEn,
 	...imagebedEn,
 	...imagebedpageEn,
 	...languagetoggleEn,

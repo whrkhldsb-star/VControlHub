@@ -108,6 +108,8 @@ model User {
   deploymentExports      DeploymentExport[]
   aiProviders            AiProvider[]
   aiConversations        AiConversation[]
+  knowledgeBasesCreated  KnowledgeBase[]     @relation("KnowledgeBaseCreator")
+  knowledgeDocsCreated   KnowledgeDocument[] @relation("KnowledgeDocumentCreator")
   aiHostedRequests       AiHostedAction[]        @relation("AiHostedRequester")
   aiHostedApprovals      AiHostedAction[]        @relation("AiHostedApprover")
   costEntries            CostEntry[]             @relation("CostEntryCreatedBy")
@@ -151,6 +153,7 @@ model Team {
   playbookRuns    PlaybookRun[]    @relation("TeamPlaybookRuns")
   notifications   Notification[]   @relation("TeamNotifications")
   auditLogs       AuditLog[]       @relation("TeamAuditLogs")
+  knowledgeBases  KnowledgeBase[]  @relation("TeamKnowledgeBases")
   createdAt       DateTime         @default(now())
   updatedAt       DateTime         @updatedAt
 
@@ -1789,3 +1792,65 @@ model RoleTemplate {
   @@index([name])
   @@map("role_templates")
 }
+
+// TR: AI Knowledge Base / RAG — lexical retrieval over chunked documents.
+// Embeddings optional later; current retrieval uses PostgreSQL full-text + ranking.
+model KnowledgeBase {
+  id          String              @id @default(cuid())
+  name        String
+  description String?
+  isActive    Boolean             @default(true)
+  teamId      String?
+  team        Team?               @relation("TeamKnowledgeBases", fields: [teamId], references: [id], onDelete: SetNull)
+  createdBy   String?
+  creator     User?               @relation("KnowledgeBaseCreator", fields: [createdBy], references: [id], onDelete: SetNull)
+  createdAt   DateTime            @default(now())
+  updatedAt   DateTime            @updatedAt
+  documents   KnowledgeDocument[]
+  chunks      KnowledgeChunk[]
+
+  @@index([teamId, isActive])
+  @@index([createdBy, updatedAt])
+  @@map("knowledge_bases")
+}
+
+model KnowledgeDocument {
+  id             String           @id @default(cuid())
+  knowledgeBaseId String
+  knowledgeBase  KnowledgeBase    @relation(fields: [knowledgeBaseId], references: [id], onDelete: Cascade)
+  title          String
+  sourceType     String           @default("TEXT") // TEXT | MARKDOWN | NOTE
+  content        String
+  contentHash    String
+  status         String           @default("READY") // PENDING | READY | FAILED
+  errorMessage   String?
+  chunkCount     Int              @default(0)
+  createdBy      String?
+  creator        User?            @relation("KnowledgeDocumentCreator", fields: [createdBy], references: [id], onDelete: SetNull)
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
+  chunks         KnowledgeChunk[]
+
+  @@index([knowledgeBaseId, updatedAt])
+  @@index([contentHash])
+  @@map("knowledge_documents")
+}
+
+model KnowledgeChunk {
+  id              String            @id @default(cuid())
+  knowledgeBaseId String
+  knowledgeBase   KnowledgeBase     @relation(fields: [knowledgeBaseId], references: [id], onDelete: Cascade)
+  documentId      String
+  document        KnowledgeDocument @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  chunkIndex      Int
+  content         String
+  tokenEstimate   Int               @default(0)
+  // plain text for FTS; generated search vector stored as text keywords for portability
+  searchText      String
+  createdAt       DateTime          @default(now())
+
+  @@unique([documentId, chunkIndex])
+  @@index([knowledgeBaseId, chunkIndex])
+  @@map("knowledge_chunks")
+}
+

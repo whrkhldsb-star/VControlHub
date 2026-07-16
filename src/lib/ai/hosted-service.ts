@@ -123,6 +123,8 @@ function requiredPermissionForAction(actionType: string): Permission {
   if (actionType === "run_playbook") return "playbook:run";
   if (actionType === "query_traffic") return "health:read";
   if (actionType === "manage_cron") return "task:read";
+  if (actionType === "search_knowledge") return "ai:chat";
+  if (actionType === "list_files" || actionType === "search_files" || actionType === "read_file") return "storage:read";
   return "server:ssh";
 }
 
@@ -140,6 +142,7 @@ const HOSTED_ACTION_TYPES = new Set<HostedActionType>([
   "search_files",
   "read_file",
   "get_docker_logs",
+  "search_knowledge",
 ]);
 
 function isHostedActionType(actionType: string): actionType is HostedActionType {
@@ -188,6 +191,45 @@ export async function executeSafeAction(
 ): Promise<{ success: boolean; data: unknown; error?: string }> {
   if (context && !sessionHasPermission(context.session, context.requiredPermission ?? requiredPermissionForAction(action.actionType))) {
     return { success: false, data: null, error: action.actionType === "list_servers" ? "You do not have server read permission" : "You do not have server SSH execution permission" };
+  }
+
+  if (action.actionType === "search_knowledge") {
+    const query = typeof action.params.query === "string" ? action.params.query : "";
+    const knowledgeBaseId =
+      typeof action.params.knowledgeBaseId === "string" ? action.params.knowledgeBaseId : undefined;
+    const limitRaw = action.params.limit;
+    const limit =
+      typeof limitRaw === "number"
+        ? limitRaw
+        : typeof limitRaw === "string"
+          ? Number(limitRaw)
+          : 5;
+    const { searchKnowledge } = await import("./knowledge");
+    const hits = await searchKnowledge({
+      query,
+      knowledgeBaseId,
+      limit: Number.isFinite(limit) ? limit : 5,
+      session: context?.session
+        ? {
+            userId: context.session.userId,
+            roles: context.session.roles,
+            currentTeamId: null,
+          }
+        : undefined,
+    });
+    return {
+      success: true,
+      data: {
+        hits: hits.map((h) => ({
+          knowledgeBase: h.knowledgeBaseName,
+          document: h.documentTitle,
+          chunkIndex: h.chunkIndex,
+          score: h.score,
+          excerpt: h.content.slice(0, 1200),
+        })),
+        count: hits.length,
+      },
+    };
   }
 
   if (action.actionType === "list_servers") {

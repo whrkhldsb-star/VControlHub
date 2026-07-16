@@ -6,6 +6,7 @@
  */
 
 export const zh: Record<string, string> = {
+	"nav.knowledge": "知识库",
 	"nav.ai": "AI 助手",
 	"nav.ai-ops": "智能运维",
 	"nav.alert-rules": "智能告警",
@@ -53,6 +54,7 @@ export const zh: Record<string, string> = {
 };
 
 export const en: Record<string, string> = {
+	"nav.knowledge": "Knowledge",
 	"nav.ai": "AI Assistant",
 	"nav.ai-ops": "AI Ops",
 	"nav.alert-rules": "Alert Rules",
