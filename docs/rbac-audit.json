@@ -1,11 +1,11 @@
 {
-  "generatedAt": "2026-07-16T02:24:44.829Z",
+  "generatedAt": "2026-07-16T02:46:05.422Z",
   "summary": {
     "permissionsInList": 54,
     "rolesDefined": 4,
     "apiRoutesAudited": 138,
     "pagesAudited": 47,
-    "callSitesAudited": 483,
+    "callSitesAudited": 487,
     "driftCount": 0,
     "driftByCode": {
       "perm-not-in-list": 0,
@@ -972,6 +972,22 @@
     {
       "permission": "docker:manage",
       "files": [
+        {
+          "path": "src/app/api/docker/compose/route.ts",
+          "line": 35
+        },
+        {
+          "path": "src/app/api/docker/compose/route.ts",
+          "line": 56
+        },
+        {
+          "path": "src/app/api/docker/compose/route.ts",
+          "line": 35
+        },
+        {
+          "path": "src/app/api/docker/compose/route.ts",
+          "line": 56
+        },
         {
           "path": "src/app/api/docker/containers/route.ts",
           "line": 47

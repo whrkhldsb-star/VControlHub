@@ -736,14 +736,14 @@ make logs SERVICE_PREFIX=vcontrolhub
 | 维度 | 判断 |
 |---|---|
 | 已很强 | 命令审批链、模板/部署、文件与分享、备份/审计、RBAC 粒度、多租户 Team scope |
-| 仍偏弱 | 远程运行时（Docker 舰队 Compose 生命周期）、自动化编排深度（Playbook 主链 worker 化）、网盘级文件能力（版本历史/断点续传）、工单/AI 业务闭环 |
+| 仍偏弱 | 对外集成深度（WebDAV/知识库 RAG/云账单 API/ITSM 双向）、告警值班路由与跨环境迁移向导 |
 
 #### P0 — 最影响「能不能当主力系统用」
 
 | ID | 能力缺口 | 现状 | 建议方向 |
 |---|---|---|---|
 | FEAT-P0-1 | **多租户 / 团队数据隔离** | ✅ 核心模型、任务列表/CSV/events、分享审计、备份记录/计划/恢复/保留策略已接入 Team scope；普通任务读者仅见本人任务 | 继续对新增模型执行 route/service 双层 scope 审查 |
-| FEAT-P0-2 | **远程 Docker + Quick Services 节点绑定已完成** | ✅ 容器/日志/stats/network/volume 支持选择远程 VPS；Compose 当前按标签聚合到容器操作；**Quick Services 可选择本机或远程 VPS**（`instanceKey/serverId`、SSH 执行 docker、安装/启停/更新/卸载全链路） | 真实 Compose project 生命周期（project up/down/ps 作为独立产品批次）仍待后续 |
+| FEAT-P0-2 | **远程 Docker + Quick Services + Compose 项目生命周期已完成** | ✅ 容器/日志/stats/network/volume 支持选择远程 VPS；**Compose project 级 ps/up/down/start/stop/restart**（优先 `docker compose -p`，CLI 不可用时按项目标签 Engine 回退）；**Quick Services 可选择本机或远程 VPS** | 可选：从仓库拉 compose 文件一键部署（与现有 project 生命周期独立） |
 | FEAT-P0-3 | **舰队监控后台采样已完成** | ✅ 远程节点实时资源、CPU/内存/磁盘历史、节点过滤告警及 Playbook 联动；独立 `health.sample` durable worker 每 5 分钟采样，不再依赖页面访问，保留 30 天并记录离线断点 | 后续可在现有样本上增加跨节点统一容量预测 |
 | FEAT-P0-4 | **文件网盘能力主体完成** | ✅ 多节点、回收站、分享、预览、上传、LOCAL/SFTP 全文检索；媒体/普通文件分片断点续传；**文件版本历史**（覆盖上传/在线编辑自动快照、手动快照、下载、恢复、保留策略） | 可选 WebDAV/同步协议仍待独立产品批次 |
 | FEAT-P0-5 | **Playbook 深度异步化已完成** | ✅ API 原子创建 `PlaybookRun` + `playbook.run` durable job 后立即返回；worker 持 lease/heartbeat，等待真实 CommandRequest 终态并逐步持久化 | 崩溃重领按已持久化 `commandRequestId` 续跑，不重复下发；步骤 retry 与链级 retry 均生效 |
@@ -806,7 +806,7 @@ make logs SERVICE_PREFIX=vcontrolhub
 | FEAT-P1-BR | **备份细粒度恢复** | FULL 备份恢复支持选择范围：全部 / 仅数据库 / 仅文件；`buildRestoreExecution` 按 component 分发不同命令；UI 加三选一按钮组；schema/API/job-worker 全链路传参 | ✅ tsc + 119 tests |
 
 **验证**：tsc 0；playbook executor 测试通过；build 成功；服务 active；path smoke 11/11 通过。  
-**P0 主体全部完成（已审计修复）**：Playbook 主链已迁移为 durable worker，舰队监控历史已由后台独立采样；**P1 主体能力已完成**。仍保留为明确独立产品批次的方向：真实 Compose project 生命周期、WebDAV/同步协议、知识库/RAG、云厂商账单 API 与 ITSM/IM 双向集成。
+**P0 主体全部完成（已审计修复）**：Playbook 主链已迁移为 durable worker，舰队监控历史已由后台独立采样；**P1 主体能力已完成**。仍保留为明确独立产品批次的方向：WebDAV/同步协议、知识库/RAG、云厂商账单 API 与 ITSM/IM 双向集成。
 
 ### P1 全面补齐（2026-07-14）
 

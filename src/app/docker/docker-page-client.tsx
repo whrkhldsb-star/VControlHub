@@ -30,6 +30,8 @@ export default function DockerPage({ initialServers }: { initialServers: { id: s
 	const [logsId, setLogsId] = useState<string | null>(null);
 	const [logs, setLogs] = useState("");
 	const [actionLoading, setActionLoading] = useState<string | null>(null);
+	const [projectActionLoading, setProjectActionLoading] = useState<string | null>(null);
+	const [projectMessage, setProjectMessage] = useState<string>("");
 	const [stats, setStats] = useState<Record<string, ContainerStats>>({});
 	const [statsAutoRefresh, setStatsAutoRefresh] = useState(false);
 	const [pendingRemoval, setPendingRemoval] = useState<Container | null>(null);
@@ -122,6 +124,48 @@ export default function DockerPage({ initialServers }: { initialServers: { id: s
 		setPendingRemoval(null);
 		await handleAction(container, "remove");
 	};
+
+	const handleProjectAction = async (
+		project: string,
+		action: "up" | "down" | "start" | "stop" | "restart" | "ps",
+	) => {
+		if (action === "down") {
+			const ok = window.confirm(
+				t("dockerPage.project.downConfirm").replace("{project}", project),
+			);
+			if (!ok) return;
+		}
+		setProjectActionLoading(`${project}:${action}`);
+		setError("");
+		setProjectMessage("");
+		try {
+			const data = await csrfFetch("/api/docker/compose", {
+				method: "POST",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify({
+					project,
+					action,
+					...(selectedServerId ? { serverId: selectedServerId } : {}),
+				}),
+			});
+			const modeLabel =
+				data.mode === "compose-cli"
+					? t("dockerPage.project.modeCli")
+					: t("dockerPage.project.modeFallback");
+			const msg = typeof data.message === "string" ? data.message : t("dockerPage.project.success")
+				.replace("{project}", project)
+				.replace("{message}", action);
+			setProjectMessage(`${msg} (${modeLabel})`);
+			if (action !== "ps") {
+				await fetchContainers();
+			}
+		} catch (err) {
+			setError(err instanceof Error ? err.message : t("dockerPage.project.failed"));
+		} finally {
+			setProjectActionLoading(null);
+		}
+	};
+
 
 	const fetchLogs = async (id: string) => {
 		setLogsId(id);
@@ -263,6 +307,7 @@ export default function DockerPage({ initialServers }: { initialServers: { id: s
 			</div>
 
 			{error && <div className="mb-4 rounded-xl border border-[var(--danger-border)] bg-[var(--danger-bg)] px-4 py-3 text-sm text-[var(--danger)]">{error}</div>}
+			{projectMessage && <div className="mb-4 rounded-xl border border-[var(--success-border)] bg-[var(--success-bg)] px-4 py-3 text-sm text-[var(--success)]">{projectMessage}</div>}
 
 			<DockerResourcesPanel serverId={selectedServerId} />
 
@@ -274,9 +319,43 @@ export default function DockerPage({ initialServers }: { initialServers: { id: s
 				<div className="space-y-4">
 					{grouped.map((group) => (
 						<section key={group.project} data-card className="p-4">
-							<div className="mb-3">
-								<h2 className="text-sm font-medium text-[var(--text-primary)]">{group.project}</h2>
-								<p className="text-[11px] text-[var(--text-muted)]">{t("dockerPage.group.subtitle").replace("{count}", String(group.containers.length))}</p>
+							<div className="mb-3 flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+								<div>
+									<h2 className="text-sm font-medium text-[var(--text-primary)]">{group.project}</h2>
+									<p className="text-[11px] text-[var(--text-muted)]">
+										{t("dockerPage.group.subtitle").replace("{count}", String(group.containers.length))}
+										{" · "}
+									{t("dockerPage.project.runningOf")
+										.replace("{running}", String(group.containers.filter((c) => c.State === "running").length))
+										.replace("{total}", String(group.containers.length))}
+									</p>
+								</div>
+								<div className="flex flex-wrap items-center gap-2" aria-label={t("dockerPage.project.actions")}>
+									{(
+										[
+											["ps", "dockerPage.project.ps", "bg-[var(--surface-elevated)] text-[var(--text-secondary)] border border-[var(--border)]"],
+											["up", "dockerPage.project.up", "bg-[var(--success-bg)] text-[var(--success)]"],
+											["start", "dockerPage.project.start", "bg-[var(--success-bg)] text-[var(--success)]"],
+											["stop", "dockerPage.project.stop", "bg-[var(--warning-bg)] text-[var(--warning)]"],
+											["restart", "dockerPage.project.restart", "bg-[var(--accent-bg)] text-[var(--accent)]"],
+											["down", "dockerPage.project.down", "bg-[var(--danger-bg)] text-[var(--danger)]"],
+										] as const
+									).map(([action, labelKey, cls]) => {
+										const busyKey = `${group.project}:${action}`;
+										const busy = projectActionLoading === busyKey;
+										return (
+											<button
+												key={action}
+												type="button"
+												onClick={() => void handleProjectAction(group.project, action)}
+												disabled={projectActionLoading !== null}
+												className={`min-h-11 rounded-lg px-2.5 py-1 text-[10px] font-medium transition disabled:opacity-50 ${cls}`}
+											>
+												{busy ? t("dockerPage.project.busy") : t(labelKey)}
+											</button>
+										);
+									})}
+								</div>
 							</div>
 							<div className="space-y-3">
 								{group.containers.map((c) => {
