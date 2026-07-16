@@ -113,7 +113,8 @@ function buildContentSecurityPolicy(nonce: string) {
 		`script-src 'self' 'nonce-${nonce}' 'strict-dynamic' https://cdn.jsdelivr.net https://static.cloudflareinsights.com`,
 		// Tailwind and several existing components still use inline style attributes.
 		"style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net",
-		"img-src 'self' data: blob: https://chart.googleapis.com https://api.qrserver.com",
+		// 2FA QR is a same-origin data: URL from /api/auth/2fa/setup (no third-party QR hosts).
+		"img-src 'self' data: blob:",
 		"font-src 'self' data: https://fonts.scalar.com",
 		"connect-src 'self' ws: wss:",
 		"media-src 'self' blob:",

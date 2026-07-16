@@ -57,7 +57,15 @@ describe("POST /api/auth/2fa/verify-login", () => {
 		checkRateLimitMock.mockReturnValue({ allowed: true });
 		getClientIpMock.mockReturnValue("127.0.0.1");
 		verifyPending2faTokenMock.mockResolvedValue(sessionPayload);
-		prismaMock.user.findUnique.mockResolvedValue({ twoFactorEnabled: true, twoFactorSecret: "secret" });
+		prismaMock.user.findUnique.mockResolvedValue({
+			twoFactorEnabled: true,
+			twoFactorSecret: "secret",
+			status: "ACTIVE",
+			username: "admin",
+			mustChangePassword: false,
+			currentTeamId: null,
+			roles: [{ role: { key: "admin" } }],
+		});
 		verifyTotpMock.mockReturnValue(true);
 		createSessionTokenMock.mockResolvedValue("session-token");
 		getConfiguredSessionTtlSecondsMock.mockResolvedValue(7 * 24 * 60 * 60);
@@ -72,7 +80,16 @@ describe("POST /api/auth/2fa/verify-login", () => {
 		}));
 
 		expect(response.status).toBe(200);
-		expect(createSessionTokenMock).toHaveBeenCalledWith(sessionPayload, { remember: false });
+		expect(createSessionTokenMock).toHaveBeenCalledWith(
+			{
+				userId: "u_1",
+				username: "admin",
+				roles: ["admin"],
+				mustChangePassword: false,
+				currentTeamId: null,
+			},
+			{ remember: false },
+		);
 		expect(getConfiguredSessionTtlSecondsMock).toHaveBeenCalledWith(false);
 		const setCookies = response.headers.getSetCookie();
 		expect(setCookies).toHaveLength(3);
@@ -87,6 +104,63 @@ describe("POST /api/auth/2fa/verify-login", () => {
 		expect(setCookies[2]).toContain("Max-Age=0");
 	});
 
+	it("reloads live roles from DB instead of trusting the pending-2fa token snapshot", async () => {
+		verifyPending2faTokenMock.mockResolvedValueOnce({
+			...sessionPayload,
+			roles: ["admin", "operator"],
+			username: "stale-name",
+			mustChangePassword: true,
+		});
+		prismaMock.user.findUnique.mockResolvedValueOnce({
+			twoFactorEnabled: true,
+			twoFactorSecret: "secret",
+			status: "ACTIVE",
+			username: "admin",
+			mustChangePassword: false,
+			currentTeamId: "team_1",
+			roles: [{ role: { key: "viewer" } }],
+		});
+
+		const response = await POST(new Request("https://app.example.test/api/auth/2fa/verify-login", {
+			method: "POST",
+			headers: { "content-type": "application/json", "x-forwarded-proto": "https" },
+			body: JSON.stringify({ code: "123456" }),
+		}));
+
+		expect(response.status).toBe(200);
+		expect(createSessionTokenMock).toHaveBeenCalledWith(
+			{
+				userId: "u_1",
+				username: "admin",
+				roles: ["viewer"],
+				mustChangePassword: false,
+				currentTeamId: "team_1",
+			},
+			{ remember: false },
+		);
+	});
+
+	it("rejects when the user is disabled after password login but before 2FA", async () => {
+		prismaMock.user.findUnique.mockResolvedValueOnce({
+			twoFactorEnabled: true,
+			twoFactorSecret: "secret",
+			status: "DISABLED",
+			username: "admin",
+			mustChangePassword: false,
+			currentTeamId: null,
+			roles: [{ role: { key: "admin" } }],
+		});
+
+		const response = await POST(new Request("https://app.example.test/api/auth/2fa/verify-login", {
+			method: "POST",
+			headers: { "content-type": "application/json" },
+			body: JSON.stringify({ code: "123456" }),
+		}));
+
+		expect(response.status).toBe(401);
+		expect(createSessionTokenMock).not.toHaveBeenCalled();
+	});
+
 	it("preserves remember-me across 2FA and sets 30-day cookies", async () => {
 		verifyPending2faTokenMock.mockResolvedValueOnce({ ...sessionPayload, remember: true });
 		getConfiguredSessionTtlSecondsMock.mockResolvedValueOnce(30 * 24 * 60 * 60);
@@ -98,7 +172,16 @@ describe("POST /api/auth/2fa/verify-login", () => {
 		}));
 
 		expect(response.status).toBe(200);
-		expect(createSessionTokenMock).toHaveBeenCalledWith(sessionPayload, { remember: true });
+		expect(createSessionTokenMock).toHaveBeenCalledWith(
+			{
+				userId: "u_1",
+				username: "admin",
+				roles: ["admin"],
+				mustChangePassword: false,
+				currentTeamId: null,
+			},
+			{ remember: true },
+		);
 		expect(getConfiguredSessionTtlSecondsMock).toHaveBeenCalledWith(true);
 		const cookies = response.headers.getSetCookie().join("\n");
 		expect(cookies).toContain("vcontrolhub_session=session-token");

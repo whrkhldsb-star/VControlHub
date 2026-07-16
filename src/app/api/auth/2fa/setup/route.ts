@@ -1,11 +1,12 @@
 /**
- * 2FA/TOTP Setup — generates a new TOTP secret and otpauth URL.
- * POST /api/auth/2fa/setup — generate secret
+ * 2FA/TOTP Setup — generates a new TOTP secret, otpauth URL, and local QR data URL.
+ * POST /api/auth/2fa/setup — generate secret + offline QR (no third-party image host)
  * PUT  /api/auth/2fa/setup — verify a code against a secret
  */
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { generateSecret, verify as verifyTOTP } from "otplib";
+import QRCode from "qrcode";
 
 import { prisma } from "@/lib/db";
 import { withApiRoute } from "@/lib/http/api-guard";
@@ -51,8 +52,14 @@ export async function POST(request: Request) {
 
       const secret = generateSecret();
       const otpauthUrl = buildOtpauthUrl(secret, session.username || "user");
+      // Generate QR offline so the TOTP secret never leaves the host as a third-party query string.
+      const qrDataUrl = await QRCode.toDataURL(otpauthUrl, {
+        errorCorrectionLevel: "M",
+        margin: 1,
+        width: 200,
+      });
 
-      return NextResponse.json({ secret, otpauthUrl });
+      return NextResponse.json({ secret, otpauthUrl, qrDataUrl });
     },
   );
 }

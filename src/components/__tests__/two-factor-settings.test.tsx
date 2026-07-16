@@ -54,7 +54,7 @@ describe("TwoFactorSettings", () => {
 	it("keeps the setup panel open when enabling 2FA fails", async () => {
 		const user = userEvent.setup();
 		vi.mocked(csrfFetch)
-			.mockResolvedValueOnce({ secret: "ABC123", otpauthUrl: "otpauth://totp/demo" })
+			.mockResolvedValueOnce({ secret: "ABC123", otpauthUrl: "otpauth://totp/demo", qrDataUrl: "data:image/png;base64,AAA" })
 			.mockResolvedValueOnce({ valid: true })
 			.mockRejectedValueOnce(new Error("启用失败"));
 
@@ -75,7 +75,7 @@ describe("TwoFactorSettings", () => {
 	it("refreshes server-rendered settings after successfully enabling 2FA without a full reload", async () => {
 		const user = userEvent.setup();
 		vi.mocked(csrfFetch)
-			.mockResolvedValueOnce({ secret: "ABC123", otpauthUrl: "otpauth://totp/demo" })
+			.mockResolvedValueOnce({ secret: "ABC123", otpauthUrl: "otpauth://totp/demo", qrDataUrl: "data:image/png;base64,AAA" })
 			.mockResolvedValueOnce({ valid: true })
 			.mockResolvedValueOnce({ success: true });
 

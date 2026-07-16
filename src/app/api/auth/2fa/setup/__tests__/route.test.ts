@@ -45,6 +45,7 @@ describe("/api/auth/2fa/setup", () => {
 			expect(json.secret).toBe("SECRETABC123");
 			expect(json.otpauthUrl).toContain("otpauth://totp/");
 			expect(json.otpauthUrl).toContain("secret=SECRETABC123");
+			expect(json.qrDataUrl).toMatch(/^data:image\/png;base64,/);
 		});
 
 		it("returns 400 when 2FA is already enabled", async () => {

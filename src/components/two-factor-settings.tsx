@@ -16,11 +16,10 @@ export function TwoFactorSettings({ enabled }: { enabled: boolean }) {
 	const router = useRouter();
 	const [step, setStep] = useState<Step>("idle");
 	const [secret, setSecret] = useState("");
-	const [otpauthUrl, setOtpauthUrl] = useState("");
+	const [qrDataUrl, setQrDataUrl] = useState("");
 	const [code, setCode] = useState("");
 	const [loading, setLoading] = useState(false);
 	const [error, setError] = useState("");
-	// QR code rendered via Google Charts API (replaces canvas placeholder)
 
 	const messageFromError = (err: unknown, fallback: string) => err instanceof Error ? err.message : fallback;
 
@@ -30,8 +29,12 @@ export function TwoFactorSettings({ enabled }: { enabled: boolean }) {
 		try {
 			const data = await csrfFetch("/api/auth/2fa/setup", { method: "POST" });
 			if (data.error) { setError(data.error); return; }
+			if (typeof data.secret !== "string" || typeof data.qrDataUrl !== "string") {
+				setError(t("auth.2fa-error-request-failed"));
+				return;
+			}
 			setSecret(data.secret);
-			setOtpauthUrl(data.otpauthUrl);
+			setQrDataUrl(data.qrDataUrl);
 			setStep("setup");
 		} catch (err) { setError(messageFromError(err, t("auth.2fa-error-request-failed"))); }
 		finally { setLoading(false); }
@@ -120,14 +123,16 @@ export function TwoFactorSettings({ enabled }: { enabled: boolean }) {
 					<p className="text-xs text-[var(--text-secondary)]">
 						{t("auth.2fa-scan-qr-instruction")}
 					</p>
-					<Image
-						src={`https://chart.googleapis.com/chart?chs=200x200&cht=qr&chl=${encodeURIComponent(otpauthUrl)}`}
-						alt="2FA QR Code"
-						className="mx-auto rounded-lg border border-[var(--border-subtle)]"
-						width={200}
-						height={200}
-						unoptimized
-					/>
+					{qrDataUrl ? (
+						<Image
+							src={qrDataUrl}
+							alt="2FA QR Code"
+							className="mx-auto rounded-lg border border-[var(--border-subtle)]"
+							width={200}
+							height={200}
+							unoptimized
+						/>
+					) : null}
 					<div className="bg-[var(--surface-subtle)] rounded-lg p-3 border border-[var(--border)]">
 						<p className="text-[10px] text-[var(--text-muted)] mb-1">{t("auth.2fa-secret-label")}</p>
 						<code className="text-xs text-[var(--color-action)] break-all select-all">{secret}</code>
@@ -153,7 +158,7 @@ export function TwoFactorSettings({ enabled }: { enabled: boolean }) {
 						</ActionButton>
 					</div>
 					<button
-						onClick={() => { setStep("idle"); setCode(""); setError(""); }}
+						onClick={() => { setStep("idle"); setCode(""); setError(""); setQrDataUrl(""); }}
 						className="text-xs text-[var(--text-muted)] hover:text-[var(--text-secondary)] transition"
 					>
 						{t("auth.2fa-cancel")}

@@ -38,82 +38,28 @@ describe("login action", () => {
     vi.clearAllMocks();
   });
 
-  it("stores session cookie and redirects after successful login", async () => {
-	vi.mocked(authenticateUser).mockResolvedValueOnce({
-		id: "u_1",
-		username: "admin",
-		displayName: "Admin",
-		mustChangePassword: true,
-		twoFactorEnabled: false,
-		twoFactorSecret: null,
-		status: "PENDING_PASSWORD_RESET",
-		currentTeamId: null,
-		roles: ["admin"],
-		permissions: ["command:execute"],
-		preferences: {
-			defaultPage: "/",
-			dashboardWidgets: ["server-status", "quick-links", "analytics", "audit-log"],
-			notificationsEnabled: true,
-			notificationSound: true,
-			autoRefreshInterval: 30,
-			autoProbeEnabled: true,
-			autoProbeIntervalSec: 60,
-		},
-	});
-    vi.mocked(createSessionToken).mockResolvedValueOnce("signed-token");
-
+  it("refuses to mint a session cookie (login must go through /api/login)", async () => {
     const formData = new FormData();
     formData.set("username", "admin");
     formData.set("password", "19970103");
 
-    await expect(login(null, formData)).rejects.toThrow("REDIRECT:/");
-    expect(setMock).toHaveBeenCalledWith(
-      expect.stringMatching(/[-_]session$/),
-      "signed-token",
-      expect.objectContaining({ httpOnly: true }),
-    );
+    await expect(login(null, formData)).resolves.toEqual({
+      error: "登录服务暂时不可用，请稍后再试",
+    });
+    expect(authenticateUser).not.toHaveBeenCalled();
+    expect(createSessionToken).not.toHaveBeenCalled();
+    expect(setMock).not.toHaveBeenCalled();
+    expect(redirectMock).not.toHaveBeenCalled();
   });
 
-  it("uses the user's default page when there is no explicit next target", async () => {
-	vi.mocked(authenticateUser).mockResolvedValueOnce({
-		id: "u_1",
-		username: "admin",
-		displayName: "Admin",
-		mustChangePassword: false,
-		twoFactorEnabled: false,
-		twoFactorSecret: null,
-		status: "ACTIVE",
-		currentTeamId: null,
-		roles: ["admin"],
-		permissions: ["command:execute"],
-		preferences: {
-			defaultPage: "/files",
-			dashboardWidgets: ["server-status"],
-			notificationsEnabled: true,
-			notificationSound: true,
-			autoRefreshInterval: 30,
-			autoProbeEnabled: true,
-			autoProbeIntervalSec: 60,
-		},
-	});
-    vi.mocked(createSessionToken).mockResolvedValueOnce("signed-token");
-
-    const formData = new FormData();
-    formData.set("username", "admin");
-    formData.set("password", "19970103");
-
-    await expect(login(null, formData)).rejects.toThrow("REDIRECT:/files");
-  });
-
-  it("returns an error message for invalid credentials", async () => {
-    vi.mocked(authenticateUser).mockResolvedValueOnce(null);
-
+  it("returns a system error even when credentials would have been valid", async () => {
     const formData = new FormData();
     formData.set("username", "admin");
     formData.set("password", "wrong-password");
 
     await expect(login(null, formData)).resolves.toEqual({
-      error: "用户名或密码错误",
+      error: "登录服务暂时不可用，请稍后再试",
     });
+    expect(authenticateUser).not.toHaveBeenCalled();
   });
 });
