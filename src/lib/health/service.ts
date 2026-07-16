@@ -17,3 +17,4 @@ export * from "./service-metrics";
 export * from "./service-alerts";
 export * from "./capacity-predict";
 export * from "./capacity-service";
+export * from "./capacity-alert-link";

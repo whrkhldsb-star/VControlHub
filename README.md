@@ -370,7 +370,7 @@ make logs SERVICE_PREFIX=vcontrolhub
 | 安全 | RBAC、CSRF、限流、审计、advisory lock 同 session、SSH host-key pin |
 | 多租户 | 核心模型 Team scope；知识库 / ITSM 连接 / 告警事件列表按团队过滤；任务可见性收窄 |
 | 远程运行时 | 远程 Docker；Quick Services 本机/VPS；Compose 项目生命周期 |
-| 监控告警 | 后台采样；容量预测；告警升级/值班/确认 |
+| 监控告警 | 后台采样；容量预测；**预测指标可挂告警规则**（days-to-85）；升级/值班/确认 |
 | 文件 | 检索、断点续传、版本历史、WebDAV；sftp-ops write/delete/rename → `fs-backend` |
 | 备份 | 细粒度恢复、演练、跨环境迁移向导（不自动 restore） |
 | 工单 / AI | 双向时间线；知识库 RAG；AI Ops 安全闭环 |
@@ -393,19 +393,18 @@ make logs SERVICE_PREFIX=vcontrolhub
 | 级别 | 项 |
 |---|---|
 | 中 | 云账单账户等仍无 `teamId` 列的模型：靠 `cost:manage` 权限边界；后续可补列 |
-| 低 | 容量预测为线性模型；样本不足标 `insufficient_data` |
+| 低 | 容量预测为线性模型；样本不足不触发 `capacity_*` 告警并自动 resolve |
 | 低 | 部分 Client 仍约 400–500 行；重运维路径偏桌面 |
 | 信息 | 无全域统一 event bus（通知渠道 + ITSM fan-out 已有） |
 | 信息 | sftp-ops **read** 仍走 `readRemoteFile` 直连（write/delete/rename 已统一 `fs-backend`） |
 
 ### 下一步（优先完善现有）
 
-1. 容量预测可选联动告警（不新造监控体系）  
-2. 危险操作 advisory lock 按真实风险扩展  
-3. Playbook/命令失败路径可观测性（减少假成功感）  
-4. sftp-ops **read** 可选统一到 `fs-backend`（与 write 对称）  
-5. 云账单账户补 `teamId`（当前靠 cost 权限）  
-6. 有密钥与合规时再加深 live 云账单；有明确需求再评估双向文件同步  
+1. 危险操作 advisory lock 按真实风险扩展  
+2. Playbook/命令失败路径可观测性（减少假成功感）  
+3. sftp-ops **read** 可选统一到 `fs-backend`（与 write 对称）  
+4. 云账单账户补 `teamId`（当前靠 cost 权限）  
+5. 有密钥与合规时再加深 live 云账单；有明确需求再评估双向文件同步  
 
 ### 期望 vs 实际
 

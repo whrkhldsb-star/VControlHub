@@ -17,6 +17,10 @@ import { runPlaybook } from "@/lib/playbook/service";
 
 import { collectAllHealth } from "./service-collect";
 import { isNowInAlertSilenceWindow } from "./service-types";
+import {
+  evaluateCapacityLinkedAlerts,
+  isCapacityAlertMetric,
+} from "./capacity-alert-link";
 
 export async function evaluateAlerts() {
   const rules = await prisma.alertRule.findMany({
@@ -47,9 +51,16 @@ export async function evaluateAlerts() {
     return;
   }
 
+  // Optional capacity-forecast rules (threshold = days until projected 85%).
+  const capacityRules = rules.filter((r) => isCapacityAlertMetric(r.metric));
+  const liveRules = rules.filter((r) => !isCapacityAlertMetric(r.metric));
+  if (capacityRules.length > 0) {
+    await evaluateCapacityLinkedAlerts(capacityRules);
+  }
+
   const health = await collectAllHealth();
 
-  for (const rule of rules) {
+  for (const rule of liveRules) {
     if (isNowInAlertSilenceWindow(rule.silenceWindows)) continue;
 
     // Check cooldown (still applies to new fire spam; open incidents escalate separately)

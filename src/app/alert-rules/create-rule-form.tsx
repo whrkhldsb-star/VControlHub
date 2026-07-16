@@ -138,6 +138,9 @@ export function CreateRuleForm({
 						<option value="network_out">{t("alertRulesPage.createForm.metric.network_out")}</option>
 						<option value="load_avg">{t("alertRulesPage.createForm.metric.load_avg")}</option>
 						<option value="swap_usage">{t("alertRulesPage.createForm.metric.swap_usage")}</option>
+						<option value="capacity_cpu_days">{t("alertRulesPage.createForm.metric.capacity_cpu_days")}</option>
+						<option value="capacity_mem_days">{t("alertRulesPage.createForm.metric.capacity_mem_days")}</option>
+						<option value="capacity_disk_days">{t("alertRulesPage.createForm.metric.capacity_disk_days")}</option>
 					</select>
 				</FormField>
 				{metric !== "server_offline" && (
