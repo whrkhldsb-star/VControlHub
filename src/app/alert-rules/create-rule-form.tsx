@@ -35,6 +35,8 @@ export function CreateRuleForm({
 	const [selectedServerIds, setSelectedServerIds] = useState<string[]>([]);
 	const [selectedPlaybookIds, setSelectedPlaybookIds] = useState<string[]>([]);
 	const [cooldown, setCooldown] = useState(30);
+	const [escalationMinutes, setEscalationMinutes] = useState(30);
+	const [onCallUserIdsText, setOnCallUserIdsText] = useState("");
 	const [silenceWindowsText, setSilenceWindowsText] = useState("");
 	const [channels, setChannels] = useState<string[]>(["in_app"]);
 	const [webhookUrl, setWebhookUrl] = useState("");
@@ -81,6 +83,8 @@ export function CreateRuleForm({
 					playbookIds: selectedPlaybookIds,
 					notifyChannels: channels,
 					cooldownMinutes: cooldown,
+					escalationMinutes,
+					onCallUserIds: onCallUserIdsText.split(/[\n,，]+/).map((s) => s.trim()).filter(Boolean),
 					silenceWindows,
 					webhookUrl:
 						channels.includes("webhook") && webhookUrl.trim()
@@ -306,6 +310,31 @@ export function CreateRuleForm({
 					className={cn(UI_INPUT, "w-32 font-mono")}
 				/>
 			</FormField>
+			<FormField label={t("alertRulesPage.createForm.escalation")} htmlFor="alertRuleEscalation">
+				<input
+					id="alertRuleEscalation"
+					type="number"
+					min={1}
+					max={10080}
+					value={escalationMinutes}
+					onChange={(e) => setEscalationMinutes(Number(e.target.value) || 30)}
+					className={UI_INPUT}
+				/>
+				<p className="mt-1 text-xs text-[var(--text-muted)]">{t("alertRulesPage.createForm.escalationHint")}</p>
+			</FormField>
+
+			<FormField label={t("alertRulesPage.createForm.onCall")} htmlFor="alertRuleOnCall">
+				<textarea
+					id="alertRuleOnCall"
+					value={onCallUserIdsText}
+					onChange={(e) => setOnCallUserIdsText(e.target.value)}
+					placeholder={t("alertRulesPage.createForm.onCallPlaceholder")}
+					rows={2}
+					className={UI_INPUT}
+				/>
+				<p className="mt-1 text-xs text-[var(--text-muted)]">{t("alertRulesPage.createForm.onCallHint")}</p>
+			</FormField>
+
 
 			<FormField
 				label={t("alertRulesPage.createForm.silenceWindows")}

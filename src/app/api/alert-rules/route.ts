@@ -64,6 +64,8 @@ const alertRuleSchemaBase = z.object({
   ),
   cooldownMinutes: z.coerce.number().int().min(1).max(10_080).optional(),
   silenceWindows: z.array(silenceWindowSchema).max(8).default([]),
+  escalationMinutes: z.coerce.number().int().min(1).max(10_080).optional(),
+  onCallUserIds: z.array(z.string().trim().min(1)).max(50).default([]),
   enabled: z.boolean().optional(),
 });
 
@@ -126,6 +128,10 @@ async function parseBody(request: Request) {
       ? String(form.get("cooldownMinutes"))
       : undefined,
     silenceWindows: form.getAll("silenceWindows").map(String).map((value) => value.trim()).filter(Boolean),
+    escalationMinutes: form.get("escalationMinutes")
+      ? String(form.get("escalationMinutes"))
+      : undefined,
+    onCallUserIds: form.getAll("onCallUserIds").map(String).filter(Boolean),
   };
 }
 

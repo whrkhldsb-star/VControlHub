@@ -10,9 +10,30 @@ export type AlertRule = {
 	webhookConfigured: boolean;
 	playbookIds?: string[];
 	cooldownMinutes: number;
+	escalationMinutes?: number;
+	onCallUserIds?: string[];
 	enabled: boolean;
 	silenceWindows?: string[];
 	lastTriggeredAt: string | null;
+	createdAt: string;
+};
+
+export type AlertIncident = {
+	id: string;
+	ruleId: string;
+	ruleName: string | null;
+	serverName: string;
+	metric: string;
+	status: string;
+	level: number;
+	title: string;
+	message: string;
+	value: number;
+	threshold: number;
+	operator: string;
+	acknowledgedAt: string | null;
+	acknowledgedBy: { id: string; username: string; displayName: string | null } | null;
+	escalatedAt: string | null;
 	createdAt: string;
 };
 

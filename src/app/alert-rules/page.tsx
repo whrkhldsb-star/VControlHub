@@ -27,6 +27,8 @@ export default async function AlertRulesPage() {
 		serverIds: r.serverIds, notifyChannels: r.notifyChannels,
 		playbookIds: r.playbookIds ?? [],
 		webhookConfigured: Boolean(r.webhookUrl), cooldownMinutes: r.cooldownMinutes,
+		escalationMinutes: r.escalationMinutes ?? 30,
+		onCallUserIds: r.onCallUserIds ?? [],
 		silenceWindows: r.silenceWindows ?? [],
 		enabled: r.enabled, lastTriggeredAt: r.lastTriggeredAt?.toISOString() ?? null,
 		createdAt: r.createdAt.toISOString(),

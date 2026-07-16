@@ -19,6 +19,8 @@ export type CreateAlertRuleInput = {
 	playbookIds?: string[];
 	cooldownMinutes?: number;
 	silenceWindows?: string[];
+	escalationMinutes?: number;
+	onCallUserIds?: string[];
 	enabled?: boolean;
 };
 
@@ -42,6 +44,8 @@ export async function createAlertRule(input: CreateAlertRuleInput) {
 			playbookIds: input.playbookIds ?? [],
 			cooldownMinutes: input.cooldownMinutes ?? 30,
 			silenceWindows: input.silenceWindows ?? [],
+			escalationMinutes: input.escalationMinutes ?? 30,
+			onCallUserIds: input.onCallUserIds ?? [],
 			enabled: input.enabled ?? true,
 		},
 	});
@@ -60,6 +64,8 @@ export async function updateAlertRule(id: string, input: Partial<CreateAlertRule
 	if (input.playbookIds !== undefined) data.playbookIds = input.playbookIds;
 	if (input.cooldownMinutes !== undefined) data.cooldownMinutes = input.cooldownMinutes;
 	if (input.silenceWindows !== undefined) data.silenceWindows = input.silenceWindows;
+	if (input.escalationMinutes !== undefined) data.escalationMinutes = input.escalationMinutes;
+	if (input.onCallUserIds !== undefined) data.onCallUserIds = input.onCallUserIds;
 	if (input.enabled !== undefined) data.enabled = input.enabled;
 	return prisma.alertRule.update({ where: { id }, data });
 }

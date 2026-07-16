@@ -736,7 +736,7 @@ make logs SERVICE_PREFIX=vcontrolhub
 | 维度 | 判断 |
 |---|---|
 | 已很强 | 命令审批链、模板/部署、文件与分享、备份/审计、RBAC 粒度、多租户 Team scope |
-| 仍偏弱 | 对外集成深度（WebDAV/知识库 RAG/云账单 API/ITSM 双向）、告警值班路由与跨环境迁移向导 |
+| 仍偏弱 | 对外集成深度（WebDAV/知识库 RAG/云账单 API/ITSM 双向）、跨环境迁移向导 |
 
 #### P0 — 最影响「能不能当主力系统用」
 
@@ -755,7 +755,7 @@ make logs SERVICE_PREFIX=vcontrolhub
 | **工单 Tickets** | ✅ SLA、自动升级、VPS/命令关联、看板和高级过滤已完成；后续可加审批对象双向时间线 |
 | **AI 助手** | ✅ VPS/日志/Docker/文件全文搜索等受控工具编排已完成；知识库/RAG 仍待后续 |
 | **AI Ops** | ✅ 安全自动闭环和结构化可解释报告已完成；目标依赖动作仍坚持显式参数/审批 |
-| **告警规则** | 指标源与远程 VPS 统一；静默窗口、冷却和持续时长已完成；后续可加多级升级策略、值班路由与通知确认 |
+| **告警规则** | ✅ 指标源与远程 VPS 统一；静默窗口、冷却和持续时长；**多级升级（L1→L3）+ 值班路由（onCallUserIds）+ 事件确认（Acknowledge）+ 告警事件面板** |
 | **备份** | ✅ 细粒度恢复和无损恢复演练报告已完成；跨环境迁移向导仍待后续 |
 | **成本 Cost** | ✅ 标签自动归集、周期预算和自动告警已完成；云厂商账单 API 对接仍待后续 |
 | **分享** | ✅ 仅预览/允许下载、服务端强制、访问日志、水印、团队级聚合报表和 CSV 导出已完成 |
@@ -806,7 +806,7 @@ make logs SERVICE_PREFIX=vcontrolhub
 | FEAT-P1-BR | **备份细粒度恢复** | FULL 备份恢复支持选择范围：全部 / 仅数据库 / 仅文件；`buildRestoreExecution` 按 component 分发不同命令；UI 加三选一按钮组；schema/API/job-worker 全链路传参 | ✅ tsc + 119 tests |
 
 **验证**：tsc 0；playbook executor 测试通过；build 成功；服务 active；path smoke 11/11 通过。  
-**P0 主体全部完成（已审计修复）**：Playbook 主链已迁移为 durable worker，舰队监控历史已由后台独立采样；**P1 主体能力已完成**。仍保留为明确独立产品批次的方向：WebDAV/同步协议、知识库/RAG、云厂商账单 API 与 ITSM/IM 双向集成。
+**P0 主体全部完成（已审计修复）**：Playbook 主链已迁移为 durable worker，舰队监控历史已由后台独立采样；**P1 主体能力已完成**。仍保留为明确独立产品批次的方向：WebDAV/同步协议、知识库/RAG、云厂商账单 API 与 ITSM/IM 双向集成；跨环境备份迁移向导。
 
 ### P1 全面补齐（2026-07-14）
 
@@ -818,6 +818,7 @@ make logs SERVICE_PREFIX=vcontrolhub
 | FEAT-P1-4 | 成本归集与预算 | CostEntry tags、VPS 月费标签、月/季/年预算 CRUD、进度 UI、手动及每日 worker 自动预算告警、防重复通知 |
 | FEAT-P1-5 | 分享权限与审计 | preview/download 权限、公开 API 服务端强制、访问/下载/密码尝试日志、IP/User-Agent、团队/所有权校验 |
 | FEAT-P1-6 | 下载与文件页整合 | 最近完成下载 API、任务级权限校验、StorageNode 路径映射、文件页任务托盘和目录定位 |
+| FEAT-ALERT-ESCALATION | **告警多级升级/值班/确认** | AlertIncident 事件模型；规则 `escalationMinutes` + `onCallUserIds`；未确认超时 L2/L3 再通知；`/api/alert-incidents` 列表与 Acknowledge；评估 worker 串入升级 |
 | FEAT-P1-7 | 岗位模板和数据范围 | 模板保存角色、权限、存储节点路径、读写删除范围、配额和单文件限制；用户面板一键应用 |
 | ARCH-P1-2 | 统一跨进程锁 | advisory lock 统一服务接管备份恢复和 VPS 备份计划锁，统一 namespace/key/release/error handling |
 

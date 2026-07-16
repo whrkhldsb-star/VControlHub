@@ -101,6 +101,7 @@ model User {
   announcements          Announcement[]
   mediaItems             MediaItem[]
   tickets                Ticket[]                @relation("TicketCreator")
+  alertIncidentsAcknowledged AlertIncident[]       @relation("AlertIncidentAcknowledger")
   assignedTickets        Ticket[]                @relation("TicketAssignee")
   ticketComments         TicketComment[]
   imageUploads           ImageUpload[]
@@ -722,25 +723,64 @@ model TrafficSnapshot {
 }
 
 model AlertRule {
-  id              String    @id @default(cuid())
-  name            String
-  metric          String // cpu_usage | mem_usage | disk_usage | server_offline
-  operator        String // gt | gte | lt | lte | eq
-  threshold       Float
-  durationSeconds Int       @default(0) // 0 = instant alert
-  serverIds       String[] // empty = all servers
-  notifyChannels  String[] // ["in_app", "email", "webhook"]
-  webhookUrl      String?
-  playbookIds     String[]  @default([]) // TR-023: playbooks to run when this alert triggers
-  cooldownMinutes Int       @default(30)
-  silenceWindows  String[]  @default([]) // HH:mm-HH:mm windows, local server time
-  enabled         Boolean   @default(true)
-  lastMatchedAt   DateTime?
-  lastTriggeredAt DateTime?
-  createdAt       DateTime  @default(now())
-  updatedAt       DateTime  @updatedAt
+  id                 String    @id @default(cuid())
+  name               String
+  metric             String // cpu_usage | mem_usage | disk_usage | server_offline
+  operator           String // gt | gte | lt | lte | eq
+  threshold          Float
+  durationSeconds    Int       @default(0) // 0 = instant alert
+  serverIds          String[] // empty = all servers
+  notifyChannels     String[] // ["in_app", "email", "webhook"]
+  webhookUrl         String?
+  playbookIds        String[]  @default([]) // TR-023: playbooks to run when this alert triggers
+  cooldownMinutes    Int       @default(30)
+  silenceWindows     String[]  @default([]) // HH:mm-HH:mm windows, local server time
+  /// Minutes without acknowledgement before escalating to on-call / L2 notify
+  escalationMinutes  Int       @default(30)
+  /// Preferred on-call user IDs (routed first for in-app / ack ownership)
+  onCallUserIds      String[]  @default([])
+  enabled            Boolean   @default(true)
+  lastMatchedAt      DateTime?
+  lastTriggeredAt    DateTime?
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+  incidents          AlertIncident[]
 
   @@map("alert_rules")
+}
+
+/// Open/acknowledged/resolved alert incidents with multi-level escalation.
+model AlertIncident {
+  id               String    @id @default(cuid())
+  /// Stable key: ruleId + serverId + metric
+  fingerprint      String    @unique
+  ruleId           String
+  serverId         String?
+  serverName       String
+  metric           String
+  operator         String
+  threshold        Float
+  value            Float
+  status           String    @default("OPEN") // OPEN | ACKNOWLEDGED | RESOLVED
+  /// 1 = initial fire, 2 = escalated (no ack), 3 = re-escalated / critical
+  level            Int       @default(1)
+  title            String
+  message          String
+  acknowledgedAt   DateTime?
+  acknowledgedById String?
+  escalatedAt      DateTime?
+  lastNotifiedAt   DateTime?
+  resolvedAt       DateTime?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  rule             AlertRule @relation(fields: [ruleId], references: [id], onDelete: Cascade)
+  acknowledgedBy   User?     @relation("AlertIncidentAcknowledger", fields: [acknowledgedById], references: [id], onDelete: SetNull)
+
+  @@index([status, level, createdAt])
+  @@index([ruleId, status])
+  @@index([acknowledgedById])
+  @@map("alert_incidents")
 }
 
 model CommandTemplate {

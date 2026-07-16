@@ -1,11 +1,11 @@
 {
-  "generatedAt": "2026-07-16T02:46:05.422Z",
+  "generatedAt": "2026-07-16T03:05:18.265Z",
   "summary": {
     "permissionsInList": 54,
     "rolesDefined": 4,
     "apiRoutesAudited": 138,
     "pagesAudited": 47,
-    "callSitesAudited": 487,
+    "callSitesAudited": 491,
     "driftCount": 0,
     "driftByCode": {
       "perm-not-in-list": 0,
@@ -1229,40 +1229,56 @@
           "line": 15
         },
         {
-          "path": "src/app/api/alert-rules/route.ts",
-          "line": 153
+          "path": "src/app/api/alert-incidents/route.ts",
+          "line": 29
+        },
+        {
+          "path": "src/app/api/alert-incidents/route.ts",
+          "line": 76
+        },
+        {
+          "path": "src/app/api/alert-incidents/route.ts",
+          "line": 29
+        },
+        {
+          "path": "src/app/api/alert-incidents/route.ts",
+          "line": 76
         },
         {
           "path": "src/app/api/alert-rules/route.ts",
-          "line": 167
+          "line": 159
         },
         {
           "path": "src/app/api/alert-rules/route.ts",
-          "line": 202
+          "line": 173
         },
         {
           "path": "src/app/api/alert-rules/route.ts",
-          "line": 243
+          "line": 208
         },
         {
           "path": "src/app/api/alert-rules/route.ts",
-          "line": 265
+          "line": 249
         },
         {
           "path": "src/app/api/alert-rules/route.ts",
-          "line": 153
+          "line": 271
         },
         {
           "path": "src/app/api/alert-rules/route.ts",
-          "line": 202
+          "line": 159
         },
         {
           "path": "src/app/api/alert-rules/route.ts",
-          "line": 243
+          "line": 208
         },
         {
           "path": "src/app/api/alert-rules/route.ts",
-          "line": 265
+          "line": 249
+        },
+        {
+          "path": "src/app/api/alert-rules/route.ts",
+          "line": 271
         },
         {
           "path": "src/app/api/notifications/route.ts",
