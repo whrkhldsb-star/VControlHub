@@ -1,8 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useState, useCallback, useEffect, useMemo } from "react";
-import { csrfFetch } from "@/lib/auth/csrf-client";
+import { useState, useMemo } from "react";
 import { buildQuickServiceAccessDescriptor } from "@/lib/quick-service/access-url";
 import { EmptyState, Toolbar, StatCard, StatGrid } from "@/components/page-shell";
 import { CONTROL_CLASS, SegmentedTabs } from "@/components/ui-primitives";
@@ -19,20 +18,27 @@ import {
 import { ServiceCard } from "./quick-service-card";
 import { InstallDialog } from "./install-dialog";
 import { SourcesPanel } from "./quick-services-sources-panel";
-import { CATEGORY_ORDER, QUICK_SERVICE_PUBLIC_HOST, buildCategoryLabels, buildQuickServiceViewModel, getEnvCount, getPrimaryContainerPort, getVolumeMounts, type AppSource, type CatalogItem, type DockerEnvironmentStatus, type Tab } from "./quick-services-shared";
+import { CATEGORY_ORDER, buildCategoryLabels, buildQuickServiceViewModel, getEnvCount, getPrimaryContainerPort, getVolumeMounts, type AppSource, type CatalogItem, type Tab } from "./quick-services-shared";
+import { useQuickServiceCatalog } from "./use-quick-service-catalog";
 
 /* ── Main Component ─────────────────────────────────────────────── */
 
 export function QuickServicesClient({ canManage }: { canManage: boolean }) {
 	const { t } = useI18n();
 	const categoryLabels = buildCategoryLabels(t);
-	const [catalog, setCatalog] = useState<CatalogItem[]>([]);
-	const [remoteCatalog, setRemoteCatalog] = useState<CatalogItem[]>([]);
-	const [sources, setSources] = useState<AppSource[]>([]);
-	const [usedPorts, setUsedPorts] = useState<number[]>([]);
-	const [dockerStatus, setDockerStatus] = useState<DockerEnvironmentStatus | null>(null);
-	const [loading, setLoading] = useState(true);
-	const [error, setError] = useState<string | null>(null);
+	const {
+		catalog,
+		remoteCatalog,
+		sources,
+		usedPorts,
+		dockerStatus,
+		loading,
+		error,
+		hostName,
+		quickServicePublicHost,
+		fetchCatalog,
+		fetchSources,
+	} = useQuickServiceCatalog(t);
 	const [tab, setTab] = useState<Tab>("community");
 	// Install dialog state (the dialog body ships in <InstallDialog />)
 	const [installDialog, setInstallDialog] = useState<CatalogItem | null>(null);
@@ -42,52 +48,10 @@ export function QuickServicesClient({ canManage }: { canManage: boolean }) {
 	// Sync state is owned by useQuickServiceActions (see use-quick-service-actions.ts)
 	// Search
 	const [search, setSearch] = useState("");
-	const [hostName, setHostName] = useState("");
-	const [quickServicePublicHost, setQuickServicePublicHost] = useState(QUICK_SERVICE_PUBLIC_HOST);
-
-	const fetchCatalog = useCallback(async () => {
-		try {
-			const data = await csrfFetch("/api/quick-services");
-			setCatalog(data.catalog ?? []);
-			setRemoteCatalog(data.remoteCatalog ?? []);
-			setUsedPorts(Array.isArray(data.usedPorts) ? data.usedPorts : []);
-			setDockerStatus(data.docker ?? null);
-			if (typeof data.publicHost === "string") setQuickServicePublicHost(data.publicHost);
-		} catch (err) {
-			setError(err instanceof Error ? err.message : t("qsPage.loadFailedFallback"));
-		} finally {
-			setLoading(false);
-		}
-	}, [t]);
-
-	const fetchSources = useCallback(async () => {
-		try {
-			const data = await csrfFetch("/api/app-sources?includeApps=false");
-			setSources(data.sources ?? []);
-		} catch {
-			// silent
-		}
-	}, []);
 
 	// Action handlers + message + actionSlug + syncing now live in the
 	// useQuickServiceActions hook (extracted in R23).
 	const actions = useQuickServiceActions({ fetchCatalog, fetchSources });
-
-	useEffect(() => { fetchCatalog(); fetchSources(); }, [fetchCatalog, fetchSources]);
-	useEffect(() => {
-		if (typeof window !== "undefined") {
-			setHostName(window.location.hostname);
-		}
-	}, []);
-
-	// Poll installing services
-	useEffect(() => {
-		const allCatalog = [...catalog, ...remoteCatalog];
-		const installing = allCatalog.filter((s) => s.status === "installing");
-		if (installing.length === 0) return;
-		const t = setTimeout(fetchCatalog, 3000);
-		return () => clearTimeout(t);
-	}, [catalog, remoteCatalog, fetchCatalog]);
 
 	const openInstallDialog = (item: CatalogItem) => {
 		if (dockerStatus && !dockerStatus.available) {
