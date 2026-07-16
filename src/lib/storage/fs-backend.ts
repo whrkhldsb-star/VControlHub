@@ -1,4 +1,4 @@
-import { mkdir, rename, rm, unlink, writeFile } from "node:fs/promises";
+import { mkdir, readFile, rename, rm, unlink, writeFile } from "node:fs/promises";
 
 import { ValidationError } from "@/lib/errors";
 import { resolveStorageSshCredentials } from "./ssh-credentials";
@@ -7,6 +7,7 @@ import { normalizeRemoteTargetPath } from "./remote-path";
 import {
   createRemoteDirectory,
   deleteRemoteFile,
+  readRemoteFile,
   renameRemoteFile,
   writeRemoteFile,
 } from "@/lib/ssh/client";
@@ -159,6 +160,43 @@ export async function writeBackingObject(input: {
   }
 
   return { byteSize };
+}
+
+/**
+ * Read a file from the storage node's backing filesystem into a Buffer.
+ * Mirrors write/delete/rename so callers (notably sftp-ops `read`) do not
+ * bypass the adapter and re-resolve credentials/path themselves.
+ * - LOCAL: readFile after containment check
+ * - SFTP:  readRemoteFile with resolved SSH credentials
+ * Other drivers throw — there is no silent empty success for reads.
+ */
+export async function readBackingObject(input: {
+  storageNode: StorageNodeWithCredentials;
+  relativePath: string;
+}): Promise<Buffer> {
+  if (input.storageNode.driver === "LOCAL") {
+    const { absolutePath } = await resolveManagedLocalEntryPath({
+      basePath: input.storageNode.basePath,
+      relativePath: input.relativePath,
+    });
+    return readFile(absolutePath);
+  }
+
+  if (input.storageNode.driver === "SFTP") {
+    const remotePath = normalizeRemoteTargetPath(
+      input.storageNode.basePath,
+      input.relativePath,
+    );
+    const credentials = resolveStorageSshCredentials(input.storageNode);
+    return readRemoteFile({
+      ...credentials,
+      remotePath,
+    });
+  }
+
+  throw new ValidationError(
+    `Unsupported storage driver for read: ${input.storageNode.driver}`,
+  );
 }
 
 /**

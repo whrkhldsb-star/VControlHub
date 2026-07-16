@@ -6,10 +6,10 @@ import { prisma } from "@/lib/db";
 import { assertStorageAccess } from "@/lib/storage/access-control";
 import {
   deleteBackingObject,
+  readBackingObject,
   renameBackingObject,
   writeBackingObject,
 } from "@/lib/storage/fs-backend";
-import { readRemoteFile } from "@/lib/ssh/client";
 import { getSftpNodeConnection } from "@/lib/storage/sftp-node";
 import path from "node:path";
 import {
@@ -155,13 +155,14 @@ async function handlePost(body: SftpOpsBody, session: SessionPayload) {
     throw new ValidationError("Missing path parameter");
   }
 
-  // Resolve storage node connection params (same pattern as sftp/route.ts)
-  const { node, credentials: connectionCredentials } = await getSftpNodeConnection(nodeId);
+  // Resolve storage node (credentials resolved inside fs-backend for SFTP).
+  const { node } = await getSftpNodeConnection(nodeId);
 
-  let normalizedRemotePath: string;
+  // Path containment only — physical ops go through fs-backend which
+  // re-derives absolute/remote paths from the storage node.
   let normalizedRelativePath: string;
   try {
-    normalizedRemotePath = normalizeRemoteTargetPath(node.basePath, remotePath);
+    normalizeRemoteTargetPath(node.basePath, remotePath);
     normalizedRelativePath = normalizeRemoteRelativePath(remotePath);
   } catch {
     return NextResponse.json(
@@ -197,14 +198,6 @@ async function handlePost(body: SftpOpsBody, session: SessionPayload) {
       { status: 403 },
     );
   }
-
-  const connParams = {
-    host: connectionCredentials.host,
-    port: connectionCredentials.port,
-    username: connectionCredentials.username,
-    privateKey: connectionCredentials.privateKey,
-    password: connectionCredentials.password,
-  };
 
   try {
     switch (action) {
@@ -310,9 +303,9 @@ async function handlePost(body: SftpOpsBody, session: SessionPayload) {
           );
         }
 
-        const buffer = await readRemoteFile({
-          ...connParams,
-          remotePath: normalizedRemotePath,
+        const buffer = await readBackingObject({
+          storageNode: node,
+          relativePath: normalizedRelativePath,
         });
 
         if (buffer.byteLength > MAX_INLINE_REMOTE_READ_BYTES) {

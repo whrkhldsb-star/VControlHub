@@ -5,6 +5,7 @@ const {
   deleteRemoteFileMock,
   renameRemoteFileMock,
   writeRemoteFileMock,
+  readRemoteFileMock,
   resolveStorageSshCredentialsMock,
   normalizeRemoteTargetPathMock,
   mkdirMock,
@@ -12,12 +13,14 @@ const {
   unlinkMock,
   renameFsMock,
   writeFileMock,
+  readFileMock,
   fsMock,
 } = vi.hoisted(() => {
   const createRemoteDirectoryMock = vi.fn();
   const deleteRemoteFileMock = vi.fn();
   const renameRemoteFileMock = vi.fn();
   const writeRemoteFileMock = vi.fn();
+  const readRemoteFileMock = vi.fn();
   const resolveStorageSshCredentialsMock = vi.fn();
   const normalizeRemoteTargetPathMock = vi.fn(
     (base: string, rel: string) =>
@@ -48,6 +51,7 @@ const {
       unlink: unlinkMock,
       rename: renameFsMock,
       writeFile: writeFileMock,
+      readFile: readFileMock,
     },
   };
   return {
@@ -55,6 +59,7 @@ const {
     deleteRemoteFileMock,
     renameRemoteFileMock,
     writeRemoteFileMock,
+    readRemoteFileMock,
     resolveStorageSshCredentialsMock,
     normalizeRemoteTargetPathMock,
     mkdirMock,
@@ -62,6 +67,7 @@ const {
     unlinkMock,
     renameFsMock,
     writeFileMock,
+    readFileMock,
     fsMock,
   };
 });
@@ -71,6 +77,7 @@ vi.mock("@/lib/ssh/client", () => ({
   deleteRemoteFile: deleteRemoteFileMock,
   renameRemoteFile: renameRemoteFileMock,
   writeRemoteFile: writeRemoteFileMock,
+  readRemoteFile: readRemoteFileMock,
 }));
 
 vi.mock("@/lib/storage/remote-path", () => ({
@@ -87,6 +94,7 @@ import {
   createManagedFolder,
   deleteBackingObject,
   isMissingBackingObjectError,
+  readBackingObject,
   renameBackingObject,
   resolveManagedLocalEntryPath,
   writeBackingObject,
@@ -228,6 +236,59 @@ describe("createManagedFolder", () => {
         relativePath: "../etc",
       }),
     ).rejects.toThrow(/存储节点根目录/);
+  });
+});
+
+describe("readBackingObject", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    resolveStorageSshCredentialsMock.mockReturnValue({
+      host: "203.0.113.10",
+      port: 22,
+      username: "root",
+      privateKey: "PRIVATE KEY",
+    });
+  });
+
+  afterEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("reads a LOCAL file via readFile after path containment", async () => {
+    readFileMock.mockResolvedValueOnce(Buffer.from("hello local"));
+    const buffer = await readBackingObject({
+      storageNode: localNode,
+      relativePath: "team/docs/a.txt",
+    });
+    expect(readFileMock).toHaveBeenCalledWith("/srv/storage/team/docs/a.txt");
+    expect(buffer.toString("utf8")).toBe("hello local");
+    expect(readRemoteFileMock).not.toHaveBeenCalled();
+  });
+
+  it("reads an SFTP file via readRemoteFile with resolved credentials", async () => {
+    readRemoteFileMock.mockResolvedValueOnce(Buffer.from("hello sftp"));
+    const buffer = await readBackingObject({
+      storageNode: sftpNode,
+      relativePath: "team/docs/a.txt",
+    });
+    expect(readRemoteFileMock).toHaveBeenCalledWith({
+      host: "203.0.113.10",
+      port: 22,
+      username: "root",
+      privateKey: "PRIVATE KEY",
+      remotePath: "/data/root/team/docs/a.txt",
+    });
+    expect(buffer.toString("utf8")).toBe("hello sftp");
+    expect(readFileMock).not.toHaveBeenCalled();
+  });
+
+  it("rejects unsupported drivers instead of returning empty success", async () => {
+    await expect(
+      readBackingObject({
+        storageNode: { ...localNode, driver: "WEBDAV" },
+        relativePath: "x.txt",
+      }),
+    ).rejects.toThrow(/Unsupported storage driver for read/);
   });
 });
 

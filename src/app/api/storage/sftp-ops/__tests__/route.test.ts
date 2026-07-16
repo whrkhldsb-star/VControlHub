@@ -295,6 +295,39 @@ describe("/api/storage/sftp-ops", () => {
     expect(readRemoteFileMock).not.toHaveBeenCalled();
   });
 
+  it("reads SFTP content through fs-backend (readRemoteFile) for text files", async () => {
+    vi.clearAllMocks();
+    requireApiSessionMock.mockResolvedValueOnce({
+      userId: "u_1",
+      username: "alice",
+    });
+    mockSftpNode();
+    prismaMock.fileEntry.findFirst.mockResolvedValueOnce({
+      size: BigInt(5),
+    });
+    readRemoteFileMock.mockResolvedValueOnce(Buffer.from("hello"));
+
+    const response = await POST(
+      request({
+        action: "read",
+        nodeId: "node_1",
+        path: "notes.txt",
+      }),
+    );
+
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toMatchObject({
+      content: "hello",
+      encoding: "text",
+      size: 5,
+    });
+    expect(readRemoteFileMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        remotePath: "/data/files/notes.txt",
+      }),
+    );
+  });
+
   it("rejects oversized SFTP reads after download when the index has no size", async () => {
     vi.clearAllMocks();
     requireApiSessionMock.mockResolvedValueOnce({
