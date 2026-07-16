@@ -1,3 +1,4 @@
+import type { SessionPayload } from "@/lib/auth/session";
 import type {
   FileEntryListRow,
   DeletedFileEntryRow,
@@ -5,6 +6,8 @@ import type {
 import { listFileEntries, listDeletedFileEntries } from "./service-entries";
 import { listStorageNodes } from "./service-nodes";
 import type { StorageNodeListRow } from "./service-direct-access";
+
+type TeamSession = Pick<SessionPayload, "userId" | "roles" | "currentTeamId">;
 
 type DirectorySummary = {
   storageNodeId: string;
@@ -73,11 +76,11 @@ function buildDirectorySummaries(
 
 export type { DirectorySummary };
 
-export async function getStorageOverview() {
+export async function getStorageOverview(session?: TeamSession | null) {
   const [nodes, entries, deletedEntries] = await Promise.all([
-    listStorageNodes(),
-    listFileEntries(),
-    listDeletedFileEntries(),
+    listStorageNodes(session),
+    listFileEntries(undefined, {}, session),
+    listDeletedFileEntries(undefined, {}, session),
   ]);
   const remoteDirectories = buildDirectorySummaries(entries);
 

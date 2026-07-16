@@ -1,5 +1,20 @@
 import { prisma } from "@/lib/db";
+import type { SessionPayload } from "@/lib/auth/session";
+import { teamWhere } from "@/lib/auth/team-scope";
+import { NotFoundError } from "@/lib/errors";
 import { classifyMediaKind } from "@/lib/storage/mime-constants";
+
+type TeamSession = Pick<SessionPayload, "userId" | "roles" | "currentTeamId">;
+
+/** Media has no teamId column — scope through StorageNode.teamId. */
+function mediaTeamWhere(session?: TeamSession | null) {
+  if (!session) return {};
+  const nodeScope = teamWhere(session);
+  // teamWhere: {} for team:manage; else { OR: [...] } or { teamId: null }
+  if (Object.keys(nodeScope).length === 0) return {};
+  return { storageNode: nodeScope };
+}
+
 
 export function classifyMedia(
   mimeType?: string | null,
@@ -114,12 +129,14 @@ export async function listMediaItems(
     q?: string;
     favorite?: boolean;
     tag?: string;
+    session?: TeamSession | null;
   } = {},
 ) {
   const q = input.q?.trim();
   const tag = input.tag?.trim();
   return prisma.mediaItem.findMany({
     where: {
+      ...mediaTeamWhere(input.session),
       mediaType: input.mediaType,
       favorite: input.favorite,
       ...(tag ? { tags: { has: tag } } : {}),
@@ -140,13 +157,14 @@ export async function listMediaItems(
 }
 
 export async function listMediaTypeCounts(
-  input: { q?: string; favorite?: boolean; tag?: string } = {},
+  input: { q?: string; favorite?: boolean; tag?: string; session?: TeamSession | null } = {},
 ) {
   const q = input.q?.trim();
   const tag = input.tag?.trim();
   const grouped = await prisma.mediaItem.groupBy({
     by: ["mediaType"],
     where: {
+      ...mediaTeamWhere(input.session),
       favorite: input.favorite,
       ...(tag ? { tags: { has: tag } } : {}),
       ...(q
@@ -174,10 +192,10 @@ export async function listMediaTypeCounts(
   return counts;
 }
 
-export async function listMediaTags() {
+export async function listMediaTags(session?: TeamSession | null) {
   const items = await prisma.mediaItem.findMany({
     select: { tags: true },
-    where: { tags: { isEmpty: false } },
+    where: { tags: { isEmpty: false }, ...mediaTeamWhere(session) },
     take: 1000,
   });
   const counts = new Map<string, number>();
@@ -194,18 +212,25 @@ export async function listMediaTags() {
     .slice(0, 40);
 }
 
-export async function getMediaItem(id: string) {
-  return prisma.mediaItem.findUnique({
-    where: { id },
+export async function getMediaItem(id: string, session?: TeamSession | null) {
+  return prisma.mediaItem.findFirst({
+    where: { id, ...mediaTeamWhere(session) },
     select: mediaStreamItemSelect,
   });
 }
 
-export async function scanMediaFromFileEntries(userId?: string) {
+export async function scanMediaFromFileEntries(
+  userId?: string,
+  session?: TeamSession | null,
+) {
+  const nodeScope = session ? teamWhere(session) : {};
+  const scopedNode =
+    Object.keys(nodeScope).length > 0 ? { storageNode: nodeScope } : {};
   const entries = await prisma.fileEntry.findMany({
     where: {
       entryType: "FILE",
       isDeleted: false,
+      ...scopedNode,
       OR: [
         { mimeType: { startsWith: "image/" } },
         { mimeType: { startsWith: "video/" } },
@@ -247,6 +272,7 @@ export async function scanMediaFromFileEntries(userId?: string) {
   const staleFileEntries = await prisma.fileEntry.findMany({
     where: {
       OR: [{ isDeleted: true }, { entryType: { not: "FILE" } }],
+      ...scopedNode,
     },
     select: { id: true },
     take: 1000,
@@ -308,7 +334,10 @@ export async function updateMediaTags(input: {
   id: string;
   tags?: string[];
   favorite?: boolean;
+  session?: TeamSession | null;
 }) {
+  const existing = await getMediaItem(input.id, input.session);
+  if (!existing) throw new NotFoundError("Media item not found");
   return prisma.mediaItem.update({
     where: { id: input.id },
     data: { tags: input.tags, favorite: input.favorite },

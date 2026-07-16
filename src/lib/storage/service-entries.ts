@@ -3,6 +3,8 @@ import path from "node:path";
 
 import { Prisma } from "@prisma/client";
 
+import type { SessionPayload } from "@/lib/auth/session";
+import { teamWhere } from "@/lib/auth/team-scope";
 import { prisma } from "@/lib/db";
 import { BusinessError, ConflictError, NotFoundError, ValidationError } from "@/lib/errors";
 import { serverT } from "@/lib/i18n/server-locale";
@@ -26,6 +28,13 @@ import {
   type UpdateFileEntryInput,
 } from "./schema";
 import { buildDirectAccessStrategy } from "./service-direct-access";
+
+type TeamSession = Pick<SessionPayload, "userId" | "roles" | "currentTeamId">;
+
+function storageNodeTeamFilter(session?: TeamSession | null): Record<string, unknown> {
+  if (!session) return {};
+  return { storageNode: teamWhere(session) };
+}
 
 export function resolveLocalAbsolutePath(basePath: string, relativePath: string) {
   const normalizedRelativePath = relativePath.replace(/^\/+/, "");
@@ -341,10 +350,12 @@ export async function restoreFileEntry(input: FileEntryMutationInput) {
 export async function listFileEntries(
   storageNodeId?: string,
   options: { take?: number; skip?: number; cursor?: string } = {},
+  session?: TeamSession | null,
 ) {
   const where = {
     isDeleted: false,
     ...(storageNodeId ? { storageNodeId } : {}),
+    ...storageNodeTeamFilter(session),
   };
 
   // P2 收敛: 默认 take=1000 上界, caller 传 take 显式覆盖。防止 fileEntry 表无界增长后单次拉爆内存。
@@ -440,10 +451,12 @@ export async function listFileEntries(
 export async function listDeletedFileEntries(
   storageNodeId?: string,
   options: { take?: number; skip?: number; cursor?: string } = {},
+  session?: TeamSession | null,
 ) {
   const where = {
     isDeleted: true,
     ...(storageNodeId ? { storageNodeId } : {}),
+    ...storageNodeTeamFilter(session),
   };
 
   // P2 收敛: 默认 take=1000 上界, caller 传 take 显式覆盖。

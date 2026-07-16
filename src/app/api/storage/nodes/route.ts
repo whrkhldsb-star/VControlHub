@@ -29,7 +29,7 @@ export async function GET(request: Request) {
     async ({ session }) => {
       const driverFilter = parseSearchParams(request, driverFilterSchema);
 
-      const storage = await getStorageOverview();
+      const storage = await getStorageOverview(session);
       const canManageNodes = Boolean(session && sessionHasPermission(session, "storage:manage-node"));
       const readableNodeIds = canManageNodes || !session
         ? null

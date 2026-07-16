@@ -20,6 +20,16 @@ vi.mock("@/lib/auth/require-session", () => ({ requireSession: requireSessionMoc
 vi.mock("@/lib/auth/authorization", () => ({ sessionHasPermission: sessionHasPermissionMock }));
 vi.mock("@/lib/media/service", () => ({ getMediaItem: getMediaItemMock }));
 vi.mock("@/lib/storage/access-control", () => ({ assertStorageAccess: assertStorageAccessMock }));
+vi.mock("@/lib/http/api-guard", () => ({
+  withApiRoute: async (
+    _request: Request,
+    _options: unknown,
+    handler: (ctx: { session: { userId: string; roles: string[]; currentTeamId: string | null } }) => Promise<Response>,
+  ) =>
+    handler({
+      session: { userId: "u1", roles: ["operator"], currentTeamId: null },
+    }),
+}));
 vi.mock("@/lib/logging", () => ({
   createLogger: () => ({ error: vi.fn(), warn: vi.fn(), info: vi.fn(), debug: vi.fn() }),
 }));

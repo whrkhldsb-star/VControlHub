@@ -2,7 +2,7 @@ import { createHash, randomBytes, scryptSync, timingSafeEqual } from "node:crypt
 import type { Dirent } from "node:fs";
 import { readdir, stat } from "node:fs/promises";
 import path from "node:path";
-import { teamWhere } from "@/lib/auth/team-scope";
+import { teamCreateData, teamWhere } from "@/lib/auth/team-scope";
 
 import { prisma } from "@/lib/db";
 import { ForbiddenError, NotFoundError, ValidationError } from "@/lib/errors";
@@ -98,6 +98,7 @@ export async function createShareLink(input: {
 
   const token = randomBytes(36).toString("base64url").slice(0, 48);
   const expiresAt = input.expiresInHours ? new Date(Date.now() + input.expiresInHours * 60 * 60 * 1000) : null;
+  const teamData = teamCreateData(input.session);
   const share = await prisma.shareLink.create({
     data: {
       tokenHash: hashShareToken(token),
@@ -110,6 +111,7 @@ export async function createShareLink(input: {
       passwordHash: input.password ? hashSharePassword(input.password) : null,
       permissionLevel: input.permissionLevel ?? "download",
       createdBy: input.session.userId,
+      ...teamData,
     },
   });
   return { share, token };

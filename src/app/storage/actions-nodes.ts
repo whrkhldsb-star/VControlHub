@@ -23,7 +23,7 @@ export async function getStorageFormOptions() {
   const session = await requireSession();
   const [servers, nodes] = await Promise.all([
     listServerProfiles(session),
-    listStorageNodes(),
+    listStorageNodes(session),
   ]);
   return {
     servers: servers.map((server: (typeof servers)[number]) => ({
@@ -40,11 +40,11 @@ export async function getStorageFormOptions() {
 }
 
 export async function checkStorageNodeHealthAction(storageNodeId: string) {
-  await requirePermission("storage:manage-node");
+  const session = await requirePermission("storage:manage-node");
 
   const t = await serverT();
   try {
-    const result = await checkStorageNodeHealth(storageNodeId);
+    const result = await checkStorageNodeHealth(storageNodeId, session);
     revalidatePath("/storage");
     revalidatePath("/files");
     const statusLabel = result.healthStatus === "HEALTHY"
@@ -79,26 +79,29 @@ export async function createStorageNodeAction(
     const hostRaw = String(formData.get("host") ?? "").trim();
     const usernameRaw = String(formData.get("username") ?? "").trim();
 
-    const node = await createStorageNode({
-      name: String(formData.get("name") ?? ""),
-      driver,
-      isDefault: String(formData.get("isDefault") ?? "") === "on",
-      basePath: String(formData.get("basePath") ?? ""),
-      directAccessMode: String(formData.get("directAccessMode") ?? "PROXY") as
-        | "PROXY"
-        | "DIRECT"
-        | "AUTO",
-      publicBaseUrl:
-        String(formData.get("publicBaseUrl") ?? "").trim() || undefined,
-      directAccessExpiresSeconds: Number(
-        String(formData.get("directAccessExpiresSeconds") ?? "300").trim() ||
-          300,
-      ),
-      serverId: serverIdRaw || undefined,
-      host: hostRaw || undefined,
-      port: portRaw ? Number(portRaw) : undefined,
-      username: usernameRaw || undefined,
-    });
+    const node = await createStorageNode(
+      {
+        name: String(formData.get("name") ?? ""),
+        driver,
+        isDefault: String(formData.get("isDefault") ?? "") === "on",
+        basePath: String(formData.get("basePath") ?? ""),
+        directAccessMode: String(formData.get("directAccessMode") ?? "PROXY") as
+          | "PROXY"
+          | "DIRECT"
+          | "AUTO",
+        publicBaseUrl:
+          String(formData.get("publicBaseUrl") ?? "").trim() || undefined,
+        directAccessExpiresSeconds: Number(
+          String(formData.get("directAccessExpiresSeconds") ?? "300").trim() ||
+            300,
+        ),
+        serverId: serverIdRaw || undefined,
+        host: hostRaw || undefined,
+        port: portRaw ? Number(portRaw) : undefined,
+        username: usernameRaw || undefined,
+      },
+      session,
+    );
 
     await auditUserAction(session.userId, "storage.node.create", {
       storageNodeId: node.id,
@@ -141,34 +144,37 @@ export async function updateStorageNodeAction(
       return { error: t("storagePage.action.missingNodeParam") } satisfies StorageActionState;
     }
 
-    await updateStorageNode({
-      storageNodeId,
-      name: String(formData.get("name") ?? "").trim() || undefined,
-      driver: driver === "LOCAL" || driver === "SFTP" ? driver : undefined,
-      basePath: String(formData.get("basePath") ?? "").trim() || undefined,
-      directAccessMode: ["PROXY", "DIRECT", "AUTO"].includes(
-        String(formData.get("directAccessMode") ?? ""),
-      )
-        ? (String(formData.get("directAccessMode")) as
-            | "PROXY"
-            | "DIRECT"
-            | "AUTO")
-        : undefined,
-      publicBaseUrl: String(formData.get("publicBaseUrl") ?? "").trim(),
-      directAccessExpiresSeconds: Number(
-        String(formData.get("directAccessExpiresSeconds") ?? "").trim() || 300,
-      ),
-      isDefault:
-        isDefaultRaw === "on"
-          ? true
-          : isDefaultRaw === "off"
-            ? false
-            : undefined,
-      serverId: serverIdRaw || null,
-      host: hostRaw || null,
-      port: portRaw ? Number(portRaw) : undefined,
-      username: usernameRaw || null,
-    });
+    await updateStorageNode(
+      {
+        storageNodeId,
+        name: String(formData.get("name") ?? "").trim() || undefined,
+        driver: driver === "LOCAL" || driver === "SFTP" ? driver : undefined,
+        basePath: String(formData.get("basePath") ?? "").trim() || undefined,
+        directAccessMode: ["PROXY", "DIRECT", "AUTO"].includes(
+          String(formData.get("directAccessMode") ?? ""),
+        )
+          ? (String(formData.get("directAccessMode")) as
+              | "PROXY"
+              | "DIRECT"
+              | "AUTO")
+          : undefined,
+        publicBaseUrl: String(formData.get("publicBaseUrl") ?? "").trim(),
+        directAccessExpiresSeconds: Number(
+          String(formData.get("directAccessExpiresSeconds") ?? "").trim() || 300,
+        ),
+        isDefault:
+          isDefaultRaw === "on"
+            ? true
+            : isDefaultRaw === "off"
+              ? false
+              : undefined,
+        serverId: serverIdRaw || null,
+        host: hostRaw || null,
+        port: portRaw ? Number(portRaw) : undefined,
+        username: usernameRaw || null,
+      },
+      session,
+    );
 
     await auditUserAction(session.userId, "storage.node.update", { storageNodeId });
 
@@ -199,7 +205,7 @@ export async function deleteStorageNodeAction(
       return { error: t("storagePage.action.missingNodeParam") } satisfies StorageActionState;
     }
 
-    await deleteStorageNode(storageNodeId);
+    await deleteStorageNode(storageNodeId, session);
 
     await auditUserAction(session.userId, "storage.node.delete", { storageNodeId });
 

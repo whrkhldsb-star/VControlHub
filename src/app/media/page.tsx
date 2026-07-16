@@ -76,9 +76,9 @@ export default async function Page({
   const q = params?.q?.trim() || undefined;
   const tag = params?.tag?.trim() || undefined;
   const [media, tagCloud, typeCounts] = await Promise.all([
-    listMediaItems({ mediaType, q, favorite, tag }),
-    listMediaTags(),
-    listMediaTypeCounts({ q, favorite, tag }),
+    listMediaItems({ mediaType, q, favorite, tag, session }),
+    listMediaTags(session),
+    listMediaTypeCounts({ q, favorite, tag , session}),
   ]);
   const filters: MediaFilterState = { type: mediaType, q, favorite, tag };
   const grouped = new Map<string, typeof media>();

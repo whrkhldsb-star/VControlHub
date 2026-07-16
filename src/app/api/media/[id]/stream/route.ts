@@ -66,7 +66,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
         .transform((value) => value === "1"),
     }),
   );
-  const item = await getMediaItem(id);
+  const item = await getMediaItem(id, session ?? undefined);
   if (!item || !item.storageNode) return apiError({ code: "NOT_FOUND", message: "Media not found", status: 404 });
 
   const node = item.storageNode;

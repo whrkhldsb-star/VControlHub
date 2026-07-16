@@ -92,11 +92,12 @@ export default async function MediaPlayerPage({
     return <PermissionDenied />;
 
   const [{ id }, query] = await Promise.all([params, searchParams]);
-  const item = await getMediaItem(id);
+  const item = await getMediaItem(id, session);
   if (!item) notFound();
 
   const siblings = await listMediaItems({
     mediaType: item.mediaType as "image" | "video" | "audio",
+    session,
   });
   const currentIndex = siblings.findIndex((entry) => entry.id === item.id);
   const previousItem = currentIndex > 0 ? siblings[currentIndex - 1] : null;

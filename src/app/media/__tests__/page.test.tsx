@@ -83,8 +83,8 @@ describe("MediaPage", () => {
     const searchInput = screen.getByRole("searchbox", { name: "搜索媒体" });
     expect(searchInput).toHaveAttribute("name", "q");
     expect(searchInput).toHaveValue("demo");
-    expect(listMediaItemsMock).toHaveBeenCalledWith({ mediaType: "video", q: "demo", favorite: undefined, tag: undefined });
-    expect(listMediaTypeCountsMock).toHaveBeenCalledWith({ q: "demo", favorite: undefined, tag: undefined });
+    expect(listMediaItemsMock).toHaveBeenCalledWith(expect.objectContaining({ mediaType: "video", q: "demo" }));
+    expect(listMediaTypeCountsMock).toHaveBeenCalledWith(expect.objectContaining({ q: "demo", favorite: undefined, tag: undefined }));
   });
 
   it("shows the image publishing workflow only in image mode", async () => {

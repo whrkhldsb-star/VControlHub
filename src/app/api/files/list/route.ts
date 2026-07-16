@@ -51,7 +51,7 @@ export async function GET(request: NextRequest) {
       const searchScope = scope;
       let syncWarning: string | null = null;
 
-      let storage = await getStorageOverview();
+      let storage = await getStorageOverview(session);
 
       const groupedPath = resolveStorageNodeGroupedPath(currentPath, storage.nodes);
       const effectiveNodeId = nodeIdFilter || groupedPath?.node.id || "";
@@ -74,7 +74,7 @@ export async function GET(request: NextRequest) {
               syncWarning =
                 syncResult.errors[0] ?? "Remote directory sync failed, showing local index";
             } else {
-              storage = await getStorageOverview();
+              storage = await getStorageOverview(session);
             }
           }
         }

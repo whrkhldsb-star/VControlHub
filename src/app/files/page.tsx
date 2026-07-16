@@ -53,7 +53,7 @@ export default async function FilesPage({ searchParams }: FilesPageProps) {
   const nodeIdFilter = resolvedSearchParams.nodeId ?? "";
 
   const [initialStorage, formOptions] = await Promise.all([
-    getStorageOverview(),
+    getStorageOverview(session),
     canManageNodes || canEditLocalFiles
       ? getStorageFormOptions()
       : Promise.resolve({ servers: [], nodes: [] }),
@@ -79,7 +79,7 @@ export default async function FilesPage({ searchParams }: FilesPageProps) {
         if (syncResult.errors.length > 0) {
           syncWarning = syncResult.errors[0] ?? t("filesPage.syncWarningFallback", locale);
         } else {
-          storage = await getStorageOverview();
+          storage = await getStorageOverview(session);
         }
       }
     }

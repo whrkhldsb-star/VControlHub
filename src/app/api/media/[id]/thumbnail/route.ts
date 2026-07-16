@@ -183,7 +183,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
 		async ({ session }) => {
 			if (!session) throw new AuthError("Not authenticated");
 			const { id } = await params;
-	const item = await getMediaItem(id);
+	const item = await getMediaItem(id, session ?? undefined);
 	if (!item || !item.storageNode) return apiError({ code: "NOT_FOUND", message: "Media not found", status: 404 });
 
 	const mime = (item.mimeType ?? "").toLowerCase();

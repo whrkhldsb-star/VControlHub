@@ -16,7 +16,12 @@ const { mockPrisma, listRemoteDirectoryMock, assertStorageAccessMock } = vi.hois
       create: vi.fn(),
       findMany: vi.fn(),
       findUnique: vi.fn(),
+      findFirst: vi.fn(),
       update: vi.fn(),
+      delete: vi.fn(),
+    },
+    server: {
+      findFirst: vi.fn(),
     },
     fileEntry: {
       create: vi.fn(),
@@ -52,6 +57,7 @@ import {
   getStorageOverview,
   listDeletedFileEntries,
   listFileEntries,
+  listStorageNodes,
   restoreFileEntry,
   saveLocalEditableFileDraft,
   updateStorageNode,
@@ -445,6 +451,85 @@ describe("storage service", () => {
       expect.objectContaining({
         data: expect.objectContaining({
           publicBaseUrl: "http://[2001:4860:4860::8888]:31888/files",
+        }),
+      }),
+    );
+  });
+
+  it("scopes listStorageNodes with teamWhere for non-admin sessions", async () => {
+    vi.clearAllMocks();
+    vi.mocked(prisma.storageNode.findMany).mockResolvedValueOnce([]);
+
+    await listStorageNodes({
+      userId: "u_member",
+      roles: ["operator"],
+      currentTeamId: "team_ops",
+    });
+
+    expect(prisma.storageNode.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: {
+          OR: [{ teamId: "team_ops" }, { teamId: null }],
+        },
+      }),
+    );
+  });
+
+  it("does not filter listStorageNodes for team:manage admins", async () => {
+    vi.clearAllMocks();
+    vi.mocked(prisma.storageNode.findMany).mockResolvedValueOnce([]);
+
+    await listStorageNodes({
+      userId: "u_admin",
+      roles: ["admin"],
+      currentTeamId: "team_ops",
+    });
+
+    expect(prisma.storageNode.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: {},
+      }),
+    );
+  });
+
+  it("stamps teamId on createStorageNode when session has currentTeamId", async () => {
+    vi.clearAllMocks();
+    vi.mocked(prisma.storageNode.create).mockResolvedValueOnce({
+      id: "node_team",
+      name: "team node",
+      driver: "LOCAL",
+      isDefault: false,
+      basePath: "/data/team",
+      host: null,
+      port: null,
+      username: null,
+      serverId: null,
+      directAccessMode: "PROXY",
+      publicBaseUrl: null,
+      directAccessExpiresSeconds: 300,
+      server: null,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    } as any);
+
+    await createStorageNode(
+      {
+        name: "team node",
+        driver: "LOCAL",
+        basePath: "/data/team",
+        isDefault: false,
+      },
+      {
+        userId: "u_member",
+        roles: ["operator"],
+        currentTeamId: "team_ops",
+      },
+    );
+
+    expect(prisma.storageNode.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          teamId: "team_ops",
         }),
       }),
     );

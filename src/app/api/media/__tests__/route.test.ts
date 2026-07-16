@@ -43,6 +43,7 @@ describe("/api/media", () => {
       q: "cat",
       favorite: true,
       tag: "demo",
+      session: expect.anything(),
     });
     expect(body.media).toEqual([{ id: "m_1", mediaType: "image" }]);
   });
@@ -59,7 +60,7 @@ describe("/api/media", () => {
 
     expect(response.status).toBe(200);
     expect(requireApiPermissionMock).toHaveBeenCalledWith("media:manage");
-    expect(scanMediaFromFileEntriesMock).toHaveBeenCalledWith("u_1");
+    expect(scanMediaFromFileEntriesMock).toHaveBeenCalledWith("u_1", expect.anything());
     expect(body).toEqual({ scanned: 2 });
   });
 });

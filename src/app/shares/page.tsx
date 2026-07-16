@@ -24,7 +24,7 @@ export default async function SharesPage() {
 			</PageShell>
 		);
 	}
-	const [shares, nodes] = await Promise.all([listShareLinks(undefined, session), listStorageNodes()]);
+	const [shares, nodes] = await Promise.all([listShareLinks(undefined, session), listStorageNodes(session)]);
 	const canCreate = sessionHasPermission(session, "share:create");
 	const canManage = sessionHasPermission(session, "share:manage");
 

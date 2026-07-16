@@ -6,6 +6,7 @@ const { mockPrisma } = vi.hoisted(() => ({
       upsert: vi.fn(),
       findMany: vi.fn(),
       findUnique: vi.fn(),
+      findFirst: vi.fn(),
       deleteMany: vi.fn(),
       update: vi.fn(),
       groupBy: vi.fn(),
@@ -198,11 +199,11 @@ describe("media service", () => {
   });
 
   it("selects connection credentials only for media stream lookups", async () => {
-    mockPrisma.mediaItem.findUnique.mockResolvedValue(null);
+    mockPrisma.mediaItem.findFirst.mockResolvedValue(null);
 
     await getMediaItem("media_1");
 
-    expect(mockPrisma.mediaItem.findUnique).toHaveBeenCalledWith(
+    expect(mockPrisma.mediaItem.findFirst).toHaveBeenCalledWith(
       expect.objectContaining({
         where: { id: "media_1" },
         select: expect.objectContaining({
@@ -221,4 +222,40 @@ describe("media service", () => {
       }),
     );
   });
+
+  it("scopes media list by storageNode.teamId when session has currentTeamId", async () => {
+    mockPrisma.mediaItem.findMany.mockResolvedValueOnce([]);
+    await listMediaItems({
+      session: { userId: "u1", roles: ["operator"], currentTeamId: "team_a" },
+    });
+    expect(mockPrisma.mediaItem.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          storageNode: {
+            OR: [{ teamId: "team_a" }, { teamId: null }],
+          },
+        }),
+      }),
+    );
+  });
+
+  it("getMediaItem uses findFirst with team scope", async () => {
+    mockPrisma.mediaItem.findFirst = vi.fn().mockResolvedValueOnce(null);
+    await getMediaItem("m1", {
+      userId: "u1",
+      roles: ["operator"],
+      currentTeamId: "team_a",
+    });
+    expect(mockPrisma.mediaItem.findFirst).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          id: "m1",
+          storageNode: {
+            OR: [{ teamId: "team_a" }, { teamId: null }],
+          },
+        }),
+      }),
+    );
+  });
+
 });

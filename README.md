@@ -368,7 +368,7 @@ make logs SERVICE_PREFIX=vcontrolhub
 | 域 | 能力 |
 |---|---|
 | 安全 | RBAC、CSRF、限流、审计、advisory lock（restore / VPS schedule / playbook / compose / server-delete）、SSH host-key pin |
-| 多租户 | 核心模型 Team scope；知识库 / ITSM / 告警事件 / 定时任务 / **部署运行** / **下载任务** / 云账单账户按团队过滤；任务可见性收窄 |
+| 多租户 | 核心模型 Team scope；知识库 / ITSM / 告警事件 / 定时任务 / 部署运行 / 下载任务 / 云账单 / **存储节点** / **媒体库（经 StorageNode）** 按团队过滤 |
 | 远程运行时 | 远程 Docker；Quick Services 本机/VPS；Compose 项目生命周期 |
 | 监控告警 | 后台采样；容量预测；**预测指标可挂告警规则**（days-to-85）；升级/值班/确认 |
 | 命令 / Playbook | 审批与 durable 执行；**失败路径可观测**（job 不假成功、终端审计、结果通知、rejected target 收口） |
@@ -399,9 +399,9 @@ make logs SERVICE_PREFIX=vcontrolhub
 
 ### 下一步（优先完善现有）
 
-1. 全量审计与持续升级由后台 deep-audit 负责（本对话不抢主线）
-2. live 云账单：HTTPS CSV URL 已可用；原生厂商 SDK 仍按密钥/合规按需
-3. 双向同步：调度 + 报告/冲突说明已落地；企业冲突中心仍属有意边界
+1. 全量审计与持续升级由后台 deep-audit 继续（auth/server 等模块）
+2. 原生云账单 SDK / 企业冲突中心：有密钥或明确需求再做
+3. 媒体/存储 Team scope 已补齐；其余 IDOR 面由审计循环收口
 
 ### 期望 vs 实际
 

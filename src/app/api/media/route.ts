@@ -15,7 +15,7 @@ export async function GET(request: Request) {
   return withApiRoute(
     request,
     { permission: "storage:read", errorMessage: "Failed to fetch media list" },
-    async () => {
+    async ({ session }) => {
       const { type, q, favorite, tag } = parseSearchParams(
         request,
         z.object({
@@ -35,6 +35,7 @@ export async function GET(request: Request) {
           q,
           favorite: favorite ? true : undefined,
           tag,
+          session: session ?? undefined,
         }),
       });
     },
@@ -52,7 +53,7 @@ export async function POST(request: Request) {
     async ({ session }) => {
       if (!session)
         throw new AuthError("Not authenticated");
-      const result = await scanMediaFromFileEntries(session.userId);
+      const result = await scanMediaFromFileEntries(session.userId, session);
       await auditUserAction(session.userId, "media.scan", {
         scanned: typeof result === "object" && result !== null && "scanned" in result
           ? Number((result as { scanned?: unknown }).scanned ?? 0)

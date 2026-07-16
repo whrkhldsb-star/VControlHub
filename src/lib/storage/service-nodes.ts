@@ -1,6 +1,8 @@
 import { constants as fsConstants } from "node:fs";
 import { access, stat } from "node:fs/promises";
 
+import type { SessionPayload } from "@/lib/auth/session";
+import { teamCreateData, teamWhere } from "@/lib/auth/team-scope";
 import { prisma } from "@/lib/db";
 import { BusinessError, NotFoundError, ValidationError } from "@/lib/errors";
 import { serverT } from "@/lib/i18n/server-locale";
@@ -23,6 +25,20 @@ import {
 } from "./service-direct-access";
 
 export type StorageNodeHealthStatus = "UNKNOWN" | "HEALTHY" | "UNHEALTHY";
+
+type TeamSession = Pick<SessionPayload, "userId" | "roles" | "currentTeamId">;
+
+const STORAGE_NODE_SERVER_INCLUDE = {
+  server: {
+    select: {
+      id: true,
+      name: true,
+      host: true,
+      port: true,
+      username: true,
+    },
+  },
+} as const;
 
 function sanitizeHealthError(error: unknown) {
   const rawMessage =
@@ -51,31 +67,72 @@ function serializeHealthFields(node: {
   };
 }
 
-export async function ensureDefaultNodeState(isDefault?: boolean) {
+function teamScopeWhere(session?: TeamSession | null): Record<string, unknown> {
+  return session ? teamWhere(session) : {};
+}
+
+async function assertServerInTeamScope(
+  serverId: string | null | undefined,
+  session?: TeamSession | null,
+) {
+  if (!serverId || !session) return;
+  const server = await prisma.server.findFirst({
+    where: { id: serverId, ...teamWhere(session) },
+    select: { id: true },
+  });
+  if (!server) {
+    const t = await serverT();
+    throw new NotFoundError(t("backend.storage.nodeNotFound"));
+  }
+}
+
+export async function ensureDefaultNodeState(
+  isDefault?: boolean,
+  session?: TeamSession | null,
+) {
   if (isDefault) {
     await prisma.storageNode.updateMany({
-      where: {},
+      where: teamScopeWhere(session),
       data: { isDefault: false },
     });
   }
 }
 
-export async function checkStorageNodeHealth(storageNodeId: string) {
-  const node = await prisma.storageNode.findUnique({
-    where: { id: storageNodeId },
-    include: {
-      server: {
-        select: {
-          host: true,
-          port: true,
-          username: true,
-          password: true,
-          sshKeyId: true,
-          sshKey: { select: { privateKey: true } },
+export async function checkStorageNodeHealth(
+  storageNodeId: string,
+  session?: TeamSession | null,
+) {
+  const node = session
+    ? await prisma.storageNode.findFirst({
+        where: { id: storageNodeId, ...teamWhere(session) },
+        include: {
+          server: {
+            select: {
+              host: true,
+              port: true,
+              username: true,
+              password: true,
+              sshKeyId: true,
+              sshKey: { select: { privateKey: true } },
+            },
+          },
         },
-      },
-    },
-  });
+      })
+    : await prisma.storageNode.findUnique({
+        where: { id: storageNodeId },
+        include: {
+          server: {
+            select: {
+              host: true,
+              port: true,
+              username: true,
+              password: true,
+              sshKeyId: true,
+              sshKey: { select: { privateKey: true } },
+            },
+          },
+        },
+      });
 
   const t = await serverT();
   if (!node) {
@@ -129,14 +186,19 @@ export async function checkStorageNodeHealth(storageNodeId: string) {
   };
 }
 
-export async function createStorageNode(input: CreateStorageNodeInput) {
+export async function createStorageNode(
+  input: CreateStorageNodeInput,
+  session?: TeamSession | null,
+) {
   const payload = createStorageNodeSchema.parse(input);
 
   if (payload.driver === "SFTP" && !payload.serverId && !payload.host) {
     throw new ValidationError("SFTP storage nodes must be bound to a VPS node or specify a remote host");
   }
 
-  await ensureDefaultNodeState(payload.isDefault);
+  await assertServerInTeamScope(payload.serverId, session);
+  await ensureDefaultNodeState(payload.isDefault, session);
+  const teamData = session ? teamCreateData(session) : {};
 
   const storageNode = await prisma.storageNode.create({
     data: {
@@ -151,18 +213,9 @@ export async function createStorageNode(input: CreateStorageNodeInput) {
       directAccessMode: payload.directAccessMode,
       publicBaseUrl: normalizePublicBaseUrl(payload.publicBaseUrl),
       directAccessExpiresSeconds: payload.directAccessExpiresSeconds,
+      ...teamData,
     },
-    include: {
-      server: {
-        select: {
-          id: true,
-          name: true,
-          host: true,
-          port: true,
-          username: true,
-        },
-      },
-    },
+    include: STORAGE_NODE_SERVER_INCLUDE,
   });
 
   return {
@@ -187,22 +240,20 @@ export async function createStorageNode(input: CreateStorageNodeInput) {
   };
 }
 
-export async function updateStorageNode(input: UpdateStorageNodeInput) {
+export async function updateStorageNode(
+  input: UpdateStorageNodeInput,
+  session?: TeamSession | null,
+) {
   const payload = updateStorageNodeSchema.parse(input);
-  const current = await prisma.storageNode.findUnique({
-    where: { id: payload.storageNodeId },
-    include: {
-      server: {
-        select: {
-          id: true,
-          name: true,
-          host: true,
-          port: true,
-          username: true,
-        },
-      },
-    },
-  });
+  const current = session
+    ? await prisma.storageNode.findFirst({
+        where: { id: payload.storageNodeId, ...teamWhere(session) },
+        include: STORAGE_NODE_SERVER_INCLUDE,
+      })
+    : await prisma.storageNode.findUnique({
+        where: { id: payload.storageNodeId },
+        include: STORAGE_NODE_SERVER_INCLUDE,
+      });
 
   const t = await serverT();
   if (!current) {
@@ -226,7 +277,11 @@ export async function updateStorageNode(input: UpdateStorageNodeInput) {
     throw new ValidationError("SFTP storage nodes must be bound to a VPS node or specify a remote host");
   }
 
-  await ensureDefaultNodeState(payload.isDefault);
+  if (payload.serverId) {
+    await assertServerInTeamScope(payload.serverId, session);
+  }
+
+  await ensureDefaultNodeState(payload.isDefault, session);
 
   return prisma.storageNode.update({
     where: { id: payload.storageNodeId },
@@ -252,11 +307,19 @@ export async function updateStorageNode(input: UpdateStorageNodeInput) {
   });
 }
 
-export async function deleteStorageNode(storageNodeId: string) {
-  const node = await prisma.storageNode.findUnique({
-    where: { id: storageNodeId },
-    include: { fileEntries: { select: { id: true, isDeleted: true } } },
-  });
+export async function deleteStorageNode(
+  storageNodeId: string,
+  session?: TeamSession | null,
+) {
+  const node = session
+    ? await prisma.storageNode.findFirst({
+        where: { id: storageNodeId, ...teamWhere(session) },
+        include: { fileEntries: { select: { id: true, isDeleted: true } } },
+      })
+    : await prisma.storageNode.findUnique({
+        where: { id: storageNodeId },
+        include: { fileEntries: { select: { id: true, isDeleted: true } } },
+      });
 
   const t = await serverT();
   if (!node) {
@@ -264,7 +327,7 @@ export async function deleteStorageNode(storageNodeId: string) {
   }
 
   const activeEntryCount = node.fileEntries.filter(
-    (entry: { isDeleted: boolean }) => !entry.isDeleted,
+    (entry) => !entry.isDeleted,
   ).length;
   if (activeEntryCount > 0) {
     throw new BusinessError("This storage node still has file entries; please delete or migrate the files before removing the node");
@@ -274,21 +337,14 @@ export async function deleteStorageNode(storageNodeId: string) {
   return { deleted: true };
 }
 
-export async function listStorageNodes() {
+export async function listStorageNodes(session?: TeamSession | null) {
   // P2: take=500 上界。storage node 数量本质有限（每存储设备 1 行），上界即异常告警。
   const nodes = await prisma.storageNode.findMany({
+    where: teamScopeWhere(session),
     orderBy: [{ isDefault: "desc" }, { createdAt: "desc" }],
     take: 500,
     include: {
-      server: {
-        select: {
-          id: true,
-          name: true,
-          host: true,
-          port: true,
-          username: true,
-        },
-      },
+      ...STORAGE_NODE_SERVER_INCLUDE,
       fileEntries: { where: { isDeleted: false }, select: { id: true } },
     },
   });
