@@ -1,11 +1,11 @@
 {
-  "generatedAt": "2026-07-16T03:05:18.265Z",
+  "generatedAt": "2026-07-16T03:28:19.180Z",
   "summary": {
     "permissionsInList": 54,
     "rolesDefined": 4,
     "apiRoutesAudited": 138,
     "pagesAudited": 47,
-    "callSitesAudited": 491,
+    "callSitesAudited": 495,
     "driftCount": 0,
     "driftByCode": {
       "perm-not-in-list": 0,
@@ -414,6 +414,14 @@
           "line": 15
         },
         {
+          "path": "src/app/api/backups/migration/route.ts",
+          "line": 48
+        },
+        {
+          "path": "src/app/api/backups/migration/route.ts",
+          "line": 48
+        },
+        {
           "path": "src/app/api/backups/offsite/dry-run/route.ts",
           "line": 23
         },
@@ -447,7 +455,7 @@
         },
         {
           "path": "src/app/backups/page.tsx",
-          "line": 25
+          "line": 26
         }
       ],
       "pages": [
@@ -469,6 +477,14 @@
         {
           "path": "src/app/api/backup-schedules/route.ts",
           "line": 17
+        },
+        {
+          "path": "src/app/api/backups/migration/route.ts",
+          "line": 126
+        },
+        {
+          "path": "src/app/api/backups/migration/route.ts",
+          "line": 126
         },
         {
           "path": "src/app/api/backups/offsite/route.ts",
@@ -496,7 +512,7 @@
         },
         {
           "path": "src/app/backups/page.tsx",
-          "line": 24
+          "line": 25
         }
       ],
       "pages": [
@@ -531,7 +547,7 @@
         },
         {
           "path": "src/app/backups/page.tsx",
-          "line": 26
+          "line": 27
         }
       ],
       "pages": [

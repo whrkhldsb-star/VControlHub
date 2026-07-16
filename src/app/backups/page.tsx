@@ -12,6 +12,7 @@ import { RetryBackupRecordButton } from "./retry-backup-record-button";
 import { VoidBackupRecordButton } from "./void-backup-record-button";
 import { OffsiteDryRunButton } from "./offsite-dry-run-button";
 import { BackupDrillButton } from "./backup-drill-button";
+import { MigrationWizardPanel } from "./migration-wizard-panel";
 import { loadOffsiteConfig } from "@/lib/storage/offsite/service";
 import { formatZhDateTime } from "@/lib/datetime/format";
 
@@ -91,7 +92,25 @@ export default async function BackupsPage() {
 				</div>
 			)}
 
+			
 			{canCreate && (
+				<div className="mb-5">
+					<SurfacePanel title={t("backupsPage.migration.title")} description={t("backupsPage.migration.description")}>
+						<MigrationWizardPanel
+							canCreate={canCreate}
+							completedBackups={backups
+								.filter((b) => b.status === "COMPLETED")
+								.map((b) => ({
+									id: b.id,
+									type: b.type,
+									filePath: b.filePath,
+									label: `${b.type} · ${b.filePath} · ${b.id.slice(0, 8)}`,
+								}))}
+						/>
+					</SurfacePanel>
+				</div>
+			)}
+{canCreate && (
 				<div className="mb-5">
 					<SurfacePanel title={t("backupsPage.create.title")} description={t("backupsPage.create.description")}>
 						<CreateBackupForm />
