@@ -3,66 +3,18 @@ import { useEffect, useMemo, useRef, useState, type DragEvent } from "react";
 import { useRouter } from "next/navigation";
 import { csrfFetch } from "@/lib/auth/csrf-client";
 import { useI18n } from "@/lib/i18n/use-locale";
-type StorageUploadNode = { id: string; name: string; driver: string };
-type UploadMessage = { type: "success" | "error"; text: string } | null;
-type UploadQueueItem = {
-  name: string;
-  status: "pending" | "uploading" | "success" | "error";
-  message: string;
-};
-type BrowserFileWithRelativePath = File & { webkitRelativePath?: string };
-type PathValidationError =
-  | "controlChars"
-  | "dangerousChars"
-  | "absolutePath"
-  | "dotSegments"
-  | "segmentTooLong"
-  | "pathTooLong";
-type PathResult =
-  { ok: true; path: string } | { ok: false; reason: PathValidationError };
-const DEFAULT_NODE = "";
-const CONTROL_CHAR_PATTERN = /[\u0000-\u001f\u007f]/;
-const DANGEROUS_CHAR_PATTERN = /[<>:"|?*]/;
-const MAX_SEGMENT_LENGTH = 255;
-const MAX_PATH_LENGTH = 4096;
-function normalizeRelativePath(input: string): PathResult {
-  const value = input.trim();
-  if (!value) {
-    return { ok: true, path: "" };
-  }
-  if (CONTROL_CHAR_PATTERN.test(value)) {
-    return { ok: false, reason: "controlChars" };
-  }
-  if (DANGEROUS_CHAR_PATTERN.test(value)) {
-    return { ok: false, reason: "dangerousChars" };
-  }
-  if (value.startsWith("/") || /^[A-Za-z]:[\\/]/.test(value)) {
-    return { ok: false, reason: "absolutePath" };
-  }
-  const segments = value
-    .replace(/\\/g, "/")
-    .split("/")
-    .map((segment) => segment.trim())
-    .filter(Boolean);
-  if (segments.some((segment) => segment === "." || segment === "..")) {
-    return { ok: false, reason: "dotSegments" };
-  }
-  if (segments.some((segment) => segment.length > MAX_SEGMENT_LENGTH)) {
-    return { ok: false, reason: "segmentTooLong" };
-  }
-  const path = segments.join("/");
-  if (path.length > MAX_PATH_LENGTH) {
-    return { ok: false, reason: "pathTooLong" };
-  }
-  return { ok: true, path };
-}
-function getBrowserRelativePath(file: File) {
-  const browserFile = file as BrowserFileWithRelativePath;
-  return browserFile.webkitRelativePath?.trim() || file.name;
-}
-function getUploadDisplayPath(file: File) {
-  return getBrowserRelativePath(file);
-}
+import {
+  DEFAULT_NODE,
+  formatUploadMessage,
+  getBrowserRelativePath,
+  getUploadDisplayPath,
+  normalizeRelativePath,
+  type PathValidationError,
+  type StorageUploadNode,
+  type UploadMessage,
+  type UploadQueueItem,
+} from "./file-upload-helpers";
+
 export function FileUploadDropzone({
   nodes,
   initialNodeId,
@@ -121,11 +73,7 @@ export function FileUploadDropzone({
   const formatMessage = (
     key: string,
     values: Record<string, string | number>,
-  ) =>
-    Object.entries(values).reduce(
-      (text, [name, value]) => text.replaceAll(`{${name}}`, String(value)),
-      tr(key),
-    );
+  ) => formatUploadMessage(tr(key), values);
   /* eslint-disable react-hooks/set-state-in-effect */ useEffect(() => {
     const nextNodeId =
       initialNodeId ??
