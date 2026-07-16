@@ -29,12 +29,15 @@ export async function reviewCommandAction(_prevState: ReviewActionState | null, 
     const commandRequestId = String(formData.get("commandRequestId") ?? "");
     const comment = String(formData.get("comment") ?? "");
 
-    await reviewCommandRequest({
-      commandRequestId,
-      approverId: session.userId,
-      approved,
-      comment,
-    });
+    await reviewCommandRequest(
+      {
+        commandRequestId,
+        approverId: session.userId,
+        approved,
+        comment,
+      },
+      session,
+    );
     await auditUserAction(session.userId, approved ? "command.approve" : "command.reject", {
       commandRequestId,
       comment: comment || null,
@@ -93,12 +96,15 @@ export async function batchReviewCommandAction(
 
   for (const commandRequestId of ids) {
     try {
-      await reviewCommandRequest({
-        commandRequestId,
-        approverId: session.userId,
-        approved,
-        comment,
-      });
+      await reviewCommandRequest(
+        {
+          commandRequestId,
+          approverId: session.userId,
+          approved,
+          comment,
+        },
+        session,
+      );
       await auditUserAction(session.userId, approved ? "command.approve" : "command.reject", {
         commandRequestId,
         comment: comment || null,

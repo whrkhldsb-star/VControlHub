@@ -23,6 +23,7 @@ export {
   createCommandRequest,
   listCommandRequests,
   reviewCommandRequest,
+  type CommandSessionScope,
 } from "./service-requests";
 
 // Re-export the worker-id constant so maintenance scripts (worker.ts,

@@ -10,7 +10,11 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("@/lib/auth/authorization", () => ({
-	requirePermission: vi.fn(async () => ({ userId: "approver_1" })),
+	requirePermission: vi.fn(async () => ({
+		userId: "approver_1",
+		roles: ["admin"],
+		currentTeamId: null,
+	})),
 }));
 
 const reviewCommandRequest = vi.fn();
@@ -51,12 +55,15 @@ describe("batchReviewCommandAction", () => {
 			buildFormData(["req_1", "req_2", "req_3"], "approve", "批量通过"),
 		);
 		expect(reviewCommandRequest).toHaveBeenCalledTimes(3);
-		expect(reviewCommandRequest).toHaveBeenCalledWith({
-			commandRequestId: "req_1",
-			approverId: "approver_1",
-			approved: true,
-			comment: "批量通过",
-		});
+		expect(reviewCommandRequest).toHaveBeenCalledWith(
+			{
+				commandRequestId: "req_1",
+				approverId: "approver_1",
+				approved: true,
+				comment: "批量通过",
+			},
+			expect.objectContaining({ userId: "approver_1" }),
+		);
 		expect(result.success).toBe("已批准 3 条命令请求。");
 		expect(result.error).toBeUndefined();
 		expect(result.results).toEqual({
@@ -116,6 +123,7 @@ describe("batchReviewCommandAction", () => {
 		await batchReviewCommandAction(null, buildFormData(["x"], "reject"));
 		expect(reviewCommandRequest).toHaveBeenCalledWith(
 			expect.objectContaining({ approved: false }),
+			expect.objectContaining({ userId: "approver_1" }),
 		);
 	});
 });

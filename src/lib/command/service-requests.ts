@@ -1,5 +1,7 @@
 import { isProtectedByApproval } from "@/lib/auth/rbac";
-import { teamWhere } from "@/lib/auth/team-scope";
+import { sessionHasPermission } from "@/lib/auth/authorization";
+import type { RoleKey } from "@/lib/auth/rbac";
+import { teamCreateData, teamWhere } from "@/lib/auth/team-scope";
 import { prisma } from "@/lib/db";
 import { BusinessError, NotFoundError, ValidationError } from "@/lib/errors";
 import {
@@ -16,6 +18,55 @@ import { cancelActiveCommandChild, enqueueApprovedCommandExecution } from "./ser
 import { createLogger } from "@/lib/logging";
 
 const commandLogger = createLogger("command-requests");
+
+/** Minimal session shape for multi-tenant command request scoping. */
+export type CommandSessionScope = {
+  userId: string;
+  roles: RoleKey[];
+  currentTeamId: string | null;
+};
+
+/**
+ * Resolve teamId for a new CommandRequest.
+ * - Explicit payload.teamId is only honoured for team:manage (admin).
+ * - Otherwise stamp from session.currentTeamId via teamCreateData.
+ * - System callers without session keep payload.teamId or null.
+ */
+function resolveCommandTeamId(
+  payloadTeamId: string | null | undefined,
+  session?: CommandSessionScope | null,
+): string | null {
+  if (session && sessionHasPermission(session, "team:manage") && payloadTeamId !== undefined) {
+    return payloadTeamId;
+  }
+  if (session) {
+    return teamCreateData(session).teamId ?? null;
+  }
+  return payloadTeamId ?? null;
+}
+
+/**
+ * Ensure every serverId is visible under the caller's team scope (or exists
+ * for unscoped system callers). Prevents command.execute IDOR onto other
+ * teams' VPS after Server list/CRUD became team-scoped.
+ */
+async function assertCommandTargetServersInScope(
+  serverIds: string[],
+  session?: CommandSessionScope | null,
+): Promise<void> {
+  const servers = await prisma.server.findMany({
+    where: {
+      id: { in: serverIds },
+      ...(session ? teamWhere(session) : {}),
+    },
+    select: { id: true },
+  });
+  if (servers.length !== serverIds.length) {
+    throw new ValidationError(
+      "One or more target servers were not found or are outside your team scope",
+    );
+  }
+}
 
 function toApprovalActorType(submissionMode: "user" | "assistant") {
   return submissionMode;
@@ -170,14 +221,22 @@ function mapCommandRequest(
   };
 }
 
-export async function cancelCommandRequest(input: { commandRequestId: string; actorId: string; reason?: string }) {
+export async function cancelCommandRequest(input: {
+  commandRequestId: string;
+  actorId: string;
+  reason?: string;
+  session?: CommandSessionScope | null;
+}) {
   const commandRequestId = input.commandRequestId.trim();
   if (!commandRequestId) {
     throw new ValidationError("Command request not found");
   }
 
-  const request = await prisma.commandRequest.findUnique({
-    where: { id: commandRequestId },
+  const request = await prisma.commandRequest.findFirst({
+    where: {
+      id: commandRequestId,
+      ...(input.session ? teamWhere(input.session) : {}),
+    },
     include: { targets: { select: { id: true, status: true } } },
   });
 
@@ -226,7 +285,10 @@ export async function cancelCommandRequest(input: { commandRequestId: string; ac
   return prisma.commandRequest.findUniqueOrThrow({ where: { id: commandRequestId } });
 }
 
-export async function createCommandRequest(input: CreateCommandInput) {
+export async function createCommandRequest(
+  input: CreateCommandInput,
+  session?: CommandSessionScope | null,
+) {
   const payload = createCommandSchema.parse(input);
   if (payload.idempotencyKey) {
     const existing = await prisma.commandRequest.findUnique({
@@ -235,6 +297,10 @@ export async function createCommandRequest(input: CreateCommandInput) {
     });
     if (existing) return { ...existing, requiresApproval: existing.status === "PENDING_APPROVAL" };
   }
+
+  await assertCommandTargetServersInScope(payload.serverIds, session);
+  const teamId = resolveCommandTeamId(payload.teamId, session);
+
   const requiresApproval = isProtectedByApproval({
     actorType: toApprovalActorType(payload.submissionMode),
     actionType: "command.execute",
@@ -251,7 +317,7 @@ export async function createCommandRequest(input: CreateCommandInput) {
         | "USER"
         | "ASSISTANT",
       status,
-      teamId: payload.teamId ?? null,
+      teamId,
       idempotencyKey: payload.idempotencyKey ?? null,
       targets: {
         create: payload.serverIds.map((serverId) => ({ serverId, status })),
@@ -276,10 +342,16 @@ export async function createCommandRequest(input: CreateCommandInput) {
   return { ...commandRequest, requiresApproval };
 }
 
-export async function reviewCommandRequest(input: ReviewCommandInput) {
+export async function reviewCommandRequest(
+  input: ReviewCommandInput,
+  session?: CommandSessionScope | null,
+) {
   const payload = reviewCommandSchema.parse(input);
-  const request = await prisma.commandRequest.findUnique({
-    where: { id: payload.commandRequestId },
+  const request = await prisma.commandRequest.findFirst({
+    where: {
+      id: payload.commandRequestId,
+      ...(session ? teamWhere(session) : {}),
+    },
   });
 
   if (!request) {
@@ -304,7 +376,11 @@ export async function reviewCommandRequest(input: ReviewCommandInput) {
     });
 
     const claimed = await tx.commandRequest.updateMany({
-      where: { id: payload.commandRequestId, status: "PENDING_APPROVAL" },
+      where: {
+        id: payload.commandRequestId,
+        status: "PENDING_APPROVAL",
+        ...(session ? teamWhere(session) : {}),
+      },
       data: payload.approved
         ? { status: nextStatus }
         : { status: nextStatus, workerId: null, workerHeartbeatAt: null },
@@ -351,7 +427,7 @@ export async function reviewCommandRequest(input: ReviewCommandInput) {
   return request;
 }
 
-export async function listCommandRequests(session?: { userId: string; roles: import("@/lib/auth/rbac").RoleKey[]; currentTeamId: string | null }) {
+export async function listCommandRequests(session?: CommandSessionScope | null) {
   const where = session ? { ...teamWhere(session) } : {};
   const requests = await prisma.commandRequest.findMany({
     where,

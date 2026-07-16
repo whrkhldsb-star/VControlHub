@@ -112,9 +112,12 @@ describe("/api/commands audit coverage", () => {
     }));
 
     expect(response.status).toBe(201);
-    expect(mocks.createCommandRequest).toHaveBeenCalledWith(expect.objectContaining({
-      serverIds: ["srv1", "srv2"],
-    }));
+    expect(mocks.createCommandRequest).toHaveBeenCalledWith(
+      expect.objectContaining({
+        serverIds: ["srv1", "srv2"],
+      }),
+      expect.objectContaining({ userId: "u1" }),
+    );
     expect(mocks.auditUserAction).toHaveBeenCalledWith("u1", "command.submit", expect.objectContaining({
       targetCount: 2,
     }));
@@ -134,7 +137,10 @@ describe("/api/commands audit coverage", () => {
       }),
     }));
 
-    expect(mocks.createCommandRequest).toHaveBeenCalledWith(expect.objectContaining({ submissionMode: "assistant" }));
+    expect(mocks.createCommandRequest).toHaveBeenCalledWith(
+      expect.objectContaining({ submissionMode: "assistant" }),
+      expect.objectContaining({ userId: "u1" }),
+    );
   });
 
   it("rejects schema-invalid command submissions before reaching service code", async () => {
@@ -163,6 +169,7 @@ describe("/api/commands audit coverage", () => {
       commandRequestId: "cmd1",
       actorId: "u1",
       reason: "wrong window",
+      session: expect.objectContaining({ userId: "u1" }),
     });
     expect(mocks.auditUserAction).toHaveBeenCalledWith("u1", "command.cancel", {
       commandRequestId: "cmd1",

@@ -14,6 +14,7 @@ const { mockPrisma, spawnMock, pendingExecutions } = vi.hoisted(() => ({
       create: vi.fn(),
       findMany: vi.fn(),
       findUnique: vi.fn(),
+      findFirst: vi.fn(),
       update: vi.fn(),
       findUniqueOrThrow: vi.fn(),
     },
@@ -36,6 +37,9 @@ const { mockPrisma, spawnMock, pendingExecutions } = vi.hoisted(() => ({
       count: vi.fn(),
     },
     user: {
+      findMany: vi.fn(),
+    },
+    server: {
       findMany: vi.fn(),
     },
     setting: {
@@ -118,6 +122,10 @@ describe("command service execution flow", () => {
       teamId: null,
     });
     mockPrisma.user.findMany.mockResolvedValue([]);
+    mockPrisma.server.findMany.mockImplementation(async (args: { where?: { id?: { in?: string[] } } }) => {
+      const ids = args?.where?.id?.in ?? [];
+      return ids.map((id: string) => ({ id }));
+    });
     mockPrisma.notification.count.mockResolvedValue(0);
     mockPrisma.$transaction.mockImplementation(async (callback: (tx: typeof mockPrisma) => unknown) => callback(mockPrisma));
     mockPrisma.commandRequest.updateMany.mockResolvedValue({ count: 1 });
@@ -724,13 +732,13 @@ describe("command service execution flow", () => {
   });
 
   it("cancels running command requests and terminates active SSH children", async () => {
+    mockPrisma.commandRequest.findFirst.mockResolvedValueOnce({
+      id: "req_cancel_1",
+      status: "RUNNING",
+      targets: [{ id: "target_cancel", status: "RUNNING" }],
+    });
     mockPrisma.commandRequest.findUnique
-      .mockResolvedValueOnce({ id: "req_cancel_1", targets: [{ id: "target_cancel" }] })
-      .mockResolvedValueOnce({
-        id: "req_cancel_1",
-        status: "RUNNING",
-        targets: [{ id: "target_cancel", status: "RUNNING" }],
-      });
+      .mockResolvedValueOnce({ id: "req_cancel_1", targets: [{ id: "target_cancel" }] });
     mockPrisma.commandRequest.update.mockResolvedValue({ id: "req_cancel_1", status: "CANCELLED" });
     mockPrisma.commandRequest.findUniqueOrThrow.mockResolvedValue({ id: "req_cancel_1", status: "CANCELLED" });
     let runningChild!: MockChildProcess;
@@ -853,8 +861,9 @@ describe("command service execution flow", () => {
   });
 
   it("approves assistant request and enqueues execution without blocking review", async () => {
+    mockPrisma.commandRequest.findFirst
+      .mockResolvedValueOnce({ id: "req_assistant_1", status: "PENDING_APPROVAL", requesterId: "u_1", title: "Restart nginx" });
     mockPrisma.commandRequest.findUnique
-      .mockResolvedValueOnce({ id: "req_assistant_1", status: "PENDING_APPROVAL" })
       .mockResolvedValueOnce({ id: "req_assistant_1", targets: [{ id: "target_2" }] });
     mockPrisma.commandRequest.update
       .mockResolvedValueOnce({ id: "req_assistant_1", status: "APPROVED" })
@@ -908,7 +917,7 @@ describe("command service execution flow", () => {
   });
 
   it("rejects review when command is not pending approval", async () => {
-    mockPrisma.commandRequest.findUnique.mockResolvedValue({ id: "req_done_1", status: "COMPLETED" });
+    mockPrisma.commandRequest.findFirst.mockResolvedValue({ id: "req_done_1", status: "COMPLETED" });
 
     await expect(
       reviewCommandRequest({
@@ -918,6 +927,104 @@ describe("command service execution flow", () => {
         comment: "late review",
       }),
     ).rejects.toThrow("Command request is not pending approval");
+  });
+
+  it("rejects create when session cannot see target servers (team IDOR)", async () => {
+    mockPrisma.server.findMany.mockResolvedValueOnce([{ id: "srv_in_scope" }]);
+
+    await expect(
+      createCommandRequest(
+        {
+          title: "Cross-team shell",
+          command: "id",
+          requesterId: "u_team_a",
+          submissionMode: "user",
+          serverIds: ["srv_in_scope", "srv_other_team"],
+        },
+        {
+          userId: "u_team_a",
+          roles: ["operator"],
+          currentTeamId: "team_a",
+        },
+      ),
+    ).rejects.toThrow("outside your team scope");
+
+    expect(mockPrisma.commandRequest.create).not.toHaveBeenCalled();
+    expect(mockPrisma.server.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          id: { in: ["srv_in_scope", "srv_other_team"] },
+          OR: [{ teamId: "team_a" }, { teamId: null }],
+        }),
+      }),
+    );
+  });
+
+  it("stamps CommandRequest.teamId from session and accepts in-scope servers", async () => {
+    mockPrisma.server.findMany.mockResolvedValueOnce([{ id: "srv_1" }]);
+    mockPrisma.commandRequest.create.mockResolvedValue({
+      id: "req_team_1",
+      status: "PENDING_APPROVAL",
+      teamId: "team_a",
+      targets: [{ id: "t1" }],
+    });
+
+    await createCommandRequest(
+      {
+        title: "Scoped run",
+        command: "uptime",
+        requesterId: "u_team_a",
+        submissionMode: "assistant",
+        serverIds: ["srv_1"],
+        teamId: "team_attacker_override",
+      },
+      {
+        userId: "u_team_a",
+        roles: ["operator"],
+        currentTeamId: "team_a",
+      },
+    );
+
+    expect(mockPrisma.commandRequest.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          teamId: "team_a",
+        }),
+      }),
+    );
+  });
+
+  it("scopes cancel/review loads with teamWhere when session is provided", async () => {
+    mockPrisma.commandRequest.findFirst.mockResolvedValue(null);
+
+    await expect(
+      cancelCommandRequest({
+        commandRequestId: "req_other_team",
+        actorId: "u_team_a",
+        session: { userId: "u_team_a", roles: ["operator"], currentTeamId: "team_a" },
+      }),
+    ).rejects.toThrow("Command request not found");
+
+    expect(mockPrisma.commandRequest.findFirst).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          id: "req_other_team",
+          OR: [{ teamId: "team_a" }, { teamId: null }],
+        }),
+      }),
+    );
+
+    mockPrisma.commandRequest.findFirst.mockResolvedValue(null);
+    await expect(
+      reviewCommandRequest(
+        {
+          commandRequestId: "req_other_team",
+          approverId: "u_team_a",
+          approved: true,
+        },
+        { userId: "u_team_a", roles: ["operator"], currentTeamId: "team_a" },
+      ),
+    ).rejects.toThrow("Command request not found");
   });
 
   it("recovers stale running command requests that lost their in-process worker", async () => {

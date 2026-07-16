@@ -20,14 +20,17 @@ export async function createCommandRequestAction(_prev: CommandActionState | nul
     const serverIds = formData.getAll("serverIds").map((value) => String(value)).filter(Boolean);
     const submissionMode = String(formData.get("submissionMode") ?? "user");
 
-    await createCommandRequest({
-      title: String(formData.get("title") ?? ""),
-      command: String(formData.get("command") ?? ""),
-      reason: String(formData.get("reason") ?? ""),
-      submissionMode: submissionMode === "assistant" ? "assistant" : "user",
-      requesterId: session.userId,
-      serverIds,
-    });
+    await createCommandRequest(
+      {
+        title: String(formData.get("title") ?? ""),
+        command: String(formData.get("command") ?? ""),
+        reason: String(formData.get("reason") ?? ""),
+        submissionMode: submissionMode === "assistant" ? "assistant" : "user",
+        requesterId: session.userId,
+        serverIds,
+      },
+      session,
+    );
 
     revalidatePath("/");
     revalidatePath("/servers");
