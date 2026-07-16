@@ -1,4 +1,4 @@
-import { mkdir, rename, rm, unlink } from "node:fs/promises";
+import { mkdir, rename, rm, unlink, writeFile } from "node:fs/promises";
 
 import { ValidationError } from "@/lib/errors";
 import { resolveStorageSshCredentials } from "./ssh-credentials";
@@ -8,6 +8,7 @@ import {
   createRemoteDirectory,
   deleteRemoteFile,
   renameRemoteFile,
+  writeRemoteFile,
 } from "@/lib/ssh/client";
 
 /**
@@ -99,6 +100,65 @@ export async function createManagedFolder(input: {
       recursive: false,
     });
   }
+}
+
+/**
+ * Write (create or overwrite) a file on the storage node's backing
+ * filesystem. Parent directories are created when needed so callers can
+ * write nested paths in one call — matching the previous in-line
+ * behaviour in sftp-ops `write`.
+ * - LOCAL: mkdir -p parent + writeFile
+ * - SFTP:  recursive createRemoteDirectory on parent + writeRemoteFile
+ * Other drivers are intentionally unsupported (no-op).
+ */
+export async function writeBackingObject(input: {
+  storageNode: StorageNodeWithCredentials;
+  relativePath: string;
+  content: string | Buffer;
+}): Promise<{ byteSize: number }> {
+  const buffer = Buffer.isBuffer(input.content)
+    ? input.content
+    : Buffer.from(input.content, "utf8");
+  const byteSize = buffer.byteLength;
+
+  if (input.storageNode.driver === "LOCAL") {
+    const { path, absolutePath } = await resolveManagedLocalEntryPath({
+      basePath: input.storageNode.basePath,
+      relativePath: input.relativePath,
+    });
+    await mkdir(path.dirname(absolutePath), { recursive: true });
+    await writeFile(absolutePath, buffer);
+    return { byteSize };
+  }
+
+  if (input.storageNode.driver === "SFTP") {
+    const remotePath = normalizeRemoteTargetPath(
+      input.storageNode.basePath,
+      input.relativePath,
+    );
+    const credentials = resolveStorageSshCredentials(input.storageNode);
+    const path = await import("node:path");
+    const parentDirectory = path.posix.dirname(remotePath);
+    if (
+      parentDirectory &&
+      parentDirectory !== "." &&
+      parentDirectory !== "/"
+    ) {
+      await createRemoteDirectory({
+        ...credentials,
+        remotePath: parentDirectory,
+        recursive: true,
+      });
+    }
+    await writeRemoteFile({
+      ...credentials,
+      remotePath,
+      content: buffer,
+    });
+    return { byteSize };
+  }
+
+  return { byteSize };
 }
 
 /**

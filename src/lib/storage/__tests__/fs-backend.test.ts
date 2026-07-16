@@ -4,17 +4,20 @@ const {
   createRemoteDirectoryMock,
   deleteRemoteFileMock,
   renameRemoteFileMock,
+  writeRemoteFileMock,
   resolveStorageSshCredentialsMock,
   normalizeRemoteTargetPathMock,
   mkdirMock,
   rmMock,
   unlinkMock,
   renameFsMock,
+  writeFileMock,
   fsMock,
 } = vi.hoisted(() => {
   const createRemoteDirectoryMock = vi.fn();
   const deleteRemoteFileMock = vi.fn();
   const renameRemoteFileMock = vi.fn();
+  const writeRemoteFileMock = vi.fn();
   const resolveStorageSshCredentialsMock = vi.fn();
   const normalizeRemoteTargetPathMock = vi.fn(
     (base: string, rel: string) =>
@@ -24,10 +27,10 @@ const {
   const rmMock = vi.fn();
   const unlinkMock = vi.fn();
   const renameFsMock = vi.fn();
+  const writeFileMock = vi.fn();
   const statMock = vi.fn();
   const lstatMock = vi.fn();
   const readFileMock = vi.fn();
-  const writeFileMock = vi.fn();
   const readdirMock = vi.fn();
   const fsMock = {
     mkdir: mkdirMock,
@@ -44,18 +47,21 @@ const {
       rm: rmMock,
       unlink: unlinkMock,
       rename: renameFsMock,
+      writeFile: writeFileMock,
     },
   };
   return {
     createRemoteDirectoryMock,
     deleteRemoteFileMock,
     renameRemoteFileMock,
+    writeRemoteFileMock,
     resolveStorageSshCredentialsMock,
     normalizeRemoteTargetPathMock,
     mkdirMock,
     rmMock,
     unlinkMock,
     renameFsMock,
+    writeFileMock,
     fsMock,
   };
 });
@@ -64,6 +70,7 @@ vi.mock("@/lib/ssh/client", () => ({
   createRemoteDirectory: createRemoteDirectoryMock,
   deleteRemoteFile: deleteRemoteFileMock,
   renameRemoteFile: renameRemoteFileMock,
+  writeRemoteFile: writeRemoteFileMock,
 }));
 
 vi.mock("@/lib/storage/remote-path", () => ({
@@ -82,6 +89,7 @@ import {
   isMissingBackingObjectError,
   renameBackingObject,
   resolveManagedLocalEntryPath,
+  writeBackingObject,
 } from "../fs-backend";
 
 const localNode = {
@@ -367,5 +375,88 @@ describe("renameBackingObject", () => {
       oldPath: "/data/root/docs/old.txt",
       newPath: "/data/root/team/new.txt",
     });
+  });
+});
+
+describe("writeBackingObject", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    resolveStorageSshCredentialsMock.mockReturnValue({
+      host: "203.0.113.10",
+      port: 22,
+      username: "root",
+      privateKey: "PRIVATE KEY",
+    });
+  });
+
+  afterEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("writes a LOCAL file after mkdir -p parent and returns byteSize", async () => {
+    const result = await writeBackingObject({
+      storageNode: localNode,
+      relativePath: "team/docs/note.txt",
+      content: "hello",
+    });
+    expect(result).toEqual({ byteSize: 5 });
+    expect(mkdirMock).toHaveBeenCalledWith("/srv/storage/team/docs", {
+      recursive: true,
+    });
+    expect(writeFileMock).toHaveBeenCalledWith(
+      "/srv/storage/team/docs/note.txt",
+      Buffer.from("hello", "utf8"),
+    );
+    expect(writeRemoteFileMock).not.toHaveBeenCalled();
+  });
+
+  it("writes an SFTP file after creating the parent directory", async () => {
+    const result = await writeBackingObject({
+      storageNode: sftpNode,
+      relativePath: "new-folder/hello.txt",
+      content: "hello",
+    });
+    expect(result).toEqual({ byteSize: 5 });
+    expect(createRemoteDirectoryMock).toHaveBeenCalledWith({
+      host: "203.0.113.10",
+      port: 22,
+      username: "root",
+      privateKey: "PRIVATE KEY",
+      remotePath: "/data/root/new-folder",
+      recursive: true,
+    });
+    expect(writeRemoteFileMock).toHaveBeenCalledWith({
+      host: "203.0.113.10",
+      port: 22,
+      username: "root",
+      privateKey: "PRIVATE KEY",
+      remotePath: "/data/root/new-folder/hello.txt",
+      content: Buffer.from("hello", "utf8"),
+    });
+    expect(writeFileMock).not.toHaveBeenCalled();
+  });
+
+  it("accepts Buffer content without re-encoding", async () => {
+    const buf = Buffer.from([0x00, 0xff, 0x01]);
+    const result = await writeBackingObject({
+      storageNode: localNode,
+      relativePath: "bin/data.bin",
+      content: buf,
+    });
+    expect(result).toEqual({ byteSize: 3 });
+    expect(writeFileMock).toHaveBeenCalledWith(
+      "/srv/storage/bin/data.bin",
+      buf,
+    );
+  });
+
+  it("rejects LOCAL relative paths that escape the base path", async () => {
+    await expect(
+      writeBackingObject({
+        storageNode: localNode,
+        relativePath: "../etc/passwd",
+        content: "x",
+      }),
+    ).rejects.toThrow(/exceeds storage root/);
   });
 });

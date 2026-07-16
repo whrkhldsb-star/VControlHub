@@ -7,13 +7,9 @@ import { assertStorageAccess } from "@/lib/storage/access-control";
 import {
   deleteBackingObject,
   renameBackingObject,
+  writeBackingObject,
 } from "@/lib/storage/fs-backend";
-import {
-  createRemoteDirectory,
-  deleteRemoteFile,
-  readRemoteFile,
-  writeRemoteFile,
-} from "@/lib/ssh/client";
+import { readRemoteFile } from "@/lib/ssh/client";
 import { getSftpNodeConnection } from "@/lib/storage/sftp-node";
 import path from "node:path";
 import {
@@ -360,27 +356,14 @@ async function handlePost(body: SftpOpsBody, session: SessionPayload) {
             { status: 400 },
           );
         }
-        const parentDirectory = path.posix.dirname(normalizedRemotePath);
-        if (
-          parentDirectory &&
-          parentDirectory !== "." &&
-          parentDirectory !== "/"
-        ) {
-          await createRemoteDirectory({
-            ...connParams,
-            remotePath: parentDirectory,
-            recursive: true,
-          });
-        }
-        await writeRemoteFile({
-          ...connParams,
-          remotePath: normalizedRemotePath,
+        // Physical write first via fs-backend (same adapter as delete/rename),
+        // then upsert the file index. If index persistence fails, remove the
+        // remote file so we do not leave an unindexed orphan on disk.
+        const { byteSize: writtenSize } = await writeBackingObject({
+          storageNode: node,
+          relativePath: normalizedRelativePath,
           content: body.content,
         });
-        const writtenSize =
-          typeof body.content === "string"
-            ? Buffer.byteLength(body.content, "utf8")
-            : Buffer.byteLength(body.content);
         try {
           await upsertSftpFileIndex({
             storageNodeId: node.id,
@@ -389,14 +372,16 @@ async function handlePost(body: SftpOpsBody, session: SessionPayload) {
           });
         } catch (indexError) {
           try {
-            await deleteRemoteFile({
-              ...connParams,
-              remotePath: normalizedRemotePath,
+            await deleteBackingObject({
+              storageNode: node,
+              relativePath: normalizedRelativePath,
+              isDirectory: false,
+              tolerateMissing: true,
             });
           } catch (cleanupError) {
             logger.warn("failed to clean up remote file after index persistence failed", cleanupError, {
               nodeId,
-              remotePath: normalizedRemotePath,
+              relativePath: normalizedRelativePath,
             });
           }
           throw indexError;

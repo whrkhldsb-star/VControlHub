@@ -125,7 +125,7 @@ describe("/api/storage/sftp-ops", () => {
     expect(writeRemoteFileMock).toHaveBeenCalledWith(
       expect.objectContaining({
         remotePath: "/data/files/new-folder/hello.txt",
-        content: "hello",
+        content: Buffer.from("hello", "utf8"),
       }),
     );
     expect(createRemoteDirectoryMock).toHaveBeenCalledWith(

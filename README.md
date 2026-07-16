@@ -371,7 +371,7 @@ make logs SERVICE_PREFIX=vcontrolhub
 | 多租户 | 核心模型 Team scope；任务列表可见性收窄 |
 | 远程运行时 | 远程 Docker；Quick Services 本机/VPS；Compose 项目生命周期 |
 | 监控告警 | 后台采样；容量预测；告警升级/值班/确认 |
-| 文件 | 检索、断点续传、版本历史、WebDAV |
+| 文件 | 检索、断点续传、版本历史、WebDAV；sftp-ops write/delete/rename → `fs-backend` |
 | 备份 | 细粒度恢复、演练、跨环境迁移向导（不自动 restore） |
 | 工单 / AI | 双向时间线；知识库 RAG；AI Ops 安全闭环 |
 | 集成 | 云账单账户 + CSV/探针；ITSM/IM 双向 |
@@ -392,19 +392,19 @@ make logs SERVICE_PREFIX=vcontrolhub
 
 | 级别 | 项 |
 |---|---|
-| 中 | sftp-ops **write/create** 尚未与 delete/rename 完全统一到 `fs-backend` |
-| 中 | **新增模型** 需持续 Team scope 双层审查 |
+| 中 | 新模型 / 新 API 需持续 Team scope 双层审查（防 IDOR 回归） |
 | 低 | 容量预测为线性模型；样本不足标 `insufficient_data` |
 | 低 | 部分 Client 仍约 400–500 行；重运维路径偏桌面 |
 | 信息 | 无全域统一 event bus（通知渠道 + ITSM fan-out 已有） |
+| 信息 | sftp-ops **read** 仍走 `readRemoteFile` 直连（write/delete/rename 已统一 `fs-backend`） |
 
 ### 下一步（优先完善现有）
 
-1. sftp-ops write/create → 统一 `fs-backend`  
-2. 新模型 / 新 API 的 Team scope 审计  
-3. 容量预测可选联动告警（不新造监控体系）  
-4. 危险操作 advisory lock 按真实风险扩展  
-5. Playbook/命令失败路径可观测性（减少假成功感）  
+1. 新模型 / 新 API 的 Team scope 审计  
+2. 容量预测可选联动告警（不新造监控体系）  
+3. 危险操作 advisory lock 按真实风险扩展  
+4. Playbook/命令失败路径可观测性（减少假成功感）  
+5. sftp-ops **read** 可选统一到 `fs-backend`（与 write 对称）  
 6. 有密钥与合规时再加深 live 云账单；有明确需求再评估双向文件同步  
 
 ### 期望 vs 实际
