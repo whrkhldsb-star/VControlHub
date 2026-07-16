@@ -12,6 +12,7 @@ import {
 	MAX_CHUNK_SIZE,
 	MAX_TOTAL_SIZE,
 	MIN_CHUNK_SIZE,
+	STORAGE_ALLOWED_MIME_PATTERN,
 } from "./types";
 
 const allowedMimePrefixSchema = z
@@ -23,32 +24,61 @@ const allowedMimePrefixSchema = z
 		{ message: "Only image/* MIME types are supported" },
 	);
 
+const storageMimeSchema = z
+	.string()
+	.min(1, "mimeType is required")
+	.max(128)
+	.refine(
+		(m) => STORAGE_ALLOWED_MIME_PATTERN.test(m) || m === "application/octet-stream",
+		{ message: "mimeType must be a valid type/subtype" },
+	);
+
+const filenameSchema = z
+	.string()
+	.min(1, "filename is required")
+	.max(256, "filename cannot exceed 256 characters")
+	.refine((f) => !f.includes("/") && !f.includes("\\"), {
+		message: "filename must not contain path separators",
+	});
+
+const totalSizeSchema = z
+	.number()
+	.int("totalSize must be an integer")
+	.min(1, "totalSize must be > 0")
+	.max(MAX_TOTAL_SIZE, `totalSize cannot exceed ${MAX_TOTAL_SIZE} bytes`);
+
+const chunkSizeSchema = z
+	.number()
+	.int("chunkSize must be an integer")
+	.min(MIN_CHUNK_SIZE, `chunkSize cannot be less than ${MIN_CHUNK_SIZE} bytes`)
+	.max(MAX_CHUNK_SIZE, `chunkSize cannot exceed ${MAX_CHUNK_SIZE} bytes`)
+	.optional();
+
 /** Body for POST /api/images/upload/init. */
 export const initMediaUploadSchema = z.object({
-	filename: z
-		.string()
-		.min(1, "filename is required")
-		.max(256, "filename cannot exceed 256 characters")
-		.refine((f) => !f.includes("/") && !f.includes("\\"), {
-			message: "filename must not contain path separators",
-		}),
+	filename: filenameSchema,
 	mimeType: allowedMimePrefixSchema,
-	totalSize: z
-		.number()
-		.int("totalSize must be an integer")
-		.min(1, "totalSize must be > 0")
-		.max(MAX_TOTAL_SIZE, `totalSize cannot exceed ${MAX_TOTAL_SIZE} bytes`),
-	chunkSize: z
-		.number()
-		.int("chunkSize must be an integer")
-		.min(MIN_CHUNK_SIZE, `chunkSize cannot be less than ${MIN_CHUNK_SIZE} bytes`)
-		.max(MAX_CHUNK_SIZE, `chunkSize cannot exceed ${MAX_CHUNK_SIZE} bytes`)
-		.optional(),
+	totalSize: totalSizeSchema,
+	chunkSize: chunkSizeSchema,
 	storageNodeId: z.string().min(1).max(64).optional(),
 	relativePath: z
 		.string()
 		.max(512, "relativePath cannot exceed 512 characters")
 		.optional(),
+});
+
+/** Body for POST /api/storage/upload/init — ordinary file manager uploads. */
+export const initStorageUploadSchema = z.object({
+	filename: filenameSchema,
+	mimeType: storageMimeSchema,
+	totalSize: totalSizeSchema,
+	chunkSize: chunkSizeSchema,
+	storageNodeId: z.string().min(1).max(64),
+	/** Full relative path of the target file (including filename). */
+	relativePath: z
+		.string()
+		.min(1, "relativePath is required")
+		.max(512, "relativePath cannot exceed 512 characters"),
 });
 
 /** Per-chunk metadata (sent in query or body, depending on route shape).

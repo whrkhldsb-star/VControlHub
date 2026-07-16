@@ -1,6 +1,6 @@
 # VControlHub RBAC Audit Report
 
-> Generated: 2026-07-15T16:17:20.005Z | Permissions: 54 | Roles: 4 | API routes: 138 | Pages: 47 | Drift: 0
+> Generated: 2026-07-16T01:27:07.338Z | Permissions: 54 | Roles: 4 | API routes: 138 | Pages: 47 | Drift: 0
 
 This report cross-references four RBAC sources of truth:
 1. `src/lib/auth/rbac.ts` — `PERMISSIONS` tuple + `DEFAULT_ROLE_PERMISSIONS` map
@@ -67,7 +67,7 @@ This report cross-references four RBAC sources of truth:
 | `storage:delete` | admin, storage_manager | 2 | 4 | 8 |
 | `storage:manage-node` | admin, storage_manager | 2 | 3 | 10 |
 | `storage:read` | admin, operator, viewer, storage_manager | 3 | 1 | 39 |
-| `storage:write` | admin, operator, storage_manager | 2 | 4 | 30 |
+| `storage:write` | admin, operator, storage_manager | 2 | 4 | 34 |
 | `task:read` | admin, operator, viewer, storage_manager | 3 | 0 | 13 |
 | `team:create` | admin, operator | 0 | 0 | 2 |
 | `team:manage` | admin | 0 | 1 | 1 |

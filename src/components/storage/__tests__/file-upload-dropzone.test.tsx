@@ -480,4 +480,91 @@ describe("FileUploadDropzone", () => {
     );
     expect(fetchMock).not.toHaveBeenCalled();
   });
+
+  it("routes large files through storage chunked upload", async () => {
+    const onUploadComplete = vi.fn();
+    const fetchMock = vi.spyOn(globalThis, "fetch").mockImplementation(async (input, _init) => {
+      const url = String(input);
+      if (url.includes("/api/storage/upload/init")) {
+        return {
+          ok: true,
+          json: async () => ({
+            session: {
+              id: "sess_chunk",
+              totalChunks: 1,
+              chunkSize: 5 * 1024 * 1024,
+              totalSize: 5 * 1024 * 1024,
+              receivedChunks: [],
+              status: "PENDING",
+              storageNodeId: "node_local",
+              relativePath: "docs/big.bin",
+            },
+          }),
+        } as Response;
+      }
+      if (url.includes("/chunk?")) {
+        return {
+          ok: true,
+          json: async () => ({
+            session: {
+              id: "sess_chunk",
+              totalChunks: 1,
+              chunkSize: 5 * 1024 * 1024,
+              totalSize: 5 * 1024 * 1024,
+              receivedChunks: [0],
+              status: "UPLOADING",
+              storageNodeId: "node_local",
+              relativePath: "docs/big.bin",
+            },
+          }),
+        } as Response;
+      }
+      if (url.includes("/api/storage/upload/") && url.includes("/complete")) {
+        return {
+          ok: true,
+          json: async () => ({
+            session: {
+              id: "sess_chunk",
+              totalChunks: 1,
+              chunkSize: 5 * 1024 * 1024,
+              totalSize: 5 * 1024 * 1024,
+              receivedChunks: [0],
+              status: "COMPLETED",
+            },
+            relativePath: "docs/big.bin",
+            size: 5 * 1024 * 1024,
+            storageNodeId: "node_local",
+          }),
+        } as Response;
+      }
+      throw new Error(`unexpected fetch ${url}`);
+    });
+
+    render(
+      <FileUploadDropzone
+        nodes={[localNode]}
+        initialNodeId="node_local"
+        initialRelativeDir="docs"
+        title="上传"
+        description="上传文件"
+        submitLabel="选择文件"
+        pathLabel="上传目录路径"
+        onUploadComplete={onUploadComplete}
+      />,
+    );
+
+    const input = document.querySelector('input[type="file"]') as HTMLInputElement;
+    const big = new File([new Uint8Array(5 * 1024 * 1024)], "big.bin", {
+      type: "application/octet-stream",
+    });
+    fireEvent.change(input, { target: { files: [big] } });
+
+    await waitFor(() => expect(onUploadComplete).toHaveBeenCalledWith({
+      relativePath: "docs/big.bin",
+      size: 5 * 1024 * 1024,
+    }));
+    expect(fetchMock.mock.calls.some(([url]) => String(url).includes("/api/storage/upload/init"))).toBe(true);
+    expect(fetchMock.mock.calls.some(([url]) => String(url).includes("/api/storage/local"))).toBe(false);
+  });
+
 });

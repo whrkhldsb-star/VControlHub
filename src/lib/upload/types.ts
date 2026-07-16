@@ -32,6 +32,10 @@ export const MIN_CHUNK_SIZE = 64 * 1024;
  *  existing /api/images/upload behaviour). */
 export const ALLOWED_MIME_PREFIXES = ["image/"] as const;
 
+/** Storage file resumable uploads accept any non-empty MIME (or
+ *  application/octet-stream fallback). */
+export const STORAGE_ALLOWED_MIME_PATTERN = /^[\w.+-]+\/[\w.+-]+$/;
+
 /** Default TTL for a session: 24h from init. Sweeper removes expired
  *  sessions + their temp dir. */
 export const DEFAULT_SESSION_TTL_MS = 24 * 60 * 60 * 1000;

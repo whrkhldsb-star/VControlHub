@@ -14,6 +14,10 @@ import {
   type UploadMessage,
   type UploadQueueItem,
 } from "./file-upload-helpers";
+import {
+  STORAGE_CHUNKED_THRESHOLD_BYTES,
+  uploadStorageFileChunked,
+} from "./storage-chunked-upload";
 
 export function FileUploadDropzone({
   nodes,
@@ -143,10 +147,6 @@ export function FileUploadDropzone({
       const relativePath = [baseDir, itemPathResult.path]
         .filter(Boolean)
         .join("/");
-      const formData = new FormData();
-      formData.set("storageNodeId", selectedNodeId);
-      formData.set("relativePath", relativePath);
-      formData.set("file", file!);
       setQueue((prev) =>
         prev.map((item, i) =>
           i === index
@@ -159,10 +159,41 @@ export function FileUploadDropzone({
         ),
       );
       try {
-        const data = (await csrfFetch("/api/storage/local", {
-          method: "POST",
-          body: formData,
-        })) as { error?: string; relativePath?: string; size?: number };
+        let uploadedPath = relativePath;
+        let uploadedSize = file!.size;
+        if (file!.size >= STORAGE_CHUNKED_THRESHOLD_BYTES) {
+          const chunked = await uploadStorageFileChunked({
+            file: file!,
+            storageNodeId: selectedNodeId,
+            relativePath,
+            onProgress: (progress) => {
+              setQueue((prev) =>
+                prev.map((item, i) =>
+                  i === index
+                    ? {
+                        ...item,
+                        status: "uploading",
+                        message: `${tr("fileUploadDropzone.queue.uploading")} ${progress.percent}%`,
+                      }
+                    : item,
+                ),
+              );
+            },
+          });
+          uploadedPath = chunked.relativePath;
+          uploadedSize = chunked.size;
+        } else {
+          const formData = new FormData();
+          formData.set("storageNodeId", selectedNodeId);
+          formData.set("relativePath", relativePath);
+          formData.set("file", file!);
+          const data = (await csrfFetch("/api/storage/local", {
+            method: "POST",
+            body: formData,
+          })) as { error?: string; relativePath?: string; size?: number };
+          uploadedPath = data.relativePath ?? relativePath;
+          uploadedSize = data.size ?? file!.size;
+        }
         successCount++;
         setQueue((prev) =>
           prev.map((item, i) =>
@@ -171,15 +202,15 @@ export function FileUploadDropzone({
                   ...item,
                   status: "success",
                   message: formatMessage("fileUploadDropzone.queue.completed", {
-                    path: data.relativePath ?? relativePath,
+                    path: uploadedPath,
                   }),
                 }
               : item,
           ),
         );
         onUploadComplete?.({
-          relativePath: data.relativePath ?? relativePath,
-          size: data.size ?? file!.size,
+          relativePath: uploadedPath,
+          size: uploadedSize,
         });
       } catch (error) {
         failureCount++;

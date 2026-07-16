@@ -1,11 +1,11 @@
 {
-  "generatedAt": "2026-07-15T16:17:20.005Z",
+  "generatedAt": "2026-07-16T01:27:07.338Z",
   "summary": {
     "permissionsInList": 54,
     "rolesDefined": 4,
     "apiRoutesAudited": 138,
     "pagesAudited": 47,
-    "callSitesAudited": 471,
+    "callSitesAudited": 475,
     "driftCount": 0,
     "driftByCode": {
       "perm-not-in-list": 0,
@@ -2237,6 +2237,22 @@
         {
           "path": "src/app/api/storage/sftp-sync/route.ts",
           "line": 35
+        },
+        {
+          "path": "src/app/api/storage/upload/[id]/complete/route.ts",
+          "line": 23
+        },
+        {
+          "path": "src/app/api/storage/upload/[id]/complete/route.ts",
+          "line": 23
+        },
+        {
+          "path": "src/app/api/storage/upload/init/route.ts",
+          "line": 28
+        },
+        {
+          "path": "src/app/api/storage/upload/init/route.ts",
+          "line": 28
         },
         {
           "path": "src/app/downloads/page.tsx",
