@@ -650,7 +650,9 @@ export async function handleInboundWebhook(input: {
 		return { event, ticketId, action };
 	} catch (err) {
 		const message = err instanceof Error ? err.message : "inbound processing failed";
-		const event = await recordEvent({
+		// Persist failure for audit/UI, then rethrow so the public route returns non-2xx
+		// (HTTP 200 + action:error looked like acceptance to status-code-only senders).
+		await recordEvent({
 			connectionId: row.id,
 			direction: "inbound",
 			eventType,
@@ -671,7 +673,7 @@ export async function handleInboundWebhook(input: {
 			connectionId: row.id,
 			eventType,
 		});
-		return { event, ticketId, action: "error" };
+		throw err instanceof Error ? err : new Error(message);
 	}
 }
 

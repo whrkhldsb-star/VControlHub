@@ -20,8 +20,10 @@ export default async function ItsmPage() {
 		);
 	}
 
-	const connections = canManage ? await listItsmConnections() : [];
-	const events = canManage ? await listItsmEvents({ limit: 30 }) : [];
+	// Always pass session so teamWhere scopes connections/events to the caller's team
+	// (plus shared teamId=null). Omitting session previously listed every tenant's rows.
+	const connections = canManage ? await listItsmConnections(session) : [];
+	const events = canManage ? await listItsmEvents({ limit: 30, session }) : [];
 	const publicBaseUrl =
 		process.env.NEXT_PUBLIC_APP_URL?.replace(/\/$/, "") ||
 		process.env.APP_BASE_URL?.replace(/\/$/, "") ||

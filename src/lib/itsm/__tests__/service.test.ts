@@ -385,16 +385,17 @@ describe("ITSM service", () => {
 			comment: { body: "cross-team poke" },
 		});
 		const sig = createHmac("sha256", "sec").update(rawBody).digest("hex");
-		const result = await handleInboundWebhook({
-			connectionId: conn.id,
-			rawBody,
-			signatureHeader: `sha256=${sig}`,
-			json: JSON.parse(rawBody) as Record<string, unknown>,
-			systemUserId: "sys",
-		});
-		// Processing error is recorded, not applied as a successful comment
-		expect(result.action).toBe("error");
-		expect(result.event.status).toBe("error");
+		// Processing error is recorded on ItsmEvent + lastError, then rethrown so
+		// the public route can map it to a non-2xx response (no HTTP false success).
+		await expect(
+			handleInboundWebhook({
+				connectionId: conn.id,
+				rawBody,
+				signatureHeader: `sha256=${sig}`,
+				json: JSON.parse(rawBody) as Record<string, unknown>,
+				systemUserId: "sys",
+			}),
+		).rejects.toThrow(/not found/i);
 	});
 
 	it("ignores non-admin body.teamId spoof on create", async () => {
