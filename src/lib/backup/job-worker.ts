@@ -106,6 +106,18 @@ async function handleJob(job: Awaited<ReturnType<typeof claimNextJob>>) {
         heartbeat: () => heartbeatJob(job.id, WORKER_ID, { leaseMs: LEASE_MS, progress: `Running ${record?.type ?? "UNKNOWN"} backup` }),
         run: () => runExistingBackupRecord({ id: payload.backupId, projectRoot: payload.projectRoot }),
       });
+      // runExistingBackupRecord returns FAILED records without throwing — do not completeJob.
+      if (backup.status !== "COMPLETED") {
+        const message = (backup.errorMessage || `Backup finished with status ${backup.status}`).slice(0, 2000);
+        await failJob(job.id, WORKER_ID, message, { retryAfterMs: 60_000 });
+        logger.error("backup create job finished without COMPLETED status", {
+          jobId: job.id,
+          backupId: backup.id,
+          status: backup.status,
+          error: message,
+        });
+        return true;
+      }
       await completeJob(job.id, WORKER_ID, {
         backupId: backup.id,
         status: backup.status,

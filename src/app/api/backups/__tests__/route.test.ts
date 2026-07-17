@@ -54,6 +54,18 @@ describe("/api/backups", () => {
     expect(mocks.runBackupRecord).toHaveBeenCalledWith({ type: "FULL", createdBy: "u1", note: "before upgrade", teamId: null });
   });
 
+  it("rejects wait=1 when backup finishes as FAILED instead of returning 201", async () => {
+    mocks.runBackupRecord.mockResolvedValueOnce({ id: "bak1", status: "FAILED", errorMessage: "tar failed" });
+    const req = new Request("http://local/api/backups?wait=1", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ type: "FULL" }),
+    });
+    const res = await route.POST(req);
+    expect(res.status).toBe(422);
+    expect(await res.json()).toMatchObject({ error: expect.stringContaining("tar failed") });
+  });
+
   it("rejects malformed backup JSON with the shared bodySchema error envelope", async () => {
     const req = new Request("http://local/api/backups", {
       method: "POST",

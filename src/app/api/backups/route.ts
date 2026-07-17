@@ -13,7 +13,7 @@ import { createBackupSchema } from "@/lib/backup/schema";
 import { GENERAL_WRITE_LIMIT } from "@/lib/http/rate-limit-presets";
 import { enqueueJob } from "@/lib/job/service";
 
-import { ValidationError } from "@/lib/errors";
+import { ValidationError, BusinessError } from "@/lib/errors";
 import { auditUserAction } from "@/lib/audit/service";
 export const dynamic = "force-dynamic";
 
@@ -56,6 +56,10 @@ export async function POST(request: Request) {
     const waitForCompletion = wait;
     if (waitForCompletion) {
       const backup = await runBackupRecord({ type: parsed.data.type, createdBy: session?.userId ?? "", note: parsed.data.note, teamId: session?.currentTeamId ?? null });
+      // runBackupRecord returns FAILED records without throwing — surface as BusinessError.
+      if (backup.status !== "COMPLETED") {
+        throw new BusinessError(backup.errorMessage?.slice(0, 500) || `Backup finished with status ${backup.status}`);
+      }
       if ((request.headers.get("accept") || "").includes("text/html")) {
         return NextResponse.redirect(new URL("/backups", request.url), { status: 303 });
       }
