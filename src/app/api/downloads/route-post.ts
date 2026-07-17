@@ -18,6 +18,7 @@ import { withApiRoute } from "@/lib/http/api-guard";
 import { GENERAL_WRITE_LIMIT } from "@/lib/http/rate-limit-presets";
 import { AuthError, NotFoundError } from "@/lib/errors";
 import { teamCreateData } from "@/lib/auth/team-scope";
+import { assertServerTeamAccess } from "@/lib/server/team-access";
 import { getServerLocale, t } from "@/lib/i18n/translations";
 
 /* ── POST: Create download task ───────────────────────────── */
@@ -86,6 +87,9 @@ export async function POST(request: Request) {
           );
         }
       }
+
+      const teamAccess = await assertServerTeamAccess(session, serverId);
+      if (!teamAccess.ok) return teamAccess.response;
 
       const server = await prisma.server.findUnique({
         where: { id: serverId },

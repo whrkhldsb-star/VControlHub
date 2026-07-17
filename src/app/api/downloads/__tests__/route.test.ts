@@ -231,9 +231,32 @@ vi.mock("@/lib/downloads/execution-worker", async (importOriginal) => {
   };
 });
 
-import { DELETE, GET, PATCH, POST } from "../route";
+vi.mock("@/lib/server/team-access", () => ({
+  assertServerTeamAccess: vi.fn(async () => ({ ok: true as const })),
+}));
 
-const session = { userId: "u_1", username: "alice", roles: ["admin"] as string[], currentTeamId: "team_1" as string | null };
+const session = { userId: "u_1", username: "alice", roles: ["admin"] as string[], currentTeamId: "team_1" as string | null, mustChangePassword: false };
+
+vi.mock("@/lib/auth/require-api-permission", async () => {
+  const { NextResponse } = await import("next/server");
+  return {
+    requireApiPermission: vi.fn(async (permission: string) => {
+      // Delegate permission checks to the existing authorization mock.
+      if (!sessionHasPermissionMock(session, permission)) {
+        return NextResponse.json({ error: "Insufficient permissions" }, { status: 403 });
+      }
+      return { session };
+    }),
+  };
+});
+
+vi.mock("@/lib/auth/api-session", () => ({
+  getApiSession: vi.fn(async () => session),
+  requireApiSession: vi.fn(async () => session),
+  isSessionPayload: (value: unknown) => Boolean(value) && typeof value === "object" && value !== null && "userId" in value,
+}));
+
+import { DELETE, GET, PATCH, POST } from "../route";
 
 function request(body: unknown) {
   return new Request("https://example.com/api/downloads", {
@@ -264,6 +287,7 @@ function serverFixture() {
     },
   };
 }
+
 
 describe("/api/downloads", () => {
   beforeEach(() => {

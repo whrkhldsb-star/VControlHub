@@ -8,6 +8,7 @@ const { mockPrisma, mockTeamWhere, mockTeamCreateData } = vi.hoisted(() => ({
     deploymentRun: { create: vi.fn(), update: vi.fn(), findMany: vi.fn(), findUnique: vi.fn(), findFirst: vi.fn() },
     deploymentSnapshot: { create: vi.fn() },
     deploymentRollbackRun: { findFirst: vi.fn(), create: vi.fn(), update: vi.fn() },
+    server: { findMany: vi.fn() },
   },
   mockTeamWhere: vi.fn(),
   mockTeamCreateData: vi.fn(),
@@ -39,6 +40,9 @@ describe("deployment service", () => {
     vi.clearAllMocks();
     mockTeamWhere.mockReturnValue({ OR: [{ teamId: "team_a" }, { teamId: null }] });
     mockTeamCreateData.mockReturnValue({ teamId: "team_a" });
+    mockPrisma.server.findMany.mockImplementation(async ({ where }: { where: { id: { in: string[] } } }) =>
+      (where.id.in ?? []).map((id: string) => ({ id })),
+    );
     mockPrisma.commandTemplate.findUnique.mockResolvedValue({ id: "tmpl1", name: "Nginx", command: "apt install {{pkg}}", rollbackCommand: "apt remove {{pkg}}", variables: ["pkg"] });
     mockPrisma.commandTemplate.findMany.mockResolvedValue([{ id: "tmpl1", name: "Nginx", command: "apt install {{pkg}}", rollbackCommand: "apt remove {{pkg}}", variables: ["pkg"], isActive: true }]);
     mockPrisma.commandTemplate.count.mockResolvedValue(1);
@@ -326,5 +330,16 @@ describe("deployment service", () => {
       errorMessage: "Associated command request has failed.",
     });
     expect(runs[0]!.completedAt).toBeInstanceOf(Date);
+  });
+
+  it("rejects serverIds outside team scope on create", async () => {
+    mockPrisma.server.findMany.mockResolvedValueOnce([{ id: "srv1" }]);
+    await expect(
+      createDeploymentRunFromTemplate(
+        { templateId: "tmpl1", serverIds: ["srv1", "srv_other"], variables: { pkg: "nginx" }, requesterId: "u1" },
+        teamSession,
+      ),
+    ).rejects.toThrow(/outside your team scope/);
+    expect(mockPrisma.deploymentRun.create).not.toHaveBeenCalled();
   });
 });

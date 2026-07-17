@@ -56,6 +56,26 @@ async function getDeploymentRunForSession(
   });
 }
 
+
+async function assertDeploymentServersInScope(
+  serverIds: string[],
+  session?: SessionScope | null,
+): Promise<void> {
+  if (serverIds.length === 0) return;
+  // Prefer session teamWhere; when no session, skip (system/unscoped callers).
+  if (!session) return;
+  const scope = teamWhere(session);
+  const servers = await prisma.server.findMany({
+    where: { id: { in: serverIds }, ...scope },
+    select: { id: true },
+  });
+  if (servers.length !== serverIds.length) {
+    throw new ValidationError(
+      "One or more target servers were not found or are outside your team scope",
+    );
+  }
+}
+
 function normalizeDeploymentInput(input: {
   templateId: string;
   serverIds: string[];
@@ -109,6 +129,7 @@ export async function createDeploymentRunFromTemplate(
   session?: SessionScope | null,
 ) {
   const normalized = normalizeDeploymentInput(input);
+  await assertDeploymentServersInScope(normalized.serverIds, session);
   const template = await prisma.commandTemplate.findUnique({
     where: { id: normalized.templateId },
   });
