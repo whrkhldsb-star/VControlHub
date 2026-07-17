@@ -1,4 +1,4 @@
-import { NextRequest } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const { withRateLimitMock, rateLimitResponseMock } = vi.hoisted(() => ({
@@ -15,6 +15,10 @@ vi.mock("@/lib/auth/require-api-permission", () => ({
 
 vi.mock("@/lib/auth/ssh-ws-token", () => ({
   createSshWsHandshakeToken: vi.fn(() => "short-lived-token"),
+}));
+
+vi.mock("@/lib/server/team-access", () => ({
+  assertServerTeamAccess: vi.fn(async () => ({ ok: true as const })),
 }));
 
 vi.mock("@/lib/http/rate-limit-presets", () => ({
@@ -105,6 +109,34 @@ describe("POST /api/auth/ws-token", () => {
     expect(response.status).toBe(429);
     expect(response.headers.get("Retry-After")).toBe("12");
     expect(requireApiPermission).not.toHaveBeenCalled();
+    expect(createSshWsHandshakeToken).not.toHaveBeenCalled();
+  });
+
+  it("denies handshake minting for servers outside the caller's team", async () => {
+    const { assertServerTeamAccess } = await import("@/lib/server/team-access");
+    vi.mocked(requireApiPermission).mockResolvedValue({
+      session: {
+        userId: "user-1",
+        username: "alice",
+        roles: ["operator"],
+        mustChangePassword: false,
+        currentTeamId: "team-a",
+      },
+    });
+    vi.mocked(assertServerTeamAccess).mockResolvedValueOnce({
+      ok: false,
+      response: NextResponse.json({ error: "Server not found" }, { status: 404 }),
+    });
+
+    const response = await POST(
+      new NextRequest("https://console.example.test/api/auth/ws-token", {
+        method: "POST",
+        body: JSON.stringify({ serverId: "other-team-server", sessionToken: "session-token" }),
+        headers: { "content-type": "application/json", origin: "https://console.example.test" },
+      }),
+    );
+
+    expect(response.status).toBe(404);
     expect(createSshWsHandshakeToken).not.toHaveBeenCalled();
   });
 });

@@ -66,4 +66,13 @@ describe("resolveSshWsListenConfig", () => {
 		expect(source).not.toContain("keepaliveInterval: SSH_KEEPALIVE_INTERVAL_MS");
 		expect(source).not.toContain("keepaliveCountMax: 3");
 	});
+
+	it("scopes SSH resolve by session team and never uses bare findUnique on server id", async () => {
+		const source = await readFile(path.resolve(__dirname, "../ssh-ws-proxy.ts"), "utf8");
+		expect(source).toContain("resolveServerConnection(serverId, session)");
+		expect(source).toContain("canBypassTeamScope");
+		expect(source).toContain("teamId: session.currentTeamId");
+		// Connection path must not reintroduce unscoped findUnique({ where: { id: serverId } })
+		expect(source).not.toMatch(/findUnique\(\{\s*where:\s*\{\s*id:\s*serverId/);
+	});
 });

@@ -16,6 +16,7 @@ import { config } from "@/lib/config/env";
 import { decryptServerPassword, decryptSshPrivateKey, decryptSshKeyPassphrase } from "@/lib/ssh/ssh-key-crypto";
 import { createVerifiedSshConfig } from "@/lib/ssh/client";
 
+import { DEFAULT_ROLE_PERMISSIONS } from "./lib/auth/rbac";
 import { canUseSshTerminal } from "./lib/auth/ssh-access";
 import { getAppSlug } from "./lib/branding";
 import { createLogger } from "./lib/logging";
@@ -96,6 +97,7 @@ type SessionPayload = {
   username: string;
   roles: string[];
   mustChangePassword: boolean;
+  currentTeamId: string | null;
 };
 
 type SessionTokenEnvelope = SessionPayload & {
@@ -134,6 +136,7 @@ function verifySessionToken(token: string): SessionPayload | null {
       username: payload.username,
       roles: payload.roles,
       mustChangePassword: payload.mustChangePassword,
+      currentTeamId: payload.currentTeamId ?? null,
     };
   } catch {
     return null;
@@ -142,9 +145,27 @@ function verifySessionToken(token: string): SessionPayload | null {
 
 // ── Resolve server SSH connection ───────────────────────────────────
 
-async function resolveServerConnection(serverId: string) {
- const srv = await prisma.server.findUnique({
-  where: { id: serverId },
+/** team:manage may connect to any server; others only own team + legacy null. */
+function canBypassTeamScope(roles: string[]): boolean {
+  return roles.some((role) => {
+    const known = role as keyof typeof DEFAULT_ROLE_PERMISSIONS;
+    return DEFAULT_ROLE_PERMISSIONS[known]?.includes("team:manage") ?? false;
+  });
+}
+
+async function resolveServerConnection(
+  serverId: string,
+  session: SessionPayload,
+) {
+ const srv = await prisma.server.findFirst({
+  where: {
+   id: serverId,
+   ...(canBypassTeamScope(session.roles)
+     ? {}
+     : session.currentTeamId
+       ? { OR: [{ teamId: session.currentTeamId }, { teamId: null }] }
+       : { teamId: null }),
+  },
   select: {
    id: true,
    name: true,
@@ -155,6 +176,7 @@ async function resolveServerConnection(serverId: string) {
    connectionType: true,
    password: true,
    hostKeySha256: true,
+   teamId: true,
    sshKey: { select: { privateKey: true, passphrase: true } },
   },
  });
@@ -310,7 +332,7 @@ wss.on("connection", async (ws, req) => {
 
   let connParams;
   try {
-    connParams = await resolveServerConnection(serverId);
+    connParams = await resolveServerConnection(serverId, session);
   } catch (error) {
     logger.error("failed to resolve SSH connection", error, { serverId, userId: session.userId });
     ws.send(JSON.stringify({ type: "error", data: "Unable to decrypt or read VPS connection info, please check node credential configuration" }));
