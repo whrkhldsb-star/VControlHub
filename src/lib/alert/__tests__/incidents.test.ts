@@ -8,6 +8,14 @@ const { prismaMock, createNotificationMock, sendEmailMock, sendTelegramMock, web
       update: vi.fn(),
       findMany: vi.fn(),
     },
+    alertRule: {
+      findMany: vi.fn(),
+      findFirst: vi.fn(),
+    },
+    server: {
+      findMany: vi.fn(),
+      findFirst: vi.fn(),
+    },
     user: {
       findMany: vi.fn(),
     },
@@ -28,6 +36,7 @@ import {
   acknowledgeAlertIncident,
   buildAlertFingerprint,
   escalateOverdueAlertIncidents,
+  listAlertIncidents,
   openOrRefreshAlertIncident,
   resolveAlertIncident,
 } from "../incidents";
@@ -190,6 +199,33 @@ describe("alert incidents", () => {
     expect(prismaMock.alertIncident.update).toHaveBeenCalledWith(
       expect.objectContaining({
         data: expect.objectContaining({ level: 2 }),
+      }),
+    );
+  });
+
+  it("listAlertIncidents scopes null-server fleet rows by team rule ids", async () => {
+    prismaMock.server.findMany.mockResolvedValue([{ id: "s-team" }]);
+    prismaMock.alertRule.findMany.mockResolvedValue([{ id: "rule-team" }]);
+    prismaMock.alertIncident.findMany.mockResolvedValue([]);
+
+    await listAlertIncidents({
+      session: { userId: "u1", roles: ["operator"], currentTeamId: "team-a" },
+    });
+
+    expect(prismaMock.server.findMany).toHaveBeenCalled();
+    expect(prismaMock.alertRule.findMany).toHaveBeenCalled();
+    expect(prismaMock.alertIncident.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          AND: [
+            {
+              OR: [
+                { serverId: { in: ["s-team"] } },
+                { serverId: null, ruleId: { in: ["rule-team"] } },
+              ],
+            },
+          ],
+        }),
       }),
     );
   });

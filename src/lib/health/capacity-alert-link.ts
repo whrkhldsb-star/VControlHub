@@ -174,7 +174,7 @@ export async function evaluateCapacityLinkedAlerts(
 
       if (value === null) {
         // Recovered / not projected / insufficient — resolve any open incident.
-        await resolveAlertIncident({
+        const cleared = await resolveAlertIncident({
           ruleId: rule.id,
           serverId: server.serverId,
           metric: rule.metric,
@@ -185,13 +185,13 @@ export async function evaluateCapacityLinkedAlerts(
           onCallUserIds: rule.onCallUserIds ?? [],
           teamId: rule.teamId ?? null,
         });
-        resolved += 1;
+        if (cleared.resolved) resolved += 1;
         continue;
       }
 
       const triggered = compare(rule.operator, value, rule.threshold);
       if (!triggered) {
-        await resolveAlertIncident({
+        const cleared = await resolveAlertIncident({
           ruleId: rule.id,
           serverId: server.serverId,
           metric: rule.metric,
@@ -202,7 +202,7 @@ export async function evaluateCapacityLinkedAlerts(
           onCallUserIds: rule.onCallUserIds ?? [],
           teamId: rule.teamId ?? null,
         });
-        resolved += 1;
+        if (cleared.resolved) resolved += 1;
         continue;
       }
 

@@ -98,7 +98,7 @@ describe("evaluateCapacityLinkedAlerts", () => {
       notified: true,
       level: 1,
     });
-    resolveMock.mockResolvedValue(undefined);
+    resolveMock.mockResolvedValue({ resolved: true, incidentId: "inc1" });
     alertRuleUpdateMock.mockResolvedValue({});
   });
 
@@ -216,6 +216,71 @@ describe("evaluateCapacityLinkedAlerts", () => {
 
     expect(result.resolved).toBe(1);
     expect(openOrRefreshMock).not.toHaveBeenCalled();
+    expect(resolveMock).toHaveBeenCalled();
+  });
+
+  it("does not inflate resolved when resolveAlertIncident finds no open incident", async () => {
+    resolveMock.mockResolvedValue({ resolved: false });
+    getCapacityForecastMock.mockResolvedValue({
+      summary: {
+        serverCount: 1,
+        forecastable: 0,
+        insufficientData: 1,
+        byRisk: { ok: 0, watch: 0, warning: 0, critical: 0, insufficient_data: 1 },
+        worstRisk: "insufficient_data",
+        horizonDays: 90,
+        windowHours: 168,
+        generatedAt: new Date().toISOString(),
+      },
+      servers: [
+        serverForecast({
+          serverId: "s1",
+          overallRisk: "insufficient_data",
+          metrics: [
+            {
+              metric: "disk",
+              sampleCount: 1,
+              windowHours: 168,
+              dataSpanHours: 1,
+              latest: 50,
+              slopePerDay: null,
+              r2: null,
+              projected: null,
+              horizonDays: 14,
+              daysUntil85: null,
+              daysUntil95: null,
+              risk: "insufficient_data",
+              reason: "insufficient_data",
+            },
+          ],
+        }),
+      ],
+    });
+
+    const result = await evaluateCapacityLinkedAlerts(
+      [
+        {
+          id: "rule_cap",
+          name: "Disk capacity 14d",
+          metric: "capacity_disk_days",
+          threshold: 14,
+          operator: "lte",
+          enabled: true,
+          lastMatchedAt: null,
+          lastTriggeredAt: null,
+          cooldownMinutes: 30,
+          silenceWindows: [],
+          serverIds: ["s1"],
+          notifyChannels: ["in_app"],
+          playbookIds: [],
+          webhookUrl: null,
+          onCallUserIds: [],
+        },
+      ],
+      { isSilent: () => false },
+    );
+
+    expect(result.resolved).toBe(0);
     expect(resolveMock).toHaveBeenCalled();
   });
 

@@ -32,6 +32,14 @@ export function CreateRuleForm({
 	const [operator, setOperator] = useState("gte");
 	const [threshold, setThreshold] = useState(85);
 	const [durationSeconds, setDurationSeconds] = useState(0);
+	// Percent metrics stay 0–100 in the UI; network/load/capacity use the API max (100000).
+	const percentMetrics = new Set([
+		"cpu_usage",
+		"mem_usage",
+		"disk_usage",
+		"swap_usage",
+	]);
+	const thresholdMax = percentMetrics.has(metric) ? 100 : 100_000;
 	const [selectedServerIds, setSelectedServerIds] = useState<string[]>([]);
 	const [selectedPlaybookIds, setSelectedPlaybookIds] = useState<string[]>([]);
 	const [cooldown, setCooldown] = useState(30);
@@ -166,7 +174,7 @@ export function CreateRuleForm({
 							value={threshold}
 							onChange={(e) => setThreshold(Number(e.target.value))}
 							min={0}
-							max={100}
+							max={thresholdMax}
 							className={cn(UI_INPUT, "font-mono")}
 						/>
 					</FormField>

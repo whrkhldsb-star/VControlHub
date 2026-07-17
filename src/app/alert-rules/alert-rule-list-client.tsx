@@ -246,7 +246,7 @@ export function AlertRuleListClient({
 						onClick={() => void loadIncidents()}
 						className="min-h-11 rounded-lg border border-[var(--border)] bg-[var(--surface-elevated)] px-3 text-xs text-[var(--text-secondary)]"
 					>
-						{incidentsLoading ? "…" : "Refresh"}
+						{incidentsLoading ? "…" : t("alertRulesPage.incidents.refresh")}
 					</button>
 				</div>
 				{incidents.filter((i) => i.status !== "RESOLVED").length === 0 ? (
@@ -387,7 +387,12 @@ export function AlertRuleListClient({
 													{operatorLabel(t, rule.operator)}
 												</span>{" "}
 												<span className="font-mono text-[var(--warning)]">
-													{rule.threshold}%
+													{rule.threshold}
+													{["cpu_usage", "mem_usage", "disk_usage", "swap_usage"].includes(
+														rule.metric,
+													)
+														? "%"
+														: ""}
 												</span>
 											</>
 										)}
