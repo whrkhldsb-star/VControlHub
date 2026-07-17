@@ -31,6 +31,7 @@ const session = {
   username: "alice",
   roles: ["admin"],
   mustChangePassword: false,
+  currentTeamId: "team_1",
 };
 
 function postShare(body: unknown) {
@@ -128,6 +129,6 @@ describe("/api/share-links", () => {
 
     expect(response.status).toBe(200);
     expect(requireApiPermissionMock).toHaveBeenCalledWith("share:manage");
-    expect(revokeShareLinkMock).toHaveBeenCalledWith("share_1", "u_1");
+    expect(revokeShareLinkMock).toHaveBeenCalledWith("share_1", "u_1", session);
   });
 });

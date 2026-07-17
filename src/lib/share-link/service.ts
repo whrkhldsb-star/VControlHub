@@ -127,11 +127,16 @@ export async function createShareLinkFromFileEntry(input: {
   permissionLevel?: "preview" | "download";
 }) {
   const t = await serverT();
-  const entry = await prisma.fileEntry.findUnique({
-    where: { id: input.fileEntryId },
+  // Scope file entry by storage node team so guessing another team's fileEntryId cannot open a share.
+  const entry = await prisma.fileEntry.findFirst({
+    where: {
+      id: input.fileEntryId,
+      isDeleted: false,
+      storageNode: teamWhere(input.session),
+    },
     include: { storageNode: true },
   });
-  if (!entry || entry.isDeleted) throw new NotFoundError(t("backend.shareLink.fileNotFound"));
+  if (!entry) throw new NotFoundError(t("backend.shareLink.fileNotFound"));
 
   return createShareLink({
     session: input.session,
@@ -162,10 +167,18 @@ export async function listShareLinks(userId?: string, session?: { userId: string
   });
 }
 
-export async function revokeShareLink(id: string, userId?: string) {
+export async function revokeShareLink(
+  id: string,
+  userId?: string,
+  session?: Pick<SessionPayload, "userId" | "roles" | "currentTeamId"> | null,
+) {
   // When userId is provided, scope by ownership to prevent IDOR.
-  // Admin users with share:manage-all can pass undefined to revoke any.
-  const where = userId ? { id, createdBy: userId } : { id };
+  // When session is provided, also apply teamWhere so multi-team owners cannot
+  // revoke another team's share by id alone.
+  // Callers with elevated "revoke any" may pass userId undefined and session null.
+  const where: Record<string, unknown> = { id };
+  if (userId) where.createdBy = userId;
+  if (session) Object.assign(where, teamWhere(session));
   const share = await prisma.shareLink.findFirst({ where, select: { id: true } });
   if (!share) throw new NotFoundError("Share link not found or not authorized to revoke");
   return prisma.shareLink.update({ where: { id: share.id }, data: { revokedAt: new Date() } });

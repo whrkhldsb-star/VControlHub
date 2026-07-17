@@ -2,16 +2,26 @@ import { describe, expect, it, vi, beforeEach } from "vitest";
 
 const { mockPrisma } = vi.hoisted(() => ({
   mockPrisma: {
-    shareLink: { create: vi.fn(), findMany: vi.fn(), findUnique: vi.fn(), update: vi.fn(), updateMany: vi.fn() },
+    shareLink: { create: vi.fn(), findMany: vi.fn(), findUnique: vi.fn(), findFirst: vi.fn(), update: vi.fn(), updateMany: vi.fn() },
+    fileEntry: { findFirst: vi.fn() },
   },
 }));
 
 vi.mock("@/lib/db", () => ({ prisma: mockPrisma }));
+vi.mock("@/lib/auth/team-scope", () => ({
+  teamWhere: (session: { currentTeamId?: string | null }) =>
+    session.currentTeamId
+      ? { OR: [{ teamId: session.currentTeamId }, { teamId: null }] }
+      : {},
+  teamCreateData: (session: { currentTeamId?: string | null }) => ({
+    teamId: session.currentTeamId ?? null,
+  }),
+}));
 vi.mock("@/lib/storage/access-control", () => ({
   assertStorageAccess: vi.fn(async () => ({ allowed: true })),
 }));
 
-const { createShareLink, listShareLinks, normalizeSharePath, resolveShareToken } = await import("../service");
+const { createShareLink, createShareLinkFromFileEntry, listShareLinks, normalizeSharePath, resolveShareToken, revokeShareLink } = await import("../service");
 
 describe("share link service", () => {
   beforeEach(() => vi.clearAllMocks());
@@ -92,3 +102,26 @@ describe("share link service", () => {
     await expect(resolveShareToken("abc", "legacy-pass")).rejects.toThrow(/Incorrect access password/);
   });
 });
+
+  it("rejects file entries outside team scope when creating from fileEntryId", async () => {
+    mockPrisma.fileEntry.findFirst.mockResolvedValueOnce(null);
+    await expect(
+      createShareLinkFromFileEntry({
+        session: { userId: "u1", username: "alice", roles: ["operator"], mustChangePassword: false, currentTeamId: "team_a" },
+        fileEntryId: "file_foreign",
+      }),
+    ).rejects.toThrow();
+    expect(mockPrisma.shareLink.create).not.toHaveBeenCalled();
+  });
+
+  it("revokes only shares matching ownership and teamWhere when session provided", async () => {
+    mockPrisma.shareLink.findFirst.mockResolvedValueOnce({ id: "share1" });
+    mockPrisma.shareLink.update.mockResolvedValueOnce({ id: "share1", revokedAt: new Date() });
+    const session = { userId: "u1", roles: ["operator"] as const, currentTeamId: "team_a" };
+    await revokeShareLink("share1", "u1", session as any);
+    expect(mockPrisma.shareLink.findFirst).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({ id: "share1", createdBy: "u1" }),
+      }),
+    );
+  });

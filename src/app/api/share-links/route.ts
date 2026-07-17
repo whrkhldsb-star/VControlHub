@@ -96,7 +96,7 @@ export async function DELETE(request: Request) {
     async ({ session }) => {
       if (!session) return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
       const { id } = parseSearchParams(request, idQuerySchema);
-      const share = await revokeShareLink(id, session.userId);
+      const share = await revokeShareLink(id, session.userId, session);
       await auditUserAction(session.userId, "share-link.delete", { shareId: id });
       return NextResponse.json({ share });
     },
