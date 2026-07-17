@@ -109,6 +109,13 @@ export function DockerResourcesPanel({ serverId }: { serverId?: string }) {
         }),
       });
       if (data.error) throw new Error(data.error);
+      if (data && typeof data === "object" && data.ok === false) {
+        throw new Error(
+          typeof data.message === "string"
+            ? data.message
+            : t("dockerResources.error.create"),
+        );
+      }
       setName("");
       await fetchResources();
     } catch (err) {
@@ -154,6 +161,13 @@ export function DockerResourcesPanel({ serverId }: { serverId?: string }) {
         body: JSON.stringify({ type, action: "delete", name: itemName, ...(serverId ? { serverId } : {}) }),
       });
       if (data.error) throw new Error(data.error);
+      if (data && typeof data === "object" && data.ok === false) {
+        throw new Error(
+          typeof data.message === "string"
+            ? data.message
+            : t("dockerResources.error.delete"),
+        );
+      }
       setPendingDelete(null);
       await fetchResources();
     } catch (err) {

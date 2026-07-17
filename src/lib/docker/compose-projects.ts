@@ -396,6 +396,13 @@ async function engineActionOnProjectContainers(
   serverId: string | undefined,
 ): Promise<ComposeContainerSummary[]> {
   const listed = await listAllContainers(serverId);
+  // requestDockerEngine resolves missing socket as ok:true + dockerAvailable:false for list UX.
+  // Lifecycle fallback must never treat that as a successful start/stop/remove.
+  if (listed.dockerAvailable === false) {
+    throw new BusinessError(
+      listed.message ?? "Docker is not installed or Docker socket is unavailable",
+    );
+  }
   const targets = listed.containers.filter(
     (c) => c.Labels?.[COMPOSE_PROJECT_LABEL] === project,
   );
@@ -419,6 +426,11 @@ async function engineActionOnProjectContainers(
       loggerScope: "docker:compose:fallback",
       serverId,
     });
+    if (result.dockerAvailable === false) {
+      throw new BusinessError(
+        result.message ?? "Docker is not installed or Docker socket is unavailable",
+      );
+    }
     // 304 = already started/stopped — treat as success
     if (!result.ok && result.status !== 304 && result.status !== 204) {
       const msg =
@@ -461,6 +473,14 @@ export async function runComposeProjectAction(input: {
   const first = projectContainers[0];
   const workingDir = first?.Labels?.[COMPOSE_WORKING_DIR_LABEL] ?? null;
   const configFiles = first?.Labels?.[COMPOSE_CONFIG_FILES_LABEL] ?? null;
+
+  // Lifecycle mutations require a reachable Docker engine. List path may return
+  // ok:true + dockerAvailable:false for empty UX; never complete up/down/start as success.
+  if (action !== "ps" && listed.dockerAvailable === false) {
+    throw new BusinessError(
+      listed.message ?? "Docker is not installed or Docker socket is unavailable",
+    );
+  }
 
   if (action === "ps") {
     // Prefer live compose ps; fall back to engine summary.

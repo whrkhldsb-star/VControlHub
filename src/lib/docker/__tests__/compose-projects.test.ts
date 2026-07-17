@@ -273,6 +273,26 @@ describe("compose project helpers", () => {
     // Must not attempt Engine start/stop after a real compose failure
     expect(dockerRequestMock).toHaveBeenCalledTimes(1);
   });
+
+  it("does not report engine-fallback success when Docker socket is unavailable", async () => {
+    dockerRequestMock.mockResolvedValueOnce({
+      result: {
+        ok: true,
+        status: 200,
+        data: [],
+        dockerAvailable: false,
+        message: "Docker is not installed or Docker socket is unavailable",
+      },
+      scope: hubScope,
+    });
+
+    await expect(runComposeProjectAction({ project: "site", action: "start" })).rejects.toThrow(
+      /Docker is not installed or Docker socket is unavailable/i,
+    );
+    // Fail before CLI or Engine mutation when socket is missing
+    expect(runFileImpl).not.toHaveBeenCalled();
+    expect(dockerRequestMock).toHaveBeenCalledTimes(1);
+  });
 });
 
 describe("isComposeCliFallbackError", () => {
