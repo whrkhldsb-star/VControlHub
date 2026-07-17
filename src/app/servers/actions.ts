@@ -192,6 +192,7 @@ export async function createSshKeyAction(
         String(formData.get("privateKeyOutputPassphrase") ?? "") || null,
       description: String(formData.get("description") ?? "") || null,
       createdById: session.userId,
+      session,
     });
 
     await auditUserAction(session.userId, "ssh_key.create", {
@@ -373,9 +374,9 @@ export async function deleteServerAction(
 }
 
 export async function getServerFormOptions() {
-  await requirePermission("server:write");
+  const session = await requirePermission("server:write");
   const sshKeys = await import("@/lib/server/service").then((mod) =>
-    mod.listSshKeys(),
+    mod.listSshKeys(session),
   );
   return { sshKeys };
 }

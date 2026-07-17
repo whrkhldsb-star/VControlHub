@@ -18,13 +18,13 @@ import {
 	checkPort,
 	getUsedPorts,
 } from "@/lib/quick-service/service";
+import { AppError, ConflictError, ValidationError } from "@/lib/errors";
 import { withApiRoute } from "@/lib/http/api-guard";
 import { GENERAL_WRITE_LIMIT } from "@/lib/http/rate-limit-presets";
 import { getRemoteApps, normalizedAppToTemplate } from "@/lib/quick-service/app-source-sync";
 import { HUB_HOST_INSTANCE_KEY, getDockerEnvironmentStatusFor } from "@/lib/quick-service/docker-cli";
 import { prisma } from "@/lib/db";
 
-import { ValidationError } from "@/lib/errors";
 export const dynamic = "force-dynamic";
 
 /** GET /api/quick-services — list catalog + installed + remote services */
@@ -113,12 +113,16 @@ export async function POST(request: Request) {
 		permission: "docker:manage",
 		rateLimit: GENERAL_WRITE_LIMIT,
 		bodySchema: installSchema,
-		onError(error) {
+		onError(error: unknown) {
 			const message = error instanceof Error ? error.message : "installedFailed";
-			const isPortError = message.includes("port") && message.includes("in use");
+			const isPortError =
+				error instanceof ConflictError ||
+				(message.includes("port") && message.includes("in use"));
+			const status =
+				error instanceof AppError ? error.status : isPortError ? 409 : 500;
 			return NextResponse.json(
 				{ error: message, portConflict: isPortError },
-				{ status: isPortError ? 409 : 500 },
+				{ status },
 			);
 		},
 	}, async ({ session, body }) => {

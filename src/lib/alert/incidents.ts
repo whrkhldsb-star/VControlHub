@@ -9,8 +9,8 @@
  * On-call users (rule.onCallUserIds) receive in-app first; empty = notification:manage admins.
  */
 import { prisma } from "@/lib/db";
-import { teamWhere } from "@/lib/auth/team-scope";
 import type { SessionPayload } from "@/lib/auth/session";
+import { teamWhere } from "@/lib/auth/team-scope";
 import { NotFoundError, ValidationError } from "@/lib/errors";
 import { createLogger } from "@/lib/logging";
 import { createNotification, type NotificationType } from "@/lib/notification/service";
@@ -280,9 +280,37 @@ export async function resolveAlertIncident(input: {
 export async function acknowledgeAlertIncident(input: {
   incidentId: string;
   userId: string;
+  session?: Pick<SessionPayload, "userId" | "roles" | "currentTeamId">;
 }): Promise<{ id: string; status: string }> {
-  const incident = await prisma.alertIncident.findUnique({ where: { id: input.incidentId } });
+  // Scope: incident must belong to a server (or null) visible under teamWhere,
+  // and its rule must also be visible (teamId null = legacy shared).
+  const incident = await prisma.alertIncident.findUnique({
+    where: { id: input.incidentId },
+    include: { rule: { select: { id: true, teamId: true } } },
+  });
   if (!incident) throw new NotFoundError("Alert incident not found");
+  if (input.session) {
+    const teamFilter = teamWhere(input.session);
+    if (Object.keys(teamFilter).length > 0) {
+      // Rule team
+      const ruleTeam = incident.rule?.teamId ?? null;
+      if (ruleTeam !== null) {
+        const ruleOk = await prisma.alertRule.findFirst({
+          where: { id: incident.ruleId, ...teamFilter },
+          select: { id: true },
+        });
+        if (!ruleOk) throw new NotFoundError("Alert incident not found");
+      }
+      // Server team (when set)
+      if (incident.serverId) {
+        const serverOk = await prisma.server.findFirst({
+          where: { id: incident.serverId, ...teamFilter },
+          select: { id: true },
+        });
+        if (!serverOk) throw new NotFoundError("Alert incident not found");
+      }
+    }
+  }
   if (incident.status === "RESOLVED") {
     throw new ValidationError("Resolved incidents cannot be acknowledged");
   }

@@ -94,6 +94,9 @@ export async function DELETE(
 				);
 			}
 
+			const teamAccess = await assertServerTeamAccess(session, serverId);
+			if (!teamAccess.ok) return teamAccess.response;
+
 			const existing = await prisma.vpsBackupSchedule.findFirst({
 				where: { id: scheduleId, serverId },
 				select: { id: true },

@@ -82,6 +82,7 @@ export async function POST(request: Request) {
       const result = await acknowledgeAlertIncident({
         incidentId: body.incidentId,
         userId: session!.userId,
+        session: session ?? undefined,
       });
       await auditUserAction(session!.userId, "alert_incident.acknowledge", {
         incidentId: result.id,

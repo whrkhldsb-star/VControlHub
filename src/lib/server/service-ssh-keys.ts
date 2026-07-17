@@ -7,4 +7,4 @@
  * is service-layer (vs key-management) can be added here without growing
  * the underlying key-management module.
  */
-export { listSshKeys, createSshKey } from "./ssh-keys";
+export { listSshKeys, createSshKey, getSshKeyForSession } from "./ssh-keys";

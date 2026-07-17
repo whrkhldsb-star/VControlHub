@@ -6,7 +6,7 @@
  * Non-standard WebDAV verbs (PROPFIND/MKCOL/MOVE/COPY/...) are rewritten by
  * the custom Node server to POST + X-HTTP-Method-Override.
  */
-import { AuthError } from "@/lib/errors";
+import { AppError, AuthError } from "@/lib/errors";
 import {
   authenticateWebDavRequest,
   webDavUnauthorizedResponse,
@@ -95,7 +95,10 @@ async function dispatch(request: Request, params: RouteParams): Promise<Response
     const message = error instanceof Error ? error.message : "WebDAV error";
     const name = error instanceof Error ? error.name : "";
     let status = 500;
-    if (name === "AuthError" || message.includes("authenticated")) status = 401;
+    // Prefer typed AppError.status over English message matching.
+    if (error instanceof AppError) {
+      status = error.status;
+    } else if (name === "AuthError" || message.includes("authenticated")) status = 401;
     else if (name === "NotFoundError" || /not found/i.test(message)) status = 404;
     else if (name === "ConflictError" || /already exists|overwrite/i.test(message)) status = 409;
     else if (name === "ValidationError" || /invalid|cannot/i.test(message)) status = 400;

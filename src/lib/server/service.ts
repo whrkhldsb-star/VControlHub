@@ -20,6 +20,7 @@
 export {
   listSshKeys,
   createSshKey,
+  getSshKeyForSession,
 } from "./service-ssh-keys";
 
 export {

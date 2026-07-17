@@ -47,9 +47,17 @@ async function findServerProfileForSession(
   });
 }
 
+function sessionForTeamWhere(
+  session?: (Pick<SessionPayload, "currentTeamId"> & Partial<Pick<SessionPayload, "userId" | "roles">>) | null,
+): Pick<SessionPayload, "userId" | "roles" | "currentTeamId"> | null {
+  if (!session?.userId || !session.roles) return null;
+  return { userId: session.userId, roles: session.roles, currentTeamId: session.currentTeamId };
+}
+
 export async function createServerProfile(
+
   input: CreateServerInput,
-  session?: Pick<SessionPayload, "currentTeamId"> | null,
+  session?: Pick<SessionPayload, "currentTeamId"> & Partial<Pick<SessionPayload, "userId" | "roles">> | null,
 ) {
   const payload = createServerSchema.parse(input);
   const normalized = normalizeServerInput(payload);
@@ -68,8 +76,9 @@ export async function createServerProfile(
 
   if (normalized.connectionType === "SSH_KEY") {
     if (!normalized.sshKeyId) throw new ValidationError("SSH key connection method requires selecting a key");
-    validatedSshKey = await prisma.sshKey.findUnique({
-      where: { id: normalized.sshKeyId },
+    validatedSshKey = sessionForTeamWhere(session)
+      ? await prisma.sshKey.findFirst({
+          where: { id: normalized.sshKeyId, ...teamWhere(sessionForTeamWhere(session)!) },
       select: {
         id: true,
         name: true,
@@ -78,7 +87,18 @@ export async function createServerProfile(
         privateKey: true, passphrase: true,
         createdAt: true,
       },
-    });
+        })
+      : await prisma.sshKey.findUnique({
+          where: { id: normalized.sshKeyId },
+      select: {
+        id: true,
+        name: true,
+        fingerprint: true,
+        publicKey: true,
+        privateKey: true, passphrase: true,
+        createdAt: true,
+      },
+        });
     if (!validatedSshKey) throw new NotFoundError("The selected SSH key does not exist or has been deleted");
   }
 
@@ -270,8 +290,9 @@ export async function updateServerProfile(
     normalized.sshKeyId &&
     normalized.sshKeyId !== current.sshKeyId
   ) {
-    updateSshKey = await prisma.sshKey.findUnique({
-      where: { id: normalized.sshKeyId },
+    updateSshKey = sessionForTeamWhere(session)
+      ? await prisma.sshKey.findFirst({
+          where: { id: normalized.sshKeyId, ...teamWhere(sessionForTeamWhere(session)!) },
       select: {
         id: true,
         name: true,
@@ -280,7 +301,18 @@ export async function updateServerProfile(
         privateKey: true, passphrase: true,
         createdAt: true,
       },
-    });
+        })
+      : await prisma.sshKey.findUnique({
+          where: { id: normalized.sshKeyId },
+      select: {
+        id: true,
+        name: true,
+        fingerprint: true,
+        publicKey: true,
+        privateKey: true, passphrase: true,
+        createdAt: true,
+      },
+        });
     if (!updateSshKey) throw new NotFoundError("The selected SSH key does not exist or has been deleted");
   }
 

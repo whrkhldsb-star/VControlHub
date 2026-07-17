@@ -160,6 +160,7 @@ model Team {
   alertRules          AlertRule[]         @relation("TeamAlertRules")
   costEntries         CostEntry[]         @relation("TeamCostEntries")
   costBudgets         CostBudget[]        @relation("TeamCostBudgets")
+  sshKeys             SshKey[]           @relation("TeamSshKeys")
   createdAt       DateTime         @default(now())
   updatedAt       DateTime         @updatedAt
 
@@ -235,12 +236,15 @@ model SshKey {
   passphrase  String?
   description String?
   createdById String?
+  teamId      String?
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
   createdBy   User?    @relation("SshKeyCreator", fields: [createdById], references: [id], onDelete: SetNull)
+  team        Team?    @relation("TeamSshKeys", fields: [teamId], references: [id], onDelete: SetNull)
   servers     Server[]
 
   @@index([createdById])
+  @@index([teamId])
   @@map("SshKey")
 }
 

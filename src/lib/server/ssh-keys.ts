@@ -24,8 +24,13 @@ import { createHash } from "node:crypto";
 
 import { PPKError, parseFromString } from "ppk-to-openssh";
 
+import type { RoleKey } from "@/lib/auth/rbac";
+import { teamCreateData, teamWhere } from "@/lib/auth/team-scope";
 import { prisma } from "@/lib/db";
 import { ValidationError } from "@/lib/errors";
+
+type TeamSession = { userId: string; roles: RoleKey[]; currentTeamId: string | null };
+
 import { encryptSshPrivateKey, encryptSshKeyPassphrase } from "@/lib/ssh/ssh-key-crypto";
 
 /** Detect SSH private key format from content */
@@ -55,11 +60,26 @@ function computeSshPublicKeyFingerprintFromPrivate(privateKey: string): string {
   return `SHA256:${createHash("sha256").update(privateKey.trim()).digest("base64").replace(/=+$/g, "")}`;
 }
 
-export async function listSshKeys() {
+export async function listSshKeys(session?: TeamSession | null) {
   return prisma.sshKey.findMany({
+    where: session ? teamWhere(session) : {},
     orderBy: { createdAt: "desc" },
-    select: { id: true, name: true, fingerprint: true, description: true },
+    select: { id: true, name: true, fingerprint: true, description: true, teamId: true },
     take: 500, // P2: ssh key 总数有限
+  });
+}
+
+/** Resolve a key for binding to a server — must be in team scope (or legacy null). */
+export async function getSshKeyForSession(id: string, session?: TeamSession | null) {
+  if (!session) {
+    return prisma.sshKey.findUnique({
+      where: { id },
+      select: { id: true, name: true, fingerprint: true, description: true, teamId: true },
+    });
+  }
+  return prisma.sshKey.findFirst({
+    where: { id, ...teamWhere(session) },
+    select: { id: true, name: true, fingerprint: true, description: true, teamId: true },
   });
 }
 
@@ -209,6 +229,7 @@ export async function createSshKey(input: {
   passphrase?: string | null;
   description?: string | null;
   createdById?: string | null;
+  session?: TeamSession | null;
 }) {
   const name = input.name.trim();
   const description = input.description?.trim() || null;
@@ -220,6 +241,8 @@ export async function createSshKey(input: {
   if (!normalizedKey.fingerprint) {
     throw new ValidationError("Unable to compute key fingerprint; please check that the key content is complete.");
   }
+
+  const teamId = input.session ? teamCreateData(input.session).teamId : null;
 
   return prisma.sshKey.create({
     data: {
@@ -234,12 +257,14 @@ export async function createSshKey(input: {
         : null,
       description,
       createdById: input.createdById ?? null,
+      teamId: teamId ?? null,
     },
     select: {
       id: true,
       name: true,
       fingerprint: true,
       description: true,
+      teamId: true,
     },
   });
 }
