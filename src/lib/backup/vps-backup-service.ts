@@ -13,6 +13,7 @@
 import { createHash } from "node:crypto";
 import { createWriteStream, mkdirSync, statSync } from "node:fs";
 import { dirname, join, resolve as resolvePath } from "node:path";
+import { Transform } from "node:stream";
 import { pipeline } from "node:stream/promises";
 
 import { prisma } from "@/lib/db";
@@ -183,9 +184,15 @@ export async function runVpsBackupRecord(recordId: string): Promise<VpsBackupRes
 			timeout: 600_000, // 10 min for large backups
 		});
 
-		if (execResult.exitCode !== 0 && execResult.exitCode !== null) {
-			// exitCode null = SSH connection error
-			const errMsg = `Remote backup command failed (exit ${execResult.exitCode}): ${execResult.stderr || execResult.stdout}`.slice(0, 500);
+		// exitCode null = SSH connection / transport failure (client resolves null on error).
+		// Treat null and any non-zero as failure — never mark COMPLETED on soft SSH errors.
+		if (execResult.exitCode !== 0) {
+			const detail = (execResult.stderr || execResult.stdout || "").trim();
+			const errMsg = (
+				execResult.exitCode === null
+					? `Remote backup SSH connection failed${detail ? `: ${detail}` : ""}`
+					: `Remote backup command failed (exit ${execResult.exitCode})${detail ? `: ${detail}` : ""}`
+			).slice(0, 500);
 			return failRecord(record.id, errMsg, remoteFilePath, sshParams);
 		}
 
@@ -205,31 +212,17 @@ export async function runVpsBackupRecord(recordId: string): Promise<VpsBackupRes
 
 		const { stream, size } = await downloadFile(record.server.id, remoteFilePath);
 
-		// Write stream to local file + compute sha256 in parallel
+		// Write stream to local file + compute sha256. Do not swallow pipeline errors —
+		// a failed download must not mark the record COMPLETED (false success).
 		const hash = createHash("sha256");
-		const fileStream = createWriteStream(localAbsolutePath);
-
-		// Consume the SFTP stream: pipe to file + compute sha256
-		await pipeline(
-			stream,
-			async function* (source) {
-				for await (const chunk of source) {
-					hash.update(chunk);
-					fileStream.write(chunk);
-					yield chunk;
-				}
+		const hashTransform = new Transform({
+			transform(chunk, _encoding, callback) {
+				hash.update(chunk as Buffer);
+				callback(null, chunk);
 			},
-			// Drain to nowhere (we consumed above)
-			// Actually, pipeline requires a writable or transform at the end
-			// Let's just write directly
-		).catch(() => {
-			// pipeline may complain about the async generator not being a proper writable
 		});
-
-		// Wait for file write to complete
-		await new Promise<void>((resolve, reject) => {
-			fileStream.end((err?: Error) => (err ? reject(err) : resolve()));
-		});
+		const fileStream = createWriteStream(localAbsolutePath);
+		await pipeline(stream, hashTransform, fileStream);
 
 		const sha256 = hash.digest("hex");
 		let fileSize: string | null = null;
