@@ -1,7 +1,7 @@
 import { CronExpressionParser } from "cron-parser";
 import { prisma } from "@/lib/db";
 import { createCommandRequest } from "@/lib/command/service";
-import { BusinessError, NotFoundError } from "@/lib/errors";
+import { BusinessError, NotFoundError, ValidationError } from "@/lib/errors";
 import { notifyTaskConsecutiveFailed } from "@/lib/notification/service";
 import { createLogger } from "@/lib/logging";
 import type { SessionPayload } from "@/lib/auth/session";
@@ -63,6 +63,29 @@ function normalizeServerIds(serverIds: string[]) {
 	return Array.from(new Set(serverIds.map((id) => id.trim()).filter(Boolean)));
 }
 
+/**
+ * Prevent scheduling commands against servers outside the caller's team.
+ * Mirrors alert-rule / command create target checks (legacy teamId=null still allowed via teamWhere).
+ */
+async function assertScheduledTaskServersInScope(
+	serverIds: string[],
+	session?: SessionScope | null,
+): Promise<void> {
+	const ids = normalizeServerIds(serverIds);
+	if (ids.length === 0 || !session) return;
+	const scope = teamWhere(session);
+	// team:manage → empty scope, still verify servers exist
+	const servers = await prisma.server.findMany({
+		where: { id: { in: ids }, ...scope },
+		select: { id: true },
+	});
+	if (servers.length !== ids.length) {
+		throw new ValidationError(
+			"One or more target servers were not found or are outside your team scope",
+		);
+	}
+}
+
 function teamScopeWhere(session?: SessionScope | null): Record<string, unknown> {
 	return session ? teamWhere(session) : {};
 }
@@ -87,13 +110,15 @@ export async function createScheduledTask(
 	const teamFromSession = session ? teamCreateData(session).teamId : undefined;
 	const teamId =
 		input.teamId !== undefined ? input.teamId : (teamFromSession ?? null);
+	const serverIds = normalizeServerIds(input.serverIds);
+	await assertScheduledTaskServersInScope(serverIds, session);
 	return prisma.scheduledTask.create({
 		data: {
 			name: input.name,
 			cronExpression: input.cronExpression,
 			command: input.command,
 			reason: input.reason ?? null,
-			serverIds: normalizeServerIds(input.serverIds),
+			serverIds,
 			createdById: input.createdById ?? session?.userId ?? null,
 			nextRunAt: nextRun,
 			teamId,
@@ -138,7 +163,11 @@ export async function updateScheduledTask(
 	}
 	if (input.command !== undefined) data.command = input.command;
 	if (input.reason !== undefined) data.reason = input.reason;
-	if (input.serverIds !== undefined) data.serverIds = normalizeServerIds(input.serverIds);
+	if (input.serverIds !== undefined) {
+		const serverIds = normalizeServerIds(input.serverIds);
+		await assertScheduledTaskServersInScope(serverIds, session);
+		data.serverIds = serverIds;
+	}
 	if (input.status !== undefined) data.status = input.status;
 	if (input.teamId !== undefined) data.teamId = input.teamId;
 	return prisma.scheduledTask.update({ where: { id }, data });

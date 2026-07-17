@@ -368,7 +368,7 @@ make logs SERVICE_PREFIX=vcontrolhub
 | 域 | 能力 |
 |---|---|
 | 安全 | RBAC、CSRF、限流、审计、advisory lock（restore / VPS schedule / playbook / compose / server-delete）、SSH host-key pin |
-| 多租户 | 核心模型 Team scope；含 SSH 终端 WS / **存储访问控制按节点团队** / 内容搜索 / 压缩解压归档 / 部署导出 ZIP 归属 / Quick Services 远程 VPS 等 |
+| 多租户 | 核心模型 Team scope；含 SSH 终端 WS / 存储访问控制 / 内容搜索与压缩解压 / **定时任务目标 VPS 校验** / 部署导出 ZIP 归属 / Quick Services 远程 VPS 等 |
 | 远程运行时 | 远程 Docker；Quick Services 本机/VPS；Compose 项目生命周期 |
 | 监控告警 | 后台采样；容量预测；**预测指标可挂告警规则**（days-to-85）；升级/值班/确认 |
 | 命令 / Playbook | 审批与 durable 执行；**失败路径可观测**（job 不假成功、终端审计、结果通知、rejected target 收口） |

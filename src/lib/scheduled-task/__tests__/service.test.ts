@@ -13,6 +13,9 @@ const { mockPrisma, mockCreateCommandRequest, mockTeamWhere, mockTeamCreateData 
       update: vi.fn(),
       delete: vi.fn(),
     },
+    server: {
+      findMany: vi.fn(),
+    },
   },
   mockCreateCommandRequest: vi.fn(),
   mockTeamWhere: vi.fn(),
@@ -39,6 +42,9 @@ describe("scheduled task service", () => {
     vi.clearAllMocks();
     mockTeamWhere.mockReturnValue({ OR: [{ teamId: "team_a" }, { teamId: null }] });
     mockTeamCreateData.mockReturnValue({ teamId: "team_a" });
+    mockPrisma.server.findMany.mockImplementation(async ({ where }: { where: { id: { in: string[] } } }) =>
+      (where.id.in ?? []).map((id: string) => ({ id })),
+    );
   });
 
   it("stores scheduled task target server ids exactly once after trimming blanks", async () => {
@@ -207,5 +213,35 @@ describe("scheduled task service", () => {
       where: { id: "task1" },
       data: { status: "PAUSED", nextRunAt: null },
     });
+  });
+
+  it("rejects serverIds outside team scope on create", async () => {
+    mockPrisma.server.findMany.mockResolvedValueOnce([{ id: "srv1" }]); // missing srv_other
+    await expect(
+      service.createScheduledTask(
+        {
+          name: "Clean logs",
+          cronExpression: "0 2 * * *",
+          command: "df -h",
+          serverIds: ["srv1", "srv_other"],
+          createdById: "u1",
+        },
+        teamSession,
+      ),
+    ).rejects.toThrow(/outside your team scope/);
+    expect(mockPrisma.scheduledTask.create).not.toHaveBeenCalled();
+  });
+
+  it("rejects serverIds outside team scope on update", async () => {
+    mockPrisma.scheduledTask.findFirst.mockResolvedValue({ id: "task1", teamId: "team_a" });
+    mockPrisma.server.findMany.mockResolvedValueOnce([]); // none in scope
+    await expect(
+      service.updateScheduledTask(
+        "task1",
+        { serverIds: ["foreign-srv"] },
+        teamSession,
+      ),
+    ).rejects.toThrow(/outside your team scope/);
+    expect(mockPrisma.scheduledTask.update).not.toHaveBeenCalled();
   });
 });
