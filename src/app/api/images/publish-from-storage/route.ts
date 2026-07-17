@@ -10,6 +10,7 @@ import * as path from "node:path";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 
+import { teamWhere } from "@/lib/auth/team-scope";
 import { prisma } from "@/lib/db";
 import { withApiRoute } from "@/lib/http/api-guard";
 import { IMAGE_UPLOAD_LIMIT } from "@/lib/http/rate-limit-presets";
@@ -49,12 +50,18 @@ export async function POST(request: Request) {
         );
       const { storageNodeId, relativePath, filename, album } = body;
 
-      // Verify the storage node exists and is accessible
-      const storageNode = await prisma.storageNode.findUnique({
-        where: { id: storageNodeId },
+      // Verify the storage node exists, is in team scope, and is a supported driver.
+      const storageNode = await prisma.storageNode.findFirst({
+        where: { id: storageNodeId, ...teamWhere(session) },
         select: storageFileNodeSelect,
       });
-      if (!storageNode || (storageNode.driver !== "LOCAL" && storageNode.driver !== "SFTP")) {
+      if (!storageNode) {
+        return NextResponse.json(
+          { error: "Storage node not found" },
+          { status: 404 },
+        );
+      }
+      if (storageNode.driver !== "LOCAL" && storageNode.driver !== "SFTP") {
         return NextResponse.json(
           { error: "Only LOCAL or SFTP storage nodes are supported" },
           { status: 400 },

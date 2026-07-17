@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 
+import { teamWhere } from "@/lib/auth/team-scope";
 import { withApiRoute } from "@/lib/http/api-guard";
 import { parseSearchParams } from "@/lib/http/parse-search-params";
 import { prisma } from "@/lib/db";
@@ -25,14 +26,35 @@ export async function GET(request: Request) {
   return withApiRoute(
     request,
     { permission: "server:read", errorMessage: "Failed to fetch traffic history" },
-    async () => {
+    async ({ session }) => {
       const { iface, source, hours } = parseSearchParams(request, trafficHistoryQuerySchema);
       const since = new Date(Date.now() - hours * 3600_000);
+      // Multi-tenant: remote samples are tagged with serverId; only return
+      // samples for servers visible under teamWhere (+ local hub samples).
+      const teamFilter = session ? teamWhere(session) : {};
+      const visibleServers = session
+        ? await prisma.server.findMany({
+            where: teamFilter,
+            select: { id: true },
+            take: 5000,
+          })
+        : [];
+      const visibleServerIds = visibleServers.map((s) => s.id);
       const rows = await prisma.trafficSnapshot.findMany({
         where: {
           sampledAt: { gte: since },
           ...(source ? { source } : {}),
           ...(iface ? { iface } : {}),
+          ...(session
+            ? {
+                OR: [
+                  { serverId: null }, // local hub NIC samples
+                  ...(visibleServerIds.length > 0
+                    ? [{ serverId: { in: visibleServerIds } }]
+                    : []),
+                ],
+              }
+            : {}),
         },
         orderBy: { sampledAt: "asc" },
         take: 5000,

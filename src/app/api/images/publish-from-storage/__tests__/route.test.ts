@@ -30,7 +30,7 @@ vi.mock("@/lib/db", () => ({
       findFirst: imageFindFirstMock,
     },
     storageNode: {
-      findUnique: storageFindUniqueMock,
+      findFirst: storageFindUniqueMock,
     },
   },
 }));
@@ -128,5 +128,13 @@ describe("POST /api/images/publish-from-storage", () => {
 
     expect(response.status).toBe(500);
     expect(await listFiles(uploadRoot)).toEqual([]);
+  });
+
+  it("returns 404 when storage node is outside team scope", async () => {
+    storageFindUniqueMock.mockResolvedValueOnce(null);
+    const response = await POST(publishRequest());
+    expect(response.status).toBe(404);
+    expect(assertStorageAccessMock).not.toHaveBeenCalled();
+    expect(imageCreateMock).not.toHaveBeenCalled();
   });
 });
