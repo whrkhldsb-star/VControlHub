@@ -6,6 +6,7 @@ import { NextResponse } from "next/server";
 
 import { sessionHasPermission } from "@/lib/auth/authorization";
 import { verifyBearerToken } from "@/lib/auth/bearer-token";
+import { teamWhere } from "@/lib/auth/team-scope";
 import { prisma } from "@/lib/db";
 import { withApiRoute } from "@/lib/http/api-guard";
 import {
@@ -200,8 +201,8 @@ async function handleUpload(request: Request, userId: string, session?: SessionP
         throw new ForbiddenError(access.reason ?? "No permission to write to the storage path");
       }
       try {
-        const storageNode = await prisma.storageNode.findUnique({
-          where: { id: storageNodeId },
+        const storageNode = await prisma.storageNode.findFirst({
+          where: { id: storageNodeId, ...teamWhere(session) },
           select: storageFileNodeSelect,
         });
         if (storageNode && (storageNode.driver === "LOCAL" || storageNode.driver === "SFTP")) {

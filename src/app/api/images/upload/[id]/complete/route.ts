@@ -31,6 +31,7 @@ import {
   generateThumbnail,
 } from "@/lib/image/service";
 import { logError } from "@/lib/logging";
+import { teamWhere } from "@/lib/auth/team-scope";
 import { prisma } from "@/lib/db";
 import {
   assembleMediaUploadChunks,
@@ -173,8 +174,8 @@ export async function POST(
         if (!access.allowed) {
           throw new ForbiddenError(access.reason ?? "No permission to write to the storage path");
         }
-        const storageNode = await prisma.storageNode.findUnique({
-          where: { id: existing.storageNodeId },
+        const storageNode = await prisma.storageNode.findFirst({
+          where: { id: existing.storageNodeId, ...teamWhere(session) },
           select: storageFileNodeSelect,
         });
         if (!storageNode || (storageNode.driver !== "LOCAL" && storageNode.driver !== "SFTP")) {

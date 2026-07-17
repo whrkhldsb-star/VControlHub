@@ -7,7 +7,8 @@ import { prisma } from "@/lib/db";
 import { withApiRoute } from "@/lib/http/api-guard";
 import { GENERAL_WRITE_LIMIT } from "@/lib/http/rate-limit-presets";
 import { parseSearchParams } from "@/lib/http/parse-search-params";
-import { AuthError, NotFoundError } from "@/lib/errors";
+import { teamWhere } from "@/lib/auth/team-scope";
+import { AuthError, NotFoundError, ValidationError } from "@/lib/errors";
 import {
   getStorageAccessUsage,
   parseNullableBigIntInput,
@@ -89,11 +90,13 @@ async function serializeStorageAccessGrants(
 }
 
 export async function GET(request: Request) {
-  return withApiRoute(request, { permission: "user:read" }, async () => {
+  return withApiRoute(request, { permission: "user:read" }, async ({ session }) => {
+    if (!session) throw new AuthError("Unauthorized");
     const { userId } = parseSearchParams(
       request,
       z.object({ userId: z.string().trim().min(1, "Missing userId Parameter") }),
     );
+    const nodeScope = teamWhere(session);
 
     const [user, roles, permissions, storageNodes] = await Promise.all([
       prisma.user.findUnique({
@@ -122,6 +125,7 @@ export async function GET(request: Request) {
       prisma.role.findMany({ orderBy: { key: "asc" }, take: 200 }),
       prisma.permission.findMany({ orderBy: { key: "asc" }, take: 500 }),
       prisma.storageNode.findMany({
+        where: nodeScope,
         select: { id: true, name: true, driver: true, basePath: true },
         orderBy: { name: "asc" },
         take: 500,
@@ -283,27 +287,38 @@ export async function PATCH(request: Request) {
             where: { userId: parsedData.userId },
           });
           const validNodeIds = new Set(
-            (await tx.storageNode.findMany({ select: { id: true }, take: 500 })).map(
-              (node) => node.id,
-            ),
+            (
+              await tx.storageNode.findMany({
+                where: teamWhere(session),
+                select: { id: true },
+                take: 500,
+              })
+            ).map((node) => node.id),
           );
-          const rows = storageAccess
-            .map((grant) => ({
-              userId: parsedData.userId,
-              storageNodeId: String(grant.storageNodeId ?? ""),
-              pathPrefix: normalizePathPrefix(grant.pathPrefix),
-              canRead: grant.canRead ?? true,
-              canWrite: grant.canWrite ?? false,
-              canDelete: grant.canDelete ?? false,
-              quotaBytes: parseNullableBigIntInput(grant.quotaBytes),
-              maxFileBytes: parseNullableBigIntInput(grant.maxFileBytes),
-            }))
-            .filter(
-              (grant) =>
-                grant.storageNodeId &&
-                validNodeIds.has(grant.storageNodeId) &&
-                (grant.canRead || grant.canWrite || grant.canDelete),
+          const mapped = storageAccess.map((grant) => ({
+            userId: parsedData.userId,
+            storageNodeId: String(grant.storageNodeId ?? ""),
+            pathPrefix: normalizePathPrefix(grant.pathPrefix),
+            canRead: grant.canRead ?? true,
+            canWrite: grant.canWrite ?? false,
+            canDelete: grant.canDelete ?? false,
+            quotaBytes: parseNullableBigIntInput(grant.quotaBytes),
+            maxFileBytes: parseNullableBigIntInput(grant.maxFileBytes),
+          }));
+          const outOfTeam = mapped
+            .map((g) => g.storageNodeId)
+            .filter((id) => id && !validNodeIds.has(id));
+          if (outOfTeam.length > 0) {
+            throw new ValidationError(
+              "One or more storage nodes are outside the current team scope",
             );
+          }
+          const rows = mapped.filter(
+            (grant) =>
+              grant.storageNodeId &&
+              validNodeIds.has(grant.storageNodeId) &&
+              (grant.canRead || grant.canWrite || grant.canDelete),
+          );
 
           const seen = new Set<string>();
           const uniqueRows = rows.filter((grant) => {

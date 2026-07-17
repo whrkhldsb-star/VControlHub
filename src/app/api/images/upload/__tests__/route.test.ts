@@ -7,13 +7,15 @@ const {
   sessionHasPermissionMock,
   verifyBearerTokenMock,
   imageCreateMock,
-  storageFindUniqueMock,
+  storageFindFirstMock,
+  assertStorageAccessMock,
 } = vi.hoisted(() => ({
   requireApiSessionMock: vi.fn(),
   sessionHasPermissionMock: vi.fn(),
   verifyBearerTokenMock: vi.fn(),
   imageCreateMock: vi.fn(),
-  storageFindUniqueMock: vi.fn(),
+  storageFindFirstMock: vi.fn(),
+  assertStorageAccessMock: vi.fn(),
 }));
 
 vi.mock("@/lib/auth/api-session", () => ({
@@ -25,10 +27,13 @@ vi.mock("@/lib/auth/authorization", () => ({
 vi.mock("@/lib/auth/bearer-token", () => ({
   verifyBearerToken: verifyBearerTokenMock,
 }));
+vi.mock("@/lib/storage/access-control", () => ({
+  assertStorageAccess: assertStorageAccessMock,
+}));
 vi.mock("@/lib/db", () => ({
   prisma: {
     imageUpload: { create: imageCreateMock },
-    storageNode: { findUnique: storageFindUniqueMock },
+    storageNode: { findFirst: storageFindFirstMock },
   },
 }));
 vi.mock("@/lib/image-bed/constants", () => ({
@@ -44,7 +49,7 @@ vi.mock("@/lib/image/service", () => ({
 import { POST } from "../route";
 
 const uploadRoot = "/tmp/vcontrolhub-image-upload-test";
-const session = { userId: "u1", username: "admin", roles: ["admin"] };
+const session = { userId: "u1", username: "admin", roles: ["admin"], currentTeamId: "team_a" };
 
 function uploadRequest(extra?: Record<string, string>) {
   const formData = new FormData();
@@ -77,6 +82,7 @@ describe("POST /api/images/upload", () => {
     sessionHasPermissionMock.mockReturnValue(true);
     verifyBearerTokenMock.mockResolvedValue(null);
     imageCreateMock.mockResolvedValue({ id: "img_1", filename: "photo.png" });
+    assertStorageAccessMock.mockResolvedValue({ allowed: true });
   });
 
   afterEach(async () => {
@@ -134,7 +140,7 @@ describe("POST /api/images/upload", () => {
   it("removes image-bed and LOCAL storage copies when linked image record creation fails", async () => {
     const localRoot = "/tmp/vcontrolhub-image-upload-storage-copy-test";
     await rm(localRoot, { recursive: true, force: true });
-    storageFindUniqueMock.mockResolvedValueOnce({
+    storageFindFirstMock.mockResolvedValueOnce({
       id: "node_1",
       driver: "LOCAL",
       basePath: localRoot,
