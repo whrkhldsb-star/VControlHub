@@ -6,6 +6,10 @@
  * `HealthOverview` (via the collector in `./service-collect`), filters
  * by silence-window / cooldown / duration, opens AlertIncident records,
  * routes on-call users, and escalates unacknowledged incidents.
+ *
+ * Duration tracking is **per server** via `AlertRule.matchState`
+ * (`{ [serverId]: ISO timestamp }`). A single global `lastMatchedAt`
+ * would skip duration or clear pending state across unrelated hosts.
  */
 import { prisma } from "@/lib/db";
 import {
@@ -22,6 +26,61 @@ import {
   isCapacityAlertMetric,
 } from "./capacity-alert-link";
 
+/** serverId → ISO match-start timestamp */
+export type AlertMatchState = Record<string, string>;
+
+const LEGACY_MATCH_KEY = "_legacy";
+
+export function parseAlertMatchState(raw: unknown): AlertMatchState {
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return {};
+  const out: AlertMatchState = {};
+  for (const [key, value] of Object.entries(raw as Record<string, unknown>)) {
+    if (typeof value === "string" && value.trim()) {
+      const ms = Date.parse(value);
+      if (Number.isFinite(ms)) out[key] = new Date(ms).toISOString();
+    }
+  }
+  return out;
+}
+
+export function matchStartedAtForServer(
+  state: AlertMatchState,
+  serverId: string,
+): Date | null {
+  const iso = state[serverId] ?? state[LEGACY_MATCH_KEY];
+  if (!iso) return null;
+  const ms = Date.parse(iso);
+  return Number.isFinite(ms) ? new Date(ms) : null;
+}
+
+function deriveLegacyLastMatchedAt(state: AlertMatchState): Date | null {
+  let latest: Date | null = null;
+  for (const [key, iso] of Object.entries(state)) {
+    if (key === LEGACY_MATCH_KEY) continue;
+    const d = new Date(iso);
+    if (!Number.isFinite(d.getTime())) continue;
+    if (!latest || d.getTime() > latest.getTime()) latest = d;
+  }
+  return latest;
+}
+
+async function persistMatchState(
+  ruleId: string,
+  state: AlertMatchState,
+  extra: { lastTriggeredAt?: Date } = {},
+) {
+  const cleaned: AlertMatchState = { ...state };
+  delete cleaned[LEGACY_MATCH_KEY];
+  await prisma.alertRule.update({
+    where: { id: ruleId },
+    data: {
+      matchState: cleaned,
+      lastMatchedAt: deriveLegacyLastMatchedAt(cleaned),
+      ...extra,
+    },
+  });
+}
+
 export async function evaluateAlerts() {
   const rules = await prisma.alertRule.findMany({
     where: { enabled: true },
@@ -34,6 +93,7 @@ export async function evaluateAlerts() {
       durationSeconds: true,
       enabled: true,
       lastMatchedAt: true,
+      matchState: true,
       lastTriggeredAt: true,
       cooldownMinutes: true,
       silenceWindows: true,
@@ -78,15 +138,6 @@ export async function evaluateAlerts() {
   for (const rule of liveRules) {
     if (isNowInAlertSilenceWindow(rule.silenceWindows)) continue;
 
-    // Check cooldown (still applies to new fire spam; open incidents escalate separately)
-    if (rule.lastTriggeredAt) {
-      const cooldownMs = rule.cooldownMinutes * 60_000;
-      if (Date.now() - rule.lastTriggeredAt.getTime() < cooldownMs) {
-        // Still process resolves below for servers that recovered; only skip new fires.
-        // We continue per-server with a flag instead of skipping the whole rule.
-      }
-    }
-
     const inCooldown =
       Boolean(rule.lastTriggeredAt) &&
       Date.now() - (rule.lastTriggeredAt as Date).getTime() < rule.cooldownMinutes * 60_000;
@@ -100,6 +151,16 @@ export async function evaluateAlerts() {
       const allowed = await serverIdsForTeam(rule.teamId);
       targetServers = targetServers.filter((s) => allowed.has(s.serverId));
     }
+
+    // Working copy of per-server match state for this rule evaluation pass.
+    let matchState = parseAlertMatchState(rule.matchState);
+    // Migrate one-shot from legacy lastMatchedAt when matchState is empty.
+    if (Object.keys(matchState).length === 0 && rule.lastMatchedAt) {
+      matchState = {
+        [LEGACY_MATCH_KEY]: rule.lastMatchedAt.toISOString(),
+      };
+    }
+    let matchStateDirty = false;
 
     for (const server of targetServers) {
       let value: number | undefined;
@@ -152,7 +213,13 @@ export async function evaluateAlerts() {
       }
 
       if (!triggered) {
-        if (rule.lastMatchedAt) {
+        // Only this server's key (or one-shot legacy stamp) counts as a prior
+        // match. Global rule.lastMatchedAt must NOT force resolve/clear for
+        // hosts that never entered the duration window.
+        const hadMatch =
+          Boolean(matchState[server.serverId]) ||
+          Boolean(matchState[LEGACY_MATCH_KEY]);
+        if (hadMatch) {
           const resolvedTitle = `Alert resolved: ${server.serverName} ${rule.metric === "server_offline" ? "back online" : rule.metric.replace("_", " ")}`;
           const resolvedMessage = `${rule.name}: ${rule.metric} has returned to normal range (threshold ${rule.operator} ${rule.threshold})`;
           await resolveAlertIncident({
@@ -166,24 +233,29 @@ export async function evaluateAlerts() {
             onCallUserIds: rule.onCallUserIds ?? [],
             teamId: rule.teamId ?? null,
           });
-          await prisma.alertRule.update({
-            where: { id: rule.id },
-            data: { lastMatchedAt: null },
-          });
+          if (matchState[server.serverId]) {
+            delete matchState[server.serverId];
+            matchStateDirty = true;
+          }
+          // Legacy global stamp applies at most once; clear after first host recovery.
+          if (matchState[LEGACY_MATCH_KEY]) {
+            delete matchState[LEGACY_MATCH_KEY];
+            matchStateDirty = true;
+          }
         }
         continue;
       }
 
       const now = new Date();
       if (rule.durationSeconds > 0) {
-        if (!rule.lastMatchedAt) {
-          await prisma.alertRule.update({
-            where: { id: rule.id },
-            data: { lastMatchedAt: now },
-          });
+        const started = matchStartedAtForServer(matchState, server.serverId);
+        if (!started) {
+          matchState[server.serverId] = now.toISOString();
+          delete matchState[LEGACY_MATCH_KEY];
+          matchStateDirty = true;
           continue;
         }
-        const matchedForMs = now.getTime() - rule.lastMatchedAt.getTime();
+        const matchedForMs = now.getTime() - started.getTime();
         if (matchedForMs < rule.durationSeconds * 1000) continue;
       }
 
@@ -236,10 +308,15 @@ export async function evaluateAlerts() {
         }
       }
 
-      await prisma.alertRule.update({
-        where: { id: rule.id },
-        data: { lastTriggeredAt: now, lastMatchedAt: now },
-      });
+      // Keep this server's match stamp so recovery can clear it later; also stamp lastTriggeredAt.
+      matchState[server.serverId] = now.toISOString();
+      delete matchState[LEGACY_MATCH_KEY];
+      await persistMatchState(rule.id, matchState, { lastTriggeredAt: now });
+      matchStateDirty = false;
+    }
+
+    if (matchStateDirty) {
+      await persistMatchState(rule.id, matchState);
     }
   }
 

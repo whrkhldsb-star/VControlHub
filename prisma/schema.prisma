@@ -753,7 +753,12 @@ model AlertRule {
   /// Preferred on-call user IDs (routed first for in-app / ack ownership)
   onCallUserIds      String[]  @default([])
   enabled            Boolean   @default(true)
+  /// Legacy single-rule match stamp (kept for API/UI). Prefer matchState.
   lastMatchedAt      DateTime?
+  /// Per-server duration match map: { [serverId]: ISO timestamp }.
+  /// durationSeconds must be evaluated per host — a global lastMatchedAt
+  /// incorrectly skips duration or clears state across unrelated servers.
+  matchState         Json?
   lastTriggeredAt    DateTime?
   createdAt          DateTime  @default(now())
   updatedAt          DateTime  @updatedAt

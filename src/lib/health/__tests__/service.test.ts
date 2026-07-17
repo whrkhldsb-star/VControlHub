@@ -9,6 +9,12 @@ const { prismaMock, collectServerMetricsMock, tcpProbeMock, createNotificationMo
 			findMany: vi.fn(),
 			update: vi.fn(),
 		},
+		alertIncident: {
+			findUnique: vi.fn(),
+			findMany: vi.fn(),
+			create: vi.fn(),
+			update: vi.fn(),
+		},
 		user: {
 			findMany: vi.fn(),
 		},
@@ -61,6 +67,13 @@ describe("evaluateAlerts", () => {
 		prismaMock.server.findMany.mockResolvedValue([{ id: "srv1", name: "Prod", host: "10.0.0.1", port: 22, enabled: true }]);
 		prismaMock.user.findMany.mockResolvedValue([{ id: "admin1" }]);
 		prismaMock.alertRule.update.mockResolvedValue({});
+		prismaMock.alertIncident.findUnique.mockResolvedValue(null);
+		prismaMock.alertIncident.findMany.mockResolvedValue([]);
+		prismaMock.alertIncident.create.mockImplementation(async ({ data }: { data: Record<string, unknown> }) => ({
+			id: "inc1",
+			...data,
+		}));
+		prismaMock.alertIncident.update.mockResolvedValue({});
 		createNotificationMock.mockResolvedValue({});
 		fetchWebhookSafelyMock.mockResolvedValue({ ok: true });
 		sendAlertEmailMock.mockResolvedValue({ accepted: ["ops@example.com"], rejected: [] });
@@ -96,7 +109,10 @@ describe("evaluateAlerts", () => {
 		expect(createNotificationMock).not.toHaveBeenCalled();
 		expect(prismaMock.alertRule.update).toHaveBeenCalledWith({
 			where: { id: "rule1" },
-			data: { lastMatchedAt: new Date("2026-05-25T00:00:00.000Z") },
+			data: expect.objectContaining({
+				matchState: { srv1: "2026-05-25T00:00:00.000Z" },
+				lastMatchedAt: new Date("2026-05-25T00:00:00.000Z"),
+			}),
 		});
 
 		vi.setSystemTime(new Date("2026-05-25T00:01:01.000Z"));
@@ -112,6 +128,7 @@ describe("evaluateAlerts", () => {
 				enabled: true,
 				lastTriggeredAt: null,
 				lastMatchedAt: new Date("2026-05-25T00:00:00.000Z"),
+				matchState: { srv1: "2026-05-25T00:00:00.000Z" },
 				cooldownMinutes: 0,
 				silenceWindows: [],
 				serverIds: [],
@@ -125,7 +142,10 @@ describe("evaluateAlerts", () => {
 		expect(createNotificationMock).toHaveBeenCalledWith(expect.objectContaining({ userId: "admin1", type: "server_alert" }));
 		expect(prismaMock.alertRule.update).toHaveBeenCalledWith({
 			where: { id: "rule1" },
-			data: expect.objectContaining({ lastTriggeredAt: new Date("2026-05-25T00:01:01.000Z") }),
+			data: expect.objectContaining({
+				lastTriggeredAt: new Date("2026-05-25T00:01:01.000Z"),
+				matchState: { srv1: "2026-05-25T00:01:01.000Z" },
+			}),
 		});
 	});
 
@@ -176,6 +196,14 @@ describe("evaluateAlerts", () => {
 	it("clears pending sustained alert state once the condition recovers", async () => {
 		vi.useFakeTimers();
 		vi.setSystemTime(new Date("2026-05-25T00:02:00.000Z"));
+		// Open incident exists so resolve can notify; duration stamp is per-server.
+		prismaMock.alertIncident.findUnique.mockResolvedValue({
+			id: "inc1",
+			status: "OPEN",
+			level: 1,
+			serverName: "Prod",
+			metric: "cpu_usage",
+		});
 		prismaMock.alertRule.findMany.mockResolvedValue([
 			{
 				id: "rule1",
@@ -187,6 +215,8 @@ describe("evaluateAlerts", () => {
 				enabled: true,
 				lastTriggeredAt: null,
 				lastMatchedAt: new Date("2026-05-25T00:00:00.000Z"),
+				// Per-server stamp (preferred); legacy lastMatchedAt alone still migrates via _legacy.
+				matchState: { srv1: "2026-05-25T00:00:00.000Z" },
 				cooldownMinutes: 0,
 				silenceWindows: [],
 				serverIds: [],
@@ -202,8 +232,127 @@ describe("evaluateAlerts", () => {
 		expect(createNotificationMock).toHaveBeenCalledWith(expect.objectContaining({ userId: "admin1", type: "alert_resolved" }));
 		expect(prismaMock.alertRule.update).toHaveBeenCalledWith({
 			where: { id: "rule1" },
-			data: { lastMatchedAt: null },
+			data: expect.objectContaining({
+				matchState: {},
+				lastMatchedAt: null,
+			}),
 		});
+	});
+
+	it("does not resolve unrelated hosts from a global lastMatchedAt alone", async () => {
+		vi.useFakeTimers();
+		vi.setSystemTime(new Date("2026-05-25T01:05:00.000Z"));
+		prismaMock.server.findMany.mockResolvedValue([
+			{ id: "srv1", name: "Hot", host: "10.0.0.1", port: 22, enabled: true },
+			{ id: "srv2", name: "Cool", host: "10.0.0.2", port: 22, enabled: true },
+		]);
+		// Only Hot has an open incident; Cool is healthy with no match key.
+		prismaMock.alertIncident.findUnique.mockImplementation(async ({ where }: { where: { fingerprint: string } }) => {
+			if (where.fingerprint.includes("srv1")) {
+				return {
+					id: "inc_hot",
+					status: "OPEN",
+					level: 1,
+					serverName: "Hot",
+					metric: "cpu_usage",
+				};
+			}
+			return null;
+		});
+		prismaMock.alertRule.findMany.mockResolvedValue([
+			{
+				id: "rule_scope",
+				name: "CPU scoped",
+				metric: "cpu_usage",
+				threshold: 80,
+				operator: "gte",
+				durationSeconds: 60,
+				enabled: true,
+				lastTriggeredAt: null,
+				lastMatchedAt: new Date("2026-05-25T01:00:00.000Z"),
+				matchState: { srv1: "2026-05-25T01:00:00.000Z" },
+				cooldownMinutes: 0,
+				silenceWindows: [],
+				serverIds: [],
+				notifyChannels: ["in_app"],
+				webhookUrl: null,
+			},
+		]);
+		collectServerMetricsMock
+			.mockResolvedValueOnce(cpuMetrics(20)) // srv1 recovers
+			.mockResolvedValueOnce(cpuMetrics(10)); // srv2 always healthy
+
+		await evaluateAlerts();
+
+		expect(createNotificationMock).toHaveBeenCalledTimes(1);
+		expect(createNotificationMock).toHaveBeenCalledWith(
+			expect.objectContaining({
+				type: "alert_resolved",
+				title: expect.stringContaining("Hot"),
+			}),
+		);
+		expect(createNotificationMock).not.toHaveBeenCalledWith(
+			expect.objectContaining({ title: expect.stringContaining("Cool") }),
+		);
+		// matchState should drop only srv1
+		expect(prismaMock.alertRule.update).toHaveBeenCalledWith({
+			where: { id: "rule_scope" },
+			data: expect.objectContaining({
+				matchState: {},
+				lastMatchedAt: null,
+			}),
+		});
+	});
+
+	it("tracks durationSeconds independently per server (matchState map)", async () => {
+		vi.useFakeTimers();
+		vi.setSystemTime(new Date("2026-05-25T01:00:00.000Z"));
+		prismaMock.server.findMany.mockResolvedValue([
+			{ id: "srv1", name: "Prod-A", host: "10.0.0.1", port: 22, enabled: true },
+			{ id: "srv2", name: "Prod-B", host: "10.0.0.2", port: 22, enabled: true },
+		]);
+		// srv1 already sustained; srv2 first match this tick
+		prismaMock.alertRule.findMany.mockResolvedValue([
+			{
+				id: "rule_multi",
+				name: "CPU multi",
+				metric: "cpu_usage",
+				threshold: 80,
+				operator: "gte",
+				durationSeconds: 60,
+				enabled: true,
+				lastTriggeredAt: null,
+				lastMatchedAt: new Date("2026-05-25T00:58:00.000Z"),
+				matchState: { srv1: "2026-05-25T00:58:00.000Z" },
+				cooldownMinutes: 0,
+				silenceWindows: [],
+				serverIds: [],
+				notifyChannels: ["in_app"],
+				webhookUrl: null,
+			},
+		]);
+		collectServerMetricsMock
+			.mockResolvedValueOnce(cpuMetrics(95))
+			.mockResolvedValueOnce(cpuMetrics(90));
+
+		await evaluateAlerts();
+
+		// Only srv1 has met duration; srv2 should only stamp matchState
+		expect(createNotificationMock).toHaveBeenCalledTimes(1);
+		expect(createNotificationMock).toHaveBeenCalledWith(
+			expect.objectContaining({
+				userId: "admin1",
+				type: "server_alert",
+				title: expect.stringContaining("Prod-A"),
+			}),
+		);
+		// Final persist should keep both server keys
+		const updates = prismaMock.alertRule.update.mock.calls.map((c) => c[0]);
+		const withMatch = updates.find(
+			(u) => u?.data?.matchState && typeof u.data.matchState === "object" && "srv2" in u.data.matchState,
+		);
+		expect(withMatch?.data.matchState.srv2).toBe("2026-05-25T01:00:00.000Z");
+		expect(withMatch?.data.matchState.srv1).toBeTruthy();
 	});
 
 	it("detects same-day and overnight alert silence windows", () => {
@@ -242,7 +391,14 @@ describe("evaluateAlerts", () => {
 		expect(sendAlertEmailMock).toHaveBeenCalledWith(expect.objectContaining({
 			title: "Alert: Prod cpu usage",
 			message: "CPU email: cpu_usage gte 80 (current: 95)",
-			contextLines: expect.arrayContaining(["Server: Prod", "Current value: 95", "Metric: cpu_usage", "Threshold: gte 80", "Time: 2026-05-25T00:03:00.000Z"]),
+			contextLines: expect.arrayContaining([
+				"Server: Prod",
+				"Metric: cpu_usage",
+				"Current: 95",
+				"Threshold: gte 80",
+				"Level: 1",
+				"Incident: inc1",
+			]),
 		}));
 		expect(prismaMock.alertRule.update).toHaveBeenCalledWith({
 			where: { id: "rule_email" },
@@ -278,7 +434,7 @@ describe("evaluateAlerts", () => {
 		expect(sendAlertTelegramMock).toHaveBeenCalledWith(expect.objectContaining({
 			title: "Alert: Prod cpu usage",
 			message: "CPU telegram: cpu_usage gte 80 (current: 95)",
-			contextLines: expect.arrayContaining(["Server: Prod", "Current value: 95"]),
+			contextLines: expect.arrayContaining(["Server: Prod", "Current: 95", "Metric: cpu_usage"]),
 		}));
 		expect(prismaMock.alertRule.update).toHaveBeenCalledWith({
 			where: { id: "rule_telegram" },
