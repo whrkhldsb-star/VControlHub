@@ -294,4 +294,77 @@ describe("webdav handlers", () => {
       }),
     );
   });
+
+  it("Destination refuses prefix-matched sibling storage node ids", async () => {
+    const { handleWebDavCopy } = await import("../handler");
+    prismaMock.fileEntry.findFirst.mockResolvedValue({
+      id: "src1",
+      name: "src.txt",
+      relativePath: "src.txt",
+      entryType: "FILE",
+      size: BigInt(5),
+      mimeType: "text/plain",
+      updatedAt: new Date(),
+    });
+
+    const req = new Request("http://localhost/api/webdav/node/src.txt", {
+      method: "COPY",
+      headers: {
+        // "node" is a prefix of "node-evil" — old startsWith check would accept this
+        Destination: "http://localhost/api/webdav/node-evil/stolen.txt",
+        Overwrite: "T",
+      },
+    });
+    await expect(
+      handleWebDavCopy(
+        {
+          session: session as never,
+          storageNodeId: "node",
+          relativePath: "src.txt",
+          requestUrl: new URL("http://localhost/api/webdav/node/src.txt"),
+        },
+        req,
+      ),
+    ).rejects.toMatchObject({
+      name: "ValidationError",
+      message: expect.stringMatching(/same storage node|Destination/i),
+    });
+    expect(writeBufferMock).not.toHaveBeenCalled();
+  });
+
+  it("Destination refuses cross-origin absolute URLs", async () => {
+    const { handleWebDavMove } = await import("../handler");
+    prismaMock.fileEntry.findFirst.mockResolvedValue({
+      id: "src1",
+      name: "src.txt",
+      relativePath: "src.txt",
+      entryType: "FILE",
+      size: BigInt(5),
+      mimeType: "text/plain",
+      updatedAt: new Date(),
+    });
+
+    const req = new Request("http://localhost/api/webdav/node1/src.txt", {
+      method: "MOVE",
+      headers: {
+        Destination: "https://evil.example/api/webdav/node1/dst.txt",
+        Overwrite: "T",
+      },
+    });
+    await expect(
+      handleWebDavMove(
+        {
+          session: session as never,
+          storageNodeId: "node1",
+          relativePath: "src.txt",
+          requestUrl: new URL("http://localhost/api/webdav/node1/src.txt"),
+        },
+        req,
+      ),
+    ).rejects.toMatchObject({
+      name: "ValidationError",
+      message: expect.stringMatching(/same origin/i),
+    });
+    expect(renameBackingMock).not.toHaveBeenCalled();
+  });
 });

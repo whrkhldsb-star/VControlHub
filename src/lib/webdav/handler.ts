@@ -528,16 +528,31 @@ function destinationRelativePath(
   } catch {
     throw new ValidationError("Invalid Destination header");
   }
-  const prefix = `/api/webdav/${storageNodeId}/`;
+  // Refuse cross-origin Destination (clients may send absolute URLs).
+  if (destUrl.origin !== requestUrl.origin) {
+    throw new ValidationError("Destination must stay on the same origin");
+  }
+  // Require a path boundary after the node id so nodeId "abc" cannot match
+  // "/api/webdav/abc-evil/..." (prefix IDOR across storage nodes).
+  const base = `/api/webdav/${encodeURIComponent(storageNodeId)}`;
+  // Also accept unencoded id segment (route params are raw ids).
+  const baseRaw = `/api/webdav/${storageNodeId}`;
   const pathName = destUrl.pathname;
-  if (!pathName.startsWith(`/api/webdav/${storageNodeId}`)) {
+  const matchesBase = (b: string) =>
+    pathName === b || pathName === `${b}/` || pathName.startsWith(`${b}/`);
+  if (!matchesBase(base) && !matchesBase(baseRaw)) {
     throw new ValidationError("Destination must stay on the same storage node");
   }
-  const rest = pathName.startsWith(prefix)
-    ? pathName.slice(prefix.length)
-    : pathName === `/api/webdav/${storageNodeId}` || pathName === `/api/webdav/${storageNodeId}/`
-      ? ""
-      : null;
+  const rest = pathName.startsWith(`${base}/`)
+    ? pathName.slice(`${base}/`.length)
+    : pathName.startsWith(`${baseRaw}/`)
+      ? pathName.slice(`${baseRaw}/`.length)
+      : pathName === base ||
+          pathName === `${base}/` ||
+          pathName === baseRaw ||
+          pathName === `${baseRaw}/`
+        ? ""
+        : null;
   if (rest === null) throw new ValidationError("Invalid Destination path");
   return normalizeWebDavRelativePath(rest);
 }

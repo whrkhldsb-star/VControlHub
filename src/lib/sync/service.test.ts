@@ -15,6 +15,7 @@ const { prismaMock } = vi.hoisted(() => ({
 vi.mock("@/lib/db", () => ({ prisma: prismaMock }));
 
 import {
+  assertSyncRemoteSucceeded,
   buildRsyncCommand,
   buildTarSyncCommand,
   createSyncJob,
@@ -230,5 +231,32 @@ describe("sync service command helpers", () => {
 				deleteOrphans: false,
 			}),
 		).toThrow("Unsafe SSH port");
+	});
+});
+
+describe("assertSyncRemoteSucceeded", () => {
+	it("allows exit 0 and null (no status)", () => {
+		expect(() =>
+			assertSyncRemoteSucceeded({ stdout: "ok", stderr: "", exitCode: 0 }, "rsync"),
+		).not.toThrow();
+		expect(() =>
+			assertSyncRemoteSucceeded({ stdout: "", stderr: "", exitCode: null }, "rsync"),
+		).not.toThrow();
+	});
+
+	it("throws on non-zero exit with stderr/stdout detail (false-success guard)", () => {
+		expect(() =>
+			assertSyncRemoteSucceeded(
+				{ stdout: "rsync error: some files vanished", stderr: "", exitCode: 23 },
+				"rsync",
+			),
+		).toThrow(/rsync failed \(exit 23\).*vanished/);
+
+		expect(() =>
+			assertSyncRemoteSucceeded(
+				{ stdout: "", stderr: "Permission denied", exitCode: 1 },
+				"tar sync",
+			),
+		).toThrow(/tar sync failed \(exit 1\).*Permission denied/);
 	});
 });

@@ -24,6 +24,28 @@ import {
 } from "./bidirectional";
 import { getSyncJob } from "./service-crud";
 
+/* ── remote command result ─────────────────────────────────── */
+
+/**
+ * execRemoteCommand resolves on stream close even when the remote process
+ * exits non-zero. Sync must treat that as failure — otherwise rsync/tar
+ * errors (permission denied, full disk, partial transfer) are parsed as
+ * success and written COMPLETED/IDLE (false success).
+ */
+export function assertSyncRemoteSucceeded(
+	result: { stdout: string; stderr: string; exitCode: number | null },
+	label: string,
+): void {
+	if (result.exitCode == null || result.exitCode === 0) return;
+	// rsync/tar builders often merge stderr into stdout via `2>&1`
+	const detail = (result.stderr || result.stdout || "").trim().slice(0, 500);
+	throw new Error(
+		detail
+			? `${label} failed (exit ${result.exitCode}): ${detail}`
+			: `${label} failed (exit ${result.exitCode})`,
+	);
+}
+
 /* ── rsync output parsing ─────────────────────────────────── */
 
 function parseRsyncOutput(output: string) {
@@ -131,6 +153,7 @@ async function executeTarSync(
 		await writeEphemeralPrivateKey(sourceSsh, keyPath, targetKey.privateKey);
 	}
 	const result = await execRemoteCommand({ ...sourceSsh, command: cmd, timeout: 600_000 });
+	assertSyncRemoteSucceeded(result, "tar sync");
 	return result.stdout;
 }
 
@@ -169,21 +192,25 @@ async function runOneWayRsync(input: {
     jobId: legJobId,
   });
   await writePinnedKnownHosts(sourceSsh, legJobId, targetHost, targetPort, input.targetServer.hostKeySha256);
-  await execRemoteCommand({
+  const mkdirTarget = await execRemoteCommand({
     ...targetSsh,
     command: `mkdir -p -- ${shellQuote(input.targetPath)}`,
     timeout: 15000,
   });
-  await execRemoteCommand({
+  assertSyncRemoteSucceeded(mkdirTarget, "target mkdir");
+  const mkdirSource = await execRemoteCommand({
     ...sourceSsh,
     command: `mkdir -p -- ${shellQuote(input.sourcePath)}`,
     timeout: 15000,
   });
-  const { stdout: whichRsync } = await execRemoteCommand({
+  assertSyncRemoteSucceeded(mkdirSource, "source mkdir");
+  const whichResult = await execRemoteCommand({
     ...sourceSsh,
     command: "which rsync 2>/dev/null || echo MISSING",
     timeout: 8000,
   });
+  // which may exit non-zero when missing; we still read stdout for MISSING
+  const whichRsync = whichResult.stdout;
   let output: string;
   if (whichRsync.trim() === "MISSING") {
     const targetSshKey = targetCredentials.privateKey ? { privateKey: targetCredentials.privateKey } : null;
@@ -210,6 +237,7 @@ async function runOneWayRsync(input: {
       command: rsyncCmd,
       timeout: 600_000,
     });
+    assertSyncRemoteSucceeded(result, "rsync");
     output = result.stdout;
   }
   const stats = parseRsyncOutput(output);
