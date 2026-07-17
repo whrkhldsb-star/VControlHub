@@ -170,6 +170,30 @@ function requiredPermissionForAction(actionType: string): Permission {
   return "server:ssh";
 }
 
+function permissionDeniedMessage(actionType: string): string {
+  const perm = requiredPermissionForAction(actionType);
+  if (actionType === "list_servers") return "You do not have server read permission";
+  if (actionType === "list_backups") return "You do not have backup read permission";
+  if (actionType === "run_playbook") return "You do not have playbook run permission";
+  if (actionType === "query_traffic") return "You do not have health/traffic read permission";
+  if (actionType === "manage_cron") return "You do not have scheduled-task read permission";
+  if (actionType === "search_knowledge") return "You do not have AI chat permission";
+  if (actionType === "list_files" || actionType === "search_files" || actionType === "read_file") {
+    return "You do not have storage read permission";
+  }
+  return `You do not have required permission (${perm})`;
+}
+
+/** Cross-module tools that do not require a bound serverId for execution. */
+const SERVERLESS_ACTION_TYPES = new Set<string>([
+  "list_servers",
+  "list_backups",
+  "query_traffic",
+  "manage_cron",
+  "search_knowledge",
+  "run_playbook",
+]);
+
 const HOSTED_ACTION_TYPES = new Set<HostedActionType>([
   "list_servers",
   "get_status",
@@ -180,6 +204,10 @@ const HOSTED_ACTION_TYPES = new Set<HostedActionType>([
   "restart_service",
   "modify_config",
   "deploy_docker",
+  "list_backups",
+  "run_playbook",
+  "query_traffic",
+  "manage_cron",
   "list_files",
   "search_files",
   "read_file",
@@ -189,6 +217,44 @@ const HOSTED_ACTION_TYPES = new Set<HostedActionType>([
 
 function isHostedActionType(actionType: string): actionType is HostedActionType {
   return HOSTED_ACTION_TYPES.has(actionType as HostedActionType);
+}
+
+function periodToSince(periodRaw: unknown): { since: Date; period: string } {
+  const period = typeof periodRaw === "string" ? periodRaw.trim().toLowerCase() : "today";
+  const now = Date.now();
+  if (period === "7d" || period === "7days" || period === "week") {
+    return { since: new Date(now - 7 * 24 * 3600_000), period: "7d" };
+  }
+  if (period === "30d" || period === "30days" || period === "month") {
+    return { since: new Date(now - 30 * 24 * 3600_000), period: "30d" };
+  }
+  // today (default): last 24h of samples
+  return { since: new Date(now - 24 * 3600_000), period: "today" };
+}
+
+async function resolvePlaybookId(
+  args: Record<string, unknown>,
+  session?: HostedActionSession | null,
+): Promise<{ id: string; name: string } | null> {
+  const scope = sessionForTeamScope(session);
+  const teamFilter = scope ? teamWhere(scope) : {};
+  const explicitId = typeof args.playbookId === "string" ? args.playbookId.trim() : "";
+  if (explicitId) {
+    const row = await prisma.playbook.findFirst({
+      where: { id: explicitId, ...teamFilter },
+      select: { id: true, name: true },
+    });
+    return row;
+  }
+  const name = typeof args.playbookName === "string" ? args.playbookName.trim() : "";
+  if (!name) return null;
+  return prisma.playbook.findFirst({
+    where: {
+      AND: [teamFilter, { OR: [{ id: name }, { name: { contains: name } }] }],
+    },
+    select: { id: true, name: true },
+    orderBy: { updatedAt: "desc" },
+  });
 }
 
 // ── 创建托管操作记录 ──────────────────────────────────────
@@ -241,7 +307,7 @@ export async function executeSafeAction(
   context?: HostedActionExecutionContext,
 ): Promise<{ success: boolean; data: unknown; error?: string }> {
   if (context && !sessionHasPermission(context.session, context.requiredPermission ?? requiredPermissionForAction(action.actionType))) {
-    return { success: false, data: null, error: action.actionType === "list_servers" ? "You do not have server read permission" : "You do not have server SSH execution permission" };
+    return { success: false, data: null, error: permissionDeniedMessage(action.actionType) };
   }
 
   if (action.actionType === "search_knowledge") {
@@ -288,6 +354,207 @@ export async function executeSafeAction(
       take: 500, // P2: server 总数有限
     });
     return { success: true, data: { servers } };
+  }
+
+  if (action.actionType === "list_backups") {
+    const scope = sessionForTeamScope(context?.session);
+    const typeFilter =
+      typeof action.params.type === "string" && action.params.type.trim()
+        ? action.params.type.trim().toUpperCase()
+        : undefined;
+    const statusFilter =
+      typeof action.params.status === "string" && action.params.status.trim()
+        ? action.params.status.trim().toUpperCase()
+        : undefined;
+    const records = await prisma.backupRecord.findMany({
+      where: {
+        ...(scope ? teamWhere(scope) : {}),
+        ...(typeFilter ? { type: typeFilter } : {}),
+        ...(statusFilter ? { status: statusFilter } : {}),
+      },
+      orderBy: { createdAt: "desc" },
+      take: 50,
+      select: {
+        id: true,
+        type: true,
+        status: true,
+        note: true,
+        fileSize: true,
+        createdAt: true,
+        completedAt: true,
+        errorMessage: true,
+      },
+    });
+    return {
+      success: true,
+      data: {
+        backups: records.map((r) => ({
+          id: r.id,
+          type: r.type,
+          status: r.status,
+          note: r.note,
+          fileSize: r.fileSize ?? null,
+          createdAt: r.createdAt.toISOString(),
+          completedAt: r.completedAt?.toISOString() ?? null,
+          errorMessage: r.errorMessage,
+        })),
+        count: records.length,
+      },
+    };
+  }
+
+  if (action.actionType === "query_traffic") {
+    const scope = sessionForTeamScope(context?.session);
+    const { since, period } = periodToSince(action.params.period);
+    const visibleServers = scope
+      ? await prisma.server.findMany({
+          where: teamWhere(scope),
+          select: { id: true },
+          take: 5000,
+        })
+      : [];
+    const visibleServerIds = visibleServers.map((s) => s.id);
+    const rows = await prisma.trafficSnapshot.findMany({
+      where: {
+        sampledAt: { gte: since },
+        ...(scope
+          ? {
+              OR: [
+                { serverId: null },
+                ...(visibleServerIds.length > 0 ? [{ serverId: { in: visibleServerIds } }] : []),
+              ],
+            }
+          : {}),
+      },
+      orderBy: { sampledAt: "desc" },
+      take: 2000,
+      select: {
+        source: true,
+        serverId: true,
+        iface: true,
+        rxRateBps: true,
+        txRateBps: true,
+        sampledAt: true,
+      },
+    });
+    let totalRxRate = 0;
+    let totalTxRate = 0;
+    for (const row of rows) {
+      totalRxRate += row.rxRateBps ?? 0;
+      totalTxRate += row.txRateBps ?? 0;
+    }
+    const sampleCount = rows.length;
+    const avgRx = sampleCount ? totalRxRate / sampleCount : 0;
+    const avgTx = sampleCount ? totalTxRate / sampleCount : 0;
+    const latest = rows[0] ?? null;
+    return {
+      success: true,
+      data: {
+        period,
+        sampleCount,
+        averageRxBps: Math.round(avgRx),
+        averageTxBps: Math.round(avgTx),
+        latest: latest
+          ? {
+              source: latest.source,
+              serverId: latest.serverId,
+              iface: latest.iface,
+              rxRateBps: latest.rxRateBps,
+              txRateBps: latest.txRateBps,
+              sampledAt: latest.sampledAt.toISOString(),
+            }
+          : null,
+        note: sampleCount === 0 ? "No traffic samples in the selected period" : undefined,
+      },
+    };
+  }
+
+  if (action.actionType === "manage_cron") {
+    const scope = sessionForTeamScope(context?.session);
+    const cronAction =
+      typeof action.params.action === "string" ? action.params.action.trim().toLowerCase() : "";
+    const taskId = typeof action.params.taskId === "string" ? action.params.taskId.trim() : "";
+
+    if (cronAction === "list" || !cronAction) {
+      const { listScheduledTasks } = await import("@/lib/scheduled-task/service");
+      const tasks = await listScheduledTasks(50, scope ?? null);
+      return {
+        success: true,
+        data: {
+          tasks: tasks.map((t) => ({
+            id: t.id,
+            name: t.name,
+            cronExpression: t.cronExpression,
+            status: t.status,
+            nextRunAt: t.nextRunAt?.toISOString?.() ?? t.nextRunAt ?? null,
+            lastRunAt: t.lastRunAt?.toISOString?.() ?? t.lastRunAt ?? null,
+            lastResult: typeof t.lastResult === "string" ? t.lastResult.slice(0, 200) : t.lastResult,
+          })),
+          count: tasks.length,
+        },
+      };
+    }
+
+    if (cronAction === "pause" || cronAction === "resume") {
+      if (!taskId) {
+        return { success: false, data: null, error: "taskId is required for pause/resume" };
+      }
+      // Pause/resume mutates schedule state — require task:read is already checked;
+      // still scope lookup by team and only flip ACTIVE↔PAUSED via toggleScheduledTask
+      // (which recomputes nextRunAt on resume).
+      const { getScheduledTask, toggleScheduledTask } = await import("@/lib/scheduled-task/service");
+      try {
+        const task = await getScheduledTask(taskId, scope ?? null);
+        if (cronAction === "pause") {
+          if (task.status === "PAUSED") {
+            return { success: true, data: { id: task.id, status: task.status, message: "Already paused" } };
+          }
+          if (task.status !== "ACTIVE") {
+            return {
+              success: false,
+              data: null,
+              error: `Cannot pause scheduled task in status ${task.status}`,
+            };
+          }
+          const updated = await toggleScheduledTask(taskId, scope ?? null);
+          return { success: true, data: { id: updated.id, status: updated.status } };
+        }
+        // resume
+        if (task.status === "ACTIVE") {
+          return { success: true, data: { id: task.id, status: task.status, message: "Already active" } };
+        }
+        if (task.status !== "PAUSED") {
+          return {
+            success: false,
+            data: null,
+            error: `Cannot resume scheduled task in status ${task.status}`,
+          };
+        }
+        const updated = await toggleScheduledTask(taskId, scope ?? null);
+        return { success: true, data: { id: updated.id, status: updated.status } };
+      } catch (err) {
+        return {
+          success: false,
+          data: null,
+          error: err instanceof Error ? err.message : "Scheduled task operation failed",
+        };
+      }
+    }
+
+    return {
+      success: false,
+      data: null,
+      error: "Unsupported manage_cron action; use list, pause, or resume",
+    };
+  }
+
+  if (action.actionType === "run_playbook") {
+    // Dangerous: never auto-execute. Confirm path queues a Playbook run after user approval.
+    return {
+      success: false,
+      data: null,
+      error: "run_playbook requires user confirmation; use the hosted-action confirm flow",
+    };
   }
 
   if (!action.serverId) {
@@ -395,17 +662,73 @@ export async function approveHostedAction(actionId: string, approver: HostedActi
 }
 
 export async function confirmHostedAction(actionId: string, requester: HostedActionSession) {
-  if (!sessionHasPermission(requester, "server:ssh")) throw new ForbiddenError("Missing permission: server:ssh");
-
   const action = await prisma.aiHostedAction.findFirst({ where: { id: actionId, requesterId: requester.userId } });
   if (!action) throw new NotFoundError("Action not found or not authorized to confirm");
   if (action.status !== "PENDING_APPROVAL") throw new BusinessError("Action is not pending confirmation");
   if (action.autoApproved) throw new BusinessError("Auto-approved actions do not require manual confirmation");
   if (!isHostedActionType(action.actionType)) throw new BusinessError("Unsupported action type");
-  if (action.actionType === "list_servers") throw new BusinessError("List queries do not require creating a command request");
-  if (!action.serverId) throw new BusinessError("No target VPS bound; cannot create command request");
+  if (SERVERLESS_ACTION_TYPES.has(action.actionType) && action.actionType !== "run_playbook") {
+    throw new BusinessError("List/query tools do not require creating a command request");
+  }
 
   const params = JSON.parse(action.params) as Record<string, unknown>;
+
+  // Cross-module: run_playbook queues a real Playbook run (not an SSH CommandRequest).
+  if (action.actionType === "run_playbook") {
+    if (!sessionHasPermission(requester, "playbook:run")) {
+      throw new ForbiddenError("Missing permission: playbook:run");
+    }
+    const playbook = await resolvePlaybookId(params, requester);
+    if (!playbook) throw new BusinessError("Playbook not found or outside team scope");
+
+    const claimed = await prisma.aiHostedAction.updateMany({
+      where: { id: actionId, status: "PENDING_APPROVAL" },
+      data: {
+        status: "APPROVED",
+        approverId: requester.userId,
+        approvedAt: new Date(),
+      },
+    });
+    if (claimed.count === 0) {
+      throw new BusinessError("Action is not pending confirmation (may have just been confirmed by another request)");
+    }
+
+    const { runPlaybook } = await import("@/lib/playbook/service");
+    const run = await runPlaybook({
+      playbookId: playbook.id,
+      dryRun: false,
+      createdById: requester.userId,
+      session: {
+        userId: requester.userId,
+        roles: requester.roles,
+        currentTeamId: requester.currentTeamId ?? null,
+      },
+      triggerContext: {
+        source: "ai_hosted_action",
+        hostedActionId: actionId,
+        serverId: typeof params.serverId === "string" ? params.serverId : action.serverId,
+      },
+    });
+
+    await prisma.aiHostedAction.update({
+      where: { id: actionId },
+      data: {
+        status: "COMPLETED",
+        completedAt: new Date(),
+        result: JSON.stringify({
+          playbookId: playbook.id,
+          playbookName: playbook.name,
+          runId: run.id,
+          status: run.status,
+        }),
+      },
+    });
+    return;
+  }
+
+  if (!sessionHasPermission(requester, "server:ssh")) throw new ForbiddenError("Missing permission: server:ssh");
+  if (!action.serverId) throw new BusinessError("No target VPS bound; cannot create command request");
+
   const commandRequestPayload = await buildAssistantCommandRequestPayload({
     tool: {
       name: action.actionType,

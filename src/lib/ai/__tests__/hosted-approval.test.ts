@@ -11,14 +11,29 @@ const prismaMock = vi.hoisted(() => ({
 		updateMany: vi.fn(),
 	},
 	server: { findFirst: vi.fn(), findMany: vi.fn(), findUnique: vi.fn() },
+	backupRecord: { findMany: vi.fn() },
+	trafficSnapshot: { findMany: vi.fn() },
+	playbook: { findFirst: vi.fn() },
 }));
 
 const commandServiceMock = vi.hoisted(() => ({
 	createCommandRequest: vi.fn(),
 }));
 
+const scheduledTaskServiceMock = vi.hoisted(() => ({
+	listScheduledTasks: vi.fn(),
+	getScheduledTask: vi.fn(),
+	toggleScheduledTask: vi.fn(),
+}));
+
+const playbookServiceMock = vi.hoisted(() => ({
+	runPlaybook: vi.fn(),
+}));
+
 vi.mock("@/lib/db", () => ({ prisma: prismaMock }));
 vi.mock("@/lib/command/service", () => commandServiceMock);
+vi.mock("@/lib/scheduled-task/service", () => scheduledTaskServiceMock);
+vi.mock("@/lib/playbook/service", () => playbookServiceMock);
 vi.mock("ssh2", () => ({ Client: vi.fn() }));
 
 describe("AI hosted action approvals", () => {
@@ -240,5 +255,135 @@ describe("AI hosted action approvals", () => {
 			data: expect.objectContaining({ status: "REJECTED", approverId: "user_1", errorMessage: "User rejected" }),
 		});
 		expect(prismaMock.aiHostedAction.findUniqueOrThrow).toHaveBeenCalledWith({ where: { id: "action_1" } });
+	});
+
+	it("executes list_backups without requiring a bound server", async () => {
+		const { executeSafeAction } = await import("../hosted-service");
+		const createdAt = new Date("2026-07-01T00:00:00.000Z");
+		prismaMock.backupRecord.findMany.mockResolvedValue([
+			{
+				id: "bk_1",
+				type: "FULL",
+				status: "COMPLETED",
+				note: null,
+				fileSize: "1024",
+				createdAt,
+				completedAt: createdAt,
+				errorMessage: null,
+			},
+		]);
+
+		const result = await executeSafeAction(
+			{ actionType: "list_backups", serverId: null, params: { type: "FULL" } },
+			{ session: { userId: "operator_1", roles: ["operator"], currentTeamId: "team_a" } },
+		);
+
+		expect(result.success).toBe(true);
+		expect(result.data).toEqual({
+			backups: [
+				{
+					id: "bk_1",
+					type: "FULL",
+					status: "COMPLETED",
+					note: null,
+					fileSize: "1024",
+					createdAt: createdAt.toISOString(),
+					completedAt: createdAt.toISOString(),
+					errorMessage: null,
+				},
+			],
+			count: 1,
+		});
+		expect(prismaMock.backupRecord.findMany).toHaveBeenCalledWith(
+			expect.objectContaining({
+				where: expect.objectContaining({ type: "FULL" }),
+				take: 50,
+			}),
+		);
+	});
+
+	it("lists scheduled tasks via manage_cron without a serverId", async () => {
+		const { executeSafeAction } = await import("../hosted-service");
+		scheduledTaskServiceMock.listScheduledTasks.mockResolvedValue([
+			{
+				id: "task_1",
+				name: "Nightly",
+				cronExpression: "0 3 * * *",
+				status: "ACTIVE",
+				nextRunAt: new Date("2026-07-02T03:00:00.000Z"),
+				lastRunAt: null,
+				lastResult: null,
+			},
+		]);
+
+		const result = await executeSafeAction(
+			{ actionType: "manage_cron", serverId: null, params: { action: "list" } },
+			{ session: { userId: "operator_1", roles: ["operator"], currentTeamId: "team_a" } },
+		);
+
+		expect(result.success).toBe(true);
+		expect(result.data).toEqual({
+			tasks: [
+				{
+					id: "task_1",
+					name: "Nightly",
+					cronExpression: "0 3 * * *",
+					status: "ACTIVE",
+					nextRunAt: "2026-07-02T03:00:00.000Z",
+					lastRunAt: null,
+					lastResult: null,
+				},
+			],
+			count: 1,
+		});
+		expect(scheduledTaskServiceMock.listScheduledTasks).toHaveBeenCalledWith(
+			50,
+			expect.objectContaining({ userId: "operator_1", currentTeamId: "team_a" }),
+		);
+	});
+
+	it("queues a playbook run on confirm for run_playbook without requiring server:ssh", async () => {
+		const { confirmHostedAction } = await import("../hosted-service");
+		const action = {
+			id: "action_pb",
+			status: "PENDING_APPROVAL",
+			actionType: "run_playbook",
+			actionName: "Execute Playbook",
+			riskLevel: "medium",
+			autoApproved: false,
+			requesterId: "user_1",
+			serverId: null,
+			params: JSON.stringify({ playbookId: "pb_1" }),
+		};
+		prismaMock.aiHostedAction.findFirst.mockResolvedValue(action);
+		prismaMock.playbook.findFirst.mockResolvedValue({ id: "pb_1", name: "Restart nginx fleet" });
+		playbookServiceMock.runPlaybook.mockResolvedValue({ id: "run_1", status: "queued" });
+
+		await confirmHostedAction("action_pb", {
+			userId: "user_1",
+			roles: ["operator"],
+			currentTeamId: "team_a",
+		});
+
+		expect(commandServiceMock.createCommandRequest).not.toHaveBeenCalled();
+		expect(playbookServiceMock.runPlaybook).toHaveBeenCalledWith(
+			expect.objectContaining({
+				playbookId: "pb_1",
+				dryRun: false,
+				createdById: "user_1",
+			}),
+		);
+		expect(prismaMock.aiHostedAction.update).toHaveBeenCalledWith({
+			where: { id: "action_pb" },
+			data: expect.objectContaining({
+				status: "COMPLETED",
+				result: JSON.stringify({
+					playbookId: "pb_1",
+					playbookName: "Restart nginx fleet",
+					runId: "run_1",
+					status: "queued",
+				}),
+			}),
+		});
 	});
 });
