@@ -4,7 +4,7 @@ import { z } from "zod";
 import { auditUserAction } from "@/lib/audit/service";
 import { createDeploymentRollbackRun } from "@/lib/deployment/service";
 import { withApiRoute } from "@/lib/http/api-guard";
-import { apiError } from "@/lib/http/api-error";
+import { apiCatch } from "@/lib/http/api-error";
 import { GENERAL_WRITE_LIMIT } from "@/lib/http/rate-limit-presets";
 
 import { AuthError } from "@/lib/errors";
@@ -40,13 +40,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
         });
         return NextResponse.json({ rollback }, { status: 201 });
       } catch (error) {
-        const message = error instanceof Error ? error.message : "Rollback failed";
-        if (message.includes("not found")) return apiError({ status: 404, code: "NOT_FOUND", message });
-        if (message.includes("already has rollback task")) return apiError({ status: 409, code: "CONFLICT", message });
-        if (message.includes("snapshot") || message.includes("rollback command")) {
-          return apiError({ status: 400, code: "BUSINESS_RULE_FAILED", message });
-        }
-        return apiError({ status: 500, code: "INTERNAL_ERROR", message });
+        return apiCatch(error);
       }
     },
   );

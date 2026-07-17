@@ -9,6 +9,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { GENERAL_WRITE_LIMIT } from "@/lib/http/rate-limit-presets";
 import { handleInboundWebhook } from "@/lib/itsm/service";
+import { apiCatch } from "@/lib/http/api-error";
 import { createLogger } from "@/lib/logging";
 import { checkRateLimit } from "@/lib/rate-limit";
 
@@ -86,18 +87,8 @@ export async function POST(request: Request, context: RouteContext) {
 		});
 	} catch (err) {
 		const message = err instanceof Error ? err.message : "Inbound webhook failed";
-		const status = message.includes("not found")
-			? 404
-			: message.includes("signature") ||
-				  message.includes("Missing signature") ||
-				  message.includes("secret") ||
-				  message.includes("permission") ||
-				  message.toLowerCase().includes("forbidden")
-				? 401
-				: message.includes("disabled") || message.includes("does not accept")
-					? 400
-					: 400;
 		logger.warn("inbound rejected", { connectionId, message });
-		return NextResponse.json({ error: message }, { status });
+		// Typed AppError (NotFound/Forbidden/Validation) maps status correctly.
+		return apiCatch(err);
 	}
 }

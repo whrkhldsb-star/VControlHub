@@ -1,5 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
+import { NotFoundError, ValidationError } from "@/lib/errors";
+
+
 const { mocks } = vi.hoisted(() => ({
 	mocks: {
 		requireApiPermission: vi.fn(),
@@ -57,7 +60,7 @@ describe("/api/deployments/[id]/rollback POST", () => {
 	});
 
 	it("returns 404 when the source run does not exist", async () => {
-		mocks.createDeploymentRollbackRun.mockRejectedValueOnce(new Error("Deployment run not found"));
+		mocks.createDeploymentRollbackRun.mockRejectedValueOnce(new NotFoundError("Deployment run not found"));
 		const res = await route.POST(
 			new Request("http://local/api/deployments/missing/rollback", {
 				method: "POST",
@@ -73,7 +76,7 @@ describe("/api/deployments/[id]/rollback POST", () => {
 	});
 
 	it("returns 400 when the snapshot has no rollback command", async () => {
-		mocks.createDeploymentRollbackRun.mockRejectedValueOnce(new Error("This deployment snapshot has no rollback command"));
+		mocks.createDeploymentRollbackRun.mockRejectedValueOnce(new ValidationError("This deployment snapshot has no rollback command"));
 		const res = await route.POST(
 			new Request("http://local/api/deployments/dep1/rollback", {
 				method: "POST",
@@ -84,11 +87,11 @@ describe("/api/deployments/[id]/rollback POST", () => {
 		);
 		expect(res.status).toBe(400);
 		const json = await res.json();
-		expect(json.code).toBe("BUSINESS_RULE_FAILED");
+		expect(json.code).toBe("VALIDATION_FAILED");
 	});
 
-	it("returns 400 when the deployment has no snapshot", async () => {
-		mocks.createDeploymentRollbackRun.mockRejectedValueOnce(new Error("This deployment has no rollback snapshot"));
+	it("returns 404 when the deployment has no snapshot", async () => {
+		mocks.createDeploymentRollbackRun.mockRejectedValueOnce(new NotFoundError("This deployment has no snapshot available for rollback"));
 		const res = await route.POST(
 			new Request("http://local/api/deployments/dep1/rollback", {
 				method: "POST",
@@ -97,7 +100,7 @@ describe("/api/deployments/[id]/rollback POST", () => {
 			}),
 			{ params: Promise.resolve({ id: "dep1" }) },
 		);
-		expect(res.status).toBe(400);
+		expect(res.status).toBe(404);
 	});
 
 	it("returns 403 when the caller lacks deploy:run permission", async () => {

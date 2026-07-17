@@ -11,6 +11,7 @@ import { GENERAL_WRITE_LIMIT } from "@/lib/http/rate-limit-presets";
 import { enqueueJob } from "@/lib/job/service";
 
 import { NotFoundError } from "@/lib/errors";
+import { apiCatch } from "@/lib/http/api-error";
 export const dynamic = "force-dynamic";
 
 export async function POST(request: Request, { params }: { params: Promise<{ id: string }> }) {
@@ -75,9 +76,8 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
         await auditUserAction(session!.userId, "backup.restore", { backupId: id, jobId: job.id });
         return NextResponse.json({ jobId: job.id, taskId: `job:${job.id}` }, { status: 202 });
       } catch (error) {
-        const message = error instanceof Error ? error.message : "Restore execution failed";
-        const status = message.includes("not found") ? 404 : message.includes("confirm") || message.includes("completed") || message.includes("path") || message.includes("checksum") ? 400 : 500;
-        return NextResponse.json({ error: message }, { status });
+        // Prefer typed AppError status codes over fragile English message matching.
+        return apiCatch(error);
       }
     },
   );

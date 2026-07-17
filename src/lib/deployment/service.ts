@@ -3,7 +3,7 @@ import { createCommandRequest } from "@/lib/command/service";
 import { renderCommand, seedBuiltinTemplates } from "@/lib/command-template/service";
 import type { SessionPayload } from "@/lib/auth/session";
 import { teamCreateData, teamWhere } from "@/lib/auth/team-scope";
-import { NotFoundError, ValidationError } from "@/lib/errors";
+import { ConflictError, NotFoundError, ValidationError } from "@/lib/errors";
 
 // TR-039: pure DTO types live in ./dto so client code can reach them
 // without pulling the whole server-only service module. We import them
@@ -340,7 +340,7 @@ export async function createDeploymentRollbackRun(
     select: { id: true, status: true },
     orderBy: { createdAt: "desc" },
   });
-  if (activeRollback) throw new ValidationError("A rollback task is already in progress; please wait for the current rollback to complete before retrying");
+  if (activeRollback) throw new ConflictError("A rollback task is already in progress; please wait for the current rollback to complete before retrying");
 
   const reason = input.reason?.trim() || `Rollback: ${snapshot.templateName}`;
   const rollbackTeamId = sourceRun.teamId ?? null;

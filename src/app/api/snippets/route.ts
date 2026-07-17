@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server";
 
 import { withApiRoute } from "@/lib/http/api-guard";
-import { apiError } from "@/lib/http/api-error";
 import { sessionHasPermission } from "@/lib/auth/authorization";
 import { GENERAL_WRITE_LIMIT } from "@/lib/http/rate-limit-presets";
 import { createSnippet, deleteSnippet, listSnippets, updateSnippet } from "@/lib/snippet/service";
@@ -12,6 +11,7 @@ import {
   updateSnippetSchema,
 } from "@/lib/snippet/schema";
 import { auditUserAction } from "@/lib/audit/service";
+import { apiCatch } from "@/lib/http/api-error";
 
 export const dynamic = "force-dynamic";
 
@@ -69,10 +69,9 @@ export async function PATCH(request: Request) {
         await auditUserAction(session?.userId ?? "", "snippet.update", { snippetId: id });
         return NextResponse.json({ snippet });
       } catch (err) {
-        const message = err instanceof Error ? err.message : "Update failed";
-        if (message.includes("Forbidden")) return apiError({ status: 403, code: "PERMISSION_DENIED", message });
-        if (message.includes("Not found")) return apiError({ status: 404, code: "NOT_FOUND", message });
-        return apiError({ status: 400, code: "BUSINESS_RULE_FAILED", message });
+        // AppError (Forbidden/NotFound/Validation) must map to status — do not
+        // string-match English messages (messages are not stable error codes).
+        return apiCatch(err);
       }
     },
   );
@@ -94,12 +93,9 @@ export async function DELETE(request: Request) {
       try {
         await deleteSnippet(query.id, actor);
         await auditUserAction(session?.userId ?? "", "snippet.delete", { snippetId: query.id });
-      return NextResponse.json({ success: true });
+        return NextResponse.json({ success: true });
       } catch (err) {
-        const message = err instanceof Error ? err.message : "Delete failed";
-        if (message.includes("Forbidden")) return apiError({ status: 403, code: "PERMISSION_DENIED", message });
-        if (message.includes("Not found")) return apiError({ status: 404, code: "NOT_FOUND", message });
-        return apiError({ status: 400, code: "BUSINESS_RULE_FAILED", message });
+        return apiCatch(err);
       }
     },
   );
