@@ -341,19 +341,11 @@ async function tryComposeCli(
   }
 
   const combined = `${result.stderr}\n${result.stdout}`.toLowerCase();
-  // Missing compose plugin / no project config → caller may fall back.
-  if (
-    combined.includes("unknown command") ||
-    combined.includes("is not a docker command") ||
-    combined.includes("unknown shorthand flag") ||
-    combined.includes("unknown flag") ||
-    combined.includes("no configuration file") ||
-    combined.includes("no such file") ||
-    combined.includes("not found") ||
-    combined.includes("compose file") ||
-    combined.includes("couldn't find env file") ||
-    combined.includes("docker compose") && combined.includes("plugin")
-  ) {
+  // Only treat *CLI/plugin/config absence* as fallback-eligible.
+  // Do NOT match bare "not found" / "no such file" / "compose file" — those also appear in
+  // real compose failures (image pull, volume path, invalid compose YAML) and would silently
+  // fall through to Engine start/stop, masking a failed `up`/`down` as a partial success.
+  if (isComposeCliFallbackError(combined)) {
     logger.info("compose CLI unavailable or project config missing; will fall back", {
       project,
       action,
@@ -366,6 +358,36 @@ async function tryComposeCli(
   throw new BusinessError(
     (result.stderr || result.stdout || `compose ${action} failed`).slice(0, 800),
   );
+}
+
+/**
+ * True when compose CLI itself is missing/miswired or no project config can be loaded —
+ * safe to fall back to label-scoped Engine API ops. False for ordinary compose business errors.
+ */
+export function isComposeCliFallbackError(combinedLower: string): boolean {
+  const text = combinedLower.toLowerCase();
+  // Plugin / binary missing
+  if (text.includes("is not a docker command")) return true;
+  if (text.includes("unknown command") && (text.includes("compose") || text.includes("docker"))) {
+    return true;
+  }
+  if (text.includes("docker compose") && text.includes("plugin")) return true;
+  if (text.includes("compose: command not found") || text.includes("docker-compose: command not found")) {
+    return true;
+  }
+  // When `docker compose` is unknown, flags like -p are parsed by docker CLI itself
+  if (text.includes("unknown shorthand flag") || (text.includes("unknown flag") && text.includes("compose"))) {
+    return true;
+  }
+  // No compose project files / working dir (specific phrases only)
+  if (text.includes("no configuration file")) return true;
+  if (text.includes("can't find a suitable configuration file")) return true;
+  if (text.includes("could not find a suitable configuration file")) return true;
+  if (text.includes("couldn't find a project")) return true;
+  if (text.includes("couldn't find env file") || text.includes("could not find env file")) return true;
+  // Local ENOENT surfaces as this message from runLocalCommand
+  if (text.includes("docker cli not found")) return true;
+  return false;
 }
 
 async function engineActionOnProjectContainers(

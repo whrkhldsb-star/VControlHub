@@ -73,6 +73,7 @@ vi.mock("node:child_process", async (importOriginal) => {
 import {
   assertValidComposeProjectName,
   groupComposeProjects,
+  isComposeCliFallbackError,
   listComposeProjects,
   runComposeProjectAction,
 } from "../compose-projects";
@@ -246,5 +247,54 @@ describe("compose project helpers", () => {
     const result = await runComposeProjectAction({ project: "site", action: "start" });
     expect(result.mode).toBe("engine-fallback");
     expect(result.containers?.[0]?.state).toBe("running");
+  });
+
+  it("does not fall back when compose fails with a business error containing 'not found'", async () => {
+    dockerRequestMock.mockResolvedValueOnce({
+      result: {
+        ok: true,
+        status: 200,
+        data: [container({ id: "abc123", project: "site", state: "exited" })],
+      },
+      scope: hubScope,
+    });
+
+    runFileImpl.mockRejectedValue(
+      Object.assign(new Error("compose failed"), {
+        code: 1,
+        stdout: "",
+        stderr: "Error response from daemon: network site_default not found",
+      }),
+    );
+
+    await expect(runComposeProjectAction({ project: "site", action: "up" })).rejects.toThrow(
+      /network site_default not found/i,
+    );
+    // Must not attempt Engine start/stop after a real compose failure
+    expect(dockerRequestMock).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("isComposeCliFallbackError", () => {
+  it("matches missing compose plugin / unknown command", () => {
+    expect(
+      isComposeCliFallbackError("docker: 'compose' is not a docker command"),
+    ).toBe(true);
+    expect(
+      isComposeCliFallbackError("docker: unknown command: docker compose\nunknown shorthand flag: 'p' in -p"),
+    ).toBe(true);
+    expect(isComposeCliFallbackError("docker cli not found")).toBe(true);
+    expect(isComposeCliFallbackError("no configuration file provided")).toBe(true);
+  });
+
+  it("rejects ordinary compose business errors that mention not found / no such file", () => {
+    expect(isComposeCliFallbackError("network site_default not found")).toBe(false);
+    expect(isComposeCliFallbackError("pull access denied for foo, repository does not exist")).toBe(
+      false,
+    );
+    expect(isComposeCliFallbackError("no such file or directory: ./missing.yml")).toBe(false);
+    expect(isComposeCliFallbackError("error while interpolating services.web.image: required variable FOO is missing")).toBe(
+      false,
+    );
   });
 });
