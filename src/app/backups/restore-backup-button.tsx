@@ -24,11 +24,13 @@ export function RestoreBackupButton({ backupId, backupType, disabled = false }: 
   const [confirmText, setConfirmText] = useState("");
   const [component, setComponent] = useState<"all" | "database" | "files">("all");
   const [message, setMessage] = useState<string | null>(null);
+  const [queuedTaskLink, setQueuedTaskLink] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const openConfirm = () => {
     setConfirmText("");
     setMessage(null);
+    setQueuedTaskLink(false);
     setError(null);
     setConfirmOpen(true);
   };
@@ -41,18 +43,44 @@ export function RestoreBackupButton({ backupId, backupType, disabled = false }: 
 
     setPending(true);
     setMessage(null);
+    setQueuedTaskLink(false);
     setError(null);
     try {
+      // Default POST enqueues a durable backup.restore job (202 { jobId, taskId }).
+      // Only wait=1 returns { restore: { restoredAt } } after synchronous execution.
+      // Treating a queued job as "restore completed" is a false-success UX/safety bug.
       const result = await csrfFetch(`/api/backups/${backupId}/restore`, {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ confirm: CONFIRM_TEXT, component }),
-      }) as { restoredAt?: string; error?: string };
-      setMessage(
-        result.restoredAt
-          ? t("backupsPage.restore.successWithTime").replace("{time}", new Date(result.restoredAt).toLocaleString(toDateLocale(locale)))
-          : t("backupsPage.restore.success")
-      );
+      }) as {
+        restore?: { restoredAt?: string };
+        restoredAt?: string;
+        jobId?: string;
+        taskId?: string;
+        deduped?: boolean;
+        error?: string;
+      };
+
+      const restoredAt = result.restore?.restoredAt ?? result.restoredAt;
+      if (restoredAt) {
+        setMessage(
+          t("backupsPage.restore.successWithTime").replace(
+            "{time}",
+            new Date(restoredAt).toLocaleString(toDateLocale(locale)),
+          ),
+        );
+        setQueuedTaskLink(false);
+      } else if (result.taskId || result.jobId) {
+        const taskId = result.taskId ?? (result.jobId ? `job:${result.jobId}` : "");
+        const key = result.deduped ? "backupsPage.restore.deduped" : "backupsPage.restore.queued";
+        setMessage(t(key).replace("{taskId}", taskId));
+        setQueuedTaskLink(true);
+      } else {
+        // Unknown 2xx shape — do not claim restore completed.
+        setMessage(t("backupsPage.restore.queuedUnknown"));
+        setQueuedTaskLink(true);
+      }
       setConfirmOpen(false);
       setConfirmText("");
       router.refresh();
@@ -73,7 +101,16 @@ export function RestoreBackupButton({ backupId, backupType, disabled = false }: 
       >
         {pending ? t("backupsPage.restore.pending") : t("common.restore")}
       </button>
-      {message && <p className="text-xs text-[var(--success)]">{message}</p>}
+      {message && (
+        <p className="text-xs text-[var(--success)]">
+          {message}{" "}
+          {queuedTaskLink ? (
+            <a href="/operation-tasks" className="underline">
+              {t("backupsPage.restore.openTasks")}
+            </a>
+          ) : null}
+        </p>
+      )}
       {error && <p className="text-xs text-[var(--danger)]">{error}</p>}
       {confirmOpen && (
         <div className="fixed inset-0 z-50 flex items-end justify-center overflow-y-auto bg-[var(--surface)]/75 p-0 backdrop-blur-sm sm:items-center sm:p-4" role="presentation">

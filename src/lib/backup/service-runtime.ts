@@ -142,25 +142,48 @@ function buildRestoreExecution(record: { type: string; filePath: string }, proje
 	const backupPath = resolveBackupPath(projectRoot, record.filePath);
 	const type = isBackupType(record.type) ? record.type : "DATABASE";
 
-	// FEAT-P1: 细粒度恢复 — 根据 component 选择恢复范围
+	// FEAT-P1: 细粒度恢复 — 根据 component 选择恢复范围.
+	// Prefer argv arrays (execFile) over bash -c string interpolation so paths
+	// never re-enter a shell parser even when already path-validated.
 	if (type === "DATABASE") {
-		return { file: "bash", args: ["scripts/restore-db.sh", backupPath], backupPath };
+		return {
+			steps: [{ file: "bash", args: ["scripts/restore-db.sh", backupPath] }],
+			backupPath,
+		};
 	}
 	if (type === "FILES") {
-		return { file: "tar", args: ["-xzf", backupPath, "-C", projectRoot], backupPath };
+		return {
+			steps: [{ file: "tar", args: ["-xzf", backupPath, "-C", projectRoot] }],
+			backupPath,
+		};
 	}
 	// FULL backup: component controls what to restore
 	if (type === "FULL") {
 		if (component === "database") {
-			return { file: "bash", args: ["scripts/restore-db.sh", backupPath], backupPath };
+			return {
+				steps: [{ file: "bash", args: ["scripts/restore-db.sh", backupPath] }],
+				backupPath,
+			};
 		}
 		if (component === "files") {
-			return { file: "tar", args: ["-xzf", backupPath, "-C", projectRoot], backupPath };
+			return {
+				steps: [{ file: "tar", args: ["-xzf", backupPath, "-C", projectRoot] }],
+				backupPath,
+			};
 		}
-		// all: restore DB first, then files — use a combined command
-		return { file: "bash", args: ["-c", `scripts/restore-db.sh '${backupPath}' && tar -xzf '${backupPath}' -C '${projectRoot}'`], backupPath };
+		// all: restore DB first, then files — sequential execFile steps (no bash -c)
+		return {
+			steps: [
+				{ file: "bash", args: ["scripts/restore-db.sh", backupPath] },
+				{ file: "tar", args: ["-xzf", backupPath, "-C", projectRoot] },
+			],
+			backupPath,
+		};
 	}
-	return { file: "bash", args: ["scripts/restore-db.sh", backupPath], backupPath };
+	return {
+		steps: [{ file: "bash", args: ["scripts/restore-db.sh", backupPath] }],
+		backupPath,
+	};
 }
 
 export async function restoreBackupRecord(input: { id: string; confirm: string; projectRoot?: string; component?: "database" | "files" | "all"; session?: Pick<SessionPayload, "userId" | "roles" | "currentTeamId"> }) {
@@ -186,11 +209,13 @@ export async function restoreBackupRecord(input: { id: string; confirm: string; 
 		if (actualChecksum !== record.checksumSha256) {
 			throw new BusinessError("Backup checksum verification failed; the artifact may be corrupted or modified");
 		}
-		await runBackupCommand({
-			file: execution.file,
-			args: execution.args,
-			options: { cwd: projectRoot, env: { ...process.env, APP_DIR: projectRoot, CONFIRM_RESTORE: "1" } },
-		});
+		for (const step of execution.steps) {
+			await runBackupCommand({
+				file: step.file,
+				args: step.args,
+				options: { cwd: projectRoot, env: { ...process.env, APP_DIR: projectRoot, CONFIRM_RESTORE: "1" } },
+			});
+		}
 		return { id: record.id, type: record.type, filePath: record.filePath, restoredAt: new Date().toISOString() };
 	} finally {
 		await releaseLock();

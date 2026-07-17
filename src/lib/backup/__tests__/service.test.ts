@@ -336,6 +336,31 @@ describe("backup service", () => {
     }));
   });
 
+  it("runs FULL restore as sequential execFile steps without bash -c shell interpolation", async () => {
+    mockPrisma.backupRecord.findUnique.mockResolvedValueOnce({
+      id: "bak-full",
+      type: "FULL",
+      status: "COMPLETED",
+      filePath: "backups/full.tar.gz",
+      checksumSha256: "a92e0ec81286ff0f9ccf5982a22a83a0b70082446d5fd7af0eb9a3ceacd16c86",
+    });
+
+    await restoreBackupRecord({ id: "bak-full", confirm: "RESTORE", projectRoot: "/opt/app", component: "all" });
+
+    expect(runBackupCommandMock).toHaveBeenCalledTimes(2);
+    expect(runBackupCommandMock.mock.calls[0]![0]).toEqual(expect.objectContaining({
+      file: "bash",
+      args: ["scripts/restore-db.sh", "/var/backups/vcontrolhub/backups/full.tar.gz"],
+    }));
+    expect(runBackupCommandMock.mock.calls[1]![0]).toEqual(expect.objectContaining({
+      file: "tar",
+      args: ["-xzf", "/var/backups/vcontrolhub/backups/full.tar.gz", "-C", "/opt/app"],
+    }));
+    for (const call of runBackupCommandMock.mock.calls) {
+      expect(call[0].args).not.toContain("-c");
+    }
+  });
+
 	it("rejects restore before executing when confirmation, path, or status is unsafe", async () => {
     await expect(restoreBackupRecord({ id: "bak1", confirm: "NOPE", projectRoot: "/opt/app" })).rejects.toThrow("Restore operation requires explicit confirmation");
     expect(runBackupCommandMock).not.toHaveBeenCalled();

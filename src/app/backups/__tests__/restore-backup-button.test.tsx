@@ -47,7 +47,8 @@ describe("RestoreBackupButton", () => {
     expect(csrfFetch).not.toHaveBeenCalled();
   });
 
-  it("posts to the restore API through csrfFetch and refreshes server-rendered records", async () => {
+  it("posts to the restore API through csrfFetch and shows queued task status (not false restore-completed)", async () => {
+    vi.mocked(csrfFetch).mockResolvedValue({ jobId: "job1", taskId: "job:job1", deduped: false });
     render(<RestoreBackupButton backupId="bak1" backupType="DATABASE" />);
 
     await userEvent.click(screen.getByRole("button", { name: "恢复" }));
@@ -56,8 +57,23 @@ describe("RestoreBackupButton", () => {
 
     await waitFor(() => expect(csrfFetch).toHaveBeenCalledWith("/api/backups/bak1/restore", expect.objectContaining({ method: "POST", body: JSON.stringify({ confirm: "RESTORE", component: "all" }) })));
     expect(refreshMock).toHaveBeenCalledOnce();
-    expect(screen.getByText(/恢复已执行/)).toBeInTheDocument();
+    expect(screen.getByText(/恢复任务已创建/)).toBeInTheDocument();
+    expect(screen.queryByText(/恢复已执行/)).not.toBeInTheDocument();
+    expect(screen.queryByText("恢复成功")).not.toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "查看任务中心" })).toHaveAttribute("href", "/operation-tasks");
     expect(screen.queryByRole("dialog", { name: "确认恢复备份" })).not.toBeInTheDocument();
+  });
+
+  it("shows restore-completed only when API returns a restoredAt (wait=1 shape)", async () => {
+    vi.mocked(csrfFetch).mockResolvedValue({ restore: { restoredAt: "2026-05-30T00:00:00.000Z" } });
+    render(<RestoreBackupButton backupId="bak1" backupType="DATABASE" />);
+
+    await userEvent.click(screen.getByRole("button", { name: "恢复" }));
+    await userEvent.type(screen.getByLabelText("输入 RESTORE 确认恢复"), "RESTORE");
+    await userEvent.click(screen.getByRole("button", { name: "确认恢复" }));
+
+    await waitFor(() => expect(screen.getByText(/恢复已执行/)).toBeInTheDocument());
+    expect(screen.queryByRole("link", { name: "查看任务中心" })).not.toBeInTheDocument();
   });
 
   it("renders the restore confirm dialog as a mobile bottom sheet (TR-022 R10)", async () => {
