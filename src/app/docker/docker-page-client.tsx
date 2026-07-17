@@ -100,11 +100,19 @@ export default function DockerPage({ initialServers }: { initialServers: { id: s
 		setActionLoading(id);
 		setError("");
 		try {
-			await csrfFetch("/api/docker/containers", {
+			const data = await csrfFetch<Record<string, unknown>>("/api/docker/containers", {
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify({ id, action, ...(selectedServerId ? { serverId: selectedServerId } : {}) }),
 			});
+			if (data && typeof data === "object" && data.ok === false) {
+				const msg =
+					typeof data.message === "string"
+						? data.message
+						: t("dockerPage.error.action");
+				setError(msg);
+				return;
+			}
 			await fetchContainers();
 		} catch (err) {
 			setError(err instanceof Error ? err.message : t("dockerPage.error.action"));

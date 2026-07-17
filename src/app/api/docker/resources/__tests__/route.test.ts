@@ -5,6 +5,7 @@ const { mocks, httpRequestMock, loggerMock } = vi.hoisted(() => ({
   mocks: {
     requireApiPermission: vi.fn(),
     auditUserAction: vi.fn(),
+    assertServerTeamAccess: vi.fn(),
   },
   httpRequestMock: vi.fn(),
   loggerMock: {
@@ -21,6 +22,9 @@ vi.mock("@/lib/auth/require-api-permission", () => ({
 vi.mock("@/lib/audit/service", () => ({
   auditUserAction: mocks.auditUserAction,
 }));
+vi.mock("@/lib/server/team-access", () => ({
+  assertServerTeamAccess: mocks.assertServerTeamAccess,
+}));
 vi.mock("@/lib/logging", () => ({ createLogger: () => loggerMock }));
 vi.mock("node:http", () => ({ default: { request: httpRequestMock } }));
 
@@ -30,6 +34,7 @@ const session = {
   userId: "u1",
   username: "alice",
   permissions: ["docker:manage"],
+  currentTeamId: "team-a",
 };
 
 function mockDockerResponse(statusCode: number, data: unknown) {
@@ -52,6 +57,10 @@ describe("/api/docker/resources", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mocks.requireApiPermission.mockResolvedValue({ session });
+    mocks.assertServerTeamAccess.mockResolvedValue({
+      ok: true as const,
+      server: { id: "srv-1", teamId: "team-a" },
+    });
   });
 
   it("lists Docker networks", async () => {
@@ -143,5 +152,61 @@ describe("/api/docker/resources", () => {
     expect(body).toMatchObject({ dockerAvailable: false, data: { networks: [], volumes: [] } });
     expect(loggerMock.error).not.toHaveBeenCalled();
     expect(loggerMock.warn).toHaveBeenCalled();
+  });
+
+  it("rejects remote resource mutations for out-of-team serverId", async () => {
+    const { NextResponse } = await import("next/server");
+    mocks.assertServerTeamAccess.mockResolvedValueOnce({
+      ok: false as const,
+      response: NextResponse.json({ error: "Server not found" }, { status: 404 }),
+    });
+
+    const response = await route.POST(
+      new NextRequest("http://local/api/docker/resources", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          type: "volumes",
+          action: "create",
+          name: "cache",
+          serverId: "srv-foreign",
+        }),
+      }),
+    );
+
+    expect(response.status).toBe(404);
+    expect(httpRequestMock).not.toHaveBeenCalled();
+    expect(mocks.assertServerTeamAccess).toHaveBeenCalledWith(session, "srv-foreign");
+  });
+
+  it("returns 503 on resource create when Docker is unavailable", async () => {
+    httpRequestMock.mockImplementationOnce((_options, _callback) => {
+      const handlers: Record<string, (error?: Error) => void> = {};
+      const req = {
+        on: vi.fn((event: string, handler: (error?: Error) => void) => {
+          handlers[event] = handler;
+          return req;
+        }),
+        write: vi.fn(),
+        end: vi.fn(() => {
+          handlers.error?.(Object.assign(new Error("ENOENT"), { code: "ENOENT" }));
+        }),
+        destroy: vi.fn(),
+      };
+      return req;
+    });
+
+    const response = await route.POST(
+      new NextRequest("http://local/api/docker/resources", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ type: "volumes", action: "create", name: "cache" }),
+      }),
+    );
+    const body = await response.json();
+
+    expect(response.status).toBe(503);
+    expect(body.ok).toBe(false);
+    expect(body.dockerAvailable).toBe(false);
   });
 });

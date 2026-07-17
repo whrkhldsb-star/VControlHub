@@ -7,6 +7,7 @@ import { AuthError } from "@/lib/errors";
 import { withApiRoute } from "@/lib/http/api-guard";
 import { COMMAND_LIMIT } from "@/lib/http/rate-limit-presets";
 import { parseSearchParams } from "@/lib/http/parse-search-params";
+import { assertServerTeamAccess } from "@/lib/server/team-access";
 
 const resourceKindSchema = z.enum(["networks", "volumes"]);
 const resourceNameSchema = z.string().min(1).max(128).regex(/^[a-zA-Z0-9_.-]+$/);
@@ -26,8 +27,12 @@ const postBodySchema = z.object({
 
 
 export async function GET(req: NextRequest) {
-  return withApiRoute(req, { permission: "docker:manage", errorMessage: "Failed to fetch Docker resources" }, async () => {
+  return withApiRoute(req, { permission: "docker:manage", errorMessage: "Failed to fetch Docker resources" }, async ({ session }) => {
     const { type, name, serverId } = parseSearchParams(req, getQuerySchema);
+    if (serverId) {
+      const teamAccess = await assertServerTeamAccess(session, serverId);
+      if (!teamAccess.ok) return teamAccess.response;
+    }
     if (type === "networks") {
       const { result } = await dockerRequest(name ? `/networks/${encodeURIComponent(name)}` : "/networks", {
         serverId, unavailableData: { networks: [], volumes: [] }, loggerScope: "api:docker:resources",
@@ -50,6 +55,11 @@ export async function POST(req: NextRequest) {
       if (!session) throw new AuthError("Not authenticated");
       const { type, action, name, driver = "local", serverId } = input;
 
+      if (serverId) {
+        const teamAccess = await assertServerTeamAccess(session, serverId);
+        if (!teamAccess.ok) return teamAccess.response;
+      }
+
       const isNetwork = type === "networks";
       const path = isNetwork
         ? action === "create"
@@ -68,13 +78,31 @@ export async function POST(req: NextRequest) {
         unavailableData: { networks: [], volumes: [] },
         loggerScope: "api:docker:resources",
       });
+      if (result.dockerAvailable === false) {
+        await auditUserAction(
+          session.userId,
+          `docker.${isNetwork ? "network" : "volume"}.${action}`,
+          { name, driver, serverId: serverId || "hub-host", status: 503, ok: false, dockerAvailable: false },
+          action === "delete" ? "WARNING" : "INFO",
+        );
+        return NextResponse.json(
+          {
+            ok: false,
+            status: 503,
+            data: { message: result.message ?? "Docker is unavailable" },
+            dockerAvailable: false,
+            message: result.message ?? "Docker is unavailable",
+          },
+          { status: 503 },
+        );
+      }
       await auditUserAction(
         session.userId,
         `docker.${isNetwork ? "network" : "volume"}.${action}`,
         { name, driver, serverId: serverId || "hub-host", status: result.status, ok: result.ok },
         action === "delete" ? "WARNING" : "INFO",
       );
-      return NextResponse.json(result);
+      return NextResponse.json(result, { status: result.ok ? 200 : result.status >= 400 ? result.status : 200 });
     },
   );
 }

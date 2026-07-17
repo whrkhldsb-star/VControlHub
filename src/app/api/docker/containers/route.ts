@@ -18,6 +18,7 @@ import { withApiRoute } from "@/lib/http/api-guard";
 import { COMMAND_LIMIT } from "@/lib/http/rate-limit-presets";
 import { parseSearchParams } from "@/lib/http/parse-search-params";
 import { AuthError } from "@/lib/errors";
+import { assertServerTeamAccess } from "@/lib/server/team-access";
 
 const containerActionSchema = z.object({
   id: z.string().min(1),
@@ -45,7 +46,7 @@ export async function GET(req: NextRequest) {
   return withApiRoute(
     req,
     { permission: "docker:manage", errorMessage: "Docker API RequestFailed" },
-    async () => {
+    async ({ session }) => {
       const { id, logs, stats, tail: tailRaw, serverId } = parseSearchParams(
         req,
         z.object({
@@ -76,6 +77,12 @@ export async function GET(req: NextRequest) {
           { error: "Invalid container ID format" },
           { status: 400 },
         );
+      }
+
+      // Remote VPS Docker must stay inside the caller's team (same as SFTP/SSH).
+      if (serverId) {
+        const teamAccess = await assertServerTeamAccess(session, serverId);
+        if (!teamAccess.ok) return teamAccess.response;
       }
 
       if (stats) {
@@ -152,6 +159,11 @@ export async function POST(req: NextRequest) {
         );
       }
 
+      if (serverId) {
+        const teamAccess = await assertServerTeamAccess(session, serverId);
+        if (!teamAccess.ok) return teamAccess.response;
+      }
+
       const actionMap: Record<string, { path: string; method: string }> = {
         start: { path: `/containers/${id}/start`, method: "POST" },
         stop: { path: `/containers/${id}/stop`, method: "POST" },
@@ -166,6 +178,31 @@ export async function POST(req: NextRequest) {
         unavailableData: {},
         loggerScope: "api:docker:containers",
       });
+      // Engine unavailable is not a successful lifecycle action (do not 200 + ok:true).
+      if (result.dockerAvailable === false) {
+        await auditUserAction(
+          session.userId,
+          `docker.container.${action}`,
+          {
+            containerId: id,
+            serverId: serverId || "hub-host",
+            status: 503,
+            ok: false,
+            dockerAvailable: false,
+          },
+          action === "remove" ? "WARNING" : "INFO",
+        );
+        return NextResponse.json(
+          {
+            ok: false,
+            status: 503,
+            data: { message: result.message ?? "Docker is unavailable" },
+            dockerAvailable: false,
+            message: result.message ?? "Docker is unavailable",
+          },
+          { status: 503 },
+        );
+      }
       await auditUserAction(
         session.userId,
         `docker.container.${action}`,

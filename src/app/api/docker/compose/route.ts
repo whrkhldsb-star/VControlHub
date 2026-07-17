@@ -15,6 +15,7 @@ import {
 import { withApiRoute } from "@/lib/http/api-guard";
 import { COMMAND_LIMIT, GENERAL_READ_LIMIT } from "@/lib/http/rate-limit-presets";
 import { parseSearchParams } from "@/lib/http/parse-search-params";
+import { assertServerTeamAccess } from "@/lib/server/team-access";
 
 const listQuerySchema = z.object({
   serverId: z.string().trim().min(1).optional(),
@@ -36,8 +37,12 @@ export async function GET(request: Request) {
       rateLimit: GENERAL_READ_LIMIT,
       errorMessage: "Failed to list compose projects",
     },
-    async () => {
+    async ({ session }) => {
       const { serverId } = parseSearchParams(request, listQuerySchema);
+      if (serverId) {
+        const teamAccess = await assertServerTeamAccess(session, serverId);
+        if (!teamAccess.ok) return teamAccess.response;
+      }
       const result = await listComposeProjects(serverId);
       return NextResponse.json({
         projects: result.projects,
@@ -60,6 +65,10 @@ export async function POST(request: Request) {
     },
     async ({ session, body }) => {
       const serverId = body.serverId?.trim() || undefined;
+      if (serverId) {
+        const teamAccess = await assertServerTeamAccess(session, serverId);
+        if (!teamAccess.ok) return teamAccess.response;
+      }
       const result = await runComposeProjectAction({
         project: body.project,
         action: body.action,
