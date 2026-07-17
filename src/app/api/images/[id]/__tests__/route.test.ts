@@ -5,7 +5,7 @@ const {
   sessionHasPermissionMock,
   imageFindUniqueMock,
   imageDeleteMock,
-  storageFindUniqueMock,
+  storageFindFirstMock,
   mediaDeleteManyMock,
   fileDeleteManyMock,
   transactionMock,
@@ -15,7 +15,7 @@ const {
   sessionHasPermissionMock: vi.fn(),
   imageFindUniqueMock: vi.fn(),
   imageDeleteMock: vi.fn(),
-  storageFindUniqueMock: vi.fn(),
+  storageFindFirstMock: vi.fn(),
   mediaDeleteManyMock: vi.fn(),
   fileDeleteManyMock: vi.fn(),
   transactionMock: vi.fn(async (operations: Array<Promise<unknown>>) => Promise.all(operations)),
@@ -28,6 +28,9 @@ vi.mock("@/lib/auth/api-session", () => ({
 vi.mock("@/lib/auth/authorization", () => ({
   sessionHasPermission: sessionHasPermissionMock,
 }));
+vi.mock("@/lib/auth/team-scope", () => ({
+  teamWhere: () => ({ OR: [{ teamId: "team_1" }, { teamId: null }] }),
+}));
 vi.mock("node:fs/promises", () => ({
   default: { unlink: unlinkMock },
   unlink: unlinkMock,
@@ -39,7 +42,7 @@ vi.mock("@/lib/db", () => ({
       delete: imageDeleteMock,
     },
     storageNode: {
-      findUnique: storageFindUniqueMock,
+      findFirst: storageFindFirstMock,
     },
     mediaItem: { deleteMany: mediaDeleteManyMock },
     fileEntry: { deleteMany: fileDeleteManyMock },
@@ -56,7 +59,13 @@ vi.mock("@/lib/http/rate-limit-presets", async () => {
 
 import { DELETE } from "../route";
 
-const session = { userId: "u_1", username: "alice" };
+const session = {
+  userId: "u_1",
+  username: "alice",
+  roles: ["operator"] as string[],
+  currentTeamId: "team_1" as string | null,
+  mustChangePassword: false,
+};
 
 describe("/api/images/[id]", () => {
   it("allows image owners to delete their image after removing backing files", async () => {
@@ -127,7 +136,7 @@ describe("/api/images/[id]", () => {
       storageNodeId: "node_1",
       relativePath: "album/img.png",
     });
-    storageFindUniqueMock.mockResolvedValueOnce({
+    storageFindFirstMock.mockResolvedValueOnce({
       driver: "LOCAL",
       basePath: "/srv/images",
     });
@@ -167,7 +176,7 @@ describe("/api/images/[id]", () => {
       storageNodeId: "node_1",
       relativePath: "album/subdir",
     });
-    storageFindUniqueMock.mockResolvedValueOnce({
+    storageFindFirstMock.mockResolvedValueOnce({
       driver: "LOCAL",
       basePath: "/srv/images",
     });
@@ -263,5 +272,32 @@ describe("/api/images/[id]", () => {
       "/tmp/vcontrolhub-image-delete-test/nested/img_thumb.webp",
     );
     expect(imageDeleteMock).toHaveBeenCalledWith({ where: { id: "img_2" } });
+  });
+
+
+  it("skips storage cascade when node is outside team scope", async () => {
+    vi.clearAllMocks();
+    requireApiSessionMock.mockResolvedValueOnce(session);
+    sessionHasPermissionMock.mockReturnValue(false);
+    imageFindUniqueMock.mockResolvedValueOnce({
+      id: "img_1",
+      userId: "u_1",
+      storageKey: "img.png",
+      storageNodeId: "node_foreign",
+      relativePath: "album/img.png",
+    });
+    storageFindFirstMock.mockResolvedValueOnce(null);
+    unlinkMock.mockResolvedValue(undefined);
+    imageDeleteMock.mockResolvedValueOnce({ id: "img_1" });
+
+    const response = await DELETE(
+      new Request("https://example.com/api/images/img_1", { method: "DELETE" }),
+      { params: Promise.resolve({ id: "img_1" }) },
+    );
+
+    expect(response.status).toBe(200);
+    expect(mediaDeleteManyMock).not.toHaveBeenCalled();
+    expect(fileDeleteManyMock).not.toHaveBeenCalled();
+    expect(imageDeleteMock).toHaveBeenCalledWith({ where: { id: "img_1" } });
   });
 });

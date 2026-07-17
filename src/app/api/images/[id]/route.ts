@@ -5,6 +5,7 @@ import { NextResponse } from "next/server";
 
 import { sessionHasPermission } from "@/lib/auth/authorization";
 import type { SessionPayload } from "@/lib/auth/session";
+import { teamWhere } from "@/lib/auth/team-scope";
 import { prisma } from "@/lib/db";
 import { withApiRoute } from "@/lib/http/api-guard";
 import { IMAGE_UPLOAD_LIMIT } from "@/lib/http/rate-limit-presets";
@@ -93,38 +94,44 @@ export async function DELETE(
         throw new ForbiddenError("No permission to delete");
       }
 
-      // If linked to a LOCAL storage node, delete the published copy before the
-      // index row. Do not report success if the real storage-side delete fails.
+      // If linked to a LOCAL storage node visible under the caller's team,
+      // delete the published copy before the index row. Do not report success
+      // if the real storage-side delete fails. Cross-team node ids are ignored
+      // for physical delete + index cascade (image-bed files still removed).
+      let linkedStorageInTeam = false;
       if (image.storageNodeId && image.relativePath) {
-        const storageNode = await prisma.storageNode.findUnique({
-          where: { id: image.storageNodeId },
+        const storageNode = await prisma.storageNode.findFirst({
+          where: { id: image.storageNodeId, ...teamWhere(session) },
           select: { basePath: true, driver: true },
         });
-        if (storageNode?.driver === "LOCAL") {
-          const resolvedDir = resolveStoragePathWithinBase(
-            storageNode.basePath,
-            image.relativePath,
-          );
-          if (!resolvedDir.ok) {
-            return NextResponse.json(
-              { error: resolvedDir.reason },
-              { status: 400 },
+        if (storageNode) {
+          linkedStorageInTeam = true;
+          if (storageNode.driver === "LOCAL") {
+            const resolvedDir = resolveStoragePathWithinBase(
+              storageNode.basePath,
+              image.relativePath,
             );
-          }
-          try {
-            // New records store the full relative file path; legacy records
-            // stored only the directory. Support both shapes during deletion.
-            const linkedFilePath =
-              path.basename(image.relativePath) === image.storageKey
-                ? resolvedDir.path
-                : path.join(resolvedDir.path, image.storageKey);
-            await unlinkIfPresent(linkedFilePath);
-          } catch (error) {
-            logError("image-bed:delete-storage-copy", error);
-            return NextResponse.json(
-              { error: "Failed to delete image copy from storage node, record not deleted" },
-              { status: 502 },
-            );
+            if (!resolvedDir.ok) {
+              return NextResponse.json(
+                { error: resolvedDir.reason },
+                { status: 400 },
+              );
+            }
+            try {
+              // New records store the full relative file path; legacy records
+              // stored only the directory. Support both shapes during deletion.
+              const linkedFilePath =
+                path.basename(image.relativePath) === image.storageKey
+                  ? resolvedDir.path
+                  : path.join(resolvedDir.path, image.storageKey);
+              await unlinkIfPresent(linkedFilePath);
+            } catch (error) {
+              logError("image-bed:delete-storage-copy", error);
+              return NextResponse.json(
+                { error: "Failed to delete image copy from storage node, record not deleted" },
+                { status: 502 },
+              );
+            }
           }
         }
       }
@@ -145,6 +152,7 @@ export async function DELETE(
       }
 
       const ownsLinkedStorageCopy = Boolean(
+        linkedStorageInTeam &&
         image.storageNodeId &&
         image.relativePath &&
         path.basename(image.relativePath) === image.storageKey,
