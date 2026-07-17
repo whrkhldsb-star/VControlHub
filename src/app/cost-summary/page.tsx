@@ -32,12 +32,14 @@ export default async function CostSummaryPage() {
 	const month = currentMonth();
 	const defaultCurrency: CostCurrency = "CNY";
 
+	// Always pass session into team-scoped cost services so SSR matches API
+	// teamWhere (cost:read alone must not hydrate fleet-wide entries/budgets).
 	const summary = canRead
-		? await summarizeMonth(month, defaultCurrency)
+		? await summarizeMonth(month, defaultCurrency, session)
 		: null;
-	const entries = canRead ? await listCostEntries({ limit: 200 }) : [];
+	const entries = canRead ? await listCostEntries({ limit: 200, session }) : [];
 	const snapshots = canRead ? await listRecentSnapshots(30) : [];
-	const budgets = canRead ? await listCostBudgets() : [];
+	const budgets = canRead ? await listCostBudgets(new Date(), session) : [];
 	const billingAccounts = canRead ? await listCloudBillingAccounts(session) : [];
 
 	return (

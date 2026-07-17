@@ -538,13 +538,37 @@ export async function deleteCostBudget(id: string, session?: TeamSession | null)
 	await prisma.costBudget.delete({ where: { id } });
 }
 
-export async function checkBudgetAlerts(now = new Date(), session?: TeamSession | null) {
-	const budgets = await listCostBudgets(now, session);
-	const managers = await prisma.user.findMany({
-		where: { roles: { some: { role: { permissions: { some: { permission: { key: "cost:manage" } } } } } } },
+/**
+ * Recipients for a budget alert: users with cost:manage.
+ * When the budget is team-scoped, only members of that team (or team:manage
+ * admins) receive the notice — never every global cost:manage user.
+ */
+async function listCostBudgetAlertManagers(budgetTeamId: string | null | undefined) {
+	return prisma.user.findMany({
+		where: {
+			roles: { some: { role: { permissions: { some: { permission: { key: "cost:manage" } } } } } },
+			...(budgetTeamId
+				? {
+						OR: [
+							{ teamMemberships: { some: { teamId: budgetTeamId } } },
+							{
+								roles: {
+									some: {
+										role: { permissions: { some: { permission: { key: "team:manage" } } } },
+									},
+								},
+							},
+						],
+					}
+				: {}),
+		},
 		select: { id: true },
 		take: 1000,
 	});
+}
+
+export async function checkBudgetAlerts(now = new Date(), session?: TeamSession | null) {
+	const budgets = await listCostBudgets(now, session);
 	let triggered = 0;
 	let notificationsSent = 0;
 	let duplicatesSkipped = 0;
@@ -552,6 +576,8 @@ export async function checkBudgetAlerts(now = new Date(), session?: TeamSession 
 		if (!budget.enabled || budget.usagePercent < budget.alertThresholdPercent) continue;
 		triggered += 1;
 		const actionUrl = `/cost-summary?budget=${budget.id}&periodStart=${budget.periodStart}`;
+		// Resolve recipients per budget so team A alerts never fan out to team B managers.
+		const managers = await listCostBudgetAlertManagers(budget.teamId);
 		for (const manager of managers) {
 			const duplicate = await prisma.notification.findFirst({
 				where: { userId: manager.id, type: "system", actionUrl },

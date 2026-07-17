@@ -73,4 +73,35 @@ describe("cost budget service", () => {
 		expect(second.duplicatesSkipped).toBe(2);
 		expect(createNotificationMock).not.toHaveBeenCalled();
 	});
+
+	it("scopes budget alert recipients to the budget team (not all cost:manage users)", async () => {
+		const teamBudget = { ...budgetRow, id: "budget-team", teamId: "team-a" };
+		prismaMock.costBudget.findMany.mockResolvedValue([teamBudget]);
+		prismaMock.costEntry.aggregate.mockResolvedValue({ _sum: { amount: decimal("90.00") } });
+		prismaMock.user.findMany.mockResolvedValue([{ id: "team-a-manager" }]);
+		prismaMock.notification.findFirst.mockResolvedValue(null);
+
+		const result = await checkBudgetAlerts(new Date("2026-06-15T10:00:00.000Z"));
+		expect(result.notificationsSent).toBe(1);
+		expect(prismaMock.user.findMany).toHaveBeenCalledWith(
+			expect.objectContaining({
+				where: expect.objectContaining({
+					roles: { some: { role: { permissions: { some: { permission: { key: "cost:manage" } } } } } },
+					OR: [
+						{ teamMemberships: { some: { teamId: "team-a" } } },
+						{
+							roles: {
+								some: {
+									role: { permissions: { some: { permission: { key: "team:manage" } } } },
+								},
+							},
+						},
+					],
+				}),
+			}),
+		);
+		expect(createNotificationMock).toHaveBeenCalledWith(
+			expect.objectContaining({ userId: "team-a-manager", teamId: "team-a" }),
+		);
+	});
 });
