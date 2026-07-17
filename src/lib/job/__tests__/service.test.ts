@@ -32,6 +32,15 @@ const { mockPrisma, configState } = vi.hoisted(() => ({
 }));
 
 vi.mock("@/lib/db", () => ({ prisma: mockPrisma }));
+vi.mock("@/lib/auth/team-scope", () => ({
+  teamWhere: (session: { roles?: string[]; currentTeamId?: string | null }) => {
+    if (session.roles?.includes("admin")) return {};
+    if (session.currentTeamId) {
+      return { OR: [{ teamId: session.currentTeamId }, { teamId: null }] };
+    }
+    return { teamId: null };
+  },
+}));
 vi.mock("@/lib/config/env", () => ({
   config: {
     get job() {

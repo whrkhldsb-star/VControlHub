@@ -39,6 +39,14 @@ import { BusinessError } from "@/lib/errors";
 
 const execFileAsync = promisify(execFile);
 
+async function loadDownloadTeamId(taskId: string): Promise<string | null> {
+  const row = await prisma.downloadTask.findUnique({
+    where: { id: taskId },
+    select: { teamId: true },
+  });
+  return row?.teamId ?? null;
+}
+
 /* ── Shared server type ────────────────────────────────── */
 
 export type DownloadServer = {
@@ -65,6 +73,7 @@ export async function executeAria2RelayDownload(
 ) {
  void _fileName;
  const tempDir = `/tmp/app-relay-${taskId}`;
+ const teamId = await loadDownloadTeamId(taskId);
 
  try {
   await ensureAria2Daemon();
@@ -106,7 +115,7 @@ export async function executeAria2RelayDownload(
       where: { id: taskId },
       data: { status: "FAILED", errorMessage: `aria2 download failed: ${st.status}` },
      });
-     if (userId) notifyDownloadResult(userId, urls[0]!, "failed", `aria2 download failed: ${st.status}`).catch((err) => { notifyLogger.warn("notifyDownloadResult failed", { error: err instanceof Error ? err.message : String(err) }); });
+     if (userId) notifyDownloadResult(userId, urls[0]!, "failed", `aria2 download failed: ${st.status}`, teamId).catch((err) => { notifyLogger.warn("notifyDownloadResult failed", { error: err instanceof Error ? err.message : String(err) }); });
      await cleanupTemp(tempDir);
      return;
      }
@@ -124,7 +133,7 @@ export async function executeAria2RelayDownload(
   if (!done) {
    try { await removeDownload(gid, true); } catch (err) { logError("[DownloadAPI] Failed to remove aria2 download on timeout:", err); }
    await prisma.downloadTask.update({ where: { id: taskId }, data: { status: "FAILED", errorMessage: "Download timed out (2 hour limit)" } });
-   if (userId) notifyDownloadResult(userId, urls[0]!, "failed", "Download timed out (2 hour limit)").catch((err) => { notifyLogger.warn("notifyDownloadResult failed", { error: err instanceof Error ? err.message : String(err) }); });
+   if (userId) notifyDownloadResult(userId, urls[0]!, "failed", "Download timed out (2 hour limit)", teamId).catch((err) => { notifyLogger.warn("notifyDownloadResult failed", { error: err instanceof Error ? err.message : String(err) }); });
    await cleanupTemp(tempDir);
    return;
   }
@@ -136,7 +145,7 @@ export async function executeAria2RelayDownload(
 
   if (filesToTransfer.length === 0) {
    await prisma.downloadTask.update({ where: { id: taskId }, data: { status: "FAILED", errorMessage: "Download completed but file not found" } });
-   if (userId) notifyDownloadResult(userId, urls[0]!, "failed", "Download completed but file not found").catch((err) => { notifyLogger.warn("notifyDownloadResult failed", { error: err instanceof Error ? err.message : String(err) }); });
+   if (userId) notifyDownloadResult(userId, urls[0]!, "failed", "Download completed but file not found", teamId).catch((err) => { notifyLogger.warn("notifyDownloadResult failed", { error: err instanceof Error ? err.message : String(err) }); });
    await cleanupTemp(tempDir);
    return;
   }
@@ -163,14 +172,14 @@ export async function executeAria2RelayDownload(
    where: { id: taskId },
    data: { status: "COMPLETED", progress: "Download and transfer completed", fileSize: String(totalSize), totalBytes: String(totalSize), completedBytes: String(totalSize) },
   });
-  if (userId) notifyDownloadResult(userId, urls[0]!, "completed").catch((err) => { notifyLogger.warn("notifyDownloadResult failed", { error: err instanceof Error ? err.message : String(err) }); });
+  if (userId) notifyDownloadResult(userId, urls[0]!, "completed", undefined, teamId).catch((err) => { notifyLogger.warn("notifyDownloadResult failed", { error: err instanceof Error ? err.message : String(err) }); });
 
   await cleanupTemp(tempDir);
  } catch (error) {
   logError("[DownloadAPI] Relay download execution failed:", error);
   try {
    await prisma.downloadTask.update({ where: { id: taskId }, data: { status: "FAILED", errorMessage: getPublicAria2Error(error) } });
-   if (userId) notifyDownloadResult(userId, urls[0]!, "failed", getPublicAria2Error(error)).catch((err) => { notifyLogger.warn("notifyDownloadResult failed", { error: err instanceof Error ? err.message : String(err) }); });
+   if (userId) notifyDownloadResult(userId, urls[0]!, "failed", getPublicAria2Error(error), teamId).catch((err) => { notifyLogger.warn("notifyDownloadResult failed", { error: err instanceof Error ? err.message : String(err) }); });
   } catch (err) { logError("[DownloadAPI] Failed to update task status after relay failure:", err); }
   await cleanupTemp(tempDir);
  }
@@ -186,6 +195,8 @@ export async function executeDirectDownload(
  fileName?: string | null,
  userId?: string,
 ) {
+ const teamId = await loadDownloadTeamId(taskId);
+
  try {
   const sshParams = await buildSshParamsFromServer(server, server.sshKey);
   await execRemoteCommand({ ...sshParams, command: `mkdir -p -- ${shellQuote(targetPath)}`, timeout: 15000 });
@@ -209,13 +220,13 @@ export async function executeDirectDownload(
    const { stdout: logContent } = await execRemoteCommand({ ...sshParams, command: getDirectDownloadLogCommand(taskId), timeout: 8000 });
    const errMsg = logContent.trim() || "Failed to start download process";
    await prisma.downloadTask.update({ where: { id: taskId }, data: { status: "FAILED", errorMessage: errMsg } });
-   if (userId) notifyDownloadResult(userId, url, "failed", errMsg).catch((err) => { notifyLogger.warn("notifyDownloadResult failed", { error: err instanceof Error ? err.message : String(err) }); });
+   if (userId) notifyDownloadResult(userId, url, "failed", errMsg, teamId).catch((err) => { notifyLogger.warn("notifyDownloadResult failed", { error: err instanceof Error ? err.message : String(err) }); });
   }
  } catch (error) {
   logError("[DownloadAPI] Direct download execution failed:", error);
   try {
    await prisma.downloadTask.update({ where: { id: taskId }, data: { status: "FAILED", errorMessage: getPublicDownloadError(error) } });
-   if (userId) notifyDownloadResult(userId, url, "failed", getPublicDownloadError(error)).catch((err) => { notifyLogger.warn("notifyDownloadResult failed", { error: err instanceof Error ? err.message : String(err) }); });
+   if (userId) notifyDownloadResult(userId, url, "failed", getPublicDownloadError(error), teamId).catch((err) => { notifyLogger.warn("notifyDownloadResult failed", { error: err instanceof Error ? err.message : String(err) }); });
   } catch (err) { logError("[DownloadAPI] Failed to update task status after direct download failure:", err); }
  }
 }

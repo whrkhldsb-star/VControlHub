@@ -34,6 +34,8 @@ export type AlertFireInput = {
   onCallUserIds?: string[];
   title: string;
   message: string;
+  /** Multi-tenant stamp for in-app notifications (from AlertRule.teamId). */
+  teamId?: string | null;
 };
 
 export function buildAlertFingerprint(ruleId: string, serverId: string | null, metric: string): string {
@@ -78,6 +80,7 @@ async function dispatchChannels(input: {
   webhookUrl?: string | null;
   contextLines: string[];
   level: number;
+  teamId?: string | null;
 }) {
   if (input.notifyChannels.includes("in_app")) {
     await Promise.allSettled(
@@ -88,6 +91,7 @@ async function dispatchChannels(input: {
           title: input.level > 1 ? `[L${input.level}] ${input.title}` : input.title,
           message: input.message,
           actionUrl: input.actionUrl,
+          teamId: input.teamId ?? null,
         }),
       ),
     );
@@ -229,6 +233,7 @@ export async function openOrRefreshAlertIncident(input: AlertFireInput): Promise
       `Incident: ${incident.id}`,
     ],
     level: 1,
+    teamId: input.teamId ?? null,
   });
 
   return { incidentId: incident.id, created: !existing, notified: true, level: 1 };
@@ -243,6 +248,7 @@ export async function resolveAlertIncident(input: {
   notifyChannels: string[];
   webhookUrl?: string | null;
   onCallUserIds?: string[];
+  teamId?: string | null;
 }): Promise<{ resolved: boolean; incidentId?: string }> {
   const fingerprint = buildAlertFingerprint(input.ruleId, input.serverId, input.metric);
   const existing = await prisma.alertIncident.findUnique({ where: { fingerprint } });
@@ -272,6 +278,7 @@ export async function resolveAlertIncident(input: {
       `Previous level: ${existing.level}`,
     ],
     level: existing.level,
+    teamId: input.teamId ?? null,
   });
 
   return { resolved: true, incidentId: existing.id };
@@ -341,6 +348,7 @@ export async function escalateOverdueAlertIncidents(): Promise<{ escalated: numb
         select: {
           id: true,
           name: true,
+          teamId: true,
           escalationMinutes: true,
           onCallUserIds: true,
           notifyChannels: true,
@@ -394,6 +402,7 @@ export async function escalateOverdueAlertIncidents(): Promise<{ escalated: numb
         `Incident: ${incident.id}`,
       ],
       level: nextLevel,
+      teamId: incident.rule.teamId ?? null,
     });
 
     logger.info("alert incident escalated", {

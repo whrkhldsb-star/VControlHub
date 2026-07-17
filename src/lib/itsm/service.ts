@@ -295,8 +295,11 @@ async function recordEvent(input: {
 export async function testItsmConnection(
 	id: string,
 	message?: string,
+	session?: Pick<SessionPayload, "userId" | "roles" | "currentTeamId">,
 ): Promise<{ ok: boolean; event: ItsmEventRecord; error?: string }> {
-	const row = await prisma.itsmConnection.findUnique({ where: { id } });
+	const row = await prisma.itsmConnection.findFirst({
+		where: { id, ...(session ? teamWhere(session) : {}) },
+	});
 	if (!row) throw new NotFoundError("ITSM connection not found");
 	if (!row.enabled) throw new ValidationError("Connection is disabled");
 	if (!supportsOutbound(row.direction)) {

@@ -164,6 +164,7 @@ export async function evaluateAlerts() {
             notifyChannels: rule.notifyChannels,
             webhookUrl: rule.webhookUrl,
             onCallUserIds: rule.onCallUserIds ?? [],
+            teamId: rule.teamId ?? null,
           });
           await prisma.alertRule.update({
             where: { id: rule.id },
@@ -206,6 +207,7 @@ export async function evaluateAlerts() {
         onCallUserIds: rule.onCallUserIds ?? [],
         title,
         message,
+        teamId: rule.teamId ?? null,
       });
 
       if (fire.notified) {

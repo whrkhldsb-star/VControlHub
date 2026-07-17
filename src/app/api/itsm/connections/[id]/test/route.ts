@@ -33,7 +33,7 @@ export async function POST(request: Request, context: RouteContext) {
 			errorMessage: "Failed to test ITSM connection",
 		},
 		async ({ session, body }) => {
-			const result = await testItsmConnection(id, body?.message);
+			const result = await testItsmConnection(id, body?.message, session ?? undefined);
 			await auditUserAction(session?.userId ?? "anonymous", "itsm.connection.test", {
 				connectionId: id,
 				ok: result.ok,

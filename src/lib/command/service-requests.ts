@@ -380,10 +380,10 @@ export async function createCommandRequest(
     );
 
     // Notify requester that command execution has started; final status will be visible on the task row/logs.
-    notifyCommandResult(payload.requesterId, payload.title, "approved").catch((err) => { commandLogger.warn("notifyCommandResult failed", { error: err instanceof Error ? err.message : String(err) }); });
+    notifyCommandResult(payload.requesterId, payload.title, "approved", commandRequest.teamId).catch((err) => { commandLogger.warn("notifyCommandResult failed", { error: err instanceof Error ? err.message : String(err) }); });
   } else {
     // Notify admins about pending command approval
-    notifyCommandPending(payload.requesterId, payload.title).catch((err) => { commandLogger.warn("notifyCommandPending failed", { error: err instanceof Error ? err.message : String(err) }); });
+    notifyCommandPending(payload.requesterId, payload.title, commandRequest.teamId).catch((err) => { commandLogger.warn("notifyCommandPending failed", { error: err instanceof Error ? err.message : String(err) }); });
   }
 
   return { ...commandRequest, requiresApproval };
@@ -440,7 +440,7 @@ export async function reviewCommandRequest(
 
   if (payload.approved) {
     // Notify requester: command approved
-    notifyCommandResult(request.requesterId, request.title, "approved").catch((err) => { commandLogger.warn("notifyCommandResult failed", { error: err instanceof Error ? err.message : String(err) }); });
+    notifyCommandResult(request.requesterId, request.title, "approved", request.teamId).catch((err) => { commandLogger.warn("notifyCommandResult failed", { error: err instanceof Error ? err.message : String(err) }); });
 
     await enqueueApprovedCommandExecution(
       payload.commandRequestId,
@@ -469,7 +469,7 @@ export async function reviewCommandRequest(
   });
 
   // Notify requester: command rejected
-  notifyCommandResult(request.requesterId, request.title, "rejected").catch((err) => { commandLogger.warn("notifyCommandResult failed", { error: err instanceof Error ? err.message : String(err) }); });
+  notifyCommandResult(request.requesterId, request.title, "rejected", request.teamId).catch((err) => { commandLogger.warn("notifyCommandResult failed", { error: err instanceof Error ? err.message : String(err) }); });
 
   return request;
 }

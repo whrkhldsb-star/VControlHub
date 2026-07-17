@@ -192,6 +192,7 @@ export async function testAlertRule(id: string, session?: TeamSession | null): P
 			title,
 			message,
 			actionUrl: "/alert-rules",
+			teamId: rule.teamId ?? null,
 		})));
 		const failed = results.filter((result) => result.status === "rejected").length;
 		deliveries.push({

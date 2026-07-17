@@ -36,6 +36,7 @@ vi.mock("@/lib/db", () => ({
 			}),
 			findMany: vi.fn(async () => Array.from(connectionStore.values())),
 			findUnique: vi.fn(async ({ where }: { where: { id: string } }) => connectionStore.get(where.id) ?? null),
+			findFirst: vi.fn(async ({ where }: { where: { id: string } }) => connectionStore.get(where.id) ?? null),
 			update: vi.fn(async ({ where, data }: { where: { id: string }; data: Record<string, unknown> }) => {
 				const prev = connectionStore.get(where.id);
 				if (!prev) throw new Error("missing");

@@ -124,7 +124,11 @@ export async function deleteNotification(notificationId: string, userId: string)
 
 /* ── Helpers: create notifications for specific events ────── */
 
-export async function notifyCommandPending(requesterId: string, commandTitle: string) {
+export async function notifyCommandPending(
+	requesterId: string,
+	commandTitle: string,
+	teamId?: string | null,
+) {
 	// Notify all admins about pending command
 	const admins = await prisma.user.findMany({
 		where: { roles: { some: { role: { permissions: { some: { permission: { key: "command:approve" } } } } } } },
@@ -141,12 +145,18 @@ export async function notifyCommandPending(requesterId: string, commandTitle: st
 					title: "New command pending approval",
 					message: `Command "${commandTitle}" requires your approval.`,
 					actionUrl: `/requests`,
+					teamId: teamId ?? null,
 				}),
 			),
 	);
 }
 
-export async function notifyCommandResult(requesterId: string, commandTitle: string, status: "approved" | "rejected" | "completed" | "failed") {
+export async function notifyCommandResult(
+	requesterId: string,
+	commandTitle: string,
+	status: "approved" | "rejected" | "completed" | "failed",
+	teamId?: string | null,
+) {
 	const typeMap = {
 		approved: "command_approved" as NotificationType,
 		rejected: "command_rejected" as NotificationType,
@@ -171,10 +181,17 @@ export async function notifyCommandResult(requesterId: string, commandTitle: str
 		title: titleMap[status],
 		message: msgMap[status],
 		actionUrl: "/requests",
+		teamId: teamId ?? null,
 	});
 }
 
-export async function notifyDownloadResult(userId: string, url: string, status: "completed" | "failed", errorMsg?: string) {
+export async function notifyDownloadResult(
+	userId: string,
+	url: string,
+	status: "completed" | "failed",
+	errorMsg?: string,
+	teamId?: string | null,
+) {
 	const truncatedUrl = url.length > 50 ? url.slice(0, 47) + "..." : url;
 	return createNotification({
 		userId,
@@ -182,36 +199,55 @@ export async function notifyDownloadResult(userId: string, url: string, status: 
 		title: status === "completed" ? "Download completed" : "Download failed",
 		message: status === "completed" ? `Download completed: ${truncatedUrl}` : `Download failed: ${truncatedUrl}${errorMsg ? ` — ${errorMsg}` : ""}`,
 		actionUrl: "/downloads",
+		teamId: teamId ?? null,
 	});
 }
 
-export async function notifyServerAlert(userId: string, serverName: string, alertMessage: string) {
+export async function notifyServerAlert(
+	userId: string,
+	serverName: string,
+	alertMessage: string,
+	teamId?: string | null,
+) {
 	return createNotification({
 		userId,
 		type: "server_alert",
 		title: `Server alert: ${serverName}`,
 		message: alertMessage,
 		actionUrl: "/servers",
+		teamId: teamId ?? null,
 	});
 }
 
-export async function notifyBackupCompleted(userId: string, backupType: string, size: string) {
+export async function notifyBackupCompleted(
+	userId: string,
+	backupType: string,
+	size: string,
+	teamId?: string | null,
+) {
 	return createNotification({
 		userId,
 		type: "backup_completed",
 		title: "Backup completed",
 		message: `${backupType} backup completed, size: ${size}.`,
 		actionUrl: "/backups",
+		teamId: teamId ?? null,
 	});
 }
 
-export async function notifyBackupFailed(userId: string, backupType: string, error: string) {
+export async function notifyBackupFailed(
+	userId: string,
+	backupType: string,
+	error: string,
+	teamId?: string | null,
+) {
 	return createNotification({
 		userId,
 		type: "backup_failed",
 		title: "Backup failed",
 		message: `${backupType} backup failed: ${error}.`,
 		actionUrl: "/backups",
+		teamId: teamId ?? null,
 	});
 }
 
@@ -225,42 +261,69 @@ export async function notifyLoginAlert(userId: string, ip: string, userAgent?: s
 	});
 }
 
-export async function notifyCronFailed(userId: string, taskName: string, error: string) {
+export async function notifyCronFailed(
+	userId: string,
+	taskName: string,
+	error: string,
+	teamId?: string | null,
+) {
 	return createNotification({
 		userId,
 		type: "cron_failed",
 		title: "Scheduled task failed",
 		message: `Scheduled task "${taskName}" execution failed: ${error}.`,
 		actionUrl: "/scheduled-tasks",
+		teamId: teamId ?? null,
 	});
 }
 
-export async function notifyPlaybookFailed(userId: string, playbookName: string, stepName: string, error: string) {
+export async function notifyPlaybookFailed(
+	userId: string,
+	playbookName: string,
+	stepName: string,
+	error: string,
+	teamId?: string | null,
+) {
 	return createNotification({
 		userId,
 		type: "playbook_failed",
 		title: "Playbook execution failed",
 		message: `Playbook "${playbookName}" failed at step "${stepName}": ${error}.`,
 		actionUrl: `/playbooks/${playbookName}`,
+		teamId: teamId ?? null,
 	});
 }
 
-export async function notifyAlertResolved(userId: string, serverName: string, metric: string, previousThreshold: number) {
+export async function notifyAlertResolved(
+	userId: string,
+	serverName: string,
+	metric: string,
+	previousThreshold: number,
+	teamId?: string | null,
+) {
 	return createNotification({
 		userId,
 		type: "alert_resolved",
 		title: `Alert resolved: ${serverName}`,
 		message: `${serverName}'s ${metric} metric has returned to normal (previous threshold: ${previousThreshold}).`,
 		actionUrl: "/health",
+		teamId: teamId ?? null,
 	});
 }
 
-export async function notifyTaskConsecutiveFailed(userId: string, taskName: string, failCount: number, lastError: string) {
+export async function notifyTaskConsecutiveFailed(
+	userId: string,
+	taskName: string,
+	failCount: number,
+	lastError: string,
+	teamId?: string | null,
+) {
 	return createNotification({
 		userId,
 		type: "task_consecutive_failed",
 		title: `Task consecutive failures: ${taskName}`,
 		message: `Task "${taskName}" has failed ${failCount} consecutive times. Last error: ${lastError}.`,
 		actionUrl: "/scheduled-tasks",
+		teamId: teamId ?? null,
 	});
 }

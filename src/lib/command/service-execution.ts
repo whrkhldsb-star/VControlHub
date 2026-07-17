@@ -454,6 +454,7 @@ export async function executeAndFinalizeCommand(commandRequestId: string) {
       request.requesterId,
       request.title,
       nextStatus === "COMPLETED" ? "completed" : "failed",
+      request.teamId,
     ).catch((err) => {
       cmdExecLogger.warn("notifyCommandResult failed", {
         error: err instanceof Error ? err.message : String(err),
@@ -477,7 +478,7 @@ export async function markCommandExecutionFailed(
   const message = error instanceof Error ? error.message : "Command background execution failed";
   const request = await prisma.commandRequest.findUnique({
     where: { id: commandRequestId },
-    select: { id: true, title: true, requesterId: true, status: true },
+    select: { id: true, title: true, requesterId: true, status: true, teamId: true },
   });
   await prisma.commandRequest.update({
     where: { id: commandRequestId },
@@ -512,7 +513,7 @@ export async function markCommandExecutionFailed(
     "WARNING",
   );
   if (request?.requesterId) {
-    notifyCommandResult(request.requesterId, request.title, "failed").catch((err) => {
+    notifyCommandResult(request.requesterId, request.title, "failed", request.teamId).catch((err) => {
       cmdExecLogger.warn("notifyCommandResult failed", {
         error: err instanceof Error ? err.message : String(err),
         commandRequestId,

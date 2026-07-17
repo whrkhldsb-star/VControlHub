@@ -1,6 +1,10 @@
 import { JobStatus, Prisma } from "@prisma/client";
 
+import type { RoleKey } from "@/lib/auth/rbac";
+import { teamWhere } from "@/lib/auth/team-scope";
 import { prisma } from "@/lib/db";
+
+type JobSession = { userId: string; roles: RoleKey[]; currentTeamId: string | null };
 import { config } from "@/lib/config/env";
 import { createLogger } from "@/lib/logging";
 import { recordJobEvent } from "./events";
@@ -88,8 +92,25 @@ export async function enqueueJob(input: EnqueueJobInput) {
   return job;
 }
 
-export async function getJob(jobId: string) {
-  return prisma.job.findUnique({ where: { id: jobId } });
+export async function getJob(
+  jobId: string,
+  session?: JobSession | null,
+) {
+  if (!session) {
+    return prisma.job.findUnique({ where: { id: jobId } });
+  }
+  const teamScope = teamWhere(session);
+  // Admin / unscoped session: full access by id.
+  if (Object.keys(teamScope).length === 0) {
+    return prisma.job.findUnique({ where: { id: jobId } });
+  }
+  // Team match (incl. legacy null via teamWhere OR) OR created by self.
+  return prisma.job.findFirst({
+    where: {
+      id: jobId,
+      OR: [teamScope, { createdBy: session.userId }],
+    },
+  });
 }
 
 export async function claimNextJob(options: ClaimJobOptions) {
