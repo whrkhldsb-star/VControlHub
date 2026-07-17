@@ -97,6 +97,7 @@ export type CapacityAlertRuleSlice = {
   playbookIds: string[];
   webhookUrl: string | null;
   onCallUserIds: string[];
+  teamId?: string | null;
 };
 
 /**
@@ -145,10 +146,21 @@ export async function evaluateCapacityLinkedAlerts(
       Boolean(rule.lastTriggeredAt) &&
       Date.now() - (rule.lastTriggeredAt as Date).getTime() < rule.cooldownMinutes * 60_000;
 
-    const targets =
+    let targets =
       rule.serverIds.length > 0
         ? forecast.servers.filter((s) => rule.serverIds.includes(s.serverId))
         : forecast.servers;
+    // Empty serverIds + team-scoped rule: only evaluate servers in that team
+    // (forecast is global; without this, capacity rules would fire across tenants).
+    if (rule.serverIds.length === 0 && rule.teamId) {
+      const teamServers = await prisma.server.findMany({
+        where: { teamId: rule.teamId },
+        select: { id: true },
+        take: 5000,
+      });
+      const allowed = new Set(teamServers.map((s) => s.id));
+      targets = targets.filter((s) => allowed.has(s.serverId));
+    }
 
     for (const server of targets) {
       const { value, reason } = daysValueFromServerForecast(server, key);
@@ -164,6 +176,7 @@ export async function evaluateCapacityLinkedAlerts(
           notifyChannels: rule.notifyChannels,
           webhookUrl: rule.webhookUrl,
           onCallUserIds: rule.onCallUserIds ?? [],
+          teamId: rule.teamId ?? null,
         });
         resolved += 1;
         continue;
@@ -180,6 +193,7 @@ export async function evaluateCapacityLinkedAlerts(
           notifyChannels: rule.notifyChannels,
           webhookUrl: rule.webhookUrl,
           onCallUserIds: rule.onCallUserIds ?? [],
+          teamId: rule.teamId ?? null,
         });
         resolved += 1;
         continue;
@@ -207,6 +221,7 @@ export async function evaluateCapacityLinkedAlerts(
         onCallUserIds: rule.onCallUserIds ?? [],
         title,
         message,
+        teamId: rule.teamId ?? null,
       });
 
       if (fire.notified) {

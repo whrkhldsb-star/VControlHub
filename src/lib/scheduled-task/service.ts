@@ -198,7 +198,10 @@ export async function retryScheduledTask(
 }
 
 export async function recordTaskRun(id: string, result: string) {
-	const task = await prisma.scheduledTask.findUnique({ where: { id }, select: { name: true, cronExpression: true, runCount: true, createdById: true, lastResult: true } });
+	const task = await prisma.scheduledTask.findUnique({
+		where: { id },
+		select: { name: true, cronExpression: true, runCount: true, createdById: true, lastResult: true, teamId: true },
+	});
 	if (!task) return;
 
 	// Detect consecutive failures and notify the creator
@@ -207,7 +210,7 @@ export async function recordTaskRun(id: string, result: string) {
 		const prevWasFailure = task.lastResult?.startsWith("Execution failed") || task.lastResult?.startsWith("Manual retry failed");
 		if (prevWasFailure) {
 			// At least 2 consecutive failures (current + previous) — fire alert
-			notifyTaskConsecutiveFailed(task.createdById, task.name, 2, result.slice(0, 200)).catch((err) => { taskLogger.warn("notifyTaskConsecutiveFailed failed", { error: err instanceof Error ? err.message : String(err) }); });
+			notifyTaskConsecutiveFailed(task.createdById, task.name, 2, result.slice(0, 200), task.teamId).catch((err) => { taskLogger.warn("notifyTaskConsecutiveFailed failed", { error: err instanceof Error ? err.message : String(err) }); });
 		}
 	}
 

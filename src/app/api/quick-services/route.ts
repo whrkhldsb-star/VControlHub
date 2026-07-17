@@ -24,15 +24,20 @@ import { GENERAL_WRITE_LIMIT } from "@/lib/http/rate-limit-presets";
 import { getRemoteApps, normalizedAppToTemplate } from "@/lib/quick-service/app-source-sync";
 import { HUB_HOST_INSTANCE_KEY, getDockerEnvironmentStatusFor } from "@/lib/quick-service/docker-cli";
 import { prisma } from "@/lib/db";
+import { assertServerTeamAccess } from "@/lib/server/team-access";
 
 export const dynamic = "force-dynamic";
 
 /** GET /api/quick-services — list catalog + installed + remote services */
 export async function GET(request: Request) {
-	return withApiRoute(request, { permission: "docker:manage", errorStatus: 500, errorMessage: "Server error" }, async () => {
+	return withApiRoute(request, { permission: "docker:manage", errorStatus: 500, errorMessage: "Server error" }, async ({ session }) => {
 		const url = new URL(request.url);
 		const serverId = url.searchParams.get("serverId")?.trim() || "";
 		const instanceKey = serverId || HUB_HOST_INSTANCE_KEY;
+		if (serverId) {
+			const access = await assertServerTeamAccess(session, serverId);
+			if (!access.ok) return access.response;
+		}
 		const installed = await listQuickServices(instanceKey);
 		const installedMap = new Map(installed.map((s) => [s.slug, s]));
 
@@ -161,6 +166,8 @@ export async function POST(request: Request) {
 			}
 		}
 		if (serverId) {
+			const access = await assertServerTeamAccess(session, serverId);
+			if (!access.ok) return access.response;
 			const server = await prisma.server.findUnique({ where: { id: serverId }, select: { id: true, enabled: true, name: true } });
 			if (!server || !server.enabled) throw new ValidationError("Target VPS not found or disabled");
 		}

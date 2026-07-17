@@ -3,6 +3,7 @@ import { z } from "zod";
 import { auditUserAction } from "@/lib/audit/service";
 import { enqueueQuickServiceJob } from "@/lib/quick-service/job-worker";
 import { HUB_HOST_INSTANCE_KEY } from "@/lib/quick-service/docker-cli";
+import { assertServerTeamAccess } from "@/lib/server/team-access";
 import { withApiRoute } from "@/lib/http/api-guard";
 import { GENERAL_WRITE_LIMIT } from "@/lib/http/rate-limit-presets";
 
@@ -23,6 +24,10 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ sl
 		const { action } = body;
 		const serverId = body.serverId?.trim() || "";
 		const instanceKey = serverId || HUB_HOST_INSTANCE_KEY;
+		if (serverId) {
+			const access = await assertServerTeamAccess(session, serverId);
+			if (!access.ok) return access.response;
+		}
 		const { job, taskId, reused } = await enqueueQuickServiceJob({
 			title: `QuickService ${action}: ${slug} @ ${instanceKey}`,
 			createdBy: session?.userId ?? null,
@@ -46,6 +51,10 @@ export async function DELETE(request: Request, { params }: { params: Promise<{ s
 		const deleteVolumes = body?.deleteVolumes === true;
 		const serverId = body?.serverId?.trim() || "";
 		const instanceKey = serverId || HUB_HOST_INSTANCE_KEY;
+		if (serverId) {
+			const access = await assertServerTeamAccess(session, serverId);
+			if (!access.ok) return access.response;
+		}
 		const { job, taskId, reused } = await enqueueQuickServiceJob({
 			title: `Uninstall quick service: ${slug} @ ${instanceKey}`,
 			createdBy: session?.userId ?? null,
