@@ -8,7 +8,7 @@ const { requireApiPermissionMock, assertStorageAccessMock, prismaMock } =
   vi.hoisted(() => ({
     requireApiPermissionMock: vi.fn(),
     assertStorageAccessMock: vi.fn(),
-    prismaMock: { storageNode: { findUnique: vi.fn() } },
+    prismaMock: { storageNode: { findFirst: vi.fn() } },
   }));
 
 vi.mock("@/lib/auth/require-api-permission", () => ({
@@ -54,7 +54,7 @@ describe("GET /api/files/archive-list", () => {
 
   it("lists .tar.gz archives before falling back to plain .gz handling", async () => {
     await createTarGz();
-    prismaMock.storageNode.findUnique.mockResolvedValue({
+    prismaMock.storageNode.findFirst.mockResolvedValue({
       id: "node_1",
       name: "local",
       driver: "LOCAL",
@@ -87,7 +87,7 @@ describe("GET /api/files/archive-list", () => {
       allowed: false,
       reason: "没有该存储节点或路径的访问授权",
     });
-    prismaMock.storageNode.findUnique.mockResolvedValue({
+    prismaMock.storageNode.findFirst.mockResolvedValue({
       id: "node_1",
       name: "local",
       driver: "LOCAL",

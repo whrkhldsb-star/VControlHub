@@ -5,6 +5,7 @@ import path from "node:path";
 import { promisify } from "node:util";
 import { NextRequest, NextResponse } from "next/server";
 
+import { teamWhere } from "@/lib/auth/team-scope";
 import { prisma } from "@/lib/db";
 import { AuthError, NotFoundError } from "@/lib/errors";
 import { withApiRoute } from "@/lib/http/api-guard";
@@ -35,8 +36,8 @@ export async function POST(request: NextRequest) {
       const targetRelativeDir = normalizeDir(targetDir ?? path.posix.dirname(relativePaths[0] ?? ""));
       const outputRelativePath = path.posix.join(targetRelativeDir, outputName);
 
-      const node = await prisma.storageNode.findUnique({
-        where: { id: storageNodeId },
+      const node = await prisma.storageNode.findFirst({
+        where: { id: storageNodeId, ...teamWhere(session) },
         select: { id: true, driver: true, basePath: true },
       });
       if (!node) throw new NotFoundError("Storage node not found");

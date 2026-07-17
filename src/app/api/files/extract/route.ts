@@ -8,6 +8,7 @@ import { resolveStoragePathWithinBase } from "@/lib/storage/path-utils";
 import { withApiRoute } from "@/lib/http/api-guard";
 import { GENERAL_WRITE_LIMIT } from "@/lib/http/rate-limit-presets";
 import { assertStorageAccess } from "@/lib/storage/access-control";
+import { teamWhere } from "@/lib/auth/team-scope";
 import { prisma } from "@/lib/db";
 import { createFileEntry } from "@/lib/storage/service";
 
@@ -59,8 +60,8 @@ export async function POST(request: NextRequest) {
         throw new ValidationError("Missing required parameters");
       }
 
-      const node = await prisma.storageNode.findUnique({
-        where: { id: nodeId },
+      const node = await prisma.storageNode.findFirst({
+        where: { id: nodeId, ...teamWhere(session) },
         select: { id: true, name: true, driver: true, basePath: true },
       });
       if (!node) {

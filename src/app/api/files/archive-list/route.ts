@@ -9,6 +9,7 @@ import {
 import { withApiRoute } from "@/lib/http/api-guard";
 import { parseSearchParams } from "@/lib/http/parse-search-params";
 import { assertStorageAccess } from "@/lib/storage/access-control";
+import { teamWhere } from "@/lib/auth/team-scope";
 import { prisma } from "@/lib/db";
 import { archiveListQuerySchema } from "@/lib/files/schema";
 
@@ -48,8 +49,8 @@ export async function GET(request: NextRequest) {
         throw new ValidationError("Missing file path");
       }
 
-      const node = await prisma.storageNode.findUnique({
-        where: { id: nodeId },
+      const node = await prisma.storageNode.findFirst({
+        where: { id: nodeId, ...teamWhere(session) },
         select: { id: true, name: true, driver: true, basePath: true },
       });
       if (!node) {

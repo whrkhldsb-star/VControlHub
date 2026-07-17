@@ -14,7 +14,7 @@ const {
   requireApiPermissionMock: vi.fn(),
   assertStorageAccessMock: vi.fn(),
   prismaMock: {
-    storageNode: { findUnique: vi.fn() },
+    storageNode: { findFirst: vi.fn() },
     fileEntry: { findFirst: vi.fn() },
   },
   createFileEntryMock: vi.fn(),
@@ -46,7 +46,7 @@ async function setupLocalNode() {
   await mkdir(path.join(tempDir, "docs"), { recursive: true });
   await writeFile(path.join(tempDir, "docs", "a.txt"), "alpha");
   await writeFile(path.join(tempDir, "docs", "b.txt"), "beta");
-  prismaMock.storageNode.findUnique.mockResolvedValue({
+  prismaMock.storageNode.findFirst.mockResolvedValue({
     id: "node_1",
     driver: "LOCAL",
     basePath: tempDir,

@@ -13,7 +13,7 @@ const {
   requireApiPermissionMock: vi.fn(),
   assertStorageAccessMock: vi.fn(),
   prismaMock: {
-    storageNode: { findUnique: vi.fn() },
+    storageNode: { findFirst: vi.fn() },
     fileEntry: { findFirst: vi.fn() },
   },
   createFileEntryMock: vi.fn(),
@@ -84,7 +84,7 @@ describe("POST /api/files/extract", () => {
 
   it("recognizes .tar.gz archives and returns the tar safety message", async () => {
     await createTarGz();
-    prismaMock.storageNode.findUnique.mockResolvedValue({
+    prismaMock.storageNode.findFirst.mockResolvedValue({
       id: "node_1",
       name: "local",
       driver: "LOCAL",
@@ -124,7 +124,7 @@ describe("POST /api/files/extract", () => {
 
   it("indexes the extracted .gz output after the real file is created", async () => {
     await createGz();
-    prismaMock.storageNode.findUnique.mockResolvedValue({
+    prismaMock.storageNode.findFirst.mockResolvedValue({
       id: "node_1",
       name: "local",
       driver: "LOCAL",
@@ -158,7 +158,7 @@ describe("POST /api/files/extract", () => {
 
   it("refuses .gz extraction when the output path already has an active index", async () => {
     await createGz();
-    prismaMock.storageNode.findUnique.mockResolvedValue({
+    prismaMock.storageNode.findFirst.mockResolvedValue({
       id: "node_1",
       name: "local",
       driver: "LOCAL",
@@ -188,7 +188,7 @@ describe("POST /api/files/extract", () => {
 
   it("rejects extraction when the caller can read the archive but cannot write the target directory", async () => {
     await createGz();
-    prismaMock.storageNode.findUnique.mockResolvedValue({
+    prismaMock.storageNode.findFirst.mockResolvedValue({
       id: "node_1",
       name: "local",
       driver: "LOCAL",
@@ -223,7 +223,7 @@ describe("POST /api/files/extract", () => {
 
   it("cleans up the extracted .gz output when indexing fails", async () => {
     await createGz();
-    prismaMock.storageNode.findUnique.mockResolvedValue({
+    prismaMock.storageNode.findFirst.mockResolvedValue({
       id: "node_1",
       name: "local",
       driver: "LOCAL",
