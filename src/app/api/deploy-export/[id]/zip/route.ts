@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 
 import { auditUserAction } from "@/lib/audit/service";
+import { sessionHasPermission } from "@/lib/auth/authorization";
 import { prisma } from "@/lib/db";
 import { withApiRoute } from "@/lib/http/api-guard";
 import { buildZip } from "@/lib/deploy-export/zip";
@@ -63,6 +64,13 @@ export async function GET(
       }
       const record = await prisma.deploymentExport.findUnique({ where: { id: parsedId.data } });
       if (!record) {
+        throw new NotFoundError("Deployment export package not found");
+      }
+      // Exports can contain deployment templates for this install — do not let
+      // arbitrary deploy:export holders download another user's package by id.
+      const isOwner = record.createdBy != null && record.createdBy === session.userId;
+      const isManager = sessionHasPermission(session, "team:manage");
+      if (!isOwner && !isManager) {
         throw new NotFoundError("Deployment export package not found");
       }
       const files = asStringRecord(record.files);

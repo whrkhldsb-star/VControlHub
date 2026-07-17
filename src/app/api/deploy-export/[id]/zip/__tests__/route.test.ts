@@ -18,6 +18,10 @@ vi.mock("@/lib/audit/service", () => ({
   auditUserAction: mocks.audit,
 }));
 
+vi.mock("@/lib/auth/authorization", () => ({
+  sessionHasPermission: vi.fn(() => false),
+}));
+
 vi.mock("@/lib/http/api-guard", () => ({
   withApiRoute: vi.fn(async (_request, _options, handler) => {
     try {
@@ -46,6 +50,7 @@ describe("/api/deploy-export/[id]/zip", () => {
         "Caddyfile.example": "example.com { reverse_proxy 127.0.0.1:3000 }\n",
         "env.production.example": 'DATABASE_URL="REPLACE_ME"\n',
       },
+      createdBy: "u1",
       createdAt: new Date("2026-06-16T00:00:00Z"),
     });
 
@@ -89,6 +94,23 @@ describe("/api/deploy-export/[id]/zip", () => {
     const res = await route.GET(
       new Request("http://local/api/deploy-export/missing/zip"),
       { params: Promise.resolve({ id: "missing" }) },
+    );
+    expect(res.status).toBe(404);
+    expect(mocks.audit).not.toHaveBeenCalled();
+  });
+
+  it("returns 404 when a non-owner without team:manage requests the zip", async () => {
+    mocks.findUnique.mockResolvedValue({
+      id: "exp2",
+      name: "other-portable",
+      manifest: { appName: "other", domain: "other.example.test" },
+      files: { "deploy.sh": "echo x\n" },
+      createdBy: "other-user",
+      createdAt: new Date("2026-06-16T00:00:00Z"),
+    });
+    const res = await route.GET(
+      new Request("http://local/api/deploy-export/exp2/zip"),
+      { params: Promise.resolve({ id: "exp2" }) },
     );
     expect(res.status).toBe(404);
     expect(mocks.audit).not.toHaveBeenCalled();

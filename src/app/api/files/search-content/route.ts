@@ -38,6 +38,7 @@ export async function GET(req: NextRequest) {
 				query: q,
 				nodeId,
 				searchPath,
+				session,
 			});
 
 			return NextResponse.json(response);

@@ -64,6 +64,43 @@ describe("searchFileContents", () => {
 		expect(result.truncated).toBe(false);
 	});
 
+	it("applies teamWhere when session is provided", async () => {
+		const findMany = vi.fn().mockResolvedValue([]);
+		vi.resetModules();
+		vi.doMock("@/lib/db", () => ({
+			prisma: { storageNode: { findMany } },
+		}));
+		vi.doMock("@/lib/auth/team-scope", () => ({
+			teamWhere: () => ({ OR: [{ teamId: "team-a" }, { teamId: null }] }),
+		}));
+		vi.doMock("@/lib/logging", () => ({
+			createLogger: () => ({ debug: vi.fn(), warn: vi.fn(), error: vi.fn(), info: vi.fn() }),
+		}));
+		vi.doMock("@/lib/ssh/client", () => ({
+			buildSshParamsFromServer: vi.fn(),
+			execRemoteCommand: vi.fn(),
+		}));
+		vi.doMock("@/lib/storage/service-entries", () => ({
+			resolveLocalAbsolutePath: vi.fn((base: string, rel: string) => `${base}/${rel}`),
+		}));
+		vi.doMock("@/lib/storage/ssh-credentials", () => ({
+			resolveStorageSshCredentials: vi.fn(),
+		}));
+
+		const { searchFileContents } = await import("../content-search");
+		await searchFileContents({
+			query: "secret",
+			session: { userId: "u1", roles: ["operator"], currentTeamId: "team-a" },
+		});
+		expect(findMany).toHaveBeenCalledWith(
+			expect.objectContaining({
+				where: expect.objectContaining({
+					OR: [{ teamId: "team-a" }, { teamId: null }],
+				}),
+			}),
+		);
+	});
+
 	beforeEach(() => {
 		vi.clearAllMocks();
 	});

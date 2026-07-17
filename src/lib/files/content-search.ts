@@ -15,7 +15,16 @@ import fs from "node:fs/promises";
 import path from "node:path";
 
 import { createLogger } from "@/lib/logging";
+import type { RoleKey } from "@/lib/auth/rbac";
+import { teamWhere } from "@/lib/auth/team-scope";
 import { prisma } from "@/lib/db";
+
+type ContentSearchSession = {
+  userId: string;
+  roles: RoleKey[];
+  currentTeamId: string | null;
+};
+
 import { execRemoteCommand, buildSshParamsFromServer } from "@/lib/ssh/client";
 import { resolveLocalAbsolutePath } from "@/lib/storage/service-entries";
 
@@ -305,16 +314,22 @@ export async function searchFileContents(params: {
 	query: string;
 	nodeId?: string;
 	searchPath?: string;
+	/** Multi-tenant: limit nodes to caller's team (legacy null still visible). */
+	session?: ContentSearchSession | null;
 }): Promise<ContentSearchResponse> {
-	const { query, nodeId, searchPath } = params;
+	const { query, nodeId, searchPath, session } = params;
 
 	if (!query.trim()) {
 		return { results: [], totalMatches: 0, truncated: false };
 	}
 
-	// Fetch storage nodes
+	// Fetch storage nodes — always apply team scope when session is present.
+	const teamFilter = session ? teamWhere(session) : {};
 	const nodes = await prisma.storageNode.findMany({
-		where: nodeId ? { id: nodeId } : undefined,
+		where: {
+			...(nodeId ? { id: nodeId } : {}),
+			...teamFilter,
+		},
 		select: {
 			id: true,
 			name: true,
