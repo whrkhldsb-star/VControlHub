@@ -98,6 +98,15 @@ vi.mock("@/lib/db", () => ({
 		},
 		ticket: {
 			findUnique: vi.fn(async ({ where }: { where: { id: string } }) => ticketStore.get(where.id) ?? null),
+			findFirst: vi.fn(async ({ where }: { where: { id: string; OR?: Array<{ teamId: string | null }> } }) => {
+				const row = ticketStore.get(where.id);
+				if (!row) return null;
+				if (where.OR) {
+					const allowed = new Set(where.OR.map((c) => c.teamId));
+					if (!allowed.has((row.teamId as string | null) ?? null)) return null;
+				}
+				return row;
+			}),
 		},
 	},
 }));
@@ -116,7 +125,12 @@ vi.mock("@/lib/logging", () => ({
 }));
 
 vi.mock("@/lib/ticket/service", () => ({
-	createTicket: vi.fn(async (input: { title: string; description: string; createdBy: string }) => {
+	createTicket: vi.fn(async (input: {
+		title: string;
+		description: string;
+		createdBy: string;
+		session?: { currentTeamId: string | null };
+	}) => {
 		seq += 1;
 		const row = {
 			id: `tk_${seq}`,
@@ -126,6 +140,7 @@ vi.mock("@/lib/ticket/service", () => ({
 			priority: "NORMAL",
 			category: null,
 			createdBy: input.createdBy,
+			teamId: input.session?.currentTeamId ?? null,
 		};
 		ticketStore.set(row.id, row);
 		return row;
@@ -315,5 +330,85 @@ describe("ITSM service", () => {
 		const result = await testItsmConnection(conn.id, "ping");
 		expect(result.ok).toBe(true);
 		expect(result.event.eventType).toBe("connection.test");
+	});
+
+	it("stamps inbound-created tickets with connection teamId", async () => {
+		const conn = await createItsmConnection(
+			{
+				name: "Team inbound",
+				provider: "generic_webhook",
+				direction: "inbound",
+				credentials: { webhookSecret: "sec" },
+				config: { createOnInbound: true },
+			},
+			{ userId: "user1", roles: ["admin"], currentTeamId: "team_ops" },
+		);
+		expect(conn.teamId).toBe("team_ops");
+		const rawBody = JSON.stringify({
+			eventType: "ticket.create",
+			ticket: { title: "Scoped", description: "from team conn" },
+		});
+		const sig = createHmac("sha256", "sec").update(rawBody).digest("hex");
+		const result = await handleInboundWebhook({
+			connectionId: conn.id,
+			rawBody,
+			signatureHeader: `sha256=${sig}`,
+			json: JSON.parse(rawBody) as Record<string, unknown>,
+			systemUserId: "sys",
+		});
+		expect(result.action).toBe("create");
+		const ticket = ticketStore.get(result.ticketId!);
+		expect(ticket?.teamId).toBe("team_ops");
+	});
+
+	it("rejects inbound comment on ticket outside connection team", async () => {
+		const conn = await createItsmConnection(
+			{
+				name: "Team inbound comment",
+				provider: "generic_webhook",
+				direction: "inbound",
+				credentials: { webhookSecret: "sec" },
+				config: { createOnInbound: true },
+			},
+			{ userId: "user1", roles: ["admin"], currentTeamId: "team_ops" },
+		);
+		// Foreign-team ticket planted in store
+		ticketStore.set("tk_foreign", {
+			id: "tk_foreign",
+			title: "Other",
+			status: "OPEN",
+			teamId: "team_other",
+		});
+		const rawBody = JSON.stringify({
+			eventType: "ticket.comment",
+			ticketId: "tk_foreign",
+			comment: { body: "cross-team poke" },
+		});
+		const sig = createHmac("sha256", "sec").update(rawBody).digest("hex");
+		const result = await handleInboundWebhook({
+			connectionId: conn.id,
+			rawBody,
+			signatureHeader: `sha256=${sig}`,
+			json: JSON.parse(rawBody) as Record<string, unknown>,
+			systemUserId: "sys",
+		});
+		// Processing error is recorded, not applied as a successful comment
+		expect(result.action).toBe("error");
+		expect(result.event.status).toBe("error");
+	});
+
+	it("ignores non-admin body.teamId spoof on create", async () => {
+		const created = await createItsmConnection(
+			{
+				name: "Spoof attempt",
+				provider: "slack",
+				direction: "outbound",
+				config: { webhookUrl: "https://hooks.example.com/z" },
+				teamId: "team_victim",
+			},
+			{ userId: "u_op", roles: ["operator"], currentTeamId: "team_ops" },
+		);
+		// Non-admin must get session team, not body spoof
+		expect(created.teamId).toBe("team_ops");
 	});
 });

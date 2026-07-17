@@ -296,10 +296,15 @@ export async function getTicketTimeline(ticketId: string, session?: TeamSession 
 
   let relatedServer: { id: string; name: string; host: string } | null = null;
   if (ticket.relatedServerId) {
-    const server = await prisma.server.findUnique({
-      where: { id: ticket.relatedServerId },
-      select: { id: true, name: true, host: true },
-    });
+    const server = session
+      ? await prisma.server.findFirst({
+          where: { id: ticket.relatedServerId, ...teamWhere(session) },
+          select: { id: true, name: true, host: true },
+        })
+      : await prisma.server.findUnique({
+          where: { id: ticket.relatedServerId },
+          select: { id: true, name: true, host: true },
+        });
     if (server) relatedServer = server;
   }
 
@@ -312,21 +317,37 @@ export async function getTicketTimeline(ticketId: string, session?: TeamSession 
   } | null = null;
 
   if (ticket.relatedCommandId) {
-    const cmd = await prisma.commandRequest.findUnique({
-      where: { id: ticket.relatedCommandId },
-      include: {
-        requester: { select: { username: true, displayName: true } },
-        approvals: {
-          include: { approver: { select: { username: true, displayName: true } } },
-          orderBy: { createdAt: "asc" },
-        },
-        executionLogs: { orderBy: { createdAt: "asc" }, take: 50 },
-        targets: {
-          include: { server: { select: { id: true, name: true, host: true } } },
-          orderBy: { startedAt: "asc" },
-        },
-      },
-    });
+    const cmd = session
+      ? await prisma.commandRequest.findFirst({
+          where: { id: ticket.relatedCommandId, ...teamWhere(session) },
+          include: {
+            requester: { select: { username: true, displayName: true } },
+            approvals: {
+              include: { approver: { select: { username: true, displayName: true } } },
+              orderBy: { createdAt: "asc" },
+            },
+            executionLogs: { orderBy: { createdAt: "asc" }, take: 50 },
+            targets: {
+              include: { server: { select: { id: true, name: true, host: true } } },
+              orderBy: { startedAt: "asc" },
+            },
+          },
+        })
+      : await prisma.commandRequest.findUnique({
+          where: { id: ticket.relatedCommandId },
+          include: {
+            requester: { select: { username: true, displayName: true } },
+            approvals: {
+              include: { approver: { select: { username: true, displayName: true } } },
+              orderBy: { createdAt: "asc" },
+            },
+            executionLogs: { orderBy: { createdAt: "asc" }, take: 50 },
+            targets: {
+              include: { server: { select: { id: true, name: true, host: true } } },
+              orderBy: { startedAt: "asc" },
+            },
+          },
+        });
 
     if (cmd) {
       relatedCommand = {

@@ -10,6 +10,7 @@ import { Prisma } from "@prisma/client";
 
 import { encrypt, decrypt, isEncrypted } from "@/lib/crypto/service";
 import { prisma } from "@/lib/db";
+import { sessionHasPermission } from "@/lib/auth/authorization";
 import { teamWhere, teamCreateData } from "@/lib/auth/team-scope";
 import type { SessionPayload } from "@/lib/auth/session";
 import { ForbiddenError, NotFoundError, ValidationError } from "@/lib/errors";
@@ -134,6 +135,26 @@ function supportsInbound(direction: string): boolean {
 	return direction === "inbound" || direction === "bidirectional";
 }
 
+/**
+ * Resolve the teamId stamped on create/update.
+ * Non-admin callers may not set another team's id via body — always use session
+ * teamCreateData. Admins may pass body.teamId (including null for shared).
+ */
+function resolveConnectionTeamId(
+	session: Pick<SessionPayload, "userId" | "roles" | "currentTeamId"> | null | undefined,
+	bodyTeamId: string | null | undefined,
+): string | null {
+	if (session && sessionHasPermission(session, "team:manage") && bodyTeamId !== undefined) {
+		return bodyTeamId;
+	}
+	if (session) {
+		const fromSession = teamCreateData(session).teamId;
+		return fromSession !== undefined ? fromSession : null;
+	}
+	// System/unscoped callers: allow explicit body teamId, else null
+	return bodyTeamId !== undefined ? bodyTeamId : null;
+}
+
 export async function createItsmConnection(
 	input: unknown,
 	session?: Pick<SessionPayload, "userId" | "roles" | "currentTeamId"> | null,
@@ -150,7 +171,7 @@ export async function createItsmConnection(
 		assertOutboundReady(parsed.provider, config, credentials);
 	}
 
-	const teamFromSession = session ? teamCreateData(session).teamId : undefined;
+	const teamId = resolveConnectionTeamId(session, parsed.teamId);
 	const row = await prisma.itsmConnection.create({
 		data: {
 			name: parsed.name,
@@ -159,7 +180,7 @@ export async function createItsmConnection(
 			enabled: parsed.enabled ?? true,
 			credentialsEnc: encryptCredentials(credentials),
 			config: config as Prisma.InputJsonValue,
-			teamId: parsed.teamId !== undefined ? parsed.teamId : (teamFromSession ?? null),
+			teamId,
 			createdById: session?.userId ?? null,
 		},
 	});
@@ -203,7 +224,14 @@ export async function updateItsmConnection(
 	if (parsed.name !== undefined) data.name = parsed.name;
 	if (parsed.direction !== undefined) data.direction = parsed.direction;
 	if (parsed.enabled !== undefined) data.enabled = parsed.enabled;
-	if (parsed.teamId !== undefined) data.teamId = parsed.teamId;
+	// Non-admin cannot reassign connection team via body (team spoof / cross-tenant move).
+	if (parsed.teamId !== undefined) {
+		if (session && !sessionHasPermission(session, "team:manage")) {
+			// Ignore spoofed teamId; keep existing assignment
+		} else {
+			data.teamId = parsed.teamId;
+		}
+	}
 	if (parsed.config !== undefined) data.config = parsed.config as Prisma.InputJsonValue;
 	if (parsed.credentials !== undefined) {
 		const prev = decryptCredentials(existing.credentialsEnc);
@@ -367,12 +395,15 @@ export async function fanOutTicketEvent(input: {
 	/** When set, only fan out to connections for this team (plus unassigned). */
 	teamId?: string | null;
 }): Promise<{ sent: number; failed: number }> {
+	// Multi-tenant: never fan out a ticket event to every connection in the fleet.
+	// - ticket has teamId → that team's connections + shared (teamId null)
+	// - ticket has no teamId → only shared connections (teamId null)
 	const connections = await prisma.itsmConnection.findMany({
 		where: {
 			enabled: true,
 			...(input.teamId
 				? { OR: [{ teamId: input.teamId }, { teamId: null }] }
-				: {}),
+				: { teamId: null }),
 		},
 		take: 50,
 	});
@@ -529,6 +560,21 @@ export async function handleInboundWebhook(input: {
 
 	try {
 		if (normalized.commentBody && ticketId) {
+			// Inbound comments must target a ticket that already belongs to this
+			// connection's team (or shared null-team). Prevents signed webhooks from
+			// writing into another tenant's ticket by id.
+			const commentTarget = await prisma.ticket.findFirst({
+				where: {
+					id: ticketId,
+					...(row.teamId
+						? { OR: [{ teamId: row.teamId }, { teamId: null }] }
+						: {}),
+				},
+				select: { id: true },
+			});
+			if (!commentTarget) {
+				throw new NotFoundError("Ticket not found for this connection team");
+			}
 			await addTicketComment({
 				ticketId,
 				authorId: input.systemUserId,
@@ -548,12 +594,26 @@ export async function handleInboundWebhook(input: {
 				category: normalized.category ?? config.defaultCategory,
 				createdBy: input.systemUserId,
 				skipItsmFanOut: true,
+				// Stamp connection team so inbound tickets are not teamId=null legacy/shared
+				session: row.teamId ? { currentTeamId: row.teamId } : undefined,
 			});
 			ticketId = ticket.id;
 			action = "create";
 		} else if (ticketId && normalized.status) {
 			const status = normalizeStatus(normalized.status);
 			if (status) {
+				const statusTarget = await prisma.ticket.findFirst({
+					where: {
+						id: ticketId,
+						...(row.teamId
+							? { OR: [{ teamId: row.teamId }, { teamId: null }] }
+							: {}),
+					},
+					select: { id: true },
+				});
+				if (!statusTarget) {
+					throw new NotFoundError("Ticket not found for this connection team");
+				}
 				await updateTicketStatus({ id: ticketId, status, skipItsmFanOut: true });
 				action = "status_update";
 			} else {

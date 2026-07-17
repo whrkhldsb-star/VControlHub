@@ -107,4 +107,35 @@ describe("ITSM team scope", () => {
     );
     expect(row.teamId).toBe("team_a");
   });
+
+  it("createItsmConnection ignores non-admin body.teamId spoof", async () => {
+    createMock.mockImplementation(async ({ data }: { data: Record<string, unknown> }) => ({
+      id: "c_spoof",
+      lastOutboundAt: null,
+      lastInboundAt: null,
+      lastError: null,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+      credentialsEnc: data.credentialsEnc ?? "",
+      config: data.config ?? {},
+      enabled: true,
+      direction: "outbound",
+      ...data,
+    }));
+    const row = await createItsmConnection(
+      {
+        name: "Spoof",
+        provider: "slack",
+        config: { webhookUrl: "https://hooks.example.com/x" },
+        teamId: "team_victim",
+      },
+      { userId: "u1", roles: ["operator"], currentTeamId: "team_a" },
+    );
+    expect(createMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ teamId: "team_a" }),
+      }),
+    );
+    expect(row.teamId).toBe("team_a");
+  });
 });
