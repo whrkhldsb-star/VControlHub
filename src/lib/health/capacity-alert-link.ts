@@ -142,7 +142,11 @@ export async function evaluateCapacityLinkedAlerts(
     }
 
     const key = capacityMetricKeyFromAlertMetric(rule.metric as CapacityAlertMetric);
-    const inCooldown =
+    // Rule-level lastTriggeredAt is only a UI stamp. Do NOT use it as a
+    // multi-host cooldown gate: after host A fires, host B must still open
+    // its own incident. Spam prevention is per-fingerprint inside
+    // openOrRefreshAlertIncident (notified=false while OPEN/ACKNOWLEDGED).
+    const ruleCooldownActive =
       Boolean(rule.lastTriggeredAt) &&
       Date.now() - (rule.lastTriggeredAt as Date).getTime() < rule.cooldownMinutes * 60_000;
 
@@ -161,6 +165,9 @@ export async function evaluateCapacityLinkedAlerts(
       const allowed = new Set(teamServers.map((s) => s.id));
       targets = targets.filter((s) => allowed.has(s.serverId));
     }
+
+    let ruleFiredThisPass = false;
+    let latestFireAt: Date | null = null;
 
     for (const server of targets) {
       const { value, reason } = daysValueFromServerForecast(server, key);
@@ -199,11 +206,6 @@ export async function evaluateCapacityLinkedAlerts(
         continue;
       }
 
-      if (inCooldown) {
-        skipped += 1;
-        continue;
-      }
-
       const title = `Capacity risk: ${server.serverName} ${key} → 85%`;
       const message = `${rule.name}: projected ${value.toFixed(1)} day(s) until 85% ${key} usage (${rule.operator} ${rule.threshold})`;
 
@@ -224,40 +226,49 @@ export async function evaluateCapacityLinkedAlerts(
         teamId: rule.teamId ?? null,
       });
 
-      if (fire.notified) {
-        fired += 1;
-        const now = new Date();
-        for (const playbookId of rule.playbookIds ?? []) {
-          try {
-            await runPlaybook({
-              playbookId,
-              dryRun: false,
-              triggerContext: {
-                type: "capacity_forecast",
-                alertRuleId: rule.id,
-                alertRuleName: rule.name,
-                serverId: server.serverId,
-                serverName: server.serverName,
-                metric: rule.metric,
-                operator: rule.operator,
-                threshold: rule.threshold,
-                value,
-                triggeredAt: now.toISOString(),
-                incidentId: fire.incidentId,
-              },
-            });
-          } catch (error) {
-            logger.warn("capacity-linked playbook failed", {
-              playbookId,
-              error: error instanceof Error ? error.message : String(error),
-            });
-          }
-        }
-        await prisma.alertRule.update({
-          where: { id: rule.id },
-          data: { lastTriggeredAt: now, lastMatchedAt: now },
-        });
+      if (!fire.notified) {
+        // Existing OPEN incident refresh, or create suppressed — not a new notify.
+        if (ruleCooldownActive) skipped += 1;
+        continue;
       }
+
+      fired += 1;
+      ruleFiredThisPass = true;
+      const now = new Date();
+      latestFireAt = now;
+      for (const playbookId of rule.playbookIds ?? []) {
+        try {
+          await runPlaybook({
+            playbookId,
+            dryRun: false,
+            triggerContext: {
+              type: "capacity_forecast",
+              alertRuleId: rule.id,
+              alertRuleName: rule.name,
+              serverId: server.serverId,
+              serverName: server.serverName,
+              metric: rule.metric,
+              operator: rule.operator,
+              threshold: rule.threshold,
+              value,
+              triggeredAt: now.toISOString(),
+              incidentId: fire.incidentId,
+            },
+          });
+        } catch (error) {
+          logger.warn("capacity-linked playbook failed", {
+            playbookId,
+            error: error instanceof Error ? error.message : String(error),
+          });
+        }
+      }
+    }
+
+    if (ruleFiredThisPass && latestFireAt) {
+      await prisma.alertRule.update({
+        where: { id: rule.id },
+        data: { lastTriggeredAt: latestFireAt, lastMatchedAt: latestFireAt },
+      });
     }
   }
 

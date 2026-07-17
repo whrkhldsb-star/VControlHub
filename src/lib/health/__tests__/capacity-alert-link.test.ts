@@ -218,4 +218,73 @@ describe("evaluateCapacityLinkedAlerts", () => {
     expect(openOrRefreshMock).not.toHaveBeenCalled();
     expect(resolveMock).toHaveBeenCalled();
   });
+
+  it("still opens incidents for other hosts while rule lastTriggeredAt is recent", async () => {
+    openOrRefreshMock
+      .mockResolvedValueOnce({
+        incidentId: "inc_s1",
+        created: true,
+        notified: true,
+        level: 1,
+      })
+      .mockResolvedValueOnce({
+        incidentId: "inc_s2",
+        created: true,
+        notified: true,
+        level: 1,
+      });
+    getCapacityForecastMock.mockResolvedValue({
+      summary: {
+        serverCount: 2,
+        forecastable: 2,
+        insufficientData: 0,
+        byRisk: { ok: 0, watch: 0, warning: 2, critical: 0, insufficient_data: 0 },
+        worstRisk: "warning",
+        horizonDays: 90,
+        windowHours: 168,
+        generatedAt: new Date().toISOString(),
+      },
+      servers: [
+        serverForecast({ serverId: "s1", serverName: "node-a" }),
+        serverForecast({ serverId: "s2", serverName: "node-b" }),
+      ],
+    });
+
+    const result = await evaluateCapacityLinkedAlerts(
+      [
+        {
+          id: "rule_multi",
+          name: "Disk capacity multi",
+          metric: "capacity_disk_days",
+          threshold: 14,
+          operator: "lte",
+          enabled: true,
+          lastMatchedAt: new Date(Date.now() - 60_000),
+          // Recent rule-level stamp must NOT block second host.
+          lastTriggeredAt: new Date(Date.now() - 60_000),
+          cooldownMinutes: 30,
+          silenceWindows: [],
+          serverIds: [],
+          notifyChannels: ["in_app"],
+          playbookIds: [],
+          webhookUrl: null,
+          onCallUserIds: [],
+        },
+      ],
+      { isSilent: () => false },
+    );
+
+    expect(result.fired).toBe(2);
+    expect(openOrRefreshMock).toHaveBeenCalledTimes(2);
+    expect(alertRuleUpdateMock).toHaveBeenCalledTimes(1);
+    expect(alertRuleUpdateMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: "rule_multi" },
+        data: expect.objectContaining({
+          lastTriggeredAt: expect.any(Date),
+          lastMatchedAt: expect.any(Date),
+        }),
+      }),
+    );
+  });
 });

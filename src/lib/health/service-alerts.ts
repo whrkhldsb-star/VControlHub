@@ -138,10 +138,6 @@ export async function evaluateAlerts() {
   for (const rule of liveRules) {
     if (isNowInAlertSilenceWindow(rule.silenceWindows)) continue;
 
-    const inCooldown =
-      Boolean(rule.lastTriggeredAt) &&
-      Date.now() - (rule.lastTriggeredAt as Date).getTime() < rule.cooldownMinutes * 60_000;
-
     let targetServers =
       rule.serverIds.length > 0
         ? health.servers.filter((s) => rule.serverIds.includes(s.serverId))
@@ -161,6 +157,8 @@ export async function evaluateAlerts() {
       };
     }
     let matchStateDirty = false;
+    let ruleFiredThisPass = false;
+    let latestFireAt: Date | null = null;
 
     for (const server of targetServers) {
       let value: number | undefined;
@@ -259,8 +257,10 @@ export async function evaluateAlerts() {
         if (matchedForMs < rule.durationSeconds * 1000) continue;
       }
 
-      // Cooldown still blocks brand-new fires; open incidents escalate via worker separately.
-      if (inCooldown) continue;
+      // Do not gate multi-host fires on rule.lastTriggeredAt — that stamp is
+      // fleet-wide and would suppress host B after host A notified. Per-host
+      // spam control lives in openOrRefreshAlertIncident (notified=false while
+      // OPEN/ACKNOWLEDGED). Escalation of open incidents is handled separately.
 
       const title = `Alert: ${server.serverName} ${rule.metric === "server_offline" ? "offline" : rule.metric.replace("_", " ")}`;
       const message = `${rule.name}: ${rule.metric} ${rule.operator} ${rule.threshold} (current: ${value})`;
@@ -283,6 +283,8 @@ export async function evaluateAlerts() {
       });
 
       if (fire.notified) {
+        ruleFiredThisPass = true;
+        latestFireAt = now;
         for (const playbookId of rule.playbookIds ?? []) {
           try {
             await runPlaybook({
@@ -308,15 +310,18 @@ export async function evaluateAlerts() {
         }
       }
 
-      // Keep this server's match stamp so recovery can clear it later; also stamp lastTriggeredAt.
+      // Keep this server's match stamp so recovery can clear it later.
       matchState[server.serverId] = now.toISOString();
       delete matchState[LEGACY_MATCH_KEY];
-      await persistMatchState(rule.id, matchState, { lastTriggeredAt: now });
-      matchStateDirty = false;
+      matchStateDirty = true;
     }
 
-    if (matchStateDirty) {
-      await persistMatchState(rule.id, matchState);
+    if (matchStateDirty || ruleFiredThisPass) {
+      await persistMatchState(
+        rule.id,
+        matchState,
+        ruleFiredThisPass && latestFireAt ? { lastTriggeredAt: latestFireAt } : {},
+      );
     }
   }
 
