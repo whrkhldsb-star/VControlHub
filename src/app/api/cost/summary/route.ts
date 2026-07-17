@@ -32,8 +32,8 @@ export async function GET(request: Request) {
 			errorStatus: 500,
 			errorMessage: "Failed to load cost summary",
 		},
-		async ({ query }) => {
-			const summary = await summarizeMonth(query.month, query.currency);
+		async ({ session, query }) => {
+			const summary = await summarizeMonth(query.month, query.currency, session);
 			return NextResponse.json({ summary });
 		},
 	);

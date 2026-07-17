@@ -54,7 +54,7 @@ describe("/api/cost/summary", () => {
 		);
 		expect(res.status).toBe(200);
 		expect(mocks.requireApiPermission).toHaveBeenCalledWith("cost:read");
-		expect(mocks.summarizeMonth).toHaveBeenCalledWith("2026-06", undefined);
+		expect(mocks.summarizeMonth).toHaveBeenCalledWith("2026-06", undefined, expect.anything());
 		const body = await res.json();
 		expect(body.summary).toEqual(SAMPLE_SUMMARY);
 	});
@@ -64,7 +64,7 @@ describe("/api/cost/summary", () => {
 			new Request("http://local/api/cost/summary?month=2026-06&currency=USD"),
 		);
 		expect(res.status).toBe(200);
-		expect(mocks.summarizeMonth).toHaveBeenCalledWith("2026-06", "USD");
+		expect(mocks.summarizeMonth).toHaveBeenCalledWith("2026-06", "USD", expect.anything());
 	});
 
 	it("GET returns 400 when month is missing", async () => {

@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-07-16T16:27:23.770Z",
+  "generatedAt": "2026-07-17T01:08:05.313Z",
   "summary": {
     "permissionsInList": 54,
     "rolesDefined": 4,
@@ -583,11 +583,11 @@
         },
         {
           "path": "src/app/api/backups/[id]/restore/route.ts",
-          "line": 20
+          "line": 21
         },
         {
           "path": "src/app/api/backups/[id]/restore/route.ts",
-          "line": 20
+          "line": 21
         },
         {
           "path": "src/app/backups/page.tsx",
@@ -611,7 +611,7 @@
         },
         {
           "path": "src/app/requests/actions.ts",
-          "line": 75
+          "line": 78
         },
         {
           "path": "src/app/requests/page.tsx",
@@ -873,11 +873,11 @@
         },
         {
           "path": "src/app/api/cost/entries/route.ts",
-          "line": 58
+          "line": 59
         },
         {
           "path": "src/app/api/cost/entries/route.ts",
-          "line": 58
+          "line": 59
         },
         {
           "path": "src/app/api/cost/snapshots/route.ts",
@@ -1314,11 +1314,11 @@
         },
         {
           "path": "src/app/api/media/[id]/route.ts",
-          "line": 22
+          "line": 23
         },
         {
           "path": "src/app/api/media/[id]/route.ts",
-          "line": 22
+          "line": 23
         },
         {
           "path": "src/app/api/media/route.ts",
@@ -1427,31 +1427,31 @@
       "files": [
         {
           "path": "src/app/api/playbooks/[id]/route.ts",
-          "line": 44
+          "line": 43
         },
         {
           "path": "src/app/api/playbooks/[id]/route.ts",
-          "line": 58
+          "line": 57
         },
         {
           "path": "src/app/api/playbooks/[id]/route.ts",
-          "line": 44
+          "line": 43
         },
         {
           "path": "src/app/api/playbooks/[id]/route.ts",
-          "line": 58
+          "line": 57
         },
         {
           "path": "src/app/api/playbooks/route.ts",
-          "line": 28
+          "line": 27
         },
         {
           "path": "src/app/api/playbooks/route.ts",
-          "line": 28
+          "line": 27
         },
         {
           "path": "src/app/playbooks/page.tsx",
-          "line": 13
+          "line": 14
         }
       ],
       "pages": [
@@ -1467,11 +1467,11 @@
       "files": [
         {
           "path": "src/app/api/playbooks/[id]/route.ts",
-          "line": 29
+          "line": 28
         },
         {
           "path": "src/app/api/playbooks/[id]/route.ts",
-          "line": 29
+          "line": 28
         },
         {
           "path": "src/app/api/playbooks/[id]/runs/route.ts",
@@ -1483,11 +1483,11 @@
         },
         {
           "path": "src/app/api/playbooks/route.ts",
-          "line": 17
+          "line": 16
         },
         {
           "path": "src/app/api/playbooks/route.ts",
-          "line": 17
+          "line": 16
         },
         {
           "path": "src/app/api/search/route.ts",
@@ -1495,7 +1495,7 @@
         },
         {
           "path": "src/app/playbooks/page.tsx",
-          "line": 15
+          "line": 16
         }
       ],
       "pages": [
@@ -1530,7 +1530,7 @@
         },
         {
           "path": "src/app/playbooks/page.tsx",
-          "line": 14
+          "line": 15
         }
       ],
       "pages": [
@@ -1583,7 +1583,7 @@
         },
         {
           "path": "src/app/api/snippets/route.ts",
-          "line": 92
+          "line": 91
         }
       ],
       "pages": [],
@@ -1980,7 +1980,7 @@
         },
         {
           "path": "src/app/api/snippets/route.ts",
-          "line": 85
+          "line": 84
         },
         {
           "path": "src/app/api/snippets/route.ts",
@@ -1996,7 +1996,7 @@
         },
         {
           "path": "src/app/api/snippets/route.ts",
-          "line": 85
+          "line": 84
         }
       ],
       "pages": [],
@@ -2032,15 +2032,15 @@
         },
         {
           "path": "src/app/storage/actions-file-entries.ts",
-          "line": 22
+          "line": 23
         },
         {
           "path": "src/app/storage/actions-file-entries.ts",
-          "line": 163
+          "line": 171
         },
         {
           "path": "src/app/storage/actions-file-entries.ts",
-          "line": 233
+          "line": 246
         }
       ],
       "pages": [
@@ -2217,43 +2217,43 @@
         },
         {
           "path": "src/app/api/storage/archive-download/route.ts",
-          "line": 93
+          "line": 106
         },
         {
           "path": "src/app/api/storage/archive-download/route.ts",
-          "line": 93
+          "line": 106
         },
         {
           "path": "src/app/api/storage/direct-access/route.ts",
-          "line": 242
+          "line": 243
         },
         {
           "path": "src/app/api/storage/direct-access/route.ts",
-          "line": 278
+          "line": 279
         },
         {
           "path": "src/app/api/storage/direct-access/route.ts",
-          "line": 296
+          "line": 297
         },
         {
           "path": "src/app/api/storage/direct-access/route.ts",
-          "line": 242
+          "line": 243
         },
         {
           "path": "src/app/api/storage/direct-access/route.ts",
-          "line": 278
+          "line": 279
         },
         {
           "path": "src/app/api/storage/direct-access/route.ts",
-          "line": 296
+          "line": 297
         },
         {
           "path": "src/app/api/storage/local/route.ts",
-          "line": 449
+          "line": 454
         },
         {
           "path": "src/app/api/storage/local/route.ts",
-          "line": 449
+          "line": 454
         },
         {
           "path": "src/app/api/storage/nodes/route.ts",
@@ -2265,11 +2265,11 @@
         },
         {
           "path": "src/app/api/storage/sftp/route.ts",
-          "line": 88
+          "line": 89
         },
         {
           "path": "src/app/api/storage/sftp/route.ts",
-          "line": 88
+          "line": 89
         },
         {
           "path": "src/app/api/storage/sftp-download/route.ts",
@@ -2428,11 +2428,11 @@
         },
         {
           "path": "src/app/api/storage/local/route.ts",
-          "line": 462
+          "line": 467
         },
         {
           "path": "src/app/api/storage/local/route.ts",
-          "line": 462
+          "line": 467
         },
         {
           "path": "src/app/api/storage/sftp-sync/route.ts",
@@ -2504,11 +2504,11 @@
         },
         {
           "path": "src/app/storage/actions-directories.ts",
-          "line": 27
+          "line": 28
         },
         {
           "path": "src/app/storage/actions-directories.ts",
-          "line": 169
+          "line": 172
         }
       ],
       "pages": [
@@ -2783,11 +2783,11 @@
         },
         {
           "path": "src/app/api/tickets/sla/escalate/route.ts",
-          "line": 13
+          "line": 16
         },
         {
           "path": "src/app/api/tickets/sla/escalate/route.ts",
-          "line": 13
+          "line": 16
         },
         {
           "path": "src/app/itsm/page.tsx",

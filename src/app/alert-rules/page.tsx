@@ -16,7 +16,7 @@ export default async function AlertRulesPage() {
 	const locale = await getServerLocale();
 
 	const [rules, servers, playbooks] = await Promise.all([
-		canManage ? listAlertRules() : Promise.resolve([]),
+		canManage ? listAlertRules(session) : Promise.resolve([]),
 		listServerProfiles(session),
 		canManage ? listPlaybooks(session) : Promise.resolve([]),
 	]);

@@ -308,6 +308,7 @@ export async function syncCloudBillingAccount(
 					sourceType: SOURCE_TYPE,
 					sourceRef,
 					createdById: account.createdById,
+					teamId: account.teamId ?? null,
 					tags,
 				},
 				update: {
@@ -316,6 +317,7 @@ export async function syncCloudBillingAccount(
 					amount: new Prisma.Decimal(amountNum.toFixed(2)),
 					currency: item.currency,
 					notes: item.notes ?? `Cloud billing import ${account.name} ${month}`,
+					teamId: account.teamId ?? null,
 					tags,
 				},
 			});

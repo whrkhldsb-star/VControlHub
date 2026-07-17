@@ -43,6 +43,7 @@ export async function evaluateAlerts() {
       webhookUrl: true,
       escalationMinutes: true,
       onCallUserIds: true,
+      teamId: true,
     },
     take: 200,
   });
@@ -59,6 +60,20 @@ export async function evaluateAlerts() {
   }
 
   const health = await collectAllHealth();
+  // Cache team → server ids so empty serverIds rules only cover their team.
+  const teamServerIdsCache = new Map<string, Set<string>>();
+  async function serverIdsForTeam(teamId: string): Promise<Set<string>> {
+    const hit = teamServerIdsCache.get(teamId);
+    if (hit) return hit;
+    const rows = await prisma.server.findMany({
+      where: { teamId },
+      select: { id: true },
+      take: 5000,
+    });
+    const set = new Set(rows.map((r) => r.id));
+    teamServerIdsCache.set(teamId, set);
+    return set;
+  }
 
   for (const rule of liveRules) {
     if (isNowInAlertSilenceWindow(rule.silenceWindows)) continue;
@@ -76,10 +91,15 @@ export async function evaluateAlerts() {
       Boolean(rule.lastTriggeredAt) &&
       Date.now() - (rule.lastTriggeredAt as Date).getTime() < rule.cooldownMinutes * 60_000;
 
-    const targetServers =
+    let targetServers =
       rule.serverIds.length > 0
         ? health.servers.filter((s) => rule.serverIds.includes(s.serverId))
         : health.servers.filter((s) => s.enabled);
+    // Team-scoped rules with empty serverIds must not watch other teams' hosts.
+    if (rule.serverIds.length === 0 && rule.teamId) {
+      const allowed = await serverIdsForTeam(rule.teamId);
+      targetServers = targetServers.filter((s) => allowed.has(s.serverId));
+    }
 
     for (const server of targetServers) {
       let value: number | undefined;

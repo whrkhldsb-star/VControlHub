@@ -8,7 +8,7 @@ import { updateCostBudgetSchema } from "@/lib/cost/schema";
 export async function PATCH(request: Request, { params }: { params: Promise<{ id: string }> }) {
   return withApiRoute(request, { permission: "cost:manage", rateLimit: GENERAL_WRITE_LIMIT, bodySchema: updateCostBudgetSchema }, async ({ session, body }) => {
     const { id } = await params;
-    const budget = await updateCostBudget(id, body);
+    const budget = await updateCostBudget(id, body, session);
     await auditUserAction(session!.userId, "cost.budget.update", { budgetId: id });
     return NextResponse.json({ budget });
   });
@@ -17,7 +17,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
 export async function DELETE(request: Request, { params }: { params: Promise<{ id: string }> }) {
   return withApiRoute(request, { permission: "cost:manage", rateLimit: GENERAL_WRITE_LIMIT }, async ({ session }) => {
     const { id } = await params;
-    await deleteCostBudget(id);
+    await deleteCostBudget(id, session);
     await auditUserAction(session!.userId, "cost.budget.delete", { budgetId: id }, "WARNING");
     return NextResponse.json({ success: true });
   });

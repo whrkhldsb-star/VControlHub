@@ -85,7 +85,7 @@ describe("/api/cost/entries/[id]", () => {
 		expect(mocks.updateCostEntry).toHaveBeenCalledWith("ce-1", {
 			amount: "20.00",
 			notes: "renewal",
-		});
+		}, expect.anything());
 		const body = await res.json();
 		expect(body.entry).toEqual({ ...SAMPLE_ENTRY, amount: "20.00" });
 		expect(mocks.auditUserAction).toHaveBeenCalledWith(
@@ -124,7 +124,7 @@ describe("/api/cost/entries/[id]", () => {
 		const res = await route.DELETE(new Request("http://local/api/cost/entries/ce-1"), ctx("ce-1"));
 		expect(res.status).toBe(200);
 		expect(mocks.requireApiPermission).toHaveBeenCalledWith("cost:manage");
-		expect(mocks.deleteCostEntry).toHaveBeenCalledWith("ce-1");
+		expect(mocks.deleteCostEntry).toHaveBeenCalledWith("ce-1", expect.anything());
 		const body = await res.json();
 		expect(body).toEqual({ success: true });
 		expect(mocks.auditUserAction).toHaveBeenCalledWith(

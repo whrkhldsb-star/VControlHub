@@ -40,11 +40,12 @@ export async function GET(request: Request) {
 			errorStatus: 500,
 			errorMessage: "Failed to load cost entry",
 		},
-		async ({ query }) => {
+		async ({ session, query }) => {
 			const entries = await listCostEntries({
 				month: query.month,
 				category: query.category,
 				limit: query.limit,
+				session,
 			});
 			return NextResponse.json({ entries });
 		},
@@ -63,7 +64,7 @@ export async function POST(request: Request) {
 		},
 		async ({ session, body }) => {
 			const createdById = session?.userId ?? null;
-			const entry = await createCostEntry(body, createdById);
+			const entry = await createCostEntry(body, createdById, session);
 			await auditUserAction(createdById ?? "anonymous", "cost.create", {
 				entryId: entry.id,
 				category: entry.category,

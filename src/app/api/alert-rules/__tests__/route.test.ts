@@ -120,6 +120,7 @@ describe("/api/alert-rules", () => {
         silenceWindows: ["22:00-08:00"],
         serverIds: ["srv1"],
       }),
+      expect.anything(),
     );
     expect(mocks.auditUserAction).toHaveBeenCalledWith(
       "u1",
@@ -237,7 +238,7 @@ describe("/api/alert-rules", () => {
       "alert_rule.toggle",
       expect.objectContaining({ ruleId: "rule1" }),
     );
-    expect(mocks.testAlertRule).toHaveBeenCalledWith("rule1");
+    expect(mocks.testAlertRule).toHaveBeenCalledWith("rule1", expect.anything());
     expect(mocks.auditUserAction).toHaveBeenCalledWith(
       "u1",
       "alert_rule.test",

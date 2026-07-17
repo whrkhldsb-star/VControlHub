@@ -157,6 +157,9 @@ model Team {
   auditLogs       AuditLog[]       @relation("TeamAuditLogs")
   knowledgeBases  KnowledgeBase[]  @relation("TeamKnowledgeBases")
   cloudBillingAccounts CloudBillingAccount[] @relation("TeamCloudBillingAccounts")
+  alertRules          AlertRule[]         @relation("TeamAlertRules")
+  costEntries         CostEntry[]         @relation("TeamCostEntries")
+  costBudgets         CostBudget[]        @relation("TeamCostBudgets")
   createdAt       DateTime         @default(now())
   updatedAt       DateTime         @updatedAt
 
@@ -751,7 +754,10 @@ model AlertRule {
   createdAt          DateTime  @default(now())
   updatedAt          DateTime  @updatedAt
   incidents          AlertIncident[]
+  teamId             String?
+  team               Team?     @relation("TeamAlertRules", fields: [teamId], references: [id], onDelete: SetNull)
 
+  @@index([teamId])
   @@map("alert_rules")
 }
 
@@ -1565,16 +1571,19 @@ model CostEntry {
   sourceRef     String? // source object id, e.g. server id
   tags          String[] @default([])
   createdById   String?
+  teamId        String?
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
 
   createdBy User? @relation("CostEntryCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  team      Team? @relation("TeamCostEntries", fields: [teamId], references: [id], onDelete: SetNull)
 
   @@unique([sourceType, sourceRef, effectiveDate])
   @@index([category, effectiveDate])
   @@index([effectiveDate])
   @@index([createdById, effectiveDate])
   @@index([sourceType, sourceRef, effectiveDate])
+  @@index([teamId])
   @@map("cost_entries")
 }
 
@@ -1600,10 +1609,14 @@ model CostBudget {
   period                String   @default("monthly") // monthly | quarterly | yearly
   alertThresholdPercent Float    @default(80)
   enabled               Boolean  @default(true)
+  teamId                String?
   createdAt             DateTime @default(now())
   updatedAt             DateTime @updatedAt
 
+  team Team? @relation("TeamCostBudgets", fields: [teamId], references: [id], onDelete: SetNull)
+
   @@index([category, period])
+  @@index([teamId])
   @@map("cost_budgets")
 }
 

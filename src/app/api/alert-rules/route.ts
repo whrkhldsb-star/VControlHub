@@ -157,8 +157,8 @@ export async function GET(request: Request) {
   return withApiRoute(
     request,
     { permission: "notification:manage" },
-    async () => {
-      const rules = await listAlertRules();
+    async ({ session }) => {
+      const rules = await listAlertRules(session);
       return NextResponse.json({ rules });
     },
   );
@@ -185,7 +185,7 @@ export async function POST(request: Request) {
       const input = isFormSubmission
         ? alertRuleSchema.parse(await parseBody(request))
         : body;
-      const rule = await createAlertRule(input);
+      const rule = await createAlertRule(input, session);
       await auditUserAction(
         session.userId,
         "alert_rule.create",
@@ -215,7 +215,7 @@ export async function PATCH(request: Request) {
       if (!session)
         throw new AuthError("Not authenticated");
       if ("toggleId" in body) {
-        const result = await toggleAlertRule(body.toggleId);
+        const result = await toggleAlertRule(body.toggleId, session);
         await auditUserAction(session.userId, "alert_rule.toggle", {
           ruleId: body.toggleId,
           enabled: Boolean(result.enabled),
@@ -223,7 +223,7 @@ export async function PATCH(request: Request) {
         return NextResponse.json({ rule: result });
       }
       if ("testId" in body) {
-        const result = await testAlertRule(body.testId);
+        const result = await testAlertRule(body.testId, session);
         await auditUserAction(session.userId, "alert_rule.test", {
           ruleId: result.rule.id,
           name: result.rule.name,
@@ -232,7 +232,7 @@ export async function PATCH(request: Request) {
         });
         return NextResponse.json(result);
       }
-      const result = await updateAlertRule(body.id, body);
+      const result = await updateAlertRule(body.id, body, session);
       await auditUserAction(
         session.userId,
         "alert_rule.update",
@@ -254,7 +254,7 @@ export async function DELETE(request: Request) {
         const { id: alertRuleId } = parseSearchParams(request, idQuerySchema);
         if (!alertRuleId)
           throw new ValidationError("Missing rule ID");
-        await deleteAlertRule(alertRuleId);
+        await deleteAlertRule(alertRuleId, session);
         await auditUserAction(session.userId, "alert_rule.delete", { ruleId: alertRuleId });
         return NextResponse.json({ success: true });
       } catch (err) {

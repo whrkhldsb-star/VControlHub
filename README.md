@@ -368,7 +368,7 @@ make logs SERVICE_PREFIX=vcontrolhub
 | 域 | 能力 |
 |---|---|
 | 安全 | RBAC、CSRF、限流、审计、advisory lock（restore / VPS schedule / playbook / compose / server-delete）、SSH host-key pin |
-| 多租户 | 核心模型 Team scope；知识库 / ITSM / 告警事件 / 定时任务 / 部署运行 / 下载任务 / 云账单 / 存储节点 / 媒体库 / **Playbook** / **工单 get/update/comment/timeline** 按团队过滤 |
+| 多租户 | 核心模型 Team scope；知识库 / ITSM / 告警事件 / 定时任务 / 部署运行 / 下载任务 / 云账单 / 存储节点 / 媒体库 / Playbook / 工单 / **告警规则** / **成本条目与预算** / 通知写入 stamp teamId |
 | 远程运行时 | 远程 Docker；Quick Services 本机/VPS；Compose 项目生命周期 |
 | 监控告警 | 后台采样；容量预测；**预测指标可挂告警规则**（days-to-85）；升级/值班/确认 |
 | 命令 / Playbook | 审批与 durable 执行；**失败路径可观测**（job 不假成功、终端审计、结果通知、rejected target 收口） |

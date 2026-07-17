@@ -65,11 +65,11 @@ describe("/api/cost/entries", () => {
 			new Request("http://local/api/cost/entries?month=2026-06&category=storage"),
 		);
 		expect(res.status).toBe(200);
-		expect(mocks.listCostEntries).toHaveBeenCalledWith({
+		expect(mocks.listCostEntries).toHaveBeenCalledWith(expect.objectContaining({
 			month: "2026-06",
 			category: "storage",
 			limit: undefined,
-		});
+		}));
 	});
 
 	it("GET returns 400 when category is invalid", async () => {
@@ -103,6 +103,7 @@ describe("/api/cost/entries", () => {
 				effectiveDate: "2026-06-10",
 			},
 			"u1",
+			expect.anything(),
 		);
 		const body = await res.json();
 		expect(body.entry).toEqual(SAMPLE_ENTRY);

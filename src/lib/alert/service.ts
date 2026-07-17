@@ -1,11 +1,41 @@
+import type { RoleKey } from "@/lib/auth/rbac";
+import { teamCreateData, teamWhere } from "@/lib/auth/team-scope";
 import { prisma } from "@/lib/db";
-import { NotFoundError } from "@/lib/errors";
+import { NotFoundError, ValidationError } from "@/lib/errors";
+
 import { sendAlertEmail } from "@/lib/notification/email";
 import { sendAlertTelegram } from "@/lib/notification/telegram";
 import { createNotification } from "@/lib/notification/service";
 import { fetchWebhookSafely } from "@/lib/security/webhook-url";
 
 /* ── Types ────────────────────────────────────────────────── */
+
+type TeamSession = { userId: string; roles: RoleKey[]; currentTeamId: string | null };
+
+async function assertServerIdsInTeam(serverIds: string[], session?: TeamSession | null) {
+  if (!session || serverIds.length === 0) return;
+  if (session.roles.includes("admin")) return;
+  const allowed = await prisma.server.findMany({
+    where: { id: { in: serverIds }, ...teamWhere(session) },
+    select: { id: true },
+  });
+  if (allowed.length !== serverIds.length) {
+    throw new ValidationError("One or more serverIds are outside the current team scope");
+  }
+}
+
+async function assertPlaybookIdsInTeam(playbookIds: string[], session?: TeamSession | null) {
+  if (!session || playbookIds.length === 0) return;
+  if (session.roles.includes("admin")) return;
+  const allowed = await prisma.playbook.findMany({
+    where: { id: { in: playbookIds }, ...teamWhere(session) },
+    select: { id: true },
+  });
+  if (allowed.length !== playbookIds.length) {
+    throw new ValidationError("One or more playbookIds are outside the current team scope");
+  }
+}
+
 
 export type CreateAlertRuleInput = {
 	name: string;
@@ -26,11 +56,20 @@ export type CreateAlertRuleInput = {
 
 /* ── CRUD ─────────────────────────────────────────────────── */
 
-export async function listAlertRules() {
-	return prisma.alertRule.findMany({ orderBy: { createdAt: "desc" }, take: 200 });
+export async function listAlertRules(session?: TeamSession | null) {
+	return prisma.alertRule.findMany({
+		where: session ? teamWhere(session) : {},
+		orderBy: { createdAt: "desc" },
+		take: 200,
+	});
 }
 
-export async function createAlertRule(input: CreateAlertRuleInput) {
+export async function createAlertRule(input: CreateAlertRuleInput, session?: TeamSession | null) {
+	const serverIds = input.serverIds ?? [];
+	const playbookIds = input.playbookIds ?? [];
+	await assertServerIdsInTeam(serverIds, session);
+	await assertPlaybookIdsInTeam(playbookIds, session);
+	const teamId = session ? teamCreateData(session).teamId : null;
 	return prisma.alertRule.create({
 		data: {
 			name: input.name,
@@ -38,20 +77,31 @@ export async function createAlertRule(input: CreateAlertRuleInput) {
 			operator: input.operator,
 			threshold: input.threshold,
 			durationSeconds: input.durationSeconds ?? 0,
-			serverIds: input.serverIds ?? [],
+			serverIds,
 			notifyChannels: input.notifyChannels ?? ["in_app"],
 			webhookUrl: input.webhookUrl ?? null,
-			playbookIds: input.playbookIds ?? [],
+			playbookIds,
 			cooldownMinutes: input.cooldownMinutes ?? 30,
 			silenceWindows: input.silenceWindows ?? [],
 			escalationMinutes: input.escalationMinutes ?? 30,
 			onCallUserIds: input.onCallUserIds ?? [],
 			enabled: input.enabled ?? true,
+			teamId: teamId ?? null,
 		},
 	});
 }
 
-export async function updateAlertRule(id: string, input: Partial<CreateAlertRuleInput> & { enabled?: boolean }) {
+export async function updateAlertRule(
+	id: string,
+	input: Partial<CreateAlertRuleInput> & { enabled?: boolean },
+	session?: TeamSession | null,
+) {
+	if (session) {
+		const existing = await prisma.alertRule.findFirst({ where: { id, ...teamWhere(session) }, select: { id: true } });
+		if (!existing) throw new NotFoundError("Rule not found");
+	}
+	if (input.serverIds !== undefined) await assertServerIdsInTeam(input.serverIds, session);
+	if (input.playbookIds !== undefined) await assertPlaybookIdsInTeam(input.playbookIds, session);
 	const data: Record<string, unknown> = {};
 	if (input.name !== undefined) data.name = input.name;
 	if (input.metric !== undefined) data.metric = input.metric;
@@ -67,16 +117,40 @@ export async function updateAlertRule(id: string, input: Partial<CreateAlertRule
 	if (input.escalationMinutes !== undefined) data.escalationMinutes = input.escalationMinutes;
 	if (input.onCallUserIds !== undefined) data.onCallUserIds = input.onCallUserIds;
 	if (input.enabled !== undefined) data.enabled = input.enabled;
+	if (session) {
+		const claimed = await prisma.alertRule.updateMany({ where: { id, ...teamWhere(session) }, data });
+		if (claimed.count === 0) throw new NotFoundError("Rule not found");
+		const row = await prisma.alertRule.findFirst({ where: { id, ...teamWhere(session) } });
+		if (!row) throw new NotFoundError("Rule not found");
+		return row;
+	}
 	return prisma.alertRule.update({ where: { id }, data });
 }
 
-export async function deleteAlertRule(id: string) {
+export async function deleteAlertRule(id: string, session?: TeamSession | null) {
+	if (session) {
+		const claimed = await prisma.alertRule.deleteMany({ where: { id, ...teamWhere(session) } });
+		if (claimed.count === 0) throw new NotFoundError("Rule not found");
+		return { id };
+	}
 	return prisma.alertRule.delete({ where: { id } });
 }
 
-export async function toggleAlertRule(id: string) {
-	const current = await prisma.alertRule.findUnique({ where: { id }, select: { enabled: true } });
+export async function toggleAlertRule(id: string, session?: TeamSession | null) {
+	const current = session
+		? await prisma.alertRule.findFirst({ where: { id, ...teamWhere(session) }, select: { enabled: true } })
+		: await prisma.alertRule.findUnique({ where: { id }, select: { enabled: true } });
 	if (!current) throw new NotFoundError("Rule not found");
+	if (session) {
+		const claimed = await prisma.alertRule.updateMany({
+			where: { id, ...teamWhere(session) },
+			data: { enabled: !current.enabled },
+		});
+		if (claimed.count === 0) throw new NotFoundError("Rule not found");
+		const row = await prisma.alertRule.findFirst({ where: { id, ...teamWhere(session) } });
+		if (!row) throw new NotFoundError("Rule not found");
+		return row;
+	}
 	return prisma.alertRule.update({ where: { id }, data: { enabled: !current.enabled } });
 }
 
@@ -86,8 +160,10 @@ export type AlertRuleTestDelivery = {
 	message: string;
 };
 
-export async function testAlertRule(id: string): Promise<{ rule: { id: string; name: string; metric: string; notifyChannels: string[]; webhookConfigured: boolean }; deliveries: AlertRuleTestDelivery[] }> {
-	const rule = await prisma.alertRule.findUnique({ where: { id } });
+export async function testAlertRule(id: string, session?: TeamSession | null): Promise<{ rule: { id: string; name: string; metric: string; notifyChannels: string[]; webhookConfigured: boolean }; deliveries: AlertRuleTestDelivery[] }> {
+	const rule = session
+		? await prisma.alertRule.findFirst({ where: { id, ...teamWhere(session) } })
+		: await prisma.alertRule.findUnique({ where: { id } });
 	if (!rule) throw new NotFoundError("Rule not found");
 
 	const deliveries: AlertRuleTestDelivery[] = [];

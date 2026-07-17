@@ -21,6 +21,7 @@ export interface CostEntryRecord {
 	sourceType: string | null;
 	sourceRef: string | null;
 	tags: string[];
+	teamId?: string | null;
 	createdAt: string;
 	updatedAt: string;
 }
@@ -38,6 +39,7 @@ export interface CostBudgetRecord {
 	usagePercent: number;
 	periodStart: string;
 	periodEnd: string;
+	teamId?: string | null;
 	createdAt: string;
 	updatedAt: string;
 }

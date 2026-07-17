@@ -31,6 +31,8 @@ export type CreateNotificationInput = {
 	title: string;
 	message: string;
 	actionUrl?: string;
+	/** Optional multi-tenant stamp (null = shared/legacy). */
+	teamId?: string | null;
 };
 
 /* ── CRUD ─────────────────────────────────────────────────── */
@@ -43,6 +45,7 @@ export async function createNotification(input: CreateNotificationInput) {
 			title: input.title,
 			message: input.message,
 			actionUrl: input.actionUrl ?? null,
+			teamId: input.teamId ?? null,
 		},
 	});
 

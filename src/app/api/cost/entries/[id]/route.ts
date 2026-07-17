@@ -36,8 +36,8 @@ export async function GET(
 			errorStatus: 500,
 			errorMessage: "Failed to load cost entry",
 		},
-		async () => {
-			const entry = await getCostEntry(id);
+		async ({ session }) => {
+			const entry = await getCostEntry(id, session);
 			if (!entry) {
 				throw new NotFoundError(`Cost entry not found ${id}`);
 			}
@@ -61,7 +61,7 @@ export async function PATCH(
 			errorMessage: "Failed to update cost entry",
 		},
 		async ({ session, body }) => {
-			const entry = await updateCostEntry(id, body);
+			const entry = await updateCostEntry(id, body, session);
 			await auditUserAction(session?.userId ?? "anonymous", "cost.update", {
 				entryId: entry.id,
 				updatedFields: Object.keys(body),
@@ -85,7 +85,7 @@ export async function DELETE(
 			errorMessage: "Failed to delete cost entry",
 		},
 		async ({ session }) => {
-			await deleteCostEntry(id);
+			await deleteCostEntry(id, session);
 			await auditUserAction(session?.userId ?? "anonymous", "cost.delete", {
 				entryId: id,
 			});
