@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import {
   assertStorageAccess,
@@ -11,6 +11,23 @@ vi.mock("@/lib/db", () => ({
   prisma: {
     userStorageAccess: { findMany: vi.fn() },
     fileEntry: { findMany: vi.fn(), aggregate: vi.fn() },
+    storageNode: {
+      findFirst: vi.fn(async (args: { where?: { id?: string } } = {}) => ({ id: args.where?.id ?? "node-1" })),
+      findMany: vi.fn(async (args: { where?: { id?: { in?: string[] } } } = {}) => {
+        const ids = args.where?.id?.in ?? ["node-1"];
+        return ids.map((id: string) => ({ id }));
+      }),
+    },
+  },
+}));
+
+vi.mock("@/lib/auth/team-scope", () => ({
+  teamWhere: (session: { roles?: string[]; currentTeamId?: string | null }) => {
+    if (session.roles?.includes("admin")) return {};
+    if (session.currentTeamId) {
+      return { OR: [{ teamId: session.currentTeamId }, { teamId: null }] };
+    }
+    return { teamId: null };
   },
 }));
 
@@ -25,7 +42,27 @@ const baseSession = {
 } satisfies SessionPayload;
 
 describe("storage access control", () => {
+  beforeEach(() => {
+    vi.mocked(prisma.storageNode.findFirst).mockResolvedValue({ id: "node-1" } as never);
+    vi.mocked(prisma.storageNode.findMany).mockImplementation((async (args?: any) => {
+      const ids = args?.where?.id?.in ?? ["node-1"];
+      return ids.map((id: string) => ({ id }));
+    }) as never);
+  });
+
+  it("denies access when storage node is outside team scope", async () => {
+    vi.mocked(prisma.storageNode.findFirst).mockResolvedValueOnce(null as never);
+    await expect(assertStorageAccess({
+      session: { ...baseSession, currentTeamId: "team-a", roles: ["operator"] },
+      storageNodeId: "foreign-node",
+      relativePath: "docs/a.txt",
+      operation: "read",
+    })).resolves.toMatchObject({ allowed: false });
+    expect(prisma.userStorageAccess.findMany).not.toHaveBeenCalled();
+  });
+
   it("denies role-based storage access when no explicit grants exist", async () => {
+    vi.mocked(prisma.storageNode.findFirst).mockResolvedValueOnce({ id: "node-1" } as never);
     vi.mocked(prisma.userStorageAccess.findMany).mockResolvedValueOnce([]);
 
     await expect(assertStorageAccess({

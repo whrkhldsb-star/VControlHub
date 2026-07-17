@@ -5,6 +5,7 @@ import { Prisma } from "@prisma/client";
 import { config } from "@/lib/config/env";
 import type { SessionPayload } from "@/lib/auth/session";
 import { sessionHasPermission } from "@/lib/auth/authorization";
+import { teamWhere } from "@/lib/auth/team-scope";
 import { prisma } from "@/lib/db";
 
 export type StorageAccessOperation = "read" | "write" | "delete";
@@ -111,7 +112,18 @@ export async function assertStorageAccess(input: {
     return { allowed: false, reason: "Missing operation permission" };
   }
 
-  // Storage managers/admins retain full access for break-glass maintenance.
+  // Multi-tenant: node must be visible under teamWhere (team:manage sees all).
+  // Prevents grants / legacy fallback from authorizing a foreign team's node by id.
+  const nodeScope = teamWhere(input.session);
+  const node = await prisma.storageNode.findFirst({
+    where: { id: input.storageNodeId, ...nodeScope },
+    select: { id: true },
+  });
+  if (!node) {
+    return { allowed: false, reason: "No access authorization for this storage node or path" };
+  }
+
+  // Storage managers retain full path access within their team scope (or all if team:manage).
   if (sessionHasPermission(input.session, "storage:manage-node")) {
     return { allowed: true };
   }
@@ -206,14 +218,33 @@ export async function getStorageAccessCapabilities(input: {
 
   if (uniqueTargets.size === 0) return result;
 
+  const candidateNodeIds = [...new Set([...uniqueTargets.values()].map((target) => target.storageNodeId))];
+  const nodeScope = teamWhere(input.session);
+  const visibleNodes = await prisma.storageNode.findMany({
+    where: { id: { in: candidateNodeIds }, ...nodeScope },
+    select: { id: true },
+    take: 5000,
+  });
+  const visibleNodeIds = new Set(visibleNodes.map((n) => n.id));
+
+  // Mark foreign-team nodes as fully denied.
+  for (const [key, target] of uniqueTargets) {
+    if (!visibleNodeIds.has(target.storageNodeId)) {
+      result.set(key, { canRead: false, canWrite: false, canDelete: false });
+    }
+  }
+
   if (canManageNodes) {
-    for (const [key] of uniqueTargets) {
-      result.set(key, { canRead: true, canWrite: true, canDelete: true });
+    for (const [key, target] of uniqueTargets) {
+      if (visibleNodeIds.has(target.storageNodeId)) {
+        result.set(key, { canRead: true, canWrite: true, canDelete: true });
+      }
     }
     return result;
   }
 
-  const nodeIds = [...new Set([...uniqueTargets.values()].map((target) => target.storageNodeId))];
+  const nodeIds = [...visibleNodeIds];
+  if (nodeIds.length === 0) return result;
   // P2: take=5000 上界。批量预查 (user × N nodeId)，N 通常 <=10 节点 × 500 grant = 5k 足够。
   const grants = await prisma.userStorageAccess.findMany({
     where: { userId: input.session.userId, storageNodeId: { in: nodeIds } },
