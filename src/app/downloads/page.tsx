@@ -1,5 +1,6 @@
 import { requireSession } from "@/lib/auth/require-session";
 import { sessionHasPermission } from "@/lib/auth/authorization";
+import { teamWhere } from "@/lib/auth/team-scope";
 import { prisma } from "@/lib/db";
 import { buildDirectAccessStrategy } from "@/lib/storage/service";
 import { DownloadsClient } from "./downloads-client";
@@ -19,11 +20,17 @@ export default async function DownloadsPage() {
 		return <PageShell maxW="max-w-7xl"><EmptyState text={t("downloadsPage.permissionDenied", locale)} variant="boxed" /></PageShell>;
 	}
 
+	// teamWhere may emit OR for teamId; AND-compose so credential OR is not overwritten.
 	const servers = await prisma.server.findMany({
 		where: {
-			enabled: true,
-			storageNode: { isNot: null },
-			OR: [{ sshKeyId: { not: null } }, { password: { not: null } }],
+			AND: [
+				teamWhere(session),
+				{
+					enabled: true,
+					storageNode: { isNot: null },
+					OR: [{ sshKeyId: { not: null } }, { password: { not: null } }],
+				},
+			],
 		},
 		take: 200,
 		select: {

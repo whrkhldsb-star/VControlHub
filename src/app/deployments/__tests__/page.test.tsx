@@ -15,12 +15,16 @@ vi.mock("@/lib/auth/require-session", () => ({
     username: "admin",
     roles: ["admin"],
     permissions: ["deploy:read", "deploy:run", "deploy:export"],
+    currentTeamId: "team-a",
     mustChangePassword: false,
   }),
 }));
 
 vi.mock("@/lib/auth/authorization", () => ({
-  sessionHasPermission: vi.fn((_session, permission: string) => ["deploy:read", "deploy:run", "deploy:export"].includes(permission)),
+  sessionHasPermission: vi.fn((_session, permission: string) => {
+    if (permission === "team:manage") return false;
+    return ["deploy:read", "deploy:run", "deploy:export"].includes(permission);
+  }),
 }));
 
 vi.mock("next/navigation", () => ({
@@ -122,11 +126,14 @@ describe("DeploymentsPage deploy-export panel", () => {
     );
   });
 
-  it("bounds enabled target server hydration for the deployment form", async () => {
+  it("bounds enabled target server hydration for the deployment form to team scope", async () => {
     wrap(await DeploymentsPage({ searchParams: Promise.resolve({}) }));
 
     expect(serverFindManyMock).toHaveBeenCalledWith(expect.objectContaining({
-      where: { enabled: true },
+      where: {
+        enabled: true,
+        OR: [{ teamId: "team-a" }, { teamId: null }],
+      },
       orderBy: { createdAt: "desc" },
       take: 200,
       select: { id: true, name: true, host: true, username: true },

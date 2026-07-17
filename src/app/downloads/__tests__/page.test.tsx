@@ -7,12 +7,16 @@ vi.mock("@/lib/auth/require-session", () => ({
     username: "operator",
     roles: ["operator"],
     permissions: ["storage:read", "storage:write"],
+    currentTeamId: "team-a",
     mustChangePassword: false,
   }),
 }));
 
 vi.mock("@/lib/auth/authorization", () => ({
-  sessionHasPermission: vi.fn((session, permission: string) => session.permissions.includes(permission)),
+  sessionHasPermission: vi.fn((session, permission: string) => {
+    if (permission === "team:manage") return false;
+    return session.permissions.includes(permission);
+  }),
 }));
 
 vi.mock("../downloads-client", () => ({
@@ -46,15 +50,20 @@ describe("DownloadsPage", () => {
     serverFindManyMock.mockClear();
   });
 
-  it("hydrates only download-capable VPS targets", async () => {
+  it("hydrates only download-capable VPS targets within team scope", async () => {
     render(await DownloadsPage());
 
     expect(screen.getByTestId("downloads-client")).toHaveTextContent("下载 VPS:当前：直连");
     expect(serverFindManyMock).toHaveBeenCalledWith(expect.objectContaining({
       where: {
-        enabled: true,
-        storageNode: { isNot: null },
-        OR: [{ sshKeyId: { not: null } }, { password: { not: null } }],
+        AND: [
+          { OR: [{ teamId: "team-a" }, { teamId: null }] },
+          {
+            enabled: true,
+            storageNode: { isNot: null },
+            OR: [{ sshKeyId: { not: null } }, { password: { not: null } }],
+          },
+        ],
       },
       orderBy: { name: "asc" },
       take: 200,

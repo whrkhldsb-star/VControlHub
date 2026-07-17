@@ -1,5 +1,6 @@
 import { requireSession } from "@/lib/auth/require-session";
 import { sessionHasPermission } from "@/lib/auth/authorization";
+import { teamWhere } from "@/lib/auth/team-scope";
 import { listDeploymentRuns, listDeploymentTemplates } from "@/lib/deployment/service";
 import { prisma } from "@/lib/db";
 import { PageShell, EmptyState, PageHeader, ListPanel, ListRow, SurfacePanel } from "@/components/page-shell";
@@ -35,7 +36,13 @@ export default async function DeploymentsPage({ searchParams }: { searchParams?:
 	const [runs, templates, servers] = await Promise.all([
 		listDeploymentRuns(session),
 		listDeploymentTemplates(),
-		prisma.server.findMany({ where: { enabled: true }, orderBy: { createdAt: "desc" }, take: 200, select: { id: true, name: true, host: true, username: true } }),
+		// teamWhere OR composes safely with top-level enabled (no key collision).
+		prisma.server.findMany({
+			where: { enabled: true, ...teamWhere(session) },
+			orderBy: { createdAt: "desc" },
+			take: 200,
+			select: { id: true, name: true, host: true, username: true },
+		}),
 	]);
 	const latestRun = runs[0];
 	return (
