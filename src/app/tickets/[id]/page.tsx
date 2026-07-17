@@ -20,11 +20,19 @@ export default async function TicketDetailPage({ params }: { params: Promise<{ i
   const ticket = await getTicketById(id, session);
   if (!ticket) notFound();
 
-  // Populate the assignee dropdown — previously the <select> rendered
-  // with no <option> children, so "Assign to" was visually present but
-  // functionally a no-op for every manager.
+  // Assignee dropdown: team-scoped when the manager has a current team so we
+  // do not enumerate every platform user (cross-tenant username/displayName leak).
+  // Admins with team:manage still see the full roster via unscoped teamWhere.
   const users: TicketUser[] = canManage
     ? await prisma.user.findMany({
+        where: session.currentTeamId
+          ? {
+              OR: [
+                { teamMemberships: { some: { teamId: session.currentTeamId } } },
+                { id: session.userId },
+              ],
+            }
+          : undefined,
         select: { id: true, username: true, displayName: true },
         orderBy: { username: "asc" },
         take: 200,

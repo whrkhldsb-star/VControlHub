@@ -30,6 +30,70 @@ function ticketTeamFilter(session?: TeamSession | null): Record<string, unknown>
   return session ? teamWhere(session) : {};
 }
 
+/**
+ * Validate optional related server/command ids under the caller's team boundary.
+ * Without this, POST /api/tickets (and any sessioned create path) can stamp a
+ * foreign-team serverId/commandRequestId onto a new ticket — same class of
+ * cross-tenant link IDOR already fixed on timeline link_* actions.
+ */
+async function assertRelatedResourcesInTeamScope(
+  input: {
+    relatedServerId?: string | null;
+    relatedCommandId?: string | null;
+  },
+  session?: Pick<TeamSession, "userId" | "roles" | "currentTeamId"> | null,
+) {
+  if (!session) return;
+  const scope = teamWhere(session);
+  if (input.relatedServerId) {
+    const server = await prisma.server.findFirst({
+      where: { id: input.relatedServerId, ...scope },
+      select: { id: true },
+    });
+    if (!server) throw new ValidationError("Related server not found");
+  }
+  if (input.relatedCommandId) {
+    const cmd = await prisma.commandRequest.findFirst({
+      where: { id: input.relatedCommandId, ...scope },
+      select: { id: true },
+    });
+    if (!cmd) throw new ValidationError("Related command request not found");
+  }
+}
+
+/**
+ * When assigning a ticket, ensure the assignee is a member of the ticket's
+ * team (or the caller's current team). Prevents managers from writing
+ * arbitrary foreign-tenant userIds into assigneeId via PATCH.
+ */
+async function assertAssigneeInTeamScope(
+  assigneeId: string | null | undefined,
+  session?: TeamSession | null,
+  ticketTeamId?: string | null,
+) {
+  if (!assigneeId || !session) return;
+  // Platform admins may assign anyone.
+  const { sessionHasPermission } = await import("@/lib/auth/authorization");
+  if (sessionHasPermission(session, "team:manage")) return;
+
+  const teamId = ticketTeamId ?? session.currentTeamId;
+  if (!teamId) {
+    // No team context: only allow self-assignment.
+    if (assigneeId !== session.userId) {
+      throw new ValidationError("Assignee is not available in this team");
+    }
+    return;
+  }
+
+  if (assigneeId === session.userId) return;
+
+  const membership = await prisma.teamMember.findUnique({
+    where: { teamId_userId: { teamId, userId: assigneeId } },
+    select: { userId: true },
+  });
+  if (!membership) throw new ValidationError("Assignee is not a member of this team");
+}
+
 export async function createTicket(input: {
   title: string;
   description: string;
@@ -39,13 +103,27 @@ export async function createTicket(input: {
   relatedCommandId?: string;
   category?: string;
   slaDueAt?: Date;
-  session?: { currentTeamId: string | null };
+  session?: Pick<TeamSession, "userId" | "roles" | "currentTeamId"> | { currentTeamId: string | null };
   skipItsmFanOut?: boolean;
 }) {
   if (!input.title.trim() || !input.description.trim()) throw new ValidationError("Ticket title and description cannot be empty");
   const priority = input.priority ?? "NORMAL";
   const { computeSlaDueAt } = await import("./sla");
   const slaDueAt = input.slaDueAt ?? computeSlaDueAt(new Date(), priority);
+
+  // Prefer full team session (roles + team) when available so related links are scoped.
+  const teamSession =
+    input.session && "roles" in input.session && Array.isArray(input.session.roles)
+      ? (input.session as TeamSession)
+      : null;
+  await assertRelatedResourcesInTeamScope(
+    {
+      relatedServerId: input.relatedServerId,
+      relatedCommandId: input.relatedCommandId,
+    },
+    teamSession,
+  );
+
   const ticket = await prisma.ticket.create({
     data: {
       title: input.title.trim(),
@@ -181,8 +259,14 @@ export async function updateTicketStatus(input: {
     // Enforce the state machine with CAS so concurrent PATCHes cannot
     // both win illegal transitions (e.g. OPEN→IN_PROGRESS and OPEN→CLOSED).
     const current = input.session
-      ? await prisma.ticket.findFirst({ where: { id: input.id, ...teamFilter }, select: { status: true } })
-      : await prisma.ticket.findUnique({ where: { id: input.id }, select: { status: true } });
+      ? await prisma.ticket.findFirst({
+          where: { id: input.id, ...teamFilter },
+          select: { status: true, teamId: true },
+        })
+      : await prisma.ticket.findUnique({
+          where: { id: input.id },
+          select: { status: true, teamId: true },
+        });
     if (!current) throw new NotFoundError("Ticket not found");
     const allowed = TRANSITIONS[current.status] ?? new Set<string>();
     if (!allowed.has(input.status)) {
@@ -191,7 +275,10 @@ export async function updateTicketStatus(input: {
     data.status = input.status;
     data.closedAt = input.status === "CLOSED" ? new Date() : null;
 
-    if (input.assigneeId !== undefined) data.assigneeId = input.assigneeId;
+    if (input.assigneeId !== undefined) {
+      await assertAssigneeInTeamScope(input.assigneeId, input.session, current.teamId);
+      data.assigneeId = input.assigneeId;
+    }
     if (input.priority !== undefined) data.priority = input.priority;
 
     const claimed = await prisma.ticket.updateMany({
@@ -222,6 +309,18 @@ export async function updateTicketStatus(input: {
   }
 
   if (input.assigneeId !== undefined) {
+    // Load ticket team for membership check before writing assigneeId.
+    const existing = input.session
+      ? await prisma.ticket.findFirst({
+          where: { id: input.id, ...teamFilter },
+          select: { teamId: true },
+        })
+      : await prisma.ticket.findUnique({
+          where: { id: input.id },
+          select: { teamId: true },
+        });
+    if (!existing) throw new NotFoundError("Ticket not found");
+    await assertAssigneeInTeamScope(input.assigneeId, input.session, existing.teamId);
     data.assigneeId = input.assigneeId;
   }
 
