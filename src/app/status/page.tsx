@@ -1,9 +1,10 @@
 import { type SystemHealthCheck } from "@/lib/system-health/service";
 import { getServerLocale, t } from "@/lib/i18n/translations";
 import { toDateLocale } from "@/lib/i18n/locale-format";
-import { getPublicStatus } from "@/lib/status/service";
+import { getPublicStatus, getPublicStatusSummary } from "@/lib/status/service";
 import { createLogger } from "@/lib/logging";
 import { getAllUptimeDataInternal } from "@/lib/uptime/internal";
+import { getCurrentSession } from "@/lib/auth/server-session";
 
 const logger = createLogger("status:page");
 
@@ -61,9 +62,67 @@ function getHealthLabel(status: string, locale: Parameters<typeof t>[1]) {
 }
 
 export default async function Page() {
-  const status = await getPublicStatus();
+  // TR-053 parity with GET /api/status:
+  // - anonymous: overall summary only (no checks detail, no uptime inventory)
+  // - authenticated: full checks + 90-day uptime grids
+  const session = await getCurrentSession();
   const locale = await getServerLocale();
   const dateLocale = toDateLocale(locale);
+
+  if (!session) {
+    const status = await getPublicStatusSummary();
+    return (
+      <main className="relative min-h-screen overflow-hidden text-[var(--text-primary)]">
+        <div
+          aria-hidden="true"
+          className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_top,color-mix(in_srgb,var(--accent)_12%,transparent),transparent_55%),var(--page-bg)]"
+        />
+        <div className="relative mx-auto max-w-5xl px-6 py-14">
+          <header className="mb-8 border-b border-[var(--border-subtle)] pb-6">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-[var(--accent)]">Status</p>
+            <h1 className="mt-2 break-words text-[1.75rem] font-semibold leading-snug tracking-[-0.02em] text-[var(--text-primary)] sm:text-[2rem]">
+              {t("statusPage.title", locale)}
+            </h1>
+            <p className="mt-2 max-w-2xl text-sm leading-6 text-[var(--text-muted)]">
+              {t("statusPage.desc", locale)}
+            </p>
+          </header>
+
+          <div data-card className="mt-6 p-5">
+            <div className="flex items-center gap-3">
+              <span
+                className={`inline-block h-3 w-3 rounded-full ${
+                  status.summary.overall === "healthy"
+                    ? "bg-[var(--success)]"
+                    : status.summary.overall === "warning"
+                    ? "bg-[var(--warning)]"
+                    : "bg-[var(--danger)]"
+                }`}
+              />
+              <span className="text-lg font-medium text-[var(--text-primary)]">
+                {t("statusPage.overallLabel", locale)}
+                {getHealthLabel(status.summary.overall, locale)}
+              </span>
+            </div>
+            <p className="mt-2 text-xs text-[var(--text-muted)]">
+              {t("statusPage.updatedAt", locale)}
+              {new Date(status.generatedAt).toLocaleString(dateLocale)}
+            </p>
+          </div>
+
+          <p className="mt-6 text-sm leading-6 text-[var(--text-secondary)]">
+            {t("statusPage.public.detailsHint", locale)}
+          </p>
+
+          <p className="mt-8 text-center text-xs text-[var(--text-muted)]">
+            VControlHub · {new Date().getFullYear()}
+          </p>
+        </div>
+      </main>
+    );
+  }
+
+  const status = await getPublicStatus();
   const uptimeData = await getAllUptimeData();
 
   return (
@@ -184,7 +243,7 @@ export default async function Page() {
                       </div>
                     </div>
                     <div className="flex flex-wrap gap-1">
-                      {filled.map((d, _idx) => (
+                      {filled.map((d) => (
                         <div
                           key={d.date}
                           className={`h-4 w-4 rounded ${getColorClass(d.uptimePercent)} transition hover:scale-125 hover:z-10`}
