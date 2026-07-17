@@ -23,8 +23,9 @@ vi.mock("@/lib/storage/ssh-credentials", () => ({
     host: "203.0.113.10",
     port: 22,
     username: "root",
-    privateKey: "-----BEGIN OPENSSH PRIVATE KEY-----\nfake\n-----END OPENSSH PRIVATE KEY-----",
+    privateKey: "[REDACTED PRIVATE KEY]",
     password: null,
+    hostKeySha256: "STALE-PIN",
   })),
 }));
 
@@ -45,6 +46,7 @@ const baseNode = {
   host: "203.0.113.10",
   port: 22,
   username: "root",
+  hostKeySha256: "STALE-PIN",
   server: {
     id: "srv_1",
     host: "203.0.113.10",
@@ -52,6 +54,7 @@ const baseNode = {
     username: "root",
     connectionType: "PASSWORD" as const,
     password: "secret",
+    hostKeySha256: "STALE-PIN",
     sshKey: null,
   },
 };
@@ -104,6 +107,12 @@ describe("detectAndPruneSftpStaleInventory", () => {
     expect(result.stale).toBe(2);
     expect(result.dryRun).toBe(false);
     expect(result.errors).toHaveLength(0);
+    expect(listRemoteDirectoryMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        hostKeySha256: "STALE-PIN",
+        remotePath: "/data",
+      }),
+    );
 
     // updateMany 只标 isDeleted=true, 不动其它字段
     expect(prismaFileEntryMock.updateMany).toHaveBeenCalledWith({

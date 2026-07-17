@@ -44,7 +44,7 @@ export async function POST(request: Request) {
         maxDepth = 1,
       } = body;
 
-      const node = await getSftpSyncNode(nodeId);
+      const node = await getSftpSyncNode(nodeId, session);
       if (!node) {
         throw new NotFoundError("Storage node not found");
       }

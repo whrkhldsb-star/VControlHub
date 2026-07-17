@@ -44,6 +44,7 @@ export async function deleteFileEntryAction(
             host: true,
             port: true,
             username: true,
+            hostKeySha256: true,
             server: {
               select: {
                 host: true,
@@ -51,6 +52,7 @@ export async function deleteFileEntryAction(
                 username: true,
                 connectionType: true,
                 password: true,
+                hostKeySha256: true,
                 sshKey: { select: { privateKey: true } },
               },
             },
@@ -255,6 +257,7 @@ export async function permanentDeleteFileEntryAction(
             host: true,
             port: true,
             username: true,
+            hostKeySha256: true,
             server: {
               select: {
                 host: true,
@@ -262,6 +265,7 @@ export async function permanentDeleteFileEntryAction(
                 username: true,
                 connectionType: true,
                 password: true,
+                hostKeySha256: true,
                 sshKey: { select: { privateKey: true } },
               },
             },

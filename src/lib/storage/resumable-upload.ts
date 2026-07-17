@@ -84,7 +84,7 @@ export async function completeStorageFileUpload(params: {
     throw new ForbiddenError(access.reason ?? "No permission to write to the storage path");
   }
 
-  const storageNode = await getStorageFileNode(existing.storageNodeId);
+  const storageNode = await getStorageFileNode(existing.storageNodeId, session);
   if (!storageNode || (storageNode.driver !== "LOCAL" && storageNode.driver !== "SFTP")) {
     throw new ValidationError("Storage node does not support file uploads");
   }

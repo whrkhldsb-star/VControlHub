@@ -1,5 +1,7 @@
 import { Prisma } from "@prisma/client";
 
+import type { SessionPayload } from "@/lib/auth/session";
+import { teamWhere } from "@/lib/auth/team-scope";
 import { prisma } from "@/lib/db";
 import { guessMimeType } from "@/lib/image-bed/constants";
 import { listRemoteDirectory, type SftpListEntry } from "@/lib/ssh/client";
@@ -16,6 +18,7 @@ type SftpSyncNode = Prisma.StorageNodeGetPayload<{
     host: true;
     port: true;
     username: true;
+    hostKeySha256: true;
     server: {
       select: {
         id: true;
@@ -24,6 +27,7 @@ type SftpSyncNode = Prisma.StorageNodeGetPayload<{
         username: true;
         connectionType: true;
         password: true;
+        hostKeySha256: true;
         sshKey: { select: { privateKey: true } };
       };
     };
@@ -187,6 +191,7 @@ export async function syncSftpDirectoryEntries(input: {
           username: credentials.username,
           privateKey: credentials.privateKey,
           password: credentials.password,
+          hostKeySha256: credentials.hostKeySha256,
           remotePath: dirPath,
         }),
         dirPath,
@@ -230,9 +235,15 @@ export async function syncSftpDirectoryEntries(input: {
   return result;
 }
 
-export async function getSftpSyncNode(nodeId: string) {
-  return prisma.storageNode.findUnique({
-    where: { id: nodeId },
+export async function getSftpSyncNode(
+  nodeId: string,
+  session?: Pick<SessionPayload, "userId" | "roles" | "currentTeamId"> | null,
+) {
+  return prisma.storageNode.findFirst({
+    where: {
+      id: nodeId,
+      ...(session ? teamWhere(session) : {}),
+    },
     select: {
       id: true,
       name: true,
@@ -241,6 +252,7 @@ export async function getSftpSyncNode(nodeId: string) {
       host: true,
       port: true,
       username: true,
+      hostKeySha256: true,
       server: {
         select: {
           id: true,
@@ -249,6 +261,7 @@ export async function getSftpSyncNode(nodeId: string) {
           username: true,
           connectionType: true,
           password: true,
+          hostKeySha256: true,
           sshKey: { select: { privateKey: true } },
         },
       },

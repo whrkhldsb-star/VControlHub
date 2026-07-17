@@ -34,6 +34,44 @@ vi.mock("@/lib/ssh/client", () => ({
 import { syncSftpDirectoryEntries } from "../sftp-sync";
 
 describe("sftp sync service", () => {
+  it("forwards hostKeySha256 pin into listRemoteDirectory", async () => {
+    vi.clearAllMocks();
+    const node = {
+      id: "node_pin",
+      name: "pinned",
+      driver: "SFTP",
+      basePath: "/data/files",
+      host: null,
+      port: null,
+      username: null,
+      hostKeySha256: "NODEPIN",
+      server: {
+        id: "srv_pin",
+        host: "203.0.113.20",
+        port: 2222,
+        username: "deploy",
+        connectionType: "PASSWORD",
+        password: "ENCRYPTED PASSWORD",
+        hostKeySha256: "SERVERPIN",
+        sshKey: null,
+      },
+    } as const;
+
+    listRemoteDirectoryMock.mockResolvedValueOnce([]);
+    prismaMock.fileEntry.findMany.mockResolvedValue([]);
+    prismaMock.fileEntry.updateMany.mockResolvedValue({ count: 0 });
+
+    await syncSftpDirectoryEntries({ node, recursive: false, maxDepth: 1 });
+
+    expect(listRemoteDirectoryMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        host: "203.0.113.20",
+        hostKeySha256: "NODEPIN",
+        remotePath: "/data/files",
+      }),
+    );
+  });
+
   it("syncs entries from a VPS-bound SFTP storage node into file entries", async () => {
     vi.clearAllMocks();
     const node = {
@@ -44,6 +82,7 @@ describe("sftp sync service", () => {
       host: null,
       port: null,
       username: null,
+      hostKeySha256: null,
       server: {
         id: "srv_1",
         host: "203.0.113.20",
@@ -51,6 +90,7 @@ describe("sftp sync service", () => {
         username: "deploy",
         connectionType: "PASSWORD",
         password: "ENCRYPTED PASSWORD",
+        hostKeySha256: null,
         sshKey: null,
       },
     } as const;
@@ -74,6 +114,7 @@ describe("sftp sync service", () => {
         username: "deploy",
         password: "decrypted-password:ENCRYPTED PASSWORD",
         privateKey: undefined,
+        hostKeySha256: null,
         remotePath: "/data/files",
       }),
     );
@@ -109,6 +150,7 @@ describe("sftp sync service", () => {
       host: null,
       port: null,
       username: null,
+      hostKeySha256: null,
       server: {
         id: "srv_1",
         host: "203.0.113.20",
@@ -116,6 +158,7 @@ describe("sftp sync service", () => {
         username: "deploy",
         connectionType: "PASSWORD",
         password: "BROKEN CIPHER",
+        hostKeySha256: null,
         sshKey: null,
       },
     } as const;
@@ -142,6 +185,7 @@ describe("sftp sync service", () => {
       host: null,
       port: null,
       username: null,
+      hostKeySha256: null,
       server: {
         id: "srv_1",
         host: "203.0.113.20",
@@ -149,6 +193,7 @@ describe("sftp sync service", () => {
         username: "root",
         connectionType: "PASSWORD",
         password: "secret",
+        hostKeySha256: null,
         sshKey: null,
       },
     } as const;
@@ -194,6 +239,7 @@ describe("sftp sync service", () => {
       host: null,
       port: null,
       username: null,
+      hostKeySha256: null,
       server: {
         id: "srv_1",
         host: "203.0.113.20",
@@ -201,6 +247,7 @@ describe("sftp sync service", () => {
         username: "root",
         connectionType: "PASSWORD",
         password: "secret",
+        hostKeySha256: null,
         sshKey: null,
       },
     } as const;

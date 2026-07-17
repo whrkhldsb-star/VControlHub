@@ -222,6 +222,7 @@ type DeletedFileEntryWithNode = Prisma.FileEntryGetPayload<{
         host: true;
         port: true;
         username: true;
+        hostKeySha256: true;
         server: {
           select: {
             host: true;
@@ -229,6 +230,7 @@ type DeletedFileEntryWithNode = Prisma.FileEntryGetPayload<{
             username: true;
             connectionType: true;
             password: true;
+            hostKeySha256: true;
             sshKey: { select: { privateKey: true } };
           };
         };
@@ -314,6 +316,7 @@ export async function restoreFileEntry(input: FileEntryMutationInput) {
           host: true,
           port: true,
           username: true,
+          hostKeySha256: true,
           server: {
             select: {
               host: true,
@@ -321,6 +324,7 @@ export async function restoreFileEntry(input: FileEntryMutationInput) {
               username: true,
               connectionType: true,
               password: true,
+              hostKeySha256: true,
               sshKey: { select: { privateKey: true } },
             },
           },
