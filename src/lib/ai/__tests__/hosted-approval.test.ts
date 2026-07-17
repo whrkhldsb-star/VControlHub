@@ -61,7 +61,10 @@ describe("AI hosted action approvals", () => {
 			where: { id: "action_1", status: "PENDING_APPROVAL" },
 			data: expect.objectContaining({ status: "APPROVED", approverId: "admin_1" }),
 		});
-		expect(prismaMock.server.findUnique).toHaveBeenCalledWith({ where: { id: "srv_1" }, include: { sshKey: true } });
+		expect(prismaMock.server.findFirst).toHaveBeenCalledWith({
+			where: { id: "srv_1" },
+			include: { sshKey: true },
+		});
 		expect(prismaMock.aiHostedAction.update).toHaveBeenLastCalledWith({
 			where: { id: "action_1" },
 			data: expect.objectContaining({ status: "FAILED", errorMessage: "Server not found" }),
@@ -77,7 +80,7 @@ describe("AI hosted action approvals", () => {
 
 		const result = await executeSafeAction(
 			{ actionType: "list_servers", serverId: null, params: {} },
-			{ session: { userId: "operator_1", roles: ["operator"] }, requiredPermission: "server:read" },
+			{ session: { userId: "operator_1", roles: ["operator"], currentTeamId: "team_a" }, requiredPermission: "server:read" },
 		);
 
 		expect(result).toEqual({
@@ -90,6 +93,7 @@ describe("AI hosted action approvals", () => {
 			},
 		});
 		expect(prismaMock.server.findMany).toHaveBeenCalledWith({
+			where: { OR: [{ teamId: "team_a" }, { teamId: null }] },
 			orderBy: [{ enabled: "desc" }, { name: "asc" }],
 			select: { id: true, name: true, host: true, port: true, username: true, enabled: true },
 			take: 500,
@@ -116,14 +120,20 @@ describe("AI hosted action approvals", () => {
 			},
 			args: { serverQuery: "prod", command: "systemctl restart nginx", reason: "AI requested restart" },
 			userId: "user_1",
+			session: { userId: "user_1", roles: ["operator"], currentTeamId: "team_a" },
 		});
 
 		expect(prismaMock.server.findFirst).toHaveBeenCalledWith({
 			where: {
-				OR: [
-					{ id: "prod" },
-					{ name: { contains: "prod" } },
-					{ host: { contains: "prod" } },
+				AND: [
+					{ OR: [{ teamId: "team_a" }, { teamId: null }] },
+					{
+						OR: [
+							{ id: "prod" },
+							{ name: { contains: "prod" } },
+							{ host: { contains: "prod" } },
+						],
+					},
 				],
 			},
 			select: { id: true, name: true, host: true },
@@ -141,7 +151,11 @@ describe("AI hosted action approvals", () => {
 
 	it("creates an assistant command request only after the requester confirms the AI action", async () => {
 		const { confirmHostedAction } = await import("../hosted-service");
-		const requester: { userId: string; roles: RoleKey[] } = { userId: "user_1", roles: ["operator"] };
+		const requester: { userId: string; roles: RoleKey[]; currentTeamId?: string | null } = {
+			userId: "user_1",
+			roles: ["operator"],
+			currentTeamId: "team_a",
+		};
 		const action = {
 			id: "action_1",
 			status: "PENDING_APPROVAL",
@@ -154,6 +168,7 @@ describe("AI hosted action approvals", () => {
 			params: JSON.stringify({ command: "systemctl restart nginx", reason: "AI requested restart", serverId: "srv_prod" }),
 		};
 		prismaMock.aiHostedAction.findFirst.mockResolvedValue(action);
+		prismaMock.server.findUnique.mockResolvedValue({ osDialect: null, teamId: "team_a" });
 		commandServiceMock.createCommandRequest.mockResolvedValue({ id: "cmd_req_1", requiresApproval: true });
 
 		await confirmHostedAction("action_1", requester);
@@ -165,6 +180,7 @@ describe("AI hosted action approvals", () => {
 			requesterId: "user_1",
 			serverIds: ["srv_prod"],
 			submissionMode: "assistant",
+			teamId: "team_a",
 		});
 		expect(prismaMock.aiHostedAction.updateMany).toHaveBeenCalledWith({
 			where: { id: "action_1", status: "PENDING_APPROVAL" },

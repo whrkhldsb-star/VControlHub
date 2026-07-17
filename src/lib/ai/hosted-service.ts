@@ -9,6 +9,8 @@
 
 import { sessionHasPermission } from "@/lib/auth/authorization";
 import type { Permission, RoleKey } from "@/lib/auth/rbac";
+import type { SessionPayload } from "@/lib/auth/session";
+import { teamWhere } from "@/lib/auth/team-scope";
 import { createCommandRequest } from "@/lib/command/service";
 import { prisma } from "@/lib/db";
 import { BusinessError, ForbiddenError, NotFoundError } from "@/lib/errors";
@@ -33,9 +35,20 @@ interface ToolCall {
 type HostedActionSession = {
   userId: string;
   roles: RoleKey[];
-  /** Optional; used to stamp CommandRequest.teamId on confirm. */
+  /** Optional; used to stamp CommandRequest.teamId on confirm and scope server/KB access. */
   currentTeamId?: string | null;
 };
+
+function sessionForTeamScope(
+  session?: HostedActionSession | null,
+): Pick<SessionPayload, "userId" | "roles" | "currentTeamId"> | null {
+  if (!session) return null;
+  return {
+    userId: session.userId,
+    roles: session.roles,
+    currentTeamId: session.currentTeamId ?? null,
+  };
+}
 
 type HostedActionExecutionContext = {
   session: HostedActionSession;
@@ -67,19 +80,36 @@ export function parseToolCall(tc: ToolCall): ParsedToolCall | null {
 
 // ── VPS 解析与命令审批桥接 ─────────────────────────────────
 
-async function resolveServerId(args: Record<string, unknown>): Promise<string | null> {
+async function resolveServerId(
+  args: Record<string, unknown>,
+  session?: HostedActionSession | null,
+): Promise<string | null> {
   const explicitId = typeof args.serverId === "string" ? args.serverId.trim() : "";
-  if (explicitId) return explicitId;
+  const scope = sessionForTeamScope(session);
+  const teamFilter = scope ? teamWhere(scope) : {};
+
+  if (explicitId) {
+    const owned = await prisma.server.findFirst({
+      where: { id: explicitId, ...teamFilter },
+      select: { id: true },
+    });
+    return owned?.id ?? null;
+  }
 
   const query = typeof args.serverQuery === "string" ? args.serverQuery.trim() : "";
   if (!query) return null;
 
   const server = await prisma.server.findFirst({
     where: {
-      OR: [
-        { id: query },
-        { name: { contains: query } },
-        { host: { contains: query } },
+      AND: [
+        teamFilter,
+        {
+          OR: [
+            { id: query },
+            { name: { contains: query } },
+            { host: { contains: query } },
+          ],
+        },
       ],
     },
     select: { id: true, name: true, host: true },
@@ -170,9 +200,18 @@ export async function createHostedAction(input: {
   tool: HostedTool;
   args: Record<string, unknown>;
   userId: string;
+  /** Optional session for team-scoped server resolution. */
+  session?: HostedActionSession | null;
 }) {
   const { conversationId, messageId, tool, args, userId } = input;
-  const serverId = await resolveServerId(args);
+  const session =
+    input.session ??
+    ({
+      userId,
+      roles: [] as RoleKey[],
+      currentTeamId: null,
+    } satisfies HostedActionSession);
+  const serverId = await resolveServerId(args, session);
   const params = { ...args, ...(serverId ? { serverId } : {}) };
   return prisma.aiHostedAction.create({
     data: {
@@ -217,17 +256,13 @@ export async function executeSafeAction(
           ? Number(limitRaw)
           : 5;
     const { searchKnowledge } = await import("./knowledge");
+    const scope = sessionForTeamScope(context?.session);
     const hits = await searchKnowledge({
       query,
       knowledgeBaseId,
       limit: Number.isFinite(limit) ? limit : 5,
-      session: context?.session
-        ? {
-            userId: context.session.userId,
-            roles: context.session.roles,
-            currentTeamId: null,
-          }
-        : undefined,
+      // Always pass a session when available so teamWhere applies; never force currentTeamId=null.
+      session: scope ?? undefined,
     });
     return {
       success: true,
@@ -245,7 +280,9 @@ export async function executeSafeAction(
   }
 
   if (action.actionType === "list_servers") {
+    const scope = sessionForTeamScope(context?.session);
     const servers = await prisma.server.findMany({
+      where: scope ? teamWhere(scope) : { teamId: null },
       orderBy: [{ enabled: "desc" }, { name: "asc" }],
       select: { id: true, name: true, host: true, port: true, username: true, enabled: true },
       take: 500, // P2: server 总数有限
@@ -257,10 +294,13 @@ export async function executeSafeAction(
     return { success: false, data: null, error: "No server specified" };
   }
 
-  // 获取服务器连接信息 + OS 方言 (TR-041)
-  // Prisma include 返回所有标量字段（含 osDialect）+ 关联的 sshKey
-  const server = await prisma.server.findUnique({
-    where: { id: action.serverId },
+  // Team-scoped server load (IDOR: never SSH into out-of-team hosts).
+  const scope = sessionForTeamScope(context?.session);
+  const server = await prisma.server.findFirst({
+    where: {
+      id: action.serverId,
+      ...(scope ? teamWhere(scope) : { teamId: null }),
+    },
     include: { sshKey: true },
   });
 

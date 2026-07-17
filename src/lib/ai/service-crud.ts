@@ -197,7 +197,10 @@ export async function deleteProvider(id: string, userId: string) {
 /* ── Conversation CRUD ───────────────────────────────────────── */
 
 export async function createConversation(input: CreateConversationInput) {
-	const provider = await prisma.aiProvider.findUnique({ where: { id: input.providerId } });
+	// Ownership gate: never allow binding another user's provider (IDOR + secret exposure).
+	const provider = await prisma.aiProvider.findFirst({
+		where: { id: input.providerId, createdBy: input.createdBy },
+	});
 	if (!provider) throw new NotFoundError("AI provider not found");
 
 	return prisma.aiConversation.create({
@@ -215,7 +218,23 @@ export async function createConversation(input: CreateConversationInput) {
 			hostingEnabled: input.hostingEnabled ?? false,
 			createdBy: input.createdBy,
 		},
-		include: { provider: true },
+		// Never include provider.apiKey ciphertext on conversation create responses.
+		include: {
+			provider: {
+				select: {
+					id: true,
+					name: true,
+					type: true,
+					baseUrl: true,
+					defaultModel: true,
+					availableModels: true,
+					isDefault: true,
+					enabled: true,
+					createdAt: true,
+					updatedAt: true,
+				},
+			},
+		},
 	});
 }
 
@@ -233,7 +252,23 @@ export async function getConversationById(id: string, userId: string) {
 	const conv = await prisma.aiConversation.findFirst({
 		where: { id, createdBy: userId },
 		include: {
-			provider: true,
+			// Exclude apiKey ciphertext from API-facing conversation payloads.
+			provider: {
+				select: {
+					id: true,
+					name: true,
+					type: true,
+					baseUrl: true,
+					defaultModel: true,
+					availableModels: true,
+					isDefault: true,
+					enabled: true,
+					settings: true,
+					createdBy: true,
+					createdAt: true,
+					updatedAt: true,
+				},
+			},
 			messages: { orderBy: { createdAt: "asc" } },
 		},
 	});
@@ -259,7 +294,25 @@ export async function updateConversation(id: string, userId: string, input: Upda
 		data,
 	});
 	if (updated.count === 0) throw new NotFoundError("Conversation not found");
-	return prisma.aiConversation.findUnique({ where: { id }, include: { provider: true } });
+	return prisma.aiConversation.findUnique({
+		where: { id },
+		include: {
+			provider: {
+				select: {
+					id: true,
+					name: true,
+					type: true,
+					baseUrl: true,
+					defaultModel: true,
+					availableModels: true,
+					isDefault: true,
+					enabled: true,
+					createdAt: true,
+					updatedAt: true,
+				},
+			},
+		},
+	});
 }
 
 export async function deleteConversation(id: string, userId: string) {

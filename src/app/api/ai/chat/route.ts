@@ -349,6 +349,7 @@ export async function POST(request: Request) {
                     tool,
                     args,
                     userId: session.userId,
+                    session,
                   });
                   const actionParams = JSON.parse(action.params) as Record<string, unknown>;
 

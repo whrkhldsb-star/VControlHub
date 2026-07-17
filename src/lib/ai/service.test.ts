@@ -12,6 +12,14 @@ const { prismaMock } = vi.hoisted(() => ({
     },
     aiConversation: {
       findMany: vi.fn(),
+      create: vi.fn(),
+      findFirst: vi.fn(),
+      findUnique: vi.fn(),
+      updateMany: vi.fn(),
+      delete: vi.fn(),
+    },
+    aiMessage: {
+      deleteMany: vi.fn(),
     },
   },
 }));
@@ -27,7 +35,7 @@ vi.mock("@/lib/runtime-settings/service", () => ({
   getAiConversationListLimit: vi.fn(async () => 123),
 }));
 
-const { listProviders, listConversations, createProvider, updateProvider } = await import("./service");
+const { listProviders, listConversations, createProvider, updateProvider, createConversation } = await import("./service");
 
 describe("AI service list hydration limits", () => {
   beforeEach(() => {
@@ -39,6 +47,14 @@ describe("AI service list hydration limits", () => {
     prismaMock.aiProvider.update.mockResolvedValue({ id: "p1" });
     prismaMock.aiProvider.updateMany.mockResolvedValue({ count: 1 });
     prismaMock.aiConversation.findMany.mockResolvedValue([]);
+    prismaMock.aiConversation.create.mockResolvedValue({
+      id: "c1",
+      providerId: "p1",
+      createdBy: "u1",
+      createdAt: new Date("2026-01-01T00:00:00Z"),
+      updatedAt: new Date("2026-01-01T00:00:00Z"),
+      provider: { id: "p1", name: "p", type: "OPENAI_COMPATIBLE" },
+    });
   });
 
   it("uses the runtime-tunable AI provider list limit", async () => {
@@ -82,7 +98,7 @@ describe("AI service list hydration limits", () => {
   it("rejects private AI provider Base URLs before persistence", async () => {
     await expect(createProvider({
       name: "Local compatible",
-      apiKey: "sk-test",
+      apiKey: "sk-local",
       baseUrl: "http://127.0.0.1:11434/v1",
       createdBy: "u1",
     })).rejects.toThrow(/public HTTP\(S\) address/);
@@ -109,5 +125,47 @@ describe("AI service list hydration limits", () => {
     })).rejects.toThrow(/metadata/);
 
     expect(prismaMock.aiProvider.update).not.toHaveBeenCalled();
+  });
+
+  it("rejects creating a conversation against another user's provider", async () => {
+    prismaMock.aiProvider.findFirst.mockResolvedValueOnce(null);
+
+    await expect(
+      createConversation({
+        providerId: "other-provider",
+        model: "gpt-4o",
+        createdBy: "u1",
+      }),
+    ).rejects.toThrow(/not found/i);
+
+    expect(prismaMock.aiProvider.findFirst).toHaveBeenCalledWith({
+      where: { id: "other-provider", createdBy: "u1" },
+    });
+    expect(prismaMock.aiConversation.create).not.toHaveBeenCalled();
+  });
+
+  it("creates conversations only against owned providers and omits apiKey from the include", async () => {
+    prismaMock.aiProvider.findFirst.mockResolvedValueOnce({ id: "p1", createdBy: "u1" });
+
+    await createConversation({
+      providerId: "p1",
+      model: "gpt-4o",
+      createdBy: "u1",
+    });
+
+    expect(prismaMock.aiConversation.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ providerId: "p1", createdBy: "u1" }),
+        include: {
+          provider: {
+            select: expect.not.objectContaining({ apiKey: true }),
+          },
+        },
+      }),
+    );
+    const createCall = prismaMock.aiConversation.create.mock.calls[0]?.[0] as
+      | { include?: { provider?: { select?: { apiKey?: unknown } } } }
+      | undefined;
+    expect(createCall?.include?.provider?.select?.apiKey).toBeUndefined();
   });
 });
