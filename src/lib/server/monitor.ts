@@ -6,6 +6,8 @@ import { prisma } from "@/lib/db";
 export type ServerMetrics = {
 	cpu: { usagePercent: number; cores: number; loadAvg: [number, number, number] };
 	memory: { totalMb: number; usedMb: number; availableMb: number; usagePercent: number };
+	/** Swap usage percent when SwapTotal > 0; undefined when host has no swap. */
+	swapUsagePercent?: number;
 	disk: Array<{ mount: string; totalGb: string; usedGb: string; usagePercent: number }>;
 	network: Array<{ iface: string; rxBytes: number; txBytes: number }>;
 	uptime: string;
@@ -14,7 +16,7 @@ export type ServerMetrics = {
 
 export type MonitorError = { error: string; serverId: string };
 
-const MONITOR_SCRIPT = `echo "===CPU==="; nproc 2>/dev/null || echo 1; cat /proc/loadavg 2>/dev/null || echo "0 0 0"; awk '/^cpu /{idle=$5+$6; total=0; for(i=2;i<=NF;i++) total+=$i; print idle,total; exit}' /proc/stat 2>/dev/null || echo "0 0"; echo "===MEM==="; awk '/MemTotal:/{t=$2} /MemAvailable:/{a=$2} END{if(t>0){printf "%d %d %d\\n", t/1024, (t-a)/1024, a/1024}else{print "0 0 0"}}' /proc/meminfo 2>/dev/null || echo "0 0 0"; echo "===DISK==="; df -h --output=size,used,pcent,target -x tmpfs -x devtmpfs -x squashfs 2>/dev/null | tail -n +2 || df -h 2>/dev/null | tail -n +2; echo "===LOAD==="; uptime 2>/dev/null || echo "unknown"; echo "===NET==="; awk 'NR>2 && $1!="lo:" {gsub(/:/,"",$1); print $1,$2,$10}' /proc/net/dev 2>/dev/null | head -5 || echo ""`;
+const MONITOR_SCRIPT = `echo "===CPU==="; nproc 2>/dev/null || echo 1; cat /proc/loadavg 2>/dev/null || echo "0 0 0"; awk '/^cpu /{idle=$5+$6; total=0; for(i=2;i<=NF;i++) total+=$i; print idle,total; exit}' /proc/stat 2>/dev/null || echo "0 0"; echo "===MEM==="; awk '/MemTotal:/{t=$2} /MemAvailable:/{a=$2} END{if(t>0){printf "%d %d %d\\n", t/1024, (t-a)/1024, a/1024}else{print "0 0 0"}}' /proc/meminfo 2>/dev/null || echo "0 0 0"; echo "===SWAP==="; awk '/SwapTotal:/{t=$2} /SwapFree:/{f=$2} END{if(t>0){printf "%d %d\\n", t/1024, (t-f)/1024}else{print "0 0"}}' /proc/meminfo 2>/dev/null || echo "0 0"; echo "===DISK==="; df -h --output=size,used,pcent,target -x tmpfs -x devtmpfs -x squashfs 2>/dev/null | tail -n +2 || df -h 2>/dev/null | tail -n +2; echo "===LOAD==="; uptime 2>/dev/null || echo "unknown"; echo "===NET==="; awk 'NR>2 && $1!="lo:" {gsub(/:/,"",$1); print $1,$2,$10}' /proc/net/dev 2>/dev/null | head -5 || echo ""`;
 
 /* ── Parse helpers ────────────────────────────────────────── */
 
@@ -45,6 +47,15 @@ function parseMemSection(line: string): ServerMetrics["memory"] {
 	const availableMb = parseFloatOr(parts[2]!, 0);
 	const usagePercent = totalMb > 0 ? Math.round((usedMb / totalMb) * 1000) / 10 : 0;
 	return { totalMb: Math.round(totalMb), usedMb: Math.round(usedMb), availableMb: Math.round(availableMb), usagePercent };
+}
+
+/** Parse `totalMb usedMb` from ===SWAP===; returns undefined when host has no swap. */
+function parseSwapUsagePercent(line: string): number | undefined {
+	const parts = line.trim().split(/\s+/);
+	const totalMb = parseFloatOr(parts[0]!, 0);
+	const usedMb = parseFloatOr(parts[1]!, 0);
+	if (totalMb <= 0) return undefined;
+	return Math.min(100, Math.max(0, Math.round((usedMb / totalMb) * 1000) / 10));
 }
 
 function parseDiskSection(lines: string[]): ServerMetrics["disk"] {
@@ -94,6 +105,8 @@ export function parseMonitorScriptOutput(stdout: string): ServerMetrics {
 	const cpu = parseCpuSection(splitSection(stdout, "===CPU==="));
 	const memLine = splitSection(stdout, "===MEM===").join(" ");
 	const memory = parseMemSection(memLine);
+	const swapLine = splitSection(stdout, "===SWAP===").join(" ");
+	const swapUsagePercent = parseSwapUsagePercent(swapLine);
 	const disk = parseDiskSection(splitSection(stdout, "===DISK==="));
 	const netLines = splitSection(stdout, "===NET===");
 	const network = parseNetSection(netLines);
@@ -103,6 +116,7 @@ export function parseMonitorScriptOutput(stdout: string): ServerMetrics {
 	return {
 		cpu,
 		memory,
+		...(swapUsagePercent !== undefined ? { swapUsagePercent } : {}),
 		disk,
 		network,
 		uptime,

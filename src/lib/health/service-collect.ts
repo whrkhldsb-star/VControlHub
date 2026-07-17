@@ -18,6 +18,40 @@ import type { SessionPayload } from "@/lib/auth/session";
  *  even when dozens of servers are probed in parallel. */
 const TCP_PROBE_TIMEOUT_MS = 2_000;
 
+/**
+ * Process-local last-sample cache so network_in/out can be expressed as
+ * kbps between consecutive collections. Without this, network counters were
+ * absolute cumulative bytes / 1024 — which falsely looks like multi-Gbps load
+ * and would fire any reasonable network_* alert rule after a few hours of uptime.
+ */
+type NetSample = { atMs: number; rxBytes: number; txBytes: number };
+const lastNetSampleByServer = new Map<string, NetSample>();
+
+function networkRatesKbps(
+  serverId: string,
+  totalRx: number,
+  totalTx: number,
+  nowMs: number,
+): { inKbps: number; outKbps: number } {
+  const prev = lastNetSampleByServer.get(serverId);
+  lastNetSampleByServer.set(serverId, { atMs: nowMs, rxBytes: totalRx, txBytes: totalTx });
+  if (!prev) return { inKbps: 0, outKbps: 0 };
+  const elapsedSec = (nowMs - prev.atMs) / 1000;
+  if (elapsedSec <= 0) return { inKbps: 0, outKbps: 0 };
+  // Counter reset / reboot → treat as zero rate rather than negative flood.
+  const dRx = totalRx >= prev.rxBytes ? totalRx - prev.rxBytes : 0;
+  const dTx = totalTx >= prev.txBytes ? totalTx - prev.txBytes : 0;
+  return {
+    inKbps: Math.max(0, Math.round((dRx / 1024) / elapsedSec)),
+    outKbps: Math.max(0, Math.round((dTx / 1024) / elapsedSec)),
+  };
+}
+
+/** Test helper — clear the delta cache between unit tests. */
+export function resetHealthNetworkRateCacheForTests() {
+  lastNetSampleByServer.clear();
+}
+
 export async function collectAllHealth(
 	session?: Pick<SessionPayload, "userId" | "roles" | "currentTeamId">,
 ): Promise<HealthOverview> {
@@ -81,6 +115,8 @@ export async function collectAllHealth(
 			const diskMax = Math.max(...metrics.disk.map((d) => d.usagePercent), 0);
 			const totalNetRx = metrics.network.reduce((s, n) => s + n.rxBytes, 0);
 			const totalNetTx = metrics.network.reduce((s, n) => s + n.txBytes, 0);
+			const nowMs = Date.now();
+			const rates = networkRatesKbps(server.id, totalNetRx, totalNetTx, nowMs);
 			return {
 				serverId: server.id,
 				serverName: server.name,
@@ -91,9 +127,9 @@ export async function collectAllHealth(
 				mem: metrics.memory.usagePercent,
 				diskMax,
 				loadAvg1m: metrics.cpu.loadAvg[0],
-				networkInKbps: Math.round(totalNetRx / 1024),
-				networkOutKbps: Math.round(totalNetTx / 1024),
-				swapUsagePercent: undefined, // populated below if swap data available
+				networkInKbps: rates.inKbps,
+				networkOutKbps: rates.outKbps,
+				swapUsagePercent: metrics.swapUsagePercent,
 				uptime: metrics.uptime,
 				lastCheck: metrics.timestamp,
 				latencyMs: probe.latencyMs,

@@ -27,6 +27,8 @@ describe("parseMonitorScriptOutput", () => {
 			"73 100",
 			"===MEM===",
 			"16000 6000 9000",
+			"===SWAP===",
+			"2048 512",
 			"===DISK===",
 			"40G 10G 25% /",
 			"===LOAD===",
@@ -39,8 +41,31 @@ describe("parseMonitorScriptOutput", () => {
 
 		expect(result.cpu).toEqual({ usagePercent: 27, cores: 4, loadAvg: [0.12, 0.34, 0.56] });
 		expect(result.memory.usagePercent).toBe(37.5);
+		expect(result.swapUsagePercent).toBe(25);
 		expect(result.disk).toEqual([{ mount: "/", totalGb: "40G", usedGb: "10G", usagePercent: 25 }]);
 		expect(result.network).toEqual([{ iface: "eth0", rxBytes: 1234, txBytes: 5678 }]);
+	});
+
+	it("omits swapUsagePercent when host has no swap", () => {
+		const output = [
+			"===CPU===",
+			"2",
+			"0.01 0.02 0.03 1/100 1",
+			"90 100",
+			"===MEM===",
+			"8000 2000 6000",
+			"===SWAP===",
+			"0 0",
+			"===DISK===",
+			"20G 5G 25% /",
+			"===LOAD===",
+			"up 1 day, 1 user, load average: 0.01, 0.02, 0.03",
+			"===NET===",
+			"eth0 100 200",
+		].join("\n");
+
+		const result = parseMonitorScriptOutput(output);
+		expect(result.swapUsagePercent).toBeUndefined();
 	});
 });
 

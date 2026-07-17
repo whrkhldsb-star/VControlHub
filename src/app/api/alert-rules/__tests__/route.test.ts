@@ -132,6 +132,36 @@ describe("/api/alert-rules", () => {
     );
   });
 
+  it("accepts capacity_* forecast metrics offered by the create-rule UI", async () => {
+    mocks.createAlertRule.mockResolvedValueOnce({
+      id: "rule-cap",
+      name: "Disk capacity risk",
+      metric: "capacity_disk_days",
+      webhookUrl: null,
+    });
+    const req = new Request("http://local/api/alert-rules", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        name: "Disk capacity risk",
+        metric: "capacity_disk_days",
+        operator: "lte",
+        threshold: 14,
+        notifyChannels: ["in_app"],
+      }),
+    });
+    const res = await route.POST(req);
+    expect(res.status).toBe(201);
+    expect(mocks.createAlertRule).toHaveBeenCalledWith(
+      expect.objectContaining({
+        metric: "capacity_disk_days",
+        operator: "lte",
+        threshold: 14,
+      }),
+      expect.anything(),
+    );
+  });
+
   it("accepts form submissions and redirects back to alert rules page", async () => {
     const req = new Request("http://local/api/alert-rules", {
       method: "POST",

@@ -28,6 +28,10 @@ const metrics = [
   "network_out",
   "load_avg",
   "swap_usage",
+  // Capacity-forecast metrics (days until projected 85%) — UI + capacity-alert-link
+  "capacity_cpu_days",
+  "capacity_mem_days",
+  "capacity_disk_days",
 ] as const;
 const operators = ["gt", "gte", "lt", "lte", "eq"] as const;
 const channels = ["in_app", "email", "telegram", "webhook"] as const;
