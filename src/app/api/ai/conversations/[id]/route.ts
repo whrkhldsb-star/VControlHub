@@ -21,7 +21,7 @@ export async function GET(
 ) {
   return withApiRoute(
     request,
-    { requireAuth: true, errorMessage: "Not found", errorStatus: 404 },
+    { permission: "ai:chat", errorMessage: "Not found", errorStatus: 404 },
     async ({ session }) => {
       if (!session)
         return NextResponse.json(
@@ -42,7 +42,7 @@ export async function PATCH(
   return withApiRoute(
     request,
     {
-      requireAuth: true,
+      permission: "ai:chat",
       rateLimit: GENERAL_WRITE_LIMIT,
       errorMessage: "Failed to update",
       errorStatus: 400,
@@ -84,7 +84,7 @@ export async function DELETE(
   return withApiRoute(
     request,
     {
-      requireAuth: true,
+      permission: "ai:chat",
       rateLimit: GENERAL_WRITE_LIMIT,
       errorMessage: "Failed to delete",
       errorStatus: 400,

@@ -14,7 +14,7 @@ export const dynamic = "force-dynamic";
 export async function GET(request: Request) {
   return withApiRoute(
     request,
-    { requireAuth: true, errorMessage: "Server error" },
+    { permission: "ai:chat", errorMessage: "Server error" },
     async ({ session }) => {
       if (!session)
         return NextResponse.json(

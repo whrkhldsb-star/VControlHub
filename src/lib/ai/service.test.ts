@@ -17,6 +17,7 @@ const { prismaMock } = vi.hoisted(() => ({
       findUnique: vi.fn(),
       updateMany: vi.fn(),
       delete: vi.fn(),
+      deleteMany: vi.fn(),
     },
     aiMessage: {
       deleteMany: vi.fn(),
@@ -35,7 +36,7 @@ vi.mock("@/lib/runtime-settings/service", () => ({
   getAiConversationListLimit: vi.fn(async () => 123),
 }));
 
-const { listProviders, listConversations, createProvider, updateProvider, createConversation } = await import("./service");
+const { listProviders, listConversations, createProvider, updateProvider, createConversation, deleteConversation } = await import("./service");
 
 describe("AI service list hydration limits", () => {
   beforeEach(() => {
@@ -167,5 +168,16 @@ describe("AI service list hydration limits", () => {
       | { include?: { provider?: { select?: { apiKey?: unknown } } } }
       | undefined;
     expect(createCall?.include?.provider?.select?.apiKey).toBeUndefined();
+  });
+
+  it("deleteConversation is owner-scoped via deleteMany and throws when missing", async () => {
+    prismaMock.aiConversation.deleteMany.mockResolvedValueOnce({ count: 1 });
+    await deleteConversation("c1", "u1");
+    expect(prismaMock.aiConversation.deleteMany).toHaveBeenCalledWith({
+      where: { id: "c1", createdBy: "u1" },
+    });
+
+    prismaMock.aiConversation.deleteMany.mockResolvedValueOnce({ count: 0 });
+    await expect(deleteConversation("c-missing", "u1")).rejects.toThrow(/not found/i);
   });
 });

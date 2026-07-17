@@ -316,7 +316,9 @@ export async function updateConversation(id: string, userId: string, input: Upda
 }
 
 export async function deleteConversation(id: string, userId: string) {
-	await prisma.aiConversation.delete({ where: { id, createdBy: userId } });
+	// deleteMany avoids Prisma throwing on compound unique miss; keep ownership gate.
+	const deleted = await prisma.aiConversation.deleteMany({ where: { id, createdBy: userId } });
+	if (deleted.count === 0) throw new NotFoundError("Conversation not found");
 }
 
 export async function clearConversationMessages(id: string, userId: string) {

@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const { mocks } = vi.hoisted(() => ({
   mocks: {
+    requireApiPermission: vi.fn(),
     requireApiSession: vi.fn(),
     getConversationById: vi.fn(),
     updateConversation: vi.fn(),
@@ -11,6 +12,9 @@ const { mocks } = vi.hoisted(() => ({
   },
 }));
 
+vi.mock("@/lib/auth/require-api-permission", () => ({
+  requireApiPermission: mocks.requireApiPermission,
+}));
 vi.mock("@/lib/auth/api-session", () => ({
   requireApiSession: mocks.requireApiSession,
 }));
@@ -33,6 +37,7 @@ const fakeConv = {
 describe("/api/ai/conversations/[id] - ownership enforcement", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mocks.requireApiPermission.mockResolvedValue({ session });
     mocks.requireApiSession.mockResolvedValue(session);
     mocks.getConversationById.mockResolvedValue(fakeConv);
     mocks.updateConversation.mockResolvedValue(fakeConv);

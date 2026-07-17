@@ -260,7 +260,7 @@ describe("AI API shared guard migration", () => {
       new Request("http://local/api/ai/conversations"),
     );
     expect(listResponse.status).toBe(200);
-    expect(mocks.requireApiSession).toHaveBeenCalled();
+    expect(mocks.requireApiPermission).toHaveBeenCalledWith("ai:chat");
     expect(mocks.listConversations).toHaveBeenCalledWith("u1");
 
     const createResponse = await conversationsRoute.POST(
@@ -293,6 +293,7 @@ describe("AI API shared guard migration", () => {
       detailParams,
     );
     expect(patchResponse.status).toBe(200);
+    expect(mocks.requireApiPermission).toHaveBeenCalledWith("ai:chat");
     expect(mocks.updateConversation).toHaveBeenCalledWith("c1", "u1", {
       title: "Renamed chat",
     });
@@ -302,6 +303,7 @@ describe("AI API shared guard migration", () => {
       detailParams,
     );
     expect(deleteResponse.status).toBe(200);
+    expect(mocks.requireApiPermission).toHaveBeenCalledWith("ai:chat");
     expect(mocks.deleteConversation).toHaveBeenCalledWith("c1", "u1");
   });
 
