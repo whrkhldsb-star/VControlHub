@@ -643,23 +643,52 @@ export async function handleWebDavCopy(ctx: WebDavContext, request: Request): Pr
 
   const node = await loadNode(ctx.storageNodeId, ctx.session);
   const buffer = await readStorageFileBuffer(node, ctx.relativePath);
+  const destName = entryName(destPath);
+  const destMime = entry.mimeType || undefined;
+
   if (existingDest) {
+    // Overwrite must update the live FileEntry (unique on storageNodeId+relativePath).
+    // Calling createFileEntry here would ConflictError after the backing write succeeded.
+    if (existingDest.entryType === "DIRECTORY") {
+      throw new ConflictError("Cannot overwrite a collection with a file");
+    }
     await snapshotFileVersionBeforeOverwrite({
       fileEntryId: existingDest.id,
       userId: ctx.session.userId,
       reason: "UPLOAD",
       note: "WebDAV COPY overwrite",
     }).catch(() => undefined);
+    await writeStorageFileBuffer(node, destPath, buffer);
+    await prisma.fileEntry.update({
+      where: { id: existingDest.id },
+      data: {
+        name: destName,
+        mimeType: destMime || null,
+        size: BigInt(buffer.byteLength),
+        entryType: "FILE",
+        isDeleted: false,
+      },
+    });
+  } else {
+    const parentPath = parentRelativePath(destPath);
+    if (parentPath) {
+      await ensureDirectoryIndexAndBacking({
+        session: ctx.session,
+        node,
+        storageNodeId: ctx.storageNodeId,
+        relativePath: parentPath,
+      });
+    }
+    await writeStorageFileBuffer(node, destPath, buffer);
+    await createFileEntry({
+      storageNodeId: ctx.storageNodeId,
+      name: destName,
+      entryType: "FILE",
+      relativePath: destPath,
+      mimeType: destMime,
+      size: buffer.byteLength,
+    });
   }
-  await writeStorageFileBuffer(node, destPath, buffer);
-  await createFileEntry({
-    storageNodeId: ctx.storageNodeId,
-    name: entryName(destPath),
-    entryType: "FILE",
-    relativePath: destPath,
-    mimeType: entry.mimeType || undefined,
-    size: buffer.byteLength,
-  });
 
   return new Response(null, {
     status: existingDest ? 204 : 201,

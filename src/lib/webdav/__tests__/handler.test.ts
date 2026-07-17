@@ -237,4 +237,61 @@ describe("webdav handlers", () => {
     expect(prismaMock.storageNode.findUnique).not.toHaveBeenCalled();
     expect(readBufferMock).not.toHaveBeenCalled();
   });
+
+  it("COPY overwrite updates destination FileEntry instead of createFileEntry conflict", async () => {
+    const { handleWebDavCopy } = await import("../handler");
+    prismaMock.fileEntry.findFirst
+      .mockResolvedValueOnce({
+        id: "src1",
+        name: "src.txt",
+        relativePath: "src.txt",
+        entryType: "FILE",
+        size: BigInt(5),
+        mimeType: "text/plain",
+        updatedAt: new Date(),
+      })
+      .mockResolvedValueOnce({
+        id: "dst1",
+        name: "dst.txt",
+        relativePath: "dst.txt",
+        entryType: "FILE",
+        size: BigInt(1),
+        mimeType: "text/plain",
+        updatedAt: new Date(),
+      });
+    readBufferMock.mockResolvedValue(Buffer.from("hello"));
+    writeBufferMock.mockResolvedValue("/data/dst.txt");
+    prismaMock.fileEntry.update.mockResolvedValue({ id: "dst1" });
+    snapshotMock.mockResolvedValue(undefined);
+
+    const req = new Request("http://localhost/api/webdav/node1/src.txt", {
+      method: "COPY",
+      headers: {
+        Destination: "http://localhost/api/webdav/node1/dst.txt",
+        Overwrite: "T",
+      },
+    });
+    const res = await handleWebDavCopy(
+      {
+        session: session as never,
+        storageNodeId: "node1",
+        relativePath: "src.txt",
+        requestUrl: new URL("http://localhost/api/webdav/node1/src.txt"),
+      },
+      req,
+    );
+    expect(res.status).toBe(204);
+    expect(writeBufferMock).toHaveBeenCalled();
+    expect(createEntryMock).not.toHaveBeenCalled();
+    expect(prismaMock.fileEntry.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: "dst1" },
+        data: expect.objectContaining({
+          size: BigInt(5),
+          entryType: "FILE",
+          isDeleted: false,
+        }),
+      }),
+    );
+  });
 });
