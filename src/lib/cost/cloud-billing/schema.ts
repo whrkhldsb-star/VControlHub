@@ -3,6 +3,9 @@
  */
 import { z } from "zod";
 
+import { ValidationError } from "@/lib/errors";
+import { normalizePublicHttpUrl } from "@/lib/storage/direct-access-url";
+
 import { costCurrencySchema, costMonthSchema } from "../schema";
 import { CLOUD_BILLING_PROVIDER_VALUES } from "./types";
 
@@ -17,15 +20,51 @@ export const cloudBillingCredentialsSchema = z
 	})
 	.strict();
 
-export const cloudBillingConfigSchema = z
+function normalizeBillingCsvUrl(value: string): string {
+	try {
+		return normalizePublicHttpUrl(
+			value,
+			"billingCsvUrl must be a public http(s) URL without credentials",
+		);
+	} catch (error) {
+		if (error instanceof ValidationError) throw error;
+		throw new ValidationError(
+			error instanceof Error ? error.message : "billingCsvUrl is not a valid public URL",
+		);
+	}
+}
+
+const cloudBillingConfigObjectSchema = z
 	.object({
 		region: z.string().trim().max(64).optional(),
 		accountId: z.string().trim().max(128).optional(),
 		sampleCsv: z.string().max(200_000).optional(),
+		/** HTTPS/HTTP CSV export URL (CUR dump, custom bill export). Validated against public-host SSRF rules. */
+		billingCsvUrl: z.string().trim().max(2048).optional(),
 		categoryMap: z.record(z.string(), z.enum(["vps", "bandwidth", "storage", "other"])).optional(),
 	})
-	.strict()
-	.default({});
+	.strict();
+
+export type CloudBillingConfigParsed = {
+	region?: string;
+	accountId?: string;
+	sampleCsv?: string;
+	billingCsvUrl?: string;
+	categoryMap?: Record<string, "vps" | "bandwidth" | "storage" | "other">;
+};
+
+export const cloudBillingConfigSchema = cloudBillingConfigObjectSchema.transform(
+	(cfg): CloudBillingConfigParsed => {
+		const raw = cfg.billingCsvUrl?.trim();
+		return {
+			region: cfg.region,
+			accountId: cfg.accountId,
+			sampleCsv: cfg.sampleCsv,
+			billingCsvUrl: raw ? normalizeBillingCsvUrl(raw) : undefined,
+			categoryMap: cfg.categoryMap,
+		};
+	},
+);
 
 export const createCloudBillingAccountSchema = z
 	.object({
@@ -39,7 +78,10 @@ export const createCloudBillingAccountSchema = z
 		teamId: z.unknown().optional(),
 	})
 	.strict()
-	.transform(({ teamId: _teamId, ...rest }) => rest)
+	.transform(({ teamId: _teamId, ...rest }) => ({
+		...rest,
+		config: rest.config ?? ({} as CloudBillingConfigParsed),
+	}))
 	.superRefine((val, ctx) => {
 		if (val.provider !== "generic_csv") {
 			if (!val.credentials.accessKeyId || !val.credentials.secretAccessKey) {
@@ -49,11 +91,15 @@ export const createCloudBillingAccountSchema = z
 					path: ["credentials"],
 				});
 			}
-		} else if (!val.config?.sampleCsv?.trim()) {
+			return;
+		}
+		const hasSample = Boolean(val.config?.sampleCsv?.trim());
+		const hasUrl = Boolean(val.config?.billingCsvUrl?.trim());
+		if (!hasSample && !hasUrl) {
 			ctx.addIssue({
 				code: "custom",
-				message: "generic_csv requires config.sampleCsv",
-				path: ["config", "sampleCsv"],
+				message: "generic_csv requires config.sampleCsv or config.billingCsvUrl",
+				path: ["config"],
 			});
 		}
 	});

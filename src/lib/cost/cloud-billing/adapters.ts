@@ -16,6 +16,11 @@
  * - Empty month → ok with imported=0 (legitimate empty bill)
  */
 import { ValidationError } from "@/lib/errors";
+import {
+	assertPublicBaseUrlResolvesPublic,
+	isUnsafePublicHttpHost,
+	normalizePublicHttpUrl,
+} from "@/lib/storage/direct-access-url";
 
 import type { CostCategory, CostCurrency } from "../types";
 import type {
@@ -41,7 +46,7 @@ function monthBounds(month: string): { start: string; end: string } {
 
 function requireCreds(creds: CloudBillingCredentials, provider: CloudBillingProvider) {
 	if (provider === "generic_csv") {
-		// CSV path may use sampleCsv only
+		// CSV path may use sampleCsv / billingCsvUrl only
 		return;
 	}
 	if (!creds.accessKeyId?.trim() || !creds.secretAccessKey?.trim()) {
@@ -177,35 +182,43 @@ async function fetchBillingCsvFromUrl(
 	month: string,
 	currency: CostCurrency,
 ): Promise<CloudBillingFetchResult> {
-	let parsed: URL;
+	// Re-validate stored URL at fetch time (legacy rows / DB drift) + DNS rebind check.
+	let safeUrl: string;
 	try {
-		parsed = new URL(url);
-	} catch {
-		throw new ValidationError("billingCsvUrl is not a valid URL");
+		safeUrl = normalizePublicHttpUrl(
+			url,
+			"billingCsvUrl must be a public http(s) URL without credentials",
+		);
+	} catch (error) {
+		if (error instanceof ValidationError) throw error;
+		throw new ValidationError(
+			error instanceof Error ? error.message : "billingCsvUrl is not a valid public URL",
+		);
 	}
-	if (parsed.protocol !== "https:" && parsed.protocol !== "http:") {
-		throw new ValidationError("billingCsvUrl must be http(s)");
+
+	// Resolve hostname immediately before request to reduce DNS rebinding risk.
+	// assertPublicBaseUrlResolvesPublic strips path/query; we only need the host check.
+	const hostForDns = new URL(safeUrl).origin;
+	try {
+		await assertPublicBaseUrlResolvesPublic(hostForDns);
+	} catch (error) {
+		if (error instanceof ValidationError) {
+			throw new ValidationError(
+				`billingCsvUrl host is not allowed (SSRF protection): ${error.message}`,
+			);
+		}
+		throw error;
 	}
-	// Block obvious SSRF targets (loopback / link-local / metadata).
-	const host = parsed.hostname.toLowerCase();
-	if (
-		host === "localhost" ||
-		host === "127.0.0.1" ||
-		host === "0.0.0.0" ||
-		host === "::1" ||
-		host.endsWith(".local") ||
-		host.startsWith("169.254.") ||
-		host.startsWith("10.") ||
-		host.startsWith("192.168.") ||
-		/^172\.(1[6-9]|2\d|3[0-1])\./.test(host) ||
-		host === "metadata.google.internal"
-	) {
+
+	const parsed = new URL(safeUrl);
+	if (isUnsafePublicHttpHost(parsed.hostname)) {
 		throw new ValidationError("billingCsvUrl host is not allowed (SSRF protection)");
 	}
+
 	const controller = new AbortController();
 	const timer = setTimeout(() => controller.abort(), 20_000);
 	try {
-		const res = await fetch(parsed.toString(), {
+		const res = await fetch(safeUrl, {
 			method: "GET",
 			redirect: "error",
 			signal: controller.signal,
@@ -268,9 +281,13 @@ export async function fetchCloudBillingItems(input: {
 	requireCreds(credentials, provider);
 
 	if (provider === "generic_csv") {
+		// Prefer live URL when set; otherwise require sampleCsv (probe/manual paste).
+		if (config.billingCsvUrl?.trim()) {
+			return fetchBillingCsvFromUrl(config.billingCsvUrl.trim(), provider, month, currency);
+		}
 		if (!config.sampleCsv?.trim()) {
 			throw new ValidationError(
-				"generic_csv provider requires config.sampleCsv with date,amount columns",
+				"generic_csv provider requires config.sampleCsv or config.billingCsvUrl with date,amount columns",
 			);
 		}
 		return {
@@ -282,7 +299,15 @@ export async function fetchCloudBillingItems(input: {
 		};
 	}
 
-	if (isCloudBillingMockEnabled() || config.sampleCsv?.trim()) {
+	// sampleCsv probe takes precedence over live URL only when mock env is on
+	// OR sampleCsv is explicitly present without a live URL (dev/test path).
+	if (isCloudBillingMockEnabled()) {
+		return mockItemsForProvider(provider, month, currency, config);
+	}
+	if (config.billingCsvUrl?.trim()) {
+		return fetchLiveItems(provider, credentials, config, month, currency);
+	}
+	if (config.sampleCsv?.trim()) {
 		return mockItemsForProvider(provider, month, currency, config);
 	}
 
