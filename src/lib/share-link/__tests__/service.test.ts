@@ -101,7 +101,6 @@ describe("share link service", () => {
     });
     await expect(resolveShareToken("abc", "legacy-pass")).rejects.toThrow(/Incorrect access password/);
   });
-});
 
   it("rejects file entries outside team scope when creating from fileEntryId", async () => {
     mockPrisma.fileEntry.findFirst.mockResolvedValueOnce(null);
@@ -125,3 +124,4 @@ describe("share link service", () => {
       }),
     );
   });
+});
