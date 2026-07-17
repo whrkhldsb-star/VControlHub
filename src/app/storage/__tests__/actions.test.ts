@@ -17,6 +17,7 @@ const {
     userId: "user-1",
     username: "alice",
     roles: ["operator"],
+    currentTeamId: "team-1",
     mustChangePassword: false,
   }),
   prismaMock: {
@@ -31,6 +32,7 @@ const {
     },
     storageNode: {
       findUnique: vi.fn(),
+      findFirst: vi.fn(),
     },
   },
   createFileEntryMock: vi.fn(),
@@ -50,6 +52,7 @@ vi.mock("next/cache", () => ({
 
 vi.mock("@/lib/auth/authorization", () => ({
   requirePermission: requirePermissionMock,
+  sessionHasPermission: vi.fn().mockReturnValue(false),
 }));
 
 vi.mock("@/lib/db", () => ({
@@ -139,14 +142,14 @@ describe("createFolderAction", () => {
 
     expect(result.error).toMatch(/Path/);
     expect(prismaMock.fileEntry.findFirst).not.toHaveBeenCalled();
-    expect(prismaMock.storageNode.findUnique).not.toHaveBeenCalled();
+    expect(prismaMock.storageNode.findFirst).not.toHaveBeenCalled();
     expect(mkdirMock).not.toHaveBeenCalled();
     expect(createFileEntryMock).not.toHaveBeenCalled();
   });
 
   it("normalizes safe folder paths before checking existence and creating SFTP directories", async () => {
     prismaMock.fileEntry.findFirst.mockResolvedValueOnce(null);
-    prismaMock.storageNode.findUnique.mockResolvedValueOnce({
+    prismaMock.storageNode.findFirst.mockResolvedValueOnce({
       id: "node-1",
       name: "remote",
       driver: "SFTP",
@@ -194,7 +197,7 @@ describe("createFolderAction", () => {
 
   it("rolls back a newly-created local folder when indexing fails", async () => {
     prismaMock.fileEntry.findFirst.mockResolvedValueOnce(null);
-    prismaMock.storageNode.findUnique.mockResolvedValueOnce({
+    prismaMock.storageNode.findFirst.mockResolvedValueOnce({
       id: "node-local",
       name: "local",
       driver: "LOCAL",
@@ -228,7 +231,7 @@ describe("createFolderAction", () => {
 
   it("rolls back a newly-created SFTP folder when indexing fails", async () => {
     prismaMock.fileEntry.findFirst.mockResolvedValueOnce(null);
-    prismaMock.storageNode.findUnique.mockResolvedValueOnce({
+    prismaMock.storageNode.findFirst.mockResolvedValueOnce({
       id: "node-sftp",
       name: "remote",
       driver: "SFTP",
@@ -320,7 +323,7 @@ describe("SFTP file entry actions", () => {
   });
 
   it("soft-deletes the indexed SFTP entry before deleting the remote backing file", async () => {
-    prismaMock.fileEntry.findUnique.mockResolvedValueOnce(sftpEntry());
+    prismaMock.fileEntry.findFirst.mockResolvedValueOnce(sftpEntry());
     prismaMock.fileEntry.update.mockResolvedValueOnce({ id: "entry-1" });
 
     const result = await deleteFileEntryAction(null, entryForm("entry-1"));
@@ -342,7 +345,7 @@ describe("SFTP file entry actions", () => {
   });
 
   it("does not delete the backing file when recycle-bin indexing fails", async () => {
-    prismaMock.fileEntry.findUnique.mockResolvedValueOnce(sftpEntry());
+    prismaMock.fileEntry.findFirst.mockResolvedValueOnce(sftpEntry());
     prismaMock.fileEntry.update.mockRejectedValueOnce(new Error("database unavailable"));
 
     const result = await deleteFileEntryAction(null, entryForm("entry-1"));
@@ -352,7 +355,7 @@ describe("SFTP file entry actions", () => {
   });
 
   it("restores through the storage service so physical existence is checked", async () => {
-    prismaMock.fileEntry.findUnique.mockResolvedValueOnce(sftpEntry());
+    prismaMock.fileEntry.findFirst.mockResolvedValueOnce(sftpEntry());
     restoreFileEntryMock.mockResolvedValueOnce({ id: "entry-1" });
 
     const result = await restoreFileEntryAction(null, entryForm("entry-1"));
@@ -363,7 +366,7 @@ describe("SFTP file entry actions", () => {
   });
 
   it("removes directory index rows and then cleans up the remote SFTP directory", async () => {
-    prismaMock.fileEntry.findUnique.mockResolvedValueOnce(
+    prismaMock.fileEntry.findFirst.mockResolvedValueOnce(
       sftpEntry({
         name: "docs",
         entryType: "DIRECTORY",
@@ -391,7 +394,7 @@ describe("SFTP file entry actions", () => {
   });
 
   it("permanent SFTP delete tolerates an already-missing remote file and still removes the recycle-bin row", async () => {
-    prismaMock.fileEntry.findUnique.mockResolvedValueOnce(sftpEntry());
+    prismaMock.fileEntry.findFirst.mockResolvedValueOnce(sftpEntry());
     deleteRemoteFileMock.mockRejectedValueOnce(
       Object.assign(new Error("No such file"), { code: "ENOENT" }),
     );
@@ -415,7 +418,7 @@ describe("SFTP file entry actions", () => {
   });
 
   it("renames the remote SFTP file before updating indexed paths", async () => {
-    prismaMock.fileEntry.findUnique.mockResolvedValueOnce(sftpEntry());
+    prismaMock.fileEntry.findFirst.mockResolvedValueOnce(sftpEntry());
     prismaMock.fileEntry.findFirst.mockResolvedValueOnce(null);
     prismaMock.fileEntry.update.mockResolvedValueOnce({ id: "entry-1" });
 
@@ -441,7 +444,7 @@ describe("SFTP file entry actions", () => {
   });
 
   it("keeps the DB entry in recycle bin when LOCAL backing deletion fails", async () => {
-    prismaMock.fileEntry.findUnique.mockResolvedValueOnce({
+    prismaMock.fileEntry.findFirst.mockResolvedValueOnce({
       id: "local-file",
       name: "report.txt",
       entryType: "FILE",
@@ -474,7 +477,7 @@ describe("SFTP file entry actions", () => {
   });
 
   it("renames LOCAL files on disk before updating indexed paths", async () => {
-    prismaMock.fileEntry.findUnique.mockResolvedValueOnce({
+    prismaMock.fileEntry.findFirst.mockResolvedValueOnce({
       id: "local-file",
       name: "old.txt",
       entryType: "FILE",

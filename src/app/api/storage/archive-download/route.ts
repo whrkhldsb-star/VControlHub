@@ -4,6 +4,8 @@ import path from "node:path";
 import { NextResponse } from "next/server";
 import type { Client } from "ssh2";
 
+import type { SessionPayload } from "@/lib/auth/session";
+import { teamWhere } from "@/lib/auth/team-scope";
 import { prisma } from "@/lib/db";
 import { withApiRoute } from "@/lib/http/api-guard";
 import { parseSearchParams } from "@/lib/http/parse-search-params";
@@ -41,12 +43,14 @@ type DirectoryEntry = {
     host: string | null;
     port: number | null;
     username: string | null;
+    hostKeySha256: string | null;
     server: {
       host: string;
       port: number;
       username: string;
       connectionType: string;
       password: string | null;
+      hostKeySha256: string | null;
       sshKey: { privateKey: string } | null;
     } | null;
   };
@@ -56,12 +60,19 @@ function isDirectoryEntry(entry: DirectoryEntry) {
   return entry.entryType === "DIRECTORY" || entry.mimeType === "inode/directory";
 }
 
-async function findDirectoryEntry(nodeId: string, relativePath: string) {
+async function findDirectoryEntry(
+  nodeId: string,
+  relativePath: string,
+  session: Pick<SessionPayload, "userId" | "roles" | "currentTeamId">,
+) {
   return prisma.fileEntry.findFirst({
     where: {
       storageNodeId: nodeId,
       relativePath,
       isDeleted: false,
+      storageNode: {
+        ...teamWhere(session),
+      },
     },
     include: {
       storageNode: {
@@ -73,6 +84,7 @@ async function findDirectoryEntry(nodeId: string, relativePath: string) {
           host: true,
           port: true,
           username: true,
+          hostKeySha256: true,
           server: {
             select: {
               host: true,
@@ -80,6 +92,7 @@ async function findDirectoryEntry(nodeId: string, relativePath: string) {
               username: true,
               connectionType: true,
               password: true,
+              hostKeySha256: true,
               sshKey: { select: { privateKey: true } },
             },
           },
@@ -113,7 +126,7 @@ export async function GET(request: Request) {
       throw new ValidationError(normalizedPath.reason);
     }
 
-    const entry = await findDirectoryEntry(nodeId, normalizedPath.path);
+    const entry = await findDirectoryEntry(nodeId, normalizedPath.path, session);
     if (!entry) {
       throw new NotFoundError("Directory entry not found");
     }

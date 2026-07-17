@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 
 import { auditUserAction, writeAuditLog } from "@/lib/audit/service";
 import { requirePermission } from "@/lib/auth/authorization";
+import { teamWhere } from "@/lib/auth/team-scope";
 import { assertStorageAccess } from "@/lib/storage/access-control";
 import { prisma } from "@/lib/db";
 import { createLogger } from "@/lib/logging";
@@ -29,8 +30,13 @@ export async function deleteFileEntryAction(
       return { error: t("storagePage.action.missingFileEntryParam") } satisfies StorageDeleteActionState;
     }
 
-    const entry = await prisma.fileEntry.findUnique({
-      where: { id: fileEntryId },
+    const entry = await prisma.fileEntry.findFirst({
+      where: {
+        id: fileEntryId,
+        storageNode: {
+          ...teamWhere(session),
+        },
+      },
       select: {
         id: true,
         name: true,
@@ -172,8 +178,13 @@ export async function restoreFileEntryAction(
       return { error: t("storagePage.action.missingFileEntryParam") } satisfies StorageActionState;
     }
 
-    const entry = await prisma.fileEntry.findUnique({
-      where: { id: fileEntryId },
+    const entry = await prisma.fileEntry.findFirst({
+      where: {
+        id: fileEntryId,
+        storageNode: {
+          ...teamWhere(session),
+        },
+      },
       select: {
         id: true,
         name: true,
@@ -242,8 +253,13 @@ export async function permanentDeleteFileEntryAction(
       return { error: t("storagePage.action.missingFileEntryParam") } satisfies StorageActionState;
     }
 
-    const entry = await prisma.fileEntry.findUnique({
-      where: { id: fileEntryId },
+    const entry = await prisma.fileEntry.findFirst({
+      where: {
+        id: fileEntryId,
+        storageNode: {
+          ...teamWhere(session),
+        },
+      },
       select: {
         id: true,
         name: true,

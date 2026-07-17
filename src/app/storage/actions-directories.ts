@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 
 import { auditUserAction } from "@/lib/audit/service";
 import { requirePermission } from "@/lib/auth/authorization";
+import { teamWhere } from "@/lib/auth/team-scope";
 import { prisma } from "@/lib/db";
 import { serverT } from "@/lib/i18n/server-locale";
 import { createFileEntry } from "@/lib/storage/service";
@@ -76,8 +77,8 @@ export async function createFolderAction(
       } satisfies StorageActionState;
     }
 
-    const storageNode = await prisma.storageNode.findUnique({
-      where: { id: storageNodeId },
+    const storageNode = await prisma.storageNode.findFirst({
+      where: { id: storageNodeId, ...teamWhere(session) },
       select: {
         id: true,
         name: true,
@@ -86,6 +87,7 @@ export async function createFolderAction(
         host: true,
         port: true,
         username: true,
+        hostKeySha256: true,
         serverId: true,
         server: {
           select: {
@@ -95,6 +97,7 @@ export async function createFolderAction(
             username: true,
             connectionType: true,
             password: true,
+            hostKeySha256: true,
             sshKey: { select: { privateKey: true } },
           },
         },
@@ -185,8 +188,14 @@ export async function renameFileEntryAction(
       return { error: t("storagePage.action.invalidEntryName") } satisfies StorageActionState;
     }
 
-    const entry = await prisma.fileEntry.findUnique({
-      where: { id: fileEntryId },
+    const entry = await prisma.fileEntry.findFirst({
+      where: {
+        id: fileEntryId,
+        isDeleted: false,
+        storageNode: {
+          ...teamWhere(session),
+        },
+      },
       select: {
         id: true,
         name: true,
@@ -200,6 +209,7 @@ export async function renameFileEntryAction(
             host: true,
             port: true,
             username: true,
+            hostKeySha256: true,
             server: {
               select: {
                 host: true,
@@ -207,6 +217,7 @@ export async function renameFileEntryAction(
                 username: true,
                 connectionType: true,
                 password: true,
+                hostKeySha256: true,
                 sshKey: { select: { privateKey: true } },
               },
             },

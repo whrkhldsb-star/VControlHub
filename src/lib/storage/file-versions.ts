@@ -123,6 +123,7 @@ async function resolveAccessibleFileEntry(input: {
           host: true,
           port: true,
           username: true,
+          hostKeySha256: true,
           serverId: true,
           server: {
             select: {
@@ -132,6 +133,7 @@ async function resolveAccessibleFileEntry(input: {
               username: true,
               connectionType: true,
               password: true,
+              hostKeySha256: true,
               sshKey: { select: { privateKey: true } },
             },
           },
@@ -207,6 +209,7 @@ export async function snapshotFileVersionBeforeOverwrite(input: {
           host: true,
           port: true,
           username: true,
+          hostKeySha256: true,
           serverId: true,
           server: {
             select: {
@@ -216,6 +219,7 @@ export async function snapshotFileVersionBeforeOverwrite(input: {
               username: true,
               connectionType: true,
               password: true,
+              hostKeySha256: true,
               sshKey: { select: { privateKey: true } },
             },
           },

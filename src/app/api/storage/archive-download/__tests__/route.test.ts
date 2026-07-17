@@ -182,12 +182,14 @@ describe("/api/storage/archive-download", () => {
           host: null,
           port: null,
           username: null,
+          hostKeySha256: "aa".repeat(32),
           server: {
             host: "203.0.113.20",
             port: 2222,
             username: "deploy",
             connectionType: "PASSWORD",
             password: "secret",
+            hostKeySha256: "bb".repeat(32),
             sshKey: null,
           },
         },
@@ -199,8 +201,49 @@ describe("/api/storage/archive-download", () => {
     );
 
     expect(response.status).toBe(200);
-    expect(connectMock).toHaveBeenCalledWith(expect.objectContaining({ host: "203.0.113.20", port: 2222 }));
+    // connectSsh maps hostKeySha256 pin → hostHash/hostVerifier (not raw field)
+    expect(connectMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        host: "203.0.113.20",
+        port: 2222,
+        hostHash: "sha256",
+        hostVerifier: expect.any(Function),
+      }),
+    );
     expect(execMock).toHaveBeenCalledWith("tar -czf - -C '/data/files' -- 'photos'");
     expect(spawnMock).not.toHaveBeenCalled();
+  });
+
+  it("team-scopes directory entry lookup via storageNode teamWhere", async () => {
+    prismaMock.fileEntry.findFirst.mockResolvedValueOnce(null);
+
+    const response = await GET(
+      new Request("https://example.com/api/storage/archive-download?nodeId=node_other&path=photos"),
+    );
+
+    expect(response.status).toBe(404);
+    expect(prismaMock.fileEntry.findFirst).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          storageNodeId: "node_other",
+          storageNode: expect.any(Object),
+        }),
+        include: expect.objectContaining({
+          storageNode: expect.objectContaining({
+            select: expect.objectContaining({
+              hostKeySha256: true,
+              server: expect.objectContaining({
+                select: expect.objectContaining({
+                  hostKeySha256: true,
+                }),
+              }),
+            }),
+          }),
+        }),
+      }),
+    );
+    expect(statMock).not.toHaveBeenCalled();
+    expect(spawnMock).not.toHaveBeenCalled();
+    expect(connectMock).not.toHaveBeenCalled();
   });
 });
