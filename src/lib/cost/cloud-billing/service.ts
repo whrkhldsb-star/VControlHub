@@ -141,7 +141,8 @@ export async function createCloudBillingAccount(
 	session?: SessionScope | null,
 ): Promise<CloudBillingAccountRecord> {
 	const parsed = createCloudBillingAccountSchema.parse(input);
-	const teamFromSession = session ? teamCreateData(session).teamId : undefined;
+	// Team scope is session-derived only — never accept body teamId (IDOR/tenant spoof).
+	const teamId = session ? (teamCreateData(session).teamId ?? null) : null;
 	const row = await prisma.cloudBillingAccount.create({
 		data: {
 			name: parsed.name,
@@ -150,7 +151,7 @@ export async function createCloudBillingAccount(
 			config: (parsed.config ?? {}) as Prisma.InputJsonValue,
 			currency: parsed.currency ?? DEFAULT_CURRENCY,
 			enabled: parsed.enabled ?? true,
-			teamId: parsed.teamId !== undefined ? parsed.teamId : (teamFromSession ?? null),
+			teamId,
 			createdById: session?.userId ?? null,
 		},
 	});
@@ -195,12 +196,8 @@ export async function updateCloudBillingAccount(
 	if (parsed.currency !== undefined) data.currency = parsed.currency;
 	if (parsed.enabled !== undefined) data.enabled = parsed.enabled;
 	if (parsed.config !== undefined) data.config = parsed.config as Prisma.InputJsonValue;
-	if (parsed.teamId !== undefined) {
-		data.team =
-			parsed.teamId === null
-				? { disconnect: true }
-				: { connect: { id: parsed.teamId } };
-	}
+	// Ignore body teamId — reassignment would let cost:manage users move accounts
+	// into another tenant or null-shared scope (cross-team credential/cost IDOR).
 	if (parsed.credentials !== undefined) {
 		const prev = decryptCredentials(existing.credentialsEnc);
 		data.credentialsEnc = encryptCredentials({

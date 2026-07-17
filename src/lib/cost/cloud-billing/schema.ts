@@ -35,8 +35,11 @@ export const createCloudBillingAccountSchema = z
 		enabled: z.boolean().optional(),
 		credentials: cloudBillingCredentialsSchema,
 		config: cloudBillingConfigSchema.optional(),
-		teamId: z.string().trim().min(1).max(64).optional().nullable(),
+		// teamId is session-derived only; strip any client-supplied value.
+		teamId: z.unknown().optional(),
 	})
+	.strict()
+	.transform(({ teamId: _teamId, ...rest }) => rest)
 	.superRefine((val, ctx) => {
 		if (val.provider !== "generic_csv") {
 			if (!val.credentials.accessKeyId || !val.credentials.secretAccessKey) {
@@ -62,9 +65,11 @@ export const updateCloudBillingAccountSchema = z
 		enabled: z.boolean().optional(),
 		credentials: cloudBillingCredentialsSchema.optional(),
 		config: cloudBillingConfigSchema.optional(),
-		teamId: z.string().trim().min(1).max(64).optional().nullable(),
+		// teamId is session-derived only; strip any client-supplied value.
+		teamId: z.unknown().optional(),
 	})
 	.strict()
+	.transform(({ teamId: _teamId, ...rest }) => rest)
 	.refine((v) => Object.keys(v).length > 0, { message: "At least one field must be provided" });
 
 export const syncCloudBillingSchema = z.object({

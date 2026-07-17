@@ -238,18 +238,19 @@ describe("cloud billing service", () => {
 		expect(JSON.stringify(account)).not.toContain("AKIA");
 	});
 
-	it("assigns currentTeamId on create when body omits teamId", async () => {
+	it("ignores body teamId and stamps session currentTeamId", async () => {
 		const account = await createCloudBillingAccount(
 			{
-				name: "team-aws",
+				name: "spoof-attempt",
 				provider: "aws",
 				currency: "USD",
 				credentials: { accessKeyId: "AKIA", secretAccessKey: "secret" },
-			},
+				// Client may still send teamId; schema strips it before service use.
+				teamId: "team_foreign",
+			} as Record<string, unknown>,
 			{ userId: "u1", roles: ["operator"], currentTeamId: "team_a" },
 		);
 		expect(account.teamId).toBe("team_a");
-		expect(account.createdById).toBe("u1");
 	});
 
 	it("list scopes by team for non-admin session", async () => {
@@ -261,15 +262,20 @@ describe("cloud billing service", () => {
 			},
 			{ userId: "u1", roles: ["operator"], currentTeamId: "team_a" },
 		);
-		await createCloudBillingAccount(
+		// Seed a foreign-team account via null session (system path) then force teamId in store
+		const foreign = await createCloudBillingAccount(
 			{
 				name: "b",
 				provider: "aws",
 				credentials: { accessKeyId: "B", secretAccessKey: "s" },
-				teamId: "team_b",
 			},
-			{ userId: "u2", roles: ["operator"], currentTeamId: null },
+			null,
 		);
+		const foreignRow = accountStore.get(foreign.id);
+		if (foreignRow) {
+			foreignRow.teamId = "team_b";
+			accountStore.set(foreign.id, foreignRow);
+		}
 		const listed = await listCloudBillingAccounts({
 			userId: "u1",
 			roles: ["operator"],
@@ -284,10 +290,14 @@ describe("cloud billing service", () => {
 				name: "foreign",
 				provider: "aws",
 				credentials: { accessKeyId: "A", secretAccessKey: "s" },
-				teamId: "team_b",
 			},
 			null,
 		);
+		const foreignRow = accountStore.get(foreign.id);
+		if (foreignRow) {
+			foreignRow.teamId = "team_b";
+			accountStore.set(foreign.id, foreignRow);
+		}
 		await expect(
 			getCloudBillingAccount(foreign.id, {
 				userId: "u1",
@@ -295,6 +305,25 @@ describe("cloud billing service", () => {
 				currentTeamId: "team_a",
 			}),
 		).rejects.toThrow(/not found/i);
+	});
+
+	it("update does not reassign teamId from body", async () => {
+		const { updateCloudBillingAccount } = await import("../service");
+		const account = await createCloudBillingAccount(
+			{
+				name: "stay",
+				provider: "aws",
+				credentials: { accessKeyId: "A", secretAccessKey: "s" },
+			},
+			{ userId: "u1", roles: ["operator"], currentTeamId: "team_a" },
+		);
+		const updated = await updateCloudBillingAccount(
+			account.id,
+			{ name: "stay-renamed", teamId: "team_b" },
+			{ userId: "u1", roles: ["operator"], currentTeamId: "team_a" },
+		);
+		expect(updated.name).toBe("stay-renamed");
+		expect(updated.teamId).toBe("team_a");
 	});
 
 	it("imports CSV line items into cost entries on sync", async () => {
