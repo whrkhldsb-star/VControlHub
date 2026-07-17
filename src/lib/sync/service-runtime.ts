@@ -225,7 +225,20 @@ async function runOneWayRsync(input: {
 
 /* ── Main entry point ─────────────────────────────────────── */
 
-export async function executeSyncJob(jobId: string): Promise<void> {
+export type ExecuteSyncJobResult = {
+	ok: boolean;
+	status: "IDLE" | "ERROR" | "RUNNING";
+	lastSyncResult: string | null;
+	errorMessage?: string;
+};
+
+/**
+ * Run a sync job once. Always persists COMPLETED/FAILED on SyncLog and
+ * IDLE/ERROR on SyncJob. Returns a structured result so HTTP callers can
+ * surface failures instead of always returning success:true after a
+ * swallowed catch.
+ */
+export async function executeSyncJob(jobId: string): Promise<ExecuteSyncJobResult> {
 	const job = await getSyncJob(jobId);
 	if (!job) throw new Error("Sync job not found");
 
@@ -308,9 +321,12 @@ export async function executeSyncJob(jobId: string): Promise<void> {
 				lastSyncResult,
 			},
 		});
+
+		return { ok: true, status: "IDLE", lastSyncResult };
 	} catch (error) {
 		const duration = Date.now() - startTime;
 		const errMsg = error instanceof Error ? error.message : String(error);
+		const lastSyncResult = `Failed: ${errMsg.slice(0, 200)}`;
 
 		await prisma.syncLog.update({
 			where: { id: logEntry.id },
@@ -324,9 +340,15 @@ export async function executeSyncJob(jobId: string): Promise<void> {
 
 		await prisma.syncJob.update({
 			where: { id: jobId },
-			data: { status: "ERROR", lastSyncResult: `Failed: ${errMsg.slice(0, 200)}` },
+			data: { status: "ERROR", lastSyncResult },
 		});
 
 		logError(`[SyncService] Job ${jobId} failed:`, error);
+		return {
+			ok: false,
+			status: "ERROR",
+			lastSyncResult,
+			errorMessage: errMsg.slice(0, 2000),
+		};
 	}
 }

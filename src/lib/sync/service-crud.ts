@@ -8,8 +8,10 @@
 import { prisma } from "@/lib/db";
 import { teamCreateData, teamWhere } from "@/lib/auth/team-scope";
 import type { SessionPayload } from "@/lib/auth/session";
-import { NotFoundError } from "@/lib/errors";
+import { NotFoundError, ValidationError } from "@/lib/errors";
 import { effectiveDeleteOrphans } from "./bidirectional";
+
+export type SyncSessionScope = Pick<SessionPayload, "userId" | "roles" | "currentTeamId">;
 
 export type SyncJobInput = {
 	name: string;
@@ -22,10 +24,39 @@ export type SyncJobInput = {
 	deleteOrphans?: boolean;
 	compress?: boolean;
 	createdBy?: string;
-	session?: Pick<SessionPayload, "userId" | "roles" | "currentTeamId">;
+	session?: SyncSessionScope;
 };
 
+/**
+ * Ensure source/target servers are visible under the caller's teamWhere.
+ * Prevents storage:write users from stamping foreign VPS into a SyncJob
+ * (and later rsyncing their files) after Server list/CRUD became team-scoped.
+ */
+async function assertSyncServersInScope(
+	serverIds: string[],
+	session?: SyncSessionScope | null,
+): Promise<void> {
+	const unique = Array.from(new Set(serverIds.filter(Boolean)));
+	if (unique.length === 0) {
+		throw new ValidationError("Source and target servers are required");
+	}
+	const scope = session ? teamWhere(session) : {};
+	const servers = await prisma.server.findMany({
+		where: { id: { in: unique }, ...scope },
+		select: { id: true },
+	});
+	if (servers.length !== unique.length) {
+		throw new ValidationError(
+			"One or more source/target servers were not found or are outside your team scope",
+		);
+	}
+}
+
 export async function createSyncJob(input: SyncJobInput) {
+	await assertSyncServersInScope(
+		[input.sourceServerId, input.targetServerId],
+		input.session ?? null,
+	);
 	const teamData = input.session ? teamCreateData(input.session) : {};
 	const deleteOrphans = effectiveDeleteOrphans(input.syncType ?? "MIRROR", input.deleteOrphans ?? false);
 	return prisma.syncJob.create({

@@ -4,7 +4,7 @@
 import { NextResponse } from "next/server";
 
 import { auditUserAction } from "@/lib/audit/service";
-import { NotFoundError } from "@/lib/errors";
+import { BusinessError, NotFoundError } from "@/lib/errors";
 import { withApiRoute } from "@/lib/http/api-guard";
 import { GENERAL_WRITE_LIMIT } from "@/lib/http/rate-limit-presets";
 import { getSyncJob } from "@/lib/sync/service-crud";
@@ -27,14 +27,23 @@ export async function POST(
     async ({ session }) => {
       const job = await getSyncJob(id, session ?? undefined);
       if (!job) throw new NotFoundError("Sync job not found");
-      await executeSyncJob(id);
+      const result = await executeSyncJob(id);
       const updated = await getSyncJob(id, session ?? undefined);
       await auditUserAction(session?.userId ?? "anonymous", "sync_job.run", {
         jobId: id,
         syncType: job.syncType,
-        status: updated?.status ?? null,
-        lastSyncResult: updated?.lastSyncResult ?? null,
+        status: updated?.status ?? result.status ?? null,
+        lastSyncResult: updated?.lastSyncResult ?? result.lastSyncResult ?? null,
+        ok: result.ok,
       });
+      if (!result.ok) {
+        // Persist ERROR/FAILED already happened; surface honest failure to client
+        // instead of success:true with status=ERROR (false success UX).
+        throw new BusinessError(
+          result.errorMessage?.slice(0, 300) || "Sync job failed",
+          { jobId: id, status: result.status, lastSyncResult: result.lastSyncResult },
+        );
+      }
       return NextResponse.json({
         success: true,
         job: updated

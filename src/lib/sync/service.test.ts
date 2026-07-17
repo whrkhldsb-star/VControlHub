@@ -4,6 +4,10 @@ const { prismaMock } = vi.hoisted(() => ({
   prismaMock: {
     syncJob: {
       findMany: vi.fn(),
+      create: vi.fn(),
+    },
+    server: {
+      findMany: vi.fn(),
     },
   },
 }));
@@ -13,6 +17,7 @@ vi.mock("@/lib/db", () => ({ prisma: prismaMock }));
 import {
   buildRsyncCommand,
   buildTarSyncCommand,
+  createSyncJob,
   decryptSyncTargetCredentials,
   getSyncTempKeyPath,
   listSyncJobs,
@@ -33,6 +38,63 @@ describe("sync job listing", () => {
       orderBy: { createdAt: "desc" },
       take: 200,
     }));
+  });
+});
+
+describe("createSyncJob team scope", () => {
+  const baseInput = {
+    name: "team-sync",
+    sourceServerId: "srv-a",
+    sourcePath: "/data/a",
+    targetServerId: "srv-b",
+    targetPath: "/data/b",
+    session: {
+      userId: "u1",
+      roles: ["operator"] as ("operator")[],
+      currentTeamId: "team-1",
+    },
+  };
+
+  it("rejects source/target servers outside the caller's teamWhere", async () => {
+    prismaMock.server.findMany.mockResolvedValueOnce([{ id: "srv-a" }]); // missing srv-b
+
+    await expect(createSyncJob(baseInput)).rejects.toThrow(
+      /outside your team scope|not found/,
+    );
+    expect(prismaMock.syncJob.create).not.toHaveBeenCalled();
+    expect(prismaMock.server.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          id: { in: ["srv-a", "srv-b"] },
+          OR: [{ teamId: "team-1" }, { teamId: null }],
+        }),
+      }),
+    );
+  });
+
+  it("stamps teamId and creates when both servers are in scope", async () => {
+    prismaMock.server.findMany.mockResolvedValueOnce([{ id: "srv-a" }, { id: "srv-b" }]);
+    prismaMock.syncJob.create.mockResolvedValueOnce({
+      id: "job-1",
+      ...baseInput,
+      teamId: "team-1",
+      sourceServer: { id: "srv-a", name: "A", host: "a" },
+      targetServer: { id: "srv-b", name: "B", host: "b" },
+    });
+
+    const job = await createSyncJob(baseInput);
+
+    expect(job.id).toBe("job-1");
+    expect(prismaMock.syncJob.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          sourceServerId: "srv-a",
+          targetServerId: "srv-b",
+          teamId: "team-1",
+          createdBy: "u1",
+        }),
+      }),
+    );
   });
 });
 
