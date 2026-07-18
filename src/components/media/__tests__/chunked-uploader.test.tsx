@@ -279,7 +279,10 @@ describe("useChunkedMediaUpload", () => {
 
 		expect(result.current.status).toBe("error");
 		expect(result.current.error).toBe("session_expired");
-		// localStorage cleared so a retry starts fresh
-		expect(Object.keys(localStorage).filter((k) => k.startsWith("vcMediaUploadSession:"))).toEqual([]);
+		// Keep resume fingerprint so a retry of the same file can continue
+		// from server-received chunks instead of re-uploading from scratch.
+		expect(
+			Object.keys(localStorage).filter((k) => k.startsWith("vcMediaUploadSession:")),
+		).toHaveLength(1);
 	});
 });

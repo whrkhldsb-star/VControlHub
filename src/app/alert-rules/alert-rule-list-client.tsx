@@ -434,12 +434,14 @@ export function AlertRuleListClient({
 													"{minutes}",
 													String(rule.cooldownMinutes),
 												)}
-									<span className="rounded-full border border-[var(--border-subtle)] bg-[var(--surface)] px-2 py-0.5 text-[10px] text-[var(--text-muted)]">
-										{t("alertRulesPage.badge.escalation").replace("{minutes}", String(rule.escalationMinutes ?? 30))}
-									</span>
-
 											</span>
 										)}
+										<span className="rounded-full border border-[var(--border-subtle)] bg-[var(--surface)] px-2 py-0.5 text-[10px] text-[var(--text-muted)]">
+											{t("alertRulesPage.badge.escalation").replace(
+												"{minutes}",
+												String(rule.escalationMinutes ?? 30),
+											)}
+										</span>
 										{(rule.silenceWindows?.length ?? 0) > 0 && (
 											<span className="rounded-lg border border-[var(--accent-border)] bg-[var(--accent-bg)] px-1.5 py-0.5 text-[10px] text-[var(--accent)]">
 												{t("alertRulesPage.badge.silence").replace(

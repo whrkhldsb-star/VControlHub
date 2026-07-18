@@ -59,8 +59,23 @@ function wrap(ui: React.ReactElement) {
 
 describe("alert rules client", () => {
 	beforeEach(() => {
-		vi.restoreAllMocks();
-		vi.mocked(csrfFetch).mockReset();
+		vi.clearAllMocks();
+		// Mount always loads open incidents when canManage=true. Route that
+		// bootstrap/list-refresh traffic through a sticky default implementation
+		// so action-specific mockResolvedValueOnce/mockRejectedValueOnce still win.
+		vi.mocked(csrfFetch).mockImplementation(async (input: RequestInfo | URL, init?: RequestInit) => {
+			const url = String(input);
+			const method = (init?.method ?? "GET").toUpperCase();
+			if (url.startsWith("/api/alert-incidents") && method === "GET") {
+				return { incidents: [] };
+			}
+			if (url === "/api/alert-rules" && method === "GET") {
+				return { rules: [] };
+			}
+			// Unmocked state-changing calls should fail loudly in tests that
+			// expect a one-shot mock; return a neutral empty payload otherwise.
+			return {};
+		});
 	});
 
 	it("submits new alert rules to the API instead of only closing the form", async () => {
@@ -90,6 +105,8 @@ describe("alert rules client", () => {
 					playbookIds: [],
 					notifyChannels: ["in_app"],
 					cooldownMinutes: 30,
+					escalationMinutes: 30,
+					onCallUserIds: [],
 					silenceWindows: ["22:00-08:00"],
 					webhookUrl: undefined,
 				}),
@@ -134,7 +151,6 @@ describe("alert rules client", () => {
 
 	it("surfaces alert rule toggle failures and keeps the rule unchanged", async () => {
 		const user = userEvent.setup();
-		vi.mocked(csrfFetch).mockRejectedValueOnce(new Error("告警规则更新失败"));
 
 		render(wrap(<AlertRuleListClient rules={[{
 			id: "rule1",
@@ -151,6 +167,11 @@ describe("alert rules client", () => {
 			lastTriggeredAt: null,
 			createdAt: "2026-01-01T00:00:00.000Z",
 		}]} servers={[]} canManage={true} />));
+
+		await waitFor(() => expect(csrfFetch).toHaveBeenCalled());
+		vi.mocked(csrfFetch).mockImplementationOnce(async () => {
+			throw new Error("告警规则更新失败");
+		});
 
 		await user.click(screen.getByRole("button", { name: "暂停" }));
 
@@ -184,11 +205,11 @@ describe("alert rules client", () => {
 
 		expect(nativeConfirm).not.toHaveBeenCalled();
 		expect(screen.getByRole("dialog", { name: "删除告警规则" })).toHaveTextContent("Disk full");
-		expect(csrfFetch).not.toHaveBeenCalled();
+		expect(csrfFetch.mock.calls.some((call) => String(call[0]).includes("?id=rule1"))).toBe(false);
 
 		await user.click(screen.getByRole("button", { name: "取消" }));
 		expect(screen.queryByRole("dialog", { name: "删除告警规则" })).not.toBeInTheDocument();
-		expect(csrfFetch).not.toHaveBeenCalled();
+		expect(csrfFetch.mock.calls.some((call) => String(call[0]).includes("?id=rule1"))).toBe(false);
 
 		await user.click(screen.getByRole("button", { name: "删除" }));
 		await user.click(screen.getByRole("button", { name: "确认删除" }));
@@ -198,7 +219,6 @@ describe("alert rules client", () => {
 
 	it("surfaces alert rule delete failures and keeps the rule visible", async () => {
 		const user = userEvent.setup();
-		vi.mocked(csrfFetch).mockRejectedValueOnce(new Error("告警规则删除失败"));
 
 		render(wrap(<AlertRuleListClient rules={[{
 			id: "rule1",
@@ -216,6 +236,11 @@ describe("alert rules client", () => {
 			createdAt: "2026-01-01T00:00:00.000Z",
 		}]} servers={[]} canManage={true} />));
 
+		await waitFor(() => expect(csrfFetch).toHaveBeenCalled());
+		vi.mocked(csrfFetch).mockImplementationOnce(async () => {
+			throw new Error("告警规则删除失败");
+		});
+
 		await user.click(screen.getByRole("button", { name: "删除" }));
 		await user.click(screen.getByRole("button", { name: "确认删除" }));
 
@@ -226,9 +251,13 @@ describe("alert rules client", () => {
 
 	it("surfaces immediate alert check failures", async () => {
 		const user = userEvent.setup();
-		vi.mocked(csrfFetch).mockRejectedValueOnce(new Error("检测任务启动失败"));
 
 		render(wrap(<AlertRuleListClient rules={[]} servers={[]} canManage={true} />));
+
+		await waitFor(() => expect(csrfFetch).toHaveBeenCalled());
+		vi.mocked(csrfFetch).mockImplementationOnce(async () => {
+			throw new Error("检测任务启动失败");
+		});
 
 		await user.click(screen.getByRole("button", { name: "🔍 立即检测" }));
 
@@ -238,9 +267,6 @@ describe("alert rules client", () => {
 
 	it("can send a test alert for a configured rule and display delivery results", async () => {
 		const user = userEvent.setup();
-		vi.mocked(csrfFetch).mockResolvedValueOnce({
-			deliveries: [{ channel: "webhook", status: "sent", message: "Webhook 测试请求已发送" }],
-		});
 
 		render(wrap(<AlertRuleListClient rules={[{
 			id: "rule1",
@@ -257,6 +283,11 @@ describe("alert rules client", () => {
 			lastTriggeredAt: null,
 			createdAt: "2026-01-01T00:00:00.000Z",
 		}]} servers={[]} canManage={true} />));
+
+		await waitFor(() => expect(csrfFetch).toHaveBeenCalled());
+		vi.mocked(csrfFetch).mockImplementationOnce(async () => ({
+			deliveries: [{ channel: "webhook", status: "sent", message: "Webhook 测试请求已发送" }],
+		}));
 
 		await user.click(screen.getByRole("button", { name: "测试发送" }));
 
@@ -273,7 +304,6 @@ describe("alert rules client", () => {
 
 	it("surfaces alert test-send failures", async () => {
 		const user = userEvent.setup();
-		vi.mocked(csrfFetch).mockRejectedValueOnce(new Error("Webhook 不可达"));
 
 		render(wrap(<AlertRuleListClient rules={[{
 			id: "rule1",
@@ -290,6 +320,11 @@ describe("alert rules client", () => {
 			lastTriggeredAt: null,
 			createdAt: "2026-01-01T00:00:00.000Z",
 		}]} servers={[]} canManage={true} />));
+
+		await waitFor(() => expect(csrfFetch).toHaveBeenCalled());
+		vi.mocked(csrfFetch).mockImplementationOnce(async () => {
+			throw new Error("Webhook 不可达");
+		});
 
 		await user.click(screen.getByRole("button", { name: "测试发送" }));
 

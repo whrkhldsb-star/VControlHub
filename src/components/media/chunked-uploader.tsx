@@ -368,7 +368,10 @@ export function useChunkedMediaUpload(
 				});
 				return complete;
 			} catch (err) {
-				clearPersistedSession(file);
+				// Keep localStorage session fingerprint on transient failures so
+				// the next upload of the same file can resume server-side chunks.
+				// Only clear on success (above) or when init intentionally discards
+				// an unusable persisted session.
 				const message = err instanceof Error ? err.message : String(err);
 				emit({
 					status: "error",
