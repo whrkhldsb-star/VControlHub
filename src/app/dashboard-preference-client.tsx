@@ -114,20 +114,27 @@ export function DashboardPreferenceClient({
 
 	const visibleStyle = useMemo(() => {
 		// Two layers of CSS injection:
-		//   1. Hidden widgets: display:none (legacy behavior, also respects /api/preferences)
-		//   2. Edit mode draft order: order: N on each widget
+		//   1. View mode: hide widgets missing from persisted dashboardWidgets
+		//   2. Edit mode: draft order + draftHidden is the sole source of truth
+		//      (must not also apply preference-hidden CSS, or previously-hidden
+		//      widgets can never be re-shown without a full reset)
 		const lines: string[] = [];
-		for (const id of hiddenWidgetIds) {
-			lines.push(`[data-dashboard-widget="${id}"]{display:none}`);
-		}
 		if (isEditing && draftOrder) {
-			draftOrder.forEach((id, idx) => {
-				if (effectiveHidden.has(id)) {
+			const inDraft = new Set(draftOrder);
+			for (const id of DASHBOARD_WIDGET_IDS) {
+				if (effectiveHidden.has(id) || !inDraft.has(id)) {
 					lines.push(`[data-dashboard-widget="${id}"]{display:none}`);
-				} else {
+				}
+			}
+			draftOrder.forEach((id, idx) => {
+				if (!effectiveHidden.has(id)) {
 					lines.push(`[data-dashboard-widget="${id}"]{order:${idx}}`);
 				}
 			});
+		} else {
+			for (const id of hiddenWidgetIds) {
+				lines.push(`[data-dashboard-widget="${id}"]{display:none}`);
+			}
 		}
 		return lines.join("\n");
 	}, [hiddenWidgetIds, isEditing, draftOrder, effectiveHidden]);
@@ -156,8 +163,15 @@ export function DashboardPreferenceClient({
 
 	const handleEnterEdit = useCallback(() => {
 		setIsEditing(true);
-		setDraftOrder([...preferences.dashboardWidgets]);
-		setDraftHidden(new Set());
+		// Seed full order: current visible order first, then previously-hidden
+		// widgets so the toolbar can re-show them without requiring "reset all".
+		const visible = preferences.dashboardWidgets.filter((id): id is DashboardWidgetId =>
+			(DASHBOARD_WIDGET_IDS as readonly string[]).includes(id),
+		);
+		const visibleSet = new Set(visible);
+		const previouslyHidden = DASHBOARD_WIDGET_IDS.filter((id) => !visibleSet.has(id));
+		setDraftOrder([...visible, ...previouslyHidden]);
+		setDraftHidden(new Set(previouslyHidden));
 	}, [preferences.dashboardWidgets]);
 
 	const handleExitEdit = useCallback(async () => {
@@ -175,21 +189,23 @@ export function DashboardPreferenceClient({
 		setDraftHidden(new Set());
 	}, []);
 
-	const handleToggleVisibility = useCallback(
-		(id: DashboardWidgetId) => {
-			setDraftHidden((prev) => {
-				const base = prev ?? new Set<DashboardWidgetId>();
-				const next = new Set(base);
-				if (next.has(id)) {
-					next.delete(id);
-				} else {
-					next.add(id);
-				}
-				return next;
-			});
-		},
-		[],
-	);
+	const handleToggleVisibility = useCallback((id: DashboardWidgetId) => {
+		// Keep draft order complete so un-hiding never drops a widget permanently.
+		setDraftOrder((prev) => {
+			const order = prev ?? [...DASHBOARD_WIDGET_IDS];
+			return order.includes(id) ? order : [...order, id];
+		});
+		setDraftHidden((prev) => {
+			const base = prev ?? new Set<DashboardWidgetId>();
+			const next = new Set(base);
+			if (next.has(id)) {
+				next.delete(id);
+			} else {
+				next.add(id);
+			}
+			return next;
+		});
+	}, []);
 
 	// HTML5 drag-and-drop wiring — only enabled in edit mode.
 	const handleDragStart = useCallback(

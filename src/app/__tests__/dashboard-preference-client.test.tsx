@@ -212,4 +212,47 @@ describe("DashboardPreferenceClient", () => {
     // 默认 dragReorderEnabled=true, 编辑入口应当可见
     expect(screen.getByRole("button", { name: "dashboard.customize-edit" })).toBeInTheDocument();
   });
+
+  it("re-shows a previously hidden widget without requiring full reset", async () => {
+    csrfFetchMock.mockResolvedValue({
+      defaultPage: "/",
+      // analytics is absent from the persisted visible list
+      dashboardWidgets: ["server-status", "quick-links", "audit-log"],
+      notificationsEnabled: true,
+      notificationSound: true,
+      autoRefreshInterval: 30,
+    });
+
+    renderDashboardPreferenceClient();
+    await waitFor(() => expect(csrfFetchMock).toHaveBeenCalledWith("/api/preferences"));
+
+    // View mode still hides analytics via preference CSS.
+    expect(document.querySelector("style")?.textContent).toContain(
+      '[data-dashboard-widget="analytics"]{display:none}',
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "dashboard.customize-edit" }));
+
+    // Enter edit: previously-hidden analytics is seeded as hidden (aria-pressed).
+    const analyticsToggle = screen.getByTestId("toggle-widget-analytics");
+    expect(analyticsToggle).toHaveAttribute("aria-pressed", "true");
+
+    // Un-hide analytics and complete edit — PUT must restore it in the visible list.
+    fireEvent.click(analyticsToggle);
+    expect(analyticsToggle).toHaveAttribute("aria-pressed", "false");
+    fireEvent.click(screen.getByTestId("customize-done"));
+
+    await waitFor(() => {
+      const putCall = csrfFetchMock.mock.calls.find(([url, init]) => {
+        return url === "/api/preferences" && (init as RequestInit | undefined)?.method === "PUT";
+      });
+      expect(putCall).toBeDefined();
+    });
+    const putCall = csrfFetchMock.mock.calls.find(([url, init]) => {
+      return url === "/api/preferences" && (init as RequestInit | undefined)?.method === "PUT";
+    });
+    const init = putCall?.[1] as RequestInit | undefined;
+    const body = JSON.parse(String(init?.body)) as { dashboardWidgets: string[] };
+    expect(body.dashboardWidgets).toEqual(["server-status", "quick-links", "audit-log", "analytics"]);
+  });
 });
