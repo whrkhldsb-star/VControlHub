@@ -108,7 +108,8 @@ export function BidirectionalSyncPanel({ servers }: { servers: ServerOption[] })
     setError(null);
     setBusyId("create");
     try {
-      const res = await csrfFetch("/api/sync-jobs", {
+      // csrfFetch auto-parses JSON and throws on !ok — do not treat result as Response.
+      await csrfFetch("/api/sync-jobs", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -123,8 +124,6 @@ export function BidirectionalSyncPanel({ servers }: { servers: ServerOption[] })
           compress: false,
         }),
       });
-      const data = (await res.json().catch(() => ({}))) as { error?: string };
-      if (!res.ok) throw new Error(data.error || t("filesPage.syncJobs.createFailed"));
       setName("");
       await load();
     } catch (e) {
@@ -138,9 +137,7 @@ export function BidirectionalSyncPanel({ servers }: { servers: ServerOption[] })
     setBusyId(id);
     setError(null);
     try {
-      const res = await csrfFetch(`/api/sync-jobs/${id}/run`, { method: "POST" });
-      const data = (await res.json().catch(() => ({}))) as { error?: string };
-      if (!res.ok) throw new Error(data.error || t("filesPage.syncJobs.runFailed"));
+      await csrfFetch(`/api/sync-jobs/${id}/run`, { method: "POST" });
       await load();
     } catch (e) {
       setError(e instanceof Error ? e.message : t("filesPage.syncJobs.runFailed"));
@@ -153,13 +150,11 @@ export function BidirectionalSyncPanel({ servers }: { servers: ServerOption[] })
     setBusyId(`sch-${id}`);
     setError(null);
     try {
-      const res = await csrfFetch(`/api/sync-jobs/${id}`, {
+      await csrfFetch(`/api/sync-jobs/${id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ schedule: next === "manual" ? null : next }),
       });
-      const data = (await res.json().catch(() => ({}))) as { error?: string };
-      if (!res.ok) throw new Error(data.error || t("filesPage.syncJobs.scheduleFailed"));
       await load();
     } catch (e) {
       setError(e instanceof Error ? e.message : t("filesPage.syncJobs.scheduleFailed"));
@@ -188,9 +183,7 @@ export function BidirectionalSyncPanel({ servers }: { servers: ServerOption[] })
     setBusyId(id);
     setError(null);
     try {
-      const res = await csrfFetch(`/api/sync-jobs/${id}`, { method: "DELETE" });
-      const data = (await res.json().catch(() => ({}))) as { error?: string };
-      if (!res.ok) throw new Error(data.error || t("filesPage.syncJobs.deleteFailed"));
+      await csrfFetch(`/api/sync-jobs/${id}`, { method: "DELETE" });
       if (reportJobId === id) {
         setReportJobId(null);
         setReport(null);

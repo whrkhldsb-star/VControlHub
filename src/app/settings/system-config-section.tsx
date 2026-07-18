@@ -44,7 +44,8 @@ export function SystemConfigSection() {
     setExporting(true);
     setExportError(null);
     try {
-      const res = await csrfFetch(`/api/system/export?mode=${exportMode}`, { method: "GET" });
+      // Export returns a file body — use raw Response mode (default csrfFetch auto-parses JSON).
+      const res = await csrfFetch(`/api/system/export?mode=${exportMode}`, { method: "GET", raw: true });
       if (!res.ok) throw new Error(t("systemConfig.export.error"));
       const blob = await res.blob();
       const url = URL.createObjectURL(blob);
@@ -102,7 +103,8 @@ export function SystemConfigSection() {
     setPreview(null);
     setImportError(null);
     try {
-      const res = await csrfFetch("/api/system/import", {
+      // csrfFetch returns parsed JSON (throws on !ok) — do not treat as Response.
+      const data = await csrfFetch<{ preview?: ImportPreview; error?: string }>("/api/system/import", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -113,9 +115,8 @@ export function SystemConfigSection() {
           importSettings,
         }),
       });
-      if (!res.ok) throw new Error(t("systemConfig.import.previewFailed"));
-      const data = await res.json();
-      setPreview(data.preview as ImportPreview);
+      if (!data.preview) throw new Error(data.error || t("systemConfig.import.previewFailed"));
+      setPreview(data.preview);
     } catch (err) {
       setImportError(err instanceof Error ? err.message : t("systemConfig.import.result.error"));
     } finally {
@@ -131,7 +132,10 @@ export function SystemConfigSection() {
     setResult(null);
     setImportError(null);
     try {
-      const res = await csrfFetch("/api/system/import", {
+      const data = await csrfFetch<{
+        result?: { created: number; updated: number; skipped: number };
+        error?: string;
+      }>("/api/system/import", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -142,7 +146,6 @@ export function SystemConfigSection() {
           importSettings,
         }),
       });
-      const data = await res.json();
       if (data.result) {
         setResult(data.result);
       } else {

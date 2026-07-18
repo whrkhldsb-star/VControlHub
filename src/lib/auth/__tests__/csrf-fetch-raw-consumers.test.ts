@@ -6,8 +6,11 @@ const repoRoot = process.cwd();
 
 const RESPONSE_CONSUMER_FILES = [
 	"src/app/ai-ops/ai-ops-page-client.tsx",
-	"src/app/cost-summary/cost-page-client.tsx",
+	// cost page state machine holds raw Response consumers (export/import moved out of cost-page-client)
+	"src/app/cost-summary/use-cost-page-state.ts",
 	"src/app/backups/offsite-dry-run-button.tsx",
+	// system export returns a downloadable body; must use raw:true (not auto-parsed JSON)
+	"src/app/settings/system-config-section.tsx",
 ] as const;
 
 function rawModeCallCount(source: string): number {
@@ -25,8 +28,9 @@ describe("csrfFetch Response consumers", () => {
 
 		expect(counts).toEqual({
 			"src/app/ai-ops/ai-ops-page-client.tsx": 6,
-			"src/app/cost-summary/cost-page-client.tsx": 6,
+			"src/app/cost-summary/use-cost-page-state.ts": 6,
 			"src/app/backups/offsite-dry-run-button.tsx": 1,
+			"src/app/settings/system-config-section.tsx": 1,
 		});
 	});
 });
