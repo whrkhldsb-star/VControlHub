@@ -27,6 +27,17 @@ type AiChatBody = {
 
 type ConversationForAiChat = Awaited<ReturnType<typeof getConversationById>>;
 
+/** Parse a JSON string into an array; returns [] on corrupt/missing input. */
+function safeJsonArray<T = unknown>(raw: string | null | undefined): T[] {
+  if (!raw) return [];
+  try {
+    const parsed: unknown = JSON.parse(raw);
+    return Array.isArray(parsed) ? (parsed as T[]) : [];
+  } catch {
+    return [];
+  }
+}
+
 export function buildAiChatMessagePayload(input: {
   body: AiChatBody;
   conv: ConversationForAiChat;
@@ -48,14 +59,14 @@ export function buildAiChatMessagePayload(input: {
       continue;
     }
 
-    const toolCallsData = JSON.parse(msg.toolCalls || "[]");
+    const toolCallsData = safeJsonArray<{ id: string; type: "function"; function: { name: string; arguments: string } }>(msg.toolCalls);
     if (msg.role === "assistant" && toolCallsData.length > 0) {
       historyMessages.push({ role: "assistant", content: msg.content || "", tool_calls: toolCallsData });
       continue;
     }
 
     if (msg.role === "user" && isVisionCapable) {
-      const imgUrls: string[] = JSON.parse(msg.imageUrls || "[]");
+      const imgUrls = safeJsonArray<string>(msg.imageUrls);
       if (imgUrls.length > 0) {
         const content: Array<{ type: "text" | "image_url"; text?: string; image_url?: { url: string } }> = [
           { type: "text", text: msg.content },

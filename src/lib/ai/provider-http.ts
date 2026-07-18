@@ -13,6 +13,7 @@
  */
 
 import { ValidationError } from "@/lib/errors";
+import { isUnsafePublicHttpHost } from "@/lib/storage/direct-access-url";
 
 export interface ProviderModelRow {
 	id: string;
@@ -44,6 +45,25 @@ export function trimProviderBaseUrl(value: string | undefined, fallback: string)
 	return trimTrailingSlash((value?.trim() || fallback));
 }
 
+/** Re-validate a stored/derived provider URL at fetch time to prevent SSRF via stale DB rows. */
+function assertProviderUrlSafe(rawUrl: string): void {
+	let url: URL;
+	try {
+		url = new URL(rawUrl);
+	} catch {
+		throw new ValidationError("Invalid AI provider URL");
+	}
+	if (url.protocol !== "https:" && url.protocol !== "http:") {
+		throw new ValidationError("AI provider URL must use HTTP(S)");
+	}
+	if (url.username || url.password) {
+		throw new ValidationError("AI provider URL must not contain credentials");
+	}
+	if (isUnsafePublicHttpHost(url.hostname)) {
+		throw new ValidationError("AI provider URL must not point to a private/loopback/metadata host");
+	}
+}
+
 export function defaultAiBaseUrl(): string {
 	return DEFAULT_AI_BASE_URL;
 }
@@ -68,6 +88,7 @@ export async function fetchProviderModels(
 		throw new ValidationError("API Key is required");
 	}
 	const baseUrl = trimTrailingSlash(input.baseUrl);
+	assertProviderUrlSafe(baseUrl);
 	const response = await fetch(`${baseUrl}${MODELS_PATH}`, {
 		method: "GET",
 		headers: { Authorization: `Bearer ${input.apiKey.trim()}` },
@@ -93,6 +114,7 @@ export async function fetchProviderModels(
 }
 
 export async function postProviderChat(input: ProviderChatRequest): Promise<Response> {
+	assertProviderUrlSafe(input.url);
 	const response = await fetch(input.url, {
 		method: "POST",
 		headers: {

@@ -12,6 +12,7 @@ import { createHash } from "node:crypto";
 import { prisma } from "@/lib/db";
 import type { SessionPayload } from "@/lib/auth/session";
 import { teamWhere } from "@/lib/auth/team-scope";
+import { createLogger } from "@/lib/logging";
 import {
   BusinessError,
   ConflictError,
@@ -19,6 +20,8 @@ import {
   ValidationError,
 } from "@/lib/errors";
 import { assertStorageAccess } from "@/lib/storage/access-control";
+
+const webdavLogger = createLogger("webdav:handler");
 import {
   createManagedFolder,
   deleteBackingObject,
@@ -500,7 +503,9 @@ export async function handleWebDavDelete(ctx: WebDavContext): Promise<Response> 
         relativePath: child.relativePath,
         isDirectory: child.entryType === "DIRECTORY",
         tolerateMissing: true,
-      }).catch(() => undefined);
+      }).catch((err) => {
+        webdavLogger.warn("WebDAV DELETE: backing delete failed for child", err, { relativePath: child.relativePath });
+      });
       await softDeleteFileEntry({ fileEntryId: child.id });
     }
   }
@@ -510,7 +515,9 @@ export async function handleWebDavDelete(ctx: WebDavContext): Promise<Response> 
     relativePath: entry.relativePath,
     isDirectory: entry.entryType === "DIRECTORY",
     tolerateMissing: true,
-  }).catch(() => undefined);
+  }).catch((err) => {
+    webdavLogger.warn("WebDAV DELETE: backing delete failed for entry", err, { relativePath: entry.relativePath });
+  });
   await softDeleteFileEntry({ fileEntryId: entry.id });
 
   return new Response(null, { status: 204 });
