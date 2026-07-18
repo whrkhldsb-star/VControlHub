@@ -63,7 +63,7 @@ export async function POST(request: NextRequest) {
         const result = data.nodeId
           ? await scanOneNode(data)
           : await scanAllNodes(data);
-        await auditUserAction(session?.userId ?? "", "storage.sftp-stale-cleanup", { nodeId: data.nodeId ?? "all", dryRun: data.dryRun ?? false });
+        await auditUserAction(session?.userId ?? "", "storage.sftp-stale-cleanup", { nodeId: data.nodeId ?? "all", dryRun: data.dryRun ?? false }, undefined, session?.currentTeamId);
         return NextResponse.json({
           success: true,
           queued: false,

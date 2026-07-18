@@ -143,7 +143,7 @@ export async function PATCH(request: Request) {
         });
         await auditUserAction(session!.userId, "user.disable", {
           targetUsername: targetUser.username,
-        });
+        }, undefined, session?.currentTeamId);
       } else if (userAction === "enable") {
         await prisma.user.update({
           where: { id: userId },
@@ -151,7 +151,7 @@ export async function PATCH(request: Request) {
         });
         await auditUserAction(session!.userId, "user.enable", {
           targetUsername: targetUser.username,
-        });
+        }, undefined, session?.currentTeamId);
       } else if (userAction === "reset_password" && newPassword) {
         const resetPolicyError = await validatePasswordPolicy(newPassword);
         if (resetPolicyError) {

@@ -17,7 +17,7 @@ export async function DELETE(
 		async ({ session }) => {
 			const { id, userId } = await params;
 			await removeTeamMember(id, userId, session!);
-			await auditUserAction(session!.userId, "team.member.remove", { teamId: id, userId });
+			await auditUserAction(session!.userId, "team.member.remove", { teamId: id, userId }, undefined, session?.currentTeamId);
    return NextResponse.json({ success: true });
 		},
 	);

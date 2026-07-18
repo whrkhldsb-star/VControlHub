@@ -315,7 +315,53 @@ export async function summarizeMonth(
 	};
 }
 
-export async function listRecentSnapshots(limit = 30): Promise<DailySnapshot[]> {
+export async function listRecentSnapshots(
+	limit = 30,
+	session?: TeamSession | null,
+): Promise<DailySnapshot[]> {
+	// When a session is provided, derive snapshots from team-scoped cost entries
+	// instead of reading the global CostSnapshot table (which aggregates ALL
+	// teams). This prevents cross-tenant cost visibility.
+	if (session) {
+		const today = new Date();
+		const days = Math.max(1, Math.min(limit, 365));
+		const rows = await prisma.costEntry.findMany({
+			where: {
+				...teamWhere(session),
+				effectiveDate: {
+					gte: new Date(today.getTime() - days * 24 * 60 * 60 * 1000),
+				},
+			},
+			select: { effectiveDate: true, category: true, amount: true, currency: true },
+			take: 10000,
+		});
+		const byDay = new Map<string, { total: number; byCategory: Record<string, string>; count: number }>();
+		for (const r of rows) {
+			if (r.currency !== DEFAULT_CURRENCY) continue;
+			const dayKey = isoDateOnly(r.effectiveDate);
+			let bucket = byDay.get(dayKey);
+			if (!bucket) {
+				bucket = { total: 0, byCategory: emptyByCategory(), count: 0 };
+				byDay.set(dayKey, bucket);
+			}
+			const cat = (COST_CATEGORY_VALUES as readonly string[]).includes(r.category)
+				? (r.category as CostCategory)
+				: "other";
+			addDecimal(bucket.byCategory, cat, r.amount.toString());
+			bucket.total += Number.isFinite(Number(r.amount)) ? Number(r.amount) : 0;
+			bucket.count += 1;
+		}
+		return Array.from(byDay.entries())
+			.sort((a, b) => b[0].localeCompare(a[0]))
+			.slice(0, days)
+			.map(([date, b]) => ({
+				snapshotDate: date,
+				totalAmount: b.total.toFixed(2),
+				byCategory: b.byCategory,
+				entryCount: b.count,
+			}));
+	}
+	// No session (admin/system): read the global snapshot table as before.
 	const rows = await prisma.costSnapshot.findMany({
 		orderBy: { snapshotDate: "desc" },
 		take: Math.max(1, Math.min(limit, 365)),

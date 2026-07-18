@@ -107,7 +107,7 @@ export async function POST(request: Request) {
         createdBy: session.userId,
         maxAttempts: 3,
       });
-      await auditUserAction(session.userId, "storage.sftp-sync", { nodeId, remotePath: remotePath ?? null });
+      await auditUserAction(session.userId, "storage.sftp-sync", { nodeId, remotePath: remotePath ?? null }, undefined, session?.currentTeamId);
       return NextResponse.json({
         success: true,
         queued: true,

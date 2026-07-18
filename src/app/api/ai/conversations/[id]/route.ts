@@ -65,7 +65,7 @@ export async function PATCH(
 
       const conv = await updateConversation(id, session.userId, body);
       if (!conv) throw new NotFoundError("Conversation not found");
-      await auditUserAction(session?.userId ?? "", "conversation.update", { conversationId: id });
+      await auditUserAction(session?.userId ?? "", "conversation.update", { conversationId: id }, undefined, session?.currentTeamId);
       return NextResponse.json({
         conversation: {
           ...conv,
@@ -97,7 +97,7 @@ export async function DELETE(
         );
       const { id } = await params;
       await deleteConversation(id, session.userId);
-      await auditUserAction(session?.userId ?? "", "conversation.delete", { conversationId: id });
+      await auditUserAction(session?.userId ?? "", "conversation.delete", { conversationId: id }, undefined, session?.currentTeamId);
       return NextResponse.json({ ok: true });
     },
   );

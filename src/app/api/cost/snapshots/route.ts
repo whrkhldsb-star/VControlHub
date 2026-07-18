@@ -33,8 +33,8 @@ export async function GET(request: Request) {
 			errorStatus: 500,
 			errorMessage: "Failed to load historical snapshots",
 		},
-		async ({ query }) => {
-			const snapshots = await listRecentSnapshots(query.limit ?? 30);
+		async ({ query, session }) => {
+			const snapshots = await listRecentSnapshots(query.limit ?? 30, session);
 			return NextResponse.json({ snapshots });
 		},
 	);

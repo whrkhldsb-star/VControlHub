@@ -140,7 +140,7 @@ export async function POST(request: Request) {
         },
       });
 
-      await auditUserAction(session?.userId ?? "", "app-source.create", { sourceId: source.id });
+      await auditUserAction(session?.userId ?? "", "app-source.create", { sourceId: source.id }, undefined, session?.currentTeamId);
       return NextResponse.json({ source }, { status: 201 });
     },
   );
@@ -214,7 +214,7 @@ export async function DELETE(request: Request) {
     async ({ session }) => {
       const { id: sourceId } = parseSearchParams(request, idQuerySchema);
       await prisma.appSource.delete({ where: { id: sourceId } });
-      await auditUserAction(session?.userId ?? "", "app-source.delete", { sourceId });
+      await auditUserAction(session?.userId ?? "", "app-source.delete", { sourceId }, undefined, session?.currentTeamId);
       return NextResponse.json({ ok: true });
     },
   );

@@ -63,7 +63,7 @@ export async function POST(request: Request) {
       if ((request.headers.get("accept") || "").includes("text/html")) {
         return NextResponse.redirect(new URL("/backups", request.url), { status: 303 });
       }
-      await auditUserAction(session?.userId ?? "", "backup.create", { backupId: backup.id });
+      await auditUserAction(session?.userId ?? "", "backup.create", { backupId: backup.id }, undefined, session?.currentTeamId);
       return NextResponse.json({ backup }, { status: 201 });
     }
 

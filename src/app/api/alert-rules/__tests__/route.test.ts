@@ -34,7 +34,7 @@ vi.mock("@/lib/audit/service", () => ({
 
 const route = await import("../route");
 
-const session = { userId: "u1", username: "alice", roles: ["admin"] };
+const session = { userId: "u1", username: "alice", roles: ["admin"], currentTeamId: null };
 const request = (method = "GET") =>
   new Request("http://local/api/alert-rules", { method });
 
@@ -126,7 +126,7 @@ describe("/api/alert-rules", () => {
       "u1",
       "alert_rule.create",
       expect.objectContaining({ ruleId: "rule1", webhookConfigured: true }),
-    );
+      undefined, null);
     expect(JSON.stringify(mocks.auditUserAction.mock.calls)).not.toContain(
       "secret",
     );
@@ -267,7 +267,7 @@ describe("/api/alert-rules", () => {
       "u1",
       "alert_rule.toggle",
       expect.objectContaining({ ruleId: "rule1" }),
-    );
+      undefined, null);
     expect(mocks.testAlertRule).toHaveBeenCalledWith("rule1", expect.anything());
     expect(mocks.auditUserAction).toHaveBeenCalledWith(
       "u1",
@@ -277,17 +277,17 @@ describe("/api/alert-rules", () => {
         channels: ["webhook"],
         statuses: ["sent"],
       }),
-    );
+      undefined, null);
     expect(JSON.stringify(mocks.auditUserAction.mock.calls)).not.toContain("secret");
     expect(mocks.auditUserAction).toHaveBeenCalledWith(
       "u1",
       "alert_rule.delete",
       expect.objectContaining({ ruleId: "rule1" }),
-    );
+      undefined, null);
     expect(mocks.auditUserAction).toHaveBeenCalledWith(
       "u1",
       "alert_rule.evaluate",
       expect.objectContaining({ manual: true }),
-    );
+      undefined, null);
   });
 });

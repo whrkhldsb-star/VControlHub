@@ -70,7 +70,7 @@ export async function DELETE(request: Request, context: RouteContext) {
 			await deleteItsmConnection(id, session ?? undefined);
 			await auditUserAction(session?.userId ?? "anonymous", "itsm.connection.delete", {
 				connectionId: id,
-			});
+			}, undefined, session?.currentTeamId);
 			return NextResponse.json({ ok: true });
 		},
 	);

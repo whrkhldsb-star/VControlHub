@@ -9,7 +9,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
   return withApiRoute(request, { permission: "cost:manage", rateLimit: GENERAL_WRITE_LIMIT, bodySchema: updateCostBudgetSchema }, async ({ session, body }) => {
     const { id } = await params;
     const budget = await updateCostBudget(id, body, session);
-    await auditUserAction(session!.userId, "cost.budget.update", { budgetId: id });
+    await auditUserAction(session!.userId, "cost.budget.update", { budgetId: id }, undefined, session?.currentTeamId);
     return NextResponse.json({ budget });
   });
 }
@@ -18,7 +18,7 @@ export async function DELETE(request: Request, { params }: { params: Promise<{ i
   return withApiRoute(request, { permission: "cost:manage", rateLimit: GENERAL_WRITE_LIMIT }, async ({ session }) => {
     const { id } = await params;
     await deleteCostBudget(id, session);
-    await auditUserAction(session!.userId, "cost.budget.delete", { budgetId: id }, "WARNING");
+    await auditUserAction(session!.userId, "cost.budget.delete", { budgetId: id }, "WARNING", session?.currentTeamId);
     return NextResponse.json({ success: true });
   });
 }

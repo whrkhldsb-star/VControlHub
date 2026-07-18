@@ -16,6 +16,7 @@ import {
   searchKnowledge,
 } from "@/lib/ai/knowledge";
 import { auditUserAction } from "@/lib/audit/service";
+import { sessionHasPermission } from "@/lib/auth/authorization";
 import { withApiRoute } from "@/lib/http/api-guard";
 import { parseSearchParams } from "@/lib/http/parse-search-params";
 import { GENERAL_READ_LIMIT, GENERAL_WRITE_LIMIT } from "@/lib/http/rate-limit-presets";
@@ -72,12 +73,22 @@ export async function POST(request: Request) {
   return withApiRoute(
     request,
     {
+      // create_base/ingest require ai:manage; search stays ai:chat.
       permission: "ai:chat",
       rateLimit: GENERAL_WRITE_LIMIT,
       bodySchema: postSchema,
       errorMessage: "Knowledge action failed",
     },
     async ({ session, body }) => {
+      // create_base/ingest require ai:manage; search only needs ai:chat.
+      if (body.action === "create_base" || body.action === "ingest") {
+        if (!sessionHasPermission(session!, "ai:manage")) {
+          return NextResponse.json(
+            { error: "Insufficient permissions to manage knowledge base" },
+            { status: 403 },
+          );
+        }
+      }
       if (body.action === "create_base") {
         const base = await createKnowledgeBase({
           name: body.name,
@@ -145,14 +156,14 @@ export async function DELETE(request: Request) {
         const result = await deleteKnowledgeDocument(documentId, session!);
         await auditUserAction(session!.userId, "knowledge.document.delete", {
           documentId: result.id,
-        });
+        }, undefined, session?.currentTeamId);
         return NextResponse.json({ success: true, documentId: result.id });
       }
       if (!id) throw new ValidationError("id or documentId is required");
       const result = await deleteKnowledgeBase(id, session!);
       await auditUserAction(session!.userId, "knowledge.base.delete", {
         knowledgeBaseId: result.id,
-      });
+      }, undefined, session?.currentTeamId);
       return NextResponse.json({ success: true, id: result.id });
     },
   );

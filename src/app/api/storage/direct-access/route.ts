@@ -296,7 +296,7 @@ export async function DELETE(request: Request) {
     request,
     { permission: "storage:read", rateLimit: UPLOAD_LIMIT },
     async ({ session }) => {
-      await auditUserAction(session?.userId ?? "", "storage.direct-access.stop", {});
+      await auditUserAction(session?.userId ?? "", "storage.direct-access.stop", {}, undefined, session?.currentTeamId);
       return NextResponse.json({ stopped: true, mode: "managed-download" });
     },
   );

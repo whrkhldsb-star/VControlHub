@@ -63,7 +63,7 @@ describe("/api/cost/snapshots", () => {
 			new Request("http://local/api/cost/snapshots?limit=7"),
 		);
 		expect(res.status).toBe(200);
-		expect(mocks.listRecentSnapshots).toHaveBeenCalledWith(7);
+		expect(mocks.listRecentSnapshots).toHaveBeenCalledWith(7, expect.anything());
 	});
 
 	it("GET returns 400 when limit is out of range", async () => {

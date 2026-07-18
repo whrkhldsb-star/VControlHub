@@ -73,7 +73,7 @@ export async function DELETE(request: Request, context: RouteContext) {
 			await deleteCloudBillingAccount(id, session ?? undefined);
 			await auditUserAction(session?.userId ?? "anonymous", "cost.billing_account.delete", {
 				accountId: id,
-			});
+			}, undefined, session?.currentTeamId);
 			return NextResponse.json({ ok: true });
 		},
 	);

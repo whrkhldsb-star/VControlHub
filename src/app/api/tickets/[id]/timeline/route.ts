@@ -103,7 +103,7 @@ export async function POST(
         });
         await auditUserAction(session!.userId, "ticket.unlink_command", {
           ticketId: id,
-        });
+        }, undefined, session?.currentTeamId);
       } else if (body.action === "link_server") {
         await linkTicketServer({
           ticketId: id,
@@ -124,7 +124,7 @@ export async function POST(
         });
         await auditUserAction(session!.userId, "ticket.unlink_server", {
           ticketId: id,
-        });
+        }, undefined, session?.currentTeamId);
       }
 
       const timeline = await getTicketTimeline(id, session!);

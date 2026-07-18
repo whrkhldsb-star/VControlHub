@@ -76,7 +76,7 @@ export async function POST(request: Request) {
             password: data.password,
             permissionLevel: data.permissionLevel,
           });
-      await auditUserAction(session!.userId, "share-link.create", { shareId: result.share.id });
+      await auditUserAction(session!.userId, "share-link.create", { shareId: result.share.id }, undefined, session?.currentTeamId);
       return NextResponse.json(
         { share: result.share, token: result.token },
         { status: 201 },
@@ -97,7 +97,7 @@ export async function DELETE(request: Request) {
       if (!session) return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
       const { id } = parseSearchParams(request, idQuerySchema);
       const share = await revokeShareLink(id, session.userId, session);
-      await auditUserAction(session.userId, "share-link.delete", { shareId: id });
+      await auditUserAction(session.userId, "share-link.delete", { shareId: id }, undefined, session?.currentTeamId);
       return NextResponse.json({ share });
     },
   );

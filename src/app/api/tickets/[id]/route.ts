@@ -63,7 +63,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
       if (body.status) updates.status = body.status;
       if (body.assigneeId !== undefined) updates.assigneeId = body.assigneeId;
       const ticket = await updateTicketStatus(updates);
-      await auditUserAction(session?.userId ?? "", "ticket.update", { ticketId: id });
+      await auditUserAction(session?.userId ?? "", "ticket.update", { ticketId: id }, undefined, session?.currentTeamId);
       return NextResponse.json({ ticket });
     },
   );
@@ -87,7 +87,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
         body: body.body,
         session,
       });
-      await auditUserAction(session?.userId ?? "", "ticket.comment", { ticketId: id });
+      await auditUserAction(session?.userId ?? "", "ticket.comment", { ticketId: id }, undefined, session?.currentTeamId);
       return NextResponse.json({ comment }, { status: 201 });
     },
   );

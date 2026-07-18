@@ -62,7 +62,7 @@ export async function PATCH(
         session,
         body.reason,
       );
-      await auditUserAction(session?.userId ?? "", "ai.hosted-action.update", { actionId: id });
+      await auditUserAction(session?.userId ?? "", "ai.hosted-action.update", { actionId: id }, undefined, session?.currentTeamId);
       return NextResponse.json({ success: true, action: result });
     },
   );

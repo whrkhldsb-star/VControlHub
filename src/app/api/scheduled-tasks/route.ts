@@ -131,8 +131,7 @@ export async function POST(request: Request) {
       await auditUserAction(
         session.userId,
         "scheduled_task.create",
-        auditScheduledTaskDetail(task),
-      );
+        auditScheduledTaskDetail(task), undefined, session?.currentTeamId);
       return NextResponse.json({ task });
     },
   );
@@ -156,8 +155,7 @@ export async function PATCH(request: Request) {
         await auditUserAction(
           session.userId,
           "scheduled_task.toggle",
-          auditScheduledTaskDetail(result),
-        );
+          auditScheduledTaskDetail(result), undefined, session?.currentTeamId);
         return NextResponse.json({ task: result });
       }
       if (data.retryId) {
@@ -165,8 +163,7 @@ export async function PATCH(request: Request) {
         await auditUserAction(
           session.userId,
           "scheduled_task.retry",
-          auditScheduledTaskDetail(result),
-        );
+          auditScheduledTaskDetail(result), undefined, session?.currentTeamId);
         return NextResponse.json({ task: result });
       }
       if (!data.id)
@@ -186,8 +183,7 @@ export async function PATCH(request: Request) {
       await auditUserAction(
         session.userId,
         "scheduled_task.update",
-        auditScheduledTaskDetail(result),
-      );
+        auditScheduledTaskDetail(result), undefined, session?.currentTeamId);
       return NextResponse.json({ task: result });
     },
   );
@@ -212,6 +208,7 @@ export async function DELETE(request: Request) {
         "scheduled_task.delete",
         auditScheduledTaskDetail(deleted),
         "WARNING",
+        session?.currentTeamId,
       );
       return NextResponse.json({ success: true });
     },

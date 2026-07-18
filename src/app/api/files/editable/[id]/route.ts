@@ -52,7 +52,7 @@ export async function PUT(
         expectedUpdatedAt: body.expectedUpdatedAt,
         expectedLastModifiedMs: body.expectedLastModifiedMs,
       });
-      await auditUserAction(session?.userId ?? "", "file.edit", { fileId: id });
+      await auditUserAction(session?.userId ?? "", "file.edit", { fileId: id }, undefined, session?.currentTeamId);
       return NextResponse.json({ success: true, file: result });
     },
   );

@@ -42,7 +42,7 @@ export async function POST(request: Request) {
         availableModels: parseModels(body),
         createdBy: session.userId,
       });
-      await auditUserAction(session.userId, "ai.provider.create", { providerId: provider.id });
+      await auditUserAction(session.userId, "ai.provider.create", { providerId: provider.id }, undefined, session?.currentTeamId);
       return NextResponse.json(
         { provider: serializeProvider(provider) },
         { status: 201 },

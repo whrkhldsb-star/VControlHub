@@ -21,7 +21,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       teamId: session?.currentTeamId ?? null,
       maxAttempts: 1,
     });
-    await auditUserAction(session!.userId, "backup.retry", { backupId: id });
+    await auditUserAction(session!.userId, "backup.retry", { backupId: id }, undefined, session?.currentTeamId);
     return NextResponse.json({ backup, jobId: job.id, taskId: `job:${job.id}` }, { status: 202 });
   });
 }

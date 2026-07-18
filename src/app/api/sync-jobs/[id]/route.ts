@@ -79,7 +79,7 @@ export async function DELETE(
       await deleteSyncJob(id, session ?? undefined);
       await auditUserAction(session?.userId ?? "anonymous", "sync_job.delete", {
         jobId: id,
-      });
+      }, undefined, session?.currentTeamId);
       return NextResponse.json({ success: true });
     },
   );

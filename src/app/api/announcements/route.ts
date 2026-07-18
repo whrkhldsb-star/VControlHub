@@ -45,7 +45,7 @@ export async function POST(request: Request) {
         startsAt: body.startsAt ? new Date(body.startsAt) : undefined,
         expiresAt: body.expiresAt ? new Date(body.expiresAt) : null,
       });
-      await auditUserAction(session?.userId ?? "", "announcement.create", { announcementId: created.id });
+      await auditUserAction(session?.userId ?? "", "announcement.create", { announcementId: created.id }, undefined, session?.currentTeamId);
       return NextResponse.json({ announcement: created }, { status: 201 });
     },
   );
@@ -82,7 +82,7 @@ export async function DELETE(request: Request) {
     },
     async ({ query, session }) => {
       await deleteAnnouncement(query.id);
-      await auditUserAction(session?.userId ?? "", "announcement.delete", { announcementId: query.id });
+      await auditUserAction(session?.userId ?? "", "announcement.delete", { announcementId: query.id }, undefined, session?.currentTeamId);
       return NextResponse.json({ success: true });
     },
   );

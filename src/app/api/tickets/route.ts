@@ -108,7 +108,7 @@ export async function POST(request: Request) {
         body: body.body,
         session: session ?? undefined,
       });
-      await auditUserAction(session?.userId ?? "", "ticket.comment", { ticketId: body.ticketId, commentId: comment.id });
+      await auditUserAction(session?.userId ?? "", "ticket.comment", { ticketId: body.ticketId, commentId: comment.id }, undefined, session?.currentTeamId);
       return NextResponse.json({ comment }, { status: 201 });
     }
     if (!session || !sessionHasPermission(session, "ticket:create")) {
@@ -124,7 +124,7 @@ export async function POST(request: Request) {
       relatedCommandId: body.relatedCommandId,
       session,
     });
-    await auditUserAction(session?.userId ?? "", "ticket.create", { ticketId: ticket.id, title: ticket.title });
+    await auditUserAction(session?.userId ?? "", "ticket.create", { ticketId: ticket.id, title: ticket.title }, undefined, session?.currentTeamId);
     return NextResponse.json({ ticket }, { status: 201 });
   });
 }
@@ -138,7 +138,7 @@ export async function PATCH(request: Request) {
       priority: normalizePriority(body.priority),
       session: session ?? undefined,
     });
-    await auditUserAction(session?.userId ?? "", "ticket.update", { ticketId: body.id, status: body.status });
+    await auditUserAction(session?.userId ?? "", "ticket.update", { ticketId: body.id, status: body.status }, undefined, session?.currentTeamId);
     return NextResponse.json({ ticket });
   });
 }

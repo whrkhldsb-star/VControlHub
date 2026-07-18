@@ -47,7 +47,7 @@ export async function DELETE(
 
 			try {
 				await deleteVpsBackupRecord(recordId);
-				await auditUserAction(session.userId, "vps-backup.record.delete", { serverId, recordId });
+				await auditUserAction(session.userId, "vps-backup.record.delete", { serverId, recordId }, undefined, session?.currentTeamId);
 				return Response.json({ success: true });
 			} catch (err) {
 				logger.error("Failed to delete VPS backup record", { error: err, recordId });

@@ -31,7 +31,7 @@ vi.mock("@/lib/audit/service", () => ({
 }));
 
 const route = await import("../route");
-const session = { userId: "u1", username: "alice", user: { id: "u1" } };
+const session = { userId: "u1", username: "alice", user: { id: "u1" }, currentTeamId: null };
 
 describe("/api/scheduled-tasks audit coverage", () => {
   beforeEach(() => {
@@ -196,7 +196,7 @@ describe("/api/scheduled-tasks audit coverage", () => {
       "u1",
       "scheduled_task.retry",
       expect.objectContaining({ taskId: "task1", name: "Clean logs" }),
-    );
+      undefined, null);
     expect(JSON.stringify(mocks.auditUserAction.mock.calls)).not.toContain("journalctl");
     expect(JSON.stringify(mocks.auditUserAction.mock.calls)).not.toContain("/etc/shadow");
   });
@@ -255,7 +255,7 @@ describe("/api/scheduled-tasks audit coverage", () => {
         serverCount: 2,
         status: "ACTIVE",
       }),
-    );
+      undefined, null);
     expect(mocks.auditUserAction).toHaveBeenCalledWith(
       "u1",
       "scheduled_task.update",
@@ -266,17 +266,18 @@ describe("/api/scheduled-tasks audit coverage", () => {
         serverCount: 1,
         status: "ACTIVE",
       }),
-    );
+      undefined, null);
     expect(mocks.auditUserAction).toHaveBeenCalledWith(
       "u1",
       "scheduled_task.toggle",
       expect.objectContaining({ taskId: "task1", status: "PAUSED" }),
-    );
+      undefined, null);
     expect(mocks.auditUserAction).toHaveBeenCalledWith(
       "u1",
       "scheduled_task.delete",
       expect.objectContaining({ taskId: "task1", name: "Clean logs" }),
       "WARNING",
+      null,
     );
     expect(JSON.stringify(mocks.auditUserAction.mock.calls)).not.toContain(
       "journalctl",

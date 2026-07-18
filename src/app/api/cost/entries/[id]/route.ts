@@ -65,7 +65,7 @@ export async function PATCH(
 			await auditUserAction(session?.userId ?? "anonymous", "cost.update", {
 				entryId: entry.id,
 				updatedFields: Object.keys(body),
-			});
+			}, undefined, session?.currentTeamId);
 			return NextResponse.json({ entry });
 		},
 	);
@@ -88,7 +88,7 @@ export async function DELETE(
 			await deleteCostEntry(id, session);
 			await auditUserAction(session?.userId ?? "anonymous", "cost.delete", {
 				entryId: id,
-			});
+			}, undefined, session?.currentTeamId);
 			return NextResponse.json({ success: true });
 		},
 	);

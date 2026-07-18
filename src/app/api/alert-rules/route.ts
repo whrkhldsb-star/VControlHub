@@ -193,8 +193,7 @@ export async function POST(request: Request) {
       await auditUserAction(
         session.userId,
         "alert_rule.create",
-        auditRuleDetail(rule),
-      );
+        auditRuleDetail(rule), undefined, session?.currentTeamId);
       if (wantsHtml(request)) {
         return NextResponse.redirect(new URL("/alert-rules", request.url), {
           status: 303,
@@ -223,7 +222,7 @@ export async function PATCH(request: Request) {
         await auditUserAction(session.userId, "alert_rule.toggle", {
           ruleId: body.toggleId,
           enabled: Boolean(result.enabled),
-        });
+        }, undefined, session?.currentTeamId);
         return NextResponse.json({ rule: result });
       }
       if ("testId" in body) {
@@ -233,15 +232,14 @@ export async function PATCH(request: Request) {
           name: result.rule.name,
           channels: result.deliveries.map((delivery) => delivery.channel),
           statuses: result.deliveries.map((delivery) => delivery.status),
-        });
+        }, undefined, session?.currentTeamId);
         return NextResponse.json(result);
       }
       const result = await updateAlertRule(body.id, body, session);
       await auditUserAction(
         session.userId,
         "alert_rule.update",
-        auditRuleDetail(result),
-      );
+        auditRuleDetail(result), undefined, session?.currentTeamId);
       return NextResponse.json({ rule: result });
     },
   );
@@ -259,7 +257,7 @@ export async function DELETE(request: Request) {
         if (!alertRuleId)
           throw new ValidationError("Missing rule ID");
         await deleteAlertRule(alertRuleId, session);
-        await auditUserAction(session.userId, "alert_rule.delete", { ruleId: alertRuleId });
+        await auditUserAction(session.userId, "alert_rule.delete", { ruleId: alertRuleId }, undefined, session?.currentTeamId);
         return NextResponse.json({ success: true });
       } catch (err) {
         const message = err instanceof Error ? err.message : "Failed to delete";
@@ -280,7 +278,7 @@ export async function PUT(request: Request) {
         await evaluateAlerts();
         await auditUserAction(session.userId, "alert_rule.evaluate", {
           manual: true,
-        });
+        }, undefined, session?.currentTeamId);
         return NextResponse.json({ success: true });
       } catch (err) {
         const message = err instanceof Error ? err.message : "Detection failed";

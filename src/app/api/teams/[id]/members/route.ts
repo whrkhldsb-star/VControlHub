@@ -15,7 +15,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
 		async ({ session, body }) => {
 			const { id } = await params;
 			const member = await addTeamMember(id, body, session!);
-			await auditUserAction(session?.userId ?? "", "team.member.add", { teamId: id });
+			await auditUserAction(session?.userId ?? "", "team.member.add", { teamId: id }, undefined, session?.currentTeamId);
    return NextResponse.json({ success: true, member });
 		},
 	);

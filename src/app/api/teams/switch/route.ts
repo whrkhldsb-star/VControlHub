@@ -14,7 +14,7 @@ export async function POST(request: Request) {
 		{ requireAuth: true, rateLimit: GENERAL_WRITE_LIMIT, bodySchema: switchTeamSchema, errorMessage: "Failed to switch team workspace" },
 		async ({ session, body }) => {
 			const team = await switchCurrentTeam(body.teamId, session!);
-			await auditUserAction(session?.userId ?? "", "team.switch", { teamId: body.teamId });
+			await auditUserAction(session?.userId ?? "", "team.switch", { teamId: body.teamId }, undefined, session?.currentTeamId);
    return NextResponse.json({ success: true, team });
 		},
 	);

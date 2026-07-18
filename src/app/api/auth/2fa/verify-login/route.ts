@@ -141,7 +141,7 @@ export async function POST(request: Request) {
 		// Clear the pending 2FA cookie
 		cookieStore.delete(getPending2faCookieName());
 
-		await auditUserAction(sessionPayload.userId, "auth.login_2fa_ok", { username: user.username, ip: clientIp });
+		await auditUserAction(sessionPayload.userId, "auth.login_2fa_ok", { username: user.username, ip: clientIp }, undefined, user?.currentTeamId);
 
 		const response = NextResponse.json({ success: true });
 		response.cookies.set(getSessionCookieName(), token, {

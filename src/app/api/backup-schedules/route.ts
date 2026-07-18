@@ -38,7 +38,7 @@ export async function POST(request: Request) {
         createdById: session?.userId,
         teamId: session?.currentTeamId ?? null,
       });
-      await auditUserAction(session?.userId ?? "", "backup-schedule.create", { scheduleId: schedule.id });
+      await auditUserAction(session?.userId ?? "", "backup-schedule.create", { scheduleId: schedule.id }, undefined, session?.currentTeamId);
       return NextResponse.json({ schedule }, { status: 201 });
     },
   );

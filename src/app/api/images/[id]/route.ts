@@ -177,7 +177,7 @@ export async function DELETE(
         await prisma.imageUpload.delete({ where: { id } });
       }
 
-      await auditUserAction(session?.userId ?? "", "image.delete", { imageId: id });
+      await auditUserAction(session?.userId ?? "", "image.delete", { imageId: id }, undefined, session?.currentTeamId);
       return NextResponse.json({ success: true });
     },
   );

@@ -41,7 +41,7 @@ export async function POST(request: Request) {
     },
     async ({ session, body }) => {
       const snippet = await createSnippet({ ...body, createdBy: session?.userId });
-      await auditUserAction(session?.userId ?? "", "snippet.create", { snippetId: snippet.id });
+      await auditUserAction(session?.userId ?? "", "snippet.create", { snippetId: snippet.id }, undefined, session?.currentTeamId);
       return NextResponse.json(
         { snippet },
         { status: 201 },
@@ -66,7 +66,7 @@ export async function PATCH(request: Request) {
       };
       try {
         const snippet = await updateSnippet(id, data, actor);
-        await auditUserAction(session?.userId ?? "", "snippet.update", { snippetId: id });
+        await auditUserAction(session?.userId ?? "", "snippet.update", { snippetId: id }, undefined, session?.currentTeamId);
         return NextResponse.json({ snippet });
       } catch (err) {
         // AppError (Forbidden/NotFound/Validation) must map to status — do not
@@ -92,7 +92,7 @@ export async function DELETE(request: Request) {
       };
       try {
         await deleteSnippet(query.id, actor);
-        await auditUserAction(session?.userId ?? "", "snippet.delete", { snippetId: query.id });
+        await auditUserAction(session?.userId ?? "", "snippet.delete", { snippetId: query.id }, undefined, session?.currentTeamId);
         return NextResponse.json({ success: true });
       } catch (err) {
         return apiCatch(err);

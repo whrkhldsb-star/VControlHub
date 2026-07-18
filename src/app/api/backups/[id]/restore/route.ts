@@ -38,7 +38,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
         const waitForCompletion = wait;
         if (waitForCompletion) {
           const restore = await restoreBackupRecord({ id, confirm: body.confirm, component: body.component, session: session! });
-          await auditUserAction(session!.userId, "backup.restore", { backupId: id });
+          await auditUserAction(session!.userId, "backup.restore", { backupId: id }, undefined, session?.currentTeamId);
           return NextResponse.json({ restore });
         }
         const backup = await getBackupRecord(id, session!);
@@ -73,7 +73,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
           teamId: session?.currentTeamId ?? null,
           maxAttempts: 1,
         });
-        await auditUserAction(session!.userId, "backup.restore", { backupId: id, jobId: job.id });
+        await auditUserAction(session!.userId, "backup.restore", { backupId: id, jobId: job.id }, undefined, session?.currentTeamId);
         return NextResponse.json({ jobId: job.id, taskId: `job:${job.id}` }, { status: 202 });
       } catch (error) {
         // Prefer typed AppError status codes over fragile English message matching.

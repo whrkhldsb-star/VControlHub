@@ -89,7 +89,7 @@ export async function PATCH(
       };
       const provider = await updateProvider(id, session.userId, updateBody);
       if (!provider) throw new NotFoundError("Provider not found");
-      await auditUserAction(session.userId, "ai.provider.update", { providerId: id });
+      await auditUserAction(session.userId, "ai.provider.update", { providerId: id }, undefined, session?.currentTeamId);
       return NextResponse.json({ provider: maskProvider(provider) });
     },
   );
@@ -112,7 +112,7 @@ export async function DELETE(
         throw new AuthError("Not authenticated");
       const { id } = await params;
       await deleteProvider(id, session.userId);
-      await auditUserAction(session?.userId ?? "", "ai.provider.delete", { providerId: id });
+      await auditUserAction(session?.userId ?? "", "ai.provider.delete", { providerId: id }, undefined, session?.currentTeamId);
       return NextResponse.json({ ok: true });
     },
   );

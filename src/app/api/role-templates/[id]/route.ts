@@ -9,7 +9,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
   return withApiRoute(request, { permission: "role:manage", rateLimit: GENERAL_WRITE_LIMIT, bodySchema: roleTemplateInputSchema }, async ({ session, body }) => {
     const { id } = await params;
     const template = await updateRoleTemplate(id, body);
-    await auditUserAction(session!.userId, "role_template.update", { templateId: id, name: template.name });
+    await auditUserAction(session!.userId, "role_template.update", { templateId: id, name: template.name }, undefined, session?.currentTeamId);
     return NextResponse.json({ template });
   });
 }
@@ -18,7 +18,7 @@ export async function DELETE(request: Request, { params }: { params: Promise<{ i
   return withApiRoute(request, { permission: "role:manage", rateLimit: GENERAL_WRITE_LIMIT }, async ({ session }) => {
     const { id } = await params;
     await deleteRoleTemplate(id);
-    await auditUserAction(session!.userId, "role_template.delete", { templateId: id }, "WARNING");
+    await auditUserAction(session!.userId, "role_template.delete", { templateId: id }, "WARNING", session?.currentTeamId);
     return NextResponse.json({ success: true });
   });
 }
