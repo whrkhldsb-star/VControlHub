@@ -7,7 +7,7 @@ export default function NotFoundPage() {
 		<main className="relative flex min-h-screen items-center justify-center overflow-hidden px-6 text-[var(--text-primary)]">
 			<div
 				aria-hidden="true"
-				className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_top,rgba(56,139,253,0.12),transparent_55%),var(--page-bg)]"
+				className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_top,rgba(139,157,255,0.13),transparent_55%),var(--page-bg)]"
 			/>
 			<div className="relative w-full max-w-md rounded-3xl border border-[var(--border)] bg-[color-mix(in_srgb,var(--surface)_92%,transparent)] p-8 text-center shadow-[var(--shadow-lg)] backdrop-blur-xl">
 				<div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl border border-[var(--border-subtle)] bg-[var(--surface-elevated)] text-3xl" aria-hidden="true">

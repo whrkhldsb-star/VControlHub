@@ -35,7 +35,7 @@ export default function OfflinePage() {
     >
       <div
         aria-hidden="true"
-        className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_top,rgba(56,139,253,0.12),transparent_55%),var(--page-bg)]"
+        className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_top,rgba(139,157,255,0.13),transparent_55%),var(--page-bg)]"
       />
       <div className="relative w-full max-w-md space-y-6 rounded-3xl border border-[var(--border)] bg-[color-mix(in_srgb,var(--surface)_92%,transparent)] p-8 text-center shadow-[var(--shadow-lg)] backdrop-blur-xl">
         <div

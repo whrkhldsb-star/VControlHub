@@ -7,107 +7,110 @@
 
 /*
  * VControlHub Design Tokens
- * 深色专业风（GitHub Dark / Tailscale 启发）：深石板 + 青蓝点缀
- * 浅色专业版（GitHub Light 启发）：洁白 + 深灰文字 + 同色系点缀
+ * 深色基调（Linear/Raycast 启发）：深紫灰 + 青蓝点缀
+ * 浅色基调（Linear Light 启发）：冷灰紫底 + 纯白卡 + 紫青点缀
  *
  * 设计原则：
  *  - 三层背景层级（page < surface < elevated），保证卡片在背景上清晰浮起
  *  - 文字三档对比（primary >= 14:1, secondary >= 7:1, muted >= 4.5:1）
  *  - 统一圆角 / 间距 / 阴影刻度
- *  - 强调色使用 HSL 同色系（青蓝 cyan-500/600），保持克制
+ *  - 紫色传达"掌控/精密"，青色保留终端/CTA 记忆点
+ *  - 与产品定位联动：服务器控制面板 = 可靠 + 技术感 + 数据清晰
  */
 
 :root {
-	/* === Dark theme (default) === */
-	--background: #0d1117;            /* page background base */
-	--surface: #161b22;               /* card / surface */
-	--surface-elevated: #1c2128;      /* hover / elevated card */
-	--surface-hover: #21262d;         /* hover state (buttons, rows) */
-	--surface-subtle: #11161d;        /* subtle inset (input, code) */
-	--modal-bg: #0c0c14;              /* modal / dialog surface (elevated) */
-	--foreground: #e6edf3;
-	--text-primary: #f0f6fc;
-	--text-secondary: #adbac7;
-	--text-muted: #768390;
-	--text-disabled: #545d68;
+	/* === Dark theme (default) — Linear-inspired violet-slate === */
+	--background: #0e0e13;            /* page background base — deep violet-slate */
+	--surface: #16161d;               /* card / surface — subtle violet undertone */
+	--surface-elevated: #1c1c25;      /* hover / elevated card */
+	--surface-hover: #22222d;         /* hover state (buttons, rows) */
+	--surface-subtle: #121218;        /* subtle inset (input, code) */
+	--modal-bg: #13131a;              /* modal / dialog surface */
+	--foreground: #e8e9f1;
+	--text-primary: #f4f5fb;
+	--text-secondary: #b8bad0;
+	--text-muted: #7f8299;
+	--text-disabled: #565970;
 
-	--border: #30363d;                /* default border */
-	--border-strong: #444c56;         /* emphasised border */
-	--border-subtle: #21262d;         /* faint divider */
+	--border: #2a2a36;                /* default border — violet-tinted */
+	--border-strong: #3d3d4f;         /* emphasised border */
+	--border-subtle: #1f1f29;         /* faint divider */
 
-	--accent: #58a6ff;                /* link / primary accent */
-	--accent-hover: #79b8ff;
-	--accent-bg: rgba(56,139,253,0.15);
-	--accent-border: rgba(56,139,253,0.4);
+	--accent: #8b9dff;                /* link / primary accent — soft violet-blue */
+	--accent-hover: #a5b4ff;
+	--accent-bg: rgba(139,157,255,0.13);
+	--accent-border: rgba(139,157,255,0.35);
 
 	/* Brand "action" color (cyan). Used for primary CTA buttons.
-	   When migrating cyan-* utility classes to tokens, point at these. */
+	   Terminal heritage — control panels deserve a confident action color. */
 	--color-action: #22d3ee;             /* cyan-400 */
 	--color-action-hover: #06b6d4;       /* cyan-500 */
 	--color-action-strong: #0891b2;      /* cyan-600 */
 	--color-action-fg: #082f49;          /* dark slate text on cyan bg */
-	--color-action-bg: rgba(34,211,238,0.15);
-	--color-action-bg-hover: rgba(34,211,238,0.25);
-	--color-action-border: rgba(34,211,238,0.4);
-	--color-action-ring: rgba(34,211,238,0.3);
+	--color-action-bg: rgba(34,211,238,0.14);
+	--color-action-bg-hover: rgba(34,211,238,0.22);
+	--color-action-border: rgba(34,211,238,0.38);
+	--color-action-ring: rgba(34,211,238,0.28);
 
-	--success: #3fb950;
-	--success-bg: rgba(63,185,80,0.15);
-	--success-border: rgba(63,185,80,0.4);
+	--success: #4ade80;
+	--success-bg: rgba(74,222,128,0.13);
+	--success-border: rgba(74,222,128,0.35);
 
-	--warning: #d29922;
-	--warning-bg: rgba(187,128,9,0.15);
-	--warning-border: rgba(187,128,9,0.4);
+	--warning: #fbbf24;
+	--warning-bg: rgba(251,191,36,0.13);
+	--warning-border: rgba(251,191,36,0.35);
 
-	--danger: #f85149;
-	--danger-hover: #ff6b63;
-	--danger-bg: rgba(248,81,73,0.15);
-	--danger-border: rgba(248,81,73,0.4);
+	--danger: #f87171;
+	--danger-hover: #fca5a5;
+	--danger-bg: rgba(248,113,113,0.13);
+	--danger-border: rgba(248,113,113,0.35);
 
-	--info: #58a6ff;
-	--info-bg: rgba(56,139,253,0.15);
-	--info-border: rgba(56,139,253,0.4);
+	--info: #8b9dff;
+	--info-bg: rgba(139,157,255,0.13);
+	--info-border: rgba(139,157,255,0.35);
 
-	--indigo: #818cf8;
-	--indigo-bg: rgba(129,140,248,0.15);
-	--indigo-border: rgba(129,140,248,0.4);
+	--indigo: #a5b4fc;
+	--indigo-bg: rgba(165,180,252,0.13);
+	--indigo-border: rgba(165,180,252,0.35);
 
-	--purple: #c084fc;
-	--purple-bg: rgba(192,132,252,0.15);
-	--purple-border: rgba(192,132,252,0.4);
+	--purple: #c4b5fd;
+	--purple-bg: rgba(196,181,253,0.13);
+	--purple-border: rgba(196,181,253,0.35);
 
-	--sidebar-bg: #0d1117;
-	--sidebar-border: #21262d;
-	--sidebar-hover: #1c2128;
-	--sidebar-active: #1f6feb22;
-	--sidebar-active-fg: #58a6ff;
+	--sidebar-bg: #0c0c11;
+	--sidebar-border: #1e1e28;
+	--sidebar-hover: #1a1a24;
+	--sidebar-active: rgba(139,157,255,0.16);
+	--sidebar-active-fg: #a5b4ff;
 
-	--input-bg: #0d1117;
-	--input-bg-focus: #161b22;
-	--input-ring: rgba(88,166,255,0.2);
-	--input-ring-danger: rgba(248,81,73,0.2);
-	--input-ring-success: rgba(63,185,80,0.2);
-	--input-border: #30363d;
-	--input-border-focus: #58a6ff;
+	--input-bg: #0e0e13;
+	--input-bg-focus: #16161d;
+	--input-ring: rgba(139,157,255,0.20);
+	--input-ring-danger: rgba(248,113,113,0.20);
+	--input-ring-success: rgba(74,222,128,0.20);
+	--input-border: #2a2a36;
+	--input-border-focus: #8b9dff;
 
-	--scrollbar-thumb: rgba(110,118,129,0.4);
-	--scrollbar-thumb-hover: rgba(110,118,129,0.7);
+	--scrollbar-thumb: rgba(127,130,153,0.35);
+	--scrollbar-thumb-hover: rgba(127,130,153,0.6);
 
-	--focus-ring: rgba(88,166,255,0.6);
-	--selection-bg: rgba(88,166,255,0.35);
-	--selection-fg: #f0f6fc;
+	--focus-ring: rgba(139,157,255,0.55);
+	--selection-bg: rgba(139,157,255,0.32);
+	--selection-fg: #f4f5fb;
 
+	/* Linear-style soft violet glow — subtle, not showy */
 	--page-bg:
-		radial-gradient(ellipse 1200px 600px at 50% -10%, rgba(56,139,253,0.08), transparent 60%),
-		linear-gradient(180deg, #0d1117 0%, #010409 100%);
+		radial-gradient(ellipse 1200px 600px at 50% -10%, rgba(139,157,255,0.07), transparent 60%),
+		radial-gradient(ellipse 800px 400px at 80% 0%, rgba(34,211,238,0.04), transparent 55%),
+		linear-gradient(180deg, #0e0e13 0%, #08080c 100%);
 
-	--shadow-sm: 0 1px 2px rgba(0,0,0,0.4);
-	--shadow-md: 0 4px 12px rgba(0,0,0,0.4), 0 0 0 1px rgba(255,255,255,0.04);
-	--shadow-lg: 0 12px 32px rgba(0,0,0,0.5), 0 0 0 1px rgba(255,255,255,0.06);
+	--shadow-sm: 0 1px 2px rgba(0,0,0,0.5);
+	--shadow-md: 0 4px 14px rgba(0,0,0,0.45), 0 0 0 1px rgba(139,157,255,0.04);
+	--shadow-lg: 0 12px 36px rgba(0,0,0,0.55), 0 0 0 1px rgba(139,157,255,0.06);
 
-	/* Modal scrim — theme-aware so light mode is not pure black wash */
-	--overlay: rgba(1, 4, 9, 0.62);
-	--overlay-strong: rgba(1, 4, 9, 0.78);
+	/* Modal scrim — violet-tinted, not pure black */
+	--overlay: rgba(8, 8, 12, 0.68);
+	--overlay-strong: rgba(8, 8, 12, 0.82);
 	--on-accent: #ffffff;
 
 	--radius-sm: 6px;
@@ -118,30 +121,30 @@
 
 html.light {
 	/*
-	 * Light theme — soft canvas + floating white surfaces
-	 * 关键: page/surface 同色导致卡片“贴死”背景；层次与阴影过弱。
-	 * 策略: 冷灰画布 + 纯白卡片 + 更清晰边框/阴影 + 克制蓝青点缀。
+	 * Light theme — Linear-inspired cool violet-gray canvas + floating white cards
+	 * 策略: 冷灰紫画布 + 纯白卡片 + 紫青双点缀 + 柔和阴影。
+	 * 与深色共享 violet accent 家族，保持品牌一致性。
 	 */
-	--background: #eef2f7;            /* page canvas (cool gray-blue) */
+	--background: #f3f4f8;            /* page canvas (cool violet-gray) */
 	--surface: #ffffff;               /* cards / panels */
-	--surface-elevated: #ffffff;      /* elevated panels (same white, lift via shadow) */
-	--surface-hover: #f1f5f9;         /* row / control hover */
-	--surface-subtle: #f4f7fb;        /* inset wells, code, filters */
+	--surface-elevated: #ffffff;      /* elevated panels (lift via shadow) */
+	--surface-hover: #f5f6fa;         /* row / control hover */
+	--surface-subtle: #f7f8fb;        /* inset wells, code, filters */
 	--modal-bg: #ffffff;
-	--foreground: #0f172a;
-	--text-primary: #0f172a;          /* slate-900 */
-	--text-secondary: #475569;        /* slate-600 */
-	--text-muted: #64748b;            /* slate-500 */
-	--text-disabled: #94a3b8;         /* slate-400 */
+	--foreground: #18181f;
+	--text-primary: #18181f;          /* near-black violet */
+	--text-secondary: #4a4a57;        /* slate-violet */
+	--text-muted: #6f7284;            /* muted violet-gray */
+	--text-disabled: #9b9da8;         /* disabled */
 
-	--border: #d8e0ea;
-	--border-strong: #b6c3d4;
-	--border-subtle: #e8eef6;
+	--border: #e0e2ec;
+	--border-strong: #c5c8d8;
+	--border-subtle: #eceef5;
 
-	--accent: #2563eb;                /* blue-600 — clearer on light canvas */
-	--accent-hover: #1d4ed8;          /* blue-700 */
-	--accent-bg: rgba(37,99,235,0.09);
-	--accent-border: rgba(37,99,235,0.28);
+	--accent: #6366f1;                /* indigo-500 — violet family */
+	--accent-hover: #4f46e5;          /* indigo-600 */
+	--accent-bg: rgba(99,102,241,0.09);
+	--accent-border: rgba(99,102,241,0.25);
 
 	/* Action cyan — slightly deeper for WCAG on white */
 	--color-action: #0e7490;          /* cyan-700 */
@@ -150,67 +153,67 @@ html.light {
 	--color-action-fg: #ffffff;
 	--color-action-bg: rgba(14,116,144,0.10);
 	--color-action-bg-hover: rgba(14,116,144,0.16);
-	--color-action-border: rgba(14,116,144,0.35);
-	--color-action-ring: rgba(14,116,144,0.28);
+	--color-action-border: rgba(14,116,144,0.32);
+	--color-action-ring: rgba(14,116,144,0.26);
 
-	--success: #15803d;
-	--success-bg: rgba(21,128,61,0.09);
-	--success-border: rgba(21,128,61,0.28);
+	--success: #16a34a;
+	--success-bg: rgba(22,163,74,0.09);
+	--success-border: rgba(22,163,74,0.26);
 
-	--warning: #b45309;
-	--warning-bg: rgba(180,83,9,0.09);
-	--warning-border: rgba(180,83,9,0.28);
+	--warning: #d97706;
+	--warning-bg: rgba(217,119,6,0.09);
+	--warning-border: rgba(217,119,6,0.26);
 
 	--danger: #dc2626;
 	--danger-hover: #b91c1c;
 	--danger-bg: rgba(220,38,38,0.08);
-	--danger-border: rgba(220,38,38,0.28);
+	--danger-border: rgba(220,38,38,0.26);
 
-	--info: #2563eb;
-	--info-bg: rgba(37,99,235,0.09);
-	--info-border: rgba(37,99,235,0.28);
+	--info: #6366f1;
+	--info-bg: rgba(99,102,241,0.09);
+	--info-border: rgba(99,102,241,0.25);
 
-	--indigo: #4f46e5;
-	--indigo-bg: rgba(79,70,229,0.09);
-	--indigo-border: rgba(79,70,229,0.28);
+	--indigo: #6366f1;
+	--indigo-bg: rgba(99,102,241,0.09);
+	--indigo-border: rgba(99,102,241,0.25);
 
 	--purple: #9333ea;
 	--purple-bg: rgba(147,51,234,0.09);
-	--purple-border: rgba(147,51,234,0.28);
+	--purple-border: rgba(147,51,234,0.25);
 
-	--sidebar-bg: #f8fafc;
-	--sidebar-border: #dbe3ee;
-	--sidebar-hover: #eef3f9;
-	--sidebar-active: rgba(37,99,235,0.12);
-	--sidebar-active-fg: #1d4ed8;
+	--sidebar-bg: #fafbfd;
+	--sidebar-border: #e5e7f0;
+	--sidebar-hover: #f0f1f7;
+	--sidebar-active: rgba(99,102,241,0.11);
+	--sidebar-active-fg: #4f46e5;
 
 	--input-bg: #ffffff;
 	--input-bg-focus: #ffffff;
-	--input-ring: rgba(37,99,235,0.18);
+	--input-ring: rgba(99,102,241,0.18);
 	--input-ring-danger: rgba(220,38,38,0.18);
-	--input-ring-success: rgba(21,128,61,0.18);
-	--input-border: #cfd9e6;
-	--input-border-focus: #2563eb;
+	--input-ring-success: rgba(22,163,74,0.18);
+	--input-border: #d5d8e5;
+	--input-border-focus: #6366f1;
 
-	--scrollbar-thumb: rgba(100,116,139,0.32);
-	--scrollbar-thumb-hover: rgba(100,116,139,0.52);
+	--scrollbar-thumb: rgba(107,114,128,0.28);
+	--scrollbar-thumb-hover: rgba(107,114,128,0.48);
 
-	--focus-ring: rgba(37,99,235,0.42);
-	--selection-bg: rgba(37,99,235,0.16);
-	--selection-fg: #1e3a8a;
+	--focus-ring: rgba(99,102,241,0.40);
+	--selection-bg: rgba(99,102,241,0.15);
+	--selection-fg: #312e81;
 
-	/* Soft blue wash + cool canvas — not flat white */
+	/* Cool violet-gray canvas with soft violet + cyan glow */
 	--page-bg:
-		radial-gradient(ellipse 1100px 520px at 12% -8%, rgba(37,99,235,0.10), transparent 58%),
-		radial-gradient(ellipse 900px 480px at 92% 0%, rgba(14,116,144,0.07), transparent 55%),
-		linear-gradient(180deg, #f5f8fc 0%, #eef2f7 48%, #e9eef5 100%);
+		radial-gradient(ellipse 1100px 520px at 12% -8%, rgba(99,102,241,0.09), transparent 58%),
+		radial-gradient(ellipse 900px 480px at 92% 0%, rgba(14,116,144,0.06), transparent 55%),
+		linear-gradient(180deg, #f7f8fb 0%, #f3f4f8 48%, #eef0f6 100%);
 
-	--shadow-sm: 0 1px 2px rgba(15,23,42,0.05), 0 0 0 1px rgba(15,23,42,0.03);
-	--shadow-md: 0 4px 14px rgba(15,23,42,0.08), 0 1px 3px rgba(15,23,42,0.05), 0 0 0 1px rgba(15,23,42,0.04);
-	--shadow-lg: 0 16px 40px rgba(15,23,42,0.12), 0 4px 12px rgba(15,23,42,0.06), 0 0 0 1px rgba(15,23,42,0.05);
+	--shadow-sm: 0 1px 2px rgba(24,24,31,0.05), 0 0 0 1px rgba(24,24,31,0.03);
+	--shadow-md: 0 4px 14px rgba(24,24,31,0.07), 0 1px 3px rgba(24,24,31,0.05), 0 0 0 1px rgba(24,24,31,0.04);
+	--shadow-lg: 0 16px 42px rgba(24,24,31,0.11), 0 4px 12px rgba(24,24,31,0.06), 0 0 0 1px rgba(24,24,31,0.05);
 
-	--overlay: rgba(15, 23, 42, 0.42);
-	--overlay-strong: rgba(15, 23, 42, 0.55);
+	--overlay: rgba(24, 24, 31, 0.42);
+	--overlay-strong: rgba(24, 24, 31, 0.55);
 	--on-accent: #ffffff;
 }
 
