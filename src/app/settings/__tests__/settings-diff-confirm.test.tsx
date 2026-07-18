@@ -172,4 +172,24 @@ describe("HighRiskConfirmModal (TR-014 M01b)", () => {
 			expect(csrfFetch).toHaveBeenCalledTimes(1);
 		});
 	});
+
+	it("clears the pending-change badge after a successful save", async () => {
+		const user = userEvent.setup();
+		vi.mocked(csrfFetch).mockResolvedValueOnce({ success: true });
+		wrap(<SettingsClient settings={baseRuntimeSettings} canManage />);
+
+		await user.clear(screen.getByLabelText("命令输出保留上限（字节）"));
+		await user.type(screen.getByLabelText("命令输出保留上限（字节）"), "100000");
+		expect(await screen.findByText(/1 项已修改/)).toBeInTheDocument();
+
+		const runtimeSection = screen.getByRole("heading", { name: /运行参数/ }).closest("section")!;
+		await user.click(within(runtimeSection).getByRole("button", { name: "保存" }));
+
+		await waitFor(() => {
+			expect(csrfFetch).toHaveBeenCalledTimes(1);
+		});
+		await waitFor(() => {
+			expect(screen.queryByText(/项已修改/)).toBeNull();
+		});
+	});
 });

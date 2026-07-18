@@ -95,6 +95,10 @@ export function SettingsClient({
     }),
   [t]);
   const [settings, setSettings] = useState(initialSettings);
+  // Baseline for pending-diff / high-risk blur. Props alone stay frozen for the
+  // SPA lifetime after the first paint; without a local baseline update, a
+  // successful save still looks dirty and re-triggers high-risk confirm.
+  const [baselineSettings, setBaselineSettings] = useState(initialSettings);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [savedMessage, setSavedMessage] = useState<string | null>(null);
@@ -124,7 +128,7 @@ export function SettingsClient({
   const handleHighRiskBlur = useCallback(
     (field: FieldDef, currentValue: string) => {
       if (field.riskLevel !== "high") return;
-      const initialValue = initialSettings[field.key] ?? "";
+      const initialValue = baselineSettings[field.key] ?? "";
       if (currentValue === initialValue) return;
       setBlurredHighRiskKeys((prev) => {
         if (prev.has(field.key)) return prev;
@@ -133,7 +137,7 @@ export function SettingsClient({
         return next;
       });
     },
-    [initialSettings],
+    [baselineSettings],
   );
 
   // TR-014 M02: clear the warning as soon as the user types again — they
@@ -254,15 +258,12 @@ export function SettingsClient({
         setSavedMessage(null);
         return;
       }
-      // TR-014 M02: clear all high-risk blur warnings after a successful
-      // save (the values are now persisted; warning has done its job).
-      setBlurredHighRiskKeys(new Set());
       // TR-014 M01b: if any pending change in this section is high-risk,
       // show the confirm modal before performing the save.
       const pendingForSection = getPendingChanges(
         [section],
         settings,
-        initialSettings,
+        baselineSettings,
       );
       const highChanges = pendingForSection.filter(
         (c) => c.riskLevel === "high",
@@ -279,6 +280,15 @@ export function SettingsClient({
             method: "PATCH",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify(payload),
+          });
+          // Advance the dirty baseline so pending badges / high-risk confirm
+          // and blur warnings no longer treat the just-saved values as edits.
+          setBaselineSettings((prev) => ({ ...prev, ...payload }));
+          setBlurredHighRiskKeys((prev) => {
+            if (prev.size === 0) return prev;
+            const next = new Set(prev);
+            for (const k of keys) next.delete(k);
+            return next;
           });
           setSaved(true);
           setSavedMessage(
@@ -305,7 +315,7 @@ export function SettingsClient({
       }
       await performSave();
     },
-    [settings, initialSettings, t, tt],
+    [settings, baselineSettings, t, tt],
   );
 
   if (!canManage) {
@@ -416,7 +426,7 @@ export function SettingsClient({
           open={openSections[section.id] ?? section.defaultOpen}
           onToggle={handleToggle(section.id)}
           settings={settings}
-          initialSettings={initialSettings}
+          initialSettings={baselineSettings}
           updateField={updateField}
           runtimeSummaryByKey={runtimeSummaryByKey}
           auditMetadata={latestSectionMetadata(
