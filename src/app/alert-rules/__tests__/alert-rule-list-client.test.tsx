@@ -205,11 +205,11 @@ describe("alert rules client", () => {
 
 		expect(nativeConfirm).not.toHaveBeenCalled();
 		expect(screen.getByRole("dialog", { name: "删除告警规则" })).toHaveTextContent("Disk full");
-		expect(csrfFetch.mock.calls.some((call) => String(call[0]).includes("?id=rule1"))).toBe(false);
+		expect(vi.mocked(csrfFetch).mock.calls.some((call) => String(call[0]).includes("?id=rule1"))).toBe(false);
 
 		await user.click(screen.getByRole("button", { name: "取消" }));
 		expect(screen.queryByRole("dialog", { name: "删除告警规则" })).not.toBeInTheDocument();
-		expect(csrfFetch.mock.calls.some((call) => String(call[0]).includes("?id=rule1"))).toBe(false);
+		expect(vi.mocked(csrfFetch).mock.calls.some((call) => String(call[0]).includes("?id=rule1"))).toBe(false);
 
 		await user.click(screen.getByRole("button", { name: "删除" }));
 		await user.click(screen.getByRole("button", { name: "确认删除" }));

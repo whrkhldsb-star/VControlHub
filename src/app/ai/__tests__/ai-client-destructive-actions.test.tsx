@@ -282,4 +282,40 @@ describe("AiClient destructive actions", () => {
     await waitFor(() => expect(confirmCalls).toBe(1));
     await waitFor(() => expect(screen.getByText(/commandRequestId/)).toBeInTheDocument());
   });
+
+  it("keeps the optimistic user message and surfaces chat HTTP failures after stream teardown", async () => {
+    const user = userEvent.setup();
+    vi.mocked(csrfFetch).mockImplementation(async (input, init) => {
+      const url = String(input);
+      if (url === "/api/ai/conversations/conv-1" && !init) {
+        // Server never persisted the failed send — must not overwrite local UI.
+        return { conversation: { ...conversation, messages: [] } };
+      }
+      if (url === "/api/ai/models?providerId=provider-1") {
+        return { models: [{ id: "gpt-4o-mini", name: "gpt-4o-mini" }] };
+      }
+      if (url === "/api/ai/chat") {
+        return new Response(JSON.stringify({ error: "provider quota exceeded" }), {
+          status: 429,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+      if (url === "/api/ai/conversations") {
+        return { conversations: [conversation] };
+      }
+      return {};
+    });
+
+    render(<AiClient userId="user-1" initialProviders={[provider]} initialConversations={[conversation]} />);
+    await user.click(screen.getByText("生产排障助手"));
+    await screen.findByText(/OpenAI · gpt-4o-mini/);
+    await user.type(screen.getByPlaceholderText(/输入消息/), "检查磁盘");
+    await user.click(screen.getByRole("button", { name: "发送消息" }));
+
+    await waitFor(() => {
+      expect(screen.getByText("检查磁盘")).toBeInTheDocument();
+      expect(screen.getByText(/provider quota exceeded/)).toBeInTheDocument();
+    });
+    expect(addToastMock).toHaveBeenCalledWith("error", "provider quota exceeded");
+  });
 });

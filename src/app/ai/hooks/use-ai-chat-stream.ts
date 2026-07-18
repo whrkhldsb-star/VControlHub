@@ -145,6 +145,13 @@ export function useAiChatStream({
       setStreaming(true);
       setStreamContent("");
       setStreamReasoning("");
+      // Track terminal outcome. `finally` used to wipe `streamContent` while
+      // `AiMessageList` only renders stream bubbles while `streaming===true`,
+      // so HTTP/SSE/network errors were invisible and the optimistic user
+      // bubble could vanish after a silent server refresh.
+      let terminalError: string | null = null;
+      let completedSuccessfully = false;
+      let aborted = false;
       try {
         const response = await csrfFetch<Response>("/api/ai/chat", {
           method: "POST",
@@ -163,12 +170,16 @@ export function useAiChatStream({
           const err = await response
             .json()
             .catch(() => ({ error: t("aiPage.requestFailed") }));
-          setStreamContent(`❌ ${err.error || t("aiPage.requestFailed")}`);
-          setStreaming(false);
+          terminalError =
+            (typeof err.error === "string" && err.error) ||
+            t("aiPage.requestFailed");
           return;
         }
         const reader = response.body?.getReader();
-        if (!reader) return;
+        if (!reader) {
+          terminalError = t("aiPage.requestFailed");
+          return;
+        }
         const decoder = new TextDecoder();
         let buffer = "";
         let finalContent = "";
@@ -192,6 +203,7 @@ export function useAiChatStream({
                 finalReasoning += parsed.content;
                 setStreamReasoning(finalReasoning);
               } else if (parsed.type === "done") {
+                completedSuccessfully = true;
                 const assistantMsg: Message = {
                   id: `stream-${crypto.randomUUID()}`,
                   conversationId: activeConvId,
@@ -207,7 +219,10 @@ export function useAiChatStream({
                 };
                 setMessages((prev) => [...prev, assistantMsg]);
               } else if (parsed.type === "error") {
-                setStreamContent(`❌ ${parsed.error}`);
+                terminalError =
+                  typeof parsed.error === "string" && parsed.error
+                    ? parsed.error
+                    : t("aiPage.requestFailed");
               } else if (parsed.type === "tool_call") {
                 const tc = parsed.toolCall as ToolCallEvent;
                 if (tc.autoApproved) {
@@ -263,22 +278,47 @@ export function useAiChatStream({
         }
       } catch (err: unknown) {
         if (err instanceof DOMException && err.name === "AbortError") {
-          // user stopped — no error toast
+          aborted = true;
         } else {
-          setStreamContent(t("aiPage.networkError"));
+          terminalError = t("aiPage.networkError");
         }
       } finally {
         setStreaming(false);
         setStreamContent("");
         setStreamReasoning("");
         abortControllerRef.current = null;
-        if (activeConvId) {
-          csrfFetch(`/api/ai/conversations/${activeConvId}`)
-            .then((data) => {
-              if (data.conversation?.messages)
-                setMessages(data.conversation.messages);
-            })
-            .catch(() => {});
+        if (terminalError) {
+          const errorText = terminalError.startsWith("❌")
+            ? terminalError
+            : `❌ ${terminalError}`;
+          const errorMsg: Message = {
+            id: `stream-error-${crypto.randomUUID()}`,
+            conversationId: activeConvId,
+            role: "assistant",
+            content: errorText,
+            reasoningContent: null,
+            imageUrls: "[]",
+            model: activeConv?.model || null,
+            inputTokens: null,
+            outputTokens: null,
+            latencyMs: null,
+            createdAt: new Date().toISOString(),
+          };
+          setMessages((prev) => [...prev, errorMsg]);
+          addToast("error", terminalError.replace(/^❌\s*/, ""));
+          // Do not replace local transcript with a server refresh on failure:
+          // the request may never have been persisted, and a silent overwrite
+          // would drop the optimistic user bubble + the error we just added.
+        } else if (activeConvId && (completedSuccessfully || aborted)) {
+          try {
+            const data = await csrfFetch(
+              `/api/ai/conversations/${activeConvId}`,
+            );
+            if (data.conversation?.messages)
+              setMessages(data.conversation.messages);
+          } catch {
+            // Keep local transcript if post-stream refresh fails.
+          }
         }
         await refreshConversations();
       }
@@ -286,6 +326,7 @@ export function useAiChatStream({
     [
       activeConvId,
       activeConv?.model,
+      addToast,
       refreshConversations,
       setMessages,
       streaming,
