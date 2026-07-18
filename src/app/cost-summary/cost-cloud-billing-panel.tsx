@@ -3,6 +3,7 @@
 import { useCallback, useState } from "react";
 
 import { ActionButton } from "@/components/action-button";
+import { ConfirmDialog } from "@/components/confirm-dialog";
 import { csrfFetch } from "@/lib/auth/csrf-client";
 import type {
 	CloudBillingAccountRecord,
@@ -41,6 +42,7 @@ export function CostCloudBillingPanel({
 	const [accounts, setAccounts] = useState(initialAccounts);
 	const [busy, setBusy] = useState(false);
 	const [syncingId, setSyncingId] = useState<string | null>(null);
+	const [pendingDelete, setPendingDelete] = useState<CloudBillingAccountRecord | null>(null);
 	const [form, setForm] = useState({
 		name: "",
 		provider: "generic_csv" as CloudBillingProvider,
@@ -104,10 +106,12 @@ export function CostCloudBillingPanel({
 		}
 	};
 
-	const remove = async (id: string) => {
+	const remove = async () => {
+		if (!pendingDelete) return;
 		setBusy(true);
 		try {
-			await csrfFetch(`/api/cost/billing-accounts/${id}`, { method: "DELETE" });
+			await csrfFetch(`/api/cost/billing-accounts/${pendingDelete.id}`, { method: "DELETE" });
+			setPendingDelete(null);
 			await reload();
 			addToast("success", t("costPage.billing.deleted"));
 		} catch (error) {
@@ -148,6 +152,19 @@ export function CostCloudBillingPanel({
 
 	return (
 		<section className={cardClass}>
+			<ConfirmDialog
+				open={pendingDelete !== null}
+				title={t("costPage.billing.deleteTitle")}
+				description={t("costPage.billing.deleteConfirm").replace(
+					"{name}",
+					pendingDelete?.name ?? "",
+				)}
+				cancelLabel={t("costPage.billing.deleteCancel")}
+				confirmLabel={t("costPage.billing.deleteConfirmBtn")}
+				onCancel={() => setPendingDelete(null)}
+				onConfirm={() => void remove()}
+				busy={busy}
+			/>
 			<div className="flex flex-wrap items-center justify-between gap-3">
 				<div>
 					<h2 className="text-lg font-semibold text-[var(--text-primary)]">
@@ -258,7 +275,7 @@ export function CostCloudBillingPanel({
 								{canManage ? (
 									<button
 										type="button"
-										onClick={() => void remove(account.id)}
+										onClick={() => setPendingDelete(account)}
 										className="text-xs text-[var(--danger)]"
 										disabled={busy}
 									>

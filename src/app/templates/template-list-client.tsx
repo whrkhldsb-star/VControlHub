@@ -245,7 +245,7 @@ export function TemplateListClient({
 									className="mt-2 line-clamp-2 rounded-lg border border-[var(--success-border)] px-3 py-2 font-mono text-xs text-[var(--success)] light:border-[var(--success-border)]"
 								>
 									<span className="mr-2 font-sans text-[10px] uppercase tracking-[0.2em] text-[var(--success)]">
-										Rollback
+										{t("templatesPage.badge.rollback")}
 									</span>
 									{tmpl.rollbackCommand}
 								</div>

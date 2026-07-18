@@ -99,10 +99,15 @@ export function useCostPageState(options: {
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data = (await res.json()) as { snapshots: DailySnapshot[] };
       setSnapshots(data.snapshots);
-    } catch {
-      // non-blocking
+    } catch (err) {
+      // Snapshots power the trend chart only; keep the rest of the page usable
+      // but surface the failure so operators are not left with a silent empty chart.
+      addToast(
+        "error",
+        `${t("costPage.error.loadSnapshots")}: ${err instanceof Error ? err.message : String(err)}`,
+      );
     }
-  }, []);
+  }, [addToast, t]);
 
   const refreshAll = useCallback(async () => {
     await Promise.all([fetchSummary(month, currency), fetchEntries(), fetchSnapshots()]);
