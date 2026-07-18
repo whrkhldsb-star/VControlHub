@@ -66,6 +66,12 @@ export function PlaybookListClient({
         if (kind === "dry-run") {
           if (run.status === "queued" || run.status === "running") {
             addToast("success", t("playbooksPage.toast.dryRunQueued"));
+          } else if (run.status === "failed" || run.status === "cancelled") {
+            // Do not celebrate a failed/cancelled dry-run as success (false-success UX).
+            addToast(
+              "error",
+              t("playbooksPage.toast.run").replace("{status}", statusLabelFor(t, run.status)),
+            );
           } else {
             const counts = dryRunStepCounts(run);
             addToast(

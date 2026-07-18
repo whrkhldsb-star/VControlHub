@@ -88,6 +88,35 @@ describe("PlaybookListClient run feedback", () => {
 		await waitFor(() => expect(addToastMock).toHaveBeenCalledWith("success", "Dry-run 完成（2/2 步规划成功）"));
 		expect(csrfFetch).toHaveBeenCalledWith("/api/playbooks/pb_1/dry-run", { method: "POST" });
 	});
+	it("surfaces failed dry-run status as an error toast instead of success", async () => {
+		const user = userEvent.setup();
+		vi.mocked(csrfFetch).mockResolvedValueOnce({
+			run: {
+				id: "run_fail",
+				status: "failed",
+				dryRun: true,
+				startedAt: "2026-01-01T00:00:00.000Z",
+				completedAt: "2026-01-01T00:00:01.000Z",
+				errorMessage: "boom",
+				stepResults: [
+					{ stepId: "a", status: "failed", summary: "step failed" },
+				],
+			},
+		});
+
+		renderWithI18n(<PlaybookListClient playbooks={[playbook]} runsByPlaybook={{ pb_1: [] }} servers={testServers} canManage canRun />, { locale: "zh" });
+
+		await user.click(screen.getByRole("button", { name: /Dry-run 演练/ }));
+
+		await waitFor(() =>
+			expect(addToastMock).toHaveBeenCalledWith(
+				"error",
+				expect.stringMatching(/失败|failed/i),
+			),
+		);
+		expect(addToastMock).not.toHaveBeenCalledWith("success", expect.anything());
+	});
+
 });
 
 describe("PlaybookListClient sortable steps", () => {
