@@ -110,7 +110,7 @@ export async function POST(request: Request) {
 		// Verify the TOTP code
 		const valid = verifyTOTP({ token: code, secret: user.twoFactorSecret });
 		if (!valid) {
-			await auditSystemAction("auth.2fa_failed", { userId: sessionPayload.userId, ip: clientIp }, "WARNING");
+			await auditSystemAction("auth.2fa_failed", { userId: sessionPayload.userId, ip: clientIp }, "WARNING", user.currentTeamId);
 			return apiError({
 				code: "TWO_FACTOR_INVALID_CODE",
 				message: "VerifycodeError",

@@ -71,7 +71,7 @@ export async function POST(request: Request) {
 				provider: entry.provider,
 				amount: entry.amount,
 				currency: entry.currency,
-			});
+			}, undefined, session?.currentTeamId);
 			return NextResponse.json({ entry });
 		},
 	);

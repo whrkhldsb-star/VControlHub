@@ -105,7 +105,7 @@ export async function POST(request: Request) {
 
 		// Log successful login & clear any previous failure count
 		clearLoginFailure(username);
-		await auditUserAction(user.id, "auth.login_password_ok", { username, ip: clientIp });
+		await auditUserAction(user.id, "auth.login_password_ok", { username, ip: clientIp }, undefined, user.currentTeamId);
 
 		// ── 2FA Check ──
 		// If the user has 2FA enabled, redirect to the verification page

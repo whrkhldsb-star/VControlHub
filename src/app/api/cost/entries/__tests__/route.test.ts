@@ -29,7 +29,7 @@ vi.mock("@/lib/audit/service", () => ({ auditUserAction: mocks.auditUserAction }
 
 const route = await import("../route");
 
-const session = { userId: "u1", username: "alice", user: { id: "u1" } };
+const session = { userId: "u1", username: "alice", user: { id: "u1" }, currentTeamId: null };
 
 const SAMPLE_ENTRY = {
 	id: "ce-1",
@@ -111,6 +111,7 @@ describe("/api/cost/entries", () => {
 			"u1",
 			"cost.create",
 			expect.objectContaining({ entryId: "ce-1" }),
+			undefined, null,
 		);
 	});
 
