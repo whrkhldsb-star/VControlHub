@@ -38,7 +38,7 @@ describe("/api/audit GET", () => {
 		const json = await res.json();
 		expect(res.status).toBe(200);
 		expect(mocks.requireApiPermission).toHaveBeenCalledWith("audit:read");
-		expect(mocks.listAuditLogs).toHaveBeenCalledWith(expect.objectContaining({ page: 1, pageSize: 20 }));
+		expect(mocks.listAuditLogs).toHaveBeenCalledWith(expect.objectContaining({ page: 1, pageSize: 20, session }));
 		expect(json).toEqual(auditResult);
 	});
 

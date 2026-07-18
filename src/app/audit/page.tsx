@@ -57,7 +57,7 @@ export default async function AuditPage({ searchParams }: AuditPageProps) {
 	let stats: Awaited<ReturnType<typeof getAuditStats>> | null = null;
 	if (canRead) {
 		try {
-			stats = await getAuditStats();
+			stats = await getAuditStats(session);
 		} catch (error) {
 			logger.warn("Failed to load audit stats", error);
 		}

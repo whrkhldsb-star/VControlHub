@@ -1,5 +1,6 @@
 import { PageShell } from "@/components/page-shell";
 import { requireSession } from "@/lib/auth/require-session";
+import { teamWhere } from "@/lib/auth/team-scope";
 import { listCommandRequests } from "@/lib/command/service";
 import { formatDateTime } from "@/lib/datetime/format";
 import { prisma } from "@/lib/db";
@@ -21,18 +22,20 @@ import { DashboardPreferenceClient } from "./dashboard-preference-client";
 
 export async function DashboardContent({ sessionPath }: { sessionPath: "/" | "/dashboard" }) {
 	const session = await requireSession(sessionPath);
+	const teamScope = teamWhere(session);
 	const [servers, storage, requests, recentAuditLogs, downloadStats, unreadNotifications, activeScheduledTasks, dragReorderEnabledRaw] = await Promise.all([
 		listServerProfiles(session),
 		getStorageOverview(session),
 		listCommandRequests(session),
 		prisma.auditLog.findMany({
+			where: teamScope,
 			take: 5,
 			orderBy: { createdAt: "desc" },
 			include: { actor: { select: { username: true, displayName: true } } },
 		}),
-		prisma.downloadTask.groupBy({ by: ["status"], _count: true }),
+		prisma.downloadTask.groupBy({ by: ["status"], where: teamScope, _count: true }),
 		getUnreadCount(session.userId),
-		prisma.scheduledTask.count({ where: { status: "ACTIVE" } }),
+		prisma.scheduledTask.count({ where: { status: "ACTIVE", ...teamScope } }),
 		getSetting("dashboard.layout.dragReorderEnabled"),
 	]);
 

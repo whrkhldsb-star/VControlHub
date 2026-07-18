@@ -17,7 +17,7 @@ const auditQuerySchema = paginationQuerySchema.extend({
 });
 
 export async function GET(request: Request) {
-  return withApiRoute(request, { permission: "audit:read" }, async () => {
+  return withApiRoute(request, { permission: "audit:read" }, async ({ session }) => {
     const { page, pageSize, action, severity, search } = parseSearchParams(
       request,
       auditQuerySchema,
@@ -29,6 +29,7 @@ export async function GET(request: Request) {
       action,
       severity,
       search,
+      session,
     });
     return NextResponse.json(result);
   });

@@ -115,6 +115,7 @@ describe("/api/audit/export GET", () => {
 			action: "user.login",
 			severity: "WARN",
 			search: "alice",
+			session,
 		});
 	});
 

@@ -68,7 +68,7 @@ export default async function FilesPage({ searchParams }: FilesPageProps) {
   if (effectiveNodeId) {
     const selectedNode = storage.nodes.find((node) => node.id === effectiveNodeId);
     if (selectedNode?.driver === "SFTP") {
-      const syncNode = await getSftpSyncNode(effectiveNodeId);
+      const syncNode = await getSftpSyncNode(effectiveNodeId, session);
       if (syncNode?.driver === "SFTP") {
         const syncResult = await syncSftpDirectoryEntries({
           node: syncNode,

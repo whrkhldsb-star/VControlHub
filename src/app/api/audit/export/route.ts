@@ -44,13 +44,14 @@ export async function GET(request: Request) {
   return withApiRoute(
     request,
     { permission: "audit:read", rateLimit: GENERAL_WRITE_LIMIT },
-    async () => {
+    async ({ session }) => {
     const url = new URL(request.url);
     const params = exportQuerySchema.parse(Object.fromEntries(url.searchParams));
     const logs = await exportAuditLogs({
       action: params.action,
       severity: params.severity,
       search: params.search,
+      session,
     });
 
     if (params.format === "json") {
