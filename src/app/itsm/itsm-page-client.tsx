@@ -3,6 +3,7 @@
 import { useCallback, useState } from "react";
 
 import { ActionButton } from "@/components/action-button";
+import { ConfirmDialog } from "@/components/confirm-dialog";
 import { csrfFetch } from "@/lib/auth/csrf-client";
 import type { ItsmConnectionRecord, ItsmDirection, ItsmEventRecord, ItsmProvider } from "@/lib/itsm/types";
 import { useI18n } from "@/lib/i18n/use-locale";
@@ -34,6 +35,7 @@ export function ItsmPageClient({
 	const [events, setEvents] = useState(initialEvents);
 	const [busy, setBusy] = useState(false);
 	const [testingId, setTestingId] = useState<string | null>(null);
+	const [pendingDelete, setPendingDelete] = useState<ItsmConnectionRecord | null>(null);
 	const [form, setForm] = useState({
 		name: "",
 		provider: "generic_webhook" as ItsmProvider,
@@ -47,13 +49,17 @@ export function ItsmPageClient({
 	});
 
 	const reload = useCallback(async () => {
-		const [connData, eventData] = await Promise.all([
-			csrfFetch("/api/itsm/connections") as Promise<{ connections?: ItsmConnectionRecord[] }>,
-			csrfFetch("/api/itsm/events?limit=30") as Promise<{ events?: ItsmEventRecord[] }>,
-		]);
-		if (Array.isArray(connData.connections)) setConnections(connData.connections);
-		if (Array.isArray(eventData.events)) setEvents(eventData.events);
-	}, []);
+		try {
+			const [connData, eventData] = await Promise.all([
+				csrfFetch("/api/itsm/connections") as Promise<{ connections?: ItsmConnectionRecord[] }>,
+				csrfFetch("/api/itsm/events?limit=30") as Promise<{ events?: ItsmEventRecord[] }>,
+			]);
+			if (Array.isArray(connData.connections)) setConnections(connData.connections);
+			if (Array.isArray(eventData.events)) setEvents(eventData.events);
+		} catch (error) {
+			addToast("error", error instanceof Error ? error.message : t("itsmPage.toast.error"));
+		}
+	}, [addToast, t]);
 
 	const create = async () => {
 		if (!form.name.trim()) return;
@@ -96,10 +102,11 @@ export function ItsmPageClient({
 		}
 	};
 
-	const remove = async (id: string) => {
+	const remove = async (row: ItsmConnectionRecord) => {
 		setBusy(true);
 		try {
-			await csrfFetch(`/api/itsm/connections/${id}`, { method: "DELETE" });
+			await csrfFetch(`/api/itsm/connections/${row.id}`, { method: "DELETE" });
+			setPendingDelete(null);
 			await reload();
 			addToast("success", t("itsmPage.toast.deleted"));
 		} catch (error) {
@@ -316,7 +323,7 @@ export function ItsmPageClient({
 												type="button"
 												className="rounded-md border border-rose-500/40 px-2 py-1 text-xs text-rose-500"
 												disabled={busy}
-												onClick={() => void remove(row.id)}
+												onClick={() => setPendingDelete(row)}
 											>
 												{t("itsmPage.action.delete")}
 											</button>
@@ -366,6 +373,26 @@ export function ItsmPageClient({
 					</ul>
 				)}
 			</section>
+
+			<ConfirmDialog
+				open={pendingDelete !== null}
+				title={t("common.confirmDelete")}
+				description={
+					pendingDelete
+						? t("itsmPage.confirm.delete").replace("{name}", pendingDelete.name)
+						: ""
+				}
+				cancelLabel={t("common.cancel")}
+				confirmLabel={t("itsmPage.action.delete")}
+				busy={busy}
+				onCancel={() => {
+					if (!busy) setPendingDelete(null);
+				}}
+				onConfirm={() => {
+					if (pendingDelete) void remove(pendingDelete);
+				}}
+				closeOnBackdrop={!busy}
+			/>
 		</div>
 	);
 }
