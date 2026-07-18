@@ -73,8 +73,22 @@ export function SshTerminalManager({
 				return;
 			}
 
-			// Escape: close active tab only if expanded
+			// Escape: close active tab only if expanded AND the user is not typing
+			// into an editable field (terminal xterm textarea, search boxes, etc.).
+			// A global window listener would otherwise intercept Escape that the
+			// terminal / form control should consume, forcibly killing the session.
 			if (e.key === "Escape" && !minimized) {
+				const target = e.target;
+				if (target instanceof HTMLElement) {
+					const tag = target.tagName;
+					const editable =
+						target.isContentEditable ||
+						tag === "INPUT" ||
+						tag === "TEXTAREA" ||
+						tag === "SELECT" ||
+						target.closest(".xterm, .xterm-helper-textarea, [role='textbox']") !== null;
+					if (editable) return;
+				}
 				e.preventDefault();
 				if (tabs.length > 0) {
 					onTabClose(activeTabIndex);

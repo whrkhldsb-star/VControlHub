@@ -251,8 +251,10 @@ export function FileUploadDropzone({
         }),
       });
     } else if (successCount > 0) {
+      // Partial batch: some files failed — must not use success tone/type or
+      // callers/tests treating message.type==="success" as all-good will lie.
       setMessage({
-        type: "success",
+        type: "error",
         text: formatMessage("fileUploadDropzone.summary.partialSuccess", {
           success: successCount,
           total,

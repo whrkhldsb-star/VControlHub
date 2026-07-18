@@ -71,7 +71,7 @@ function describeCronPreview(expr: string, t: (key: string) => string) {
 }
 
 export function ScheduledTaskListClient({ tasks: initialTasks, servers, canCreate, canManage }: Props) {
-		const { t } = useI18n();
+	const { t, locale } = useI18n();
 	const [tasks, setTasks] = useState(initialTasks);
 	const [showCreate, setShowCreate] = useState(false);
 	const [taskPendingDelete, setTaskPendingDelete] = useState<Task | null>(null);
@@ -79,9 +79,13 @@ export function ScheduledTaskListClient({ tasks: initialTasks, servers, canCreat
 	const [searchQuery, setSearchQuery] = useState("");
 
 	const refresh = useCallback(async () => {
-		const data = await csrfFetch("/api/scheduled-tasks");
-		setTasks(data.tasks ?? []);
-	}, []);
+		try {
+			const data = await csrfFetch("/api/scheduled-tasks");
+			setTasks(data.tasks ?? []);
+		} catch (err) {
+			setActionError(err instanceof Error ? err.message : t("scheduledTasks.refreshFailed"));
+		}
+	}, [t]);
 
 	const filteredTasks = useMemo(() => tasks.filter((task) => matchesTask(task, searchQuery)), [tasks, searchQuery]);
 
@@ -183,8 +187,8 @@ export function ScheduledTaskListClient({ tasks: initialTasks, servers, canCreat
 									<div className="mt-3 grid grid-cols-2 gap-2 text-xs text-[var(--text-muted)]">
 										<div>{t("scheduledTasksPage.targetNodes").replace("{count}", String(task.serverIds.length))}</div>
 										<div>{t("scheduledTasksPage.runCount").replace("{count}", String(task.runCount))}</div>
-										<div>{t("scheduledTasksPage.lastRun").replace("{time}", formatTime(task.lastRunAt))}</div>
-										<div>{t("scheduledTasksPage.nextRun").replace("{time}", formatTime(task.nextRunAt))}</div>
+										<div>{t("scheduledTasksPage.lastRun").replace("{time}", formatTime(task.lastRunAt, locale))}</div>
+										<div>{t("scheduledTasksPage.nextRun").replace("{time}", formatTime(task.nextRunAt, locale))}</div>
 									</div>
 									<div className="mt-3 rounded-lg border border-[var(--border)] bg-[var(--surface-subtle)] px-3 py-2 text-[11px] text-[var(--text-muted)]">
 										<div className="mb-1 font-medium text-[var(--text-secondary)]">{t("scheduledTasksPage.recentLogs")}</div>
