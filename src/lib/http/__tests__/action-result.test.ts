@@ -107,10 +107,10 @@ describe("toActionFailure", () => {
     expect(r.retryable).toBe(true);
   });
 
-  it("普通 Error → INTERNAL_ERROR + 透传 message", () => {
+  it("普通 Error → INTERNAL_ERROR + 不透传内部 message", () => {
     const r = toActionFailure(new Error("数据库连接失败"));
     expect(r.code).toBe("INTERNAL_ERROR");
-    expect(r.message).toBe("数据库连接失败");
+    expect(r.message).toBe("Operation failed");
   });
 
   it("空 Error → 默认文案", () => {

@@ -95,11 +95,13 @@ describe("lib/http/api-error", () => {
 			expect(body.message).toBe("oops");
 		});
 
-		it("plain Error → INTERNAL_ERROR for 5xx fallback", async () => {
-			const res = apiCatch(new Error("oops"), 500);
+		it("plain Error → INTERNAL_ERROR for 5xx fallback and does not leak message", async () => {
+			const res = apiCatch(new Error("oops secret db detail"), 500);
 			expect(res.status).toBe(500);
 			const body = await readJson(res);
 			expect(body.code).toBe("INTERNAL_ERROR");
+			expect(body.message).toBe("Operation failed");
+			expect(body.error).toBe("Operation failed");
 		});
 
 		it("non-Error value → fallback message + INTERNAL_ERROR", async () => {

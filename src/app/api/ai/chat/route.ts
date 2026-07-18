@@ -28,7 +28,11 @@ export async function POST(request: Request) {
   const rl = await checkRateLimitAsync(getClientIp(request), AI_CHAT_LIMIT);
   if (!rl.allowed) {
     return NextResponse.json(
-      { error: t("apiAiChat.rateLimited", locale) },
+      {
+        code: "RATE_LIMITED",
+        message: t("apiAiChat.rateLimited", locale),
+        error: t("apiAiChat.rateLimited", locale),
+      },
       {
         status: 429,
         headers: { "Retry-After": String(Math.ceil(rl.retryAfterMs / 1000)) },

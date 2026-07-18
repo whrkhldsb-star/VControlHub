@@ -87,15 +87,19 @@ describe("api guard", () => {
     expect(handler).not.toHaveBeenCalled();
   });
 
-  it("converts thrown errors to json responses", async () => {
+  it("converts thrown errors to json responses without leaking raw message", async () => {
     const response = await withApiRoute(request(), {}, async () => {
       throw new Error("boom");
     });
 
     expect(response.status).toBe(500);
-    // TR-034: error envelope is now {error, message, code}; the human
-    // message lives in `message`, the machine-readable code in `error`.
-    expect(await json(response)).toMatchObject({ message: "boom" });
+    // TR-034: error envelope is now {error, message, code}; 5xx must not
+    // echo raw exception text to clients.
+    expect(await json(response)).toMatchObject({
+      code: "INTERNAL_ERROR",
+      message: "Operation failed",
+      error: "Operation failed",
+    });
   });
 
   it("supports route-specific error mapping", async () => {

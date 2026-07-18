@@ -104,7 +104,10 @@ export function toActionFailure(err: unknown): ActionFailure {
   }
 
   if (err instanceof Error) {
-    return { ok: false, code: "INTERNAL_ERROR", message: err.message || "Operation failed" };
+    // Avoid leaking raw internal exception text as client-facing copy for
+    // untyped failures; keep explicit product messages only when the error
+    // already carries a known ActionFailure-like code/status mapping above.
+    return { ok: false, code: "INTERNAL_ERROR", message: "Operation failed" };
   }
   return { ok: false, code: "INTERNAL_ERROR", message: "Operation failed" };
 }

@@ -63,14 +63,22 @@ export async function withRateLimit(
 }
 
 /**
- * Create a 429 response with proper headers.
+ * Create a 429 response with proper headers and TR-034 error envelope.
  */
 export function rateLimitResponse(retryAfterMs: number, message = "Too many requests; please try again later"): Response {
-	return new Response(JSON.stringify({ error: message }), {
-		status: 429,
-		headers: {
-			"Content-Type": "application/json",
-			"Retry-After": String(Math.ceil(retryAfterMs / 1000)),
+	return new Response(
+		JSON.stringify({
+			code: "RATE_LIMITED",
+			message,
+			// Legacy mirror for clients still reading body.error
+			error: message,
+		}),
+		{
+			status: 429,
+			headers: {
+				"Content-Type": "application/json",
+				"Retry-After": String(Math.ceil(retryAfterMs / 1000)),
+			},
 		},
-	});
+	);
 }

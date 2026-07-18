@@ -34,7 +34,14 @@ export async function GET(request: Request) {
 			const userId = session!.userId;
 			const activeCount = activeConnectionsByUser.get(userId) ?? 0;
 			if (activeCount >= MAX_SSE_CONNECTIONS_PER_USER) {
-				return Response.json({ error: "Too many active monitoring streams" }, { status: 429 });
+				return Response.json(
+					{
+						code: "RATE_LIMITED",
+						message: "Too many active monitoring streams",
+						error: "Too many active monitoring streams",
+					},
+					{ status: 429 },
+				);
 			}
 			activeConnectionsByUser.set(userId, activeCount + 1);
       const url = new URL(request.url);

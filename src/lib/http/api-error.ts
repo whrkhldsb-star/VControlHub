@@ -110,14 +110,17 @@ export function apiCatch(
 	if (isAppError(e)) {
 		opts = {
 			code: e.code,
+			// AppError messages are intentional product copy; keep them.
 			message: e.message,
 			status: e.status,
 			details: e.details,
 		};
 	} else if (e instanceof Error) {
+		// Never leak raw internal exception text on 5xx to clients.
+		const isServerError = fallbackStatus >= 500;
 		opts = {
-			code: fallbackStatus >= 500 ? "INTERNAL_ERROR" : "GENERIC_ERROR",
-			message: e.message || fallbackMessage,
+			code: isServerError ? "INTERNAL_ERROR" : "GENERIC_ERROR",
+			message: isServerError ? fallbackMessage : e.message || fallbackMessage,
 			status: fallbackStatus,
 		};
 	} else {
