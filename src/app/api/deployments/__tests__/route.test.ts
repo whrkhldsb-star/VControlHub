@@ -173,6 +173,6 @@ describe("/api/deployments", () => {
         serverIds: ["srv1"],
         reason: "upgrade",
       },
-    );
+    undefined, null);
   });
 });

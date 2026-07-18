@@ -44,7 +44,7 @@ export async function POST(request: Request) {
 				connectionId: connection.id,
 				provider: connection.provider,
 				name: connection.name,
-			});
+			}, undefined, session?.currentTeamId);
 			return NextResponse.json({ connection }, { status: 201 });
 		},
 	);

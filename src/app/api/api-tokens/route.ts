@@ -116,7 +116,7 @@ export async function POST(request: Request) {
         expiresAt: result.apiToken.expiresAt
           ? result.apiToken.expiresAt.toISOString()
           : null,
-      });
+      }, undefined, session?.currentTeamId);
 
       if (wantsHtml(request)) {
         return NextResponse.redirect(
@@ -150,7 +150,7 @@ export async function DELETE(request: Request) {
         tokenId: token.id,
         tokenPrefix: token.tokenPrefix,
         tokenSuffix: token.tokenSuffix,
-      });
+      }, undefined, session?.currentTeamId);
       return NextResponse.json({ token });
     },
   );

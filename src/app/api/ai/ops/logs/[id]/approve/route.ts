@@ -52,7 +52,7 @@ export async function POST(
 					actionId: body.actionId,
 					ok: result.ok,
 				},
-			);
+			undefined, session?.currentTeamId);
 			return NextResponse.json({ result });
 		},
 	);

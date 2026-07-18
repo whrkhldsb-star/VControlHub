@@ -243,7 +243,7 @@ export async function POST(request: Request) {
           relayMode: relayMode ?? false,
           category: category ?? "",
           isBatch: isBatch ?? false,
-        });
+        }, undefined, session?.currentTeamId);
       }
 
       if (dispatchError) {
@@ -278,7 +278,7 @@ export async function POST(request: Request) {
           errorMessage: dispatchError.message,
           relayMode: relayMode ?? false,
           isBatch: isBatch ?? false,
-        });
+        }, undefined, session?.currentTeamId);
         return NextResponse.json(
           {
             error: t("apiDownloads.createFailedWithMessage", locale).replace("{message}", dispatchError.message),

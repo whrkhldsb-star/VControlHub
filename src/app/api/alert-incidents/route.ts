@@ -87,7 +87,7 @@ export async function POST(request: Request) {
       await auditUserAction(session!.userId, "alert_incident.acknowledge", {
         incidentId: result.id,
         status: result.status,
-      });
+      }, undefined, session?.currentTeamId);
       return NextResponse.json({ success: true, incident: result });
     },
   );

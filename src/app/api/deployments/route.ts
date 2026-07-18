@@ -106,7 +106,7 @@ export async function POST(request: Request) {
           templateId: parsed.data.templateId,
           serverIds: parsed.data.serverIds,
           reason: parsed.data.reason ?? null,
-        });
+        }, undefined, session?.currentTeamId);
         if (wantsHtmlResponse(request)) {
           return redirectToDeploymentsWithError(request);
         }

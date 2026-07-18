@@ -60,7 +60,7 @@ export async function POST(
 					executed: result.executed,
 					errorMessage: result.errorMessage ?? null,
 				},
-			);
+			undefined, session?.currentTeamId);
 			return NextResponse.json({ result });
 		},
 	);

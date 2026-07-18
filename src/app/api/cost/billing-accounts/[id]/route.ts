@@ -53,7 +53,7 @@ export async function PATCH(request: Request, context: RouteContext) {
 				accountId: account.id,
 				provider: account.provider,
 				teamId: account.teamId,
-			});
+			}, undefined, session?.currentTeamId);
 			return NextResponse.json({ account });
 		},
 	);

@@ -9,7 +9,7 @@ export async function POST(request: Request) {
     // Pass session so team-scoped cost:manage only evaluates their budgets,
     // not the entire fleet (and so usage aggregates use teamWhere).
     const result = await checkBudgetAlerts(new Date(), session);
-    await auditUserAction(session!.userId, "cost.budget.check", { checked: result.checked, triggered: result.triggered, notificationsSent: result.notificationsSent });
+    await auditUserAction(session!.userId, "cost.budget.check", { checked: result.checked, triggered: result.triggered, notificationsSent: result.notificationsSent }, undefined, session?.currentTeamId);
     return NextResponse.json({ result });
   });
 }

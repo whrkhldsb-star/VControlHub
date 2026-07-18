@@ -106,7 +106,7 @@ export async function PATCH(request: Request) {
 						? { from: previousProvider, to: body.providerId ?? null }
 						: null,
 				},
-			);
+			undefined, session?.currentTeamId);
 
 			return NextResponse.json({
 				mode: body.mode,

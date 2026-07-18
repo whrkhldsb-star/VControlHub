@@ -78,7 +78,7 @@ const executeRoute = await import("../logs/[id]/execute/route");
 const summaryRoute = await import("../summary/route");
 const settingsRoute = await import("../settings/route");
 
-const adminSession = { userId: "u-admin", username: "admin", user: { id: "u-admin" }, roles: ["admin"] as const };
+const adminSession = { userId: "u-admin", username: "admin", user: { id: "u-admin" }, roles: ["admin"] as const, currentTeamId: null };
 
 const SAMPLE_LOG = {
 	id: "log-1",
@@ -196,7 +196,7 @@ describe("/api/ai/ops/* routes", () => {
 				"u-admin",
 				"ai.ops.scan.manual",
 				expect.objectContaining({ triggered: true, logId: "log-1", notes: "investigate" }),
-			);
+			undefined, null);
 			const body = await res.json();
 			expect(body.triggered).toBe(true);
 			expect(body.latestLog).toEqual(SAMPLE_LOG);
@@ -249,7 +249,7 @@ describe("/api/ai/ops/* routes", () => {
 				"u-admin",
 				"ai.ops.recommendation.execute",
 				expect.objectContaining({ logId: "log-1", actionId: "a-1", executed: true }),
-			);
+			undefined, null);
 		});
 
 		it("blocks forceAutonomous=true when the caller lacks ai:ops:autonomous", async () => {
@@ -343,7 +343,7 @@ describe("/api/ai/ops/* routes", () => {
 					mode: { from: "recommendation", to: "autonomous" },
 					providerId: { from: "", to: "anthropic" },
 				}),
-			);
+			undefined, null);
 			const body = await res.json();
 			expect(body.mode).toBe("autonomous");
 			expect(body.providerId).toBe("anthropic");

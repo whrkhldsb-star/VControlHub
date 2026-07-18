@@ -48,7 +48,7 @@ export async function POST(request: Request) {
 				provider: account.provider,
 				name: account.name,
 				teamId: account.teamId,
-			});
+			}, undefined, session?.currentTeamId);
 			return NextResponse.json({ account }, { status: 201 });
 		},
 	);

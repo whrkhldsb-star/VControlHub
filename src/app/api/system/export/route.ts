@@ -27,7 +27,7 @@ export async function GET(request: Request) {
       sourceDomain,
       exportMode: mode,
       recordCounts: summary,
-    });
+    }, undefined, session?.currentTeamId);
 
     const json = JSON.stringify(file, null, 2);
     const timestamp = new Date().toISOString().slice(0, 19).replace(/[:T]/g, "-");

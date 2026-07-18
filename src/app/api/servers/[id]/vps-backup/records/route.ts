@@ -111,7 +111,7 @@ export async function POST(
 					session.userId,
 					"vps-backup.record.trigger",
 					{ serverId, recordId, backupType: body.backupType },
-				);
+				undefined, session?.currentTeamId);
 
 				return Response.json({ recordId, status: "PENDING" }, { status: 202 });
 			} catch (err) {

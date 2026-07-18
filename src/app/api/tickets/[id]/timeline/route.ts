@@ -93,7 +93,7 @@ export async function POST(
         await auditUserAction(session!.userId, "ticket.link_command", {
           ticketId: id,
           commandRequestId: body.commandRequestId,
-        });
+        }, undefined, session?.currentTeamId);
       } else if (body.action === "unlink_command") {
         await linkTicketCommand({
           ticketId: id,
@@ -114,7 +114,7 @@ export async function POST(
         await auditUserAction(session!.userId, "ticket.link_server", {
           ticketId: id,
           serverId: body.serverId,
-        });
+        }, undefined, session?.currentTeamId);
       } else {
         await linkTicketServer({
           ticketId: id,

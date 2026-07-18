@@ -35,7 +35,7 @@ export async function POST(
         status: updated?.status ?? result.status ?? null,
         lastSyncResult: updated?.lastSyncResult ?? result.lastSyncResult ?? null,
         ok: result.ok,
-      });
+      }, undefined, session?.currentTeamId);
       if (!result.ok) {
         // Persist ERROR/FAILED already happened; surface honest failure to client
         // instead of success:true with status=ERROR (false success UX).

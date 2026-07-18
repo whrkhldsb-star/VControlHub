@@ -101,7 +101,7 @@ export async function POST(
             where: { id },
             data: { osInfo, osDialect: serializeDialect({ ...await detectOsDialect(sshParams) }) },
           });
-          await auditUserAction(session.userId, "server.detect_os", { serverId: id, fallback: "uname" }, "INFO");
+          await auditUserAction(session.userId, "server.detect_os", { serverId: id, fallback: "uname" }, "INFO", session?.currentTeamId);
           return Response.json({ success: true, osInfo, dialect: null, fallback: true });
         }
 
@@ -140,7 +140,7 @@ export async function POST(
       } catch (error) {
         const message = error instanceof Error ? error.message : "SSH connection failed";
         logger.warn("OS dialect detection failed", { serverId: id, error: message });
-        await auditUserAction(session.userId, "server.detect_os_error", { serverId: id, error: message }, "WARNING");
+        await auditUserAction(session.userId, "server.detect_os_error", { serverId: id, error: message }, "WARNING", session?.currentTeamId);
         return Response.json({ error: t("apiServersDetectOs.detectionFailed", locale).replace("{message}", message) }, { status: 502 });
       }
     },

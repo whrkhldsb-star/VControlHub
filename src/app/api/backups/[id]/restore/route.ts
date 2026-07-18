@@ -62,7 +62,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
             backupId: id,
             jobId: existing.id,
             deduped: true,
-          });
+          }, undefined, session?.currentTeamId);
           return NextResponse.json({ jobId: existing.id, taskId: `job:${existing.id}`, deduped: true }, { status: 202 });
         }
         const job = await enqueueJob({

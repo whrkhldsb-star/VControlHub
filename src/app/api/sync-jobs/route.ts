@@ -97,7 +97,7 @@ export async function POST(request: Request) {
         syncType: job.syncType,
         sourceServerId: job.sourceServerId,
         targetServerId: job.targetServerId,
-      });
+      }, undefined, session?.currentTeamId);
       return NextResponse.json({ job }, { status: 201 });
     },
   );

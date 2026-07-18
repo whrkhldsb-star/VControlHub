@@ -28,7 +28,7 @@ const route = await import("../route");
 describe("/api/commands audit coverage", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mocks.requireApiPermission.mockResolvedValue({ session: { userId: "u1", username: "alice", user: { id: "u1" } } });
+    mocks.requireApiPermission.mockResolvedValue({ session: { userId: "u1", username: "alice", user: { id: "u1" }, currentTeamId: null } });
     mocks.sessionHasPermission.mockReturnValue(true);
     mocks.listCommandRequests.mockResolvedValue([]);
     mocks.recoverStaleRunningCommandRequests.mockResolvedValue({ recovered: 0 });
@@ -95,7 +95,7 @@ describe("/api/commands audit coverage", () => {
       targetCount: 2,
       requiresApproval: true,
       submissionMode: "user",
-    });
+    }, undefined, null);
     expect(JSON.stringify(mocks.auditUserAction.mock.calls)).not.toContain("systemctl restart nginx");
     expect(JSON.stringify(mocks.auditUserAction.mock.calls)).not.toContain("/etc/shadow");
   });
@@ -120,7 +120,7 @@ describe("/api/commands audit coverage", () => {
     );
     expect(mocks.auditUserAction).toHaveBeenCalledWith("u1", "command.submit", expect.objectContaining({
       targetCount: 2,
-    }));
+    }), undefined, null);
   });
 
   it("forces command submissions without execute permission into approval flow", async () => {
@@ -174,7 +174,7 @@ describe("/api/commands audit coverage", () => {
     expect(mocks.auditUserAction).toHaveBeenCalledWith("u1", "command.cancel", {
       commandRequestId: "cmd1",
       status: "CANCELLED",
-    });
+    }, undefined, null);
   });
 
   it("rejects command cancellation without execute permission", async () => {

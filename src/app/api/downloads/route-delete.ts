@@ -64,7 +64,7 @@ export async function DELETE(request: Request) {
         await auditUserAction(session.userId, "download.purge", {
           taskId,
           url: task.url,
-        });
+        }, undefined, session?.currentTeamId);
         return NextResponse.json({ success: true, purged: true });
       }
 
@@ -123,7 +123,7 @@ export async function DELETE(request: Request) {
       await auditUserAction(session.userId, "download.cancel", {
         taskId,
         url: task.url,
-      });
+      }, undefined, session?.currentTeamId);
       return NextResponse.json({ success: true });
     },
   );

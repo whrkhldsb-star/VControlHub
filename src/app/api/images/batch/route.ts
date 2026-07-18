@@ -70,7 +70,7 @@ export async function POST(request: Request) {
             requestedCount: ids.length,
             deleted: result.count,
             ids: images.map((img) => img.id),
-          }, "WARNING");
+          }, "WARNING", session?.currentTeamId);
           return NextResponse.json({ deleted: result.count });
         }
 
@@ -88,7 +88,7 @@ export async function POST(request: Request) {
             requestedCount: ids.length,
             updated: result.count,
             album: album.trim() || null,
-          });
+          }, undefined, session?.currentTeamId);
           return NextResponse.json({ updated: result.count });
         }
 
@@ -119,7 +119,7 @@ export async function POST(request: Request) {
             updated: images.length,
             toPublicCount: toPublic.length,
             toPrivateCount: toPrivate.length,
-          });
+          }, undefined, session?.currentTeamId);
           return NextResponse.json({ updated: images.length });
         }
 

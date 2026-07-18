@@ -33,7 +33,7 @@ vi.mock("@/lib/audit/service", () => ({
 
 const route = await import("../route");
 
-const session = { userId: "u1", username: "alice", user: { id: "u1" } };
+const session = { userId: "u1", username: "alice", user: { id: "u1" }, currentTeamId: null };
 
 describe("/api/api-tokens", () => {
   beforeEach(() => {
@@ -145,7 +145,7 @@ describe("/api/api-tokens", () => {
         tokenId: "tok1",
         scopes: ["read", "health:read"],
       }),
-    );
+    undefined, null);
     expect(JSON.stringify(mocks.auditUserAction.mock.calls)).not.toContain(
       "whr_plain_once",
     );
@@ -191,6 +191,6 @@ describe("/api/api-tokens", () => {
       "u1",
       "api_token.revoke",
       expect.objectContaining({ tokenId: "tok1" }),
-    );
+    undefined, null);
   });
 });

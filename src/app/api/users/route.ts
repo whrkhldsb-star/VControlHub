@@ -105,7 +105,7 @@ export async function POST(request: Request) {
       await auditUserAction(session!.userId, "user.create", {
         targetUsername: username,
         roles: roleKeys,
-      });
+      }, undefined, session?.currentTeamId);
 
       return NextResponse.json({ success: true, userId: user.id });
     },
@@ -191,7 +191,7 @@ export async function PATCH(request: Request) {
         await auditUserAction(session!.userId, "user.role_update", {
           targetUsername: targetUser.username,
           roles: roleKeys,
-        });
+        }, undefined, session?.currentTeamId);
       }
 
       return NextResponse.json({ success: true });

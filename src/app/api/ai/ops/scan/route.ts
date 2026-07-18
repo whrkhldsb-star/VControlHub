@@ -42,7 +42,7 @@ export async function POST(request: Request) {
 					logId: latest[0]?.id ?? null,
 					notes: body.notes ?? null,
 				},
-			);
+			undefined, session?.currentTeamId);
 			return NextResponse.json({ triggered, latestLog: latest[0] ?? null });
 		},
 	);

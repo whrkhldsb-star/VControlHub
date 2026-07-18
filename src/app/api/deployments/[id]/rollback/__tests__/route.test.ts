@@ -55,7 +55,7 @@ describe("/api/deployments/[id]/rollback POST", () => {
 			"u1",
 			"deployment.rollback",
 			expect.objectContaining({ sourceRunId: "dep1", rollbackId: "rb1", reason: "bad deploy" }),
-		);
+		undefined, null);
 		expect(json.rollback).toMatchObject({ id: "rb1", commandRequestId: "cmd1" });
 	});
 

@@ -72,7 +72,7 @@ export async function POST(request: Request) {
 				// never log secretAccessKey / accessKeyId values
 				hasAccessKeyId: Boolean(next.accessKeyId),
 				hasSecretAccessKey: Boolean(next.secretAccessKey),
-			});
+			}, undefined, session?.currentTeamId);
 			return NextResponse.json({ config: maskConfig(next) });
 		},
 	);

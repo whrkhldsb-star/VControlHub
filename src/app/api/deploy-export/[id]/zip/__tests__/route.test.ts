@@ -69,6 +69,7 @@ describe("/api/deploy-export/[id]/zip", () => {
       "u1",
       "deployment.export.download",
       expect.objectContaining({ exportId: "exp1", fileCount: 3 }),
+      undefined, undefined,
     );
 
     // Spot-check the archive is a real PKZIP file we can decode.

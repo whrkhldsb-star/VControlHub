@@ -1121,7 +1121,7 @@ describe("/api/downloads", () => {
       taskId: "task_dispatch_fail",
       taskIds: ["task_dispatch_fail"],
       errorMessage: "jobs table unreachable",
-    }));
+    }), undefined, "team_1");
   });
 
   it("rolls back every batch task to FAILED when one URL's enqueue rejects", async () => {

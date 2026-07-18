@@ -50,7 +50,7 @@ export async function PATCH(request: Request, context: RouteContext) {
 			await auditUserAction(session?.userId ?? "anonymous", "itsm.connection.update", {
 				connectionId: connection.id,
 				provider: connection.provider,
-			});
+			}, undefined, session?.currentTeamId);
 			return NextResponse.json({ connection });
 		},
 	);

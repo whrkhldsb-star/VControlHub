@@ -83,7 +83,7 @@ export async function GET(
         exportId: record.id,
         fileCount: entries.length,
         size: zip.length,
-      });
+      }, undefined, session?.currentTeamId);
       return new NextResponse(new Uint8Array(zip), {
         status: 200,
         headers: {

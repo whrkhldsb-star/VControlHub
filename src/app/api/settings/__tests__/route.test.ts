@@ -30,7 +30,7 @@ const route = await import("../route");
 describe("/api/settings audit coverage", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mocks.requireApiPermission.mockResolvedValue({ session: { userId: "u1", username: "alice", user: { id: "u1" } } });
+    mocks.requireApiPermission.mockResolvedValue({ session: { userId: "u1", username: "alice", user: { id: "u1" }, currentTeamId: null } });
     mocks.getAllSettingsMasked.mockResolvedValue({});
     mocks.isValidSettingKey.mockImplementation((key: string) => [
       "platform.name",
@@ -69,7 +69,7 @@ describe("/api/settings audit coverage", () => {
     expect(mocks.auditUserAction).toHaveBeenCalledWith("u1", "settings.update", {
       keys: ["platform.name", "smtp.pass"],
       count: 2,
-    });
+    }, undefined, null);
     expect(JSON.stringify(mocks.auditUserAction.mock.calls)).not.toContain("super-secret-session-value-that-must-not-leak");
     expect(JSON.stringify(mocks.auditUserAction.mock.calls)).not.toContain("控制台");
   });

@@ -37,7 +37,7 @@ export async function POST(request: Request, context: RouteContext) {
 			await auditUserAction(session?.userId ?? "anonymous", "itsm.connection.test", {
 				connectionId: id,
 				ok: result.ok,
-			});
+			}, undefined, session?.currentTeamId);
 			return NextResponse.json(result, { status: result.ok ? 200 : 502 });
 		},
 	);

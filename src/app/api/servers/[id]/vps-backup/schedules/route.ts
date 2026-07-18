@@ -106,7 +106,7 @@ export async function POST(
 					session.userId,
 					"vps-backup.schedule.create",
 					{ serverId, scheduleId: schedule.id, name: body.name },
-				);
+				undefined, session?.currentTeamId);
 
 				return Response.json({ schedule }, { status: 201 });
 			} catch (err) {

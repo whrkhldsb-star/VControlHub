@@ -98,7 +98,7 @@ export async function POST(request: Request) {
         await auditUserAction(session!.userId, "knowledge.base.create", {
           knowledgeBaseId: base.id,
           name: base.name,
-        });
+        }, undefined, session?.currentTeamId);
         return NextResponse.json({ knowledgeBase: base }, { status: 201 });
       }
 
@@ -114,7 +114,7 @@ export async function POST(request: Request) {
           knowledgeBaseId: body.knowledgeBaseId,
           documentId: result.document.id,
           chunkCount: result.chunkCount,
-        });
+        }, undefined, session?.currentTeamId);
         return NextResponse.json(
           {
             document: result.document,

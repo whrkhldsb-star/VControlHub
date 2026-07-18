@@ -37,7 +37,7 @@ export async function POST(request: Request) {
         await auditUserAction(session?.userId ?? "", "system.import.preview", {
           totalRecords: preview.totalRecords,
           schemaVersion: file.schemaVersion,
-        });
+        }, undefined, session?.currentTeamId);
         return NextResponse.json({ preview });
       }
 
@@ -49,7 +49,7 @@ export async function POST(request: Request) {
         skipped: result.skipped,
         errors: result.errors,
         sourceDomain: file.sourceDomain,
-      });
+      }, undefined, session?.currentTeamId);
 
       if (result.errors.length > 0) {
         return NextResponse.json(

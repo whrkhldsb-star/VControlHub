@@ -26,7 +26,7 @@ export async function GET(request: Request) {
       const header = ["accessedAt", "action", "shareId", "shareName", "path", "permissionLevel", "ip", "userAgent"];
       const rows = report.logs.map((log) => [log.accessedAt, log.action, log.share.id, log.share.name || log.share.path, log.share.path, log.share.permissionLevel, log.ip, log.userAgent]);
       const csv = [header, ...rows].map((row) => row.map(csvCell).join(",")).join("\n");
-      await auditUserAction(session!.userId, "share.access-report.export", { days: report.range.days, action: report.range.action, rows: report.logs.length });
+      await auditUserAction(session!.userId, "share.access-report.export", { days: report.range.days, action: report.range.action, rows: report.logs.length }, undefined, session?.currentTeamId);
       return new Response(csv, { headers: { "content-type": "text/csv; charset=utf-8", "content-disposition": 'attachment; filename="share-access-report.csv"', "cache-control": "no-store" } });
     }
     return NextResponse.json({ report });

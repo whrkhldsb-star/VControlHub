@@ -51,7 +51,7 @@ export async function POST(request: Request) {
         targetCount: parsed.serverIds.length,
         requiresApproval: Boolean(command.requiresApproval),
         submissionMode: parsed.submissionMode,
-      });
+      }, undefined, session?.currentTeamId);
       return NextResponse.json({ command }, { status: 201 });
     },
   );
@@ -72,7 +72,7 @@ export async function PATCH(request: Request) {
       await auditUserAction(session!.userId, "command.cancel", {
         commandRequestId: command.id,
         status: command.status,
-      });
+      }, undefined, session?.currentTeamId);
       return NextResponse.json({ command });
     },
   );

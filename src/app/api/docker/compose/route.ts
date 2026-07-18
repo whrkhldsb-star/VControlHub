@@ -82,7 +82,7 @@ export async function POST(request: Request) {
           mode: result.mode,
           serverId: serverId ?? "hub-host",
           removeVolumes: body.removeVolumes === true,
-        });
+        }, undefined, session?.currentTeamId);
       }
 
       return NextResponse.json({

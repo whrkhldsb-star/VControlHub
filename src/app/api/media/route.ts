@@ -61,7 +61,7 @@ export async function POST(request: Request) {
         created: typeof result === "object" && result !== null && "created" in result
           ? Number((result as { created?: unknown }).created ?? 0)
           : null,
-      });
+      }, undefined, session?.currentTeamId);
       return NextResponse.json(result);
     },
   );

@@ -34,7 +34,7 @@ export async function POST(request: Request, context: RouteContext) {
 				imported: result.imported,
 				skipped: result.skipped,
 				status: result.run.status,
-			});
+			}, undefined, session?.currentTeamId);
 			return NextResponse.json({ result });
 		},
 	);

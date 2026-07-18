@@ -80,7 +80,7 @@ export async function POST(request: Request) {
       backupId: backup.id,
       jobId: job.id,
       async: true,
-    });
+    }, undefined, session?.currentTeamId);
     if ((request.headers.get("accept") || "").includes("text/html")) {
       return NextResponse.redirect(new URL("/backups", request.url), { status: 303 });
     }

@@ -192,7 +192,7 @@ export async function POST(request: Request) {
 			templateName: template.name,
 			instanceKey,
 			serverId: serverId || null,
-		});
+		}, undefined, session?.currentTeamId);
 		return NextResponse.json({
 			success: true,
 			queued: true,

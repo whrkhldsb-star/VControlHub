@@ -40,7 +40,7 @@ export async function POST(request: Request) {
     await auditUserAction(session?.userId ?? "", "backup.retention.enqueue", {
       jobId: job.id,
       payload: body,
-    });
+    }, undefined, session?.currentTeamId);
     return NextResponse.json({ jobId: job.id, taskId: `job:${job.id}` }, { status: 202 });
   });
 }

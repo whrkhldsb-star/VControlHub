@@ -177,14 +177,14 @@ export async function PATCH(request: Request) {
           await auditUserAction(session?.userId ?? "", "app-source.sync", {
             sourceId: body.sourceId,
             mode: "single",
-          });
+          }, undefined, session?.currentTeamId);
           return NextResponse.json({ result });
         }
         const results = await syncAllSources();
         await auditUserAction(session?.userId ?? "", "app-source.sync", {
           mode: "all",
           resultCount: Array.isArray(results) ? results.length : null,
-        });
+        }, undefined, session?.currentTeamId);
         return NextResponse.json({ results });
       }
 
@@ -195,7 +195,7 @@ export async function PATCH(request: Request) {
       await auditUserAction(session?.userId ?? "", "app-source.toggle", {
         sourceId: body.sourceId,
         enabled: body.enabled,
-      });
+      }, undefined, session?.currentTeamId);
       return NextResponse.json({ ok: true });
     },
   );

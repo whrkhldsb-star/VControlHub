@@ -57,7 +57,7 @@ export async function PATCH(
       await auditUserAction(session?.userId ?? "anonymous", "sync_job.update", {
         jobId: id,
         schedule: body.schedule ?? null,
-      });
+      }, undefined, session?.currentTeamId);
       return NextResponse.json({ success: true, job });
     },
   );

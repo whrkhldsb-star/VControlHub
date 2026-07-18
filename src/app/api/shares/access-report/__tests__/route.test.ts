@@ -24,6 +24,6 @@ describe("share access report route", () => {
     const body = await response.text();
     expect(response.headers.get("content-type")).toContain("text/csv");
     expect(body).toContain('"Browser, v1"');
-    expect(mocks.auditUserAction).toHaveBeenCalledWith("admin-1", "share.access-report.export", expect.objectContaining({ rows: 1 }));
+    expect(mocks.auditUserAction).toHaveBeenCalledWith("admin-1", "share.access-report.export", expect.objectContaining({ rows: 1 }), undefined, "team-1");
   });
 });

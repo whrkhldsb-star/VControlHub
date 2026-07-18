@@ -40,7 +40,7 @@ export async function PATCH(
         mediaId: id,
         favorite: body.favorite ?? null,
         tagsUpdated: body.tags !== undefined,
-      });
+      }, undefined, session?.currentTeamId);
       return NextResponse.json({ item: updated });
     },
   );

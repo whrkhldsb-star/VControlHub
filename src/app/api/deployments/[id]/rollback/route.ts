@@ -37,7 +37,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
           rollbackId: rollback.id,
           commandRequestId: rollback.commandRequestId,
           reason: body.reason ?? null,
-        });
+        }, undefined, session?.currentTeamId);
         return NextResponse.json({ rollback }, { status: 201 });
       } catch (error) {
         return apiCatch(error);
