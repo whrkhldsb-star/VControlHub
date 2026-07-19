@@ -27,6 +27,7 @@ const searchItemMetadata: Record<string, SearchMetadata> = {
 	"/": { icon: "📊", keywordsKey: "search.keywords.root" },
 	"/servers": { icon: "🖥️", keywordsKey: "search.keywords.servers" },
 	"/health": { icon: "💚", keywordsKey: "search.keywords.health" },
+	"/vps-status": { icon: "📡", keywordsKey: "search.keywords.vpsStatus" },
 	"/traffic": { icon: "📈", keywordsKey: "search.keywords.traffic" },
 	"/files": { icon: "📁", keywordsKey: "search.keywords.files" },
 	"/downloads": { icon: "📥", keywordsKey: "search.keywords.downloads" },

@@ -1,0 +1,40 @@
+/**
+ * i18n dictionary: `vpsStatusPage.*` keys for the Komari/Nezha-style VPS probe page.
+ */
+export const zh: Record<string, string> = {
+	"vpsStatusPage.title": "VPS 状态",
+	"vpsStatusPage.description": "以探针主控风格展示各节点资源占用。指标经 SSH 密钥/密码采集；网络延迟等需 Agent 的项不显示。",
+	"vpsStatusPage.eyebrow": "探针看板",
+	"vpsStatusPage.serverCount": "纳管节点 {count} 台",
+	"vpsStatusPage.noPermission": "缺少健康监控权限",
+	"vpsStatusPage.noPermissionHint": "需要 health:read 权限后才能查看 VPS 状态。",
+	"vpsStatusPage.filter.all": "全部",
+	"vpsStatusPage.filter.online": "在线",
+	"vpsStatusPage.filter.issue": "异常",
+	"vpsStatusPage.showing": "显示 {count} 台",
+	"vpsStatusPage.empty": "当前筛选下没有节点",
+	"vpsStatusPage.gotoSystemHealth": "← 系统健康",
+	"vpsStatusPage.metric.load": "负载",
+	"vpsStatusPage.metric.netIn": "入站",
+	"vpsStatusPage.metric.netOut": "出站",
+	"vpsStatusPage.agentNote": "未安装 Agent：不展示延迟/RTT 等 Agent 专属指标；刷新间隔与「设置 → 自动刷新」一致。",
+};
+
+export const en: Record<string, string> = {
+	"vpsStatusPage.title": "VPS Status",
+	"vpsStatusPage.description": "Probe-style fleet view of node resource usage. Metrics are collected over SSH key/password; agent-only fields such as latency are omitted.",
+	"vpsStatusPage.eyebrow": "Probe board",
+	"vpsStatusPage.serverCount": "{count} managed nodes",
+	"vpsStatusPage.noPermission": "Missing health permission",
+	"vpsStatusPage.noPermissionHint": "health:read is required to view VPS status.",
+	"vpsStatusPage.filter.all": "All",
+	"vpsStatusPage.filter.online": "Online",
+	"vpsStatusPage.filter.issue": "Issues",
+	"vpsStatusPage.showing": "Showing {count}",
+	"vpsStatusPage.empty": "No nodes match this filter",
+	"vpsStatusPage.gotoSystemHealth": "← System Health",
+	"vpsStatusPage.metric.load": "Load",
+	"vpsStatusPage.metric.netIn": "In",
+	"vpsStatusPage.metric.netOut": "Out",
+	"vpsStatusPage.agentNote": "No host agent: latency/RTT and other agent-only metrics are hidden. Refresh interval follows Settings → auto-refresh.",
+};

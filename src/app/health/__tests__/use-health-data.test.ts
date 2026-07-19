@@ -182,4 +182,27 @@ describe("useHealthData", () => {
 		);
 		expect(result.current.systemHealth).toEqual(sampleSystemHealth);
 	});
+
+	it("mode=system only hits /api/system-health", async () => {
+		csrfFetchMock.mockResolvedValueOnce(sampleSystemHealth);
+		renderHook(() =>
+			useHealthData({ browserLocale: "zh-CN", locale: "zh", mode: "system" }),
+		);
+		await waitFor(() => {
+			expect(csrfFetchMock).toHaveBeenCalledWith("/api/system-health");
+		});
+		expect(csrfFetchMock).not.toHaveBeenCalledWith("/api/health");
+	});
+
+	it("mode=vps only hits /api/health", async () => {
+		csrfFetchMock.mockResolvedValueOnce(sampleOverview);
+		renderHook(() =>
+			useHealthData({ browserLocale: "zh-CN", locale: "zh", mode: "vps" }),
+		);
+		await waitFor(() => {
+			expect(csrfFetchMock).toHaveBeenCalledWith("/api/health");
+		});
+		expect(csrfFetchMock).not.toHaveBeenCalledWith("/api/system-health");
+	});
+
 });

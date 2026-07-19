@@ -1,16 +1,12 @@
 /**
- * useHealthData — encapsulates all data-fetching and state for the health
- * dashboard (overview, system-health report, per-server history, load + history
- * errors, last-refresh timestamp, refreshing flag, auto-refresh controls).
+ * useHealthData — encapsulates data-fetching for the split health surfaces:
+ *   - mode "system": platform self-check only (`/api/system-health`)
+ *   - mode "vps": fleet overview + per-server history (`/api/health`)
+ *   - mode "all": legacy combined (kept for tests)
  *
- * Behaviour is 1:1 with the previous inline block in
- * `health-dashboard-client.tsx`:
- *   - Initial fetch fires once on mount (via `setTimeout(..., 0)`) — same
- *     defer-to-microtask trick the previous code used.
- *   - Auto-refresh fetches overview + system-health on a configurable
- *     interval. The interval is read from `localStorage` on mount and is
- *     kept reactive via the `storage` event.
- *   - `fetchHistory(serverId)` is called lazily when the user expands a row.
+ * Auto-refresh interval always comes from the shared Settings preference
+ * (`vps-preferences.autoRefreshInterval`) via localStorage +
+ * `vps-preferences-updated` / `storage` events — same as monitoring/docker.
  */
 "use client";
 
@@ -27,12 +23,16 @@ import type {
 	SystemHealthReport,
 } from "./health-types";
 
+export type HealthDataMode = "all" | "system" | "vps";
+
 function isSystemHealthReport(value: unknown): value is SystemHealthReport {
 	if (typeof value !== "object" || value === null) return false;
 	const candidate = value as { generatedAt?: unknown; summary?: unknown; checks?: unknown };
-	return typeof candidate.generatedAt === "string"
-		&& typeof candidate.summary === "object"
-		&& Array.isArray(candidate.checks);
+	return (
+		typeof candidate.generatedAt === "string" &&
+		typeof candidate.summary === "object" &&
+		Array.isArray(candidate.checks)
+	);
 }
 
 function getErrorMessage(error: unknown, fallback: string): string {
@@ -46,6 +46,8 @@ export interface UseHealthDataOptions {
 	browserLocale: string;
 	/** UI locale ("zh" | "en") — picks translated error messages. */
 	locale: "zh" | "en";
+	/** Which data surfaces to load. Default "all" for backward compatibility. */
+	mode?: HealthDataMode;
 }
 
 export interface UseHealthDataReturn {
@@ -68,7 +70,11 @@ export function useHealthData({
 	initialSystemHealth,
 	browserLocale,
 	locale,
+	mode = "all",
 }: UseHealthDataOptions): UseHealthDataReturn {
+	const wantVps = mode === "all" || mode === "vps";
+	const wantSystem = mode === "all" || mode === "system";
+
 	const [overview, setOverview] = useState<HealthOverview | null>(null);
 	const [systemHealth, setSystemHealth] = useState<SystemHealthReport | null>(
 		initialSystemHealth ?? null,
@@ -84,6 +90,7 @@ export function useHealthData({
 	const [autoRefresh, setAutoRefresh] = useState(true);
 
 	const fetchHealth = useCallback(async () => {
+		if (!wantVps) return;
 		setIsRefreshing(true);
 		try {
 			const data = (await csrfFetch("/api/health")) as HealthOverview;
@@ -91,73 +98,81 @@ export function useHealthData({
 			setLoadError(null);
 			setLastRefresh(new Date().toLocaleTimeString(browserLocale));
 		} catch (error) {
-			setLoadError(
-				getErrorMessage(error, t("healthPage.error.loadStatus", locale)),
-			);
+			setLoadError(getErrorMessage(error, t("healthPage.error.loadStatus", locale)));
 		} finally {
 			setIsRefreshing(false);
 		}
-	}, [browserLocale, locale]);
+	}, [browserLocale, locale, wantVps]);
 
 	const fetchSystemHealth = useCallback(async () => {
+		if (!wantSystem) return;
+		setIsRefreshing(true);
 		try {
 			const report = await csrfFetch("/api/system-health");
-			if (isSystemHealthReport(report)) setSystemHealth(report);
-		} catch {
-			// The VPS health overview is the primary surface; keep it visible if
-			// the system self-check endpoint fails.
-		}
-	}, []);
-
-	const fetchHistory = useCallback(async (serverId: string) => {
-		try {
-			const data = (await csrfFetch(
-				`/api/health?historyFor=${serverId}&hours=24`,
-			)) as { history?: MetricPoint[] };
-			setHistory((prev) => ({ ...prev, [serverId]: data.history ?? [] }));
-			setHistoryErrors((prev) => {
-				const next = { ...prev };
-				delete next[serverId];
-				return next;
-			});
+			if (isSystemHealthReport(report)) {
+				setSystemHealth(report);
+				setLoadError(null);
+				setLastRefresh(new Date().toLocaleTimeString(browserLocale));
+			}
 		} catch (error) {
-			setHistoryErrors((prev) => ({
-				...prev,
-				[serverId]: getErrorMessage(
-					error,
-					t("healthPage.error.loadHistory", locale),
-				),
-			}));
+			// On system-only page, surface the error; on combined/vps keep quiet.
+			if (!wantVps) {
+				setLoadError(getErrorMessage(error, t("healthPage.error.loadStatus", locale)));
+			}
+		} finally {
+			setIsRefreshing(false);
 		}
-	}, [locale]);
+	}, [browserLocale, locale, wantSystem, wantVps]);
 
-	// Initial fetch — defer to the next macrotask so React has flushed the
-	// first render before the network call resolves (matches the prior
-	// setTimeout(..., 0) trick used inline in the dashboard client).
+	const fetchHistory = useCallback(
+		async (serverId: string) => {
+			if (!wantVps) return;
+			try {
+				const data = (await csrfFetch(
+					`/api/health?historyFor=${serverId}&hours=24`,
+				)) as { history?: MetricPoint[] };
+				setHistory((prev) => ({ ...prev, [serverId]: data.history ?? [] }));
+				setHistoryErrors((prev) => {
+					const next = { ...prev };
+					delete next[serverId];
+					return next;
+				});
+			} catch (error) {
+				setHistoryErrors((prev) => ({
+					...prev,
+					[serverId]: getErrorMessage(error, t("healthPage.error.loadHistory", locale)),
+				}));
+			}
+		},
+		[locale, wantVps],
+	);
+
+	// Initial fetch
 	useEffect(() => {
 		const timer = window.setTimeout(() => {
-			void fetchHealth();
-			void fetchSystemHealth();
+			if (wantVps) void fetchHealth();
+			if (wantSystem) void fetchSystemHealth();
 		}, 0);
 		return () => window.clearTimeout(timer);
-	}, [fetchHealth, fetchSystemHealth]);
+	}, [fetchHealth, fetchSystemHealth, wantSystem, wantVps]);
 
-	// Watch the localStorage key for refresh-interval changes (e.g. user
-	// edits the value in another tab) and re-subscribe to the interval.
+	// Keep refresh interval in sync with Settings (storage + in-page event).
 	useEffect(() => {
 		const readSavedInterval = () => {
 			setRefreshIntervalSeconds(getRefreshIntervalFromStorage(window.localStorage, 30));
 		};
 		readSavedInterval();
 		window.addEventListener("storage", readSavedInterval);
-		return () => window.removeEventListener("storage", readSavedInterval);
+		window.addEventListener("vps-preferences-updated", readSavedInterval);
+		return () => {
+			window.removeEventListener("storage", readSavedInterval);
+			window.removeEventListener("vps-preferences-updated", readSavedInterval);
+		};
 	}, []);
 
-	// Auto-refresh on the configured interval (disabled when the user
-	// toggles it off, or when the saved interval is 0).
 	useVisibilityInterval(() => {
-			void fetchHealth();
-			void fetchSystemHealth();
+		if (wantVps) void fetchHealth();
+		if (wantSystem) void fetchSystemHealth();
 	}, autoRefresh && refreshIntervalSeconds > 0 ? refreshIntervalSeconds * 1000 : null);
 
 	return {

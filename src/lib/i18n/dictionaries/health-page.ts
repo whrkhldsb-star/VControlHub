@@ -10,6 +10,10 @@
  */
 export const zh: Record<string, string> = {
 	"healthPage.title": "节点健康",
+	"healthPage.systemTitle": "系统健康",
+	"healthPage.systemDescription": "平台自检、修复建议与活动告警；各 VPS 节点状态请前往「VPS 状态」。",
+	"healthPage.ui.gotoVpsStatus": "查看 VPS 状态 →",
+
 	"healthPage.description": "实时采集 SSH 指标、保存历史趋势，并与告警规则联动。",
 	"healthPage.serverCount": "纳管节点 {count} 台",
 	"healthPage.noPermission": "缺少健康监控权限",
@@ -191,6 +195,10 @@ export const zh: Record<string, string> = {
 
 export const en: Record<string, string> = {
 	"healthPage.title": "Node Health",
+	"healthPage.systemTitle": "System Health",
+	"healthPage.systemDescription": "Platform self-checks, repair tips, and active incidents. Per-VPS status lives on VPS Status.",
+	"healthPage.ui.gotoVpsStatus": "Open VPS Status →",
+
 	"healthPage.description": "Collect SSH metrics in real time, persist historical trends, and integrate with alert rules.",
 	"healthPage.serverCount": "Managed {count} nodes",
 	"healthPage.noPermission": "Missing health monitoring permission",

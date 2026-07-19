@@ -53,8 +53,9 @@ export const mainNavGroups: AppNavGroup[] = [
 		items: [
 			{ href: "/dashboard", labelKey: "nav.dashboard", fallbackLabel: "Dashboard", icon: <IconDashboard /> },
 			{ href: "/servers", labelKey: "nav.servers", fallbackLabel: "VPS Management", icon: <IconServer /> },
-			{ href: "/health", labelKey: "nav.health", fallbackLabel: "Health", icon: <IconHeart /> },
-			{ href: "/monitoring", labelKey: "nav.monitoring", fallbackLabel: "Monitoring", icon: <IconMonitor /> },
+			{ href: "/health", labelKey: "nav.health", fallbackLabel: "System Health", icon: <IconHeart /> },
+			{ href: "/vps-status", labelKey: "nav.vps-status", fallbackLabel: "VPS Status", icon: <IconStatus /> },
+			{ href: "/monitoring", labelKey: "nav.monitoring", fallbackLabel: "Host Monitoring", icon: <IconMonitor /> },
 			{ href: "/traffic", labelKey: "nav.traffic", fallbackLabel: "Traffic", icon: <IconTraffic /> },
 			{ href: "/cost-summary", labelKey: "nav.cost-summary", fallbackLabel: "Costs", icon: <IconCost /> },
 		],
