@@ -157,7 +157,7 @@ export async function notifyCommandPending(
 export async function notifyCommandResult(
 	requesterId: string,
 	commandTitle: string,
-	status: "approved" | "rejected" | "completed" | "failed",
+	status: "approved" | "rejected" | "completed" | "failed" | "cancelled",
 	teamId?: string | null,
 ) {
 	const typeMap = {
@@ -165,18 +165,22 @@ export async function notifyCommandResult(
 		rejected: "command_rejected" as NotificationType,
 		completed: "command_completed" as NotificationType,
 		failed: "command_failed" as NotificationType,
+		// Reuse failed channel type for storage compatibility; title/message convey cancel.
+		cancelled: "command_failed" as NotificationType,
 	};
 	const titleMap = {
 		approved: "Command approved",
 		rejected: "Command rejected",
 		completed: "Command execution completed",
 		failed: "Command execution failed",
+		cancelled: "Command cancelled",
 	};
 	const msgMap = {
 		approved: `Command "${commandTitle}" has been approved and will execute shortly.`,
 		rejected: `Command "${commandTitle}" has been rejected.`,
 		completed: `Command "${commandTitle}" executed successfully.`,
 		failed: `Command "${commandTitle}" execution failed.`,
+		cancelled: `Command "${commandTitle}" was cancelled by an operator.`,
 	};
 	return createNotification({
 		userId: requesterId,

@@ -129,6 +129,14 @@ describe("command service execution flow", () => {
     mockPrisma.notification.count.mockResolvedValue(0);
     mockPrisma.$transaction.mockImplementation(async (callback: (tx: typeof mockPrisma) => unknown) => callback(mockPrisma));
     mockPrisma.commandRequest.updateMany.mockResolvedValue({ count: 1 });
+    mockPrisma.commandTarget.updateMany.mockResolvedValue({ count: 1 });
+    mockPrisma.commandRequest.findUniqueOrThrow.mockImplementation(async (args: { where?: { id?: string } }) => ({
+      id: args?.where?.id ?? "req_unknown",
+      status: "COMPLETED",
+      title: "t",
+      requesterId: "u_1",
+      teamId: null,
+    }));
     spawnMock.mockImplementation(() => {
       const child = new EventEmitter() as MockChildProcess;
       child.stdout = new EventEmitter();
@@ -197,11 +205,14 @@ describe("command service execution flow", () => {
     expect(spawnMock).not.toHaveBeenCalled();
 
     await vi.waitFor(() => expect(spawnMock).toHaveBeenCalled());
-    expect(mockPrisma.commandTarget.update).toHaveBeenCalledWith(
-      expect.objectContaining({ where: { id: "target_1" } }),
+    expect(mockPrisma.commandTarget.updateMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({ id: "target_1" }),
+        data: expect.objectContaining({ status: "COMPLETED" }),
+      }),
     );
-    expect(mockPrisma.commandRequest.update).toHaveBeenCalledWith({
-      where: { id: "req_user_1" },
+    expect(mockPrisma.commandRequest.updateMany).toHaveBeenCalledWith({
+      where: { id: "req_user_1", status: { in: ["RUNNING", "APPROVED"] } },
       data: { status: "COMPLETED", workerId: null, workerHeartbeatAt: null },
     });
   });
@@ -265,8 +276,8 @@ describe("command service execution flow", () => {
 
     heartbeatChild.emit("close", 0);
     await vi.waitFor(() =>
-      expect(mockPrisma.commandRequest.update).toHaveBeenCalledWith({
-        where: { id: "req_heartbeat_1" },
+      expect(mockPrisma.commandRequest.updateMany).toHaveBeenCalledWith({
+        where: { id: "req_heartbeat_1", status: { in: ["RUNNING", "APPROVED"] } },
         data: { status: "COMPLETED", workerId: null, workerHeartbeatAt: null },
       }),
     );
@@ -356,8 +367,8 @@ describe("command service execution flow", () => {
       expect.arrayContaining(["-o", "StrictHostKeyChecking=accept-new", "-o", "UserKnownHostsFile=/dev/null", "-o", "LogLevel=ERROR"]),
       expect.any(Object),
     ));
-    await vi.waitFor(() => expect(mockPrisma.commandTarget.update).toHaveBeenCalledWith(
-      expect.objectContaining({ where: { id: "target_known_hosts_1" } }),
+    await vi.waitFor(() => expect(mockPrisma.commandTarget.updateMany).toHaveBeenCalledWith(
+      expect.objectContaining({ where: expect.objectContaining({ id: "target_known_hosts_1" }) }),
     ));
   });
 
@@ -473,8 +484,8 @@ describe("command service execution flow", () => {
     });
 
     await vi.waitFor(() =>
-      expect(mockPrisma.commandRequest.update).toHaveBeenCalledWith({
-        where: { id: "req_partial_1" },
+      expect(mockPrisma.commandRequest.updateMany).toHaveBeenCalledWith({
+        where: { id: "req_partial_1", status: { in: ["RUNNING", "APPROVED"] } },
         data: { status: "FAILED", workerId: null, workerHeartbeatAt: null },
       }),
     );
@@ -555,37 +566,37 @@ describe("command service execution flow", () => {
     });
 
     await vi.waitFor(() =>
-      expect(mockPrisma.commandTarget.update).toHaveBeenCalledWith(
+      expect(mockPrisma.commandTarget.updateMany).toHaveBeenCalledWith(
         expect.objectContaining({
-          where: { id: "target_fast" },
+          where: expect.objectContaining({ id: "target_fast" }),
           data: expect.objectContaining({ status: "COMPLETED" }),
         }),
       ),
     );
-    expect(mockPrisma.commandTarget.update.mock.calls.map(([call]) => call)).not.toEqual(
+    expect(mockPrisma.commandTarget.updateMany.mock.calls.map(([call]) => call)).not.toEqual(
       expect.arrayContaining([
-        expect.objectContaining({ where: { id: "target_slow" } }),
+        expect.objectContaining({ where: expect.objectContaining({ id: "target_slow" }) }),
       ]),
     );
-    expect(mockPrisma.commandRequest.update).not.toHaveBeenCalledWith({
-      where: { id: "req_parallel_1" },
-      data: { status: "COMPLETED" },
+    expect(mockPrisma.commandRequest.updateMany).not.toHaveBeenCalledWith({
+      where: { id: "req_parallel_1", status: { in: ["RUNNING", "APPROVED"] } },
+      data: { status: "COMPLETED", workerId: null, workerHeartbeatAt: null },
     });
 
     slowChild.stdout.emit("data", Buffer.from("slow ok\n"));
     slowChild.emit("close", 0);
 
     await vi.waitFor(() =>
-      expect(mockPrisma.commandTarget.update).toHaveBeenCalledWith(
+      expect(mockPrisma.commandTarget.updateMany).toHaveBeenCalledWith(
         expect.objectContaining({
-          where: { id: "target_slow" },
+          where: expect.objectContaining({ id: "target_slow" }),
           data: expect.objectContaining({ status: "COMPLETED" }),
         }),
       ),
     );
     await vi.waitFor(() =>
-      expect(mockPrisma.commandRequest.update).toHaveBeenCalledWith({
-        where: { id: "req_parallel_1" },
+      expect(mockPrisma.commandRequest.updateMany).toHaveBeenCalledWith({
+        where: { id: "req_parallel_1", status: { in: ["RUNNING", "APPROVED"] } },
         data: { status: "COMPLETED", workerId: null, workerHeartbeatAt: null },
       }),
     );
@@ -714,8 +725,8 @@ describe("command service execution flow", () => {
 
     await vi.waitFor(() => expect(timeoutChild.kill).toHaveBeenCalledWith("SIGTERM"));
     await vi.waitFor(() =>
-      expect(mockPrisma.commandTarget.update).toHaveBeenCalledWith({
-        where: { id: "target_timeout" },
+      expect(mockPrisma.commandTarget.updateMany).toHaveBeenCalledWith({
+        where: expect.objectContaining({ id: "target_timeout" }),
         data: expect.objectContaining({
           status: "FAILED",
           exitCode: 124,
@@ -724,8 +735,8 @@ describe("command service execution flow", () => {
       }),
     );
     await vi.waitFor(() =>
-      expect(mockPrisma.commandRequest.update).toHaveBeenCalledWith({
-        where: { id: "req_timeout_1" },
+      expect(mockPrisma.commandRequest.updateMany).toHaveBeenCalledWith({
+        where: { id: "req_timeout_1", status: { in: ["RUNNING", "APPROVED"] } },
         data: { status: "FAILED", workerId: null, workerHeartbeatAt: null },
       }),
     );
@@ -803,6 +814,123 @@ describe("command service execution flow", () => {
     });
   });
 
+  it("does not overwrite CANCELLED target/request status when SSH closes after operator cancel", async () => {
+    mockPrisma.commandRequest.findFirst.mockResolvedValueOnce({
+      id: "req_cancel_race",
+      status: "RUNNING",
+      targets: [{ id: "target_cancel_race", status: "RUNNING" }],
+    });
+    mockPrisma.commandRequest.findUniqueOrThrow.mockResolvedValue({
+      id: "req_cancel_race",
+      status: "CANCELLED",
+    });
+    let runningChild!: MockChildProcess;
+    spawnMock.mockImplementationOnce(() => {
+      runningChild = new EventEmitter() as MockChildProcess;
+      runningChild.stdout = new EventEmitter();
+      runningChild.stderr = new EventEmitter();
+      runningChild.kill = vi.fn(() => {
+        // Operator cancel marks CANCELLED before process close arrives.
+        mockPrisma.commandRequest.findUnique.mockResolvedValue({
+          id: "req_cancel_race",
+          status: "CANCELLED",
+          title: "Long command",
+          requesterId: "u_1",
+          teamId: null,
+          targets: [{ id: "target_cancel_race", status: "CANCELLED" }],
+        });
+        mockPrisma.commandTarget.updateMany.mockImplementation(async (args: {
+          where?: { id?: string; status?: { in?: string[] } };
+          data?: { status?: string };
+        }) => {
+          // Simulate CAS: target already CANCELLED, so status filter matches 0 rows.
+          if (args?.where?.id === "target_cancel_race" && args?.where?.status?.in) {
+            return { count: 0 };
+          }
+          return { count: 1 };
+        });
+        queueMicrotask(() => runningChild.emit("close", null));
+        return true;
+      });
+      return runningChild;
+    });
+    mockPrisma.commandRequest.create.mockResolvedValue({
+      id: "req_cancel_race",
+      status: "APPROVED",
+      targets: [{ id: "target_cancel_race" }],
+    });
+    mockPrisma.commandTarget.findMany.mockResolvedValue([
+      {
+        id: "target_cancel_race",
+        server: {
+          id: "srv_cancel_race",
+          name: "cancel-race-node",
+          host: "203.0.113.16",
+          port: 22,
+          username: "root",
+          connectionType: "SSH_KEY",
+          password: null,
+          sshKey: { privateKey: "TEST_SSH_PRIVATE_KEY_PLACEHOLDER" },
+        },
+        commandRequest: { command: "sleep 3600" },
+      },
+    ]);
+    mockPrisma.commandRequest.findUnique.mockResolvedValue({
+      id: "req_cancel_race",
+      status: "RUNNING",
+      title: "Long command",
+      requesterId: "u_1",
+      teamId: null,
+      targets: [{ id: "target_cancel_race", status: "RUNNING" }],
+    });
+    mockPrisma.commandRequest.update.mockResolvedValue({
+      id: "req_cancel_race",
+      status: "CANCELLED",
+    });
+
+    await createCommandRequest({
+      title: "Long command",
+      command: "sleep 3600",
+      requesterId: "u_1",
+      submissionMode: "user",
+      serverIds: ["srv_cancel_race"],
+    });
+    await vi.waitFor(() => expect(spawnMock).toHaveBeenCalled());
+
+    await cancelCommandRequest({
+      commandRequestId: "req_cancel_race",
+      actorId: "u_2",
+      reason: "abort window",
+    });
+    expect(runningChild.kill).toHaveBeenCalledWith("SIGTERM");
+
+    await Promise.allSettled([...pendingExecutions]);
+
+    // Late SSH close must not stamp FAILED/COMPLETED over operator cancel.
+    expect(mockPrisma.commandTarget.updateMany.mock.calls).not.toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          data: expect.objectContaining({ status: "FAILED" }),
+        }),
+      ]),
+    );
+    expect(mockPrisma.commandRequest.updateMany.mock.calls).not.toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          data: expect.objectContaining({ status: "FAILED" }),
+        }),
+      ]),
+    );
+    expect(mockPrisma.executionLog.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          commandRequestId: "req_cancel_race",
+          summary: expect.stringContaining("already terminal"),
+        }),
+      }),
+    );
+  });
+
   it("truncates oversized SSH output before persisting target logs", async () => {
     process.env.COMMAND_OUTPUT_LIMIT_BYTES = "12";
     mockPrisma.commandRequest.create.mockResolvedValue({
@@ -849,8 +977,8 @@ describe("command service execution flow", () => {
     });
 
     await vi.waitFor(() =>
-      expect(mockPrisma.commandTarget.update).toHaveBeenCalledWith({
-        where: { id: "target_output" },
+      expect(mockPrisma.commandTarget.updateMany).toHaveBeenCalledWith({
+        where: expect.objectContaining({ id: "target_output" }),
         data: expect.objectContaining({
           status: "COMPLETED",
           stdout: expect.stringContaining("output truncated"),
@@ -899,7 +1027,6 @@ describe("command service execution flow", () => {
     expect(mockPrisma.commandTarget.updateMany).toHaveBeenCalledWith(
       expect.objectContaining({ where: { commandRequestId: "req_assistant_1" } }),
     );
-    expect(mockPrisma.commandTarget.update).not.toHaveBeenCalled();
     expect(spawnMock).not.toHaveBeenCalled();
     expect(mockPrisma.executionLog.create).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -911,8 +1038,8 @@ describe("command service execution flow", () => {
     );
 
     await vi.waitFor(() => expect(spawnMock).toHaveBeenCalled());
-    expect(mockPrisma.commandTarget.update).toHaveBeenCalledWith(
-      expect.objectContaining({ where: { id: "target_2" } }),
+    expect(mockPrisma.commandTarget.updateMany).toHaveBeenCalledWith(
+      expect.objectContaining({ where: expect.objectContaining({ id: "target_2" }) }),
     );
   });
 
