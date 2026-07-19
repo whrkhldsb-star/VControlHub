@@ -14,6 +14,8 @@
  */
 import { Prisma } from "@prisma/client";
 
+import type { SessionPayload } from "@/lib/auth/session";
+import { teamWhere } from "@/lib/auth/team-scope";
 import { prisma } from "@/lib/db";
 import { createLogger } from "@/lib/logging";
 import { listRemoteDirectory, type SftpListEntry } from "@/lib/ssh/client";
@@ -22,6 +24,33 @@ import { resolveStorageSshCredentials } from "@/lib/storage/ssh-credentials";
 import { getSftpSyncDirectoryTimeoutMs } from "@/lib/runtime-settings/service";
 
 const logger = createLogger("sftp-stale-inventory");
+
+type TeamSession = Pick<SessionPayload, "userId" | "roles" | "currentTeamId">;
+
+const SFTP_STALE_INVENTORY_NODE_SELECT = {
+  id: true,
+  name: true,
+  driver: true,
+  basePath: true,
+  host: true,
+  port: true,
+  username: true,
+  hostKeySha256: true,
+  healthStatus: true,
+  lastHealthError: true,
+  server: {
+    select: {
+      id: true,
+      host: true,
+      port: true,
+      username: true,
+      connectionType: true,
+      password: true,
+      hostKeySha256: true,
+      sshKey: { select: { privateKey: true } },
+    },
+  },
+} as const;
 
 type SftpSyncNode = Prisma.StorageNodeGetPayload<{
   select: {
@@ -290,38 +319,41 @@ export async function detectAndPruneSftpStaleInventory(input: {
 }
 
 /**
- * 列出所有 SFTP 节点, 排除 healthStatus="UNHEALTHY" 的 (避免对失败节点重复扫描)。
- * 给 worker 周期调用, 也给 API 手动用。
+ * 列出 SFTP 节点（给 worker 周期调用 + API 手动触发）。
+ *
+ * - 无 session：系统 worker / 已信任边界，跨租户全量（仅 driver 过滤）。
+ * - 有 session：叠加 teamWhere，避免 storage_manager 触发跨团队扫描/凭据使用。
+ *
+ * 注：healthStatus=UNHEALTHY 的过滤在 job scanOneNode 里做，这里仍返回全量候选。
  */
-export async function listSftpNodesForStaleInventory() {
+export async function listSftpNodesForStaleInventory(
+  session?: TeamSession | null,
+) {
   // P2: take=500 上界,SFTP node 数本质有限。
   return prisma.storageNode.findMany({
-    where: { driver: "SFTP" },
-    take: 500,
-    select: {
-      id: true,
-      name: true,
-      driver: true,
-      basePath: true,
-      host: true,
-      port: true,
-      username: true,
-      hostKeySha256: true,
-      healthStatus: true,
-      lastHealthError: true,
-      server: {
-        select: {
-          id: true,
-          host: true,
-          port: true,
-          username: true,
-          connectionType: true,
-          password: true,
-          hostKeySha256: true,
-          sshKey: { select: { privateKey: true } },
-        },
-      },
+    where: {
+      driver: "SFTP",
+      ...(session ? teamWhere(session) : {}),
     },
+    take: 500,
+    select: SFTP_STALE_INVENTORY_NODE_SELECT,
     orderBy: { name: "asc" },
+  });
+}
+
+/**
+ * 按 id 取单个 SFTP 节点。提供 session 时走 teamWhere，用于用户触发 API 的存在性/可见性检查。
+ */
+export async function findSftpNodeForStaleInventory(
+  nodeId: string,
+  session?: TeamSession | null,
+) {
+  return prisma.storageNode.findFirst({
+    where: {
+      id: nodeId,
+      driver: "SFTP",
+      ...(session ? teamWhere(session) : {}),
+    },
+    select: SFTP_STALE_INVENTORY_NODE_SELECT,
   });
 }

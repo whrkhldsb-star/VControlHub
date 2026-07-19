@@ -42,6 +42,8 @@ const DEFAULT_MAX_DEPTH = 5;
 
 type SftpStaleInventoryJobPayload = {
   nodeId?: string;
+  /** When set (including empty), only these node ids are scanned — used for team-scoped API "all" jobs. */
+  nodeIds?: string[];
   maxDepth?: number;
   dryRun?: boolean;
   reason?: string;
@@ -75,8 +77,14 @@ export function parseSftpStaleInventoryJobPayload(
   payload: Prisma.JsonValue,
 ): SftpStaleInventoryJobPayload {
   if (!isRecord(payload)) return {};
+  const rawNodeIds = payload.nodeIds;
+  const nodeIds = Array.isArray(rawNodeIds)
+    ? rawNodeIds.filter((id): id is string => typeof id === "string" && id.length > 0)
+    : undefined;
   return {
     nodeId: typeof payload.nodeId === "string" ? payload.nodeId : undefined,
+    // Preserve empty array: team-scoped "all" with zero visible nodes must not widen to global.
+    nodeIds: Array.isArray(rawNodeIds) ? nodeIds : undefined,
     maxDepth:
       typeof payload.maxDepth === "number" && Number.isFinite(payload.maxDepth)
         ? Math.max(0, Math.min(10, Math.floor(payload.maxDepth)))
@@ -132,10 +140,13 @@ async function executeStaleInventoryJob(job: {
     leaseMs: SFTP_STALE_INVENTORY_LEASE_MS,
     progress: payload.nodeId
       ? `Scanning node ${payload.nodeId}`
-      : "Scanning all SFTP nodes",
+      : payload.nodeIds
+        ? `Scanning scoped SFTP nodes (${payload.nodeIds.length})`
+        : "Scanning all SFTP nodes",
   });
 
   if (payload.nodeId) {
+    // System worker path: node id was validated at enqueue (API) or is system-scheduled.
     const nodes = await listSftpNodesForStaleInventory();
     const node = nodes.find((n) => n.id === payload.nodeId);
     if (!node) {
@@ -150,10 +161,16 @@ async function executeStaleInventoryJob(job: {
     return;
   }
 
-  const nodes = await listSftpNodesForStaleInventory();
+  // nodeIds present (including []) => team-scoped multi-node job; never widen to global.
+  let nodes = await listSftpNodesForStaleInventory();
+  if (payload.nodeIds !== undefined) {
+    const allowed = new Set(payload.nodeIds);
+    nodes = nodes.filter((n) => allowed.has(n.id));
+  }
+
   if (nodes.length === 0) {
     await completeJob(job.id, SFTP_STALE_INVENTORY_WORKER_ID, {
-      mode: "all",
+      mode: payload.nodeIds !== undefined ? "scoped" : "all",
       results: [],
       totals: { nodes: 0, scanned: 0, stale: 0, errors: 0, durationMs: 0 },
     } as unknown as Prisma.InputJsonValue);
@@ -171,7 +188,7 @@ async function executeStaleInventoryJob(job: {
   }
 
   await completeJob(job.id, SFTP_STALE_INVENTORY_WORKER_ID, {
-    mode: "all",
+    mode: payload.nodeIds !== undefined ? "scoped" : "all",
     results,
     totals: summarize(results),
   } as unknown as Prisma.InputJsonValue);

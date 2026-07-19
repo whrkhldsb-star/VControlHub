@@ -86,10 +86,28 @@ describe("SFTP stale inventory durable job worker", () => {
         }),
       ).toEqual({
         nodeId: "node_1",
+        nodeIds: undefined,
         maxDepth: undefined,
         dryRun: true,
         reason: "manual",
       });
+    });
+
+    it("parses nodeIds and preserves empty arrays (team-scoped pin)", () => {
+      expect(
+        parseSftpStaleInventoryJobPayload({
+          nodeIds: ["n1", 2, "", "n2"],
+        }),
+      ).toEqual({
+        nodeId: undefined,
+        nodeIds: ["n1", "n2"],
+        maxDepth: undefined,
+        dryRun: undefined,
+        reason: undefined,
+      });
+      expect(parseSftpStaleInventoryJobPayload({ nodeIds: [] }).nodeIds).toEqual(
+        [],
+      );
     });
   });
 
@@ -235,6 +253,56 @@ describe("SFTP stale inventory durable job worker", () => {
         expect.any(String),
         expect.objectContaining({
           mode: "all",
+          totals: { nodes: 0, scanned: 0, stale: 0, errors: 0, durationMs: 0 },
+        }),
+      );
+    });
+
+    it("filters to payload.nodeIds for team-scoped multi-node jobs", async () => {
+      const nodes = [
+        { id: "n1", name: "alpha", driver: "SFTP" as const, basePath: "/a", healthStatus: "HEALTHY" as const, lastHealthError: null },
+        { id: "n2", name: "beta", driver: "SFTP" as const, basePath: "/b", healthStatus: "HEALTHY" as const, lastHealthError: null },
+        { id: "n3", name: "gamma", driver: "SFTP" as const, basePath: "/c", healthStatus: "HEALTHY" as const, lastHealthError: null },
+      ];
+      listSftpNodesForStaleInventoryMock.mockResolvedValueOnce(nodes);
+      claimNextJobMock.mockResolvedValueOnce({
+        id: "job_scoped",
+        payload: { nodeIds: ["n1", "n3"] },
+      });
+      detectAndPruneSftpStaleInventoryMock
+        .mockResolvedValueOnce({ ...sampleResult, nodeId: "n1" })
+        .mockResolvedValueOnce({ ...sampleResult, nodeId: "n3" });
+
+      await runSftpStaleInventoryJobWorkerOnce();
+
+      expect(detectAndPruneSftpStaleInventoryMock).toHaveBeenCalledTimes(2);
+      expect(completeJobMock).toHaveBeenCalledWith(
+        "job_scoped",
+        expect.any(String),
+        expect.objectContaining({
+          mode: "scoped",
+          totals: expect.objectContaining({ nodes: 2 }),
+        }),
+      );
+    });
+
+    it("does not widen empty nodeIds to all tenants", async () => {
+      listSftpNodesForStaleInventoryMock.mockResolvedValueOnce([
+        { id: "n1", name: "alpha", driver: "SFTP" as const, basePath: "/a", healthStatus: "HEALTHY" as const, lastHealthError: null },
+      ]);
+      claimNextJobMock.mockResolvedValueOnce({
+        id: "job_empty_scope",
+        payload: { nodeIds: [] },
+      });
+
+      await runSftpStaleInventoryJobWorkerOnce();
+
+      expect(detectAndPruneSftpStaleInventoryMock).not.toHaveBeenCalled();
+      expect(completeJobMock).toHaveBeenCalledWith(
+        "job_empty_scope",
+        expect.any(String),
+        expect.objectContaining({
+          mode: "scoped",
           totals: { nodes: 0, scanned: 0, stale: 0, errors: 0, durationMs: 0 },
         }),
       );

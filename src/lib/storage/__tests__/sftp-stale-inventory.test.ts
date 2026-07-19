@@ -224,4 +224,35 @@ describe("listSftpNodesForStaleInventory", () => {
       }
     }
   });
+
+  it("applies teamWhere when session is provided", async () => {
+    const prismaStorageNodeMock = {
+      findMany: vi.fn(async () => [{ id: "n1", name: "alpha", driver: "SFTP" }]),
+    };
+    const { prisma } = await import("@/lib/db");
+    const originalStorageNode = (prisma as { storageNode?: unknown }).storageNode;
+    (prisma as unknown as { storageNode: typeof prismaStorageNodeMock }).storageNode = prismaStorageNodeMock;
+
+    try {
+      await listSftpNodesForStaleInventory({
+        userId: "u1",
+        roles: ["storage_manager"],
+        currentTeamId: "team_a",
+      });
+      expect(prismaStorageNodeMock.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            driver: "SFTP",
+            OR: [{ teamId: "team_a" }, { teamId: null }],
+          }),
+        }),
+      );
+    } finally {
+      if (originalStorageNode === undefined) {
+        delete (prisma as { storageNode?: unknown }).storageNode;
+      } else {
+        (prisma as unknown as { storageNode: unknown }).storageNode = originalStorageNode;
+      }
+    }
+  });
 });

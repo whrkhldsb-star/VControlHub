@@ -5,14 +5,18 @@ const {
   enqueueJobMock,
   withApiRouteMock,
   listSftpNodesForStaleInventoryMock,
+  findSftpNodeForStaleInventoryMock,
   detectAndPruneSftpStaleInventoryMock,
   apiCatchMock,
+  isGlobalTeamManagerMock,
 } = vi.hoisted(() => ({
   enqueueJobMock: vi.fn(),
   withApiRouteMock: vi.fn(),
   listSftpNodesForStaleInventoryMock: vi.fn(),
+  findSftpNodeForStaleInventoryMock: vi.fn(),
   detectAndPruneSftpStaleInventoryMock: vi.fn(),
   apiCatchMock: vi.fn(),
+  isGlobalTeamManagerMock: vi.fn(),
 }));
 
 vi.mock("@/lib/http/api-guard", () => ({
@@ -27,8 +31,14 @@ vi.mock("@/lib/job/service", () => ({
   enqueueJob: enqueueJobMock,
 }));
 
+vi.mock("@/lib/auth/team-scope", () => ({
+  isGlobalTeamManager: isGlobalTeamManagerMock,
+  teamWhere: vi.fn(() => ({})),
+}));
+
 vi.mock("@/lib/storage/sftp-stale-inventory", () => ({
   listSftpNodesForStaleInventory: listSftpNodesForStaleInventoryMock,
+  findSftpNodeForStaleInventory: findSftpNodeForStaleInventoryMock,
   detectAndPruneSftpStaleInventory: detectAndPruneSftpStaleInventoryMock,
 }));
 
@@ -78,7 +88,11 @@ describe("/api/storage/sftp-stale-inventory", () => {
         return apiCatchMock(error);
       }
     });
+    isGlobalTeamManagerMock.mockReturnValue(true);
     listSftpNodesForStaleInventoryMock.mockResolvedValue([sampleNode]);
+    findSftpNodeForStaleInventoryMock.mockImplementation(async (nodeId: string) =>
+      nodeId === sampleNode.id ? sampleNode : null,
+    );
     enqueueJobMock.mockResolvedValue({ id: "job_42", status: "PENDING" });
     apiCatchMock.mockImplementation((error: unknown) => {
       if (error && typeof error === "object" && "name" in error) {
@@ -176,11 +190,43 @@ describe("/api/storage/sftp-stale-inventory", () => {
         return apiCatchMock(error);
       }
     });
-    listSftpNodesForStaleInventoryMock.mockResolvedValueOnce([]);
+    findSftpNodeForStaleInventoryMock.mockResolvedValueOnce(null);
 
     const response = await POST(postRequest({ nodeId: "node_missing" }));
 
     expect(response.status).toBe(404);
+    expect(findSftpNodeForStaleInventoryMock).toHaveBeenCalledWith("node_missing", session);
+  });
+
+  it("pins team-scoped nodeIds when a non-admin queues all nodes", async () => {
+    const teamSession = {
+      userId: "u_sm",
+      username: "storage_mgr",
+      roles: ["storage_manager"],
+      currentTeamId: "team_a",
+    };
+    isGlobalTeamManagerMock.mockReturnValue(false);
+    listSftpNodesForStaleInventoryMock.mockResolvedValueOnce([
+      { ...sampleNode, id: "node_team_a" },
+      { ...sampleNode, id: "node_team_a2" },
+    ]);
+    withApiRouteMock.mockImplementation(async (_request, _options, handler) =>
+      handler({ session: teamSession, body: {} }),
+    );
+
+    const response = await POST(postRequest({}));
+
+    expect(response.status).toBe(202);
+    expect(listSftpNodesForStaleInventoryMock).toHaveBeenCalledWith(teamSession);
+    expect(enqueueJobMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        payload: expect.objectContaining({
+          nodeIds: ["node_team_a", "node_team_a2"],
+          reason: "api",
+        }),
+        targetStorageNodeId: null,
+      }),
+    );
   });
 
   it("rejects invalid payloads (maxDepth out of range)", async () => {
