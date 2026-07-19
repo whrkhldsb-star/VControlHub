@@ -276,7 +276,7 @@ export function TicketDetailClient({ initial, canManage, users = [] }: TicketDet
                   type="button"
                   disabled={saving || !commandIdInput.trim()}
                   onClick={() => void runLink({ action: "link_command", commandRequestId: commandIdInput.trim() })}
-                  className="rounded-lg border border-[var(--accent-border)] px-2 py-1 text-[11px] font-semibold text-[var(--accent)] disabled:opacity-50"
+                  data-action-button data-variant="outline" className="!px-2 !py-1 !text-[11px] !font-semibold disabled:opacity-50"
                 >
                   {t("ticketsDetail.linkCommand")}
                 </button>
@@ -284,7 +284,7 @@ export function TicketDetailClient({ initial, canManage, users = [] }: TicketDet
                   type="button"
                   disabled={saving || !timeline?.related.command}
                   onClick={() => void runLink({ action: "unlink_command" })}
-                  className="rounded-lg border border-[var(--border)] px-2 py-1 text-[11px] disabled:opacity-50"
+                  data-action-button data-variant="secondary" className="!px-2 !py-1 !text-[11px] disabled:opacity-50"
                 >
                   {t("ticketsDetail.unlinkCommand")}
                 </button>
@@ -315,7 +315,7 @@ export function TicketDetailClient({ initial, canManage, users = [] }: TicketDet
                   type="button"
                   disabled={saving || !serverIdInput.trim()}
                   onClick={() => void runLink({ action: "link_server", serverId: serverIdInput.trim() })}
-                  className="rounded-lg border border-[var(--accent-border)] px-2 py-1 text-[11px] font-semibold text-[var(--accent)] disabled:opacity-50"
+                  data-action-button data-variant="outline" className="!px-2 !py-1 !text-[11px] !font-semibold disabled:opacity-50"
                 >
                   {t("ticketsDetail.linkServer")}
                 </button>
@@ -323,7 +323,7 @@ export function TicketDetailClient({ initial, canManage, users = [] }: TicketDet
                   type="button"
                   disabled={saving || !timeline?.related.server}
                   onClick={() => void runLink({ action: "unlink_server" })}
-                  className="rounded-lg border border-[var(--border)] px-2 py-1 text-[11px] disabled:opacity-50"
+                  data-action-button data-variant="secondary" className="!px-2 !py-1 !text-[11px] disabled:opacity-50"
                 >
                   {t("ticketsDetail.unlinkServer")}
                 </button>

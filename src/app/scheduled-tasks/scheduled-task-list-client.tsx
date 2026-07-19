@@ -215,17 +215,19 @@ export function ScheduledTaskListClient({ tasks: initialTasks, servers, canCreat
 									{canManage && (
 										<button
 											onClick={() => retryTask(task.id)}
-											data-tone="accent"
-											className="min-h-11 rounded-2xl border px-4 py-2 text-xs font-medium transition"
+											data-action-button
+											data-variant="outline"
+											className="!min-h-11 !rounded-2xl !px-4 !py-2 !text-xs"
 										>
 											{t("scheduledTasksPage.retry")}
-											</button>
+										</button>
 									)}
 									{canManage && (
 										<button
 											onClick={() => toggleTask(task.id)}
-											data-tone={task.status === "ACTIVE" ? "warning" : "success"}
-											className="min-h-11 rounded-2xl border px-4 py-2 text-xs font-medium transition"
+											data-action-button
+											data-variant={task.status === "ACTIVE" ? "outline" : "success"}
+											className="!min-h-11 !rounded-2xl !px-4 !py-2 !text-xs"
 										>
 											{task.status === "ACTIVE" ? t("scheduledTasks.pause") : t("scheduledTasks.resume")}
 										</button>
@@ -233,11 +235,12 @@ export function ScheduledTaskListClient({ tasks: initialTasks, servers, canCreat
 									{canManage && (
 										<button
 											onClick={() => setTaskPendingDelete(task)}
-											data-tone="danger"
-											className="min-h-11 rounded-2xl border px-4 py-2 text-xs font-medium transition"
+											data-action-button
+											data-variant="danger"
+											className="!min-h-11 !rounded-2xl !px-4 !py-2 !text-xs"
 										>
 											{t("scheduledTasksPage.delete")}
-											</button>
+										</button>
 									)}
 								</div>
 							</div>

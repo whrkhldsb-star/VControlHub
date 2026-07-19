@@ -288,7 +288,7 @@ export function TemplateListClient({
 									<button
 										type="button"
 										onClick={() => setTemplatePendingDelete(tmpl)}
-										className="min-h-11 min-w-11 text-[11px] text-[var(--danger)]/60 transition hover:text-[var(--danger)]"
+										data-action-button data-variant="ghost" className="!min-h-11 !min-w-11 !text-[11px] text-[var(--danger)]"
 									>
 										{t("templatesPage.delete.action")}
 									</button>

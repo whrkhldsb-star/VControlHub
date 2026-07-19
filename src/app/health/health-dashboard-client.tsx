@@ -131,7 +131,7 @@ export function HealthDashboardClient({ serverCount, initialSystemHealth }: Prop
 					type="button"
 					onClick={fetchHealth}
 					disabled={isRefreshing}
-					className="mt-3 rounded-lg border border-[var(--danger-border)] px-3 py-1.5 text-xs transition hover:bg-[var(--danger-bg)] disabled:cursor-not-allowed disabled:opacity-60"
+					data-action-button data-variant="danger" className="!mt-3 !px-3 !py-1.5 !text-xs disabled:cursor-not-allowed disabled:opacity-50"
 				>
 					{isRefreshing ? t("healthPage.ui.retrying") : t("healthPage.ui.retryLoad")}
 				</button>

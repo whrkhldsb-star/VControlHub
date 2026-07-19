@@ -273,7 +273,7 @@ export function AlertRuleListClient({
 					<button
 						type="button"
 						onClick={() => void loadIncidents()}
-						className="min-h-11 rounded-lg border border-[var(--border)] bg-[var(--surface-elevated)] px-3 text-xs text-[var(--text-secondary)]"
+						data-action-button data-variant="secondary" className="!min-h-11 !px-3 !text-xs"
 					>
 						{incidentsLoading ? "…" : t("alertRulesPage.incidents.refresh")}
 					</button>
@@ -309,7 +309,7 @@ export function AlertRuleListClient({
 											type="button"
 											disabled={busyAction === `ack:${incident.id}`}
 											onClick={() => void ackIncident(incident.id)}
-											className="min-h-11 rounded-lg bg-[var(--accent-bg)] px-3 text-xs font-semibold text-[var(--accent)] disabled:opacity-50"
+											data-action-button data-variant="primary" className="!min-h-11 !px-3 !text-xs !font-semibold disabled:opacity-50"
 										>
 											{t("alertRulesPage.incidents.ack")}
 										</button>

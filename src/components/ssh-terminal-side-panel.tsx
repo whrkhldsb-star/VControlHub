@@ -70,7 +70,7 @@ export function SshTerminalSidePanel({
 								<button
 									type="button"
 									onClick={() => sendCommand(cmd)}
-									className="min-h-11 min-w-0 flex-1 truncate rounded-lg px-3 py-1 text-left text-[12px] font-mono text-[var(--color-action)] transition hover:bg-[var(--surface-subtle)] light:hover:bg-[var(--surface)]"
+									data-action-button data-variant="ghost" className="!min-h-11 !min-w-0 !flex-1 !truncate !rounded-lg !px-3 !py-1 !text-left !text-[12px] !font-mono"
 									title={cmd}
 								>
 									{cmd}
@@ -79,7 +79,7 @@ export function SshTerminalSidePanel({
 									type="button"
 									onClick={() => removeFavorite(cmd)}
 									aria-label={t("sshTerminalModal.favoritesRemove").replace("{cmd}", cmd)}
-									className="min-h-11 min-w-11 shrink-0 rounded-lg px-1 text-[12px] text-[var(--danger)]/70 transition hover:bg-[var(--danger-bg)] hover:text-[var(--danger)] group-hover:opacity-100"
+									data-action-button data-variant="ghost" className="!min-h-11 !min-w-11 !shrink-0 !rounded-lg !px-1 !text-[12px] text-[var(--danger)] group-hover:opacity-100"
 								>
 									✕
 								</button>
@@ -103,7 +103,7 @@ export function SshTerminalSidePanel({
 								key={`${cmd}-${i}`}
 								type="button"
 								onClick={() => sendCommand(cmd)}
-								className="min-h-11 block w-full truncate rounded-lg px-3 py-1 text-left text-[12px] font-mono text-[var(--text-secondary)] transition hover:bg-[var(--surface-subtle)] light:hover:bg-[var(--surface)] hover:text-[var(--color-action)]/80"
+								data-action-button data-variant="ghost" className="!min-h-11 !block !w-full !truncate !rounded-lg !px-3 !py-1 !text-left !text-[12px] !font-mono"
 								title={cmd}
 							>
 								{cmd}
@@ -122,7 +122,7 @@ export function SshTerminalSidePanel({
 							key={cmd}
 							type="button"
 							onClick={() => sendCommand(cmd)}
-							className="min-h-11 block w-full truncate rounded-lg px-3 py-1 text-left text-[12px] font-mono text-[var(--text-muted)] transition hover:bg-[var(--surface-subtle)] light:hover:bg-[var(--surface)] hover:text-[var(--color-action)]/80"
+							data-action-button data-variant="ghost" className="!min-h-11 !block !w-full !truncate !rounded-lg !px-3 !py-1 !text-left !text-[12px] !font-mono text-[var(--text-muted)]"
 							title={cmd}
 						>
 							{cmd}

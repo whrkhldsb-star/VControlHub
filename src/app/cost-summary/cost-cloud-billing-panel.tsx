@@ -276,7 +276,8 @@ export function CostCloudBillingPanel({
 									<button
 										type="button"
 										onClick={() => setPendingDelete(account)}
-										className="text-xs text-[var(--danger)]"
+										data-action-button data-variant="ghost"
+										className="!text-xs text-[var(--danger)]"
 										disabled={busy}
 									>
 										{t("costPage.billing.delete")}
@@ -297,7 +298,7 @@ export function CostCloudBillingPanel({
 							{canManage ? (
 								<button
 									type="button"
-									className="mt-3 rounded-xl border border-[var(--border)] px-3 py-1.5 text-xs"
+									data-action-button data-variant="secondary" className="!mt-3 !px-3 !py-1.5 !text-xs"
 									disabled={syncingId === account.id || !account.enabled}
 									onClick={() => void sync(account.id)}
 								>

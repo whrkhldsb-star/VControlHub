@@ -53,10 +53,10 @@ const AnnouncementCard = memo(function AnnouncementCard({ announcement: a, t, lo
           <span className="text-xs text-[var(--text-muted)] whitespace-nowrap">{formatDate(a.startsAt, locale as"zh" |"en")}</span>
           {canManage && (
             <div className="flex items-center gap-1 opacity-100 transition sm:opacity-0 sm:group-hover:opacity-100 sm:group-focus-within:opacity-100">
-              <button onClick={() => onEdit(a)} title={t("announcementsPage.action.edit")} aria-label={t("announcementsPage.action.edit")} className="min-h-11 min-w-11 rounded-lg p-1.5 text-[var(--text-muted)] hover:bg-[var(--surface-subtle)] hover:text-[var(--accent)]">
+              <button onClick={() => onEdit(a)} title={t("announcementsPage.action.edit")} aria-label={t("announcementsPage.action.edit")} data-action-button data-variant="ghost" className="!min-h-11 !min-w-11 !rounded-lg !p-1.5">
                 <Pencil size={14} />
               </button>
-              <button onClick={() => onDelete(a)} title={t("announcementsPage.action.delete")} aria-label={t("announcementsPage.action.deleteAria").replace("{title}", a.title)} className="min-h-11 min-w-11 rounded-lg p-1.5 text-[var(--text-muted)] hover:bg-[var(--surface-subtle)] hover:text-[var(--danger)]">
+              <button onClick={() => onDelete(a)} title={t("announcementsPage.action.delete")} aria-label={t("announcementsPage.action.deleteAria").replace("{title}", a.title)} data-action-button data-variant="ghost" className="!min-h-11 !min-w-11 !rounded-lg !p-1.5 text-[var(--danger)]">
                 <Trash2 size={14} />
               </button>
             </div>

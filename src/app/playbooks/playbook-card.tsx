@@ -106,8 +106,9 @@ export const PlaybookCard = memo(function PlaybookCard({
                 type="button"
                 onClick={() => onTrigger(playbook.id, "dry-run")}
                 disabled={isDryRunning || isRunning}
-                data-tone="accent"
-                className="min-h-11 rounded-2xl border px-4 py-2 text-xs font-medium transition disabled:opacity-50"
+                data-action-button
+                data-variant="outline"
+                className="!min-h-11 !rounded-2xl !px-4 !py-2 !text-xs disabled:opacity-50"
               >
                 {isDryRunning ? t("playbooksPage.action.dryRunRunning") : t("playbooksPage.action.dryRun")}
               </button>
@@ -115,8 +116,9 @@ export const PlaybookCard = memo(function PlaybookCard({
                 type="button"
                 onClick={() => onTrigger(playbook.id, "run")}
                 disabled={!playbook.enabled || isRunning || isDryRunning}
-                data-tone="accent"
-                className="min-h-11 rounded-2xl border px-4 py-2 text-xs font-medium transition disabled:opacity-50"
+                data-action-button
+                data-variant="primary"
+                className="!min-h-11 !rounded-2xl !px-4 !py-2 !text-xs disabled:opacity-50"
               >
                 {isRunning ? t("playbooksPage.action.running") : t("playbooksPage.action.run")}
               </button>
@@ -127,8 +129,9 @@ export const PlaybookCard = memo(function PlaybookCard({
               type="button"
               onClick={() => onToggle(playbook)}
               disabled={isToggling}
-              data-tone="warn"
-              className="min-h-11 rounded-2xl border px-4 py-2 text-xs font-medium transition disabled:opacity-50"
+              data-action-button
+              data-variant="outline"
+              className="!min-h-11 !rounded-2xl !px-4 !py-2 !text-xs disabled:opacity-50"
             >
               {isToggling ? t("playbooksPage.action.toggling") : t("playbooksPage.action.toggle")}
             </button>
@@ -138,8 +141,9 @@ export const PlaybookCard = memo(function PlaybookCard({
               type="button"
               onClick={() => onDelete(playbook)}
               disabled={isDeleting}
-              data-tone="danger"
-              className="min-h-11 rounded-2xl border px-4 py-2 text-xs font-medium transition disabled:opacity-50"
+              data-action-button
+              data-variant="danger"
+              className="!min-h-11 !rounded-2xl !px-4 !py-2 !text-xs disabled:opacity-50"
             >
               {isDeleting ? t("playbooksPage.action.deleting") : t("playbooksPage.action.delete")}
             </button>

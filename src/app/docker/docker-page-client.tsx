@@ -307,7 +307,7 @@ export default function DockerPage({ initialServers }: { initialServers: { id: s
 						setLoading(true);
 						void fetchContainers();
 					}}
-					className="min-h-11 rounded-xl bg-[var(--accent-bg)] px-3 py-1.5 text-xs font-semibold text-[var(--accent)] transition hover:bg-[var(--accent-hover)] hover:text-[var(--on-accent)]"
+					data-action-button data-variant="primary" className="!min-h-11 !rounded-xl !px-3 !py-1.5 !text-xs !font-semibold"
 				>
 					{t("dockerPage.refresh.list")}
 				</button>
@@ -315,14 +315,15 @@ export default function DockerPage({ initialServers }: { initialServers: { id: s
 					onClick={() => {
 						for (const container of runningContainers) void fetchStats(container.Id);
 					}}
-					className="min-h-11 rounded-xl border border-[var(--border)] bg-[var(--surface-elevated)] px-3 py-1.5 text-xs font-medium text-[var(--text-secondary)] transition hover:bg-[var(--surface-hover)]"
+					data-action-button data-variant="secondary" className="!min-h-11 !rounded-xl !px-3 !py-1.5 !text-xs !font-medium"
 				>
 					{t("dockerPage.refresh.stats")}
 				</button>
 				<button
 					onClick={() => setStatsAutoRefresh((v) => !v)}
 					disabled={refreshIntervalSeconds <= 0 || runningContainers.length === 0}
-					className={`min-h-11 rounded-xl px-3 py-1.5 text-xs font-medium transition disabled:cursor-not-allowed disabled:opacity-50 ${statsAutoRefresh ?"border border-[var(--success-border)] bg-[var(--success-bg)] text-[var(--success)]" :"border border-[var(--border)] bg-[var(--surface-elevated)] text-[var(--text-muted)]"}`}
+					data-action-button data-variant={statsAutoRefresh ? "success" : "secondary"}
+					className="!min-h-11 !rounded-xl !px-3 !py-1.5 !text-xs !font-medium disabled:cursor-not-allowed disabled:opacity-50"
 				>
 					{statsAutoRefresh
 						? t("dockerPage.autoRefreshOn").replace("{label}", refreshLabel)
@@ -359,14 +360,14 @@ export default function DockerPage({ initialServers }: { initialServers: { id: s
 								<div className="flex flex-wrap items-center gap-2" aria-label={t("dockerPage.project.actions")}>
 									{(
 										[
-											["ps","dockerPage.project.ps","bg-[var(--surface-elevated)] text-[var(--text-secondary)] border border-[var(--border)]"],
-											["up","dockerPage.project.up","bg-[var(--success-bg)] text-[var(--success)]"],
-											["start","dockerPage.project.start","bg-[var(--success-bg)] text-[var(--success)]"],
-											["stop","dockerPage.project.stop","bg-[var(--warning-bg)] text-[var(--warning)]"],
-											["restart","dockerPage.project.restart","bg-[var(--accent-bg)] text-[var(--accent)]"],
-											["down","dockerPage.project.down","bg-[var(--danger-bg)] text-[var(--danger)]"],
+											["ps","dockerPage.project.ps","secondary"],
+											["up","dockerPage.project.up","success"],
+											["start","dockerPage.project.start","success"],
+											["stop","dockerPage.project.stop","outline"],
+											["restart","dockerPage.project.restart","primary"],
+											["down","dockerPage.project.down","danger"],
 										] as const
-									).map(([action, labelKey, cls]) => {
+									).map(([action, labelKey, variant]) => {
 										const busyKey = `${group.project}:${action}`;
 										const busy = projectActionLoading === busyKey;
 										return (
@@ -375,7 +376,9 @@ export default function DockerPage({ initialServers }: { initialServers: { id: s
 												type="button"
 												onClick={() => void handleProjectAction(group.project, action)}
 												disabled={projectActionLoading !== null}
-												className={`min-h-11 rounded-lg px-2.5 py-1 text-[10px] font-medium transition disabled:opacity-50 ${cls}`}
+												data-action-button
+												data-variant={variant}
+												className="!min-h-11 !rounded-lg !px-2.5 !py-1 !text-[10px] !font-medium disabled:opacity-50"
 											>
 												{busy ? t("dockerPage.project.busy") : t(labelKey)}
 											</button>

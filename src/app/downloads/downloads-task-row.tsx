@@ -111,7 +111,7 @@ export const DownloadTaskRow = memo(function DownloadTaskRow({
 			<div className="mt-3 flex gap-2">
 				{task.status === "RUNNING" && task.aria2Gid && canManage && (
 					<button type="button" onClick={() => onAction(task.id, "pause")}
-						data-tone="amber" className="rounded-lg border border-[var(--warning-border)] px-3 py-1.5 text-xs text-[var(--warning)] hover:bg-[var(--warning-bg)] transition"
+						data-action-button data-variant="outline" className="!px-3 !py-1.5 !text-xs"
 					>
 						{t("downloadsPage.action.pause")}
 					</button>
@@ -175,7 +175,7 @@ export const DownloadTaskRow = memo(function DownloadTaskRow({
 				})()}
 				{(task.status === "FAILED" || task.status === "CANCELLED") && canManage && (
 					<button type="button" onClick={() => onAction(task.id, "retry")} disabled={Boolean(busyActions[`${task.id}:retry`])}
-						data-tone="cyan" className="rounded-lg border border-[var(--color-action-border)]/20 px-3 py-1.5 text-xs text-[var(--text-primary)] hover:bg-[var(--color-action-bg)]/10 transition"
+						data-action-button data-variant="primary" className="!px-3 !py-1.5 !text-xs"
 						title={t("downloadsPage.action.retryTitle")}
 					>
 						{busyActions[`${task.id}:retry`] ? t("downloadsPage.action.retrying") : t("downloadsPage.action.retry")}
@@ -183,7 +183,7 @@ export const DownloadTaskRow = memo(function DownloadTaskRow({
 				)}
 				{(task.status === "COMPLETED" || task.status === "FAILED" || task.status === "CANCELLED") && canManage && (
 					<button type="button" onClick={() => onPendingPurge(task.id)}
-						data-tone="rose" className="rounded-lg border border-[var(--danger-border)] px-3 py-1.5 text-xs text-[var(--danger)] hover:bg-[var(--danger-bg)] transition"
+						data-action-button data-variant="danger" className="!px-3 !py-1.5 !text-xs"
 					>
 						{t("downloadsPage.action.delete")}
 					</button>

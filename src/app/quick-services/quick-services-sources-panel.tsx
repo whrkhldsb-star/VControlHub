@@ -230,7 +230,7 @@ export function SourcesPanel({ sources, actions, onRequestDeleteSource }: Source
 							type="button"
 							onClick={() => actions.doSync(src.id)}
 							disabled={actions.syncing !== null}
-							className="rounded-lg border border-[var(--border-subtle)] px-3 py-1.5 text-xs text-[var(--text-secondary)] hover:bg-[var(--surface-hover)] transition disabled:opacity-50"
+							data-action-button data-variant="secondary" className="!px-3 !py-1.5 !text-xs disabled:opacity-50"
 						>
 							{actions.syncing === src.id ? t("quickServicesPage.sources.syncing") : t("quickServicesPage.sources.syncNow")}
 						</button>
@@ -244,7 +244,7 @@ export function SourcesPanel({ sources, actions, onRequestDeleteSource }: Source
 						<button
 							type="button"
 							onClick={() => onRequestDeleteSource(src)}
-							className="ml-auto rounded-lg border border-[var(--danger-border)] px-3 py-1.5 text-xs text-[var(--danger)] hover:bg-[var(--danger-bg)] hover:text-[var(--danger)]/[0.10] transition"
+							data-action-button data-variant="danger" className="!ml-auto !px-3 !py-1.5 !text-xs disabled:opacity-50"
 						>
 							{t("common.delete")}
 						</button>

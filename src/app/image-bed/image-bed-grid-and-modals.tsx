@@ -117,7 +117,7 @@ export function ImageGrid({
                 </button>
                 <button
                   onClick={() => copyMarkdown(img)}
-                  className="min-h-11 min-w-11 rounded-lg bg-[var(--success-bg)] px-2 text-xs text-[var(--success)] hover:bg-[var(--success-bg)]"
+                  data-action-button data-variant="success" className="!min-h-11 !min-w-11 !px-2 !text-xs"
                   title={t("imageBedPage.copy.title.markdown")}
                   aria-label={t("imageBedPage.copy.title.markdown")}
                 >
@@ -125,7 +125,7 @@ export function ImageGrid({
                 </button>
                 <button
                   onClick={() => copyHTML(img)}
-                  className="min-h-11 min-w-11 rounded-lg bg-[var(--warning-bg)] px-2 text-xs text-[var(--warning)] hover:bg-[var(--warning-bg)]/80"
+                  data-action-button data-variant="outline" className="!min-h-11 !min-w-11 !px-2 !text-xs"
                   title={t("imageBedPage.copy.title.html")}
                   aria-label={t("imageBedPage.copy.title.html")}
                 >
@@ -134,7 +134,7 @@ export function ImageGrid({
                 {canDelete && (
                   <button
                     onClick={() => requestDelete(img)}
-                    className="min-h-11 min-w-11 rounded-lg bg-[var(--danger-bg)] px-2 text-xs text-[var(--danger)] hover:bg-[var(--danger-bg)]"
+                    data-action-button data-variant="danger" className="!min-h-11 !min-w-11 !px-2 !text-xs"
                     title={t("imageBedPage.image.delete.aria")}
                     aria-label={t("imageBedPage.image.delete.aria")}
                   >
