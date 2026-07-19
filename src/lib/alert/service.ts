@@ -316,6 +316,10 @@ export async function testAlertRule(id: string, session?: TeamSession | null): P
 /**
  * Idempotent starter pack so alert evaluation is not a no-op on fresh installs.
  * Creates baseline fleet rules only when the (team-scoped) rule table is empty.
+ *
+ * Channel selection: always include in_app. When SMTP / Telegram are already
+ * enabled in settings, also opt default rules into those channels so a fresh
+ * install does not silently stay in-app-only after ops configured delivery.
  */
 export async function ensureDefaultAlertRules(session?: TeamSession | null) {
 	const existing = await prisma.alertRule.count({
@@ -325,6 +329,8 @@ export async function ensureDefaultAlertRules(session?: TeamSession | null) {
 		return { created: 0, skipped: true as const };
 	}
 
+	const notifyChannels = await resolveDefaultNotifyChannels();
+
 	const defaults: CreateAlertRuleInput[] = [
 		{
 			name: "Server offline",
@@ -332,7 +338,7 @@ export async function ensureDefaultAlertRules(session?: TeamSession | null) {
 			operator: "eq",
 			threshold: 1,
 			durationSeconds: 60,
-			notifyChannels: ["in_app"],
+			notifyChannels,
 			cooldownMinutes: 15,
 			escalationMinutes: 30,
 		},
@@ -342,7 +348,7 @@ export async function ensureDefaultAlertRules(session?: TeamSession | null) {
 			operator: "gte",
 			threshold: 90,
 			durationSeconds: 120,
-			notifyChannels: ["in_app"],
+			notifyChannels,
 			cooldownMinutes: 30,
 			escalationMinutes: 45,
 		},
@@ -352,7 +358,7 @@ export async function ensureDefaultAlertRules(session?: TeamSession | null) {
 			operator: "gte",
 			threshold: 90,
 			durationSeconds: 120,
-			notifyChannels: ["in_app"],
+			notifyChannels,
 			cooldownMinutes: 30,
 			escalationMinutes: 45,
 		},
@@ -362,7 +368,7 @@ export async function ensureDefaultAlertRules(session?: TeamSession | null) {
 			operator: "gte",
 			threshold: 90,
 			durationSeconds: 300,
-			notifyChannels: ["in_app"],
+			notifyChannels,
 			cooldownMinutes: 60,
 			escalationMinutes: 60,
 		},
@@ -373,4 +379,21 @@ export async function ensureDefaultAlertRules(session?: TeamSession | null) {
 		created.push(await createAlertRule(rule, session));
 	}
 	return { created: created.length, skipped: false as const, rules: created };
+}
+
+async function resolveDefaultNotifyChannels(): Promise<string[]> {
+	const channels = new Set<string>(["in_app"]);
+	try {
+		const { getSetting } = await import("@/lib/settings/service");
+		const isOn = (v: string) => ["true", "1", "yes", "on"].includes(v.trim().toLowerCase());
+		const [smtpEnabled, telegramEnabled] = await Promise.all([
+			getSetting("smtp.enabled"),
+			getSetting("telegram.enabled"),
+		]);
+		if (isOn(smtpEnabled)) channels.add("email");
+		if (isOn(telegramEnabled)) channels.add("telegram");
+	} catch {
+		// Settings read is best-effort; fall back to in_app only.
+	}
+	return [...channels];
 }

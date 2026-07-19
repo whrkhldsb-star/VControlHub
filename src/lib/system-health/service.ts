@@ -127,8 +127,44 @@ export async function collectSystemHealthChecks(options: { projectRoot?: string 
   })();
   checks.push({ id: "env-database-url", label: "Database environment variable", status: envState, message: envState === "healthy" ? "DATABASE_URL is configured" : "DATABASE_URL is not configured or is still a placeholder", messageCode: envState });
 
-  const settings = await prisma.setting.findMany({ where: { key: { startsWith: "notification." } }, take: 100 }).catch(() => []);
-  checks.push({ id: "notification-settings", label: "Notification channel configuration", status: settings.length > 0 ? "healthy" : "warning", message: settings.length > 0 ? `${settings.length} notification channel configurations saved` : "Notification channels can be configured in system settings", params: settings.length > 0 ? { count: settings.length } : undefined, messageCode: settings.length > 0 ? "healthy" : "warning" });
+  const settings = await prisma.setting
+    .findMany({
+      where: {
+        OR: [
+          // Historical / alternate prefix (if any rows were written this way)
+          { key: { startsWith: "notification." } },
+          // Real channel keys used by Settings UI + email/telegram delivery
+          { key: { startsWith: "smtp." } },
+          { key: { startsWith: "telegram." } },
+        ],
+      },
+      take: 100,
+    })
+    .catch(() => []);
+  // Count only "configured" rows: enabled flags that are true, or non-empty
+  // non-boolean values (host/token/recipients). Empty defaults do not count.
+  const configured = settings.filter((row) => {
+    const key = row.key;
+    const value = String(row.value ?? "").trim();
+    if (!value) return false;
+    if (key.endsWith(".enabled")) {
+      return ["true", "1", "yes", "on"].includes(value.toLowerCase());
+    }
+    // Skip pure port defaults / masked placeholders as "configured"
+    if (value === "587" && key === "smtp.port") return false;
+    return true;
+  });
+  checks.push({
+    id: "notification-settings",
+    label: "Notification channel configuration",
+    status: configured.length > 0 ? "healthy" : "warning",
+    message:
+      configured.length > 0
+        ? `${configured.length} notification channel configurations saved`
+        : "Notification channels can be configured in system settings",
+    params: configured.length > 0 ? { count: configured.length } : undefined,
+    messageCode: configured.length > 0 ? "healthy" : "warning",
+  });
 
   const gitHead = safeExecFile("git", ["-C", projectRoot, "rev-parse", "--short", "HEAD"]);
   const remoteLine = safeExecFile("git", ["-C", projectRoot, "ls-remote", "origin", "refs/heads/main"]);

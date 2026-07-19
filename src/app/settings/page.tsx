@@ -35,6 +35,10 @@ const SETTINGS_AUDIT_KEYS = [
 	"smtp.pass",
 	"smtp.from",
 	"smtp.alertRecipients",
+	// TR-009 55d: Telegram alert channel (settings UI + health self-check)
+	"telegram.enabled",
+	"telegram.botToken",
+	"telegram.chatId",
 ];
 
 export default async function SettingsPage() {

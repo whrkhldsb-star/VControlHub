@@ -217,7 +217,14 @@ export function CostPageClient({
 						) : null}
 					</div>
 				}
-				empty={entries.length === 0 ? <EmptyState text={t("costPage.list.empty")} variant="boxed" /> : undefined}
+				empty={
+				entries.length === 0 ? (
+					<div className="space-y-1 py-1">
+						<p className="text-sm text-[var(--text-muted)]">{t("costPage.list.empty")}</p>
+						<p className="text-xs text-[var(--text-muted)]">{t("costPage.list.emptyHint")}</p>
+					</div>
+				) : undefined
+			}
 				bodyClassName={entries.length === 0 ? undefined : "!p-0"}
 			>
 				{entries.length > 0 ? (

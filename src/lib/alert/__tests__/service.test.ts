@@ -25,6 +25,9 @@ vi.mock("@/lib/notification/email", () => ({ sendAlertEmail: sendAlertEmailMock 
 vi.mock("@/lib/notification/telegram", () => ({ sendAlertTelegram: sendAlertTelegramMock }));
 vi.mock("@/lib/notification/service", () => ({ createNotification: createNotificationMock }));
 vi.mock("@/lib/security/webhook-url", () => ({ fetchWebhookSafely: fetchWebhookSafelyMock }));
+vi.mock("@/lib/settings/service", () => ({
+	getSetting: vi.fn(async () => "false"),
+}));
 
 const { createAlertRule, updateAlertRule, testAlertRule, ensureDefaultAlertRules } = await import("../service");
 

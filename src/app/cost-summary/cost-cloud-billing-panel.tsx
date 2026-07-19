@@ -260,7 +260,10 @@ export function CostCloudBillingPanel({
 
 			<div className="mt-4 grid gap-3 md:grid-cols-2">
 				{accounts.length === 0 ? (
-					<p className="text-sm text-[var(--text-muted)]">{t("costPage.billing.empty")}</p>
+					<div className="space-y-1 md:col-span-2">
+						<p className="text-sm text-[var(--text-muted)]">{t("costPage.billing.empty")}</p>
+						<p className="text-xs text-[var(--text-muted)]">{t("costPage.billing.emptyHint")}</p>
+					</div>
 				) : (
 					accounts.map((account) => (
 						<article key={account.id} className="rounded-2xl border border-[var(--border)] p-4">

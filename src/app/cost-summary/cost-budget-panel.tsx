@@ -176,7 +176,10 @@ export function CostBudgetPanel({
       )}
       <div className="mt-4 grid gap-3 md:grid-cols-2">
         {budgets.length === 0 ? (
-          <p className="text-sm text-[var(--text-muted)]">{t("costPage.budget.empty")}</p>
+          <div className="space-y-1 md:col-span-2">
+            <p className="text-sm text-[var(--text-muted)]">{t("costPage.budget.empty")}</p>
+            <p className="text-xs text-[var(--text-muted)]">{t("costPage.budget.emptyHint")}</p>
+          </div>
         ) : (
           budgets.map((budget) => (
             <article key={budget.id} className="rounded-2xl border border-[var(--border)] p-4">
