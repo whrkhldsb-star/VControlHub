@@ -23,6 +23,28 @@ export default async function RequestsPage() {
 		getPendingActions(session.userId),
 	]);
 
+	// Sort: actionable statuses first (PENDING_APPROVAL → APPROVED/RUNNING → terminal),
+	// then newest first within each bucket. This makes the list match the
+	// "待审批 N" stat card instead of mixing rejected/completed at the top.
+	const STATUS_RANK: Record<string, number> = {
+		PENDING_APPROVAL: 0,
+		APPROVED: 1,
+		RUNNING: 1,
+		COMPLETED: 2,
+		FAILED: 2,
+		CANCELLED: 3,
+		REJECTED: 3,
+	};
+	const sortedRequests = [...requests].sort((a, b) => {
+		const rankA = STATUS_RANK[a.status] ?? 99;
+		const rankB = STATUS_RANK[b.status] ?? 99;
+		if (rankA !== rankB) return rankA - rankB;
+		// newest first within same rank — use request createdAt as tiebreaker
+		const aTime = new Date(a.createdAt as unknown as string).getTime() || 0;
+		const bTime = new Date(b.createdAt as unknown as string).getTime() || 0;
+		return bTime - aTime;
+	});
+
 	const pendingCommands = requests.filter((r) => r.status === "PENDING_APPROVAL").length;
 	const assistantCommands = requests.filter((r) => r.isAssistantInitiated).length;
 	const userCommands = requests.filter((r) => !r.isAssistantInitiated).length;
@@ -73,23 +95,25 @@ export default async function RequestsPage() {
 					<ListPanel
 						title={t("requestsPage.cmd.title", locale)}
 						description={t("requestsPage.cmd.desc", locale)}
-						count={requests.length}
+						count={sortedRequests.length}
 						actions={<span className="rounded-full border border-[var(--warning-border)] bg-[var(--warning-bg)] px-3 py-1 text-xs font-medium text-[var(--warning)]">{t("requestsPage.cmd.scopeBadge", locale)}</span>}
-						empty={requests.length === 0 ? <EmptyState text={t("requestsPage.cmd.empty", locale)} /> : undefined}
-						bodyClassName={requests.length === 0 ? undefined : "!divide-y-0 space-y-0 bg-transparent p-3"}
-					>
-					{requests.length > 0 ? (
+						empty={sortedRequests.length === 0 ? <EmptyState text={t("requestsPage.cmd.empty", locale)} /> : undefined}
+						bodyClassName={sortedRequests.length === 0 ? undefined : "!divide-y-0 space-y-0 bg-transparent p-3"}
+						>
+						{sortedRequests.length > 0 ? (
 						<BatchReviewToolbar
 							pendingIds={
 								canApprove
-									? requests
+									? sortedRequests
 											.filter((r) => r.status === "PENDING_APPROVAL")
 											.map((r) => r.id)
 									: []
 							}
 						>
-							{requests.map((request) => (
-								<article key={request.id} data-id={request.id} data-card className="p-5 transition-colors duration-150 hover:bg-[var(--surface-elevated)]">
+							{sortedRequests.map((request) => {
+								const isActionable = request.status === "PENDING_APPROVAL" || request.status === "APPROVED" || request.status === "RUNNING";
+								return (
+								<article key={request.id} data-id={request.id} data-card className={`p-5 transition-colors duration-150 hover:bg-[var(--surface-elevated)] ${isActionable ? "" : "opacity-70"}`}>
 								<div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
 									<div className="min-w-0 flex-1">
 										<div className="flex flex-wrap items-center gap-2">
@@ -159,9 +183,10 @@ export default async function RequestsPage() {
 									<CancelCommandButton commandRequestId={request.id} commandTitle={request.title} />
 								)}
 								</article>
-							))}
-						</BatchReviewToolbar>
-					) : null}
+								);
+								})}
+								</BatchReviewToolbar>
+								) : null}
 					</ListPanel>
 				</section>
 			</div>
