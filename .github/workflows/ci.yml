@@ -65,3 +65,157 @@ jobs:
 
       - name: Build runtime bundle
         run: npm run build:runtime
+
+  e2e-public-cross-browser:
+    name: E2E public smoke (Chromium + Firefox + WebKit)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    needs: test
+    env:
+      NEXT_TELEMETRY_DISABLED: 1
+      PLAYWRIGHT_CROSS_BROWSER: "1"
+      PLAYWRIGHT_SKIP_WEB_SERVER: "1"
+      PLAYWRIGHT_BASE_URL: http://127.0.0.1:3000
+      NODE_ENV: production
+      NEXT_HOST: 127.0.0.1
+      PORT: "3000"
+      DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/whrkhldsb_ci
+      AUTH_SECRET: ci-e2e-auth-secret-at-least-32-bytes-long
+      AUTH_SESSION_SECRET: ci-e2e-session-secret-at-least-32-bytes
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_DB: whrkhldsb_ci
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd="pg_isready -U postgres -d whrkhldsb_ci"
+          --health-interval=5s
+          --health-timeout=5s
+          --health-retries=20
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install Playwright browsers
+        run: npx playwright install --with-deps chromium firefox webkit
+
+      - name: Generate Prisma client
+        run: npx prisma generate
+
+      - name: Build app + runtime
+        run: |
+          npm run build
+          npm run build:runtime
+
+      - name: Start production custom server
+        run: |
+          node dist/server.js &
+          for i in $(seq 1 90); do
+            if curl -fsS http://127.0.0.1:3000/login >/dev/null 2>&1; then
+              echo "server ready"
+              exit 0
+            fi
+            sleep 2
+          done
+          echo "server failed to become ready"
+          exit 1
+
+      - name: Run public smoke across browsers
+        run: npx playwright test e2e/public-smoke.spec.ts --project=chromium --project=firefox --project=webkit --workers=1
+
+      - name: Upload Playwright report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-public-cross-browser
+          path: |
+            .playwright-output/
+            playwright-report/
+          if-no-files-found: ignore
+
+  dast-baseline:
+    name: DAST baseline (optional surface probe)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    needs: test
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    env:
+      NEXT_TELEMETRY_DISABLED: 1
+      BASE_URL: http://127.0.0.1:3000
+      NODE_ENV: production
+      NEXT_HOST: 127.0.0.1
+      PORT: "3000"
+      DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/whrkhldsb_ci
+      AUTH_SECRET: ci-dast-auth-secret-at-least-32-bytes-long
+      AUTH_SESSION_SECRET: ci-dast-session-secret-at-least-32-bytes
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_DB: whrkhldsb_ci
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd="pg_isready -U postgres -d whrkhldsb_ci"
+          --health-interval=5s
+          --health-timeout=5s
+          --health-retries=20
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Generate Prisma client
+        run: npx prisma generate
+
+      - name: Build app + runtime
+        run: |
+          npm run build
+          npm run build:runtime
+
+      - name: Start production custom server
+        run: |
+          node dist/server.js &
+          for i in $(seq 1 90); do
+            if curl -fsS http://127.0.0.1:3000/login >/dev/null 2>&1; then
+              echo "server ready"
+              exit 0
+            fi
+            sleep 2
+          done
+          echo "server failed to become ready"
+          exit 1
+
+      - name: Run DAST baseline probe
+        run: npm run dast:baseline
+
+      - name: Upload DAST output
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: dast-baseline
+          path: .dast-output/
+          if-no-files-found: ignore

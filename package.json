@@ -17,6 +17,10 @@
     "test:merge": "npm run test:quick && npm test && npm run route:verify && npm run rbac:audit",
     "test:deploy": "npm run build && npm run build:runtime && npm run verify:deploy-assets && npm run docs:check",
     "test:e2e:nightly": "E2E_DIRECT_SESSION=1 E2E_TRUST_LOCAL_DB_SESSION=1 E2E_ISOLATED_ACCOUNT=1 E2E_USER=vcontrolhub_e2e E2E_PASS=VControlHub-E2E-2026! playwright test --project=chromium --workers=1",
+    "test:e2e:cross-browser": "PLAYWRIGHT_CROSS_BROWSER=1 E2E_DIRECT_SESSION=1 E2E_TRUST_LOCAL_DB_SESSION=1 E2E_ISOLATED_ACCOUNT=1 E2E_USER=vcontrolhub_e2e E2E_PASS=VControlHub-E2E-2026! playwright test --project=chromium --project=firefox --project=webkit --workers=1",
+    "test:e2e:public": "playwright test e2e/public-smoke.spec.ts --workers=1",
+    "dast:baseline": "bash scripts/dast-baseline.sh",
+    "load:baseline": "bash scripts/load/run-k6-baseline.sh",
     "prisma:generate": "prisma generate",
     "prisma:format": "prisma format",
     "prisma:seed": "tsx prisma/seed.ts",
@@ -69,6 +73,7 @@
     "sharp": "^0.35.3",
     "ssh2": "^1.17.0",
     "undici": "8.5.0",
+    "web-vitals": "^5.3.0",
     "ws": "^8.21.0",
     "zod": "^4.3.6"
   },

@@ -14,6 +14,7 @@ import { WebSocketServer, WebSocket } from "ws";
 import type { SessionPayload } from "@/lib/auth/session";
 import { verifySessionToken } from "@/lib/auth/session";
 import { createLogger } from "@/lib/logging";
+import { recordWsEvent, setWsActive } from "@/lib/monitoring/runtime-metrics";
 
 const logger = createLogger("ws:notification");
 
@@ -23,14 +24,26 @@ const userConnections = new Map<string, Set<WebSocket>>();
 function addConnection(userId: string, ws: WebSocket) {
 	if (!userConnections.has(userId)) userConnections.set(userId, new Set());
 	userConnections.get(userId)!.add(ws);
+	recordWsEvent("notification", "open");
+	setWsActive("notification", countActiveConnections());
 }
 
 function removeConnection(userId: string, ws: WebSocket) {
 	const conns = userConnections.get(userId);
 	if (conns) {
-		conns.delete(ws);
+		const had = conns.delete(ws);
 		if (conns.size === 0) userConnections.delete(userId);
+		if (had) {
+			recordWsEvent("notification", "close");
+			setWsActive("notification", countActiveConnections());
+		}
 	}
+}
+
+function countActiveConnections() {
+	let total = 0;
+	for (const set of userConnections.values()) total += set.size;
+	return total;
 }
 
 /* ── Broadcast ───────────────────────────────────────────── */
@@ -76,6 +89,7 @@ export function setupWebSocketServer(server: import("node:http").Server) {
 		// Authenticate via token query param
 		const token = url.searchParams.get("token");
 		if (!token) {
+			recordWsEvent("notification", "reject");
 			socket.destroy();
 			return;
 		}
@@ -84,6 +98,7 @@ export function setupWebSocketServer(server: import("node:http").Server) {
 			try {
 				const session = await verifySessionToken(token);
 				if (!session) {
+					recordWsEvent("notification", "reject");
 					socket.destroy();
 					return;
 				}
@@ -93,6 +108,7 @@ export function setupWebSocketServer(server: import("node:http").Server) {
 				});
 			} catch {
 				// Upgrade failed (bad session, protocol error, etc.) — drop the socket.
+				recordWsEvent("notification", "reject");
 				socket.destroy();
 			}
 		})();
@@ -120,6 +136,7 @@ export function setupWebSocketServer(server: import("node:http").Server) {
 		});
 
 		ws.on("error", () => {
+			recordWsEvent("notification", "error");
 			removeConnection(userId, ws);
 		});
 	});

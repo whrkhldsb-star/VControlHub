@@ -8,6 +8,7 @@ import { MobileNav } from "@/components/mobile-nav";
 import { GlobalSearch } from "@/components/global-search";
 import { PwaRegister } from "@/components/pwa-register";
 import { SentryProvider } from "@/components/sentry-provider";
+import { WebVitalsReporter } from "@/components/web-vitals-reporter";
 import { I18nProvider } from "@/lib/i18n/provider";
 import { ThemeProvider } from "@/lib/theme/provider";
 import { getAppMetadataTitle, getAppDescription } from "@/lib/branding";
@@ -71,6 +72,7 @@ export default async function RootLayout({
 				<ThemeProvider initialTheme={initialTheme}>
 					<I18nProvider initialLocale={initialLocale}>
 						<SentryProvider />
+						<WebVitalsReporter />
 						<ToastProvider>
 							{shouldRenderAuthenticatedChrome && (
 								<SessionGateProvider value={sessionGate}>

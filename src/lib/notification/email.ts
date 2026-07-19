@@ -1,6 +1,7 @@
 import nodemailer from "nodemailer";
 
 import { ValidationError } from "@/lib/errors";
+import { timeDelivery } from "@/lib/monitoring/runtime-metrics";
 import { getAllSettings } from "@/lib/settings/service";
 
 export type EmailDeliveryInput = {
@@ -66,34 +67,36 @@ export function assertSmtpReady(config: SmtpConfig) {
 }
 
 export async function sendEmail(input: EmailDeliveryInput): Promise<EmailDeliveryResult> {
-	const config = await getSmtpConfig();
-	assertSmtpReady(config);
+	return timeDelivery("email", async () => {
+		const config = await getSmtpConfig();
+		assertSmtpReady(config);
 
-	const recipients = normalizeRecipients(input.to);
-	if (recipients.length === 0) throw new ValidationError("Email recipients are not configured");
+		const recipients = normalizeRecipients(input.to);
+		if (recipients.length === 0) throw new ValidationError("Email recipients are not configured");
 
-	const transporter = nodemailer.createTransport({
-		host: config.host,
-		port: config.port,
-		secure: config.port === 465,
-		auth: config.user || config.pass ? { user: config.user, pass: config.pass } : undefined,
-		connectionTimeout: 10_000,
-		greetingTimeout: 10_000,
-		socketTimeout: 30_000,
+		const transporter = nodemailer.createTransport({
+			host: config.host,
+			port: config.port,
+			secure: config.port === 465,
+			auth: config.user || config.pass ? { user: config.user, pass: config.pass } : undefined,
+			connectionTimeout: 10_000,
+			greetingTimeout: 10_000,
+			socketTimeout: 30_000,
+		});
+		const result = await transporter.sendMail({
+			from: config.from,
+			to: recipients,
+			subject: input.subject,
+			text: input.text,
+			html: input.html,
+		});
+
+		return {
+			accepted: (result.accepted ?? []).map(String),
+			rejected: (result.rejected ?? []).map(String),
+			messageId: result.messageId,
+		};
 	});
-	const result = await transporter.sendMail({
-		from: config.from,
-		to: recipients,
-		subject: input.subject,
-		text: input.text,
-		html: input.html,
-	});
-
-	return {
-		accepted: (result.accepted ?? []).map(String),
-		rejected: (result.rejected ?? []).map(String),
-		messageId: result.messageId,
-	};
 }
 
 export async function sendAlertEmail(input: {

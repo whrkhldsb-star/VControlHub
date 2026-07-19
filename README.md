@@ -347,11 +347,11 @@ make logs SERVICE_PREFIX=vcontrolhub
 | 指标            | 数量                                             |
 | --------------- | ------------------------------------------------ |
 | 功能页面            | 49                                               |
-| API 路由文件        | 177                                              |
+| API 路由文件        | 179                                              |
 | 数据模型            | 73                                               |
-| UI 组件           | 41                                               |
-| 代码行数            | ~209,540（src 扫描）                                 |
-| 测试              | 457 文件                                           |
+| UI 组件           | 42                                               |
+| 代码行数            | ~215,527（src 扫描）                                 |
+| 测试              | 464 文件                                           |
 | Docker 应用模板     | 44 (本地) + 社区源实时同步                                |
 | i18n            | 229 useI18n() 调用点，81 字典文件                        |
 <!-- README_METRICS_END -->
@@ -381,12 +381,12 @@ make logs SERVICE_PREFIX=vcontrolhub
 
 | 项 | 当前状态 | 目标 |
 |---|---|---|
-| Playwright 跨浏览器 | 已有 9 个 e2e spec，仅配 chromium project | 加入 Firefox + WebKit project，CI 三引擎全跑 |
-| DAST 基线扫描 | 无 | nuclei/zap 周期性基线扫描，纳入 CI 可选 stage |
-| 压测基线 | 无 | 关键 API 路径（auth、文件列表、命令执行）k6 基线脚本 + 回归阈值 |
-| Web Vitals 上报 | Sentry 已初始化（server+client），缺前端性能指标 | CLS/LCP/INP 客户端采集 + 服务端聚合看板 |
-| WebSocket 连接监控 | SSH-WS 运行但无指标 | 活跃连接数、断线率、重连成功率指标 |
-| 通知投递耗时统计 | 通知能发但无投递质量数据 | 各渠道（邮件/Telegram/Webhook）投递延迟分位数 + 失败率 |
+| Playwright 跨浏览器 | ✅ `playwright.config` 支持 firefox/webkit；CI public smoke 三引擎；`npm run test:e2e:cross-browser` | 保持 CI 三引擎 public smoke；全量 authenticated 仍走 nightly chromium |
+| DAST 基线扫描 | ✅ `scripts/dast-baseline.sh` + `npm run dast:baseline`；main push CI stage（nuclei 优先，curl 探针兜底） | 有 nuclei 时启用 medium+ 模板；本地/CI 探针持续通过 |
+| 压测基线 | ✅ `scripts/load/k6-baseline.js` + `npm run load:baseline`（auth/health/protected API 阈值） | 生产前手动/计划任务跑 k6；阈值回归 |
+| Web Vitals 上报 | ✅ 客户端 `WebVitalsReporter` + `POST /api/monitoring/web-vitals` + `GET /api/monitoring/observability` | 持续采集 CLS/LCP/INP；看板可读 observability 快照 |
+| WebSocket 连接监控 | ✅ notification-ws + ssh-ws 计数；ssh-ws `/metrics` 本机抓取合并到 observability | 活跃/打开/关闭/拒绝/错误可见 |
+| 通知投递耗时统计 | ✅ email/telegram/webhook/in_app_ws 延迟分位数 + 失败率写入 runtime metrics | 从 observability 读各渠道 p50/p95/失败率 |
 
 ---
 

@@ -2,6 +2,7 @@ import { prisma } from "@/lib/db";
 import { pushNotification, pushUnreadCount } from "@/lib/ws/notification-ws";
 import { createLogger } from "@/lib/logging";
 import { NotFoundError } from "@/lib/errors";
+import { timeDelivery } from "@/lib/monitoring/runtime-metrics";
 
 const logger = createLogger("notification:service");
 
@@ -51,17 +52,19 @@ export async function createNotification(input: CreateNotificationInput) {
 
 	// Push real-time WebSocket notification to the user
 	try {
-		pushNotification(input.userId, {
-			id: record.id,
-			title: record.title,
-			message: record.message,
-			actionUrl: record.actionUrl,
-			createdAt: record.createdAt.toISOString(),
-		});
+		await timeDelivery("in_app_ws", async () => {
+			pushNotification(input.userId, {
+				id: record.id,
+				title: record.title,
+				message: record.message,
+				actionUrl: record.actionUrl,
+				createdAt: record.createdAt.toISOString(),
+			});
 
-		// Also push updated unread count
-		const unreadCount = await getUnreadCount(input.userId);
-		pushUnreadCount(input.userId, unreadCount);
+			// Also push updated unread count
+			const unreadCount = await getUnreadCount(input.userId);
+			pushUnreadCount(input.userId, unreadCount);
+		});
 	} catch (err) {
 		logger.warn("WS push failed (user may be offline)", err);
 	}

@@ -1,124 +1,15 @@
 {
-  "generatedAt": "2026-07-10T12:55:20.587Z",
+  "generatedAt": "2026-07-19T00:31:13.102Z",
   "summary": {
-    "sidebarMain": 27,
+    "sidebarMain": 0,
     "sidebarSystem": 5,
     "sidebarMobile": 5,
-    "pages": 47,
-    "apiRoutes": 138,
+    "pages": 49,
+    "apiRoutes": 179,
     "permissionsDefined": 54
   },
   "sidebar": {
-    "main": [
-      {
-        "href": "/dashboard",
-        "fallbackLabel": "Dashboard"
-      },
-      {
-        "href": "/servers",
-        "fallbackLabel": "VPS Management"
-      },
-      {
-        "href": "/health",
-        "fallbackLabel": "Health"
-      },
-      {
-        "href": "/monitoring",
-        "fallbackLabel": "Monitoring"
-      },
-      {
-        "href": "/traffic",
-        "fallbackLabel": "Traffic"
-      },
-      {
-        "href": "/files",
-        "fallbackLabel": "Files"
-      },
-      {
-        "href": "/downloads",
-        "fallbackLabel": "Downloads"
-      },
-      {
-        "href": "/operation-tasks",
-        "fallbackLabel": "Tasks"
-      },
-      {
-        "href": "/shares",
-        "fallbackLabel": "Share Links"
-      },
-      {
-        "href": "/backups",
-        "fallbackLabel": "Backups"
-      },
-      {
-        "href": "/cost-summary",
-        "fallbackLabel": "Costs"
-      },
-      {
-        "href": "/templates",
-        "fallbackLabel": "Command Templates"
-      },
-      {
-        "href": "/deployments",
-        "fallbackLabel": "Deployments"
-      },
-      {
-        "href": "/quick-services",
-        "fallbackLabel": "Quick Services"
-      },
-      {
-        "href": "/snippets",
-        "fallbackLabel": "Snippets"
-      },
-      {
-        "href": "/media",
-        "fallbackLabel": "Media"
-      },
-      {
-        "href": "/image-bed",
-        "fallbackLabel": "Image Links"
-      },
-      {
-        "href": "/ai",
-        "fallbackLabel": "AI Assistant"
-      },
-      {
-        "href": "/ai-ops",
-        "fallbackLabel": "AI Ops"
-      },
-      {
-        "href": "/announcements",
-        "fallbackLabel": "Announcements"
-      },
-      {
-        "href": "/tickets",
-        "fallbackLabel": "Tickets"
-      },
-      {
-        "href": "/requests",
-        "fallbackLabel": "Approvals"
-      },
-      {
-        "href": "/scheduled-tasks",
-        "fallbackLabel": "Scheduled Tasks"
-      },
-      {
-        "href": "/playbooks",
-        "fallbackLabel": "Playbook Automation"
-      },
-      {
-        "href": "/alert-rules",
-        "fallbackLabel": "Alert Rules"
-      },
-      {
-        "href": "/notifications",
-        "fallbackLabel": "Notifications"
-      },
-      {
-        "href": "/settings",
-        "fallbackLabel": "Settings"
-      }
-    ],
+    "main": [],
     "system": [
       {
         "href": "/users",
@@ -167,7 +58,7 @@
     {
       "path": "/ai-ops",
       "file": "src/app/ai-ops/page.tsx",
-      "inSidebarMain": true,
+      "inSidebarMain": false,
       "inSidebarSystem": false,
       "declaredPermissions": [
         "ai:ops:autonomous",
@@ -178,14 +69,16 @@
     {
       "path": "/ai",
       "file": "src/app/ai/page.tsx",
-      "inSidebarMain": true,
+      "inSidebarMain": false,
       "inSidebarSystem": false,
-      "declaredPermissions": []
+      "declaredPermissions": [
+        "ai:chat"
+      ]
     },
     {
       "path": "/alert-rules",
       "file": "src/app/alert-rules/page.tsx",
-      "inSidebarMain": true,
+      "inSidebarMain": false,
       "inSidebarSystem": false,
       "declaredPermissions": [
         "notification:manage"
@@ -194,7 +87,7 @@
     {
       "path": "/announcements",
       "file": "src/app/announcements/page.tsx",
-      "inSidebarMain": true,
+      "inSidebarMain": false,
       "inSidebarSystem": false,
       "declaredPermissions": [
         "announcement:manage"
@@ -228,7 +121,7 @@
     {
       "path": "/backups",
       "file": "src/app/backups/page.tsx",
-      "inSidebarMain": true,
+      "inSidebarMain": false,
       "inSidebarSystem": false,
       "declaredPermissions": [
         "backup:create",
@@ -239,7 +132,7 @@
     {
       "path": "/cost-summary",
       "file": "src/app/cost-summary/page.tsx",
-      "inSidebarMain": true,
+      "inSidebarMain": false,
       "inSidebarSystem": false,
       "declaredPermissions": [
         "cost:manage",
@@ -249,14 +142,14 @@
     {
       "path": "/dashboard",
       "file": "src/app/dashboard/page.tsx",
-      "inSidebarMain": true,
+      "inSidebarMain": false,
       "inSidebarSystem": false,
       "declaredPermissions": []
     },
     {
       "path": "/deployments",
       "file": "src/app/deployments/page.tsx",
-      "inSidebarMain": true,
+      "inSidebarMain": false,
       "inSidebarSystem": false,
       "declaredPermissions": [
         "deploy:export",
@@ -276,7 +169,7 @@
     {
       "path": "/downloads",
       "file": "src/app/downloads/page.tsx",
-      "inSidebarMain": true,
+      "inSidebarMain": false,
       "inSidebarSystem": false,
       "declaredPermissions": [
         "storage:manage-node",
@@ -287,7 +180,7 @@
     {
       "path": "/files",
       "file": "src/app/files/page.tsx",
-      "inSidebarMain": true,
+      "inSidebarMain": false,
       "inSidebarSystem": false,
       "declaredPermissions": [
         "share:create",
@@ -306,7 +199,7 @@
     {
       "path": "/health",
       "file": "src/app/health/page.tsx",
-      "inSidebarMain": true,
+      "inSidebarMain": false,
       "inSidebarSystem": false,
       "declaredPermissions": [
         "health:read"
@@ -315,12 +208,32 @@
     {
       "path": "/image-bed",
       "file": "src/app/image-bed/page.tsx",
-      "inSidebarMain": true,
+      "inSidebarMain": false,
       "inSidebarSystem": false,
       "declaredPermissions": [
         "image:read",
         "image:write",
         "storage:delete"
+      ]
+    },
+    {
+      "path": "/itsm",
+      "file": "src/app/itsm/page.tsx",
+      "inSidebarMain": false,
+      "inSidebarSystem": false,
+      "declaredPermissions": [
+        "ticket:manage",
+        "ticket:read"
+      ]
+    },
+    {
+      "path": "/knowledge",
+      "file": "src/app/knowledge/page.tsx",
+      "inSidebarMain": false,
+      "inSidebarSystem": false,
+      "declaredPermissions": [
+        "ai:chat",
+        "ai:manage"
       ]
     },
     {
@@ -349,7 +262,7 @@
     {
       "path": "/media",
       "file": "src/app/media/page.tsx",
-      "inSidebarMain": true,
+      "inSidebarMain": false,
       "inSidebarSystem": false,
       "declaredPermissions": [
         "media:manage",
@@ -359,7 +272,7 @@
     {
       "path": "/monitoring",
       "file": "src/app/monitoring/page.tsx",
-      "inSidebarMain": true,
+      "inSidebarMain": false,
       "inSidebarSystem": false,
       "declaredPermissions": [
         "docker:manage",
@@ -369,7 +282,7 @@
     {
       "path": "/notifications",
       "file": "src/app/notifications/page.tsx",
-      "inSidebarMain": true,
+      "inSidebarMain": false,
       "inSidebarSystem": false,
       "declaredPermissions": []
     },
@@ -383,7 +296,7 @@
     {
       "path": "/operation-tasks",
       "file": "src/app/operation-tasks/page.tsx",
-      "inSidebarMain": true,
+      "inSidebarMain": false,
       "inSidebarSystem": false,
       "declaredPermissions": [
         "task:read"
@@ -399,7 +312,7 @@
     {
       "path": "/playbooks",
       "file": "src/app/playbooks/page.tsx",
-      "inSidebarMain": true,
+      "inSidebarMain": false,
       "inSidebarSystem": false,
       "declaredPermissions": [
         "playbook:manage",
@@ -435,7 +348,7 @@
     {
       "path": "/quick-services",
       "file": "src/app/quick-services/page.tsx",
-      "inSidebarMain": true,
+      "inSidebarMain": false,
       "inSidebarSystem": false,
       "declaredPermissions": [
         "docker:manage"
@@ -444,7 +357,7 @@
     {
       "path": "/requests",
       "file": "src/app/requests/page.tsx",
-      "inSidebarMain": true,
+      "inSidebarMain": false,
       "inSidebarSystem": false,
       "declaredPermissions": [
         "command:approve"
@@ -453,7 +366,7 @@
     {
       "path": "/scheduled-tasks",
       "file": "src/app/scheduled-tasks/page.tsx",
-      "inSidebarMain": true,
+      "inSidebarMain": false,
       "inSidebarSystem": false,
       "declaredPermissions": [
         "command:create",
@@ -463,7 +376,7 @@
     {
       "path": "/servers",
       "file": "src/app/servers/page.tsx",
-      "inSidebarMain": true,
+      "inSidebarMain": false,
       "inSidebarSystem": false,
       "declaredPermissions": [
         "server:ssh",
@@ -473,7 +386,7 @@
     {
       "path": "/settings",
       "file": "src/app/settings/page.tsx",
-      "inSidebarMain": true,
+      "inSidebarMain": false,
       "inSidebarSystem": false,
       "declaredPermissions": [
         "user:manage"
@@ -489,7 +402,7 @@
     {
       "path": "/shares",
       "file": "src/app/shares/page.tsx",
-      "inSidebarMain": true,
+      "inSidebarMain": false,
       "inSidebarSystem": false,
       "declaredPermissions": [
         "share:create",
@@ -500,7 +413,7 @@
     {
       "path": "/snippets",
       "file": "src/app/snippets/page.tsx",
-      "inSidebarMain": true,
+      "inSidebarMain": false,
       "inSidebarSystem": false,
       "declaredPermissions": [
         "snippet:manage"
@@ -523,7 +436,7 @@
     {
       "path": "/templates",
       "file": "src/app/templates/page.tsx",
-      "inSidebarMain": true,
+      "inSidebarMain": false,
       "inSidebarSystem": false,
       "declaredPermissions": [
         "command:create",
@@ -542,7 +455,7 @@
     {
       "path": "/tickets",
       "file": "src/app/tickets/page.tsx",
-      "inSidebarMain": true,
+      "inSidebarMain": false,
       "inSidebarSystem": false,
       "declaredPermissions": [
         "ticket:create",
@@ -552,7 +465,7 @@
     {
       "path": "/traffic",
       "file": "src/app/traffic/page.tsx",
-      "inSidebarMain": true,
+      "inSidebarMain": false,
       "inSidebarSystem": false,
       "declaredPermissions": [
         "server:read",
@@ -624,7 +537,9 @@
         "PATCH"
       ],
       "guardMode": "withApiRoute",
-      "declaredPermissions": []
+      "declaredPermissions": [
+        "ai:chat"
+      ]
     },
     {
       "path": "/src/app/api/ai/conversations",
@@ -781,6 +696,18 @@
       "guardMode": "withApiRoute",
       "declaredPermissions": [
         "ai:manage"
+      ]
+    },
+    {
+      "path": "/src/app/api/alert-incidents",
+      "file": "src/app/api/alert-incidents/route.ts",
+      "methods": [
+        "GET",
+        "POST"
+      ],
+      "guardMode": "withApiRoute",
+      "declaredPermissions": [
+        "notification:manage"
       ]
     },
     {
@@ -944,6 +871,17 @@
       ]
     },
     {
+      "path": "/src/app/api/backups/[id]/drill",
+      "file": "src/app/api/backups/[id]/drill/route.ts",
+      "methods": [
+        "POST"
+      ],
+      "guardMode": "withApiRoute",
+      "declaredPermissions": [
+        "backup:restore"
+      ]
+    },
+    {
       "path": "/src/app/api/backups/[id]/restore",
       "file": "src/app/api/backups/[id]/restore/route.ts",
       "methods": [
@@ -974,6 +912,19 @@
       "guardMode": "withApiRoute",
       "declaredPermissions": [
         "backup:create"
+      ]
+    },
+    {
+      "path": "/src/app/api/backups/migration",
+      "file": "src/app/api/backups/migration/route.ts",
+      "methods": [
+        "GET",
+        "POST"
+      ],
+      "guardMode": "withApiRoute",
+      "declaredPermissions": [
+        "backup:create",
+        "backup:read"
       ]
     },
     {
@@ -1042,6 +993,17 @@
       ]
     },
     {
+      "path": "/src/app/api/commands/[id]/tickets",
+      "file": "src/app/api/commands/[id]/tickets/route.ts",
+      "methods": [
+        "GET"
+      ],
+      "guardMode": "withApiRoute",
+      "declaredPermissions": [
+        "command:read"
+      ]
+    },
+    {
       "path": "/src/app/api/commands",
       "file": "src/app/api/commands/route.ts",
       "methods": [
@@ -1054,6 +1016,80 @@
         "command:create",
         "command:execute",
         "command:read"
+      ]
+    },
+    {
+      "path": "/src/app/api/cost/billing-accounts/[id]",
+      "file": "src/app/api/cost/billing-accounts/[id]/route.ts",
+      "methods": [
+        "DELETE",
+        "GET",
+        "PATCH"
+      ],
+      "guardMode": "withApiRoute",
+      "declaredPermissions": [
+        "cost:manage",
+        "cost:read"
+      ]
+    },
+    {
+      "path": "/src/app/api/cost/billing-accounts/[id]/sync",
+      "file": "src/app/api/cost/billing-accounts/[id]/sync/route.ts",
+      "methods": [
+        "POST"
+      ],
+      "guardMode": "withApiRoute",
+      "declaredPermissions": [
+        "cost:manage"
+      ]
+    },
+    {
+      "path": "/src/app/api/cost/billing-accounts",
+      "file": "src/app/api/cost/billing-accounts/route.ts",
+      "methods": [
+        "GET",
+        "POST"
+      ],
+      "guardMode": "withApiRoute",
+      "declaredPermissions": [
+        "cost:manage",
+        "cost:read"
+      ]
+    },
+    {
+      "path": "/src/app/api/cost/budgets/[id]",
+      "file": "src/app/api/cost/budgets/[id]/route.ts",
+      "methods": [
+        "DELETE",
+        "PATCH"
+      ],
+      "guardMode": "withApiRoute",
+      "declaredPermissions": [
+        "cost:manage"
+      ]
+    },
+    {
+      "path": "/src/app/api/cost/budgets/check",
+      "file": "src/app/api/cost/budgets/check/route.ts",
+      "methods": [
+        "POST"
+      ],
+      "guardMode": "withApiRoute",
+      "declaredPermissions": [
+        "cost:manage"
+      ]
+    },
+    {
+      "path": "/src/app/api/cost/budgets",
+      "file": "src/app/api/cost/budgets/route.ts",
+      "methods": [
+        "GET",
+        "POST"
+      ],
+      "guardMode": "withApiRoute",
+      "declaredPermissions": [
+        "cost:manage",
+        "cost:read"
       ]
     },
     {
@@ -1132,7 +1168,8 @@
       ],
       "guardMode": "withApiRoute",
       "declaredPermissions": [
-        "deploy:export"
+        "deploy:export",
+        "team:manage"
       ]
     },
     {
@@ -1172,6 +1209,18 @@
       ]
     },
     {
+      "path": "/src/app/api/docker/compose",
+      "file": "src/app/api/docker/compose/route.ts",
+      "methods": [
+        "GET",
+        "POST"
+      ],
+      "guardMode": "withApiRoute",
+      "declaredPermissions": [
+        "docker:manage"
+      ]
+    },
+    {
       "path": "/src/app/api/docker/containers",
       "file": "src/app/api/docker/containers/route.ts",
       "methods": [
@@ -1201,7 +1250,7 @@
       "methods": [
         "GET"
       ],
-      "guardMode": "public",
+      "guardMode": "delegated",
       "declaredPermissions": []
     },
     {
@@ -1214,6 +1263,17 @@
       "declaredPermissions": []
     },
     {
+      "path": "/src/app/api/downloads/recent",
+      "file": "src/app/api/downloads/recent/route.ts",
+      "methods": [
+        "GET"
+      ],
+      "guardMode": "withApiRoute",
+      "declaredPermissions": [
+        "storage:read"
+      ]
+    },
+    {
       "path": "/src/app/api/downloads",
       "file": "src/app/api/downloads/route.ts",
       "methods": [
@@ -1224,6 +1284,41 @@
       ],
       "guardMode": "delegated",
       "declaredPermissions": []
+    },
+    {
+      "path": "/src/app/api/files/[id]/versions/[versionId]/download",
+      "file": "src/app/api/files/[id]/versions/[versionId]/download/route.ts",
+      "methods": [
+        "GET"
+      ],
+      "guardMode": "withApiRoute",
+      "declaredPermissions": [
+        "storage:read"
+      ]
+    },
+    {
+      "path": "/src/app/api/files/[id]/versions/[versionId]/restore",
+      "file": "src/app/api/files/[id]/versions/[versionId]/restore/route.ts",
+      "methods": [
+        "POST"
+      ],
+      "guardMode": "withApiRoute",
+      "declaredPermissions": [
+        "storage:write"
+      ]
+    },
+    {
+      "path": "/src/app/api/files/[id]/versions",
+      "file": "src/app/api/files/[id]/versions/route.ts",
+      "methods": [
+        "GET",
+        "POST"
+      ],
+      "guardMode": "withApiRoute",
+      "declaredPermissions": [
+        "storage:read",
+        "storage:write"
+      ]
     },
     {
       "path": "/src/app/api/files/archive-list",
@@ -1284,6 +1379,28 @@
         "storage:manage-node",
         "storage:read",
         "storage:write"
+      ]
+    },
+    {
+      "path": "/src/app/api/files/search-content",
+      "file": "src/app/api/files/search-content/route.ts",
+      "methods": [
+        "GET"
+      ],
+      "guardMode": "withApiRoute",
+      "declaredPermissions": [
+        "storage:read"
+      ]
+    },
+    {
+      "path": "/src/app/api/health/capacity",
+      "file": "src/app/api/health/capacity/route.ts",
+      "methods": [
+        "GET"
+      ],
+      "guardMode": "withApiRoute",
+      "declaredPermissions": [
+        "health:read"
       ]
     },
     {
@@ -1424,6 +1541,62 @@
       ]
     },
     {
+      "path": "/src/app/api/itsm/connections/[id]",
+      "file": "src/app/api/itsm/connections/[id]/route.ts",
+      "methods": [
+        "DELETE",
+        "GET",
+        "PATCH"
+      ],
+      "guardMode": "withApiRoute",
+      "declaredPermissions": [
+        "ticket:manage"
+      ]
+    },
+    {
+      "path": "/src/app/api/itsm/connections/[id]/test",
+      "file": "src/app/api/itsm/connections/[id]/test/route.ts",
+      "methods": [
+        "POST"
+      ],
+      "guardMode": "withApiRoute",
+      "declaredPermissions": [
+        "ticket:manage"
+      ]
+    },
+    {
+      "path": "/src/app/api/itsm/connections",
+      "file": "src/app/api/itsm/connections/route.ts",
+      "methods": [
+        "GET",
+        "POST"
+      ],
+      "guardMode": "withApiRoute",
+      "declaredPermissions": [
+        "ticket:manage"
+      ]
+    },
+    {
+      "path": "/src/app/api/itsm/events",
+      "file": "src/app/api/itsm/events/route.ts",
+      "methods": [
+        "GET"
+      ],
+      "guardMode": "withApiRoute",
+      "declaredPermissions": [
+        "ticket:manage"
+      ]
+    },
+    {
+      "path": "/src/app/api/itsm/inbound/[connectionId]",
+      "file": "src/app/api/itsm/inbound/[connectionId]/route.ts",
+      "methods": [
+        "POST"
+      ],
+      "guardMode": "unspecified",
+      "declaredPermissions": []
+    },
+    {
       "path": "/src/app/api/jobs/[id]/events",
       "file": "src/app/api/jobs/[id]/events/route.ts",
       "methods": [
@@ -1431,7 +1604,44 @@
       ],
       "guardMode": "withApiRoute",
       "declaredPermissions": [
-        "task:read"
+        "task:read",
+        "team:manage"
+      ]
+    },
+    {
+      "path": "/src/app/api/jobs/backlog",
+      "file": "src/app/api/jobs/backlog/route.ts",
+      "methods": [
+        "GET"
+      ],
+      "guardMode": "withApiRoute",
+      "declaredPermissions": [
+        "audit:read"
+      ]
+    },
+    {
+      "path": "/src/app/api/knowledge/[id]",
+      "file": "src/app/api/knowledge/[id]/route.ts",
+      "methods": [
+        "GET"
+      ],
+      "guardMode": "withApiRoute",
+      "declaredPermissions": [
+        "ai:chat"
+      ]
+    },
+    {
+      "path": "/src/app/api/knowledge",
+      "file": "src/app/api/knowledge/route.ts",
+      "methods": [
+        "DELETE",
+        "GET",
+        "POST"
+      ],
+      "guardMode": "withApiRoute",
+      "declaredPermissions": [
+        "ai:chat",
+        "ai:manage"
       ]
     },
     {
@@ -1490,6 +1700,17 @@
       ]
     },
     {
+      "path": "/src/app/api/monitoring/observability",
+      "file": "src/app/api/monitoring/observability/route.ts",
+      "methods": [
+        "GET"
+      ],
+      "guardMode": "withApiRoute",
+      "declaredPermissions": [
+        "audit:read"
+      ]
+    },
+    {
       "path": "/src/app/api/monitoring/stats",
       "file": "src/app/api/monitoring/stats/route.ts",
       "methods": [
@@ -1503,6 +1724,15 @@
       "file": "src/app/api/monitoring/stream/route.ts",
       "methods": [
         "GET"
+      ],
+      "guardMode": "withApiRoute",
+      "declaredPermissions": []
+    },
+    {
+      "path": "/src/app/api/monitoring/web-vitals",
+      "file": "src/app/api/monitoring/web-vitals/route.ts",
+      "methods": [
+        "POST"
       ],
       "guardMode": "withApiRoute",
       "declaredPermissions": []
@@ -1569,6 +1799,17 @@
       ]
     },
     {
+      "path": "/src/app/api/playbooks/[id]/runs",
+      "file": "src/app/api/playbooks/[id]/runs/route.ts",
+      "methods": [
+        "GET"
+      ],
+      "guardMode": "withApiRoute",
+      "declaredPermissions": [
+        "playbook:read"
+      ]
+    },
+    {
       "path": "/src/app/api/playbooks",
       "file": "src/app/api/playbooks/route.ts",
       "methods": [
@@ -1624,6 +1865,31 @@
       "guardMode": "withApiRoute",
       "declaredPermissions": [
         "docker:manage"
+      ]
+    },
+    {
+      "path": "/src/app/api/role-templates/[id]",
+      "file": "src/app/api/role-templates/[id]/route.ts",
+      "methods": [
+        "DELETE",
+        "PATCH"
+      ],
+      "guardMode": "withApiRoute",
+      "declaredPermissions": [
+        "role:manage"
+      ]
+    },
+    {
+      "path": "/src/app/api/role-templates",
+      "file": "src/app/api/role-templates/route.ts",
+      "methods": [
+        "GET",
+        "POST"
+      ],
+      "guardMode": "withApiRoute",
+      "declaredPermissions": [
+        "role:manage",
+        "user:read"
       ]
     },
     {
@@ -1874,6 +2140,28 @@
       "declaredPermissions": []
     },
     {
+      "path": "/src/app/api/shares/[id]/access-logs",
+      "file": "src/app/api/shares/[id]/access-logs/route.ts",
+      "methods": [
+        "GET"
+      ],
+      "guardMode": "withApiRoute",
+      "declaredPermissions": [
+        "share:read"
+      ]
+    },
+    {
+      "path": "/src/app/api/shares/access-report",
+      "file": "src/app/api/shares/access-report/route.ts",
+      "methods": [
+        "GET"
+      ],
+      "guardMode": "withApiRoute",
+      "declaredPermissions": [
+        "share:manage"
+      ]
+    },
+    {
       "path": "/src/app/api/snippets",
       "file": "src/app/api/snippets/route.ts",
       "methods": [
@@ -2004,6 +2292,75 @@
       ]
     },
     {
+      "path": "/src/app/api/storage/upload/[id]/complete",
+      "file": "src/app/api/storage/upload/[id]/complete/route.ts",
+      "methods": [
+        "POST"
+      ],
+      "guardMode": "withApiRoute",
+      "declaredPermissions": [
+        "storage:write"
+      ]
+    },
+    {
+      "path": "/src/app/api/storage/upload/init",
+      "file": "src/app/api/storage/upload/init/route.ts",
+      "methods": [
+        "POST"
+      ],
+      "guardMode": "withApiRoute",
+      "declaredPermissions": [
+        "storage:write"
+      ]
+    },
+    {
+      "path": "/src/app/api/sync-jobs/[id]/report",
+      "file": "src/app/api/sync-jobs/[id]/report/route.ts",
+      "methods": [
+        "GET"
+      ],
+      "guardMode": "withApiRoute",
+      "declaredPermissions": [
+        "storage:read"
+      ]
+    },
+    {
+      "path": "/src/app/api/sync-jobs/[id]",
+      "file": "src/app/api/sync-jobs/[id]/route.ts",
+      "methods": [
+        "DELETE",
+        "PATCH"
+      ],
+      "guardMode": "withApiRoute",
+      "declaredPermissions": [
+        "storage:write"
+      ]
+    },
+    {
+      "path": "/src/app/api/sync-jobs/[id]/run",
+      "file": "src/app/api/sync-jobs/[id]/run/route.ts",
+      "methods": [
+        "POST"
+      ],
+      "guardMode": "withApiRoute",
+      "declaredPermissions": [
+        "storage:write"
+      ]
+    },
+    {
+      "path": "/src/app/api/sync-jobs",
+      "file": "src/app/api/sync-jobs/route.ts",
+      "methods": [
+        "GET",
+        "POST"
+      ],
+      "guardMode": "withApiRoute",
+      "declaredPermissions": [
+        "storage:read",
+        "storage:write"
+      ]
+    },
+    {
       "path": "/src/app/api/system-health",
       "file": "src/app/api/system-health/route.ts",
       "methods": [
@@ -2110,6 +2467,19 @@
       ]
     },
     {
+      "path": "/src/app/api/tickets/[id]/timeline",
+      "file": "src/app/api/tickets/[id]/timeline/route.ts",
+      "methods": [
+        "GET",
+        "POST"
+      ],
+      "guardMode": "withApiRoute",
+      "declaredPermissions": [
+        "ticket:manage",
+        "ticket:read"
+      ]
+    },
+    {
       "path": "/src/app/api/tickets",
       "file": "src/app/api/tickets/route.ts",
       "methods": [
@@ -2122,6 +2492,17 @@
         "ticket:create",
         "ticket:manage",
         "ticket:read"
+      ]
+    },
+    {
+      "path": "/src/app/api/tickets/sla/escalate",
+      "file": "src/app/api/tickets/sla/escalate/route.ts",
+      "methods": [
+        "POST"
+      ],
+      "guardMode": "withApiRoute",
+      "declaredPermissions": [
+        "ticket:manage"
       ]
     },
     {
@@ -2172,6 +2553,13 @@
         "user:manage",
         "user:read"
       ]
+    },
+    {
+      "path": "/src/app/api/webdav/[storageNodeId]/[[...path]]",
+      "file": "src/app/api/webdav/[storageNodeId]/[[...path]]/route.ts",
+      "methods": [],
+      "guardMode": "unspecified",
+      "declaredPermissions": []
     }
   ],
   "permissions": [

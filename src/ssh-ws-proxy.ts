@@ -22,6 +22,11 @@ import { getAppSlug } from "./lib/branding";
 import { createLogger } from "./lib/logging";
 import { verifySshWsHandshakeToken } from "./lib/auth/ssh-ws-token";
 import { getSshTerminalRuntimeConfig } from "./lib/runtime-settings/service";
+import {
+	getWsSnapshot,
+	recordWsEvent,
+	setWsActive,
+} from "./lib/monitoring/runtime-metrics";
 
 const logger = createLogger("ssh-ws-proxy");
 
@@ -199,17 +204,13 @@ async function resolveServerConnection(
 
 // ── WebSocket server ────────────────────────────────────────────────
 
-const server = createServer((_req, res) => {
- res.writeHead(204);
- res.end();
-});
-
 const MAX_WS_CONNECTIONS = config.ssh.wsMaxConnections;
 const DEFAULT_WS_HEARTBEAT_INTERVAL_MS = config.ssh.wsHeartbeatIntervalMs;
 const DEFAULT_SSH_KEEPALIVE_INTERVAL_MS = config.ssh.keepaliveIntervalMs;
 const DEFAULT_SSH_KEEPALIVE_COUNT_MAX = config.ssh.keepaliveCountMax;
 const wsHeartbeatState = new WeakMap<WebSocket, boolean>();
 let wsHeartbeatTimer: NodeJS.Timeout | null = null;
+let sshWss: WebSocketServer | null = null;
 
 async function getSshTerminalRuntimeConfigWithFallback() {
 	try {
@@ -227,7 +228,8 @@ async function getSshTerminalRuntimeConfigWithFallback() {
 function startWsHeartbeat(intervalMs: number) {
 	if (wsHeartbeatTimer) clearInterval(wsHeartbeatTimer);
 	wsHeartbeatTimer = setInterval(() => {
-		for (const client of wss.clients) {
+		if (!sshWss) return;
+		for (const client of sshWss.clients) {
 			if (client.readyState !== WebSocket.OPEN) continue;
 			if (wsHeartbeatState.get(client) === false) {
 				logger.warn("terminating unresponsive SSH WebSocket client");
@@ -241,22 +243,39 @@ function startWsHeartbeat(intervalMs: number) {
 	wsHeartbeatTimer.unref();
 }
 
+const server = createServer((req, res) => {
+	const url = new URL(req.url || "/", `http://${req.headers.host || "localhost"}`);
+	// Local-only observability scrape endpoint for the main app.
+	if (req.method === "GET" && url.pathname === "/metrics") {
+		const active = sshWss?.clients.size ?? 0;
+		setWsActive("ssh", active);
+		res.writeHead(200, { "Content-Type": "application/json" });
+		res.end(JSON.stringify({ websocket: getWsSnapshot().ssh, activeClients: active }));
+		return;
+	}
+	res.writeHead(204);
+	res.end();
+});
+
 const wss = new WebSocketServer({
 	server,
 	path: "/ssh",
 	verifyClient(info, callback) {
 		if (!isOriginAllowed(info.req)) {
+			recordWsEvent("ssh", "reject");
 			callback(false, 403, "Origin not allowed");
 			return;
 		}
 		// Connection limit — prevent resource exhaustion
 		if (wss.clients.size >= MAX_WS_CONNECTIONS) {
+			recordWsEvent("ssh", "reject");
 			callback(false, 503, "Too many connections");
 			return;
 		}
 		callback(true);
 	},
 });
+sshWss = wss;
 
 void getSshTerminalRuntimeConfigWithFallback().then((config) => startWsHeartbeat(config.wsHeartbeatIntervalMs));
 
@@ -277,15 +296,23 @@ function isOriginAllowed(req: import("http").IncomingMessage): boolean {
 }
 
 wss.on("connection", async (ws, req) => {
+	recordWsEvent("ssh", "open");
+	setWsActive("ssh", wss.clients.size);
 	wsHeartbeatState.set(ws, true);
 	ws.on("pong", () => {
 		wsHeartbeatState.set(ws, true);
 	});
 	ws.on("close", () => {
 		wsHeartbeatState.delete(ws);
+		recordWsEvent("ssh", "close");
+		setWsActive("ssh", wss.clients.size);
+	});
+	ws.on("error", () => {
+		recordWsEvent("ssh", "error");
 	});
 
 	if (!isOriginAllowed(req)) {
+		recordWsEvent("ssh", "reject");
 		ws.send(JSON.stringify({ type: "error", data: "Origin not allowed" }));
 		ws.close();
 		return;

@@ -1,4 +1,5 @@
 import { ValidationError } from "@/lib/errors";
+import { timeDelivery } from "@/lib/monitoring/runtime-metrics";
 import { getAllSettings } from "@/lib/settings/service";
 
 /* ── Types ────────────────────────────────────────────────── */
@@ -84,39 +85,41 @@ export async function sendTelegramMessage(
 	options: { botToken: string; parseMode?: "HTML" | "MarkdownV2" },
 	fetcher: TelegramFetch = fetchImpl,
 ): Promise<TelegramDeliveryResult> {
-	const endpoint = `https://api.telegram.org/bot${options.botToken}/sendMessage`;
-	const response = await fetcher(endpoint, {
-		method: "POST",
-		headers: { "Content-Type": "application/json" },
-		body: JSON.stringify({
-			chat_id: chatId,
-			text,
-			disable_web_page_preview: true,
-			...(options.parseMode ? { parse_mode: options.parseMode } : {}),
-		}),
-		signal: AbortSignal.timeout(15_000),
-	});
+	return timeDelivery("telegram", async () => {
+		const endpoint = `https://api.telegram.org/bot${options.botToken}/sendMessage`;
+		const response = await fetcher(endpoint, {
+			method: "POST",
+			headers: { "Content-Type": "application/json" },
+			body: JSON.stringify({
+				chat_id: chatId,
+				text,
+				disable_web_page_preview: true,
+				...(options.parseMode ? { parse_mode: options.parseMode } : {}),
+			}),
+			signal: AbortSignal.timeout(15_000),
+		});
 
-	if (!response.ok) {
-		let description = `HTTP ${response.status}`;
-		try {
-			const body = (await response.json()) as TelegramApiResponse;
-			if (body?.description) description = body.description;
-		} catch {
-			// 非 JSON 错误响应, 保留 HTTP 状态描述
+		if (!response.ok) {
+			let description = `HTTP ${response.status}`;
+			try {
+				const body = (await response.json()) as TelegramApiResponse;
+				if (body?.description) description = body.description;
+			} catch {
+				// 非 JSON 错误响应, 保留 HTTP 状态描述
+			}
+			throw new Error(`Telegram API error: ${description}`);
 		}
-		throw new Error(`Telegram API error: ${description}`);
-	}
 
-	const payload = (await response.json()) as TelegramApiResponse;
-	if (!payload.ok) {
-		throw new Error(`Telegram API error: ${payload.description ?? "unknown error"}`);
-	}
+		const payload = (await response.json()) as TelegramApiResponse;
+		if (!payload.ok) {
+			throw new Error(`Telegram API error: ${payload.description ?? "unknown error"}`);
+		}
 
-	return {
-		chatId,
-		messageId: payload.result?.message_id,
-	};
+		return {
+			chatId,
+			messageId: payload.result?.message_id,
+		};
+	});
 }
 
 /* ── High-level: send to all configured chat IDs ──────────── */

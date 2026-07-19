@@ -1,6 +1,7 @@
 import { defineConfig, devices } from "@playwright/test";
 
 const baseURL = process.env.PLAYWRIGHT_BASE_URL ?? "http://127.0.0.1:3000";
+const enableCrossBrowser = process.env.PLAYWRIGHT_CROSS_BROWSER === "1" || process.env.CI === "true";
 
 export default defineConfig({
 	testDir: "./e2e",
@@ -21,13 +22,25 @@ export default defineConfig({
 			name: "chromium",
 			use: { ...devices["Desktop Chrome"] },
 		},
+		...(enableCrossBrowser
+			? [
+					{
+						name: "firefox",
+						use: { ...devices["Desktop Firefox"] },
+					},
+					{
+						name: "webkit",
+						use: { ...devices["Desktop Safari"] },
+					},
+				]
+			: []),
 	],
 	webServer: process.env.PLAYWRIGHT_SKIP_WEB_SERVER
 		? undefined
 		: {
-			command: "npm run dev -- --hostname 127.0.0.1 --port 3000",
-			url: baseURL,
-			reuseExistingServer: !process.env.CI,
-			timeout: 120_000,
-		},
+				command: "npm run dev -- --hostname 127.0.0.1 --port 3000",
+				url: baseURL,
+				reuseExistingServer: !process.env.CI,
+				timeout: 120_000,
+			},
 });

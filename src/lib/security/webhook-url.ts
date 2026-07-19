@@ -2,6 +2,8 @@ import { Agent, fetch as undiciFetch, type Dispatcher } from "undici";
 import { lookup } from "node:dns/promises";
 import { isIP } from "node:net";
 
+import { recordDelivery } from "@/lib/monitoring/runtime-metrics";
+
 const BLOCKED_HOSTS = new Set(["localhost", "localhost.localdomain"]);
 
 function expandIpv6Address(address: string) {
@@ -98,11 +100,20 @@ export async function assertWebhookUrlSafeForServerFetch(value: string) {
 }
 
 export async function fetchWebhookSafely(url: string, init: Omit<Dispatcher.RequestOptions, "origin" | "path">) {
+	const started = performance.now();
+	const finish = (ok: boolean) => {
+		recordDelivery("webhook", { ok, durationMs: performance.now() - started });
+	};
+
 	const safe = await assertWebhookUrlSafeForServerFetch(url);
-	if (!safe.ok) return safe;
+	if (!safe.ok) {
+		finish(false);
+		return safe;
+	}
 	const parsed = new URL(safe.url);
 	const addresses = await lookup(parsed.hostname, { all: true, verbatim: true });
 	if (addresses.length === 0 || addresses.some((entry) => isBlockedIpAddress(entry.address))) {
+		finish(false);
 		return { ok: false as const, error: "Webhook URL DNS resolved to a local or intranet address" };
 	}
 	const pinned = addresses[0]!;
@@ -124,8 +135,10 @@ export async function fetchWebhookSafely(url: string, init: Omit<Dispatcher.Requ
 	try {
 		const requestInit = { ...init, dispatcher, redirect: "error" } as unknown as Parameters<typeof undiciFetch>[1];
 		const response = await undiciFetch(safe.url, requestInit);
+		finish(response.ok);
 		return { ok: true as const, response };
 	} catch {
+		finish(false);
 		return { ok: false as const, error: "Webhook request failed" };
 	} finally {
 		await dispatcher.close();
