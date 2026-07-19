@@ -121,7 +121,7 @@ export function FileBatchToolbar({
           <span id={batchToolbarDescriptionId} className="sr-only">
             {formatCopy(copy.regionDescription, { count: selectedCount })}
           </span>
-          {batchAction === "confirm-delete" ? (
+          {batchAction ==="confirm-delete" ? (
             <>
               <span className="text-sm text-[var(--danger)]">
                 {formatCopy(copy.confirmDeletePrompt, { count: selectedCount })}
@@ -137,18 +137,18 @@ export function FileBatchToolbar({
                 type="button"
                 onClick={() => setBatchAction("none")}
                 disabled={isPending}
-                className="rounded-lg border border-[var(--border)] bg-[var(--surface)]/10 px-4 py-2 text-sm font-medium text-[var(--text-secondary)] transition hover:bg-[var(--surface)]/10 disabled:opacity-50"
+                className="rounded-lg border border-[var(--border)] bg-[var(--surface-subtle)] px-4 py-2 text-sm font-medium text-[var(--text-secondary)] transition hover:bg-[var(--surface-subtle)] disabled:opacity-50"
               >
                 {copy.cancel}
               </button>
             </>
-          ) : batchAction === "deleting" ? (
+          ) : batchAction ==="deleting" ? (
             <>
               <span className="text-sm text-[var(--danger)]">
                 {formatCopy(copy.deleteProgress, { done: progress.done, total: progress.total })}
               </span>
               {progress.done < progress.total ? (
-                <div className="h-2 w-24 overflow-hidden rounded-full bg-[var(--surface)]/10">
+                <div className="h-2 w-24 overflow-hidden rounded-full bg-[var(--surface-subtle)]">
                   <div
                     className="h-full rounded-full bg-[var(--danger)] transition-[width]"
                     style={{
@@ -163,7 +163,7 @@ export function FileBatchToolbar({
                 </span>
               ) : null}
             </>
-          ) : batchAction === "compressing" ? (
+          ) : batchAction ==="compressing" ? (
             <>
               <span className="text-sm text-[var(--text-secondary)]">
                 {copy.compressing}
@@ -173,11 +173,11 @@ export function FileBatchToolbar({
                   {progress.done}/{progress.total}
                   {progress.errors.length > 0
                     ? `(${formatCopy(copy.failureCount, { count: progress.errors.length })})`
-                    : ""}
+                    :""}
                 </span>
               ) : null}
             </>
-          ) : batchAction === "moving" ? (
+          ) : batchAction ==="moving" ? (
             <>
               <span className="text-sm text-[var(--text-secondary)]">
                 {copy.targetPathLabel}
@@ -188,14 +188,14 @@ export function FileBatchToolbar({
                 aria-label={t("filesPage.batchMove.targetPathAria")}
                 onChange={(e) => setMoveTargetDir(e.currentTarget.value)}
                 placeholder={currentPath || copy.targetPathPlaceholder}
-                className={cn(UI_INPUT, "w-40 rounded-2xl py-1.5")}
+                className={cn(UI_INPUT,"w-40 rounded-2xl py-1.5")}
               />
               {moveProgress.total > 0 ? (
                 <span className="text-sm text-[var(--text-secondary)]">
                   {formatCopy(copy.moveProgress, { done: moveProgress.done, total: moveProgress.total })}
                   {moveProgress.errors.length > 0
                     ? formatCopy(copy.failureCountParen, { count: moveProgress.errors.length })
-                    : ""}
+                    :""}
                 </span>
               ) : null}
               <button
@@ -217,7 +217,7 @@ export function FileBatchToolbar({
                   setMoveProgress({ done: 0, total: 0, errors: [] });
                 }}
                 disabled={isPending && moveProgress.done > 0}
-                className="rounded-lg border border-[var(--border)] bg-[var(--surface)]/10 px-4 py-2 text-sm font-medium text-[var(--text-secondary)] transition hover:bg-[var(--surface)]/10 disabled:opacity-50"
+                className="rounded-lg border border-[var(--border)] bg-[var(--surface-subtle)] px-4 py-2 text-sm font-medium text-[var(--text-secondary)] transition hover:bg-[var(--surface-subtle)] disabled:opacity-50"
               >
                 {copy.cancel}
               </button>

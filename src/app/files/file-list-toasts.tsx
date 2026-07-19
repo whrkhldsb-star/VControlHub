@@ -27,25 +27,24 @@ export function FileListToasts({ toasts, onDismiss }: FileListToastsProps) {
       {toasts.map((toast) => (
         <div
           key={toast.id}
-          role={toast.type === "error" ? "alert" : "status"}
-          className={[
-            "flex items-start justify-between gap-3 rounded-2xl border px-4 py-3 text-sm shadow-2xl backdrop-blur-xl",
-            toast.type === "success"
-              ? "border-[var(--success-border)] bg-[var(--success-bg)] text-[var(--text-primary)] shadow-[var(--success-bg)]"
-              : "",
-            toast.type === "error"
-              ? "border-[var(--danger-border)] bg-[var(--danger-bg)] text-[var(--text-primary)] shadow-[var(--danger-bg)]"
-              : "",
-            toast.type === "info"
-              ? "border-[var(--color-action-border)]/40 bg-[var(--accent)] text-[var(--on-accent)] shadow-[var(--shadow-md)]"
-              : "",
-          ].join(" ")}
+          role={toast.type ==="error" ?"alert" :"status"}
+          className={["flex items-start justify-between gap-3 rounded-2xl border px-4 py-3 text-sm shadow-2xl backdrop-blur-xl",
+            toast.type ==="success"
+              ?"border-[var(--success-border)] bg-[var(--success-bg)] text-[var(--text-primary)] shadow-[var(--success-bg)]"
+              :"",
+            toast.type ==="error"
+              ?"border-[var(--danger-border)] bg-[var(--danger-bg)] text-[var(--text-primary)] shadow-[var(--danger-bg)]"
+              :"",
+            toast.type ==="info"
+              ?"border-[var(--color-action-border)]/40 bg-[var(--accent)] text-[var(--on-accent)] shadow-[var(--shadow-md)]"
+              :"",
+          ].join("")}
         >
           <span>{toast.message}</span>
           <button
             type="button"
             onClick={() => onDismiss(toast.id)}
-            className="rounded-full px-1.5 text-[var(--text-primary)] hover:bg-[var(--surface)]/10 hover:text-[var(--text-primary)]"
+            className="rounded-full px-1.5 text-[var(--text-primary)] hover:bg-[var(--surface-subtle)] hover:text-[var(--text-primary)]"
             aria-label={t("fileListClient.closeNotice")}
           >
             ×

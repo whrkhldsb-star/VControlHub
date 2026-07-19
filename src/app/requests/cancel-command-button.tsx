@@ -33,10 +33,10 @@ export function CancelCommandButton({ commandRequestId, commandTitle }: Props) {
     setMessage(null);
     try {
       await csrfFetch("/api/commands", {
-        method: "PATCH",
-        headers: { "content-type": "application/json" },
+        method:"PATCH",
+        headers: {"content-type":"application/json" },
         body: JSON.stringify({
-          action: "cancel",
+          action:"cancel",
           commandRequestId,
           reason: reason.trim() || undefined,
         }),
@@ -90,7 +90,7 @@ export function CancelCommandButton({ commandRequestId, commandTitle }: Props) {
                   setOpen(false);
                   setError(null);
                 }}
-                className="rounded-xl border border-[var(--border)] px-4 py-2 text-sm text-[var(--text-secondary)] transition hover:bg-[var(--surface)]/10 disabled:opacity-50"
+                className="rounded-xl border border-[var(--border)] px-4 py-2 text-sm text-[var(--text-secondary)] transition hover:bg-[var(--surface-subtle)] disabled:opacity-50"
               >
                 {t("requestsPage.cancel.keep")}
               </button>

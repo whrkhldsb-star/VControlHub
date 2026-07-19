@@ -25,7 +25,7 @@ import {
   type MediaFilterState,
 } from "./media-filter-links";
 import { getServerLocale, t, type Locale } from "@/lib/i18n/translations";
-export const dynamic = "force-dynamic";
+export const dynamic ="force-dynamic";
 type MediaSearchParams = {
   type?: string;
   q?: string;
@@ -34,25 +34,25 @@ type MediaSearchParams = {
 };
 function modeTitle(
   locale: Locale,
-  type: "image" | "video" | "audio" | undefined,
+  type:"image" |"video" |"audio" | undefined,
 ): string {
-  if (type === "image") return t("mediaPage.workspace.image", locale);
-  if (type === "video") return t("mediaPage.workspace.video", locale);
-  if (type === "audio") return t("mediaPage.workspace.audio", locale);
+  if (type ==="image") return t("mediaPage.workspace.image", locale);
+  if (type ==="video") return t("mediaPage.workspace.video", locale);
+  if (type ==="audio") return t("mediaPage.workspace.audio", locale);
   return t("mediaPage.workspace.all", locale);
 }
 function modeDescription(
   locale: Locale,
-  type: "image" | "video" | "audio" | undefined,
+  type:"image" |"video" |"audio" | undefined,
 ): string {
-  if (type === "image") return t("mediaPage.workspace.imageDesc", locale);
-  if (type === "video") return t("mediaPage.workspace.videoDesc", locale);
-  if (type === "audio") return t("mediaPage.workspace.audioDesc", locale);
+  if (type ==="image") return t("mediaPage.workspace.imageDesc", locale);
+  if (type ==="video") return t("mediaPage.workspace.videoDesc", locale);
+  if (type ==="audio") return t("mediaPage.workspace.audioDesc", locale);
   return t("mediaPage.workspace.allDesc", locale);
 }
-function typeLabel(locale: Locale, type: "image" | "video" | "audio"): string {
-  if (type === "image") return t("mediaPage.stat.image", locale);
-  if (type === "video") return t("mediaPage.stat.video", locale);
+function typeLabel(locale: Locale, type:"image" |"video" |"audio"): string {
+  if (type ==="image") return t("mediaPage.stat.image", locale);
+  if (type ==="video") return t("mediaPage.stat.video", locale);
   return t("mediaPage.stat.audio", locale);
 }
 export default async function Page({
@@ -61,18 +61,18 @@ export default async function Page({
   searchParams?: Promise<MediaSearchParams>;
 }) {
   const session = await requireSession("/media");
-  if (!sessionHasPermission(session, "storage:read"))
+  if (!sessionHasPermission(session,"storage:read"))
     return <PermissionDenied />;
-  const canManageMedia = sessionHasPermission(session, "media:manage");
+  const canManageMedia = sessionHasPermission(session,"media:manage");
   const locale = await getServerLocale();
   const params = await searchParams;
   const mediaType =
-    params?.type === "image" ||
-    params?.type === "video" ||
-    params?.type === "audio"
-      ? (params.type as "image" | "video" | "audio")
+    params?.type ==="image" ||
+    params?.type ==="video" ||
+    params?.type ==="audio"
+      ? (params.type as"image" |"video" |"audio")
       : undefined;
-  const favorite = params?.favorite === "1" ? true : undefined;
+  const favorite = params?.favorite ==="1" ? true : undefined;
   const q = params?.q?.trim() || undefined;
   const tag = params?.tag?.trim() || undefined;
   const [media, tagCloud, typeCounts] = await Promise.all([
@@ -146,7 +146,7 @@ export default async function Page({
               </p>
             </div>
             <div className="flex flex-wrap gap-2 text-xs">
-              {mediaType === "image" ? (
+              {mediaType ==="image" ? (
                 <Link
                   href="/image-bed"
                   data-tone="emerald"
@@ -159,8 +159,7 @@ export default async function Page({
                 data-tone="cyan"
                 className="inline-flex items-center rounded-lg border border-[var(--accent-border)] px-3 py-1.5 text-[var(--text-secondary)]"
               >
-                {t("mediaPage.viewCount", locale).replace(
-                  "{count}",
+                {t("mediaPage.viewCount", locale).replace("{count}",
                   String(media.length),
                 )}
               </span>
@@ -184,27 +183,24 @@ export default async function Page({
                 {t("mediaPage.filter.allTab", locale)}
               </span>
               <span className="text-xs opacity-70">
-                {t("mediaPage.filter.allCount", locale).replace(
-                  "{count}",
+                {t("mediaPage.filter.allCount", locale).replace("{count}",
                   String(totalCount),
                 )}
               </span>
             </FilterLink>
             <FilterLink
-              href={toggleTypeHref(filters, "image")}
-              active={mediaType === "image"}
+              href={toggleTypeHref(filters,"image")}
+              active={mediaType ==="image"}
               activeClassName="border-[var(--info-border)] bg-[var(--info-bg)] text-[var(--info)]"
               inactiveClassName="border-[var(--info-border)] bg-[var(--info-bg)] text-[var(--info)] hover:bg-[var(--info-bg)]"
               className="rounded-2xl border px-4 py-3 transition"
               title={
-                mediaType === "image"
-                  ? t("mediaPage.filter.titleToggleOffType", locale).replace(
-                      "{type}",
-                      typeLabel(locale, "image"),
+                mediaType ==="image"
+                  ? t("mediaPage.filter.titleToggleOffType", locale).replace("{type}",
+                      typeLabel(locale,"image"),
                     )
-                  : t("mediaPage.filter.titleOnlyType", locale).replace(
-                      "{type}",
-                      typeLabel(locale, "image"),
+                  : t("mediaPage.filter.titleOnlyType", locale).replace("{type}",
+                      typeLabel(locale,"image"),
                     )
               }
             >
@@ -215,26 +211,24 @@ export default async function Page({
               </span>
               <span className="mt-1 block text-xs opacity-70">
                 {t("mediaPage.filter.imageDesc", locale)}
-                {mediaType === "image"
+                {mediaType ==="image"
                   ? t("mediaPage.filter.toggleOff", locale)
-                  : ""}
+                  :""}
               </span>
             </FilterLink>
             <FilterLink
-              href={toggleTypeHref(filters, "video")}
-              active={mediaType === "video"}
-              activeClassName="border-[var(--accent-border)] bg-[var(--accent-bg)]/80 text-[var(--accent)] "
+              href={toggleTypeHref(filters,"video")}
+              active={mediaType ==="video"}
+              activeClassName="border-[var(--accent-border)] bg-[var(--accent-bg)]/80 text-[var(--accent)]"
               inactiveClassName="border-[var(--accent-border)] bg-[var(--accent-bg)] text-[var(--accent)] hover:bg-[var(--accent-bg)]"
               className="rounded-2xl border px-4 py-3 transition"
               title={
-                mediaType === "video"
-                  ? t("mediaPage.filter.titleToggleOffType", locale).replace(
-                      "{type}",
-                      typeLabel(locale, "video"),
+                mediaType ==="video"
+                  ? t("mediaPage.filter.titleToggleOffType", locale).replace("{type}",
+                      typeLabel(locale,"video"),
                     )
-                  : t("mediaPage.filter.titleOnlyType", locale).replace(
-                      "{type}",
-                      typeLabel(locale, "video"),
+                  : t("mediaPage.filter.titleOnlyType", locale).replace("{type}",
+                      typeLabel(locale,"video"),
                     )
               }
             >
@@ -245,26 +239,24 @@ export default async function Page({
               </span>
               <span className="mt-1 block text-xs opacity-70">
                 {t("mediaPage.filter.videoDesc", locale)}
-                {mediaType === "video"
+                {mediaType ==="video"
                   ? t("mediaPage.filter.toggleOff", locale)
-                  : ""}
+                  :""}
               </span>
             </FilterLink>
             <FilterLink
-              href={toggleTypeHref(filters, "audio")}
-              active={mediaType === "audio"}
+              href={toggleTypeHref(filters,"audio")}
+              active={mediaType ==="audio"}
               activeClassName="border-[var(--success-border)] bg-[var(--success)] text-[var(--success)]"
               inactiveClassName="border-[var(--success-border)] bg-[var(--success)]/[0.10] text-[var(--success)] hover:bg-[var(--success-bg)] hover:text-[var(--success)]"
               className="rounded-2xl border px-4 py-3 transition"
               title={
-                mediaType === "audio"
-                  ? t("mediaPage.filter.titleToggleOffType", locale).replace(
-                      "{type}",
-                      typeLabel(locale, "audio"),
+                mediaType ==="audio"
+                  ? t("mediaPage.filter.titleToggleOffType", locale).replace("{type}",
+                      typeLabel(locale,"audio"),
                     )
-                  : t("mediaPage.filter.titleOnlyType", locale).replace(
-                      "{type}",
-                      typeLabel(locale, "audio"),
+                  : t("mediaPage.filter.titleOnlyType", locale).replace("{type}",
+                      typeLabel(locale,"audio"),
                     )
               }
             >
@@ -275,9 +267,9 @@ export default async function Page({
               </span>
               <span className="mt-1 block text-xs opacity-70">
                 {t("mediaPage.filter.audioDesc", locale)}
-                {mediaType === "audio"
+                {mediaType ==="audio"
                   ? t("mediaPage.filter.toggleOff", locale)
-                  : ""}
+                  :""}
               </span>
             </FilterLink>
           </div>
@@ -313,7 +305,7 @@ export default async function Page({
       <form
         method="GET"
         action="/media"
-        className="mb-4 flex flex-wrap items-center gap-2 rounded-2xl border border-[var(--border)]/[0.07] bg-[var(--surface)]/[0.025] p-3"
+        className="mb-4 flex flex-wrap items-center gap-2 rounded-2xl border border-[var(--border)]/[0.07] bg-[var(--surface-elevated)] p-3"
       >
 
         {mediaType && (
@@ -350,7 +342,7 @@ export default async function Page({
             href="/media"
             active={false}
             activeClassName=""
-            inactiveClassName="rounded-xl border border-[var(--border)] px-3 py-2 text-sm text-[var(--text-muted)] transition hover:bg-[var(--surface)]/10"
+            inactiveClassName="rounded-xl border border-[var(--border)] px-3 py-2 text-sm text-[var(--text-muted)] transition hover:bg-[var(--surface-subtle)]"
           >
 
             {t("mediaPage.search.clearFilters", locale)}
@@ -372,8 +364,7 @@ export default async function Page({
           }
         >
 
-          {t("mediaPage.favoriteFilter", locale).replace(
-            "{count}",
+          {t("mediaPage.favoriteFilter", locale).replace("{count}",
             String(favCount),
           )}
         </FilterLink>
@@ -396,12 +387,10 @@ export default async function Page({
                 className="rounded-full border px-2.5 py-1 transition"
                 title={
                   tag === entry.tag
-                    ? t("mediaPage.tagFilter.titleToggleOff", locale).replace(
-                        "{tag}",
+                    ? t("mediaPage.tagFilter.titleToggleOff", locale).replace("{tag}",
                         entry.tag,
                       )
-                    : t("mediaPage.tagFilter.titleApply", locale).replace(
-                        "{tag}",
+                    : t("mediaPage.tagFilter.titleApply", locale).replace("{tag}",
                         entry.tag,
                       )
                 }
@@ -416,7 +405,7 @@ export default async function Page({
           </div>
         </div>
       )}
-      {canManageMedia && mediaType === "image" && (
+      {canManageMedia && mediaType ==="image" && (
         <section
           data-tone="emerald"
           className="mb-5 rounded-2xl border border-[var(--success-border)] p-4 light:bg-[var(--success-bg)]"
@@ -462,8 +451,7 @@ export default async function Page({
               {serverName}
             </h2>
             <span className="rounded-lg border border-[var(--border)] px-2 py-0.5 text-[10px] text-[var(--text-muted)]">
-              {t("mediaPage.itemCount", locale).replace(
-                "{count}",
+              {t("mediaPage.itemCount", locale).replace("{count}",
                 String(items.length),
               )}
             </span>

@@ -14,11 +14,11 @@ export type DeletedEntryProp = {
 };
 
 function formatFileSize(bytes: number | bigint | null | undefined): string {
-	return formatBytes(typeof bytes === "bigint" ? Number(bytes) : bytes);
+	return formatBytes(typeof bytes ==="bigint" ? Number(bytes) : bytes);
 }
 
 function entryTypeLabel(t: (key: string) => string, entryType: string): string {
-	return entryType === "DIRECTORY"
+	return entryType ==="DIRECTORY"
 		? t("recycleBinSection.entryType.directory")
 		: t("recycleBinSection.entryType.file");
 }
@@ -58,7 +58,7 @@ export function RecycleBinSectionClient({
 				<div className="min-w-[860px]">
 					{/* Desktop table view (md+) */}
 					<div className="hidden md:block">
-						<div className="grid grid-cols-[minmax(260px,2fr)_120px_120px_minmax(220px,1fr)_200px] bg-[var(--surface)]/10 px-4 py-3 text-xs uppercase tracking-[0.2em] text-[var(--text-muted)]">
+						<div className="grid grid-cols-[minmax(260px,2fr)_120px_120px_minmax(220px,1fr)_200px] bg-[var(--surface-subtle)] px-4 py-3 text-xs uppercase tracking-[0.2em] text-[var(--text-muted)]">
 							<div>{t("recycleBinSection.table.name")}</div>
 							<div>{t("recycleBinSection.table.type")}</div>
 							<div>{t("recycleBinSection.table.size")}</div>

@@ -42,7 +42,7 @@ export default function DockerPage({ initialServers }: { initialServers: { id: s
 	const [ungrouped, setUngrouped] = useState<Container[]>([]);
 	const [dockerScope, setDockerScope] = useState<DockerScope | null>(null);
 	const [serverList] = useState<ServerOption[]>(initialServers);
-	const [selectedServerId, setSelectedServerId] = useState<string>(""); // "" = hub-host
+	const [selectedServerId, setSelectedServerId] = useState<string>(""); //"" = hub-host
 	const closeRemovalDialog = useCallback(() => setPendingRemoval(null), []);
 	const closeLogsDialog = useCallback(() => setLogsId(null), []);
 	const removeCancelButtonRef = useRef<HTMLButtonElement | null>(null);
@@ -55,13 +55,13 @@ export default function DockerPage({ initialServers }: { initialServers: { id: s
 		try {
 			const url = selectedServerId
 				? `/api/docker/containers?serverId=${encodeURIComponent(selectedServerId)}`
-				: "/api/docker/containers";
+				:"/api/docker/containers";
 			const data = await csrfFetch(url);
 			if (data.error) {
 				setError(data.error);
 				return;
 			}
-			if (data.dockerScope && typeof data.dockerScope === "object") {
+			if (data.dockerScope && typeof data.dockerScope ==="object") {
 				setDockerScope(data.dockerScope as DockerScope);
 			}
 			if (data.data && Array.isArray(data.data)) {
@@ -97,19 +97,19 @@ export default function DockerPage({ initialServers }: { initialServers: { id: s
 		}
 	}, [t, selectedServerId]);
 
-	const handleAction = async (container: Container, action: "start" | "stop" | "restart" | "remove") => {
+	const handleAction = async (container: Container, action:"start" |"stop" |"restart" |"remove") => {
 		const id = container.Id;
 		setActionLoading(id);
 		setError("");
 		try {
 			const data = await csrfFetch<Record<string, unknown>>("/api/docker/containers", {
-				method: "POST",
-				headers: { "Content-Type": "application/json" },
+				method:"POST",
+				headers: {"Content-Type":"application/json" },
 				body: JSON.stringify({ id, action, ...(selectedServerId ? { serverId: selectedServerId } : {}) }),
 			});
-			if (data && typeof data === "object" && data.ok === false) {
+			if (data && typeof data ==="object" && data.ok === false) {
 				const msg =
-					typeof data.message === "string"
+					typeof data.message ==="string"
 						? data.message
 						: t("dockerPage.error.action");
 				setError(msg);
@@ -132,14 +132,14 @@ export default function DockerPage({ initialServers }: { initialServers: { id: s
 		if (!pendingRemoval) return;
 		const container = pendingRemoval;
 		setPendingRemoval(null);
-		await handleAction(container, "remove");
+		await handleAction(container,"remove");
 	};
 
 	const handleProjectAction = async (
 		project: string,
-		action: "up" | "down" | "start" | "stop" | "restart" | "ps",
+		action:"up" |"down" |"start" |"stop" |"restart" |"ps",
 	) => {
-		if (action === "down") {
+		if (action ==="down") {
 			// Destructive: use in-app ConfirmDialog (not browser window.confirm).
 			setPendingProjectDown(project);
 			setError("");
@@ -150,15 +150,15 @@ export default function DockerPage({ initialServers }: { initialServers: { id: s
 
 	const runProjectAction = async (
 		project: string,
-		action: "up" | "down" | "start" | "stop" | "restart" | "ps",
+		action:"up" |"down" |"start" |"stop" |"restart" |"ps",
 	) => {
 		setProjectActionLoading(`${project}:${action}`);
 		setError("");
 		setProjectMessage("");
 		try {
 			const data = await csrfFetch("/api/docker/compose", {
-				method: "POST",
-				headers: { "Content-Type": "application/json" },
+				method:"POST",
+				headers: {"Content-Type":"application/json" },
 				body: JSON.stringify({
 					project,
 					action,
@@ -166,16 +166,16 @@ export default function DockerPage({ initialServers }: { initialServers: { id: s
 				}),
 			});
 			const modeLabel =
-				data.mode === "compose-cli"
+				data.mode ==="compose-cli"
 					? t("dockerPage.project.modeCli")
 					: t("dockerPage.project.modeFallback");
 			const actionLabelKey = `dockerPage.project.${action}` as const;
 			const actionLabel = t(actionLabelKey) !== actionLabelKey ? t(actionLabelKey) : action;
-			const msg = typeof data.message === "string" ? data.message : t("dockerPage.project.success")
+			const msg = typeof data.message ==="string" ? data.message : t("dockerPage.project.success")
 				.replace("{project}", project)
 				.replace("{message}", actionLabel);
 			setProjectMessage(`${msg} (${modeLabel})`);
-			if (action !== "ps") {
+			if (action !=="ps") {
 				await fetchContainers();
 			}
 		} catch (err) {
@@ -189,17 +189,17 @@ export default function DockerPage({ initialServers }: { initialServers: { id: s
 		if (!pendingProjectDown) return;
 		const project = pendingProjectDown;
 		setPendingProjectDown(null);
-		await runProjectAction(project, "down");
+		await runProjectAction(project,"down");
 	};
 
 
 	const fetchLogs = async (id: string) => {
 		setLogsId(id);
 		try {
-			const params = new URLSearchParams({ logs: id, tail: "50" });
+			const params = new URLSearchParams({ logs: id, tail:"50" });
 		if (selectedServerId) params.set("serverId", selectedServerId);
 		const data = await csrfFetch(`/api/docker/containers?${params}`);
-			setLogs(typeof data.data === "string" ? data.data : JSON.stringify(data.data, null, 2));
+			setLogs(typeof data.data ==="string" ? data.data : JSON.stringify(data.data, null, 2));
 		} catch {
 			// Failed to fetch container logs — show an error message in the logs panel.
 			setLogs(t("dockerPage.error.logs"));
@@ -233,7 +233,7 @@ export default function DockerPage({ initialServers }: { initialServers: { id: s
 		return () => window.clearTimeout(timer);
 	}, [fetchContainers]);
 
-	const runningContainers = useMemo(() => containers.filter((container) => container.State === "running").slice(0, 12), [containers]);
+	const runningContainers = useMemo(() => containers.filter((container) => container.State ==="running").slice(0, 12), [containers]);
 
 	useEffect(() => {
 		for (const container of runningContainers) {
@@ -322,7 +322,7 @@ export default function DockerPage({ initialServers }: { initialServers: { id: s
 				<button
 					onClick={() => setStatsAutoRefresh((v) => !v)}
 					disabled={refreshIntervalSeconds <= 0 || runningContainers.length === 0}
-					className={`min-h-11 rounded-xl px-3 py-1.5 text-xs font-medium transition disabled:cursor-not-allowed disabled:opacity-50 ${statsAutoRefresh ? "border border-[var(--success-border)] bg-[var(--success-bg)] text-[var(--success)]" : "border border-[var(--border)] bg-[var(--surface-elevated)] text-[var(--text-muted)]"}`}
+					className={`min-h-11 rounded-xl px-3 py-1.5 text-xs font-medium transition disabled:cursor-not-allowed disabled:opacity-50 ${statsAutoRefresh ?"border border-[var(--success-border)] bg-[var(--success-bg)] text-[var(--success)]" :"border border-[var(--border)] bg-[var(--surface-elevated)] text-[var(--text-muted)]"}`}
 				>
 					{statsAutoRefresh
 						? t("dockerPage.autoRefreshOn").replace("{label}", refreshLabel)
@@ -350,21 +350,21 @@ export default function DockerPage({ initialServers }: { initialServers: { id: s
 									<h2 className="text-sm font-medium text-[var(--text-primary)]">{group.project}</h2>
 									<p className="text-[11px] text-[var(--text-muted)]">
 										{t("dockerPage.group.subtitle").replace("{count}", String(group.containers.length))}
-										{" · "}
+										{" ·"}
 									{t("dockerPage.project.runningOf")
-										.replace("{running}", String(group.containers.filter((c) => c.State === "running").length))
+										.replace("{running}", String(group.containers.filter((c) => c.State ==="running").length))
 										.replace("{total}", String(group.containers.length))}
 									</p>
 								</div>
 								<div className="flex flex-wrap items-center gap-2" aria-label={t("dockerPage.project.actions")}>
 									{(
 										[
-											["ps", "dockerPage.project.ps", "bg-[var(--surface-elevated)] text-[var(--text-secondary)] border border-[var(--border)]"],
-											["up", "dockerPage.project.up", "bg-[var(--success-bg)] text-[var(--success)]"],
-											["start", "dockerPage.project.start", "bg-[var(--success-bg)] text-[var(--success)]"],
-											["stop", "dockerPage.project.stop", "bg-[var(--warning-bg)] text-[var(--warning)]"],
-											["restart", "dockerPage.project.restart", "bg-[var(--accent-bg)] text-[var(--accent)]"],
-											["down", "dockerPage.project.down", "bg-[var(--danger-bg)] text-[var(--danger)]"],
+											["ps","dockerPage.project.ps","bg-[var(--surface-elevated)] text-[var(--text-secondary)] border border-[var(--border)]"],
+											["up","dockerPage.project.up","bg-[var(--success-bg)] text-[var(--success)]"],
+											["start","dockerPage.project.start","bg-[var(--success-bg)] text-[var(--success)]"],
+											["stop","dockerPage.project.stop","bg-[var(--warning-bg)] text-[var(--warning)]"],
+											["restart","dockerPage.project.restart","bg-[var(--accent-bg)] text-[var(--accent)]"],
+											["down","dockerPage.project.down","bg-[var(--danger-bg)] text-[var(--danger)]"],
 										] as const
 									).map(([action, labelKey, cls]) => {
 										const busyKey = `${group.project}:${action}`;
@@ -390,10 +390,10 @@ export default function DockerPage({ initialServers }: { initialServers: { id: s
 										<div key={c.Id} className="rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-subtle)] p-4">
 											<div className="mb-2 flex items-center justify-between gap-3">
 												<div className="flex min-w-0 items-center gap-3">
-													<span className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${stateColors[c.State] || "bg-[var(--surface-hover)]/50 text-[var(--text-muted)]"}`}>
+													<span className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${stateColors[c.State] ||"bg-[var(--surface-hover)]/50 text-[var(--text-muted)]"}`}>
 														{stateLabel(t, c.State)}
 													</span>
-													<span className="truncate text-sm font-medium text-[var(--text-primary)]">{(c.Names?.[0] || c.Id?.slice(0, 12)).replace(/^\//, "")}</span>
+													<span className="truncate text-sm font-medium text-[var(--text-primary)]">{(c.Names?.[0] || c.Id?.slice(0, 12)).replace(/^\//,"")}</span>
 												</div>
 												<span className="ml-3 truncate text-[10px] text-[var(--text-muted)]">{c.Image}</span>
 											</div>
@@ -411,13 +411,13 @@ export default function DockerPage({ initialServers }: { initialServers: { id: s
 												</div>
 											)}
 											<div className="flex flex-wrap items-center gap-2">
-												{c.State !== "running" && (
-													<button onClick={() => handleAction(c, "start")} disabled={actionLoading === c.Id} className="min-h-11 px-2.5 py-1 text-[10px] bg-[var(--success-bg)] text-[var(--success)] rounded-lg hover:bg-[var(--success-bg)] transition disabled:opacity-50">{t("dockerPage.action.start")}</button>
+												{c.State !=="running" && (
+													<button onClick={() => handleAction(c,"start")} disabled={actionLoading === c.Id} className="min-h-11 px-2.5 py-1 text-[10px] bg-[var(--success-bg)] text-[var(--success)] rounded-lg hover:bg-[var(--success-bg)] transition disabled:opacity-50">{t("dockerPage.action.start")}</button>
 												)}
-												{c.State === "running" && (
+												{c.State ==="running" && (
 													<>
-														<button onClick={() => handleAction(c, "stop")} disabled={actionLoading === c.Id} className="min-h-11 px-2.5 py-1 text-[10px] bg-[var(--warning-bg)] text-[var(--warning)] rounded-lg hover:bg-[var(--warning-bg)] transition disabled:opacity-50">{t("dockerPage.action.stop")}</button>
-														<button onClick={() => handleAction(c, "restart")} disabled={actionLoading === c.Id} className="min-h-11 px-2.5 py-1 text-[10px] bg-[var(--accent-bg)] text-[var(--accent)] rounded-lg hover:bg-[var(--accent-hover)] hover:text-[var(--text-primary)] transition disabled:opacity-50">{t("dockerPage.action.restart")}</button>
+														<button onClick={() => handleAction(c,"stop")} disabled={actionLoading === c.Id} className="min-h-11 px-2.5 py-1 text-[10px] bg-[var(--warning-bg)] text-[var(--warning)] rounded-lg hover:bg-[var(--warning-bg)] transition disabled:opacity-50">{t("dockerPage.action.stop")}</button>
+														<button onClick={() => handleAction(c,"restart")} disabled={actionLoading === c.Id} className="min-h-11 px-2.5 py-1 text-[10px] bg-[var(--accent-bg)] text-[var(--accent)] rounded-lg hover:bg-[var(--accent-hover)] hover:text-[var(--text-primary)] transition disabled:opacity-50">{t("dockerPage.action.restart")}</button>
 													</>
 												)}
 												<button onClick={() => fetchLogs(c.Id)} className="min-h-11 px-2.5 py-1 text-[10px] bg-[var(--surface-hover)]/50 light:bg-[var(--surface)] text-[var(--text-secondary)] rounded-lg hover:bg-[var(--surface-hover)] light:hover:bg-[var(--surface)] transition">{t("dockerPage.action.logs")}</button>
@@ -438,10 +438,10 @@ export default function DockerPage({ initialServers }: { initialServers: { id: s
 									<div key={c.Id} className="rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-subtle)] p-4">
 										<div className="mb-2 flex items-center justify-between gap-3">
 											<div className="flex min-w-0 items-center gap-3">
-												<span className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${stateColors[c.State] || "bg-[var(--surface-hover)]/50 text-[var(--text-muted)]"}`}>
+												<span className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${stateColors[c.State] ||"bg-[var(--surface-hover)]/50 text-[var(--text-muted)]"}`}>
 													{stateLabel(t, c.State)}
 												</span>
-												<span className="truncate text-sm font-medium text-[var(--text-primary)]">{(c.Names?.[0] || c.Id?.slice(0, 12)).replace(/^\//, "")}</span>
+												<span className="truncate text-sm font-medium text-[var(--text-primary)]">{(c.Names?.[0] || c.Id?.slice(0, 12)).replace(/^\//,"")}</span>
 											</div>
 											<span className="ml-3 truncate text-[10px] text-[var(--text-muted)]">{c.Image}</span>
 										</div>
@@ -449,11 +449,11 @@ export default function DockerPage({ initialServers }: { initialServers: { id: s
 											<span>{c.Status}</span>
 										</div>
 										<div className="flex flex-wrap items-center gap-2">
-											{c.State !== "running" && <button onClick={() => handleAction(c, "start")} disabled={actionLoading === c.Id} className="min-h-11 px-2.5 py-1 text-[10px] bg-[var(--success-bg)] text-[var(--success)] rounded-lg hover:bg-[var(--success-bg)] transition disabled:opacity-50">{t("dockerPage.action.start")}</button>}
-											{c.State === "running" && (
+											{c.State !=="running" && <button onClick={() => handleAction(c,"start")} disabled={actionLoading === c.Id} className="min-h-11 px-2.5 py-1 text-[10px] bg-[var(--success-bg)] text-[var(--success)] rounded-lg hover:bg-[var(--success-bg)] transition disabled:opacity-50">{t("dockerPage.action.start")}</button>}
+											{c.State ==="running" && (
 												<>
-													<button onClick={() => handleAction(c, "stop")} disabled={actionLoading === c.Id} className="min-h-11 px-2.5 py-1 text-[10px] bg-[var(--warning-bg)] text-[var(--warning)] rounded-lg hover:bg-[var(--warning-bg)] transition disabled:opacity-50">{t("dockerPage.action.stop")}</button>
-													<button onClick={() => handleAction(c, "restart")} disabled={actionLoading === c.Id} className="min-h-11 px-2.5 py-1 text-[10px] bg-[var(--accent-bg)] text-[var(--accent)] rounded-lg hover:bg-[var(--accent-hover)] hover:text-[var(--text-primary)] transition disabled:opacity-50">{t("dockerPage.action.restart")}</button>
+													<button onClick={() => handleAction(c,"stop")} disabled={actionLoading === c.Id} className="min-h-11 px-2.5 py-1 text-[10px] bg-[var(--warning-bg)] text-[var(--warning)] rounded-lg hover:bg-[var(--warning-bg)] transition disabled:opacity-50">{t("dockerPage.action.stop")}</button>
+													<button onClick={() => handleAction(c,"restart")} disabled={actionLoading === c.Id} className="min-h-11 px-2.5 py-1 text-[10px] bg-[var(--accent-bg)] text-[var(--accent)] rounded-lg hover:bg-[var(--accent-hover)] hover:text-[var(--text-primary)] transition disabled:opacity-50">{t("dockerPage.action.restart")}</button>
 												</>
 											)}
 											<button onClick={() => fetchLogs(c.Id)} className="min-h-11 px-2.5 py-1 text-[10px] bg-[var(--surface-hover)]/50 light:bg-[var(--surface)] text-[var(--text-secondary)] rounded-lg hover:bg-[var(--surface-hover)] light:hover:bg-[var(--surface)] transition">{t("dockerPage.action.logs")}</button>
@@ -505,8 +505,7 @@ export default function DockerPage({ initialServers }: { initialServers: { id: s
 			<ConfirmDialog
 				open={pendingProjectDown !== null}
 				title={t("dockerPage.project.downTitle")}
-				description={t("dockerPage.project.downConfirm").replace(
-					"{project}",
+				description={t("dockerPage.project.downConfirm").replace("{project}",
 					pendingProjectDown ?? "",
 				)}
 				cancelLabel={t("common.cancel")}
@@ -534,7 +533,7 @@ export default function DockerPage({ initialServers }: { initialServers: { id: s
 								type="button"
 								onClick={closeLogsDialog}
 								aria-label={t("dockerPage.logsDialog.closeAria")}
-								className="min-h-11 min-w-11 rounded-lg p-1 text-[var(--text-muted)] transition hover:bg-[var(--surface)]/[0.10] hover:text-[var(--text-secondary)] light:hover:bg-[var(--surface)] light:hover:text-[var(--text-disabled)] focus:outline-none focus:ring-[var(--color-action-ring)]"
+								className="min-h-11 min-w-11 rounded-lg p-1 text-[var(--text-muted)] transition hover:bg-[var(--surface-hover)] hover:text-[var(--text-secondary)] light:hover:bg-[var(--surface)] light:hover:text-[var(--text-disabled)] focus:outline-none focus:ring-[var(--color-action-ring)]"
 							>
 								<svg className="w-5 h-5" aria-hidden="true" fill="none" stroke="currentColor" width="24" height="24" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
 							</button>

@@ -40,25 +40,25 @@ function describeCronPreview(expr: string, t: (k: string) => string) {
 	const parts = expr.trim().split(/\s+/);
 	if (parts.length !== 5) return t("backupsPage.schedule.cronError.5parts");
 	const [min, hour, day, month, dow] = parts;
-	if (min === "0" && hour === "*" && day === "*" && month === "*" && dow === "*") return t("backupsPage.schedule.cronPreview.everyHour");
-	if (day === "*" && month === "*" && dow === "*" && /^\d+$/.test(hour!) && /^\d+$/.test(min!)) return t("backupsPage.schedule.cronPreview.everyDay").replace("{hour}", hour!).replace("{min}", min!.padStart(2, "0"));
-	if (day === "*" && month === "*" && /^\d+$/.test(dow!) && /^\d+$/.test(hour!) && /^\d+$/.test(min!)) {
+	if (min ==="0" && hour ==="*" && day ==="*" && month ==="*" && dow ==="*") return t("backupsPage.schedule.cronPreview.everyHour");
+	if (day ==="*" && month ==="*" && dow ==="*" && /^\d+$/.test(hour!) && /^\d+$/.test(min!)) return t("backupsPage.schedule.cronPreview.everyDay").replace("{hour}", hour!).replace("{min}", min!.padStart(2,"0"));
+	if (day ==="*" && month ==="*" && /^\d+$/.test(dow!) && /^\d+$/.test(hour!) && /^\d+$/.test(min!)) {
 		const dowName = t(`backupsPage.schedule.cronPreview.dowName.${dow}`);
 		const safeName = dowName.startsWith("backupsPage.") ? t("backupsPage.schedule.cronPreview.dowFallback").replace("{dow}", dow!) : dowName;
-		return t("backupsPage.schedule.cronPreview.everyDow").replace("{dowName}", safeName).replace("{hour}", hour!).replace("{min}", min!.padStart(2, "0"));
+		return t("backupsPage.schedule.cronPreview.everyDow").replace("{dowName}", safeName).replace("{hour}", hour!).replace("{min}", min!.padStart(2,"0"));
 	}
 	return t("backupsPage.schedule.cronPreview.custom");
 }
 
 function statusBadgeClass(status: string): string {
-	if (status === "ACTIVE") return "border-[var(--success-border)] text-[var(--success)]";
-	if (status === "PAUSED") return "border-[var(--warning-border)] text-[var(--warning)]";
-	return "border-[var(--danger-border)] text-[var(--danger)]";
+	if (status ==="ACTIVE") return"border-[var(--success-border)] text-[var(--success)]";
+	if (status ==="PAUSED") return"border-[var(--warning-border)] text-[var(--warning)]";
+	return"border-[var(--danger-border)] text-[var(--danger)]";
 }
 
 function statusLabel(t: (k: string) => string, status: string): string {
-	if (status === "ACTIVE") return t("backupsPage.schedule.status.active");
-	if (status === "PAUSED") return t("backupsPage.schedule.status.paused");
+	if (status ==="ACTIVE") return t("backupsPage.schedule.status.active");
+	if (status ==="PAUSED") return t("backupsPage.schedule.status.paused");
 	return t("backupsPage.schedule.status.disabled");
 }
 
@@ -73,7 +73,7 @@ export function ScheduleBackupForm() {
 	const [note, setNote] = useState("");
 	const [retentionDays, setRetentionDays] = useState("");
 	const [submitting, setSubmitting] = useState(false);
-	const [message, setMessage] = useState<{ type: "ok" | "error"; text: string } | null>(null);
+	const [message, setMessage] = useState<{ type:"ok" |"error"; text: string } | null>(null);
 	const [schedules, setSchedules] = useState<BackupSchedule[]>([]);
 	const [loadingList, setLoadingList] = useState(true);
 	const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
@@ -82,7 +82,7 @@ export function ScheduleBackupForm() {
 
 	const fetchSchedules = useCallback(async () => {
 		try {
-			const data = await csrfFetch<{ schedules: BackupSchedule[] }>("/api/backup-schedules", { method: "GET" });
+			const data = await csrfFetch<{ schedules: BackupSchedule[] }>("/api/backup-schedules", { method:"GET" });
 			setSchedules(data.schedules ?? []);
 		} catch {
 			// best-effort
@@ -112,17 +112,17 @@ export function ScheduleBackupForm() {
 				if (Number.isFinite(parsed) && parsed > 0) body.retentionDays = parsed;
 			}
 			await csrfFetch("/api/backup-schedules", {
-				method: "POST",
-				headers: { "Content-Type": "application/json" },
+				method:"POST",
+				headers: {"Content-Type":"application/json" },
 				body: JSON.stringify(body),
 			});
-			setMessage({ type: "ok", text: t("backupsPage.schedule.success") });
+			setMessage({ type:"ok", text: t("backupsPage.schedule.success") });
 			setName("");
 			setNote("");
 			setRetentionDays("");
 			await fetchSchedules();
 		} catch (error) {
-			setMessage({ type: "error", text: error instanceof Error ? error.message : t("backupsPage.schedule.failFallback") });
+			setMessage({ type:"error", text: error instanceof Error ? error.message : t("backupsPage.schedule.failFallback") });
 		} finally {
 			setSubmitting(false);
 		}
@@ -132,24 +132,24 @@ export function ScheduleBackupForm() {
 		setMessage(null);
 		try {
 			await csrfFetch("/api/backup-schedules", {
-				method: "PATCH",
-				headers: { "Content-Type": "application/json" },
+				method:"PATCH",
+				headers: {"Content-Type":"application/json" },
 				body: JSON.stringify({ toggleId: id }),
 			});
 			await fetchSchedules();
 		} catch (error) {
-			setMessage({ type: "error", text: error instanceof Error ? error.message : t("backupsPage.schedule.failFallback") });
+			setMessage({ type:"error", text: error instanceof Error ? error.message : t("backupsPage.schedule.failFallback") });
 		}
 	};
 
 	const deleteSchedule = async (id: string) => {
 		setMessage(null);
 		try {
-			await csrfFetch(`/api/backup-schedules/${id}`, { method: "DELETE" });
+			await csrfFetch(`/api/backup-schedules/${id}`, { method:"DELETE" });
 			setPendingDeleteId(null);
 			await fetchSchedules();
 		} catch (error) {
-			setMessage({ type: "error", text: error instanceof Error ? error.message : t("backupsPage.schedule.failFallback") });
+			setMessage({ type:"error", text: error instanceof Error ? error.message : t("backupsPage.schedule.failFallback") });
 		}
 	};
 
@@ -192,7 +192,7 @@ export function ScheduleBackupForm() {
 				<button type="submit" disabled={submitting} data-action-button data-variant="primary" className="disabled:opacity-60">
 					{submitting ? t("backupsPage.schedule.submitting") : t("backupsPage.schedule.submit")}
 				</button>
-				{message && <p role="status" className={`text-xs ${message.type === "ok" ? "text-[var(--success)]" : "text-[var(--danger)]"}`}>{message.text}</p>}
+				{message && <p role="status" className={`text-xs ${message.type ==="ok" ?"text-[var(--success)]" :"text-[var(--danger)]"}`}>{message.text}</p>}
 			</form>
 
 			{/* Schedule list */}
@@ -222,7 +222,7 @@ export function ScheduleBackupForm() {
 											{s.lastRunAt
 												? <span>{t("backupsPage.schedule.lastRun").replace("{time}", formatZhDateTime(s.lastRunAt))}</span>
 												: <span>{t("backupsPage.schedule.lastRunNone")}</span>}
-											{s.status === "ACTIVE" && s.nextRunAt
+											{s.status ==="ACTIVE" && s.nextRunAt
 												? <span>{t("backupsPage.schedule.nextRun").replace("{time}", formatZhDateTime(s.nextRunAt))}</span>
 												: <span>{t("backupsPage.schedule.nextRunPaused")}</span>}
 										</div>

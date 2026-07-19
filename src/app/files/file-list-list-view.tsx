@@ -27,11 +27,11 @@ import {
 import type { FolderProp } from "./file-list-model";
 import { FileListListViewMobile } from "./file-list-list-view-mobile";
 
-type ToastFn = (type: "success" | "error" | "info", message: string) => void;
+type ToastFn = (type:"success" |"error" |"info", message: string) => void;
 type EntryGuard = (entry: { capabilities?: FileProp["capabilities"] }) => boolean;
 type FolderGuard = (folder: FolderProp) => boolean;
-type SortDir = "asc" | "desc";
-type SortKey = "name" | "size" | "source" | "updated";
+type SortDir ="asc" |"desc";
+type SortKey ="name" |"size" |"source" |"updated";
 
 export type FileListListViewProps = {
   sortedFolders: FolderProp[];
@@ -93,7 +93,7 @@ export function FileListListView(props: FileListListViewProps) {
       {/* Desktop table view (md+) */}
       <div className="hidden overflow-x-auto rounded-b-2xl border-t border-[var(--border)] md:block" data-testid="file-table-scroll">
         <div className="min-w-[1180px]" data-testid="file-table-inner">
-          <div className="grid grid-cols-[44px_44px_minmax(280px,2.6fr)_120px_170px_160px_minmax(240px,auto)] items-center gap-3 bg-[var(--surface)]/10 px-5 py-3 text-xs uppercase tracking-[0.15em] text-[var(--text-muted)] font-medium">
+          <div className="grid grid-cols-[44px_44px_minmax(280px,2.6fr)_120px_170px_160px_minmax(240px,auto)] items-center gap-3 bg-[var(--surface-subtle)] px-5 py-3 text-xs uppercase tracking-[0.15em] text-[var(--text-muted)] font-medium">
             <div>
               <input
                 type="checkbox"
@@ -109,7 +109,7 @@ export function FileListListView(props: FileListListViewProps) {
             </div>
             <div />
             <div>
-              {t("fileListClient.name")}{" "}
+              {t("fileListClient.name")}
               <SortIcon
                 col="name"
                 label={t("fileListClient.name")}
@@ -120,7 +120,7 @@ export function FileListListView(props: FileListListViewProps) {
               />
             </div>
             <div>
-              {t("fileListClient.size")}{" "}
+              {t("fileListClient.size")}
               <SortIcon
                 col="size"
                 label={t("fileListClient.size")}
@@ -131,7 +131,7 @@ export function FileListListView(props: FileListListViewProps) {
               />
             </div>
             <div>
-              {t("fileListClient.source")}{" "}
+              {t("fileListClient.source")}
               <SortIcon
                 col="source"
                 label={t("fileListClient.source")}
@@ -142,7 +142,7 @@ export function FileListListView(props: FileListListViewProps) {
               />
             </div>
             <div>
-              {t("fileListClient.modified")}{" "}
+              {t("fileListClient.modified")}
               <SortIcon
                 col="updated"
                 label={t("fileListClient.modified")}
@@ -188,7 +188,7 @@ export function FileListListView(props: FileListListViewProps) {
                   />
                 </div>
                 <div className="flex justify-center">
-                  <FileTypeIcon entry={{ entryType: "DIRECTORY" }} size={22} />
+                  <FileTypeIcon entry={{ entryType:"DIRECTORY" }} size={22} />
                 </div>
                 <div className="min-w-0">
                   <button
@@ -265,7 +265,7 @@ export function FileListListView(props: FileListListViewProps) {
               return (
                 <div
                   key={entry.id}
-                  className={`grid grid-cols-[44px_44px_minmax(280px,2.6fr)_120px_170px_160px_minmax(240px,auto)] items-center gap-3 px-5 py-3 text-sm hover:bg-[var(--surface-elevated)] transition ${isChecked ? "bg-[var(--color-action-bg)]/[0.04]" : ""}`}
+                  className={`grid grid-cols-[44px_44px_minmax(280px,2.6fr)_120px_170px_160px_minmax(240px,auto)] items-center gap-3 px-5 py-3 text-sm hover:bg-[var(--surface-elevated)] transition ${isChecked ?"bg-[var(--color-action-bg)]/[0.04]" :""}`}
                 >
                   <div>
                     {entryCanWrite(entry) || entryCanDelete(entry) ? (
@@ -304,7 +304,7 @@ export function FileListListView(props: FileListListViewProps) {
                     {entry.storageNode.name}
                   </div>
                   <div className="text-[var(--text-muted)] text-xs">
-                    {entry.updatedAt ? formatDate(entry.updatedAt) : "—"}
+                    {entry.updatedAt ? formatDate(entry.updatedAt) :"—"}
                   </div>
                   <div className="flex flex-wrap gap-1">
                     <FileRowActions

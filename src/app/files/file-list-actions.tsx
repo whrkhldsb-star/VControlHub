@@ -24,14 +24,14 @@ import {
 import type { FolderProp } from "./file-list-model";
 import type { FileProp } from "./file-entry-utils";
 
-type ToastFn = (type: "success" | "error" | "info", message: string) => void;
+type ToastFn = (type:"success" |"error" |"info", message: string) => void;
 type EntryGuard = (entry: { capabilities?: FileProp["capabilities"] }) => boolean;
 
 /** Compact (icon-only) toggle for action buttons rendered in dense grids. */
 type CompactProp = { compact?: boolean };
 
 /**
- * "Detail" pill that opens the right-hand file detail panel. Variants:
+ *"Detail" pill that opens the right-hand file detail panel. Variants:
  * compact (square icon) vs spaced (icon + label).
  */
 export function DetailActionButton({
@@ -48,8 +48,8 @@ export function DetailActionButton({
       onClick={() => onOpen(entry.id)}
       className={
         compact
-          ? "inline-flex h-8 w-8 items-center justify-center rounded-lg border border-[var(--accent-border)] bg-[var(--accent-bg)] text-[var(--accent)] transition hover:bg-[var(--accent-bg)]"
-          : "inline-flex items-center gap-1.5 rounded-lg border border-[var(--accent-border)] bg-[var(--accent-bg)] px-2.5 py-1.5 text-xs text-[var(--accent)] transition hover:bg-[var(--accent-bg)]"
+          ?"inline-flex h-8 w-8 items-center justify-center rounded-lg border border-[var(--accent-border)] bg-[var(--accent-bg)] text-[var(--accent)] transition hover:bg-[var(--accent-bg)]"
+          :"inline-flex items-center gap-1.5 rounded-lg border border-[var(--accent-border)] bg-[var(--accent-bg)] px-2.5 py-1.5 text-xs text-[var(--accent)] transition hover:bg-[var(--accent-bg)]"
       }
     >
       <svg
@@ -73,7 +73,7 @@ export function DetailActionButton({
 }
 
 /**
- * Per-file "Download" anchor. Honours `entryCanRead` (omitted when the
+ * Per-file"Download" anchor. Honours `entryCanRead` (omitted when the
  * caller doesn't have read capability — protects against link bypass).
  * External URLs open in a new tab; internal hrefs use the `download`
  * attribute so the browser forces a save dialog instead of inline view.
@@ -96,12 +96,12 @@ export function DownloadActionLink({
       title={t("fileListClient.downloadTitle")}
       aria-label={`${t("fileListClient.downloadTitle")} ${entry.name}`}
       download={downloadUrl.startsWith("/") ? true : undefined}
-      target={downloadUrl.startsWith("/") ? undefined : "_blank"}
-      rel={downloadUrl.startsWith("/") ? undefined : "noopener noreferrer"}
+      target={downloadUrl.startsWith("/") ? undefined :"_blank"}
+      rel={downloadUrl.startsWith("/") ? undefined :"noopener noreferrer"}
       className={
         compact
-          ? "inline-flex items-center justify-center w-8 h-8 rounded-lg border border-[var(--border)] bg-[var(--surface)]/10 text-[var(--text-secondary)] transition hover:bg-[var(--surface)]/10 hover:text-[var(--text-primary)]"
-          : "inline-flex items-center gap-1.5 rounded-lg border border-[var(--border)] bg-[var(--surface)]/10 px-2.5 py-1.5 text-xs text-[var(--text-secondary)] transition hover:bg-[var(--surface)]/10 hover:text-[var(--text-primary)]"
+          ?"inline-flex items-center justify-center w-8 h-8 rounded-lg border border-[var(--border)] bg-[var(--surface-subtle)] text-[var(--text-secondary)] transition hover:bg-[var(--surface-subtle)] hover:text-[var(--text-primary)]"
+          :"inline-flex items-center gap-1.5 rounded-lg border border-[var(--border)] bg-[var(--surface-subtle)] px-2.5 py-1.5 text-xs text-[var(--text-secondary)] transition hover:bg-[var(--surface-subtle)] hover:text-[var(--text-primary)]"
       }
     >
       <DownloadIcon />
@@ -111,7 +111,7 @@ export function DownloadActionLink({
 }
 
 /**
- * "Download folder archive" anchor. Calls `buildArchiveDownloadHref`
+ *"Download folder archive" anchor. Calls `buildArchiveDownloadHref`
  * which can return null when the folder is virtual (no source mount);
  * we early-return when there's no archivable backing store.
  */
@@ -138,8 +138,8 @@ export function FolderDownloadActionLink({
       download
       className={
         compact
-          ? "inline-flex items-center justify-center w-8 h-8 rounded-lg border border-[var(--border)] bg-[var(--surface)]/10 text-[var(--text-secondary)] transition hover:bg-[var(--surface)]/10 hover:text-[var(--text-primary)]"
-          : "inline-flex items-center gap-1.5 rounded-lg border border-[var(--border)] bg-[var(--surface)]/10 px-3 py-1.5 text-xs font-medium text-[var(--text-secondary)] transition hover:bg-[var(--surface)]/10 hover:text-[var(--text-primary)]"
+          ?"inline-flex items-center justify-center w-8 h-8 rounded-lg border border-[var(--border)] bg-[var(--surface-subtle)] text-[var(--text-secondary)] transition hover:bg-[var(--surface-subtle)] hover:text-[var(--text-primary)]"
+          :"inline-flex items-center gap-1.5 rounded-lg border border-[var(--border)] bg-[var(--surface-subtle)] px-3 py-1.5 text-xs font-medium text-[var(--text-secondary)] transition hover:bg-[var(--surface-subtle)] hover:text-[var(--text-primary)]"
       }
     >
       <DownloadIcon />
@@ -149,7 +149,7 @@ export function FolderDownloadActionLink({
 }
 
 /**
- * Composite "row of action buttons" for a single file row. Always
+ * Composite"row of action buttons" for a single file row. Always
  * renders: detail button + (conditional) preview link + download link
  * + 更多 (rename/move/share/delete). Used by all three views and the
  * mobile card view, so any cross-view tweak only changes one place.

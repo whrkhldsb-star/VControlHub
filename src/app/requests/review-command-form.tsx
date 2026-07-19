@@ -6,6 +6,7 @@ import { SubmitButton } from "@/components/submit-button";
 import { useI18n } from "@/lib/i18n/use-locale";
 
 import { reviewCommandAction, type ReviewActionState } from "./actions";
+import { UI_INPUT } from "@/lib/ui/classes";
 
 const initialState: ReviewActionState = {};
 
@@ -18,7 +19,7 @@ export function ReviewCommandForm({ commandRequestId }: { commandRequestId: stri
       <input type="hidden" name="commandRequestId" value={commandRequestId} />
       <label className="grid gap-2">
         <span className="text-[var(--text-secondary)]">{t("requestsPage.review.commentLabel")}</span>
-        <textarea name="comment" rows={2} className="rounded-2xl border border-[var(--border)] bg-[var(--input-bg)] px-4 py-3 text-[var(--text-primary)] outline-none ring-0" placeholder={t("requestsPage.review.commentPlaceholder")} />
+        <textarea name="comment" rows={2} className={UI_INPUT} placeholder={t("requestsPage.review.commentPlaceholder")} />
       </label>
 
       {state.error ? <div data-tone="rose" className="mt-3 rounded-2xl border border-[var(--danger-border)] px-4 py-3 text-[var(--danger)]">{state.error}</div> : null}

@@ -33,7 +33,7 @@ export function RollbackDeployButton({ runId, templateName, disabled = false }: 
     setError(null);
     try {
       await csrfFetch(`/api/deployments/${runId}/rollback`, {
-        method: "POST",
+        method:"POST",
         body: JSON.stringify({ reason: t("deploymentsPage.rollback.reason").replace("{name}", templateName) }),
       });
       setConfirming(false);
@@ -71,7 +71,7 @@ export function RollbackDeployButton({ runId, templateName, disabled = false }: 
             setError(null);
           }}
           disabled={pending}
-          className="rounded-lg border border-[var(--border)] bg-[var(--surface)]/10 px-3 py-1.5 text-xs font-medium text-[var(--text-secondary)] transition hover:bg-[var(--surface)]/10 disabled:cursor-not-allowed disabled:opacity-60"
+          className="rounded-lg border border-[var(--border)] bg-[var(--surface-subtle)] px-3 py-1.5 text-xs font-medium text-[var(--text-secondary)] transition hover:bg-[var(--surface-subtle)] disabled:cursor-not-allowed disabled:opacity-60"
         >
           {t("common.cancel")}
         </button>

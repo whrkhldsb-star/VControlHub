@@ -36,7 +36,7 @@ export type FileDetailPanelProps = {
   canShare: boolean;
   canDelete: boolean;
   onRefresh?: () => void;
-  onNotify: (type: "success" | "error" | "info", message: string) => void;
+  onNotify: (type:"success" |"error" |"info", message: string) => void;
   // read/write/delete capability checks. The parent supplies these so
   // this chunk doesn't have to re-import the model layer (which would
   // defeat the lazy-load goal).
@@ -117,7 +117,7 @@ export function FileDetailPanel({
                 <p className="mt-1 font-medium">
                   {detailEntry.updatedAt
                     ? formatDate(detailEntry.updatedAt, locale)
-                    : "—"}
+                    :"—"}
                 </p>
               </div>
               <div className="sm:col-span-2">
@@ -146,7 +146,7 @@ export function FileDetailPanel({
                 <Link
                   href={buildForcedDownloadHref(detailEntry)}
                   download
-                  className="rounded-2xl border border-[var(--border)] bg-[var(--surface)]/10 px-4 py-3 text-sm font-medium text-[var(--text-secondary)] transition hover:bg-[var(--surface)]/10"
+                  className="rounded-2xl border border-[var(--border)] bg-[var(--surface-subtle)] px-4 py-3 text-sm font-medium text-[var(--text-secondary)] transition hover:bg-[var(--surface-subtle)]"
                 >
                   {t("fileDetailPanel.download")}
                 </Link>
@@ -168,7 +168,7 @@ export function FileDetailPanel({
           </div>
 
 
-          {detailEntry.entryType === "FILE" && entryCanRead(detailEntry) ? (
+          {detailEntry.entryType ==="FILE" && entryCanRead(detailEntry) ? (
             <div className="border-t border-[var(--border)] pt-5">
               <FileVersionHistoryPanel
                 fileEntryId={detailEntry.id}
@@ -189,7 +189,7 @@ export function FileDetailPanel({
                   fileEntryId={detailEntry.id}
                   currentName={detailEntry.name}
                   currentPath={detailEntry.relativePath}
-                  entryType={detailEntry.entryType as "FILE" | "DIRECTORY"}
+                  entryType={detailEntry.entryType as"FILE" |"DIRECTORY"}
                   onRefresh={onRefresh}
                   onNotify={onNotify}
                 />
@@ -209,7 +209,7 @@ export function FileDetailPanel({
                 <DeleteConfirmButton
                   fileEntryId={detailEntry.id}
                   entryName={detailEntry.name}
-                  entryType={detailEntry.entryType as "FILE" | "DIRECTORY"}
+                  entryType={detailEntry.entryType as"FILE" |"DIRECTORY"}
                   onRefresh={onRefresh}
                   onNotify={onNotify}
                 />

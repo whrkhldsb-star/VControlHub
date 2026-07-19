@@ -10,7 +10,7 @@ import { OfficePreviewClient } from "./office-preview-client";
 import { ArchivePreviewClient } from "./archive-preview-client";
 import { getServerLocale, t } from "@/lib/i18n/translations";
 
-export const dynamic = "force-dynamic";
+export const dynamic ="force-dynamic";
 
 type PreviewPageProps = {
 	searchParams?: Promise<{
@@ -32,18 +32,9 @@ type PreviewPageProps = {
 /* Fallback: detect type by file extension when MIME is generic/unknown */
 function detectByExtension(name: string): { isMarkdown: boolean; isCsv: boolean; isText: boolean } {
 	const ext = name.toLowerCase().split(".").pop() ?? "";
-	const mdExts = ["md", "mdx", "markdown", "mkd"];
-	const csvExts = ["csv", "tsv", "tab"];
-	const textExts = [
-		"txt", "log", "json", "jsonl", "json5", "yaml", "yml", "toml", "ini", "cfg", "conf",
-		"js", "jsx", "ts", "tsx", "mjs", "cjs",
-		"py", "pyw", "rb", "rs", "go", "java", "kt", "c", "cpp", "h", "hpp",
-		"sh", "bash", "zsh", "fish",
-		"html", "htm", "xml", "xsl", "xslt", "css", "scss", "sass", "less",
-		"sql", "php", "lua", "r", "pl", "ps1", "bat", "cmd",
-		"env", "gitignore", "dockerignore", "editorconfig", "prettierrc", "eslintrc",
-		"tf", "hcl", "nix", "dhall",
-		"svg", "svelte", "vue",
+	const mdExts = ["md","mdx","markdown","mkd"];
+	const csvExts = ["csv","tsv","tab"];
+	const textExts = ["txt","log","json","jsonl","json5","yaml","yml","toml","ini","cfg","conf","js","jsx","ts","tsx","mjs","cjs","py","pyw","rb","rs","go","java","kt","c","cpp","h","hpp","sh","bash","zsh","fish","html","htm","xml","xsl","xslt","css","scss","sass","less","sql","php","lua","r","pl","ps1","bat","cmd","env","gitignore","dockerignore","editorconfig","prettierrc","eslintrc","tf","hcl","nix","dhall","svg","svelte","vue",
 	];
 	return {
 		isMarkdown: mdExts.includes(ext),
@@ -54,12 +45,7 @@ function detectByExtension(name: string): { isMarkdown: boolean; isCsv: boolean;
 
 function isAllowedPreviewHref(href: string): boolean {
 	if (!href || !href.startsWith("/") || href.startsWith("//")) return false;
-	return [
-		"/api/files/",
-		"/api/storage/",
-		"/api/media/",
-		"/api/images/",
-		"/api/share/",
+	return ["/api/files/","/api/storage/","/api/media/","/api/images/","/api/share/",
 	].some((prefix) => href.startsWith(prefix));
 }
 
@@ -69,7 +55,7 @@ export default async function FilePreviewPage({ searchParams }: PreviewPageProps
 
 	const params = await searchParams;
 	const requestedHref = params?.href ?? "";
-	const href = isAllowedPreviewHref(requestedHref) ? requestedHref : "";
+	const href = isAllowedPreviewHref(requestedHref) ? requestedHref :"";
 	const invalidHref = Boolean(requestedHref && !href);
 	const name = params?.name ?? t("textPreview.preview.unknownFile", locale);
 	const mimeType = params?.type ?? "";
@@ -78,26 +64,26 @@ export default async function FilePreviewPage({ searchParams }: PreviewPageProps
 	const nodeId = params?.nodeId ?? "";
 	const relativePath = params?.relativePath ?? "";
 	const fileEntryId = params?.fileEntryId ?? "";
-	const editable = params?.editable === "1";
+	const editable = params?.editable ==="1";
 	const serverId = params?.serverId ?? "";
 	const reloadUnit = params?.reloadUnit ?? "";
-	const reloadKind: "systemd" | "compose" | undefined =
-		params?.reloadKind === "compose"
-			? "compose"
-			: params?.reloadKind === "systemd"
-				? "systemd"
+	const reloadKind:"systemd" |"compose" | undefined =
+		params?.reloadKind ==="compose"
+			?"compose"
+			: params?.reloadKind ==="systemd"
+				?"systemd"
 				: undefined;
 
-	const downloadUrl = href ? `${href}${href.includes("?") ? "&" : "?"}download=1` : "";
+	const downloadUrl = href ? `${href}${href.includes("?") ?"&" :"?"}download=1` :"";
 
-	const isImage = mimeType.startsWith("image/") && mimeType !== "image/svg+xml";
-	const isSvg = mimeType === "image/svg+xml";
+	const isImage = mimeType.startsWith("image/") && mimeType !=="image/svg+xml";
+	const isSvg = mimeType ==="image/svg+xml";
 	const isVideo = mimeType.startsWith("video/");
 	const isAudio = mimeType.startsWith("audio/");
-	const isPdf = mimeType === "application/pdf";
+	const isPdf = mimeType ==="application/pdf";
 
 	// Primary MIME detection
-	const isMarkdown = MARKDOWN_MIME_TYPES.includes(mimeType) || (mimeType.startsWith("text/") && mimeType !== "text/csv" && (name.toLowerCase().endsWith(".md") || name.toLowerCase().endsWith(".mdx") || name.toLowerCase().endsWith(".markdown")));
+	const isMarkdown = MARKDOWN_MIME_TYPES.includes(mimeType) || (mimeType.startsWith("text/") && mimeType !=="text/csv" && (name.toLowerCase().endsWith(".md") || name.toLowerCase().endsWith(".mdx") || name.toLowerCase().endsWith(".markdown")));
 	const isCsv = CSV_MIME_TYPES.includes(mimeType);
 	const isText =
 		mimeType.startsWith("text/") ||
@@ -108,7 +94,7 @@ export default async function FilePreviewPage({ searchParams }: PreviewPageProps
 	// Extension fallback when MIME is empty or generic
 	const ext = detectByExtension(name);
 	const resolvedIsMarkdown = isMarkdown || (!mimeType && ext.isMarkdown);
-	const resolvedIsCsv = isCsv || (!mimeType && ext.isCsv) || (mimeType === "text/plain" && ext.isCsv);
+	const resolvedIsCsv = isCsv || (!mimeType && ext.isCsv) || (mimeType ==="text/plain" && ext.isCsv);
 	const resolvedIsText = isText || ext.isText || isSvg;
 
 	const largeTextWarning = (resolvedIsText || resolvedIsMarkdown) && size > 512 * 1024;
@@ -120,7 +106,7 @@ export default async function FilePreviewPage({ searchParams }: PreviewPageProps
 					<div className="flex items-center gap-3">
 						<a
 							href="/files"
-							className="rounded-lg border border-[var(--border)] px-4 py-2 text-sm text-[var(--text-secondary)] hover:border-[var(--color-action-border)]/50 hover:bg-[var(--surface)]/10"
+							data-action-button data-variant="secondary"
 						>
 							{t("textPreview.preview.backToFiles", locale)}
 						</a>

@@ -7,12 +7,9 @@ import type { TerminalStatus } from "@/components/ssh-terminal-types";
 
 type TFn = (key: string) => string;
 
-const chipBase =
-	"min-h-9 rounded-full border px-3 py-1 text-xs transition";
-const chipIdle =
-	"border-[var(--border-subtle)] light:border-[var(--border)] bg-[var(--surface-subtle)] light:bg-[var(--surface)] text-[var(--text-secondary)] light:text-[var(--text-muted)] hover:bg-[var(--surface-elevated)] light:hover:bg-[var(--surface-hover)]/50";
-const chipActive =
-	"border-[var(--color-action-border)] bg-[var(--color-action-bg)] text-[var(--color-action)]";
+const chipBase ="min-h-9 rounded-full border px-3 py-1 text-xs transition";
+const chipIdle ="border-[var(--border-subtle)] light:border-[var(--border)] bg-[var(--surface-subtle)] light:bg-[var(--surface)] text-[var(--text-secondary)] light:text-[var(--text-muted)] hover:bg-[var(--surface-elevated)] light:hover:bg-[var(--surface-hover)]/50";
+const chipActive ="border-[var(--color-action-border)] bg-[var(--color-action-bg)] text-[var(--color-action)]";
 
 export function SshTerminalToolbar({
 	serverName,
@@ -38,17 +35,17 @@ export function SshTerminalToolbar({
 	onClose: () => void;
 }) {
 	const statusClass =
-		status === "connected"
-			? "border border-[var(--success-border)] bg-[var(--success-bg)] text-[var(--success)]"
-			: status === "connecting"
-				? "border border-[var(--warning-border)] bg-[var(--warning-bg)] text-[var(--warning)]"
-				: "border border-[var(--danger-border)] bg-[var(--danger-bg)] text-[var(--danger)]";
+		status ==="connected"
+			?"border border-[var(--success-border)] bg-[var(--success-bg)] text-[var(--success)]"
+			: status ==="connecting"
+				?"border border-[var(--warning-border)] bg-[var(--warning-bg)] text-[var(--warning)]"
+				:"border border-[var(--danger-border)] bg-[var(--danger-bg)] text-[var(--danger)]";
 	const statusLabel =
-		status === "connected"
+		status ==="connected"
 			? t("sshTerminalModal.statusConnected")
-			: status === "connecting"
+			: status ==="connecting"
 				? t("sshTerminalModal.statusConnecting")
-				: status === "error"
+				: status ==="error"
 					? t("sshTerminalModal.statusError")
 					: t("sshTerminalModal.statusClosed");
 
@@ -58,7 +55,7 @@ export function SshTerminalToolbar({
 				<span className="text-sm" aria-hidden="true">
 					💻
 				</span>
-				<span className="text-sm font-medium text-[var(--text-primary)] light:text-[var(--text-disabled)]">
+				<span className="text-sm font-medium text-[var(--text-primary)]">
 					{serverName}
 				</span>
 				<span className="text-xs text-[var(--text-secondary)]">{host}</span>
@@ -83,7 +80,7 @@ export function SshTerminalToolbar({
 				>
 					{t("sshFileManager.toggle")}
 				</button>
-				{(status === "error" || status === "closed") && (
+				{(status ==="error" || status ==="closed") && (
 					<button
 						type="button"
 						onClick={onReconnect}
@@ -118,7 +115,7 @@ export function SshTerminalSearchBar({
 	t: TFn;
 	terminalSearch: string;
 	onSearchChange: (value: string) => void;
-	onSearch: (direction: "next" | "previous") => void;
+	onSearch: (direction:"next" |"previous") => void;
 	onClear: () => void;
 }) {
 	return (
@@ -131,13 +128,12 @@ export function SshTerminalSearchBar({
 				value={terminalSearch}
 				onChange={(e) => onSearchChange(e.target.value)}
 				onKeyDown={(e) => {
-					if (e.key === "Enter") onSearch(e.shiftKey ? "previous" : "next");
-					if (e.key === "Escape") onClear();
+					if (e.key ==="Enter") onSearch(e.shiftKey ?"previous" :"next");
+					if (e.key ==="Escape") onClear();
 				}}
 				placeholder={t("sshTerminalModal.searchPlaceholder")}
 				className={cn(
-					UI_INPUT,
-					"min-h-10 min-w-[180px] flex-1 light:text-[var(--text-disabled)] placeholder:text-[var(--text-muted)]/20",
+					UI_INPUT,"min-h-10 min-w-[180px] flex-1 placeholder:text-[var(--text-muted)]/20",
 				)}
 			/>
 			<button

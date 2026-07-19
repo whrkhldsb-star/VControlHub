@@ -15,6 +15,7 @@ import {
 } from "./deployment-export-helpers";
 import { DeploymentExportTree } from "./deployment-export-tree";
 import { DeploymentFilePreview } from "./deployment-export-preview";
+import { UI_INPUT } from "@/lib/ui/classes";
 
 export function DeploymentExportPanel() {
   const { t } = useI18n();
@@ -66,7 +67,7 @@ export function DeploymentExportPanel() {
         appName: normalizeAppName(appName) || undefined,
       };
       const response = (await csrfFetch("/api/deploy-export", {
-        method: "POST",
+        method:"POST",
         body: JSON.stringify(payload),
       })) as DeploymentExportResponse;
       setResult(response.export ?? null);
@@ -83,10 +84,10 @@ export function DeploymentExportPanel() {
     setZipError(null);
     try {
       const response = await fetch(`/api/deploy-export/${encodeURIComponent(result.id)}/zip`, {
-        method: "GET",
+        method:"GET",
       });
       if (!response.ok) {
-        const text = await response.text().catch(() => "");
+        const text = await response.text().catch(() =>"");
         throw new Error(
           text || t("deploymentsPage.export.downloadHttpError").replace("{status}", String(response.status)),
         );
@@ -97,7 +98,7 @@ export function DeploymentExportPanel() {
       link.href = url;
       const disposition = response.headers.get("content-disposition") ?? "";
       const match = disposition.match(/filename="?([^";]+)"?/);
-      link.download = match?.[1] || `${result.name || "deployment-export"}.zip`;
+      link.download = match?.[1] || `${result.name ||"deployment-export"}.zip`;
       document.body.appendChild(link);
       link.click();
       link.remove();
@@ -121,7 +122,7 @@ export function DeploymentExportPanel() {
   }
 
   return (
-    <section data-card className="mb-6 ">
+    <section data-card className="mb-6">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <p className="text-xs font-semibold uppercase tracking-[0.2em] text-[var(--text-secondary)]/70">
@@ -144,7 +145,7 @@ export function DeploymentExportPanel() {
             value={domain}
             onChange={(event) => setDomain(event.target.value)}
             placeholder="console.example.com"
-            className="rounded-lg border border-[var(--border)] bg-[var(--input-bg)] px-3 py-2 text-sm text-[var(--text-primary)] placeholder:text-[var(--text-muted)]"
+            className={UI_INPUT}
           />
         </label>
         <label className="grid gap-1.5 text-xs font-medium text-[var(--text-secondary)]">
@@ -153,7 +154,7 @@ export function DeploymentExportPanel() {
             value={appName}
             onChange={(event) => setAppName(event.target.value)}
             placeholder="vcontrolhub"
-            className="rounded-lg border border-[var(--border)] bg-[var(--input-bg)] px-3 py-2 text-sm text-[var(--text-primary)] placeholder:text-[var(--text-muted)]"
+            className={UI_INPUT}
           />
         </label>
         <button
@@ -209,7 +210,7 @@ export function DeploymentExportPanel() {
             <DeploymentFilePreview
               fileNames={fileNames}
               activePath={activePath}
-              content={activePath ? files[activePath] ?? "" : ""}
+              content={activePath ? files[activePath] ?? "" :""}
               onCopy={(content, path) => void handleCopy(content, path)}
               onDownload={handleDownloadFile}
               onSelect={setActivePath}

@@ -2,15 +2,15 @@
 
 import { SurfacePanel } from "@/components/page-shell";
 
-export const ROLE_KEYS = ["admin", "operator", "storage_manager", "viewer"] as const;
+export const ROLE_KEYS = ["admin","operator","storage_manager","viewer"] as const;
 export type RoleKey = (typeof ROLE_KEYS)[number];
-export type Tone = "accent" | "success" | "warning" | "danger" | "neutral";
+export type Tone ="accent" |"success" |"warning" |"danger" |"neutral";
 
-export const ROLE_COLORS: Record<RoleKey, "danger" | "warning" | "success" | "accent"> = {
-  admin: "danger",
-  operator: "warning",
-  storage_manager: "success",
-  viewer: "accent",
+export const ROLE_COLORS: Record<RoleKey,"danger" |"warning" |"success" |"accent"> = {
+  admin:"danger",
+  operator:"warning",
+  storage_manager:"success",
+  viewer:"accent",
 };
 
 export function roleBadgeTone(key: string): Tone {
@@ -18,15 +18,15 @@ export function roleBadgeTone(key: string): Tone {
 }
 
 export function statusTone(status: string): Tone {
-  if (status === "ACTIVE") return "success";
-  if (status === "DISABLED") return "danger";
-  return "warning";
+  if (status ==="ACTIVE") return"success";
+  if (status ==="DISABLED") return"danger";
+  return"warning";
 }
 
 export function statusLabel(status: string, t: (k: string) => string) {
-  if (status === "ACTIVE") return t("usersPage.status.active");
-  if (status === "DISABLED") return t("usersPage.status.disabled");
-  if (status === "PENDING_PASSWORD_RESET") return t("usersPage.status.pending");
+  if (status ==="ACTIVE") return t("usersPage.status.active");
+  if (status ==="DISABLED") return t("usersPage.status.disabled");
+  if (status ==="PENDING_PASSWORD_RESET") return t("usersPage.status.pending");
   return status;
 }
 
@@ -106,8 +106,8 @@ export function UsersCreateForm({
               onClick={() => onToggleRole(key)}
               className={`rounded-full border px-3 py-1.5 text-xs transition ${
                 createForm.roleKeys.includes(key)
-                  ? ""
-                  : "border-[var(--border)]/10 bg-[var(--surface)]/10 text-[var(--text-muted)]"
+                  ?""
+                  :"border-[var(--border)]/10 bg-[var(--surface-subtle)] text-[var(--text-muted)]"
               }`}
               data-tone={createForm.roleKeys.includes(key) ? roleBadgeTone(key) : undefined}
             >

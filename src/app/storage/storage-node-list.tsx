@@ -22,7 +22,7 @@ type StorageNodeItem = {
 	connectionSummary: string;
 	directAccess: { mode: string; description: string; href: string | null };
 	fileCount: number;
-	healthStatus?: "UNKNOWN" | "HEALTHY" | "UNHEALTHY" | string | null;
+	healthStatus?:"UNKNOWN" |"HEALTHY" |"UNHEALTHY" | string | null;
 	lastHealthCheckAt?: string | null;
 	lastHealthError?: string | null;
 	lastHealthLatencyMs?: number | null;
@@ -53,17 +53,17 @@ export function StorageNodeList({
 
 function getHealthPresentation(status: string | null | undefined, t: (k: string) => string) {
 	switch (status) {
-		case "HEALTHY":
-			return { label: t("storagePage.list.health"), className: "border-[var(--success-border)] bg-[var(--success-bg)] text-[var(--success)]" };
-		case "UNHEALTHY":
-			return { label: t("storagePage.list.error"), className: "border-[var(--danger-border)] bg-[var(--danger-bg)] text-[var(--danger)]" };
+		case"HEALTHY":
+			return { label: t("storagePage.list.health"), className:"border-[var(--success-border)] bg-[var(--success-bg)] text-[var(--success)]" };
+		case"UNHEALTHY":
+			return { label: t("storagePage.list.error"), className:"border-[var(--danger-border)] bg-[var(--danger-bg)] text-[var(--danger)]" };
 		default:
-			return { label: t("storagePage.list.unchecked"), className: "border-[var(--border)] bg-[var(--surface)] text-[var(--text-secondary)]" };
+			return { label: t("storagePage.list.unchecked"), className:"border-[var(--border)] bg-[var(--surface)] text-[var(--text-secondary)]" };
 	}
 }
 
-function formatHealthTime(value: string | null | undefined, locale: "zh" | "en") {
-	if (!value) return "";
+function formatHealthTime(value: string | null | undefined, locale:"zh" |"en") {
+	if (!value) return"";
 	const date = new Date(value);
 	if (Number.isNaN(date.getTime())) return value;
 	return date.toLocaleString(toDateLocale(locale), { hour12: false });
@@ -97,7 +97,7 @@ function StorageNodeCard({
 	}
 
 	return (
-		<article className="rounded-2xl border border-[var(--border)] bg-[var(--surface)]/10">
+		<article className="rounded-2xl border border-[var(--border)] bg-[var(--surface-subtle)]">
 			<div className="flex items-start justify-between gap-3">
 				<div>
 					<h3 className="text-lg font-medium text-[var(--text-primary)]">{node.name}</h3>
@@ -136,7 +136,7 @@ function StorageNodeCard({
 			<div className="mt-4 rounded-2xl border border-[var(--border)] bg-[var(--surface-subtle)] p-4 text-sm text-[var(--text-secondary)]">
 				<div className="flex flex-wrap items-center justify-between gap-3">
 					<div className="flex flex-wrap items-center gap-2">
-						<span className={`rounded-full border px-3 py-1 text-xs ${health.className}`}>{health.label}</span> <span>{t("storagePage.list.lastChecked")}{t("common.colon")}{formatHealthTime(node.lastHealthCheckAt, locale)}</span> {node.lastHealthLatencyMs != null ? <span>{t("storagePage.list.latencyMs").replace("{latency}", String(node.lastHealthLatencyMs))}</span> : null} </div> {canManageNodes ? ( <button type="button" onClick={handleHealthCheck} disabled={isPending} className="rounded-lg border border-[var(--info-border)] bg-[var(--info-bg)] px-3 py-1 text-xs font-medium text-[var(--accent)] transition hover:bg-[var(--info-bg)] disabled:cursor-not-allowed disabled:opacity-60" > {isPending ? t("storagePage.list.checking") : t("storagePage.list.checkNow")} </button> ) : null} </div> {node.lastHealthError ? <p className="mt-2 text-xs text-[var(--warning)]">{node.lastHealthError}</p> : null} {message ? <p className={`mt-2 text-xs ${message.ok ? "text-[var(--success)]" : "text-[var(--danger)]"}`}>{message.text}</p> : null}
+						<span className={`rounded-full border px-3 py-1 text-xs ${health.className}`}>{health.label}</span> <span>{t("storagePage.list.lastChecked")}{t("common.colon")}{formatHealthTime(node.lastHealthCheckAt, locale)}</span> {node.lastHealthLatencyMs != null ? <span>{t("storagePage.list.latencyMs").replace("{latency}", String(node.lastHealthLatencyMs))}</span> : null} </div> {canManageNodes ? ( <button type="button" onClick={handleHealthCheck} disabled={isPending} className="rounded-lg border border-[var(--info-border)] bg-[var(--info-bg)] px-3 py-1 text-xs font-medium text-[var(--accent)] transition hover:bg-[var(--info-bg)] disabled:cursor-not-allowed disabled:opacity-60" > {isPending ? t("storagePage.list.checking") : t("storagePage.list.checkNow")} </button> ) : null} </div> {node.lastHealthError ? <p className="mt-2 text-xs text-[var(--warning)]">{node.lastHealthError}</p> : null} {message ? <p className={`mt-2 text-xs ${message.ok ?"text-[var(--success)]" :"text-[var(--danger)]"}`}>{message.text}</p> : null}
 			</div>
 			<p className="mt-2 text-xs text-[var(--text-muted)]">{t("storagePage.list.registeredFiles").replace("{count}", String(node.fileCount))}</p>
 

@@ -46,13 +46,13 @@ const SnippetCard = memo(function SnippetCard({ snippet: s, t, copied, onCopy, o
           )}
         </div>
         <div className="flex items-center gap-1 opacity-100 transition sm:opacity-0 sm:group-hover:opacity-100 sm:group-focus-within:opacity-100">
-          <button onClick={() => onCopy(s.content, s.id)} title={t("snippetsPage.action.copy")} aria-label={t("snippetsPage.action.copy")} className="min-h-11 min-w-11 rounded-lg p-1.5 text-[var(--text-muted)] hover:bg-[var(--surface)]/10 hover:text-[var(--accent)]">
+          <button onClick={() => onCopy(s.content, s.id)} title={t("snippetsPage.action.copy")} aria-label={t("snippetsPage.action.copy")} className="min-h-11 min-w-11 rounded-lg p-1.5 text-[var(--text-muted)] hover:bg-[var(--surface-subtle)] hover:text-[var(--accent)]">
             {copied ? <Check size={14} /> : <Copy size={14} />}
           </button>
-          <button onClick={() => onEdit(s)} title={t("snippetsPage.action.edit")} aria-label={t("snippetsPage.action.edit")} className="min-h-11 min-w-11 rounded-lg p-1.5 text-[var(--text-muted)] hover:bg-[var(--surface)]/10 hover:text-[var(--accent)]">
+          <button onClick={() => onEdit(s)} title={t("snippetsPage.action.edit")} aria-label={t("snippetsPage.action.edit")} className="min-h-11 min-w-11 rounded-lg p-1.5 text-[var(--text-muted)] hover:bg-[var(--surface-subtle)] hover:text-[var(--accent)]">
             <Pencil size={14} />
           </button>
-          <button onClick={() => onDelete(s)} title={t("snippetsPage.action.delete")} aria-label={t("snippetsPage.deleteDialog.title") + " " + s.title} className="min-h-11 min-w-11 rounded-lg p-1.5 text-[var(--text-muted)] hover:bg-[var(--surface)]/10 hover:text-[var(--danger)]">
+          <button onClick={() => onDelete(s)} title={t("snippetsPage.action.delete")} aria-label={t("snippetsPage.deleteDialog.title") +"" + s.title} className="min-h-11 min-w-11 rounded-lg p-1.5 text-[var(--text-muted)] hover:bg-[var(--surface-subtle)] hover:text-[var(--danger)]">
             <Trash2 size={14} />
           </button>
         </div>
@@ -86,7 +86,7 @@ export function SnippetList({ snippets: initial }: { snippets: Snippet[] }) {
   const filtered = useMemo(() => {
     const q = search.toLowerCase();
     return items.filter((s) => {
-      if (langFilter !== "ALL" && s.language !== langFilter) return false;
+      if (langFilter !=="ALL" && s.language !== langFilter) return false;
       if (q && !s.title.toLowerCase().includes(q) && !s.content.toLowerCase().includes(q) && !s.description?.toLowerCase().includes(q) && !s.tags.some((t) => t.toLowerCase().includes(q))) return false;
       return true;
     });
@@ -97,7 +97,7 @@ export function SnippetList({ snippets: initial }: { snippets: Snippet[] }) {
     setDeleteBusy(true);
     setDeleteError(null);
     try {
-      await csrfFetch(`/api/snippets?id=${encodeURIComponent(pendingDelete.id)}`, { method: "DELETE" });
+      await csrfFetch(`/api/snippets?id=${encodeURIComponent(pendingDelete.id)}`, { method:"DELETE" });
       setItems((prev) => prev.filter((s) => s.id !== pendingDelete.id));
       setPendingDelete(null);
       addToast("success", t("snippetsPage.toast.deleted"));
@@ -155,7 +155,7 @@ export function SnippetList({ snippets: initial }: { snippets: Snippet[] }) {
           className="rounded-xl border border-[var(--border)] bg-[var(--input-bg)] px-3 py-2 text-sm text-[var(--text-primary)] outline-none"
         >
           {languages.map((l) => (
-            <option key={l} value={l}>{l === "ALL" ? t("snippetsPage.filter.allLanguages") : l}</option>
+            <option key={l} value={l}>{l ==="ALL" ? t("snippetsPage.filter.allLanguages") : l}</option>
           ))}
         </select>
         <span className="px-1 text-xs text-[var(--text-muted)]">{t("snippetsPage.count").replace("{count}", String(filtered.length))}</span>

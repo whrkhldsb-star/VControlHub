@@ -20,9 +20,9 @@ interface Announcement {
 }
 
 const levelColors: Record<string, string> = {
-  info: "border-[var(--accent-border)] bg-[var(--accent-bg)]",
-  warning: "border-[var(--warning-border)] bg-[var(--warning-bg)]",
-  urgent: "border-[var(--danger-border)] bg-[var(--danger-bg)]",
+  info:"border-[var(--accent-border)] bg-[var(--accent-bg)]",
+  warning:"border-[var(--warning-border)] bg-[var(--warning-bg)]",
+  urgent:"border-[var(--danger-border)] bg-[var(--danger-bg)]",
 };
 
 function levelLabel(t: (k: string) => string, key: string): string {
@@ -50,13 +50,13 @@ const AnnouncementCard = memo(function AnnouncementCard({ announcement: a, t, lo
           <h2 className="mt-1 text-base font-semibold text-[var(--text-primary)]">{a.title}</h2>
         </div>
         <div className="flex items-center gap-2">
-          <span className="text-xs text-[var(--text-muted)] whitespace-nowrap">{formatDate(a.startsAt, locale as "zh" | "en")}</span>
+          <span className="text-xs text-[var(--text-muted)] whitespace-nowrap">{formatDate(a.startsAt, locale as"zh" |"en")}</span>
           {canManage && (
             <div className="flex items-center gap-1 opacity-100 transition sm:opacity-0 sm:group-hover:opacity-100 sm:group-focus-within:opacity-100">
-              <button onClick={() => onEdit(a)} title={t("announcementsPage.action.edit")} aria-label={t("announcementsPage.action.edit")} className="min-h-11 min-w-11 rounded-lg p-1.5 text-[var(--text-muted)] hover:bg-[var(--surface)]/10 hover:text-[var(--accent)]">
+              <button onClick={() => onEdit(a)} title={t("announcementsPage.action.edit")} aria-label={t("announcementsPage.action.edit")} className="min-h-11 min-w-11 rounded-lg p-1.5 text-[var(--text-muted)] hover:bg-[var(--surface-subtle)] hover:text-[var(--accent)]">
                 <Pencil size={14} />
               </button>
-              <button onClick={() => onDelete(a)} title={t("announcementsPage.action.delete")} aria-label={t("announcementsPage.action.deleteAria").replace("{title}", a.title)} className="min-h-11 min-w-11 rounded-lg p-1.5 text-[var(--text-muted)] hover:bg-[var(--surface)]/10 hover:text-[var(--danger)]">
+              <button onClick={() => onDelete(a)} title={t("announcementsPage.action.delete")} aria-label={t("announcementsPage.action.deleteAria").replace("{title}", a.title)} className="min-h-11 min-w-11 rounded-lg p-1.5 text-[var(--text-muted)] hover:bg-[var(--surface-subtle)] hover:text-[var(--danger)]">
                 <Trash2 size={14} />
               </button>
             </div>
@@ -65,7 +65,7 @@ const AnnouncementCard = memo(function AnnouncementCard({ announcement: a, t, lo
       </div>
       <p className="mt-3 text-sm text-[var(--text-secondary)] whitespace-pre-wrap leading-relaxed">{a.body}</p>
       {a.expiresAt && (
-        <p className="mt-3 text-xs text-[var(--text-muted)]">{t("common.validUntil")} {formatDateTime(a.expiresAt, locale as "zh" | "en")}</p>
+        <p className="mt-3 text-xs text-[var(--text-muted)]">{t("common.validUntil")} {formatDateTime(a.expiresAt, locale as"zh" |"en")}</p>
       )}
     </div>
   );
@@ -98,7 +98,7 @@ export function AnnouncementList({
     const q = search.toLowerCase();
     return items
       .filter((a) => {
-        if (levelFilter !== "ALL" && a.level !== levelFilter) return false;
+        if (levelFilter !=="ALL" && a.level !== levelFilter) return false;
         if (q && !a.title.toLowerCase().includes(q) && !a.body.toLowerCase().includes(q)) return false;
         return true;
       })
@@ -113,7 +113,7 @@ export function AnnouncementList({
     setDeleteBusy(true);
     setDeleteError(null);
     try {
-      await csrfFetch(`/api/announcements?id=${pendingDelete.id}`, { method: "DELETE" });
+      await csrfFetch(`/api/announcements?id=${pendingDelete.id}`, { method:"DELETE" });
       setItems((prev) => prev.filter((a) => a.id !== pendingDelete.id));
       setPendingDelete(null);
       addToast("success", t("announcementsPage.toast.deleted"));
@@ -158,7 +158,7 @@ export function AnnouncementList({
           className="rounded-xl border border-[var(--border)] bg-[var(--input-bg)] px-3 py-2.5 text-sm text-[var(--text-primary)] outline-none"
         >
           {levels.map((l) => (
-            <option key={l} value={l}>{l === "ALL" ? t("announcementsPage.filter.all") : levelLabel(t, l)}</option>
+            <option key={l} value={l}>{l ==="ALL" ? t("announcementsPage.filter.all") : levelLabel(t, l)}</option>
           ))}
         </select>
         <span className="text-xs text-[var(--text-muted)]">{t("announcementsPage.count").replace("{count}", String(filtered.length))}</span>
@@ -191,7 +191,7 @@ export function AnnouncementList({
             <p className="mt-2 text-sm leading-6 text-[var(--text-muted)]">{t("announcementsPage.delete.confirm").replace("{title}", pendingDelete.title)}</p>
             {deleteError && <p role="alert" className="mt-3 text-xs text-[var(--danger)]">{deleteError}</p>}
             <div className="mt-5 flex justify-end gap-2">
-              <button type="button" disabled={deleteBusy} onClick={() => { setPendingDelete(null); setDeleteError(null); }} data-card className=" px-4 py-2 text-sm text-[var(--text-secondary)] transition hover:bg-[var(--surface-hover)] disabled:opacity-50">
+              <button type="button" disabled={deleteBusy} onClick={() => { setPendingDelete(null); setDeleteError(null); }} data-card className="px-4 py-2 text-sm text-[var(--text-secondary)] transition hover:bg-[var(--surface-hover)] disabled:opacity-50">
                 {t("announcementsPage.delete.cancel")}
               </button>
               <button type="button" disabled={deleteBusy} onClick={handleDelete} data-action-button data-variant="danger" className="!px-4 !py-2 !text-sm disabled:opacity-50">

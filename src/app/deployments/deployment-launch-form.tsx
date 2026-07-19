@@ -5,6 +5,7 @@ import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { csrfFetch } from "@/lib/auth/csrf-client";
 import { useI18n } from "@/lib/i18n/use-locale";
+import { UI_INPUT } from "@/lib/ui/classes";
 
 type DeploymentTemplateOption = {
 	id: string;
@@ -69,7 +70,7 @@ export function DeploymentLaunchForm({ templates, servers }: { templates: Deploy
 			const fd = new FormData(form);
 			const vars: Record<string, string> = {};
 			for (const name of variables) {
-				const val = String(fd.get(`variables.${name}`) || "").trim();
+				const val = String(fd.get(`variables.${name}`) ||"").trim();
 				vars[name] = val;
 			}
 			const serverIds = fd.getAll("serverIds").map(String).filter(Boolean);
@@ -78,9 +79,9 @@ export function DeploymentLaunchForm({ templates, servers }: { templates: Deploy
 				setPending(false);
 				return;
 			}
-			const reason = String(fd.get("reason") || "").trim();
+			const reason = String(fd.get("reason") ||"").trim();
 			await csrfFetch("/api/deployments", {
-				method: "POST",
+				method:"POST",
 				body: JSON.stringify({
 					templateId: fd.get("templateId"),
 					serverIds,
@@ -105,14 +106,14 @@ export function DeploymentLaunchForm({ templates, servers }: { templates: Deploy
 						name="templateId"
 						value={templateId}
 						onChange={(event) => setTemplateId(event.target.value)}
-						className="rounded-lg border border-[var(--border)] bg-[var(--input-bg)] px-3 py-2 text-sm text-[var(--text-primary)]"
+						className={UI_INPUT}
 					>
 						{templates.map((template) => <option key={template.id} value={template.id}>{template.name}</option>)}
 					</select>
 				</label>
 				<label className="grid gap-1.5 text-xs font-medium text-[var(--text-secondary)]">
 					{t("deploymentsPage.launch.reasonLabel")}
-					<input name="reason" maxLength={500} placeholder={t("deploymentsPage.launch.reasonPlaceholder")} className="rounded-lg border border-[var(--border)] bg-[var(--input-bg)] px-3 py-2 text-sm text-[var(--text-primary)] placeholder:text-[var(--text-muted)]" />
+					<input name="reason" maxLength={500} placeholder={t("deploymentsPage.launch.reasonPlaceholder")} className={UI_INPUT} />
 				</label>
 			</div>
 
@@ -128,7 +129,7 @@ export function DeploymentLaunchForm({ templates, servers }: { templates: Deploy
 						{variables.map((name) => (
 							<label key={name} className="grid gap-1.5 text-xs font-medium text-[var(--text-secondary)]">
 								{name}
-								<input name={`variables.${name}`} required placeholder={t("deploymentsPage.launch.variablePlaceholder").replace("{name}", name)} className="rounded-lg border border-[var(--border)] bg-[var(--input-bg)] px-3 py-2 text-sm text-[var(--text-primary)] placeholder:text-[var(--text-muted)]" />
+								<input name={`variables.${name}`} required placeholder={t("deploymentsPage.launch.variablePlaceholder").replace("{name}", name)} className={UI_INPUT} />
 							</label>
 						))}
 					</div>

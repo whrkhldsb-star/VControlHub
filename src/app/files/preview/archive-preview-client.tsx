@@ -53,8 +53,8 @@ export function ArchivePreviewClient({
 			setExtractResult(null);
 			try {
 				const data = await csrfFetch("/api/files/extract", {
-					method: "POST",
-					headers: { "Content-Type": "application/json" },
+					method:"POST",
+					headers: {"Content-Type":"application/json" },
 					body: JSON.stringify({ nodeId, relativePath, driver, name }),
 				});
 				if (data.error) throw new Error(data.error);
@@ -66,8 +66,8 @@ export function ArchivePreviewClient({
 	}
 
 	function formatSize(bytes: number) {
-		if (bytes === 0) return "-";
-		const units = ["B", "KB", "MB", "GB"];
+		if (bytes === 0) return"-";
+		const units = ["B","KB","MB","GB"];
 		let i = 0;
 		let size = bytes;
 		while (size >= 1024 && i < units.length - 1) { size /= 1024; i++; }
@@ -84,7 +84,7 @@ export function ArchivePreviewClient({
 				 data-action-button data-variant="outline" className="!px-4 !py-2 !text-sm disabled:opacity-50 disabled:cursor-not-allowed">
 					{loading ? t("archivePreview.loading") : entries ? t("archivePreview.refreshList") : t("archivePreview.title")}
 				</button>
-				{entries && entries.length > 0 && driver === "LOCAL" ? (
+				{entries && entries.length > 0 && driver ==="LOCAL" ? (
 					<button
 						type="button"
 						onClick={handleExtract}
@@ -109,7 +109,7 @@ export function ArchivePreviewClient({
 
 			{entries && entries.length > 0 ? (
 				<div className="rounded-2xl border border-[var(--border)] bg-[var(--surface-subtle)] overflow-hidden">
-					<div className="grid grid-cols-[auto_minmax(0,2fr)_100px] gap-4 bg-[var(--surface)]/10 px-4 py-2.5 text-xs uppercase tracking-wider text-[var(--text-secondary)] font-medium">
+					<div className="grid grid-cols-[auto_minmax(0,2fr)_100px] gap-4 bg-[var(--surface-subtle)] px-4 py-2.5 text-xs uppercase tracking-wider text-[var(--text-secondary)] font-medium">
 						<div />
 						<div>{t("archivePreview.table.name")}</div>
 						<div className="text-right">{t("archivePreview.table.size")}</div>

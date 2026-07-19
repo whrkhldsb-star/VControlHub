@@ -3,7 +3,7 @@
 import { ActionButton } from "@/components/action-button";
 import { UI_INPUT } from "@/lib/ui/classes";
 /**
- * `SourcesPanel` — the "应用源" tab body. Renders the preset picker
+ * `SourcesPanel` — the"应用源" tab body. Renders the preset picker
  * + new-source form, then lists every configured app source with
  * per-row enable / sync-now / delete actions.
  *
@@ -36,40 +36,40 @@ type AppSource = {
 type SourcesPanelActions = {
 	doSync: (sourceId?: string) => void;
 	doToggleSource: (sourceId: string, nextEnabled: boolean) => void;
-	doAddSource: (input: { name: string; displayName: string; url: string; type: "json" | "github" | "linuxserver" }) => Promise<void>;
+	doAddSource: (input: { name: string; displayName: string; url: string; type:"json" |"github" |"linuxserver" }) => Promise<void>;
 	syncing: string | null;
 };
 
 function getSourcePresets(t: (k: string) => string) {
   return [
 	{
-		key: "linuxserver",
-		badge: "LinuxServer",
-		label: "LinuxServer.io",
-		type: "json" as const,
-		url: "https://docs.linuxserver.io/general/container-customization",
+		key:"linuxserver",
+		badge:"LinuxServer",
+		label:"LinuxServer.io",
+		type:"json" as const,
+		url:"https://docs.linuxserver.io/general/container-customization",
 		description: t("quickServicesPage.sources.linuxserverDesc"),
 	},
 	{
-		key: "github-apps",
-		badge: "GitHub",
-		label: "GitHub Apps",
-		type: "github" as const,
-		url: "https://api.github.com/repos/example/apps.json",
+		key:"github-apps",
+		badge:"GitHub",
+		label:"GitHub Apps",
+		type:"github" as const,
+		url:"https://api.github.com/repos/example/apps.json",
 		description: t("quickServicesPage.sources.githubDesc"),
 	},
 	{
-		key: "custom",
-		badge: "Custom",
+		key:"custom",
+		badge:"Custom",
 		label: t("quickServicesPage.sources.customLabel"),
-		type: "json" as const,
-		url: "https://example.com/apps.json",
+		type:"json" as const,
+		url:"https://example.com/apps.json",
 		description: t("quickServicesPage.sources.customDesc"),
 	},
   ];
 }
 
-type SourcePresetKey = "linuxserver" | "github-apps" | "custom";
+type SourcePresetKey ="linuxserver" |"github-apps" |"custom";
 
 type SourcesPanelProps = {
 	sources: AppSource[];
@@ -83,7 +83,7 @@ export function SourcesPanel({ sources, actions, onRequestDeleteSource }: Source
 	const [newSourceName, setNewSourceName] = useState("");
 	const [newSourceDisplayName, setNewSourceDisplayName] = useState("");
 	const [newSourceUrl, setNewSourceUrl] = useState("");
-	const [newSourceType, setNewSourceType] = useState<"json" | "github" | "linuxserver">("json");
+	const [newSourceType, setNewSourceType] = useState<"json" |"github" |"linuxserver">("json");
 
 	const applySourcePreset = (key: SourcePresetKey) => {
 		const preset = getSourcePresets(t).find((item) => item.key === key);
@@ -91,7 +91,7 @@ export function SourcesPanel({ sources, actions, onRequestDeleteSource }: Source
 		setSourcePreset(key);
 		setNewSourceType(preset.type);
 		setNewSourceDisplayName(preset.label);
-		setNewSourceName(preset.label.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, ""));
+		setNewSourceName(preset.label.toLowerCase().replace(/[^a-z0-9]+/g,"-").replace(/^-+|-+$/g,""));
 		setNewSourceUrl(preset.url);
 	};
 
@@ -110,7 +110,7 @@ export function SourcesPanel({ sources, actions, onRequestDeleteSource }: Source
 
 	return (
 		<div className="space-y-4">
-			<div className="rounded-2xl border border-[var(--border)] bg-[var(--surface)]/[0.025] p-4 space-y-4">
+			<div className="rounded-2xl border border-[var(--border)] bg-[var(--surface-elevated)] p-4 space-y-4">
 				<div className="flex items-center justify-between gap-3">
 					<div>
 						<p className="text-xs uppercase tracking-[0.2em] text-[var(--text-muted)]">{t("quickServicesPage.sources.header")}</p>
@@ -126,11 +126,11 @@ export function SourcesPanel({ sources, actions, onRequestDeleteSource }: Source
 								key={preset.key}
 								type="button"
 								onClick={() => applySourcePreset(preset.key as SourcePresetKey)}
-								className={`rounded-xl border p-3 text-left transition ${active ? "border-[var(--color-action-border)]/30 bg-[var(--color-action-bg)]/10 text-[var(--text-primary)]" : "border-[var(--border)] bg-[var(--surface-elevated)] text-[var(--text-secondary)] hover:bg-[var(--surface-hover)] light:hover:bg-[var(--surface)]"}`}
+								className={`rounded-xl border p-3 text-left transition ${active ?"border-[var(--color-action-border)]/30 bg-[var(--color-action-bg)]/10 text-[var(--text-primary)]" :"border-[var(--border)] bg-[var(--surface-elevated)] text-[var(--text-secondary)] hover:bg-[var(--surface-hover)] light:hover:bg-[var(--surface)]"}`}
 							>
 								<div className="flex items-center justify-between gap-2">
 									<span className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--text-muted)]">{preset.badge}</span>
-									<span className={`rounded-full border px-2 py-0.5 text-[10px] ${active ? "border-[var(--color-action-border)]/30 text-[var(--text-primary)]" : "border-[var(--border)] text-[var(--text-muted)]"}`}>{preset.type}</span>
+									<span className={`rounded-full border px-2 py-0.5 text-[10px] ${active ?"border-[var(--color-action-border)]/30 text-[var(--text-primary)]" :"border-[var(--border)] text-[var(--text-muted)]"}`}>{preset.type}</span>
 								</div>
 								<h4 className="mt-2 text-sm font-semibold text-[var(--text-primary)]">{preset.label}</h4>
 								<p className="mt-1 text-xs leading-5 text-[var(--text-muted)]">{preset.description}</p>
@@ -169,12 +169,12 @@ export function SourcesPanel({ sources, actions, onRequestDeleteSource }: Source
 				</div>
 				<div className="flex flex-wrap items-center justify-between gap-3">
 					<div className="flex gap-2">
-						{(["linuxserver", "github", "json"] as const).map((type) => (
+						{(["linuxserver","github","json"] as const).map((type) => (
 							<button
 								key={type}
 								type="button"
 								onClick={() => setNewSourceType(type)}
-								className={`rounded-lg border px-3 py-1.5 text-xs transition ${newSourceType === type ? "border-[var(--accent-border)] bg-[var(--accent-bg)] text-[var(--accent)]" : "border-[var(--border)] text-[var(--text-secondary)] hover:bg-[var(--surface-hover)]"}`}
+								className={`rounded-lg border px-3 py-1.5 text-xs transition ${newSourceType === type ?"border-[var(--accent-border)] bg-[var(--accent-bg)] text-[var(--accent)]" :"border-[var(--border)] text-[var(--text-secondary)] hover:bg-[var(--surface-hover)]"}`}
 							>
 								{type}
 							</button>
@@ -188,7 +188,7 @@ export function SourcesPanel({ sources, actions, onRequestDeleteSource }: Source
 			<div className="flex items-center justify-between">
 				<p className="text-xs text-[var(--text-muted)]">{t("quickServicesPage.sources.manageDesc")}</p>
 				<ActionButton type="button" onClick={() => actions.doSync()} disabled={actions.syncing !== null} className="text-xs">
-					{actions.syncing === "all" ? t("quickServicesPage.sources.syncing") : t("quickServicesPage.sources.syncAll")}
+					{actions.syncing ==="all" ? t("quickServicesPage.sources.syncing") : t("quickServicesPage.sources.syncAll")}
 				</ActionButton>
 			</div>
 			{sources.length === 0 && (
@@ -197,30 +197,30 @@ export function SourcesPanel({ sources, actions, onRequestDeleteSource }: Source
 				</EmptyState>
 			)}
 			{sources.map((src) => (
-				<div key={src.id} data-card className=" p-4 space-y-3">
+				<div key={src.id} data-card className="p-4 space-y-3">
 					<div className="flex items-center justify-between">
 						<div className="flex items-center gap-3">
-							<span className="text-lg">{src.type === "linuxserver" ? "🐧" : src.type === "github" ? "🐙" : "📡"}</span>
+							<span className="text-lg">{src.type ==="linuxserver" ?"🐧" : src.type ==="github" ?"🐙" :"📡"}</span>
 							<div>
 								<h3 className="text-sm font-semibold text-[var(--text-primary)]">{src.displayName}</h3>
 								<p className="text-xs text-[var(--text-muted)] mt-0.5">{src.url}</p>
 							</div>
 						</div>
 						<div className="flex items-center gap-2">
-							<span className={`text-[10px] px-2 py-0.5 rounded-full border ${src.enabled ? "border-[var(--success-border)] bg-[var(--success)]/[0.10] text-[var(--success)]" : "border-[var(--border)] text-[var(--text-muted)]"}`}>
+							<span className={`text-[10px] px-2 py-0.5 rounded-full border ${src.enabled ?"border-[var(--success-border)] bg-[var(--success)]/[0.10] text-[var(--success)]" :"border-[var(--border)] text-[var(--text-muted)]"}`}>
 								{src.enabled ? t("quickServicesPage.sources.status.enabled") : t("quickServicesPage.sources.status.disabled")}
 							</span>
 							{src.lastSyncStatus && (
-								<span className={`text-[10px] px-2 py-0.5 rounded-full border ${src.lastSyncStatus === "success" ? "border-[var(--success-border)] bg-[var(--success)]/[0.10] text-[var(--success)]" : "border-[var(--danger-border)] bg-[var(--danger)]/[0.10] text-[var(--danger)]"}`}>
-									{src.lastSyncStatus === "success" ? t("quickServicesPage.sources.status.syncSuccess") : t("quickServicesPage.sources.status.syncFailed")}
+								<span className={`text-[10px] px-2 py-0.5 rounded-full border ${src.lastSyncStatus ==="success" ?"border-[var(--success-border)] bg-[var(--success)]/[0.10] text-[var(--success)]" :"border-[var(--danger-border)] bg-[var(--danger)]/[0.10] text-[var(--danger)]"}`}>
+									{src.lastSyncStatus ==="success" ? t("quickServicesPage.sources.status.syncSuccess") : t("quickServicesPage.sources.status.syncFailed")}
 								</span>
 							)}
 						</div>
 					</div>
 					<div className="flex items-center gap-3 text-[10px] text-[var(--text-muted)]">
-						<span>{t("quickServicesPage.sources.type") + ": " + src.type}</span>
-						<span>{t("quickServicesPage.sources.syncCount") + ": " + String(src.syncCount)}</span>
-						{src.lastSyncAt && <span>{t("quickServicesPage.sources.lastSyncAt") + ": " + new Date(src.lastSyncAt).toLocaleString()}</span>}
+						<span>{t("quickServicesPage.sources.type") +":" + src.type}</span>
+						<span>{t("quickServicesPage.sources.syncCount") +":" + String(src.syncCount)}</span>
+						{src.lastSyncAt && <span>{t("quickServicesPage.sources.lastSyncAt") +":" + new Date(src.lastSyncAt).toLocaleString()}</span>}
 					</div>
 					{src.lastSyncError && (
 						<div className="text-[10px] text-[var(--danger)] bg-[var(--danger)]/[0.10] rounded px-2 py-1">{src.lastSyncError}</div>
@@ -237,7 +237,7 @@ export function SourcesPanel({ sources, actions, onRequestDeleteSource }: Source
 						<button
 							type="button"
 							onClick={() => actions.doToggleSource(src.id, !src.enabled)}
-							className={`rounded-lg border px-3 py-1.5 text-xs transition ${src.enabled ? "border-[var(--warning-border)] text-[var(--warning)] hover:bg-[var(--warning)]/[0.10]" : "border-[var(--success-border)] text-[var(--success)] hover:bg-[var(--success-bg)] hover:text-[var(--success)]/[0.10]"}`}
+							className={`rounded-lg border px-3 py-1.5 text-xs transition ${src.enabled ?"border-[var(--warning-border)] text-[var(--warning)] hover:bg-[var(--warning)]/[0.10]" :"border-[var(--success-border)] text-[var(--success)] hover:bg-[var(--success-bg)] hover:text-[var(--success)]/[0.10]"}`}
 						>
 							{src.enabled ? t("quickServicesPage.sources.disable") : t("quickServicesPage.sources.enable")}
 						</button>

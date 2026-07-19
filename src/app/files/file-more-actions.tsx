@@ -1,7 +1,7 @@
 "use client";
 
 /**
- * FileMoreActions — the "更多" details/summary dropdown that hosts
+ * FileMoreActions — the"更多" details/summary dropdown that hosts
  * secondary entry actions (share / rename / move / delete).
  *
  * Extracted from `file-list-client.tsx` (TR-036 T36b) so the parent
@@ -25,7 +25,7 @@ type FileMoreActionsProps = {
   canShare: boolean;
   canDelete: boolean;
   onRefresh?: () => void;
-  onNotify?: (type: "success" | "error" | "info", message: string) => void;
+  onNotify?: (type:"success" |"error" |"info", message: string) => void;
   // read/write/delete capability checks. The parent supplies these so
   // this chunk doesn't have to re-import the model layer (which would
   // defeat the lazy-load goal).
@@ -47,7 +47,7 @@ export function FileMoreActions({
 }: FileMoreActionsProps) {
   const { t } = useI18n();
   const hasMoreActions =
-    (canShare && entryCanRead(entry) && entry.entryType === "FILE") ||
+    (canShare && entryCanRead(entry) && entry.entryType ==="FILE") ||
     entryCanWrite(entry) ||
     (canDelete && entryCanDelete(entry));
   if (!hasMoreActions) return null;
@@ -59,8 +59,8 @@ export function FileMoreActions({
         aria-label={`${t("fileMoreActions.more")} ${entry.name}`}
         className={
           compact
-            ? "inline-flex h-8 w-8 cursor-pointer list-none items-center justify-center rounded-lg border border-[var(--border)] bg-[var(--surface)]/10 text-[var(--text-secondary)] transition hover:bg-[var(--surface)]/10 hover:text-[var(--text-primary)] light:hover:bg-[var(--surface)] [&::-webkit-details-marker]:hidden"
-            : "inline-flex cursor-pointer list-none items-center gap-1.5 rounded-lg border border-[var(--border)] bg-[var(--surface)]/10 px-2.5 py-1.5 text-xs text-[var(--text-secondary)] transition hover:bg-[var(--surface)]/10 hover:text-[var(--text-primary)] light:hover:bg-[var(--surface)] [&::-webkit-details-marker]:hidden"
+            ?"inline-flex h-8 w-8 cursor-pointer list-none items-center justify-center rounded-lg border border-[var(--border)] bg-[var(--surface-subtle)] text-[var(--text-secondary)] transition hover:bg-[var(--surface-subtle)] hover:text-[var(--text-primary)] light:hover:bg-[var(--surface)] [&::-webkit-details-marker]:hidden"
+            :"inline-flex cursor-pointer list-none items-center gap-1.5 rounded-lg border border-[var(--border)] bg-[var(--surface-subtle)] px-2.5 py-1.5 text-xs text-[var(--text-secondary)] transition hover:bg-[var(--surface-subtle)] hover:text-[var(--text-primary)] light:hover:bg-[var(--surface)] [&::-webkit-details-marker]:hidden"
         }
       >
         <span aria-hidden="true">⋯</span>
@@ -75,7 +75,7 @@ export function FileMoreActions({
             fileEntryId={entry.id}
             currentName={entry.name}
             currentPath={entry.relativePath}
-            entryType={entry.entryType as "FILE" | "DIRECTORY"}
+            entryType={entry.entryType as"FILE" |"DIRECTORY"}
             variant="menu"
             onRefresh={onRefresh}
             onNotify={onNotify}
@@ -97,7 +97,7 @@ export function FileMoreActions({
           <DeleteConfirmButton
             fileEntryId={entry.id}
             entryName={entry.name}
-            entryType={entry.entryType as "FILE" | "DIRECTORY"}
+            entryType={entry.entryType as"FILE" |"DIRECTORY"}
             variant="menu"
             onRefresh={onRefresh}
             onNotify={onNotify}

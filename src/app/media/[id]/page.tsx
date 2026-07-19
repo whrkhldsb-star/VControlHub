@@ -14,7 +14,7 @@ import {
 } from "@/app/files/file-entry-utils";
 import { getServerLocale, t } from "@/lib/i18n/translations";
 
-export const dynamic = "force-dynamic";
+export const dynamic ="force-dynamic";
 
 type PageProps = {
   params: Promise<{ id: string }>;
@@ -23,7 +23,7 @@ type PageProps = {
 
 type MediaPlayerItem = NonNullable<Awaited<ReturnType<typeof getMediaItem>>>;
 
-function formatSize(locale: "zh" | "en", bytes: bigint | number | null) {
+function formatSize(locale:"zh" |"en", bytes: bigint | number | null) {
   if (!bytes) return t("mediaPage.player.sizeUnknown", locale);
   const b = Number(bytes);
   if (b < 1024) return `${b} B`;
@@ -39,36 +39,36 @@ function containingFolderPath(relativePath: string) {
 }
 
 function safeMediaReturnHref(from?: string) {
-  if (!from) return "/media";
+  if (!from) return"/media";
   try {
     const decoded = decodeURIComponent(from);
-    if (decoded === "/media" || decoded.startsWith("/media?")) return decoded;
+    if (decoded ==="/media" || decoded.startsWith("/media?")) return decoded;
   } catch {
     // Fall through to default route when the return URL is malformed.
   }
-  return "/media";
+  return"/media";
 }
 
-function createStorageEntry(item: MediaPlayerItem, locale: "zh" | "en") {
+function createStorageEntry(item: MediaPlayerItem, locale:"zh" |"en") {
   const node = item.storageNode;
   if (!node) return null;
 
   const directAccessMode = String(node.directAccessMode ?? "PROXY");
   const isDirectAccess =
-    directAccessMode === "DIRECT" || directAccessMode === "direct-url";
+    directAccessMode ==="DIRECT" || directAccessMode ==="direct-url";
   const file: FileProp = {
     id: item.id,
     name: item.name,
-    entryType: "FILE",
+    entryType:"FILE",
     mimeType: item.mimeType,
     relativePath: item.relativePath,
     sizeBytes: item.size == null ? null : Number(item.size),
     sizeLabel: formatSize(locale, item.size),
     previewable: true,
-    directAccessMode: isDirectAccess ? "direct-url" : "managed-download",
+    directAccessMode: isDirectAccess ?"direct-url" :"managed-download",
     directAccessHref:
       isDirectAccess && node.publicBaseUrl
-        ? `${node.publicBaseUrl.replace(/\/$/, "")}/${item.relativePath
+        ? `${node.publicBaseUrl.replace(/\/$/,"")}/${item.relativePath
             .split("/")
             .map(encodeURIComponent)
             .join("/")}`
@@ -88,7 +88,7 @@ export default async function MediaPlayerPage({
 }: PageProps) {
   const session = await requireSession("/media");
   const locale = await getServerLocale();
-  if (!sessionHasPermission(session, "storage:read"))
+  if (!sessionHasPermission(session,"storage:read"))
     return <PermissionDenied />;
 
   const [{ id }, query] = await Promise.all([params, searchParams]);
@@ -96,7 +96,7 @@ export default async function MediaPlayerPage({
   if (!item) notFound();
 
   const siblings = await listMediaItems({
-    mediaType: item.mediaType as "image" | "video" | "audio",
+    mediaType: item.mediaType as"image" |"video" |"audio",
     session,
   });
   const currentIndex = siblings.findIndex((entry) => entry.id === item.id);
@@ -118,13 +118,13 @@ export default async function MediaPlayerPage({
   const returnHref = safeMediaReturnHref(query?.from);
   const navigationFrom = encodeURIComponent(returnHref);
   const isImage =
-    item.mimeType.startsWith("image/") && item.mimeType !== "image/svg+xml";
+    item.mimeType.startsWith("image/") && item.mimeType !=="image/svg+xml";
   const isVideo = item.mimeType.startsWith("video/");
   const isAudio = item.mimeType.startsWith("audio/");
   const mediaKindLabel =
-    item.mediaType === "image"
+    item.mediaType ==="image"
       ? t("mediaPage.stat.image", locale)
-      : item.mediaType === "audio"
+      : item.mediaType ==="audio"
         ? t("mediaPage.stat.audio", locale)
         : t("mediaPage.stat.video", locale);
 
@@ -135,7 +135,7 @@ export default async function MediaPlayerPage({
           <div className="flex min-w-0 flex-wrap items-center gap-3">
             <Link
               href={returnHref}
-              className="rounded-lg border border-[var(--border)] px-4 py-2 text-sm text-[var(--text-secondary)] hover:border-[var(--color-action-border)]/50 hover:bg-[var(--surface)]/10 light:hover:bg-[var(--surface)]"
+              className="rounded-lg border border-[var(--border)] px-4 py-2 text-sm text-[var(--text-secondary)] hover:border-[var(--color-action-border)]/50 hover:bg-[var(--surface-subtle)] light:hover:bg-[var(--surface)]"
             >
               <ArrowLeft size={16} /> {t("mediaPage.player.backToLibrary", locale)}
             </Link>
@@ -158,7 +158,7 @@ export default async function MediaPlayerPage({
             </a>
             <Link
               href={sourceHref}
-              className="inline-flex items-center gap-1.5 rounded-lg border border-[var(--border)] px-4 py-2 text-[var(--text-secondary)] hover:bg-[var(--surface)]/10 light:hover:bg-[var(--surface)]"
+              className="inline-flex items-center gap-1.5 rounded-lg border border-[var(--border)] px-4 py-2 text-[var(--text-secondary)] hover:bg-[var(--surface-subtle)] light:hover:bg-[var(--surface)]"
             >
               <FolderOpen size={16} /> {t("mediaPage.player.openSource", locale)}
             </Link>
@@ -227,9 +227,9 @@ export default async function MediaPlayerPage({
 
           <aside className="rounded-3xl border border-[var(--border)] bg-[var(--surface-elevated)] p-5">
             <div className="mb-4 flex items-center gap-2">
-              {item.mediaType === "image"
+              {item.mediaType ==="image"
                   ? <ImageIcon size={28} className="text-[var(--accent)]" />
-                  : item.mediaType === "audio"
+                  : item.mediaType ==="audio"
                     ? <Music2 size={28} className="text-[var(--accent)]" />
                     : <Video size={28} className="text-[var(--accent)]" />}
               <div>

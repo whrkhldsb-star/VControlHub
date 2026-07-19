@@ -3,15 +3,7 @@
 import { UI_INPUT } from "@/lib/ui/classes";
 import { cn } from "@/lib/ui/cn";
 
-const QUICK_COMMANDS = [
-	"ls -la",
-	"df -h",
-	"free -m",
-	"top -bn1 | head -20",
-	"uptime",
-	"whoami",
-	"cat /etc/os-release",
-	"ps aux --sort=-%mem | head -10",
+const QUICK_COMMANDS = ["ls -la","df -h","free -m","top -bn1 | head -20","uptime","whoami","cat /etc/os-release","ps aux --sort=-%mem | head -10",
 ] as const;
 
 type TFn = (key: string) => string;
@@ -51,11 +43,10 @@ export function SshTerminalSidePanel({
 						id={`ssh-fav-${serverId}`}
 						value={newFavorite}
 						onChange={(e) => setNewFavorite(e.target.value)}
-						onKeyDown={(e) => e.key === "Enter" && addFavorite()}
+						onKeyDown={(e) => e.key ==="Enter" && addFavorite()}
 						placeholder={t("sshTerminalModal.favoritesPlaceholder")}
 						className={cn(
-							UI_INPUT,
-							"min-h-11 min-w-0 flex-1 py-1 font-mono text-[13px] light:text-[var(--text-disabled)] placeholder:text-[var(--text-muted)]/20",
+							UI_INPUT,"min-h-11 min-w-0 flex-1 py-1 font-mono text-[13px] placeholder:text-[var(--text-muted)]/20",
 						)}
 					/>
 					<button
@@ -79,7 +70,7 @@ export function SshTerminalSidePanel({
 								<button
 									type="button"
 									onClick={() => sendCommand(cmd)}
-									className="min-h-11 min-w-0 flex-1 truncate rounded-lg px-3 py-1 text-left text-[12px] font-mono text-[var(--color-action-fg)]/80 transition hover:bg-[var(--surface-subtle)] light:hover:bg-[var(--surface)]"
+									className="min-h-11 min-w-0 flex-1 truncate rounded-lg px-3 py-1 text-left text-[12px] font-mono text-[var(--color-action)] transition hover:bg-[var(--surface-subtle)] light:hover:bg-[var(--surface)]"
 									title={cmd}
 								>
 									{cmd}
@@ -112,7 +103,7 @@ export function SshTerminalSidePanel({
 								key={`${cmd}-${i}`}
 								type="button"
 								onClick={() => sendCommand(cmd)}
-								className="min-h-11 block w-full truncate rounded-lg px-3 py-1 text-left text-[12px] font-mono text-[var(--text-secondary)] transition hover:bg-[var(--surface-subtle)] light:hover:bg-[var(--surface)] hover:text-[var(--color-action-fg)]/80"
+								className="min-h-11 block w-full truncate rounded-lg px-3 py-1 text-left text-[12px] font-mono text-[var(--text-secondary)] transition hover:bg-[var(--surface-subtle)] light:hover:bg-[var(--surface)] hover:text-[var(--color-action)]/80"
 								title={cmd}
 							>
 								{cmd}
@@ -131,7 +122,7 @@ export function SshTerminalSidePanel({
 							key={cmd}
 							type="button"
 							onClick={() => sendCommand(cmd)}
-							className="min-h-11 block w-full truncate rounded-lg px-3 py-1 text-left text-[12px] font-mono text-[var(--text-muted)] transition hover:bg-[var(--surface-subtle)] light:hover:bg-[var(--surface)] hover:text-[var(--color-action-fg)]/80"
+							className="min-h-11 block w-full truncate rounded-lg px-3 py-1 text-left text-[12px] font-mono text-[var(--text-muted)] transition hover:bg-[var(--surface-subtle)] light:hover:bg-[var(--surface)] hover:text-[var(--color-action)]/80"
 							title={cmd}
 						>
 							{cmd}

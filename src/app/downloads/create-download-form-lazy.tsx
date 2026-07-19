@@ -33,18 +33,18 @@ function CreateDownloadFormStub() {
 			data-card
 			className="mb-6 p-5 space-y-4"
 		>
-			<div className="h-6 w-40 animate-pulse rounded-lg bg-[var(--surface)]/[0.10]" />
-			<div className="h-10 w-full animate-pulse rounded-lg bg-[var(--surface)]/[0.10]" />
+			<div className="h-6 w-40 animate-pulse rounded-lg bg-[var(--surface-subtle)]" />
+			<div className="h-10 w-full animate-pulse rounded-lg bg-[var(--surface-subtle)]" />
 			<div className="grid gap-4 sm:grid-cols-2">
-				<div className="h-12 animate-pulse rounded-lg bg-[var(--surface)]/[0.10]" />
-				<div className="h-12 animate-pulse rounded-lg bg-[var(--surface)]/[0.10]" />
+				<div className="h-12 animate-pulse rounded-lg bg-[var(--surface-subtle)]" />
+				<div className="h-12 animate-pulse rounded-lg bg-[var(--surface-subtle)]" />
 			</div>
 			<div className="grid gap-4 sm:grid-cols-3">
-				<div className="h-12 animate-pulse rounded-lg bg-[var(--surface)]/[0.10]" />
-				<div className="h-12 animate-pulse rounded-lg bg-[var(--surface)]/[0.10]" />
-				<div className="h-12 animate-pulse rounded-lg bg-[var(--surface)]/[0.10]" />
+				<div className="h-12 animate-pulse rounded-lg bg-[var(--surface-subtle)]" />
+				<div className="h-12 animate-pulse rounded-lg bg-[var(--surface-subtle)]" />
+				<div className="h-12 animate-pulse rounded-lg bg-[var(--surface-subtle)]" />
 			</div>
-			<div className="h-10 w-32 animate-pulse rounded-2xl bg-[var(--surface)]/[0.10]" />
+			<div className="h-10 w-32 animate-pulse rounded-2xl bg-[var(--surface-subtle)]" />
 		</div>
 	);
 }

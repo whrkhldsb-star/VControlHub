@@ -4,6 +4,7 @@ import { useId, useState } from "react";
 import { useRouter } from "next/navigation";
 import { csrfFetch } from "@/lib/auth/csrf-client";
 import { useI18n } from "@/lib/i18n/use-locale";
+import { UI_INPUT } from "@/lib/ui/classes";
 
 export function CreateAnnouncementForm() {
 	const { t } = useI18n();
@@ -24,12 +25,12 @@ export function CreateAnnouncementForm() {
 		const data = Object.fromEntries(new FormData(form));
 		try {
 			await csrfFetch("/api/announcements", {
-				method: "POST",
-				headers: { "Content-Type": "application/json" },
+				method:"POST",
+				headers: {"Content-Type":"application/json" },
 				body: JSON.stringify({
 					title: data.title,
 					content: data.content,
-					type: data.type || "info",
+					type: data.type ||"info",
 					startsAt: data.startsAt || undefined,
 					expiresAt: data.expiresAt || undefined,
 				}),
@@ -44,18 +45,18 @@ export function CreateAnnouncementForm() {
 	};
 
 	return (
-		<form onSubmit={handleSubmit} data-card className=" space-y-4">
+		<form onSubmit={handleSubmit} data-card className="space-y-4">
 			<h2 className="text-sm font-semibold text-[var(--text-primary)]">{t("announcementsPage.create.title")}</h2>
 			{error && <p className="text-xs text-[var(--danger)] dark:text-[var(--danger)]">{error}</p>}
 			<div className="grid gap-3 md:grid-cols-2">
 				<div className="grid gap-1.5">
 					<label htmlFor={titleId} className="text-xs font-medium text-[var(--text-secondary)]">{t("announcementsPage.create.titleLabel")}</label>
-					<input id={titleId} name="title" required aria-describedby={`${titleId}-hint`} className="rounded-lg border border-[var(--border)] bg-[var(--input-bg)] px-3 py-2 text-sm text-[var(--text-primary)] placeholder:text-[var(--text-muted)]" />
+					<input id={titleId} name="title" required aria-describedby={`${titleId}-hint`} className={UI_INPUT} />
 					<p id={`${titleId}-hint`} className="text-[11px] text-[var(--text-muted)]">{t("announcementsPage.create.titleHint")}</p>
 				</div>
 				<div className="grid gap-1.5">
 					<label htmlFor={typeId} className="text-xs font-medium text-[var(--text-secondary)]">{t("announcementsPage.create.typeLabel")}</label>
-					<select id={typeId} name="type" defaultValue="info" className="rounded-lg border border-[var(--border)] bg-[var(--input-bg)] px-3 py-2 text-sm text-[var(--text-primary)]">
+					<select id={typeId} name="type" defaultValue="info" className={UI_INPUT}>
 						<option value="info">{t("announcementsPage.create.type.info")}</option>
 						<option value="warning">{t("announcementsPage.create.type.warning")}</option>
 						<option value="urgent">{t("announcementsPage.level.urgent")}</option>
@@ -71,12 +72,12 @@ export function CreateAnnouncementForm() {
 			<div className="grid gap-3 md:grid-cols-2">
 				<div className="grid gap-1.5">
 					<label htmlFor={startsAtId} className="text-xs font-medium text-[var(--text-secondary)]">{t("announcementsPage.create.startsAtLabel")}</label>
-					<input id={startsAtId} type="datetime-local" name="startsAt" aria-describedby={`${startsAtId}-hint`} className="rounded-lg border border-[var(--border)] bg-[var(--input-bg)] px-3 py-2 text-sm text-[var(--text-primary)]" />
+					<input id={startsAtId} type="datetime-local" name="startsAt" aria-describedby={`${startsAtId}-hint`} className={UI_INPUT} />
 					<p id={`${startsAtId}-hint`} className="text-[11px] text-[var(--text-muted)]">{t("announcementsPage.create.startsAtHint")}</p>
 				</div>
 				<div className="grid gap-1.5">
 					<label htmlFor={expiresAtId} className="text-xs font-medium text-[var(--text-secondary)]">{t("common.expiration")}</label>
-					<input id={expiresAtId} type="datetime-local" name="expiresAt" aria-describedby={`${expiresAtId}-hint`} className="rounded-lg border border-[var(--border)] bg-[var(--input-bg)] px-3 py-2 text-sm text-[var(--text-primary)]" />
+					<input id={expiresAtId} type="datetime-local" name="expiresAt" aria-describedby={`${expiresAtId}-hint`} className={UI_INPUT} />
 					<p id={`${expiresAtId}-hint`} className="text-[11px] text-[var(--text-muted)]">{t("announcementsPage.create.expiresAtHint")}</p>
 				</div>
 			</div>

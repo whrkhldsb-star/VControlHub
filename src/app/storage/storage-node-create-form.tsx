@@ -6,6 +6,7 @@ import { SubmitButton } from "@/components/submit-button";
 import { useI18n } from "@/lib/i18n/use-locale";
 
 import { createStorageNodeAction, type StorageActionState } from "./actions";
+import { UI_INPUT } from "@/lib/ui/classes";
 
 const initialState: StorageActionState = {};
 
@@ -18,7 +19,7 @@ export function StorageNodeCreateForm({
   const [state, formAction] = useActionState(createStorageNodeAction, initialState);
   const [driver, setDriver] = useState<string>("LOCAL");
 
-  const isSftp = driver === "SFTP";
+  const isSftp = driver ==="SFTP";
 
   return (
     <form action={formAction} className="grid gap-4 rounded-3xl border border-[var(--border)] bg-[var(--surface)] p-6">
@@ -30,14 +31,14 @@ export function StorageNodeCreateForm({
       <div className="grid gap-4 md:grid-cols-2">
         <label className="grid gap-2 text-sm text-[var(--text-secondary)]">
           <span>{t("storagePage.form.fieldName")}</span>
-          <input name="name" required className="rounded-2xl border border-[var(--border)] bg-[var(--input-bg)] px-4 py-3 text-[var(--text-primary)]" />
+          <input name="name" required className={UI_INPUT} />
         </label>
         <label className="grid gap-2 text-sm text-[var(--text-secondary)]">
           <span>{t("storagePage.form.fieldDriver")}</span>
           <select
             name="driver"
             defaultValue="LOCAL"
-            className="rounded-2xl border border-[var(--border)] bg-[var(--input-bg)] px-4 py-3 text-[var(--text-primary)]"
+            className={UI_INPUT}
             onChange={(e) => setDriver(e.target.value)}
           >
             <option value="LOCAL">LOCAL</option>
@@ -46,7 +47,7 @@ export function StorageNodeCreateForm({
         </label>
         <label className="grid gap-2 text-sm text-[var(--text-secondary)] md:col-span-2">
           <span>{t("storagePage.form.fieldBasePath")}</span>
-          <input name="basePath" required className="rounded-2xl border border-[var(--border)] bg-[var(--input-bg)] px-4 py-3 text-[var(--text-primary)]" placeholder={t("storagePage.form.basePathPlaceholder")} />
+          <input name="basePath" required className={UI_INPUT} placeholder={t("storagePage.form.basePathPlaceholder")} />
         </label>
         {isSftp ? (
           <>
@@ -65,15 +66,15 @@ export function StorageNodeCreateForm({
             </label>
             <label className="grid gap-2 text-sm text-[var(--text-secondary)]">
               <span>{t("storagePage.form.fieldPort")}</span>
-              <input name="port" type="number" min={1} max={65535} defaultValue={22} className="rounded-2xl border border-[var(--border)] bg-[var(--input-bg)] px-4 py-3 text-[var(--text-primary)]" />
+              <input name="port" type="number" min={1} max={65535} defaultValue={22} className={UI_INPUT} />
             </label>
             <label className="grid gap-2 text-sm text-[var(--text-secondary)]">
               <span>{t("storagePage.form.fieldUsername")}</span>
-              <input name="username" defaultValue="root" className="rounded-2xl border border-[var(--border)] bg-[var(--input-bg)] px-4 py-3 text-[var(--text-primary)]" />
+              <input name="username" defaultValue="root" className={UI_INPUT} />
             </label>
             <label className="grid gap-2 text-sm text-[var(--text-secondary)] md:col-span-2">
               <span>{t("storagePage.form.fieldAccessMode")}</span>
-              <select name="directAccessMode" defaultValue="PROXY" className="rounded-2xl border border-[var(--border)] bg-[var(--input-bg)] px-4 py-3 text-[var(--text-primary)]">
+              <select name="directAccessMode" defaultValue="PROXY" className={UI_INPUT}>
                 <option value="PROXY">{t("storagePage.form.accessModeProxy")}</option>
                 <option value="DIRECT">{t("storagePage.form.accessModeDirect")}</option>
                 <option value="AUTO">{t("storagePage.form.accessModeAuto")}</option>
@@ -81,11 +82,11 @@ export function StorageNodeCreateForm({
             </label>
             <label className="grid gap-2 text-sm text-[var(--text-secondary)]">
               <span>{t("storagePage.form.fieldPublicBaseUrl")}</span>
-              <input name="publicBaseUrl" type="url" className="rounded-2xl border border-[var(--border)] bg-[var(--input-bg)] px-4 py-3 text-[var(--text-primary)]" placeholder={t("storagePage.form.publicBaseUrlPlaceholder")} />
+              <input name="publicBaseUrl" type="url" className={UI_INPUT} placeholder={t("storagePage.form.publicBaseUrlPlaceholder")} />
             </label>
             <label className="grid gap-2 text-sm text-[var(--text-secondary)]">
               <span>{t("storagePage.form.fieldDirectExpiresSeconds")}</span>
-              <input name="directAccessExpiresSeconds" type="number" min={60} max={86400} defaultValue={300} className="rounded-2xl border border-[var(--border)] bg-[var(--input-bg)] px-4 py-3 text-[var(--text-primary)]" />
+              <input name="directAccessExpiresSeconds" type="number" min={60} max={86400} defaultValue={300} className={UI_INPUT} />
             </label>
           </>
         ) : null}

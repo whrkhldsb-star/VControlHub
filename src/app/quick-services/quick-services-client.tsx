@@ -59,7 +59,7 @@ export function QuickServicesClient({ canManage }: { canManage: boolean }) {
 	const openInstallDialog = (item: CatalogItem) => {
 		if (dockerStatus && !dockerStatus.available) {
 			actions.showMessage({
-				type: "err",
+				type:"err",
 				text: dockerStatus.installHint
 					? t("qsPage.dockerMessage").replace("{message}", dockerStatus.message ?? "").replace("{hint}", dockerStatus.installHint)
 					: (dockerStatus.message ?? t("qsPage.dockerUnavailable")),
@@ -76,19 +76,19 @@ export function QuickServicesClient({ canManage }: { canManage: boolean }) {
 	const advanceInstall = (input: { slug: string; name: string; port: number }) => {
 		const item = [...catalog, ...remoteCatalog].find((candidate) => candidate.slug === input.slug);
 		if (!item) {
-			actions.showMessage({ type: "err", text: t("qsPage.installConfigMissing") });
+			actions.showMessage({ type:"err", text: t("qsPage.installConfigMissing") });
 			return;
 		}
-		setConfigPreview({ action: "install", item, port: input.port });
+		setConfigPreview({ action:"install", item, port: input.port });
 	};
 
 	const requestUpdate = (item: CatalogItem) => {
-		setConfigPreview({ action: "update", item, port: item.port ?? item.defaultPort });
+		setConfigPreview({ action:"update", item, port: item.port ?? item.defaultPort });
 	};
 
 	const confirmConfigPreview = () => {
 		if (!configPreview) return;
-		if (configPreview.action === "install") {
+		if (configPreview.action ==="install") {
 			// Mirror the original doInstall side effects: clear the dialog
 			// and the preview state, then run the network call through
 			// the hook so actionSlug / message state stay coherent.
@@ -100,7 +100,7 @@ export function QuickServicesClient({ canManage }: { canManage: boolean }) {
 		}
 		const target = configPreview.item;
 		setConfigPreview(null);
-		actions.doAction(target.slug, "update");
+		actions.doAction(target.slug,"update");
 	};
 
 	const requestUninstall = (item: CatalogItem) => {
@@ -141,19 +141,19 @@ export function QuickServicesClient({ canManage }: { canManage: boolean }) {
 		defaultPort: item.defaultPort,
 		browserHost: hostName,
 		configuredHost: quickServicePublicHost,
-		protocol: typeof window !== "undefined" ? window.location.protocol : null,
+		protocol: typeof window !=="undefined" ? window.location.protocol : null,
 		path: item.path,
 	});
 	const accessHostLabel = quickServicePublicHost || hostName || t("qsPage.currentHost");
-	const staleSources = sources.filter((source) => source.enabled && source.lastSyncStatus !== "success");
+	const staleSources = sources.filter((source) => source.enabled && source.lastSyncStatus !=="success");
 	const lastSyncedSource = sources
 		.filter((source) => source.lastSyncAt)
 		.sort((a, b) => new Date(b.lastSyncAt ?? 0).getTime() - new Date(a.lastSyncAt ?? 0).getTime())[0];
 	const nextAction = errorItems.length > 0
-		? { label: t("qsPage.viewErrorServices"), tab: "installed" as Tab, tone: "rose" }
+		? { label: t("qsPage.viewErrorServices"), tab:"installed" as Tab, tone:"rose" }
 		: runningItems.length > 0
-			? { label: t("qsPage.manageRunningServices"), tab: "installed" as Tab, tone: "emerald" }
-			: { label: t("qsPage.installRecommendedServices"), tab: "store" as Tab, tone: "cyan" };
+			? { label: t("qsPage.manageRunningServices"), tab:"installed" as Tab, tone:"emerald" }
+			: { label: t("qsPage.installRecommendedServices"), tab:"store" as Tab, tone:"cyan" };
 
 	return (
 		<div className="space-y-6">
@@ -167,10 +167,10 @@ export function QuickServicesClient({ canManage }: { canManage: boolean }) {
 
 			{/* Message */}
 			{actions.message && (
-				<div role={actions.message.type === "ok" ? "status" : "alert"} className={`rounded-lg px-4 py-3 text-sm ${actions.message.type === "ok" ? "bg-[var(--success)]/[0.10] border border-[var(--success-border)] text-[var(--success)]" : "bg-[var(--danger)]/[0.10] border border-[var(--danger-border)] text-[var(--danger)]"}`}>
+				<div role={actions.message.type ==="ok" ?"status" :"alert"} className={`rounded-lg px-4 py-3 text-sm ${actions.message.type ==="ok" ?"bg-[var(--success)]/[0.10] border border-[var(--success-border)] text-[var(--success)]" :"bg-[var(--danger)]/[0.10] border border-[var(--danger-border)] text-[var(--danger)]"}`}>
 					<span>{actions.message.text}</span>
 					{actions.message.taskId ? (
-						<Link href="/operation-tasks" className="ml-3 inline-flex rounded-lg border border-current/30 px-2 py-1 text-xs font-semibold hover:bg-[var(--surface)]/10 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-current">
+						<Link href="/operation-tasks" className="ml-3 inline-flex rounded-lg border border-current/30 px-2 py-1 text-xs font-semibold hover:bg-[var(--surface-subtle)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-current">
 							{t("qsPage.viewTaskCenter")}
 						</Link>
 					) : null}
@@ -185,15 +185,15 @@ export function QuickServicesClient({ canManage }: { canManage: boolean }) {
 			</StatGrid>
 
 			<section className="grid gap-3 lg:grid-cols-3">
-				<div className="rounded-2xl border border-[var(--border)] bg-[var(--surface)]/[0.025] p-4">
+				<div className="rounded-2xl border border-[var(--border)] bg-[var(--surface-elevated)] p-4">
 					<div className="flex items-start justify-between gap-3">
 						<div>
 							<p className="text-xs uppercase tracking-[0.2em] text-[var(--text-muted)]">{t("qsPage.runningOverview")}</p>
 							<h2 className="mt-1 text-base font-semibold text-[var(--text-primary)]">{runningItems.length > 0 ? t("qsPage.runningOnlineCount").replace("{count}", String(runningItems.length)) : t("qsPage.noRunningServicesYet")}</h2>
 							</div>
 							<button type="button" onClick={() => setTab(nextAction.tab)}
-							data-tone={nextAction.tone === "rose" ? "rose" : nextAction.tone === "emerald" ? "emerald" : "cyan"}
-							className={`rounded-full border px-3 py-1.5 text-xs transition ${nextAction.tone === "rose" ? "border-[var(--danger-border)] text-[var(--danger)] hover:bg-[var(--danger-bg)]" : nextAction.tone === "emerald" ? "border-[var(--success-border)] text-[var(--success)] hover:bg-[var(--success-bg)]" : "border-[var(--accent-border)] text-[var(--accent)] hover:bg-[var(--accent-bg)]"}`}
+							data-tone={nextAction.tone ==="rose" ?"rose" : nextAction.tone ==="emerald" ?"emerald" :"cyan"}
+							className={`rounded-full border px-3 py-1.5 text-xs transition ${nextAction.tone ==="rose" ?"border-[var(--danger-border)] text-[var(--danger)] hover:bg-[var(--danger-bg)]" : nextAction.tone ==="emerald" ?"border-[var(--success-border)] text-[var(--success)] hover:bg-[var(--success-bg)]" :"border-[var(--accent-border)] text-[var(--accent)] hover:bg-[var(--accent-bg)]"}`}
 						>
 							{nextAction.label}
 						</button>
@@ -227,7 +227,7 @@ export function QuickServicesClient({ canManage }: { canManage: boolean }) {
 						{runningItems.length === 0 && <p className="text-sm text-[var(--text-muted)]">{t("qsPage.recommendedHint")}</p>}
 					</div>
 				</div>
-				<div className="rounded-2xl border border-[var(--border)] bg-[var(--surface)]/[0.025] p-4">
+				<div className="rounded-2xl border border-[var(--border)] bg-[var(--surface-elevated)] p-4">
 					<p className="text-xs uppercase tracking-[0.2em] text-[var(--text-muted)]">{t("qsPage.portsLabel")}</p>
 					<h3 className="mt-1 text-base font-semibold text-[var(--text-primary)]">{t("qsPage.listeningPortsCount").replace("{count}", String(usedPorts.length))}</h3>
 					<p className="mt-2 text-sm leading-6 text-[var(--text-muted)]">{t("qsPage.portsHint")}</p>
@@ -235,11 +235,11 @@ export function QuickServicesClient({ canManage }: { canManage: boolean }) {
 						{usedPorts.slice(0, 8).map((port) => <span key={port} className="rounded-lg border border-[var(--border)] px-2 py-0.5 text-[10px] text-[var(--text-muted)]">{port}</span>)}
 					</div>
 				</div>
-				<div className="rounded-2xl border border-[var(--border)] bg-[var(--surface)]/[0.025] p-4">
+				<div className="rounded-2xl border border-[var(--border)] bg-[var(--surface-elevated)] p-4">
 					<p className="text-xs uppercase tracking-[0.2em] text-[var(--text-muted)]">{t("qsPage.sourcesLabel")}</p>
 					<h3 className="mt-1 text-base font-semibold text-[var(--text-primary)]">{t("qsPage.sourcesEnabledCount").replace("{enabled}", String(sources.filter((s) => s.enabled).length)).replace("{total}", String(sources.length))}</h3>
 					<p className="mt-2 text-sm leading-6 text-[var(--text-muted)]">{lastSyncedSource ? t("qsPage.lastSynced").replace("{name}", lastSyncedSource.displayName) : t("qsPage.noSyncRecord")}</p>
-					<button type="button" onClick={() => setTab("sources")} className={`mt-3 rounded-lg border px-3 py-1.5 text-xs transition ${staleSources.length > 0 ? "border-[var(--warning-border)] bg-[var(--warning-bg)] text-[var(--warning)] hover:bg-[var(--warning-bg)]" : "border-[var(--border)] text-[var(--text-secondary)] hover:bg-[var(--surface)]/[0.10]"}`}>
+					<button type="button" onClick={() => setTab("sources")} className={`mt-3 rounded-lg border px-3 py-1.5 text-xs transition ${staleSources.length > 0 ?"border-[var(--warning-border)] bg-[var(--warning-bg)] text-[var(--warning)] hover:bg-[var(--warning-bg)]" :"border-[var(--border)] text-[var(--text-secondary)] hover:bg-[var(--surface-hover)]"}`}>
 						{staleSources.length > 0 ? t("qsPage.handleStaleSources").replace("{count}", String(staleSources.length)) : t("qsPage.manageSources")}
 					</button>
 				</div>
@@ -269,7 +269,7 @@ export function QuickServicesClient({ canManage }: { canManage: boolean }) {
 				</div>
 			</Toolbar>
 
-			{tab === "store" && !search && recommendedItems.length > 0 && (
+			{tab ==="store" && !search && recommendedItems.length > 0 && (
 				<section data-tone="cyan" className="space-y-3 rounded-2xl border border-[var(--color-action-border)]/20 p-4">
 					<div className="flex items-center justify-between gap-3">
 						<div>
@@ -286,10 +286,10 @@ export function QuickServicesClient({ canManage }: { canManage: boolean }) {
 								tab="store"
 								busy={actions.actionSlug === item.slug}
 								onInstall={() => openInstallDialog(item)}
-								onStart={() => actions.doAction(item.slug, "start")}
-								onStop={() => actions.doAction(item.slug, "stop")}
+								onStart={() => actions.doAction(item.slug,"start")}
+								onStop={() => actions.doAction(item.slug,"stop")}
 								onUpdate={() => requestUpdate(item)}
-								onSync={() => actions.doAction(item.slug, "sync")}
+								onSync={() => actions.doAction(item.slug,"sync")}
 								onUninstall={() => requestUninstall(item)}
 								publicHost={quickServicePublicHost}
 							/>
@@ -329,14 +329,14 @@ export function QuickServicesClient({ canManage }: { canManage: boolean }) {
 				value={tab}
 				onChange={(value) => setTab(value as Tab)}
 				items={[
-					{ id: "store", label: t("qsPage.tabStore").replace("{count}", String(localAvailable.length)) },
-					{ id: "community", label: t("qsPage.tabCommunity").replace("{count}", String(remoteAvailable.length)) },
-					{ id: "installed", label: t("qsPage.tabInstalled").replace("{count}", String(installed.length)) },
-					{ id: "sources", label: t("qsPage.tabSources").replace("{count}", String(sources.length)) },
+					{ id:"store", label: t("qsPage.tabStore").replace("{count}", String(localAvailable.length)) },
+					{ id:"community", label: t("qsPage.tabCommunity").replace("{count}", String(remoteAvailable.length)) },
+					{ id:"installed", label: t("qsPage.tabInstalled").replace("{count}", String(installed.length)) },
+					{ id:"sources", label: t("qsPage.tabSources").replace("{count}", String(sources.length)) },
 				]}
 			/>
 			{/* Sources management tab (extracted to <SourcesPanel /> in TR-036 T37) */}
-			{tab === "sources" && (
+			{tab ==="sources" && (
 				<SourcesPanel
 					sources={sources}
 					actions={{
@@ -350,7 +350,7 @@ export function QuickServicesClient({ canManage }: { canManage: boolean }) {
 			)}
 
 			{/* Store / Community / Installed content */}
-			{tab !== "sources" && CATEGORY_ORDER.map((cat) => {
+			{tab !=="sources" && CATEGORY_ORDER.map((cat) => {
 				const items = grouped[cat]!;
 				if (items.length === 0) return null;
 				return (
@@ -361,13 +361,13 @@ export function QuickServicesClient({ canManage }: { canManage: boolean }) {
 								<ServiceCard
 									key={item.slug}
 									item={item}
-									tab={tab === "community" ? "store" : tab}
+									tab={tab ==="community" ?"store" : tab}
 									busy={actions.actionSlug === item.slug}
 									onInstall={() => openInstallDialog(item)}
-									onStart={() => actions.doAction(item.slug, "start")}
-									onStop={() => actions.doAction(item.slug, "stop")}
+									onStart={() => actions.doAction(item.slug,"start")}
+									onStop={() => actions.doAction(item.slug,"stop")}
 									onUpdate={() => requestUpdate(item)}
-									onSync={() => actions.doAction(item.slug, "sync")}
+									onSync={() => actions.doAction(item.slug,"sync")}
 									onUninstall={() => requestUninstall(item)}
 									publicHost={quickServicePublicHost}
 								/>
@@ -377,17 +377,17 @@ export function QuickServicesClient({ canManage }: { canManage: boolean }) {
 				);
 			})}
 
-			{tab === "installed" && installed.length === 0 && (
+			{tab ==="installed" && installed.length === 0 && (
 				<EmptyState icon="📦" variant="boxed">
 					{t("qsPage.emptyInstalled")}
 				</EmptyState>
 			)}
-			{tab === "store" && localAvailable.length === 0 && (
+			{tab ==="store" && localAvailable.length === 0 && (
 				<EmptyState icon="✅" variant="boxed">
 					{t("qsPage.emptyStore")}
 				</EmptyState>
 			)}
-			{tab === "community" && remoteAvailable.length === 0 && (
+			{tab ==="community" && remoteAvailable.length === 0 && (
 				<EmptyState icon="🌐" variant="boxed">
 					{sources.some((s) => s.enabled) ? t("qsPage.emptyCommunityAllInstalled") : t("qsPage.emptyCommunityHint")}
 				</EmptyState>

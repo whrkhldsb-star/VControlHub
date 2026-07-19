@@ -46,8 +46,8 @@ export function MediaItemCard({
     setMutationError(null);
     try {
       await csrfFetch(`/api/media/${item.id}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
+        method:"PATCH",
+        headers: {"Content-Type":"application/json" },
         body: JSON.stringify({ favorite: next }),
       });
     } catch (error) {
@@ -67,8 +67,8 @@ export function MediaItemCard({
     setMutationError(null);
     try {
       await csrfFetch(`/api/media/${item.id}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
+        method:"PATCH",
+        headers: {"Content-Type":"application/json" },
         body: JSON.stringify({ tags: next }),
       });
     } catch (error) {
@@ -84,8 +84,8 @@ export function MediaItemCard({
     setMutationError(null);
     try {
       await csrfFetch(`/api/media/${item.id}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
+        method:"PATCH",
+        headers: {"Content-Type":"application/json" },
         body: JSON.stringify({ tags: next }),
       });
     } catch (error) {
@@ -95,15 +95,14 @@ export function MediaItemCard({
   };
 
   const publishAsImageBed = async () => {
-    if (!item.storageNode || item.mediaType !== "image") return;
+    if (!item.storageNode || item.mediaType !=="image") return;
     setPublishing(true);
     setPublishError(null);
     try {
-      const result = await csrfFetch<{ publicUrl?: string }>(
-        "/api/images/publish-from-storage",
+      const result = await csrfFetch<{ publicUrl?: string }>("/api/images/publish-from-storage",
         {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
+          method:"POST",
+          headers: {"Content-Type":"application/json" },
           body: JSON.stringify({
             storageNodeId: item.storageNode.id,
             relativePath: item.relativePath,
@@ -127,17 +126,17 @@ export function MediaItemCard({
   const { previewHref, downloadHref, sourceHref } = buildMediaLinks(item, t);
 
   return (
-    <div className="group overflow-hidden rounded-2xl border border-[var(--border)]/[0.07] bg-[var(--surface-elevated)] p-3 transition hover:-translate-y-0.5 hover:border-[var(--color-action-border)]/25 hover:bg-[var(--surface)]/[0.045] light:shadow-sm light:hover:border-[var(--color-action-border)] light:hover:shadow-md">
+    <div className="group overflow-hidden rounded-2xl border border-[var(--border)]/[0.07] bg-[var(--surface-elevated)] p-3 transition hover:-translate-y-0.5 hover:border-[var(--color-action-border)]/25 hover:bg-[var(--surface-hover)] light:shadow-sm light:hover:border-[var(--color-action-border)] light:hover:shadow-md">
       <MediaCover item={item} sourceHref={previewHref} t={t} />
       <div className="mt-3 flex items-start justify-between gap-2">
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-1.5">
             <span>
-              {item.mediaType === "image"
-                ? "🖼"
-                : item.mediaType === "audio"
-                  ? "🎵"
-                  : "🎬"}
+              {item.mediaType ==="image"
+                ?"🖼"
+                : item.mediaType ==="audio"
+                  ?"🎵"
+                  :"🎬"}
             </span>
             <span
               className="truncate text-sm font-medium text-[var(--text-primary)]"
@@ -165,14 +164,14 @@ export function MediaItemCard({
                 ? t("mediaItemCard.favoriteRemove")
                 : t("mediaItemCard.favoriteAdd")
             }
-            className={`shrink-0 rounded p-1 transition min-h-11 min-w-11 ${fav ? "text-[var(--warning)] hover:text-[var(--warning)]" : "text-[var(--text-muted)] hover:text-[var(--warning)] opacity-100 sm:opacity-0 sm:group-hover:opacity-100 sm:group-focus-within:opacity-100"}`}
+            className={`shrink-0 rounded p-1 transition min-h-11 min-w-11 ${fav ?"text-[var(--warning)] hover:text-[var(--warning)]" :"text-[var(--text-muted)] hover:text-[var(--warning)] opacity-100 sm:opacity-0 sm:group-hover:opacity-100 sm:group-focus-within:opacity-100"}`}
             title={
               fav
                 ? t("mediaItemCard.favoriteRemove")
                 : t("mediaItemCard.favoriteAdd")
             }
           >
-            <Star size={16} fill={fav ? "currentColor" : "none"} />
+            <Star size={16} fill={fav ?"currentColor" :"none"} />
           </button>
         )}
         {!canManage && fav && (
@@ -192,7 +191,7 @@ export function MediaItemCard({
         {downloadHref ? (
           <a
             href={downloadHref}
-            className="inline-flex items-center gap-1 rounded-lg border border-[var(--border)]/10 px-2.5 py-1.5 text-[var(--text-secondary)] hover:bg-[var(--surface)]/10 light:hover:bg-[var(--surface)]"
+            className="inline-flex items-center gap-1 rounded-lg border border-[var(--border)]/10 px-2.5 py-1.5 text-[var(--text-secondary)] hover:bg-[var(--surface-subtle)] light:hover:bg-[var(--surface)]"
           >
             <Download size={13} /> {t("mediaItemCard.downloadButton")}
           </a>
@@ -200,12 +199,12 @@ export function MediaItemCard({
         {sourceHref ? (
           <a
             href={sourceHref}
-            className="inline-flex items-center gap-1 rounded-lg border border-[var(--border)]/10 px-2.5 py-1.5 text-[var(--text-secondary)] hover:bg-[var(--surface)]/10 light:hover:bg-[var(--surface)]"
+            className="inline-flex items-center gap-1 rounded-lg border border-[var(--border)]/10 px-2.5 py-1.5 text-[var(--text-secondary)] hover:bg-[var(--surface-subtle)] light:hover:bg-[var(--surface)]"
           >
             <FolderOpen size={13} /> {t("mediaItemCard.sourceFileButton")}
           </a>
         ) : null}
-        {canManage && item.mediaType === "image" && item.storageNode ? (
+        {canManage && item.mediaType ==="image" && item.storageNode ? (
           <button
             type="button"
             onClick={() => void publishAsImageBed()}
@@ -278,8 +277,8 @@ export function MediaItemCard({
               aria-label={t("mediaItemCard.newTagAriaLabel")}
               onChange={(e) => setNewTag(e.target.value)}
               onKeyDown={(e) => {
-                if (e.key === "Enter") void addTag();
-                if (e.key === "Escape") setShowTagInput(false);
+                if (e.key ==="Enter") void addTag();
+                if (e.key ==="Escape") setShowTagInput(false);
               }}
               onBlur={() => {
                 if (newTag.trim()) void addTag();

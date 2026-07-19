@@ -1,9 +1,9 @@
 /**
- * Dynamic wrapper around `FileMoreActions` (the "更多" details/summary
+ * Dynamic wrapper around `FileMoreActions` (the"更多" details/summary
  * dropdown that hosts secondary entry actions: share / rename / move /
  * delete).
  *
- * TR-036 (T36b): The "更多操作" menu is only opened when the user
+ * TR-036 (T36b): The"更多操作" menu is only opened when the user
  * actually expands the <details> summary, and most of the time the
  * menu sits collapsed. Routing the surrounding `details` markup through
  * `next/dynamic` defers the `ShareFileButton` / `RenameInlineForm` /
@@ -18,8 +18,7 @@
  * Prop types via `ComponentProps<typeof import(...)>` — TS-only
  * construct that webpack does not follow, so the real component is
  * NOT pulled back into the parent chunk.
- */
-"use client";
+ */"use client";
 
 import dynamic from "next/dynamic";
 import type { ComponentProps, ComponentType } from "react";
@@ -34,8 +33,8 @@ function FileMoreActionsStub({ compact = false }: { compact?: boolean }) {
       aria-hidden
       className={
         compact
-          ? "inline-flex h-8 w-8 items-center justify-center rounded-lg border border-[var(--border)] bg-[var(--surface)]/10 text-[var(--text-muted)]"
-          : "inline-flex items-center gap-1.5 rounded-lg border border-[var(--border)] bg-[var(--surface)]/10 px-2.5 py-1.5 text-xs text-[var(--text-muted)]"
+          ?"inline-flex h-8 w-8 items-center justify-center rounded-lg border border-[var(--border)] bg-[var(--surface-subtle)] text-[var(--text-muted)]"
+          :"inline-flex items-center gap-1.5 rounded-lg border border-[var(--border)] bg-[var(--surface-subtle)] px-2.5 py-1.5 text-xs text-[var(--text-muted)]"
       }
     >
       ⋯

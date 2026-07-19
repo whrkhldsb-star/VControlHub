@@ -6,6 +6,8 @@ import { csrfFetch } from "@/lib/auth/csrf-client";
 import { useI18n } from "@/lib/i18n/use-locale";
 import { useToast } from "@/components/toast-provider";
 import type { Locale } from "@/lib/i18n/translations";
+import { UI_INPUT } from "@/lib/ui/classes";
+import { cn } from "@/lib/ui/cn";
 
 type Props = { locale?: Locale; servers?: { id: string; name: string; host: string }[] };
 
@@ -21,8 +23,8 @@ export function CreateTicketForm({ locale: _locale, servers = [] }: Props = {}) 
 		if (!title || !description) return { error: t("ticketsPage.form.error.empty") };
 		try {
 			await csrfFetch("/api/tickets", {
-				method: "POST",
-				headers: { "Content-Type": "application/json" },
+				method:"POST",
+				headers: {"Content-Type":"application/json" },
 				body: JSON.stringify({ subject: title, description, priority, category, relatedServerId: String(formData.get("relatedServerId") ?? "") || undefined }),
 			});
 			router.refresh();
@@ -62,7 +64,7 @@ export function CreateTicketForm({ locale: _locale, servers = [] }: Props = {}) 
 						name="subject"
 						required
 						placeholder={t("ticketsPage.form.subject")}
-						className="rounded-xl border border-[var(--border)] bg-[var(--input-bg)] px-3 py-2.5 text-sm text-[var(--text-primary)] placeholder:text-[var(--text-muted)]"
+						className={UI_INPUT}
 					/>
 				</label>
 				<label className="grid gap-1.5 text-xs font-medium text-[var(--text-secondary)]">
@@ -70,7 +72,7 @@ export function CreateTicketForm({ locale: _locale, servers = [] }: Props = {}) 
 					<select
 						name="category"
 						defaultValue="request"
-						className="rounded-xl border border-[var(--border)] bg-[var(--input-bg)] px-3 py-2.5 text-sm text-[var(--text-primary)]"
+						className={UI_INPUT}
 					>
 						<option value="incident">{t("ticketsPage.category.incident")}</option>
 						<option value="request">{t("ticketsPage.category.request")}</option>
@@ -83,7 +85,7 @@ export function CreateTicketForm({ locale: _locale, servers = [] }: Props = {}) 
 					<select
 						name="priority"
 						defaultValue="NORMAL"
-						className="rounded-xl border border-[var(--border)] bg-[var(--input-bg)] px-3 py-2.5 text-sm text-[var(--text-primary)]"
+						className={UI_INPUT}
 					>
 						<option value="LOW">{t("ticketsPage.priority.LOW")}</option>
 						<option value="NORMAL">{t("ticketsPage.priority.NORMAL")}</option>
@@ -98,7 +100,7 @@ export function CreateTicketForm({ locale: _locale, servers = [] }: Props = {}) 
 					<select
 						name="relatedServerId"
 						defaultValue=""
-						className="rounded-xl border border-[var(--border)] bg-[var(--input-bg)] px-3 py-2.5 text-sm text-[var(--text-primary)]"
+						className={UI_INPUT}
 					>
 						<option value="">{t("ticketsPage.form.noRelatedServer")}</option>
 						{servers.map((s) => (
@@ -114,7 +116,7 @@ export function CreateTicketForm({ locale: _locale, servers = [] }: Props = {}) 
 					required
 					rows={4}
 					placeholder={t("ticketsPage.form.description")}
-					className="resize-y rounded-xl border border-[var(--border)] bg-[var(--input-bg)] px-3 py-2.5 text-sm text-[var(--text-primary)] placeholder:text-[var(--text-muted)]"
+					className={cn(UI_INPUT,"min-h-[6rem] resize-y")}
 				/>
 			</label>
 			<button

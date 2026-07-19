@@ -14,6 +14,7 @@ import {
   type UploadMessage,
   type UploadQueueItem,
 } from "./file-upload-helpers";
+import { UI_INPUT } from "@/lib/ui/classes";
 import {
   STORAGE_CHUNKED_THRESHOLD_BYTES,
   uploadStorageFileChunked,
@@ -51,7 +52,7 @@ export function FileUploadDropzone({
   const directoryInputRef = useRef<HTMLInputElement | null>(null);
   const [selectedNodeId, setSelectedNodeId] = useState(
     initialNodeId ??
-      nodes.find((node) => node.driver === "LOCAL")?.id ??
+      nodes.find((node) => node.driver ==="LOCAL")?.id ??
       DEFAULT_NODE,
   );
   const [relativeDir, setRelativeDir] = useState(initialRelativeDir);
@@ -65,7 +66,7 @@ export function FileUploadDropzone({
     [nodes, selectedNodeId],
   );
   const uploadEnabled = selectedNode
-    ? ["LOCAL", "SFTP"].includes(selectedNode.driver)
+    ? ["LOCAL","SFTP"].includes(selectedNode.driver)
     : false;
   const uploadUnavailableHint = uploadEnabled
     ? null
@@ -81,7 +82,7 @@ export function FileUploadDropzone({
   /* eslint-disable react-hooks/set-state-in-effect */ useEffect(() => {
     const nextNodeId =
       initialNodeId ??
-      nodes.find((node) => node.driver === "LOCAL")?.id ??
+      nodes.find((node) => node.driver ==="LOCAL")?.id ??
       DEFAULT_NODE;
     setSelectedNodeId(nextNodeId);
   }, [initialNodeId, nodes]);
@@ -89,12 +90,12 @@ export function FileUploadDropzone({
     files: File[],
   ) {
     if (!selectedNodeId) {
-      setMessage({ type: "error", text: tr("fileUploadDropzone.errorNoNode") });
+      setMessage({ type:"error", text: tr("fileUploadDropzone.errorNoNode") });
       return;
     }
     if (!uploadEnabled) {
       setMessage({
-        type: "error",
+        type:"error",
         text: tr("fileUploadDropzone.errorUnsupportedNode"),
       });
       return;
@@ -104,7 +105,7 @@ export function FileUploadDropzone({
     const baseDirResult = normalizeRelativePath(effectiveRelativeDir);
     if (!baseDirResult.ok) {
       setMessage({
-        type: "error",
+        type:"error",
         text: pathErrorMessage(baseDirResult.reason),
       });
       setSubmitting(false);
@@ -116,7 +117,7 @@ export function FileUploadDropzone({
     setQueue(
       uploadItems.map((file) => ({
         name: getUploadDisplayPath(file),
-        status: "pending",
+        status:"pending",
         message: tr("fileUploadDropzone.queue.pending"),
       })),
     );
@@ -134,7 +135,7 @@ export function FileUploadDropzone({
             i === index
               ? {
                   ...item,
-                  status: "error",
+                  status:"error",
                   message: formatMessage("fileUploadDropzone.queue.failed", {
                     message: pathErrorMessage(itemPathResult.reason),
                   }),
@@ -152,7 +153,7 @@ export function FileUploadDropzone({
           i === index
             ? {
                 ...item,
-                status: "uploading",
+                status:"uploading",
                 message: tr("fileUploadDropzone.queue.uploading"),
               }
             : item,
@@ -172,7 +173,7 @@ export function FileUploadDropzone({
                   i === index
                     ? {
                         ...item,
-                        status: "uploading",
+                        status:"uploading",
                         message: `${tr("fileUploadDropzone.queue.uploading")} ${progress.percent}%`,
                       }
                     : item,
@@ -188,7 +189,7 @@ export function FileUploadDropzone({
           formData.set("relativePath", relativePath);
           formData.set("file", file!);
           const data = (await csrfFetch("/api/storage/local", {
-            method: "POST",
+            method:"POST",
             body: formData,
           })) as { error?: string; relativePath?: string; size?: number };
           uploadedPath = data.relativePath ?? relativePath;
@@ -200,7 +201,7 @@ export function FileUploadDropzone({
             i === index
               ? {
                   ...item,
-                  status: "success",
+                  status:"success",
                   message: formatMessage("fileUploadDropzone.queue.completed", {
                     path: uploadedPath,
                   }),
@@ -223,7 +224,7 @@ export function FileUploadDropzone({
             i === index
               ? {
                   ...item,
-                  status: "error",
+                  status:"error",
                   message: formatMessage("fileUploadDropzone.queue.failed", {
                     message: errorMessage,
                   }),
@@ -236,7 +237,7 @@ export function FileUploadDropzone({
     const total = uploadItems.length;
     if (total === 1 && successCount === 1) {
       setMessage({
-        type: "success",
+        type:"success",
         text: formatMessage("fileUploadDropzone.summary.singleSuccess", {
           path: [baseDir, uploadItems[0]!.name].filter(Boolean).join("/"),
           size: uploadItems[0]!.size,
@@ -244,7 +245,7 @@ export function FileUploadDropzone({
       });
     } else if (failureCount === 0) {
       setMessage({
-        type: "success",
+        type:"success",
         text: formatMessage("fileUploadDropzone.summary.allSuccess", {
           success: successCount,
           total,
@@ -254,7 +255,7 @@ export function FileUploadDropzone({
       // Partial batch: some files failed — must not use success tone/type or
       // callers/tests treating message.type==="success" as all-good will lie.
       setMessage({
-        type: "error",
+        type:"error",
         text: formatMessage("fileUploadDropzone.summary.partialSuccess", {
           success: successCount,
           total,
@@ -263,7 +264,7 @@ export function FileUploadDropzone({
       });
     } else {
       setMessage({
-        type: "error",
+        type:"error",
         text: formatMessage("fileUploadDropzone.summary.failed", {
           failure: failureCount,
           total,
@@ -294,76 +295,76 @@ export function FileUploadDropzone({
   }
   return (
     <section className="rounded-3xl border border-[var(--border)] bg-[var(--surface)] p-6">
-      {" "}
+      
       <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
-        {" "}
+        
         <div>
-          {" "}
+          
           <h2 className="text-2xl font-semibold text-[var(--text-primary)]">
             {title}
-          </h2>{" "}
+          </h2>
           <p className="text-sm text-[var(--text-secondary)]">
             {description}
-          </p>{" "}
-        </div>{" "}
-      </div>{" "}
+          </p>
+        </div>
+      </div>
       <div
-        className={`mt-5 grid gap-4 ${allowNodeSelection ? "md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]" : "md:grid-cols-1"}`}
+        className={`mt-5 grid gap-4 ${allowNodeSelection ?"md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]" :"md:grid-cols-1"}`}
       >
-        {" "}
+        
         {allowNodeSelection ? (
           <label className="grid gap-2 text-sm text-[var(--text-secondary)]">
-            {" "}
-            <span>{tr("fileUploadDropzone.uploadToNode")}</span>{" "}
+            
+            <span>{tr("fileUploadDropzone.uploadToNode")}</span>
             <select
               aria-label={tr("fileUploadDropzone.uploadToNode")}
               value={selectedNodeId}
               onChange={(event) => setSelectedNodeId(event.currentTarget.value)}
-              className="rounded-2xl border border-[var(--border)] bg-[var(--input-bg)] px-4 py-3 text-[var(--text-primary)]"
+              className={UI_INPUT}
             >
-              {" "}
+              
               <option value="">
-                {" "}
-                {tr("fileUploadDropzone.selectStorageNode")}{" "}
-              </option>{" "}
+                
+                {tr("fileUploadDropzone.selectStorageNode")}
+              </option>
               {nodes.map((node) => (
                 <option key={node.id} value={node.id}>
-                  {" "}
-                  {node.name} · {node.driver}{" "}
+                  
+                  {node.name} · {node.driver}
                 </option>
-              ))}{" "}
-            </select>{" "}
+              ))}
+            </select>
           </label>
-        ) : null}{" "}
+        ) : null}
         <label className="grid gap-2 text-sm text-[var(--text-secondary)]">
-          {" "}
-          <span>{pathLabel}</span>{" "}
+          
+          <span>{pathLabel}</span>
           <input
             aria-label={pathLabel}
             value={effectiveRelativeDir}
             readOnly={uploadDir !== undefined || !allowNodeSelection}
             onChange={(event) => setRelativeDir(event.currentTarget.value)}
-            className="rounded-2xl border border-[var(--border)] bg-[var(--input-bg)] px-4 py-3 text-[var(--text-primary)] read-only:cursor-not-allowed read-only:opacity-80"
+            className={`${UI_INPUT} read-only:cursor-not-allowed read-only:opacity-80`}
             placeholder={tr("fileUploadDropzone.pathPlaceholder")}
-          />{" "}
-        </label>{" "}
-      </div>{" "}
+          />
+        </label>
+      </div>
       <input
         ref={inputRef}
         type="file"
         multiple
         className="hidden"
         onChange={handleInputChange}
-      />{" "}
+      />
       <input
         ref={directoryInputRef}
         type="file"
         multiple
         className="hidden"
         aria-label={tr("fileUploadDropzone.selectFolderAriaLabel")}
-        {...({ webkitdirectory: "", directory: "" } as Record<string, string>)}
+        {...({ webkitdirectory:"", directory:"" } as Record<string, string>)}
         onChange={handleInputChange}
-      />{" "}
+      />
       <button
         type="button"
         aria-label={submitLabel}
@@ -380,21 +381,21 @@ export function FileUploadDropzone({
         }}
         onDrop={handleDrop}
         disabled={!uploadEnabled || submitting}
-        className={`mt-5 flex min-h-40 w-full flex-col items-center justify-center rounded-3xl border border-dashed px-6 py-8 text-center transition ${uploadEnabled ? (dragActive ? "border-[var(--color-action-border)] bg-[var(--color-action-bg)] text-[var(--color-action)]" : "border-[var(--border)] bg-[var(--surface-hover)] text-[var(--text-primary)] hover:border-[var(--color-action)]/50") : "cursor-not-allowed border-[var(--border)] bg-[var(--surface-subtle)] text-[var(--text-muted)]"}`}
+        className={`mt-5 flex min-h-40 w-full flex-col items-center justify-center rounded-3xl border border-dashed px-6 py-8 text-center transition ${uploadEnabled ? (dragActive ?"border-[var(--color-action-border)] bg-[var(--color-action-bg)] text-[var(--color-action)]" :"border-[var(--border)] bg-[var(--surface-hover)] text-[var(--text-primary)] hover:border-[var(--color-action)]/50") :"cursor-not-allowed border-[var(--border)] bg-[var(--surface-subtle)] text-[var(--text-muted)]"}`}
       >
-        {" "}
-        <span className="text-base font-medium">{submitLabel}</span>{" "}
+        
+        <span className="text-base font-medium">{submitLabel}</span>
         <span className="mt-2 text-sm text-[var(--text-secondary)]">
-          {" "}
+          
           {uploadEnabled
             ? submitting
               ? tr("fileUploadDropzone.dropzone.uploadingHint")
               : tr("fileUploadDropzone.dropzone.readyHint")
-            : uploadUnavailableHint}{" "}
-        </span>{" "}
-      </button>{" "}
+            : uploadUnavailableHint}
+        </span>
+      </button>
       <div className="mt-3 flex flex-wrap items-center gap-3 text-xs text-[var(--text-secondary)]">
-        {" "}
+        
         <button
           type="button"
           onClick={() => directoryInputRef.current?.click()}
@@ -403,50 +404,50 @@ export function FileUploadDropzone({
           data-variant="outline"
           className="rounded-full px-3 py-1.5 text-xs font-medium disabled:cursor-not-allowed disabled:opacity-50"
         >
-          {" "}
-          {tr("fileUploadDropzone.selectFolder")}{" "}
-        </button>{" "}
-        <span className="text-[var(--text-secondary)]">{tr("fileUploadDropzone.folderHelpText")}</span>{" "}
-      </div>{" "}
+          
+          {tr("fileUploadDropzone.selectFolder")}
+        </button>
+        <span className="text-[var(--text-secondary)]">{tr("fileUploadDropzone.folderHelpText")}</span>
+      </div>
       {message ? (
         <div
-          className={`mt-4 rounded-2xl border px-4 py-3 text-sm ${message.type === "success" ? "border-[var(--success-border)] bg-[var(--success-bg)] text-[var(--success)]" : "border-[var(--danger-border)] bg-[var(--danger-bg)] text-[var(--danger)]"}`}
+          className={`mt-4 rounded-2xl border px-4 py-3 text-sm ${message.type ==="success" ?"border-[var(--success-border)] bg-[var(--success-bg)] text-[var(--success)]" :"border-[var(--danger-border)] bg-[var(--danger-bg)] text-[var(--danger)]"}`}
         >
-          {" "}
-          {message.text}{" "}
+          
+          {message.text}
         </div>
-      ) : null}{" "}
+      ) : null}
       {queue.length > 0 ? (
         <div className="mt-3 space-y-1 rounded-2xl border border-[var(--border)] bg-[var(--surface-subtle)] p-3 text-xs text-[var(--text-secondary)]">
-          {" "}
+          
           {queue.map((item, index) => (
             <div
               key={`${item.name}-${index}`}
               className="flex items-center justify-between gap-3"
             >
-              {" "}
+              
               <span className="truncate">
-                {" "}
-                {item.name} · {item.message}{" "}
-              </span>{" "}
+                
+                {item.name} · {item.message}
+              </span>
               <span
                 className={
-                  item.status === "success"
-                    ? "text-[var(--success)]"
-                    : item.status === "error"
-                      ? "text-[var(--danger)]"
-                      : item.status === "uploading"
-                        ? "text-[var(--color-action-fg)]"
-                        : "text-[var(--text-muted)]"
+                  item.status ==="success"
+                    ?"text-[var(--success)]"
+                    : item.status ==="error"
+                      ?"text-[var(--danger)]"
+                      : item.status ==="uploading"
+                        ?"text-[var(--color-action)]"
+                        :"text-[var(--text-muted)]"
                 }
               >
-                {" "}
-                {tr(`fileUploadDropzone.status.${item.status}`)}{" "}
-              </span>{" "}
+                
+                {tr(`fileUploadDropzone.status.${item.status}`)}
+              </span>
             </div>
-          ))}{" "}
+          ))}
         </div>
-      ) : null}{" "}
+      ) : null}
     </section>
   );
 }

@@ -30,7 +30,7 @@ export function ShareRowActions({
 		setBusy(true);
 		setError(null);
 		try {
-			await csrfFetch(`/api/share-links?id=${encodeURIComponent(id)}`, { method: "DELETE" });
+			await csrfFetch(`/api/share-links?id=${encodeURIComponent(id)}`, { method:"DELETE" });
 			setConfirming(false);
 			router.refresh();
 		} catch (err) {
@@ -66,7 +66,7 @@ export function ShareRowActions({
 						setError(null);
 					}}
 					disabled={busy}
-					className="min-h-11 min-w-11 rounded-lg border border-[var(--border)] bg-[var(--surface)]/10 px-2.5 py-1 text-xs text-[var(--text-secondary)] transition hover:bg-[var(--surface)]/10 disabled:cursor-not-allowed disabled:opacity-50"
+					className="min-h-11 min-w-11 rounded-lg border border-[var(--border)] bg-[var(--surface-subtle)] px-2.5 py-1 text-xs text-[var(--text-secondary)] transition hover:bg-[var(--surface-subtle)] disabled:cursor-not-allowed disabled:opacity-50"
 				>
 					{t("sharesPage.rowActions.cancel")}
 				</button>
