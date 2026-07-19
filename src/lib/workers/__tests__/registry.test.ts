@@ -1,3 +1,4 @@
+/** @vitest-environment node */
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 /**
@@ -325,6 +326,7 @@ describe("worker registry", () => {
     expect(stopCommandMaintenanceWorkerForTestsMock).toHaveBeenCalledTimes(1);
     expect(stopDownloadJobWorkerForTestsMock).toHaveBeenCalledTimes(1);
     expect(stopHealthSamplingWorkerForTestsMock).toHaveBeenCalledTimes(1);
+    expect(stopTrafficSamplingWorkerForTestsMock).toHaveBeenCalledTimes(1);
     expect(stopQuickServiceJobWorkerForTestsMock).toHaveBeenCalledTimes(1);
     expect(stopScheduledTaskWorkerForTestsMock).toHaveBeenCalledTimes(1);
     expect(stopPlaybookRunWorkerForTestsMock).toHaveBeenCalledTimes(1);

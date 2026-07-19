@@ -86,7 +86,7 @@ function toView(row: {
   note: string | null;
   createdByUserId: string | null;
   createdAt: Date;
-  createdBy?: { username?: string | null; email?: string | null } | null;
+  createdBy?: { username?: string | null; displayName?: string | null } | null;
 }): FileVersionView {
   return {
     id: row.id,
@@ -101,7 +101,7 @@ function toView(row: {
     reason: row.reason,
     note: row.note,
     createdByUserId: row.createdByUserId,
-    createdByName: row.createdBy?.username || row.createdBy?.email || null,
+    createdByName: row.createdBy?.displayName || row.createdBy?.username || null,
     createdAt: row.createdAt.toISOString(),
   };
 }
@@ -282,7 +282,7 @@ export async function snapshotFileVersionBeforeOverwrite(input: {
         createdByUserId: input.userId ?? null,
       },
       include: {
-        createdBy: { select: { username: true, email: true } },
+        createdBy: { select: { username: true, displayName: true } },
       },
     });
     await enforceRetention(entry.id);
@@ -355,7 +355,7 @@ export async function createFileVersionFromBuffer(input: {
         createdByUserId: input.userId ?? null,
       },
       include: {
-        createdBy: { select: { username: true, email: true } },
+        createdBy: { select: { username: true, displayName: true } },
       },
     });
     await enforceRetention(entry.id);
@@ -383,7 +383,7 @@ export async function listFileVersions(input: {
     orderBy: { versionNumber: "desc" },
     take: limit,
     include: {
-      createdBy: { select: { username: true, email: true } },
+      createdBy: { select: { username: true, displayName: true } },
     },
   });
   return rows.map(toView);

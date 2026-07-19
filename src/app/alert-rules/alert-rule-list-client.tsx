@@ -160,6 +160,35 @@ export function AlertRuleListClient({
 		}
 	}, [addToast, refresh, t, getErrorMessage]);
 
+	const ensureDefaults = useCallback(async () => {
+		setActionError(null);
+		setTestResult(null);
+		setBusyAction("defaults");
+		try {
+			const data = await csrfFetch("/api/alert-rules", {
+				method: "PATCH",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify({ ensureDefaults: true }),
+			});
+			if (Array.isArray(data?.rules)) {
+				setRules(data.rules);
+			} else {
+				await refresh();
+			}
+			const created = Number(data?.created ?? 0);
+			addToast(
+				"success",
+				created > 0
+					? t("alertRulesPage.toast.defaultsCreated").replace("{count}", String(created))
+					: t("alertRulesPage.toast.defaultsExists"),
+			);
+		} catch (error) {
+			setActionError(getErrorMessage(error, "alertRulesPage.error.defaults"));
+		} finally {
+			setBusyAction(null);
+		}
+	}, [addToast, refresh, t, getErrorMessage]);
+
 	const testRule = useCallback(
 		async (rule: AlertRule) => {
 			setActionError(null);
@@ -291,22 +320,36 @@ export function AlertRuleListClient({
 				)}
 			</section>
 <Toolbar className="flex-wrap">
-				{canManage && !showCreate && (
-					<ActionButton type="button" variant="outline" onClick={() => setShowCreate(true)}>
-						{t("alertRulesPage.create")}
-					</ActionButton>
-				)}
 				{canManage && (
-					<ActionButton
-						type="button"
-						variant="secondary"
-						onClick={triggerNow}
-						disabled={busyAction === "trigger"}
-					>
-						{busyAction === "trigger"
-							? t("alertRulesPage.triggering")
-							: t("alertRulesPage.triggerNow")}
-					</ActionButton>
+					<>
+						{rules.length === 0 ? (
+							<ActionButton
+								type="button"
+								variant="primary"
+								onClick={() => void ensureDefaults()}
+								disabled={busyAction === "defaults"}
+							>
+								{busyAction === "defaults"
+									? t("alertRulesPage.action.processing")
+									: t("alertRulesPage.ensureDefaults")}
+							</ActionButton>
+						) : null}
+						{!showCreate && (
+							<ActionButton type="button" variant="outline" onClick={() => setShowCreate(true)}>
+								{t("alertRulesPage.create")}
+							</ActionButton>
+						)}
+						<ActionButton
+							type="button"
+							variant="secondary"
+							onClick={triggerNow}
+							disabled={busyAction === "trigger"}
+						>
+							{busyAction === "trigger"
+								? t("alertRulesPage.triggering")
+								: t("alertRulesPage.triggerNow")}
+						</ActionButton>
+					</>
 				)}
 			</Toolbar>
 
@@ -358,7 +401,27 @@ export function AlertRuleListClient({
 
 			{rules.length === 0 ? (
 				<EmptyState icon="🔔" variant="boxed">
-					{t("alertRulesPage.empty")}
+					<div className="space-y-3">
+						<p>{t("alertRulesPage.empty")}</p>
+						<p className="text-xs text-[var(--text-muted)]">{t("alertRulesPage.emptyHint")}</p>
+						{canManage ? (
+							<div className="flex flex-wrap justify-center gap-2">
+								<ActionButton
+									type="button"
+									variant="primary"
+									onClick={() => void ensureDefaults()}
+									disabled={busyAction === "defaults"}
+								>
+									{busyAction === "defaults"
+										? t("alertRulesPage.action.processing")
+										: t("alertRulesPage.ensureDefaults")}
+								</ActionButton>
+								<ActionButton type="button" variant="outline" onClick={() => setShowCreate(true)}>
+									{t("alertRulesPage.create")}
+								</ActionButton>
+							</div>
+						) : null}
+					</div>
 				</EmptyState>
 			) : (
 				<div className="space-y-3">

@@ -327,7 +327,6 @@ const VPS_BACKUP_SCHEDULE: WorkerSpec = {
   stop: () => stopVpsBackupScheduleForTests(),
 };
 
-
 const TRAFFIC_SAMPLING: WorkerSpec = {
   id: "traffic-sampling",
   label: "Background traffic sampling",

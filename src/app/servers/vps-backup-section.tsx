@@ -332,8 +332,62 @@ export function VpsBackupSection({
 				) : null}
 
 				{schedules.length === 0 ? (
-					<div className="py-2 text-xs text-[var(--text-muted)]">
-						{t("vpsBackup.noSchedules")}
+					<div className="space-y-2 py-2">
+						<div className="text-xs text-[var(--text-muted)]">
+							{t("vpsBackup.noSchedules")}
+						</div>
+						<p className="text-xs text-[var(--text-secondary)]">
+							{t("vpsBackup.emptyHint")}
+						</p>
+						{canManage ? (
+							<div className="flex flex-wrap gap-2">
+								<button
+									type="button"
+									onClick={() => {
+										setCreateForm({
+											name: t("vpsBackup.quick.nginxName"),
+											cronExpression: "0 3 * * *",
+											backupType: "nginx-config",
+											paths: "",
+											retentionDays: "7",
+										});
+										setShowCreate(true);
+									}}
+									data-action-button
+									data-variant="primary"
+									className="!px-3 !py-1.5 !text-xs"
+								>
+									{t("vpsBackup.quick.nginx")}
+								</button>
+								<button
+									type="button"
+									onClick={() => {
+										setCreateForm({
+											name: t("vpsBackup.quick.websiteName"),
+											cronExpression: "0 4 * * *",
+											backupType: "website-files",
+											paths: "",
+											retentionDays: "7",
+										});
+										setShowCreate(true);
+									}}
+									data-action-button
+									data-variant="secondary"
+									className="!px-3 !py-1.5 !text-xs"
+								>
+									{t("vpsBackup.quick.website")}
+								</button>
+								<button
+									type="button"
+									onClick={() => setShowCreate(true)}
+									data-action-button
+									data-variant="outline"
+									className="!px-3 !py-1.5 !text-xs"
+								>
+									{t("vpsBackup.addSchedule")}
+								</button>
+							</div>
+						) : null}
 					</div>
 				) : (
 					<div className="space-y-1.5">

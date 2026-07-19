@@ -4,6 +4,7 @@ const { prismaMock, createNotificationMock, fetchWebhookSafelyMock, sendAlertEma
 	prismaMock: {
 		alertRule: {
 			create: vi.fn(),
+			count: vi.fn(),
 			findMany: vi.fn(),
 			findUnique: vi.fn(),
 			update: vi.fn(),
@@ -25,7 +26,7 @@ vi.mock("@/lib/notification/telegram", () => ({ sendAlertTelegram: sendAlertTele
 vi.mock("@/lib/notification/service", () => ({ createNotification: createNotificationMock }));
 vi.mock("@/lib/security/webhook-url", () => ({ fetchWebhookSafely: fetchWebhookSafelyMock }));
 
-const { createAlertRule, updateAlertRule, testAlertRule } = await import("../service");
+const { createAlertRule, updateAlertRule, testAlertRule, ensureDefaultAlertRules } = await import("../service");
 
 describe("alert service", () => {
 	beforeEach(() => {
@@ -249,5 +250,40 @@ describe("alert service", () => {
 			where: { id: "rule1" },
 			data: { silenceWindows: ["12:00-13:00", "22:00-08:00"] },
 		});
+	});
+
+	it("installs starter alert rules only when the team-scoped table is empty", async () => {
+		prismaMock.alertRule.count.mockResolvedValueOnce(0);
+		prismaMock.alertRule.create
+			.mockResolvedValueOnce({ id: "d1" })
+			.mockResolvedValueOnce({ id: "d2" })
+			.mockResolvedValueOnce({ id: "d3" })
+			.mockResolvedValueOnce({ id: "d4" });
+
+		const created = await ensureDefaultAlertRules({
+			userId: "u1",
+			roles: ["admin"],
+			currentTeamId: "team-a",
+		});
+		expect(created).toEqual(expect.objectContaining({ created: 4, skipped: false }));
+		expect(prismaMock.alertRule.create).toHaveBeenCalledTimes(4);
+		expect(prismaMock.alertRule.create).toHaveBeenCalledWith(
+			expect.objectContaining({
+				data: expect.objectContaining({
+					metric: "server_offline",
+					teamId: "team-a",
+					notifyChannels: ["in_app"],
+				}),
+			}),
+		);
+
+		prismaMock.alertRule.count.mockResolvedValueOnce(2);
+		const skipped = await ensureDefaultAlertRules({
+			userId: "u1",
+			roles: ["admin"],
+			currentTeamId: "team-a",
+		});
+		expect(skipped).toEqual({ created: 0, skipped: true });
+		expect(prismaMock.alertRule.create).toHaveBeenCalledTimes(4);
 	});
 });

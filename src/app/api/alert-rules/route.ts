@@ -8,6 +8,7 @@ import {
   deleteAlertRule,
   testAlertRule,
   toggleAlertRule,
+  ensureDefaultAlertRules,
 } from "@/lib/alert/service";
 import { auditUserAction } from "@/lib/audit/service";
 import { evaluateAlerts } from "@/lib/health/service";
@@ -102,9 +103,13 @@ const toggleAlertRuleSchema = z.object({
 const testAlertRuleSchema = z.object({
   testId: z.string().trim().min(1),
 });
+const ensureDefaultsAlertRuleSchema = z.object({
+  ensureDefaults: z.literal(true),
+});
 const patchAlertRuleSchema = z.union([
   toggleAlertRuleSchema,
   testAlertRuleSchema,
+  ensureDefaultsAlertRuleSchema,
   updateAlertRuleSchema,
 ]);
 
@@ -162,6 +167,11 @@ export async function GET(request: Request) {
     request,
     { permission: "notification:manage" },
     async ({ session }) => {
+      // Fresh installs previously left alert evaluation as a pure no-op.
+      // Bootstrap a small starter pack the first time the page/API is loaded.
+      if (session) {
+        await ensureDefaultAlertRules(session);
+      }
       const rules = await listAlertRules(session);
       return NextResponse.json({ rules });
     },
@@ -234,6 +244,15 @@ export async function PATCH(request: Request) {
           statuses: result.deliveries.map((delivery) => delivery.status),
         }, undefined, session?.currentTeamId);
         return NextResponse.json(result);
+      }
+      if ("ensureDefaults" in body) {
+        const result = await ensureDefaultAlertRules(session);
+        await auditUserAction(session.userId, "alert_rule.ensure_defaults", {
+          created: result.created,
+          skipped: result.skipped,
+        }, undefined, session?.currentTeamId);
+        const rules = await listAlertRules(session);
+        return NextResponse.json({ ...result, rules });
       }
       const result = await updateAlertRule(body.id, body, session);
       await auditUserAction(

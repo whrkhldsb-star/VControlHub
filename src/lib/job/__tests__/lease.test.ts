@@ -9,9 +9,10 @@ import {
 } from "../lease";
 
 describe("TR-002 R2: job lease 公式统一", () => {
-	it("12 个 worker 全部在 LEASE_PRESETS_MS 注册 (跟 registry.ts WorkerId 对齐)", () => {
+	it("job workers with leases are all in LEASE_PRESETS_MS (aligned with registry WorkerId)", () => {
 		// 这些 worker id 必须跟 src/lib/workers/registry.ts WorkerId union 一致
-		// (command-maintenance 不是 job worker, 不需 lease preset)
+		// (command-maintenance / ticket-sla / ai-ops-scan / cost-snapshot / sync-schedule
+		//  不是 claimNextJob lease worker，或不使用 LEASE_PRESETS_MS)
 		expect(listLeasePresetWorkerIds()).toEqual([
 			"alert-evaluation",
 			"backup",
@@ -25,6 +26,7 @@ describe("TR-002 R2: job lease 公式统一", () => {
 			"scheduled-task",
 			"sftp-stale-inventory",
 			"sftp-sync",
+			"traffic-sampling",
 			"vps-backup",
 			"vps-backup-schedule",
 		]);

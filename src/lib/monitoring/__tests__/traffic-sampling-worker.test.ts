@@ -1,3 +1,4 @@
+/** @vitest-environment node */
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
@@ -15,9 +16,13 @@ const mocks = vi.hoisted(() => ({
   readFileSync: vi.fn(),
 }));
 
-vi.mock("node:fs", () => ({
-  readFileSync: mocks.readFileSync,
-}));
+vi.mock("node:fs", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("node:fs")>();
+  return {
+    ...actual,
+    readFileSync: mocks.readFileSync,
+  };
+});
 
 vi.mock("@/lib/db", () => ({
   prisma: {

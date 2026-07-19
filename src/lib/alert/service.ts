@@ -312,3 +312,65 @@ export async function testAlertRule(id: string, session?: TeamSession | null): P
 		deliveries,
 	};
 }
+
+/**
+ * Idempotent starter pack so alert evaluation is not a no-op on fresh installs.
+ * Creates baseline fleet rules only when the (team-scoped) rule table is empty.
+ */
+export async function ensureDefaultAlertRules(session?: TeamSession | null) {
+	const existing = await prisma.alertRule.count({
+		where: session ? teamWhere(session) : {},
+	});
+	if (existing > 0) {
+		return { created: 0, skipped: true as const };
+	}
+
+	const defaults: CreateAlertRuleInput[] = [
+		{
+			name: "Server offline",
+			metric: "server_offline",
+			operator: "eq",
+			threshold: 1,
+			durationSeconds: 60,
+			notifyChannels: ["in_app"],
+			cooldownMinutes: 15,
+			escalationMinutes: 30,
+		},
+		{
+			name: "CPU high (≥ 90%)",
+			metric: "cpu_usage",
+			operator: "gte",
+			threshold: 90,
+			durationSeconds: 120,
+			notifyChannels: ["in_app"],
+			cooldownMinutes: 30,
+			escalationMinutes: 45,
+		},
+		{
+			name: "Memory high (≥ 90%)",
+			metric: "mem_usage",
+			operator: "gte",
+			threshold: 90,
+			durationSeconds: 120,
+			notifyChannels: ["in_app"],
+			cooldownMinutes: 30,
+			escalationMinutes: 45,
+		},
+		{
+			name: "Disk high (≥ 90%)",
+			metric: "disk_usage",
+			operator: "gte",
+			threshold: 90,
+			durationSeconds: 300,
+			notifyChannels: ["in_app"],
+			cooldownMinutes: 60,
+			escalationMinutes: 60,
+		},
+	];
+
+	const created = [];
+	for (const rule of defaults) {
+		created.push(await createAlertRule(rule, session));
+	}
+	return { created: created.length, skipped: false as const, rules: created };
+}

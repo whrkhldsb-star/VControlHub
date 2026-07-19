@@ -1,6 +1,6 @@
 import { requireSession } from "@/lib/auth/require-session";
 import { sessionHasPermission } from "@/lib/auth/authorization";
-import { listAlertRules } from "@/lib/alert/service";
+import { ensureDefaultAlertRules, listAlertRules } from "@/lib/alert/service";
 import { listServerProfiles } from "@/lib/server/service";
 import { listPlaybooks } from "@/lib/playbook/service";
 import { getServerLocale, t } from "@/lib/i18n/translations";
@@ -14,6 +14,10 @@ export default async function AlertRulesPage() {
 	const session = await requireSession("/alert-rules");
 	const canManage = sessionHasPermission(session, "notification:manage");
 	const locale = await getServerLocale();
+
+	if (canManage) {
+		await ensureDefaultAlertRules(session);
+	}
 
 	const [rules, servers, playbooks] = await Promise.all([
 		canManage ? listAlertRules(session) : Promise.resolve([]),
