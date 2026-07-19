@@ -107,7 +107,9 @@ fi
 for d in public scripts prisma e2e deploy docs; do
   if [ -d "$APP_DIR/$d" ]; then
     run find "$APP_DIR/$d" -type d -exec chmod 755 {} +
-    run find "$APP_DIR/$d" -type f -exec chmod 644 {} +
+    # Preserve executable bit on scripts (*.sh and already +x files).
+    run find "$APP_DIR/$d" -type f \( -name '*.sh' -o -perm -111 \) -exec chmod 755 {} +
+    run find "$APP_DIR/$d" -type f ! -name '*.sh' ! -perm -111 -exec chmod 644 {} +
   fi
 done
 if [ -d "$APP_DIR/storage" ]; then

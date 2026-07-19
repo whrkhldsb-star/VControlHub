@@ -84,7 +84,9 @@ fi
 for d in public scripts prisma e2e deploy storage; do
 	if [ -d "$APP_DIR/$d" ]; then
 		find "$APP_DIR/$d" -type d -exec chmod 755 {} + 2>/dev/null || true
-		find "$APP_DIR/$d" -type f -exec chmod 644 {} + 2>/dev/null || true
+		# Keep shell scripts / already-executable tools runnable.
+		find "$APP_DIR/$d" -type f \( -name '*.sh' -o -perm -111 \) -exec chmod 755 {} + 2>/dev/null || true
+		find "$APP_DIR/$d" -type f ! -name '*.sh' ! -perm -111 -exec chmod 644 {} + 2>/dev/null || true
 	fi
 done
 chmod 755 "$APP_DIR/deploy.sh" 2>/dev/null || true
