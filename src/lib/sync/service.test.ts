@@ -235,13 +235,19 @@ describe("sync service command helpers", () => {
 });
 
 describe("assertSyncRemoteSucceeded", () => {
-	it("allows exit 0 and null (no status)", () => {
+	it("allows exit 0 only", () => {
 		expect(() =>
 			assertSyncRemoteSucceeded({ stdout: "ok", stderr: "", exitCode: 0 }, "rsync"),
 		).not.toThrow();
+	});
+
+	it("throws on null exitCode (SSH status missing — false-success guard)", () => {
 		expect(() =>
-			assertSyncRemoteSucceeded({ stdout: "", stderr: "", exitCode: null }, "rsync"),
-		).not.toThrow();
+			assertSyncRemoteSucceeded({ stdout: "", stderr: "broken pipe", exitCode: null }, "rsync"),
+		).toThrow(/rsync failed \(SSH connection\/status missing\).*broken pipe/);
+		expect(() =>
+			assertSyncRemoteSucceeded({ stdout: "", stderr: "", exitCode: null }, "tar sync"),
+		).toThrow(/tar sync failed \(SSH connection\/status missing\)/);
 	});
 
 	it("throws on non-zero exit with stderr/stdout detail (false-success guard)", () => {

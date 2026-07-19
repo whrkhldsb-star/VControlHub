@@ -62,8 +62,10 @@ const MYSQL_PRESET: BackupPreset = {
 	type: "mysql",
 	requiresPaths: false,
 	description: "Dumps all MySQL databases via mysqldump",
+	// pipefail + test -s: without these, a missing mysqldump still yields gzip
+	// exit 0 and an empty-ish archive that can look COMPLETED (false success).
 	buildCommand: (remoteFilePath) =>
-		`mysqldump --all-databases --single-transaction --routines --triggers 2>/dev/null | gzip > '${remoteFilePath}'`,
+		`set -euo pipefail; mysqldump --all-databases --single-transaction --routines --triggers | gzip > '${remoteFilePath}'; test -s '${remoteFilePath}'`,
 };
 
 const POSTGRES_PRESET: BackupPreset = {
@@ -71,15 +73,17 @@ const POSTGRES_PRESET: BackupPreset = {
 	requiresPaths: false,
 	description: "Dumps all PostgreSQL databases via pg_dumpall",
 	buildCommand: (remoteFilePath) =>
-		`pg_dumpall 2>/dev/null | gzip > '${remoteFilePath}'`,
+		`set -euo pipefail; pg_dumpall | gzip > '${remoteFilePath}'; test -s '${remoteFilePath}'`,
 };
 
 const DOCKER_VOLUMES_PRESET: BackupPreset = {
 	type: "docker-volumes",
 	requiresPaths: false,
 	description: "Backs up all Docker named volumes using a temporary Alpine container",
+	// Use explicit dirname/basename expansion (unquoted path is under /tmp/vch-backup-*).
+	// Fail hard if docker/tar fails or the archive is empty — do not swallow stderr.
 	buildCommand: (remoteFilePath) =>
-		`docker run --rm -v /var/lib/docker/volumes:/data:ro -v '$(dirname '${remoteFilePath}')':/backup alpine tar czf /backup/'$(basename '${remoteFilePath}')' -C /data . 2>/dev/null`,
+		`set -euo pipefail; dir=$(dirname -- '${remoteFilePath}'); base=$(basename -- '${remoteFilePath}'); docker run --rm -v /var/lib/docker/volumes:/data:ro -v "$dir":/backup alpine tar czf "/backup/$base" -C /data .; test -s '${remoteFilePath}'`,
 };
 
 const WEBSITE_FILES_PRESET: BackupPreset = {

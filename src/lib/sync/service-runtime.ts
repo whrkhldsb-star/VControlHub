@@ -31,14 +31,25 @@ import { getSyncJob } from "./service-crud";
  * exits non-zero. Sync must treat that as failure — otherwise rsync/tar
  * errors (permission denied, full disk, partial transfer) are parsed as
  * success and written COMPLETED/IDLE (false success).
+ *
+ * exitCode null means the SSH stream closed without a status (transport /
+ * abrupt disconnect). Treat null as failure too — same policy as VPS backup
+ * runVpsBackupRecord — never mark COMPLETED/IDLE on soft SSH errors.
  */
 export function assertSyncRemoteSucceeded(
 	result: { stdout: string; stderr: string; exitCode: number | null },
 	label: string,
 ): void {
-	if (result.exitCode == null || result.exitCode === 0) return;
+	if (result.exitCode === 0) return;
 	// rsync/tar builders often merge stderr into stdout via `2>&1`
 	const detail = (result.stderr || result.stdout || "").trim().slice(0, 500);
+	if (result.exitCode == null) {
+		throw new Error(
+			detail
+				? `${label} failed (SSH connection/status missing): ${detail}`
+				: `${label} failed (SSH connection/status missing)`,
+		);
+	}
 	throw new Error(
 		detail
 			? `${label} failed (exit ${result.exitCode}): ${detail}`

@@ -33,24 +33,31 @@ describe("buildRemoteBackupCommand", () => {
 		expect(cmd).toContain("/tmp/vch-backup_123.tar.gz");
 	});
 
-	it("generates mysqldump command for mysql", () => {
+	it("generates mysqldump command for mysql with pipefail/size guards", () => {
 		const cmd = buildRemoteBackupCommand("mysql", "/tmp/vch-backup_456.tar.gz");
 		expect(cmd).toContain("mysqldump");
-		expect(cmd).toContain("tar");
+		expect(cmd).toContain("pipefail");
+		expect(cmd).toContain("test -s");
 		expect(cmd).toContain("/tmp/vch-backup_456.tar.gz");
+		expect(cmd).not.toContain("2>/dev/null");
 	});
 
-	it("generates pg_dump command for postgres", () => {
+	it("generates pg_dump command for postgres with pipefail/size guards", () => {
 		const cmd = buildRemoteBackupCommand("postgres", "/tmp/vch-backup_789.tar.gz");
 		expect(cmd).toContain("pg_dumpall");
-		expect(cmd).toContain("tar");
+		expect(cmd).toContain("pipefail");
+		expect(cmd).toContain("test -s");
 		expect(cmd).toContain("/tmp/vch-backup_789.tar.gz");
+		expect(cmd).not.toContain("2>/dev/null");
 	});
 
-	it("generates docker command for docker-volumes", () => {
+	it("generates docker command for docker-volumes with fail-hard guards", () => {
 		const cmd = buildRemoteBackupCommand("docker-volumes", "/tmp/vch-backup_docker.tar.gz");
 		expect(cmd).toContain("docker");
 		expect(cmd).toContain("tar");
+		expect(cmd).toContain("pipefail");
+		expect(cmd).toContain("test -s");
+		expect(cmd).not.toContain("2>/dev/null");
 	});
 
 	it("uses custom paths when provided", () => {
