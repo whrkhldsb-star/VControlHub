@@ -20,6 +20,7 @@ describe("TR-002 R2: job lease 公式统一", () => {
 			"command-execution",
 			"download-execution",
 			"health-sampling",
+			"job-maintenance",
 			"operation-task-retention",
 			"playbook-run",
 			"quick-service",

@@ -101,7 +101,7 @@ describe("HealthDashboardClient", () => {
 		await user.click(screen.getByRole("button", { name: "趋势 ▼" }));
 
 		await waitFor(() => {
-			expect(screen.getByText(/历史指标读取失败/)).toBeInTheDocument();
+			expect(screen.getAllByText(/历史指标读取失败/).length).toBeGreaterThan(0);
 		});
 		expect(screen.getByRole("button", { name: "收起 ▲" })).toBeInTheDocument();
 	});

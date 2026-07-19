@@ -30,6 +30,7 @@ vi.mock("@/lib/alert/service", () => ({
 		lastTriggeredAt: null,
 		createdAt: new Date("2026-01-01T00:00:00Z"),
 	}]),
+	ensureDefaultAlertRules: vi.fn(async () => ({ created: 0, skipped: true })),
 }));
 vi.mock("@/lib/server/service", () => ({
 	listServerProfiles: vi.fn(async () => []),
@@ -84,7 +85,9 @@ describe("alert rules client", () => {
 
 		render(wrap(<AlertRuleListClient rules={[]} servers={[]} canManage={true} />));
 
-		await user.click(screen.getByRole("button", { name: "+ 创建告警规则" }));
+		// Prefer toolbar create button when empty-state also has a CTA.
+		const createButtons = screen.getAllByRole("button", { name: "+ 创建告警规则" });
+		await user.click(createButtons[0]!);
 		await user.type(screen.getByLabelText("规则名称"), "CPU 过载告警");
 		await user.clear(screen.getByLabelText("阈值"));
 		await user.type(screen.getByLabelText("阈值"), "91");

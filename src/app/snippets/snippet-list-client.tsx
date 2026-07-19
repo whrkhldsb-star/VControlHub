@@ -52,7 +52,7 @@ const SnippetCard = memo(function SnippetCard({ snippet: s, t, copied, onCopy, o
           <button onClick={() => onEdit(s)} title={t("snippetsPage.action.edit")} aria-label={t("snippetsPage.action.edit")} data-action-button data-variant="ghost" className="!min-h-11 !min-w-11 !rounded-lg !p-1.5">
             <Pencil size={14} />
           </button>
-          <button onClick={() => onDelete(s)} title={t("snippetsPage.action.delete")} aria-label={t("snippetsPage.deleteDialog.title") +"" + s.title} data-action-button data-variant="ghost" className="!min-h-11 !min-w-11 !rounded-lg !p-1.5 text-[var(--danger)]">
+          <button onClick={() => onDelete(s)} title={t("snippetsPage.action.delete")} aria-label={`${t("snippetsPage.deleteDialog.title")} ${s.title}`} data-action-button data-variant="ghost" className="!min-h-11 !min-w-11 !rounded-lg !p-1.5 text-[var(--danger)]">
             <Trash2 size={14} />
           </button>
         </div>

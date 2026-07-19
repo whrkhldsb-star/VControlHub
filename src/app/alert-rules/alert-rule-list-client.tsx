@@ -416,9 +416,6 @@ export function AlertRuleListClient({
 										? t("alertRulesPage.action.processing")
 										: t("alertRulesPage.ensureDefaults")}
 								</ActionButton>
-								<ActionButton type="button" variant="outline" onClick={() => setShowCreate(true)}>
-									{t("alertRulesPage.create")}
-								</ActionButton>
 							</div>
 						) : null}
 					</div>

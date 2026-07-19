@@ -259,11 +259,11 @@ export function ShareFilePicker({ nodes }: { nodes: StorageNode[] }) {
 			</div>
 
 			<div className="mt-4 flex flex-wrap items-center gap-2 text-xs text-[var(--text-muted)]">
-				<button type="button" onClick={() => setPath("")} data-action-button data-variant="ghost" className="!min-h-9 !px-2.5 !py-1 !text-xs">{copyText.root}</button>
+				<button type="button" onClick={() => setPath("")} data-action-button data-variant="ghost" className="!min-h-11 !px-2.5 !py-1 !text-xs">{copyText.root}</button>
 				{breadcrumb.map((segment, index) => (
 					<span key={`${segment}-${index}`} className="inline-flex items-center gap-2">
 						<ChevronRight size={12} />
-						<button type="button" onClick={() => jumpToCrumb(index)} data-action-button data-variant="ghost" className="!min-h-9 !px-2.5 !py-1 !text-xs">{segment}</button>
+						<button type="button" onClick={() => jumpToCrumb(index)} data-action-button data-variant="ghost" className="!min-h-11 !px-2.5 !py-1 !text-xs">{segment}</button>
 					</span>
 				))}
 			</div>
@@ -333,7 +333,7 @@ export function ShareFilePicker({ nodes }: { nodes: StorageNode[] }) {
 							<h3 className="text-sm font-semibold text-[var(--text-primary)]">{copyText.selectedPrefix} {selectedItems.length} {copyText.selectedSuffix}</h3>
 							<p className="mt-1 text-xs text-[var(--text-muted)]">{copyText.selectedHint}</p>
 						</div>
-						<button type="button" onClick={() => setSelected({})} data-action-button data-variant="ghost" className="!min-h-9 !px-2 !text-xs">{copyText.clear}</button>
+						<button type="button" onClick={() => setSelected({})} data-action-button data-variant="ghost" className="!min-h-11 !px-2 !text-xs">{copyText.clear}</button>
 					</div>
 					<div className="mt-3 max-h-48 space-y-2 overflow-auto pr-1">
 						{selectedItems.length ? selectedItems.map((item) => (

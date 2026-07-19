@@ -168,17 +168,6 @@ export function ScheduledTaskListClient({ tasks: initialTasks, servers, canCreat
 					<div className="space-y-2">
 						<p>{t("scheduledTasks.empty.title")}</p>
 						<p className="text-xs text-[var(--text-muted)]">{t("scheduledTasks.empty.hint")}</p>
-						{canCreate ? (
-							<button
-								type="button"
-								onClick={() => setShowCreate(true)}
-								data-action-button
-								data-variant="primary"
-								className="!min-h-9 !px-4 !py-2 !text-sm"
-							>
-								{t("scheduledTasksPage.create")}
-							</button>
-						) : null}
 					</div>
 				</EmptyState>
 			) : filteredTasks.length === 0 ? (

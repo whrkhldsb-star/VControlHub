@@ -21,6 +21,10 @@ vi.mock("./service", () => ({
   evaluateAlerts: evaluateAlertsMock,
 }));
 
+vi.mock("@/lib/alert/service", () => ({
+  ensureDefaultAlertRules: vi.fn().mockResolvedValue({ created: 0, skipped: true }),
+}));
+
 vi.mock("@/lib/db", () => ({
   prisma: {
     job: {
@@ -79,7 +83,8 @@ describe("alert evaluation worker", () => {
   it("starts once (idempotent), enqueues durable jobs, and evaluates alerts on startup and interval", async () => {
     await startAlertEvaluationWorker();
     await startAlertEvaluationWorker();
-    await flushPromises();
+    // ensureDefaultAlertRules + evaluateAlerts + completeJob are async; flush more.
+    for (let i = 0; i < 20; i++) await flushPromises();
 
     expect(infoMock).toHaveBeenCalledTimes(1);
     expect(jobMocks.enqueueJob).toHaveBeenCalledTimes(1);
