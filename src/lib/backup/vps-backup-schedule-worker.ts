@@ -6,13 +6,18 @@
  * execution is handled by the vps-backup-job-worker asynchronously.
  */
 
-import { completeJob } from "@/lib/job/service";
+import { completeJob, pruneCompletedJobsByType } from "@/lib/job/service";
 import { prisma } from "@/lib/db";
 import { acquireAdvisoryLock } from "@/lib/concurrency/advisory-lock";
 import { dispatchDueVpsBackupSchedules } from "./vps-backup-schedule-service";
+import { createLogger } from "@/lib/logging";
 
 const TICK_INTERVAL_MS = 60_000; // 60 seconds
 const WORKER_ID = `${process.env.HOSTNAME || "localhost"}:vps-backup-schedule:${process.pid}`;
+const VPS_BACKUP_TICK_JOB_TYPE = "vps-backup-schedule.tick";
+const VPS_BACKUP_TICK_KEEP_LATEST = 50;
+const VPS_BACKUP_TICK_RETENTION_DAYS = 3;
+const logger = createLogger("vps-backup-schedule-worker");
 
 let interval: ReturnType<typeof setInterval> | null = null;
 let running = false;
@@ -28,7 +33,7 @@ export async function runVpsBackupScheduleTickOnce(): Promise<number> {
 		// Prevent overlapping ticks (re-check under lock)
 		const existing = await prisma.job.findFirst({
 			where: {
-				type: "vps-backup-schedule.tick",
+				type: VPS_BACKUP_TICK_JOB_TYPE,
 				status: "RUNNING",
 				// Ignore expired leases so a crashed worker cannot block forever.
 				OR: [{ leaseExpiresAt: null }, { leaseExpiresAt: { gt: new Date() } }],
@@ -41,7 +46,7 @@ export async function runVpsBackupScheduleTickOnce(): Promise<number> {
 		// Mark any expired RUNNING ticks as failed before creating a new one.
 		await prisma.job.updateMany({
 			where: {
-				type: "vps-backup-schedule.tick",
+				type: VPS_BACKUP_TICK_JOB_TYPE,
 				status: "RUNNING",
 				leaseExpiresAt: { lte: new Date() },
 			},
@@ -54,7 +59,7 @@ export async function runVpsBackupScheduleTickOnce(): Promise<number> {
 		// Create a transient tick job (payload is required by schema)
 		const tickJob = await prisma.job.create({
 			data: {
-				type: "vps-backup-schedule.tick",
+				type: VPS_BACKUP_TICK_JOB_TYPE,
 				title: "VPS backup schedule tick",
 				status: "RUNNING",
 				workerId: WORKER_ID,
@@ -66,6 +71,17 @@ export async function runVpsBackupScheduleTickOnce(): Promise<number> {
 		try {
 			const dispatched = await dispatchDueVpsBackupSchedules();
 			await completeJob(tickJob.id, WORKER_ID, { dispatched });
+			try {
+				await pruneCompletedJobsByType({
+					type: VPS_BACKUP_TICK_JOB_TYPE,
+					keepLatest: VPS_BACKUP_TICK_KEEP_LATEST,
+					olderThan: new Date(Date.now() - VPS_BACKUP_TICK_RETENTION_DAYS * 24 * 60 * 60 * 1000),
+				});
+			} catch (pruneError) {
+				logger.warn("Failed to prune vps-backup-schedule.tick jobs", {
+					error: pruneError instanceof Error ? pruneError.message : String(pruneError),
+				});
+			}
 			return dispatched;
 		} catch (err) {
 			const errMsg = err instanceof Error ? err.message : String(err);

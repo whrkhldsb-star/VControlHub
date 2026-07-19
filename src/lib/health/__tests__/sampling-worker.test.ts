@@ -7,6 +7,7 @@ const mocks = vi.hoisted(() => ({
   heartbeatJob: vi.fn(),
   completeJob: vi.fn(),
   failJob: vi.fn(),
+  pruneCompletedJobsByType: vi.fn(),
   collectAllHealth: vi.fn(),
   snapshotHealthOverview: vi.fn(),
   pruneMetricSnapshots: vi.fn(),
@@ -20,6 +21,7 @@ vi.mock("@/lib/job/service", () => ({
   heartbeatJob: mocks.heartbeatJob,
   completeJob: mocks.completeJob,
   failJob: mocks.failJob,
+  pruneCompletedJobsByType: mocks.pruneCompletedJobsByType,
 }));
 vi.mock("../service-collect", () => ({ collectAllHealth: mocks.collectAllHealth }));
 vi.mock("../service-metrics", () => ({
@@ -49,6 +51,7 @@ describe("fleet health background sampling", () => {
     mocks.snapshotHealthOverview.mockResolvedValue({ count: 2 });
     mocks.pruneMetricSnapshots.mockResolvedValue({ count: 4 });
     mocks.rollupRecentServerUptime.mockResolvedValue({ upserted: 3 });
+    mocks.pruneCompletedJobsByType.mockResolvedValue({ count: 0 });
   });
 
   it("does not enqueue a duplicate pending/running sample", async () => {
@@ -62,6 +65,9 @@ describe("fleet health background sampling", () => {
     expect(mocks.snapshotHealthOverview).toHaveBeenCalledWith(expect.objectContaining({ total: 2 }));
     expect(mocks.pruneMetricSnapshots).toHaveBeenCalledWith(expect.any(Date));
     expect(mocks.rollupRecentServerUptime).toHaveBeenCalledTimes(1);
+    expect(mocks.pruneCompletedJobsByType).toHaveBeenCalledWith(
+      expect.objectContaining({ type: "health.sample", keepLatest: 50, olderThan: expect.any(Date) }),
+    );
     expect(mocks.completeJob).toHaveBeenCalledWith(
       "job1",
       expect.any(String),

@@ -66,8 +66,13 @@ export function RecentDownloadsPanel({
       {!loading && error ? (
         <div role="alert" className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-[var(--danger-border)] bg-[var(--danger-bg)] px-4 py-3 text-sm text-[var(--danger)]">
           <span>{error}</span>
-          <button type="button" onClick={() => void load()} className="rounded-lg border border-[var(--danger-border)] px-3 py-1.5 font-medium">
-            {t("filesPage.recentDownloads.retry")}
+          <button
+          	type="button"
+          	onClick={() => void load()}
+          	data-action-button
+          	data-variant="danger"
+          	className="!px-3 !py-1.5 !text-xs !font-medium"
+          >            {t("filesPage.recentDownloads.retry")}
           </button>
         </div>
       ) : null}

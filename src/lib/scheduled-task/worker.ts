@@ -10,6 +10,7 @@ import {
   enqueueJob,
   failJob,
   heartbeatJob,
+  pruneCompletedJobsByType,
 } from "@/lib/job/service";
 import { createLogger } from "@/lib/logging";
 
@@ -27,6 +28,9 @@ const SCHEDULED_TASK_INTERVAL_MS = 60_000;
 // TR-002 R2: 跨 worker lease 公式统一。computeLeaseMs 默认返 preset (= SCHEDULED_TASK_LEASE_MS 等同原值)。
 const SCHEDULED_TASK_LEASE_MS = computeLeaseMs("scheduled-task");
 const SCHEDULED_TASK_WORKER_ID = `${config.app.hostname || "vcontrolhub"}:scheduled-task:${process.pid}`;
+// Minute ticks without retention were ~48k completed rows and growing.
+const SCHEDULED_TASK_TICK_KEEP_LATEST = 50;
+const SCHEDULED_TASK_TICK_RETENTION_DAYS = 3;
 
 type ScheduledTaskWorkerState = {
   started: boolean;
@@ -259,6 +263,17 @@ export async function runScheduledTaskTickJobWorkerOnce(reason = "manual") {
       });
       const result = await dispatchDueScheduledTasks(reason);
       await completeJob(job.id, SCHEDULED_TASK_WORKER_ID, result);
+      try {
+        await pruneCompletedJobsByType({
+          type: SCHEDULED_TASK_TICK_JOB_TYPE,
+          keepLatest: SCHEDULED_TASK_TICK_KEEP_LATEST,
+          olderThan: new Date(Date.now() - SCHEDULED_TASK_TICK_RETENTION_DAYS * 24 * 60 * 60 * 1000),
+        });
+      } catch (pruneError) {
+        logger.warn("Failed to prune scheduled-task.tick jobs", {
+          error: pruneError instanceof Error ? pruneError.message : String(pruneError),
+        });
+      }
       return true;
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);

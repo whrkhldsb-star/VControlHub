@@ -158,8 +158,8 @@ export function HealthDashboardClient({ serverCount, initialSystemHealth }: Prop
 							<p className="mt-1 text-xs text-[var(--text-secondary)]">{tt("healthPage.ui.checksSummary", systemHealth.summary)}</p>
 						</div>
 						<div className="flex flex-wrap gap-2 text-xs text-[var(--text-secondary)]">
-							<Link href="/audit" className="inline-flex min-h-11 items-center rounded-lg border border-[var(--border)] bg-[var(--surface)] px-3 transition hover:bg-[var(--sidebar-hover)]">{t("healthPage.ui.auditLog")}</Link>
-							<Link href="/" className="inline-flex min-h-11 items-center rounded-lg border border-[var(--border)] bg-[var(--surface)] px-3 transition hover:bg-[var(--sidebar-hover)]">{t("healthPage.ui.home")}</Link>
+							<Link href="/audit" data-action-button data-variant="secondary" className="!px-3 !py-1.5 !text-xs">{t("healthPage.ui.auditLog")}</Link>
+							<Link href="/" data-action-button data-variant="secondary" className="!px-3 !py-1.5 !text-xs">{t("healthPage.ui.home")}</Link>
 						</div>
 					</div>
 					<div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">

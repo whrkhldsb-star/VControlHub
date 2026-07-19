@@ -25,6 +25,7 @@ import {
   enqueueJob,
   failJob,
   heartbeatJob,
+  pruneCompletedJobsByType,
 } from "@/lib/job/service";
 import { createLogger } from "@/lib/logging";
 
@@ -37,6 +38,8 @@ export const BACKUP_SCHEDULE_TICK_JOB_TYPE = "backup-schedule.tick";
 const BACKUP_SCHEDULE_TICK_INTERVAL_MS = 60_000;
 const BACKUP_SCHEDULE_TICK_LEASE_MS = computeLeaseMs("backup-schedule");
 const BACKUP_SCHEDULE_WORKER_ID = `${config.app.hostname || "vcontrolhub"}:backup-schedule:${process.pid}`;
+const BACKUP_SCHEDULE_TICK_KEEP_LATEST = 50;
+const BACKUP_SCHEDULE_TICK_RETENTION_DAYS = 3;
 
 type BackupScheduleWorkerState = {
   started: boolean;
@@ -224,6 +227,17 @@ export async function runBackupScheduleTickJobWorkerOnce(reason = "manual") {
       });
       const result = await dispatchDueBackupSchedules(reason);
       await completeJob(job.id, BACKUP_SCHEDULE_WORKER_ID, result);
+      try {
+        await pruneCompletedJobsByType({
+          type: BACKUP_SCHEDULE_TICK_JOB_TYPE,
+          keepLatest: BACKUP_SCHEDULE_TICK_KEEP_LATEST,
+          olderThan: new Date(Date.now() - BACKUP_SCHEDULE_TICK_RETENTION_DAYS * 24 * 60 * 60 * 1000),
+        });
+      } catch (pruneError) {
+        logger.warn("Failed to prune backup-schedule.tick jobs", {
+          error: pruneError instanceof Error ? pruneError.message : String(pruneError),
+        });
+      }
       return true;
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);

@@ -46,7 +46,7 @@ export function ShareAccessReport() {
         <select aria-label={t("sharesPage.report.action")} value={action} onChange={(e) => { setAction(e.target.value); void load(days, e.target.value); }} className="rounded-xl border border-[var(--input-border)] bg-[var(--input-bg)] px-3 py-2 text-xs">
           <option value="all">{t("sharesPage.report.all")}</option><option value="view">{t("sharesPage.accessLogs.action.view")}</option><option value="download">{t("sharesPage.accessLogs.action.download")}</option><option value="password_attempt">{t("sharesPage.accessLogs.action.password_attempt")}</option>
         </select>
-        <a href={exportHref} className="rounded-xl border border-[var(--accent-border)] px-3 py-2 text-xs font-medium text-[var(--accent)]">{t("sharesPage.report.export")}</a>
+        <a href={exportHref} data-action-button data-variant="outline" className="!px-3 !py-2 !text-xs !font-medium">{t("sharesPage.report.export")}</a>
       </div>
     </div>
     {loading ? <p className="p-5 text-sm text-[var(--text-muted)]">{t("sharesPage.accessLogs.loading")}</p> : error ? <p role="alert" className="p-5 text-sm text-[var(--danger)]">{error}</p> : report ? <div className="p-5">

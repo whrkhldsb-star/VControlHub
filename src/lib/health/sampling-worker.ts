@@ -2,7 +2,7 @@ import { JobStatus } from "@prisma/client";
 
 import { config } from "@/lib/config/env";
 import { prisma } from "@/lib/db";
-import { claimNextJob, completeJob, enqueueJob, failJob, heartbeatJob } from "@/lib/job/service";
+import { claimNextJob, completeJob, enqueueJob, failJob, heartbeatJob, pruneCompletedJobsByType } from "@/lib/job/service";
 import { computeLeaseMs } from "@/lib/job/lease";
 import { createLogger } from "@/lib/logging";
 import { collectAllHealth } from "./service-collect";
@@ -14,6 +14,8 @@ const WORKER_ID = `${config.app.hostname || "vcontrolhub"}:health-sampling:${pro
 const LEASE_MS = computeLeaseMs("health-sampling");
 const DEFAULT_INTERVAL_MS = 5 * 60_000;
 const RETENTION_MS = 30 * 24 * 60 * 60_000;
+const HEALTH_SAMPLE_JOB_KEEP_LATEST = 50;
+const HEALTH_SAMPLE_JOB_RETENTION_DAYS = 7;
 const logger = createLogger("health-sampling-worker");
 
 type State = { started: boolean; running: boolean; timer: NodeJS.Timeout | null };
@@ -64,6 +66,17 @@ export async function runHealthSamplingWorkerOnce(reason = "interval"): Promise<
     try {
       const result = await processSample(job.id);
       await completeJob(job.id, WORKER_ID, result);
+      try {
+        await pruneCompletedJobsByType({
+          type: HEALTH_SAMPLING_JOB_TYPE,
+          keepLatest: HEALTH_SAMPLE_JOB_KEEP_LATEST,
+          olderThan: new Date(Date.now() - HEALTH_SAMPLE_JOB_RETENTION_DAYS * 24 * 60 * 60 * 1000),
+        });
+      } catch (pruneError) {
+        logger.warn("Failed to prune health.sample jobs", {
+          error: pruneError instanceof Error ? pruneError.message : String(pruneError),
+        });
+      }
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       await failJob(job.id, WORKER_ID, message.slice(0, 2000), { retryAfterMs: 60_000 });
