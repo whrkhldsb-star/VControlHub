@@ -62,7 +62,7 @@ export function EditorFindBar({ inputRef, find, onQueryChange, onMove, onClose }
 				disabled={find.total === 0}
 				aria-label={t("textPreview.editor.findPrev")}
 				title={t("textPreview.editor.findPrev")}
-				className="rounded-lg border border-[var(--border)] bg-[var(--surface)] px-2 py-1 text-xs text-[var(--text-secondary)] hover:bg-[var(--surface-hover)] disabled:opacity-40"
+				data-action-button data-variant="secondary" className="!px-2 !py-1 !text-xs disabled:opacity-40"
 			>
 				↑
 			</button>
@@ -72,7 +72,7 @@ export function EditorFindBar({ inputRef, find, onQueryChange, onMove, onClose }
 				disabled={find.total === 0}
 				aria-label={t("textPreview.editor.findNext")}
 				title={t("textPreview.editor.findNext")}
-				className="rounded-lg border border-[var(--border)] bg-[var(--surface)] px-2 py-1 text-xs text-[var(--text-secondary)] hover:bg-[var(--surface-hover)] disabled:opacity-40"
+				data-action-button data-variant="secondary" className="!px-2 !py-1 !text-xs disabled:opacity-40"
 			>
 				↓
 			</button>

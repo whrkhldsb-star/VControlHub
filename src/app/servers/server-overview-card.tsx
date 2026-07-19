@@ -290,7 +290,9 @@ export function ServerOverviewCard({
           aria-expanded={expanded}
           aria-controls={detailsId}
           aria-haspopup="dialog"
-          className="rounded-lg border border-[var(--border)] bg-[var(--surface-elevated)] px-3 py-1.5 text-xs font-medium text-[var(--text-secondary)] transition hover:border-[var(--border-strong)] hover:bg-[var(--surface-hover)] hover:text-[var(--text-primary)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--accent)]"
+          data-action-button
+          data-variant="secondary"
+          className="!px-3 !py-1.5 !text-xs"
         >
           {expanded ? t("serverOverviewCard.collapseDetails") : t("serverOverviewCard.viewDetails")}
         </button>

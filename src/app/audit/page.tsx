@@ -102,7 +102,9 @@ export default async function AuditPage({ searchParams }: AuditPageProps) {
 											<Link
 												key={`quick-${action}`}
 												href={`/audit?action=${encodeURIComponent(action)}`}
-												className="rounded-lg border border-[var(--border)] bg-[var(--surface)] px-2 py-1 text-[11px] text-[var(--danger)] transition hover:bg-[var(--surface-hover)]"
+												data-action-button
+												data-variant="danger"
+												className="!px-2 !py-1 !text-[11px]"
 											>
 												{copy.highRiskFilterPrefix} {formatAuditAction(action, locale)}
 											</Link>

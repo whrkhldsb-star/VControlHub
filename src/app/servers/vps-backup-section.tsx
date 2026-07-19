@@ -8,6 +8,7 @@ import { toDateLocale } from "@/lib/i18n/locale-format";
 import { formatBytes } from "@/lib/format/bytes";
 
 import { ActionButton } from "@/components/action-button";
+import { UI_INPUT } from "@/lib/ui/classes";
 type BackupSchedule = {
 	id: string;
 	name: string;
@@ -230,7 +231,9 @@ export function VpsBackupSection({
 							type="button"
 							disabled={triggering !== null}
 							onClick={() => handleTrigger(preset)}
-							className="rounded-lg border border-[var(--border)] bg-[var(--surface-elevated)] px-3 py-1.5 text-xs text-[var(--text-secondary)] transition-colors hover:bg-[var(--surface-hover)] disabled:cursor-not-allowed disabled:opacity-50"
+							data-action-button
+							data-variant="secondary"
+							className="!px-3 !py-1.5 !text-xs disabled:cursor-not-allowed disabled:opacity-50"
 						>
 							{triggering === preset ? (
 								<span className="animate-pulse">⏳ {presetLabel(preset)}</span>
@@ -254,7 +257,9 @@ export function VpsBackupSection({
 							type="button"
 							onClick={() => setShowCreate(!showCreate)}
 							aria-label={showCreate ? t("common.close") : t("vpsBackup.addSchedule")}
-							className="rounded-lg border border-[var(--color-action-border)]/20 bg-[var(--color-action-bg)]/10 px-2.5 py-1 text-xs text-[var(--text-secondary)] transition-colors hover:bg-[var(--color-action-bg)]/20"
+							data-action-button
+							data-variant="outline"
+							className="!px-2.5 !py-1 !text-xs"
 						>
 							{showCreate ? "✕" : `+ ${t("vpsBackup.addSchedule")}`}
 						</button>
@@ -269,14 +274,16 @@ export function VpsBackupSection({
 							aria-label={t("vpsBackup.scheduleName")}
 							value={createForm.name}
 							onChange={(e) => setCreateForm({ ...createForm, name: e.target.value })}
-							className="w-full rounded-lg border border-[var(--border)] bg-[var(--surface-elevated)] px-3 py-1.5 text-sm text-[var(--text-primary)] placeholder:text-[var(--text-muted)]"
+							data-input
+							className={UI_INPUT}
 						/>
 						<div className="grid grid-cols-2 gap-2">
 							<select
 								value={createForm.backupType}
 								aria-label={t("vpsBackup.backupType")}
 								onChange={(e) => setCreateForm({ ...createForm, backupType: e.target.value })}
-								className="rounded-lg border border-[var(--border)] bg-[var(--surface-elevated)] px-3 py-1.5 text-sm text-[var(--text-primary)]"
+								data-input
+								className={UI_INPUT}
 							>
 								{PRESET_OPTIONS.map((p) => (
 									<option key={p} value={p}>{presetLabel(p)}</option>
@@ -288,7 +295,8 @@ export function VpsBackupSection({
 								aria-label={t("vpsBackup.cronExpression")}
 								value={createForm.cronExpression}
 								onChange={(e) => setCreateForm({ ...createForm, cronExpression: e.target.value })}
-								className="rounded-lg border border-[var(--border)] bg-[var(--surface-elevated)] px-3 py-1.5 text-sm text-[var(--text-primary)] placeholder:text-[var(--text-muted)]"
+								data-input
+								className={UI_INPUT}
 							/>
 						</div>
 						<textarea
@@ -297,7 +305,8 @@ export function VpsBackupSection({
 							value={createForm.paths}
 							onChange={(e) => setCreateForm({ ...createForm, paths: e.target.value })}
 							rows={2}
-							className="w-full rounded-lg border border-[var(--border)] bg-[var(--surface-elevated)] px-3 py-1.5 text-sm text-[var(--text-primary)] placeholder:text-[var(--text-muted)]"
+							data-input
+							className={UI_INPUT}
 						/>
 						<div className="flex items-center gap-2">
 							<input

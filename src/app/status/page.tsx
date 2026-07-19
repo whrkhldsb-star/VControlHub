@@ -61,13 +61,91 @@ function getHealthLabel(status: string, locale: Parameters<typeof t>[1]) {
   }
 }
 
+function renderUptimeSection(
+  uptimeData: UptimeResponse | null,
+  locale: Parameters<typeof t>[1],
+) {
+  const servers = uptimeData?.servers ?? [];
+  return (
+    <div className="mt-8">
+      <h2 className="text-lg font-medium">{t("statusPage.uptime.title", locale)}</h2>
+      <p className="mt-1 text-xs text-[var(--text-muted)]">
+        {t("statusPage.uptime.desc", locale)}
+      </p>
+      {servers.length === 0 ? (
+        <p className="mt-4 text-sm text-[var(--text-secondary)]">
+          {t("statusPage.uptime.empty", locale)}
+        </p>
+      ) : (
+        <div className="mt-4 grid gap-6">
+          {servers.map((server: UptimeServer) => {
+            const daysMap = new Map<string, number>();
+            (server.data || []).forEach((d: UptimeDay) => {
+              const dateKey = d.date ? String(d.date) : "";
+              if (dateKey) daysMap.set(dateKey, d.uptimePercent ?? 0);
+            });
+
+            const today = new Date();
+            today.setUTCHours(0, 0, 0, 0);
+            const days: string[] = [];
+            for (let i = 89; i >= 0; i--) {
+              const d = new Date(today);
+              d.setUTCDate(d.getUTCDate() - i);
+              const dateStr = d.toISOString().split("T")[0];
+              if (dateStr) days.push(dateStr);
+            }
+
+            const filled = days.map((dateStr) => ({
+              date: dateStr,
+              uptimePercent: daysMap.get(dateStr) ?? 0,
+            }));
+
+            // SLA over days that actually have samples (avoid averaging empty zeros).
+            const sampled = filled.filter((d) => (daysMap.get(d.date) ?? null) !== null && daysMap.has(d.date));
+            const sla =
+              sampled.length > 0
+                ? Math.round(
+                    (sampled.reduce((sum, d) => sum + d.uptimePercent, 0) / sampled.length) * 100,
+                  ) / 100
+                : 0;
+
+            return (
+              <div key={server.id} data-card className="p-4">
+                <div className="mb-3 flex items-center justify-between">
+                  <h3 className="text-sm font-medium">
+                    {server.name || t("statusPage.uptime.defaultServerName", locale)}
+                  </h3>
+                  <div className="text-xs text-[var(--text-muted)]">
+                    {t("statusPage.uptime.slaLabel", locale)}{" "}
+                    <span className="font-mono">{sampled.length > 0 ? `${sla}%` : "—"}</span>
+                  </div>
+                </div>
+                <div className="flex flex-wrap gap-1">
+                  {filled.map((d) => (
+                    <div
+                      key={d.date}
+                      className={`h-4 w-4 rounded ${getColorClass(d.uptimePercent)} transition hover:scale-125 hover:z-10`}
+                      title={`${d.date}: ${d.uptimePercent}%`}
+                    />
+                  ))}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default async function Page() {
-  // TR-053 parity with GET /api/status:
-  // - anonymous: overall summary only (no checks detail, no uptime inventory)
-  // - authenticated: full checks + 90-day uptime grids
+  // Public status page:
+  // - anonymous: overall summary + public uptime heatmap (display names only)
+  // - authenticated: full component checks + uptime
   const session = await getCurrentSession();
   const locale = await getServerLocale();
   const dateLocale = toDateLocale(locale);
+  const uptimeData = await getAllUptimeData();
 
   if (!session) {
     const status = await getPublicStatusSummary();
@@ -95,8 +173,8 @@ export default async function Page() {
                   status.summary.overall === "healthy"
                     ? "bg-[var(--success)]"
                     : status.summary.overall === "warning"
-                    ? "bg-[var(--warning)]"
-                    : "bg-[var(--danger)]"
+                      ? "bg-[var(--warning)]"
+                      : "bg-[var(--danger)]"
                 }`}
               />
               <span className="text-lg font-medium text-[var(--text-primary)]">
@@ -114,6 +192,8 @@ export default async function Page() {
             {t("statusPage.public.detailsHint", locale)}
           </p>
 
+          {renderUptimeSection(uptimeData, locale)}
+
           <p className="mt-8 text-center text-xs text-[var(--text-muted)]">
             VControlHub · {new Date().getFullYear()}
           </p>
@@ -123,7 +203,6 @@ export default async function Page() {
   }
 
   const status = await getPublicStatus();
-  const uptimeData = await getAllUptimeData();
 
   return (
     <main className="relative min-h-screen overflow-hidden text-[var(--text-primary)]">
@@ -149,8 +228,8 @@ export default async function Page() {
                 status.summary.overall === "healthy"
                   ? "bg-[var(--success)]"
                   : status.summary.overall === "warning"
-                  ? "bg-[var(--warning)]"
-                  : "bg-[var(--danger)]"
+                    ? "bg-[var(--warning)]"
+                    : "bg-[var(--danger)]"
               }`}
             />
             <span className="text-lg font-medium text-[var(--text-primary)]">
@@ -174,8 +253,8 @@ export default async function Page() {
                       c.status === "healthy"
                         ? "bg-[var(--success)]"
                         : c.status === "warning"
-                        ? "bg-[var(--warning)]"
-                        : "bg-[var(--danger)]"
+                          ? "bg-[var(--warning)]"
+                          : "bg-[var(--danger)]"
                     }`}
                   />
                   <b className="text-sm text-[var(--text-primary)]">{c.label}</b>
@@ -185,78 +264,19 @@ export default async function Page() {
                     c.status === "healthy"
                       ? "text-[var(--success)]"
                       : c.status === "warning"
-                      ? "text-[var(--warning)]"
-                      : "text-[var(--danger)]"
+                        ? "text-[var(--warning)]"
+                        : "text-[var(--danger)]"
                   }`}
                 >
                   {getHealthLabel(c.status, locale)}
                 </span>
               </div>
-              <p className="mt-1.5 text-sm text-[var(--text-secondary)]">
-                {c.message}
-              </p>
+              <p className="mt-1.5 text-sm text-[var(--text-secondary)]">{c.message}</p>
             </div>
           ))}
         </div>
 
-        {uptimeData && uptimeData.servers && uptimeData.servers.length > 0 && (
-          <div className="mt-8">
-            <h2 className="text-lg font-medium">{t("statusPage.uptime.title", locale)}</h2>
-            <p className="mt-1 text-xs text-[var(--text-muted)]">
-              {t("statusPage.uptime.desc", locale)}
-            </p>
-            <div className="mt-4 grid gap-6">
-              {uptimeData.servers.map((server: UptimeServer) => {
-                const daysMap = new Map<string, number>();
-                (server.data || []).forEach((d: UptimeDay) => {
-                  const dateKey = d.date ? String(d.date) : "";
-                  if (dateKey) daysMap.set(dateKey, d.uptimePercent ?? 0);
-                });
-
-                const today = new Date();
-                today.setUTCHours(0, 0, 0, 0);
-                const days = [];
-                for (let i = 89; i >= 0; i--) {
-                  const d = new Date(today);
-                  d.setUTCDate(d.getUTCDate() - i);
-                  const dateStr = d.toISOString().split("T")[0];
-                  days.push(dateStr);
-                }
-
-                const filled = days
-                  .filter((dateStr): dateStr is string => !!dateStr)
-                  .map((dateStr) => ({
-                    date: dateStr,
-                    uptimePercent: daysMap.get(dateStr) ?? 0,
-                  }));
-
-                const sla = filled.length > 0
-                  ? Math.round((filled.reduce((sum, d) => sum + d.uptimePercent, 0) / filled.length) * 100) / 100
-                  : 0;
-
-                return (
-                  <div key={server.id} data-card className="p-4">
-                    <div className="mb-3 flex items-center justify-between">
-                      <h3 className="text-sm font-medium">{server.name || t("statusPage.uptime.defaultServerName", locale)}</h3>
-                      <div className="text-xs text-[var(--text-muted)]">
-                        {t("statusPage.uptime.slaLabel", locale)} <span className="font-mono">{sla}%</span>
-                      </div>
-                    </div>
-                    <div className="flex flex-wrap gap-1">
-                      {filled.map((d) => (
-                        <div
-                          key={d.date}
-                          className={`h-4 w-4 rounded ${getColorClass(d.uptimePercent)} transition hover:scale-125 hover:z-10`}
-                          title={`${d.date}: ${d.uptimePercent}%`}
-                        />
-                      ))}
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-        )}
+        {renderUptimeSection(uptimeData, locale)}
 
         <p className="mt-8 text-center text-xs text-[var(--text-muted)]">
           VControlHub · {new Date().getFullYear()}

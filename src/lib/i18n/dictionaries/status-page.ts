@@ -14,11 +14,12 @@ export const zh: Record<string, string> = {
 	"statusPage.health.warning": "警告",
 	"statusPage.health.degraded": "异常",
 	"statusPage.health.critical": "异常",
-	"statusPage.public.detailsHint": "登录后可查看分项健康检查与 90 天可用率；匿名访问仅显示总体状态。",
+	"statusPage.public.detailsHint": "匿名访客可查看总体状态与 90 天历史可用率热力图（仅节点显示名，无主机/端口）。登录后可查看分项健康检查详情。",
 	"statusPage.uptime.title": "历史可用率（90 天）",
 	"statusPage.uptime.desc": "显示过去 90 天的服务器 uptime 情况",
 	"statusPage.uptime.defaultServerName": "服务器",
 	"statusPage.uptime.slaLabel": "SLA：",
+	"statusPage.uptime.empty": "暂无历史采样数据，系统会在健康采样后自动生成可用率热力图。",
 };
 
 export const en: Record<string, string> = {
@@ -30,9 +31,10 @@ export const en: Record<string, string> = {
 	"statusPage.health.warning": "Warning",
 	"statusPage.health.degraded": "Degraded",
 	"statusPage.health.critical": "Critical",
-	"statusPage.public.detailsHint": "Sign in to view component health checks and 90-day uptime; anonymous visitors only see overall status.",
+	"statusPage.public.detailsHint": "Anonymous visitors can view overall status and a 90-day uptime heatmap (display names only, no host/port). Sign in for component health checks.",
 	"statusPage.uptime.title": "Historical uptime (90 days)",
 	"statusPage.uptime.desc": "Shows server uptime over the past 90 days.",
 	"statusPage.uptime.defaultServerName": "Server",
 	"statusPage.uptime.slaLabel": "SLA: ",
+	"statusPage.uptime.empty": "No historical samples yet. The heatmap is generated automatically after health sampling runs.",
 };

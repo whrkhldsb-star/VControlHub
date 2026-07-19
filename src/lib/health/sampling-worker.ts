@@ -7,6 +7,7 @@ import { computeLeaseMs } from "@/lib/job/lease";
 import { createLogger } from "@/lib/logging";
 import { collectAllHealth } from "./service-collect";
 import { pruneMetricSnapshots, snapshotHealthOverview } from "./service-metrics";
+import { rollupRecentServerUptime } from "@/lib/uptime/rollup";
 
 export const HEALTH_SAMPLING_JOB_TYPE = "health.sample";
 const WORKER_ID = `${config.app.hostname || "vcontrolhub"}:health-sampling:${process.pid}`;
@@ -39,6 +40,8 @@ async function processSample(jobId: string) {
   const overview = await collectAllHealth();
   const sampled = await snapshotHealthOverview(overview);
   const pruned = await pruneMetricSnapshots(new Date(Date.now() - RETENTION_MS));
+  // Feed /status 90-day heatmap from metric samples (table was previously never written).
+  const uptime = await rollupRecentServerUptime();
   return {
     sampled: sampled.count,
     online: overview.online,
@@ -46,6 +49,7 @@ async function processSample(jobId: string) {
     critical: overview.critical,
     offline: overview.offline,
     pruned: pruned.count,
+    uptimeUpserted: uptime.upserted,
   };
 }
 

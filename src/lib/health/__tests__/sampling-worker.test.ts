@@ -10,6 +10,7 @@ const mocks = vi.hoisted(() => ({
   collectAllHealth: vi.fn(),
   snapshotHealthOverview: vi.fn(),
   pruneMetricSnapshots: vi.fn(),
+  rollupRecentServerUptime: vi.fn(),
 }));
 
 vi.mock("@/lib/db", () => ({ prisma: { job: { findFirst: mocks.jobFindFirst } } }));
@@ -24,6 +25,9 @@ vi.mock("../service-collect", () => ({ collectAllHealth: mocks.collectAllHealth 
 vi.mock("../service-metrics", () => ({
   snapshotHealthOverview: mocks.snapshotHealthOverview,
   pruneMetricSnapshots: mocks.pruneMetricSnapshots,
+}));
+vi.mock("@/lib/uptime/rollup", () => ({
+  rollupRecentServerUptime: mocks.rollupRecentServerUptime,
 }));
 
 import { enqueueHealthSampleIfIdle, runHealthSamplingWorkerOnce, stopHealthSamplingWorkerForTests } from "../sampling-worker";
@@ -44,6 +48,7 @@ describe("fleet health background sampling", () => {
     });
     mocks.snapshotHealthOverview.mockResolvedValue({ count: 2 });
     mocks.pruneMetricSnapshots.mockResolvedValue({ count: 4 });
+    mocks.rollupRecentServerUptime.mockResolvedValue({ upserted: 3 });
   });
 
   it("does not enqueue a duplicate pending/running sample", async () => {
@@ -52,11 +57,16 @@ describe("fleet health background sampling", () => {
     expect(mocks.enqueueJob).not.toHaveBeenCalled();
   });
 
-  it("collects, batches snapshots, prunes retention and completes the durable job", async () => {
+  it("collects, batches snapshots, prunes retention, rolls up uptime and completes the durable job", async () => {
     expect(await runHealthSamplingWorkerOnce("test")).toBe(true);
     expect(mocks.snapshotHealthOverview).toHaveBeenCalledWith(expect.objectContaining({ total: 2 }));
     expect(mocks.pruneMetricSnapshots).toHaveBeenCalledWith(expect.any(Date));
-    expect(mocks.completeJob).toHaveBeenCalledWith("job1", expect.any(String), expect.objectContaining({ sampled: 2, offline: 1, pruned: 4 }));
+    expect(mocks.rollupRecentServerUptime).toHaveBeenCalledTimes(1);
+    expect(mocks.completeJob).toHaveBeenCalledWith(
+      "job1",
+      expect.any(String),
+      expect.objectContaining({ sampled: 2, offline: 1, pruned: 4, uptimeUpserted: 3 }),
+    );
   });
 
   it("fails the durable job instead of reporting false success", async () => {

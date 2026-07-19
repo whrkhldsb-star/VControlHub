@@ -128,21 +128,21 @@ export const DownloadTaskRow = memo(function DownloadTaskRow({
 				)}
 				{task.status === "PENDING" && task.aria2Gid && canManage && (
 					<button type="button" onClick={() => onAction(task.id, "resume")}
-						data-tone="emerald" className="rounded-lg border border-[var(--success-border)] px-3 py-1.5 text-xs text-[var(--success)] hover:bg-[var(--success-bg)] transition"
+						data-action-button data-variant="success" className="!px-3 !py-1.5 !text-xs"
 					>
 						{t("downloadsPage.action.resume")}
 					</button>
 				)}
 				{(task.status === "RUNNING" || task.status === "PENDING") && canManage && (
 					<button type="button" onClick={() => onAction(task.id, "cancel")}
-						data-tone="rose" className="rounded-lg border border-[var(--danger-border)] px-3 py-1.5 text-xs text-[var(--danger)] hover:bg-[var(--danger-bg)] transition"
+						data-action-button data-variant="danger" className="!px-3 !py-1.5 !text-xs"
 					>
 						{t("downloadsPage.action.cancel")}
 					</button>
 				)}
 				{canManage && (
 					<button type="button" onClick={() => onAction(task.id, "refresh")}
-						className="rounded-lg border border-[var(--border)] bg-[var(--surface-elevated)] px-3 py-1.5 text-xs text-[var(--text-muted)] hover:bg-[var(--surface-hover)] transition"
+						data-action-button data-variant="secondary" className="!px-3 !py-1.5 !text-xs"
 					>
 						{busyActions[`${task.id}:refresh`] ? t("downloadsPage.action.refreshing") : t("downloadsPage.action.refresh")}
 					</button>
@@ -150,7 +150,7 @@ export const DownloadTaskRow = memo(function DownloadTaskRow({
 				{task.downloadAccess && (
 					<a href={task.downloadAccess.href}
 						onClick={onDownloadClick(task.id)}
-						data-tone="cyan" className="rounded-lg border border-[var(--color-action-border)]/25 px-3 py-1.5 text-xs font-medium text-[var(--text-primary)] hover:bg-[var(--color-action-bg)]/20 transition"
+						data-action-button data-variant="outline" className="!px-3 !py-1.5 !text-xs !font-medium"
 						title={task.downloadAccess.description}
 					>
 						{downloadingIds[task.id] ? t("downloadsPage.action.downloading") : t("downloadsPage.action.downloadFile")}
@@ -166,7 +166,7 @@ export const DownloadTaskRow = memo(function DownloadTaskRow({
 					const href = `/files?nodeId=${encodeURIComponent(node.id)}${rel ? `&path=${encodeURIComponent(rel)}` : ""}`;
 					return (
 						<a href={href}
-							data-tone="emerald" className="rounded-lg border border-[var(--success-border)] px-3 py-1.5 text-xs text-[var(--success)] hover:bg-[var(--success-bg)] transition"
+							data-action-button data-variant="success" className="!px-3 !py-1.5 !text-xs"
 							title={t("downloadsPage.action.openFolderTitle")}
 						>
 							{t("downloadsPage.action.openFolder")}

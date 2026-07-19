@@ -226,19 +226,25 @@ export default async function FilesPage({ searchParams }: FilesPageProps) {
           <FilesMoreNav />
           <Link
             href="/audit"
-            className="rounded-lg border border-[var(--border)] bg-[var(--surface-elevated)] px-3 py-1.5 text-xs font-medium text-[var(--text-primary)] transition hover:bg-[var(--surface-hover)]"
+            data-action-button
+            data-variant="secondary"
+            className="!px-3 !py-1.5 !text-xs"
           >
             {t("filesPage.linkAuditLog", locale)}
           </Link>
           <Link
             href="/health"
-            className="rounded-lg border border-[var(--border)] bg-[var(--surface-elevated)] px-3 py-1.5 text-xs font-medium text-[var(--text-primary)] transition hover:bg-[var(--surface-hover)]"
+            data-action-button
+            data-variant="secondary"
+            className="!px-3 !py-1.5 !text-xs"
           >
             {t("filesPage.linkHealthCheck", locale)}
           </Link>
           <Link
             href="/servers"
-            className="rounded-lg border border-[var(--border)] bg-[var(--surface-elevated)] px-3 py-1.5 text-xs font-medium text-[var(--text-primary)] transition hover:bg-[var(--surface-hover)]"
+            data-action-button
+            data-variant="secondary"
+            className="!px-3 !py-1.5 !text-xs"
           >
             {t("filesPage.linkServers", locale)}
           </Link>
