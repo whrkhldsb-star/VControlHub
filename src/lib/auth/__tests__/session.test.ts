@@ -47,6 +47,7 @@ describe("session auth helpers", () => {
     expect(shouldBypassAuth("/api/status")).toBe(true);
     expect(shouldBypassAuth("/share/public-token")).toBe(true);
     expect(shouldBypassAuth("/api/share/public-token")).toBe(true);
+    expect(shouldBypassAuth("/api/itsm/inbound/conn_1")).toBe(true);
     expect(shouldBypassAuth("/servers")).toBe(false);
   });
 

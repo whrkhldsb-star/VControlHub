@@ -8,11 +8,18 @@ import { proxy } from "../proxy";
 vi.mock("@/lib/auth/session", () => ({
   getSessionCookieName: () =>
     process.env.AUTH_SESSION_COOKIE_NAME?.trim() ||
-    `${process.env.APP_SLUG || "whrkhldsb"}_session`,
+    `${process.env.APP_SLUG || "vcontrolhub"}_session`,
 }));
 
 function makeRequest(pathname: string, init: NextRequestInit = {}) {
   return new NextRequest(new URL(pathname, "https://example.test"), init);
+}
+
+function sessionCookie(value = "header.payload.signature-value") {
+  const name =
+    process.env.AUTH_SESSION_COOKIE_NAME?.trim() ||
+    `${process.env.APP_SLUG || "vcontrolhub"}_session`;
+  return `${name}=${value}`;
 }
 
 describe("proxy auth guard", () => {
@@ -22,7 +29,7 @@ describe("proxy auth guard", () => {
 
     const response = proxy(
       makeRequest("/api-docs", {
-        headers: { cookie: "whrkhldsb_session=header.payload.signature-value" },
+        headers: { cookie: sessionCookie() },
       }),
     );
 
@@ -118,6 +125,19 @@ describe("proxy auth guard", () => {
     }
   });
 
+  it("lets anonymous ITSM inbound webhooks through so HMAC can be verified in-route", () => {
+    const response = proxy(
+      makeRequest("/api/itsm/inbound/conn_1", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+      }),
+    );
+
+    // Must not be blocked by session middleware (route enforces signature).
+    expect(response.status).toBe(200);
+    expect(response.headers.get("location")).toBeNull();
+  });
+
   it("keeps state-changing image API routes protected by auth and CSRF", async () => {
     const response = proxy(
       makeRequest("/api/images/img_1/file", { method: "POST" }),
@@ -136,7 +156,7 @@ describe("proxy auth guard", () => {
     const response = proxy(
       makeRequest("/api/auth/signout", {
         method: "POST",
-        headers: { cookie: "whrkhldsb_session=header.payload.signature-value" },
+        headers: { cookie: sessionCookie() },
       }),
     );
     expect(response.status).toBe(403);
@@ -150,8 +170,7 @@ describe("proxy auth guard", () => {
       makeRequest("/api/auth/signout", {
         method: "POST",
         headers: {
-          cookie:
-            "whrkhldsb_session=header.payload.signature-value; csrf_token=tkn",
+          cookie: `${sessionCookie()}; csrf_token=tkn`,
           "x-csrf-token": "tkn",
         },
       }),

@@ -36,6 +36,8 @@ const PUBLIC_PATH_PREFIXES = [
   "/_next", // static assets
   "/api/public", // public API endpoints
   "/api/share/", // public share-token downloads (validated server-side)
+  // ITSM inbound webhooks: no session cookie; HMAC signature verified in route.
+  "/api/itsm/inbound/",
   "/favicon.ico",
   "/icon.png", // branding app icon (also reused as 512x512 PWA splash)
   "/icon-192x192.png", // PWA home-screen icon (TR-033)

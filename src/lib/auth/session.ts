@@ -65,6 +65,7 @@ const AUTH_BYPASS_PREFIXES = [
   "/_next",
   "/api/public",
   "/api/share/",
+  "/api/itsm/inbound/",
   "/api/status",
   "/share/",
   "/favicon.ico",
