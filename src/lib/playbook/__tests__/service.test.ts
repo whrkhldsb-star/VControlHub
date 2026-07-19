@@ -15,6 +15,7 @@ const { mocks } = vi.hoisted(() => ({
     transaction: vi.fn(),
     auditUserAction: vi.fn(),
     serverFindMany: vi.fn(),
+    teamMemberFindUnique: vi.fn(),
   },
 }));
 
@@ -30,6 +31,7 @@ vi.mock("@/lib/db", () => ({
     },
     playbookRun: { findMany: mocks.runFindMany },
     server: { findMany: mocks.serverFindMany },
+    teamMember: { findUnique: mocks.teamMemberFindUnique },
     $transaction: mocks.transaction,
   },
 }));
@@ -77,6 +79,7 @@ describe("playbook service", () => {
       const ids = where?.id?.in ?? [];
       return ids.map((id) => ({ id }));
     });
+    mocks.teamMemberFindUnique.mockResolvedValue(null);
     mocks.transaction.mockImplementation(async (callback: (tx: unknown) => unknown) => callback({
       playbookRun: { create: mocks.runCreate, update: mocks.runUpdate },
       job: { create: mocks.jobCreate },
@@ -160,6 +163,79 @@ describe("playbook service", () => {
     expect(mocks.playbookCreate).not.toHaveBeenCalled();
   });
 
+  it("rejects create when send_notification recipient is outside team scope", async () => {
+    mocks.teamMemberFindUnique.mockResolvedValueOnce(null);
+    const session = { userId: "u1", roles: ["operator"] as import("@/lib/auth/rbac").RoleKey[], currentTeamId: "team1" };
+    await expect(
+      createPlaybook(
+        {
+          name: "Cross-team notify",
+          triggerType: "cron",
+          triggerConfig: { expression: "0 3 * * *" },
+          steps: [
+            {
+              id: "s1",
+              name: "notify",
+              type: "send_notification",
+              config: { recipientUserId: "u-other-team", subject: "hi", body: "spam" },
+              retry: 0,
+              timeoutSec: 60,
+            },
+          ] as never,
+          chainRetry: 0,
+          enabled: true,
+        },
+        "u1",
+        session,
+      ),
+    ).rejects.toThrow(/notification recipients were not found or are outside your team scope/i);
+    expect(mocks.playbookCreate).not.toHaveBeenCalled();
+    expect(mocks.teamMemberFindUnique).toHaveBeenCalledWith({
+      where: { teamId_userId: { teamId: "team1", userId: "u-other-team" } },
+      select: { userId: true },
+    });
+  });
+
+  it("allows create when send_notification recipient is self without teamMember lookup", async () => {
+    mocks.playbookCreate.mockResolvedValue({
+      ...baseRow,
+      steps: [
+        {
+          id: "s1",
+          name: "notify",
+          type: "send_notification",
+          config: { recipientUserId: "u1", subject: "hi", body: "ok" },
+          retry: 0,
+          timeoutSec: 60,
+        },
+      ],
+    });
+    const session = { userId: "u1", roles: ["operator"] as import("@/lib/auth/rbac").RoleKey[], currentTeamId: "team1" };
+    await createPlaybook(
+      {
+        name: "Self notify",
+        triggerType: "cron",
+        triggerConfig: { expression: "0 3 * * *" },
+        steps: [
+          {
+            id: "s1",
+            name: "notify",
+            type: "send_notification",
+            config: { recipientUserId: "u1", subject: "hi", body: "ok" },
+            retry: 0,
+            timeoutSec: 60,
+          },
+        ] as never,
+        chainRetry: 0,
+        enabled: true,
+      },
+      "u1",
+      session,
+    );
+    expect(mocks.playbookCreate).toHaveBeenCalled();
+    expect(mocks.teamMemberFindUnique).not.toHaveBeenCalled();
+  });
+
   it("rejects update when new steps target out-of-scope servers", async () => {
     mocks.playbookFindFirst.mockResolvedValue(baseRow);
     mocks.serverFindMany.mockResolvedValueOnce([]); // no servers visible
@@ -183,6 +259,32 @@ describe("playbook service", () => {
         session,
       ),
     ).rejects.toThrow(/outside your team scope/i);
+    expect(mocks.playbookUpdate).not.toHaveBeenCalled();
+  });
+
+  it("rejects update when new send_notification recipient is outside team scope", async () => {
+    mocks.playbookFindFirst.mockResolvedValue(baseRow);
+    mocks.teamMemberFindUnique.mockResolvedValueOnce(null);
+    const session = { userId: "u1", roles: ["operator"] as import("@/lib/auth/rbac").RoleKey[], currentTeamId: "team1" };
+    await expect(
+      updatePlaybook(
+        {
+          id: "pb1",
+          steps: [
+            {
+              id: "s1",
+              name: "notify",
+              type: "send_notification",
+              config: { recipientUserId: "u-foreign", subject: "x", body: "y" },
+              retry: 0,
+              timeoutSec: 60,
+            },
+          ] as never,
+        },
+        "u1",
+        session,
+      ),
+    ).rejects.toThrow(/notification recipients were not found or are outside your team scope/i);
     expect(mocks.playbookUpdate).not.toHaveBeenCalled();
   });
 

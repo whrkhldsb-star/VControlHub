@@ -156,7 +156,26 @@ async function dispatchStep(input: {
       }
       return waitForCommand(commandRequestId, step.timeoutSec);
     }
-    case "send_notification":
+    case "send_notification": {
+      // Defense-in-depth: write-time service asserts actor scope; when the run
+      // carries a teamId, also require the recipient to be a team member so a
+      // legacy/stale playbook step cannot spam out-of-team inboxes.
+      if (input.teamId) {
+        const membership = await prisma.teamMember.findUnique({
+          where: {
+            teamId_userId: {
+              teamId: input.teamId,
+              userId: step.config.recipientUserId,
+            },
+          },
+          select: { userId: true },
+        });
+        if (!membership) {
+          throw new Error(
+            `notification recipient outside team scope: ${step.config.recipientUserId}`,
+          );
+        }
+      }
       await prisma.notification.create({
         data: {
           userId: step.config.recipientUserId,
@@ -167,6 +186,7 @@ async function dispatchStep(input: {
         },
       });
       return `notification sent to ${step.config.recipientUserId}`;
+    }
     case "call_webhook": {
       const controller = new AbortController();
       const timer = setTimeout(() => controller.abort(), Math.max(1, step.timeoutSec) * 1_000);

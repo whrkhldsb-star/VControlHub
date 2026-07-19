@@ -7,6 +7,7 @@ const { mocks } = vi.hoisted(() => ({
 		commandRequestFindUnique: vi.fn(),
 		recordJobEvent: vi.fn(),
 		notificationCreate: vi.fn(),
+		teamMemberFindUnique: vi.fn(),
 		fetchWebhookSafely: vi.fn(),
 	},
 }));
@@ -18,6 +19,7 @@ vi.mock("@/lib/db", () => ({
 		notification: { create: mocks.notificationCreate },
 		playbookRun: { updateMany: mocks.playbookRunUpdateMany },
 		commandRequest: { findUnique: mocks.commandRequestFindUnique },
+		teamMember: { findUnique: mocks.teamMemberFindUnique },
 	},
 }));
 vi.mock("@/lib/security/webhook-url", () => ({
@@ -53,6 +55,7 @@ describe("executePlaybookChain", () => {
 		mocks.commandRequestFindUnique.mockResolvedValue({ status: "COMPLETED" });
 		mocks.recordJobEvent.mockResolvedValue(undefined);
 		mocks.notificationCreate.mockResolvedValue({ id: "n-1" });
+		mocks.teamMemberFindUnique.mockResolvedValue(null);
 	});
 
 	it("returns dry_run results for every step without dispatching side effects", async () => {
@@ -117,7 +120,7 @@ describe("executePlaybookChain", () => {
 		);
 	});
 
-	it("creates a Notification row for send_notification step", async () => {
+	it("creates a Notification row for send_notification step without teamId", async () => {
 		const playbook = buildPlaybook([
 			{
 				id: "s1",
@@ -134,6 +137,7 @@ describe("executePlaybookChain", () => {
 			dryRun: false,
 		});
 		expect(results[0]?.status).toBe("ok");
+		expect(mocks.teamMemberFindUnique).not.toHaveBeenCalled();
 		expect(mocks.notificationCreate).toHaveBeenCalledWith({
 			data: {
 				userId: "u1",
@@ -143,6 +147,57 @@ describe("executePlaybookChain", () => {
 				teamId: null,
 			},
 		});
+	});
+
+	it("checks team membership before send_notification when run has teamId", async () => {
+		mocks.teamMemberFindUnique.mockResolvedValueOnce({ userId: "u1" });
+		const playbook = buildPlaybook([
+			{
+				id: "s1",
+				name: "notify",
+				type: "send_notification",
+				config: { recipientUserId: "u1", subject: "hi", body: "world" },
+				retry: 0,
+				timeoutSec: 60,
+			},
+		]);
+		const { results } = await executePlaybookChain({
+			playbook,
+			runId: "run-1",
+			dryRun: false,
+			teamId: "team1",
+		});
+		expect(results[0]?.status).toBe("ok");
+		expect(mocks.teamMemberFindUnique).toHaveBeenCalledWith({
+			where: { teamId_userId: { teamId: "team1", userId: "u1" } },
+			select: { userId: true },
+		});
+		expect(mocks.notificationCreate).toHaveBeenCalledWith({
+			data: expect.objectContaining({ userId: "u1", teamId: "team1" }),
+		});
+	});
+
+	it("fails send_notification when recipient is outside run team scope", async () => {
+		mocks.teamMemberFindUnique.mockResolvedValueOnce(null);
+		const playbook = buildPlaybook([
+			{
+				id: "s1",
+				name: "notify",
+				type: "send_notification",
+				config: { recipientUserId: "u-foreign", subject: "hi", body: "spam" },
+				retry: 0,
+				timeoutSec: 60,
+			},
+		]);
+		const { results } = await executePlaybookChain({
+			playbook,
+			runId: "run-1",
+			dryRun: false,
+			teamId: "team1",
+		});
+		expect(results[0]?.status).toBe("failed");
+		expect(results[0]?.error).toMatch(/outside team scope/i);
+		expect(mocks.notificationCreate).not.toHaveBeenCalled();
 	});
 
 	it("calls the webhook URL via fetchWebhookSafely and records ok on 2xx", async () => {

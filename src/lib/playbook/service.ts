@@ -8,7 +8,7 @@
  */
 
 import { Prisma } from "@prisma/client";
-import { teamCreateData, teamWhere } from "@/lib/auth/team-scope";
+import { assertUserInActorScope, teamCreateData, teamWhere } from "@/lib/auth/team-scope";
 import type { SessionPayload } from "@/lib/auth/session";
 
 import { prisma } from "@/lib/db";
@@ -59,6 +59,49 @@ async function assertPlaybookCommandServersInScope(
       "One or more playbook command targets were not found or are outside your team scope",
     );
   }
+}
+
+/**
+ * Reject send_notification recipients outside the caller's user directory scope.
+ * Without this, a team playbook author can store any userId and the worker will
+ * create cross-tenant inbox rows (notification IDOR).
+ */
+async function assertPlaybookNotificationRecipientsInScope(
+  steps: PlaybookStep[],
+  session?: TeamSession | null,
+): Promise<void> {
+  if (!session) return;
+  const recipientIds = [
+    ...new Set(
+      steps
+        .filter(
+          (step): step is Extract<PlaybookStep, { type: "send_notification" }> =>
+            step.type === "send_notification",
+        )
+        .map((step) => step.config.recipientUserId)
+        .filter((id): id is string => typeof id === "string" && id.trim().length > 0),
+    ),
+  ];
+  for (const recipientUserId of recipientIds) {
+    try {
+      await assertUserInActorScope(session, recipientUserId);
+    } catch (error) {
+      if (error instanceof NotFoundError) {
+        throw new ValidationError(
+          "One or more playbook notification recipients were not found or are outside your team scope",
+        );
+      }
+      throw error;
+    }
+  }
+}
+
+async function assertPlaybookStepsInScope(
+  steps: PlaybookStep[],
+  session?: TeamSession | null,
+): Promise<void> {
+  await assertPlaybookCommandServersInScope(steps, session);
+  await assertPlaybookNotificationRecipientsInScope(steps, session);
 }
 
 type RawPlaybook = {
@@ -148,7 +191,7 @@ export async function createPlaybook(
   createdById: string,
   session?: TeamSession | null,
 ): Promise<PlaybookRecord> {
-  await assertPlaybookCommandServersInScope(input.steps as PlaybookStep[], session);
+  await assertPlaybookStepsInScope(input.steps as PlaybookStep[], session);
   const teamData = session ? teamCreateData(session) : {};
   const row = await prisma.playbook.create({
     data: {
@@ -183,7 +226,7 @@ export async function updatePlaybook(
   const existing = await getPlaybook(id, session);
   if (!existing) throw new NotFoundError("Playbook not found");
   if (rest.steps !== undefined) {
-    await assertPlaybookCommandServersInScope(rest.steps as PlaybookStep[], session);
+    await assertPlaybookStepsInScope(rest.steps as PlaybookStep[], session);
   }
   const data: Prisma.PlaybookUpdateInput = {};
   if (rest.name !== undefined) data.name = rest.name;
