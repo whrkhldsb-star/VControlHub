@@ -1,5 +1,6 @@
 import { JobStatus } from "@prisma/client";
 
+import { ensureDefaultAlertRules } from "@/lib/alert/service";
 import { config } from "@/lib/config/env";
 import { prisma } from "@/lib/db";
 import { computeLeaseMs } from "@/lib/job/lease";
@@ -77,6 +78,27 @@ async function pruneCompletedAlertEvaluationJobs() {
   }
 }
 
+async function processAlertEvaluation(jobId: string) {
+  await heartbeatJob(jobId, ALERT_EVALUATION_WORKER_ID, {
+    leaseMs: ALERT_EVALUATION_LEASE_MS,
+    progress: "Ensuring default alert rules",
+  });
+  // Fresh installs previously left evaluation as a pure no-op until someone
+  // opened /alert-rules. Bootstrap starter rules at worker time as well.
+  try {
+    await ensureDefaultAlertRules(null);
+  } catch (error) {
+    logger.warn("Failed to ensure default alert rules before evaluation", {
+      error: error instanceof Error ? error.message : String(error),
+    });
+  }
+  await heartbeatJob(jobId, ALERT_EVALUATION_WORKER_ID, {
+    leaseMs: ALERT_EVALUATION_LEASE_MS,
+    progress: "Evaluating alert rules",
+  });
+  return evaluateAlerts();
+}
+
 export async function runAlertEvaluationJobWorkerOnce(reason = "manual") {
   const state = getWorkerState();
   if (state.running) {
@@ -91,8 +113,7 @@ export async function runAlertEvaluationJobWorkerOnce(reason = "manual") {
     if (!job) return false;
 
     try {
-      await heartbeatJob(job.id, ALERT_EVALUATION_WORKER_ID, { leaseMs: ALERT_EVALUATION_LEASE_MS, progress: "Evaluating alert rules" });
-      const result = await evaluateAlerts();
+      const result = await processAlertEvaluation(job.id);
       await completeJob(job.id, ALERT_EVALUATION_WORKER_ID, result ?? { evaluated: true });
       await pruneCompletedAlertEvaluationJobs();
       return true;

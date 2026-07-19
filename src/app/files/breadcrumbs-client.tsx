@@ -33,7 +33,9 @@ export function BreadcrumbsClient({
           type="button"
           onClick={() => onNavigate(parentPath)}
           data-testid="files-up-level"
-          className="inline-flex items-center gap-1.5 rounded-lg border border-[var(--border)] bg-[var(--surface-elevated)] px-3 py-1.5 font-medium text-[var(--text-primary)] transition hover:bg-[var(--surface-hover)]"
+          data-action-button
+          data-variant="secondary"
+          className="!inline-flex !items-center !gap-1.5 !px-3 !py-1.5 !text-sm !font-medium"
           title={t("filesBrowserSpa.upLevel")}
         >
           <span aria-hidden="true">↑</span>
@@ -43,7 +45,9 @@ export function BreadcrumbsClient({
       <button
         type="button"
         onClick={() => onNavigate("")}
-        className="rounded-lg border border-[var(--border)] px-3 py-1.5 text-[var(--text-secondary)] hover:bg-[var(--surface-hover)]"
+        data-action-button
+        data-variant="ghost"
+        className="!px-3 !py-1.5 !text-sm"
       >
         {t("filesBrowserSpa.allFiles")}
       </button>
@@ -55,14 +59,19 @@ export function BreadcrumbsClient({
           <span key={nextPath} className="flex items-center gap-2">
             <span className="text-[var(--text-muted)]">/</span>
             {isLast ? (
-              <span data-tone="cyan" className="rounded-lg border border-[var(--accent-border)] bg-[var(--accent-bg)] px-3 py-1.5 text-[var(--text-primary)]">
+              <span
+                data-tone="cyan"
+                className="rounded-lg border border-[var(--accent-border)] bg-[var(--accent-bg)] px-3 py-1.5 text-sm text-[var(--text-primary)]"
+              >
                 {displaySegment}
               </span>
             ) : (
               <button
                 type="button"
                 onClick={() => onNavigate(nextPath)}
-                className="rounded-lg border border-[var(--border)] px-3 py-1.5 text-[var(--text-secondary)] hover:bg-[var(--surface-hover)]"
+                data-action-button
+                data-variant="ghost"
+                className="!px-3 !py-1.5 !text-sm"
               >
                 {displaySegment}
               </button>

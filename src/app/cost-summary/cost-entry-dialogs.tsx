@@ -109,7 +109,7 @@ export function CostEntryFormModal({ open, editingId, form, availableCurrencies,
 						<div className="flex justify-end gap-2 pt-2">
 							<button
 								type="button"
-								className={buttonGhost}
+								data-action-button data-variant="secondary" className={buttonGhost}
 								onClick={() => {
 									setShowForm(false);
 									setEditingId(null);
@@ -120,7 +120,7 @@ export function CostEntryFormModal({ open, editingId, form, availableCurrencies,
 							</button>
 							<button
 								type="button"
-								className={buttonPrimary}
+								data-action-button data-variant="primary" className={buttonPrimary}
 								onClick={submitForm}
 								disabled={saving}
 							>
@@ -153,7 +153,7 @@ export function CostDeleteDialog({ confirmDelete, deletingId, setConfirmDelete, 
 						<div className="flex justify-end gap-2">
 							<button
 								type="button"
-								className={buttonGhost}
+								data-action-button data-variant="secondary" className={buttonGhost}
 								onClick={() => setConfirmDelete(null)}
 								disabled={deletingId === confirmDelete.id}
 							>
@@ -161,7 +161,7 @@ export function CostDeleteDialog({ confirmDelete, deletingId, setConfirmDelete, 
 							</button>
 							<button
 								type="button"
-								className={buttonPrimary}
+								data-action-button data-variant="primary" className={buttonPrimary}
 								onClick={onConfirmDelete}
 								disabled={deletingId === confirmDelete.id}
 							>

@@ -317,7 +317,7 @@ export function VpsBackupSection({
 								aria-label={t("vpsBackup.retentionDays")}
 								value={createForm.retentionDays}
 								onChange={(e) => setCreateForm({ ...createForm, retentionDays: e.target.value })}
-								className="w-24 rounded-lg border border-[var(--border)] bg-[var(--surface-elevated)] px-3 py-1.5 text-sm text-[var(--text-primary)]"
+								data-input className={`w-24 ${UI_INPUT}`}
 							/>
 							<ActionButton
 								type="button"

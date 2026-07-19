@@ -206,14 +206,14 @@ export function CostPageClient({
 				count={entries.length}
 				actions={
 					<div className="flex flex-wrap gap-2">
-						<button type="button" className={buttonGhost} onClick={() => void refreshAll()}>{t("costPage.actions.refresh")}</button>
+						<button type="button" data-action-button data-variant="secondary" className={buttonGhost} onClick={() => void refreshAll()}>{t("costPage.actions.refresh")}</button>
 						{canManage ? (
-							<button type="button" className={buttonGhost} onClick={() => void syncServerCosts()} disabled={syncingSources}>
+							<button type="button" data-action-button data-variant="secondary" className={buttonGhost} onClick={() => void syncServerCosts()} disabled={syncingSources}>
 								{syncingSources ? t("costPage.actions.syncingSources") : t("costPage.actions.syncSources")}
 							</button>
 						) : null}
 						{canManage ? (
-							<button type="button" className={buttonPrimary} onClick={openCreate}>{t("costPage.actions.newEntry")}</button>
+							<button type="button" data-action-button data-variant="primary" className={buttonPrimary} onClick={openCreate}>{t("costPage.actions.newEntry")}</button>
 						) : null}
 					</div>
 				}
@@ -244,8 +244,8 @@ export function CostPageClient({
 										{canManage ? (
 											<td className="px-3 py-2 text-right">
 												<div className="flex justify-end gap-2">
-													<button type="button" className={buttonGhost} onClick={() => openEdit(e)}>{t("costPage.actions.edit")}</button>
-													<button type="button" className={buttonDanger} onClick={() => requestDelete(e)} disabled={deletingId === e.id}>
+													<button type="button" data-action-button data-variant="secondary" className={buttonGhost} onClick={() => openEdit(e)}>{t("costPage.actions.edit")}</button>
+													<button type="button" data-action-button data-variant="danger" className={buttonDanger} onClick={() => requestDelete(e)} disabled={deletingId === e.id}>
 														{deletingId === e.id ? t("costPage.actions.deleting") : t("costPage.actions.delete")}
 													</button>
 												</div>

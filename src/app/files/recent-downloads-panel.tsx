@@ -56,7 +56,9 @@ export function RecentDownloadsPanel({
           aria-label={t("filesPage.recentDownloads.refreshAria")}
           onClick={() => void load()}
           disabled={loading}
-          className="rounded-lg border border-[var(--border)] px-3 py-1.5 text-xs font-medium text-[var(--text-secondary)] hover:bg-[var(--surface-hover)] disabled:opacity-60"
+          data-action-button
+          data-variant="secondary"
+          className="!px-3 !py-1.5 !text-xs !font-medium disabled:opacity-60"
         >
           {t("filesPage.recentDownloads.refresh")}
         </button>

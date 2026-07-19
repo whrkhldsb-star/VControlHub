@@ -224,7 +224,9 @@ export function JobEventsDialog({ jobId, open, onClose }: JobEventsDialogProps) 
               type="button"
               onClick={() => void load(false)}
               disabled={loading}
-              className="rounded-lg border border-[var(--border)]/[0.10] px-3 py-1.5 text-[var(--text-secondary)] hover:bg-[var(--surface-hover)] disabled:opacity-50"
+              data-action-button
+              data-variant="secondary"
+              className="!px-3 !py-1.5 !text-xs disabled:opacity-50"
             >
               {t("jobEventsDialog.refresh")}
             </button>
@@ -233,7 +235,9 @@ export function JobEventsDialog({ jobId, open, onClose }: JobEventsDialogProps) 
                 type="button"
                 onClick={() => void load(true)}
                 disabled={loading}
-                className="rounded-lg border border-[var(--border)]/[0.10] px-3 py-1.5 text-[var(--text-secondary)] hover:bg-[var(--surface-hover)] disabled:opacity-50"
+                data-action-button
+                data-variant="secondary"
+                className="!px-3 !py-1.5 !text-xs disabled:opacity-50"
               >
                 {t("jobEventsDialog.loadMore")}
               </button>

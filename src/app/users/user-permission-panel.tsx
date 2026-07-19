@@ -211,8 +211,8 @@ const _data = await csrfFetch("/api/users/permissions", {
                   <option value="">{t("usersPerm.template.select")}</option>
                   {templates.map((template) => <option key={template.id} value={template.id}>{template.name}</option>)}
                 </select>
-                <button type="button" onClick={applyTemplate} disabled={!selectedTemplateId} className="rounded-xl border border-[var(--accent-border)] px-3 py-2 text-xs text-[var(--accent)] disabled:opacity-40">{t("usersPerm.template.apply")}</button>
-                <button type="button" onClick={saveTemplate} className="rounded-xl border border-[var(--border)] px-3 py-2 text-xs text-[var(--text-secondary)]">{t("usersPerm.template.saveCurrent")}</button>
+                <button type="button" onClick={applyTemplate} disabled={!selectedTemplateId} data-action-button data-variant="outline" className="!px-3 !py-2 !text-xs disabled:opacity-40">{t("usersPerm.template.apply")}</button>
+                <button type="button" onClick={saveTemplate} data-action-button data-variant="secondary" className="!px-3 !py-2 !text-xs">{t("usersPerm.template.saveCurrent")}</button>
               </div>
             </section>
             <section className="rounded-2xl border border-[var(--border)] bg-[var(--surface-subtle)] p-4">

@@ -60,7 +60,9 @@ export function VoidBackupRecordButton({ backupId, status }: Props) {
           disabled={disabled}
           onClick={handleVoid}
           aria-describedby={confirming ? `void-backup-${backupId}-warning` : undefined}
-          className="w-fit rounded-lg border border-[var(--warning-border)] px-3 py-1.5 text-xs font-semibold text-[var(--warning)] transition hover:bg-[var(--warning-bg)] disabled:cursor-not-allowed disabled:opacity-50"
+          data-action-button
+          data-variant="outline"
+          className="!w-fit !px-3 !py-1.5 !text-xs !font-semibold disabled:cursor-not-allowed disabled:opacity-50"
         >
           {pending ? t("backupsPage.void.pending") : confirming ? t("backupsPage.void.confirmSubmit") : t("backupsPage.void.submit")}
         </button>
@@ -69,7 +71,9 @@ export function VoidBackupRecordButton({ backupId, status }: Props) {
             type="button"
             disabled={pending}
             onClick={() => setConfirming(false)}
-            className="w-fit rounded-lg border border-[var(--border)] px-3 py-1.5 text-xs font-semibold text-[var(--text-secondary)] transition hover:bg-[var(--surface-hover)] disabled:cursor-not-allowed disabled:opacity-50"
+            data-action-button
+            data-variant="secondary"
+            className="!w-fit !px-3 !py-1.5 !text-xs !font-semibold disabled:cursor-not-allowed disabled:opacity-50"
           >
             {t("common.cancel")}
           </button>
