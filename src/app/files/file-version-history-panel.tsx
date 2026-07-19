@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 
+import { ConfirmDialog } from "@/components/confirm-dialog";
 import { csrfFetch } from "@/lib/auth/csrf-client";
 import { useI18n } from "@/lib/i18n/use-locale";
 import { formatDate } from "@/app/files/file-entry-utils";
@@ -43,6 +44,10 @@ export function FileVersionHistoryPanel({
   const [loading, setLoading] = useState(true);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [note, setNote] = useState("");
+  const [pendingRestore, setPendingRestore] = useState<{
+    id: string;
+    versionNumber: number;
+  } | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -91,14 +96,14 @@ export function FileVersionHistoryPanel({
     }
   }
 
-  async function restore(versionId: string, versionNumber: number) {
-    const ok = window.confirm(
-      t("fileVersionHistory.restoreConfirm").replace(
-        "{n}",
-        String(versionNumber),
-      ),
-    );
-    if (!ok) return;
+  function requestRestore(versionId: string, versionNumber: number) {
+    setPendingRestore({ id: versionId, versionNumber });
+  }
+
+  async function confirmRestore() {
+    if (!pendingRestore) return;
+    const { id: versionId } = pendingRestore;
+    setPendingRestore(null);
     setBusyId(versionId);
     try {
       await csrfFetch(
@@ -126,6 +131,20 @@ export function FileVersionHistoryPanel({
 
   return (
     <div>
+      <ConfirmDialog
+        open={pendingRestore !== null}
+        title={t("fileVersionHistory.restoreTitle")}
+        description={t("fileVersionHistory.restoreConfirm").replace(
+          "{n}",
+          String(pendingRestore?.versionNumber ?? ""),
+        )}
+        cancelLabel={t("common.cancel")}
+        confirmLabel={t("fileVersionHistory.restoreConfirmBtn")}
+        onCancel={() => setPendingRestore(null)}
+        onConfirm={() => void confirmRestore()}
+        busy={pendingRestore !== null && busyId === pendingRestore.id}
+      />
+
       <div className="flex items-center justify-between gap-3">
         <h3 className="text-sm font-semibold text-[var(--text-secondary)]">
           {t("fileVersionHistory.title")}
@@ -208,7 +227,7 @@ export function FileVersionHistoryPanel({
                     <button
                       type="button"
                       disabled={busyId === v.id}
-                      onClick={() => void restore(v.id, v.versionNumber)}
+                      onClick={() => requestRestore(v.id, v.versionNumber)}
                       className="rounded-lg border border-[var(--warning-border)] px-2.5 py-1 text-xs text-[var(--warning)] hover:bg-[var(--warning-bg)] disabled:opacity-50"
                     >
                       {busyId === v.id

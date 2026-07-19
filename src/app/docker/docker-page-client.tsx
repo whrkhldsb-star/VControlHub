@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { PageShell, PageHeader, EmptyState } from "@/components/page-shell";
+import { ConfirmDialog } from "@/components/confirm-dialog";
 import { csrfFetch } from "@/lib/auth/csrf-client";
 import { useDialogFocus } from "@/lib/a11y/use-dialog-focus";
 import { getRefreshIntervalLabel } from "@/lib/preferences/refresh-interval";
@@ -35,6 +36,7 @@ export default function DockerPage({ initialServers }: { initialServers: { id: s
 	const [stats, setStats] = useState<Record<string, ContainerStats>>({});
 	const [statsAutoRefresh, setStatsAutoRefresh] = useState(false);
 	const [pendingRemoval, setPendingRemoval] = useState<Container | null>(null);
+	const [pendingProjectDown, setPendingProjectDown] = useState<string | null>(null);
 	const refreshIntervalSeconds = useRefreshInterval(30);
 	const [grouped, setGrouped] = useState<ComposeGroup[]>([]);
 	const [ungrouped, setUngrouped] = useState<Container[]>([]);
@@ -138,11 +140,18 @@ export default function DockerPage({ initialServers }: { initialServers: { id: s
 		action: "up" | "down" | "start" | "stop" | "restart" | "ps",
 	) => {
 		if (action === "down") {
-			const ok = window.confirm(
-				t("dockerPage.project.downConfirm").replace("{project}", project),
-			);
-			if (!ok) return;
+			// Destructive: use in-app ConfirmDialog (not browser window.confirm).
+			setPendingProjectDown(project);
+			setError("");
+			return;
 		}
+		await runProjectAction(project, action);
+	};
+
+	const runProjectAction = async (
+		project: string,
+		action: "up" | "down" | "start" | "stop" | "restart" | "ps",
+	) => {
 		setProjectActionLoading(`${project}:${action}`);
 		setError("");
 		setProjectMessage("");
@@ -174,6 +183,13 @@ export default function DockerPage({ initialServers }: { initialServers: { id: s
 		} finally {
 			setProjectActionLoading(null);
 		}
+	};
+
+	const confirmProjectDown = async () => {
+		if (!pendingProjectDown) return;
+		const project = pendingProjectDown;
+		setPendingProjectDown(null);
+		await runProjectAction(project, "down");
 	};
 
 
@@ -486,6 +502,20 @@ export default function DockerPage({ initialServers }: { initialServers: { id: s
 					</div>
 				</div>
 			)}
+
+			<ConfirmDialog
+				open={pendingProjectDown !== null}
+				title={t("dockerPage.project.downTitle")}
+				description={t("dockerPage.project.downConfirm").replace(
+					"{project}",
+					pendingProjectDown ?? "",
+				)}
+				cancelLabel={t("common.cancel")}
+				confirmLabel={t("dockerPage.project.downConfirmBtn")}
+				onCancel={() => setPendingProjectDown(null)}
+				onConfirm={() => void confirmProjectDown()}
+				busy={pendingProjectDown !== null && projectActionLoading === `${pendingProjectDown}:down`}
+			/>
 
 			{logsId && (
 				<div className="fixed inset-0 z-50 flex items-end justify-center overflow-y-auto bg-[var(--overlay)] p-0 backdrop-blur-sm sm:items-center sm:p-4" role="presentation" onClick={closeLogsDialog}>
