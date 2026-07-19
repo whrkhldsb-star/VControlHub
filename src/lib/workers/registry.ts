@@ -25,6 +25,7 @@ import { startBackupScheduleWorker, stopBackupScheduleWorkerForTests } from "@/l
 import { startCommandExecutionWorker, stopCommandExecutionWorkerForTests } from "@/lib/command/execution-worker";
 import { startCommandMaintenanceWorker, stopCommandMaintenanceWorkerForTests } from "@/lib/command/worker";
 import { startDownloadJobWorker, stopDownloadJobWorkerForTests } from "@/lib/downloads/execution-worker";
+import { startJobMaintenanceWorker, stopJobMaintenanceWorkerForTests } from "@/lib/job/maintenance-worker";
 import { startQuickServiceJobWorker, stopQuickServiceJobWorkerForTests } from "@/lib/quick-service/job-worker";
 import { startScheduledTaskWorker, stopScheduledTaskWorkerForTests } from "@/lib/scheduled-task/worker";
 import { startPlaybookRunWorker, stopPlaybookRunWorkerForTests } from "@/lib/playbook/worker";
@@ -48,6 +49,7 @@ export type WorkerId =
   | "cost-snapshot"
   | "download-execution"
   | "health-sampling"
+  | "job-maintenance"
   | "quick-service"
   | "scheduled-task"
   | "sftp-sync"
@@ -101,6 +103,7 @@ function getRegistryState(): Record<WorkerId, { started: boolean }> {
       "cost-snapshot": { started: false },
       "download-execution": { started: false },
       "health-sampling": { started: false },
+      "job-maintenance": { started: false },
       "quick-service": { started: false },
       "scheduled-task": { started: false },
       "sftp-sync": { started: false },
@@ -337,6 +340,16 @@ const TRAFFIC_SAMPLING: WorkerSpec = {
   stop: () => stopTrafficSamplingWorkerForTests(),
 };
 
+const JOB_MAINTENANCE: WorkerSpec = {
+  id: "job-maintenance",
+  label: "Orphan job maintenance",
+  jobType: "job.maintenance",
+  start: async () => {
+    await startJobMaintenanceWorker();
+  },
+  stop: () => stopJobMaintenanceWorkerForTests(),
+};
+
 export const WORKER_REGISTRY: readonly WorkerSpec[] = Object.freeze([
   AI_OPS_SCAN,
   ALERT_EVALUATION,
@@ -348,6 +361,7 @@ export const WORKER_REGISTRY: readonly WorkerSpec[] = Object.freeze([
   HEALTH_SAMPLING,
   TRAFFIC_SAMPLING,
   DOWNLOAD_EXECUTION,
+  JOB_MAINTENANCE,
   QUICK_SERVICE,
   SCHEDULED_TASK,
   SFTP_SYNC,

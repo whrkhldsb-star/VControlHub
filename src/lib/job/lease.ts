@@ -43,6 +43,7 @@ export const LEASE_PRESETS_MS: Record<string, number> = {
 	"backup-schedule": 5 * 60 * 1000,
 	"health-sampling": 5 * 60 * 1000,
 	"traffic-sampling": 5 * 60 * 1000,
+	"job-maintenance": 5 * 60 * 1000,
 	"sftp-sync": 5 * 60 * 1000,
 	"sftp-stale-inventory": 5 * 60 * 1000,
 	"quick-service": 10 * 60 * 1000,

@@ -52,8 +52,10 @@ const NGINX_CONFIG_PRESET: BackupPreset = {
 	type: "nginx-config",
 	requiresPaths: false,
 	description: "Backs up /etc/nginx/ configuration directory",
+	// Fail if /etc/nginx is missing or tar produces an empty archive.
+	// Previous `|| true` marked empty tar.gz as COMPLETED (false success).
 	buildCommand: (remoteFilePath) =>
-		`tar czf '${remoteFilePath}' -C / etc/nginx 2>/dev/null || true`,
+		`set -euo pipefail; test -d /etc/nginx; tar czf '${remoteFilePath}' -C / etc/nginx; test -s '${remoteFilePath}'`,
 };
 
 const MYSQL_PRESET: BackupPreset = {
@@ -84,8 +86,9 @@ const WEBSITE_FILES_PRESET: BackupPreset = {
 	type: "website-files",
 	requiresPaths: false,
 	description: "Backs up /var/www/ directory (common web root)",
+	// Same false-success guard as nginx-config: do not swallow missing roots.
 	buildCommand: (remoteFilePath) =>
-		`tar czf '${remoteFilePath}' -C / var/www 2>/dev/null || true`,
+		`set -euo pipefail; test -d /var/www; tar czf '${remoteFilePath}' -C / var/www; test -s '${remoteFilePath}'`,
 };
 
 const CUSTOM_PRESET: BackupPreset = {
@@ -107,7 +110,7 @@ const CUSTOM_PRESET: BackupPreset = {
 
 		// tar with explicit path list — each path is relative to /
 		const pathArgs = sanitized.map((p) => `'${p.replace(/^\/+/, "")}'`).join(" ");
-		return `tar czf '${remoteFilePath}' -C / ${pathArgs} 2>/dev/null || true`;
+		return `set -euo pipefail; tar czf '${remoteFilePath}' -C / ${pathArgs}; test -s '${remoteFilePath}'`;
 	},
 };
 

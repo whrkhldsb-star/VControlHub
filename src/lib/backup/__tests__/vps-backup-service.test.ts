@@ -157,12 +157,33 @@ describe("runVpsBackupRecord false-success guards", () => {
     expect(completedCalls).toHaveLength(0);
   });
 
+  it("fails when local archive is empty/too small even if remote command exited 0", async () => {
+    mocks.execRemoteCommand
+      .mockResolvedValueOnce({ stdout: "ok", stderr: "", exitCode: 0 })
+      .mockResolvedValue({ stdout: "", stderr: "", exitCode: 0 });
+
+    const tiny = Buffer.from("x"); // far below 32-byte guard
+    mocks.downloadFile.mockResolvedValueOnce({
+      stream: Readable.from([tiny]),
+      size: tiny.length,
+    });
+
+    const result = await runVpsBackupRecord("rec_1");
+    expect(result.success).toBe(false);
+    expect(result.errorMessage).toMatch(/empty or too small/i);
+    const completedCalls = mocks.update.mock.calls.filter(
+      (call) => call[0]?.data?.status === "COMPLETED",
+    );
+    expect(completedCalls).toHaveLength(0);
+  });
+
   it("completes when remote backup + SFTP download succeed", async () => {
     mocks.execRemoteCommand
       .mockResolvedValueOnce({ stdout: "ok", stderr: "", exitCode: 0 })
       .mockResolvedValue({ stdout: "", stderr: "", exitCode: 0 });
 
-    const payload = Buffer.from("gzip-archive-bytes");
+    // >= 32 bytes so the empty-archive guard does not fire
+    const payload = Buffer.alloc(64, 0x1f);
     mocks.downloadFile.mockResolvedValueOnce({
       stream: Readable.from([payload]),
       size: payload.length,

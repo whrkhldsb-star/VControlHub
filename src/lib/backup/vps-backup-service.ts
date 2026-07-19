@@ -226,12 +226,26 @@ export async function runVpsBackupRecord(recordId: string): Promise<VpsBackupRes
 
 		const sha256 = hash.digest("hex");
 		let fileSize: string | null = null;
+		let sizeBytes = 0;
 		try {
 			const stat = statSync(localAbsolutePath);
+			sizeBytes = stat.size;
 			fileSize = stat.size.toString();
 		} catch {
 			// Fallback to SFTP-reported size
-			fileSize = size > 0 ? size.toString() : null;
+			sizeBytes = size > 0 ? size : 0;
+			fileSize = sizeBytes > 0 ? sizeBytes.toString() : null;
+		}
+
+		// Guard against empty archives from soft remote failures (missing paths,
+		// tar no-op, etc.). A 0-byte (or tiny empty gzip) COMPLETED is worse than FAIL.
+		if (sizeBytes < 32) {
+			return failRecord(
+				record.id,
+				`Remote backup archive is empty or too small (${sizeBytes} bytes); source path may be missing`,
+				remoteFilePath,
+				sshParams,
+			);
 		}
 
 		// Step 3: SSH exec — cleanup remote temp file
