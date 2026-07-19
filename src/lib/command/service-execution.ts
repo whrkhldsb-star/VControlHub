@@ -183,14 +183,26 @@ export function cancelActiveCommandChild(targetId: string) {
 }
 
 export async function markTargetsRunning(commandRequestId: string) {
+  // Never re-open terminal rows (esp. CANCELLED): cancel can race between
+  // claim APPROVED→RUNNING and this stamp. Only advance queued statuses.
   await prisma.commandTarget.updateMany({
-    where: { commandRequestId },
+    where: {
+      commandRequestId,
+      status: { in: ["PENDING_APPROVAL", "APPROVED"] },
+    },
     data: {
       status: "RUNNING",
       startedAt: new Date(),
     },
   });
 }
+
+const TERMINAL_TARGET_STATUSES = new Set([
+  "CANCELLED",
+  "COMPLETED",
+  "FAILED",
+  "REJECTED",
+]);
 
 export async function executeTarget(
   commandRequestId: string,
@@ -208,6 +220,32 @@ export async function executeTarget(
     commandRequest: { command: string; title: string };
   },
 ) {
+  // Cancel / recovery may have terminalized the target (or whole request)
+  // after executeTargets loaded the snapshot but before SSH spawn. Skip
+  // remote work entirely — late CAS alone still opens a network session.
+  const live = await prisma.commandTarget.findUnique({
+    where: { id: target.id },
+    select: {
+      id: true,
+      status: true,
+      commandRequest: { select: { status: true } },
+    },
+  });
+  if (
+    !live ||
+    TERMINAL_TARGET_STATUSES.has(live.status) ||
+    live.commandRequest.status === "CANCELLED"
+  ) {
+    await prisma.executionLog.create({
+      data: {
+        commandRequestId,
+        serverId: target.server.id,
+        summary: `Skipped SSH for ${target.server.name} (${target.server.host}:${target.server.port}): target/request already terminal (${live?.status ?? "missing"} / ${live?.commandRequest.status ?? "missing"}).`,
+      },
+    });
+    return false;
+  }
+
   const privateKey = target.server.sshKey?.privateKey
     ? decryptSshPrivateKey(target.server.sshKey.privateKey).trim()
     : undefined;
@@ -218,8 +256,11 @@ export async function executeTarget(
 
   if (connectionType === "SSH_KEY" && !privateKey) {
     const summary = `The SSH key bound to node ${target.server.name} lacks a private key; cannot execute real SSH command.`;
-    await prisma.commandTarget.update({
-      where: { id: target.id },
+    const failed = await prisma.commandTarget.updateMany({
+      where: {
+        id: target.id,
+        status: { in: ["RUNNING", "APPROVED", "PENDING_APPROVAL"] },
+      },
       data: {
         status: "FAILED",
         stdout: null,
@@ -228,20 +269,25 @@ export async function executeTarget(
         finishedAt: new Date(),
       },
     });
-    await prisma.executionLog.create({
-      data: {
-        commandRequestId,
-        serverId: target.server.id,
-        summary,
-      },
-    });
+    if (failed.count > 0) {
+      await prisma.executionLog.create({
+        data: {
+          commandRequestId,
+          serverId: target.server.id,
+          summary,
+        },
+      });
+    }
     return false;
   }
 
   if (connectionType === "PASSWORD" && !password) {
     const summary = `Node ${target.server.name} is configured for password connection but lacks a password; cannot execute real SSH command.`;
-    await prisma.commandTarget.update({
-      where: { id: target.id },
+    const failed = await prisma.commandTarget.updateMany({
+      where: {
+        id: target.id,
+        status: { in: ["RUNNING", "APPROVED", "PENDING_APPROVAL"] },
+      },
       data: {
         status: "FAILED",
         stdout: null,
@@ -250,13 +296,15 @@ export async function executeTarget(
         finishedAt: new Date(),
       },
     });
-    await prisma.executionLog.create({
-      data: {
-        commandRequestId,
-        serverId: target.server.id,
-        summary,
-      },
-    });
+    if (failed.count > 0) {
+      await prisma.executionLog.create({
+        data: {
+          commandRequestId,
+          serverId: target.server.id,
+          summary,
+        },
+      });
+    }
     return false;
   }
 
@@ -653,6 +701,20 @@ export async function enqueueApprovedCommandExecution(
   if (claimed.count === 0) return false;
 
   await markTargetsRunning(commandRequestId);
+
+  // Cancel may have won after claim (CANCELLED request + targets). Do not
+  // enqueue durable SSH work or log "entered queue" over an operator abort.
+  // Only abort on explicit terminal statuses so partial test mocks / transient
+  // reads without a status field still proceed when the claim already won.
+  const stillRunnable = await prisma.commandRequest.findUnique({
+    where: { id: commandRequestId },
+    select: { status: true },
+  });
+  const terminalRequestStatuses = new Set(["CANCELLED", "COMPLETED", "FAILED", "REJECTED"]);
+  if (!stillRunnable || terminalRequestStatuses.has(stillRunnable.status)) {
+    return false;
+  }
+
   await prisma.executionLog.create({
     data: {
       commandRequestId,

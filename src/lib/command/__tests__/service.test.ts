@@ -21,6 +21,7 @@ const { mockPrisma, spawnMock, pendingExecutions } = vi.hoisted(() => ({
     commandTarget: {
       updateMany: vi.fn(),
       findMany: vi.fn(),
+      findUnique: vi.fn(),
       update: vi.fn(),
     },
     commandApproval: {
@@ -130,6 +131,21 @@ describe("command service execution flow", () => {
     mockPrisma.$transaction.mockImplementation(async (callback: (tx: typeof mockPrisma) => unknown) => callback(mockPrisma));
     mockPrisma.commandRequest.updateMany.mockResolvedValue({ count: 1 });
     mockPrisma.commandTarget.updateMany.mockResolvedValue({ count: 1 });
+    // Default live target preflight for executeTarget: still runnable.
+    mockPrisma.commandTarget.findUnique.mockImplementation(async (args: { where?: { id?: string } }) => ({
+      id: args?.where?.id ?? "target_unknown",
+      status: "RUNNING",
+      commandRequest: { status: "RUNNING" },
+    }));
+    // enqueueApprovedCommandExecution re-checks request is still RUNNING after claim.
+    mockPrisma.commandRequest.findUnique.mockImplementation(async (args: { where?: { id?: string } }) => ({
+      id: args?.where?.id ?? "req_unknown",
+      status: "RUNNING",
+      title: "t",
+      requesterId: "u_1",
+      teamId: null,
+      targets: [{ id: "target_1", status: "RUNNING" }],
+    }));
     mockPrisma.commandRequest.findUniqueOrThrow.mockImplementation(async (args: { where?: { id?: string } }) => ({
       id: args?.where?.id ?? "req_unknown",
       status: "COMPLETED",
@@ -191,7 +207,12 @@ describe("command service execution flow", () => {
 
     expect(result.requiresApproval).toBe(false);
     expect(mockPrisma.commandTarget.updateMany).toHaveBeenCalledWith(
-      expect.objectContaining({ where: { commandRequestId: "req_user_1" } }),
+      expect.objectContaining({
+        where: {
+          commandRequestId: "req_user_1",
+          status: { in: ["PENDING_APPROVAL", "APPROVED"] },
+        },
+      }),
     );
     expect(mockPrisma.executionLog.create).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -642,7 +663,12 @@ describe("command service execution flow", () => {
       },
     });
     expect(mockPrisma.commandTarget.updateMany).toHaveBeenCalledWith(
-      expect.objectContaining({ where: { commandRequestId: "req_queued_1" } }),
+      expect.objectContaining({
+        where: {
+          commandRequestId: "req_queued_1",
+          status: { in: ["PENDING_APPROVAL", "APPROVED"] },
+        },
+      }),
     );
     expect(mockPrisma.executionLog.create).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -1025,7 +1051,12 @@ describe("command service execution flow", () => {
     expect(result.status).toBe("RUNNING");
     expect(mockPrisma.commandApproval.create).toHaveBeenCalled();
     expect(mockPrisma.commandTarget.updateMany).toHaveBeenCalledWith(
-      expect.objectContaining({ where: { commandRequestId: "req_assistant_1" } }),
+      expect.objectContaining({
+        where: {
+          commandRequestId: "req_assistant_1",
+          status: { in: ["PENDING_APPROVAL", "APPROVED"] },
+        },
+      }),
     );
     expect(spawnMock).not.toHaveBeenCalled();
     expect(mockPrisma.executionLog.create).toHaveBeenCalledWith(
@@ -1262,7 +1293,7 @@ describe("command service execution flow", () => {
       },
     ]);
     mockPrisma.commandTarget.updateMany.mockResolvedValue({ count: 1 });
-    mockPrisma.commandRequest.update.mockResolvedValue({ id: "req_stale_1", status: "FAILED" });
+    mockPrisma.commandRequest.updateMany.mockResolvedValue({ count: 1 });
 
     const { recoverStaleRunningCommandRequests } = await import("../service");
     const result = await recoverStaleRunningCommandRequests(now);
@@ -1290,8 +1321,8 @@ describe("command service execution flow", () => {
         finishedAt: now,
       }),
     });
-    expect(mockPrisma.commandRequest.update).toHaveBeenCalledWith({
-      where: { id: "req_stale_1" },
+    expect(mockPrisma.commandRequest.updateMany).toHaveBeenCalledWith({
+      where: { id: "req_stale_1", status: "RUNNING" },
       data: { status: "FAILED", workerId: null, workerHeartbeatAt: null },
     });
     expect(mockPrisma.executionLog.create).toHaveBeenCalledWith(expect.objectContaining({
@@ -1317,15 +1348,15 @@ describe("command service execution flow", () => {
         targets: [{ id: "target_done", status: "COMPLETED" }],
       },
     ]);
-    mockPrisma.commandRequest.update.mockResolvedValue({ id: "req_stale_done", status: "COMPLETED" });
+    mockPrisma.commandRequest.updateMany.mockResolvedValue({ count: 1 });
 
     const { recoverStaleRunningCommandRequests } = await import("../service");
     const result = await recoverStaleRunningCommandRequests(new Date("2026-05-30T08:00:00Z"));
 
     expect(result).toEqual({ recovered: 1 });
     expect(mockPrisma.commandTarget.updateMany).not.toHaveBeenCalled();
-    expect(mockPrisma.commandRequest.update).toHaveBeenCalledWith({
-      where: { id: "req_stale_done" },
+    expect(mockPrisma.commandRequest.updateMany).toHaveBeenCalledWith({
+      where: { id: "req_stale_done", status: "RUNNING" },
       data: { status: "COMPLETED", workerId: null, workerHeartbeatAt: null },
     });
     expect(mockPrisma.executionLog.create).toHaveBeenCalledWith(expect.objectContaining({
@@ -1340,6 +1371,103 @@ describe("command service execution flow", () => {
       }),
     }));
   });
+
+  it("does not recover stale request when operator cancel already won CAS", async () => {
+    process.env.COMMAND_STALE_RUNNING_AFTER_MS = "1000";
+    process.env.COMMAND_EXECUTION_TIMEOUT_MS = "1000";
+    const now = new Date("2026-05-30T08:00:00Z");
+    mockPrisma.commandRequest.findMany.mockResolvedValueOnce([
+      {
+        id: "req_stale_cancel_race",
+        workerId: "worker-lost-2",
+        workerHeartbeatAt: new Date("2026-05-30T07:58:00Z"),
+        targets: [{ id: "target_stale_cancel", status: "RUNNING" }],
+      },
+    ]);
+    mockPrisma.commandTarget.updateMany.mockResolvedValue({ count: 0 });
+    // Cancel already set request to CANCELLED — recovery must not claim FAILED.
+    mockPrisma.commandRequest.updateMany.mockResolvedValue({ count: 0 });
+
+    const { recoverStaleRunningCommandRequests } = await import("../service");
+    const result = await recoverStaleRunningCommandRequests(now);
+
+    expect(result).toEqual({ recovered: 0 });
+    expect(mockPrisma.executionLog.create).not.toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          commandRequestId: "req_stale_cancel_race",
+          summary: expect.stringContaining("Stale RUNNING command"),
+        }),
+      }),
+    );
+  });
+
+  it("skips SSH when target is already CANCELLED before spawn", async () => {
+    mockPrisma.commandRequest.create.mockResolvedValue({
+      id: "req_skip_cancel",
+      status: "APPROVED",
+      targets: [{ id: "target_skip_cancel" }],
+    });
+    mockPrisma.commandTarget.findMany.mockResolvedValue([
+      {
+        id: "target_skip_cancel",
+        server: {
+          id: "srv_skip",
+          name: "skip-node",
+          host: "203.0.113.20",
+          port: 22,
+          username: "root",
+          connectionType: "SSH_KEY",
+          password: null,
+          sshKey: { privateKey: "TEST_SSH_PRIVATE_KEY_PLACEHOLDER" },
+        },
+        commandRequest: { command: "rm -rf /" },
+      },
+    ]);
+    // Live preflight says already cancelled — must not spawn ssh.
+    mockPrisma.commandTarget.findUnique.mockResolvedValue({
+      id: "target_skip_cancel",
+      status: "CANCELLED",
+      commandRequest: { status: "CANCELLED" },
+    });
+    // enqueue re-check: still RUNNING so job is scheduled; finalize then sees cancel.
+    mockPrisma.commandRequest.findUnique.mockImplementation(async (args: { where?: { id?: string }; include?: unknown }) => ({
+      id: args?.where?.id ?? "req_skip_cancel",
+      status: "RUNNING",
+      title: "Dangerous",
+      requesterId: "u_1",
+      teamId: null,
+      targets: [{ id: "target_skip_cancel", status: "CANCELLED" }],
+    }));
+    mockPrisma.commandRequest.findUniqueOrThrow.mockResolvedValue({
+      id: "req_skip_cancel",
+      status: "CANCELLED",
+      title: "Dangerous",
+      requesterId: "u_1",
+      teamId: null,
+    });
+    mockPrisma.commandRequest.updateMany.mockResolvedValue({ count: 1 });
+
+    await createCommandRequest({
+      title: "Dangerous",
+      command: "rm -rf /",
+      requesterId: "u_1",
+      submissionMode: "user",
+      serverIds: ["srv_skip"],
+    });
+    await Promise.allSettled([...pendingExecutions]);
+
+    expect(spawnMock).not.toHaveBeenCalled();
+    expect(mockPrisma.executionLog.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          commandRequestId: "req_skip_cancel",
+          serverId: "srv_skip",
+          summary: expect.stringContaining("already terminal"),
+        }),
+      }),
+    );
+  }, 15_000);
 
   it("does not fall back to demo command data when database is unavailable", async () => {
     const dbError = new Error("Can't reach database server");

@@ -69,10 +69,14 @@ async function recoverOne(request: StaleRequest, now: Date): Promise<boolean> {
         finishedAt: now,
       },
     });
-    await prisma.commandRequest.update({
-      where: { id: request.id },
+    // CAS: operator cancel can race this sweep — never rewrite CANCELLED→FAILED.
+    const claimed = await prisma.commandRequest.updateMany({
+      where: { id: request.id, status: "RUNNING" },
       data: { status: "FAILED", workerId: null, workerHeartbeatAt: null },
     });
+    if (claimed.count === 0) {
+      return false;
+    }
     const heartbeatDetail = request.workerHeartbeatAt
       ? `, last heartbeat ${request.workerHeartbeatAt.toISOString()}`
       : ", no worker heartbeat record";
@@ -88,10 +92,14 @@ async function recoverOne(request: StaleRequest, now: Date): Promise<boolean> {
 
   const allCompleted = targetStatuses.length > 0 && targetStatuses.every((status) => status === "COMPLETED");
   const nextStatus = allCompleted ? "COMPLETED" : "FAILED";
-  await prisma.commandRequest.update({
-    where: { id: request.id },
+  // Same CAS for archive path (targets already terminal, request still RUNNING).
+  const claimed = await prisma.commandRequest.updateMany({
+    where: { id: request.id, status: "RUNNING" },
     data: { status: nextStatus, workerId: null, workerHeartbeatAt: null },
   });
+  if (claimed.count === 0) {
+    return false;
+  }
   const archiveHeartbeatDetail = request.workerHeartbeatAt
     ? `, last heartbeat ${request.workerHeartbeatAt.toISOString()}`
     : ", no worker heartbeat record";
