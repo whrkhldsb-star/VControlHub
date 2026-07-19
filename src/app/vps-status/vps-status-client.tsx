@@ -389,6 +389,7 @@ export function VpsStatusClient({ serverCount }: Props) {
 						type="button"
 						onClick={() => void fetchHealth()}
 						disabled={isRefreshing || loading}
+						aria-label={t("healthPage.ui.refreshAria")}
 						data-action-button
 						data-variant="secondary"
 						className="inline-flex min-h-11 items-center !px-3 !text-xs disabled:cursor-not-allowed disabled:opacity-60"

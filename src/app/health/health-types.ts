@@ -1,6 +1,6 @@
 /**
  * Shared types for the health dashboard. Extracted from
- * `health-dashboard-client.tsx` so the client and the new `useHealthData`
+ * `system-health-client.tsx` / `vps-status-client.tsx` so the split clients and `useHealthData`
  * hook can share them without circular imports.
  */
 

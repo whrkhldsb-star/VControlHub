@@ -10,6 +10,7 @@ help:
 	@printf '  make verify        Run prisma generate, typecheck, lint, tests, Next build and runtime bundle\n'
 	@printf '  make ci-local      Fast CI parity: prisma generate + typecheck + lint + unit tests\n'
 	@printf '  make ci-local-full Full CI parity: + coverage + next build + runtime bundle\n'
+	@printf '  git config core.hooksPath .githooks   optional pre-push runs make ci-local\n'
 	@printf '  make build         Run Next.js production build\n'
 	@printf '  make runtime       Build dist/server.js and dist/ssh-ws-proxy.js\n'
 	@printf '  make restart       Restart SERVICE_PREFIX=$(SERVICE_PREFIX)-next/-ssh-ws when available\n'

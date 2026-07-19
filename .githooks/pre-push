@@ -1,0 +1,11 @@
+#!/usr/bin/env bash
+# Optional pre-push gate. Enable with:
+#   git config core.hooksPath .githooks
+# Skip once: CI_SKIP=1 git push
+set -euo pipefail
+if [[ "${CI_SKIP:-}" == "1" ]]; then
+  echo "pre-push: CI_SKIP=1 — skipping make ci-local"
+  exit 0
+fi
+echo "pre-push: running make ci-local (set CI_SKIP=1 to bypass)"
+make ci-local

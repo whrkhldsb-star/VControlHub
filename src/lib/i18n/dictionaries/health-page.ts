@@ -3,7 +3,7 @@
  *
  * Used by:
  *   - `src/app/health/page.tsx` (server component): PageHeader title / description
- *   - `src/app/health/health-dashboard-client.tsx` (client component): all UI strings
+ *   - `src/app/health/system-health-client.tsx + src/app/vps-status/vps-status-client.tsx` (client component): all UI strings
  *
  * The client component previously held a `healthCopy` Record<"zh"|"en", ...> object
  * with ~92 hardcoded strings. Those have been extracted here.

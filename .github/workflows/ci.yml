@@ -69,6 +69,23 @@ jobs:
       - name: Build runtime bundle
         run: npm run build:runtime
 
+      # Share production build with e2e/dast so they do not re-run next build
+      # (avoids NODE_ENV / devDependency drift and saves ~3–5 minutes).
+      - name: Upload production build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: next-runtime-build
+          path: |
+            .next/
+            dist/
+            public/
+            package.json
+            package-lock.json
+            next.config.*
+            prisma/
+          if-no-files-found: error
+          retention-days: 1
+
   e2e-public-cross-browser:
     name: E2E public smoke (Chromium + Firefox + WebKit)
     runs-on: ubuntu-latest
@@ -119,10 +136,11 @@ jobs:
       - name: Generate Prisma client
         run: npx prisma generate
 
-      - name: Build app + runtime
-        run: |
-          npm run build
-          npm run build:runtime
+      - name: Download production build artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: next-runtime-build
+          path: .
 
       - name: Start production custom server
         env:
@@ -199,10 +217,11 @@ jobs:
       - name: Generate Prisma client
         run: npx prisma generate
 
-      - name: Build app + runtime
-        run: |
-          npm run build
-          npm run build:runtime
+      - name: Download production build artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: next-runtime-build
+          path: .
 
       - name: Start production custom server
         env:

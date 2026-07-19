@@ -21,7 +21,7 @@ const eslintConfig = defineConfig([
 		},
   },
   {
-    files: ["**/__tests__/**/*.{ts,tsx}", "**/*.test.{ts,tsx}"],
+    files: ["**/__tests__/**/*.{ts,tsx}", "**/*.test.{ts,tsx}", "src/test/**/*.{ts,tsx}"],
     rules: {
       "@typescript-eslint/no-require-imports": "off",
       "@typescript-eslint/no-explicit-any": "off",
