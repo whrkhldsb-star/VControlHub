@@ -8,16 +8,17 @@
  * Pass Prisma methods as `method as never` (or use the helpers from a `vi.fn()`).
  */
 
-// Accept any object that has mockImplementation — Prisma client methods and
-// vitest Mock instances both qualify at runtime; type via structural cast.
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-type Mockable = { mockImplementation: (fn: (...args: any[]) => any) => unknown };
+type Mockable = {
+	mockImplementation: (fn: (...args: never[]) => unknown) => unknown;
+};
 
 /**
  * Assign a mock implementation that is typecheck-safe against PrismaPromise.
  */
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-export function mockPrismaMethod(method: Mockable, impl: (...args: any[]) => any): void {
+export function mockPrismaMethod(
+	method: Mockable,
+	impl: (...args: never[]) => unknown,
+): void {
 	method.mockImplementation(impl);
 }
 
@@ -31,9 +32,9 @@ export function mockPrismaFindFirstById(
 	hit: unknown,
 	miss: unknown = null,
 ): void {
-	method.mockImplementation(async (args?: { where?: { id?: unknown } }) => {
+	method.mockImplementation(((args?: { where?: { id?: unknown } }) => {
 		const id = args?.where?.id;
-		if (typeof id === "string") return hit;
-		return miss;
-	});
+		if (typeof id === "string") return Promise.resolve(hit);
+		return Promise.resolve(miss);
+	}) as (...args: never[]) => unknown);
 }
