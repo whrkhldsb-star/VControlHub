@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Portable database restore helper for VControlHub-compatible deployments.
-# Usage: APP_DIR=/opt/vcontrolhub scripts/restore-db.sh /path/to/backup.sql.gz
+# Usage: APP_DIR=/opt/VControlHub scripts/restore-db.sh /path/to/backup.sql.gz
 
 set -euo pipefail
 

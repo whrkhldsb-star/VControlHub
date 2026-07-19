@@ -3,7 +3,7 @@
 # Intended usage:
 #   curl -fsSL https://raw.githubusercontent.com/whrkhldsb-star/VControlHub/main/deploy/bootstrap.sh | sudo bash
 # Optional overrides before `bash`:
-#   curl -fsSL .../bootstrap.sh | sudo DOMAIN=example.com APP_DIR=/opt/vcontrolhub bash
+#   curl -fsSL .../bootstrap.sh | sudo DOMAIN=example.com APP_DIR=/opt/VControlHub bash
 
 set -euo pipefail
 
@@ -12,7 +12,14 @@ APP_NAME="${APP_NAME:-VControlHub}"
 APP_SLUG="${APP_SLUG:-vcontrolhub}"
 SITE_NAME="${SITE_NAME:-${APP_NAME}}"
 SERVICE_PREFIX="${SERVICE_PREFIX:-${APP_SLUG}}"
-APP_DIR="${APP_DIR:-/opt/${APP_SLUG}}"
+# Match the production install path used by the live host: /opt/VControlHub.
+if [ -z "${APP_DIR:-}" ]; then
+  if [ "${APP_SLUG}" = "vcontrolhub" ]; then
+    APP_DIR="/opt/VControlHub"
+  else
+    APP_DIR="/opt/${APP_SLUG}"
+  fi
+fi
 BRANCH="${BRANCH:-main}"
 DOMAIN="${DOMAIN:-}"
 NEXT_PORT="${NEXT_PORT:-3000}"
@@ -45,7 +52,7 @@ prompt_config() {
   [ -n "${APP_SLUG}" ] || APP_SLUG="vcontrolhub"
   prompt_with_default SITE_NAME "Site/display name" "${SITE_NAME:-${APP_NAME}}"
   prompt_with_default SERVICE_PREFIX "Systemd service prefix" "${SERVICE_PREFIX:-${APP_SLUG}}"
-  prompt_with_default APP_DIR "Install directory" "${APP_DIR:-/opt/${APP_SLUG}}"
+  prompt_with_default APP_DIR "Install directory" "${APP_DIR}"
   prompt_with_default DOMAIN "Domain / public hostname" "${DOMAIN}"
   prompt_with_default NEXT_PORT "Next.js service port" "${NEXT_PORT}"
   prompt_with_default SSH_WS_PORT "SSH WebSocket service port" "${SSH_WS_PORT}"

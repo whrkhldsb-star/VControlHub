@@ -28,7 +28,15 @@ APP_SLUG="${APP_SLUG:-$(slugify "${APP_NAME}")}"
 [ -n "${APP_SLUG}" ] || APP_SLUG="vcontrolhub"
 SITE_NAME="${SITE_NAME:-${APP_NAME}}"
 SERVICE_PREFIX="${SERVICE_PREFIX:-${APP_SLUG}}"
-APP_DIR="${APP_DIR:-/opt/${APP_SLUG}}"
+# Canonical production path is /opt/VControlHub (capital VC). Keep lowercase
+# APP_SLUG for systemd service names, cookies, and DB identifiers.
+if [ -z "${APP_DIR:-}" ]; then
+  if [ "${APP_SLUG}" = "vcontrolhub" ]; then
+    APP_DIR="/opt/VControlHub"
+  else
+    APP_DIR="/opt/${APP_SLUG}"
+  fi
+fi
 APP_USER_EXPLICIT="${APP_USER+x}"
 DESTDIR="${DESTDIR:-}"
 APP_USER="${APP_USER:-${APP_SLUG}}"
@@ -131,7 +139,7 @@ Common fresh install:
   curl -fsSL https://raw.githubusercontent.com/whrkhldsb-star/VControlHub/main/deploy/bootstrap.sh | sudo DOMAIN=your.example.com bash
 
 Important variables:
-  APP_DIR=/opt/vcontrolhub        Installation directory
+  APP_DIR=/opt/VControlHub        Installation directory (default for APP_SLUG=vcontrolhub)
   APP_SLUG=vcontrolhub            App slug, systemd/cookie/storage identifier
   SERVICE_PREFIX=vcontrolhub      systemd service prefix
   DOMAIN=your.example.com         Public domain for reverse proxy/allowed origins
@@ -351,6 +359,16 @@ add_app_user_to_docker_group() {
 
 install_packages() {
 	[ "${SKIP_PACKAGES}" = "1" ] && { warn "Skipping OS package installation"; return; }
+
+	# Supported package manager: apt only (Debian 12 / Ubuntu LTS).
+	# Other distros can still host the app if deps are preinstalled and
+	# SKIP_PACKAGES=1 is used, but auto-install of Node/Postgres/Caddy is apt-only.
+	if ! have_cmd apt-get; then
+		fail "Package auto-install currently supports Debian/Ubuntu (apt-get) only. On other systems, install Node.js ${NODE_VERSION_MAJOR}+, PostgreSQL, git, curl, build tools, and Caddy/Apache yourself, then re-run with SKIP_PACKAGES=1."
+	fi
+	if ! have_cmd systemctl; then
+		fail "systemd is required (systemctl not found). This installer targets Debian/Ubuntu systemd hosts."
+	fi
 
 	# ── Phase 1: Check what's already installed ──────────────────────
 	local missing_pkgs=()

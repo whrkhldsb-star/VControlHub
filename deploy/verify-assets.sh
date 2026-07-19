@@ -12,8 +12,8 @@ render_unit() {
   local src="$1" dst="$2"
   sed \
     -e 's|{{SITE_NAME}}|VControlHub|g' \
-    -e 's|{{APP_DIR}}|/opt/vcontrolhub|g' \
-    -e 's|{{RUNTIME_ENV_FILE}}|/opt/vcontrolhub/.env.runtime|g' \
+    -e 's|{{APP_DIR}}|/opt/VControlHub|g' \
+    -e 's|{{RUNTIME_ENV_FILE}}|/opt/VControlHub/.env.runtime|g' \
     -e 's|{{NEXT_PORT}}|3000|g' \
     -e 's|{{SSH_WS_PORT}}|3001|g' \
     -e 's|{{SYSTEMD_PATH}}|/usr/local/bin:/usr/bin:/bin|g' \

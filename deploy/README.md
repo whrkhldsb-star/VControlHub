@@ -6,7 +6,9 @@
 
 ### 方式 A：fresh server 一行命令安装（推荐）
 
-适合全新 Debian/Ubuntu systemd 主机。默认从公开 GitHub 仓库拉取 `main` 分支到 `/opt/vcontrolhub`，随后调用 `deploy/install.sh` 完成依赖安装、环境变量生成、PostgreSQL 初始化、Prisma 迁移/种子、Next.js/runtime 构建、systemd unit、反向代理和服务启动。该命令会先进入交互式配置：依次询问域名、应用名/slug、安装目录、systemd 服务前缀、Next.js 服务端口、SSH WebSocket 服务端口、仓库地址和分支；一路回车会采用默认值，适合快速 fresh install。
+适合全新 **Debian 12 / Ubuntu 22.04+ systemd** 主机（`apt-get` 包管理）。默认从公开 GitHub 仓库拉取 `main` 分支到 `/opt/VControlHub`，随后调用 `deploy/install.sh` 完成依赖安装、环境变量生成、PostgreSQL 初始化、Prisma 迁移/种子、Next.js/runtime 构建、systemd unit、反向代理和服务启动。该命令会先进入交互式配置：依次询问域名、应用名/slug、安装目录、systemd 服务前缀、Next.js 服务端口、SSH WebSocket 服务端口、仓库地址和分支；一路回车会采用默认值，适合快速 fresh install。
+
+> 系统兼容说明：一键安装**正式支持** Debian/Ubuntu + systemd。RHEL/CentOS/Rocky/Arch 等非 apt 系统不会自动装依赖；可先手动装好 Node.js 22+、PostgreSQL、git、curl、build tools、Caddy/Apache，再以 `SKIP_PACKAGES=1` 运行 `deploy/install.sh`。
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/whrkhldsb-star/VControlHub/main/deploy/bootstrap.sh | sudo DOMAIN=your.example.com bash
@@ -22,7 +24,7 @@ curl -fsSL https://raw.githubusercontent.com/whrkhldsb-star/VControlHub/main/dep
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/whrkhldsb-star/VControlHub/main/deploy/bootstrap.sh | \
-  sudo APP_DIR=/opt/vcontrolhub APP_SLUG=vcontrolhub SERVICE_PREFIX=vcontrolhub DOMAIN=your.example.com bash
+  sudo APP_DIR=/opt/VControlHub APP_SLUG=vcontrolhub SERVICE_PREFIX=vcontrolhub DOMAIN=your.example.com bash
 ```
 
 如需私有仓库或 fork：
@@ -42,7 +44,7 @@ curl -fsSL https://raw.githubusercontent.com/whrkhldsb-star/VControlHub/main/dep
 安装成功后查看首次登录密码：
 
 ```bash
-sudo /opt/vcontrolhub/deploy/install.sh --show-credentials
+sudo /opt/VControlHub/deploy/install.sh --show-credentials
 ```
 
 > 该入口不会要求先手动 clone，也不会把 token/密码写入文档或 Git remote。私有仓库请优先使用机器上已有 SSH deploy key 或临时 HTTPS 凭据。
@@ -94,21 +96,21 @@ rsync -a --delete \
 
 # 在新服务器执行。
 cd /root/vcontrolhub-src
-sudo SOURCE_DIR=/root/vcontrolhub-src APP_DIR=/opt/vcontrolhub DOMAIN=your.example.com deploy/install.sh
+sudo SOURCE_DIR=/root/vcontrolhub-src APP_DIR=/opt/VControlHub DOMAIN=your.example.com deploy/install.sh
 # 如需自定义，编辑后重跑：
-# sudoedit /opt/vcontrolhub/.env.local
-# sudo SOURCE_DIR=/root/vcontrolhub-src APP_DIR=/opt/vcontrolhub DOMAIN=your.example.com deploy/install.sh
+# sudoedit /opt/VControlHub/.env.local
+# sudo SOURCE_DIR=/root/vcontrolhub-src APP_DIR=/opt/VControlHub DOMAIN=your.example.com deploy/install.sh
 ```
 
 ### 方式 E：已有源码目录时
 
 ```bash
 cd /path/to/VControlHub
-sudo DOMAIN=your.example.com APP_DIR=/opt/vcontrolhub deploy/install.sh
-# 首次运行会创建 /opt/vcontrolhub/.env.local、自动生成密钥并继续安装完成。
+sudo DOMAIN=your.example.com APP_DIR=/opt/VControlHub deploy/install.sh
+# 首次运行会创建 /opt/VControlHub/.env.local、自动生成密钥并继续安装完成。
 # 只有需要自定义数据库/端口/外部服务时，才需要编辑后重跑：
-# sudoedit /opt/vcontrolhub/.env.local
-# sudo DOMAIN=your.example.com APP_DIR=/opt/vcontrolhub deploy/install.sh
+# sudoedit /opt/VControlHub/.env.local
+# sudo DOMAIN=your.example.com APP_DIR=/opt/VControlHub deploy/install.sh
 ```
 
 常用变量：
@@ -162,14 +164,14 @@ sudo DOMAIN=your.example.com APP_DIR=/opt/vcontrolhub deploy/install.sh
 | `deploy/fakeroot-install-check.sh` | installer fakeroot/dry-run 回归；通过 Vitest 的 DESTDIR 隔离 fixture 覆盖域名/Caddy、无域名/Apache、`SKIP_PACKAGES=1`、`DESTDIR` 和凭据同步等 fresh-install 分支，不会改动宿主 systemd/反代服务 | `make installer-fakeroot` |
 | `deploy/preflight.sh` | 部署前置检查；验证基础命令、环境变量占位符、Node 版本、端口占用、磁盘空间和运行目录，且不输出密钥值 | `APP_DIR=/opt/my-console ENV_FILE=/opt/my-console/.env.local deploy/preflight.sh` |
 | `deploy/upgrade.sh` | 升级部署；默认先创建升级前数据库备份，再复用 `install.sh` 的构建/迁移/重启流程，最后执行 `deploy/check.sh` | `sudo APP_NAME=my-console APP_SLUG=my-console APP_DIR=/opt/my-console DOMAIN=your.example.com deploy/upgrade.sh` |
-| `deploy/check.sh` | 检查环境变量、运行目录、systemd 服务和本地 `/login`，可选运行完整 npm 验证 | `APP_DIR=/opt/vcontrolhub CHECK_PUBLIC_URL=https://your.example.com deploy/check.sh` |
-| `deploy/backup.sh` | 备份数据库到 `BACKUP_DIR`，内部调用 `scripts/backup-db.sh` | `sudo APP_DIR=/opt/vcontrolhub BACKUP_DIR=/var/backups/vcontrolhub deploy/backup.sh` |
-| `scripts/restore-db.sh` | 从 `.sql` 或 `.sql.gz` 恢复数据库；默认需要 `CONFIRM_RESTORE=1` 防误操作 | `CONFIRM_RESTORE=1 APP_DIR=/opt/vcontrolhub scripts/restore-db.sh /var/backups/vcontrolhub/xxx.sql.gz` |
+| `deploy/check.sh` | 检查环境变量、运行目录、systemd 服务和本地 `/login`，可选运行完整 npm 验证 | `APP_DIR=/opt/VControlHub CHECK_PUBLIC_URL=https://your.example.com deploy/check.sh` |
+| `deploy/backup.sh` | 备份数据库到 `BACKUP_DIR`，内部调用 `scripts/backup-db.sh` | `sudo APP_DIR=/opt/VControlHub BACKUP_DIR=/var/backups/vcontrolhub deploy/backup.sh` |
+| `scripts/restore-db.sh` | 从 `.sql` 或 `.sql.gz` 恢复数据库；默认需要 `CONFIRM_RESTORE=1` 防误操作 | `CONFIRM_RESTORE=1 APP_DIR=/opt/VControlHub scripts/restore-db.sh /var/backups/vcontrolhub/xxx.sql.gz` |
 
 `deploy/check.sh` 默认只做轻量运行检查；如需在目标机器上执行完整质量门禁，可加：
 
 ```bash
-RUN_NPM_CHECKS=1 APP_DIR=/opt/vcontrolhub deploy/check.sh
+RUN_NPM_CHECKS=1 APP_DIR=/opt/VControlHub deploy/check.sh
 ```
 
 ## 升级部署
@@ -261,13 +263,13 @@ SMOKE_PUBLIC_URL=https://your.example.com make smoke-http SERVICE_PREFIX=my-cons
 `scripts/backup-db.sh` 已支持可移植变量：
 
 ```bash
-APP_DIR=/opt/vcontrolhub BACKUP_DIR=/var/backups/vcontrolhub /opt/vcontrolhub/scripts/backup-db.sh
+APP_DIR=/opt/VControlHub BACKUP_DIR=/var/backups/vcontrolhub /opt/VControlHub/scripts/backup-db.sh
 ```
 
 Cron 示例：
 
 ```cron
-0 3 * * * APP_DIR=/opt/vcontrolhub BACKUP_DIR=/var/backups/vcontrolhub /opt/vcontrolhub/scripts/backup-db.sh >> /var/log/vcontrolhub-backup.log 2>&1
+0 3 * * * APP_DIR=/opt/VControlHub BACKUP_DIR=/var/backups/vcontrolhub /opt/VControlHub/scripts/backup-db.sh >> /var/log/vcontrolhub-backup.log 2>&1
 ```
 
 ## 服务结构

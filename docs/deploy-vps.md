@@ -23,8 +23,8 @@ npm -v
 ## 2. 获取代码与安装依赖
 
 ```bash
-git clone https://github.com/whrkhldsb-star/VControlHub.git /opt/vcontrolhub
-cd /opt/vcontrolhub
+git clone https://github.com/whrkhldsb-star/VControlHub.git /opt/VControlHub
+cd /opt/VControlHub
 npm ci
 ```
 

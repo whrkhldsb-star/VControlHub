@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
 # PostgreSQL backup script for VControlHub-compatible deployments.
 # Portable usage:
-#   APP_DIR=/opt/vcontrolhub ENV_FILE=/opt/vcontrolhub/.env.local BACKUP_DIR=/var/backups/vcontrolhub \
-#     /opt/vcontrolhub/scripts/backup-db.sh
+#   APP_DIR=/opt/VControlHub ENV_FILE=/opt/VControlHub/.env.local BACKUP_DIR=/var/backups/vcontrolhub \
+#     /opt/VControlHub/scripts/backup-db.sh
 # Cron example:
-#   0 3 * * * APP_DIR=/opt/vcontrolhub /opt/vcontrolhub/scripts/backup-db.sh >> /var/log/vcontrolhub-backup.log 2>&1
+#   0 3 * * * APP_DIR=/opt/VControlHub /opt/VControlHub/scripts/backup-db.sh >> /var/log/vcontrolhub-backup.log 2>&1
 
 set -euo pipefail
 

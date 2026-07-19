@@ -29,11 +29,15 @@ esac
 run_systemd_checks() { [ "${SMOKE_SCOPE}" = "full" ] || [ "${SMOKE_SCOPE}" = "systemd" ]; }
 run_http_checks() { [ "${SMOKE_SCOPE}" = "full" ] || [ "${SMOKE_SCOPE}" = "http" ]; }
 
-# Allow APP_DIR override via env (defaults to /opt/${APP_SLUG} for standard installs,
-# but auto-detects from systemd service if available).
+# Allow APP_DIR override via env (defaults to /opt/VControlHub for the product
+# slug, or /opt/${APP_SLUG} for custom brands; prefers live systemd WorkingDirectory).
 if [ -z "${APP_DIR:-}" ]; then
     SMOKE_APP_DIR="$(systemctl show "${APP_SLUG}-next.service" -p WorkingDirectory --value 2>/dev/null || true)"
-    : "${SMOKE_APP_DIR:=/opt/${APP_SLUG}}"
+    if [ "${APP_SLUG}" = "vcontrolhub" ]; then
+      : "${SMOKE_APP_DIR:=/opt/VControlHub}"
+    else
+      : "${SMOKE_APP_DIR:=/opt/${APP_SLUG}}"
+    fi
 else
     SMOKE_APP_DIR="${APP_DIR}"
 fi

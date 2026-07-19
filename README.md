@@ -136,13 +136,13 @@
 
 ### 前置条件
 
-- **OS** — Debian / Ubuntu 22.04+（root 权限）
+- **OS** — Debian 12 / Ubuntu 22.04+（root + systemd；一键安装基于 apt）
 - **域名** — 可选（无域名时自动配置 Apache/IP 直连模式）
 - **端口** — 对公网仅需 80/443（Web）；3000/3001 分别供 Next.js 与 SSH-WS 在本机回环地址监听，不应直接开放到公网
 
 ### 真正一行 fresh server 安装（推荐）
 
-在干净 Debian/Ubuntu systemd 服务器上，直接执行一行命令即可拉取仓库、安装依赖、生成生产环境变量、初始化 PostgreSQL、构建产物、写入 systemd/反向代理并启动服务：
+在干净 **Debian 12 / Ubuntu 22.04+ systemd** 服务器上，直接执行一行命令即可拉取仓库、安装依赖、生成生产环境变量、初始化 PostgreSQL、构建产物、写入 systemd/反向代理并启动服务（默认目录 `/opt/VControlHub`）：
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/whrkhldsb-star/VControlHub/main/deploy/bootstrap.sh | sudo DOMAIN=your.example.com bash
@@ -158,27 +158,27 @@ curl -fsSL https://raw.githubusercontent.com/whrkhldsb-star/VControlHub/main/dep
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/whrkhldsb-star/VControlHub/main/deploy/bootstrap.sh | \
-  sudo APP_NAME="VControlHub" APP_SLUG=vcontrolhub APP_DIR=/opt/vcontrolhub DOMAIN=your.example.com bash
+  sudo APP_NAME="VControlHub" APP_SLUG=vcontrolhub APP_DIR=/opt/VControlHub DOMAIN=your.example.com bash
 ```
 
 安装完成后如需查看自动生成的首次登录密码：
 
 ```bash
-sudo /opt/vcontrolhub/deploy/install.sh --show-credentials
+sudo /opt/VControlHub/deploy/install.sh --show-credentials
 ```
 
 ### 传统手动安装（保留）
 
 ```bash
 # 1. 克隆代码
-git clone https://github.com/whrkhldsb-star/VControlHub.git /opt/vcontrolhub
+git clone https://github.com/whrkhldsb-star/VControlHub.git /opt/VControlHub
 
 # 2. 运行安装器（自动安装 Node.js 22、发行版 PostgreSQL、Caddy/Apache 等依赖）
-sudo APP_DIR=/opt/vcontrolhub /opt/vcontrolhub/deploy/install.sh
+sudo APP_DIR=/opt/VControlHub /opt/VControlHub/deploy/install.sh
 
 # 3. 可选：检查或覆盖安装器自动生成的环境变量，然后重新运行以应用修改
-sudoedit /opt/vcontrolhub/.env.local
-sudo APP_DIR=/opt/vcontrolhub /opt/vcontrolhub/deploy/install.sh
+sudoedit /opt/VControlHub/.env.local
+sudo APP_DIR=/opt/VControlHub /opt/VControlHub/deploy/install.sh
 ```
 
 > 首次运行会从生产模板创建 `.env.local`，自动生成数据库密码、Session/SSH/加密密钥和管理员初始密码，并继续完成安装；请保存安装输出的管理员密码。只有需要自定义数据库、端口或外部服务时才需要手动编辑后重跑。
