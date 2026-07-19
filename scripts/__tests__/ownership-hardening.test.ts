@@ -7,7 +7,7 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 
-const root = join(import.meta.dirname, "../../..");
+const root = join(import.meta.dirname, "../..");
 
 function read(rel: string) {
   return readFileSync(join(root, rel), "utf8");
