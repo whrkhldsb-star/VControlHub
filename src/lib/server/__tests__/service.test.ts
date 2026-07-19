@@ -46,6 +46,26 @@ vi.mock("@/lib/ssh/client", () => ({
   execRemoteCommand: execRemoteCommandMock,
 }));
 
+vi.mock("@/lib/ssh/os-dialect", () => ({
+  detectOsDialect: vi.fn(async () => ({
+    packageManager: "apt",
+    serviceManager: "systemd",
+    distroName: "Debian GNU/Linux 12 (bookworm)",
+    distroFamily: "debian",
+    defaultShell: "/bin/bash",
+    sudoPattern: "sudo -n",
+    configPaths: {
+      nginx: "/etc/nginx/nginx.conf",
+      sshd: "/etc/ssh/sshd_config",
+      fail2ban: "/etc/fail2ban/jail.local",
+      docker: "/etc/docker/daemon.json",
+    },
+    detectedAt: "2026-07-19T00:00:00.000Z",
+  })),
+  serializeDialect: (d: unknown) => JSON.stringify(d),
+  deserializeDialect: () => ({ serviceManager: "systemd", sudoPattern: "sudo -n" }),
+}));
+
 vi.mock("@/lib/db", () => ({
   prisma: {
     sshKey: {
@@ -86,6 +106,8 @@ describe("server service", () => {
         exitCode: 0,
       };
     });
+    // createServerProfile may call server.update for OS dialect then findUnique for refresh.
+    vi.mocked(prisma.server.update).mockResolvedValue({} as any);
   });
 
   it("creates an ssh key from manual public/private key input", async () => {
@@ -981,7 +1003,16 @@ describe("server service", () => {
         command: expect.stringContaining("/data/warn"),
       }),
     );
-    expect(prisma.server.update).not.toHaveBeenCalled();
+    // TR-041: onboarding best-effort OS dialect probe uses server.update
+    expect(prisma.server.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: "srv_warn" },
+        data: expect.objectContaining({
+          osInfo: expect.any(String),
+          osDialect: expect.stringContaining("packageManager"),
+        }),
+      }),
+    );
     expect(prisma.storageNode.updateMany).not.toHaveBeenCalled();
     expect(result.onboardingWarnings).toEqual([
       expect.stringContaining("Failed to auto-create remote storage directory"),
@@ -1368,7 +1399,16 @@ describe("server service", () => {
     expect(result.onboardingWarnings).toEqual([
       "Failed to auto-configure direct gateway on target server: connect ETIMEDOUT. VPS node and storage node have been created. You can retry enabling the direct gateway later in the VPS management panel.",
     ]);
-    expect(prisma.server.update).not.toHaveBeenCalled();
+    // TR-041: dialect probe still updates the server record even if direct gateway fails
+    expect(prisma.server.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: "srv_direct_fail" },
+        data: expect.objectContaining({
+          osInfo: expect.any(String),
+          osDialect: expect.stringContaining("packageManager"),
+        }),
+      }),
+    );
     expect(prisma.storageNode.updateMany).not.toHaveBeenCalled();
   });
 

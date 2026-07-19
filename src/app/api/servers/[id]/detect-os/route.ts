@@ -10,6 +10,7 @@
  * 3. **安全**：不返回密钥/密码等敏感信息，仅返回方言摘要
  * 4. **审计**：探测操作记录到 AuditLog
  * 5. **超时**：10 秒 SSH 超时（探测命令很短）
+ * 6. **单次探测**：复用 detectOsDialect，避免重复 SSH cat /etc/os-release
  */
 
 import { auditUserAction } from "@/lib/audit/service";
@@ -19,8 +20,12 @@ import { withApiRoute } from "@/lib/http/api-guard";
 import { GENERAL_WRITE_LIMIT } from "@/lib/http/rate-limit-presets";
 import { getServerLocale, t } from "@/lib/i18n/translations";
 import { createLogger } from "@/lib/logging";
-import { buildSshParamsFromServer, execRemoteCommand } from "@/lib/ssh/client";
-import { detectOsDialect, parseOsRelease, serializeDialect, type OsDialect } from "@/lib/ssh/os-dialect";
+import { buildSshParamsFromServer } from "@/lib/ssh/client";
+import {
+  detectOsDialect,
+  serializeDialect,
+  type OsDialect,
+} from "@/lib/ssh/os-dialect";
 import { assertServerTeamAccess } from "@/lib/server/team-access";
 
 export const dynamic = "force-dynamic";
@@ -33,8 +38,19 @@ type ServerRow = {
   username: string;
   sshKeyId: string | null;
   password: string | null;
-  sshKey: { privateKey: string } | null;
+  hostKeySha256: string | null;
+  sshKey: { privateKey: string; passphrase?: string | null } | null;
 };
+
+function dialectSummary(dialect: OsDialect) {
+  return {
+    packageManager: dialect.packageManager,
+    serviceManager: dialect.serviceManager,
+    distroName: dialect.distroName,
+    distroFamily: dialect.distroFamily,
+    detectedAt: dialect.detectedAt,
+  };
+}
 
 async function loadServer(id: string): Promise<ServerRow | null> {
   const server = await prisma.server.findUnique({
@@ -46,7 +62,8 @@ async function loadServer(id: string): Promise<ServerRow | null> {
       username: true,
       sshKeyId: true,
       password: true,
-      sshKey: { select: { privateKey: true } },
+      hostKeySha256: true,
+      sshKey: { select: { privateKey: true, passphrase: true } },
     },
   });
   return (server as ServerRow | null) ?? null;
@@ -81,36 +98,17 @@ export async function POST(
       }
 
       try {
-        // Step 1: 探测 /etc/os-release 原文
         const sshParams = await buildSshParamsFromServer(server, server.sshKey);
-        const { stdout, exitCode } = await execRemoteCommand({
-          ...sshParams,
-          command: "cat /etc/os-release 2>/dev/null",
-          timeout: 10_000,
-        });
+        // Single SSH probe path (detectOsDialect already handles os-release + uname fallback).
+        const dialect = await detectOsDialect(sshParams);
+        const osInfo =
+          dialect.distroName && dialect.distroName !== "Unknown (default: Debian)"
+            ? dialect.distroName
+            : dialect.distroName;
+        const fallback =
+          dialect.distroName.includes("uname fallback") ||
+          dialect.distroName.startsWith("Unknown");
 
-        if (exitCode !== 0 || !stdout.trim()) {
-          // Fallback: uname
-          const { stdout: unameOut } = await execRemoteCommand({
-            ...sshParams,
-            command: "uname -s -r -m",
-            timeout: 10_000,
-          });
-          const osInfo = `uname: ${unameOut.trim()}`;
-          await prisma.server.update({
-            where: { id },
-            data: { osInfo, osDialect: serializeDialect({ ...await detectOsDialect(sshParams) }) },
-          });
-          await auditUserAction(session.userId, "server.detect_os", { serverId: id, fallback: "uname" }, "INFO", session?.currentTeamId);
-          return Response.json({ success: true, osInfo, dialect: null, fallback: true });
-        }
-
-        // Step 2: 解析 + 匹配方言
-        const releaseInfo = parseOsRelease(stdout);
-        const dialect: OsDialect = await detectOsDialect(sshParams);
-        const osInfo = releaseInfo.prettyName || `${releaseInfo.name} ${releaseInfo.version}`.trim();
-
-        // Step 3: 持久化到 Server 记录
         await prisma.server.update({
           where: { id },
           data: {
@@ -122,26 +120,38 @@ export async function POST(
         await auditUserAction(
           session.userId,
           "server.detect_os",
-          { serverId: id, distro: dialect.distroName, family: dialect.distroFamily, pm: dialect.packageManager, sm: dialect.serviceManager },
+          {
+            serverId: id,
+            distro: dialect.distroName,
+            family: dialect.distroFamily,
+            pm: dialect.packageManager,
+            sm: dialect.serviceManager,
+            fallback,
+          },
           "INFO",
+          session.currentTeamId,
         );
 
         return Response.json({
           success: true,
           osInfo,
-          dialect: {
-            packageManager: dialect.packageManager,
-            serviceManager: dialect.serviceManager,
-            distroName: dialect.distroName,
-            distroFamily: dialect.distroFamily,
-            detectedAt: dialect.detectedAt,
-          },
+          dialect: dialectSummary(dialect),
+          fallback,
         });
       } catch (error) {
         const message = error instanceof Error ? error.message : "SSH connection failed";
         logger.warn("OS dialect detection failed", { serverId: id, error: message });
-        await auditUserAction(session.userId, "server.detect_os_error", { serverId: id, error: message }, "WARNING", session?.currentTeamId);
-        return Response.json({ error: t("apiServersDetectOs.detectionFailed", locale).replace("{message}", message) }, { status: 502 });
+        await auditUserAction(
+          session.userId,
+          "server.detect_os_error",
+          { serverId: id, error: message },
+          "WARNING",
+          session.currentTeamId,
+        );
+        return Response.json(
+          { error: t("apiServersDetectOs.detectionFailed", locale).replace("{message}", message) },
+          { status: 502 },
+        );
       }
     },
   );

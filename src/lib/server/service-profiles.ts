@@ -11,6 +11,10 @@ import {
   createRemoteDirectory,
 } from "@/lib/ssh/client";
 import { requireApprovedSshHostKey } from "@/lib/ssh/host-key";
+import {
+  detectOsDialect,
+  serializeDialect,
+} from "@/lib/ssh/os-dialect";
 import { encryptServerPasswordIfPlain } from "@/lib/ssh/ssh-key-crypto";
 import { normalizeServerInput } from "./config";
 import { SERVER_PROFILE_INCLUDE } from "./service-profile-includes";
@@ -231,7 +235,27 @@ export async function createServerProfile(
     }
   }
 
-  // Re-fetch to include the newly created storageNode relation
+  // TR-041: best-effort OS dialect probe during onboarding so reload/AI commands
+  // can use the right service manager without a manual "Detect OS" click first.
+  if (!isLocalHost) {
+    try {
+      const dialectSsh = await buildSshParamsFromServer(server, server.sshKey ?? null);
+      const dialect = await detectOsDialect(dialectSsh);
+      await prisma.server.update({
+        where: { id: server.id },
+        data: {
+          osDialect: serializeDialect(dialect),
+          osInfo: dialect.distroName,
+        },
+      });
+    } catch (error) {
+      onboardingWarnings.push(
+        `Failed to auto-detect OS dialect: ${getErrorMessage(error)}. VPS node is available; open node details and click "Detect OS" later.`,
+      );
+    }
+  }
+
+  // Re-fetch to include the newly created storageNode relation (+ dialect fields)
   const refreshed = await prisma.server.findUnique({
     where: { id: server.id },
     include: SERVER_PROFILE_INCLUDE,

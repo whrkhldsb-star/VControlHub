@@ -169,6 +169,7 @@ export async function POST(
           success ? "server.reload_ok" : "server.reload_failed",
           { ...auditBase, exitCode: exitCode ?? -1, stdoutBytes: stdout.length, stderrBytes: stderr.length },
           success ? "INFO" : "WARNING",
+          session.currentTeamId,
         );
 
         return Response.json({
@@ -186,6 +187,7 @@ export async function POST(
           "server.reload_error",
           { ...auditBase, error: message },
           "CRITICAL",
+          session.currentTeamId,
         );
         return Response.json(
           { error: t("apiServersReload.reloadFailedWithMessage", locale).replace("{message}", message), command },

@@ -127,6 +127,7 @@ describe("POST /api/servers/[id]/reload", () => {
       "server.reload_ok",
       expect.objectContaining({ serverId: "srv_1", kind: "systemd", unit: "nginx" }),
       "INFO",
+      undefined,
     );
   });
 
@@ -151,6 +152,7 @@ describe("POST /api/servers/[id]/reload", () => {
       "server.reload_failed",
       expect.objectContaining({ serverId: "srv_1", kind: "systemd", unit: "nginx", exitCode: 1 }),
       "WARNING",
+      undefined,
     );
   });
 
@@ -190,6 +192,7 @@ describe("POST /api/servers/[id]/reload", () => {
       "server.reload_error",
       expect.objectContaining({ serverId: "srv_1", kind: "systemd", unit: "nginx" }),
       "CRITICAL",
+      undefined,
     );
   });
 
