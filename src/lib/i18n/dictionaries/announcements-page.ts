@@ -35,7 +35,7 @@ export const zh: Record<string, string> = {
 	"announcementsPage.edit.titleLabel": "标题",
 	"announcementsPage.empty": "暂无公告",
 	"announcementsPage.emptyFiltered": "无匹配结果",
-	"announcementsPage.eyebrow": "Announcements",
+	"announcementsPage.eyebrow": "公告",
 	"announcementsPage.filter.all": "全部级别",
 	"announcementsPage.filter.label": "按级别过滤",
 	"announcementsPage.level.info": "ℹ️ 信息",

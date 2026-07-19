@@ -80,7 +80,7 @@ export const zh: Record<string, string> = {
 	"downloadsPage.form.cancelLabel": "✕ 取消",
 	"downloadsPage.form.createLabel": "+ 新建下载",
 	"downloadsPage.permissionDenied": "你没有下载管理的权限。",
-	"downloadsPage.header.eyebrow": "Transfer",
+	"downloadsPage.header.eyebrow": "传输",
 	"downloadsPage.header.title": "远程下载",
 	"downloadsPage.header.description": "输入 URL 或磁力链接，下载到指定 VPS 的存储路径",
 	"downloadsPage.access.direct": "当前：直连",

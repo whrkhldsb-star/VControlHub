@@ -54,7 +54,7 @@ export function DashboardCustomizeToolbar({
 				<button
 					type="button"
 					onClick={onEnterEdit}
-					className="rounded-lg border border-[var(--border)] bg-[var(--surface)]/10 px-3 py-1.5 text-xs text-[var(--text-secondary)] transition hover:bg-[var(--surface)]/10"
+					className="rounded-lg border border-[var(--border)] bg-[var(--surface-elevated)] px-3 py-1.5 text-xs font-medium text-[var(--text-secondary)] transition hover:border-[var(--accent-border)] hover:bg-[var(--surface-hover)] hover:text-[var(--accent)]"
 					aria-label={t("dashboard.customize-edit")}
 				>
 					{t("dashboard.customize-edit")}

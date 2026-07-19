@@ -16,7 +16,7 @@ export const zh: Record<string, string> = {
 	"apiTokensPage.create.submit": "创建 Token",
 	"apiTokensPage.create.submitting": "创建中…",
 	"apiTokensPage.desc": "用于脚本、监控或外部系统读取平台状态。创建后只展示一次明文，数据库仅保存哈希、前缀、尾缀、权限范围和过期时间。",
-	"apiTokensPage.eyebrow": "Access Tokens",
+	"apiTokensPage.eyebrow": "访问令牌",
 	"apiTokensPage.hint": "建议为每个用途创建独立 Token，并设置最小权限与过期时间。",
 	"apiTokensPage.list.createdAt": "创建时间",
 	"apiTokensPage.list.empty": "暂无 Token，请先创建用于脚本或外部集成的访问令牌。",

@@ -2,7 +2,7 @@
  * i18n dictionary: `knowledgePage.*`
  */
 export const zh: Record<string, string> = {
-	"knowledgePage.eyebrow": "AI RAG",
+	"knowledgePage.eyebrow": "AI 知识库",
 	"knowledgePage.title": "知识库",
 	"knowledgePage.description": "把运维手册、SOP、架构笔记入库分块；AI 对话会自动检索并引用，也可通过 search_knowledge 工具查询。",
 	"knowledgePage.noPermission": "你没有 AI 对话权限，无法使用知识库。",

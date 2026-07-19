@@ -7,7 +7,7 @@
 
 export const zh: Record<string, string> = {
 	"mediaPage.desc": "一个入口完成媒体浏览、筛选、扫描和图片外链发布；旧“图床”只作为已发布外链的管理与审计中心。",
-	"mediaPage.eyebrow": "Media Workspace",
+	"mediaPage.eyebrow": "媒体工作区",
 	"mediaPage.group.unassigned": "未分配存储",
 	"mediaPage.stat.audio": "音频",
 	"mediaPage.stat.image": "图片",
@@ -61,7 +61,7 @@ export const zh: Record<string, string> = {
 	"mediaPage.player.directAccess": "目标服务器直连",
 	"mediaPage.player.relayed": "网站中转",
 	"mediaPage.player.backToLibrary": "返回媒体库",
-	"mediaPage.player.eyebrow": "Media Player",
+	"mediaPage.player.eyebrow": "媒体播放器",
 	"mediaPage.player.download": "下载",
 	"mediaPage.player.openSource": "打开源文件",
 	"mediaPage.player.previewUnsupported": "此媒体类型暂不支持在线预览，请下载后查看。",

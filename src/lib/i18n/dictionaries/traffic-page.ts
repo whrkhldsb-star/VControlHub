@@ -17,7 +17,7 @@ export const zh: Record<string, string> = {
 	"trafficPage.card.remote": "VPS 节点流量",
 	"trafficPage.desc": "查看当前服务器网卡流量，并关联存储服务器/远程节点流量来源。",
 	"trafficPage.error.fetch": "无法获取流量数据",
-	"trafficPage.eyebrow": "Traffic",
+	"trafficPage.eyebrow": "流量",
 	"trafficPage.health.abnormal": "异常",
 	"trafficPage.health.attention": "需关注",
 	"trafficPage.health.online": "在线",

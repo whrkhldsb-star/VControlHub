@@ -19,7 +19,7 @@
  * `t("...").replace("{name}", value)` for parametric values.
  */
 export const zh: Record<string, string> = {
-	"backupsPage.eyebrow": "Portable",
+	"backupsPage.eyebrow": "备份",
 	"backupsPage.title": "备份与迁移",
 	"backupsPage.description": "记录数据库/文件/完整备份，配合 deploy/backup.sh 与 restore-db.sh 支持迁移到其他系统。恢复命令只展示，不会绕过审批直接执行。",
 	"backupsPage.noPermission": "你没有备份管理查看权限。",

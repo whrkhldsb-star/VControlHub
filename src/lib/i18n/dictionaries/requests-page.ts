@@ -24,7 +24,7 @@ export const zh: Record<string, string> = {
 	"requestsPage.cmd.scopeBadge": "批准后进入真实 SSH 执行流",
 	"requestsPage.cmd.title": "用户命令审批",
 	"requestsPage.desc": "AI 助手授权与用户命令审批",
-	"requestsPage.eyebrow": "Workflow",
+	"requestsPage.eyebrow": "审批流",
 	"requestsPage.stat.aiPending": "AI 待授权",
 	"requestsPage.stat.assistant": "助手命令",
 	"requestsPage.stat.cmdPending": "命令待审批",

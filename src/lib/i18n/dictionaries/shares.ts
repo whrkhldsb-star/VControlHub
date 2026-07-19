@@ -107,7 +107,7 @@ export const zh: Record<string, string> = {
 	"sharesPage.rowActions.submitting": "撤销中…",
 	"sharesPage.rowActions.confirmAria": "确认撤销分享链接",
 	"sharesPage.rowActions.fallback": "撤销失败",
-	"sharesPage.picker.eyebrow": "Share Center",
+	"sharesPage.picker.eyebrow": "分享中心",
 	"sharesPage.picker.noItems": "当前目录没有可分享条目",
 	"sharesPage.picker.selectedHint": "文件和文件夹会分别生成独立分享链接。",
 	"sharesPage.picker.clear": "清空",

@@ -28,7 +28,7 @@ export const zh: Record<string, string> = {
 	"costPage.budget.deleteCancel": "取消",
 	"costPage.budget.checkDone": "预算检查完成，发送 {count} 条通知",
 	"costPage.title": "成本追踪",
-	"costPage.eyebrow": "Cost tracking",
+	"costPage.eyebrow": "成本",
 	"costPage.desc": "按月份汇总 VPS / 带宽 / 存储 / 其它支出。支持多币种,月报按所选币种单独累加,避免混合币种静默累加。",
 	"costPage.summary.title": "当月汇总",
 	"costPage.summary.currency": "币种",

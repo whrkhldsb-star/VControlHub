@@ -53,7 +53,7 @@ export const zh: Record<string, string> = {
 	"ticketsDetail.error.assignFailed": "指派失败",
 	"ticketsDetail.error.replyFailed": "回复失败",
 	"ticketsDetail.error.updateFailed": "操作失败",
-	"ticketsDetail.eyebrow": "Ticket Detail",
+	"ticketsDetail.eyebrow": "工单详情",
 	"ticketsDetail.permissionDenied": "你只能查看自己提交或分配给你的工单。",
 	"ticketsDetail.priority.HIGH": "高",
 	"ticketsDetail.priority.LOW": "低",

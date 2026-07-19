@@ -15,7 +15,7 @@ export const zh: Record<string, string> = {
 	"notificationsPage.error.deleteFailed": "删除通知失败",
 	"notificationsPage.error.markAllFailed": "全部标记已读失败",
 	"notificationsPage.error.markOneFailed": "标记通知已读失败",
-	"notificationsPage.eyebrow": "Inbox",
+	"notificationsPage.eyebrow": "收件箱",
 	"notificationsPage.time.daysAgo": "{count} 天前",
 	"notificationsPage.time.hoursAgo": "{count} 小时前",
 	"notificationsPage.time.justNow": "刚刚",

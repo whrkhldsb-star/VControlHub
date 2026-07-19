@@ -22,7 +22,7 @@ export const zh: Record<string, string> = {
 	"preferencesPage.error.load": "偏好设置加载失败",
 	"preferencesPage.error.save": "偏好设置保存失败",
 	"preferencesPage.group.personal": "个人偏好",
-	"preferencesPage.eyebrow": "Preferences",
+	"preferencesPage.eyebrow": "偏好设置",
 	"preferencesPage.hint.autoProbe": "周期性 SSH 只读采样，仅在节点启用且「自动探测」打开时生效。调短间隔可以更快发现异常，调长则减轻 VPS 负载。",
 	"preferencesPage.hint.autoRefresh": "控制服务器卡片、系统监控、流量中心和 Docker 统计的查询频率；调大间隔或关闭自动刷新可以明显减少请求和远程采样流量。",
 	"preferencesPage.loading": "加载中...",

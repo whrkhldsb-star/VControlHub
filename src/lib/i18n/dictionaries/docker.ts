@@ -19,7 +19,7 @@ export const zh: Record<string, string> = {
 	"dockerPage.error.action": "Docker 操作失败",
 	"dockerPage.error.fetch": "无法连接 Docker API",
 	"dockerPage.error.logs": "获取日志失败",
-	"dockerPage.eyebrow": "Containers",
+	"dockerPage.eyebrow": "容器",
 	"dockerPage.group.subtitle": "compose 项目 · {count} 个容器",
 	"dockerPage.project.actions": "项目操作",
 	"dockerPage.project.up": "Up",

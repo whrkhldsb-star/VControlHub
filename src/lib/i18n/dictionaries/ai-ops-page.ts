@@ -14,7 +14,7 @@
 export const zh: Record<string, string> = {
 	// Page header
 	"aiOpsPage.title": "AI 智能运维",
-	"aiOpsPage.eyebrow": "AI operations",
+	"aiOpsPage.eyebrow": "AI 运维",
 	"aiOpsPage.desc":
 		"AI 每日 02:00 自动扫描系统健康信号（告警规则 / 命令失败 / 工作流失败），给出诊断与处理建议。recommendation 模式需要人工审批，autonomous 模式只对白名单内的安全动作自动执行。",
 	"aiOpsPage.summary.title": "扫描汇总",

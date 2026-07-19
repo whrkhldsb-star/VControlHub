@@ -25,7 +25,7 @@ export const zh: Record<string, string> = {
 	"deploymentsPage.launch.variablesTitle": "模板变量",
 
 	"deploymentsPage.page.noPermission": "你没有应用部署查看权限。",
-	"deploymentsPage.page.eyebrow": "Deploy",
+	"deploymentsPage.page.eyebrow": "部署",
 	"deploymentsPage.page.title": "应用部署",
 	"deploymentsPage.page.description": "选择部署模板 → 填写变量 → 选择目标 VPS → 提交审批 → 自动执行。",
 	"deploymentsPage.page.howItWorks.title": "💡 使用流程",

@@ -47,7 +47,7 @@ export const zh: Record<string, string> = {
 	"imageBedPage.copy.title.url": "复制外链",
 	"imageBedPage.error.upload": "上传失败",
 	"imageBedPage.hero.desc": "这里专注管理已发布图片外链：复制 URL / Markdown / HTML、查看来源、批量归档或删除。新增图片优先从媒体库图片工作区进入。",
-	"imageBedPage.hero.eyebrow": "Link Center",
+	"imageBedPage.hero.eyebrow": "外链中心",
 	"imageBedPage.hero.openMedia": "🖼 打开图片工作区",
 	"imageBedPage.hero.publishFromStorage": "☁️ 从云盘发布",
 	"imageBedPage.hero.title": "图片外链中心",
