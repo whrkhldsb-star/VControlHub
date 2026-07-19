@@ -1,6 +1,8 @@
 "use client";
 
 import { SurfacePanel } from "@/components/page-shell";
+import { UI_INPUT } from "@/lib/ui/classes";
+import { cn } from "@/lib/ui/cn";
 
 export const ROLE_KEYS = ["admin","operator","storage_manager","viewer"] as const;
 export type RoleKey = (typeof ROLE_KEYS)[number];
@@ -64,7 +66,7 @@ export function UsersCreateForm({
             type="text"
             value={createForm.username}
             onChange={(e) => setCreateForm((p) => ({ ...p, username: e.target.value }))}
-            className="w-full rounded-xl border border-[var(--border)] bg-[var(--input-bg)] px-4 py-2.5 text-sm text-[var(--text-primary)] focus:border-[var(--accent-border)] focus:outline-none"
+            data-input className={cn(UI_INPUT)}
             placeholder={t("usersPage.form.usernamePlaceholder")}
           />
         </div>
@@ -77,7 +79,7 @@ export function UsersCreateForm({
             type="text"
             value={createForm.displayName}
             onChange={(e) => setCreateForm((p) => ({ ...p, displayName: e.target.value }))}
-            className="w-full rounded-xl border border-[var(--border)] bg-[var(--input-bg)] px-4 py-2.5 text-sm text-[var(--text-primary)] focus:border-[var(--accent-border)] focus:outline-none"
+            data-input className={cn(UI_INPUT)}
             placeholder={t("usersPage.form.displayNamePlaceholder")}
           />
         </div>
@@ -91,7 +93,7 @@ export function UsersCreateForm({
             autoComplete="new-password"
             value={createForm.password}
             onChange={(e) => setCreateForm((p) => ({ ...p, password: e.target.value }))}
-            className="w-full rounded-xl border border-[var(--border)] bg-[var(--input-bg)] px-4 py-2.5 text-sm text-[var(--text-primary)] focus:border-[var(--accent-border)] focus:outline-none"
+            data-input className={cn(UI_INPUT)}
             placeholder={t("usersPage.form.passwordPlaceholder")}
           />
         </div>
@@ -172,7 +174,7 @@ export function UsersResetPasswordDialog({
           aria-label={t("usersPage.form.passwordPlaceholder")}
           value={password}
           onChange={(e) => setPassword(e.target.value)}
-          className="mt-4 w-full rounded-xl border border-[var(--border)] bg-[var(--input-bg)] px-4 py-2.5 text-sm text-[var(--text-primary)] focus:border-[var(--accent-border)] focus:outline-none"
+          data-input className={cn(UI_INPUT, "mt-4")}
           placeholder={t("usersPage.form.passwordPlaceholder")}
           autoFocus
         />

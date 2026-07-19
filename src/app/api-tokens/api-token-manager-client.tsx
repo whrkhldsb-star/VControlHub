@@ -136,11 +136,11 @@ export function ApiTokenManagerClient({ initialTokens, allowedScopes }: Props) {
           <div className="grid gap-4 lg:grid-cols-[1.2fr_0.8fr]">
             <label className="space-y-1.5">
               <span className="text-xs font-medium tracking-wide text-[var(--text-primary)]/70">{t("apiTokensPage.create.nameLabel")}</span>
-              <input value={name} onChange={(event) => setName(event.target.value)} required maxLength={80} placeholder={t("apiTokensPage.create.namePlaceholder")} className="w-full rounded-xl border border-[var(--border)] bg-[var(--input-bg)] px-3.5 py-2.5 text-sm text-[var(--text-primary)] outline-none placeholder:text-[var(--text-muted)] focus:border-[var(--accent-border)]" />
+              <input value={name} onChange={(event) => setName(event.target.value)} required maxLength={80} placeholder={t("apiTokensPage.create.namePlaceholder")} data-input className="w-full rounded-xl border border-[var(--input-border)] bg-[var(--input-bg)] px-3.5 py-2.5 text-sm text-[var(--text-primary)] outline-none placeholder:text-[var(--text-muted)] focus:border-[var(--input-border-focus)] focus:shadow-[0_0_0_3px_var(--input-ring)]" />
             </label>
             <label className="space-y-1.5">
               <span className="text-xs font-medium tracking-wide text-[var(--text-primary)]/70">{t("apiTokensPage.create.expiresLabel")}</span>
-              <input type="datetime-local" value={expiresAt} onChange={(event) => setExpiresAt(event.target.value)} className="w-full rounded-xl border border-[var(--border)] bg-[var(--input-bg)] px-3.5 py-2.5 text-sm text-[var(--text-primary)] outline-none focus:border-[var(--accent-border)]" />
+              <input type="datetime-local" value={expiresAt} onChange={(event) => setExpiresAt(event.target.value)} data-input className="w-full rounded-xl border border-[var(--input-border)] bg-[var(--input-bg)] px-3.5 py-2.5 text-sm text-[var(--text-primary)] outline-none focus:border-[var(--input-border-focus)] focus:shadow-[0_0_0_3px_var(--input-ring)]" />
             </label>
           </div>
 

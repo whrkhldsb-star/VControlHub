@@ -293,7 +293,9 @@ export function HighRiskConfirmModal({
             }}
             disabled={busy}
             data-action="confirm"
-            className="rounded-lg bg-[var(--danger)] px-4 py-1.5 text-xs font-semibold text-[var(--text-primary)] transition hover:bg-[var(--danger-bg)] hover:text-[var(--danger)] disabled:opacity-50"
+            data-action-button
+            data-variant="danger-solid"
+            className="!px-4 !py-1.5 !text-xs disabled:opacity-50"
           >
             {busy ? t("settingsClient.saving") : t("settingsClient.confirmSaveAction")}
           </button>

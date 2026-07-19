@@ -1,7 +1,12 @@
 import { describe, expect, it } from "vitest";
 
 import { cn } from "@/lib/ui/cn";
-import { UI_BTN_PRIMARY, UI_INPUT } from "@/lib/ui/classes";
+import {
+	UI_BTN_PRIMARY,
+	UI_BTN_SUCCESS,
+	UI_INPUT,
+	UI_TONE,
+} from "@/lib/ui/classes";
 
 describe("cn", () => {
 	it("joins truthy class names", () => {
@@ -26,7 +31,10 @@ describe("ui classes", () => {
 		expect(UI_BTN_PRIMARY).toContain("var(--color-action)");
 		expect(UI_BTN_PRIMARY).toContain("var(--color-action-fg)");
 		expect(UI_BTN_PRIMARY).not.toMatch(/text-white|border-white|bg-black/);
+		expect(UI_BTN_SUCCESS).toContain("var(--success)");
 		expect(UI_INPUT).toContain("var(--input-bg)");
+		expect(UI_INPUT).toContain("var(--input-border)");
 		expect(UI_INPUT).toContain("placeholder:text-[var(--text-muted)]");
+		expect(UI_TONE.danger).toContain("var(--danger-bg)");
 	});
 });

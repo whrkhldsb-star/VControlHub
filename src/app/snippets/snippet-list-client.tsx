@@ -144,7 +144,7 @@ export function SnippetList({ snippets: initial }: { snippets: Snippet[] }) {
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder={t("snippetsPage.titlePlaceholder")}
-            className="w-full rounded-xl border border-[var(--border)] bg-[var(--input-bg)] py-2 pl-9 pr-4 text-sm text-[var(--text-primary)] outline-none placeholder:text-[var(--text-muted)] focus:border-[var(--accent-border)]"
+            className="w-full rounded-xl border border-[var(--input-border)] bg-[var(--input-bg)] py-2 pl-9 pr-4 text-sm text-[var(--text-primary)] outline-none placeholder:text-[var(--text-muted)] focus:border-[var(--input-border-focus)] focus:shadow-[0_0_0_3px_var(--input-ring)]"
           />
         </div>
         <select
@@ -152,7 +152,7 @@ export function SnippetList({ snippets: initial }: { snippets: Snippet[] }) {
           value={langFilter}
           onChange={(e) => setLangFilter(e.target.value)}
           aria-label={t("snippetsPage.filter.placeholder")}
-          className="rounded-xl border border-[var(--border)] bg-[var(--input-bg)] px-3 py-2 text-sm text-[var(--text-primary)] outline-none"
+          className="rounded-xl border border-[var(--input-border)] bg-[var(--input-bg)] px-3 py-2 text-sm text-[var(--text-primary)] outline-none focus:border-[var(--input-border-focus)] focus:shadow-[0_0_0_3px_var(--input-ring)]"
         >
           {languages.map((l) => (
             <option key={l} value={l}>{l ==="ALL" ? t("snippetsPage.filter.allLanguages") : l}</option>

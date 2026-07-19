@@ -112,7 +112,7 @@ export function AiInputArea({
           rows={1}
           disabled={streaming}
           data-input
-          className="flex-1 resize-none rounded-xl border border-[var(--border)] bg-[var(--input-bg)] px-4 py-2.5 text-sm text-[var(--text-primary)] placeholder:text-[var(--text-muted)] transition focus:border-[var(--accent-border)] focus:outline-none disabled:opacity-50"
+          className="flex-1 resize-none rounded-xl border border-[var(--input-border)] bg-[var(--input-bg)] px-4 py-2.5 text-sm text-[var(--text-primary)] placeholder:text-[var(--text-muted)] transition focus:border-[var(--input-border-focus)] focus:shadow-[0_0_0_3px_var(--input-ring)] focus:outline-none disabled:opacity-50"
           style={{ maxHeight: "120px" }}
           onInput={(e) => {
             const el = e.currentTarget;

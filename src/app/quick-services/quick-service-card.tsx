@@ -135,7 +135,16 @@ export function ServiceCard({
 				{tab === "installed" && (
 					<>
 						{item.status === "running" && access && (
-							<a href={access.url} target="_blank" rel="noreferrer" aria-label={t("qsPage.accessAria").replace("{name}", item.name).replace("{label}", access.label)} title={access.description} className="rounded-lg bg-[var(--success)] px-3 py-1.5 text-xs font-semibold text-[var(--text-primary)] hover:bg-[var(--success-bg)] hover:text-[var(--success)] transition">
+							<a
+								href={access.url}
+								target="_blank"
+								rel="noreferrer"
+								aria-label={t("qsPage.accessAria").replace("{name}", item.name).replace("{label}", access.label)}
+								title={access.description}
+								data-action-button
+								data-variant="success-solid"
+								className="!px-3 !py-1.5 !text-xs"
+							>
 								{t("qsPage.access")}
 							</a>
 						)}
@@ -145,7 +154,7 @@ export function ServiceCard({
 							</button>
 						)}
 						{item.status === "stopped" && (
-							<button onClick={onStart} disabled={busy} className="rounded-lg bg-[var(--success)] px-3 py-1.5 text-xs font-semibold text-[var(--text-primary)] hover:bg-[var(--success-bg)] hover:text-[var(--success)] transition disabled:opacity-50">
+							<button onClick={onStart} disabled={busy} data-action-button data-variant="success-solid" className="!px-3 !py-1.5 !text-xs disabled:opacity-50">
 								{busy ? t("qsPage.busy") : t("qsPage.start")}
 							</button>
 						)}
@@ -158,7 +167,7 @@ export function ServiceCard({
 							</button>
 						)}
 						{(item.status === "running" || item.status === "stopped" || item.status === "error") && (
-							<button onClick={onUpdate} disabled={busy} className="rounded-xl border border-[var(--accent-border)] px-3 py-1.5 text-xs text-[var(--accent)] transition hover:bg-[var(--accent-bg)] disabled:opacity-50">
+							<button onClick={onUpdate} disabled={busy} data-action-button data-variant="outline" className="!px-3 !py-1.5 !text-xs disabled:opacity-50">
 								{busy ? t("qsPage.busy") : t("qsPage.update")}
 							</button>
 						)}

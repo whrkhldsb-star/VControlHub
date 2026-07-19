@@ -1,4 +1,5 @@
 import { cn } from "@/lib/ui/cn";
+import { UI_INPUT } from "@/lib/ui/classes";
 import type {
 	ButtonHTMLAttributes,
 	HTMLAttributes,
@@ -134,9 +135,8 @@ export function ProgressBar({
 	);
 }
 
-/** Unified control chrome — use on inputs/selects/textareas across the app. */
-export const CONTROL_CLASS =
-	"w-full rounded-lg border border-[var(--input-border)] bg-[var(--input-bg)] px-3.5 py-2.5 text-sm text-[var(--text-primary)] outline-none transition placeholder:text-[var(--text-muted)] focus:border-[var(--input-border-focus)] focus:shadow-[0_0_0_3px_var(--input-ring)] disabled:cursor-not-allowed disabled:border-[var(--border)] disabled:bg-[var(--surface-subtle)] disabled:text-[var(--text-muted)]";
+/** Unified control chrome — alias of UI_INPUT so form fields stay one source. */
+export const CONTROL_CLASS = UI_INPUT;
 
 export function Input({
 	className,

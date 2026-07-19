@@ -173,7 +173,7 @@ export function UnifiedFileSearch({
 								: t("filesBrowserSpa.contentSearchPlaceholder")
 						}
 						data-input
-						className="rounded-xl border border-[var(--border)] bg-[var(--input-bg)] px-4 py-2.5 text-sm text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus:border-[var(--accent-border)] focus:outline-none"
+						className="rounded-xl border border-[var(--input-border)] bg-[var(--input-bg)] px-4 py-2.5 text-sm text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus:border-[var(--input-border-focus)] focus:shadow-[0_0_0_3px_var(--input-ring)] focus:outline-none"
 					/>
 				</div>
 				<button

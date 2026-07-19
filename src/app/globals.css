@@ -693,6 +693,23 @@ html.light { --surface-root: #eef2f7; }
 [data-action-button][data-variant="danger"]:hover:not(:disabled) {
 	background-color: var(--danger-bg);
 }
+/* Solid semantic fills — start service / destructive confirm */
+[data-action-button][data-variant="success-solid"] {
+	background-color: var(--success);
+	color: var(--on-accent);
+	border: 1px solid transparent;
+}
+[data-action-button][data-variant="success-solid"]:hover:not(:disabled) {
+	filter: brightness(1.06);
+}
+[data-action-button][data-variant="danger-solid"] {
+	background-color: var(--danger);
+	color: var(--on-accent);
+	border: 1px solid transparent;
+}
+[data-action-button][data-variant="danger-solid"]:hover:not(:disabled) {
+	filter: brightness(1.06);
+}
 [data-action-button][data-variant="secondary"] {
 	background-color: var(--surface-elevated);
 	color: var(--text-secondary);

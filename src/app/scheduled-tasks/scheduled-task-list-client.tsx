@@ -52,7 +52,7 @@ function matchesTask(task: Task, query: string) {
 }
 
 const fieldLabelClass = "text-xs font-medium text-[var(--text-secondary)] tracking-wide";
-const fieldInputClass = "w-full rounded-xl border border-[var(--border)] bg-[var(--input-bg)] px-3.5 py-2.5 text-sm text-[var(--text-primary)] outline-none transition placeholder:text-[var(--text-muted)] focus:border-[var(--accent-border)]";
+const fieldInputClass = "w-full rounded-xl border border-[var(--input-border)] bg-[var(--input-bg)] px-3.5 py-2.5 text-sm text-[var(--text-primary)] outline-none transition placeholder:text-[var(--text-muted)] focus:border-[var(--input-border-focus)] focus:shadow-[0_0_0_3px_var(--input-ring)]";
 const monoFieldInputClass = `${fieldInputClass} font-mono`;
 
 function describeCronPreview(expr: string, t: (key: string) => string) {
@@ -140,7 +140,7 @@ export function ScheduledTaskListClient({ tasks: initialTasks, servers, canCreat
 						value={searchQuery}
 						onChange={(e) => setSearchQuery(e.target.value)}
 						placeholder={t("scheduledTasks.searchPlaceholder")}
-						className="w-full min-w-[18rem] rounded-xl border border-[var(--border)] bg-[var(--input-bg)] px-3.5 py-2.5 text-sm text-[var(--text-primary)] outline-none placeholder:text-[var(--text-muted)] focus:border-[var(--accent-border)]"
+						data-input className="w-full min-w-[18rem] rounded-xl border border-[var(--input-border)] bg-[var(--input-bg)] px-3.5 py-2.5 text-sm text-[var(--text-primary)] outline-none placeholder:text-[var(--text-muted)] focus:border-[var(--input-border-focus)] focus:shadow-[0_0_0_3px_var(--input-ring)]"
 					/>
 				</div>
 				{canCreate && !showCreate && (

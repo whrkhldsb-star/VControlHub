@@ -270,7 +270,7 @@ export default function DockerPage({ initialServers }: { initialServers: { id: s
 						id="docker-server-select"
 						value={selectedServerId}
 						onChange={(e) => setSelectedServerId(e.target.value)}
-						data-input className="min-h-11 rounded-xl border border-[var(--border)] bg-[var(--input-bg)] px-3 text-sm text-[var(--text-primary)] focus:border-[var(--accent-border)] focus:outline-none"
+						data-input className="min-h-11 rounded-xl border border-[var(--input-border)] bg-[var(--input-bg)] px-3 text-sm text-[var(--text-primary)] focus:border-[var(--input-border-focus)] focus:shadow-[0_0_0_3px_var(--input-ring)] focus:outline-none"
 					>
 						<option value="">{t("dockerPage.scope.hubHost")}</option>
 						{serverList.map((s) => (

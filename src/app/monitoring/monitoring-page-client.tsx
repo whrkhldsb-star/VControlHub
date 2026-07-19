@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { PageShell, PageHeader, SurfacePanel } from "@/components/page-shell";
+import { ActionButton } from "@/components/action-button";
 import { csrfFetch } from "@/lib/auth/csrf-client";
 import { getRefreshIntervalLabel } from "@/lib/preferences/refresh-interval";
 import { useRefreshInterval } from "@/lib/preferences/use-refresh-interval";
@@ -176,14 +177,15 @@ export default function MonitoringPage({ canManage: _canManage }: { canManage: b
         <div className="rounded-2xl border border-[var(--danger-border)] bg-[var(--danger-bg)] p-5 text-sm text-[var(--danger)]">
           <h1 className="mb-2 text-xl font-semibold text-[var(--danger)]">{t("monitoringPage.errorTitle")}</h1>
           <p className="text-[var(--danger)]/80">{errorMessage ?? t("monitoringPage.errorUnavailable")}</p>
-          <button
+          <ActionButton
             type="button"
             onClick={fetchStats}
             disabled={refreshing}
-            className="mt-4 rounded-xl bg-[var(--danger)] px-4 py-2 text-xs font-semibold text-[var(--on-accent)] transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
+            variant="danger-solid"
+            className="mt-4 !text-xs"
           >
             {refreshing ? t("monitoringPage.retrying") : t("monitoringPage.retry")}
-          </button>
+          </ActionButton>
         </div>
       </PageShell>
     );
