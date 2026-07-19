@@ -1,6 +1,12 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { shouldBypassAuth, verifySessionToken, createSessionToken } from "@/lib/auth/session";
+import {
+  shouldBypassAuth,
+  verifySessionToken,
+  createSessionToken,
+  createPending2faToken,
+  verifyPending2faToken,
+} from "@/lib/auth/session";
 import { prisma } from "@/lib/db";
 
 vi.mock("@/lib/db", () => ({
@@ -15,6 +21,7 @@ describe("session auth helpers", () => {
   afterEach(() => {
     vi.unstubAllEnvs();
     vi.resetModules();
+    vi.clearAllMocks();
   });
 
   it("uses a portable cookie name derived from APP_SLUG when not explicitly configured", async () => {
@@ -89,5 +96,29 @@ describe("session auth helpers", () => {
     const token = await createSessionToken({ userId: "u_1", username: "admin", roles: ["admin"], mustChangePassword: false, currentTeamId: null });
 
     await expect(verifySessionToken(token)).rejects.toThrow("disabled");
+  });
+
+  it("round-trips a pending 2FA token and never accepts it as a full session", async () => {
+    const pending = await createPending2faToken({
+      userId: "u_1",
+      username: "admin",
+      roles: ["admin"],
+      mustChangePassword: false,
+      currentTeamId: "team_1",
+      remember: true,
+    });
+
+    await expect(verifyPending2faToken(pending)).resolves.toMatchObject({
+      userId: "u_1",
+      username: "admin",
+      roles: ["admin"],
+      mustChangePassword: false,
+      currentTeamId: "team_1",
+      remember: true,
+    });
+
+    // Cookie-swap attack: present pending-2FA token under the session cookie name.
+    await expect(verifySessionToken(pending)).rejects.toThrow(/audience|Pending 2FA/i);
+    expect(prisma.user.findUnique).not.toHaveBeenCalled();
   });
 });

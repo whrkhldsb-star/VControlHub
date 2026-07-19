@@ -132,8 +132,12 @@ function verifySessionToken(token: string): SessionPayload | null {
     if (providedBuffer.length !== expectedBuffer.length) return null;
     if (!timingSafeEqual(providedBuffer, expectedBuffer)) return null;
 
-    const payload = JSON.parse(decodeBase64Url(encodedPayload)) as SessionTokenEnvelope;
+    const payload = JSON.parse(decodeBase64Url(encodedPayload)) as SessionTokenEnvelope & {
+      pending2fa?: boolean;
+    };
     if (payload.iss !== SESSION_ISSUER || payload.aud !== SESSION_AUDIENCE) return null;
+    // Reject pending-2FA handshake cookies swapped into the session cookie name.
+    if (payload.pending2fa === true || String(payload.aud).endsWith("-pending-2fa")) return null;
     if (payload.exp <= Date.now()) return null;
 
     return {

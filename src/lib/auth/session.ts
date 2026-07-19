@@ -161,10 +161,18 @@ export async function verifySessionToken(token: string) {
     throw new AuthError("Invalid session token signature");
   }
 
-  const payload = JSON.parse(decodeBase64Url(encodedPayload)) as SessionTokenEnvelope;
+  const payload = JSON.parse(decodeBase64Url(encodedPayload)) as SessionTokenEnvelope & {
+    pending2fa?: boolean;
+  };
 
   if (payload.iss !== SESSION_ISSUER || payload.aud !== SESSION_AUDIENCE) {
     throw new AuthError("Invalid session token audience");
+  }
+
+  // Pending-2FA tokens must never authenticate as a full session. They share the
+  // same HMAC secret historically; aud split + this flag check block cookie swap.
+  if (payload.pending2fa === true || payload.aud === PENDING_2FA_AUDIENCE) {
+    throw new AuthError("Pending 2FA token is not a session");
   }
 
   if (payload.exp <= Date.now()) {
@@ -210,6 +218,8 @@ export async function verifySessionToken(token: string) {
 
 const PENDING_2FA_COOKIE_NAME = `${APP_SLUG}_pending_2fa`;
 const PENDING_2FA_TTL_MS = 5 * 60 * 1000; // 5 minutes
+/** Distinct aud so pending-2FA cookies cannot be swapped into the session cookie. */
+const PENDING_2FA_AUDIENCE = `${SESSION_AUDIENCE}-pending-2fa`;
 
 export type Pending2faSessionPayload = SessionPayload & {
  remember?: boolean;
@@ -232,7 +242,7 @@ export async function createPending2faToken(payload: Pending2faSessionPayload): 
 		pending2fa: true,
 		nonce,
 		iss: SESSION_ISSUER,
-		aud: SESSION_AUDIENCE,
+		aud: PENDING_2FA_AUDIENCE,
 		iat: now,
 		exp: now + PENDING_2FA_TTL_MS,
 	};
@@ -255,7 +265,7 @@ export async function verifyPending2faToken(token: string): Promise<Pending2faSe
 
 		const payload = JSON.parse(decodeBase64Url(encodedPayload)) as Pending2faPayload & { iss: string; aud: string; iat: number; exp: number };
 
-		if (payload.iss !== SESSION_ISSUER || payload.aud !== SESSION_AUDIENCE) return null;
+		if (payload.iss !== SESSION_ISSUER || payload.aud !== PENDING_2FA_AUDIENCE) return null;
 		if (payload.exp <= Date.now()) return null;
 		if (!payload.pending2fa) return null;
 
