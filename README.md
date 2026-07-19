@@ -377,26 +377,16 @@ make logs SERVICE_PREFIX=vcontrolhub
 | 工单 / AI | 双向时间线；知识库 RAG；AI Ops 安全闭环 |
 | 集成 | 云账单账户（`teamId` + CSV/探针 + **HTTPS CSV URL live 导入**）；ITSM/IM 双向 |
 
-### 有意不做 / 产品边界
+### 待办任务
 
-| 项 | 说明 |
-|---|---|
-| K8s 全集群控制面 | 定位是 VPS/SSH 运维台，不是云原生控制平面 |
-| 企业级冲突解决网盘（版本树/锁文件） | 已提供 VPS 路径级双向合并（newer-wins）；非 Dropbox 式冲突中心 |
-| 强制向量库 / 商用 embedding | lexical RAG 已闭环；有检索质量硬需求再加深 |
-| 云账单 live SDK 默认路径 | 无密钥时易假成功；当前 CSV/探针 + live 显式失败 |
-| 跨浏览器全矩阵 / DAST / 压测 | 工程专项：同一套 E2E 在 Chromium+Firefox+WebKit 全跑；当前主路径 Chromium 已有，全矩阵成本高 |
-| 按行数机械拆前端 | 仅在真实复杂度或验收缺口时拆 |
-| 生产硬跑不可逆操作 | 关机、真全量 restore、密钥轮换等仅隔离验证 |
-
-### 期望 vs 实际
-
-| 常见期望 | 当前更接近 |
-|---|---|
-| 多机 Docker / K8s 面板 | 本机 Docker + 远程 SSH/Compose/Quick Services |
-| 企业网盘 | 多存储节点 Web 文件柜 + 分享 + WebDAV |
-| 完整 APM | 主机监控 + 采样历史 + 任务/审计日志 |
-| 多租户 SaaS | 权限强的运维台 + 核心 Team scope |
+| 项 | 当前状态 | 目标 |
+|---|---|---|
+| Playwright 跨浏览器 | 已有 9 个 e2e spec，仅配 chromium project | 加入 Firefox + WebKit project，CI 三引擎全跑 |
+| DAST 基线扫描 | 无 | nuclei/zap 周期性基线扫描，纳入 CI 可选 stage |
+| 压测基线 | 无 | 关键 API 路径（auth、文件列表、命令执行）k6 基线脚本 + 回归阈值 |
+| Web Vitals 上报 | Sentry 已初始化（server+client），缺前端性能指标 | CLS/LCP/INP 客户端采集 + 服务端聚合看板 |
+| WebSocket 连接监控 | SSH-WS 运行但无指标 | 活跃连接数、断线率、重连成功率指标 |
+| 通知投递耗时统计 | 通知能发但无投递质量数据 | 各渠道（邮件/Telegram/Webhook）投递延迟分位数 + 失败率 |
 
 ---
 
