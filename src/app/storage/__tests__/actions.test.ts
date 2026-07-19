@@ -104,6 +104,8 @@ import {
   restoreFileEntryAction,
 } from "../actions";
 
+const { assertStorageAccess } = await import("@/lib/storage/access-control");
+
 function folderForm(input: {
   storageNodeId?: string;
   currentPath?: string;
@@ -429,6 +431,23 @@ describe("SFTP file entry actions", () => {
 
     expect(renameFsMock).not.toHaveBeenCalled();
     expect(result.success).toContain("new.txt");
+    expect(assertStorageAccess).toHaveBeenNthCalledWith(
+      1,
+      expect.objectContaining({
+        storageNodeId: "node-sftp",
+        relativePath: "docs/old.txt",
+        operation: "write",
+        session: expect.objectContaining({ userId: "user-1" }),
+      }),
+    );
+    expect(assertStorageAccess).toHaveBeenNthCalledWith(
+      2,
+      expect.objectContaining({
+        storageNodeId: "node-sftp",
+        relativePath: "docs/new.txt",
+        operation: "write",
+      }),
+    );
     expect(renameRemoteFileMock).toHaveBeenCalledWith(
       expect.objectContaining({
         oldPath: "/data/root/docs/old.txt",
@@ -441,6 +460,58 @@ describe("SFTP file entry actions", () => {
         data: { name: "new.txt", relativePath: "docs/new.txt" },
       }),
     );
+  });
+
+  it("rejects rename when source path lacks write ACL even if destination would be allowed", async () => {
+    prismaMock.fileEntry.findFirst.mockResolvedValueOnce(sftpEntry());
+    vi.mocked(assertStorageAccess).mockResolvedValueOnce({
+      allowed: false,
+      reason: "source grant missing",
+    });
+
+    const result = await renameFileEntryAction(
+      null,
+      entryForm("entry-1", { newName: "new.txt" }),
+    );
+
+    expect(result).toEqual({ error: "source grant missing" });
+    expect(assertStorageAccess).toHaveBeenCalledTimes(1);
+    expect(assertStorageAccess).toHaveBeenCalledWith(
+      expect.objectContaining({
+        relativePath: "docs/old.txt",
+        operation: "write",
+      }),
+    );
+    expect(renameRemoteFileMock).not.toHaveBeenCalled();
+    expect(renameFsMock).not.toHaveBeenCalled();
+    expect(prismaMock.fileEntry.update).not.toHaveBeenCalled();
+  });
+
+  it("rejects rename when destination path lacks write ACL", async () => {
+    prismaMock.fileEntry.findFirst.mockResolvedValueOnce(sftpEntry());
+    vi.mocked(assertStorageAccess)
+      .mockResolvedValueOnce({ allowed: true })
+      .mockResolvedValueOnce({
+        allowed: false,
+        reason: "destination grant missing",
+      });
+
+    const result = await renameFileEntryAction(
+      null,
+      entryForm("entry-1", { newName: "new.txt" }),
+    );
+
+    expect(result).toEqual({ error: "destination grant missing" });
+    expect(assertStorageAccess).toHaveBeenCalledTimes(2);
+    expect(assertStorageAccess).toHaveBeenNthCalledWith(
+      2,
+      expect.objectContaining({
+        relativePath: "docs/new.txt",
+        operation: "write",
+      }),
+    );
+    expect(renameRemoteFileMock).not.toHaveBeenCalled();
+    expect(prismaMock.fileEntry.update).not.toHaveBeenCalled();
   });
 
   it("keeps the DB entry in recycle bin when LOCAL backing deletion fails", async () => {
@@ -502,6 +573,20 @@ describe("SFTP file entry actions", () => {
     );
 
     expect(result).toEqual({ success: "Renamed to new.txt" });
+    expect(assertStorageAccess).toHaveBeenCalledWith(
+      expect.objectContaining({
+        storageNodeId: "node-local",
+        relativePath: "docs/old.txt",
+        operation: "write",
+      }),
+    );
+    expect(assertStorageAccess).toHaveBeenCalledWith(
+      expect.objectContaining({
+        storageNodeId: "node-local",
+        relativePath: "docs/new.txt",
+        operation: "write",
+      }),
+    );
     expect(mkdirMock).toHaveBeenCalledWith("/srv/storage/docs", {
       recursive: true,
     });

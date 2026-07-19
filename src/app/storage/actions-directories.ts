@@ -7,6 +7,7 @@ import { requirePermission } from "@/lib/auth/authorization";
 import { teamWhere } from "@/lib/auth/team-scope";
 import { prisma } from "@/lib/db";
 import { serverT } from "@/lib/i18n/server-locale";
+import { assertStorageAccess } from "@/lib/storage/access-control";
 import { createFileEntry } from "@/lib/storage/service";
 import {
   createManagedFolder,
@@ -235,6 +236,33 @@ export async function renameFileEntryAction(
       lastSlashIndex >= 0
         ? entry.relativePath.substring(0, lastSlashIndex + 1) + newName
         : newName;
+
+    // Grant-level path ACL (teamWhere alone is insufficient for restricted prefixes).
+    // Require write on BOTH source and destination — same model as moveFileAction /
+    // sftp-ops rename — so a grant on one prefix cannot rename out of another.
+    const sourceAccess = await assertStorageAccess({
+      session,
+      storageNodeId: entry.storageNodeId,
+      relativePath: entry.relativePath,
+      operation: "write",
+    });
+    if (!sourceAccess.allowed) {
+      return {
+        error: sourceAccess.reason ?? t("storagePage.action.fileEntryNotFound"),
+      } satisfies StorageActionState;
+    }
+
+    const destinationAccess = await assertStorageAccess({
+      session,
+      storageNodeId: entry.storageNodeId,
+      relativePath: newRelativePath,
+      operation: "write",
+    });
+    if (!destinationAccess.allowed) {
+      return {
+        error: destinationAccess.reason ?? t("storagePage.action.fileEntryNotFound"),
+      } satisfies StorageActionState;
+    }
 
     const existing = await prisma.fileEntry.findFirst({
       where: {
