@@ -79,7 +79,8 @@ jobs:
       PLAYWRIGHT_CROSS_BROWSER: "1"
       PLAYWRIGHT_SKIP_WEB_SERVER: "1"
       PLAYWRIGHT_BASE_URL: http://127.0.0.1:3000
-      NODE_ENV: production
+      # Do NOT set NODE_ENV=production at job scope: npm ci would omit
+      # devDependencies (@tailwindcss/postcss) and next build fails.
       NEXT_HOST: 127.0.0.1
       PORT: "3000"
       DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/whrkhldsb_ci
@@ -124,6 +125,8 @@ jobs:
           npm run build:runtime
 
       - name: Start production custom server
+        env:
+          NODE_ENV: production
         run: |
           node dist/server.js &
           for i in $(seq 1 90); do
@@ -137,6 +140,8 @@ jobs:
           exit 1
 
       - name: Run public smoke across browsers
+        env:
+          NODE_ENV: production
         run: npx playwright test e2e/public-smoke.spec.ts --project=chromium --project=firefox --project=webkit --workers=1
 
       - name: Upload Playwright report
@@ -158,7 +163,7 @@ jobs:
     env:
       NEXT_TELEMETRY_DISABLED: 1
       BASE_URL: http://127.0.0.1:3000
-      NODE_ENV: production
+      # NODE_ENV only on server start — npm ci must install devDependencies.
       NEXT_HOST: 127.0.0.1
       PORT: "3000"
       DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/whrkhldsb_ci
@@ -200,6 +205,8 @@ jobs:
           npm run build:runtime
 
       - name: Start production custom server
+        env:
+          NODE_ENV: production
         run: |
           node dist/server.js &
           for i in $(seq 1 90); do
@@ -213,6 +220,8 @@ jobs:
           exit 1
 
       - name: Run DAST baseline probe
+        env:
+          NODE_ENV: production
         run: npm run dast:baseline
 
       - name: Upload DAST output
