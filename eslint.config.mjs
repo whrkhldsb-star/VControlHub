@@ -46,6 +46,12 @@ const eslintConfig = defineConfig([
       "src/lib/theme/use-theme.ts",
       "src/components/global-search.tsx",
       "src/components/notification-bell.tsx",
+      // Host-key TOFU: controlled fingerprint field is seeded from server-action
+      // state when the probe returns (defaultValue cannot update after first render).
+      "src/app/servers/server-card-edit-form.tsx",
+      "src/app/servers/server-create-form.tsx",
+      // Client-only portal mount flag (document/body available after hydration).
+      "src/app/servers/server-overview-card.tsx",
     ],
     rules: { "react-hooks/set-state-in-effect": "off" },
   },
@@ -70,6 +76,8 @@ const eslintConfig = defineConfig([
     "coverage/**",
     "next-env.d.ts",
     "_test_*.js",
+    // k6 load scripts are not Next/React modules; run under k6 runtime only.
+    "scripts/load/**",
   ]),
 ]);
 

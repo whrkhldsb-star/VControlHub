@@ -51,7 +51,7 @@ function headers(extra = {}) {
   return h;
 }
 
-export default function () {
+export default function k6BaselineScenario() {
   group("public auth surface", () => {
     const login = http.get(`${BASE_URL}/login`, { headers: headers(), tags: { name: "GET /login" } });
     loginLatency.add(login.timings.duration);
