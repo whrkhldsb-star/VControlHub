@@ -124,9 +124,9 @@ export function SshFileList({
             <>
               <span className="shrink-0 text-[10px] text-[var(--text-muted)]">{entry.isFile ? formatSshFileSize(entry.size) : ""}</span>
               <span className="hidden shrink-0 text-[10px] text-[var(--text-muted)] lg:block">{formatSshFileDate(entry.modifyTime, locale)}</span>
-              {entry.isFile && <button onClick={(e) => { e.stopPropagation(); onDownload(entry); }} className="shrink-0 text-[var(--text-muted)] opacity-0 transition hover:text-[var(--color-action)] group-hover:opacity-100" aria-label={t("sshFileManager.download")} title={t("sshFileManager.download")}>⬇</button>}
-              <button onClick={(e) => { e.stopPropagation(); setRenameTarget(entry.name); setRenameValue(entry.name); }} className="shrink-0 text-[var(--text-muted)] opacity-0 transition hover:text-[var(--color-action)] group-hover:opacity-100" aria-label={t("sshFileManager.rename")} title={t("sshFileManager.rename")}>✎</button>
-              {entry.isFile && <button onClick={(e) => { e.stopPropagation(); onDelete(entry); }} className="shrink-0 text-[var(--text-muted)] opacity-0 transition hover:text-[var(--danger)] group-hover:opacity-100" aria-label={t("sshFileManager.delete")} title={t("sshFileManager.delete")}>🗑</button>}
+              {entry.isFile && <button onClick={(e) => { e.stopPropagation(); onDownload(entry); }} className="min-h-11 min-w-11 shrink-0 text-[var(--text-muted)] opacity-100 transition hover:text-[var(--color-action)] sm:opacity-0 sm:group-hover:opacity-100 sm:group-focus-within:opacity-100" aria-label={t("sshFileManager.download")} title={t("sshFileManager.download")}>⬇</button>}
+              <button onClick={(e) => { e.stopPropagation(); setRenameTarget(entry.name); setRenameValue(entry.name); }} className="min-h-11 min-w-11 shrink-0 text-[var(--text-muted)] opacity-100 transition hover:text-[var(--color-action)] sm:opacity-0 sm:group-hover:opacity-100 sm:group-focus-within:opacity-100" aria-label={t("sshFileManager.rename")} title={t("sshFileManager.rename")}>✎</button>
+              {entry.isFile && <button onClick={(e) => { e.stopPropagation(); onDelete(entry); }} className="min-h-11 min-w-11 shrink-0 text-[var(--text-muted)] opacity-100 transition hover:text-[var(--danger)] sm:opacity-0 sm:group-hover:opacity-100 sm:group-focus-within:opacity-100" aria-label={t("sshFileManager.delete")} title={t("sshFileManager.delete")}>🗑</button>}
             </>
           )}
         </div>

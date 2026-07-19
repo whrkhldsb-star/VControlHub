@@ -160,9 +160,11 @@ export default function DockerPage({ initialServers }: { initialServers: { id: s
 				data.mode === "compose-cli"
 					? t("dockerPage.project.modeCli")
 					: t("dockerPage.project.modeFallback");
+			const actionLabelKey = `dockerPage.project.${action}` as const;
+			const actionLabel = t(actionLabelKey) !== actionLabelKey ? t(actionLabelKey) : action;
 			const msg = typeof data.message === "string" ? data.message : t("dockerPage.project.success")
 				.replace("{project}", project)
-				.replace("{message}", action);
+				.replace("{message}", actionLabel);
 			setProjectMessage(`${msg} (${modeLabel})`);
 			if (action !== "ps") {
 				await fetchContainers();

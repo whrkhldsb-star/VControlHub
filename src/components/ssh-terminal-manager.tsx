@@ -211,7 +211,7 @@ export function SshTerminalManager({
 										onTabClose(i);
 									}}
 									aria-label={t("sshTerminalManager.closeTab").replace("{serverName}", tab.serverName)}
-									className="ml-1 shrink-0 rounded p-0.5 text-[var(--text-muted)] opacity-0 transition hover:bg-[var(--surface-elevated)] light:hover:bg-[var(--surface-hover)] hover:text-[var(--danger)] group-hover:opacity-100"
+									className="ml-1 shrink-0 rounded p-1.5 min-h-11 min-w-11 text-[var(--text-muted)] opacity-100 transition hover:bg-[var(--surface-elevated)] light:hover:bg-[var(--surface-hover)] hover:text-[var(--danger)] sm:opacity-0 sm:group-hover:opacity-100 sm:group-focus-within:opacity-100"
 								>
 									✕
 								</button>

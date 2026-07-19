@@ -162,7 +162,7 @@ export function AiOpsPageClient({
 			const body = (await res.json()) as AiOpsSettings;
 			setSettings(body);
 			setEditingProvider(body.providerId ?? "");
-			addToast("success", t("aiOpsPage.settings.title"));
+			addToast("success", t("aiOpsPage.settings.saved"));
 		} catch (error) {
 			addToast(
 				"error",

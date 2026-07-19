@@ -165,7 +165,7 @@ export function MediaItemCard({
                 ? t("mediaItemCard.favoriteRemove")
                 : t("mediaItemCard.favoriteAdd")
             }
-            className={`shrink-0 rounded p-1 transition ${fav ? "text-[var(--warning)] hover:text-[var(--warning)]" : "text-[var(--text-muted)] hover:text-[var(--warning)] opacity-0 group-hover:opacity-100"}`}
+            className={`shrink-0 rounded p-1 transition min-h-11 min-w-11 ${fav ? "text-[var(--warning)] hover:text-[var(--warning)]" : "text-[var(--text-muted)] hover:text-[var(--warning)] opacity-100 sm:opacity-0 sm:group-hover:opacity-100 sm:group-focus-within:opacity-100"}`}
             title={
               fav
                 ? t("mediaItemCard.favoriteRemove")
