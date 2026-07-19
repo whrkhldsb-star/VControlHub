@@ -41,6 +41,18 @@ export default defineConfig({
         "src/test/**",
         "src/types/**",
         "src/lib/i18n/dictionaries/**",
+        // Pure re-export barrels (R28 god-file splits) — no executable code.
+        // Counting them as 0% coverage permanently drags global thresholds below
+        // the gate even when real modules are well covered.
+        "src/lib/storage/service.ts",
+        "src/lib/storage/offsite/service.ts",
+        "src/lib/sync/service.ts",
+        "src/lib/health/service.ts",
+        "src/lib/backup/service.ts",
+        "src/lib/ai/service.ts",
+        "src/lib/quick-service/service.ts",
+        // Next.js route loading shells — static markup only.
+        "src/app/**/loading.tsx",
       ],
     },
   },
