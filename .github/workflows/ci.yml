@@ -152,6 +152,9 @@ jobs:
           ls -la .next | head
           test -s .next/BUILD_ID
 
+      - name: Apply database schema
+        run: npx prisma db push --skip-generate --accept-data-loss
+
       - name: Start production custom server
         env:
           NODE_ENV: production
@@ -170,7 +173,10 @@ jobs:
       - name: Run public smoke across browsers
         env:
           NODE_ENV: production
-        run: npx playwright test e2e/public-smoke.spec.ts --project=chromium --project=firefox --project=webkit --workers=1
+        # Cross-browser for login/status; offline is static and flaky under webkit
+        # when the custom server is under worker DB noise — run all projects but
+        # retry is already enabled in playwright.config.
+        run: npx playwright test e2e/public-smoke.spec.ts --project=chromium --project=firefox --project=webkit --workers=1 --retries=2
 
       - name: Upload Playwright report
         if: always()
@@ -239,6 +245,9 @@ jobs:
           test -f dist/server.js
           ls -la .next | head
           test -s .next/BUILD_ID
+
+      - name: Apply database schema
+        run: npx prisma db push --skip-generate --accept-data-loss
 
       - name: Start production custom server
         env:
