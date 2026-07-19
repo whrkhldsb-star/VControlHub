@@ -208,7 +208,17 @@ export function ServerOverviewCard({
         <div className="min-w-0">
           <div className="flex items-center gap-2">
             <span
-              className={`h-2.5 w-2.5 shrink-0 rounded-full ring-2 ring-[var(--surface)] ${server.enabled ? "bg-[var(--success)] shadow-[0_0_0_3px_color-mix(in_srgb,var(--success)_20%,transparent)]" : "bg-[var(--text-disabled)]"}`}
+              className={`h-2.5 w-2.5 shrink-0 rounded-full ring-2 ring-[var(--surface)] ${
+                !server.enabled
+                  ? "bg-[var(--text-disabled)]"
+                  : diagnosticRun.status === "success"
+                    ? "bg-[var(--success)] shadow-[0_0_0_3px_color-mix(in_srgb,var(--success)_20%,transparent)]"
+                    : diagnosticRun.status === "error"
+                      ? "bg-[var(--danger)] shadow-[0_0_0_3px_color-mix(in_srgb,var(--danger)_20%,transparent)]"
+                      : diagnosticRun.status === "loading"
+                        ? "bg-[var(--info)] animate-pulse shadow-[0_0_0_3px_color-mix(in_srgb,var(--info)_20%,transparent)]"
+                        : "bg-[var(--warning)] shadow-[0_0_0_3px_color-mix(in_srgb,var(--warning)_20%,transparent)]"
+              }`}
               aria-hidden="true"
             />
             <h2 className="truncate text-sm font-semibold tracking-tight text-[var(--text-primary)]">
