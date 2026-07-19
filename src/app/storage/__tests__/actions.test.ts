@@ -178,6 +178,14 @@ describe("createFolderAction", () => {
     );
 
     expect(result).toEqual({ success: "Folder /team/alpha/docs created" });
+    expect(assertStorageAccess).toHaveBeenCalledWith(
+      expect.objectContaining({
+        storageNodeId: "node-1",
+        relativePath: "team/alpha/docs",
+        operation: "write",
+        session: expect.objectContaining({ userId: "user-1" }),
+      }),
+    );
     expect(prismaMock.fileEntry.findFirst).toHaveBeenCalledWith(
       expect.objectContaining({
         where: expect.objectContaining({ relativePath: "team/alpha/docs" }),
@@ -195,6 +203,50 @@ describe("createFolderAction", () => {
         relativePath: "team/alpha/docs",
       }),
     );
+  });
+
+  it("rejects createFolder when target path lacks write ACL before filesystem writes", async () => {
+    prismaMock.fileEntry.findFirst.mockResolvedValueOnce(null);
+    prismaMock.storageNode.findFirst.mockResolvedValueOnce({
+      id: "node-1",
+      name: "remote",
+      driver: "SFTP",
+      basePath: "/data/root/",
+      host: "203.0.113.10",
+      port: 22,
+      username: "deployer",
+      serverId: "srv-1",
+      server: {
+        connectionType: "SSH_KEY",
+        password: null,
+        sshKey: { privateKey: "PRIVATE KEY" },
+      },
+    });
+    vi.mocked(assertStorageAccess).mockResolvedValueOnce({
+      allowed: false,
+      reason: "path grant missing",
+    });
+
+    const result = await createFolderAction(
+      null,
+      folderForm({
+        storageNodeId: "node-1",
+        currentPath: "secrets",
+        folderName: "leak",
+      }),
+    );
+
+    expect(result).toEqual({ error: "path grant missing" });
+    expect(assertStorageAccess).toHaveBeenCalledWith(
+      expect.objectContaining({
+        storageNodeId: "node-1",
+        relativePath: "secrets/leak",
+        operation: "write",
+      }),
+    );
+    expect(createRemoteDirectoryMock).not.toHaveBeenCalled();
+    expect(mkdirMock).not.toHaveBeenCalled();
+    expect(createFileEntryMock).not.toHaveBeenCalled();
   });
 
   it("rolls back a newly-created local folder when indexing fails", async () => {

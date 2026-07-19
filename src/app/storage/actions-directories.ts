@@ -109,6 +109,20 @@ export async function createFolderAction(
       return { error: t("storagePage.action.nodeNotFound") } satisfies StorageActionState;
     }
 
+    // Grant-level path ACL (teamWhere alone is insufficient for restricted prefixes).
+    // Same model as renameFileEntryAction / sftp-ops: storage:write + path-prefix grant.
+    const folderAccess = await assertStorageAccess({
+      session,
+      storageNodeId,
+      relativePath,
+      operation: "write",
+    });
+    if (!folderAccess.allowed) {
+      return {
+        error: folderAccess.reason ?? t("storagePage.action.nodeNotFound"),
+      } satisfies StorageActionState;
+    }
+
     let folderCreated = false;
     try {
       await createManagedFolder({
