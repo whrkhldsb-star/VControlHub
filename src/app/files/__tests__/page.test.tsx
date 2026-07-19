@@ -336,7 +336,7 @@ describe("FilesPage", () => {
       "/api/storage/local?path=docs%2Fnotes.txt&nodeId=node_1&download=1",
     );
     expect(
-      await screen.findByRole("heading", { name: /回收站/ }),
+      await screen.findByRole("button", { name: /更多功能/ }),
     ).toBeInTheDocument();
   });
 
@@ -608,7 +608,7 @@ describe("FilesPage", () => {
     ).toBeGreaterThan(0);
   });
 
-  it("renders recycle bin section showing deleted entries count", async () => {
+  it("shows recycle bin count link to dedicated subpage", async () => {
     getStorageOverviewMock.mockResolvedValue({
       ...structuredClone(baseStorageOverview),
       deletedEntries: [
@@ -631,36 +631,9 @@ describe("FilesPage", () => {
 
     render(await FilesPage({ searchParams: Promise.resolve({}) }));
 
-    expect(
-      await screen.findByRole("heading", { name: /回收站/ }),
-    ).toBeInTheDocument();
-    const restoreBtns = screen.queryAllByTestId("restore-btn");
-    const permanentDeleteBtns = screen.queryAllByTestId("permanent-delete-btn");
-    if (restoreBtns.length === 0) {
-      const allButtons = screen.getAllByRole("button");
-      expect(
-        allButtons.some((btn: HTMLElement) =>
-          btn.textContent?.includes("恢复"),
-        ),
-      ).toBe(true);
-      expect(
-        allButtons.some((btn: HTMLElement) =>
-          btn.textContent?.includes("永久删除"),
-        ),
-      ).toBe(true);
-    } else {
-      expect(
-        restoreBtns.some(
-          (btn: HTMLElement) =>
-            btn.getAttribute("data-file-entry-id") === "del_1",
-        ),
-      ).toBe(true);
-      expect(
-        permanentDeleteBtns.some(
-          (btn: HTMLElement) =>
-            btn.getAttribute("data-entry-name") === "old-file.txt",
-        ),
-      ).toBe(true);
-    }
+    const recycleLink = await screen.findByRole("link", { name: /回收站/ });
+    expect(recycleLink).toHaveAttribute("href", "/files/recycle-bin");
+    expect(screen.getByText("1")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /更多功能/ })).toBeInTheDocument();
   });
 });

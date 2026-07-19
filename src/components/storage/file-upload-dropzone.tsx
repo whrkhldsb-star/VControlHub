@@ -380,7 +380,7 @@ export function FileUploadDropzone({
         }}
         onDrop={handleDrop}
         disabled={!uploadEnabled || submitting}
-        className={`mt-5 flex min-h-40 w-full flex-col items-center justify-center rounded-3xl border border-dashed px-6 py-8 text-center transition ${uploadEnabled ? (dragActive ? "border-[var(--color-action-border)] bg-[var(--color-action-bg)]/10 text-[var(--color-action-fg)] dark:text-[var(--color-action-fg)]" : "border-[var(--border)] bg-[var(--surface-hover)] text-[var(--text-primary)] hover:border-[var(--color-action)]/50") : "cursor-not-allowed border-[var(--border)] bg-[var(--surface-subtle)] text-[var(--text-muted)]"}`}
+        className={`mt-5 flex min-h-40 w-full flex-col items-center justify-center rounded-3xl border border-dashed px-6 py-8 text-center transition ${uploadEnabled ? (dragActive ? "border-[var(--color-action-border)] bg-[var(--color-action-bg)] text-[var(--color-action)]" : "border-[var(--border)] bg-[var(--surface-hover)] text-[var(--text-primary)] hover:border-[var(--color-action)]/50") : "cursor-not-allowed border-[var(--border)] bg-[var(--surface-subtle)] text-[var(--text-muted)]"}`}
       >
         {" "}
         <span className="text-base font-medium">{submitLabel}</span>{" "}
@@ -399,17 +399,18 @@ export function FileUploadDropzone({
           type="button"
           onClick={() => directoryInputRef.current?.click()}
           disabled={!uploadEnabled || submitting}
-          data-tone="cyan"
-          className="rounded-full border border-[var(--color-action-border)]/30 px-3 py-1.5 text-[var(--color-action-fg)] hover:bg-[var(--color-action-bg)]/20 disabled:cursor-not-allowed disabled:opacity-50"
+          data-action-button
+          data-variant="outline"
+          className="rounded-full px-3 py-1.5 text-xs font-medium disabled:cursor-not-allowed disabled:opacity-50"
         >
           {" "}
           {tr("fileUploadDropzone.selectFolder")}{" "}
         </button>{" "}
-        <span>{tr("fileUploadDropzone.folderHelpText")}</span>{" "}
+        <span className="text-[var(--text-secondary)]">{tr("fileUploadDropzone.folderHelpText")}</span>{" "}
       </div>{" "}
       {message ? (
         <div
-          className={`mt-4 rounded-2xl border px-4 py-3 text-sm ${message.type === "success" ? "border-[var(--success-border)] bg-[var(--success)] text-[var(--success)]" : "border-[var(--danger-border)] bg-[var(--danger)] text-[var(--danger)]"}`}
+          className={`mt-4 rounded-2xl border px-4 py-3 text-sm ${message.type === "success" ? "border-[var(--success-border)] bg-[var(--success-bg)] text-[var(--success)]" : "border-[var(--danger-border)] bg-[var(--danger-bg)] text-[var(--danger)]"}`}
         >
           {" "}
           {message.text}{" "}

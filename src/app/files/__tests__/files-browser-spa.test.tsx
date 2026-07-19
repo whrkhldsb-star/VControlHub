@@ -175,7 +175,6 @@ describe("FilesBrowserSpa", () => {
     renderWithI18n(
       <FilesBrowserSpa
         initialData={baseData}
-        deletedEntries={[]}
       />,
     );
 
@@ -190,7 +189,6 @@ describe("FilesBrowserSpa", () => {
     renderWithI18n(
       <FilesBrowserSpa
         initialData={baseData}
-        deletedEntries={[]}
       />,
     );
 
@@ -217,7 +215,6 @@ describe("FilesBrowserSpa", () => {
     renderWithI18n(
       <FilesBrowserSpa
         initialData={baseData}
-        deletedEntries={[]}
       />,
     );
     expect(screen.getByText("before.jpg")).toBeInTheDocument();
@@ -234,7 +231,6 @@ describe("FilesBrowserSpa", () => {
     renderWithI18n(
       <FilesBrowserSpa
         initialData={baseData}
-        deletedEntries={[]}
       />,
     );
 
@@ -262,7 +258,6 @@ describe("FilesBrowserSpa", () => {
             { id: "node_sftp_1", name: "香港 VPS", driver: "SFTP" },
           ],
         }}
-        deletedEntries={[]}
       />,
     );
 
@@ -302,7 +297,6 @@ describe("FilesBrowserSpa", () => {
             { id: "node_sftp_2", name: "东京归档", driver: "SFTP" },
           ],
         }}
-        deletedEntries={[]}
       />,
     );
 
@@ -363,7 +357,6 @@ describe("FilesBrowserSpa", () => {
             { id: "node_sftp_1", name: "香港 VPS", driver: "SFTP" },
           ],
         }}
-        deletedEntries={[]}
       />,
     );
 
@@ -418,7 +411,6 @@ describe("FilesBrowserSpa", () => {
             { id: "node_sftp_1", name: "45.88.1.2", driver: "SFTP" },
           ],
         }}
-        deletedEntries={[]}
       />,
     );
 
@@ -465,7 +457,6 @@ describe("FilesBrowserSpa", () => {
     renderWithI18n(
       <FilesBrowserSpa
         initialData={baseData}
-        deletedEntries={[]}
       />,
     );
 
@@ -503,7 +494,6 @@ describe("FilesBrowserSpa", () => {
             { id: "cmps1rmyabcdef", name: "45.88.1.2", driver: "SFTP" },
           ],
         }}
-        deletedEntries={[]}
       />,
     );
 
@@ -515,7 +505,6 @@ describe("FilesBrowserSpa", () => {
     renderWithI18n(
       <FilesBrowserSpa
         initialData={{ ...baseData, currentPath: "" }}
-        deletedEntries={[]}
       />,
     );
 
@@ -533,7 +522,6 @@ describe("FilesBrowserSpa", () => {
     renderWithI18n(
       <FilesBrowserSpa
         initialData={baseData}
-        deletedEntries={[]}
       />,
     );
 
@@ -553,7 +541,6 @@ describe("FilesBrowserSpa", () => {
     renderWithI18n(
       <FilesBrowserSpa
         initialData={baseData}
-        deletedEntries={[]}
       />,
     );
 
@@ -570,7 +557,6 @@ describe("FilesBrowserSpa", () => {
     renderWithI18n(
       <FilesBrowserSpa
         initialData={baseData}
-        deletedEntries={[]}
       />,
     );
 
@@ -584,32 +570,15 @@ describe("FilesBrowserSpa", () => {
     expect(sidebar?.className.split(/\s+/)).toContain("hidden");
   });
 
-  it("navigates recent downloads inside the SPA and switches to their storage node", async () => {
-    const fetchMock = vi.mocked(globalThis.fetch);
-    fetchMock.mockResolvedValueOnce({
-      ok: true,
-      json: async () => ({
-        ...baseData,
-        nodeIdFilter: "node_2",
-        currentPath: "downloads/releases",
-        files: [],
-      }),
-    } as Response);
-
+  it("does not embed recent downloads on the main browser shell", async () => {
     renderWithI18n(
       <FilesBrowserSpa
         initialData={baseData}
-        deletedEntries={[]}
       />,
+      { locale: "zh" },
     );
-
-    fireEvent.click(screen.getByRole("button", { name: "打开最近下载" }));
-
-    await waitFor(() => expect(fetchMock).toHaveBeenCalledWith(
-      "/api/files/list?path=downloads%2Freleases&nodeId=node_2",
-      expect.any(Object),
-    ));
-    expect(window.history.pushState).toBeDefined();
+    expect(screen.queryByRole("button", { name: "打开最近下载" })).not.toBeInTheDocument();
+    expect(screen.queryByText("最近下载")).not.toBeInTheDocument();
   });
 
   it("auto-closes the directory tree sidebar on mobile after a tree navigation click", async () => {
@@ -625,7 +594,6 @@ describe("FilesBrowserSpa", () => {
     renderWithI18n(
       <FilesBrowserSpa
         initialData={{ ...baseData, currentPath: "" }}
-        deletedEntries={[]}
       />,
     );
 

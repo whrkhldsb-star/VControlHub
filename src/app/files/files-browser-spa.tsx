@@ -7,17 +7,14 @@ import { FileListClient } from "./file-list-client";
 import { UnifiedFileSearch } from "./unified-file-search";
 import { FileUploadDropzoneLazy } from "./file-upload-dropzone-lazy";
 import { CreateFolderForm } from "./create-folder-form";
-import { RecycleBinSectionClientLazy } from "./recycle-bin-section-client-lazy";
 import { useFileBrowserListing } from "./use-file-browser-listing";
 import {
   type FilesApiResponse,
-  type DeletedEntryProp,
   getInitialExpandedTreePaths,
   getCurrentPathDisplay,
   getNodeById,
 } from "./files-browser-helpers";
 import { BreadcrumbsClient } from "./breadcrumbs-client";
-import { RecentDownloadsPanel } from "./recent-downloads-panel";
 import { FilesBrowserSidebar } from "./files-browser-sidebar";
 
 /* ── Navigation hook ────────────────────────────────────────────── */
@@ -63,10 +60,8 @@ function useFolderNavigation(
 
 export function FilesBrowserSpa({
   initialData,
-  deletedEntries,
 }: {
   initialData: FilesApiResponse;
-  deletedEntries: DeletedEntryProp[];
 }) {
   const { t } = useI18n();
   // Listing state (data / loading / listError / search / selection epoch /
@@ -84,7 +79,7 @@ export function FilesBrowserSpa({
   } = useFileBrowserListing({ initialData });
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
 
-  const { navigateToFolder, navigateToNodeFolder } = useFolderNavigation(fetchFiles);
+  const { navigateToFolder } = useFolderNavigation(fetchFiles);
 
   const uploadNodes = data.nodes.filter(
     (n) => n.driver === "LOCAL" || n.driver === "SFTP",
@@ -162,10 +157,8 @@ export function FilesBrowserSpa({
         onTreeNavigate={handleTreeNavigate}
       />
 
-      {/* Main content area */}
+      {/* Main content area — cloud-drive style browser only */}
       <section className="min-w-0 space-y-5">
-        <RecentDownloadsPanel onNavigate={navigateToNodeFolder} />
-
         {/* Search + Toolbar */}
         <article className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-4 shadow-[var(--shadow-sm)] sm:p-5">
           <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
@@ -354,20 +347,6 @@ export function FilesBrowserSpa({
             />
           </div>
         ) : null}
-
-        {/* Recycle bin — TR-036 lazy chunk, fetched on first view */}
-        <RecycleBinSectionClientLazy
-          deletedEntries={deletedEntries}
-          canDelete={data.permissions.canDelete}
-          onRefresh={() =>
-            fetchFiles(
-              data.currentPath,
-              data.searchQuery,
-              data.searchScope,
-              data.nodeIdFilter,
-            )
-          }
-        />
       </section>
     </section>
   );

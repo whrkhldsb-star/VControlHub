@@ -22,10 +22,9 @@ import { getStorageFormOptions } from "@/app/storage/actions";
 import { getSftpSyncNode, syncSftpDirectoryEntries } from "@/lib/storage/sftp-sync";
 import { getServerLocale, t } from "@/lib/i18n/translations";
 import { FilesBrowserSpa } from "./files-browser-spa";
-import { PageShell, PageHeader, SurfacePanel } from "@/components/page-shell";
-import { WebDavSetupPanel } from "@/components/storage/webdav-setup-panel";
-import { BidirectionalSyncPanel } from "@/components/storage/bidirectional-sync-panel";
+import { PageShell, PageHeader } from "@/components/page-shell";
 import { StorageNodeManager } from "./storage-node-manager";
+import { FilesMoreNav } from "./files-more-nav";
 
 export const dynamic = "force-dynamic";
 
@@ -223,117 +222,68 @@ export default async function FilesPage({ searchParams }: FilesPageProps) {
         title={t("filesPage.title", locale)}
         description={t("filesPage.description", locale)}
       >
-        <div className="flex flex-wrap gap-2 text-xs text-[var(--text-muted)]">
+        <div className="flex flex-wrap items-center gap-2">
+          <FilesMoreNav />
           <Link
             href="/audit"
-            className="rounded-lg border border-[var(--border)] bg-[var(--surface-elevated)] px-3 py-1.5 transition hover:bg-[var(--surface-hover)]"
+            className="rounded-lg border border-[var(--border)] bg-[var(--surface-elevated)] px-3 py-1.5 text-xs font-medium text-[var(--text-primary)] transition hover:bg-[var(--surface-hover)]"
           >
             {t("filesPage.linkAuditLog", locale)}
           </Link>
           <Link
             href="/health"
-            className="rounded-lg border border-[var(--border)] bg-[var(--surface-elevated)] px-3 py-1.5 transition hover:bg-[var(--surface-hover)]"
+            className="rounded-lg border border-[var(--border)] bg-[var(--surface-elevated)] px-3 py-1.5 text-xs font-medium text-[var(--text-primary)] transition hover:bg-[var(--surface-hover)]"
           >
             {t("filesPage.linkHealthCheck", locale)}
           </Link>
           <Link
             href="/servers"
-            className="rounded-lg border border-[var(--border)] bg-[var(--surface-elevated)] px-3 py-1.5 transition hover:bg-[var(--surface-hover)]"
+            className="rounded-lg border border-[var(--border)] bg-[var(--surface-elevated)] px-3 py-1.5 text-xs font-medium text-[var(--text-primary)] transition hover:bg-[var(--surface-hover)]"
           >
             {t("filesPage.linkServers", locale)}
           </Link>
         </div>
       </PageHeader>
 
-      <div className="mb-5">
-        <SurfacePanel title={t("filesPage.webdav.title", locale)} description={t("filesPage.webdav.description", locale)}>
-          <WebDavSetupPanel
-            nodes={storage.nodes
-              .filter((n) => n.driver === "LOCAL" || n.driver === "SFTP")
-              .map((n) => ({ id: n.id, name: n.name, driver: n.driver }))}
-          />
-        </SurfacePanel>
-      </div>
-
-      <div className="mb-5">
-        <SurfacePanel title={t("filesPage.syncJobs.title", locale)} description={t("filesPage.syncJobs.desc", locale)}>
-          <BidirectionalSyncPanel
-            servers={formOptions.servers.map((s: { id: string; name: string; host?: string | null }) => ({
-              id: s.id,
-              name: s.name,
-              host: s.host ?? null,
-            }))}
-          />
-        </SurfacePanel>
-      </div>
-
       <section className="mb-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-              <article data-stat-card data-card className="p-4">
-                <div className="text-xs font-medium uppercase tracking-wider text-[var(--text-muted)]">
-                  {t("filesPage.statTotalNodes", locale)}
-                </div>
-                <div className="mt-1.5 text-2xl font-semibold text-[var(--text-primary)]">
-                  {storage.stats.totalNodes}
-                </div>
-              </article>
-              <article data-stat-card data-card className="p-4">
-                <div className="text-xs font-medium uppercase tracking-wider text-[var(--text-muted)]">
-                  {t("filesPage.statActiveFiles", locale)}
-                </div>
-                <div className="mt-1.5 text-2xl font-semibold text-[var(--text-primary)]">
-                  {storage.stats.totalEntries}
-                </div>
-              </article>
-              <article data-stat-card data-card className="p-4">
-                <div className="text-xs font-medium uppercase tracking-wider text-[var(--text-muted)]">
-                  {t("filesPage.statCurrentDirectory", locale)}
-                </div>
-                <div className="mt-1.5 text-2xl font-semibold text-[var(--text-primary)]">
-                  {totalItems}
-                </div>
-              </article>
-              <article data-stat-card data-card className="p-4">
-                <div className="text-xs font-medium uppercase tracking-wider text-[var(--text-muted)]">
-                  {t("filesPage.statRecycleBin", locale)}
-                </div>
-                <div className="mt-1.5 text-2xl font-semibold text-[var(--text-primary)]">
-                  {storage.stats.deletedEntries}
-                </div>
-              </article>
-            </section>
-
-            <section className="mb-6 grid gap-3 lg:grid-cols-3">
-              <Link
-                href="/files?scope=all"
-                className="rounded-2xl border border-[var(--accent-border)] bg-[color-mix(in_srgb,var(--accent-bg)_40%,var(--surface))] p-4 transition hover:bg-[var(--accent-bg)]"
-              >
-                <div className="text-sm font-semibold text-[var(--text-primary)]">{t("filesPage.globalSearchTitle", locale)}</div>
-                <p className="mt-1.5 text-sm leading-6 text-[var(--text-secondary)]">
-                  {t("filesPage.globalSearchDesc", locale)}
-                </p>
-                <div className="mt-3 text-xs font-medium text-[var(--accent)]">{t("filesPage.globalSearchCta", locale)}</div>
-              </Link>
-              <Link
-                href="/files?scope=current"
-                data-card className="p-4 transition hover:bg-[var(--surface-elevated)]"
-              >
-                <div className="text-sm font-semibold text-[var(--text-primary)]">{t("filesPage.currentSearchTitle", locale)}</div>
-                <p className="mt-1.5 text-sm leading-6 text-[var(--text-secondary)]">
-                  {t("filesPage.currentSearchDesc", locale)}
-                </p>
-                <div className="mt-3 text-xs text-[var(--text-muted)]">{t("filesPage.currentSearchCta", locale)}</div>
-              </Link>
-              <Link
-                href="/files?tab=recycle"
-                data-card className="p-4 transition hover:bg-[var(--surface-elevated)]"
-              >
-                <div className="text-sm font-semibold text-[var(--text-primary)]">{t("filesPage.recycleTitle", locale)}</div>
-                <p className="mt-1.5 text-sm leading-6 text-[var(--text-secondary)]">
-                  {t("filesPage.recycleDesc", locale)}
-                </p>
-                <div className="mt-3 text-xs text-[var(--text-muted)]">{t("filesPage.recycleCta", locale)}</div>
-              </Link>
-            </section>
+        <article data-stat-card data-card className="p-4">
+          <div className="text-xs font-medium uppercase tracking-wider text-[var(--text-secondary)]">
+            {t("filesPage.statTotalNodes", locale)}
+          </div>
+          <div className="mt-1.5 text-2xl font-semibold text-[var(--text-primary)]">
+            {storage.stats.totalNodes}
+          </div>
+        </article>
+        <article data-stat-card data-card className="p-4">
+          <div className="text-xs font-medium uppercase tracking-wider text-[var(--text-secondary)]">
+            {t("filesPage.statActiveFiles", locale)}
+          </div>
+          <div className="mt-1.5 text-2xl font-semibold text-[var(--text-primary)]">
+            {storage.stats.totalEntries}
+          </div>
+        </article>
+        <article data-stat-card data-card className="p-4">
+          <div className="text-xs font-medium uppercase tracking-wider text-[var(--text-secondary)]">
+            {t("filesPage.statCurrentDirectory", locale)}
+          </div>
+          <div className="mt-1.5 text-2xl font-semibold text-[var(--text-primary)]">
+            {totalItems}
+          </div>
+        </article>
+        <Link
+          href="/files/recycle-bin"
+          data-stat-card
+          data-card
+          className="p-4 transition hover:bg-[var(--surface-hover)]"
+        >
+          <div className="text-xs font-medium uppercase tracking-wider text-[var(--text-secondary)]">
+            {t("filesPage.statRecycleBin", locale)}
+          </div>
+          <div className="mt-1.5 text-2xl font-semibold text-[var(--text-primary)]">
+            {storage.stats.deletedEntries}
+          </div>
+        </Link>
+      </section>
 
       <StorageNodeManager
         nodes={storage.nodes}
@@ -341,16 +291,7 @@ export default async function FilesPage({ searchParams }: FilesPageProps) {
         canManageNodes={canManageNodes}
       />
 
-      <FilesBrowserSpa
-        initialData={initialData}
-        deletedEntries={storage.deletedEntries.map((d) => ({
-          id: d.id,
-          name: d.name,
-          entryType: d.entryType,
-          relativePath: d.relativePath,
-          size: d.size,
-        }))}
-      />
+      <FilesBrowserSpa initialData={initialData} />
     </PageShell>
   );
 }
