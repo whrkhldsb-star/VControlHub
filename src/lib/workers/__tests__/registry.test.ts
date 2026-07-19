@@ -40,6 +40,8 @@ const {
   stopVpsBackupScheduleForTestsMock,
   startTicketSlaWorkerMock,
   stopTicketSlaWorkerForTestsMock,
+  startTrafficSamplingWorkerMock,
+  stopTrafficSamplingWorkerForTestsMock,
 } = vi.hoisted(() => ({
   startAiOpsScanWorkerMock: vi.fn(() => undefined),
   stopAiOpsScanWorkerForTestsMock: vi.fn(),
@@ -73,6 +75,8 @@ const {
   stopVpsBackupScheduleForTestsMock: vi.fn(),
   startTicketSlaWorkerMock: vi.fn(async () => undefined),
   stopTicketSlaWorkerForTestsMock: vi.fn(),
+  startTrafficSamplingWorkerMock: vi.fn(async () => undefined),
+  stopTrafficSamplingWorkerForTestsMock: vi.fn(),
 }));
 
 vi.mock("@/lib/ai/ops/scan-worker", () => ({
@@ -143,6 +147,10 @@ vi.mock("@/lib/ticket/sla-worker", () => ({
   startTicketSlaWorker: startTicketSlaWorkerMock,
   stopTicketSlaWorkerForTests: stopTicketSlaWorkerForTestsMock,
 }));
+vi.mock("@/lib/monitoring/traffic-sampling-worker", () => ({
+  startTrafficSamplingWorker: startTrafficSamplingWorkerMock,
+  stopTrafficSamplingWorkerForTests: stopTrafficSamplingWorkerForTestsMock,
+}));
 
 import {
   WORKER_REGISTRY,
@@ -173,6 +181,7 @@ function resetAllMocks() {
     startVpsBackupJobWorkerMock,
     startVpsBackupScheduleWorkerMock,
     startTicketSlaWorkerMock,
+    startTrafficSamplingWorkerMock,
   ]) {
     m.mockReset();
     m.mockResolvedValue(undefined);
@@ -193,6 +202,7 @@ function resetAllMocks() {
     stopVpsBackupForTestsMock,
     stopVpsBackupScheduleForTestsMock,
     stopTicketSlaWorkerForTestsMock,
+    stopTrafficSamplingWorkerForTestsMock,
   ]) {
     m.mockReset();
   }
@@ -207,6 +217,7 @@ const EXPECTED_WORKER_IDS: WorkerId[] = [
   "command-maintenance",
   "cost-snapshot",
   "health-sampling",
+  "traffic-sampling",
   "download-execution",
   "quick-service",
   "scheduled-task",
@@ -230,7 +241,7 @@ describe("worker registry", () => {
     _resetWorkerRegistryForTests();
   });
 
-  it("describes all 19 workers in the canonical order", () => {
+  it("describes all 20 workers in the canonical order", () => {
     expect(WORKER_REGISTRY.map((w) => w.id)).toEqual(EXPECTED_WORKER_IDS);
     for (const w of WORKER_REGISTRY) {
       expect(w.label).toBeTruthy();
@@ -242,7 +253,7 @@ describe("worker registry", () => {
 
   it("getWorkerStatuses reports every worker as not started initially", () => {
     const statuses = getWorkerStatuses();
-    expect(statuses).toHaveLength(19);
+    expect(statuses).toHaveLength(20);
     expect(statuses.every((s) => s.started === false)).toBe(true);
   });
 
@@ -281,9 +292,9 @@ describe("worker registry", () => {
       ]),
     );
     expect(result.started).not.toContain("backup");
-    // 18 workers should be reported started.
+    // 19 workers should be reported started.
     const startedCount = getWorkerStatuses().filter((s) => s.started).length;
-    expect(startedCount).toBe(18);
+    expect(startedCount).toBe(19);
   });
 
   it("startAllWorkers starts every worker once", async () => {

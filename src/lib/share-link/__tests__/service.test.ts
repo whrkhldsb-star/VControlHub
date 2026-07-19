@@ -3,6 +3,7 @@ import { describe, expect, it, vi, beforeEach } from "vitest";
 const { mockPrisma } = vi.hoisted(() => ({
   mockPrisma: {
     shareLink: { create: vi.fn(), findMany: vi.fn(), findUnique: vi.fn(), findFirst: vi.fn(), update: vi.fn(), updateMany: vi.fn() },
+    shareAccessLog: { create: vi.fn() },
     fileEntry: { findFirst: vi.fn() },
   },
 }));
@@ -84,9 +85,42 @@ describe("share link service", () => {
     const { hashSharePassword } = await import("../service");
     mockPrisma.shareLink.findUnique.mockResolvedValue({ id: "share1", tokenHash: "x", expiresAt: null, revokedAt: null, maxDownloads: null, accessCount: 0, passwordHash: hashSharePassword("s3cret") });
     mockPrisma.shareLink.update.mockResolvedValue({ id: "share1" });
+    mockPrisma.shareAccessLog.create.mockResolvedValue({ id: "log1" });
     const result = await resolveShareToken("abc", "s3cret");
     expect(result.id).toBe("share1");
     expect(mockPrisma.shareLink.update).toHaveBeenCalled();
+    expect(mockPrisma.shareAccessLog.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ shareLinkId: "share1", action: "download" }),
+      }),
+    );
+  });
+
+  it("records view access logs for peekShareToken without incrementing download count", async () => {
+    const { peekShareToken } = await import("../service");
+    mockPrisma.shareLink.findUnique.mockResolvedValue({
+      id: "share-view",
+      tokenHash: "x",
+      expiresAt: null,
+      revokedAt: null,
+      passwordHash: null,
+      permissionLevel: "download",
+      storageNode: { id: "node1" },
+    });
+    mockPrisma.shareAccessLog.create.mockResolvedValue({ id: "log-view" });
+    const result = await peekShareToken("abc", { ip: "203.0.113.9", userAgent: "vitest" });
+    expect(result.id).toBe("share-view");
+    expect(mockPrisma.shareLink.update).not.toHaveBeenCalled();
+    expect(mockPrisma.shareAccessLog.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          shareLinkId: "share-view",
+          action: "view",
+          ip: "203.0.113.9",
+          userAgent: "vitest",
+        }),
+      }),
+    );
   });
 
   it("rejects legacy or malformed password hashes after the migration window", async () => {

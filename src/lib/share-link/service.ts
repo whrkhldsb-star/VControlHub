@@ -8,11 +8,14 @@ import { prisma } from "@/lib/db";
 import { ForbiddenError, NotFoundError, ValidationError } from "@/lib/errors";
 import { serverT } from "@/lib/i18n/server-locale";
 import { t } from "@/lib/i18n/translations";
+import { createLogger } from "@/lib/logging";
 import { guessMimeType } from "@/lib/image-bed/constants";
 import { assertStorageAccess } from "@/lib/storage/access-control";
 import { expandStorageBasePath } from "@/lib/storage/path-utils";
 import { getSftpSyncNode, syncSftpDirectoryEntries } from "@/lib/storage/sftp-sync";
 import type { SessionPayload } from "@/lib/auth/session";
+
+const logger = createLogger("share-link");
 
 export function hashShareToken(token: string) {
   return createHash("sha256").update(token).digest("hex");
@@ -71,10 +74,40 @@ const SHARE_STORAGE_NODE_INCLUDE = {
   },
 } as const;
 
-async function recordShareAccess(input: { shareLinkId: string; action: string; ip?: string; userAgent?: string }) {
-  const model = prisma.shareAccessLog;
-  if (!model) return;
-  await model.create({ data: { shareLinkId: input.shareLinkId, action: input.action, ip: input.ip ?? null, userAgent: input.userAgent ?? null } }).catch(() => undefined);
+async function recordShareAccess(input: {
+  shareLinkId: string;
+  action: string;
+  ip?: string;
+  userAgent?: string;
+}) {
+  try {
+    // Prefer direct model access; fall back to delegate lookup for older
+    // Prisma client shapes so access logs never silently no-op.
+    const model =
+      prisma.shareAccessLog ??
+      (prisma as unknown as { shareAccessLog?: typeof prisma.shareAccessLog }).shareAccessLog;
+    if (!model?.create) {
+      logger.warn("shareAccessLog model unavailable; access log skipped", {
+        shareLinkId: input.shareLinkId,
+        action: input.action,
+      });
+      return;
+    }
+    await model.create({
+      data: {
+        shareLinkId: input.shareLinkId,
+        action: input.action,
+        ip: input.ip ?? null,
+        userAgent: input.userAgent ?? null,
+      },
+    });
+  } catch (error) {
+    logger.warn("Failed to record share access log", {
+      shareLinkId: input.shareLinkId,
+      action: input.action,
+      error: error instanceof Error ? error.message : String(error),
+    });
+  }
 }
 
 export async function createShareLink(input: {

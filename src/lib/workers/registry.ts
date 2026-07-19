@@ -36,6 +36,7 @@ import { startCostSnapshotWorker, stopCostSnapshotWorkerForTests } from "@/lib/c
 import { startVpsBackupJobWorker, stopVpsBackupForTests } from "@/lib/backup/vps-backup-job-worker";
 import { startVpsBackupScheduleWorker, stopVpsBackupScheduleForTests } from "@/lib/backup/vps-backup-schedule-worker";
 import { startTicketSlaWorker, stopTicketSlaWorkerForTests } from "@/lib/ticket/sla-worker";
+import { startTrafficSamplingWorker, stopTrafficSamplingWorkerForTests } from "@/lib/monitoring/traffic-sampling-worker";
 
 export type WorkerId =
   | "ai-ops-scan"
@@ -56,7 +57,8 @@ export type WorkerId =
   | "playbook-run"
   | "ticket-sla"
   | "vps-backup"
-  | "vps-backup-schedule";
+  | "vps-backup-schedule"
+  | "traffic-sampling";
 
 export type WorkerStatus = {
   id: WorkerId;
@@ -109,6 +111,7 @@ function getRegistryState(): Record<WorkerId, { started: boolean }> {
       "ticket-sla": { started: false },
       "vps-backup": { started: false },
       "vps-backup-schedule": { started: false },
+      "traffic-sampling": { started: false },
     };
   }
   return g.__vcontrolhubWorkerRegistry;
@@ -324,6 +327,17 @@ const VPS_BACKUP_SCHEDULE: WorkerSpec = {
   stop: () => stopVpsBackupScheduleForTests(),
 };
 
+
+const TRAFFIC_SAMPLING: WorkerSpec = {
+  id: "traffic-sampling",
+  label: "Background traffic sampling",
+  jobType: "traffic.sample",
+  start: async () => {
+    await startTrafficSamplingWorker();
+  },
+  stop: () => stopTrafficSamplingWorkerForTests(),
+};
+
 export const WORKER_REGISTRY: readonly WorkerSpec[] = Object.freeze([
   AI_OPS_SCAN,
   ALERT_EVALUATION,
@@ -333,6 +347,7 @@ export const WORKER_REGISTRY: readonly WorkerSpec[] = Object.freeze([
   COMMAND_MAINTENANCE,
   COST_SNAPSHOT,
   HEALTH_SAMPLING,
+  TRAFFIC_SAMPLING,
   DOWNLOAD_EXECUTION,
   QUICK_SERVICE,
   SCHEDULED_TASK,
