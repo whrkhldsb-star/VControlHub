@@ -66,7 +66,7 @@ function SidebarControls() {
 	};
 
 	return (
-		<div className="flex items-center gap-0.5">
+		<div className="flex items-center justify-between gap-1">
 			<button
 				type="button"
 				onClick={openGlobalSearch}
@@ -78,9 +78,11 @@ function SidebarControls() {
 					<path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
 				</svg>
 			</button>
-			<LanguageToggle />
-			<ThemeToggle />
-			<NotificationBell />
+			<div className="flex items-center gap-0.5">
+				<LanguageToggle compact />
+				<ThemeToggle compact />
+				<NotificationBell />
+			</div>
 		</div>
 	);
 }
@@ -144,7 +146,9 @@ export function AppSidebar({
 
 	const isActive = (href: string) => {
 		if (href === "/") return pathname === "/";
-		return pathname.startsWith(href);
+		// Exact match, or a real nested route (/files/webdav), but not a
+		// sibling prefix collision like /ai vs /ai-ops.
+		return pathname === href || pathname.startsWith(`${href}/`);
 	};
 
 	const filterNorm = filter.trim().toLowerCase();
@@ -196,7 +200,7 @@ export function AppSidebar({
 				<button
 					type="button"
 					onClick={() => setOpenGroups((prev) => ({ ...prev, [group.id]: !open }))}
-					className="flex w-full items-center gap-1.5 rounded-md px-2.5 py-1.5 text-left text-[10px] font-semibold uppercase tracking-[0.16em] text-[var(--text-disabled)] transition hover:bg-[var(--sidebar-hover)] hover:text-[var(--text-muted)]"
+					className="flex w-full items-center gap-1.5 rounded-md px-2.5 py-1.5 text-left text-[10px] font-semibold uppercase tracking-[0.14em] text-[var(--text-muted)] transition hover:bg-[var(--sidebar-hover)] hover:text-[var(--text-secondary)]"
 					aria-expanded={open}
 				>
 					<Chevron open={open} />
@@ -252,7 +256,7 @@ export function AppSidebar({
 
 				{filteredSystem.length > 0 && (
 					<div className="mb-1 mt-2">
-						<div className="px-2.5 pb-1 pt-1 text-[10px] font-semibold uppercase tracking-[0.16em] text-[var(--text-disabled)]">
+						<div className="px-2.5 pb-1 pt-1 text-[10px] font-semibold uppercase tracking-[0.14em] text-[var(--text-muted)]">
 							{t("nav.system")}
 						</div>
 						<div className="space-y-0.5">{filteredSystem.map(renderNavLink)}</div>
@@ -261,7 +265,7 @@ export function AppSidebar({
 
 				{filteredQuick.length > 0 && (
 					<div className="mb-1 mt-2">
-						<div className="px-2.5 pb-1 pt-1 text-[10px] font-semibold uppercase tracking-[0.16em] text-[var(--text-disabled)]">
+						<div className="px-2.5 pb-1 pt-1 text-[10px] font-semibold uppercase tracking-[0.14em] text-[var(--text-muted)]">
 							{t("nav.quickservice")}
 						</div>
 						<div className="space-y-0.5">
@@ -292,14 +296,20 @@ export function AppSidebar({
 				) : null}
 			</div>
 
-			<div className="space-y-1.5 border-t border-[var(--sidebar-border)] bg-[color-mix(in_srgb,var(--surface)_55%,transparent)] px-3 py-3">
-				<div className="flex items-center gap-2 rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-elevated)] px-2.5 py-2 shadow-[var(--shadow-sm)]">
+			<div className="space-y-2 border-t border-[var(--sidebar-border)] bg-[color-mix(in_srgb,var(--surface)_55%,transparent)] px-3 py-3">
+				{/* Account row: full-width username so "admin" / long names stay readable */}
+				<div className="flex min-w-0 items-center gap-2 rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-elevated)] px-2.5 py-2 shadow-[var(--shadow-sm)]">
 					<div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[var(--accent-bg)] text-xs font-semibold uppercase text-[var(--accent)]">
 						{iconInitial}
 					</div>
-					<span className="min-w-0 flex-1 truncate text-xs font-medium text-[var(--text-secondary)]" title={username}>
-						{username}
-					</span>
+					<div className="min-w-0 flex-1">
+						<span className="block truncate text-sm font-semibold text-[var(--text-primary)]" title={username}>
+							{username}
+						</span>
+					</div>
+				</div>
+				{/* Controls on their own row so they never crush the username */}
+				<div className="rounded-xl border border-[var(--border-subtle)] bg-[var(--surface)] px-1.5 py-1">
 					<SidebarControls />
 				</div>
 				<button

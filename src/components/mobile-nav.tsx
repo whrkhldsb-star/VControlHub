@@ -24,7 +24,9 @@ export function MobileNav() {
 		>
 			<div className="grid w-full grid-cols-[repeat(5,minmax(0,1fr))_auto] items-center gap-0.5">
 				{mobileNavItems.map((tab) => {
-					const active = tab.href === "/" ? pathname === "/" : pathname.startsWith(tab.href);
+					const active = tab.href === "/"
+						? pathname === "/"
+						: pathname === tab.href || pathname.startsWith(`${tab.href}/`);
 					const label = t(tab.labelKey) === tab.labelKey ? tab.fallbackLabel : t(tab.labelKey);
 					return (
 						<Link

@@ -38,13 +38,20 @@ describe("AppSidebar", () => {
 		expect(screen.queryByRole("link", { name: /两步验证/ })).not.toBeInTheDocument();
 	});
 
-	it("keeps long account names and controls inside the sidebar footer", () => {
+	it("keeps long account names readable on a dedicated footer row", () => {
 		render(<AppSidebar username="qa_cron_1780249023419" />);
 
 		const username = screen.getAllByText("qa_cron_1780249023419")[0];
-		expect(username).toHaveClass("flex-1");
 		expect(username).toHaveClass("truncate");
+		expect(username).toHaveClass("text-sm");
 		expect(username).toHaveAttribute("title", "qa_cron_1780249023419");
+	});
+
+	it("shows short usernames like admin without needing hover title only", () => {
+		render(<AppSidebar username="admin" />);
+		const username = screen.getAllByText("admin")[0];
+		expect(username).toBeVisible();
+		expect(username).toHaveClass("text-[var(--text-primary)]");
 	});
 
 	it("renders quick service links as external URLs without squeezing labels", () => {
