@@ -5,13 +5,16 @@ import userEvent from "@testing-library/user-event";
 
 import { ServerCreateForm } from "../server-create-form";
 import { ServerCardActions } from "../server-card-actions";
+import { ServerCardEditForm } from "../server-card-edit-form";
 
 const { refreshMock, actionStateOverrides } = vi.hoisted(() => ({
   refreshMock: vi.fn(),
-  actionStateOverrides: [] as unknown[] }));
+  actionStateOverrides: [] as unknown[],
+}));
 
 vi.mock("next/navigation", () => ({
-  useRouter: () => ({ refresh: refreshMock }) }));
+  useRouter: () => ({ refresh: refreshMock }),
+}));
 
 vi.mock("react", async () => {
   const actual = await vi.importActual<typeof import("react")>("react");
@@ -21,53 +24,23 @@ vi.mock("react", async () => {
       actionStateOverrides.shift() ?? initialState,
       action,
       false,
-    ] };
-
-  it("offers an edit form for managed VPS nodes", async () => {
-    const user = userEvent.setup();
-    render(
-      <ServerCardActions
-        serverId="srv_1"
-        serverName="慈云"
-        host="45.207.216.45"
-        port={22}
-        enabled={true}
-        sessionToken="token"
-        canManageServers
-        username="root"
-        connectionType="PASSWORD"
-        description="old desc"
-        tags={["cy"]}
-      />,
-    );
-
-    await user.click(screen.getByRole("button", { name: "编辑节点" }));
-
-    expect(
-      screen.getByRole("form", { name: "编辑 VPS 节点" }),
-    ).toBeInTheDocument();
-    expect(screen.getByLabelText("节点名称")).toHaveValue("慈云");
-    expect(screen.getByLabelText("IP / 域名")).toHaveValue("45.207.216.45");
-    expect(screen.getByLabelText("SSH 端口")).toHaveValue(22);
-    expect(screen.getByLabelText("用户名")).toHaveValue("root");
-    expect(screen.getByLabelText("新密码（留空保持不变）")).toHaveValue("");
-    expect(
-      screen.getByRole("button", { name: "保存并校验连接" }),
-    ).toBeInTheDocument();
-  });
+    ],
+  };
 });
 
 vi.mock("@/components/submit-button", () => ({
   SubmitButton: ({
     children,
-    className }: {
+    className,
+  }: {
     children: React.ReactNode;
     className?: string;
   }) => (
     <button type="submit" className={className}>
       {children}
     </button>
-  ) }));
+  ),
+}));
 
 vi.mock("../ssh-terminal-context", () => ({
   useSshTerminal: () => ({
@@ -90,13 +63,15 @@ describe("server direct gateway controls", () => {
             id: "key_1",
             name: "root key",
             fingerprint: "SHA256:abc",
-            description: null },
+            description: null,
+          },
         ]}
       />,
     );
 
     const checkbox = screen.getByRole("checkbox", {
-      name: /启用目标服务器直连/ });
+      name: /启用目标服务器直连/,
+    });
     expect(checkbox).not.toBeChecked();
     expect(checkbox).toHaveAttribute("name", "enableDirectGateway");
     expect(screen.getByText(/默认使用网站服务器中转/)).toBeInTheDocument();
@@ -117,7 +92,8 @@ describe("server direct gateway controls", () => {
           enabled: false,
           statusLabel: "网站中转",
           publicUrl: null,
-          port: 0 }}
+          port: 0,
+        }}
       />,
     );
 
@@ -144,7 +120,8 @@ describe("server direct gateway controls", () => {
           enabled: true,
           statusLabel: "目标直连",
           publicUrl: "http://203.0.113.10:31888",
-          port: 31888 }}
+          port: 31888,
+        }}
       />,
     );
 
@@ -172,7 +149,8 @@ describe("server direct gateway controls", () => {
           enabled: false,
           statusLabel: "网站中转",
           publicUrl: null,
-          port: 0 }}
+          port: 0,
+        }}
       />,
     );
 
@@ -198,7 +176,8 @@ describe("server direct gateway controls", () => {
           enabled: true,
           statusLabel: "目标直连",
           publicUrl: "http://203.0.113.10:31888",
-          port: 31888 }}
+          port: 31888,
+        }}
       />,
     );
 
@@ -217,7 +196,8 @@ describe("server direct gateway controls", () => {
       {
         error: "目标服务器直连只能启用于已绑定 SFTP 存储节点的 VPS。",
         success: undefined,
-        relatedStorageCount: undefined },
+        relatedStorageCount: undefined,
+      },
     );
 
     render(
@@ -233,7 +213,8 @@ describe("server direct gateway controls", () => {
           enabled: false,
           statusLabel: "网站中转",
           publicUrl: null,
-          port: 0 }}
+          port: 0,
+        }}
       />,
     );
 
@@ -351,8 +332,45 @@ describe("server direct gateway controls", () => {
     expect(screen.getByLabelText("SSH 端口")).toHaveValue(22);
     expect(screen.getByLabelText("用户名")).toHaveValue("root");
     expect(screen.getByLabelText("新密码（留空保持不变）")).toHaveValue("");
+    expect(screen.getByPlaceholderText("SHA256:...")).toHaveValue("");
     expect(
       screen.getByRole("button", { name: "保存并校验连接" }),
     ).toBeInTheDocument();
+  });
+
+  it("auto-fills the probed SSH host fingerprint after the first TOFU rejection", () => {
+    // Render the edit form directly with the action-state returned by the
+    // first TOFU probe failure. Controlled input must show the fingerprint
+    // immediately (defaultValue would leave the field empty until remount).
+    render(
+      <ServerCardEditForm
+        serverId="srv_1"
+        serverName="慈云"
+        host="45.207.216.45"
+        port={22}
+        username="root"
+        connectionType="PASSWORD"
+        description={null}
+        tags={[]}
+        costAutoSync={false}
+        costMonthlyAmount={null}
+        costCurrency="CNY"
+        costProvider={null}
+        costLastSyncedAt={null}
+        editAction={vi.fn()}
+        editState={{
+          error:
+            "First connection requires confirming the SSH host fingerprint: SHA256:probed-from-server",
+          hostKeySha256: "SHA256:probed-from-server",
+        }}
+      />,
+    );
+
+    expect(screen.getByPlaceholderText("SHA256:...")).toHaveValue(
+      "SHA256:probed-from-server",
+    );
+    expect(screen.getByRole("alert")).toHaveTextContent(
+      "First connection requires confirming the SSH host fingerprint",
+    );
   });
 });

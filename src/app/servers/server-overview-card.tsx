@@ -1,6 +1,7 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState, useTransition } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { toDateLocale } from "@/lib/i18n/locale-format";
 
 import { useI18n } from "@/lib/i18n/use-locale";
@@ -70,17 +71,21 @@ export function ServerOverviewCard({
 }: ServerOverviewCardProps) {
   const { locale, t } = useI18n();
   const [expanded, setExpanded] = useState(false);
-  const [isPending, startTransition] = useTransition();
+  const [portalReady, setPortalReady] = useState(false);
   const closeDialog = useCallback(() => {
-    startTransition(() => setExpanded(false));
+    setExpanded(false);
   }, []);
   const openDialog = useCallback(() => {
-    startTransition(() => setExpanded(true));
+    setExpanded(true);
   }, []);
   const dialogRef = useDialogFocus<HTMLDivElement>({ open: expanded, onClose: closeDialog });
   const [diagnosticRun, setDiagnosticRun] = useState<DiagnosticRunState>({ status: "idle" });
   const directLabel = server.directGateway?.statusLabel ?? t("serverOverviewCard.websiteRelay");
   const detailsId = `server-details-${server.id}`;
+
+  useEffect(() => {
+    setPortalReady(true);
+  }, []);
 
   // Status badge reflects the latest live probe outcome instead of the static
   // "启用 · 待探测" placeholder. This is what the user expects after clicking
@@ -284,54 +289,63 @@ export function ServerOverviewCard({
           onClick={() => (expanded ? closeDialog() : openDialog())}
           aria-expanded={expanded}
           aria-controls={detailsId}
-          disabled={isPending}
-          className="rounded-lg border border-[var(--border)] bg-[var(--surface-elevated)] px-3 py-1.5 text-xs font-medium text-[var(--text-secondary)] transition hover:border-[var(--border-strong)] hover:bg-[var(--surface-hover)] hover:text-[var(--text-primary)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--accent)] disabled:opacity-60"
+          aria-haspopup="dialog"
+          className="rounded-lg border border-[var(--border)] bg-[var(--surface-elevated)] px-3 py-1.5 text-xs font-medium text-[var(--text-secondary)] transition hover:border-[var(--border-strong)] hover:bg-[var(--surface-hover)] hover:text-[var(--text-primary)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--accent)]"
         >
           {expanded ? t("serverOverviewCard.collapseDetails") : t("serverOverviewCard.viewDetails")}
         </button>
       </div>
       </div>
 
-      {expanded ? (
-        <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-[var(--overlay-strong)] px-3 py-6 backdrop-blur-md sm:px-6" onClick={closeDialog}>
-          <div
-            ref={dialogRef}
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby={`${detailsId}-title`}
-            className="w-full max-w-5xl rounded-3xl border border-[var(--border)] bg-[var(--surface)] p-4 text-[var(--text-primary)] shadow-2xl sm:p-5"
-            onClick={(event) => event.stopPropagation()}
-          >
-            <div className="mb-3 flex items-center justify-between gap-3 border-b border-[var(--border)] pb-3">
-              <div className="min-w-0">
-                <p className="text-[11px] uppercase tracking-[0.22em] text-[var(--text-muted)]">{t("serverOverviewCard.eyebrow")}</p>
-                <h3 id={`${detailsId}-title`} className="truncate text-base font-semibold text-[var(--text-primary)]">
-                  {server.name}
-                </h3>
+      {portalReady && expanded
+        ? createPortal(
+            <div
+              className="fixed inset-0 z-[60] flex items-start justify-center overflow-y-auto bg-[var(--overlay-strong)] px-3 py-6 backdrop-blur-md sm:px-6"
+              onClick={closeDialog}
+              data-server-details-modal={server.id}
+            >
+              <div
+                ref={dialogRef}
+                role="dialog"
+                aria-modal="true"
+                aria-labelledby={`${detailsId}-title`}
+                className="w-full max-w-5xl rounded-3xl border border-[var(--border)] bg-[var(--surface)] p-4 text-[var(--text-primary)] shadow-2xl sm:p-5"
+                onClick={(event) => event.stopPropagation()}
+              >
+                <div className="mb-3 flex items-center justify-between gap-3 border-b border-[var(--border)] pb-3">
+                  <div className="min-w-0">
+                    <p className="text-[11px] uppercase tracking-[0.22em] text-[var(--text-muted)]">{t("serverOverviewCard.eyebrow")}</p>
+                    <h3 id={`${detailsId}-title`} className="truncate text-base font-semibold text-[var(--text-primary)]">
+                      {server.name}
+                    </h3>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={closeDialog}
+                    data-action-button
+                    data-variant="secondary"
+                    className="shrink-0 !px-3 !py-1.5 !text-xs"
+                  >
+                    {t("serverOverviewCard.collapseDetails")}
+                  </button>
+                </div>
+                <div className="max-h-[78vh] overflow-y-auto pr-1">
+                  <ServerOverviewDetails
+                    server={server}
+                    sessionToken={sessionToken}
+                    canManageServers={canManageServers}
+                    canUseSshTerminal={canUseSshTerminal}
+                    directLabel={directLabel}
+                    detailsId={detailsId}
+                    diagnosticRun={diagnosticRun}
+                    onRunRealtimeDiagnostics={runRealtimeDiagnostics}
+                  />
+                </div>
               </div>
-              <button
-                type="button"
-                onClick={closeDialog}
-                disabled={isPending}
-               data-action-button data-variant="secondary" className="shrink-0 !px-3 !py-1.5 !text-xs disabled:opacity-60">
-                {t("serverOverviewCard.collapseDetails")}
-              </button>
-            </div>
-            <div className="max-h-[78vh] overflow-y-auto pr-1">
-              <ServerOverviewDetails
-                server={server}
-                sessionToken={sessionToken}
-                canManageServers={canManageServers}
-                canUseSshTerminal={canUseSshTerminal}
-                directLabel={directLabel}
-                detailsId={detailsId}
-                diagnosticRun={diagnosticRun}
-                onRunRealtimeDiagnostics={runRealtimeDiagnostics}
-              />
-            </div>
-          </div>
-        </div>
-      ) : null}
+            </div>,
+            document.body,
+          )
+        : null}
     </article>
   );
 }

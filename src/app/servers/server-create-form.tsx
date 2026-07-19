@@ -1,5 +1,5 @@
 "use client";
-import { useActionState } from "react";
+import { useActionState, useEffect, useState } from "react";
 import { SubmitButton } from "@/components/submit-button";
 import { createServerAction, type ServerActionState } from "./actions";
 import { ConnectionTypeFields } from "./server-connection-type-fields";
@@ -22,6 +22,16 @@ export function ServerCreateForm({
 }) {
   const { t } = useI18n();
   const [state, formAction] = useActionState(createServerAction, initialState);
+  // First TOFU/host-key probe returns hostKeySha256 in action state.
+  // Controlled input so the probed fingerprint fills immediately (defaultValue does not).
+  const [approvedHostKeySha256, setApprovedHostKeySha256] = useState(
+    () => state.hostKeySha256 ?? "",
+  );
+  useEffect(() => {
+    if (state.hostKeySha256) {
+      setApprovedHostKeySha256(state.hostKeySha256);
+    }
+  }, [state.hostKeySha256]);
   return (
     <form action={formAction} data-card className="grid gap-4 ">
       {" "}
@@ -216,7 +226,8 @@ export function ServerCreateForm({
             id="approvedHostKeySha256"
             name="approvedHostKeySha256"
             type="text"
-            defaultValue={state.hostKeySha256 ?? ""}
+            value={approvedHostKeySha256}
+            onChange={(event) => setApprovedHostKeySha256(event.target.value)}
             placeholder="SHA256:..."
             className="mt-2 w-full rounded-lg border border-[var(--warning-border)] bg-[var(--input-bg)] px-3 py-2 font-mono text-xs text-[var(--text-primary)]"
           />

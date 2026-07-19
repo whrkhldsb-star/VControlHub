@@ -98,6 +98,16 @@ vi.mock("@/lib/auth/csrf-client", () => ({
   csrfFetch: vi.fn(),
 }));
 
+vi.mock("../ssh-terminal-context", () => ({
+  useSshTerminal: () => ({
+    openTerminal: vi.fn(),
+    isOpen: false,
+    closeTerminal: vi.fn(),
+    minimize: vi.fn(),
+    restore: vi.fn(),
+  }),
+}));
+
 vi.mock("@/lib/server/service", () => ({
   listServerProfiles: serviceMocks.listServerProfilesMock,
 }));
@@ -199,6 +209,10 @@ describe("ServersPage", () => {
     await waitForAutoProbePreferences();
     await user.click(screen.getByRole("button", { name: /查看详情/ }));
 
+    // Details should open as a body-level dialog only (not an in-card expansion).
+    expect(
+      await screen.findByRole("dialog", { name: "hk-prod-1" }),
+    ).toBeInTheDocument();
     expect(
       await screen.findByRole("region", { name: "hk-prod-1 VPS 详情" }),
     ).toBeInTheDocument();

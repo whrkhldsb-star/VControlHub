@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import { SubmitButton } from "@/components/submit-button";
 import { useI18n } from "@/lib/i18n/use-locale";
 import type { ServerActionState } from "./actions";
@@ -42,6 +43,17 @@ export function ServerCardEditForm({
   editState,
 }: Props) {
   const { t } = useI18n();
+  // First TOFU/host-key probe returns hostKeySha256 in action state.
+  // Controlled input so the probed fingerprint fills immediately (defaultValue does not).
+  const [approvedHostKeySha256, setApprovedHostKeySha256] = useState(
+    () => editState.hostKeySha256 ?? "",
+  );
+  useEffect(() => {
+    if (editState.hostKeySha256) {
+      setApprovedHostKeySha256(editState.hostKeySha256);
+    }
+  }, [editState.hostKeySha256]);
+
   return (
     <form
       action={editAction}
@@ -106,7 +118,8 @@ export function ServerCardEditForm({
           id={`edit-host-key-${serverId}`}
           name="approvedHostKeySha256"
           type="text"
-          defaultValue={editState.hostKeySha256 ?? ""}
+          value={approvedHostKeySha256}
+          onChange={(event) => setApprovedHostKeySha256(event.target.value)}
           placeholder="SHA256:..."
           className="w-full rounded-lg border border-[var(--warning-border)] bg-[var(--input-bg)] px-3 py-2 font-mono text-xs text-[var(--text-primary)]"
         />

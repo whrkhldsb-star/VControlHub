@@ -169,7 +169,7 @@ export function ServerOverviewDetails({
 			id={detailsId}
 			role="region"
 			aria-label={`${server.name} ${t("serverOverviewDetails.vpsDetails")}`}
-			className="mt-4 space-y-3 border-t border-[var(--border)] pt-4"
+			className="space-y-3"
 		>
 			<section className="rounded-lg border border-[var(--border)] bg-[var(--surface-subtle)] p-3">
 				<h3 className="mb-3 text-sm font-medium text-[var(--text-primary)]">{t("serverOverviewDetails.section.connectionStatus")}</h3>
