@@ -97,7 +97,7 @@ export function ServerOverviewCard({
   } else if (diagnosticRun.status === "loading") {
     listHealthLabel = t("serverOverviewCard.checking");
     listHealthToneClass =
-      "border-[var(--info-border)] bg-[var(--info-bg)] text-[var(--info)] light:border-[var(--info-border)] light:bg-[var(--info)]";
+      "border-[var(--info-border)] bg-[var(--info-bg)] text-[var(--info)]";
     listHealthDescription = t("serverOverviewCard.checkingDescription");
   } else if (diagnosticRun.status === "success") {
     listHealthLabel = `${t("serverOverviewCard.online")} · ${diagnosticRun.checkedAt.split(" ").pop() ?? ""}`.trim();
@@ -223,9 +223,16 @@ export function ServerOverviewCard({
           role="status"
           aria-label={t("serverOverviewCard.realtimeStatusAria").replace("{status}", listHealthLabel)}
           title={listHealthDescription}
-          className={`shrink-0 rounded-full border px-2.5 py-0.5 text-[10px] font-semibold tracking-wide ${listHealthToneClass}`}
+          className={`shrink-0 rounded-full border px-2.5 py-0.5 text-[10px] font-semibold tracking-wide ${listHealthToneClass} ${diagnosticRun.status === "loading" ? "animate-pulse" : ""}`}
         >
-          {listHealthLabel}
+          {diagnosticRun.status === "loading" ? (
+            <span className="inline-flex items-center gap-1.5">
+              <span className="inline-block h-1.5 w-1.5 animate-ping rounded-full bg-current" aria-hidden="true" />
+              {listHealthLabel}
+            </span>
+          ) : (
+            listHealthLabel
+          )}
         </span>
       </div>
 

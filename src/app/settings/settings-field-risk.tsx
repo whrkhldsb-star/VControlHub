@@ -10,8 +10,8 @@ export function FieldRiskBadge({
   if (!level || level === "low") return null;
   const className =
     level === "high"
-      ? "inline-flex items-center gap-0.5 rounded border border-[var(--danger-border)] bg-[var(--danger)] px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-[var(--danger)] light:border-[var(--danger-border)] light:bg-[var(--danger-bg)] "
-      : "inline-flex items-center gap-0.5 rounded border border-[var(--warning-border)] bg-[var(--warning)] px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-[var(--warning)] light:border-[var(--warning-border)] light:bg-[var(--warning-bg)] ";
+      ? "inline-flex items-center gap-0.5 rounded border border-[var(--danger-border)] bg-[var(--danger-bg)] px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-[var(--danger)]"
+      : "inline-flex items-center gap-0.5 rounded border border-[var(--warning-border)] bg-[var(--warning-bg)] px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-[var(--warning)]";
   const label =
     level === "high"
       ? t("settingsClient.riskHigh")

@@ -22,7 +22,7 @@ export function statusToneClass(tone: "success" | "warning" | "info") {
 	if (tone === "warning") {
 		return "border-[var(--warning-border)] bg-[var(--warning-bg)] text-[var(--warning)] light:border-[var(--warning-border)]";
 	}
-	return "border-[var(--info-border)] bg-[var(--info-bg)] text-[var(--info)] light:border-[var(--info-border)] light:bg-[var(--info)]";
+	return "border-[var(--info-border)] bg-[var(--info-bg)] text-[var(--info)]";
 }
 
 // TR-041: OS dialect display + detect button
