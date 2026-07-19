@@ -35,6 +35,15 @@ function parsePayload(value: Prisma.JsonValue): Payload {
   return { runId: value.runId.trim() };
 }
 
+function terminalJobResult(status: string, errorMessage: string | null | undefined): { status: "completed" | "failed"; summary: string } {
+  // Job layer only distinguishes success vs non-success for completeJob();
+  // cancelled maps to failed so the durable job is not requeued.
+  return {
+    status: status === "completed" ? "completed" : "failed",
+    summary: errorMessage ?? status,
+  };
+}
+
 export async function processPlaybookRun(runId: string, jobId: string): Promise<{ status: "completed" | "failed"; summary: string }> {
   const run = await prisma.playbookRun.findUnique({
     where: { id: runId },
@@ -42,14 +51,24 @@ export async function processPlaybookRun(runId: string, jobId: string): Promise<
   });
   if (!run) throw new Error(`playbook run not found: ${runId}`);
   if (["completed", "failed", "cancelled"].includes(run.status)) {
-    return { status: run.status === "completed" ? "completed" : "failed", summary: run.errorMessage ?? run.status };
+    return terminalJobResult(run.status, run.errorMessage);
   }
 
   const claimed = await prisma.playbookRun.updateMany({
     where: { id: runId, status: { in: ["queued", "running"] } },
     data: { status: "running", startedAt: run.startedAt ?? new Date(), errorMessage: null },
   });
-  if (claimed.count === 0) throw new Error(`playbook run is not claimable: ${runId}`);
+  if (claimed.count === 0) {
+    // Cancel / terminal race: another writer moved the run out of claimable states.
+    const latest = await prisma.playbookRun.findUnique({
+      where: { id: runId },
+      select: { status: true, errorMessage: true },
+    });
+    if (latest && ["completed", "failed", "cancelled"].includes(latest.status)) {
+      return terminalJobResult(latest.status, latest.errorMessage);
+    }
+    throw new Error(`playbook run is not claimable: ${runId}`);
+  }
 
   const requesterId = run.createdById ?? run.playbook.createdById;
   const executionState = run.executionState as unknown as ExecutionState | null;
@@ -61,25 +80,55 @@ export async function processPlaybookRun(runId: string, jobId: string): Promise<
   }
 
   // Serialize concurrent runs of the same playbook (shared target servers / commands).
+  // Lock is per-playbook, so a reclaimed job may wait here while the original
+  // worker finishes the same runId — re-check terminal status after acquire.
   const releaseLock = await acquireAdvisoryLock("playbook-execute", run.playbook.id);
   try {
+    const latest = await prisma.playbookRun.findUnique({
+      where: { id: runId },
+      select: { status: true, errorMessage: true, stepResults: true, dryRun: true, teamId: true },
+    });
+    if (!latest) throw new Error(`playbook run not found: ${runId}`);
+    if (["completed", "failed", "cancelled"].includes(latest.status)) {
+      return terminalJobResult(latest.status, latest.errorMessage);
+    }
+
+    // Ensure we still own a claimable row before dispatching side effects.
+    const stillClaimable = await prisma.playbookRun.updateMany({
+      where: { id: runId, status: { in: ["queued", "running"] } },
+      data: { status: "running" },
+    });
+    if (stillClaimable.count === 0) {
+      const after = await prisma.playbookRun.findUnique({
+        where: { id: runId },
+        select: { status: true, errorMessage: true },
+      });
+      if (after && ["completed", "failed", "cancelled"].includes(after.status)) {
+        return terminalJobResult(after.status, after.errorMessage);
+      }
+      throw new Error(`playbook run is not claimable after lock: ${runId}`);
+    }
+
     const chain = await executePlaybookChain({
       playbook: {
         id: run.playbook.id,
         steps,
       },
       runId,
-      dryRun: run.dryRun,
+      dryRun: latest.dryRun,
       requesterId: requesterId ?? "system",
-      teamId: run.teamId,
-      resumeResults: (run.stepResults ?? []) as unknown as PlaybookStepResult[],
+      teamId: latest.teamId,
+      // Prefer post-lock stepResults so resume sees progress written by a prior owner.
+      resumeResults: (latest.stepResults ?? run.stepResults ?? []) as unknown as PlaybookStepResult[],
       eventJobId: jobId,
       onProgress: (progress) => heartbeatJob(jobId, WORKER_ID, { leaseMs: LEASE_MS, progress }),
     });
     const failed = chain.results.find((result) => result.status === "failed");
     const status = failed ? "failed" : "completed";
-    await prisma.playbookRun.update({
-      where: { id: runId },
+    // CAS finalize: never overwrite cancelled (or an already-terminal row)
+    // written while the chain was in flight.
+    const finalized = await prisma.playbookRun.updateMany({
+      where: { id: runId, status: { in: ["queued", "running"] } },
       data: {
         status,
         stepResults: chain.results as unknown as Prisma.InputJsonValue,
@@ -87,6 +136,13 @@ export async function processPlaybookRun(runId: string, jobId: string): Promise<
         completedAt: new Date(),
       },
     });
+    if (finalized.count === 0) {
+      const after = await prisma.playbookRun.findUnique({
+        where: { id: runId },
+        select: { status: true, errorMessage: true },
+      });
+      return terminalJobResult(after?.status ?? "cancelled", after?.errorMessage ?? "cancelled");
+    }
     // Terminal audit: queue-time playbook.run exists, but operators had no
     // audit trail when a step failed after the job was already queued.
     await auditSystemAction(
@@ -96,7 +152,7 @@ export async function processPlaybookRun(runId: string, jobId: string): Promise<
         runId,
         jobId,
         status,
-        dryRun: run.dryRun,
+        dryRun: latest.dryRun,
         summary: chain.summary,
         failedStepId: failed?.stepId ?? null,
         failedError: failed?.error ?? null,
