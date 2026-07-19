@@ -8,41 +8,100 @@
 # 用法: sudo bash deploy.sh
 set -euo pipefail
 
+# Agent shells (Hermes) often export umask 077; force a sane deploy umask so
+# any root-touched helper files are not left world-unreadable.
+umask 022
+
 DEPLOY_LOCK="/run/lock/vcontrolhub-deploy.lock"
+mkdir -p "$(dirname "$DEPLOY_LOCK")"
+# Record PID so operators can tell a live lock from a leftover empty file.
+# flock still provides mutual exclusion; the PID file is diagnostic only.
 exec 9>"$DEPLOY_LOCK"
 if ! flock -n 9; then
-	echo "ERROR: another VControlHub deployment/build is already running ($DEPLOY_LOCK)"
+	holder="$(tr -d '\n' <"$DEPLOY_LOCK" 2>/dev/null || true)"
+	echo "ERROR: another VControlHub deployment/build is already running ($DEPLOY_LOCK holder_pid=${holder:-unknown})"
 	exit 75
 fi
+printf '%s\n' "$$" >&9
+# Keep FD 9 open for the flock lifetime. On EXIT, release + remove lock file
+# so the next operator is not misled by a zero-byte leftover.
+release_deploy_lock() {
+	# best-effort: never fail the main trap path; idempotent
+	if [ "${DEPLOY_LOCK_RELEASED:-0}" = "1" ]; then
+		return 0
+	fi
+	DEPLOY_LOCK_RELEASED=1
+	flock -u 9 2>/dev/null || true
+	rm -f "$DEPLOY_LOCK" 2>/dev/null || true
+}
 
 APP_USER="vcontrolhub"
 APP_DIR="/opt/VControlHub"
 SERVICE_NAME="vcontrolhub-next"
 service_stopped=0
+DEPLOY_LOCK_RELEASED=0
 
-restore_service_on_failure() {
+on_exit() {
 	status=$?
 	if [ "$status" -ne 0 ] && [ "$service_stopped" -eq 1 ]; then
 		echo "==> 部署失败，恢复启动 $SERVICE_NAME"
 		systemctl reset-failed "$SERVICE_NAME" 2>/dev/null || true
 		systemctl start "$SERVICE_NAME" || true
 	fi
+	release_deploy_lock
 	exit "$status"
 }
-trap restore_service_on_failure EXIT
+trap on_exit EXIT
 
 cd "$APP_DIR"
 
-echo "==> [1/6] 修正源文件 owner (避免 root-owned 阻塞 vcontrolhub 读)"
-chown -R "$APP_USER:$APP_USER" "$APP_DIR/src" "$APP_DIR/public" "$APP_DIR/scripts" "$APP_DIR/prisma" "$APP_DIR/e2e" "$APP_DIR/package.json" "$APP_DIR/package-lock.json" "$APP_DIR/next.config.*" "$APP_DIR/tsconfig.json" "$APP_DIR/playwright.config.ts" 2>/dev/null || true
-chmod -R u+rwX,go+rX "$APP_DIR/e2e"
+echo "==> [1/6] 修正源文件 owner/mode (避免 root-owned / umask-077 阻塞 vcontrolhub 读)"
+# Cover every tree next build + runtime touch. `|| true` keeps deploy resilient
+# if an optional path is missing (next.config.* glob, vitest config, etc.).
+chown -R "$APP_USER:$APP_USER" \
+	"$APP_DIR/src" \
+	"$APP_DIR/public" \
+	"$APP_DIR/scripts" \
+	"$APP_DIR/prisma" \
+	"$APP_DIR/e2e" \
+	"$APP_DIR/deploy" \
+	"$APP_DIR/storage" \
+	"$APP_DIR/package.json" \
+	"$APP_DIR/package-lock.json" \
+	"$APP_DIR"/next.config.* \
+	"$APP_DIR/tsconfig.json" \
+	"$APP_DIR/playwright.config.ts" \
+	"$APP_DIR/vitest.config.ts" \
+	"$APP_DIR/vitest.setup.ts" \
+	"$APP_DIR/deploy.sh" \
+	2>/dev/null || true
+# Source must be group/other-readable so tools (and future non-root helpers) work.
+# Secrets stay 600 via the explicit list below.
+if [ -d "$APP_DIR/src" ]; then
+	find "$APP_DIR/src" -type d -exec chmod 755 {} + 2>/dev/null || true
+	find "$APP_DIR/src" -type f -exec chmod 644 {} + 2>/dev/null || true
+fi
+for d in public scripts prisma e2e deploy storage; do
+	if [ -d "$APP_DIR/$d" ]; then
+		find "$APP_DIR/$d" -type d -exec chmod 755 {} + 2>/dev/null || true
+		find "$APP_DIR/$d" -type f -exec chmod 644 {} + 2>/dev/null || true
+	fi
+done
+chmod 755 "$APP_DIR/deploy.sh" 2>/dev/null || true
+for secret in .env .env.local .env.runtime .env.production; do
+	if [ -f "$APP_DIR/$secret" ]; then
+		chown "$APP_USER:$APP_USER" "$APP_DIR/$secret" 2>/dev/null || true
+		chmod 600 "$APP_DIR/$secret" 2>/dev/null || true
+	fi
+done
 chown -R "$APP_USER:$APP_USER" "$APP_DIR/.next" 2>/dev/null || rm -rf "$APP_DIR/.next"
 
 echo "==> [2/6] 停止 Next 服务后 build（禁止覆盖运行中进程的 Client Manifest）"
 systemctl stop "$SERVICE_NAME"
 service_stopped=1
-sudo -u "$APP_USER" env VCONTROLHUB_DEPLOY_BUILD=1 npm run build
-sudo -u "$APP_USER" npm run build:runtime
+# Explicit umask for the app-user build too (in case login.defs is strict).
+sudo -u "$APP_USER" env VCONTROLHUB_DEPLOY_BUILD=1 bash -lc 'umask 022; npm run build'
+sudo -u "$APP_USER" env bash -lc 'umask 022; npm run build:runtime'
 
 echo "==> [2.5/6] 应用 prisma migration (P-001-N: deploy.sh 此前缺此步, 部署后 30 秒 worker 报列不存在)"
 sudo -u "$APP_USER" npx prisma migrate deploy 2>&1 | tail -20
