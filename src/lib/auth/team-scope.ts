@@ -19,22 +19,29 @@
  * ```
  */
 
+import { prisma } from "@/lib/db";
+import { NotFoundError } from "@/lib/errors";
+
 import type { SessionPayload } from "./session";
 import { sessionHasPermission } from "./authorization";
+
+type TeamSession = Pick<SessionPayload, "userId" | "roles" | "currentTeamId">;
+
+/**
+ * True when the actor may see/manage all tenants (global team admin).
+ * Used by user-directory scoping and other cross-user surfaces.
+ */
+export function isGlobalTeamManager(session: TeamSession): boolean {
+	return sessionHasPermission(session, "team:manage");
+}
 
 /**
  * Returns a Prisma `where` fragment that filters by teamId.
  * Spread this into the outermost `where` on list queries.
  */
-/**
- * Returns a Prisma `where` fragment that filters by teamId.
- * Spread this into the outermost `where` on list queries.
- */
-export function teamWhere(
-	session: Pick<SessionPayload, "userId" | "roles" | "currentTeamId">,
-): Record<string, unknown> {
+export function teamWhere(session: TeamSession): Record<string, unknown> {
 	// Admins / team managers see all records
-	if (sessionHasPermission(session, "team:manage")) {
+	if (isGlobalTeamManager(session)) {
 		return {};
 	}
 
@@ -49,13 +56,57 @@ export function teamWhere(
 }
 
 /**
+ * Prisma `where` for listing users in the directory UI/API.
+ *
+ * - `team:manage` → full directory
+ * - current team set → self + members of that team
+ * - no team context → self only (prevents global user enumeration)
+ */
+export function userDirectoryWhere(session: TeamSession): Record<string, unknown> {
+	if (isGlobalTeamManager(session)) {
+		return {};
+	}
+	if (session.currentTeamId) {
+		return {
+			OR: [
+				{ id: session.userId },
+				{ teamMemberships: { some: { teamId: session.currentTeamId } } },
+			],
+		};
+	}
+	return { id: session.userId };
+}
+
+/**
+ * Ensure `userId` is visible to the actor under {@link userDirectoryWhere}.
+ * Throws NotFoundError (404) for out-of-scope ids to avoid user-existence leaks.
+ */
+export async function assertUserInActorScope(
+	session: TeamSession,
+	userId: string,
+): Promise<void> {
+	if (isGlobalTeamManager(session)) return;
+	if (userId === session.userId) return;
+	if (!session.currentTeamId) {
+		throw new NotFoundError("User not found");
+	}
+	const membership = await prisma.teamMember.findUnique({
+		where: {
+			teamId_userId: { teamId: session.currentTeamId, userId },
+		},
+		select: { userId: true },
+	});
+	if (!membership) {
+		throw new NotFoundError("User not found");
+	}
+}
+
+/**
  * For models that don't have teamId yet (forward compat):
  * returns empty filter so the query runs unscoped. As models gain
  * teamId columns, swap this to `teamWhere`.
  */
-export function teamWhereOptional(
-	_session: Pick<SessionPayload, "userId" | "roles" | "currentTeamId">,
-): Record<string, unknown> {
+export function teamWhereOptional(_session: TeamSession): Record<string, unknown> {
 	return {};
 }
 
@@ -78,9 +129,9 @@ export function teamCreateData(
  * belongs to their team. Returns `undefined` if no team filter applies.
  */
 export function teamAccessFilter(
-	session: Pick<SessionPayload, "userId" | "roles" | "currentTeamId">,
+	session: TeamSession,
 ): Record<string, unknown> | undefined {
-	if (sessionHasPermission(session, "team:manage")) {
+	if (isGlobalTeamManager(session)) {
 		return undefined;
 	}
 	if (session.currentTeamId) {

@@ -2,6 +2,10 @@ import { NextResponse } from "next/server";
 
 import { hashPassword } from "@/lib/auth/password";
 import { validatePasswordPolicy } from "@/lib/auth/password-policy";
+import {
+  assertUserInActorScope,
+  userDirectoryWhere,
+} from "@/lib/auth/team-scope";
 import { auditUserAction } from "@/lib/audit/service";
 import { prisma } from "@/lib/db";
 import { withApiRoute } from "@/lib/http/api-guard";
@@ -11,10 +15,11 @@ import { createUserSchema, updateUserSchema } from "@/lib/user/schema";
 import { NotFoundError, ValidationError } from "@/lib/errors";
 export const dynamic = "force-dynamic";
 
-/** GET: List all users with their roles */
+/** GET: List users visible in the actor's team scope */
 export async function GET(request: Request) {
-  return withApiRoute(request, { permission: "user:read" }, async () => {
+  return withApiRoute(request, { permission: "user:read" }, async ({ session }) => {
     const users = await prisma.user.findMany({
+      where: userDirectoryWhere(session!),
       select: {
         id: true,
         username: true,
@@ -99,12 +104,31 @@ export async function POST(request: Request) {
           });
         }
 
+        // Non-global managers create users into the current team workspace.
+        if (session?.currentTeamId) {
+          await tx.teamMember.upsert({
+            where: {
+              teamId_userId: {
+                teamId: session.currentTeamId,
+                userId: createdUser.id,
+              },
+            },
+            update: {},
+            create: {
+              teamId: session.currentTeamId,
+              userId: createdUser.id,
+              role: "member",
+            },
+          });
+        }
+
         return createdUser;
       });
 
       await auditUserAction(session!.userId, "user.create", {
         targetUsername: username,
         roles: roleKeys,
+        teamId: session?.currentTeamId ?? null,
       }, undefined, session?.currentTeamId);
 
       return NextResponse.json({ success: true, userId: user.id });
@@ -124,6 +148,8 @@ export async function PATCH(request: Request) {
     },
     async ({ session, body }) => {
       const { userId, action: userAction, roleKeys, newPassword } = body;
+
+      await assertUserInActorScope(session!, userId);
 
       const targetUser = await prisma.user.findUnique({
         where: { id: userId },

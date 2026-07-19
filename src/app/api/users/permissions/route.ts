@@ -7,7 +7,11 @@ import { prisma } from "@/lib/db";
 import { withApiRoute } from "@/lib/http/api-guard";
 import { GENERAL_WRITE_LIMIT } from "@/lib/http/rate-limit-presets";
 import { parseSearchParams } from "@/lib/http/parse-search-params";
-import { teamWhere } from "@/lib/auth/team-scope";
+import {
+  assertUserInActorScope,
+  isGlobalTeamManager,
+  teamWhere,
+} from "@/lib/auth/team-scope";
 import { AuthError, NotFoundError, ValidationError } from "@/lib/errors";
 import {
   getStorageAccessUsage,
@@ -96,6 +100,7 @@ export async function GET(request: Request) {
       request,
       z.object({ userId: z.string().trim().min(1, "Missing userId Parameter") }),
     );
+    await assertUserInActorScope(session, userId);
     const nodeScope = teamWhere(session);
 
     const [user, roles, permissions, storageNodes] = await Promise.all([
@@ -113,6 +118,7 @@ export async function GET(request: Request) {
             },
           },
           storageAccess: {
+            where: { storageNode: nodeScope },
             include: {
               storageNode: {
                 select: { id: true, name: true, driver: true, basePath: true },
@@ -195,6 +201,8 @@ export async function PATCH(request: Request) {
           { status: 403 },
         );
       }
+
+      await assertUserInActorScope(session, parsedData.userId);
 
       const targetUser = await prisma.user.findUnique({
         where: { id: parsedData.userId },
@@ -283,18 +291,31 @@ export async function PATCH(request: Request) {
         }
 
         if (storageAccess) {
-          await tx.userStorageAccess.deleteMany({
-            where: { userId: parsedData.userId },
-          });
+          const nodeScope = teamWhere(session);
           const validNodeIds = new Set(
             (
               await tx.storageNode.findMany({
-                where: teamWhere(session),
+                where: nodeScope,
                 select: { id: true },
                 take: 500,
               })
             ).map((node) => node.id),
           );
+          // Global managers may replace the full grant set; team-scoped
+          // managers only rewrite grants for nodes they can see so foreign-
+          // team ACLs are not silently wiped.
+          if (isGlobalTeamManager(session)) {
+            await tx.userStorageAccess.deleteMany({
+              where: { userId: parsedData.userId },
+            });
+          } else {
+            await tx.userStorageAccess.deleteMany({
+              where: {
+                userId: parsedData.userId,
+                storageNode: nodeScope,
+              },
+            });
+          }
           const mapped = storageAccess.map((grant) => ({
             userId: parsedData.userId,
             storageNodeId: String(grant.storageNodeId ?? ""),
@@ -347,6 +368,7 @@ export async function PATCH(request: Request) {
           storageAccessCount: storageAccess?.length ?? null,
         },
         "WARNING",
+        session.currentTeamId,
       );
 
       return NextResponse.json({ success: true });
