@@ -1,7 +1,12 @@
 import { execFileSync } from "node:child_process";
 import { realpathSync, readlinkSync } from "node:fs";
 
+// CI / non-Linux / explicit authorize: never block the build.
+// GitHub Actions sets CI=true and GITHUB_ACTIONS=true; local deploy uses
+// VCONTROLHUB_DEPLOY_BUILD=1 after stopping the service.
 if (process.platform !== "linux") process.exit(0);
+if (process.env.CI === "true" || process.env.GITHUB_ACTIONS === "true") process.exit(0);
+if (process.env.VCONTROLHUB_ALLOW_BUILD === "1") process.exit(0);
 
 const service = process.env.NEXT_SYSTEMD_SERVICE || "vcontrolhub-next.service";
 try {
