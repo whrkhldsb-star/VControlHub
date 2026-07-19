@@ -3,11 +3,12 @@ import { access, constants } from "fs/promises";
 import path from "path";
 import { getAppSlug } from "@/lib/branding";
 import {
-  MISSING_ARIA2_BINARY_MESSAGE,
+  getMissingAria2BinaryMessage,
   isMissingAria2BinaryError,
   spawnAria2Detached,
 } from "@/lib/aria2/command-runner";
 import { postAria2Rpc } from "@/lib/aria2/provider-http";
+import { t, type Locale } from "@/lib/i18n/translations";
 
 /* ── Aria2 RPC Configuration ──────────────────────────────── */
 
@@ -81,16 +82,16 @@ export function buildAria2SpawnArgs(confPath: string): string[] {
 }
 
 
-export function getPublicAria2Error(error: unknown): string {
+export function getPublicAria2Error(error: unknown, locale: Locale = "zh"): string {
 	if (error instanceof Error) {
 		if (isMissingAria2BinaryError(error)) {
-			return MISSING_ARIA2_BINARY_MESSAGE;
+			return getMissingAria2BinaryMessage(locale);
 		}
 		if (error.message.includes("ARIA2_RPC_SECRET")) {
-			return "aria2 RPC 密钥未配置，无法启动中继下载服务。请在设置中配置 ARIA2_RPC_SECRET。";
+			return t("backend.aria2.rpcSecretMissing", locale);
 		}
 	}
-	return "aria2 中继下载服务启动失败。请检查 aria2 进程是否运行，或前往「运维自动化 → 任务中心」查看详细日志。";
+	return t("backend.aria2.startFailed", locale);
 }
 
 /* ── Aria2 RPC Types ──────────────────────────────────────── */

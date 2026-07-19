@@ -62,6 +62,15 @@ export const zh: Record<string, string> = {
 	// storage/service-nodes.ts, storage/sftp-sync-job.ts
 	"backend.storage.nodeNotFound": "存储节点不存在或已删除",
 	"backend.storage.nodeNotFoundShort": "存储节点不存在",
+
+	// aria2/service.ts, aria2/command-runner.ts
+	"backend.aria2.missingBinary": "未安装 aria2c，无法进行磁力/BT 中继下载。请在服务器上安装 aria2。",
+	"backend.aria2.rpcSecretMissing": "aria2 RPC 密钥未配置，无法启动中继下载服务。请在设置中配置 ARIA2_RPC_SECRET。",
+	"backend.aria2.startFailed": "aria2 中继下载服务启动失败。请检查 aria2 进程是否运行，或前往「运维自动化 → 任务中心」查看详细日志。",
+
+	// ticket/sla.ts (background escalation notifications)
+	"backend.ticket.slaEscalationTitle": "工单 SLA 超时升级",
+	"backend.ticket.slaEscalationMessage": "工单「{title}」已超过 SLA 期限，优先级已从 {from} 升级为 {to}",
 };
 
 export const en: Record<string, string> = {
@@ -117,4 +126,13 @@ export const en: Record<string, string> = {
 	// storage/service-nodes.ts, storage/sftp-sync-job.ts
 	"backend.storage.nodeNotFound": "Storage node not found or has been deleted",
 	"backend.storage.nodeNotFoundShort": "Storage node not found",
+
+	// aria2/service.ts, aria2/command-runner.ts
+	"backend.aria2.missingBinary": "aria2c is not installed; cannot perform magnet/BT relay download. Please install aria2 on the server.",
+	"backend.aria2.rpcSecretMissing": "aria2 RPC secret is not configured; cannot start the relay download service. Configure ARIA2_RPC_SECRET in settings.",
+	"backend.aria2.startFailed": "Failed to start the aria2 relay download service. Check that aria2 is running, or open Ops Automation → Task Center for details.",
+
+	// ticket/sla.ts (background escalation notifications)
+	"backend.ticket.slaEscalationTitle": "Ticket SLA escalation",
+	"backend.ticket.slaEscalationMessage": "Ticket \"{title}\" exceeded its SLA. Priority upgraded from {from} to {to}.",
 };

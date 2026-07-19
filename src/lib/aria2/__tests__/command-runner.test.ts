@@ -96,7 +96,7 @@ describe("aria2 command-runner adapter", () => {
   describe("MISSING_ARIA2_BINARY_MESSAGE", () => {
     it("documents the actionable dependency error shown when aria2c is not installed", () => {
       expect(MISSING_ARIA2_BINARY_MESSAGE).toBe(
-        "aria2c is not installed; cannot perform magnet/BT relay download. Please install aria2 on the server",
+        "未安装 aria2c，无法进行磁力/BT 中继下载。请在服务器上安装 aria2。",
       );
     });
   });

@@ -64,7 +64,12 @@ describe("aria2 runtime config", () => {
 
   it("surfaces missing aria2c as an actionable dependency error", () => {
     expect(getPublicAria2Error(Object.assign(new Error("spawn aria2c ENOENT"), { code: "ENOENT" }))).toBe(
-      "aria2c is not installed; cannot perform magnet/BT relay download. Please install aria2 on the server",
+      "未安装 aria2c，无法进行磁力/BT 中继下载。请在服务器上安装 aria2。",
+    );
+    expect(
+      getPublicAria2Error(Object.assign(new Error("spawn aria2c ENOENT"), { code: "ENOENT" }), "en"),
+    ).toBe(
+      "aria2c is not installed; cannot perform magnet/BT relay download. Please install aria2 on the server.",
     );
   });
 });

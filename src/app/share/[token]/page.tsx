@@ -151,7 +151,7 @@ export default async function SharePage({
             )}
 
             {share.entryType === "DIRECTORY" && (
-              <div data-card className=" p-4">
+              <div data-card className="p-4">
                 <div className="mb-3 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                   <div>
                     <h2 className="text-sm font-semibold text-[var(--text-primary)]">{t("sharePage.downloadable", locale)}</h2>

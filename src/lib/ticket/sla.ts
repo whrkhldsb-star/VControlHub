@@ -4,6 +4,7 @@ import { sessionHasPermission } from "@/lib/auth/authorization";
 import { teamWhere } from "@/lib/auth/team-scope";
 import type { RoleKey } from "@/lib/auth/rbac";
 import { createLogger } from "@/lib/logging";
+import { t } from "@/lib/i18n/translations";
 
 const logger = createLogger("ticket-sla");
 
@@ -111,8 +112,11 @@ export async function escalateBreachedTickets(): Promise<number> {
             data: managers.map((manager) => ({
               userId: manager.id,
               teamId: ticket.teamId,
-              title: "工单 SLA 超时升级",
-              message: `工单「${ticket.title}」已超过 SLA 期限，优先级已从 ${ticket.priority} 升级为 ${newPriority}`,
+              title: t("backend.ticket.slaEscalationTitle"),
+              message: t("backend.ticket.slaEscalationMessage")
+                .replace("{title}", ticket.title)
+                .replace("{from}", ticket.priority)
+                .replace("{to}", newPriority),
               type: "ticket_escalation",
               actionUrl: `/tickets/${ticket.id}`,
             })),
