@@ -7,12 +7,13 @@ import { SshTerminalPanel, type TerminalStatus } from "@/components/ssh-terminal
 /* ------------------------------------------------------------------ */
 /* SshTerminalManager — multi-tab SSH terminal floating workbench     */
 /*                                                                    */
-/* Key design decisions (TR-042 follow-up):                            */
-/* - NOT a modal dialog: no focus trap, no backdrop, no Escape=close  */
-/* - Minimizable: collapses to a small pill at bottom-right           */
-/* - Non-blocking: pointer-events-none on wrapper, page stays alive   */
-/* - Escape closes the active tab (not all tabs)                      */
-/* - All terminal WebSockets stay alive even when minimized          */
+/* Key design decisions:                                               */
+/* - NOT a modal dialog: no focus trap, no backdrop                    */
+/* - Minimizable: collapses to a small pill at bottom-right            */
+/* - CRITICAL: minimize must NOT unmount SshTerminalPanel — that would */
+/*   dispose xterm + close WebSockets. Keep panels mounted; only hide  */
+/*   the expanded chrome with CSS when minimized.                      */
+/* - Escape closes the active tab (not all tabs) when expanded         */
 /* ------------------------------------------------------------------ */
 
 export type SshTerminalTab = {
@@ -75,8 +76,6 @@ export function SshTerminalManager({
 
 			// Escape: close active tab only if expanded AND the user is not typing
 			// into an editable field (terminal xterm textarea, search boxes, etc.).
-			// A global window listener would otherwise intercept Escape that the
-			// terminal / form control should consume, forcibly killing the session.
 			if (e.key === "Escape" && !minimized) {
 				const target = e.target;
 				if (target instanceof HTMLElement) {
@@ -106,15 +105,16 @@ export function SshTerminalManager({
 	if (tabs.length === 0) return null;
 	const connectedCount = tabs.filter((tab) => tab.status === "connected").length;
 
-	// ── Minimized: small floating pill at bottom-right ──────────
-	if (minimized) {
-		return (
-			<div className="pointer-events-none fixed inset-x-2 bottom-2 z-50 flex justify-end sm:inset-x-4 sm:bottom-4">
+	return (
+		<div className="pointer-events-none fixed inset-x-2 bottom-2 z-50 flex justify-end sm:inset-x-4 sm:bottom-4">
+			{/* Minimized pill — sessions stay mounted below, only chrome swaps */}
+			{minimized && (
 				<button
 					type="button"
 					onClick={() => setMinimized(false)}
 					className="pointer-events-auto flex items-center gap-2 rounded-full border border-[var(--border-subtle)] light:border-[var(--border)] bg-[var(--surface)] px-4 py-2.5 text-xs text-[var(--text-primary)] shadow-2xl transition hover:bg-[var(--surface-elevated)] light:hover:bg-[var(--surface-hover)]"
 					aria-label={t("sshTerminalManager.title")}
+					data-testid="ssh-terminal-minimized-pill"
 				>
 					<span className="flex h-2 w-2 rounded-full bg-[var(--success)]" aria-hidden />
 					<span className="font-medium">
@@ -127,23 +127,23 @@ export function SshTerminalManager({
 					)}
 					<span className="text-[var(--text-muted)]">⤢ {t("sshTerminalManager.expand")}</span>
 				</button>
-			</div>
-		);
-	}
+			)}
 
-	// ── Expanded: floating workbench panel at bottom-right ──────
-	return (
-		<div className="pointer-events-none fixed inset-x-2 bottom-2 z-50 flex justify-end sm:inset-x-4 sm:bottom-4">
+			{/* Expanded workbench — hidden via CSS when minimized so panels never unmount */}
 			<div
 				role="region"
 				data-ssh-terminal-dialog="true"
 				aria-labelledby="ssh-terminal-manager-title"
+				aria-hidden={minimized}
 				style={{
 					backgroundColor: "var(--surface)",
 					borderColor: "var(--border)",
 					color: "var(--text-primary)",
+					// Keep in DOM when minimized so WebSockets / xterm stay alive.
+					// display:none is enough; panels already use display for tab visibility.
+					display: minimized ? "none" : "flex",
 				}}
-				className="pointer-events-auto flex max-h-[72vh] min-h-0 w-full max-w-5xl flex-col rounded-2xl border border-[var(--border-subtle)] light:border-[var(--border)] bg-[var(--surface)] text-[var(--text-primary)] shadow-2xl sm:rounded-3xl"
+				className="pointer-events-auto max-h-[72vh] min-h-0 w-full max-w-5xl flex-col rounded-2xl border border-[var(--border-subtle)] light:border-[var(--border)] bg-[var(--surface)] text-[var(--text-primary)] shadow-2xl sm:rounded-3xl"
 			>
 				{/* Title bar + tab bar + controls */}
 				<div className="flex items-center justify-between border-b border-[var(--border-subtle)] light:border-[var(--border)] px-4 py-2.5">
@@ -156,30 +156,35 @@ export function SshTerminalManager({
 						</span>
 					</div>
 					<div className="flex items-center gap-1">
-						{/* Minimize button */}
 						<button
 							type="button"
 							onClick={() => setMinimized(true)}
 							aria-label={t("sshTerminalManager.minimize")}
 							className="min-h-9 min-w-9 rounded-lg border border-[var(--border-subtle)] light:border-[var(--border)] bg-[var(--surface-subtle)] light:bg-[var(--surface)] px-3 py-1.5 text-xs text-[var(--text-secondary)] light:text-[var(--text-muted)] transition hover:bg-[var(--surface-elevated)] light:hover:bg-[var(--surface-hover)]/50"
 							title={t("sshTerminalManager.minimize")}
+							data-testid="ssh-terminal-minimize"
 						>
 							▬
 						</button>
-						{/* Close all button */}
 						<button
 							type="button"
 							onClick={onClose}
 							aria-label={t("sshTerminalModal.ariaClose")}
 							title={t("sshTerminalModal.close")}
-						 data-action-button data-variant="secondary" className="min-h-9 min-w-9 !px-3 !py-1.5 !text-xs">
+							data-action-button
+							data-variant="secondary"
+							className="min-h-9 min-w-9 !px-3 !py-1.5 !text-xs"
+						>
 							✕
 						</button>
 					</div>
 				</div>
 
 				{/* Tab bar */}
-				<div className="flex items-stretch gap-0.5 overflow-x-auto border-b border-[var(--border-subtle)] light:border-[var(--border)] bg-[var(--surface-subtle)] light:bg-[var(--surface)] px-2 py-1" role="tablist">
+				<div
+					className="flex items-stretch gap-0.5 overflow-x-auto border-b border-[var(--border-subtle)] light:border-[var(--border)] bg-[var(--surface-subtle)] light:bg-[var(--surface)] px-2 py-1"
+					role="tablist"
+				>
 					{tabs.map((tab, i) => {
 						const isActive = i === activeTabIndex;
 						const statusColor =
@@ -219,7 +224,8 @@ export function SshTerminalManager({
 					})}
 				</div>
 
-				{/* Terminal panels — all mounted, only active visible */}
+				{/* Terminal panels — always mounted; only active tab is visible.
+				    Minimize does NOT unmount these (keeps WebSocket + xterm alive). */}
 				<div className="flex min-h-0 flex-1 flex-col">
 					{tabs.map((tab, i) => (
 						<SshTerminalPanel
@@ -228,7 +234,9 @@ export function SshTerminalManager({
 							serverName={tab.serverName}
 							host={tab.host}
 							sessionToken={tab.sessionToken}
-							visible={i === activeTabIndex}
+							// When manager is minimized, treat all as not "visible" for
+							// layout fit only — connection lifecycle ignores `visible`.
+							visible={!minimized && i === activeTabIndex}
 							onClose={() => onTabClose(i)}
 							onStatusChange={(status) => onStatusChange(i, status)}
 						/>
