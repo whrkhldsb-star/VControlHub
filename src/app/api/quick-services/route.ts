@@ -23,6 +23,7 @@ import { withApiRoute } from "@/lib/http/api-guard";
 import { GENERAL_WRITE_LIMIT } from "@/lib/http/rate-limit-presets";
 import { getRemoteApps, normalizedAppToTemplate } from "@/lib/quick-service/app-source-sync";
 import { HUB_HOST_INSTANCE_KEY, getDockerEnvironmentStatusFor } from "@/lib/quick-service/docker-cli";
+import { teamWhere } from "@/lib/auth/team-scope";
 import { prisma } from "@/lib/db";
 import { assertServerTeamAccess } from "@/lib/server/team-access";
 
@@ -92,8 +93,11 @@ export async function GET(request: Request) {
 		const docker = await getDockerEnvironmentStatusFor(
 			serverId ? { kind: "remote", serverId } : { kind: "local" },
 		);
+		// Multi-tenant: never return other teams' server id/name/host in the
+		// install target picker. Admins (team:manage) still see everything via
+		// teamWhere(); non-admins only see their team + unassigned hosts.
 		const servers = await prisma.server.findMany({
-			where: { enabled: true },
+			where: { enabled: true, ...teamWhere(session!) },
 			orderBy: { name: "asc" },
 			take: 200,
 			select: { id: true, name: true, host: true },

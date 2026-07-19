@@ -171,6 +171,7 @@ export async function PATCH(request: Request) {
           "user.password_reset",
           { targetUsername: targetUser.username },
           "WARNING",
+          session?.currentTeamId,
         );
       }
 

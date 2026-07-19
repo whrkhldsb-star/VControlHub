@@ -16,6 +16,8 @@ const { mocks } = vi.hoisted(() => ({
     enqueueQuickServiceJob: vi.fn(),
     getDockerEnvironmentStatus: vi.fn(),
     getRemoteApps: vi.fn(),
+    serverFindMany: vi.fn(async () => [] as Array<{ id: string; name: string; host: string }>),
+    serverFindUnique: vi.fn(async () => ({ id: "srv1", enabled: true, name: "vps-1" })),
   },
 }));
 
@@ -50,8 +52,8 @@ vi.mock("@/lib/quick-service/job-worker", () => ({
 vi.mock("@/lib/db", () => ({
   prisma: {
     server: {
-      findMany: vi.fn(async () => []),
-      findUnique: vi.fn(async () => ({ id: "srv1", enabled: true, name: "vps-1" })),
+      findMany: mocks.serverFindMany,
+      findUnique: mocks.serverFindUnique,
     },
   },
 }));
@@ -77,7 +79,9 @@ async function body(response: Response) {
 describe("/api/quick-services routes", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mocks.requireApiPermission.mockResolvedValue({ session: { userId: "u1", username: "alice", roles: ["admin"] } });
+    mocks.requireApiPermission.mockResolvedValue({
+      session: { userId: "u1", username: "alice", roles: ["admin"], mustChangePassword: false, currentTeamId: null },
+    });
     mocks.listQuickServices.mockResolvedValue([]);
     mocks.installService.mockResolvedValue({ id: "svc1", slug: "alist", status: "installing", port: 5244 });
     mocks.checkPort.mockReturnValue({ available: true });
@@ -91,6 +95,7 @@ describe("/api/quick-services routes", () => {
     mocks.updateService.mockResolvedValue({ status: "running", health: "healthy", logTail: "ready" });
     mocks.enqueueQuickServiceJob.mockResolvedValue({ job: { id: "job_qs_1", status: "PENDING" }, taskId: "job:job_qs_1", reused: false });
     mocks.getRemoteApps.mockResolvedValue([]);
+    mocks.serverFindMany.mockResolvedValue([]);
   });
 
   it("uses docker:manage rather than broad user management for Quick Services access", async () => {
@@ -122,6 +127,36 @@ describe("/api/quick-services routes", () => {
     expect(json.catalog).toEqual([expect.objectContaining({ slug: "alist", status: "running", id: "svc1", source: "local" })]);
     expect(json.remoteCatalog).toEqual([expect.objectContaining({ slug: "jellyfin", source: "LinuxServer", monthlyPulls: 20 })]);
     expect(json.usedPorts).toEqual([{ port: 3000, usedBy: "vcontrolhub" }]);
+  });
+
+  it("scopes the install-target server picker by teamWhere for non-admin operators", async () => {
+    mocks.requireApiPermission.mockResolvedValueOnce({
+      session: {
+        userId: "u2",
+        username: "ops",
+        roles: ["operator"],
+        mustChangePassword: false,
+        currentTeamId: "team_a",
+      },
+    });
+    mocks.serverFindMany.mockResolvedValueOnce([
+      { id: "srv_a", name: "team-a-vps", host: "10.0.0.1" },
+    ]);
+
+    const response = await rootRoute.GET(new Request("http://local/api/quick-services"));
+    const json = await body(response);
+
+    expect(response.status).toBe(200);
+    expect(mocks.serverFindMany).toHaveBeenCalledWith({
+      where: {
+        enabled: true,
+        OR: [{ teamId: "team_a" }, { teamId: null }],
+      },
+      orderBy: { name: "asc" },
+      take: 200,
+      select: { id: true, name: true, host: true },
+    });
+    expect(json.servers).toEqual([{ id: "srv_a", name: "team-a-vps", host: "10.0.0.1" }]);
   });
 
   it("queues local service installation for the authorized user", async () => {
