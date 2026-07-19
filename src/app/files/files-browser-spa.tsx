@@ -4,8 +4,7 @@ import { useState, useCallback } from "react";
 
 import { useI18n } from "@/lib/i18n/use-locale";
 import { FileListClient } from "./file-list-client";
-import { SearchScopeToggle } from "./search-scope-toggle";
-import { ContentSearchPanel } from "./content-search-panel";
+import { UnifiedFileSearch } from "./unified-file-search";
 import { FileUploadDropzoneLazy } from "./file-upload-dropzone-lazy";
 import { CreateFolderForm } from "./create-folder-form";
 import { RecycleBinSectionClientLazy } from "./recycle-bin-section-client-lazy";
@@ -82,8 +81,6 @@ export function FilesBrowserSpa({
     searchInput,
     setSearchInput,
     fetchFiles,
-    handleSearch,
-    handleScopeChange,
   } = useFileBrowserListing({ initialData });
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
 
@@ -193,71 +190,39 @@ export function FilesBrowserSpa({
             />
           </div>
 
-          {/* Search bar */}
-          <form onSubmit={handleSearch} className="mt-4">
-            <input type="hidden" name="scope" value={data.searchScope} />
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-              <SearchScopeToggle
-                scope={data.searchScope}
-                currentPath={data.currentPath}
-                onScopeChange={handleScopeChange}
-              />
-              <div className="flex flex-1 flex-col gap-1 sm:flex-row sm:items-end sm:gap-3">
-                <div className="flex flex-1 flex-col gap-1">
-                  <label htmlFor="files-search-query" className="text-xs font-medium text-[var(--text-secondary)]">
-                    {t("filesBrowserSpa.searchFileName")}
-                  </label>
-                  <input
-                    id="files-search-query"
-                    type="text"
-                    value={searchInput}
-                    onChange={(e) => setSearchInput(e.currentTarget.value)}
-                    placeholder={
-                      data.searchScope === "all"
-                        ? t("filesBrowserSpa.searchAllFiles")
-                        : t("filesBrowserSpa.searchCurrentFolder")
-                    }
-                    data-input className="rounded-xl border border-[var(--border)] bg-[var(--input-bg)] px-4 py-2.5 text-sm text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus:border-[var(--accent-border)] focus:outline-none"
-                  />
-                </div>
-                <button
-                  type="submit"
-                  data-action-button data-variant="primary" className="px-5 py-2.5 text-sm"
-                >
-                  {t("filesBrowserSpa.searchLabel")}
-                </button>
-                {data.searchQuery ? (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setSearchInput("");
-                      fetchFiles(data.currentPath);
-                    }}
-                    className="rounded-xl border border-[var(--border)] bg-[var(--surface-elevated)] px-5 py-2.5 text-sm font-medium text-[var(--text-secondary)] transition hover:bg-[var(--surface-hover)]"
-                  >
-                    {t("filesBrowserSpa.clear")}
-                  </button>
-                ) : null}
-              </div>
-            </div>
-            {data.searchQuery ? (
-              <p className="mt-2 text-xs text-[var(--text-secondary)]">
-                {t("filesBrowserSpa.searchResults")
-                  .replace("{query}", data.searchQuery)
-                  .replace("{scope}", data.searchScope === "all" ? t("filesBrowserSpa.searchInAllFiles") : t("filesBrowserSpa.searchInCurrentFolder"))
-                  .replace("{count}", String(data.stats.totalItems))}
-              </p>
-            ) : null}
-          </form>
+          {/* Unified search bar (replaces old split scope toggle + content panel) */}
+          <UnifiedFileSearch
+            searchInput={searchInput}
+            onSearchInputChange={setSearchInput}
+            onFilenameSearch={(scope) => {
+              void fetchFiles(data.currentPath, searchInput, scope, data.nodeIdFilter, {
+                resetSelection: true,
+              });
+            }}
+            nodeId={data.nodeIdFilter || undefined}
+            searchPath={data.currentPath || undefined}
+          />
 
-          {/* FEAT-P0-4: Content search panel */}
-          <div className="mt-4">
-            <ContentSearchPanel
-              searchInput={searchInput}
-              nodeId={data.nodeIdFilter || undefined}
-              searchPath={data.currentPath || undefined}
-            />
-          </div>
+          {data.searchQuery ? (
+            <p className="mt-2 text-xs text-[var(--text-secondary)]">
+              {t("filesBrowserSpa.searchResults")
+                .replace("{query}", data.searchQuery)
+                .replace("{scope}", data.searchScope === "all" ? t("filesBrowserSpa.searchInAllFiles") : t("filesBrowserSpa.searchInCurrentFolder"))
+                .replace("{count}", String(data.stats.totalItems))}
+            </p>
+          ) : null}
+          {data.searchQuery ? (
+            <button
+              type="button"
+              onClick={() => {
+                setSearchInput("");
+                fetchFiles(data.currentPath);
+              }}
+              className="mt-2 rounded-xl border border-[var(--border)] bg-[var(--surface-elevated)] px-4 py-2 text-xs font-medium text-[var(--text-secondary)] transition hover:bg-[var(--surface-hover)]"
+            >
+              {t("filesBrowserSpa.clear")}
+            </button>
+          ) : null}
 
           <div data-tone="cyan" className="mt-6 rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-5 shadow-[var(--shadow-sm)]">
             <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">

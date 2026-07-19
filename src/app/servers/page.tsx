@@ -14,7 +14,6 @@ import { SshKeyCreateForm } from "./ssh-key-create-form";
 import { ServerTabLayout } from "./server-tab-layout";
 import { ServerOverviewCard } from "./server-overview-card";
 import { AutoProbeProvider } from "./auto-probe-context";
-import { SshTerminalProvider } from "./ssh-terminal-context";
 import Link from "next/link";
 import { cookies } from "next/headers";
 
@@ -81,7 +80,6 @@ export default async function ServersPage() {
 				</Callout>
 			</section>
 
-			<SshTerminalProvider>
 			<AutoProbeProvider>
 			<ServerTabLayout
 				nodesPanel={
@@ -120,7 +118,6 @@ export default async function ServersPage() {
 				}
 			/>
 			</AutoProbeProvider>
-			</SshTerminalProvider>
 			</PageShell>
 	);
 }

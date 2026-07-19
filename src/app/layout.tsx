@@ -11,6 +11,7 @@ import { SentryProvider } from "@/components/sentry-provider";
 import { WebVitalsReporter } from "@/components/web-vitals-reporter";
 import { I18nProvider } from "@/lib/i18n/provider";
 import { ThemeProvider } from "@/lib/theme/provider";
+import { SshTerminalProvider } from "@/app/servers/ssh-terminal-context";
 import { getAppMetadataTitle, getAppDescription } from "@/lib/branding";
 import { getSessionCookieName } from "@/lib/auth/session";
 import { EMPTY_GATE, gateFromRoles } from "@/lib/auth/session-gate";
@@ -74,6 +75,7 @@ export default async function RootLayout({
 						<SentryProvider />
 						<WebVitalsReporter />
 						<ToastProvider>
+							<SshTerminalProvider>
 							{shouldRenderAuthenticatedChrome && (
 								<SessionGateProvider value={sessionGate}>
 									<SidebarLoader />
@@ -89,6 +91,7 @@ export default async function RootLayout({
 									<GlobalSearch />
 								</SessionGateProvider>
 							)}
+							</SshTerminalProvider>
 						</ToastProvider>
 					</I18nProvider>
 				</ThemeProvider>
