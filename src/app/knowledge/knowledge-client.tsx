@@ -228,7 +228,7 @@ export function KnowledgeClient({ canManage }: { canManage: boolean }) {
                 type="button"
                 disabled={!name.trim() || busy !== null}
                 onClick={() => void createBase()}
-                className="min-h-11 rounded-lg border border-[var(--accent-border)] bg-[var(--accent-bg)] px-3 text-xs font-semibold text-[var(--accent)] disabled:opacity-50"
+                data-action-button data-variant="outline" className="!min-h-11 !px-3 !text-xs !font-semibold disabled:opacity-50"
               >
                 {busy === "create" ? t("knowledgePage.working") : t("knowledgePage.create")}
               </button>
@@ -291,7 +291,7 @@ export function KnowledgeClient({ canManage }: { canManage: boolean }) {
               type="button"
               disabled={!selectedId || !docTitle.trim() || !docContent.trim() || busy !== null}
               onClick={() => void ingest()}
-              className="min-h-11 rounded-lg border border-[var(--success-border)] bg-[var(--success-bg)] px-3 text-xs font-semibold text-[var(--success)] disabled:opacity-50"
+              data-action-button data-variant="success" className="!min-h-11 !px-3 !text-xs !font-semibold disabled:opacity-50"
             >
               {busy === "ingest" ? t("knowledgePage.working") : t("knowledgePage.ingest")}
             </button>
@@ -310,7 +310,7 @@ export function KnowledgeClient({ canManage }: { canManage: boolean }) {
                   {canManage && (
                     <button
                       type="button"
-                      className="text-[var(--danger)]"
+                      data-action-button data-variant="danger" className="!px-2 !py-1 !text-[11px]"
                       disabled={busy !== null}
                       onClick={() => void removeDoc(d.id)}
                     >
@@ -336,7 +336,7 @@ export function KnowledgeClient({ canManage }: { canManage: boolean }) {
             type="button"
             disabled={!query.trim() || busy !== null}
             onClick={() => void search()}
-            className="min-h-11 rounded-lg border border-[var(--accent-border)] px-3 text-xs font-semibold text-[var(--accent)] disabled:opacity-50"
+            data-action-button data-variant="outline" className="!min-h-11 !px-3 !text-xs !font-semibold disabled:opacity-50"
           >
             {busy === "search" ? t("knowledgePage.working") : t("knowledgePage.search")}
           </button>

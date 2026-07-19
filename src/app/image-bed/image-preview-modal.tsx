@@ -78,30 +78,34 @@ export function ImagePreviewModal({
 					<div className="flex flex-wrap items-center justify-end gap-2">
 						<button
 							onClick={() => onCopyLink(image.publicUrl)}
-							data-tone="cyan"
-							className="min-h-11 rounded-lg border border-[var(--accent-border)] px-3 py-1.5 text-xs text-[var(--accent)] hover:bg-[var(--accent-bg)]"
+							data-action-button
+							data-variant="outline"
+							className="!min-h-11 !px-3 !py-1.5 !text-xs"
 						>
 							{t("imageBed.preview.copyLink")}
 						</button>
 						<button
 							onClick={() => onCopyMarkdown(image)}
-							data-tone="emerald"
-							className="min-h-11 rounded-lg border border-[var(--success-border)] px-3 py-1.5 text-xs text-[var(--success)] hover:bg-[var(--success-bg)]"
+							data-action-button
+							data-variant="success"
+							className="!min-h-11 !px-3 !py-1.5 !text-xs"
 						>
 							Markdown
 						</button>
 						<button
 							onClick={() => onCopyHTML(image)}
-							data-tone="amber"
-							className="min-h-11 rounded-lg border border-[var(--warning-border)] px-3 py-1.5 text-xs text-[var(--warning)] hover:bg-[var(--warning-bg)]"
+							data-action-button
+							data-variant="outline"
+							className="!min-h-11 !px-3 !py-1.5 !text-xs"
 						>
 							HTML
 						</button>
 						{canDelete && (
 							<button
 								onClick={() => onRequestDelete(image)}
-								data-tone="rose"
-								className="min-h-11 rounded-lg border border-[var(--danger-border)] px-3 py-1.5 text-xs text-[var(--danger)] hover:bg-[var(--danger-bg)]"
+								data-action-button
+								data-variant="danger"
+								className="!min-h-11 !px-3 !py-1.5 !text-xs"
 							>
 								{t("common.delete")}
 							</button>

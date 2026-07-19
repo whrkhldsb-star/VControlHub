@@ -178,7 +178,7 @@ export function MigrationWizardPanel({ completedBackups, canCreate }: Props) {
             type="button"
             disabled={!backupId || busy !== null}
             onClick={() => void run("export")}
-            className="min-h-11 rounded-lg border border-[var(--accent-border)] bg-[var(--accent-bg)] px-3 text-xs font-semibold text-[var(--accent)] disabled:opacity-50"
+            data-action-button data-variant="outline" className="!min-h-11 !px-3 !text-xs !font-semibold disabled:opacity-50"
           >
             {busy === "export" ? t("backupsPage.migration.working") : t("backupsPage.migration.export")}
           </button>
@@ -209,7 +209,7 @@ export function MigrationWizardPanel({ completedBackups, canCreate }: Props) {
               type="button"
               disabled={!packageRef.trim() || busy !== null}
               onClick={() => void run("validate")}
-              className="min-h-11 rounded-lg border border-[var(--border)] bg-[var(--surface-elevated)] px-3 text-xs font-medium text-[var(--text-secondary)] disabled:opacity-50"
+              data-action-button data-variant="secondary" className="!min-h-11 !px-3 !text-xs !font-medium disabled:opacity-50"
             >
               {busy === "validate" ? t("backupsPage.migration.working") : t("backupsPage.migration.validate")}
             </button>
@@ -217,7 +217,7 @@ export function MigrationWizardPanel({ completedBackups, canCreate }: Props) {
               type="button"
               disabled={!packageRef.trim() || busy !== null}
               onClick={() => void run("import")}
-              className="min-h-11 rounded-lg border border-[var(--success-border)] bg-[var(--success-bg)] px-3 text-xs font-semibold text-[var(--success)] disabled:opacity-50"
+              data-action-button data-variant="success" className="!min-h-11 !px-3 !text-xs !font-semibold disabled:opacity-50"
             >
               {busy === "import" ? t("backupsPage.migration.working") : t("backupsPage.migration.import")}
             </button>
@@ -225,7 +225,7 @@ export function MigrationWizardPanel({ completedBackups, canCreate }: Props) {
               type="button"
               disabled={busy !== null}
               onClick={() => void run("list")}
-              className="min-h-11 rounded-lg border border-[var(--border)] px-3 text-xs text-[var(--text-muted)] disabled:opacity-50"
+              data-action-button data-variant="ghost" className="!min-h-11 !px-3 !text-xs disabled:opacity-50"
             >
               {busy === "list" ? t("backupsPage.migration.working") : t("backupsPage.migration.list")}
             </button>

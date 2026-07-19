@@ -230,21 +230,21 @@ export function TeamWorkspaceSection({ canManage }: { canManage: boolean }) {
 									)}
 								</div>
 								<div className="flex flex-col gap-1">
-									<button type="button" disabled={busy || currentTeamId === team.id} onClick={() => switchTeam(team.id)} className="min-h-9 rounded-xl border border-[var(--border)] px-3 py-1 text-xs text-[var(--text-secondary)] disabled:opacity-60">
+									<button type="button" disabled={busy || currentTeamId === team.id} onClick={() => switchTeam(team.id)} data-action-button data-variant="secondary" className="!min-h-9 !px-3 !py-1 !text-xs disabled:opacity-60">
 										{currentTeamId === team.id ? t("settingsTeam.current") : t("settingsTeam.switch")}
 									</button>
 									{canManage && editingTeamId !== team.id && (
-										<button type="button" disabled={busy} onClick={() => startEditTeam(team)} className="min-h-9 rounded-xl border border-[var(--border)] px-3 py-1 text-xs text-[var(--text-secondary)] disabled:opacity-60">
+										<button type="button" disabled={busy} onClick={() => startEditTeam(team)} data-action-button data-variant="secondary" className="!min-h-9 !px-3 !py-1 !text-xs disabled:opacity-60">
 											{t("settingsTeam.edit")}
 										</button>
 									)}
 									{canManage && editingTeamId === team.id && (
-										<button type="button" disabled={busy} onClick={() => saveEditTeam(team.id)} className="min-h-9 rounded-xl border border-[var(--border)] px-3 py-1 text-xs text-[var(--success)] light:text-[var(--success)] disabled:opacity-60">
+										<button type="button" disabled={busy} onClick={() => saveEditTeam(team.id)} data-action-button data-variant="success" className="!min-h-9 !px-3 !py-1 !text-xs disabled:opacity-60">
 											{t("settingsTeam.save")}
 										</button>
 									)}
 									{canManage && (
-										<button type="button" disabled={busy} onClick={() => deleteTeamSpace(team.id, team.name)} className="min-h-9 rounded-xl border border-[var(--danger-border)] px-3 py-1 text-xs text-[var(--danger)] light:text-[var(--danger)] disabled:opacity-60">
+										<button type="button" disabled={busy} onClick={() => deleteTeamSpace(team.id, team.name)} data-action-button data-variant="danger" className="!min-h-9 !px-3 !py-1 !text-xs disabled:opacity-60">
 											{t("settingsTeam.delete")}
 										</button>
 									)}

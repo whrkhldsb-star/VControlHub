@@ -119,7 +119,7 @@ export function ApiTokenManagerClient({ initialTokens, allowedScopes }: Props) {
               <h2 className="text-base font-semibold text-[var(--warning)]">{t("apiTokensPage.plaintext.heading")}</h2>
               <p className="mt-1 text-sm text-[var(--warning)]/75">{t("apiTokensPage.plaintext.copyHint")}</p>
             </div>
-            <button type="button" onClick={() => navigator.clipboard?.writeText(createdPlaintext)} className="rounded-xl border border-[var(--warning-border)] px-3 py-2 text-xs font-medium text-[var(--warning)] hover:bg-[var(--warning-bg)]">
+            <button type="button" onClick={() => navigator.clipboard?.writeText(createdPlaintext)} data-action-button data-variant="outline" className="!px-3 !py-2 !text-xs !font-medium">
               {t("apiTokensPage.plaintext.copy")}
             </button>
           </div>
@@ -195,7 +195,7 @@ export function ApiTokenManagerClient({ initialTokens, allowedScopes }: Props) {
                       </dl>
                     </div>
                     {!token.revokedAt && (
-                      <button type="button" aria-label={t("apiTokensPage.revoke.aria").replace("{name}", token.name)} disabled={revokingId === token.id} onClick={() => setTokenPendingRevoke(token)} data-tone="rose" className="rounded-2xl border border-[var(--danger-border)] px-4 py-2 text-xs font-medium text-[var(--danger)] transition hover:bg-[var(--danger-bg)] disabled:opacity-60">
+                      <button type="button" aria-label={t("apiTokensPage.revoke.aria").replace("{name}", token.name)} disabled={revokingId === token.id} onClick={() => setTokenPendingRevoke(token)} data-action-button data-variant="danger" className="!px-4 !py-2 !text-xs !font-medium disabled:opacity-60">
                         {revokingId === token.id ? t("apiTokensPage.revoke.revoking") : t("apiTokensPage.revoke.button")}
                       </button>
                     )}

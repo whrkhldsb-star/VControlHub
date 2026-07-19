@@ -269,7 +269,7 @@ export function DockerResourcesPanel({ serverId }: { serverId?: string }) {
           type="button"
           onClick={() => void fetchResources()}
           disabled={loading}
-          className="min-h-11 rounded-lg bg-[var(--surface-hover)]/50 px-3 py-1.5 text-xs text-[var(--text-secondary)] transition hover:bg-[var(--surface-hover)] disabled:opacity-50"
+          data-action-button data-variant="secondary" className="!min-h-11 !px-3 !py-1.5 !text-xs disabled:opacity-50"
         >
           {loading
             ? t("dockerResources.refreshBusy")
@@ -315,8 +315,8 @@ export function DockerResourcesPanel({ serverId }: { serverId?: string }) {
           type="button"
           onClick={() => void createResource()}
           disabled={!name.trim() || Boolean(busyKey)}
-          data-tone="accent"
-          className="min-h-11 rounded-lg border px-4 py-2 text-sm font-medium transition disabled:opacity-50"
+          data-action-button data-variant="primary"
+          className="!min-h-11 !px-4 !py-2 !text-sm disabled:opacity-50"
         >
           {t("dockerResources.create")}
         </button>{" "}
