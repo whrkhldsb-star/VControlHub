@@ -79,7 +79,7 @@ export function SshFileManagerHeader({
         <button type="button" onClick={() => setShowMkdir(!showMkdir)} className="ml-auto min-h-9 rounded-full border border-[var(--border-subtle)] light:border-[var(--border)] px-2 py-0.5 text-xs text-[var(--text-secondary)] light:text-[var(--text-muted)] transition hover:bg-[var(--surface-elevated)] light:hover:bg-[var(--surface-hover)]/50" aria-label={t("sshFileManager.newFolder")} title={t("sshFileManager.newFolder")}>
           📂+
         </button>
-        <button type="button" onClick={() => fileInputRef.current?.click()} className="min-h-9 rounded-full border border-[var(--color-action-border)]/20 px-2 py-0.5 text-xs text-[var(--color-action-fg)] transition hover:bg-[var(--color-action-bg)]/20">
+        <button type="button" onClick={() => fileInputRef.current?.click()} data-action-button data-variant="outline" className="min-h-9 !rounded-full !px-2 !py-0.5 !text-xs">
           {t("sshFileManager.upload")}
         </button>
         <input ref={fileInputRef} type="file" multiple className="hidden" onChange={(e) => {
@@ -96,10 +96,9 @@ export function SshFileManagerHeader({
             type="button"
             onClick={onGoUp}
             data-testid="ssh-files-header-up"
-            className="mr-1 rounded border border-[var(--border)] bg-[var(--surface-elevated)] px-1.5 py-0.5 font-medium text-[var(--text-primary)] transition hover:bg-[var(--surface-hover)]"
             aria-label={t("sshFileManager.upLevelAria")}
             title={t("sshFileManager.upLevel")}
-          >
+           data-action-button data-variant="secondary" className="mr-1 !px-1.5 !py-0.5">
             ↑ {t("sshFileManager.upLevel")}
           </button>
         ) : null}
@@ -115,7 +114,7 @@ export function SshFileManagerHeader({
       {showMkdir && (
         <div className="mt-2 flex gap-1.5">
           <input value={mkdirName} aria-label={t("sshFileManager.folderName")} onChange={(e) => setMkdirName(e.target.value)} onKeyDown={(e) => e.key === "Enter" && onMkdir()} placeholder={t("sshFileManager.folderName")} className={cn(UI_INPUT, "min-h-9 min-w-0 flex-1 py-1 text-xs")} autoFocus />
-          <button onClick={onMkdir} aria-label={t("common.confirm")} data-tone="cyan" className="min-h-9 min-w-9 shrink-0 rounded-lg border border-[var(--color-action-border)]/20 px-2 text-xs text-[var(--color-action-fg)] transition hover:bg-[var(--color-action-bg)]/20">✓</button>
+          <button onClick={onMkdir} aria-label={t("common.confirm")} data-tone="cyan" data-action-button data-variant="outline" className="min-h-9 min-w-9 shrink-0 !px-2 !text-xs">✓</button>
           <button onClick={() => { setShowMkdir(false); setMkdirName(""); }} aria-label={t("common.cancel")} className="min-h-9 min-w-9 shrink-0 rounded-lg border border-[var(--border)] px-2 text-xs text-[var(--text-muted)] transition hover:bg-[var(--surface-hover)]">✕</button>
         </div>
       )}

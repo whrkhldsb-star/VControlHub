@@ -42,11 +42,10 @@ export function SortableStepCard({
 			<div className="flex items-center gap-2">
 				<button
 					type="button"
-					className="min-h-9 cursor-grab rounded-lg border border-[var(--border)] px-2 py-1 text-xs text-[var(--text-secondary)] transition hover:bg-[var(--surface-elevated)] active:cursor-grabbing"
 					aria-label={t("playbooksPage.createForm.dragHandleAria").replace("{index}", String(index + 1))}
 					{...attributes}
 					{...listeners}
-				>
+				 data-action-button data-variant="secondary" className="min-h-9 cursor-grab !px-2 !py-1 !text-xs">
 					☰ #{index + 1}
 				</button>
 				<input

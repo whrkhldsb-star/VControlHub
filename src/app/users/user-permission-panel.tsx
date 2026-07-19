@@ -197,7 +197,7 @@ const _data = await csrfFetch("/api/users/permissions", {
             <h3 className="mt-1 text-xl font-semibold text-[var(--text-primary)]">{payload?.user.displayName ?? username}</h3>
             <p className="mt-1 text-sm text-[var(--text-muted)]">{t("usersPerm.desc")}</p>
           </div>
-          <button type="button" onClick={onClose} className="rounded-lg border border-[var(--border)] px-3 py-1.5 text-sm text-[var(--text-secondary)] hover:bg-[var(--surface-hover)]">{t("usersPerm.action.close")}</button>
+          <button type="button" onClick={onClose} data-action-button data-variant="secondary" className="!px-3 !py-1.5 !text-sm">{t("usersPerm.action.close")}</button>
         </div>
 
         {message && <div className={`mb-4 rounded-2xl border px-4 py-3 text-sm ${message.type === "success" ? "border-[var(--success-border)] bg-[var(--success-bg)] text-[var(--success)]" : "border-[var(--danger-border)] bg-[var(--danger-bg)] text-[var(--danger)]"}`}>{message.text}</div>}
@@ -243,7 +243,7 @@ const _data = await csrfFetch("/api/users/permissions", {
                   <h4 className="font-medium text-[var(--text-primary)]">{t("usersPerm.section.grants")}</h4>
                   <p className="mt-1 text-xs text-[var(--text-muted)]">{t("usersPerm.grants.hint")}</p>
                 </div>
-                <button type="button" onClick={addGrant} data-tone="emerald" className="rounded-lg border border-[var(--success-border)] px-3 py-1.5 text-xs text-[var(--success)] hover:bg-[var(--success-bg)]">{t("usersPerm.action.addGrant")}</button>
+                <button type="button" onClick={addGrant} data-action-button data-variant="success" className="!px-3 !py-1.5 !text-xs">{t("usersPerm.action.addGrant")}</button>
               </div>
               <div className="mt-4 space-y-3">
                 {grants.length === 0 ? <EmptyState>{t("usersPerm.grants.empty")}</EmptyState> : grants.map((grant, index) => {
@@ -277,8 +277,8 @@ const _data = await csrfFetch("/api/users/permissions", {
             </section>
 
             <div className="flex justify-end gap-3">
-              <button type="button" onClick={onClose} className="rounded-lg border border-[var(--border)] px-5 py-2 text-sm text-[var(--text-secondary)] hover:bg-[var(--surface)]/10">{t("usersPerm.action.cancel")}</button>
-              <button type="button" onClick={save} disabled={saving} data-tone="cyan" className="rounded-lg border border-[var(--color-action-border)]/30 px-5 py-2 text-sm font-medium text-[var(--text-primary)] hover:bg-[var(--color-action-bg)]/20 disabled:opacity-50">{saving ? t("usersPerm.action.saving") : t("usersPerm.action.save")}</button>
+              <button type="button" onClick={onClose} data-action-button data-variant="secondary" className="!px-5 !py-2 !text-sm">{t("usersPerm.action.cancel")}</button>
+              <button type="button" onClick={save} disabled={saving} data-action-button data-variant="outline" className="!px-5 !py-2 !text-sm disabled:opacity-50">{saving ? t("usersPerm.action.saving") : t("usersPerm.action.save")}</button>
             </div>
           </div>
         )}

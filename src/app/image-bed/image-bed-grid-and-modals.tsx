@@ -304,7 +304,7 @@ export function PublishFromStorageModal({
         <div className="mt-5 flex items-center justify-end gap-2">
           <button
             onClick={onClose}
-            className="px-4 py-2 text-sm text-[var(--text-secondary)] transition hover:text-[var(--text-primary)] light:hover:text-[var(--text-disabled)]"
+            data-action-button data-variant="ghost" className="!text-sm"
           >
             {t("imageBedPage.publishFromStorage.cancel")}
           </button>
@@ -375,7 +375,7 @@ return (
           <button
             type="button"
             onClick={onClose}
-            className="px-4 py-2 text-sm text-[var(--text-secondary)] transition hover:text-[var(--text-primary)] light:hover:text-[var(--text-disabled)]"
+            data-action-button data-variant="ghost" className="!text-sm"
           >
             {t("imageBedPage.delete.cancel")}
           </button>

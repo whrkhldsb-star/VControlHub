@@ -164,8 +164,7 @@ export function FileListListView(props: FileListListViewProps) {
                       type="button"
                       onClick={onGoUp}
                       data-testid="files-empty-up-level"
-                      className="mt-4 inline-flex items-center gap-1.5 rounded-xl border border-[var(--border)] bg-[var(--surface-elevated)] px-4 py-2 text-sm font-medium text-[var(--text-primary)] transition hover:bg-[var(--surface-hover)]"
-                    >
+                     data-action-button data-variant="secondary" className="mt-4 inline-flex items-center gap-1.5 !px-4 !py-2 !text-sm">
                       <span aria-hidden="true">↑</span>
                       {t("fileListClient.upLevel")}
                     </button>

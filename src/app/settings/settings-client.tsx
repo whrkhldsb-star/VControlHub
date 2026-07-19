@@ -373,15 +373,13 @@ export function SettingsClient({
               <button
                 type="button"
                 onClick={expandAll}
-                className="rounded-lg border border-[var(--border)] bg-[var(--surface-elevated)] px-3 py-1.5 text-xs text-[var(--text-secondary)] transition hover:bg-[var(--surface-hover)] hover:text-[var(--text-primary)]"
-              >
+               data-action-button data-variant="secondary" className="!px-3 !py-1.5 !text-xs">
                 {t("settingsClient.expandAll")}
               </button>
               <button
                 type="button"
                 onClick={collapseAll}
-                className="rounded-lg border border-[var(--border)] bg-[var(--surface-elevated)] px-3 py-1.5 text-xs text-[var(--text-secondary)] transition hover:bg-[var(--surface-hover)] hover:text-[var(--text-primary)]"
-              >
+               data-action-button data-variant="secondary" className="!px-3 !py-1.5 !text-xs">
                 {t("settingsClient.collapseAll")}
               </button>
             </div>

@@ -46,7 +46,7 @@ export function ConfirmDialog({
 				<h2 id="confirm-dialog-title" className="text-lg font-semibold text-[var(--text-primary)]">{title}</h2>
 				<div className="mt-3 text-sm leading-6 text-[var(--text-secondary)]">{description}</div>
 				<div className="mt-6 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
-					<button type="button" onClick={onCancel} disabled={busy} className="min-h-11 rounded-xl border border-[var(--border)] px-4 py-2 text-sm font-medium text-[var(--text-secondary)] hover:bg-[var(--surface-hover)] disabled:opacity-50">{cancelLabel}</button>
+					<button type="button" onClick={onCancel} disabled={busy} data-action-button data-variant="secondary" className="min-h-11 !px-4 !py-2 !text-sm disabled:opacity-50">{cancelLabel}</button>
 					<button type="button" onClick={onConfirm} disabled={busy} className="min-h-11 rounded-xl bg-[var(--danger)] px-4 py-2 text-sm font-semibold text-[var(--text-primary)] hover:bg-[var(--danger-bg)] hover:text-[var(--danger)] disabled:opacity-50">{confirmLabel}</button>
 				</div>
 			</section>

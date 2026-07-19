@@ -56,7 +56,7 @@ export function ChangePasswordModal({
           <button
             type="button"
             onClick={onClose}
-            className="rounded-xl p-2 text-[var(--text-secondary)] hover:bg-[var(--surface-elevated)] hover:text-[var(--text-primary)] light:hover:text-[var(--color-action-fg)] transition"
+            className="rounded-xl p-2 text-[var(--text-secondary)] hover:bg-[var(--surface-elevated)] hover:text-[var(--text-primary)] transition"
             aria-label={closeModalLabel}
           >
             {" "}
@@ -139,8 +139,7 @@ export function ChangePasswordModal({
             <button
               type="button"
               onClick={onClose}
-              className="rounded-2xl border border-[var(--border)] px-5 py-2.5 text-sm text-[var(--text-secondary)] hover:bg-[var(--surface-elevated)] transition"
-            >
+             data-action-button data-variant="secondary" className="!px-5 !py-2.5 !text-sm">
               {" "}
               {t("common.cancel")}{" "}
             </button>{" "}

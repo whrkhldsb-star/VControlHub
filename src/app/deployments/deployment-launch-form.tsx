@@ -158,7 +158,7 @@ export function DeploymentLaunchForm({ templates, servers }: { templates: Deploy
 			</details>
 
 			{error && <p className="text-xs text-[var(--danger)]">{error}</p>}
-			<button disabled={pending} className="w-fit rounded-lg bg-[var(--color-action-bg)] px-4 py-2 text-sm font-semibold text-[var(--color-action-fg)] transition hover:bg-[var(--color-action-bg)] disabled:cursor-not-allowed disabled:opacity-60">{pending ? t("deploymentsPage.launch.submitting") : t("deploymentsPage.launch.submit")}</button>
+			<button disabled={pending} data-action-button data-variant="primary" className="w-fit disabled:opacity-60">{pending ? t("deploymentsPage.launch.submitting") : t("deploymentsPage.launch.submit")}</button>
 		</form>
 	);
 }

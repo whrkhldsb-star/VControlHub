@@ -140,7 +140,7 @@ export function ServiceCard({
 							</a>
 						)}
 						{item.status === "running" && (
-							<button onClick={onStop} disabled={busy} className="rounded-xl border border-[var(--border)] bg-[var(--surface-elevated)] px-3 py-1.5 text-xs text-[var(--text-secondary)] transition hover:bg-[var(--surface-hover)] disabled:opacity-50">
+							<button onClick={onStop} disabled={busy} data-action-button data-variant="secondary" className="!px-3 !py-1.5 !text-xs disabled:opacity-50">
 								{busy ? t("qsPage.busy") : t("qsPage.stop")}
 							</button>
 						)}
@@ -153,7 +153,7 @@ export function ServiceCard({
 							<span className="text-xs text-[var(--warning)] animate-pulse">{t("qsPage.pullingImage")}</span>
 						)}
 						{item.status === "error" && (
-							<button onClick={onSync} disabled={busy} className="rounded-xl border border-[var(--border)] bg-[var(--surface-elevated)] px-3 py-1.5 text-xs text-[var(--text-secondary)] transition hover:bg-[var(--surface-hover)] disabled:opacity-50">
+							<button onClick={onSync} disabled={busy} data-action-button data-variant="secondary" className="!px-3 !py-1.5 !text-xs disabled:opacity-50">
 								{t("qsPage.refreshStatus")}
 							</button>
 						)}
@@ -162,7 +162,7 @@ export function ServiceCard({
 								{busy ? t("qsPage.busy") : t("qsPage.update")}
 							</button>
 						)}
-						<button onClick={onUninstall} disabled={busy} className="ml-auto rounded-lg border border-[var(--danger-border)] px-3 py-1.5 text-xs text-[var(--danger)] hover:bg-[var(--danger-bg)] hover:text-[var(--danger)]/[0.10] transition disabled:opacity-50">
+						<button onClick={onUninstall} disabled={busy} data-action-button data-variant="danger" className="ml-auto !px-3 !py-1.5 !text-xs disabled:opacity-50">
 							{t("qsPage.uninstall")}
 						</button>
 					</>

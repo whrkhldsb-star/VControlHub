@@ -86,8 +86,7 @@ export function OsDialectSection({
 					type="button"
 					onClick={handleDetect}
 					disabled={detecting}
-					className="shrink-0 rounded-lg border border-[var(--color-action-border)]/25 bg-[var(--color-action-bg)]/10 px-2.5 py-1 text-[11px] text-[var(--text-primary)] transition hover:bg-[var(--color-action-bg)]/15 disabled:opacity-50 light:border-[var(--color-action-border)]/20"
-				>
+				 data-action-button data-variant="outline" className="shrink-0 !px-2.5 !py-1 !text-[11px] disabled:opacity-50">
 					{detecting ? t("serverOverviewDetails.detecting") : t("serverOverviewDetails.detectOs")}
 				</button>
 			</div>

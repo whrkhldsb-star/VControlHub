@@ -97,9 +97,8 @@ export function SshFileList({
               type="button"
               onClick={onGoUp}
               data-testid="ssh-files-up-level"
-              className="inline-flex items-center gap-1 rounded-lg border border-[var(--border)] bg-[var(--surface-elevated)] px-3 py-1.5 text-xs font-medium text-[var(--text-primary)] transition hover:bg-[var(--surface-hover)]"
               aria-label={t("sshFileManager.upLevelAria")}
-            >
+             data-action-button data-variant="secondary" className="inline-flex items-center gap-1 !px-3 !py-1.5 !text-xs">
               <span aria-hidden="true">↑</span>
               {t("sshFileManager.upLevel")}
             </button>

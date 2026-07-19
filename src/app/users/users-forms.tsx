@@ -180,8 +180,7 @@ export function UsersResetPasswordDialog({
           <button
             type="button"
             onClick={onCancel}
-            className="rounded-xl border border-[var(--border)] px-4 py-2 text-sm font-medium text-[var(--text-secondary)] hover:bg-[var(--surface-hover)]"
-          >
+           data-action-button data-variant="secondary" className="!px-4 !py-2 !text-sm">
             {t("usersPage.action.cancel")}
           </button>
           <button

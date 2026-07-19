@@ -127,15 +127,13 @@ export function MoveInlineForm({
       <button
         type="submit"
         disabled={!targetDir.trim() || targetDir.trim() === currentDir}
-        data-tone="cyan" className="rounded-lg border border-[var(--color-action-border)]/30 px-3 py-1.5 text-xs font-medium text-[var(--text-primary)] transition hover:bg-[var(--color-action-bg)]/20 disabled:cursor-not-allowed disabled:opacity-50"
-      >
+       data-action-button data-variant="outline" className="!px-3 !py-1.5 !text-xs disabled:cursor-not-allowed disabled:opacity-50">
         {t("common.confirm")}
       </button>
       <button
         type="button"
         onClick={handleCancel}
-        className="rounded-lg border border-[var(--border)] bg-[var(--surface)]/10 px-3 py-1.5 text-xs font-medium text-[var(--text-secondary)] transition hover:bg-[var(--surface)]/10"
-      >
+       data-action-button data-variant="secondary" className="!px-3 !py-1.5 !text-xs">
         {t("common.cancel")}
       </button>
     </form>

@@ -293,8 +293,7 @@ export function ServerOverviewDetails({
 							type="button"
 							onClick={onRunRealtimeDiagnostics}
 							disabled={diagnosticRun.status === "loading" || !server.enabled}
-							className="inline-flex shrink-0 items-center justify-center rounded-lg border border-[var(--success-border)] bg-[var(--success-bg)] px-3 py-1.5 text-xs text-[var(--success)] transition hover:bg-[var(--success-bg)] disabled:cursor-not-allowed disabled:opacity-60 light:border-[var(--success-border)]"
-						>
+						 data-action-button data-variant="success" className="inline-flex shrink-0 items-center justify-center !px-3 !py-1.5 !text-xs disabled:cursor-not-allowed disabled:opacity-60">
 							{diagnosticRun.status === "loading" ? t("serverOverviewDetails.diagnosing") : t("serverOverviewDetails.runRealtimeDiagnostics")}
 						</button>
 					</div>

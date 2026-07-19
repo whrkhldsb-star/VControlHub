@@ -139,9 +139,11 @@ export function CapacityForecastPanel() {
           </label>
           <button
             type="button"
-            className="rounded-lg border border-[var(--border)] bg-[var(--surface-elevated)] px-3 py-1 text-xs font-medium text-[var(--text-primary)] hover:bg-[var(--surface-hover)]"
             onClick={() => void load(horizonDays)}
             disabled={loading}
+            data-action-button
+            data-variant="secondary"
+            className="!px-3 !py-1 !text-xs"
           >
             {loading ? t("healthPage.capacity.refreshing") : t("healthPage.capacity.refresh")}
           </button>

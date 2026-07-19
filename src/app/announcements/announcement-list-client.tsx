@@ -194,7 +194,7 @@ export function AnnouncementList({
               <button type="button" disabled={deleteBusy} onClick={() => { setPendingDelete(null); setDeleteError(null); }} data-card className=" px-4 py-2 text-sm text-[var(--text-secondary)] transition hover:bg-[var(--surface-hover)] disabled:opacity-50">
                 {t("announcementsPage.delete.cancel")}
               </button>
-              <button type="button" disabled={deleteBusy} onClick={handleDelete} data-tone="rose" className="rounded-xl border border-[var(--danger-border)] px-4 py-2 text-sm font-medium text-[var(--danger)] transition hover:bg-[var(--danger-bg)] disabled:opacity-50">
+              <button type="button" disabled={deleteBusy} onClick={handleDelete} data-action-button data-variant="danger" className="!px-4 !py-2 !text-sm disabled:opacity-50">
                 {deleteBusy ? t("announcementsPage.delete.deleting") : t("announcementsPage.delete.confirmBtn")}
               </button>
             </div>

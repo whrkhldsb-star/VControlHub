@@ -208,7 +208,7 @@ export function AuditLogClient({ initialActionFilter = "" }: AuditLogClientProps
             type="button"
             onClick={fetchLogs}
             data-tone="accent"
-            className="rounded-full border px-4 py-2 text-sm transition"
+            data-action-button data-variant="secondary" className="!rounded-full"
           >
             {t("audit.search")}
           </button>
@@ -260,7 +260,7 @@ export function AuditLogClient({ initialActionFilter = "" }: AuditLogClientProps
             type="button"
             onClick={fetchLogs}
             data-tone="accent"
-            className="rounded-full border px-4 py-2 text-sm transition"
+            data-action-button data-variant="secondary" className="!rounded-full"
           >
             {t("audit.refresh")}
           </button>
@@ -299,7 +299,7 @@ export function AuditLogClient({ initialActionFilter = "" }: AuditLogClientProps
       {error && (
         <div role="alert" data-tone="rose" className="mb-4 flex items-center justify-between gap-3 rounded-2xl border border-[var(--danger-border)] px-4 py-3 text-sm text-[var(--danger)]">
           <span>{error}</span>
-          <button type="button" onClick={fetchLogs} className="shrink-0 rounded-lg border border-[var(--danger-border)] px-3 py-1 text-xs font-medium text-[var(--danger)] transition hover:bg-[var(--danger)]/10">
+          <button type="button" onClick={fetchLogs} data-action-button data-variant="danger" className="shrink-0 !px-3 !py-1 !text-xs">
             {t("common.retry")}
           </button>
         </div>

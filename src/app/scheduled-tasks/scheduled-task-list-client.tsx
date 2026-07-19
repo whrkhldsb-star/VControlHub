@@ -349,7 +349,7 @@ function CreateTaskForm({ servers, onClose }: { servers: ServerOption[]; onClose
 				<button type="submit" disabled={submitting} data-action-button data-variant="primary" className="min-h-11 px-5 py-2.5 text-sm">
 					{submitting ? t("scheduledTasks.submit.creating") : t("scheduledTasks.submit.create")}
 				</button>
-				<button type="button" onClick={onClose} className="min-h-11 rounded-2xl border border-[var(--border)] px-5 py-2 text-sm text-[var(--text-secondary)] hover:bg-[var(--surface)]/10 transition">
+				<button type="button" onClick={onClose} data-action-button data-variant="secondary" className="min-h-11">
 					{t("scheduledTasksPage.cancel")}
 				</button>
 			</div>

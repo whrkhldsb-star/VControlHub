@@ -36,7 +36,7 @@ export function PermanentDeleteButton({
       <button
         type="button"
         onClick={() => setConfirming(true)}
-        data-tone="rose" className="rounded-lg border border-[var(--danger-border)] px-4 py-2 text-sm font-medium text-[var(--danger)] transition hover:bg-[var(--danger-bg)]"
+        data-tone="rose" data-action-button data-variant="danger"
       >
         {t("filesPage.actions.permanentDelete")}
       </button>
@@ -51,15 +51,14 @@ export function PermanentDeleteButton({
       </span>
       <button
         type="submit"
-        data-tone="rose" className="rounded-lg border border-[var(--danger-border)] px-4 py-2 text-sm font-medium text-[var(--danger)] transition hover:bg-[var(--danger-bg)]"
+        data-tone="rose" data-action-button data-variant="danger"
       >
         {t("common.confirm")}
       </button>
       <button
         type="button"
         onClick={handleCancel}
-        className="rounded-lg border border-[var(--border)] bg-[var(--surface)]/10 px-4 py-2 text-sm font-medium text-[var(--text-secondary)] transition hover:bg-[var(--surface)]/10"
-      >
+       data-action-button data-variant="secondary" className="!px-4 !py-2 !text-sm">
         {t("common.cancel")}
       </button>
       {state.error ? (

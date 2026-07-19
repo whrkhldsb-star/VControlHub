@@ -69,9 +69,8 @@ export function FileListToolbar({
             type="button"
             onClick={onGoUp}
             data-testid="files-list-up-level"
-            className="inline-flex items-center gap-1.5 rounded-lg border border-[var(--border)] bg-[var(--surface)] px-2.5 py-1 text-xs font-medium text-[var(--text-primary)] transition hover:bg-[var(--surface-hover)]"
             title={t("fileListClient.upLevel")}
-          >
+           data-action-button data-variant="secondary" className="inline-flex items-center gap-1.5 !px-2.5 !py-1 !text-xs">
             <span aria-hidden="true">↑</span>
             {t("fileListClient.upLevel")}
           </button>

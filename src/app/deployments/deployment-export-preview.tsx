@@ -56,7 +56,7 @@ export function DeploymentFilePreview({
           type="button"
           data-testid="deploy-export-rollback"
           onClick={() => onCopy(content, activePath)}
-          className="rounded-lg border border-[var(--color-action-border)]/40 px-2 py-1 text-xs text-[var(--text-primary)] hover:bg-[var(--color-action-bg)]/10"
+          data-action-button data-variant="outline" className="!px-2 !py-1 !text-xs"
         >
           {justCopied ? t("deploymentsPage.export.copied") : t("deploymentsPage.export.copyRollback")}
         </button>

@@ -84,7 +84,7 @@ export function HealthDashboardClient({ serverCount, initialSystemHealth }: Prop
 				<div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
 					<div className="text-xs text-[var(--text-muted)]">{t("healthPage.ui.lastRefresh")}: —</div>
 					<div className="flex flex-wrap items-center gap-3">
-						<button type="button" disabled className="inline-flex min-h-11 items-center rounded-lg border border-[var(--border)] bg-[var(--surface)] px-3 text-xs text-[var(--text-muted)] opacity-60">
+						<button type="button" disabled data-action-button data-variant="secondary" className="inline-flex min-h-11 items-center !px-3 !text-xs opacity-60">
 							{t("healthPage.ui.refreshing")}
 						</button>
 					</div>
@@ -232,8 +232,7 @@ export function HealthDashboardClient({ serverCount, initialSystemHealth }: Prop
 						onClick={fetchHealth}
 						disabled={isRefreshing}
 						aria-label={t("healthPage.ui.refreshAria")}
-						className="inline-flex min-h-11 items-center rounded-xl border border-[var(--border)] bg-[var(--surface-elevated)] px-3 text-xs font-medium text-[var(--text-secondary)] transition hover:bg-[var(--surface-hover)] disabled:cursor-not-allowed disabled:opacity-60"
-					>
+					 data-action-button data-variant="secondary" className="inline-flex min-h-11 items-center !px-3 !text-xs disabled:cursor-not-allowed disabled:opacity-60">
 						{isRefreshing ? t("healthPage.ui.refreshing") : t("healthPage.ui.refresh")}
 					</button>
 					<label className="flex min-h-11 items-center gap-2 text-xs text-[var(--text-secondary)]">

@@ -158,7 +158,7 @@ export function DeploymentExportPanel() {
         </label>
         <button
           disabled={pending}
-          className="rounded-lg bg-[var(--color-action-bg)] px-4 py-2 text-sm font-semibold text-[var(--color-action-fg)] transition hover:bg-[var(--color-action-bg)] disabled:cursor-not-allowed disabled:opacity-60"
+          data-action-button data-variant="primary" className="disabled:opacity-60"
         >
           {pending ? t("deploymentsPage.export.generating") : t("deploymentsPage.export.generate")}
         </button>
@@ -192,7 +192,7 @@ export function DeploymentExportPanel() {
               onClick={() => void handleZipDownload()}
               disabled={zipPending || !result.id}
               data-testid="deploy-export-zip"
-              className="rounded-lg border border-[var(--color-action-border)]/40 px-3 py-1.5 text-xs font-semibold text-[var(--text-primary)] transition hover:bg-[var(--color-action-bg)]/10 disabled:cursor-not-allowed disabled:opacity-60"
+              data-action-button data-variant="outline" className="!px-3 !py-1.5 !text-xs disabled:opacity-60"
             >
               {zipPending ? t("deploymentsPage.export.packaging") : t("deploymentsPage.export.downloadZip")}
             </button>

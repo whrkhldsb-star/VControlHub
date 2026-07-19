@@ -215,7 +215,7 @@ export function SystemConfigSection() {
         <button
           onClick={handleExport}
           disabled={exporting}
-          className="px-4 py-2 text-sm rounded-lg bg-[var(--accent)] text-[var(--color-action-fg)] hover:opacity-90 disabled:opacity-50 transition font-medium"
+          data-action-button data-variant="primary" className="disabled:opacity-50"
         >
           {exporting ? t("systemConfig.export.exporting") : t("systemConfig.export.button")}
         </button>
@@ -242,10 +242,7 @@ export function SystemConfigSection() {
             type="file"
             accept=".json"
             onChange={handleFileSelect}
-            className="block w-full text-sm text-[var(--text-secondary)]
-              file:mr-3 file:py-1.5 file:px-4 file:rounded-lg
-              file:border-0 file:bg-[var(--accent)] file:text-[var(--color-action-fg)]
-              hover:file:opacity-90 cursor-pointer"
+            data-action-button data-variant="primary" className="w-full"
           />
           {selectedFileName && (
             <p className="text-xs text-[var(--text-secondary)]">{selectedFileName}</p>
@@ -282,8 +279,7 @@ export function SystemConfigSection() {
             <button
               onClick={handlePreview}
               disabled={previewing}
-              className="px-4 py-2 text-sm rounded-lg border border-[var(--border)] text-[var(--text-primary)] hover:bg-[var(--surface-hover)] disabled:opacity-50 transition"
-            >
+             data-action-button data-variant="secondary" className="!px-4 !py-2 !text-sm disabled:opacity-50">
               {previewing ? t("systemConfig.import.previewing") : t("systemConfig.import.previewButton")}
             </button>
           </div>
@@ -325,7 +321,7 @@ export function SystemConfigSection() {
             <button
               onClick={handleExecute}
               disabled={executing || preview.totalRecords === 0}
-              className="px-4 py-2 text-sm rounded-lg bg-[var(--accent)] text-[var(--color-action-fg)] hover:opacity-90 disabled:opacity-50 transition mt-2 font-medium"
+              data-action-button data-variant="primary" className="mt-2 disabled:opacity-50"
             >
               {executing ? t("systemConfig.import.executing") : t("systemConfig.import.executeButton")}
             </button>

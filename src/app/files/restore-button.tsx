@@ -29,8 +29,7 @@ export function RestoreButton({
       <input type="hidden" name="fileEntryId" value={fileEntryId} />
       <button
         type="submit"
-        data-tone="emerald" className="rounded-lg border border-[var(--success-border)] px-4 py-2 text-sm font-medium text-[var(--success)] transition hover:bg-[var(--success-bg)]"
-      >
+       data-action-button data-variant="success" className="!px-4 !py-2 !text-sm">
         {t("common.restore")}
       </button>
       {state.error ? (

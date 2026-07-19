@@ -60,8 +60,7 @@ export function RollbackDeployButton({ runId, templateName, disabled = false }: 
         onClick={handleRollback}
         disabled={pending || disabled}
         aria-describedby={confirming ? `rollback-deploy-${runId}-warning` : undefined}
-        data-tone="emerald" className="rounded-lg border border-[var(--success-border)] px-3 py-1.5 text-xs font-medium text-[var(--success)] transition hover:bg-[var(--success-bg)] disabled:cursor-not-allowed disabled:opacity-60"
-      >
+       data-action-button data-variant="success" className="!px-3 !py-1.5 !text-xs disabled:cursor-not-allowed disabled:opacity-60">
         {pending ? t("deploymentsPage.rollback.submitting") : confirming ? t("deploymentsPage.rollback.confirmBtn") : t("deploymentsPage.rollback.triggerBtn")}
       </button>
       {confirming ? (

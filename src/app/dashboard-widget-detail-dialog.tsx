@@ -94,7 +94,7 @@ export function DashboardWidgetDetailDialog({
 						type="button"
 						onClick={onClose}
 						aria-label={t("dashboard.widget-detail-close")}
-						className="rounded-lg border border-[var(--border)] bg-[var(--surface-elevated)] px-3 py-1.5 text-sm text-[var(--text-secondary)] transition hover:bg-[var(--surface-hover)]"
+						data-action-button data-variant="secondary" className="!px-3 !py-1.5 !text-sm"
 					>
 						{t("dashboard.widget-detail-close")}
 					</button>

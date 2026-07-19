@@ -117,8 +117,7 @@ export function ContentSearchPanel({
 					type="button"
 					onClick={handleContentSearch}
 					disabled={contentLoading || !searchInput.trim()}
-					className="rounded-lg border border-[var(--color-action-border)]/30 px-4 py-1.5 text-xs font-medium text-[var(--text-primary)] transition hover:bg-[var(--color-action-bg)]/20 disabled:opacity-50"
-				>
+				 data-action-button data-variant="outline" className="!px-4 !py-1.5 !text-xs disabled:opacity-50">
 					{contentLoading ? t("filesBrowserSpa.contentSearching") : t("filesBrowserSpa.searchLabel")}
 				</button>
 			</div>

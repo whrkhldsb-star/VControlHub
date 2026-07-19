@@ -486,8 +486,7 @@ export default function DockerPage({ initialServers }: { initialServers: { id: s
 								ref={removeCancelButtonRef}
 								type="button"
 								onClick={closeRemovalDialog}
-								className="min-h-11 rounded-lg border border-[var(--border)] px-3 py-1.5 text-xs text-[var(--text-secondary)] transition hover:bg-[var(--surface)]/[0.10]"
-							>
+							 data-action-button data-variant="secondary" className="min-h-11 !px-3 !py-1.5 !text-xs">
 								{t("dockerPage.removeDialog.cancel")}
 							</button>
 							<button

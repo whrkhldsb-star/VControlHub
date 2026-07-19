@@ -97,8 +97,7 @@ export function RestoreBackupButton({ backupId, backupType, disabled = false }: 
         type="button"
         disabled={disabled || pending}
         onClick={openConfirm}
-        className="w-fit rounded-lg border border-[var(--danger-border)] px-3 py-1.5 text-xs font-semibold text-[var(--danger)] transition hover:bg-[var(--danger-bg)] disabled:cursor-not-allowed disabled:opacity-50"
-      >
+       data-action-button data-variant="danger" className="w-fit !px-3 !py-1.5 !text-xs disabled:cursor-not-allowed disabled:opacity-50">
         {pending ? t("backupsPage.restore.pending") : t("common.restore")}
       </button>
       {message && (
@@ -169,8 +168,7 @@ export function RestoreBackupButton({ backupId, backupType, disabled = false }: 
                 type="button"
                 disabled={pending || confirmText !== CONFIRM_TEXT}
                 onClick={handleRestore}
-                data-tone="rose" className="min-h-11 rounded-xl border border-[var(--danger-border)] px-4 py-2 text-sm font-semibold text-[var(--danger)] transition hover:bg-[var(--danger-bg)] disabled:cursor-not-allowed disabled:opacity-50"
-              >
+               data-action-button data-variant="danger" className="min-h-11 !px-4 !py-2 !text-sm disabled:cursor-not-allowed disabled:opacity-50">
                 {pending ? t("backupsPage.restore.pending") : t("backupsPage.restore.confirm")}
               </button>
             </div>

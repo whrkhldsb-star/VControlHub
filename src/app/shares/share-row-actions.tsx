@@ -54,7 +54,7 @@ export function ShareRowActions({
 				onClick={handleRevoke}
 				disabled={busy}
 				aria-describedby={confirming ? `revoke-share-${id}-warning` : undefined}
-				data-tone="rose" className="min-h-11 min-w-11 rounded-lg border border-[var(--danger-border)] px-2.5 py-1 text-xs text-[var(--danger)] transition hover:bg-[var(--danger-bg)] disabled:cursor-not-allowed disabled:opacity-50"
+				data-tone="rose" data-action-button data-variant="danger" className="min-h-11 min-w-11 !px-2.5 !py-1 !text-xs disabled:opacity-50"
 			>
 				{busy ? t("sharesPage.rowActions.submitting") : confirming ? t("sharesPage.rowActions.confirm") : t("sharesPage.rowActions.revoke")}
 			</button>

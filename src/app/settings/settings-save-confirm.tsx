@@ -278,8 +278,7 @@ export function HighRiskConfirmModal({
             onClick={onCancel}
             disabled={busy}
             data-action="cancel"
-            className="rounded-lg border border-[var(--border)] bg-[var(--surface-elevated)] px-4 py-1.5 text-xs text-[var(--text-secondary)] transition hover:bg-[var(--surface-hover)] hover:text-[var(--text-primary)] disabled:opacity-50"
-          >
+           data-action-button data-variant="secondary" className="!px-4 !py-1.5 !text-xs disabled:opacity-50">
             {t("settingsClient.confirmCancel")}
           </button>
           <button

@@ -174,7 +174,7 @@ export function FileVersionHistoryPanel({
             disabled={busyId === "manual"}
             onClick={() => void createManual()}
             data-tone="cyan"
-            className="rounded-xl border border-[var(--color-action-border)]/30 px-3 py-2 text-xs font-medium text-[var(--color-action-fg)] hover:bg-[var(--color-action-bg)]/15 disabled:opacity-50"
+            data-action-button data-variant="outline" className="!px-3 !py-2 !text-xs disabled:opacity-50"
           >
             {busyId === "manual"
               ? t("fileVersionHistory.snapshotPending")

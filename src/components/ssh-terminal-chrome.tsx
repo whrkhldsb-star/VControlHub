@@ -12,7 +12,7 @@ const chipBase =
 const chipIdle =
 	"border-[var(--border-subtle)] light:border-[var(--border)] bg-[var(--surface-subtle)] light:bg-[var(--surface)] text-[var(--text-secondary)] light:text-[var(--text-muted)] hover:bg-[var(--surface-elevated)] light:hover:bg-[var(--surface-hover)]/50";
 const chipActive =
-	"border-[var(--color-action-border)]/30 bg-[var(--color-action-bg)]/10 text-[var(--color-action-fg)]";
+	"border-[var(--color-action-border)] bg-[var(--color-action-bg)] text-[var(--color-action)]";
 
 export function SshTerminalToolbar({
 	serverName,
@@ -88,7 +88,7 @@ export function SshTerminalToolbar({
 						type="button"
 						onClick={onReconnect}
 						data-tone="cyan"
-						className="min-h-9 rounded-full border border-[var(--color-action-border)]/30 px-3 py-1 text-xs text-[var(--color-action-fg)] transition hover:bg-[var(--color-action-bg)]/20"
+						data-action-button data-variant="outline" className="min-h-9 !rounded-full !px-3 !py-1 !text-xs"
 					>
 						{t("sshTerminalModal.reconnect")}
 					</button>
@@ -151,15 +151,14 @@ export function SshTerminalSearchBar({
 				type="button"
 				onClick={() => onSearch("next")}
 				data-tone="cyan"
-				className="min-h-10 rounded-xl border border-[var(--color-action-border)]/20 px-3 text-xs text-[var(--color-action-fg)] hover:bg-[var(--color-action-bg)]/20"
+				data-action-button data-variant="outline" className="min-h-10 !px-3 !text-xs"
 			>
 				{t("sshTerminalModal.searchNext")}
 			</button>
 			<button
 				type="button"
 				onClick={onClear}
-				className="min-h-10 rounded-xl border border-[var(--border-subtle)] light:border-[var(--border)] px-3 text-xs text-[var(--text-muted)] hover:bg-[var(--surface-subtle)] light:hover:bg-[var(--surface)]"
-			>
+			 data-action-button data-variant="secondary" className="min-h-10 !px-3 !text-xs">
 				{t("sshTerminalModal.searchClear")}
 			</button>
 		</div>

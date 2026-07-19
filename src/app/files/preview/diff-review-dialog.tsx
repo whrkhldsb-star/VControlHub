@@ -55,8 +55,7 @@ export function DiffReviewDialog({
 						type="button"
 						onClick={onSave}
 						disabled={busy || diffRows.length === 0}
-						data-tone="emerald" className="rounded-lg border border-[var(--success-border)] px-3 py-1.5 text-xs font-medium text-[var(--success)] disabled:opacity-50"
-					>
+					 data-action-button data-variant="success" className="!px-3 !py-1.5 !text-xs disabled:opacity-50">
 						{saveStatus === "saving" ? t("textPreview.button.saving") : t("textPreview.button.confirmSave")}
 					</button>
 					{canReloadAfterSave ? (

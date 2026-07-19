@@ -171,9 +171,8 @@ export function SshTerminalManager({
 							type="button"
 							onClick={onClose}
 							aria-label={t("sshTerminalModal.ariaClose")}
-							className="min-h-9 min-w-9 rounded-lg border border-[var(--border-subtle)] light:border-[var(--border)] bg-[var(--surface-subtle)] light:bg-[var(--surface)] px-3 py-1.5 text-xs text-[var(--text-secondary)] light:text-[var(--text-muted)] transition hover:bg-[var(--surface-elevated)] light:hover:bg-[var(--surface-hover)]/50"
 							title={t("sshTerminalModal.close")}
-						>
+						 data-action-button data-variant="secondary" className="min-h-9 min-w-9 !px-3 !py-1.5 !text-xs">
 							✕
 						</button>
 					</div>

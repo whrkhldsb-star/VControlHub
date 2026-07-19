@@ -46,7 +46,7 @@ export function ResendDeployButton({ templateId, variables, serverIds, reason, l
 				type="button"
 				onClick={handleResend}
 				disabled={pending}
-				data-tone="cyan" className="rounded-lg border border-[var(--color-action-border)]/30 px-3 py-1.5 text-xs font-medium text-[var(--text-secondary)] transition hover:bg-[var(--color-action-bg)]/15 disabled:cursor-not-allowed disabled:opacity-60"
+				data-tone="cyan" data-action-button data-variant="outline" className="!px-3 !py-1.5 !text-xs disabled:opacity-60"
 			>
 				{pending ? t("deploymentsPage.resend.submitting") : (label || t("deploymentsPage.resend.triggerBtn"))}
 			</button>

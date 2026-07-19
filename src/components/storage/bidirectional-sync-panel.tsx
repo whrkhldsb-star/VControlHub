@@ -263,9 +263,11 @@ export function BidirectionalSyncPanel({ servers }: { servers: ServerOption[] })
       </div>
       <button
         type="button"
-        className="rounded-md border border-[var(--border)] bg-[var(--surface-elevated)] px-3 py-1.5 text-xs font-medium text-[var(--text-secondary)] hover:bg-[var(--surface-hover)] disabled:opacity-50"
         disabled={!sourceServerId || !targetServerId || busyId === "create" || servers.length === 0}
         onClick={() => void createJob()}
+        data-action-button
+        data-variant="secondary"
+        className="!px-3 !py-1.5 !text-xs disabled:opacity-50"
       >
         {busyId === "create" ? t("filesPage.syncJobs.creating") : t("filesPage.syncJobs.create")}
       </button>
@@ -306,7 +308,7 @@ export function BidirectionalSyncPanel({ servers }: { servers: ServerOption[] })
                   </select>
                   <button
                     type="button"
-                    className="rounded border border-[var(--border)] px-2 py-1 hover:bg-[var(--surface-hover)] disabled:opacity-50"
+                    data-action-button data-variant="secondary" className="!rounded-md !px-2 !py-1 !text-xs disabled:opacity-50"
                     disabled={busyId === `rep-${job.id}`}
                     onClick={() => void openReport(job.id)}
                   >
@@ -314,7 +316,7 @@ export function BidirectionalSyncPanel({ servers }: { servers: ServerOption[] })
                   </button>
                   <button
                     type="button"
-                    className="rounded border border-[var(--border)] px-2 py-1 hover:bg-[var(--surface-hover)] disabled:opacity-50"
+                    data-action-button data-variant="secondary" className="!rounded-md !px-2 !py-1 !text-xs disabled:opacity-50"
                     disabled={busyId === job.id || job.status === "RUNNING"}
                     onClick={() => void runJob(job.id)}
                   >
@@ -322,7 +324,7 @@ export function BidirectionalSyncPanel({ servers }: { servers: ServerOption[] })
                   </button>
                   <button
                     type="button"
-                    className="rounded border border-[var(--border)] px-2 py-1 hover:bg-[var(--surface-hover)] disabled:opacity-50"
+                    data-action-button data-variant="secondary" className="!rounded-md !px-2 !py-1 !text-xs disabled:opacity-50"
                     disabled={busyId === job.id}
                     onClick={() => void removeJob(job.id)}
                   >

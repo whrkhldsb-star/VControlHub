@@ -68,8 +68,7 @@ export function FindBar({
 				<button
 					type="button"
 					onClick={onJumpToLine}
-					className="rounded-lg border border-[var(--border)] bg-[var(--surface)] px-2 py-1 text-xs text-[var(--text-secondary)] hover:bg-[var(--surface-hover)] light:hover:bg-[var(--surface)]"
-				>
+				 data-action-button data-variant="secondary" className="!px-2 !py-1 !text-xs">
 					{t("textPreview.find.jumpButton")}
 				</button>
 			</div>

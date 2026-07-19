@@ -164,7 +164,7 @@ export function JobEventsDialog({ jobId, open, onClose }: JobEventsDialogProps) 
             type="button"
             onClick={onClose}
             aria-label={t("jobEventsDialog.closeAria")}
-            className="rounded-lg border border-[var(--border)] px-3 py-1.5 text-xs text-[var(--text-secondary)] hover:bg-[var(--surface-hover)]"
+            data-action-button data-variant="secondary" className="!px-3 !py-1.5 !text-xs"
           >
             {t("jobEventsDialog.close")}
           </button>

@@ -302,9 +302,8 @@ export function ServerOverviewCard({
               <button
                 type="button"
                 onClick={closeDialog}
-                className="shrink-0 rounded-lg border border-[var(--border)] bg-[var(--surface-elevated)] px-3 py-1.5 text-xs text-[var(--text-secondary)] transition hover:bg-[var(--surface-hover)] disabled:opacity-60"
                 disabled={isPending}
-              >
+               data-action-button data-variant="secondary" className="shrink-0 !px-3 !py-1.5 !text-xs disabled:opacity-60">
                 {t("serverOverviewCard.collapseDetails")}
               </button>
             </div>

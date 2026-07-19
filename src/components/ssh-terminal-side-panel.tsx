@@ -63,7 +63,7 @@ export function SshTerminalSidePanel({
 						onClick={addFavorite}
 						aria-label={t("sshTerminalModal.favoritesAdd")}
 						data-tone="cyan"
-						className="min-h-11 min-w-11 shrink-0 rounded-lg border border-[var(--color-action-border)]/20 px-2 py-1 text-[13px] text-[var(--color-action-fg)] transition hover:bg-[var(--color-action-bg)]/20"
+						data-action-button data-variant="outline" className="min-h-11 min-w-11 shrink-0 !px-2 !py-1 !text-[13px]"
 					>
 						+
 					</button>

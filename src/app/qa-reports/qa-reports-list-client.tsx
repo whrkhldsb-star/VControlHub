@@ -287,7 +287,7 @@ export function QaReportsListClient({
 								type="button"
 								onClick={refresh}
 								disabled={refreshing}
-								className="rounded-lg border border-[var(--border)] px-3 py-1.5 text-xs text-[var(--text-secondary)] hover:bg-[var(--surface-hover)] disabled:opacity-50"
+								data-action-button data-variant="secondary" className="!px-3 !py-1.5 !text-xs disabled:opacity-50"
 							>
 								{refreshing ? t("qaReportsPage.refreshing") : t("qaReportsPage.refreshReadHermes")}
 							</button>

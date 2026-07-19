@@ -303,7 +303,7 @@ export function ItsmPageClient({
 										<div className="flex flex-wrap gap-2">
 											<button
 												type="button"
-												className="rounded-md border px-2 py-1 text-xs"
+												data-action-button data-variant="secondary" className="!rounded-md !px-2 !py-1 !text-xs"
 												disabled={busy}
 												onClick={() => void toggleEnabled(row)}
 											>
@@ -311,7 +311,7 @@ export function ItsmPageClient({
 											</button>
 											<button
 												type="button"
-												className="rounded-md border px-2 py-1 text-xs"
+												data-action-button data-variant="secondary" className="!rounded-md !px-2 !py-1 !text-xs"
 												disabled={testingId === row.id}
 												onClick={() => void test(row.id)}
 											>

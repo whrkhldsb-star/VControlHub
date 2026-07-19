@@ -51,28 +51,24 @@ export function AiChatHeader({
       <div className="flex items-center gap-1.5">
         <button
           onClick={onToggleSettings}
-          className="h-8 rounded-lg border border-transparent px-2.5 text-xs font-medium text-[var(--text-secondary)] transition hover:border-[var(--border)] hover:bg-[var(--surface-elevated)] hover:text-[var(--text-primary)]"
-        >
+         data-action-button data-variant="secondary" className="h-8 !px-2.5 !text-xs">
           {t("aiPage.settings")}
         </button>
         <button
           onClick={onClearMessages}
-          className="h-8 rounded-lg border border-transparent px-2.5 text-xs font-medium text-[var(--text-secondary)] transition hover:border-[var(--danger-border)] hover:bg-[var(--danger-bg)] hover:text-[var(--danger)]"
           title={t("aiPage.clearMessagesTitle")}
-        >
+         data-action-button data-variant="danger" className="h-8 !px-2.5 !text-xs">
           {t("aiPage.clear")}
         </button>
         <button
           onClick={onRenameConv}
-          className="h-8 rounded-lg border border-transparent px-2.5 text-xs font-medium text-[var(--text-secondary)] transition hover:border-[var(--border)] hover:bg-[var(--surface-elevated)] hover:text-[var(--text-primary)]"
-        >
+         data-action-button data-variant="secondary" className="h-8 !px-2.5 !text-xs">
           {t("aiPage.rename")}
         </button>
         <button
           onClick={onExportConv}
-          className="h-8 rounded-lg border border-transparent px-2.5 text-xs font-medium text-[var(--text-secondary)] transition hover:border-[var(--border)] hover:bg-[var(--surface-elevated)] hover:text-[var(--text-primary)]"
           title={t("aiPage.exportTitle")}
-        >
+         data-action-button data-variant="secondary" className="h-8 !px-2.5 !text-xs">
           {t("aiPage.export")}
         </button>
       </div>

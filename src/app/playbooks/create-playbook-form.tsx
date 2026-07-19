@@ -307,8 +307,7 @@ export function CreatePlaybookForm({
 				<button
 					type="button"
 					onClick={onClose}
-					className="min-h-11 rounded-2xl border border-[var(--border)] px-5 py-2 text-sm text-[var(--text-secondary)] hover:bg-[var(--surface-hover)] transition"
-				>
+				 data-action-button data-variant="secondary" className="min-h-11 !px-5 !py-2 !text-sm">
 					{t("playbooksPage.createForm.cancel")}
 				</button>
 			</div>

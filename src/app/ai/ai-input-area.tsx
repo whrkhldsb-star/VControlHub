@@ -135,10 +135,9 @@ export function AiInputArea({
           <button
             type="button"
             onClick={handleStopGeneration}
-            className="flex h-10 w-10 items-center justify-center rounded-xl border border-[var(--danger-border)] bg-[var(--danger-bg)] text-[var(--danger)] transition hover:opacity-90"
             aria-label={t("aiPage.stopGenTitle")}
             title={t("aiPage.stopGenTitle")}
-          >
+           data-action-button data-variant="danger" className="flex h-10 w-10 items-center justify-center">
             <svg className="w-5 h-5" fill="currentColor" width="24" height="24" viewBox="0 0 24 24">
               <rect x="6" y="6" width="12" height="12" rx="2" />
             </svg>

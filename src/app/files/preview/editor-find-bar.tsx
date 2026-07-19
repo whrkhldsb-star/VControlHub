@@ -81,8 +81,7 @@ export function EditorFindBar({ inputRef, find, onQueryChange, onMove, onClose }
 				onClick={onClose}
 				aria-label={t("textPreview.editor.findClose")}
 				title={t("textPreview.editor.findClose")}
-				className="rounded-lg border border-[var(--border)] bg-[var(--surface)] px-2 py-1 text-xs text-[var(--text-secondary)] hover:bg-[var(--surface-hover)]"
-			>
+			 data-action-button data-variant="secondary" className="!px-2 !py-1 !text-xs">
 				✕
 			</button>
 		</div>

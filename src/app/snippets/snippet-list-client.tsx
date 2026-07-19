@@ -220,7 +220,7 @@ export function SnippetList({ snippets: initial }: { snippets: Snippet[] }) {
               <button type="button" disabled={deleteBusy} onClick={() => { setPendingDelete(null); setDeleteError(null); }} data-card className="min-h-11 px-4 py-2 text-sm text-[var(--text-secondary)] transition hover:bg-[var(--surface-hover)] disabled:opacity-50">
                 {t("snippetsPage.deleteDialog.cancel")}
               </button>
-              <button type="button" disabled={deleteBusy} onClick={handleDelete} data-tone="rose" className="min-h-11 rounded-xl border border-[var(--danger-border)] px-4 py-2 text-sm font-medium text-[var(--danger)] transition hover:bg-[var(--danger-bg)] disabled:opacity-50">
+              <button type="button" disabled={deleteBusy} onClick={handleDelete} data-tone="rose" data-action-button data-variant="danger" className="min-h-11 disabled:opacity-50">
                 {deleteBusy ? t("snippetsPage.deleteDialog.deleting") : t("snippetsPage.deleteDialog.confirm")}
               </button>
             </div>

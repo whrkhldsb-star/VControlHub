@@ -130,8 +130,7 @@ export function FileBatchToolbar({
                 type="button"
                 onClick={onConfirmDelete}
                 disabled={isPending}
-                data-tone="rose" className="rounded-lg border border-[var(--danger-border)] px-4 py-2 text-sm font-medium text-[var(--danger)] transition hover:bg-[var(--danger-bg)] disabled:opacity-50"
-              >
+               data-action-button data-variant="danger" className="!px-4 !py-2 !text-sm disabled:opacity-50">
                 {copy.confirmDelete}
               </button>
               <button
@@ -206,7 +205,7 @@ export function FileBatchToolbar({
                   !moveTargetDir.trim() || isPending || moveProgress.done > 0
                 }
                 data-tone="accent"
-                className="rounded-lg border px-4 py-2 text-sm font-medium transition disabled:cursor-not-allowed disabled:opacity-50"
+                data-action-button data-variant="primary" className="disabled:opacity-50"
               >
                 {copy.confirmMove}
               </button>
@@ -231,17 +230,14 @@ export function FileBatchToolbar({
               <button
                 type="button"
                 onClick={onClearSelection}
-                className="rounded-lg border border-[var(--border)] bg-[var(--surface)]/10 px-4 py-2 text-sm font-medium text-[var(--text-secondary)] transition hover:bg-[var(--surface)]/10"
-              >
+               data-action-button data-variant="secondary" className="!px-4 !py-2 !text-sm">
                 {copy.clearSelection}
               </button>
               {selectedEntriesCanMove ? (
                 <button
                   type="button"
                   onClick={onCompressSelected}
-                  data-tone="cyan"
-                  className="rounded-lg border border-[var(--color-action-border)]/30 px-4 py-2 text-sm font-medium text-[var(--text-primary)] transition hover:bg-[var(--color-action-bg)]/20"
-                >
+                 data-action-button data-variant="outline" className="!px-4 !py-2 !text-sm">
                   {copy.compressSelected}
                 </button>
               ) : null}
@@ -249,7 +245,7 @@ export function FileBatchToolbar({
                 <button
                   type="button"
                   onClick={() => setBatchAction("confirm-delete")}
-                  data-tone="rose" className="rounded-lg border border-[var(--danger-border)] px-4 py-2 text-sm font-medium text-[var(--danger)] transition hover:bg-[var(--danger-bg)]"
+                  data-tone="rose" data-action-button data-variant="danger"
                 >
                   {copy.deleteSelected}
                 </button>

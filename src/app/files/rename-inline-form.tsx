@@ -133,15 +133,14 @@ export function RenameInlineForm({
         type="submit"
         disabled={!newName.trim() || newName === currentName}
         data-tone="accent"
-        className="rounded-lg border px-4 py-2 text-sm font-medium transition disabled:cursor-not-allowed disabled:opacity-50"
+        data-action-button data-variant="primary" className="disabled:opacity-50"
       >
         {t("renameInlineForm.confirm")}
       </button>
       <button
         type="button"
         onClick={handleCancel}
-        className="rounded-lg border border-[var(--border)] bg-[var(--surface)]/10 px-4 py-2 text-sm font-medium text-[var(--text-secondary)] transition hover:bg-[var(--surface)]/10"
-      >
+       data-action-button data-variant="secondary" className="!px-4 !py-2 !text-sm">
         {t("renameInlineForm.cancel")}
       </button>
     </form>

@@ -78,9 +78,8 @@ export function BatchServerActionPanel({
         <button
           type="button"
           onClick={toggleAll}
-          className="rounded-lg border border-[var(--border)] px-3 py-1.5 text-[var(--text-secondary)] transition hover:bg-[var(--surface-hover)]"
           aria-pressed={allSelected}
-        >
+         data-action-button data-variant="secondary" className="!px-3 !py-1.5">
           {allSelected ? t("serversPage.batchPanel.clear") : t("serversPage.batchPanel.selectAll")}
         </button>
         {someSelected ? <span aria-hidden="true">·</span> : null}

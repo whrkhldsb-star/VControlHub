@@ -237,7 +237,7 @@ export function MediaImageUploadPanel() {
 					<p className="mt-1 text-xs text-[var(--success)]/70">{t("mediaUploadPanel.subheading")}</p>
 				</div>
 				<div className="flex flex-wrap items-center gap-2 text-xs">
-					<button type="button" onClick={loadNodes} disabled={loadingNodes} className="rounded-lg border border-[var(--success-border)] px-3 py-2 text-[var(--success)] transition hover:bg-[var(--success-bg)] disabled:opacity-60">
+					<button type="button" onClick={loadNodes} disabled={loadingNodes} data-action-button data-variant="success" className="!px-3 !py-2 disabled:opacity-60">
 						{loadingNodes ? t("mediaUploadPanel.loadingNodes") : nodesLoaded ? t("mediaUploadPanel.refreshNodes") : t("mediaUploadPanel.loadNodes")}
 					</button>
 					<button type="button" onClick={() => fileInputRef.current?.click()} disabled={uploading} className="rounded-lg bg-[var(--success)] px-4 py-2 font-medium text-[var(--text-primary)] transition hover:bg-[var(--success-bg)] hover:text-[var(--success)] disabled:opacity-60">

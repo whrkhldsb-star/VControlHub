@@ -42,7 +42,7 @@ export function ShareAccessLogsButton({ shareId }: { shareId: string }) {
       <button
         type="button"
         onClick={toggle}
-        className="rounded-lg border border-[var(--border)] px-2.5 py-1 text-xs text-[var(--text-secondary)] transition hover:bg-[var(--surface-hover)]"
+        data-action-button data-variant="secondary" className="!px-2.5 !py-1 !text-xs"
       >
         {t("sharesPage.accessLogs.view")}
       </button>

@@ -279,7 +279,7 @@ export function TeamWorkspaceSection({ canManage }: { canManage: boolean }) {
 						<h3 className="text-sm font-semibold text-[var(--text-primary)]">{t("settingsTeam.createTitle")}</h3>
 						<input value={name} aria-label={t("settingsTeam.namePlaceholder")} onChange={(e) => setName(e.target.value)} placeholder={t("settingsTeam.namePlaceholder")} className="w-full rounded-xl border border-[var(--border)] bg-[var(--surface)] px-3 py-2 text-sm" />
 						<input value={slug} aria-label={t("settingsTeam.slugPlaceholder")} onChange={(e) => setSlug(e.target.value)} placeholder={t("settingsTeam.slugPlaceholder")} className="w-full rounded-xl border border-[var(--border)] bg-[var(--surface)] px-3 py-2 text-sm" />
-						<button type="button" disabled={busy || !name.trim()} onClick={createTeam} data-tone="accent" className="min-h-10 rounded-xl bg-[var(--accent)] text-[var(--color-action-fg)] px-4 py-2 text-sm font-medium disabled:opacity-60 hover:opacity-90 transition">{t("settingsTeam.createButton")}</button>
+						<button type="button" disabled={busy || !name.trim()} onClick={createTeam} data-tone="accent" data-action-button data-variant="primary" className="min-h-10 disabled:opacity-60">{t("settingsTeam.createButton")}</button>
 					</div>
 					<div className="space-y-2">
 						<h3 className="text-sm font-semibold text-[var(--text-primary)]">{t("settingsTeam.addMemberTitle")}</h3>
@@ -291,7 +291,7 @@ export function TeamWorkspaceSection({ canManage }: { canManage: boolean }) {
 							<option value="member">member</option>
 							<option value="admin">admin</option>
 						</select>
-						<button type="button" disabled={busy || !targetTeamId || !memberUsername.trim()} onClick={addMember} data-tone="accent" className="min-h-10 rounded-xl bg-[var(--accent)] text-[var(--color-action-fg)] px-4 py-2 text-sm font-medium disabled:opacity-60 hover:opacity-90 transition">{t("settingsTeam.addMemberButton")}</button>
+						<button type="button" disabled={busy || !targetTeamId || !memberUsername.trim()} onClick={addMember} data-tone="accent" data-action-button data-variant="primary" className="min-h-10 disabled:opacity-60">{t("settingsTeam.addMemberButton")}</button>
 					</div>
 				</div>
 			)}

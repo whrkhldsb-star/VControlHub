@@ -211,7 +211,7 @@ export function FilesBrowserSpa({
                 setSearchInput("");
                 fetchFiles(data.currentPath);
               }}
-              className="mt-2 rounded-xl border border-[var(--border)] bg-[var(--surface-elevated)] px-4 py-2 text-xs font-medium text-[var(--text-secondary)] transition hover:bg-[var(--surface-hover)]"
+              data-action-button data-variant="secondary" className="mt-2 !text-xs"
             >
               {t("filesBrowserSpa.clear")}
             </button>
@@ -244,7 +244,7 @@ export function FilesBrowserSpa({
                     )
                   }
                   disabled={loading}
-                  data-tone="emerald" className="rounded-lg border border-[var(--success-border)] px-4 py-2 text-sm font-medium text-[var(--success)] transition hover:bg-[var(--success-bg)] disabled:cursor-not-allowed disabled:opacity-60"
+                  data-action-button data-variant="success" className="disabled:opacity-60"
                 >
                   {loading ? t("filesBrowserSpa.refreshing") : `↻ ${refreshLabel}`}
                 </button>
@@ -281,7 +281,7 @@ export function FilesBrowserSpa({
                         ? t("filesBrowserSpa.cannotCreateFolderNoPermission")
                         : t("filesBrowserSpa.cannotCreateFolderNoNode")
                     }
-                    className="cursor-not-allowed rounded-lg border border-[var(--border)] bg-[var(--surface)]/10 px-4 py-2 text-sm font-medium text-[var(--text-secondary)]"
+                    data-action-button data-variant="secondary" className="cursor-not-allowed opacity-60"
                   >
                     {t("filesBrowserSpa.createFolder")}
                   </button>

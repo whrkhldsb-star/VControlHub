@@ -81,8 +81,7 @@ export function ArchivePreviewClient({
 					type="button"
 					onClick={loadArchiveContents}
 					disabled={loading}
-					data-tone="cyan" className="rounded-xl border border-[var(--color-action-border)]/30 px-4 py-2 text-sm font-medium text-[var(--text-primary)] transition hover:bg-[var(--color-action-bg)]/20 disabled:opacity-50 disabled:cursor-not-allowed"
-				>
+				 data-action-button data-variant="outline" className="!px-4 !py-2 !text-sm disabled:opacity-50 disabled:cursor-not-allowed">
 					{loading ? t("archivePreview.loading") : entries ? t("archivePreview.refreshList") : t("archivePreview.title")}
 				</button>
 				{entries && entries.length > 0 && driver === "LOCAL" ? (
@@ -90,8 +89,7 @@ export function ArchivePreviewClient({
 						type="button"
 						onClick={handleExtract}
 						disabled={extracting}
-						data-tone="emerald" className="rounded-xl border border-[var(--success-border)] px-4 py-2 text-sm font-medium text-[var(--success)] transition hover:bg-[var(--success-bg)] disabled:opacity-50 disabled:cursor-not-allowed"
-					>
+					 data-action-button data-variant="success" className="!px-4 !py-2 !text-sm disabled:opacity-50 disabled:cursor-not-allowed">
 						{extracting ? t("archivePreview.extracting") : t("archivePreview.extract")}
 					</button>
 				) : null}
