@@ -87,10 +87,10 @@ export function getPublicAria2Error(error: unknown): string {
 			return MISSING_ARIA2_BINARY_MESSAGE;
 		}
 		if (error.message.includes("ARIA2_RPC_SECRET")) {
-			return "aria2 RPC secret not configured, cannot start relay download service";
+			return "aria2 RPC 密钥未配置，无法启动中继下载服务。请在设置中配置 ARIA2_RPC_SECRET。";
 		}
 	}
-	return "aria2 relay download service failed to start; please check service logs";
+	return "aria2 中继下载服务启动失败。请检查 aria2 进程是否运行，或前往「运维自动化 → 任务中心」查看详细日志。";
 }
 
 /* ── Aria2 RPC Types ──────────────────────────────────────── */
