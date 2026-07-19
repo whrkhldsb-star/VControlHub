@@ -54,6 +54,7 @@ const {
   updateBackupRecordStatus,
   voidBackupRecord,
   prepareBackupRecordRetry,
+  abandonStalePendingBackupRecords,
   restoreBackupRecord,
   listBackupRecords,
   getBackupRecord,
@@ -230,6 +231,30 @@ describe("backup service", () => {
     expect(mockPrisma.backupRecord.updateMany).toHaveBeenCalledWith({
       where: { id: "bak-pending", status: { in: ["PENDING", "FAILED"] } },
       data: { status: "FAILED", errorMessage: "Voided: stale queued record" },
+    });
+  });
+
+  it("abandons orphan PENDING backups older than the timeout window", async () => {
+    mockPrisma.backupRecord.findMany.mockResolvedValueOnce([{ id: "stale-1" }, { id: "stale-2" }]);
+    mockPrisma.backupRecord.updateMany
+      .mockResolvedValueOnce({ count: 1 })
+      .mockResolvedValueOnce({ count: 1 });
+
+    const result = await abandonStalePendingBackupRecords({
+      olderThanMs: 60_000,
+      reason: "timeout",
+    });
+
+    expect(result).toEqual({ abandoned: 2, ids: ["stale-1", "stale-2"] });
+    expect(mockPrisma.backupRecord.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({ status: "PENDING" }),
+        take: 50,
+      }),
+    );
+    expect(mockPrisma.backupRecord.updateMany).toHaveBeenCalledWith({
+      where: { id: "stale-1", status: "PENDING" },
+      data: { status: "FAILED", errorMessage: "Voided: timeout" },
     });
   });
 

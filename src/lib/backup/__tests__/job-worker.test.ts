@@ -48,6 +48,7 @@ vi.mock("@/lib/backup/service", () => ({
   restoreBackupRecord: mocks.restoreBackupRecord,
   drillBackupRecord: mocks.drillBackupRecord,
   pruneOldBackupRecordsNow: mocks.pruneOldBackupRecordsNow,
+  abandonStalePendingBackupRecords: vi.fn().mockResolvedValue({ abandoned: 0, ids: [] }),
 }));
 
 const { runBackupJobWorkerOnce, BACKUP_CREATE_JOB_TYPE } = await import("../job-worker");

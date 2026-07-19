@@ -7,16 +7,28 @@ export async function snapshotMetrics(serverId: string, cpu: number, mem: number
   });
 }
 
-/** Persist one fleet sample in a single batch. Offline nodes are explicit
- * discontinuities; warning nodes without metrics are omitted rather than
- * fabricating zero load. */
+/**
+ * Persist one fleet sample in a single batch.
+ *
+ * Offline nodes are explicit discontinuities (`isOnline=false`).
+ * Warning nodes without metrics (TCP up, SSH auth/command failed) are also
+ * recorded as offline samples — otherwise the chart/status page looks like
+ * the host "vanished" after the last successful poll, even though health
+ * collection still runs every few minutes.
+ */
 export async function snapshotHealthOverview(overview: HealthOverview) {
   const data = overview.servers.flatMap((server) => {
     if (!server.enabled) return [];
     if (server.status === "offline") {
       return [{ serverId: server.serverId, cpuUsage: 0, memUsage: 0, diskUsage: 0, isOnline: false }];
     }
-    if (server.cpu === undefined || server.mem === undefined || server.diskMax === undefined) return [];
+    // SSH auth / collect failure still means "not online for metrics".
+    if (server.cpu === undefined || server.mem === undefined || server.diskMax === undefined) {
+      if (server.status === "warning" || server.status === "unknown") {
+        return [{ serverId: server.serverId, cpuUsage: 0, memUsage: 0, diskUsage: 0, isOnline: false }];
+      }
+      return [];
+    }
     return [{
       serverId: server.serverId,
       cpuUsage: server.cpu,

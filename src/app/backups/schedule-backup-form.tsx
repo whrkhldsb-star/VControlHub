@@ -201,7 +201,10 @@ export function ScheduleBackupForm() {
 				{loadingList ? (
 					<p className="text-xs text-[var(--text-muted)]">…</p>
 				) : schedules.length === 0 ? (
-					<p className="text-xs text-[var(--text-muted)]">{t("backupsPage.scheduleList.empty")}</p>
+					<div className="space-y-1 py-1">
+						<p className="text-xs text-[var(--text-muted)]">{t("backupsPage.scheduleList.empty")}</p>
+						<p className="text-xs text-[var(--text-muted)]">{t("backupsPage.scheduleList.emptyHint")}</p>
+					</div>
 				) : (
 					<div className="divide-y divide-[var(--border)] rounded-lg border border-[var(--border)]">
 						{schedules.map((s) => (

@@ -1,6 +1,7 @@
 import { Prisma } from "@prisma/client";
 
 import {
+  abandonStalePendingBackupRecords,
   getBackupRecord,
   drillBackupRecord,
   pruneOldBackupRecordsNow,
@@ -22,6 +23,7 @@ export const BACKUP_DRILL_JOB_TYPE = "backup.drill";
 
 const BACKUP_JOB_TYPES = [BACKUP_CREATE_JOB_TYPE, BACKUP_RESTORE_JOB_TYPE, BACKUP_RETENTION_JOB_TYPE, BACKUP_DRILL_JOB_TYPE];
 const DEFAULT_POLL_MS = 5_000;
+const STALE_PENDING_SWEEP_MS = 15 * 60_000;
 const WORKER_ID = `${config.app.hostname || "vcontrolhub"}:backup:${process.pid}`;
 // TR-002 R2: 跨 worker lease 公式统一。computeLeaseMs 默认返 preset (= 30s, 等同原 LEASE_MS)。
 const LEASE_MS = computeLeaseMs("backup");
@@ -62,7 +64,9 @@ function parseRetentionPayload(payload: Prisma.JsonValue): BackupRetentionPayloa
 }
 
 let timer: NodeJS.Timeout | null = null;
+let staleSweepTimer: NodeJS.Timeout | null = null;
 let running = false;
+let sweepingStale = false;
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return Boolean(value && typeof value === "object" && !Array.isArray(value));
@@ -199,6 +203,33 @@ export async function runBackupJobWorkerOnce() {
   }
 }
 
+async function sweepStalePendingBackupsOnce(reason = "interval") {
+  if (sweepingStale) return { abandoned: 0, ids: [] as string[] };
+  sweepingStale = true;
+  try {
+    const result = await abandonStalePendingBackupRecords({
+      olderThanMs: 24 * 60 * 60 * 1000,
+      reason: "Stale PENDING backup abandoned after 24h without worker claim",
+    });
+    if (result.abandoned > 0) {
+      logger.warn("abandoned stale PENDING backup records", {
+        reason,
+        abandoned: result.abandoned,
+        ids: result.ids,
+      });
+    }
+    return result;
+  } catch (error) {
+    logger.error("stale PENDING backup sweep failed", {
+      reason,
+      error: error instanceof Error ? error.message : String(error),
+    });
+    return { abandoned: 0, ids: [] as string[] };
+  } finally {
+    sweepingStale = false;
+  }
+}
+
 export function startBackupJobWorker(options: { pollMs?: number } = {}) {
   if (timer) return;
   const pollMs = options.pollMs ?? DEFAULT_POLL_MS;
@@ -208,11 +239,26 @@ export function startBackupJobWorker(options: { pollMs?: number } = {}) {
     });
   }, pollMs);
   timer.unref?.();
+
+  // One-shot + periodic cleanup for orphan PENDING records (no durable job left).
+  void sweepStalePendingBackupsOnce("startup").catch(() => undefined);
+  staleSweepTimer = setInterval(() => {
+    void sweepStalePendingBackupsOnce().catch(() => undefined);
+  }, STALE_PENDING_SWEEP_MS);
+  staleSweepTimer.unref?.();
+
   logger.info("backup job worker started", { workerId: WORKER_ID, pollMs });
 }
 
 export function stopBackupJobWorkerForTests() {
-  if (!timer) return;
-  clearInterval(timer);
-  timer = null;
+  if (timer) {
+    clearInterval(timer);
+    timer = null;
+  }
+  if (staleSweepTimer) {
+    clearInterval(staleSweepTimer);
+    staleSweepTimer = null;
+  }
+  running = false;
+  sweepingStale = false;
 }

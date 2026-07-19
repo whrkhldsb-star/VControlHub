@@ -114,5 +114,41 @@ export async function prepareBackupRecordRetry(input: { id: string; session?: Pi
 	return updated;
 }
 
+/**
+ * Mark orphaned PENDING backups as FAILED so they stop looking "stuck forever".
+ * Records older than `olderThanMs` with no RUNNING claim are voided in place.
+ * Default: 24h.
+ */
+export async function abandonStalePendingBackupRecords(input?: {
+	olderThanMs?: number;
+	reason?: string;
+	limit?: number;
+}) {
+	const olderThanMs = input?.olderThanMs ?? 24 * 60 * 60 * 1000;
+	const reason = (input?.reason ?? "Stale PENDING backup abandoned after timeout").slice(0, 500);
+	const limit = Math.min(Math.max(input?.limit ?? 50, 1), 200);
+	const cutoff = new Date(Date.now() - olderThanMs);
+	const stale = await prisma.backupRecord.findMany({
+		where: { status: "PENDING", createdAt: { lt: cutoff } },
+		select: { id: true },
+		orderBy: { createdAt: "asc" },
+		take: limit,
+	});
+	if (stale.length === 0) return { abandoned: 0, ids: [] as string[] };
+
+	const ids: string[] = [];
+	for (const row of stale) {
+		const claimed = await prisma.backupRecord.updateMany({
+			where: { id: row.id, status: "PENDING" },
+			data: {
+				status: "FAILED",
+				errorMessage: `Voided: ${reason}`,
+			},
+		});
+		if (claimed.count > 0) ids.push(row.id);
+	}
+	return { abandoned: ids.length, ids };
+}
+
 /** Re-exported for callers that import the constant from `./service`. */
 export { RESTORE_CONFIRM_TEXT };
