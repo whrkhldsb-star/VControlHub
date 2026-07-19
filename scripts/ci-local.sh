@@ -31,21 +31,21 @@ step() { printf '\n==> %s\n' "$*"; }
 step "prisma generate"
 npx prisma generate >/dev/null
 
-step "typecheck (CI gate #1 — current red cause when skipped)"
+step "typecheck (CI gate #1)"
 npm run typecheck
 
-step "lint"
+step "lint (CI gate #2 — max-warnings=0)"
 npm run lint
 
 if [ "$FULL" = "1" ]; then
-  step "test:coverage"
+  step "test:coverage (CI gate #3 — same as GitHub Actions)"
   npm run test:coverage
   step "build"
   npm run build
   step "build:runtime"
   npm run build:runtime
 else
-  step "test (unit, no coverage — faster local gate)"
+  step "test (unit, no coverage — faster local gate; use --full before push if you touched broad UI/lib)"
   npm test
 fi
 
