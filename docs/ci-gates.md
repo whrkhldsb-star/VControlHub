@@ -63,6 +63,6 @@ must match the Actions job names exactly.
 
 ## Artifact reuse
 
-The `test` job uploads `.next/` + `dist/` as `next-runtime-build`. E2E and DAST
+The `test` job uploads `.next/` + `dist/` as `next-runtime-build` with `include-hidden-files: true` (required for `.next`). E2E and DAST
 download it instead of rebuilding. If you change Next config or public assets,
 ensure they are included in the upload path list in `ci.yml`.

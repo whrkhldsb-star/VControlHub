@@ -75,6 +75,9 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: next-runtime-build
+          # include-hidden-files is required: .next is a hidden directory and
+          # would otherwise be silently omitted (artifact ~200KB of dist only).
+          include-hidden-files: true
           path: |
             .next/
             dist/
@@ -141,6 +144,13 @@ jobs:
         with:
           name: next-runtime-build
           path: .
+
+      - name: Verify production build present
+        run: |
+          test -f .next/BUILD_ID || test -f .next/BUILDING || test -d .next
+          test -f dist/server.js
+          ls -la .next | head
+          test -s .next/BUILD_ID
 
       - name: Start production custom server
         env:
@@ -222,6 +232,13 @@ jobs:
         with:
           name: next-runtime-build
           path: .
+
+      - name: Verify production build present
+        run: |
+          test -f .next/BUILD_ID || test -f .next/BUILDING || test -d .next
+          test -f dist/server.js
+          ls -la .next | head
+          test -s .next/BUILD_ID
 
       - name: Start production custom server
         env:
