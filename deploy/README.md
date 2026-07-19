@@ -73,9 +73,10 @@ tar -xzf my-console-release-YYYYMMDD-HHMMSS.tar.gz
 cd my-console-bundle   # 默认包则是 vcontrolhub-release
 sudo APP_NAME="我的控制台" APP_SLUG=my-console SITE_NAME="我的控制台" \
   SERVICE_PREFIX=my-console DOMAIN=your.example.com APP_DIR=/opt/my-console ./install.sh
-# 首次运行会生成 /opt/my-console/.env.local 并停止；编辑后重新运行。
-sudoedit /opt/my-console/.env.local
-sudo APP_NAME="我的控制台" APP_SLUG=my-console SITE_NAME="我的控制台" SERVICE_PREFIX=my-console DOMAIN=your.example.com APP_DIR=/opt/my-console ./install.sh
+# 首次运行会创建 /opt/my-console/.env.local，自动生成密钥并继续安装完成。
+# 如需自定义数据库/端口/外部服务，可编辑后重跑同一命令：
+# sudoedit /opt/my-console/.env.local
+# sudo APP_NAME="我的控制台" APP_SLUG=my-console SITE_NAME="我的控制台" SERVICE_PREFIX=my-console DOMAIN=your.example.com APP_DIR=/opt/my-console ./install.sh
 ```
 
 `deploy/package.sh` 默认排除 `.env.local`、`.env.*.local`、私钥、数据库/备份、`node_modules`、`.next`、上传/下载/日志/临时文件和运行态云盘数据。
@@ -94,8 +95,9 @@ rsync -a --delete \
 # 在新服务器执行。
 cd /root/vcontrolhub-src
 sudo SOURCE_DIR=/root/vcontrolhub-src APP_DIR=/opt/vcontrolhub DOMAIN=your.example.com deploy/install.sh
-sudoedit /opt/vcontrolhub/.env.local
-sudo SOURCE_DIR=/root/vcontrolhub-src APP_DIR=/opt/vcontrolhub DOMAIN=your.example.com deploy/install.sh
+# 如需自定义，编辑后重跑：
+# sudoedit /opt/vcontrolhub/.env.local
+# sudo SOURCE_DIR=/root/vcontrolhub-src APP_DIR=/opt/vcontrolhub DOMAIN=your.example.com deploy/install.sh
 ```
 
 ### 方式 E：已有源码目录时
@@ -103,9 +105,10 @@ sudo SOURCE_DIR=/root/vcontrolhub-src APP_DIR=/opt/vcontrolhub DOMAIN=your.examp
 ```bash
 cd /path/to/VControlHub
 sudo DOMAIN=your.example.com APP_DIR=/opt/vcontrolhub deploy/install.sh
-# 首次运行会生成 /opt/vcontrolhub/.env.local 并停止；编辑后重新运行同一命令。
-sudoedit /opt/vcontrolhub/.env.local
-sudo DOMAIN=your.example.com APP_DIR=/opt/vcontrolhub deploy/install.sh
+# 首次运行会创建 /opt/vcontrolhub/.env.local、自动生成密钥并继续安装完成。
+# 只有需要自定义数据库/端口/外部服务时，才需要编辑后重跑：
+# sudoedit /opt/vcontrolhub/.env.local
+# sudo DOMAIN=your.example.com APP_DIR=/opt/vcontrolhub deploy/install.sh
 ```
 
 常用变量：
@@ -136,7 +139,7 @@ sudo DOMAIN=your.example.com APP_DIR=/opt/vcontrolhub deploy/install.sh
 
 安装脚本会在生成 systemd unit 时自动探测当前可用的 `node`、`npm`、`npx` 绝对路径，并把这些目录写入 systemd `PATH`。这可以兼容 Node 安装在 `/root/.local/bin`、`/usr/local/bin`、NodeSource `/usr/bin` 等不同位置的服务器，避免 systemd 启动时报 `/usr/bin/env: node: No such file or directory`。
 
-首次部署时脚本会优先从 `deploy/env.production.example` 创建 `.env.local`，然后主动停止并提示你编辑配置；这样可以避免带着占位密码/占位密钥继续构建。生产使用前必须设置：
+首次部署时脚本会优先从 `deploy/env.production.example` 创建 `.env.local`，自动生成数据库密码、Session/SSH/加密密钥和管理员初始密码，并**继续完成**构建与启动（不会在创建 env 后中途退出）。生产使用前如需自定义外部数据库/端口，再编辑 `.env.local` 后重跑安装脚本。安装器会确保：
 
 - `DATABASE_URL`
 - `AUTH_SESSION_SECRET`
