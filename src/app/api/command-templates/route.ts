@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { listTemplates, createTemplate, updateTemplate, deleteTemplate } from "@/lib/command-template/service";
 import { auditUserAction } from "@/lib/audit/service";
+import { sessionHasPermission } from "@/lib/auth/authorization";
 import { withApiRoute } from "@/lib/http/api-guard";
 import { GENERAL_WRITE_LIMIT } from "@/lib/http/rate-limit-presets";
 import { idQuerySchema, parseSearchParams } from "@/lib/http/parse-search-params";
@@ -16,6 +17,15 @@ function auditTemplateDetail(template: { id: string; name?: string | null; isBui
 		isBuiltin: Boolean(template.isBuiltin),
 		tagCount: template.tags?.length ?? 0,
 		variableCount: template.variables?.length ?? 0,
+	};
+}
+
+function templateActor(session: { userId?: string | null; roles?: string[] } | null) {
+	const roles = Array.isArray(session?.roles) ? session.roles : [];
+	return {
+		userId: session?.userId ?? null,
+		// role:manage is admin-only in DEFAULT_ROLE_PERMISSIONS — allows cross-user template cleanup.
+		canManageAll: sessionHasPermission({ roles: roles as never }, "role:manage"),
 	};
 }
 
@@ -47,7 +57,7 @@ export async function POST(request: Request) {
 export async function PATCH(request: Request) {
 	return withApiRoute(request, { permission: "command:create", rateLimit: GENERAL_WRITE_LIMIT, errorStatus: 400, errorMessage: "Update failed", bodySchema: updateCommandTemplateSchema }, async ({ session, body }) => {
 		const { id, ...updates } = body;
-		const result = await updateTemplate(id, updates);
+		const result = await updateTemplate(id, updates, templateActor(session));
 		await auditUserAction(session?.userId ?? "", "command_template.update", auditTemplateDetail(result), undefined, session?.currentTeamId);
 		return NextResponse.json({ template: result });
 	});
@@ -57,7 +67,7 @@ export async function DELETE(request: Request) {
 	return withApiRoute(request, { permission: "command:create", rateLimit: GENERAL_WRITE_LIMIT, errorStatus: 400, errorMessage: "Delete failed" }, async ({ session }) => {
 		const { id } = parseSearchParams(request, idQuerySchema);
 		if (!id) throw new ValidationError("Missing template ID");
-		const deleted = await deleteTemplate(id);
+		const deleted = await deleteTemplate(id, templateActor(session));
 		await auditUserAction(session?.userId ?? "", "command_template.delete", auditTemplateDetail(deleted), undefined, session?.currentTeamId);
 		return NextResponse.json({ success: true });
 	});

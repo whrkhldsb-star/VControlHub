@@ -25,7 +25,7 @@ const route = await import("../route");
 describe("/api/command-templates audit coverage", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mocks.requireApiPermission.mockResolvedValue({ session: { userId: "u1", username: "alice", user: { id: "u1" }, currentTeamId: null } });
+    mocks.requireApiPermission.mockResolvedValue({ session: { userId: "u1", username: "alice", roles: ["admin"], user: { id: "u1" }, currentTeamId: null } });
     mocks.listTemplates.mockResolvedValue([]);
     mocks.createTemplate.mockResolvedValue({
       id: "tmpl1",
@@ -62,8 +62,17 @@ describe("/api/command-templates audit coverage", () => {
       headers: { "content-type": "application/json" },
       body: JSON.stringify({ id: "tmpl1", name: "Restart web", command: "systemctl restart web" }),
     }));
+    expect(mocks.updateTemplate).toHaveBeenCalledWith(
+      "tmpl1",
+      expect.objectContaining({ name: "Restart web" }),
+      expect.objectContaining({ userId: "u1" }),
+    );
 
     await route.DELETE(new Request("http://local/api/command-templates?id=tmpl1", { method: "DELETE" }));
+    expect(mocks.deleteTemplate).toHaveBeenCalledWith(
+      "tmpl1",
+      expect.objectContaining({ userId: "u1" }),
+    );
 
     expect(mocks.auditUserAction).toHaveBeenCalledWith("u1", "command_template.create", expect.objectContaining({ templateId: "tmpl1", name: "Restart app" }), undefined, null);
     expect(mocks.auditUserAction).toHaveBeenCalledWith("u1", "command_template.update", expect.objectContaining({ templateId: "tmpl1", name: "Restart web" }), undefined, null);

@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/db";
-import { BusinessError, NotFoundError } from "@/lib/errors";
+import { BusinessError, ForbiddenError, NotFoundError } from "@/lib/errors";
 
 /* ── Types ────────────────────────────────────────────────── */
 
@@ -102,10 +102,30 @@ export async function createTemplate(input: CreateTemplateInput) {
 	});
 }
 
-export async function updateTemplate(id: string, input: UpdateTemplateInput) {
+export type TemplateActor = {
+	userId?: string | null;
+	/** Admin / role:manage may mutate any non-builtin template. */
+	canManageAll?: boolean;
+};
+
+function assertCanMutateTemplate(
+	existing: { isBuiltin: boolean; createdById: string | null },
+	actor?: TemplateActor,
+) {
+	if (existing.isBuiltin) {
+		throw new BusinessError("Built-in command templates cannot be modified");
+	}
+	if (actor?.canManageAll) return;
+	if (existing.createdById && actor?.userId && existing.createdById === actor.userId) return;
+	// Legacy rows with null creator: only managers may mutate (avoid open edit by any command:create holder).
+	if (!existing.createdById && actor?.canManageAll) return;
+	throw new ForbiddenError("No permission to modify others' command templates");
+}
+
+export async function updateTemplate(id: string, input: UpdateTemplateInput, actor?: TemplateActor) {
 	const existingRow = await prisma.commandTemplate.findUnique({
 		where: { id },
-		select: { id: true, isBuiltin: true, command: true, rollbackCommand: true },
+		select: { id: true, isBuiltin: true, command: true, rollbackCommand: true, createdById: true },
 	});
 	if (!existingRow) {
 		throw new NotFoundError("Command template not found");
@@ -113,6 +133,7 @@ export async function updateTemplate(id: string, input: UpdateTemplateInput) {
 	if (existingRow.isBuiltin) {
 		throw new BusinessError("Built-in command templates cannot be modified");
 	}
+	assertCanMutateTemplate(existingRow, actor);
 
 	const data: Record<string, unknown> = {};
 	if (input.name !== undefined) data.name = input.name;
@@ -129,10 +150,10 @@ export async function updateTemplate(id: string, input: UpdateTemplateInput) {
 	return prisma.commandTemplate.update({ where: { id }, data });
 }
 
-export async function deleteTemplate(id: string) {
+export async function deleteTemplate(id: string, actor?: TemplateActor) {
 	const existingRow = await prisma.commandTemplate.findUnique({
 		where: { id },
-		select: { id: true, name: true, isBuiltin: true, tags: true, variables: true },
+		select: { id: true, name: true, isBuiltin: true, tags: true, variables: true, createdById: true },
 	});
 	if (!existingRow) {
 		throw new NotFoundError("Command template not found");
@@ -140,6 +161,7 @@ export async function deleteTemplate(id: string) {
 	if (existingRow.isBuiltin) {
 		throw new BusinessError("Built-in command templates cannot be deleted");
 	}
+	assertCanMutateTemplate(existingRow, actor);
 	await prisma.commandTemplate.delete({ where: { id } });
 	return existingRow;
 }
