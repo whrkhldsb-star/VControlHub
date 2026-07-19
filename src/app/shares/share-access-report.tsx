@@ -40,10 +40,10 @@ export function ShareAccessReport() {
     <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[var(--border)] px-5 py-4">
       <div><h2 className="text-sm font-semibold text-[var(--text-primary)]">{t("sharesPage.report.title")}</h2><p className="mt-1 text-xs text-[var(--text-muted)]">{t("sharesPage.report.desc")}</p></div>
       <div className="flex flex-wrap gap-2">
-        <select aria-label={t("sharesPage.report.range")} value={days} onChange={(e) => { setDays(e.target.value); void load(e.target.value, action); }} className="rounded-xl border border-[var(--border)] bg-[var(--input-bg)] px-3 py-2 text-xs">
+        <select aria-label={t("sharesPage.report.range")} value={days} onChange={(e) => { setDays(e.target.value); void load(e.target.value, action); }} className="rounded-xl border border-[var(--input-border)] bg-[var(--input-bg)] px-3 py-2 text-xs">
           <option value="7">{t("sharesPage.report.days7")}</option><option value="30">{t("sharesPage.report.days30")}</option><option value="90">{t("sharesPage.report.days90")}</option>
         </select>
-        <select aria-label={t("sharesPage.report.action")} value={action} onChange={(e) => { setAction(e.target.value); void load(days, e.target.value); }} className="rounded-xl border border-[var(--border)] bg-[var(--input-bg)] px-3 py-2 text-xs">
+        <select aria-label={t("sharesPage.report.action")} value={action} onChange={(e) => { setAction(e.target.value); void load(days, e.target.value); }} className="rounded-xl border border-[var(--input-border)] bg-[var(--input-bg)] px-3 py-2 text-xs">
           <option value="all">{t("sharesPage.report.all")}</option><option value="view">{t("sharesPage.accessLogs.action.view")}</option><option value="download">{t("sharesPage.accessLogs.action.download")}</option><option value="password_attempt">{t("sharesPage.accessLogs.action.password_attempt")}</option>
         </select>
         <a href={exportHref} className="rounded-xl border border-[var(--accent-border)] px-3 py-2 text-xs font-medium text-[var(--accent)]">{t("sharesPage.report.export")}</a>

@@ -128,7 +128,7 @@ export default function ApiDocsPage() {
 							value={query}
 							onChange={(event) => setQuery(event.target.value)}
 							placeholder={t("apiDocsPage.searchPlaceholder")}
-							className="h-10 w-full rounded-lg border border-[var(--border)] bg-[var(--input-bg)] px-3 text-sm text-[var(--text-primary)] placeholder:text-[var(--text-muted)]"
+							className="h-10 w-full rounded-lg border border-[var(--input-border)] bg-[var(--input-bg)] px-3 text-sm text-[var(--text-primary)] placeholder:text-[var(--text-muted)]"
 						/>
 					</label>
 					<div className="px-2 text-sm text-[var(--text-muted)]">

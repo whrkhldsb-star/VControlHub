@@ -167,7 +167,7 @@ export function QuickServicesClient({ canManage }: { canManage: boolean }) {
 
 			{/* Message */}
 			{actions.message && (
-				<div role={actions.message.type ==="ok" ?"status" :"alert"} className={`rounded-lg px-4 py-3 text-sm ${actions.message.type ==="ok" ?"bg-[var(--success)]/[0.10] border border-[var(--success-border)] text-[var(--success)]" :"bg-[var(--danger)]/[0.10] border border-[var(--danger-border)] text-[var(--danger)]"}`}>
+				<div role={actions.message.type ==="ok" ?"status" :"alert"} className={`rounded-lg px-4 py-3 text-sm ${actions.message.type ==="ok" ?"bg-[var(--success-bg)] border border-[var(--success-border)] text-[var(--success)]" :"bg-[var(--danger-bg)] border border-[var(--danger-border)] text-[var(--danger)]"}`}>
 					<span>{actions.message.text}</span>
 					{actions.message.taskId ? (
 						<Link href="/operation-tasks" className="ml-3 inline-flex rounded-lg border border-current/30 px-2 py-1 text-xs font-semibold hover:bg-[var(--surface-subtle)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-current">

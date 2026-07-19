@@ -201,7 +201,7 @@ export function DockerResourcesPanel({ serverId }: { serverId?: string }) {
           return (
             <div
               key={key}
-              className="rounded-xl border border-[var(--border)] bg-[var(--input-bg)] p-3"
+              className="rounded-xl border border-[var(--input-border)] bg-[var(--input-bg)] p-3"
             >
               {" "}
               <div className="flex flex-wrap items-center justify-between gap-3">
@@ -279,7 +279,7 @@ export function DockerResourcesPanel({ serverId }: { serverId?: string }) {
       {error ? (
         <div
           role="alert"
-          className="mb-4 rounded-lg bg-[var(--danger)]/20 px-3 py-2 text-sm text-[var(--danger)]"
+          className="mb-4 rounded-lg border border-[var(--danger-border)] bg-[var(--danger-bg)] px-3 py-2 text-sm text-[var(--danger)]"
         >
           {error}
         </div>
@@ -292,7 +292,7 @@ export function DockerResourcesPanel({ serverId }: { serverId?: string }) {
           onChange={(event) =>
             setActiveType(event.currentTarget.value as ResourceType)
           }
-          className="min-h-11 rounded-lg border border-[var(--border)] bg-[var(--input-bg)] px-3 text-sm text-[var(--text-primary)]"
+          className="min-h-11 rounded-lg border border-[var(--input-border)] bg-[var(--input-bg)] px-3 text-sm text-[var(--text-primary)]"
         >
           <option value="networks">{t("dockerResources.kind.network")}</option>
           <option value="volumes">{t("dockerResources.kind.volume")}</option>
@@ -302,14 +302,14 @@ export function DockerResourcesPanel({ serverId }: { serverId?: string }) {
           aria-label={t("dockerResources.field.name")}
           onChange={(event) => setName(event.currentTarget.value)}
           placeholder={t("dockerResources.field.name")}
-          className="min-h-11 rounded-lg border border-[var(--border)] bg-[var(--input-bg)] px-3 text-sm text-[var(--text-primary)] placeholder:text-[var(--text-muted)]"
+          className="min-h-11 rounded-lg border border-[var(--input-border)] bg-[var(--input-bg)] px-3 text-sm text-[var(--text-primary)] placeholder:text-[var(--text-muted)]"
         />{" "}
         <input
           value={driver}
           aria-label={t("dockerResources.field.driver")}
           onChange={(event) => setDriver(event.currentTarget.value)}
           placeholder={t("dockerResources.field.driver")}
-          className="min-h-11 w-28 rounded-lg border border-[var(--border)] bg-[var(--input-bg)] px-3 text-sm text-[var(--text-primary)] placeholder:text-[var(--text-muted)]"
+          className="min-h-11 w-28 rounded-lg border border-[var(--input-border)] bg-[var(--input-bg)] px-3 text-sm text-[var(--text-primary)] placeholder:text-[var(--text-muted)]"
         />{" "}
         <button
           type="button"
@@ -368,7 +368,7 @@ export function DockerResourcesPanel({ serverId }: { serverId?: string }) {
               <button
                 type="button"
                 onClick={() => setPendingDelete(null)}
-                className="min-h-11 rounded-xl border border-[var(--border)] px-4 py-2 text-sm font-medium text-[var(--text-secondary)] hover:bg-[var(--surface-hover)]"
+                data-action-button data-variant="secondary" className="min-h-11 !px-4 !py-2 !text-sm"
               >
                 {t("dockerResources.cancel")}
               </button>{" "}
@@ -379,7 +379,7 @@ export function DockerResourcesPanel({ serverId }: { serverId?: string }) {
                   busyKey ===
                   `delete:${pendingDelete.type}:${pendingDelete.name}`
                 }
-                className="min-h-11 rounded-xl bg-[var(--danger)] px-4 py-2 text-sm font-semibold text-[var(--text-primary)] hover:bg-[var(--danger)]/80 disabled:opacity-60"
+                data-action-button data-variant="danger-solid" className="min-h-11 !px-4 !py-2 !text-sm disabled:opacity-60"
               >
                 {t("dockerResources.confirm")}
               </button>{" "}

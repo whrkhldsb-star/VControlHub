@@ -245,7 +245,7 @@ export function AppSidebar({
 							value={filter}
 							onChange={(e) => setFilter(e.target.value)}
 							placeholder={t("nav.filter") === "nav.filter" ? "Filter menu…" : t("nav.filter")}
-							className="w-full rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-subtle)] py-2 pl-8 pr-2.5 text-xs text-[var(--text-primary)] outline-none transition placeholder:text-[var(--text-disabled)] focus:border-[var(--accent-border)] focus:bg-[var(--input-bg-focus)] focus:ring-2 focus:ring-[var(--input-ring)]"
+							className="w-full rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-subtle)] py-2 pl-8 pr-2.5 text-xs text-[var(--text-primary)] outline-none transition placeholder:text-[var(--text-disabled)] focus:border-[var(--input-border-focus)] focus:bg-[var(--input-bg-focus)] focus:ring-2 focus:ring-[var(--input-ring)]"
 						/>
 					</div>
 				</label>

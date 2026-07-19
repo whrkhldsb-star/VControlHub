@@ -130,7 +130,7 @@ export function ScheduledTaskListClient({ tasks: initialTasks, servers, canCreat
 
 	return (
 		<div className="space-y-6">
-			{actionError && <div role="alert" className="rounded-lg bg-[var(--danger)]/[0.10] border border-[var(--danger-border)] px-3.5 py-2.5 text-sm text-[var(--danger)]">{actionError}</div>}
+			{actionError && <div role="alert" className="rounded-lg bg-[var(--danger-bg)] border border-[var(--danger-border)] px-3.5 py-2.5 text-sm text-[var(--danger)]">{actionError}</div>}
 			<Toolbar className="flex-col gap-3 md:flex-row md:items-center md:justify-between">
 				<div className="space-y-1">
 					<label htmlFor="scheduled-task-log-search" className="text-xs font-medium text-[var(--text-secondary)]">{t("scheduledTasksPage.search.label")}</label>
@@ -293,7 +293,7 @@ function CreateTaskForm({ servers, onClose }: { servers: ServerOption[]; onClose
 	return (
 		<form onSubmit={handleSubmit} data-card className="space-y-4 p-5">
 			<h3 className="text-lg font-semibold text-[var(--text-primary)]">{t("scheduledTasksPage.createTitle")}</h3>
-			{error && <div role="alert" className="rounded-lg bg-[var(--danger)]/[0.10] border border-[var(--danger-border)] px-3.5 py-2.5 text-sm text-[var(--danger)]">{error}</div>}
+			{error && <div role="alert" className="rounded-lg bg-[var(--danger-bg)] border border-[var(--danger-border)] px-3.5 py-2.5 text-sm text-[var(--danger)]">{error}</div>}
 
 			<div className="space-y-1.5">
 				<label htmlFor="scheduled-task-name" className={fieldLabelClass}>{t("scheduledTasksPage.name")}</label>

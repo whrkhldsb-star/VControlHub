@@ -247,8 +247,8 @@ export default async function Page({
             <FilterLink
               href={toggleTypeHref(filters,"audio")}
               active={mediaType ==="audio"}
-              activeClassName="border-[var(--success-border)] bg-[var(--success)] text-[var(--success)]"
-              inactiveClassName="border-[var(--success-border)] bg-[var(--success)]/[0.10] text-[var(--success)] hover:bg-[var(--success-bg)] hover:text-[var(--success)]"
+              activeClassName="border-[var(--success-border)] bg-[var(--success-bg)] text-[var(--success)]"
+              inactiveClassName="border-[var(--success-border)] bg-[var(--success-bg)] text-[var(--success)] hover:bg-[var(--success-bg)] hover:text-[var(--success)]"
               className="rounded-2xl border px-4 py-3 transition"
               title={
                 mediaType ==="audio"

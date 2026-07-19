@@ -90,39 +90,39 @@ export function CreateShareForm({ nodes }: { nodes: StorageNode[] }) {
           <div className="grid gap-3 sm:grid-cols-2">
             <div>
               <label className="block text-xs text-[var(--text-secondary)] mb-1" htmlFor="createShareNode">{t("sharesPage.create.node")}</label>
-              <select id="createShareNode" value={nodeId} onChange={(e) => setNodeId(e.target.value)} data-input className="w-full rounded-xl border border-[var(--border)] bg-[var(--input-bg)] px-3 py-2.5 text-sm outline-none">
+              <select id="createShareNode" value={nodeId} onChange={(e) => setNodeId(e.target.value)} data-input className="w-full rounded-xl border border-[var(--input-border)] bg-[var(--input-bg)] px-3 py-2.5 text-sm outline-none">
                 {nodes.map((n) => <option key={n.id} value={n.id}>{n.name}</option>)}
               </select>
             </div>
             <div>
               <label className="block text-xs text-[var(--text-secondary)] mb-1" htmlFor="createSharePath">{t("sharesPage.create.path")}</label>
-              <input id="createSharePath" value={path} onChange={(e) => setPath(e.target.value)} placeholder={entryType === "DIRECTORY" ? t("sharesPage.create.pathPlaceholderDirectory") : t("sharesPage.create.pathPlaceholderFile")} data-input className="w-full rounded-xl border border-[var(--border)] bg-[var(--input-bg)] px-3 py-2.5 text-sm outline-none" />
+              <input id="createSharePath" value={path} onChange={(e) => setPath(e.target.value)} placeholder={entryType === "DIRECTORY" ? t("sharesPage.create.pathPlaceholderDirectory") : t("sharesPage.create.pathPlaceholderFile")} data-input className="w-full rounded-xl border border-[var(--input-border)] bg-[var(--input-bg)] px-3 py-2.5 text-sm outline-none" />
             </div>
             <div>
               <label className="block text-xs text-[var(--text-secondary)] mb-1" htmlFor="createShareEntryType">{t("sharesPage.create.entryType")}</label>
-              <select id="createShareEntryType" value={entryType} onChange={(e) => setEntryType(e.target.value as "FILE" | "DIRECTORY")} data-input className="w-full rounded-xl border border-[var(--border)] bg-[var(--input-bg)] px-3 py-2.5 text-sm outline-none">
+              <select id="createShareEntryType" value={entryType} onChange={(e) => setEntryType(e.target.value as "FILE" | "DIRECTORY")} data-input className="w-full rounded-xl border border-[var(--input-border)] bg-[var(--input-bg)] px-3 py-2.5 text-sm outline-none">
                 <option value="DIRECTORY">{t("sharesPage.create.entryType.DIRECTORY")}</option>
                 <option value="FILE">{t("sharesPage.create.entryType.FILE")}</option>
               </select>
             </div>
             <div>
               <label className="block text-xs text-[var(--text-secondary)] mb-1" htmlFor="createSharePermissionLevel">{t("sharesPage.create.permissionLevel")}</label>
-              <select id="createSharePermissionLevel" value={permissionLevel} onChange={(e) => setPermissionLevel(e.target.value as "preview" | "download")} data-input className="w-full rounded-xl border border-[var(--border)] bg-[var(--input-bg)] px-3 py-2.5 text-sm outline-none">
+              <select id="createSharePermissionLevel" value={permissionLevel} onChange={(e) => setPermissionLevel(e.target.value as "preview" | "download")} data-input className="w-full rounded-xl border border-[var(--input-border)] bg-[var(--input-bg)] px-3 py-2.5 text-sm outline-none">
                 <option value="download">{t("sharesPage.create.permissionLevel.download")}</option>
                 <option value="preview">{t("sharesPage.create.permissionLevel.preview")}</option>
               </select>
             </div>
             <div>
               <label className="block text-xs text-[var(--text-secondary)] mb-1" htmlFor="createShareName">{t("sharesPage.create.name")}</label>
-              <input id="createShareName" value={name} onChange={(e) => setName(e.target.value)} data-input className="w-full rounded-xl border border-[var(--border)] bg-[var(--input-bg)] px-3 py-2.5 text-sm outline-none" />
+              <input id="createShareName" value={name} onChange={(e) => setName(e.target.value)} data-input className="w-full rounded-xl border border-[var(--input-border)] bg-[var(--input-bg)] px-3 py-2.5 text-sm outline-none" />
             </div>
             <div>
               <label htmlFor="share-expires-in" className="block text-xs text-[var(--text-secondary)] mb-1">{t("sharesPage.create.expires")}</label>
-              <input id="share-expires-in" type="number" value={expiresIn} onChange={(e) => setExpiresIn(e.target.value)} placeholder="72" data-input className="w-full rounded-xl border border-[var(--border)] bg-[var(--input-bg)] px-3 py-2.5 text-sm outline-none" />
+              <input id="share-expires-in" type="number" value={expiresIn} onChange={(e) => setExpiresIn(e.target.value)} placeholder="72" data-input className="w-full rounded-xl border border-[var(--input-border)] bg-[var(--input-bg)] px-3 py-2.5 text-sm outline-none" />
             </div>
             <div>
               <label htmlFor="share-password" className="block text-xs text-[var(--text-secondary)] mb-1">{t("sharesPage.create.password")}</label>
-              <input id="share-password" type="text" value={password} onChange={(e) => setPassword(e.target.value)} placeholder={t("sharesPage.create.passwordPlaceholder")} data-input className="w-full rounded-xl border border-[var(--border)] bg-[var(--input-bg)] px-3 py-2.5 text-sm outline-none" />
+              <input id="share-password" type="text" value={password} onChange={(e) => setPassword(e.target.value)} placeholder={t("sharesPage.create.passwordPlaceholder")} data-input className="w-full rounded-xl border border-[var(--input-border)] bg-[var(--input-bg)] px-3 py-2.5 text-sm outline-none" />
             </div>
           </div>
 

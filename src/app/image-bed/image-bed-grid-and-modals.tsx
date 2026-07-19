@@ -383,7 +383,7 @@ return (
             type="button"
             onClick={confirmDelete}
             disabled={deleting}
-            className="rounded-lg bg-[var(--danger)] px-4 py-2 text-sm text-[var(--text-primary)] transition hover:bg-[var(--danger-bg)] hover:text-[var(--danger)] disabled:opacity-50"
+            data-action-button data-variant="danger-solid" className="!px-4 !py-2 !text-sm disabled:opacity-50"
           >
             {deleting
               ? t("imageBedPage.delete.deleting")

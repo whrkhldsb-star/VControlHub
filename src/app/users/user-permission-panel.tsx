@@ -207,7 +207,7 @@ const _data = await csrfFetch("/api/users/permissions", {
               <h4 className="font-medium text-[var(--text-primary)]">{t("usersPerm.template.title")}</h4>
               <p className="mt-1 text-xs text-[var(--text-muted)]">{t("usersPerm.template.desc")}</p>
               <div className="mt-3 flex flex-wrap gap-2">
-                <select value={selectedTemplateId} onChange={(event) => setSelectedTemplateId(event.target.value)} className="min-h-10 rounded-xl border border-[var(--border)] bg-[var(--input-bg)] px-3 text-sm text-[var(--text-primary)]">
+                <select value={selectedTemplateId} onChange={(event) => setSelectedTemplateId(event.target.value)} className="min-h-10 rounded-xl border border-[var(--input-border)] bg-[var(--input-bg)] px-3 text-sm text-[var(--text-primary)]">
                   <option value="">{t("usersPerm.template.select")}</option>
                   {templates.map((template) => <option key={template.id} value={template.id}>{template.name}</option>)}
                 </select>
@@ -228,7 +228,7 @@ const _data = await csrfFetch("/api/users/permissions", {
               <h4 className="font-medium text-[var(--text-primary)]">{t("usersPerm.section.perms")}</h4>
               <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
                 {payload.permissions.map((permission) => (
-                  <label key={permission.key} className="flex items-center gap-2 rounded-xl border border-[var(--border)] bg-[var(--input-bg)] px-3 py-2 text-sm text-[var(--text-secondary)]">
+                  <label key={permission.key} className="flex items-center gap-2 rounded-xl border border-[var(--input-border)] bg-[var(--input-bg)] px-3 py-2 text-sm text-[var(--text-secondary)]">
                     <input type="checkbox" checked={permissionKeys.includes(permission.key)} onChange={() => setPermissionKeys((current) => toggle(current, permission.key))} />
                     <span>{permission.name || permission.key}</span>
                     <span className="text-xs text-[var(--text-muted)]">{permission.key}</span>
@@ -252,15 +252,15 @@ const _data = await csrfFetch("/api/users/permissions", {
                     <div key={`${grant.storageNodeId}-${index}`} className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-4">
                       <div className="grid gap-3 lg:grid-cols-[1.2fr_1fr_1fr_1fr_auto]">
                         <label className="sr-only" htmlFor={`grantNode-${index}`}>{t("usersPerm.grants.node")}</label>
-                        <select id={`grantNode-${index}`} value={grant.storageNodeId} onChange={(e) => updateGrant(index, { storageNodeId: e.target.value })} className="rounded-xl border border-[var(--border)] bg-[var(--input-bg)] px-3 py-2 text-sm text-[var(--text-primary)]">
+                        <select id={`grantNode-${index}`} value={grant.storageNodeId} onChange={(e) => updateGrant(index, { storageNodeId: e.target.value })} className="rounded-xl border border-[var(--input-border)] bg-[var(--input-bg)] px-3 py-2 text-sm text-[var(--text-primary)]">
                           {payload.storageNodes.map((item) => <option key={item.id} value={item.id}>{item.name} · {item.driver}</option>)}
                         </select>
                         <label className="sr-only" htmlFor={`grantPath-${index}`}>{t("usersPerm.grants.path")}</label>
-                        <input id={`grantPath-${index}`} value={grant.pathPrefix} onChange={(e) => updateGrant(index, { pathPrefix: e.target.value })} placeholder={t("usersPerm.grants.pathPlaceholder")} className="rounded-xl border border-[var(--border)] bg-[var(--input-bg)] px-3 py-2 text-sm text-[var(--text-primary)]" />
+                        <input id={`grantPath-${index}`} value={grant.pathPrefix} onChange={(e) => updateGrant(index, { pathPrefix: e.target.value })} placeholder={t("usersPerm.grants.pathPlaceholder")} className="rounded-xl border border-[var(--input-border)] bg-[var(--input-bg)] px-3 py-2 text-sm text-[var(--text-primary)]" />
                         <label className="sr-only" htmlFor={`grantQuota-${index}`}>{t("usersPerm.grants.quota")}</label>
-                        <input id={`grantQuota-${index}`} value={grant.quotaBytes ?? ""} onChange={(e) => updateGrant(index, { quotaBytes: e.target.value })} placeholder={t("usersPerm.grants.quotaPlaceholder")} className="rounded-xl border border-[var(--border)] bg-[var(--input-bg)] px-3 py-2 text-sm text-[var(--text-primary)]" />
+                        <input id={`grantQuota-${index}`} value={grant.quotaBytes ?? ""} onChange={(e) => updateGrant(index, { quotaBytes: e.target.value })} placeholder={t("usersPerm.grants.quotaPlaceholder")} className="rounded-xl border border-[var(--input-border)] bg-[var(--input-bg)] px-3 py-2 text-sm text-[var(--text-primary)]" />
                         <label className="sr-only" htmlFor={`grantMaxFile-${index}`}>{t("usersPerm.grants.maxFile")}</label>
-                        <input id={`grantMaxFile-${index}`} value={grant.maxFileBytes ?? ""} onChange={(e) => updateGrant(index, { maxFileBytes: e.target.value })} placeholder={t("usersPerm.grants.maxFilePlaceholder")} className="rounded-xl border border-[var(--border)] bg-[var(--input-bg)] px-3 py-2 text-sm text-[var(--text-primary)]" />
+                        <input id={`grantMaxFile-${index}`} value={grant.maxFileBytes ?? ""} onChange={(e) => updateGrant(index, { maxFileBytes: e.target.value })} placeholder={t("usersPerm.grants.maxFilePlaceholder")} className="rounded-xl border border-[var(--input-border)] bg-[var(--input-bg)] px-3 py-2 text-sm text-[var(--text-primary)]" />
                         <button type="button" onClick={() => setGrants((current) => current.filter((_, i) => i !== index))} className="rounded-xl border border-[var(--danger-border)] px-3 py-2 text-xs text-[var(--danger)] hover:bg-[var(--danger-bg)]">{t("usersPerm.action.delete")}</button>
                       </div>
                       <div className="mt-3 flex flex-wrap items-center gap-4 text-xs text-[var(--text-secondary)]">

@@ -160,11 +160,11 @@ export function ScheduleBackupForm() {
 				<div className="grid gap-3 md:grid-cols-[180px_1fr]">
 					<div className="space-y-1.5">
 						<label htmlFor="schedule-backup-name" className="block text-xs font-medium text-[var(--text-secondary)]">{t("backupsPage.records.title")}</label>
-						<input id="schedule-backup-name" value={name} onChange={(e) => setName(e.target.value)} placeholder={t("backupsPage.schedule.nameTemplate").replace("{type}", getTypeLabel(t, type))} className="block w-full rounded-lg border border-[var(--border)] bg-[var(--input-bg)] px-3 py-2 text-sm text-[var(--text-primary)]" />
+						<input id="schedule-backup-name" value={name} onChange={(e) => setName(e.target.value)} placeholder={t("backupsPage.schedule.nameTemplate").replace("{type}", getTypeLabel(t, type))} className="block w-full rounded-lg border border-[var(--input-border)] bg-[var(--input-bg)] px-3 py-2 text-sm text-[var(--text-primary)]" />
 					</div>
 					<div className="space-y-1.5">
 						<label htmlFor="schedule-backup-type" className="block text-xs font-medium text-[var(--text-secondary)]">{t("common.backupType")}</label>
-						<select id="schedule-backup-type" value={type} onChange={(e) => setType(e.target.value as BackupType)} className="block w-full rounded-lg border border-[var(--border)] bg-[var(--input-bg)] px-3 py-2 text-sm text-[var(--text-primary)]">
+						<select id="schedule-backup-type" value={type} onChange={(e) => setType(e.target.value as BackupType)} className="block w-full rounded-lg border border-[var(--input-border)] bg-[var(--input-bg)] px-3 py-2 text-sm text-[var(--text-primary)]">
 							<option value="DATABASE">{t("common.databaseBackup")}</option>
 							<option value="FILES">{t("common.fileBackup")}</option>
 							<option value="FULL">{t("common.fullBackup")}</option>
@@ -174,17 +174,17 @@ export function ScheduleBackupForm() {
 				<div className="grid gap-3 md:grid-cols-[1fr_180px]">
 					<div className="space-y-1.5">
 						<label htmlFor="schedule-backup-cron" className="block text-xs font-medium text-[var(--text-secondary)]">{t("common.cronExpression")}</label>
-						<input id="schedule-backup-cron" value={cronExpression} onChange={(e) => setCronExpression(e.target.value)} required placeholder="0 3 * * *" className="block w-full rounded-lg border border-[var(--border)] bg-[var(--input-bg)] px-3 py-2 text-sm font-mono text-[var(--text-primary)]" />
+						<input id="schedule-backup-cron" value={cronExpression} onChange={(e) => setCronExpression(e.target.value)} required placeholder="0 3 * * *" className="block w-full rounded-lg border border-[var(--input-border)] bg-[var(--input-bg)] px-3 py-2 text-sm font-mono text-[var(--text-primary)]" />
 					</div>
 					<div className="space-y-1.5">
 						<label htmlFor="schedule-backup-retention" className="block text-xs font-medium text-[var(--text-secondary)]">{t("backupsPage.schedule.retentionLabel")}</label>
-						<input id="schedule-backup-retention" type="number" min={1} max={3650} value={retentionDays} onChange={(e) => setRetentionDays(e.target.value)} placeholder={t("backupsPage.schedule.retentionPlaceholder")} className="block w-full rounded-lg border border-[var(--border)] bg-[var(--input-bg)] px-3 py-2 text-sm text-[var(--text-primary)]" />
+						<input id="schedule-backup-retention" type="number" min={1} max={3650} value={retentionDays} onChange={(e) => setRetentionDays(e.target.value)} placeholder={t("backupsPage.schedule.retentionPlaceholder")} className="block w-full rounded-lg border border-[var(--input-border)] bg-[var(--input-bg)] px-3 py-2 text-sm text-[var(--text-primary)]" />
 					</div>
 				</div>
 				<p data-tone="cyan" className="rounded-lg border border-[var(--color-action-border)]/10 px-3 py-2 text-xs text-[var(--text-primary)]">{t("common.preview")}{cronPreview}</p>
 				<div className="space-y-1.5">
 					<label htmlFor="schedule-backup-note" className="block text-xs font-medium text-[var(--text-secondary)]">{t("backupsPage.schedule.noteLabel")}</label>
-					<input id="schedule-backup-note" value={note} onChange={(e) => setNote(e.target.value)} placeholder={t("backupsPage.schedule.notePlaceholder")} className="block w-full rounded-lg border border-[var(--border)] bg-[var(--input-bg)] px-3 py-2 text-sm text-[var(--text-primary)]" />
+					<input id="schedule-backup-note" value={note} onChange={(e) => setNote(e.target.value)} placeholder={t("backupsPage.schedule.notePlaceholder")} className="block w-full rounded-lg border border-[var(--input-border)] bg-[var(--input-bg)] px-3 py-2 text-sm text-[var(--text-primary)]" />
 				</div>
 				{retentionDays && (
 					<p className="text-xs text-[var(--text-muted)]">{t("backupsPage.schedule.retentionHint")}</p>

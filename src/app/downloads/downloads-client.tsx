@@ -365,7 +365,7 @@ export function DownloadsClient({ servers, canManage, canManageNode }: { servers
 						<h3 id="download-purge-title" className="text-lg font-semibold text-[var(--text-primary)]">{t("common.confirmDelete")}</h3>
 						<p className="mt-3 text-sm leading-6 text-[var(--text-secondary)]">{t("downloadsPage.confirm.purge").replace("${name}", pendingPurgeName)}</p>
 						<div className="mt-6 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
-							<button type="button" onClick={() => setPendingPurgeTaskId(null)} className="min-h-11 rounded-xl border border-[var(--border)] px-4 py-2 text-sm font-medium text-[var(--text-secondary)] hover:bg-[var(--surface-hover)]">{t("common.cancel")}</button>
+							<button type="button" onClick={() => setPendingPurgeTaskId(null)} data-action-button data-variant="secondary" className="min-h-11 !px-4 !py-2 !text-sm">{t("common.cancel")}</button>
 							<button type="button" onClick={() => handleAction(pendingPurgeTaskId, "purge")} className="min-h-11 rounded-xl bg-[var(--danger-bg)] px-4 py-2 text-sm font-semibold text-[var(--danger)] hover:bg-[var(--danger-bg)] hover:text-[var(--danger)]">{t("common.confirmDelete")}</button>
 						</div>
 					</section>

@@ -45,13 +45,13 @@ export function ServerCreateForm({
         </p>{" "}
       </div>{" "}
       {state.error && (
-        <div className="rounded-lg bg-[var(--danger)]/[0.10] border border-[var(--danger-border)] px-3.5 py-2.5 text-sm text-[var(--danger)]">
+        <div className="rounded-lg bg-[var(--danger-bg)] border border-[var(--danger-border)] px-3.5 py-2.5 text-sm text-[var(--danger)]">
           {" "}
           {state.error}{" "}
         </div>
       )}{" "}
       {state.success && (
-        <div className="rounded-lg bg-[var(--success)]/[0.10] border border-[var(--success-border)] px-3.5 py-2.5 text-sm text-[var(--success)]">
+        <div className="rounded-lg bg-[var(--success-bg)] border border-[var(--success-border)] px-3.5 py-2.5 text-sm text-[var(--success)]">
           {" "}
           {state.success}{" "}
         </div>

@@ -207,11 +207,11 @@ export function SourcesPanel({ sources, actions, onRequestDeleteSource }: Source
 							</div>
 						</div>
 						<div className="flex items-center gap-2">
-							<span className={`text-[10px] px-2 py-0.5 rounded-full border ${src.enabled ?"border-[var(--success-border)] bg-[var(--success)]/[0.10] text-[var(--success)]" :"border-[var(--border)] text-[var(--text-muted)]"}`}>
+							<span className={`text-[10px] px-2 py-0.5 rounded-full border ${src.enabled ?"border-[var(--success-border)] bg-[var(--success-bg)] text-[var(--success)]" :"border-[var(--border)] text-[var(--text-muted)]"}`}>
 								{src.enabled ? t("quickServicesPage.sources.status.enabled") : t("quickServicesPage.sources.status.disabled")}
 							</span>
 							{src.lastSyncStatus && (
-								<span className={`text-[10px] px-2 py-0.5 rounded-full border ${src.lastSyncStatus ==="success" ?"border-[var(--success-border)] bg-[var(--success)]/[0.10] text-[var(--success)]" :"border-[var(--danger-border)] bg-[var(--danger)]/[0.10] text-[var(--danger)]"}`}>
+								<span className={`text-[10px] px-2 py-0.5 rounded-full border ${src.lastSyncStatus ==="success" ?"border-[var(--success-border)] bg-[var(--success-bg)] text-[var(--success)]" :"border-[var(--danger-border)] bg-[var(--danger-bg)] text-[var(--danger)]"}`}>
 									{src.lastSyncStatus ==="success" ? t("quickServicesPage.sources.status.syncSuccess") : t("quickServicesPage.sources.status.syncFailed")}
 								</span>
 							)}
@@ -223,7 +223,7 @@ export function SourcesPanel({ sources, actions, onRequestDeleteSource }: Source
 						{src.lastSyncAt && <span>{t("quickServicesPage.sources.lastSyncAt") +":" + new Date(src.lastSyncAt).toLocaleString()}</span>}
 					</div>
 					{src.lastSyncError && (
-						<div className="text-[10px] text-[var(--danger)] bg-[var(--danger)]/[0.10] rounded px-2 py-1">{src.lastSyncError}</div>
+						<div className="text-[10px] text-[var(--danger)] bg-[var(--danger-bg)] rounded px-2 py-1">{src.lastSyncError}</div>
 					)}
 					<div className="flex items-center gap-2 pt-1">
 						<button

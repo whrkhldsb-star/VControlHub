@@ -189,7 +189,7 @@ export function InstallDialog({
 					</label>
 
 					{portCheck && !portCheck.available && portCheck.usedBy && (
-						<div className="text-xs text-[var(--danger)]/80 bg-[var(--danger)]/[0.10] rounded-lg px-3 py-2 border border-[var(--danger-border)]">
+						<div className="text-xs text-[var(--danger)]/80 bg-[var(--danger-bg)] rounded-lg px-3 py-2 border border-[var(--danger-border)]">
 							{t("qsPage.portInUseDetail").replace("{usedBy}", portCheck.usedBy)}
 						</div>
 					)}

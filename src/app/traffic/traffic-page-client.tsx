@@ -252,7 +252,7 @@ export default function TrafficPage({ canManage: _canManage }: { canManage: bool
             <>
               <div className="mb-4 flex flex-wrap items-center gap-3">
                 <label className="text-xs text-[var(--text-muted)]" htmlFor="trafficIface">{t("trafficPage.iface.label")}</label>
-                <select id="trafficIface" value={selectedIface} onChange={(e) => setSelectedIface(e.target.value)} className="rounded-lg border border-[var(--border)] bg-[var(--input-bg)] px-3 py-1.5 text-xs text-[var(--text-secondary)]">
+                <select id="trafficIface" value={selectedIface} onChange={(e) => setSelectedIface(e.target.value)} className="rounded-lg border border-[var(--input-border)] bg-[var(--input-bg)] px-3 py-1.5 text-xs text-[var(--text-secondary)]">
                   <option value="">{t("trafficPage.iface.auto")}</option>
                   {summary.currentServer.interfaces.map((item) => <option key={item.iface} value={item.iface}>{item.iface}</option>)}
                 </select>
@@ -276,7 +276,7 @@ export default function TrafficPage({ canManage: _canManage }: { canManage: bool
                         }}
                       />
                     ) : (
-                      <div className="rounded-xl border border-[var(--border)] bg-[var(--input-bg)] p-3">
+                      <div className="rounded-xl border border-[var(--input-border)] bg-[var(--input-bg)] p-3">
                         {persistedTrend && persistedTrend.size > 0 ? (
                           <div className="space-y-4">
                             {Array.from(persistedTrend.entries()).map(([key, points]) => (
@@ -336,7 +336,7 @@ export default function TrafficPage({ canManage: _canManage }: { canManage: bool
           ) : (
             <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
               {(remoteServers ?? []).map((node) => (
-                <div key={node.serverId} className="rounded-xl border border-[var(--border)] bg-[var(--input-bg)] p-4">
+                <div key={node.serverId} className="rounded-xl border border-[var(--input-border)] bg-[var(--input-bg)] p-4">
                   <div className="flex items-center justify-between gap-3">
                     <div>
                       <div className="text-sm font-medium text-[var(--text-primary)]">{node.serverName}</div>

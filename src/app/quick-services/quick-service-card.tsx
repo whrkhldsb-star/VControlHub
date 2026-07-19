@@ -103,7 +103,7 @@ export function ServiceCard({
 							{item.source}
 						</span>
 					)}
-					<span className={`text-[10px] font-medium px-1.5 py-0.5 rounded-full border ${statusColor[item.status] ?? "text-[var(--text-muted)]"} ${item.status === "running" ? "border-[var(--success-border)] bg-[var(--success)]/[0.10]" : item.status === "error" ? "border-[var(--danger-border)] bg-[var(--danger)]/[0.10]" : "border-[var(--border)]"}`}>
+					<span className={`text-[10px] font-medium px-1.5 py-0.5 rounded-full border ${statusColor[item.status] ?? "text-[var(--text-muted)]"} ${item.status === "running" ? "border-[var(--success-border)] bg-[var(--success-bg)]" : item.status === "error" ? "border-[var(--danger-border)] bg-[var(--danger-bg)]" : "border-[var(--border)]"}`}>
 						{(statusLabelKeys[item.status] && t(statusLabelKeys[item.status] as string)) || item.status}
 					</span>
 				</div>
@@ -122,7 +122,7 @@ export function ServiceCard({
 
 			{/* Error message */}
 			{item.error && (
-				<div className="text-[10px] text-[var(--danger)] bg-[var(--danger)]/[0.10] rounded px-2 py-1 line-clamp-2">{item.error}</div>
+				<div className="text-[10px] text-[var(--danger)] bg-[var(--danger-bg)] rounded px-2 py-1 line-clamp-2">{item.error}</div>
 			)}
 
 			{/* Actions */}

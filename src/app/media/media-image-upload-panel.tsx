@@ -240,7 +240,7 @@ export function MediaImageUploadPanel() {
 					<button type="button" onClick={loadNodes} disabled={loadingNodes} data-action-button data-variant="success" className="!px-3 !py-2 disabled:opacity-60">
 						{loadingNodes ? t("mediaUploadPanel.loadingNodes") : nodesLoaded ? t("mediaUploadPanel.refreshNodes") : t("mediaUploadPanel.loadNodes")}
 					</button>
-					<button type="button" onClick={() => fileInputRef.current?.click()} disabled={uploading} className="rounded-lg bg-[var(--success)] px-4 py-2 font-medium text-[var(--text-primary)] transition hover:bg-[var(--success-bg)] hover:text-[var(--success)] disabled:opacity-60">
+					<button type="button" onClick={() => fileInputRef.current?.click()} disabled={uploading} data-action-button data-variant="success-solid" className="!px-4 !py-2 disabled:opacity-60">
 						{uploading ? t("mediaUploadPanel.uploading") : t("mediaUploadPanel.chooseFiles")}
 					</button>
 				</div>

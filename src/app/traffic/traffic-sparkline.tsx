@@ -101,7 +101,7 @@ export function TrafficSparkline({
 	};
 
 	return (
-		<div className="rounded-xl border border-[var(--border)] bg-[var(--input-bg)] p-3" data-traffic-sparkline>
+		<div className="rounded-xl border border-[var(--input-border)] bg-[var(--input-bg)] p-3" data-traffic-sparkline>
 			<div className="mb-2 flex items-center justify-between text-[11px]">
 				<div className="flex items-center gap-3">
 					<span className="inline-flex items-center gap-1.5 text-[var(--color-action)]">

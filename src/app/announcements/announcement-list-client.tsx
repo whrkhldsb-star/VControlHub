@@ -148,14 +148,14 @@ export function AnnouncementList({
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder={t("announcementsPage.search.placeholder")}
-            className="w-full rounded-xl border border-[var(--border)] bg-[var(--input-bg)] py-2.5 pl-9 pr-4 text-sm text-[var(--text-primary)] outline-none placeholder:text-[var(--text-muted)]"
+            className="w-full rounded-xl border border-[var(--input-border)] bg-[var(--input-bg)] py-2.5 pl-9 pr-4 text-sm text-[var(--text-primary)] outline-none placeholder:text-[var(--text-muted)]"
           />
         </div>
         <select
           value={levelFilter}
           onChange={(e) => setLevelFilter(e.target.value)}
           aria-label={t("announcementsPage.filter.label")}
-          className="rounded-xl border border-[var(--border)] bg-[var(--input-bg)] px-3 py-2.5 text-sm text-[var(--text-primary)] outline-none"
+          className="rounded-xl border border-[var(--input-border)] bg-[var(--input-bg)] px-3 py-2.5 text-sm text-[var(--text-primary)] outline-none"
         >
           {levels.map((l) => (
             <option key={l} value={l}>{l ==="ALL" ? t("announcementsPage.filter.all") : levelLabel(t, l)}</option>

@@ -15,7 +15,7 @@ export function DeploymentExportTree({ tree, activePath, onSelect }: TreeProps) 
   return (
     <div
       data-testid="deploy-export-tree"
-      className="rounded-lg border border-[var(--border)] bg-[var(--input-bg)] p-3 font-mono text-xs text-[var(--text-secondary)]"
+      className="rounded-lg border border-[var(--input-border)] bg-[var(--input-bg)] p-3 font-mono text-xs text-[var(--text-secondary)]"
     >
       <p className="mb-2 text-[10px] font-semibold uppercase tracking-[0.2em] text-[var(--text-secondary)]/70">
         {t("deploymentsPage.export.fileTree")}

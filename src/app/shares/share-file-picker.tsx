@@ -240,7 +240,7 @@ export function ShareFilePicker({ nodes }: { nodes: StorageNode[] }) {
 							setSelected({});
 							setResults([]);
 						}}
-						className="rounded-xl border border-[var(--border)] bg-[var(--input-bg)] px-3 py-2 text-sm text-[var(--text-primary)] outline-none"
+						className="rounded-xl border border-[var(--input-border)] bg-[var(--input-bg)] px-3 py-2 text-sm text-[var(--text-primary)] outline-none"
 					>
 						{nodes.map((node) => (
 							<option key={node.id} value={node.id}>{node.name}{node.driver ? ` · ${node.driver}` : ""}</option>
@@ -355,7 +355,7 @@ export function ShareFilePicker({ nodes }: { nodes: StorageNode[] }) {
 						<div className="mt-4 space-y-2">
 							<p className="text-xs font-medium text-[var(--success)]">{copyText.created}</p>
 							{results.map((item) => (
-								<div key={item.key} className="rounded-lg border border-[var(--success-border)] bg-[var(--success)]/[0.07] p-2 text-xs">
+								<div key={item.key} className="rounded-lg border border-[var(--success-border)] bg-[var(--success-bg)] p-2 text-xs">
 									<div className="truncate text-[var(--success)]">{item.name}</div>
 									<div className="mt-1 flex items-center gap-2">
 										<code className="min-w-0 flex-1 truncate text-[var(--success)]/80">{item.url}</code>

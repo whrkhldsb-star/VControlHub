@@ -75,7 +75,7 @@ export function AiAttachmentsPreview({
                     className="w-12 h-12 rounded object-cover border border-[var(--border)]"
                   />
                 ) : (
-                  <div className="w-12 h-12 rounded border border-[var(--border)] bg-[var(--input-bg)] flex flex-col items-center justify-center">
+                  <div className="w-12 h-12 rounded border border-[var(--input-border)] bg-[var(--input-bg)] flex flex-col items-center justify-center">
                     {file.mimeType.startsWith("video/") ? (
                       <span className="text-base" title={t("aiPage.videoFileTitle")}>
                         <Video size={16} aria-hidden="true" />

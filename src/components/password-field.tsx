@@ -21,7 +21,7 @@ export function PasswordField({ label, name, autoComplete, placeholder, descript
 	return (
 		<div className="grid gap-2 text-sm text-[var(--text-secondary)]">
 			<label htmlFor={inputId}>{label}</label>
-			<div className="flex overflow-hidden rounded-2xl border border-[var(--border)] bg-[var(--input-bg)] focus-within:border-[var(--color-action-border)]/60">
+			<div className="flex overflow-hidden rounded-2xl border border-[var(--input-border)] bg-[var(--input-bg)] focus-within:border-[var(--color-action-border)]/60">
 				<input
 					id={inputId}
 					name={name}

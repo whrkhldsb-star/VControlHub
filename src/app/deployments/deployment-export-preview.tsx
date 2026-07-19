@@ -24,7 +24,7 @@ export function DeploymentFilePreview({
   const { t } = useI18n();
   if (fileNames.length === 0 || !activePath) {
     return (
-      <div className="rounded-lg border border-[var(--border)] bg-[var(--input-bg)] p-3 text-xs text-[var(--text-muted)]">
+      <div className="rounded-lg border border-[var(--input-border)] bg-[var(--input-bg)] p-3 text-xs text-[var(--text-muted)]">
         {t("deploymentsPage.export.emptyExport")}
       </div>
     );
@@ -44,7 +44,7 @@ export function DeploymentFilePreview({
           data-testid="deploy-export-file-select"
           value={activePath}
           onChange={(event) => onSelect(event.target.value)}
-          className="flex-1 rounded-lg border border-[var(--border)] bg-[var(--input-bg)] px-2 py-1 text-xs text-[var(--text-primary)]"
+          className="flex-1 rounded-lg border border-[var(--input-border)] bg-[var(--input-bg)] px-2 py-1 text-xs text-[var(--text-primary)]"
         >
           {fileNames.map((name) => (
             <option key={name} value={name}>

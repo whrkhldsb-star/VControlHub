@@ -235,7 +235,7 @@ export function TicketDetailClient({ initial, canManage, users = [] }: TicketDet
               onChange={(e) => { setAssigneeId(e.target.value); void updateAssignee(e.target.value); }}
               disabled={saving}
               aria-label={t("ticketsDetail.assignAria")}
-              className="rounded-xl border border-[var(--border)] bg-[var(--input-bg)] px-2.5 py-1.5 text-sm text-[var(--text-secondary)] outline-none disabled:opacity-50"
+              className="rounded-xl border border-[var(--input-border)] bg-[var(--input-bg)] px-2.5 py-1.5 text-sm text-[var(--text-secondary)] outline-none disabled:opacity-50"
             >
               <option value="">{t("ticketsDetail.unassigned")}</option>
               {users.map((u) => (
@@ -267,7 +267,7 @@ export function TicketDetailClient({ initial, canManage, users = [] }: TicketDet
             {canManage && (
               <div className="mt-2 flex flex-wrap gap-2">
                 <input
-                  className="min-w-0 flex-1 rounded-lg border border-[var(--border)] bg-[var(--input-bg)] px-2 py-1.5 text-[11px]"
+                  className="min-w-0 flex-1 rounded-lg border border-[var(--input-border)] bg-[var(--input-bg)] px-2 py-1.5 text-[11px]"
                   value={commandIdInput}
                   onChange={(e) => setCommandIdInput(e.target.value)}
                   placeholder={t("ticketsDetail.commandIdPlaceholder")}
@@ -306,7 +306,7 @@ export function TicketDetailClient({ initial, canManage, users = [] }: TicketDet
             {canManage && (
               <div className="mt-2 flex flex-wrap gap-2">
                 <input
-                  className="min-w-0 flex-1 rounded-lg border border-[var(--border)] bg-[var(--input-bg)] px-2 py-1.5 text-[11px]"
+                  className="min-w-0 flex-1 rounded-lg border border-[var(--input-border)] bg-[var(--input-bg)] px-2 py-1.5 text-[11px]"
                   value={serverIdInput}
                   onChange={(e) => setServerIdInput(e.target.value)}
                   placeholder={t("ticketsDetail.serverIdPlaceholder")}
@@ -414,7 +414,7 @@ export function TicketDetailClient({ initial, canManage, users = [] }: TicketDet
           <label htmlFor="ticketComment" className="sr-only">{t("ticketsDetail.commentAria")}</label>
           <textarea id="ticketComment" value={comment} onChange={(e) => setComment(e.target.value)} placeholder={t("ticketsDetail.commentPlaceholder")}
             rows={3}
-            className="w-full resize-none rounded-xl border border-[var(--border)] bg-[var(--input-bg)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none placeholder:text-[var(--text-muted)]" />
+            className="w-full resize-none rounded-xl border border-[var(--input-border)] bg-[var(--input-bg)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none placeholder:text-[var(--text-muted)]" />
           <button onClick={addComment} disabled={saving || !comment.trim()} data-primary
             data-action-button data-variant="primary" className="mt-2 px-4 py-2 text-sm">
             {saving ? t("ticketsDetail.commentSubmitting") : t("ticketsDetail.commentSubmit")}

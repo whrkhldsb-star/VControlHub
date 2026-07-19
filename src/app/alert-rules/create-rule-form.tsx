@@ -114,7 +114,7 @@ export function CreateRuleForm({
 				{t("alertRulesPage.createForm.title")}
 			</h3>
 			{error && (
-				<div className="rounded-lg border border-[var(--danger-border)] bg-[var(--danger)]/[0.10] px-3.5 py-2.5 text-sm text-[var(--danger)]">
+				<div className="rounded-lg border border-[var(--danger-border)] bg-[var(--danger-bg)] px-3.5 py-2.5 text-sm text-[var(--danger)]">
 					{error}
 				</div>
 			)}

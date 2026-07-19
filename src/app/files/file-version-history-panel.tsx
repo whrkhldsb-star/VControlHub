@@ -167,7 +167,7 @@ export function FileVersionHistoryPanel({
             value={note}
             onChange={(e) => setNote(e.target.value)}
             placeholder={t("fileVersionHistory.notePlaceholder")}
-            className="min-w-0 flex-1 rounded-xl border border-[var(--border)] bg-[var(--input-bg)] px-3 py-2 text-xs text-[var(--text-primary)]"
+            className="min-w-0 flex-1 rounded-xl border border-[var(--input-border)] bg-[var(--input-bg)] px-3 py-2 text-xs text-[var(--text-primary)]"
           />
           <button
             type="button"

@@ -167,7 +167,7 @@ export function CreateDownloadForm({
 						<div
 							className={`rounded-lg border px-3 py-2 text-[11px] leading-5 ${
 								selectedServer.accessTransport === "direct"
-									? "border-[var(--success-border)] bg-[var(--success)]/[0.10] text-[var(--success)]"
+									? "border-[var(--success-border)] bg-[var(--success-bg)] text-[var(--success)]"
 									: "border-[var(--warning-border)] bg-[var(--warning)]/[0.10] text-[var(--warning)]"
 							}`}
 						>

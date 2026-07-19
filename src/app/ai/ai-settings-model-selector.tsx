@@ -54,7 +54,7 @@ export function AiSettingsModelSelector({
         <button
           type="button"
           onClick={() => setModelDropdownOpen(!modelDropdownOpen)}
-          className="flex w-full items-center justify-between rounded-xl border border-[var(--border)] bg-[var(--input-bg)] px-2.5 py-1.5 text-xs text-[var(--text-primary)] transition hover:border-[var(--accent-border)]"
+          className="flex w-full items-center justify-between rounded-xl border border-[var(--input-border)] bg-[var(--input-bg)] px-2.5 py-1.5 text-xs text-[var(--text-primary)] transition hover:border-[var(--accent-border)]"
         >
           <span className="truncate flex items-center gap-1.5">
             {settingsForm.model}

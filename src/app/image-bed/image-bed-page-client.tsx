@@ -169,7 +169,7 @@ export default function ImageBedPage({ canWrite, canDelete }: { canWrite: boolea
 							<h2 className="text-sm font-semibold text-[var(--text-primary)]">{t("imageBedPage.legacy.title")}</h2>
 							<p className="mt-1 text-xs text-[var(--text-primary)]/70">{t("imageBedPage.legacy.desc")}</p>
 						</div>
-						<Link href="/media?type=image" className="inline-flex items-center justify-center rounded-lg bg-[var(--success)] px-4 py-2 text-xs font-medium text-[var(--text-primary)] transition hover:bg-[var(--success-bg)] hover:text-[var(--success)]">{t("imageBedPage.legacy.openMedia")}</Link>
+						<Link href="/media?type=image" data-action-button data-variant="success-solid" className="!px-4 !py-2 !text-xs">{t("imageBedPage.legacy.openMedia")}</Link>
 					</div>
 				</div>
 			)}

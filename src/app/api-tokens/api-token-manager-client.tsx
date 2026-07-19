@@ -216,10 +216,10 @@ export function ApiTokenManagerClient({ initialTokens, allowedScopes }: Props) {
               {t("apiTokensPage.revoke.confirmBody").replace("{name}", tokenPendingRevoke.name)}
             </p>
             <div className="mt-6 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
-              <button type="button" onClick={() => setTokenPendingRevoke(null)} className="rounded-xl border border-[var(--border)] px-4 py-2 text-sm font-medium text-[var(--text-secondary)] hover:bg-[var(--surface-hover)]">
+              <button type="button" onClick={() => setTokenPendingRevoke(null)} data-action-button data-variant="secondary" className="!px-4 !py-2 !text-sm">
                 {t("apiTokensPage.revoke.cancel")}
               </button>
-              <button type="button" onClick={() => revokeToken(tokenPendingRevoke)} className="rounded-xl bg-[var(--danger)] px-4 py-2 text-sm font-semibold text-[var(--text-primary)] hover:bg-[var(--danger-bg)] hover:text-[var(--danger)]">
+              <button type="button" onClick={() => revokeToken(tokenPendingRevoke)} data-action-button data-variant="danger-solid" className="!px-4 !py-2 !text-sm">
                 {t("apiTokensPage.revoke.confirm")}
               </button>
             </div>
