@@ -104,7 +104,10 @@ export interface VpsBackupResult {
  * It reads the VpsBackupRecord from DB, fetches the Server connection
  * info, and orchestrates the full backup flow.
  */
-export async function runVpsBackupRecord(recordId: string): Promise<VpsBackupResult> {
+export async function runVpsBackupRecord(
+	recordId: string,
+	options?: { paths?: string[] },
+): Promise<VpsBackupResult> {
 	const record = await prisma.vpsBackupRecord.findUnique({
 		where: { id: recordId },
 		include: {
@@ -167,7 +170,11 @@ export async function runVpsBackupRecord(recordId: string): Promise<VpsBackupRes
 	}
 
 	const remoteFilePath = generateRemoteBackupPath();
-	const customPaths = record.schedule?.paths ?? [];
+	// Prefer explicit job/manual paths; fall back to schedule paths for cron runs.
+	const customPaths =
+		(options?.paths && options.paths.length > 0 ? options.paths : null) ??
+		record.schedule?.paths ??
+		[];
 
 	try {
 		// Step 1: SSH exec — create backup on remote VPS

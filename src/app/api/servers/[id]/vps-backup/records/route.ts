@@ -28,6 +28,8 @@ const logger = createLogger("api:servers:vps-backup:records");
 
 const triggerSchema = z.object({
 	backupType: z.enum(VALID_PRESET_TYPES as [string, ...string[]]),
+	// Manual custom backups need paths; presets ignore this field.
+	paths: z.array(z.string().min(1).max(500)).max(20).optional(),
 });
 
 export async function GET(
@@ -95,6 +97,13 @@ export async function POST(
 			}
 
 			try {
+				if (body.backupType === "custom" && (!body.paths || body.paths.length === 0)) {
+					return Response.json(
+						{ error: t("vpsBackupApi.errorCustomPathsRequired", locale) },
+						{ status: 400 },
+					);
+				}
+
 				const { id: recordId } = await createVpsBackupRecord({
 					serverId,
 					backupType: body.backupType,
@@ -104,7 +113,10 @@ export async function POST(
 				await enqueueJob({
 					type: VPS_BACKUP_CREATE_JOB_TYPE,
 					title: `VPS backup: ${body.backupType} (${server.name})`,
-					payload: { recordId },
+					payload: {
+						recordId,
+						...(body.paths?.length ? { paths: body.paths } : {}),
+					},
 				});
 
 				await auditUserAction(

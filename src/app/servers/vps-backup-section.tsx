@@ -34,8 +34,8 @@ type BackupRecord = {
 
 const PRESET_OPTIONS = [
 	"nginx-config",
-	"mysql-database",
-	"postgres-database",
+	"mysql",
+	"postgres",
 	"docker-volumes",
 	"website-files",
 	"custom",
@@ -64,6 +64,7 @@ export function VpsBackupSection({
 	const [error, setError] = useState<string | null>(null);
 	const [triggering, setTriggering] = useState<string | null>(null);
 	const [showCreate, setShowCreate] = useState(false);
+	const [manualPaths, setManualPaths] = useState("");
 
 	// Create form state
 	const [createForm, setCreateForm] = useState({
@@ -105,7 +106,12 @@ export function VpsBackupSection({
 		try {
 			const res = await csrfFetch<Response>(`/api/servers/${serverId}/vps-backup/records`, {
 				method: "POST",
-				body: JSON.stringify({ backupType }),
+				body: JSON.stringify({
+					backupType,
+					...(backupType === "custom"
+						? { paths: manualPaths.split("\n").map((p) => p.trim()).filter(Boolean) }
+						: {}),
+				}),
 				raw: true,
 			});
 			if (!res.ok) {
@@ -223,6 +229,16 @@ export function VpsBackupSection({
 			<div className="rounded-xl border border-[var(--border)] bg-[var(--surface-elevated)] p-3">
 				<div className="mb-2 text-sm font-medium text-[var(--text-secondary)]">
 					{t("vpsBackup.manualTrigger")}
+				</div>
+				<div className="mb-2">
+					<textarea
+						className={`${UI_INPUT} min-h-[64px] w-full text-xs`}
+						placeholder={t("vpsBackup.pathsPlaceholder")}
+						aria-label={t("vpsBackup.pathsPlaceholder")}
+						value={manualPaths}
+						onChange={(e) => setManualPaths(e.target.value)}
+					/>
+					<p className="mt-1 text-[11px] text-[var(--text-muted)]">{t("vpsBackup.manualCustomPathsHint")}</p>
 				</div>
 				<div className="flex flex-wrap gap-2">
 					{PRESET_OPTIONS.map((preset) => (

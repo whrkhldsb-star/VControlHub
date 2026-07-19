@@ -31,13 +31,16 @@ export async function runVpsBackupJobWorkerOnce(): Promise<void> {
 		// Heartbeat to extend lease before starting
 		await heartbeatJob(job.id, WORKER_ID);
 
-		const payload = job.payload as { recordId?: string };
+		const payload = job.payload as { recordId?: string; paths?: string[] };
 		if (!payload?.recordId) {
 			await failJob(job.id, WORKER_ID, "Missing recordId in job payload");
 			return;
 		}
 
-		const result = await runVpsBackupRecord(payload.recordId);
+		const paths = Array.isArray(payload.paths)
+			? payload.paths.filter((p): p is string => typeof p === "string" && p.trim().length > 0).slice(0, 20)
+			: undefined;
+		const result = await runVpsBackupRecord(payload.recordId, paths?.length ? { paths } : undefined);
 
 		if (result.success) {
 			await completeJob(job.id, WORKER_ID, {
