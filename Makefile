@@ -3,11 +3,13 @@ DOMAIN ?=
 SERVICE_PREFIX ?= $(notdir $(APP_DIR))
 SMOKE_PUBLIC_URL ?=
 
-.PHONY: help verify build runtime deploy-check drift-check smoke smoke-systemd smoke-http installer-fakeroot restart status logs package
+.PHONY: help verify ci-local ci-local-full build runtime deploy-check drift-check smoke smoke-systemd smoke-http installer-fakeroot restart status logs package
 
 help:
 	@printf 'VControlHub maintenance targets:\n'
 	@printf '  make verify        Run prisma generate, typecheck, lint, tests, Next build and runtime bundle\n'
+	@printf '  make ci-local      Fast CI parity: prisma generate + typecheck + lint + unit tests\n'
+	@printf '  make ci-local-full Full CI parity: + coverage + next build + runtime bundle\n'
 	@printf '  make build         Run Next.js production build\n'
 	@printf '  make runtime       Build dist/server.js and dist/ssh-ws-proxy.js\n'
 	@printf '  make restart       Restart SERVICE_PREFIX=$(SERVICE_PREFIX)-next/-ssh-ws when available\n'
@@ -23,6 +25,12 @@ help:
 
 verify:
 	npm run verify
+
+ci-local:
+	bash scripts/ci-local.sh
+
+ci-local-full:
+	bash scripts/ci-local.sh --full
 
 build:
 	npm run build

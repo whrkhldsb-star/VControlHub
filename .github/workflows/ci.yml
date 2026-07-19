@@ -49,6 +49,9 @@ jobs:
       - name: Lint
         run: npm run lint
 
+      # Fail fast with a clear message if someone adds a Prisma mock that
+      # returns Promise instead of PrismaPromise — this was the long-running
+      # red CI cause (move-file-action.test.ts). Keep typecheck above tests.
       - name: Test with coverage
         run: npm run test:coverage
 

@@ -70,9 +70,9 @@ const baseEntry = {
 
 function mockEntryLookup(entry: unknown) {
 	// Entry lookup uses where.id: string; collision probe uses where.id: { not }.
-	// Cast the whole implementation: Prisma's findFirst is typed as returning a
-	// PrismaPromise (thenable with extras), not a plain Promise — vitest mocks
-	// that return Promise.resolve(...) otherwise fail `tsc --noEmit` in CI.
+	// Prisma's findFirst is typed as returning PrismaPromise (thenable + model
+	// helpers), not a plain Promise. Vitest mockImplementation that returns a
+	// Promise fails `tsc --noEmit` (CI typecheck). Cast via unknown.
 	vi.mocked(prisma.fileEntry.findFirst).mockImplementation(
 		(async (args?: { where?: { id?: unknown } }) => {
 			const where = args?.where;
@@ -80,7 +80,7 @@ function mockEntryLookup(entry: unknown) {
 				return entry as never;
 			}
 			return null as never;
-		}) as typeof prisma.fileEntry.findFirst,
+		}) as unknown as typeof prisma.fileEntry.findFirst,
 	);
 }
 
