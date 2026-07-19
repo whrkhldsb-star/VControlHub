@@ -3,7 +3,6 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const { moveBackingObjectMock, fileEntryMock } = vi.hoisted(() => ({
   moveBackingObjectMock: vi.fn(),
 	fileEntryMock: {
-		findUnique: vi.fn(),
 		findFirst: vi.fn(),
 		findMany: vi.fn(),
 		update: vi.fn(),
@@ -15,8 +14,10 @@ vi.mock("@/lib/auth/authorization", () => ({
     userId: "user-1",
     username: "alice",
     roles: ["operator"],
+    currentTeamId: "team-1",
     mustChangePassword: false,
   }),
+  sessionHasPermission: vi.fn().mockReturnValue(false),
 }));
 
 vi.mock("@/lib/db", () => ({
@@ -67,6 +68,17 @@ const baseEntry = {
   },
 };
 
+function mockEntryLookup(entry: unknown) {
+  // Entry lookup uses where.id: string; collision probe uses where.id: { not }.
+  vi.mocked(prisma.fileEntry.findFirst).mockImplementation(async (args) => {
+    const where = (args as { where?: { id?: unknown } })?.where;
+    if (where && typeof where.id === "string") {
+      return entry as never;
+    }
+    return null as never;
+  });
+}
+
 describe("moveFileAction", () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -75,15 +87,17 @@ describe("moveFileAction", () => {
     moveBackingObjectMock.mockResolvedValue(undefined);
   });
 
-  it("validates target directory with storage ACL before updating DB", async () => {
-    vi.mocked(prisma.fileEntry.findUnique).mockResolvedValue({
+  it("validates destination ACL before updating DB", async () => {
+    mockEntryLookup({
       ...baseEntry,
       storageNode: { ...baseEntry.storageNode, driver: "SFTP" as const },
-    } as unknown as Awaited<ReturnType<typeof prisma.fileEntry.findUnique>>);
-    vi.mocked(assertStorageAccess).mockResolvedValueOnce({
-      allowed: false,
-      reason: "没有该存储节点或路径的访问授权",
     });
+    vi.mocked(assertStorageAccess)
+      .mockResolvedValueOnce({ allowed: true }) // source
+      .mockResolvedValueOnce({
+        allowed: false,
+        reason: "没有该存储节点或路径的访问授权",
+      }); // destination
 
     const formData = new FormData();
     formData.set("fileEntryId", "file-1");
@@ -92,24 +106,77 @@ describe("moveFileAction", () => {
     const result = await moveFileAction(null, formData);
 
     expect(result).toEqual({ error: "没有该存储节点或路径的访问授权" });
-    expect(assertStorageAccess).toHaveBeenCalledWith(
+    expect(assertStorageAccess).toHaveBeenNthCalledWith(
+      1,
+      expect.objectContaining({
+        storageNodeId: "node-1",
+        relativePath: "team-a/a.txt",
+        operation: "write",
+        session: expect.objectContaining({ userId: "user-1" }),
+      }),
+    );
+    expect(assertStorageAccess).toHaveBeenNthCalledWith(
+      2,
       expect.objectContaining({
         storageNodeId: "node-1",
         relativePath: "team-b/a.txt",
         operation: "write",
-        session: expect.objectContaining({ userId: "user-1" }),
       }),
     );
     expect(moveBackingObjectMock).not.toHaveBeenCalled();
     expect(prisma.fileEntry.update).not.toHaveBeenCalled();
   });
 
-  it("rejects unsafe target directories before ACL and DB writes", async () => {
-    vi.mocked(prisma.fileEntry.findUnique).mockResolvedValue(
-      baseEntry as unknown as Awaited<
-        ReturnType<typeof prisma.fileEntry.findUnique>
-      >,
+  it("rejects moves when source path lacks write ACL even if destination is allowed", async () => {
+    mockEntryLookup(baseEntry);
+    vi.mocked(assertStorageAccess).mockResolvedValueOnce({
+      allowed: false,
+      reason: "source grant missing",
+    });
+
+    const formData = new FormData();
+    formData.set("fileEntryId", "file-1");
+    formData.set("targetDir", "public");
+
+    const result = await moveFileAction(null, formData);
+
+    expect(result).toEqual({ error: "source grant missing" });
+    expect(assertStorageAccess).toHaveBeenCalledTimes(1);
+    expect(assertStorageAccess).toHaveBeenCalledWith(
+      expect.objectContaining({
+        relativePath: "team-a/a.txt",
+        operation: "write",
+      }),
     );
+    expect(moveBackingObjectMock).not.toHaveBeenCalled();
+    expect(prisma.fileEntry.update).not.toHaveBeenCalled();
+  });
+
+  it("team-scopes entry lookup so foreign-team ids are not found", async () => {
+    vi.mocked(prisma.fileEntry.findFirst).mockResolvedValueOnce(null);
+
+    const formData = new FormData();
+    formData.set("fileEntryId", "foreign-file");
+    formData.set("targetDir", "team-b");
+
+    const result = await moveFileAction(null, formData);
+
+    expect(result).toEqual({ error: "文件条目不存在" });
+    expect(prisma.fileEntry.findFirst).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          id: "foreign-file",
+          isDeleted: false,
+          storageNode: expect.any(Object),
+        }),
+      }),
+    );
+    expect(assertStorageAccess).not.toHaveBeenCalled();
+    expect(moveBackingObjectMock).not.toHaveBeenCalled();
+  });
+
+  it("rejects unsafe target directories before ACL and DB writes", async () => {
+    mockEntryLookup(baseEntry);
 
     const formData = new FormData();
     formData.set("fileEntryId", "file-1");
@@ -128,13 +195,7 @@ describe("moveFileAction", () => {
       ...baseEntry,
       storageNode: { driver: "LOCAL" as const, basePath: "/srv/storage" },
     };
-    vi.mocked(prisma.fileEntry.findUnique).mockResolvedValue(
-      localEntry as unknown as Awaited<
-        ReturnType<typeof prisma.fileEntry.findUnique>
-      >,
-    );
-    vi.mocked(assertStorageAccess).mockResolvedValueOnce({ allowed: true });
-    vi.mocked(prisma.fileEntry.findFirst).mockResolvedValueOnce(null);
+    mockEntryLookup(localEntry);
     moveBackingObjectMock.mockRejectedValueOnce(new Error("EXDEV"));
     expect(localEntry.storageNode.driver).toBe("LOCAL");
     expect(localEntry.entryType).toBe("FILE");
@@ -163,13 +224,7 @@ describe("moveFileAction", () => {
         basePath: "/var/lib/${APP_SLUG:-vcontrolhub}/storage",
       },
     };
-    vi.mocked(prisma.fileEntry.findUnique).mockResolvedValue(
-      localEntry as unknown as Awaited<
-        ReturnType<typeof prisma.fileEntry.findUnique>
-      >,
-    );
-    vi.mocked(assertStorageAccess).mockResolvedValueOnce({ allowed: true });
-    vi.mocked(prisma.fileEntry.findFirst).mockResolvedValueOnce(null);
+    mockEntryLookup(localEntry);
     moveBackingObjectMock.mockResolvedValueOnce(undefined);
     vi.mocked(prisma.fileEntry.update).mockResolvedValueOnce({ id: "file-1" } as never);
 
@@ -180,6 +235,7 @@ describe("moveFileAction", () => {
     const result = await moveFileAction(null, formData);
 
     expect(result).toEqual({ success: "已移动到 /team-b/a.txt" });
+    expect(assertStorageAccess).toHaveBeenCalledTimes(2);
     expect(moveBackingObjectMock).toHaveBeenCalledWith({
       storageNode: localEntry.storageNode,
       oldRelativePath: "team-a/a.txt",
@@ -194,13 +250,7 @@ describe("moveFileAction", () => {
   });
 
   it("moves SFTP files through the fs-backend adapter before updating the DB index", async () => {
-    vi.mocked(prisma.fileEntry.findUnique).mockResolvedValue(
-      baseEntry as unknown as Awaited<
-        ReturnType<typeof prisma.fileEntry.findUnique>
-      >,
-    );
-    vi.mocked(assertStorageAccess).mockResolvedValueOnce({ allowed: true });
-    vi.mocked(prisma.fileEntry.findFirst).mockResolvedValueOnce(null);
+    mockEntryLookup(baseEntry);
     moveBackingObjectMock.mockResolvedValueOnce(undefined);
     vi.mocked(prisma.fileEntry.update).mockResolvedValueOnce({
       id: "file-1",
@@ -227,13 +277,7 @@ describe("moveFileAction", () => {
   });
 
   it("moves SFTP files into a nested target path through the fs-backend adapter", async () => {
-    vi.mocked(prisma.fileEntry.findUnique).mockResolvedValue(
-      baseEntry as unknown as Awaited<
-        ReturnType<typeof prisma.fileEntry.findUnique>
-      >,
-    );
-    vi.mocked(assertStorageAccess).mockResolvedValueOnce({ allowed: true });
-    vi.mocked(prisma.fileEntry.findFirst).mockResolvedValueOnce(null);
+    mockEntryLookup(baseEntry);
     moveBackingObjectMock.mockResolvedValueOnce(undefined);
     vi.mocked(prisma.fileEntry.update).mockResolvedValueOnce({
       id: "file-1",
@@ -260,13 +304,7 @@ describe("moveFileAction", () => {
   });
 
   it("surfaces SFTP adapter errors with a remote driver label", async () => {
-    vi.mocked(prisma.fileEntry.findUnique).mockResolvedValue(
-      baseEntry as unknown as Awaited<
-        ReturnType<typeof prisma.fileEntry.findUnique>
-      >,
-    );
-    vi.mocked(assertStorageAccess).mockResolvedValueOnce({ allowed: true });
-    vi.mocked(prisma.fileEntry.findFirst).mockResolvedValueOnce(null);
+    mockEntryLookup(baseEntry);
     moveBackingObjectMock.mockRejectedValueOnce(new Error("permission denied"));
 
     const formData = new FormData();

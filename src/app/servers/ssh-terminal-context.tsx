@@ -62,17 +62,23 @@ export function SshTerminalProvider({ children }: { children: ReactNode }) {
 	}, []);
 
 	const closeTab = useCallback((index: number) => {
+		// Functional update for active index: closeTab closes over activeTabIndex
+		// would otherwise use a stale value when several tabs close quickly
+		// (Escape spam / multi-close) before the provider re-renders.
 		setTabs((prev) => {
+			if (index < 0 || index >= prev.length) return prev;
 			const next = prev.filter((_, i) => i !== index);
-			// Adjust active tab index
-			if (next.length === 0) {
-				setActiveTabIndex(0);
-			} else if (index <= activeTabIndex) {
-				setActiveTabIndex(Math.max(0, activeTabIndex - 1));
-			}
+			setActiveTabIndex((currentActive) => {
+				if (next.length === 0) return 0;
+				if (index < currentActive) return currentActive - 1;
+				if (index === currentActive) {
+					return Math.min(currentActive, next.length - 1);
+				}
+				return currentActive;
+			});
 			return next;
 		});
-	}, [activeTabIndex]);
+	}, []);
 
 	const closeAll = useCallback(() => {
 		setTabs([]);

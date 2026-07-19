@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 
 import { requirePermission } from "@/lib/auth/authorization";
+import { teamWhere } from "@/lib/auth/team-scope";
 import { prisma } from "@/lib/db";
 import { assertStorageAccess } from "@/lib/storage/access-control";
 import { moveBackingObject } from "@/lib/storage/fs-backend";
@@ -39,8 +40,16 @@ export async function moveFileAction(
 
     const normalizedTargetDir = targetDirResult.path;
 
-    const entry = await prisma.fileEntry.findUnique({
-      where: { id: fileEntryId },
+    // Team-scope the lookup so foreign-team fileEntryIds cannot be moved by id.
+    // isDeleted:false matches rename/delete actions and blocks resurrecting trash via move.
+    const entry = await prisma.fileEntry.findFirst({
+      where: {
+        id: fileEntryId,
+        isDeleted: false,
+        storageNode: {
+          ...teamWhere(session),
+        },
+      },
       select: {
         id: true,
         name: true,
@@ -84,6 +93,20 @@ export async function moveFileAction(
     if (!normalizedCurrentPath.ok) {
       return {
         error: normalizedCurrentPath.reason,
+      } satisfies MoveFileActionState;
+    }
+
+    // Require write on BOTH source and destination. Destination-only ACL would
+    // let a grant on /public pull files out of a restricted source prefix.
+    const sourceAccess = await assertStorageAccess({
+      session,
+      storageNodeId: entry.storageNodeId,
+      relativePath: normalizedCurrentPath.path,
+      operation: "write",
+    });
+    if (!sourceAccess.allowed) {
+      return {
+        error: sourceAccess.reason ?? tr("filesPage.move.errorNoAccess"),
       } satisfies MoveFileActionState;
     }
 
