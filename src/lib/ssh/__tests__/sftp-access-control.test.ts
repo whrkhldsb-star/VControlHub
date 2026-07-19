@@ -43,4 +43,16 @@ describe("assertSftpPathAccess", () => {
 		await expect(assertSftpPathAccess({ session: { ...session, roles: ["admin"] }, serverId: "s1", paths: ["/etc/passwd"] })).resolves.toBeUndefined();
 		expect(findUniqueMock).not.toHaveBeenCalled();
 	});
+
+	it("rejects sibling paths that share a home-prefix string (alice vs alice-evil)", async () => {
+		await expect(
+			assertSftpPathAccess({ session, serverId: "s1", paths: ["/home/alice-evil/secret"] }),
+		).rejects.toThrow("outside the allowed home directory");
+	});
+
+	it("allows relative paths that resolve under the home root", async () => {
+		await expect(
+			assertSftpPathAccess({ session, serverId: "s1", paths: ["files/a.txt"] }),
+		).resolves.toBeUndefined();
+	});
 });

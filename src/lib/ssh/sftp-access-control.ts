@@ -7,9 +7,19 @@ import { ForbiddenError, NotFoundError } from "@/lib/errors";
 import { sanitizeRemotePath } from "./sftp-service";
 
 function isInsideRoot(candidate: string, root: string) {
-	const normalizedCandidate = path.normalize(candidate.startsWith("/") ? candidate : `${root}/${candidate}`);
-	const normalizedRoot = path.normalize(root);
-	return normalizedCandidate === normalizedRoot || normalizedCandidate.startsWith(`${normalizedRoot}/`);
+	// Always resolve relative candidates against root, then re-normalize so
+	// traversal sequences ("../") and doubled slashes cannot slip past the
+	// prefix check. Use an exact root match or `${root}/` prefix — never a
+	// bare startsWith(root) which would allow `/home/alice-evil` under `/home/alice`.
+	const normalizedRoot = path.normalize(root.startsWith("/") ? root : `/${root}`);
+	const absoluteCandidate = candidate.startsWith("/")
+		? candidate
+		: path.join(normalizedRoot, candidate);
+	const normalizedCandidate = path.normalize(absoluteCandidate);
+	return (
+		normalizedCandidate === normalizedRoot ||
+		normalizedCandidate.startsWith(`${normalizedRoot}/`)
+	);
 }
 
 /**

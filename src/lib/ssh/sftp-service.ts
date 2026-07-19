@@ -293,24 +293,56 @@ export async function uploadFile(
 
     let bytesWritten = 0;
 
-    return new Promise<number>((resolve, reject) => {
+    return await new Promise<number>((resolve, reject) => {
+      let settled = false;
+      const fail = (err: Error) => {
+        if (settled) return;
+        settled = true;
+        // Destroy both ends so a half-failed pipe cannot leave the SSH
+        // session open after we reject (resource leak / fd exhaustion).
+        try {
+          sourceStream.destroy(err);
+        } catch {
+          /* best-effort */
+        }
+        try {
+          // ssh2 WriteStream.destroy typings omit the optional error arg.
+          (writeStream as unknown as { destroy: (err?: Error) => void }).destroy(err);
+        } catch {
+          /* best-effort */
+        }
+        reject(err);
+      };
+
       sourceStream.on("data", (chunk: Buffer) => {
         bytesWritten += chunk.length;
       });
+      sourceStream.on("error", (err: Error) => {
+        fail(new Error(`Upload source error: ${err.message}`));
+      });
 
       writeStream.on("error", (err: Error) => {
-        reject(new Error(`Upload write error: ${err.message}`));
+        fail(new Error(`Upload write error: ${err.message}`));
       });
 
-      writeStream.on("close", () => {
+      // ssh2 WriteStream emits "close" after autoClose; Node Writable also
+      // emits "finish" when the final write completes. Accept either so we
+      // always settle (and the outer finally can tear down the SSH session).
+      const succeed = () => {
+        if (settled) return;
+        settled = true;
         resolve(bytesWritten);
-      });
+      };
+      writeStream.on("close", succeed);
+      writeStream.on("finish", succeed);
 
       sourceStream.pipe(writeStream);
     });
-  } catch (err) {
+  } finally {
+    // Always tear down the per-op SSH/SFTP session — including the success
+    // path. The previous implementation only closed on sync throw before the
+    // pipe started, leaking connections on every successful upload.
     session.close();
-    throw err;
   }
 }
 

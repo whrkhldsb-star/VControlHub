@@ -1,20 +1,81 @@
-import { describe, expect, it, vi } from "vitest";
+import { Readable, PassThrough } from "node:stream";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
-// Import pure functions — no SSH connection needed
-import {
-  sanitizeRemotePath,
-  sanitizeFileName,
-} from "@/lib/ssh/sftp-service";
+const {
+  createWriteStreamMock,
+  sftpEndMock,
+  clientEndMock,
+  connectMock,
+  findUniqueMock,
+} = vi.hoisted(() => ({
+  createWriteStreamMock: vi.fn(),
+  sftpEndMock: vi.fn(),
+  clientEndMock: vi.fn(),
+  connectMock: vi.fn(),
+  findUniqueMock: vi.fn(),
+}));
 
-// Mock dependencies so module loads cleanly
-vi.mock("@/lib/db", () => ({ prisma: {} }));
+vi.mock("ssh2", () => {
+  class Client {
+    #handlers = new Map<string, Array<(...args: unknown[]) => void>>();
+
+    on(event: string, cb: (...args: unknown[]) => void) {
+      const list = this.#handlers.get(event) ?? [];
+      list.push(cb);
+      this.#handlers.set(event, list);
+      return this;
+    }
+
+    connect(config: unknown) {
+      connectMock(config);
+      // Fire ready asynchronously after connect (matches ssh2 ordering).
+      queueMicrotask(() => {
+        for (const cb of this.#handlers.get("ready") ?? []) cb();
+      });
+      return this;
+    }
+
+    end() {
+      clientEndMock();
+    }
+
+    sftp(cb: (err: Error | null, sftp: unknown) => void) {
+      cb(null, {
+        createWriteStream: createWriteStreamMock,
+        end: sftpEndMock,
+      });
+    }
+  }
+  return { Client };
+});
+
+vi.mock("@/lib/ssh/client", () => ({
+  createVerifiedSshConfig: (input: Record<string, unknown>) => input,
+}));
+
+vi.mock("@/lib/db", () => ({
+  prisma: {
+    server: {
+      findUnique: findUniqueMock,
+    },
+  },
+}));
+
 vi.mock("@/lib/logging", () => ({
   createLogger: () => ({ info: vi.fn(), warn: vi.fn(), error: vi.fn() }),
 }));
+
 vi.mock("@/lib/ssh/ssh-key-crypto", () => ({
   decryptServerPassword: (v: string) => v,
   decryptSshPrivateKey: (v: string) => v,
+  decryptSshKeyPassphrase: (v: string) => v,
 }));
+
+import {
+  sanitizeRemotePath,
+  sanitizeFileName,
+  uploadFile,
+} from "@/lib/ssh/sftp-service";
 
 describe("sanitizeRemotePath", () => {
   it("normalises consecutive slashes", () => {
@@ -67,5 +128,63 @@ describe("sanitizeFileName", () => {
     expect(sanitizeFileName("backup.tar.gz")).toBe("backup.tar.gz");
     expect(sanitizeFileName(".bashrc")).toBe(".bashrc");
     expect(sanitizeFileName("my-file_v2.txt")).toBe("my-file_v2.txt");
+  });
+});
+
+describe("uploadFile session lifecycle", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    findUniqueMock.mockResolvedValue({
+      id: "srv1",
+      host: "10.0.0.1",
+      port: 22,
+      username: "alice",
+      enabled: true,
+      connectionType: "PASSWORD",
+      password: "secret",
+      hostKeySha256: "SHA256:pin",
+      sshKey: null,
+    });
+  });
+
+  it("closes the SSH/SFTP session after a successful upload", async () => {
+    const writeStream = new PassThrough();
+    createWriteStreamMock.mockReturnValue(writeStream);
+
+    const source = Readable.from([Buffer.from("hello-upload")]);
+    await expect(uploadFile("srv1", "/home/alice/out.txt", source)).resolves.toBe(
+      Buffer.byteLength("hello-upload"),
+    );
+    expect(sftpEndMock).toHaveBeenCalled();
+    expect(clientEndMock).toHaveBeenCalled();
+  });
+
+  it("closes the SSH/SFTP session when the write stream errors", async () => {
+    const writeStream = new PassThrough();
+    // Prevent unhandled 'error' if destroy races slightly ahead of listeners.
+    writeStream.on("error", () => {
+      /* swallowed by uploadFile handler */
+    });
+    createWriteStreamMock.mockReturnValue(writeStream);
+
+    const source = new Readable({
+      read() {
+        this.push(Buffer.from("chunk"));
+      },
+    });
+    // Avoid unhandled source errors after destroy.
+    source.on("error", () => {
+      /* expected after fail() */
+    });
+
+    const uploadPromise = uploadFile("srv1", "/home/alice/out.txt", source);
+    // Wait until createWriteStream has been used (session open + pipe started).
+    await vi.waitFor(() => {
+      expect(createWriteStreamMock).toHaveBeenCalled();
+    });
+    writeStream.destroy(new Error("disk full"));
+    await expect(uploadPromise).rejects.toThrow("Upload write error");
+    expect(sftpEndMock).toHaveBeenCalled();
+    expect(clientEndMock).toHaveBeenCalled();
   });
 });
