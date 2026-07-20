@@ -61,8 +61,13 @@ must match the Actions job names exactly.
 | Counting pure re-export barrels in coverage | Drags global thresholds — already excluded in `vitest.config.ts` |
 | Dual health UIs | Deleted; use `/health` + `/vps-status` only |
 
-## Artifact reuse
+## Artifact note
 
-The `test` job uploads `.next/` + `dist/` as `next-runtime-build` with `include-hidden-files: true` (required for `.next`). E2E and DAST
-download it instead of rebuilding. If you change Next config or public assets,
-ensure they are included in the upload path list in `ci.yml`.
+E2E and DAST **build in their own job** (not via cross-job `.next` artifacts).
+Cross-job artifact reuse of `.next` was attempted and abandoned: the production
+custom server intermittently died mid-suite with connection refused under
+multi-browser Playwright. Local rebuild is slower but reliable.
+
+If you reintroduce artifact reuse later: set `include-hidden-files: true` for
+`.next`, verify `BUILD_ID`, migrate schema with `prisma db push`, and keep the
+server under `nohup` with a pid/log dump on failure.

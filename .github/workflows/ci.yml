@@ -69,26 +69,6 @@ jobs:
       - name: Build runtime bundle
         run: npm run build:runtime
 
-      # Share production build with e2e/dast so they do not re-run next build
-      # (avoids NODE_ENV / devDependency drift and saves ~3–5 minutes).
-      - name: Upload production build artifacts
-        uses: actions/upload-artifact@v4
-        with:
-          name: next-runtime-build
-          # include-hidden-files is required: .next is a hidden directory and
-          # would otherwise be silently omitted (artifact ~200KB of dist only).
-          include-hidden-files: true
-          path: |
-            .next/
-            dist/
-            public/
-            package.json
-            package-lock.json
-            next.config.*
-            prisma/
-          if-no-files-found: error
-          retention-days: 1
-
   e2e-public-cross-browser:
     name: E2E public smoke (Chromium + Firefox + WebKit)
     runs-on: ubuntu-latest
@@ -106,6 +86,7 @@ jobs:
       DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/whrkhldsb_ci
       AUTH_SECRET: ci-e2e-auth-secret-at-least-32-bytes-long
       AUTH_SESSION_SECRET: ci-e2e-session-secret-at-least-32-bytes
+      ADMIN_INITIAL_PASSWORD: ci-e2e-admin-initial-password
     services:
       postgres:
         image: postgres:16-alpine
@@ -139,44 +120,60 @@ jobs:
       - name: Generate Prisma client
         run: npx prisma generate
 
-      - name: Download production build artifacts
-        uses: actions/download-artifact@v4
-        with:
-          name: next-runtime-build
-          path: .
-
-      - name: Verify production build present
-        run: |
-          test -f .next/BUILD_ID || test -f .next/BUILDING || test -d .next
-          test -f dist/server.js
-          ls -la .next | head
-          test -s .next/BUILD_ID
-
       - name: Apply database schema
         run: npx prisma db push --accept-data-loss
+
+      # Build in this job (same runner as the server) so .next is never
+      # transferred across jobs. Cross-job artifact reuse caused intermittent
+      # server death / connection refused during multi-browser smoke.
+      - name: Build app + runtime
+        run: |
+          npm run build
+          npm run build:runtime
 
       - name: Start production custom server
         env:
           NODE_ENV: production
         run: |
-          node dist/server.js &
+          set -euo pipefail
+          nohup node dist/server.js > /tmp/vch-e2e-server.log 2>&1 &
+          echo $! > /tmp/vch-e2e-server.pid
           for i in $(seq 1 90); do
             if curl -fsS http://127.0.0.1:3000/login >/dev/null 2>&1; then
-              echo "server ready"
+              echo "server ready (pid=$(cat /tmp/vch-e2e-server.pid))"
+              # Keep the step alive only long enough to confirm readiness.
+              # Server continues via nohup for subsequent steps.
               exit 0
+            fi
+            if ! kill -0 "$(cat /tmp/vch-e2e-server.pid)" 2>/dev/null; then
+              echo "server process exited early"
+              cat /tmp/vch-e2e-server.log || true
+              exit 1
             fi
             sleep 2
           done
           echo "server failed to become ready"
+          cat /tmp/vch-e2e-server.log || true
           exit 1
 
       - name: Run public smoke across browsers
         env:
           NODE_ENV: production
-        # Cross-browser for login/status; offline is static and flaky under webkit
-        # when the custom server is under worker DB noise — run all projects but
-        # retry is already enabled in playwright.config.
-        run: npx playwright test e2e/public-smoke.spec.ts --project=chromium --project=firefox --project=webkit --workers=1 --retries=2
+        run: |
+          set -euo pipefail
+          # Confirm server still up before Playwright starts.
+          curl -fsS http://127.0.0.1:3000/login >/dev/null
+          npx playwright test e2e/public-smoke.spec.ts \
+            --project=chromium --project=firefox --project=webkit \
+            --workers=1 --retries=1
+
+      - name: Dump server log on failure
+        if: failure()
+        run: |
+          echo "--- server pid ---"
+          cat /tmp/vch-e2e-server.pid || true
+          echo "--- server log ---"
+          cat /tmp/vch-e2e-server.log || true
 
       - name: Upload Playwright report
         if: always()
@@ -186,12 +183,13 @@ jobs:
           path: |
             .playwright-output/
             playwright-report/
+            /tmp/vch-e2e-server.log
           if-no-files-found: ignore
 
   dast-baseline:
     name: DAST baseline (optional surface probe)
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 20
     needs: test
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     env:
@@ -203,6 +201,7 @@ jobs:
       DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/whrkhldsb_ci
       AUTH_SECRET: ci-dast-auth-secret-at-least-32-bytes-long
       AUTH_SESSION_SECRET: ci-dast-session-secret-at-least-32-bytes
+      ADMIN_INITIAL_PASSWORD: ci-dast-admin-initial-password
     services:
       postgres:
         image: postgres:16-alpine
@@ -233,46 +232,55 @@ jobs:
       - name: Generate Prisma client
         run: npx prisma generate
 
-      - name: Download production build artifacts
-        uses: actions/download-artifact@v4
-        with:
-          name: next-runtime-build
-          path: .
-
-      - name: Verify production build present
-        run: |
-          test -f .next/BUILD_ID || test -f .next/BUILDING || test -d .next
-          test -f dist/server.js
-          ls -la .next | head
-          test -s .next/BUILD_ID
-
       - name: Apply database schema
         run: npx prisma db push --accept-data-loss
+
+      - name: Build app + runtime
+        run: |
+          npm run build
+          npm run build:runtime
 
       - name: Start production custom server
         env:
           NODE_ENV: production
         run: |
-          node dist/server.js &
+          set -euo pipefail
+          nohup node dist/server.js > /tmp/vch-dast-server.log 2>&1 &
+          echo $! > /tmp/vch-dast-server.pid
           for i in $(seq 1 90); do
             if curl -fsS http://127.0.0.1:3000/login >/dev/null 2>&1; then
-              echo "server ready"
+              echo "server ready (pid=$(cat /tmp/vch-dast-server.pid))"
               exit 0
+            fi
+            if ! kill -0 "$(cat /tmp/vch-dast-server.pid)" 2>/dev/null; then
+              echo "server process exited early"
+              cat /tmp/vch-dast-server.log || true
+              exit 1
             fi
             sleep 2
           done
           echo "server failed to become ready"
+          cat /tmp/vch-dast-server.log || true
           exit 1
 
       - name: Run DAST baseline probe
         env:
           NODE_ENV: production
-        run: npm run dast:baseline
+        run: |
+          set -euo pipefail
+          curl -fsS http://127.0.0.1:3000/login >/dev/null
+          npm run dast:baseline
+
+      - name: Dump server log on failure
+        if: failure()
+        run: cat /tmp/vch-dast-server.log || true
 
       - name: Upload DAST output
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: dast-baseline
-          path: .dast-output/
+          path: |
+            .dast-output/
+            /tmp/vch-dast-server.log
           if-no-files-found: ignore

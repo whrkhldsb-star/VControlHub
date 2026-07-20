@@ -13,11 +13,9 @@ test.describe("public smoke routes", () => {
 		await expect(page.locator("body")).toContainText(/状态|Status|健康|Health/i);
 	});
 
-	// Static offline shell — WebKit on GitHub Actions intermittently refuses
-	// the connection to the custom Node server for this path only (login/status
-	// pass). Chromium is enough to guard the route exists and renders copy.
-	test("offline route renders the offline fallback", async ({ page, browserName }) => {
-		test.skip(browserName === "webkit", "WebKit flaky against custom server /offline in CI");
+	// Static offline shell. Keep on all browsers once server lifecycle is stable;
+	// still use domcontentloaded to avoid networkidle hangs.
+	test("offline route renders the offline fallback", async ({ page }) => {
 		await page.goto("/offline", { waitUntil: "domcontentloaded" });
 		await expect(page.locator("body")).toContainText(/离线|Offline|网络|network/i);
 	});
