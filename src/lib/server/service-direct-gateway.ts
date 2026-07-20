@@ -36,6 +36,38 @@ export function getConfiguredDirectAccessSecret() {
  * - publicListen=false → loopback (needs reverse proxy / VPN)
  * - default when enabling: publicListen true so AUTO direct actually works
  */
+
+/** Optional HTTPS public hostname. Empty/null → use server.host (IP or DNS already on the node). */
+export function normalizeDirectGatewayPublicDomain(
+  value: string | null | undefined,
+): string | null {
+  const raw = (value ?? "").trim().toLowerCase();
+  if (!raw) return null;
+  // strip scheme/path if user pasted a URL
+  let host = raw;
+  try {
+    if (raw.includes("://")) {
+      host = new URL(raw).hostname;
+    } else {
+      host = raw.split("/")[0]?.split(":")[0] ?? raw;
+    }
+  } catch {
+    host = raw.split("/")[0]?.split(":")[0] ?? raw;
+  }
+  host = host.replace(/\.+$/, "");
+  if (!host || host.length > 253) {
+    throw new ValidationError("Invalid direct gateway domain");
+  }
+  // basic hostname / IP chars
+  if (!/^[a-z0-9.:\-]+$/i.test(host) || host.includes("..")) {
+    throw new ValidationError("Invalid direct gateway domain");
+  }
+  if (host === "localhost" || host.endsWith(".localhost")) {
+    throw new ValidationError("Direct gateway domain must not be localhost");
+  }
+  return host;
+}
+
 export function resolveDirectGatewayBindAddress(input: {
   bindAddress?: string;
   publicListen?: boolean;
@@ -178,6 +210,8 @@ export async function applyServerDirectGatewayState(input: {
    * (default true). Set false only for advanced manual TLS setups.
    */
   autoReverseProxy?: boolean;
+  /** HTTPS public hostname; empty uses server.host (IP). */
+  publicDomain?: string | null;
 }) {
   const t = await serverT();
   const server = await loadServerForDirectGateway(input.serverId);
@@ -229,18 +263,22 @@ export async function applyServerDirectGatewayState(input: {
     input.enabled &&
     publicProtocol === "https" &&
     input.autoReverseProxy !== false;
+  const publicDomain = normalizeDirectGatewayPublicDomain(input.publicDomain);
+  // public URL host: optional domain for HTTPS, otherwise the VPS host/IP.
+  const publicHost =
+    publicProtocol === "https" && publicDomain ? publicDomain : server.host;
   const publicBaseUrl = buildDirectGatewayPublicBaseUrl({
-    host: server.host,
+    host: publicHost,
     port: DIRECT_GATEWAY_DEFAULT_PORT,
     protocol: publicProtocol,
     autoReverseProxy,
     publicPort: autoReverseProxy ? DIRECT_GATEWAY_HTTPS_PUBLIC_PORT : undefined,
   });
+  // Default: public listen for HTTP direct. HTTPS auto-proxy keeps gateway on loopback.
   const bindAddress = autoReverseProxy
     ? "127.0.0.1"
     : resolveDirectGatewayBindAddress({
         bindAddress: input.bindAddress,
-        // HTTP path: public listen so browser can hit :31888.
         publicListen: input.enabled ? (input.publicListen ?? true) : false,
       });
   let cleanupSkipped = false;
@@ -257,7 +295,7 @@ export async function applyServerDirectGatewayState(input: {
           bindAddress,
           autoReverseProxy,
           publicPort: autoReverseProxy ? DIRECT_GATEWAY_HTTPS_PUBLIC_PORT : undefined,
-          tlsHost: server.host,
+          tlsHost: publicHost,
         })
       : buildUninstallDirectGatewayCommand();
   } catch (error) {
@@ -362,6 +400,7 @@ export async function applyServerDirectGatewayState(input: {
     publicReachable: input.enabled ? true : undefined,
     autoReverseProxy: input.enabled ? autoReverseProxy : undefined,
     publicProtocol: input.enabled ? publicProtocol : undefined,
+    publicDomain: input.enabled ? publicDomain : undefined,
   };
 }
 
@@ -375,6 +414,8 @@ export async function setServerDirectGatewayEnabled(
     skipPublicHealthProbe?: boolean;
     /** HTTPS: auto install Caddy reverse-proxy (default true when protocol=https). */
     autoReverseProxy?: boolean;
+    /** HTTPS public domain; empty/null uses server IP/host. */
+    publicDomain?: string | null;
   } = {},
 ) {
   return applyServerDirectGatewayState({
@@ -385,5 +426,6 @@ export async function setServerDirectGatewayEnabled(
     bindAddress: options.bindAddress,
     skipPublicHealthProbe: options.skipPublicHealthProbe,
     autoReverseProxy: options.autoReverseProxy,
+    publicDomain: options.publicDomain,
   });
 }

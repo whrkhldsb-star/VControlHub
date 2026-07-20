@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useState } from "react";
 
 import { SubmitButton } from "@/components/submit-button";
 import { useI18n } from "@/lib/i18n/use-locale";
@@ -32,6 +32,7 @@ export function ServerCardDirectGatewayForm({
     toggleDirectGatewayAction,
     initialState,
   );
+  const [protocol, setProtocol] = useState<"http" | "https">("http");
 
   return (
     <form
@@ -59,7 +60,10 @@ export function ServerCardDirectGatewayForm({
             <select
               id={`direct-gateway-protocol-${serverId}`}
               name="directGatewayProtocol"
-              defaultValue="http"
+              value={protocol}
+              onChange={(e) =>
+                setProtocol(e.target.value === "https" ? "https" : "http")
+              }
               className="w-full rounded-lg border border-[var(--color-action-border)]/20 bg-[var(--surface-subtle)] px-3 py-2 text-xs text-[var(--text-primary)]"
             >
               <option value="http">
@@ -70,26 +74,37 @@ export function ServerCardDirectGatewayForm({
               </option>
             </select>
             <p className="text-[10px] leading-4 text-[var(--text-muted)]">
+              {t("serverCardActions.directGateway.enableListenNote")}
+            </p>
+            <p className="text-[10px] leading-4 text-[var(--text-muted)]">
               {t("serverCardActions.directGateway.protocolHttpsHint")}
             </p>
           </div>
-          <label className="flex items-start gap-2 text-[11px] leading-5 text-[var(--text-secondary)]">
-            <input
-              type="checkbox"
-              name="publicListen"
-              value="true"
-              defaultChecked
-              className="mt-0.5 h-4 w-4 rounded border-[var(--border)] bg-[var(--input-bg)]"
-            />
-            <span>
-              <span className="block font-medium text-[var(--text-primary)]">
-                {t("serverCardActions.directGateway.publicListen")}
-              </span>
-              <span className="text-[var(--text-muted)]">
-                {t("serverCardActions.directGateway.publicListenHint")}
-              </span>
-            </span>
-          </label>
+
+          {protocol === "https" ? (
+            <div className="space-y-1">
+              <label
+                className="block text-[11px] font-medium text-[var(--text-muted)]"
+                htmlFor={`direct-gateway-domain-${serverId}`}
+              >
+                {t("serverCardActions.directGateway.publicDomain")}
+              </label>
+              <input
+                id={`direct-gateway-domain-${serverId}`}
+                name="directGatewayDomain"
+                type="text"
+                inputMode="url"
+                autoComplete="off"
+                placeholder={t(
+                  "serverCardActions.directGateway.publicDomainPlaceholder",
+                )}
+                className="w-full rounded-lg border border-[var(--color-action-border)]/20 bg-[var(--surface-subtle)] px-3 py-2 text-xs text-[var(--text-primary)]"
+              />
+              <p className="text-[10px] leading-4 text-[var(--text-muted)]">
+                {t("serverCardActions.directGateway.publicDomainHint")}
+              </p>
+            </div>
+          ) : null}
         </div>
       ) : null}
 

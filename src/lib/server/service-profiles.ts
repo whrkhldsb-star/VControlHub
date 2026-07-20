@@ -228,6 +228,8 @@ export async function createServerProfile(
       enabled: true,
       bestEffort: true,
       publicProtocol: payload.directGatewayProtocol,
+      publicDomain: payload.directGatewayDomain?.trim() || null,
+      publicListen: true,
     });
     if (!directResult.enabled) {
       onboardingWarnings.push(

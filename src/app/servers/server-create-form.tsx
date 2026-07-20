@@ -304,7 +304,31 @@ export function ServerCreateForm({
               <option value="https">
                 {t("serversPage.create.directGateway.protocolHttps")}
               </option>{" "}
-            </select>{" "}
+            </select>
+            <p className="mt-1 text-[10px] leading-4 text-[var(--text-muted)]">
+              {t("serversPage.create.directGateway.listenNote")}
+            </p>
+            <p className="mt-1 text-[10px] leading-4 text-[var(--text-muted)]">
+              {t("serversPage.create.directGateway.protocolHttpsHint")}
+            </p>
+            <label
+              className="mt-3 block text-xs font-medium text-[var(--text-primary)]/70"
+              htmlFor="directGatewayDomain"
+            >
+              {t("serversPage.create.directGateway.publicDomain")}
+            </label>
+            <input
+              id="directGatewayDomain"
+              name="directGatewayDomain"
+              type="text"
+              inputMode="url"
+              autoComplete="off"
+              placeholder={t("serversPage.create.directGateway.publicDomainPlaceholder")}
+              className="mt-1 w-full rounded-lg border border-[var(--color-action-border)]/20 bg-[var(--surface-subtle)] px-3 py-2 text-xs text-[var(--text-primary)]"
+            />
+            <p className="mt-1 text-[10px] leading-4 text-[var(--text-muted)]">
+              {t("serversPage.create.directGateway.publicDomainHint")}
+            </p>{" "}
           </div>{" "}
         </div>{" "}
       </label>{" "}

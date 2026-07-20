@@ -44,6 +44,7 @@ export const createServerSchema = z
     tags: z.array(serverTagSchema).max(20, "At most 20 tags are allowed").default([]),
     enableDirectGateway: z.boolean().optional().default(false),
     directGatewayProtocol: z.enum(["http", "https"]).optional().default("http"),
+    directGatewayDomain: z.string().trim().max(253).optional(),
     storagePath: z
       .string()
       .trim()

@@ -186,6 +186,20 @@ describe("TR-002 direct gateway TLS hardening", () => {
     expect(command).toContain("subjectAltName=IP:203.0.113.10");
   });
 
+  it("uses ACME site block when tlsHost is a domain", () => {
+    const command = buildInstallDirectGatewayCommand({
+      rootPath: "/data/media",
+      secret: "direct-secret",
+      port: 31888,
+      autoReverseProxy: true,
+      publicPort: 443,
+      tlsHost: "direct.example.com",
+    });
+    expect(command).toContain("direct.example.com {");
+    expect(command).toContain("reverse_proxy 127.0.0.1:31888");
+    expect(command).not.toContain("auto_https off");
+  });
+
   it("buildUninstallDirectGatewayCommand removes caddy reverse-proxy unit", () => {
     const command = buildUninstallDirectGatewayCommand();
     expect(command).toContain("vcontrolhub-direct-caddy.service");

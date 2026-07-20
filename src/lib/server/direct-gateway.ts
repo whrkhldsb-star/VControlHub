@@ -224,12 +224,99 @@ function buildAutoHttpsReverseProxySnippet(input: {
   const tlsDir = DIRECT_GATEWAY_TLS_DIR;
   const caddyfile = DIRECT_GATEWAY_CADDY_CONFIG;
   const caddyUnit = `/etc/systemd/system/${DIRECT_GATEWAY_CADDY_SERVICE_NAME}`;
-  // Bare host for openssl SAN (no shell quotes).
   const hostLiteral = input.tlsHost.replace(/[^0-9A-Za-z:.\-]/g, "") || "127.0.0.1";
-  const isIp = /^(\d{1,3}\.){3}\d{1,3}$/.test(hostLiteral) || hostLiteral.includes(":");
-  const san = isIp
-    ? `IP:${hostLiteral}`
-    : `DNS:${hostLiteral}`;
+  const isIp =
+    /^(\d{1,3}\.){3}\d{1,3}$/.test(hostLiteral) ||
+    hostLiteral.includes(":");
+  const useAcme = !isIp && publicPort === 443;
+  const san = isIp ? `IP:${hostLiteral}` : `DNS:${hostLiteral}`;
+
+  if (useAcme) {
+    return `
+# --- auto HTTPS reverse proxy (Caddy + Let's Encrypt for domain) ---
+install -d -m 0755 ${shellQuote(tlsDir)}
+if ! command -v caddy >/dev/null 2>&1; then
+  if command -v apt-get >/dev/null 2>&1; then
+    export DEBIAN_FRONTEND=noninteractive
+    apt-get update -y >/tmp/vch-direct-caddy-apt.log 2>&1 || true
+    apt-get install -y caddy >/tmp/vch-direct-caddy-apt.log 2>&1 || true
+  fi
+fi
+if ! command -v caddy >/dev/null 2>&1; then
+  ARCH=$(uname -m)
+  case "$ARCH" in
+    x86_64|amd64) CADDY_ARCH=amd64 ;;
+    aarch64|arm64) CADDY_ARCH=arm64 ;;
+    *) CADDY_ARCH=amd64 ;;
+  esac
+  curl -fsSL "https://caddyserver.com/api/download?os=linux&arch=\${CADDY_ARCH}" -o /usr/local/bin/caddy
+  chmod 0755 /usr/local/bin/caddy
+fi
+command -v caddy >/dev/null 2>&1 || { echo "caddy install failed" >&2; exit 1; }
+cat > ${shellQuote(caddyfile)} <<VCH_DIRECT_CADDY
+{
+  admin off
+  email vcontrolhub-direct@localhost
+}
+${hostLiteral} {
+  reverse_proxy 127.0.0.1:${backendPort}
+  encode zstd gzip
+}
+VCH_DIRECT_CADDY
+caddy validate --config ${shellQuote(caddyfile)} --adapter caddyfile
+cat > ${shellQuote(caddyUnit)} <<VCH_DIRECT_CADDY_UNIT
+[Unit]
+Description=VControlHub Direct Gateway HTTPS reverse proxy
+After=network-online.target ${DIRECT_GATEWAY_SERVICE_NAME}
+Wants=network-online.target
+Requires=${DIRECT_GATEWAY_SERVICE_NAME}
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/env caddy run --config ${caddyfile} --adapter caddyfile
+Restart=always
+RestartSec=3
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=full
+ReadWritePaths=/opt/vcontrolhub-direct /var/lib/caddy /root/.local/share/caddy
+
+[Install]
+WantedBy=multi-user.target
+VCH_DIRECT_CADDY_UNIT
+systemctl daemon-reload
+systemctl enable ${DIRECT_GATEWAY_CADDY_SERVICE_NAME}
+systemctl restart ${DIRECT_GATEWAY_CADDY_SERVICE_NAME}
+python3 - <<VCH_DIRECT_PROXY_HEALTH
+import ssl, time
+from urllib.request import urlopen
+last_error = None
+url = "https://${hostLiteral}/__vch_health"
+for _ in range(40):
+    try:
+        ctx = ssl.create_default_context()
+        with urlopen(url, timeout=5, context=ctx) as response:
+            body = response.read().decode("utf-8", "replace").strip()
+            if response.status == 200 and body == "ok":
+                break
+            last_error = RuntimeError(f"unexpected proxy health: {response.status} {body!r}")
+    except Exception as exc:
+        last_error = exc
+        try:
+            ctx2 = ssl._create_unverified_context()
+            with urlopen(url, timeout=5, context=ctx2) as response:
+                body = response.read().decode("utf-8", "replace").strip()
+                if response.status == 200 and body == "ok":
+                    break
+        except Exception as exc2:
+            last_error = exc2
+        time.sleep(1)
+else:
+    raise SystemExit(f"direct gateway https reverse-proxy health failed: {last_error}")
+VCH_DIRECT_PROXY_HEALTH
+echo vcontrolhub-direct-https-ready
+`;
+  }
 
   return `
 # --- auto HTTPS reverse proxy (Caddy + local TLS; works with bare IP) ---
@@ -253,7 +340,6 @@ if ! command -v caddy >/dev/null 2>&1; then
 fi
 command -v caddy >/dev/null 2>&1 || { echo "caddy install failed" >&2; exit 1; }
 command -v openssl >/dev/null 2>&1 || { echo "openssl missing; cannot create TLS cert" >&2; exit 1; }
-# Self-signed cert (IP-friendly). Browsers will show a trust warning unless you install the cert.
 if ! openssl req -x509 -newkey rsa:2048 -nodes \
   -keyout ${shellQuote(tlsDir + "/key.pem")} \
   -out ${shellQuote(tlsDir + "/cert.pem")} \
@@ -282,12 +368,6 @@ cat > ${shellQuote(caddyfile)} <<VCH_DIRECT_CADDY
 }
 VCH_DIRECT_CADDY
 caddy validate --config ${shellQuote(caddyfile)} --adapter caddyfile
-# Dedicated unit — do not hijack distro caddy if present; only stop if our unit conflicts.
-if systemctl is-active --quiet caddy 2>/dev/null; then
-  # If distro caddy is active, still start our unit on the chosen publicPort;
-  # port conflict will fail health and roll back.
-  true
-fi
 cat > ${shellQuote(caddyUnit)} <<VCH_DIRECT_CADDY_UNIT
 [Unit]
 Description=VControlHub Direct Gateway HTTPS reverse proxy
@@ -311,7 +391,7 @@ VCH_DIRECT_CADDY_UNIT
 systemctl daemon-reload
 systemctl enable ${DIRECT_GATEWAY_CADDY_SERVICE_NAME}
 systemctl restart ${DIRECT_GATEWAY_CADDY_SERVICE_NAME}
-python3 - <<'VCH_DIRECT_PROXY_HEALTH'
+python3 - <<VCH_DIRECT_PROXY_HEALTH
 import ssl, time
 from urllib.request import urlopen
 ctx = ssl._create_unverified_context()

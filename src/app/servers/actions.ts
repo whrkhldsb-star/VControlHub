@@ -56,6 +56,7 @@ export async function createServerAction(
     const enableDirectGateway = formData.get("enableDirectGateway") === "on";
     const directGatewayProtocol =
       formData.get("directGatewayProtocol") === "https" ? "https" : "http";
+    const directGatewayDomain = String(formData.get("directGatewayDomain") ?? "").trim();
     const storagePath = String(formData.get("storagePath") ?? "/root/drive");
     const costAutoSync = formData.get("costAutoSync") === "on";
     const costMonthlyAmount = String(formData.get("costMonthlyAmount") ?? "");
@@ -75,6 +76,7 @@ export async function createServerAction(
       tags,
       enableDirectGateway,
       directGatewayProtocol,
+      directGatewayDomain: directGatewayDomain || undefined,
       storagePath,
       costAutoSync,
       costMonthlyAmount,
@@ -262,16 +264,18 @@ export async function toggleDirectGatewayAction(
     const enabled = formData.get("enabledDirectGateway") === "true";
     const directGatewayProtocol =
       formData.get("directGatewayProtocol") === "https" ? "https" : "http";
-    // Checked = bind 0.0.0.0 (browser can hit publicUrl). Unchecked = 127.0.0.1 only.
-    const publicListen = enabled ? formData.get("publicListen") === "true" : undefined;
+    const directGatewayDomain = String(formData.get("directGatewayDomain") ?? "").trim();
     await setServerDirectGatewayEnabled(serverId, enabled, {
       publicProtocol: directGatewayProtocol,
-      publicListen,
+      // Always public-listen for HTTP; HTTPS uses loopback + auto reverse-proxy.
+      publicListen: enabled ? true : undefined,
+      publicDomain: enabled && directGatewayProtocol === "https" ? directGatewayDomain || null : null,
     });
     await auditUserAction(session.userId, "server.direct_gateway.toggle", {
       serverId,
       enabled,
       protocol: directGatewayProtocol,
+      publicDomain: directGatewayDomain || null,
     });
     revalidatePath("/");
     revalidatePath("/servers");
