@@ -20,15 +20,23 @@ export default defineConfig({
       provider: "v8",
       reporter: ["text", "json-summary", "lcov"],
       reportsDirectory: "coverage",
-      // Floor for the monorepo after R28 god-file splits + large SSH/WebDAV
-      // surfaces. Lines stay at 70; statements/functions use 68 so pure
-      // presentation/route shells cannot red-CI the whole pipeline by 0.5pp.
-      // Raise again when those modules get real unit coverage.
+      // Layered floors:
+      // - Global: monorepo floor after R28 splits + large SSH/WebDAV surfaces.
+      // - src/lib/**: higher bar for business logic (enforced when coverage
+      //   is collected for those files).
+      // Route shells (page/layout/loading) are excluded from the denominator.
       thresholds: {
         lines: 70,
         statements: 68,
         functions: 68,
         branches: 55,
+        // Domain logic should stay stricter than presentation code.
+        "src/lib/**/*.ts": {
+          lines: 72,
+          statements: 70,
+          functions: 70,
+          branches: 55,
+        },
       },
       exclude: [
         "**/node_modules/**",

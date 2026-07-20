@@ -120,6 +120,16 @@ jobs:
       - name: Generate Prisma client
         run: npx prisma generate
 
+      - name: Cache Next.js build
+        uses: actions/cache@v4
+        with:
+          path: |
+            .next/cache
+          key: ${{ runner.os }}-next-${{ hashFiles('package-lock.json') }}-${{ hashFiles('next.config.*') }}
+          restore-keys: |
+            ${{ runner.os }}-next-${{ hashFiles('package-lock.json') }}-
+            ${{ runner.os }}-next-
+
       - name: Apply database schema
         run: npx prisma db push --accept-data-loss
 
@@ -231,6 +241,16 @@ jobs:
 
       - name: Generate Prisma client
         run: npx prisma generate
+
+      - name: Cache Next.js build
+        uses: actions/cache@v4
+        with:
+          path: |
+            .next/cache
+          key: ${{ runner.os }}-next-${{ hashFiles('package-lock.json') }}-${{ hashFiles('next.config.*') }}
+          restore-keys: |
+            ${{ runner.os }}-next-${{ hashFiles('package-lock.json') }}-
+            ${{ runner.os }}-next-
 
       - name: Apply database schema
         run: npx prisma db push --accept-data-loss

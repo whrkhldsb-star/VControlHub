@@ -6,6 +6,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { verify as verifyTOTP } from "otplib";
 
+import { openTwoFactorSecret } from "@/lib/auth/two-factor-secret";
 import { prisma } from "@/lib/db";
 import { withApiRoute } from "@/lib/http/api-guard";
 import { GENERAL_WRITE_LIMIT } from "@/lib/http/rate-limit-presets";
@@ -40,7 +41,7 @@ export async function POST(request: Request) {
         throw new ValidationError("Two-factor verification is not enabled");
       }
 
-      const valid = verifyTOTP({ token: code, secret: user.twoFactorSecret });
+      const valid = verifyTOTP({ token: code, secret: openTwoFactorSecret(user.twoFactorSecret) });
       if (!valid) {
         throw new ValidationError("Invalid verification code");
       }

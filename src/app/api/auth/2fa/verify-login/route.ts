@@ -10,6 +10,7 @@ import { verify as verifyTOTP } from "otplib";
 import { prisma } from "@/lib/db";
 import { verifyPending2faToken, createSessionToken, getSessionCookieName, getPending2faCookieName, getConfiguredSessionTtlSeconds } from "@/lib/auth/session";
 import { generateCsrfToken, getCsrfCookieName } from "@/lib/auth/csrf";
+import { openTwoFactorSecret } from "@/lib/auth/two-factor-secret";
 import { DEFAULT_ROLE_PERMISSIONS, type RoleKey } from "@/lib/auth/rbac";
 import { auditUserAction, auditSystemAction } from "@/lib/audit/service";
 import { checkRateLimitAsync, getClientIp, LOGIN_RATE_LIMIT } from "@/lib/rate-limit";
@@ -107,8 +108,8 @@ export async function POST(request: Request) {
 			});
 		}
 
-		// Verify the TOTP code
-		const valid = verifyTOTP({ token: code, secret: user.twoFactorSecret });
+		// Verify the TOTP code (open sealed seed; legacy plaintext still accepted)
+		const valid = verifyTOTP({ token: code, secret: openTwoFactorSecret(user.twoFactorSecret) });
 		if (!valid) {
 			await auditSystemAction("auth.2fa_failed", { userId: sessionPayload.userId, ip: clientIp }, "WARNING", user.currentTeamId);
 			return apiError({

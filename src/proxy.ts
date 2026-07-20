@@ -1,4 +1,5 @@
 import { getSessionCookieName as getRuntimeSessionCookieName } from "@/lib/auth/session";
+import { timingSafeEqualString } from "@/lib/security/timing-safe-equal";
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 
@@ -218,7 +219,8 @@ export function proxy(request: NextRequest) {
       pathname !== "/api/auth/2fa/verify-login" &&
       !routeCanValidateBearerToken
     ) {
-      if (!csrfCookie || !csrfHeader || csrfCookie !== csrfHeader) {
+      // Constant-time compare — tokens are fixed-length hex from generateCsrfToken().
+      if (!csrfCookie || !csrfHeader || !timingSafeEqualString(csrfCookie, csrfHeader)) {
         return NextResponse.json(
           { error: "CSRF token validation failed" },
           { status: 403 },

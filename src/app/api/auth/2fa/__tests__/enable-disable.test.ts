@@ -68,6 +68,14 @@ vi.mock("otplib", () => ({
   verify: (...args: unknown[]) => verifyTotpMock(...args),
 }));
 
+vi.mock("@/lib/auth/two-factor-secret", () => ({
+  sealTwoFactorSecret: (secret: string) => `sealed:${secret}`,
+  openTwoFactorSecret: (stored: string) =>
+    typeof stored === "string" && stored.startsWith("sealed:")
+      ? stored.slice("sealed:".length)
+      : stored,
+}));
+
 const enableRoute = await import("../enable/route");
 const disableRoute = await import("../disable/route");
 
@@ -132,7 +140,7 @@ describe("POST /api/auth/2fa/enable", () => {
     expect(prismaMock.user.update).not.toHaveBeenCalled();
   });
 
-  it("persists secret and enables 2FA on valid code", async () => {
+  it("persists sealed secret and enables 2FA on valid code", async () => {
     verifyTotpMock.mockReturnValueOnce(true);
     prismaMock.user.update.mockResolvedValueOnce({});
     const res = await enableRoute.POST(jsonRequest({ code: "123456", secret: "JBSWY3DPEHPK3PXP" }));
@@ -141,7 +149,7 @@ describe("POST /api/auth/2fa/enable", () => {
     expect(body).toEqual({ success: true });
     expect(prismaMock.user.update).toHaveBeenCalledWith({
       where: { id: "u1" },
-      data: { twoFactorEnabled: true, twoFactorSecret: "JBSWY3DPEHPK3PXP" },
+      data: { twoFactorEnabled: true, twoFactorSecret: "sealed:JBSWY3DPEHPK3PXP" },
     });
   });
 });
@@ -189,10 +197,10 @@ describe("POST /api/auth/2fa/disable", () => {
     expect(prismaMock.user.update).not.toHaveBeenCalled();
   });
 
-  it("clears 2FA fields on valid code", async () => {
+  it("clears 2FA fields on valid code (opens sealed or legacy secret)", async () => {
     prismaMock.user.findUnique.mockResolvedValueOnce({
       twoFactorEnabled: true,
-      twoFactorSecret: "EXISTING_SECRET",
+      twoFactorSecret: "sealed:EXISTING_SECRET",
     });
     verifyTotpMock.mockReturnValueOnce(true);
     prismaMock.user.update.mockResolvedValueOnce({});
@@ -200,6 +208,7 @@ describe("POST /api/auth/2fa/disable", () => {
     expect(res.status).toBe(200);
     const body = await res.json();
     expect(body).toEqual({ success: true });
+    expect(verifyTotpMock).toHaveBeenCalledWith({ token: "654321", secret: "EXISTING_SECRET" });
     expect(prismaMock.user.update).toHaveBeenCalledWith({
       where: { id: "u1" },
       data: { twoFactorEnabled: false, twoFactorSecret: null },

@@ -71,3 +71,22 @@ multi-browser Playwright. Local rebuild is slower but reliable.
 If you reintroduce artifact reuse later: set `include-hidden-files: true` for
 `.next`, verify `BUILD_ID`, migrate schema with `prisma db push`, and keep the
 server under `nohup` with a pid/log dump on failure.
+
+## Layered coverage
+
+`vitest.config.ts` enforces:
+
+| Scope | lines | statements | functions | branches |
+|---|---:|---:|---:|---:|
+| Global | 70 | 68 | 68 | 55 |
+| `src/lib/**` | 72 | 70 | 70 | 55 |
+
+Route shells (`page.tsx` / `layout.tsx` / …) and pure re-export barrels are excluded
+from the denominator so presentation churn does not red-CI the pipeline.
+
+## Intentional non-goals (from improvement backlog)
+
+- **Lightweight host agent / latency probe** — needs a separate protocol; do not
+  bolt RTT onto SSH sampling.
+- **GitHub branch protection** — must be flipped in repo Settings by an admin
+  (require `test` + `E2E public smoke`).

@@ -28,6 +28,14 @@ vi.mock("@/lib/auth/csrf", () => ({
 }));
 vi.mock("otplib", () => ({ verify: verifyTotpMock }));
 vi.mock("@/lib/db", () => ({ prisma: prismaMock }));
+vi.mock("@/lib/auth/two-factor-secret", () => ({
+	// Production opens AES-GCM; tests treat "sealed:" prefix as ciphertext.
+	openTwoFactorSecret: (stored: string) =>
+		typeof stored === "string" && stored.startsWith("sealed:")
+			? stored.slice("sealed:".length)
+			: stored,
+	sealTwoFactorSecret: (secret: string) => `sealed:${secret}`,
+}));
 vi.mock("@/lib/audit/service", () => ({
 	auditUserAction: auditUserActionMock,
 	auditSystemAction: auditSystemActionMock,

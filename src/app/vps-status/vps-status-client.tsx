@@ -247,6 +247,25 @@ export function VpsStatusClient({ serverCount }: Props) {
 
 	const [expandedServer, setExpandedServer] = useState<string | null>(null);
 	const [filter, setFilter] = useState<"all" | "online" | "issue">("all");
+	const [viewMode, setViewMode] = useState<"cards" | "table">(() => {
+		if (typeof window === "undefined") return "cards";
+		try {
+			const saved = window.localStorage.getItem("vch.vpsStatus.viewMode");
+			if (saved === "cards" || saved === "table") return saved;
+		} catch {
+			/* ignore */
+		}
+		return "cards";
+	});
+
+	const setViewModePersist = (mode: "cards" | "table") => {
+		setViewMode(mode);
+		try {
+			window.localStorage.setItem("vch.vpsStatus.viewMode", mode);
+		} catch {
+			/* ignore */
+		}
+	};
 
 	const tt = (key: string, vars?: Record<string, string | number>) => applyTemplate(t, key, vars);
 
@@ -372,6 +391,28 @@ export function VpsStatusClient({ serverCount }: Props) {
 					<span className="ml-1 text-xs text-[var(--text-muted)]">
 						{tt("vpsStatusPage.showing", { count: filteredServers.length })}
 					</span>
+					<div className="ml-2 inline-flex rounded-full border border-[var(--border)] bg-[var(--surface-elevated)] p-0.5">
+						{(
+							[
+								["cards", t("vpsStatusPage.view.cards")],
+								["table", t("vpsStatusPage.view.table")],
+							] as const
+						).map(([key, label]) => (
+							<button
+								key={key}
+								type="button"
+								onClick={() => setViewModePersist(key)}
+								aria-pressed={viewMode === key}
+								className={`rounded-full px-2.5 py-1 text-[11px] font-medium transition ${
+									viewMode === key
+										? "bg-[var(--surface)] text-[var(--text-primary)] shadow-sm"
+										: "text-[var(--text-muted)] hover:text-[var(--text-secondary)]"
+								}`}
+							>
+								{label}
+							</button>
+						))}
+					</div>
 				</div>
 				<div className="flex flex-wrap items-center gap-3">
 					<span className="text-xs text-[var(--text-muted)]">
@@ -437,6 +478,81 @@ export function VpsStatusClient({ serverCount }: Props) {
 			) : filteredServers.length === 0 ? (
 				<div className="rounded-2xl border border-dashed border-[var(--border)] bg-[var(--surface)] p-10 text-center text-sm text-[var(--text-muted)]">
 					{t("vpsStatusPage.empty")}
+				</div>
+			) : viewMode === "table" ? (
+				<div className="overflow-x-auto rounded-2xl border border-[var(--border)] bg-[var(--surface)] shadow-[0_1px_0_rgba(255,255,255,0.03)_inset]">
+					<table className="min-w-full border-collapse text-left text-xs">
+						<thead className="bg-[var(--surface-elevated)] text-[11px] uppercase tracking-wide text-[var(--text-muted)]">
+							<tr>
+								<th className="px-3 py-2.5 font-medium">{t("vpsStatusPage.table.name")}</th>
+								<th className="px-3 py-2.5 font-medium">{t("vpsStatusPage.table.status")}</th>
+								<th className="px-3 py-2.5 font-medium">{t("vpsStatusPage.table.cpu")}</th>
+								<th className="px-3 py-2.5 font-medium">{t("vpsStatusPage.table.mem")}</th>
+								<th className="px-3 py-2.5 font-medium">{t("vpsStatusPage.table.disk")}</th>
+								<th className="px-3 py-2.5 font-medium">{t("vpsStatusPage.table.load")}</th>
+								<th className="px-3 py-2.5 font-medium">{t("vpsStatusPage.table.net")}</th>
+								<th className="px-3 py-2.5 font-medium">{t("vpsStatusPage.table.uptime")}</th>
+								<th className="px-3 py-2.5 font-medium">{t("vpsStatusPage.table.updated")}</th>
+							</tr>
+						</thead>
+						<tbody>
+							{filteredServers.map((server) => {
+								const sc = statusToneClasses[server.status] ?? unknownTone;
+								return (
+									<tr
+										key={server.serverId}
+										className="border-t border-[var(--border-subtle)] hover:bg-[var(--surface-elevated)]/60"
+									>
+										<td className="px-3 py-2.5">
+											<div className="flex items-center gap-2">
+												<span className={`inline-flex h-2 w-2 rounded-full ${sc.dot}`} />
+												<div className="min-w-0">
+													<div className="truncate font-medium text-[var(--text-primary)]">
+														{server.serverName}
+													</div>
+													<div className="truncate font-mono text-[10px] text-[var(--text-muted)]">
+														{server.host}
+													</div>
+												</div>
+											</div>
+										</td>
+										<td className="px-3 py-2.5">
+											<span className={`rounded-full border px-2 py-0.5 text-[10px] font-medium ${sc.bg} ${sc.text}`}>
+												{t(statusLabelKey(server.status))}
+											</span>
+										</td>
+										<td className={`px-3 py-2.5 font-mono tabular-nums ${usageColor(server.cpu)}`}>
+											{server.cpu !== undefined ? `${server.cpu.toFixed(1)}%` : "—"}
+										</td>
+										<td className={`px-3 py-2.5 font-mono tabular-nums ${usageColor(server.mem)}`}>
+											{server.mem !== undefined ? `${server.mem.toFixed(1)}%` : "—"}
+										</td>
+										<td className={`px-3 py-2.5 font-mono tabular-nums ${usageColor(server.diskMax)}`}>
+											{server.diskMax !== undefined ? `${server.diskMax.toFixed(1)}%` : "—"}
+										</td>
+										<td className="px-3 py-2.5 font-mono tabular-nums text-[var(--text-secondary)]">
+											{server.loadAvg1m !== undefined ? server.loadAvg1m.toFixed(2) : "—"}
+										</td>
+										<td className="px-3 py-2.5 font-mono tabular-nums text-[var(--text-secondary)]">
+											{formatKbps(server.networkInKbps)} / {formatKbps(server.networkOutKbps)}
+										</td>
+										<td className="px-3 py-2.5 text-[var(--text-secondary)]">{server.uptime ?? "—"}</td>
+										<td className="px-3 py-2.5 text-[var(--text-muted)]">
+											{server.lastCheck
+												? new Date(server.lastCheck).toLocaleString(browserLocale, {
+														month: "2-digit",
+														day: "2-digit",
+														hour: "2-digit",
+														minute: "2-digit",
+														hour12: false,
+												  })
+												: "—"}
+										</td>
+									</tr>
+								);
+							})}
+						</tbody>
+					</table>
 				</div>
 			) : (
 				<div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">

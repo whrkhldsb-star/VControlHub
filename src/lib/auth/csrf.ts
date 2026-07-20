@@ -12,6 +12,7 @@
 import { randomBytes } from "node:crypto";
 
 import { config } from "@/lib/config/env";
+import { timingSafeEqualString } from "@/lib/security/timing-safe-equal";
 
 const CSRF_TOKEN_LENGTH = 32;
 const CSRF_COOKIE_NAME = "csrf_token";
@@ -38,7 +39,7 @@ export function validateCsrf(request: Request): boolean {
 
 	// Check header first, then form body
 	const headerToken = request.headers.get(CSRF_HEADER_NAME);
-	if (headerToken) return headerToken === cookieToken;
+	if (headerToken) return timingSafeEqualString(headerToken, cookieToken);
 
 	// For form submissions, the token may be in the form body
 	// Note: we can't read the body here without consuming it,

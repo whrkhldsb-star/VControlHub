@@ -3,6 +3,7 @@ import { requireSession } from "@/lib/auth/require-session";
 import { teamWhere } from "@/lib/auth/team-scope";
 import { listCommandRequests } from "@/lib/command/service";
 import { formatDateTime } from "@/lib/datetime/format";
+import { buildSetupChecklist } from "@/lib/dashboard/setup-checklist";
 import { prisma } from "@/lib/db";
 import { getServerLocale } from "@/lib/i18n/translations";
 import { getUnreadCount } from "@/lib/notification/service";
@@ -19,11 +20,26 @@ import {
 	DashboardStatsSection,
 } from "./dashboard-localized-sections";
 import { DashboardPreferenceClient } from "./dashboard-preference-client";
+import { DashboardSetupChecklist } from "./dashboard-setup-checklist";
 
 export async function DashboardContent({ sessionPath }: { sessionPath: "/" | "/dashboard" }) {
 	const session = await requireSession(sessionPath);
 	const teamScope = teamWhere(session);
-	const [servers, storage, requests, recentAuditLogs, downloadStats, unreadNotifications, activeScheduledTasks, dragReorderEnabledRaw] = await Promise.all([
+	const [
+		servers,
+		storage,
+		requests,
+		recentAuditLogs,
+		downloadStats,
+		unreadNotifications,
+		activeScheduledTasks,
+		dragReorderEnabledRaw,
+		enabledAlertRuleCount,
+		smtpEnabledRaw,
+		projectBackupScheduleCount,
+		vpsBackupScheduleCount,
+		serversWithMonthlyCost,
+	] = await Promise.all([
 		listServerProfiles(session),
 		getStorageOverview(session),
 		listCommandRequests(session),
@@ -37,6 +53,18 @@ export async function DashboardContent({ sessionPath }: { sessionPath: "/" | "/d
 		getUnreadCount(session.userId),
 		prisma.scheduledTask.count({ where: { status: "ACTIVE", ...teamScope } }),
 		getSetting("dashboard.layout.dragReorderEnabled"),
+		prisma.alertRule.count({ where: { enabled: true, ...teamScope } }).catch(() => 0),
+		getSetting("smtp.enabled"),
+		prisma.backupSchedule.count({ where: teamScope }).catch(() => 0),
+		prisma.vpsBackupSchedule.count().catch(() => 0),
+		prisma.server
+			.count({
+				where: {
+					...teamScope,
+					costMonthlyAmount: { gt: 0 },
+				},
+			})
+			.catch(() => 0),
 	]);
 
 	const enabledServers = servers.filter((server) => server.enabled);
@@ -68,10 +96,18 @@ export async function DashboardContent({ sessionPath }: { sessionPath: "/" | "/d
 		requester: request.requester,
 		targetCount: request.targets.length,
 	}));
+	const setupItems = buildSetupChecklist({
+		serverCount: servers.length,
+		enabledAlertRuleCount,
+		smtpEnabled: smtpEnabledRaw === "true",
+		backupScheduleCount: projectBackupScheduleCount + vpsBackupScheduleCount,
+		serversWithMonthlyCost,
+	});
 
 	return (
 		<PageShell maxW="max-w-7xl">
 			<DashboardLocalizedHeader username={session.username} />
+			<DashboardSetupChecklist items={setupItems} />
 			<DashboardStatsSection
 				storage={{
 					serverTotal: servers.length,
@@ -92,10 +128,11 @@ export async function DashboardContent({ sessionPath }: { sessionPath: "/" | "/d
 					}}
 				/>
 				<DashboardQuickLinks {...queue} />
-				<div data-dashboard-widget="analytics"><DashboardAnalyticsPanel /></div>
+				<div data-dashboard-widget="analytics">
+					<DashboardAnalyticsPanel />
+				</div>
 				<DashboardRecentActivity recentRequests={recentRequests} recentAuditLogs={recentAudit} />
 			</DashboardPreferenceClient>
 		</PageShell>
 	);
 }
-

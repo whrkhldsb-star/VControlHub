@@ -138,4 +138,14 @@ describe("VpsStatusClient (split fleet surface)", () => {
 		const refresh = screen.getByRole("button", { name: "刷新健康状态" });
 		expect(refresh.className).toContain("min-h-11");
 	});
+
+	it("switches to the compact table view and persists the preference", async () => {
+		const user = userEvent.setup();
+		renderVps();
+		expect((await screen.findAllByText("HK Prod")).length).toBeGreaterThan(0);
+		await user.click(screen.getByRole("button", { name: "表格" }));
+		expect(screen.getByRole("columnheader", { name: "节点" })).toBeInTheDocument();
+		expect(screen.getByRole("columnheader", { name: "CPU" })).toBeInTheDocument();
+		expect(window.localStorage.getItem("vch.vpsStatus.viewMode")).toBe("table");
+	});
 });

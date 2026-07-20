@@ -104,6 +104,18 @@ vi.mock("@/lib/db", () => ({
     scheduledTask: {
       count: vi.fn().mockResolvedValue(1),
     },
+    alertRule: {
+      count: vi.fn().mockResolvedValue(1),
+    },
+    backupSchedule: {
+      count: vi.fn().mockResolvedValue(1),
+    },
+    vpsBackupSchedule: {
+      count: vi.fn().mockResolvedValue(0),
+    },
+    server: {
+      count: vi.fn().mockResolvedValue(1),
+    },
     // TR-020 M02: 仪表盘拖拽重排总开关 — 默认 true (settings.service DEFAULTS)
     setting: {
       findUnique: vi.fn().mockResolvedValue(null),
