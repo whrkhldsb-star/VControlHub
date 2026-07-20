@@ -131,7 +131,10 @@ describe("pruneOldBackupRecordsNow — runtime orchestrator", () => {
     expect(result.filesDeleted).toBe(0);
     expect(result.candidateIds).toEqual([]);
     expect(mockPrisma.backupRecord.findMany).toHaveBeenCalledWith(
-      expect.objectContaining({ where: { teamId: "team_1" } }),
+      expect.objectContaining({
+        where: expect.objectContaining({ teamId: "team_1" }),
+        take: 2000,
+      }),
     );
     expect(mockPrisma.backupRecord.delete).not.toHaveBeenCalled();
     expect(rmMock).not.toHaveBeenCalled();

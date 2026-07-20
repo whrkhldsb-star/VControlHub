@@ -68,7 +68,12 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
         const job = await enqueueJob({
           type: BACKUP_RESTORE_JOB_TYPE,
           title: "Restore backup",
-          payload: { backupId: id, confirm: body.confirm, component: body.component },
+          payload: {
+            backupId: id,
+            confirm: body.confirm,
+            component: body.component,
+            teamId: session?.currentTeamId ?? backup.teamId ?? null,
+          },
           createdBy: session?.userId ?? null,
           teamId: session?.currentTeamId ?? null,
           maxAttempts: 1,

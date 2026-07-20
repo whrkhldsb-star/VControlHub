@@ -143,7 +143,7 @@ export const renderContent = (content: string) => {
  <span className="text-[10px] text-[var(--color-action)]/60 font-mono">{lang || "code"}</span>
  <button
  onClick={() => copyToClipboard(code)}
- className="text-[10px] text-[var(--text-muted)] hover:text-[var(--color-action)] transition opacity-0 group-hover/code:opacity-100 flex items-center gap-1"
+ className="text-[10px] text-[var(--text-muted)] hover:text-[var(--color-action)] transition opacity-100 sm:opacity-0 sm:group-hover/code:opacity-100 flex items-center gap-1"
  >
  <svg className="w-3 h-3" fill="none" stroke="currentColor" width="24" height="24" viewBox="0 0 24 24">
  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />

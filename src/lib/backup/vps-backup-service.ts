@@ -154,9 +154,9 @@ export async function runVpsBackupRecord(
 		return failRecord(record.id, `Unknown backup type: ${record.backupType}`);
 	}
 
-	// Mark as RUNNING via CAS — only claim PENDING (or re-queue from FAILED).
+	// Mark as RUNNING via CAS — only PENDING. FAILED must be explicitly reset to PENDING before retry.
 	const claimed = await prisma.vpsBackupRecord.updateMany({
-		where: { id: recordId, status: { in: ["PENDING", "FAILED"] } },
+		where: { id: recordId, status: "PENDING" },
 		data: { status: "RUNNING", updatedAt: new Date(), errorMessage: null },
 	});
 	if (claimed.count === 0) {

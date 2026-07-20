@@ -292,7 +292,7 @@ export function MediaItemCard({
               type="button"
               onClick={() => setShowTagInput(true)}
               aria-label={t("mediaItemCard.addTag")}
-              className="inline-flex items-center gap-0.5 rounded-lg border border-dashed border-[var(--border)] px-2 py-0.5 text-[10px] text-[var(--text-muted)] opacity-0 transition group-hover:opacity-100 hover:border-[var(--color-action-border)]/30 hover:text-[var(--color-action)]"
+              className="inline-flex items-center gap-0.5 rounded-lg border border-dashed border-[var(--border)] px-2 py-0.5 text-[10px] text-[var(--text-muted)] opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition hover:border-[var(--color-action-border)]/30 hover:text-[var(--color-action)]"
             >
               <Tag size={10} /> {t("mediaItemCard.addTag")}
             </button>

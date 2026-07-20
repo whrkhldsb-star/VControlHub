@@ -122,7 +122,6 @@ async function renameSftpIndex(storageNodeId: string, oldRelativePath: string, n
         where: { id: child.id },
         data: {
           relativePath: newPrefix + child.relativePath.slice(oldPrefix.length),
-          isDeleted: false,
         },
       });
     }
@@ -133,7 +132,6 @@ async function renameSftpIndex(storageNodeId: string, oldRelativePath: string, n
     data: {
       relativePath: newRelativePath,
       name: path.posix.basename(newRelativePath),
-      isDeleted: false,
     },
   });
 }

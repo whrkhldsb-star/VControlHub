@@ -7,6 +7,7 @@ import { enqueueJob } from "@/lib/job/service";
 import { createVpsBackupRecord, VPS_BACKUP_CREATE_JOB_TYPE, pruneOldVpsBackupRecords } from "./vps-backup-service";
 import { isVpsBackupPresetType } from "./vps-backup-presets";
 import { createLogger } from "@/lib/logging";
+import { CronExpressionParser } from "cron-parser";
 
 const vpsSchedLogger = createLogger("vps-backup-schedule");
 
@@ -178,52 +179,15 @@ export async function dispatchDueVpsBackupSchedules(): Promise<number> {
  * For simplicity, uses a brute-force minute-by-minute scan.
  */
 export function computeNextRun(cronExpression: string, from: Date = new Date()): Date {
-	const parts = cronExpression.trim().split(/\s+/);
-	if (parts.length !== 5) {
-		// Fallback: 24h from now
+	const trimmed = cronExpression.trim();
+	// Support @daily / @hourly / @weekly / @monthly aliases (cron-parser).
+	try {
+		const expr = CronExpressionParser.parse(trimmed, { currentDate: from });
+		const next = expr.next().toDate();
+		return next;
+	} catch {
+		// Invalid expression: fail closed to 24h (same as previous custom parser fallback).
 		return new Date(from.getTime() + 24 * 60 * 60 * 1000);
 	}
-
-	const [minute, hour, dayOfMonth, month, dayOfWeek] = parts.map((p) => {
-		if (p === "*") return null;
-		return p.split(",").map((v) => {
-			if (v.includes("/")) {
-				const [base, step] = v.split("/");
-				return { base: base === "*" ? 0 : parseInt(base ?? "0"), step: parseInt(step ?? "1") };
-			}
-			return parseInt(v);
-		});
-	});
-
-	// Brute-force: scan next 7 days minute by minute
-	const result = new Date(from);
-	result.setSeconds(0, 0);
-	result.setMinutes(result.getMinutes() + 1); // Start from next minute
-
-	for (let i = 0; i < 7 * 24 * 60; i++) {
-		const m = result.getMinutes();
-		const h = result.getHours();
-		const dom = result.getDate();
-		const mon = result.getMonth() + 1; // 1-12
-		const dow = result.getDay(); // 0-6 (0=Sunday)
-
-		if (matchField(minute, m) && matchField(hour, h) && matchField(dayOfMonth, dom) && matchField(month, mon) && matchField(dayOfWeek, dow)) {
-			return new Date(result);
-		}
-
-		result.setMinutes(result.getMinutes() + 1);
-	}
-
-	// Fallback: 24h from now
-	return new Date(from.getTime() + 24 * 60 * 60 * 1000);
 }
 
-function matchField(field: (number | { base: number; step: number })[] | null | undefined, value: number): boolean {
-	if (field === null || field === undefined) return true; // * matches everything
-	return field.some((f) => {
-		if (typeof f === "number") return f === value;
-		// Step pattern: base/step
-		if (value < f.base) return false;
-		return (value - f.base) % f.step === 0;
-	});
-}

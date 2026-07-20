@@ -31,6 +31,8 @@ const LEASE_MS = computeLeaseMs("backup");
 type BackupCreatePayload = {
   backupId: string;
   projectRoot?: string;
+  retentionDays?: number;
+  teamId?: string | null;
 };
 
 type BackupRestorePayload = {
@@ -38,6 +40,7 @@ type BackupRestorePayload = {
   confirm: "RESTORE";
   projectRoot?: string;
   component?: "database" | "files" | "all";
+  teamId?: string | null;
 };
 
 type BackupRetentionPayload = {
@@ -76,9 +79,16 @@ function parseCreatePayload(payload: Prisma.JsonValue): BackupCreatePayload {
   if (!isRecord(payload) || typeof payload.backupId !== "string" || !payload.backupId.trim()) {
     throw new Error("Backup job payload missing backupId");
   }
+  const retentionDays =
+    typeof payload.retentionDays === "number" && Number.isFinite(payload.retentionDays) && payload.retentionDays > 0
+      ? Math.floor(payload.retentionDays)
+      : undefined;
+  const teamId = typeof payload.teamId === "string" && payload.teamId.trim() ? payload.teamId.trim() : null;
   return {
     backupId: payload.backupId.trim(),
     projectRoot: typeof payload.projectRoot === "string" && payload.projectRoot.trim() ? payload.projectRoot.trim() : undefined,
+    retentionDays,
+    teamId,
   };
 }
 
@@ -89,11 +99,13 @@ function parseRestorePayload(payload: Prisma.JsonValue): BackupRestorePayload {
   if (payload.confirm !== "RESTORE") {
     throw new Error("Restore job payload missing explicit RESTORE confirmation");
   }
+  const teamId = typeof payload.teamId === "string" && payload.teamId.trim() ? payload.teamId.trim() : null;
   return {
     backupId: payload.backupId.trim(),
     confirm: payload.confirm,
     projectRoot: typeof payload.projectRoot === "string" && payload.projectRoot.trim() ? payload.projectRoot.trim() : undefined,
     component: (payload.component as BackupRestorePayload["component"]) ?? "all",
+    teamId,
   };
 }
 
@@ -128,6 +140,34 @@ async function handleJob(job: Awaited<ReturnType<typeof claimNextJob>>) {
         filePath: backup.filePath,
         fileSize: backup.fileSize ?? null,
       });
+      // B1: schedule retention when create payload carries retentionDays
+      if (payload.retentionDays && payload.retentionDays > 0) {
+        const teamId = payload.teamId ?? job.teamId ?? backup.teamId ?? null;
+        if (teamId) {
+          try {
+            const { enqueueJob } = await import("@/lib/job/service");
+            await enqueueJob({
+              type: BACKUP_RETENTION_JOB_TYPE,
+              title: `Backup retention (${payload.retentionDays}d)`,
+              payload: {
+                olderThanDays: payload.retentionDays,
+                teamId,
+                projectRoot: payload.projectRoot,
+              },
+              createdBy: job.createdBy ?? null,
+              teamId,
+              maxAttempts: 1,
+            });
+          } catch (retentionErr) {
+            logger.error("failed to enqueue backup retention after create", {
+              backupId: backup.id,
+              error: retentionErr instanceof Error ? retentionErr.message : String(retentionErr),
+            });
+          }
+        } else {
+          logger.warn("skip retention enqueue: no teamId on backup create job", { backupId: backup.id });
+        }
+      }
       return true;
     }
 
@@ -138,7 +178,19 @@ async function handleJob(job: Awaited<ReturnType<typeof claimNextJob>>) {
         jobId: job.id,
         leaseMs: LEASE_MS,
         heartbeat: () => heartbeatJob(job.id, WORKER_ID, { leaseMs: LEASE_MS, progress: "Restoring backup" }),
-        run: () => restoreBackupRecord({ id: payload.backupId, confirm: payload.confirm, projectRoot: payload.projectRoot, component: payload.component ?? "all" }),
+        run: () =>
+          restoreBackupRecord({
+            id: payload.backupId,
+            confirm: payload.confirm,
+            projectRoot: payload.projectRoot,
+            component: payload.component ?? "all",
+            // A1: never call getBackupRecord without scope in worker path
+            session: payload.teamId
+              ? { userId: job.createdBy ?? "system", roles: ["admin"], currentTeamId: payload.teamId }
+              : job.teamId
+                ? { userId: job.createdBy ?? "system", roles: ["admin"], currentTeamId: job.teamId }
+                : undefined,
+          }),
       });
       await completeJob(job.id, WORKER_ID, restore);
       return true;

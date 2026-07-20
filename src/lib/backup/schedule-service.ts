@@ -240,6 +240,7 @@ export async function dispatchDueSchedule(schedule: {
       backupId: backup.id,
       scheduleId: schedule.id,
       retentionDays: schedule.retentionDays,
+      teamId: schedule.teamId ?? null,
     },
     createdBy: schedule.createdById,
     teamId: schedule.teamId,

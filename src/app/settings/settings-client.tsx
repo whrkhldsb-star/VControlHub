@@ -406,7 +406,7 @@ export function SettingsClient({
                   </span>
                 </span>
                 <span
-                  className="text-[var(--accent)] opacity-0 transition group-hover:opacity-100"
+                  className="text-[var(--accent)] opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition"
                   aria-hidden
                 >
                   →

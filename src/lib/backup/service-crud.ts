@@ -19,13 +19,13 @@ import { RESTORE_CONFIRM_TEXT } from "./service-types";
 
 type BackupStatus = "PENDING" | "RUNNING" | "COMPLETED" | "FAILED";
 
-export async function createBackupRecord(input: { type: "DATABASE" | "FILES" | "FULL"; createdBy?: string; note?: string; teamId?: string | null }) {
+export async function createBackupRecord(input: { type: "DATABASE" | "FILES" | "FULL"; createdBy?: string | null; note?: string; teamId?: string | null }) {
 	return prisma.backupRecord.create({
 		data: {
 			type: input.type,
 			status: "PENDING",
 			filePath: buildBackupFilePath(input.type),
-			createdBy: input.createdBy,
+			createdBy: input.createdBy ?? null,
 			teamId: input.teamId ?? null,
 			note: input.note?.trim() || undefined,
 		},

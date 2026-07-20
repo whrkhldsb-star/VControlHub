@@ -55,7 +55,7 @@ export async function POST(request: Request) {
     );
     const waitForCompletion = wait;
     if (waitForCompletion) {
-      const backup = await runBackupRecord({ type: parsed.data.type, createdBy: session?.userId ?? "", note: parsed.data.note, teamId: session?.currentTeamId ?? null });
+      const backup = await runBackupRecord({ type: parsed.data.type, createdBy: session?.userId ?? null, note: parsed.data.note, teamId: session?.currentTeamId ?? null });
       // runBackupRecord returns FAILED records without throwing — surface as BusinessError.
       if (backup.status !== "COMPLETED") {
         throw new BusinessError(backup.errorMessage?.slice(0, 500) || `Backup finished with status ${backup.status}`);
@@ -67,7 +67,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ backup }, { status: 201 });
     }
 
-    const backup = await createBackupRecord({ type: parsed.data.type, createdBy: session?.userId ?? "", note: parsed.data.note, teamId: session?.currentTeamId ?? null });
+    const backup = await createBackupRecord({ type: parsed.data.type, createdBy: session?.userId ?? null, note: parsed.data.note, teamId: session?.currentTeamId ?? null });
     const job = await enqueueJob({
       type: BACKUP_CREATE_JOB_TYPE,
       title: `Create ${parsed.data.type} backup`,

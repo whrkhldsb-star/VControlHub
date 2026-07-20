@@ -340,10 +340,20 @@ export async function pruneOldBackupRecordsNow(input: {
 			oldestKeptByType: {},
 		};
 	}
+	// Prefer candidates likely to be pruned: completed/failed older than cutoff, larger page.
+	const olderThanDays = input.olderThanDays ?? 30;
+	const cutoffForQuery = new Date(Date.now() - olderThanDays * 24 * 60 * 60 * 1000);
 	const records = await prisma.backupRecord.findMany({
-		where: { teamId },
+		where: {
+			teamId,
+			OR: [
+				{ status: { in: ["COMPLETED", "FAILED", "VOIDED"] }, createdAt: { lt: cutoffForQuery } },
+				// still load recent completed so keepLatestPerType can protect newest
+				{ status: "COMPLETED" },
+			],
+		},
 		orderBy: { createdAt: "desc" },
-		take: 200,
+		take: 2000,
 	});
 	const plan = pruneOldBackupRecords(records, {
 		olderThanDays: input.olderThanDays,

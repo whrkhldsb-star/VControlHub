@@ -61,8 +61,13 @@ function substituteVariables(command: string, variables: Record<string, string>)
   );
 }
 
-async function waitForCommand(commandRequestId: string, timeoutSec: number): Promise<string> {
+async function waitForCommand(
+  commandRequestId: string,
+  timeoutSec: number,
+  onProgress?: (progress: string) => Promise<unknown>,
+): Promise<string> {
   const deadline = Date.now() + Math.max(1, timeoutSec) * 1_000;
+  let lastHeartbeat = 0;
   while (Date.now() <= deadline) {
     const request = await prisma.commandRequest.findUnique({
       where: { id: commandRequestId },
@@ -74,6 +79,12 @@ async function waitForCommand(commandRequestId: string, timeoutSec: number): Pro
         throw new Error(`command request ${commandRequestId} ended with ${request.status}`);
       }
       return `command request ${commandRequestId} completed`;
+    }
+    const now = Date.now();
+    // C4: keep durable playbook job lease alive during long SSH waits.
+    if (onProgress && now - lastHeartbeat >= 15_000) {
+      lastHeartbeat = now;
+      await onProgress(`waiting command ${commandRequestId} (${request.status})`);
     }
     await new Promise((resolve) => setTimeout(resolve, COMMAND_POLL_MS));
   }
@@ -106,6 +117,7 @@ async function dispatchStep(input: {
   existing?: PlaybookStepResult;
   /** 0-based attempt within step.retry+1; each attempt gets a distinct command + idempotency key. */
   attempt: number;
+  onProgress?: (progress: string) => Promise<unknown>;
 }): Promise<string> {
   const { step } = input;
   switch (step.type) {
@@ -154,7 +166,7 @@ async function dispatchStep(input: {
         else input.results.push(running);
         await persistProgress(input.runId, input.results);
       }
-      return waitForCommand(commandRequestId, step.timeoutSec);
+      return waitForCommand(commandRequestId, step.timeoutSec, input.onProgress);
     }
     case "send_notification": {
       // Defense-in-depth: write-time service asserts actor scope; when the run
@@ -272,6 +284,7 @@ export async function executePlaybookChain(input: {
               results,
               existing,
               attempt,
+              onProgress: input.onProgress,
             });
           },
           async () => {

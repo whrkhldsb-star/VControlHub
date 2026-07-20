@@ -239,7 +239,7 @@ describe("/api/storage/sftp-ops", () => {
     expect(renameRemoteFileMock).toHaveBeenCalled();
     expect(prismaMock.fileEntry.updateMany).toHaveBeenCalledWith({
       where: { storageNodeId: "node_1", relativePath: "allowed/a.txt" },
-      data: { relativePath: "allowed/b.txt", name: "b.txt", isDeleted: false },
+      data: { relativePath: "allowed/b.txt", name: "b.txt" },
     });
   });
 
@@ -277,7 +277,7 @@ describe("/api/storage/sftp-ops", () => {
     );
     expect(prismaMock.fileEntry.updateMany).toHaveBeenCalledWith({
       where: { storageNodeId: "node_1", relativePath: "allowed/a.txt" },
-      data: { relativePath: "nested/path/b.txt", name: "b.txt", isDeleted: false },
+      data: { relativePath: "nested/path/b.txt", name: "b.txt" },
     });
   });
 
@@ -480,15 +480,15 @@ describe("/api/storage/sftp-ops", () => {
     });
     expect(prismaMock.fileEntry.update).toHaveBeenCalledWith({
       where: { id: "child-1" },
-      data: { relativePath: "renamed/a.txt", isDeleted: false },
+      data: { relativePath: "renamed/a.txt" },
     });
     expect(prismaMock.fileEntry.update).toHaveBeenCalledWith({
       where: { id: "child-2" },
-      data: { relativePath: "renamed/nested/b.txt", isDeleted: false },
+      data: { relativePath: "renamed/nested/b.txt" },
     });
     expect(prismaMock.fileEntry.updateMany).toHaveBeenCalledWith({
       where: { storageNodeId: "node_1", relativePath: "allowed" },
-      data: { relativePath: "renamed", name: "renamed", isDeleted: false },
+      data: { relativePath: "renamed", name: "renamed" },
     });
   });
 
@@ -529,7 +529,7 @@ describe("/api/storage/sftp-ops", () => {
     expect(prismaMock.fileEntry.update).toHaveBeenCalledTimes(1);
     expect(prismaMock.fileEntry.update).toHaveBeenCalledWith({
       where: { id: "child-live" },
-      data: { relativePath: "renamed/live.txt", isDeleted: false },
+      data: { relativePath: "renamed/live.txt" },
     });
     expect(prismaMock.fileEntry.update).not.toHaveBeenCalledWith(
       expect.objectContaining({ where: { id: "child-trash" } }),

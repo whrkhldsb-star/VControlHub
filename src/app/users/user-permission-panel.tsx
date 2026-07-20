@@ -83,6 +83,8 @@ export function UserPermissionPanel({ userId, username, onClose, onSaved }: Prop
   const [roleKeys, setRoleKeys] = useState<string[]>([]);
   const [permissionKeys, setPermissionKeys] = useState<string[]>([]);
   const [grants, setGrants] = useState<StorageGrant[]>([]);
+  const [templateNameDraft, setTemplateNameDraft] = useState("");
+  const [savingTemplate, setSavingTemplate] = useState(false);
   const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -145,18 +147,25 @@ return data as PermissionsPayload;
   };
 
   const saveTemplate = async () => {
-    const name = window.prompt(t("usersPerm.template.namePrompt"));
-    if (!name?.trim()) return;
+    const name = templateNameDraft.trim();
+    if (!name) {
+      setMessage({ type: "error", text: t("usersPerm.template.namePrompt") });
+      return;
+    }
+    setSavingTemplate(true);
     try {
       const data = await csrfFetch("/api/role-templates", {
         method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name: name.trim(), roleKeys, permissions: permissionKeys, storageAccess: grants }),
+        body: JSON.stringify({ name, roleKeys, permissions: permissionKeys, storageAccess: grants }),
       }) as { template: RoleTemplate };
       setTemplates((current) => [...current, data.template].sort((a, b) => a.name.localeCompare(b.name)));
       setSelectedTemplateId(data.template.id);
+      setTemplateNameDraft("");
       setMessage({ type: "success", text: t("usersPerm.template.saved") });
     } catch (error) {
       setMessage({ type: "error", text: error instanceof Error ? error.message : t("usersPerm.error.saveFailed") });
+    } finally {
+      setSavingTemplate(false);
     }
   };
 
@@ -212,7 +221,26 @@ const _data = await csrfFetch("/api/users/permissions", {
                   {templates.map((template) => <option key={template.id} value={template.id}>{template.name}</option>)}
                 </select>
                 <button type="button" onClick={applyTemplate} disabled={!selectedTemplateId} data-action-button data-variant="outline" className="!px-3 !py-2 !text-xs disabled:opacity-40">{t("usersPerm.template.apply")}</button>
-                <button type="button" onClick={saveTemplate} data-action-button data-variant="secondary" className="!px-3 !py-2 !text-xs">{t("usersPerm.template.saveCurrent")}</button>
+                <div className="flex flex-wrap items-center gap-2">
+                  <input
+                    type="text"
+                    value={templateNameDraft}
+                    onChange={(e) => setTemplateNameDraft(e.target.value)}
+                    placeholder={t("usersPerm.template.namePrompt")}
+                    aria-label={t("usersPerm.template.namePrompt")}
+                    className="min-w-[10rem] flex-1 rounded-md border border-[var(--border)] bg-[var(--surface)] px-2.5 py-1.5 text-sm text-[var(--text-primary)]"
+                  />
+                  <button
+                    type="button"
+                    onClick={saveTemplate}
+                    disabled={savingTemplate || !templateNameDraft.trim()}
+                    data-action-button
+                    data-variant="secondary"
+                    className="!px-3 !py-2 !text-xs disabled:opacity-50"
+                  >
+                    {savingTemplate ? "…" : t("usersPerm.template.saveCurrent")}
+                  </button>
+                </div>
               </div>
             </section>
             <section className="rounded-2xl border border-[var(--border)] bg-[var(--surface-subtle)] p-4">

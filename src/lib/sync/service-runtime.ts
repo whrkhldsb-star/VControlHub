@@ -317,51 +317,73 @@ export async function executeSyncJob(jobId: string): Promise<ExecuteSyncJobResul
 		});
 
 		let reverse: { stats: OneWaySyncStats } | null = null;
+		let reverseError: string | null = null;
 		if (bidirectional) {
-			// Reverse: target → source (newer-wins via --update)
-			reverse = await runOneWayRsync({
-				jobId: `${jobId}-rev`,
-				sourceServer: job.targetServer,
-				targetServer: job.sourceServer,
-				sourcePath: job.targetPath,
-				targetPath: job.sourcePath,
-				flags,
-				deleteOrphans: false,
-			});
+			// Reverse: target → source (newer-wins via --update).
+			// Bidirectional is not transactional — if reverse fails after forward,
+			// record PARTIAL so operators see "forward done, reverse failed".
+			try {
+				reverse = await runOneWayRsync({
+					jobId: `${jobId}-rev`,
+					sourceServer: job.targetServer,
+					targetServer: job.sourceServer,
+					sourcePath: job.targetPath,
+					targetPath: job.sourcePath,
+					flags,
+					deleteOrphans: false,
+				});
+			} catch (revErr) {
+				reverseError = revErr instanceof Error ? revErr.message : String(revErr);
+			}
 		}
 
 		const duration = Date.now() - startTime;
 		const merged = mergeSyncStats(forward.stats, reverse?.stats);
-		const lastSyncResult = reverse
-			? formatBidirectionalResult({
-					forward: forward.stats,
-					reverse: reverse.stats,
-					durationMs: duration,
-				})
-			: `Success: ${forward.stats.transferredFiles} files, ${formatBytes(forward.stats.totalSize)}, ${Math.round(duration / 1000)}s`;
+		let lastSyncResult: string;
+		let logStatus: "COMPLETED" | "FAILED" = "COMPLETED";
+		if (reverseError) {
+			logStatus = "FAILED";
+			lastSyncResult =
+				`Partial: forward completed (${forward.stats.transferredFiles} files, ${formatBytes(forward.stats.totalSize)}); ` +
+				`reverse failed: ${reverseError.slice(0, 180)}. Bidirectional sync is not transactional.`;
+		} else if (reverse) {
+			lastSyncResult = formatBidirectionalResult({
+				forward: forward.stats,
+				reverse: reverse.stats,
+				durationMs: duration,
+			});
+		} else {
+			lastSyncResult = `Success: ${forward.stats.transferredFiles} files, ${formatBytes(forward.stats.totalSize)}, ${Math.round(duration / 1000)}s`;
+		}
 
 		await prisma.syncLog.update({
 			where: { id: logEntry.id },
 			data: {
-				status: "COMPLETED",
+				status: logStatus,
 				filesScanned: merged.totalFiles,
 				filesTransferred: merged.transferredFiles,
 				bytesTransferred: String(merged.totalSize),
 				durationMs: duration,
 				completedAt: new Date(),
+				...(reverseError ? { errorMessage: reverseError.slice(0, 2000) } : {}),
 			},
 		});
 
 		await prisma.syncJob.update({
 			where: { id: jobId },
 			data: {
-				status: "IDLE",
+				status: reverseError ? "ERROR" : "IDLE",
 				lastSyncAt: new Date(),
 				lastSyncResult,
 			},
 		});
 
-		return { ok: true, status: "IDLE", lastSyncResult };
+		return {
+			ok: !reverseError,
+			status: reverseError ? "ERROR" : "IDLE",
+			lastSyncResult,
+			partial: Boolean(reverseError),
+		};
 	} catch (error) {
 		const duration = Date.now() - startTime;
 		const errMsg = error instanceof Error ? error.message : String(error);
