@@ -311,4 +311,43 @@ describe("moveFileAction", () => {
     expect(result).toEqual({ error: "远端文件移动失败：permission denied" });
     expect(prisma.fileEntry.update).not.toHaveBeenCalled();
   });
+
+  it("rewrites only live descendants when moving a directory (skips soft-deleted)", async () => {
+    const dirEntry = {
+      ...baseEntry,
+      id: "dir-1",
+      name: "team-a",
+      relativePath: "team-a",
+      entryType: "DIRECTORY",
+    };
+    // mockPrismaFindFirstById handles entry load (string id) + collision probe ({ not })
+    mockEntryLookup(dirEntry);
+    fileEntryMock.findMany.mockResolvedValueOnce([
+      { id: "child-live", relativePath: "team-a/live.txt" },
+    ]);
+    fileEntryMock.update.mockResolvedValue({ id: "ok" });
+
+    const formData = new FormData();
+    formData.set("fileEntryId", "dir-1");
+    formData.set("targetDir", "archive");
+
+    const result = await moveFileAction(null, formData);
+
+    expect(result.error).toBeUndefined();
+    expect(result.success).toBeTruthy();
+    expect(fileEntryMock.findMany).toHaveBeenCalledWith({
+      where: {
+        storageNodeId: "node-1",
+        relativePath: { startsWith: "team-a/" },
+        isDeleted: false,
+      },
+      select: { id: true, relativePath: true },
+      take: 10_000,
+    });
+    expect(fileEntryMock.update).toHaveBeenCalledWith({
+      where: { id: "child-live" },
+      data: { relativePath: "archive/team-a/live.txt" },
+    });
+  });
+
 });

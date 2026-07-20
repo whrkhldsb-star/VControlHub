@@ -171,10 +171,12 @@ export async function moveFileAction(
         if (entry.entryType === "DIRECTORY") {
           const oldPrefix = entry.relativePath + "/";
           const newPrefix = newRelativePath + "/";
+          // Do not rewrite soft-deleted descendants (recycle-bin rows).
           const children = await tx.fileEntry.findMany({
             where: {
               storageNodeId: entry.storageNodeId,
               relativePath: { startsWith: oldPrefix },
+              isDeleted: false,
             },
             select: { id: true, relativePath: true },
             take: 10_000,

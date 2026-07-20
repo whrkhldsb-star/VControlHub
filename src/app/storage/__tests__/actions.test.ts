@@ -24,6 +24,7 @@ const {
 	$transaction: vi.fn(async (operations: Array<Promise<unknown>>) => Promise.all(operations)),
     fileEntry: {
       findFirst: vi.fn(),
+      findMany: vi.fn(),
       findUnique: vi.fn(),
       update: vi.fn(),
       updateMany: vi.fn(),
@@ -512,6 +513,46 @@ describe("SFTP file entry actions", () => {
         data: { name: "new.txt", relativePath: "docs/new.txt" },
       }),
     );
+  });
+
+  it("rewrites only live (non-soft-deleted) descendants when renaming a directory", async () => {
+    prismaMock.fileEntry.findFirst
+      .mockResolvedValueOnce(
+        sftpEntry({
+          name: "docs",
+          entryType: "DIRECTORY",
+          relativePath: "docs",
+        }),
+      )
+      .mockResolvedValueOnce(null);
+    prismaMock.fileEntry.findMany.mockResolvedValueOnce([
+      { id: "child-live", relativePath: "docs/live.txt" },
+    ]);
+    prismaMock.fileEntry.update.mockResolvedValue({ id: "ok" });
+
+    const result = await renameFileEntryAction(
+      null,
+      entryForm("entry-1", { newName: "docs-renamed" }),
+    );
+
+    expect(result.success).toContain("docs-renamed");
+    expect(prismaMock.fileEntry.findMany).toHaveBeenCalledWith({
+      where: {
+        storageNodeId: "node-sftp",
+        relativePath: { startsWith: "docs/" },
+        isDeleted: false,
+      },
+      select: { id: true, relativePath: true },
+      take: 10_000,
+    });
+    expect(prismaMock.fileEntry.update).toHaveBeenCalledWith({
+      where: { id: "child-live" },
+      data: { relativePath: "docs-renamed/live.txt" },
+    });
+    expect(prismaMock.fileEntry.update).toHaveBeenCalledWith({
+      where: { id: "entry-1" },
+      data: { name: "docs-renamed", relativePath: "docs-renamed" },
+    });
   });
 
   it("rejects rename when source path lacks write ACL even if destination would be allowed", async () => {

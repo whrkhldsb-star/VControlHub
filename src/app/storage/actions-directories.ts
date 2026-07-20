@@ -303,10 +303,13 @@ export async function renameFileEntryAction(
     if (entry.entryType === "DIRECTORY") {
       const oldPrefix = entry.relativePath + "/";
       const newPrefix = newRelativePath + "/";
+      // Soft-deleted descendants stay under the old prefix in recycle-bin state.
+      // Moving them here would either resurrect trash or corrupt recycle paths.
       const children = await prisma.fileEntry.findMany({
         where: {
           storageNodeId: entry.storageNodeId,
           relativePath: { startsWith: oldPrefix },
+          isDeleted: false,
         },
         select: { id: true, relativePath: true },
         take: 10_000,

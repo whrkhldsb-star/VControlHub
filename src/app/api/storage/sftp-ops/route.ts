@@ -105,10 +105,13 @@ async function renameSftpIndex(storageNodeId: string, oldRelativePath: string, n
     const newPrefix = newRelativePath.endsWith("/")
       ? newRelativePath
       : `${newRelativePath}/`;
+    // Only rewrite live descendants. Soft-deleted children must stay in the
+    // recycle-bin inventory; rewriting them with isDeleted:false would resurrect trash.
     const children = await prisma.fileEntry.findMany({
       where: {
         storageNodeId,
         relativePath: { startsWith: oldPrefix },
+        isDeleted: false,
       },
       select: { id: true, relativePath: true },
       take: 10_000,

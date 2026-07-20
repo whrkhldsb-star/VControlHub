@@ -471,6 +471,7 @@ describe("/api/storage/sftp-ops", () => {
       where: {
         storageNodeId: "node_1",
         relativePath: { startsWith: "allowed/" },
+        isDeleted: false,
       },
       select: { id: true, relativePath: true },
       take: 10_000,
@@ -487,6 +488,50 @@ describe("/api/storage/sftp-ops", () => {
       where: { storageNodeId: "node_1", relativePath: "allowed" },
       data: { relativePath: "renamed", name: "renamed", isDeleted: false },
     });
+  });
+
+  it("does not rewrite soft-deleted descendants when renaming a SFTP directory", async () => {
+    vi.clearAllMocks();
+    requireApiSessionMock.mockResolvedValueOnce({
+      userId: "u_1",
+      username: "alice",
+      roles: ["admin"],
+      currentTeamId: null,
+    });
+    mockSftpNode();
+    // Live inventory only — soft-deleted children are filtered by isDeleted:false
+    prismaMock.fileEntry.findMany.mockResolvedValueOnce([
+      { id: "child-live", relativePath: "allowed/live.txt" },
+    ]);
+
+    const response = await POST(
+      request({
+        action: "rename",
+        nodeId: "node_1",
+        path: "allowed",
+        newPath: "renamed",
+        isDirectory: true,
+      }),
+    );
+
+    expect(response.status).toBe(200);
+    expect(prismaMock.fileEntry.findMany).toHaveBeenCalledWith({
+      where: {
+        storageNodeId: "node_1",
+        relativePath: { startsWith: "allowed/" },
+        isDeleted: false,
+      },
+      select: { id: true, relativePath: true },
+      take: 10_000,
+    });
+    expect(prismaMock.fileEntry.update).toHaveBeenCalledTimes(1);
+    expect(prismaMock.fileEntry.update).toHaveBeenCalledWith({
+      where: { id: "child-live" },
+      data: { relativePath: "renamed/live.txt", isDeleted: false },
+    });
+    expect(prismaMock.fileEntry.update).not.toHaveBeenCalledWith(
+      expect.objectContaining({ where: { id: "child-trash" } }),
+    );
   });
 
   it("rejects rename when destination path is outside the user's storage grant", async () => {
