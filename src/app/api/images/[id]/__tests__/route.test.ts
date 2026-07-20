@@ -257,12 +257,12 @@ describe("/api/images/[id]", () => {
     expect(imageDeleteMock).not.toHaveBeenCalled();
   });
 
-  it("allows explicit storage delete permission to delete another user's image", async () => {
+  it("allows explicit media manage permission to delete another user's image", async () => {
     vi.clearAllMocks();
     requireApiSessionMock.mockResolvedValueOnce(session);
     sessionHasPermissionMock.mockImplementation(
       (_session, permission) =>
-        permission === "image:write" || permission === "storage:delete",
+        permission === "image:write" || permission === "media:manage" || permission === "team:manage",
     );
     imageFindUniqueMock.mockResolvedValueOnce({
       id: "img_2",

@@ -102,12 +102,12 @@ describe("/api/images/batch", () => {
     await expect(response.json()).resolves.toMatchObject({ error: "Insufficient permissions" });
   });
 
-  it("allows storage delete managers to batch-delete selected images across owners", async () => {
+  it("allows media managers to batch-delete selected images across owners", async () => {
     vi.clearAllMocks();
     requireApiSessionMock.mockResolvedValueOnce(managerSession);
     sessionHasPermissionMock.mockImplementation(
       (_session, permission) =>
-        permission === "image:write" || permission === "storage:delete",
+        permission === "image:write" || permission === "media:manage" || permission === "team:manage",
     );
     imageFindManyMock.mockResolvedValueOnce([
       { id: "img_2", storageKey: "albums/remote.png" },

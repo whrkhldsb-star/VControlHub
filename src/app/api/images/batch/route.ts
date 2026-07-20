@@ -39,7 +39,8 @@ export async function POST(request: Request) {
       const { action, ids, album } = body;
 
       const canManageImages =
-        sessionHasPermission(session, "storage:delete") ||
+        sessionHasPermission(session, "media:manage") ||
+    sessionHasPermission(session, "team:manage") ||
         sessionHasPermission(session, "role:manage");
       const whereClause = canManageImages
         ? { id: { in: ids } }

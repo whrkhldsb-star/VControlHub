@@ -78,17 +78,18 @@ export async function voidBackupRecord(input: { id: string; reason: string; sess
 		? record.errorMessage
 		: `${prefix}: ${reason}`;
 	// CAS: only void if still in a voidable terminal/non-running state.
+	// Use VOIDED (not FAILED) so voided rows cannot be retried as ordinary failures.
 	const claimed = await prisma.backupRecord.updateMany({
 		where: {
 			id: record.id,
 			status: { in: ["PENDING", "FAILED"] },
 		},
-		data: { status: "FAILED", errorMessage },
+		data: { status: "VOIDED", errorMessage },
 	});
 	if (claimed.count === 0) {
 		throw new ConflictError(t("backend.backup.backupStatusChangedConcurrentlyCannotVoid"));
 	}
-	const updated = await getBackupRecord(record.id);
+	const updated = await getBackupRecord(record.id, input.session);
 	if (!updated) throw new NotFoundError(t("backend.backup.recordNotFound"));
 	return updated;
 }
@@ -99,6 +100,7 @@ export async function prepareBackupRecordRetry(input: { id: string; session?: Pi
 	if (record.status === "COMPLETED") throw new BusinessError(t("backend.backup.cannotRetryCompleted"));
 	if (record.status === "RUNNING") throw new BusinessError(t("backend.backup.cannotRetryRunning"));
 	if (record.status === "PENDING") throw new BusinessError(t("backend.backup.cannotRequeuePending"));
+	if (record.status === "VOIDED") throw new BusinessError(t("backend.backup.cannotRetryVoided"));
 	if (record.status !== "FAILED") throw new BusinessError(t("backend.backup.onlyFailedCanRetry"));
 	if (!isBackupType(record.type)) throw new ValidationError(t("backend.backup.invalidType"));
 	assertPortableBackupPath(record.filePath);
@@ -110,7 +112,7 @@ export async function prepareBackupRecordRetry(input: { id: string; session?: Pi
 	if (claimed.count === 0) {
 		throw new ConflictError(t("backend.backup.backupStatusChangedConcurrentlyCannotRetry"));
 	}
-	const updated = await getBackupRecord(record.id);
+	const updated = await getBackupRecord(record.id, input.session);
 	if (!updated) throw new NotFoundError(t("backend.backup.recordNotFound"));
 	return updated;
 }
@@ -142,7 +144,7 @@ export async function abandonStalePendingBackupRecords(input?: {
 		const claimed = await prisma.backupRecord.updateMany({
 			where: { id: row.id, status: "PENDING" },
 			data: {
-				status: "FAILED",
+				status: "VOIDED",
 				errorMessage: `Voided: ${reason}`,
 			},
 		});

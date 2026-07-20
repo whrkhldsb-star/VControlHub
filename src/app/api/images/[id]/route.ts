@@ -50,7 +50,8 @@ function imageVariantPaths(root: string, storageKey: string) {
 function canDeleteImage(input: { ownerId: string; session: SessionPayload }) {
   return (
     input.ownerId === input.session.userId ||
-    sessionHasPermission(input.session, "storage:delete") ||
+    sessionHasPermission(input.session, "media:manage") ||
+    sessionHasPermission(input.session, "team:manage") ||
     sessionHasPermission(input.session, "role:manage")
   );
 }

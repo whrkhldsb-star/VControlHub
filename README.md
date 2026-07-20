@@ -441,4 +441,22 @@ make logs SERVICE_PREFIX=vcontrolhub
 - 异地 prune 与本地 retention 绑在同一 job，依赖每日 tick 触发
 
 
+
+### 三次深扫发现（2026-07-20，广度+深度）
+
+| # | 问题 | 状态 |
+|---|------|------|
+| F1 | `voidBackupRecord` 把状态写成 **FAILED**（可被当失败重试） | **已修 → VOIDED**，并禁止重试 |
+| F2 | 图床跨用户删除/批处理用 **storage:delete**，与私有读 **media:manage** 不一致 | **已修** 统一 media/team/role manage |
+| F3 | abandon 陈旧 PENDING 写成 FAILED | **已修 → VOIDED** |
+| — | docker/download/playbook/cost API 抽样 | 已有 teamWhere / assertServerTeamAccess |
+| — | SSRF（billing CSV / AI provider） | 已有 public host 校验 |
+| — | 服务层 `session? teamWhere : {}` | worker/system 路径有意无 scope；API 均应传 session |
+
+仍接受 / 后续：
+- API 路由层英文 error 文案（~90 处）卫生债
+- operation-task 全局 prune（平台级清理，非租户 IDOR）
+- snippet 无私有团队维度（仅 owner/public）
+
+
 ## 📄 许可

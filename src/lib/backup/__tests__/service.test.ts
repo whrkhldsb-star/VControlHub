@@ -226,11 +226,11 @@ describe("backup service", () => {
 
     const record = await voidBackupRecord({ id: "bak-pending", reason: "stale queued record" });
 
-    expect(record.status).toBe("FAILED");
+    expect(record.status).toBe("VOIDED");
     expect(record.errorMessage).toMatch(/^Voided:/);
     expect(mockPrisma.backupRecord.updateMany).toHaveBeenCalledWith({
       where: { id: "bak-pending", status: { in: ["PENDING", "FAILED"] } },
-      data: { status: "FAILED", errorMessage: "Voided: stale queued record" },
+      data: { status: "VOIDED", errorMessage: "Voided: stale queued record" },
     });
   });
 
@@ -254,7 +254,7 @@ describe("backup service", () => {
     );
     expect(mockPrisma.backupRecord.updateMany).toHaveBeenCalledWith({
       where: { id: "stale-1", status: "PENDING" },
-      data: { status: "FAILED", errorMessage: "Voided: timeout" },
+      data: { status: "VOIDED", errorMessage: "Voided: timeout" },
     });
   });
 
