@@ -16,6 +16,7 @@ import {
   serializeDialect,
 } from "@/lib/ssh/os-dialect";
 import { encryptServerPasswordIfPlain } from "@/lib/ssh/ssh-key-crypto";
+import { checkStorageNodeHealth } from "@/lib/storage/service-nodes";
 import { normalizeServerInput } from "./config";
 import { SERVER_PROFILE_INCLUDE } from "./service-profile-includes";
 import { createServerSchema, type CreateServerInput } from "./schema";
@@ -272,7 +273,7 @@ export async function createServerProfile(
 
 export async function updateServerProfile(
   serverId: string,
-  input: Partial<CreateServerInput> & { enabled?: boolean },
+  input: Partial<CreateServerInput> & { enabled?: boolean; repairStoragePath?: boolean },
   session?: TeamSession | null,
 ) {
   const current = await findServerProfileForSession(serverId, session);
@@ -412,7 +413,55 @@ export async function updateServerProfile(
     include: SERVER_PROFILE_INCLUDE,
   });
 
-  return enrichServer(updated);
+  // Optional: update bound SFTP storage root + ensure the remote directory exists.
+  // Empty / omitted storagePath leaves the existing basePath alone.
+  const nextStoragePath =
+    typeof input.storagePath === "string" ? input.storagePath.trim() : "";
+  const repairStoragePath = input.repairStoragePath === true;
+  const storageNode = updated.storageNode;
+  const onboardingWarnings: string[] = [];
+
+  if (storageNode && (nextStoragePath || repairStoragePath)) {
+    const targetPath = nextStoragePath || storageNode.basePath;
+    if (nextStoragePath && nextStoragePath !== storageNode.basePath) {
+      await prisma.storageNode.update({
+        where: { id: storageNode.id },
+        data: { basePath: targetPath },
+      });
+    }
+    if (storageNode.driver === "SFTP" || (!storageNode.driver && !isLocalHostLiteral(updated.host))) {
+      try {
+        await createRemoteDirectory({
+          ...(await buildSshParamsFromServer(updated, updated.sshKey ?? null)),
+          remotePath: targetPath,
+          recursive: true,
+        });
+        await checkStorageNodeHealth(storageNode.id, session).catch(() => null);
+      } catch (error) {
+        onboardingWarnings.push(
+          `Failed to ensure remote storage directory ${targetPath}: ${getErrorMessage(error)}. Update the path or create the directory on the VPS, then retry.`,
+        );
+      }
+    } else {
+      try {
+        await mkdir(targetPath, { recursive: true });
+      } catch (error) {
+        onboardingWarnings.push(
+          `Failed to ensure local storage directory ${targetPath}: ${getErrorMessage(error)}.`,
+        );
+      }
+    }
+  }
+
+  const refreshed = await prisma.server.findUnique({
+    where: { id: serverId },
+    include: SERVER_PROFILE_INCLUDE,
+  });
+
+  return {
+    ...enrichServer(refreshed!),
+    onboardingWarnings,
+  };
 }
 
 export async function toggleServerEnabled(

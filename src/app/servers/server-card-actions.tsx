@@ -39,6 +39,8 @@ type ServerCardActionsProps = {
 	costCurrency?: "CNY" | "USD" | "EUR" | "JPY" | "HKD";
 	costProvider?: string | null;
 	costLastSyncedAt?: string | null;
+	storagePath?: string | null;
+	storageNodeId?: string | null;
 	canManageServers?: boolean;
 	canUseSshTerminal?: boolean;
 	onSshConnect?: () => void;
@@ -66,6 +68,8 @@ export function ServerCardActions({
 	costCurrency = "CNY",
 	costProvider = null,
 	costLastSyncedAt = null,
+	storagePath = null,
+	storageNodeId = null,
 	canManageServers = true,
 	canUseSshTerminal = false,
 	onSshConnect,
@@ -147,6 +151,8 @@ export function ServerCardActions({
 					costCurrency={costCurrency}
 					costProvider={costProvider}
 					costLastSyncedAt={costLastSyncedAt}
+					storagePath={storagePath}
+					storageNodeId={storageNodeId}
 					editAction={editAction}
 					editState={editState}
 				/>

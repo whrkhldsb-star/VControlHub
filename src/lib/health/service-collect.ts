@@ -113,6 +113,10 @@ export async function collectAllHealth(
 			const metrics = result as ServerMetrics;
 			const health = evaluateHealth(metrics);
 			const diskMax = Math.max(...metrics.disk.map((d) => d.usagePercent), 0);
+			// Prefer root mount for absolute disk labels; fall back to busiest mount.
+			const rootDisk =
+				metrics.disk.find((d) => d.mount === "/") ??
+				metrics.disk.slice().sort((a, b) => b.usagePercent - a.usagePercent)[0];
 			const totalNetRx = metrics.network.reduce((s, n) => s + n.rxBytes, 0);
 			const totalNetTx = metrics.network.reduce((s, n) => s + n.txBytes, 0);
 			const nowMs = Date.now();
@@ -125,10 +129,16 @@ export async function collectAllHealth(
 				status: health,
 				cpu: metrics.cpu.usagePercent,
 				mem: metrics.memory.usagePercent,
+				memUsedMb: metrics.memory.usedMb,
+				memTotalMb: metrics.memory.totalMb,
 				diskMax,
+				diskUsedLabel: rootDisk?.usedGb,
+				diskTotalLabel: rootDisk?.totalGb,
 				loadAvg1m: metrics.cpu.loadAvg[0],
 				networkInKbps: rates.inKbps,
 				networkOutKbps: rates.outKbps,
+				networkRxBytes: totalNetRx,
+				networkTxBytes: totalNetTx,
 				swapUsagePercent: metrics.swapUsagePercent,
 				uptime: metrics.uptime,
 				lastCheck: metrics.timestamp,
@@ -155,6 +165,41 @@ export async function collectAllHealth(
 	const results = (await Promise.allSettled(checks))
 		.map((r) => (r.status === "fulfilled" ? r.value : null))
 		.filter(Boolean) as ServerHealth[];
+
+	// Best-effort monthly traffic from durable samples (if worker has been running).
+	try {
+		const monthStart = new Date();
+		monthStart.setUTCDate(1);
+		monthStart.setUTCHours(0, 0, 0, 0);
+		const ids = results.map((r) => r.serverId);
+		if (ids.length > 0) {
+			const snaps = await prisma.trafficSnapshot.findMany({
+				where: { source: "server", serverId: { in: ids }, sampledAt: { gte: monthStart } },
+				select: { serverId: true, rxBytes: true, txBytes: true, sampledAt: true },
+				orderBy: { sampledAt: "asc" },
+				take: 5_000,
+			});
+			const first = new Map<string, { rx: bigint; tx: bigint }>();
+			const last = new Map<string, { rx: bigint; tx: bigint }>();
+			for (const s of snaps) {
+				if (!s.serverId) continue;
+				const row = { rx: s.rxBytes, tx: s.txBytes };
+				if (!first.has(s.serverId)) first.set(s.serverId, row);
+				last.set(s.serverId, row);
+			}
+			for (const r of results) {
+				const a = first.get(r.serverId);
+				const b = last.get(r.serverId);
+				if (!a || !b) continue;
+				const dRx = b.rx >= a.rx ? b.rx - a.rx : b.rx;
+				const dTx = b.tx >= a.tx ? b.tx - a.tx : b.tx;
+				r.monthlyRxBytes = Number(dRx);
+				r.monthlyTxBytes = Number(dTx);
+			}
+		}
+	} catch {
+		// Traffic table may be empty / unavailable — leave monthly fields unset.
+	}
 
 	return {
 		total: servers.length,

@@ -260,6 +260,8 @@ export function ServerOverviewDetails({
 							costCurrency={server.costCurrency}
 							costProvider={server.costProvider}
 							costLastSyncedAt={server.costLastSyncedAt}
+							storagePath={server.storageNode?.basePath ?? null}
+							storageNodeId={server.storageNode?.id ?? null}
 							directGateway={server.directGateway ?? undefined}
 						/>
 					</div>

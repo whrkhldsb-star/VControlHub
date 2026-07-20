@@ -20,6 +20,8 @@ type Props = {
   costCurrency: "CNY" | "USD" | "EUR" | "JPY" | "HKD";
   costProvider: string | null | undefined;
   costLastSyncedAt: string | null | undefined;
+  storagePath?: string | null;
+  storageNodeId?: string | null;
   // form action from useActionState
   editAction: (formData: FormData) => void | Promise<void>;
   editState: ServerActionState;
@@ -39,6 +41,8 @@ export function ServerCardEditForm({
   costCurrency,
   costProvider,
   costLastSyncedAt,
+  storagePath = null,
+  storageNodeId = null,
   editAction,
   editState,
 }: Props) {
@@ -159,6 +163,33 @@ export function ServerCardEditForm({
         defaultValue={(tags ?? []).join(",")}
         className={UI_INPUT}
       />
+      {storageNodeId ? (
+        <div className="space-y-2 rounded-xl border border-[var(--border)] bg-[var(--surface-subtle)] p-3">
+          <label className="block text-xs text-[var(--text-muted)]" htmlFor={`edit-storage-path-${serverId}`}>
+            {t("serverCardActions.edit.storagePath")}
+          </label>
+          <input
+            id={`edit-storage-path-${serverId}`}
+            name="storagePath"
+            type="text"
+            defaultValue={storagePath ?? "/root/drive"}
+            placeholder="/root/drive"
+            className={UI_INPUT}
+          />
+          <p className="text-[11px] leading-5 text-[var(--text-muted)]">
+            {t("serverCardActions.edit.storagePathHint")}
+          </p>
+          <label className="flex items-start gap-2 text-xs text-[var(--text-secondary)]">
+            <input
+              name="repairStoragePath"
+              type="checkbox"
+              defaultChecked
+              className="mt-0.5 h-4 w-4 rounded border-[var(--border)] bg-[var(--input-bg)]"
+            />
+            <span>{t("serverCardActions.edit.repairStoragePath")}</span>
+          </label>
+        </div>
+      ) : null}
       <div className="space-y-2 rounded-xl border border-[var(--border)] bg-[var(--surface-subtle)] p-3">
         <label className="flex items-start gap-2 text-xs text-[var(--text-secondary)]">
           <input

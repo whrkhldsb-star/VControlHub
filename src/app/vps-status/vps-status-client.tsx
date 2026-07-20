@@ -3,10 +3,9 @@
 /**
  * VPS fleet status — Komari / Nezha-inspired probe dashboard.
  *
- * Metrics come from SSH sampling (password/key), not a host agent:
- * latency / TCP RTT / agent version are intentionally omitted.
- * Auto-refresh interval is the shared Settings preference
- * (`vps-preferences.autoRefreshInterval`), same as monitoring/docker.
+ * Metrics come from SSH sampling (password/key), not a host agent.
+ * Auto-refresh interval is the shared Settings preference only
+ * (`vps-preferences.autoRefreshInterval`) — no local toggle.
  */
 
 import { useMemo, useState } from "react";
@@ -39,33 +38,64 @@ function formatKbps(kbps: number | undefined): string {
 	return `${Math.round(kbps)} Kbps`;
 }
 
+function formatBytes(bytes: number | undefined): string {
+	if (bytes === undefined || !Number.isFinite(bytes) || bytes < 0) return "—";
+	const units = ["B", "KB", "MB", "GB", "TB", "PB"];
+	let n = bytes;
+	let i = 0;
+	while (n >= 1024 && i < units.length - 1) {
+		n /= 1024;
+		i += 1;
+	}
+	const digits = i === 0 ? 0 : n >= 100 ? 0 : n >= 10 ? 1 : 2;
+	return `${n.toFixed(digits)} ${units[i]}`;
+}
+
+function formatMem(usedMb?: number, totalMb?: number): string {
+	if (usedMb === undefined || totalMb === undefined || totalMb <= 0) return "—";
+	const fmt = (mb: number) =>
+		mb >= 1024 ? `${(mb / 1024).toFixed(mb >= 10_240 ? 0 : 1)} GB` : `${Math.round(mb)} MB`;
+	return `${fmt(usedMb)} / ${fmt(totalMb)}`;
+}
+
+function formatDisk(used?: string, total?: string): string {
+	if (!used && !total) return "—";
+	if (used && total) return `${used} / ${total}`;
+	return used || total || "—";
+}
+
 function MetricBar({
 	label,
 	value,
+	detail,
 }: {
 	label: string;
 	value: number | undefined;
+	detail?: string;
 }) {
 	if (value === undefined) {
 		return (
-			<div className="space-y-1">
-				<div className="flex items-center justify-between text-[11px]">
+			<div className="space-y-1.5">
+				<div className="flex items-center justify-between gap-2 text-[11px]">
 					<span className="text-[var(--text-muted)]">{label}</span>
 					<span className="font-mono text-[var(--text-muted)]">—</span>
 				</div>
-				<div className="h-1.5 overflow-hidden rounded-full bg-[var(--surface-hover)]" />
+				<div className="h-2 overflow-hidden rounded-full bg-[var(--surface-hover)]" />
 			</div>
 		);
 	}
 	return (
-		<div className="space-y-1">
-			<div className="flex items-center justify-between text-[11px]">
+		<div className="space-y-1.5">
+			<div className="flex items-center justify-between gap-2 text-[11px]">
 				<span className="text-[var(--text-muted)]">{label}</span>
-				<span className={`font-mono tabular-nums ${usageColor(value)}`}>
+				<span className={`shrink-0 font-mono tabular-nums ${usageColor(value)}`}>
 					{value.toFixed(1)}%
+					{detail ? (
+						<span className="ml-1.5 font-normal text-[var(--text-muted)]">{detail}</span>
+					) : null}
 				</span>
 			</div>
-			<div className="h-1.5 overflow-hidden rounded-full bg-[var(--surface-hover)]">
+			<div className="h-2 overflow-hidden rounded-full bg-[var(--surface-hover)]">
 				<div
 					className={`h-full rounded-full transition-[width] duration-500 ${usageBarColor(value)}`}
 					style={{ width: `${Math.min(100, Math.max(0, value))}%` }}
@@ -94,20 +124,21 @@ function VpsNodeCard({
 }) {
 	const sc = statusToneClasses[server.status] ?? unknownTone;
 	const isOffline = server.status === "offline" || server.status === "unknown";
+	const memDetail = formatMem(server.memUsedMb, server.memTotalMb);
+	const diskDetail = formatDisk(server.diskUsedLabel, server.diskTotalLabel);
 
 	return (
 		<article
-			className={`group relative flex flex-col overflow-hidden rounded-2xl border bg-[var(--surface)] shadow-[0_1px_0_rgba(255,255,255,0.03)_inset] transition hover:border-[var(--border-strong,var(--border))] hover:shadow-lg ${
+			className={`group relative flex flex-col overflow-hidden rounded-2xl border bg-[var(--surface)] shadow-[0_1px_0_rgba(255,255,255,0.04)_inset] transition duration-200 hover:-translate-y-0.5 hover:shadow-lg ${
 				server.status === "critical"
 					? "border-[var(--danger-border)]"
 					: server.status === "warning"
 						? "border-[var(--warning-border)]"
-						: "border-[var(--border)]"
+						: "border-[var(--border)] hover:border-[var(--border-strong,var(--border))]"
 			}`}
 		>
-			{/* status accent bar */}
 			<div
-				className={`absolute inset-x-0 top-0 h-0.5 ${
+				className={`absolute inset-x-0 top-0 h-1 ${
 					server.status === "healthy"
 						? "bg-[var(--success)]"
 						: server.status === "warning"
@@ -119,46 +150,48 @@ function VpsNodeCard({
 				aria-hidden
 			/>
 
-			<div className="flex items-start justify-between gap-3 p-4 pb-2">
+			<div className="flex items-start justify-between gap-3 p-4 pb-3 pt-5">
 				<div className="min-w-0">
 					<div className="flex items-center gap-2">
-						<span
-							className={`relative flex h-2.5 w-2.5 shrink-0 ${isOffline ? "" : ""}`}
-						>
+						<span className="relative flex h-2.5 w-2.5 shrink-0">
 							<span
-								className={`absolute inline-flex h-full w-full rounded-full opacity-60 ${sc.dot} ${
+								className={`absolute inline-flex h-full w-full rounded-full opacity-50 ${sc.dot} ${
 									!isOffline && server.status === "healthy" ? "animate-ping" : ""
 								}`}
 							/>
 							<span className={`relative inline-flex h-2.5 w-2.5 rounded-full ${sc.dot}`} />
 						</span>
-						<h3 className="truncate text-sm font-semibold text-[var(--text-primary)]">
+						<h3 className="truncate text-sm font-semibold tracking-tight text-[var(--text-primary)]">
 							{server.serverName}
 						</h3>
 					</div>
-					<p className="mt-1 truncate font-mono text-[11px] text-[var(--text-muted)]">
-						{server.host}
-					</p>
+					<p className="mt-1 truncate font-mono text-[11px] text-[var(--text-muted)]">{server.host}</p>
 				</div>
 				<span
-					className={`shrink-0 rounded-full border px-2 py-0.5 text-[10px] font-medium ${sc.bg} ${sc.text}`}
+					className={`shrink-0 rounded-full border px-2.5 py-0.5 text-[10px] font-medium ${sc.bg} ${sc.text}`}
 				>
 					{t(statusLabelKey(server.status))}
 				</span>
 			</div>
 
-			<div className="space-y-2.5 px-4 py-2">
+			<div className="space-y-3 px-4 pb-3">
 				<MetricBar label="CPU" value={server.cpu} />
-				<MetricBar label={t("healthPage.ui.memory")} value={server.mem} />
-				<MetricBar label={t("healthPage.ui.disk")} value={server.diskMax} />
+				<MetricBar
+					label={t("healthPage.ui.memory")}
+					value={server.mem}
+					detail={memDetail !== "—" ? memDetail : undefined}
+				/>
+				<MetricBar
+					label={t("healthPage.ui.disk")}
+					value={server.diskMax}
+					detail={diskDetail !== "—" ? diskDetail : undefined}
+				/>
 			</div>
 
-			<div className="mt-auto grid grid-cols-2 gap-x-3 gap-y-1.5 border-t border-[var(--border-subtle)] px-4 py-3 text-[11px]">
+			<div className="mt-auto grid grid-cols-2 gap-x-3 gap-y-2 border-t border-[var(--border-subtle)] bg-[var(--surface-elevated)]/40 px-4 py-3 text-[11px]">
 				<div className="flex justify-between gap-2">
 					<span className="text-[var(--text-muted)]">{t("healthPage.ui.uptime")}</span>
-					<span className="truncate font-medium text-[var(--text-secondary)]">
-						{server.uptime ?? "—"}
-					</span>
+					<span className="truncate font-medium text-[var(--text-secondary)]">{server.uptime ?? "—"}</span>
 				</div>
 				<div className="flex justify-between gap-2">
 					<span className="text-[var(--text-muted)]">{t("vpsStatusPage.metric.load")}</span>
@@ -178,6 +211,12 @@ function VpsNodeCard({
 						{formatKbps(server.networkOutKbps)}
 					</span>
 				</div>
+				<div className="col-span-2 flex justify-between gap-2 border-t border-[var(--border-subtle)] pt-2">
+					<span className="text-[var(--text-muted)]">{t("vpsStatusPage.metric.monthTraffic")}</span>
+					<span className="font-mono tabular-nums text-[var(--text-secondary)]">
+						↓{formatBytes(server.monthlyRxBytes)} · ↑{formatBytes(server.monthlyTxBytes)}
+					</span>
+				</div>
 			</div>
 
 			{server.error ? (
@@ -186,7 +225,7 @@ function VpsNodeCard({
 				</p>
 			) : null}
 
-			<div className="flex items-center justify-between border-t border-[var(--border-subtle)] px-4 py-2">
+			<div className="flex items-center justify-between border-t border-[var(--border-subtle)] px-4 py-2.5">
 				<span className="text-[10px] text-[var(--text-muted)]">
 					{t("healthPage.ui.lastRefresh")}:{" "}
 					{server.lastCheck
@@ -202,7 +241,7 @@ function VpsNodeCard({
 				<button
 					type="button"
 					onClick={onToggle}
-					className="text-[11px] font-medium text-[var(--text-muted)] transition hover:text-[var(--text-secondary)]"
+					className="rounded-full px-2 py-1 text-[11px] font-medium text-[var(--text-muted)] transition hover:bg-[var(--surface-hover)] hover:text-[var(--text-secondary)]"
 				>
 					{expanded ? t("healthPage.ui.collapse") : t("healthPage.ui.trend")}
 				</button>
@@ -213,14 +252,16 @@ function VpsNodeCard({
 					{historyError ? (
 						<div
 							role="alert"
-							className="rounded-lg border border-[var(--danger-border)] p-2 text-xs text-[var(--danger)]"
+							className="rounded-xl border border-[var(--danger-border)] p-2 text-xs text-[var(--danger)]"
 						>
 							{historyError}
 						</div>
 					) : history ? (
-						<SparklineChartLazy data={history} locale={locale} />
+						<div className="rounded-xl border border-[var(--border-subtle)] bg-[var(--surface)] p-2">
+							<SparklineChartLazy data={history} locale={locale} />
+						</div>
 					) : (
-						<div className="h-16 animate-pulse rounded-lg bg-[var(--surface)]" />
+						<div className="h-20 animate-pulse rounded-xl bg-[var(--surface)]" />
 					)}
 				</div>
 			) : null}
@@ -238,11 +279,9 @@ export function VpsStatusClient({ serverCount }: Props) {
 		loadError,
 		lastRefresh,
 		isRefreshing,
-		autoRefresh,
 		refreshIntervalSeconds,
 		fetchHealth,
 		fetchHistory,
-		setAutoRefresh,
 	} = useHealthData({ browserLocale, locale, mode: "vps" });
 
 	const [expandedServer, setExpandedServer] = useState<string | null>(null);
@@ -296,6 +335,10 @@ export function VpsStatusClient({ serverCount }: Props) {
 	};
 
 	const loading = overview === null && loadError === null;
+	const intervalLabel =
+		refreshIntervalSeconds <= 0
+			? t("healthPage.ui.autoRefreshOff")
+			: getRefreshIntervalLabel(refreshIntervalSeconds);
 
 	if (!overview && loadError) {
 		return (
@@ -337,26 +380,10 @@ export function VpsStatusClient({ serverCount }: Props) {
 					value={overview?.total ?? (serverCount > 0 ? serverCount : "—")}
 					color="slate"
 				/>
-				<SummaryCard
-					label={t("healthPage.summary.online")}
-					value={overview?.online ?? "—"}
-					color="emerald"
-				/>
-				<SummaryCard
-					label={t("healthPage.summary.warning")}
-					value={overview?.warning ?? "—"}
-					color="amber"
-				/>
-				<SummaryCard
-					label={t("healthPage.summary.critical")}
-					value={overview?.critical ?? "—"}
-					color="rose"
-				/>
-				<SummaryCard
-					label={t("healthPage.summary.offline")}
-					value={overview?.offline ?? "—"}
-					color="slate"
-				/>
+				<SummaryCard label={t("healthPage.summary.online")} value={overview?.online ?? "—"} color="emerald" />
+				<SummaryCard label={t("healthPage.summary.warning")} value={overview?.warning ?? "—"} color="amber" />
+				<SummaryCard label={t("healthPage.summary.critical")} value={overview?.critical ?? "—"} color="rose" />
+				<SummaryCard label={t("healthPage.summary.offline")} value={overview?.offline ?? "—"} color="slate" />
 			</section>
 
 			{overview && overview.servers.length > 0 ? (
@@ -365,8 +392,7 @@ export function VpsStatusClient({ serverCount }: Props) {
 
 			<CapacityForecastPanel />
 
-			{/* toolbar — Komari-like header strip */}
-			<div className="flex flex-col gap-3 rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-3 sm:flex-row sm:items-center sm:justify-between">
+			<div className="flex flex-col gap-3 rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-3 shadow-[0_1px_0_rgba(255,255,255,0.03)_inset] sm:flex-row sm:items-center sm:justify-between">
 				<div className="flex flex-wrap items-center gap-2">
 					{(
 						[
@@ -381,7 +407,7 @@ export function VpsStatusClient({ serverCount }: Props) {
 							onClick={() => setFilter(key)}
 							className={`rounded-full px-3 py-1 text-xs font-medium transition ${
 								filter === key
-									? "bg-[var(--color-action)] text-white"
+									? "bg-[var(--color-action)] text-[var(--on-accent,white)]"
 									: "bg-[var(--surface-elevated)] text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
 							}`}
 						>
@@ -418,6 +444,11 @@ export function VpsStatusClient({ serverCount }: Props) {
 					<span className="text-xs text-[var(--text-muted)]">
 						{t("healthPage.ui.lastRefresh")}: {lastRefresh || "—"}
 					</span>
+					<span className="rounded-full border border-[var(--border)] bg-[var(--surface-elevated)] px-2.5 py-1 text-[11px] text-[var(--text-secondary)]">
+						{refreshIntervalSeconds <= 0
+							? t("vpsStatusPage.refresh.off")
+							: tt("vpsStatusPage.refresh.every", { label: intervalLabel })}
+					</span>
 					<Link
 						href="/health"
 						data-action-button
@@ -435,34 +466,8 @@ export function VpsStatusClient({ serverCount }: Props) {
 						data-variant="secondary"
 						className="inline-flex min-h-11 items-center !px-3 !text-xs disabled:cursor-not-allowed disabled:opacity-60"
 					>
-						{isRefreshing || loading
-							? t("healthPage.ui.refreshing")
-							: t("healthPage.ui.refresh")}
+						{isRefreshing || loading ? t("healthPage.ui.refreshing") : t("healthPage.ui.refresh")}
 					</button>
-					<label className="flex min-h-11 items-center gap-2 text-xs text-[var(--text-secondary)]">
-						<span>{t("healthPage.ui.autoRefresh")}</span>
-						<button
-							type="button"
-							onClick={() => setAutoRefresh(!autoRefresh)}
-							disabled={refreshIntervalSeconds <= 0}
-							className={`relative h-4 w-8 min-h-11 min-w-11 rounded-full transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${autoRefresh ? "bg-[var(--color-action)]" : "bg-[var(--surface)]"}`}
-						>
-							<span
-								className={`absolute left-1/2 top-1/2 h-3 w-3 -translate-x-1/2 -translate-y-1/2 rounded-full bg-[var(--text-primary)] shadow transition-transform ${autoRefresh ? "translate-x-2" : "-translate-x-3"}`}
-							/>
-						</button>
-						<span>
-							{refreshIntervalSeconds <= 0
-								? t("healthPage.ui.autoRefreshOff")
-								: autoRefresh
-									? tt("healthPage.ui.autoRefreshEvery", {
-											label: getRefreshIntervalLabel(refreshIntervalSeconds),
-										})
-									: tt("healthPage.ui.autoRefreshPaused", {
-											label: getRefreshIntervalLabel(refreshIntervalSeconds),
-										})}
-						</span>
-					</label>
 				</div>
 			</div>
 
@@ -471,7 +476,7 @@ export function VpsStatusClient({ serverCount }: Props) {
 					{Array.from({ length: Math.min(Math.max(serverCount, 1), 8) }).map((_, i) => (
 						<div
 							key={i}
-							className="h-56 animate-pulse rounded-2xl border border-[var(--border)] bg-[var(--surface)]"
+							className="h-64 animate-pulse rounded-2xl border border-[var(--border)] bg-[var(--surface)]"
 						/>
 					))}
 				</div>
@@ -491,6 +496,7 @@ export function VpsStatusClient({ serverCount }: Props) {
 								<th className="px-3 py-2.5 font-medium">{t("vpsStatusPage.table.disk")}</th>
 								<th className="px-3 py-2.5 font-medium">{t("vpsStatusPage.table.load")}</th>
 								<th className="px-3 py-2.5 font-medium">{t("vpsStatusPage.table.net")}</th>
+								<th className="px-3 py-2.5 font-medium">{t("vpsStatusPage.table.monthTraffic")}</th>
 								<th className="px-3 py-2.5 font-medium">{t("vpsStatusPage.table.uptime")}</th>
 								<th className="px-3 py-2.5 font-medium">{t("vpsStatusPage.table.updated")}</th>
 							</tr>
@@ -517,7 +523,9 @@ export function VpsStatusClient({ serverCount }: Props) {
 											</div>
 										</td>
 										<td className="px-3 py-2.5">
-											<span className={`rounded-full border px-2 py-0.5 text-[10px] font-medium ${sc.bg} ${sc.text}`}>
+											<span
+												className={`rounded-full border px-2 py-0.5 text-[10px] font-medium ${sc.bg} ${sc.text}`}
+											>
 												{t(statusLabelKey(server.status))}
 											</span>
 										</td>
@@ -526,15 +534,28 @@ export function VpsStatusClient({ serverCount }: Props) {
 										</td>
 										<td className={`px-3 py-2.5 font-mono tabular-nums ${usageColor(server.mem)}`}>
 											{server.mem !== undefined ? `${server.mem.toFixed(1)}%` : "—"}
+											{server.memUsedMb !== undefined ? (
+												<div className="text-[10px] font-normal text-[var(--text-muted)]">
+													{formatMem(server.memUsedMb, server.memTotalMb)}
+												</div>
+											) : null}
 										</td>
 										<td className={`px-3 py-2.5 font-mono tabular-nums ${usageColor(server.diskMax)}`}>
 											{server.diskMax !== undefined ? `${server.diskMax.toFixed(1)}%` : "—"}
+											{server.diskUsedLabel ? (
+												<div className="text-[10px] font-normal text-[var(--text-muted)]">
+													{formatDisk(server.diskUsedLabel, server.diskTotalLabel)}
+												</div>
+											) : null}
 										</td>
 										<td className="px-3 py-2.5 font-mono tabular-nums text-[var(--text-secondary)]">
 											{server.loadAvg1m !== undefined ? server.loadAvg1m.toFixed(2) : "—"}
 										</td>
 										<td className="px-3 py-2.5 font-mono tabular-nums text-[var(--text-secondary)]">
 											{formatKbps(server.networkInKbps)} / {formatKbps(server.networkOutKbps)}
+										</td>
+										<td className="px-3 py-2.5 font-mono tabular-nums text-[var(--text-secondary)]">
+											↓{formatBytes(server.monthlyRxBytes)} / ↑{formatBytes(server.monthlyTxBytes)}
 										</td>
 										<td className="px-3 py-2.5 text-[var(--text-secondary)]">{server.uptime ?? "—"}</td>
 										<td className="px-3 py-2.5 text-[var(--text-muted)]">
@@ -545,7 +566,7 @@ export function VpsStatusClient({ serverCount }: Props) {
 														hour: "2-digit",
 														minute: "2-digit",
 														hour12: false,
-												  })
+													})
 												: "—"}
 										</td>
 									</tr>
@@ -570,10 +591,6 @@ export function VpsStatusClient({ serverCount }: Props) {
 					))}
 				</div>
 			)}
-
-			<p className="text-center text-[11px] text-[var(--text-muted)]">
-				{t("vpsStatusPage.agentNote")}
-			</p>
 		</div>
 	);
 }

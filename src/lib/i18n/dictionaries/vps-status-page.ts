@@ -3,7 +3,7 @@
  */
 export const zh: Record<string, string> = {
 	"vpsStatusPage.title": "VPS 状态",
-	"vpsStatusPage.description": "以探针主控风格展示各节点资源占用。指标经 SSH 密钥/密码采集；网络延迟等需 Agent 的项不显示。",
+	"vpsStatusPage.description": "以探针主控风格展示各节点资源占用。指标经 SSH 密钥/密码采集，刷新间隔与系统设置一致。",
 	"vpsStatusPage.eyebrow": "探针看板",
 	"vpsStatusPage.serverCount": "纳管节点 {count} 台",
 	"vpsStatusPage.noPermission": "缺少健康监控权限",
@@ -17,6 +17,10 @@ export const zh: Record<string, string> = {
 	"vpsStatusPage.metric.load": "负载",
 	"vpsStatusPage.metric.netIn": "入站",
 	"vpsStatusPage.metric.netOut": "出站",
+	"vpsStatusPage.metric.monthTraffic": "本月流量",
+	"vpsStatusPage.refresh.off": "不刷新",
+	"vpsStatusPage.refresh.every": "间隔 {label}",
+	"vpsStatusPage.table.monthTraffic": "本月 入/出",
 	"vpsStatusPage.view.cards": "卡片",
 	"vpsStatusPage.view.table": "表格",
 	"vpsStatusPage.table.name": "节点",
@@ -33,7 +37,7 @@ export const zh: Record<string, string> = {
 
 export const en: Record<string, string> = {
 	"vpsStatusPage.title": "VPS Status",
-	"vpsStatusPage.description": "Probe-style fleet view of node resource usage. Metrics are collected over SSH key/password; agent-only fields such as latency are omitted.",
+	"vpsStatusPage.description": "Probe-style fleet view of node resource usage. Metrics are collected over SSH; refresh interval follows system settings.",
 	"vpsStatusPage.eyebrow": "Probe board",
 	"vpsStatusPage.serverCount": "{count} managed nodes",
 	"vpsStatusPage.noPermission": "Missing health permission",
@@ -47,6 +51,10 @@ export const en: Record<string, string> = {
 	"vpsStatusPage.metric.load": "Load",
 	"vpsStatusPage.metric.netIn": "In",
 	"vpsStatusPage.metric.netOut": "Out",
+	"vpsStatusPage.metric.monthTraffic": "Month traffic",
+	"vpsStatusPage.refresh.off": "No auto-refresh",
+	"vpsStatusPage.refresh.every": "Every {label}",
+	"vpsStatusPage.table.monthTraffic": "Month in/out",
 	"vpsStatusPage.view.cards": "Cards",
 	"vpsStatusPage.view.table": "Table",
 	"vpsStatusPage.table.name": "Node",

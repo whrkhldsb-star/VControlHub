@@ -22,10 +22,18 @@ export type ServerHealth = {
 	status: "healthy" | "warning" | "critical" | "offline" | "unknown";
 	cpu?: number;
 	mem?: number;
+	memUsedMb?: number;
+	memTotalMb?: number;
 	diskMax?: number;
+	diskUsedLabel?: string;
+	diskTotalLabel?: string;
 	loadAvg1m?: number;
 	networkInKbps?: number;
 	networkOutKbps?: number;
+	networkRxBytes?: number;
+	networkTxBytes?: number;
+	monthlyRxBytes?: number;
+	monthlyTxBytes?: number;
 	swapUsagePercent?: number;
 	uptime?: string;
 	lastCheck: string;

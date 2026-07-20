@@ -124,6 +124,8 @@ export async function updateServerAction(
     const sshKeyId = String(formData.get("sshKeyId") ?? "");
     const approvedHostKeySha256 = String(formData.get("approvedHostKeySha256") ?? "") || undefined;
 
+    const storagePathRaw = String(formData.get("storagePath") ?? "").trim();
+    const repairStoragePath = formData.get("repairStoragePath") === "on";
     const changes = {
       name: String(formData.get("name") ?? ""),
       host: String(formData.get("host") ?? ""),
@@ -141,9 +143,11 @@ export async function updateServerAction(
       costCurrency: String(formData.get("costCurrency") ?? "CNY") as "CNY" | "USD" | "EUR" | "JPY" | "HKD",
       costProvider: String(formData.get("costProvider") ?? ""),
       approvedHostKeySha256,
+      ...(storagePathRaw ? { storagePath: storagePathRaw } : {}),
+      repairStoragePath,
     };
 
-    await updateServerProfile(serverId, changes, session);
+    const updated = await updateServerProfile(serverId, changes, session);
 
     await auditUserAction(session.userId, "server.update", {
       serverId,
@@ -155,7 +159,16 @@ export async function updateServerAction(
     revalidatePath("/storage");
     revalidatePath("/files");
 
-    return { success: tr("serversPage.action.updateSuccess") } as ServerActionState;
+    const warnings =
+      updated && typeof updated === "object" && "onboardingWarnings" in updated
+        ? (updated as { onboardingWarnings?: string[] }).onboardingWarnings ?? []
+        : [];
+    return {
+      success:
+        warnings.length > 0
+          ? tr("serversPage.action.updateWithWarnings").replace("{warnings}", warnings.join(" "))
+          : tr("serversPage.action.updateSuccess"),
+    } as ServerActionState;
   } catch (error) {
     return {
       error: error instanceof Error ? error.message : tr("serversPage.action.updateFailed"),

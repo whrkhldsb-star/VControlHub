@@ -22,10 +22,21 @@ export type ServerHealth = {
 	status: HealthStatus;
 	cpu?: number;
 	mem?: number;
+	/** Absolute memory usage from /proc/meminfo (MiB). */
+	memUsedMb?: number;
+	memTotalMb?: number;
 	diskMax?: number;
+	/** Human labels from `df` for primary/root mount (e.g. "12G", "50G"). */
+	diskUsedLabel?: string;
+	diskTotalLabel?: string;
 	loadAvg1m?: number;
 	networkInKbps?: number;
 	networkOutKbps?: number;
+	/** Cumulative interface counters (sum of non-lo ifaces) since boot. */
+	networkRxBytes?: number;
+	networkTxBytes?: number;
+	monthlyRxBytes?: number;
+	monthlyTxBytes?: number;
 	swapUsagePercent?: number;
 	uptime?: string;
 	/** RTT of the lightweight TCP probe that ran before the SSH pull.
