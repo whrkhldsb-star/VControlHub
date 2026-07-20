@@ -46,6 +46,10 @@ vi.mock("@/lib/ssh/client", () => ({
   execRemoteCommand: execRemoteCommandMock,
 }));
 
+vi.mock("@/lib/storage/service-nodes", () => ({
+  checkStorageNodeHealth: vi.fn(async () => ({ status: "HEALTHY" })),
+}));
+
 vi.mock("@/lib/ssh/os-dialect", () => ({
   detectOsDialect: vi.fn(async () => ({
     packageManager: "apt",
@@ -85,6 +89,7 @@ vi.mock("@/lib/db", () => ({
       findFirst: vi.fn(),
       create: vi.fn(),
       count: vi.fn(),
+      update: vi.fn(),
       updateMany: vi.fn(),
       delete: vi.fn(),
     },
@@ -1630,4 +1635,125 @@ describe("server service", () => {
       );
     }
   });
+
+  it("updates bound SFTP storage basePath and ensures the remote directory exists", async () => {
+    const current = {
+      id: "srv_path",
+      name: "path-node",
+      host: "203.0.113.77",
+      port: 22,
+      username: "root",
+      description: null,
+      tags: [] as string[],
+      enabled: true,
+      connectionType: "PASSWORD" as const,
+      sshKeyId: null,
+      password: "enc:v1:old",
+      hostKeySha256: "hk-path",
+      costAutoSync: false,
+      costMonthlyAmount: null,
+      costCurrency: "CNY",
+      costProvider: null,
+      sshKey: null,
+      storageNode: {
+        id: "sn_path",
+        name: "path-node storage",
+        driver: "SFTP",
+        isDefault: true,
+        basePath: "/root/drive",
+        directAccessMode: "PROXY",
+        publicBaseUrl: null,
+      },
+      commandTargets: [],
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
+    vi.mocked(prisma.server.findUnique)
+      .mockResolvedValueOnce(current as any)
+      .mockResolvedValueOnce({
+        ...current,
+        storageNode: { ...current.storageNode, basePath: "/data/vch-files" },
+      } as any);
+    vi.mocked(prisma.server.findFirst).mockResolvedValueOnce(null);
+    vi.mocked(prisma.server.update).mockResolvedValueOnce(current as any);
+    vi.mocked(prisma.storageNode.update).mockResolvedValueOnce({
+      ...current.storageNode,
+      basePath: "/data/vch-files",
+    } as any);
+    vi.mocked(createRemoteDirectory).mockResolvedValueOnce(undefined as any);
+
+    const result = await updateServerProfile("srv_path", {
+      storagePath: " /data/vch-files ",
+      repairStoragePath: true,
+    });
+
+    expect(prisma.storageNode.update).toHaveBeenCalledWith({
+      where: { id: "sn_path" },
+      data: { basePath: "/data/vch-files" },
+    });
+    expect(createRemoteDirectory).toHaveBeenCalledWith(
+      expect.objectContaining({
+        remotePath: "/data/vch-files",
+        recursive: true,
+      }),
+    );
+    expect(result.onboardingWarnings).toEqual([]);
+    expect(result.storageNode?.basePath).toBe("/data/vch-files");
+  });
+
+  it("returns onboardingWarnings when repairStoragePath remote mkdir fails without rolling back the node update", async () => {
+    const current = {
+      id: "srv_repair",
+      name: "repair-node",
+      host: "203.0.113.88",
+      port: 22,
+      username: "root",
+      description: null,
+      tags: [] as string[],
+      enabled: true,
+      connectionType: "PASSWORD" as const,
+      sshKeyId: null,
+      password: "enc:v1:old",
+      hostKeySha256: "hk-repair",
+      costAutoSync: false,
+      costMonthlyAmount: null,
+      costCurrency: "CNY",
+      costProvider: null,
+      sshKey: null,
+      storageNode: {
+        id: "sn_repair",
+        name: "repair-node storage",
+        driver: "SFTP",
+        isDefault: true,
+        basePath: "/root/drive",
+        directAccessMode: "PROXY",
+        publicBaseUrl: null,
+      },
+      commandTargets: [],
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
+    vi.mocked(prisma.server.findUnique)
+      .mockResolvedValueOnce(current as any)
+      .mockResolvedValueOnce(current as any);
+    vi.mocked(prisma.server.findFirst).mockResolvedValueOnce(null);
+    vi.mocked(prisma.server.update).mockResolvedValueOnce(current as any);
+    vi.mocked(createRemoteDirectory).mockRejectedValueOnce(new Error("permission denied"));
+
+    const result = await updateServerProfile("srv_repair", {
+      repairStoragePath: true,
+    });
+
+    expect(prisma.storageNode.update).not.toHaveBeenCalled();
+    expect(createRemoteDirectory).toHaveBeenCalledWith(
+      expect.objectContaining({
+        remotePath: "/root/drive",
+        recursive: true,
+      }),
+    );
+    expect(result.onboardingWarnings).toEqual([
+      expect.stringContaining("Failed to ensure remote storage directory /root/drive"),
+    ]);
+  });
+
 });

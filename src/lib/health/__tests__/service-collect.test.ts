@@ -15,6 +15,9 @@ const { prismaMock, collectServerMetricsMock, tcpProbeMock } = vi.hoisted(() => 
 		server: {
 			findMany: vi.fn(),
 		},
+		trafficSnapshot: {
+			findMany: vi.fn(async () => []),
+		},
 	},
 	collectServerMetricsMock: vi.fn(),
 	tcpProbeMock: vi.fn(),
@@ -125,13 +128,25 @@ describe("collectAllHealth — TR-050 TCP probe integration", () => {
 			{ id: "s1", name: "Healthy", host: "10.0.0.1", port: 22, enabled: true },
 		]);
 		tcpProbeMock.mockResolvedValueOnce({ ok: true, latencyMs: 3 });
-		collectServerMetricsMock.mockResolvedValueOnce(goodMetrics());
+		collectServerMetricsMock.mockResolvedValueOnce({
+			...goodMetrics(),
+			network: [
+				{ iface: "eth0", rxBytes: 1000, txBytes: 2000 },
+				{ iface: "lo", rxBytes: 50, txBytes: 50 },
+			],
+		});
 
 		const result = await collectAllHealth();
 
 		expect(result.servers[0]?.status).toBe("healthy");
 		expect(result.servers[0]?.latencyMs).toBe(3);
 		expect(result.servers[0]?.cpu).toBe(30);
+		expect(result.servers[0]?.memUsedMb).toBe(4000);
+		expect(result.servers[0]?.memTotalMb).toBe(16000);
+		expect(result.servers[0]?.diskUsedLabel).toBe("10G");
+		expect(result.servers[0]?.diskTotalLabel).toBe("40G");
+		expect(result.servers[0]?.networkRxBytes).toBe(1050);
+		expect(result.servers[0]?.networkTxBytes).toBe(2050);
 		expect(result.servers[0]?.error).toBeUndefined();
 	});
 
