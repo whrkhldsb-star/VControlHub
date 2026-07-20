@@ -158,6 +158,7 @@ export async function enqueueQuickServiceJob(input: {
 	title: string;
 	payload: QuickServiceJobPayload;
 	createdBy?: string | null;
+	teamId?: string | null;
 	priority?: number;
 }) {
 	const activeJob = await findActiveQuickServiceJob(input.payload.slug, input.payload.instanceKey ?? HUB_HOST_INSTANCE_KEY);
@@ -176,6 +177,7 @@ export async function enqueueQuickServiceJob(input: {
 		title: input.title,
 		payload: input.payload as unknown as Prisma.InputJsonValue,
 		createdBy: input.createdBy ?? null,
+		teamId: input.teamId ?? null,
 		priority: input.priority ?? 10,
 		maxAttempts: 1,
 	});

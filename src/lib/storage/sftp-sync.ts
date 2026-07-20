@@ -253,6 +253,7 @@ export async function getSftpSyncNode(
       port: true,
       username: true,
       hostKeySha256: true,
+      teamId: true,
       server: {
         select: {
           id: true,

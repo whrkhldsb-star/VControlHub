@@ -100,6 +100,7 @@ export async function enqueueDownloadExecutionJob(input: {
   mode: DownloadExecutionMode;
   taskId: string;
   userId?: string | null;
+  teamId?: string | null;
   /**
    * TR-001 T13b: storage node the download is targeting, propagated to
    * the durable job so `claimNextJob` can apply the per-node concurrency
@@ -124,9 +125,11 @@ export async function enqueueDownloadExecutionJob(input: {
       mode,
       taskId,
       userId: input.userId ?? null,
+      teamId: input.teamId ?? null,
       requestedAt: new Date().toISOString(),
     },
     createdBy: input.userId ?? null,
+    teamId: input.teamId ?? null,
     targetStorageNodeId: input.storageNodeId ?? null,
     priority: 0,
     maxAttempts: 3,

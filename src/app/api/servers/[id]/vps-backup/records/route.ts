@@ -83,7 +83,7 @@ export async function POST(
 
 			const server = await prisma.server.findUnique({
 				where: { id: serverId },
-				select: { id: true, name: true, enabled: true },
+				select: { id: true, name: true, enabled: true, teamId: true },
 			});
 			if (!server) {
 				return Response.json({ error: "Server not found" }, { status: 404 });
@@ -114,8 +114,13 @@ export async function POST(
 					title: `VPS backup: ${body.backupType} (${server.name})`,
 					payload: {
 						recordId,
+						serverId,
+						teamId: session.currentTeamId ?? server.teamId ?? null,
 						...(body.paths?.length ? { paths: body.paths } : {}),
 					},
+					createdBy: session.userId,
+					teamId: session.currentTeamId ?? server.teamId ?? null,
+					maxAttempts: 1,
 				});
 
 				await auditUserAction(

@@ -141,6 +141,7 @@ export async function dispatchDueVpsBackupSchedules(): Promise<number> {
 			status: "ACTIVE",
 			nextRunAt: { lte: now },
 		},
+		include: { server: { select: { id: true, teamId: true, name: true } } },
 		take: 10,
 	});
 
@@ -167,7 +168,14 @@ export async function dispatchDueVpsBackupSchedules(): Promise<number> {
 			await enqueueJob({
 				type: VPS_BACKUP_CREATE_JOB_TYPE,
 				title: `VPS backup: ${schedule.name}`,
-				payload: { recordId },
+				payload: {
+					recordId,
+					serverId: schedule.serverId,
+					teamId: schedule.server?.teamId ?? null,
+					scheduleId: schedule.id,
+				},
+				teamId: schedule.server?.teamId ?? null,
+				maxAttempts: 1,
 			});
 
 			// Record schedule run

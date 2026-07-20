@@ -107,8 +107,9 @@ export async function POST(request: NextRequest) {
           : jobPayload.nodeIds
             ? `SFTP stale inventory: team scope (${jobPayload.nodeIds.length})`
             : "SFTP stale inventory: all nodes",
-        payload: jobPayload,
+        payload: { ...jobPayload, teamId: session.currentTeamId ?? null },
         createdBy: session.userId,
+        teamId: session.currentTeamId ?? null,
         maxAttempts: 2,
         targetStorageNodeId: data.nodeId ?? null,
       });

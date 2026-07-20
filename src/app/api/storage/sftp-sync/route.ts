@@ -103,8 +103,15 @@ export async function POST(request: Request) {
       const job = await enqueueJob({
         type: SFTP_SYNC_JOB_TYPE,
         title: `SFTP Sync: ${node.name}`,
-        payload: { nodeId, remotePath, recursive, maxDepth },
+        payload: {
+          nodeId,
+          remotePath,
+          recursive,
+          maxDepth,
+          teamId: session.currentTeamId ?? node.teamId ?? null,
+        },
         createdBy: session.userId,
+        teamId: session.currentTeamId ?? node.teamId ?? null,
         maxAttempts: 3,
       });
       await auditUserAction(session.userId, "storage.sftp-sync", { nodeId, remotePath: remotePath ?? null }, undefined, session?.currentTeamId);

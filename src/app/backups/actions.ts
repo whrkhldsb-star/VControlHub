@@ -35,13 +35,15 @@ export async function createBackupAction(_prev: BackupActionState, formData: For
   const backup = await createBackupRecord({
     type: parsed.data.type,
     createdBy: session.userId,
+    teamId: session.currentTeamId ?? null,
     note: parsed.data.note,
   });
   const job = await enqueueJob({
     type: BACKUP_CREATE_JOB_TYPE,
     title: tr("backupsPage.action.jobTitle").replace("{type}", tr(`backupsPage.action.typeLabel.${parsed.data.type}`)),
-    payload: { backupId: backup.id },
+    payload: { backupId: backup.id, teamId: session.currentTeamId ?? backup.teamId ?? null },
     createdBy: session.userId,
+    teamId: session.currentTeamId ?? null,
     maxAttempts: 1,
   });
   await auditUserAction(session.userId, "backup.create", {
@@ -49,7 +51,7 @@ export async function createBackupAction(_prev: BackupActionState, formData: For
     jobId: job.id,
     async: true,
     via: "server-action",
-  });
+  }, undefined, session.currentTeamId);
   revalidatePath("/backups");
   return { success: true };
 }

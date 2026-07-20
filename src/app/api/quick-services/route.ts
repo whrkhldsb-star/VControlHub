@@ -179,6 +179,7 @@ export async function POST(request: Request) {
 		const prepared = prepareInstallSecrets(template);
 		const { job, taskId, reused } = await enqueueQuickServiceJob({
 			title: `Installed quick service: ${template.name}`,
+			teamId: session?.currentTeamId ?? null,
 			createdBy: session?.userId ?? null,
 			payload: {
 				action: "install",

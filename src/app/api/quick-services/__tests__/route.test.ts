@@ -169,6 +169,7 @@ describe("/api/quick-services routes", () => {
     expect(response.status).toBe(202);
     expect(mocks.enqueueQuickServiceJob).toHaveBeenCalledWith({
       title: "Installed quick service: AList",
+      teamId: null,
       createdBy: "u1",
       payload: expect.objectContaining({
         action: "install",

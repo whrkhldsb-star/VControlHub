@@ -459,4 +459,17 @@ make logs SERVICE_PREFIX=vcontrolhub
 - snippet 无私有团队维度（仅 owner/public）
 
 
+
+### 四次深扫发现（2026-07-20，job teamId 广度）
+
+| # | 问题 | 状态 |
+|---|------|------|
+| G1 | `backups/actions` 服务端创建备份未带 teamId / job 无 scope | **已修** |
+| G2 | SFTP sync / stale-inventory enqueue 缺 job.teamId | **已修** |
+| G3 | VPS backup 手动触发 + 调度 dispatch 缺 job.teamId | **已修** |
+| G4 | download.execute / quick_service.lifecycle enqueue 缺 teamId | **已修** |
+| — | 平台 tick（health/alert/cost/traffic/SLA…） | 有意全局，不强制 teamId |
+| — | 触屏 opacity / window.prompt | 前几轮已收口 |
+
+
 ## 📄 许可
