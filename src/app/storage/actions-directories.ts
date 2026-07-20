@@ -294,6 +294,33 @@ export async function renameFileEntryAction(
       } satisfies StorageActionState;
     }
 
+    // Preload directory children and fail closed before physical rename so we
+    // never leave a renamed remote tree with partial index rewrites.
+    const DIRECTORY_CHILD_REWRITE_LIMIT = 10_000;
+    let directoryChildren: Array<{ id: string; relativePath: string }> = [];
+    if (entry.entryType === "DIRECTORY") {
+      const oldPrefix = entry.relativePath + "/";
+      // Soft-deleted descendants stay under the old prefix in recycle-bin state.
+      // Moving them here would either resurrect trash or corrupt recycle paths.
+      directoryChildren = await prisma.fileEntry.findMany({
+        where: {
+          storageNodeId: entry.storageNodeId,
+          relativePath: { startsWith: oldPrefix },
+          isDeleted: false,
+        },
+        select: { id: true, relativePath: true },
+        take: DIRECTORY_CHILD_REWRITE_LIMIT + 1,
+      });
+      if (directoryChildren.length > DIRECTORY_CHILD_REWRITE_LIMIT) {
+        return {
+          error: t("storagePage.action.directoryTooLargeToRename").replace(
+            "{limit}",
+            String(DIRECTORY_CHILD_REWRITE_LIMIT),
+          ),
+        } satisfies StorageActionState;
+      }
+    }
+
     await renameBackingObject({
       storageNode: entry.storageNode,
       oldRelativePath: entry.relativePath,
@@ -303,20 +330,8 @@ export async function renameFileEntryAction(
     if (entry.entryType === "DIRECTORY") {
       const oldPrefix = entry.relativePath + "/";
       const newPrefix = newRelativePath + "/";
-      // Soft-deleted descendants stay under the old prefix in recycle-bin state.
-      // Moving them here would either resurrect trash or corrupt recycle paths.
-      const children = await prisma.fileEntry.findMany({
-        where: {
-          storageNodeId: entry.storageNodeId,
-          relativePath: { startsWith: oldPrefix },
-          isDeleted: false,
-        },
-        select: { id: true, relativePath: true },
-        take: 10_000,
-      });
-
       // N+1 acceptable: non-uniform per-item writes (each row gets a computed relativePath)
-      for (const child of children) {
+      for (const child of directoryChildren) {
         await prisma.fileEntry.update({
           where: { id: child.id },
           data: {

@@ -57,6 +57,7 @@ export const zh: Record<string, string> = {
 	"storagePage.action.fileRenamed": "已重命名为 {name}",
 	"storagePage.action.fileRenameFailed": "重命名文件条目失败",
 	"storagePage.action.pathAlreadyExists": "路径 /{path} 已存在，请使用其他名称",
+	"storagePage.action.directoryTooLargeToRename": "目录索引子项超过 {limit} 条，无法安全重命名；请先拆分或重新索引",
 
 	"storagePage.action.updateNodeSuccess": "存储节点已更新。",
 	"storagePage.action.updateNodeFailed": "更新存储节点失败",
@@ -150,6 +151,7 @@ export const en: Record<string, string> = {
 	"storagePage.action.fileRenamed": "Renamed to {name}",
 	"storagePage.action.fileRenameFailed": "Failed to rename file entry",
 	"storagePage.action.pathAlreadyExists": "Path /{path} already exists. Please use a different name",
+	"storagePage.action.directoryTooLargeToRename": "Directory has more than {limit} indexed children; rename is not safe — split or reindex first",
 
 	"storagePage.action.updateNodeSuccess": "Storage node updated.",
 	"storagePage.action.updateNodeFailed": "Failed to update storage node",

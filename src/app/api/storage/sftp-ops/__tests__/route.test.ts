@@ -409,6 +409,7 @@ describe("/api/storage/sftp-ops", () => {
       currentTeamId: null,
     });
     mockSftpNode();
+    prismaMock.fileEntry.findFirst.mockResolvedValueOnce({ entryType: "DIRECTORY" });
 
     const response = await POST(
       request({
@@ -447,6 +448,7 @@ describe("/api/storage/sftp-ops", () => {
       currentTeamId: null,
     });
     mockSftpNode();
+    prismaMock.fileEntry.findFirst.mockResolvedValueOnce({ entryType: "DIRECTORY" });
     prismaMock.fileEntry.findMany.mockResolvedValueOnce([
       { id: "child-1", relativePath: "allowed/a.txt" },
       { id: "child-2", relativePath: "allowed/nested/b.txt" },
@@ -476,7 +478,7 @@ describe("/api/storage/sftp-ops", () => {
         isDeleted: false,
       },
       select: { id: true, relativePath: true },
-      take: 10_000,
+      take: 10_001,
     });
     expect(prismaMock.fileEntry.update).toHaveBeenCalledWith({
       where: { id: "child-1" },
@@ -501,6 +503,7 @@ describe("/api/storage/sftp-ops", () => {
       currentTeamId: null,
     });
     mockSftpNode();
+    prismaMock.fileEntry.findFirst.mockResolvedValueOnce({ entryType: "DIRECTORY" });
     // Live inventory only — soft-deleted children are filtered by isDeleted:false
     prismaMock.fileEntry.findMany.mockResolvedValueOnce([
       { id: "child-live", relativePath: "allowed/live.txt" },
@@ -524,7 +527,7 @@ describe("/api/storage/sftp-ops", () => {
         isDeleted: false,
       },
       select: { id: true, relativePath: true },
-      take: 10_000,
+      take: 10_001,
     });
     expect(prismaMock.fileEntry.update).toHaveBeenCalledTimes(1);
     expect(prismaMock.fileEntry.update).toHaveBeenCalledWith({
@@ -566,5 +569,73 @@ describe("/api/storage/sftp-ops", () => {
       error: "目标路径无授权",
     });
     expect(renameRemoteFileMock).not.toHaveBeenCalled();
+  });
+
+  it("ignores client isDirectory=true when index says FILE on delete", async () => {
+    vi.clearAllMocks();
+    requireApiSessionMock.mockResolvedValueOnce({
+      userId: "u_1",
+      username: "alice",
+      roles: ["admin"],
+      currentTeamId: null,
+    });
+    mockSftpNode();
+    prismaMock.fileEntry.findFirst.mockResolvedValueOnce({ entryType: "FILE" });
+
+    const response = await POST(
+      request({
+        action: "delete",
+        nodeId: "node_1",
+        path: "old/file.txt",
+        isDirectory: true,
+      }),
+    );
+
+    expect(response.status).toBe(200);
+    expect(deleteRemoteFileMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        remotePath: "/data/files/old/file.txt",
+        isDirectory: false,
+      }),
+    );
+    expect(prismaMock.fileEntry.updateMany).toHaveBeenCalledWith({
+      where: { storageNodeId: "node_1", relativePath: "old/file.txt" },
+      data: { isDeleted: true },
+    });
+  });
+
+  it("fails closed when directory rename would exceed child rewrite limit", async () => {
+    vi.clearAllMocks();
+    requireApiSessionMock.mockResolvedValueOnce({
+      userId: "u_1",
+      username: "alice",
+      roles: ["admin"],
+      currentTeamId: null,
+    });
+    mockSftpNode();
+    prismaMock.fileEntry.findFirst.mockResolvedValueOnce({ entryType: "DIRECTORY" });
+    prismaMock.fileEntry.findMany.mockResolvedValueOnce(
+      Array.from({ length: 10_001 }, (_, i) => ({
+        id: `child-${i}`,
+        relativePath: `allowed/f-${i}.txt`,
+      })),
+    );
+
+    const response = await POST(
+      request({
+        action: "rename",
+        nodeId: "node_1",
+        path: "allowed",
+        newPath: "renamed",
+        isDirectory: true,
+      }),
+    );
+
+    expect(response.status).toBe(400);
+    await expect(response.json()).resolves.toMatchObject({
+      error: expect.stringContaining("too many indexed children"),
+    });
+    expect(renameRemoteFileMock).not.toHaveBeenCalled();
+    expect(prismaMock.fileEntry.update).not.toHaveBeenCalled();
   });
 });

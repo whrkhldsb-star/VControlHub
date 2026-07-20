@@ -79,6 +79,9 @@ async function upsertSftpFileIndex(params: {
   });
 }
 
+/** Hard cap for directory-descendant rewrites. Hitting the cap must fail closed. */
+const DIRECTORY_CHILD_REWRITE_LIMIT = 10_000;
+
 async function softDeleteSftpIndex(storageNodeId: string, relativePath: string, isDirectory = false) {
   const normalizedPrefix = relativePath.endsWith("/")
     ? relativePath
@@ -97,6 +100,32 @@ async function softDeleteSftpIndex(storageNodeId: string, relativePath: string, 
   });
 }
 
+/**
+ * Prefer the indexed entryType over client-supplied isDirectory. Callers
+ * must not be able to force recursive soft-delete / child rewrites by
+ * lying about a FILE being a DIRECTORY (or vice versa).
+ * Unindexed paths fall back to the request flag so first-touch remote ops
+ * still work before inventory sync.
+ */
+async function resolveIndexedIsDirectory(
+  storageNodeId: string,
+  relativePath: string,
+  clientIsDirectory: boolean | undefined,
+): Promise<boolean> {
+  const indexed = await prisma.fileEntry.findFirst({
+    where: {
+      storageNodeId,
+      relativePath,
+      isDeleted: false,
+    },
+    select: { entryType: true },
+  });
+  if (indexed) {
+    return indexed.entryType === "DIRECTORY";
+  }
+  return clientIsDirectory ?? false;
+}
+
 async function renameSftpIndex(storageNodeId: string, oldRelativePath: string, newRelativePath: string, isDirectory = false) {
   if (isDirectory) {
     const oldPrefix = oldRelativePath.endsWith("/")
@@ -107,6 +136,8 @@ async function renameSftpIndex(storageNodeId: string, oldRelativePath: string, n
       : `${newRelativePath}/`;
     // Only rewrite live descendants. Soft-deleted children must stay in the
     // recycle-bin inventory; rewriting them with isDeleted:false would resurrect trash.
+    // Fail closed if the directory has more live children than we can rewrite
+    // in one pass — silent truncation would leave stale relativePath rows.
     const children = await prisma.fileEntry.findMany({
       where: {
         storageNodeId,
@@ -114,8 +145,13 @@ async function renameSftpIndex(storageNodeId: string, oldRelativePath: string, n
         isDeleted: false,
       },
       select: { id: true, relativePath: true },
-      take: 10_000,
+      take: DIRECTORY_CHILD_REWRITE_LIMIT + 1,
     });
+    if (children.length > DIRECTORY_CHILD_REWRITE_LIMIT) {
+      throw new ValidationError(
+        `Directory has too many indexed children to rename safely (limit ${DIRECTORY_CHILD_REWRITE_LIMIT}); reindex or split first`,
+      );
+    }
     // N+1 acceptable: non-uniform per-item writes (each row gets a computed relativePath)
     for (const child of children) {
       await prisma.fileEntry.update({
@@ -203,18 +239,25 @@ async function handlePost(body: SftpOpsBody, session: SessionPayload) {
   try {
     switch (action) {
       case "delete": {
+        // Trust the live file index for directory vs file when present; never
+        // let the client force recursive soft-delete by lying about entryType.
+        const isDirectory = await resolveIndexedIsDirectory(
+          node.id,
+          normalizedRelativePath,
+          body.isDirectory,
+        );
         // Index-first: mark DB entries as deleted before removing the physical
         // backing object. If the physical delete fails, the index is already
         // soft-deleted so the UI no longer shows the entry — but the file
         // remains on disk and can be cleaned up manually or by a future
         // reconciliation pass. This avoids the previous "file gone but index
         // still shows" inconsistency.
-        await softDeleteSftpIndex(node.id, normalizedRelativePath, body.isDirectory ?? false);
+        await softDeleteSftpIndex(node.id, normalizedRelativePath, isDirectory);
         try {
           await deleteBackingObject({
             storageNode: node,
             relativePath: normalizedRelativePath,
-            isDirectory: body.isDirectory ?? false,
+            isDirectory,
             tolerateMissing: true,
           });
         } catch (physicalError) {
@@ -259,11 +302,25 @@ async function handlePost(body: SftpOpsBody, session: SessionPayload) {
           );
         }
 
+        // Prefer indexed entryType over client isDirectory for recursive rewrites.
+        const isDirectory = await resolveIndexedIsDirectory(
+          node.id,
+          normalizedRelativePath,
+          body.isDirectory,
+        );
+
         // Index-first: update DB entries before renaming the physical file.
         // If the physical rename fails, the index can be rolled back by the
         // caller; if it succeeds but a later error occurs, the index already
         // reflects the correct state.
-        await renameSftpIndex(node.id, normalizedRelativePath, normalizedNewRelativePath, body.isDirectory ?? false);
+        try {
+          await renameSftpIndex(node.id, normalizedRelativePath, normalizedNewRelativePath, isDirectory);
+        } catch (indexError) {
+          if (indexError instanceof ValidationError) {
+            return NextResponse.json({ error: indexError.message }, { status: 400 });
+          }
+          throw indexError;
+        }
         try {
           await renameBackingObject({
             storageNode: node,
@@ -274,7 +331,7 @@ async function handlePost(body: SftpOpsBody, session: SessionPayload) {
           // Physical rename failed — roll back the index to the old path.
           logger.warn("physical rename failed after index update; rolling back index", physicalError, { nodeId, oldPath: normalizedRelativePath, newPath: normalizedNewRelativePath });
           try {
-            await renameSftpIndex(node.id, normalizedNewRelativePath, normalizedRelativePath, body.isDirectory ?? false);
+            await renameSftpIndex(node.id, normalizedNewRelativePath, normalizedRelativePath, isDirectory);
           } catch (rollbackError) {
             logger.error("index rollback failed after physical rename error; index may be inconsistent", rollbackError, { nodeId, oldPath: normalizedRelativePath, newPath: normalizedNewRelativePath });
           }

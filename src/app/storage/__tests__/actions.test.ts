@@ -543,7 +543,7 @@ describe("SFTP file entry actions", () => {
         isDeleted: false,
       },
       select: { id: true, relativePath: true },
-      take: 10_000,
+      take: 10_001,
     });
     expect(prismaMock.fileEntry.update).toHaveBeenCalledWith({
       where: { id: "child-live" },
