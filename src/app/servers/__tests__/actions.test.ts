@@ -97,12 +97,12 @@ describe("server actions", () => {
   it("updates an existing server from edit form data", async () => {
     updateServerProfileMock.mockResolvedValueOnce({
       id: "srv_1",
-      name: "慈云",
+      name: "hk-node-01",
     });
     const { updateServerAction } = await import("../actions");
     const formData = new FormData();
     formData.set("serverId", "srv_1");
-    formData.set("name", "慈云");
+    formData.set("name", "hk-node-01");
     formData.set("host", "45.207.216.45");
     formData.set("port", "22");
     formData.set("username", "root");

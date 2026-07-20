@@ -309,7 +309,7 @@ describe("server direct gateway controls", () => {
     render(
       <ServerCardActions
         serverId="srv_1"
-        serverName="慈云"
+        serverName="hk-node-01"
         host="45.207.216.45"
         port={22}
         enabled={true}
@@ -327,7 +327,7 @@ describe("server direct gateway controls", () => {
     expect(
       screen.getByRole("form", { name: "编辑 VPS 节点" }),
     ).toBeInTheDocument();
-    expect(screen.getByLabelText("节点名称")).toHaveValue("慈云");
+    expect(screen.getByLabelText("节点名称")).toHaveValue("hk-node-01");
     expect(screen.getByLabelText("IP / 域名")).toHaveValue("45.207.216.45");
     expect(screen.getByLabelText("SSH 端口")).toHaveValue(22);
     expect(screen.getByLabelText("用户名")).toHaveValue("root");
@@ -345,7 +345,7 @@ describe("server direct gateway controls", () => {
     render(
       <ServerCardEditForm
         serverId="srv_1"
-        serverName="慈云"
+        serverName="hk-node-01"
         host="45.207.216.45"
         port={22}
         username="root"

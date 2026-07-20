@@ -31,7 +31,7 @@ export const zh: Record<string, string> = {
 	"serversPage.create.passwordPlaceholder": "留空则使用密钥认证",
 	"serversPage.create.passwordHint": "密码不会预填；请手动输入目标 VPS 当前 SSH 密码。",
 	"serversPage.create.name": "节点名称",
-	"serversPage.create.namePlaceholder": "例如：慈云香港 VPS",
+	"serversPage.create.namePlaceholder": "例如：香港节点-01",
 	"serversPage.create.description": "描述",
 	"serversPage.create.descriptionPlaceholder": "可选说明",
 	"serversPage.create.host": "IP / 主机名",

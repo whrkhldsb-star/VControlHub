@@ -19,7 +19,7 @@ export const en: Record<string, string> = {
 	"serversPage.create.passwordPlaceholder": "Leave blank to use SSH key auth",
 	"serversPage.create.passwordHint": "Password is never pre-filled; enter the current SSH password of the target VPS manually.",
 	"serversPage.create.name": "Node name",
-	"serversPage.create.namePlaceholder": "e.g. Hong Kong VPS",
+	"serversPage.create.namePlaceholder": "e.g. hk-node-01",
 	"serversPage.create.description": "Description",
 	"serversPage.create.descriptionPlaceholder": "Optional notes",
 	"serversPage.create.host": "IP / hostname",
