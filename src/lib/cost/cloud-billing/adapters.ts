@@ -23,8 +23,8 @@ import {
 } from "@/lib/storage/direct-access-url";
 
 import type { CostCategory, CostCurrency } from "../types";
-import type {
 import { config } from "@/lib/config/env";
+import type {
 	CloudBillingAccountConfig,
 	CloudBillingCredentials,
 	CloudBillingFetchResult,

@@ -388,6 +388,45 @@ make logs SERVICE_PREFIX=vcontrolhub
 | WebSocket 连接监控 | ✅ notification-ws + ssh-ws 计数；ssh-ws `/metrics` 本机抓取合并到 observability | 活跃/打开/关闭/拒绝/错误可见 |
 | 通知投递耗时统计 | ✅ email/telegram/webhook/in_app_ws 延迟分位数 + 失败率写入 runtime metrics | 从 observability 读各渠道 p50/p95/失败率 |
 
+### 功能审查发现（2026-07-20）
+
+> 范围：功能性 + 操作逻辑（安全已收口，不含安全审计；不含视觉美化）。按严重度排序，每项附代码锚点与修复方向。
+
+#### P0 - 数据丢失/跨租户
+
+| # | 问题 | 文件:行 | 说明 | 修复方向 |
+|---|------|---------|------|----------|
+| A1 | 异步备份恢复 worker 不传 session -> 跨租户恢复 | `src/lib/backup/job-worker.ts:141` + `src/lib/backup/service-runtime.ts:196-202` | `restoreBackupRecord` 调用时未传 `session`，`getBackupRecord` 无 session 时退化为 `findUnique`（无 team 过滤）。API enqueue 前已校验权限，但 enqueue→worker claim 存在时间窗 | job payload 固化 `teamId`，worker 侧用 `{ teamId }` 重建 scope；或 `restoreBackupRecord` 入口强制传 teamId |
+
+#### P1 - 功能错误/体验严重受损
+
+| # | 问题 | 文件:行 | 说明 | 修复方向 |
+|---|------|---------|------|----------|
+| B1 | 本地备份调度 retentionDays 永不执行 | `src/lib/backup/schedule-service.ts:236-247` + `src/lib/backup/job-worker.ts:100-130` | `dispatchDueSchedule` 把 `retentionDays` 放入 `BACKUP_CREATE_JOB_TYPE` payload，但 create job handler 完全忽略它；没有 enqueue `BACKUP_RETENTION_JOB_TYPE` | create job 成功后如 `retentionDays>0` 则 enqueue retention job；或在 `runExistingBackupRecord` 成功后自动触发 |
+| B2 | VPS 备份 FAILED 可被 worker 重复 claim -> 重复 SSH 执行 | `src/lib/backup/vps-backup-service.ts:157-160` | CAS claim 允许 `PENDING, FAILED -> RUNNING`，durable job 重试会再次 claim 同一个 FAILED record 导致重复 SFTP 下载 | CAS 只允许 `PENDING -> RUNNING`；FAILED 重试需显式 reset 为 PENDING 后再入队 |
+| B3 | 双向同步 forward 成功 reverse 失败时数据不一致 | `src/lib/sync/service-runtime.ts:309-331` | forward 已写入 target，reverse 抛错后 catch 块标记整体 ERROR，但 forward 变更无法回滚 | UI 明确双向同步不支持事务回滚；reverse 失败时记录"forward 已完成，reverse 失败"部分成功状态 |
+| B4 | SFTP 重命名冗余写 `isDeleted: false` | `src/app/api/storage/sftp-ops/route.ts:125,136` | 查询已过滤 `isDeleted: false`，更新又写 `isDeleted: false` 是冗余的；若查询条件被改动会静默复活回收站文件 | 移除更新中的 `isDeleted: false`，只更新 `relativePath` 和 `name` |
+| B5 | 174 条后端错误消息英文硬编码 | `src/lib/**` (47 条 BusinessError + 127 条 NotFoundError) | 直接显示给中文用户，如 `"Only completed backups can be restored"`、`"Command request has ended and cannot be cancelled"` 等 | 统一走 `serverT()` i18n，与现有 `backend.*` 字典键对齐 |
+| B6 | 用户权限模板保存用 `window.prompt` | `src/app/users/user-permission-panel.tsx:148` | 原生 prompt 破坏视觉一致性、不能显示 busy 状态、移动端体验差 | 替换为内联输入框 + 保存按钮或 `ConfirmDialog` |
+| B7 | AI 附件删除按钮移动端不可见 | `src/app/ai/ai-attachments-preview.tsx:59,119` | `opacity-0 group-hover:opacity-100` 在触屏设备上无 hover 事件 | 改为 `opacity-100 sm:opacity-0 sm:group-hover:opacity-100` |
+
+#### P2 - 边界条件/体验
+
+| # | 问题 | 文件:行 | 说明 | 修复方向 |
+|---|------|---------|------|----------|
+| C1 | VPS 备份 cron 解析器不支持 `@daily`/范围步进 | `src/lib/backup/vps-backup-schedule-service.ts:174-229` | 自定义 5-field 解析器，无效表达式静默回退 24h；本地备份用 `cron-parser` 库行为不一致 | 统一使用 `cron-parser` 的 `CronExpressionParser.parse` |
+| C2 | backup create `createdBy: ""` 空字符串 | `src/app/api/backups/route.ts:58,70` | `session?.userId ?? ""` 写入空字符串而非 null，审计日志显示空 creator | 改为 `session?.userId ?? null` |
+| C3 | `pruneOldBackupRecordsNow` take:200 上限 | `src/lib/backup/service-runtime.ts:343-347` | 超过 200 条记录的团队旧备份不会被纳入 retention plan | 改为分页或只查 `status: COMPLETED && completedAt < cutoff` |
+| C4 | Playbook `waitForCommand` 不更新 job heartbeat | `src/lib/playbook/executor.ts:64-81` | 长命令（30min+）可能触发 maintenance worker 误回收 | 轮询循环中定期调用 `onProgress` |
+| C5 | hover-only 操作按钮（media/settings/code copy） | `src/app/media/media-item-card.tsx:295`、`src/app/settings/settings-client.tsx:409`、`src/app/ai/ai-markdown-renderer.tsx:146` | 同 B7，移动端不可见 | 同 B7 修复模式 |
+| C6 | `recoverStaleRunningCommandRequests` 心跳窗口 | `src/lib/command/service-recovery.ts:23-29` | claim 后 heartbeat 启动前进程崩溃的理论窗口 | 实际风险很小，claim 时即写 heartbeat |
+
+#### 未提交修复（待验证后提交）
+
+| # | 问题 | 文件 | 状态 |
+|---|------|------|------|
+| D1 | 命令恢复 CAS 顺序：先 claim request 再改 targets | `src/lib/command/service-recovery.ts` + `__tests__/service.test.ts` | 已修复并通过 28 项测试，待提交 |
+
 ---
 
 ## 📄 许可

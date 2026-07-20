@@ -2,8 +2,8 @@ import { NextResponse } from "next/server";
 
 import { withApiRoute } from "@/lib/http/api-guard";
 import { createLogger } from "@/lib/logging";
-import {
 import { config } from "@/lib/config/env";
+import {
 	getObservabilitySnapshot,
 	setWsActive,
 } from "@/lib/monitoring/runtime-metrics";
