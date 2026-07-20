@@ -69,6 +69,8 @@ const userRoleSchema = z.object({
 });
 
 const sshKeyExportSchema = z.object({
+  teamId: z.string().nullable().optional(),
+
   id: z.string(),
   name: z.string(),
   fingerprint: z.string(),
@@ -82,6 +84,8 @@ const sshKeyExportSchema = z.object({
 });
 
 const serverExportSchema = z.object({
+  teamId: z.string().nullable().optional(),
+
   id: z.string(),
   name: z.string(),
   host: z.string(),
@@ -102,6 +106,8 @@ const serverExportSchema = z.object({
 });
 
 const storageNodeExportSchema = z.object({
+  teamId: z.string().nullable().optional(),
+
   id: z.string(),
   name: z.string(),
   driver: z.string(),
@@ -164,6 +170,8 @@ const quickServiceSchema = z.object({
 });
 
 const playbookSchema = z.object({
+  teamId: z.string().nullable().optional(),
+
   id: z.string(),
   name: z.string(),
   description: z.string().nullable(),
@@ -177,6 +185,8 @@ const playbookSchema = z.object({
 });
 
 const alertRuleSchema = z.object({
+  teamId: z.string().nullable().optional(),
+
   id: z.string(),
   name: z.string(),
   metric: z.string(),
@@ -246,6 +256,10 @@ export const exportFileSchema = z.object({
   exportedAt: z.string(),
   sourceDomain: z.string(),
   exportMode: z.enum(["standard", "full"]).optional(),
+  /** team = current tenant only; global = platform admin full dump */
+  exportScope: z.enum(["team", "global"]).optional(),
+  /** team id when exportScope=team */
+  exportTeamId: z.string().nullable().optional(),
   tables: z.object({
     permissions: z.array(permissionSchema),
     roles: z.array(roleSchema),

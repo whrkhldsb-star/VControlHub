@@ -37,6 +37,7 @@ export function SystemConfigSection() {
   const [importError, setImportError] = useState<string | null>(null);
 
   const [exportMode, setExportMode] = useState<"standard" | "full">("standard");
+  const [exportScope, setExportScope] = useState<"team" | "global">("team");
 
   // ── Export ──────────────────────────────────────────────
 
@@ -45,13 +46,13 @@ export function SystemConfigSection() {
     setExportError(null);
     try {
       // Export returns a file body — use raw Response mode (default csrfFetch auto-parses JSON).
-      const res = await csrfFetch(`/api/system/export?mode=${exportMode}`, { method: "GET", raw: true });
+      const res = await csrfFetch(`/api/system/export?mode=${exportMode}&scope=${exportScope}`, { method: "GET", raw: true });
       if (!res.ok) throw new Error(t("systemConfig.export.error"));
       const blob = await res.blob();
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
-      a.download = `vch-config-${new Date().toISOString().slice(0, 19).replace(/[:T]/g, "-")}.json`;
+      a.download = `vch-config-${exportScope}-${new Date().toISOString().slice(0, 19).replace(/[:T]/g, "-")}.json`;
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
@@ -173,6 +174,38 @@ export function SystemConfigSection() {
       <div className="space-y-2">
         <h4 className="text-sm font-medium text-[var(--text-primary)]">{t("systemConfig.export.title")}</h4>
         <p className="text-xs text-[var(--text-secondary)]">{t("systemConfig.export.hint")}</p>
+
+        {/* Export scope: team (default) vs platform global (admin) */}
+        <div className="flex flex-col gap-2 py-1">
+          <label className="flex items-start gap-2.5 text-sm cursor-pointer">
+            <input
+              type="radio"
+              name="exportScope"
+              value="team"
+              checked={exportScope === "team"}
+              onChange={() => setExportScope("team")}
+              className="mt-0.5 accent-[var(--accent)]"
+            />
+            <div className="flex flex-col">
+              <span className="text-[var(--text-primary)] font-medium">{t("systemConfig.export.scopeTeam")}</span>
+              <span className="text-xs text-[var(--text-muted)]">{t("systemConfig.export.scopeTeamHint")}</span>
+            </div>
+          </label>
+          <label className="flex items-start gap-2.5 text-sm cursor-pointer">
+            <input
+              type="radio"
+              name="exportScope"
+              value="global"
+              checked={exportScope === "global"}
+              onChange={() => setExportScope("global")}
+              className="mt-0.5 accent-[var(--accent)]"
+            />
+            <div className="flex flex-col">
+              <span className="text-[var(--text-primary)] font-medium">{t("systemConfig.export.scopeGlobal")}</span>
+              <span className="text-xs text-[var(--text-muted)]">{t("systemConfig.export.scopeGlobalHint")}</span>
+            </div>
+          </label>
+        </div>
 
         {/* Export mode selection */}
         <div className="flex flex-col gap-2 py-1">

@@ -24,3 +24,21 @@ UPDATE "metric_snapshots" ms
 SET "teamId" = s."teamId"
 FROM "servers" s
 WHERE ms."serverId" = s.id AND ms."teamId" IS NULL AND s."teamId" IS NOT NULL;
+
+-- Backfill image teamId from user's currentTeamId, else first membership
+UPDATE "image_uploads" iu
+SET "teamId" = u."currentTeamId"
+FROM "User" u
+WHERE iu."userId" = u.id
+  AND iu."teamId" IS NULL
+  AND u."currentTeamId" IS NOT NULL;
+
+UPDATE "image_uploads" iu
+SET "teamId" = tm."teamId"
+FROM (
+  SELECT DISTINCT ON ("userId") "userId", "teamId"
+  FROM "team_members"
+  ORDER BY "userId", "joinedAt" ASC
+) tm
+WHERE iu."userId" = tm."userId"
+  AND iu."teamId" IS NULL;

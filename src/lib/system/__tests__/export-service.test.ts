@@ -34,6 +34,7 @@ vi.mock("@/lib/db", () => ({
       ]),
     },
     userRole: { findMany: vi.fn().mockResolvedValue([]) },
+    teamMember: { findMany: vi.fn().mockResolvedValue([]) },
     sshKey: {
       findMany: vi.fn().mockResolvedValue([
         {
@@ -154,5 +155,48 @@ describe("export-service sanitization", () => {
     expect(result.exportedAt).toBeTruthy();
     expect(result.sourceDomain).toBe("test.example.com");
     expect(result.tables).toBeDefined();
+  });
+});
+
+describe("export-service multi-tenant scope", () => {
+  it("team scope only loads members and team-scoped resources", async () => {
+    const { prisma } = await import("@/lib/db");
+    const session = {
+      userId: "u1",
+      username: "admin",
+      roles: ["operator"] as const,
+      currentTeamId: "team_a",
+    };
+    // operator non-admin cannot full/global — buildExportFile with options
+    const result = await buildExportFile({
+      sourceDomain: "test.example.com",
+      mode: "standard",
+      scope: "team",
+      teamId: "team_a",
+      session: session as never,
+    });
+    expect(result.exportScope).toBe("team");
+    expect(result.exportTeamId).toBe("team_a");
+    // settings empty on team scope
+    expect(result.tables.settings).toEqual([]);
+    expect(result.tables.aiProviders).toEqual([]);
+    expect(prisma.teamMember.findMany).toHaveBeenCalled();
+  });
+
+  it("rejects full mode for non-admin", async () => {
+    await expect(
+      buildExportFile({
+        sourceDomain: "x",
+        mode: "full",
+        scope: "team",
+        teamId: "team_a",
+        session: {
+          userId: "u1",
+          username: "op",
+          roles: ["operator"],
+          currentTeamId: "team_a",
+        } as never,
+      }),
+    ).rejects.toThrow(/platform admin/i);
   });
 });
