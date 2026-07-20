@@ -4,8 +4,19 @@ import bcrypt from "bcryptjs";
 export const ISOLATED_E2E_USERNAME = "vcontrolhub_e2e";
 export const ISOLATED_E2E_PASSWORD = "VControlHub-E2E-2026!";
 
+function loadOptionalEnvLocal() {
+	// CI injects DATABASE_URL via the workflow; local runs use .env.local.
+	// Node's loadEnvFile throws ENOENT when the file is missing — swallow that only.
+	try {
+		process.loadEnvFile(`${process.cwd()}/.env.local`);
+	} catch (error) {
+		const code = (error as NodeJS.ErrnoException).code;
+		if (code !== "ENOENT") throw error;
+	}
+}
+
 function localConnectionString() {
-	process.loadEnvFile(`${process.cwd()}/.env.local`);
+	loadOptionalEnvLocal();
 	const connectionString = process.env.DATABASE_URL;
 	if (!connectionString) throw new Error("DATABASE_URL is required for isolated E2E accounts");
 	const hostname = new URL(connectionString).hostname.toLowerCase();

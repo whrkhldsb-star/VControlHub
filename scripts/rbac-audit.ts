@@ -493,6 +493,8 @@ export function buildUsage(
     "/src/app/api/dashboard/analytics",
     "/src/app/api/preferences",
     "/src/app/api/monitoring/stats",
+    // Session-authenticated browser beacon (requireAuth, no RBAC permission key).
+    "/src/app/api/monitoring/web-vitals",
     "/src/app/api/ai/conversations/[id]",
     "/src/app/api/ai/hosted-actions",
     "/src/app/api/ai/models",
@@ -503,6 +505,10 @@ export function buildUsage(
 		"/src/app/api/teams/[id]/members",
 		"/src/app/api/teams/[id]/members/[userId]",
 		"/src/app/api/teams/switch",
+		// Signature-verified inbound webhook (HMAC), not session RBAC.
+		"/src/app/api/itsm/inbound/[connectionId]",
+		// WebDAV Basic/session auth via authenticateWebDavRequest, not PERMISSIONS keys.
+		"/src/app/api/webdav/[storageNodeId]/[[...path]]",
   ]);
   // TR-043: routes whose enforcement uses a dynamic permission variable
   // (e.g. ternary-derived). Static analysis can't follow these, so we

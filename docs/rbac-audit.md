@@ -1,6 +1,6 @@
 # VControlHub RBAC Audit Report
 
-> Generated: 2026-07-19T00:31:14.740Z | Permissions: 54 | Roles: 4 | API routes: 179 | Pages: 49 | Drift: 3
+> Generated: 2026-07-20T06:02:23.578Z | Permissions: 54 | Roles: 4 | API routes: 179 | Pages: 49 | Drift: 0
 
 This report cross-references four RBAC sources of truth:
 1. `src/lib/auth/rbac.ts` — `PERMISSIONS` tuple + `DEFAULT_ROLE_PERMISSIONS` map
@@ -15,7 +15,7 @@ This report cross-references four RBAC sources of truth:
 | `perm-not-in-list` | low | 0 |
 | `perm-without-role` | low | 0 |
 | `role-grants-unknown` | low | 0 |
-| `api-no-declared-perm` | low | 3 |
+| `api-no-declared-perm` | low | 0 |
 | `api-decl-perm-unused` | low | 0 |
 | `api-route-missing` | low | 0 |
 | `page-button-perm-unused` | low | 0 |
@@ -47,7 +47,7 @@ This report cross-references four RBAC sources of truth:
 | `deploy:read` | admin, operator, viewer | 1 | 0 | 3 |
 | `deploy:run` | admin, operator | 2 | 0 | 5 |
 | `docker:manage` | admin, operator | 2 | 1 | 25 |
-| `health:read` | admin, operator, viewer, storage_manager | 1 | 1 | 9 |
+| `health:read` | admin, operator, viewer, storage_manager | 2 | 1 | 10 |
 | `image:read` | admin | 0 | 2 | 3 |
 | `image:write` | admin | 1 | 1 | 3 |
 | `media:manage` | admin, operator, storage_manager | 1 | 1 | 6 |
@@ -55,7 +55,7 @@ This report cross-references four RBAC sources of truth:
 | `playbook:manage` | admin | 1 | 0 | 7 |
 | `playbook:read` | admin, operator | 1 | 1 | 8 |
 | `playbook:run` | admin, operator | 1 | 0 | 5 |
-| `role:manage` | admin | 0 | 3 | 10 |
+| `role:manage` | admin | 0 | 4 | 11 |
 | `server:read` | admin, operator, viewer, storage_manager | 0 | 5 | 15 |
 | `server:sftp:unrestricted` | admin | 0 | 0 | 0 |
 | `server:ssh` | admin, operator | 1 | 3 | 19 |
@@ -64,10 +64,10 @@ This report cross-references four RBAC sources of truth:
 | `share:manage` | admin, operator, storage_manager | 1 | 0 | 5 |
 | `share:read` | admin, operator, viewer, storage_manager | 1 | 0 | 5 |
 | `snippet:manage` | admin, operator, storage_manager | 0 | 0 | 8 |
-| `storage:delete` | admin, storage_manager | 2 | 4 | 8 |
-| `storage:manage-node` | admin, storage_manager | 2 | 3 | 10 |
+| `storage:delete` | admin, storage_manager | 3 | 4 | 9 |
+| `storage:manage-node` | admin, storage_manager | 3 | 3 | 11 |
 | `storage:read` | admin, operator, viewer, storage_manager | 3 | 1 | 47 |
-| `storage:write` | admin, operator, storage_manager | 2 | 4 | 46 |
+| `storage:write` | admin, operator, storage_manager | 3 | 4 | 47 |
 | `task:read` | admin, operator, viewer, storage_manager | 3 | 0 | 13 |
 | `team:create` | admin, operator | 0 | 0 | 2 |
 | `team:manage` | admin | 0 | 2 | 2 |
@@ -79,42 +79,4 @@ This report cross-references four RBAC sources of truth:
 | `user:manage` | admin | 2 | 0 | 24 |
 | `user:read` | admin, operator, viewer, storage_manager | 1 | 2 | 9 |
 
-## Drift details
-
-### `api-no-declared-perm` (low)
-API route /src/app/api/itsm/inbound/[connectionId] has no declaredPermissions (could be intentionally public)
-
-```json
-{
-  "path": "/src/app/api/itsm/inbound/[connectionId]",
-  "file": "src/app/api/itsm/inbound/[connectionId]/route.ts",
-  "methods": [
-    "POST"
-  ]
-}
-```
-
-### `api-no-declared-perm` (low)
-API route /src/app/api/monitoring/web-vitals has no declaredPermissions (could be intentionally public)
-
-```json
-{
-  "path": "/src/app/api/monitoring/web-vitals",
-  "file": "src/app/api/monitoring/web-vitals/route.ts",
-  "methods": [
-    "POST"
-  ]
-}
-```
-
-### `api-no-declared-perm` (low)
-API route /src/app/api/webdav/[storageNodeId]/[[...path]] has no declaredPermissions (could be intentionally public)
-
-```json
-{
-  "path": "/src/app/api/webdav/[storageNodeId]/[[...path]]",
-  "file": "src/app/api/webdav/[storageNodeId]/[[...path]]/route.ts",
-  "methods": []
-}
-```
-
+## ✅ No drift detected

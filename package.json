@@ -49,7 +49,8 @@
     "docs:check": "npm run readme:metrics",
     "verify": "npm run prisma:generate && npx prisma format --check && npm run typecheck && npm run lint && npm run i18n:key-check && npm test && npm run build && npm run build:runtime && npm run verify:deploy-assets && npm run docs:check",
     "build:turbopack": "node scripts/guard-live-next-build.mjs && next build",
-    "build:webpack": "node scripts/guard-live-next-build.mjs && next build --webpack"
+    "build:webpack": "node scripts/guard-live-next-build.mjs && next build --webpack",
+    "test:e2e:auth": "E2E_DIRECT_SESSION=1 E2E_TRUST_LOCAL_DB_SESSION=1 E2E_ISOLATED_ACCOUNT=1 E2E_USER=vcontrolhub_e2e E2E_PASS=VControlHub-E2E-2026! E2E_DIRECT_USER=vcontrolhub_e2e playwright test e2e/authenticated-flow.spec.ts --project=chromium --workers=1"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",

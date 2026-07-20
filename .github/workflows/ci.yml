@@ -87,6 +87,8 @@ jobs:
       AUTH_SECRET: ci-e2e-auth-secret-at-least-32-bytes-long
       AUTH_SESSION_SECRET: ci-e2e-session-secret-at-least-32-bytes
       ADMIN_INITIAL_PASSWORD: ci-e2e-admin-initial-password
+      APP_SLUG: vcontrolhub
+      AUTH_SESSION_COOKIE_NAME: vcontrolhub_session
     services:
       postgres:
         image: postgres:16-alpine
@@ -133,9 +135,12 @@ jobs:
       - name: Apply database schema
         run: npx prisma db push --accept-data-loss
 
+      - name: Seed admin roles (for authenticated smoke)
+        run: npx tsx prisma/seed.ts
+
       # Build in this job (same runner as the server) so .next is never
-      # transferred across jobs. Cross-job artifact reuse caused intermittent
-      # server death / connection refused during multi-browser smoke.
+      # transferred across jobs. Local rebuild + .next/cache is cheaper and
+      # more reliable than cross-job .next artifacts (see docs/ci-gates.md).
       - name: Build app + runtime
         run: |
           npm run build
@@ -176,6 +181,24 @@ jobs:
           npx playwright test e2e/public-smoke.spec.ts \
             --project=chromium --project=firefox --project=webkit \
             --workers=1 --retries=1
+
+      # Authenticated golden path on Chromium only (keeps the job short).
+      # Uses isolated admin + direct session minting so seed PENDING_PASSWORD_RESET
+      # does not block navigation. Full multi-browser authenticated suite stays nightly.
+      - name: Run authenticated smoke (Chromium)
+        env:
+          NODE_ENV: production
+          E2E_DIRECT_SESSION: "1"
+          E2E_TRUST_LOCAL_DB_SESSION: "1"
+          E2E_ISOLATED_ACCOUNT: "1"
+          E2E_USER: vcontrolhub_e2e
+          E2E_PASS: VControlHub-E2E-2026!
+          E2E_DIRECT_USER: vcontrolhub_e2e
+        run: |
+          set -euo pipefail
+          curl -fsS http://127.0.0.1:3000/login >/dev/null
+          npx playwright test e2e/authenticated-flow.spec.ts \
+            --project=chromium --workers=1 --retries=1
 
       - name: Dump server log on failure
         if: failure()

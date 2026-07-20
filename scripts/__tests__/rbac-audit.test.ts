@@ -296,6 +296,43 @@ describe("buildUsage — drift detection", () => {
     expect(code?.message).toContain("/api/health");
   });
 
+  it("suppresses known non-RBAC routes (web-vitals, itsm inbound, webdav)", () => {
+    const catalog = minimalCatalog({
+      apiRoutes: [
+        {
+          path: "/src/app/api/monitoring/web-vitals",
+          file: "src/app/api/monitoring/web-vitals/route.ts",
+          methods: ["POST"],
+          declaredPermissions: [],
+        },
+        {
+          path: "/src/app/api/itsm/inbound/[connectionId]",
+          file: "src/app/api/itsm/inbound/[connectionId]/route.ts",
+          methods: ["POST"],
+          declaredPermissions: [],
+        },
+        {
+          path: "/src/app/api/webdav/[storageNodeId]/[[...path]]",
+          file: "src/app/api/webdav/[storageNodeId]/[[...path]]/route.ts",
+          methods: ["GET", "PUT"],
+          declaredPermissions: [],
+        },
+        {
+          path: "/src/app/api/mystery",
+          file: "src/app/api/mystery/route.ts",
+          methods: ["GET"],
+          declaredPermissions: [],
+        },
+      ],
+    });
+    const { drifts } = buildUsage([], catalog, [], makeRoleMap([]));
+    const messages = drifts.filter((d) => d.code === "api-no-declared-perm").map((d) => d.message);
+    expect(messages.some((m) => m.includes("web-vitals"))).toBe(false);
+    expect(messages.some((m) => m.includes("itsm/inbound"))).toBe(false);
+    expect(messages.some((m) => m.includes("webdav"))).toBe(false);
+    expect(messages.some((m) => m.includes("mystery"))).toBe(true);
+  });
+
   it("emits api-decl-perm-unused when declared but no requirePermission call", () => {
     const catalog = minimalCatalog({
       apiRoutes: [

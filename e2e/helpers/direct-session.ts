@@ -4,8 +4,19 @@ import type { BrowserContext } from "@playwright/test";
 import bcrypt from "bcryptjs";
 import { Client } from "pg";
 
+function loadOptionalEnvLocal() {
+	// CI injects DATABASE_URL / AUTH_* via the workflow; local runs use .env.local.
+	// Node's loadEnvFile throws ENOENT when the file is missing — swallow that only.
+	try {
+		process.loadEnvFile(`${process.cwd()}/.env.local`);
+	} catch (error) {
+		const code = (error as NodeJS.ErrnoException).code;
+		if (code !== "ENOENT") throw error;
+	}
+}
+
 export async function installDirectSession(context: BrowserContext) {
-	process.loadEnvFile(`${process.cwd()}/.env.local`);
+	loadOptionalEnvLocal();
 	const username = process.env.E2E_DIRECT_USER ?? process.env.E2E_USER ?? "admin";
 	const password = process.env.E2E_PASS ?? "admin123";
 	const connectionString = process.env.DATABASE_URL;

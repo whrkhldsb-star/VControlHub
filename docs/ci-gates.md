@@ -88,6 +88,21 @@ If you reintroduce cross-job `.next` artifact reuse later: set
 `prisma db push`, keep the server under `nohup` with a pid/log dump on failure,
 and do **not** re-introduce a bare `process.exit(1)` on `uncaughtException`.
 
+### Authenticated smoke (PR gate)
+
+The E2E job also runs `e2e/authenticated-flow.spec.ts` on **Chromium only** after
+public smoke:
+
+- `prisma/seed.ts` seeds roles/admin so the app can boot cleanly
+- `E2E_ISOLATED_ACCOUNT=1` creates `vcontrolhub_e2e` (ACTIVE, no password reset)
+- `E2E_DIRECT_SESSION=1` mints a signed session cookie (avoids form-login +
+  `mustChangePassword` redirects)
+- Path covered: `/` → `/servers` → `/files` → `/settings` → dashboard chrome
+
+Full multi-browser authenticated suite remains `npm run test:e2e:nightly` /
+`test:e2e:cross-browser` (not every PR).
+
+
 
 ## Layered coverage
 
@@ -104,6 +119,21 @@ from the denominator so presentation churn does not red-CI the pipeline.
 `src/lib/**` sits slightly below the global *line* floor because large
 SSH/WebDAV/sync packages still lag unit coverage; raise it as those packages
 gain tests, not by hoping CI will green on aspiration alone.
+
+
+## Public status overall=warning (not a CI failure)
+
+`/api/status` unauthenticated returns only `{ summary: { overall } }`. On this
+deploy the authenticated payload currently shows:
+
+| check | status | meaning |
+|---|---|---|
+| database | healthy | DB reachable |
+| servers | healthy | enabled VPS inventory present (no live SSH probe) |
+| storage | **warning** | one or more storage nodes `UNHEALTHY` (e.g. SFTP auth failed / remote path missing) |
+
+So `overall: warning` is **expected** while any storage node stays unhealthy —
+fix the node credentials/path, do not treat the public summary alone as "app down".
 
 ## Intentional non-goals (from improvement backlog)
 
