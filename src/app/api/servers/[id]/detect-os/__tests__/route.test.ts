@@ -25,6 +25,8 @@ vi.mock("@/lib/auth/api-session", () => ({
     roles: ["admin"],
     currentTeamId: "team_1",
   })),
+  isSessionPayload: (value: unknown) =>
+    Boolean(value && typeof value === "object" && value !== null && "userId" in value),
 }));
 
 vi.mock("@/lib/auth/authorization", () => ({

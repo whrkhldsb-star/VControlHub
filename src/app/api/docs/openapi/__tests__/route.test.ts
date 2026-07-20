@@ -6,6 +6,8 @@ const { requireApiSessionMock } = vi.hoisted(() => ({
 
 vi.mock("@/lib/auth/api-session", () => ({
   requireApiSession: requireApiSessionMock,
+
+  isSessionPayload: (value: unknown) => Boolean(value),
 }));
 
 import { GET } from "../route";

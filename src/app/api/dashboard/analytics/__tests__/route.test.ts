@@ -13,7 +13,9 @@ const { mocks } = vi.hoisted(() => ({
   },
 }));
 
-vi.mock("@/lib/auth/api-session", () => ({ requireApiSession: mocks.requireApiSession }));
+vi.mock("@/lib/auth/api-session", () => ({ requireApiSession: mocks.requireApiSession ,
+  isSessionPayload: (value: unknown) => Boolean(value),
+}));
 vi.mock("@/lib/auth/authorization", () => ({ sessionHasPermission: mocks.sessionHasPermission }));
 vi.mock("@/lib/db", () => ({ prisma: mocks.prisma }));
 vi.mock("@/lib/logging", () => ({ createLogger: () => ({ error: vi.fn(), warn: vi.fn(), info: vi.fn() }) }));

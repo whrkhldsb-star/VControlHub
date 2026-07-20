@@ -20,6 +20,8 @@ const {
 
 vi.mock("@/lib/auth/api-session", () => ({
   requireApiSession: requireApiSessionMock,
+
+  isSessionPayload: (value: unknown) => Boolean(value),
 }));
 vi.mock("@/lib/auth/authorization", () => ({
   sessionHasPermission: sessionHasPermissionMock,
@@ -67,7 +69,9 @@ describe("/api/images/batch", () => {
   it("keeps regular users scoped to their own images for non-destructive batch updates", async () => {
     vi.clearAllMocks();
     requireApiSessionMock.mockResolvedValueOnce(ownerSession);
-    sessionHasPermissionMock.mockReturnValue(false);
+    sessionHasPermissionMock.mockImplementation(
+      (_session: unknown, permission: string) => permission === "image:write",
+    );
     imageUpdateManyMock.mockResolvedValueOnce({ count: 1 });
 
     const response = await postBatch({
@@ -95,14 +99,15 @@ describe("/api/images/batch", () => {
     expect(response.status).toBe(403);
     expect(imageFindManyMock).not.toHaveBeenCalled();
     expect(imageDeleteManyMock).not.toHaveBeenCalled();
-    await expect(response.json()).resolves.toMatchObject({ error: "No permission to batch delete images" });
+    await expect(response.json()).resolves.toMatchObject({ error: "Insufficient permissions" });
   });
 
   it("allows storage delete managers to batch-delete selected images across owners", async () => {
     vi.clearAllMocks();
     requireApiSessionMock.mockResolvedValueOnce(managerSession);
     sessionHasPermissionMock.mockImplementation(
-      (_session, permission) => permission === "storage:delete",
+      (_session, permission) =>
+        permission === "image:write" || permission === "storage:delete",
     );
     imageFindManyMock.mockResolvedValueOnce([
       { id: "img_2", storageKey: "albums/remote.png" },

@@ -17,7 +17,13 @@ const {
 }));
 
 vi.mock("@/lib/auth/api-session", () => ({
-  requireApiSession: vi.fn(async () => ({ userId: "u1", username: "admin", roles: ["admin"] })),
+  requireApiSession: vi.fn(async () => ({
+    userId: "u1",
+    username: "admin",
+    roles: ["admin"],
+  })),
+  isSessionPayload: (value: unknown) =>
+    Boolean(value && typeof value === "object" && value !== null && "userId" in value),
 }));
 
 vi.mock("@/lib/auth/authorization", () => ({

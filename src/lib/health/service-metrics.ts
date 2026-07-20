@@ -1,9 +1,29 @@
 import { prisma } from "@/lib/db";
 import type { HealthOverview } from "./service-types";
 
+async function teamIdByServerIds(serverIds: string[]): Promise<Map<string, string | null>> {
+  if (serverIds.length === 0) return new Map();
+  const rows = await prisma.server.findMany({
+    where: { id: { in: serverIds } },
+    select: { id: true, teamId: true },
+  });
+  return new Map(rows.map((r) => [r.id, r.teamId ?? null]));
+}
+
 export async function snapshotMetrics(serverId: string, cpu: number, mem: number, diskMax: number, isOnline: boolean) {
+  const server = await prisma.server.findUnique({
+    where: { id: serverId },
+    select: { teamId: true },
+  });
   return prisma.metricSnapshot.create({
-    data: { serverId, cpuUsage: cpu, memUsage: mem, diskUsage: diskMax, isOnline },
+    data: {
+      serverId,
+      teamId: server?.teamId ?? null,
+      cpuUsage: cpu,
+      memUsage: mem,
+      diskUsage: diskMax,
+      isOnline,
+    },
   });
 }
 
@@ -17,7 +37,7 @@ export async function snapshotMetrics(serverId: string, cpu: number, mem: number
  * collection still runs every few minutes.
  */
 export async function snapshotHealthOverview(overview: HealthOverview) {
-  const data = overview.servers.flatMap((server) => {
+  const base = overview.servers.flatMap((server) => {
     if (!server.enabled) return [];
     if (server.status === "offline") {
       return [{ serverId: server.serverId, cpuUsage: 0, memUsage: 0, diskUsage: 0, isOnline: false }];
@@ -37,7 +57,12 @@ export async function snapshotHealthOverview(overview: HealthOverview) {
       isOnline: true,
     }];
   });
-  if (data.length === 0) return { count: 0 };
+  if (base.length === 0) return { count: 0 };
+  const teamMap = await teamIdByServerIds([...new Set(base.map((r) => r.serverId))]);
+  const data = base.map((row) => ({
+    ...row,
+    teamId: teamMap.get(row.serverId) ?? null,
+  }));
   return prisma.metricSnapshot.createMany({ data });
 }
 

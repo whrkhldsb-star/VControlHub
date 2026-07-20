@@ -25,7 +25,7 @@ export async function POST(request: Request) {
   return withApiRoute(
     request,
     {
-      requireAuth: true,
+      permission: "image:write",
       rateLimit: IMAGE_UPLOAD_LIMIT,
       errorMessage: "Batch operation failed",
       bodySchema: batchSchema,

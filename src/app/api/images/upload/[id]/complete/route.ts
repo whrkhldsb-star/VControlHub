@@ -201,6 +201,7 @@ export async function POST(
             storageNodeId: linkedStorageRelativePath ? existing.storageNodeId : undefined,
             relativePath: linkedStorageRelativePath || undefined,
             userId: session.userId,
+            teamId: session.currentTeamId ?? null,
           },
         });
         if (linkedStorageRelativePath && existing.storageNodeId) {

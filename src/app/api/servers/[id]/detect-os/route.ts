@@ -77,7 +77,7 @@ export async function POST(
   return withApiRoute(
     _request,
     {
-      requireAuth: true,
+      permission: "server:ssh",
       rateLimit: GENERAL_WRITE_LIMIT,
     },
     async ({ session }) => {

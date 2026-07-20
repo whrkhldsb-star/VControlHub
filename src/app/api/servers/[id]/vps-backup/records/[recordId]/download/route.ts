@@ -24,7 +24,7 @@ export async function GET(
 	const { id: serverId, recordId } = await params;
 	return withApiRoute(
 		request,
-		{ requireAuth: true, rateLimit: GENERAL_WRITE_LIMIT },
+		{ permission: "server:read", rateLimit: GENERAL_WRITE_LIMIT },
 		async ({ session }) => {
 			const locale = await getServerLocale();
 			if (!session || !sessionHasPermission(session, "server:read")) {

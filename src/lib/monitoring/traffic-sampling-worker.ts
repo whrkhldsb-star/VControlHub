@@ -18,6 +18,7 @@ import { JobStatus } from "@prisma/client";
 
 import { config } from "@/lib/config/env";
 import { prisma } from "@/lib/db";
+import { runWithLeaseHeartbeat } from "@/lib/job/heartbeat-runner";
 import { computeLeaseMs } from "@/lib/job/lease";
 import {
   claimNextJob,
@@ -43,7 +44,9 @@ import {
 export const TRAFFIC_SAMPLING_JOB_TYPE = "traffic.sample";
 
 const TRAFFIC_SAMPLE_INTERVAL_MS = 5 * 60_000;
-const TRAFFIC_SAMPLE_LEASE_MS = computeLeaseMs("traffic-sampling");
+// Remote SSH sampling across many VPS can exceed the 5m preset; keep lease
+// comfortably above interval and renew mid-flight via runWithLeaseHeartbeat.
+const TRAFFIC_SAMPLE_LEASE_MS = Math.max(computeLeaseMs("traffic-sampling"), 15 * 60_000);
 const TRAFFIC_SAMPLE_WORKER_ID = `${config.app.hostname || "vcontrolhub"}:traffic-sampling:${process.pid}`;
 const TRAFFIC_SAMPLE_JOB_KEEP_LATEST = 50;
 const TRAFFIC_SAMPLE_JOB_RETENTION_DAYS = 7;
@@ -266,7 +269,16 @@ export async function runTrafficSamplingWorkerOnce(reason = "manual") {
     if (!job) return false;
 
     try {
-      const result = await processSample(job.id);
+      const result = await runWithLeaseHeartbeat({
+        jobId: job.id,
+        leaseMs: TRAFFIC_SAMPLE_LEASE_MS,
+        heartbeat: () =>
+          heartbeatJob(job.id, TRAFFIC_SAMPLE_WORKER_ID, {
+            leaseMs: TRAFFIC_SAMPLE_LEASE_MS,
+            progress: "Sampling traffic counters",
+          }),
+        run: () => processSample(job.id),
+      });
       await completeJob(job.id, TRAFFIC_SAMPLE_WORKER_ID, result);
       try {
         await pruneCompletedJobsByType({

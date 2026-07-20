@@ -24,6 +24,8 @@ const {
 
 vi.mock("@/lib/auth/api-session", () => ({
   requireApiSession: requireApiSessionMock,
+
+  isSessionPayload: (value: unknown) => Boolean(value),
 }));
 vi.mock("@/lib/auth/authorization", () => ({
   sessionHasPermission: sessionHasPermissionMock,
@@ -71,7 +73,9 @@ describe("/api/images/[id]", () => {
   it("allows image owners to delete their image after removing backing files", async () => {
     vi.clearAllMocks();
     requireApiSessionMock.mockResolvedValueOnce(session);
-    sessionHasPermissionMock.mockReturnValue(false);
+    sessionHasPermissionMock.mockImplementation(
+      (_session: unknown, permission: string) => permission === "image:write",
+    );
     imageFindUniqueMock.mockResolvedValueOnce({
       id: "img_1",
       userId: "u_1",
@@ -101,7 +105,9 @@ describe("/api/images/[id]", () => {
   it("keeps the image record when the primary backing file cannot be removed", async () => {
     vi.clearAllMocks();
     requireApiSessionMock.mockResolvedValueOnce(session);
-    sessionHasPermissionMock.mockReturnValue(false);
+    sessionHasPermissionMock.mockImplementation(
+      (_session: unknown, permission: string) => permission === "image:write",
+    );
     imageFindUniqueMock.mockResolvedValueOnce({
       id: "img_1",
       userId: "u_1",
@@ -128,7 +134,9 @@ describe("/api/images/[id]", () => {
   it("deletes linked LOCAL storage copies before deleting the image record", async () => {
     vi.clearAllMocks();
     requireApiSessionMock.mockResolvedValueOnce(session);
-    sessionHasPermissionMock.mockReturnValue(false);
+    sessionHasPermissionMock.mockImplementation(
+      (_session: unknown, permission: string) => permission === "image:write",
+    );
     imageFindUniqueMock.mockResolvedValueOnce({
       id: "img_1",
       userId: "u_1",
@@ -168,7 +176,9 @@ describe("/api/images/[id]", () => {
   it("keeps the image record when a linked LOCAL storage copy cannot be removed", async () => {
     vi.clearAllMocks();
     requireApiSessionMock.mockResolvedValueOnce(session);
-    sessionHasPermissionMock.mockReturnValue(false);
+    sessionHasPermissionMock.mockImplementation(
+      (_session: unknown, permission: string) => permission === "image:write",
+    );
     imageFindUniqueMock.mockResolvedValueOnce({
       id: "img_1",
       userId: "u_1",
@@ -199,7 +209,9 @@ describe("/api/images/[id]", () => {
   it("rejects deletion by non-owner non-admin sessions", async () => {
     vi.clearAllMocks();
     requireApiSessionMock.mockResolvedValueOnce(session);
-    sessionHasPermissionMock.mockReturnValue(false);
+    sessionHasPermissionMock.mockImplementation(
+      (_session: unknown, permission: string) => permission === "image:write",
+    );
     imageFindUniqueMock.mockResolvedValueOnce({
       id: "img_2",
       userId: "u_2",
@@ -223,7 +235,8 @@ describe("/api/images/[id]", () => {
     vi.clearAllMocks();
     requireApiSessionMock.mockResolvedValueOnce(session);
     sessionHasPermissionMock.mockImplementation(
-      (_session, permission) => permission === "user:read",
+      (_session, permission) =>
+        permission === "image:write" || permission === "user:read",
     );
     imageFindUniqueMock.mockResolvedValueOnce({
       id: "img_2",
@@ -248,7 +261,8 @@ describe("/api/images/[id]", () => {
     vi.clearAllMocks();
     requireApiSessionMock.mockResolvedValueOnce(session);
     sessionHasPermissionMock.mockImplementation(
-      (_session, permission) => permission === "storage:delete",
+      (_session, permission) =>
+        permission === "image:write" || permission === "storage:delete",
     );
     imageFindUniqueMock.mockResolvedValueOnce({
       id: "img_2",
@@ -278,7 +292,9 @@ describe("/api/images/[id]", () => {
   it("skips storage cascade when node is outside team scope", async () => {
     vi.clearAllMocks();
     requireApiSessionMock.mockResolvedValueOnce(session);
-    sessionHasPermissionMock.mockReturnValue(false);
+    sessionHasPermissionMock.mockImplementation(
+      (_session: unknown, permission: string) => permission === "image:write",
+    );
     imageFindUniqueMock.mockResolvedValueOnce({
       id: "img_1",
       userId: "u_1",

@@ -18,6 +18,8 @@ const {
 
 vi.mock("@/lib/auth/api-session", () => ({
   requireApiSession: requireApiSessionMock,
+
+  isSessionPayload: (value: unknown) => Boolean(value && typeof value === "object" && value !== null && "userId" in value),
 }));
 vi.mock("@/lib/auth/authorization", () => ({
   sessionHasPermission: sessionHasPermissionMock,
@@ -41,7 +43,9 @@ describe("/api/images/stats", () => {
   it("returns user-scoped image stats for non-admin sessions", async () => {
     vi.clearAllMocks();
     requireApiSessionMock.mockResolvedValueOnce(session);
-    sessionHasPermissionMock.mockReturnValueOnce(false);
+    sessionHasPermissionMock.mockImplementation(
+      (_session: unknown, permission: string) => permission === "image:read",
+    );
     imageCountMock.mockResolvedValueOnce(2);
     imageAggregateMock.mockResolvedValueOnce({
       _sum: { sizeBytes: 1024 * 1024 },
@@ -73,7 +77,7 @@ describe("/api/images/stats", () => {
     vi.clearAllMocks();
     requireApiSessionMock.mockResolvedValueOnce(session);
     sessionHasPermissionMock.mockImplementation(
-      (_session, permission) => permission === "user:read",
+      (_session, permission) => permission === "image:read" || permission === "user:read",
     );
     imageCountMock.mockResolvedValueOnce(1);
     imageAggregateMock.mockResolvedValueOnce({ _sum: { sizeBytes: 512 } });
@@ -91,7 +95,8 @@ describe("/api/images/stats", () => {
     vi.clearAllMocks();
     requireApiSessionMock.mockResolvedValueOnce(session);
     sessionHasPermissionMock.mockImplementation(
-      (_session, permission) => permission === "media:manage",
+      (_session, permission) =>
+        permission === "image:read" || permission === "media:manage",
     );
     imageCountMock.mockResolvedValueOnce(9);
     imageAggregateMock.mockResolvedValueOnce({ _sum: { sizeBytes: 2048 } });

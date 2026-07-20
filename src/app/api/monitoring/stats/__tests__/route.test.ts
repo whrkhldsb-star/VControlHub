@@ -4,11 +4,19 @@ const { requireApiSessionMock } = vi.hoisted(() => ({
   requireApiSessionMock: vi.fn(async () => ({
     userId: "u1",
     username: "alice",
+    roles: ["admin"],
+    permissions: ["health:read"],
   })),
 }));
 
 vi.mock("@/lib/auth/api-session", () => ({
   requireApiSession: requireApiSessionMock,
+
+  isSessionPayload: (value: unknown) => Boolean(value),
+}));
+
+vi.mock("@/lib/auth/authorization", () => ({
+  sessionHasPermission: vi.fn((_session: unknown, permission: string) => permission === "health:read"),
 }));
 
 vi.mock("node:fs", async (importOriginal) => {

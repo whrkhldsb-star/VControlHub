@@ -14,6 +14,8 @@ vi.mock("@/lib/status/service", () => ({
 }));
 vi.mock("@/lib/auth/api-session", () => ({
   getApiSession: getApiSessionMock,
+
+  isSessionPayload: (value: unknown) => Boolean(value),
 }));
 
 const route = await import("../route");

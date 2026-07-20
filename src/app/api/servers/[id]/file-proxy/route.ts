@@ -103,7 +103,7 @@ export async function GET(
   const locale = await getServerLocale();
   return withApiRoute(
     request,
-    { requireAuth: true, errorMessage: t("apiServersFileProxy.getErrorMessage", locale) },
+    { permission: "server:ssh", errorMessage: t("apiServersFileProxy.getErrorMessage", locale) },
     async ({ session }) => {
       if (!session)
         return NextResponse.json(
@@ -209,7 +209,7 @@ export async function POST(
   const locale = await getServerLocale();
   return withApiRoute(
     request,
-    { requireAuth: true, errorMessage: t("apiServersFileProxy.startErrorMessage", locale) },
+    { permission: "server:ssh", errorMessage: t("apiServersFileProxy.startErrorMessage", locale) },
     async ({ session }) => {
       if (!session)
         return NextResponse.json(
@@ -399,7 +399,7 @@ export async function DELETE(
   const locale = await getServerLocale();
   return withApiRoute(
     request,
-    { requireAuth: true, errorMessage: t("apiServersFileProxy.stopErrorMessage", locale) },
+    { permission: "server:ssh", errorMessage: t("apiServersFileProxy.stopErrorMessage", locale) },
     async ({ session }) => {
       if (!session)
         return NextResponse.json(

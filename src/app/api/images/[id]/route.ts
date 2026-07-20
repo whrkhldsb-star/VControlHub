@@ -62,7 +62,7 @@ export async function DELETE(
   return withApiRoute(
     request,
     {
-      requireAuth: true,
+      permission: "image:write",
       rateLimit: IMAGE_UPLOAD_LIMIT,
       errorMessage: "Delete failed",
     },

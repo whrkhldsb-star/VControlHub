@@ -167,6 +167,7 @@ export const config = {
 
 	/** Media (image-bed thumbnails, transcodes). */
 	media: {
+		get uploadTmpDir(): string | undefined { return readOptionalString("MEDIA_UPLOAD_TMP_DIR"); },
 		get thumbCacheDir(): string | undefined {
 			const raw = process.env.MEDIA_THUMB_CACHE_DIR?.trim();
 			return raw ? raw : undefined;
@@ -208,6 +209,24 @@ export const config = {
 	 * unit on the remote node reads the same `DIRECT_BIND` variable, so
 	 * the banner reflects the real on-node config (single source of truth).
 	 */
+
+	/** File version history (local revisions). */
+	fileVersion: {
+		get dir(): string | undefined { return readOptionalString("FILE_VERSION_DIR"); },
+		get maxBytes(): number { return readInt("FILE_VERSION_MAX_BYTES", 50 * 1024 * 1024); },
+		get keep(): number { return readInt("FILE_VERSION_KEEP", 20); },
+	},
+
+	/** Sentry / APM (optional). */
+	sentry: {
+		get dsn(): string | undefined { return readOptionalString("SENTRY_DSN"); },
+		get release(): string | undefined {
+			return readOptionalString("SENTRY_RELEASE") ?? readOptionalString("npm_package_version");
+		},
+		get tracesSampleRate(): number { return Number.parseFloat(process.env.SENTRY_TRACES_SAMPLE_RATE ?? "0.1") || 0.1; },
+		get replaysOnErrorSampleRate(): number { return Number.parseFloat(process.env.SENTRY_REPLAYS_ON_ERROR_SAMPLE_RATE ?? "1.0") || 1.0; },
+	},
+
 	deployment: {
 		get directBindAddress(): string { return readString("DIRECT_BIND", "127.0.0.1"); },
 	},

@@ -22,7 +22,7 @@ export async function GET(request: Request) {
 
   return withApiRoute(
     request,
-    { requireAuth: true, errorMessage: "Failed to fetch image list" },
+    { permission: "image:read", errorMessage: "Failed to fetch image list" },
     async ({ session }) => {
       if (!session)
         return NextResponse.json(

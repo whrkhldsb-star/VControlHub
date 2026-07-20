@@ -1,3 +1,5 @@
+import { config } from "@/lib/config/env";
+
 /**
  * File version history — control-plane snapshots for ordinary files.
  *
@@ -33,17 +35,17 @@ import {
 import { expandStorageBasePath } from "@/lib/storage/path-utils";
 
 export const DEFAULT_FILE_VERSION_DIR =
-  process.env.FILE_VERSION_DIR ||
+  config.fileVersion.dir ||
   path.join("/var/lib/vcontrolhub", "file-versions");
 
 /** Bodies larger than this are skipped for automatic snapshots (still listable history stays). */
 export const DEFAULT_FILE_VERSION_MAX_BYTES = Number(
-  process.env.FILE_VERSION_MAX_BYTES || 50 * 1024 * 1024,
+  config.fileVersion.maxBytes,
 );
 
 /** Keep latest N versions per fileEntry. Older ones are purged (blob + row). */
 export const DEFAULT_FILE_VERSION_KEEP = Number(
-  process.env.FILE_VERSION_KEEP || 20,
+  config.fileVersion.keep,
 );
 
 export type FileVersionView = {

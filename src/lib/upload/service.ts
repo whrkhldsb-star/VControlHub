@@ -1,3 +1,5 @@
+import { config } from "@/lib/config/env";
+
 /**
  * TR-009 55c: Media resumable upload — service.
  *
@@ -35,7 +37,7 @@ import {
 
 /** Where chunk files are kept between init and complete. */
 export const UPLOAD_TMP_DIR =
-	process.env.MEDIA_UPLOAD_TMP_DIR ||
+	config.media.uploadTmpDir ||
 	path.join("/tmp", "vcontrolhub-media-uploads");
 
 class MediaUploadError extends Error {

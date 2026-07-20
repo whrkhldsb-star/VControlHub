@@ -14,7 +14,9 @@ const { mocks } = vi.hoisted(() => ({
 }));
 
 vi.mock("@/lib/auth/require-api-permission", () => ({ requireApiPermission: mocks.requireApiPermission }));
-vi.mock("@/lib/auth/api-session", () => ({ requireApiSession: mocks.requireApiSession }));
+vi.mock("@/lib/auth/api-session", () => ({ requireApiSession: mocks.requireApiSession ,
+  isSessionPayload: (value: unknown) => Boolean(value),
+}));
 vi.mock("@/lib/auth/authorization", () => ({ sessionHasPermission: mocks.sessionHasPermission }));
 vi.mock("@/lib/ticket/service", () => ({
   canViewTicket: mocks.canViewTicket,

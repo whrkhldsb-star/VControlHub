@@ -28,7 +28,7 @@ export async function PATCH(
   return withApiRoute(
     request,
     {
-      requireAuth: true,
+      permission: "ai:chat",
       rateLimit: GENERAL_WRITE_LIMIT,
       errorStatus: 400,
       errorMessage: "Operation failed",

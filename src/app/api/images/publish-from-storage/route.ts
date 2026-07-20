@@ -125,6 +125,7 @@ export async function POST(request: Request) {
             storageNodeId,
             relativePath,
             userId: session.userId,
+            teamId: session.currentTeamId ?? null,
           },
         });
       } catch (error) {

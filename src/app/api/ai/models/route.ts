@@ -13,7 +13,7 @@ export const dynamic = "force-dynamic";
 export async function GET(request: Request) {
   return withApiRoute(
     request,
-    { requireAuth: true, errorStatus: 400, errorMessage: "Failed to fetch model list" },
+    { permission: "ai:chat", errorStatus: 400, errorMessage: "Failed to fetch model list" },
     async ({ session }) => {
       if (!session)
         throw new AuthError("Not authenticated");

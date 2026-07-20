@@ -166,7 +166,10 @@ model Team {
 
   @@index([ownerId])
   @@map("teams")
+  metricSnapshots MetricSnapshot[] @relation("TeamMetricSnapshots")
+  imageUploads    ImageUpload[]    @relation("TeamImageUploads")
 }
+
 
 model TeamMember {
   teamId   String
@@ -701,6 +704,8 @@ model PlaybookRun {
 model MetricSnapshot {
   id        String   @id @default(cuid())
   serverId  String
+  /** Denormalized from Server.teamId at write time for cheap team-scoped queries. */
+  teamId    String?
   cpuUsage  Float
   memUsage  Float
   diskUsage Float // max disk usage percent across mounts
@@ -708,8 +713,10 @@ model MetricSnapshot {
   createdAt DateTime @default(now())
 
   server Server @relation(fields: [serverId], references: [id], onDelete: Cascade)
+  team   Team?  @relation("TeamMetricSnapshots", fields: [teamId], references: [id], onDelete: SetNull)
 
   @@index([serverId, createdAt])
+  @@index([teamId, createdAt])
   @@index([createdAt])
   @@map("metric_snapshots")
 }
@@ -1500,13 +1507,17 @@ model ImageUpload {
   storageNodeId String? // optional: link to cloud storage node
   relativePath  String? // path within the storage node
   userId        String
+  /** Team scope for multi-tenant image-bed queries (null = legacy/unassigned). */
+  teamId        String?
   createdAt     DateTime @default(now())
 
   user           User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
   storageNode    StorageNode?         @relation(fields: [storageNodeId], references: [id], onDelete: SetNull)
+  team           Team?                @relation("TeamImageUploads", fields: [teamId], references: [id], onDelete: SetNull)
   uploadSessions MediaUploadSession[]
 
   @@index([userId, createdAt])
+  @@index([teamId, createdAt])
   @@index([album])
   @@index([isPublic, createdAt])
   @@index([createdAt])

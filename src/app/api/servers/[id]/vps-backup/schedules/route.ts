@@ -8,7 +8,6 @@
 import { z } from "zod";
 
 import { auditUserAction } from "@/lib/audit/service";
-import { sessionHasPermission } from "@/lib/auth/authorization";
 import { prisma } from "@/lib/db";
 import { withApiRoute } from "@/lib/http/api-guard";
 import { GENERAL_WRITE_LIMIT } from "@/lib/http/rate-limit-presets";
@@ -40,9 +39,9 @@ export async function GET(
 	const { id: serverId } = await params;
 	return withApiRoute(
 		request,
-		{ requireAuth: true, rateLimit: GENERAL_WRITE_LIMIT },
+		{ permission: "server:read", rateLimit: GENERAL_WRITE_LIMIT },
 		async ({ session }) => {
-			if (!session || !sessionHasPermission(session, "server:read")) {
+			if (!session) {
 				return Response.json({ error: "Forbidden" }, { status: 403 });
 			}
 
@@ -71,13 +70,13 @@ export async function POST(
 	return withApiRoute(
 		request,
 		{
-			requireAuth: true,
+			permission: "server:write",
 			rateLimit: GENERAL_WRITE_LIMIT,
 			bodySchema: createSchema,
 		},
 		async ({ session, body }) => {
 			const locale = await getServerLocale();
-			if (!session || !sessionHasPermission(session, "server:write")) {
+			if (!session) {
 				return Response.json(
 					{ error: t("vpsBackupApi.errorForbidden", locale) },
 					{ status: 403 },

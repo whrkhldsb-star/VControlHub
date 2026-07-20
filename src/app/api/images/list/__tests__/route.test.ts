@@ -16,6 +16,8 @@ const {
 
 vi.mock("@/lib/auth/api-session", () => ({
   requireApiSession: requireApiSessionMock,
+
+  isSessionPayload: (value: unknown) => Boolean(value && typeof value === "object" && value !== null && "userId" in value),
 }));
 vi.mock("@/lib/auth/authorization", () => ({
   sessionHasPermission: sessionHasPermissionMock,
@@ -37,7 +39,9 @@ describe("GET /api/images/list", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     requireApiSessionMock.mockResolvedValue(session);
-    sessionHasPermissionMock.mockReturnValue(false);
+    sessionHasPermissionMock.mockImplementation(
+      (_session: unknown, permission: string) => permission === "image:read",
+    );
     verifyBearerTokenMock.mockResolvedValue(null);
     imageFindManyMock.mockResolvedValue([{ id: "img_1" }]);
     imageCountMock.mockResolvedValue(1);
@@ -75,7 +79,8 @@ describe("GET /api/images/list", () => {
 
   it("lets team/media managers request all images", async () => {
     sessionHasPermissionMock.mockImplementation(
-      (_session, permission) => permission === "team:manage",
+      (_session, permission) =>
+        permission === "image:read" || permission === "team:manage",
     );
 
     const response = await GET(
@@ -90,7 +95,8 @@ describe("GET /api/images/list", () => {
 
   it("does not treat user:read as permission to list all images", async () => {
     sessionHasPermissionMock.mockImplementation(
-      (_session, permission) => permission === "user:read",
+      (_session, permission) =>
+        permission === "image:read" || permission === "user:read",
     );
 
     const response = await GET(

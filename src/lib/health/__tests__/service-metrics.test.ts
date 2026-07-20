@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const createMany = vi.fn();
+const serverFindMany = vi.fn();
 
 vi.mock("@/lib/db", () => ({
   prisma: {
@@ -9,6 +10,10 @@ vi.mock("@/lib/db", () => ({
       create: vi.fn(),
       findMany: vi.fn(),
       deleteMany: vi.fn(),
+    },
+    server: {
+      findMany: serverFindMany,
+      findUnique: vi.fn(),
     },
   },
 }));
@@ -19,6 +24,10 @@ describe("snapshotHealthOverview", () => {
   beforeEach(() => {
     createMany.mockReset();
     createMany.mockResolvedValue({ count: 2 });
+    serverFindMany.mockReset();
+    serverFindMany.mockImplementation(async ({ where }: { where: { id: { in: string[] } } }) =>
+      (where.id.in ?? []).map((id: string) => ({ id, teamId: null })),
+    );
   });
 
   it("records offline hosts as isOnline=false", async () => {
@@ -41,7 +50,7 @@ describe("snapshotHealthOverview", () => {
       ],
     });
     expect(createMany).toHaveBeenCalledWith({
-      data: [{ serverId: "s1", cpuUsage: 0, memUsage: 0, diskUsage: 0, isOnline: false }],
+      data: [{ serverId: "s1", cpuUsage: 0, memUsage: 0, diskUsage: 0, isOnline: false, teamId: null }],
     });
   });
 
@@ -65,7 +74,7 @@ describe("snapshotHealthOverview", () => {
       ],
     });
     expect(createMany).toHaveBeenCalledWith({
-      data: [{ serverId: "s11", cpuUsage: 0, memUsage: 0, diskUsage: 0, isOnline: false }],
+      data: [{ serverId: "s11", cpuUsage: 0, memUsage: 0, diskUsage: 0, isOnline: false, teamId: null }],
     });
   });
 
@@ -91,7 +100,7 @@ describe("snapshotHealthOverview", () => {
       ],
     });
     expect(createMany).toHaveBeenCalledWith({
-      data: [{ serverId: "s2", cpuUsage: 12, memUsage: 34, diskUsage: 50, isOnline: true }],
+      data: [{ serverId: "s2", cpuUsage: 12, memUsage: 34, diskUsage: 50, isOnline: true, teamId: null }],
     });
   });
 });

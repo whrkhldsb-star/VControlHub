@@ -119,7 +119,7 @@ export async function POST(
   return withApiRoute(
     request,
     {
-      requireAuth: true,
+      permission: "server:write",
       rateLimit: GENERAL_WRITE_LIMIT,
       bodySchema: reloadBodySchema,
       // errorMessage is filled inside the route callback after getServerLocale resolves.

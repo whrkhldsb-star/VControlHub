@@ -14,7 +14,7 @@ export const dynamic = "force-dynamic";
 export async function GET(request: Request) {
   return withApiRoute(
     request,
-    { requireAuth: true, errorMessage: "Failed to fetch statistics" },
+    { permission: "image:read", errorMessage: "Failed to fetch statistics" },
     async ({ session }) => {
       if (!session)
         return NextResponse.json(

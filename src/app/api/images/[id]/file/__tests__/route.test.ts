@@ -9,6 +9,8 @@ const { getApiSessionMock, imageFindUniqueMock } = vi.hoisted(() => ({
 
 vi.mock("@/lib/auth/api-session", () => ({
   getApiSession: getApiSessionMock,
+
+  isSessionPayload: (value: unknown) => Boolean(value),
 }));
 vi.mock("@/lib/db", () => ({
   prisma: {

@@ -20,6 +20,8 @@ const {
 
 vi.mock("@/lib/auth/api-session", () => ({
   requireApiSession: requireApiSessionMock,
+
+  isSessionPayload: (value: unknown) => Boolean(value),
 }));
 
 vi.mock("@/lib/auth/require-api-permission", () => ({

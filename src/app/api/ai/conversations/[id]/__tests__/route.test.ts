@@ -17,6 +17,8 @@ vi.mock("@/lib/auth/require-api-permission", () => ({
 }));
 vi.mock("@/lib/auth/api-session", () => ({
   requireApiSession: mocks.requireApiSession,
+
+  isSessionPayload: (value: unknown) => Boolean(value),
 }));
 vi.mock("@/lib/ai/service", () => ({
   getConversationById: mocks.getConversationById,

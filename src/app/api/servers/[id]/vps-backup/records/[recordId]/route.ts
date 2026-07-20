@@ -24,7 +24,7 @@ export async function DELETE(
 	const { id: serverId, recordId } = await params;
 	return withApiRoute(
 		request,
-		{ requireAuth: true, rateLimit: GENERAL_WRITE_LIMIT },
+		{ permission: "server:write", rateLimit: GENERAL_WRITE_LIMIT },
 		async ({ session }) => {
 			const locale = await getServerLocale();
 			if (!session || !sessionHasPermission(session, "server:write")) {

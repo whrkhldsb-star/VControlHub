@@ -67,7 +67,7 @@ export async function POST(request: Request) {
 
   return withApiRoute(
     request,
-    { requireAuth: true, errorMessage: "Upload failed" },
+    { permission: "image:write", errorMessage: "Upload failed" },
     async ({ session }) => {
       if (!session)
         return NextResponse.json(
@@ -233,6 +233,7 @@ async function handleUpload(request: Request, userId: string, session?: SessionP
           storageNodeId: linkedStorageRelativePath && storageNodeId ? storageNodeId : undefined,
           relativePath: linkedStorageRelativePath || undefined,
           userId: userId,
+          teamId: session?.currentTeamId ?? null,
         },
       });
       if (linkedStorageRelativePath && storageNodeId) {

@@ -41,7 +41,7 @@ export async function PATCH(
 	const { id: serverId, scheduleId } = await params;
 	return withApiRoute(
 		request,
-		{ requireAuth: true, rateLimit: GENERAL_WRITE_LIMIT, bodySchema: updateSchema },
+		{ permission: "server:write", rateLimit: GENERAL_WRITE_LIMIT, bodySchema: updateSchema },
 		async ({ session, body }) => {
 			const locale = await getServerLocale();
 			if (!session || !sessionHasPermission(session, "server:write")) {
@@ -84,7 +84,7 @@ export async function DELETE(
 	const { id: serverId, scheduleId } = await params;
 	return withApiRoute(
 		request,
-		{ requireAuth: true, rateLimit: GENERAL_WRITE_LIMIT },
+		{ permission: "server:write", rateLimit: GENERAL_WRITE_LIMIT },
 		async ({ session }) => {
 			const locale = await getServerLocale();
 			if (!session || !sessionHasPermission(session, "server:write")) {

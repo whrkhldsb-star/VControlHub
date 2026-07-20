@@ -359,12 +359,14 @@ describe("POST /api/images/upload/[id]/complete", () => {
 				}),
 			}),
 		);
-		expect(mocks.completeMediaUploadSession).toHaveBeenCalledWith({
-			sessionId: "sess_1",
-			userId: "u-admin",
-			buffer: expect.any(Buffer),
-			resultImageId: "img_1",
-		});
+		expect(mocks.completeMediaUploadSession).toHaveBeenCalledWith(
+			expect.objectContaining({
+				sessionId: "sess_1",
+				userId: "u-admin",
+				buffer: expect.any(Buffer),
+				resultImageId: "img_1",
+			}),
+		);
 		expect(mocks.auditUserAction).toHaveBeenCalledWith(
 			"u-admin",
 			"media.upload.complete",

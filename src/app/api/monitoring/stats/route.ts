@@ -6,7 +6,7 @@ import { collectMonitoringStats } from "@/lib/monitoring/collector";
 export async function GET(request: Request) {
 	return withApiRoute(
 		request,
-		{ requireAuth: true, errorMessage: "Failed to fetch monitoring data" },
+		{ permission: "health:read", errorMessage: "Failed to fetch monitoring data" },
 		async () => NextResponse.json(collectMonitoringStats()),
 	);
 }

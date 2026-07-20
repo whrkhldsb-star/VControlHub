@@ -34,7 +34,7 @@ const CommentBodySchema = z
   .strict();
 
 export async function GET(_request: Request, { params }: { params: Promise<{ id: string }> }) {
-  return withApiRoute(_request, { requireAuth: true }, async ({ session }) => {
+  return withApiRoute(_request, { permission: "ticket:read" }, async ({ session }) => {
     const { id } = await params;
     if (!session) throw new ForbiddenError("Missing permission");
     // Team-scoped load first (ticket:manage is not cross-tenant).
