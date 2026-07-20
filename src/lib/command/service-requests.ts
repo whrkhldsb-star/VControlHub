@@ -16,6 +16,7 @@ import {
 } from "./schema";
 import { cancelActiveCommandChild, enqueueApprovedCommandExecution } from "./service-execution";
 import { createLogger } from "@/lib/logging";
+import { t } from "@/lib/i18n/translations";
 
 const commandLogger = createLogger("command-requests");
 
@@ -241,7 +242,7 @@ export async function cancelCommandRequest(input: {
 }) {
   const commandRequestId = input.commandRequestId.trim();
   if (!commandRequestId) {
-    throw new ValidationError("Command request not found");
+    throw new ValidationError(t("backend.command.requestNotFound"));
   }
 
   const request = await prisma.commandRequest.findFirst({
@@ -253,11 +254,11 @@ export async function cancelCommandRequest(input: {
   });
 
   if (!request) {
-    throw new NotFoundError("Command request not found");
+    throw new NotFoundError(t("backend.command.requestNotFound"));
   }
 
   if (!["PENDING_APPROVAL", "APPROVED", "RUNNING"].includes(request.status)) {
-    throw new BusinessError("Command request has ended and cannot be cancelled");
+    throw new BusinessError(t("backend.command.cannotCancelEnded"));
   }
 
   const cancellableTargetIds = request.targets
@@ -282,7 +283,7 @@ export async function cancelCommandRequest(input: {
     data: { status: "CANCELLED", workerId: null, workerHeartbeatAt: null },
   });
   if (claimed.count === 0) {
-    throw new BusinessError("Command request has ended and cannot be cancelled");
+    throw new BusinessError(t("backend.command.cannotCancelEnded"));
   }
 
   await prisma.commandTarget.updateMany({
@@ -413,11 +414,11 @@ export async function reviewCommandRequest(
   });
 
   if (!request) {
-    throw new NotFoundError("Command request not found");
+    throw new NotFoundError(t("backend.command.requestNotFound"));
   }
 
   if (request.status !== "PENDING_APPROVAL") {
-    throw new BusinessError("Command request is not pending approval");
+    throw new BusinessError(t("backend.command.notPendingApproval"));
   }
 
   const nextStatus = payload.approved ? "APPROVED" : "REJECTED";
@@ -445,7 +446,7 @@ export async function reviewCommandRequest(
     });
 
     if (claimed.count === 0) {
-      throw new BusinessError("Command request was already reviewed by another approver");
+      throw new BusinessError(t("backend.command.alreadyReviewed"));
     }
   });
 

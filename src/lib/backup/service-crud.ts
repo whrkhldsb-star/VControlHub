@@ -16,6 +16,7 @@ import {
 	isBackupType,
 } from "./service-types";
 import { RESTORE_CONFIRM_TEXT } from "./service-types";
+import { t } from "@/lib/i18n/translations";
 
 type BackupStatus = "PENDING" | "RUNNING" | "COMPLETED" | "FAILED";
 
@@ -67,11 +68,11 @@ export async function updateBackupRecordStatus(
 
 export async function voidBackupRecord(input: { id: string; reason: string; session?: Pick<SessionPayload, "userId" | "roles" | "currentTeamId"> }) {
 	const record = await getBackupRecord(input.id, input.session);
-	if (!record) throw new NotFoundError("Backup record not found");
-	if (record.status === "COMPLETED") throw new BusinessError("Completed backups cannot be voided");
-	if (record.status === "RUNNING") throw new BusinessError("Running backups cannot be voided");
+	if (!record) throw new NotFoundError(t("backend.backup.recordNotFound"));
+	if (record.status === "COMPLETED") throw new BusinessError(t("backend.backup.cannotVoidCompleted"));
+	if (record.status === "RUNNING") throw new BusinessError(t("backend.backup.cannotVoidRunning"));
 	const reason = input.reason.trim().slice(0, 500);
-	if (!reason) throw new ValidationError("Void reason cannot be empty");
+	if (!reason) throw new ValidationError(t("backend.backup.voidReasonRequired"));
 	const prefix = "Voided";
 	const errorMessage = record.errorMessage?.includes(prefix)
 		? record.errorMessage
@@ -88,18 +89,18 @@ export async function voidBackupRecord(input: { id: string; reason: string; sess
 		throw new ConflictError("Backup status changed concurrently; cannot void");
 	}
 	const updated = await getBackupRecord(record.id);
-	if (!updated) throw new NotFoundError("Backup record not found");
+	if (!updated) throw new NotFoundError(t("backend.backup.recordNotFound"));
 	return updated;
 }
 
 export async function prepareBackupRecordRetry(input: { id: string; session?: Pick<SessionPayload, "userId" | "roles" | "currentTeamId"> }) {
 	const record = await getBackupRecord(input.id, input.session);
-	if (!record) throw new NotFoundError("Backup record not found");
-	if (record.status === "COMPLETED") throw new BusinessError("Completed backups cannot be retried");
-	if (record.status === "RUNNING") throw new BusinessError("Running backups cannot be retried");
-	if (record.status === "PENDING") throw new BusinessError("Pending backups cannot be re-queued");
-	if (record.status !== "FAILED") throw new BusinessError("Only failed backups can be retried");
-	if (!isBackupType(record.type)) throw new ValidationError("Invalid backup type");
+	if (!record) throw new NotFoundError(t("backend.backup.recordNotFound"));
+	if (record.status === "COMPLETED") throw new BusinessError(t("backend.backup.cannotRetryCompleted"));
+	if (record.status === "RUNNING") throw new BusinessError(t("backend.backup.cannotRetryRunning"));
+	if (record.status === "PENDING") throw new BusinessError(t("backend.backup.cannotRequeuePending"));
+	if (record.status !== "FAILED") throw new BusinessError(t("backend.backup.onlyFailedCanRetry"));
+	if (!isBackupType(record.type)) throw new ValidationError(t("backend.backup.invalidType"));
 	assertPortableBackupPath(record.filePath);
 	// CAS: only re-queue while still FAILED.
 	const claimed = await prisma.backupRecord.updateMany({
@@ -110,7 +111,7 @@ export async function prepareBackupRecordRetry(input: { id: string; session?: Pi
 		throw new ConflictError("Backup status changed concurrently; cannot retry");
 	}
 	const updated = await getBackupRecord(record.id);
-	if (!updated) throw new NotFoundError("Backup record not found");
+	if (!updated) throw new NotFoundError(t("backend.backup.recordNotFound"));
 	return updated;
 }
 

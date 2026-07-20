@@ -22,6 +22,7 @@ import {
 import { snapshotFileVersionBeforeOverwrite } from "@/lib/storage/file-versions";
 import type { MediaUploadSessionView } from "@/lib/upload/types";
 import type { SessionPayload } from "@/lib/auth/session";
+import { t } from "@/lib/i18n/translations";
 
 export type CompleteStorageUploadResult = {
   session: MediaUploadSessionView;
@@ -86,7 +87,7 @@ export async function completeStorageFileUpload(params: {
 
   const storageNode = await getStorageFileNode(existing.storageNodeId, session);
   if (!storageNode || (storageNode.driver !== "LOCAL" && storageNode.driver !== "SFTP")) {
-    throw new ValidationError("Storage node does not support file uploads");
+    throw new ValidationError(t("backend.storage.uploadNotSupported"));
   }
 
   // Snapshot existing body before overwrite when index already exists.

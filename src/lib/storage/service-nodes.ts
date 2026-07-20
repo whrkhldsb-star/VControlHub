@@ -18,6 +18,7 @@ import {
   type CreateStorageNodeInput,
   type UpdateStorageNodeInput,
 } from "./schema";
+import { t } from "@/lib/i18n/translations";
 import {
   buildDirectAccessStrategy,
   buildStorageConnectionSummary,
@@ -150,7 +151,7 @@ export async function checkStorageNodeHealth(
       const expandedBasePath = expandStorageBasePath(node.basePath);
       const baseStat = await stat(expandedBasePath);
       if (!baseStat.isDirectory()) {
-        throw new BusinessError("Local storage root path is not a directory");
+        throw new BusinessError(t("backend.storage.localRootNotDir"));
       }
       await access(expandedBasePath, fsConstants.R_OK | fsConstants.W_OK);
     } else if (node.driver === "SFTP") {
@@ -195,7 +196,7 @@ export async function createStorageNode(
   const payload = createStorageNodeSchema.parse(input);
 
   if (payload.driver === "SFTP" && !payload.serverId && !payload.host) {
-    throw new ValidationError("SFTP storage nodes must be bound to a VPS node or specify a remote host");
+    throw new ValidationError(t("backend.storage.sftpNeedsHost"));
   }
 
   await assertServerInTeamScope(payload.serverId, session);
@@ -276,7 +277,7 @@ export async function updateStorageNode(
     payload.username === undefined ? current.username : payload.username;
 
   if (nextDriver === "SFTP" && !nextServerId && !nextHost) {
-    throw new ValidationError("SFTP storage nodes must be bound to a VPS node or specify a remote host");
+    throw new ValidationError(t("backend.storage.sftpNeedsHost"));
   }
 
   if (payload.serverId) {
@@ -332,7 +333,7 @@ export async function deleteStorageNode(
     (entry) => !entry.isDeleted,
   ).length;
   if (activeEntryCount > 0) {
-    throw new BusinessError("This storage node still has file entries; please delete or migrate the files before removing the node");
+    throw new BusinessError(t("backend.storage.nodeHasEntries"));
   }
 
   await prisma.storageNode.delete({ where: { id: storageNodeId } });

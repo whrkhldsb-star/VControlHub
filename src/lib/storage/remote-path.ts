@@ -1,6 +1,7 @@
 import path from "node:path";
 
 import { ValidationError } from "@/lib/errors";
+import { t } from "@/lib/i18n/translations";
 
 /**
  * Normalize a user-supplied remote path so it is always rooted under the
@@ -23,7 +24,7 @@ export function normalizeRemotePath(
     path.posix.join(base, normalizedRelative),
   );
   if (absolutePath !== base && !absolutePath.startsWith(`${base}/`)) {
-    throw new ValidationError("Requested path exceeds storage node root");
+    throw new ValidationError(t("backend.storage.pathExceedsNodeRoot"));
   }
 
   return absolutePath;
@@ -45,7 +46,7 @@ export function normalizeRemoteRelativePath(requestedPath?: string | null): stri
     normalizedRelative.startsWith("../") ||
     path.posix.isAbsolute(normalizedRelative)
   ) {
-    throw new ValidationError("Requested path exceeds storage node root");
+    throw new ValidationError(t("backend.storage.pathExceedsNodeRoot"));
   }
 
   return normalizedRelative;
@@ -57,7 +58,7 @@ export function normalizeRemoteTargetPath(
 ): string {
   const normalized = normalizeRemotePath(basePath, requestedPath);
   if (normalized === normalizeAbsoluteBasePath(basePath)) {
-    throw new ValidationError("Target path cannot be the storage node root");
+    throw new ValidationError(t("backend.storage.targetCannotBeRoot"));
   }
   return normalized;
 }

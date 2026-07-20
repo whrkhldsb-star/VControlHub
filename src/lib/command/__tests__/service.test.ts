@@ -858,7 +858,7 @@ describe("command service execution flow", () => {
         actorId: "u_2",
         reason: "too late",
       }),
-    ).rejects.toThrow(/ended and cannot be cancelled/i);
+    ).rejects.toThrow(/已结束，无法取消|ended and cannot be cancelled/i);
 
     expect(mockPrisma.commandTarget.updateMany).not.toHaveBeenCalledWith(
       expect.objectContaining({
@@ -1119,7 +1119,7 @@ describe("command service execution flow", () => {
         approved: false,
         comment: "late review",
       }),
-    ).rejects.toThrow("Command request is not pending approval");
+    ).rejects.toThrow("命令请求不在待审批状态");
   });
 
   it("rejects create when session cannot see target servers (team IDOR)", async () => {
@@ -1291,7 +1291,7 @@ describe("command service execution flow", () => {
         actorId: "u_team_a",
         session: { userId: "u_team_a", roles: ["operator"], currentTeamId: "team_a" },
       }),
-    ).rejects.toThrow("Command request not found");
+    ).rejects.toThrow("命令请求不存在");
 
     expect(mockPrisma.commandRequest.findFirst).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -1312,7 +1312,7 @@ describe("command service execution flow", () => {
         },
         { userId: "u_team_a", roles: ["operator"], currentTeamId: "team_a" },
       ),
-    ).rejects.toThrow("Command request not found");
+    ).rejects.toThrow("命令请求不存在");
   });
 
   it("recovers stale running command requests that lost their in-process worker", async () => {

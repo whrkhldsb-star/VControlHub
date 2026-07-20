@@ -188,7 +188,7 @@ describe("pruneOldBackupRecordsNow — runtime orchestrator", () => {
     expect(result.filesDeleted).toBe(0);
     expect(result.fileErrors).toHaveLength(1);
     expect(result.fileErrors[0]).toContain("bak_traversal");
-    expect(result.fileErrors[0]).toContain("portable relative path");
+    expect(result.fileErrors[0]).toContain("可移植的相对路径");
     expect(mockPrisma.backupRecord.delete).toHaveBeenCalledWith({ where: { id: "bak_traversal" } });
   });
 

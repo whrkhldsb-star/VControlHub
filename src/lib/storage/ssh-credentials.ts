@@ -1,5 +1,6 @@
 import { decryptServerPassword, decryptSshPrivateKey } from "@/lib/ssh/ssh-key-crypto";
 import { ValidationError } from "@/lib/errors";
+import { t } from "@/lib/i18n/translations";
 
 export type StorageSshCredentialNode = {
   host?: string | null;
@@ -41,13 +42,13 @@ export function resolveStorageSshCredentials(node: StorageSshCredentialNode): Re
     : undefined;
 
   if (!host) {
-    throw new ValidationError("Missing remote host address, cannot connect");
+    throw new ValidationError(t("backend.storage.missingRemoteHost"));
   }
   if (connectionType === "SSH_KEY" && !privateKey) {
-    throw new ValidationError("Missing SSH private key, cannot connect");
+    throw new ValidationError(t("backend.storage.missingSshKey"));
   }
   if (connectionType === "PASSWORD" && !password) {
-    throw new ValidationError("Missing login password, cannot connect");
+    throw new ValidationError(t("backend.storage.missingPassword"));
   }
 
   return { host, port, username, connectionType, privateKey, password, hostKeySha256: node.hostKeySha256 ?? node.server?.hostKeySha256 ?? null };

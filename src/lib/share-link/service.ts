@@ -213,7 +213,7 @@ export async function revokeShareLink(
   if (userId) where.createdBy = userId;
   if (session) Object.assign(where, teamWhere(session));
   const share = await prisma.shareLink.findFirst({ where, select: { id: true } });
-  if (!share) throw new NotFoundError("Share link not found or not authorized to revoke");
+  if (!share) throw new NotFoundError(t("backend.shareLink.notFoundOrUnauthorized"));
   return prisma.shareLink.update({ where: { id: share.id }, data: { revokedAt: new Date() } });
 }
 
@@ -222,7 +222,7 @@ export async function resolveShareToken(token: string, password?: string, contex
   const share = await prisma.shareLink.findUnique({ where: { tokenHash: hashShareToken(token) }, include: SHARE_STORAGE_NODE_INCLUDE });
   if (!share || share.revokedAt) throw new NotFoundError(t("backend.shareLink.notFoundOrRevoked"));
   if (share.expiresAt && share.expiresAt.getTime() < Date.now()) throw new ValidationError(t("backend.shareLink.expired"));
-  if (share.permissionLevel === "preview") throw new ForbiddenError("This share is preview-only; downloads are not permitted");
+  if (share.permissionLevel === "preview") throw new ForbiddenError(t("backend.shareLink.previewOnly"));
   if (share.passwordHash) {
     if (!password) {
       await recordShareAccess({ shareLinkId: share.id, action: "password_attempt", ip: context?.ip, userAgent: context?.userAgent });
@@ -401,10 +401,10 @@ export async function listShareAccessLogs(
     where: { id: shareLinkId, ...teamWhere(session) },
     select: { id: true, createdBy: true },
   });
-  if (!share) throw new NotFoundError("Share link not found");
+  if (!share) throw new NotFoundError(t("backend.shareLink.notFound"));
   const { sessionHasPermission } = await import("@/lib/auth/authorization");
   if (share.createdBy !== session.userId && !sessionHasPermission(session, "share:manage")) {
-    throw new ForbiddenError("Missing permission to view share access logs");
+    throw new ForbiddenError(t("backend.shareLink.missingLogPermission"));
   }
   return prisma.shareAccessLog.findMany({
     where: { shareLinkId },

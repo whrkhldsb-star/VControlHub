@@ -20,6 +20,7 @@ import { isBackupType, type BackupType } from "./service-types";
 import { createBackupRecord } from "./service-crud";
 import { BACKUP_CREATE_JOB_TYPE } from "./job-worker";
 import { enqueueJob } from "@/lib/job/service";
+import { t } from "@/lib/i18n/translations";
 
 /* ── Types ────────────────────────────────────────────────── */
 
@@ -48,24 +49,24 @@ export type UpdateBackupScheduleInput = Partial<Omit<CreateBackupScheduleInput, 
  */
 export function validateCronExpression(expr: string): string {
   const trimmed = expr.trim();
-  if (!trimmed) throw new ValidationError("Cron expression is required");
+  if (!trimmed) throw new ValidationError(t("backend.backup.cronRequired"));
   try {
     CronExpressionParser.parse(trimmed, { currentDate: new Date() });
   } catch {
-    throw new ValidationError("Cron expression format is invalid");
+    throw new ValidationError(t("backend.backup.cronInvalid"));
   }
   return trimmed;
 }
 
 export function validateBackupType(value: string): BackupType {
-  if (!isBackupType(value)) throw new ValidationError("Backup type is invalid");
+  if (!isBackupType(value)) throw new ValidationError(t("backend.backup.invalidType"));
   return value;
 }
 
 export function validateRetentionDays(value: number | null | undefined): number | null {
   if (value === null || value === undefined) return null;
   if (!Number.isFinite(value) || value < 1 || value > 3650) {
-    throw new ValidationError("Retention days must be between 1 and 3650");
+    throw new ValidationError(t("backend.backup.retentionDaysRange"));
   }
   return Math.floor(value);
 }
@@ -77,10 +78,10 @@ export async function createBackupSchedule(input: CreateBackupScheduleInput) {
   const backupType = validateBackupType(input.backupType);
   const retentionDays = validateRetentionDays(input.retentionDays ?? null);
   const name = input.name.trim();
-  if (!name) throw new ValidationError("Schedule name is required");
-  if (name.length > 100) throw new ValidationError("Schedule name is too long");
+  if (!name) throw new ValidationError(t("backend.backup.scheduleNameRequired"));
+  if (name.length > 100) throw new ValidationError(t("backend.backup.scheduleNameTooLong"));
   const note = input.note?.trim() || null;
-  if (note && note.length > 500) throw new ValidationError("Note is too long");
+  if (note && note.length > 500) throw new ValidationError(t("backend.backup.noteTooLong"));
 
   return prisma.backupSchedule.create({
     data: {
@@ -112,13 +113,13 @@ export async function getBackupSchedule(id: string, session?: Pick<SessionPayloa
 
 export async function updateBackupSchedule(id: string, input: UpdateBackupScheduleInput, session?: Pick<SessionPayload, "userId" | "roles" | "currentTeamId">) {
   const existing = await getBackupSchedule(id, session);
-  if (!existing) throw new NotFoundError("Backup schedule not found");
+  if (!existing) throw new NotFoundError(t("backend.backup.scheduleNotFound"));
 
   const data: Record<string, unknown> = {};
   if (input.name !== undefined) {
     const name = input.name.trim();
-    if (!name) throw new ValidationError("Schedule name is required");
-    if (name.length > 100) throw new ValidationError("Schedule name is too long");
+    if (!name) throw new ValidationError(t("backend.backup.scheduleNameRequired"));
+    if (name.length > 100) throw new ValidationError(t("backend.backup.scheduleNameTooLong"));
     data.name = name;
   }
   if (input.cronExpression !== undefined) {
@@ -130,7 +131,7 @@ export async function updateBackupSchedule(id: string, input: UpdateBackupSchedu
   }
   if (input.note !== undefined) {
     const note = input.note.trim();
-    if (note.length > 500) throw new ValidationError("Note is too long");
+    if (note.length > 500) throw new ValidationError(t("backend.backup.noteTooLong"));
     data.note = note || null;
   }
   if (input.retentionDays !== undefined) {
@@ -138,7 +139,7 @@ export async function updateBackupSchedule(id: string, input: UpdateBackupSchedu
   }
   if (input.status !== undefined) {
     if (!["ACTIVE", "PAUSED", "DISABLED"].includes(input.status)) {
-      throw new ValidationError("Status value is invalid");
+      throw new ValidationError(t("backend.backup.statusInvalid"));
     }
     data.status = input.status;
     // Pausing/disabling clears nextRunAt; (re)activating recomputes it.
@@ -157,14 +158,14 @@ export async function updateBackupSchedule(id: string, input: UpdateBackupSchedu
 
 export async function deleteBackupSchedule(id: string, session?: Pick<SessionPayload, "userId" | "roles" | "currentTeamId">) {
   const existing = await getBackupSchedule(id, session);
-  if (!existing) throw new NotFoundError("Backup schedule not found");
+  if (!existing) throw new NotFoundError(t("backend.backup.scheduleNotFound"));
   await prisma.backupSchedule.delete({ where: { id } });
   return { id };
 }
 
 export async function toggleBackupSchedule(id: string, session?: Pick<SessionPayload, "userId" | "roles" | "currentTeamId">) {
   const existing = await getBackupSchedule(id, session);
-  if (!existing) throw new NotFoundError("Backup schedule not found");
+  if (!existing) throw new NotFoundError(t("backend.backup.scheduleNotFound"));
   const newStatus: BackupScheduleStatus = existing.status === "ACTIVE" ? "PAUSED" : "ACTIVE";
   return updateBackupSchedule(id, { status: newStatus }, session);
 }

@@ -35,6 +35,7 @@ import { prisma } from "@/lib/db";
 import { BusinessError, NotFoundError, ValidationError } from "@/lib/errors";
 import { createLogger } from "@/lib/logging";
 
+import { t } from "@/lib/i18n/translations";
 import {
   assertPortableBackupPath,
   buildBackupFilePath,
@@ -131,7 +132,7 @@ function payloadExtension(type: BackupType, originalPath: string): string {
 function assertSafePackageId(id: string): string {
   const value = id.trim();
   if (!/^[a-zA-Z0-9][a-zA-Z0-9_-]{7,80}$/.test(value)) {
-    throw new ValidationError("Invalid migration package id");
+    throw new ValidationError(t("backend.backup.migrationIdInvalid"));
   }
   return value;
 }
@@ -148,7 +149,7 @@ export async function resolveMigrationPackageDir(
   root = projectRoot(),
 ): Promise<{ packageDir: string; cleanup?: () => Promise<void> }> {
   const ref = packageRef.trim();
-  if (!ref) throw new ValidationError("Package path is required");
+  if (!ref) throw new ValidationError(t("backend.backup.packagePathRequired"));
 
   const storageRoot = getBackupStorageRoot(root);
   let candidate = ref;
@@ -164,12 +165,12 @@ export async function resolveMigrationPackageDir(
   if (!candidate.startsWith(normalizedRoot) && candidate !== storageRoot) {
     // also allow exact packagesRoot children when absolute equals storageRoot join
     if (!candidate.startsWith(storageRoot)) {
-      throw new ValidationError("Migration package must live under the backup storage root");
+      throw new ValidationError(t("backend.backup.packageOutsideRoot"));
     }
   }
 
   const info = await stat(candidate).catch(() => null);
-  if (!info) throw new NotFoundError("Migration package path not found");
+  if (!info) throw new NotFoundError(t("backend.backup.packagePathNotFound"));
 
   if (info.isDirectory()) {
     return { packageDir: candidate };
@@ -177,7 +178,7 @@ export async function resolveMigrationPackageDir(
 
   // file: only accept .tar.gz under storage root — extract to temp under packages root
   if (!candidate.endsWith(".tar.gz") && !candidate.endsWith(".tgz")) {
-    throw new ValidationError("Package file must be a directory or .tar.gz archive");
+    throw new ValidationError(t("backend.backup.packageMustBeDirOrTgz"));
   }
 
   const extractId = `import-${randomUUID().slice(0, 12)}`;
@@ -219,20 +220,20 @@ export async function readMigrationManifest(packageDir: string): Promise<Migrati
   try {
     raw = await readFile(manifestPath, "utf8");
   } catch {
-    throw new ValidationError("manifest.json not found in migration package");
+    throw new ValidationError(t("backend.backup.manifestMissing"));
   }
   let parsed: unknown;
   try {
     parsed = JSON.parse(raw);
   } catch {
-    throw new ValidationError("manifest.json is not valid JSON");
+    throw new ValidationError(t("backend.backup.manifestInvalidJson"));
   }
   const m = parsed as Partial<MigrationManifest>;
   if (m.version !== MIGRATION_MANIFEST_VERSION) {
     throw new ValidationError(`Unsupported migration manifest version: ${String(m.version)}`);
   }
   if (!m.packageId || !m.backup?.type || !m.backup.payloadFileName || !m.backup.checksumSha256) {
-    throw new ValidationError("manifest.json is missing required fields");
+    throw new ValidationError(t("backend.backup.manifestMissingFields"));
   }
   if (!isBackupType(m.backup.type)) {
     throw new ValidationError(`Invalid backup type in manifest: ${m.backup.type}`);
@@ -303,16 +304,16 @@ export async function exportMigrationPackage(input: {
       })
     : await prisma.backupRecord.findUnique({ where: { id: input.backupId } });
 
-  if (!record) throw new NotFoundError("Backup record not found");
+  if (!record) throw new NotFoundError(t("backend.backup.recordNotFound"));
   if (record.status !== "COMPLETED") {
-    throw new BusinessError("Only COMPLETED backups can be exported for migration");
+    throw new BusinessError(t("backend.backup.onlyCompletedCanMigrate"));
   }
-  if (!isBackupType(record.type)) throw new ValidationError("Invalid backup type");
+  if (!isBackupType(record.type)) throw new ValidationError(t("backend.backup.invalidType"));
 
   const sourcePath = resolveBackupPath(root, record.filePath);
   const sourceInfo = await stat(sourcePath).catch(() => null);
   if (!sourceInfo?.isFile()) {
-    throw new BusinessError("Backup artifact file is missing on disk");
+    throw new BusinessError(t("backend.backup.artifactMissing"));
   }
 
   const checksum =
@@ -421,7 +422,7 @@ export async function importMigrationPackage(input: {
     const checksum = await sha256File(destAbsolute);
     if (checksum.toLowerCase() !== manifest.backup.checksumSha256.toLowerCase()) {
       await rm(destAbsolute, { force: true }).catch(() => undefined);
-      throw new BusinessError("Checksum mismatch after copy; import aborted");
+      throw new BusinessError(t("backend.backup.importChecksumMismatch"));
     }
 
     const noteParts = [

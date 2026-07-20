@@ -172,7 +172,7 @@ describe("resolveManagedLocalEntryPath", () => {
         basePath: "/srv/storage",
         relativePath: "../etc/passwd",
       }),
-    ).rejects.toThrow(/exceeds storage root/);
+    ).rejects.toThrow(/路径超出存储根目录|exceeds storage root/);
   });
 
   it("strips leading slashes from the relative path before joining", async () => {
@@ -518,6 +518,6 @@ describe("writeBackingObject", () => {
         relativePath: "../etc/passwd",
         content: "x",
       }),
-    ).rejects.toThrow(/exceeds storage root/);
+    ).rejects.toThrow(/路径超出存储根目录|exceeds storage root/);
   });
 });

@@ -32,6 +32,7 @@ import { ValidationError } from "@/lib/errors";
 type TeamSession = { userId: string; roles: RoleKey[]; currentTeamId: string | null };
 
 import { encryptSshPrivateKey, encryptSshKeyPassphrase } from "@/lib/ssh/ssh-key-crypto";
+import { t } from "@/lib/i18n/translations";
 
 /** Detect SSH private key format from content */
 function detectKeyFormat(content: string): "ppk" | "openssh" | "unknown" {
@@ -45,13 +46,13 @@ function detectKeyFormat(content: string): "ppk" | "openssh" | "unknown" {
 function validateOpenSshPrivateKey(key: string): void {
   const trimmed = key.trim();
   if (!trimmed.startsWith("-----BEGIN ")) {
-    throw new ValidationError("Private key format is invalid: OpenSSH/PEM private key should start with -----BEGIN.");
+    throw new ValidationError(t("backend.server.sshPrivateKeyInvalidBegin"));
   }
   if (!trimmed.includes("PRIVATE KEY-----")) {
-    throw new ValidationError("Private key format is invalid: missing PRIVATE KEY marker.");
+    throw new ValidationError(t("backend.server.sshPrivateKeyMissingMarker"));
   }
   if (!trimmed.includes("-----END ")) {
-    throw new ValidationError("Private key format is invalid: missing end marker -----END.");
+    throw new ValidationError(t("backend.server.sshPrivateKeyMissingEnd"));
   }
 }
 
@@ -103,7 +104,7 @@ function computeSshPublicKeyFingerprint(publicKey: string) {
 
   const decoded = Buffer.from(toBase64UrlSafe(parts[1]!), "base64");
   if (decoded.length === 0) {
-    throw new ValidationError("SSH public key content cannot be parsed; please check that the public key is complete.");
+    throw new ValidationError(t("backend.server.sshPublicKeyUnparseable"));
   }
 
   return `SHA256:${createHash("sha256").update(decoded).digest("base64").replace(/=+$/g, "")}`;
@@ -127,7 +128,7 @@ async function normalizeImportedSshKey(input: {
   if (!uploadedContent) {
     const publicKey = normalizeAuthorizedKey(input.publicKey ?? "");
     if (!publicKey && !manualPrivateKey) {
-      throw new ValidationError("SSH public key cannot be empty, or upload a key file to extract it automatically.");
+      throw new ValidationError(t("backend.server.sshPublicKeyEmpty"));
     }
     if (manualPrivateKey && manualPrivateKey.startsWith("-----BEGIN")) {
       validateOpenSshPrivateKey(manualPrivateKey);
@@ -171,11 +172,11 @@ async function normalizeImportedSshKey(input: {
   const outputPassphrase = input.privateKeyOutputPassphrase?.trim() ?? "";
 
   if (encryptionMode === "same-as-ppk" && !inputPassphrase) {
-    throw new ValidationError("When choosing to keep the PPK passphrase, you must provide the PPK passphrase.");
+    throw new ValidationError(t("backend.server.ppkPassphraseRequired"));
   }
 
   if (encryptionMode === "custom" && !outputPassphrase) {
-    throw new ValidationError("When choosing a custom encryption format, you must provide a new private key passphrase.");
+    throw new ValidationError(t("backend.server.customPassphraseRequired"));
   }
 
   try {
@@ -200,11 +201,11 @@ async function normalizeImportedSshKey(input: {
   } catch (error) {
     if (error instanceof PPKError) {
       if (error.code === "PASSPHRASE_REQUIRED") {
-        throw new ValidationError("This PPK file is encrypted; please provide the correct PPK passphrase before importing.");
+        throw new ValidationError(t("backend.server.ppkEncryptedNeedPassphrase"));
       }
 
       if (error.code === "INVALID_MAC") {
-        throw new ValidationError("PPK passphrase is incorrect or the file is corrupted; please check and retry.");
+        throw new ValidationError(t("backend.server.ppkPassphraseIncorrect"));
       }
 
       if (error.code === "WRONG_FORMAT") {
@@ -234,12 +235,12 @@ export async function createSshKey(input: {
   const name = input.name.trim();
   const description = input.description?.trim() || null;
 
-  if (!name) throw new ValidationError("SSH key name is required");
+  if (!name) throw new ValidationError(t("backend.server.sshKeyNameRequired"));
 
   const normalizedKey = await normalizeImportedSshKey(input);
 
   if (!normalizedKey.fingerprint) {
-    throw new ValidationError("Unable to compute key fingerprint; please check that the key content is complete.");
+    throw new ValidationError(t("backend.server.sshFingerprintFailed"));
   }
 
   const teamId = input.session ? teamCreateData(input.session).teamId : null;

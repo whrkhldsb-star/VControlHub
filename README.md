@@ -406,7 +406,7 @@ make logs SERVICE_PREFIX=vcontrolhub
 | B2 | VPS 备份 FAILED 可被 worker 重复 claim | **已修复**：CAS 仅 `PENDING → RUNNING`；FAILED 需先 reset |
 | B3 | 双向同步 reverse 失败整体 ERROR 且无部分成功语义 | **已修复**：forward 成功 + reverse 失败记 Partial 文案与 ERROR，不假装事务回滚 |
 | B4 | SFTP 重命名冗余写 `isDeleted: false` | **已修复**：更新只改 path/name |
-| B5 | 174 条后端错误消息英文硬编码 | **未全量改**：体量大，属 i18n 专项；关键路径仍英文 BusinessError |
+| B5 | 174 条后端错误消息英文硬编码 | **部分完成**：backup/command/playbook/storage/share/server 等高频路径已走 backend.* + t()；其余模块（AI/ticket/webdav/…）后续继续 |
 | B6 | 用户权限模板 `window.prompt` | **已修复**：内联输入框 + 保存按钮 |
 | B7 | AI 附件删除按钮移动端不可见 | **已修复**：`opacity-100 sm:opacity-0 sm:group-hover:…` |
 

@@ -12,6 +12,7 @@ import type { RoleKey } from "@/lib/auth/rbac";
 import { teamWhere } from "@/lib/auth/team-scope";
 import { prisma } from "@/lib/db";
 import { NotFoundError, ValidationError } from "@/lib/errors";
+import { t } from "@/lib/i18n/translations";
 
 type TeamSession = { userId: string; roles: RoleKey[]; currentTeamId: string | null };
 
@@ -76,7 +77,7 @@ export async function linkTicketCommand(input: {
           where: { id: input.commandRequestId },
           select: { id: true, title: true, status: true },
         });
-    if (!cmd) throw new ValidationError("Command request not found");
+    if (!cmd) throw new ValidationError(t("backend.command.requestNotFound"));
   }
 
   const previous = ticket.relatedCommandId;

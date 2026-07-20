@@ -14,6 +14,7 @@ import {
   DIRECT_GATEWAY_HTTPS_PUBLIC_PORT,
 } from "./direct-gateway";
 import { getErrorMessage, safeRevalidatePath } from "./service-internals";
+import { t } from "@/lib/i18n/translations";
 
 const PUBLIC_HEALTH_TIMEOUT_MS = config.test.isVitest ? 400 : 8_000;
 const PUBLIC_HEALTH_ATTEMPTS = config.test.isVitest ? 1 : 4;
@@ -56,14 +57,14 @@ export function normalizeDirectGatewayPublicDomain(
   }
   host = host.replace(/\.+$/, "");
   if (!host || host.length > 253) {
-    throw new ValidationError("Invalid direct gateway domain");
+    throw new ValidationError(t("backend.server.invalidDirectDomain"));
   }
   // basic hostname / IP chars
   if (!/^[a-z0-9.:\-]+$/i.test(host) || host.includes("..")) {
-    throw new ValidationError("Invalid direct gateway domain");
+    throw new ValidationError(t("backend.server.invalidDirectDomain"));
   }
   if (host === "localhost" || host.endsWith(".localhost")) {
-    throw new ValidationError("Direct gateway domain must not be localhost");
+    throw new ValidationError(t("backend.server.directDomainNotLocalhost"));
   }
   return host;
 }

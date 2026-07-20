@@ -10,6 +10,7 @@ import { join, normalize, sep } from "node:path";
 
 import { config } from "@/lib/config/env";
 import { ValidationError } from "@/lib/errors";
+import { t } from "@/lib/i18n/translations";
 
 export const RESTORE_CONFIRM_TEXT = "RESTORE";
 
@@ -88,11 +89,11 @@ export function assertPortableBackupPath(filePath: string) {
 		value.includes("//") ||
 		parts.some((part) => !part || part === "." || part === "..")
 	) {
-		throw new ValidationError("Backup path must be a portable relative path");
+		throw new ValidationError(t("backend.backup.pathNotPortable"));
 	}
 	const normalized = normalize(value);
 	if (normalized.startsWith("..") || normalized.includes(`${sep}..${sep}`) || normalized === "..") {
-		throw new ValidationError("Backup path must be a portable relative path");
+		throw new ValidationError(t("backend.backup.pathNotPortable"));
 	}
 	return value;
 }

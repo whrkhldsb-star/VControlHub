@@ -3,6 +3,7 @@ import { teamWhere } from "@/lib/auth/team-scope";
 import { prisma } from "@/lib/db";
 import { NotFoundError, ValidationError } from "@/lib/errors";
 import { resolveStorageSshCredentials } from "@/lib/storage/ssh-credentials";
+import { t } from "@/lib/i18n/translations";
 
 const SFTP_NODE_SELECT = {
 	id: true,
@@ -49,8 +50,8 @@ export async function getSftpNodeConnection(
 		},
 		select: SFTP_NODE_SELECT,
 	});
-	if (!node) throw new NotFoundError("Storage node not found");
-	if (node.driver !== "SFTP") throw new ValidationError("This node is not an SFTP storage node");
+	if (!node) throw new NotFoundError(t("backend.storage.nodeNotFoundShort"));
+	if (node.driver !== "SFTP") throw new ValidationError(t("backend.storage.notSftpNode"));
 	try {
 		return { node, credentials: resolveStorageSshCredentials(node) };
 	} catch (error) {

@@ -291,8 +291,8 @@ describe("playbook service", () => {
   it("rejects update/delete outside team scope", async () => {
     mocks.playbookFindFirst.mockResolvedValue(null);
     const session = { userId: "u1", roles: ["operator"] as import("@/lib/auth/rbac").RoleKey[], currentTeamId: "team1" };
-    await expect(updatePlaybook({ id: "pb-other", name: "x" }, "u1", session)).rejects.toThrow(/not found/i);
-    await expect(deletePlaybook("pb-other", "u1", session)).rejects.toThrow(/not found/i);
+    await expect(updatePlaybook({ id: "pb-other", name: "x" }, "u1", session)).rejects.toThrow(/不存在|not found/i);
+    await expect(deletePlaybook("pb-other", "u1", session)).rejects.toThrow(/不存在|not found/i);
     expect(mocks.playbookUpdate).not.toHaveBeenCalled();
     expect(mocks.playbookDelete).not.toHaveBeenCalled();
   });
@@ -311,13 +311,13 @@ describe("playbook service", () => {
   it("rejects run history for out-of-scope playbooks", async () => {
     mocks.playbookFindFirst.mockResolvedValue(null);
     const session = { userId: "u1", roles: ["operator"] as import("@/lib/auth/rbac").RoleKey[], currentTeamId: "team1" };
-    await expect(listPlaybookRuns("pb-other", session)).rejects.toThrow(/not found/i);
+    await expect(listPlaybookRuns("pb-other", session)).rejects.toThrow(/不存在|not found/i);
     expect(mocks.runFindMany).not.toHaveBeenCalled();
   });
 
   it("rejects missing and disabled playbooks", async () => {
     mocks.playbookFindFirst.mockResolvedValueOnce(null).mockResolvedValueOnce({ ...baseRow, enabled: false });
-    await expect(runPlaybook({ playbookId: "missing", dryRun: true })).rejects.toThrow(/not found/);
+    await expect(runPlaybook({ playbookId: "missing", dryRun: true })).rejects.toThrow(/不存在|not found/);
     await expect(runPlaybook({ playbookId: "pb1", dryRun: false })).rejects.toThrow(/disabled/);
   });
 

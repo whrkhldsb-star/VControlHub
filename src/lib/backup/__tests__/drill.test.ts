@@ -39,7 +39,7 @@ describe("non-destructive backup drill", () => {
     await import("node:fs/promises").then(({ mkdir }) => mkdir(backupDir));
     await writeFile(path.join(backupDir, "files.tar.gz"), "bad");
     mocks.getBackupRecord.mockResolvedValue({ id: "b2", type: "FILES", status: "COMPLETED", filePath: "files.tar.gz", checksumSha256: "0".repeat(64) });
-    await expect(drillBackupRecord({ id: "b2", projectRoot: root })).rejects.toThrow("checksum verification failed");
+    await expect(drillBackupRecord({ id: "b2", projectRoot: root })).rejects.toThrow("校验和验证失败");
     expect(mocks.runBackupCommand).not.toHaveBeenCalled();
   });
 

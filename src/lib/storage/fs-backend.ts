@@ -4,6 +4,7 @@ import { ValidationError } from "@/lib/errors";
 import { resolveStorageSshCredentials } from "./ssh-credentials";
 import { expandStorageBasePath } from "./path-utils";
 import { normalizeRemoteTargetPath } from "./remote-path";
+import { t } from "@/lib/i18n/translations";
 import {
   createRemoteDirectory,
   deleteRemoteFile,
@@ -65,7 +66,7 @@ export async function resolveManagedLocalEntryPath(input: {
   const relativeToRoot = path.relative(allowedRoot, absolutePath);
 
   if (relativeToRoot.startsWith("..") || path.isAbsolute(relativeToRoot)) {
-    throw new ValidationError("Path exceeds storage root directory");
+    throw new ValidationError(t("backend.storage.pathExceedsRoot"));
   }
 
   return { path, absolutePath, allowedRoot };

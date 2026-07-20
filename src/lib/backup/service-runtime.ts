@@ -37,6 +37,7 @@ import {
 } from "./service-crud";
 import { pruneOldBackupRecords, summarizeBackupPolicy } from "./service-policy";
 import { uploadBackupToOffsite } from "./offsite-uploader";
+import { t } from "@/lib/i18n/translations";
 
 const offsiteUploadLogger = createLogger("backup-offsite-uploader");
 
@@ -60,8 +61,8 @@ export async function runBackupRecord(input: { type: "DATABASE" | "FILES" | "FUL
 export async function runExistingBackupRecord(input: { id: string; projectRoot?: string }) {
 	const projectRoot = input.projectRoot || config.app.appDir || process.cwd();
 	const record = await getBackupRecord(input.id);
-	if (!record) throw new NotFoundError("Backup record not found");
-	if (!isBackupType(record.type)) throw new ValidationError("Invalid backup type");
+	if (!record) throw new NotFoundError(t("backend.backup.recordNotFound"));
+	if (!isBackupType(record.type)) throw new ValidationError(t("backend.backup.invalidType"));
 	let outputPath: string;
 	try {
 		outputPath = resolveBackupPath(projectRoot, record.filePath);
@@ -195,26 +196,26 @@ function buildRestoreExecution(record: { type: string; filePath: string }, proje
 
 export async function restoreBackupRecord(input: { id: string; confirm: string; projectRoot?: string; component?: "database" | "files" | "all"; session?: Pick<SessionPayload, "userId" | "roles" | "currentTeamId"> }) {
 	if (input.confirm !== "RESTORE") {
-		throw new ValidationError("Restore operation requires explicit confirmation");
+		throw new ValidationError(t("backend.backup.restoreConfirmRequired"));
 	}
 	const releaseLock = await acquireAdvisoryLock("backup-restore", input.id);
 	try {
 		const record = await getBackupRecord(input.id, input.session);
 		if (!record) {
-			throw new NotFoundError("Backup record not found");
+			throw new NotFoundError(t("backend.backup.recordNotFound"));
 		}
 		if (record.status !== "COMPLETED") {
-			throw new BusinessError("Only completed backups can be restored");
+			throw new BusinessError(t("backend.backup.onlyCompletedCanRestore"));
 		}
 		const projectRoot = input.projectRoot || config.app.appDir || process.cwd();
 		const execution = buildRestoreExecution(record, projectRoot, input.component ?? "all");
 		await stat(execution.backupPath);
 		if (!record.checksumSha256) {
-			throw new BusinessError("Backup checksum is missing; refusing to restore an unverifiable artifact");
+			throw new BusinessError(t("backend.backup.checksumMissing"));
 		}
 		const actualChecksum = await calculateFileSha256(execution.backupPath);
 		if (actualChecksum !== record.checksumSha256) {
-			throw new BusinessError("Backup checksum verification failed; the artifact may be corrupted or modified");
+			throw new BusinessError(t("backend.backup.checksumMismatch"));
 		}
 		for (const step of execution.steps) {
 			await runBackupCommand({
@@ -246,16 +247,16 @@ export type BackupDrillReport = {
 export async function drillBackupRecord(input: { id: string; projectRoot?: string }): Promise<BackupDrillReport> {
 	const started = new Date();
 	const record = await getBackupRecord(input.id);
-	if (!record) throw new NotFoundError("Backup record not found");
-	if (record.status !== "COMPLETED") throw new BusinessError("Only completed backups can be drilled");
-	if (!record.checksumSha256) throw new BusinessError("Backup checksum is missing; drill cannot verify the artifact");
-	if (!isBackupType(record.type)) throw new ValidationError("Invalid backup type");
+	if (!record) throw new NotFoundError(t("backend.backup.recordNotFound"));
+	if (record.status !== "COMPLETED") throw new BusinessError(t("backend.backup.onlyCompletedCanDrill"));
+	if (!record.checksumSha256) throw new BusinessError(t("backend.backup.checksumMissingDrill"));
+	if (!isBackupType(record.type)) throw new ValidationError(t("backend.backup.invalidType"));
 	const projectRoot = input.projectRoot || config.app.appDir || process.cwd();
 	const backupPath = resolveBackupPath(projectRoot, record.filePath);
 	const info = await stat(backupPath);
-	if (!info.isFile() || info.size <= 0) throw new BusinessError("Backup artifact is empty or not a regular file");
+	if (!info.isFile() || info.size <= 0) throw new BusinessError(t("backend.backup.artifactEmpty"));
 	const actualChecksum = await calculateFileSha256(backupPath);
-	if (actualChecksum !== record.checksumSha256) throw new BusinessError("Backup checksum verification failed; the artifact may be corrupted or modified");
+	if (actualChecksum !== record.checksumSha256) throw new BusinessError(t("backend.backup.checksumMismatch"));
 	const checks: BackupDrillReport["checks"] = [
 		{ name: "artifact", status: "passed", detail: `Readable regular file (${info.size} bytes)` },
 		{ name: "sha256", status: "passed", detail: actualChecksum },
@@ -264,7 +265,7 @@ export async function drillBackupRecord(input: { id: string; projectRoot?: strin
 	checks.push({ name: "gzip", status: "passed", detail: "Compressed stream integrity verified" });
 	if (record.type === "DATABASE") {
 		const probe = await runBackupCommand({ file: "bash", args: ["-c", "set -o pipefail; gzip -cd -- \"$1\" | head -c 8192", "backup-drill", backupPath], options: { cwd: projectRoot, timeout: 5 * 60 * 1000, maxBuffer: 16 * 1024 } });
-		if (!/PostgreSQL|SET |CREATE |DROP |COPY /i.test(probe.stdout)) throw new BusinessError("Database backup drill could not identify PostgreSQL SQL content");
+		if (!/PostgreSQL|SET |CREATE |DROP |COPY /i.test(probe.stdout)) throw new BusinessError(t("backend.backup.drillNotPostgres"));
 		checks.push({ name: "database-format", status: "passed", detail: "PostgreSQL SQL stream detected" });
 	} else {
 		// Use execFile argv (no shell). Do NOT put `--` between -f and the archive:

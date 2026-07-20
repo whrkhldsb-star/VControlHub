@@ -1,5 +1,6 @@
 import { ValidationError } from "@/lib/errors";
 import { lookup } from "node:dns/promises";
+import { t } from "@/lib/i18n/translations";
 
 const PRIVATE_DIRECT_ACCESS_HOST_MESSAGE = "Direct access base URL must use a public HTTP(S) address and must not contain credentials, localhost, intranet, loopback, or link-local addresses";
 const PUBLIC_HTTP_URL_MESSAGE = "URL must use a public HTTP(S) address and must not contain credentials, localhost, intranet, loopback, link-local, or metadata addresses";
@@ -70,13 +71,13 @@ export function isUnsafePublicHttpHost(hostname: string) {
 
 export function normalizePublicHttpUrl(value: string | null | undefined, message = PUBLIC_HTTP_URL_MESSAGE) {
   const raw = value?.trim();
-  if (!raw) throw new ValidationError("URL is required");
+  if (!raw) throw new ValidationError(t("backend.storage.urlRequired"));
 
   let url: URL;
   try {
     url = new URL(raw);
   } catch {
-    throw new ValidationError("Invalid URL format");
+    throw new ValidationError(t("backend.storage.invalidUrlFormat"));
   }
 
   if (url.protocol !== "https:" && url.protocol !== "http:") {
@@ -101,7 +102,7 @@ export function normalizePublicBaseUrl(value: string | null | undefined) {
   try {
     url = new URL(raw);
   } catch {
-    throw new ValidationError("Invalid direct access base URL format");
+    throw new ValidationError(t("backend.storage.invalidDirectAccessBaseUrl"));
   }
 
   if (url.protocol !== "https:" && url.protocol !== "http:") {
@@ -139,7 +140,7 @@ export async function assertPublicBaseUrlResolvesPublic(value: string) {
 	try {
 		addresses = await lookup(hostname, { all: true, verbatim: true });
 	} catch {
-		throw new ValidationError("Direct access base URL DNS resolution failed");
+		throw new ValidationError(t("backend.storage.directAccessDnsFailed"));
 	}
 	if (addresses.length === 0 || addresses.some((entry) => isUnsafePublicHttpHost(entry.address))) {
 		throw new ValidationError(PRIVATE_DIRECT_ACCESS_HOST_MESSAGE);

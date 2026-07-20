@@ -33,6 +33,7 @@ import {
   type StorageFileNode,
 } from "@/lib/storage/file-content";
 import { expandStorageBasePath } from "@/lib/storage/path-utils";
+import { t } from "@/lib/i18n/translations";
 
 export const DEFAULT_FILE_VERSION_DIR =
   config.fileVersion.dir ||
@@ -69,7 +70,7 @@ function blobAbsolutePath(blobRelativePath: string): string {
   const base = path.resolve(DEFAULT_FILE_VERSION_DIR);
   const abs = path.resolve(base, blobRelativePath);
   if (!abs.startsWith(base + path.sep) && abs !== base) {
-    throw new ValidationError("Invalid version blob path");
+    throw new ValidationError(t("backend.storage.invalidVersionBlobPath"));
   }
   return abs;
 }
@@ -144,10 +145,10 @@ async function resolveAccessibleFileEntry(input: {
     },
   });
   if (!entry || entry.isDeleted) {
-    throw new NotFoundError("File entry not found");
+    throw new NotFoundError(t("backend.storage.fileEntryNotFound"));
   }
   if (entry.entryType !== "FILE") {
-    throw new ValidationError("Only files support version history");
+    throw new ValidationError(t("backend.storage.onlyFilesHaveVersions"));
   }
   const access = await assertStorageAccess({
     session: input.session,
@@ -404,7 +405,7 @@ export async function getFileVersionForDownload(input: {
   const row = await prisma.fileVersion.findFirst({
     where: { id: input.versionId, fileEntryId: input.fileEntryId },
   });
-  if (!row) throw new NotFoundError("Version not found");
+  if (!row) throw new NotFoundError(t("backend.storage.versionNotFound"));
   const abs = blobAbsolutePath(row.blobRelativePath);
   await access(abs);
   return {
@@ -428,14 +429,14 @@ export async function restoreFileVersion(input: {
   const version = await prisma.fileVersion.findFirst({
     where: { id: input.versionId, fileEntryId: input.fileEntryId },
   });
-  if (!version) throw new NotFoundError("Version not found");
+  if (!version) throw new NotFoundError(t("backend.storage.versionNotFound"));
 
   const abs = blobAbsolutePath(version.blobRelativePath);
   let buffer: Buffer;
   try {
     buffer = await readFile(abs);
   } catch {
-    throw new BusinessError("Version blob is missing on disk");
+    throw new BusinessError(t("backend.storage.versionBlobMissing"));
   }
 
   // Snapshot current body as RESTORE_POINT before overwriting.
@@ -487,7 +488,7 @@ export async function createManualFileVersion(input: {
     note: input.note ?? null,
   });
   if (!snap) {
-    throw new BusinessError("Unable to create version snapshot (file missing, oversized, or unreadable)");
+    throw new BusinessError(t("backend.storage.versionSnapshotFailed"));
   }
   return snap;
 }

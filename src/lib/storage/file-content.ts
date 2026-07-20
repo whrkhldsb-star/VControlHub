@@ -11,6 +11,7 @@ import { BusinessError, ValidationError } from "@/lib/errors";
 import { resolveStorageSshCredentials } from "@/lib/storage/ssh-credentials";
 import { normalizeRemoteTargetPath, normalizeRemoteRelativePath } from "@/lib/storage/remote-path";
 import { resolveStoragePathWithinBase } from "@/lib/storage/path-utils";
+import { t } from "@/lib/i18n/translations";
 
 export type StorageFileNode = {
 	id: string;
@@ -101,7 +102,7 @@ export async function readStorageFileBuffer(node: StorageFileNode, relativePath:
 		}
 	}
 
-	throw new BusinessError("Unsupported storage node type");
+	throw new BusinessError(t("backend.storage.unsupportedNodeType"));
 }
 
 function sftpMkdir(client: Client, remoteDir: string): Promise<void> {
@@ -172,7 +173,7 @@ export async function writeStorageFileBuffer(node: StorageFileNode, relativePath
 		}
 	}
 
-	throw new BusinessError("Unsupported storage node type");
+	throw new BusinessError(t("backend.storage.unsupportedNodeType"));
 }
 
 export function buildStorageFileDownloadUrl(node: Pick<StorageFileNode, "id" | "driver">, relativePath: string, download = false) {

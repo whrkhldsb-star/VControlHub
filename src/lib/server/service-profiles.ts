@@ -22,6 +22,7 @@ import { SERVER_PROFILE_INCLUDE } from "./service-profile-includes";
 import { createServerSchema, type CreateServerInput } from "./schema";
 import { applyServerDirectGatewayState } from "./service-direct-gateway";
 import { acquireAdvisoryLock } from "@/lib/concurrency/advisory-lock";
+import { t } from "@/lib/i18n/translations";
 import {
   assertNoDuplicateServerHost,
   enrichServer,
@@ -80,7 +81,7 @@ export async function createServerProfile(
   } | null = null;
 
   if (normalized.connectionType === "SSH_KEY") {
-    if (!normalized.sshKeyId) throw new ValidationError("SSH key connection method requires selecting a key");
+    if (!normalized.sshKeyId) throw new ValidationError(t("backend.server.sshKeyMethodRequiresKey"));
     validatedSshKey = sessionForTeamWhere(session)
       ? await prisma.sshKey.findFirst({
           where: { id: normalized.sshKeyId, ...teamWhere(sessionForTeamWhere(session)!) },
@@ -104,7 +105,7 @@ export async function createServerProfile(
         createdAt: true,
       },
         });
-    if (!validatedSshKey) throw new NotFoundError("The selected SSH key does not exist or has been deleted");
+    if (!validatedSshKey) throw new NotFoundError(t("backend.server.sshKeyNotFound"));
   }
 
   await assertNoDuplicateServerHost(normalized);
@@ -340,7 +341,7 @@ export async function updateServerProfile(
         createdAt: true,
       },
         });
-    if (!updateSshKey) throw new NotFoundError("The selected SSH key does not exist or has been deleted");
+    if (!updateSshKey) throw new NotFoundError(t("backend.server.sshKeyNotFound"));
   }
 
   await assertNoDuplicateServerHost(normalized, { excludeId: serverId });

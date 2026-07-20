@@ -219,7 +219,7 @@ describe("server service", () => {
         ppkContent: "PuTTY-User-Key-File-3: ssh-ed25519\n...",
         privateKeyEncryptionMode: "custom",
       }),
-    ).rejects.toThrow("When choosing a custom encryption format, you must provide a new private key passphrase.");
+    ).rejects.toThrow("选择自定义加密格式时必须提供新的私钥口令");
   });
 
   it("rejects adding the same host for a different port before creating records", async () => {

@@ -19,6 +19,7 @@ import type {
   CreatePlaybookInput,
   UpdatePlaybookInput,
 } from "./schema";
+import { t } from "@/lib/i18n/translations";
 import type {
   PlaybookRecord,
   PlaybookRunRecord,
@@ -224,7 +225,7 @@ export async function updatePlaybook(
 ): Promise<PlaybookRecord> {
   const { id, ...rest } = input;
   const existing = await getPlaybook(id, session);
-  if (!existing) throw new NotFoundError("Playbook not found");
+  if (!existing) throw new NotFoundError(t("backend.playbook.notFound"));
   if (rest.steps !== undefined) {
     await assertPlaybookStepsInScope(rest.steps as PlaybookStep[], session);
   }
@@ -257,7 +258,7 @@ export async function deletePlaybook(
   session?: TeamSession | null,
 ): Promise<void> {
   const existing = await getPlaybook(id, session);
-  if (!existing) throw new NotFoundError("Playbook not found");
+  if (!existing) throw new NotFoundError(t("backend.playbook.notFound"));
   await prisma.playbook.delete({ where: { id } });
   await auditUserAction(deletedById, "playbook.delete", { playbookId: id });
 }
@@ -269,7 +270,7 @@ export async function listPlaybookRuns(
   // Ensure the parent playbook itself is in scope before leaking run history.
   if (session) {
     const playbook = await getPlaybook(playbookId, session);
-    if (!playbook) throw new NotFoundError("Playbook not found");
+    if (!playbook) throw new NotFoundError(t("backend.playbook.notFound"));
   }
   const rows = await prisma.playbookRun.findMany({
     where: { playbookId, ...(session ? teamWhere(session) : {}) },
