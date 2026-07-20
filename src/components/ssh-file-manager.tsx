@@ -40,7 +40,7 @@ export function SshFileManager({ serverId, visible }: SshFileManagerProps) {
   const listAbortRef = useRef<AbortController | null>(null);
 
   const loadDir = useCallback(
-    async (path: string) => {
+    async (path: string, options?: { throwOnError?: boolean }) => {
       if (listAbortRef.current) listAbortRef.current.abort();
       const ac = new AbortController();
       listAbortRef.current = ac;
@@ -57,19 +57,26 @@ export function SshFileManager({ serverId, visible }: SshFileManagerProps) {
         setCurrentPath(data.path);
         setEntries(data.entries || []);
       } catch (err) {
-        if (!ac.signal.aborted) setError(err instanceof Error ? err.message : "Failed to list directory");
+        if (ac.signal.aborted) return;
+        if (options?.throwOnError) throw err;
+        setError(
+          err instanceof Error
+            ? err.message
+            : t("sshFileManager.listFailed"),
+        );
       } finally {
         if (!ac.signal.aborted) setLoading(false);
       }
     },
-    [serverId],
+    [serverId, t],
   );
 
   useEffect(() => {
     if (!visible || currentPath) return;
     const init = async () => {
       try {
-        await loadDir("/root");
+        // Probe /root first; rethrow so inaccessible homes fall back to /.
+        await loadDir("/root", { throwOnError: true });
       } catch {
         // /root not accessible — fall back to the filesystem root.
         await loadDir("/").catch(() => {});
@@ -145,7 +152,7 @@ export function SshFileManager({ serverId, visible }: SshFileManagerProps) {
       setPendingDeleteEntry(null);
       loadDir(currentPath);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Delete failed");
+      setError(err instanceof Error ? err.message : t("sshFileManager.deleteFailed"));
     }
   }
 
@@ -159,7 +166,7 @@ export function SshFileManager({ serverId, visible }: SshFileManagerProps) {
       setMkdirName("");
       loadDir(currentPath);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Mkdir failed");
+      setError(err instanceof Error ? err.message : t("sshFileManager.mkdirFailed"));
     }
   }
 
@@ -173,7 +180,7 @@ export function SshFileManager({ serverId, visible }: SshFileManagerProps) {
       setRenameValue("");
       loadDir(currentPath);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Rename failed");
+      setError(err instanceof Error ? err.message : t("sshFileManager.renameFailed"));
     }
   }
 

@@ -142,4 +142,33 @@ describe("SshFileManager", () => {
 			);
 		});
 	});
+
+	it("falls back to / when /root list fails on first open", async () => {
+		mocks.csrfFetch.mockImplementation(async (_url: string, init?: { body?: string }) => {
+			const body = init?.body ? JSON.parse(init.body) as { path?: string } : {};
+			if (body.path === "/root") {
+				throw new Error("Permission denied");
+			}
+			if (body.path === "/") {
+				return { path: "/", entries: fileEntries };
+			}
+			return { path: body.path ?? "/", entries: [] };
+		});
+
+		render(<SshFileManager serverId="srv1" visible={true} />);
+
+		await waitFor(() => {
+			expect(screen.getByText("report.txt")).toBeInTheDocument();
+		});
+
+		const listBodies = mocks.csrfFetch.mock.calls
+			.filter((call) => String(call[0]).includes("/sftp/list"))
+			.map((call) => {
+				const init = call[1] as { body?: string } | undefined;
+				return init?.body ? (JSON.parse(init.body) as { path?: string }).path : undefined;
+			});
+		expect(listBodies).toEqual(expect.arrayContaining(["/root", "/"]));
+		// Fallback succeeded — no sticky permission error banner.
+		expect(screen.queryByText("Permission denied")).not.toBeInTheDocument();
+	});
 });

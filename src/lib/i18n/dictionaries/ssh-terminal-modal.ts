@@ -78,6 +78,10 @@ export const zh: Record<string, string> = {
 	"sshFileManager.confirmDelete": "确定删除 {name}？",
 	"sshFileManager.uploadFailed": "上传失败（{status}）",
 	"sshFileManager.networkError": "上传时网络错误",
+	"sshFileManager.listFailed": "无法列出目录",
+	"sshFileManager.deleteFailed": "删除失败",
+	"sshFileManager.mkdirFailed": "创建文件夹失败",
+	"sshFileManager.renameFailed": "重命名失败",
 };
 
 export const en: Record<string, string> = {
@@ -146,4 +150,8 @@ export const en: Record<string, string> = {
 	"sshFileManager.confirmDelete": "Delete {name}?",
 	"sshFileManager.uploadFailed": "Upload failed ({status})",
 	"sshFileManager.networkError": "Network error during upload",
+	"sshFileManager.listFailed": "Failed to list directory",
+	"sshFileManager.deleteFailed": "Delete failed",
+	"sshFileManager.mkdirFailed": "Failed to create folder",
+	"sshFileManager.renameFailed": "Rename failed",
 };
