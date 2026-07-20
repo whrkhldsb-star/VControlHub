@@ -42,6 +42,14 @@ vi.mock("./service-execution", async (importOriginal) => {
   };
 });
 
+vi.mock("@/lib/db", () => ({
+  prisma: {
+    commandRequest: {
+      findUnique: vi.fn(async () => ({ teamId: "team_1", createdBy: "user_1" })),
+    },
+  },
+}));
+
 vi.mock("@/lib/logging", () => ({
   createLogger: () => ({
     info: infoMock,
@@ -108,6 +116,8 @@ describe("command execution durable job worker", () => {
             requestedAt: expect.any(String),
           }),
           maxAttempts: 1,
+          teamId: "team_1",
+          createdBy: "user_1",
         }),
       );
     });

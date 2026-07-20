@@ -109,6 +109,14 @@ describe("pruneOldBackupRecords — pure planner", () => {
 });
 
 describe("pruneOldBackupRecordsNow — runtime orchestrator", () => {
+  it("skips pruning entirely when teamId is missing (fail closed)", async () => {
+    const result = await pruneOldBackupRecordsNow({ projectRoot: "/opt/app" });
+    expect(result.deletedRecords).toBe(0);
+    expect(result.fileErrors.some((e) => e.includes("teamId"))).toBe(true);
+    expect(mockPrisma.backupRecord.findMany).not.toHaveBeenCalled();
+    expect(mockPrisma.backupRecord.delete).not.toHaveBeenCalled();
+  });
+
   beforeEach(() => {
     vi.clearAllMocks();
     process.env.BACKUP_DIR = "/var/backups/vcontrolhub";
@@ -118,7 +126,7 @@ describe("pruneOldBackupRecordsNow — runtime orchestrator", () => {
     mockPrisma.backupRecord.findMany.mockResolvedValueOnce([
       baseRecord({ id: "bak_recent", completedAt: new Date() }),
     ]);
-    const result = await pruneOldBackupRecordsNow({ projectRoot: "/opt/app" });
+    const result = await pruneOldBackupRecordsNow({ projectRoot: "/opt/app", teamId: "team_1" });
     expect(result.deletedRecords).toBe(0);
     expect(result.filesDeleted).toBe(0);
     expect(result.candidateIds).toEqual([]);
@@ -134,7 +142,7 @@ describe("pruneOldBackupRecordsNow — runtime orchestrator", () => {
     rmMock.mockResolvedValueOnce(undefined);
     mockPrisma.backupRecord.delete.mockResolvedValueOnce({ id: "bak_old" });
 
-    const result = await pruneOldBackupRecordsNow({ projectRoot: "/opt/app" });
+    const result = await pruneOldBackupRecordsNow({ projectRoot: "/opt/app", teamId: "team_1" });
 
     expect(result.deletedRecords).toBe(1);
     expect(result.filesDeleted).toBe(1);
@@ -152,7 +160,7 @@ describe("pruneOldBackupRecordsNow — runtime orchestrator", () => {
     statMock.mockRejectedValueOnce(enoent);
     mockPrisma.backupRecord.delete.mockResolvedValueOnce({ id: "bak_missing_file" });
 
-    const result = await pruneOldBackupRecordsNow({ projectRoot: "/opt/app" });
+    const result = await pruneOldBackupRecordsNow({ projectRoot: "/opt/app", teamId: "team_1" });
 
     expect(result.deletedRecords).toBe(1);
     expect(result.filesDeleted).toBe(0);
@@ -168,7 +176,7 @@ describe("pruneOldBackupRecordsNow — runtime orchestrator", () => {
     ]);
     mockPrisma.backupRecord.delete.mockResolvedValueOnce({ id: "bak_traversal" });
 
-    const result = await pruneOldBackupRecordsNow({ projectRoot: "/opt/app" });
+    const result = await pruneOldBackupRecordsNow({ projectRoot: "/opt/app", teamId: "team_1" });
 
     expect(result.deletedRecords).toBe(1);
     expect(result.filesDeleted).toBe(0);
@@ -188,7 +196,7 @@ describe("pruneOldBackupRecordsNow — runtime orchestrator", () => {
     rmMock.mockResolvedValue(undefined);
     mockPrisma.backupRecord.delete.mockResolvedValue({});
 
-    const result = await pruneOldBackupRecordsNow({ projectRoot: "/opt/app" });
+    const result = await pruneOldBackupRecordsNow({ projectRoot: "/opt/app", teamId: "team_1" });
     expect(result.candidateIds).toEqual(["bak_a", "bak_b", "bak_c"]);
   });
 });

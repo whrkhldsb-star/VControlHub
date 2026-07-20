@@ -3,6 +3,7 @@ import { Prisma } from "@prisma/client";
 import { config } from "@/lib/config/env";
 import { computeLeaseMs } from "@/lib/job/lease";
 import { claimNextJob, completeJob, enqueueJob, failJob, heartbeatJob } from "@/lib/job/service";
+import { prisma } from "@/lib/db";
 import { createLogger } from "@/lib/logging";
 
 import { executeAndFinalizeCommand, markCommandExecutionFailed } from "./service-execution";
@@ -73,6 +74,11 @@ export async function enqueueCommandExecutionJob(input: {
 }) {
   const commandRequestId = input.commandRequestId?.trim();
   if (!commandRequestId) throw new Error("Command execution task missing commandRequestId");
+  // Stamp teamId from the command request so Operation Tasks / getJob stay tenant-scoped.
+  const request = await prisma.commandRequest.findUnique({
+    where: { id: commandRequestId },
+    select: { teamId: true, createdBy: true },
+  });
   return enqueueJob({
     type: COMMAND_EXECUTION_JOB_TYPE,
     title: `Execute command ${commandRequestId}`,
@@ -83,6 +89,8 @@ export async function enqueueCommandExecutionJob(input: {
     },
     priority: 0,
     maxAttempts: 1,
+    teamId: request?.teamId ?? null,
+    createdBy: request?.createdBy ?? null,
   });
 }
 
@@ -99,6 +107,22 @@ async function handleClaimedJob(
     logger.error("Command execution job payload invalid", { jobId: job.id, error: message });
     return true;
   }
+
+  // CommandRequest has its own heartbeat, but the durable Job lease is separate.
+  // Without mid-SSH job heartbeats, claimNextJob can reclaim this RUNNING job
+  // after lease expiry and start a second executeAndFinalizeCommand (duplicate SSH).
+  const jobLeaseHeartbeat = setInterval(() => {
+    heartbeatJob(job.id, COMMAND_EXECUTION_WORKER_ID, {
+      leaseMs: COMMAND_EXECUTION_LEASE_MS,
+      progress: `Executing command request ${payload.commandRequestId}`,
+    }).catch((err) => {
+      logger.warn("command execution job lease heartbeat failed", {
+        jobId: job.id,
+        error: err instanceof Error ? err.message : String(err),
+      });
+    });
+  }, Math.max(15_000, Math.floor(COMMAND_EXECUTION_LEASE_MS / 3)));
+  jobLeaseHeartbeat.unref?.();
 
   try {
     await heartbeatJob(job.id, COMMAND_EXECUTION_WORKER_ID, {
@@ -144,6 +168,8 @@ async function handleClaimedJob(
       error: message,
     });
     return true;
+  } finally {
+    clearInterval(jobLeaseHeartbeat);
   }
 }
 

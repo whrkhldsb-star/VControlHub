@@ -312,9 +312,32 @@ export async function pruneOldBackupRecordsNow(input: {
 	teamId?: string | null;
 } = {}): Promise<PruneOldBackupRecordsResult> {
 	const projectRoot = input.projectRoot || config.app.appDir || process.cwd();
-	const records = input.teamId
-		? await prisma.backupRecord.findMany({ where: { teamId: input.teamId }, orderBy: { createdAt: "desc" }, take: 200 })
-		: await listBackupRecords();
+	// Fail closed: without an explicit teamId, never list/delete all tenants'
+	// backups (listBackupRecords() with no session uses where:{}).
+	const teamId = typeof input.teamId === "string" && input.teamId.trim() ? input.teamId.trim() : null;
+	if (!teamId) {
+		retentionLogger.warn("backup retention skipped: teamId required to avoid cross-tenant prune", {
+			hasTeamId: Boolean(input.teamId),
+		});
+		const olderThanDays = input.olderThanDays ?? 30;
+		const keepLatestPerType = input.keepLatestPerType ?? 10;
+		return {
+			deletedRecords: 0,
+			filesDeleted: 0,
+			filesSkipped: 0,
+			fileErrors: ["teamId required for backup retention"],
+			cutoff: new Date(Date.now() - olderThanDays * 24 * 60 * 60 * 1000),
+			olderThanDays,
+			keepLatestPerType,
+			candidateIds: [],
+			oldestKeptByType: {},
+		};
+	}
+	const records = await prisma.backupRecord.findMany({
+		where: { teamId },
+		orderBy: { createdAt: "desc" },
+		take: 200,
+	});
 	const plan = pruneOldBackupRecords(records, {
 		olderThanDays: input.olderThanDays,
 		keepLatestPerType: input.keepLatestPerType,
