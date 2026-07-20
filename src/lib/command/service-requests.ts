@@ -270,6 +270,21 @@ export async function cancelCommandRequest(input: {
     ? `Command request cancelled; terminated ${killedCount} running SSH subprocesses.${reason ? ` Reason: ${reason}` : ""}`
     : `Command request cancelled.${reason ? ` Reason: ${reason}` : ""}`;
 
+  // CAS claim first so a concurrent finalize/recovery that already moved the
+  // request to COMPLETED/FAILED/CANCELLED cannot be rewritten to CANCELLED
+  // (would falsify task-center history and re-open cancelled UX races).
+  const claimed = await prisma.commandRequest.updateMany({
+    where: {
+      id: commandRequestId,
+      status: { in: ["PENDING_APPROVAL", "APPROVED", "RUNNING"] },
+      ...(input.session ? teamWhere(input.session) : {}),
+    },
+    data: { status: "CANCELLED", workerId: null, workerHeartbeatAt: null },
+  });
+  if (claimed.count === 0) {
+    throw new BusinessError("Command request has ended and cannot be cancelled");
+  }
+
   await prisma.commandTarget.updateMany({
     where: {
       commandRequestId,
@@ -281,10 +296,6 @@ export async function cancelCommandRequest(input: {
       exitCode: 130,
       finishedAt: now,
     },
-  });
-  await prisma.commandRequest.update({
-    where: { id: commandRequestId },
-    data: { status: "CANCELLED", workerId: null, workerHeartbeatAt: null },
   });
   await prisma.executionLog.create({
     data: {

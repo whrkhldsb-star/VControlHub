@@ -823,6 +823,13 @@ describe("command service execution flow", () => {
     await cancelCommandRequest({ commandRequestId: "req_cancel_1", actorId: "u_2", reason: "wrong window" });
 
     expect(runningChild.kill).toHaveBeenCalledWith("SIGTERM");
+    expect(mockPrisma.commandRequest.updateMany).toHaveBeenCalledWith({
+      where: {
+        id: "req_cancel_1",
+        status: { in: ["PENDING_APPROVAL", "APPROVED", "RUNNING"] },
+      },
+      data: { status: "CANCELLED", workerId: null, workerHeartbeatAt: null },
+    });
     expect(mockPrisma.commandTarget.updateMany).toHaveBeenCalledWith({
       where: {
         commandRequestId: "req_cancel_1",
@@ -834,10 +841,38 @@ describe("command service execution flow", () => {
         stderr: expect.stringContaining("wrong window"),
       }),
     });
-    expect(mockPrisma.commandRequest.update).toHaveBeenCalledWith({
-      where: { id: "req_cancel_1" },
-      data: { status: "CANCELLED", workerId: null, workerHeartbeatAt: null },
+  });
+
+  it("does not rewrite COMPLETED/FAILED to CANCELLED when finalize races cancel", async () => {
+    mockPrisma.commandRequest.findFirst.mockResolvedValueOnce({
+      id: "req_cancel_stale",
+      status: "RUNNING",
+      targets: [{ id: "target_stale", status: "RUNNING" }],
     });
+    // Concurrent finalize already claimed terminal status — cancel CAS loses.
+    mockPrisma.commandRequest.updateMany.mockResolvedValueOnce({ count: 0 });
+
+    await expect(
+      cancelCommandRequest({
+        commandRequestId: "req_cancel_stale",
+        actorId: "u_2",
+        reason: "too late",
+      }),
+    ).rejects.toThrow(/ended and cannot be cancelled/i);
+
+    expect(mockPrisma.commandTarget.updateMany).not.toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({ commandRequestId: "req_cancel_stale" }),
+        data: expect.objectContaining({ status: "CANCELLED" }),
+      }),
+    );
+    expect(mockPrisma.executionLog.create).not.toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          summary: expect.stringContaining("cancelled by u_2"),
+        }),
+      }),
+    );
   });
 
   it("does not overwrite CANCELLED target/request status when SSH closes after operator cancel", async () => {
