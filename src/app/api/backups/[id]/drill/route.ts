@@ -20,7 +20,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       select: { id: true },
     });
     if (existing) return NextResponse.json({ jobId: existing.id, taskId: `job:${existing.id}`, deduped: true }, { status: 202 });
-    const job = await enqueueJob({ type: BACKUP_DRILL_JOB_TYPE, title: `Drill ${backup.type} backup`, payload: { backupId: id }, createdBy: session!.userId, teamId: session!.currentTeamId, maxAttempts: 1 });
+    const job = await enqueueJob({ type: BACKUP_DRILL_JOB_TYPE, title: `Drill ${backup.type} backup`, payload: { backupId: id, teamId: session!.currentTeamId ?? backup.teamId ?? null }, createdBy: session!.userId, teamId: session!.currentTeamId, maxAttempts: 1 });
     await auditUserAction(session!.userId, "backup.drill", { backupId: id, jobId: job.id, destructive: false }, undefined, session?.currentTeamId);
     return NextResponse.json({ jobId: job.id, taskId: `job:${job.id}`, deduped: false }, { status: 202 });
   });

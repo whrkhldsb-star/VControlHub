@@ -32,6 +32,12 @@ const ownerSession = {
 const imageReaderSession = {
   userId: "reader_1",
   username: "reader",
+  roles: ["viewer"],
+  mustChangePassword: false,
+};
+const mediaManagerSession = {
+  userId: "mgr_1",
+  username: "manager",
   roles: ["admin"],
   mustChangePassword: false,
 };
@@ -108,8 +114,22 @@ describe("GET /api/images/[id]/file", () => {
     expect(response.headers.get("Cache-Control")).toBe("private, no-store");
   });
 
-  it("lets image readers preview another user's private image", async () => {
+  it("does not let bare image:read viewers preview another user's private image", async () => {
     getApiSessionMock.mockResolvedValue(imageReaderSession);
+    imageFindUniqueMock.mockResolvedValue(
+      image({ isPublic: false, userId: "u1" }),
+    );
+
+    const response = await GET(
+      new Request("http://local/api/images/img_1/file"),
+      params,
+    );
+
+    expect(response.status).toBe(404);
+  });
+
+  it("lets media/team managers preview another user's private image", async () => {
+    getApiSessionMock.mockResolvedValue(mediaManagerSession);
     imageFindUniqueMock.mockResolvedValue(
       image({ isPublic: false, userId: "u1" }),
     );

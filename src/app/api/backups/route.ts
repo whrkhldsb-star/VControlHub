@@ -71,7 +71,7 @@ export async function POST(request: Request) {
     const job = await enqueueJob({
       type: BACKUP_CREATE_JOB_TYPE,
       title: `Create ${parsed.data.type} backup`,
-      payload: { backupId: backup.id },
+      payload: { backupId: backup.id, teamId: session?.currentTeamId ?? backup.teamId ?? null },
       createdBy: session?.userId ?? null,
       teamId: session?.currentTeamId ?? null,
       maxAttempts: 1,

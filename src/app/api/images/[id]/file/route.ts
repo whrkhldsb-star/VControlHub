@@ -53,10 +53,12 @@ export async function GET(
 
     if (!image.isPublic) {
       const session = await getApiSession();
+      // Owner, or team/media managers — not every holder of image:read (list own library).
       const canReadPrivateImage =
         !!session &&
         (session.userId === image.userId ||
-          sessionHasPermission(session, "image:read"));
+          sessionHasPermission(session, "media:manage") ||
+          sessionHasPermission(session, "team:manage"));
 
       if (!canReadPrivateImage) {
         return NextResponse.json(

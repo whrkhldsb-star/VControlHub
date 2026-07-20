@@ -109,18 +109,36 @@ function parseRestorePayload(payload: Prisma.JsonValue): BackupRestorePayload {
   };
 }
 
+function workerSession(
+  job: { createdBy?: string | null; teamId?: string | null },
+  payloadTeamId?: string | null,
+): { userId: string; roles: ["admin"]; currentTeamId: string | null } | undefined {
+  const teamId = (payloadTeamId && payloadTeamId.trim()) || job.teamId || null;
+  if (!teamId) return undefined;
+  return {
+    userId: job.createdBy ?? "system",
+    roles: ["admin"],
+    currentTeamId: teamId,
+  };
+}
+
 async function handleJob(job: Awaited<ReturnType<typeof claimNextJob>>) {
   if (!job) return false;
   try {
     if (job.type === BACKUP_CREATE_JOB_TYPE) {
       const payload = parseCreatePayload(job.payload);
-      const record = await getBackupRecord(payload.backupId);
+      const scope = workerSession(job, payload.teamId);
+      const record = await getBackupRecord(payload.backupId, scope);
+      if (!record) {
+        await failJob(job.id, WORKER_ID, "Backup record not found or outside job team scope", { retryAfterMs: 60_000 });
+        return true;
+      }
       await heartbeatJob(job.id, WORKER_ID, { leaseMs: LEASE_MS, progress: `Running ${record?.type ?? "UNKNOWN"} backup` });
       const backup = await runWithLeaseHeartbeat({
         jobId: job.id,
         leaseMs: LEASE_MS,
         heartbeat: () => heartbeatJob(job.id, WORKER_ID, { leaseMs: LEASE_MS, progress: `Running ${record?.type ?? "UNKNOWN"} backup` }),
-        run: () => runExistingBackupRecord({ id: payload.backupId, projectRoot: payload.projectRoot }),
+        run: () => runExistingBackupRecord({ id: payload.backupId, projectRoot: payload.projectRoot, session: scope }),
       });
       // runExistingBackupRecord returns FAILED records without throwing — do not completeJob.
       if (backup.status !== "COMPLETED") {
@@ -184,12 +202,7 @@ async function handleJob(job: Awaited<ReturnType<typeof claimNextJob>>) {
             confirm: payload.confirm,
             projectRoot: payload.projectRoot,
             component: payload.component ?? "all",
-            // A1: never call getBackupRecord without scope in worker path
-            session: payload.teamId
-              ? { userId: job.createdBy ?? "system", roles: ["admin"], currentTeamId: payload.teamId }
-              : job.teamId
-                ? { userId: job.createdBy ?? "system", roles: ["admin"], currentTeamId: job.teamId }
-                : undefined,
+            session: workerSession(job, payload.teamId),
           }),
       });
       await completeJob(job.id, WORKER_ID, restore);
@@ -205,6 +218,16 @@ async function handleJob(job: Awaited<ReturnType<typeof claimNextJob>>) {
         projectRoot: payload.projectRoot,
         teamId: payload.teamId,
       });
+      // Offsite retentionDays is platform-wide; run best-effort prune alongside local retention.
+      let offsite: Awaited<ReturnType<typeof import("@/lib/storage/offsite/retention").pruneOffsiteObjects>> | null = null;
+      try {
+        const { pruneOffsiteObjects } = await import("@/lib/storage/offsite/retention");
+        offsite = await pruneOffsiteObjects();
+      } catch (offsiteErr) {
+        logger.warn("offsite retention prune failed (non-fatal)", {
+          error: offsiteErr instanceof Error ? offsiteErr.message : String(offsiteErr),
+        });
+      }
       await completeJob(job.id, WORKER_ID, {
         retention: {
           deletedRecords: summary.deletedRecords,
@@ -218,18 +241,20 @@ async function handleJob(job: Awaited<ReturnType<typeof claimNextJob>>) {
             Object.entries(summary.oldestKeptByType).map(([k, v]) => [k, v ? v.toISOString() : null]),
           ),
         },
+        offsite,
       });
       return true;
     }
 
     if (job.type === BACKUP_DRILL_JOB_TYPE) {
       const payload = parseCreatePayload(job.payload);
+      const scope = workerSession(job, payload.teamId);
       await heartbeatJob(job.id, WORKER_ID, { leaseMs: LEASE_MS, progress: "Running non-destructive restore drill" });
       const report = await runWithLeaseHeartbeat({
         jobId: job.id,
         leaseMs: LEASE_MS,
         heartbeat: () => heartbeatJob(job.id, WORKER_ID, { leaseMs: LEASE_MS, progress: "Verifying backup checksum and archive format" }),
-        run: () => drillBackupRecord({ id: payload.backupId, projectRoot: payload.projectRoot }),
+        run: () => drillBackupRecord({ id: payload.backupId, projectRoot: payload.projectRoot, session: scope }),
       });
       await completeJob(job.id, WORKER_ID, { drillReport: report });
       return true;

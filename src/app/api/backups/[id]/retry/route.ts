@@ -16,7 +16,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     const job = await enqueueJob({
       type: BACKUP_CREATE_JOB_TYPE,
       title: `Retry ${backup.type} backup`,
-      payload: { backupId: backup.id },
+      payload: { backupId: backup.id, teamId: session?.currentTeamId ?? backup.teamId ?? null },
       createdBy: session?.userId ?? null,
       teamId: session?.currentTeamId ?? null,
       maxAttempts: 1,

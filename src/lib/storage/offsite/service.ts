@@ -23,3 +23,5 @@ export {
 
 export { S3Client, S3Error, randomProbeKey } from "./s3-client";
 export type { S3ClientConfig, S3Object, S3ListResult } from "./s3-client";
+
+export { pruneOffsiteObjects, type OffsitePruneSummary } from "./retention";

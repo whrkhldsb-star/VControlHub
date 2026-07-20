@@ -167,6 +167,39 @@ async function dispatchDueScheduleRow(schedule: {
   }
 }
 
+
+/** Once per UTC day, enqueue a platform backup.retention job so offsite retentionDays is applied. */
+async function maybeEnqueueOffsiteRetentionTick() {
+  try {
+    const dayKey = new Date().toISOString().slice(0, 10);
+    const title = `Offsite retention ${dayKey}`;
+    const existing = await prisma.job.findFirst({
+      where: {
+        type: "backup.retention",
+        title,
+        createdAt: { gte: new Date(`${dayKey}T00:00:00.000Z`) },
+      },
+      select: { id: true },
+    });
+    if (existing) return;
+    const { enqueueJob } = await import("@/lib/job/service");
+    // teamId null + olderThanDays large: local prune is fail-closed without teamId;
+    // the worker still runs offsite prune as a side effect.
+    await enqueueJob({
+      type: "backup.retention",
+      title,
+      payload: { olderThanDays: 3650, keepLatestPerType: 1, teamId: null },
+      createdBy: null,
+      teamId: null,
+      maxAttempts: 1,
+    });
+  } catch (error) {
+    logger.warn("failed to enqueue daily offsite retention tick", {
+      error: error instanceof Error ? error.message : String(error),
+    });
+  }
+}
+
 async function dispatchDueBackupSchedules(reason: string) {
   const dueSchedules = await prisma.backupSchedule.findMany({
     where: {
@@ -225,7 +258,8 @@ export async function runBackupScheduleTickJobWorkerOnce(reason = "manual") {
         leaseMs: BACKUP_SCHEDULE_TICK_LEASE_MS,
         progress: "Dispatching due backup schedules",
       });
-      const result = await dispatchDueBackupSchedules(reason);
+      const result = await maybeEnqueueOffsiteRetentionTick();
+  await dispatchDueBackupSchedules(reason);
       await completeJob(job.id, BACKUP_SCHEDULE_WORKER_ID, result);
       try {
         await pruneCompletedJobsByType({

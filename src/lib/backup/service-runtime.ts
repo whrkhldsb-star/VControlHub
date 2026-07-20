@@ -58,9 +58,9 @@ export async function runBackupRecord(input: { type: "DATABASE" | "FILES" | "FUL
 	return runExistingBackupRecord({ id: record.id, projectRoot: input.projectRoot });
 }
 
-export async function runExistingBackupRecord(input: { id: string; projectRoot?: string }) {
+export async function runExistingBackupRecord(input: { id: string; projectRoot?: string; session?: Pick<import("@/lib/auth/session").SessionPayload, "userId" | "roles" | "currentTeamId"> }) {
 	const projectRoot = input.projectRoot || config.app.appDir || process.cwd();
-	const record = await getBackupRecord(input.id);
+	const record = await getBackupRecord(input.id, input.session);
 	if (!record) throw new NotFoundError(t("backend.backup.recordNotFound"));
 	if (!isBackupType(record.type)) throw new ValidationError(t("backend.backup.invalidType"));
 	let outputPath: string;
@@ -244,9 +244,9 @@ export type BackupDrillReport = {
 };
 
 /** Non-destructive restore drill: validates the restore artifact without changing data. */
-export async function drillBackupRecord(input: { id: string; projectRoot?: string }): Promise<BackupDrillReport> {
+export async function drillBackupRecord(input: { id: string; projectRoot?: string; session?: Pick<import("@/lib/auth/session").SessionPayload, "userId" | "roles" | "currentTeamId"> }): Promise<BackupDrillReport> {
 	const started = new Date();
-	const record = await getBackupRecord(input.id);
+	const record = await getBackupRecord(input.id, input.session);
 	if (!record) throw new NotFoundError(t("backend.backup.recordNotFound"));
 	if (record.status !== "COMPLETED") throw new BusinessError(t("backend.backup.onlyCompletedCanDrill"));
 	if (!record.checksumSha256) throw new BusinessError(t("backend.backup.checksumMissingDrill"));

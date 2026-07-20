@@ -424,4 +424,21 @@ make logs SERVICE_PREFIX=vcontrolhub
 
 ---
 
+
+### 二次深扫发现（2026-07-20，对照同类审查方向）
+
+| # | 问题 | 状态 |
+|---|------|------|
+| E1 | 备份 create/drill worker 仍 `getBackupRecord` 无 team scope | **已修复**：payload+job `teamId` + workerSession |
+| E2 | 私有图床文件：`image:read` 可看他人私图 | **已修复**：仅 owner / `media:manage` / `team:manage` |
+| E3 | 设置页 `offsite.retentionDays` 无清理实现（死配置） | **已修复**：`pruneOffsiteObjects` + retention job 副作用 + 每日 tick |
+| E4 | 备份 create/retry API payload 未带 teamId | **已修复** |
+| B5 | 后端错误 i18n | **已完成**（见上文） |
+
+仍接受/低优先级：
+- API 路由层仍有部分英文 `error:` 字符串（鉴权/限流等）
+- 部署模板全局共享（非租户资源，产品设计）
+- 异地 prune 与本地 retention 绑在同一 job，依赖每日 tick 触发
+
+
 ## 📄 许可
