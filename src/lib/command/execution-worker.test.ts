@@ -9,6 +9,7 @@ const {
   heartbeatJobMock,
   executeAndFinalizeCommandMock,
   markCommandExecutionFailedMock,
+  findUniqueCommandRequestMock,
   infoMock,
   warnMock,
   errorMock,
@@ -20,6 +21,7 @@ const {
   heartbeatJobMock: vi.fn(),
   executeAndFinalizeCommandMock: vi.fn(),
   markCommandExecutionFailedMock: vi.fn(),
+  findUniqueCommandRequestMock: vi.fn(),
   infoMock: vi.fn(),
   warnMock: vi.fn(),
   errorMock: vi.fn(),
@@ -33,6 +35,14 @@ vi.mock("@/lib/job/service", () => ({
   heartbeatJob: heartbeatJobMock,
 }));
 
+vi.mock("@/lib/db", () => ({
+  prisma: {
+    commandRequest: {
+      findUnique: findUniqueCommandRequestMock,
+    },
+  },
+}));
+
 vi.mock("./service-execution", async (importOriginal) => {
   const actual = await importOriginal<typeof import("./service-execution")>();
   return {
@@ -41,14 +51,6 @@ vi.mock("./service-execution", async (importOriginal) => {
     markCommandExecutionFailed: markCommandExecutionFailedMock,
   };
 });
-
-vi.mock("@/lib/db", () => ({
-  prisma: {
-    commandRequest: {
-      findUnique: vi.fn(async () => ({ teamId: "team_1", createdBy: "user_1" })),
-    },
-  },
-}));
 
 vi.mock("@/lib/logging", () => ({
   createLogger: () => ({
@@ -91,6 +93,10 @@ describe("command execution durable job worker", () => {
     completeJobMock.mockResolvedValue({ count: 1 });
     failJobMock.mockResolvedValue({ count: 1 });
     heartbeatJobMock.mockResolvedValue({ count: 1 });
+    findUniqueCommandRequestMock.mockResolvedValue({
+      teamId: "team_1",
+      createdBy: "user_1",
+    });
     executeAndFinalizeCommandMock.mockResolvedValue({
       id: "req-default",
       status: "COMPLETED",

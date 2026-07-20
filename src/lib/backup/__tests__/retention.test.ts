@@ -109,17 +109,17 @@ describe("pruneOldBackupRecords — pure planner", () => {
 });
 
 describe("pruneOldBackupRecordsNow — runtime orchestrator", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    process.env.BACKUP_DIR = "/var/backups/vcontrolhub";
+  });
+
   it("skips pruning entirely when teamId is missing (fail closed)", async () => {
     const result = await pruneOldBackupRecordsNow({ projectRoot: "/opt/app" });
     expect(result.deletedRecords).toBe(0);
     expect(result.fileErrors.some((e) => e.includes("teamId"))).toBe(true);
     expect(mockPrisma.backupRecord.findMany).not.toHaveBeenCalled();
     expect(mockPrisma.backupRecord.delete).not.toHaveBeenCalled();
-  });
-
-  beforeEach(() => {
-    vi.clearAllMocks();
-    process.env.BACKUP_DIR = "/var/backups/vcontrolhub";
   });
 
   it("returns zero counts when no records match retention", async () => {
@@ -130,6 +130,9 @@ describe("pruneOldBackupRecordsNow — runtime orchestrator", () => {
     expect(result.deletedRecords).toBe(0);
     expect(result.filesDeleted).toBe(0);
     expect(result.candidateIds).toEqual([]);
+    expect(mockPrisma.backupRecord.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { teamId: "team_1" } }),
+    );
     expect(mockPrisma.backupRecord.delete).not.toHaveBeenCalled();
     expect(rmMock).not.toHaveBeenCalled();
   });

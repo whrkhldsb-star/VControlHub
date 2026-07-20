@@ -320,7 +320,7 @@ export async function pruneOldBackupRecordsNow(input: {
 			hasTeamId: Boolean(input.teamId),
 		});
 		const olderThanDays = input.olderThanDays ?? 30;
-		const keepLatestPerType = input.keepLatestPerType ?? 10;
+		const keepLatestPerType = input.keepLatestPerType ?? 3;
 		return {
 			deletedRecords: 0,
 			filesDeleted: 0,
