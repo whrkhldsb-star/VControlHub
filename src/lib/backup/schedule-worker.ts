@@ -169,7 +169,11 @@ async function dispatchDueScheduleRow(schedule: {
 
 
 /** Once per UTC day, enqueue a platform backup.retention job so offsite retentionDays is applied. */
-async function maybeEnqueueOffsiteRetentionTick() {
+async function maybeEnqueueOffsiteRetentionTick(): Promise<{
+  enqueued: boolean;
+  skipped?: string;
+  jobId?: string;
+}> {
   try {
     const dayKey = new Date().toISOString().slice(0, 10);
     const title = `Offsite retention ${dayKey}`;
@@ -181,11 +185,11 @@ async function maybeEnqueueOffsiteRetentionTick() {
       },
       select: { id: true },
     });
-    if (existing) return;
+    if (existing) return { enqueued: false, skipped: "already-today", jobId: existing.id };
     const { enqueueJob } = await import("@/lib/job/service");
     // teamId null + olderThanDays large: local prune is fail-closed without teamId;
     // the worker still runs offsite prune as a side effect.
-    await enqueueJob({
+    const job = await enqueueJob({
       type: "backup.retention",
       title,
       payload: { olderThanDays: 3650, keepLatestPerType: 1, teamId: null },
@@ -193,10 +197,15 @@ async function maybeEnqueueOffsiteRetentionTick() {
       teamId: null,
       maxAttempts: 1,
     });
+    return { enqueued: true, jobId: job.id };
   } catch (error) {
     logger.warn("failed to enqueue daily offsite retention tick", {
       error: error instanceof Error ? error.message : String(error),
     });
+    return {
+      enqueued: false,
+      skipped: error instanceof Error ? error.message : String(error),
+    };
   }
 }
 
@@ -258,9 +267,13 @@ export async function runBackupScheduleTickJobWorkerOnce(reason = "manual") {
         leaseMs: BACKUP_SCHEDULE_TICK_LEASE_MS,
         progress: "Dispatching due backup schedules",
       });
-      const result = await maybeEnqueueOffsiteRetentionTick();
-  await dispatchDueBackupSchedules(reason);
-      await completeJob(job.id, BACKUP_SCHEDULE_WORKER_ID, result);
+      const offsiteTick = await maybeEnqueueOffsiteRetentionTick();
+      const scheduleResult = await dispatchDueBackupSchedules(reason);
+      await completeJob(job.id, BACKUP_SCHEDULE_WORKER_ID, {
+        offsiteRetentionTick: offsiteTick,
+        dispatched: scheduleResult.dispatched,
+        observed: scheduleResult.observed,
+      });
       try {
         await pruneCompletedJobsByType({
           type: BACKUP_SCHEDULE_TICK_JOB_TYPE,
