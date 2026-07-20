@@ -324,59 +324,170 @@ export async function cancelJob(jobId: string) {
   return updated;
 }
 
-export async function recoverStaleRunningJobs(options: { staleBefore: Date; retryAfterMs?: number; now?: Date }) {
+export async function recoverStaleRunningJobs(options: {
+  staleBefore: Date;
+  retryAfterMs?: number;
+  now?: Date;
+}): Promise<{ count: number; recovered: string[]; failed: string[] }> {
   const now = options.now ?? new Date();
-  // TR-001 T13a: find stale jobs first so we can emit a "recovered" event per
-  // job after the update commits (updateMany doesn't return rows).
-  const staleJobs = await prisma.job.findMany({
+  const staleWhere = {
+    status: JobStatus.RUNNING,
+    OR: [
+      { leaseExpiresAt: { lt: options.staleBefore } },
+      { workerHeartbeatAt: { lt: options.staleBefore } },
+    ],
+  };
+
+  // Retryable: lease expired and attempts remain → re-queue as PENDING so
+  // claimNextJob can pick them up again.
+  const retryable = await prisma.job.findMany({
     where: {
-      status: JobStatus.RUNNING,
-      OR: [{ leaseExpiresAt: { lt: options.staleBefore } }, { workerHeartbeatAt: { lt: options.staleBefore } }],
+      ...staleWhere,
       attempts: { lt: prisma.job.fields.maxAttempts },
     },
     select: { id: true, type: true, title: true, attempts: true, maxAttempts: true },
     take: 1000, // P2: 单次 sweep 的 stale 任务数,>1k 即异常告警
   });
-  if (staleJobs.length === 0) return { count: 0, recovered: [] };
 
-  const result = await prisma.job.updateMany({
+  // Exhausted: lease expired AND attempts already consumed the budget.
+  // claimNextJob also filters `attempts < maxAttempts`, so these rows would
+  // otherwise stay RUNNING forever and permanently occupy concurrency slots
+  // (and leave playbook.run / similar work "running" with no consumer).
+  const exhausted = await prisma.job.findMany({
     where: {
-      id: { in: staleJobs.map((j) => j.id) },
-      status: JobStatus.RUNNING,
+      ...staleWhere,
+      attempts: { gte: prisma.job.fields.maxAttempts },
     },
-    data: {
-      status: JobStatus.PENDING,
-      availableAt: futureFrom(now, options.retryAfterMs ?? 0),
-      workerId: null,
-      workerHeartbeatAt: null,
-      leaseExpiresAt: null,
-      errorMessage: "Backend executor heartbeat expired, re-queued",
+    select: {
+      id: true,
+      type: true,
+      title: true,
+      attempts: true,
+      maxAttempts: true,
+      payload: true,
     },
+    take: 1000,
   });
 
-  // Surface one "recovered" event per recovered job so the timeline shows
-  // the moment the worker regained ownership. Batch-insert instead of
-  // sequential create to avoid N round-trips.
-  const message = "Background executor heartbeat expired; re-enqueued";
-  await prisma.jobEvent.createMany({
-    data: staleJobs.map((job) => ({
-      jobId: job.id,
-      type: "recovered",
-      level: "warn",
-      message,
-      workerId: null,
-      payload: {
-        type: job.type,
-        title: job.title,
-        attempts: job.attempts,
-        maxAttempts: job.maxAttempts,
+  if (retryable.length === 0 && exhausted.length === 0) {
+    return { count: 0, recovered: [], failed: [] };
+  }
+
+  let recoveredCount = 0;
+  let failedCount = 0;
+
+  if (retryable.length > 0) {
+    const result = await prisma.job.updateMany({
+      where: {
+        id: { in: retryable.map((j) => j.id) },
+        status: JobStatus.RUNNING,
       },
-    })),
-  }).catch(() => {
-    // Recording must never break the caller's flow (mirrors recordJobEvent's catch).
-  });
+      data: {
+        status: JobStatus.PENDING,
+        availableAt: futureFrom(now, options.retryAfterMs ?? 0),
+        workerId: null,
+        workerHeartbeatAt: null,
+        leaseExpiresAt: null,
+        errorMessage: "Backend executor heartbeat expired, re-queued",
+      },
+    });
+    recoveredCount = result.count;
 
-  return { count: result.count, recovered: staleJobs.map((j) => j.id) };
+    // Surface one "recovered" event per recovered job so the timeline shows
+    // the moment the worker regained ownership. Batch-insert instead of
+    // sequential create to avoid N round-trips.
+    const message = "Background executor heartbeat expired; re-enqueued";
+    await prisma.jobEvent
+      .createMany({
+        data: retryable.map((job) => ({
+          jobId: job.id,
+          type: "recovered",
+          level: "warn",
+          message,
+          workerId: null,
+          payload: {
+            type: job.type,
+            title: job.title,
+            attempts: job.attempts,
+            maxAttempts: job.maxAttempts,
+          },
+        })),
+      })
+      .catch(() => {
+        // Recording must never break the caller's flow (mirrors recordJobEvent's catch).
+      });
+  }
+
+  if (exhausted.length > 0) {
+    const result = await prisma.job.updateMany({
+      where: {
+        id: { in: exhausted.map((j) => j.id) },
+        status: JobStatus.RUNNING,
+      },
+      data: {
+        status: JobStatus.FAILED,
+        completedAt: now,
+        workerId: null,
+        workerHeartbeatAt: null,
+        leaseExpiresAt: null,
+        errorMessage: "Backend executor heartbeat expired after exhausting attempts",
+      },
+    });
+    failedCount = result.count;
+
+    await prisma.jobEvent
+      .createMany({
+        data: exhausted.map((job) => ({
+          jobId: job.id,
+          type: "failed",
+          level: "error",
+          message: "Background executor heartbeat expired after exhausting attempts",
+          workerId: null,
+          payload: {
+            type: job.type,
+            title: job.title,
+            attempts: job.attempts,
+            maxAttempts: job.maxAttempts,
+          },
+        })),
+      })
+      .catch(() => {
+        // Recording must never break the caller's flow.
+      });
+
+    // Best-effort: finalize linked playbook runs that would otherwise stay
+    // "running" forever when the parent durable job is terminal-failed.
+    const playbookRunIds = exhausted
+      .filter((job) => job.type === "playbook.run")
+      .map((job) => {
+        const payload = job.payload;
+        if (!payload || typeof payload !== "object" || Array.isArray(payload)) return null;
+        const runId = (payload as { runId?: unknown }).runId;
+        return typeof runId === "string" && runId.trim() ? runId.trim() : null;
+      })
+      .filter((id): id is string => Boolean(id));
+
+    if (playbookRunIds.length > 0) {
+      await prisma.playbookRun
+        .updateMany({
+          where: { id: { in: playbookRunIds }, status: { in: ["queued", "running"] } },
+          data: {
+            status: "failed",
+            errorMessage: "Parent durable job exhausted attempts after executor heartbeat expired",
+            completedAt: now,
+          },
+        })
+        .catch(() => {
+          // Domain cleanup is best-effort; job terminal state already committed.
+        });
+    }
+  }
+
+  return {
+    count: recoveredCount + failedCount,
+    recovered: retryable.map((j) => j.id),
+    failed: exhausted.map((j) => j.id),
+  };
 }
 
 export async function pruneCompletedJobsByType(options: PruneCompletedJobsByTypeOptions) {

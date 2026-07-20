@@ -19,6 +19,9 @@ const { mockPrisma, configState } = vi.hoisted(() => ({
       findMany: vi.fn(async () => []),
       deleteMany: vi.fn(async () => ({ count: 0 })),
     },
+    playbookRun: {
+      updateMany: vi.fn(async () => ({ count: 0 })),
+    },
     $transaction: vi.fn(async (callback: any) => callback(mockPrisma)),
   },
   // TR-001 T13b: each test opts into specific cap values via `configState`;
@@ -155,23 +158,70 @@ describe("durable job service", () => {
     }));
 
     const now = new Date("2026-06-08T09:00:00Z");
-    mockPrisma.job.findMany.mockResolvedValueOnce([
-      { id: "stale-1", type: "download.execute", title: "stale 1", attempts: 1, maxAttempts: 3 },
-      { id: "stale-2", type: "command.execute", title: "stale 2", attempts: 2, maxAttempts: 3 },
-    ]);
+    // First findMany = retryable stale; second = exhausted (none).
+    mockPrisma.job.findMany
+      .mockResolvedValueOnce([
+        { id: "stale-1", type: "download.execute", title: "stale 1", attempts: 1, maxAttempts: 3 },
+        { id: "stale-2", type: "command.execute", title: "stale 2", attempts: 2, maxAttempts: 3 },
+      ])
+      .mockResolvedValueOnce([]);
+    mockPrisma.job.updateMany.mockResolvedValueOnce({ count: 2 });
     const recovered = await recoverStaleRunningJobs({ staleBefore: new Date("2026-06-08T08:55:00Z"), now });
     expect(mockPrisma.job.findMany).toHaveBeenCalledWith(expect.objectContaining({
-      where: expect.objectContaining({ status: "RUNNING" }),
+      where: expect.objectContaining({ status: "RUNNING", attempts: { lt: "maxAttempts" } }),
     }));
-    expect(mockPrisma.job.updateMany).toHaveBeenLastCalledWith(expect.objectContaining({
+    expect(mockPrisma.job.updateMany).toHaveBeenCalledWith(expect.objectContaining({
       where: expect.objectContaining({ status: "RUNNING" }),
       data: expect.objectContaining({ status: "PENDING", errorMessage: "Backend executor heartbeat expired, re-queued" }),
     }));
     // TR-001 T13a: return shape now includes the recovered id list so callers
-    // can emit per-job events or surface what was rescued this tick. The
-    // count is asserted via the updateMany mock return (default { count: 0 }
-    // is fine — we're verifying the id surface, not the updateMany mock).
+    // can emit per-job events or surface what was rescued this tick.
     expect(recovered.recovered).toEqual(["stale-1", "stale-2"]);
+    expect(recovered.failed).toEqual([]);
+    expect(recovered.count).toBe(2);
+  });
+
+  it("terminal-fails attempt-exhausted stale RUNNING jobs and linked playbook runs", async () => {
+    const now = new Date("2026-06-08T09:00:00Z");
+    mockPrisma.job.findMany
+      .mockResolvedValueOnce([]) // retryable
+      .mockResolvedValueOnce([
+        {
+          id: "ex-1",
+          type: "playbook.run",
+          title: "run",
+          attempts: 3,
+          maxAttempts: 3,
+          payload: { runId: "run-1" },
+        },
+      ]);
+    mockPrisma.job.updateMany.mockResolvedValueOnce({ count: 1 });
+    mockPrisma.playbookRun.updateMany.mockResolvedValueOnce({ count: 1 });
+
+    const recovered = await recoverStaleRunningJobs({
+      staleBefore: new Date("2026-06-08T08:55:00Z"),
+      now,
+    });
+
+    expect(recovered.recovered).toEqual([]);
+    expect(recovered.failed).toEqual(["ex-1"]);
+    expect(recovered.count).toBe(1);
+    expect(mockPrisma.job.updateMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: { in: ["ex-1"] }, status: "RUNNING" },
+        data: expect.objectContaining({
+          status: "FAILED",
+          errorMessage: "Backend executor heartbeat expired after exhausting attempts",
+          completedAt: now,
+        }),
+      }),
+    );
+    expect(mockPrisma.playbookRun.updateMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: { in: ["run-1"] }, status: { in: ["queued", "running"] } },
+        data: expect.objectContaining({ status: "failed" }),
+      }),
+    );
   });
 
   it("prunes only old completed jobs outside the retained latest set", async () => {

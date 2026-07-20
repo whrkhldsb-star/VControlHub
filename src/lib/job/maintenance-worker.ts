@@ -1,5 +1,7 @@
 /**
- * Job maintenance — abandon stale PENDING jobs with no known consumer.
+ * Job maintenance — abandon stale PENDING jobs with no known consumer,
+ * and finalize stale RUNNING jobs whose lease expired (including attempt-
+ * exhausted rows that claimNextJob will never re-claim).
  *
  * Historical migrations / experimental job types (e.g. `playbook.command`)
  * can leave forever-PENDING rows that no worker claims. This keeps the
@@ -10,6 +12,7 @@ import { JobStatus } from "@prisma/client";
 import { config } from "@/lib/config/env";
 import { prisma } from "@/lib/db";
 import { createLogger } from "@/lib/logging";
+import { recoverStaleRunningJobs } from "@/lib/job/service";
 
 const logger = createLogger("job-maintenance-worker");
 
@@ -131,6 +134,20 @@ async function tick(reason: string) {
   state.running = true;
   try {
     await abandonOrphanPendingJobs();
+    // Free concurrency slots held by dead workers: re-queue retryable
+    // expired leases, terminal-fail attempt-exhausted RUNNING rows.
+    // Without this, recoverStaleRunningJobs is only unit-tested and
+    // claimNextJob alone cannot clear attempts>=maxAttempts zombies.
+    const recovered = await recoverStaleRunningJobs({ staleBefore: new Date() });
+    if (recovered.count > 0) {
+      logger.warn("recovered stale RUNNING jobs", {
+        workerId: WORKER_ID,
+        recovered: recovered.recovered.length,
+        failed: recovered.failed.length,
+        recoveredIds: recovered.recovered,
+        failedIds: recovered.failed,
+      });
+    }
   } catch (error) {
     logger.error("job maintenance tick failed", {
       reason,

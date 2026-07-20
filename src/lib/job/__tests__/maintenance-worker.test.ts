@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const mocks = vi.hoisted(() => ({
   findMany: vi.fn(),
   updateMany: vi.fn(),
+  recoverStaleRunningJobs: vi.fn(async (): Promise<{ count: number; recovered: string[]; failed: string[] }> => ({ count: 0, recovered: [], failed: [] })),
 }));
 
 vi.mock("@/lib/db", () => ({
@@ -22,13 +23,24 @@ vi.mock("@/lib/logging", () => ({
   createLogger: () => ({ info: vi.fn(), warn: vi.fn(), error: vi.fn() }),
 }));
 
-const { abandonOrphanPendingJobs, _knownJobTypesForTests } = await import("../maintenance-worker");
+vi.mock("@/lib/job/service", () => ({
+  recoverStaleRunningJobs: mocks.recoverStaleRunningJobs,
+}));
+
+const {
+  abandonOrphanPendingJobs,
+  _knownJobTypesForTests,
+  startJobMaintenanceWorker,
+  stopJobMaintenanceWorkerForTests,
+} = await import("../maintenance-worker");
 
 describe("abandonOrphanPendingJobs", () => {
   beforeEach(() => {
     mocks.findMany.mockReset();
     mocks.updateMany.mockReset();
+    mocks.recoverStaleRunningJobs.mockReset();
     mocks.updateMany.mockResolvedValue({ count: 1 });
+    mocks.recoverStaleRunningJobs.mockResolvedValue({ count: 0, recovered: [], failed: [] });
   });
 
   it("cancels unknown job types after soft timeout", async () => {
@@ -62,5 +74,21 @@ describe("abandonOrphanPendingJobs", () => {
 
   it("exposes known job types helper", () => {
     expect(_knownJobTypesForTests().has("playbook.run")).toBe(true);
+  });
+
+  it("startup tick also recovers stale RUNNING leases", async () => {
+    mocks.findMany.mockResolvedValueOnce([]);
+    mocks.recoverStaleRunningJobs.mockResolvedValueOnce({
+      count: 1,
+      recovered: ["stale-a"],
+      failed: [],
+    });
+    await startJobMaintenanceWorker({ intervalMs: 60_000 });
+    // Allow the fire-and-forget startup tick to settle.
+    await new Promise((r) => setTimeout(r, 20));
+    expect(mocks.recoverStaleRunningJobs).toHaveBeenCalledWith(
+      expect.objectContaining({ staleBefore: expect.any(Date) }),
+    );
+    stopJobMaintenanceWorkerForTests();
   });
 });
