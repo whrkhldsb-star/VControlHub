@@ -94,7 +94,8 @@ export const zh: Record<string, string> = {
 	"backupsPage.records.notCompleted": "未完成",
 	"backupsPage.records.error": "错误：{message}",
 	"backupsPage.records.restoreHint": "只有 COMPLETED 状态的备份可以执行恢复。",
-	"backupsPage.records.voidHint": "对历史 PENDING/FAILED 记录写入作废说明，不删除备份审计记录。",
+	"backupsPage.records.voidedLabel": "已作废（不可重试）",
+	"backupsPage.records.voidHint": "对历史 PENDING/FAILED 记录写入作废（状态变为 VOIDED）说明，不删除备份审计记录。",
 	"backupsPage.drill.submit": "执行无损恢复演练",
 	"backupsPage.drill.pending": "演练排队中…",
 	"backupsPage.drill.queued": "演练任务已创建：{taskId}",
@@ -294,6 +295,7 @@ export const en: Record<string, string> = {
 	"backupsPage.records.notCompleted": "Not completed",
 	"backupsPage.records.error": "Error: {message}",
 	"backupsPage.records.restoreHint": "Only COMPLETED backups can be restored.",
+	"backupsPage.records.voidedLabel": "Voided (cannot retry)",
 	"backupsPage.records.voidHint": "Historical PENDING/FAILED records are marked void but not deleted; the audit record is preserved.",
 
 	// TR-007 M03: 异地备份 (S3-compatible) overview section

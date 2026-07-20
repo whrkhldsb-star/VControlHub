@@ -198,6 +198,9 @@ export default async function BackupsPage() {
 							{canCreate && b.status !== "COMPLETED" && (
 								<div className="mt-3 flex flex-wrap items-start gap-3">
 									{b.status === "FAILED" && <RetryBackupRecordButton backupId={b.id} status={b.status} />}
+									{b.status === "VOIDED" && (
+										<p className="mt-1 text-xs text-[var(--text-muted)]">{t("backupsPage.records.voidedLabel")}</p>
+									)}
 									<VoidBackupRecordButton backupId={b.id} status={b.status} />
 									<p className="mt-1 text-xs text-[var(--text-muted)]">{t("backupsPage.records.voidHint")}</p>
 								</div>

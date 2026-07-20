@@ -16,7 +16,7 @@ describe("/api/backups/[id]/void", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mocks.requireApiPermission.mockResolvedValue({ session: { userId: "u1", user: { id: "u1" } } });
-    mocks.voidBackupRecord.mockImplementation(async (input: any) => ({ id: input.id, status: "FAILED", errorMessage: `已作废：${input.reason}` }));
+    mocks.voidBackupRecord.mockImplementation(async (input: any) => ({ id: input.id, status: "VOIDED", errorMessage: `已作废：${input.reason}` }));
   });
 
   it("requires backup:create before voiding a backup record", async () => {
@@ -33,7 +33,7 @@ describe("/api/backups/[id]/void", () => {
 
     expect(res.status).toBe(200);
     expect(mocks.voidBackupRecord).toHaveBeenCalledWith({ id: "bak1", reason: "历史记录不再执行", session: expect.objectContaining({ userId: "u1" }) });
-    await expect(res.json()).resolves.toMatchObject({ backup: { id: "bak1", status: "FAILED" } });
+    await expect(res.json()).resolves.toMatchObject({ backup: { id: "bak1", status: "VOIDED" } });
   });
 
   it("rejects empty void reasons", async () => {
