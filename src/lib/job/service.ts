@@ -438,8 +438,11 @@ export async function recoverStaleRunningJobs(options: {
     return { count: 0, recovered: [], failed: [] };
   }
 
-  let recoveredCount = 0;
-  let failedCount = 0;
+  // CAS-honest ids only: a concurrent heartbeat/complete can shrink the
+  // updateMany count below the candidate list. Events + return arrays must
+  // match rows actually moved (otherwise maintenance logs/timeline lie).
+  const recoveredIds: string[] = [];
+  const failedIds: string[] = [];
 
   if (retryable.length > 0) {
     // CAS: only reclaim if still RUNNING and still stale at update time
@@ -462,31 +465,52 @@ export async function recoverStaleRunningJobs(options: {
         errorMessage: "Backend executor heartbeat expired, re-queued",
       },
     });
-    recoveredCount = result.count;
 
-    // Surface one "recovered" event per recovered job so the timeline shows
-    // the moment the worker regained ownership. Batch-insert instead of
-    // sequential create to avoid N round-trips.
-    const message = "Background executor heartbeat expired; re-enqueued";
-    await prisma.jobEvent
-      .createMany({
-        data: retryable.map((job) => ({
-          jobId: job.id,
-          type: "recovered",
-          level: "warn",
-          message,
-          workerId: null,
-          payload: {
-            type: job.type,
-            title: job.title,
-            attempts: job.attempts,
-            maxAttempts: job.maxAttempts,
-          },
-        })),
-      })
-      .catch(() => {
-        // Recording must never break the caller's flow (mirrors recordJobEvent's catch).
+    // When CAS moved every candidate (common path), skip the re-query.
+    // Partial CAS wins need a follow-up select of rows still in the
+    // post-reclaim shape so events/return ids stay honest.
+    if (result.count >= retryable.length) {
+      recoveredIds.push(...retryable.map((j) => j.id));
+    } else if (result.count > 0) {
+      const moved = await prisma.job.findMany({
+        where: {
+          id: { in: retryable.map((j) => j.id) },
+          status: JobStatus.PENDING,
+          errorMessage: "Backend executor heartbeat expired, re-queued",
+        },
+        select: { id: true },
+        take: retryable.length,
       });
+      recoveredIds.push(...moved.map((j) => j.id));
+    }
+
+    if (recoveredIds.length > 0) {
+      const recoveredSet = new Set(recoveredIds);
+      // Surface one "recovered" event per actually reclaimed job so the
+      // timeline shows the moment the worker regained ownership.
+      const message = "Background executor heartbeat expired; re-enqueued";
+      await prisma.jobEvent
+        .createMany({
+          data: retryable
+            .filter((job) => recoveredSet.has(job.id))
+            .map((job) => ({
+              jobId: job.id,
+              type: "recovered",
+              level: "warn",
+              message,
+              workerId: null,
+              payload: {
+                type: job.type,
+                title: job.title,
+                attempts: job.attempts,
+                maxAttempts: job.maxAttempts,
+              },
+            })),
+        })
+        .catch(() => {
+          // Recording must never break the caller's flow (mirrors recordJobEvent's catch).
+        });
+    }
   }
 
   if (exhausted.length > 0) {
@@ -508,60 +532,80 @@ export async function recoverStaleRunningJobs(options: {
         errorMessage: "Backend executor heartbeat expired after exhausting attempts",
       },
     });
-    failedCount = result.count;
 
-    await prisma.jobEvent
-      .createMany({
-        data: exhausted.map((job) => ({
-          jobId: job.id,
-          type: "failed",
-          level: "error",
-          message: "Background executor heartbeat expired after exhausting attempts",
-          workerId: null,
-          payload: {
-            type: job.type,
-            title: job.title,
-            attempts: job.attempts,
-            maxAttempts: job.maxAttempts,
-          },
-        })),
-      })
-      .catch(() => {
-        // Recording must never break the caller's flow.
+    if (result.count >= exhausted.length) {
+      failedIds.push(...exhausted.map((j) => j.id));
+    } else if (result.count > 0) {
+      const moved = await prisma.job.findMany({
+        where: {
+          id: { in: exhausted.map((j) => j.id) },
+          status: JobStatus.FAILED,
+          errorMessage: "Backend executor heartbeat expired after exhausting attempts",
+        },
+        select: { id: true },
+        take: exhausted.length,
       });
+      failedIds.push(...moved.map((j) => j.id));
+    }
 
-    // Best-effort: finalize linked playbook runs that would otherwise stay
-    // "running" forever when the parent durable job is terminal-failed.
-    const playbookRunIds = exhausted
-      .filter((job) => job.type === "playbook.run")
-      .map((job) => {
-        const payload = job.payload;
-        if (!payload || typeof payload !== "object" || Array.isArray(payload)) return null;
-        const runId = (payload as { runId?: unknown }).runId;
-        return typeof runId === "string" && runId.trim() ? runId.trim() : null;
-      })
-      .filter((id): id is string => Boolean(id));
-
-    if (playbookRunIds.length > 0) {
-      await prisma.playbookRun
-        .updateMany({
-          where: { id: { in: playbookRunIds }, status: { in: ["queued", "running"] } },
-          data: {
-            status: "failed",
-            errorMessage: "Parent durable job exhausted attempts after executor heartbeat expired",
-            completedAt: now,
-          },
+    if (failedIds.length > 0) {
+      const failedSet = new Set(failedIds);
+      await prisma.jobEvent
+        .createMany({
+          data: exhausted
+            .filter((job) => failedSet.has(job.id))
+            .map((job) => ({
+              jobId: job.id,
+              type: "failed",
+              level: "error",
+              message: "Background executor heartbeat expired after exhausting attempts",
+              workerId: null,
+              payload: {
+                type: job.type,
+                title: job.title,
+                attempts: job.attempts,
+                maxAttempts: job.maxAttempts,
+              },
+            })),
         })
         .catch(() => {
-          // Domain cleanup is best-effort; job terminal state already committed.
+          // Recording must never break the caller's flow.
         });
+
+      // Best-effort: finalize linked playbook runs that would otherwise stay
+      // "running" forever when the parent durable job is terminal-failed.
+      // Only touch runs whose parent job actually CAS-failed this sweep.
+      const playbookRunIds = exhausted
+        .filter((job) => failedSet.has(job.id) && job.type === "playbook.run")
+        .map((job) => {
+          const payload = job.payload;
+          if (!payload || typeof payload !== "object" || Array.isArray(payload)) return null;
+          const runId = (payload as { runId?: unknown }).runId;
+          return typeof runId === "string" && runId.trim() ? runId.trim() : null;
+        })
+        .filter((id): id is string => Boolean(id));
+
+      if (playbookRunIds.length > 0) {
+        await prisma.playbookRun
+          .updateMany({
+            where: { id: { in: playbookRunIds }, status: { in: ["queued", "running"] } },
+            data: {
+              status: "failed",
+              errorMessage: "Parent durable job exhausted attempts after executor heartbeat expired",
+              completedAt: now,
+            },
+          })
+          .catch(() => {
+            // Domain cleanup is best-effort; job terminal state already committed.
+          });
+      }
     }
   }
 
   return {
-    count: recoveredCount + failedCount,
-    recovered: retryable.map((j) => j.id),
-    failed: exhausted.map((j) => j.id),
+    count: recoveredIds.length + failedIds.length,
+    recovered: recoveredIds,
+    failed: failedIds,
   };
 }
 

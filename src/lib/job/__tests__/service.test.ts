@@ -257,6 +257,53 @@ describe("durable job service", () => {
     );
   });
 
+  it("returns only CAS-won ids and skips events when concurrent heartbeat wins", async () => {
+    const now = new Date("2026-06-08T09:00:00Z");
+    mockPrisma.job.findMany
+      .mockResolvedValueOnce([
+        { id: "stale-1", type: "download.execute", title: "a", attempts: 1, maxAttempts: 3 },
+        { id: "stale-2", type: "download.execute", title: "b", attempts: 1, maxAttempts: 3 },
+      ])
+      .mockResolvedValueOnce([]) // exhausted candidates
+      // partial CAS re-query for who actually moved to PENDING
+      .mockResolvedValueOnce([{ id: "stale-1" }]);
+    mockPrisma.job.updateMany.mockResolvedValueOnce({ count: 1 });
+
+    const recovered = await recoverStaleRunningJobs({
+      staleBefore: new Date("2026-06-08T08:55:00Z"),
+      now,
+    });
+
+    expect(recovered.count).toBe(1);
+    expect(recovered.recovered).toEqual(["stale-1"]);
+    expect(recovered.failed).toEqual([]);
+    expect(mockPrisma.jobEvent.createMany).toHaveBeenCalledTimes(1);
+    const createManyCalls = mockPrisma.jobEvent.createMany.mock.calls as unknown as Array<
+      [{ data: Array<{ jobId: string; type: string }> }]
+    >;
+    expect(createManyCalls[0]?.[0].data).toEqual([
+      expect.objectContaining({ jobId: "stale-1", type: "recovered" }),
+    ]);
+  });
+
+  it("does not emit recovered events when CAS moves zero rows", async () => {
+    const now = new Date("2026-06-08T09:00:00Z");
+    mockPrisma.job.findMany
+      .mockResolvedValueOnce([
+        { id: "stale-1", type: "download.execute", title: "a", attempts: 1, maxAttempts: 3 },
+      ])
+      .mockResolvedValueOnce([]);
+    mockPrisma.job.updateMany.mockResolvedValueOnce({ count: 0 });
+
+    const recovered = await recoverStaleRunningJobs({
+      staleBefore: new Date("2026-06-08T08:55:00Z"),
+      now,
+    });
+
+    expect(recovered).toEqual({ count: 0, recovered: [], failed: [] });
+    expect(mockPrisma.jobEvent.createMany).not.toHaveBeenCalled();
+  });
+
   it("prunes only old completed jobs outside the retained latest set", async () => {
     const olderThan = new Date("2026-06-01T00:00:00Z");
     mockPrisma.job.findMany.mockResolvedValue([{ id: "keep-new" }, { id: "keep-recent" }]);
