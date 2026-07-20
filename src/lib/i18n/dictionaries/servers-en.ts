@@ -203,6 +203,8 @@ export const en: Record<string, string> = {
 	"serverCardActions.directGateway.enableLabel": "Enable target direct access",
 	"serverCardActions.directGateway.protocol": "Direct public protocol",
 	"serverCardActions.directGateway.protocolHttp": "HTTP (default)",
+	"serverCardActions.directGateway.publicListen": "Listen on all interfaces (0.0.0.0)",
+	"serverCardActions.directGateway.publicListenHint": "Required for browser → VPS:31888 direct downloads. Open firewall/security group; plain HTTP is not transport-encrypted—prefer HTTPS reverse proxy. Uncheck for 127.0.0.1 only (bring your own proxy).",
 	"serverCardActions.directGateway.protocolHttps": "HTTPS (requires target TLS/reverse proxy)",
 	"serverCardActions.edit.toggleShow": "Edit node",
 	"serverCardActions.edit.toggleHide": "Collapse edit",

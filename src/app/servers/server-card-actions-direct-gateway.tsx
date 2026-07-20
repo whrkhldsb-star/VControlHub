@@ -48,26 +48,45 @@ export function ServerCardDirectGatewayForm({
       />
 
       {!directGateway.enabled ? (
-        <div className="space-y-1">
-          <label
-            className="block text-[11px] font-medium text-[var(--text-muted)]"
-            htmlFor={`direct-gateway-protocol-${serverId}`}
-          >
-            {t("serverCardActions.directGateway.protocol")}
+        <div className="space-y-2">
+          <div className="space-y-1">
+            <label
+              className="block text-[11px] font-medium text-[var(--text-muted)]"
+              htmlFor={`direct-gateway-protocol-${serverId}`}
+            >
+              {t("serverCardActions.directGateway.protocol")}
+            </label>
+            <select
+              id={`direct-gateway-protocol-${serverId}`}
+              name="directGatewayProtocol"
+              defaultValue="http"
+              className="w-full rounded-lg border border-[var(--color-action-border)]/20 bg-[var(--surface-subtle)] px-3 py-2 text-xs text-[var(--text-primary)]"
+            >
+              <option value="http">
+                {t("serverCardActions.directGateway.protocolHttp")}
+              </option>
+              <option value="https">
+                {t("serverCardActions.directGateway.protocolHttps")}
+              </option>
+            </select>
+          </div>
+          <label className="flex items-start gap-2 text-[11px] leading-5 text-[var(--text-secondary)]">
+            <input
+              type="checkbox"
+              name="publicListen"
+              value="true"
+              defaultChecked
+              className="mt-0.5 h-4 w-4 rounded border-[var(--border)] bg-[var(--input-bg)]"
+            />
+            <span>
+              <span className="block font-medium text-[var(--text-primary)]">
+                {t("serverCardActions.directGateway.publicListen")}
+              </span>
+              <span className="text-[var(--text-muted)]">
+                {t("serverCardActions.directGateway.publicListenHint")}
+              </span>
+            </span>
           </label>
-          <select
-            id={`direct-gateway-protocol-${serverId}`}
-            name="directGatewayProtocol"
-            defaultValue="http"
-            className="w-full rounded-lg border border-[var(--color-action-border)]/20 bg-[var(--surface-subtle)] px-3 py-2 text-xs text-[var(--text-primary)]"
-          >
-            <option value="http">
-              {t("serverCardActions.directGateway.protocolHttp")}
-            </option>
-            <option value="https">
-              {t("serverCardActions.directGateway.protocolHttps")}
-            </option>
-          </select>
         </div>
       ) : null}
 

@@ -215,6 +215,8 @@ export const zh: Record<string, string> = {
 	"serverCardActions.directGateway.enableLabel": "启用目标直连",
 	"serverCardActions.directGateway.protocol": "直连公网协议",
 	"serverCardActions.directGateway.protocolHttp": "HTTP（默认）",
+	"serverCardActions.directGateway.publicListen": "监听公网接口 (0.0.0.0)",
+	"serverCardActions.directGateway.publicListenHint": "勾选后浏览器才能直连 VPS:31888。需防火墙/安全组放行；明文 HTTP 有窃听风险，生产建议反代 HTTPS。取消勾选则仅本机 127.0.0.1（需自建反代）。",
 	"serverCardActions.directGateway.protocolHttps": "HTTPS（需目标端 TLS/反代）",
 	"serverCardActions.edit.toggleShow": "编辑节点",
 	"serverCardActions.edit.toggleHide": "收起编辑",

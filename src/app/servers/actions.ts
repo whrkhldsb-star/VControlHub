@@ -262,8 +262,11 @@ export async function toggleDirectGatewayAction(
     const enabled = formData.get("enabledDirectGateway") === "true";
     const directGatewayProtocol =
       formData.get("directGatewayProtocol") === "https" ? "https" : "http";
+    // Checked = bind 0.0.0.0 (browser can hit publicUrl). Unchecked = 127.0.0.1 only.
+    const publicListen = enabled ? formData.get("publicListen") === "true" : undefined;
     await setServerDirectGatewayEnabled(serverId, enabled, {
       publicProtocol: directGatewayProtocol,
+      publicListen,
     });
     await auditUserAction(session.userId, "server.direct_gateway.toggle", {
       serverId,

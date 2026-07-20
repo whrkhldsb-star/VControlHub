@@ -14,6 +14,10 @@ import {
 } from "./direct-gateway";
 import { getErrorMessage, safeRevalidatePath } from "./service-internals";
 
+const PUBLIC_HEALTH_TIMEOUT_MS = process.env.VITEST ? 400 : 8_000;
+const PUBLIC_HEALTH_ATTEMPTS = process.env.VITEST ? 1 : 4;
+const PUBLIC_HEALTH_RETRY_MS = process.env.VITEST ? 0 : 1_200;
+
 export function getConfiguredDirectAccessSecret() {
   const secret = config.auth.storageGatewaySecret ?? "";
   if (!secret) {
@@ -22,6 +26,68 @@ export function getConfiguredDirectAccessSecret() {
     );
   }
   return secret;
+}
+
+/**
+ * Resolve bind for remote install.
+ * - explicit bindAddress wins
+ * - publicListen=true → 0.0.0.0 (browser can reach publicUrl)
+ * - publicListen=false → loopback (needs reverse proxy / VPN)
+ * - default when enabling: publicListen true so AUTO direct actually works
+ */
+export function resolveDirectGatewayBindAddress(input: {
+  bindAddress?: string;
+  publicListen?: boolean;
+}): string {
+  if (input.bindAddress?.trim()) return input.bindAddress.trim();
+  if (input.publicListen === false) return "127.0.0.1";
+  return "0.0.0.0";
+}
+
+/** Probe the *public* entry used by browsers (not only remote loopback health). */
+export async function probePublicDirectGatewayHealth(
+  publicBaseUrl: string,
+  options: { timeoutMs?: number; attempts?: number } = {},
+): Promise<{ ok: boolean; error?: string; status?: number }> {
+  const timeoutMs = options.timeoutMs ?? PUBLIC_HEALTH_TIMEOUT_MS;
+  const attempts = options.attempts ?? PUBLIC_HEALTH_ATTEMPTS;
+  let lastError = "unreachable";
+  let lastStatus: number | undefined;
+
+  for (let i = 0; i < attempts; i++) {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), timeoutMs);
+    try {
+      const healthUrl = new URL(
+        "/__vch_health",
+        publicBaseUrl.endsWith("/") ? publicBaseUrl : `${publicBaseUrl}/`,
+      );
+      const response = await fetch(healthUrl, {
+        method: "GET",
+        redirect: "manual",
+        signal: controller.signal,
+      });
+      lastStatus = response.status;
+      if (response.status === 200) {
+        const body = (await response.text()).trim();
+        if (body === "ok" || body === "") {
+          return { ok: true, status: 200 };
+        }
+        lastError = `unexpected body ${JSON.stringify(body.slice(0, 80))}`;
+      } else {
+        lastError = `HTTP ${response.status}`;
+      }
+    } catch (error) {
+      lastError = getErrorMessage(error);
+    } finally {
+      clearTimeout(timer);
+    }
+    if (i < attempts - 1) {
+      await new Promise((r) => setTimeout(r, PUBLIC_HEALTH_RETRY_MS));
+    }
+  }
+
+  return { ok: false, error: lastError, status: lastStatus };
 }
 
 export async function loadServerForDirectGateway(serverId: string) {
@@ -42,21 +108,65 @@ export async function loadServerForDirectGateway(serverId: string) {
   });
 }
 
+async function clearDirectGatewayDbState(serverId: string) {
+  await prisma.server.update({
+    where: { id: serverId },
+    data: { fileProxyPort: 0, publicUrl: null },
+  });
+  await prisma.storageNode.updateMany({
+    where: { serverId },
+    data: { directAccessMode: "PROXY", publicBaseUrl: null },
+  });
+}
+
+async function markDirectGatewayEnabledDb(input: {
+  serverId: string;
+  publicBaseUrl: string;
+}) {
+  await prisma.server.update({
+    where: { id: input.serverId },
+    data: {
+      fileProxyPort: DIRECT_GATEWAY_DEFAULT_PORT,
+      publicUrl: input.publicBaseUrl,
+    },
+  });
+  await prisma.storageNode.updateMany({
+    where: {
+      serverId: input.serverId,
+      driver: "SFTP",
+    },
+    data: {
+      directAccessMode: "AUTO",
+      publicBaseUrl: input.publicBaseUrl,
+      directAccessExpiresSeconds: 300,
+    },
+  });
+}
+
 export async function applyServerDirectGatewayState(input: {
   serverId: string;
   enabled: boolean;
   bestEffort?: boolean;
   publicProtocol?: "http" | "https";
-  // TR-002: Direct Gateway 监听地址，默认 127.0.0.1（仅本机可访问）。
-  // 显式传 "0.0.0.0" 才监听全部接口，需 UI 风险提示 (TLS/VPN/防火墙任一)。
+  /**
+   * Listen address on the remote node.
+   * Prefer publicListen for product path; bindAddress is the low-level override.
+   */
   bindAddress?: string;
+  /**
+   * When enabling: if true (default), bind 0.0.0.0 so publicUrl is reachable.
+   * If false, bind 127.0.0.1 (requires reverse proxy / VPN).
+   */
+  publicListen?: boolean;
+  /** Skip control-plane public health probe (tests only). */
+  skipPublicHealthProbe?: boolean;
 }) {
   const t = await serverT();
   const server = await loadServerForDirectGateway(input.serverId);
   if (!server) {
     if (input.bestEffort)
       return {
-        enabled: input.enabled,
+        enabled: false,
         publicBaseUrl: null,
         cleanupSkipped: true,
       };
@@ -100,6 +210,11 @@ export async function applyServerDirectGatewayState(input: {
     port: DIRECT_GATEWAY_DEFAULT_PORT,
     protocol: input.publicProtocol ?? "http",
   });
+  const bindAddress = resolveDirectGatewayBindAddress({
+    bindAddress: input.bindAddress,
+    // Enabling for real browser direct access defaults to public listen.
+    publicListen: input.enabled ? (input.publicListen ?? true) : false,
+  });
   let cleanupSkipped = false;
   let errorMessage: string | null = null;
   let ssh: Awaited<ReturnType<typeof buildSshParamsFromServer>>;
@@ -111,8 +226,7 @@ export async function applyServerDirectGatewayState(input: {
           rootPath: basePath,
           secret: getConfiguredDirectAccessSecret(),
           port: DIRECT_GATEWAY_DEFAULT_PORT,
-          // TR-002: 透传 bindAddress (默认 127.0.0.1，安全). 如用户显式传 0.0.0.0 需 UI 风险提示。
-          bindAddress: input.bindAddress,
+          bindAddress,
         })
       : buildUninstallDirectGatewayCommand();
   } catch (error) {
@@ -142,6 +256,12 @@ export async function applyServerDirectGatewayState(input: {
     }
   }
   if (input.enabled && cleanupSkipped) {
+    // Never leave a false-positive "enabled" row when install failed.
+    try {
+      await clearDirectGatewayDbState(input.serverId);
+    } catch {
+      /* ignore */
+    }
     return {
       enabled: false,
       publicBaseUrl: null,
@@ -149,25 +269,53 @@ export async function applyServerDirectGatewayState(input: {
       errorMessage,
     };
   }
-  await prisma.server.update({
-    where: { id: input.serverId },
-    data: input.enabled
-      ? { fileProxyPort: DIRECT_GATEWAY_DEFAULT_PORT, publicUrl: publicBaseUrl }
-      : { fileProxyPort: 0, publicUrl: null },
-  });
-  await prisma.storageNode.updateMany({
-    where: {
-      serverId: input.serverId,
-      ...(input.enabled ? { driver: "SFTP" as const } : {}),
-    },
-    data: input.enabled
-      ? {
-          directAccessMode: "AUTO",
-          publicBaseUrl,
-          directAccessExpiresSeconds: 300,
+
+  if (input.enabled) {
+    // Install succeeded on-node (loopback health in install script). Now require
+    // the *public* entry used by browsers to be reachable from the control plane.
+    if (!input.skipPublicHealthProbe && !isLocalHost) {
+      const probe = await probePublicDirectGatewayHealth(publicBaseUrl);
+      if (!probe.ok) {
+        // Roll back remote service + keep DB on relay so AUTO won't pretend.
+        try {
+          await execRemoteCommand({
+            ...ssh,
+            command: buildUninstallDirectGatewayCommand(),
+            timeout: 120_000,
+          });
+        } catch {
+          /* best-effort uninstall */
         }
-      : { directAccessMode: "PROXY", publicBaseUrl: null },
-  });
+        try {
+          await clearDirectGatewayDbState(input.serverId);
+        } catch {
+          /* ignore */
+        }
+        const failMsg =
+          `Direct gateway installed on the VPS but public health check failed for ${publicBaseUrl}/__vch_health (${probe.error ?? "unreachable"}). ` +
+          `Open firewall/security-group/NAT for port ${DIRECT_GATEWAY_DEFAULT_PORT}, or use a reverse proxy. Database stays on website relay.`;
+        if (input.bestEffort) {
+          return {
+            enabled: false,
+            publicBaseUrl: null,
+            cleanupSkipped: true,
+            errorMessage: failMsg,
+            bindAddress,
+            publicReachable: false,
+          };
+        }
+        throw new BusinessError(failMsg);
+      }
+    }
+
+    await markDirectGatewayEnabledDb({
+      serverId: input.serverId,
+      publicBaseUrl,
+    });
+  } else {
+    await clearDirectGatewayDbState(input.serverId);
+  }
+
   safeRevalidatePath("/servers");
   safeRevalidatePath("/storage");
   safeRevalidatePath("/files");
@@ -176,17 +324,27 @@ export async function applyServerDirectGatewayState(input: {
     publicBaseUrl: input.enabled ? publicBaseUrl : null,
     cleanupSkipped,
     errorMessage,
+    bindAddress: input.enabled ? bindAddress : undefined,
+    publicReachable: input.enabled ? true : undefined,
   };
 }
 
 export async function setServerDirectGatewayEnabled(
   serverId: string,
   enabled: boolean,
-  options: { publicProtocol?: "http" | "https" } = {},
+  options: {
+    publicProtocol?: "http" | "https";
+    publicListen?: boolean;
+    bindAddress?: string;
+    skipPublicHealthProbe?: boolean;
+  } = {},
 ) {
   return applyServerDirectGatewayState({
     serverId,
     enabled,
     publicProtocol: options.publicProtocol,
+    publicListen: options.publicListen,
+    bindAddress: options.bindAddress,
+    skipPublicHealthProbe: options.skipPublicHealthProbe,
   });
 }

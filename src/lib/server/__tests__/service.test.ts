@@ -617,6 +617,9 @@ describe("server service", () => {
       updatedAt: new Date(),
     } as any);
 
+    const fetchMock = vi.fn(async () => new Response("ok", { status: 200 }));
+    vi.stubGlobal("fetch", fetchMock);
+
     await createServerProfile({
       name: "direct-node",
       host: "203.0.113.10",
@@ -629,11 +632,13 @@ describe("server service", () => {
       approvedHostKeySha256: "hk-prod-1 storage",
       });
 
+    expect(fetchMock).toHaveBeenCalled();
     expect(execRemoteCommandMock).toHaveBeenCalledWith(
       expect.objectContaining({
         command: expect.stringContaining("vcontrolhub-direct.service"),
       }),
     );
+    vi.unstubAllGlobals();
     expect(execRemoteCommandMock).toHaveBeenCalledWith(
       expect.objectContaining({
         command: expect.stringContaining("DIRECT_SECRET='test-direct-secret'"),
@@ -1018,7 +1023,16 @@ describe("server service", () => {
         }),
       }),
     );
-    expect(prisma.storageNode.updateMany).not.toHaveBeenCalled();
+    // Direct gateway failure clears partial DB direct-access state (relay).
+    expect(prisma.storageNode.updateMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { serverId: "srv_warn" },
+        data: expect.objectContaining({
+          directAccessMode: "PROXY",
+          publicBaseUrl: null,
+        }),
+      }),
+    );
     expect(result.onboardingWarnings).toEqual([
       expect.stringContaining("Failed to auto-create remote storage directory"),
       expect.stringContaining("Failed to auto-configure direct gateway"),
@@ -1077,6 +1091,116 @@ describe("server service", () => {
     expect(execRemoteCommandMock).not.toHaveBeenCalled();
     expect(prisma.server.update).not.toHaveBeenCalled();
     expect(prisma.storageNode.updateMany).not.toHaveBeenCalled();
+  });
+
+  it("enables direct gateway only after public health probe succeeds", async () => {
+    execRemoteCommandMock.mockReset();
+    execRemoteCommandMock.mockResolvedValue({
+      stdout: "vcontrolhub-direct-ready",
+      stderr: "",
+      exitCode: 0,
+    });
+    vi.mocked(prisma.server.findUnique).mockReset();
+    vi.mocked(prisma.server.findUnique).mockResolvedValue({
+      id: "srv_1",
+      host: "203.0.113.10",
+      port: 22,
+      username: "root",
+      password: null,
+      connectionType: "SSH_KEY",
+      sshKeyId: "key_1",
+      fileProxyPort: 0,
+      publicUrl: null,
+      sshKey: { privateKey: "plain-key" },
+      storageNode: {
+        id: "sn_1",
+        basePath: "/root/drive",
+        driver: "SFTP",
+        fileEntries: [],
+        mediaItems: [],
+      },
+    } as any);
+    vi.mocked(prisma.server.update).mockReset();
+    vi.mocked(prisma.server.update).mockResolvedValue({} as any);
+    vi.mocked(prisma.storageNode.updateMany).mockReset();
+    vi.mocked(prisma.storageNode.updateMany).mockResolvedValue({ count: 1 } as any);
+
+    const fetchMock = vi.fn(async () => new Response("ok", { status: 200 }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    const result = await setServerDirectGatewayEnabled("srv_1", true, {
+      publicProtocol: "http",
+      publicListen: true,
+    });
+
+    expect(result.enabled).toBe(true);
+    expect(result.publicBaseUrl).toBe("http://203.0.113.10:31888");
+    expect(execRemoteCommandMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        command: expect.stringContaining("DIRECT_BIND='0.0.0.0'"),
+      }),
+    );
+    expect(fetchMock).toHaveBeenCalled();
+    expect(prisma.server.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: {
+          fileProxyPort: 31888,
+          publicUrl: "http://203.0.113.10:31888",
+        },
+      }),
+    );
+    vi.unstubAllGlobals();
+  });
+
+  it("does not mark direct gateway enabled when public health probe fails", async () => {
+    execRemoteCommandMock.mockReset();
+    execRemoteCommandMock.mockResolvedValue({
+      stdout: "ok",
+      stderr: "",
+      exitCode: 0,
+    });
+    vi.mocked(prisma.server.findUnique).mockReset();
+    vi.mocked(prisma.server.findUnique).mockResolvedValue({
+      id: "srv_1",
+      host: "203.0.113.10",
+      port: 22,
+      username: "root",
+      password: null,
+      connectionType: "SSH_KEY",
+      sshKeyId: "key_1",
+      fileProxyPort: 0,
+      publicUrl: null,
+      sshKey: { privateKey: "plain-key" },
+      storageNode: {
+        id: "sn_1",
+        basePath: "/root/drive",
+        driver: "SFTP",
+        fileEntries: [],
+        mediaItems: [],
+      },
+    } as any);
+    vi.mocked(prisma.server.update).mockReset();
+    vi.mocked(prisma.server.update).mockResolvedValue({} as any);
+    vi.mocked(prisma.storageNode.updateMany).mockReset();
+    vi.mocked(prisma.storageNode.updateMany).mockResolvedValue({ count: 1 } as any);
+
+    const fetchMock = vi.fn(async () => {
+      throw new Error("connect ETIMEDOUT");
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(
+      setServerDirectGatewayEnabled("srv_1", true, { publicListen: true }),
+    ).rejects.toThrow(/public health check failed/i);
+
+    // install + best-effort uninstall
+    expect(execRemoteCommandMock.mock.calls.length).toBeGreaterThanOrEqual(2);
+    expect(prisma.server.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: { fileProxyPort: 0, publicUrl: null },
+      }),
+    );
+    vi.unstubAllGlobals();
   });
 
   it("switches global direct gateway off by uninstalling the service and returning storage to proxy", async () => {
@@ -1414,7 +1538,16 @@ describe("server service", () => {
         }),
       }),
     );
-    expect(prisma.storageNode.updateMany).not.toHaveBeenCalled();
+    // Install failure clears any partial direct-access DB state (relay mode).
+    expect(prisma.storageNode.updateMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { serverId: "srv_direct_fail" },
+        data: expect.objectContaining({
+          directAccessMode: "PROXY",
+          publicBaseUrl: null,
+        }),
+      }),
+    );
   });
 
   it("rejects duplicate enabled server endpoints before creating storage nodes", async () => {
