@@ -8,17 +8,15 @@ test.describe("public smoke routes", () => {
 		await expect(page.getByRole("button", { name: /登录|Sign in|Log in/i })).toBeVisible();
 	});
 
-	// WebKit on GitHub-hosted runners intermittently hits "Connection refused" on
-	// subsequent navigations against the custom Next server (server log shows an
-	// uncaught "aborted" exception). Chromium + Firefox reliably cover both routes.
-	test("public status route renders without authentication", async ({ page, browserName }) => {
-		test.skip(browserName === "webkit", "WebKit intermittently refused on /status under CI");
+	test("public status route renders without authentication", async ({ page }) => {
 		await page.goto("/status", { waitUntil: "domcontentloaded" });
 		await expect(page.locator("body")).toContainText(/状态|Status|健康|Health/i);
 	});
 
-	test("offline route renders the offline fallback", async ({ page, browserName }) => {
-		test.skip(browserName === "webkit", "WebKit intermittently refused on /offline under CI");
+	// Static offline shell. Keep on all browsers; the server now tolerates
+	// client-disconnect "aborted" errors (src/server.ts uncaughtException guard)
+	// so WebKit no longer connection-refuses mid-suite.
+	test("offline route renders the offline fallback", async ({ page }) => {
 		await page.goto("/offline", { waitUntil: "domcontentloaded" });
 		await expect(page.locator("body")).toContainText(/离线|Offline|网络|network/i);
 	});

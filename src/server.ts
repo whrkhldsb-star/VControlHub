@@ -30,6 +30,24 @@ process.on("unhandledRejection", (reason) => {
 	logger.error("Unhandled rejection:", reason);
 });
 process.on("uncaughtException", (err) => {
+	// Request-abort noise: Playwright (especially WebKit) and some clients drop
+	// the connection mid-response after `domcontentloaded`. Next.js throws an
+	// `Error: aborted` (and sometimes `ECONNRESET` / `ERR_STREAM_PREMATURE_CLOSE`)
+	// up the stack. These are expected client-disconnect signals, not process
+	// crashes — exiting on them killed our custom server mid-E2E-suite and was
+	// the root cause of the long-standing "connection refused" WebKit failures.
+	// Log and continue; genuine crashes will still surface via repeated logs.
+	const code = (err as NodeJS.ErrnoException).code;
+	const msg = err?.message ?? "";
+	if (
+		msg === "aborted" ||
+		code === "ECONNRESET" ||
+		code === "ERR_STREAM_PREMATURE_CLOSE" ||
+		code === "EPIPE"
+	) {
+		logger.warn("Ignored client-disconnect error", { message: msg, code });
+		return;
+	}
 	logger.error("Uncaught exception:", err);
 	process.exit(1);
 });

@@ -61,16 +61,33 @@ must match the Actions job names exactly.
 | Counting pure re-export barrels in coverage | Drags global thresholds — already excluded in `vitest.config.ts` |
 | Dual health UIs | Deleted; use `/health` + `/vps-status` only |
 
-## Artifact note
+## E2E / DAST build strategy
 
-E2E and DAST **build in their own job** (not via cross-job `.next` artifacts).
-Cross-job artifact reuse of `.next` was attempted and abandoned: the production
-custom server intermittently died mid-suite with connection refused under
-multi-browser Playwright. Local rebuild is slower but reliable.
+E2E and DAST jobs **build in their own runner** (not via cross-job `.next`
+artifacts). Rationale, in order of importance:
 
-If you reintroduce artifact reuse later: set `include-hidden-files: true` for
-`.next`, verify `BUILD_ID`, migrate schema with `prisma db push`, and keep the
-server under `nohup` with a pid/log dump on failure.
+1. **Root cause of the historical "connection refused" is fixed.** The custom
+   server's `uncaughtException` handler used to `process.exit(1)` on any thrown
+   error, including the benign `Error: aborted` that Next.js raises when a
+   client (notably Playwright/WebKit) drops the connection after
+   `domcontentloaded`. That killed the server mid-suite. `src/server.ts` now
+   tolerates `aborted` / `ECONNRESET` / `ERR_STREAM_PREMATURE_CLOSE` / `EPIPE`
+   and logs them at `warn` level instead of exiting.
+2. **Local build is still cheaper than artifact transfer.** With the Next.js
+   build cache (`actions/cache@v4` on `.next/cache`) warm, a rebuild in the
+   e2e/dast job is ~1 min. Cross-job artifact upload + download of `.next/`
+   (~200 MB, must include hidden files via `include-hidden-files: true`) plus
+   `prisma db push` in the consumer job costs roughly the same wall-clock and
+   adds a failure mode (stale `BUILD_ID`, partial upload).
+3. **`.next/cache` is shared across jobs via the cache action**, so the e2e/dast
+   rebuild benefits from the test job's compiled webpack modules without ever
+   transferring `.next/` itself.
+
+If you reintroduce cross-job `.next` artifact reuse later: set
+`include-hidden-files: true`, verify `BUILD_ID` matches, migrate schema with
+`prisma db push`, keep the server under `nohup` with a pid/log dump on failure,
+and do **not** re-introduce a bare `process.exit(1)` on `uncaughtException`.
+
 
 ## Layered coverage
 
