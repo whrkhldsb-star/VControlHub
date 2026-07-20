@@ -4,7 +4,9 @@ import { randomUUID } from "node:crypto";
 import type { SessionPayload } from "@/lib/auth/session";
 import type { Permission } from "@/lib/auth/rbac";
 import { requireApiPermission } from "@/lib/auth/require-api-permission";
-import { requireApiSession } from "@/lib/auth/api-session";
+import { requireApiSession, isSessionPayload } from "@/lib/auth/api-session";
+import { sessionHasPermission } from "@/lib/auth/authorization";
+import { NextResponse } from "next/server";
 import { ValidationError } from "@/lib/errors";
 import { apiCatch } from "@/lib/http/api-error";
 import { type RateLimitConfig, rateLimitResponse, withRateLimit } from "@/lib/http/rate-limit-presets";
@@ -33,7 +35,18 @@ export type ApiGuardOptions = {
  * non-object roots (e.g. arrays) — anything zod can parse.
  */
 export type ApiRouteOptions<TBody = unknown, TQuery = unknown> = {
+  /** Single required permission (declarative). */
   permission?: Permission;
+  /**
+   * Any-of permissions: authenticated session must hold at least one.
+   * Prefer over requireAuth + manual sessionHasPermission for multi-perm routes.
+   * Mutually exclusive with `permission` (if both set, `permission` wins first).
+   */
+  permissions?: Permission[];
+  /**
+   * Authenticated session only (no permission key).
+   * Use for self-scoped surfaces: preferences, 2FA, notifications, team switch.
+   */
   requireAuth?: boolean;
   rateLimit?: RateLimitConfig;
   errorStatus?: number;
@@ -127,7 +140,28 @@ export async function withApiRoute<TBody = unknown, TQuery = unknown>(
     }
 
     let session = guard;
-    if (!session && options.requireAuth) {
+    if (!session && options.permissions && options.permissions.length > 0) {
+      const apiSession = await requireApiSession();
+      if (apiSession instanceof Response || !isSessionPayload(apiSession)) {
+        const dur = performance.now() - startTime;
+        const rejected = apiSession instanceof Response
+          ? apiSession
+          : NextResponse.json({ error: "Not authenticated" }, { status: 401 });
+        apiLogger.info("request auth rejected", { method, path, status: rejected.status, durationMs: Math.round(dur), requestId });
+        return attachRequestId(rejected, requestId, dur);
+      }
+      const ok = options.permissions.some((perm) => sessionHasPermission(apiSession, perm));
+      if (!ok) {
+        const dur = performance.now() - startTime;
+        apiLogger.info("request permission rejected", { method, path, status: 403, durationMs: Math.round(dur), requestId });
+        return attachRequestId(
+          NextResponse.json({ error: "Insufficient permissions" }, { status: 403 }),
+          requestId,
+          dur,
+        );
+      }
+      session = apiSession;
+    } else if (!session && options.requireAuth) {
       const apiSession = await requireApiSession();
       if (apiSession instanceof Response) {
         const dur = performance.now() - startTime;

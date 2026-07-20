@@ -13,7 +13,11 @@ const { mocks } = vi.hoisted(() => ({
 }));
 
 vi.mock("@/lib/auth/require-api-permission", () => ({ requireApiPermission: mocks.requireApiPermission }));
-vi.mock("@/lib/auth/api-session", () => ({ requireApiSession: mocks.requireApiSession }));
+vi.mock("@/lib/auth/api-session", () => ({
+  requireApiSession: mocks.requireApiSession,
+  isSessionPayload: (value: unknown) =>
+    Boolean(value && typeof value === "object" && value !== null && "userId" in value),
+}));
 vi.mock("@/lib/auth/authorization", () => ({ sessionHasPermission: mocks.sessionHasPermission }));
 vi.mock("@/lib/ticket/service", () => ({
   canViewTicket: mocks.canViewTicket,
@@ -35,8 +39,15 @@ describe("/api/tickets/[id]", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mocks.requireApiSession.mockResolvedValue(viewerSession);
-    mocks.requireApiPermission.mockResolvedValue({ session: adminSession });
-    mocks.sessionHasPermission.mockReturnValue(false);
+    mocks.requireApiPermission.mockImplementation(async (permission: string) => {
+      if (permission === "ticket:manage") return { session: adminSession };
+      return { session: viewerSession };
+    });
+    mocks.sessionHasPermission.mockImplementation(
+      (_session: unknown, permission: string) =>
+        permission === "ticket:read" ||
+        permission === "ticket:create",
+    );
     mocks.canViewTicket.mockResolvedValue(true);
     mocks.getTicketById.mockResolvedValue({ id: "tk1", title: "Need help" });
     mocks.updateTicketStatus.mockResolvedValue({ id: "tk1", status: "RESOLVED" });

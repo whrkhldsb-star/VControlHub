@@ -24,6 +24,7 @@ import {
 
 import type { CostCategory, CostCurrency } from "../types";
 import type {
+import { config } from "@/lib/config/env";
 	CloudBillingAccountConfig,
 	CloudBillingCredentials,
 	CloudBillingFetchResult,
@@ -266,7 +267,7 @@ async function fetchLiveItems(
 }
 
 function isCloudBillingMockEnabled(): boolean {
-	return process.env.VCONTROLHUB_CLOUD_BILLING_MOCK === "1";
+	return config.cost.cloudBillingMock;
 }
 
 export async function fetchCloudBillingItems(input: {

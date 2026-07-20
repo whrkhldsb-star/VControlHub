@@ -11,9 +11,10 @@ import { prisma } from "@/lib/db";
 import { acquireAdvisoryLock } from "@/lib/concurrency/advisory-lock";
 import { dispatchDueVpsBackupSchedules } from "./vps-backup-schedule-service";
 import { createLogger } from "@/lib/logging";
+import { config } from "@/lib/config/env";
 
 const TICK_INTERVAL_MS = 60_000; // 60 seconds
-const WORKER_ID = `${process.env.HOSTNAME || "localhost"}:vps-backup-schedule:${process.pid}`;
+const WORKER_ID = `${config.app.hostname || "localhost"}:vps-backup-schedule:${process.pid}`;
 const VPS_BACKUP_TICK_JOB_TYPE = "vps-backup-schedule.tick";
 const VPS_BACKUP_TICK_KEEP_LATEST = 50;
 const VPS_BACKUP_TICK_RETENTION_DAYS = 3;

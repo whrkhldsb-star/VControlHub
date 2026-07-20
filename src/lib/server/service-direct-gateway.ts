@@ -15,9 +15,9 @@ import {
 } from "./direct-gateway";
 import { getErrorMessage, safeRevalidatePath } from "./service-internals";
 
-const PUBLIC_HEALTH_TIMEOUT_MS = process.env.VITEST ? 400 : 8_000;
-const PUBLIC_HEALTH_ATTEMPTS = process.env.VITEST ? 1 : 4;
-const PUBLIC_HEALTH_RETRY_MS = process.env.VITEST ? 0 : 1_200;
+const PUBLIC_HEALTH_TIMEOUT_MS = config.test.isVitest ? 400 : 8_000;
+const PUBLIC_HEALTH_ATTEMPTS = config.test.isVitest ? 1 : 4;
+const PUBLIC_HEALTH_RETRY_MS = config.test.isVitest ? 0 : 1_200;
 
 export function getConfiguredDirectAccessSecret() {
   const secret = config.auth.storageGatewaySecret ?? "";

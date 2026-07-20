@@ -22,6 +22,7 @@
  */
 
 import { createLogger } from "@/lib/logging";
+import { config } from "@/lib/config/env";
 
 const log = createLogger("direct-gateway-probe");
 
@@ -30,9 +31,9 @@ export const DIRECT_GATEWAY_DEFAULT_HEALTH_PATH = "/__vch_health";
 export const DIRECT_GATEWAY_PROBE_TIMEOUT_MS = 3000;
 
 export type DirectGatewayExposureInput = {
-  /** 公网可达的 IP / 域名 / 主机名；未传则用 process.env.NEXT_PUBLIC_QUICK_SERVICE_PUBLIC_HOST */
+  /** 公网可达的 IP / 域名 / 主机名；未传则用 config.app.publicQuickServiceHost */
   publicHost?: string;
-  /** Direct Gateway 监听端口；未传则用 process.env.DIRECT_PORT 或默认 31888 */
+  /** Direct Gateway 监听端口；未传则用 config.deployment.directPort 或默认 31888 */
   port?: number;
   /** 健康检查路径；默认 /__vch_health */
   healthPath?: string;
@@ -66,10 +67,10 @@ export type DirectGatewayExposureResult = {
 export async function checkDirectGatewayPublicExposure(
   input: DirectGatewayExposureInput = {},
 ): Promise<DirectGatewayExposureResult> {
-  const host = (input.publicHost ?? process.env.NEXT_PUBLIC_QUICK_SERVICE_PUBLIC_HOST ?? "").trim();
+  const host = (input.publicHost ?? config.app.publicQuickServiceHost ?? "").trim();
   const port =
     input.port ??
-    (Number.parseInt(process.env.DIRECT_PORT ?? "", 10) || DIRECT_GATEWAY_DEFAULT_PORT);
+    (config.deployment.directPort || DIRECT_GATEWAY_DEFAULT_PORT);
   const healthPath = input.healthPath ?? DIRECT_GATEWAY_DEFAULT_HEALTH_PATH;
   const timeoutMs = input.timeoutMs ?? DIRECT_GATEWAY_PROBE_TIMEOUT_MS;
   const fetchFn = input.fetchImpl ?? fetch;

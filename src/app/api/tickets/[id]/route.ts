@@ -72,7 +72,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
 export async function POST(request: Request, { params }: { params: Promise<{ id: string }> }) {
   return withApiRoute(
     request,
-    { requireAuth: true, rateLimit: GENERAL_WRITE_LIMIT, bodySchema: CommentBodySchema },
+    { permissions: ["ticket:create", "ticket:manage", "ticket:read"], rateLimit: GENERAL_WRITE_LIMIT, bodySchema: CommentBodySchema },
     async ({ session, body }) => {
       const { id } = await params;
       if (

@@ -9,7 +9,7 @@ import { auditUserAction } from "@/lib/audit/service";
 export const dynamic = "force-dynamic";
 
 export async function GET(request: Request) {
-	return withApiRoute(request, { requireAuth: true }, async ({ session }) => {
+	return withApiRoute(request, { permission: "team:read" }, async ({ session }) => {
 		const result = await listTeamsForSession(session!);
 		return NextResponse.json(result);
 	});

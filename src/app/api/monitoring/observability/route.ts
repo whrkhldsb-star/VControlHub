@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import { withApiRoute } from "@/lib/http/api-guard";
 import { createLogger } from "@/lib/logging";
 import {
+import { config } from "@/lib/config/env";
 	getObservabilitySnapshot,
 	setWsActive,
 } from "@/lib/monitoring/runtime-metrics";
@@ -25,8 +26,8 @@ type SshMetricsPayload = {
 
 async function mergeSshWsMetrics(snapshot: ReturnType<typeof getObservabilitySnapshot>) {
 	try {
-		const host = process.env.SSH_WS_HOST?.trim() || "127.0.0.1";
-		const port = process.env.SSH_WS_PORT?.trim() || "3001";
+		const host = config.ssh.wsHost;
+		const port = String(config.ssh.wsPort);
 		const res = await fetch(`http://${host}:${port}/metrics`, {
 			signal: AbortSignal.timeout(1500),
 			cache: "no-store",

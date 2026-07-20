@@ -1,3 +1,4 @@
+import { config } from "@/lib/config/env";
 type LogLevel = "debug" | "info" | "warn" | "error";
 
 type LogContext = Record<string, unknown>;
@@ -35,7 +36,7 @@ export function redactSensitiveValue(value: unknown, key = "", depth = 0): unkno
     return {
       name: value.name,
       message: redactString(value.message),
-      stack: process.env.NODE_ENV === "production" ? undefined : redactString(value.stack ?? ""),
+      stack: config.isProduction ? undefined : redactString(value.stack ?? ""),
     };
   }
   if (depth >= MAX_DEPTH) return "[Truncated]";
@@ -49,7 +50,7 @@ export function redactSensitiveValue(value: unknown, key = "", depth = 0): unkno
 }
 
 function emit(level: LogLevel, scope: string, message: string, errorOrContext?: unknown, context?: LogContext): void {
-  if (level === "debug" && process.env.NODE_ENV === "production") return;
+  if (level === "debug" && config.isProduction) return;
 
   const payload: Record<string, unknown> = {
     level,

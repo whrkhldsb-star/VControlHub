@@ -7,10 +7,11 @@
 
 import { claimNextJob, completeJob, failJob, heartbeatJob } from "@/lib/job/service";
 import { runVpsBackupRecord, VPS_BACKUP_CREATE_JOB_TYPE } from "./vps-backup-service";
+import { config } from "@/lib/config/env";
 
 const POLL_INTERVAL_MS = 5000;
 const LEASE_MS = 30 * 60 * 1000; // 30 min for large remote backups
-const WORKER_ID = `${typeof process !== "undefined" ? process.env.HOSTNAME || "localhost" : "localhost"}:vps-backup:${process.pid}`;
+const WORKER_ID = `${config.app.hostname || "localhost"}:vps-backup:${process.pid}`;
 
 let interval: ReturnType<typeof setInterval> | null = null;
 let running = false;

@@ -26,6 +26,7 @@ import {
 } from "./vps-backup-presets";
 import { downloadFile } from "@/lib/ssh/sftp-service";
 import { createLogger } from "@/lib/logging";
+import { config } from "@/lib/config/env";
 
 const vpsBackupLogger = createLogger("vps-backup");
 
@@ -35,7 +36,7 @@ export const VPS_BACKUP_CREATE_JOB_TYPE = "vps-backup.create";
 /** Local storage root for VPS backup files */
 function getVpsBackupStorageRoot(): string {
 	return join(
-		process.env.VCH_STORAGE_ROOT || process.cwd(),
+		config.storage.root || process.cwd(),
 		"storage",
 		"vps-backups",
 	);
@@ -210,7 +211,7 @@ export async function runVpsBackupRecord(
 			record.backupType,
 		);
 		const localAbsolutePath = join(
-			process.env.VCH_STORAGE_ROOT || process.cwd(),
+			config.storage.root || process.cwd(),
 			portablePath,
 		);
 
@@ -435,7 +436,7 @@ export async function deleteVpsBackupRecord(recordId: string): Promise<void> {
 /** Get the absolute local path for a VpsBackupRecord (for download) */
 export function resolveVpsBackupFilePath(localPath: string): string {
 	const portable = assertPortableVpsBackupPath(localPath);
-	const root = resolvePath(process.env.VCH_STORAGE_ROOT || process.cwd());
+	const root = resolvePath(config.storage.root || process.cwd());
 	const abs = resolvePath(root, portable);
 	const prefix = root.endsWith("/") ? root : root + "/";
 	if (abs !== root && !abs.startsWith(prefix)) {

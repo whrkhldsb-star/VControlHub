@@ -28,6 +28,7 @@
  */
 import { startAllWorkers, stopAllWorkers, type WorkerId } from "@/lib/workers/registry";
 import { createLogger } from "@/lib/logging";
+import { config } from "@/lib/config/env";
 
 const logger = createLogger("workers-lifecycle");
 
@@ -70,9 +71,9 @@ function getLifecycleState(): LifecycleState {
  *   emergency "stop all background work" without code changes.
  */
 function shouldSkipStartup(): boolean {
-  if (process.env.VITEST === "true") return true;
-  if (process.env.NODE_ENV === "test") return true;
-  if (process.env.VCONTROLHUB_WORKERS_DISABLED === "true") return true;
+  if (config.test.isVitest) return true;
+  if (config.isTest) return true;
+  if (config.worker.disabled) return true;
   return false;
 }
 
@@ -125,7 +126,7 @@ export async function startWorkerLifecycle(): Promise<{
   state.installed = true;
 
   if (shouldSkipStartup()) {
-    const reason: "test" | "disabled" = process.env.VCONTROLHUB_WORKERS_DISABLED === "true" ? "disabled" : "test";
+    const reason: "test" | "disabled" = config.worker.disabled ? "disabled" : "test";
     logger.info("worker startup skipped", { reason });
     return { started: [], failed: [], skipped: true, reason };
   }

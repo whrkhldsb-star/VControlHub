@@ -94,7 +94,7 @@ export async function GET(request: Request) {
 }
 
 export async function POST(request: Request) {
-  return withApiRoute(request, { requireAuth: true, rateLimit: GENERAL_WRITE_LIMIT, bodySchema: ticketPostSchema }, async ({ session, body }) => {
+  return withApiRoute(request, { permissions: ["ticket:create", "ticket:manage"], rateLimit: GENERAL_WRITE_LIMIT, bodySchema: ticketPostSchema }, async ({ session, body }) => {
     if ("ticketId" in body) {
       if (
         !session ||

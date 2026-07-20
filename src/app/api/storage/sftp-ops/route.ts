@@ -404,7 +404,7 @@ export async function POST(request: Request) {
   return withApiRoute(
     request,
     {
-      requireAuth: true,
+      permissions: ["storage:read", "storage:write", "storage:delete"],
       rateLimit: GENERAL_WRITE_LIMIT,
       errorMessage: "Remote file operation failed",
       bodySchema: postSchema,

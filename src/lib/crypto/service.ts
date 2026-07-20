@@ -13,7 +13,7 @@ function getEncryptionKey(): Buffer {
 		const key = config.crypto.encryptionKey; // 缺失会 throw "Missing required env var: ENCRYPTION_KEY"
 		return scryptSync(key, "salt-vps-platform", 32);
 	}
-	const existing = process.env.ENCRYPTION_KEY;
+	const existing = config.crypto.encryptionKeyOptional;
 	if (existing) return scryptSync(existing, "salt-vps-platform", 32);
 	// Auto-generate for development
 	const generated = randomBytes(32).toString("hex");

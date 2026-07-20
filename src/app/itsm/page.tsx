@@ -4,6 +4,7 @@ import { PageShell, PageHeader, EmptyState } from "@/components/page-shell";
 import { getServerLocale, t } from "@/lib/i18n/translations";
 import { listItsmConnections, listItsmEvents } from "@/lib/itsm/service";
 import { ItsmPageClient } from "./itsm-page-client";
+import { config } from "@/lib/config/env";
 
 export const dynamic = "force-dynamic";
 
@@ -25,8 +26,7 @@ export default async function ItsmPage() {
 	const connections = canManage ? await listItsmConnections(session) : [];
 	const events = canManage ? await listItsmEvents({ limit: 30, session }) : [];
 	const publicBaseUrl =
-		process.env.NEXT_PUBLIC_APP_URL?.replace(/\/$/, "") ||
-		process.env.APP_BASE_URL?.replace(/\/$/, "") ||
+		config.app.baseUrl?.replace(/\/$/, "") ||
 		"https://whrkhldsb.qzz.io";
 
 	return (

@@ -132,6 +132,8 @@ export const config = {
 	/** Field-level encryption (passwords, secrets, etc.). */
 	crypto: {
 		get encryptionKey(): string { return readString("ENCRYPTION_KEY"); },
+		/** Optional — crypto bootstrap may generate when unset in dev. */
+		get encryptionKeyOptional(): string | undefined { return readOptionalString("ENCRYPTION_KEY"); },
 	},
 
 	/** Command execution worker / runtime. */
@@ -149,6 +151,8 @@ export const config = {
 	ssh: {
 		get keepaliveIntervalMs(): number { return readInt("SSH_KEEPALIVE_INTERVAL_MS", 15_000); },
 		get keepaliveCountMax(): number { return readInt("SSH_KEEPALIVE_COUNT_MAX", 4); },
+		get wsHost(): string { return readString("SSH_WS_HOST", "127.0.0.1"); },
+		get wsPort(): number { return readInt("SSH_WS_PORT", 3001); },
 		get wsAllowedOrigins(): string[] { return readList("SSH_WS_ALLOWED_ORIGINS"); },
 		get wsHeartbeatIntervalMs(): number { return readInt("SSH_WS_HEARTBEAT_INTERVAL_MS", 30_000); },
 		get wsMaxConnections(): number { return readInt("SSH_WS_MAX_CONNECTIONS", 50); },
@@ -163,6 +167,8 @@ export const config = {
 		get grantFallback(): boolean { return readBool("VCONTROLHUB_STORAGE_GRANT_FALLBACK", false); },
 		get backupDir(): string | undefined { return readOptionalString("BACKUP_DIR"); },
 		get imageUploadDir(): string | undefined { return readOptionalString("IMAGE_UPLOAD_DIR"); },
+		/** Local storage root for hub-side paths (VPS backup cache, etc.). */
+		get root(): string | undefined { return readOptionalString("VCH_STORAGE_ROOT"); },
 	},
 
 	/** Media (image-bed thumbnails, transcodes). */
@@ -181,6 +187,10 @@ export const config = {
 		get hostname(): string | undefined { return readOptionalString("HOSTNAME"); },
 		get nextHost(): string | undefined { return readOptionalString("NEXT_HOST"); },
 		get port(): number { return readInt("PORT", 3000); },
+		/** Public site URL (server-side). Prefer NEXT_PUBLIC_APP_URL then APP_BASE_URL. */
+		get baseUrl(): string | undefined {
+			return readOptionalString("NEXT_PUBLIC_APP_URL") ?? readOptionalString("APP_BASE_URL");
+		},
 		get demoMode(): boolean { return readBool("DEMO_MODE", false); },
 		get publicDemoMode(): boolean { return readBool("NEXT_PUBLIC_DEMO_MODE", false); },
 		get publicQuickServiceHost(): string | undefined { return readOptionalString("NEXT_PUBLIC_QUICK_SERVICE_PUBLIC_HOST"); },
@@ -191,6 +201,7 @@ export const config = {
 		get commandExecutionIntervalMs(): number { return readInt("COMMAND_EXECUTION_INTERVAL_MS", 2_000); },
 		get downloadExecutionIntervalMs(): number { return readInt("DOWNLOAD_EXECUTION_INTERVAL_MS", 5_000); },
 		get playbookRunIntervalMs(): number { return readInt("PLAYBOOK_RUN_INTERVAL_MS", 2_000); },
+		get disabled(): boolean { return readBool("VCONTROLHUB_WORKERS_DISABLED", false); },
 	},
 
 	/**
@@ -229,6 +240,17 @@ export const config = {
 
 	deployment: {
 		get directBindAddress(): string { return readString("DIRECT_BIND", "127.0.0.1"); },
+		get directPort(): number { return readInt("DIRECT_PORT", 31888); },
+	},
+
+	/** Cost / cloud billing adapters. */
+	cost: {
+		get cloudBillingMock(): boolean { return readBool("VCONTROLHUB_CLOUD_BILLING_MOCK", false); },
+	},
+
+	/** Test harness flags (vitest sets VITEST=true). */
+	test: {
+		get isVitest(): boolean { return readBool("VITEST", false) || process.env.VITEST === "true"; },
 	},
 
 	/**
