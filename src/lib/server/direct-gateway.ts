@@ -1,5 +1,9 @@
 export const DIRECT_GATEWAY_DEFAULT_PORT = 31888;
+export const DIRECT_GATEWAY_HTTPS_PUBLIC_PORT = 443;
 export const DIRECT_GATEWAY_SERVICE_NAME = "vcontrolhub-direct.service";
+export const DIRECT_GATEWAY_CADDY_SERVICE_NAME = "vcontrolhub-direct-caddy.service";
+export const DIRECT_GATEWAY_CADDY_CONFIG = "/opt/vcontrolhub-direct/Caddyfile";
+export const DIRECT_GATEWAY_TLS_DIR = "/opt/vcontrolhub-direct/tls";
 // TR-002: 默认仅监听 loopback，避免公网意外暴露。需显式 opt-in 才能监听 0.0.0.0。
 export const DIRECT_GATEWAY_BIND_DEFAULT = "127.0.0.1";
 
@@ -45,15 +49,30 @@ export function getDirectGatewayRiskAssessment(input: {
 	return { level: "danger", reasons, recommendations };
 }
 
+/**
+ * Public base URL handed to browsers.
+ * - http: host:31888
+ * - https + auto reverse-proxy: host (port 443 omitted)
+ * - https manual: host:31888 unless publicPort set
+ */
 export function buildDirectGatewayPublicBaseUrl(input: {
 	host: string;
 	port?: number;
 	protocol?: "http" | "https";
+	autoReverseProxy?: boolean;
+	publicPort?: number;
 }) {
-	const port = input.port ?? DIRECT_GATEWAY_DEFAULT_PORT;
 	const protocol = input.protocol ?? "http";
 	const host = input.host.trim();
 	const urlHost = shouldBracketIpv6Host(host) ? `[${host}]` : host;
+	const autoHttps = protocol === "https" && input.autoReverseProxy !== false;
+	const port =
+		input.publicPort ??
+		(autoHttps ? DIRECT_GATEWAY_HTTPS_PUBLIC_PORT : (input.port ?? DIRECT_GATEWAY_DEFAULT_PORT));
+	const defaultPort = protocol === "https" ? 443 : 80;
+	if (port === defaultPort) {
+		return `${protocol}://${urlHost}`;
+	}
 	return `${protocol}://${urlHost}:${port}`;
 }
 
@@ -195,16 +214,156 @@ function assertSafeDirectGatewayRoot(rootPath: string) {
   return normalized;
 }
 
+function buildAutoHttpsReverseProxySnippet(input: {
+  backendPort: number;
+  publicPort: number;
+  tlsHost: string;
+}) {
+  const backendPort = input.backendPort;
+  const publicPort = input.publicPort;
+  const tlsDir = DIRECT_GATEWAY_TLS_DIR;
+  const caddyfile = DIRECT_GATEWAY_CADDY_CONFIG;
+  const caddyUnit = `/etc/systemd/system/${DIRECT_GATEWAY_CADDY_SERVICE_NAME}`;
+  // Bare host for openssl SAN (no shell quotes).
+  const hostLiteral = input.tlsHost.replace(/[^0-9A-Za-z:.\-]/g, "") || "127.0.0.1";
+  const isIp = /^(\d{1,3}\.){3}\d{1,3}$/.test(hostLiteral) || hostLiteral.includes(":");
+  const san = isIp
+    ? `IP:${hostLiteral}`
+    : `DNS:${hostLiteral}`;
+
+  return `
+# --- auto HTTPS reverse proxy (Caddy + local TLS; works with bare IP) ---
+install -d -m 0755 ${shellQuote(tlsDir)}
+if ! command -v caddy >/dev/null 2>&1; then
+  if command -v apt-get >/dev/null 2>&1; then
+    export DEBIAN_FRONTEND=noninteractive
+    apt-get update -y >/tmp/vch-direct-caddy-apt.log 2>&1 || true
+    apt-get install -y caddy >/tmp/vch-direct-caddy-apt.log 2>&1 || true
+  fi
+fi
+if ! command -v caddy >/dev/null 2>&1; then
+  ARCH=$(uname -m)
+  case "$ARCH" in
+    x86_64|amd64) CADDY_ARCH=amd64 ;;
+    aarch64|arm64) CADDY_ARCH=arm64 ;;
+    *) CADDY_ARCH=amd64 ;;
+  esac
+  curl -fsSL "https://caddyserver.com/api/download?os=linux&arch=\${CADDY_ARCH}" -o /usr/local/bin/caddy
+  chmod 0755 /usr/local/bin/caddy
+fi
+command -v caddy >/dev/null 2>&1 || { echo "caddy install failed" >&2; exit 1; }
+command -v openssl >/dev/null 2>&1 || { echo "openssl missing; cannot create TLS cert" >&2; exit 1; }
+# Self-signed cert (IP-friendly). Browsers will show a trust warning unless you install the cert.
+if ! openssl req -x509 -newkey rsa:2048 -nodes \
+  -keyout ${shellQuote(tlsDir + "/key.pem")} \
+  -out ${shellQuote(tlsDir + "/cert.pem")} \
+  -days 825 \
+  -subj "/CN=vcontrolhub-direct" \
+  -addext "subjectAltName=${san}" \
+  >/tmp/vch-direct-tls.log 2>&1; then
+  openssl req -x509 -newkey rsa:2048 -nodes \
+    -keyout ${shellQuote(tlsDir + "/key.pem")} \
+    -out ${shellQuote(tlsDir + "/cert.pem")} \
+    -days 825 \
+    -subj "/CN=vcontrolhub-direct" \
+    >/tmp/vch-direct-tls.log 2>&1
+fi
+chmod 600 ${shellQuote(tlsDir + "/key.pem")}
+chmod 644 ${shellQuote(tlsDir + "/cert.pem")}
+cat > ${shellQuote(caddyfile)} <<VCH_DIRECT_CADDY
+{
+  auto_https off
+  admin off
+}
+:${publicPort} {
+  tls ${tlsDir}/cert.pem ${tlsDir}/key.pem
+  reverse_proxy 127.0.0.1:${backendPort}
+  encode zstd gzip
+}
+VCH_DIRECT_CADDY
+caddy validate --config ${shellQuote(caddyfile)} --adapter caddyfile
+# Dedicated unit — do not hijack distro caddy if present; only stop if our unit conflicts.
+if systemctl is-active --quiet caddy 2>/dev/null; then
+  # If distro caddy is active, still start our unit on the chosen publicPort;
+  # port conflict will fail health and roll back.
+  true
+fi
+cat > ${shellQuote(caddyUnit)} <<VCH_DIRECT_CADDY_UNIT
+[Unit]
+Description=VControlHub Direct Gateway HTTPS reverse proxy
+After=network-online.target ${DIRECT_GATEWAY_SERVICE_NAME}
+Wants=network-online.target
+Requires=${DIRECT_GATEWAY_SERVICE_NAME}
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/env caddy run --config ${caddyfile} --adapter caddyfile
+Restart=always
+RestartSec=3
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=full
+ReadWritePaths=/opt/vcontrolhub-direct
+
+[Install]
+WantedBy=multi-user.target
+VCH_DIRECT_CADDY_UNIT
+systemctl daemon-reload
+systemctl enable ${DIRECT_GATEWAY_CADDY_SERVICE_NAME}
+systemctl restart ${DIRECT_GATEWAY_CADDY_SERVICE_NAME}
+python3 - <<'VCH_DIRECT_PROXY_HEALTH'
+import ssl, time
+from urllib.request import urlopen
+ctx = ssl._create_unverified_context()
+last_error = None
+url = "https://127.0.0.1:${publicPort}/__vch_health"
+for _ in range(30):
+    try:
+        with urlopen(url, timeout=3, context=ctx) as response:
+            body = response.read().decode("utf-8", "replace").strip()
+            if response.status == 200 and body == "ok":
+                break
+            last_error = RuntimeError(f"unexpected proxy health: {response.status} {body!r}")
+    except Exception as exc:
+        last_error = exc
+        time.sleep(0.5)
+else:
+    raise SystemExit(f"direct gateway https reverse-proxy health failed: {last_error}")
+VCH_DIRECT_PROXY_HEALTH
+echo vcontrolhub-direct-https-ready
+`;
+}
+
 export function buildInstallDirectGatewayCommand(input: {
   rootPath: string;
   secret: string;
   port?: number;
   bindAddress?: string;
+  /**
+   * HTTPS product path: bind gateway loopback + install Caddy reverse-proxy
+   * with local TLS (works for bare IP). Browser may warn on self-signed cert.
+   */
+  autoReverseProxy?: boolean;
+  publicPort?: number;
+  tlsHost?: string;
 }) {
   const port = input.port ?? DIRECT_GATEWAY_DEFAULT_PORT;
-  const bind = input.bindAddress ?? DIRECT_GATEWAY_BIND_DEFAULT;
+  const autoProxy = input.autoReverseProxy === true;
+  const bind = autoProxy
+    ? "127.0.0.1"
+    : (input.bindAddress ?? DIRECT_GATEWAY_BIND_DEFAULT);
+  const publicPort = input.publicPort ?? DIRECT_GATEWAY_HTTPS_PUBLIC_PORT;
+  const tlsHost = (input.tlsHost ?? "").trim() || "127.0.0.1";
   const rootPath = assertSafeDirectGatewayRoot(input.rootPath);
   const source = pythonGatewaySource();
+  const proxyBlock = autoProxy
+    ? buildAutoHttpsReverseProxySnippet({
+        backendPort: port,
+        publicPort,
+        tlsHost,
+      })
+    : "";
+
   return `set -eu
 install -d -m 0755 /opt/vcontrolhub-direct
 install -d -m 0755 ${shellQuote(rootPath)}
@@ -262,12 +421,15 @@ for _ in range(20):
 else:
     raise SystemExit(f"direct gateway health check failed: {last_error}")
 VCH_DIRECT_HEALTH
+${proxyBlock}
 echo vcontrolhub-direct-ready`;
 }
 
 export function buildUninstallDirectGatewayCommand() {
   return `set -eu
+systemctl disable --now ${DIRECT_GATEWAY_CADDY_SERVICE_NAME} >/dev/null 2>&1 || true
 systemctl disable --now ${DIRECT_GATEWAY_SERVICE_NAME} >/dev/null 2>&1 || true
+rm -f /etc/systemd/system/${DIRECT_GATEWAY_CADDY_SERVICE_NAME}
 rm -f /etc/systemd/system/${DIRECT_GATEWAY_SERVICE_NAME}
 rm -f /etc/vcontrolhub-direct.env
 rm -rf /opt/vcontrolhub-direct

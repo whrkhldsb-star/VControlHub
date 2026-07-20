@@ -69,6 +69,9 @@ export function ServerCardDirectGatewayForm({
                 {t("serverCardActions.directGateway.protocolHttps")}
               </option>
             </select>
+            <p className="text-[10px] leading-4 text-[var(--text-muted)]">
+              {t("serverCardActions.directGateway.protocolHttpsHint")}
+            </p>
           </div>
           <label className="flex items-start gap-2 text-[11px] leading-5 text-[var(--text-secondary)]">
             <input

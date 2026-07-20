@@ -11,6 +11,7 @@ import {
   buildInstallDirectGatewayCommand,
   buildUninstallDirectGatewayCommand,
   DIRECT_GATEWAY_DEFAULT_PORT,
+  DIRECT_GATEWAY_HTTPS_PUBLIC_PORT,
 } from "./direct-gateway";
 import { getErrorMessage, safeRevalidatePath } from "./service-internals";
 
@@ -62,11 +63,23 @@ export async function probePublicDirectGatewayHealth(
         "/__vch_health",
         publicBaseUrl.endsWith("/") ? publicBaseUrl : `${publicBaseUrl}/`,
       );
-      const response = await fetch(healthUrl, {
+      const init: RequestInit & { dispatcher?: unknown } = {
         method: "GET",
         redirect: "manual",
         signal: controller.signal,
-      });
+      };
+      if (healthUrl.protocol === "https:") {
+        try {
+          // Dynamic import keeps edge/browser bundles clean; Node control-plane only.
+          const { Agent } = await import("undici");
+          init.dispatcher = new Agent({
+            connect: { rejectUnauthorized: false },
+          });
+        } catch {
+          // If undici Agent is unavailable, still attempt the fetch (may fail on self-signed).
+        }
+      }
+      const response = await fetch(healthUrl, init as RequestInit);
       lastStatus = response.status;
       if (response.status === 200) {
         const body = (await response.text()).trim();
@@ -160,6 +173,11 @@ export async function applyServerDirectGatewayState(input: {
   publicListen?: boolean;
   /** Skip control-plane public health probe (tests only). */
   skipPublicHealthProbe?: boolean;
+  /**
+   * When publicProtocol=https, install Caddy reverse-proxy automatically
+   * (default true). Set false only for advanced manual TLS setups.
+   */
+  autoReverseProxy?: boolean;
 }) {
   const t = await serverT();
   const server = await loadServerForDirectGateway(input.serverId);
@@ -205,16 +223,26 @@ export async function applyServerDirectGatewayState(input: {
     throw new BusinessError(errorMessage);
   }
   const basePath = server.storageNode?.basePath || "/root";
+  const publicProtocol = input.publicProtocol ?? "http";
+  // HTTPS product path: auto reverse-proxy on 443 + loopback gateway (no manual Caddy).
+  const autoReverseProxy =
+    input.enabled &&
+    publicProtocol === "https" &&
+    input.autoReverseProxy !== false;
   const publicBaseUrl = buildDirectGatewayPublicBaseUrl({
     host: server.host,
     port: DIRECT_GATEWAY_DEFAULT_PORT,
-    protocol: input.publicProtocol ?? "http",
+    protocol: publicProtocol,
+    autoReverseProxy,
+    publicPort: autoReverseProxy ? DIRECT_GATEWAY_HTTPS_PUBLIC_PORT : undefined,
   });
-  const bindAddress = resolveDirectGatewayBindAddress({
-    bindAddress: input.bindAddress,
-    // Enabling for real browser direct access defaults to public listen.
-    publicListen: input.enabled ? (input.publicListen ?? true) : false,
-  });
+  const bindAddress = autoReverseProxy
+    ? "127.0.0.1"
+    : resolveDirectGatewayBindAddress({
+        bindAddress: input.bindAddress,
+        // HTTP path: public listen so browser can hit :31888.
+        publicListen: input.enabled ? (input.publicListen ?? true) : false,
+      });
   let cleanupSkipped = false;
   let errorMessage: string | null = null;
   let ssh: Awaited<ReturnType<typeof buildSshParamsFromServer>>;
@@ -227,6 +255,9 @@ export async function applyServerDirectGatewayState(input: {
           secret: getConfiguredDirectAccessSecret(),
           port: DIRECT_GATEWAY_DEFAULT_PORT,
           bindAddress,
+          autoReverseProxy,
+          publicPort: autoReverseProxy ? DIRECT_GATEWAY_HTTPS_PUBLIC_PORT : undefined,
+          tlsHost: server.host,
         })
       : buildUninstallDirectGatewayCommand();
   } catch (error) {
@@ -293,7 +324,10 @@ export async function applyServerDirectGatewayState(input: {
         }
         const failMsg =
           `Direct gateway installed on the VPS but public health check failed for ${publicBaseUrl}/__vch_health (${probe.error ?? "unreachable"}). ` +
-          `Open firewall/security-group/NAT for port ${DIRECT_GATEWAY_DEFAULT_PORT}, or use a reverse proxy. Database stays on website relay.`;
+          `Open firewall/security-group/NAT for port ${autoReverseProxy ? DIRECT_GATEWAY_HTTPS_PUBLIC_PORT : DIRECT_GATEWAY_DEFAULT_PORT}` +
+          (autoReverseProxy
+            ? " (HTTPS auto reverse-proxy). Database stays on website relay."
+            : ", or use a reverse proxy. Database stays on website relay.");
         if (input.bestEffort) {
           return {
             enabled: false,
@@ -326,6 +360,8 @@ export async function applyServerDirectGatewayState(input: {
     errorMessage,
     bindAddress: input.enabled ? bindAddress : undefined,
     publicReachable: input.enabled ? true : undefined,
+    autoReverseProxy: input.enabled ? autoReverseProxy : undefined,
+    publicProtocol: input.enabled ? publicProtocol : undefined,
   };
 }
 
@@ -337,6 +373,8 @@ export async function setServerDirectGatewayEnabled(
     publicListen?: boolean;
     bindAddress?: string;
     skipPublicHealthProbe?: boolean;
+    /** HTTPS: auto install Caddy reverse-proxy (default true when protocol=https). */
+    autoReverseProxy?: boolean;
   } = {},
 ) {
   return applyServerDirectGatewayState({
@@ -346,5 +384,6 @@ export async function setServerDirectGatewayEnabled(
     publicListen: options.publicListen,
     bindAddress: options.bindAddress,
     skipPublicHealthProbe: options.skipPublicHealthProbe,
+    autoReverseProxy: options.autoReverseProxy,
   });
 }

@@ -126,8 +126,17 @@ describe("TR-002 direct gateway TLS hardening", () => {
   });
 
   it("buildDirectGatewayPublicBaseUrl 支持 https 协议", () => {
+    // HTTPS + auto reverse-proxy (default) uses :443 and omits default port
     expect(
       buildDirectGatewayPublicBaseUrl({ host: "media.example.com", protocol: "https" }),
+    ).toBe("https://media.example.com");
+    expect(
+      buildDirectGatewayPublicBaseUrl({
+        host: "media.example.com",
+        protocol: "https",
+        autoReverseProxy: false,
+        port: DIRECT_GATEWAY_DEFAULT_PORT,
+      }),
     ).toBe(`https://media.example.com:${DIRECT_GATEWAY_DEFAULT_PORT}`);
     // 向后兼容: 默认 protocol=undefined 时仍返 http
     expect(buildDirectGatewayPublicBaseUrl({ host: "media.example.com" })).toBe(
@@ -159,6 +168,29 @@ describe("TR-002 direct gateway TLS hardening", () => {
     });
     expect(command).toContain("DIRECT_BIND='0.0.0.0'");
     expect(command).toContain("Environment=DIRECT_BIND=0.0.0.0");
+  });
+
+  it("buildInstallDirectGatewayCommand auto reverse-proxy binds loopback and installs caddy unit", () => {
+    const command = buildInstallDirectGatewayCommand({
+      rootPath: "/data/media",
+      secret: "direct-secret",
+      port: 31888,
+      autoReverseProxy: true,
+      publicPort: 443,
+      tlsHost: "203.0.113.10",
+    });
+    expect(command).toContain("DIRECT_BIND='127.0.0.1'");
+    expect(command).toContain("vcontrolhub-direct-caddy.service");
+    expect(command).toContain("reverse_proxy 127.0.0.1:31888");
+    expect(command).toContain(":443");
+    expect(command).toContain("subjectAltName=IP:203.0.113.10");
+  });
+
+  it("buildUninstallDirectGatewayCommand removes caddy reverse-proxy unit", () => {
+    const command = buildUninstallDirectGatewayCommand();
+    expect(command).toContain("vcontrolhub-direct-caddy.service");
+    expect(command).toContain("vcontrolhub-direct.service");
+    expect(command).toContain("rm -rf /opt/vcontrolhub-direct");
   });
 
   it("rejects unsafe Direct Gateway roots before generating install commands", () => {
