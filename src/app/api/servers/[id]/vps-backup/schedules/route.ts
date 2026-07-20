@@ -19,6 +19,7 @@ import {
 } from "@/lib/backup/vps-backup-schedule-service";
 import { VALID_PRESET_TYPES } from "@/lib/backup/vps-backup-presets";
 import { assertServerTeamAccess } from "@/lib/server/team-access";
+import { isAppError } from "@/lib/errors";
 
 export const dynamic = "force-dynamic";
 const logger = createLogger("api:servers:vps-backup:schedules");
@@ -109,6 +110,8 @@ export async function POST(
 
 				return Response.json({ schedule }, { status: 201 });
 			} catch (err) {
+				// Surface ValidationError (invalid cron / custom paths) as 400, not generic 500.
+				if (isAppError(err)) throw err;
 				logger.error("Failed to create VPS backup schedule", { error: err, serverId });
 				return Response.json(
 					{ error: t("vpsBackupApi.errorCreateFailed", locale) },

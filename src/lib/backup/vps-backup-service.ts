@@ -413,10 +413,18 @@ export async function listVpsBackupRecords(
 export async function deleteVpsBackupRecord(recordId: string): Promise<void> {
 	const record = await prisma.vpsBackupRecord.findUnique({
 		where: { id: recordId },
-		select: { localPath: true },
+		select: { localPath: true, status: true },
 	});
+	if (!record) {
+		throw new Error(`VpsBackupRecord ${recordId} not found`);
+	}
+	// Refuse mid-flight deletes: worker may still write COMPLETED after row gone,
+	// or leave orphan remote temp + half-downloaded local files.
+	if (record.status === "RUNNING") {
+		throw new Error("Cannot delete a RUNNING VPS backup record; wait for completion or failure");
+	}
 
-	if (record?.localPath) {
+	if (record.localPath) {
 		try {
 			const absPath = resolveVpsBackupFilePath(record.localPath);
 			const { unlinkSync } = await import("node:fs");
@@ -430,7 +438,13 @@ export async function deleteVpsBackupRecord(recordId: string): Promise<void> {
 		}
 	}
 
-	await prisma.vpsBackupRecord.delete({ where: { id: recordId } });
+	// CAS: do not delete if status flipped to RUNNING between read and delete.
+	const deleted = await prisma.vpsBackupRecord.deleteMany({
+		where: { id: recordId, status: { not: "RUNNING" } },
+	});
+	if (deleted.count === 0) {
+		throw new Error("Cannot delete a RUNNING VPS backup record; wait for completion or failure");
+	}
 }
 
 /** Get the absolute local path for a VpsBackupRecord (for download) */

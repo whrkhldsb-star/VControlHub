@@ -11,6 +11,7 @@ const mocks = vi.hoisted(() => ({
   create: vi.fn(),
   findMany: vi.fn(),
   delete: vi.fn(),
+  deleteMany: vi.fn(),
   execRemoteCommand: vi.fn(),
   buildSshParamsFromServer: vi.fn(),
   downloadFile: vi.fn(),
@@ -29,6 +30,7 @@ vi.mock("@/lib/db", () => ({
       create: mocks.create,
       findMany: mocks.findMany,
       delete: mocks.delete,
+      deleteMany: mocks.deleteMany,
     },
   },
 }));
@@ -49,7 +51,7 @@ vi.mock("../vps-backup-presets", () => ({
   generateRemoteBackupPath: mocks.generateRemoteBackupPath,
 }));
 
-const { runVpsBackupRecord, assertPortableVpsBackupPath } = await import("../vps-backup-service");
+const { runVpsBackupRecord, assertPortableVpsBackupPath, deleteVpsBackupRecord } = await import("../vps-backup-service");
 
 const storageRoot = join(tmpdir(), `vch-vps-backup-test-${process.pid}`);
 
@@ -213,5 +215,32 @@ describe("assertPortableVpsBackupPath", () => {
     expect(assertPortableVpsBackupPath("storage/vps-backups/srv/nginx-config-id.tar.gz")).toBe(
       "storage/vps-backups/srv/nginx-config-id.tar.gz",
     );
+  });
+});
+
+describe("deleteVpsBackupRecord", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("refuses to delete RUNNING records", async () => {
+    mocks.findUnique.mockResolvedValueOnce({
+      localPath: "storage/vps-backups/srv_1/nginx-config-rec_1.tar.gz",
+      status: "RUNNING",
+    });
+    await expect(deleteVpsBackupRecord("rec_1")).rejects.toThrow(/RUNNING/);
+    expect(mocks.delete).not.toHaveBeenCalled();
+  });
+
+  it("deletes non-running records via deleteMany CAS", async () => {
+    mocks.findUnique.mockResolvedValueOnce({
+      localPath: null,
+      status: "FAILED",
+    });
+    mocks.deleteMany.mockResolvedValueOnce({ count: 1 });
+    await deleteVpsBackupRecord("rec_1");
+    expect(mocks.deleteMany).toHaveBeenCalledWith({
+      where: { id: "rec_1", status: { not: "RUNNING" } },
+    });
   });
 });

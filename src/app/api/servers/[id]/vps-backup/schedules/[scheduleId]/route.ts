@@ -20,6 +20,7 @@ import {
 } from "@/lib/backup/vps-backup-schedule-service";
 import { VALID_PRESET_TYPES } from "@/lib/backup/vps-backup-presets";
 import { assertServerTeamAccess } from "@/lib/server/team-access";
+import { isAppError } from "@/lib/errors";
 
 export const dynamic = "force-dynamic";
 const logger = createLogger("api:servers:vps-backup:schedule");
@@ -67,6 +68,7 @@ export async function PATCH(
 				await auditUserAction(session.userId, "vps-backup.schedule.update", { serverId, scheduleId }, undefined, session?.currentTeamId);
 				return Response.json({ schedule: updated });
 			} catch (err) {
+				if (isAppError(err)) throw err;
 				logger.error("Failed to update VPS backup schedule", { error: err, scheduleId });
 				return Response.json(
 					{ error: t("vpsBackupApi.errorUpdateFailed", locale) },

@@ -8,8 +8,26 @@ import { createVpsBackupRecord, VPS_BACKUP_CREATE_JOB_TYPE, pruneOldVpsBackupRec
 import { isVpsBackupPresetType } from "./vps-backup-presets";
 import { createLogger } from "@/lib/logging";
 import { CronExpressionParser } from "cron-parser";
+import { ValidationError } from "@/lib/errors";
+import { t } from "@/lib/i18n/translations";
 
 const vpsSchedLogger = createLogger("vps-backup-schedule");
+
+/**
+ * Validate cron at write-time (same parser as host backup schedules).
+ * Previously create/update accepted garbage cron and computeNextRun silently
+ * fell back to +24h — schedules appeared "saved" but never fired as intended.
+ */
+export function validateVpsCronExpression(expr: string): string {
+	const trimmed = expr.trim();
+	if (!trimmed) throw new ValidationError(t("backend.backup.cronRequired"));
+	try {
+		CronExpressionParser.parse(trimmed, { currentDate: new Date() });
+	} catch {
+		throw new ValidationError(t("backend.backup.cronInvalid"));
+	}
+	return trimmed;
+}
 
 /* ── CRUD ────────────────────────────────────────────────── */
 
@@ -36,17 +54,20 @@ export async function createVpsBackupSchedule(input: {
 	createdById?: string;
 }) {
 	if (!isVpsBackupPresetType(input.backupType)) {
-		throw new Error(`Invalid backupType: ${input.backupType}`);
+		throw new ValidationError(`Invalid backupType: ${input.backupType}`);
+	}
+	if (input.backupType === "custom" && (!input.paths || input.paths.length === 0)) {
+		throw new ValidationError(t("vpsBackupApi.errorCustomPathsRequired"));
 	}
 
-	// Compute next run from cron expression
-	const nextRunAt = computeNextRun(input.cronExpression);
+	const cronExpression = validateVpsCronExpression(input.cronExpression);
+	const nextRunAt = computeNextRun(cronExpression);
 
 	return prisma.vpsBackupSchedule.create({
 		data: {
 			serverId: input.serverId,
-			name: input.name,
-			cronExpression: input.cronExpression,
+			name: input.name.trim(),
+			cronExpression,
 			backupType: input.backupType,
 			paths: input.paths ?? [],
 			note: input.note ?? null,
@@ -70,14 +91,15 @@ export async function updateVpsBackupSchedule(
 	}>,
 ) {
 	const data: Record<string, unknown> = {};
-	if (input.name !== undefined) data.name = input.name;
+	if (input.name !== undefined) data.name = input.name.trim();
 	if (input.cronExpression !== undefined) {
-		data.cronExpression = input.cronExpression;
-		data.nextRunAt = computeNextRun(input.cronExpression);
+		const cronExpression = validateVpsCronExpression(input.cronExpression);
+		data.cronExpression = cronExpression;
+		data.nextRunAt = computeNextRun(cronExpression);
 	}
 	if (input.backupType !== undefined) {
 		if (!isVpsBackupPresetType(input.backupType)) {
-			throw new Error(`Invalid backupType: ${input.backupType}`);
+			throw new ValidationError(`Invalid backupType: ${input.backupType}`);
 		}
 		data.backupType = input.backupType;
 	}
@@ -85,6 +107,19 @@ export async function updateVpsBackupSchedule(
 	if (input.note !== undefined) data.note = input.note;
 	if (input.retentionDays !== undefined) data.retentionDays = input.retentionDays;
 	if (input.status !== undefined) data.status = input.status;
+
+	// custom type without paths is only enforceable when we know the resulting type.
+	if (data.backupType === "custom" || (data.backupType === undefined && input.paths !== undefined)) {
+		const existing = await prisma.vpsBackupSchedule.findUnique({
+			where: { id },
+			select: { backupType: true, paths: true },
+		});
+		const nextType = (data.backupType as string | undefined) ?? existing?.backupType;
+		const nextPaths = (data.paths as string[] | undefined) ?? existing?.paths ?? [];
+		if (nextType === "custom" && (!Array.isArray(nextPaths) || nextPaths.length === 0)) {
+			throw new ValidationError(t("vpsBackupApi.errorCustomPathsRequired"));
+		}
+	}
 
 	return prisma.vpsBackupSchedule.update({ where: { id }, data });
 }
@@ -153,16 +188,28 @@ export async function dispatchDueVpsBackupSchedules(): Promise<number> {
 			}
 
 			dispatched++;
-		} catch {
-			// Rollback CAS claim on failure
+		} catch (error) {
+			// Rollback CAS claim on failure — never silent (ops need lastResult + logs).
+			const errMsg = error instanceof Error ? error.message : String(error);
+			vpsSchedLogger.error("VPS backup schedule dispatch failed", {
+				scheduleId: schedule.id,
+				serverId: schedule.serverId,
+				error: errMsg,
+			});
 			try {
 				const nextRunAt = computeNextRun(schedule.cronExpression);
 				await prisma.vpsBackupSchedule.update({
 					where: { id: schedule.id },
-					data: { nextRunAt, lastResult: "DISPATCH_FAILED" },
+					data: {
+						nextRunAt,
+						lastResult: `DISPATCH_FAILED: ${errMsg}`.slice(0, 500),
+					},
 				});
-			} catch {
-				// Ignore rollback failure
+			} catch (rollbackError) {
+				vpsSchedLogger.error("Failed to roll back VPS schedule CAS claim after dispatch error", {
+					scheduleId: schedule.id,
+					error: rollbackError instanceof Error ? rollbackError.message : String(rollbackError),
+				});
 			}
 		}
 	}

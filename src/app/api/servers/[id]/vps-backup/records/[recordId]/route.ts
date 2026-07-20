@@ -50,6 +50,11 @@ export async function DELETE(
 				await auditUserAction(session.userId, "vps-backup.record.delete", { serverId, recordId }, undefined, session?.currentTeamId);
 				return Response.json({ success: true });
 			} catch (err) {
+				const message = err instanceof Error ? err.message : String(err);
+				// RUNNING delete is a conflict/business rule, not an internal failure.
+				if (/RUNNING/i.test(message)) {
+					return Response.json({ error: message }, { status: 409 });
+				}
 				logger.error("Failed to delete VPS backup record", { error: err, recordId });
 				return Response.json(
 					{ error: t("vpsBackupApi.errorDeleteRecordFailed", locale) },

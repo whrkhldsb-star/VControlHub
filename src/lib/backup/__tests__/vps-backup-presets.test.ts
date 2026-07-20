@@ -9,7 +9,8 @@ import {
 	generateRemoteBackupPath,
 	VALID_PRESET_TYPES,
 } from "../vps-backup-presets";
-import { computeNextRun } from "../vps-backup-schedule-service";
+import { computeNextRun, validateVpsCronExpression } from "../vps-backup-schedule-service";
+import { ValidationError } from "@/lib/errors";
 
 // ── Preset tests ────────────────────────────────────────────
 
@@ -100,7 +101,7 @@ describe("computeNextRun", () => {
 		expect(next.getMinutes()).toBe(0);
 	});
 
-	it("falls back to 24h for invalid cron", () => {
+	it("falls back to 24h for invalid cron (defense-in-depth for legacy rows)", () => {
 		const from = new Date("2026-01-01T00:00:00Z");
 		const next = computeNextRun("invalid", from);
 		expect(next.getTime()).toBeCloseTo(from.getTime() + 24 * 60 * 60 * 1000, -2);
@@ -117,6 +118,18 @@ describe("computeNextRun", () => {
 		const next = computeNextRun("30 0 * * *", from);
 		expect(next.getMinutes()).toBe(30);
 		expect(next.getHours()).toBe(0);
+	});
+});
+
+describe("validateVpsCronExpression", () => {
+	it("accepts valid 5-field cron", () => {
+		expect(validateVpsCronExpression("0 3 * * *")).toBe("0 3 * * *");
+	});
+
+	it("rejects empty and invalid expressions (write-time fail-closed)", () => {
+		expect(() => validateVpsCronExpression("  ")).toThrow(ValidationError);
+		expect(() => validateVpsCronExpression("invalid")).toThrow(ValidationError);
+		expect(() => validateVpsCronExpression("0 3")).toThrow(ValidationError);
 	});
 });
 
