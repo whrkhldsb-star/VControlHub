@@ -117,7 +117,17 @@ export async function deleteSyncJob(
 ) {
 	const existing = await getSyncJob(id, session);
 	if (!existing) throw new NotFoundError(t("backend.sync.syncJobNotFound"));
-	return prisma.syncJob.delete({ where: { id } });
+	// Do not delete while executeSyncJob holds RUNNING (avoids mid-rsync orphan state).
+	if (existing.status === "RUNNING") {
+		throw new ValidationError(t("backend.sync.cannotDeleteRunningSyncJob"));
+	}
+	const deleted = await prisma.syncJob.deleteMany({
+		where: { id, status: { not: "RUNNING" }, ...(session ? teamWhere(session) : {}) },
+	});
+	if (deleted.count === 0) {
+		throw new ValidationError(t("backend.sync.cannotDeleteRunningSyncJob"));
+	}
+	return { id };
 }
 
 export async function updateSyncJob(

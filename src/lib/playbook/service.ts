@@ -259,6 +259,13 @@ export async function deletePlaybook(
 ): Promise<void> {
   const existing = await getPlaybook(id, session);
   if (!existing) throw new NotFoundError(t("backend.playbook.notFound"));
+  const activeRun = await prisma.playbookRun.findFirst({
+    where: { playbookId: id, status: { in: ["PENDING", "RUNNING"] } },
+    select: { id: true },
+  });
+  if (activeRun) {
+    throw new BusinessError(t("backend.playbook.cannotDeleteWhileRunning"));
+  }
   await prisma.playbook.delete({ where: { id } });
   await auditUserAction(deletedById, "playbook.delete", { playbookId: id });
 }

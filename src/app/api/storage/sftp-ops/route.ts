@@ -253,6 +253,8 @@ async function handlePost(body: SftpOpsBody, session: SessionPayload) {
         // reconciliation pass. This avoids the previous "file gone but index
         // still shows" inconsistency.
         await softDeleteSftpIndex(node.id, normalizedRelativePath, isDirectory);
+        let physicalDeleted = true;
+        let physicalErrorMessage: string | null = null;
         try {
           await deleteBackingObject({
             storageNode: node,
@@ -261,9 +263,25 @@ async function handlePost(body: SftpOpsBody, session: SessionPayload) {
             tolerateMissing: true,
           });
         } catch (physicalError) {
+          physicalDeleted = false;
+          physicalErrorMessage =
+            physicalError instanceof Error ? physicalError.message : String(physicalError);
           logger.warn("physical delete failed after index soft-delete; file may remain on disk", physicalError, { nodeId, relativePath: normalizedRelativePath });
         }
-        return NextResponse.json({ success: true });
+        // Index is soft-deleted either way; surface partial success so clients/ops don't assume disk is clean.
+        if (!physicalDeleted) {
+          return NextResponse.json(
+            {
+              success: false,
+              partial: true,
+              indexDeleted: true,
+              physicalDeleted: false,
+              warning: physicalErrorMessage?.slice(0, 300) || "Physical delete failed; index entry was soft-deleted",
+            },
+            { status: 207 },
+          );
+        }
+        return NextResponse.json({ success: true, indexDeleted: true, physicalDeleted: true });
       }
 
       case "rename": {

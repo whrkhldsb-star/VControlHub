@@ -116,6 +116,7 @@ export const zh: Record<string, string> = {
 	"backend.command.notPendingApproval": "命令请求不在待审批状态",
 	"backend.command.alreadyReviewed": "命令请求已被其他审批人处理",
 	"backend.playbook.notFound": "Playbook 不存在",
+	"backend.playbook.cannotDeleteWhileRunning": "Playbook 有进行中的运行，无法删除",
 	"backend.storage.unsupportedNodeType": "不支持的存储节点类型",
 	"backend.storage.versionBlobMissing": "版本内容在磁盘上缺失",
 	"backend.storage.versionSnapshotFailed": "无法创建版本快照（文件缺失、过大或不可读）",
@@ -170,6 +171,7 @@ export const zh: Record<string, string> = {
 	"backend.deployment.aRollbackTaskIsAlreadyInProgressPlease": "回滚任务已在进行中，请等待当前回滚完成后再试",
 	"backend.sync.sourceAndTargetServersAreRequired": "必须指定源和目标服务器",
 	"backend.sync.syncJobNotFound": "同步任务不存在",
+	"backend.sync.cannotDeleteRunningSyncJob": "同步任务运行中，无法删除",
 	"backend.sync.unsafeSshUsername": "不安全的 SSH 用户名",
 	"backend.sync.unsafeSshHost": "不安全的 SSH 主机",
 	"backend.sync.unsafeRsyncTargetAddress": "不安全的 rsync 目标地址",
@@ -427,6 +429,7 @@ export const en: Record<string, string> = {
 	"backend.command.alreadyReviewed": "Command request was already reviewed by another approver",
 
 	"backend.playbook.notFound": "Playbook not found",
+	"backend.playbook.cannotDeleteWhileRunning": "Cannot delete a playbook with pending or running executions",
 
 	"backend.storage.unsupportedNodeType": "Unsupported storage node type",
 	"backend.storage.versionBlobMissing": "Version blob is missing on disk",
@@ -484,6 +487,7 @@ export const en: Record<string, string> = {
 	"backend.deployment.aRollbackTaskIsAlreadyInProgressPlease": "A rollback task is already in progress; please wait for the current rollback to complete before retrying",
 	"backend.sync.sourceAndTargetServersAreRequired": "Source and target servers are required",
 	"backend.sync.syncJobNotFound": "Sync job not found",
+	"backend.sync.cannotDeleteRunningSyncJob": "Cannot delete a running sync job",
 	"backend.sync.unsafeSshUsername": "Unsafe SSH username",
 	"backend.sync.unsafeSshHost": "Unsafe SSH host",
 	"backend.sync.unsafeRsyncTargetAddress": "Unsafe rsync target address",

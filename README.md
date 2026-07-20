@@ -472,4 +472,16 @@ make logs SERVICE_PREFIX=vcontrolhub
 | — | 触屏 opacity / window.prompt | 前几轮已收口 |
 
 
+
+### 五次深扫发现（2026-07-20，删除护栏 / 半成功语义）
+
+| # | 问题 | 状态 |
+|---|------|------|
+| H1 | 运行中 **SyncJob** 可被删除 | **已修**：RUNNING 拒绝 + deleteMany CAS |
+| H2 | 有 PENDING/RUNNING 的 **Playbook** 可被删除（级联删 runs） | **已修**：有活跃 run 拒绝 |
+| H3 | SFTP 删除物理失败仍  | **已修**：返回 **207 partial** + warning |
+| — | 平台 tick 无 teamId | 有意保留 |
+| — | API 英文 error 卫生债 | 后续可选 |
+
+
 ## 📄 许可

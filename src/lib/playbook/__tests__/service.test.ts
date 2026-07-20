@@ -9,6 +9,7 @@ const { mocks } = vi.hoisted(() => ({
     playbookUpdate: vi.fn(),
     playbookDelete: vi.fn(),
     runFindMany: vi.fn(),
+    runFindFirst: vi.fn(),
     runCreate: vi.fn(),
     runUpdate: vi.fn(),
     jobCreate: vi.fn(),
@@ -29,7 +30,7 @@ vi.mock("@/lib/db", () => ({
       update: mocks.playbookUpdate,
       delete: mocks.playbookDelete,
     },
-    playbookRun: { findMany: mocks.runFindMany },
+    playbookRun: { findMany: mocks.runFindMany, findFirst: mocks.runFindFirst },
     server: { findMany: mocks.serverFindMany },
     teamMember: { findUnique: mocks.teamMemberFindUnique },
     $transaction: mocks.transaction,
@@ -74,6 +75,7 @@ describe("playbook service", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mocks.auditUserAction.mockResolvedValue(undefined);
+    mocks.runFindFirst.mockResolvedValue(null);
     // Default: all referenced servers exist and are in scope.
     mocks.serverFindMany.mockImplementation(async ({ where }: { where?: { id?: { in?: string[] } } }) => {
       const ids = where?.id?.in ?? [];
