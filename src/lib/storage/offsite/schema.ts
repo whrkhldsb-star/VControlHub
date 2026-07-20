@@ -10,8 +10,7 @@
  */
 import { z } from "zod";
 
-import { prisma } from "@/lib/db";
-import { getAllSettings, getSetting } from "@/lib/settings/service";
+import { getAllSettings, getSetting, setManySettings } from "@/lib/settings/service";
 
 /* ── Schemas ─────────────────────────────────────────────── */
 
@@ -111,29 +110,46 @@ export const OFFSITE_SETTING_KEYS = [
 
 export type OffsiteConfigUpdate = Partial<OffsiteConfig>;
 
+/**
+ * Map OffsiteConfig field names → settings keys.
+ * Must stay camelCase after the `offsite.` prefix (see VALID_SETTING_KEYS /
+ * DEFAULTS). A previous kebab-case conversion wrote orphan keys such as
+ * `offsite.access-key-id` that loadOffsiteConfig never reads, and bypassed
+ * setManySettings encryption for secretAccessKey.
+ */
+const OFFSITE_FIELD_TO_SETTING_KEY: Record<keyof OffsiteConfig, (typeof OFFSITE_SETTING_KEYS)[number]> = {
+	enabled: "offsite.enabled",
+	provider: "offsite.provider",
+	endpoint: "offsite.endpoint",
+	region: "offsite.region",
+	bucket: "offsite.bucket",
+	accessKeyId: "offsite.accessKeyId",
+	secretAccessKey: "offsite.secretAccessKey",
+	pathPrefix: "offsite.pathPrefix",
+	dailyWindowHour: "offsite.dailyWindowHour",
+	retentionDays: "offsite.retentionDays",
+	failureAlertRecipient: "offsite.failureAlertRecipient",
+};
+
 export async function saveOffsiteConfig(update: OffsiteConfigUpdate): Promise<OffsiteConfig> {
 	const current = await loadOffsiteConfig();
 	const merged = { ...current, ...update };
 	const validated = OffsiteConfigSchema.parse(merged);
-	await prisma.$transaction(
-		(Object.entries(validated) as [string, unknown][]).map(([k, v]) => {
-			const settingKey = `offsite.${camelToKebab(k)}`;
+	const entries = (Object.keys(OFFSITE_FIELD_TO_SETTING_KEY) as Array<keyof OffsiteConfig>).map(
+		(field) => {
+			const value = validated[field];
 			const stringValue =
-				k === "enabled"
-					? (v ? "true" : "false")
-					: String(v);
-			return prisma.setting.upsert({
-				where: { key: settingKey },
-				update: { value: stringValue },
-				create: { key: settingKey, value: stringValue },
-			});
-		}),
+				field === "enabled"
+					? value
+						? "true"
+						: "false"
+					: String(value);
+			return { key: OFFSITE_FIELD_TO_SETTING_KEY[field], value: stringValue };
+		},
 	);
+	// setManySettings encrypts sensitive keys (secretAccessKey) at rest.
+	await setManySettings(entries);
 	return validated;
-}
-
-function camelToKebab(s: string): string {
-	return s.replace(/[A-Z]/g, (m) => `-${m.toLowerCase()}`);
 }
 
 /* ── Single-key read for runtime paths ───────────────────── */

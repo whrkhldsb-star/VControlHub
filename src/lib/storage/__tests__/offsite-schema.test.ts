@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import {
 	OFFSITE_PROVIDER_VALUES,
@@ -144,5 +144,107 @@ describe("validateOffsiteConfigForUse", () => {
 			endpoint: "",
 		}));
 		expect(issues).toEqual([]);
+	});
+});
+
+const savePrismaMock = vi.hoisted(() => ({
+	setting: {
+		findMany: vi.fn(),
+		findUnique: vi.fn(),
+		upsert: vi.fn(),
+	},
+	$transaction: vi.fn(async (ops: unknown[]) => {
+		// setManySettings builds an array of upsert promises; resolve them.
+		await Promise.all(ops as Promise<unknown>[]);
+		return ops;
+	}),
+}));
+
+describe("saveOffsiteConfig key mapping + encryption", () => {
+	beforeEach(() => {
+		vi.resetModules();
+		vi.clearAllMocks();
+		vi.doMock("@/lib/db", () => ({ prisma: savePrismaMock }));
+		vi.doMock("@/lib/crypto/service", () => ({
+			encrypt: (value: string) => `encrypted:${value}`,
+			decrypt: (value: string) => value.replace(/^encrypted:/, ""),
+			isEncrypted: (value: string) => value.startsWith("encrypted:"),
+		}));
+		// Defaults only — no existing rows so load merges DEFAULTS.
+		savePrismaMock.setting.findMany.mockResolvedValue([]);
+		savePrismaMock.setting.upsert.mockImplementation(async (args: {
+			where: { key: string };
+			create: { key: string; value: string };
+			update: { value: string };
+		}) => ({ key: args.where.key, value: args.update?.value ?? args.create.value }));
+	});
+
+	it("writes camelCase offsite.* keys (not kebab-case orphans) and encrypts secretAccessKey", async () => {
+		const { saveOffsiteConfig } = await import("../offsite/schema");
+		await saveOffsiteConfig({
+			enabled: true,
+			provider: "s3",
+			endpoint: "https://s3.example.com",
+			region: "us-east-1",
+			bucket: "backups",
+			accessKeyId: "AKIAEXAMPLE",
+			secretAccessKey: "supersecret",
+			pathPrefix: "vcontrolhub-backups",
+			dailyWindowHour: 4,
+			retentionDays: 14,
+			failureAlertRecipient: "ops@example.com",
+		});
+
+		const upsertedKeys = savePrismaMock.setting.upsert.mock.calls.map(
+			(call) => (call[0] as { where: { key: string } }).where.key,
+		);
+		// Must use the same keys loadOffsiteConfig / VALID_SETTING_KEYS expect.
+		expect(upsertedKeys).toEqual(
+			expect.arrayContaining([
+				"offsite.enabled",
+				"offsite.provider",
+				"offsite.endpoint",
+				"offsite.region",
+				"offsite.bucket",
+				"offsite.accessKeyId",
+				"offsite.secretAccessKey",
+				"offsite.pathPrefix",
+				"offsite.dailyWindowHour",
+				"offsite.retentionDays",
+				"offsite.failureAlertRecipient",
+			]),
+		);
+		// Regression: previous camelToKebab wrote these orphan keys.
+		expect(upsertedKeys).not.toEqual(
+			expect.arrayContaining([
+				"offsite.access-key-id",
+				"offsite.secret-access-key",
+				"offsite.path-prefix",
+				"offsite.daily-window-hour",
+				"offsite.retention-days",
+				"offsite.failure-alert-recipient",
+			]),
+		);
+
+		const secretCall = savePrismaMock.setting.upsert.mock.calls.find(
+			(call) => (call[0] as { where: { key: string } }).where.key === "offsite.secretAccessKey",
+		);
+		expect(secretCall).toBeTruthy();
+		const secretArgs = secretCall![0] as { create: { value: string }; update: { value: string } };
+		expect(secretArgs.create.value).toBe("encrypted:supersecret");
+		expect(secretArgs.update.value).toBe("encrypted:supersecret");
+
+		// accessKeyId matches /key/i sensitive pattern too — ensure encrypted.
+		const accessKeyCall = savePrismaMock.setting.upsert.mock.calls.find(
+			(call) => (call[0] as { where: { key: string } }).where.key === "offsite.accessKeyId",
+		);
+		const accessArgs = accessKeyCall![0] as { create: { value: string } };
+		expect(accessArgs.create.value).toBe("encrypted:AKIAEXAMPLE");
+
+		const enabledCall = savePrismaMock.setting.upsert.mock.calls.find(
+			(call) => (call[0] as { where: { key: string } }).where.key === "offsite.enabled",
+		);
+		const enabledArgs = enabledCall![0] as { create: { value: string } };
+		expect(enabledArgs.create.value).toBe("true");
 	});
 });
