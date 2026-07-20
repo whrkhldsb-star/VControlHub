@@ -382,7 +382,6 @@ export async function executeSyncJob(jobId: string): Promise<ExecuteSyncJobResul
 			ok: !reverseError,
 			status: reverseError ? "ERROR" : "IDLE",
 			lastSyncResult,
-			partial: Boolean(reverseError),
 		};
 	} catch (error) {
 		const duration = Date.now() - startTime;
