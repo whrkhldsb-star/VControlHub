@@ -63,7 +63,17 @@ export async function GET(request: Request) {
 
 		if (session && sessionHasPermission(session, "playbook:read")) {
 			const playbooks = await prisma.playbook.findMany({
-				where: { OR: [{ name: { contains: q, mode: "insensitive" } }, { description: { contains: q, mode: "insensitive" } }] },
+				where: {
+					AND: [
+						teamWhere(session),
+						{
+							OR: [
+								{ name: { contains: q, mode: "insensitive" } },
+								{ description: { contains: q, mode: "insensitive" } },
+							],
+						},
+					],
+				},
 				select: { id: true, name: true, description: true },
 				orderBy: { updatedAt: "desc" },
 				take,

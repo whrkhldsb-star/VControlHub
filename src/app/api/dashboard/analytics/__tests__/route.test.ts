@@ -55,3 +55,53 @@ describe("/api/dashboard/analytics", () => {
     expect(mocks.prisma.auditLog.findMany).not.toHaveBeenCalled();
   });
 });
+
+  it("scopes metric snapshots through server.teamWhere and downloads/audit by teamId", async () => {
+    mocks.sessionHasPermission.mockImplementation(
+      (_session, permission: string) =>
+        permission === "server:read" ||
+        permission === "storage:read" ||
+        permission === "audit:read",
+    );
+    mocks.requireApiSession.mockResolvedValue({
+      ...session,
+      currentTeamId: "team_a",
+      roles: ["viewer"],
+    });
+
+    const response = await route.GET(new Request("http://local/api/dashboard/analytics?type=all"));
+    expect(response.status).toBe(200);
+
+    expect(mocks.prisma.metricSnapshot.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          server: expect.objectContaining({
+            OR: expect.arrayContaining([
+              { teamId: "team_a" },
+              { teamId: null },
+            ]),
+          }),
+        }),
+      }),
+    );
+    expect(mocks.prisma.downloadTask.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          OR: expect.arrayContaining([
+            { teamId: "team_a" },
+            { teamId: null },
+          ]),
+        }),
+      }),
+    );
+    expect(mocks.prisma.auditLog.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          OR: expect.arrayContaining([
+            { teamId: "team_a" },
+            { teamId: null },
+          ]),
+        }),
+      }),
+    );
+  });

@@ -7,6 +7,7 @@ import { z } from "zod";
 
 import { withApiRoute } from "@/lib/http/api-guard";
 import { sessionHasPermission } from "@/lib/auth/authorization";
+import { teamWhere } from "@/lib/auth/team-scope";
 import { prisma } from "@/lib/db";
 import { parseSearchParams } from "@/lib/http/parse-search-params";
 import { createLogger } from "@/lib/logging";
@@ -62,7 +63,10 @@ export async function GET(request: Request) {
     if (shouldIncludeAnalytics(session, type, "servers")) {
       const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
       const metrics = await prisma.metricSnapshot.findMany({
-        where: { createdAt: { gte: twentyFourHoursAgo } },
+        where: {
+          createdAt: { gte: twentyFourHoursAgo },
+          server: teamWhere(session),
+        },
         orderBy: { createdAt: "asc" },
         take: 5000,
         select: {
@@ -109,7 +113,10 @@ export async function GET(request: Request) {
     if (shouldIncludeAnalytics(session, type, "downloads")) {
       const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
       const downloads = await prisma.downloadTask.findMany({
-        where: { createdAt: { gte: sevenDaysAgo } },
+        where: {
+          createdAt: { gte: sevenDaysAgo },
+          ...teamWhere(session),
+        },
         orderBy: { createdAt: "asc" },
         take: 5000,
         select: { status: true, createdAt: true },
@@ -140,7 +147,10 @@ export async function GET(request: Request) {
     if (shouldIncludeAnalytics(session, type, "audit")) {
       const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
       const audits = await prisma.auditLog.findMany({
-        where: { createdAt: { gte: thirtyDaysAgo } },
+        where: {
+          createdAt: { gte: thirtyDaysAgo },
+          ...teamWhere(session),
+        },
         orderBy: { createdAt: "asc" },
         take: 10000,
         select: { action: true, createdAt: true },
@@ -167,7 +177,13 @@ export async function GET(request: Request) {
     if (shouldIncludeAnalytics(session, type, "image-bed")) {
       const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
       const images = await prisma.imageUpload.findMany({
-        where: { createdAt: { gte: sevenDaysAgo } },
+        where: {
+          createdAt: { gte: sevenDaysAgo },
+          // ImageUpload has no teamId; non-global managers only see own uploads.
+          ...(sessionHasPermission(session, "team:manage")
+            ? {}
+            : { userId: session.userId }),
+        },
         orderBy: { createdAt: "asc" },
         take: 5000,
         select: { sizeBytes: true, createdAt: true },
