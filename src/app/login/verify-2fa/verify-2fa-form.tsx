@@ -118,10 +118,8 @@ if (data.success) {
 			</div>
 
 			{errorMsg ? (
-				<StateBox tone="danger" className="py-2.5 text-center">
-					
+				<StateBox tone="danger" role="alert" className="py-2.5 text-center">
 					{errorMsg}
-				
 				</StateBox>
 			) : null}
 

@@ -79,16 +79,19 @@ export function Card({
 export function Spinner({
 	size = "md",
 	className,
+	label = "Loading…",
 }: {
 	size?: "sm" | "md" | "lg";
 	className?: string;
+	/** Accessible name; pass a localized loading string from client call sites. */
+	label?: string;
 }) {
 	const sizeClass = { sm: "h-4 w-4 border-2", md: "h-6 w-6 border-2", lg: "h-8 w-8 border-3" }[size];
 	return (
 		<span
 			className={`inline-block animate-spin rounded-full border-current border-t-transparent text-[var(--accent)] ${sizeClass} ${className ?? ""}`}
 			role="status"
-			aria-label="Loading"
+			aria-label={label}
 		/>
 	);
 }

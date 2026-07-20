@@ -25,9 +25,16 @@ describe("UI Primitives", () => {
 	});
 
 	describe("Spinner", () => {
-		it("renders with correct size", () => {
+		it("renders with correct size and default accessible label", () => {
 			render(<Spinner size="lg" />);
-			expect(screen.getByRole("status")).toBeInTheDocument();
+			const status = screen.getByRole("status");
+			expect(status).toBeInTheDocument();
+			expect(status).toHaveAttribute("aria-label", "Loading…");
+		});
+
+		it("accepts localized label for i18n call sites", () => {
+			render(<Spinner label="加载中…" />);
+			expect(screen.getByRole("status")).toHaveAttribute("aria-label", "加载中…");
 		});
 	});
 
