@@ -618,21 +618,23 @@ export async function markCommandExecutionFailed(
   error: unknown,
 ) {
   const message = error instanceof Error ? error.message : "Command background execution failed";
-  const request = await prisma.commandRequest.findUnique({
-    where: { id: commandRequestId },
-    select: { id: true, title: true, requesterId: true, status: true, teamId: true },
-  });
-  // Operator cancel is terminal — do not rewrite CANCELLED as FAILED when the
-  // worker tears down after SIGTERM / mid-flight cancel.
-  if (request?.status === "CANCELLED") {
-    return;
-  }
+  // CAS claim first (same order as recoverStaleRunningCommandRequests): operator
+  // cancel can race this path after the worker throws. Mutating targets before
+  // the claim left CANCELLED requests with FAILED targets when cancel won only
+  // on the request row (or when claim lost and we still rewrote RUNNING targets).
   const claimed = await prisma.commandRequest.updateMany({
     where: { id: commandRequestId, status: { in: ["RUNNING", "APPROVED"] } },
     data: { status: "FAILED", workerId: null, workerHeartbeatAt: null },
   });
+  if (claimed.count === 0) {
+    return;
+  }
+
   await prisma.commandTarget.updateMany({
-    where: { commandRequestId, status: "RUNNING" },
+    where: {
+      commandRequestId,
+      status: { in: ["RUNNING", "APPROVED", "PENDING_APPROVAL"] },
+    },
     data: {
       status: "FAILED",
       stderr: message,
@@ -640,15 +642,17 @@ export async function markCommandExecutionFailed(
       finishedAt: new Date(),
     },
   });
-  if (claimed.count === 0) {
-    return;
-  }
   await prisma.executionLog.create({
     data: {
       commandRequestId,
       serverId: null,
       summary: `Command background executor startup failed: ${message}`,
     },
+  });
+
+  const request = await prisma.commandRequest.findUnique({
+    where: { id: commandRequestId },
+    select: { id: true, title: true, requesterId: true, status: true, teamId: true },
   });
   await auditSystemAction(
     "command.execute.failed",

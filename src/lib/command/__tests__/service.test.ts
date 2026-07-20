@@ -429,7 +429,7 @@ describe("command service execution flow", () => {
       requesterId: "u_1",
       submissionMode: "assistant",
       serverIds: ["", "   "],
-    })).rejects.toThrow("至少选择 1 台目标 VPS");
+    })).rejects.toThrow("At least 1 target VPS must be selected");
 
     expect(mockPrisma.commandRequest.create).not.toHaveBeenCalled();
   });
@@ -1442,6 +1442,61 @@ describe("command service execution flow", () => {
         data: expect.objectContaining({
           commandRequestId: "req_stale_cancel_race",
           summary: expect.stringContaining("Stale RUNNING command"),
+        }),
+      }),
+    );
+  });
+
+  it("markCommandExecutionFailed does not rewrite targets when cancel already claimed request", async () => {
+    mockPrisma.commandRequest.updateMany.mockResolvedValue({ count: 0 });
+
+    const { markCommandExecutionFailed } = await import("../service-execution");
+    await markCommandExecutionFailed("req_mark_fail_cancel_race", new Error("worker boom"));
+
+    expect(mockPrisma.commandRequest.updateMany).toHaveBeenCalledWith({
+      where: { id: "req_mark_fail_cancel_race", status: { in: ["RUNNING", "APPROVED"] } },
+      data: { status: "FAILED", workerId: null, workerHeartbeatAt: null },
+    });
+    expect(mockPrisma.commandTarget.updateMany).not.toHaveBeenCalled();
+    expect(mockPrisma.executionLog.create).not.toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          commandRequestId: "req_mark_fail_cancel_race",
+          summary: expect.stringContaining("background executor"),
+        }),
+      }),
+    );
+  });
+
+  it("markCommandExecutionFailed claims request then fails non-terminal targets", async () => {
+    mockPrisma.commandRequest.updateMany.mockResolvedValue({ count: 1 });
+    mockPrisma.commandRequest.findUnique.mockResolvedValueOnce({
+      id: "req_mark_fail_ok",
+      title: "Boom",
+      requesterId: "u_1",
+      status: "FAILED",
+      teamId: "team_a",
+    });
+
+    const { markCommandExecutionFailed } = await import("../service-execution");
+    await markCommandExecutionFailed("req_mark_fail_ok", new Error("ssh dispatch exploded"));
+
+    expect(mockPrisma.commandTarget.updateMany).toHaveBeenCalledWith({
+      where: {
+        commandRequestId: "req_mark_fail_ok",
+        status: { in: ["RUNNING", "APPROVED", "PENDING_APPROVAL"] },
+      },
+      data: expect.objectContaining({
+        status: "FAILED",
+        stderr: "ssh dispatch exploded",
+        exitCode: 255,
+      }),
+    });
+    expect(mockPrisma.executionLog.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          commandRequestId: "req_mark_fail_ok",
+          summary: expect.stringContaining("ssh dispatch exploded"),
         }),
       }),
     );
