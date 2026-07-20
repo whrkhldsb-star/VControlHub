@@ -17,7 +17,7 @@
  *       throw new ValidationError("输入校验失败", parsed.error.flatten().fieldErrors);
  *     }
  *     const item = await getItem(id);
- *     if (!item) throw new NotFoundError(t("backend.http.msg"));
+ *     if (!item) throw new NotFoundError("条目不存在");
  *     return NextResponse.json(item);
  *   } catch (e) {
  *     return apiCatch(e);
@@ -33,7 +33,6 @@ import { NextResponse } from "next/server";
 import { createLogger } from "@/lib/logging";
 import { isAppError } from "@/lib/errors";
 import { type ApiErrorCode } from "@/lib/http/api-error-codes";
-import { t } from "@/lib/i18n/translations";
 
 const logger = createLogger("api");
 

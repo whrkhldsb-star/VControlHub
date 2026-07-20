@@ -1,4 +1,3 @@
-import { t } from "@/lib/i18n/translations";
 /**
  * i18n dictionary: `accountPasswordPage.*` (12 keys).
  *

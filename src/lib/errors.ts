@@ -7,7 +7,7 @@
  *
  * Usage:
  *   import { AuthError, NotFoundError, ValidationError } from "@/lib/errors";
- *   throw new NotFoundError(t("backend.errors.ts.msg"));                 // 404, code=NOT_FOUND
+ *   throw new NotFoundError("用户不存在");                 // 404, code=NOT_FOUND
  *   throw new ValidationError("缺少 id", { field: "id" }); // 400, code=VALIDATION_FAILED
  *
  *   // Or fully custom:
@@ -18,7 +18,6 @@
  */
 
 import type { ApiErrorCode } from "@/lib/http/api-error-codes";
-import { t } from "@/lib/i18n/translations";
 
 export type AppErrorOptions = {
 	code: ApiErrorCode;
