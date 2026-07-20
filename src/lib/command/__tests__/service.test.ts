@@ -1344,6 +1344,10 @@ describe("command service execution flow", () => {
       },
       take: 50,
     }));
+    expect(mockPrisma.commandRequest.updateMany).toHaveBeenCalledWith({
+      where: { id: "req_stale_1", status: "RUNNING" },
+      data: { status: "FAILED", workerId: null, workerHeartbeatAt: null },
+    });
     expect(mockPrisma.commandTarget.updateMany).toHaveBeenCalledWith({
       where: {
         commandRequestId: "req_stale_1",
@@ -1356,10 +1360,10 @@ describe("command service execution flow", () => {
         finishedAt: now,
       }),
     });
-    expect(mockPrisma.commandRequest.updateMany).toHaveBeenCalledWith({
-      where: { id: "req_stale_1", status: "RUNNING" },
-      data: { status: "FAILED", workerId: null, workerHeartbeatAt: null },
-    });
+    // Request CAS must precede target rewrite (cancel race safety).
+    const requestOrder = mockPrisma.commandRequest.updateMany.mock.invocationCallOrder[0] as number;
+    const targetOrder = mockPrisma.commandTarget.updateMany.mock.invocationCallOrder[0] as number;
+    expect(requestOrder).toBeLessThan(targetOrder);
     expect(mockPrisma.executionLog.create).toHaveBeenCalledWith(expect.objectContaining({
       data: expect.objectContaining({
         commandRequestId: "req_stale_1",
@@ -1419,14 +1423,20 @@ describe("command service execution flow", () => {
         targets: [{ id: "target_stale_cancel", status: "RUNNING" }],
       },
     ]);
-    mockPrisma.commandTarget.updateMany.mockResolvedValue({ count: 0 });
-    // Cancel already set request to CANCELLED — recovery must not claim FAILED.
+    // Cancel already set request to CANCELLED — recovery must not claim FAILED
+    // and must not stamp targets FAILED before the request CAS (would leave
+    // CANCELLED request + FAILED targets if cancel won on the request only).
     mockPrisma.commandRequest.updateMany.mockResolvedValue({ count: 0 });
 
     const { recoverStaleRunningCommandRequests } = await import("../service");
     const result = await recoverStaleRunningCommandRequests(now);
 
     expect(result).toEqual({ recovered: 0 });
+    expect(mockPrisma.commandRequest.updateMany).toHaveBeenCalledWith({
+      where: { id: "req_stale_cancel_race", status: "RUNNING" },
+      data: { status: "FAILED", workerId: null, workerHeartbeatAt: null },
+    });
+    expect(mockPrisma.commandTarget.updateMany).not.toHaveBeenCalled();
     expect(mockPrisma.executionLog.create).not.toHaveBeenCalledWith(
       expect.objectContaining({
         data: expect.objectContaining({

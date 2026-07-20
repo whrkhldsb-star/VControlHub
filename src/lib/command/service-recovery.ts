@@ -57,6 +57,16 @@ async function recoverOne(request: StaleRequest, now: Date): Promise<boolean> {
   const targetStatuses = request.targets.map((target) => target.status);
   const hasRunningOrQueuedTarget = targetStatuses.some((status) => ["RUNNING", "APPROVED", "PENDING_APPROVAL"].includes(status));
   if (hasRunningOrQueuedTarget) {
+    // CAS request first: operator cancel can race this sweep. Mutating targets
+    // before the claim left CANCELLED requests with FAILED targets when cancel
+    // won on the request after recovery rewrote targets.
+    const claimed = await prisma.commandRequest.updateMany({
+      where: { id: request.id, status: "RUNNING" },
+      data: { status: "FAILED", workerId: null, workerHeartbeatAt: null },
+    });
+    if (claimed.count === 0) {
+      return false;
+    }
     await prisma.commandTarget.updateMany({
       where: {
         commandRequestId: request.id,
@@ -69,14 +79,6 @@ async function recoverOne(request: StaleRequest, now: Date): Promise<boolean> {
         finishedAt: now,
       },
     });
-    // CAS: operator cancel can race this sweep — never rewrite CANCELLED→FAILED.
-    const claimed = await prisma.commandRequest.updateMany({
-      where: { id: request.id, status: "RUNNING" },
-      data: { status: "FAILED", workerId: null, workerHeartbeatAt: null },
-    });
-    if (claimed.count === 0) {
-      return false;
-    }
     const heartbeatDetail = request.workerHeartbeatAt
       ? `, last heartbeat ${request.workerHeartbeatAt.toISOString()}`
       : ", no worker heartbeat record";
