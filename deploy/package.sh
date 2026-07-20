@@ -32,6 +32,8 @@ tar --create --gzip --file "${ARCHIVE_PATH}" \
   --exclude './.github' \
   --exclude './node_modules' \
   --exclude './.next' \
+  --exclude './coverage' \
+  --exclude './coverage/*' \
   --exclude './.env.local' \
   --exclude './.env.*.local' \
   --exclude './storage/*' \

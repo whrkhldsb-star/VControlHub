@@ -104,6 +104,18 @@ vi.mock("@/lib/db", () => ({
     scheduledTask: {
       count: vi.fn().mockResolvedValue(1),
     },
+    alertRule: {
+      count: vi.fn().mockResolvedValue(1),
+    },
+    backupSchedule: {
+      count: vi.fn().mockResolvedValue(1),
+    },
+    vpsBackupSchedule: {
+      count: vi.fn().mockResolvedValue(0),
+    },
+    server: {
+      count: vi.fn().mockResolvedValue(1),
+    },
     setting: {
       findUnique: vi.fn().mockResolvedValue(null),
     },
