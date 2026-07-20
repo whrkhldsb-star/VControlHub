@@ -188,6 +188,7 @@ export function FileListClient({
   const selectedCount = selectionSummary.selectedCount;
   const selectedEntriesCanDelete = selectionSummary.selectedEntriesCanDelete;
   const selectedEntriesCanMove = selectionSummary.selectedEntriesCanMove;
+  const selectedEntriesCanCompress = selectionSummary.selectedEntriesCanCompress;
   const allSelected = selectionSummary.allSelected;
   const someSelected = selectionSummary.someSelected;
 
@@ -344,6 +345,7 @@ export function FileListClient({
         canDelete={canDelete}
         selectedEntriesCanDelete={selectedEntriesCanDelete}
         selectedEntriesCanMove={selectedEntriesCanMove}
+        selectedEntriesCanCompress={selectedEntriesCanCompress}
         selectedScopeMatches={selectedScopeMatches}
         currentPath={currentPath}
         onClearSelection={clearSelection}

@@ -551,6 +551,29 @@ describe("FileListClient", () => {
     ).not.toBeInTheDocument();
   });
 
+  it("hides batch compress for writable SFTP selections (API is LOCAL-only)", async () => {
+    renderFileList({
+      files: [
+        {
+          ...sftpDirectFile,
+          capabilities: { canRead: true, canWrite: true, canDelete: true },
+        },
+      ],
+      canDelete: true,
+    });
+
+    fireEvent.click(firstFileCheckbox("movie.mp4"));
+    expect(
+      await screen.findByRole("button", { name: "批量移动" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "批量压缩" }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "批量删除" }),
+    ).toBeInTheDocument();
+  });
+
   it("creates a tar.gz archive from the selected files", async () => {
     const onRefresh = vi.fn();
     renderFileList({ files: [imageFile, docFile], onRefresh });

@@ -135,8 +135,47 @@ describe("file-list-model", () => {
 		expect(summary.selectedCount).toBe(2);
 		expect(summary.selectedEntriesCanDelete).toBe(true);
 		expect(summary.selectedEntriesCanMove).toBe(false);
+		expect(summary.selectedEntriesCanCompress).toBe(false);
 		expect(summary.allSelected).toBe(true);
 		expect(summary.someSelected).toBe(false);
+	});
+
+	it("allows compress only when every selected entry is writable LOCAL", () => {
+		const localWritable: FileProp = {
+			...baseFile,
+			id: "local-w",
+			capabilities: { canRead: true, canWrite: true, canDelete: true },
+			storageNodeDriver: "LOCAL",
+		};
+		const sftpWritable: FileProp = {
+			...baseFile,
+			id: "sftp-w",
+			name: "remote.txt",
+			relativePath: "remote.txt",
+			capabilities: { canRead: true, canWrite: true, canDelete: true },
+			storageNodeId: "node-sftp",
+			storageNodeName: "远端",
+			storageNodeDriver: "SFTP",
+		};
+		const localSummary = getSelectionSummary({
+			visibleFiles: [localWritable],
+			selectableFiles: [localWritable],
+			selectedIds: new Set(["local-w"]),
+			selectedScopeMatches: true,
+			fallbacks: { canEditLocalFiles: false, canDelete: false },
+		});
+		expect(localSummary.selectedEntriesCanMove).toBe(true);
+		expect(localSummary.selectedEntriesCanCompress).toBe(true);
+
+		const sftpSummary = getSelectionSummary({
+			visibleFiles: [sftpWritable],
+			selectableFiles: [sftpWritable],
+			selectedIds: new Set(["sftp-w"]),
+			selectedScopeMatches: true,
+			fallbacks: { canEditLocalFiles: false, canDelete: false },
+		});
+		expect(sftpSummary.selectedEntriesCanMove).toBe(true);
+		expect(sftpSummary.selectedEntriesCanCompress).toBe(false);
 	});
 
 	it("drops stale selected ids when the selection scope changes", () => {

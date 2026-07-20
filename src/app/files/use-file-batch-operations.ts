@@ -271,6 +271,13 @@ export function useBatchCompress(input: UseBatchCompressInput) {
       showToast("error", t("filesPage.batch.compressCrossStorageUnsupported"));
       return;
     }
+    // Server compress is LOCAL-only (`tar` on node.basePath). Guard here
+    // as well as in the toolbar so keyboard/programmatic callers cannot
+    // hit a guaranteed 400 for SFTP selections.
+    if (selectedFiles.some((file) => file.storageNodeDriver !== "LOCAL")) {
+      showToast("error", t("filesPage.batch.compressLocalOnly"));
+      return;
+    }
 
     abortRef.current?.abort();
     const controller = new AbortController();

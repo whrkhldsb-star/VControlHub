@@ -31,6 +31,7 @@ export type FileBatchToolbarProps = {
   canDelete: boolean;
   selectedEntriesCanDelete: boolean;
   selectedEntriesCanMove: boolean;
+  selectedEntriesCanCompress: boolean;
   selectedScopeMatches: boolean;
   currentPath: string;
   onClearSelection: () => void;
@@ -52,6 +53,7 @@ export function FileBatchToolbar({
   canDelete,
   selectedEntriesCanDelete,
   selectedEntriesCanMove,
+  selectedEntriesCanCompress,
   selectedScopeMatches,
   currentPath,
   onClearSelection,
@@ -233,7 +235,7 @@ export function FileBatchToolbar({
                data-action-button data-variant="secondary" className="!px-4 !py-2 !text-sm">
                 {copy.clearSelection}
               </button>
-              {selectedEntriesCanMove ? (
+              {selectedEntriesCanCompress ? (
                 <button
                   type="button"
                   onClick={onCompressSelected}

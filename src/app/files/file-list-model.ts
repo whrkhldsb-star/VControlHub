@@ -110,6 +110,8 @@ export type FileSelectionSummary = {
 	selectedCount: number;
 	selectedEntriesCanDelete: boolean;
 	selectedEntriesCanMove: boolean;
+	/** Batch compress is LOCAL-only (server tar). */
+	selectedEntriesCanCompress: boolean;
 	allSelected: boolean;
 	someSelected: boolean;
 	selectableFileIds: string[];
@@ -146,6 +148,12 @@ export function getSelectionSummary({
 		selectedFileEntries.every((entry) =>
 			entryCanWrite(entry, { canEditLocalFiles: fallbacks.canEditLocalFiles }),
 		);
+	// `/api/files/compress` only supports LOCAL storage nodes. Hide the
+	// toolbar action for SFTP (or mixed) selections so the UI does not
+	// offer a path that always fails with 400 after the user clicks.
+	const selectedEntriesCanCompress =
+		selectedEntriesCanMove &&
+		selectedFileEntries.every((entry) => entry.storageNodeDriver === "LOCAL");
 	const allSelected =
 		selectableFiles.length > 0 &&
 		selectableFileIds.every((id) => effectiveSelectedIdSet.has(id));
@@ -157,6 +165,7 @@ export function getSelectionSummary({
 		selectedCount,
 		selectedEntriesCanDelete,
 		selectedEntriesCanMove,
+		selectedEntriesCanCompress,
 		allSelected,
 		someSelected: selectedCount > 0 && !allSelected,
 		selectableFileIds,
