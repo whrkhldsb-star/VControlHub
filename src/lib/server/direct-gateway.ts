@@ -287,7 +287,7 @@ VCH_DIRECT_CADDY_UNIT
 systemctl daemon-reload
 systemctl enable ${DIRECT_GATEWAY_CADDY_SERVICE_NAME}
 systemctl restart ${DIRECT_GATEWAY_CADDY_SERVICE_NAME}
-python3 - <<VCH_DIRECT_PROXY_HEALTH
+python3 - <<'VCH_DIRECT_PROXY_HEALTH'
 import ssl, time
 from urllib.request import urlopen
 last_error = None
@@ -391,7 +391,7 @@ VCH_DIRECT_CADDY_UNIT
 systemctl daemon-reload
 systemctl enable ${DIRECT_GATEWAY_CADDY_SERVICE_NAME}
 systemctl restart ${DIRECT_GATEWAY_CADDY_SERVICE_NAME}
-python3 - <<VCH_DIRECT_PROXY_HEALTH
+python3 - <<'VCH_DIRECT_PROXY_HEALTH'
 import ssl, time
 from urllib.request import urlopen
 ctx = ssl._create_unverified_context()
