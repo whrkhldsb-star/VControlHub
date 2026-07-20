@@ -20,6 +20,7 @@ import { deserializeDialect } from "@/lib/ssh/os-dialect";
 import { buildCommand } from "./hosted-command-builder";
 export { buildCommand } from "./hosted-command-builder";
 import { getToolByName, type HostedActionType, type HostedTool } from "./hosted-tools";
+import { t } from "@/lib/i18n/translations";
 
 // ── 类型 ──────────────────────────────────────────────────
 
@@ -134,7 +135,7 @@ async function buildAssistantCommandRequestPayload(input: {
   const dialect = server?.osDialect ? deserializeDialect(server.osDialect) : undefined;
   const command = buildCommand(input.tool.actionType, input.args, dialect);
   if (!command) {
-    throw new BusinessError("AI action parameters are invalid; cannot generate an approvable command");
+    throw new BusinessError(t("backend.ai.aiActionParametersAreInvalidCannotGenerateAn"));
   }
 
   const reason = typeof input.args.reason === "string" && input.args.reason.trim()
@@ -645,7 +646,7 @@ export async function executeSafeAction(
 // ── 审批操作 ──────────────────────────────────────────────
 
 export async function approveHostedAction(actionId: string, approver: HostedActionSession) {
-  if (!sessionHasPermission(approver, "ai:action:approve")) throw new ForbiddenError("Missing permission: ai:action:approve");
+  if (!sessionHasPermission(approver, "ai:action:approve")) throw new ForbiddenError(t("backend.ai.missingPermissionAiActionApprove"));
 
   // Atomic compare-and-swap: only transition from PENDING_APPROVAL to APPROVED
   const claimed = await prisma.aiHostedAction.updateMany({
@@ -654,8 +655,8 @@ export async function approveHostedAction(actionId: string, approver: HostedActi
   });
   if (claimed.count === 0) {
     const action = await prisma.aiHostedAction.findFirst({ where: { id: actionId } });
-    if (!action) throw new NotFoundError("Action not found or not authorized to approve");
-    throw new BusinessError("Action is not pending approval");
+    if (!action) throw new NotFoundError(t("backend.ai.actionNotFoundOrNotAuthorizedToApprove"));
+    throw new BusinessError(t("backend.ai.actionIsNotPendingApproval"));
   }
 
   await executeApprovedAction(actionId, approver);
@@ -663,12 +664,12 @@ export async function approveHostedAction(actionId: string, approver: HostedActi
 
 export async function confirmHostedAction(actionId: string, requester: HostedActionSession) {
   const action = await prisma.aiHostedAction.findFirst({ where: { id: actionId, requesterId: requester.userId } });
-  if (!action) throw new NotFoundError("Action not found or not authorized to confirm");
-  if (action.status !== "PENDING_APPROVAL") throw new BusinessError("Action is not pending confirmation");
-  if (action.autoApproved) throw new BusinessError("Auto-approved actions do not require manual confirmation");
-  if (!isHostedActionType(action.actionType)) throw new BusinessError("Unsupported action type");
+  if (!action) throw new NotFoundError(t("backend.ai.actionNotFoundOrNotAuthorizedToConfirm"));
+  if (action.status !== "PENDING_APPROVAL") throw new BusinessError(t("backend.ai.actionIsNotPendingConfirmation"));
+  if (action.autoApproved) throw new BusinessError(t("backend.ai.autoApprovedActionsDoNotRequireManualConfirmation"));
+  if (!isHostedActionType(action.actionType)) throw new BusinessError(t("backend.ai.unsupportedActionType"));
   if (SERVERLESS_ACTION_TYPES.has(action.actionType) && action.actionType !== "run_playbook") {
-    throw new BusinessError("List/query tools do not require creating a command request");
+    throw new BusinessError(t("backend.ai.listQueryToolsDoNotRequireCreatingA"));
   }
 
   const params = JSON.parse(action.params) as Record<string, unknown>;
@@ -676,10 +677,10 @@ export async function confirmHostedAction(actionId: string, requester: HostedAct
   // Cross-module: run_playbook queues a real Playbook run (not an SSH CommandRequest).
   if (action.actionType === "run_playbook") {
     if (!sessionHasPermission(requester, "playbook:run")) {
-      throw new ForbiddenError("Missing permission: playbook:run");
+      throw new ForbiddenError(t("backend.ai.missingPermissionPlaybookRun"));
     }
     const playbook = await resolvePlaybookId(params, requester);
-    if (!playbook) throw new BusinessError("Playbook not found or outside team scope");
+    if (!playbook) throw new BusinessError(t("backend.ai.playbookNotFoundOrOutsideTeamScope"));
 
     const claimed = await prisma.aiHostedAction.updateMany({
       where: { id: actionId, status: "PENDING_APPROVAL" },
@@ -690,7 +691,7 @@ export async function confirmHostedAction(actionId: string, requester: HostedAct
       },
     });
     if (claimed.count === 0) {
-      throw new BusinessError("Action is not pending confirmation (may have just been confirmed by another request)");
+      throw new BusinessError(t("backend.ai.actionIsNotPendingConfirmationMayHaveJust"));
     }
 
     const { runPlaybook } = await import("@/lib/playbook/service");
@@ -726,8 +727,8 @@ export async function confirmHostedAction(actionId: string, requester: HostedAct
     return;
   }
 
-  if (!sessionHasPermission(requester, "server:ssh")) throw new ForbiddenError("Missing permission: server:ssh");
-  if (!action.serverId) throw new BusinessError("No target VPS bound; cannot create command request");
+  if (!sessionHasPermission(requester, "server:ssh")) throw new ForbiddenError(t("backend.ai.missingPermissionServerSsh"));
+  if (!action.serverId) throw new BusinessError(t("backend.ai.noTargetVpsBoundCannotCreateCommandRequest"));
 
   const commandRequestPayload = await buildAssistantCommandRequestPayload({
     tool: {
@@ -756,7 +757,7 @@ export async function confirmHostedAction(actionId: string, requester: HostedAct
     },
   });
   if (claimed.count === 0) {
-    throw new BusinessError("Action is not pending confirmation (may have just been confirmed by another request)");
+    throw new BusinessError(t("backend.ai.actionIsNotPendingConfirmationMayHaveJust"));
   }
 
   const request = await createCommandRequest(commandRequestPayload);
@@ -787,8 +788,8 @@ export async function rejectHostedAction(actionId: string, actor: HostedActionSe
       where: canApprove ? { id: actionId } : { id: actionId, requesterId: actor.userId },
     });
     if (!action) {
-      if (canApprove) throw new NotFoundError("Action not found or not authorized to approve");
-      throw new NotFoundError("Action not found or not authorized to cancel");
+      if (canApprove) throw new NotFoundError(t("backend.ai.actionNotFoundOrNotAuthorizedToApprove"));
+      throw new NotFoundError(t("backend.ai.actionNotFoundOrNotAuthorizedToCancel"));
     }
     throw new BusinessError(canApprove ? "Action is not pending approval" : "Action is not pending confirmation");
   }

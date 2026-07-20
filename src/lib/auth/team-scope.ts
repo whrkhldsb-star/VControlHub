@@ -24,6 +24,7 @@ import { NotFoundError } from "@/lib/errors";
 
 import type { SessionPayload } from "./session";
 import { sessionHasPermission } from "./authorization";
+import { t } from "@/lib/i18n/translations";
 
 type TeamSession = Pick<SessionPayload, "userId" | "roles" | "currentTeamId">;
 
@@ -88,7 +89,7 @@ export async function assertUserInActorScope(
 	if (isGlobalTeamManager(session)) return;
 	if (userId === session.userId) return;
 	if (!session.currentTeamId) {
-		throw new NotFoundError("User not found");
+		throw new NotFoundError(t("backend.team.userNotFound"));
 	}
 	const membership = await prisma.teamMember.findUnique({
 		where: {
@@ -97,7 +98,7 @@ export async function assertUserInActorScope(
 		select: { userId: true },
 	});
 	if (!membership) {
-		throw new NotFoundError("User not found");
+		throw new NotFoundError(t("backend.team.userNotFound"));
 	}
 }
 

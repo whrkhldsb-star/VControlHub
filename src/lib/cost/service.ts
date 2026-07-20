@@ -37,6 +37,7 @@ import type {
 	DailySnapshot,
 } from "./types";
 import { COST_CATEGORY_VALUES } from "./types";
+import { t } from "@/lib/i18n/translations";
 
 const DEFAULT_CURRENCY: CostCurrency = "CNY";
 const DEFAULT_LIST_LIMIT = 100;
@@ -197,7 +198,7 @@ export async function updateCostEntry(
 	const current = session
 		? await prisma.costEntry.findFirst({ where: { id, ...teamFilter } })
 		: await prisma.costEntry.findUnique({ where: { id } });
-	if (!current) throw new NotFoundError("Cost entry not found");
+	if (!current) throw new NotFoundError(t("backend.cost.costEntryNotFound"));
 	const data: Prisma.CostEntryUpdateInput = {};
 	if (parsed.category !== undefined) data.category = parsed.category;
 	if (parsed.provider !== undefined) data.provider = parsed.provider;
@@ -217,9 +218,9 @@ export async function updateCostEntry(
 	}
 	if (session) {
 		const claimed = await prisma.costEntry.updateMany({ where: { id, ...teamFilter }, data });
-		if (claimed.count === 0) throw new NotFoundError("Cost entry not found");
+		if (claimed.count === 0) throw new NotFoundError(t("backend.cost.costEntryNotFound"));
 		const entry = await prisma.costEntry.findFirst({ where: { id, ...teamFilter } });
-		if (!entry) throw new NotFoundError("Cost entry not found");
+		if (!entry) throw new NotFoundError(t("backend.cost.costEntryNotFound"));
 		return toRecord(entry);
 	}
 	const entry = await prisma.costEntry.update({ where: { id }, data });
@@ -229,7 +230,7 @@ export async function updateCostEntry(
 export async function deleteCostEntry(id: string, session?: TeamSession | null): Promise<void> {
 	if (session) {
 		const claimed = await prisma.costEntry.deleteMany({ where: { id, ...teamWhere(session) } });
-		if (claimed.count === 0) throw new NotFoundError("Cost entry not found");
+		if (claimed.count === 0) throw new NotFoundError(t("backend.cost.costEntryNotFound"));
 		return;
 	}
 	await prisma.costEntry.delete({ where: { id } });
@@ -566,9 +567,9 @@ export async function updateCostBudget(id: string, input: unknown, session?: Tea
 	if (parsed.limitAmount !== undefined) data.limitAmount = new Prisma.Decimal(parsed.limitAmount);
 	if (session) {
 		const claimed = await prisma.costBudget.updateMany({ where: { id, ...teamWhere(session) }, data });
-		if (claimed.count === 0) throw new NotFoundError("Cost budget not found");
+		if (claimed.count === 0) throw new NotFoundError(t("backend.cost.costBudgetNotFound"));
 		const row = await prisma.costBudget.findFirst({ where: { id, ...teamWhere(session) } });
-		if (!row) throw new NotFoundError("Cost budget not found");
+		if (!row) throw new NotFoundError(t("backend.cost.costBudgetNotFound"));
 		return budgetToRecord(row, new Date(), session);
 	}
 	const row = await prisma.costBudget.update({ where: { id }, data });
@@ -578,7 +579,7 @@ export async function updateCostBudget(id: string, input: unknown, session?: Tea
 export async function deleteCostBudget(id: string, session?: TeamSession | null): Promise<void> {
 	if (session) {
 		const claimed = await prisma.costBudget.deleteMany({ where: { id, ...teamWhere(session) } });
-		if (claimed.count === 0) throw new NotFoundError("Cost budget not found");
+		if (claimed.count === 0) throw new NotFoundError(t("backend.cost.costBudgetNotFound"));
 		return;
 	}
 	await prisma.costBudget.delete({ where: { id } });

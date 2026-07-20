@@ -46,7 +46,7 @@ describe("AI hosted action approvals", () => {
 		const { approveHostedAction } = await import("../hosted-service");
 		const requester: { userId: string; roles: RoleKey[] } = { userId: "user_a", roles: ["operator"] };
 
-		await expect(approveHostedAction("action_1", requester)).rejects.toThrow("Missing permission: ai:action:approve");
+		await expect(approveHostedAction("action_1", requester)).rejects.toThrow("缺少permission: ai:action:approve");
 
 		expect(prismaMock.aiHostedAction.findFirst).not.toHaveBeenCalled();
 		expect(prismaMock.aiHostedAction.update).not.toHaveBeenCalled();

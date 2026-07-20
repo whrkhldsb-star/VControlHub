@@ -2,6 +2,7 @@ import { ValidationError, ConflictError, NotFoundError } from "@/lib/errors";
 import { prisma } from "@/lib/db";
 import { teamCreateData, teamWhere } from "@/lib/auth/team-scope";
 import type { RoleKey } from "@/lib/auth/rbac";
+import { t } from "@/lib/i18n/translations";
 
 const STATUSES = new Set(["OPEN", "IN_PROGRESS", "RESOLVED", "CLOSED"]);
 
@@ -50,14 +51,14 @@ async function assertRelatedResourcesInTeamScope(
       where: { id: input.relatedServerId, ...scope },
       select: { id: true },
     });
-    if (!server) throw new ValidationError("Related server not found");
+    if (!server) throw new ValidationError(t("backend.ticket.relatedServerNotFound"));
   }
   if (input.relatedCommandId) {
     const cmd = await prisma.commandRequest.findFirst({
       where: { id: input.relatedCommandId, ...scope },
       select: { id: true },
     });
-    if (!cmd) throw new ValidationError("Related command request not found");
+    if (!cmd) throw new ValidationError(t("backend.ticket.relatedCommandRequestNotFound"));
   }
 }
 
@@ -80,7 +81,7 @@ async function assertAssigneeInTeamScope(
   if (!teamId) {
     // No team context: only allow self-assignment.
     if (assigneeId !== session.userId) {
-      throw new ValidationError("Assignee is not available in this team");
+      throw new ValidationError(t("backend.ticket.assigneeIsNotAvailableInThisTeam"));
     }
     return;
   }
@@ -91,7 +92,7 @@ async function assertAssigneeInTeamScope(
     where: { teamId_userId: { teamId, userId: assigneeId } },
     select: { userId: true },
   });
-  if (!membership) throw new ValidationError("Assignee is not a member of this team");
+  if (!membership) throw new ValidationError(t("backend.ticket.assigneeIsNotAMemberOfThisTeam"));
 }
 
 export async function createTicket(input: {
@@ -106,7 +107,7 @@ export async function createTicket(input: {
   session?: Pick<TeamSession, "userId" | "roles" | "currentTeamId"> | { currentTeamId: string | null };
   skipItsmFanOut?: boolean;
 }) {
-  if (!input.title.trim() || !input.description.trim()) throw new ValidationError("Ticket title and description cannot be empty");
+  if (!input.title.trim() || !input.description.trim()) throw new ValidationError(t("backend.ticket.ticketTitleAndDescriptionCannotBeEmpty"));
   const priority = input.priority ?? "NORMAL";
   const { computeSlaDueAt } = await import("./sla");
   const slaDueAt = input.slaDueAt ?? computeSlaDueAt(new Date(), priority);
@@ -255,7 +256,7 @@ export async function updateTicketStatus(input: {
   const teamFilter = ticketTeamFilter(input.session);
 
   if (input.status !== undefined) {
-    if (!STATUSES.has(input.status)) throw new ValidationError("Ticket status is invalid");
+    if (!STATUSES.has(input.status)) throw new ValidationError(t("backend.ticket.ticketStatusIsInvalid"));
     // Enforce the state machine with CAS so concurrent PATCHes cannot
     // both win illegal transitions (e.g. OPEN→IN_PROGRESS and OPEN→CLOSED).
     const current = input.session
@@ -267,7 +268,7 @@ export async function updateTicketStatus(input: {
           where: { id: input.id },
           select: { status: true, teamId: true },
         });
-    if (!current) throw new NotFoundError("Ticket not found");
+    if (!current) throw new NotFoundError(t("backend.ticket.ticketNotFound"));
     const allowed = TRANSITIONS[current.status] ?? new Set<string>();
     if (!allowed.has(input.status)) {
       throw new ValidationError(`Ticket status cannot change from ${current.status} to ${input.status}`);
@@ -286,12 +287,12 @@ export async function updateTicketStatus(input: {
       data,
     });
     if (claimed.count === 0) {
-      throw new ConflictError("Ticket status changed concurrently; please retry");
+      throw new ConflictError(t("backend.ticket.ticketStatusChangedConcurrentlyPleaseRetry"));
     }
     const updated = input.session
       ? await prisma.ticket.findFirst({ where: { id: input.id, ...teamFilter } })
       : await prisma.ticket.findUnique({ where: { id: input.id } });
-    if (!updated) throw new NotFoundError("Ticket not found");
+    if (!updated) throw new NotFoundError(t("backend.ticket.ticketNotFound"));
     if (!input.skipItsmFanOut) {
       const { safeFanOutTicketEvent } = await import("@/lib/itsm/service");
       await safeFanOutTicketEvent({
@@ -319,7 +320,7 @@ export async function updateTicketStatus(input: {
           where: { id: input.id },
           select: { teamId: true },
         });
-    if (!existing) throw new NotFoundError("Ticket not found");
+    if (!existing) throw new NotFoundError(t("backend.ticket.ticketNotFound"));
     await assertAssigneeInTeamScope(input.assigneeId, input.session, existing.teamId);
     data.assigneeId = input.assigneeId;
   }
@@ -328,7 +329,7 @@ export async function updateTicketStatus(input: {
     data.priority = input.priority;
   }
 
-  if (Object.keys(data).length === 0) throw new ValidationError("Ticket update content cannot be empty");
+  if (Object.keys(data).length === 0) throw new ValidationError(t("backend.ticket.ticketUpdateContentCannotBeEmpty"));
 
   // Team-scoped update: claim via updateMany so cross-team ids cannot mutate.
   if (input.session) {
@@ -336,9 +337,9 @@ export async function updateTicketStatus(input: {
       where: { id: input.id, ...teamFilter },
       data,
     });
-    if (claimed.count === 0) throw new NotFoundError("Ticket not found");
+    if (claimed.count === 0) throw new NotFoundError(t("backend.ticket.ticketNotFound"));
     const updated = await prisma.ticket.findFirst({ where: { id: input.id, ...teamFilter } });
-    if (!updated) throw new NotFoundError("Ticket not found");
+    if (!updated) throw new NotFoundError(t("backend.ticket.ticketNotFound"));
     if (!input.skipItsmFanOut) {
       const { safeFanOutTicketEvent } = await import("@/lib/itsm/service");
       await safeFanOutTicketEvent({
@@ -379,14 +380,14 @@ export async function addTicketComment(input: {
   skipItsmFanOut?: boolean;
   session?: TeamSession | null;
 }) {
-  if (!input.body.trim()) throw new ValidationError("Reply content cannot be empty");
+  if (!input.body.trim()) throw new ValidationError(t("backend.ticket.replyContentCannotBeEmpty"));
   const teamFilter = ticketTeamFilter(input.session);
   if (input.session) {
     const ticketExists = await prisma.ticket.findFirst({
       where: { id: input.ticketId, ...teamFilter },
       select: { id: true },
     });
-    if (!ticketExists) throw new NotFoundError("Ticket not found");
+    if (!ticketExists) throw new NotFoundError(t("backend.ticket.ticketNotFound"));
   }
   const comment = await prisma.ticketComment.create({
     data: { ticketId: input.ticketId, authorId: input.authorId, body: input.body.trim() },

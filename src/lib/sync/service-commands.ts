@@ -7,6 +7,7 @@
  */
 import { ValidationError } from "@/lib/errors";
 import { shellQuote } from "@/lib/shell-quote";
+import { t } from "@/lib/i18n/translations";
 
 export { shellQuote };
 
@@ -42,13 +43,13 @@ const RSYNC_HOST_PATTERN = /^[A-Za-z0-9.:[\]@_-]+$/;
 
 function assertSafeSshUsername(username: string): void {
 	if (!SSH_USERNAME_PATTERN.test(username) || username.startsWith("-")) {
-		throw new ValidationError("Unsafe SSH username");
+		throw new ValidationError(t("backend.sync.unsafeSshUsername"));
 	}
 }
 
 function assertSafeHost(host: string): void {
 	if (!HOSTNAME_PATTERN.test(host) || host.startsWith("-")) {
-		throw new ValidationError("Unsafe SSH host");
+		throw new ValidationError(t("backend.sync.unsafeSshHost"));
 	}
 }
 
@@ -66,7 +67,7 @@ function buildRsyncTargetAddress(targetUser: string, targetHost: string): string
 	assertSafeSshUsername(targetUser);
 	const address = `${targetUser}@${formatRsyncHost(targetHost)}`;
 	if (!RSYNC_HOST_PATTERN.test(address)) {
-		throw new ValidationError("Unsafe rsync target address");
+		throw new ValidationError(t("backend.sync.unsafeRsyncTargetAddress"));
 	}
 	return address;
 }
@@ -78,14 +79,14 @@ function buildSshTargetAddress(targetUser: string, targetHost: string): string {
 
 function assertSafeSshPort(targetPort: number): void {
 	if (!Number.isInteger(targetPort) || targetPort < 1 || targetPort > 65535) {
-		throw new ValidationError("Unsafe SSH port");
+		throw new ValidationError(t("backend.sync.unsafeSshPort"));
 	}
 }
 
 function buildSshOptions(targetPort: number, hostKeySha256?: string | null, knownHostsPath?: string): string {
 	assertSafeSshPort(targetPort);
 	const pinned = Boolean(hostKeySha256?.trim());
-	if (pinned && !knownHostsPath) throw new ValidationError("Pinned SSH sync requires a known_hosts path");
+	if (pinned && !knownHostsPath) throw new ValidationError(t("backend.sync.pinnedSshSyncRequiresAKnownHostsPath"));
 	return [
 		`-o StrictHostKeyChecking=${pinned ? "yes" : "accept-new"}`,
 		`-o UserKnownHostsFile=${shellQuote(pinned ? knownHostsPath! : "/dev/null")}`,

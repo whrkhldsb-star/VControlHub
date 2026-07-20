@@ -65,7 +65,7 @@ export async function linkTicketCommand(input: {
         where: { id: input.ticketId },
         select: { id: true, relatedCommandId: true, status: true },
       });
-  if (!ticket) throw new NotFoundError("Ticket not found");
+  if (!ticket) throw new NotFoundError(t("backend.ticket.ticketNotFound"));
 
   if (input.commandRequestId) {
     const cmd = input.session
@@ -86,7 +86,7 @@ export async function linkTicketCommand(input: {
       where: { id: input.ticketId, ...teamFilter },
       data: { relatedCommandId: input.commandRequestId },
     });
-    if (claimed.count === 0) throw new NotFoundError("Ticket not found");
+    if (claimed.count === 0) throw new NotFoundError(t("backend.ticket.ticketNotFound"));
   } else {
     await prisma.ticket.update({
       where: { id: input.ticketId },
@@ -96,7 +96,7 @@ export async function linkTicketCommand(input: {
   const updated = input.session
     ? await prisma.ticket.findFirst({ where: { id: input.ticketId, ...teamFilter } })
     : await prisma.ticket.findUnique({ where: { id: input.ticketId } });
-  if (!updated) throw new NotFoundError("Ticket not found");
+  if (!updated) throw new NotFoundError(t("backend.ticket.ticketNotFound"));
 
   if (previous !== input.commandRequestId) {
     await prisma.ticketEscalation.create({
@@ -133,7 +133,7 @@ export async function linkTicketServer(input: {
         where: { id: input.ticketId },
         select: { id: true, relatedServerId: true, status: true },
       });
-  if (!ticket) throw new NotFoundError("Ticket not found");
+  if (!ticket) throw new NotFoundError(t("backend.ticket.ticketNotFound"));
 
   if (input.serverId) {
     const server = input.session
@@ -145,7 +145,7 @@ export async function linkTicketServer(input: {
           where: { id: input.serverId },
           select: { id: true },
         });
-    if (!server) throw new ValidationError("Server not found");
+    if (!server) throw new ValidationError(t("backend.ticket.serverNotFound"));
   }
 
   const previous = ticket.relatedServerId;
@@ -154,7 +154,7 @@ export async function linkTicketServer(input: {
       where: { id: input.ticketId, ...teamFilter },
       data: { relatedServerId: input.serverId },
     });
-    if (claimed.count === 0) throw new NotFoundError("Ticket not found");
+    if (claimed.count === 0) throw new NotFoundError(t("backend.ticket.ticketNotFound"));
   } else {
     await prisma.ticket.update({
       where: { id: input.ticketId },
@@ -164,7 +164,7 @@ export async function linkTicketServer(input: {
   const updated = input.session
     ? await prisma.ticket.findFirst({ where: { id: input.ticketId, ...teamFilter } })
     : await prisma.ticket.findUnique({ where: { id: input.ticketId } });
-  if (!updated) throw new NotFoundError("Ticket not found");
+  if (!updated) throw new NotFoundError(t("backend.ticket.ticketNotFound"));
 
   if (previous !== input.serverId) {
     await prisma.ticketEscalation.create({
@@ -219,7 +219,7 @@ export async function getTicketTimeline(ticketId: string, session?: TeamSession 
         where: { id: ticketId },
         include: ticketInclude,
       });
-  if (!ticket) throw new NotFoundError("Ticket not found");
+  if (!ticket) throw new NotFoundError(t("backend.ticket.ticketNotFound"));
 
   const events: TimelineEvent[] = [];
 

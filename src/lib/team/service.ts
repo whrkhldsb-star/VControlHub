@@ -4,6 +4,7 @@ import type { SessionPayload } from "@/lib/auth/session";
 import { sessionHasPermission } from "@/lib/auth/authorization";
 import { auditUserAction } from "@/lib/audit/service";
 import type { AddTeamMemberInput, CreateTeamInput, UpdateTeamInput } from "./schema";
+import { t } from "@/lib/i18n/translations";
 
 export type TeamRole = "owner" | "admin" | "member";
 
@@ -23,7 +24,7 @@ async function uniqueTeamSlug(base: string) {
 		if (!existing) return slug;
 		slug = `${base.slice(0, 56)}-${i}`;
 	}
-	throw new ValidationError("Unable to generate a unique team identifier");
+	throw new ValidationError(t("backend.team.unableToGenerateAUniqueTeamIdentifier"));
 }
 
 export async function listTeamsForSession(session: SessionPayload) {
@@ -58,7 +59,7 @@ export async function listTeamsForSession(session: SessionPayload) {
 
 export async function createTeam(input: CreateTeamInput, session: SessionPayload) {
 	if (!sessionHasPermission(session, "team:create")) {
-		throw new ForbiddenError("Missing permission to create team workspace");
+		throw new ForbiddenError(t("backend.team.missingPermissionToCreateTeamWorkspace"));
 	}
 	const baseSlug = input.slug?.trim() || slugifyTeamName(input.name);
 	const slug = await uniqueTeamSlug(baseSlug);
@@ -86,7 +87,7 @@ async function assertCanManageTeam(session: SessionPayload, teamId: string) {
 		select: { role: true },
 	});
 	if (!membership || (membership.role !== "owner" && membership.role !== "admin")) {
-		throw new ForbiddenError("Missing team workspace management permission");
+		throw new ForbiddenError(t("backend.team.missingTeamWorkspaceManagementPermission"));
 	}
 }
 
@@ -95,7 +96,7 @@ export async function switchCurrentTeam(teamId: string, session: SessionPayload)
 		where: { teamId_userId: { teamId, userId: session.userId } },
 		select: { team: { select: { id: true, name: true, slug: true } } },
 	});
-	if (!membership) throw new ForbiddenError("Can only switch to a team workspace you belong to");
+	if (!membership) throw new ForbiddenError(t("backend.team.canOnlySwitchToATeamWorkspaceYou"));
 	await prisma.user.update({ where: { id: session.userId }, data: { currentTeamId: teamId } });
 	await auditUserAction(session.userId, "team.switch", { teamId, slug: membership.team.slug });
 	return membership.team;
@@ -104,9 +105,9 @@ export async function switchCurrentTeam(teamId: string, session: SessionPayload)
 export async function addTeamMember(teamId: string, input: AddTeamMemberInput, session: SessionPayload) {
 	await assertCanManageTeam(session, teamId);
 	const team = await prisma.team.findUnique({ where: { id: teamId }, select: { id: true, slug: true } });
-	if (!team) throw new NotFoundError("Team workspace not found");
+	if (!team) throw new NotFoundError(t("backend.team.teamWorkspaceNotFound"));
 	const user = await prisma.user.findUnique({ where: { username: input.username }, select: { id: true, username: true } });
-	if (!user) throw new NotFoundError("User not found");
+	if (!user) throw new NotFoundError(t("backend.team.userNotFound"));
 	const member = await prisma.teamMember.upsert({
 		where: { teamId_userId: { teamId, userId: user.id } },
 		update: { role: input.role },
@@ -123,11 +124,11 @@ export async function removeTeamMember(teamId: string, userId: string, session: 
 		where: { id: teamId },
 		select: { id: true, slug: true, ownerId: true },
 	});
-	if (!team) throw new NotFoundError("Team workspace not found");
+	if (!team) throw new NotFoundError(t("backend.team.teamWorkspaceNotFound"));
 
 	// Prevent removing the team owner
 	if (team.ownerId === userId) {
-		throw new ForbiddenError("Cannot remove the team owner; please transfer ownership first");
+		throw new ForbiddenError(t("backend.team.cannotRemoveTheTeamOwnerPleaseTransferOwnership"));
 	}
 
 	// Prevent removing the last owner
@@ -135,11 +136,11 @@ export async function removeTeamMember(teamId: string, userId: string, session: 
 		where: { teamId_userId: { teamId, userId } },
 		select: { role: true },
 	});
-	if (!membership) throw new NotFoundError("This user is not a team member");
+	if (!membership) throw new NotFoundError(t("backend.team.thisUserIsNotATeamMember"));
 	if (membership.role === "owner") {
 		const ownerCount = await prisma.teamMember.count({ where: { teamId, role: "owner" } });
 		if (ownerCount <= 1) {
-			throw new ForbiddenError("Cannot remove the last owner; please transfer ownership first");
+			throw new ForbiddenError(t("backend.team.cannotRemoveTheLastOwnerPleaseTransferOwnership"));
 		}
 	}
 
@@ -158,7 +159,7 @@ export async function removeTeamMember(teamId: string, userId: string, session: 
 export async function updateTeam(teamId: string, input: UpdateTeamInput, session: SessionPayload) {
 	await assertCanManageTeam(session, teamId);
 	const team = await prisma.team.findUnique({ where: { id: teamId }, select: { id: true, slug: true } });
-	if (!team) throw new NotFoundError("Team workspace not found");
+	if (!team) throw new NotFoundError(t("backend.team.teamWorkspaceNotFound"));
 
 	const data: { name?: string; description?: string | null } = {};
 	if (input.name !== undefined) data.name = input.name.trim();
@@ -182,7 +183,7 @@ export async function deleteTeam(teamId: string, session: SessionPayload) {
 			select: { role: true },
 		});
 		if (!membership || membership.role !== "owner") {
-			throw new ForbiddenError("Only an admin or team owner can delete the team");
+			throw new ForbiddenError(t("backend.team.onlyAnAdminOrTeamOwnerCanDelete"));
 		}
 	}
 
@@ -190,7 +191,7 @@ export async function deleteTeam(teamId: string, session: SessionPayload) {
 		where: { id: teamId },
 		select: { id: true, slug: true, name: true },
 	});
-	if (!team) throw new NotFoundError("Team workspace not found");
+	if (!team) throw new NotFoundError(t("backend.team.teamWorkspaceNotFound"));
 
 	await prisma.$transaction(async (tx) => {
 		// Clear currentTeamId for users pointing to this team

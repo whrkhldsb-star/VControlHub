@@ -12,6 +12,7 @@ import { createHmac, timingSafeEqual } from "node:crypto";
 import { ValidationError } from "@/lib/errors";
 import { fetchWebhookSafely, validateWebhookUrlSyntax } from "@/lib/security/webhook-url";
 
+import { t } from "@/lib/i18n/translations";
 import type {
 	ItsmConnectionConfig,
 	ItsmCredentials,
@@ -302,11 +303,11 @@ export function normalizeInboundTicket(raw: Record<string, unknown>): {
 
 export function assertOutboundReady(provider: ItsmProvider, config: ItsmConnectionConfig, credentials: ItsmCredentials) {
 	if (provider === "telegram") {
-		if (!credentials.botToken?.trim()) throw new ValidationError("Telegram botToken is required");
-		if (!config.chatId?.trim()) throw new ValidationError("Telegram chatId is required");
+		if (!credentials.botToken?.trim()) throw new ValidationError(t("backend.itsm.telegramBottokenIsRequired"));
+		if (!config.chatId?.trim()) throw new ValidationError(t("backend.itsm.telegramChatidIsRequired"));
 		return;
 	}
-	if (!config.webhookUrl?.trim()) throw new ValidationError("webhookUrl is required");
+	if (!config.webhookUrl?.trim()) throw new ValidationError(t("backend.itsm.webhookurlIsRequired"));
 	const syntax = validateWebhookUrlSyntax(config.webhookUrl);
 	if (!syntax.ok) throw new ValidationError(syntax.error);
 }

@@ -22,6 +22,7 @@ import {
 	createCloudBillingAccountSchema,
 	updateCloudBillingAccountSchema,
 } from "./schema";
+import { t } from "@/lib/i18n/translations";
 import type {
 	CloudBillingAccountConfig,
 	CloudBillingAccountRecord,
@@ -60,7 +61,7 @@ function decryptCredentials(enc: string): CloudBillingCredentials {
 		const parsed = JSON.parse(plain) as CloudBillingCredentials;
 		return parsed && typeof parsed === "object" ? parsed : {};
 	} catch {
-		throw new ValidationError("Stored cloud billing credentials are corrupt");
+		throw new ValidationError(t("backend.cost.storedCloudBillingCredentialsAreCorrupt"));
 	}
 }
 
@@ -176,7 +177,7 @@ export async function getCloudBillingAccount(
 	const row = await prisma.cloudBillingAccount.findFirst({
 		where: { id, ...(session ? teamWhere(session) : {}) },
 	});
-	if (!row) throw new NotFoundError("Cloud billing account not found");
+	if (!row) throw new NotFoundError(t("backend.cost.cloudBillingAccountNotFound"));
 	return toAccountRecord(row);
 }
 
@@ -189,7 +190,7 @@ export async function updateCloudBillingAccount(
 	const existing = await prisma.cloudBillingAccount.findFirst({
 		where: { id, ...(session ? teamWhere(session) : {}) },
 	});
-	if (!existing) throw new NotFoundError("Cloud billing account not found");
+	if (!existing) throw new NotFoundError(t("backend.cost.cloudBillingAccountNotFound"));
 
 	const data: Prisma.CloudBillingAccountUpdateInput = {};
 	if (parsed.name !== undefined) data.name = parsed.name;
@@ -217,7 +218,7 @@ export async function deleteCloudBillingAccount(
 	const deleted = await prisma.cloudBillingAccount.deleteMany({
 		where: { id, ...(session ? teamWhere(session) : {}) },
 	});
-	if (deleted.count === 0) throw new NotFoundError("Cloud billing account not found");
+	if (deleted.count === 0) throw new NotFoundError(t("backend.cost.cloudBillingAccountNotFound"));
 }
 
 export interface CloudBillingSyncResult {
@@ -236,9 +237,9 @@ export async function syncCloudBillingAccount(
 	const account = await prisma.cloudBillingAccount.findFirst({
 		where: { id: accountId, ...(session ? teamWhere(session) : {}) },
 	});
-	if (!account) throw new NotFoundError("Cloud billing account not found");
+	if (!account) throw new NotFoundError(t("backend.cost.cloudBillingAccountNotFound"));
 	if (!account.enabled) {
-		throw new ValidationError("Cloud billing account is disabled");
+		throw new ValidationError(t("backend.cost.cloudBillingAccountIsDisabled"));
 	}
 
 	const run = await prisma.cloudBillingSyncRun.create({
@@ -381,7 +382,7 @@ export async function listCloudBillingSyncRuns(
 		where: { id: accountId, ...(session ? teamWhere(session) : {}) },
 		select: { id: true },
 	});
-	if (!account) throw new NotFoundError("Cloud billing account not found");
+	if (!account) throw new NotFoundError(t("backend.cost.cloudBillingAccountNotFound"));
 	const rows = await prisma.cloudBillingSyncRun.findMany({
 		where: { accountId },
 		orderBy: { startedAt: "desc" },

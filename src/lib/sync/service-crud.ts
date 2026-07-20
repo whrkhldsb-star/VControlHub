@@ -10,6 +10,7 @@ import { teamCreateData, teamWhere } from "@/lib/auth/team-scope";
 import type { SessionPayload } from "@/lib/auth/session";
 import { NotFoundError, ValidationError } from "@/lib/errors";
 import { effectiveDeleteOrphans } from "./bidirectional";
+import { t } from "@/lib/i18n/translations";
 
 export type SyncSessionScope = Pick<SessionPayload, "userId" | "roles" | "currentTeamId">;
 
@@ -38,7 +39,7 @@ async function assertSyncServersInScope(
 ): Promise<void> {
 	const unique = Array.from(new Set(serverIds.filter(Boolean)));
 	if (unique.length === 0) {
-		throw new ValidationError("Source and target servers are required");
+		throw new ValidationError(t("backend.sync.sourceAndTargetServersAreRequired"));
 	}
 	const scope = session ? teamWhere(session) : {};
 	const servers = await prisma.server.findMany({
@@ -115,7 +116,7 @@ export async function deleteSyncJob(
 	session?: Pick<SessionPayload, "userId" | "roles" | "currentTeamId">,
 ) {
 	const existing = await getSyncJob(id, session);
-	if (!existing) throw new NotFoundError("Sync job not found");
+	if (!existing) throw new NotFoundError(t("backend.sync.syncJobNotFound"));
 	return prisma.syncJob.delete({ where: { id } });
 }
 
@@ -127,7 +128,7 @@ export async function updateSyncJob(
 	session?: Pick<SessionPayload, "userId" | "roles" | "currentTeamId">,
 ) {
 	const existing = await getSyncJob(id, session);
-	if (!existing) throw new NotFoundError("Sync job not found");
+	if (!existing) throw new NotFoundError(t("backend.sync.syncJobNotFound"));
 	const patch: Record<string, unknown> = {};
 	if (data.name !== undefined) patch.name = data.name;
 	if (data.sourcePath !== undefined) patch.sourcePath = data.sourcePath;

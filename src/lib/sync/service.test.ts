@@ -182,7 +182,7 @@ describe("sync service command helpers", () => {
 				targetHost: "example.com",
 				targetPort: 22,
 			}),
-		).toThrow("Unsafe SSH username");
+		).toThrow("不安全的 SSH 用户名");
 
 		expect(() =>
 			buildTarSyncCommand({
@@ -193,7 +193,7 @@ describe("sync service command helpers", () => {
 				targetPort: 22,
 				deleteOrphans: false,
 			}),
-		).toThrow("Unsafe SSH host");
+		).toThrow("不安全的 SSH 主机");
 	});
 
 	it("uses unbracketed IPv6 addresses for raw ssh tar fallback targets", () => {
@@ -219,7 +219,7 @@ describe("sync service command helpers", () => {
 				targetHost: "example.com",
 				targetPort: 0,
 			}),
-		).toThrow("Unsafe SSH port");
+		).toThrow("不安全的 SSH 端口");
 
 		expect(() =>
 			buildTarSyncCommand({
@@ -230,7 +230,7 @@ describe("sync service command helpers", () => {
 				targetPort: 65536,
 				deleteOrphans: false,
 			}),
-		).toThrow("Unsafe SSH port");
+		).toThrow("不安全的 SSH 端口");
 	});
 });
 

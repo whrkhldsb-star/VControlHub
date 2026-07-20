@@ -3,6 +3,7 @@ import nodemailer from "nodemailer";
 import { ValidationError } from "@/lib/errors";
 import { timeDelivery } from "@/lib/monitoring/runtime-metrics";
 import { getAllSettings } from "@/lib/settings/service";
+import { t } from "@/lib/i18n/translations";
 
 export type EmailDeliveryInput = {
 	to: string | string[];
@@ -61,9 +62,9 @@ export async function getSmtpConfig(): Promise<SmtpConfig> {
 }
 
 export function assertSmtpReady(config: SmtpConfig) {
-	if (!config.enabled) throw new ValidationError("SMTP channel is not enabled");
-	if (!config.host) throw new ValidationError("SMTP host is not configured");
-	if (!config.from) throw new ValidationError("SMTP sender is not configured");
+	if (!config.enabled) throw new ValidationError(t("backend.notification.smtpChannelIsNotEnabled"));
+	if (!config.host) throw new ValidationError(t("backend.notification.smtpHostIsNotConfigured"));
+	if (!config.from) throw new ValidationError(t("backend.notification.smtpSenderIsNotConfigured"));
 }
 
 export async function sendEmail(input: EmailDeliveryInput): Promise<EmailDeliveryResult> {
@@ -72,7 +73,7 @@ export async function sendEmail(input: EmailDeliveryInput): Promise<EmailDeliver
 		assertSmtpReady(config);
 
 		const recipients = normalizeRecipients(input.to);
-		if (recipients.length === 0) throw new ValidationError("Email recipients are not configured");
+		if (recipients.length === 0) throw new ValidationError(t("backend.notification.emailRecipientsAreNotConfigured"));
 
 		const transporter = nodemailer.createTransport({
 			host: config.host,
@@ -107,7 +108,7 @@ export async function sendAlertEmail(input: {
 	const settings = await getAllSettings();
 	const recipients = parseAlertEmailRecipients(settings["smtp.alertRecipients"]);
 	if (recipients.length === 0) {
-		throw new ValidationError("SMTP alert recipients are not configured");
+		throw new ValidationError(t("backend.notification.smtpAlertRecipientsAreNotConfigured"));
 	}
 	const body = [input.message, ...(input.contextLines ?? [])]
 		.filter(Boolean)

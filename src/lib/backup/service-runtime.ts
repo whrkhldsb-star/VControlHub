@@ -80,7 +80,7 @@ export async function runExistingBackupRecord(input: { id: string; projectRoot?:
 	if (claimed.count === 0) {
 		const latest = await getBackupRecord(record.id);
 		if (latest?.status === "RUNNING") {
-			throw new ConflictError("Backup is already running");
+			throw new ConflictError(t("backend.backup.backupIsAlreadyRunning"));
 		}
 		if (latest?.status === "COMPLETED") {
 			return latest;

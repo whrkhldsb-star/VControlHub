@@ -20,6 +20,7 @@ import {
   execRemoteCommand,
 } from "@/lib/ssh/client";
 import { acquireAdvisoryLock } from "@/lib/concurrency/advisory-lock";
+import { t } from "@/lib/i18n/translations";
 import {
   dockerRequest,
   type DockerScope,
@@ -206,8 +207,8 @@ async function resolveScope(serverId?: string): Promise<DockerScope> {
     where: { id: serverId },
     select: { id: true, name: true, enabled: true },
   });
-  if (!server) throw new ValidationError("Target VPS not found");
-  if (!server.enabled) throw new ValidationError("Target VPS is disabled");
+  if (!server) throw new ValidationError(t("backend.docker.targetVpsNotFound"));
+  if (!server.enabled) throw new ValidationError(t("backend.docker.targetVpsIsDisabled"));
   return remoteVpsDockerScope(server.id, server.name);
 }
 
@@ -251,8 +252,8 @@ async function runRemoteDockerCommand(
       sshKey: { select: { privateKey: true, passphrase: true } },
     },
   });
-  if (!server) throw new ValidationError("Target VPS not found");
-  if (!server.enabled) throw new ValidationError("Target VPS is disabled");
+  if (!server) throw new ValidationError(t("backend.docker.targetVpsNotFound"));
+  if (!server.enabled) throw new ValidationError(t("backend.docker.targetVpsIsDisabled"));
   const ssh = await buildSshParamsFromServer(
     {
       host: server.host,

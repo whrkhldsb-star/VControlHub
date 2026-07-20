@@ -34,6 +34,7 @@ import {
 import { installService, startDockerContainer, type InstallOptions } from "./service-lifecycle-install";
 import type { ServiceTemplate } from "./types";
 import { createLogger } from "@/lib/logging";
+import { t } from "@/lib/i18n/translations";
 
 const qsLogger = createLogger("quick-service-lifecycle");
 
@@ -104,7 +105,7 @@ export async function uninstallService(slug: string, options: UninstallServiceOp
 	const instanceKey = options.instanceKey ?? HUB_HOST_INSTANCE_KEY;
 	return withServiceOperationLock(`${instanceKey}:${slug}`, "uninstall", async () => {
 		const svc = await prisma.quickService.findUnique({ where: serviceWhere(slug, instanceKey) });
-		if (!svc) throw new NotFoundError("Service not found");
+		if (!svc) throw new NotFoundError(t("backend.quick-service.serviceNotFound"));
 		assertServiceNotBusy(svc, "uninstall");
 		const before = await captureQuickServiceSnapshot(slug, instanceKey);
 		await writeQuickServiceAudit({
@@ -169,7 +170,7 @@ export async function uninstallService(slug: string, options: UninstallServiceOp
 export async function startService(slug: string, instanceKey: string = HUB_HOST_INSTANCE_KEY) {
 	return withServiceOperationLock(`${instanceKey}:${slug}`, "start", async () => {
 		const svc = await prisma.quickService.findUnique({ where: serviceWhere(slug, instanceKey) });
-		if (!svc) throw new NotFoundError("Service not found");
+		if (!svc) throw new NotFoundError(t("backend.quick-service.serviceNotFound"));
 		assertServiceNotBusy(svc, "start");
 		const before = await captureQuickServiceSnapshot(slug, instanceKey);
 		await writeQuickServiceAudit({
@@ -236,7 +237,7 @@ export async function startService(slug: string, instanceKey: string = HUB_HOST_
 export async function updateService(slug: string, instanceKey: string = HUB_HOST_INSTANCE_KEY) {
 	return withServiceOperationLock(`${instanceKey}:${slug}`, "update", async () => {
 		const svc = await prisma.quickService.findUnique({ where: serviceWhere(slug, instanceKey) });
-		if (!svc) throw new NotFoundError("Service not found");
+		if (!svc) throw new NotFoundError(t("backend.quick-service.serviceNotFound"));
 		assertServiceNotBusy(svc, "update");
 		const containerName = safeContainerName(svc.slug);
 		const before = await captureQuickServiceSnapshot(slug, instanceKey);
@@ -301,7 +302,7 @@ export async function updateService(slug: string, instanceKey: string = HUB_HOST
 export async function stopService(slug: string, instanceKey: string = HUB_HOST_INSTANCE_KEY) {
 	return withServiceOperationLock(`${instanceKey}:${slug}`, "stop", async () => {
 		const svc = await prisma.quickService.findUnique({ where: serviceWhere(slug, instanceKey) });
-		if (!svc) throw new NotFoundError("Service not found");
+		if (!svc) throw new NotFoundError(t("backend.quick-service.serviceNotFound"));
 		assertServiceNotBusy(svc, "stop");
 		const before = await captureQuickServiceSnapshot(slug, instanceKey);
 		await writeQuickServiceAudit({
@@ -339,7 +340,7 @@ export async function stopService(slug: string, instanceKey: string = HUB_HOST_I
 
 export async function syncServiceStatus(slug: string, instanceKey: string = HUB_HOST_INSTANCE_KEY) {
 	const svc = await prisma.quickService.findUnique({ where: serviceWhere(slug, instanceKey) });
-	if (!svc) throw new NotFoundError("Service not found");
+	if (!svc) throw new NotFoundError(t("backend.quick-service.serviceNotFound"));
 	const before = await captureQuickServiceSnapshot(slug, instanceKey);
 	await writeQuickServiceAudit({
 		action: "sync",
@@ -387,7 +388,7 @@ export function checkPort(port: number): { available: boolean; usedBy: string | 
 			let usedBy = "Unknown process";
 			if (pidMatch) {
 				const pid = pidMatch[1]!;
-				if (!/^\d+$/.test(pid)) throw new ValidationError("Invalid PID");
+				if (!/^\d+$/.test(pid)) throw new ValidationError(t("backend.quick-service.invalidPid"));
 				try {
 					const cmdLine = execFileSync("tr", ["\0", " ", `/proc/${pid}/cmdline`], {
 						timeout: 3000,

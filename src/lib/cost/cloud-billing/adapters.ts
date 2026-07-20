@@ -24,6 +24,7 @@ import {
 
 import type { CostCategory, CostCurrency } from "../types";
 import { config } from "@/lib/config/env";
+import { t } from "@/lib/i18n/translations";
 import type {
 	CloudBillingAccountConfig,
 	CloudBillingCredentials,
@@ -101,7 +102,7 @@ export function parseBillingCsv(
 	const dateI = idx("date");
 	const amountI = idx("amount");
 	if (dateI < 0 || amountI < 0) {
-		throw new ValidationError("CSV must include date and amount columns");
+		throw new ValidationError(t("backend.cost.csvMustIncludeDateAndAmountColumns"));
 	}
 	const currencyI = idx("currency");
 	const categoryI = idx("category");
@@ -213,7 +214,7 @@ async function fetchBillingCsvFromUrl(
 
 	const parsed = new URL(safeUrl);
 	if (isUnsafePublicHttpHost(parsed.hostname)) {
-		throw new ValidationError("billingCsvUrl host is not allowed (SSRF protection)");
+		throw new ValidationError(t("backend.cost.billingcsvurlHostIsNotAllowedSsrfProtection"));
 	}
 
 	const controller = new AbortController();
@@ -230,7 +231,7 @@ async function fetchBillingCsvFromUrl(
 		}
 		const text = await res.text();
 		if (text.length > 2_000_000) {
-			throw new ValidationError("billingCsvUrl response too large");
+			throw new ValidationError(t("backend.cost.billingcsvurlResponseTooLarge"));
 		}
 		return {
 			items: parseBillingCsv(text, {

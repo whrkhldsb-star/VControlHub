@@ -6,6 +6,7 @@ import { notifyTaskConsecutiveFailed } from "@/lib/notification/service";
 import { createLogger } from "@/lib/logging";
 import type { SessionPayload } from "@/lib/auth/session";
 import { teamCreateData, teamWhere } from "@/lib/auth/team-scope";
+import { t } from "@/lib/i18n/translations";
 
 const taskLogger = createLogger("scheduled-task");
 
@@ -143,7 +144,7 @@ export async function getScheduledTask(
 	session?: SessionScope | null,
 ) {
 	const task = await getScheduledTaskForSession(id, session);
-	if (!task) throw new NotFoundError("Scheduled task not found");
+	if (!task) throw new NotFoundError(t("backend.scheduled-task.scheduledTaskNotFound"));
 	return task;
 }
 
@@ -153,7 +154,7 @@ export async function updateScheduledTask(
 	session?: SessionScope | null,
 ) {
 	const existing = await getScheduledTaskForSession(id, session);
-	if (!existing) throw new NotFoundError("Scheduled task not found");
+	if (!existing) throw new NotFoundError(t("backend.scheduled-task.scheduledTaskNotFound"));
 
 	const data: Record<string, unknown> = {};
 	if (input.name !== undefined) data.name = input.name;
@@ -178,7 +179,7 @@ export async function deleteScheduledTask(
 	session?: SessionScope | null,
 ) {
 	const existing = await getScheduledTaskForSession(id, session);
-	if (!existing) throw new NotFoundError("Scheduled task not found");
+	if (!existing) throw new NotFoundError(t("backend.scheduled-task.scheduledTaskNotFound"));
 	return prisma.scheduledTask.delete({ where: { id } });
 }
 
@@ -187,7 +188,7 @@ export async function toggleScheduledTask(
 	session?: SessionScope | null,
 ) {
 	const current = await getScheduledTaskForSession(id, session);
-	if (!current) throw new NotFoundError("Scheduled task not found");
+	if (!current) throw new NotFoundError(t("backend.scheduled-task.scheduledTaskNotFound"));
 	const newStatus = current.status === "ACTIVE" ? "PAUSED" : "ACTIVE";
 	return prisma.scheduledTask.update({
 		where: { id },
@@ -205,10 +206,10 @@ export async function retryScheduledTask(
 	session?: SessionScope | null,
 ) {
 	const task = await getScheduledTaskForSession(id, session);
-	if (!task) throw new NotFoundError("Scheduled task not found");
+	if (!task) throw new NotFoundError(t("backend.scheduled-task.scheduledTaskNotFound"));
 	if (task.serverIds.length === 0 || !task.createdById) {
 		await recordTaskRun(task.id, "Manual retry failed: no target server or no creator");
-		throw new BusinessError("Scheduled task missing target server or creator, cannot retry");
+		throw new BusinessError(t("backend.scheduled-task.scheduledTaskMissingTargetServerOrCreatorCannot"));
 	}
 
 	// System path (no session on createCommandRequest): stamp teamId from the parent task.

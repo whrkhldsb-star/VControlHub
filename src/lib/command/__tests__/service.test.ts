@@ -429,7 +429,7 @@ describe("command service execution flow", () => {
       requesterId: "u_1",
       submissionMode: "assistant",
       serverIds: ["", "   "],
-    })).rejects.toThrow("At least 1 target VPS must be selected");
+    })).rejects.toThrow("至少选择 1 台目标 VPS");
 
     expect(mockPrisma.commandRequest.create).not.toHaveBeenCalled();
   });

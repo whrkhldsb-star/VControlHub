@@ -81,11 +81,11 @@ describe("command template service", () => {
 
     await expect(
       service.updateTemplate("builtin_1", { name: "Hijacked" }, { userId: "u1" }),
-    ).rejects.toThrow("Built-in command templates cannot be modified");
+    ).rejects.toThrow("内置命令模板不可修改");
     expect(mockPrisma.commandTemplate.update).not.toHaveBeenCalled();
 
     await expect(service.deleteTemplate("builtin_1", { userId: "u1" })).rejects.toThrow(
-      "Built-in command templates cannot be deleted",
+      "内置命令模板不可删除",
     );
     expect(mockPrisma.commandTemplate.delete).not.toHaveBeenCalled();
   });
@@ -134,10 +134,10 @@ describe("command template service", () => {
 
     await expect(
       service.updateTemplate("user_2", { name: "Hijack" }, { userId: "u1" }),
-    ).rejects.toThrow(/No permission/);
+    ).rejects.toThrow(/无权|No permission/);
     expect(mockPrisma.commandTemplate.update).not.toHaveBeenCalled();
 
-    await expect(service.deleteTemplate("user_2", { userId: "u1" })).rejects.toThrow(/No permission/);
+    await expect(service.deleteTemplate("user_2", { userId: "u1" })).rejects.toThrow(/无权|No permission/);
     expect(mockPrisma.commandTemplate.delete).not.toHaveBeenCalled();
   });
 
@@ -169,6 +169,6 @@ describe("command template service", () => {
     });
     await expect(
       service.updateTemplate("legacy_1", { name: "x" }, { userId: "u1" }),
-    ).rejects.toThrow(/No permission/);
+    ).rejects.toThrow(/无权|No permission/);
   });
 });

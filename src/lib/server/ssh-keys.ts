@@ -209,7 +209,7 @@ async function normalizeImportedSshKey(input: {
       }
 
       if (error.code === "WRONG_FORMAT") {
-        throw new ValidationError("The uploaded file is not a valid PPK private key; please select a .ppk file. ");
+        throw new ValidationError(t("backend.server.theUploadedFileIsNotAValidPpk"));
       }
 
       throw new ValidationError(error.message);

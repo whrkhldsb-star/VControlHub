@@ -66,7 +66,7 @@ describe("ITSM team scope", () => {
         roles: ["operator"],
         currentTeamId: "team_a",
       }),
-    ).rejects.toThrow(/not found/i);
+    ).rejects.toThrow(/不存在|not found/i);
     expect(findFirstMock).toHaveBeenCalledWith(
       expect.objectContaining({
         where: expect.objectContaining({

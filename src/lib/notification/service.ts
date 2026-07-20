@@ -3,6 +3,7 @@ import { pushNotification, pushUnreadCount } from "@/lib/ws/notification-ws";
 import { createLogger } from "@/lib/logging";
 import { NotFoundError } from "@/lib/errors";
 import { timeDelivery } from "@/lib/monitoring/runtime-metrics";
+import { t } from "@/lib/i18n/translations";
 
 const logger = createLogger("notification:service");
 
@@ -95,7 +96,7 @@ export async function markAsRead(notificationId: string, userId: string) {
 		data: { isRead: true },
 	});
 	if (result.count === 0) {
-		throw new NotFoundError("Notification not found or forbidden");
+		throw new NotFoundError(t("backend.notification.notificationNotFoundOrForbidden"));
 	}
 	// Push updated unread count after marking as read
 	const unreadCount = await getUnreadCount(userId);
@@ -117,7 +118,7 @@ export async function deleteNotification(notificationId: string, userId: string)
 		where: { id: notificationId, userId },
 	});
 	if (result.count === 0) {
-		throw new NotFoundError("Notification not found or forbidden");
+		throw new NotFoundError(t("backend.notification.notificationNotFoundOrForbidden"));
 	}
 	// Push updated unread count after deletion
 	const unreadCount = await getUnreadCount(userId);

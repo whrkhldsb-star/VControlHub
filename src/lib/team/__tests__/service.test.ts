@@ -39,7 +39,7 @@ describe("team workspace service", () => {
 
 	it("prevents switching to a team the user does not belong to", async () => {
 		prismaMock.teamMember.findUnique.mockResolvedValueOnce(null);
-		await expect(switchCurrentTeam("team_2", viewerSession)).rejects.toThrow("Can only switch to a team workspace you belong to");
+		await expect(switchCurrentTeam("team_2", viewerSession)).rejects.toThrow("只能切换到你所属的团队工作区");
 		expect(prismaMock.user.update).not.toHaveBeenCalled();
 	});
 

@@ -1,6 +1,7 @@
 import { ValidationError } from "@/lib/errors";
 import { timeDelivery } from "@/lib/monitoring/runtime-metrics";
 import { getAllSettings } from "@/lib/settings/service";
+import { t } from "@/lib/i18n/translations";
 
 /* ── Types ────────────────────────────────────────────────── */
 
@@ -55,9 +56,9 @@ export async function getTelegramConfig(): Promise<TelegramConfig> {
 }
 
 export function assertTelegramReady(config: TelegramConfig) {
-	if (!config.enabled) throw new ValidationError("Telegram channel not enabled");
-	if (!config.botToken) throw new ValidationError("Telegram Bot Token not configured");
-	if (config.chatIds.length === 0) throw new ValidationError("Telegram Chat ID not configured");
+	if (!config.enabled) throw new ValidationError(t("backend.notification.telegramChannelNotEnabled"));
+	if (!config.botToken) throw new ValidationError(t("backend.notification.telegramBotTokenNotConfigured"));
+	if (config.chatIds.length === 0) throw new ValidationError(t("backend.notification.telegramChatIdNotConfigured"));
 }
 
 /* ── Network adapter (overridable for tests) ──────────────── */

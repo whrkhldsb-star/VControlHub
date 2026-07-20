@@ -14,6 +14,7 @@
 
 import { ValidationError } from "@/lib/errors";
 import { isUnsafePublicHttpHost } from "@/lib/storage/direct-access-url";
+import { t } from "@/lib/i18n/translations";
 
 export interface ProviderModelRow {
 	id: string;
@@ -51,16 +52,16 @@ function assertProviderUrlSafe(rawUrl: string): void {
 	try {
 		url = new URL(rawUrl);
 	} catch {
-		throw new ValidationError("Invalid AI provider URL");
+		throw new ValidationError(t("backend.ai.invalidAiProviderUrl"));
 	}
 	if (url.protocol !== "https:" && url.protocol !== "http:") {
-		throw new ValidationError("AI provider URL must use HTTP(S)");
+		throw new ValidationError(t("backend.ai.aiProviderUrlMustUseHttpS"));
 	}
 	if (url.username || url.password) {
-		throw new ValidationError("AI provider URL must not contain credentials");
+		throw new ValidationError(t("backend.ai.aiProviderUrlMustNotContainCredentials"));
 	}
 	if (isUnsafePublicHttpHost(url.hostname)) {
-		throw new ValidationError("AI provider URL must not point to a private/loopback/metadata host");
+		throw new ValidationError(t("backend.ai.aiProviderUrlMustNotPointToA"));
 	}
 }
 
@@ -85,7 +86,7 @@ export async function fetchProviderModels(
 	input: ProviderModelsRequest,
 ): Promise<ProviderModelRow[]> {
 	if (!input.apiKey.trim()) {
-		throw new ValidationError("API Key is required");
+		throw new ValidationError(t("backend.ai.apiKeyIsRequired"));
 	}
 	const baseUrl = trimTrailingSlash(input.baseUrl);
 	assertProviderUrlSafe(baseUrl);

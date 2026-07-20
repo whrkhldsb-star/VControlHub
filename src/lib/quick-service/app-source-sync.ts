@@ -13,6 +13,7 @@ import { prisma } from "@/lib/db";
 import { BusinessError, NotFoundError } from "@/lib/errors";
 import { fetchSourceApps, type NormalizedApp } from "./adapters";
 import { createLogger } from "@/lib/logging";
+import { t } from "@/lib/i18n/translations";
 
 const logger = createLogger("app-source:sync");
 
@@ -36,8 +37,8 @@ type RemoteAppRow = Prisma.AppSourceAppGetPayload<{ include: { source: { select:
 
 export async function syncSource(sourceId: string): Promise<{ synced: number; errors: number }> {
 	const source = await prisma.appSource.findUnique({ where: { id: sourceId } });
-	if (!source) throw new NotFoundError("Source not found");
-	if (!source.enabled) throw new BusinessError("Source is disabled");
+	if (!source) throw new NotFoundError(t("backend.quick-service.sourceNotFound"));
+	if (!source.enabled) throw new BusinessError(t("backend.quick-service.sourceIsDisabled"));
 
 	try {
 		const apps = await fetchSourceApps(source.name, source.type, source.url);

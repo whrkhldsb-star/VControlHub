@@ -27,6 +27,7 @@ import {
 	createItsmConnectionSchema,
 	updateItsmConnectionSchema,
 } from "./schema";
+import { t } from "@/lib/i18n/translations";
 import type {
 	ItsmConnectionConfig,
 	ItsmConnectionRecord,
@@ -59,7 +60,7 @@ function decryptCredentials(enc: string): ItsmCredentials {
 		const parsed = JSON.parse(plain) as ItsmCredentials;
 		return parsed && typeof parsed === "object" ? parsed : {};
 	} catch {
-		throw new ValidationError("Stored ITSM credentials are corrupt");
+		throw new ValidationError(t("backend.itsm.storedItsmCredentialsAreCorrupt"));
 	}
 }
 
@@ -205,7 +206,7 @@ export async function getItsmConnection(
 	const row = await prisma.itsmConnection.findFirst({
 		where: { id, ...(session ? teamWhere(session) : {}) },
 	});
-	if (!row) throw new NotFoundError("ITSM connection not found");
+	if (!row) throw new NotFoundError(t("backend.itsm.itsmConnectionNotFound"));
 	return toConnectionRecord(row);
 }
 
@@ -218,7 +219,7 @@ export async function updateItsmConnection(
 	const existing = await prisma.itsmConnection.findFirst({
 		where: { id, ...(session ? teamWhere(session) : {}) },
 	});
-	if (!existing) throw new NotFoundError("ITSM connection not found");
+	if (!existing) throw new NotFoundError(t("backend.itsm.itsmConnectionNotFound"));
 
 	const data: Prisma.ItsmConnectionUpdateInput = {};
 	if (parsed.name !== undefined) data.name = parsed.name;
@@ -252,7 +253,7 @@ export async function deleteItsmConnection(
 	const deleted = await prisma.itsmConnection.deleteMany({
 		where: { id, ...(session ? teamWhere(session) : {}) },
 	});
-	if (deleted.count === 0) throw new NotFoundError("ITSM connection not found");
+	if (deleted.count === 0) throw new NotFoundError(t("backend.itsm.itsmConnectionNotFound"));
 }
 
 export async function listItsmEvents(input?: {
@@ -328,10 +329,10 @@ export async function testItsmConnection(
 	const row = await prisma.itsmConnection.findFirst({
 		where: { id, ...(session ? teamWhere(session) : {}) },
 	});
-	if (!row) throw new NotFoundError("ITSM connection not found");
-	if (!row.enabled) throw new ValidationError("Connection is disabled");
+	if (!row) throw new NotFoundError(t("backend.itsm.itsmConnectionNotFound"));
+	if (!row.enabled) throw new ValidationError(t("backend.itsm.connectionIsDisabled"));
 	if (!supportsOutbound(row.direction)) {
-		throw new ValidationError("Connection does not support outbound delivery");
+		throw new ValidationError(t("backend.itsm.connectionDoesNotSupportOutboundDelivery"));
 	}
 
 	const config = parseConfig(row.config);
@@ -520,10 +521,10 @@ export async function handleInboundWebhook(input: {
 	action: string;
 }> {
 	const row = await prisma.itsmConnection.findUnique({ where: { id: input.connectionId } });
-	if (!row) throw new NotFoundError("ITSM connection not found");
-	if (!row.enabled) throw new ValidationError("Connection is disabled");
+	if (!row) throw new NotFoundError(t("backend.itsm.itsmConnectionNotFound"));
+	if (!row.enabled) throw new ValidationError(t("backend.itsm.connectionIsDisabled"));
 	if (!supportsInbound(row.direction)) {
-		throw new ValidationError("Connection does not accept inbound events");
+		throw new ValidationError(t("backend.itsm.connectionDoesNotAcceptInboundEvents"));
 	}
 
 	const credentials = decryptCredentials(row.credentialsEnc);
@@ -573,7 +574,7 @@ export async function handleInboundWebhook(input: {
 				select: { id: true },
 			});
 			if (!commentTarget) {
-				throw new NotFoundError("Ticket not found for this connection team");
+				throw new NotFoundError(t("backend.itsm.ticketNotFoundForThisConnectionTeam"));
 			}
 			await addTicketComment({
 				ticketId,
@@ -612,7 +613,7 @@ export async function handleInboundWebhook(input: {
 					select: { id: true },
 				});
 				if (!statusTarget) {
-					throw new NotFoundError("Ticket not found for this connection team");
+					throw new NotFoundError(t("backend.itsm.ticketNotFoundForThisConnectionTeam"));
 				}
 				await updateTicketStatus({ id: ticketId, status, skipItsmFanOut: true });
 				action = "status_update";

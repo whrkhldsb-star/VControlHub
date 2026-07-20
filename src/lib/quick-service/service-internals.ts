@@ -17,6 +17,7 @@ import { writeAuditLog } from "@/lib/audit/service";
 import { prisma } from "@/lib/db";
 import { BusinessError, ConflictError, ValidationError } from "@/lib/errors";
 import type { ServiceTemplate } from "./types";
+import { t } from "@/lib/i18n/translations";
 
 /* -- Concurrency / state guards ----------------------------------------- */
 
@@ -62,7 +63,7 @@ const TRUSTED_HOST_MOUNTS = new Set(["/etc/timezone", "/etc/localtime"]);
 const DOCKER_SOCKET = "/var/run/docker.sock";
 
 export function safeContainerName(slug: string): string {
-	if (!SAFE_CONTAINER_RE.test(slug)) throw new ValidationError("Service identifier is invalid");
+	if (!SAFE_CONTAINER_RE.test(slug)) throw new ValidationError(t("backend.quick-service.serviceIdentifierIsInvalid"));
 	return `qs-${slug}`;
 }
 
@@ -73,7 +74,7 @@ export function assertTcpPort(port: number, label = "Port") {
 }
 
 export function assertImage(image: string) {
-	if (!SAFE_IMAGE_RE.test(image)) throw new ValidationError("Image name is invalid");
+	if (!SAFE_IMAGE_RE.test(image)) throw new ValidationError(t("backend.quick-service.imageNameIsInvalid"));
 }
 
 function normalizeVolumeEndpoint(value: string, label: string) {
@@ -96,7 +97,7 @@ function splitContainerPathAndOptions(raw: string) {
 function assertHostVolumeAllowed(hostPath: string, template: ServiceTemplate) {
 	if (hostPath === DOCKER_SOCKET) {
 		if (template.allowDockerSocket === true) return;
-		throw new BusinessError("Remote applications are not allowed to mount the Docker socket");
+		throw new BusinessError(t("backend.quick-service.remoteApplicationsAreNotAllowedToMountThe"));
 	}
 	if (TRUSTED_HOST_MOUNTS.has(hostPath)) return;
 	if (HOST_VOLUME_ROOTS.some((root) => hostPath === root.slice(0, -1) || hostPath.startsWith(root))) return;
@@ -179,7 +180,7 @@ export function parseCommandArgs(command?: string): string[] {
 		}
 		current += ch;
 	}
-	if (escaping || quote) throw new ValidationError("Startup command format is invalid");
+	if (escaping || quote) throw new ValidationError(t("backend.quick-service.startupCommandFormatIsInvalid"));
 	if (current) args.push(current);
 	return args;
 }
@@ -330,7 +331,7 @@ export function allocatePort(preferredPort?: number): number {
 		tried.add(port);
 		if (isPortAvailableSync(port)) return port;
 	}
-	throw new BusinessError("Unable to allocate an available port, please specify a port manually and retry");
+	throw new BusinessError(t("backend.quick-service.unableToAllocateAnAvailablePortPleaseSpecify"));
 }
 
 export function getUsedPorts(): number[] {

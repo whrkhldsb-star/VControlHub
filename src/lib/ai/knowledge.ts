@@ -13,6 +13,7 @@ import type { SessionPayload } from "@/lib/auth/session";
 import { teamWhere } from "@/lib/auth/team-scope";
 import { prisma } from "@/lib/db";
 import { BusinessError, NotFoundError, ValidationError } from "@/lib/errors";
+import { t } from "@/lib/i18n/translations";
 
 const DEFAULT_CHUNK_SIZE = 800;
 const DEFAULT_CHUNK_OVERLAP = 120;
@@ -176,8 +177,8 @@ export async function createKnowledgeBase(input: {
   session?: Pick<SessionPayload, "userId" | "roles" | "currentTeamId">;
 }) {
   const name = input.name.trim();
-  if (!name) throw new ValidationError("Knowledge base name is required");
-  if (name.length > 120) throw new ValidationError("Name is too long");
+  if (!name) throw new ValidationError(t("backend.ai.knowledgeBaseNameIsRequired"));
+  if (name.length > 120) throw new ValidationError(t("backend.ai.nameIsTooLong"));
   return prisma.knowledgeBase.create({
     data: {
       name,
@@ -223,14 +224,14 @@ export async function deleteKnowledgeBase(
   session?: Pick<SessionPayload, "userId" | "roles" | "currentTeamId">,
 ) {
   const existing = await getKnowledgeBase(id, session);
-  if (!existing) throw new NotFoundError("Knowledge base not found");
+  if (!existing) throw new NotFoundError(t("backend.ai.knowledgeBaseNotFound"));
   await prisma.knowledgeBase.delete({ where: { id } });
   return { id };
 }
 
 async function reindexDocument(documentId: string) {
   const doc = await prisma.knowledgeDocument.findUnique({ where: { id: documentId } });
-  if (!doc) throw new NotFoundError("Document not found");
+  if (!doc) throw new NotFoundError(t("backend.ai.documentNotFound"));
 
   const chunks = chunkKnowledgeText(doc.content);
   await prisma.$transaction(async (tx) => {
@@ -267,13 +268,13 @@ export async function ingestKnowledgeDocument(input: {
   session?: Pick<SessionPayload, "userId" | "roles" | "currentTeamId">;
 }) {
   const kb = await getKnowledgeBase(input.knowledgeBaseId, input.session);
-  if (!kb) throw new NotFoundError("Knowledge base not found");
-  if (!kb.isActive) throw new BusinessError("Knowledge base is inactive");
+  if (!kb) throw new NotFoundError(t("backend.ai.knowledgeBaseNotFound"));
+  if (!kb.isActive) throw new BusinessError(t("backend.ai.knowledgeBaseIsInactive"));
 
   const title = input.title.trim();
   const content = input.content.replace(/\0/g, "");
-  if (!title) throw new ValidationError("Document title is required");
-  if (!content.trim()) throw new ValidationError("Document content is required");
+  if (!title) throw new ValidationError(t("backend.ai.documentTitleIsRequired"));
+  if (!content.trim()) throw new ValidationError(t("backend.ai.documentContentIsRequired"));
   if (content.length > MAX_DOCUMENT_CHARS) {
     throw new ValidationError(`Document exceeds ${MAX_DOCUMENT_CHARS} characters`);
   }
@@ -315,10 +316,10 @@ export async function deleteKnowledgeDocument(
     where: { id: documentId },
     include: { knowledgeBase: true },
   });
-  if (!doc) throw new NotFoundError("Document not found");
+  if (!doc) throw new NotFoundError(t("backend.ai.documentNotFound"));
   if (session) {
     const scoped = await getKnowledgeBase(doc.knowledgeBaseId, session);
-    if (!scoped) throw new NotFoundError("Document not found");
+    if (!scoped) throw new NotFoundError(t("backend.ai.documentNotFound"));
   }
   await prisma.knowledgeDocument.delete({ where: { id: documentId } });
   return { id: documentId };

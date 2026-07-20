@@ -86,7 +86,7 @@ export async function voidBackupRecord(input: { id: string; reason: string; sess
 		data: { status: "FAILED", errorMessage },
 	});
 	if (claimed.count === 0) {
-		throw new ConflictError("Backup status changed concurrently; cannot void");
+		throw new ConflictError(t("backend.backup.backupStatusChangedConcurrentlyCannotVoid"));
 	}
 	const updated = await getBackupRecord(record.id);
 	if (!updated) throw new NotFoundError(t("backend.backup.recordNotFound"));
@@ -108,7 +108,7 @@ export async function prepareBackupRecordRetry(input: { id: string; session?: Pi
 		data: { status: "PENDING", errorMessage: null },
 	});
 	if (claimed.count === 0) {
-		throw new ConflictError("Backup status changed concurrently; cannot retry");
+		throw new ConflictError(t("backend.backup.backupStatusChangedConcurrentlyCannotRetry"));
 	}
 	const updated = await getBackupRecord(record.id);
 	if (!updated) throw new NotFoundError(t("backend.backup.recordNotFound"));

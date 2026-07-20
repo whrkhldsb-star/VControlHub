@@ -36,7 +36,7 @@ describe("ticket service", () => {
     mockPrisma.ticket.create.mockImplementation(async ({ data }: any) => ({ id: "tk1", ...data }));
     const ticket = await createTicket({ title: "Need VPS", description: "Please add node", createdBy: "u1" });
     expect(ticket.status).toBe("OPEN");
-    await expect(updateTicketStatus({ id: "tk1", status: "BAD" })).rejects.toThrow(/status is invalid/);
+    await expect(updateTicketStatus({ id: "tk1", status: "BAD" })).rejects.toThrow(/状态无效|status is invalid/);
   });
 
   it("rejects related server outside team scope on create", async () => {
@@ -49,7 +49,7 @@ describe("ticket service", () => {
         relatedServerId: "srv-foreign",
         session: teamSession,
       }),
-    ).rejects.toThrow(/Related server not found/);
+    ).rejects.toThrow(/关联服务器不存在|Related server not found/);
     expect(mockPrisma.ticket.create).not.toHaveBeenCalled();
     expect(mockPrisma.server.findFirst).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -71,7 +71,7 @@ describe("ticket service", () => {
         relatedCommandId: "cmd-foreign",
         session: teamSession,
       }),
-    ).rejects.toThrow(/Related command request not found/);
+    ).rejects.toThrow(/关联命令请求不存在|Related command/);
     expect(mockPrisma.ticket.create).not.toHaveBeenCalled();
   });
 
@@ -110,7 +110,7 @@ describe("ticket service", () => {
 
     await expect(
       updateTicketStatus({ id: "tk1", assigneeId: "foreign-user", session: teamSession }),
-    ).rejects.toThrow(/not a member of this team/);
+    ).rejects.toThrow(/不是当前团队成员|not a member of this team/);
     expect(mockPrisma.ticket.updateMany).not.toHaveBeenCalled();
   });
 
@@ -203,7 +203,7 @@ describe("ticket service", () => {
   });
 
   it("adds non-empty comments", async () => {
-    await expect(addTicketComment({ ticketId: "tk1", authorId: "u1", body: "  " })).rejects.toThrow(/cannot be empty/);
+    await expect(addTicketComment({ ticketId: "tk1", authorId: "u1", body: "  " })).rejects.toThrow(/不能为空|cannot be empty/);
   });
 
   it("returns comment authors for newly added comments", async () => {
@@ -301,7 +301,7 @@ describe("ticket service", () => {
     mockPrisma.ticket.findFirst.mockResolvedValueOnce(null);
 
     await expect(updateTicketStatus({ id: "tk-x", status: "IN_PROGRESS", session: teamSession })).rejects.toThrow(
-      /Ticket not found/,
+      /工单不存在|Ticket not found/,
     );
   });
 
@@ -310,7 +310,7 @@ describe("ticket service", () => {
 
     await expect(
       addTicketComment({ ticketId: "tk-x", authorId: "u1", body: "hi", session: teamSession }),
-    ).rejects.toThrow(/Ticket not found/);
+    ).rejects.toThrow(/工单不存在|Ticket not found/);
     expect(mockPrisma.ticketComment.create).not.toHaveBeenCalled();
   });
 

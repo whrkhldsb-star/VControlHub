@@ -92,7 +92,7 @@ describe("deployment service", () => {
   });
 
   it("rejects deployment requests without at least one target server", async () => {
-    await expect(createDeploymentRunFromTemplate({ templateId: "tmpl1", serverIds: [], variables: { pkg: "nginx" }, requesterId: "u1" })).rejects.toThrow("At least 1 target VPS must be selected");
+    await expect(createDeploymentRunFromTemplate({ templateId: "tmpl1", serverIds: [], variables: { pkg: "nginx" }, requesterId: "u1" })).rejects.toThrow("至少选择 1 台目标 VPS");
     expect(mockPrisma.deploymentRun.create).not.toHaveBeenCalled();
   });
 

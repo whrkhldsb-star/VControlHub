@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/db";
 import { BusinessError, ForbiddenError, NotFoundError } from "@/lib/errors";
+import { t } from "@/lib/i18n/translations";
 
 /* ── Types ────────────────────────────────────────────────── */
 
@@ -113,13 +114,13 @@ function assertCanMutateTemplate(
 	actor?: TemplateActor,
 ) {
 	if (existing.isBuiltin) {
-		throw new BusinessError("Built-in command templates cannot be modified");
+		throw new BusinessError(t("backend.command-template.builtInCommandTemplatesCannotBeModified"));
 	}
 	if (actor?.canManageAll) return;
 	if (existing.createdById && actor?.userId && existing.createdById === actor.userId) return;
 	// Legacy rows with null creator: only managers may mutate (avoid open edit by any command:create holder).
 	if (!existing.createdById && actor?.canManageAll) return;
-	throw new ForbiddenError("No permission to modify others' command templates");
+	throw new ForbiddenError(t("backend.command-template.noPermissionToModifyOthersCommandTemplates"));
 }
 
 export async function updateTemplate(id: string, input: UpdateTemplateInput, actor?: TemplateActor) {
@@ -128,10 +129,10 @@ export async function updateTemplate(id: string, input: UpdateTemplateInput, act
 		select: { id: true, isBuiltin: true, command: true, rollbackCommand: true, createdById: true },
 	});
 	if (!existingRow) {
-		throw new NotFoundError("Command template not found");
+		throw new NotFoundError(t("backend.command-template.commandTemplateNotFound"));
 	}
 	if (existingRow.isBuiltin) {
-		throw new BusinessError("Built-in command templates cannot be modified");
+		throw new BusinessError(t("backend.command-template.builtInCommandTemplatesCannotBeModified"));
 	}
 	assertCanMutateTemplate(existingRow, actor);
 
@@ -156,10 +157,10 @@ export async function deleteTemplate(id: string, actor?: TemplateActor) {
 		select: { id: true, name: true, isBuiltin: true, tags: true, variables: true, createdById: true },
 	});
 	if (!existingRow) {
-		throw new NotFoundError("Command template not found");
+		throw new NotFoundError(t("backend.command-template.commandTemplateNotFound"));
 	}
 	if (existingRow.isBuiltin) {
-		throw new BusinessError("Built-in command templates cannot be deleted");
+		throw new BusinessError(t("backend.command-template.builtInCommandTemplatesCannotBeDeleted"));
 	}
 	assertCanMutateTemplate(existingRow, actor);
 	await prisma.commandTemplate.delete({ where: { id } });

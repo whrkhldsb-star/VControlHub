@@ -129,7 +129,7 @@ describe("snippet service", () => {
       state.snippet = null;
       await expect(
         updateSnippet("missing", { title: "x" }, { userId: "user-1" }),
-      ).rejects.toThrow(/not found/);
+      ).rejects.toThrow(/不存在|not found/);
     });
   });
 
@@ -153,7 +153,7 @@ describe("snippet service", () => {
 
     it("404s when the snippet does not exist", async () => {
       state.snippet = null;
-      await expect(deleteSnippet("missing")).rejects.toThrow(/not found/);
+      await expect(deleteSnippet("missing")).rejects.toThrow(/不存在|not found/);
     });
   });
 });

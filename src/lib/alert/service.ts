@@ -7,6 +7,7 @@ import { sendAlertEmail } from "@/lib/notification/email";
 import { sendAlertTelegram } from "@/lib/notification/telegram";
 import { createNotification } from "@/lib/notification/service";
 import { fetchWebhookSafely } from "@/lib/security/webhook-url";
+import { t } from "@/lib/i18n/translations";
 
 /* ── Types ────────────────────────────────────────────────── */
 
@@ -20,7 +21,7 @@ async function assertServerIdsInTeam(serverIds: string[], session?: TeamSession 
     select: { id: true },
   });
   if (allowed.length !== serverIds.length) {
-    throw new ValidationError("One or more serverIds are outside the current team scope");
+    throw new ValidationError(t("backend.alert.oneOrMoreServeridsAreOutsideTheCurrent"));
   }
 }
 
@@ -32,7 +33,7 @@ async function assertPlaybookIdsInTeam(playbookIds: string[], session?: TeamSess
     select: { id: true },
   });
   if (allowed.length !== playbookIds.length) {
-    throw new ValidationError("One or more playbookIds are outside the current team scope");
+    throw new ValidationError(t("backend.alert.oneOrMorePlaybookidsAreOutsideTheCurrent"));
   }
 }
 
@@ -98,7 +99,7 @@ export async function updateAlertRule(
 ) {
 	if (session) {
 		const existing = await prisma.alertRule.findFirst({ where: { id, ...teamWhere(session) }, select: { id: true } });
-		if (!existing) throw new NotFoundError("Rule not found");
+		if (!existing) throw new NotFoundError(t("backend.alert.ruleNotFound"));
 	}
 	if (input.serverIds !== undefined) await assertServerIdsInTeam(input.serverIds, session);
 	if (input.playbookIds !== undefined) await assertPlaybookIdsInTeam(input.playbookIds, session);
@@ -119,9 +120,9 @@ export async function updateAlertRule(
 	if (input.enabled !== undefined) data.enabled = input.enabled;
 	if (session) {
 		const claimed = await prisma.alertRule.updateMany({ where: { id, ...teamWhere(session) }, data });
-		if (claimed.count === 0) throw new NotFoundError("Rule not found");
+		if (claimed.count === 0) throw new NotFoundError(t("backend.alert.ruleNotFound"));
 		const row = await prisma.alertRule.findFirst({ where: { id, ...teamWhere(session) } });
-		if (!row) throw new NotFoundError("Rule not found");
+		if (!row) throw new NotFoundError(t("backend.alert.ruleNotFound"));
 		return row;
 	}
 	return prisma.alertRule.update({ where: { id }, data });
@@ -130,7 +131,7 @@ export async function updateAlertRule(
 export async function deleteAlertRule(id: string, session?: TeamSession | null) {
 	if (session) {
 		const claimed = await prisma.alertRule.deleteMany({ where: { id, ...teamWhere(session) } });
-		if (claimed.count === 0) throw new NotFoundError("Rule not found");
+		if (claimed.count === 0) throw new NotFoundError(t("backend.alert.ruleNotFound"));
 		return { id };
 	}
 	return prisma.alertRule.delete({ where: { id } });
@@ -140,15 +141,15 @@ export async function toggleAlertRule(id: string, session?: TeamSession | null) 
 	const current = session
 		? await prisma.alertRule.findFirst({ where: { id, ...teamWhere(session) }, select: { enabled: true } })
 		: await prisma.alertRule.findUnique({ where: { id }, select: { enabled: true } });
-	if (!current) throw new NotFoundError("Rule not found");
+	if (!current) throw new NotFoundError(t("backend.alert.ruleNotFound"));
 	if (session) {
 		const claimed = await prisma.alertRule.updateMany({
 			where: { id, ...teamWhere(session) },
 			data: { enabled: !current.enabled },
 		});
-		if (claimed.count === 0) throw new NotFoundError("Rule not found");
+		if (claimed.count === 0) throw new NotFoundError(t("backend.alert.ruleNotFound"));
 		const row = await prisma.alertRule.findFirst({ where: { id, ...teamWhere(session) } });
-		if (!row) throw new NotFoundError("Rule not found");
+		if (!row) throw new NotFoundError(t("backend.alert.ruleNotFound"));
 		return row;
 	}
 	return prisma.alertRule.update({ where: { id }, data: { enabled: !current.enabled } });
@@ -164,7 +165,7 @@ export async function testAlertRule(id: string, session?: TeamSession | null): P
 	const rule = session
 		? await prisma.alertRule.findFirst({ where: { id, ...teamWhere(session) } })
 		: await prisma.alertRule.findUnique({ where: { id } });
-	if (!rule) throw new NotFoundError("Rule not found");
+	if (!rule) throw new NotFoundError(t("backend.alert.ruleNotFound"));
 
 	const deliveries: AlertRuleTestDelivery[] = [];
 	const title = `Test alert: ${rule.name}`;

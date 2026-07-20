@@ -4,6 +4,7 @@ import { z } from "zod";
 import { prisma } from "@/lib/db";
 import { ALL_PERMISSIONS } from "@/lib/auth/rbac";
 import { ValidationError } from "@/lib/errors";
+import { t } from "@/lib/i18n/translations";
 
 export const roleTemplateStorageGrantSchema = z.object({
   storageNodeId: z.string().min(1),
@@ -111,6 +112,6 @@ export async function updateRoleTemplate(id: string, input: unknown) {
 
 export async function deleteRoleTemplate(id: string) {
   const template = await prisma.roleTemplate.findUnique({ where: { id }, select: { isBuiltin: true } });
-  if (template?.isBuiltin) throw new ValidationError("Built-in templates cannot be deleted");
+  if (template?.isBuiltin) throw new ValidationError(t("backend.auth.builtInTemplatesCannotBeDeleted"));
   await prisma.roleTemplate.delete({ where: { id } });
 }

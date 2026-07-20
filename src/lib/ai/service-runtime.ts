@@ -14,6 +14,7 @@ import { NotFoundError, ValidationError } from "@/lib/errors";
 import { defaultAiBaseUrl, fetchProviderModels, postProviderChat, trimProviderBaseUrl } from "./provider-http";
 
 import { safeDecryptApiKey } from "./service-crud";
+import { t } from "@/lib/i18n/translations";
 
 const DEFAULT_AI_BASE_URL = defaultAiBaseUrl();
 
@@ -75,7 +76,7 @@ export async function fetchModelsFromCredentials(input: {
 	baseUrl?: string;
 	defaultModel?: string;
 }): Promise<AiModelInfo[]> {
-	if (!input.apiKey.trim()) throw new ValidationError("API Key cannot be empty");
+	if (!input.apiKey.trim()) throw new ValidationError(t("backend.ai.apiKeyCannotBeEmpty"));
 	const baseUrl = trimProviderBaseUrl(input.baseUrl, DEFAULT_AI_BASE_URL);
 	const fallbackModel = input.defaultModel?.trim() || "gpt-4o";
 
@@ -103,7 +104,7 @@ export async function fetchModelsFromProvider(providerId: string, userId: string
 	const provider = await prisma.aiProvider.findFirst({
 		where: { id: providerId, createdBy: userId, enabled: true },
 	});
-	if (!provider) throw new NotFoundError("Provider not found or disabled");
+	if (!provider) throw new NotFoundError(t("backend.ai.providerNotFoundOrDisabled"));
 
 	const baseUrl = trimProviderBaseUrl(provider.baseUrl, DEFAULT_AI_BASE_URL);
 
@@ -251,7 +252,7 @@ export async function sendChatRequest(req: ChatCompletionRequest, userId: string
 	const provider = await prisma.aiProvider.findFirst({
 		where: { id: req.providerId, createdBy: userId, enabled: true },
 	});
-	if (!provider) throw new NotFoundError("Provider not found or disabled");
+	if (!provider) throw new NotFoundError(t("backend.ai.providerNotFoundOrDisabled"));
 
 	const rawApiKey = safeDecryptApiKey(provider.apiKey);
 	const baseUrl = provider.baseUrl.replace(/\/+$/, "");

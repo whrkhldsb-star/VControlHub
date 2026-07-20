@@ -9,6 +9,7 @@ import { ConflictError, NotFoundError, ValidationError } from "@/lib/errors";
 // without pulling the whole server-only service module. We import them
 // for in-file use AND re-export them so every existing call site
 // 'from "@/lib/deployment/service"' keeps working.
+import { t } from "@/lib/i18n/translations";
 import type {
   DeploymentLaunchInputDto,
   DeploymentRollbackInputDto,
@@ -87,10 +88,10 @@ function normalizeDeploymentInput(input: {
   const requesterId = input.requesterId.trim();
   const serverIds = Array.from(new Set(input.serverIds.map((id) => id.trim()).filter(Boolean)));
   const reason = input.reason?.trim();
-  if (!templateId) throw new ValidationError("Deployment template is required");
-  if (!requesterId) throw new ValidationError("Requester is required");
-  if (serverIds.length < 1) throw new ValidationError("At least 1 target VPS must be selected");
-  if (reason && reason.length > 500) throw new ValidationError("Reason must be at most 500 characters");
+  if (!templateId) throw new ValidationError(t("backend.deployment.deploymentTemplateIsRequired"));
+  if (!requesterId) throw new ValidationError(t("backend.deployment.requesterIsRequired"));
+  if (serverIds.length < 1) throw new ValidationError(t("backend.deployment.atLeast1TargetVpsMustBeSelected"));
+  if (reason && reason.length > 500) throw new ValidationError(t("backend.deployment.reasonMustBeAtMost500Characters"));
   return { ...input, templateId, requesterId, serverIds, reason };
 }
 
@@ -133,7 +134,7 @@ export async function createDeploymentRunFromTemplate(
   const template = await prisma.commandTemplate.findUnique({
     where: { id: normalized.templateId },
   });
-  if (!template) throw new NotFoundError("Deployment template not found");
+  if (!template) throw new NotFoundError(t("backend.deployment.deploymentTemplateNotFound"));
   assertTemplateVariables(
     template.command,
     template.variables,
@@ -348,10 +349,10 @@ export async function createDeploymentRollbackRun(
     snapshot: true,
     template: true,
   });
-  if (!sourceRun) throw new NotFoundError("Deployment run not found");
+  if (!sourceRun) throw new NotFoundError(t("backend.deployment.deploymentRunNotFound"));
   const snapshot = sourceRun.snapshot;
-  if (!snapshot) throw new NotFoundError("This deployment has no snapshot available for rollback");
-  if (!snapshot.rollbackCommand?.trim()) throw new ValidationError("This deployment snapshot has no rollback command");
+  if (!snapshot) throw new NotFoundError(t("backend.deployment.thisDeploymentHasNoSnapshotAvailableForRollback"));
+  if (!snapshot.rollbackCommand?.trim()) throw new ValidationError(t("backend.deployment.thisDeploymentSnapshotHasNoRollbackCommand"));
 
   const activeRollback = await prisma.deploymentRollbackRun.findFirst({
     where: {
@@ -361,7 +362,7 @@ export async function createDeploymentRollbackRun(
     select: { id: true, status: true },
     orderBy: { createdAt: "desc" },
   });
-  if (activeRollback) throw new ConflictError("A rollback task is already in progress; please wait for the current rollback to complete before retrying");
+  if (activeRollback) throw new ConflictError(t("backend.deployment.aRollbackTaskIsAlreadyInProgressPlease"));
 
   const reason = input.reason?.trim() || `Rollback: ${snapshot.templateName}`;
   const rollbackTeamId = sourceRun.teamId ?? null;

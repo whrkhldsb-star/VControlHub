@@ -304,7 +304,7 @@ describe("cloud billing service", () => {
 				roles: ["operator"],
 				currentTeamId: "team_a",
 			}),
-		).rejects.toThrow(/not found/i);
+		).rejects.toThrow(/不存在|not found/i);
 	});
 
 	it("update does not reassign teamId from body", async () => {

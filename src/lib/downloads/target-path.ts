@@ -1,6 +1,7 @@
 import path from "node:path";
 
 import { ValidationError } from "@/lib/errors";
+import { t } from "@/lib/i18n/translations";
 
 function normalizeBasePath(basePath: string | null | undefined): string {
   const requested = (basePath ?? "").trim() || "/root/downloads";
@@ -21,7 +22,7 @@ export function getDownloadTargetRelativePath(
   const normalizedTarget = path.posix.normalize(resolvedTargetPath).replace(/\/+$/, "") || "/";
 
   if (!isPathWithinBase(normalizedTarget, base)) {
-    throw new ValidationError("Download target path exceeds storage node root");
+    throw new ValidationError(t("backend.downloads.downloadTargetPathExceedsStorageNodeRoot"));
   }
 
   if (normalizedTarget === base) {
@@ -57,7 +58,7 @@ export function resolveDownloadTargetPath(
     : path.posix.normalize(path.posix.join(base, normalized));
 
   if (!isPathWithinBase(candidate, base)) {
-    throw new ValidationError("Download target path exceeds storage node root");
+    throw new ValidationError(t("backend.downloads.downloadTargetPathExceedsStorageNodeRoot"));
   }
 
   return candidate;

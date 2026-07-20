@@ -137,7 +137,7 @@ describe("AI service list hydration limits", () => {
         model: "gpt-4o",
         createdBy: "u1",
       }),
-    ).rejects.toThrow(/not found/i);
+    ).rejects.toThrow(/不存在|not found/i);
 
     expect(prismaMock.aiProvider.findFirst).toHaveBeenCalledWith({
       where: { id: "other-provider", createdBy: "u1" },
@@ -178,6 +178,6 @@ describe("AI service list hydration limits", () => {
     });
 
     prismaMock.aiConversation.deleteMany.mockResolvedValueOnce({ count: 0 });
-    await expect(deleteConversation("c-missing", "u1")).rejects.toThrow(/not found/i);
+    await expect(deleteConversation("c-missing", "u1")).rejects.toThrow(/不存在|not found/i);
   });
 });

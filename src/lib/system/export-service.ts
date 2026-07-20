@@ -23,6 +23,7 @@ import {
 } from "@/lib/system/config-schema";
 import type { SessionPayload } from "@/lib/auth/session";
 import { ValidationError, ForbiddenError } from "@/lib/errors";
+import { t } from "@/lib/i18n/translations";
 
 function dateToISO(d: Date | null | undefined): string | null {
   return d ? d.toISOString() : null;
@@ -531,10 +532,10 @@ export function resolveExportAuthorization(input: {
   const teamId = input.teamId ?? session.currentTeamId ?? null;
 
   if (mode === "full" && !isPlatformAdmin(session)) {
-    throw new ForbiddenError("Full export (with secrets) requires platform admin");
+    throw new ForbiddenError(t("backend.system.fullExportWithSecretsRequiresPlatformAdmin"));
   }
   if (scope === "global" && !isPlatformAdmin(session)) {
-    throw new ForbiddenError("Global export requires platform admin");
+    throw new ForbiddenError(t("backend.system.globalExportRequiresPlatformAdmin"));
   }
   if (scope === "team" && !teamId) {
     throw new ValidationError("No current team selected for team export", { field: "teamId" });

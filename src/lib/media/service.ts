@@ -3,6 +3,7 @@ import type { SessionPayload } from "@/lib/auth/session";
 import { teamWhere } from "@/lib/auth/team-scope";
 import { NotFoundError } from "@/lib/errors";
 import { classifyMediaKind } from "@/lib/storage/mime-constants";
+import { t } from "@/lib/i18n/translations";
 
 type TeamSession = Pick<SessionPayload, "userId" | "roles" | "currentTeamId">;
 
@@ -337,7 +338,7 @@ export async function updateMediaTags(input: {
   session?: TeamSession | null;
 }) {
   const existing = await getMediaItem(input.id, input.session);
-  if (!existing) throw new NotFoundError("Media item not found");
+  if (!existing) throw new NotFoundError(t("backend.media.mediaItemNotFound"));
   const data: { tags?: string[]; favorite?: boolean } = {};
   if (input.tags !== undefined) data.tags = input.tags;
   if (input.favorite !== undefined) data.favorite = input.favorite;

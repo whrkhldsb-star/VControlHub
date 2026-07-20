@@ -1,5 +1,6 @@
 import { ForbiddenError, NotFoundError, ValidationError } from "@/lib/errors";
 import { prisma } from "@/lib/db";
+import { t } from "@/lib/i18n/translations";
 
 function tags(input?: string[]) {
   return Array.from(new Set((input ?? []).map((t) => t.trim()).filter(Boolean))).slice(0, 20);
@@ -38,9 +39,9 @@ export async function updateSnippet(
   actor?: { userId?: string | null; canManageAll?: boolean },
 ) {
   const existing = await prisma.snippet.findUnique({ where: { id } });
-  if (!existing) throw new NotFoundError("Snippet not found");
+  if (!existing) throw new NotFoundError(t("backend.snippet.snippetNotFound"));
   if (!canMutateSnippet(existing.createdBy, actor)) {
-    throw new ForbiddenError("No permission to modify others' snippets");
+    throw new ForbiddenError(t("backend.snippet.noPermissionToModifyOthersSnippets"));
   }
   const data: Record<string, unknown> = {};
   if (input.title !== undefined) {
@@ -61,9 +62,9 @@ export async function updateSnippet(
 
 export async function deleteSnippet(id: string, actor?: { userId?: string | null; canManageAll?: boolean }) {
   const existing = await prisma.snippet.findUnique({ where: { id } });
-  if (!existing) throw new NotFoundError("Snippet not found");
+  if (!existing) throw new NotFoundError(t("backend.snippet.snippetNotFound"));
   if (!canMutateSnippet(existing.createdBy, actor)) {
-    throw new ForbiddenError("No permission to delete others' snippets");
+    throw new ForbiddenError(t("backend.snippet.noPermissionToDeleteOthersSnippets"));
   }
   return prisma.snippet.delete({ where: { id } });
 }

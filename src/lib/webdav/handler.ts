@@ -42,6 +42,7 @@ import { snapshotFileVersionBeforeOverwrite } from "@/lib/storage/file-versions"
 import { guessContentType } from "@/lib/http/mime-types";
 
 import { buildPropFindMultistatus, parseDepth, type PropFindItem } from "./xml";
+import { t } from "@/lib/i18n/translations";
 
 const MAX_WEBDAV_PUT_BYTES = 100 * 1024 * 1024;
 
@@ -101,7 +102,7 @@ async function loadNode(
     select: { ...storageFileNodeSelect, name: true },
   });
   if (!node || !["LOCAL", "SFTP"].includes(node.driver)) {
-    throw new NotFoundError("Storage node not found or not WebDAV-capable");
+    throw new NotFoundError(t("backend.webdav.storageNodeNotFoundOrNotWebdavCapable"));
   }
   return node as StorageFileNode & { name: string };
 }
@@ -264,7 +265,7 @@ export async function handleWebDavPropFind(ctx: WebDavContext, depthHeader: stri
     }
   } else {
     const entry = await findEntry(ctx.storageNodeId, ctx.relativePath);
-    if (!entry) throw new NotFoundError("Resource not found");
+    if (!entry) throw new NotFoundError(t("backend.webdav.resourceNotFound"));
     items.push({
       href: buildWebDavHref(
         ctx.storageNodeId,
@@ -337,7 +338,7 @@ export async function handleWebDavGetHead(
     });
   }
   const entry = await findEntry(ctx.storageNodeId, ctx.relativePath);
-  if (!entry) throw new NotFoundError("Resource not found");
+  if (!entry) throw new NotFoundError(t("backend.webdav.resourceNotFound"));
   if (entry.entryType === "DIRECTORY") {
     return new Response("Collection", {
       status: 200,
@@ -366,7 +367,7 @@ export async function handleWebDavGetHead(
 
 export async function handleWebDavPut(ctx: WebDavContext, request: Request): Promise<Response> {
   if (!ctx.relativePath) {
-    throw new ValidationError("Cannot PUT to collection root");
+    throw new ValidationError(t("backend.webdav.cannotPutToCollectionRoot"));
   }
   const body = Buffer.from(await request.arrayBuffer());
   if (body.byteLength > MAX_WEBDAV_PUT_BYTES) {
@@ -384,7 +385,7 @@ export async function handleWebDavPut(ctx: WebDavContext, request: Request): Pro
   const node = await loadNode(ctx.storageNodeId, ctx.session);
   const existing = await findEntry(ctx.storageNodeId, ctx.relativePath);
   if (existing?.entryType === "DIRECTORY") {
-    throw new ConflictError("Cannot overwrite a collection with a file");
+    throw new ConflictError(t("backend.webdav.cannotOverwriteACollectionWithAFile"));
   }
 
   const parentPath = parentRelativePath(ctx.relativePath);
@@ -442,11 +443,11 @@ export async function handleWebDavPut(ctx: WebDavContext, request: Request): Pro
 
 export async function handleWebDavMkcol(ctx: WebDavContext): Promise<Response> {
   if (!ctx.relativePath) {
-    throw new ValidationError("Cannot MKCOL at root");
+    throw new ValidationError(t("backend.webdav.cannotMkcolAtRoot"));
   }
   await requireAccess(ctx.session, ctx.storageNodeId, ctx.relativePath, "write");
   const existing = await findEntry(ctx.storageNodeId, ctx.relativePath);
-  if (existing) throw new ConflictError("Resource already exists");
+  if (existing) throw new ConflictError(t("backend.webdav.resourceAlreadyExists"));
 
   const node = await loadNode(ctx.storageNodeId, ctx.session);
   const parentPath = parentRelativePath(ctx.relativePath);
@@ -475,11 +476,11 @@ export async function handleWebDavMkcol(ctx: WebDavContext): Promise<Response> {
 
 export async function handleWebDavDelete(ctx: WebDavContext): Promise<Response> {
   if (!ctx.relativePath) {
-    throw new ValidationError("Cannot DELETE collection root");
+    throw new ValidationError(t("backend.webdav.cannotDeleteCollectionRoot"));
   }
   await requireAccess(ctx.session, ctx.storageNodeId, ctx.relativePath, "delete");
   const entry = await findEntry(ctx.storageNodeId, ctx.relativePath);
-  if (!entry) throw new NotFoundError("Resource not found");
+  if (!entry) throw new NotFoundError(t("backend.webdav.resourceNotFound"));
 
   const node = await loadNode(ctx.storageNodeId, ctx.session);
 
@@ -528,16 +529,16 @@ function destinationRelativePath(
   destinationHeader: string | null,
   requestUrl: URL,
 ): string {
-  if (!destinationHeader) throw new ValidationError("Destination header required");
+  if (!destinationHeader) throw new ValidationError(t("backend.webdav.destinationHeaderRequired"));
   let destUrl: URL;
   try {
     destUrl = new URL(destinationHeader, requestUrl.origin);
   } catch {
-    throw new ValidationError("Invalid Destination header");
+    throw new ValidationError(t("backend.webdav.invalidDestinationHeader"));
   }
   // Refuse cross-origin Destination (clients may send absolute URLs).
   if (destUrl.origin !== requestUrl.origin) {
-    throw new ValidationError("Destination must stay on the same origin");
+    throw new ValidationError(t("backend.webdav.destinationMustStayOnTheSameOrigin"));
   }
   // Require a path boundary after the node id so nodeId "abc" cannot match
   // "/api/webdav/abc-evil/..." (prefix IDOR across storage nodes).
@@ -548,7 +549,7 @@ function destinationRelativePath(
   const matchesBase = (b: string) =>
     pathName === b || pathName === `${b}/` || pathName.startsWith(`${b}/`);
   if (!matchesBase(base) && !matchesBase(baseRaw)) {
-    throw new ValidationError("Destination must stay on the same storage node");
+    throw new ValidationError(t("backend.webdav.destinationMustStayOnTheSameStorageNode"));
   }
   const rest = pathName.startsWith(`${base}/`)
     ? pathName.slice(`${base}/`.length)
@@ -560,27 +561,27 @@ function destinationRelativePath(
           pathName === `${baseRaw}/`
         ? ""
         : null;
-  if (rest === null) throw new ValidationError("Invalid Destination path");
+  if (rest === null) throw new ValidationError(t("backend.webdav.invalidDestinationPath"));
   return normalizeWebDavRelativePath(rest);
 }
 
 export async function handleWebDavMove(ctx: WebDavContext, request: Request): Promise<Response> {
-  if (!ctx.relativePath) throw new ValidationError("Cannot MOVE collection root");
+  if (!ctx.relativePath) throw new ValidationError(t("backend.webdav.cannotMoveCollectionRoot"));
   await requireAccess(ctx.session, ctx.storageNodeId, ctx.relativePath, "write");
   const destPath = destinationRelativePath(
     ctx.storageNodeId,
     request.headers.get("destination"),
     ctx.requestUrl,
   );
-  if (!destPath) throw new ValidationError("Invalid Destination");
+  if (!destPath) throw new ValidationError(t("backend.webdav.invalidDestination"));
   await requireAccess(ctx.session, ctx.storageNodeId, destPath, "write");
 
   const entry = await findEntry(ctx.storageNodeId, ctx.relativePath);
-  if (!entry) throw new NotFoundError("Resource not found");
+  if (!entry) throw new NotFoundError(t("backend.webdav.resourceNotFound"));
   const existingDest = await findEntry(ctx.storageNodeId, destPath);
   const overwrite = (request.headers.get("overwrite") ?? "T").toUpperCase() !== "F";
   if (existingDest && !overwrite) {
-    throw new ConflictError("Destination exists and Overwrite is F");
+    throw new ConflictError(t("backend.webdav.destinationExistsAndOverwriteIsF"));
   }
 
   const node = await loadNode(ctx.storageNodeId, ctx.session);
@@ -641,26 +642,26 @@ export async function handleWebDavMove(ctx: WebDavContext, request: Request): Pr
 }
 
 export async function handleWebDavCopy(ctx: WebDavContext, request: Request): Promise<Response> {
-  if (!ctx.relativePath) throw new ValidationError("Cannot COPY collection root");
+  if (!ctx.relativePath) throw new ValidationError(t("backend.webdav.cannotCopyCollectionRoot"));
   await requireAccess(ctx.session, ctx.storageNodeId, ctx.relativePath, "read");
   const destPath = destinationRelativePath(
     ctx.storageNodeId,
     request.headers.get("destination"),
     ctx.requestUrl,
   );
-  if (!destPath) throw new ValidationError("Invalid Destination");
+  if (!destPath) throw new ValidationError(t("backend.webdav.invalidDestination"));
   await requireAccess(ctx.session, ctx.storageNodeId, destPath, "write");
 
   const entry = await findEntry(ctx.storageNodeId, ctx.relativePath);
-  if (!entry) throw new NotFoundError("Resource not found");
+  if (!entry) throw new NotFoundError(t("backend.webdav.resourceNotFound"));
   if (entry.entryType === "DIRECTORY") {
-    throw new BusinessError("COPY of collections is not supported; copy files individually");
+    throw new BusinessError(t("backend.webdav.copyOfCollectionsIsNotSupportedCopyFiles"));
   }
 
   const existingDest = await findEntry(ctx.storageNodeId, destPath);
   const overwrite = (request.headers.get("overwrite") ?? "T").toUpperCase() !== "F";
   if (existingDest && !overwrite) {
-    throw new ConflictError("Destination exists and Overwrite is F");
+    throw new ConflictError(t("backend.webdav.destinationExistsAndOverwriteIsF"));
   }
 
   const node = await loadNode(ctx.storageNodeId, ctx.session);
@@ -672,7 +673,7 @@ export async function handleWebDavCopy(ctx: WebDavContext, request: Request): Pr
     // Overwrite must update the live FileEntry (unique on storageNodeId+relativePath).
     // Calling createFileEntry here would ConflictError after the backing write succeeded.
     if (existingDest.entryType === "DIRECTORY") {
-      throw new ConflictError("Cannot overwrite a collection with a file");
+      throw new ConflictError(t("backend.webdav.cannotOverwriteACollectionWithAFile"));
     }
     await snapshotFileVersionBeforeOverwrite({
       fileEntryId: existingDest.id,

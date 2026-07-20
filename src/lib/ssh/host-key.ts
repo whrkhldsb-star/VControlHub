@@ -1,5 +1,6 @@
 import { BusinessError, ConflictError, ValidationError } from "@/lib/errors";
 import { execRemoteCommand, type SshConnectionParams } from "./client";
+import { t } from "@/lib/i18n/translations";
 
 export class SshHostKeyApprovalRequiredError extends BusinessError {
   readonly hostKeySha256: string;
@@ -51,7 +52,7 @@ export async function probeSshHostKey(input: SshConnectionParams): Promise<SshHo
       timeout: 15_000,
     });
     if (!captured) {
-      throw new ValidationError("Failed to read SSH host key fingerprint. Please verify the target SSH service supports host key negotiation.");
+      throw new ValidationError(t("backend.ssh.failedToReadSshHostKeyFingerprintPlease"));
     }
     return { fingerprint: captured, ...result };
   } catch (error) {

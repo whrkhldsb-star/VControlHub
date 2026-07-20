@@ -17,6 +17,7 @@ import { createNotification, type NotificationType } from "@/lib/notification/se
 import { sendAlertEmail } from "@/lib/notification/email";
 import { sendAlertTelegram } from "@/lib/notification/telegram";
 import { fetchWebhookSafely } from "@/lib/security/webhook-url";
+import { t } from "@/lib/i18n/translations";
 
 const logger = createLogger("alert:incidents");
 
@@ -295,7 +296,7 @@ export async function acknowledgeAlertIncident(input: {
     where: { id: input.incidentId },
     include: { rule: { select: { id: true, teamId: true } } },
   });
-  if (!incident) throw new NotFoundError("Alert incident not found");
+  if (!incident) throw new NotFoundError(t("backend.alert.alertIncidentNotFound"));
   if (input.session) {
     const teamFilter = teamWhere(input.session);
     if (Object.keys(teamFilter).length > 0) {
@@ -306,7 +307,7 @@ export async function acknowledgeAlertIncident(input: {
           where: { id: incident.ruleId, ...teamFilter },
           select: { id: true },
         });
-        if (!ruleOk) throw new NotFoundError("Alert incident not found");
+        if (!ruleOk) throw new NotFoundError(t("backend.alert.alertIncidentNotFound"));
       }
       // Server team (when set)
       if (incident.serverId) {
@@ -314,12 +315,12 @@ export async function acknowledgeAlertIncident(input: {
           where: { id: incident.serverId, ...teamFilter },
           select: { id: true },
         });
-        if (!serverOk) throw new NotFoundError("Alert incident not found");
+        if (!serverOk) throw new NotFoundError(t("backend.alert.alertIncidentNotFound"));
       }
     }
   }
   if (incident.status === "RESOLVED") {
-    throw new ValidationError("Resolved incidents cannot be acknowledged");
+    throw new ValidationError(t("backend.alert.resolvedIncidentsCannotBeAcknowledged"));
   }
   if (incident.status === "ACKNOWLEDGED") {
     return { id: incident.id, status: incident.status };

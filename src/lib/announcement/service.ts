@@ -1,8 +1,9 @@
 import { NotFoundError, ValidationError } from "@/lib/errors";
 import { prisma } from "@/lib/db";
+import { t } from "@/lib/i18n/translations";
 
 export async function createAnnouncement(input: { title: string; body: string; level?: string; pinned?: boolean; published?: boolean; startsAt?: Date; expiresAt?: Date | null; createdBy?: string }) {
-  if (!input.title.trim() || !input.body.trim()) throw new ValidationError("Announcement title and content cannot be empty");
+  if (!input.title.trim() || !input.body.trim()) throw new ValidationError(t("backend.announcement.announcementTitleAndContentCannotBeEmpty"));
   return prisma.announcement.create({ data: { title: input.title.trim(), body: input.body.trim(), level: input.level ?? "info", pinned: input.pinned ?? false, published: input.published ?? true, startsAt: input.startsAt ?? new Date(), expiresAt: input.expiresAt ?? null, createdBy: input.createdBy ?? null } });
 }
 
@@ -25,7 +26,7 @@ export async function listAnnouncements() {
 
 export async function updateAnnouncement(id: string, input: { title?: string; body?: string; level?: string; pinned?: boolean; published?: boolean; expiresAt?: Date | null }) {
 	const existing = await prisma.announcement.findUnique({ where: { id } });
-	if (!existing) throw new NotFoundError("Announcement not found");
+	if (!existing) throw new NotFoundError(t("backend.announcement.announcementNotFound"));
 	const data: Record<string, unknown> = {};
 	if (input.title !== undefined) data.title = input.title.trim();
 	if (input.body !== undefined) data.body = input.body.trim();
@@ -39,6 +40,6 @@ export async function updateAnnouncement(id: string, input: { title?: string; bo
 
 export async function deleteAnnouncement(id: string) {
 	const existing = await prisma.announcement.findUnique({ where: { id } });
-	if (!existing) throw new NotFoundError("Announcement not found");
+	if (!existing) throw new NotFoundError(t("backend.announcement.announcementNotFound"));
 	return prisma.announcement.delete({ where: { id } });
 }

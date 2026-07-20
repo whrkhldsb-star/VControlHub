@@ -12,6 +12,7 @@ import { NotFoundError, ValidationError } from "@/lib/errors";
 import { getAiConversationListLimit, getAiProviderListLimit } from "@/lib/runtime-settings/service";
 import { normalizePublicHttpUrl } from "@/lib/storage/direct-access-url";
 import { defaultAiBaseUrl } from "./provider-http";
+import { t } from "@/lib/i18n/translations";
 
 const DEFAULT_AI_BASE_URL = defaultAiBaseUrl();
 
@@ -110,8 +111,8 @@ const AI_PROVIDER_LIST_SELECT = {
 /* ── Provider CRUD ───────────────────────────────────────────── */
 
 export async function createProvider(input: CreateProviderInput) {
-	if (!input.name.trim()) throw new ValidationError("Provider name is required");
-	if (!input.apiKey.trim()) throw new ValidationError("API Key is required");
+	if (!input.name.trim()) throw new ValidationError(t("backend.ai.providerNameIsRequired"));
+	if (!input.apiKey.trim()) throw new ValidationError(t("backend.ai.apiKeyIsRequired"));
 
 	const normalizedBaseUrl = normalizeProviderBaseUrl(input.baseUrl);
 	const normalizedModels = normalizeProviderModels(input.availableModels);
@@ -156,7 +157,7 @@ export async function getProviderById(id: string, userId: string) {
 		where: { id, createdBy: userId },
 		select: AI_PROVIDER_LIST_SELECT,
 	});
-	if (!provider) throw new NotFoundError("Provider not found");
+	if (!provider) throw new NotFoundError(t("backend.ai.providerNotFound"));
 	return provider;
 }
 
@@ -185,13 +186,13 @@ export async function updateProvider(id: string, userId: string, input: UpdatePr
 		where: { id, createdBy: userId },
 		data,
 	});
-	if (updated.count === 0) throw new NotFoundError("Provider not found");
+	if (updated.count === 0) throw new NotFoundError(t("backend.ai.providerNotFound"));
 	return prisma.aiProvider.findUnique({ where: { id }, select: AI_PROVIDER_LIST_SELECT });
 }
 
 export async function deleteProvider(id: string, userId: string) {
 	const deleted = await prisma.aiProvider.deleteMany({ where: { id, createdBy: userId } });
-	if (deleted.count === 0) throw new NotFoundError("Provider not found");
+	if (deleted.count === 0) throw new NotFoundError(t("backend.ai.providerNotFound"));
 }
 
 /* ── Conversation CRUD ───────────────────────────────────────── */
@@ -201,7 +202,7 @@ export async function createConversation(input: CreateConversationInput) {
 	const provider = await prisma.aiProvider.findFirst({
 		where: { id: input.providerId, createdBy: input.createdBy },
 	});
-	if (!provider) throw new NotFoundError("AI provider not found");
+	if (!provider) throw new NotFoundError(t("backend.ai.aiProviderNotFound"));
 
 	return prisma.aiConversation.create({
 		data: {
@@ -272,7 +273,7 @@ export async function getConversationById(id: string, userId: string) {
 			messages: { orderBy: { createdAt: "asc" } },
 		},
 	});
-	if (!conv) throw new NotFoundError("Conversation not found");
+	if (!conv) throw new NotFoundError(t("backend.ai.conversationNotFound"));
 	return conv;
 }
 
@@ -293,7 +294,7 @@ export async function updateConversation(id: string, userId: string, input: Upda
 		where: { id, createdBy: userId },
 		data,
 	});
-	if (updated.count === 0) throw new NotFoundError("Conversation not found");
+	if (updated.count === 0) throw new NotFoundError(t("backend.ai.conversationNotFound"));
 	return prisma.aiConversation.findUnique({
 		where: { id },
 		include: {
@@ -318,11 +319,11 @@ export async function updateConversation(id: string, userId: string, input: Upda
 export async function deleteConversation(id: string, userId: string) {
 	// deleteMany avoids Prisma throwing on compound unique miss; keep ownership gate.
 	const deleted = await prisma.aiConversation.deleteMany({ where: { id, createdBy: userId } });
-	if (deleted.count === 0) throw new NotFoundError("Conversation not found");
+	if (deleted.count === 0) throw new NotFoundError(t("backend.ai.conversationNotFound"));
 }
 
 export async function clearConversationMessages(id: string, userId: string) {
 	const conv = await prisma.aiConversation.findFirst({ where: { id, createdBy: userId } });
-	if (!conv) throw new NotFoundError("Conversation not found");
+	if (!conv) throw new NotFoundError(t("backend.ai.conversationNotFound"));
 	await prisma.aiMessage.deleteMany({ where: { conversationId: id } });
 }

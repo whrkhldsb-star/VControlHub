@@ -154,7 +154,7 @@ describe("ai provider-http adapter", () => {
     it("rejects empty API keys with the same business-side validation error", async () => {
       await expect(
         fetchProviderModels({ apiKey: "   ", baseUrl: "https://api.example.com/v1" }),
-      ).rejects.toThrow("API Key is required");
+      ).rejects.toThrow("必须填写 API Key");
     });
   });
 

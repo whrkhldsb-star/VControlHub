@@ -5,6 +5,7 @@ import { sessionHasPermission } from "@/lib/auth/authorization";
 import { prisma } from "@/lib/db";
 import { ForbiddenError, NotFoundError } from "@/lib/errors";
 import { sanitizeRemotePath } from "./sftp-service";
+import { t } from "@/lib/i18n/translations";
 
 function isInsideRoot(candidate: string, root: string) {
 	// Always resolve relative candidates against root, then re-normalize so
@@ -37,7 +38,7 @@ export async function assertSftpPathAccess(input: {
 		where: { id: input.serverId },
 		select: { username: true, enabled: true },
 	});
-	if (!server?.enabled) throw new NotFoundError("Server not found or disabled");
+	if (!server?.enabled) throw new NotFoundError(t("backend.ssh.serverNotFoundOrDisabled"));
 
 	const homeRoot = server.username === "root" ? "/root" : `/home/${server.username}`;
 	for (const rawPath of input.paths) {
