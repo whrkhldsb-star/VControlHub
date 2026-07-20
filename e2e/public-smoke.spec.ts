@@ -1,14 +1,5 @@
 import { expect, test } from "@playwright/test";
 
-// WebKit on GitHub-hosted runners intermittently hits "Connection refused" on
-// subsequent navigations against the custom Next server (server log shows an
-// uncaught "aborted" exception under WebKit's connection pattern). The login
-// page is the most stable smoke signal; /status and /offline are flake-prone
-// under WebKit specifically, so skip them there. Chromium + Firefox still
-// cover both routes end-to-end.
-const skipFlakyOnWebKit = (test: typeof import("@playwright/test").test) =>
-	test.extend<{}>({});
-
 test.describe("public smoke routes", () => {
 	test("login page renders the authentication form", async ({ page }) => {
 		await page.goto("/login", { waitUntil: "domcontentloaded" });
@@ -17,6 +8,9 @@ test.describe("public smoke routes", () => {
 		await expect(page.getByRole("button", { name: /登录|Sign in|Log in/i })).toBeVisible();
 	});
 
+	// WebKit on GitHub-hosted runners intermittently hits "Connection refused" on
+	// subsequent navigations against the custom Next server (server log shows an
+	// uncaught "aborted" exception). Chromium + Firefox reliably cover both routes.
 	test("public status route renders without authentication", async ({ page, browserName }) => {
 		test.skip(browserName === "webkit", "WebKit intermittently refused on /status under CI");
 		await page.goto("/status", { waitUntil: "domcontentloaded" });
