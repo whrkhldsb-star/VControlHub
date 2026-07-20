@@ -260,7 +260,11 @@ export async function drillBackupRecord(input: { id: string; projectRoot?: strin
 		if (!/PostgreSQL|SET |CREATE |DROP |COPY /i.test(probe.stdout)) throw new BusinessError("Database backup drill could not identify PostgreSQL SQL content");
 		checks.push({ name: "database-format", status: "passed", detail: "PostgreSQL SQL stream detected" });
 	} else {
-		await runBackupCommand({ file: "bash", args: ["-c", "tar -tzf -- \"$1\" >/dev/null", "backup-drill", backupPath], options: { cwd: projectRoot, timeout: 10 * 60 * 1000 } });
+		// Use execFile argv (no shell). Do NOT put `--` between -f and the archive:
+		// GNU tar treats the next token after -f as the archive name, so
+		// `tar -tzf -- "$path"` opens an archive literally named `--`.
+		// Path is already constrained by resolveBackupPath (portable under backups/).
+		await runBackupCommand({ file: "tar", args: ["-tzf", backupPath], options: { cwd: projectRoot, timeout: 10 * 60 * 1000 } });
 		checks.push({ name: "archive-index", status: "passed", detail: "tar archive index parsed without extraction" });
 	}
 	const completed = new Date();

@@ -303,8 +303,12 @@ export async function runVpsBackupRecord(
 					});
 				}
 			}
-		} catch {
-			// Offsite upload is best-effort; don't fail the backup
+		} catch (offsiteErr) {
+			// Offsite upload is best-effort; don't fail the backup — but never silent.
+			vpsBackupLogger.warn("vps offsite upload failed (non-fatal)", {
+				recordId,
+				error: offsiteErr instanceof Error ? offsiteErr.message : String(offsiteErr),
+			});
 		}
 
 		return {

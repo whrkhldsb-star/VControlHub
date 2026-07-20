@@ -42,4 +42,42 @@ describe("non-destructive backup drill", () => {
     await expect(drillBackupRecord({ id: "b2", projectRoot: root })).rejects.toThrow("checksum verification failed");
     expect(mocks.runBackupCommand).not.toHaveBeenCalled();
   });
+
+  it("uses tar -tzf archive argv without -- as filename for FILES drills", async () => {
+    const root = await mkdtemp(path.join(tmpdir(), "backup-drill-files-"));
+    const backupDir = path.join(root, "backups");
+    await import("node:fs/promises").then(({ mkdir }) => mkdir(backupDir));
+    const bytes = Buffer.from("files-archive-placeholder");
+    const archiveRel = "files.tar.gz";
+    const archiveAbs = path.join(backupDir, archiveRel);
+    await writeFile(archiveAbs, bytes);
+    const checksum = createHash("sha256").update(bytes).digest("hex");
+    mocks.getBackupRecord.mockResolvedValue({
+      id: "b3",
+      type: "FILES",
+      status: "COMPLETED",
+      filePath: archiveRel,
+      checksumSha256: checksum,
+    });
+    mocks.runBackupCommand.mockImplementation(async (input: { file: string; args: string[] }) => {
+      if (input.file === "gzip") return { stdout: "", stderr: "" };
+      if (input.file === "tar") {
+        expect(input.args).toEqual(["-tzf", archiveAbs]);
+        return { stdout: "./\na.txt\n", stderr: "" };
+      }
+      return { stdout: "", stderr: "" };
+    });
+    const report = await drillBackupRecord({ id: "b3", projectRoot: root });
+    expect(report.checks.map((c) => c.name)).toEqual(["artifact", "sha256", "gzip", "archive-index"]);
+    expect(mocks.runBackupCommand).toHaveBeenCalledWith(
+      expect.objectContaining({ file: "tar", args: ["-tzf", archiveAbs] }),
+    );
+    // Regression: never invoke shell form that treats `--` as the archive name.
+    expect(mocks.runBackupCommand).not.toHaveBeenCalledWith(
+      expect.objectContaining({
+        file: "bash",
+        args: expect.arrayContaining([expect.stringContaining("tar -tzf --")]),
+      }),
+    );
+  });
 });
