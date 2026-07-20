@@ -20,8 +20,9 @@ export async function getServerLocale(): Promise<Locale> {
 		return raw === "en" ? "en" : "zh";
 	} catch {
 		// Called outside a request scope (e.g. from a vitest unit test or a
-		// background task). Default to en so messages are in English.
-		return "en";
+		// background task). Default to zh to match translations.getServerLocale
+		// and the client I18nProvider / layout cookie fallback.
+		return "zh";
 	}
 }
 

@@ -287,9 +287,9 @@ export function TeamWorkspaceSection({ canManage }: { canManage: boolean }) {
 							{teams.map((team) => <option key={team.id} value={team.id}>{team.name}</option>)}
 						</select>
 						<input value={memberUsername} aria-label={t("settingsTeam.usernamePlaceholder")} onChange={(e) => setMemberUsername(e.target.value)} placeholder={t("settingsTeam.usernamePlaceholder")} className="w-full rounded-xl border border-[var(--border)] bg-[var(--surface)] px-3 py-2 text-sm" />
-						<select aria-label="role" value={memberRole} onChange={(e) => setMemberRole(e.target.value as "admin" | "member")} className="w-full rounded-xl border border-[var(--border)] bg-[var(--surface)] px-3 py-2 text-sm">
-							<option value="member">member</option>
-							<option value="admin">admin</option>
+						<select aria-label={t("settingsTeam.roleAria")} value={memberRole} onChange={(e) => setMemberRole(e.target.value as "admin" | "member")} className="w-full rounded-xl border border-[var(--border)] bg-[var(--surface)] px-3 py-2 text-sm">
+							<option value="member">{t("settingsTeam.role.member")}</option>
+							<option value="admin">{t("settingsTeam.role.admin")}</option>
 						</select>
 						<button type="button" disabled={busy || !targetTeamId || !memberUsername.trim()} onClick={addMember} data-tone="accent" data-action-button data-variant="primary" className="min-h-10 disabled:opacity-60">{t("settingsTeam.addMemberButton")}</button>
 					</div>
