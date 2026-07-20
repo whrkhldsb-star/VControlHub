@@ -136,17 +136,43 @@ export async function claimNextJob(options: ClaimJobOptions) {
       if (inFlight >= maxGlobal) return null;
     }
 
-    const candidate = await tx.job.findFirst({
-      where: {
-        ...typeFilter,
-        OR: [
-          { status: JobStatus.PENDING, availableAt: { lte: now } },
-          { status: JobStatus.RUNNING, leaseExpiresAt: { lt: now } },
-        ],
-        attempts: { lt: prisma.job.fields.maxAttempts },
-      },
-      orderBy: [{ priority: "desc" }, { availableAt: "asc" }, { createdAt: "asc" }],
-    });
+    // Prefer SKIP LOCKED so concurrent claimers do not stampede the same row.
+    // Fall back to findFirst if raw SQL is unavailable (tests / non-pg adapters).
+    let candidate: Awaited<ReturnType<typeof tx.job.findFirst>> = null;
+    try {
+      const typeClause =
+        options.types && options.types.length > 0
+          ? Prisma.sql`AND type IN (${Prisma.join(options.types)})`
+          : Prisma.empty;
+      const rows = await tx.$queryRaw<Array<{ id: string }>>`
+        SELECT id FROM jobs
+        WHERE attempts < "maxAttempts"
+          AND (
+            (status = 'PENDING' AND "availableAt" <= ${now})
+            OR (status = 'RUNNING' AND "leaseExpiresAt" < ${now})
+          )
+          ${typeClause}
+        ORDER BY priority DESC, "availableAt" ASC, "createdAt" ASC
+        FOR UPDATE SKIP LOCKED
+        LIMIT 1
+      `;
+      const id = rows[0]?.id;
+      if (id) {
+        candidate = await tx.job.findUnique({ where: { id } });
+      }
+    } catch {
+      candidate = await tx.job.findFirst({
+        where: {
+          ...typeFilter,
+          OR: [
+            { status: JobStatus.PENDING, availableAt: { lte: now } },
+            { status: JobStatus.RUNNING, leaseExpiresAt: { lt: now } },
+          ],
+          attempts: { lt: prisma.job.fields.maxAttempts },
+        },
+        orderBy: [{ priority: "desc" }, { availableAt: "asc" }, { createdAt: "asc" }],
+      });
+    }
 
     if (!candidate) return null;
 
@@ -301,6 +327,45 @@ export async function failJob(jobId: string, workerId: string, errorMessage: str
   return updated;
 }
 
+/**
+ * Mark a RUNNING job as FAILED without requeue, even if attempts < maxAttempts.
+ * Use for terminal business outcomes (playbook step failed, command FAILED) where
+ * retry would re-dispatch side effects.
+ */
+export async function failJobTerminal(
+  jobId: string,
+  workerId: string,
+  errorMessage: string,
+  options: { now?: Date; result?: unknown } = {},
+) {
+  const now = options.now ?? new Date();
+  const updated = await prisma.job.updateMany({
+    where: { id: jobId, status: JobStatus.RUNNING, workerId },
+    data: {
+      status: JobStatus.FAILED,
+      errorMessage: errorMessage.slice(0, 2000),
+      completedAt: now,
+      workerId: null,
+      workerHeartbeatAt: null,
+      leaseExpiresAt: null,
+      progress: null,
+    },
+  });
+  if (updated.count > 0) {
+    safeRecordJobEvent({
+      jobId,
+      type: "failed",
+      message: errorMessage.slice(0, 2000),
+      level: "error",
+      workerId,
+      ...(options.result
+        ? { payload: options.result as Prisma.InputJsonValue }
+        : {}),
+    });
+  }
+  return updated;
+}
+
 export async function cancelJob(jobId: string) {
   const updated = await prisma.job.updateMany({
     where: { id: jobId, status: { in: [JobStatus.PENDING, JobStatus.RUNNING] } },
@@ -377,10 +442,16 @@ export async function recoverStaleRunningJobs(options: {
   let failedCount = 0;
 
   if (retryable.length > 0) {
+    // CAS: only reclaim if still RUNNING and still stale at update time
+    // (late heartbeat/complete from a live worker must win).
     const result = await prisma.job.updateMany({
       where: {
         id: { in: retryable.map((j) => j.id) },
         status: JobStatus.RUNNING,
+        OR: [
+          { leaseExpiresAt: { lt: options.staleBefore } },
+          { workerHeartbeatAt: { lt: options.staleBefore } },
+        ],
       },
       data: {
         status: JobStatus.PENDING,
@@ -423,6 +494,10 @@ export async function recoverStaleRunningJobs(options: {
       where: {
         id: { in: exhausted.map((j) => j.id) },
         status: JobStatus.RUNNING,
+        OR: [
+          { leaseExpiresAt: { lt: options.staleBefore } },
+          { workerHeartbeatAt: { lt: options.staleBefore } },
+        ],
       },
       data: {
         status: JobStatus.FAILED,

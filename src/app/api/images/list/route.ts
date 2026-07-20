@@ -29,11 +29,12 @@ export async function GET(request: Request) {
           { error: "Not authenticated or session expired" },
           { status: 401 },
         );
-      return listImages(
-        request,
-        session.userId,
-        sessionHasPermission(session, "user:read"),
-      );
+      // showAll must not use broad user:read (many roles have it).
+      // Only global team managers or media managers may list everyone's images.
+      const canListAll =
+        sessionHasPermission(session, "team:manage") ||
+        sessionHasPermission(session, "media:manage");
+      return listImages(request, session.userId, canListAll);
     },
   );
 }

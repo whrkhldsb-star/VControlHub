@@ -68,4 +68,40 @@ describe("/api/images/stats", () => {
     });
     expect(body.albums[0]).toMatchObject({ album: "cats", count: 2 });
   });
+
+  it("does not treat user:read as fleet-wide image stats permission", async () => {
+    vi.clearAllMocks();
+    requireApiSessionMock.mockResolvedValueOnce(session);
+    sessionHasPermissionMock.mockImplementation(
+      (_session, permission) => permission === "user:read",
+    );
+    imageCountMock.mockResolvedValueOnce(1);
+    imageAggregateMock.mockResolvedValueOnce({ _sum: { sizeBytes: 512 } });
+    imageGroupByMock.mockResolvedValueOnce([]);
+    imageFindManyMock.mockResolvedValueOnce([]);
+
+    const response = await GET(
+      new Request("https://example.com/api/images/stats"),
+    );
+    expect(response.status).toBe(200);
+    expect(imageCountMock).toHaveBeenCalledWith({ where: { userId: "u_1" } });
+  });
+
+  it("allows team/media managers to read fleet-wide image stats", async () => {
+    vi.clearAllMocks();
+    requireApiSessionMock.mockResolvedValueOnce(session);
+    sessionHasPermissionMock.mockImplementation(
+      (_session, permission) => permission === "media:manage",
+    );
+    imageCountMock.mockResolvedValueOnce(9);
+    imageAggregateMock.mockResolvedValueOnce({ _sum: { sizeBytes: 2048 } });
+    imageGroupByMock.mockResolvedValueOnce([]);
+    imageFindManyMock.mockResolvedValueOnce([]);
+
+    const response = await GET(
+      new Request("https://example.com/api/images/stats"),
+    );
+    expect(response.status).toBe(200);
+    expect(imageCountMock).toHaveBeenCalledWith({ where: {} });
+  });
 });

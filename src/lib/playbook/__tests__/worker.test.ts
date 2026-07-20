@@ -33,6 +33,7 @@ vi.mock("@/lib/job/service", () => ({
   claimNextJob: vi.fn(),
   completeJob: vi.fn(),
   failJob: vi.fn(),
+  failJobTerminal: vi.fn(),
   heartbeatJob: mocks.heartbeatJob,
 }));
 vi.mock("@/lib/job/heartbeat-runner", () => ({

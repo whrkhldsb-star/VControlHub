@@ -21,8 +21,11 @@ export async function GET(request: Request) {
           { error: "Not authenticated or session expired" },
           { status: 401 },
         );
-      const isAdmin = sessionHasPermission(session, "user:read");
-      const where: Record<string, unknown> = isAdmin
+      // Same bar as list showAll: user:read is too broad for fleet-wide stats.
+      const canListAll =
+        sessionHasPermission(session, "team:manage") ||
+        sessionHasPermission(session, "media:manage");
+      const where: Record<string, unknown> = canListAll
         ? {}
         : { userId: session.userId };
 

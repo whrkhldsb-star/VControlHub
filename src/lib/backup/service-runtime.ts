@@ -94,6 +94,13 @@ export async function runExistingBackupRecord(input: { id: string; projectRoot?:
 			options: { cwd: projectRoot, env: { ...process.env, APP_DIR: projectRoot } },
 		});
 		const fileInfo = await stat(outputPath);
+		// Align with VPS empty-archive guard: tiny/empty artifacts are false success.
+		const MIN_LOCAL_BACKUP_BYTES = 32;
+		if (!Number.isFinite(fileInfo.size) || fileInfo.size < MIN_LOCAL_BACKUP_BYTES) {
+			throw new BusinessError(
+				`Backup artifact is empty or too small (${fileInfo.size} bytes); treating as failed`,
+			);
+		}
 		const checksumSha256 = await calculateFileSha256(outputPath);
 		const updated = await updateBackupRecordStatus(record.id, {
 			status: "COMPLETED",

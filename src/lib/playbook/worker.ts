@@ -4,7 +4,7 @@ import { config } from "@/lib/config/env";
 import { prisma } from "@/lib/db";
 import { runWithLeaseHeartbeat } from "@/lib/job/heartbeat-runner";
 import { computeLeaseMs } from "@/lib/job/lease";
-import { claimNextJob, completeJob, failJob, heartbeatJob } from "@/lib/job/service";
+import { claimNextJob, completeJob, failJob, failJobTerminal, heartbeatJob } from "@/lib/job/service";
 import { createLogger } from "@/lib/logging";
 import { auditSystemAction } from "@/lib/audit/service";
 
@@ -175,10 +175,18 @@ async function handleJob(job: NonNullable<Awaited<ReturnType<typeof claimNextJob
       heartbeat: () => heartbeatJob(job.id, WORKER_ID, { leaseMs: LEASE_MS }),
       run: () => processPlaybookRun(runId, job.id),
     });
-    // Logical step failure already wrote PlaybookRun status=failed. Do NOT
-    // failJob() here: failJob requeues PENDING while attempts < maxAttempts,
-    // which re-runs a terminal business outcome and can re-dispatch side effects.
-    // Persist the chain outcome on the Job row as COMPLETED with status in result.
+    // Logical step failure already wrote PlaybookRun status=failed. Do NOT use
+    // failJob() (requeues while attempts < maxAttempts). Terminal-fail the job
+    // so Operation Tasks show FAILED, not a false COMPLETED success.
+    if (result.status !== "completed") {
+      await failJobTerminal(
+        job.id,
+        WORKER_ID,
+        result.summary || `Playbook run ${result.status}`,
+        { result },
+      );
+      return true;
+    }
     await completeJob(job.id, WORKER_ID, result);
     return true;
   } catch (error) {

@@ -23,6 +23,7 @@ const { mockPrisma, configState } = vi.hoisted(() => ({
       updateMany: vi.fn(async () => ({ count: 0 })),
     },
     $transaction: vi.fn(async (callback: any) => callback(mockPrisma)),
+    $queryRaw: vi.fn(async () => { throw new Error("queryRaw not available in unit test"); }),
   },
   // TR-001 T13b: each test opts into specific cap values via `configState`;
   // the default is "all caps off" so the existing 7 tests keep their
@@ -56,7 +57,7 @@ vi.mock("@/lib/config/env", () => ({
   },
 }));
 
-const { cancelJob, claimNextJob, completeJob, enqueueJob, failJob, heartbeatJob, pruneCompletedJobsByType, recoverStaleRunningJobs } = await import("../service");
+const { cancelJob, claimNextJob, completeJob, enqueueJob, failJob, failJobTerminal, heartbeatJob, pruneCompletedJobsByType, recoverStaleRunningJobs } = await import("../service");
 
 describe("durable job service", () => {
   beforeEach(() => {
@@ -171,7 +172,13 @@ describe("durable job service", () => {
       where: expect.objectContaining({ status: "RUNNING", attempts: { lt: "maxAttempts" } }),
     }));
     expect(mockPrisma.job.updateMany).toHaveBeenCalledWith(expect.objectContaining({
-      where: expect.objectContaining({ status: "RUNNING" }),
+      where: expect.objectContaining({
+        status: "RUNNING",
+        OR: expect.arrayContaining([
+          expect.objectContaining({ leaseExpiresAt: expect.anything() }),
+          expect.objectContaining({ workerHeartbeatAt: expect.anything() }),
+        ]),
+      }),
       data: expect.objectContaining({ status: "PENDING", errorMessage: "Backend executor heartbeat expired, re-queued" }),
     }));
     // TR-001 T13a: return shape now includes the recovered id list so callers
@@ -179,6 +186,25 @@ describe("durable job service", () => {
     expect(recovered.recovered).toEqual(["stale-1", "stale-2"]);
     expect(recovered.failed).toEqual([]);
     expect(recovered.count).toBe(2);
+  });
+
+  it("terminal-fails a RUNNING job without requeue (business outcomes)", async () => {
+    mockPrisma.job.updateMany.mockResolvedValueOnce({ count: 1 });
+    const result = await failJobTerminal("job-term-1", "worker-1", "playbook step failed", {
+      result: { status: "failed", summary: "step boom" },
+    });
+    expect(result).toEqual({ count: 1 });
+    expect(mockPrisma.job.updateMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: "job-term-1", status: "RUNNING", workerId: "worker-1" },
+        data: expect.objectContaining({
+          status: "FAILED",
+          errorMessage: "playbook step failed",
+          workerId: null,
+          leaseExpiresAt: null,
+        }),
+      }),
+    );
   });
 
   it("terminal-fails attempt-exhausted stale RUNNING jobs and linked playbook runs", async () => {
@@ -208,7 +234,14 @@ describe("durable job service", () => {
     expect(recovered.count).toBe(1);
     expect(mockPrisma.job.updateMany).toHaveBeenCalledWith(
       expect.objectContaining({
-        where: { id: { in: ["ex-1"] }, status: "RUNNING" },
+        where: expect.objectContaining({
+          id: { in: ["ex-1"] },
+          status: "RUNNING",
+          OR: expect.arrayContaining([
+            expect.objectContaining({ leaseExpiresAt: expect.anything() }),
+            expect.objectContaining({ workerHeartbeatAt: expect.anything() }),
+          ]),
+        }),
         data: expect.objectContaining({
           status: "FAILED",
           errorMessage: "Backend executor heartbeat expired after exhausting attempts",

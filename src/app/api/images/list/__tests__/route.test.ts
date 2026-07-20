@@ -73,15 +73,32 @@ describe("GET /api/images/list", () => {
     );
   });
 
-  it("lets admins request all images", async () => {
-    sessionHasPermissionMock.mockReturnValueOnce(true);
+  it("lets team/media managers request all images", async () => {
+    sessionHasPermissionMock.mockImplementation(
+      (_session, permission) => permission === "team:manage",
+    );
+
+    const response = await GET(
+      new Request("http://local/api/images/list?all=true"),
+    );
+    expect(response.status).toBe(200);
+    expect(sessionHasPermissionMock).toHaveBeenCalledWith(session, "team:manage");
+    expect(imageFindManyMock).toHaveBeenCalledWith(
+      expect.objectContaining({ where: {} }),
+    );
+  });
+
+  it("does not treat user:read as permission to list all images", async () => {
+    sessionHasPermissionMock.mockImplementation(
+      (_session, permission) => permission === "user:read",
+    );
 
     const response = await GET(
       new Request("http://local/api/images/list?all=true"),
     );
     expect(response.status).toBe(200);
     expect(imageFindManyMock).toHaveBeenCalledWith(
-      expect.objectContaining({ where: {} }),
+      expect.objectContaining({ where: { userId: "u1" } }),
     );
   });
 });
