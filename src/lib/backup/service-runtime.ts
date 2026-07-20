@@ -52,7 +52,7 @@ async function calculateFileSha256(filePath: string): Promise<string> {
 	});
 }
 
-export async function runBackupRecord(input: { type: "DATABASE" | "FILES" | "FULL"; createdBy?: string; note?: string; projectRoot?: string; teamId?: string | null }) {
+export async function runBackupRecord(input: { type: "DATABASE" | "FILES" | "FULL"; createdBy?: string | null; note?: string; projectRoot?: string; teamId?: string | null }) {
 	const record = await createBackupRecord(input);
 	return runExistingBackupRecord({ id: record.id, projectRoot: input.projectRoot });
 }
