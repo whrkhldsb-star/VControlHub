@@ -101,6 +101,11 @@ chown -R "$APP_USER:$APP_USER" "$APP_DIR/.next" 2>/dev/null || rm -rf "$APP_DIR/
 echo "==> [2/6] 停止 Next 服务后 build（禁止覆盖运行中进程的 Client Manifest）"
 systemctl stop "$SERVICE_NAME"
 service_stopped=1
+# install.sh / upgrade.sh 最后会 npm prune --omit=dev 来减少生产磁盘占用。
+# deploy.sh 是热部署脚本, 不走 install.sh 的 npm ci 路径, 所以必须在这里
+# 重装依赖(含 devDeps) 否则 esbuild/typescript/prisma 等 build 必需工具缺失,
+# npm run build 和 build:runtime 会直接失败。
+sudo -u "$APP_USER" env bash -lc 'umask 022; npm ci'
 # Explicit umask for the app-user build too (in case login.defs is strict).
 sudo -u "$APP_USER" env VCONTROLHUB_DEPLOY_BUILD=1 bash -lc 'umask 022; npm run build'
 sudo -u "$APP_USER" env bash -lc 'umask 022; npm run build:runtime'

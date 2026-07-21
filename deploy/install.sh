@@ -883,9 +883,25 @@ build_app() {
 	set +a
 	export NODE_OPTIONS="${NODE_OPTIONS:---max-old-space-size=1024}"
 	export NEXT_TELEMETRY_DISABLED="${NEXT_TELEMETRY_DISABLED:-1}"
+	# package.json "build" runs scripts/guard-live-next-build.mjs first. On a fresh
+	# host the service unit does not exist yet; without an authorize flag the
+	# guard treats systemctl non-zero as "refuse uncoordinated build" and the
+	# whole one-click installer dies mid-way. For upgrades the same guard refuses
+	# while the unit is still active, so stop it first (restart_services brings
+	# it back later). DESTDIR dry-runs never touch host units.
+	export VCONTROLHUB_DEPLOY_BUILD=1
+	export VCONTROLHUB_ALLOW_BUILD=1
 	if [ "${SKIP_BUILD}" = "1" ]; then
 		log "Skipping npm install and build (SKIP_BUILD=1)"
 		return
+	fi
+	if [ -z "${DESTDIR}" ] && [ "${SKIP_SYSTEMD}" != "1" ] && have_cmd systemctl; then
+		local next_unit="${SERVICE_PREFIX}-next.service"
+		if systemctl list-unit-files "${next_unit}" >/dev/null 2>&1 \
+			&& systemctl is-active --quiet "${next_unit}" 2>/dev/null; then
+			log "Stopping ${next_unit} before production build (avoids overwriting a live .next)"
+			systemctl stop "${next_unit}" || warn "Could not stop ${next_unit}; build may still be refused by guard-live-next-build"
+		fi
 	fi
 	npm ci
 	npm run prisma:generate
