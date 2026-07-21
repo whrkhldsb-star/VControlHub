@@ -259,8 +259,9 @@ export async function deletePlaybook(
 ): Promise<void> {
   const existing = await getPlaybook(id, session);
   if (!existing) throw new NotFoundError(t("backend.playbook.notFound"));
+  // PlaybookRun statuses are lowercase: queued | running | completed | failed | cancelled
   const activeRun = await prisma.playbookRun.findFirst({
-    where: { playbookId: id, status: { in: ["PENDING", "RUNNING"] } },
+    where: { playbookId: id, status: { in: ["queued", "running"] } },
     select: { id: true },
   });
   if (activeRun) {

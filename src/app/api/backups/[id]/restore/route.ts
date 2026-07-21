@@ -11,6 +11,7 @@ import { GENERAL_WRITE_LIMIT } from "@/lib/http/rate-limit-presets";
 import { enqueueJob } from "@/lib/job/service";
 
 import { NotFoundError } from "@/lib/errors";
+import { getServerLocale, t } from "@/lib/i18n/translations";
 import { apiCatch } from "@/lib/http/api-error";
 export const dynamic = "force-dynamic";
 
@@ -24,6 +25,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       bodySchema: restoreBackupSchema,
     },
     async ({ session, body }) => {
+        const locale = await getServerLocale();
       const { id } = await params;
       try {
         const { wait } = parseSearchParams(
@@ -42,9 +44,9 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
           return NextResponse.json({ restore });
         }
         const backup = await getBackupRecord(id, session!);
-        if (!backup) throw new NotFoundError("Backup record not found");
+        if (!backup) throw new NotFoundError(t("api.backupNotFound", locale));
         if (backup.status !== "COMPLETED") {
-          return NextResponse.json({ error: "Only completed backups can be restored" }, { status: 400 });
+          return NextResponse.json({ error: t("api.onlyCompletedCanRestore", locale) }, { status: 400 });
         }
         // Deduplicate in-flight restore jobs for the same backupId.
         const { prisma } = await import("@/lib/db");

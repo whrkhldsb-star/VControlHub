@@ -28,6 +28,7 @@ import { zh as backendServicesZh, en as backendServicesEn } from "./dictionaries
 import { zh as backupspageZh, en as backupspageEn } from "./dictionaries/backups-page";
 import { zh as downloadspageZh, en as downloadspageEn } from "./dictionaries/downloads-page";
 import { zh as downloadsapiZh, en as downloadsapiEn } from "./dictionaries/downloads-api";
+import { zh as apicommonZh, en as apicommonEn } from "./dictionaries/api-common";
 import { zh as settingspageZh, en as settingspageEn } from "./dictionaries/settings-page";
 import { zh as sharetokenapiZh, en as sharetokenapiEn } from "./dictionaries/share-token-api";
 import { zh as filedetailpanelZh, en as filedetailpanelEn } from "./dictionaries/file-detail-panel";
@@ -114,6 +115,7 @@ const zh: Record<string, string> = {
 	...dockerZh,
 	...downloadspageZh,
 	...downloadsapiZh,
+	...apicommonZh,
 	...errorZh,
 	...fileUploadDropzoneZh,
 	...filedetailpanelZh,
@@ -195,6 +197,7 @@ const en: Record<string, string> = {
 	...dockerEn,
 	...downloadspageEn,
 	...downloadsapiEn,
+	...apicommonEn,
 	...errorEn,
 	...fileUploadDropzoneEn,
 	...filedetailpanelEn,

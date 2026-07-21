@@ -49,7 +49,7 @@ describe("/api/backups/[id]/restore", () => {
 
     expect(response.status).toBe(202);
     expect(mocks.getBackupRecord).toHaveBeenCalledWith("bak1", expect.objectContaining({ userId: "u1" }));
-    expect(mocks.enqueueJob).toHaveBeenCalledWith(expect.objectContaining({ type: "backup.restore", payload: { backupId: "bak1", confirm: "RESTORE", component: "all" }, teamId: null }));
+    expect(mocks.enqueueJob).toHaveBeenCalledWith(expect.objectContaining({ type: "backup.restore", payload: expect.objectContaining({ backupId: "bak1", confirm: "RESTORE", component: "all", teamId: null }), teamId: null }));
     await expect(response.json()).resolves.toMatchObject({ jobId: "job1", taskId: "job:job1" });
   });
 
@@ -67,6 +67,6 @@ describe("/api/backups/[id]/restore", () => {
     const response = await route.POST(new Request("http://local/api/backups/missing/restore", { method: "POST", body: JSON.stringify({ confirm: "RESTORE" }) }), { params: Promise.resolve({ id: "missing" }) });
 
     expect(response.status).toBe(404);
-    await expect(response.json()).resolves.toMatchObject({ error: "Backup record not found" });
+    await expect(response.json()).resolves.toMatchObject({ error: expect.stringMatching(/备份记录不存在|Backup record not found/) });
   });
 });

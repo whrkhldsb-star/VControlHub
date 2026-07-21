@@ -4,6 +4,7 @@ import path from "node:path";
 import { NextResponse } from "next/server";
 
 import { sessionHasPermission } from "@/lib/auth/authorization";
+import { getServerLocale, t } from "@/lib/i18n/translations";
 import type { SessionPayload } from "@/lib/auth/session";
 import { teamWhere } from "@/lib/auth/team-scope";
 import { prisma } from "@/lib/db";
@@ -87,7 +88,7 @@ export async function DELETE(
       });
 
       if (!image)
-        throw new NotFoundError("Image not found");
+        throw new NotFoundError(t("api.imageNotFound", await getServerLocale()));
 
       // Only owner or explicit destructive/admin permissions can delete.
       // `user:read` is intentionally not enough because viewer accounts have it.

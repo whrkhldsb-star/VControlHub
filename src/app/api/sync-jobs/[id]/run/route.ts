@@ -5,6 +5,7 @@ import { NextResponse } from "next/server";
 
 import { auditUserAction } from "@/lib/audit/service";
 import { BusinessError, NotFoundError } from "@/lib/errors";
+import { getServerLocale, t } from "@/lib/i18n/translations";
 import { withApiRoute } from "@/lib/http/api-guard";
 import { GENERAL_WRITE_LIMIT } from "@/lib/http/rate-limit-presets";
 import { getSyncJob } from "@/lib/sync/service-crud";
@@ -22,11 +23,12 @@ export async function POST(
     {
       permission: "storage:write",
       rateLimit: GENERAL_WRITE_LIMIT,
-      errorMessage: "Failed to run sync job",
+      errorMessage: t("api.syncJobRunFailed", "zh"),
     },
     async ({ session }) => {
+      const locale = await getServerLocale();
       const job = await getSyncJob(id, session ?? undefined);
-      if (!job) throw new NotFoundError("Sync job not found");
+      if (!job) throw new NotFoundError(t("api.syncJobNotFound", locale));
       const result = await executeSyncJob(id);
       const updated = await getSyncJob(id, session ?? undefined);
       await auditUserAction(session?.userId ?? "anonymous", "sync_job.run", {
@@ -40,7 +42,7 @@ export async function POST(
         // Persist ERROR/FAILED already happened; surface honest failure to client
         // instead of success:true with status=ERROR (false success UX).
         throw new BusinessError(
-          result.errorMessage?.slice(0, 300) || "Sync job failed",
+          result.errorMessage?.slice(0, 300) || t("api.syncJobRunFailed", locale),
           { jobId: id, status: result.status, lastSyncResult: result.lastSyncResult },
         );
       }

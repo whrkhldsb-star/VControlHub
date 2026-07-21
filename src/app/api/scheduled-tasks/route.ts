@@ -6,6 +6,7 @@ import { withApiRoute } from "@/lib/http/api-guard";
 import { GENERAL_WRITE_LIMIT } from "@/lib/http/rate-limit-presets";
 import { idQuerySchema, parseSearchParams } from "@/lib/http/parse-search-params";
 import { AuthError, ValidationError } from "@/lib/errors";
+import { getServerLocale, t } from "@/lib/i18n/translations";
 import {
   createScheduledTask,
   deleteScheduledTask,
@@ -27,10 +28,10 @@ const scheduledTaskPostSchema = z.object({
   reason: z.string().optional(),
   serverIds: z.array(z.string()).optional(),
 }).refine((data) => Boolean(data.cronExpression ?? data.cron), {
-  message: "Cron expression is required",
+  message: "请填写 Cron 表达式",
   path: ["cronExpression"],
 }).refine((data) => (data.serverIds?.length ?? 0) > 0 || Boolean(data.serverId), {
-  message: "Please select at least one target VPS",
+  message: "请至少选择一台目标 VPS",
   path: ["serverIds"],
 });
 
@@ -75,10 +76,11 @@ export async function GET(request: Request) {
     request,
     {
       permission: "command:read",
-      errorMessage: "Server error",
+      errorMessage: t("api.serverError", "zh"),
     },
     async ({ session }) => {
-      if (!session) throw new AuthError("Unauthorized");
+      const locale = await getServerLocale();
+      if (!session) throw new AuthError(t("api.unauthorized", locale));
       const tasks = await listScheduledTasks(200, session);
       const serialized = tasks.map((task) => ({
         id: task.id,
@@ -109,14 +111,15 @@ export async function POST(request: Request) {
       rateLimit: GENERAL_WRITE_LIMIT,
       bodySchema: scheduledTaskPostSchema,
       errorStatus: 400,
-      errorMessage: "Creation failed",
+      errorMessage: t("api.creationFailed", "zh"),
     },
     async ({ session, body: data }) => {
+      const locale = await getServerLocale();
       if (!session)
-        throw new AuthError("Unauthorized");
+        throw new AuthError(t("api.unauthorized", locale));
       const cronExpression = data.cronExpression ?? data.cron;
       if (!cronExpression)
-        throw new ValidationError("Cron expression is required");
+        throw new ValidationError(t("api.cronRequired", locale));
       const task = await createScheduledTask(
         {
           name: data.name,
@@ -145,11 +148,12 @@ export async function PATCH(request: Request) {
       rateLimit: GENERAL_WRITE_LIMIT,
       bodySchema: scheduledTaskPatchSchema,
       errorStatus: 400,
-      errorMessage: "Update failed",
+      errorMessage: t("api.updateFailed", "zh"),
     },
     async ({ session, body: data }) => {
+      const locale = await getServerLocale();
       if (!session)
-        throw new AuthError("Unauthorized");
+        throw new AuthError(t("api.unauthorized", locale));
       if (data.toggleId) {
         const result = await toggleScheduledTask(data.toggleId, session);
         await auditUserAction(
@@ -167,7 +171,7 @@ export async function PATCH(request: Request) {
         return NextResponse.json({ task: result });
       }
       if (!data.id)
-        throw new ValidationError("Missing task ID");
+        throw new ValidationError(t("api.missingTaskId", locale));
       const result = await updateScheduledTask(
         data.id,
         {
@@ -196,11 +200,12 @@ export async function DELETE(request: Request) {
       permission: "command:create",
       rateLimit: GENERAL_WRITE_LIMIT,
       errorStatus: 400,
-      errorMessage: "Delete failed",
+      errorMessage: t("api.deleteFailed", "zh"),
     },
     async ({ session }) => {
+      const locale = await getServerLocale();
       if (!session)
-        throw new AuthError("Unauthorized");
+        throw new AuthError(t("api.unauthorized", locale));
       const { id } = parseSearchParams(request, idQuerySchema);
       const deleted = await deleteScheduledTask(id, session);
       await auditUserAction(

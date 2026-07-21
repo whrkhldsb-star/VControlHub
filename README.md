@@ -484,4 +484,14 @@ make logs SERVICE_PREFIX=vcontrolhub
 | — | API 英文 error 卫生债 | 后续可选 |
 
 
+
+### 六次深扫发现（2026-07-21，状态字面量 + API i18n 起步）
+
+| # | 问题 | 状态 |
+|---|------|------|
+| I1 | `deletePlaybook` 用 `PENDING/RUNNING`，实际 run 状态是 **queued/running**（护栏失效） | **已修** |
+| I2 | 高流量 API 英文错误（scheduled-tasks / sync-jobs / backup drill-restore / images） | **已修** 引入 `api.*` 字典 |
+| — | 全量 ~146 处 API 英文 | 部分收口；其余按模块继续 |
+
+
 ## 📄 许可

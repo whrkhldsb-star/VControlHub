@@ -337,4 +337,14 @@ describe("playbook service", () => {
     }) });
     expect(mocks.auditUserAction).toHaveBeenCalledWith("u1", "playbook.run", expect.objectContaining({ runId: "run-1", status: "queued" }));
   });
+
+  it("blocks delete when a run is queued or running", async () => {
+    const session = { userId: "u1", roles: ["operator"] as import("@/lib/auth/rbac").RoleKey[], currentTeamId: "team1" };
+    mocks.playbookFindFirst.mockResolvedValueOnce(baseRow);
+    mocks.runFindFirst.mockResolvedValueOnce({ id: "run-active" });
+    await expect(deletePlaybook("pb1", "u1", session)).rejects.toThrow(/进行中|running|Cannot delete/i);
+    expect(mocks.playbookDelete).not.toHaveBeenCalled();
+  });
+
+
 });

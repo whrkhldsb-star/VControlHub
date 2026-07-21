@@ -1,3 +1,4 @@
+import { getServerLocale, t } from "@/lib/i18n/translations";
 /**
  * GET /api/sync-jobs/[id]/report — last result + logs + conflict hints
  */
@@ -25,7 +26,7 @@ export async function GET(
     },
     async ({ session }) => {
       const job = await getSyncJob(id, session ?? undefined);
-      if (!job) throw new NotFoundError("Sync job not found");
+      if (!job) throw new NotFoundError(t("api.syncJobNotFound", await getServerLocale()));
       const logs = (job.syncLogs ?? []).map((l) => ({
         id: l.id,
         status: l.status,
