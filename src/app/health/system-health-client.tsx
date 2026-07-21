@@ -4,7 +4,6 @@ import Link from "next/link";
 
 import { toDateLocale } from "@/lib/i18n/locale-format";
 import { useI18n } from "@/lib/i18n/use-locale";
-import { getRefreshIntervalLabel } from "@/lib/preferences/refresh-interval";
 
 import { ActiveIncidentsBanner } from "./active-incidents-banner";
 import {
@@ -33,10 +32,7 @@ export function SystemHealthClient({ initialSystemHealth }: Props) {
 		loadError,
 		lastRefresh,
 		isRefreshing,
-		autoRefresh,
-		refreshIntervalSeconds,
 		fetchSystemHealth,
-		setAutoRefresh,
 	} = useHealthData({
 		initialSystemHealth,
 		browserLocale,
@@ -83,6 +79,7 @@ export function SystemHealthClient({ initialSystemHealth }: Props) {
 						: ""}
 				</div>
 				<div className="flex flex-wrap items-center gap-3">
+					{/* Manual refresh + auto-refresh live on /vps-status (fleet probe surface). */}
 					<Link
 						href="/vps-status"
 						data-action-button
@@ -91,42 +88,6 @@ export function SystemHealthClient({ initialSystemHealth }: Props) {
 					>
 						{t("healthPage.ui.gotoVpsStatus")}
 					</Link>
-					<button
-						type="button"
-						onClick={() => void fetchSystemHealth()}
-						disabled={isRefreshing}
-						aria-label={t("healthPage.ui.refreshAria")}
-						data-action-button
-						data-variant="secondary"
-						className="inline-flex min-h-11 items-center !px-3 !text-xs disabled:cursor-not-allowed disabled:opacity-60"
-					>
-						{isRefreshing ? t("healthPage.ui.refreshing") : t("healthPage.ui.refresh")}
-					</button>
-					<label className="flex min-h-11 items-center gap-2 text-xs text-[var(--text-secondary)]">
-						<span>{t("healthPage.ui.autoRefresh")}</span>
-						<button
-							type="button"
-							onClick={() => setAutoRefresh(!autoRefresh)}
-							disabled={refreshIntervalSeconds <= 0}
-							aria-label={t("healthPage.ui.toggleAutoRefreshAria")}
-							className={`relative h-4 w-8 min-h-11 min-w-11 rounded-full transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${autoRefresh ? "bg-[var(--color-action)]" : "bg-[var(--surface)]"}`}
-						>
-							<span
-								className={`absolute left-1/2 top-1/2 h-3 w-3 -translate-x-1/2 -translate-y-1/2 rounded-full bg-[var(--text-primary)] shadow transition-transform ${autoRefresh ? "translate-x-2" : "-translate-x-3"}`}
-							/>
-						</button>
-						<span>
-							{refreshIntervalSeconds <= 0
-								? t("healthPage.ui.autoRefreshOff")
-								: autoRefresh
-									? tt("healthPage.ui.autoRefreshEvery", {
-											label: getRefreshIntervalLabel(refreshIntervalSeconds),
-										})
-									: tt("healthPage.ui.autoRefreshPaused", {
-											label: getRefreshIntervalLabel(refreshIntervalSeconds),
-										})}
-						</span>
-					</label>
 				</div>
 			</div>
 

@@ -170,10 +170,12 @@ export function useHealthData({
 		};
 	}, []);
 
+	// System self-check is a one-shot snapshot (+ error retry). Fleet auto-refresh
+	// belongs on /vps-status only (mode "vps" | "all").
 	useVisibilityInterval(() => {
 		if (wantVps) void fetchHealth();
-		if (wantSystem) void fetchSystemHealth();
-	}, autoRefresh && refreshIntervalSeconds > 0 ? refreshIntervalSeconds * 1000 : null);
+		if (wantSystem && wantVps) void fetchSystemHealth();
+	}, wantVps && autoRefresh && refreshIntervalSeconds > 0 ? refreshIntervalSeconds * 1000 : null);
 
 	return {
 		overview,

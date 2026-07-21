@@ -1,5 +1,4 @@
 import { render, screen, waitFor } from "@testing-library/react";
-import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { csrfFetch } from "@/lib/auth/csrf-client";
@@ -63,19 +62,13 @@ describe("SystemHealthClient (split health surface)", () => {
 		expect(screen.getByRole("button", { name: /重试|Retry/i })).toBeEnabled();
 	});
 
-	it("keeps last self-check visible when manual refresh fails", async () => {
-		const user = userEvent.setup();
-		let n = 0;
-		vi.mocked(csrfFetch).mockImplementation(async () => {
-			n += 1;
-			if (n > 1) throw new Error("刷新健康状态失败");
-			return systemHealth;
-		});
+	it("does not expose VPS-style refresh / auto-refresh controls on the system surface", async () => {
 		renderSystem();
 		expect(await screen.findByText("GitHub 同步状态")).toBeInTheDocument();
-		await user.click(screen.getByRole("button", { name: "刷新健康状态" }));
-		expect(await screen.findByRole("alert")).toHaveTextContent("刷新健康状态失败");
-		expect(screen.getByText("GitHub 同步状态")).toBeInTheDocument();
+		expect(screen.queryByRole("button", { name: "刷新健康状态" })).not.toBeInTheDocument();
+		expect(screen.queryByRole("button", { name: "切换健康状态自动刷新" })).not.toBeInTheDocument();
+		expect(screen.queryByText("自动刷新")).not.toBeInTheDocument();
+		expect(screen.getByRole("link", { name: /VPS|舰队|Fleet|状态/i })).toBeInTheDocument();
 	});
 
 	it("loads system-health through the system-health API only", async () => {
@@ -91,48 +84,28 @@ describe("SystemHealthClient (split health surface)", () => {
 		expect(await screen.findByText(/2 项检查|2 checks/)).toBeInTheDocument();
 	});
 
-	it("uses the saved global refresh interval instead of a fixed 30s timer", async () => {
+	it("does not start an auto-refresh interval on the system surface", async () => {
 		window.localStorage.setItem("vps-preferences", JSON.stringify({ autoRefreshInterval: 60 }));
 		const setIntervalSpy = vi.spyOn(window, "setInterval");
 		renderSystem();
 		expect(await screen.findByText("GitHub 同步状态")).toBeInTheDocument();
-		expect(screen.getByText(/每 1 minutes|every 1/i)).toBeInTheDocument();
-		expect(setIntervalSpy).toHaveBeenCalledWith(expect.any(Function), 60_000);
+		expect(setIntervalSpy).not.toHaveBeenCalledWith(expect.any(Function), 60_000);
 		expect(setIntervalSpy).not.toHaveBeenCalledWith(expect.any(Function), 30_000);
 	});
 
-	it("disables auto-refresh when the global preference is manual", async () => {
-		window.localStorage.setItem("vps-preferences", JSON.stringify({ autoRefreshInterval: 0 }));
-		const setIntervalSpy = vi.spyOn(window, "setInterval");
-		renderSystem();
-		expect(await screen.findByText(/已关闭|Off/i)).toBeInTheDocument();
-		expect(screen.getByRole("button", { name: "切换健康状态自动刷新" })).toBeDisabled();
-		expect(setIntervalSpy).not.toHaveBeenCalledWith(expect.any(Function), 30_000);
-	});
-
-	it("stacks the refresh row and self-check header on mobile", async () => {
+	it("stacks the header row on mobile without a refresh toolbar", async () => {
 		renderSystem();
 		expect(await screen.findByText("GitHub 同步状态")).toBeInTheDocument();
-		const refreshButton = screen.getByRole("button", { name: "刷新健康状态" });
-		const row = refreshButton.parentElement?.parentElement as HTMLElement;
-		const rowTokens = row.className.split(/\s+/);
-		expect(rowTokens).toContain("flex-col");
-		expect(rowTokens).toContain("sm:flex-row");
 		const auditLink = screen.getByRole("link", { name: /审计|Audit/i });
 		const headerRow = auditLink.parentElement?.parentElement as HTMLElement;
 		const headerTokens = headerRow.className.split(/\s+/);
 		expect(headerTokens).toContain("flex-col");
 		expect(headerTokens).toContain("sm:flex-row");
-	});
-
-	it("uses 44px touch targets for refresh and auto-refresh controls", async () => {
-		renderSystem();
-		expect(await screen.findByText("GitHub 同步状态")).toBeInTheDocument();
-		const refreshButton = screen.getByRole("button", { name: "刷新健康状态" });
-		expect(refreshButton.className).toContain("min-h-11");
-		const autoRefreshToggle = screen.getByRole("button", { name: "切换健康状态自动刷新" });
-		expect(autoRefreshToggle.className).toMatch(/min-h-11/);
-		expect(autoRefreshToggle.className).toMatch(/min-w-11/);
+		const vpsLink = screen.getByRole("link", { name: /VPS|舰队|Fleet|状态/i });
+		const topRow = vpsLink.parentElement?.parentElement as HTMLElement;
+		const topTokens = topRow.className.split(/\s+/);
+		expect(topTokens).toContain("flex-col");
+		expect(topTokens).toContain("sm:flex-row");
 	});
 
 	it("localizes system self-check in English", async () => {
@@ -166,7 +139,7 @@ describe("SystemHealthClient (split health surface)", () => {
 		expect(await screen.findByText("System Self-check")).toBeInTheDocument();
 		expect(screen.getByText("2 checks · 1 healthy · 1 warnings · 0 critical")).toBeInTheDocument();
 		expect(screen.getByText("Database Connection")).toBeInTheDocument();
-		expect(screen.getByRole("button", { name: "Refresh health status" })).toBeInTheDocument();
+		expect(screen.queryByRole("button", { name: "Refresh health status" })).not.toBeInTheDocument();
 		expect(screen.queryByText("系统自检")).not.toBeInTheDocument();
 	});
 
