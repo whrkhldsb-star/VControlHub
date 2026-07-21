@@ -40,13 +40,6 @@ describe("verifyAdminPasswordConsistency (TR-051)", () => {
     mockConfig.auth.adminInitialPassword = "test-password";
   });
 
-  it("env 未设置 ADMIN_INITIAL_PASSWORD 时返 no_env_password", async () => {
-    mockConfig.auth.adminInitialPassword = undefined;
-    const result = await verifyAdminPasswordConsistency();
-    expect(result.ok).toBe(false);
-    if (!result.ok) expect(result.reason).toBe("no_env_password");
-  });
-
   it("DB 中不存在 admin 用户时返 no_admin", async () => {
     mockPrisma.user.findUnique.mockResolvedValueOnce(null);
     const result = await verifyAdminPasswordConsistency();
@@ -54,22 +47,54 @@ describe("verifyAdminPasswordConsistency (TR-051)", () => {
     if (!result.ok) expect(result.reason).toBe("no_admin");
   });
 
-  it("env 密码与 DB hash 一致时返 ok=true", async () => {
-    const hash = await hashPassword("test-password");
-    mockPrisma.user.findUnique.mockResolvedValueOnce({ passwordHash: hash });
+  it("admin 已改密 (mustChangePassword=false) 时 env 可与 hash 不一致且 ok", async () => {
+    const rotatedHash = await hashPassword("user-chosen-password");
+    mockConfig.auth.adminInitialPassword = "stale-bootstrap-password";
+    mockPrisma.user.findUnique.mockResolvedValueOnce({
+      passwordHash: rotatedHash,
+      mustChangePassword: false,
+      status: "ACTIVE",
+    });
     const result = await verifyAdminPasswordConsistency();
-    expect(result).toEqual({ ok: true, username: "admin" });
+    expect(result).toEqual({ ok: true, username: "admin", mode: "rotated" });
   });
 
-  it("env 密码与 DB hash 不一致时返 hash_mismatch + 详细 message", async () => {
+  it("仍处初始密码状态且 env 未设置时返 no_env_password", async () => {
+    mockConfig.auth.adminInitialPassword = undefined;
+    mockPrisma.user.findUnique.mockResolvedValueOnce({
+      passwordHash: await hashPassword("x"),
+      mustChangePassword: true,
+      status: "PENDING_PASSWORD_RESET",
+    });
+    const result = await verifyAdminPasswordConsistency();
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.reason).toBe("no_env_password");
+  });
+
+  it("仍处初始密码状态且 env 与 hash 一致时返 bootstrap_match", async () => {
+    const hash = await hashPassword("test-password");
+    mockPrisma.user.findUnique.mockResolvedValueOnce({
+      passwordHash: hash,
+      mustChangePassword: true,
+      status: "PENDING_PASSWORD_RESET",
+    });
+    const result = await verifyAdminPasswordConsistency();
+    expect(result).toEqual({ ok: true, username: "admin", mode: "bootstrap_match" });
+  });
+
+  it("仍处初始密码状态且 env 与 hash 不一致时返 hash_mismatch", async () => {
     const wrongHash = await hashPassword("different-password");
-    mockPrisma.user.findUnique.mockResolvedValueOnce({ passwordHash: wrongHash });
+    mockPrisma.user.findUnique.mockResolvedValueOnce({
+      passwordHash: wrongHash,
+      mustChangePassword: true,
+      status: "PENDING_PASSWORD_RESET",
+    });
     const result = await verifyAdminPasswordConsistency();
     expect(result.ok).toBe(false);
     if (!result.ok) {
       expect(result.reason).toBe("hash_mismatch");
       expect(result.message).toContain("ADMIN_INITIAL_PASSWORD");
-      expect(result.message).toContain("admin");
+      expect(result.message).toContain("mustChangePassword=true");
     }
   });
 });

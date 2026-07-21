@@ -35,30 +35,66 @@ export function getInitialAdminProfile() {
 }
 
 export type AdminConsistencyResult =
- | { ok: true; username: string }
- | { ok: false; reason: "no_admin" | "no_env_password" | "hash_mismatch"; message: string };
+	| { ok: true; username: string; mode: "bootstrap_match" | "rotated" }
+	| { ok: false; reason: "no_admin" | "no_env_password" | "hash_mismatch"; message: string };
 
 /**
- * TR-051: 启动时校验 ADMIN_INITIAL_PASSWORD (env) 与 DB 中 admin 用户的
- * passwordHash 是否一致。结果供 instrumentation 启动日志 + CLI 工具使用。
- * 此函数只读，不修改 DB。
+ * TR-051: bootstrap / ops check for the platform admin credential.
+ *
+ * `ADMIN_INITIAL_PASSWORD` is **bootstrap-only** (seed + first login). After the
+ * admin rotates the password in the UI (`mustChangePassword=false`), the env value
+ * is intentionally allowed to diverge from the DB hash — that is normal product
+ * behaviour, not a production outage.
+ *
+ * Failure modes that still matter:
+ * - missing admin row
+ * - missing env on a still-bootstrapping admin (mustChangePassword=true)
+ * - env vs hash mismatch **while** the account is still on the initial password
+ *
+ * Read-only; never mutates DB.
  */
 export async function verifyAdminPasswordConsistency(): Promise<AdminConsistencyResult> {
+	const admin = await prisma.user.findUnique({
+		where: { username: ADMIN_BOOTSTRAP.username },
+		select: {
+			passwordHash: true,
+			mustChangePassword: true,
+			status: true,
+		},
+	});
+	if (!admin) {
+		return {
+			ok: false,
+			reason: "no_admin",
+			message: `User ${ADMIN_BOOTSTRAP.username} does not exist in DB`,
+		};
+	}
+
+	// Password already rotated via UI / ops — env is no longer the source of truth.
+	if (!admin.mustChangePassword) {
+		return { ok: true, username: ADMIN_BOOTSTRAP.username, mode: "rotated" };
+	}
+
 	const envPassword = config.auth.adminInitialPassword;
 	if (!envPassword) {
-		return { ok: false, reason: "no_env_password", message: "ADMIN_INITIAL_PASSWORD is not set" };
+		return {
+			ok: false,
+			reason: "no_env_password",
+			message:
+				"ADMIN_INITIAL_PASSWORD is not set while admin still requires initial password rotation",
+		};
 	}
-	const admin = await prisma.user.findUnique({ where: { username: ADMIN_BOOTSTRAP.username } });
-	if (!admin) {
-		return { ok: false, reason: "no_admin", message: `User ${ADMIN_BOOTSTRAP.username} does not exist in DB` };
-	}
+
 	const matches = await verifyPassword(envPassword, admin.passwordHash);
 	if (!matches) {
 		return {
 			ok: false,
 			reason: "hash_mismatch",
-			message: `ADMIN_INITIAL_PASSWORD does not match ${ADMIN_BOOTSTRAP.username}.passwordHash in DB (possibly from historical seed or manual password change). Manual fix: prisma db seed or reset admin password.`,
+			message:
+				`ADMIN_INITIAL_PASSWORD does not match ${ADMIN_BOOTSTRAP.username}.passwordHash while mustChangePassword=true ` +
+				`(bootstrap seed drift). Fix: set ADMIN_INITIAL_PASSWORD to the current admin password, or reset admin via seed/ops.`,
 		};
 	}
-	return { ok: true, username: ADMIN_BOOTSTRAP.username };
+
+	return { ok: true, username: ADMIN_BOOTSTRAP.username, mode: "bootstrap_match" };
 }

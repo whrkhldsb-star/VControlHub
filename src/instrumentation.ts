@@ -44,15 +44,22 @@ export async function register() {
     logger.error("Worker lifecycle startup failed", err);
   }
 
-  // 4) TR-051 — admin password consistency check (env vs DB hash).
-  //    Read-only + log-only; do not throw (avoid locking out production).
+  // 4) TR-051 — admin bootstrap credential check.
+  //    After the admin rotates the password in-app, env is bootstrap-only and
+  //    mismatch is expected (ok/mode=rotated). Read-only + log-only; never throw.
   try {
     const { verifyAdminPasswordConsistency } = await import("./lib/auth/bootstrap");
     const result = await verifyAdminPasswordConsistency();
     if (result.ok) {
-      logger.info("Admin password consistency OK", { username: result.username });
+      logger.info("Admin password consistency OK", {
+        username: result.username,
+        mode: result.mode,
+      });
     } else {
-      logger.error("Admin password consistency check failed", { message: result.message });
+      logger.error("Admin password consistency check failed", {
+        reason: result.reason,
+        message: result.message,
+      });
     }
   } catch (err) {
     logger.error("Admin password consistency check errored", err);
