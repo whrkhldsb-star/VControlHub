@@ -11,20 +11,11 @@ const logger = createLogger("rate-limit-store");
 export interface RateLimitStore {
 	/** Add a timestamp for the given key. Returns all timestamps in window. */
 	addAndGetWindow(_key: string, _timestamp: number, _windowMs: number): Promise<number[]>;
-	/** Increment a counter for key-based rate limiting. */
-	increment(_key: string, _windowMs: number): Promise<{ count: number; ttl: number }>;
-	/** Get the current count for a key */
-	get(_key: string): Promise<number | null>;
-	/** Set a value with optional TTL */
-	set(_key: string, _value: number, _ttlMs?: number): Promise<void>;
-	/** Delete a key */
-	delete(_key: string): Promise<void>;
 }
 
 // ── In-memory implementation ────────────────────────────────────
 class MemoryRateLimitStore implements RateLimitStore {
-	private store = new Map<string, { value: number; expiresAt: number | null }>();
-	private timestamps = new Map<string, number[]>();
+	private timestamps = new Map<string, { entries: number[]; windowMs: number }>();
 
 	constructor() {
 		// Periodic cleanup
@@ -32,67 +23,25 @@ class MemoryRateLimitStore implements RateLimitStore {
 	}
 
 	async addAndGetWindow(key: string, timestamp: number, windowMs: number): Promise<number[]> {
-		let entries = this.timestamps.get(key) ?? [];
+		let entries = this.timestamps.get(key)?.entries ?? [];
 		const cutoff = timestamp - windowMs;
 		entries = entries.filter((t) => t > cutoff);
 		entries.push(timestamp);
-		this.timestamps.set(key, entries);
+		this.timestamps.set(key, { entries, windowMs });
 		return entries;
-	}
-
-	async increment(key: string, windowMs: number): Promise<{ count: number; ttl: number }> {
-		const now = Date.now();
-		const entry = this.store.get(key);
-		if (!entry || (entry.expiresAt !== null && entry.expiresAt < now)) {
-			const newEntry: { value: number; expiresAt: number } = { value: 1, expiresAt: now + windowMs };
-			this.store.set(key, newEntry);
-			return { count: 1, ttl: windowMs };
-		}
-		entry.value++;
-		const ttl = entry.expiresAt !== null ? entry.expiresAt - now : windowMs;
-		return { count: entry.value, ttl };
-	}
-
-	async get(key: string): Promise<number | null> {
-		const entry = this.store.get(key);
-		if (!entry) return null;
-		if (entry.expiresAt && entry.expiresAt < Date.now()) {
-			this.store.delete(key);
-			return null;
-		}
-		return entry.value;
-	}
-
-	async set(key: string, value: number, ttlMs?: number): Promise<void> {
-		this.store.set(key, {
-			value,
-			expiresAt: ttlMs ? Date.now() + ttlMs : null,
-		});
-	}
-
-	async delete(key: string): Promise<void> {
-		this.store.delete(key);
-		this.timestamps.delete(key);
 	}
 
 	private cleanup() {
 		const now = Date.now();
-		const storeKeys = Array.from(this.store.keys());
-		for (const key of storeKeys) {
-			const entry = this.store.get(key);
-			if (entry?.expiresAt && entry.expiresAt < now) {
-				this.store.delete(key);
-			}
-		}
 		const tsKeys = Array.from(this.timestamps.keys());
 		for (const key of tsKeys) {
-			const timestamps = this.timestamps.get(key);
-			if (!timestamps) continue;
-			const recent = timestamps.filter((t) => now - t < 60 * 1000);
+			const state = this.timestamps.get(key);
+			if (!state) continue;
+			const recent = state.entries.filter((t) => now - t < state.windowMs);
 			if (recent.length === 0) {
 				this.timestamps.delete(key);
 			} else {
-				this.timestamps.set(key, recent);
+				this.timestamps.set(key, { ...state, entries: recent });
 			}
 		}
 	}
@@ -117,12 +66,8 @@ interface RedisClientLike {
 		zRemRangeByScore(key: string, min: number, max: number): unknown;
 		zRange(key: string, start: number, stop: number): unknown;
 		pExpire(key: string, ms: number): unknown;
-		incr(key: string): unknown;
 		execAsPipeline(): Promise<RedisExecResult>;
 	};
-	get(key: string): Promise<string | null>;
-	set(key: string, value: string, opts?: { PX?: number }): Promise<unknown>;
-	del(keys: string[]): Promise<unknown>;
 }
 class RedisRateLimitStore implements RateLimitStore {
 	private prefix = "rl:";
@@ -157,38 +102,6 @@ class RedisRateLimitStore implements RateLimitStore {
 		return members.map(Number);
 	}
 
-	async increment(key: string, windowMs: number): Promise<{ count: number; ttl: number }> {
-		const client = await this.getClient();
-		const k = `${this.prefix}cnt:${key}`;
-		const pipeline = client.multi();
-		pipeline.incr(k);
-		pipeline.pExpire(k, windowMs);
-		const results = await pipeline.execAsPipeline();
-		const count = Number(results[0]);
-		const ttl = Number(results[1]) > 0 ? Number(results[1]) : windowMs;
-		return { count, ttl };
-	}
-
-	async get(key: string): Promise<number | null> {
-		const client = await this.getClient();
-		const val = await client.get(`${this.prefix}cnt:${key}`);
-		return val ? Number(val) : null;
-	}
-
-	async set(key: string, value: number, ttlMs?: number): Promise<void> {
-		const client = await this.getClient();
-		const k = `${this.prefix}cnt:${key}`;
-		if (ttlMs) {
-			await client.set(k, String(value), { PX: ttlMs });
-		} else {
-			await client.set(k, String(value));
-		}
-	}
-
-	async delete(key: string): Promise<void> {
-		const client = await this.getClient();
-		await client.del([`${this.prefix}ts:${key}`, `${this.prefix}cnt:${key}`]);
-	}
 }
 
 // ── Factory ─────────────────────────────────────────────────────

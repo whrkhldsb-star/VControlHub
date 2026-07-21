@@ -37,6 +37,7 @@ describe("aria2 provider-http adapter", () => {
       const [url, init] = fetchMock.mock.calls[0] as unknown as [string, RequestInit];
       expect(url).toBe("http://127.0.0.1:6800/jsonrpc");
       expect(init.method).toBe("POST");
+      expect(init.signal).toBeInstanceOf(AbortSignal);
       expect((init.headers as Record<string, string>)["Content-Type"]).toBe("application/json");
       const body = JSON.parse(init.body as string) as Record<string, unknown>;
       expect(body.jsonrpc).toBe("2.0");
@@ -96,12 +97,18 @@ describe("aria2 provider-http adapter", () => {
       }
     });
 
-    it("treats a malformed JSON body on 2xx as a non-error (returns undefined result) instead of throwing", async () => {
+    it("rejects a malformed JSON body on 2xx instead of creating a false-success task", async () => {
       const fetchMock = vi.fn(async () => new Response("not json", { status: 200 }));
       globalThis.fetch = fetchMock as unknown as typeof fetch;
 
-      const result = await postAria2Rpc(req);
-      expect(result).toBeUndefined();
+      await expect(postAria2Rpc(req)).rejects.toThrow("Aria2 RPC returned an invalid JSON response");
+    });
+
+    it("rejects a JSON-RPC envelope that contains neither result nor error", async () => {
+      const fetchMock = vi.fn(async () => new Response(JSON.stringify({ jsonrpc: "2.0", id: "x" }), { status: 200 }));
+      globalThis.fetch = fetchMock as unknown as typeof fetch;
+
+      await expect(postAria2Rpc(req)).rejects.toThrow("Aria2 RPC response is missing result");
     });
   });
 

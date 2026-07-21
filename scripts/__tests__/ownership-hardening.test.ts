@@ -37,4 +37,14 @@ describe("ownership / deploy lock hardening", () => {
     expect(sh).toMatch(/storage/);
     expect(sh).toMatch(/chmod 600/);
   });
+
+  it("sandboxes the SSH WebSocket proxy without blocking outbound SSH", () => {
+    const unit = read("deploy/systemd/whrkhldsb-ssh-ws.service.example");
+    expect(unit).toMatch(/^PrivateDevices=true$/m);
+    expect(unit).toMatch(/^ProtectKernelTunables=true$/m);
+    expect(unit).toMatch(/^ProtectKernelModules=true$/m);
+    expect(unit).toMatch(/^ProtectControlGroups=true$/m);
+    expect(unit).toMatch(/^RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX$/m);
+    expect(unit).toMatch(/^CapabilityBoundingSet=$/m);
+  });
 });

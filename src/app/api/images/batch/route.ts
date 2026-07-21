@@ -63,16 +63,27 @@ export async function POST(request: Request) {
           const result = await prisma.imageUpload.deleteMany({
             where: whereClause,
           });
-          // Delete files (best-effort, parallel for throughput)
-          await Promise.allSettled(
+          const fileResults = await Promise.allSettled(
             images.map((img) => deleteImageVariants(img.storageKey, UPLOAD_DIR)),
           );
+          const failedFileIds = images
+            .filter((_, index) => fileResults[index]?.status === "rejected")
+            .map((image) => image.id);
           await auditUserAction(session.userId, "image.batch.delete", {
             requestedCount: ids.length,
             deleted: result.count,
             ids: images.map((img) => img.id),
+            failedFileIds,
           }, "WARNING", session?.currentTeamId);
-          return NextResponse.json({ deleted: result.count });
+          const payload = {
+            deleted: result.count,
+            filesDeleted: images.length - failedFileIds.length,
+            failedFileIds,
+          };
+          if (failedFileIds.length > 0) {
+            return NextResponse.json({ ...payload, success: false, partial: true }, { status: 207 });
+          }
+          return NextResponse.json(payload);
         }
 
         case "moveAlbum": {

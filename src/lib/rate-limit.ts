@@ -111,10 +111,12 @@ export const LOGIN_SLOW_RATE_LIMIT: RateLimitConfig = {
 type LockoutEntry = {
 	failCount: number;
 	lockedUntil: number | null; // timestamp, null = not locked
+	lastFailureAt: number;
 };
 
 const ACCOUNT_LOCKOUT_MAX_FAILURES = 5; // lock after N consecutive failures
 const ACCOUNT_LOCKOUT_DURATION_MS = 15 * 60 * 1000; // 15 minutes
+const ACCOUNT_FAILURE_RETENTION_MS = 15 * 60 * 1000;
 
 const lockoutStore = new Map<string, LockoutEntry>();
 
@@ -122,7 +124,7 @@ const lockoutStore = new Map<string, LockoutEntry>();
 setInterval(() => {
 	const now = Date.now();
 	for (const [key, entry] of lockoutStore) {
-		if (entry.lockedUntil && entry.lockedUntil < now) {
+		if ((entry.lockedUntil && entry.lockedUntil < now) || now - entry.lastFailureAt >= ACCOUNT_FAILURE_RETENTION_MS) {
 			lockoutStore.delete(key);
 		}
 	}
@@ -134,13 +136,15 @@ setInterval(() => {
  */
 export function recordLoginFailure(username: string): { locked: boolean; lockedUntil: number | null; failCount: number } {
 	const key = username.toLowerCase();
+	const now = Date.now();
 	let entry = lockoutStore.get(key);
-	if (!entry || (entry.lockedUntil && entry.lockedUntil < Date.now())) {
-		entry = { failCount: 0, lockedUntil: null };
+	if (!entry || (entry.lockedUntil && entry.lockedUntil < now) || now - entry.lastFailureAt >= ACCOUNT_FAILURE_RETENTION_MS) {
+		entry = { failCount: 0, lockedUntil: null, lastFailureAt: now };
 	}
 	entry.failCount++;
+	entry.lastFailureAt = now;
 	if (entry.failCount >= ACCOUNT_LOCKOUT_MAX_FAILURES && !entry.lockedUntil) {
-		entry.lockedUntil = Date.now() + ACCOUNT_LOCKOUT_DURATION_MS;
+		entry.lockedUntil = now + ACCOUNT_LOCKOUT_DURATION_MS;
 	}
 	lockoutStore.set(key, entry);
 	return { locked: !!entry.lockedUntil, lockedUntil: entry.lockedUntil, failCount: entry.failCount };

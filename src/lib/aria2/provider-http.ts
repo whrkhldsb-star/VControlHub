@@ -13,6 +13,7 @@
  */
 
 const RPC_HTTP_ERROR_BODY_MAX = 500;
+const RPC_TIMEOUT_MS = 15_000;
 
 export type Aria2RpcRequest = {
   url: string;
@@ -45,6 +46,7 @@ export async function postAria2Rpc(req: Aria2RpcRequest): Promise<unknown> {
       method: req.method,
       params: [`token:${req.secret}`, ...req.params],
     }),
+    signal: AbortSignal.timeout(RPC_TIMEOUT_MS),
   });
 
   if (!response.ok) {
@@ -52,9 +54,17 @@ export async function postAria2Rpc(req: Aria2RpcRequest): Promise<unknown> {
     throw new Error(aria2HttpErrorMessage(response.status, errorText));
   }
 
-  const data = (await response.json().catch(() => ({}))) as Aria2RpcResponseBody;
+  let data: Aria2RpcResponseBody;
+  try {
+    data = await response.json() as Aria2RpcResponseBody;
+  } catch {
+    throw new Error("Aria2 RPC returned an invalid JSON response");
+  }
   if (data.error) {
     throw new Error(aria2RpcErrorMessage(data.error));
+  }
+  if (!("result" in data)) {
+    throw new Error("Aria2 RPC response is missing result");
   }
   return data.result;
 }

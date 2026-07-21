@@ -17,6 +17,8 @@ const { mocks } = vi.hoisted(() => ({
     auditUserAction: vi.fn(),
     serverFindMany: vi.fn(),
     teamMemberFindUnique: vi.fn(),
+    acquireAdvisoryLock: vi.fn(),
+    releaseAdvisoryLock: vi.fn(),
   },
 }));
 
@@ -37,6 +39,7 @@ vi.mock("@/lib/db", () => ({
   },
 }));
 vi.mock("@/lib/audit/service", () => ({ auditUserAction: mocks.auditUserAction }));
+vi.mock("@/lib/concurrency/advisory-lock", () => ({ acquireAdvisoryLock: mocks.acquireAdvisoryLock }));
 
 import { createPlaybook, deletePlaybook, getPlaybook, listPlaybookRuns, listPlaybooks, runPlaybook, updatePlaybook } from "../service";
 
@@ -82,6 +85,8 @@ describe("playbook service", () => {
       return ids.map((id) => ({ id }));
     });
     mocks.teamMemberFindUnique.mockResolvedValue(null);
+    mocks.acquireAdvisoryLock.mockResolvedValue(mocks.releaseAdvisoryLock);
+    mocks.releaseAdvisoryLock.mockResolvedValue(undefined);
     mocks.transaction.mockImplementation(async (callback: (tx: unknown) => unknown) => callback({
       playbookRun: { create: mocks.runCreate, update: mocks.runUpdate },
       job: { create: mocks.jobCreate },
@@ -132,6 +137,8 @@ describe("playbook service", () => {
     );
     await updatePlaybook({ id: "pb1", name: "Renamed" }, "u1", session);
     await deletePlaybook("pb1", "u1", session);
+    expect(mocks.acquireAdvisoryLock).toHaveBeenCalledWith("playbook-lifecycle", "pb1");
+    expect(mocks.releaseAdvisoryLock).toHaveBeenCalled();
     expect(mocks.playbookDelete).toHaveBeenCalledWith({ where: { id: "pb1" } });
     expect(mocks.auditUserAction).toHaveBeenCalledTimes(3);
   });

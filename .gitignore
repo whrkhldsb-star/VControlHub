@@ -2,6 +2,7 @@
 
 # dependencies
 /node_modules
+/.npm/
 /.pnp
 .pnp.*
 .yarn/*
@@ -89,3 +90,5 @@ make_*.py
 
 # Hermes agent local files (scripts, plans, etc.)
 .hermes/
+.cache/
+.config/

@@ -7,7 +7,6 @@
 
 import { createServer } from "http";
 import { existsSync, readFileSync } from "node:fs";
-import { createHmac, timingSafeEqual } from "node:crypto";
 import { resolve } from "node:path";
 import { WebSocketServer, WebSocket } from "ws";
 import { Client } from "ssh2";
@@ -18,7 +17,7 @@ import { createVerifiedSshConfig } from "@/lib/ssh/client";
 
 import { DEFAULT_ROLE_PERMISSIONS } from "./lib/auth/rbac";
 import { canUseSshTerminal } from "./lib/auth/ssh-access";
-import { getAppSlug } from "./lib/branding";
+import { verifySessionToken } from "./lib/auth/session";
 import { createLogger } from "./lib/logging";
 import { verifySshWsHandshakeToken } from "./lib/auth/ssh-ws-token";
 import { getSshTerminalRuntimeConfig } from "./lib/runtime-settings/service";
@@ -65,14 +64,6 @@ export function resolveSshWsListenConfig(env: Partial<NodeJS.ProcessEnv> = proce
 
 const { host: HOST, port: PORT } = resolveSshWsListenConfig();
 
-const APP_SLUG = getAppSlug();
-const SESSION_ISSUER = config.auth.sessionIssuer || APP_SLUG;
-const SESSION_AUDIENCE = config.auth.sessionAudience || `${APP_SLUG}-console`;
-
-function getSessionSecret() {
-	return config.auth.sessionSecret ?? "dev-only-session-secret-change-me";
-}
-
 // ── SSH_WS_SECRET validation ───────────────────────────────────────
 
 export function requireSshWsSecret(env: Partial<NodeJS.ProcessEnv> = process.env): string | undefined {
@@ -104,53 +95,6 @@ type SessionPayload = {
   mustChangePassword: boolean;
   currentTeamId: string | null;
 };
-
-type SessionTokenEnvelope = SessionPayload & {
-  iss: string;
-  aud: string;
-  iat: number;
-  exp: number;
-};
-
-function decodeBase64Url(input: string) {
-  return Buffer.from(input, "base64url").toString("utf8");
-}
-
-function signPayload(payload: string) {
-  return createHmac("sha256", getSessionSecret()).update(payload).digest("base64url");
-}
-
-function verifySessionToken(token: string): SessionPayload | null {
-  try {
-    const [encodedPayload, providedSignature] = token.split(".");
-    if (!encodedPayload || !providedSignature) return null;
-
-    const expectedSignature = signPayload(encodedPayload);
-    const providedBuffer = Buffer.from(providedSignature, "utf8");
-    const expectedBuffer = Buffer.from(expectedSignature, "utf8");
-
-    if (providedBuffer.length !== expectedBuffer.length) return null;
-    if (!timingSafeEqual(providedBuffer, expectedBuffer)) return null;
-
-    const payload = JSON.parse(decodeBase64Url(encodedPayload)) as SessionTokenEnvelope & {
-      pending2fa?: boolean;
-    };
-    if (payload.iss !== SESSION_ISSUER || payload.aud !== SESSION_AUDIENCE) return null;
-    // Reject pending-2FA handshake cookies swapped into the session cookie name.
-    if (payload.pending2fa === true || String(payload.aud).endsWith("-pending-2fa")) return null;
-    if (payload.exp <= Date.now()) return null;
-
-    return {
-      userId: payload.userId,
-      username: payload.username,
-      roles: payload.roles,
-      mustChangePassword: payload.mustChangePassword,
-      currentTeamId: payload.currentTeamId ?? null,
-    };
-  } catch {
-    return null;
-  }
-}
 
 // ── Resolve server SSH connection ───────────────────────────────────
 
@@ -333,8 +277,10 @@ wss.on("connection", async (ws, req) => {
  return;
  }
 
-  const session = verifySessionToken(token);
-  if (!session) {
+  let session: SessionPayload;
+  try {
+    session = await verifySessionToken(token);
+  } catch {
     ws.send(JSON.stringify({ type: "error", data: "Authentication failed, please log in again" }));
     ws.close();
     return;

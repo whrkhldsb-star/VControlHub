@@ -1,7 +1,41 @@
-import { describe, it, expect } from "vitest";
-import { computeSlaDueAt, isSlaBreached, getSlaStatus, SLA_DURATIONS_MS } from "../sla";
+import { beforeEach, describe, it, expect, vi } from "vitest";
+
+const { prismaMocks, txMocks, loggerMocks } = vi.hoisted(() => ({
+	prismaMocks: { findMany: vi.fn(), transaction: vi.fn() },
+	txMocks: {
+		updateMany: vi.fn(),
+		createEscalation: vi.fn(),
+		findManagers: vi.fn(),
+		createNotifications: vi.fn(),
+	},
+	loggerMocks: { debug: vi.fn(), info: vi.fn(), warn: vi.fn(), error: vi.fn() },
+}));
+
+vi.mock("@/lib/db", () => ({
+	prisma: {
+		ticket: { findMany: prismaMocks.findMany },
+		$transaction: prismaMocks.transaction,
+	},
+}));
+vi.mock("@/lib/logging", () => ({ createLogger: () => loggerMocks }));
+
+import { computeSlaDueAt, escalateBreachedTickets, isSlaBreached, getSlaStatus, SLA_DURATIONS_MS } from "../sla";
 
 describe("ticket SLA service", () => {
+	beforeEach(() => {
+		vi.clearAllMocks();
+		txMocks.updateMany.mockResolvedValue({ count: 1 });
+		txMocks.createEscalation.mockResolvedValue({});
+		txMocks.findManagers.mockResolvedValue([]);
+		txMocks.createNotifications.mockResolvedValue({ count: 0 });
+		prismaMocks.transaction.mockImplementation(async (callback: (tx: unknown) => unknown) => callback({
+			ticket: { updateMany: txMocks.updateMany },
+			ticketEscalation: { create: txMocks.createEscalation },
+			user: { findMany: txMocks.findManagers },
+			notification: { createMany: txMocks.createNotifications },
+		}));
+	});
+
 	describe("SLA_DURATIONS_MS", () => {
 		it("defines durations for all priority levels", () => {
 			expect(SLA_DURATIONS_MS.URGENT).toBe(2 * 60 * 60 * 1000);
@@ -74,6 +108,39 @@ describe("ticket SLA service", () => {
 		it("returns 'ok' when more than 1 hour remains", () => {
 			const later = new Date(Date.now() + 5 * 60 * 60 * 1000); // 5 hours
 			expect(getSlaStatus({ slaDueAt: later, status: "OPEN" })).toBe("ok");
+		});
+	});
+
+	describe("escalateBreachedTickets", () => {
+		it("keeps an empty sweep out of production info logs", async () => {
+			prismaMocks.findMany.mockResolvedValue([]);
+
+			await expect(escalateBreachedTickets()).resolves.toBe(0);
+
+			expect(loggerMocks.debug).toHaveBeenCalledWith("SLA escalation sweep complete", { breached: 0, escalated: 0 });
+			expect(loggerMocks.info).not.toHaveBeenCalledWith("SLA escalation sweep complete", expect.anything());
+		});
+
+		it("processes the remaining tickets but rejects the sweep when one transaction fails", async () => {
+			const dueAt = new Date("2026-01-01T00:00:00Z");
+			prismaMocks.findMany.mockResolvedValue([
+				{ id: "ticket-failed", teamId: "team-1", status: "OPEN", priority: "NORMAL", assigneeId: null, title: "Failed", slaDueAt: dueAt, escalatedAt: null },
+				{ id: "ticket-ok", teamId: "team-1", status: "OPEN", priority: "NORMAL", assigneeId: null, title: "OK", slaDueAt: dueAt, escalatedAt: null },
+			]);
+			prismaMocks.transaction
+				.mockRejectedValueOnce(new Error("database unavailable"))
+				.mockImplementationOnce(async (callback: (tx: unknown) => unknown) => callback({
+					ticket: { updateMany: txMocks.updateMany },
+					ticketEscalation: { create: txMocks.createEscalation },
+					user: { findMany: txMocks.findManagers },
+					notification: { createMany: txMocks.createNotifications },
+				}));
+
+			await expect(escalateBreachedTickets()).rejects.toThrow("Failed to escalate 1 of 2 ticket(s): ticket-failed");
+
+			expect(prismaMocks.transaction).toHaveBeenCalledTimes(2);
+			expect(txMocks.createEscalation).toHaveBeenCalledTimes(1);
+			expect(loggerMocks.info).toHaveBeenCalledWith("Ticket SLA escalated", expect.objectContaining({ ticketId: "ticket-ok" }));
 		});
 	});
 });

@@ -132,6 +132,30 @@ describe("/api/images/batch", () => {
     expect(unlinkMock).toHaveBeenCalledWith(
       "/tmp/vcontrolhub-image-batch-test/albums/remote_thumb.webp",
     );
-    await expect(response.json()).resolves.toEqual({ deleted: 1 });
+    await expect(response.json()).resolves.toEqual({ deleted: 1, filesDeleted: 1, failedFileIds: [] });
+  });
+
+  it("returns 207 partial success when a deleted DB row leaves image files behind", async () => {
+    vi.clearAllMocks();
+    requireApiSessionMock.mockResolvedValueOnce(managerSession);
+    sessionHasPermissionMock.mockImplementation(
+      (_session, permission) => permission === "image:write" || permission === "media:manage",
+    );
+    imageFindManyMock.mockResolvedValueOnce([
+      { id: "img_2", storageKey: "albums/remote.png" },
+    ]);
+    imageDeleteManyMock.mockResolvedValueOnce({ count: 1 });
+    unlinkMock.mockRejectedValue(Object.assign(new Error("EACCES"), { code: "EACCES" }));
+
+    const response = await postBatch({ action: "delete", ids: ["img_2"] });
+
+    expect(response.status).toBe(207);
+    await expect(response.json()).resolves.toEqual({
+      deleted: 1,
+      filesDeleted: 0,
+      failedFileIds: ["img_2"],
+      success: false,
+      partial: true,
+    });
   });
 });

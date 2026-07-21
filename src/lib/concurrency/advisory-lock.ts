@@ -31,6 +31,8 @@ const NAMESPACE_KEYS: Record<string, number> = {
 	/** Serialize destructive server profile deletion (gateway cleanup + cascades). */
 	"server-delete": 45063,
 	"sync-schedule": 45064,
+	/** Serialize playbook run creation against destructive playbook deletion. */
+	"playbook-lifecycle": 45065,
 };
 
 function connectionStringForPg() {

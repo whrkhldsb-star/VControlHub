@@ -149,5 +149,16 @@ export async function deleteImageVariants(
 		path.join(baseDir, subDir, `${base}.avif`),
 	];
 
-	await Promise.allSettled(files.map((f) => unlink(f).catch(() => {})));
+	const failures: string[] = [];
+	await Promise.all(files.map(async (file) => {
+		try {
+			await unlink(file);
+		} catch (error) {
+			if (error && typeof error === "object" && "code" in error && error.code === "ENOENT") return;
+			failures.push(file);
+		}
+	}));
+	if (failures.length > 0) {
+		throw new Error(`Failed to delete ${failures.length} image variant(s): ${failures.join(", ")}`);
+	}
 }

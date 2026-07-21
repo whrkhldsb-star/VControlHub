@@ -13,6 +13,7 @@ import type { SessionPayload } from "@/lib/auth/session";
 
 import { prisma } from "@/lib/db";
 import { auditUserAction } from "@/lib/audit/service";
+import { acquireAdvisoryLock } from "@/lib/concurrency/advisory-lock";
 import { NotFoundError, ValidationError, BusinessError } from "@/lib/errors";
 
 import type {
@@ -257,17 +258,22 @@ export async function deletePlaybook(
   deletedById: string,
   session?: TeamSession | null,
 ): Promise<void> {
-  const existing = await getPlaybook(id, session);
-  if (!existing) throw new NotFoundError(t("backend.playbook.notFound"));
-  // PlaybookRun statuses are lowercase: queued | running | completed | failed | cancelled
-  const activeRun = await prisma.playbookRun.findFirst({
-    where: { playbookId: id, status: { in: ["queued", "running"] } },
-    select: { id: true },
-  });
-  if (activeRun) {
-    throw new BusinessError(t("backend.playbook.cannotDeleteWhileRunning"));
+  const releaseLock = await acquireAdvisoryLock("playbook-lifecycle", id);
+  try {
+    const existing = await getPlaybook(id, session);
+    if (!existing) throw new NotFoundError(t("backend.playbook.notFound"));
+    // PlaybookRun statuses are lowercase: queued | running | completed | failed | cancelled
+    const activeRun = await prisma.playbookRun.findFirst({
+      where: { playbookId: id, status: { in: ["queued", "running"] } },
+      select: { id: true },
+    });
+    if (activeRun) {
+      throw new BusinessError(t("backend.playbook.cannotDeleteWhileRunning"));
+    }
+    await prisma.playbook.delete({ where: { id } });
+  } finally {
+    await releaseLock();
   }
-  await prisma.playbook.delete({ where: { id } });
   await auditUserAction(deletedById, "playbook.delete", { playbookId: id });
 }
 
@@ -299,51 +305,58 @@ export async function runPlaybook(input: {
   createdById?: string;
   session?: TeamSession;
 }): Promise<PlaybookRunRecord> {
-  const scope = input.session ? teamWhere(input.session) : {};
-  const playbook = await prisma.playbook.findFirst({
-    where: { id: input.playbookId, ...scope },
-  });
-  if (!playbook) throw new NotFoundError(`playbook not found: ${input.playbookId}`);
-  const narrowedPlaybook = narrowPlaybook(playbook);
-  if (!narrowedPlaybook.enabled) {
-    throw new BusinessError(`playbook is disabled: ${input.playbookId}`);
-  }
+  const releaseLock = await acquireAdvisoryLock("playbook-lifecycle", input.playbookId);
+  let narrowedPlaybook: PlaybookRecord;
+  let run: RawPlaybookRun;
+  try {
+    const scope = input.session ? teamWhere(input.session) : {};
+    const playbook = await prisma.playbook.findFirst({
+      where: { id: input.playbookId, ...scope },
+    });
+    if (!playbook) throw new NotFoundError(`playbook not found: ${input.playbookId}`);
+    narrowedPlaybook = narrowPlaybook(playbook);
+    if (!narrowedPlaybook.enabled) {
+      throw new BusinessError(`playbook is disabled: ${input.playbookId}`);
+    }
 
-  const teamData = input.session ? teamCreateData(input.session) : { teamId: playbook.teamId ?? null };
-  const executionState = {
-    schemaVersion: 1,
-    stepsSnapshot: narrowedPlaybook.steps,
-  } as unknown as Prisma.InputJsonValue;
-  const run = await prisma.$transaction(async (tx) => {
-    const created = await tx.playbookRun.create({
-      data: {
-        playbookId: input.playbookId,
-        status: "queued",
-        dryRun: input.dryRun,
-        triggerContext: (input.triggerContext ?? null) as Prisma.InputJsonValue,
-        stepResults: [] as unknown as Prisma.InputJsonValue,
-        executionState,
-        startedAt: null,
-        createdById: input.createdById ?? null,
-        ...teamData,
-      },
+    const teamData = input.session ? teamCreateData(input.session) : { teamId: playbook.teamId ?? null };
+    const executionState = {
+      schemaVersion: 1,
+      stepsSnapshot: narrowedPlaybook.steps,
+    } as unknown as Prisma.InputJsonValue;
+    run = await prisma.$transaction(async (tx) => {
+      const created = await tx.playbookRun.create({
+        data: {
+          playbookId: input.playbookId,
+          status: "queued",
+          dryRun: input.dryRun,
+          triggerContext: (input.triggerContext ?? null) as Prisma.InputJsonValue,
+          stepResults: [] as unknown as Prisma.InputJsonValue,
+          executionState,
+          startedAt: null,
+          createdById: input.createdById ?? null,
+          ...teamData,
+        },
+      });
+      const job = await tx.job.create({
+        data: {
+          type: "playbook.run",
+          title: `Run playbook ${narrowedPlaybook.name}`,
+          payload: { runId: created.id },
+          createdBy: input.createdById ?? null,
+          teamId: teamData.teamId ?? null,
+          priority: 0,
+          maxAttempts: Math.max(1, narrowedPlaybook.chainRetry + 1),
+        },
+      });
+      return tx.playbookRun.update({
+        where: { id: created.id },
+        data: { jobId: job.id },
+      });
     });
-    const job = await tx.job.create({
-      data: {
-        type: "playbook.run",
-        title: `Run playbook ${narrowedPlaybook.name}`,
-        payload: { runId: created.id },
-        createdBy: input.createdById ?? null,
-        teamId: teamData.teamId ?? null,
-        priority: 0,
-        maxAttempts: Math.max(1, narrowedPlaybook.chainRetry + 1),
-      },
-    });
-    return tx.playbookRun.update({
-      where: { id: created.id },
-      data: { jobId: job.id },
-    });
-  });
+  } finally {
+    await releaseLock();
+  }
 
   if (input.createdById) {
     await auditUserAction(input.createdById, input.dryRun ? "playbook.dry-run" : "playbook.run", {

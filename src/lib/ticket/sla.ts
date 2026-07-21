@@ -70,6 +70,7 @@ export async function escalateBreachedTickets(): Promise<number> {
   });
 
   let escalated = 0;
+  const failedTicketIds: string[] = [];
   for (const ticket of breached) {
     const newPriority = ESCALATION_CHAIN[ticket.priority] ?? "HIGH";
     try {
@@ -130,11 +131,17 @@ export async function escalateBreachedTickets(): Promise<number> {
         logger.info("Ticket SLA escalated", { ticketId: ticket.id, fromPriority: ticket.priority, toPriority: newPriority });
       }
     } catch (error) {
+      failedTicketIds.push(ticket.id);
       logger.error("Failed to escalate ticket", error instanceof Error ? error : undefined, { ticketId: ticket.id });
     }
   }
 
-  logger.info("SLA escalation sweep complete", { breached: breached.length, escalated });
+  const context = { breached: breached.length, escalated };
+  if (breached.length > 0) logger.info("SLA escalation sweep complete", context);
+  else logger.debug("SLA escalation sweep complete", context);
+  if (failedTicketIds.length > 0) {
+    throw new Error(`Failed to escalate ${failedTicketIds.length} of ${breached.length} ticket(s): ${failedTicketIds.join(", ")}`);
+  }
   return escalated;
 }
 

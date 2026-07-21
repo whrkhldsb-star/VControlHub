@@ -63,5 +63,6 @@ describe("advisory-lock namespaces", () => {
     expect(getLockKeys("docker-compose", "hub:local:site").k1).toBe(45062);
     expect(getLockKeys("server-delete", "srv_1").k1).toBe(45063);
     expect(getLockKeys("playbook-execute", "pb_1").k1).toBe(45061);
+    expect(getLockKeys("playbook-lifecycle", "pb_1").k1).toBe(45065);
   });
 });

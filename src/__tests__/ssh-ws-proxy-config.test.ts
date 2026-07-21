@@ -75,4 +75,12 @@ describe("resolveSshWsListenConfig", () => {
 		// Connection path must not reintroduce unscoped findUnique({ where: { id: serverId } })
 		expect(source).not.toMatch(/findUnique\(\{\s*where:\s*\{\s*id:\s*serverId/);
 	});
+
+	it("reuses the database-backed session verifier so revoked SSH access takes effect immediately", async () => {
+		const source = await readFile(path.resolve(__dirname, "../ssh-ws-proxy.ts"), "utf8");
+		expect(source).toContain('import { verifySessionToken } from "./lib/auth/session"');
+		expect(source).toContain("session = await verifySessionToken(token)");
+		expect(source).not.toContain("function signPayload(");
+		expect(source).not.toContain("function decodeBase64Url(");
+	});
 });

@@ -106,6 +106,9 @@ service_stopped=1
 # 重装依赖(含 devDeps) 否则 esbuild/typescript/prisma 等 build 必需工具缺失,
 # npm run build 和 build:runtime 会直接失败。
 sudo -u "$APP_USER" env bash -lc 'umask 022; npm ci'
+# npm ci reinstalls node_modules from scratch, wiping the generated Prisma client.
+# Without this, next build's type check fails on @prisma/client exports.
+sudo -u "$APP_USER" env bash -lc 'umask 022; npx prisma generate'
 # Explicit umask for the app-user build too (in case login.defs is strict).
 sudo -u "$APP_USER" env VCONTROLHUB_DEPLOY_BUILD=1 bash -lc 'umask 022; npm run build'
 sudo -u "$APP_USER" env bash -lc 'umask 022; npm run build:runtime'

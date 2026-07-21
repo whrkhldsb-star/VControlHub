@@ -9,6 +9,7 @@ import { sessionHasPermission } from "@/lib/auth/authorization";
 import { NextResponse } from "next/server";
 import { ValidationError } from "@/lib/errors";
 import { apiCatch } from "@/lib/http/api-error";
+import { searchParamsToObject } from "@/lib/http/parse-search-params";
 import { type RateLimitConfig, rateLimitResponse, withRateLimit } from "@/lib/http/rate-limit-presets";
 import { createLogger } from "@/lib/logging";
 
@@ -197,13 +198,7 @@ export async function withApiRoute<TBody = unknown, TQuery = unknown>(
     let query: TQuery = undefined as TQuery;
     if (options.querySchema) {
       const url = new URL(request.url);
-      // Build a plain object from URLSearchParams; for repeated keys keep
-      // an array so zod can use z.array(...). Single values stay scalar.
-      const obj: Record<string, string | string[]> = {};
-      for (const key of new Set(url.searchParams.keys())) {
-        const all = url.searchParams.getAll(key);
-        obj[key] = all.length > 1 ? all : all[0]!;
-      }
+      const obj = searchParamsToObject(url.searchParams);
       const parsed = options.querySchema.safeParse(obj);
       if (!parsed.success) {
         const { summary, issues } = zodIssueDetails(parsed.error);
