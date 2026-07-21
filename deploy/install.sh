@@ -179,22 +179,34 @@ resolve_command() {
 }
 
 resolve_node_tool() {
-  local command_name="$1" resolved="" candidate=""
+  local command_name="$1" resolved="" candidate="" real_path=""
 
   resolved="$(resolve_command "${command_name}")"
   if [ "${APP_USER}" = "root" ]; then
     printf '%s\n' "${resolved}"
     return 0
   fi
+
+  # Follow symlinks: Hermes often puts `node` on PATH as /usr/local/bin/node ->
+  # /root/.hermes/node/bin/node. That path is not under /root/* literally, but the
+  # target is unreadable by APP_USER under ProtectHome=true and yields 203/EXEC.
+  real_path="$(readlink -f "${resolved}" 2>/dev/null || printf '%s' "${resolved}")"
   case "${resolved}" in
     /root/*)
-      # The root user's Hermes/local Node shims live under /root, which non-root
-      # service users cannot traverse and cause systemd status=203/EXEC failures.
-      # In that case, fall back to a system-wide Node installation.
       ;;
     *)
-      printf '%s\n' "${resolved}"
-      return 0
+      case "${real_path}" in
+        /root/*) ;;
+        *)
+          # Prefer a system Node even when PATH has a root-owned Hermes shim first.
+          if [ -x "/usr/bin/${command_name}" ]; then
+            printf '%s\n' "/usr/bin/${command_name}"
+            return 0
+          fi
+          printf '%s\n' "${resolved}"
+          return 0
+          ;;
+      esac
       ;;
   esac
 
@@ -203,13 +215,19 @@ resolve_node_tool() {
     "/usr/local/bin/${command_name}" \
     "/bin/${command_name}" \
     "/opt/node/bin/${command_name}"; do
-    if [ -x "${candidate}" ]; then
-      printf '%s\n' "${candidate}"
-      return 0
+    if [ ! -x "${candidate}" ]; then
+      continue
     fi
+    real_path="$(readlink -f "${candidate}" 2>/dev/null || printf '%s' "${candidate}")"
+    case "${real_path}" in
+      /root/*) continue ;;
+    esac
+    # Skip /usr/local shims that still point under /root (already filtered above).
+    printf '%s\n' "${candidate}"
+    return 0
   done
 
-  fail "${command_name} resolved to ${resolved}, which is under /root and not executable by APP_USER=${APP_USER}. Install Node.js system-wide or set APP_USER=root for /root deployments."
+  fail "${command_name} resolved to ${resolved} (realpath=${real_path:-unknown}), which is under /root and not executable by APP_USER=${APP_USER}. Install Node.js system-wide (apt install nodejs / NodeSource) or set APP_USER=root for /root deployments."
 }
 
 build_systemd_path() {
@@ -404,10 +422,20 @@ install_packages() {
 		node_path="$(command -v node 2>/dev/null || true)"
 		node_major="$(node -p 'process.versions.node.split(".")[0]' 2>/dev/null || echo 0)"
 		if [ "${APP_USER}" != "root" ]; then
+			local node_real=""
+			node_real="$(readlink -f "${node_path}" 2>/dev/null || printf '%s' "${node_path}")"
 			case "${node_path}" in
 				/root/*)
 					node_needs_system_install=1
 					warn "Node.js resolved to ${node_path}, which APP_USER=${APP_USER} cannot execute; installing system-wide Node.js"
+					;;
+				*)
+					case "${node_real}" in
+						/root/*)
+							node_needs_system_install=1
+							warn "Node.js at ${node_path} realpath=${node_real} is under /root; APP_USER=${APP_USER} cannot execute it (systemd ProtectHome); installing system-wide Node.js"
+							;;
+					esac
 					;;
 			esac
 		fi
@@ -881,7 +909,7 @@ build_app() {
  # shellcheck disable=SC1090
  source "${ENV_FILE}"
 	set +a
-	export NODE_OPTIONS="${NODE_OPTIONS:---max-old-space-size=1024}"
+	export NODE_OPTIONS="${NODE_OPTIONS:---max-old-space-size=4096}"
 	export NEXT_TELEMETRY_DISABLED="${NEXT_TELEMETRY_DISABLED:-1}"
 	# package.json "build" runs scripts/guard-live-next-build.mjs first. On a fresh
 	# host the service unit does not exist yet; without an authorize flag the
