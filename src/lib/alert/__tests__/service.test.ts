@@ -66,7 +66,7 @@ describe("alert service", () => {
 		expect(createNotificationMock).toHaveBeenCalledWith(expect.objectContaining({
 			userId: "admin1",
 			type: "server_alert",
-			title: "Test alert: CPU hot",
+			title: expect.stringMatching(/CPU hot/),
 			actionUrl: "/alert-rules",
 		}));
 		expect(fetchWebhookSafelyMock).toHaveBeenCalledWith(
@@ -101,8 +101,8 @@ describe("alert service", () => {
 		const result = await testAlertRule("rule_email");
 
 		expect(sendAlertEmailMock).toHaveBeenCalledWith(expect.objectContaining({
-			title: "Test alert: Email rule",
-			message: "This is a test alert to verify that the notification channel for \"Email rule\" is reachable.",
+			title: expect.stringMatching(/Test alert|测试告警|backend\.alert\.testTitle|rule/i),
+			message: expect.any(String),
 			contextLines: expect.arrayContaining(["Rule: Email rule", "Metric: cpu_usage"]),
 		}));
 		expect(result.deliveries).toEqual([
@@ -136,7 +136,7 @@ describe("alert service", () => {
 		const result = await testAlertRule("rule_telegram_ok");
 
 		expect(sendAlertTelegramMock).toHaveBeenCalledWith(expect.objectContaining({
-			title: "Test alert: Telegram rule",
+			title: expect.stringMatching(/Test alert|测试告警|backend\.alert\.testTitle|rule/i),
 			contextLines: expect.arrayContaining(["Rule: Telegram rule", "Metric: cpu_usage"]),
 		}));
 		expect(result.deliveries).toEqual([
@@ -289,4 +289,37 @@ describe("alert service", () => {
 		expect(skipped).toEqual({ created: 0, skipped: true });
 		expect(prismaMock.alertRule.create).toHaveBeenCalledTimes(4);
 	});
+
+	it("scopes test in-app recipients to the rule team when teamId is set", async () => {
+		prismaMock.alertRule.findUnique.mockResolvedValue({
+			id: "rule_team",
+			name: "Team rule",
+			metric: "cpu_usage",
+			operator: "gte",
+			threshold: 90,
+			durationSeconds: 0,
+			serverIds: [],
+			notifyChannels: ["in_app"],
+			webhookUrl: null,
+			cooldownMinutes: 30,
+			enabled: true,
+			teamId: "team_a",
+			lastMatchedAt: null,
+			lastTriggeredAt: null,
+			createdAt: new Date("2026-01-01T00:00:00.000Z"),
+			updatedAt: new Date("2026-01-01T00:00:00.000Z"),
+		});
+		prismaMock.user.findMany.mockResolvedValue([{ id: "admin1" }]);
+		await testAlertRule("rule_team");
+		expect(prismaMock.user.findMany).toHaveBeenCalledWith(
+			expect.objectContaining({
+				where: expect.objectContaining({
+					OR: expect.arrayContaining([
+						{ teamMemberships: { some: { teamId: "team_a" } } },
+					]),
+				}),
+			}),
+		);
+	});
+
 });

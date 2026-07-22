@@ -1,4 +1,5 @@
 import type { RoleKey } from "@/lib/auth/rbac";
+import { sessionHasPermission } from "@/lib/auth/authorization";
 import { teamCreateData, teamWhere } from "@/lib/auth/team-scope";
 import { prisma } from "@/lib/db";
 import { NotFoundError, ValidationError } from "@/lib/errors";
@@ -15,7 +16,8 @@ type TeamSession = { userId: string; roles: RoleKey[]; currentTeamId: string | n
 
 async function assertServerIdsInTeam(serverIds: string[], session?: TeamSession | null) {
   if (!session || serverIds.length === 0) return;
-  if (session.roles.includes("admin")) return;
+  // Use permission, not role key string — custom roles may hold team:manage without key "admin".
+  if (sessionHasPermission(session, "team:manage")) return;
   const allowed = await prisma.server.findMany({
     where: { id: { in: serverIds }, ...teamWhere(session) },
     select: { id: true },
@@ -27,7 +29,7 @@ async function assertServerIdsInTeam(serverIds: string[], session?: TeamSession 
 
 async function assertPlaybookIdsInTeam(playbookIds: string[], session?: TeamSession | null) {
   if (!session || playbookIds.length === 0) return;
-  if (session.roles.includes("admin")) return;
+  if (sessionHasPermission(session, "team:manage")) return;
   const allowed = await prisma.playbook.findMany({
     where: { id: { in: playbookIds }, ...teamWhere(session) },
     select: { id: true },
@@ -168,8 +170,8 @@ export async function testAlertRule(id: string, session?: TeamSession | null): P
 	if (!rule) throw new NotFoundError(t("backend.alert.ruleNotFound"));
 
 	const deliveries: AlertRuleTestDelivery[] = [];
-	const title = `Test alert: ${rule.name}`;
-	const message = `This is a test alert to verify that the notification channel for "${rule.name}" is reachable.`;
+	const title = t("backend.alert.testTitle").replace("{name}", rule.name);
+	const message = t("backend.alert.testMessage").replace("{name}", rule.name);
 
 	if (rule.notifyChannels.includes("in_app")) {
 		const admins = await prisma.user.findMany({
@@ -183,6 +185,26 @@ export async function testAlertRule(id: string, session?: TeamSession | null): P
 						},
 					},
 				},
+				// Prefer same-team operators when the rule is team-stamped so test
+				// notifications do not spam other tenants' managers.
+				...(rule.teamId
+					? {
+							OR: [
+								{ teamMemberships: { some: { teamId: rule.teamId } } },
+								{
+									roles: {
+										some: {
+											role: {
+												permissions: {
+													some: { permission: { key: "team:manage" } },
+												},
+											},
+										},
+									},
+								},
+							],
+						}
+					: {}),
 			},
 			select: { id: true },
 			take: 100,
@@ -199,13 +221,18 @@ export async function testAlertRule(id: string, session?: TeamSession | null): P
 		deliveries.push({
 			channel: "in_app",
 			status: failed === 0 ? "sent" : "failed",
-			message: failed === 0 ? `Sent to ${admins.length} administrators` : `${failed}/${admins.length} in-app notifications failed to send`,
+			message:
+				failed === 0
+					? t("backend.alert.testInAppSent").replace("{count}", String(admins.length))
+					: t("backend.alert.testInAppPartialFail")
+							.replace("{failed}", String(failed))
+							.replace("{total}", String(admins.length)),
 		});
 	}
 
 	if (rule.notifyChannels.includes("webhook")) {
 		if (!rule.webhookUrl) {
-			deliveries.push({ channel: "webhook", status: "skipped", message: "Webhook URL not configured" });
+			deliveries.push({ channel: "webhook", status: "skipped", message: t("backend.alert.testWebhookSkipped") });
 		} else {
 			try {
 				const delivery = await fetchWebhookSafely(rule.webhookUrl, {
@@ -225,9 +252,9 @@ export async function testAlertRule(id: string, session?: TeamSession | null): P
 				if (!delivery.response.ok) {
 					throw new Error(`HTTP ${delivery.response.status}`);
 				}
-				deliveries.push({ channel: "webhook", status: "sent", message: "Webhook test request sent" });
+				deliveries.push({ channel: "webhook", status: "sent", message: t("backend.alert.testWebhookSent") });
 			} catch (error) {
-				deliveries.push({ channel: "webhook", status: "failed", message: error instanceof Error ? error.message : "Webhook test request failed" });
+				deliveries.push({ channel: "webhook", status: "failed", message: error instanceof Error ? error.message : t("backend.alert.testWebhookFailed") });
 			}
 		}
 	}
