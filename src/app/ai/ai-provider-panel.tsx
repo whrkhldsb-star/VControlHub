@@ -230,7 +230,7 @@ export function AiProviderPanel({
                 </div>
                 <div>
                   <label className="text-[10px] text-[var(--text-muted)]" htmlFor="ai-provider-edit-type">{t("aiPage.typeLabel")}</label>
-                  <select id="ai-provider-edit-type" value={editForm.type} onChange={(e) => setEditForm((f) => f ? ({ ...f, type: e.target.value, baseUrl: COMMON_BASE_URLS[e.target.value] || f.baseUrl }) : f)} data-input className="mt-1 w-full rounded-xl border border-[var(--input-border)] bg-[var(--input-bg)] px-2.5 py-1.5 text-xs text-[var(--text-primary)]">
+                  <select id="ai-provider-edit-type" value={editForm.type} onChange={(e) => setEditForm((f) => f ? ({ ...f, type: e.target.value, baseUrl: COMMON_BASE_URLS[e.target.value] || f.baseUrl, availableModels: "", defaultModel: "" }) : f)} data-input className="mt-1 w-full rounded-xl border border-[var(--input-border)] bg-[var(--input-bg)] px-2.5 py-1.5 text-xs text-[var(--text-primary)]">
                     {Object.entries(PROVIDER_TYPES).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
                   </select>
                 </div>

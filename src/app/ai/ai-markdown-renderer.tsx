@@ -12,6 +12,36 @@ export function escapeHtml(text: string): string {
     .replace(/'/g, "&#039;");
 }
 
+/** Only allow safe navigable schemes for markdown links (blocks javascript:/data: XSS). */
+export function safeMarkdownHref(raw: string): string | null {
+  const href = raw.trim();
+  if (!href) return null;
+  // Protocol-relative or absolute with scheme
+  try {
+    if (/^[a-zA-Z][a-zA-Z0-9+.-]*:/.test(href)) {
+      const u = new URL(href);
+      if (u.protocol === "http:" || u.protocol === "https:" || u.protocol === "mailto:") {
+        return u.toString();
+      }
+      return null;
+    }
+  } catch {
+    return null;
+  }
+  // Relative paths / fragments / query — keep as-is if no scheme smuggling
+  if (href.startsWith("//")) return null;
+  if (href.startsWith("/") || href.startsWith("#") || href.startsWith("?")) return href;
+  // Bare domains without scheme — treat as https
+  if (/^[\w.-]+\.[a-zA-Z]{2,}([/:?#].*)?$/.test(href)) {
+    try {
+      return new URL(`https://${href}`).toString();
+    } catch {
+      return null;
+    }
+  }
+  return null;
+}
+
 /* ── Copy to clipboard ──────────────────────────────────────── */
 export async function copyToClipboard(text: string): Promise<boolean> {
   try {
@@ -48,17 +78,22 @@ export const renderInline = (text: string): React.ReactNode[] => {
  } else if (/^\[.+\]\(.+\)$/.test(fp)) {
  const linkMatch = fp.match(/^\[([^\]]+)\]\(([^)]+)\)$/);
  if (linkMatch) {
+ const safe = safeMarkdownHref(linkMatch[2] ?? "");
+ if (safe) {
  result.push(
- <a key={`a-${ci}-${fi}`} href={linkMatch[2]} target="_blank" rel="noopener noreferrer"
+ <a key={`a-${ci}-${fi}`} href={safe} target="_blank" rel="noopener noreferrer"
  className="text-[var(--color-action)] hover:text-[var(--color-action)] underline decoration-[var(--color-action)]/30">
  {linkMatch[1]}
  </a>
  );
  } else {
- result.push(<span key={`t-${ci}-${fi}`}>{escapeHtml(fp)}</span>);
+ result.push(<span key={`t-${ci}-${fi}`}>{linkMatch[1]}</span>);
  }
  } else {
- result.push(<span key={`t-${ci}-${fi}`}>{escapeHtml(fp)}</span>);
+ result.push(<span key={`t-${ci}-${fi}`}>{fp}</span>);
+ }
+ } else {
+ result.push(<span key={`t-${ci}-${fi}`}>{fp}</span>);
  }
  });
  });

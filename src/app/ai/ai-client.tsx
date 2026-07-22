@@ -151,24 +151,30 @@ export function AiClient({
   }, []);
 
   // Fetch models when provider changes
+  const modelsFetchGenRef = useRef(0);
   const fetchModels = useCallback(async (providerId: string) => {
+    const gen = ++modelsFetchGenRef.current;
     setModelsLoading(true);
     try {
       const data = await csrfFetch(`/api/ai/models?providerId=${providerId}`);
+      if (gen !== modelsFetchGenRef.current) return;
       if (data.models) setModelList(data.models);
     } catch {
+      if (gen !== modelsFetchGenRef.current) return;
       // Failed to fetch models — show an empty list so the UI remains usable.
       setModelList([]);
     } finally {
-      setModelsLoading(false);
+      if (gen === modelsFetchGenRef.current) setModelsLoading(false);
     }
   }, []);
 
   useEffect(() => {
     if (activeConv?.providerId) {
-      fetchModels(activeConv.providerId);
+      void fetchModels(activeConv.providerId);
     } else {
+      modelsFetchGenRef.current += 1;
       setModelList([]);
+      setModelsLoading(false);
     }
   }, [activeConv?.providerId, fetchModels]);
 
@@ -342,6 +348,7 @@ export function AiClient({
             <AiInputAreaLazy
               input={input}
               setInput={setInput}
+              imageUrls={imageUrls}
               streaming={streaming}
               activeConv={activeConv}
               currentModelCaps={currentModelCaps}

@@ -175,7 +175,7 @@ export function AiSettingsModelSelector({
             <div className="border-t border-[var(--border-subtle)] p-2">
               <div className="flex gap-1.5">
                 <input
-                  value={modelSearch || settingsForm.model}
+                  value={modelSearch}
                   aria-label={t("aiPage.manualModelIdAria")}
                   onChange={(e) => setModelSearch(e.target.value)}
                   onKeyDown={(e) => {
@@ -188,10 +188,11 @@ export function AiSettingsModelSelector({
                       setModelSearch("");
                     }
                   }}
-                  placeholder={t("aiPage.manualModelIdPlaceholder")}
+                  placeholder={settingsForm.model || t("aiPage.manualModelIdPlaceholder")}
                   className="flex-1 bg-[var(--input-bg)] border border-[var(--border-subtle)] rounded-lg px-2 py-1 text-xs text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus:outline-none"
                 />
                 <button
+                  type="button"
                   onClick={() => {
                     if (modelSearch.trim()) {
                       setSettingsForm((f) => ({

@@ -53,6 +53,8 @@ export function AiAttachmentsPreview({
                   className="w-12 h-12 rounded object-cover border border-[var(--border)]"
                 />
                 <button
+                  type="button"
+                  aria-label={t("aiPage.removeAttachmentAria")}
                   onClick={() =>
                     setImageUrls((prev) => prev.filter((_, j) => j !== i))
                   }
@@ -113,6 +115,8 @@ export function AiAttachmentsPreview({
                   </div>
                 )}
                 <button
+                  type="button"
+                  aria-label={t("aiPage.removeAttachmentAria")}
                   onClick={() =>
                     setFileAttachments((prev) => prev.filter((_, j) => j !== i))
                   }

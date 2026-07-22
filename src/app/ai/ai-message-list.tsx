@@ -167,6 +167,8 @@ export function AiMessageList({
                 </div>
               )}
             <button
+              type="button"
+              aria-label={t("aiPage.copyAria")}
               onClick={async () => {
                 const ok = await copyToClipboard(msg.content);
                 if (ok) {
@@ -248,8 +250,6 @@ export function AiMessageList({
           </div>
         </div>
       )}
-      <div ref={messagesEndRef} />
-
       {pendingApprovals.length > 0 && (
         <div className="px-4 py-2 border-t border-[var(--warning-border)] bg-[var(--warning-bg)]">
           <div className="text-xs text-[var(--warning)] font-medium mb-2">
@@ -295,6 +295,7 @@ export function AiMessageList({
                 </div>
                 <div className="flex gap-2 ml-3">
                   <button
+                    type="button"
                     data-action-button data-variant="danger-solid" className="!px-3 !py-1 !text-xs disabled:opacity-50"
                     disabled={approvalBusyById[approval.actionId]}
                     aria-busy={
@@ -305,6 +306,7 @@ export function AiMessageList({
                     {t("aiPage.reject")}
                   </button>
                   <button
+                    type="button"
                     data-action-button data-variant="success-solid" className="!px-3 !py-1 !text-xs disabled:opacity-50"
                     disabled={approvalBusyById[approval.actionId]}
                     aria-busy={
@@ -320,6 +322,7 @@ export function AiMessageList({
           </div>
         </div>
       )}
+      <div ref={messagesEndRef} />
     </div>
   );
 }

@@ -67,7 +67,7 @@ export interface ModelCapabilities {
 export interface FileAttachment {
   name: string;
   content: string;
-  type: "text" | "image";
+  type: "text" | "image" | "video" | "audio" | "document";
   mimeType: string;
   base64Data?: string;
   preview?: string;

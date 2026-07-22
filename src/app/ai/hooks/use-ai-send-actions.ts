@@ -62,11 +62,11 @@ export function useAiSendActions({
 
   const handleSend = useCallback(async () => {
     if (!activeConvId || streaming) return;
-    if (!input.trim() && fileAttachments.length === 0) return;
+    if (!input.trim() && fileAttachments.length === 0 && imageUrls.length === 0) return;
     const userMsg = input.trim() || t("aiPage.attachmentHint");
     const userImages = [...imageUrls];
     const userImageBase64 = fileAttachments
-      .filter((f) => f.type === "image" && f.base64Data)
+      .filter((f) => f.type !== "text" && f.base64Data)
       .map((f) => ({ mimeType: f.mimeType, data: f.base64Data! }));
     const userFiles = fileAttachments
       .filter((f) => f.type === "text")

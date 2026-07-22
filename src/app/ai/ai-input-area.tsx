@@ -22,6 +22,8 @@ import { useI18n } from "@/lib/i18n/use-locale";
 export interface AiInputAreaProps {
   input: string;
   setInput: (value: string) => void;
+  /** External image URL attachments (composer preview); allow send when only URLs are present. */
+  imageUrls?: string[];
   streaming: boolean;
   activeConv: ConvItem | undefined;
   currentModelCaps: ModelCapabilities;
@@ -35,6 +37,7 @@ export interface AiInputAreaProps {
 export function AiInputArea({
   input,
   setInput,
+  imageUrls = [],
   streaming,
   activeConv,
   currentModelCaps,
@@ -123,7 +126,7 @@ export function AiInputArea({
         <button
           type="button"
           onClick={handleSend}
-          disabled={streaming || (!input.trim() && fileAttachments.length === 0)}
+          disabled={streaming || (!input.trim() && fileAttachments.length === 0 && imageUrls.length === 0)}
           data-action-button data-variant="primary" className="flex h-10 w-10 items-center justify-center p-0"
           aria-label={t("aiPage.sendAria")}
         >

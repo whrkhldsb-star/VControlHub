@@ -111,7 +111,7 @@ export function useFileAttachments({
               {
                 name: file.name,
                 content: "",
-                type: "image",
+                type: "video",
                 mimeType: file.type || "video/mp4",
                 base64Data,
                 preview: undefined,
@@ -133,7 +133,7 @@ export function useFileAttachments({
               {
                 name: file.name,
                 content: "",
-                type: "image",
+                type: "audio",
                 mimeType: file.type || "audio/mp3",
                 base64Data,
                 preview: undefined,
@@ -161,7 +161,7 @@ export function useFileAttachments({
               {
                 name: file.name,
                 content: "",
-                type: "image",
+                type: "document",
                 mimeType: file.type || "application/pdf",
                 base64Data,
                 preview: undefined,
