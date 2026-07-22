@@ -26,7 +26,7 @@ import type { SessionPayload } from "./session";
 import { sessionHasPermission } from "./authorization";
 import { t } from "@/lib/i18n/translations";
 
-type TeamSession = Pick<SessionPayload, "userId" | "roles" | "currentTeamId">;
+export type TeamSession = Pick<SessionPayload, "userId" | "roles" | "currentTeamId">;
 
 /**
  * True when the actor may see/manage all tenants (global team admin).

@@ -8,6 +8,7 @@
 export const zh: Record<string, string> = {
 	"statusPage.desc": "公开安全摘要，不展示主机名、端口、连接串或内部凭据。",
 	"statusPage.overallLabel": "总体：",
+	"statusPage.eyebrow": "状态",
 	"statusPage.title": "服务状态",
 	"statusPage.updatedAt": "更新时间：",
 	"statusPage.health.healthy": "正常",
@@ -25,6 +26,7 @@ export const zh: Record<string, string> = {
 export const en: Record<string, string> = {
 	"statusPage.desc": "Public safety summary. Hostnames, ports, connection strings, and internal credentials are not exposed.",
 	"statusPage.overallLabel": "Overall: ",
+	"statusPage.eyebrow": "Status",
 	"statusPage.title": "Service Status",
 	"statusPage.updatedAt": "Updated at: ",
 	"statusPage.health.healthy": "Healthy",

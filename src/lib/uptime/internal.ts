@@ -1,4 +1,6 @@
 import { type ServerUptimeSnapshot } from "@prisma/client";
+
+import { teamWhere, type TeamSession } from "@/lib/auth/team-scope";
 import { prisma } from "@/lib/db";
 
 interface UptimeDay {
@@ -9,7 +11,12 @@ interface UptimeDay {
   checkCount: number;
 }
 
-function formatUptimeDay(snapshot: Pick<ServerUptimeSnapshot, "date" | "uptimePercent" | "onlineMinutes" | "offlineMinutes" | "checkCount">): UptimeDay {
+function formatUptimeDay(
+  snapshot: Pick<
+    ServerUptimeSnapshot,
+    "date" | "uptimePercent" | "onlineMinutes" | "offlineMinutes" | "checkCount"
+  >,
+): UptimeDay {
   return {
     date: snapshot.date.toISOString().split("T")[0] ?? "",
     uptimePercent: snapshot.uptimePercent,
@@ -19,13 +26,28 @@ function formatUptimeDay(snapshot: Pick<ServerUptimeSnapshot, "date" | "uptimePe
   };
 }
 
-export async function getAllUptimeDataInternal() {
+export type UptimeListOptions = {
+  /**
+   * When provided, list is filtered with the same teamWhere rules as server lists.
+   * Omit/null for public status page (fleet-wide display names only, no host/port).
+   */
+  session?: TeamSession | null;
+};
+
+/**
+ * Shared uptime heatmap data (90 days, enabled servers).
+ * Authenticated call sites must pass `session` so non-admin users only see
+ * their team (+ legacy null teamId) nodes.
+ */
+export async function getAllUptimeDataInternal(options: UptimeListOptions = {}) {
   const ninetyDaysAgo = new Date();
   ninetyDaysAgo.setUTCDate(ninetyDaysAgo.getUTCDate() - 89);
   ninetyDaysAgo.setUTCHours(0, 0, 0, 0);
 
+  const teamFilter = options.session ? teamWhere(options.session) : {};
+
   const servers = await prisma.server.findMany({
-    where: { enabled: true },
+    where: { enabled: true, ...teamFilter },
     select: { id: true, name: true },
     orderBy: { name: "asc" },
     take: 500,

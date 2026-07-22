@@ -28,9 +28,11 @@ type UptimeResponse = {
   servers?: UptimeServer[];
 };
 
-async function getAllUptimeData(): Promise<UptimeResponse | null> {
+async function getAllUptimeData(session: Awaited<ReturnType<typeof getCurrentSession>>): Promise<UptimeResponse | null> {
   try {
-    return await getAllUptimeDataInternal();
+    // Authenticated: team-scoped. Anonymous public page: fleet display names only
+    // (product status page; no host/port/credentials).
+    return await getAllUptimeDataInternal(session ? { session } : {});
   } catch (err) {
     logger.error("Failed to fetch uptime data", err);
   }
@@ -145,7 +147,7 @@ export default async function Page() {
   const session = await getCurrentSession();
   const locale = await getServerLocale();
   const dateLocale = toDateLocale(locale);
-  const uptimeData = await getAllUptimeData();
+  const uptimeData = await getAllUptimeData(session);
 
   if (!session) {
     const status = await getPublicStatusSummary();
@@ -157,7 +159,7 @@ export default async function Page() {
         />
         <div className="relative mx-auto max-w-5xl px-6 py-14">
           <header className="mb-8 border-b border-[var(--border-subtle)] pb-6">
-            <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-[var(--accent)]">Status</p>
+            <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-[var(--accent)]">{t("statusPage.eyebrow", locale)}</p>
             <h1 className="mt-2 break-words text-[1.75rem] font-semibold leading-snug tracking-[-0.02em] text-[var(--text-primary)] sm:text-[2rem]">
               {t("statusPage.title", locale)}
             </h1>
@@ -212,7 +214,7 @@ export default async function Page() {
       />
       <div className="relative mx-auto max-w-5xl px-6 py-14">
         <header className="mb-8 border-b border-[var(--border-subtle)] pb-6">
-          <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-[var(--accent)]">Status</p>
+          <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-[var(--accent)]">{t("statusPage.eyebrow", locale)}</p>
           <h1 className="mt-2 break-words text-[1.75rem] font-semibold leading-snug tracking-[-0.02em] text-[var(--text-primary)] sm:text-[2rem]">
             {t("statusPage.title", locale)}
           </h1>
