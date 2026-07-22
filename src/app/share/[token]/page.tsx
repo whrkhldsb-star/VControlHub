@@ -38,8 +38,14 @@ export default async function SharePage({
     share = await peekShareToken(token, { ip: ip ?? undefined, userAgent: userAgent ?? undefined });
     // Password-locked peeks return a redacted stub (locked=true). Never enumerate
     // directory contents or expose node paths until the password gate succeeds via API.
-    if (share.entryType === "DIRECTORY" && !share.hasPassword && !(share as { locked?: boolean }).locked) {
-      files = await listShareDirectoryFiles(share as Parameters<typeof listShareDirectoryFiles>[0]);
+    if (
+      share.entryType === "DIRECTORY" &&
+      !share.hasPassword &&
+      !(share as { locked?: boolean }).locked &&
+      "storageNodeId" in share &&
+      typeof (share as { storageNodeId?: string }).storageNodeId === "string"
+    ) {
+      files = await listShareDirectoryFiles(share as { entryType: string; path: string; storageNodeId: string; storageNode?: { basePath?: string; driver?: string } | null });
     }
   } catch (err) {
     errorMessage = err instanceof Error ? err.message : t("sharePage.invalidToken", locale);

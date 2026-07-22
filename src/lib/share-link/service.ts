@@ -405,13 +405,41 @@ async function syncLocalShareDirectory(share: { storageNodeId: string; storageNo
 	}
 }
 
-async function refreshShareDirectoryIndex(share: Awaited<ReturnType<typeof peekShareToken>>) {
+type DirectoryShareForList = {
+  entryType: string;
+  path: string;
+  storageNodeId: string;
+  storageNode?: { basePath?: string; driver?: string } | null;
+  locked?: boolean;
+  hasPassword?: boolean;
+};
+
+function assertUnlockedDirectoryShare(share: DirectoryShareForList): asserts share is DirectoryShareForList & {
+  locked?: false;
+  storageNodeId: string;
+} {
+  if (share.locked || (share.hasPassword && share.path === "")) {
+    throw new ForbiddenError(t("backend.shareLink.passwordRequired"));
+  }
+  if (!share.storageNodeId) {
+    throw new ValidationError(t("backend.shareLink.invalidSharePath"));
+  }
+}
+
+async function refreshShareDirectoryIndex(share: DirectoryShareForList) {
+  assertUnlockedDirectoryShare(share);
   if (share.entryType !== "DIRECTORY") return;
-  if (share.storageNode.driver === "LOCAL") {
-    await syncLocalShareDirectory(share);
+  if (share.storageNode?.driver === "LOCAL") {
+    await syncLocalShareDirectory({
+      storageNodeId: share.storageNodeId,
+      path: share.path,
+      storageNode: share.storageNode?.basePath
+        ? { basePath: share.storageNode.basePath }
+        : undefined,
+    });
     return;
   }
-  if (share.storageNode.driver === "SFTP") {
+  if (share.storageNode?.driver === "SFTP") {
     const node = await getSftpSyncNode(share.storageNodeId);
     if (node) {
       await syncSftpDirectoryEntries({ node, remotePath: share.path, recursive: false, maxDepth: 1 });
@@ -419,7 +447,8 @@ async function refreshShareDirectoryIndex(share: Awaited<ReturnType<typeof peekS
   }
 }
 
-export async function listShareDirectoryFiles(share: Awaited<ReturnType<typeof peekShareToken>>) {
+export async function listShareDirectoryFiles(share: DirectoryShareForList) {
+  assertUnlockedDirectoryShare(share);
   if (share.entryType !== "DIRECTORY") return [];
   await refreshShareDirectoryIndex(share);
   const prefix = share.path.replace(/^\/+|\/+$/g, "");
