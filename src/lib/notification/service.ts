@@ -133,11 +133,23 @@ export async function notifyCommandPending(
 	commandTitle: string,
 	teamId?: string | null,
 ) {
-	// Notify all admins about pending command
+	// Notify approvers. Prefer same-team members when teamId is set so other
+	// tenants' admins are not spammed with foreign command requests.
 	const admins = await prisma.user.findMany({
-		where: { roles: { some: { role: { permissions: { some: { permission: { key: "command:approve" } } } } } } },
+		where: {
+			roles: { some: { role: { permissions: { some: { permission: { key: "command:approve" } } } } } },
+			...(teamId
+				? {
+						OR: [
+							{ teamMemberships: { some: { teamId } } },
+							// Global team managers may lack membership rows but still approve.
+							{ roles: { some: { role: { permissions: { some: { permission: { key: "team:manage" } } } } } } },
+						],
+					}
+				: {}),
+		},
 		select: { id: true },
-		take: 1000, // P2: approve 权限的 admin 数有限
+		take: 1000,
 	});
 	await Promise.all(
 		admins
@@ -146,8 +158,8 @@ export async function notifyCommandPending(
 				createNotification({
 					userId: admin.id,
 					type: "command_pending",
-					title: "New command pending approval",
-					message: `Command "${commandTitle}" requires your approval.`,
+					title: t("backend.notification.commandPendingTitle"),
+					message: t("backend.notification.commandPendingMessage").replace("{title}", commandTitle),
 					actionUrl: `/requests`,
 					teamId: teamId ?? null,
 				}),

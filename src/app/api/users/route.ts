@@ -13,6 +13,7 @@ import { GENERAL_WRITE_LIMIT } from "@/lib/http/rate-limit-presets";
 import { createUserSchema, updateUserSchema } from "@/lib/user/schema";
 
 import { NotFoundError, ValidationError } from "@/lib/errors";
+import { t } from "@/lib/i18n/translations";
 export const dynamic = "force-dynamic";
 
 /** GET: List users visible in the actor's team scope */
@@ -73,7 +74,7 @@ export async function POST(request: Request) {
       const user = await prisma.$transaction(async (tx) => {
         const existing = await tx.user.findUnique({ where: { username } });
         if (existing) {
-          throw new ValidationError("Username already exists");
+          throw new ValidationError(t("backend.user.usernameAlreadyExists"));
         }
 
         const roles = await tx.role.findMany({
@@ -83,7 +84,7 @@ export async function POST(request: Request) {
         const foundRoleKeys = new Set(roles.map((role) => role.key));
         const missingRoleKeys = roleKeys.filter((key) => !foundRoleKeys.has(key));
         if (missingRoleKeys.length > 0) {
-          throw new ValidationError(`Role not found: ${missingRoleKeys.join(", ")}`);
+          throw new ValidationError(t("backend.user.roleNotFound").replace("{roles}", missingRoleKeys.join(", ")));
         }
 
         const passwordHash = await hashPassword(body.password);
@@ -93,7 +94,8 @@ export async function POST(request: Request) {
             displayName,
             passwordHash,
             status: "ACTIVE",
-            mustChangePassword: false,
+            // Admin-provisioned accounts must set their own password on first login.
+            mustChangePassword: true,
           },
         });
 
@@ -155,11 +157,11 @@ export async function PATCH(request: Request) {
         where: { id: userId },
       });
       if (!targetUser) {
-        throw new NotFoundError("User not found");
+        throw new NotFoundError(t("backend.user.notFound"));
       }
 
       if (userId === session!.userId && userAction === "disable") {
-        throw new ValidationError("Cannot disable yourself");
+        throw new ValidationError(t("backend.user.cannotDisableSelf"));
       }
 
       if (userAction === "disable") {

@@ -109,8 +109,32 @@ describe("/api/notifications", () => {
     expect(markAsReadMock).toHaveBeenCalledWith("n_1", "u_1");
     expect(markAsReadMock).toHaveBeenCalledWith("n_2", "u_1");
     await expect(response.json()).resolves.toMatchObject({
+      success: true,
       marked: 2,
       failed: 0,
+      total: 2,
+    });
+  });
+
+  it("returns multi-status when partial batch mark fails", async () => {
+    vi.clearAllMocks();
+    requireApiPermissionMock.mockResolvedValueOnce({ session });
+    markAsReadMock
+      .mockResolvedValueOnce(undefined)
+      .mockRejectedValueOnce(new Error("missing"));
+
+    const response = await POST(
+      new Request("https://example.com/api/notifications", {
+        method: "POST",
+        body: JSON.stringify({ ids: ["n_1", "n_2"] }),
+      }),
+    );
+
+    expect(response.status).toBe(207);
+    await expect(response.json()).resolves.toMatchObject({
+      success: false,
+      marked: 1,
+      failed: 1,
       total: 2,
     });
   });

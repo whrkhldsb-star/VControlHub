@@ -115,12 +115,13 @@ export async function POST(request: Request) {
         (result) => result.status === "rejected",
       ).length;
 
+      // Partial batch outcomes are not overall success — callers must inspect counts.
       return NextResponse.json({
-        success: true,
+        success: failed === 0,
         marked: succeeded,
         failed,
         total: body.ids.length,
-      });
+      }, { status: failed === 0 ? 200 : failed === body.ids.length ? 404 : 207 });
     },
   );
 }

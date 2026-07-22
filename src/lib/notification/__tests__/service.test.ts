@@ -23,7 +23,7 @@ vi.mock("@/lib/ws/notification-ws", () => ({
   pushUnreadCount: pushUnreadCountMock,
 }));
 
-const { markAsRead, markAllAsRead, deleteNotification } = await import("../service");
+const { markAsRead, markAllAsRead, deleteNotification, notifyCommandPending } = await import("../service");
 
 describe("notification service state synchronization", () => {
   beforeEach(() => {
@@ -105,4 +105,23 @@ describe("notification service state synchronization", () => {
     expect(prismaMock.notification.count).not.toHaveBeenCalled();
     expect(pushUnreadCountMock).not.toHaveBeenCalled();
   });
+
+  it("notifyCommandPending scopes approvers to team membership when teamId set", async () => {
+    prismaMock.user.findMany.mockResolvedValueOnce([{ id: "a1" }, { id: "a2" }]);
+    prismaMock.notification.create.mockImplementation(async ({ data }: any) => ({ id: "n", ...data, createdAt: new Date() }));
+    prismaMock.notification.count.mockResolvedValue(0);
+
+    await notifyCommandPending("requester", "reboot edge", "team_a");
+
+    expect(prismaMock.user.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          OR: expect.arrayContaining([
+            { teamMemberships: { some: { teamId: "team_a" } } },
+          ]),
+        }),
+      }),
+    );
+  });
+
 });

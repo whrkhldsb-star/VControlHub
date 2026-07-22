@@ -58,7 +58,7 @@ const session = {
   userId: "admin1",
   username: "root",
   roles: ["admin"] as const,
-  mustChangePassword: false,
+  mustChangePassword: true,
   currentTeamId: "team-a",
   user: { id: "admin1" },
 };
@@ -174,7 +174,7 @@ describe("/api/users", () => {
     const res = await route.POST(req);
 
     expect(res.status).toBe(400);
-    expect(await res.json()).toMatchObject({ error: expect.stringContaining("Role") });
+    expect(await res.json()).toMatchObject({ error: expect.stringMatching(/Role|角色/) });
     expect(mocks.prisma.user.create).not.toHaveBeenCalled();
     expect(mocks.prisma.userRole.createMany).not.toHaveBeenCalled();
   });
