@@ -22,7 +22,9 @@ export async function exportConversationToMarkdown({
   try {
     const data = await csrfFetch(`/api/ai/conversations/${conversationId}`);
     const conv = data.conversation;
-    if (!conv) return;
+    if (!conv) {
+      throw new Error(t("aiPage.exportNotFound"));
+    }
     const exportText = [
       `# ${conv.title}`,
       t("aiPage.modelMeta")
@@ -49,7 +51,8 @@ export async function exportConversationToMarkdown({
     a.download = `${conv.title.replace(/[^a-zA-Z0-9\u4e00-\u9fff]/g, "_")}.md`;
     a.click();
     URL.revokeObjectURL(url);
-  } catch {
-    /* ignore */
+  } catch (error) {
+    if (error instanceof Error) throw error;
+    throw new Error(t("aiPage.exportFailed"));
   }
 }

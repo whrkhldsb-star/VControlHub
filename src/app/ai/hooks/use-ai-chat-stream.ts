@@ -77,6 +77,19 @@ export function useAiChatStream({
     };
   }, []);
 
+  // Abort in-flight SSE and clear ephemeral stream/approval UI when the
+  // user switches conversations (prevents cross-chat content flash).
+  useEffect(() => {
+    abortControllerRef.current?.abort();
+    abortControllerRef.current = null;
+    setStreaming(false);
+    setStreamContent("");
+    setStreamReasoning("");
+    setPendingApprovals([]);
+    setApprovalBusyById({});
+    approvalBusyRef.current.clear();
+  }, [activeConvId]);
+
   const stopGeneration = useCallback(() => {
     if (abortControllerRef.current) {
       abortControllerRef.current.abort();

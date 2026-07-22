@@ -50,7 +50,6 @@ export function AiClient({
   initialProviders,
   initialConversations,
 }: {
-  userId: string;
   initialProviders: Provider[];
   initialConversations: ConvItem[];
 }) {
@@ -124,6 +123,22 @@ export function AiClient({
     refreshConversations,
     addToast,
   });
+
+  // FE/c3: composer draft is per-workspace UI state — reset when switching
+  // conversations so text/attachments never leak into another chat.
+  const prevConvIdRef = useRef<string | null | undefined>(undefined);
+  useEffect(() => {
+    if (prevConvIdRef.current === undefined) {
+      prevConvIdRef.current = activeConvId;
+      return;
+    }
+    if (prevConvIdRef.current === activeConvId) return;
+    prevConvIdRef.current = activeConvId;
+    setInput("");
+    setImageUrls([]);
+    setImageUrlInput("");
+    setFileAttachments([]);
+  }, [activeConvId, setFileAttachments]);
 
   // Auto-scroll
   useEffect(() => {
@@ -214,13 +229,19 @@ export function AiClient({
     });
 
   /* ── Export conversation to markdown ───────────────────────── */
-  const handleExportConversation = () =>
-    activeConvId &&
+  const handleExportConversation = () => {
+    if (!activeConvId) return;
     void exportConversationToMarkdown({
       conversationId: activeConvId,
       providerName: activeProvider?.name ?? "",
       t,
+    }).catch((err) => {
+      addToast(
+        "error",
+        err instanceof Error ? err.message : t("aiPage.exportFailed"),
+      );
     });
+  };
 
   return (
     <div

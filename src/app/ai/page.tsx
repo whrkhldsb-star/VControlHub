@@ -17,7 +17,6 @@ export default async function AiPage() {
 
   return (
     <AiClient
-      userId={session.userId}
       // serializeProvider masks apiKey ciphertext before it reaches RSC → client HTML.
       initialProviders={providers.map((p) => ({
         ...serializeProvider(p),

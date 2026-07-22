@@ -29,13 +29,20 @@ export function AiConfirmDialog({
   onConfirm,
 }: AiConfirmDialogProps) {
   const { t } = useI18n();
-  const dialogRef = useDialogFocus<HTMLDivElement>({ open, onClose: onCancel });
+  const dialogRef = useDialogFocus<HTMLDivElement>({
+    open,
+    onClose: () => {
+      if (!busy) onCancel();
+    },
+  });
   if (!open) return null;
 
   return (
     <div
       className="fixed inset-0 z-[60] flex items-center justify-center bg-[var(--overlay)] px-4 backdrop-blur-sm"
-      onClick={onCancel}
+      onClick={() => {
+        if (!busy) onCancel();
+      }}
     >
       <div
         ref={dialogRef}

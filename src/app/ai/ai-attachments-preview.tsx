@@ -136,10 +136,19 @@ export function AiAttachmentsPreview({
               placeholder={t("aiPage.imageUrlPlaceholder")}
               className="flex-1 bg-[var(--input-bg)] border border-[var(--border)]/10 rounded-lg px-3 py-1.5 text-xs text-[var(--text-primary)] placeholder:text-[var(--text-muted)]"
               onKeyDown={(e) => {
-                if (e.key === "Enter" && imageUrlInput.trim()) {
-                  setImageUrls((prev) => [...prev, imageUrlInput.trim()]);
-                  setImageUrlInput("");
+                if (e.key !== "Enter") return;
+                const raw = imageUrlInput.trim();
+                if (!raw) return;
+                let ok = false;
+                try {
+                  const u = new URL(raw);
+                  ok = u.protocol === "http:" || u.protocol === "https:";
+                } catch {
+                  ok = false;
                 }
+                if (!ok) return;
+                setImageUrls((prev) => (prev.includes(raw) ? prev : [...prev, raw]));
+                setImageUrlInput("");
               }}
             />
           </div>

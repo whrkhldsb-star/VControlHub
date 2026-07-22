@@ -33,7 +33,7 @@ export function isTextFile(file: File): boolean {
     ".c", ".cpp", ".h", ".hpp", ".cs", ".php", ".sh", ".bash", ".zsh",
     ".sql", ".html", ".css", ".scss", ".less", ".toml", ".ini", ".cfg",
     ".env", ".gitignore", ".dockerfile", ".makefile", ".cmake",
-    ".rs", ".swift", ".kt", ".scala", ".r", ".m",
+    ".swift", ".kt", ".scala", ".r", ".m",
   ];
   return textExts.some((ext) => file.name.toLowerCase().endsWith(ext));
 }
