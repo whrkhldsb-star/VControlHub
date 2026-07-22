@@ -186,7 +186,7 @@ describe("collectAllHealth — TR-050 TCP probe integration", () => {
 		const result = await collectAllHealth();
 
 		expect(result.total).toBe(5);
-		expect(result.online).toBe(1);
+		expect(result.online).toBe(3); // healthy + warning + critical (SSH-reachable)
 		expect(result.critical).toBe(1);
 		expect(result.warning).toBe(1);
 		// offline counts both the unreachable and the disabled server.

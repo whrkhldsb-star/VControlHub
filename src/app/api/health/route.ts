@@ -49,6 +49,10 @@ export async function GET(request: Request) {
     if (!tokenAuth)
       return apiError({ code: "AUTH_REQUIRED", message: "Unauthorized", status: 401 });
     const tokenSession = await buildBearerSession(tokenAuth.userId);
+    // Token signature alone is not enough: deleted / missing users must not
+    // fall through as session=null (that skips teamWhere and becomes fleet-wide).
+    if (!tokenSession)
+      return apiError({ code: "AUTH_REQUIRED", message: "Unauthorized", status: 401 });
     return handleHealthRequest(request, tokenSession);
   }
 
@@ -74,10 +78,11 @@ async function handleHealthRequest(request: Request, session: SessionPayload | n
 
   if (historyFor) {
     try {
-      if (session) {
-        const access = await assertServerTeamAccess(session, historyFor);
-        if (!access.ok) return access.response;
+      if (!session) {
+        return apiError({ code: "AUTH_REQUIRED", message: "Unauthorized", status: 401 });
       }
+      const access = await assertServerTeamAccess(session, historyFor);
+      if (!access.ok) return access.response;
       const history = await getMetricHistory(historyFor, hours);
       const serialized = history.map((h) => ({
         cpu: h.cpuUsage,
@@ -101,9 +106,13 @@ async function handleHealthRequest(request: Request, session: SessionPayload | n
     }
   }
 
+  if (!session) {
+    return apiError({ code: "AUTH_REQUIRED", message: "Unauthorized", status: 401 });
+  }
+
   let overview;
   try {
-    overview = await collectAllHealth(session ?? undefined);
+    overview = await collectAllHealth(session);
   } catch (err) {
     const message = err instanceof Error ? err.message : "Unknown error";
     return NextResponse.json(

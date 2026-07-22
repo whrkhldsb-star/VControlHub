@@ -201,9 +201,13 @@ export async function collectAllHealth(
 		// Traffic table may be empty / unavailable — leave monthly fields unset.
 	}
 
+	// "online" = SSH-reachable (healthy + warning + critical). Disabled/offline
+	// stay out. Matches product "在线" filter on /vps-status (reachable fleet).
 	return {
 		total: servers.length,
-		online: results.filter((r) => r.status === "healthy").length,
+		online: results.filter(
+			(r) => r.enabled && (r.status === "healthy" || r.status === "warning" || r.status === "critical"),
+		).length,
 		warning: results.filter((r) => r.status === "warning").length,
 		critical: results.filter((r) => r.status === "critical").length,
 		offline: results.filter((r) => r.status === "offline" || !r.enabled).length,

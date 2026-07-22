@@ -113,6 +113,9 @@ export function useHealthData({
 				setSystemHealth(report);
 				setLoadError(null);
 				setLastRefresh(new Date().toLocaleTimeString(browserLocale));
+			} else if (!wantVps) {
+				// Invalid / unexpected payload must not leave the system page looking healthy with stale null.
+				setLoadError(t("healthPage.error.loadStatus", locale));
 			}
 		} catch (error) {
 			// On system-only page, surface the error; on combined/vps keep quiet.

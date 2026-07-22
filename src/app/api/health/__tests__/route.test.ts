@@ -98,6 +98,26 @@ describe("/api/health", () => {
     await expect(response.json()).resolves.toMatchObject({ error: "缺少权限" });
   });
 
+
+  it("rejects Bearer tokens whose user no longer exists (no unscoped fleet dump)", async () => {
+    verifyBearerTokenMock.mockResolvedValueOnce({
+      userId: "gone_user",
+      tokenId: "tok_gone",
+      scopes: ["health:read"],
+    });
+    userFindUniqueMock.mockResolvedValueOnce(null);
+
+    const response = await GET(
+      new Request("https://example.com/api/health", {
+        headers: { authorization: "Bearer whr_stale" },
+      }),
+    );
+
+    expect(response.status).toBe(401);
+    expect(collectAllHealthMock).not.toHaveBeenCalled();
+    expect(getMetricHistoryMock).not.toHaveBeenCalled();
+  });
+
   it("allows health read API tokens to fetch node health for external monitors", async () => {
     verifyBearerTokenMock.mockResolvedValueOnce({
       userId: "user_1",
@@ -118,6 +138,9 @@ describe("/api/health", () => {
     );
     expect(requireApiPermissionMock).not.toHaveBeenCalled();
     expect(collectAllHealthMock).toHaveBeenCalledOnce();
+    expect(collectAllHealthMock).toHaveBeenCalledWith(
+      expect.objectContaining({ userId: "user_1" }),
+    );
   });
 
   it("rejects invalid or insufficient Bearer tokens without falling back to session", async () => {

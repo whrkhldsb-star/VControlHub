@@ -311,7 +311,10 @@ export function VpsStatusClient({ serverCount }: Props) {
 	const filteredServers = useMemo(() => {
 		const list = overview?.servers ?? [];
 		if (filter === "online") {
-			return list.filter((s) => s.status === "healthy" || s.status === "warning");
+			// Reachable via SSH (includes resource-critical). Offline/disabled excluded.
+			return list.filter(
+				(s) => s.status === "healthy" || s.status === "warning" || s.status === "critical",
+			);
 		}
 		if (filter === "issue") {
 			return list.filter(
