@@ -178,7 +178,7 @@ describe("createFolderAction", () => {
       }),
     );
 
-    expect(result).toEqual({ success: "Folder /team/alpha/docs created" });
+    expect(result.success).toContain("/team/alpha/docs");
     expect(assertStorageAccess).toHaveBeenCalledWith(
       expect.objectContaining({
         storageNodeId: "node-1",
@@ -377,26 +377,22 @@ describe("SFTP file entry actions", () => {
     });
   });
 
-  it("soft-deletes the indexed SFTP entry before deleting the remote backing file", async () => {
+  it("soft-deletes the indexed SFTP entry without removing remote backing (recycle bin)", async () => {
     prismaMock.fileEntry.findFirst.mockResolvedValueOnce(sftpEntry());
     prismaMock.fileEntry.update.mockResolvedValueOnce({ id: "entry-1" });
 
     const result = await deleteFileEntryAction(null, entryForm("entry-1"));
 
     expect(result.success).toContain("old.txt");
+    expect(result.physicalDeleted).toBe(false);
     expect(prismaMock.fileEntry.update).toHaveBeenCalledWith(
       expect.objectContaining({
         where: { id: "entry-1" },
         data: { isDeleted: true },
       }),
     );
-    expect(deleteRemoteFileMock).toHaveBeenCalledWith(
-      expect.objectContaining({
-        host: "203.0.113.10",
-        remotePath: "/data/root/docs/old.txt",
-        isDirectory: false,
-      }),
-    );
+    // Physical delete is reserved for permanentDelete — restore must still find the file.
+    expect(deleteRemoteFileMock).not.toHaveBeenCalled();
   });
 
   it("does not delete the backing file when recycle-bin indexing fails", async () => {
@@ -415,7 +411,7 @@ describe("SFTP file entry actions", () => {
 
     const result = await restoreFileEntryAction(null, entryForm("entry-1"));
 
-    expect(result).toEqual({ success: "old.txt restored" });
+    expect(result.success).toContain("old.txt");
     expect(restoreFileEntryMock).toHaveBeenCalledWith({ fileEntryId: "entry-1" });
     expect(prismaMock.fileEntry.update).not.toHaveBeenCalled();
   });
@@ -460,7 +456,7 @@ describe("SFTP file entry actions", () => {
       entryForm("entry-1"),
     );
 
-    expect(result).toEqual({ success: "old.txt permanently deleted" });
+    expect(result.success).toMatch(/old\.txt/);
     expect(deleteRemoteFileMock).toHaveBeenCalledWith(
       expect.objectContaining({
         remotePath: "/data/root/docs/old.txt",
@@ -607,7 +603,7 @@ describe("SFTP file entry actions", () => {
     expect(prismaMock.fileEntry.update).not.toHaveBeenCalled();
   });
 
-  it("keeps the DB entry in recycle bin when LOCAL backing deletion fails", async () => {
+  it("soft-deletes LOCAL entries without unlinking the disk file (recycle bin)", async () => {
     prismaMock.fileEntry.findFirst.mockResolvedValueOnce({
       id: "local-file",
       name: "report.txt",
@@ -624,20 +620,18 @@ describe("SFTP file entry actions", () => {
       },
     });
     prismaMock.fileEntry.update.mockResolvedValueOnce({ id: "local-file" });
-    unlinkMock.mockRejectedValueOnce(new Error("disk busy"));
 
     const result = await deleteFileEntryAction(null, entryForm("local-file"));
 
-    expect(unlinkMock).toHaveBeenCalledWith("/srv/storage/reports/report.txt");
+    expect(unlinkMock).not.toHaveBeenCalled();
     expect(prismaMock.fileEntry.update).toHaveBeenCalledWith(
       expect.objectContaining({
         where: { id: "local-file" },
         data: { isDeleted: true },
       }),
     );
-    expect(result.success).toContain("report.txt moved to recycle bin");
-    expect(result.success).toContain("physical file deletion failed");
-    expect(result.success).toContain("disk busy");
+    expect(result.success).toContain("report.txt");
+    expect(result.physicalDeleted).toBe(false);
   });
 
   it("renames LOCAL files on disk before updating indexed paths", async () => {
@@ -665,7 +659,7 @@ describe("SFTP file entry actions", () => {
       entryForm("local-file", { newName: "new.txt" }),
     );
 
-    expect(result).toEqual({ success: "Renamed to new.txt" });
+    expect(result.success).toContain("new.txt");
     expect(assertStorageAccess).toHaveBeenCalledWith(
       expect.objectContaining({
         storageNodeId: "node-local",

@@ -81,8 +81,8 @@ export async function deleteFileEntryAction(
       return { error: deleteAccess.reason ?? t("storagePage.action.fileEntryNotFound") } satisfies StorageDeleteActionState;
     }
 
-    // Index soft-delete first (transactional), then best-effort physical delete.
-    // This avoids "file gone but UI still shows entry" when FS succeeds and DB fails.
+    // Soft-delete is index-only. Physical bytes stay on LOCAL/SFTP so recycle-bin
+    // restore can still pass existence checks. Permanent delete removes backing.
     if (entry.entryType === "DIRECTORY") {
       const prefix = entry.relativePath + "/";
       await prisma.$transaction([
@@ -106,56 +106,23 @@ export async function deleteFileEntryAction(
       });
     }
 
-    let backingDeleteWarning: string | null = null;
-    try {
-      await deleteBackingObject({
-        storageNode: entry.storageNode,
-        relativePath: entry.relativePath,
-        isDirectory: entry.entryType === "DIRECTORY",
-        tolerateMissing: false,
-      });
-    } catch (error) {
-      backingDeleteWarning =
-        error instanceof Error ? error.message : t("storagePage.action.physicalFileDeleteFailed");
-      writeAuditLog({
-        actorType: "SYSTEM",
-        action: "storage.file_delete_backing_failed",
-        severity: "WARNING",
-        detail: {
-          entryId: entry.id,
-          entryName: entry.name,
-          relativePath: entry.relativePath,
-          reason: backingDeleteWarning,
-        },
-      }).catch((err) => {
-        logger.warn("audit write failed after backing delete failure", {
-          entryId: entry.id,
-          error: err instanceof Error ? err.message : String(err),
-        });
-      });
-    }
-
     await auditUserAction(session.userId, "storage.file_delete", {
       entryId: entry.id,
       entryName: entry.name,
       relativePath: entry.relativePath,
-      physicalDeleted: !backingDeleteWarning,
-      warning: backingDeleteWarning,
-    }, backingDeleteWarning ? "WARNING" : "INFO");
+      physicalDeleted: false,
+      recycleBin: true,
+    }, "INFO");
 
     revalidatePath("/");
     revalidatePath("/storage");
     revalidatePath("/files");
+    revalidatePath("/files/recycle-bin");
 
-    // Structured partial-success: index deleted, physical may still need reconcile.
     return {
-      success: backingDeleteWarning
-        ? t("storagePage.action.fileMovedToRecycleWithWarning")
-            .replace("{name}", entry.name)
-            .replace("{warning}", backingDeleteWarning)
-        : t("storagePage.action.fileMovedToRecycle").replace("{name}", entry.name),
-      physicalDeleted: !backingDeleteWarning,
-      needsReconcile: Boolean(backingDeleteWarning),
+      success: t("storagePage.action.fileMovedToRecycle").replace("{name}", entry.name),
+      physicalDeleted: false,
+      needsReconcile: false,
     } satisfies StorageDeleteActionState;
   } catch (error) {
     return {
@@ -230,6 +197,7 @@ export async function restoreFileEntryAction(
     revalidatePath("/");
     revalidatePath("/storage");
     revalidatePath("/files");
+    revalidatePath("/files/recycle-bin");
 
     return { success: t("storagePage.action.fileRestored").replace("{name}", entry.name) } satisfies StorageActionState;
   } catch (error) {
@@ -366,6 +334,7 @@ export async function permanentDeleteFileEntryAction(
     revalidatePath("/");
     revalidatePath("/storage");
     revalidatePath("/files");
+    revalidatePath("/files/recycle-bin");
 
     return { success: t("storagePage.action.filePermanentlyDeleted").replace("{name}", entry.name) } satisfies StorageActionState;
   } catch (error) {
