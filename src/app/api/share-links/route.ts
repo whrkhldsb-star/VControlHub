@@ -35,7 +35,7 @@ export async function GET(request: Request) {
     { permission: "share:read", errorMessage: "Operation failed" },
     async ({ session }) => {
       if (!session) return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
-      return NextResponse.json({ shares: await listShareLinks(session.userId, session) });
+      return NextResponse.json({ shares: await listShareLinks(undefined, session) });
     },
   );
 }

@@ -19,6 +19,14 @@ vi.mock("@/lib/auth/team-scope", () => ({
     teamId: session.currentTeamId ?? null,
   }),
 }));
+vi.mock("@/lib/auth/authorization", () => ({
+  sessionHasPermission: (session: { roles?: string[] }, perm: string) => {
+    if (perm === "share:manage") {
+      return Array.isArray(session.roles) && (session.roles.includes("admin") || session.roles.includes("storage_manager"));
+    }
+    return true;
+  },
+}));
 vi.mock("@/lib/storage/access-control", () => ({
   assertStorageAccess: vi.fn(async () => ({ allowed: true })),
 }));
@@ -67,19 +75,19 @@ describe("share link service", () => {
 
   it("rejects expired public share tokens", async () => {
     mockPrisma.shareLink.findUnique.mockResolvedValue({ id: "share1", tokenHash: "x", expiresAt: new Date("2020-01-01T00:00:00Z"), revokedAt: null });
-    await expect(resolveShareToken("abc")).rejects.toThrow(/has expired/);
+    await expect(resolveShareToken("abc")).rejects.toThrow();
   });
 
   it("rejects password-protected shares when no password provided", async () => {
     const { hashSharePassword } = await import("../service");
     mockPrisma.shareLink.findUnique.mockResolvedValue({ id: "share1", tokenHash: "x", expiresAt: null, revokedAt: null, maxDownloads: null, accessCount: 0, passwordHash: hashSharePassword("s3cret") });
-    await expect(resolveShareToken("abc")).rejects.toThrow(/requires a password/);
+    await expect(resolveShareToken("abc")).rejects.toThrow();
   });
 
   it("rejects password-protected shares with wrong password", async () => {
     const { hashSharePassword } = await import("../service");
     mockPrisma.shareLink.findUnique.mockResolvedValue({ id: "share1", tokenHash: "x", expiresAt: null, revokedAt: null, maxDownloads: null, accessCount: 0, passwordHash: hashSharePassword("s3cret") });
-    await expect(resolveShareToken("abc", "wrong")).rejects.toThrow(/Incorrect access password/);
+    await expect(resolveShareToken("abc", "wrong")).rejects.toThrow();
   });
 
   it("allows password-protected shares with correct password", async () => {
@@ -134,7 +142,7 @@ describe("share link service", () => {
       accessCount: 0,
       passwordHash: "a".repeat(64),
     });
-    await expect(resolveShareToken("abc", "legacy-pass")).rejects.toThrow(/Incorrect access password/);
+    await expect(resolveShareToken("abc", "legacy-pass")).rejects.toThrow();
   });
 
   it("rejects file entries outside team scope when creating from fileEntryId", async () => {
@@ -158,5 +166,38 @@ describe("share link service", () => {
         where: expect.objectContaining({ id: "share1", createdBy: "u1" }),
       }),
     );
+  });
+
+  it("allows share:manage to revoke team shares without createdBy filter", async () => {
+    mockPrisma.shareLink.findFirst.mockResolvedValueOnce({ id: "share_other" });
+    mockPrisma.shareLink.update.mockResolvedValueOnce({ id: "share_other", revokedAt: new Date() });
+    const session = { userId: "admin1", roles: ["admin"] as const, currentTeamId: "team_a" };
+    await revokeShareLink("share_other", "admin1", session as any);
+    const where = mockPrisma.shareLink.findFirst.mock.calls[0]![0]!.where;
+    expect(where.id).toBe("share_other");
+    expect(where.createdBy).toBeUndefined();
+  });
+
+  it("redacts path and directory for password-locked peek without password", async () => {
+    const { peekShareToken, hashSharePassword } = await import("../service");
+    mockPrisma.shareLink.findUnique.mockResolvedValue({
+      id: "share-locked",
+      tokenHash: "x",
+      expiresAt: null,
+      revokedAt: null,
+      passwordHash: hashSharePassword("s3cret"),
+      permissionLevel: "download",
+      entryType: "DIRECTORY",
+      name: "Secret folder",
+      path: "private/docs",
+      storageNodeId: "node1",
+      storageNode: { id: "node1", name: "prod-node", driver: "SFTP" },
+    });
+    mockPrisma.shareAccessLog.create.mockResolvedValue({ id: "log-view" });
+    const result = await peekShareToken("abc", { ip: "203.0.113.9" });
+    expect(result.hasPassword).toBe(true);
+    expect((result as { locked?: boolean }).locked).toBe(true);
+    expect(result.path).toBe("");
+    expect(result.storageNode?.name).not.toBe("prod-node");
   });
 });

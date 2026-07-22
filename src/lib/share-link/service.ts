@@ -14,6 +14,7 @@ import { assertStorageAccess } from "@/lib/storage/access-control";
 import { expandStorageBasePath } from "@/lib/storage/path-utils";
 import { getSftpSyncNode, syncSftpDirectoryEntries } from "@/lib/storage/sftp-sync";
 import type { SessionPayload } from "@/lib/auth/session";
+import { sessionHasPermission } from "@/lib/auth/authorization";
 
 const logger = createLogger("share-link");
 
@@ -186,6 +187,9 @@ export async function createShareLinkFromFileEntry(input: {
 }
 
 export async function listShareLinks(userId?: string, session?: { userId: string; roles: import("@/lib/auth/rbac").RoleKey[]; currentTeamId: string | null }) {
+  // When session is present without an explicit userId filter, return the team-
+  // scoped catalogue (matches /shares page). Pass userId only when intentionally
+  // restricting to a creator (e.g. personal history widgets).
   const teamFilter = session ? teamWhere(session) : {};
   const where: Record<string, unknown> = userId ? { createdBy: userId } : {};
   if (session) Object.assign(where, teamFilter);
@@ -205,13 +209,19 @@ export async function revokeShareLink(
   userId?: string,
   session?: Pick<SessionPayload, "userId" | "roles" | "currentTeamId"> | null,
 ) {
-  // When userId is provided, scope by ownership to prevent IDOR.
-  // When session is provided, also apply teamWhere so multi-team owners cannot
-  // revoke another team's share by id alone.
-  // Callers with elevated "revoke any" may pass userId undefined and session null.
+  // Team managers (share:manage) may revoke any share inside teamWhere.
+  // Non-managers must own the link (createdBy). Always keep teamWhere when
+  // session is present so cross-tenant IDOR stays closed.
   const where: Record<string, unknown> = { id };
-  if (userId) where.createdBy = userId;
-  if (session) Object.assign(where, teamWhere(session));
+  if (session) {
+    Object.assign(where, teamWhere(session));
+    const canManageTeam = sessionHasPermission(session, "share:manage");
+    if (!canManageTeam) {
+      where.createdBy = userId ?? session.userId;
+    }
+  } else if (userId) {
+    where.createdBy = userId;
+  }
   const share = await prisma.shareLink.findFirst({ where, select: { id: true } });
   if (!share) throw new NotFoundError(t("backend.shareLink.notFoundOrUnauthorized"));
   return prisma.shareLink.update({ where: { id: share.id }, data: { revokedAt: new Date() } });
@@ -260,14 +270,51 @@ export async function resolveShareToken(token: string, password?: string, contex
  * 只读解析分享 token，用于落地页展示，不递增访问计数。
  * 真正的下载（/api/share/[token]）才会通过 resolveShareToken 计数。
  */
-export async function peekShareToken(token: string, context?: { ip?: string; userAgent?: string }) {
+export async function peekShareToken(
+  token: string,
+  context?: { ip?: string; userAgent?: string; password?: string },
+) {
   const t = await serverT();
   const share = await prisma.shareLink.findUnique({ where: { tokenHash: hashShareToken(token) }, include: SHARE_STORAGE_NODE_INCLUDE });
   if (!share || share.revokedAt) throw new NotFoundError(t("backend.shareLink.notFoundOrRevoked"));
   if (share.expiresAt && share.expiresAt.getTime() < Date.now()) throw new ValidationError(t("backend.shareLink.expired"));
-  // Record view access log (best-effort, non-blocking on failure).
+
+  const hasPassword = Boolean(share.passwordHash);
+  if (hasPassword) {
+    if (!context?.password) {
+      // Password-gated links must not leak path / node / directory listings on the landing page.
+      await recordShareAccess({
+        shareLinkId: share.id,
+        action: "view",
+        ip: context?.ip,
+        userAgent: context?.userAgent,
+      });
+      return {
+        id: share.id,
+        entryType: share.entryType,
+        name: share.name,
+        path: "",
+        permissionLevel: share.permissionLevel,
+        expiresAt: share.expiresAt,
+        revokedAt: share.revokedAt,
+        hasPassword: true as const,
+        locked: true as const,
+        storageNode: { id: share.storageNodeId, name: "•", driver: share.storageNode?.driver ?? "LOCAL" },
+      };
+    }
+    if (!share.passwordHash || !verifySharePassword(context.password, share.passwordHash)) {
+      await recordShareAccess({
+        shareLinkId: share.id,
+        action: "password_attempt",
+        ip: context?.ip,
+        userAgent: context?.userAgent,
+      });
+      throw new ValidationError(t("backend.shareLink.passwordIncorrect"));
+    }
+  }
+
   await recordShareAccess({ shareLinkId: share.id, action: "view", ip: context?.ip, userAgent: context?.userAgent });
-  return { ...share, hasPassword: !!share.passwordHash };
+  return { ...share, hasPassword, locked: false as const };
 }
 
 async function syncLocalShareDirectory(share: { storageNodeId: string; storageNode?: { basePath: string }; path: string }) {

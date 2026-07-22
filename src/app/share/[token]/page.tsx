@@ -36,14 +36,17 @@ export default async function SharePage({
 
   try {
     share = await peekShareToken(token, { ip: ip ?? undefined, userAgent: userAgent ?? undefined });
-    if (share.entryType === "DIRECTORY") {
-      files = await listShareDirectoryFiles(share);
+    // Password-locked peeks return a redacted stub (locked=true). Never enumerate
+    // directory contents or expose node paths until the password gate succeeds via API.
+    if (share.entryType === "DIRECTORY" && !share.hasPassword && !(share as { locked?: boolean }).locked) {
+      files = await listShareDirectoryFiles(share as Parameters<typeof listShareDirectoryFiles>[0]);
     }
   } catch (err) {
     errorMessage = err instanceof Error ? err.message : t("sharePage.invalidToken", locale);
   }
 
   const isPreviewOnly = share?.permissionLevel === "preview";
+  const isLocked = Boolean(share && (share.hasPassword || (share as { locked?: boolean }).locked));
 
   return (
     <main className="relative flex min-h-screen items-center justify-center overflow-hidden px-4 py-16 text-[var(--text-primary)]">
@@ -84,7 +87,7 @@ export default async function SharePage({
           </div>
         ) : share ? (
           <div className="space-y-5">
-            {share.hasPassword && !isPreviewOnly && (
+            {isLocked && (
               <SharePasswordGate
                 token={token}
                 label={t("sharePage.passwordRequired", locale)}
@@ -95,13 +98,15 @@ export default async function SharePage({
 
             <div className="rounded-2xl border border-[var(--border)] bg-[var(--surface-elevated)] p-4">
               <p className="break-all text-base font-medium text-[var(--text-primary)]">
-                {share.name || share.path}
+                {isLocked ? (share.name || t("sharePage.fileTitle", locale)) : (share.name || share.path)}
               </p>
               <dl className="mt-3 grid gap-1.5 text-xs text-[var(--text-secondary)] sm:grid-cols-2">
+                {!isLocked ? (
                 <div className="flex justify-between gap-3">
                   <dt>{t("sharePage.storageNode", locale)}</dt>
                   <dd className="text-[var(--text-secondary)]">{share.storageNode?.name ?? "—"}</dd>
                 </div>
+                ) : null}
                 <div className="flex justify-between gap-3">
                   <dt>{t("sharePage.type", locale)}</dt>
                   <dd className="text-[var(--text-secondary)]">
@@ -114,10 +119,12 @@ export default async function SharePage({
                     {share.permissionLevel === "preview" ? t("sharePage.permissionPreview", locale) : t("sharePage.permissionDownload", locale)}
                   </dd>
                 </div>
+                {!isLocked ? (
                 <div className="flex justify-between gap-3 sm:col-span-2">
                   <dt>{t("sharePage.path", locale)}</dt>
                   <dd className="break-all text-right text-[var(--text-secondary)]">{share.path}</dd>
                 </div>
+                ) : null}
                 {share.expiresAt ? (
                   <div className="flex justify-between gap-3 sm:col-span-2">
                     <dt>{t("sharePage.expiresAt", locale)}</dt>
@@ -150,7 +157,7 @@ export default async function SharePage({
               )
             )}
 
-            {share.entryType === "DIRECTORY" && (
+            {share.entryType === "DIRECTORY" && !isLocked && (
               <div data-card className="p-4">
                 <div className="mb-3 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                   <div>
