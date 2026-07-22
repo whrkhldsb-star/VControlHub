@@ -29,6 +29,7 @@ import {
 	type NetworkDeviceStats,
 	type TrafficCounterSample,
 } from "@/lib/monitoring/traffic";
+import { t } from "@/lib/i18n/translations";
 
 export type RemoteServerInput = {
 	id: string;
@@ -112,7 +113,7 @@ export async function sampleRemoteServerTraffic(
 		sampledAt,
 	};
 	if (!server.sshKey?.privateKey && !server.password) {
-		return { ...base, error: "SSH credentials not configured, skipping traffic sampling" };
+		return { ...base, error: t("backend.traffic.remote.noCredentials") };
 	}
 	try {
 		const sshParams = await buildSshParamsFromServer(server, server.sshKey);
@@ -122,11 +123,11 @@ export async function sampleRemoteServerTraffic(
 			timeout: SAMPLE_TIMEOUT_MS,
 		});
 		if (exitCode !== 0) {
-			return { ...base, error: `Remote command exit code ${exitCode}: ${stderr.trim().slice(0, 120)}` };
+			return { ...base, error: t("backend.traffic.remote.commandFailed").replace("{code}", String(exitCode)).replace("{stderr}", stderr.trim().slice(0, 120)) };
 		}
 		const interfaces = parseNetworkDeviceStats(stdout);
 		if (interfaces.length === 0) {
-			return { ...base, error: "Failed to parse /proc/net/dev" };
+			return { ...base, error: t("backend.traffic.remote.parseFailed") };
 		}
 		const summarized = interfaces.map((item) => summarizeRemoteInterface(server.id, item));
 		const primarySrc = selectPrimaryInterface(interfaces);
@@ -136,7 +137,7 @@ export async function sampleRemoteServerTraffic(
 		return { ...base, primaryInterface: primary, interfaces: summarized, error: null };
 	} catch (error) {
 		const message = error instanceof Error ? error.message : "Unknown error";
-		return { ...base, error: `Connection failed: ${message.slice(0, 200)}` };
+		return { ...base, error: t("backend.traffic.remote.connectionFailed").replace("{message}", message.slice(0, 200)) };
 	}
 }
 
@@ -157,7 +158,7 @@ export async function sampleRemoteServersTraffic(
 			primaryInterface: null,
 			interfaces: [],
 			sampledAt: new Date().toISOString(),
-			error: result.reason instanceof Error ? result.reason.message : "Sampling failed",
+			error: result.reason instanceof Error ? result.reason.message : t("backend.traffic.remote.samplingFailed"),
 		};
 	});
 }

@@ -15,6 +15,7 @@ import {
   type NetworkDeviceStats,
 } from "@/lib/monitoring/traffic";
 import { sampleRemoteServersTraffic } from "@/lib/monitoring/remote-traffic";
+import { t } from "@/lib/i18n/translations";
 
 /**
  * TR-037 R5+: the route used to inline `req.nextUrl.searchParams.get(...)`
@@ -121,29 +122,36 @@ function describeStorageTrafficSource(node: {
 }) {
   if (node.driver === "LOCAL") {
     return {
-      trafficSource: "current server",
-      trafficSourceLabel: "current server NIC",
-      trafficSourceDetail: "Using current server NIC statistics, download and upload will count as local traffic.",
+      trafficSource: t("backend.traffic.source.local"),
+      trafficSourceLabel: t("backend.traffic.source.localLabel"),
+      trafficSourceDetail: t("backend.traffic.source.localDetail"),
       remoteServerId: null as string | null,
     };
   }
 
   if (node.server) {
     return {
-      trafficSource: "bound server",
-      trafficSourceLabel: `bound server: ${node.server.name}`,
-      trafficSourceDetail: `${node.server.name} (${node.server.host}:${node.server.port}) actual traffic is visible under "VPS node traffic".`,
+      trafficSource: t("backend.traffic.source.bound"),
+      trafficSourceLabel: t("backend.traffic.source.boundLabel").replace("{name}", node.server.name),
+      trafficSourceDetail: t("backend.traffic.source.boundDetail")
+        .replace("{name}", node.server.name)
+        .replace("{host}", node.server.host)
+        .replace("{port}", String(node.server.port)),
       remoteServerId: node.server.id,
     };
   }
 
   const host = node.host?.trim();
   return {
-    trafficSource: "Remote SFTP host",
-    trafficSourceLabel: host ? `Remote SFTP: ${host}` : "Remote SFTP: host Not configured",
+    trafficSource: t("backend.traffic.source.remoteSftp"),
+    trafficSourceLabel: host
+      ? t("backend.traffic.source.remoteSftpLabel").replace("{host}", host)
+      : t("backend.traffic.source.remoteSftpUnconfigured"),
     trafficSourceDetail: host
-      ? `${host}:${node.port ?? 22} traffic occurs on the target server; for sampling, please bind the SFTP node to a VPS node.`
-      : "The SFTP node does not have a host configured, cannot locate remote traffic source.",
+      ? t("backend.traffic.source.remoteSftpDetail")
+          .replace("{host}", host)
+          .replace("{port}", String(node.port ?? 22))
+      : t("backend.traffic.source.remoteSftpNoHost"),
     remoteServerId: null,
   };
 }
@@ -202,8 +210,18 @@ export async function GET(req: NextRequest) {
 
       const remoteServers = includeRemote ? await sampleRemoteServersTraffic(servers) : null;
 
-      if (primary) {
-        void persistLocalInterfaceSample(primary.iface, summarizeInterface(`local:${primary.iface}`, primary));
+      // Summarize each local interface once per request. Calling summarize twice
+      // for the primary iface advanced the previousSamples cache mid-request and
+      // made primary rates nearly always 0 after the first poll.
+      const summarizedInterfaces = interfaces.map((item) =>
+        summarizeInterface(`local:${item.iface}`, item),
+      );
+      const primarySummary =
+        primary
+          ? summarizedInterfaces.find((item) => item.iface === primary.iface) ?? null
+          : null;
+      if (primarySummary) {
+        void persistLocalInterfaceSample(primarySummary.iface, primarySummary);
       }
 
       return NextResponse.json({
@@ -211,9 +229,9 @@ export async function GET(req: NextRequest) {
         currentServer: {
           type: "LOCAL_SERVER",
           id: "local",
-          name: "current server",
-          primaryInterface: primary ? summarizeInterface(`local:${primary.iface}`, primary) : null,
-          interfaces: interfaces.map((item) => summarizeInterface(`local:${item.iface}`, item)),
+          name: t("backend.traffic.currentServerName"),
+          primaryInterface: primarySummary,
+          interfaces: summarizedInterfaces,
         },
         storageNodes: storageNodes.map((node) => {
           const source = describeStorageTrafficSource(node);
