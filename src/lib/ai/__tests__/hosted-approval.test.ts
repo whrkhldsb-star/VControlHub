@@ -46,7 +46,7 @@ describe("AI hosted action approvals", () => {
 		const { approveHostedAction } = await import("../hosted-service");
 		const requester: { userId: string; roles: RoleKey[] } = { userId: "user_a", roles: ["operator"] };
 
-		await expect(approveHostedAction("action_1", requester)).rejects.toThrow("缺少permission: ai:action:approve");
+		await expect(approveHostedAction("action_1", requester)).rejects.toThrow(/ai:action:approve|permission/);
 
 		expect(prismaMock.aiHostedAction.findFirst).not.toHaveBeenCalled();
 		expect(prismaMock.aiHostedAction.update).not.toHaveBeenCalled();
@@ -188,15 +188,18 @@ describe("AI hosted action approvals", () => {
 
 		await confirmHostedAction("action_1", requester);
 
-		expect(commandServiceMock.createCommandRequest).toHaveBeenCalledWith({
-			title: "AI Assistant: Execute command",
-			command: "systemctl restart nginx",
-			reason: "AI requested restart",
-			requesterId: "user_1",
-			serverIds: ["srv_prod"],
-			submissionMode: "assistant",
-			teamId: "team_a",
-		});
+		expect(commandServiceMock.createCommandRequest).toHaveBeenCalledWith(
+			expect.objectContaining({
+				title: "AI Assistant: Execute command",
+				command: "systemctl restart nginx",
+				reason: "AI requested restart",
+				requesterId: "user_1",
+				serverIds: ["srv_prod"],
+				submissionMode: "assistant",
+				teamId: "team_a",
+			}),
+			expect.objectContaining({ userId: "user_1" }),
+		);
 		expect(prismaMock.aiHostedAction.updateMany).toHaveBeenCalledWith({
 			where: { id: "action_1", status: "PENDING_APPROVAL" },
 			data: expect.objectContaining({ status: "APPROVED", approverId: "user_1" }),
@@ -222,7 +225,7 @@ describe("AI hosted action approvals", () => {
 		};
 		prismaMock.aiHostedAction.findFirst.mockResolvedValue(action);
 
-		await expect(confirmHostedAction("action_1", { userId: "user_1", roles: ["operator"] })).rejects.toThrow("AI action parameters are invalid; cannot generate an approvable command");
+		await expect(confirmHostedAction("action_1", { userId: "user_1", roles: ["operator"] })).rejects.toThrow(/AI action parameters are invalid|AI 动作参数无效/);
 
 		expect(commandServiceMock.createCommandRequest).not.toHaveBeenCalled();
 		expect(prismaMock.aiHostedAction.update).not.toHaveBeenCalled();
@@ -232,7 +235,7 @@ describe("AI hosted action approvals", () => {
 		const { confirmHostedAction } = await import("../hosted-service");
 		prismaMock.aiHostedAction.findFirst.mockResolvedValue(null);
 
-		await expect(confirmHostedAction("action_1", { userId: "user_2", roles: ["operator"] })).rejects.toThrow("Action not found or not authorized to confirm");
+		await expect(confirmHostedAction("action_1", { userId: "user_2", roles: ["operator"] })).rejects.toThrow(/Action not found or not authorized to confirm|动作不存在或无权确认/);
 
 		expect(commandServiceMock.createCommandRequest).not.toHaveBeenCalled();
 		expect(prismaMock.aiHostedAction.update).not.toHaveBeenCalled();

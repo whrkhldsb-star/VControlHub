@@ -760,7 +760,11 @@ export async function confirmHostedAction(actionId: string, requester: HostedAct
     throw new BusinessError(t("backend.ai.actionIsNotPendingConfirmationMayHaveJust"));
   }
 
-  const request = await createCommandRequest(commandRequestPayload);
+  const request = await createCommandRequest(commandRequestPayload, {
+    userId: requester.userId,
+    roles: requester.roles,
+    currentTeamId: requester.currentTeamId ?? null,
+  });
   const commandRequest = { commandRequestId: request.id, requiresApproval: request.requiresApproval };
 
   await prisma.aiHostedAction.update({
@@ -791,7 +795,7 @@ export async function rejectHostedAction(actionId: string, actor: HostedActionSe
       if (canApprove) throw new NotFoundError(t("backend.ai.actionNotFoundOrNotAuthorizedToApprove"));
       throw new NotFoundError(t("backend.ai.actionNotFoundOrNotAuthorizedToCancel"));
     }
-    throw new BusinessError(canApprove ? "Action is not pending approval" : "Action is not pending confirmation");
+    throw new BusinessError(canApprove ? t("backend.ai.actionIsNotPendingApproval") : t("backend.ai.actionIsNotPendingConfirmation"));
   }
   return prisma.aiHostedAction.findUniqueOrThrow({ where: { id: actionId } });
 }
