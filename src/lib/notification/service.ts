@@ -73,7 +73,7 @@ export async function createNotification(input: CreateNotificationInput) {
 	return record;
 }
 
-export async function listUserNotifications(userId: string, opts?: { unreadOnly?: boolean; limit?: number; session?: { userId: string; roles: import("@/lib/auth/rbac").RoleKey[]; currentTeamId: string | null } }) {
+export async function listUserNotifications(userId: string, opts?: { unreadOnly?: boolean; limit?: number; skip?: number; session?: { userId: string; roles: import("@/lib/auth/rbac").RoleKey[]; currentTeamId: string | null } }) {
 	return prisma.notification.findMany({
 		where: {
 			userId,
@@ -81,6 +81,7 @@ export async function listUserNotifications(userId: string, opts?: { unreadOnly?
 		},
 		orderBy: { createdAt: "desc" },
 		take: opts?.limit ?? 50,
+		...(opts?.skip && opts.skip > 0 ? { skip: opts.skip } : {}),
 	});
 }
 

@@ -33,6 +33,7 @@ const initialFailureSummary = [{ reason: "执行超时", total: 1, sources: ["co
 
 describe("OperationTaskListClient", () => {
   beforeEach(() => {
+		window.history.replaceState({}, "", "/operation-tasks");
     vi.clearAllMocks();
   });
 

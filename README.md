@@ -513,14 +513,14 @@ make logs SERVICE_PREFIX=vcontrolhub
 
 | # | 问题 | 文件 | 状态 |
 |---|------|------|------|
-| FE-6 | 筛选/排序状态不写入 URL，导航后全部丢失（downloads/docker/audit/operation-tasks/qa-reports） | 多文件 | 待修复 |
+| FE-6 | 筛选/排序状态不写入 URL，导航后全部丢失（downloads/docker/audit/operation-tasks/qa-reports） | 多文件 + `use-url-query-state` | **已修**（含 tickets 筛选） |
 | FE-7 | VPS 状态页缺少 `error.tsx`，其他 54 个页面都有 | `vps-status/` | **已修** |
 | FE-8 | Playbook 三个 `window.setTimeout` 无 ref 追踪、无 unmount cleanup，离开页面后仍触发 setState | `playbooks/playbook-list-client.tsx` | **已修**（与 FE-1 同批） |
 | FE-9 | 服务器实时诊断 fetch 无超时/无 abort，VPS 不可达时无限挂起 | `servers/server-overview-card.tsx` | **已修** 20s abort + 超时文案 |
 | FE-10 | 部署导出 ZIP 下载用裸 `fetch()` 而非 `csrfFetch()` | `deployments/deployment-export-panel.tsx` | **已修** csrfFetch raw |
-| FE-11 | 用户列表全量加载 `take:500`，无前端分页 | `api/users/route.ts:38` | 待修复 |
-| FE-12 | 工单列表 `take:200` 但前端无分页控件 | `lib/ticket/service.ts:190` | 待修复 |
-| FE-13 | 通知列表 `limit:100` 一次加载，无分页/加载更多 | `notifications/page.tsx:14` | 待修复 |
+| FE-11 | 用户列表全量加载 `take:500`，无前端分页 | `api/users` + `users-client` | **已修** page/pageSize + UI |
+| FE-12 | 工单列表 `take:200` 但前端无分页控件 | `ticket-workspace` | **已修** 前端分页（每页 30）+ URL page |
+| FE-13 | 通知列表 `limit:100` 一次加载，无分页/加载更多 | notifications API/client | **已修** limit/offset + 加载更多 |
 
 ### P2 - Low
 

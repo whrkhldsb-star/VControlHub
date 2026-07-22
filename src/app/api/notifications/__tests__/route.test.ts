@@ -55,6 +55,7 @@ describe("/api/notifications", () => {
     expect(requireApiSessionMock).toHaveBeenCalled();
     expect(listUserNotificationsMock).toHaveBeenCalledWith("u_1", {
       limit: 50,
+      skip: 0,
     });
     expect(getUnreadCountMock).toHaveBeenCalledWith("u_1");
     await expect(response.json()).resolves.toMatchObject({ unreadCount: 1 });

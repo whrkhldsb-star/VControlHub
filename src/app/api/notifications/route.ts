@@ -41,11 +41,20 @@ export async function GET(request: Request) {
     async ({ session }) => {
       if (!session)
         throw new AuthError("Not authenticated");
+      const url = new URL(request.url);
+      const limit = Math.min(100, Math.max(1, Number.parseInt(url.searchParams.get("limit") ?? "50", 10) || 50));
+      const offset = Math.max(0, Number.parseInt(url.searchParams.get("offset") ?? "0", 10) || 0);
       const [notifications, unreadCount] = await Promise.all([
-        listUserNotifications(session.userId, { limit: 50 }),
+        listUserNotifications(session.userId, { limit, skip: offset }),
         getUnreadCount(session.userId),
       ]);
-      return NextResponse.json({ notifications, unreadCount });
+      return NextResponse.json({
+        notifications,
+        unreadCount,
+        limit,
+        offset,
+        hasMore: notifications.length === limit,
+      });
     },
   );
 }

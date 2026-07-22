@@ -121,6 +121,8 @@ export function NotificationListClient({ initialNotifications, initialUnreadCoun
 	const [notifications, setNotifications] = useState(initialNotifications);
 	const [unreadCount, setUnreadCount] = useState(initialUnreadCount);
 	const [error, setError] = useState<string | null>(null);
+	const [hasMore, setHasMore] = useState(initialNotifications.length >= 50);
+	const [loadingMore, setLoadingMore] = useState(false);
 
 	const messageFromError = (err: unknown, fallback: string) => (err instanceof Error ? err.message : fallback);
 
@@ -160,6 +162,31 @@ export function NotificationListClient({ initialNotifications, initialUnreadCoun
 		}
 	}, [t]);
 
+	const loadMore = useCallback(async () => {
+		if (loadingMore || !hasMore) return;
+		setLoadingMore(true);
+		setError(null);
+		try {
+			const data = await csrfFetch<{
+				notifications?: NotificationItem[];
+				hasMore?: boolean;
+			}>(`/api/notifications?limit=50&offset=${notifications.length}`);
+			const batch = (data.notifications ?? []).map((n) => ({
+				...n,
+				createdAt: typeof n.createdAt === "string" ? n.createdAt : String(n.createdAt),
+			}));
+			setNotifications((prev) => {
+				const seen = new Set(prev.map((x) => x.id));
+				return [...prev, ...batch.filter((x) => !seen.has(x.id))];
+			});
+			setHasMore(Boolean(data.hasMore));
+		} catch (err) {
+			setError(messageFromError(err, t("notificationsPage.error.loadMoreFailed")));
+		} finally {
+			setLoadingMore(false);
+		}
+	}, [hasMore, loadingMore, notifications.length, t]);
+
 	if (notifications.length === 0) {
 		return (
 			<EmptyState icon={<Bell size={36} className="text-[var(--text-muted)]" aria-hidden="true" />} variant="boxed">
@@ -192,6 +219,20 @@ export function NotificationListClient({ initialNotifications, initialUnreadCoun
 					onDelete={deleteOne}
 				/>
 			))}
+			{hasMore ? (
+				<div className="flex justify-center pt-2">
+					<button
+						type="button"
+						onClick={() => void loadMore()}
+						disabled={loadingMore}
+						data-action-button
+						data-variant="secondary"
+						className="!px-3 !py-1.5 !text-xs disabled:opacity-50"
+					>
+						{loadingMore ? t("notificationsPage.loadingMore") : t("notificationsPage.loadMore")}
+					</button>
+				</div>
+			) : null}
 		</div>
 	);
 }

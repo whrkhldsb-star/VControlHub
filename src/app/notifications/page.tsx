@@ -11,7 +11,7 @@ export default async function NotificationsPage() {
 	const session = await requireSession();
 	const locale = await getServerLocale();
 	const [notifications, unreadCount] = await Promise.all([
-		listUserNotifications(session.userId, { limit: 100 }),
+		listUserNotifications(session.userId, { limit: 50 }),
 		getUnreadCount(session.userId),
 	]);
 
