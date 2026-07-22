@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 import { csrfFetch } from "@/lib/auth/csrf-client";
 import { useI18n } from "@/lib/i18n/use-locale";
@@ -75,11 +75,15 @@ export function VpsBackupSection({
 		retentionDays: "7",
 	});
 
+	const fetchAbortRef = useRef<AbortController | null>(null);
 	const fetchAll = useCallback(async () => {
+		fetchAbortRef.current?.abort();
+		const controller = new AbortController();
+		fetchAbortRef.current = controller;
 		try {
 			const [schedRes, recRes] = await Promise.all([
-				fetch(`/api/servers/${serverId}/vps-backup/schedules`),
-				fetch(`/api/servers/${serverId}/vps-backup/records`),
+				fetch(`/api/servers/${serverId}/vps-backup/schedules`, { signal: controller.signal }),
+				fetch(`/api/servers/${serverId}/vps-backup/records`, { signal: controller.signal }),
 			]);
 			if (!schedRes.ok || !recRes.ok) throw new Error(t("vpsBackup.error.fetch"));
 			const [schedData, recData] = await Promise.all([
@@ -89,9 +93,10 @@ export function VpsBackupSection({
 			setSchedules(schedData.schedules ?? []);
 			setRecords(recData.records ?? []);
 		} catch (err) {
+			if (controller.signal.aborted) return;
 			setError(err instanceof Error ? err.message : t("vpsBackup.error.unknown"));
 		} finally {
-			setLoading(false);
+			if (!controller.signal.aborted) setLoading(false);
 		}
 		}, [serverId, t]);
 
@@ -99,6 +104,9 @@ export function VpsBackupSection({
 		// Initial data fetch — setState happens inside async callback, not synchronously
 		// eslint-disable-next-line react-hooks/set-state-in-effect
 		void fetchAll();
+		return () => {
+			fetchAbortRef.current?.abort();
+		};
 	}, [fetchAll]);
 
 	const handleTrigger = async (backupType: string) => {

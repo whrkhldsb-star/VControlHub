@@ -127,9 +127,12 @@ export function ServerOverviewCard({
 
   const runRealtimeDiagnostics = useCallback(async () => {
     setDiagnosticRun({ status: "loading" });
+    const controller = new AbortController();
+    const timeoutId = window.setTimeout(() => controller.abort(), 20_000);
     try {
       const response = await fetch(`/api/servers/monitor?serverId=${encodeURIComponent(server.id)}`, {
         cache: "no-store",
+        signal: controller.signal,
       });
       const payload = await response.json().catch(() => null);
       const checkedAt = new Date().toLocaleString(toDateLocale(locale), { hour12: false });
@@ -158,9 +161,16 @@ export function ServerOverviewCard({
     } catch (error) {
       setDiagnosticRun({
         status: "error",
-        message: error instanceof Error ? error.message : t("serverOverviewCard.realtimeProbeFailed"),
+        message:
+          error instanceof Error && error.name === "AbortError"
+            ? t("serverOverviewCard.realtimeProbeTimeout")
+            : error instanceof Error
+              ? error.message
+              : t("serverOverviewCard.realtimeProbeFailed"),
         checkedAt: new Date().toLocaleString(toDateLocale(locale), { hour12: false }),
       });
+    } finally {
+      window.clearTimeout(timeoutId);
     }
   }, [server.id, locale, t]);
 

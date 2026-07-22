@@ -170,7 +170,7 @@ export default async function MediaPlayerPage({
             <div className="flex min-h-[55vh] items-center justify-center rounded-3xl border border-[var(--border)] bg-[var(--surface)]/70 p-4">
               {isImage ? (
                 // eslint-disable-next-line @next/next/no-img-element
-                <img
+                <img loading="lazy"
                   src={mediaHref}
                   alt={item.name}
                   className="max-h-[78vh] max-w-full rounded-2xl object-contain"

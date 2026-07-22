@@ -83,8 +83,9 @@ export function DeploymentExportPanel() {
     setZipPending(true);
     setZipError(null);
     try {
-      const response = await fetch(`/api/deploy-export/${encodeURIComponent(result.id)}/zip`, {
-        method:"GET",
+      const response = await csrfFetch<Response>(`/api/deploy-export/${encodeURIComponent(result.id)}/zip`, {
+        method: "GET",
+        raw: true,
       });
       if (!response.ok) {
         const text = await response.text().catch(() =>"");

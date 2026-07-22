@@ -184,6 +184,7 @@ export const en: Record<string, string> = {
 	"serverOverviewCard.resourceSummary": "CPU {cpu}% · Memory {memory}%{disk}",
 	"serverOverviewCard.enabledPendingProbe": "Enabled · awaiting probe",
 	"serverOverviewCard.enabledPendingProbeDescription": "Node accepts operations, but list status does not reflect realtime SSH/SFTP/direct connectivity. Expand details to run a realtime probe.",
+		"serverOverviewCard.realtimeProbeTimeout": "Realtime probe timed out; try again later",
 	"serverOverviewCard.realtimeProbeFailed": "Realtime probe failed",
 	"serverOverviewCard.connection": "Connection",
 	"serverOverviewCard.key": "Key",

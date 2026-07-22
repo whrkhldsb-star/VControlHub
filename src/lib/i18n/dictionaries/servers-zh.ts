@@ -195,6 +195,7 @@ export const zh: Record<string, string> = {
 	"serverOverviewCard.resourceSummary": "CPU {cpu}% · 内存 {memory}%{disk}",
 	"serverOverviewCard.enabledPendingProbe": "启用 · 待探测",
 	"serverOverviewCard.enabledPendingProbeDescription": "该节点已允许接收操作，但列表状态未代表 SSH/SFTP/直连实时在线；展开详情可运行实时探测。",
+		"serverOverviewCard.realtimeProbeTimeout": "实时探测超时，请稍后重试",
 	"serverOverviewCard.realtimeProbeFailed": "实时探测失败",
 	"serverOverviewCard.connection": "连接",
 	"serverOverviewCard.key": "密钥",

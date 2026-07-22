@@ -99,6 +99,18 @@ export function SettingsClient({
   // SPA lifetime after the first paint; without a local baseline update, a
   // successful save still looks dirty and re-triggers high-risk confirm.
   const [baselineSettings, setBaselineSettings] = useState(initialSettings);
+  // FE-4: warn when leaving with unsaved section edits (browser tab close / hard nav).
+  useEffect(() => {
+    const onBeforeUnload = (event: BeforeUnloadEvent) => {
+      const pending = getPendingChanges(SETTINGS_SCHEMA, settings, baselineSettings);
+      if (pending.length === 0) return;
+      event.preventDefault();
+      event.returnValue = "";
+    };
+    window.addEventListener("beforeunload", onBeforeUnload);
+    return () => window.removeEventListener("beforeunload", onBeforeUnload);
+  }, [settings, baselineSettings]);
+
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [savedMessage, setSavedMessage] = useState<string | null>(null);

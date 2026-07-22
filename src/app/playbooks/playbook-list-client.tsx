@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { csrfFetch } from "@/lib/auth/csrf-client";
 import { useI18n } from "@/lib/i18n/use-locale";
 import { useToast } from "@/components/toast-provider";
@@ -46,6 +46,44 @@ export function PlaybookListClient({
     setPlaybooks(data.playbooks ?? []);
   }, []);
 
+
+  const runPollTimersRef = useRef<Map<string, number[]>>(new Map());
+
+  const clearRunPolling = useCallback((playbookId?: string) => {
+    const map = runPollTimersRef.current;
+    if (playbookId) {
+      for (const timer of map.get(playbookId) ?? []) window.clearTimeout(timer);
+      map.delete(playbookId);
+      return;
+    }
+    for (const timers of map.values()) {
+      for (const timer of timers) window.clearTimeout(timer);
+    }
+    map.clear();
+  }, []);
+
+  useEffect(() => () => clearRunPolling(), [clearRunPolling]);
+
+  const startRunPolling = useCallback(
+    (playbookId: string) => {
+      clearRunPolling(playbookId);
+      // Poll up to ~5 minutes for long playbooks (was fixed 15s → stuck queued/running).
+      const delaysMs = [2_000, 5_000, 10_000, 20_000, 30_000, 45_000, 60_000, 90_000, 120_000, 180_000, 240_000, 300_000];
+      const timers: number[] = [];
+      for (const delay of delaysMs) {
+        timers.push(
+          window.setTimeout(() => {
+            void refreshRuns(playbookId).then(() => {
+              /* terminal stop is best-effort via later ticks; timers cleared on unmount */
+            }).catch(() => undefined);
+          }, delay),
+        );
+      }
+      runPollTimersRef.current.set(playbookId, timers);
+    },
+    [clearRunPolling, refreshRuns],
+  );
+
   const handleTrigger = useCallback(
     async (id: string, kind: "run" | "dry-run") => {
       setActionError(null);
@@ -58,10 +96,8 @@ export function PlaybookListClient({
           [id]: [run, ...(prev[id] ?? [])].slice(0, 5),
         }));
         if (run.status === "queued" || run.status === "running") {
-          // Durable worker finishes asynchronously; poll a few times for step progress.
-          window.setTimeout(() => { void refreshRuns(id); }, 2_000);
-          window.setTimeout(() => { void refreshRuns(id); }, 6_000);
-          window.setTimeout(() => { void refreshRuns(id); }, 15_000);
+          // Durable worker finishes asynchronously; poll until terminal or max window.
+          startRunPolling(id);
         }
         if (kind === "dry-run") {
           if (run.status === "queued" || run.status === "running") {
@@ -98,7 +134,7 @@ export function PlaybookListClient({
         setBusyAction(null);
       }
     },
-    [addToast, refreshRuns, t],
+    [addToast, refreshRuns, startRunPolling, t],
   );
 
   const handleToggle = useCallback(

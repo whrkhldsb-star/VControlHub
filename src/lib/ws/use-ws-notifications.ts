@@ -59,6 +59,7 @@ export function useWsNotifications(): UseWsNotificationsReturn {
 	const wsRef = useRef<WebSocket | null>(null);
 	const reconnectTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
 	const heartbeatRef = useRef<ReturnType<typeof setInterval>>(undefined);
+	const reconnectAttemptRef = useRef(0);
 	/** Stable ref to the latest `connect` function — avoids stale closure in onclose */
 	const connectRef = useRef<() => void>(() => {});
 	const [connected, setConnected] = useState(false);
@@ -95,6 +96,7 @@ export function useWsNotifications(): UseWsNotificationsReturn {
 			wsRef.current = ws;
 
 			ws.onopen = () => {
+				reconnectAttemptRef.current = 0;
 				setConnected(true);
 				// Start heartbeat — store in ref for proper cleanup
 				heartbeatRef.current = setInterval(() => {
@@ -131,8 +133,11 @@ export function useWsNotifications(): UseWsNotificationsReturn {
 					clearInterval(heartbeatRef.current);
 					heartbeatRef.current = undefined;
 				}
-				// Auto-reconnect after 3 seconds via stable ref (avoids stale closure)
-				reconnectTimer.current = setTimeout(() => connectRef.current(), 3000);
+				// Exponential backoff: 1s → 2s → … cap 60s; reset on successful open
+				const attempt = reconnectAttemptRef.current;
+				reconnectAttemptRef.current = Math.min(attempt + 1, 20);
+				const delay = Math.min(60_000, 1_000 * 2 ** Math.min(attempt, 6));
+				reconnectTimer.current = setTimeout(() => connectRef.current(), delay);
 			};
 
 			ws.onerror = () => {
@@ -140,7 +145,12 @@ export function useWsNotifications(): UseWsNotificationsReturn {
 			};
 		} catch {
 			// Fallback: will retry via stable ref
-			reconnectTimer.current = setTimeout(() => connectRef.current(), 5000);
+			{
+				const attempt = reconnectAttemptRef.current;
+				reconnectAttemptRef.current = Math.min(attempt + 1, 20);
+				const delay = Math.min(60_000, 1_000 * 2 ** Math.min(attempt, 6));
+				reconnectTimer.current = setTimeout(() => connectRef.current(), delay);
+			}
 		}
 	}, []);
 

@@ -50,18 +50,25 @@ export default function DockerPage({ initialServers }: { initialServers: { id: s
 	const removalDialogRef = useDialogFocus<HTMLDivElement>({ open: pendingRemoval !== null, onClose: closeRemovalDialog, initialFocusRef: removeCancelButtonRef });
 	const logsDialogRef = useDialogFocus<HTMLDivElement>({ open: logsId !== null, onClose: closeLogsDialog, initialFocusRef: logsCloseButtonRef });
 	const fetchingStatsRef = useRef<Set<string>>(new Set());
+	const fetchGenRef = useRef(0);
+	const fetchAbortRef = useRef<AbortController | null>(null);
 
-	const fetchContainers = useCallback(async () => {
+		const fetchContainers = useCallback(async () => {
+		fetchAbortRef.current?.abort();
+		const controller = new AbortController();
+		fetchAbortRef.current = controller;
+		const gen = ++fetchGenRef.current;
 		try {
 			const url = selectedServerId
 				? `/api/docker/containers?serverId=${encodeURIComponent(selectedServerId)}`
-				:"/api/docker/containers";
-			const data = await csrfFetch(url);
+				: "/api/docker/containers";
+			const data = await csrfFetch(url, { signal: controller.signal } as RequestInit);
+			if (gen !== fetchGenRef.current) return;
 			if (data.error) {
 				setError(data.error);
 				return;
 			}
-			if (data.dockerScope && typeof data.dockerScope ==="object") {
+			if (data.dockerScope && typeof data.dockerScope === "object") {
 				setDockerScope(data.dockerScope as DockerScope);
 			}
 			if (data.data && Array.isArray(data.data)) {
@@ -90,14 +97,19 @@ export default function DockerPage({ initialServers }: { initialServers: { id: s
 			} else if (Array.isArray(data)) {
 				setContainers(data);
 			}
-		} catch {
+		} catch (err) {
+			if (controller.signal.aborted || gen !== fetchGenRef.current) return;
 			setError(t("dockerPage.error.fetch"));
 		} finally {
-			setLoading(false);
+			if (gen === fetchGenRef.current) setLoading(false);
 		}
 	}, [t, selectedServerId]);
 
-	const handleAction = async (container: Container, action:"start" |"stop" |"restart" |"remove") => {
+	useEffect(() => () => {
+		fetchAbortRef.current?.abort();
+	}, []);
+
+const handleAction = async (container: Container, action:"start" |"stop" |"restart" |"remove") => {
 		const id = container.Id;
 		setActionLoading(id);
 		setError("");

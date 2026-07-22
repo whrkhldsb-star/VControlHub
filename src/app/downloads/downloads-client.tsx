@@ -5,6 +5,7 @@ import { csrfFetch } from "@/lib/auth/csrf-client";
 import { EmptyState, ListPanel, SurfacePanel, Toolbar } from "@/components/page-shell";
 import { Download } from "@/components/icons";
 import { useI18n } from "@/lib/i18n/use-locale";
+import { useWsNotifications } from "@/lib/ws/use-ws-notifications";
 import { useDialogFocus } from "@/lib/a11y/use-dialog-focus";
 import { useVisibilityInterval } from "@/lib/hooks/use-visibility-interval";
 import { CreateDownloadFormLazy } from "./create-download-form-lazy";
@@ -13,6 +14,7 @@ import { getCategories, getErrorMessage, getStatusLabel, formatSpeed, type Downl
 export type { ServerOption } from "./downloads-shared";
 export function DownloadsClient({ servers, canManage, canManageNode }: { servers: ServerOption[]; canManage: boolean; canManageNode: boolean }) {
 	const { t } = useI18n();
+	const { lastDownloadProgress } = useWsNotifications();
 
 	const [tasks, setTasks] = useState<DownloadTask[]>([]);
 	const [globalStat, setGlobalStat] = useState<GlobalStat>(null);
@@ -65,6 +67,30 @@ export function DownloadsClient({ servers, canManage, canManageNode }: { servers
 				void fetchTasksRef.current();
 			}
 	}, 5000);
+
+	useEffect(() => {
+		if (!lastDownloadProgress) return;
+		const progressText =
+			typeof lastDownloadProgress.progress === "number"
+				? `${Math.round(lastDownloadProgress.progress)}%`
+				: String(lastDownloadProgress.progress ?? "");
+		setTasks((prev) =>
+			prev.map((task) =>
+				task.id === lastDownloadProgress.taskId
+					? {
+							...task,
+							progress: progressText || task.progress,
+							status: lastDownloadProgress.status || task.status,
+						}
+					: task,
+			),
+		);
+		// Terminal status: refresh once for full fields (speed/size/error)
+		if (["COMPLETED", "FAILED", "CANCELLED"].includes(lastDownloadProgress.status)) {
+			void fetchTasksRef.current?.();
+		}
+	}, [lastDownloadProgress]);
+
 
 	const invalidBatchUrls = form.batchMode
 		? form.batchText.split("\n").map((l) => l.trim()).filter(Boolean)
