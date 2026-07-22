@@ -494,4 +494,42 @@ make logs SERVICE_PREFIX=vcontrolhub
 | — | 全量 ~146 处 API 英文 | 部分收口；其余按模块继续 |
 
 
+## 七次深扫：前端功能逻辑设计审查（2026-07-22）
+
+> 范围：前端状态管理、信息架构、交互设计、前后端数据同步与性能。不含安全审计和视觉美化。
+> 方法：手动读码验证 55 个页面 + 316 个客户端组件。
+
+### P0 - High
+
+| # | 问题 | 文件 | 状态 |
+|---|------|------|------|
+| FE-1 | Playbook 运行进度最多只轮询 15 秒（三个固定 setTimeout），长运行 Playbook 状态永久停在 `queued/running` | `playbooks/playbook-list-client.tsx:62-64` | 待修复 |
+| FE-2 | Docker 切换服务器时旧 fetch 不取消，慢响应覆盖新数据（race condition） | `docker/docker-page-client.tsx:56-98` | 待修复 |
+| FE-3 | WebSocket 重连无指数退避、无最大重试次数，服务器不可用时持续每 3s 创建失败连接 | `lib/ws/use-ws-notifications.ts:134-135` | 待修复 |
+| FE-4 | 设置页有脏数据检测但无导航拦截，改完设置不保存直接切页面改动静默丢失 | `settings/settings-client.tsx` | 待修复 |
+| FE-5 | 下载页有 WS `download_progress` 推送定义但完全未使用，靠 5s 轮询 | `lib/ws/use-ws-notifications.ts:21` + `downloads/downloads-client.tsx` | 待修复 |
+
+### P1 - Medium
+
+| # | 问题 | 文件 | 状态 |
+|---|------|------|------|
+| FE-6 | 筛选/排序状态不写入 URL，导航后全部丢失（downloads/docker/audit/operation-tasks/qa-reports） | 多文件 | 待修复 |
+| FE-7 | VPS 状态页缺少 `error.tsx`，其他 54 个页面都有 | `vps-status/` | 待修复 |
+| FE-8 | Playbook 三个 `window.setTimeout` 无 ref 追踪、无 unmount cleanup，离开页面后仍触发 setState | `playbooks/playbook-list-client.tsx:62-64` | 待修复 |
+| FE-9 | 服务器实时诊断 fetch 无超时/无 abort，VPS 不可达时无限挂起 | `servers/server-overview-card.tsx:131` | 待修复 |
+| FE-10 | 部署导出 ZIP 下载用裸 `fetch()` 而非 `csrfFetch()` | `deployments/deployment-export-panel.tsx:86` | 待修复 |
+| FE-11 | 用户列表全量加载 `take:500`，无前端分页 | `api/users/route.ts:38` | 待修复 |
+| FE-12 | 工单列表 `take:200` 但前端无分页控件 | `lib/ticket/service.ts:190` | 待修复 |
+| FE-13 | 通知列表 `limit:100` 一次加载，无分页/加载更多 | `notifications/page.tsx:14` | 待修复 |
+
+### P2 - Low
+
+| # | 问题 | 文件 | 状态 |
+|---|------|------|------|
+| FE-14 | `media/[id]` 页 `<img>` 无 `loading="lazy"` | `media/[id]/page.tsx:173` | 待修复 |
+| FE-15 | VPS 备份面板双 fetch 无 abort（已用 Promise.all 并行，但组件卸载不取消） | `servers/vps-backup-section.tsx:81-82` | 待修复 |
+| FE-16 | 下载/用户/知识库三个页面只用 message state 不用 toast，与其他 127 处不一致 | `downloads-client.tsx`、`users-client.tsx`、`knowledge-client.tsx` | 待修复 |
+| FE-17 | downloads/docker/traffic/server-overview-card 手写轮询而非复用 `useResourcePolling` hook | 多文件 | 待修复 |
+
+
 ## 📄 许可
