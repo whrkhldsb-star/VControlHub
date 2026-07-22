@@ -388,148 +388,16 @@ make logs SERVICE_PREFIX=vcontrolhub
 | WebSocket 连接监控 | ✅ notification-ws + ssh-ws 计数；ssh-ws `/metrics` 本机抓取合并到 observability | 活跃/打开/关闭/拒绝/错误可见 |
 | 通知投递耗时统计 | ✅ email/telegram/webhook/in_app_ws 延迟分位数 + 失败率写入 runtime metrics | 从 observability 读各渠道 p50/p95/失败率 |
 
-### 功能审查发现（2026-07-20）
+### 审查残留（仅未闭环）
 
-> 范围：功能性 + 操作逻辑（安全已收口，不含安全审计；不含视觉美化）。以下为审查结论与修复状态（2026-07-20 二次核验并落地）。
+> 历史多轮深扫的已修复项已从 README 移除，避免与代码不同步。完整历史见 git log。
 
-#### P0 - 数据丢失/跨租户
-
-| # | 问题 | 状态 |
-|---|------|------|
-| A1 | 异步备份恢复 worker 不传 session → 跨租户恢复风险 | **已修复**：restore job payload 固化 `teamId`；worker 用合成 session 调 `restoreBackupRecord` |
-
-#### P1 - 功能错误/体验严重受损
-
-| # | 问题 | 状态 |
-|---|------|------|
-| B1 | 本地备份调度 `retentionDays` 永不执行 | **已修复**：create job 成功后按 `retentionDays` enqueue retention job |
-| B2 | VPS 备份 FAILED 可被 worker 重复 claim | **已修复**：CAS 仅 `PENDING → RUNNING`；FAILED 需先 reset |
-| B3 | 双向同步 reverse 失败整体 ERROR 且无部分成功语义 | **已修复**：forward 成功 + reverse 失败记 Partial 文案与 ERROR，不假装事务回滚 |
-| B4 | SFTP 重命名冗余写 `isDeleted: false` | **已修复**：更新只改 path/name |
-| B5 | 174 条后端错误消息英文硬编码 | **已完成**：src/lib 生产路径 BusinessError/NotFound/Validation/Forbidden/Conflict 硬编码字符串已清零，统一 backend.* 字典 + t()（默认 zh） |
-| B6 | 用户权限模板 `window.prompt` | **已修复**：内联输入框 + 保存按钮 |
-| B7 | AI 附件删除按钮移动端不可见 | **已修复**：`opacity-100 sm:opacity-0 sm:group-hover:…` |
-
-#### P2 - 边界条件/体验
-
-| # | 问题 | 状态 |
-|---|------|------|
-| C1 | VPS 备份 cron 解析器弱 | **已修复**：统一 `cron-parser`（含 `@daily` 等） |
-| C2 | backup create `createdBy: ""` | **已修复**：`null` |
-| C3 | prune `take:200` 上限 | **已修复**：按 cutoff 过滤 + `take:2000` |
-| C4 | Playbook `waitForCommand` 不心跳 | **已修复**：轮询中每 15s `onProgress` |
-| C5 | hover-only 操作按钮 | **已修复**：media / settings / markdown copy 同 B7 模式 |
-| C6 | recoverStale 心跳窗口 | **接受风险**：claim 即写 heartbeat；理论窗口极小 |
-| D1 | 命令恢复 CAS 顺序 | **已修复并提交**（`1c3dbc4d`） |
-
----
-
-
-### 二次深扫发现（2026-07-20，对照同类审查方向）
-
-| # | 问题 | 状态 |
-|---|------|------|
-| E1 | 备份 create/drill worker 仍 `getBackupRecord` 无 team scope | **已修复**：payload+job `teamId` + workerSession |
-| E2 | 私有图床文件：`image:read` 可看他人私图 | **已修复**：仅 owner / `media:manage` / `team:manage` |
-| E3 | 设置页 `offsite.retentionDays` 无清理实现（死配置） | **已修复**：`pruneOffsiteObjects` + retention job 副作用 + 每日 tick |
-| E4 | 备份 create/retry API payload 未带 teamId | **已修复** |
-| B5 | 后端错误 i18n | **已完成**（见上文） |
-
-仍接受/低优先级：
-- API 路由层仍有部分英文 `error:` 字符串（鉴权/限流等）
-- 部署模板全局共享（非租户资源，产品设计）
-- 异地 prune 与本地 retention 绑在同一 job，依赖每日 tick 触发
-
-
-
-### 三次深扫发现（2026-07-20，广度+深度）
-
-| # | 问题 | 状态 |
-|---|------|------|
-| F1 | `voidBackupRecord` 把状态写成 **FAILED**（可被当失败重试） | **已修 → VOIDED**，并禁止重试 |
-| F2 | 图床跨用户删除/批处理用 **storage:delete**，与私有读 **media:manage** 不一致 | **已修** 统一 media/team/role manage |
-| F3 | abandon 陈旧 PENDING 写成 FAILED | **已修 → VOIDED** |
-| — | docker/download/playbook/cost API 抽样 | 已有 teamWhere / assertServerTeamAccess |
-| — | SSRF（billing CSV / AI provider） | 已有 public host 校验 |
-| — | 服务层 `session? teamWhere : {}` | worker/system 路径有意无 scope；API 均应传 session |
-
-仍接受 / 后续：
-- API 路由层英文 error 文案（~90 处）卫生债
-- operation-task 全局 prune（平台级清理，非租户 IDOR）
-- snippet 无私有团队维度（仅 owner/public）
-
-
-
-### 四次深扫发现（2026-07-20，job teamId 广度）
-
-| # | 问题 | 状态 |
-|---|------|------|
-| G1 | `backups/actions` 服务端创建备份未带 teamId / job 无 scope | **已修** |
-| G2 | SFTP sync / stale-inventory enqueue 缺 job.teamId | **已修** |
-| G3 | VPS backup 手动触发 + 调度 dispatch 缺 job.teamId | **已修** |
-| G4 | download.execute / quick_service.lifecycle enqueue 缺 teamId | **已修** |
-| — | 平台 tick（health/alert/cost/traffic/SLA…） | 有意全局，不强制 teamId |
-| — | 触屏 opacity / window.prompt | 前几轮已收口 |
-
-
-
-### 五次深扫发现（2026-07-20，删除护栏 / 半成功语义）
-
-| # | 问题 | 状态 |
-|---|------|------|
-| H1 | 运行中 **SyncJob** 可被删除 | **已修**：RUNNING 拒绝 + deleteMany CAS |
-| H2 | 有 PENDING/RUNNING 的 **Playbook** 可被删除（级联删 runs） | **已修**：有活跃 run 拒绝 |
-| H3 | SFTP 删除物理失败仍  | **已修**：返回 **207 partial** + warning |
-| — | 平台 tick 无 teamId | 有意保留 |
-| — | API 英文 error 卫生债 | 后续可选 |
-
-
-
-### 六次深扫发现（2026-07-21，状态字面量 + API i18n 起步）
-
-| # | 问题 | 状态 |
-|---|------|------|
-| I1 | `deletePlaybook` 用 `PENDING/RUNNING`，实际 run 状态是 **queued/running**（护栏失效） | **已修** |
-| I2 | 高流量 API 英文错误（scheduled-tasks / sync-jobs / backup drill-restore / images） | **已修** 引入 `api.*` 字典 |
-| — | 全量 ~146 处 API 英文 | 部分收口；其余按模块继续 |
-
-
-## 七次深扫：前端功能逻辑设计审查（2026-07-22）
-
-> 范围：前端状态管理、信息架构、交互设计、前后端数据同步与性能。不含安全审计和视觉美化。
-> 方法：手动读码验证 55 个页面 + 316 个客户端组件。
-
-### P0 - High
-
-| # | 问题 | 文件 | 状态 |
-|---|------|------|------|
-| FE-1 | Playbook 运行进度最多只轮询 15 秒（三个固定 setTimeout），长运行 Playbook 状态永久停在 `queued/running` | `playbooks/playbook-list-client.tsx` | **已修** 最长轮询约 5 分钟 + unmount 清理 |
-| FE-2 | Docker 切换服务器时旧 fetch 不取消，慢响应覆盖新数据（race condition） | `docker/docker-page-client.tsx` | **已修** generation + AbortController |
-| FE-3 | WebSocket 重连无指数退避、无最大重试次数，服务器不可用时持续每 3s 创建失败连接 | `lib/ws/use-ws-notifications.ts` | **已修** 指数退避至 60s 上限 |
-| FE-4 | 设置页有脏数据检测但无导航拦截，改完设置不保存直接切页面改动静默丢失 | `settings/settings-client.tsx` | **已修** beforeunload 拦截（SPA 内链仍依赖浏览器） |
-| FE-5 | 下载页有 WS `download_progress` 推送定义但完全未使用，靠 5s 轮询 | `downloads/downloads-client.tsx` | **已修** 消费 lastDownloadProgress；保留运行中 5s 轮询兜底 |
-
-### P1 - Medium
-
-| # | 问题 | 文件 | 状态 |
-|---|------|------|------|
-| FE-6 | 筛选/排序状态不写入 URL，导航后全部丢失（downloads/docker/audit/operation-tasks/qa-reports） | 多文件 + `use-url-query-state` | **已修**（含 tickets 筛选） |
-| FE-7 | VPS 状态页缺少 `error.tsx`，其他 54 个页面都有 | `vps-status/` | **已修** |
-| FE-8 | Playbook 三个 `window.setTimeout` 无 ref 追踪、无 unmount cleanup，离开页面后仍触发 setState | `playbooks/playbook-list-client.tsx` | **已修**（与 FE-1 同批） |
-| FE-9 | 服务器实时诊断 fetch 无超时/无 abort，VPS 不可达时无限挂起 | `servers/server-overview-card.tsx` | **已修** 20s abort + 超时文案 |
-| FE-10 | 部署导出 ZIP 下载用裸 `fetch()` 而非 `csrfFetch()` | `deployments/deployment-export-panel.tsx` | **已修** csrfFetch raw |
-| FE-11 | 用户列表全量加载 `take:500`，无前端分页 | `api/users` + `users-client` | **已修** page/pageSize + UI |
-| FE-12 | 工单列表 `take:200` 但前端无分页控件 | `ticket-workspace` | **已修** 前端分页（每页 30）+ URL page |
-| FE-13 | 通知列表 `limit:100` 一次加载，无分页/加载更多 | notifications API/client | **已修** limit/offset + 加载更多 |
-
-### P2 - Low
-
-| # | 问题 | 文件 | 状态 |
-|---|------|------|------|
-| FE-14 | `media/[id]` 页 `<img>` 无 `loading="lazy"` | `media/[id]/page.tsx` | **已修** |
-| FE-15 | VPS 备份面板双 fetch 无 abort（已用 Promise.all 并行，但组件卸载不取消） | `servers/vps-backup-section.tsx` | **已修** AbortController |
-| FE-16 | 下载/用户/知识库三个页面只用 message state 不用 toast，与其他 127 处不一致 | downloads/users/knowledge | **已修** 统一 `useToast` |
-| FE-17 | downloads/docker/traffic/server-overview-card 手写轮询而非复用 `useResourcePolling` hook | 多文件 | **有意保持**：已共用 `useVisibilityInterval`/`useRefreshInterval`；downloads 仅在运行中任务时轮询，docker stats 与 traffic 多路请求不适合单资源 polling 硬套 |
+| 项 | 说明 |
+|---|---|
+| API 路由层英文 `error:` 卫生债 | 鉴权/限流等路径仍有部分英文；按模块继续 i18n |
+| 平台级 job / prune 无 teamId | 有意全局（health/alert/cost 等 tick） |
+| 部署模板全局共享 | 产品设计，非租户资源 |
+| FE-17 多资源轮询 | **有意保持** `useVisibilityInterval`/`useRefreshInterval`；不硬套单资源 `useResourcePolling` |
 
 
 ## 📄 许可
