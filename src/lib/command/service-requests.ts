@@ -75,9 +75,7 @@ async function assertCommandTargetServersInScope(
     select: { id: true },
   });
   if (servers.length !== serverIds.length) {
-    throw new ValidationError(
-      "One or more target servers were not found or are outside your team scope",
-    );
+    throw new ValidationError(t("backend.command.targetsOutOfScope"));
   }
 }
 
@@ -257,6 +255,15 @@ export async function cancelCommandRequest(input: {
     throw new NotFoundError(t("backend.command.requestNotFound"));
   }
 
+  if (input.session) {
+    const canCancelOthers =
+      sessionHasPermission(input.session, "command:approve") ||
+      sessionHasPermission(input.session, "team:manage");
+    if (request.requesterId !== input.actorId && !canCancelOthers) {
+      throw new BusinessError(t("backend.command.cannotCancelOthers"));
+    }
+  }
+
   if (!["PENDING_APPROVAL", "APPROVED", "RUNNING"].includes(request.status)) {
     throw new BusinessError(t("backend.command.cannotCancelEnded"));
   }
@@ -378,9 +385,7 @@ export async function createCommandRequest(
       if (scopedReplay) {
         return { ...scopedReplay, requiresApproval: scopedReplay.status === "PENDING_APPROVAL" };
       }
-      throw new ValidationError(
-        "Idempotency key is already in use; choose a different key",
-      );
+      throw new ValidationError(t("backend.command.idempotencyKeyInUse"));
     }
     throw error;
   }
@@ -388,7 +393,7 @@ export async function createCommandRequest(
   if (!requiresApproval) {
     await enqueueApprovedCommandExecution(
       commandRequest.id,
-      "In-app user action has entered the background SSH execution queue; node statuses can be viewed in the task center.",
+      t("backend.command.enqueuedFromCreate"),
     );
 
     // Notify requester that command execution has started; final status will be visible on the task row/logs.
@@ -419,6 +424,16 @@ export async function reviewCommandRequest(
 
   if (request.status !== "PENDING_APPROVAL") {
     throw new BusinessError(t("backend.command.notPendingApproval"));
+  }
+
+  // Separation of duties: requester cannot approve/reject their own request
+  // (even if they also hold command:approve). Admins with team:manage may
+  // still self-review in single-operator deployments.
+  if (
+    request.requesterId === payload.approverId &&
+    !(session && sessionHasPermission(session, "team:manage"))
+  ) {
+    throw new BusinessError(t("backend.command.cannotSelfReview"));
   }
 
   const nextStatus = payload.approved ? "APPROVED" : "REJECTED";
@@ -456,7 +471,7 @@ export async function reviewCommandRequest(
 
     await enqueueApprovedCommandExecution(
       payload.commandRequestId,
-      "Command approval passed; the task has entered the background SSH execution queue.",
+      t("backend.command.enqueuedFromApproval"),
     );
 
     return prisma.commandRequest.findUniqueOrThrow({
@@ -476,7 +491,7 @@ export async function reviewCommandRequest(
     data: {
       commandRequestId: payload.commandRequestId,
       serverId: null,
-      summary: "Command approval rejected; the task will not enter the execution queue.",
+      summary: t("backend.command.rejectedSummary"),
     },
   });
 
