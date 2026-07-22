@@ -73,6 +73,9 @@ export async function escalateBreachedTickets(): Promise<number> {
   const failedTicketIds: string[] = [];
   for (const ticket of breached) {
     const newPriority = ESCALATION_CHAIN[ticket.priority] ?? "HIGH";
+    // Already at the top of the chain (URGENT→URGENT): still stamp escalatedAt so the
+    // hourly re-sweep does not re-notify managers, but do not write a no-op escalation row.
+    const priorityChanges = newPriority !== ticket.priority;
     try {
       const didEscalate = await prisma.$transaction(async (tx) => {
         const claimed = await tx.ticket.updateMany({
@@ -83,52 +86,65 @@ export async function escalateBreachedTickets(): Promise<number> {
             slaDueAt: { lt: now },
             ...(ticket.escalatedAt ? { escalatedAt: ticket.escalatedAt } : { escalatedAt: null }),
           },
-          data: { priority: newPriority, escalatedAt: now, escalatedTo: ticket.assigneeId },
+          data: {
+            ...(priorityChanges ? { priority: newPriority } : {}),
+            escalatedAt: now,
+            escalatedTo: ticket.assigneeId,
+          },
         });
         if (claimed.count === 0) return false;
 
-        await tx.ticketEscalation.create({
-          data: {
-            ticketId: ticket.id,
-            fromStatus: ticket.status,
-            toStatus: ticket.status,
-            fromPriority: ticket.priority,
-            toPriority: newPriority,
-            fromAssignee: ticket.assigneeId,
-            toAssignee: ticket.assigneeId,
-            reason: `SLA breach: due ${ticket.slaDueAt?.toISOString()}`,
-          },
-        });
-
-        const managers = await tx.user.findMany({
-          where: {
-            roles: { some: { role: { permissions: { some: { permission: { key: "ticket:manage" } } } } } },
-            ...(ticket.teamId ? { teamMemberships: { some: { teamId: ticket.teamId } } } : {}),
-          },
-          select: { id: true },
-          take: 1000,
-        });
-        if (managers.length > 0) {
-          await tx.notification.createMany({
-            data: managers.map((manager) => ({
-              userId: manager.id,
-              teamId: ticket.teamId,
-              title: t("backend.ticket.slaEscalationTitle"),
-              message: t("backend.ticket.slaEscalationMessage")
-                .replace("{title}", ticket.title)
-                .replace("{from}", ticket.priority)
-                .replace("{to}", newPriority),
-              type: "ticket_escalation",
-              actionUrl: `/tickets/${ticket.id}`,
-            })),
+        if (priorityChanges) {
+          await tx.ticketEscalation.create({
+            data: {
+              ticketId: ticket.id,
+              fromStatus: ticket.status,
+              toStatus: ticket.status,
+              fromPriority: ticket.priority,
+              toPriority: newPriority,
+              fromAssignee: ticket.assigneeId,
+              toAssignee: ticket.assigneeId,
+              reason: `SLA breach: due ${ticket.slaDueAt?.toISOString()}`,
+            },
           });
+
+          const managers = await tx.user.findMany({
+            where: {
+              roles: { some: { role: { permissions: { some: { permission: { key: "ticket:manage" } } } } } },
+              ...(ticket.teamId ? { teamMemberships: { some: { teamId: ticket.teamId } } } : {}),
+            },
+            select: { id: true },
+            take: 1000,
+          });
+          if (managers.length > 0) {
+            await tx.notification.createMany({
+              data: managers.map((manager) => ({
+                userId: manager.id,
+                teamId: ticket.teamId,
+                title: t("backend.ticket.slaEscalationTitle"),
+                message: t("backend.ticket.slaEscalationMessage")
+                  .replace("{title}", ticket.title)
+                  .replace("{from}", ticket.priority)
+                  .replace("{to}", newPriority),
+                type: "ticket_escalation",
+                actionUrl: `/tickets/${ticket.id}`,
+              })),
+            });
+          }
         }
         return true;
       });
 
       if (didEscalate) {
-        escalated += 1;
-        logger.info("Ticket SLA escalated", { ticketId: ticket.id, fromPriority: ticket.priority, toPriority: newPriority });
+        if (priorityChanges) {
+          escalated += 1;
+          logger.info("Ticket SLA escalated", { ticketId: ticket.id, fromPriority: ticket.priority, toPriority: newPriority });
+        } else {
+          logger.debug("Ticket SLA already at max priority; marked escalatedAt without re-notify", {
+            ticketId: ticket.id,
+            priority: ticket.priority,
+          });
+        }
       }
     } catch (error) {
       failedTicketIds.push(ticket.id);

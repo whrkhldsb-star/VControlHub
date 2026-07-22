@@ -121,6 +121,27 @@ describe("ticket SLA service", () => {
 			expect(loggerMocks.info).not.toHaveBeenCalledWith("SLA escalation sweep complete", expect.anything());
 		});
 
+		it("marks URGENT breaches without re-notifying or writing no-op escalation rows", async () => {
+			const dueAt = new Date("2026-01-01T00:00:00Z");
+			prismaMocks.findMany.mockResolvedValue([
+				{ id: "ticket-urgent", teamId: "team-1", status: "OPEN", priority: "URGENT", assigneeId: null, title: "Top", slaDueAt: dueAt, escalatedAt: null },
+			]);
+			txMocks.findManagers.mockResolvedValue([{ id: "mgr-1" }]);
+
+			await expect(escalateBreachedTickets()).resolves.toBe(0);
+
+			expect(txMocks.updateMany).toHaveBeenCalledWith(
+				expect.objectContaining({
+					data: expect.objectContaining({ escalatedAt: expect.any(Date) }),
+				}),
+			);
+			// priority must not be rewritten as a fake change
+			const data = txMocks.updateMany.mock.calls[0]![0]!.data as Record<string, unknown>;
+			expect(data.priority).toBeUndefined();
+			expect(txMocks.createEscalation).not.toHaveBeenCalled();
+			expect(txMocks.createNotifications).not.toHaveBeenCalled();
+		});
+
 		it("processes the remaining tickets but rejects the sweep when one transaction fails", async () => {
 			const dueAt = new Date("2026-01-01T00:00:00Z");
 			prismaMocks.findMany.mockResolvedValue([

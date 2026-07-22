@@ -252,7 +252,7 @@ export async function updateTicketStatus(input: {
   skipItsmFanOut?: boolean;
   session?: TeamSession | null;
 }) {
-  const data: { status?: string; assigneeId?: string | null; closedAt?: Date | null; priority?: string } = {};
+  const data: { status?: string; assigneeId?: string | null; closedAt?: Date | null; priority?: string; slaDueAt?: Date | null; escalatedAt?: Date | null } = {};
   const teamFilter = ticketTeamFilter(input.session);
 
   if (input.status !== undefined) {
@@ -271,7 +271,11 @@ export async function updateTicketStatus(input: {
     if (!current) throw new NotFoundError(t("backend.ticket.ticketNotFound"));
     const allowed = TRANSITIONS[current.status] ?? new Set<string>();
     if (!allowed.has(input.status)) {
-      throw new ValidationError(`Ticket status cannot change from ${current.status} to ${input.status}`);
+      throw new ValidationError(
+        t("backend.ticket.ticketStatusTransitionInvalid")
+          .replace("{from}", current.status)
+          .replace("{to}", input.status),
+      );
     }
     data.status = input.status;
     data.closedAt = input.status === "CLOSED" ? new Date() : null;
@@ -280,7 +284,25 @@ export async function updateTicketStatus(input: {
       await assertAssigneeInTeamScope(input.assigneeId, input.session, current.teamId);
       data.assigneeId = input.assigneeId;
     }
-    if (input.priority !== undefined) data.priority = input.priority;
+    if (input.priority !== undefined) {
+      data.priority = input.priority;
+      // Priority change must recompute SLA deadline; otherwise escalations and
+      // UI badges keep the old due time (false "breached" / false "ok").
+      const row = input.session
+        ? await prisma.ticket.findFirst({
+            where: { id: input.id, ...teamFilter },
+            select: { createdAt: true, status: true },
+          })
+        : await prisma.ticket.findUnique({
+            where: { id: input.id },
+            select: { createdAt: true, status: true },
+          });
+      if (row && row.status !== "CLOSED" && row.status !== "RESOLVED") {
+        const { computeSlaDueAt } = await import("./sla");
+        data.slaDueAt = computeSlaDueAt(row.createdAt, input.priority);
+        data.escalatedAt = null;
+      }
+    }
 
     const claimed = await prisma.ticket.updateMany({
       where: { id: input.id, status: current.status, ...teamFilter },
@@ -327,6 +349,21 @@ export async function updateTicketStatus(input: {
 
   if (input.priority !== undefined) {
     data.priority = input.priority;
+    const row = input.session
+      ? await prisma.ticket.findFirst({
+          where: { id: input.id, ...teamFilter },
+          select: { createdAt: true, status: true },
+        })
+      : await prisma.ticket.findUnique({
+          where: { id: input.id },
+          select: { createdAt: true, status: true },
+        });
+    if (!row) throw new NotFoundError(t("backend.ticket.ticketNotFound"));
+    if (row.status !== "CLOSED" && row.status !== "RESOLVED") {
+      const { computeSlaDueAt } = await import("./sla");
+      data.slaDueAt = computeSlaDueAt(row.createdAt, input.priority);
+      data.escalatedAt = null;
+    }
   }
 
   if (Object.keys(data).length === 0) throw new ValidationError(t("backend.ticket.ticketUpdateContentCannotBeEmpty"));

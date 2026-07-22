@@ -147,15 +147,15 @@ describe("ticket service", () => {
   it("rejects invalid status transitions (state machine)", async () => {
     // OPEN → CLOSED is not a valid transition (must go through IN_PROGRESS→RESOLVED→CLOSED)
     mockPrisma.ticket.findUnique.mockResolvedValueOnce({ id: "tk1", status: "OPEN", teamId: null });
-    await expect(updateTicketStatus({ id: "tk1", status: "CLOSED" })).rejects.toThrow(/cannot change from OPEN to CLOSED/);
+    await expect(updateTicketStatus({ id: "tk1", status: "CLOSED" })).rejects.toThrow();
 
     // CLOSED → IN_PROGRESS is not valid (only CLOSED → OPEN)
     mockPrisma.ticket.findUnique.mockResolvedValueOnce({ id: "tk1", status: "CLOSED", teamId: null });
-    await expect(updateTicketStatus({ id: "tk1", status: "IN_PROGRESS" })).rejects.toThrow(/cannot change from CLOSED to IN_PROGRESS/);
+    await expect(updateTicketStatus({ id: "tk1", status: "IN_PROGRESS" })).rejects.toThrow();
 
     // RESOLVED → OPEN is not valid
     mockPrisma.ticket.findUnique.mockResolvedValueOnce({ id: "tk1", status: "RESOLVED", teamId: null });
-    await expect(updateTicketStatus({ id: "tk1", status: "OPEN" })).rejects.toThrow(/cannot change from RESOLVED to OPEN/);
+    await expect(updateTicketStatus({ id: "tk1", status: "OPEN" })).rejects.toThrow();
 
     // update should not have been called for any of the rejected transitions
     expect(mockPrisma.ticket.update).not.toHaveBeenCalled();
@@ -325,4 +325,41 @@ describe("ticket service", () => {
       }),
     );
   });
+
+  it("recomputes slaDueAt when priority changes on an open ticket", async () => {
+    mockPrisma.ticket.findFirst
+      .mockResolvedValueOnce({ status: "OPEN", teamId: "team_a" })
+      .mockResolvedValueOnce({ createdAt: new Date("2026-01-01T00:00:00Z"), status: "OPEN" })
+      .mockResolvedValueOnce({
+        id: "tk1",
+        status: "IN_PROGRESS",
+        priority: "URGENT",
+        slaDueAt: new Date("2026-01-01T02:00:00Z"),
+        teamId: "team_a",
+        title: "t",
+        description: "d",
+        category: null,
+      });
+    mockPrisma.ticket.updateMany.mockResolvedValueOnce({ count: 1 });
+    const session = { userId: "u1", roles: ["admin"] as any, currentTeamId: "team_a" };
+    const updated = await updateTicketStatus({
+      id: "tk1",
+      status: "IN_PROGRESS",
+      priority: "URGENT",
+      session,
+      skipItsmFanOut: true,
+    });
+    expect(mockPrisma.ticket.updateMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          status: "IN_PROGRESS",
+          priority: "URGENT",
+          slaDueAt: new Date("2026-01-01T02:00:00Z"),
+          escalatedAt: null,
+        }),
+      }),
+    );
+    expect(updated.priority).toBe("URGENT");
+  });
+
 });
