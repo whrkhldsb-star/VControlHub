@@ -59,6 +59,12 @@ export const zh: Record<string, string> = {
 
 	// server/service-profiles.ts, server/service-direct-gateway.ts
 	"backend.server.nodeNotFound": "VPS 节点不存在或已删除",
+	"backend.server.monitor.notFound": "服务器不存在",
+	"backend.server.monitor.disabled": "服务器已停用",
+	"backend.server.monitor.sshCommandFailed": "SSH 命令执行失败",
+	"backend.server.monitor.unknownError": "未知错误",
+	"backend.server.monitor.connectionFailed": "连接失败：{message}",
+
 	// storage/service-nodes.ts, storage/sftp-sync-job.ts
 	"backend.storage.nodeNotFound": "存储节点不存在或已删除",
 	"backend.storage.nodeNotFoundShort": "存储节点不存在",
@@ -370,6 +376,12 @@ export const en: Record<string, string> = {
 
 	// server/service-profiles.ts, server/service-direct-gateway.ts
 	"backend.server.nodeNotFound": "VPS node not found or has been deleted",
+	"backend.server.monitor.notFound": "Server does not exist",
+	"backend.server.monitor.disabled": "Server has been disabled",
+	"backend.server.monitor.sshCommandFailed": "SSH command execution failed",
+	"backend.server.monitor.unknownError": "Unknown error",
+	"backend.server.monitor.connectionFailed": "Connection failed: {message}",
+
 	// storage/service-nodes.ts, storage/sftp-sync-job.ts
 	"backend.storage.nodeNotFound": "Storage node not found or has been deleted",
 	"backend.storage.nodeNotFoundShort": "Storage node not found",

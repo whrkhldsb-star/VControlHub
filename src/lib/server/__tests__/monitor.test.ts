@@ -16,6 +16,15 @@ vi.mock("@/lib/ssh/client", () => ({
 	buildSshParamsFromServer: buildSshParamsFromServerMock,
 }));
 
+
+vi.mock("@/lib/i18n/translations", async () => {
+	const actual = await vi.importActual<typeof import("@/lib/i18n/translations")>("@/lib/i18n/translations");
+	return {
+		...actual,
+		getServerLocale: async () => "en" as const,
+	};
+});
+
 import { collectServerMetrics, parseMonitorScriptOutput } from "../monitor";
 
 describe("parseMonitorScriptOutput", () => {

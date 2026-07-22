@@ -51,6 +51,7 @@ export const en: Record<string, string> = {
 	"serversPage.stat.total": "Total nodes",
 	"serversPage.statusPriority.desc": "Show each VPS's enabled state, connection, key binding, direct mode, and pending commands. Add VPS, add key, and batch actions are in the quick-action area.",
 	"serversPage.statusPriority.title": "VPS status first",
+	"serversPage.autoProbe.saveFailed": "Failed to save auto-probe preference",
 	"serversPage.title": "VPS management",
 	"serversPage.tabs.overview": "VPS overview",
 	"serversPage.tabs.addVps": "Add VPS",

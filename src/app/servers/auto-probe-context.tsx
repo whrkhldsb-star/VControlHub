@@ -26,6 +26,7 @@ import {
 
 import { csrfFetch } from "@/lib/auth/csrf-client";
 import { useToast } from "@/components/toast-provider";
+import { useI18n } from "@/lib/i18n/use-locale";
 import {
 	DEFAULT_AUTO_PROBE_INTERVAL_SEC,
 	normalizeAutoProbeIntervalSec,
@@ -51,6 +52,7 @@ export function AutoProbeProvider({ children }: { children: ReactNode }) {
 	const [intervalSec, setIntervalSecState] = useState<number>(DEFAULT_AUTO_PROBE_INTERVAL_SEC);
 	const [hydrated, setHydrated] = useState(false);
 	const { addToast } = useToast();
+	const { t } = useI18n();
 
 	useEffect(() => {
 		let cancelled = false;
@@ -87,9 +89,9 @@ export function AutoProbeProvider({ children }: { children: ReactNode }) {
 				body: JSON.stringify(next),
 			});
 		} catch {
-			addToast("error", "Failed to save auto-probe preference");
+			addToast("error", t("serversPage.autoProbe.saveFailed"));
 		}
-	}, [addToast]);
+	}, [addToast, t]);
 
 	const setEnabled = useCallback(
 		(next: boolean) => {

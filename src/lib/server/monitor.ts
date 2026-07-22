@@ -1,5 +1,6 @@
 import { execRemoteCommand, buildSshParamsFromServer } from "@/lib/ssh/client";
 import { prisma } from "@/lib/db";
+import { getServerLocale, t } from "@/lib/i18n/translations";
 
 /* ── Types ────────────────────────────────────────────────── */
 
@@ -125,25 +126,30 @@ export function parseMonitorScriptOutput(stdout: string): ServerMetrics {
 }
 
 export async function collectServerMetrics(serverId: string): Promise<ServerMetrics | MonitorError> {
+	const locale = await getServerLocale();
+	const tr = (key: string) => t(key, locale);
 	try {
 		const server = await prisma.server.findUnique({
 			where: { id: serverId },
 			include: { sshKey: { select: { privateKey: true } } },
 		});
 
-		if (!server) return { error: "Server does not exist", serverId };
-		if (!server.enabled) return { error: "Server has been disabled", serverId };
+		if (!server) return { error: tr("backend.server.monitor.notFound"), serverId };
+		if (!server.enabled) return { error: tr("backend.server.monitor.disabled"), serverId };
 
 		const sshParams = await buildSshParamsFromServer(server, server.sshKey);
 		const { stdout, exitCode } = await execRemoteCommand({ ...sshParams, command: MONITOR_SCRIPT, timeout: 15_000 });
 
 		if (exitCode !== 0 && !stdout) {
-			return { error: "SSH Command execution failed", serverId };
+			return { error: tr("backend.server.monitor.sshCommandFailed"), serverId };
 		}
 
 		return parseMonitorScriptOutput(stdout);
 	} catch (err) {
-		const message = err instanceof Error ? err.message : "Unknown error";
-		return { error: `Connection failed: ${message}`, serverId };
+		const message = err instanceof Error ? err.message : tr("backend.server.monitor.unknownError");
+		return {
+			error: tr("backend.server.monitor.connectionFailed").replace("{message}", message),
+			serverId,
+		};
 	}
 }
