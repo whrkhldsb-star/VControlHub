@@ -56,7 +56,13 @@ export async function DashboardContent({ sessionPath }: { sessionPath: "/" | "/d
 		prisma.alertRule.count({ where: { enabled: true, ...teamScope } }).catch(() => 0),
 		getSetting("smtp.enabled"),
 		prisma.backupSchedule.count({ where: teamScope }).catch(() => 0),
-		prisma.vpsBackupSchedule.count().catch(() => 0),
+		prisma.vpsBackupSchedule
+			.count({
+				where: {
+					server: teamScope,
+				},
+			})
+			.catch(() => 0),
 		prisma.server
 			.count({
 				where: {

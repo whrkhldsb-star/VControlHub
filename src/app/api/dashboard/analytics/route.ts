@@ -15,6 +15,7 @@ import { createLogger } from "@/lib/logging";
 import { apiError, apiCatch } from "@/lib/http/api-error";
 import { CachePresets, withCacheHeaders } from "@/lib/cache";
 import type { SessionPayload } from "@/lib/auth/session";
+import { t } from "@/lib/i18n/translations";
 const logger = createLogger("api:dashboard:analytics");
 
 export const dynamic = "force-dynamic";
@@ -42,10 +43,10 @@ export async function GET(request: Request) {
     requireAuth: true,
     onError: (error) => {
       logger.error("[dashboard/analytics]", error);
-      return apiCatch(error, 500, "Fetch analytics data failed");
+      return apiCatch(error, 500, t("backend.dashboard.analyticsFetchFailed"));
     },
   }, async ({ session }) => {
-    if (!session) return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
+    if (!session) return NextResponse.json({ error: t("backend.dashboard.notAuthenticated") }, { status: 401 });
     const { type } = parseSearchParams(
       request,
       z.object({
@@ -54,7 +55,7 @@ export async function GET(request: Request) {
     );
 
     if (requestedDomainForbidden(session, type)) {
-      return apiError({ code: "FORBIDDEN", message: "Missing dashboard analytics data reading permission", status: 403 });
+      return apiError({ code: "FORBIDDEN", message: t("backend.dashboard.analyticsPermissionDenied"), status: 403 });
     }
 
     const results: Record<string, unknown> = {};

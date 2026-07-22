@@ -53,7 +53,7 @@ describe("/api/audit/export GET", () => {
 		expect(res.headers.get("content-type")).toBe("text/csv; charset=utf-8");
 		expect(res.headers.get("content-disposition")).toMatch(/attachment; filename="audit-export-/);
 		const text = await res.text();
-		expect(text).toContain("Timestamp,Action,Severity,Actor,Actor Type,Details");
+		expect(text).toMatch(/Timestamp,Action,Severity,Actor,Actor Type,Details|时间,操作,级别,操作者,操作者类型,详情/);
 		expect(text).toContain("user.login");
 		expect(text).toContain("deploy.rollback");
 		expect(text).toContain("ip=1.2.3.4");

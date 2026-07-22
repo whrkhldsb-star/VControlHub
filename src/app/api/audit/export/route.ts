@@ -4,6 +4,7 @@ import { exportAuditLogs, type AuditLogEntry } from "@/lib/audit/service";
 import { withApiRoute } from "@/lib/http/api-guard";
 import { GENERAL_WRITE_LIMIT } from "@/lib/http/rate-limit-presets";
 import { z } from "zod";
+import { t } from "@/lib/i18n/translations";
 
 export const dynamic = "force-dynamic";
 
@@ -22,7 +23,14 @@ function csvEscape(value: string): string {
 }
 
 function toCsv(logs: AuditLogEntry[]): string {
-  const header = ["Timestamp", "Action", "Severity", "Actor", "Actor Type", "Details"].map(csvEscape).join(",");
+  const header = [
+    t("backend.audit.export.timestamp"),
+    t("backend.audit.export.action"),
+    t("backend.audit.export.severity"),
+    t("backend.audit.export.actor"),
+    t("backend.audit.export.actorType"),
+    t("backend.audit.export.details"),
+  ].map(csvEscape).join(",");
   const rows = logs.map((log) =>
     [
       new Date(log.createdAt).toISOString(),
