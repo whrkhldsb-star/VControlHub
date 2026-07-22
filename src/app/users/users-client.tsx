@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
+import { useUrlQueryState } from "@/lib/hooks/use-url-query-state";
 import { UserPermissionPanel } from "./user-permission-panel";
 import { csrfFetch } from "@/lib/auth/csrf-client";
 import { EmptyState, ListPanel, ListRow, Toolbar } from "@/components/page-shell";
@@ -29,7 +30,12 @@ type UserInfo = {
 
 export function UserManagementClient({ canManage = false, currentUserId = "" }: { canManage?: boolean; currentUserId?: string }) {
   const { t, locale } = useI18n();
+  const { state: urlState, setField: setUrlField } = useUrlQueryState({ page: "1" });
+  const page = Math.max(1, Number.parseInt(urlState.page || "1", 10) || 1);
+  const setPage = (value: number) => setUrlField("page", String(Math.max(1, value)));
   const [users, setUsers] = useState<UserInfo[]>([]);
+  const [totalPages, setTotalPages] = useState(1);
+  const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [createForm, setCreateForm] = useState<CreateUserFormState>({ username: "", displayName: "", password: "", roleKeys: ["viewer"] });
@@ -43,22 +49,28 @@ export function UserManagementClient({ canManage = false, currentUserId = "" }: 
 	const fetchUsers = useCallback(async () => {
 		setLoadFailed(false);
 		try {
-			const data = await csrfFetch("/api/users") as { users?: UserInfo[] } | UserInfo[];
-			setUsers(Array.isArray(data) ? data : (data.users ?? []));
+			const data = await csrfFetch(`/api/users?page=${page}&pageSize=50`) as { users?: UserInfo[]; total?: number; totalPages?: number } | UserInfo[];
+			if (Array.isArray(data)) {
+				setUsers(data);
+				setTotal(data.length);
+				setTotalPages(1);
+			} else {
+				setUsers(data.users ?? []);
+				setTotal(data.total ?? (data.users ?? []).length);
+				setTotalPages(data.totalPages ?? 1);
+			}
 		} catch (err) {
 			setUsers([]);
 			setLoadFailed(true);
 			setMessage({ type: "error", text: messageFromError(err, t("usersPage.error.loadFailed")) });
 		}
 		finally { setLoading(false); }
-	}, [t]);
+	}, [t, page]);
 
-	/* eslint-disable react-hooks/set-state-in-effect */
 	useEffect(() => {
-		fetchUsers();
-		// eslint-disable-next-line react-hooks/exhaustive-deps
-	}, []);
-	/* eslint-enable react-hooks/set-state-in-effect */
+		setLoading(true);
+		void fetchUsers();
+	}, [fetchUsers]);
 
   const handleCreate = async () => {
     setCreating(true);
@@ -177,7 +189,7 @@ export function UserManagementClient({ canManage = false, currentUserId = "" }: 
 
       <ListPanel
         title={t("usersPage.title2")}
-        count={loading ? "…" : users.length}
+        count={loading ? "…" : total || users.length}
         empty={
           loading ? (
             <EmptyState>{t("usersPage.loading")}</EmptyState>
@@ -259,7 +271,17 @@ export function UserManagementClient({ canManage = false, currentUserId = "" }: 
                 </div>
               </ListRow>
             ))}
-      </ListPanel>
+      
+          {!loading && !loadFailed && totalPages > 1 && (
+            <div className="flex items-center justify-between gap-3 border-t border-[var(--border)] px-4 py-3 text-xs text-[var(--text-secondary)]">
+              <span>{t("usersPage.pagination").replace("{page}", String(page)).replace("{totalPages}", String(totalPages)).replace("{total}", String(total))}</span>
+              <div className="flex gap-2">
+                <button type="button" disabled={page <= 1} onClick={() => setPage(page - 1)} data-action-button data-variant="secondary" className="!px-2 !py-1 !text-xs disabled:opacity-50">{t("usersPage.prev")}</button>
+                <button type="button" disabled={page >= totalPages} onClick={() => setPage(page + 1)} data-action-button data-variant="secondary" className="!px-2 !py-1 !text-xs disabled:opacity-50">{t("usersPage.next")}</button>
+              </div>
+            </div>
+          )}
+		</ListPanel>
       {editingPermissionsUser && (
         <UserPermissionPanel
           userId={editingPermissionsUser.id}

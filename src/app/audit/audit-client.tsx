@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useCallback } from "react";
+import { useUrlQueryState } from "@/lib/hooks/use-url-query-state";
 import { csrfFetch } from "@/lib/auth/csrf-client";
 import { EmptyState, ListPanel, Toolbar } from "@/components/page-shell";
 import { CONTROL_CLASS } from "@/components/ui-primitives";
@@ -52,10 +53,26 @@ function getErrorMessage(error: unknown, fallback: string): string {
 
 export function AuditLogClient({ initialActionFilter = "" }: AuditLogClientProps) {
   const { t, locale } = useI18n();
-  const [page, setPage] = useState(1);
-  const [severityFilter, setSeverityFilter] = useState("");
-  const [actionFilter, setActionFilter] = useState(initialActionFilter);
-  const [searchQuery, setSearchQuery] = useState("");
+  const { state: urlState, setField: setUrlField, patch: patchUrl } = useUrlQueryState({
+    page: "1",
+    severity: "",
+    action: initialActionFilter || "",
+    q: "",
+  });
+  const page = Math.max(1, Number.parseInt(urlState.page || "1", 10) || 1);
+  const setPage = (value: number) => setUrlField("page", String(Math.max(1, value)));
+  const severityFilter = urlState.severity || "";
+  const setSeverityFilter = (value: string) => {
+    patchUrl({ severity: value, page: "1" });
+  };
+  const actionFilter = urlState.action || "";
+  const setActionFilter = (value: string) => {
+    patchUrl({ action: value, page: "1" });
+  };
+  const searchQuery = urlState.q || "";
+  const setSearchQuery = (value: string) => {
+    patchUrl({ q: value, page: "1" });
+  };
 
   const fetchAudit = useCallback(async (): Promise<AuditListResponse> => {
     const params = new URLSearchParams({ page: String(page), pageSize:"50" });

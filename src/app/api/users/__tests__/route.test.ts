@@ -13,6 +13,7 @@ const { mocks } = vi.hoisted(() => ({
         findUnique: vi.fn(),
         create: vi.fn(),
         update: vi.fn(),
+        count: vi.fn(),
       },
       role: {
         findMany: vi.fn(),
@@ -98,6 +99,7 @@ describe("/api/users", () => {
       },
     ]);
 
+    mocks.prisma.user.count.mockResolvedValue(1);
     const res = await route.GET(new Request("http://local/api/users"));
     expect(res.status).toBe(200);
     expect(mocks.userDirectoryWhere).toHaveBeenCalledWith(session);
@@ -108,12 +110,31 @@ describe("/api/users", () => {
         },
       }),
     );
-    await expect(res.json()).resolves.toEqual([
+    expect(mocks.prisma.user.findMany).toHaveBeenCalledWith(
       expect.objectContaining({
-        id: "user1",
-        roles: [{ key: "viewer", name: "Viewer" }],
+        skip: 0,
+        take: 50,
       }),
-    ]);
+    );
+    expect(mocks.prisma.user.count).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: {
+          OR: [{ id: "admin1" }, { teamMemberships: { some: { teamId: "team-a" } } }],
+        },
+      }),
+    );
+    await expect(res.json()).resolves.toEqual({
+      users: [
+        expect.objectContaining({
+          id: "user1",
+          roles: [{ key: "viewer", name: "Viewer" }],
+        }),
+      ],
+      total: 1,
+      page: 1,
+      pageSize: 50,
+      totalPages: 1,
+    });
   });
 
   it("creates users in one transaction and deduplicates role keys before assigning roles", async () => {

@@ -1,6 +1,7 @@
 "use client";
 
 import { memo, useCallback, useMemo, useState } from "react";
+import { useUrlQueryState } from "@/lib/hooks/use-url-query-state";
 import Link from "next/link";
 import { EmptyState, ListPanel, ListRow, StatCard, StatGrid, SurfacePanel, Toolbar } from "@/components/page-shell";
 import { CONTROL_CLASS } from "@/components/ui-primitives";
@@ -108,9 +109,17 @@ export function OperationTaskListClient({ initialTasks, initialSourceSummary = [
   const [tasks, setTasks] = useState(initialTasks);
   const [sourceSummary, setSourceSummary] = useState(initialSourceSummary);
   const [failureSummary, setFailureSummary] = useState(initialFailureSummary);
-  const [statusFilter, setStatusFilter] = useState<(typeof statusFilters)[number]["value"]>("all");
-  const [taskTypeFilter, setTaskTypeFilter] = useState("all");
-  const [sort, setSort] = useState<(typeof sortOptions)[number]["value"]>("recent");
+  const { state: urlState, setField: setUrlField } = useUrlQueryState({
+    status: "all",
+    type: "all",
+    sort: "recent",
+  });
+  const statusFilter = (urlState.status || "all") as (typeof statusFilters)[number]["value"];
+  const setStatusFilter = (value: (typeof statusFilters)[number]["value"]) => setUrlField("status", value);
+  const taskTypeFilter = urlState.type || "all";
+  const setTaskTypeFilter = (value: string) => setUrlField("type", value);
+  const sort = (urlState.sort || "recent") as (typeof sortOptions)[number]["value"];
+  const setSort = (value: (typeof sortOptions)[number]["value"]) => setUrlField("sort", value);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [eventsJobId, setEventsJobId] = useState<string | null>(null);

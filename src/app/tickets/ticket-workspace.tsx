@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useMemo, useState } from "react";
+import { useUrlQueryState } from "@/lib/hooks/use-url-query-state";
 
 import { toDateLocale } from "@/lib/i18n/locale-format";
 import { t, type Locale } from "@/lib/i18n/translations";
@@ -117,12 +118,30 @@ function TicketCard({ ticket, locale, nowMs, compact = false }: { ticket: Ticket
 }
 
 export function TicketWorkspace({ initialTickets, canManage, locale, now }: Props) {
-  const [view, setView] = useState<ViewMode>("list");
-  const [status, setStatus] = useState("");
-  const [priority, setPriority] = useState("");
-  const [category, setCategory] = useState("");
-  const [slaStatus, setSlaStatus] = useState("");
-  const [search, setSearch] = useState("");
+  const { state: urlState, setField: setUrlField, patch: patchUrl } = useUrlQueryState({
+    view: "list",
+    status: "",
+    priority: "",
+    category: "",
+    sla: "",
+    q: "",
+    page: "1",
+  });
+  const view = (urlState.view === "board" ? "board" : "list") as ViewMode;
+  const setView = (value: ViewMode) => setUrlField("view", value);
+  const status = urlState.status || "";
+  const setStatus = (value: string) => patchUrl({ status: value, page: "1" });
+  const priority = urlState.priority || "";
+  const setPriority = (value: string) => patchUrl({ priority: value, page: "1" });
+  const category = urlState.category || "";
+  const setCategory = (value: string) => patchUrl({ category: value, page: "1" });
+  const slaStatus = urlState.sla || "";
+  const setSlaStatus = (value: string) => patchUrl({ sla: value, page: "1" });
+  const search = urlState.q || "";
+  const setSearch = (value: string) => patchUrl({ q: value, page: "1" });
+  const page = Math.max(1, Number.parseInt(urlState.page || "1", 10) || 1);
+  const setPage = (value: number) => setUrlField("page", String(Math.max(1, value)));
+  const PAGE_SIZE = 30;
   const nowMs = useMemo(() => new Date(now).getTime(), [now]);
 
   const filteredTickets = useMemo(() => {
@@ -138,12 +157,15 @@ export function TicketWorkspace({ initialTickets, canManage, locale, now }: Prop
   }, [category, initialTickets, locale, nowMs, priority, search, slaStatus, status]);
 
   const clearFilters = () => {
-    setStatus("");
-    setPriority("");
-    setCategory("");
-    setSlaStatus("");
-    setSearch("");
+    patchUrl({ status: "", priority: "", category: "", sla: "", q: "", page: "1" });
   };
+
+  const totalPages = Math.max(1, Math.ceil(filteredTickets.length / PAGE_SIZE));
+  const pagedTickets = useMemo(() => {
+    const safePage = Math.min(page, totalPages);
+    const start = (safePage - 1) * PAGE_SIZE;
+    return filteredTickets.slice(start, start + PAGE_SIZE);
+  }, [filteredTickets, page, totalPages]);
 
   return (
     <section data-card className="overflow-hidden !p-0">
@@ -185,7 +207,23 @@ export function TicketWorkspace({ initialTickets, canManage, locale, now }: Prop
       {filteredTickets.length === 0 ? (
         <div className="px-5 py-12 text-center text-sm text-[var(--text-muted)]">{t("ticketsPage.emptyFiltered", locale)}</div>
       ) : view ==="list" ? (
-        <div className="divide-y divide-[var(--border-subtle)]">{filteredTickets.map((ticket) => <TicketCard key={ticket.id} ticket={ticket} locale={locale} nowMs={nowMs} />)}</div>
+        <>
+          <div className="divide-y divide-[var(--border-subtle)]">{pagedTickets.map((ticket) => <TicketCard key={ticket.id} ticket={ticket} locale={locale} nowMs={nowMs} />)}</div>
+          {filteredTickets.length > PAGE_SIZE ? (
+            <div className="flex items-center justify-between gap-3 border-t border-[var(--border)] px-4 py-3 text-xs text-[var(--text-secondary)]">
+              <span>
+                {t("ticketsPage.pagination", locale)
+                  .replace("{page}", String(Math.min(page, totalPages)))
+                  .replace("{totalPages}", String(totalPages))
+                  .replace("{total}", String(filteredTickets.length))}
+              </span>
+              <div className="flex gap-2">
+                <button type="button" disabled={page <= 1} onClick={() => setPage(page - 1)} className="rounded-lg border border-[var(--border)] px-2 py-1 disabled:opacity-50">{t("ticketsPage.prev", locale)}</button>
+                <button type="button" disabled={page >= totalPages} onClick={() => setPage(page + 1)} className="rounded-lg border border-[var(--border)] px-2 py-1 disabled:opacity-50">{t("ticketsPage.next", locale)}</button>
+              </div>
+            </div>
+          ) : null}
+        </>
       ) : (
         <div className="grid gap-4 overflow-x-auto p-4 lg:grid-cols-4">
           {STATUSES.map((columnStatus) => {

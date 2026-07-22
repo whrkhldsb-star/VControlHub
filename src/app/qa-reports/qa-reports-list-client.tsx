@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useMemo, useState } from "react";
+import { useUrlQueryState } from "@/lib/hooks/use-url-query-state";
 
 import { EmptyState, ToggleChip, StatCard, StatGrid, ListPanel, SurfacePanel } from "@/components/page-shell";
 import { csrfFetch } from "@/lib/auth/csrf-client";
@@ -233,7 +234,9 @@ export function QaReportsListClient({
 	const [totals, setTotals] = useState(initialTotals);
 	const [updatedAt, setUpdatedAt] = useState<string | null>(initialUpdatedAt);
 	const [trends, setTrends] = useState<QaReportTrends>(initialTrends);
-	const [kindFilter, setKindFilter] = useState<KindFilter>("all");
+	const { state: urlState, setField: setUrlField } = useUrlQueryState({ kind: "all" });
+	const kindFilter = (urlState.kind || "all") as KindFilter;
+	const setKindFilter = (value: KindFilter) => setUrlField("kind", value);
 	const [refreshing, setRefreshing] = useState(false);
 	const [error, setError] = useState<string | null>(null);
 

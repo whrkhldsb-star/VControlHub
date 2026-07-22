@@ -7,6 +7,7 @@ import { csrfFetch } from "@/lib/auth/csrf-client";
 import { useDialogFocus } from "@/lib/a11y/use-dialog-focus";
 import { getRefreshIntervalLabel } from "@/lib/preferences/refresh-interval";
 import { useRefreshInterval } from "@/lib/preferences/use-refresh-interval";
+import { useUrlQueryState } from "@/lib/hooks/use-url-query-state";
 import { useI18n } from "@/lib/i18n/use-locale";
 import { useVisibilityInterval } from "@/lib/hooks/use-visibility-interval";
 import { DockerResourcesPanel } from "./docker-resources-panel";
@@ -42,7 +43,9 @@ export default function DockerPage({ initialServers }: { initialServers: { id: s
 	const [ungrouped, setUngrouped] = useState<Container[]>([]);
 	const [dockerScope, setDockerScope] = useState<DockerScope | null>(null);
 	const [serverList] = useState<ServerOption[]>(initialServers);
-	const [selectedServerId, setSelectedServerId] = useState<string>(""); //"" = hub-host
+	const { state: dockerUrl, setField: setDockerUrlField } = useUrlQueryState({ serverId: "" });
+	const selectedServerId = dockerUrl.serverId || "";
+	const setSelectedServerId = (value: string) => setDockerUrlField("serverId", value);
 	const closeRemovalDialog = useCallback(() => setPendingRemoval(null), []);
 	const closeLogsDialog = useCallback(() => setLogsId(null), []);
 	const removeCancelButtonRef = useRef<HTMLButtonElement | null>(null);

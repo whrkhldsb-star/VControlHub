@@ -27,6 +27,10 @@ export const zh: Record<string, string> = {
 	"usersPage.success.passwordReset": "已重置 {name} 的密码",
 	"usersPage.error.resetFailed": "重置 {name} 的密码失败",
 	"usersPage.empty": "暂无用户。",
+	"usersPage.pagination": "第 {page}/{totalPages} 页，共 {total} 人",
+	"usersPage.prev": "上一页",
+	"usersPage.next": "下一页",
+
 	"usersPage.error.createFailed": "创建失败",
 	"usersPage.error.disableFailed": "禁用 {name} 失败",
 	"usersPage.error.enableFailed": "启用 {name} 失败",
@@ -75,6 +79,10 @@ export const en: Record<string, string> = {
 	"usersPage.success.passwordReset": "Password reset for {name}",
 	"usersPage.error.resetFailed": "Failed to reset {name}'s password",
 	"usersPage.empty": "No users yet.",
+	"usersPage.pagination": "Page {page}/{totalPages}, {total} users",
+	"usersPage.prev": "Previous",
+	"usersPage.next": "Next",
+
 	"usersPage.error.createFailed": "Failed to create user",
 	"usersPage.error.disableFailed": "Failed to disable {name}",
 	"usersPage.error.enableFailed": "Failed to enable {name}",

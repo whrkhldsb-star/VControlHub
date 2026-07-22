@@ -8,6 +8,7 @@ import { useI18n } from "@/lib/i18n/use-locale";
 import { useWsNotifications } from "@/lib/ws/use-ws-notifications";
 import { useDialogFocus } from "@/lib/a11y/use-dialog-focus";
 import { useVisibilityInterval } from "@/lib/hooks/use-visibility-interval";
+import { useUrlQueryState } from "@/lib/hooks/use-url-query-state";
 import { CreateDownloadFormLazy } from "./create-download-form-lazy";
 import { DownloadTaskRow } from "./downloads-task-row";
 import { getCategories, getErrorMessage, getStatusLabel, formatSpeed, type DownloadTask, type GlobalStat, type ServerOption } from "./downloads-shared";
@@ -20,8 +21,14 @@ export function DownloadsClient({ servers, canManage, canManageNode }: { servers
 	const [globalStat, setGlobalStat] = useState<GlobalStat>(null);
 	const [loading, setLoading] = useState(true);
 	const [showForm, setShowForm] = useState(false);
-	const [filter, setFilter] = useState("ALL");
-	const [categoryFilter, setCategoryFilter] = useState<string | null>(null);
+	const { state: urlFilters, setField: setUrlFilter } = useUrlQueryState({
+		status: "ALL",
+		category: "",
+	});
+	const filter = urlFilters.status || "ALL";
+	const categoryFilter = urlFilters.category || null;
+	const setFilter = (value: string) => setUrlFilter("status", value);
+	const setCategoryFilter = (value: string | null) => setUrlFilter("category", value ?? "");
 	const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
 
 	const defaultServer = servers[0];

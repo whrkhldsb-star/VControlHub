@@ -19,8 +19,14 @@ export const dynamic = "force-dynamic";
 /** GET: List users visible in the actor's team scope */
 export async function GET(request: Request) {
   return withApiRoute(request, { permission: "user:read" }, async ({ session }) => {
-    const users = await prisma.user.findMany({
-      where: userDirectoryWhere(session!),
+    const url = new URL(request.url);
+    const page = Math.max(1, Number.parseInt(url.searchParams.get("page") ?? "1", 10) || 1);
+    const pageSize = Math.min(100, Math.max(1, Number.parseInt(url.searchParams.get("pageSize") ?? "50", 10) || 50));
+    const skip = (page - 1) * pageSize;
+    const where = userDirectoryWhere(session!);
+    const [users, total] = await Promise.all([
+    prisma.user.findMany({
+      where,
       select: {
         id: true,
         username: true,
@@ -36,15 +42,18 @@ export async function GET(request: Request) {
         },
       },
       orderBy: { createdAt: "desc" },
-      take: 500,
-    });
+      skip,
+      take: pageSize,
+    }),
+    prisma.user.count({ where }),
+    ]);
 
     const safeUsers = users.map((user) => ({
       ...user,
       roles: user.roles.map((role) => role.role),
     }));
 
-    return NextResponse.json(safeUsers);
+    return NextResponse.json({ users: safeUsers, total: total ?? safeUsers.length, page, pageSize, totalPages: Math.ceil((total ?? safeUsers.length) / pageSize) });
   });
 }
 
