@@ -13,6 +13,7 @@ import { type ReactElement } from "react";
 import { render, renderHook, type RenderHookOptions, type RenderOptions } from "@testing-library/react";
 
 import { I18nProvider } from "@/lib/i18n/provider";
+import { ToastProvider } from "@/components/toast-provider";
 import type { Locale } from "@/lib/i18n/translations";
 
 interface I18nRenderOptions extends Omit<RenderOptions, "wrapper"> {
@@ -25,7 +26,7 @@ export function renderWithI18n(
 ) {
 	return render(ui, {
 		wrapper: ({ children }) => (
-			<I18nProvider initialLocale={locale}>{children}</I18nProvider>
+			<I18nProvider initialLocale={locale}><ToastProvider>{children}</ToastProvider></I18nProvider>
 		),
 		...options,
 	});
@@ -41,7 +42,7 @@ export function renderHookWithI18n<Result, Props>(
 ) {
 	return renderHook(callback, {
 		wrapper: ({ children }) => (
-			<I18nProvider initialLocale={locale}>{children}</I18nProvider>
+			<I18nProvider initialLocale={locale}><ToastProvider>{children}</ToastProvider></I18nProvider>
 		),
 		...options,
 	});

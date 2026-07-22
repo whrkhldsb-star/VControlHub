@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 
 import { csrfFetch } from "@/lib/auth/csrf-client";
 import { useI18n } from "@/lib/i18n/use-locale";
+import { useToast } from "@/components/toast-provider";
 import { UI_INPUT } from "@/lib/ui/classes";
 import { PageShell, PageHeader, SurfacePanel, EmptyState } from "@/components/page-shell";
 
@@ -36,6 +37,7 @@ type Hit = {
 
 export function KnowledgeClient({ canManage }: { canManage: boolean }) {
   const { t } = useI18n();
+	const { addToast } = useToast();
   const [bases, setBases] = useState<KnowledgeBase[]>([]);
   const [selectedId, setSelectedId] = useState<string>("");
   const [documents, setDocuments] = useState<DocumentRow[]>([]);
@@ -47,7 +49,6 @@ export function KnowledgeClient({ canManage }: { canManage: boolean }) {
   const [hits, setHits] = useState<Hit[]>([]);
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [message, setMessage] = useState<string | null>(null);
 
   const loadBases = useCallback(async () => {
     const data = await csrfFetch<{ knowledgeBases: KnowledgeBase[] }>("/api/knowledge");
@@ -109,7 +110,6 @@ export function KnowledgeClient({ canManage }: { canManage: boolean }) {
   async function createBase() {
     setBusy("create");
     setError(null);
-    setMessage(null);
     try {
       await csrfFetch("/api/knowledge", {
         method: "POST",
@@ -122,7 +122,7 @@ export function KnowledgeClient({ canManage }: { canManage: boolean }) {
       });
       setName("");
       setDescription("");
-      setMessage(t("knowledgePage.created"));
+      addToast("success", t("knowledgePage.created"));
       await loadBases();
     } catch (e) {
       setError(e instanceof Error ? e.message : t("knowledgePage.error"));
@@ -135,7 +135,6 @@ export function KnowledgeClient({ canManage }: { canManage: boolean }) {
     if (!selectedId) return;
     setBusy("ingest");
     setError(null);
-    setMessage(null);
     try {
       const data = await csrfFetch<{ chunkCount: number }>("/api/knowledge", {
         method: "POST",
@@ -150,7 +149,8 @@ export function KnowledgeClient({ canManage }: { canManage: boolean }) {
       });
       setDocTitle("");
       setDocContent("");
-      setMessage(
+      addToast(
+        "success",
         t("knowledgePage.ingested").replace("{count}", String(data.chunkCount ?? 0)),
       );
       await loadBases();
@@ -165,7 +165,6 @@ export function KnowledgeClient({ canManage }: { canManage: boolean }) {
   async function search() {
     setBusy("search");
     setError(null);
-    setMessage(null);
     try {
       const data = await csrfFetch<{ hits: Hit[] }>("/api/knowledge", {
         method: "POST",
@@ -178,7 +177,7 @@ export function KnowledgeClient({ canManage }: { canManage: boolean }) {
         }),
       });
       setHits(data.hits ?? []);
-      setMessage(t("knowledgePage.searchOk").replace("{count}", String(data.hits?.length ?? 0)));
+      addToast("success", t("knowledgePage.searchOk").replace("{count}", String(data.hits?.length ?? 0)));
     } catch (e) {
       setError(e instanceof Error ? e.message : t("knowledgePage.error"));
     } finally {
@@ -360,8 +359,6 @@ export function KnowledgeClient({ canManage }: { canManage: boolean }) {
           ))}
         </div>
       </SurfacePanel>
-
-      {message && <p className="mt-3 text-xs text-[var(--success)]">{message}</p>}
       {error && <p className="mt-3 text-xs text-[var(--danger)]">{error}</p>}
       <p className="mt-4 text-[11px] text-[var(--text-muted)]">{t("knowledgePage.aiHint")}</p>
     </PageShell>

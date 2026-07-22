@@ -90,6 +90,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
           return (
             <div
               key={toast.id}
+              role={toast.type === "error" ? "alert" : "status"}
               className={`pointer-events-auto flex items-center gap-3 rounded-xl border px-4 py-3 text-sm backdrop-blur-md transition-all duration-300 animate-in slide-in-from-right ${style.container}`}
             >
               <span className={`text-base font-bold ${style.icon}`}>

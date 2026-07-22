@@ -528,8 +528,8 @@ make logs SERVICE_PREFIX=vcontrolhub
 |---|------|------|------|
 | FE-14 | `media/[id]` 页 `<img>` 无 `loading="lazy"` | `media/[id]/page.tsx` | **已修** |
 | FE-15 | VPS 备份面板双 fetch 无 abort（已用 Promise.all 并行，但组件卸载不取消） | `servers/vps-backup-section.tsx` | **已修** AbortController |
-| FE-16 | 下载/用户/知识库三个页面只用 message state 不用 toast，与其他 127 处不一致 | `downloads-client.tsx`、`users-client.tsx`、`knowledge-client.tsx` | 待修复 |
-| FE-17 | downloads/docker/traffic/server-overview-card 手写轮询而非复用 `useResourcePolling` hook | 多文件 | 待修复 |
+| FE-16 | 下载/用户/知识库三个页面只用 message state 不用 toast，与其他 127 处不一致 | downloads/users/knowledge | **已修** 统一 `useToast` |
+| FE-17 | downloads/docker/traffic/server-overview-card 手写轮询而非复用 `useResourcePolling` hook | 多文件 | **有意保持**：已共用 `useVisibilityInterval`/`useRefreshInterval`；downloads 仅在运行中任务时轮询，docker stats 与 traffic 多路请求不适合单资源 polling 硬套 |
 
 
 ## 📄 许可

@@ -7,6 +7,7 @@ import { csrfFetch } from "@/lib/auth/csrf-client";
 import { EmptyState, ListPanel, ListRow, Toolbar } from "@/components/page-shell";
 import { toDateLocale } from "@/lib/i18n/locale-format";
 import { useI18n } from "@/lib/i18n/use-locale";
+import { useToast } from "@/components/toast-provider";
 import { useDialogFocus } from "@/lib/a11y/use-dialog-focus";
 import {
   UsersCreateForm,
@@ -30,6 +31,7 @@ type UserInfo = {
 
 export function UserManagementClient({ canManage = false, currentUserId = "" }: { canManage?: boolean; currentUserId?: string }) {
   const { t, locale } = useI18n();
+	const { addToast } = useToast();
   const { state: urlState, setField: setUrlField } = useUrlQueryState({ page: "1" });
   const page = Math.max(1, Number.parseInt(urlState.page || "1", 10) || 1);
   const setPage = (value: number) => setUrlField("page", String(Math.max(1, value)));
@@ -41,7 +43,6 @@ export function UserManagementClient({ canManage = false, currentUserId = "" }: 
   const [createForm, setCreateForm] = useState<CreateUserFormState>({ username: "", displayName: "", password: "", roleKeys: ["viewer"] });
   const [creating, setCreating] = useState(false);
   const [editingPermissionsUser, setEditingPermissionsUser] = useState<UserInfo | null>(null);
-  const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
 	const [loadFailed, setLoadFailed] = useState(false);
 
 	const messageFromError = (err: unknown, fallback: string) => (err instanceof Error ? err.message : fallback);
@@ -62,7 +63,7 @@ export function UserManagementClient({ canManage = false, currentUserId = "" }: 
 		} catch (err) {
 			setUsers([]);
 			setLoadFailed(true);
-			setMessage({ type: "error", text: messageFromError(err, t("usersPage.error.loadFailed")) });
+			addToast("error", messageFromError(err, t("usersPage.error.loadFailed")) );
 		}
 		finally { setLoading(false); }
 	}, [t, page]);
@@ -74,19 +75,18 @@ export function UserManagementClient({ canManage = false, currentUserId = "" }: 
 
   const handleCreate = async () => {
     setCreating(true);
-	setMessage(null);
 		try {
 			await csrfFetch("/api/users", {
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify(createForm),
 			});
-			setMessage({ type: "success", text: t("usersPage.success.created").replace("{name}", createForm.username) });
+			addToast("success", t("usersPage.success.created").replace("{name}", createForm.username));
 			setCreateForm({ username: "", displayName: "", password: "", roleKeys: ["viewer"] });
 			setShowCreateForm(false);
 			fetchUsers();
 		} catch (err) {
-			setMessage({ type: "error", text: err instanceof Error ? err.message : t("usersPage.error.createFailed") });
+			addToast("error", err instanceof Error ? err.message : t("usersPage.error.createFailed") );
 		} finally {
 			setCreating(false);
 		}
@@ -94,7 +94,6 @@ export function UserManagementClient({ canManage = false, currentUserId = "" }: 
 
   const handleToggleStatus = async (userId: string, currentStatus: string, username: string) => {
     const action = currentStatus === "DISABLED" ? "enable" : "disable";
-    setMessage(null);
     try {
       await csrfFetch("/api/users", {
         method: "PATCH",
@@ -102,14 +101,11 @@ export function UserManagementClient({ canManage = false, currentUserId = "" }: 
         body: JSON.stringify({ userId, action }),
       });
       const successKey = action === "enable" ? "usersPage.success.enabled" : "usersPage.success.disabled";
-      setMessage({ type: "success", text: t(successKey).replace("{name}", username) });
+      addToast("success", t(successKey).replace("{name}", username));
       await fetchUsers();
     } catch (err) {
       const errKey = action === "enable" ? "usersPage.error.enableFailed" : "usersPage.error.disableFailed";
-      setMessage({
-        type: "error",
-        text: messageFromError(err, t(errKey).replace("{name}", username)),
-      });
+      addToast("error", messageFromError(err, t(errKey).replace("{name}", username)));
     }
   };
 
@@ -121,18 +117,17 @@ export function UserManagementClient({ canManage = false, currentUserId = "" }: 
   const handleResetPassword = async () => {
     if (!resetPasswordUser || !resetPasswordValue) return;
     setResetting(true);
-    setMessage(null);
     try {
       await csrfFetch("/api/users", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ userId: resetPasswordUser.id, action: "reset_password", newPassword: resetPasswordValue }),
       });
-      setMessage({ type: "success", text: t("usersPage.success.passwordReset").replace("{name}", resetPasswordUser.username) });
+      addToast("success", t("usersPage.success.passwordReset").replace("{name}", resetPasswordUser.username));
       setResetPasswordUser(null);
       setResetPasswordValue("");
     } catch (err) {
-      setMessage({ type: "error", text: messageFromError(err, t("usersPage.error.resetFailed").replace("{name}", resetPasswordUser.username)) });
+      addToast("error", messageFromError(err, t("usersPage.error.resetFailed").replace("{name}", resetPasswordUser.username)));
     } finally {
       setResetting(false);
     }
@@ -149,20 +144,6 @@ export function UserManagementClient({ canManage = false, currentUserId = "" }: 
 
   return (
     <div>
-      {/* Message */}
-      {message && (
-        <div
-          role={message.type === "error" ? "alert" : "status"}
-          className={`mb-4 rounded-2xl border px-4 py-3 text-sm ${
-          message.type === "success"
-            ? "border-[var(--success-border)] bg-[var(--success-bg)] text-[var(--success)]"
-            : "border-[var(--danger-border)] bg-[var(--danger-bg)] text-[var(--danger)]"
-        }`}>
-          {message.text}
-          <button type="button" onClick={() => setMessage(null)} aria-label={t("common.close")} className="ml-3 text-current/50 hover:text-current">✕</button>
-        </div>
-      )}
-
       <Toolbar className="mb-5 justify-between">
         <h2 className="px-1 text-sm font-semibold text-[var(--text-primary)] sm:text-base">{t("usersPage.title2")}</h2>
         {canManage ? (

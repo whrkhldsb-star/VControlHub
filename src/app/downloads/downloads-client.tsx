@@ -5,6 +5,7 @@ import { csrfFetch } from "@/lib/auth/csrf-client";
 import { EmptyState, ListPanel, SurfacePanel, Toolbar } from "@/components/page-shell";
 import { Download } from "@/components/icons";
 import { useI18n } from "@/lib/i18n/use-locale";
+import { useToast } from "@/components/toast-provider";
 import { useWsNotifications } from "@/lib/ws/use-ws-notifications";
 import { useDialogFocus } from "@/lib/a11y/use-dialog-focus";
 import { useVisibilityInterval } from "@/lib/hooks/use-visibility-interval";
@@ -15,11 +16,13 @@ import { getCategories, getErrorMessage, getStatusLabel, formatSpeed, type Downl
 export type { ServerOption } from "./downloads-shared";
 export function DownloadsClient({ servers, canManage, canManageNode }: { servers: ServerOption[]; canManage: boolean; canManageNode: boolean }) {
 	const { t } = useI18n();
+	const { addToast } = useToast();
 	const { lastDownloadProgress } = useWsNotifications();
 
 	const [tasks, setTasks] = useState<DownloadTask[]>([]);
 	const [globalStat, setGlobalStat] = useState<GlobalStat>(null);
 	const [loading, setLoading] = useState(true);
+	const [loadFailed, setLoadFailed] = useState(false);
 	const [showForm, setShowForm] = useState(false);
 	const { state: urlFilters, setField: setUrlFilter } = useUrlQueryState({
 		status: "ALL",
@@ -29,7 +32,6 @@ export function DownloadsClient({ servers, canManage, canManageNode }: { servers
 	const categoryFilter = urlFilters.category || null;
 	const setFilter = (value: string) => setUrlFilter("status", value);
 	const setCategoryFilter = (value: string | null) => setUrlFilter("category", value ?? "");
-	const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
 
 	const defaultServer = servers[0];
 	const defaultTargetPath = defaultServer?.storagePath ?? "/root/downloads";
@@ -45,15 +47,16 @@ export function DownloadsClient({ servers, canManage, canManageNode }: { servers
   const dialogRef = useDialogFocus<HTMLDivElement>({ open: pendingPurgeTaskId !== null, onClose: () => setPendingPurgeTaskId(null) });
 
 	const fetchTasks = useCallback(async () => {
+		setLoadFailed(false);
 		try {
 			const data = await csrfFetch("/api/downloads");
 			setTasks(data.tasks ?? data);
 			setGlobalStat(data.globalStat ?? null);
-			setMessage((current) => current?.type === "error" ? null : current);
 		} catch (error) {
-			setMessage({ type: "error", text: getErrorMessage(error, t("downloadsPage.error.loadList")) });
+			setLoadFailed(true);
+			addToast("error", getErrorMessage(error, t("downloadsPage.error.loadList")));
 		} finally { setLoading(false); }
-	}, [t]);
+	}, [t, addToast]);
 
 	const fetchTasksRef = useRef(fetchTasks);
 	const tasksRef = useRef(tasks);
@@ -115,19 +118,19 @@ export function DownloadsClient({ servers, canManage, canManageNode }: { servers
 
 	const handleSubmit = async () => {
 		if (!form.serverId) {
-			setMessage({ type: "error", text: t("downloadsPage.error.noVps") });
+			addToast("error", t("downloadsPage.error.noVps") );
 			return;
 		}
 		if (batchModeError) {
-			setMessage({ type: "error", text: batchModeError });
+			addToast("error", batchModeError );
 			return;
 		}
 		const trimmedFileName = form.fileName.trim();
 		if (trimmedFileName && (trimmedFileName.includes("/") || trimmedFileName.includes("\\") || trimmedFileName.includes(".."))) {
-			setMessage({ type: "error", text: t("downloadsPage.error.invalidFilename") });
+			addToast("error", t("downloadsPage.error.invalidFilename") );
 			return;
 		}
-		setSubmitting(true); setMessage(null);
+		setSubmitting(true);
 		try {
 			const isBatch = form.batchMode;
 			const batchUrls = isBatch ? form.batchText.split("\n").map((l) => l.trim()).filter(Boolean) : undefined;
@@ -141,10 +144,10 @@ export function DownloadsClient({ servers, canManage, canManageNode }: { servers
 			const _data = await csrfFetch("/api/downloads", {
 				method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload),
 			});
-			setMessage({ type: "success", text: isBatch ? `${t("downloadsPage.success.batchCreated").replace("${count}", String(batchUrls?.length ?? 0))}` : t("downloadsPage.success.taskCreated") });
+			addToast("success", isBatch ? `${t("downloadsPage.success.batchCreated").replace("${count}", String(batchUrls?.length ?? 0))}` : t("downloadsPage.success.taskCreated"));
 			setForm({ url: "", serverId: servers[0]?.id ?? "", targetPath: defaultTargetPath, fileName: "", category: "", maxSpeedKb: "", batchMode: false, batchText: "" });
 			setShowForm(false); fetchTasks();
-		} catch (error) { setMessage({ type: "error", text: getErrorMessage(error, t("downloadsPage.error.taskCreate")) }); }
+		} catch (error) { addToast("error", getErrorMessage(error, t("downloadsPage.error.taskCreate")) ); }
 		finally { setSubmitting(false); }
 	};
 
@@ -153,21 +156,20 @@ export function DownloadsClient({ servers, canManage, canManageNode }: { servers
 		if (busyActionRef.current.has(busyKey)) return;
 		busyActionRef.current.add(busyKey);
 		setBusyActions((current) => ({ ...current, [busyKey]: action }));
-		setMessage(null);
 		try {
 			if (action === "cancel") {
 				await csrfFetch(`/api/downloads?taskId=${taskId}`, { method: "DELETE" });
-				setMessage({ type: "success", text: t("downloadsPage.success.cancelled") });
+				addToast("success", t("downloadsPage.success.cancelled") );
 				void fetchTasks();
 			} else if (action === "purge") {
 				await csrfFetch(`/api/downloads?taskId=${taskId}&purge=1`, { method: "DELETE" });
 				setTasks((current) => current.filter((task) => task.id !== taskId));
 				setPendingPurgeTaskId(null);
-				setMessage({ type: "success", text: t("downloadsPage.success.deleted") });
+				addToast("success", t("downloadsPage.success.deleted") );
 			} else if (action === "retry") {
 				const task = tasks.find((t) => t.id === taskId);
 				if (!task) {
-					setMessage({ type: "error", text: t("downloadsPage.error.notFound") });
+					addToast("error", t("downloadsPage.error.notFound") );
 					return;
 				}
 				const payload: Record<string, unknown> = {
@@ -183,7 +185,7 @@ export function DownloadsClient({ servers, canManage, canManageNode }: { servers
 					headers: { "Content-Type": "application/json" },
 					body: JSON.stringify(payload),
 				});
-				setMessage({ type: "success", text: t("downloadsPage.success.recreated") });
+				addToast("success", t("downloadsPage.success.recreated") );
 				void fetchTasks();
 			} else if (action.startsWith("limit:")) {
 				const maxSpeedKb = parseInt(action.slice(6));
@@ -191,7 +193,7 @@ export function DownloadsClient({ servers, canManage, canManageNode }: { servers
 					method: "PATCH", headers: { "Content-Type": "application/json" },
 					body: JSON.stringify({ taskId, maxSpeedKb }),
 				});
-				setMessage({ type: "success", text: t("downloadsPage.success.speedSet").replace("${kb}", String(maxSpeedKb)) });
+				addToast("success", t("downloadsPage.success.speedSet").replace("${kb}", String(maxSpeedKb)));
 				void fetchTasks();
 			} else {
 				const result = await csrfFetch("/api/downloads", {
@@ -215,7 +217,7 @@ export function DownloadsClient({ servers, canManage, canManageNode }: { servers
 				}
 			}
 		} catch (error) {
-			setMessage({ type: "error", text: getErrorMessage(error, t("downloadsPage.error.taskOp")) });
+			addToast("error", getErrorMessage(error, t("downloadsPage.error.taskOp")) );
 		} finally {
 			busyActionRef.current.delete(busyKey);
 			setBusyActions((current) => {
@@ -227,15 +229,14 @@ export function DownloadsClient({ servers, canManage, canManageNode }: { servers
 	};
 
 	const handleGlobalSpeedLimit = async (kb: number) => {
-		setMessage(null);
 		try {
 			await csrfFetch("/api/downloads", {
 				method: "PATCH", headers: { "Content-Type": "application/json" },
 				body: JSON.stringify({ globalMaxSpeedKb: kb }),
 			});
-			setMessage({ type: "success", text: kb === 0 ? t("downloadsPage.success.globalSpeedCleared") : t("downloadsPage.success.globalSpeedSet").replace("${kb}", String(kb)) });
+			addToast("success", kb === 0 ? t("downloadsPage.success.globalSpeedCleared") : t("downloadsPage.success.globalSpeedSet").replace("${kb}", String(kb)));
 		} catch (error) {
-			setMessage({ type: "error", text: getErrorMessage(error, t("downloadsPage.error.globalSpeed")) });
+			addToast("error", getErrorMessage(error, t("downloadsPage.error.globalSpeed")) );
 		}
 	};
 
@@ -266,14 +267,6 @@ export function DownloadsClient({ servers, canManage, canManageNode }: { servers
 
 	return (
 		<div>
-			{message && (
-				<div role={message.type === "error" ? "alert" : "status"} className={`mb-4 rounded-2xl border px-4 py-3 text-sm ${
-					message.type === "success" ? "border-[var(--success-border)] bg-[var(--success-bg)]/50 text-[var(--success)]" : "border-[var(--danger-border)] bg-[var(--danger-bg)]/50 text-[var(--danger)]"
-				}`}>
-					{message.text}
-					<button type="button" onClick={() => setMessage(null)} aria-label={t("common.close")} className="ml-3 text-current/50 hover:text-current">✕</button>
-				</div>
-			)}
 
 			{globalStat && (
 				<SurfacePanel className="mb-5" title={t("downloadsPage.stats.globalSpeed")}>
@@ -367,7 +360,7 @@ export function DownloadsClient({ servers, canManage, canManageNode }: { servers
 				empty={
 					loading ? (
 						<EmptyState>{t("downloadsPage.loading")}</EmptyState>
-					) : filteredTasks.length === 0 && message?.type !== "error" ? (
+					) : filteredTasks.length === 0 && !loadFailed ? (
 						<EmptyState variant="boxed" icon={<Download size={32} className="text-[var(--text-muted)]" />}>
 							{filter === "ALL"
 								? t("downloadsPage.empty")
