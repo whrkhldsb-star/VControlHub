@@ -377,17 +377,6 @@ make logs SERVICE_PREFIX=vcontrolhub
 | 工单 / AI | 双向时间线；知识库 RAG；AI Ops 安全闭环 |
 | 集成 | 云账单账户（`teamId` + CSV/探针 + **HTTPS CSV URL live 导入**）；ITSM/IM 双向 |
 
-### 待办任务
-
-| 项 | 当前状态 | 目标 |
-|---|---|---|
-| Playwright 跨浏览器 | ✅ `playwright.config` 支持 firefox/webkit；CI public smoke 三引擎；`npm run test:e2e:cross-browser` | 保持 CI 三引擎 public smoke；全量 authenticated 仍走 nightly chromium |
-| DAST 基线扫描 | ✅ `scripts/dast-baseline.sh` + `npm run dast:baseline`；main push CI stage（nuclei 优先，curl 探针兜底） | 有 nuclei 时启用 medium+ 模板；本地/CI 探针持续通过 |
-| 压测基线 | ✅ `scripts/load/k6-baseline.js` + `npm run load:baseline`（auth/health/protected API 阈值） | 生产前手动/计划任务跑 k6；阈值回归 |
-| Web Vitals 上报 | ✅ 客户端 `WebVitalsReporter` + `POST /api/monitoring/web-vitals` + `GET /api/monitoring/observability` | 持续采集 CLS/LCP/INP；看板可读 observability 快照 |
-| WebSocket 连接监控 | ✅ notification-ws + ssh-ws 计数；ssh-ws `/metrics` 本机抓取合并到 observability | 活跃/打开/关闭/拒绝/错误可见 |
-| 通知投递耗时统计 | ✅ email/telegram/webhook/in_app_ws 延迟分位数 + 失败率写入 runtime metrics | 从 observability 读各渠道 p50/p95/失败率 |
-
 ### 审查残留（仅未闭环）
 
 > 历史多轮深扫的已修复项已从 README 移除，避免与代码不同步。完整历史见 git log。
