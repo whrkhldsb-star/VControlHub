@@ -64,7 +64,22 @@ export async function PUT(request: Request) {
       if (!session)
         throw new AuthError("Unauthorized");
 
-      const prefs = normalizeUserPreferences(body);
+      // Partial PUT: merge into existing preferences so clients that only send
+      // autoProbe* / one field (e.g. servers AutoProbeProvider) do not wipe
+      // defaultPage, widgets, refresh interval, etc. back to defaults.
+      const existingRow = await prisma.user.findUnique({
+        where: { id: session.userId },
+        select: { preferences: true },
+      });
+      const existing =
+        existingRow?.preferences && typeof existingRow.preferences === "object"
+          ? (existingRow.preferences as Record<string, unknown>)
+          : {};
+      const prefs = normalizeUserPreferences({
+        ...defaultPreferences,
+        ...existing,
+        ...body,
+      });
 
       await prisma.user.update({
         where: { id: session.userId },

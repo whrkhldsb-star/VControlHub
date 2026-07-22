@@ -10,6 +10,7 @@ import { isRuntimeSettingKey, normalizeRuntimeSettingValue } from "@/lib/runtime
 import { withApiRoute } from "@/lib/http/api-guard";
 import { GENERAL_WRITE_LIMIT } from "@/lib/http/rate-limit-presets";
 import { auditUserAction } from "@/lib/audit/service";
+import { t } from "@/lib/i18n/translations";
 
 export const dynamic = "force-dynamic";
 
@@ -31,18 +32,18 @@ function normalizeIntegerSetting(
 ) {
 	const parsed = Number(value);
 	if (!Number.isFinite(parsed)) {
-		throw new Error(`${label} must be a number`);
+		throw new Error(t("backend.settings.mustBeNumber").replace("{label}", label));
 	}
 	const integer = Math.trunc(parsed);
 	if (integer < min || integer > max) {
-		throw new Error(`${label} must be between ${min} and ${max} `);
+		throw new Error(t("backend.settings.mustBeBetween").replace("{label}", label).replace("{min}", String(min)).replace("{max}", String(max)));
 	}
 	return { key, value: String(integer) };
 }
 
 function normalizeBooleanSetting(key: string, value: string) {
 	if (value !== "true" && value !== "false") {
-		throw new Error(`${key} must be true or false`);
+		throw new Error(t("backend.settings.mustBeBoolean").replace("{key}", key));
 	}
 	return { key, value };
 }
@@ -54,10 +55,10 @@ function normalizeOptionalHttpUrl(key: string, value: string) {
 	try {
 		const parsed = new URL(trimmed);
 		if (parsed.protocol !== "http:" && parsed.protocol !== "https:") {
-			throw new Error("Logo URL only supports http(s) or internal path");
+			throw new Error(t("backend.settings.logoUrlInvalid"));
 		}
 	} catch {
-		throw new Error("Logo URL only supports http(s) or internal path");
+		throw new Error(t("backend.settings.logoUrlInvalid"));
 	}
 	return { key, value: trimmed };
 }
@@ -69,8 +70,8 @@ function normalizeSettingValue(key: string, value: string) {
 	switch (key) {
 		case "platform.name": {
 			const trimmed = value.trim();
-			if (!trimmed) throw new Error("Platform name is required");
-			if (trimmed.length > 80) throw new Error("Platform namecannot exceed 80 characters");
+			if (!trimmed) throw new Error(t("backend.settings.platformNameRequired"));
+			if (trimmed.length > 80) throw new Error(t("backend.settings.platformNameTooLong"));
 			return { key, value: trimmed };
 		}
 		case "platform.logo":
@@ -89,7 +90,7 @@ function normalizeSettingValue(key: string, value: string) {
 		case "smtp.from": {
 			const trimmed = value.trim();
 			if (trimmed && !/^.+@.+\..+$/.test(trimmed)) {
-				throw new Error("Invalid sender address format");
+				throw new Error(t("backend.settings.smtpFromInvalid"));
 			}
 			return { key, value: trimmed };
 		}
@@ -100,7 +101,7 @@ function normalizeSettingValue(key: string, value: string) {
 				.filter(Boolean);
 			const invalid = recipients.find((recipient) => !/^.+@.+\..+$/.test(recipient));
 			if (invalid) {
-				throw new Error(`Alert recipient addressInvalid format: ${invalid}`);
+				throw new Error(t("backend.settings.smtpRecipientInvalid").replace("{email}", invalid));
 			}
 			return { key, value: recipients.join(",") };
 		}
@@ -120,11 +121,11 @@ function normalizeSettingValue(key: string, value: string) {
 				.map((item) => item.trim())
 				.filter(Boolean);
 			if (tokens.length === 0) {
-				throw new Error("Telegram Chat ID At least 1 target must be configured");
+				throw new Error(t("backend.settings.telegramChatIdRequired"));
 			}
 			const invalid = tokens.find((token) => !/^-?\d+$/.test(token) && !/^@[A-Za-z0-9_]{4,}$/.test(token));
 			if (invalid) {
-				throw new Error(`Telegram Chat ID Invalid format: ${invalid} (expected a number or @channelusername)`);
+				throw new Error(t("backend.settings.telegramChatIdInvalid").replace("{value}", invalid));
 			}
 			return { key, value: tokens.join(",") };
 		}
@@ -181,7 +182,7 @@ export async function PATCH(request: Request) {
 			return NextResponse.json(
 				{
 					error: [
-						rejectedKeys.length > 0 ? `Not allowed configuration items: ${rejectedKeys.join(", ")}` : null,
+						rejectedKeys.length > 0 ? t("backend.settings.rejectedKeys").replace("{keys}", rejectedKeys.join(", ")) : null,
 						...validationErrors,
 					].filter(Boolean).join("; "),
 					rejectedKeys,
@@ -194,7 +195,7 @@ export async function PATCH(request: Request) {
 		if (entries.length === 0) {
 			return NextResponse.json({
 				success: true,
-				message: "No valid update items",
+				message: t("backend.settings.noValidUpdates"),
 			});
 		}
 

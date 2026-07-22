@@ -107,4 +107,35 @@ describe("/api/preferences", () => {
       autoProbeIntervalSec: 300,
     }));
   });
+
+  it("merges partial PUT into existing preferences without wiping siblings", async () => {
+    prismaMock.user.findUnique.mockResolvedValueOnce({
+      preferences: {
+        defaultPage: "/servers",
+        dashboardWidgets: ["analytics"],
+        notificationsEnabled: false,
+        notificationSound: false,
+        autoRefreshInterval: 60,
+        autoProbeEnabled: true,
+        autoProbeIntervalSec: 60,
+      },
+    });
+
+    const response = await PUT(new Request("http://local/api/preferences", {
+      method: "PUT",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ autoProbeEnabled: false }),
+    }));
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(body).toEqual(expect.objectContaining({
+      defaultPage: "/servers",
+      dashboardWidgets: ["analytics"],
+      notificationsEnabled: false,
+      autoRefreshInterval: 60,
+      autoProbeEnabled: false,
+      autoProbeIntervalSec: 60,
+    }));
+  });
 });
