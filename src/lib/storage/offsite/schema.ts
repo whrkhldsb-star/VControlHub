@@ -11,6 +11,7 @@
 import { z } from "zod";
 
 import { getAllSettings, getSetting, setManySettings } from "@/lib/settings/service";
+import { MASKED_VALUE } from "@/lib/settings/schema";
 
 /* ── Schemas ─────────────────────────────────────────────── */
 
@@ -133,7 +134,17 @@ const OFFSITE_FIELD_TO_SETTING_KEY: Record<keyof OffsiteConfig, (typeof OFFSITE_
 
 export async function saveOffsiteConfig(update: OffsiteConfigUpdate): Promise<OffsiteConfig> {
 	const current = await loadOffsiteConfig();
-	const merged = { ...current, ...update };
+	// GET masks secret as "***"; ignore masked/empty secret on partial updates so
+	// clients can round-trip non-secret fields without clobbering the real key.
+	const safeUpdate: OffsiteConfigUpdate = { ...update };
+	if (
+		safeUpdate.secretAccessKey === undefined ||
+		safeUpdate.secretAccessKey === "" ||
+		safeUpdate.secretAccessKey === MASKED_VALUE
+	) {
+		delete safeUpdate.secretAccessKey;
+	}
+	const merged = { ...current, ...safeUpdate };
 	const validated = OffsiteConfigSchema.parse(merged);
 	const entries = (Object.keys(OFFSITE_FIELD_TO_SETTING_KEY) as Array<keyof OffsiteConfig>).map(
 		(field) => {
