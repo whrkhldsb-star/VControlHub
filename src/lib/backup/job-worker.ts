@@ -1,3 +1,4 @@
+import type { RoleKey } from "@/lib/auth/rbac";
 import { Prisma } from "@prisma/client";
 
 import {
@@ -112,14 +113,14 @@ function parseRestorePayload(payload: Prisma.JsonValue): BackupRestorePayload {
 function workerSession(
   job: { createdBy?: string | null; teamId?: string | null },
   payloadTeamId?: string | null,
-): { userId: string; roles: string[]; currentTeamId: string | null } | undefined {
+): { userId: string; roles: RoleKey[]; currentTeamId: string | null } | undefined {
   const teamId = (payloadTeamId && payloadTeamId.trim()) || job.teamId || null;
   if (!teamId) return undefined;
   // Do NOT elevate to admin: team:manage would make teamWhere() empty and ignore team boundaries.
   // Scope is enforced via currentTeamId only (operator-equivalent for backup job execution).
   return {
     userId: job.createdBy ?? "system",
-    roles: ["operator"],
+    roles: ["operator" as RoleKey],
     currentTeamId: teamId,
   };
 }
