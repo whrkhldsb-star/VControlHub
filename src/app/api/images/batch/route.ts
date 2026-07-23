@@ -56,28 +56,45 @@ export async function POST(request: Request) {
           }
           const images = await prisma.imageUpload.findMany({
             where: whereClause,
-            select: { id: true, storageKey: true },
+            select: {
+              id: true,
+              storageKey: true,
+              storageNodeId: true,
+              relativePath: true,
+            },
             take: 100,
           });
-          // Delete DB records
-          const result = await prisma.imageUpload.deleteMany({
-            where: whereClause,
-          });
+          // Delete on-disk variants FIRST so a disk failure leaves DB rows for retry.
           const fileResults = await Promise.allSettled(
             images.map((img) => deleteImageVariants(img.storageKey, UPLOAD_DIR)),
           );
           const failedFileIds = images
             .filter((_, index) => fileResults[index]?.status === "rejected")
             .map((image) => image.id);
+          const okIds = images
+            .filter((_, index) => fileResults[index]?.status !== "rejected")
+            .map((image) => image.id);
+          // Only remove DB rows for successfully unlinked image-bed files.
+          const result =
+            okIds.length > 0
+              ? await prisma.imageUpload.deleteMany({
+                  where: { id: { in: okIds } },
+                })
+              : { count: 0 };
+          // Linked LOCAL/SFTP copies are intentionally retained (publish-from-storage
+          // is a share of storage content); operators can delete via Files if needed.
           await auditUserAction(session.userId, "image.batch.delete", {
             requestedCount: ids.length,
             deleted: result.count,
-            ids: images.map((img) => img.id),
+            ids: okIds,
             failedFileIds,
+            retainedLinkedStorage: images
+              .filter((img) => okIds.includes(img.id) && img.storageNodeId && img.relativePath)
+              .map((img) => ({ id: img.id, storageNodeId: img.storageNodeId, relativePath: img.relativePath })),
           }, "WARNING", session?.currentTeamId);
           const payload = {
             deleted: result.count,
-            filesDeleted: images.length - failedFileIds.length,
+            filesDeleted: okIds.length,
             failedFileIds,
           };
           if (failedFileIds.length > 0) {

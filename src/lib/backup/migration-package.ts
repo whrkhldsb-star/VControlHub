@@ -32,7 +32,7 @@ import type { SessionPayload } from "@/lib/auth/session";
 import { teamWhere } from "@/lib/auth/team-scope";
 import { config } from "@/lib/config/env";
 import { prisma } from "@/lib/db";
-import { BusinessError, NotFoundError, ValidationError } from "@/lib/errors";
+import { BusinessError, ForbiddenError, NotFoundError, ValidationError } from "@/lib/errors";
 import { createLogger } from "@/lib/logging";
 
 import { t } from "@/lib/i18n/translations";
@@ -411,6 +411,19 @@ export async function importMigrationPackage(input: {
     }
 
     const { manifest, payloadAbsolutePath } = validated;
+    // Team isolation: non-admin may only import packages exported for their team
+    // (or legacy packages with null source.teamId).
+    const sourceTeamId = manifest.source?.teamId ?? null;
+    const session = input.session;
+    if (
+      session &&
+      !session.roles?.includes("admin") &&
+      session.currentTeamId &&
+      sourceTeamId !== null &&
+      sourceTeamId !== session.currentTeamId
+    ) {
+      throw new ForbiddenError("Cannot import migration package from another team");
+    }
     const type = manifest.backup.type;
     const portablePath = buildBackupFilePath(type);
     assertPortableBackupPath(portablePath);
@@ -469,7 +482,10 @@ export async function importMigrationPackage(input: {
 }
 
 /** List exported package directories under migration-packages/. */
-export async function listMigrationPackages(root = projectRoot()): Promise<
+export async function listMigrationPackages(
+  root = projectRoot(),
+  session?: { currentTeamId: string | null; roles?: string[] } | null,
+): Promise<
   Array<{
     packageId: string;
     relativeDir: string;
@@ -477,6 +493,7 @@ export async function listMigrationPackages(root = projectRoot()): Promise<
     type: string | null;
     fileSize: number | null;
     hasTarball: boolean;
+    sourceTeamId?: string | null;
   }>
 > {
   const rootDir = packagesRoot(root);
@@ -494,7 +511,14 @@ export async function listMigrationPackages(root = projectRoot()): Promise<
     type: string | null;
     fileSize: number | null;
     hasTarball: boolean;
+    sourceTeamId?: string | null;
   }> = [];
+
+  // Non-admin team sessions only see packages whose manifest source.teamId matches
+  // (or legacy null packages — still visible under teamWhere-null policy).
+  const isAdmin = Boolean(session?.roles?.includes("admin"));
+  const teamId = session?.currentTeamId ?? null;
+  const filterByTeam = Boolean(session && teamId && !isAdmin);
 
   for (const entry of entries) {
     if (!entry.isDirectory()) continue;
@@ -503,6 +527,10 @@ export async function listMigrationPackages(root = projectRoot()): Promise<
       const relativeDir = `${MIGRATION_PACKAGE_DIR}/${packageId}`;
       const dir = join(rootDir, packageId);
       const manifest = await readMigrationManifest(dir).catch(() => null);
+      const sourceTeamId = manifest?.source?.teamId ?? null;
+      if (filterByTeam && sourceTeamId !== null && sourceTeamId !== teamId) {
+        continue;
+      }
       const tarPath = join(getBackupStorageRoot(root), `${relativeDir}.tar.gz`);
       const hasTarball = await stat(tarPath)
         .then((s) => s.isFile())
@@ -514,6 +542,7 @@ export async function listMigrationPackages(root = projectRoot()): Promise<
         type: manifest?.backup.type ?? null,
         fileSize: manifest?.backup.fileSize ?? null,
         hasTarball,
+        sourceTeamId,
       });
     } catch {
       // skip non-package dirs

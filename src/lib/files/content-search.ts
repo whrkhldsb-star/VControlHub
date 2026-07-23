@@ -18,6 +18,8 @@ import { createLogger } from "@/lib/logging";
 import type { RoleKey } from "@/lib/auth/rbac";
 import { teamWhere } from "@/lib/auth/team-scope";
 import { prisma } from "@/lib/db";
+import { assertStorageAccess } from "@/lib/storage/access-control";
+import type { SessionPayload } from "@/lib/auth/session";
 
 type ContentSearchSession = {
   userId: string;
@@ -342,6 +344,18 @@ export async function searchFileContents(params: {
 
 	for (const node of nodes) {
 		try {
+			// Path-level ACL: teamWhere only scopes nodes; grants may restrict prefixes.
+			if (session) {
+				const access = await assertStorageAccess({
+					session: session as SessionPayload,
+					storageNodeId: node.id,
+					relativePath: searchPath ?? "",
+					operation: "read",
+				});
+				if (!access.allowed) {
+					continue;
+				}
+			}
 			if (node.driver === "LOCAL") {
 				const localResults = await searchLocalNode(
 					node.id,

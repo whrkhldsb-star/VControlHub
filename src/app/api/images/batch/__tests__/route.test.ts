@@ -113,14 +113,19 @@ describe("/api/images/batch", () => {
       { id: "img_2", storageKey: "albums/remote.png" },
     ]);
     imageDeleteManyMock.mockResolvedValueOnce({ count: 1 });
-    unlinkMock.mockRejectedValue(Object.assign(new Error("ENOENT"), { code: "ENOENT" }));
+    unlinkMock.mockResolvedValue(undefined);
 
     const response = await postBatch({ action: "delete", ids: ["img_2"] });
 
     expect(response.status).toBe(200);
     expect(imageFindManyMock).toHaveBeenCalledWith({
       where: { id: { in: ["img_2"] } },
-      select: { id: true, storageKey: true },
+      select: {
+        id: true,
+        storageKey: true,
+        storageNodeId: true,
+        relativePath: true,
+      },
       take: 100,
     });
     expect(imageDeleteManyMock).toHaveBeenCalledWith({
@@ -135,7 +140,7 @@ describe("/api/images/batch", () => {
     await expect(response.json()).resolves.toEqual({ deleted: 1, filesDeleted: 1, failedFileIds: [] });
   });
 
-  it("returns 207 partial success when a deleted DB row leaves image files behind", async () => {
+  it("returns 207 and keeps DB row when image files fail to unlink", async () => {
     vi.clearAllMocks();
     requireApiSessionMock.mockResolvedValueOnce(managerSession);
     sessionHasPermissionMock.mockImplementation(
@@ -150,8 +155,9 @@ describe("/api/images/batch", () => {
     const response = await postBatch({ action: "delete", ids: ["img_2"] });
 
     expect(response.status).toBe(207);
+    expect(imageDeleteManyMock).not.toHaveBeenCalled();
     await expect(response.json()).resolves.toEqual({
-      deleted: 1,
+      deleted: 0,
       filesDeleted: 0,
       failedFileIds: ["img_2"],
       success: false,

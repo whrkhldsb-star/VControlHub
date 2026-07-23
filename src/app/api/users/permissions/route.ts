@@ -228,13 +228,18 @@ export async function PATCH(request: Request) {
 
       await prisma.$transaction(async (tx) => {
         if (roleKeys) {
+          const customRoleKey = `user:${parsedData.userId}:custom`;
           const roles = await tx.role.findMany({
             where: { key: { in: roleKeys } },
-            select: { id: true },
+            select: { id: true, key: true },
             take: roleKeys.length,
           });
+          // Preserve auto custom role (user:{id}:custom) so fine-grained permissionKeys survive role rewrites.
           await tx.userRole.deleteMany({
-            where: { userId: parsedData.userId },
+            where: {
+              userId: parsedData.userId,
+              role: { key: { not: customRoleKey } },
+            },
           });
           if (roles.length > 0) {
             await tx.userRole.createMany({

@@ -197,7 +197,7 @@ export async function POST(
             width: imgWidth,
             height: imgHeight,
             checksum,
-            isPublic: true,
+            isPublic: false,
             storageNodeId: linkedStorageRelativePath ? existing.storageNodeId : undefined,
             relativePath: linkedStorageRelativePath || undefined,
             userId: session.userId,

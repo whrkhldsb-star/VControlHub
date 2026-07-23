@@ -91,9 +91,14 @@ export async function POST(request: Request) {
       const storageKey = `${crypto.randomUUID()}${ext}`;
       const checksum = crypto.createHash("sha256").update(buffer).digest("hex");
 
-      // Check for duplicate
+      // Check for duplicate within the caller's tenant only (never leak other teams' rows).
       const existing = await prisma.imageUpload.findFirst({
-        where: { checksum },
+        where: {
+          checksum,
+          ...(session.currentTeamId
+            ? { teamId: session.currentTeamId }
+            : { userId: session.userId }),
+        },
       });
       if (existing) {
         return NextResponse.json({
@@ -121,7 +126,7 @@ export async function POST(request: Request) {
             sizeBytes: buffer.byteLength,
             checksum,
             album: album?.trim() || undefined,
-            isPublic: true,
+            isPublic: false,
             storageNodeId,
             relativePath,
             userId: session.userId,

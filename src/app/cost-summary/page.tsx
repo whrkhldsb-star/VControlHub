@@ -38,7 +38,7 @@ export default async function CostSummaryPage() {
 		? await summarizeMonth(month, defaultCurrency, session)
 		: null;
 	const entries = canRead ? await listCostEntries({ limit: 200, session }) : [];
-	const snapshots = canRead ? await listRecentSnapshots(30) : [];
+	const snapshots = canRead ? await listRecentSnapshots(30, session) : [];
 	const budgets = canRead ? await listCostBudgets(new Date(), session) : [];
 	const billingAccounts = canRead ? await listCloudBillingAccounts(session) : [];
 

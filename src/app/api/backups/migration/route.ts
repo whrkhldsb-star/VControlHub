@@ -52,7 +52,7 @@ export async function POST(request: Request) {
     },
     async ({ session, body }) => {
       if (body.action === "list") {
-        const packages = await listMigrationPackages();
+        const packages = await listMigrationPackages(undefined, session);
         return NextResponse.json({ packages });
       }
 

@@ -50,8 +50,8 @@ export async function POST(request: Request) {
 			errorStatus: 500,
 			errorMessage: "Failed to sync VPS monthly cost",
 		},
-		async ({ body }) => {
-			const result = await syncServerMonthlyCosts(body.month);
+		async ({ body, session }) => {
+			const result = await syncServerMonthlyCosts(body.month, session);
 			return NextResponse.json({ result });
 		},
 	);

@@ -355,7 +355,7 @@ describe("POST /api/images/upload/[id]/complete", () => {
 					filename: "photo.png",
 					mimeType: "image/png",
 					userId: "u-admin",
-					isPublic: true,
+					isPublic: false,
 				}),
 			}),
 		);

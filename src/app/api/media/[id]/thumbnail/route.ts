@@ -220,7 +220,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
 			headers: {
 				"Content-Type": "image/jpeg",
 				"Content-Length": String(cached.length),
-				"Cache-Control": "public, max-age=86400, immutable",
+				"Cache-Control": "private, max-age=3600",
 				"X-Thumbnail-Cache": "hit",
 			},
 		});
@@ -320,7 +320,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
 		headers: {
 			"Content-Type": "image/jpeg",
 			"Content-Length": String(thumbnail.length),
-			"Cache-Control": "public, max-age=86400, immutable",
+			"Cache-Control": "private, max-age=3600",
 			"X-Thumbnail-Cache": "miss",
 		},
 	});

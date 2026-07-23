@@ -214,7 +214,11 @@ export async function PATCH(request: Request) {
 
       if (roleKeys) {
         await prisma.$transaction(async (tx) => {
-          await tx.userRole.deleteMany({ where: { userId } });
+          const customRoleKey = `user:${userId}:custom`;
+          // Preserve auto custom role grants when admin rewrites base roleKeys.
+          await tx.userRole.deleteMany({
+            where: { userId, role: { key: { not: customRoleKey } } },
+          });
           const roles = await tx.role.findMany({
             where: { key: { in: roleKeys } },
             take: roleKeys.length,

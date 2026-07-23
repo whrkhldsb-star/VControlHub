@@ -395,6 +395,7 @@ export interface ServerMonthlyCostSyncResult {
 
 export async function syncServerMonthlyCosts(
 	month = currentMonthUtc(),
+	session?: TeamSession | null,
 ): Promise<ServerMonthlyCostSyncResult> {
 	const effectiveDate = startOfMonthUtc(month);
 	const servers = await prisma.server.findMany({
@@ -402,6 +403,9 @@ export async function syncServerMonthlyCosts(
 			enabled: true,
 			costAutoSync: true,
 			costMonthlyAmount: { not: null },
+			// Multi-tenant: when called from a user session, only sync that team's servers
+			// (admin/system path without session still fleet-wide for cron).
+			...(session ? teamWhere(session) : {}),
 		},
 		select: {
 			id: true,

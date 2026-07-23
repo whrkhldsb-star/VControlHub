@@ -30,7 +30,10 @@ import type { SessionPayload } from "@/lib/auth/session";
 import { AppError, ForbiddenError, ValidationError } from "@/lib/errors";
 export const dynamic = "force-dynamic";
 const MAX_FILE_SIZE = 20 * 1024 * 1024; // 20 MB
+// image/* minus SVG: SVG served inline can execute script (stored XSS).
 const ALLOWED_MIME_PREFIXES = ["image/"];
+const BLOCKED_MIME_TYPES = new Set(["image/svg+xml", "image/svg"]);
+const BLOCKED_EXTENSIONS = new Set([".svg", ".svgz"]);
 
 function generateStorageKey(originalName: string): string {
   const ext = path.extname(originalName).toLowerCase() || ".png";
@@ -97,6 +100,14 @@ async function handleUpload(request: Request, userId: string, session?: SessionP
     }
 
     const mimeType = file.type || "application/octet-stream";
+    const originalNameEarly = file.name || "upload.bin";
+    const extEarly = path.extname(originalNameEarly).toLowerCase();
+    if (
+      BLOCKED_MIME_TYPES.has(mimeType.toLowerCase()) ||
+      BLOCKED_EXTENSIONS.has(extEarly)
+    ) {
+      throw new ValidationError("SVG uploads are not allowed");
+    }
     if (!ALLOWED_MIME_PREFIXES.some((p) => mimeType.startsWith(p))) {
       return NextResponse.json(
         { error: "Only image files are supported" },
@@ -229,7 +240,7 @@ async function handleUpload(request: Request, userId: string, session?: SessionP
           height: imgHeight,
           checksum,
           album,
-          isPublic: true,
+          isPublic: false,
           storageNodeId: linkedStorageRelativePath && storageNodeId ? storageNodeId : undefined,
           relativePath: linkedStorageRelativePath || undefined,
           userId: userId,
