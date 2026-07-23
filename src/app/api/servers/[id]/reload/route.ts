@@ -22,7 +22,6 @@
 import { z } from "zod";
 
 import { auditUserAction } from "@/lib/audit/service";
-import { sessionHasPermission } from "@/lib/auth/authorization";
 import { prisma } from "@/lib/db";
 import { withApiRoute } from "@/lib/http/api-guard";
 import { GENERAL_WRITE_LIMIT } from "@/lib/http/rate-limit-presets";
@@ -90,6 +89,7 @@ type ServerRow = {
   username: string;
   sshKeyId: string | null;
   password: string | null;
+  hostKeySha256: string | null;
   sshKey: { privateKey: string } | null;
   osDialect: string | null;
 };
@@ -104,6 +104,7 @@ async function loadServer(id: string): Promise<ServerRow | null> {
       username: true,
       sshKeyId: true,
       password: true,
+      hostKeySha256: true,
       sshKey: { select: { privateKey: true } },
       osDialect: true,
     },
@@ -119,7 +120,8 @@ export async function POST(
   return withApiRoute(
     request,
     {
-      permission: "server:write",
+      // Reload/compose requires SSH on the target host — gate on server:ssh (not write-only).
+      permission: "server:ssh",
       rateLimit: GENERAL_WRITE_LIMIT,
       bodySchema: reloadBodySchema,
       // errorMessage is filled inside the route callback after getServerLocale resolves.
@@ -129,9 +131,6 @@ export async function POST(
       const locale = await getServerLocale();
       if (!session) {
         return Response.json({ error: t("apiServersReload.unauthorized", locale) }, { status: 401 });
-      }
-      if (!sessionHasPermission(session, "server:ssh")) {
-        return Response.json({ error: t("apiServersReload.missingSshPermission", locale) }, { status: 403 });
       }
 
       const teamAccess = await assertServerTeamAccess(session, id);
