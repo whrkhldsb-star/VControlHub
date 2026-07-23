@@ -4,7 +4,7 @@ import { z } from "zod";
 import { prisma } from "@/lib/db";
 import { withApiRoute } from "@/lib/http/api-guard";
 import { GENERAL_WRITE_LIMIT } from "@/lib/http/rate-limit-presets";
-import { idQuerySchema, parseSearchParams } from "@/lib/http/parse-search-params";
+import { parseSearchParams } from "@/lib/http/parse-search-params";
 import { type NormalizedApp } from "@/lib/quick-service/adapters";
 import { SERVICE_CATALOG } from "@/lib/quick-service/catalog";
 import {
@@ -212,7 +212,19 @@ export async function DELETE(request: Request) {
       errorMessage: "Failed to delete",
     },
     async ({ session }) => {
-      const { id: sourceId } = parseSearchParams(request, idQuerySchema);
+      // Client historically uses ?sourceId=; idQuerySchema only accepts ?id=.
+      // Accept either so Quick Services delete works and stays backward compatible.
+      const parsed = parseSearchParams(
+        request,
+        z.object({
+          id: z.string().trim().min(1).optional(),
+          sourceId: z.string().trim().min(1).optional(),
+        }).refine((v) => Boolean(v.id || v.sourceId), {
+          message: "Missing id",
+          path: ["id"],
+        }),
+      );
+      const sourceId = (parsed.id ?? parsed.sourceId)!.trim();
       await prisma.appSource.delete({ where: { id: sourceId } });
       await auditUserAction(session?.userId ?? "", "app-source.delete", { sourceId }, undefined, session?.currentTeamId);
       return NextResponse.json({ ok: true });
