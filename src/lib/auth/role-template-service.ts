@@ -3,7 +3,7 @@ import { z } from "zod";
 
 import { prisma } from "@/lib/db";
 import { ALL_PERMISSIONS } from "@/lib/auth/rbac";
-import { ValidationError } from "@/lib/errors";
+import { NotFoundError, ValidationError } from "@/lib/errors";
 import { t } from "@/lib/i18n/translations";
 
 export const roleTemplateStorageGrantSchema = z.object({
@@ -98,6 +98,13 @@ export async function createRoleTemplate(input: unknown, createdBy: string) {
 
 export async function updateRoleTemplate(id: string, input: unknown) {
   const parsed = await validateInput(input);
+  const template = await prisma.roleTemplate.findUnique({ where: { id }, select: { isBuiltin: true } });
+  if (!template) {
+    throw new NotFoundError(t("backend.auth.roleTemplateNotFound"));
+  }
+  if (template.isBuiltin) {
+    throw new ValidationError(t("backend.auth.builtInTemplatesCannotBeModified"));
+  }
   return serialize(await prisma.roleTemplate.update({
     where: { id },
     data: {

@@ -387,6 +387,8 @@ export const zh: Record<string, string> = {
 	"backend.team.cannotRemoveTheLastOwnerPleaseTransferOwnership": "不能移除最后一位所有者，请先转让所有权",
 	"backend.team.onlyAnAdminOrTeamOwnerCanDelete": "仅管理员或团队所有者可删除团队",
 	"backend.auth.builtInTemplatesCannotBeDeleted": "内置模板不可删除",
+	"backend.auth.builtInTemplatesCannotBeModified": "内置模板不可修改",
+	"backend.auth.roleTemplateNotFound": "角色模板不存在",
 };
 
 
@@ -773,4 +775,6 @@ export const en: Record<string, string> = {
 	"backend.team.cannotRemoveTheLastOwnerPleaseTransferOwnership": "Cannot remove the last owner; please transfer ownership first",
 	"backend.team.onlyAnAdminOrTeamOwnerCanDelete": "Only an admin or team owner can delete the team",
 	"backend.auth.builtInTemplatesCannotBeDeleted": "Built-in templates cannot be deleted",
+	"backend.auth.builtInTemplatesCannotBeModified": "Built-in templates cannot be modified",
+	"backend.auth.roleTemplateNotFound": "Role template not found",
 };
