@@ -20,15 +20,23 @@ export const dynamic = "force-dynamic";
 const postSchema = z
   .object({
     storageNodeId: z.string().min(1).optional(),
+    // Client archive preview posts nodeId (alias of storageNodeId)
+    nodeId: z.string().min(1).optional(),
     serverId: z.string().min(1).optional(),
-    remotePath: z.string().min(1),
+    remotePath: z.string().min(1).optional(),
+    // Client archive preview posts relativePath (alias of remotePath)
+    relativePath: z.string().min(1).optional(),
     targetDir: z.string().optional(),
     driver: z.string().optional(),
     name: z.string().optional(),
   })
-  .refine((value) => value.storageNodeId || value.serverId, {
+  .refine((value) => value.storageNodeId || value.nodeId || value.serverId, {
     message: "Missing storageNodeId",
     path: ["storageNodeId"],
+  })
+  .refine((value) => value.remotePath || value.relativePath, {
+    message: "Missing remotePath",
+    path: ["remotePath"],
   });
 
 export async function POST(request: NextRequest) {
@@ -46,8 +54,8 @@ export async function POST(request: NextRequest) {
 
       const driver = body.driver ?? "LOCAL";
       const name = body.name ?? "archive";
-      const nodeId = body.storageNodeId ?? body.serverId;
-      const relativePath = body.remotePath.replace(/^\/+/, "");
+      const nodeId = body.storageNodeId ?? body.nodeId ?? body.serverId;
+      const relativePath = (body.remotePath ?? body.relativePath ?? "").replace(/^\/+/, "");
 
       if (driver !== "LOCAL") {
         return NextResponse.json(
@@ -92,11 +100,13 @@ export async function POST(request: NextRequest) {
         );
       }
 
+      // gunzip -k always writes beside the archive (dirname(relativePath));
+      // do not ACL-check a caller-supplied targetDir that is never used.
+      const writeRelativePath = path.posix.dirname(relativePath) || ".";
       const writeAccessDecision = await assertStorageAccess({
         session,
         storageNodeId: node.id,
-        relativePath:
-          body.targetDir?.trim() || path.posix.dirname(relativePath),
+        relativePath: writeRelativePath,
         operation: "write",
       });
       if (!writeAccessDecision.allowed) {
