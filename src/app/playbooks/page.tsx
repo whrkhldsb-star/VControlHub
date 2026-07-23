@@ -1,6 +1,6 @@
 import { requireSession } from "@/lib/auth/require-session";
 import { sessionHasPermission } from "@/lib/auth/authorization";
-import { listPlaybookRuns, listPlaybooks } from "@/lib/playbook/service";
+import { listPlaybooks, listRecentPlaybookRunsForPlaybooks } from "@/lib/playbook/service";
 import { listServerProfiles } from "@/lib/server/service";
 import { getServerLocale, t } from "@/lib/i18n/translations";
 
@@ -38,23 +38,23 @@ export default async function PlaybooksPage() {
 		errorMessage: string | null;
 		stepResults: Array<{ stepId: string; status: string; summary?: string; error?: string }>;
 	}>> = {};
-	if (canRead) {
-		const runLists = await Promise.all(
-			playbooks.map(async (p) => {
-				const runs = await listPlaybookRuns(p.id, session);
-				return { id: p.id, runs: runs.slice(0, 5).map((r) => ({
-					id: r.id,
-					status: r.status,
-					dryRun: r.dryRun,
-					startedAt: r.startedAt?.toISOString() ?? null,
-					completedAt: r.completedAt?.toISOString() ?? null,
-					errorMessage: r.errorMessage,
-					stepResults: r.stepResults,
-				})) };
-			}),
+	if (canRead && playbooks.length > 0) {
+		const batch = await listRecentPlaybookRunsForPlaybooks(
+			playbooks.map((p) => p.id),
+			session,
+			5,
 		);
-		for (const { id, runs } of runLists) {
-			runsByPlaybook[id] = runs;
+		for (const p of playbooks) {
+			const runs = batch[p.id] ?? [];
+			runsByPlaybook[p.id] = runs.map((r) => ({
+				id: r.id,
+				status: r.status,
+				dryRun: r.dryRun,
+				startedAt: r.startedAt ? r.startedAt.toISOString() : null,
+				completedAt: r.completedAt ? r.completedAt.toISOString() : null,
+				errorMessage: r.errorMessage,
+				stepResults: r.stepResults,
+			}));
 		}
 	}
 

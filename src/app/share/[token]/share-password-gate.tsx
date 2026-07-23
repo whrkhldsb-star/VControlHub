@@ -7,6 +7,8 @@ interface SharePasswordGateProps {
   label: string;
   placeholder: string;
   submitLabel: string;
+  /** DIRECTORY shares need archive=1 (or a child path) after password auth. */
+  entryType?: string;
 }
 
 /**
@@ -16,7 +18,7 @@ interface SharePasswordGateProps {
  * not leak into browser history, server access logs, or Referer headers.
  * Query-string password remains supported server-side for legacy bookmarks.
  */
-export function SharePasswordGate({ token, label, placeholder, submitLabel }: SharePasswordGateProps) {
+export function SharePasswordGate({ token, label, placeholder, submitLabel, entryType }: SharePasswordGateProps) {
   const [pw, setPw] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -27,7 +29,10 @@ export function SharePasswordGate({ token, label, placeholder, submitLabel }: Sh
     setBusy(true);
     setError(null);
     try {
-      const url = `/api/share/${encodeURIComponent(token)}`;
+      const params = new URLSearchParams();
+      if (entryType === "DIRECTORY") params.set("archive", "1");
+      const qs = params.toString();
+      const url = `/api/share/${encodeURIComponent(token)}${qs ? `?${qs}` : ""}`;
       const res = await fetch(url, {
         method: "GET",
         credentials: "omit",

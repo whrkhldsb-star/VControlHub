@@ -37,6 +37,18 @@ function normalizeIdentifier(value: unknown): string | null {
   return identifier;
 }
 
+/** Docker image refs may include registry/path and tags (e.g. ghcr.io/org/app:1.0). */
+function normalizeDockerImage(value: unknown): string | null {
+  if (typeof value !== "string") return null;
+  const image = value.trim();
+  if (!image || image.length > 256) return null;
+  if (image.includes("\0") || image.includes("\n") || image.includes("\r") || image.includes(" ")) return null;
+  // allow slash for namespaced paths; still ban shell metacharacters
+  if (!/^[A-Za-z0-9][A-Za-z0-9_./:@-]{0,255}$/.test(image)) return null;
+  if (image.includes("..")) return null;
+  return image;
+}
+
 function normalizeConfigPath(value: unknown): string | null {
   const path = typeof value === "string" ? value.trim() : "";
   if (!path.startsWith("/")) return null;
@@ -187,7 +199,7 @@ export function buildCommand(actionType: HostedActionType, params: Record<string
     }
 
     case "deploy_docker": {
-      const img = normalizeIdentifier(params.imageName);
+      const img = normalizeDockerImage(params.imageName);
       const name = normalizeIdentifier(params.containerName);
       const ports = normalizePortMappings(params.ports);
       const envFlag = normalizeEnvVars(params.envVars);

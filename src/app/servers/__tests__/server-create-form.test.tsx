@@ -5,6 +5,10 @@ import { describe, expect, it, vi } from "vitest";
 
 import { ServerCreateForm } from "../server-create-form";
 
+vi.mock("next/navigation", () => ({
+  useRouter: () => ({ refresh: vi.fn(), push: vi.fn() }),
+}));
+
 vi.mock("react", async () => {
   const actual = await vi.importActual<typeof import("react")>("react");
   return {

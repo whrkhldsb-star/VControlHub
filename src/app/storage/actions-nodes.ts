@@ -144,6 +144,9 @@ export async function updateStorageNodeAction(
       return { error: t("storagePage.action.missingNodeParam") } satisfies StorageActionState;
     }
 
+    // Only touch optional/driver-specific fields when the form actually submitted them.
+    // LOCAL edit UI omits SFTP fields; forcing null/"" would wipe host/username/public URL.
+    const has = (key: string) => formData.has(key);
     await updateStorageNode(
       {
         storageNodeId,
@@ -158,20 +161,26 @@ export async function updateStorageNodeAction(
               | "DIRECT"
               | "AUTO")
           : undefined,
-        publicBaseUrl: String(formData.get("publicBaseUrl") ?? "").trim(),
-        directAccessExpiresSeconds: Number(
-          String(formData.get("directAccessExpiresSeconds") ?? "").trim() || 300,
-        ),
+        ...(has("publicBaseUrl")
+          ? { publicBaseUrl: String(formData.get("publicBaseUrl") ?? "").trim() }
+          : {}),
+        ...(has("directAccessExpiresSeconds")
+          ? {
+              directAccessExpiresSeconds: Number(
+                String(formData.get("directAccessExpiresSeconds") ?? "").trim() || 300,
+              ),
+            }
+          : {}),
         isDefault:
           isDefaultRaw === "on"
             ? true
             : isDefaultRaw === "off"
               ? false
               : undefined,
-        serverId: serverIdRaw || null,
-        host: hostRaw || null,
-        port: portRaw ? Number(portRaw) : undefined,
-        username: usernameRaw || null,
+        ...(has("serverId") ? { serverId: serverIdRaw || null } : {}),
+        ...(has("host") ? { host: hostRaw || null } : {}),
+        ...(has("port") ? { port: portRaw ? Number(portRaw) : undefined } : {}),
+        ...(has("username") ? { username: usernameRaw || null } : {}),
       },
       session,
     );

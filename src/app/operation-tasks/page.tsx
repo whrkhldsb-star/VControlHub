@@ -7,14 +7,44 @@ import { getServerLocale, t } from "@/lib/i18n/translations";
 
 export const revalidate = 30;
 
-export default async function OperationTasksPage() {
+type SearchParams = Promise<Record<string, string | string[] | undefined>> | Record<string, string | string[] | undefined>;
+
+function firstParam(value: string | string[] | undefined): string | undefined {
+	if (Array.isArray(value)) return value[0];
+	return value;
+}
+
+export default async function OperationTasksPage({
+	searchParams,
+}: {
+	searchParams?: SearchParams;
+}) {
 	const session = await requireSession("/operation-tasks");
 	const locale = await getServerLocale();
 	const tr = (key: string) => t(key, locale);
 	if (!sessionHasPermission(session, "task:read")) {
 		return <PageShell maxW="max-w-7xl"><EmptyState text={tr("operationTasksPage.noPermission")} variant="boxed" /></PageShell>;
 	}
-	const { tasks, sourceSummary, failureSummary } = await listOperationTaskResult({}, session);
+	const resolved = (await searchParams) ?? {};
+	const statusRaw = firstParam(resolved.status) ?? "all";
+	const taskTypeRaw = firstParam(resolved.type) ?? firstParam(resolved.taskType) ?? "all";
+	const sortRaw = firstParam(resolved.sort) ?? "recent";
+	const statusFilter =
+		statusRaw === "attention"
+			? (["failed", "running", "pending"] as const)
+			: statusRaw === "all"
+				? undefined
+				: statusRaw.includes(",")
+					? statusRaw.split(",").map((s) => s.trim()).filter(Boolean)
+					: statusRaw;
+	const { tasks, sourceSummary, failureSummary } = await listOperationTaskResult(
+		{
+			...(statusFilter ? { status: statusFilter as never } : {}),
+			...(taskTypeRaw !== "all" ? { taskType: taskTypeRaw } : {}),
+			...(sortRaw !== "recent" ? { sort: sortRaw as never } : {}),
+		},
+		session,
+	);
 	return (
 		<PageShell maxW="max-w-7xl">
 			<PageHeader eyebrow={t("operationTasksPage.eyebrow", locale)} title={tr("operationTasksPage.header.title")} description={tr("operationTasksPage.header.description")} />

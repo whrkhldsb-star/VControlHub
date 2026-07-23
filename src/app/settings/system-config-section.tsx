@@ -8,7 +8,7 @@
  * - Upload config file → preview import (dryRun) → confirm import
  */
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import { useI18n } from "@/lib/i18n/use-locale";
 import { csrfFetch } from "@/lib/auth/csrf-client";
@@ -98,7 +98,13 @@ export function SystemConfigSection() {
 
   // ── Import preview ───────────────────────────────────────
 
-  async function handlePreview() {
+  
+  // Options change invalidates a prior dry-run so Execute cannot use a stale preview.
+  useEffect(() => {
+    setPreview(null);
+  }, [overwrite, importUsers, importSettings]);
+
+async function handlePreview() {
     if (!selectedFile) return;
     setPreviewing(true);
     setPreview(null);

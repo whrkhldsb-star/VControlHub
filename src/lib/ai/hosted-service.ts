@@ -165,7 +165,8 @@ function requiredPermissionForAction(actionType: string): Permission {
   if (actionType === "list_backups") return "backup:read";
   if (actionType === "run_playbook") return "playbook:run";
   if (actionType === "query_traffic") return "health:read";
-  if (actionType === "manage_cron") return "task:read";
+  // pause/resume match REST /api/scheduled-tasks (command:create); list also gated here.
+  if (actionType === "manage_cron") return "command:create";
   if (actionType === "search_knowledge") return "ai:chat";
   if (actionType === "list_files" || actionType === "search_files" || actionType === "read_file") return "storage:read";
   return "server:ssh";
@@ -177,7 +178,7 @@ function permissionDeniedMessage(actionType: string): string {
   if (actionType === "list_backups") return "You do not have backup read permission";
   if (actionType === "run_playbook") return "You do not have playbook run permission";
   if (actionType === "query_traffic") return "You do not have health/traffic read permission";
-  if (actionType === "manage_cron") return "You do not have scheduled-task read permission";
+  if (actionType === "manage_cron") return "You do not have scheduled-task manage permission (command:create)";
   if (actionType === "search_knowledge") return "You do not have AI chat permission";
   if (actionType === "list_files" || actionType === "search_files" || actionType === "read_file") {
     return "You do not have storage read permission";

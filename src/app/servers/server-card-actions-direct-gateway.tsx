@@ -1,6 +1,7 @@
 "use client";
 
-import { useActionState, useState } from "react";
+import { useActionState, useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 
 import { SubmitButton } from "@/components/submit-button";
 import { useI18n } from "@/lib/i18n/use-locale";
@@ -28,11 +29,16 @@ export function ServerCardDirectGatewayForm({
   directGateway: ServerCardDirectGateway;
 }) {
   const { t } = useI18n();
+  const router = useRouter();
   const [directState, directAction] = useActionState(
     toggleDirectGatewayAction,
     initialState,
   );
   const [protocol, setProtocol] = useState<"http" | "https">("http");
+
+  useEffect(() => {
+    if (directState.success) router.refresh();
+  }, [directState.success, router]);
 
   return (
     <form

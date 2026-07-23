@@ -1,5 +1,6 @@
 "use client";
 import { useActionState, useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { SubmitButton } from "@/components/submit-button";
 import { createServerAction, type ServerActionState } from "./actions";
 import { ConnectionTypeFields } from "./server-connection-type-fields";
@@ -21,6 +22,7 @@ export function ServerCreateForm({
   }>;
 }) {
   const { t } = useI18n();
+  const router = useRouter();
   const [state, formAction] = useActionState(createServerAction, initialState);
   // First TOFU/host-key probe returns hostKeySha256 in action state.
   // Controlled input so the probed fingerprint fills immediately (defaultValue does not).
@@ -32,6 +34,9 @@ export function ServerCreateForm({
       setApprovedHostKeySha256(state.hostKeySha256);
     }
   }, [state.hostKeySha256]);
+  useEffect(() => {
+    if (state.success) router.refresh();
+  }, [state.success, router]);
   return (
     <form action={formAction} data-card className="grid gap-4 ">
       {" "}

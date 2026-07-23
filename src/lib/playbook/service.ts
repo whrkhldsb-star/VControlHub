@@ -298,6 +298,34 @@ export async function listPlaybookRuns(
  * Persist a queued run and enqueue the durable parent job. The API returns
  * immediately; the playbook worker owns execution, retries and recovery.
  */
+/** Batch-load recent runs for many playbooks (avoids N+1 getPlaybook+findMany). */
+export async function listRecentPlaybookRunsForPlaybooks(
+  playbookIds: string[],
+  session?: TeamSession,
+  perPlaybook = 5,
+): Promise<Record<string, PlaybookRunRecord[]>> {
+  const out: Record<string, PlaybookRunRecord[]> = {};
+  for (const id of playbookIds) out[id] = [];
+  if (playbookIds.length === 0) return out;
+  // Over-fetch then group so each playbook still gets up to `perPlaybook` rows
+  // without a correlated subquery per id.
+  const take = Math.min(Math.max(playbookIds.length * perPlaybook, perPlaybook), 500);
+  const rows = await prisma.playbookRun.findMany({
+    where: {
+      playbookId: { in: playbookIds },
+      ...(session ? teamWhere(session) : {}),
+    },
+    orderBy: { createdAt: "desc" },
+    take,
+  });
+  for (const row of rows) {
+    const list = out[row.playbookId] ?? (out[row.playbookId] = []);
+    if (list.length >= perPlaybook) continue;
+    list.push(narrowPlaybookRun(row));
+  }
+  return out;
+}
+
 export async function runPlaybook(input: {
   playbookId: string;
   dryRun: boolean;

@@ -91,6 +91,10 @@ export function ServerCardActions({
 		if (deleteState.success) router.refresh();
 	}, [deleteState.success, router]);
 
+	useEffect(() => {
+		if (editState.success) router.refresh();
+	}, [editState.success, router]);
+
 	const handleOpenTerminal = () => {
 		onSshConnect?.();
 		openTerminal({

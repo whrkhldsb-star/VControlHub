@@ -252,7 +252,7 @@ export const HOSTED_TOOLS: HostedTool[] = [
   },
   {
     name: "manage_cron",
-    description: "Manage scheduled tasks. Supports list (list all scheduled tasks), pause, and resume operations. Creating/deleting scheduled tasks requires the command approval workflow.",
+    description: "Manage scheduled tasks. list is read-only; pause/resume mutate schedule state and require command:create (approval workflow when not auto-approved by policy).",
     parameters: {
       type: "object",
       properties: {
@@ -261,8 +261,8 @@ export const HOSTED_TOOLS: HostedTool[] = [
       },
       required: ["action"],
     },
-    riskLevel: "low",
-    autoApproved: true,
+    riskLevel: "medium",
+    autoApproved: false,
     actionType: "manage_cron",
     actionName: "Manage scheduled tasks",
   },

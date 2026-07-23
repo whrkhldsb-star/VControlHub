@@ -107,7 +107,9 @@ export function StorageNodeEditForm({
 					</>
 				) : null}
 				<label className="flex items-center gap-3 text-sm text-[var(--text-secondary)] md:col-span-2">
-					<input name="isDefault" type="checkbox" defaultChecked={node.isDefault} className="h-4 w-4" />
+					{/* Unchecked checkboxes are omitted from FormData — send explicit off. */}
+					<input type="hidden" name="isDefault" value="off" />
+					<input name="isDefault" type="checkbox" value="on" defaultChecked={node.isDefault} className="h-4 w-4" />
 					{t("storagePage.form.fieldIsDefault")}
 				</label>
 			</div>

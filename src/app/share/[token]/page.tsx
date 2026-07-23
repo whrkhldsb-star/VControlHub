@@ -96,6 +96,7 @@ export default async function SharePage({
             {isLocked && (
               <SharePasswordGate
                 token={token}
+                entryType={share.entryType}
                 label={t("sharePage.passwordRequired", locale)}
                 placeholder="••••••"
                 submitLabel={t("sharePage.downloadFile", locale)}
