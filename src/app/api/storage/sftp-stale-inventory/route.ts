@@ -68,15 +68,15 @@ export async function POST(request: NextRequest) {
       }
 
       if (wait) {
-        const result = data.nodeId
-          ? await scanOneNode(data, session)
+        const results = data.nodeId
+          ? [await scanOneNode(data, session)]
           : await scanAllNodes(data, session);
         await auditUserAction(session?.userId ?? "", "storage.sftp-stale-cleanup", { nodeId: data.nodeId ?? "all", dryRun: data.dryRun ?? false }, undefined, session?.currentTeamId);
         return NextResponse.json({
           success: true,
           queued: false,
-          ...summarize([result]),
-          results: [result],
+          ...summarize(results),
+          results,
         });
       }
 
@@ -141,24 +141,21 @@ async function scanOneNode(input: StaleInventoryInput, session: TeamSession) {
 async function scanAllNodes(input: StaleInventoryInput, session: TeamSession) {
   const nodes = await listSftpNodesForStaleInventory(session);
   if (nodes.length === 0) {
-    return {
-      nodeId: "all",
-      nodeName: "(no SFTP nodes)",
-      basePath: "",
-      scanned: 0,
-      stale: 0,
-      errors: [],
-      durationMs: 0,
-      dryRun: input.dryRun ?? false,
-    };
+    return [] as Awaited<ReturnType<typeof detectAndPruneSftpStaleInventory>>[];
   }
-  // wait=1 同步入口: 只返首个节点的结果 (避免超时), 其它走 enqueue 异步
-  const first = nodes[0];
-  return detectAndPruneSftpStaleInventory({
-    node: first as unknown as Parameters<typeof detectAndPruneSftpStaleInventory>[0]["node"],
-    maxDepth: input.maxDepth,
-    dryRun: input.dryRun,
-  });
+  // wait=1 同步入口: scan every team-scoped node (sequential to limit SSH load).
+  // Prefer async enqueue for large fleets; this path is for debug / manual verify.
+  const results: Awaited<ReturnType<typeof detectAndPruneSftpStaleInventory>>[] = [];
+  for (const node of nodes) {
+    results.push(
+      await detectAndPruneSftpStaleInventory({
+        node: node as unknown as Parameters<typeof detectAndPruneSftpStaleInventory>[0]["node"],
+        maxDepth: input.maxDepth,
+        dryRun: input.dryRun,
+      }),
+    );
+  }
+  return results;
 }
 
 function summarize(results: Array<{ stale: number; errors: string[]; scanned: number; durationMs: number }>) {

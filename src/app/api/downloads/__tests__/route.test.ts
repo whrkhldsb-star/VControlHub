@@ -1124,7 +1124,7 @@ describe("/api/downloads", () => {
     }), undefined, "team_1");
   });
 
-  it("rolls back every batch task to FAILED when one URL's enqueue rejects", async () => {
+  it("fails only the enqueue-rejected batch task and keeps earlier enqueued tasks PENDING", async () => {
     prismaMock.downloadTask.create
       .mockResolvedValueOnce({ id: "task_batch_a" })
       .mockResolvedValueOnce({ id: "task_batch_b" })
@@ -1148,25 +1148,17 @@ describe("/api/downloads", () => {
     expect(response.status).toBe(500);
     const payload = await response.json();
     expect(payload.code).toBe("DOWNLOAD_DISPATCH_FAILED");
-    // Route returns a deduped set of rolled-back ids; the order is
-    // `failedTaskIds` ∪ `createdTaskIds` insertion order, so task_batch_b
-    // (the rejected one) appears first, then task_batch_a (the previously
-    // enqueued one). We assert membership + length because dedup of the
-    // overlapping id (b) means a strict toEqual against [a, b, c] would
-    // over-specify the contract.
-    expect(payload.taskIds).toHaveLength(2);
-    expect(new Set(payload.taskIds)).toEqual(new Set(["task_batch_a", "task_batch_b"]));
-    // task_batch_a (succeeded enqueue) + task_batch_b (rejected) must both
-    // be rolled back; task_batch_c was never created because the loop bailed
-    // on the first rejection.
+    // Only the task whose enqueue failed is marked FAILED; earlier tasks that
+    // already enqueued successfully stay PENDING for the worker.
+    expect(payload.taskIds).toEqual(["task_batch_b"]);
+    expect(payload.succeededTaskIds).toEqual(["task_batch_a"]);
     expect(prismaMock.downloadTask.create).toHaveBeenCalledTimes(2);
-    expect(prismaMock.downloadTask.update).toHaveBeenCalledWith(expect.objectContaining({
-      where: { id: "task_batch_a" },
-      data: expect.objectContaining({ status: "FAILED", errorMessage: "jobs table blip" }),
-    }));
     expect(prismaMock.downloadTask.update).toHaveBeenCalledWith(expect.objectContaining({
       where: { id: "task_batch_b" },
       data: expect.objectContaining({ status: "FAILED", errorMessage: "jobs table blip" }),
+    }));
+    expect(prismaMock.downloadTask.update).not.toHaveBeenCalledWith(expect.objectContaining({
+      where: { id: "task_batch_a" },
     }));
     // We must NOT have created a third task row.
     expect(prismaMock.downloadTask.create).not.toHaveBeenCalledWith(

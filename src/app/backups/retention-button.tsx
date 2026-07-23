@@ -26,7 +26,10 @@ export function RetentionButton({ olderThan30Days, totalRecords }: Props) {
   const [olderThanDays, setOlderThanDays] = useState(MIN_OLDER_THAN_DAYS);
   const [keepLatestPerType, setKeepLatestPerType] = useState(DEFAULT_KEEP_LATEST_PER_TYPE);
 
-  const disabled = pending || olderThan30Days === 0;
+  // Allow submit even when the 30-day summary is 0 — operator may choose a
+  // shorter olderThanDays (1–3650). Only block while a request is in flight or
+  // there are zero backup records at all.
+  const disabled = pending || totalRecords === 0;
 
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();

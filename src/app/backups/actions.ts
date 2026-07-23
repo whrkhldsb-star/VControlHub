@@ -38,14 +38,29 @@ export async function createBackupAction(_prev: BackupActionState, formData: For
     teamId: session.currentTeamId ?? null,
     note: parsed.data.note,
   });
-  const job = await enqueueJob({
-    type: BACKUP_CREATE_JOB_TYPE,
-    title: tr("backupsPage.action.jobTitle").replace("{type}", tr(`backupsPage.action.typeLabel.${parsed.data.type}`)),
-    payload: { backupId: backup.id, teamId: session.currentTeamId ?? backup.teamId ?? null },
-    createdBy: session.userId,
-    teamId: session.currentTeamId ?? null,
-    maxAttempts: 1,
-  });
+  let job;
+  try {
+    job = await enqueueJob({
+      type: BACKUP_CREATE_JOB_TYPE,
+      title: tr("backupsPage.action.jobTitle").replace("{type}", tr(`backupsPage.action.typeLabel.${parsed.data.type}`)),
+      payload: { backupId: backup.id, teamId: session.currentTeamId ?? backup.teamId ?? null },
+      createdBy: session.userId,
+      teamId: session.currentTeamId ?? null,
+      maxAttempts: 1,
+    });
+  } catch (enqueueErr) {
+    const { updateBackupRecordStatus } = await import("@/lib/backup/service");
+    await updateBackupRecordStatus(backup.id, {
+      status: "FAILED",
+      errorMessage:
+        enqueueErr instanceof Error ? enqueueErr.message : "Failed to enqueue backup job",
+      completedAt: new Date(),
+    }).catch(() => undefined);
+    return {
+      success: false,
+      error: enqueueErr instanceof Error ? enqueueErr.message : tr("backupsPage.action.enqueueFailed"),
+    };
+  }
   await auditUserAction(session.userId, "backup.create", {
     backupId: backup.id,
     jobId: job.id,

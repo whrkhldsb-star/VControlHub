@@ -248,18 +248,13 @@ export async function POST(request: Request) {
       }
 
       if (dispatchError) {
-        // Roll back every task created in this request — both the one whose
-        // enqueue failed and any that succeeded before it (in batch mode).
-        // Use a Set so we never double-update the same row in the single-task
-        // case (where `failedTaskIds` and `createdTaskIds` both contain the
-        // same id because the loop pushes before it bails). This keeps the
-        // user-visible state consistent: no "PENDING forever" task row will
-        // outlive a failed dispatch.
-        const allRolledBackIds = Array.from(
-          new Set([...failedTaskIds, ...createdTaskIds]),
-        );
+        // Only mark tasks whose enqueue actually failed. Earlier batch items
+        // that already enqueued successfully must stay PENDING so workers can
+        // run them — rolling them back to FAILED leaves orphan running jobs.
+        const onlyFailedIds = Array.from(new Set(failedTaskIds));
+        const succeededIds = createdTaskIds.filter((id) => !onlyFailedIds.includes(id));
         await Promise.allSettled(
-          allRolledBackIds.map((id) =>
+          onlyFailedIds.map((id) =>
             prisma.downloadTask.update({
               where: { id },
               data: {
@@ -270,12 +265,10 @@ export async function POST(request: Request) {
             }),
           ),
         );
-        // Audit the failure so the operation-tasks center / 运维看板 still
-        // see the attempt; we do NOT audit it as a successful
-        // `download.create`.
         await auditUserAction(session.userId, "download.dispatch_failed", {
           taskId: dispatchError.taskId,
-          taskIds: allRolledBackIds,
+          taskIds: onlyFailedIds,
+          succeededTaskIds: succeededIds,
           errorMessage: dispatchError.message,
           relayMode: relayMode ?? false,
           isBatch: isBatch ?? false,
@@ -284,7 +277,8 @@ export async function POST(request: Request) {
           {
             error: t("apiDownloads.createFailedWithMessage", locale).replace("{message}", dispatchError.message),
             code: "DOWNLOAD_DISPATCH_FAILED",
-            taskIds: allRolledBackIds,
+            taskIds: onlyFailedIds,
+            succeededTaskIds: succeededIds,
           },
           { status: 500 },
         );

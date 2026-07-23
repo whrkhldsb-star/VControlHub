@@ -79,9 +79,12 @@ export function useCostPageState(options: {
     [addToast, t],
   );
 
-  const fetchEntries = useCallback(async () => {
+  const fetchEntries = useCallback(async (forMonth?: string) => {
     try {
-      const res = await csrfFetch<Response>(`/api/cost/entries?limit=200`, { raw: true });
+      const m = forMonth ?? month;
+      const qs = new URLSearchParams({ limit: "200" });
+      if (m) qs.set("month", m);
+      const res = await csrfFetch<Response>(`/api/cost/entries?${qs.toString()}`, { raw: true });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data = (await res.json()) as { entries: CostEntryRecord[] };
       setEntries(data.entries);
@@ -91,7 +94,7 @@ export function useCostPageState(options: {
         `${t("costPage.error.load")}: ${err instanceof Error ? err.message : String(err)}`,
       );
     }
-  }, [addToast, t]);
+  }, [addToast, t, month]);
 
   const fetchSnapshots = useCallback(async () => {
     try {
@@ -148,9 +151,9 @@ export function useCostPageState(options: {
   const onChangeMonth = useCallback(
     async (m: string) => {
       setMonth(m);
-      await fetchSummary(m, currency);
+      await Promise.all([fetchSummary(m, currency), fetchEntries(m)]);
     },
-    [currency, fetchSummary],
+    [currency, fetchSummary, fetchEntries],
   );
 
   const onChangeCurrency = useCallback(

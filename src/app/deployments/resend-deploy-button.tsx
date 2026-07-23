@@ -27,7 +27,13 @@ export function ResendDeployButton({ templateId, variables, serverIds, reason, l
 		try {
 			await csrfFetch("/api/deployments", {
 				method: "POST",
-				body: JSON.stringify({ templateId, variables, serverIds, reason }),
+				body: JSON.stringify({
+					templateId,
+					// API z.record defaults only apply when the key is missing — null fails validation.
+					variables: variables ?? {},
+					serverIds,
+					reason,
+				}),
 			});
 			addToast("success", t("deploymentsPage.resend.toast.success"));
 			router.refresh();

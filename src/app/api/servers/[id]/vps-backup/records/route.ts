@@ -109,19 +109,35 @@ export async function POST(
 					createdBy: session.userId,
 				});
 
-				await enqueueJob({
-					type: VPS_BACKUP_CREATE_JOB_TYPE,
-					title: `VPS backup: ${body.backupType} (${server.name})`,
-					payload: {
-						recordId,
-						serverId,
+				try {
+					await enqueueJob({
+						type: VPS_BACKUP_CREATE_JOB_TYPE,
+						title: `VPS backup: ${body.backupType} (${server.name})`,
+						payload: {
+							recordId,
+							serverId,
+							teamId: session.currentTeamId ?? server.teamId ?? null,
+							...(body.paths?.length ? { paths: body.paths } : {}),
+						},
+						createdBy: session.userId,
 						teamId: session.currentTeamId ?? server.teamId ?? null,
-						...(body.paths?.length ? { paths: body.paths } : {}),
-					},
-					createdBy: session.userId,
-					teamId: session.currentTeamId ?? server.teamId ?? null,
-					maxAttempts: 1,
-				});
+						maxAttempts: 1,
+					});
+				} catch (enqueueErr) {
+					// Compensate orphan PENDING row so UI does not show stuck backups.
+					await prisma.vpsBackupRecord.update({
+						where: { id: recordId },
+						data: {
+							status: "FAILED",
+							errorMessage:
+								enqueueErr instanceof Error
+									? enqueueErr.message
+									: "Failed to enqueue VPS backup job",
+							completedAt: new Date(),
+						},
+					}).catch(() => undefined);
+					throw enqueueErr;
+				}
 
 				await auditUserAction(
 					session.userId,

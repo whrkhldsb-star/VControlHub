@@ -125,6 +125,7 @@ export function RestoreBackupButton({ backupId, backupType, disabled = false }: 
             <p id="restore-backup-description" className="mt-2 text-sm leading-6 text-[var(--text-secondary)]">
               {t("backupsPage.restore.warningPrefix")} <span className="font-semibold text-[var(--text-primary)]">{backupType}</span> {t("backupsPage.restore.warningSuffix")} <span className="font-mono font-semibold text-[var(--danger)]">{CONFIRM_TEXT}</span> {t("backupsPage.restore.warningContinue")}
             </p>
+            {backupType === "FULL" ? (
             <div className="mt-4 grid gap-2">
               <span className="text-sm text-[var(--text-secondary)]">{t("backupsPage.restore.component.label")}</span>
               <div className="flex gap-2">
@@ -140,6 +141,7 @@ export function RestoreBackupButton({ backupId, backupType, disabled = false }: 
                 ))}
               </div>
             </div>
+            ) : null}
             <label className="mt-4 grid gap-1 text-sm text-[var(--text-secondary)]">
               {t("backupsPage.restore.inputLabel").replace("{confirmText}", CONFIRM_TEXT)}
               <input
