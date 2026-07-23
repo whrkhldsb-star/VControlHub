@@ -78,14 +78,18 @@ export function CreateRuleForm({
 			.map((item) => item.trim())
 			.filter(Boolean);
 		try {
+			const isOfflineMetric = metric === "server_offline";
+			// Offline rules compare value 1/0; hidden UI defaults (gte/85) would never fire.
+			const resolvedOperator = isOfflineMetric ? "eq" : operator;
+			const resolvedThreshold = isOfflineMetric ? 1 : threshold;
 			await csrfFetch("/api/alert-rules", {
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify({
 					name,
 					metric,
-					operator,
-					threshold,
+					operator: resolvedOperator,
+					threshold: resolvedThreshold,
 					durationSeconds,
 					serverIds: selectedServerIds,
 					playbookIds: selectedPlaybookIds,
