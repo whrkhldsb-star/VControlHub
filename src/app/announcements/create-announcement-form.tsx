@@ -17,6 +17,14 @@ export function CreateAnnouncementForm() {
 	const [loading, setLoading] = useState(false);
 	const [error, setError] = useState<string | null>(null);
 
+	/** datetime-local is "YYYY-MM-DDTHH:mm" without timezone; API requires ISO with offset. */
+	const toIsoOrUndefined = (value: FormDataEntryValue | undefined) => {
+		if (typeof value !== "string" || !value.trim()) return undefined;
+		const d = new Date(value);
+		if (Number.isNaN(d.getTime())) return undefined;
+		return d.toISOString();
+	};
+
 	const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
 		event.preventDefault();
 		setLoading(true);
@@ -31,8 +39,8 @@ export function CreateAnnouncementForm() {
 					title: data.title,
 					content: data.content,
 					type: data.type ||"info",
-					startsAt: data.startsAt || undefined,
-					expiresAt: data.expiresAt || undefined,
+					startsAt: toIsoOrUndefined(data.startsAt),
+					expiresAt: toIsoOrUndefined(data.expiresAt),
 				}),
 			});
 			form.reset();
