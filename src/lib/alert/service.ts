@@ -72,6 +72,7 @@ export async function createAlertRule(input: CreateAlertRuleInput, session?: Tea
 	const playbookIds = input.playbookIds ?? [];
 	await assertServerIdsInTeam(serverIds, session);
 	await assertPlaybookIdsInTeam(playbookIds, session);
+	await assertOnCallUserIdsInTeam(input.onCallUserIds ?? [], session);
 	const teamId = session ? teamCreateData(session).teamId : null;
 	return prisma.alertRule.create({
 		data: {
@@ -105,6 +106,7 @@ export async function updateAlertRule(
 	}
 	if (input.serverIds !== undefined) await assertServerIdsInTeam(input.serverIds, session);
 	if (input.playbookIds !== undefined) await assertPlaybookIdsInTeam(input.playbookIds, session);
+	if (input.onCallUserIds !== undefined) await assertOnCallUserIdsInTeam(input.onCallUserIds, session);
 	const data: Record<string, unknown> = {};
 	if (input.name !== undefined) data.name = input.name;
 	if (input.metric !== undefined) data.metric = input.metric;
@@ -408,6 +410,23 @@ export async function ensureDefaultAlertRules(session?: TeamSession | null) {
 	}
 	return { created: created.length, skipped: false as const, rules: created };
 }
+
+async function assertOnCallUserIdsInTeam(userIds: string[], session?: TeamSession | null) {
+  if (!session || userIds.length === 0) return;
+  if (sessionHasPermission(session, "team:manage")) return;
+  const teamId = session.currentTeamId;
+  if (!teamId) {
+    throw new ValidationError("onCallUserIds require a team context");
+  }
+  const members = await prisma.teamMember.findMany({
+    where: { teamId, userId: { in: userIds } },
+    select: { userId: true },
+  });
+  if (members.length !== new Set(userIds).size) {
+    throw new ValidationError("onCallUserIds must be members of the current team");
+  }
+}
+
 
 async function resolveDefaultNotifyChannels(): Promise<string[]> {
 	const channels = new Set<string>(["in_app"]);

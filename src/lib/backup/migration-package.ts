@@ -24,7 +24,7 @@ import {
   stat,
   writeFile,
 } from "node:fs/promises";
-import { basename, dirname, extname, join } from "node:path";
+import { basename, dirname, extname, join, relative, resolve } from "node:path";
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 
@@ -160,14 +160,14 @@ export async function resolveMigrationPackageDir(
     candidate = join(storageRoot, portable);
   }
 
-  // must stay under storage root
-  const normalizedRoot = storageRoot.endsWith("/") ? storageRoot : `${storageRoot}/`;
-  if (!candidate.startsWith(normalizedRoot) && candidate !== storageRoot) {
-    // also allow exact packagesRoot children when absolute equals storageRoot join
-    if (!candidate.startsWith(storageRoot)) {
-      throw new ValidationError(t("backend.backup.packageOutsideRoot"));
-    }
+  // must stay under storage root (path-boundary, not naive string prefix)
+  const resolvedRoot = resolve(storageRoot);
+  const resolvedCandidate = resolve(candidate);
+  const rel = relative(resolvedRoot, resolvedCandidate);
+  if (rel.startsWith("..") || rel === ".." || resolve(resolvedRoot, rel) !== resolvedCandidate) {
+    throw new ValidationError(t("backend.backup.packageOutsideRoot"));
   }
+  candidate = resolvedCandidate;
 
   const info = await stat(candidate).catch(() => null);
   if (!info) throw new NotFoundError(t("backend.backup.packagePathNotFound"));
@@ -185,9 +185,16 @@ export async function resolveMigrationPackageDir(
   const extractDir = join(packagesRoot(root), extractId);
   await mkdir(extractDir, { recursive: true });
   try {
-    await runFile("tar", ["-xzf", candidate, "-C", extractDir], {
+    // Prefer GNU tar --restrict when available; always re-verify no path escape after extract.
+    await runFile("tar", ["-xzf", candidate, "-C", extractDir, "--restrict"], {
       timeout: 120_000,
       maxBuffer: 2 * 1024 * 1024,
+    }).catch(async () => {
+      // BusyBox/older tar may not support --restrict; fall back then verify members.
+      await runFile("tar", ["-xzf", candidate, "-C", extractDir], {
+        timeout: 120_000,
+        maxBuffer: 2 * 1024 * 1024,
+      });
     });
   } catch (error) {
     await rm(extractDir, { recursive: true, force: true }).catch(() => undefined);
@@ -196,8 +203,27 @@ export async function resolveMigrationPackageDir(
     );
   }
 
-  // If archive contains a single top-level dir, use it
+  // Reject path traversal / absolute members that land outside extractDir.
   const { readdir } = await import("node:fs/promises");
+  async function assertNoEscape(dir: string, rootAbs: string): Promise<void> {
+    const kids = await readdir(dir, { withFileTypes: true });
+    for (const kid of kids) {
+      const abs = resolve(dir, kid.name);
+      const relPath = relative(rootAbs, abs);
+      if (relPath.startsWith("..") || relPath === ".." || resolve(rootAbs, relPath) !== abs) {
+        throw new ValidationError(t("backend.backup.packageOutsideRoot"));
+      }
+      if (kid.isDirectory()) await assertNoEscape(abs, rootAbs);
+    }
+  }
+  try {
+    await assertNoEscape(extractDir, resolve(extractDir));
+  } catch (error) {
+    await rm(extractDir, { recursive: true, force: true }).catch(() => undefined);
+    throw error;
+  }
+
+  // If archive contains a single top-level dir, use it
   const entries = await readdir(extractDir);
   let packageDir = extractDir;
   if (entries.length === 1) {
@@ -528,7 +554,8 @@ export async function listMigrationPackages(
       const dir = join(rootDir, packageId);
       const manifest = await readMigrationManifest(dir).catch(() => null);
       const sourceTeamId = manifest?.source?.teamId ?? null;
-      if (filterByTeam && sourceTeamId !== null && sourceTeamId !== teamId) {
+      // Team-scoped list: only packages stamped with this team (exclude other teams and unscoped).
+      if (filterByTeam && sourceTeamId !== teamId) {
         continue;
       }
       const tarPath = join(getBackupStorageRoot(root), `${relativeDir}.tar.gz`);

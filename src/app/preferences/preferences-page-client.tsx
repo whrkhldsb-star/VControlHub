@@ -190,6 +190,7 @@ export function PreferencesSettingsContent({
 	const activeLoadRequestIdRef = useRef(0);
 	const latestSaveRequestIdRef = useRef(0);
 	const savingRef = useRef(false);
+	const pendingSavePrefsRef = useRef<Preferences | null>(null);
 
 	const messageFromError = (err: unknown, fallback: string) => err instanceof Error && err.message ? err.message : fallback;
 
@@ -247,27 +248,53 @@ export function PreferencesSettingsContent({
 		setPrefs(normalizedPrefs);
 		setError("");
 		setSaved(false);
-		if (savingRef.current) return;
+		// Coalesce: if a PUT is in flight, keep the latest optimistic prefs and re-PUT after it finishes.
+		if (savingRef.current) {
+			pendingSavePrefsRef.current = normalizedPrefs;
+			return;
+		}
 		savingRef.current = true;
+		let payload = normalizedPrefs;
 		try {
-			const savedPrefs = await csrfFetch("/api/preferences", {
-				method: "PUT",
-				headers: { "Content-Type": "application/json" },
-				body: JSON.stringify(normalizedPrefs),
-			});
-			const nextPrefs = normalizeUserPreferences({ ...normalizedPrefs, ...savedPrefs });
-			setPrefs(nextPrefs);
-			setLastSavedPrefs(nextPrefs);
-			localStorage.setItem("vps-preferences", JSON.stringify(nextPrefs));
-			window.dispatchEvent(new Event("vps-preferences-updated"));
-			setSaved(true);
-			setTimeout(() => setSaved(false), 2000);
+			while (true) {
+				const requestIdAtSend = latestSaveRequestIdRef.current;
+				const savedPrefs = await csrfFetch("/api/preferences", {
+					method: "PUT",
+					headers: { "Content-Type": "application/json" },
+					body: JSON.stringify(payload),
+				});
+				// Only apply response if nothing newer was queued/optimistic.
+				if (requestIdAtSend === latestSaveRequestIdRef.current) {
+					const nextPrefs = normalizeUserPreferences({ ...payload, ...savedPrefs });
+					setPrefs(nextPrefs);
+					setLastSavedPrefs(nextPrefs);
+					localStorage.setItem("vps-preferences", JSON.stringify(nextPrefs));
+					window.dispatchEvent(new Event("vps-preferences-updated"));
+					setSaved(true);
+					setTimeout(() => setSaved(false), 2000);
+				}
+				const pending = pendingSavePrefsRef.current;
+				pendingSavePrefsRef.current = null;
+				if (pending && latestSaveRequestIdRef.current > requestIdAtSend) {
+					payload = pending;
+					continue;
+				}
+				break;
+			}
 		} catch (err) {
+			// Prefer current last-saved; if a newer optimistic exists, keep UI but report error.
 			setPrefs(lastSavedPrefs);
 			localStorage.setItem("vps-preferences", JSON.stringify(lastSavedPrefs));
 			setError(messageFromError(err, t("preferencesPage.error.save")));
+			pendingSavePrefsRef.current = null;
 		} finally {
 			savingRef.current = false;
+			// Race: a save may have been requested after finally-bound check — flush once more.
+			const leftover = pendingSavePrefsRef.current;
+			if (leftover) {
+				pendingSavePrefsRef.current = null;
+				void save(leftover);
+			}
 		}
 	};
 

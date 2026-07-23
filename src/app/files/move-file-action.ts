@@ -172,6 +172,7 @@ export async function moveFileAction(
           const oldPrefix = entry.relativePath + "/";
           const newPrefix = newRelativePath + "/";
           // Do not rewrite soft-deleted descendants (recycle-bin rows).
+          const CHILD_CAP = 10_000;
           const children = await tx.fileEntry.findMany({
             where: {
               storageNodeId: entry.storageNodeId,
@@ -179,8 +180,13 @@ export async function moveFileAction(
               isDeleted: false,
             },
             select: { id: true, relativePath: true },
-            take: 10_000,
+            take: CHILD_CAP + 1,
           });
+          if (children.length > CHILD_CAP) {
+            throw new Error(
+              `Directory has more than ${CHILD_CAP} children; split the move`,
+            );
+          }
 
           for (const child of children) {
             await tx.fileEntry.update({

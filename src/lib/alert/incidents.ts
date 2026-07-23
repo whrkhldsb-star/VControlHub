@@ -43,18 +43,31 @@ export function buildAlertFingerprint(ruleId: string, serverId: string | null, m
   return `${ruleId}::${serverId ?? "fleet"}::${metric}`;
 }
 
-async function resolveNotifyUserIds(onCallUserIds: string[] | undefined): Promise<string[]> {
+async function resolveNotifyUserIds(
+  onCallUserIds: string[] | undefined,
+  teamId?: string | null,
+): Promise<string[]> {
   const preferred = (onCallUserIds ?? []).map((id) => id.trim()).filter(Boolean);
+  const teamMemberFilter = teamId
+    ? { teamMemberships: { some: { teamId } } }
+    : {};
   if (preferred.length > 0) {
     const users = await prisma.user.findMany({
-      where: { id: { in: preferred }, status: { not: "DISABLED" } },
+      where: {
+        id: { in: preferred },
+        status: { not: "DISABLED" },
+        ...teamMemberFilter,
+      },
       select: { id: true },
       take: 50,
     });
     if (users.length > 0) return users.map((u) => u.id);
   }
+  // Fallback on-call pool: notification:manage users, scoped to the rule's team when set.
   const admins = await prisma.user.findMany({
     where: {
+      status: { not: "DISABLED" },
+      ...teamMemberFilter,
       roles: {
         some: {
           role: {
@@ -216,7 +229,7 @@ export async function openOrRefreshAlertIncident(input: AlertFireInput): Promise
         },
       });
 
-  const userIds = await resolveNotifyUserIds(input.onCallUserIds);
+  const userIds = await resolveNotifyUserIds(input.onCallUserIds, input.teamId);
   await dispatchChannels({
     userIds,
     type: "server_alert",
@@ -263,7 +276,7 @@ export async function resolveAlertIncident(input: {
     data: { status: "RESOLVED", resolvedAt: now },
   });
 
-  const userIds = await resolveNotifyUserIds(input.onCallUserIds);
+  const userIds = await resolveNotifyUserIds(input.onCallUserIds, input.teamId);
   await dispatchChannels({
     userIds,
     type: "alert_resolved",
@@ -300,7 +313,8 @@ export async function acknowledgeAlertIncident(input: {
   if (input.session) {
     const teamFilter = teamWhere(input.session);
     if (Object.keys(teamFilter).length > 0) {
-      // Rule team
+      // Rule team: null = legacy shared — team operators cannot ack unless the
+      // incident is bound to a server in their team (or they are global manager).
       const ruleTeam = incident.rule?.teamId ?? null;
       if (ruleTeam !== null) {
         const ruleOk = await prisma.alertRule.findFirst({
@@ -308,8 +322,10 @@ export async function acknowledgeAlertIncident(input: {
           select: { id: true },
         });
         if (!ruleOk) throw new NotFoundError(t("backend.alert.alertIncidentNotFound"));
+      } else if (!incident.serverId) {
+        throw new NotFoundError(t("backend.alert.alertIncidentNotFound"));
       }
-      // Server team (when set)
+      // Server team (required when set, or when rule is legacy unscoped)
       if (incident.serverId) {
         const serverOk = await prisma.server.findFirst({
           where: { id: incident.serverId, ...teamFilter },
@@ -382,9 +398,9 @@ export async function escalateOverdueAlertIncidents(): Promise<{ escalated: numb
       },
     });
 
-    const userIds = await resolveNotifyUserIds(incident.rule.onCallUserIds);
-    // On L2+, also ensure notification:manage admins are included
-    const adminIds = await resolveNotifyUserIds([]);
+    const userIds = await resolveNotifyUserIds(incident.rule.onCallUserIds, incident.rule.teamId ?? null);
+    // On L2+, also include notification:manage users in the same team scope.
+    const adminIds = await resolveNotifyUserIds([], incident.rule.teamId ?? null);
     const merged = Array.from(new Set([...userIds, ...adminIds]));
 
     await dispatchChannels({

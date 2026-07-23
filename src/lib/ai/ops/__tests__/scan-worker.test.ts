@@ -74,6 +74,9 @@ vi.mock("@/lib/db", () => ({
 		server: {
 			count: serverCountMock,
 		},
+		metricSnapshot: {
+			findMany: vi.fn(async () => []),
+		},
 		backupRecord: {
 			count: backupFailureCountMock,
 		},

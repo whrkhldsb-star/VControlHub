@@ -29,6 +29,8 @@ type PermissionsPayload = {
     displayName: string | null;
     roles: RoleInfo[];
     effectivePermissions: string[];
+    /** Fine-grained custom role only (not base role grants). */
+    directPermissionKeys?: string[];
     storageAccess: StorageGrant[];
   };
   roles: RoleInfo[];
@@ -100,8 +102,8 @@ return data as PermissionsPayload;
       .then((data) => {
         if (cancelled) return;
         setPayload(data);
-        setRoleKeys(data.user.roles.map((role) => role.key));
-        setPermissionKeys(data.user.effectivePermissions);
+        setRoleKeys(data.user.roles.map((role) => role.key).filter((key) => !key.startsWith("user:") || !key.endsWith(":custom")));
+        setPermissionKeys(data.user.directPermissionKeys ?? []);
         setGrants(data.user.storageAccess.map((grant) => ({ ...grant })));
       })
       .catch((error) => !cancelled && setMessage({ type: "error", text: error instanceof Error ? error.message : t("usersPerm.error.loadFailed") }))
@@ -255,13 +257,20 @@ const _data = await csrfFetch("/api/users/permissions", {
             <section className="rounded-2xl border border-[var(--border)] bg-[var(--surface-subtle)] p-4">
               <h4 className="font-medium text-[var(--text-primary)]">{t("usersPerm.section.perms")}</h4>
               <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
-                {payload.permissions.map((permission) => (
+                <p className="mb-2 text-xs text-[var(--text-muted)]">
+                  Checkboxes edit the user custom permission overrides only. Base role grants still apply until the role is removed.
+                </p>
+                {payload.permissions.map((permission) => {
+                  const direct = permissionKeys.includes(permission.key);
+                  const effective = payload.user.effectivePermissions.includes(permission.key);
+                  return (
                   <label key={permission.key} className="flex items-center gap-2 rounded-xl border border-[var(--input-border)] bg-[var(--input-bg)] px-3 py-2 text-sm text-[var(--text-secondary)]">
-                    <input type="checkbox" checked={permissionKeys.includes(permission.key)} onChange={() => setPermissionKeys((current) => toggle(current, permission.key))} />
+                    <input type="checkbox" checked={direct} onChange={() => setPermissionKeys((current) => toggle(current, permission.key))} />
                     <span>{permission.name || permission.key}</span>
-                    <span className="text-xs text-[var(--text-muted)]">{permission.key}</span>
+                    <span className="text-xs text-[var(--text-muted)]">{permission.key}{effective && !direct ? " · via role" : ""}</span>
                   </label>
-                ))}
+                  );
+                })}
               </div>
             </section>
 

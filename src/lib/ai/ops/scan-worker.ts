@@ -129,9 +129,18 @@ async function collectSystemHealthSignals(): Promise<SystemHealthSignal[]> {
 				},
 			})
 			.catch(() => 0),
-		// Servers that are enabled (potential connectivity issues require runtime checks)
-		prisma.server
-			.count({ where: { enabled: true } })
+		// Prefer metricSnapshot.isOnline=false over "any enabled server" (false positive).
+		prisma.metricSnapshot
+			.findMany({
+				where: {
+					isOnline: false,
+					createdAt: { gte: new Date(Date.now() - 30 * 60 * 1000) },
+				},
+				select: { serverId: true },
+				orderBy: { createdAt: "desc" },
+				take: 500,
+			})
+			.then((rows) => new Set(rows.map((r) => r.serverId)).size)
 			.catch(() => 0),
 		// Backup records that failed in the last 24h
 		prisma.backupRecord
@@ -358,6 +367,7 @@ export async function runAiOpsScanWorkerOnce(reason = "manual"): Promise<boolean
 		});
 		if (!job) return false;
 
+		let aiOpsLogId: string | null = null;
 		try {
 			await heartbeatJob(job.id, AI_OPS_SCAN_WORKER_ID, {
 				leaseMs: AI_OPS_SCAN_LEASE_MS,
@@ -371,6 +381,7 @@ export async function runAiOpsScanWorkerOnce(reason = "manual"): Promise<boolean
 				triggeredById: null,
 				notes: `scan reason=${reason}`,
 			});
+			aiOpsLogId = log.id;
 
 			const signals = await collectSystemHealthSignals();
 			const { findings, actions: plannedActions, status } = buildScan(mode, signals);
@@ -441,6 +452,19 @@ export async function runAiOpsScanWorkerOnce(reason = "manual"): Promise<boolean
 		} catch (error) {
 			const message =
 				error instanceof Error ? error.message : "AI ops scan failed";
+			if (aiOpsLogId) {
+				try {
+					await completeScan({
+						logId: aiOpsLogId,
+						status: "error",
+						findings: [],
+						actions: [],
+						notes: `ai.ops.scan failed: ${message}`.slice(0, 4000),
+					});
+				} catch {
+					// best-effort — avoid leaving log stuck in running
+				}
+			}
 			await failJob(job.id, AI_OPS_SCAN_WORKER_ID, message.slice(0, 2000), {
 				retryAfterMs: 60 * 60 * 1000, // 1h retry
 			});

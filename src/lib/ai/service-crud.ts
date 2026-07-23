@@ -250,6 +250,8 @@ export async function listConversations(userId: string) {
 }
 
 export async function getConversationById(id: string, userId: string) {
+	// Cap message payload size for long threads (chat path loads conversation often).
+	const MESSAGE_TAKE = 500;
 	const conv = await prisma.aiConversation.findFirst({
 		where: { id, createdBy: userId },
 		include: {
@@ -270,11 +272,12 @@ export async function getConversationById(id: string, userId: string) {
 					updatedAt: true,
 				},
 			},
-			messages: { orderBy: { createdAt: "asc" } },
+			// Latest window first, then reverse to chronological for UI.
+			messages: { orderBy: { createdAt: "desc" }, take: MESSAGE_TAKE },
 		},
 	});
 	if (!conv) throw new NotFoundError(t("backend.ai.conversationNotFound"));
-	return conv;
+	return { ...conv, messages: [...conv.messages].reverse() };
 }
 
 export async function updateConversation(id: string, userId: string, input: UpdateConversationInput) {

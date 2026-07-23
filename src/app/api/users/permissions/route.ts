@@ -142,6 +142,7 @@ export async function GET(request: Request) {
       throw new NotFoundError("User not found");
     }
 
+    const customRoleKey = `user:${userId}:custom`;
     const effectivePermissions = Array.from(
       new Set(
         user.roles.flatMap((userRole) =>
@@ -149,6 +150,19 @@ export async function GET(request: Request) {
             (rolePermission) => rolePermission.permission.key,
           ),
         ),
+      ),
+    ).sort();
+    // Direct overrides only (auto custom role) — UI should seed/save this set,
+    // not the full effective union of base roles (would bake roles into custom).
+    const directPermissionKeys = Array.from(
+      new Set(
+        user.roles
+          .filter((userRole) => userRole.role.key === customRoleKey)
+          .flatMap((userRole) =>
+            userRole.role.permissions.map(
+              (rolePermission) => rolePermission.permission.key,
+            ),
+          ),
       ),
     ).sort();
 
@@ -162,6 +176,7 @@ export async function GET(request: Request) {
           name: userRole.role.name,
         })),
         effectivePermissions,
+        directPermissionKeys,
         storageAccess: await serializeStorageAccessGrants(user.storageAccess),
       },
       roles: roles.map((role) => ({

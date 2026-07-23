@@ -327,25 +327,43 @@ export async function renameFileEntryAction(
       newRelativePath,
     });
 
-    if (entry.entryType === "DIRECTORY") {
-      const oldPrefix = entry.relativePath + "/";
-      const newPrefix = newRelativePath + "/";
-      // N+1 acceptable: non-uniform per-item writes (each row gets a computed relativePath)
-      for (const child of directoryChildren) {
-        await prisma.fileEntry.update({
-          where: { id: child.id },
-          data: {
-            relativePath:
-              newPrefix + child.relativePath.slice(oldPrefix.length),
-          },
-        });
+    try {
+      if (entry.entryType === "DIRECTORY") {
+        const oldPrefix = entry.relativePath + "/";
+        const newPrefix = newRelativePath + "/";
+        // N+1 acceptable: non-uniform per-item writes (each row gets a computed relativePath)
+        for (const child of directoryChildren) {
+          await prisma.fileEntry.update({
+            where: { id: child.id },
+            data: {
+              relativePath:
+                newPrefix + child.relativePath.slice(oldPrefix.length),
+            },
+          });
+        }
       }
-    }
 
-    await prisma.fileEntry.update({
-      where: { id: fileEntryId },
-      data: { name: newName, relativePath: newRelativePath },
-    });
+      await prisma.fileEntry.update({
+        where: { id: fileEntryId },
+        data: { name: newName, relativePath: newRelativePath },
+      });
+    } catch (databaseError) {
+      // Physical rename already succeeded — roll back so disk and index stay aligned.
+      try {
+        await renameBackingObject({
+          storageNode: entry.storageNode,
+          oldRelativePath: newRelativePath,
+          newRelativePath: entry.relativePath,
+        });
+      } catch (compensationError) {
+        return {
+          error: `Database rename failed and physical rollback also failed: ${databaseError instanceof Error ? databaseError.message : String(databaseError)}; rollback: ${compensationError instanceof Error ? compensationError.message : String(compensationError)}`,
+        } satisfies StorageActionState;
+      }
+      return {
+        error: databaseError instanceof Error ? databaseError.message : t("storagePage.action.renameFailed"),
+      } satisfies StorageActionState;
+    }
 
     await auditUserAction(session.userId, "storage.file_rename", {
       entryId: entry.id,
