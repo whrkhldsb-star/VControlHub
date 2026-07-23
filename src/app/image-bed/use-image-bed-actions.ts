@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 import { csrfFetch } from "@/lib/auth/csrf-client";
 
@@ -38,12 +38,14 @@ export function useImageBedActions({
 	t,
 	search,
 	page,
+	showAll,
 	images,
 	fetchImages,
 }: {
 	t: TFn;
 	search: string;
 	page: number;
+	showAll: boolean;
 	images: ImageItem[];
 	fetchImages: (p?: number) => Promise<void> | void;
 }) {
@@ -52,6 +54,10 @@ export function useImageBedActions({
 	const [toast, setToast] = useState<{ message: string; tone: ToastTone } | null>(null);
 	const [previewImage, setPreviewImage] = useState<ImageItem | null>(null);
 	const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+	// Clear batch selection when page/filter changes so counts stay page-scoped.
+	useEffect(() => {
+		setSelectedIds(new Set());
+	}, [page, search, showAll]);
 	const [showStats, setShowStats] = useState(false);
 	const [stats, setStats] = useState<ImageStats | null>(null);
 	const [batchMode, setBatchMode] = useState(false);

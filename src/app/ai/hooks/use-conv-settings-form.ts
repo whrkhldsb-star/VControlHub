@@ -33,9 +33,11 @@ export function useConvSettingsForm({
   const { t } = useI18n();
   const [settingsForm, setSettingsForm] = useState(DEFAULT_SETTINGS_FORM);
 
+  // Rehydrate only when the active conversation identity changes — not on every
+  // refreshConversations() object replacement (which would clobber dirty edits).
   useEffect(() => {
     let ignore = false;
-    if (activeConv) {
+    if (activeConv && activeConvId) {
       setTimeout(() => {
         if (!ignore) {
           setSettingsForm({
@@ -53,7 +55,8 @@ export function useConvSettingsForm({
       }, 0);
     }
     return () => { ignore = true; };
-  }, [activeConv]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- intentionally only activeConvId
+  }, [activeConvId]);
 
   const handleSaveSettings = useCallback(async () => {
     if (!activeConvId) return;

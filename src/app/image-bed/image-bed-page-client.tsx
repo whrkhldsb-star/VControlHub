@@ -71,7 +71,7 @@ export default function ImageBedPage({ canWrite, canDelete }: { canWrite: boolea
 		copyMarkdown,
 		copyHTML,
 		openPublishModal,
-	} = useImageBedActions({ t, search, page, images, fetchImages });
+	} = useImageBedActions({ t, search, page, showAll, images, fetchImages });
 
 	const formatSize = formatImageSize;
 	const formatDate = (iso: string) => formatImageDate(iso, locale);
@@ -103,7 +103,11 @@ export default function ImageBedPage({ canWrite, canDelete }: { canWrite: boolea
 					<h2 className="text-sm font-semibold text-[var(--text-primary)]">{t("imageBedPage.publish.title")}</h2>
 					<div className="mt-3 grid gap-2 text-sm sm:grid-cols-3">
 						<Link href="/media?type=image" data-tone="emerald" className="rounded-2xl border border-[var(--success-border)] p-3 text-[var(--text-primary)] transition hover:bg-[var(--success-bg)]"><span className="block text-lg">{t("imageBedPage.publish.media.title")}</span><span className="mt-1 block text-xs opacity-75">{t("imageBedPage.publish.media.desc")}</span></Link>
+						{canWrite ? (
 						<button type="button" onClick={openPublishModal} className="rounded-2xl border border-[var(--info-border)] bg-[var(--info-bg)] p-3 text-left text-[var(--text-primary)] transition hover:opacity-90"><span className="block text-lg">{t("imageBedPage.publish.storage.title")}</span><span className="mt-1 block text-xs opacity-75">{t("imageBedPage.publish.storage.desc")}</span></button>
+						) : (
+						<div className="rounded-2xl border border-[var(--border)] bg-[var(--surface-subtle)] p-3 text-left text-[var(--text-muted)] opacity-70"><span className="block text-lg">{t("imageBedPage.publish.storage.title")}</span><span className="mt-1 block text-xs">{t("imageBedPage.publish.storage.desc")}</span></div>
+						)}
 						<button type="button" onClick={() => setShowLegacyUpload((value) => !value)} data-tone="amber" className="rounded-2xl border border-[var(--warning-border)] p-3 text-left text-[var(--text-primary)] transition hover:bg-[var(--warning-bg)]"><span className="block text-lg">{t("imageBedPage.publish.legacy.title")}</span><span className="mt-1 block text-xs opacity-75">{t("imageBedPage.publish.legacy.desc")}</span></button>
 					</div>
 				</div>

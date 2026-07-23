@@ -226,9 +226,9 @@ export function FileListListView(props: FileListListViewProps) {
                     </svg>
                     {t("fileListClient.open")}
                   </button>
-                  {folderCanWrite(folder) ? (
+                  {folderCanWrite(folder) && folder.entryId ? (
                     <RenameInlineForm
-                      fileEntryId={folder.entryId ?? ""}
+                      fileEntryId={folder.entryId}
                       currentName={folder.displayName ?? folder.name}
                       currentPath={folder.path}
                       entryType="DIRECTORY"

@@ -25,7 +25,12 @@ export default async function Verify2faPage({ searchParams }: Verify2faPageProps
 		redirect("/login?error=expired");
 	}
 
-	const nextPath = resolvedSearchParams.next ?? "/";
+	const rawNext = resolvedSearchParams.next ?? "/";
+	// Same guard as /api/login: only same-origin relative paths (block open redirects).
+	const nextPath =
+		typeof rawNext === "string" && rawNext.startsWith("/") && !rawNext.startsWith("//")
+			? rawNext
+			: "/";
 	const error = resolveErrorMessage(resolvedSearchParams.error);
 
 	return (

@@ -106,10 +106,9 @@ export function buildAiChatMessagePayload(input: {
     historyMessages.push({ role: "user", content: fullText });
   }
 
-  const allImageUrls = [
-    ...userImageUrls,
-    ...userImageBase64.map((img) => `data:${img.mimeType};base64,...(${img.data.length} chars)`),
-  ];
+  // Persist only real remote image URLs. Base64 vision payloads are for the
+  // provider request only — redacted placeholders must not be stored as history URLs.
+  const allImageUrls = [...userImageUrls];
 
   return { allImageUrls, historyMessages, userText };
 }

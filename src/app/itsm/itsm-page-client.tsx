@@ -29,6 +29,7 @@ export function ItsmPageClient({
 	canManage,
 	publicBaseUrl,
 }: Props) {
+	const baseUrlForInbound = publicBaseUrl || (typeof window !== "undefined" ? window.location.origin : "");
 	const { t } = useI18n();
 	const { addToast } = useToast();
 	const [connections, setConnections] = useState(initialConnections);
@@ -332,7 +333,7 @@ export function ItsmPageClient({
 								</div>
 								{(row.direction === "inbound" || row.direction === "bidirectional") && (
 									<div className="rounded-md bg-muted/40 p-2 text-xs font-mono break-all">
-										{t("itsmPage.inboundUrl")}: {publicBaseUrl}/api/itsm/inbound/{row.id}
+										{t("itsmPage.inboundUrl")}: {baseUrlForInbound}/api/itsm/inbound/{row.id}
 									</div>
 								)}
 								{row.config.webhookUrl && (

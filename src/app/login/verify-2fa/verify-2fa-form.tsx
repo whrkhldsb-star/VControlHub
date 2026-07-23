@@ -72,7 +72,11 @@ export function Verify2faForm({ nextPath, error }: Verify2faFormProps) {
 				body: JSON.stringify({ code }),
 			});
 if (data.success) {
-				router.push(nextPath);
+				const safe =
+					typeof nextPath === "string" && nextPath.startsWith("/") && !nextPath.startsWith("//")
+						? nextPath
+						: "/";
+				router.push(safe);
 				return;
 			}
 

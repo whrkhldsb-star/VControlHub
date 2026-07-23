@@ -38,7 +38,7 @@ export function FileListToasts({ toasts, onDismiss }: FileListToastsProps) {
             toast.type ==="info"
               ?"border-[var(--color-action-border)]/40 bg-[var(--accent)] text-[var(--on-accent)] shadow-[var(--shadow-md)]"
               :"",
-          ].join("")}
+          ].join(" ")}
         >
           <span>{toast.message}</span>
           <button

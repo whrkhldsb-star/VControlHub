@@ -25,9 +25,8 @@ export default async function ItsmPage() {
 	// (plus shared teamId=null). Omitting session previously listed every tenant's rows.
 	const connections = canManage ? await listItsmConnections(session) : [];
 	const events = canManage ? await listItsmEvents({ limit: 30, session }) : [];
-	const publicBaseUrl =
-		config.app.baseUrl?.replace(/\/$/, "") ||
-		"https://whrkhldsb.qzz.io";
+	// Prefer configured app base URL; empty lets the client use window.location.origin.
+	const publicBaseUrl = config.app.baseUrl?.replace(/\/$/, "") || "";
 
 	return (
 		<PageShell maxW="max-w-5xl">

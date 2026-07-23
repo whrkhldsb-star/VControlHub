@@ -59,6 +59,8 @@ export function useAiChatStream({
   addToast,
 }: Args) {
   const { t } = useI18n();
+  const activeConvIdRef = useRef(activeConvId);
+  activeConvIdRef.current = activeConvId;
   const [streaming, setStreaming] = useState(false);
   const [streamContent, setStreamContent] = useState("");
   const [streamReasoning, setStreamReasoning] = useState("");
@@ -153,6 +155,8 @@ export function useAiChatStream({
   const sendMessage = useCallback(
     async (args: SendArgs) => {
       if (!activeConvId || streaming) return;
+      // Pin conversation for this generation so switch-away cannot write into another chat.
+      const convIdAtSend = activeConvId;
       const abortController = new AbortController();
       abortControllerRef.current = abortController;
       setStreaming(true);
@@ -170,7 +174,7 @@ export function useAiChatStream({
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            conversationId: activeConvId,
+            conversationId: convIdAtSend,
             content: args.content,
             imageUrls: args.imageUrls,
             imageBase64: args.imageBase64,
@@ -219,7 +223,7 @@ export function useAiChatStream({
                 completedSuccessfully = true;
                 const assistantMsg: Message = {
                   id: `stream-${crypto.randomUUID()}`,
-                  conversationId: activeConvId,
+                  conversationId: convIdAtSend,
                   role: "assistant",
                   content: finalContent || t("aiPage.noResponse"),
                   reasoningContent: finalReasoning || null,
@@ -230,7 +234,9 @@ export function useAiChatStream({
                   latencyMs: parsed.latencyMs ?? null,
                   createdAt: new Date().toISOString(),
                 };
-                setMessages((prev) => [...prev, assistantMsg]);
+                if (convIdAtSend === activeConvIdRef.current) {
+                  setMessages((prev) => [...prev, assistantMsg]);
+                }
               } else if (parsed.type === "error") {
                 terminalError =
                   typeof parsed.error === "string" && parsed.error
@@ -300,32 +306,33 @@ export function useAiChatStream({
         setStreamContent("");
         setStreamReasoning("");
         abortControllerRef.current = null;
+        // Drop all transcript writes if the user switched conversations mid-stream.
+        const stillOnSameConv = convIdAtSend === activeConvIdRef.current;
         if (terminalError) {
-          const errorText = terminalError.startsWith("❌")
-            ? terminalError
-            : `❌ ${terminalError}`;
-          const errorMsg: Message = {
-            id: `stream-error-${crypto.randomUUID()}`,
-            conversationId: activeConvId,
-            role: "assistant",
-            content: errorText,
-            reasoningContent: null,
-            imageUrls: "[]",
-            model: activeConv?.model || null,
-            inputTokens: null,
-            outputTokens: null,
-            latencyMs: null,
-            createdAt: new Date().toISOString(),
-          };
-          setMessages((prev) => [...prev, errorMsg]);
+          if (stillOnSameConv) {
+            const errorText = terminalError.startsWith("❌")
+              ? terminalError
+              : `❌ ${terminalError}`;
+            const errorMsg: Message = {
+              id: `stream-error-${crypto.randomUUID()}`,
+              conversationId: convIdAtSend,
+              role: "assistant",
+              content: errorText,
+              reasoningContent: null,
+              imageUrls: "[]",
+              model: activeConv?.model || null,
+              inputTokens: null,
+              outputTokens: null,
+              latencyMs: null,
+              createdAt: new Date().toISOString(),
+            };
+            setMessages((prev) => [...prev, errorMsg]);
+          }
           addToast("error", terminalError.replace(/^❌\s*/, ""));
-          // Do not replace local transcript with a server refresh on failure:
-          // the request may never have been persisted, and a silent overwrite
-          // would drop the optimistic user bubble + the error we just added.
-        } else if (activeConvId && (completedSuccessfully || aborted)) {
+        } else if (stillOnSameConv && (completedSuccessfully || aborted)) {
           try {
             const data = await csrfFetch(
-              `/api/ai/conversations/${activeConvId}`,
+              `/api/ai/conversations/${convIdAtSend}`,
             );
             if (data.conversation?.messages)
               setMessages(data.conversation.messages);

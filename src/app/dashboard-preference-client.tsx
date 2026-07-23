@@ -135,9 +135,15 @@ export function DashboardPreferenceClient({
 			for (const id of hiddenWidgetIds) {
 				lines.push(`[data-dashboard-widget="${id}"]{display:none}`);
 			}
+			// Apply saved order outside edit mode (not only while isEditing).
+			preferences.dashboardWidgets.forEach((id, idx) => {
+				if ((DASHBOARD_WIDGET_IDS as readonly string[]).includes(id) && !hiddenWidgetIds.includes(id as DashboardWidgetId)) {
+					lines.push(`[data-dashboard-widget="${id}"]{order:${idx}}`);
+				}
+			});
 		}
 		return lines.join("\n");
-	}, [hiddenWidgetIds, isEditing, draftOrder, effectiveHidden]);
+	}, [hiddenWidgetIds, isEditing, draftOrder, effectiveHidden, preferences.dashboardWidgets]);
 
 	// Persist preferences (order + visibility as a single array) to /api/preferences
 	// and localStorage. The server stores `dashboardWidgets` as the ordered list
@@ -145,8 +151,21 @@ export function DashboardPreferenceClient({
 	const persistPreferences = useCallback(
 		async (order: DashboardWidgetId[], hidden: Set<DashboardWidgetId>) => {
 			const visibleOrder = order.filter((id) => !hidden.has(id));
-			const next = { ...preferences, dashboardWidgets: visibleOrder };
-			setPreferences(next);
+			// Merge into full localStorage blob so sibling preference keys are not wiped.
+			let base: Record<string, unknown> = {};
+			try {
+				const raw = window.localStorage.getItem("vps-preferences");
+				if (raw) {
+					const parsed = JSON.parse(raw) as unknown;
+					if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
+						base = parsed as Record<string, unknown>;
+					}
+				}
+			} catch {
+				// ignore broken cache
+			}
+			const next = { ...base, ...preferences, dashboardWidgets: visibleOrder };
+			setPreferences({ dashboardWidgets: visibleOrder });
 			window.localStorage.setItem("vps-preferences", JSON.stringify(next));
 			window.dispatchEvent(new Event("vps-preferences-updated"));
 			try {

@@ -187,8 +187,9 @@ export function useTextPreviewController(options: {
       const before = value.slice(0, selectionStart);
       const lineStart = before.lastIndexOf("\n") + 1;
       const endLineEnd = (() => {
-        if (selectionStart === selectionEnd) return value.length;
-        const idx = value.indexOf("\n", selectionEnd);
+        // Collapsed caret: unindent only the current line (not through EOF).
+        const from = selectionStart === selectionEnd ? selectionStart : selectionEnd;
+        const idx = value.indexOf("\n", from);
         return idx === -1 ? value.length : idx;
       })();
       const block = value.slice(lineStart, endLineEnd);
