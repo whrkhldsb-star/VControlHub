@@ -7,8 +7,6 @@ import { getServerLocale, t } from "@/lib/i18n/translations";
 
 export const revalidate = 30;
 
-type SearchParams = Promise<Record<string, string | string[] | undefined>> | Record<string, string | string[] | undefined>;
-
 function firstParam(value: string | string[] | undefined): string | undefined {
 	if (Array.isArray(value)) return value[0];
 	return value;
@@ -17,7 +15,7 @@ function firstParam(value: string | string[] | undefined): string | undefined {
 export default async function OperationTasksPage({
 	searchParams,
 }: {
-	searchParams?: SearchParams;
+	searchParams?: Promise<Record<string, string | string[] | undefined>>;
 }) {
 	const session = await requireSession("/operation-tasks");
 	const locale = await getServerLocale();
