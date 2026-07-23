@@ -70,6 +70,8 @@ export function useTextPreviewController(options: {
   const gutterRef = useRef<HTMLDivElement>(null);
   const editorFindInputRef = useRef<HTMLInputElement>(null);
   const didMountRef = useRef(false);
+  const loadVersionRef = useRef(0);
+  loadVersionRef.current = loadVersion;
 
   const { editMode, showDiffReview, saveStatus, saveMessage, reloadMessage } = previewMeta;
   const setEditMode = useCallback((next: boolean) => {
@@ -117,7 +119,13 @@ export function useTextPreviewController(options: {
       return;
     }
     resetForLoad();
-  }, [href, fileEntryId, canEdit]);
+    setDraft("");
+    setEditMode(false);
+    setShowDiffReview(false);
+    setSaveStatus("idle");
+    setSaveMessage("");
+    setState({ loading: true });
+  }, [href, fileEntryId, canEdit, setEditMode, setShowDiffReview, setSaveStatus, setSaveMessage]);
 
   useEffect(() => {
     let cancelled = false;
@@ -317,6 +325,8 @@ export function useTextPreviewController(options: {
 
   const performSave = useCallback(async (): Promise<number | null> => {
     if (!fileEntryId) return null;
+    const versionAtSave = loadVersionRef.current;
+    const entryAtSave = fileEntryId;
     setSaveStatus("saving");
     setSaveMessage("");
     setReloadMessage("");
@@ -331,6 +341,7 @@ export function useTextPreviewController(options: {
             content: draft,
           }),
         });
+        if (versionAtSave !== loadVersionRef.current || entryAtSave !== fileEntryId) return response.byteSize;
         setState({ loading: false, content: draft, error: null });
         setDraftVersion({
           updatedAt: new Date().toISOString(),
@@ -350,6 +361,7 @@ export function useTextPreviewController(options: {
           expectedLastModifiedMs: draftVersion.lastModifiedMs,
         }),
       });
+      if (versionAtSave !== loadVersionRef.current || entryAtSave !== fileEntryId) return response.file.byteSize;
       setState({ loading: false, content: draft, error: null });
       setDraftVersion({
         updatedAt: response.file.updatedAt,

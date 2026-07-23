@@ -265,6 +265,10 @@ function CreateTaskForm({ servers, onClose }: { servers: ServerOption[]; onClose
 
 	const handleSubmit = async (e: React.FormEvent) => {
 		e.preventDefault();
+		if (selectedServerIds.size === 0) {
+			setError(t("scheduledTasks.createFailed"));
+			return;
+		}
 		setSubmitting(true);
 		setError(null);
 		try {

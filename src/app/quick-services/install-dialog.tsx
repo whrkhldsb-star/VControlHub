@@ -59,15 +59,19 @@ export function InstallDialog({
 	const [customPort, setCustomPort] = useState<string>("");
 	const [portCheck, setPortCheck] = useState<PortCheckState | null>(null);
 	const portCheckTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+	const portCheckGenRef = useRef(0);
 
 	const checkPortAvailability = useCallback(async (port: number) => {
+		const gen = ++portCheckGenRef.current;
 		setPortCheck({ available: false, usedBy: null, checking: true });
 		try {
 			const data = await csrfFetch<{ available: boolean; usedBy?: string | null }>(
 				`/api/quick-services/check-port?port=${encodeURIComponent(String(port))}`,
 			);
+			if (gen !== portCheckGenRef.current) return;
 			setPortCheck({ available: data.available, usedBy: data.usedBy ?? null, checking: false });
 		} catch (err) {
+			if (gen !== portCheckGenRef.current) return;
 			setPortCheck({
 				available: false,
 				usedBy: err instanceof Error ? err.message : t("qsPage.checkFailed"),

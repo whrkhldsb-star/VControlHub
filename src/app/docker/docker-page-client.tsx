@@ -53,6 +53,8 @@ export default function DockerPage({ initialServers }: { initialServers: { id: s
 	const removalDialogRef = useDialogFocus<HTMLDivElement>({ open: pendingRemoval !== null, onClose: closeRemovalDialog, initialFocusRef: removeCancelButtonRef });
 	const logsDialogRef = useDialogFocus<HTMLDivElement>({ open: logsId !== null, onClose: closeLogsDialog, initialFocusRef: logsCloseButtonRef });
 	const fetchingStatsRef = useRef<Set<string>>(new Set());
+	const statsServerIdRef = useRef(selectedServerId);
+	statsServerIdRef.current = selectedServerId;
 	const fetchGenRef = useRef(0);
 	const fetchAbortRef = useRef<AbortController | null>(null);
 
@@ -224,10 +226,13 @@ const handleAction = async (container: Container, action:"start" |"stop" |"resta
 	const fetchStats = async (id: string) => {
 		if (fetchingStatsRef.current.has(id)) return;
 		fetchingStatsRef.current.add(id);
+		const serverAtFetch = selectedServerId;
 		try {
 			const statsParams = new URLSearchParams({ stats: id });
-		if (selectedServerId) statsParams.set("serverId", selectedServerId);
-		const data = await csrfFetch(`/api/docker/containers?${statsParams}`);
+			if (serverAtFetch) statsParams.set("serverId", serverAtFetch);
+			const data = await csrfFetch(`/api/docker/containers?${statsParams}`);
+			// Drop stale results after server switch.
+			if (statsServerIdRef.current !== serverAtFetch) return;
 			if (data.data) {
 				setStats((prev) => ({ ...prev, [id]: data.data as ContainerStats }));
 			}

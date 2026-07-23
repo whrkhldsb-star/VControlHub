@@ -1,6 +1,6 @@
 "use client";
 
-import { memo, useCallback, useMemo, useState } from "react";
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useUrlQueryState } from "@/lib/hooks/use-url-query-state";
 import Link from "next/link";
 import { EmptyState, ListPanel, ListRow, StatCard, StatGrid, SurfacePanel, Toolbar } from "@/components/page-shell";
@@ -125,7 +125,7 @@ export function OperationTaskListClient({ initialTasks, initialSourceSummary = [
   const [eventsJobId, setEventsJobId] = useState<string | null>(null);
   const handleViewEvents = useCallback((sourceId: string) => setEventsJobId(sourceId), []);
   const taskTypeOptions = useMemo(() => Array.from(new Set(tasks.map((task) => task.taskType).filter((value): value is string => Boolean(value)))).sort(), [tasks]);
-  const refresh = async () => {
+  const refresh = useCallback(async () => {
     setRefreshing(true);
     setError(null);
     try {
@@ -136,7 +136,20 @@ export function OperationTaskListClient({ initialTasks, initialSourceSummary = [
     } catch (err) {
       setError(err instanceof Error ? err.message : t("operationTasks.refreshFailed"));
     } finally { setRefreshing(false); }
-  };
+  }, [statusFilter, taskTypeFilter, sort, t]);
+  // Apply URL deep-link / non-default filter changes without requiring Apply.
+  // Skip the first paint when filters are still the SSR defaults to keep initialTasks
+  // and avoid a redundant fetch that races tests/mocks.
+  const didSkipDefaultRefreshRef = useRef(false);
+  useEffect(() => {
+    const isDefault =
+      statusFilter === "all" && taskTypeFilter === "all" && sort === "recent";
+    if (!didSkipDefaultRefreshRef.current) {
+      didSkipDefaultRefreshRef.current = true;
+      if (isDefault) return;
+    }
+    void refresh();
+  }, [refresh, statusFilter, taskTypeFilter, sort]);
   const counts = tasks.reduce<Record<OperationTaskStatus, number>>((acc, task) => { acc[task.status] = (acc[task.status] ?? 0) + 1; return acc; }, {} as Record<OperationTaskStatus, number>);
   return <div className="space-y-5">
     {error && <div role="alert" className="rounded-xl border border-[var(--danger-border)] bg-[var(--danger-bg)] px-4 py-3 text-sm text-[var(--danger)]">{error}</div>}

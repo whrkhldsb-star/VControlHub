@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 import { csrfFetch } from "@/lib/auth/csrf-client";
 
@@ -33,12 +33,17 @@ export function useQuickServiceCatalog(t: TFn) {
   const [hostName, setHostName] = useState("");
   const [quickServicePublicHost, setQuickServicePublicHost] = useState(QUICK_SERVICE_PUBLIC_HOST);
 
+  const catalogServerRef = useRef(selectedServerId);
+  catalogServerRef.current = selectedServerId;
+
   const fetchCatalog = useCallback(async () => {
+    const serverAtFetch = selectedServerId;
     try {
-      const qs = selectedServerId
-        ? `?serverId=${encodeURIComponent(selectedServerId)}`
+      const qs = serverAtFetch
+        ? `?serverId=${encodeURIComponent(serverAtFetch)}`
         : "";
       const data = await csrfFetch(`/api/quick-services${qs}`);
+      if (catalogServerRef.current !== serverAtFetch) return;
       setCatalog(data.catalog ?? []);
       setRemoteCatalog(data.remoteCatalog ?? []);
       setUsedPorts(Array.isArray(data.usedPorts) ? data.usedPorts : []);
@@ -54,9 +59,10 @@ export function useQuickServiceCatalog(t: TFn) {
       }
       if (typeof data.publicHost === "string") setQuickServicePublicHost(data.publicHost);
     } catch (err) {
+      if (catalogServerRef.current !== serverAtFetch) return;
       setError(err instanceof Error ? err.message : t("qsPage.loadFailedFallback"));
     } finally {
-      setLoading(false);
+      if (catalogServerRef.current === serverAtFetch) setLoading(false);
     }
   }, [selectedServerId, t]);
 

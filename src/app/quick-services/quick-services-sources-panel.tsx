@@ -36,7 +36,7 @@ type AppSource = {
 type SourcesPanelActions = {
 	doSync: (sourceId?: string) => void;
 	doToggleSource: (sourceId: string, nextEnabled: boolean) => void;
-	doAddSource: (input: { name: string; displayName: string; url: string; type:"json" |"github" |"linuxserver" }) => Promise<void>;
+	doAddSource: (input: { name: string; displayName: string; url: string; type:"json" |"github" |"linuxserver" }) => Promise<boolean>;
 	syncing: string | null;
 };
 
@@ -96,16 +96,19 @@ export function SourcesPanel({ sources, actions, onRequestDeleteSource }: Source
 	};
 
 	const doAddSource = async () => {
-		await actions.doAddSource({
+		const ok = await actions.doAddSource({
 			name: newSourceName,
 			displayName: newSourceDisplayName,
 			url: newSourceUrl,
 			type: newSourceType,
 		});
-		setNewSourceName("");
-		setNewSourceDisplayName("");
-		setNewSourceUrl("");
-		setSourcePreset(null);
+		// Only clear the form after a successful add (hook returns false on validation/network error).
+		if (ok) {
+			setNewSourceName("");
+			setNewSourceDisplayName("");
+			setNewSourceUrl("");
+			setSourcePreset(null);
+		}
 	};
 
 	return (

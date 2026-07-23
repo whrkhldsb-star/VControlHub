@@ -75,7 +75,7 @@ export type UseQuickServiceActionsResult = {
   doSync: (sourceId?: string) => Promise<void>;
   doToggleSource: (sourceId: string, enabled: boolean) => Promise<void>;
   doDeleteSource: (id: string) => Promise<void>;
-  doAddSource: (input: AddSourceInput) => Promise<void>;
+  doAddSource: (input: AddSourceInput) => Promise<boolean>;
 };
 
 /**
@@ -300,7 +300,7 @@ export function useQuickServiceActions({
     async (input: AddSourceInput) => {
       if (!input.name.trim() || !input.displayName.trim() || !input.url.trim()) {
         setMessage({ type: "err", text: t("qsActions.addSourceEmpty") });
-        return;
+        return false;
       }
       try {
         await csrfFetch("/api/app-sources", {
@@ -315,11 +315,13 @@ export function useQuickServiceActions({
         });
         setMessage({ type: "ok", text: t("qsActions.addSourceDone") });
         await fetchSources();
+        return true;
       } catch (err) {
         setMessage({
           type: "err",
           text: err instanceof Error ? err.message : t("qsActions.addSourceFailed"),
         });
+        return false;
       }
     },
     [fetchSources, t],

@@ -166,7 +166,7 @@ export function CommandCreateForm({ servers }: { servers: ServerOption[] }) {
           </div>
         )}{" "}
       </div>{" "}
-      <SubmitButton pendingLabel={t("common.submitting")}>
+      <SubmitButton pendingLabel={t("common.submitting")} disabled={selectedServerIds.size === 0}>
         {t("serversPage.command.submit")}
       </SubmitButton>{" "}
     </form>

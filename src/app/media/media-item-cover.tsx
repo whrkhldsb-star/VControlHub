@@ -56,15 +56,9 @@ export function MediaCover({
         unoptimized
         className={coverClass}
       />
-    ) : item.mediaType ==="video" && fileHref ? (
-      <video
-        src={`${fileHref}#t=0.1`}
-        preload="metadata"
-        muted
-        playsInline
-        className={coverClass}
-        aria-label={t("mediaItemCard.videoCover").replace("{name}", item.name)}
-      />
+    ) : item.mediaType ==="video" ? (
+      // Avoid N concurrent /stream opens for video covers; thumbnail API is image-only.
+      fallback
     ) : (
       fallback
     );

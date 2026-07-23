@@ -87,7 +87,8 @@ export function PlaybookListClient({
   const handleTrigger = useCallback(
     async (id: string, kind: "run" | "dry-run") => {
       setActionError(null);
-      setBusyAction(`${kind}:${id}`);
+      const actionKey = `${kind}:${id}`;
+      setBusyAction(actionKey);
       try {
         const result = await csrfFetch<{ run: RunSummary }>(`/api/playbooks/${id}/${kind}`, { method: "POST" });
         const run = result.run;
@@ -131,7 +132,7 @@ export function PlaybookListClient({
       } catch (err) {
         setActionError(err instanceof Error ? err.message : t("playbooksPage.error.load"));
       } finally {
-        setBusyAction(null);
+        setBusyAction((prev) => (prev === actionKey ? null : prev));
       }
     },
     [addToast, refreshRuns, startRunPolling, t],
@@ -140,7 +141,8 @@ export function PlaybookListClient({
   const handleToggle = useCallback(
     async (playbook: SerializedPlaybook) => {
       setActionError(null);
-      setBusyAction(`toggle:${playbook.id}`);
+      const actionKey = `toggle:${playbook.id}`;
+      setBusyAction(actionKey);
       try {
         await csrfFetch(`/api/playbooks/${playbook.id}`, {
           method: "PATCH",
@@ -152,7 +154,7 @@ export function PlaybookListClient({
       } catch (err) {
         setActionError(err instanceof Error ? err.message : t("playbooksPage.error.toggle"));
       } finally {
-        setBusyAction(null);
+        setBusyAction((prev) => (prev === actionKey ? null : prev));
       }
     },
     [refresh, t, addToast],
@@ -161,7 +163,8 @@ export function PlaybookListClient({
   const handleDelete = useCallback(
     async (playbook: SerializedPlaybook) => {
       setActionError(null);
-      setBusyAction(`delete:${playbook.id}`);
+      const actionKey = `delete:${playbook.id}`;
+      setBusyAction(actionKey);
       try {
         await csrfFetch(`/api/playbooks/${playbook.id}`, { method: "DELETE" });
         setPendingDelete(null);
@@ -170,7 +173,7 @@ export function PlaybookListClient({
       } catch (err) {
         setActionError(err instanceof Error ? err.message : t("playbooksPage.error.delete"));
       } finally {
-        setBusyAction(null);
+        setBusyAction((prev) => (prev === actionKey ? null : prev));
       }
     },
     [refresh, t, addToast],

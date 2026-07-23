@@ -425,9 +425,17 @@ async function handlePost(body: SftpOpsBody, session: SessionPayload) {
             { status: 400 },
           );
         }
-        // Physical write first via fs-backend (same adapter as delete/rename),
-        // then upsert the file index. If index persistence fails, remove the
-        // remote file so we do not leave an unindexed orphan on disk.
+        // If an index row already exists this is an overwrite — never delete the
+        // remote file when a later index upsert fails (would destroy the previous version).
+        const hadIndex = Boolean(
+          await prisma.fileEntry.findFirst({
+            where: {
+              storageNodeId: node.id,
+              relativePath: normalizedRelativePath,
+            },
+            select: { id: true },
+          }),
+        );
         const { byteSize: writtenSize } = await writeBackingObject({
           storageNode: node,
           relativePath: normalizedRelativePath,
@@ -440,15 +448,23 @@ async function handlePost(body: SftpOpsBody, session: SessionPayload) {
             content: body.content,
           });
         } catch (indexError) {
-          try {
-            await deleteBackingObject({
-              storageNode: node,
-              relativePath: normalizedRelativePath,
-              isDirectory: false,
-              tolerateMissing: true,
-            });
-          } catch (cleanupError) {
-            logger.warn("failed to clean up remote file after index persistence failed", cleanupError, {
+          // Only remove brand-new files that never had an index (orphan cleanup).
+          if (!hadIndex) {
+            try {
+              await deleteBackingObject({
+                storageNode: node,
+                relativePath: normalizedRelativePath,
+                isDirectory: false,
+                tolerateMissing: true,
+              });
+            } catch (cleanupError) {
+              logger.warn("failed to clean up remote file after index persistence failed", cleanupError, {
+                nodeId,
+                relativePath: normalizedRelativePath,
+              });
+            }
+          } else {
+            logger.warn("index upsert failed after overwrite; left remote content in place", {
               nodeId,
               relativePath: normalizedRelativePath,
             });
