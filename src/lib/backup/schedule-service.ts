@@ -17,7 +17,7 @@ import { NotFoundError, ValidationError } from "@/lib/errors";
 import { computeNextRun, describeCron } from "@/lib/scheduled-task/service";
 import { CronExpressionParser } from "cron-parser";
 import { isBackupType, type BackupType } from "./service-types";
-import { createBackupRecord } from "./service-crud";
+import { createBackupRecord, voidBackupRecord } from "./service-crud";
 import { BACKUP_CREATE_JOB_TYPE } from "./job-worker";
 import { enqueueJob } from "@/lib/job/service";
 import { t } from "@/lib/i18n/translations";
@@ -234,19 +234,33 @@ export async function dispatchDueSchedule(schedule: {
     note,
   });
 
-  const job = await enqueueJob({
-    type: BACKUP_CREATE_JOB_TYPE,
-    title: `Scheduled backup: ${schedule.name}`,
-    payload: {
-      backupId: backup.id,
-      scheduleId: schedule.id,
-      retentionDays: schedule.retentionDays,
-      teamId: schedule.teamId ?? null,
-    },
-    createdBy: schedule.createdById,
-    teamId: schedule.teamId,
-    maxAttempts: 1,
-  });
+  let job: { id: string };
+  try {
+    job = await enqueueJob({
+      type: BACKUP_CREATE_JOB_TYPE,
+      title: `Scheduled backup: ${schedule.name}`,
+      payload: {
+        backupId: backup.id,
+        scheduleId: schedule.id,
+        retentionDays: schedule.retentionDays,
+        teamId: schedule.teamId ?? null,
+      },
+      createdBy: schedule.createdById,
+      teamId: schedule.teamId,
+      maxAttempts: 1,
+    });
+  } catch (error) {
+    // Compensate orphan PENDING BackupRecord when the durable job cannot be
+    // enqueued (DB/job outage). VOIDED so abandon/retry paths do not requeue it.
+    const reason = error instanceof Error ? error.message : String(error);
+    await voidBackupRecord({
+      id: backup.id,
+      reason: `enqueue failed: ${reason}`.slice(0, 480),
+    }).catch(() => {
+      /* best-effort compensation; rethrow original */
+    });
+    throw error;
+  }
 
   await recordScheduleRun(schedule.id, `Backup task ${backup.id} triggered (job ${job.id})`);
   return { scheduleId: schedule.id, backupRecordId: backup.id, jobId: job.id };

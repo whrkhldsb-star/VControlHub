@@ -37,6 +37,12 @@ export type AlertFireInput = {
   message: string;
   /** Multi-tenant stamp for in-app notifications (from AlertRule.teamId). */
   teamId?: string | null;
+  /**
+   * Optional per-rule cooldown (minutes). When a prior incident for this
+   * fingerprint was notified and is RESOLVED, suppress re-open+notify until
+   * lastNotifiedAt + cooldown elapses. OPEN/ACKNOWLEDGED still never re-notify.
+   */
+  cooldownMinutes?: number;
 };
 
 export function buildAlertFingerprint(ruleId: string, serverId: string | null, metric: string): string {
@@ -186,6 +192,25 @@ export async function openOrRefreshAlertIncident(input: AlertFireInput): Promise
         serverName: input.serverName,
       },
     });
+    return {
+      incidentId: existing.id,
+      created: false,
+      notified: false,
+      level: existing.level,
+    };
+  }
+
+  // Per-fingerprint cooldown after RESOLVED: avoid immediate re-fire spam while
+  // the metric stays over threshold. Multi-host isolation is preserved because
+  // fingerprint includes serverId.
+  const cooldownMs = Math.max(0, Number(input.cooldownMinutes ?? 0)) * 60_000;
+  if (
+    existing &&
+    existing.status === "RESOLVED" &&
+    cooldownMs > 0 &&
+    existing.lastNotifiedAt &&
+    now.getTime() - existing.lastNotifiedAt.getTime() < cooldownMs
+  ) {
     return {
       incidentId: existing.id,
       created: false,

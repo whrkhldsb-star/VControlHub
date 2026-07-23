@@ -224,6 +224,7 @@ export async function evaluateCapacityLinkedAlerts(
         title,
         message,
         teamId: rule.teamId ?? null,
+        cooldownMinutes: rule.cooldownMinutes,
       });
 
       if (!fire.notified) {

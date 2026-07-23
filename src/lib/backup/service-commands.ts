@@ -39,15 +39,16 @@ export function buildBackupRestoreCommand(input: { projectRoot: string; backupPa
 	if (type === "FILES") {
 		return `cd ${shellQuote(input.projectRoot)} && tar -xzf ${shellQuote(backupPath)} -C ${shellQuote(input.projectRoot)}`;
 	}
+	// FULL artifacts from deploy/backup.sh --full are app-path tars only
+	// (storage/uploads/…), not PostgreSQL dumps. Never call restore-db.sh on them.
 	if (type === "FULL") {
 		if (component === "database") {
-			return `cd ${shellQuote(input.projectRoot)} && bash scripts/restore-db.sh ${shellQuote(backupPath)}`;
+			throw new Error(
+				"FULL backups do not include a database dump; restore component=database is not supported. Use a DATABASE backup or component=files.",
+			);
 		}
-		if (component === "files") {
-			return `cd ${shellQuote(input.projectRoot)} && tar -xzf ${shellQuote(backupPath)} -C ${shellQuote(input.projectRoot)}`;
-		}
-		// all: restore database first, then extract files
-		return `cd ${shellQuote(input.projectRoot)} && bash scripts/restore-db.sh ${shellQuote(backupPath)} && tar -xzf ${shellQuote(backupPath)} -C ${shellQuote(input.projectRoot)}`;
+		// files | all: extract the tar only
+		return `cd ${shellQuote(input.projectRoot)} && tar -xzf ${shellQuote(backupPath)} -C ${shellQuote(input.projectRoot)}`;
 	}
 	// Unknown type: default to database restore
 	return `cd ${shellQuote(input.projectRoot)} && bash scripts/restore-db.sh ${shellQuote(backupPath)}`;

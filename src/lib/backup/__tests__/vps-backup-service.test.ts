@@ -114,9 +114,9 @@ describe("runVpsBackupRecord false-success guards", () => {
     expect(result.success).toBe(false);
     expect(result.errorMessage).toMatch(/SSH connection failed/i);
     expect(mocks.downloadFile).not.toHaveBeenCalled();
-    expect(mocks.update).toHaveBeenCalledWith(
+    expect(mocks.updateMany).toHaveBeenCalledWith(
       expect.objectContaining({
-        where: { id: "rec_1" },
+        where: { id: "rec_1", status: { in: ["PENDING", "RUNNING"] } },
         data: expect.objectContaining({ status: "FAILED" }),
       }),
     );

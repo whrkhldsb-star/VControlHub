@@ -165,26 +165,15 @@ function buildRestoreExecution(record: { type: string; filePath: string }, proje
 			backupPath,
 		};
 	}
-	// FULL backup: component controls what to restore
+	// FULL artifacts are app-path tars only (deploy/backup.sh --full). Never
+	// pipe them into restore-db.sh. component=database is rejected; files/all
+	// extract the tar into projectRoot.
 	if (type === "FULL") {
 		if (component === "database") {
-			return {
-				steps: [{ file: "bash", args: ["scripts/restore-db.sh", backupPath] }],
-				backupPath,
-			};
+			throw new ValidationError(t("backend.backup.fullNoDatabaseRestore"));
 		}
-		if (component === "files") {
-			return {
-				steps: [{ file: "tar", args: ["-xzf", backupPath, "-C", projectRoot] }],
-				backupPath,
-			};
-		}
-		// all: restore DB first, then files — sequential execFile steps (no bash -c)
 		return {
-			steps: [
-				{ file: "bash", args: ["scripts/restore-db.sh", backupPath] },
-				{ file: "tar", args: ["-xzf", backupPath, "-C", projectRoot] },
-			],
+			steps: [{ file: "tar", args: ["-xzf", backupPath, "-C", projectRoot] }],
 			backupPath,
 		};
 	}

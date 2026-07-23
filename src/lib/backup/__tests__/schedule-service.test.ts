@@ -8,6 +8,7 @@ const {
   backupScheduleUpdateManyMock,
   backupScheduleDeleteMock,
   createBackupRecordMock,
+  voidBackupRecordMock,
   enqueueJobMock,
 } = vi.hoisted(() => ({
   backupScheduleCreateMock: vi.fn(),
@@ -17,6 +18,7 @@ const {
   backupScheduleUpdateManyMock: vi.fn(),
   backupScheduleDeleteMock: vi.fn(),
   createBackupRecordMock: vi.fn(),
+  voidBackupRecordMock: vi.fn(),
   enqueueJobMock: vi.fn(),
 }));
 
@@ -54,6 +56,7 @@ vi.mock("cron-parser", () => ({
 
 vi.mock("@/lib/backup/service-crud", () => ({
   createBackupRecord: createBackupRecordMock,
+  voidBackupRecord: voidBackupRecordMock,
 }));
 
 vi.mock("@/lib/backup/job-worker", () => ({
@@ -282,6 +285,30 @@ describe("backup schedule service", () => {
         nextRunAt: new Date(),
       });
       expect(result).toBeNull();
+    });
+    it("voids the PENDING BackupRecord when enqueueJob fails", async () => {
+      createBackupRecordMock.mockResolvedValue({ id: "b-orphan" });
+      enqueueJobMock.mockRejectedValue(new Error("job queue down"));
+      voidBackupRecordMock.mockResolvedValue({ id: "b-orphan", status: "VOIDED" });
+
+      await expect(
+        dispatchDueSchedule({
+          id: "s1",
+          name: "Nightly DB",
+          backupType: "DATABASE",
+          note: null,
+          retentionDays: null,
+          createdById: "u1",
+          nextRunAt: new Date(),
+        }),
+      ).rejects.toThrow(/job queue down/);
+
+      expect(voidBackupRecordMock).toHaveBeenCalledWith(
+        expect.objectContaining({
+          id: "b-orphan",
+          reason: expect.stringContaining("enqueue failed"),
+        }),
+      );
     });
   });
 });

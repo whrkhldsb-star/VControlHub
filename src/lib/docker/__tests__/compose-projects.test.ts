@@ -249,6 +249,59 @@ describe("compose project helpers", () => {
     expect(result.containers?.[0]?.state).toBe("running");
   });
 
+  it("falls back to Engine API remove with DELETE method", async () => {
+    const listed = {
+      result: {
+        ok: true,
+        status: 200,
+        data: [container({ id: "abc123", project: "site", state: "running" })],
+      },
+      scope: hubScope,
+    };
+    const listedStopped = {
+      result: {
+        ok: true,
+        status: 200,
+        data: [container({ id: "abc123", project: "site", state: "exited" })],
+      },
+      scope: hubScope,
+    };
+    const listedEmpty = {
+      result: { ok: true, status: 200, data: [] },
+      scope: hubScope,
+    };
+    dockerRequestMock
+      // initial project list in runComposeProjectAction
+      .mockResolvedValueOnce(listed)
+      // stop: list inside engineAction
+      .mockResolvedValueOnce(listed)
+      // stop POST
+      .mockResolvedValueOnce({ result: { ok: true, status: 204, data: null }, scope: hubScope })
+      // stop after-list
+      .mockResolvedValueOnce(listedStopped)
+      // remove: list inside engineAction
+      .mockResolvedValueOnce(listedStopped)
+      // remove DELETE
+      .mockResolvedValueOnce({ result: { ok: true, status: 204, data: null }, scope: hubScope })
+      // remove after-list
+      .mockResolvedValueOnce(listedEmpty);
+
+    runFileImpl.mockRejectedValue(
+      Object.assign(new Error("not found"), {
+        code: 1,
+        stdout: "",
+        stderr: "docker: unknown command: docker compose\nunknown shorthand flag: 'p' in -p",
+      }),
+    );
+
+    await runComposeProjectAction({ project: "site", action: "down" });
+    const removeCall = dockerRequestMock.mock.calls.find(
+      (c) => typeof c[0] === "string" && String(c[0]).includes("force=true"),
+    );
+    expect(removeCall).toBeTruthy();
+    expect(removeCall?.[1]).toEqual(expect.objectContaining({ method: "DELETE" }));
+  });
+
   it("does not fall back when compose fails with a business error containing 'not found'", async () => {
     dockerRequestMock.mockResolvedValueOnce({
       result: {

@@ -415,14 +415,18 @@ async function engineActionOnProjectContainers(
     const id = c.Id;
     if (!id) continue;
     let path = "";
+    let method: "POST" | "DELETE" = "POST";
     if (action === "start") path = `/containers/${id}/start`;
     else if (action === "stop") path = `/containers/${id}/stop`;
     else if (action === "restart") path = `/containers/${id}/restart`;
-    else if (action === "remove") path = `/containers/${id}?force=true`;
-    else continue;
+    else if (action === "remove") {
+      // Docker Engine ContainerRemove is DELETE (match api/docker/containers).
+      path = `/containers/${id}?force=true`;
+      method = "DELETE";
+    } else continue;
 
     const { result } = await dockerRequest(path, {
-      method: "POST",
+      method,
       unavailableData: {},
       loggerScope: "docker:compose:fallback",
       serverId,

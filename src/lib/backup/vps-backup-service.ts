@@ -141,17 +141,16 @@ export async function runVpsBackupRecord(
 		};
 	}
 
+	// Pre-check failures must NOT force-fail a row that another worker may
+	// already have claimed as RUNNING. Capture reason, claim PENDING→RUNNING
+	// first, then CAS-fail only the claimed row.
+	let preClaimError: string | null = null;
 	if (!record.server) {
-		return failRecord(record.id, "Associated server not found");
-	}
-
-	if (!record.server.enabled) {
-		return failRecord(record.id, "Server is disabled");
-	}
-
-	const preset = getPreset(record.backupType);
-	if (!preset) {
-		return failRecord(record.id, `Unknown backup type: ${record.backupType}`);
+		preClaimError = "Associated server not found";
+	} else if (!record.server.enabled) {
+		preClaimError = "Server is disabled";
+	} else if (!getPreset(record.backupType)) {
+		preClaimError = `Unknown backup type: ${record.backupType}`;
 	}
 
 	// Mark as RUNNING via CAS — only PENDING. FAILED must be explicitly reset to PENDING before retry.
@@ -170,6 +169,13 @@ export async function runVpsBackupRecord(
 		};
 	}
 
+	if (preClaimError) {
+		return failRecord(record.id, preClaimError);
+	}
+
+	// Narrowed: pre-claim checks ensure server exists and is enabled.
+	const server = record.server!;
+
 	const remoteFilePath = generateRemoteBackupPath();
 	// Prefer explicit job/manual paths; fall back to schedule paths for cron runs.
 	const customPaths =
@@ -179,7 +185,7 @@ export async function runVpsBackupRecord(
 
 	try {
 		// Step 1: SSH exec — create backup on remote VPS
-		const sshParams = await buildSshParamsFromServer(record.server, record.server.sshKey);
+		const sshParams = await buildSshParamsFromServer(server, server.sshKey);
 		const backupCommand = buildRemoteBackupCommand(
 			record.backupType,
 			remoteFilePath,
@@ -206,7 +212,7 @@ export async function runVpsBackupRecord(
 
 		// Step 2: SFTP download — pull archive to local storage
 		const portablePath = buildPortableLocalPath(
-			record.server.id,
+			server.id,
 			record.id,
 			record.backupType,
 		);
@@ -218,7 +224,7 @@ export async function runVpsBackupRecord(
 		// Ensure local directory exists
 		mkdirSync(dirname(localAbsolutePath), { recursive: true });
 
-		const { stream, size } = await downloadFile(record.server.id, remoteFilePath);
+		const { stream, size } = await downloadFile(server.id, remoteFilePath);
 
 		// Write stream to local file + compute sha256. Do not swallow pipeline errors —
 		// a failed download must not mark the record COMPLETED (false success).
@@ -290,7 +296,7 @@ export async function runVpsBackupRecord(
 			if (config.enabled) {
 				const issues = validateOffsiteConfigForUse(config);
 				if (issues.length === 0) {
-					const offsiteKey = `${config.pathPrefix || "vps-backups"}/${record.server.id}/${record.backupType}-${record.id}.tar.gz`;
+					const offsiteKey = `${config.pathPrefix || "vps-backups"}/${server.id}/${record.backupType}-${record.id}.tar.gz`;
 					const fileBuffer = readFileSync(localAbsolutePath);
 					const s3 = new S3Client(config);
 					await s3.putObject(offsiteKey, fileBuffer, "application/gzip");
@@ -333,8 +339,10 @@ async function failRecord(
 	remotePath?: string,
 	sshParams?: { host: string; port: number; username: string; privateKey?: string; password?: string },
 ): Promise<VpsBackupResult> {
-	await prisma.vpsBackupRecord.update({
-		where: { id: recordId },
+	// CAS: only fail PENDING/RUNNING. Never overwrite COMPLETED or a terminal
+	// state that another path already committed.
+	await prisma.vpsBackupRecord.updateMany({
+		where: { id: recordId, status: { in: ["PENDING", "RUNNING"] } },
 		data: {
 			status: "FAILED",
 			errorMessage: errorMessage.slice(0, 500),

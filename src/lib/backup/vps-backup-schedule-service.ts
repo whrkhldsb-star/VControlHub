@@ -164,19 +164,39 @@ export async function dispatchDueVpsBackupSchedules(): Promise<number> {
 				scheduleId: schedule.id,
 			});
 
-			// Enqueue backup job
-			await enqueueJob({
-				type: VPS_BACKUP_CREATE_JOB_TYPE,
-				title: `VPS backup: ${schedule.name}`,
-				payload: {
-					recordId,
-					serverId: schedule.serverId,
+			// Enqueue backup job; compensate orphan PENDING if enqueue fails.
+			try {
+				await enqueueJob({
+					type: VPS_BACKUP_CREATE_JOB_TYPE,
+					title: `VPS backup: ${schedule.name}`,
+					payload: {
+						recordId,
+						serverId: schedule.serverId,
+						teamId: schedule.server?.teamId ?? null,
+						scheduleId: schedule.id,
+					},
 					teamId: schedule.server?.teamId ?? null,
-					scheduleId: schedule.id,
-				},
-				teamId: schedule.server?.teamId ?? null,
-				maxAttempts: 1,
-			});
+					maxAttempts: 1,
+				});
+			} catch (enqueueError) {
+				const errMsg = enqueueError instanceof Error ? enqueueError.message : String(enqueueError);
+				await prisma.vpsBackupRecord
+					.updateMany({
+						where: { id: recordId, status: "PENDING" },
+						data: {
+							status: "FAILED",
+							errorMessage: `Dispatch enqueue failed: ${errMsg}`.slice(0, 500),
+							completedAt: new Date(),
+						},
+					})
+					.catch((compErr) => {
+						vpsSchedLogger.error("Failed to compensate orphan VPS backup record after enqueue error", {
+							recordId,
+							error: compErr instanceof Error ? compErr.message : String(compErr),
+						});
+					});
+				throw enqueueError;
+			}
 
 			// Record schedule run
 			const nextRunAt = computeNextRun(schedule.cronExpression);

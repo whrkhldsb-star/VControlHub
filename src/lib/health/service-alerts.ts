@@ -280,6 +280,7 @@ export async function evaluateAlerts() {
         title,
         message,
         teamId: rule.teamId ?? null,
+        cooldownMinutes: rule.cooldownMinutes,
       });
 
       if (fire.notified) {

@@ -310,9 +310,8 @@ describe("backup service", () => {
   it("builds restore commands that match the stored backup artifact type", () => {
     const databaseCommand = buildBackupRestoreCommand({ projectRoot: "/opt/whrkhldsb", backupPath: "backups/database.sql.gz", type: "DATABASE" });
     const filesCommand = buildBackupRestoreCommand({ projectRoot: "/opt/whrkhldsb", backupPath: "backups/files.tar.gz", type: "FILES" });
-    // FEAT-P1: FULL + component=all now restores both DB and files
+    // FULL artifacts are app-path tars only — never restore-db.sh
     const fullAllCommand = buildBackupRestoreCommand({ projectRoot: "/opt/whrkhldsb", backupPath: "backups/full.tar.gz", type: "FULL", component: "all" });
-    const fullDbOnlyCommand = buildBackupRestoreCommand({ projectRoot: "/opt/whrkhldsb", backupPath: "backups/full.tar.gz", type: "FULL", component: "database" });
     const fullFilesOnlyCommand = buildBackupRestoreCommand({ projectRoot: "/opt/whrkhldsb", backupPath: "backups/full.tar.gz", type: "FULL", component: "files" });
 
     expect(databaseCommand).toContain("scripts/restore-db.sh");
@@ -320,17 +319,20 @@ describe("backup service", () => {
     expect(filesCommand).toContain("tar -xzf 'backups/files.tar.gz'");
     expect(filesCommand).not.toContain("restore-db.sh");
 
-    // FULL + all: both DB restore and tar extract
     expect(fullAllCommand).toContain("tar -xzf 'backups/full.tar.gz'");
-    expect(fullAllCommand).toContain("restore-db.sh");
-    // FULL + database only: just DB restore
-    expect(fullDbOnlyCommand).toContain("restore-db.sh");
-    expect(fullDbOnlyCommand).not.toContain("tar -xzf");
-    // FULL + files only: just tar extract
+    expect(fullAllCommand).not.toContain("restore-db.sh");
     expect(fullFilesOnlyCommand).toContain("tar -xzf 'backups/full.tar.gz'");
     expect(fullFilesOnlyCommand).not.toContain("restore-db.sh");
+    expect(() =>
+      buildBackupRestoreCommand({
+        projectRoot: "/opt/whrkhldsb",
+        backupPath: "backups/full.tar.gz",
+        type: "FULL",
+        component: "database",
+      }),
+    ).toThrow(/FULL backups do not include a database dump/);
 
-    for (const command of [databaseCommand, filesCommand, fullAllCommand, fullDbOnlyCommand, fullFilesOnlyCommand]) {
+    for (const command of [databaseCommand, filesCommand, fullAllCommand, fullFilesOnlyCommand]) {
       expect(command).not.toMatch(/DATABASE_URL=.*postgres|PASSWORD|TOKEN|SECRET|PRIVATE_KEY/i);
     }
   });
@@ -361,7 +363,7 @@ describe("backup service", () => {
     }));
   });
 
-  it("runs FULL restore as sequential execFile steps without bash -c shell interpolation", async () => {
+  it("runs FULL restore as tar-only extract without bash -c or restore-db.sh", async () => {
     mockPrisma.backupRecord.findUnique.mockResolvedValueOnce({
       id: "bak-full",
       type: "FULL",
@@ -372,18 +374,30 @@ describe("backup service", () => {
 
     await restoreBackupRecord({ id: "bak-full", confirm: "RESTORE", projectRoot: "/opt/app", component: "all" });
 
-    expect(runBackupCommandMock).toHaveBeenCalledTimes(2);
+    expect(runBackupCommandMock).toHaveBeenCalledTimes(1);
     expect(runBackupCommandMock.mock.calls[0]![0]).toEqual(expect.objectContaining({
-      file: "bash",
-      args: ["scripts/restore-db.sh", "/var/backups/vcontrolhub/backups/full.tar.gz"],
-    }));
-    expect(runBackupCommandMock.mock.calls[1]![0]).toEqual(expect.objectContaining({
       file: "tar",
       args: ["-xzf", "/var/backups/vcontrolhub/backups/full.tar.gz", "-C", "/opt/app"],
     }));
     for (const call of runBackupCommandMock.mock.calls) {
       expect(call[0].args).not.toContain("-c");
+      expect(call[0].file).not.toBe("bash");
     }
+  });
+
+  it("rejects FULL restore with component=database", async () => {
+    mockPrisma.backupRecord.findUnique.mockResolvedValueOnce({
+      id: "bak-full-db",
+      type: "FULL",
+      status: "COMPLETED",
+      filePath: "backups/full.tar.gz",
+      checksumSha256: "a92e0ec81286ff0f9ccf5982a22a83a0b70082446d5fd7af0eb9a3ceacd16c86",
+    });
+
+    await expect(
+      restoreBackupRecord({ id: "bak-full-db", confirm: "RESTORE", projectRoot: "/opt/app", component: "database" }),
+    ).rejects.toThrow(/FULL 备份不含数据库|FULL backups do not include/);
+    expect(runBackupCommandMock).not.toHaveBeenCalled();
   });
 
 	it("rejects restore before executing when confirmation, path, or status is unsafe", async () => {

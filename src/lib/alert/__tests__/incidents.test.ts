@@ -163,6 +163,42 @@ describe("alert incidents", () => {
     );
   });
 
+  it("suppresses re-open notify during cooldown after RESOLVED", async () => {
+    const recent = new Date(Date.now() - 60_000);
+    prismaMock.alertIncident.findUnique.mockResolvedValue({
+      id: "inc-cool",
+      status: "RESOLVED",
+      level: 1,
+      lastNotifiedAt: recent,
+    });
+
+    const result = await openOrRefreshAlertIncident({
+      ruleId: "r1",
+      ruleName: "High CPU",
+      serverId: "s1",
+      serverName: "vps-1",
+      metric: "cpu_usage",
+      operator: "gte",
+      threshold: 90,
+      value: 95,
+      notifyChannels: ["in_app"],
+      onCallUserIds: ["oncall1"],
+      title: "Alert: vps-1 cpu usage",
+      message: "still high",
+      cooldownMinutes: 15,
+    });
+
+    expect(result).toEqual({
+      incidentId: "inc-cool",
+      created: false,
+      notified: false,
+      level: 1,
+    });
+    expect(prismaMock.alertIncident.create).not.toHaveBeenCalled();
+    expect(prismaMock.alertIncident.update).not.toHaveBeenCalled();
+    expect(createNotificationMock).not.toHaveBeenCalled();
+  });
+
   it("escalates overdue OPEN incidents", async () => {
     const old = new Date(Date.now() - 60 * 60_000);
     prismaMock.alertIncident.findMany.mockResolvedValue([
