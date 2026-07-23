@@ -37,6 +37,8 @@ export async function importSshKeys(
         privateKey: r.privateKey,
         passphrase: r.passphrase,
         description: r.description,
+        // Multi-tenant: preserve export teamId (null stays legacy-shared)
+        teamId: r.teamId ?? null,
       })),
       skipDuplicates: true,
     });
@@ -57,6 +59,7 @@ export async function importSshKeys(
             ? { passphrase: r.passphrase }
             : {}),
           description: r.description,
+          teamId: r.teamId ?? null,
         },
       });
     }
@@ -103,6 +106,8 @@ export async function importServers(
         fileProxyPort: r.fileProxyPort,
         osDialect: r.osDialect,
         osInfo: r.osInfo,
+        // Multi-tenant: preserve export teamId (null stays legacy-shared)
+        teamId: r.teamId ?? null,
       })),
       skipDuplicates: true,
     });
@@ -129,6 +134,7 @@ export async function importServers(
           fileProxyPort: r.fileProxyPort,
           osDialect: r.osDialect,
           osInfo: r.osInfo,
+          teamId: r.teamId ?? null,
         },
       });
     }
@@ -172,6 +178,8 @@ export async function importStorageNodes(
         username: r.username,
         serverId: r.serverId,
         healthStatus: r.healthStatus,
+        // Multi-tenant: preserve export teamId (null stays legacy-shared)
+        teamId: r.teamId ?? null,
       })),
       skipDuplicates: true,
     });
@@ -195,6 +203,7 @@ export async function importStorageNodes(
           username: r.username,
           serverId: r.serverId,
           healthStatus: r.healthStatus,
+          teamId: r.teamId ?? null,
         },
       });
     }
