@@ -52,8 +52,7 @@ export const zh: Record<string, string> = {
 	// client — confirm dialogs
 	"aiPage.deleteConvTitle": "删除对话",
 	"aiPage.deleteProviderTitle": "删除提供商",
-	"aiPage.clearMessagesTitle2": "清空对话消息",
-	"aiPage.confirmDelete": "确认删除",
+		"aiPage.confirmDelete": "确认删除",
 	"aiPage.confirmClear": "确认清空",
 	"aiPage.deleteConvBody": "确定删除对话 {title} 吗？此操作不可恢复。",
 	"aiPage.deleteProviderBody": "确定删除提供商 {name} 吗？关联的对话也会被删除。",
@@ -243,7 +242,6 @@ export const en: Record<string, string> = {
 	// client — confirm dialogs
 	"aiPage.deleteConvTitle": "Delete conversation",
 	"aiPage.deleteProviderTitle": "Delete provider",
-	"aiPage.clearMessagesTitle2": "Clear conversation messages",
 	"aiPage.confirmDelete": "Confirm delete",
 	"aiPage.confirmClear": "Confirm clear",
 	"aiPage.deleteConvBody": "Delete conversation {title}? This cannot be undone.",

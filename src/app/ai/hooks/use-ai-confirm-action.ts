@@ -80,7 +80,7 @@ export function useAiConfirmAction({
       };
     }
     return {
-      title: t("aiPage.clearMessagesTitle2"),
+      title: t("aiPage.clearMessagesTitle"),
       confirmLabel: t("aiPage.confirmClear"),
       description: t("aiPage.clearMessagesBody"),
     };
