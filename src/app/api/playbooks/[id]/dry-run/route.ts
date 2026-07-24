@@ -3,18 +3,11 @@ import { NextResponse } from "next/server";
 import { runPlaybook } from "@/lib/playbook/service";
 import { withApiRoute } from "@/lib/http/api-guard";
 import { GENERAL_WRITE_LIMIT } from "@/lib/http/rate-limit-presets";
-import { ValidationError } from "@/lib/errors";
+import { requirePlaybookId } from "@/lib/playbook/route-params";
 
 export const dynamic = "force-dynamic";
 
 type PlaybookRouteContext = { params: Promise<{ id?: string }> };
-
-async function requirePlaybookId(params: PlaybookRouteContext["params"]): Promise<string> {
-  const { id } = await params;
-  const normalized = id?.trim();
-  if (!normalized) throw new ValidationError("Missing playbook id");
-  return normalized;
-}
 
 /**
  * POST /api/playbooks/[id]/dry-run

@@ -9,18 +9,11 @@ import { updatePlaybookSchema } from "@/lib/playbook/schema";
 import { withApiRoute } from "@/lib/http/api-guard";
 import { apiError } from "@/lib/http/api-error";
 import { GENERAL_WRITE_LIMIT } from "@/lib/http/rate-limit-presets";
-import { ValidationError } from "@/lib/errors";
+import { requirePlaybookId } from "@/lib/playbook/route-params";
 
 export const dynamic = "force-dynamic";
 
 type PlaybookRouteContext = { params: Promise<{ id?: string }> };
-
-async function requirePlaybookId(params: PlaybookRouteContext["params"]): Promise<string> {
-  const { id } = await params;
-  const normalized = id?.trim();
-  if (!normalized) throw new ValidationError("Missing playbook id");
-  return normalized;
-}
 
 export async function GET(request: Request, { params }: PlaybookRouteContext) {
   return withApiRoute(
