@@ -50,14 +50,21 @@ describe("useImageBedList", () => {
 		await waitFor(() => expect(result.current.images).toEqual(sampleListResponse.images));
 	});
 
-	it("re-fetches when search changes", async () => {
+	it("re-fetches when search changes (debounced)", async () => {
+		vi.useFakeTimers({ shouldAdvanceTime: true });
 		csrfFetchMock.mockResolvedValue(sampleListResponse);
 		const { result } = renderHook(() => useImageBedList({ canWrite: true }));
 		await waitFor(() => expect(csrfFetchMock).toHaveBeenCalledTimes(1));
 		act(() => result.current.setSearch("cat"));
+		// Still within debounce window — no second fetch yet.
+		expect(csrfFetchMock).toHaveBeenCalledTimes(1);
+		await act(async () => {
+			await vi.advanceTimersByTimeAsync(350);
+		});
 		await waitFor(() => expect(csrfFetchMock).toHaveBeenCalledTimes(2));
 		const [url] = csrfFetchMock.mock.calls[1] as [string];
 		expect(url).toContain("q=cat");
+		vi.useRealTimers();
 	});
 
 	it("re-fetches when showAll toggles, adding all=true", async () => {

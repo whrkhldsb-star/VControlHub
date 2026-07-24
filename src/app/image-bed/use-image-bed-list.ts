@@ -2,14 +2,13 @@
  * useImageBedList — image-bed page list state + fetch.
  * Encapsulates:
  *   - `images` / `total` / `page` / `totalPages` / `loading` (server-driven list)
- *   - `search` (text query, debounced via useEffect re-fetch on change)
+ *   - `search` (text query, debounced re-fetch on change)
  *   - `showAll` (toggle that scopes the query)
  *   - `fetchImages(p)` — fetches `/api/images/list` with pagination + filters
  *   - Auto-fetch on mount + whenever `search` or `showAll` change
  *
- * Behaviour 1:1 with the previous inline block in
- * `image-bed-page-client.tsx` — including the `setTimeout(..., 0)` initial
- * fetch trick that defers the first network call past React's first render.
+ * Search is debounced (SEARCH_DEBOUNCE_MS) to avoid spamming `/api/images/list`
+ * on every keystroke. `showAll` and initial mount still fetch promptly.
  */
 "use client";
 
@@ -20,6 +19,7 @@ import { csrfFetch } from "@/lib/auth/csrf-client";
 import type { ImageItem } from "./image-bed-types";
 
 const PAGE_SIZE = 30;
+const SEARCH_DEBOUNCE_MS = 300;
 
 export interface UseImageBedListReturn {
 	images: ImageItem[];
@@ -40,14 +40,22 @@ export function useImageBedList(opts: { canWrite: boolean }): UseImageBedListRet
 	const [page, setPage] = useState(1);
 	const [totalPages, setTotalPages] = useState(1);
 	const [search, setSearch] = useState("");
+	const [debouncedSearch, setDebouncedSearch] = useState("");
 	const [loading, setLoading] = useState(false);
 	const [showAll, setShowAll] = useState(false);
+
+	useEffect(() => {
+		const timer = window.setTimeout(() => {
+			setDebouncedSearch(search);
+		}, SEARCH_DEBOUNCE_MS);
+		return () => window.clearTimeout(timer);
+	}, [search]);
 
 	const fetchImages = useCallback(async (p = 1) => {
 		setLoading(true);
 		try {
 			const params = new URLSearchParams({ page: String(p), limit: String(PAGE_SIZE) });
-			if (search.trim()) params.set("q", search.trim());
+			if (debouncedSearch.trim()) params.set("q", debouncedSearch.trim());
 			if (showAll) params.set("all", "true");
 			const data = (await csrfFetch(`/api/images/list?${params}`, { cache: "no-store" })) as {
 				images?: ImageItem[];
@@ -65,9 +73,9 @@ export function useImageBedList(opts: { canWrite: boolean }): UseImageBedListRet
 		} finally {
 			setLoading(false);
 		}
-	}, [search, showAll]);
+	}, [debouncedSearch, showAll]);
 
-	// Initial fetch + re-fetch on filter changes.
+	// Initial fetch + re-fetch when debounced search or showAll changes.
 	useEffect(() => {
 		const timer = window.setTimeout(() => {
 			void fetchImages(1).catch(() => {
