@@ -538,7 +538,6 @@ html.light textarea:focus-visible {
 }
 
 /* S12. 加载骨架屏统一动画 */
-:root [data-skeleton],
 :root .animate-pulse {
 	background: linear-gradient(
 		90deg,
@@ -1670,7 +1669,6 @@ html.light button[data-secondary]:hover {
 }
 
 /* Soften skeleton shimmer for light mode */
-html.light [data-skeleton],
 html.light .animate-pulse {
 	background: linear-gradient(
 		90deg,
