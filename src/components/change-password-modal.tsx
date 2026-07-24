@@ -1,5 +1,6 @@
 "use client";
 import { useActionState, useId } from "react";
+import { ActionButton } from "@/components/action-button";
 import { SubmitButton } from "@/components/submit-button";
 import { useDialogFocus } from "@/lib/a11y/use-dialog-focus";
 import { PasswordField } from "@/components/password-field";
@@ -135,18 +136,18 @@ export function ChangePasswordModal({
             </div>
           ) : null}{" "}
           <div className="flex justify-end gap-3 pt-2">
-            {" "}
-            <button
+            <ActionButton
               type="button"
+              variant="secondary"
               onClick={onClose}
-             data-action-button data-variant="secondary" className="!px-5 !py-2.5 !text-sm">
-              {" "}
-              {t("common.cancel")}{" "}
-            </button>{" "}
+              className="!px-5 !py-2.5 !text-sm"
+            >
+              {t("common.cancel")}
+            </ActionButton>
             <SubmitButton pendingLabel={t("changePassword.saving")}>
               {t("common.saveNewPassword")}
-            </SubmitButton>{" "}
-          </div>{" "}
+            </SubmitButton>
+          </div>
         </form>{" "}
       </div>{" "}
     </div>
