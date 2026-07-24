@@ -115,10 +115,9 @@ export async function executeImport(
     // 17. Snippets
     await importSnippets(tx, t, options, counts);
   }, { timeout: 120_000, maxWait: 20_000 }).catch((err: unknown) => {
-    // 事务失败 → 记录错误，不部分提交
+    // 事务失败 → 记录错误，不部分提交；不 rethrow，让路由返回 207 + structured errors
     const msg = err instanceof Error ? err.message : String(err);
     errors.push(`Transaction failed: ${msg}`);
-    throw err;
   });
 
   return { created: counts.created, updated: counts.updated, skipped: counts.skipped, errors };
