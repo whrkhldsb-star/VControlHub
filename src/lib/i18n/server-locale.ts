@@ -7,7 +7,7 @@
  * convenience wrappers for server actions.
  */
 
-import { t as translate, type Locale, getAllTranslations, getServerLocale } from "./translations";
+import { t as translate, type Locale, getServerLocale } from "./translations";
 
 export { getServerLocale };
 export type { Locale };
@@ -21,12 +21,3 @@ export async function serverT(): Promise<(key: string) => string> {
 	return (key: string) => translate(key, locale);
 }
 
-/**
- * Convenience: get all translations as a flat dict for the request locale.
- * Useful when a server-side helper needs to look up multiple keys without
- * calling `serverT()` per lookup.
- */
-export async function serverTranslations(): Promise<Record<string, string>> {
-	const locale = await getServerLocale();
-	return getAllTranslations(locale);
-}
