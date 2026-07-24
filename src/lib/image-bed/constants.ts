@@ -11,11 +11,8 @@ function resolveUploadDir() {
 /** Directory where uploaded image files are stored on disk. */
 export const UPLOAD_DIR = resolveUploadDir();
 
-/** Recognized image file extensions (lowercase, with leading dot). */
-export const IMAGE_EXTENSIONS = new Set([
-	".png", ".jpg", ".jpeg", ".gif", ".webp", ".avif",
-	".svg", ".bmp", ".ico", ".tiff",
-]);
+/** Recognized image file extensions — single source in mime-constants. */
+export { IMAGE_EXTENSIONS } from "@/lib/storage/mime-constants";
 
 /* ------------------------------------------------------------------ */
 /* MIME type inference from file extension                             */
