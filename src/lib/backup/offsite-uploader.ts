@@ -12,7 +12,9 @@
  *   - S3 key 规则: `${pathPrefix}${YYYY-MM-DD}/${backupId}-${type}${ext}`
  *     其中 ext = `.gz` 走压缩, `` 不压缩; pathPrefix 默认 `vcontrolhub-backups/`
  */
-import { readFile } from "node:fs/promises";
+import { mkdtemp, readFile, rm, stat } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import path from "node:path";
 
 import { prisma } from "@/lib/db";
 import { createLogger } from "@/lib/logging";
@@ -21,7 +23,7 @@ import { getSetting } from "@/lib/settings/service";
 import { S3Client, S3Error, type S3ClientConfig } from "@/lib/storage/offsite/s3-client";
 import { loadOffsiteConfig, validateOffsiteConfigForUse } from "@/lib/storage/offsite/schema";
 
-import { compressBuffer } from "./compress";
+import { compressBuffer, compressFileToGz } from "./compress";
 import { resolveBackupPath } from "./service-types";
 
 const logger = createLogger("backup-offsite-uploader");
@@ -89,18 +91,59 @@ export async function uploadBackupToOffsite(input: {
 	} catch (err) {
 		return { ok: false, skipped: false, error: `Invalid backup path: ${formatError(err)}`, code: "InvalidPath" };
 	}
-	let rawBuf: Buffer;
+	let fileStat;
 	try {
-		rawBuf = await readFile(fullPath);
+		fileStat = await stat(fullPath);
+		if (!fileStat.isFile()) {
+			return { ok: true, skipped: true, reason: "file_missing" };
+		}
 	} catch (_err) {
 		return { ok: true, skipped: true, reason: "file_missing" };
 	}
 	// 4. 决定是否压缩
 	const compressSetting = (await getSetting("offsite.compress")) || "true";
 	const shouldCompress = compressSetting !== "false" && !record.filePath.endsWith(".gz");
-	const compressed = shouldCompress ? compressBuffer(rawBuf) : { data: rawBuf, originalSize: rawBuf.length, compressedSize: rawBuf.length, ratio: 1 };
-	const ext = shouldCompress ? ".gz" : "";
-	const contentType = shouldCompress ? "application/gzip" : "application/octet-stream";
+	// Prefer streaming gzip for larger artifacts to avoid full-file double buffering.
+	const STREAM_COMPRESS_THRESHOLD_BYTES = 8 * 1024 * 1024;
+	let body: Buffer;
+	let originalSize = fileStat.size;
+	let compressedSize = fileStat.size;
+	let ratio = 1;
+	let compressed = false;
+	let tempGzPath: string | null = null;
+	try {
+		if (shouldCompress && fileStat.size >= STREAM_COMPRESS_THRESHOLD_BYTES) {
+			const tempDir = await mkdtemp(path.join(tmpdir(), "vch-offsite-"));
+			tempGzPath = path.join(tempDir, `${record.id}.gz`);
+			try {
+				const result = await compressFileToGz(fullPath, tempGzPath);
+				body = await readFile(tempGzPath);
+				originalSize = result.originalSize;
+				compressedSize = result.compressedSize;
+				ratio = result.ratio;
+				compressed = true;
+			} finally {
+				await rm(tempDir, { recursive: true, force: true }).catch(() => {});
+				tempGzPath = null;
+			}
+		} else {
+			const rawBuf = await readFile(fullPath);
+			if (shouldCompress) {
+				const result = compressBuffer(rawBuf);
+				body = result.data;
+				originalSize = result.originalSize;
+				compressedSize = result.compressedSize;
+				ratio = result.ratio;
+				compressed = true;
+			} else {
+				body = rawBuf;
+			}
+		}
+	} catch (err) {
+		return { ok: false, skipped: false, error: `Prepare upload body failed: ${formatError(err)}`, code: "CompressError" };
+	}
+	const ext = compressed ? ".gz" : "";
+	const contentType = compressed ? "application/gzip" : "application/octet-stream";
 	// 5. 构造 S3 key
 	const date = new Date();
 	const dateStr = date.toISOString().slice(0, 10);
@@ -116,7 +159,7 @@ export async function uploadBackupToOffsite(input: {
 	};
 	const client = new S3Client(clientConfig);
 	try {
-		const { etag } = await client.putObject(key, compressed.data, contentType);
+		const { etag } = await client.putObject(key, body, contentType);
 		// 7. 写 DB
 		const uploadedAt = new Date();
 		await prisma.backupRecord.update({
@@ -124,15 +167,15 @@ export async function uploadBackupToOffsite(input: {
 			data: {
 				offsiteKey: key,
 				offsiteUploadedAt: uploadedAt,
-				offsiteSize: String(compressed.compressedSize),
+				offsiteSize: String(compressedSize),
 			},
 		});
 		logger.info("offsite upload ok", {
 			backupId: record.id,
 			key,
-			originalSize: compressed.originalSize,
-			compressedSize: compressed.compressedSize,
-			ratio: compressed.ratio,
+			originalSize,
+			compressedSize,
+			ratio,
 			etag,
 		});
 		return {
@@ -140,10 +183,10 @@ export async function uploadBackupToOffsite(input: {
 			skipped: false,
 			key,
 			etag,
-			originalSize: compressed.originalSize,
-			compressedSize: compressed.compressedSize,
-			compressed: shouldCompress,
-			ratio: compressed.ratio,
+			originalSize,
+			compressedSize,
+			compressed,
+			ratio,
 			uploadedAt,
 		};
 	} catch (err) {
