@@ -37,6 +37,20 @@
  * For non-JSON responses (e.g. blobs), use { raw: true } in init:
  *   const response = await csrfFetch("/api/files/download", { raw: true });
  */
+/**
+ * Read the double-submit `csrf_token` cookie (JS-readable by design).
+ * Shared by csrfFetch and non-fetch clients (XHR / query-param download).
+ */
+export function getCsrfTokenFromCookie(): string | null {
+	if (typeof document === "undefined") return null;
+	const cookie = document.cookie
+		.split(";")
+		.map((c) => c.trim())
+		.find((c) => c.startsWith("csrf_token="));
+	if (!cookie) return null;
+	return decodeURIComponent(cookie.split("=").slice(1).join("="));
+}
+
 export async function csrfFetch<T = Record<string, any>>(
 	input: RequestInfo | URL,
 	init?: RequestInit & { raw?: boolean },
@@ -56,13 +70,7 @@ export async function csrfFetch<T = Record<string, any>>(
 
 	// Auto-inject CSRF token
 	if (needsCsrf) {
-		const cookie = document.cookie
-			.split(";")
-			.map((c) => c.trim())
-			.find((c) => c.startsWith("csrf_token="));
-		const csrfToken = cookie
-			? decodeURIComponent(cookie.split("=").slice(1).join("="))
-			: null;
+		const csrfToken = getCsrfTokenFromCookie();
 		if (csrfToken) {
 			headers.set("X-CSRF-Token", csrfToken);
 		}

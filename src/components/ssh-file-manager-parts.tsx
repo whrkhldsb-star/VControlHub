@@ -1,6 +1,7 @@
 "use client";
 
 import type { RefObject } from "react";
+import { getCsrfTokenFromCookie } from "@/lib/auth/csrf-client";
 import { UI_INPUT } from "@/lib/ui/classes";
 import { cn } from "@/lib/ui/cn";
 
@@ -40,8 +41,7 @@ export function formatSshFileDate(unix: number, locale?: string): string {
 }
 
 export function getCsrfToken(): string {
-  const match = document.cookie.match(/(?:^|;\s*)csrf_token=([^;]+)/);
-  return match ? decodeURIComponent(match[1] ?? "") :"";
+  return getCsrfTokenFromCookie() ?? "";
 }
 
 type HeaderProps = {
