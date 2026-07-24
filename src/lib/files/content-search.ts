@@ -30,6 +30,8 @@ type ContentSearchSession = {
 import { execRemoteCommand, buildSshParamsFromServer } from "@/lib/ssh/client";
 import { resolveLocalAbsolutePath } from "@/lib/storage/service-entries";
 
+import { shellQuote } from "@/lib/shell-quote";
+
 
 const logger = createLogger("files:content-search");
 
@@ -302,11 +304,6 @@ async function searchSftpNode(
 		logger.error("SFTP content search SSH error", err, { nodeId });
 		return [];
 	}
-}
-
-/** Shell-quote a string for safe use in remote commands */
-export function shellQuote(s: string): string {
-	return `'${s.replace(/'/g, "'\\''")}'`;
 }
 
 /**
