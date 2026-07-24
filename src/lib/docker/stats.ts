@@ -59,8 +59,11 @@ export function parseDockerStats(id: string, name: string, raw: DockerRawStats):
 	const cpuPercent = cpuDelta > 0 && systemDelta > 0 ? Math.round((cpuDelta / systemDelta) * onlineCpus * 1000) / 10 : 0;
 
 	const memoryRawUsage = nestedNumber(raw, ["memory_stats", "usage"]);
+	// Docker CLI working-set heuristic: prefer cgroup v2 inactive_file, else cache.
+	const memoryInactiveFile = nestedNumber(raw, ["memory_stats", "stats", "inactive_file"]);
 	const memoryCache = nestedNumber(raw, ["memory_stats", "stats", "cache"]);
-	const memoryUsageBytes = Math.max(0, memoryRawUsage - memoryCache);
+	const memoryReclaimable = memoryInactiveFile > 0 ? memoryInactiveFile : memoryCache;
+	const memoryUsageBytes = Math.max(0, memoryRawUsage - memoryReclaimable);
 	const memoryLimitBytes = nestedNumber(raw, ["memory_stats", "limit"]);
 	const memoryPercent = memoryLimitBytes > 0 ? Math.round((memoryUsageBytes / memoryLimitBytes) * 1000) / 10 : 0;
 

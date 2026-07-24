@@ -62,4 +62,22 @@ describe("docker stats helpers", () => {
 		expect(total.networkTxBytes).toBe(6060);
 		expect(total.containerCount).toBe(2);
 	});
+
+	it("prefers inactive_file over cache for cgroup v2 working set", () => {
+		const raw = {
+			...RAW_STATS,
+			memory_stats: {
+				usage: 300 * 1024 * 1024,
+				limit: 1024 * 1024 * 1024,
+				stats: {
+					// cache present but should be ignored when inactive_file > 0
+					cache: 10 * 1024 * 1024,
+					inactive_file: 44 * 1024 * 1024,
+				},
+			},
+		};
+		const stats = parseDockerStats("cgroupv2", "web", raw);
+		expect(stats.memoryUsageBytes).toBe(256 * 1024 * 1024);
+		expect(stats.memoryPercent).toBe(25);
+	});
 });
