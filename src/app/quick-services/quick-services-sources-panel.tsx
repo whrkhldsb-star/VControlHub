@@ -20,18 +20,7 @@ import { useState } from "react";
 import { EmptyState } from "@/components/page-shell";
 import { useI18n } from "@/lib/i18n/use-locale";
 
-type AppSource = {
-	id: string;
-	name: string;
-	displayName: string;
-	url: string;
-	type: string;
-	enabled: boolean;
-	lastSyncStatus: string | null;
-	lastSyncAt: string | null;
-	lastSyncError: string | null;
-	syncCount: number;
-};
+import type { AppSource } from "./quick-services-shared";
 
 type SourcesPanelActions = {
 	doSync: (sourceId?: string) => void;
