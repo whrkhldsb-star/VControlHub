@@ -30,6 +30,9 @@ vi.mock("@/lib/rate-limit", () => ({
   isAccountLocked: vi.fn(() => ({ locked: false })),
   recordLoginFailure: vi.fn(() => ({ locked: false, failCount: 1 })),
   clearLoginFailure: vi.fn(),
+  isAccountLockedAsync: vi.fn(async () => ({ locked: false })),
+  recordLoginFailureAsync: vi.fn(async () => ({ locked: false, failCount: 1 })),
+  clearLoginFailureAsync: vi.fn(async () => undefined),
 }));
 vi.mock("@/lib/auth/csrf", () => ({
   generateCsrfToken: () => "csrf-token",

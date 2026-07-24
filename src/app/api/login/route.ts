@@ -5,7 +5,7 @@ import { authenticateUser } from "@/lib/auth/service";
 import { createSessionToken, getSessionCookieName, createPending2faToken, getPending2faCookieName, getConfiguredSessionTtlSeconds } from "@/lib/auth/session";
 import { auditUserAction, auditSystemAction } from "@/lib/audit/service";
 import { createLogger } from "@/lib/logging";
-import { checkRateLimitAsync, getClientIp, LOGIN_RATE_LIMIT, LOGIN_SLOW_RATE_LIMIT, isAccountLocked, recordLoginFailure, clearLoginFailure } from "@/lib/rate-limit";
+import { checkRateLimitAsync, getClientIp, LOGIN_RATE_LIMIT, LOGIN_SLOW_RATE_LIMIT, isAccountLockedAsync, recordLoginFailureAsync, clearLoginFailureAsync } from "@/lib/rate-limit";
 import { generateCsrfToken, getCsrfCookieName } from "@/lib/auth/csrf";
 import { isRequestHttps } from "@/lib/http/request-https";
 
@@ -75,7 +75,7 @@ export async function POST(request: Request) {
 		const requestedNextPath = safeNextPath(formData.get("next"));
 
 		// Check account lockout before attempting authentication
-		const lockCheck = isAccountLocked(username);
+		const lockCheck = await isAccountLockedAsync(username);
 		if (lockCheck.locked) {
 			const remainingMin = Math.ceil((lockCheck.lockedUntil! - Date.now()) / 60000);
 			const params = new URLSearchParams({ error: "locked", minutes: String(remainingMin) });
@@ -85,7 +85,7 @@ export async function POST(request: Request) {
 		const user = await authenticateUser({ username, password });
 		if (!user) {
 			// Account lockout: record failure and check
-			const lockResult = recordLoginFailure(username);
+			const lockResult = await recordLoginFailureAsync(username);
 			if (lockResult.locked) {
 				const remainingMin = Math.ceil((lockResult.lockedUntil! - Date.now()) / 60000);
 				await auditSystemAction("auth.account_locked", { username, ip: clientIp, failCount: lockResult.failCount }, "WARNING");
@@ -104,7 +104,7 @@ export async function POST(request: Request) {
 		const nextPath = requestedNextPath === "/" ? user.preferences.defaultPage : requestedNextPath;
 
 		// Log successful login & clear any previous failure count
-		clearLoginFailure(username);
+		await clearLoginFailureAsync(username);
 		await auditUserAction(user.id, "auth.login_password_ok", { username, ip: clientIp }, undefined, user.currentTeamId);
 
 		// ── 2FA Check ──

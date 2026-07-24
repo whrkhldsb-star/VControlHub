@@ -1,16 +1,30 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const { addAndGetWindowMock } = vi.hoisted(() => ({
+const { addAndGetWindowMock, getLockoutMock, setLockoutMock, deleteLockoutMock } = vi.hoisted(() => ({
   addAndGetWindowMock: vi.fn(),
+  getLockoutMock: vi.fn(),
+  setLockoutMock: vi.fn(),
+  deleteLockoutMock: vi.fn(),
 }));
 
 vi.mock("@/lib/rate-limit-store", () => ({
   getRateLimitStore: () => ({
     addAndGetWindow: addAndGetWindowMock,
+    getLockout: getLockoutMock,
+    setLockout: setLockoutMock,
+    deleteLockout: deleteLockoutMock,
   }),
 }));
 
-const { checkRateLimitAsync, clearLoginFailure, isAccountLocked, recordLoginFailure } = await import("@/lib/rate-limit");
+const {
+  checkRateLimitAsync,
+  clearLoginFailure,
+  clearLoginFailureAsync,
+  isAccountLocked,
+  isAccountLockedAsync,
+  recordLoginFailure,
+  recordLoginFailureAsync,
+} = await import("@/lib/rate-limit");
 
 describe("checkRateLimitAsync", () => {
   beforeEach(() => {
@@ -58,5 +72,43 @@ describe("account login failure retention", () => {
 
     clearLoginFailure("alice");
     expect(isAccountLocked("alice")).toEqual({ locked: false, lockedUntil: null });
+  });
+});
+
+describe("account lockout shared store", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    vi.spyOn(Date, "now").mockReturnValue(50_000);
+    getLockoutMock.mockResolvedValue(null);
+    setLockoutMock.mockResolvedValue(undefined);
+    deleteLockoutMock.mockResolvedValue(undefined);
+  });
+
+  it("records failures via the shared store and locks after max failures", async () => {
+    getLockoutMock
+      .mockResolvedValueOnce(null)
+      .mockResolvedValueOnce({ failCount: 1, lockedUntil: null, lastFailureAt: 50_000 })
+      .mockResolvedValueOnce({ failCount: 2, lockedUntil: null, lastFailureAt: 50_000 })
+      .mockResolvedValueOnce({ failCount: 3, lockedUntil: null, lastFailureAt: 50_000 })
+      .mockResolvedValueOnce({ failCount: 4, lockedUntil: null, lastFailureAt: 50_000 });
+
+    for (let i = 0; i < 4; i += 1) {
+      const r = await recordLoginFailureAsync("bob");
+      expect(r.locked).toBe(false);
+    }
+    const locked = await recordLoginFailureAsync("bob");
+    expect(locked.locked).toBe(true);
+    expect(setLockoutMock).toHaveBeenCalled();
+    getLockoutMock.mockResolvedValueOnce({
+      failCount: 5,
+      lockedUntil: 50_000 + 15 * 60 * 1_000,
+      lastFailureAt: 50_000,
+    });
+    expect(await isAccountLockedAsync("bob")).toMatchObject({ locked: true });
+  });
+
+  it("clears lockout on the shared store", async () => {
+    await clearLoginFailureAsync("bob");
+    expect(deleteLockoutMock).toHaveBeenCalledWith("bob");
   });
 });

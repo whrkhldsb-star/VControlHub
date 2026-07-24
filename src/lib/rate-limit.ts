@@ -108,6 +108,12 @@ export const LOGIN_SLOW_RATE_LIMIT: RateLimitConfig = {
 };
 
 // ── Account lockout (per-username) ─────────────────────────────────
+// Prefer the shared RateLimitStore (Redis when REDIS_URL is set) so multi-
+// instance deploys share lockout counters. Sync helpers remain for unit
+// tests / single-process callers and use the same store when the store is
+// the in-memory backend; for Redis they are best-effort process-local only
+// — production login uses the async variants.
+
 type LockoutEntry = {
 	failCount: number;
 	lockedUntil: number | null; // timestamp, null = not locked
@@ -120,7 +126,36 @@ const ACCOUNT_FAILURE_RETENTION_MS = 15 * 60 * 1000;
 
 const lockoutStore = new Map<string, LockoutEntry>();
 
-// Clean up stale lockout entries every 10 minutes
+function lockoutKey(username: string) {
+	return username.toLowerCase();
+}
+
+function lockoutTtlMs(entry: LockoutEntry, now: number) {
+	const until = entry.lockedUntil ?? entry.lastFailureAt + ACCOUNT_FAILURE_RETENTION_MS;
+	return Math.max(1_000, until - now + 1_000);
+}
+
+function applyLoginFailure(entry: LockoutEntry | null, now: number): LockoutEntry {
+	let next = entry;
+	if (
+		!next ||
+		(next.lockedUntil && next.lockedUntil < now) ||
+		now - next.lastFailureAt >= ACCOUNT_FAILURE_RETENTION_MS
+	) {
+		next = { failCount: 0, lockedUntil: null, lastFailureAt: now };
+	}
+	next = {
+		failCount: next.failCount + 1,
+		lockedUntil: next.lockedUntil,
+		lastFailureAt: now,
+	};
+	if (next.failCount >= ACCOUNT_LOCKOUT_MAX_FAILURES && !next.lockedUntil) {
+		next.lockedUntil = now + ACCOUNT_LOCKOUT_DURATION_MS;
+	}
+	return next;
+}
+
+// Clean up stale lockout entries every 10 minutes (process-local cache only)
 setInterval(() => {
 	const now = Date.now();
 	for (const [key, entry] of lockoutStore) {
@@ -131,37 +166,29 @@ setInterval(() => {
 }, 10 * 60 * 1000);
 
 /**
- * Record a failed login attempt for a username.
- * Returns the lockout status after recording.
+ * Record a failed login attempt for a username (process-local).
+ * Prefer `recordLoginFailureAsync` in multi-instance production paths.
  */
 export function recordLoginFailure(username: string): { locked: boolean; lockedUntil: number | null; failCount: number } {
-	const key = username.toLowerCase();
+	const key = lockoutKey(username);
 	const now = Date.now();
-	let entry = lockoutStore.get(key);
-	if (!entry || (entry.lockedUntil && entry.lockedUntil < now) || now - entry.lastFailureAt >= ACCOUNT_FAILURE_RETENTION_MS) {
-		entry = { failCount: 0, lockedUntil: null, lastFailureAt: now };
-	}
-	entry.failCount++;
-	entry.lastFailureAt = now;
-	if (entry.failCount >= ACCOUNT_LOCKOUT_MAX_FAILURES && !entry.lockedUntil) {
-		entry.lockedUntil = now + ACCOUNT_LOCKOUT_DURATION_MS;
-	}
+	const entry = applyLoginFailure(lockoutStore.get(key) ?? null, now);
 	lockoutStore.set(key, entry);
 	return { locked: !!entry.lockedUntil, lockedUntil: entry.lockedUntil, failCount: entry.failCount };
 }
 
 /**
- * Clear lockout on successful login.
+ * Clear lockout on successful login (process-local).
  */
 export function clearLoginFailure(username: string): void {
-	lockoutStore.delete(username.toLowerCase());
+	lockoutStore.delete(lockoutKey(username));
 }
 
 /**
- * Check if an account is currently locked.
+ * Check if an account is currently locked (process-local).
  */
 export function isAccountLocked(username: string): { locked: boolean; lockedUntil: number | null } {
-	const key = username.toLowerCase();
+	const key = lockoutKey(username);
 	const entry = lockoutStore.get(key);
 	if (!entry || !entry.lockedUntil) return { locked: false, lockedUntil: null };
 	if (entry.lockedUntil < Date.now()) {
@@ -169,4 +196,49 @@ export function isAccountLocked(username: string): { locked: boolean; lockedUnti
 		return { locked: false, lockedUntil: null };
 	}
 	return { locked: true, lockedUntil: entry.lockedUntil };
+}
+
+/**
+ * Shared-store lockout check (Redis when configured).
+ */
+export async function isAccountLockedAsync(
+	username: string,
+): Promise<{ locked: boolean; lockedUntil: number | null }> {
+	const key = lockoutKey(username);
+	const store = getRateLimitStore();
+	const entry = await store.getLockout(key);
+	if (!entry || !entry.lockedUntil) return { locked: false, lockedUntil: null };
+	if (entry.lockedUntil < Date.now()) {
+		await store.deleteLockout(key);
+		lockoutStore.delete(key);
+		return { locked: false, lockedUntil: null };
+	}
+	// Keep process cache warm for sync callers in the same worker.
+	lockoutStore.set(key, entry);
+	return { locked: true, lockedUntil: entry.lockedUntil };
+}
+
+/**
+ * Record a failed login against the shared store.
+ */
+export async function recordLoginFailureAsync(
+	username: string,
+): Promise<{ locked: boolean; lockedUntil: number | null; failCount: number }> {
+	const key = lockoutKey(username);
+	const now = Date.now();
+	const store = getRateLimitStore();
+	const previous = await store.getLockout(key);
+	const entry = applyLoginFailure(previous, now);
+	await store.setLockout(key, entry, lockoutTtlMs(entry, now));
+	lockoutStore.set(key, entry);
+	return { locked: !!entry.lockedUntil, lockedUntil: entry.lockedUntil, failCount: entry.failCount };
+}
+
+/**
+ * Clear lockout on the shared store after a successful login.
+ */
+export async function clearLoginFailureAsync(username: string): Promise<void> {
+	const key = lockoutKey(username);
+	await getRateLimitStore().deleteLockout(key);
+	lockoutStore.delete(key);
 }
