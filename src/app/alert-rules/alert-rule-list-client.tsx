@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 import { ActionButton } from "@/components/action-button";
 import { EmptyState, SurfacePanel, Toolbar } from "@/components/page-shell";
@@ -48,6 +48,7 @@ export function AlertRuleListClient({
 		deliveries: TestDelivery[];
 	} | null>(null);
 	const [busyAction, setBusyAction] = useState<string | null>(null);
+	const busyActionRef = useRef<string | null>(null);
 	const [rulePendingDelete, setRulePendingDelete] = useState<AlertRule | null>(null);
 
 	const closeDeleteDialog = useCallback(() => setRulePendingDelete(null), []);
@@ -55,6 +56,18 @@ export function AlertRuleListClient({
 		open: rulePendingDelete !== null,
 		onClose: closeDeleteDialog,
 	});
+
+	const beginBusy = useCallback((key: string) => {
+		if (busyActionRef.current) return false;
+		busyActionRef.current = key;
+		setBusyAction(key);
+		return true;
+	}, []);
+
+	const endBusy = useCallback(() => {
+		busyActionRef.current = null;
+		setBusyAction(null);
+	}, []);
 
 	const getErrorMessage = useCallback(
 		(error: unknown, fallbackKey: string) =>
@@ -88,7 +101,7 @@ export function AlertRuleListClient({
 
 	const ackIncident = useCallback(
 		async (incidentId: string) => {
-			setBusyAction(`ack:${incidentId}`);
+			if (!beginBusy(`ack:${incidentId}`)) return;
 			try {
 				await csrfFetch("/api/alert-incidents", {
 					method: "POST",
@@ -100,17 +113,17 @@ export function AlertRuleListClient({
 			} catch (error) {
 				setActionError(error instanceof Error ? error.message : t("alertRulesPage.error.toggle"));
 			} finally {
-				setBusyAction(null);
+				endBusy();
 			}
 		},
-		[addToast, loadIncidents, t],
+		[addToast, beginBusy, endBusy, loadIncidents, t],
 	);
 
 	const toggleRule = useCallback(
 		async (id: string) => {
+			if (!beginBusy(`toggle:${id}`)) return;
 			setActionError(null);
 			setTestResult(null);
-			setBusyAction(`toggle:${id}`);
 			try {
 				await csrfFetch("/api/alert-rules", {
 					method: "PATCH",
@@ -121,17 +134,17 @@ export function AlertRuleListClient({
 			} catch (error) {
 				setActionError(getErrorMessage(error, "alertRulesPage.error.toggle"));
 			} finally {
-				setBusyAction(null);
+				endBusy();
 			}
 		},
-		[refresh, getErrorMessage],
+		[beginBusy, endBusy, refresh, getErrorMessage],
 	);
 
 	const deleteRule = useCallback(
 		async (id: string) => {
+			if (!beginBusy(`delete:${id}`)) return;
 			setActionError(null);
 			setTestResult(null);
-			setBusyAction(`delete:${id}`);
 			try {
 				await csrfFetch(`/api/alert-rules?id=${id}`, { method: "DELETE" });
 				setRulePendingDelete(null);
@@ -139,16 +152,16 @@ export function AlertRuleListClient({
 			} catch (error) {
 				setActionError(getErrorMessage(error, "alertRulesPage.error.delete"));
 			} finally {
-				setBusyAction(null);
+				endBusy();
 			}
 		},
-		[refresh, getErrorMessage],
+		[beginBusy, endBusy, refresh, getErrorMessage],
 	);
 
 	const triggerNow = useCallback(async () => {
+		if (!beginBusy("trigger")) return;
 		setActionError(null);
 		setTestResult(null);
-		setBusyAction("trigger");
 		try {
 			await csrfFetch("/api/alert-rules", { method: "PUT" });
 			addToast("success", t("alertRulesPage.toast.triggered"));
@@ -156,14 +169,14 @@ export function AlertRuleListClient({
 		} catch (error) {
 			setActionError(getErrorMessage(error, "alertRulesPage.error.trigger"));
 		} finally {
-			setBusyAction(null);
+			endBusy();
 		}
-	}, [addToast, refresh, t, getErrorMessage]);
+	}, [addToast, beginBusy, endBusy, refresh, t, getErrorMessage]);
 
 	const ensureDefaults = useCallback(async () => {
+		if (!beginBusy("defaults")) return;
 		setActionError(null);
 		setTestResult(null);
-		setBusyAction("defaults");
 		try {
 			const data = await csrfFetch("/api/alert-rules", {
 				method: "PATCH",
@@ -185,15 +198,15 @@ export function AlertRuleListClient({
 		} catch (error) {
 			setActionError(getErrorMessage(error, "alertRulesPage.error.defaults"));
 		} finally {
-			setBusyAction(null);
+			endBusy();
 		}
-	}, [addToast, refresh, t, getErrorMessage]);
+	}, [addToast, beginBusy, endBusy, refresh, t, getErrorMessage]);
 
 	const testRule = useCallback(
 		async (rule: AlertRule) => {
+			if (!beginBusy(`test:${rule.id}`)) return;
 			setActionError(null);
 			setTestResult(null);
-			setBusyAction(`test:${rule.id}`);
 			try {
 				const data = await csrfFetch("/api/alert-rules", {
 					method: "PATCH",
@@ -214,10 +227,10 @@ export function AlertRuleListClient({
 			} catch (error) {
 				setActionError(getErrorMessage(error, "alertRulesPage.error.test"));
 			} finally {
-				setBusyAction(null);
+				endBusy();
 			}
 		},
-		[addToast, t, getErrorMessage],
+		[addToast, beginBusy, endBusy, t, getErrorMessage],
 	);
 
 	return (

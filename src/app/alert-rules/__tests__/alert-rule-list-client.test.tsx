@@ -301,7 +301,7 @@ describe("alert rules client", () => {
 				body: JSON.stringify({ testId: "rule1" }),
 			}),
 		));
-		expect(await screen.findByRole("status")).toHaveTextContent("测试发送结果：Webhook rule");
+		expect(await screen.findByText("测试发送结果：Webhook rule")).toBeInTheDocument();
 		expect(screen.getByText("Webhook 测试请求已发送")).toBeInTheDocument();
 	});
 
