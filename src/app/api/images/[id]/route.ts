@@ -13,6 +13,7 @@ import { IMAGE_UPLOAD_LIMIT } from "@/lib/http/rate-limit-presets";
 import { UPLOAD_DIR } from "@/lib/image-bed/constants";
 import { logError } from "@/lib/logging";
 import { resolveStoragePathWithinBase } from "@/lib/storage/path-utils";
+import { deleteImageVariants } from "@/lib/image/service";
 
 import { ForbiddenError, NotFoundError } from "@/lib/errors";
 import { auditUserAction } from "@/lib/audit/service";
@@ -34,18 +35,6 @@ async function unlinkIfPresent(filePath: string) {
     if (isNotFoundError(error)) return;
     throw error;
   }
-}
-
-function imageVariantPaths(root: string, storageKey: string) {
-  const ext = path.extname(storageKey);
-  const base = path.basename(storageKey, ext);
-  const subDir = path.dirname(storageKey);
-  return [
-    path.join(root, storageKey),
-    path.join(root, subDir, `${base}_thumb.webp`),
-    path.join(root, subDir, `${base}.webp`),
-    path.join(root, subDir, `${base}.avif`),
-  ];
 }
 
 function canDeleteImage(input: { ownerId: string; session: SessionPayload }) {
@@ -142,9 +131,7 @@ export async function DELETE(
       // are already absent, but permission/I/O failures keep the row intact so
       // the UI does not claim deletion while files remain served from disk.
       try {
-        for (const filePath of imageVariantPaths(UPLOAD_DIR, image.storageKey)) {
-          await unlinkIfPresent(filePath);
-        }
+        await deleteImageVariants(image.storageKey, UPLOAD_DIR);
       } catch (error) {
         logError("image-bed:delete-local-files", error);
         return NextResponse.json(
