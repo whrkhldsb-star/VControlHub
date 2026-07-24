@@ -34,6 +34,7 @@ import { useFileAttachments } from "../hooks/use-file-attachments";
 
 const TEST_TRANSLATIONS: Record<string, string> = {
   "aiPage.fileTooLarge": "📄 {name} 超过 20MB 限制",
+  "aiPage.fileReadFailed": "📄 无法读取文件 {name}",
   "aiPage.unsupportedImageModel": "🖼 当前模型 {model} 不支持图片输入。请在设置中切换为多模态模型（如 GPT-4o、Claude 3.5 等）",
   "aiPage.unsupportedVideoModel": "🎬 当前模型 {model} 不支持视频输入。支持视频的模型：Gemini 1.5/2、Qwen2-VL、GPT-4o 等",
   "aiPage.unsupportedAudioModel": "🎵 当前模型 {model} 不支持音频输入。支持音频的模型：Gemini 2、GPT-4o-audio 等",

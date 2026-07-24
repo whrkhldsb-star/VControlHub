@@ -67,130 +67,134 @@ export function useFileAttachments({
     async (files: FileList | File[]) => {
       const fileArr = Array.from(files);
       for (const file of fileArr) {
-        if (file.size > MAX_FILE_SIZE_BYTES) {
-          showRejection(tr("aiPage.fileTooLarge").replace("{name}", file.name));
-          continue;
-        }
+        try {
+          if (file.size > MAX_FILE_SIZE_BYTES) {
+            showRejection(tr("aiPage.fileTooLarge").replace("{name}", file.name));
+            continue;
+          }
 
-        const category = categorizeFile(file);
+          const category = categorizeFile(file);
 
-        switch (category) {
-          case "image": {
-            if (!currentModelCaps.vision && !enableVision) {
-              showRejection(
-                tr("aiPage.unsupportedImageModel").replace("{model}", modelName ?? "-")
-              );
-              continue;
-            }
-            const dataUrl = await readFileAsDataURL(file);
-            const base64Data = dataUrl.split(",")[1];
-            setFileAttachments((prev) => [
-              ...prev,
-              {
-                name: file.name,
-                content: "",
-                type: "image",
-                mimeType: file.type || "image/png",
-                base64Data,
-                preview: dataUrl,
-              },
-            ]);
-            break;
-          }
-          case "video": {
-            if (!currentModelCaps.video) {
-              showRejection(
-                tr("aiPage.unsupportedVideoModel").replace("{model}", modelName ?? "-")
-              );
-              continue;
-            }
-            const dataUrl = await readFileAsDataURL(file);
-            const base64Data = dataUrl.split(",")[1];
-            setFileAttachments((prev) => [
-              ...prev,
-              {
-                name: file.name,
-                content: "",
-                type: "video",
-                mimeType: file.type || "video/mp4",
-                base64Data,
-                preview: undefined,
-              },
-            ]);
-            break;
-          }
-          case "audio": {
-            if (!currentModelCaps.audio) {
-              showRejection(
-                tr("aiPage.unsupportedAudioModel").replace("{model}", modelName ?? "-")
-              );
-              continue;
-            }
-            const dataUrl = await readFileAsDataURL(file);
-            const base64Data = dataUrl.split(",")[1];
-            setFileAttachments((prev) => [
-              ...prev,
-              {
-                name: file.name,
-                content: "",
-                type: "audio",
-                mimeType: file.type || "audio/mp3",
-                base64Data,
-                preview: undefined,
-              },
-            ]);
-            break;
-          }
-          case "document": {
-            if (!currentModelCaps.document) {
-              if (file.name.toLowerCase().endsWith(".pdf")) {
+          switch (category) {
+            case "image": {
+              if (!currentModelCaps.vision && !enableVision) {
                 showRejection(
-                  tr("aiPage.unsupportedPdfModel").replace("{model}", modelName ?? "-")
+                  tr("aiPage.unsupportedImageModel").replace("{model}", modelName ?? "-")
                 );
                 continue;
               }
-              showRejection(
-                tr("aiPage.unsupportedOfficeModel").replace("{model}", modelName ?? "-")
-              );
-              continue;
+              const dataUrl = await readFileAsDataURL(file);
+              const base64Data = dataUrl.split(",")[1];
+              setFileAttachments((prev) => [
+                ...prev,
+                {
+                  name: file.name,
+                  content: "",
+                  type: "image",
+                  mimeType: file.type || "image/png",
+                  base64Data,
+                  preview: dataUrl,
+                },
+              ]);
+              break;
             }
-            const dataUrl = await readFileAsDataURL(file);
-            const base64Data = dataUrl.split(",")[1];
-            setFileAttachments((prev) => [
-              ...prev,
-              {
-                name: file.name,
-                content: "",
-                type: "document",
-                mimeType: file.type || "application/pdf",
-                base64Data,
-                preview: undefined,
-              },
-            ]);
-            break;
+            case "video": {
+              if (!currentModelCaps.video) {
+                showRejection(
+                  tr("aiPage.unsupportedVideoModel").replace("{model}", modelName ?? "-")
+                );
+                continue;
+              }
+              const dataUrl = await readFileAsDataURL(file);
+              const base64Data = dataUrl.split(",")[1];
+              setFileAttachments((prev) => [
+                ...prev,
+                {
+                  name: file.name,
+                  content: "",
+                  type: "video",
+                  mimeType: file.type || "video/mp4",
+                  base64Data,
+                  preview: undefined,
+                },
+              ]);
+              break;
+            }
+            case "audio": {
+              if (!currentModelCaps.audio) {
+                showRejection(
+                  tr("aiPage.unsupportedAudioModel").replace("{model}", modelName ?? "-")
+                );
+                continue;
+              }
+              const dataUrl = await readFileAsDataURL(file);
+              const base64Data = dataUrl.split(",")[1];
+              setFileAttachments((prev) => [
+                ...prev,
+                {
+                  name: file.name,
+                  content: "",
+                  type: "audio",
+                  mimeType: file.type || "audio/mp3",
+                  base64Data,
+                  preview: undefined,
+                },
+              ]);
+              break;
+            }
+            case "document": {
+              if (!currentModelCaps.document) {
+                if (file.name.toLowerCase().endsWith(".pdf")) {
+                  showRejection(
+                    tr("aiPage.unsupportedPdfModel").replace("{model}", modelName ?? "-")
+                  );
+                  continue;
+                }
+                showRejection(
+                  tr("aiPage.unsupportedOfficeModel").replace("{model}", modelName ?? "-")
+                );
+                continue;
+              }
+              const dataUrl = await readFileAsDataURL(file);
+              const base64Data = dataUrl.split(",")[1];
+              setFileAttachments((prev) => [
+                ...prev,
+                {
+                  name: file.name,
+                  content: "",
+                  type: "document",
+                  mimeType: file.type || "application/pdf",
+                  base64Data,
+                  preview: undefined,
+                },
+              ]);
+              break;
+            }
+            case "text": {
+              const text = await readFileAsText(file);
+              const truncated =
+                text.length > MAX_TEXT_FILE_LENGTH
+                  ? text.slice(0, MAX_TEXT_FILE_LENGTH) + tr("aiPage.fileTruncatedSuffix")
+                  : text;
+              setFileAttachments((prev) => [
+                ...prev,
+                {
+                  name: file.name,
+                  content: truncated,
+                  type: "text",
+                  mimeType: file.type || "text/plain",
+                },
+              ]);
+              break;
+            }
+            default: {
+              showRejection(
+                tr("aiPage.unsupportedFileType").replace("{name}", file.name).replace("{types}", formatAllowedTypes(currentModelCaps, tr))
+              );
+            }
           }
-          case "text": {
-            const text = await readFileAsText(file);
-            const truncated =
-              text.length > MAX_TEXT_FILE_LENGTH
-                ? text.slice(0, MAX_TEXT_FILE_LENGTH) + tr("aiPage.fileTruncatedSuffix")
-                : text;
-            setFileAttachments((prev) => [
-              ...prev,
-              {
-                name: file.name,
-                content: truncated,
-                type: "text",
-                mimeType: file.type || "text/plain",
-              },
-            ]);
-            break;
-          }
-          default: {
-            showRejection(
-              tr("aiPage.unsupportedFileType").replace("{name}", file.name).replace("{types}", formatAllowedTypes(currentModelCaps, tr))
-            );
-          }
+        } catch {
+          showRejection(tr("aiPage.fileReadFailed").replace("{name}", file.name));
         }
       }
     },
