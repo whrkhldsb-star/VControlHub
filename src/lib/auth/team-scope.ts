@@ -103,15 +103,6 @@ export async function assertUserInActorScope(
 }
 
 /**
- * For models that don't have teamId yet (forward compat):
- * returns empty filter so the query runs unscoped. As models gain
- * teamId columns, swap this to `teamWhere`.
- */
-export function teamWhereOptional(_session: TeamSession): Record<string, unknown> {
-	return {};
-}
-
-/**
  * When creating a record, use this to set the teamId on the new record.
  * If the user has a current team, the record is assigned to that team.
  * Admins can explicitly choose a team; otherwise it follows currentTeamId.
