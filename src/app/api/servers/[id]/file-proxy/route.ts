@@ -17,6 +17,7 @@ import {
   withRateLimit,
   rateLimitResponse,
   UPLOAD_LIMIT,
+  GENERAL_READ_LIMIT,
 } from "@/lib/http/rate-limit-presets";
 import {
   buildFileProxyScript,
@@ -100,6 +101,9 @@ export async function GET(
   request: Request,
   { params }: { params: Promise<{ id: string }> },
 ) {
+  // Polling status can SSH `ps -p` each call — bound fan-out (POST/DELETE already use UPLOAD_LIMIT).
+  const rl = await withRateLimit(request, GENERAL_READ_LIMIT);
+  if (!rl.allowed) return rateLimitResponse(rl.retryAfterMs);
   const locale = await getServerLocale();
   return withApiRoute(
     request,
