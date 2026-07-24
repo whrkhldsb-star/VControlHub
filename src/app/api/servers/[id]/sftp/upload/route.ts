@@ -66,8 +66,7 @@ export async function POST(
     const safeName = sanitizeFileName(file.name);
     const safeDir = sanitizeRemotePath(remoteDir);
     const fullPath = `${safeDir.replace(/\/$/, "")}/${safeName}`;
-		if (!guard) return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
-		await assertSftpPathAccess({ session: guard, serverId: id, paths: [fullPath] });
+    await assertSftpPathAccess({ session: guard, serverId: id, paths: [fullPath] });
 
     // Consume the Web File stream directly. Avoid arrayBuffer()/Buffer.from(),
     // which duplicated the complete upload in the Node.js heap.
