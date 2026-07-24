@@ -7,6 +7,7 @@ import { z } from "zod";
 import { verify as verifyTOTP } from "otplib";
 
 import { sealTwoFactorSecret } from "@/lib/auth/two-factor-secret";
+import { auditUserAction } from "@/lib/audit/service";
 import { prisma } from "@/lib/db";
 import { withApiRoute } from "@/lib/http/api-guard";
 import { GENERAL_WRITE_LIMIT } from "@/lib/http/rate-limit-presets";
@@ -62,6 +63,14 @@ export async function POST(request: Request) {
         where: { id: session.userId },
         data: { twoFactorEnabled: true, twoFactorSecret: sealTwoFactorSecret(secret) },
       });
+
+      await auditUserAction(
+        session.userId,
+        "auth.2fa.enable",
+        { userId: session.userId },
+        "INFO",
+        session.currentTeamId,
+      );
 
       return NextResponse.json({ success: true });
     },
