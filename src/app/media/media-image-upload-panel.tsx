@@ -11,6 +11,8 @@ import {
 	type ChunkedUploadProgress,
 } from "@/components/media/chunked-uploader";
 
+import { getErrorMessage } from "./media-item-helpers";
+
 type StorageNodeOption = {
 	id: string;
 	name: string;
@@ -41,10 +43,6 @@ type UploadProgress = {
 	failure: number;
 	queue: UploadQueueItem[];
 } | null;
-
-function getErrorMessage(error: unknown, fallback: string) {
-	return error instanceof Error && error.message ? error.message : fallback;
-}
 
 function statusBadgeLabel(t: (k: string) => string, status: UploadQueueItem["status"]): string {
 	if (status === "success") return t("mediaUploadPanel.statusSuccess");
