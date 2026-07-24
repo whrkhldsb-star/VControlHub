@@ -119,6 +119,7 @@ export const mainNavItems: AppNavItem[] = mainNavGroups.flatMap((group) => group
 export const systemNavItems: AppNavItem[] = [
 	{ href: "/users", labelKey: "nav.users", fallbackLabel: "Users", icon: <IconUsers /> },
 	{ href: "/api-tokens", labelKey: "nav.api-tokens", fallbackLabel: "API Token", icon: <IconKey /> },
+	{ href: "/api-docs", labelKey: "nav.api-docs", fallbackLabel: "API Docs", icon: <IconTemplate /> },
 	{ href: "/status", labelKey: "nav.status", fallbackLabel: "Public Status", icon: <IconStatus /> },
 	{ href: "/audit", labelKey: "nav.audit", fallbackLabel: "Audit Log", icon: <IconAudit /> },
 	{ href: "/qa-reports", labelKey: "nav.qa-reports", fallbackLabel: "QA Reports", icon: <IconCheck /> },
