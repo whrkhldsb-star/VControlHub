@@ -88,7 +88,7 @@ export async function POST(request: NextRequest) {
       }
 
       await fs.mkdir(path.dirname(outputResolved.path), { recursive: true });
-      const listPath = await writeTarList(inputs);
+      const { listPath, tempDir } = await writeTarList(inputs);
       try {
         await execFileAsync("tar", ["-czf", outputResolved.path, "-C", node.basePath, "--null", "-T", listPath], {
           maxBuffer: 10 * 1024 * 1024,
@@ -99,7 +99,7 @@ export async function POST(request: NextRequest) {
         const message = error instanceof Error ? error.message : "tar command failed";
         return NextResponse.json({ error: `Compression failed: ${message}` }, { status: 500 });
       } finally {
-        await fs.rm(listPath, { force: true });
+        await fs.rm(tempDir, { recursive: true, force: true });
       }
 
       const outputStat = await fs.stat(outputResolved.path);
@@ -146,7 +146,8 @@ async function pathExists(targetPath: string) {
 }
 
 async function writeTarList(relativePaths: string[]) {
-  const listPath = path.join(await fs.mkdtemp(path.join(os.tmpdir(), "vch-compress-")), "files.txt");
+  const tempDir = await fs.mkdtemp(path.join(os.tmpdir(), "vch-compress-"));
+  const listPath = path.join(tempDir, "files.txt");
   await fs.writeFile(listPath, relativePaths.join("\0") + "\0");
-  return listPath;
+  return { listPath, tempDir };
 }
