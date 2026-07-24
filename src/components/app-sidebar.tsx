@@ -347,7 +347,9 @@ export function AppSidebar({
 				{nav}
 			</aside>
 
-			<ChangePasswordModal open={passwordModalOpen} onClose={() => setPasswordModalOpen(false)} />
+			{passwordModalOpen ? (
+				<ChangePasswordModal open onClose={() => setPasswordModalOpen(false)} />
+			) : null}
 		</>
 	);
 }

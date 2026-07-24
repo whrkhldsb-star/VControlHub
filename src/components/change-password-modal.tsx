@@ -1,5 +1,5 @@
 "use client";
-import { useActionState, useId } from "react";
+import { useActionState, useEffect, useId, useRef } from "react";
 import { ActionButton } from "@/components/action-button";
 import { SubmitButton } from "@/components/submit-button";
 import { useDialogFocus } from "@/lib/a11y/use-dialog-focus";
@@ -10,6 +10,7 @@ import {
 } from "@/app/account/password/actions";
 import { useI18n } from "@/lib/i18n/use-locale";
 const initialState: AccountPasswordActionState = {};
+const POST_SUCCESS_CLOSE_DELAY_MS = 1200;
 export function ChangePasswordModal({
   open,
   onClose,
@@ -25,6 +26,17 @@ export function ChangePasswordModal({
   const descriptionId = useId();
   const { t } = useI18n();
   const dialogRef = useDialogFocus<HTMLDivElement>({ open: open, onClose: onClose });
+  const formKeyRef = useRef(0);
+
+  // Close after a short success flash so password fields are not left filled in an open modal.
+  useEffect(() => {
+    if (!open || !state.success) return;
+    const timer = setTimeout(() => {
+      formKeyRef.current += 1;
+      onClose();
+    }, POST_SUCCESS_CLOSE_DELAY_MS);
+    return () => clearTimeout(timer);
+  }, [open, state.success, onClose]);
 
   const closeModalLabel = t("common.closeChangePasswordModal");
   const changePasswordDescription = t("common.changePasswordDescription");
@@ -85,7 +97,7 @@ export function ChangePasswordModal({
           {" "}
           {changePasswordDescription}{" "}
         </p>{" "}
-        <form action={formAction} className="grid gap-4">
+        <form key={formKeyRef.current} action={formAction} className="grid gap-4">
           {" "}
           <input
             type="text"
