@@ -28,7 +28,7 @@ const SAMPLE_CONFIG = {
 	endpoint: "",
 	region: "auto",
 	bucket: "",
-	accessKeyId: "",
+	accessKeyId: "AKIAEXAMPLE",
 	secretAccessKey: "supersecret",
 	pathPrefix: "vcontrolhub-backups/",
 	dailyWindowHour: 3,
@@ -49,16 +49,18 @@ describe("/api/backups/offsite", () => {
 		}));
 	});
 
-	it("GET masks secretAccessKey and returns config", async () => {
+	it("GET masks accessKeyId and secretAccessKey and returns config", async () => {
 		const res = await route.GET(new Request("http://local/api/backups/offsite"));
 		expect(res.status).toBe(200);
 		const body = await res.json();
 		expect(body.config).toEqual({
 			...SAMPLE_CONFIG,
+			accessKeyId: "***",
 			secretAccessKey: "***",
 		});
-		// Make sure the actual secret is never in the response body
+		// Make sure the actual credentials are never in the response body
 		expect(JSON.stringify(body)).not.toContain("supersecret");
+		expect(JSON.stringify(body)).not.toContain("AKIAEXAMPLE");
 	});
 
 	it("POST accepts a partial update and returns masked config", async () => {
@@ -80,6 +82,7 @@ describe("/api/backups/offsite", () => {
 			bucket: "my-bucket",
 			region: "us-east-1",
 		});
+		expect(body.config.accessKeyId).toBe("***");
 		expect(body.config.secretAccessKey).toBe("***");
 	});
 

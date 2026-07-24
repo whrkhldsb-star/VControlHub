@@ -144,8 +144,8 @@ const OFFSITE_FIELD_TO_SETTING_KEY: Record<keyof OffsiteConfig, (typeof OFFSITE_
 
 export async function saveOffsiteConfig(update: OffsiteConfigUpdate): Promise<OffsiteConfig> {
 	const current = await loadOffsiteConfig();
-	// GET masks secret as "***"; ignore masked/empty secret on partial updates so
-	// clients can round-trip non-secret fields without clobbering the real key.
+	// GET masks credentials as "***"; ignore masked/empty secrets on partial updates so
+	// clients can round-trip non-secret fields without clobbering real keys.
 	const safeUpdate: OffsiteConfigUpdate = { ...update };
 	if (
 		safeUpdate.secretAccessKey === undefined ||
@@ -153,6 +153,13 @@ export async function saveOffsiteConfig(update: OffsiteConfigUpdate): Promise<Of
 		safeUpdate.secretAccessKey === MASKED_VALUE
 	) {
 		delete safeUpdate.secretAccessKey;
+	}
+	if (
+		safeUpdate.accessKeyId === undefined ||
+		safeUpdate.accessKeyId === "" ||
+		safeUpdate.accessKeyId === MASKED_VALUE
+	) {
+		delete safeUpdate.accessKeyId;
 	}
 	const merged = { ...current, ...safeUpdate };
 	const validated = OffsiteConfigSchema.parse(merged);
@@ -168,7 +175,7 @@ export async function saveOffsiteConfig(update: OffsiteConfigUpdate): Promise<Of
 			return { key: OFFSITE_FIELD_TO_SETTING_KEY[field], value: stringValue };
 		},
 	);
-	// setManySettings encrypts sensitive keys (secretAccessKey) at rest.
+	// setManySettings encrypts sensitive keys (accessKeyId / secretAccessKey) at rest.
 	await setManySettings(entries);
 	return validated;
 }

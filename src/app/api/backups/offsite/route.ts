@@ -18,11 +18,15 @@ import { MASKED_VALUE } from "@/lib/settings/schema";
 export const dynamic = "force-dynamic";
 
 /**
- * GET 响应会脱敏 secretAccessKey, 其它字段原样返回 (endpoint / region / bucket
- * 等不算"凭据"但仍可视为内部配置, 鉴权后才暴露)。
+ * GET/POST 响应脱敏 accessKeyId + secretAccessKey（与 settings isSensitiveKey 一致）。
+ * endpoint / region / bucket 等非密钥字段仍原样返回（鉴权后才暴露）。
  */
-function maskConfig<T extends { secretAccessKey?: string }>(config: T): T {
-	return { ...config, secretAccessKey: config.secretAccessKey ? MASKED_VALUE : "" };
+function maskConfig<T extends { accessKeyId?: string; secretAccessKey?: string }>(config: T): T {
+	return {
+		...config,
+		accessKeyId: config.accessKeyId ? MASKED_VALUE : "",
+		secretAccessKey: config.secretAccessKey ? MASKED_VALUE : "",
+	};
 }
 
 export async function GET(request: Request) {
