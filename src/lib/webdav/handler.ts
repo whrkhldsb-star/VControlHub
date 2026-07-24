@@ -45,6 +45,23 @@ import { buildPropFindMultistatus, parseDepth, type PropFindItem } from "./xml";
 import { t } from "@/lib/i18n/translations";
 
 const MAX_WEBDAV_PUT_BYTES = 100 * 1024 * 1024;
+/** Page size for descendant index walks — never leave overflow rows unprocessed. */
+const FILE_ENTRY_PAGE_SIZE = 5000;
+
+async function forEachFileEntryPage<T extends { id: string }>(
+  query: (cursorId: string | undefined) => Promise<T[]>,
+  visit: (rows: T[]) => Promise<void>,
+): Promise<void> {
+  let cursorId: string | undefined;
+  for (;;) {
+    const rows = await query(cursorId);
+    if (rows.length === 0) break;
+    await visit(rows);
+    if (rows.length < FILE_ENTRY_PAGE_SIZE) break;
+    cursorId = rows[rows.length - 1]!.id;
+  }
+}
+
 
 export type WebDavContext = {
   session: SessionPayload;
@@ -485,30 +502,38 @@ export async function handleWebDavDelete(ctx: WebDavContext): Promise<Response> 
   const node = await loadNode(ctx.storageNodeId, ctx.session);
 
   if (entry.entryType === "DIRECTORY") {
-    const children = await prisma.fileEntry.findMany({
-      where: {
-        storageNodeId: ctx.storageNodeId,
-        isDeleted: false,
-        relativePath: { startsWith: `${entry.relativePath}/` },
+    // Paginate until exhausted — a single take:5000 left overflow children as live index rows.
+    await forEachFileEntryPage(
+      (cursorId) =>
+        prisma.fileEntry.findMany({
+          where: {
+            storageNodeId: ctx.storageNodeId,
+            isDeleted: false,
+            relativePath: { startsWith: `${entry.relativePath}/` },
+          },
+          select: { id: true, relativePath: true, entryType: true },
+          orderBy: { id: "asc" },
+          take: FILE_ENTRY_PAGE_SIZE,
+          ...(cursorId ? { cursor: { id: cursorId }, skip: 1 } : {}),
+        }),
+      async (children) => {
+        // delete deepest paths first for backing store within the page
+        const ordered = [...children].sort(
+          (a, b) => b.relativePath.length - a.relativePath.length,
+        );
+        for (const child of ordered) {
+          await deleteBackingObject({
+            storageNode: node,
+            relativePath: child.relativePath,
+            isDirectory: child.entryType === "DIRECTORY",
+            tolerateMissing: true,
+          }).catch((err) => {
+            webdavLogger.warn("WebDAV DELETE: backing delete failed for child", err, { relativePath: child.relativePath });
+          });
+          await softDeleteFileEntry({ fileEntryId: child.id });
+        }
       },
-      select: { id: true, relativePath: true, entryType: true },
-      take: 5000,
-    });
-    // delete deepest paths first for backing store
-    const ordered = [...children].sort(
-      (a, b) => b.relativePath.length - a.relativePath.length,
     );
-    for (const child of ordered) {
-      await deleteBackingObject({
-        storageNode: node,
-        relativePath: child.relativePath,
-        isDirectory: child.entryType === "DIRECTORY",
-        tolerateMissing: true,
-      }).catch((err) => {
-        webdavLogger.warn("WebDAV DELETE: backing delete failed for child", err, { relativePath: child.relativePath });
-      });
-      await softDeleteFileEntry({ fileEntryId: child.id });
-    }
   }
 
   await deleteBackingObject({
@@ -608,25 +633,33 @@ export async function handleWebDavMove(ctx: WebDavContext, request: Request): Pr
   });
 
   if (entry.entryType === "DIRECTORY") {
-    const descendants = await prisma.fileEntry.findMany({
-      where: {
-        storageNodeId: ctx.storageNodeId,
-        isDeleted: false,
-        relativePath: { startsWith: `${oldPrefix}/` },
+    // Paginate all descendants so MOVE cannot leave old relativePath prefixes.
+    await forEachFileEntryPage(
+      (cursorId) =>
+        prisma.fileEntry.findMany({
+          where: {
+            storageNodeId: ctx.storageNodeId,
+            isDeleted: false,
+            relativePath: { startsWith: `${oldPrefix}/` },
+          },
+          select: { id: true, relativePath: true },
+          orderBy: { id: "asc" },
+          take: FILE_ENTRY_PAGE_SIZE,
+          ...(cursorId ? { cursor: { id: cursorId }, skip: 1 } : {}),
+        }),
+      async (descendants) => {
+        for (const child of descendants) {
+          const nextPath = `${newPrefix}${child.relativePath.slice(oldPrefix.length)}`;
+          await prisma.fileEntry.update({
+            where: { id: child.id },
+            data: {
+              relativePath: nextPath,
+              name: entryName(nextPath),
+            },
+          });
+        }
       },
-      select: { id: true, relativePath: true },
-      take: 5000,
-    });
-    for (const child of descendants) {
-      const nextPath = `${newPrefix}${child.relativePath.slice(oldPrefix.length)}`;
-      await prisma.fileEntry.update({
-        where: { id: child.id },
-        data: {
-          relativePath: nextPath,
-          name: entryName(nextPath),
-        },
-      });
-    }
+    );
   }
 
   return new Response(null, {
