@@ -39,7 +39,6 @@ export {
   resolveLocalAbsolutePath,
   restoreFileEntry,
   softDeleteFileEntry,
-  updateFileEntry,
   type DeletedFileEntryRow,
   type DeletedFileEntryWithNode,
   type FileEntryListRow,

@@ -22,10 +22,8 @@ import {
 import {
   createFileEntrySchema,
   fileEntryMutationSchema,
-  updateFileEntrySchema,
   type CreateFileEntryInput,
   type FileEntryMutationInput,
-  type UpdateFileEntryInput,
 } from "./schema";
 import { buildDirectAccessStrategy } from "./service-direct-access";
 
@@ -202,31 +200,6 @@ export async function createFileEntry(input: CreateFileEntryInput) {
     }
     throw error;
   }
-}
-
-export async function updateFileEntry(input: UpdateFileEntryInput) {
-  const payload = updateFileEntrySchema.parse(input);
-  const current = await prisma.fileEntry.findUnique({
-    where: { id: payload.fileEntryId },
-  });
-
-  if (!current) {
-    const t = await serverT();
-    throw new NotFoundError(t("backend.storage.fileEntryNotFound"));
-  }
-
-  return prisma.fileEntry.update({
-    where: { id: payload.fileEntryId },
-    data: {
-      storageNodeId: payload.storageNodeId ?? current.storageNodeId,
-      name: payload.name ?? current.name,
-      mimeType: payload.mimeType ?? current.mimeType,
-      size: payload.size == null ? current.size : BigInt(payload.size),
-      checksumSha256: payload.checksumSha256 ?? current.checksumSha256,
-      relativePath: payload.relativePath ?? current.relativePath,
-      parentId: payload.parentId ?? current.parentId,
-    },
-  });
 }
 
 export async function softDeleteFileEntry(input: FileEntryMutationInput) {

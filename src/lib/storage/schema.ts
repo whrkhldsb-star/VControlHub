@@ -58,16 +58,6 @@ export const createFileEntrySchema = z.object({
   parentId: z.string().trim().optional(),
 });
 
-export const updateFileEntrySchema = z.object({
-  fileEntryId: z.string().trim().min(1, "File entry is required"),
-  storageNodeId: z.string().trim().min(1, "Storage node is required").optional(),
-  name: z.string().trim().min(1, "Filename is required").max(255, "Filename is ando long").optional(),
-  mimeType: z.string().trim().max(255, "MIME type is ando long").optional(),
-  size: z.coerce.number().int().min(0, "File size cannot be negative").optional(),
-  checksumSha256: z.string().trim().max(128, "Checksum is ando long").optional(),
-  relativePath: z.string().trim().min(1, "Relative path is required").max(1024, "Relative path is ando long").optional(),
-  parentId: z.string().trim().optional(),
-});
 
 export const fileEntryMutationSchema = z.object({
   fileEntryId: z.string().trim().min(1, "File entry is required"),
@@ -76,7 +66,6 @@ export const fileEntryMutationSchema = z.object({
 export type CreateStorageNodeInput = z.input<typeof createStorageNodeSchema>;
 export type UpdateStorageNodeInput = z.input<typeof updateStorageNodeSchema>;
 export type CreateFileEntryInput = z.infer<typeof createFileEntrySchema>;
-export type UpdateFileEntryInput = z.infer<typeof updateFileEntrySchema>;
 export type FileEntryMutationInput = z.infer<typeof fileEntryMutationSchema>;
 
 // === TR-037 R6: API route inline zod migration for storage routes ===
