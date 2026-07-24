@@ -4,7 +4,6 @@ import { withApiRoute } from "@/lib/http/api-guard";
 import { GENERAL_WRITE_LIMIT } from "@/lib/http/rate-limit-presets";
 import { addTeamMemberSchema } from "@/lib/team/schema";
 import { addTeamMember } from "@/lib/team/service";
-import { auditUserAction } from "@/lib/audit/service";
 
 export const dynamic = "force-dynamic";
 
@@ -15,8 +14,8 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
 		async ({ session, body }) => {
 			const { id } = await params;
 			const member = await addTeamMember(id, body, session!);
-			await auditUserAction(session?.userId ?? "", "team.member.add", { teamId: id }, undefined, session?.currentTeamId);
-   return NextResponse.json({ success: true, member });
+			// Audit is recorded inside addTeamMember (team.member.upsert + username/role).
+			return NextResponse.json({ success: true, member });
 		},
 	);
 }

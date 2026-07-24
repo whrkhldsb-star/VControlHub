@@ -4,7 +4,6 @@ import { withApiRoute } from "@/lib/http/api-guard";
 import { GENERAL_WRITE_LIMIT } from "@/lib/http/rate-limit-presets";
 import { createTeamSchema } from "@/lib/team/schema";
 import { createTeam, listTeamsForSession } from "@/lib/team/service";
-import { auditUserAction } from "@/lib/audit/service";
 
 export const dynamic = "force-dynamic";
 
@@ -21,8 +20,8 @@ export async function POST(request: Request) {
 		{ permission: "team:create", rateLimit: GENERAL_WRITE_LIMIT, bodySchema: createTeamSchema, errorMessage: "Failed to create team workspace" },
 		async ({ session, body }) => {
 			const team = await createTeam(body, session!);
-			await auditUserAction(session?.userId ?? "", "team.create", { teamId: team.id }, undefined, session?.currentTeamId);
-   return NextResponse.json({ success: true, team });
+			// Audit is recorded inside createTeam (richer metadata: slug/name).
+			return NextResponse.json({ success: true, team });
 		},
 	);
 }
