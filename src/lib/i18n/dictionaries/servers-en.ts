@@ -214,8 +214,6 @@ export const en: Record<string, string> = {
 	"serverCardActions.directGateway.publicDomain": "HTTPS public domain (optional)",
 	"serverCardActions.directGateway.enableListenNote": "Enabling target direct access always exposes the service: HTTP listens on 0.0.0.0:31888; HTTPS auto-installs a reverse proxy (gateway on loopback, public :443). No separate listen checkbox.",
 	"serverCardActions.directGateway.protocolHttp": "HTTP (default)",
-	"serverCardActions.directGateway.publicListen": "Listen on all interfaces (0.0.0.0)",
-	"serverCardActions.directGateway.publicListenHint": "Required for browser → VPS:31888 direct downloads. Open firewall/security group; plain HTTP is not transport-encrypted—prefer HTTPS reverse proxy. Uncheck for 127.0.0.1 only (bring your own proxy).",
 	"serverCardActions.directGateway.protocolHttpsHint": "HTTPS auto-installs Caddy on :443. Optional domain for a trusted cert; empty uses IP self-signed (browser may warn). Disable removes the proxy.",
 	"serverCardActions.directGateway.protocolHttps": "HTTPS (auto reverse-proxy + cert)",
 	"serverCardActions.edit.toggleShow": "Edit node",

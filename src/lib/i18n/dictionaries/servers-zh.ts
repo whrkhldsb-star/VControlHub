@@ -221,8 +221,6 @@ export const zh: Record<string, string> = {
 	"serverCardActions.directGateway.enableLabel": "启用目标直连",
 	"serverCardActions.directGateway.protocol": "直连公网协议",
 	"serverCardActions.directGateway.protocolHttp": "HTTP（默认）",
-	"serverCardActions.directGateway.publicListen": "监听公网接口 (0.0.0.0)",
-	"serverCardActions.directGateway.publicListenHint": "勾选后浏览器才能直连 VPS:31888。需防火墙/安全组放行；明文 HTTP 有窃听风险，生产建议反代 HTTPS。取消勾选则仅本机 127.0.0.1（需自建反代）。",
 	"serverCardActions.directGateway.protocolHttpsHint": "选 HTTPS：自动装 Caddy 反代到 443。可填域名申请受信任证书；留空用 IP 自签（浏览器可能警告）。取消直连会卸载反代。",
 	"serverCardActions.directGateway.enableListenNote": "启用目标直连后默认对外监听：HTTP 使用 0.0.0.0:31888；HTTPS 自动装反代（网关仅本机，对外 443）。无需再勾选监听选项。",
 	"serverCardActions.directGateway.publicDomain": "HTTPS 公网域名（可选）",
