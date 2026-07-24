@@ -199,7 +199,7 @@ export function AiOpsSettingsSection({
 			{canManage && (
 				<div className="mt-4 flex justify-end">
 					<button type="button" data-action-button data-variant="primary" className={buttonPrimary} disabled={savingSettings} onClick={onSaveSettings}>
-						{savingSettings ? t("aiOpsPage.actions.saving") : t("aiOpsPage.actions.execute")}
+						{savingSettings ? t("aiOpsPage.actions.saving") : t("aiOpsPage.settings.save")}
 					</button>
 				</div>
 			)}

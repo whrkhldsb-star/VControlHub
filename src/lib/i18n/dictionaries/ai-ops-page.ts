@@ -89,6 +89,7 @@ export const zh: Record<string, string> = {
 	"aiOpsPage.settings.mode": "运行模式",
 	"aiOpsPage.settings.provider": "AI 提供方",
 	"aiOpsPage.settings.notConfigured": "（使用默认 recommendation 模式）",
+	"aiOpsPage.settings.save": "保存",
 	"aiOpsPage.settings.saved": "设置已保存",
 };
 
@@ -170,5 +171,6 @@ export const en: Record<string, string> = {
 	"aiOpsPage.settings.mode": "Operating mode",
 	"aiOpsPage.settings.provider": "AI provider",
 	"aiOpsPage.settings.notConfigured": "(using default recommendation mode)",
+	"aiOpsPage.settings.save": "Save",
 	"aiOpsPage.settings.saved": "Settings saved",
 };
