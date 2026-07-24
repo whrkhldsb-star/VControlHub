@@ -8,7 +8,6 @@
 import { z } from "zod";
 
 import { auditUserAction } from "@/lib/audit/service";
-import { sessionHasPermission } from "@/lib/auth/authorization";
 import { prisma } from "@/lib/db";
 import { withApiRoute } from "@/lib/http/api-guard";
 import { GENERAL_WRITE_LIMIT } from "@/lib/http/rate-limit-presets";
@@ -45,12 +44,6 @@ export async function PATCH(
 		{ permission: "server:write", rateLimit: GENERAL_WRITE_LIMIT, bodySchema: updateSchema },
 		async ({ session, body }) => {
 			const locale = await getServerLocale();
-			if (!session || !sessionHasPermission(session, "server:write")) {
-				return Response.json(
-					{ error: t("vpsBackupApi.errorForbidden", locale) },
-					{ status: 403 },
-				);
-			}
 
 			const teamAccess = await assertServerTeamAccess(session, serverId);
 			if (!teamAccess.ok) return teamAccess.response;
@@ -89,12 +82,6 @@ export async function DELETE(
 		{ permission: "server:write", rateLimit: GENERAL_WRITE_LIMIT },
 		async ({ session }) => {
 			const locale = await getServerLocale();
-			if (!session || !sessionHasPermission(session, "server:write")) {
-				return Response.json(
-					{ error: t("vpsBackupApi.errorForbidden", locale) },
-					{ status: 403 },
-				);
-			}
 
 			const teamAccess = await assertServerTeamAccess(session, serverId);
 			if (!teamAccess.ok) return teamAccess.response;

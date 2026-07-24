@@ -5,7 +5,6 @@
  * Streams the local .tar.gz file to the client.
  */
 
-import { sessionHasPermission } from "@/lib/auth/authorization";
 import { prisma } from "@/lib/db";
 import { withApiRoute } from "@/lib/http/api-guard";
 import { GENERAL_WRITE_LIMIT } from "@/lib/http/rate-limit-presets";
@@ -27,12 +26,6 @@ export async function GET(
 		{ permission: "server:read", rateLimit: GENERAL_WRITE_LIMIT },
 		async ({ session }) => {
 			const locale = await getServerLocale();
-			if (!session || !sessionHasPermission(session, "server:read")) {
-				return Response.json(
-					{ error: t("vpsBackupApi.errorForbidden", locale) },
-					{ status: 403 },
-				);
-			}
 
 			const teamAccess = await assertServerTeamAccess(session, serverId);
 			if (!teamAccess.ok) return teamAccess.response;
