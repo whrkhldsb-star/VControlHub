@@ -427,27 +427,65 @@ export async function handleWebDavPut(ctx: WebDavContext, request: Request): Pro
   await writeStorageFileBuffer(node, ctx.relativePath, body);
   const name = entryName(ctx.relativePath);
   const mimeType = request.headers.get("content-type") || guessContentType(name);
+  const indexData = {
+    name,
+    mimeType: mimeType || null,
+    size: BigInt(body.byteLength),
+    entryType: "FILE" as const,
+    isDeleted: false as const,
+  };
 
-  if (existing) {
-    await prisma.fileEntry.update({
-      where: { id: existing.id },
-      data: {
-        name,
-        mimeType: mimeType || null,
-        size: BigInt(body.byteLength),
-        entryType: "FILE",
-        isDeleted: false,
+  // Prefer unique-key lookup (includes soft-deleted) so concurrent PUTs converge.
+  const indexRow =
+    existing ??
+    (await prisma.fileEntry.findFirst({
+      where: {
+        storageNodeId: ctx.storageNodeId,
+        relativePath: ctx.relativePath,
       },
+      select: { id: true },
+    }));
+
+  if (indexRow) {
+    await prisma.fileEntry.update({
+      where: { id: indexRow.id },
+      data: indexData,
     });
   } else {
-    await createFileEntry({
-      storageNodeId: ctx.storageNodeId,
-      name,
-      entryType: "FILE",
-      relativePath: ctx.relativePath,
-      mimeType: mimeType || undefined,
-      size: body.byteLength,
-    });
+    try {
+      await createFileEntry({
+        storageNodeId: ctx.storageNodeId,
+        name,
+        entryType: "FILE",
+        relativePath: ctx.relativePath,
+        mimeType: mimeType || undefined,
+        size: body.byteLength,
+      });
+    } catch (error) {
+      // Concurrent first-time PUT: createFileEntry may ConflictError on unique key.
+      // Blob already written — update winner's index instead of failing the PUT.
+      const code =
+        typeof error === "object" && error && "code" in error
+          ? String((error as { code?: string }).code)
+          : "";
+      const isConflict =
+        code === "P2002" ||
+        error instanceof ConflictError ||
+        /Unique constraint|already exists|pathAlreadyExists/i.test(String(error));
+      if (!isConflict) throw error;
+      const raced = await prisma.fileEntry.findFirst({
+        where: {
+          storageNodeId: ctx.storageNodeId,
+          relativePath: ctx.relativePath,
+        },
+        select: { id: true },
+      });
+      if (!raced) throw error;
+      await prisma.fileEntry.update({
+        where: { id: raced.id },
+        data: indexData,
+      });
+    }
   }
 
   return new Response(null, {
