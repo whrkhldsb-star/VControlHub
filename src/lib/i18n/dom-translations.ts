@@ -215,6 +215,3 @@ export function getDomTextTranslation(text: string, locale: Locale) {
   return translateKnownFragments(text);
 }
 
-export function getDomTranslationCatalog() {
-  return { exactTranslations, rules };
-}
