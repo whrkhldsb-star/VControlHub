@@ -118,7 +118,7 @@ function groupHistory(points: TrafficHistoryPoint[], scope: "24h" | "7d") {
   return daily;
 }
 
-export default function TrafficPage({ canManage: _canManage }: { canManage: boolean }) {
+export default function TrafficPage() {
   const { t, locale } = useI18n();
   const [summary, setSummary] = useState<TrafficSummary | null>(null);
   const [remoteServers, setRemoteServers] = useState<RemoteServerTraffic[] | null>(null);
