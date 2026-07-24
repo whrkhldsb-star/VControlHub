@@ -412,3 +412,50 @@ export async function executeSyncJob(jobId: string): Promise<ExecuteSyncJobResul
 		};
 	}
 }
+
+/** RUNNING without completion after this age is treated as abandoned (OOM/kill). */
+const STALE_SYNC_RUNNING_MS = 30 * 60 * 1000;
+
+/**
+ * Reclaim SyncJob rows stuck in RUNNING after process death.
+ * executeSyncJob only CAS-claims IDLE/ERROR→RUNNING; without reclaim, isSyncJobDue
+ * and the schedule worker skip forever and manual /run also fails CAS.
+ */
+export async function reclaimStaleRunningSyncJobs(options?: {
+  olderThanMs?: number;
+  now?: Date;
+}): Promise<string[]> {
+  const olderThanMs = options?.olderThanMs ?? STALE_SYNC_RUNNING_MS;
+  const now = options?.now ?? new Date();
+  const cutoff = new Date(now.getTime() - olderThanMs);
+
+  const stale = await prisma.syncJob.findMany({
+    where: { status: "RUNNING", updatedAt: { lt: cutoff } },
+    select: { id: true },
+    take: 100,
+    orderBy: { updatedAt: "asc" },
+  });
+
+  const reclaimed: string[] = [];
+  for (const job of stale) {
+    const moved = await prisma.syncJob.updateMany({
+      where: { id: job.id, status: "RUNNING", updatedAt: { lt: cutoff } },
+      data: {
+        status: "ERROR",
+        lastSyncResult: `Failed: reclaimed stale RUNNING after ${Math.round(olderThanMs / 60_000)}m (worker may have died)`,
+      },
+    });
+    if (moved.count === 0) continue;
+    await prisma.syncLog.updateMany({
+      where: { syncJobId: job.id, status: "RUNNING" },
+      data: {
+        status: "FAILED",
+        errorMessage: "Reclaimed stale RUNNING sync after process loss",
+        completedAt: now,
+      },
+    });
+    reclaimed.push(job.id);
+  }
+  return reclaimed;
+}
+

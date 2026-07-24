@@ -8,7 +8,7 @@ import { createLogger } from "@/lib/logging";
 import { tryAcquireAdvisoryLock } from "@/lib/concurrency/advisory-lock";
 
 import { isSyncJobDue } from "./schedule";
-import { executeSyncJob } from "./service-runtime";
+import { executeSyncJob, reclaimStaleRunningSyncJobs } from "./service-runtime";
 
 const logger = createLogger("sync-schedule-worker");
 const INTERVAL_MS = 60_000;
@@ -32,6 +32,11 @@ export async function runSyncScheduleWorkerOnce(reason = "manual"): Promise<numb
   state.running = true;
   let started = 0;
   try {
+    const reclaimed = await reclaimStaleRunningSyncJobs();
+    if (reclaimed.length > 0) {
+      logger.warn("reclaimed stale RUNNING sync jobs", { count: reclaimed.length, ids: reclaimed });
+    }
+
     const jobs = await prisma.syncJob.findMany({
       where: {
         status: { in: ["IDLE", "ERROR"] },
