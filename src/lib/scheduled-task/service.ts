@@ -166,6 +166,11 @@ export async function updateScheduledTask(
 	if (input.reason !== undefined) data.reason = input.reason;
 	if (input.serverIds !== undefined) {
 		const serverIds = normalizeServerIds(input.serverIds);
+		if (serverIds.length === 0) {
+			throw new ValidationError(
+				t("backend.scheduled-task.atLeastOneTargetServer"),
+			);
+		}
 		await assertScheduledTaskServersInScope(serverIds, session);
 		data.serverIds = serverIds;
 	}
