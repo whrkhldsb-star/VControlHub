@@ -119,9 +119,14 @@ export function ApiTokenManagerClient({ initialTokens, allowedScopes }: Props) {
               <h2 className="text-base font-semibold text-[var(--warning)]">{t("apiTokensPage.plaintext.heading")}</h2>
               <p className="mt-1 text-sm text-[var(--warning)]/75">{t("apiTokensPage.plaintext.copyHint")}</p>
             </div>
-            <button type="button" onClick={() => navigator.clipboard?.writeText(createdPlaintext)} data-action-button data-variant="outline" className="!px-3 !py-2 !text-xs !font-medium">
-              {t("apiTokensPage.plaintext.copy")}
-            </button>
+            <div className="flex flex-wrap gap-2">
+              <button type="button" onClick={() => navigator.clipboard?.writeText(createdPlaintext)} data-action-button data-variant="outline" className="!px-3 !py-2 !text-xs !font-medium">
+                {t("apiTokensPage.plaintext.copy")}
+              </button>
+              <button type="button" onClick={() => setCreatedPlaintext(null)} data-action-button data-variant="secondary" className="!px-3 !py-2 !text-xs !font-medium">
+                {t("apiTokensPage.plaintext.dismiss")}
+              </button>
+            </div>
           </div>
           <code className="mt-4 block overflow-x-auto rounded-xl border border-[var(--warning-border)] bg-[var(--surface-subtle)] p-3 font-mono text-xs text-[var(--warning)] dark:text-[var(--warning)]">{createdPlaintext}</code>
         </section>
