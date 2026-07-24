@@ -81,13 +81,15 @@ async function enqueueScheduledTaskTickJob(reason: string) {
   try {
     return await prisma.$transaction(async (tx) => {
       if (await hasActiveScheduledTaskTickJob(tx)) return null;
+      // Pass `tx` so the job row is created inside this transaction — using
+      // the global prisma client here re-opened the TOCTOU race under RC.
       return enqueueJob({
         type: SCHEDULED_TASK_TICK_JOB_TYPE,
         title: "Scheduled task dispatch tick",
         payload: { reason, requestedAt: new Date().toISOString() },
         priority: -5,
         maxAttempts: 3,
-      });
+      }, tx);
     });
   } catch (error) {
     // Belt-and-braces guard for cluster deployments that share the DB:

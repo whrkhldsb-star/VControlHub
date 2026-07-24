@@ -60,8 +60,16 @@ function sanitizeAttempts(value: number | undefined) {
   return Math.max(1, Math.floor(value));
 }
 
-export async function enqueueJob(input: EnqueueJobInput) {
-  const job = await prisma.job.create({
+/**
+ * Optional `client` lets callers include the create inside an outer
+ * Prisma transaction (e.g. scheduled-task single-flight tick enqueue).
+ * Defaults to the global prisma client for all existing call sites.
+ */
+export async function enqueueJob(
+  input: EnqueueJobInput,
+  client: Prisma.TransactionClient | typeof prisma = prisma,
+) {
+  const job = await client.job.create({
     data: {
       type: input.type.trim(),
       title: input.title.trim(),
