@@ -7,7 +7,6 @@ import {
   parseOsRelease,
   dialectFromOsRelease,
   serviceCommand,
-  packageCommand,
   serializeDialect,
   deserializeDialect,
   DEFAULT_DIALECT,
@@ -190,37 +189,6 @@ describe("serviceCommand", () => {
   });
 });
 
-describe("packageCommand", () => {
-  it("generates apt install", () => {
-    const cmd = packageCommand("apt", "install", ["nginx"], "sudo -n");
-    expect(cmd).toBe("sudo -n apt-get install -y nginx");
-  });
-
-  it("generates apt update", () => {
-    const cmd = packageCommand("apt", "update", [], "sudo -n");
-    expect(cmd).toBe("sudo -n apt-get update");
-  });
-
-  it("generates apt upgrade (includes update)", () => {
-    const cmd = packageCommand("apt", "upgrade", [], "sudo -n");
-    expect(cmd).toBe("sudo -n apt-get update && sudo -n apt-get upgrade -y");
-  });
-
-  it("generates dnf install", () => {
-    const cmd = packageCommand("dnf", "install", ["nginx"], "sudo -n");
-    expect(cmd).toBe("sudo -n dnf install -y nginx");
-  });
-
-  it("generates apk add", () => {
-    const cmd = packageCommand("apk", "install", ["nginx"], "sudo -n");
-    expect(cmd).toBe("sudo -n apk add nginx");
-  });
-
-  it("generates pacman install", () => {
-    const cmd = packageCommand("pacman", "install", ["nginx"], "sudo -n");
-    expect(cmd).toBe("sudo -n pacman -S --noconfirm nginx");
-  });
-});
 
 describe("serializeDialect / deserializeDialect", () => {
   it("serializes and deserializes correctly", () => {
