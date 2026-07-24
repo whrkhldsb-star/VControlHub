@@ -31,7 +31,7 @@ export interface MediaItem {
 export type MediaTFn = (key: string) => string;
 
 export function formatSize(bytes: bigint | number | null, t: MediaTFn) {
-  if (!bytes) return t("mediaItemCard.unknown");
+  if (bytes == null) return t("mediaItemCard.unknown");
   const b = Number(bytes);
   if (b < 1024) return `${b} B`;
   if (b < 1024 * 1024) return `${(b / 1024).toFixed(1)} KB`;
