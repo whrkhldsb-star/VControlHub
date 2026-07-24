@@ -29,6 +29,7 @@ import {
 	isBackupType,
 	resolveBackupPath,
 } from "./service-types";
+import { planBackupRestoreSteps } from "./service-commands";
 import {
 	createBackupRecord,
 	getBackupRecord,
@@ -150,37 +151,20 @@ function buildRestoreExecution(record: { type: string; filePath: string }, proje
 	const backupPath = resolveBackupPath(projectRoot, record.filePath);
 	const type = isBackupType(record.type) ? record.type : "DATABASE";
 
-	// FEAT-P1: 细粒度恢复 — 根据 component 选择恢复范围.
 	// Prefer argv arrays (execFile) over bash -c string interpolation so paths
 	// never re-enter a shell parser even when already path-validated.
-	if (type === "DATABASE") {
+	// Policy is shared with buildBackupRestoreCommand via planBackupRestoreSteps.
+	try {
 		return {
-			steps: [{ file: "bash", args: ["scripts/restore-db.sh", backupPath] }],
+			steps: planBackupRestoreSteps({ projectRoot, backupPath, type, component }),
 			backupPath,
 		};
-	}
-	if (type === "FILES") {
-		return {
-			steps: [{ file: "tar", args: ["-xzf", backupPath, "-C", projectRoot] }],
-			backupPath,
-		};
-	}
-	// FULL artifacts are app-path tars only (deploy/backup.sh --full). Never
-	// pipe them into restore-db.sh. component=database is rejected; files/all
-	// extract the tar into projectRoot.
-	if (type === "FULL") {
-		if (component === "database") {
+	} catch (error) {
+		if (error instanceof Error && /FULL backups do not include a database dump/i.test(error.message)) {
 			throw new ValidationError(t("backend.backup.fullNoDatabaseRestore"));
 		}
-		return {
-			steps: [{ file: "tar", args: ["-xzf", backupPath, "-C", projectRoot] }],
-			backupPath,
-		};
+		throw error;
 	}
-	return {
-		steps: [{ file: "bash", args: ["scripts/restore-db.sh", backupPath] }],
-		backupPath,
-	};
 }
 
 export async function restoreBackupRecord(input: { id: string; confirm: string; projectRoot?: string; component?: "database" | "files" | "all"; session?: Pick<SessionPayload, "userId" | "roles" | "currentTeamId"> }) {
