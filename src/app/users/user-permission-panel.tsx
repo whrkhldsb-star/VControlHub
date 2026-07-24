@@ -68,14 +68,17 @@ function formatBytes(value: string | null | undefined, t: (k: string) => string)
   return `${size.toFixed(size >= 10 || index === 0 ? 0 : 1)} ${units[index]}`;
 }
 
-function toBytes(value: string) {
+function toBytes(value: string): { ok: true; value: string | null } | { ok: false } {
   const trimmed = value.trim();
-  if (!trimmed) return null;
-  if (/^\d+$/.test(trimmed)) return trimmed;
+  if (!trimmed) return { ok: true, value: null };
+  if (/^\d+$/.test(trimmed)) return { ok: true, value: trimmed };
   const match = trimmed.match(/^(\d+(?:\.\d+)?)\s*(kb|mb|gb|tb)$/i);
-  if (!match) return null;
+  if (!match) return { ok: false };
   const factor: Record<string, number> = { kb: 1024, mb: 1024 ** 2, gb: 1024 ** 3, tb: 1024 ** 4 };
-  return String(Math.floor(Number(match[1]!) * factor[match[2]!.toLowerCase()]!));
+  return {
+    ok: true,
+    value: String(Math.floor(Number(match[1]!) * factor[match[2]!.toLowerCase()]!)),
+  };
 }
 
 export function UserPermissionPanel({ userId, username, onClose, onSaved }: Props) {
@@ -174,15 +177,35 @@ return data as PermissionsPayload;
   const save = async () => {
     setSaving(true);
     setMessage(null);
-    const normalizedGrants = grants.map((grant) => ({
-      storageNodeId: grant.storageNodeId,
-      pathPrefix: grant.pathPrefix,
-      canRead: grant.canRead,
-      canWrite: grant.canWrite,
-      canDelete: grant.canDelete,
-      quotaBytes: toBytes(grant.quotaBytes ?? ""),
-      maxFileBytes: toBytes(grant.maxFileBytes ?? ""),
-    }));
+
+    const normalizedGrants: Array<{
+      storageNodeId: string;
+      pathPrefix: string;
+      canRead: boolean;
+      canWrite: boolean;
+      canDelete: boolean;
+      quotaBytes: string | null;
+      maxFileBytes: string | null;
+    }> = [];
+
+    for (const grant of grants) {
+      const quota = toBytes(grant.quotaBytes ?? "");
+      const maxFile = toBytes(grant.maxFileBytes ?? "");
+      if (!quota.ok || !maxFile.ok) {
+        setMessage({ type: "error", text: t("usersPerm.error.invalidQuota") });
+        setSaving(false);
+        return;
+      }
+      normalizedGrants.push({
+        storageNodeId: grant.storageNodeId,
+        pathPrefix: grant.pathPrefix,
+        canRead: grant.canRead,
+        canWrite: grant.canWrite,
+        canDelete: grant.canDelete,
+        quotaBytes: quota.value,
+        maxFileBytes: maxFile.value,
+      });
+    }
 
     try {
 const _data = await csrfFetch("/api/users/permissions", {
