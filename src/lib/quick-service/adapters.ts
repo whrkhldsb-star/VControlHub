@@ -256,30 +256,3 @@ export async function fetchSourceApps(
 		throw err;
 	}
 }
-
-/**
- * Get the local catalog slugs for de-duplication.
- */
-export function getLocalCatalogSlugs(): Set<string> {
-	return new Set(SERVICE_CATALOG.map((t) => t.slug));
-}
-
-/**
- * Merge local + remote apps, de-duplicating by slug prefix and image name.
- * Local catalog always takes priority.
- */
-export function mergeCatalogs(
-	localApps: ServiceTemplate[],
-	remoteApps: NormalizedApp[],
-): Array<ServiceTemplate | NormalizedApp> {
-	const localSlugs = new Set(localApps.map((a) => a.slug));
-	const localImages = new Set(localApps.map((a) => a.image.toLowerCase()));
-
-	const filtered = remoteApps.filter((app) => {
-		if (localSlugs.has(app.slug)) return false;
-		if (localImages.has(app.image.toLowerCase())) return false;
-		return true;
-	});
-
-	return [...localApps, ...filtered];
-}
