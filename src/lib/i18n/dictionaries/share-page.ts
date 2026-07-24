@@ -1,5 +1,5 @@
 /**
- * i18n dictionary: `sharePage.*` (20 keys).
+ * i18n dictionary: `sharePage.*` (25 keys).
  */
 
 export const zh: Record<string, string> = {

@@ -1,5 +1,5 @@
 /**
- * i18n dictionary: `servers.*` + `serversPage.*` (33 keys).
+ * i18n dictionary: `serversPage.*` (128 keys) + `serverOverviewDetails.*` (60 keys) + `serverOverviewCard.*` (27 keys) + `serverCardActions.*` (55 keys) + `directGatewayAdvice.*` (25 keys) + `directGatewayHealthyNote.*` (2 keys) + `vpsBackup.*` (32 keys) + `vpsBackupApi.*` (1 keys).
  *
  * `servers.*` covers the small status/badge surface (add/connect/online/offline/title).
  * `serversPage.create.*` covers the "Add VPS node" dialog form fields and direct-gateway copy.

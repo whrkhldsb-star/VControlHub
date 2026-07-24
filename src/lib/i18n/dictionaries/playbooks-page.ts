@@ -1,5 +1,5 @@
 /**
- * i18n dictionary: `playbooksPage.*` (32 keys).
+ * i18n dictionary: `playbooksPage.*` (87 keys).
  *
  * TR-023 M04: Playbook UI copy — list, create form, step editor, run
  * actions. Each key has a stable identifier so the editor can localize

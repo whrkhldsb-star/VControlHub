@@ -1,5 +1,5 @@
 /**
- * i18n dictionary: `snippetsPage.*` (38 keys).
+ * i18n dictionary: `snippetsPage.*` (43 keys).
  *
  * Used by `src/app/snippets/snippet-list-client.tsx` and the two modals
  * (`create-snippet-modal.tsx`, `snippet-edit-modal.tsx`) — they share this

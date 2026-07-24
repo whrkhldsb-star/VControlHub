@@ -1,5 +1,5 @@
 /**
- * i18n dictionary: `recycleBinSection.*` (8 keys).
+ * i18n dictionary: `recycleBinSection.*` (11 keys).
  *
  * The Recycle Bin section lives inside the file manager (`/files`). Kept as
  * its own dictionary so a future round that i18n-ises `file-list-client`

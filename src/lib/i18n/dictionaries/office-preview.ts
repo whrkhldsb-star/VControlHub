@@ -1,5 +1,5 @@
 /**
- * i18n dictionary: `officePreview.*` (5 keys).
+ * i18n dictionary: `officePreview.*` (4 keys).
  */
 export const zh: Record<string, string> = {
 	"officePreview.title": "此 Office 文件暂不支持稳定在线渲染预览",

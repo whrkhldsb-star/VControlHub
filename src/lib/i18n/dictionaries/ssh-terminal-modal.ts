@@ -1,5 +1,5 @@
 /**
- * i18n dictionary: `sshTerminalModal.*` (21 keys).
+ * i18n dictionary: `sshTerminalModal.*` (28 keys) + `sshTerminalManager.*` (5 keys) + `sshFileManager.*` (21 keys).
  *
  * Used by:
  *   - src/components/ssh-terminal-modal.tsx (client component)
