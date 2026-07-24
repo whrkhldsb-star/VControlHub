@@ -73,12 +73,9 @@ export function PwaRegister() {
     };
     sw.addEventListener("controllerchange", handleControllerChange);
     const notifyUpdateAvailable = (worker: ServiceWorker | null) => {
+      // Banner-only: sticky toast duplicated the same copy and stayed after
+      // dismiss of the inline update banner.
       setUpdateState({ waiting: worker, visible: true });
-      addToast(
-        "info",
-        `${t("pwa.update.available")} — ${t("pwa.update.description")}`,
-        0,
-      );
     };
     const warmOfflineRoutes = (registration: ServiceWorkerRegistration) => {
       const target = registration.active || navigator.serviceWorker.controller;
