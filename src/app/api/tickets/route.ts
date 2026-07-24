@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { sessionHasPermission } from "@/lib/auth/authorization";
 import { auditUserAction } from "@/lib/audit/service";
-import { addTicketComment, canViewTicket, createTicket, listTickets, updateTicketStatus } from "@/lib/ticket/service";
+import { createTicket, listTickets, updateTicketStatus } from "@/lib/ticket/service";
 import { listTicketsAdvanced, getTicketKanban } from "@/lib/ticket/sla";
 import { withApiRoute } from "@/lib/http/api-guard";
 import { GENERAL_WRITE_LIMIT } from "@/lib/http/rate-limit-presets";
@@ -22,12 +22,8 @@ const ticketCreateSchema = z.object({
   path: ["subject"],
 });
 
-const ticketCommentSchema = z.object({
-  ticketId: z.string().min(1),
-  body: z.string().min(1),
-});
-
-const ticketPostSchema = z.union([ticketCommentSchema, ticketCreateSchema]);
+// Comments: POST /api/tickets/[id] only (collection comment branch removed — dual auth/schema drift).
+const ticketPostSchema = ticketCreateSchema;
 
 const ticketPatchSchema = z.object({
   id: z.string().min(1),
@@ -95,22 +91,6 @@ export async function GET(request: Request) {
 
 export async function POST(request: Request) {
   return withApiRoute(request, { permissions: ["ticket:create", "ticket:manage"], rateLimit: GENERAL_WRITE_LIMIT, bodySchema: ticketPostSchema }, async ({ session, body }) => {
-    if ("ticketId" in body) {
-      if (
-        !session ||
-        (!sessionHasPermission(session, "ticket:manage") && !(await canViewTicket(body.ticketId, session.userId, session)))
-      ) {
-        throw new ForbiddenError("Missing permission");
-      }
-      const comment = await addTicketComment({
-        ticketId: body.ticketId,
-        authorId: session?.userId ?? "",
-        body: body.body,
-        session: session ?? undefined,
-      });
-      await auditUserAction(session?.userId ?? "", "ticket.comment", { ticketId: body.ticketId, commentId: comment.id }, undefined, session?.currentTeamId);
-      return NextResponse.json({ comment }, { status: 201 });
-    }
     if (!session || !sessionHasPermission(session, "ticket:create")) {
       throw new ForbiddenError("Missing permission");
     }

@@ -106,21 +106,15 @@ describe("/api/tickets", () => {
     }));
   });
 
-  it("adds ticket comments without requiring unrelated creation fields", async () => {
+  it("rejects collection-route comment payloads (comments live on /api/tickets/[id])", async () => {
     const response = await route.POST(new Request("http://local/api/tickets", {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({ ticketId: "tk1", body: " Please update " }),
     }));
 
-    expect(response.status).toBe(201);
-    expect(mocks.canViewTicket).toHaveBeenCalledWith("tk1", "u1", viewerSession);
-    expect(mocks.addTicketComment).toHaveBeenCalledWith({
-      ticketId: "tk1",
-      authorId: "u1",
-      body: " Please update ",
-      session: viewerSession,
-    });
+    expect(response.status).toBe(400);
+    expect(mocks.addTicketComment).not.toHaveBeenCalled();
     expect(mocks.createTicket).not.toHaveBeenCalled();
   });
 
@@ -137,7 +131,7 @@ describe("/api/tickets", () => {
     expect(mocks.addTicketComment).not.toHaveBeenCalled();
   });
 
-  it("blocks comments on tickets the caller cannot access", async () => {
+  it("does not accept ticketId comment bodies on the collection create route", async () => {
     mocks.canViewTicket.mockResolvedValue(false);
 
     const response = await route.POST(new Request("http://local/api/tickets", {
@@ -146,7 +140,8 @@ describe("/api/tickets", () => {
       body: JSON.stringify({ ticketId: "tk2", body: "snoop" }),
     }));
 
-    expect(response.status).toBe(403);
+    // Collection POST is create-only; invalid create payload → validation 400 (not comment ACL).
+    expect(response.status).toBe(400);
     expect(mocks.addTicketComment).not.toHaveBeenCalled();
   });
 });
