@@ -15,6 +15,7 @@ import {
 	dockerRun,
 	getDockerEnvironmentStatusFor,
 	instanceKeyForTarget,
+	isRemotePortAvailable,
 	type DockerTarget,
 } from "./docker-cli";
 import {
@@ -22,9 +23,12 @@ import {
 	assertTemplatePortsAvailable,
 	captureQuickServiceSnapshot,
 	parseCommandArgs,
+	releasePortReservations,
 	resolveEnvValue,
 	safeContainerName,
+	templateReservedPorts,
 	validateTemplate,
+	withPortAllocationLock,
 	withServiceOperationLock,
 	writeQuickServiceAudit,
 	type QuickServiceSnapshot,
@@ -111,8 +115,42 @@ async function installServiceUnlocked(opts: InstallOptions) {
 		diff: { before, after: null },
 	});
 
-	const hostPort = customPort ?? allocatePort(template.defaultPort);
-	assertTemplatePortsAvailable(template, hostPort);
+	// Port allocation:
+	// - local: allocate/reserve on hub OS (held until docker bind)
+	// - remote: probe VPS via SSH; never use hub-local free-port heuristics
+	const portScope = target.kind === "local" ? "hub-host" : target.serverId;
+	let reservedPorts: number[] = [];
+	const hostPort = await withPortAllocationLock(portScope, async () => {
+		if (target.kind === "remote") {
+			if (customPort) {
+				const free = await isRemotePortAvailable(target.serverId, customPort);
+				if (!free) {
+					throw new BusinessError(`Port ${customPort} is already in use on the target VPS, please choose another port.`);
+				}
+				return customPort;
+			}
+			const candidates: number[] = [template.defaultPort];
+			for (let i = 0; i < 40; i++) {
+				candidates.push(10000 + Math.floor(Math.random() * (65535 - 10000 + 1)));
+			}
+			for (const candidate of candidates) {
+				if (await isRemotePortAvailable(target.serverId, candidate)) {
+					for (const ep of template.extraPorts ?? []) {
+						const free = await isRemotePortAvailable(target.serverId, ep.host);
+						if (!free) {
+							throw new BusinessError(`Extra port ${ep.host} is already in use on the target VPS.`);
+						}
+					}
+					return candidate;
+				}
+			}
+			throw new BusinessError("Unable to allocate an available port on the target VPS; please specify a free port.");
+		}
+		const port = customPort ?? allocatePort(template.defaultPort);
+		assertTemplatePortsAvailable(template, port);
+		reservedPorts = templateReservedPorts(template, port);
+		return port;
+	});
 
 	if (target.kind === "local") {
 		for (const vol of template.volumesJson) {
@@ -181,8 +219,11 @@ async function installServiceUnlocked(opts: InstallOptions) {
 	}
 
 	try {
+		// Drop hub-local reservations immediately before docker -p so the daemon can bind.
+		if (reservedPorts.length > 0) releasePortReservations(reservedPorts);
 		await startDockerContainer(svc.id, template, hostPort, { userId, credentials: installNoticeCredentials, notes: installNoticeNotes, target });
 	} catch (err) {
+		if (reservedPorts.length > 0) releasePortReservations(reservedPorts);
 		let msg = dockerErrorMessage(err);
 		try {
 			await dockerExec(target, ["rm", "-f", safeContainerName(template.slug)], 15_000);
@@ -217,11 +258,28 @@ export async function startDockerContainer(
 	validateTemplate(tmpl);
 	const target: DockerTarget = notice?.target ?? { kind: "local" };
 	const containerName = safeContainerName(tmpl.slug);
-
+	// Side-by-side recreate: rename existing container so a failed run/post-install can restore it.
+	const backupName = `${containerName}__prev`;
+	let hadExisting = false;
 	try {
-		await dockerExec(target, ["rm", "-f", containerName], 15_000);
+		const existingId = (await dockerExec(target, ["inspect", "--format={{.Id}}", containerName], 10_000)).trim();
+		hadExisting = existingId.length > 0;
 	} catch {
-		// Container does not exist; continue.
+		hadExisting = false;
+	}
+	if (hadExisting) {
+		try {
+			await dockerExec(target, ["rm", "-f", backupName], 15_000);
+		} catch {
+			// no prior backup
+		}
+		try {
+			await dockerExec(target, ["rename", containerName, backupName], 15_000);
+		} catch {
+			// Rename failed — fall back to destructive remove.
+			await dockerExec(target, ["rm", "-f", containerName], 15_000);
+			hadExisting = false;
+		}
 	}
 
 	const internalPort = tmpl.internalPort ?? tmpl.defaultPort;
@@ -251,10 +309,39 @@ export async function startDockerContainer(
 	}
 	args.push(tmpl.image, ...parseCommandArgs(tmpl.command));
 
-	const { stdout } = await dockerRun(target, args, 300_000);
-	const containerId = stdout.trim().substring(0, 12);
+	let containerId: string;
+	try {
+		const { stdout } = await dockerRun(target, args, 300_000);
+		containerId = stdout.trim().substring(0, 12);
+		await applyPostInstallSetup(target, tmpl, containerName);
+	} catch (err) {
+		try {
+			await dockerExec(target, ["rm", "-f", containerName], 15_000);
+		} catch {
+			// ignore partial container
+		}
+		if (hadExisting) {
+			try {
+				await dockerExec(target, ["rename", backupName, containerName], 15_000);
+				try {
+					await dockerExec(target, ["start", containerName], 30_000);
+				} catch {
+					// leave stopped; caller records error
+				}
+			} catch {
+				// restore failed
+			}
+		}
+		throw err;
+	}
 
-	await applyPostInstallSetup(target, tmpl, containerName);
+	if (hadExisting) {
+		try {
+			await dockerExec(target, ["rm", "-f", backupName], 15_000);
+		} catch {
+			// ignore leftover backup
+		}
+	}
 
 	await prisma.quickService.update({
 		where: { id: serviceId },

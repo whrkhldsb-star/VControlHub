@@ -32,7 +32,7 @@ vi.mock("child_process", () => ({
 	execFile: execFileMock,
 }));
 
-import { checkPort, installService, listQuickServiceHistory, startService, stopService, syncServiceStatus, uninstallService, updateService } from "../service";
+import { checkPort, installService, listQuickServiceHistory, resetQuickServiceProcessStateForTests, startService, stopService, syncServiceStatus, uninstallService, updateService } from "../service";
 import { getDockerEnvironmentStatus } from "../docker-cli";
 import type { ServiceTemplate } from "../types";
 
@@ -52,6 +52,7 @@ const template: ServiceTemplate = {
 describe("quick service docker lifecycle", () => {
 	beforeEach(() => {
 		vi.clearAllMocks();
+		resetQuickServiceProcessStateForTests();
 		execFileSyncMock.mockReturnValue("");
 		execFileMock.mockImplementation((_file: string, _args: string[], _opts: unknown, cb: (error: Error | null, result?: { stdout: string; stderr: string }) => void) => {
 			cb(null, { stdout: "abcdef1234567890\n", stderr: "" });
@@ -405,9 +406,14 @@ describe("quick service docker lifecycle", () => {
 		prismaMock.quickService.findUnique.mockResolvedValueOnce({ id: "svc-lock", slug: "demo", status: "installing", port: 12345, containerId: null, image: "example/demo:latest" });
 
 		const installing = installService({ template, userId: "user-1", customPort: 12345 });
+		// Wait until install has progressed past port/upsert into docker run (holds the lock).
+		for (let i = 0; i < 50 && typeof releaseInstall !== "function"; i++) {
+			await new Promise((r) => setTimeout(r, 0));
+		}
+		expect(typeof releaseInstall).toBe("function");
 		await expect(startService("demo")).rejects.toThrow("busy with another operation");
 		// startService must not have read the row because the lock was
-		// already held by the install in flight.
+		// already held by the install in flight (only install's snapshot findUnique).
 		expect(prismaMock.quickService.findUnique).toHaveBeenCalledTimes(1);
 
 		releaseInstall();

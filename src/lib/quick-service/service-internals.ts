@@ -45,6 +45,13 @@ export async function withServiceOperationLock<T>(
 	}
 }
 
+/** Test helper: drop any leftover per-process locks/reservations between cases. */
+export function resetQuickServiceProcessStateForTests() {
+	serviceOperationLocks.clear();
+	// reservedPorts / portAllocChains are declared later in this module; call at runtime only.
+	resetPortAllocationStateForTests();
+}
+
 /** Throws if the service is mid-install (the only state that should block other ops). */
 export function assertServiceNotBusy(svc: { slug: string; status?: string | null }, operation: string) {
 	if (svc.status === "installing") {
@@ -301,8 +308,28 @@ const PORT_RANGE_MIN = 10000;
 const PORT_RANGE_MAX = 65535;
 const PORT_MAX_ATTEMPTS = 50;
 
+/**
+ * In-process port leases held from allocate/assert until docker -p binds
+ * (or install aborts). Combined with isPortAvailableSync OS probe this closes
+ * the common concurrent-install TOCTOU on a single Node process.
+ */
+const reservedPorts = new Set<number>();
+
+export function releasePortReservation(port: number): void {
+	reservedPorts.delete(port);
+}
+
+export function releasePortReservations(ports: Iterable<number>): void {
+	for (const port of ports) releasePortReservation(port);
+}
+
+export function templateReservedPorts(template: ServiceTemplate, hostPort: number): number[] {
+	return [hostPort, ...((template.extraPorts ?? []).map((ep) => ep.host))];
+}
+
 export function isPortAvailableSync(port: number): boolean {
 	assertTcpPort(port);
+	if (reservedPorts.has(port)) return false;
 	try {
 		execFileSync(
 			/*turbopackIgnore: true*/ "node",
@@ -319,17 +346,26 @@ export function isPortAvailableSync(port: number): boolean {
 	}
 }
 
+/** Probe free + mark reserved until releasePortReservation. */
+export function reservePortSync(port: number): boolean {
+	assertTcpPort(port);
+	if (reservedPorts.has(port)) return false;
+	if (!isPortAvailableSync(port)) return false;
+	reservedPorts.add(port);
+	return true;
+}
+
 export function allocatePort(preferredPort?: number): number {
 	if (preferredPort) {
 		assertTcpPort(preferredPort);
-		if (isPortAvailableSync(preferredPort)) return preferredPort;
+		if (reservePortSync(preferredPort)) return preferredPort;
 	}
 	const tried = new Set<number>();
 	for (let i = 0; i < PORT_MAX_ATTEMPTS; i++) {
 		const port = PORT_RANGE_MIN + Math.floor(Math.random() * (PORT_RANGE_MAX - PORT_RANGE_MIN + 1));
 		if (tried.has(port)) continue;
 		tried.add(port);
-		if (isPortAvailableSync(port)) return port;
+		if (reservePortSync(port)) return port;
 	}
 	throw new BusinessError(t("backend.quick-service.unableToAllocateAnAvailablePortPleaseSpecify"));
 }
@@ -377,9 +413,50 @@ export function assertPortAvailable(port: number, label = "Port") {
 	}
 }
 
+/**
+ * Local hub only: probe and reserve host + template extra ports until docker binds.
+ * Callers for remote targets must skip this and probe the VPS instead.
+ */
 export function assertTemplatePortsAvailable(template: ServiceTemplate, hostPort: number) {
-	assertPortAvailable(hostPort, "Port");
-	for (const ep of template.extraPorts ?? []) {
-		assertPortAvailable(ep.host, "Extra port");
+	if (!reservedPorts.has(hostPort) && !reservePortSync(hostPort)) {
+		throw new ConflictError(`Port ${hostPort} is already in use, please use a different port and retry.`);
 	}
+	const reservedExtras: number[] = [];
+	try {
+		for (const ep of template.extraPorts ?? []) {
+			if (reservedPorts.has(ep.host)) continue;
+			if (!reservePortSync(ep.host)) {
+				throw new ConflictError(`Extra port ${ep.host} is already in use, please use a different port and retry.`);
+			}
+			reservedExtras.push(ep.host);
+		}
+	} catch (err) {
+		releasePortReservations([hostPort, ...reservedExtras]);
+		throw err;
+	}
+}
+
+/** Serialize local port allocation across concurrent install calls in-process. */
+const portAllocChains = new Map<string, Promise<unknown>>();
+
+export async function withPortAllocationLock<T>(scope: string, fn: () => Promise<T>): Promise<T> {
+	const prev = portAllocChains.get(scope) ?? Promise.resolve();
+	let release!: () => void;
+	const gate = new Promise<void>((resolve) => {
+		release = resolve;
+	});
+	const chained = prev.catch(() => undefined).then(() => gate);
+	portAllocChains.set(scope, chained);
+	await prev.catch(() => undefined);
+	try {
+		return await fn();
+	} finally {
+		release();
+		if (portAllocChains.get(scope) === chained) portAllocChains.delete(scope);
+	}
+}
+
+function resetPortAllocationStateForTests() {
+	reservedPorts.clear();
+	portAllocChains.clear();
 }

@@ -43,6 +43,8 @@ const NAMESPACE_KEYS: Record<string, number> = {
 	"deployment-rollback": 45067,
 	/** Serialize server profile create/update by host to prevent duplicate VPS rows. */
 	"server-host": 45070,
+	/** Serialize quick-service host port allocation per docker target (hub-host or serverId). */
+	"quick-service-port-alloc": 45071,
 };
 
 function connectionStringForPg() {

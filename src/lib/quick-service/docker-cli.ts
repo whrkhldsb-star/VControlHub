@@ -148,6 +148,36 @@ export function dockerErrorMessage(error: unknown): string {
   return String(error);
 }
 
+
+/** Probe whether a TCP port is free on a remote VPS (ss via SSH). */
+export async function isRemotePortAvailable(serverId: string, port: number): Promise<boolean> {
+  if (!Number.isInteger(port) || port < 1 || port > 65535) return false;
+  const { server, ssh } = await loadRemoteSshParams(serverId);
+  const command =
+    `PORT=${port}; ` +
+    `if command -v ss >/dev/null 2>&1; then ` +
+    `ss -tlnH 2>/dev/null | awk '{print $4}' | grep -E "[:.]$PORT$" >/dev/null && exit 1 || exit 0; ` +
+    `elif command -v bash >/dev/null 2>&1; then ` +
+    `bash -c "echo >/dev/tcp/127.0.0.1/$PORT" >/dev/null 2>&1 && exit 1 || exit 0; ` +
+    `else exit 0; fi`;
+  const result = await execRemoteCommand({
+    ...(ssh as object),
+    command,
+    timeout: 10_000,
+  } as Parameters<typeof execRemoteCommand>[0]);
+  // exit 0 = free, exit 1 = in use
+  if (result.exitCode === 1) return false;
+  if (result.exitCode === 0) return true;
+  // Ambiguous remote tooling failure — do not block install; docker bind will fail closed.
+  logger.warn("remote port probe inconclusive", {
+    serverId: server.id,
+    port,
+    exitCode: result.exitCode,
+    stderr: (result.stderr || "").slice(0, 200),
+  });
+  return true;
+}
+
 /** Local sync health probe (historical API). */
 export function getContainerHealth(containerName: string, timeoutMs = 10_000): string | null {
   try {
