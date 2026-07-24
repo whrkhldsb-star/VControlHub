@@ -1,5 +1,6 @@
 import { JobStatus, Prisma } from "@prisma/client";
 
+import { tryAcquireAdvisoryLock } from "@/lib/concurrency/advisory-lock";
 import { config } from "@/lib/config/env";
 import { prisma } from "@/lib/db";
 import { computeLeaseMs } from "@/lib/job/lease";
@@ -161,27 +162,52 @@ export async function enqueueQuickServiceJob(input: {
 	teamId?: string | null;
 	priority?: number;
 }) {
-	const activeJob = await findActiveQuickServiceJob(input.payload.slug, input.payload.instanceKey ?? HUB_HOST_INSTANCE_KEY);
-	if (activeJob) {
-		const activePayload = parseQuickServiceJobPayload(activeJob.payload);
-		const sameOperation = activePayload.action === input.payload.action
-			&& (activePayload.action !== "uninstall"
-				|| input.payload.action !== "uninstall"
-				|| Boolean(activePayload.deleteVolumes) === Boolean(input.payload.deleteVolumes));
-		if (sameOperation) return { job: activeJob, taskId: `job:${activeJob.id}`, reused: true };
-		throw new ConflictError(`Service ${input.payload.slug} already has a different lifecycle task in progress`);
+	const instanceKey = input.payload.instanceKey ?? HUB_HOST_INSTANCE_KEY;
+	const lockResource = `${input.payload.slug}:${instanceKey}`;
+	// Hold lock across findActive → enqueue so parallel lifecycle POSTs cannot double-insert.
+	const release = await tryAcquireAdvisoryLock("quick-service-enqueue", lockResource);
+	if (!release) {
+		// Another request is mid-enqueue; re-check after a short wait for the active job.
+		for (let i = 0; i < 5; i++) {
+			await new Promise((r) => setTimeout(r, 50 * (i + 1)));
+			const activeJob = await findActiveQuickServiceJob(input.payload.slug, instanceKey);
+			if (!activeJob) continue;
+			const activePayload = parseQuickServiceJobPayload(activeJob.payload);
+			const sameOperation = activePayload.action === input.payload.action
+				&& (activePayload.action !== "uninstall"
+					|| input.payload.action !== "uninstall"
+					|| Boolean(activePayload.deleteVolumes) === Boolean(input.payload.deleteVolumes));
+			if (sameOperation) return { job: activeJob, taskId: `job:${activeJob.id}`, reused: true };
+			throw new ConflictError(`Service ${input.payload.slug} already has a different lifecycle task in progress`);
+		}
+		throw new ConflictError(`Service ${input.payload.slug} lifecycle task is being scheduled; retry shortly`);
 	}
 
-	const job = await enqueueJob({
-		type: QUICK_SERVICE_JOB_TYPE,
-		title: input.title,
-		payload: input.payload as unknown as Prisma.InputJsonValue,
-		createdBy: input.createdBy ?? null,
-		teamId: input.teamId ?? null,
-		priority: input.priority ?? 10,
-		maxAttempts: 1,
-	});
-	return { job, taskId: `job:${job.id}`, reused: false };
+	try {
+		const activeJob = await findActiveQuickServiceJob(input.payload.slug, instanceKey);
+		if (activeJob) {
+			const activePayload = parseQuickServiceJobPayload(activeJob.payload);
+			const sameOperation = activePayload.action === input.payload.action
+				&& (activePayload.action !== "uninstall"
+					|| input.payload.action !== "uninstall"
+					|| Boolean(activePayload.deleteVolumes) === Boolean(input.payload.deleteVolumes));
+			if (sameOperation) return { job: activeJob, taskId: `job:${activeJob.id}`, reused: true };
+			throw new ConflictError(`Service ${input.payload.slug} already has a different lifecycle task in progress`);
+		}
+
+		const job = await enqueueJob({
+			type: QUICK_SERVICE_JOB_TYPE,
+			title: input.title,
+			payload: input.payload as unknown as Prisma.InputJsonValue,
+			createdBy: input.createdBy ?? null,
+			teamId: input.teamId ?? null,
+			priority: input.priority ?? 10,
+			maxAttempts: 1,
+		});
+		return { job, taskId: `job:${job.id}`, reused: false };
+	} finally {
+		await release();
+	}
 }
 
 async function updateQuickServiceJobProgress(jobId: string, progress: string) {
