@@ -40,6 +40,32 @@ function destroyReadableWithError(stream: NodeJS.ReadableStream, error: Error) {
 	}
 }
 
+function killSpawnedProcess(child: ReturnType<typeof spawn>, reason: string) {
+	if (child.exitCode !== null || child.signalCode !== null || child.killed) return;
+	try {
+		child.kill("SIGTERM");
+	} catch (error) {
+		logger.warn("failed to SIGTERM child process", {
+			reason,
+			message: error instanceof Error ? error.message : String(error),
+		});
+		return;
+	}
+	// Escalate if the child ignores SIGTERM (e.g. stuck tar/gzip).
+	const timer = setTimeout(() => {
+		if (child.exitCode !== null || child.signalCode !== null || child.killed) return;
+		try {
+			child.kill("SIGKILL");
+		} catch (error) {
+			logger.warn("failed to SIGKILL child process", {
+				reason,
+				message: error instanceof Error ? error.message : String(error),
+			});
+		}
+	}, 2_000);
+	timer.unref?.();
+}
+
 export function streamLocalTarGz(directoryPath: string, entryName: string) {
 	const tar = spawn("tar", ["-czf", "-", "-C", path.dirname(directoryPath), "--", entryName], {
 		stdio: ["ignore", "pipe", "pipe"],
@@ -48,6 +74,13 @@ export function streamLocalTarGz(directoryPath: string, entryName: string) {
 		logger.warn("local archive tar stderr", { message: String(chunk).slice(0, 500) });
 	});
 	const out = tar.stdout;
+	// Client abort / Response cancel destroys stdout via nodeStreamToWeb; kill the
+	// tar child so cancelled downloads do not leave orphan tar/gzip processes.
+	const originalDestroy = out.destroy.bind(out);
+	out.destroy = (error?: Error) => {
+		killSpawnedProcess(tar, "stdout-destroy");
+		return originalDestroy(error);
+	};
 	tar.on("error", (error) => {
 		logger.warn("local archive tar process error", { message: error.message });
 		destroyReadableWithError(out, error);
