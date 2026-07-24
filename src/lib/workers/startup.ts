@@ -159,10 +159,15 @@ export async function startWorkerLifecycle(): Promise<{
 /**
  * Manually trigger a shutdown (e.g. from a test). In production
  * SIGTERM/SIGINT drives this automatically.
+ *
+ * Clears the install gate so a subsequent `startWorkerLifecycle()` can
+ * re-run `startAllWorkers` (tests / in-process restart). The process-level
+ * SIGTERM/SIGINT handler remains installed once per process.
  */
 export function stopWorkerLifecycle(): void {
   stopAllWorkers();
   const state = getLifecycleState();
+  state.installed = false;
   state.started = false;
   state.startedAt = null;
   state.startedWorkerIds = [];
