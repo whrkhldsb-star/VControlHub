@@ -46,8 +46,11 @@ export function FileMoreActions({
   entryCanDelete,
 }: FileMoreActionsProps) {
   const { t } = useI18n();
+  // Keep menu chrome and ShareFileButton gated by the same rule (Share is FILE-only).
+  const canShowShare =
+    canShare && entryCanRead(entry) && entry.entryType === "FILE";
   const hasMoreActions =
-    (canShare && entryCanRead(entry) && entry.entryType ==="FILE") ||
+    canShowShare ||
     entryCanWrite(entry) ||
     (canDelete && entryCanDelete(entry));
   if (!hasMoreActions) return null;
@@ -67,7 +70,7 @@ export function FileMoreActions({
         {compact ? null : <span>{t("fileMoreActions.more")}</span>}
       </summary>
       <div className="absolute right-0 top-9 z-40 flex min-w-44 flex-col gap-1 rounded-2xl border border-[var(--border)] bg-[var(--modal-bg)] p-2 text-left shadow-2xl shadow-black/40 light:shadow-[var(--border)]/30">
-        {canShare && entryCanRead(entry) ? (
+        {canShowShare ? (
           <ShareFileButton entry={entry} compact variant="menu" onNotify={onNotify} />
         ) : null}
         {entryCanWrite(entry) ? (
