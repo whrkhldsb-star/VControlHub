@@ -60,6 +60,9 @@ export function TwoFactorSettings({ enabled }: { enabled: boolean }) {
 				body: JSON.stringify({ code, secret }),
 			});
 			if (enableData.error) { setError(enableData.error); return; }
+			setSecret("");
+			setQrDataUrl("");
+			setCode("");
 			setStep("idle");
 			router.refresh();
 		} catch (err) { setError(messageFromError(err, t("auth.2fa-error-request-failed"))); }
@@ -77,6 +80,9 @@ export function TwoFactorSettings({ enabled }: { enabled: boolean }) {
 				body: JSON.stringify({ code }),
 			});
 			if (data.error) { setError(data.error); return; }
+			setSecret("");
+			setQrDataUrl("");
+			setCode("");
 			setStep("idle");
 			router.refresh();
 		} catch (err) { setError(messageFromError(err, t("auth.2fa-error-request-failed"))); }
@@ -158,7 +164,7 @@ export function TwoFactorSettings({ enabled }: { enabled: boolean }) {
 						</ActionButton>
 					</div>
 					<button
-						onClick={() => { setStep("idle"); setCode(""); setError(""); setQrDataUrl(""); }}
+						onClick={() => { setStep("idle"); setCode(""); setError(""); setQrDataUrl(""); setSecret(""); }}
 						className="text-xs text-[var(--text-muted)] hover:text-[var(--text-secondary)] transition"
 					>
 						{t("auth.2fa-cancel")}
