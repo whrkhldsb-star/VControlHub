@@ -93,8 +93,7 @@ export function RetentionButton({ olderThan30Days, totalRecords }: Props) {
       <p className="text-xs text-[var(--text-muted)]">
         {t("backupsPage.retention.matchInfo")
           .replace("{total}", String(totalRecords))
-          .replace("{older}", String(olderThan30Days))
-          .replace("{extra}", t("backupsPage.retention.matchInfoExtra"))}
+          .replace("{older}", String(olderThan30Days))}
       </p>
       {taskId && (
         <p role="status" className="text-xs text-[var(--success)]">
