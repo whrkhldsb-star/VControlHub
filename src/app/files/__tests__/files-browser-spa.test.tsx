@@ -37,10 +37,6 @@ vi.mock("@/components/storage/file-upload-dropzone", () => ({
     ),
 }));
 
-vi.mock("../search-scope-toggle", () => ({
-  SearchScopeToggle: () => React.createElement("span", null, "搜索范围"),
-}));
-
 vi.mock("../create-folder-form", () => ({
   CreateFolderForm: (props: {
     initialNodeId?: string;
