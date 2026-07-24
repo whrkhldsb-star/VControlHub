@@ -57,10 +57,32 @@ export async function PATCH(request: Request) {
     async ({ session, body }) => {
       if ("toggleId" in body) {
         const result = await toggleBackupSchedule(body.toggleId, session!);
+        await auditUserAction(
+          session?.userId ?? "",
+          "backup-schedule.update",
+          {
+            scheduleId: body.toggleId,
+            mode: "toggle",
+            enabled: result.enabled,
+          },
+          undefined,
+          session?.currentTeamId,
+        );
         return NextResponse.json({ schedule: result });
       }
       const { id, ...updates } = body;
       const result = await updateBackupSchedule(id, updates, session!);
+      await auditUserAction(
+        session?.userId ?? "",
+        "backup-schedule.update",
+        {
+          scheduleId: id,
+          mode: "patch",
+          fields: Object.keys(updates),
+        },
+        undefined,
+        session?.currentTeamId,
+      );
       return NextResponse.json({ schedule: result });
     },
   );
