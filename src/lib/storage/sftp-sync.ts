@@ -8,6 +8,7 @@ import { listRemoteDirectory, type SftpListEntry } from "@/lib/ssh/client";
 import { normalizeRemotePath } from "@/lib/storage/remote-path";
 import { resolveStorageSshCredentials } from "@/lib/storage/ssh-credentials";
 import { getSftpSyncDirectoryTimeoutMs } from "@/lib/runtime-settings/service";
+import { computeDirectoryRelativePath, computeRelativePath, withDirectoryTimeout } from "@/lib/storage/sftp-walk-utils";
 
 type SftpSyncNode = Prisma.StorageNodeGetPayload<{
   select: {
@@ -40,40 +41,6 @@ export interface SftpSyncResult {
   updated: number;
   deleted: number;
   errors: string[];
-}
-
-async function withDirectoryTimeout<T>(operation: Promise<T>, dirPath: string, timeoutMs: number): Promise<T> {
-  let timer: ReturnType<typeof setTimeout> | undefined;
-  try {
-    return await Promise.race([
-      operation,
-      new Promise<T>((_resolve, reject) => {
-        timer = setTimeout(() => {
-          reject(new Error(`Scanning ${dirPath} exceeded ${Math.ceil(timeoutMs / 1000)} seconds; stopped syncing this directory`));
-        }, timeoutMs);
-      }),
-    ]);
-  } finally {
-    if (timer) clearTimeout(timer);
-  }
-}
-
-function computeRelativePath(basePath: string, remotePath: string, entryName: string): string | null {
-  const normalizedBase = basePath.replace(/\/+$/, "") || "/";
-  const normalizedRemote = remotePath.replace(/\/+$/, "") || "/";
-
-  let relative: string;
-  if (normalizedRemote === normalizedBase) {
-    relative = entryName;
-  } else if (normalizedBase === "/" && normalizedRemote.startsWith("/")) {
-    relative = `${normalizedRemote.slice(1)}/${entryName}`;
-  } else if (normalizedRemote.startsWith(`${normalizedBase}/`)) {
-    relative = `${normalizedRemote.slice(normalizedBase.length + 1)}/${entryName}`;
-  } else {
-    return null;
-  }
-
-  return relative.replace(/^\/+/, "");
 }
 
 function isUniqueViolation(error: unknown): boolean {
@@ -121,16 +88,6 @@ async function upsertRemoteEntry(nodeId: string, entry: SftpListEntry, relativeP
     });
     return raced.isDeleted ? ("created" as const) : ("updated" as const);
   }
-}
-
-function computeDirectoryRelativePath(basePath: string, remotePath: string): string | null {
-  const normalizedBase = basePath.replace(/\/+$/, "") || "/";
-  const normalizedRemote = remotePath.replace(/\/+$/, "") || "/";
-
-  if (normalizedRemote === normalizedBase) return "";
-  if (normalizedBase === "/" && normalizedRemote.startsWith("/")) return normalizedRemote.slice(1);
-  if (normalizedRemote.startsWith(`${normalizedBase}/`)) return normalizedRemote.slice(normalizedBase.length + 1);
-  return null;
 }
 
 async function pruneStaleEntries(nodeId: string, basePath: string, dirPath: string, remoteRelativePaths: Set<string>) {
@@ -209,6 +166,7 @@ export async function syncSftpDirectoryEntries(input: {
         }),
         dirPath,
         directoryTimeoutMs,
+        { stoppedVerb: "syncing" },
       );
     } catch (error) {
       const msg = error instanceof Error ? error.message : "Unknown error";

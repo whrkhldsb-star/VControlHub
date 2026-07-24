@@ -22,6 +22,7 @@ import { listRemoteDirectory, type SftpListEntry } from "@/lib/ssh/client";
 import { normalizeRemotePath } from "@/lib/storage/remote-path";
 import { resolveStorageSshCredentials } from "@/lib/storage/ssh-credentials";
 import { getSftpSyncDirectoryTimeoutMs } from "@/lib/runtime-settings/service";
+import { computeDirectoryRelativePath, computeRelativePath, withDirectoryTimeout } from "@/lib/storage/sftp-walk-utils";
 
 const logger = createLogger("sftp-stale-inventory");
 
@@ -87,67 +88,6 @@ export interface SftpStaleInventoryResult {
   durationMs: number;
   /** dryRun 模式下为 true, 没真正改 DB; 调用方可借此审计 */
   dryRun: boolean;
-}
-
-async function withDirectoryTimeout<T>(
-  operation: Promise<T>,
-  dirPath: string,
-  timeoutMs: number,
-): Promise<T> {
-  let timer: ReturnType<typeof setTimeout> | undefined;
-  try {
-    return await Promise.race([
-      operation,
-      new Promise<T>((_resolve, reject) => {
-        timer = setTimeout(() => {
-          reject(
-            new Error(
-              `Scanning ${dirPath} exceeded ${Math.ceil(timeoutMs / 1000)} seconds; stopped scanning this directory`,
-            ),
-          );
-        }, timeoutMs);
-      }),
-    ]);
-  } finally {
-    if (timer) clearTimeout(timer);
-  }
-}
-
-function computeRelativePath(
-  basePath: string,
-  dirPath: string,
-  entryName: string,
-): string | null {
-  const normalizedBase = basePath.replace(/\/+$/, "") || "/";
-  const normalizedDir = dirPath.replace(/\/+$/, "") || "/";
-
-  let relative: string;
-  if (normalizedDir === normalizedBase) {
-    relative = entryName;
-  } else if (normalizedBase === "/" && normalizedDir.startsWith("/")) {
-    relative = `${normalizedDir.slice(1)}/${entryName}`;
-  } else if (normalizedDir.startsWith(`${normalizedBase}/`)) {
-    relative = `${normalizedDir.slice(normalizedBase.length + 1)}/${entryName}`;
-  } else {
-    return null;
-  }
-
-  return relative.replace(/^\/+/, "");
-}
-
-function computeDirectoryBaseRelativePath(
-  basePath: string,
-  dirPath: string,
-): string {
-  const normalizedBase = basePath.replace(/\/+$/, "") || "/";
-  const normalizedDir = dirPath.replace(/\/+$/, "") || "/";
-
-  if (normalizedDir === normalizedBase) return "";
-  if (normalizedBase === "/" && normalizedDir.startsWith("/"))
-    return normalizedDir.slice(1);
-  if (normalizedDir.startsWith(`${normalizedBase}/`))
-    return normalizedDir.slice(normalizedBase.length + 1);
-  return "";
 }
 
 /**
@@ -236,7 +176,7 @@ export async function detectAndPruneSftpStaleInventory(input: {
       return;
     }
 
-    const dirRelative = computeDirectoryBaseRelativePath(basePath, dirPath);
+    const dirRelative = computeDirectoryRelativePath(basePath, dirPath) ?? "";
     listedDirRelatives.add(dirRelative);
 
     for (const entry of entries) {
@@ -261,7 +201,7 @@ export async function detectAndPruneSftpStaleInventory(input: {
   await walkDirectory(basePath, 0);
 
   // 跟 DB 端 diff: 找本节点下 isDeleted=false 但不在 expectedRelativePaths 的条目
-  const baseRelative = computeDirectoryBaseRelativePath(basePath, basePath);
+  const baseRelative = computeDirectoryRelativePath(basePath, basePath) ?? "";
   try {
     // P2: take=10_000 上界。stale 检测需全集语义,单 node+目录前缀下 1w 行已是异常量级。
     const dbEntries = await prisma.fileEntry.findMany({
