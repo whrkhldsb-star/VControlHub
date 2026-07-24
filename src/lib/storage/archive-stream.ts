@@ -23,6 +23,23 @@ export function buildArchiveHeaders(fileName: string) {
 	return headers;
 }
 
+function destroyReadableWithError(stream: NodeJS.ReadableStream, error: Error) {
+	const maybe = stream as NodeJS.ReadableStream & {
+		destroyed?: boolean;
+		destroy?: (err?: Error) => void;
+		emit?: (event: string, ...args: unknown[]) => boolean;
+	};
+	if (maybe.destroyed) return;
+	if (typeof maybe.destroy === "function") {
+		maybe.destroy(error);
+		return;
+	}
+	// ssh2 ClientChannel may not expose destroy; surface via error event.
+	if (typeof maybe.emit === "function") {
+		maybe.emit("error", error);
+	}
+}
+
 export function streamLocalTarGz(directoryPath: string, entryName: string) {
 	const tar = spawn("tar", ["-czf", "-", "-C", path.dirname(directoryPath), "--", entryName], {
 		stdio: ["ignore", "pipe", "pipe"],
@@ -30,11 +47,29 @@ export function streamLocalTarGz(directoryPath: string, entryName: string) {
 	tar.stderr.on("data", (chunk) => {
 		logger.warn("local archive tar stderr", { message: String(chunk).slice(0, 500) });
 	});
-	return tar.stdout;
+	const out = tar.stdout;
+	tar.on("error", (error) => {
+		logger.warn("local archive tar process error", { message: error.message });
+		destroyReadableWithError(out, error);
+	});
+	tar.on("close", (code, signal) => {
+		if (code === 0 || code === null) {
+			if (signal) {
+				const error = new Error(`tar killed by signal ${signal}`);
+				logger.warn("local archive tar signal", { signal });
+				destroyReadableWithError(out, error);
+			}
+			return;
+		}
+		const error = new Error(`tar exited with code ${code}`);
+		logger.warn("local archive tar non-zero exit", { code, signal });
+		destroyReadableWithError(out, error);
+	});
+	return out;
 }
 
 function shellQuote(value: string) {
-	return `'${value.replace(/'/g, `'"'"'`)}'`;
+	return "'" + value.replace(/'/g, "'\"'\"'") + "'";
 }
 
 export function connectArchiveSsh(config: ConnectConfig | SshConnectionParams): Promise<Client> {
@@ -50,6 +85,19 @@ export function streamRemoteTarGz(client: Client, remoteDirectoryPath: string) {
 			if (err) return reject(err);
 			stream.stderr.on("data", (chunk: Buffer) => {
 				logger.warn("remote archive tar stderr", { message: chunk.toString("utf8").slice(0, 500) });
+			});
+			stream.on("close", (code: number | null, signal: string | null | undefined) => {
+				if (code === 0 || code === null) {
+					if (signal) {
+						const error = new Error(`remote tar killed by signal ${signal}`);
+						logger.warn("remote archive tar signal", { signal });
+						destroyReadableWithError(stream, error);
+					}
+					return;
+				}
+				const error = new Error(`remote tar exited with code ${code}`);
+				logger.warn("remote archive tar non-zero exit", { code, signal });
+				destroyReadableWithError(stream, error);
 			});
 			resolve(stream);
 		});
