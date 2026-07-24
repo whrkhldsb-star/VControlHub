@@ -96,6 +96,7 @@ export async function listTemplates(limit = 200) {
 }
 
 export async function createTemplate(input: CreateTemplateInput) {
+	const createdById = input.createdById?.trim() || null;
 	return prisma.commandTemplate.create({
 		data: {
 			name: input.name,
@@ -105,7 +106,8 @@ export async function createTemplate(input: CreateTemplateInput) {
 			variables: input.variables ?? extractTemplateVariables(input.command, input.rollbackCommand),
 			tags: input.tags ?? [],
 			isBuiltin: false,
-			createdById: input.createdById ?? null,
+			// Blank strings are not real owners — normalize to null so assertCanMutateTemplate treats as legacy.
+			createdById,
 		},
 	});
 }
