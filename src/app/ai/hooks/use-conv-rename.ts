@@ -35,9 +35,10 @@ export function useConvRename({
   }, []);
 
   const close = useCallback(() => {
+    if (busy) return;
     setOpen(false);
     setError(null);
-  }, []);
+  }, [busy]);
 
   const submit = useCallback(async () => {
     if (!activeConvId) return;
