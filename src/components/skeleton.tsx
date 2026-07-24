@@ -1,14 +1,5 @@
 /* ── Skeleton / Loading Components ─────────────────────────── */
 
-/**
- * Static bar / chip placeholder.  Uses Q-layer-mapped `bg-[var(--surface-hover)]/20`
- * so it has a visible tint in both dark and light themes; an animated
- * `data-skeleton` overlay drives the shimmer via globals.css.
- */
-export function SkeletonLine({ className }: { className?: string }) {
-	return <div className={`animate-pulse rounded-lg bg-[var(--surface-hover)]/20 ${className ?? "h-4 w-3/4"}`} />;
-}
-
 export function SkeletonCard({ className }: { className?: string }) {
 	return (
 		<div className={`animate-pulse rounded-xl border border-[var(--border)] bg-[var(--surface-hover)]/10 p-5 space-y-3 ${className ?? ""}`}>
