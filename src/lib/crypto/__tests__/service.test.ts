@@ -27,14 +27,12 @@ describe("crypto service", () => {
       expect(decrypt(ct)).toBe(sample);
     });
 
-    it("encrypt of an empty string produces a 3-segment payload", () => {
+    it("encrypt of an empty string produces a 4-segment payload", () => {
       // Note: decrypt(encrypt("")) throws "Invalid encrypted format" by
-      // design — the source's `if (!ivB64 || !tagB64 || !dataB64)` guard
-      // rejects any payload with an empty cipher segment. This is
-      // upstream behavior; tracked separately. The encryption itself
-      // does not throw.
+      // design — empty base64 cipher segment fails the truthiness guard.
+      // The encryption itself does not throw.
       const ct = encrypt("");
-      expect(ct.split(":")).toHaveLength(3);
+      expect(ct.split(":")).toHaveLength(4);
     });
 
     it("produces a different ciphertext for the same plaintext (random IV)", () => {
@@ -76,6 +74,33 @@ describe("crypto service", () => {
         : `A${tagB64!.slice(1)}`;
       const tampered = `${ivB64}:${tamperedTag}:${dataB64}`;
       expect(() => decrypt(tampered)).toThrow();
+    });
+  });
+
+  describe("salted envelope", () => {
+    it("embeds a per-ciphertext salt (4 segments)", () => {
+      const ct = encrypt("salted");
+      expect(ct.split(":")).toHaveLength(4);
+      expect(isEncrypted(ct)).toBe(true);
+      expect(decrypt(ct)).toBe("salted");
+    });
+
+    it("decrypts legacy 3-segment ciphertext sealed with the fixed salt", () => {
+      // Seal with the historical fixed-salt derivation, then read via decrypt().
+      const { createCipheriv, randomBytes, scryptSync } = require("crypto");
+      const passphrase = process.env.ENCRYPTION_KEY || "";
+      // In test, ENCRYPTION_KEY is stubbed empty so getPassphrase auto-generates.
+      // Force a stable passphrase for this case.
+      const keyMaterial = "test-passphrase-for-legacy";
+      vi.stubEnv("ENCRYPTION_KEY", keyMaterial);
+      const key = scryptSync(keyMaterial, "salt-vps-platform", 32);
+      const iv = randomBytes(16);
+      const cipher = createCipheriv("aes-256-gcm", key, iv);
+      const encrypted = Buffer.concat([cipher.update("legacy-secret", "utf8"), cipher.final()]);
+      const tag = cipher.getAuthTag();
+      const legacy = `${iv.toString("base64")}:${tag.toString("base64")}:${encrypted.toString("base64")}`;
+      expect(legacy.split(":")).toHaveLength(3);
+      expect(decrypt(legacy)).toBe("legacy-secret");
     });
   });
 
