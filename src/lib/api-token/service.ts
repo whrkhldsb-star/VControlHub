@@ -83,6 +83,9 @@ export async function revokeApiToken(input: { userId: string; id: string }) {
   return prisma.apiToken.update({ where: { id: input.id, createdBy: input.userId }, data: { revokedAt: new Date() } });
 }
 
+/** Skip lastUsedAt writes when the token was already marked used within this window. */
+const LAST_USED_AT_TOUCH_MIN_MS = 5 * 60 * 1000;
+
 export async function verifyApiToken(token: string) {
   const tokenHash = hashApiToken(token);
   const record = await prisma.apiToken.findUnique({
@@ -92,6 +95,9 @@ export async function verifyApiToken(token: string) {
   if (!record || record.revokedAt) return null;
   if (!record.creator || record.creator.status === "DISABLED") return null;
   if (record.expiresAt && record.expiresAt.getTime() <= Date.now()) return null;
-  await prisma.apiToken.update({ where: { id: record.id }, data: { lastUsedAt: new Date() } });
+  const lastUsedMs = record.lastUsedAt?.getTime() ?? 0;
+  if (Date.now() - lastUsedMs >= LAST_USED_AT_TOUCH_MIN_MS) {
+    await prisma.apiToken.update({ where: { id: record.id }, data: { lastUsedAt: new Date() } });
+  }
   return { userId: record.createdBy, scopes: record.scopes, tokenId: record.id };
 }

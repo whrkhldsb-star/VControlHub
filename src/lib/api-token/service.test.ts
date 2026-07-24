@@ -40,4 +40,38 @@ describe("api token service", () => {
     await expect(verifyApiToken("whr_disabled")).resolves.toBeNull();
     expect(mockPrisma.apiToken.update).not.toHaveBeenCalled();
   });
+
+  it("throttles lastUsedAt writes when the token was used recently", async () => {
+    const recent = new Date(Date.now() - 60_000);
+    mockPrisma.apiToken.findUnique.mockResolvedValueOnce({
+      id: "t-recent",
+      createdBy: "u1",
+      scopes: ["read"],
+      revokedAt: null,
+      expiresAt: null,
+      lastUsedAt: recent,
+      creator: { id: "u1", status: "ACTIVE" },
+    });
+    await expect(verifyApiToken("whr_recent")).resolves.toEqual({
+      userId: "u1",
+      scopes: ["read"],
+      tokenId: "t-recent",
+    });
+    expect(mockPrisma.apiToken.update).not.toHaveBeenCalled();
+
+    mockPrisma.apiToken.findUnique.mockResolvedValueOnce({
+      id: "t-stale",
+      createdBy: "u1",
+      scopes: ["read"],
+      revokedAt: null,
+      expiresAt: null,
+      lastUsedAt: new Date(Date.now() - 10 * 60 * 1000),
+      creator: { id: "u1", status: "ACTIVE" },
+    });
+    await expect(verifyApiToken("whr_stale")).resolves.toMatchObject({ tokenId: "t-stale" });
+    expect(mockPrisma.apiToken.update).toHaveBeenCalledWith({
+      where: { id: "t-stale" },
+      data: { lastUsedAt: expect.any(Date) },
+    });
+  });
 });
