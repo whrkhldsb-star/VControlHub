@@ -12,7 +12,7 @@
 import type { IncomingMessage } from "node:http";
 import { WebSocketServer, WebSocket } from "ws";
 import type { SessionPayload } from "@/lib/auth/session";
-import { verifySessionToken } from "@/lib/auth/session";
+import { getSessionCookieName, verifySessionToken } from "@/lib/auth/session";
 import { createLogger } from "@/lib/logging";
 import { recordWsEvent, setWsActive } from "@/lib/monitoring/runtime-metrics";
 
@@ -72,6 +72,31 @@ export function getWsServer(): WebSocketServer | null {
 	return wss;
 }
 
+
+function extractCookie(cookieHeader: string | undefined, name: string): string | null {
+	if (!cookieHeader) return null;
+	const prefix = `${name}=`;
+	for (const part of cookieHeader.split(";")) {
+		const trimmed = part.trim();
+		if (!trimmed.startsWith(prefix)) continue;
+		try {
+			return decodeURIComponent(trimmed.slice(prefix.length));
+		} catch {
+			return trimmed.slice(prefix.length);
+		}
+	}
+	return null;
+}
+
+function resolveUpgradeSessionToken(request: IncomingMessage, url: URL): string | null {
+	// Prefer HttpOnly session cookie (never readable by document.cookie).
+	const fromCookie = extractCookie(request.headers.cookie, getSessionCookieName());
+	if (fromCookie) return fromCookie;
+	// Legacy/query fallback for non-browser clients that cannot send cookies.
+	const fromQuery = url.searchParams.get("token");
+	return fromQuery && fromQuery.trim() ? fromQuery.trim() : null;
+}
+
 export function setupWebSocketServer(server: import("node:http").Server) {
 	if (wss) return; // already initialized
 
@@ -82,14 +107,16 @@ export function setupWebSocketServer(server: import("node:http").Server) {
 		// Only handle /ws path
 		const url = new URL(request.url || "/", `http://${request.headers.host || "localhost"}`);
 		if (url.pathname !== "/ws") {
+			socket.write("HTTP/1.1 404 Not Found\r\nConnection: close\r\n\r\n");
 			socket.destroy();
 			return;
 		}
 
-		// Authenticate via token query param
-		const token = url.searchParams.get("token");
+		// Authenticate via HttpOnly session cookie first; query token is legacy fallback only.
+		const token = resolveUpgradeSessionToken(request, url);
 		if (!token) {
 			recordWsEvent("notification", "reject");
+			socket.write("HTTP/1.1 401 Unauthorized\r\nConnection: close\r\n\r\n");
 			socket.destroy();
 			return;
 		}

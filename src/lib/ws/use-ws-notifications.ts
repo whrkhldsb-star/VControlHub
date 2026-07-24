@@ -31,29 +31,9 @@ type UseWsNotificationsReturn = {
 };
 
 /**
- * Get the exact session cookie name from the <meta> tag injected by layout,
- * or fall back to parsing document.cookie for *_session pattern.
- * This avoids the overly broad regex that could match wrong cookies.
+ * Same-origin WebSocket upgrades include HttpOnly session cookies automatically.
+ * Do not put the session JWT in the query string (logs / Referer leakage).
  */
-function getSessionTokenFromCookie(): string | null {
-	// Prefer meta tag if available (set by layout)
-	const metaTag = document.querySelector('meta[name="session-cookie-name"]');
-	const cookieName = metaTag?.getAttribute("content");
-
-	if (cookieName) {
-		// Exact match for the known cookie name
-		const exactMatch = document.cookie.match(
-			new RegExp(`(?:^|;\\s*)${cookieName.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}=([^;]+)`)
-		);
-		if (exactMatch) return exactMatch[1]!;
-	}
-
-	// Fallback: find a cookie ending with _session
-	const fallbackMatch = document.cookie.match(/(?:^|;\s*)(\w+_session)=([^;]+)/);
-	if (fallbackMatch) return fallbackMatch[2]!;
-
-	return null;
-}
 
 export function useWsNotifications(): UseWsNotificationsReturn {
 	const wsRef = useRef<WebSocket | null>(null);
@@ -85,11 +65,9 @@ export function useWsNotifications(): UseWsNotificationsReturn {
 	}, []);
 
 	const connect = useCallback(() => {
-		const token = getSessionTokenFromCookie();
-		if (!token) return;
-
 		const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
-		const wsUrl = `${protocol}//${window.location.host}/ws?token=${encodeURIComponent(token)}`;
+		// Cookie-auth only: server reads the HttpOnly session cookie on upgrade.
+		const wsUrl = `${protocol}//${window.location.host}/ws`;
 
 		try {
 			const ws = new WebSocket(wsUrl);

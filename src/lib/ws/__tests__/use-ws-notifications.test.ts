@@ -71,10 +71,11 @@ describe("useWsNotifications", () => {
     expect(result.current.lastServerAlert).toBeNull();
   });
 
-  it("opens a ws:// connection with the session token in the query string", () => {
+  it("opens a same-origin ws:// connection without putting the session token in the query string", () => {
     renderHook(() => useWsNotifications());
     const ws = FakeWebSocket.instances.at(-1)!;
-    expect(ws.url).toMatch(/ws:\/\/[^/]+\/ws\?token=cookie-token-abc/);
+    expect(ws.url).toMatch(/ws:\/\/[^/]+\/ws$/);
+    expect(ws.url).not.toContain("token=");
   });
 
   it("flips connected to true on ws open and false on close", () => {
