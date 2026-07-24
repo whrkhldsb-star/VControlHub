@@ -12,6 +12,7 @@ import { JobStatus } from "@prisma/client";
 import { config } from "@/lib/config/env";
 import { prisma } from "@/lib/db";
 import { createLogger } from "@/lib/logging";
+import { pruneJobEvents } from "@/lib/job/events";
 import { recoverStaleRunningJobs } from "@/lib/job/service";
 
 const logger = createLogger("job-maintenance-worker");
@@ -145,6 +146,17 @@ async function tick(reason: string) {
         failed: recovered.failed.length,
         recoveredIds: recovered.recovered,
         failedIds: recovered.failed,
+      });
+    }
+    // Bound job_events growth: drop events older than 30d while always
+    // retaining the newest KEEP_LATEST rows so recent timelines stay intact.
+    const olderThan = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+    const pruned = await pruneJobEvents({ olderThan, keepLatest: 5000 });
+    if (pruned.count > 0) {
+      logger.info("pruned job events", {
+        workerId: WORKER_ID,
+        deleted: pruned.count,
+        olderThan: olderThan.toISOString(),
       });
     }
   } catch (error) {

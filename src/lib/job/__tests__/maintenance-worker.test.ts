@@ -27,6 +27,10 @@ vi.mock("@/lib/job/service", () => ({
   recoverStaleRunningJobs: mocks.recoverStaleRunningJobs,
 }));
 
+vi.mock("@/lib/job/events", () => ({
+  pruneJobEvents: vi.fn(async () => ({ count: 0 })),
+}));
+
 const {
   abandonOrphanPendingJobs,
   _knownJobTypesForTests,
