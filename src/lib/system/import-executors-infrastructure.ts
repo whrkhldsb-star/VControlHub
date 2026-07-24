@@ -24,8 +24,23 @@ export async function importSshKeys(
     select: { id: true },
   });
   const existingIds = new Set(existing.map((e) => e.id));
-  const toCreate = records.filter((r) => !existingIds.has(r.id));
+  let toCreate = records.filter((r) => !existingIds.has(r.id));
   const toUpdate = records.filter((r) => existingIds.has(r.id));
+
+  if (toCreate.length > 0) {
+    // Secondary unique: SshKey.fingerprint
+    const fps = [...new Set(toCreate.map((r) => r.fingerprint).filter(Boolean))];
+    if (fps.length > 0) {
+      const fpHits = await tx.sshKey.findMany({
+        where: { fingerprint: { in: fps } },
+        select: { id: true, fingerprint: true },
+      });
+      const taken = new Set(fpHits.map((h) => h.fingerprint));
+      const skippedSecondary = toCreate.filter((r) => r.fingerprint && taken.has(r.fingerprint));
+      toCreate = toCreate.filter((r) => !(r.fingerprint && taken.has(r.fingerprint)));
+      counts.skipped += skippedSecondary.length;
+    }
+  }
 
   if (toCreate.length > 0) {
     const result = await tx.sshKey.createMany({
@@ -47,6 +62,16 @@ export async function importSshKeys(
 
   if (options.overwriteExisting) {
     for (const r of toUpdate) {
+      if (r.fingerprint) {
+        const clash = await tx.sshKey.findFirst({
+          where: { fingerprint: r.fingerprint, NOT: { id: r.id } },
+          select: { id: true },
+        });
+        if (clash) {
+          counts.skipped += 1;
+          continue;
+        }
+      }
       await tx.sshKey.update({
         where: { id: r.id },
         data: {
@@ -62,8 +87,8 @@ export async function importSshKeys(
           teamId: r.teamId ?? null,
         },
       });
+      counts.updated += 1;
     }
-    counts.updated += toUpdate.length;
   } else {
     counts.skipped += toUpdate.length;
   }

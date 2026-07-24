@@ -26,8 +26,23 @@ export async function importPermissions(
     select: { id: true },
   });
   const existingIds = new Set(existing.map((e) => e.id));
-  const toCreate = records.filter((r) => !existingIds.has(r.id));
+  let toCreate = records.filter((r) => !existingIds.has(r.id));
   const toUpdate = records.filter((r) => existingIds.has(r.id));
+
+  if (toCreate.length > 0) {
+    // Secondary unique: permission.key
+    const values = [...new Set(toCreate.map((r) => r.key).filter(Boolean))];
+    if (values.length > 0) {
+      const hits = await tx.permission.findMany({
+        where: { key: { in: values } },
+        select: { id: true, key: true },
+      });
+      const taken = new Set(hits.map((h) => h.key));
+      const skippedSecondary = toCreate.filter((r) => r.key && taken.has(r.key));
+      toCreate = toCreate.filter((r) => !(r.key && taken.has(r.key)));
+      counts.skipped += skippedSecondary.length;
+    }
+  }
 
   if (toCreate.length > 0) {
     const result = await tx.permission.createMany({
@@ -44,12 +59,20 @@ export async function importPermissions(
 
   if (options.overwriteExisting) {
     for (const r of toUpdate) {
+      const clash = await tx.permission.findFirst({
+        where: { key: r.key, NOT: { id: r.id } },
+        select: { id: true },
+      });
+      if (clash) {
+        counts.skipped += 1;
+        continue;
+      }
       await tx.permission.update({
         where: { id: r.id },
         data: { key: r.key, name: r.name, description: r.description },
       });
+      counts.updated += 1;
     }
-    counts.updated += toUpdate.length;
   } else {
     counts.skipped += toUpdate.length;
   }
@@ -70,8 +93,23 @@ export async function importRoles(
     select: { id: true },
   });
   const existingIds = new Set(existing.map((e) => e.id));
-  const toCreate = records.filter((r) => !existingIds.has(r.id));
+  let toCreate = records.filter((r) => !existingIds.has(r.id));
   const toUpdate = records.filter((r) => existingIds.has(r.id));
+
+  if (toCreate.length > 0) {
+    // Secondary unique: role.key
+    const values = [...new Set(toCreate.map((r) => r.key).filter(Boolean))];
+    if (values.length > 0) {
+      const hits = await tx.role.findMany({
+        where: { key: { in: values } },
+        select: { id: true, key: true },
+      });
+      const taken = new Set(hits.map((h) => h.key));
+      const skippedSecondary = toCreate.filter((r) => r.key && taken.has(r.key));
+      toCreate = toCreate.filter((r) => !(r.key && taken.has(r.key)));
+      counts.skipped += skippedSecondary.length;
+    }
+  }
 
   if (toCreate.length > 0) {
     const result = await tx.role.createMany({
@@ -88,12 +126,20 @@ export async function importRoles(
 
   if (options.overwriteExisting) {
     for (const r of toUpdate) {
+      const clash = await tx.role.findFirst({
+        where: { key: r.key, NOT: { id: r.id } },
+        select: { id: true },
+      });
+      if (clash) {
+        counts.skipped += 1;
+        continue;
+      }
       await tx.role.update({
         where: { id: r.id },
         data: { key: r.key, name: r.name, description: r.description },
       });
+      counts.updated += 1;
     }
-    counts.updated += toUpdate.length;
   } else {
     counts.skipped += toUpdate.length;
   }
@@ -138,8 +184,23 @@ export async function importUsers(
     select: { id: true },
   });
   const existingIds = new Set(existing.map((e) => e.id));
-  const toCreate = records.filter((r) => !existingIds.has(r.id));
+  let toCreate = records.filter((r) => !existingIds.has(r.id));
   const toUpdate = records.filter((r) => existingIds.has(r.id));
+
+  if (toCreate.length > 0) {
+    // Secondary unique: user.username
+    const values = [...new Set(toCreate.map((r) => r.username).filter(Boolean))];
+    if (values.length > 0) {
+      const hits = await tx.user.findMany({
+        where: { username: { in: values } },
+        select: { id: true, username: true },
+      });
+      const taken = new Set(hits.map((h) => h.username));
+      const skippedSecondary = toCreate.filter((r) => r.username && taken.has(r.username));
+      toCreate = toCreate.filter((r) => !(r.username && taken.has(r.username)));
+      counts.skipped += skippedSecondary.length;
+    }
+  }
 
   if (toCreate.length > 0) {
     const result = await tx.user.createMany({
@@ -162,6 +223,14 @@ export async function importUsers(
 
   if (options.overwriteExisting) {
     for (const r of toUpdate) {
+      const clash = await tx.user.findFirst({
+        where: { username: r.username, NOT: { id: r.id } },
+        select: { id: true },
+      });
+      if (clash) {
+        counts.skipped += 1;
+        continue;
+      }
       await tx.user.update({
         where: { id: r.id },
         data: {
@@ -176,8 +245,8 @@ export async function importUsers(
           ...(r.twoFactorSecret !== null ? { twoFactorSecret: r.twoFactorSecret } : {}),
         },
       });
+      counts.updated += 1;
     }
-    counts.updated += toUpdate.length;
   } else {
     counts.skipped += toUpdate.length;
   }
