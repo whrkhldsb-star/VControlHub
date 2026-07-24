@@ -1,16 +1,10 @@
 import { readFileSync, readdirSync, statfsSync } from "node:fs";
 import os from "os";
 
+import { formatBytes } from "@/lib/format/bytes";
+
 function readProc(path: string) {
 	try { return readFileSync(path, "utf-8"); } catch { return ""; }
-}
-
-function formatBytes(bytes: number) {
-	const units = ["B", "KB", "MB", "GB", "TB"];
-	let index = 0;
-	let size = bytes;
-	while (size >= 1024 && index < units.length - 1) { size /= 1024; index += 1; }
-	return `${size.toFixed(1)} ${units[index]}`;
 }
 
 function cpuUsagePercent() {

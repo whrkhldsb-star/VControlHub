@@ -9,6 +9,7 @@
  * decryption in `./service-credentials`, prisma CRUD in `./service-crud`.
  */
 import { prisma } from "@/lib/db";
+import { formatBytes } from "@/lib/format/bytes";
 import { execRemoteCommand, buildSshParamsFromServer, writeRemoteFile, type SshConnectionParams } from "@/lib/ssh/client";
 import { logError } from "@/lib/logging";
 import { shellQuote } from "@/lib/shell-quote";
@@ -80,13 +81,6 @@ function parseRsyncOutput(output: string) {
 	}
 
 	return { totalFiles, transferredFiles, totalSize };
-}
-
-function formatBytes(n: number): string {
-	if (n === 0) return "0 B";
-	const units = ["B", "KB", "MB", "GB", "TB"];
-	const i = Math.floor(Math.log(n) / Math.log(1024));
-	return `${(n / Math.pow(1024, i)).toFixed(i > 0 ? 1 : 0)} ${units[i]}`;
 }
 
 /* ── Ephemeral private key ────────────────────────────────── */

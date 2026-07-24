@@ -18,3 +18,10 @@ export function formatBytes(bytes: number | string | null | undefined): string {
   const decimals = i === 0 ? 0 : i <= 2 ? 1 : 2;
   return `${value.toFixed(decimals)} ${units[i]}`;
 }
+
+/** Rate label helper for monitor traffic samples. */
+export function formatBytesPerSecond(
+  bytesPerSecond: number | string | null | undefined,
+): string {
+  return `${formatBytes(bytesPerSecond)}/s`;
+}

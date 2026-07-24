@@ -8,6 +8,7 @@ import {
   spawnAria2Detached,
 } from "@/lib/aria2/command-runner";
 import { postAria2Rpc } from "@/lib/aria2/provider-http";
+import { formatBytes as formatBytesShared } from "@/lib/format/bytes";
 import { t, type Locale } from "@/lib/i18n/translations";
 
 /* ── Aria2 RPC Configuration ──────────────────────────────── */
@@ -293,17 +294,13 @@ export async function changeGlobalOption(options: Record<string, string>): Promi
 export function formatBytes(bytes: string | number): string {
 	const n = typeof bytes === "string" ? parseInt(bytes, 10) : bytes;
 	if (isNaN(n) || n === 0) return "0 B";
-	const units = ["B", "KB", "MB", "GB", "TB"];
-	const i = Math.floor(Math.log(n) / Math.log(1024));
-	return `${(n / Math.pow(1024, i)).toFixed(i > 0 ? 1 : 0)} ${units[i]}`;
+	return formatBytesShared(n);
 }
 
 export function formatSpeed(bytesPerSec: string | number): string {
 	const n = typeof bytesPerSec === "string" ? parseInt(bytesPerSec, 10) : bytesPerSec;
 	if (isNaN(n) || n === 0) return "0 B/s";
-	const units = ["B/s", "KB/s", "MB/s", "GB/s"];
-	const i = Math.floor(Math.log(n) / Math.log(1024));
-	return `${(n / Math.pow(1024, i)).toFixed(i > 0 ? 1 : 0)} ${units[i]}`;
+	return `${formatBytesShared(n)}/s`;
 }
 
 export function computeProgress(completed: string, total: string): number {
