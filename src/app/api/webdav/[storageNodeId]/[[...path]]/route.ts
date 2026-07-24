@@ -134,4 +134,3 @@ export const PUT = withParams;
 export const DELETE = withParams;
 export const POST = withParams;
 export const OPTIONS = withParams;
-export const PATCH = withParams;
