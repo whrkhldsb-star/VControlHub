@@ -41,16 +41,8 @@ export type ServerOption = {
 	host: string;
 };
 
-export function formatBytes(bytes: number) {
-	const units = ["B", "KB", "MB", "GB", "TB"];
-	let value = Math.max(0, Number.isFinite(bytes) ? bytes : 0);
-	let index = 0;
-	while (value >= 1024 && index < units.length - 1) {
-		value /= 1024;
-		index += 1;
-	}
-	return index === 0 ? `${Math.round(value)} ${units[index]}` : `${value.toFixed(1)} ${units[index]}`;
-}
+/** Re-export shared formatter (audit: drop local duplicate). */
+export { formatBytes } from "@/lib/format/bytes";
 
 export function getContainerName(
 	t: (key: string) => string,

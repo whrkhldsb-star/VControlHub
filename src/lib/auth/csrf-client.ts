@@ -9,7 +9,7 @@ import { useEffect, useState } from "react";
  *   - Server sets a random `csrf_token` cookie at login (SameSite=Strict + Secure in prod).
  *   - Client reads that cookie via `document.cookie` and echoes it into the
  *     `X-CSRF-Token` header on every state-changing request.
- *   - Server (`src/lib/auth/csrf.ts:validateCsrf`) compares cookie value vs header value.
+ *   - Server (`src/proxy.ts`) compares cookie `csrf_token` vs `x-csrf-token` header.
  *
  * The cookie **must be JS-readable** for this pattern to work. Adding `HttpOnly`
  * would block `document.cookie` access and silently break every POST/PUT/DELETE/PATCH

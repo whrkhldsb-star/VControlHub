@@ -109,7 +109,3 @@ export type AiOpsSafeAutonomousAction =
 export const AI_OPS_DEFAULT_SCHEDULE_HOUR = 2;
 
 export type AiOpsLogJson = Prisma.JsonValue;
-
-export function isAiOpsLogJsonArray<T>(value: T): T {
-	return value;
-}
