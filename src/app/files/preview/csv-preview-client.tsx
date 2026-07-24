@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { useI18n } from "@/lib/i18n/use-locale";
 
-type CsvState = { loading: true } | { loading: false; rows: string[][] | null; error: string | null; raw: string | null };
+type CsvState = { loading: true } | { loading: false; rows: string[][] | null; error: string | null };
 
 function parseCsv(text: string): string[][] {
 	const rows: string[][] = [];
@@ -78,15 +78,15 @@ export function CsvPreviewClient({ href }: { href: string }) {
 				if (!cancelled) {
 					try {
 						const rows = parseCsv(text);
-						setState({ loading: false, rows, error: null, raw: text });
+						setState({ loading: false, rows, error: null });
 					} catch (err) {
-						setState({ loading: false, rows: null, error: err instanceof Error ? err.message : t("csvPreview.parseFailed"), raw: null });
+						setState({ loading: false, rows: null, error: err instanceof Error ? err.message : t("csvPreview.parseFailed") });
 					}
 				}
 			})
 			.catch((err) => {
 				if (!cancelled) {
-					setState({ loading: false, rows: null, error: err instanceof Error ? err.message : t("csvPreview.loadFailed"), raw: null });
+					setState({ loading: false, rows: null, error: err instanceof Error ? err.message : t("csvPreview.loadFailed") });
 				}
 			});
 		return () => { cancelled = true; };
