@@ -280,10 +280,10 @@ export function CreateRuleForm({
 				</label>
 				<div className="flex flex-wrap gap-2">
 					{[
-						{ key: "in_app", i18nKey: "alertRulesPage.createForm.channel.in_app" },
-						{ key: "email", i18nKey: "alertRulesPage.createForm.channel.email" },
-						{ key: "telegram", i18nKey: "alertRulesPage.createForm.channel.telegram" },
-						{ key: "webhook", i18nKey: "alertRulesPage.createForm.channel.webhook" },
+						{ key: "in_app", i18nKey: "alertRulesPage.channel.in_app" },
+						{ key: "email", i18nKey: "alertRulesPage.channel.email" },
+						{ key: "telegram", i18nKey: "alertRulesPage.channel.telegram" },
+						{ key: "webhook", i18nKey: "alertRulesPage.channel.webhook" },
 					].map(({ key, i18nKey }) => (
 						<button
 							key={key}
