@@ -11,6 +11,7 @@ import { PwaRegister } from "@/components/pwa-register";
 import { SentryProvider } from "@/components/sentry-provider";
 import { WebVitalsReporter } from "@/components/web-vitals-reporter";
 import { I18nProvider } from "@/lib/i18n/provider";
+import { DomI18nBridge } from "@/lib/i18n/dom-bridge";
 import { ThemeProvider } from "@/lib/theme/provider";
 import { SshTerminalProvider } from "@/app/servers/ssh-terminal-context";
 import { getAppMetadataTitle, getAppDescription } from "@/lib/branding";
@@ -79,6 +80,7 @@ export default async function RootLayout({
 			<body className="min-h-full flex flex-row">
 				<ThemeProvider initialTheme={initialTheme}>
 					<I18nProvider initialLocale={initialLocale}>
+						<DomI18nBridge />
 						<SentryProvider />
 						<WebVitalsReporter />
 						<ToastProvider>
