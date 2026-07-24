@@ -43,17 +43,7 @@ function useFolderNavigation(
     [fetchFiles],
   );
 
-  const navigateToNodeFolder = useCallback(
-    (path: string, nodeId: string) => {
-      fetchFiles(path, undefined, undefined, nodeId, {
-        resetSelection: true,
-        history: "push",
-      });
-    },
-    [fetchFiles],
-  );
-
-  return { navigateToFolder, navigateToNodeFolder };
+  return { navigateToFolder };
 }
 
 /* ── Main Component ─────────────────────────────────────────────── */
