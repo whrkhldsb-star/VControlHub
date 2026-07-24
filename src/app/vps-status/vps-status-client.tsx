@@ -11,6 +11,7 @@
 import { useMemo, useState } from "react";
 import Link from "next/link";
 
+import { formatBytes } from "@/lib/format/bytes";
 import { toDateLocale } from "@/lib/i18n/locale-format";
 import { useI18n } from "@/lib/i18n/use-locale";
 import { getRefreshIntervalLabel } from "@/lib/preferences/refresh-interval";
@@ -36,19 +37,6 @@ function formatKbps(kbps: number | undefined): string {
 	if (kbps >= 1_000_000) return `${(kbps / 1_000_000).toFixed(1)} Gbps`;
 	if (kbps >= 1_000) return `${(kbps / 1_000).toFixed(1)} Mbps`;
 	return `${Math.round(kbps)} Kbps`;
-}
-
-function formatBytes(bytes: number | undefined): string {
-	if (bytes === undefined || !Number.isFinite(bytes) || bytes < 0) return "—";
-	const units = ["B", "KB", "MB", "GB", "TB", "PB"];
-	let n = bytes;
-	let i = 0;
-	while (n >= 1024 && i < units.length - 1) {
-		n /= 1024;
-		i += 1;
-	}
-	const digits = i === 0 ? 0 : n >= 100 ? 0 : n >= 10 ? 1 : 2;
-	return `${n.toFixed(digits)} ${units[i]}`;
 }
 
 function formatMem(usedMb?: number, totalMb?: number): string {
