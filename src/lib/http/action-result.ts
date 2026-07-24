@@ -6,7 +6,7 @@
  *
  * 推荐用法：
  *   server action / api route 返回 `ActionResult<T>`；
- *   client 用 `useActionResultToast()` 一行处理 toast。
+ *   client 按 `ok` / `code` / `message` 处理 toast（统一 shape，避免各页字符串匹配）。
  */
 
 /** 成功结果 */
