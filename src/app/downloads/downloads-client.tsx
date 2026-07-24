@@ -144,7 +144,7 @@ export function DownloadsClient({ servers, canManage, canManageNode }: { servers
 			const _data = await csrfFetch("/api/downloads", {
 				method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload),
 			});
-			addToast("success", isBatch ? `${t("downloadsPage.success.batchCreated").replace("${count}", String(batchUrls?.length ?? 0))}` : t("downloadsPage.success.taskCreated"));
+			addToast("success", isBatch ? `${t("downloadsPage.success.batchCreated").replace("{count}", String(batchUrls?.length ?? 0))}` : t("downloadsPage.success.taskCreated"));
 			setForm({ url: "", serverId: servers[0]?.id ?? "", targetPath: defaultTargetPath, fileName: "", category: "", maxSpeedKb: "", batchMode: false, batchText: "" });
 			setShowForm(false); fetchTasks();
 		} catch (error) { addToast("error", getErrorMessage(error, t("downloadsPage.error.taskCreate")) ); }
@@ -193,7 +193,7 @@ export function DownloadsClient({ servers, canManage, canManageNode }: { servers
 					method: "PATCH", headers: { "Content-Type": "application/json" },
 					body: JSON.stringify({ taskId, maxSpeedKb }),
 				});
-				addToast("success", t("downloadsPage.success.speedSet").replace("${kb}", String(maxSpeedKb)));
+				addToast("success", t("downloadsPage.success.speedSet").replace("{kb}", String(maxSpeedKb)));
 				void fetchTasks();
 			} else {
 				const result = await csrfFetch("/api/downloads", {
@@ -234,7 +234,7 @@ export function DownloadsClient({ servers, canManage, canManageNode }: { servers
 				method: "PATCH", headers: { "Content-Type": "application/json" },
 				body: JSON.stringify({ globalMaxSpeedKb: kb }),
 			});
-			addToast("success", kb === 0 ? t("downloadsPage.success.globalSpeedCleared") : t("downloadsPage.success.globalSpeedSet").replace("${kb}", String(kb)));
+			addToast("success", kb === 0 ? t("downloadsPage.success.globalSpeedCleared") : t("downloadsPage.success.globalSpeedSet").replace("{kb}", String(kb)));
 		} catch (error) {
 			addToast("error", getErrorMessage(error, t("downloadsPage.error.globalSpeed")) );
 		}
@@ -300,8 +300,8 @@ export function DownloadsClient({ servers, canManage, canManageNode }: { servers
 			{/* Quick Stats */}
 			{!globalStat && (runningCount > 0 || pendingCount > 0) && (
 				<div className="mb-4 flex gap-3 text-xs text-[var(--text-muted)]">
-					{runningCount > 0 && <span className="text-[var(--accent)]">{t("downloadsPage.stats.runningCount").replace("${count}", String(runningCount))}</span>}
-					{pendingCount > 0 && <span className="text-[var(--warning)]">{t("downloadsPage.stats.pendingCount").replace("${count}", String(pendingCount))}</span>}
+					{runningCount > 0 && <span className="text-[var(--accent)]">{t("downloadsPage.stats.runningCount").replace("{count}", String(runningCount))}</span>}
+					{pendingCount > 0 && <span className="text-[var(--warning)]">{t("downloadsPage.stats.pendingCount").replace("{count}", String(pendingCount))}</span>}
 				</div>
 			)}
 
@@ -364,7 +364,7 @@ export function DownloadsClient({ servers, canManage, canManageNode }: { servers
 						<EmptyState variant="boxed" icon={<Download size={32} className="text-[var(--text-muted)]" />}>
 							{filter === "ALL"
 								? t("downloadsPage.empty")
-								: t("downloadsPage.emptyFilter").replace("${status}", getStatusLabel(t)[filter] ?? "")}
+								: t("downloadsPage.emptyFilter").replace("{status}", getStatusLabel(t)[filter] ?? "")}
 						</EmptyState>
 					) : undefined
 				}
@@ -389,7 +389,7 @@ export function DownloadsClient({ servers, canManage, canManageNode }: { servers
 				<div className="fixed inset-0 z-50 flex items-center justify-center bg-[var(--overlay)] px-4 backdrop-blur-sm" role="presentation" onClick={() => setPendingPurgeTaskId(null)}>
 					<section ref={dialogRef} role="dialog" aria-modal="true" aria-labelledby="download-purge-title" onClick={(event) => event.stopPropagation()} className="w-full max-w-md rounded-2xl border border-[var(--danger-border)] bg-[var(--modal-bg)] p-6 shadow-[0_24px_100px_rgba(244,63,94,0.16)]">
 						<h3 id="download-purge-title" className="text-lg font-semibold text-[var(--text-primary)]">{t("common.confirmDelete")}</h3>
-						<p className="mt-3 text-sm leading-6 text-[var(--text-secondary)]">{t("downloadsPage.confirm.purge").replace("${name}", pendingPurgeName)}</p>
+						<p className="mt-3 text-sm leading-6 text-[var(--text-secondary)]">{t("downloadsPage.confirm.purge").replace("{name}", pendingPurgeName)}</p>
 						<div className="mt-6 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
 							<button type="button" onClick={() => setPendingPurgeTaskId(null)} data-action-button data-variant="secondary" className="min-h-11 !px-4 !py-2 !text-sm">{t("common.cancel")}</button>
 							<button type="button" onClick={() => handleAction(pendingPurgeTaskId, "purge")} className="min-h-11 rounded-xl bg-[var(--danger-bg)] px-4 py-2 text-sm font-semibold text-[var(--danger)] hover:bg-[var(--danger-bg)] hover:text-[var(--danger)]">{t("common.confirmDelete")}</button>
