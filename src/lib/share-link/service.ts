@@ -113,7 +113,6 @@ async function recordShareAccess(input: {
 
 export async function createShareLink(input: {
   session: SessionPayload;
-  fileEntryId?: string;
   storageNodeId: string;
   path: string;
   entryType?: "FILE" | "DIRECTORY";
@@ -174,7 +173,6 @@ export async function createShareLinkFromFileEntry(input: {
 
   return createShareLink({
     session: input.session,
-    fileEntryId: entry.id,
     storageNodeId: entry.storageNodeId,
     path: entry.relativePath,
     entryType: entry.entryType === "DIRECTORY" ? "DIRECTORY" : "FILE",
