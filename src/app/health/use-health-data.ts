@@ -16,6 +16,7 @@ import { csrfFetch } from "@/lib/auth/csrf-client";
 import { t } from "@/lib/i18n/translations";
 import { getRefreshIntervalFromStorage } from "@/lib/preferences/refresh-interval";
 import { useVisibilityInterval } from "@/lib/hooks/use-visibility-interval";
+import { getErrorMessage } from "@/lib/http/error-message";
 
 import type {
 	HealthOverview,
@@ -33,10 +34,6 @@ function isSystemHealthReport(value: unknown): value is SystemHealthReport {
 		typeof candidate.summary === "object" &&
 		Array.isArray(candidate.checks)
 	);
-}
-
-function getErrorMessage(error: unknown, fallback: string): string {
-	return error instanceof Error ? error.message : fallback;
 }
 
 export interface UseHealthDataOptions {
