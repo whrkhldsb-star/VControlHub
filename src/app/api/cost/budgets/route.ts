@@ -1,14 +1,14 @@
 import { NextResponse } from "next/server";
 import { auditUserAction } from "@/lib/audit/service";
 import { withApiRoute } from "@/lib/http/api-guard";
-import { GENERAL_WRITE_LIMIT } from "@/lib/http/rate-limit-presets";
+import { GENERAL_READ_LIMIT, GENERAL_WRITE_LIMIT } from "@/lib/http/rate-limit-presets";
 import { createCostBudget, listCostBudgets } from "@/lib/cost/service";
 import { createCostBudgetSchema } from "@/lib/cost/schema";
 
 export const dynamic = "force-dynamic";
 
 export async function GET(request: Request) {
-	return withApiRoute(request, { permission: "cost:read", rateLimit: GENERAL_WRITE_LIMIT, errorMessage: "Failed to load cost budgets" }, async ({ session }) => {
+	return withApiRoute(request, { permission: "cost:read", rateLimit: GENERAL_READ_LIMIT, errorMessage: "Failed to load cost budgets" }, async ({ session }) => {
 		return NextResponse.json({ budgets: await listCostBudgets(new Date(), session) });
 	});
 }
