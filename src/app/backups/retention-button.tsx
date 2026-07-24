@@ -49,7 +49,7 @@ export function RetentionButton({ olderThan30Days, totalRecords }: Props) {
       setTaskId(result?.taskId ?? null);
       router.refresh();
     } catch (submitError) {
-      setError(submitError instanceof Error ? submitError.message : t("backupsPage.retention.errorFallback"));
+      setError(submitError instanceof Error ? submitError.message : t("backupsPage.retention.error"));
     } finally {
       setPending(false);
     }
