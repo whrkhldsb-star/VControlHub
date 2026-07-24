@@ -27,7 +27,7 @@ export function ArchivePreviewClient({
 	const [error, setError] = useState<string | null>(null);
 	const [loading, setLoading] = useState(false);
 	const [extracting, startExtractTransition] = useTransition();
-	const [extractResult, setExtractResult] = useState<string | null>(null);
+	const [extractResult, setExtractResult] = useState<{ tone: "ok" | "error"; text: string } | null>(null);
 
 	async function loadArchiveContents() {
 		setLoading(true);
@@ -58,10 +58,13 @@ export function ArchivePreviewClient({
 					body: JSON.stringify({ nodeId, relativePath, driver, name }),
 				});
 				if (data.error) throw new Error(data.error);
-				setExtractResult(data.message || t("archivePreview.extractDone"));
-				} catch (err) {
-				setExtractResult(err instanceof Error ? err.message : t("archivePreview.extractFailed"));
-				}
+				setExtractResult({ tone: "ok", text: data.message || t("archivePreview.extractDone") });
+			} catch (err) {
+				setExtractResult({
+					tone: "error",
+					text: err instanceof Error ? err.message : t("archivePreview.extractFailed"),
+				});
+			}
 		});
 	}
 
@@ -102,8 +105,15 @@ export function ArchivePreviewClient({
 			) : null}
 
 			{extractResult ? (
-				<div data-tone="emerald" className="rounded-2xl border border-[var(--success-border)] px-4 py-3 text-sm text-[var(--success)]">
-					{extractResult}
+				<div
+					data-tone={extractResult.tone === "ok" ? "emerald" : "rose"}
+					className={
+						extractResult.tone === "ok"
+							? "rounded-2xl border border-[var(--success-border)] px-4 py-3 text-sm text-[var(--success)]"
+							: "rounded-2xl border border-[var(--danger-border)] px-4 py-3 text-sm text-[var(--danger)]"
+					}
+				>
+					{extractResult.text}
 				</div>
 			) : null}
 
