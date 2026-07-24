@@ -11,6 +11,7 @@ import { SettingsClient } from "./settings-client";
 import { SystemConfigSection } from "./system-config-section";
 import { TeamWorkspaceSection } from "./team-workspace-section";
 import { SETTINGS_SCHEMA } from "./field-schema";
+import { TOC_SUBTITLE_KEYS } from "./settings-toc";
 
 type Props = {
   settings: Record<string, string>;
@@ -180,13 +181,14 @@ export function UnifiedSettingsPageClient({
       let description: string | undefined;
       if (section) {
         const raw = section.descriptionKey;
-        // descriptionKey may be a dynamic function of settings — use a short TOC hint instead
-        description =
-          typeof raw === "string"
-            ? t(raw)
-            : t(`settingsClient.toc.${id}.subtitle`) !== `settingsClient.toc.${id}.subtitle`
-              ? t(`settingsClient.toc.${id}.subtitle`)
-              : undefined;
+        // descriptionKey may be a dynamic function of settings — use TOC map (e.g. 2fa → twoFactor)
+        if (typeof raw === "string") {
+          description = t(raw);
+        } else {
+          const tocKey = TOC_SUBTITLE_KEYS[id];
+          description =
+            tocKey && t(tocKey) !== tocKey ? t(tocKey) : undefined;
+        }
       }
       return {
         id,
