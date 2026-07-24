@@ -101,10 +101,7 @@ export async function POST(
         const sshParams = await buildSshParamsFromServer(server, server.sshKey);
         // Single SSH probe path (detectOsDialect already handles os-release + uname fallback).
         const dialect = await detectOsDialect(sshParams);
-        const osInfo =
-          dialect.distroName && dialect.distroName !== "Unknown (default: Debian)"
-            ? dialect.distroName
-            : dialect.distroName;
+        const osInfo = dialect.distroName;
         const fallback =
           dialect.distroName.includes("uname fallback") ||
           dialect.distroName.startsWith("Unknown");
