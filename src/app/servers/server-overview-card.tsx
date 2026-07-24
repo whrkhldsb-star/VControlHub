@@ -1,5 +1,6 @@
 "use client";
 
+import dynamic from "next/dynamic";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { toDateLocale } from "@/lib/i18n/locale-format";
@@ -9,7 +10,15 @@ import { useDialogFocus } from "@/lib/a11y/use-dialog-focus";
 import { useVisibilityInterval } from "@/lib/hooks/use-visibility-interval";
 import { ServerCardActions } from "./server-card-actions";
 import { useAutoProbeSettings } from "./auto-probe-context";
-import { ServerOverviewDetails } from "./server-overview-details";
+
+// TR-036: defer ServerCardActions/form wiring until the details portal expands.
+const ServerOverviewDetails = dynamic(
+  () => import("./server-overview-details").then((m) => m.ServerOverviewDetails),
+  {
+    ssr: false,
+    loading: () => <div className="min-h-[240px] rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-subtle)]" aria-hidden />,
+  },
+);
 
 type DiagnosticRunState =
   | { status: "idle" }
