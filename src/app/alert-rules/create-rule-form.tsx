@@ -52,9 +52,14 @@ export function CreateRuleForm({
 	const [error, setError] = useState<string | null>(null);
 
 	const toggleChannel = (ch: string) => {
-		setChannels((prev) =>
-			prev.includes(ch) ? prev.filter((c) => c !== ch) : [...prev, ch],
-		);
+		setChannels((prev) => {
+			if (prev.includes(ch)) {
+				// Keep at least one channel so POST never sends notifyChannels:[].
+				if (prev.length <= 1) return prev;
+				return prev.filter((c) => c !== ch);
+			}
+			return [...prev, ch];
+		});
 	};
 	const toggleServer = (serverId: string) => {
 		setSelectedServerIds((prev) =>
@@ -78,10 +83,14 @@ export function CreateRuleForm({
 			.map((item) => item.trim())
 			.filter(Boolean);
 		try {
+			if (channels.length === 0) {
+				setError(t("alertRulesPage.createForm.error"));
+				return;
+			}
 			const isOfflineMetric = metric === "server_offline";
 			// Offline rules compare value 1/0; hidden UI defaults (gte/85) would never fire.
 			const resolvedOperator = isOfflineMetric ? "eq" : operator;
-			const resolvedThreshold = isOfflineMetric ? 1 : threshold;
+			const resolvedThreshold = isOfflineMetric ? 1 : Math.min(threshold, thresholdMax);
 			await csrfFetch("/api/alert-rules", {
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
@@ -139,7 +148,12 @@ export function CreateRuleForm({
 					<select
 						id="alertRuleMetric"
 						value={metric}
-						onChange={(e) => setMetric(e.target.value)}
+						onChange={(e) => {
+							const next = e.target.value;
+							setMetric(next);
+							const nextMax = percentMetrics.has(next) ? 100 : 100_000;
+							setThreshold((prev) => Math.min(prev, nextMax));
+						}}
 						className={selectClass}
 					>
 						<option value="cpu_usage">{t("alertRulesPage.createForm.metric.cpu_usage")}</option>
