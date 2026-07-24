@@ -64,5 +64,7 @@ describe("advisory-lock namespaces", () => {
     expect(getLockKeys("server-delete", "srv_1").k1).toBe(45063);
     expect(getLockKeys("playbook-execute", "pb_1").k1).toBe(45061);
     expect(getLockKeys("playbook-lifecycle", "pb_1").k1).toBe(45065);
+    expect(getLockKeys("ticket-sla-enqueue", "global").k1).toBe(45068);
+    expect(getLockKeys("quick-service-enqueue", "minio:hub-host").k1).toBe(45069);
   });
 });

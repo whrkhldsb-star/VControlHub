@@ -1,5 +1,6 @@
 import { JobStatus } from "@prisma/client";
 
+import { tryAcquireAdvisoryLock } from "@/lib/concurrency/advisory-lock";
 import { config } from "@/lib/config/env";
 import { prisma } from "@/lib/db";
 import { computeLeaseMs } from "@/lib/job/lease";
@@ -35,14 +36,24 @@ async function hasActiveJob(): Promise<boolean> {
 }
 
 async function enqueueSweep(reason: string) {
-  if (await hasActiveJob()) return null;
-  return enqueueJob({
-    type: TICKET_SLA_JOB_TYPE,
-    title: "Ticket SLA escalation sweep",
-    payload: { reason, requestedAt: new Date().toISOString() },
-    priority: -10,
-    maxAttempts: 3,
-  });
+  // Serialize multi-process ticks so findActive → enqueue is not TOCTOU.
+  const release = await tryAcquireAdvisoryLock("ticket-sla-enqueue", "global");
+  if (!release) {
+    // Another worker is already deciding whether to enqueue; skip this tick's enqueue.
+    return null;
+  }
+  try {
+    if (await hasActiveJob()) return null;
+    return await enqueueJob({
+      type: TICKET_SLA_JOB_TYPE,
+      title: "Ticket SLA escalation sweep",
+      payload: { reason, requestedAt: new Date().toISOString() },
+      priority: -10,
+      maxAttempts: 3,
+    });
+  } finally {
+    await release();
+  }
 }
 
 async function pruneCompletedJobs() {

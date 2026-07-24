@@ -25,6 +25,10 @@ const NAMESPACE_KEYS: Record<string, number> = {
 	"vps-backup-schedule": 45058,
 	"deployment": 45059,
 	"ticket-escalation": 45060,
+	/** Serialize ticket SLA sweep job enqueue (single-flight). */
+	"ticket-sla-enqueue": 45068,
+	/** Serialize quick-service lifecycle job enqueue per slug+instance. */
+	"quick-service-enqueue": 45069,
 	"playbook-execute": 45061,
 	/** Serialize Compose project lifecycle mutations (up/down/start/stop/restart). */
 	"docker-compose": 45062,

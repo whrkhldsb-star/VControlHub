@@ -25,6 +25,9 @@ vi.mock("@/lib/job/service", () => ({
   pruneCompletedJobsByType: jobMocks.pruneCompletedJobsByType,
 }));
 vi.mock("@/lib/logging", () => ({ createLogger: () => loggerMocks }));
+vi.mock("@/lib/concurrency/advisory-lock", () => ({
+  tryAcquireAdvisoryLock: vi.fn(async () => async () => undefined),
+}));
 
 import { runTicketSlaJobWorkerOnce, startTicketSlaWorker, stopTicketSlaWorkerForTests } from "./sla-worker";
 
