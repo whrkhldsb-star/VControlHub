@@ -1,6 +1,8 @@
 import { lookup } from "node:dns/promises";
 import { isIP } from "node:net";
 
+import { isMagnetLink } from "@/lib/downloads/helpers";
+
 const DEFAULT_BLOCKED_HOSTNAME_SUFFIXES = [
   ".local",
   ".localhost",
@@ -18,10 +20,6 @@ type ValidateDownloadSourceUrlOptions = {
 export type DownloadSourceUrlValidationResult =
   | { ok: true }
   | { ok: false; reason: string };
-
-function isMagnetLink(value: string): boolean {
-  return value.startsWith("magnet:?");
-}
 
 function parseIpv4(hostname: string): number[] | null {
   const parts = hostname.split(".");
