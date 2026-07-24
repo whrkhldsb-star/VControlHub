@@ -54,7 +54,9 @@ export function rsyncFlagsForJob(input: {
   deleteOrphans: boolean;
   compress: boolean;
 }): string[] {
-  const flags = ["-avz", "--stats"];
+  // Base archive+verbose only; compression is controlled solely by input.compress
+  // (do not bake "z" into the short flags — that made the UI toggle a no-op).
+  const flags = ["-av", "--stats"];
   if (isBidirectionalSyncType(input.syncType)) {
     flags.push("--update"); // skip files that are newer on the receiver
   }

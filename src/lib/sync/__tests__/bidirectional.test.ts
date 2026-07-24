@@ -27,6 +27,25 @@ describe("bidirectional sync policy", () => {
     });
     expect(flags).toContain("--update");
     expect(flags).not.toContain("--delete");
+    expect(flags).toContain("-av");
+    expect(flags).not.toContain("-avz");
+    expect(flags).not.toContain("--compress");
+  });
+
+  it("adds --compress only when compress is enabled", () => {
+    const compressed = rsyncFlagsForJob({
+      syncType: "MIRROR",
+      deleteOrphans: false,
+      compress: true,
+    });
+    const plain = rsyncFlagsForJob({
+      syncType: "MIRROR",
+      deleteOrphans: false,
+      compress: false,
+    });
+    expect(compressed).toContain("--compress");
+    expect(plain).not.toContain("--compress");
+    expect(plain).not.toContain("-avz");
   });
 
   it("merges leg stats and formats result", () => {
