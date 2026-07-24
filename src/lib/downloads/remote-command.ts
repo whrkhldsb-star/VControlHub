@@ -48,9 +48,10 @@ const pidFile = `/tmp/app-dl-${safeTaskId}.pid`;
     "  output_path=${target_dir%/}/$base_name",
     "fi",
     "if command -v wget >/dev/null 2>&1; then",
-    "  wget -O \"$output_path\" \"$download_url\" >\"$log_file\" 2>&1",
+    // Cap redirect hops so public URLs cannot freely bounce into metadata/intranet hosts.
+    "  wget --max-redirect=3 -O \"$output_path\" \"$download_url\" >\"$log_file\" 2>&1",
     "elif command -v curl >/dev/null 2>&1; then",
-    "  curl -L -o \"$output_path\" \"$download_url\" >\"$log_file\" 2>&1",
+    "  curl -L --max-redirs 3 --proto-redir =https,http -o \"$output_path\" \"$download_url\" >\"$log_file\" 2>&1",
     "else",
     "  echo \"ERROR: No download tool found\" >\"$log_file\"",
     "  false",

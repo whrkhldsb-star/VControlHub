@@ -83,6 +83,8 @@ export async function executeAria2RelayDownload(
   const options: Record<string, string> = {
    dir: tempDir,
    "seed-time": "0",
+   // Bound redirect following so enqueue-time DNS allowlist cannot be bypassed via long redirect chains.
+   "max-redirect": "3",
   };
   if (maxSpeedKb) options["max-download-limit"] = `${maxSpeedKb}K`;
 

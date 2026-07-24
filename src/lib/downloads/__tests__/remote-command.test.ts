@@ -33,8 +33,8 @@ describe("download remote command helpers", () => {
     });
 
     expect(command).toContain("output_path='\\''/srv/cloud/custom name.iso'\\''");
-    expect(command).toContain("wget -O \"$output_path\" \"$download_url\"");
-    expect(command).toContain("curl -L -o \"$output_path\" \"$download_url\"");
+    expect(command).toContain("wget --max-redirect=3 -O \"$output_path\" \"$download_url\"");
+    expect(command).toContain("curl -L --max-redirs 3 --proto-redir =https,http -o \"$output_path\" \"$download_url\"");
   });
 
   it("builds an scp target with brackets for IPv6 hosts", () => {
