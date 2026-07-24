@@ -5,7 +5,6 @@ import { useCallback, useMemo, useState } from "react";
 import { csrfFetch } from "@/lib/auth/csrf-client";
 import { toDateLocale } from "@/lib/i18n/locale-format";
 import type {
-  CostBudgetRecord,
   CostCurrency,
   CostEntryRecord,
   CostSummary,
@@ -23,7 +22,6 @@ export function useCostPageState(options: {
   initialSummary: CostSummary | null;
   initialEntries: CostEntryRecord[];
   initialSnapshots: DailySnapshot[];
-  initialBudgets: CostBudgetRecord[];
   canManage: boolean;
   t: TFn;
   locale: "zh" | "en";

@@ -63,7 +63,6 @@ export function CostPageClient({
 		initialSummary,
 		initialEntries,
 		initialSnapshots,
-		initialBudgets,
 		canManage,
 		t,
 		locale: locale as "zh" | "en",
