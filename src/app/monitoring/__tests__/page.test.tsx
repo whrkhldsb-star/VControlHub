@@ -55,7 +55,7 @@ describe("MonitoringPage", () => {
       .mockRejectedValueOnce(new Error("监控采集命令超时"))
       .mockResolvedValueOnce(stats);
 
-    render(<MonitoringPageClient canManage />);
+    render(<MonitoringPageClient />);
 
     expect(await screen.findByText("无法获取监控数据")).toBeInTheDocument();
     expect(screen.getByText("监控采集命令超时")).toBeInTheDocument();
@@ -72,7 +72,7 @@ describe("MonitoringPage", () => {
       .mockResolvedValueOnce(stats)
       .mockRejectedValueOnce(new Error("刷新失败：权限不足"));
 
-    render(<MonitoringPageClient canManage />);
+    render(<MonitoringPageClient />);
 
     expect(await screen.findByText("vps-1")).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "刷新" }));

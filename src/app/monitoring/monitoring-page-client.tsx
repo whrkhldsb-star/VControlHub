@@ -57,7 +57,7 @@ function formatTimestamp(value: string, locale?: "zh" | "en"): string {
   });
 }
 
-export default function MonitoringPage({ canManage: _canManage }: { canManage: boolean }) {
+export default function MonitoringPage() {
   const { t, locale } = useI18n();
   const [stats, setStats] = useState<Stats | null>(null);
   const [loading, setLoading] = useState(true);
