@@ -1,5 +1,5 @@
 /**
- * i18n dictionary: `auth.*` (27 keys).
+ * i18n dictionary: `auth.*` (24 keys).
  *
  * Shared across the login + account/security + 2FA settings surface.
  * Keys cover login labels, password change action, and the two-factor
@@ -33,7 +33,6 @@ export const zh: Record<string, string> = {
 	"auth.2fa-setup-description": "启用两步验证后，登录时需要输入验证器 App 生成的6位动态验证码，增强账户安全性。",
 	"auth.2fa-verifying": "验证中...",
 	"auth.change-password": "修改密码",
-	"auth.login": "登录",
 	"auth.logout": "退出登录",
 	"auth.two-factor": "两步验证",
 };
@@ -61,7 +60,6 @@ export const en: Record<string, string> = {
 	"auth.2fa-setup-description": "After enabling two-factor authentication, you will need a 6-digit code from your authenticator app at sign-in to strengthen account security.",
 	"auth.2fa-verifying": "Verifying...",
 	"auth.change-password": "Change Password",
-	"auth.login": "Login",
 	"auth.logout": "Sign Out",
 	"auth.two-factor": "Two-Factor Auth",
 };
