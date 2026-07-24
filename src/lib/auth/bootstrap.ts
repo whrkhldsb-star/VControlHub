@@ -25,14 +25,6 @@ export function getInitialAdminPassword(): string {
 	return envPassword;
 }
 
-export function getInitialAdminProfile() {
- return {
- username: ADMIN_BOOTSTRAP.username,
- displayName: ADMIN_BOOTSTRAP.displayName,
- status: ADMIN_BOOTSTRAP.status,
- mustChangePassword: ADMIN_BOOTSTRAP.mustChangePassword,
- };
-}
 
 export type AdminConsistencyResult =
 	| { ok: true; username: string; mode: "bootstrap_match" | "rotated" }
