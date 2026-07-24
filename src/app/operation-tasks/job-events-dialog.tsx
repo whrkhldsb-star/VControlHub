@@ -124,16 +124,6 @@ export function JobEventsDialog({ jobId, open, onClose }: JobEventsDialogProps) 
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, jobId]);
 
-  useEffect(() => {
-    if (!open) return;
-    const handleKey = (event: KeyboardEvent) => {
-      if (event.key === "Escape") onClose();
-    };
-    window.addEventListener("keydown", handleKey);
-    closeButtonRef.current?.focus();
-    return () => window.removeEventListener("keydown", handleKey);
-  }, [open, onClose]);
-
   if (!open || !jobId) return null;
 
   return (
