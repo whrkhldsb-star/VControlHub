@@ -6,6 +6,7 @@ import { mainNavItems, systemNavItems } from "./nav-items";
 import { useI18n } from "@/lib/i18n/use-locale";
 import { t as translate, type Locale } from "@/lib/i18n/translations";
 import { type Permission } from "@/lib/auth/rbac";
+import { filterByHrefPermissions } from "@/lib/auth/filter-by-href-permissions";
 import { useGateRoute } from "@/lib/auth/use-gate-route";
 import { useDialogFocus } from "@/lib/a11y/use-dialog-focus";
 
@@ -112,25 +113,8 @@ export function getSearchItems(locale: Locale = "zh"): SearchItem[] {
 	return localizeSearchItems(locale);
 }
 
-/**
- * Filter search items against the user session's permission gate.
- *
- * Items with no declared permissions (or declared empty array) are visible to
- * any authenticated user. Items with declared permissions are kept only when
- * the user holds at least one (`canAny`). Mirrors the sidebar's
- * permission-gated render contract (TR-030 / task 56).
- */
-function filterItemsByPermissions(
-	items: readonly SearchItem[],
-	declaredPermissionsByHref: Record<string, readonly Permission[]>,
-	canAny: (permissions: readonly Permission[]) => boolean,
-): SearchItem[] {
-	return items.filter((item) => {
-		const required = declaredPermissionsByHref[item.href];
-		if (!required || required.length === 0) return true;
-		return canAny(required);
-	});
-}
+/** Search alias — shared contract lives in filter-by-href-permissions. */
+const filterItemsByPermissions = filterByHrefPermissions;
 
 export function GlobalSearch({
 	externalOpenSignal = 0,

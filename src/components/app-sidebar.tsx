@@ -12,6 +12,7 @@ import { LanguageToggle } from "./language-toggle";
 import { getAppName, getPublicLabel } from "@/lib/branding";
 import { useI18n } from "@/lib/i18n/use-locale";
 import { type Permission } from "@/lib/auth/rbac";
+import { filterByHrefPermissions } from "@/lib/auth/filter-by-href-permissions";
 import { useGateRoute } from "@/lib/auth/use-gate-route";
 import {
 	IconExternal,
@@ -29,27 +30,8 @@ interface QuickServiceLink {
 	path: string;
 }
 
-/**
- * Decide whether the current session is allowed to see a nav item.
- *
- * - `href` not present in the map → page does not declare any permission,
- *   visible to anyone authenticated.
- * - `href` declares `[]` permissions → same as above (explicit empty).
- * - `href` declares one or more permissions → user must hold at least one
- *   (`canAny`). Mirrors task 56's "无权限 UI 元素 完全不渲染" rule
- *   (TR-030 multi-tenant via permission-gated render).
- */
-function filterByPermissions<T extends { href: string }>(
-	items: readonly T[],
-	declaredPermissionsByHref: Record<string, readonly Permission[]>,
-	canAny: (permissions: readonly Permission[]) => boolean,
-): T[] {
-	return items.filter((item) => {
-		const required = declaredPermissionsByHref[item.href];
-		if (!required || required.length === 0) return true;
-		return canAny(required);
-	});
-}
+/** Sidebar alias — shared contract lives in filter-by-href-permissions. */
+const filterByPermissions = filterByHrefPermissions;
 
 function navLabel(
 	t: (key: string) => string,
