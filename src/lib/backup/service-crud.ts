@@ -118,9 +118,9 @@ export async function prepareBackupRecordRetry(input: { id: string; session?: Pi
 }
 
 /**
- * Mark orphaned PENDING backups as FAILED so they stop looking "stuck forever".
- * Records older than `olderThanMs` with no RUNNING claim are voided in place.
- * Default: 24h.
+ * Mark orphaned PENDING backups as VOIDED so they stop looking "stuck forever".
+ * Records older than `olderThanMs` still PENDING are CAS-updated to VOIDED in place
+ * (non-retryable; use a new record to re-run). Default olderThanMs: 24h.
  */
 export async function abandonStalePendingBackupRecords(input?: {
 	olderThanMs?: number;
