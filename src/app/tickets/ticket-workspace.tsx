@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useState } from "react";
+import { useMemo } from "react";
 import { useUrlQueryState } from "@/lib/hooks/use-url-query-state";
 
 import { toDateLocale } from "@/lib/i18n/locale-format";
