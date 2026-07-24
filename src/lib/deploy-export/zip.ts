@@ -157,19 +157,3 @@ export function buildZip(entries: ZipEntryInput[], options: { mtime?: Date } = {
   return Buffer.concat([localBuf, centralBuf, eocd]);
 }
 
-/**
- * Browser-friendly helper: trigger a download of the archive in the current tab.
- * Only meaningful in client components — calling it during SSR is a no-op.
- */
-export function downloadZipBlob(zip: Buffer, filename: string): void {
-  if (typeof window === "undefined") return;
-  const blob = new Blob([new Uint8Array(zip)], { type: "application/zip" });
-  const url = URL.createObjectURL(blob);
-  const link = document.createElement("a");
-  link.href = url;
-  link.download = filename;
-  document.body.appendChild(link);
-  link.click();
-  link.remove();
-  URL.revokeObjectURL(url);
-}
