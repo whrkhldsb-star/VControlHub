@@ -114,8 +114,16 @@ export async function fetchModelsFromProvider(providerId: string, userId: string
 	try {
 		rawModels.push(...(await fetchProviderModels({ apiKey: rawApiKey, baseUrl })));
 	} catch {
-		// Fallback: return saved availableModels
-		const saved: string[] = JSON.parse(provider.availableModels || "[]");
+		// Fallback: return saved availableModels (tolerate corrupt JSON)
+		let saved: string[] = [];
+		try {
+			const parsed: unknown = JSON.parse(provider.availableModels || "[]");
+			if (Array.isArray(parsed)) {
+				saved = parsed.filter((id): id is string => typeof id === "string");
+			}
+		} catch {
+			saved = [];
+		}
 		if (saved.length > 0) {
 			return saved.map((id) => {
 				const caps = detectModelCapabilities(id);
