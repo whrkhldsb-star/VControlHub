@@ -1,5 +1,3 @@
-import path from "node:path";
-
 import { Prisma } from "@prisma/client";
 
 import { config } from "@/lib/config/env";
@@ -8,6 +6,7 @@ import { sessionHasPermission } from "@/lib/auth/authorization";
 import { teamWhere } from "@/lib/auth/team-scope";
 import { acquireAdvisoryLock } from "@/lib/concurrency/advisory-lock";
 import { prisma } from "@/lib/db";
+import { normalizeStorageTargetDirectory } from "@/lib/storage/path-utils";
 
 export type StorageAccessOperation = "read" | "write" | "delete";
 
@@ -38,22 +37,15 @@ export async function releaseStorageQuotaGuard(
 
 type StorageAccessGrantRow = Prisma.UserStorageAccessGetPayload<Record<string, never>>;
 
-function normalizeAccessPath(value: string | null | undefined) {
-  const cleaned = (value ?? "")
-    .replace(/\\/g, "/")
-    .split("/")
-    .map((segment) => segment.trim())
-    .filter(Boolean)
-    .join("/");
-
-  if (!cleaned) return "";
-
-  const normalized = path.posix.normalize(cleaned);
-  if (normalized === ".") return "";
-  if (normalized === ".." || normalized.startsWith("../") || path.posix.isAbsolute(normalized)) {
-    return null;
-  }
-  return normalized;
+/**
+ * Normalize grant / target relative paths for matching.
+ * Empty prefix means whole-node access. Invalid paths (absolute, `..`) return null.
+ * Delegates to path-utils so grant matching shares rules with listing/upload paths.
+ */
+function normalizeAccessPath(value: string | null | undefined): string | null {
+  const result = normalizeStorageTargetDirectory(value);
+  if (!result.ok) return null;
+  return result.path;
 }
 
 function pathMatchesGrant(targetPath: string, pathPrefix: string) {
