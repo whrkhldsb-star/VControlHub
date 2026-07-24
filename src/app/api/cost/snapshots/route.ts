@@ -8,7 +8,7 @@
 import { NextResponse } from "next/server";
 
 import { withApiRoute } from "@/lib/http/api-guard";
-import { GENERAL_WRITE_LIMIT } from "@/lib/http/rate-limit-presets";
+import { GENERAL_READ_LIMIT, GENERAL_WRITE_LIMIT } from "@/lib/http/rate-limit-presets";
 import { listRecentSnapshots, syncServerMonthlyCosts } from "@/lib/cost/service";
 import { costMonthSchema } from "@/lib/cost/schema";
 import { z } from "zod";
@@ -28,7 +28,7 @@ export async function GET(request: Request) {
 		request,
 		{
 			permission: "cost:read",
-			rateLimit: GENERAL_WRITE_LIMIT,
+			rateLimit: GENERAL_READ_LIMIT,
 			querySchema,
 			errorStatus: 500,
 			errorMessage: "Failed to load historical snapshots",
