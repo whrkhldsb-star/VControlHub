@@ -41,6 +41,13 @@ export async function PATCH(
 
       if (body.action === "confirm") {
         await confirmHostedAction(id, session);
+        await auditUserAction(
+          session.userId,
+          "ai.hosted-action.update",
+          { actionId: id, decision: "confirm" },
+          undefined,
+          session.currentTeamId,
+        );
         const { prisma } = await import("@/lib/db");
         const action = await prisma.aiHostedAction.findUnique({
           where: { id },
@@ -50,6 +57,13 @@ export async function PATCH(
 
       if (body.action === "approve") {
         await approveHostedAction(id, session);
+        await auditUserAction(
+          session.userId,
+          "ai.hosted-action.update",
+          { actionId: id, decision: "approve" },
+          undefined,
+          session.currentTeamId,
+        );
         const { prisma } = await import("@/lib/db");
         const action = await prisma.aiHostedAction.findUnique({
           where: { id },
@@ -62,7 +76,13 @@ export async function PATCH(
         session,
         body.reason,
       );
-      await auditUserAction(session?.userId ?? "", "ai.hosted-action.update", { actionId: id }, undefined, session?.currentTeamId);
+      await auditUserAction(
+        session.userId,
+        "ai.hosted-action.update",
+        { actionId: id, decision: "reject", reason: body.reason ?? null },
+        undefined,
+        session.currentTeamId,
+      );
       return NextResponse.json({ success: true, action: result });
     },
   );

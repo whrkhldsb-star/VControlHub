@@ -237,7 +237,9 @@ describe("AI API shared guard migration", () => {
       { params: Promise.resolve({ id: "a1" }) },
     );
     expect(confirmResponse.status).toBe(200);
-    expect(mocks.requireApiSession).toHaveBeenCalled();
+    // Route is gated by ai:chat (withApiRoute permission); confirm authorization
+    // is enforced in the service layer, not via requireApiSession.
+    expect(mocks.requireApiPermission).toHaveBeenCalledWith("ai:chat");
     expect(mocks.requireApiPermission).not.toHaveBeenCalledWith("ai:action:approve");
     expect(mocks.confirmHostedAction).toHaveBeenCalledWith("a1", session);
   });
