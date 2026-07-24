@@ -3,6 +3,8 @@
 import { useActionState, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 
+import { ActionButton } from "@/components/action-button";
+import { SubmitButton } from "@/components/submit-button";
 import { useI18n } from "@/lib/i18n/use-locale";
 import {
   deleteFileEntryAction,
@@ -93,18 +95,20 @@ export function DeleteConfirmButton({
       <span className="text-sm text-[var(--danger)]">
         {t("filesPage.actions.confirmDelete").replace("{name}", entryName).replace("{contents}", entryType === "DIRECTORY" ? t("filesPage.actions.directoryContents") : "")}
       </span>
-      <button
-        type="submit"
-        data-tone="rose" data-action-button data-variant="danger"
+      <SubmitButton
+        pendingLabel={t("common.confirm")}
+        variant="danger"
       >
         {t("common.confirm")}
-      </button>
-      <button
+      </SubmitButton>
+      <ActionButton
         type="button"
+        variant="secondary"
         onClick={handleCancel}
-       data-action-button data-variant="secondary" className="!px-4 !py-2 !text-sm">
+        className="!px-4 !py-2 !text-sm"
+      >
         {t("common.cancel")}
-      </button>
+      </ActionButton>
     </form>
   );
 }
