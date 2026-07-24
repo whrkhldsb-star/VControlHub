@@ -4,20 +4,12 @@
  */
 import sharp from "sharp";
 import * as path from "node:path";
-import { mkdir, writeFile } from "node:fs/promises";
 
 export interface ImageMetadata {
 	width: number;
 	height: number;
 	format?: string;
 	sizeBytes: number;
-}
-
-export interface ProcessedImage {
-	thumbnail: Buffer;
-	webp: Buffer | null;
-	avif: Buffer | null;
-	metadata: ImageMetadata;
 }
 
 const THUMB_MAX_WIDTH = 400;
@@ -74,60 +66,6 @@ export async function convertToAVIF(
 	quality: number = AVIF_QUALITY,
 ): Promise<Buffer> {
 	return sharp(buffer).avif({ quality }).toBuffer();
-}
-
-/**
- * Full image processing pipeline: thumbnail + WebP + AVIF + metadata.
- * Returns null for webp/avif if the input is already in that format.
- */
-export async function processImage(buffer: Buffer): Promise<ProcessedImage> {
-	const metadata = await extractMetadata(buffer);
-	const [thumbnail, webp, avif] = await Promise.all([
-		generateThumbnail(buffer),
-		metadata.format !== "webp" ? convertToWebP(buffer) : Promise.resolve(null as Buffer | null),
-		metadata.format !== "avif" ? convertToAVIF(buffer) : Promise.resolve(null as Buffer | null),
-	]);
-
-	return { thumbnail, webp, avif, metadata };
-}
-
-/**
- * Save processed image variants to disk.
- * Returns the paths of all saved files.
- */
-export async function saveImageVariants(
-	storageKey: string,
-	original: Buffer,
-	thumbnail: Buffer,
-	webp: Buffer | null,
-	avif: Buffer | null,
-	baseDir: string,
-): Promise<{
-	originalPath: string;
-	thumbnailPath: string;
-	webpPath: string | null;
-	avifPath: string | null;
-}> {
-	const dir = path.join(baseDir, path.dirname(storageKey));
-	await mkdir(dir, { recursive: true });
-
-	const ext = path.extname(storageKey);
-	const base = path.basename(storageKey, ext);
-	const subDir = path.dirname(storageKey);
-
-	const originalPath = path.join(baseDir, storageKey);
-	const thumbnailPath = path.join(baseDir, subDir, `${base}_thumb.webp`);
-	const webpPath = webp ? path.join(baseDir, subDir, `${base}.webp`) : null;
-	const avifPath = avif ? path.join(baseDir, subDir, `${base}.avif`) : null;
-
-	await Promise.all([
-		writeFile(originalPath, original),
-		writeFile(thumbnailPath, thumbnail),
-		webpPath && webp ? writeFile(webpPath, webp) : Promise.resolve(),
-		avifPath && avif ? writeFile(avifPath, avif) : Promise.resolve(),
-	]);
-
-	return { originalPath, thumbnailPath, webpPath, avifPath };
 }
 
 /**
