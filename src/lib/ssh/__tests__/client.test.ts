@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import type { ConnectConfig } from "ssh2";
 
-import { createSshConfigForTest } from "../client";
+import { createVerifiedSshConfig } from "../client";
 import { requireApprovedSshHostKey, SshHostKeyApprovalRequiredError } from "../host-key";
 
 vi.mock("../client", async (importOriginal) => {
@@ -17,7 +17,7 @@ vi.mock("../client", async (importOriginal) => {
 
 describe("SSH client host key verification", () => {
   it("installs a sha256 hostVerifier when a host key fingerprint is configured", () => {
-    const config = createSshConfigForTest({
+    const config = createVerifiedSshConfig({
       host: "203.0.113.10",
       port: 22,
       username: "root",

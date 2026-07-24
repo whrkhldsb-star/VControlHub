@@ -69,10 +69,7 @@ function createSshConfig(input: SshConnectionParams): ConnectConfig {
  return config;
 }
 
-export function createSshConfigForTest(input: SshConnectionParams): ConnectConfig {
-  return createSshConfig(input);
-}
-
+/** Public SSH connect-config builder (host-key pin/TOFU handled inside createSshConfig). */
 export function createVerifiedSshConfig(input: SshConnectionParams): ConnectConfig {
   return createSshConfig(input);
 }
