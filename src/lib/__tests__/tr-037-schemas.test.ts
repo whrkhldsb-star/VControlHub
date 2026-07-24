@@ -101,6 +101,24 @@ describe("createAnnouncementSchema", () => {
       }),
     ).toThrow();
   });
+
+  it("expiresAt 必须晚于 startsAt", () => {
+    expect(() =>
+      createAnnouncementSchema.parse({
+        title: "t",
+        content: "c",
+        startsAt: "2026-12-31T12:00:00Z",
+        expiresAt: "2026-12-31T00:00:00Z",
+      }),
+    ).toThrow();
+    const ok = createAnnouncementSchema.parse({
+      title: "t",
+      content: "c",
+      startsAt: "2026-12-31T00:00:00Z",
+      expiresAt: "2026-12-31T12:00:00Z",
+    });
+    expect(ok.expiresAt).toBe("2026-12-31T12:00:00Z");
+  });
 });
 
 describe("updateAnnouncementSchema", () => {

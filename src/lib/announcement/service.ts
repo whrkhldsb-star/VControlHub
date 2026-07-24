@@ -4,7 +4,12 @@ import { t } from "@/lib/i18n/translations";
 
 export async function createAnnouncement(input: { title: string; body: string; level?: string; pinned?: boolean; published?: boolean; startsAt?: Date; expiresAt?: Date | null; createdBy?: string }) {
   if (!input.title.trim() || !input.body.trim()) throw new ValidationError(t("backend.announcement.announcementTitleAndContentCannotBeEmpty"));
-  return prisma.announcement.create({ data: { title: input.title.trim(), body: input.body.trim(), level: input.level ?? "info", pinned: input.pinned ?? false, published: input.published ?? true, startsAt: input.startsAt ?? new Date(), expiresAt: input.expiresAt ?? null, createdBy: input.createdBy ?? null } });
+  const startsAt = input.startsAt ?? new Date();
+  const expiresAt = input.expiresAt ?? null;
+  if (expiresAt && expiresAt.getTime() <= startsAt.getTime()) {
+    throw new ValidationError(t("backend.announcement.expiresAtMustBeAfterStartsAt"));
+  }
+  return prisma.announcement.create({ data: { title: input.title.trim(), body: input.body.trim(), level: input.level ?? "info", pinned: input.pinned ?? false, published: input.published ?? true, startsAt, expiresAt, createdBy: input.createdBy ?? null } });
 }
 
 export async function listActiveAnnouncements(now = new Date()) {
@@ -35,6 +40,11 @@ export async function updateAnnouncement(id: string, input: { title?: string; bo
 	if (input.published !== undefined) data.published = input.published;
 	if (input.expiresAt !== undefined) data.expiresAt = input.expiresAt;
 	if (Object.keys(data).length === 0) return existing;
+	const nextExpiresAt =
+		input.expiresAt !== undefined ? input.expiresAt : existing.expiresAt;
+	if (nextExpiresAt && nextExpiresAt.getTime() <= existing.startsAt.getTime()) {
+		throw new ValidationError(t("backend.announcement.expiresAtMustBeAfterStartsAt"));
+	}
 	return prisma.announcement.update({ where: { id }, data });
 }
 
