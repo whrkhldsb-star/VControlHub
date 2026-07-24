@@ -31,7 +31,7 @@ import {
 	writeQuickServiceAudit,
 	__internals,
 } from "./service-internals";
-import { installService, startDockerContainer, type InstallOptions } from "./service-lifecycle-install";
+import { installService, recreateDockerContainer, type InstallOptions } from "./service-lifecycle-install";
 import type { ServiceTemplate } from "./types";
 import { createLogger } from "@/lib/logging";
 import { t } from "@/lib/i18n/translations";
@@ -226,7 +226,7 @@ export async function startService(slug: string, instanceKey: string = HUB_HOST_
 				command: svc.command ?? undefined,
 			};
 			try {
-				await startDockerContainer(svc.id, tmpl, svc.port, { target });
+				await recreateDockerContainer(svc.id, tmpl, svc.port, { target });
 				await writeQuickServiceAudit({
 					action: "start",
 					slug: svc.slug,
@@ -286,7 +286,7 @@ export async function updateService(slug: string, instanceKey: string = HUB_HOST
 		try {
 			await dockerExec(target, ["pull", svc.image], 300_000);
 			await prisma.quickService.update({ where: serviceWhere(slug, instanceKey), data: { status: "installing", error: null } });
-			await startDockerContainer(svc.id, tmpl, svc.port, { target });
+			await recreateDockerContainer(svc.id, tmpl, svc.port, { target });
 			const health = await getContainerHealthFor(target, containerName);
 			const logTail = await getContainerLogTailFor(target, containerName);
 			await writeQuickServiceAudit({

@@ -221,7 +221,7 @@ async function installServiceUnlocked(opts: InstallOptions) {
 	try {
 		// Drop hub-local reservations immediately before docker -p so the daemon can bind.
 		if (reservedPorts.length > 0) releasePortReservations(reservedPorts);
-		await startDockerContainer(svc.id, template, hostPort, { userId, credentials: installNoticeCredentials, notes: installNoticeNotes, target });
+		await recreateDockerContainer(svc.id, template, hostPort, { userId, credentials: installNoticeCredentials, notes: installNoticeNotes, target });
 	} catch (err) {
 		if (reservedPorts.length > 0) releasePortReservations(reservedPorts);
 		let msg = dockerErrorMessage(err);
@@ -249,7 +249,11 @@ async function installServiceUnlocked(opts: InstallOptions) {
 	return { ...svc, port: hostPort };
 }
 
-export async function startDockerContainer(
+/**
+ * Package-internal recreate helper (rename/rm then create). Not re-exported from
+ * the public quick-service barrel — use installService / startService / updateService.
+ */
+export async function recreateDockerContainer(
 	serviceId: string,
 	tmpl: ServiceTemplate,
 	hostPort: number,
