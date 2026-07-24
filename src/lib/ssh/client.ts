@@ -1,6 +1,7 @@
 import { Client, type ConnectConfig } from "ssh2";
 import type { SFTPWrapper } from "ssh2";
 import { BusinessError } from "@/lib/errors";
+import { shellQuote } from "@/lib/shell-quote";
 
 import { decryptServerPassword, decryptSshPrivateKey, decryptSshKeyPassphrase } from "@/lib/ssh/ssh-key-crypto";
 
@@ -202,10 +203,9 @@ export async function createRemoteDirectory(input: SshConnectionParams & { remot
       });
     } catch (sftpError) {
       if (!input.recursive) throw sftpError;
-      const quotedPath = `'${input.remotePath.replace(/'/g, `'"'"'`)}'`;
       const result = await execCommandOnClient(
         client,
-        `mkdir -p -- ${quotedPath}`,
+        `mkdir -p -- ${shellQuote(input.remotePath)}`,
         30_000,
       );
       if (result.exitCode && result.exitCode !== 0) {
