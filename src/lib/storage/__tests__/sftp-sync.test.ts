@@ -125,6 +125,7 @@ describe("sftp sync service", () => {
         entryType: "DIRECTORY",
         mimeType: "inode/directory",
         size: null,
+        isDeleted: false,
         relativePath: "logs",
       },
     });
@@ -135,6 +136,7 @@ describe("sftp sync service", () => {
         entryType: "FILE",
         mimeType: "video/mp4",
         size: BigInt(1024),
+        isDeleted: false,
         relativePath: "demo.mp4",
       },
     });

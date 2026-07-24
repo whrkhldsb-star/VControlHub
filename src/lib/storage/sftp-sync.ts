@@ -76,38 +76,51 @@ function computeRelativePath(basePath: string, remotePath: string, entryName: st
   return relative.replace(/^\/+/, "");
 }
 
+function isUniqueViolation(error: unknown): boolean {
+  const code =
+    typeof error === "object" && error && "code" in error
+      ? String((error as { code?: string }).code)
+      : "";
+  return code === "P2002" || /Unique constraint/i.test(String(error));
+}
+
 async function upsertRemoteEntry(nodeId: string, entry: SftpListEntry, relativePath: string) {
   const entryType = entry.type === "directory" ? "DIRECTORY" : "FILE";
   const mimeType = entryType === "FILE" ? guessMimeType(entry.name) : "inode/directory";
   const size = entryType === "FILE" ? BigInt(entry.size) : null;
+  const data = { name: entry.name, entryType, mimeType, size, isDeleted: false as const };
 
+  // Prefer unique-key lookup (includes soft-deleted) so concurrent syncs converge.
   const existing = await prisma.fileEntry.findFirst({
-    where: { storageNodeId: nodeId, relativePath, isDeleted: false },
+    where: { storageNodeId: nodeId, relativePath },
   });
 
   if (existing) {
     await prisma.fileEntry.update({
       where: { id: existing.id },
-      data: { name: entry.name, entryType, mimeType, size },
+      data,
     });
-    return "updated" as const;
+    return existing.isDeleted ? ("created" as const) : ("updated" as const);
   }
 
-  const softDeleted = await prisma.fileEntry.findFirst({
-    where: { storageNodeId: nodeId, relativePath, isDeleted: true },
-  });
-
-  if (softDeleted) {
-    await prisma.fileEntry.update({
-      where: { id: softDeleted.id },
-      data: { isDeleted: false, name: entry.name, entryType, mimeType, size },
-    });
-  } else {
+  try {
     await prisma.fileEntry.create({
-      data: { storageNodeId: nodeId, name: entry.name, entryType, mimeType, size, relativePath },
+      data: { storageNodeId: nodeId, relativePath, ...data },
     });
+    return "created" as const;
+  } catch (error) {
+    // Concurrent first-time create races on @@unique([storageNodeId, relativePath]).
+    if (!isUniqueViolation(error)) throw error;
+    const raced = await prisma.fileEntry.findFirst({
+      where: { storageNodeId: nodeId, relativePath },
+    });
+    if (!raced) throw error;
+    await prisma.fileEntry.update({
+      where: { id: raced.id },
+      data,
+    });
+    return raced.isDeleted ? ("created" as const) : ("updated" as const);
   }
-  return "created" as const;
 }
 
 function computeDirectoryRelativePath(basePath: string, remotePath: string): string | null {
