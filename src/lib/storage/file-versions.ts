@@ -378,6 +378,15 @@ export async function restoreFileVersion(input: {
     throw new BusinessError(t("backend.storage.versionBlobMissing"));
   }
 
+  // Reject bit-rot / partial blobs before overwriting live storage.
+  const blobChecksum = crypto.createHash("sha256").update(buffer).digest("hex");
+  if (
+    version.checksumSha256 &&
+    version.checksumSha256.toLowerCase() !== blobChecksum.toLowerCase()
+  ) {
+    throw new BusinessError(t("backend.storage.versionChecksumMismatch"));
+  }
+
   // Snapshot current body as RESTORE_POINT before overwriting.
   const restorePoint = await snapshotFileVersionBeforeOverwrite({
     fileEntryId: entry.id,
@@ -392,13 +401,12 @@ export async function restoreFileVersion(input: {
   }
   await writeStorageFileBuffer(node, entry.relativePath, buffer);
 
-  const checksum = crypto.createHash("sha256").update(buffer).digest("hex");
   await prisma.fileEntry.update({
     where: { id: entry.id },
     data: {
       size: BigInt(buffer.byteLength),
       mimeType: version.mimeType ?? entry.mimeType,
-      checksumSha256: checksum,
+      checksumSha256: blobChecksum,
       isDeleted: false,
       updatedAt: new Date(),
     },
