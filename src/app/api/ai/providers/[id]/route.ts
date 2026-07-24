@@ -9,21 +9,13 @@ import {
   type UpdateProviderInputWire,
   updateProviderSchema,
 } from "@/lib/ai/schema";
+import { serializeProvider } from "@/lib/ai/service-serialize";
 import { withApiRoute } from "@/lib/http/api-guard";
 import { GENERAL_WRITE_LIMIT } from "@/lib/http/rate-limit-presets";
 
 import { AuthError, NotFoundError } from "@/lib/errors";
 import { auditUserAction } from "@/lib/audit/service";
 export const dynamic = "force-dynamic";
-
-function maskProvider(provider: Awaited<ReturnType<typeof getProviderById>>) {
-  return {
-    ...provider,
-    apiKey: `${provider.apiKey.slice(0, 8)}...${provider.apiKey.slice(-4)}`,
-    createdAt: provider.createdAt.toISOString(),
-    updatedAt: provider.updatedAt.toISOString(),
-  };
-}
 
 function parseAvailableModels(data: UpdateProviderInputWire) {
   if (data.availableModels !== undefined) {
@@ -60,7 +52,7 @@ export async function GET(
         throw new AuthError("Not authenticated");
       const { id } = await params;
       const provider = await getProviderById(id, session.userId);
-      return NextResponse.json({ provider: maskProvider(provider) });
+      return NextResponse.json({ provider: serializeProvider(provider) });
     },
   );
 }
@@ -90,7 +82,7 @@ export async function PATCH(
       const provider = await updateProvider(id, session.userId, updateBody);
       if (!provider) throw new NotFoundError("Provider not found");
       await auditUserAction(session.userId, "ai.provider.update", { providerId: id }, undefined, session?.currentTeamId);
-      return NextResponse.json({ provider: maskProvider(provider) });
+      return NextResponse.json({ provider: serializeProvider(provider) });
     },
   );
 }
