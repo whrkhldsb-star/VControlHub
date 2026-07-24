@@ -6,6 +6,7 @@ import { ConfirmDialog } from "@/components/confirm-dialog";
 import { csrfFetch } from "@/lib/auth/csrf-client";
 import { useI18n } from "@/lib/i18n/use-locale";
 import { formatDate } from "@/app/files/file-entry-utils";
+import { formatBytes } from "@/lib/format/bytes";
 
 type VersionItem = {
   id: string;
@@ -25,13 +26,6 @@ type Props = {
   onNotify: (type: "success" | "error" | "info", message: string) => void;
   onRestored?: () => void;
 };
-
-function formatBytes(n: number) {
-  if (n < 1024) return `${n} B`;
-  if (n < 1024 * 1024) return `${(n / 1024).toFixed(1)} KB`;
-  if (n < 1024 * 1024 * 1024) return `${(n / (1024 * 1024)).toFixed(1)} MB`;
-  return `${(n / (1024 * 1024 * 1024)).toFixed(2)} GB`;
-}
 
 export function FileVersionHistoryPanel({
   fileEntryId,
