@@ -38,6 +38,20 @@ vi.mock("@/components/global-search", () => ({
 	GlobalSearch: () => <div data-testid="global-search" />,
 }));
 
+vi.mock("@/lib/auth/server-session", () => ({
+	getCurrentSession: vi.fn(async () => ({
+		userId: "u1",
+		username: "admin",
+		roles: ["admin"],
+		currentTeamId: null,
+	})),
+}));
+
+vi.mock("@/lib/auth/declared-permissions", () => ({
+	loadSidebarDeclaredPermissions: vi.fn(() => ({})),
+}));
+
+
 vi.mock("@/lib/i18n/provider", () => ({
 	I18nProvider: ({ children }: { children: React.ReactNode }) => <>{children}</>,
 }));

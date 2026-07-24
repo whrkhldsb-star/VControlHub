@@ -6,6 +6,7 @@ import { SidebarLoader } from "@/components/sidebar-loader";
 import { ToastProvider } from "@/components/toast-provider";
 import { MobileNav } from "@/components/mobile-nav";
 import { GlobalSearch } from "@/components/global-search";
+import { mainNavItems, systemNavItems } from "@/components/nav-items";
 import { PwaRegister } from "@/components/pwa-register";
 import { SentryProvider } from "@/components/sentry-provider";
 import { WebVitalsReporter } from "@/components/web-vitals-reporter";
@@ -17,6 +18,7 @@ import { getSessionCookieName } from "@/lib/auth/session";
 import { EMPTY_GATE, gateFromRoles } from "@/lib/auth/session-gate";
 import { SessionGateProvider } from "@/lib/auth/session-context";
 import { getCurrentSession } from "@/lib/auth/server-session";
+import { loadSidebarDeclaredPermissions } from "@/lib/auth/declared-permissions";
 import { type Locale } from "@/lib/i18n/translations";
 import { type Theme } from "@/lib/theme/use-theme";
 import { cookies, headers } from "next/headers";
@@ -59,6 +61,11 @@ export default async function RootLayout({
 	// safe (every `can()` returns false → UI elements disappear).
 	const session = shouldRenderAuthenticatedChrome ? await getCurrentSession() : null;
 	const sessionGate = session ? gateFromRoles(session.roles) : EMPTY_GATE;
+	// TR-030: same permission map as SidebarLoader so ⌘K search cannot list
+	// routes the user cannot open (filterItemsByPermissions is a no-op when empty).
+	const declaredPermissionsByHref = shouldRenderAuthenticatedChrome
+		? loadSidebarDeclaredPermissions([...mainNavItems, ...systemNavItems].map((item) => item.href))
+		: {};
 
 	return (
 		<html
@@ -88,7 +95,7 @@ export default async function RootLayout({
 							{shouldRenderAuthenticatedChrome && (
 								<SessionGateProvider value={sessionGate}>
 									<MobileNav />
-									<GlobalSearch />
+									<GlobalSearch declaredPermissionsByHref={declaredPermissionsByHref} />
 								</SessionGateProvider>
 							)}
 							</SshTerminalProvider>
