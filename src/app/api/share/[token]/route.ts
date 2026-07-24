@@ -16,7 +16,7 @@ import {
 import { buildContentDisposition } from "@/lib/http/content-disposition";
 import { nodeStreamToWeb } from "@/lib/http/node-to-web-stream";
 import { parseSearchParams } from "@/lib/http/parse-search-params";
-import { normalizeSharePath, resolveShareToken } from "@/lib/share-link/service";
+import { normalizeSharePath, releaseShareQuotaClaim, resolveShareToken } from "@/lib/share-link/service";
 import { expandStorageBasePath } from "@/lib/storage/path-utils";
 import { normalizeRemoteTargetPath } from "@/lib/storage/remote-path";
 import { resolveStorageSshCredentials } from "@/lib/storage/ssh-credentials";
@@ -94,6 +94,11 @@ export async function GET(
 		return apiError({ code: err instanceof ForbiddenError ? "FORBIDDEN" : "NOT_FOUND", message, status: err instanceof ForbiddenError ? 403 : 404 });
 	}
 
+	// Quota was claimed in resolveShareToken; refund if we never open a delivery stream.
+	const denyAfterClaim = async (response: Response) => {
+		await releaseShareQuotaClaim(share.id);
+		return response;
+	};
 
 	let targetPath = share.path;
 	const { path: childPath, archive } = parseSearchParams(
@@ -111,19 +116,19 @@ export async function GET(
 		if (wantsArchive) {
 			targetPath = share.path;
 		} else {
-			if (!childPath) return apiError({ code: "VALIDATION_FAILED", message: t("apiShareToken.directoryNeedsChild", locale), status: 400 });
+			if (!childPath) return denyAfterClaim(apiError({ code: "VALIDATION_FAILED", message: t("apiShareToken.directoryNeedsChild", locale), status: 400 }));
 			try {
 				targetPath = normalizeSharePath(childPath);
 			} catch {
-				return apiError({ code: "VALIDATION_FAILED", message: t("apiShareToken.invalidPath", locale), status: 400 });
+				return denyAfterClaim(apiError({ code: "VALIDATION_FAILED", message: t("apiShareToken.invalidPath", locale), status: 400 }));
 			}
 			const prefix = `${share.path.replace(/^\/+|\/+$/g, "")}/`;
 			if (targetPath !== share.path && !targetPath.startsWith(prefix)) {
-				return apiError({ code: "FORBIDDEN", message: t("apiShareToken.outOfRange", locale), status: 403 });
+				return denyAfterClaim(apiError({ code: "FORBIDDEN", message: t("apiShareToken.outOfRange", locale), status: 403 }));
 			}
 		}
 	} else if (share.entryType !== "FILE") {
-		return apiError({ code: "VALIDATION_FAILED", message: t("apiShareToken.notDownloadable", locale), status: 400 });
+		return denyAfterClaim(apiError({ code: "VALIDATION_FAILED", message: t("apiShareToken.notDownloadable", locale), status: 400 }));
 	}
 
 	const node = share.storageNode;
@@ -134,21 +139,21 @@ export async function GET(
 		const absolutePath = path.resolve(allowedRoot, targetPath);
 		const relativeToRoot = path.relative(allowedRoot, absolutePath);
 		if (relativeToRoot.startsWith("..") || path.isAbsolute(relativeToRoot)) {
-			return apiError({ code: "VALIDATION_FAILED", message: t("apiShareToken.invalidPath", locale), status: 400 });
+			return denyAfterClaim(apiError({ code: "VALIDATION_FAILED", message: t("apiShareToken.invalidPath", locale), status: 400 }));
 		}
 		try {
 			const fileStat = await stat(absolutePath);
 			if (wantsArchive) {
 				if (share.entryType !== "DIRECTORY" || !fileStat.isDirectory()) {
-					return apiError({ code: "VALIDATION_FAILED", message: t("apiShareToken.notPackagable", locale), status: 400 });
+					return denyAfterClaim(apiError({ code: "VALIDATION_FAILED", message: t("apiShareToken.notPackagable", locale), status: 400 }));
 				}
 				const stream = streamLocalTarGz(absolutePath, path.basename(absolutePath));
 				return archiveStreamResponse(stream, safeArchiveName(share.name || path.basename(absolutePath)));
 			}
-			if (!fileStat.isFile()) return apiError({ code: "VALIDATION_FAILED", message: t("apiShareToken.notDownloadable", locale), status: 400 });
+			if (!fileStat.isFile()) return denyAfterClaim(apiError({ code: "VALIDATION_FAILED", message: t("apiShareToken.notDownloadable", locale), status: 400 }));
 			return fileResponse(createReadStream(absolutePath), { size: fileStat.size, fileName });
 		} catch {
-			return apiError({ code: "NOT_FOUND", message: t("apiShareToken.localNotFound", locale), status: 404 });
+			return denyAfterClaim(apiError({ code: "NOT_FOUND", message: t("apiShareToken.localNotFound", locale), status: 404 }));
 		}
 	}
 
@@ -157,13 +162,13 @@ export async function GET(
 		try {
 			remotePath = normalizeRemoteTargetPath(node.basePath, targetPath);
 		} catch {
-			return apiError({ code: "VALIDATION_FAILED", message: t("apiShareToken.invalidPath", locale), status: 400 });
+			return denyAfterClaim(apiError({ code: "VALIDATION_FAILED", message: t("apiShareToken.invalidPath", locale), status: 400 }));
 		}
 		let credentials: ReturnType<typeof resolveStorageSshCredentials>;
 		try {
 			credentials = resolveStorageSshCredentials(node);
 		} catch (err) {
-			return apiError({ code: "VALIDATION_FAILED", message: err instanceof Error ? err.message : t("apiShareToken.missingRemoteCredentials", locale), status: 400 });
+			return denyAfterClaim(apiError({ code: "VALIDATION_FAILED", message: err instanceof Error ? err.message : t("apiShareToken.missingRemoteCredentials", locale), status: 400 }));
 		}
 		let client: Client | null = null;
 		try {
@@ -179,7 +184,7 @@ export async function GET(
 			});
 			if (wantsArchive) {
 				if (share.entryType !== "DIRECTORY") {
-					return apiError({ code: "VALIDATION_FAILED", message: t("apiShareToken.notPackagable", locale), status: 400 });
+					return denyAfterClaim(apiError({ code: "VALIDATION_FAILED", message: t("apiShareToken.notPackagable", locale), status: 400 }));
 				}
 				const stream = await streamRemoteTarGz(client, remotePath);
 				closeSshClientOnStreamEnd(stream, client);
@@ -192,9 +197,9 @@ export async function GET(
 			return fileResponse(stream, { size, fileName });
 		} catch {
 			client?.end();
-			return apiError({ code: "NOT_FOUND", message: t("apiShareToken.remoteNotFound", locale), status: 404 });
+			return denyAfterClaim(apiError({ code: "NOT_FOUND", message: t("apiShareToken.remoteNotFound", locale), status: 404 }));
 		}
 	}
 
-	return apiError({ code: "VALIDATION_FAILED", message: t("apiShareToken.unsupportedDriver", locale), status: 400 });
+	return denyAfterClaim(apiError({ code: "VALIDATION_FAILED", message: t("apiShareToken.unsupportedDriver", locale), status: 400 }));
 }

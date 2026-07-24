@@ -267,6 +267,22 @@ export async function resolveShareToken(token: string, password?: string, contex
 }
 
 /**
+ * Compensate a prior resolveShareToken quota claim when delivery fails before
+ * any bytes are streamed (missing object, bad path, SSH/archive errors).
+ * Decrements accessCount only when still > 0 so concurrent claims stay safe.
+ */
+export async function releaseShareQuotaClaim(shareLinkId: string): Promise<void> {
+  try {
+    await prisma.shareLink.updateMany({
+      where: { id: shareLinkId, accessCount: { gt: 0 } },
+      data: { accessCount: { decrement: 1 } },
+    });
+  } catch {
+    // Best-effort: never fail the caller error path because compensation failed.
+  }
+}
+
+/**
  * 只读解析分享 token，用于落地页展示，不递增访问计数。
  * 真正的下载（/api/share/[token]）才会通过 resolveShareToken 计数。
  */
