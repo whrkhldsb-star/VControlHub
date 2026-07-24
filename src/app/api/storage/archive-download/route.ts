@@ -23,6 +23,7 @@ import { normalizeStorageRelativePath, resolveStoragePathWithinBase } from "@/li
 import { normalizeRemoteTargetPath, toClientStorageError } from "@/lib/storage/remote-path";
 import { resolveStorageSshCredentials } from "@/lib/storage/ssh-credentials";
 import { storageFileQuerySchema } from "@/lib/storage/schema";
+import { isDirectoryEntry } from "@/lib/files/tree";
 
 import { AuthError, NotFoundError, ValidationError } from "@/lib/errors";
 export const dynamic = "force-dynamic";
@@ -55,10 +56,6 @@ type DirectoryEntry = {
     } | null;
   };
 };
-
-function isDirectoryEntry(entry: DirectoryEntry) {
-  return entry.entryType === "DIRECTORY" || entry.mimeType === "inode/directory";
-}
 
 async function findDirectoryEntry(
   nodeId: string,
