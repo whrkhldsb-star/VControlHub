@@ -73,6 +73,7 @@ export default function DockerPage({ initialServers }: { initialServers: { id: s
 				setError(data.error);
 				return;
 			}
+			setError("");
 			if (data.dockerScope && typeof data.dockerScope === "object") {
 				setDockerScope(data.dockerScope as DockerScope);
 			}
