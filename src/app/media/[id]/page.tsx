@@ -24,7 +24,7 @@ type PageProps = {
 type MediaPlayerItem = NonNullable<Awaited<ReturnType<typeof getMediaItem>>>;
 
 function formatSize(locale:"zh" |"en", bytes: bigint | number | null) {
-  if (!bytes) return t("mediaPage.player.sizeUnknown", locale);
+  if (bytes == null) return t("mediaPage.player.sizeUnknown", locale);
   const b = Number(bytes);
   if (b < 1024) return `${b} B`;
   if (b < 1024 * 1024) return `${(b / 1024).toFixed(1)} KB`;
