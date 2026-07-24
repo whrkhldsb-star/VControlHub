@@ -62,8 +62,9 @@ export async function executeAiOpsAction(input: ActionInput): Promise<AiOpsExecu
 			case "cache.purge:stale": {
 				// Prune completed jobs across all types, keeping latest 25 per type.
 				// Prune AI ops logs with AI_OPS_LOG_RETENTION_KEEP (same as scan-worker).
+				// No take cap: every distinct job.type must be prune-eligible.
 				const jobTypes = await prisma.job
-					.findMany({ select: { type: true }, distinct: ["type"], take: 20 })
+					.findMany({ select: { type: true }, distinct: ["type"] })
 					.catch(() => [] as { type: string }[]);
 
 				let totalPruned = 0;
