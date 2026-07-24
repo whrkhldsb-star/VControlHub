@@ -1,13 +1,8 @@
 /** Pure helpers / tone maps for the health dashboard. */
 
-export type SystemHealthStatus = "healthy" | "warning" | "critical";
-export type SystemHealthSummary = {
-	total: number;
-	healthy: number;
-	warning: number;
-	critical: number;
-	overall: SystemHealthStatus;
-};
+import type { SystemHealthStatus, SystemHealthSummary } from "./health-types";
+
+export type { SystemHealthStatus, SystemHealthSummary };
 
 export type RepairSuggestion = {
 	id: string;
