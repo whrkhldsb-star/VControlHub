@@ -5,6 +5,7 @@ import type { DownloadTask } from "./downloads-shared";
 import { getStatusLabel, formatSpeed } from "./downloads-shared";
 import { UI_INPUT } from "@/lib/ui/classes";
 import { cn } from "@/lib/ui/cn";
+import { formatBytes } from "@/lib/format/bytes";
 
 const statusBadge: Record<string, string> = {
 	PENDING: "border-[var(--warning-border)] bg-[var(--warning-bg)] text-[var(--warning)]",
@@ -23,15 +24,6 @@ function urlTypeLabel(url: string, t: (k: string) => string) {
 	if (url.startsWith("https://")) return "🔒 HTTPS";
 	if (url.startsWith("http://")) return "🔓 HTTP";
 	return t("downloadsPage.linkType.unknown");
-}
-
-function formatBytes(b: string | number | null): string {
-	if (!b) return "—";
-	const n = typeof b === "string" ? parseInt(b, 10) : b;
-	if (isNaN(n) || n === 0) return "0 B";
-	const units = ["B", "KB", "MB", "GB", "TB"];
-	const i = Math.floor(Math.log(n) / Math.log(1024));
-	return `${(n / Math.pow(1024, i)).toFixed(i > 0 ? 1 : 0)} ${units[i]}`;
 }
 
 function computePct(completed: string | null, total: string | null): number {
