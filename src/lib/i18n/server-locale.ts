@@ -2,29 +2,15 @@
  * Server-side locale helpers.
  *
  * Server actions can't use `useI18n()`, but the user's locale is persisted
- * in the `vps-locale` cookie (set by `use-locale.ts`). Read it here so server
- * actions can produce localised `success` / `error` messages that match the
- * client side language toggle.
+ * in the `vps-locale` cookie (set by `use-locale.ts`). Locale resolution lives
+ * in `translations.getServerLocale` (single source of truth); this module adds
+ * convenience wrappers for server actions.
  */
 
-import { cookies } from "next/headers";
+import { t as translate, type Locale, getAllTranslations, getServerLocale } from "./translations";
 
-import { t as translate, type Locale, getAllTranslations } from "./translations";
-
-const LOCALE_COOKIE = "vps-locale";
-
-export async function getServerLocale(): Promise<Locale> {
-	try {
-		const store = await cookies();
-		const raw = store.get(LOCALE_COOKIE)?.value;
-		return raw === "en" ? "en" : "zh";
-	} catch {
-		// Called outside a request scope (e.g. from a vitest unit test or a
-		// background task). Default to zh to match translations.getServerLocale
-		// and the client I18nProvider / layout cookie fallback.
-		return "zh";
-	}
-}
+export { getServerLocale };
+export type { Locale };
 
 /**
  * Convenience: produce a `t(key)` function bound to the request locale.
