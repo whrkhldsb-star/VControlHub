@@ -32,6 +32,15 @@ describe("ScheduleBackupForm", () => {
     vi.clearAllMocks();
   });
 
+  it("surfaces list load failures instead of showing empty state", async () => {
+    vi.mocked(csrfFetch).mockRejectedValueOnce(new Error("调度器不可用"));
+
+    renderWithI18n(<ScheduleBackupForm />, { locale: "zh" });
+
+    await waitFor(() => expect(screen.getByRole("alert")).toHaveTextContent("调度器不可用"));
+    expect(screen.queryByText("暂无备份计划")).not.toBeInTheDocument();
+  });
+
   it("surfaces toggle failures instead of silently swallowing them", async () => {
     const user = userEvent.setup();
     vi.mocked(csrfFetch)

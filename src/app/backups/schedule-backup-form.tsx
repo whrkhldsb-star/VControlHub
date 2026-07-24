@@ -76,6 +76,7 @@ export function ScheduleBackupForm() {
 	const [message, setMessage] = useState<{ type:"ok" |"error"; text: string } | null>(null);
 	const [schedules, setSchedules] = useState<BackupSchedule[]>([]);
 	const [loadingList, setLoadingList] = useState(true);
+	const [listError, setListError] = useState<string | null>(null);
 	const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
 
 	const cronPreview = useMemo(() => describeCronPreview(cronExpression, t), [cronExpression, t]);
@@ -84,12 +85,15 @@ export function ScheduleBackupForm() {
 		try {
 			const data = await csrfFetch<{ schedules: BackupSchedule[] }>("/api/backup-schedules", { method:"GET" });
 			setSchedules(data.schedules ?? []);
-		} catch {
-			// best-effort
+			setListError(null);
+		} catch (error) {
+			setListError(
+				error instanceof Error ? error.message : t("backupsPage.scheduleList.loadFailed"),
+			);
 		} finally {
 			setLoadingList(false);
 		}
-	}, []);
+	}, [t]);
 
 	useEffect(() => {
 		const timer = window.setTimeout(() => { void fetchSchedules(); }, 0);
@@ -200,6 +204,20 @@ export function ScheduleBackupForm() {
 				<h3 className="text-sm font-semibold text-[var(--text-primary)]">{t("backupsPage.scheduleList.title")}</h3>
 				{loadingList ? (
 					<p className="text-xs text-[var(--text-muted)]">…</p>
+				) : listError ? (
+					<div className="space-y-1 py-1" role="alert">
+						<p className="text-xs text-[var(--danger)]">{listError}</p>
+						<button
+							type="button"
+							onClick={() => {
+								setLoadingList(true);
+								void fetchSchedules();
+							}}
+							className="text-xs text-[var(--text-secondary)] underline underline-offset-2 hover:text-[var(--text-primary)]"
+						>
+							{t("backupsPage.scheduleList.retry")}
+						</button>
+					</div>
 				) : schedules.length === 0 ? (
 					<div className="space-y-1 py-1">
 						<p className="text-xs text-[var(--text-muted)]">{t("backupsPage.scheduleList.empty")}</p>
