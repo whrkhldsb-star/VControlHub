@@ -243,6 +243,10 @@ export async function importUsers(
           twoFactorEnabled: r.twoFactorEnabled,
           // In full mode, restore 2FA secret; otherwise keep existing
           ...(r.twoFactorSecret !== null ? { twoFactorSecret: r.twoFactorSecret } : {}),
+          // Mirror createMany: restore UI prefs / locale / layout on overwrite
+          ...(r.preferences !== undefined
+            ? { preferences: r.preferences as Prisma.InputJsonValue }
+            : {}),
         },
       });
       counts.updated += 1;
