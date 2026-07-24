@@ -9,7 +9,7 @@ import { prisma } from "@/lib/db";
 import { evaluateAlerts } from "@/lib/health/service-alerts";
 import { pruneCompletedJobsByType } from "@/lib/job/service";
 
-import { AI_OPS_SAFE_AUTONOMOUS_ACTIONS, type AiOpsExecutedAction } from "./types";
+import { AI_OPS_LOG_RETENTION_KEEP, AI_OPS_SAFE_AUTONOMOUS_ACTIONS, type AiOpsExecutedAction } from "./types";
 
 type ActionInput = {
 	id: string;
@@ -61,7 +61,7 @@ export async function executeAiOpsAction(input: ActionInput): Promise<AiOpsExecu
 			}
 			case "cache.purge:stale": {
 				// Prune completed jobs across all types, keeping latest 25 per type.
-				// Also prune old AI ops logs (keep latest 100).
+				// Prune AI ops logs with AI_OPS_LOG_RETENTION_KEEP (same as scan-worker).
 				const jobTypes = await prisma.job
 					.findMany({ select: { type: true }, distinct: ["type"], take: 20 })
 					.catch(() => [] as { type: string }[]);
@@ -72,12 +72,12 @@ export async function executeAiOpsAction(input: ActionInput): Promise<AiOpsExecu
 					totalPruned += result.count;
 				}
 
-				// Also prune old AI ops logs (keep latest 100)
+				// Also prune old AI ops logs (shared retention with scan-worker)
 				const oldLogs = await prisma.aiOpsLog
 					.findMany({
 						select: { id: true },
 						orderBy: { createdAt: "desc" },
-						take: 100,
+						take: AI_OPS_LOG_RETENTION_KEEP,
 					})
 					.catch(() => []);
 				if (oldLogs.length > 0) {

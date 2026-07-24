@@ -30,6 +30,7 @@ import { createLogger } from "@/lib/logging";
 import { getSetting } from "@/lib/settings/service";
 
 import {
+	AI_OPS_LOG_RETENTION_KEEP,
 	AI_OPS_SCAN_JOB_TYPE,
 	type AiOpsExecutedAction,
 	type AiOpsFinding,
@@ -421,14 +422,14 @@ export async function runAiOpsScanWorkerOnce(reason = "manual"): Promise<boolean
 				actionCount: actions.length,
 			});
 
-			// Retention: prune old AI ops logs (keep latest 200)
+			// Retention: prune old AI ops logs (AI_OPS_LOG_RETENTION_KEEP)
 			try {
 				const oldLogs = await prisma.aiOpsLog.findMany({
 					select: { id: true },
 					orderBy: { createdAt: "desc" },
-					take: 200,
+					take: AI_OPS_LOG_RETENTION_KEEP,
 				});
-				if (oldLogs.length === 200) {
+				if (oldLogs.length === AI_OPS_LOG_RETENTION_KEEP) {
 					const keepIds = oldLogs.map((l) => l.id);
 					const result = await prisma.aiOpsLog.deleteMany({
 						where: { id: { notIn: keepIds } },

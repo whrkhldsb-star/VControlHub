@@ -108,4 +108,7 @@ export type AiOpsSafeAutonomousAction =
 /** Default scan schedule (24h format, local time). 02:00 is the chosen quiet hour. */
 export const AI_OPS_DEFAULT_SCHEDULE_HOUR = 2;
 
+/** Keep the newest N AI ops logs when pruning (scan worker + cache.purge:stale). */
+export const AI_OPS_LOG_RETENTION_KEEP = 200;
+
 export type AiOpsLogJson = Prisma.JsonValue;
