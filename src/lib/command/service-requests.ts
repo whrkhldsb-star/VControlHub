@@ -502,7 +502,11 @@ export async function reviewCommandRequest(
   // Notify requester: command rejected
   notifyCommandResult(request.requesterId, request.title, "rejected", request.teamId).catch((err) => { commandLogger.warn("notifyCommandResult failed", { error: err instanceof Error ? err.message : String(err) }); });
 
-  return request;
+  // Return post-CAS row (same as approve path). The pre-tx `request` snapshot
+  // still has status PENDING_APPROVAL and would mislead API/UI clients.
+  return prisma.commandRequest.findUniqueOrThrow({
+    where: { id: payload.commandRequestId },
+  });
 }
 
 export async function listCommandRequests(session?: CommandSessionScope | null) {
