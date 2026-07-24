@@ -11,6 +11,7 @@ import { withApiRoute } from "@/lib/http/api-guard";
 import { GENERAL_READ_LIMIT, GENERAL_WRITE_LIMIT } from "@/lib/http/rate-limit-presets";
 import { listRecentSnapshots, syncServerMonthlyCosts } from "@/lib/cost/service";
 import { costMonthSchema } from "@/lib/cost/schema";
+import { auditUserAction } from "@/lib/audit/service";
 import { z } from "zod";
 
 export const dynamic = "force-dynamic";
@@ -52,6 +53,17 @@ export async function POST(request: Request) {
 		},
 		async ({ body, session }) => {
 			const result = await syncServerMonthlyCosts(body.month, session);
+			await auditUserAction(
+				session?.userId ?? "anonymous",
+				"cost.sync_server_monthly",
+				{
+					month: result.month,
+					synced: result.synced,
+					skipped: result.skipped,
+				},
+				undefined,
+				session?.currentTeamId,
+			);
 			return NextResponse.json({ result });
 		},
 	);

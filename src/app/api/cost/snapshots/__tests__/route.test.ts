@@ -8,6 +8,7 @@ const { mocks } = vi.hoisted(() => ({
 		requireApiPermission: vi.fn(),
 		listRecentSnapshots: vi.fn(),
 		syncServerMonthlyCosts: vi.fn(),
+		auditUserAction: vi.fn(),
 	},
 }));
 
@@ -23,6 +24,10 @@ vi.mock("@/lib/cost/service", async (importOriginal) => {
 		syncServerMonthlyCosts: mocks.syncServerMonthlyCosts,
 	};
 });
+
+vi.mock("@/lib/audit/service", () => ({
+	auditUserAction: mocks.auditUserAction,
+}));
 
 const route = await import("../route");
 
@@ -48,6 +53,7 @@ describe("/api/cost/snapshots", () => {
 		mocks.requireApiPermission.mockResolvedValue({ session });
 		mocks.listRecentSnapshots.mockResolvedValue(SAMPLE);
 		mocks.syncServerMonthlyCosts.mockResolvedValue({ month: "2026-06", synced: 2, skipped: 1, entries: [] });
+		mocks.auditUserAction.mockResolvedValue(undefined);
 	});
 
 	it("GET requires cost:read and returns the snapshot list", async () => {
@@ -92,7 +98,14 @@ describe("/api/cost/snapshots", () => {
 		);
 		expect(res.status).toBe(200);
 		expect(mocks.requireApiPermission).toHaveBeenCalledWith("cost:manage");
-		expect(mocks.syncServerMonthlyCosts).toHaveBeenCalledWith("2026-06");
+		expect(mocks.syncServerMonthlyCosts).toHaveBeenCalledWith("2026-06", expect.anything());
+		expect(mocks.auditUserAction).toHaveBeenCalledWith(
+			"u1",
+			"cost.sync_server_monthly",
+			expect.objectContaining({ month: "2026-06", synced: 2, skipped: 1 }),
+			undefined,
+			undefined,
+		);
 		const body = await res.json();
 		expect(body.result.synced).toBe(2);
 	});
@@ -107,5 +120,6 @@ describe("/api/cost/snapshots", () => {
 		);
 		expect(res.status).toBe(400);
 		expect(mocks.syncServerMonthlyCosts).not.toHaveBeenCalled();
+		expect(mocks.auditUserAction).not.toHaveBeenCalled();
 	});
 });
