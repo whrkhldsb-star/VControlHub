@@ -203,6 +203,10 @@ export async function detectAndPruneSftpStaleInventory(input: {
 
   const expectedRelativePaths = new Set<string>();
   const visitedDirs = new Set<string>();
+  // Relative paths of directories whose listing completed successfully.
+  // Empty string = node basePath. Only direct children of these dirs may be
+  // treated as authoritative absence (avoids maxDepth / timeout false prunes).
+  const listedDirRelatives = new Set<string>();
 
   async function walkDirectory(
     dirPath: string,
@@ -231,6 +235,9 @@ export async function detectAndPruneSftpStaleInventory(input: {
       result.errors.push(`Scanning ${dirPath} failed: ${msg}`);
       return;
     }
+
+    const dirRelative = computeDirectoryBaseRelativePath(basePath, dirPath);
+    listedDirRelatives.add(dirRelative);
 
     for (const entry of entries) {
       if (entry.type === "other") continue;
@@ -269,23 +276,21 @@ export async function detectAndPruneSftpStaleInventory(input: {
       take: 10_000,
     });
 
-    // 只把"直接子条目"算 stale (子目录本身如果整目录都被删, 它的子条目会跟着被递归处理)
+    // Only prune direct children of directories we successfully listed.
+    // Paths under unvisited subtrees (maxDepth boundary, list timeout/failure)
+    // are not authoritative absences — leave them active.
     const staleIds: string[] = [];
     for (const dbEntry of dbEntries) {
-      if (!expectedRelativePaths.has(dbEntry.relativePath)) {
-        // 进一步过滤: 如果有"祖先目录"存在但当前条目的父目录不在 expected,
-        // 说明这个条目其实是孤儿 (它的父目录在 SFTP 上被删了), 同样标 stale
-        const segments = dbEntry.relativePath.split("/");
-        if (segments.length > 1) {
-          const parentRelative = segments.slice(0, -1).join("/");
-          if (!expectedRelativePaths.has(parentRelative)) {
-            staleIds.push(dbEntry.id);
-            continue;
-          }
-        }
-        // 直接子层: 父目录就是 baseRelative, 不在 expected 就是 stale
-        staleIds.push(dbEntry.id);
-      }
+      if (expectedRelativePaths.has(dbEntry.relativePath)) continue;
+
+      const segments = dbEntry.relativePath.split("/");
+      const parentRelative =
+        segments.length > 1 ? segments.slice(0, -1).join("/") : "";
+      // Parent must have been listed successfully (not merely observed as a name).
+      if (!listedDirRelatives.has(parentRelative)) continue;
+
+      // Direct child of a listed dir and missing from that listing → stale.
+      staleIds.push(dbEntry.id);
     }
 
     result.stale = staleIds.length;

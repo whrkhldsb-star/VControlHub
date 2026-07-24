@@ -139,6 +139,31 @@ describe("detectAndPruneSftpStaleInventory", () => {
     expect(listRemoteDirectoryMock).toHaveBeenCalledTimes(1);
   });
 
+  it("does not prune deep entries beyond maxDepth as false-positive stale", async () => {
+    listRemoteDirectoryMock.mockResolvedValueOnce([
+      { name: "sub", type: "directory", size: 0, mtime: 0 },
+    ]);
+    // maxDepth=0: we see "sub" but never list its children
+    prismaFileEntryMock.findMany.mockResolvedValueOnce([
+      { id: "fe_sub", relativePath: "sub" },
+      { id: "fe_deep", relativePath: "sub/deep.txt" },
+      { id: "fe_ghost", relativePath: "ghost.txt" },
+    ]);
+    prismaFileEntryMock.updateMany.mockResolvedValueOnce({ count: 1 });
+
+    const result = await detectAndPruneSftpStaleInventory({
+      node: baseNode,
+      maxDepth: 0,
+      directoryTimeoutMs: 30_000,
+    });
+
+    expect(result.stale).toBe(1);
+    expect(prismaFileEntryMock.updateMany).toHaveBeenCalledWith({
+      where: { id: { in: ["fe_ghost"] } },
+      data: { isDeleted: true },
+    });
+  });
+
   it("captures per-directory errors without aborting the rest of the walk", async () => {
     listRemoteDirectoryMock.mockRejectedValueOnce(
       new Error("connection reset"),
