@@ -33,6 +33,10 @@ const NAMESPACE_KEYS: Record<string, number> = {
 	"sync-schedule": 45064,
 	/** Serialize playbook run creation against destructive playbook deletion. */
 	"playbook-lifecycle": 45065,
+	/** Serialize builtin command template seed. */
+	"command-template-seed": 45066,
+	/** Serialize concurrent deployment rollback for one source run. */
+	"deployment-rollback": 45067,
 };
 
 function connectionStringForPg() {

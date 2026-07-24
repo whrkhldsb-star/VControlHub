@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/db";
+import { acquireAdvisoryLock } from "@/lib/concurrency/advisory-lock";
 import { createCommandRequest } from "@/lib/command/service";
 import { renderCommand, seedBuiltinTemplates } from "@/lib/command-template/service";
 import type { SessionPayload } from "@/lib/auth/session";
@@ -354,47 +355,71 @@ export async function createDeploymentRollbackRun(
   if (!snapshot) throw new NotFoundError(t("backend.deployment.thisDeploymentHasNoSnapshotAvailableForRollback"));
   if (!snapshot.rollbackCommand?.trim()) throw new ValidationError(t("backend.deployment.thisDeploymentSnapshotHasNoRollbackCommand"));
 
-  const activeRollback = await prisma.deploymentRollbackRun.findFirst({
-    where: {
-      sourceRunId: sourceRun.id,
-      status: { in: ["PENDING", "APPROVED", "RUNNING"] },
-    },
-    select: { id: true, status: true },
-    orderBy: { createdAt: "desc" },
-  });
-  if (activeRollback) throw new ConflictError(t("backend.deployment.aRollbackTaskIsAlreadyInProgressPlease"));
+  // Serialize concurrent rollback POSTs for the same source run.
+  const releaseLock = await acquireAdvisoryLock("deployment-rollback", sourceRun.id);
+  try {
+    const activeRollback = await prisma.deploymentRollbackRun.findFirst({
+      where: {
+        sourceRunId: sourceRun.id,
+        status: { in: ["PENDING", "APPROVED", "RUNNING"] },
+      },
+      select: { id: true, status: true },
+      orderBy: { createdAt: "desc" },
+    });
+    if (activeRollback) throw new ConflictError(t("backend.deployment.aRollbackTaskIsAlreadyInProgressPlease"));
 
-  const reason = input.reason?.trim() || `Rollback: ${snapshot.templateName}`;
-  const rollbackTeamId = sourceRun.teamId ?? null;
-  const rollback = await prisma.deploymentRollbackRun.create({
-    data: {
-      sourceRunId: sourceRun.id,
-      snapshotId: snapshot.id,
-      rollbackCommand: snapshot.rollbackCommand,
-      serverIds: snapshot.serverIds,
-      reason,
-      createdBy: input.requesterId,
-      status: "PENDING",
-    },
-  });
+    const reason = input.reason?.trim() || `Rollback: ${snapshot.templateName}`;
+    const rollbackTeamId = sourceRun.teamId ?? null;
+    const rollback = await prisma.deploymentRollbackRun.create({
+      data: {
+        sourceRunId: sourceRun.id,
+        snapshotId: snapshot.id,
+        rollbackCommand: snapshot.rollbackCommand,
+        serverIds: snapshot.serverIds,
+        reason,
+        createdBy: input.requesterId,
+        status: "PENDING",
+      },
+    });
 
-  // Propagate parent DeploymentRun.teamId onto the CommandRequest (system path, no session).
-  const command = await createCommandRequest({
-    title: `Rollback deployment: ${snapshot.templateName}`,
-    command: snapshot.rollbackCommand,
-    reason,
-    submissionMode: "assistant",
-    requesterId: input.requesterId,
-    serverIds: snapshot.serverIds,
-    teamId: rollbackTeamId,
-  });
+    try {
+      // Propagate parent DeploymentRun.teamId onto the CommandRequest (system path, no session).
+      const command = await createCommandRequest({
+        title: `Rollback deployment: ${snapshot.templateName}`,
+        command: snapshot.rollbackCommand,
+        reason,
+        submissionMode: "assistant",
+        requesterId: input.requesterId,
+        serverIds: snapshot.serverIds,
+        teamId: rollbackTeamId,
+      });
 
-  return prisma.deploymentRollbackRun.update({
-    where: { id: rollback.id },
-    data: {
-      commandRequestId: command.id,
-      status: command.status === "PENDING_APPROVAL" ? "PENDING" : "RUNNING",
-    },
-    include: { commandRequest: { select: { status: true } }, snapshot: true },
-  });
+      return await prisma.deploymentRollbackRun.update({
+        where: { id: rollback.id },
+        data: {
+          commandRequestId: command.id,
+          status: command.status === "PENDING_APPROVAL" ? "PENDING" : "RUNNING",
+        },
+        include: { commandRequest: { select: { status: true } }, snapshot: true },
+      });
+    } catch (error) {
+      // Avoid orphan PENDING with null commandRequestId permanently blocking new rollbacks.
+      const errMsg = error instanceof Error ? error.message : String(error);
+      await prisma.deploymentRollbackRun
+        .update({
+          where: { id: rollback.id },
+          data: {
+            status: "FAILED",
+            errorMessage: errMsg.slice(0, 2000),
+            completedAt: new Date(),
+          },
+        })
+        .catch(() => {
+          /* best-effort compensation */
+        });
+      throw error;
+    }
+  } finally {
+    await releaseLock();
+  }
 }

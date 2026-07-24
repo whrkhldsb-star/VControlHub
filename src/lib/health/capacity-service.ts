@@ -74,13 +74,14 @@ export async function getCapacityForecast(
   }
 
   const serverIds = servers.map((s) => s.id);
-  const snapshots = await prisma.metricSnapshot.findMany({
+  // Prefer newest samples under the hard take cap (fleet growth exceeds 50k oldest-first).
+  const snapshotsDesc = await prisma.metricSnapshot.findMany({
     where: {
       serverId: { in: serverIds },
       createdAt: { gte: since },
       isOnline: true,
     },
-    orderBy: { createdAt: "asc" },
+    orderBy: { createdAt: "desc" },
     take: MAX_SNAPSHOTS,
     select: {
       serverId: true,
@@ -90,6 +91,7 @@ export async function getCapacityForecast(
       createdAt: true,
     },
   });
+  const snapshots = snapshotsDesc.slice().reverse();
 
   const byServer = new Map<
     string,

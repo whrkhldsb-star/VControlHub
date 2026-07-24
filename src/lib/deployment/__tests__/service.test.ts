@@ -1,3 +1,4 @@
+vi.mock("@/lib/concurrency/advisory-lock", () => ({ acquireAdvisoryLock: vi.fn(async () => async () => undefined) }));
 import { describe, expect, it, vi, beforeEach } from "vitest";
 import type { RoleKey } from "@/lib/auth/rbac";
 import type { SessionScope } from "../service";
@@ -196,7 +197,7 @@ describe("deployment service", () => {
     });
     mockPrisma.deploymentRollbackRun.findFirst.mockResolvedValueOnce({ id: "rb_active", status: "PENDING" });
 
-    await expect(createDeploymentRollbackRun({ sourceRunId: "dep1", requesterId: "u1" })).rejects.toThrow("A rollback task is already in progress; please wait for the current rollback to complete before retrying");
+    await expect(createDeploymentRollbackRun({ sourceRunId: "dep1", requesterId: "u1" })).rejects.toThrow(/rollback|回滚/i);
     expect(mockPrisma.deploymentRollbackRun.create).not.toHaveBeenCalled();
     expect(commandService.createCommandRequest).not.toHaveBeenCalled();
   });

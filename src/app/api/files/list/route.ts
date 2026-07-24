@@ -114,7 +114,8 @@ export async function GET(request: NextRequest) {
       if (searchQuery) {
         const lowerQuery = searchQuery.toLowerCase();
         if (searchScope === "all") {
-          const allResults = searchFileTree(tree, searchQuery);
+          // scope=all = recursive under current path (not whole tree root)
+          const allResults = searchFileTree(currentNode, searchQuery);
           folders = allResults.folders;
           files = allResults.files;
         } else {

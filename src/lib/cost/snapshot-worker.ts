@@ -32,6 +32,8 @@ import {
 } from "./types";
 import { checkBudgetAlerts, syncServerMonthlyCosts, upsertDailySnapshot } from "./service";
 
+const SNAPSHOT_CURRENCY = "CNY" as const;
+
 const logger = createLogger("cost-snapshot-worker");
 
 export const COST_SNAPSHOT_JOB_TYPE = "cost.snapshot";
@@ -91,8 +93,12 @@ async function buildTodaySnapshot(today: Date) {
 	);
 	const dayEnd = new Date(dayStart.getTime() + 24 * 60 * 60 * 1000);
 
+	// Sum only one currency (CNY) — mixed USD cloud imports must not inflate totals.
 	const rows = await prisma.costEntry.findMany({
-		where: { effectiveDate: { gte: dayStart, lt: dayEnd } },
+		where: {
+			effectiveDate: { gte: dayStart, lt: dayEnd },
+			currency: SNAPSHOT_CURRENCY,
+		},
 		select: { category: true, amount: true },
 		take: 10000, // P2: 单日 cost entry 数,1w 作 hard 上界
 	});

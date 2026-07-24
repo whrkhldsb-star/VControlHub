@@ -154,53 +154,60 @@ export async function createServerProfile(
   pendingServerForPreflight.hostKeySha256 = hostKeySha256;
   await verifyServerSshConnectivity(normalized, pendingServerForPreflight);
 
-  const server = await prisma.server.create({
-    data: {
-      name: normalized.name,
-      host: normalized.host,
-      port: normalized.port,
-      username: normalized.username,
-      description: normalized.description,
-      tags: normalized.tags,
-      connectionType: normalized.connectionType,
-      hostKeySha256,
-      sshKeyId:
-        normalized.connectionType === "SSH_KEY" ? normalized.sshKeyId! : null,
-      password:
-        normalized.connectionType === "PASSWORD" && normalized.password
-          ? encryptServerPasswordIfPlain(normalized.password)
-          : null,
-      costAutoSync: normalized.costAutoSync,
-      costMonthlyAmount: normalized.costMonthlyAmount ? new Prisma.Decimal(normalized.costMonthlyAmount) : null,
-      costCurrency: normalized.costCurrency,
-      costProvider: normalized.costProvider,
-      enabled: true,
-      ...teamData,
-    },
-    include: SERVER_PROFILE_INCLUDE,
-  });
-
-  // Auto-create associated storage node
-  const storageNodeName = `${server.name} storage`;
+  // Precompute paths outside the transaction (read-only counts may race slightly
+  // for isDefault; server+storage create must be atomic to avoid orphan Server rows).
   const isLocalHost = isLocalHostLiteral(normalized.host);
   const defaultCount = await prisma.storageNode.count({
     where: { isDefault: true },
   });
+  const provisionalName = normalized.name;
   const configuredPath =
     normalized.storagePath ||
-    (isLocalHost ? `/srv/storage/${server.name}` : "/root/drive");
-  await prisma.storageNode.create({
-    data: {
-      name: storageNodeName,
-      driver: isLocalHost ? "LOCAL" : "SFTP",
-      basePath: configuredPath,
-      isDefault: defaultCount === 0,
-      serverId: isLocalHost ? null : server.id,
-      directAccessMode: "PROXY",
-      publicBaseUrl: null,
-      hostKeySha256,
-      ...(teamData.teamId !== undefined ? { teamId: teamData.teamId } : {}),
-    },
+    (isLocalHost ? `/srv/storage/${provisionalName}` : "/root/drive");
+
+  const server = await prisma.$transaction(async (tx) => {
+    const created = await tx.server.create({
+      data: {
+        name: normalized.name,
+        host: normalized.host,
+        port: normalized.port,
+        username: normalized.username,
+        description: normalized.description,
+        tags: normalized.tags,
+        connectionType: normalized.connectionType,
+        hostKeySha256,
+        sshKeyId:
+          normalized.connectionType === "SSH_KEY" ? normalized.sshKeyId! : null,
+        password:
+          normalized.connectionType === "PASSWORD" && normalized.password
+            ? encryptServerPasswordIfPlain(normalized.password)
+            : null,
+        costAutoSync: normalized.costAutoSync,
+        costMonthlyAmount: normalized.costMonthlyAmount ? new Prisma.Decimal(normalized.costMonthlyAmount) : null,
+        costCurrency: normalized.costCurrency,
+        costProvider: normalized.costProvider,
+        enabled: true,
+        ...teamData,
+      },
+      include: SERVER_PROFILE_INCLUDE,
+    });
+
+    // Auto-create associated storage node in the same transaction
+    const storageNodeName = `${created.name} storage`;
+    await tx.storageNode.create({
+      data: {
+        name: storageNodeName,
+        driver: isLocalHost ? "LOCAL" : "SFTP",
+        basePath: configuredPath,
+        isDefault: defaultCount === 0,
+        serverId: isLocalHost ? null : created.id,
+        directAccessMode: "PROXY",
+        publicBaseUrl: null,
+        hostKeySha256,
+        ...(teamData.teamId !== undefined ? { teamId: teamData.teamId } : {}),
+      },
+    });
+    return created;
   });
 
   if (isLocalHost) {

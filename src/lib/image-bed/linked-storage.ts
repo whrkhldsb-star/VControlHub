@@ -10,13 +10,6 @@ export async function indexLinkedStorageImage(input: {
   size: number;
   checksum: string;
 }) {
-  const existing = await prisma.fileEntry.findFirst({
-    where: {
-      storageNodeId: input.storageNodeId,
-      relativePath: input.relativePath,
-    },
-    select: { id: true },
-  });
   const data = {
     name: input.originalName || path.posix.basename(input.relativePath),
     entryType: "FILE" as const,
@@ -26,14 +19,19 @@ export async function indexLinkedStorageImage(input: {
     isDeleted: false,
   };
 
-  if (existing) {
-    return prisma.fileEntry.update({ where: { id: existing.id }, data });
-  }
-  return prisma.fileEntry.create({
-    data: {
+  // Atomic on @@unique([storageNodeId, relativePath]) — avoids concurrent create P2002 races.
+  return prisma.fileEntry.upsert({
+    where: {
+      storageNodeId_relativePath: {
+        storageNodeId: input.storageNodeId,
+        relativePath: input.relativePath,
+      },
+    },
+    create: {
       storageNodeId: input.storageNodeId,
       relativePath: input.relativePath,
       ...data,
     },
+    update: data,
   });
 }

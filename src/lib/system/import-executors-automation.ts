@@ -166,6 +166,8 @@ export async function importPlaybooks(
         chainRetry: r.chainRetry,
         enabled: r.enabled,
         createdById: r.createdById,
+        // Multi-tenant: preserve export teamId (null stays legacy-shared)
+        teamId: r.teamId ?? null,
       })),
       skipDuplicates: true,
     });
@@ -185,6 +187,7 @@ export async function importPlaybooks(
           chainRetry: r.chainRetry,
           enabled: r.enabled,
           createdById: r.createdById,
+          teamId: r.teamId ?? null,
         },
       });
     }
@@ -227,6 +230,8 @@ export async function importAlertRules(
         cooldownMinutes: r.cooldownMinutes,
         silenceWindows: r.silenceWindows,
         enabled: r.enabled,
+        // Multi-tenant: preserve export teamId (null stays legacy-shared)
+        teamId: r.teamId ?? null,
       })),
       skipDuplicates: true,
     });
@@ -249,6 +254,7 @@ export async function importAlertRules(
           cooldownMinutes: r.cooldownMinutes,
           silenceWindows: r.silenceWindows,
           enabled: r.enabled,
+          teamId: r.teamId ?? null,
         },
       });
     }

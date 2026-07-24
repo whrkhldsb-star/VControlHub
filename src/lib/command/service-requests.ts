@@ -271,16 +271,12 @@ export async function cancelCommandRequest(input: {
   const cancellableTargetIds = request.targets
     .filter((target) => ["PENDING_APPROVAL", "APPROVED", "RUNNING"].includes(target.status))
     .map((target) => target.id);
-  const killedCount = cancellableTargetIds.reduce((count, targetId) => count + (cancelActiveCommandChild(targetId) ? 1 : 0), 0);
   const now = new Date();
   const reason = input.reason?.trim();
-  const stderr = killedCount > 0
-    ? `Command request cancelled; terminated ${killedCount} running SSH subprocesses.${reason ? ` Reason: ${reason}` : ""}`
-    : `Command request cancelled.${reason ? ` Reason: ${reason}` : ""}`;
 
-  // CAS claim first so a concurrent finalize/recovery that already moved the
-  // request to COMPLETED/FAILED/CANCELLED cannot be rewritten to CANCELLED
-  // (would falsify task-center history and re-open cancelled UX races).
+  // CAS claim FIRST so a concurrent finalize/recovery that already moved the
+  // request to COMPLETED/FAILED/CANCELLED does not get SIGTERM while history
+  // stays terminal (kill only after we own the cancel transition).
   const claimed = await prisma.commandRequest.updateMany({
     where: {
       id: commandRequestId,
@@ -292,6 +288,14 @@ export async function cancelCommandRequest(input: {
   if (claimed.count === 0) {
     throw new BusinessError(t("backend.command.cannotCancelEnded"));
   }
+
+  const killedCount = cancellableTargetIds.reduce(
+    (count, targetId) => count + (cancelActiveCommandChild(targetId) ? 1 : 0),
+    0,
+  );
+  const stderr = killedCount > 0
+    ? `Command request cancelled; terminated ${killedCount} running SSH subprocesses.${reason ? ` Reason: ${reason}` : ""}`
+    : `Command request cancelled.${reason ? ` Reason: ${reason}` : ""}`;
 
   await prisma.commandTarget.updateMany({
     where: {

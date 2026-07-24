@@ -96,6 +96,11 @@ vi.mock("@/lib/db", () => ({
     mediaItem: {
       deleteMany: vi.fn(),
     },
+    // createServerProfile wraps server+storage in $transaction
+    $transaction: vi.fn(async (fn: (tx: unknown) => unknown) => {
+      const { prisma: p } = await import("@/lib/db");
+      return fn(p);
+    }),
   },
 }));
 

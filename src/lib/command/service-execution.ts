@@ -204,6 +204,14 @@ const TERMINAL_TARGET_STATUSES = new Set([
   "REJECTED",
 ]);
 
+/** Request statuses that must not spawn new SSH (recovery may mark FAILED first). */
+const TERMINAL_REQUEST_STATUSES = new Set([
+  "CANCELLED",
+  "COMPLETED",
+  "FAILED",
+  "REJECTED",
+]);
+
 export async function executeTarget(
   commandRequestId: string,
   target: Awaited<ReturnType<typeof prisma.commandTarget.findMany>>[number] & {
@@ -234,7 +242,7 @@ export async function executeTarget(
   if (
     !live ||
     TERMINAL_TARGET_STATUSES.has(live.status) ||
-    live.commandRequest.status === "CANCELLED"
+    TERMINAL_REQUEST_STATUSES.has(live.commandRequest.status)
   ) {
     await prisma.executionLog.create({
       data: {

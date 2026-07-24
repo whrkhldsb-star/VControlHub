@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/db";
+import { acquireAdvisoryLock } from "@/lib/concurrency/advisory-lock";
 import { BusinessError, ForbiddenError, NotFoundError } from "@/lib/errors";
 import { t } from "@/lib/i18n/translations";
 
@@ -58,23 +59,29 @@ export const BUILTIN_TEMPLATES: CreateTemplateInput[] = [
 /* ── Seed built-in templates ──────────────────────────────── */
 
 export async function seedBuiltinTemplates() {
-	const existing = await prisma.commandTemplate.count({ where: { isBuiltin: true } });
-	if (existing > 0) return;
+	// Serialize multi-instance cold start / concurrent listTemplates so we do not
+	// insert duplicate builtin rows (no @@unique on name+isBuiltin).
+	const release = await acquireAdvisoryLock("command-template-seed", "builtin");
+	try {
+		const existing = await prisma.commandTemplate.count({ where: { isBuiltin: true } });
+		if (existing > 0) return;
 
-	// TR-040: parallelize the 12 built-in inserts with a single `createMany`
-	// round-trip so a fresh DB seed completes in one DB call instead of
-	// 12 sequential `prisma.commandTemplate.create` round-trips.
-	await prisma.commandTemplate.createMany({
-		data: BUILTIN_TEMPLATES.map((tmpl) => ({
-			name: tmpl.name,
-			description: tmpl.description ?? null,
-			command: tmpl.command,
-			rollbackCommand: tmpl.rollbackCommand ?? null,
-			variables: tmpl.variables ?? extractTemplateVariables(tmpl.command, tmpl.rollbackCommand),
-			tags: tmpl.tags ?? [],
-			isBuiltin: true,
-		})),
-	});
+		// TR-040: single createMany; skipDuplicates softens races if unique is added later.
+		await prisma.commandTemplate.createMany({
+			data: BUILTIN_TEMPLATES.map((tmpl) => ({
+				name: tmpl.name,
+				description: tmpl.description ?? null,
+				command: tmpl.command,
+				rollbackCommand: tmpl.rollbackCommand ?? null,
+				variables: tmpl.variables ?? extractTemplateVariables(tmpl.command, tmpl.rollbackCommand),
+				tags: tmpl.tags ?? [],
+				isBuiltin: true,
+			})),
+			skipDuplicates: true,
+		});
+	} finally {
+		await release();
+	}
 }
 
 /* ── CRUD ─────────────────────────────────────────────────── */
