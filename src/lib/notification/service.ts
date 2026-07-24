@@ -73,7 +73,7 @@ export async function createNotification(input: CreateNotificationInput) {
 	return record;
 }
 
-export async function listUserNotifications(userId: string, opts?: { unreadOnly?: boolean; limit?: number; skip?: number; session?: { userId: string; roles: import("@/lib/auth/rbac").RoleKey[]; currentTeamId: string | null } }) {
+export async function listUserNotifications(userId: string, opts?: { unreadOnly?: boolean; limit?: number; skip?: number }) {
 	return prisma.notification.findMany({
 		where: {
 			userId,
@@ -220,114 +220,6 @@ export async function notifyDownloadResult(
 		title: status === "completed" ? "Download completed" : "Download failed",
 		message: status === "completed" ? `Download completed: ${truncatedUrl}` : `Download failed: ${truncatedUrl}${errorMsg ? ` — ${errorMsg}` : ""}`,
 		actionUrl: "/downloads",
-		teamId: teamId ?? null,
-	});
-}
-
-export async function notifyServerAlert(
-	userId: string,
-	serverName: string,
-	alertMessage: string,
-	teamId?: string | null,
-) {
-	return createNotification({
-		userId,
-		type: "server_alert",
-		title: `Server alert: ${serverName}`,
-		message: alertMessage,
-		actionUrl: "/servers",
-		teamId: teamId ?? null,
-	});
-}
-
-export async function notifyBackupCompleted(
-	userId: string,
-	backupType: string,
-	size: string,
-	teamId?: string | null,
-) {
-	return createNotification({
-		userId,
-		type: "backup_completed",
-		title: "Backup completed",
-		message: `${backupType} backup completed, size: ${size}.`,
-		actionUrl: "/backups",
-		teamId: teamId ?? null,
-	});
-}
-
-export async function notifyBackupFailed(
-	userId: string,
-	backupType: string,
-	error: string,
-	teamId?: string | null,
-) {
-	return createNotification({
-		userId,
-		type: "backup_failed",
-		title: "Backup failed",
-		message: `${backupType} backup failed: ${error}.`,
-		actionUrl: "/backups",
-		teamId: teamId ?? null,
-	});
-}
-
-export async function notifyLoginAlert(userId: string, ip: string, userAgent?: string) {
-	return createNotification({
-		userId,
-		type: "login_alert",
-		title: "Abnormal login alert",
-		message: `A new login from ${ip} was detected${userAgent ? ` (${userAgent})` : ""}. If this was not you, please change your password immediately.`,
-		actionUrl: "/settings#security",
-	});
-}
-
-export async function notifyCronFailed(
-	userId: string,
-	taskName: string,
-	error: string,
-	teamId?: string | null,
-) {
-	return createNotification({
-		userId,
-		type: "cron_failed",
-		title: "Scheduled task failed",
-		message: `Scheduled task "${taskName}" execution failed: ${error}.`,
-		actionUrl: "/scheduled-tasks",
-		teamId: teamId ?? null,
-	});
-}
-
-export async function notifyPlaybookFailed(
-	userId: string,
-	playbookName: string,
-	stepName: string,
-	error: string,
-	teamId?: string | null,
-) {
-	return createNotification({
-		userId,
-		type: "playbook_failed",
-		title: "Playbook execution failed",
-		message: `Playbook "${playbookName}" failed at step "${stepName}": ${error}.`,
-		actionUrl: `/playbooks/${playbookName}`,
-		teamId: teamId ?? null,
-	});
-}
-
-export async function notifyAlertResolved(
-	userId: string,
-	serverName: string,
-	metric: string,
-	previousThreshold: number,
-	teamId?: string | null,
-) {
-	return createNotification({
-		userId,
-		type: "alert_resolved",
-		title: `Alert resolved: ${serverName}`,
-		message: `${serverName}'s ${metric} metric has returned to normal (previous threshold: ${previousThreshold}).`,
-		actionUrl: "/health",
 		teamId: teamId ?? null,
 	});
 }
