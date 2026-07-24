@@ -193,7 +193,6 @@ export const zh: Record<string, string> = {
 	"backend.server.customPassphraseRequired": "选择自定义加密格式时必须提供新的私钥口令",
 	"backend.server.ppkEncryptedNeedPassphrase": "该 PPK 文件已加密，请先提供正确的 PPK 口令再导入",
 	"backend.server.ppkPassphraseIncorrect": "PPK 口令错误或文件损坏，请检查后重试",
-	"backend.server.ppkInvalidFile": "上传的文件不是有效的 PPK 私钥，请选择 .ppk 文件",
 	"backend.server.sshKeyNameRequired": "SSH 密钥名称不能为空",
 	"backend.server.sshFingerprintFailed": "无法计算密钥指纹，请检查密钥内容是否完整",
 
@@ -583,7 +582,6 @@ export const en: Record<string, string> = {
 	"backend.server.customPassphraseRequired": "When choosing a custom encryption format, you must provide a new private key passphrase.",
 	"backend.server.ppkEncryptedNeedPassphrase": "This PPK file is encrypted; please provide the correct PPK passphrase before importing.",
 	"backend.server.ppkPassphraseIncorrect": "PPK passphrase is incorrect or the file is corrupted; please check and retry.",
-	"backend.server.ppkInvalidFile": "The uploaded file is not a valid PPK private key; please select a .ppk file.",
 	"backend.server.sshKeyNameRequired": "SSH key name is required",
 	"backend.server.sshFingerprintFailed": "Unable to compute key fingerprint; please check that the key content is complete.",
 
