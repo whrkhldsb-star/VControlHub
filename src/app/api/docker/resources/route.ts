@@ -84,6 +84,7 @@ export async function POST(req: NextRequest) {
           `docker.${isNetwork ? "network" : "volume"}.${action}`,
           { name, driver, serverId: serverId || "hub-host", status: 503, ok: false, dockerAvailable: false },
           action === "delete" ? "WARNING" : "INFO",
+          session.currentTeamId,
         );
         return NextResponse.json(
           {
@@ -101,6 +102,7 @@ export async function POST(req: NextRequest) {
         `docker.${isNetwork ? "network" : "volume"}.${action}`,
         { name, driver, serverId: serverId || "hub-host", status: result.status, ok: result.ok },
         action === "delete" ? "WARNING" : "INFO",
+        session.currentTeamId,
       );
       return NextResponse.json(result, { status: result.ok ? 200 : result.status >= 400 ? result.status : 200 });
     },
