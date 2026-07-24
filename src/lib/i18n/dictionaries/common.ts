@@ -8,6 +8,7 @@
 export const zh: Record<string, string> = {
 	"common.colon": "：",
 	"common.noPermission": "缺少权限",
+	"common.insufficientPermissions": "权限不足",
 	"common.backupType": "备份类型",
 	"common.cancel": "取消",
 	"common.changePasswordDescription": "输入当前密码后设置新密码。修改后不会强制退出，下次登录需使用新密码。",
@@ -30,7 +31,6 @@ export const zh: Record<string, string> = {
 	"common.fileDetails": "资料详情",
 	"common.filenameOptional": "文件名（可选）",
 	"common.fullBackup": "完整备份",
-	"common.insufficientPermissions": "缺少权限",
 	"common.level": "级别",
 	"common.name": "名称",
 	"common.newFolder": "新建文件夹",
