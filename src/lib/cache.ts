@@ -23,6 +23,11 @@ const DEFAULT_OPTIONS: Required<CacheOptions> = {
 
 /**
  * Build a Cache-Control header value from options.
+ *
+ * When both maxAge and staleWhileRevalidate are 0, emit `no-store` so the
+ * response cannot be stored by browsers/intermediaries (matches streaming
+ * routes that hardcode `private, no-store`). `no-cache` alone only forces
+ * revalidation and still allows storage.
  */
 export function buildCacheControl(opts: CacheOptions = {}): string {
 	const { maxAge, staleWhileRevalidate, visibility } = { ...DEFAULT_OPTIONS, ...opts };
@@ -31,6 +36,8 @@ export function buildCacheControl(opts: CacheOptions = {}): string {
 
 	if (maxAge > 0) {
 		parts.push(`max-age=${maxAge}`);
+	} else if (staleWhileRevalidate <= 0) {
+		parts.push("no-store");
 	} else {
 		parts.push("no-cache");
 	}
