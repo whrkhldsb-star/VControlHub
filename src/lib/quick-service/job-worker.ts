@@ -221,6 +221,50 @@ function quickServiceLogPreview(lines: Array<string | null | undefined>) {
 	return lines.filter((line): line is string => typeof line === "string" && line.trim().length > 0).join("\n");
 }
 
+
+/** Redact install secrets from the durable Job.payload after terminal outcome. */
+async function scrubQuickServiceJobPayloadSecrets(jobId: string) {
+	try {
+		const job = await prisma.job.findUnique({ where: { id: jobId }, select: { payload: true } });
+		if (!job || !isRecord(job.payload)) return;
+		const payload = { ...job.payload } as Record<string, unknown>;
+		let changed = false;
+		if ("installNoticeCredentials" in payload) {
+			delete payload.installNoticeCredentials;
+			changed = true;
+		}
+		if (isRecord(payload.template)) {
+			const template = { ...payload.template } as Record<string, unknown>;
+			if (isRecord(template.envJson)) {
+				const envJson = { ...(template.envJson as Record<string, unknown>) };
+				for (const key of Object.keys(envJson)) {
+					if (/(PASSWORD|TOKEN|SECRET|KEY)$/i.test(key) && !/^(PUID|PGID|UMASK|DB_HOSTNAME|PGSSLMODE|DOCKER_ENABLE_SECURITY)$/i.test(key)) {
+						envJson[key] = "[redacted]";
+						changed = true;
+					}
+				}
+				template.envJson = envJson;
+			}
+			if (typeof template.initialPassword === "string") {
+				template.initialPassword = "[redacted]";
+				changed = true;
+			}
+			payload.template = template;
+		}
+		if (changed) {
+			await prisma.job.update({
+				where: { id: jobId },
+				data: { payload: payload as Prisma.InputJsonValue },
+			});
+		}
+	} catch (error) {
+		logger.warn("Failed to scrub QuickService job payload secrets", {
+			jobId,
+			error: error instanceof Error ? error.message : String(error),
+		});
+	}
+}
+
 async function executeQuickServiceJob(job: { id: string; payload: Prisma.JsonValue }) {
 	const payload = parseQuickServiceJobPayload(job.payload);
 	await updateQuickServiceJobProgress(job.id, `Preparing to execute QuickService ${payload.action}: ${payload.slug}`);
@@ -249,6 +293,7 @@ async function executeQuickServiceJob(job: { id: string; payload: Prisma.JsonVal
 				service.containerId ? `Container: ${service.containerId}` : null,
 			]),
 		});
+		await scrubQuickServiceJobPayloadSecrets(job.id);
 		return;
 	}
 
@@ -341,6 +386,8 @@ export async function runQuickServiceJobWorkerOnce(state = getWorkerState(), rea
 			const message = error instanceof Error ? error.message : String(error);
 			logger.error("QuickService job failed", { reason, jobId: job.id, error: message });
 			await failJob(job.id, QUICK_SERVICE_WORKER_ID, message.slice(0, 2000), { retryAfterMs: 60_000 });
+			// Terminal (maxAttempts=1) or pending retry: still redact secrets so backups/API cannot read them.
+			await scrubQuickServiceJobPayloadSecrets(job.id);
 		}
 		return true;
 	} catch (error) {

@@ -23,8 +23,15 @@ vi.mock("@/lib/db", () => ({
 	prisma: {
 		job: {
 			findMany: mocks.findMany,
+			findUnique: vi.fn().mockResolvedValue(null),
+			update: vi.fn().mockResolvedValue({}),
 		},
 	},
+}));
+
+vi.mock("@/lib/concurrency/advisory-lock", () => ({
+	tryAcquireAdvisoryLock: vi.fn(async () => async () => {}),
+	acquireAdvisoryLock: vi.fn(async () => async () => {}),
 }));
 
 vi.mock("./service", () => ({
