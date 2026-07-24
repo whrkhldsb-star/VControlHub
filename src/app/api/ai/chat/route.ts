@@ -50,9 +50,12 @@ export async function POST(request: Request) {
           { status: 401 },
         );
 
-      if (!body.conversationId || !body.content?.trim()) {
+      // Normalize dual schema fields (`message` newer / `content` legacy) once.
+      const normalizedContent = (body.content ?? body.message ?? "").trim();
+      if (!body.conversationId || !normalizedContent) {
         throw new ValidationError(t("apiAiChat.missingParams", locale));
       }
+      const normalizedBody = { ...body, content: normalizedContent };
 
       let conv: Awaited<ReturnType<typeof getConversationById>>;
       try {
@@ -66,7 +69,7 @@ export async function POST(request: Request) {
       const isHostingEnabled = conv.hostingEnabled;
 
       const { allImageUrls, historyMessages, userText } = buildAiChatMessagePayload({
-        body,
+        body: normalizedBody,
         conv,
         isVisionCapable,
         locale,
