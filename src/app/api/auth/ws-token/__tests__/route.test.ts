@@ -72,7 +72,7 @@ describe("POST /api/auth/ws-token", () => {
     );
   });
 
-  it("requires a concrete serverId and sessionToken", async () => {
+  it("requires a concrete serverId", async () => {
     vi.mocked(requireApiPermission).mockResolvedValue({
       session: {
         userId: "user-1",

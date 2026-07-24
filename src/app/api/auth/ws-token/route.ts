@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 
 import { createSshWsHandshakeToken } from "@/lib/auth/ssh-ws-token";
+import { getSessionCookieName } from "@/lib/auth/session";
 import { config } from "@/lib/config/env";
 import { withApiRoute } from "@/lib/http/api-guard";
 import { GENERAL_WRITE_LIMIT } from "@/lib/http/rate-limit-presets";
@@ -12,7 +13,8 @@ const HANDSHAKE_TTL_MS = 60_000;
 
 const requestSchema = z.object({
   serverId: z.string().min(1),
-  sessionToken: z.string().min(1),
+  // Legacy clients may still send sessionToken; prefer HttpOnly cookie below.
+  sessionToken: z.string().min(1).optional(),
 });
 
 function resolveRequestOrigin(request: NextRequest) {
@@ -50,11 +52,19 @@ export async function POST(request: NextRequest) {
         );
       }
 
+      // Bind handshake to the HttpOnly session cookie value so the WS proxy
+      // can authenticate via Cookie without putting the JWT in the query string.
+      const cookieSession = request.cookies.get(getSessionCookieName())?.value;
+      const sessionId = cookieSession || body.sessionToken;
+      if (!sessionId) {
+        return NextResponse.json({ error: "Missing session" }, { status: 401 });
+      }
+
       const token = createSshWsHandshakeToken({
         userId: session.userId,
         serverId: body.serverId,
         origin: resolveRequestOrigin(request),
-        sessionId: body.sessionToken,
+        sessionId,
         secret,
         ttlMs: HANDSHAKE_TTL_MS,
       });

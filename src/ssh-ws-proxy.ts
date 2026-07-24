@@ -1,8 +1,8 @@
 /**
  * WebSocket-to-SSH proxy server
  * Runs on port 3001 alongside the Next.js app on port 3000.
- * Clients connect with: ws://host:3001/ssh?serverId=xxx&token=xxx
- * The token is the session cookie value (HMAC-signed JWT).
+ * Clients connect with: ws://host:3001/ssh?serverId=xxx&handshake=xxx
+ * Session auth prefers the HttpOnly cookie; query token is legacy fallback only.
  */
 
 import { createServer } from "http";
@@ -17,7 +17,7 @@ import { createVerifiedSshConfig } from "@/lib/ssh/client";
 
 import { DEFAULT_ROLE_PERMISSIONS } from "./lib/auth/rbac";
 import { canUseSshTerminal } from "./lib/auth/ssh-access";
-import { verifySessionToken } from "./lib/auth/session";
+import { getSessionCookieName, verifySessionToken } from "./lib/auth/session";
 import { createLogger } from "./lib/logging";
 import { verifySshWsHandshakeToken } from "./lib/auth/ssh-ws-token";
 import { getSshTerminalRuntimeConfig } from "./lib/runtime-settings/service";
@@ -243,6 +243,29 @@ function isOriginAllowed(req: import("http").IncomingMessage): boolean {
 	return ALLOWED_ORIGINS.includes(origin);
 }
 
+
+function extractCookie(cookieHeader: string | undefined, name: string): string | null {
+	if (!cookieHeader) return null;
+	const prefix = `${name}=`;
+	for (const part of cookieHeader.split(";")) {
+		const trimmed = part.trim();
+		if (!trimmed.startsWith(prefix)) continue;
+		try {
+			return decodeURIComponent(trimmed.slice(prefix.length));
+		} catch {
+			return trimmed.slice(prefix.length);
+		}
+	}
+	return null;
+}
+
+function resolveSshSessionToken(req: import("http").IncomingMessage, url: URL): string | null {
+	const fromCookie = extractCookie(req.headers.cookie, getSessionCookieName());
+	if (fromCookie) return fromCookie;
+	const fromQuery = url.searchParams.get("token");
+	return fromQuery && fromQuery.trim() ? fromQuery.trim() : null;
+}
+
 wss.on("connection", async (ws, req) => {
 	recordWsEvent("ssh", "open");
 	setWsActive("ssh", wss.clients.size);
@@ -268,11 +291,11 @@ wss.on("connection", async (ws, req) => {
 
 	const url = new URL(req.url || "/", `http://${req.headers.host || "localhost"}`);
 	const serverId = url.searchParams.get("serverId");
-	const token = url.searchParams.get("token");
 	const handshake = url.searchParams.get("handshake");
+	const token = resolveSshSessionToken(req, url);
 
  if (!serverId || !token || !handshake) {
- ws.send(JSON.stringify({ type: "error", data: "Missing serverId, token, or handshake parameter" }));
+ ws.send(JSON.stringify({ type: "error", data: "Missing serverId, session, or handshake parameter" }));
  ws.close();
  return;
  }

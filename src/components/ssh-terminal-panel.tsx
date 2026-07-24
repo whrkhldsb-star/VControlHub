@@ -117,7 +117,7 @@ export function SshTerminalPanel({ serverId, serverName, host, sessionToken, vis
 			try {
 				const data = await csrfFetch("/api/auth/ws-token", {
 					method: "POST",
-					body: JSON.stringify({ serverId, sessionToken }),
+					body: JSON.stringify({ serverId }),
 				});
 				handshakeToken = data.token || "";
 			} catch {
@@ -184,7 +184,6 @@ export function SshTerminalPanel({ serverId, serverName, host, sessionToken, vis
 				pageProtocol: window.location.protocol,
 				host: window.location.host,
 				serverId,
-				sessionToken,
 				handshakeToken,
 			});
 			const ws = new WebSocket(finalWsUrl);
