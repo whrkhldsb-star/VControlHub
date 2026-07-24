@@ -45,11 +45,11 @@ export function useConversations({
     conversations.find((c) => c.id === activeConvId) ?? null;
 
   // Fetch the conversation (with its messages) whenever the active id
-  // changes.  An empty active id clears the message list.
+  // changes. Clear immediately so conversation A never paints under B.
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- activeConvId 切换时同步清空消息列表,避免旧会话残留闪烁
+    setMessages([]);
     if (!activeConvId) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect -- activeConvId 切到 null 时同步清空消息列表,避免旧会话残留闪烁
-      setMessages([]);
       return;
     }
     let cancelled = false;
@@ -61,7 +61,7 @@ export function useConversations({
         if (data.conversation?.messages) setMessages(data.conversation.messages);
       })
       .catch(() => {
-        // silent — stale messages are fine, the next refresh will retry
+        // Keep the cleared list on failure; next successful switch/refresh retries.
       });
     return () => {
       cancelled = true;
