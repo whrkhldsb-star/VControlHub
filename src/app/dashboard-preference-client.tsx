@@ -6,7 +6,6 @@ import { csrfFetch } from "@/lib/auth/csrf-client";
 import { useI18n } from "@/lib/i18n/use-locale";
 import {
 	DASHBOARD_WIDGET_IDS,
-	DASHBOARD_WIDGET_LABELS,
 	normalizeUserPreferences,
 	type DashboardWidgetId,
 	type UserPreferences,
@@ -363,4 +362,3 @@ export function DashboardPreferenceClient({
 	);
 }
 
-export { DASHBOARD_WIDGET_LABELS };
