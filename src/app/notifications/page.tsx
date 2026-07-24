@@ -39,7 +39,6 @@ export default async function NotificationsPage() {
 			<NotificationListClient
 				initialNotifications={serialized}
 				initialUnreadCount={unreadCount}
-				locale={locale}
 			/>
 		</PageShell>
 	);

@@ -23,7 +23,6 @@ type NotificationItem = {
 type Props = {
 	initialNotifications: NotificationItem[];
 	initialUnreadCount: number;
-	locale?: Locale;
 };
 
 const typeIcon: Record<string, ReactNode> = {
