@@ -78,40 +78,29 @@ export function TicketDetailClient({ initial, canManage, users = [] }: TicketDet
   const [commandIdInput, setCommandIdInput] = useState(initial.relatedCommandId ?? "");
   const [serverIdInput, setServerIdInput] = useState(initial.relatedServerId ?? "");
 
-  const loadTimeline = useCallback(async () => {
+  const loadTimeline = useCallback(async (opts?: { isStale?: () => boolean }) => {
     setTimelineLoading(true);
     try {
       const data = await csrfFetch<TimelineResponse>(`/api/tickets/${ticket.id}/timeline`);
+      if (opts?.isStale?.()) return;
       setTimeline(data);
       if (data.related.command) setCommandIdInput(data.related.command.id);
       if (data.related.server) setServerIdInput(data.related.server.id);
     } catch (e: unknown) {
+      if (opts?.isStale?.()) return;
       setError(e instanceof Error ? e.message : t("ticketsDetail.error.timelineFailed"));
     } finally {
-      setTimelineLoading(false);
+      if (!opts?.isStale?.()) setTimelineLoading(false);
     }
   }, [ticket.id, t]);
 
   useEffect(() => {
     let cancelled = false;
-    void (async () => {
-      try {
-        const data = await csrfFetch<TimelineResponse>(`/api/tickets/${ticket.id}/timeline`);
-        if (!cancelled) {
-          setTimeline(data);
-          if (data.related.command) setCommandIdInput(data.related.command.id);
-          if (data.related.server) setServerIdInput(data.related.server.id);
-        }
-      } catch (e: unknown) {
-        if (!cancelled) setError(e instanceof Error ? e.message : t("ticketsDetail.error.timelineFailed"));
-      } finally {
-        if (!cancelled) setTimelineLoading(false);
-      }
-    })();
+    void loadTimeline({ isStale: () => cancelled });
     return () => {
       cancelled = true;
     };
-  }, [ticket.id, t]);
+  }, [loadTimeline]);
 
   const updateAssignee = async (newAssigneeId: string) => {
     setSaving(true);
