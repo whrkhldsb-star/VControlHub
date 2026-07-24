@@ -46,9 +46,7 @@ vi.mock("node:fs", async (importOriginal) => {
 const {
   createBackupRecord,
   buildPortableBackupCommand,
-  buildScheduledBackupCommand,
   buildBackupRestoreCommand,
-  buildRestoreCommand,
   resolveBackupPath,
   runBackupRecord,
   updateBackupRecordStatus,
@@ -169,20 +167,6 @@ describe("backup service", () => {
     }
   });
 
-  it("builds scheduled backup commands that let deploy/backup.sh create timestamped artifacts", () => {
-    const databaseCommand = buildScheduledBackupCommand({ projectRoot: "/opt/whrkhldsb", type: "DATABASE" });
-    const filesCommand = buildScheduledBackupCommand({ projectRoot: "/opt/whrkhldsb", type: "FILES" });
-    const fullCommand = buildScheduledBackupCommand({ projectRoot: "/opt/whrkhldsb", type: "FULL" });
-
-    expect(databaseCommand).toBe("cd '/opt/whrkhldsb' && bash deploy/backup.sh");
-    expect(filesCommand).toBe("cd '/opt/whrkhldsb' && bash deploy/backup.sh --files");
-    expect(fullCommand).toBe("cd '/opt/whrkhldsb' && bash deploy/backup.sh --full");
-    for (const command of [databaseCommand, filesCommand, fullCommand]) {
-      expect(command).not.toMatch(/PASSWORD|TOKEN|SECRET|PRIVATE_KEY/i);
-      expect(command).not.toContain("$(date");
-    }
-  });
-
   it("creates backup records with type-specific portable file extensions", async () => {
     mockPrisma.backupRecord.create.mockImplementation(async ({ data }: any) => ({ id: "bak1", ...data }));
 
@@ -298,13 +282,6 @@ describe("backup service", () => {
 
     mockPrisma.backupRecord.findUnique.mockResolvedValueOnce({ id: "bak-bad-path", type: "DATABASE", status: "FAILED", filePath: "../db.sql.gz" });
     await expect(prepareBackupRecordRetry({ id: "bak-bad-path" })).rejects.toThrow("备份路径必须是可移植的相对路径");
-  });
-
-  it("builds restore command from a portable backup path without auto-executing dangerous restore", () => {
-    const command = buildRestoreCommand({ projectRoot: "/opt/whrkhldsb", backupPath: "backups/full.dump" });
-    expect(command).toContain("scripts/restore-db.sh");
-    expect(command).toContain("backups/full.dump");
-    expect(command).not.toMatch(/DATABASE_URL=.*postgres|PASSWORD|TOKEN|SECRET|PRIVATE_KEY/i);
   });
 
   it("builds restore commands that match the stored backup artifact type", () => {

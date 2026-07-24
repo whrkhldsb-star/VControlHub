@@ -17,16 +17,6 @@ export function buildPortableBackupCommand(input: { projectRoot: string; outputP
 	return `cd ${shellQuote(input.projectRoot)} && bash deploy/backup.sh${modeFlag} ${shellQuote(outputPath)}`;
 }
 
-export function buildScheduledBackupCommand(input: { projectRoot: string; type: BackupType }) {
-	const modeFlag = input.type === "FILES" ? " --files" : input.type === "FULL" ? " --full" : "";
-	return `cd ${shellQuote(input.projectRoot)} && bash deploy/backup.sh${modeFlag}`;
-}
-
-export function buildRestoreCommand(input: { projectRoot: string; backupPath: string }) {
-	const backupPath = assertPortableBackupPath(input.backupPath);
-	return `cd ${shellQuote(input.projectRoot)} && bash scripts/restore-db.sh ${shellQuote(backupPath)}`;
-}
-
 export function buildBackupRestoreCommand(input: { projectRoot: string; backupPath: string; type?: BackupType; component?: "database" | "files" | "all" }) {
 	const backupPath = assertPortableBackupPath(input.backupPath);
 	const component = input.component ?? "all";
