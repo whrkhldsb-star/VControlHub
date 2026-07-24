@@ -326,12 +326,17 @@ export async function syncCloudBillingAccount(
 			status = "partial";
 		}
 	} catch (err) {
-		status = "error";
 		errorMessage = err instanceof Error ? err.message : String(err);
+		// If some CostEntry rows already committed before the failure, surface
+		// "partial" instead of "error" so operators can see imported>0 mid-loop
+		// failures (upserts are not wrapped in a single transaction).
+		status = imported > 0 ? "partial" : "error";
 		logger.warn("cloud billing sync failed", {
 			accountId,
 			month,
 			error: errorMessage,
+			imported,
+			status,
 		});
 	}
 
