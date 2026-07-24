@@ -31,6 +31,15 @@ import { MAX_STORAGE_UPLOAD_BYTES } from "@/lib/storage/mime-constants";
 import { parseStorageRange, storageStreamResponse } from "@/lib/storage/streaming";
 
 import { AuthError, ValidationError } from "@/lib/errors";
+
+function isUniqueViolation(error: unknown): boolean {
+  const code =
+    typeof error === "object" && error && "code" in error
+      ? String((error as { code?: string }).code)
+      : "";
+  return code === "P2002" || /Unique constraint/i.test(String(error));
+}
+
 type UploadLike = {
   arrayBuffer(): Promise<ArrayBuffer>;
   name?: string;
@@ -385,55 +394,76 @@ async function handlePost(request: Request, session: SessionPayload) {
     }
   }
 
+  const indexData = {
+    name: fileName,
+    entryType: "FILE" as const,
+    mimeType,
+    size: BigInt(byteSize),
+    isDeleted: false as const,
+  };
+
   try {
     const existingEntry = existingEntryForVersion;
 
     if (existingEntry) {
       await prisma.fileEntry.update({
         where: { id: existingEntry.id },
-        data: {
-          name: fileName,
-          entryType: "FILE",
-          mimeType,
-          size: BigInt(byteSize),
-          isDeleted: false,
-        },
+        data: indexData,
       });
     } else {
-      await prisma.fileEntry.create({
-        data: {
-          storageNodeId,
-          name: fileName,
-          entryType: "FILE",
-          mimeType,
-          size: BigInt(byteSize),
-          relativePath: normalizedRelativePath,
-        },
-      });
+      try {
+        await prisma.fileEntry.create({
+          data: {
+            storageNodeId,
+            relativePath: normalizedRelativePath,
+            ...indexData,
+          },
+        });
+      } catch (createError) {
+        // Concurrent first-time uploads both write the blob; the loser must
+        // update the winner's index and MUST NOT unlink the shared path.
+        if (!isUniqueViolation(createError)) throw createError;
+        const raced = await prisma.fileEntry.findFirst({
+          where: {
+            storageNodeId,
+            relativePath: normalizedRelativePath,
+          },
+          select: { id: true },
+        });
+        if (!raced) throw createError;
+        await prisma.fileEntry.update({
+          where: { id: raced.id },
+          data: indexData,
+        });
+      }
     }
   } catch (error) {
     logError("[/api/storage/local] upload index error:", error);
-    if (uploadedLocalPath) {
-      try {
-        await unlink(uploadedLocalPath);
-      } catch (cleanupError) {
-        logError(
-          "[/api/storage/local] local upload cleanup error:",
-          cleanupError,
-        );
+    // Never cleanup on unique-constraint races — the competing request owns
+    // a valid FileEntry that still points at this blob path.
+    if (!isUniqueViolation(error)) {
+      if (uploadedLocalPath) {
+        try {
+          await unlink(uploadedLocalPath);
+        } catch (cleanupError) {
+          logError(
+            "[/api/storage/local] local upload cleanup error:",
+            cleanupError,
+          );
+        }
       }
-    }
-    if (uploadedRemotePath && sftpCredentials) {
-      try {
-        await deleteRemoteFile({
-          ...sftpCredentials,
-          remotePath: uploadedRemotePath,
-        });
-      } catch (cleanupError) {
-        logError(
-          "[/api/storage/local] sftp upload cleanup error:",
-          cleanupError,
-        );
+      if (uploadedRemotePath && sftpCredentials) {
+        try {
+          await deleteRemoteFile({
+            ...sftpCredentials,
+            remotePath: uploadedRemotePath,
+          });
+        } catch (cleanupError) {
+          logError(
+            "[/api/storage/local] sftp upload cleanup error:",
+            cleanupError,
+          );
+        }
       }
     }
     const message = error instanceof Error ? error.message : "Unknown error";

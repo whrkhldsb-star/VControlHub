@@ -435,6 +435,45 @@ describe("/api/storage/local", () => {
     expect(unlinkMock).toHaveBeenCalledWith("/tmp/storage/docs/notes.txt");
   });
 
+  it("recovers concurrent first-time LOCAL upload index races without unlinking winner blob", async () => {
+    prismaMock.storageNode.findUnique.mockResolvedValueOnce({
+      id: "node_1",
+      name: "主控本机",
+      driver: "LOCAL",
+      basePath: "/tmp/storage",
+    });
+    prismaMock.storageNode.findFirst.mockResolvedValueOnce({
+      id: "node_1",
+      name: "主控本机",
+      driver: "LOCAL",
+      basePath: "/tmp/storage",
+    });
+    // existingEntryForVersion miss, then raced row after P2002
+    prismaMock.fileEntry.findFirst
+      .mockResolvedValueOnce(null)
+      .mockResolvedValueOnce({ id: "file_winner" });
+    const uniqueErr = Object.assign(new Error("Unique constraint failed"), { code: "P2002" });
+    prismaMock.fileEntry.create.mockRejectedValueOnce(uniqueErr);
+    prismaMock.fileEntry.update.mockResolvedValueOnce({ id: "file_winner" });
+
+    const response = await POST(
+      new Request("https://example.com/api/storage/local", {
+        method: "POST",
+        body: uploadForm("docs/notes.txt"),
+      }),
+    );
+
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toMatchObject({
+      ok: true,
+      relativePath: "docs/notes.txt",
+    });
+    expect(prismaMock.fileEntry.update).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { id: "file_winner" } }),
+    );
+    expect(unlinkMock).not.toHaveBeenCalled();
+  });
+
   it("rejects unsafe upload relativePath before storage node lookup or writes", async () => {
     const response = await POST(
       new Request("https://example.com/api/storage/local", {
