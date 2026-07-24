@@ -4,7 +4,7 @@ import { auditUserAction } from "@/lib/audit/service";
 import { hashPassword, verifyPassword } from "./password";
 import { validatePasswordPolicy } from "./password-policy";
 import { changePasswordSchema, loginSchema, type ChangePasswordInput, type LoginInput } from "./schema";
-import { DEFAULT_ROLE_PERMISSIONS, type Permission, type RoleKey } from "./rbac";
+import { DEFAULT_ROLE_PERMISSIONS, getPermissionsFromRoles, type Permission, type RoleKey } from "./rbac";
 import { normalizeUserPreferences, type UserPreferences } from "@/lib/preferences/user-preferences";
 
 export type AuthenticatedUser = {
@@ -28,12 +28,6 @@ export type ChangePasswordResult = {
 
 function deriveRoleKeys(keys: string[]): RoleKey[] {
  return keys.filter((key): key is RoleKey => key in DEFAULT_ROLE_PERMISSIONS);
-}
-
-function collectPermissions(roleKeys: RoleKey[]): Permission[] {
- return Array.from(
- new Set(roleKeys.flatMap((roleKey) => DEFAULT_ROLE_PERMISSIONS[roleKey])),
- );
 }
 
 export async function authenticateUser(input: LoginInput): Promise<AuthenticatedUser | null> {
@@ -74,7 +68,7 @@ export async function authenticateUser(input: LoginInput): Promise<Authenticated
  twoFactorSecret: user.twoFactorSecret,
  status: user.status,
  roles: roleKeys,
- permissions: collectPermissions(roleKeys),
+ permissions: getPermissionsFromRoles(roleKeys),
  preferences: normalizeUserPreferences(user.preferences),
  currentTeamId: user.currentTeamId,
  };
