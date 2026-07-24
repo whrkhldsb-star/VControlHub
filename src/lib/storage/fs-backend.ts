@@ -303,56 +303,15 @@ export async function renameBackingObject(input: {
 }
 
 /**
- * Cross-directory move for a backing object on the storage node. The
- * adapter dispatches to the LOCAL or SFTP backend; unsupported drivers
- * are a no-op. Compared to `renameBackingObject` this also creates the
- * destination's parent directory (mkdir -p / recursive createRemoteDirectory)
- * so callers can move files into a freshly-named folder in one call.
+ * Cross-directory move for a backing object on the storage node.
+ * Implementation is shared with `renameBackingObject` (both mkdir -p the
+ * destination parent then rename on LOCAL/SFTP). Kept as a separate export
+ * so call sites can express intent (rename vs move) without dual code paths.
  */
 export async function moveBackingObject(input: {
   storageNode: StorageNodeWithCredentials;
   oldRelativePath: string;
   newRelativePath: string;
 }) {
-  if (input.storageNode.driver === "LOCAL") {
-    const oldPath = await resolveManagedLocalEntryPath({
-      basePath: input.storageNode.basePath,
-      relativePath: input.oldRelativePath,
-    });
-    const newPath = await resolveManagedLocalEntryPath({
-      basePath: input.storageNode.basePath,
-      relativePath: input.newRelativePath,
-    });
-    await mkdir(newPath.path.dirname(newPath.absolutePath), {
-      recursive: true,
-    });
-    await rename(oldPath.absolutePath, newPath.absolutePath);
-    return;
-  }
-
-  if (input.storageNode.driver === "SFTP") {
-    const oldPath = normalizeRemoteTargetPath(
-      input.storageNode.basePath,
-      input.oldRelativePath,
-    );
-    const newPath = normalizeRemoteTargetPath(
-      input.storageNode.basePath,
-      input.newRelativePath,
-    );
-    const credentials = resolveStorageSshCredentials(input.storageNode);
-    const path = await import("node:path");
-    const targetParentDirectory = path.posix.dirname(newPath);
-    if (
-      targetParentDirectory &&
-      targetParentDirectory !== "." &&
-      targetParentDirectory !== "/"
-    ) {
-      await createRemoteDirectory({
-        ...credentials,
-        remotePath: targetParentDirectory,
-        recursive: true,
-      });
-    }
-    await renameRemoteFile({ ...credentials, oldPath, newPath });
-  }
+  return renameBackingObject(input);
 }
