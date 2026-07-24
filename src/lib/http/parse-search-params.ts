@@ -61,6 +61,43 @@ export function searchParamsToObject(
  * `withApiRoute`/`apiCatch` already render — so the wire format stays
  * `{ code: "VALIDATION_FAILED", message, details: { issues: [...] } }`.
  */
+
+/**
+ * Format a zod ZodError into a single readable message + structured issues.
+ * Shared by parseSearchParams and withApiRoute so body/query 400 envelopes match.
+ *
+ * Note: zod 4.x renamed `ZodError.errors` to `.issues`; we accept both.
+ */
+export function zodIssueDetails(
+  err: z.ZodError,
+  kind: "body" | "query" = "body",
+): { summary: string; issues: Array<{ path: string; message: string }> } {
+  const rawIssues: ReadonlyArray<{ path?: unknown; message?: unknown }> =
+    (err as unknown as { issues?: ReadonlyArray<{ path?: unknown; message?: unknown }> }).issues
+    ?? (err as unknown as { errors?: ReadonlyArray<{ path?: unknown; message?: unknown }> }).errors
+    ?? [];
+  const issues = rawIssues.map((i) => ({
+    path: Array.isArray(i.path) ? i.path.join(".") : String(i.path ?? ""),
+    message: typeof i.message === "string" ? i.message : "Invalid value",
+  }));
+  const emptySummary =
+    kind === "query"
+      ? "Query parameter validation failed"
+      : "Request body validation failed";
+  const multiLabel =
+    kind === "query" ? "query parameter(s) failed validation" : "field(s) failed validation";
+  const summary =
+    issues.length === 0
+      ? emptySummary
+      : issues.length === 1
+        ? `${issues[0]!.path ? issues[0]!.path + ": " : ""}${issues[0]!.message}`
+        : `${issues.length} ${multiLabel}: ${issues
+            .slice(0, 3)
+            .map((i) => i.path || "?")
+            .join(", ")}${issues.length > 3 ? "…" : ""}`;
+  return { summary, issues };
+}
+
 export function parseSearchParams<S extends z.ZodTypeAny>(
   request: Request | URL,
   schema: S,
@@ -69,22 +106,8 @@ export function parseSearchParams<S extends z.ZodTypeAny>(
   const raw = searchParamsToObject(url.searchParams);
   const parsed = schema.safeParse(raw);
   if (!parsed.success) {
-    // Build a {summary, issues} pair using the same convention as
-    // `withApiRoute` so a ValidationError thrown from here is
-    // indistinguishable from one produced by body/query schema validation.
-    const rawIssues: ReadonlyArray<{ path?: unknown; message?: unknown }> =
-      (parsed.error as unknown as { issues?: ReadonlyArray<{ path?: unknown; message?: unknown }> }).issues
-      ?? (parsed.error as unknown as { errors?: ReadonlyArray<{ path?: unknown; message?: unknown }> }).errors
-      ?? [];
-    const issues = rawIssues.map((i) => ({
-      path: Array.isArray(i.path) ? i.path.join(".") : String(i.path ?? ""),
-      message: typeof i.message === "string" ? i.message : "Invalid value",
-    }));
-    const summary = issues.length === 0
-      ? "Query parameter validation failed"
-      : issues.length === 1
-        ? `${issues[0]!.path ? issues[0]!.path + ": " : ""}${issues[0]!.message}`
-        : `${issues.length} query parameter(s) failed validation: ${issues.slice(0, 3).map((i) => i.path || "?").join(", ")}${issues.length > 3 ? "…" : ""}`;
+    // Same {summary, issues} convention as withApiRoute body/query validation.
+    const { summary, issues } = zodIssueDetails(parsed.error, "query");
     // Throw a real `ValidationError` (AppError subclass) rather than a
     // bare `Error` with `.code/.status` props attached. `apiCatch` only
     // recognises the `AppError` shape, so a plain `Error` would fall

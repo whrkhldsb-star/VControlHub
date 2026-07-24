@@ -9,7 +9,7 @@ import { sessionHasPermission } from "@/lib/auth/authorization";
 import { NextResponse } from "next/server";
 import { ValidationError } from "@/lib/errors";
 import { apiCatch } from "@/lib/http/api-error";
-import { searchParamsToObject } from "@/lib/http/parse-search-params";
+import { searchParamsToObject, zodIssueDetails } from "@/lib/http/parse-search-params";
 import { type RateLimitConfig, rateLimitResponse, withRateLimit } from "@/lib/http/rate-limit-presets";
 import { createLogger } from "@/lib/logging";
 
@@ -84,31 +84,6 @@ export async function enforceApiGuard(options: ApiGuardOptions): Promise<Respons
   const result = await requireApiPermission(permission);
   if (result instanceof Response) return result;
   return result.session;
-}
-
-/**
- * Format a zod ZodError into a single readable message + a structured
- * details object so consumers can render per-field errors.
- *
- * Note: zod 4.x renamed `ZodError.errors` to `.issues`; we accept both.
- */
-function zodIssueDetails(err: z.ZodError): { summary: string; issues: Array<{ path: string; message: string }> } {
-  // Tolerate older zod that exposed `.errors` instead of `.issues`.
-  // `ZodIssue` is the canonical shape on zod 4.x; the cast through unknown
-  // lets us read either field without losing typing on the consumer side.
-  const rawIssues: ReadonlyArray<{ path?: unknown; message?: unknown }> = (err as unknown as { issues?: ReadonlyArray<{ path?: unknown; message?: unknown }> }).issues
-    ?? (err as unknown as { errors?: ReadonlyArray<{ path?: unknown; message?: unknown }> }).errors
-    ?? [];
-  const items = rawIssues.map((i) => ({
-    path: Array.isArray(i.path) ? i.path.join(".") : String(i.path ?? ""),
-    message: typeof i.message === "string" ? i.message : "Invalid value",
-  }));
-  const summary = items.length === 0
-    ? "Request body validation failed"
-    : items.length === 1
-      ? `${items[0]!.path ? items[0]!.path + ": " : ""}${items[0]!.message}`
-      : `${items.length} field(s) failed validation: ${items.slice(0, 3).map((i) => i.path || "?").join(", ")}${items.length > 3 ? "…" : ""}`;
-  return { summary, issues: items };
 }
 
 /**
@@ -189,7 +164,7 @@ export async function withApiRoute<TBody = unknown, TQuery = unknown>(
       }
       const parsed = options.bodySchema.safeParse(raw);
       if (!parsed.success) {
-        const { summary, issues } = zodIssueDetails(parsed.error);
+        const { summary, issues } = zodIssueDetails(parsed.error, "body");
         throw new ValidationError(summary, { field: "body", issues });
       }
       body = parsed.data;
@@ -201,7 +176,7 @@ export async function withApiRoute<TBody = unknown, TQuery = unknown>(
       const obj = searchParamsToObject(url.searchParams);
       const parsed = options.querySchema.safeParse(obj);
       if (!parsed.success) {
-        const { summary, issues } = zodIssueDetails(parsed.error);
+        const { summary, issues } = zodIssueDetails(parsed.error, "query");
         throw new ValidationError(summary, { field: "query", issues });
       }
       query = parsed.data;
