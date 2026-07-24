@@ -28,6 +28,7 @@ interface ProviderPanelProps {
   onDeleteProvider: (id: string) => void;
   onRefreshProviders: () => void;
   setProvForm: React.Dispatch<React.SetStateAction<ProviderFormState>>;
+  creatingProvider?: boolean;
 }
 
 export function AiProviderPanel({
@@ -39,6 +40,7 @@ export function AiProviderPanel({
   onDeleteProvider,
   onRefreshProviders,
   setProvForm,
+  creatingProvider = false,
 }: ProviderPanelProps) {
   const { t } = useI18n();
   const { addToast } = useToast();
@@ -306,7 +308,14 @@ export function AiProviderPanel({
                   <span className="text-xs text-[var(--text-secondary)]">{t("common.setAsDefault")}</span>
                 </label>
               </div>
-              <ActionButton type="button" onClick={onCreateProvider} className="h-9 w-full text-sm">{t("aiPage.addProviderButton")}</ActionButton>
+              <ActionButton
+                type="button"
+                onClick={onCreateProvider}
+                disabled={creatingProvider}
+                className="h-9 w-full text-sm"
+              >
+                {creatingProvider ? t("aiPage.processing") : t("aiPage.addProviderButton")}
+              </ActionButton>
             </div>
           )}
         </div>

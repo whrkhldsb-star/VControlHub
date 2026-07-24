@@ -183,7 +183,7 @@ export function AiClient({
     if (data.providers) setProviders(data.providers);
   }, []);
 
-  const { provForm, setProvForm, handleCreateProvider } = useProviderForm({
+  const { provForm, setProvForm, handleCreateProvider, creating: creatingProvider } = useProviderForm({
     refreshProviders,
     addToast,
   });
@@ -394,6 +394,7 @@ export function AiClient({
         }}
         onRefreshProviders={refreshProviders}
         setProvForm={setProvForm}
+        creatingProvider={creatingProvider}
       />
     </div>
   );

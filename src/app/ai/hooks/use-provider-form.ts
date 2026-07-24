@@ -7,7 +7,7 @@
  *
  * Extracted from ai-client.tsx in R31.
  */
-import { useCallback, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 
 import { csrfFetch } from "@/lib/auth/csrf-client";
 import { useI18n } from "@/lib/i18n/use-locale";
@@ -24,8 +24,11 @@ export function useProviderForm({
 }) {
   const { t } = useI18n();
   const [provForm, setProvForm] = useState(DEFAULT_PROV_FORM);
+  const [creating, setCreating] = useState(false);
+  const creatingRef = useRef(false);
 
   const handleCreateProvider = useCallback(async () => {
+    if (creatingRef.current) return;
     if (!provForm.name.trim() || !provForm.apiKey.trim()) {
       addToast("error", t("aiPage.nameAndKeyRequired"));
       return;
@@ -35,6 +38,8 @@ export function useProviderForm({
       .split(",")
       .map((m) => m.trim())
       .filter(Boolean);
+    creatingRef.current = true;
+    setCreating(true);
     try {
       await csrfFetch("/api/ai/providers", {
         method: "POST",
@@ -51,8 +56,11 @@ export function useProviderForm({
     } catch {
       // Provider creation failed — notify the user via toast.
       addToast("error", t("aiPage.addProviderFailed"));
+    } finally {
+      creatingRef.current = false;
+      setCreating(false);
     }
   }, [provForm, refreshProviders, addToast, t]);
 
-  return { provForm, setProvForm, handleCreateProvider };
+  return { provForm, setProvForm, handleCreateProvider, creating };
 }
