@@ -59,7 +59,7 @@ export async function PATCH(request: Request) {
       rateLimit: GENERAL_WRITE_LIMIT,
       bodySchema: updateAnnouncementSchema,
     },
-    async ({ body }) => {
+    async ({ session, body }) => {
       const { id, content, type, expiresAt, ...rest } = body;
       const result = await updateAnnouncement(id, {
         ...rest,
@@ -67,6 +67,18 @@ export async function PATCH(request: Request) {
         level: type,
         expiresAt: expiresAt === undefined ? undefined : expiresAt === null ? null : new Date(expiresAt),
       });
+      await auditUserAction(
+        session?.userId ?? "",
+        "announcement.update",
+        {
+          announcementId: id,
+          pinned: result.pinned,
+          published: result.published,
+          level: result.level,
+        },
+        undefined,
+        session?.currentTeamId,
+      );
       return NextResponse.json({ announcement: result });
     },
   );
