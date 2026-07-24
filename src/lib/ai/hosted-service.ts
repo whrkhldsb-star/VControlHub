@@ -844,13 +844,3 @@ export async function getPendingActions(userId: string) {
   });
 }
 
-// ── 获取对话的托管操作列表 ─────────────────────────────────
-
-export async function getConversationActions(conversationId: string) {
-  return prisma.aiHostedAction.findMany({
-    where: { conversationId },
-    include: { server: { select: { id: true, name: true, host: true } } },
-    orderBy: { createdAt: "desc" },
-    take: 500, // P2: 单 conversation 操作数有限
-  });
-}
