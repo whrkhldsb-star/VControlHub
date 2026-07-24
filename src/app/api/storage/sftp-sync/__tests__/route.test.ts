@@ -28,6 +28,7 @@ vi.mock("@/lib/storage/sftp-sync-job", () => ({
 
 vi.mock("@/lib/storage/access-control", () => ({
   assertStorageAccess: assertStorageAccessMock,
+  releaseStorageQuotaGuard: vi.fn(async () => undefined),
 }));
 
 vi.mock("@/lib/storage/sftp-sync", () => ({

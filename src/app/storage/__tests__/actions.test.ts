@@ -72,6 +72,7 @@ vi.mock("@/lib/storage/service", () => ({
 
 vi.mock("@/lib/storage/access-control", () => ({
   assertStorageAccess: vi.fn().mockResolvedValue({ allowed: true, storageNode: { id: "sn_team_alpha", userId: "u_1" } }),
+  releaseStorageQuotaGuard: vi.fn(async () => undefined),
 }));
 
 vi.mock("@/lib/server/service", () => ({

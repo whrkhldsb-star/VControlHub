@@ -19,7 +19,7 @@ import {
   NotFoundError,
   ValidationError,
 } from "@/lib/errors";
-import { assertStorageAccess } from "@/lib/storage/access-control";
+import { assertStorageAccess, releaseStorageQuotaGuard } from "@/lib/storage/access-control";
 
 const webdavLogger = createLogger("webdav:handler");
 import {
@@ -141,6 +141,7 @@ async function requireAccess(
   if (!decision.allowed) {
     throw new BusinessError(decision.reason ?? "Storage access denied");
   }
+  return decision;
 }
 
 function parentRelativePath(relativePath: string): string {
@@ -391,7 +392,7 @@ export async function handleWebDavPut(ctx: WebDavContext, request: Request): Pro
     return new Response("Payload too large (max 100MB)", { status: 413 });
   }
 
-  await requireAccess(
+  const putAccess = await requireAccess(
     ctx.session,
     ctx.storageNodeId,
     ctx.relativePath,
@@ -399,6 +400,7 @@ export async function handleWebDavPut(ctx: WebDavContext, request: Request): Pro
     body.byteLength,
   );
 
+  try {
   const node = await loadNode(ctx.storageNodeId, ctx.session);
   const existing = await findEntry(ctx.storageNodeId, ctx.relativePath);
   if (existing?.entryType === "DIRECTORY") {
@@ -494,6 +496,9 @@ export async function handleWebDavPut(ctx: WebDavContext, request: Request): Pro
       Location: buildWebDavHref(ctx.storageNodeId, ctx.relativePath, false),
     },
   });
+  } finally {
+    await releaseStorageQuotaGuard(putAccess);
+  }
 }
 
 export async function handleWebDavMkcol(ctx: WebDavContext): Promise<Response> {

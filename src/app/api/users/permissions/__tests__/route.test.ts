@@ -55,6 +55,7 @@ vi.mock("@/lib/auth/team-scope", () => ({
 vi.mock("@/lib/storage/access-control", () => ({
   getStorageAccessUsage: mocks.getStorageAccessUsage,
   parseNullableBigIntInput: mocks.parseNullableBigIntInput,
+  releaseStorageQuotaGuard: vi.fn(async () => undefined),
 }));
 vi.mock("@/lib/db", () => ({
   prisma: mocks.prisma,

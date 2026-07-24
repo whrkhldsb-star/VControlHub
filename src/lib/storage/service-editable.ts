@@ -4,7 +4,7 @@ import type { SessionPayload } from "@/lib/auth/session";
 import { prisma } from "@/lib/db";
 import { BusinessError, ConflictError, ForbiddenError, NotFoundError, ValidationError } from "@/lib/errors";
 import { serverT } from "@/lib/i18n/server-locale";
-import { assertStorageAccess } from "@/lib/storage/access-control";
+import { assertStorageAccess, releaseStorageQuotaGuard } from "@/lib/storage/access-control";
 import { MAX_EDITABLE_FILE_SIZE_BYTES } from "./mime-constants";
 import {
   isEditableTextFile,
@@ -77,8 +77,9 @@ async function resolveLocalEditableFileEntry(input: {
     throw new ValidationError(t("backend.storage.editableFileTooLarge"));
   }
 
-  return { entry, absolutePath, fileStat };
+    return { entry, absolutePath, fileStat, storageAccess };
 }
+
 
 export async function getLocalEditableFileDraft(input: {
   fileEntryId: string;
@@ -119,7 +120,7 @@ export async function saveLocalEditableFileDraft(input: {
     throw new ValidationError(t("backend.storage.editableFileTooLarge"));
   }
 
-  const { entry, fileStat, absolutePath } = await resolveLocalEditableFileEntry(
+  const { entry, fileStat, absolutePath, storageAccess } = await resolveLocalEditableFileEntry(
     {
       fileEntryId: input.fileEntryId,
       session: input.session,
@@ -128,6 +129,7 @@ export async function saveLocalEditableFileDraft(input: {
     },
   );
 
+  try {
   const currentUpdatedAt = entry.updatedAt?.toISOString?.() ?? entry.updatedAt;
   if (input.expectedUpdatedAt && currentUpdatedAt && input.expectedUpdatedAt !== currentUpdatedAt) {
     throw new ConflictError(t("backend.storage.editableFileUpdatedByOther"));
@@ -169,4 +171,7 @@ export async function saveLocalEditableFileDraft(input: {
     lastModifiedMs: nextStat.mtimeMs,
     updatedAt: updated.updatedAt?.toISOString?.() ?? updated.updatedAt,
   };
+  } finally {
+    await releaseStorageQuotaGuard(storageAccess);
+  }
 }

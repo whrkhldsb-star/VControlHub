@@ -6,6 +6,7 @@ import { config } from "@/lib/config/env";
 import type { SessionPayload } from "@/lib/auth/session";
 import { sessionHasPermission } from "@/lib/auth/authorization";
 import { teamWhere } from "@/lib/auth/team-scope";
+import { acquireAdvisoryLock } from "@/lib/concurrency/advisory-lock";
 import { prisma } from "@/lib/db";
 
 export type StorageAccessOperation = "read" | "write" | "delete";
@@ -14,7 +15,26 @@ export type StorageAccessDecision = {
   allowed: boolean;
   reason?: string;
   matchedGrantId?: string;
+  /**
+   * Present when a grant quota check was serialized via advisory lock.
+   * Callers that pass writeBytes MUST release this after the FileEntry index
+   * is updated (or on any early failure) so concurrent writers can re-check
+   * usage against committed sizes.
+   */
+  releaseQuotaGuard?: () => Promise<void>;
 };
+
+/** Best-effort release helper for optional quota serialization guards. */
+export async function releaseStorageQuotaGuard(
+  decision: StorageAccessDecision | null | undefined,
+): Promise<void> {
+  if (!decision?.releaseQuotaGuard) return;
+  try {
+    await decision.releaseQuotaGuard();
+  } catch {
+    // Advisory unlock is best-effort; never fail the request path on release.
+  }
+}
 
 type StorageAccessGrantRow = Prisma.UserStorageAccessGetPayload<Record<string, never>>;
 
@@ -165,13 +185,35 @@ export async function assertStorageAccess(input: {
     }
 
     if (operationGrant.quotaBytes !== null) {
-      const usedBytes = await getGrantUsageBytes({
-        storageNodeId: input.storageNodeId,
-        pathPrefix: operationGrant.pathPrefix,
-      });
-      if (usedBytes + writeBytes > operationGrant.quotaBytes) {
-        return { allowed: false, reason: "Write will exceed the capacity quota of this authorization", matchedGrantId: operationGrant.id };
+      // Serialize concurrent quota checks for the same grant so two writers
+      // cannot both observe usedBytes under quota and then both commit.
+      // Lock is held until the caller releases after FileEntry create/update.
+      const releaseQuotaGuard = await acquireAdvisoryLock(
+        "storage-quota",
+        operationGrant.id,
+      );
+      try {
+        const usedBytes = await getGrantUsageBytes({
+          storageNodeId: input.storageNodeId,
+          pathPrefix: operationGrant.pathPrefix,
+        });
+        if (usedBytes + writeBytes > operationGrant.quotaBytes) {
+          await releaseQuotaGuard();
+          return {
+            allowed: false,
+            reason: "Write will exceed the capacity quota of this authorization",
+            matchedGrantId: operationGrant.id,
+          };
+        }
+      } catch (error) {
+        await releaseQuotaGuard();
+        throw error;
       }
+      return {
+        allowed: true,
+        matchedGrantId: operationGrant.id,
+        releaseQuotaGuard,
+      };
     }
   }
 

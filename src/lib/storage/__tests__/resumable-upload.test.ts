@@ -37,6 +37,7 @@ vi.mock("@/lib/upload/service", () => ({
 
 vi.mock("@/lib/storage/access-control", () => ({
   assertStorageAccess: assertAccessMock,
+  releaseStorageQuotaGuard: vi.fn(async () => undefined),
 }));
 
 vi.mock("@/lib/storage/file-content", () => ({

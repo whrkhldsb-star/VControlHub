@@ -21,6 +21,10 @@ vi.mock("@/lib/db", () => ({
   },
 }));
 
+vi.mock("@/lib/concurrency/advisory-lock", () => ({
+  acquireAdvisoryLock: vi.fn(async () => async () => undefined),
+}));
+
 vi.mock("@/lib/auth/team-scope", () => ({
   teamWhere: (session: { roles?: string[]; currentTeamId?: string | null }) => {
     if (session.roles?.includes("admin")) return {};
@@ -157,6 +161,38 @@ describe("storage access control", () => {
       _sum: { size: true },
     });
     expect(prisma.fileEntry.findMany).not.toHaveBeenCalled();
+  });
+
+  it("returns a quota guard when write is within quota", async () => {
+    const { acquireAdvisoryLock } = await import("@/lib/concurrency/advisory-lock");
+    vi.mocked(prisma.userStorageAccess.findMany).mockResolvedValueOnce([
+      {
+        id: "grant-1",
+        userId: "user-1",
+        storageNodeId: "node-1",
+        pathPrefix: "team-a",
+        canRead: true,
+        canWrite: true,
+        canDelete: false,
+        quotaBytes: BigInt(100),
+        maxFileBytes: BigInt(60),
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      },
+    ]);
+    vi.mocked(prisma.fileEntry.aggregate).mockResolvedValueOnce({ _sum: { size: BigInt(20) } } as Awaited<ReturnType<typeof prisma.fileEntry.aggregate>>);
+
+    const decision = await assertStorageAccess({
+      session: baseSession,
+      storageNodeId: "node-1",
+      relativePath: "team-a/new.txt",
+      operation: "write",
+      writeBytes: 30,
+    });
+    expect(decision).toMatchObject({ allowed: true, matchedGrantId: "grant-1" });
+    expect(typeof decision.releaseQuotaGuard).toBe("function");
+    expect(acquireAdvisoryLock).toHaveBeenCalledWith("storage-quota", "grant-1");
+    await decision.releaseQuotaGuard?.();
   });
 
   it("computes per-entry capabilities from explicit storage grants", async () => {

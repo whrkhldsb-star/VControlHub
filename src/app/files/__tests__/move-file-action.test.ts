@@ -29,6 +29,7 @@ vi.mock("@/lib/db", () => ({
 
 vi.mock("@/lib/storage/access-control", () => ({
   assertStorageAccess: vi.fn().mockResolvedValue({ allowed: true }),
+  releaseStorageQuotaGuard: vi.fn(async () => undefined),
 }));
 
 vi.mock("@/lib/storage/fs-backend", () => ({

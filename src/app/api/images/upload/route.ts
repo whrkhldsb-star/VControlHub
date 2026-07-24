@@ -23,7 +23,7 @@ import {
   generateThumbnail,
 } from "@/lib/image/service";
 import { logError } from "@/lib/logging";
-import { assertStorageAccess } from "@/lib/storage/access-control";
+import { assertStorageAccess, releaseStorageQuotaGuard } from "@/lib/storage/access-control";
 import { writeStorageFileBuffer, storageFileNodeSelect } from "@/lib/storage/file-content";
 import type { SessionPayload } from "@/lib/auth/session";
 
@@ -224,6 +224,8 @@ async function handleUpload(request: Request, userId: string, session?: SessionP
       } catch (e) {
         // Non-fatal: cloud copy is best-effort
         logError("image-bed:cloud-copy-failed", e);
+      } finally {
+        await releaseStorageQuotaGuard(access);
       }
     }
 

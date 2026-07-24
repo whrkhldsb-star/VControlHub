@@ -25,6 +25,7 @@ vi.mock("@/lib/auth/require-api-permission", () => ({
 }));
 vi.mock("@/lib/storage/access-control", () => ({
   assertStorageAccess: assertStorageAccessMock,
+  releaseStorageQuotaGuard: vi.fn(async () => undefined),
 }));
 vi.mock("@/lib/db", () => ({ prisma: prismaMock }));
 vi.mock("@/lib/storage/service", () => ({

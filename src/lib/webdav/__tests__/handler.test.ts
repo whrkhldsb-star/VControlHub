@@ -32,7 +32,7 @@ const {
 }));
 
 vi.mock("@/lib/db", () => ({ prisma: prismaMock }));
-vi.mock("@/lib/storage/access-control", () => ({ assertStorageAccess: assertAccessMock }));
+vi.mock("@/lib/storage/access-control", () => ({ assertStorageAccess: assertAccessMock , releaseStorageQuotaGuard: vi.fn(async () => undefined) }));
 vi.mock("@/lib/storage/file-content", () => ({
   readStorageFileBuffer: readBufferMock,
   writeStorageFileBuffer: writeBufferMock,

@@ -8,7 +8,7 @@ import path from "node:path";
 
 import { prisma } from "@/lib/db";
 import { ForbiddenError, ValidationError } from "@/lib/errors";
-import { assertStorageAccess } from "@/lib/storage/access-control";
+import { assertStorageAccess, releaseStorageQuotaGuard } from "@/lib/storage/access-control";
 import {
   getStorageFileNode,
   writeStorageFileBuffer,
@@ -93,6 +93,7 @@ export async function completeStorageFileUpload(params: {
     throw new ForbiddenError(access.reason ?? "No permission to write to the storage path");
   }
 
+  try {
   const storageNode = await getStorageFileNode(existing.storageNodeId, session);
   if (!storageNode || (storageNode.driver !== "LOCAL" && storageNode.driver !== "SFTP")) {
     throw new ValidationError(t("backend.storage.uploadNotSupported"));
@@ -173,4 +174,7 @@ export async function completeStorageFileUpload(params: {
     size: byteSize,
     storageNodeId: existing.storageNodeId,
   };
+  } finally {
+    await releaseStorageQuotaGuard(access);
+  }
 }

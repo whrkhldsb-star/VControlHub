@@ -44,6 +44,7 @@ vi.mock("@/lib/ssh/client", () => ({
 }));
 vi.mock("@/lib/storage/access-control", () => ({
   assertStorageAccess: assertStorageAccessMock,
+  releaseStorageQuotaGuard: vi.fn(async () => undefined),
 }));
 vi.mock("@/lib/ssh/ssh-key-crypto", () => ({
   decryptServerPassword: (value: string) => `decrypted:${value}`,

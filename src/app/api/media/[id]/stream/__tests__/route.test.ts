@@ -19,7 +19,7 @@ const {
 vi.mock("@/lib/auth/require-session", () => ({ requireSession: requireSessionMock }));
 vi.mock("@/lib/auth/authorization", () => ({ sessionHasPermission: sessionHasPermissionMock }));
 vi.mock("@/lib/media/service", () => ({ getMediaItem: getMediaItemMock }));
-vi.mock("@/lib/storage/access-control", () => ({ assertStorageAccess: assertStorageAccessMock }));
+vi.mock("@/lib/storage/access-control", () => ({ assertStorageAccess: assertStorageAccessMock , releaseStorageQuotaGuard: vi.fn(async () => undefined) }));
 vi.mock("@/lib/http/api-guard", () => ({
   withApiRoute: async (
     _request: Request,

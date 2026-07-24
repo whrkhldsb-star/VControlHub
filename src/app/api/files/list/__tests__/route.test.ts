@@ -33,6 +33,7 @@ vi.mock("@/lib/storage/access-control", () => ({
   getStorageAccessCapabilities: getStorageAccessCapabilitiesMock,
   getStorageAccessCapabilityKey: ({ storageNodeId, relativePath }: { storageNodeId: string; relativePath?: string | null }) =>
     `${storageNodeId}:${relativePath ?? ""}`,
+  releaseStorageQuotaGuard: vi.fn(async () => undefined),
 }));
 
 vi.mock("@/lib/storage/sftp-sync", () => ({

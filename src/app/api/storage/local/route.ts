@@ -9,7 +9,7 @@ import type { SessionPayload } from "@/lib/auth/session";
 
 import { teamWhere } from "@/lib/auth/team-scope";
 import { prisma } from "@/lib/db";
-import { assertStorageAccess } from "@/lib/storage/access-control";
+import { assertStorageAccess, releaseStorageQuotaGuard } from "@/lib/storage/access-control";
 import { logError } from "@/lib/logging";
 import { snapshotFileVersionBeforeOverwrite } from "@/lib/storage/file-versions";
 import {
@@ -321,6 +321,7 @@ async function handlePost(request: Request, session: SessionPayload) {
       { status: 403 },
     );
   }
+  try {
   const mimeType = file.type || null;
   const fileName = path.posix.basename(normalizedRelativePath);
 
@@ -479,6 +480,9 @@ async function handlePost(request: Request, session: SessionPayload) {
     relativePath: normalizedRelativePath,
     size: byteSize,
   });
+  } finally {
+    await releaseStorageQuotaGuard(accessDecision);
+  }
 }
 
 export async function GET(request: Request) {

@@ -3,7 +3,7 @@ import { sessionHasPermission } from "@/lib/auth/authorization";
 import type { SessionPayload } from "@/lib/auth/session";
 
 import { prisma } from "@/lib/db";
-import { assertStorageAccess } from "@/lib/storage/access-control";
+import { assertStorageAccess, releaseStorageQuotaGuard } from "@/lib/storage/access-control";
 import {
   deleteBackingObject,
   readBackingObject,
@@ -236,6 +236,7 @@ async function handlePost(body: SftpOpsBody, session: SessionPayload) {
     );
   }
 
+  try {
   try {
     switch (action) {
       case "delete": {
@@ -486,6 +487,9 @@ async function handlePost(body: SftpOpsBody, session: SessionPayload) {
       toClientStorageError("Remote file operation failed, please check node configuration, path or permissions"),
       { status: 502 },
     );
+  }
+  } finally {
+    await releaseStorageQuotaGuard(accessDecision);
   }
 }
 

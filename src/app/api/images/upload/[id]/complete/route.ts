@@ -40,7 +40,7 @@ import {
 } from "@/lib/upload/service";
 import { auditUserAction } from "@/lib/audit/service";
 import { ForbiddenError, ValidationError } from "@/lib/errors";
-import { assertStorageAccess } from "@/lib/storage/access-control";
+import { assertStorageAccess, releaseStorageQuotaGuard } from "@/lib/storage/access-control";
 import { storageFileNodeSelect, writeStorageFileBuffer } from "@/lib/storage/file-content";
 
 export const dynamic = "force-dynamic";
@@ -174,6 +174,7 @@ export async function POST(
         if (!access.allowed) {
           throw new ForbiddenError(access.reason ?? "No permission to write to the storage path");
         }
+        try {
         const storageNode = await prisma.storageNode.findFirst({
           where: { id: existing.storageNodeId, ...teamWhere(session) },
           select: storageFileNodeSelect,
@@ -184,6 +185,9 @@ export async function POST(
         linkedStorageRelativePath = `${existing.relativePath.replace(/\/$/, "")}/${storageKey}`;
         const written = await writeStorageFileBuffer(storageNode, linkedStorageRelativePath, assembled);
         if (storageNode.driver === "LOCAL") linkedStorageCopyPath = written;
+        } finally {
+          await releaseStorageQuotaGuard(access);
+        }
       }
 
       let image;

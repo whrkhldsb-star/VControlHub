@@ -61,7 +61,8 @@ vi.mock("@/lib/db", () => ({
 }));
 
 vi.mock("@/lib/storage/access-control", () => ({
-	assertStorageAccess: assertStorageAccessMock,
+  assertStorageAccess: assertStorageAccessMock,
+  releaseStorageQuotaGuard: vi.fn(async () => undefined),
 }));
 
 vi.mock("@/lib/storage/ssh-credentials", () => ({

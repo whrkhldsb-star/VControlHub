@@ -45,6 +45,8 @@ const NAMESPACE_KEYS: Record<string, number> = {
 	"server-host": 45070,
 	/** Serialize quick-service host port allocation per docker target (hub-host or serverId). */
 	"quick-service-port-alloc": 45071,
+	/** Serialize storage grant quota checks (check usage then commit FileEntry). */
+	"storage-quota": 45072,
 };
 
 function connectionStringForPg() {

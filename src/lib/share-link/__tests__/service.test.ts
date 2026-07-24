@@ -29,6 +29,7 @@ vi.mock("@/lib/auth/authorization", () => ({
 }));
 vi.mock("@/lib/storage/access-control", () => ({
   assertStorageAccess: vi.fn(async () => ({ allowed: true })),
+  releaseStorageQuotaGuard: vi.fn(async () => undefined),
 }));
 
 const { createShareLink, createShareLinkFromFileEntry, listShareLinks, normalizeSharePath, releaseShareQuotaClaim, resolveShareToken, revokeShareLink } = await import("../service");
