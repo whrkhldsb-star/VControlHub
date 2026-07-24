@@ -1,7 +1,5 @@
 "use client";
 
-import { useEffect, useState } from "react";
-
 /**
  * ⚠️ SECURITY DESIGN NOTE — DO NOT add `HttpOnly` to the `csrf_token` cookie.
  *
@@ -24,27 +22,6 @@ import { useEffect, useState } from "react";
  * It is a false positive. Do not change the cookie flags without redesigning the
  * CSRF strategy (e.g. moving to synchronizer-token + server-rendered hidden inputs).
  */
-
-/**
- * Hook to get the CSRF token from the csrf_token cookie.
- * Used to include X-CSRF-Token header in all state-changing API requests.
- */
-export function useCsrfToken(): string | null {
-	const [token, setToken] = useState<string | null>(null);
-
-	useEffect(() => {
-		const cookie = document.cookie
-			.split(";")
-			.map((c) => c.trim())
-			.find((c) => c.startsWith("csrf_token="));
-		if (cookie) {
-
-			setToken(decodeURIComponent(cookie.split("=").slice(1).join("=")));
-		}
-	}, []);
-
-	return token;
-}
 
 /**
  * Fetch wrapper that:
