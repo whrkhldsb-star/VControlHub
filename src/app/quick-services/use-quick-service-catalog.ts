@@ -44,6 +44,7 @@ export function useQuickServiceCatalog(t: TFn) {
         : "";
       const data = await csrfFetch(`/api/quick-services${qs}`);
       if (catalogServerRef.current !== serverAtFetch) return;
+      setError(null);
       setCatalog(data.catalog ?? []);
       setRemoteCatalog(data.remoteCatalog ?? []);
       setUsedPorts(Array.isArray(data.usedPorts) ? data.usedPorts : []);
