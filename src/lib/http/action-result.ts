@@ -93,7 +93,38 @@ export function toActionFailure(err: unknown): ActionFailure {
       };
     }
 
-    const status = typeof anyErr.statusCode === "number" ? anyErr.statusCode : undefined;
+    // Prefer an already-canonical code (ApiError from api-client) before status mapping.
+    const knownCodes = new Set([
+      "VALIDATION_FAILED",
+      "AUTH_REQUIRED",
+      "FORBIDDEN",
+      "NOT_FOUND",
+      "CONFLICT",
+      "RATE_LIMITED",
+      "PARTIAL_FAILURE",
+      "UPSTREAM_ERROR",
+      "INTERNAL_ERROR",
+    ]);
+    if (typeof anyErr.code === "string" && knownCodes.has(anyErr.code) && anyErr.code !== "INTERNAL_ERROR") {
+      return {
+        ok: false,
+        code: anyErr.code,
+        message:
+          typeof anyErr.message === "string" && anyErr.message
+            ? anyErr.message
+            : "Operation failed",
+        ...(anyErr.details !== undefined ? { details: anyErr.details } : {}),
+        ...(anyErr.code === "RATE_LIMITED" ? { retryable: true } : {}),
+      };
+    }
+
+    // ApiError uses `.status`; AppError-style throws often use `.statusCode`.
+    const status =
+      typeof anyErr.statusCode === "number"
+        ? anyErr.statusCode
+        : typeof anyErr.status === "number"
+          ? anyErr.status
+          : undefined;
     if (status === 401) return { ok: false, code: "AUTH_REQUIRED", message: "Not logged in or session has expired" };
     if (status === 403) return { ok: false, code: "FORBIDDEN", message: "No permission to perform this operation" };
     if (status === 404) return { ok: false, code: "NOT_FOUND", message: "Resource does not exist or has been deleted" };

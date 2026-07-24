@@ -107,6 +107,22 @@ describe("toActionFailure", () => {
     expect(r.retryable).toBe(true);
   });
 
+  it("ApiError-like .status 401 → AUTH_REQUIRED", () => {
+    const r = toActionFailure({ status: 401, message: "Unauthorized" });
+    expect(r.code).toBe("AUTH_REQUIRED");
+  });
+
+  it("ApiError-like .status 403 → FORBIDDEN", () => {
+    const r = toActionFailure({ status: 403, message: "Forbidden" });
+    expect(r.code).toBe("FORBIDDEN");
+  });
+
+  it("prefers canonical .code over status", () => {
+    const r = toActionFailure({ status: 500, code: "NOT_FOUND", message: "missing" });
+    expect(r.code).toBe("NOT_FOUND");
+    expect(r.message).toBe("missing");
+  });
+
   it("普通 Error → INTERNAL_ERROR + 不透传内部 message", () => {
     const r = toActionFailure(new Error("数据库连接失败"));
     expect(r.code).toBe("INTERNAL_ERROR");
