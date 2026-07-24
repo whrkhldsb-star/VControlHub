@@ -191,6 +191,7 @@ export async function POST(req: NextRequest) {
             dockerAvailable: false,
           },
           action === "remove" ? "WARNING" : "INFO",
+          session.currentTeamId,
         );
         return NextResponse.json(
           {
@@ -213,6 +214,7 @@ export async function POST(req: NextRequest) {
           ok: result.ok,
         },
         action === "remove" ? "WARNING" : "INFO",
+        session.currentTeamId,
       );
       return NextResponse.json(result, { status: result.ok ? 200 : result.status });
     },
