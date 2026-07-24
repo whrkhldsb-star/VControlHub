@@ -78,7 +78,8 @@ export function useConversations({
   const autoTitle = useCallback(
     async (convId: string, firstMsg: string) => {
       const title = firstMsg.slice(0, 30).replace(/\n/g, " ").trim();
-      if (!title || title === "(attachment)") return;
+      // Skip attachment-only placeholders in both en/zh locales.
+      if (!title || title === "(attachment)" || title === "(附件)") return;
       try {
         await csrfFetch(`/api/ai/conversations/${convId}`, {
           method: "PATCH",
