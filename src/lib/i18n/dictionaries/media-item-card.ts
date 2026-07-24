@@ -32,7 +32,6 @@ export const zh: Record<string, string> = {
 	"mediaItemCard.typePreview": "预览",
 	"mediaItemCard.unknown": "未知",
 	"mediaItemCard.unknownStorage": "未知存储",
-	"mediaItemCard.videoCover": "{name} 视频封面",
 };
 
 export const en: Record<string, string> = {
@@ -62,5 +61,4 @@ export const en: Record<string, string> = {
 	"mediaItemCard.typePreview": "preview",
 	"mediaItemCard.unknown": "Unknown",
 	"mediaItemCard.unknownStorage": "Unknown storage",
-	"mediaItemCard.videoCover": "{name} video cover",
 };
