@@ -133,8 +133,24 @@ export async function uninstallService(slug: string, options: UninstallServiceOp
 		}
 
 		if (options.deleteVolumes === true) {
-			for (const hostPath of getRemovableHostVolumes(svc.volumesJson)) {
-				rmSync(hostPath, { recursive: true, force: true });
+			const target = targetFromService(svc);
+			// Host paths in volumesJson live on the Docker host. Hub-side
+			// rmSync is only safe for local installs; remote installs must
+			// not wipe hub paths that merely share the same string.
+			if (target.kind === "local") {
+				for (const hostPath of getRemovableHostVolumes(svc.volumesJson)) {
+					rmSync(hostPath, { recursive: true, force: true });
+				}
+			} else {
+				const hostPaths = getRemovableHostVolumes(svc.volumesJson);
+				if (hostPaths.length > 0) {
+					qsLogger.warn("skipping hub-local volume rmSync for remote quick-service uninstall; remote data left for operator cleanup", {
+						slug: svc.slug,
+						instanceKey,
+						serverId: svc.serverId,
+						hostPaths,
+					});
+				}
 			}
 		}
 
