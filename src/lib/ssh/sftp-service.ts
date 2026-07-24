@@ -470,24 +470,3 @@ export async function renameEntry(
     session.close();
   }
 }
-
-/** Get the home directory of the remote user (used as default browse path). */
-export async function getHomeDirectory(serverId: string): Promise<string> {
-  const session = await openSftpSession(serverId);
-
-  try {
-    // Try realpath on "." to get the home directory
-    const home = await new Promise<string>((resolve, reject) => {
-      session.sftp.realpath(".", (err: Error | undefined, absPath: string) => {
-        if (err) reject(err);
-        else resolve(absPath);
-      });
-    });
-    return home;
-  } catch {
-    // Fallback: if realpath fails, use common default
-    return "/root";
-  } finally {
-    session.close();
-  }
-}
