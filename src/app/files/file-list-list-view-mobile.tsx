@@ -126,7 +126,6 @@ export function FileListListViewMobile(props: FileListListViewMobileProps) {
                   fileEntryId={folder.entryId ?? ""}
                   currentName={folder.displayName ?? folder.name}
                   currentPath={folder.path}
-                  entryType="DIRECTORY"
                   onRefresh={onRefresh}
                   onNotify={onNotify}
                 />
@@ -136,8 +135,6 @@ export function FileListListViewMobile(props: FileListListViewMobileProps) {
                   fileEntryId={folder.entryId}
                   name={folder.displayName ?? folder.name}
                   relativePath={folder.path}
-                  storageNodeId={folder.sourceKeys[0] ?? ""}
-                  storageNodeName={folder.sourceValues[0] ?? ""}
                   onRefresh={onRefresh}
                   onNotify={onNotify}
                 />

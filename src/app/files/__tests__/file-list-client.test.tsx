@@ -43,14 +43,12 @@ vi.mock("../rename-inline-form", () => ({
   RenameInlineForm: (props: {
     fileEntryId: string;
     currentName: string;
-    entryType: string;
   }) =>
     React.createElement(
       "button",
       {
         type: "button",
         "data-testid": "rename-btn",
-        "data-entry-type": props.entryType,
         "data-file-entry-id": props.fileEntryId,
       },
       `重命名 ${props.currentName}`,

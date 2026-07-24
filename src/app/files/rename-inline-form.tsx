@@ -22,7 +22,6 @@ export function RenameInlineForm({
   fileEntryId: string;
   currentName: string;
   currentPath: string;
-  entryType: "FILE" | "DIRECTORY";
   variant?: "icon" | "menu";
   onRefresh?: () => void;
   onNotify?: (type: "success" | "error" | "info", message: string) => void;

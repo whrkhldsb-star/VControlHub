@@ -189,7 +189,6 @@ export function FileDetailPanel({
                   fileEntryId={detailEntry.id}
                   currentName={detailEntry.name}
                   currentPath={detailEntry.relativePath}
-                  entryType={detailEntry.entryType as"FILE" |"DIRECTORY"}
                   onRefresh={onRefresh}
                   onNotify={onNotify}
                 />
@@ -199,8 +198,6 @@ export function FileDetailPanel({
                   fileEntryId={detailEntry.id}
                   name={detailEntry.name}
                   relativePath={detailEntry.relativePath}
-                  storageNodeId={detailEntry.storageNode.id}
-                  storageNodeName={detailEntry.storageNode.name}
                   onRefresh={onRefresh}
                   onNotify={onNotify}
                 />

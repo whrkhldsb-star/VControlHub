@@ -75,7 +75,6 @@ export function FileMoreActions({
             fileEntryId={entry.id}
             currentName={entry.name}
             currentPath={entry.relativePath}
-            entryType={entry.entryType as"FILE" |"DIRECTORY"}
             variant="menu"
             onRefresh={onRefresh}
             onNotify={onNotify}
@@ -86,8 +85,6 @@ export function FileMoreActions({
             fileEntryId={entry.id}
             name={entry.name}
             relativePath={entry.relativePath}
-            storageNodeId={entry.storageNode.id}
-            storageNodeName={entry.storageNode.name}
             variant="menu"
             onRefresh={onRefresh}
             onNotify={onNotify}

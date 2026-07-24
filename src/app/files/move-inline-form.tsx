@@ -14,7 +14,6 @@ export function MoveInlineForm({
   fileEntryId,
   name,
   relativePath,
-  storageNodeId,
   variant = "icon",
   onRefresh,
   onNotify,
@@ -22,8 +21,6 @@ export function MoveInlineForm({
   fileEntryId: string;
   name: string;
   relativePath: string;
-  storageNodeId: string;
-  storageNodeName: string;
   variant?: "icon" | "menu";
   onRefresh?: () => void;
   onNotify?: (type: "success" | "error" | "info", message: string) => void;
@@ -106,8 +103,6 @@ export function MoveInlineForm({
   return (
     <form action={formAction} className="flex flex-wrap items-center gap-2">
       <input type="hidden" name="fileEntryId" value={fileEntryId} />
-      <input type="hidden" name="currentRelativePath" value={relativePath} />
-      <input type="hidden" name="storageNodeId" value={storageNodeId} />
       <label className="grid gap-1 text-sm text-[var(--text-secondary)]">
         <span className="sr-only">{t("filesPage.actions.targetPath")}</span>
         <input

@@ -227,7 +227,6 @@ vi.mock("./rename-inline-form", () => ({
     fileEntryId: string;
     currentName: string;
     currentPath: string;
-    entryType: string;
   }) => {
     return React.createElement(
       "button",
@@ -247,8 +246,6 @@ vi.mock("./move-inline-form", () => ({
     fileEntryId: string;
     name: string;
     relativePath: string;
-    storageNodeId: string;
-    storageNodeName: string;
   }) => {
     return React.createElement(
       "button",
