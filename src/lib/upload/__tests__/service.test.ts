@@ -126,7 +126,17 @@ function makePrismaMock() {
 				},
 			),
 			updateMany: vi.fn(
-				async ({ where, data }: { where: { id: string | { in: string[] }; userId?: string }; data: Partial<SessionRow> }) => {
+				async ({
+					where,
+					data,
+				}: {
+					where: {
+						id: string | { in: string[] };
+						userId?: string;
+						receivedChunks?: { equals: number[] };
+					};
+					data: Partial<SessionRow>;
+				}) => {
 					let ids: string[];
 					if (typeof where.id === "string") {
 						ids = [where.id];
@@ -134,11 +144,22 @@ function makePrismaMock() {
 						ids = where.id.in;
 					}
 					const userIdFilter = where.userId;
+					const expectedChunks = where.receivedChunks?.equals;
 					let count = 0;
 					for (const id of ids) {
 						const row = store.sessions.get(id);
 						if (!row) continue;
 						if (userIdFilter !== undefined && row.userId !== userIdFilter) continue;
+						if (expectedChunks) {
+							const current = [...row.receivedChunks].sort((a, b) => a - b);
+							const expected = [...expectedChunks].sort((a, b) => a - b);
+							if (
+								current.length !== expected.length ||
+								current.some((v, i) => v !== expected[i])
+							) {
+								continue;
+							}
+						}
 						const next: SessionRow = {
 							...row,
 							...data,

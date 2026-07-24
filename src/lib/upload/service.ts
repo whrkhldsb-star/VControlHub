@@ -206,24 +206,75 @@ export async function appendMediaUploadChunk(params: {
 		);
 	}
 
-	// Write chunk file (overwrites if duplicate)
+	// Write chunk file (overwrites if duplicate). Disk write is idempotent
+	// per index; the race we care about is the receivedChunks array merge.
 	await mkdir(sessionDir(sessionId), { recursive: true });
 	await writeFile(chunkPath(sessionId, index), buffer);
 
-	// Update receivedChunks: dedupe + sort in app code (Prisma array
-	// push is a no-op for dups; we manage the set ourselves).
-	const nextReceived = Array.from(new Set([...existing.receivedChunks, index])).sort(
-		(a, b) => a - b,
-	);
+	// CAS merge: re-read + updateMany with expected receivedChunks snapshot so
+	// concurrent appends of different indices cannot clobber each other.
+	const maxAttempts = 8;
+	let snapshot = existing;
+	for (let attempt = 0; attempt < maxAttempts; attempt++) {
+		if (snapshot.status === "COMPLETED") {
+			throw new MediaUploadError("session_completed", "Session already completed, cannot append");
+		}
+		if (snapshot.status === "CANCELLED" || snapshot.status === "FAILED") {
+			throw new MediaUploadError(
+				`session_${snapshot.status.toLowerCase()}`,
+				`Session already ${snapshot.status}`,
+			);
+		}
+		if (snapshot.expiresAt.getTime() < Date.now()) {
+			throw new MediaUploadError("session_expired", "Session has expired");
+		}
 
-	const row = await prisma.mediaUploadSession.update({
-		where: { id: sessionId },
-		data: {
-			receivedChunks: nextReceived,
-			status: existing.status === "PENDING" ? "UPLOADING" : existing.status,
-		},
-	});
-	return toView(row);
+		const expectedChunks = [...snapshot.receivedChunks].sort((a, b) => a - b);
+		const nextReceived = Array.from(new Set([...expectedChunks, index])).sort(
+			(a, b) => a - b,
+		);
+		// Idempotent re-upload of the same index with no other concurrent changes.
+		if (
+			nextReceived.length === expectedChunks.length &&
+			nextReceived.every((v, i) => v === expectedChunks[i])
+		) {
+			return toView(snapshot);
+		}
+
+		const cas = await prisma.mediaUploadSession.updateMany({
+			where: {
+				id: sessionId,
+				userId,
+				receivedChunks: { equals: expectedChunks },
+			},
+			data: {
+				receivedChunks: nextReceived,
+				status: snapshot.status === "PENDING" ? "UPLOADING" : snapshot.status,
+			},
+		});
+		if (cas.count === 1) {
+			const row = await prisma.mediaUploadSession.findFirst({
+				where: { id: sessionId, userId },
+			});
+			if (!row) {
+				throw new MediaUploadError("session_not_found", "Upload session not found");
+			}
+			return toView(row);
+		}
+
+		const refreshed = await prisma.mediaUploadSession.findFirst({
+			where: { id: sessionId, userId },
+		});
+		if (!refreshed) {
+			throw new MediaUploadError("session_not_found", "Upload session not found");
+		}
+		snapshot = refreshed;
+	}
+
+	throw new MediaUploadError(
+		"chunk_append_conflict",
+		"Concurrent chunk append could not be merged; please retry",
+	);
 }
 
 /** Assemble chunks into a single Buffer. Reads chunk-0..chunk-(N-1) in
