@@ -45,6 +45,7 @@ export async function POST(
           size: result.size,
         },
         "INFO",
+        session.currentTeamId,
       );
 
       return NextResponse.json({
