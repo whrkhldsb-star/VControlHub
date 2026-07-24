@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 
 import { exportAuditLogs, type AuditLogEntry } from "@/lib/audit/service";
 import { withApiRoute } from "@/lib/http/api-guard";
-import { GENERAL_WRITE_LIMIT } from "@/lib/http/rate-limit-presets";
+import { GENERAL_READ_LIMIT } from "@/lib/http/rate-limit-presets";
 import { z } from "zod";
 import { t } from "@/lib/i18n/translations";
 
@@ -51,7 +51,7 @@ function toCsv(logs: AuditLogEntry[]): string {
 export async function GET(request: Request) {
   return withApiRoute(
     request,
-    { permission: "audit:read", rateLimit: GENERAL_WRITE_LIMIT },
+    { permission: "audit:read", rateLimit: GENERAL_READ_LIMIT },
     async ({ session }) => {
     const url = new URL(request.url);
     const params = exportQuerySchema.parse(Object.fromEntries(url.searchParams));
