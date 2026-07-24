@@ -19,13 +19,14 @@ import { z } from "zod";
 
 // === Provider schemas ===
 
-// `OPENAI_COMPATIBLE` and `ANTHROPIC` are the two AI provider types that the
-// app currently wires up. We keep this enum aligned with the runtime
-// `provider.type` column; new types should be added here and in
-// `service-crud.ts` together.
+// Keep aligned with Prisma `AiProviderType` and runtime branches
+// (e.g. GOOGLE chat path in service-runtime).
 export const aiProviderTypeSchema = z.enum([
+  "OPENAI",
   "OPENAI_COMPATIBLE",
   "ANTHROPIC",
+  "GOOGLE",
+  "CUSTOM",
 ]);
 
 // POST /api/ai/providers body. `type` is optional because the legacy

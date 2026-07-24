@@ -13,11 +13,14 @@ import {
 } from "../schema";
 
 describe("aiProviderTypeSchema", () => {
-  it("accepts the two wired-up provider types", () => {
+  it("accepts Prisma AiProviderType values", () => {
     expect(aiProviderTypeSchema.parse("OPENAI_COMPATIBLE")).toBe(
       "OPENAI_COMPATIBLE",
     );
     expect(aiProviderTypeSchema.parse("ANTHROPIC")).toBe("ANTHROPIC");
+    expect(aiProviderTypeSchema.parse("OPENAI")).toBe("OPENAI");
+    expect(aiProviderTypeSchema.parse("GOOGLE")).toBe("GOOGLE");
+    expect(aiProviderTypeSchema.parse("CUSTOM")).toBe("CUSTOM");
   });
 
   it("rejects unknown types", () => {
