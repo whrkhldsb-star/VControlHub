@@ -76,8 +76,7 @@ export async function resolveManagedLocalEntryPath(input: {
  * Create a managed folder on the storage node's backing filesystem.
  * - LOCAL: `mkdir(absolutePath, { recursive: false })`
  * - SFTP:  `createRemoteDirectory` with resolved SSH credentials
- * Other drivers are intentionally unsupported and treated as a no-op
- * (the caller is expected to guard on the node's driver up front).
+ * Other drivers throw — silent no-ops would leave DB indexes without backing objects.
  */
 export async function createManagedFolder(input: {
   storageNode: StorageNodeWithCredentials;
@@ -103,7 +102,12 @@ export async function createManagedFolder(input: {
       remotePath,
       recursive: false,
     });
+    return;
   }
+
+  throw new ValidationError(
+    `Unsupported storage driver for create: ${input.storageNode.driver}`,
+  );
 }
 
 /**
@@ -113,7 +117,7 @@ export async function createManagedFolder(input: {
  * behaviour in sftp-ops `write`.
  * - LOCAL: mkdir -p parent + writeFile
  * - SFTP:  recursive createRemoteDirectory on parent + writeRemoteFile
- * Other drivers are intentionally unsupported (no-op).
+ * Other drivers throw — silent success would leave DB indexes without bytes.
  */
 export async function writeBackingObject(input: {
   storageNode: StorageNodeWithCredentials;
@@ -162,7 +166,9 @@ export async function writeBackingObject(input: {
     return { byteSize };
   }
 
-  return { byteSize };
+  throw new ValidationError(
+    `Unsupported storage driver for write: ${input.storageNode.driver}`,
+  );
 }
 
 /**
@@ -205,7 +211,7 @@ export async function readBackingObject(input: {
 /**
  * Delete a backing file or directory on the storage node. The adapter
  * dispatches to the LOCAL or SFTP backend based on the node's driver;
- * unsupported drivers are a no-op. When `tolerateMissing` is true,
+ * unsupported drivers throw. When `tolerateMissing` is true,
  * "already gone" errors are swallowed so permanent-delete can be
  * idempotent.
  */
@@ -240,7 +246,12 @@ export async function deleteBackingObject(input: {
         remotePath,
         isDirectory: input.isDirectory,
       });
+      return;
     }
+
+    throw new ValidationError(
+      `Unsupported storage driver for delete: ${input.storageNode.driver}`,
+    );
   } catch (error) {
     if (input.tolerateMissing && isMissingBackingObjectError(error)) return;
     throw error;
@@ -249,8 +260,8 @@ export async function deleteBackingObject(input: {
 
 /**
  * Rename/move a backing object on the storage node. The adapter
- * dispatches to the LOCAL or SFTP backend; unsupported drivers are a
- * no-op. For LOCAL the destination's parent directory is created
+ * dispatches to the LOCAL or SFTP backend; unsupported drivers throw.
+ * For LOCAL the destination's parent directory is created
  * recursively before the rename, mirroring the previous in-line
  * behaviour in `actions.ts`.
  */
@@ -299,7 +310,12 @@ export async function renameBackingObject(input: {
       });
     }
     await renameRemoteFile({ ...credentials, oldPath, newPath });
+    return;
   }
+
+  throw new ValidationError(
+    `Unsupported storage driver for rename: ${input.storageNode.driver}`,
+  );
 }
 
 /**
