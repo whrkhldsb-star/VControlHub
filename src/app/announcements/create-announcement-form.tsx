@@ -65,8 +65,8 @@ export function CreateAnnouncementForm() {
 				<div className="grid gap-1.5">
 					<label htmlFor={typeId} className="text-xs font-medium text-[var(--text-secondary)]">{t("announcementsPage.create.typeLabel")}</label>
 					<select id={typeId} name="type" defaultValue="info" className={UI_INPUT}>
-						<option value="info">{t("announcementsPage.create.type.info")}</option>
-						<option value="warning">{t("announcementsPage.create.type.warning")}</option>
+						<option value="info">{t("announcementsPage.level.info")}</option>
+						<option value="warning">{t("announcementsPage.level.warning")}</option>
 						<option value="urgent">{t("announcementsPage.level.urgent")}</option>
 					</select>
 					<p className="text-[11px] text-[var(--text-muted)]">{t("announcementsPage.create.typeHint")}</p>

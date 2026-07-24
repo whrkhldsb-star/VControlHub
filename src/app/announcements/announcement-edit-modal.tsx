@@ -76,9 +76,9 @@ export function AnnouncementEditModal({
               data-input
               className="mt-1 w-full rounded-lg border px-3 py-2 text-sm outline-none"
             >
-              <option value="info">{t("announcementsPage.edit.severity.info")}</option>
-              <option value="warning">{t("announcementsPage.edit.severity.warning")}</option>
-              <option value="urgent">{t("common.urgent")}</option>
+              <option value="info">{t("announcementsPage.level.info")}</option>
+              <option value="warning">{t("announcementsPage.level.warning")}</option>
+              <option value="urgent">{t("announcementsPage.level.urgent")}</option>
             </select>
           </div>
           <div>
