@@ -48,6 +48,14 @@ function readInt(name: string, fallback: number): number {
 	return n;
 }
 
+/** Float env with fallback on missing/empty/NaN (used for sample rates). */
+function readFloat(name: string, fallback: number): number {
+	const raw = process.env[name];
+	if (raw === undefined || raw === "") return fallback;
+	const n = Number.parseFloat(raw);
+	return Number.isFinite(n) ? n : fallback;
+}
+
 function readBool(name: string, fallback: boolean): boolean {
 	const raw = process.env[name];
 	if (raw === undefined || raw === "") return fallback;
@@ -174,10 +182,7 @@ export const config = {
 	/** Media (image-bed thumbnails, transcodes). */
 	media: {
 		get uploadTmpDir(): string | undefined { return readOptionalString("MEDIA_UPLOAD_TMP_DIR"); },
-		get thumbCacheDir(): string | undefined {
-			const raw = process.env.MEDIA_THUMB_CACHE_DIR?.trim();
-			return raw ? raw : undefined;
-		},
+		get thumbCacheDir(): string | undefined { return readOptionalString("MEDIA_THUMB_CACHE_DIR"); },
 	},
 
 	/** App identity / hosting. */
@@ -234,8 +239,8 @@ export const config = {
 		get release(): string | undefined {
 			return readOptionalString("SENTRY_RELEASE") ?? readOptionalString("npm_package_version");
 		},
-		get tracesSampleRate(): number { return Number.parseFloat(process.env.SENTRY_TRACES_SAMPLE_RATE ?? "0.1") || 0.1; },
-		get replaysOnErrorSampleRate(): number { return Number.parseFloat(process.env.SENTRY_REPLAYS_ON_ERROR_SAMPLE_RATE ?? "1.0") || 1.0; },
+		get tracesSampleRate(): number { return readFloat("SENTRY_TRACES_SAMPLE_RATE", 0.1); },
+		get replaysOnErrorSampleRate(): number { return readFloat("SENTRY_REPLAYS_ON_ERROR_SAMPLE_RATE", 1.0); },
 	},
 
 	deployment: {
