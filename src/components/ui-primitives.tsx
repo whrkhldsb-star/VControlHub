@@ -1,12 +1,9 @@
 import { cn } from "@/lib/ui/cn";
 import { UI_INPUT } from "@/lib/ui/classes";
 import type {
-	ButtonHTMLAttributes,
 	HTMLAttributes,
 	InputHTMLAttributes,
 	ReactNode,
-	SelectHTMLAttributes,
-	TextareaHTMLAttributes,
 } from "react";
 
 export type BadgeTone =
@@ -158,24 +155,7 @@ export function Input({
 	);
 }
 
-export function Select({
-	className,
-	children,
-	...rest
-}: SelectHTMLAttributes<HTMLSelectElement> & { children: ReactNode }) {
-	return (
-		<select data-input className={`${CONTROL_CLASS} ${className ?? ""}`} {...rest}>
-			{children}
-		</select>
-	);
-}
 
-export function Textarea({
-	className,
-	...rest
-}: TextareaHTMLAttributes<HTMLTextAreaElement>) {
-	return <textarea data-input className={`${CONTROL_CLASS} min-h-[6rem] resize-y ${className ?? ""}`} {...rest} />;
-}
 
 export function Switch({
 	checked,
@@ -468,24 +448,5 @@ export function FormField({
 			{error ? <p className="text-xs text-[var(--danger)]">{error}</p> : null}
 			{!error && hint ? <p className="text-xs leading-5 text-[var(--text-muted)]">{hint}</p> : null}
 		</div>
-	);
-}
-
-export function IconButton({
-	className,
-	children,
-	...rest
-}: ButtonHTMLAttributes<HTMLButtonElement>) {
-	return (
-		<button
-			type="button"
-			className={cn(
-				"inline-flex h-9 w-9 items-center justify-center rounded-lg text-[var(--text-muted)] transition hover:bg-[var(--surface-hover)] hover:text-[var(--text-primary)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--accent)]",
-				className,
-			)}
-			{...rest}
-		>
-			{children}
-		</button>
 	);
 }
