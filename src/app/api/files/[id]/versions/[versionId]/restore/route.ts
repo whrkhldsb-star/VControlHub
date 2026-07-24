@@ -41,6 +41,7 @@ export async function POST(
           restorePointId: result.newRestorePoint?.id ?? null,
         },
         "WARNING",
+        session.currentTeamId,
       );
       return NextResponse.json({
         success: true,
