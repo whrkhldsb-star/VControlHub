@@ -98,38 +98,32 @@ describe("pruneOperationTaskHistory — TR-006 跨来源保留策略", () => {
     );
   });
 
-  it("download 用 (COMPLETED/FAILED/CANCELLED), sync 用 (IDLE/ERROR), backup/deployment 用字面量", async () => {
+  it("download/deployment 用终态字面量；sync/backup 配置与工件保留策略不再删除", async () => {
     await pruneOperationTaskHistory({ now: new Date("2026-06-15T00:00:00Z") });
 
     expect(mockPrisma.downloadTask.findMany).toHaveBeenCalledWith(
       expect.objectContaining({ where: { status: { in: ["COMPLETED", "FAILED", "CANCELLED"] } } }),
     );
-    expect(mockPrisma.syncJob.findMany).toHaveBeenCalledWith(
-      expect.objectContaining({ where: { status: { in: ["IDLE", "ERROR"] } } }),
-    );
-    expect(mockPrisma.backupRecord.findMany).toHaveBeenCalledWith(
-      expect.objectContaining({ where: { status: { in: ["COMPLETED", "FAILED"] } } }),
-    );
     expect(mockPrisma.deploymentRun.findMany).toHaveBeenCalledWith(
       expect.objectContaining({ where: { status: { in: ["COMPLETED", "FAILED", "CANCELLED", "ROLLED_BACK"] } } }),
     );
+    // SyncJob is long-lived config; BackupRecord is owned by backup retention with file unlink.
+    expect(mockPrisma.syncJob.findMany).not.toHaveBeenCalled();
+    expect(mockPrisma.syncJob.deleteMany).not.toHaveBeenCalled();
+    expect(mockPrisma.backupRecord.findMany).not.toHaveBeenCalled();
+    expect(mockPrisma.backupRecord.deleteMany).not.toHaveBeenCalled();
   });
 
-  it("sync 用 lastSyncAt 时间字段, 其他用 createdAt", async () => {
+  it("command 用 createdAt；sync/backup 跳过不删配置与工件", async () => {
     await pruneOperationTaskHistory({ now: new Date("2026-06-15T00:00:00Z") });
 
-    // sync 走 lastSyncAt
-    expect(mockPrisma.syncJob.deleteMany).toHaveBeenCalledWith(
-      expect.objectContaining({
-        where: expect.objectContaining({ lastSyncAt: { lt: expect.any(Date) } }),
-      }),
-    );
-    // command 走 createdAt
     expect(mockPrisma.commandRequest.deleteMany).toHaveBeenCalledWith(
       expect.objectContaining({
         where: expect.objectContaining({ createdAt: { lt: expect.any(Date) } }),
       }),
     );
+    expect(mockPrisma.syncJob.deleteMany).not.toHaveBeenCalled();
+    expect(mockPrisma.backupRecord.deleteMany).not.toHaveBeenCalled();
   });
 
   it("findMany 返回空 (无任何 completed 记录) → deleteMany notIn 条件不传 (id filter 跳过)", async () => {

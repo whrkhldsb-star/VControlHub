@@ -38,4 +38,12 @@ describe("remote path normalization", () => {
       "/data/file/upload.txt",
     );
   });
+
+  it("allows paths when basePath is root filesystem /", () => {
+    expect(normalizeRemotePath("/", "movies/a.mp4")).toBe("/movies/a.mp4");
+    expect(normalizeRemotePath("/", "/movies/a.mp4")).toBe("/movies/a.mp4");
+    expect(normalizeRemotePath("/", "")).toBe("/");
+    expect(normalizeRemotePath("/", "/")).toBe("/");
+    expect(() => normalizeRemotePath("/", "../etc/passwd")).toThrow();
+  });
 });

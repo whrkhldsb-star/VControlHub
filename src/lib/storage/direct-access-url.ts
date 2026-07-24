@@ -30,6 +30,32 @@ function isIpv4PrivateOrSpecial(hostname: string) {
   );
 }
 
+function expandIpv6Parts(address: string): number[] | null {
+  const normalized = address.toLowerCase();
+  if (!normalized.includes(":")) return null;
+  const [headRaw, tailRaw] = normalized.split("::", 2);
+  const head = headRaw ? headRaw.split(":").filter(Boolean) : [];
+  const tail = tailRaw ? tailRaw.split(":").filter(Boolean) : [];
+  const ipv4Tail = [...head, ...tail].at(-1);
+  if (ipv4Tail?.includes(".")) {
+    const octets = ipv4Tail.split(".").map((part) => Number.parseInt(part, 10));
+    if (octets.length !== 4 || octets.some((part) => !Number.isInteger(part) || part < 0 || part > 255)) {
+      return null;
+    }
+    const first = ((octets[0]! << 8) | octets[1]!).toString(16);
+    const second = ((octets[2]! << 8) | octets[3]!).toString(16);
+    if (tail.length && tail.at(-1) === ipv4Tail) tail.splice(tail.length - 1, 1, first, second);
+    else head.splice(head.length - 1, 1, first, second);
+  }
+  if (normalized.includes("::")) {
+    const missing = 8 - head.length - tail.length;
+    if (missing < 0) return null;
+    return [...head, ...Array(missing).fill("0"), ...tail].map((part) => Number.parseInt(part || "0", 16));
+  }
+  const parts = head.map((part) => Number.parseInt(part || "0", 16));
+  return parts.length === 8 ? parts : null;
+}
+
 function isIpv6PrivateOrSpecial(hostname: string) {
   const normalized = hostname.toLowerCase().replace(/^\[|\]$/g, "");
   if (!normalized.includes(":")) return false;
@@ -48,8 +74,27 @@ function isIpv6PrivateOrSpecial(hostname: string) {
     return true;
   }
 
+  // IPv4-mapped IPv6: ::ffff:127.0.0.1 or ::ffff:7f00:1 (after URL hostname parse)
+  const parts = expandIpv6Parts(normalized);
+  if (parts && parts.length === 8) {
+    const ipv4Mapped = parts.slice(0, 5).every((part) => part === 0) && parts[5] === 0xffff;
+    if (ipv4Mapped) {
+      const dotted = `${(parts[6]! >> 8) & 255}.${parts[6]! & 255}.${(parts[7]! >> 8) & 255}.${parts[7]! & 255}`;
+      return isIpv4PrivateOrSpecial(dotted);
+    }
+  }
+
   if (normalized.startsWith("::ffff:")) {
-    return isIpv4PrivateOrSpecial(normalized.slice("::ffff:".length));
+    const rest = normalized.slice("::ffff:".length);
+    if (rest.includes(".")) return isIpv4PrivateOrSpecial(rest);
+    // hex form without full expand fallback
+    if (parts) {
+      const ipv4Mapped = parts.slice(0, 5).every((part) => part === 0) && parts[5] === 0xffff;
+      if (ipv4Mapped) {
+        const dotted = `${(parts[6]! >> 8) & 255}.${parts[6]! & 255}.${(parts[7]! >> 8) & 255}.${parts[7]! & 255}`;
+        return isIpv4PrivateOrSpecial(dotted);
+      }
+    }
   }
 
   return false;

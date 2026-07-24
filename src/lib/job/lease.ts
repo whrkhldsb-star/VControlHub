@@ -54,6 +54,10 @@ export const LEASE_PRESETS_MS: Record<string, number> = {
 	// TR-043: VPS remote backup — SSH exec + SFTP download can take up to 10min
 	"vps-backup": 30 * 60 * 1000,
 	"vps-backup-schedule": 5 * 60 * 1000,
+	// claimNextJob workers that previously fell back to MIN_LEASE_MS=30s
+	"ticket-sla": 5 * 60 * 1000,
+	"cost-snapshot": 10 * 60 * 1000,
+	"ai-ops-scan": 30 * 60 * 1000,
 };
 
 /** Minimum safety floor: 任何 worker 的 lease 不少于 30s (太短会让长任务被误回收) */

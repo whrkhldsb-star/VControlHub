@@ -109,14 +109,30 @@ export const VALID_SETTING_KEYS: string[] = [
 
 /* ── Sensitive key detection ──────────────────────────────── */
 
-const SENSITIVE_PATTERNS = /password|secret|key|token|pass/i;
+/**
+ * Explicit sensitive keys (secrets / credentials). Avoid broad regex:
+ * password.minLength / password.require* are policy knobs, not secrets.
+ */
+const SENSITIVE_KEYS = new Set([
+	"smtp.pass",
+	"telegram.botToken",
+	"offsite.accessKeyId",
+	"offsite.secretAccessKey",
+]);
 
 /**
- * Returns true if the key likely holds a sensitive value
- * that should be masked in API responses.
+ * Returns true if the key holds a sensitive value that should be masked
+ * in API responses and encrypted at rest.
  */
 export function isSensitiveKey(key: string): boolean {
-	return SENSITIVE_PATTERNS.test(key);
+	if (SENSITIVE_KEYS.has(key)) return true;
+	// Community / future keys: match only dotted leaf secrets, not "password.*" policy.
+	const leaf = key.includes(".") ? key.slice(key.lastIndexOf(".") + 1) : key;
+	if (/^(pass|password|secret|token|apiKey|apikey|privateKey|accessKey|secretKey)$/i.test(leaf)) {
+		return true;
+	}
+	// Nested secret fields like *.secretAccessKey / *.botToken already covered by leaf.
+	return false;
 }
 
 /* ── Sentinel value ───────────────────────────────────────── */

@@ -63,9 +63,19 @@ export async function startCommandMaintenanceWorker() {
   const state = getWorkerState();
   if (state.started) return state;
 
-  state.started = true;
-  const intervalMs = await getCommandReconcileIntervalMs();
+  // Resolve interval BEFORE marking started so a settings/DB failure does not
+  // permanently latch started=true with timer=null (no recovery forever).
+  let intervalMs: number;
+  try {
+    intervalMs = await getCommandReconcileIntervalMs();
+  } catch (error) {
+    logger.error("Command maintenance worker failed to resolve interval; not started", {
+      error: error instanceof Error ? error.message : String(error),
+    });
+    throw error;
+  }
 
+  state.started = true;
   void reconcileStaleCommandsOnce(state, "startup");
   state.timer = setInterval(() => {
     void reconcileStaleCommandsOnce(state, "interval");

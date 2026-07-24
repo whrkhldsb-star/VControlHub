@@ -14,10 +14,12 @@ describe("TR-002 R2: job lease 公式统一", () => {
 		// (command-maintenance / ticket-sla / ai-ops-scan / cost-snapshot / sync-schedule
 		//  不是 claimNextJob lease worker，或不使用 LEASE_PRESETS_MS)
 		expect(listLeasePresetWorkerIds()).toEqual([
+			"ai-ops-scan",
 			"alert-evaluation",
 			"backup",
 			"backup-schedule",
 			"command-execution",
+			"cost-snapshot",
 			"download-execution",
 			"health-sampling",
 			"job-maintenance",
@@ -27,6 +29,7 @@ describe("TR-002 R2: job lease 公式统一", () => {
 			"scheduled-task",
 			"sftp-stale-inventory",
 			"sftp-sync",
+			"ticket-sla",
 			"traffic-sampling",
 			"vps-backup",
 			"vps-backup-schedule",

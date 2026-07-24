@@ -88,10 +88,21 @@ export async function executeAria2RelayDownload(
 
   const gid = await addUri(urls, options);
 
-  await prisma.downloadTask.update({
-   where: { id: taskId },
+  // CAS: only PENDING → RUNNING (cancel/other terminal must not flip back).
+  const claimed = await prisma.downloadTask.updateMany({
+   where: { id: taskId, status: "PENDING" },
    data: { aria2Gid: gid, status: "RUNNING", progress: "Relay download in progress (aria2 RPC)..." },
   });
+  if (claimed.count === 0) {
+   logError(`[DownloadAPI] Relay task ${taskId} was not PENDING; aborting after aria2 add`);
+   try {
+    await removeDownload(gid);
+   } catch {
+    /* best-effort */
+   }
+   await cleanupTemp(tempDir);
+   return;
+  }
 
   let done = false;
   let elapsed = 0;
@@ -102,18 +113,33 @@ export async function executeAria2RelayDownload(
    elapsed += 5;
 
    try {
+    // Stop if cancelled/terminal while polling.
+    const current = await prisma.downloadTask.findUnique({
+     where: { id: taskId },
+     select: { status: true },
+    });
+    if (!current || current.status === "CANCELLED" || current.status === "FAILED" || current.status === "COMPLETED") {
+     try {
+      await removeDownload(gid);
+     } catch {
+      /* best-effort */
+     }
+     await cleanupTemp(tempDir);
+     return;
+    }
+
     const st = await tellStatus(gid);
     const progress = buildProgressText(st);
-    await prisma.downloadTask.update({
-     where: { id: taskId },
+    await prisma.downloadTask.updateMany({
+     where: { id: taskId, status: "RUNNING" },
      data: { progress, completedBytes: st.completedLength, totalBytes: st.totalLength, downloadSpeed: st.downloadSpeed },
     });
 
     if (st.status === "complete") {
      done = true;
     } else if (st.status === "error" || st.status === "removed") {
-     await prisma.downloadTask.update({
-      where: { id: taskId },
+     await prisma.downloadTask.updateMany({
+      where: { id: taskId, status: "RUNNING" },
       data: { status: "FAILED", errorMessage: `aria2 download failed: ${st.status}` },
      });
      if (userId) notifyDownloadResult(userId, urls[0]!, "failed", `aria2 download failed: ${st.status}`, teamId).catch((err) => { notifyLogger.warn("notifyDownloadResult failed", { error: err instanceof Error ? err.message : String(err) }); });
@@ -133,19 +159,19 @@ export async function executeAria2RelayDownload(
 
   if (!done) {
    try { await removeDownload(gid, true); } catch (err) { logError("[DownloadAPI] Failed to remove aria2 download on timeout:", err); }
-   await prisma.downloadTask.update({ where: { id: taskId }, data: { status: "FAILED", errorMessage: "Download timed out (2 hour limit)" } });
+   await prisma.downloadTask.updateMany({ where: { id: taskId, status: "RUNNING" }, data: { status: "FAILED", errorMessage: "Download timed out (2 hour limit)" } });
    if (userId) notifyDownloadResult(userId, urls[0]!, "failed", "Download timed out (2 hour limit)", teamId).catch((err) => { notifyLogger.warn("notifyDownloadResult failed", { error: err instanceof Error ? err.message : String(err) }); });
    await cleanupTemp(tempDir);
    return;
   }
 
-  await prisma.downloadTask.update({ where: { id: taskId }, data: { progress: "Download completed, transferring to target VPS..." } });
+  await prisma.downloadTask.updateMany({ where: { id: taskId, status: "RUNNING" }, data: { progress: "Download completed, transferring to target VPS..." } });
 
   const downloadedFiles = await fs.readdir(tempDir);
   const filesToTransfer = downloadedFiles.filter((f) => !f.endsWith(".aria2") && !f.startsWith("."));
 
   if (filesToTransfer.length === 0) {
-   await prisma.downloadTask.update({ where: { id: taskId }, data: { status: "FAILED", errorMessage: "Download completed but file not found" } });
+   await prisma.downloadTask.updateMany({ where: { id: taskId, status: "RUNNING" }, data: { status: "FAILED", errorMessage: "Download completed but file not found" } });
    if (userId) notifyDownloadResult(userId, urls[0]!, "failed", "Download completed but file not found", teamId).catch((err) => { notifyLogger.warn("notifyDownloadResult failed", { error: err instanceof Error ? err.message : String(err) }); });
    await cleanupTemp(tempDir);
    return;
@@ -169,8 +195,8 @@ export async function executeAria2RelayDownload(
    await indexDownloadedFileEntry({ storageNode: server.storageNode, targetPath, fileName: filesToTransfer[0]!, size: totalSize });
   }
 
-  await prisma.downloadTask.update({
-   where: { id: taskId },
+  await prisma.downloadTask.updateMany({
+   where: { id: taskId, status: "RUNNING" },
    data: { status: "COMPLETED", progress: "Download and transfer completed", fileSize: String(totalSize), totalBytes: String(totalSize), completedBytes: String(totalSize) },
   });
   if (userId) notifyDownloadResult(userId, urls[0]!, "completed", undefined, teamId).catch((err) => { notifyLogger.warn("notifyDownloadResult failed", { error: err instanceof Error ? err.message : String(err) }); });
@@ -179,7 +205,7 @@ export async function executeAria2RelayDownload(
  } catch (error) {
   logError("[DownloadAPI] Relay download execution failed:", error);
   try {
-   await prisma.downloadTask.update({ where: { id: taskId }, data: { status: "FAILED", errorMessage: getPublicAria2Error(error) } });
+   await prisma.downloadTask.updateMany({ where: { id: taskId, status: { in: ["PENDING", "RUNNING"] } }, data: { status: "FAILED", errorMessage: getPublicAria2Error(error) } });
    if (userId) notifyDownloadResult(userId, urls[0]!, "failed", getPublicAria2Error(error), teamId).catch((err) => { notifyLogger.warn("notifyDownloadResult failed", { error: err instanceof Error ? err.message : String(err) }); });
   } catch (err) { logError("[DownloadAPI] Failed to update task status after relay failure:", err); }
   await cleanupTemp(tempDir);

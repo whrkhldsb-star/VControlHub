@@ -109,5 +109,7 @@ export const DEVTOOLS_SERVICE_TEMPLATES: ServiceTemplate[] = [
 			{ host: "/opt/gladys/data", container: "/var/lib/gladysassistant" },
 			{ host: "/var/run/docker.sock", container: "/var/run/docker.sock" },
 		],
+		// Required so validateTemplate allows the docker.sock mount (same as Portainer).
+		allowDockerSocket: true,
 	},
 ];

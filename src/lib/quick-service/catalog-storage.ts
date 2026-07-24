@@ -53,12 +53,14 @@ export const STORAGE_SERVICE_TEMPLATES: ServiceTemplate[] = [
 		icon: "🗄️",
 		description: "High-performance S3-compatible object storage, suitable for backup/CDN/data lake",
 		image: "minio/minio:latest",
+		// Primary published port is the web console (9001); S3 API is extraPorts → 9000.
 		defaultPort: 9001,
-		internalPort: 9000,
+		internalPort: 9001,
 		path: "/minio/",
 		envJson: { MINIO_ROOT_USER: "minioadmin", MINIO_ROOT_PASSWORD: "minioadmin" },
 		volumesJson: [{ host: "/opt/minio/data", container: "/data" }],
 		command: "server /data --console-address ':9001'",
+		extraPorts: [{ host: 9000, container: 9000 }],
 	},
 	{
 		slug: "davos",

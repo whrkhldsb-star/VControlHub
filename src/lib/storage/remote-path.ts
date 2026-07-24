@@ -23,7 +23,14 @@ export function normalizeRemotePath(
   const absolutePath = path.posix.normalize(
     path.posix.join(base, normalizedRelative),
   );
-  if (absolutePath !== base && !absolutePath.startsWith(`${base}/`)) {
+  // base === "/" yields join("/", "movies") => "/movies". startsWith("//") is false,
+  // so use a root-aware containment check (relative must not escape).
+  if (base === "/") {
+    if (absolutePath !== "/" && !absolutePath.startsWith("/")) {
+      throw new ValidationError(t("backend.storage.pathExceedsNodeRoot"));
+    }
+    // absolutePath is always under "/" after posix join + relative normalization.
+  } else if (absolutePath !== base && !absolutePath.startsWith(`${base}/`)) {
     throw new ValidationError(t("backend.storage.pathExceedsNodeRoot"));
   }
 

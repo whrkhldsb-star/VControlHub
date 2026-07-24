@@ -6,12 +6,14 @@
  * pruneCompletedJobsByType 兜底（见 alert-worker.ts），其他 6 个来源
  * 在大型实例会持续增长没有清理入口。本模块提供：
  *
- *   - pruneOperationTaskHistory(): 对 5 个非-job / 非-scheduled 来源统一执行
+ *   - pruneOperationTaskHistory(): 对 command/download/deployment 等可终态历史统一执行
  *     "completed-status 保留最新 N 条 + 早于 X 天的更早记录全删" 策略
  *
  * 设计原则：
  *   - skip `scheduled` 源：ScheduledTaskStatus 只有 ACTIVE / PAUSED / DISABLED，
  *     没有"已完成"终态，是长期持久记录不是历史，不应清理
+ *   - skip `sync` 源：SyncJob 是长期配置（路径/调度），不是历史；SyncLog 由业务侧自管
+ *   - skip `backup` 源：由 backup 域 pruneOldBackupRecordsNow 负责（含磁盘/异地清理）
  *   - skip `job` 源：由 alert-worker 的 pruneCompletedJobsByType 负责
  *     (alert.evaluate) + Job 系统自身 (其他 type) 共同管理
  *   - 单表 prune 用 "findMany ID 排序 + take N → deleteMany where id notIn"，
@@ -101,42 +103,17 @@ async function pruneDownload(keepLatest: number, olderThan: Date): Promise<Opera
   return { scanned: retained.length, deleted: result.count };
 }
 
-async function pruneSync(keepLatest: number, olderThan: Date): Promise<OperationTaskRetentionPerSourceResult> {
-  // sync 用 lastSyncAt 字段 (不是 createdAt) 判断"最后一次同步时间"
-  const retained = await prisma.syncJob.findMany({
-    where: { status: { in: ["IDLE", "ERROR"] } },
-    orderBy: [{ lastSyncAt: "desc" }],
-    select: { id: true },
-    take: keepLatest,
-  });
-  const retainedIds = retained.map((row) => row.id);
-  const result = await prisma.syncJob.deleteMany({
-    where: {
-      status: { in: ["IDLE", "ERROR"] },
-      lastSyncAt: { lt: olderThan },
-      ...(retainedIds.length > 0 ? { id: { notIn: retainedIds } } : {}),
-    },
-  });
-  return { scanned: retained.length, deleted: result.count };
+async function pruneSync(_keepLatest: number, _olderThan: Date): Promise<OperationTaskRetentionPerSourceResult> {
+  // SyncJob rows are long-lived automation configs (source/target paths + schedule),
+  // not disposable task history. Never delete them from operation-task retention.
+  // SyncLog history can be pruned separately if needed; keepLatest is intentionally unused.
+  return { scanned: 0, deleted: 0 };
 }
 
-async function pruneBackup(keepLatest: number, olderThan: Date): Promise<OperationTaskRetentionPerSourceResult> {
-  // backup 的 status 是 String 字段, 用字面量比较 (跟 service.ts mapOperationStatus 对齐)
-  const retained = await prisma.backupRecord.findMany({
-    where: { status: { in: ["COMPLETED", "FAILED"] } },
-    orderBy: [{ createdAt: "desc" }],
-    select: { id: true },
-    take: keepLatest,
-  });
-  const retainedIds = retained.map((row) => row.id);
-  const result = await prisma.backupRecord.deleteMany({
-    where: {
-      status: { in: ["COMPLETED", "FAILED"] },
-      createdAt: { lt: olderThan },
-      ...(retainedIds.length > 0 ? { id: { notIn: retainedIds } } : {}),
-    },
-  });
-  return { scanned: retained.length, deleted: result.count };
+async function pruneBackup(_keepLatest: number, _olderThan: Date): Promise<OperationTaskRetentionPerSourceResult> {
+  // BackupRecord prune must unlink artifacts (+ offsite) via pruneOldBackupRecordsNow.
+  // DB-only deleteMany here would orphan tarballs under backups/. Defer entirely.
+  return { scanned: 0, deleted: 0 };
 }
 
 async function pruneDeployment(keepLatest: number, olderThan: Date): Promise<OperationTaskRetentionPerSourceResult> {
