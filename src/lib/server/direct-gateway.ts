@@ -243,14 +243,10 @@ if ! command -v caddy >/dev/null 2>&1; then
   fi
 fi
 if ! command -v caddy >/dev/null 2>&1; then
-  ARCH=$(uname -m)
-  case "$ARCH" in
-    x86_64|amd64) CADDY_ARCH=amd64 ;;
-    aarch64|arm64) CADDY_ARCH=arm64 ;;
-    *) CADDY_ARCH=amd64 ;;
-  esac
-  curl -fsSL "https://caddyserver.com/api/download?os=linux&arch=\${CADDY_ARCH}" -o /usr/local/bin/caddy
-  chmod 0755 /usr/local/bin/caddy
+  # Fail closed: do not download an unsigned remote binary as root.
+  # Operators must install caddy from a trusted distro package (or pre-provision it).
+  echo "caddy is not installed and apt package install failed; install caddy from your distro package and retry" >&2
+  exit 1
 fi
 command -v caddy >/dev/null 2>&1 || { echo "caddy install failed" >&2; exit 1; }
 cat > ${shellQuote(caddyfile)} <<VCH_DIRECT_CADDY
@@ -329,14 +325,10 @@ if ! command -v caddy >/dev/null 2>&1; then
   fi
 fi
 if ! command -v caddy >/dev/null 2>&1; then
-  ARCH=$(uname -m)
-  case "$ARCH" in
-    x86_64|amd64) CADDY_ARCH=amd64 ;;
-    aarch64|arm64) CADDY_ARCH=arm64 ;;
-    *) CADDY_ARCH=amd64 ;;
-  esac
-  curl -fsSL "https://caddyserver.com/api/download?os=linux&arch=\${CADDY_ARCH}" -o /usr/local/bin/caddy
-  chmod 0755 /usr/local/bin/caddy
+  # Fail closed: do not download an unsigned remote binary as root.
+  # Operators must install caddy from a trusted distro package (or pre-provision it).
+  echo "caddy is not installed and apt package install failed; install caddy from your distro package and retry" >&2
+  exit 1
 fi
 command -v caddy >/dev/null 2>&1 || { echo "caddy install failed" >&2; exit 1; }
 command -v openssl >/dev/null 2>&1 || { echo "openssl missing; cannot create TLS cert" >&2; exit 1; }
