@@ -117,9 +117,11 @@ async function pruneBackup(_keepLatest: number, _olderThan: Date): Promise<Opera
 }
 
 async function pruneDeployment(keepLatest: number, olderThan: Date): Promise<OperationTaskRetentionPerSourceResult> {
-  // DeploymentRun 的 status 也是 String, 终态 = COMPLETED / FAILED / CANCELLED / ROLLED_BACK
+  // DeploymentRun status is String. Live terminal set includes REJECTED (deployment service);
+  // keep ROLLED_BACK for forward-compat even if writers do not emit it today.
+  const terminalStatuses = ["COMPLETED", "FAILED", "CANCELLED", "REJECTED", "ROLLED_BACK"] as const;
   const retained = await prisma.deploymentRun.findMany({
-    where: { status: { in: ["COMPLETED", "FAILED", "CANCELLED", "ROLLED_BACK"] } },
+    where: { status: { in: [...terminalStatuses] } },
     orderBy: [{ createdAt: "desc" }],
     select: { id: true },
     take: keepLatest,
@@ -127,7 +129,7 @@ async function pruneDeployment(keepLatest: number, olderThan: Date): Promise<Ope
   const retainedIds = retained.map((row) => row.id);
   const result = await prisma.deploymentRun.deleteMany({
     where: {
-      status: { in: ["COMPLETED", "FAILED", "CANCELLED", "ROLLED_BACK"] },
+      status: { in: [...terminalStatuses] },
       createdAt: { lt: olderThan },
       ...(retainedIds.length > 0 ? { id: { notIn: retainedIds } } : {}),
     },

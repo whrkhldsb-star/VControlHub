@@ -105,7 +105,9 @@ describe("pruneOperationTaskHistory — TR-006 跨来源保留策略", () => {
       expect.objectContaining({ where: { status: { in: ["COMPLETED", "FAILED", "CANCELLED"] } } }),
     );
     expect(mockPrisma.deploymentRun.findMany).toHaveBeenCalledWith(
-      expect.objectContaining({ where: { status: { in: ["COMPLETED", "FAILED", "CANCELLED", "ROLLED_BACK"] } } }),
+      expect.objectContaining({
+        where: { status: { in: ["COMPLETED", "FAILED", "CANCELLED", "REJECTED", "ROLLED_BACK"] } },
+      }),
     );
     // SyncJob is long-lived config; BackupRecord is owned by backup retention with file unlink.
     expect(mockPrisma.syncJob.findMany).not.toHaveBeenCalled();
