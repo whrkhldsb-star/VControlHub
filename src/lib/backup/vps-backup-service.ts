@@ -374,6 +374,45 @@ async function failRecord(
 /* ── CRUD helpers ────────────────────────────────────────── */
 
 /** Create a PENDING VpsBackupRecord (for manual or scheduled triggers) */
+
+/** CAS: only RUNNING → FAILED (worker crash / job reclaim). */
+export async function forceFailVpsBackupRecordIfRunning(
+	recordId: string,
+	errorMessage: string,
+): Promise<boolean> {
+	const result = await prisma.vpsBackupRecord.updateMany({
+		where: { id: recordId, status: "RUNNING" },
+		data: {
+			status: "FAILED",
+			errorMessage: errorMessage.slice(0, 500),
+			completedAt: new Date(),
+		},
+	});
+	return result.count > 0;
+}
+
+export async function abandonStaleRunningVpsBackupRecords(input?: {
+	olderThanMs?: number;
+	reason?: string;
+	limit?: number;
+}) {
+	const olderThanMs = input?.olderThanMs ?? 45 * 60 * 1000;
+	const reason = (input?.reason ?? "Stale RUNNING VPS backup abandoned after worker timeout").slice(0, 500);
+	const limit = Math.min(Math.max(input?.limit ?? 50, 1), 200);
+	const cutoff = new Date(Date.now() - olderThanMs);
+	const stale = await prisma.vpsBackupRecord.findMany({
+		where: { status: "RUNNING", updatedAt: { lt: cutoff } },
+		select: { id: true },
+		orderBy: { updatedAt: "asc" },
+		take: limit,
+	});
+	const ids: string[] = [];
+	for (const row of stale) {
+		if (await forceFailVpsBackupRecordIfRunning(row.id, reason)) ids.push(row.id);
+	}
+	return { abandoned: ids.length, ids };
+}
+
 export async function createVpsBackupRecord(input: {
 	serverId: string;
 	backupType: string;

@@ -239,7 +239,19 @@ export async function executeDirectDownload(
     data: { pid, status: "RUNNING", progress: "Downloading..." },
   });
   if (claimed.count === 0) {
-    logError(`[DownloadAPI] Task ${taskId} was not in PENDING state; aborting to prevent duplicate execution`);
+    logError(`[DownloadAPI] Task ${taskId} was not in PENDING state; killing orphan remote download`);
+    // Process already spawned via nohup — stop it by pid file / pid.
+    const safeTaskId = taskId.replace(/[^A-Za-z0-9_-]/g, "_");
+    const pidFile = `/tmp/app-dl-${safeTaskId}.pid`;
+    try {
+      await execRemoteCommand({
+        ...sshParams,
+        command: `kill ${pid} 2>/dev/null; kill -9 ${pid} 2>/dev/null; rm -f -- ${shellQuote(pidFile)} ${shellQuote(pidFile + ".exit")} 2>/dev/null; true`,
+        timeout: 10000,
+      });
+    } catch (err) {
+      logError("[DownloadAPI] Failed to kill orphan remote download after CAS miss:", err);
+    }
     return;
   }
    await indexDownloadedFileEntry({ storageNode: server.storageNode, targetPath, fileName, size: null });

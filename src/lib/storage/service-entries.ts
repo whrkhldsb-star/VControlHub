@@ -156,18 +156,52 @@ export async function createFileEntry(input: CreateFileEntryInput) {
     });
   }
 
-  return prisma.fileEntry.create({
-    data: {
-      storageNodeId: payload.storageNodeId,
-      name: payload.name,
-      entryType: payload.entryType,
-      mimeType: payload.mimeType,
-      size: payload.size == null ? undefined : BigInt(payload.size),
-      checksumSha256: payload.checksumSha256,
-      relativePath: payload.relativePath,
-      parentId: payload.parentId,
-    },
-  });
+  try {
+    return await prisma.fileEntry.create({
+      data: {
+        storageNodeId: payload.storageNodeId,
+        name: payload.name,
+        entryType: payload.entryType,
+        mimeType: payload.mimeType,
+        size: payload.size == null ? undefined : BigInt(payload.size),
+        checksumSha256: payload.checksumSha256,
+        relativePath: payload.relativePath,
+        parentId: payload.parentId,
+      },
+    });
+  } catch (error) {
+    // Concurrent first-time create: unique ([storageNodeId, relativePath]) loser → re-enter update path.
+    const code = typeof error === "object" && error && "code" in error ? String((error as { code?: string }).code) : "";
+    if (code === "P2002") {
+      const raced = await prisma.fileEntry.findFirst({
+        where: {
+          storageNodeId: payload.storageNodeId,
+          relativePath: payload.relativePath,
+        },
+        select: { id: true, isDeleted: true },
+      });
+      if (raced && !raced.isDeleted) {
+        const t = await serverT();
+        throw new ConflictError(t("backend.storage.pathAlreadyExists").replace("{path}", payload.relativePath));
+      }
+      if (raced?.isDeleted) {
+        return prisma.fileEntry.update({
+          where: { id: raced.id },
+          data: {
+            name: payload.name,
+            entryType: payload.entryType,
+            mimeType: payload.mimeType,
+            size: payload.size == null ? null : BigInt(payload.size),
+            checksumSha256: payload.checksumSha256,
+            relativePath: payload.relativePath,
+            parentId: payload.parentId,
+            isDeleted: false,
+          },
+        });
+      }
+    }
+    throw error;
+  }
 }
 
 export async function updateFileEntry(input: UpdateFileEntryInput) {
@@ -435,9 +469,9 @@ export async function listFileEntries(
       storageNode: entry.storageNode,
       sizeLabel: entry.size == null ? "-" : formatFileSize(Number(entry.size)),
       directAccess,
+      // Only LOCAL files use /api/files/editable (SFTP loads via sftp-ops).
       localEditable:
-        (entry.storageNode.driver === "LOCAL" ||
-          entry.storageNode.driver === "SFTP") &&
+        entry.storageNode.driver === "LOCAL" &&
         isEditableTextFile({
           entryType: entry.entryType,
           name: entry.name,

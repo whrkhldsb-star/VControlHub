@@ -138,7 +138,7 @@ export async function claimNextJob(options: ClaimJobOptions) {
 
     // Prefer SKIP LOCKED so concurrent claimers do not stampede the same row.
     // Fall back to findFirst if raw SQL is unavailable (tests / non-pg adapters).
-    let candidate: Awaited<ReturnType<typeof tx.job.findFirst>> = null;
+    const candidates: Array<NonNullable<Awaited<ReturnType<typeof tx.job.findFirst>>>> = [];
     try {
       const typeClause =
         options.types && options.types.length > 0
@@ -154,14 +154,14 @@ export async function claimNextJob(options: ClaimJobOptions) {
           ${typeClause}
         ORDER BY priority DESC, "availableAt" ASC, "createdAt" ASC
         FOR UPDATE SKIP LOCKED
-        LIMIT 1
+        LIMIT 8
       `;
-      const id = rows[0]?.id;
-      if (id) {
-        candidate = await tx.job.findUnique({ where: { id } });
+      for (const row of rows) {
+        const full = await tx.job.findUnique({ where: { id: row.id } });
+        if (full) candidates.push(full);
       }
     } catch {
-      candidate = await tx.job.findFirst({
+      const one = await tx.job.findFirst({
         where: {
           ...typeFilter,
           OR: [
@@ -172,10 +172,11 @@ export async function claimNextJob(options: ClaimJobOptions) {
         },
         orderBy: [{ priority: "desc" }, { availableAt: "asc" }, { createdAt: "asc" }],
       });
+      if (one) candidates.push(one);
     }
 
-    if (!candidate) return null;
-
+    // Walk SKIP LOCKED batch so per-user/per-node caps do not starve others.
+    for (const candidate of candidates) {
     // Per-user cap: skip the check when the candidate has no `createdBy`
     // (system jobs like alert.evaluate, scheduled-task.tick) — they have
     // no single user to charge the slot against, so the global cap is
@@ -184,7 +185,7 @@ export async function claimNextJob(options: ClaimJobOptions) {
       const inFlightForUser = await tx.job.count({
         where: { status: JobStatus.RUNNING, createdBy: candidate.createdBy },
       });
-      if (inFlightForUser >= maxPerUser) return null;
+      if (inFlightForUser >= maxPerUser) continue;
     }
 
     // Per-node cap: same skip-rule for jobs without a node target. The
@@ -197,7 +198,7 @@ export async function claimNextJob(options: ClaimJobOptions) {
           targetStorageNodeId: candidate.targetStorageNodeId,
         },
       });
-      if (inFlightForNode >= maxPerNode) return null;
+      if (inFlightForNode >= maxPerNode) continue;
     }
 
     const claimed = await tx.job.updateMany({
@@ -219,7 +220,7 @@ export async function claimNextJob(options: ClaimJobOptions) {
       },
     });
 
-    if (claimed.count === 0) return null;
+    if (claimed.count === 0) continue;
     const claimedJob = await tx.job.findUniqueOrThrow({ where: { id: candidate.id } });
 
     // TR-001 T13a: persist a "claimed" event so the operation-tasks center can
@@ -239,6 +240,9 @@ export async function claimNextJob(options: ClaimJobOptions) {
     });
 
     return claimedJob;
+    } // candidates loop
+
+    return null;
   });
 }
 

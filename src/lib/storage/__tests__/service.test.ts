@@ -615,7 +615,7 @@ describe("storage service", () => {
         mimeType: "inode/directory",
         relativePath: "docs",
       }),
-    ).rejects.toThrow("Path already exists: docs");
+    ).rejects.toThrow(/Path already exists: docs|路径已存在: docs/);
     expect(prisma.fileEntry.create).not.toHaveBeenCalled();
     expect(prisma.fileEntry.update).not.toHaveBeenCalled();
   });
@@ -804,7 +804,7 @@ describe("storage service", () => {
           session: storageSession,
           expectedUpdatedAt: "2026-04-20T01:02:03.000Z",
         }),
-      ).rejects.toThrow("The file has been updated by another operation");
+      ).rejects.toThrow(/updated by another operation|文件已被其他操作更新/);
       await expect(readFileToDisk(absolutePath, "utf8")).resolves.toBe("newer on disk");
       expect(prisma.fileEntry.update).not.toHaveBeenCalled();
     } finally {
@@ -1022,7 +1022,7 @@ describe("storage service", () => {
     try {
       await expect(
         restoreFileEntry({ fileEntryId: "file_missing_local" }),
-      ).rejects.toThrow("The original file no longer exists");
+      ).rejects.toThrow(/original file no longer exists|原始文件已不存在/);
       expect(prisma.fileEntry.update).not.toHaveBeenCalled();
     } finally {
       await rm(tempRoot, { recursive: true, force: true });
@@ -1129,7 +1129,7 @@ describe("storage service", () => {
 
     await expect(
       restoreFileEntry({ fileEntryId: "file_missing_sftp" }),
-    ).rejects.toThrow("The original remote file no longer exists");
+    ).rejects.toThrow(/original remote file no longer exists|原始远端文件已不存在/);
     expect(prisma.fileEntry.update).not.toHaveBeenCalled();
   });
 });

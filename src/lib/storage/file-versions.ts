@@ -171,6 +171,14 @@ async function nextVersionNumber(fileEntryId: string): Promise<number> {
   return (latest?.versionNumber ?? 0) + 1;
 }
 
+function isUniqueViolation(error: unknown): boolean {
+  const code =
+    typeof error === "object" && error && "code" in error
+      ? String((error as { code?: string }).code)
+      : "";
+  return code === "P2002" || /Unique constraint/i.test(String(error));
+}
+
 async function enforceRetention(fileEntryId: string, keep = DEFAULT_FILE_VERSION_KEEP) {
   if (keep <= 0) return;
   const surplus = await prisma.fileVersion.findMany({
@@ -258,43 +266,47 @@ export async function snapshotFileVersionBeforeOverwrite(input: {
   }
 
   const checksum = crypto.createHash("sha256").update(buffer).digest("hex");
-  const versionNumber = await nextVersionNumber(entry.id);
-  const blobRelativePath = path.posix.join(
-    entry.storageNodeId,
-    entry.id,
-    `v${versionNumber}-${checksum.slice(0, 12)}.bin`,
-  );
-  const abs = blobAbsolutePath(blobRelativePath);
-  await mkdir(path.dirname(abs), { recursive: true });
-  await writeFile(abs, buffer);
+  for (let attempt = 0; attempt < 5; attempt++) {
+    const versionNumber = await nextVersionNumber(entry.id);
+    const blobRelativePath = path.posix.join(
+      entry.storageNodeId,
+      entry.id,
+      `v${versionNumber}-${checksum.slice(0, 12)}.bin`,
+    );
+    const abs = blobAbsolutePath(blobRelativePath);
+    await mkdir(path.dirname(abs), { recursive: true });
+    await writeFile(abs, buffer);
 
-  try {
-    const row = await prisma.fileVersion.create({
-      data: {
-        fileEntryId: entry.id,
-        storageNodeId: entry.storageNodeId,
-        versionNumber,
-        name: entry.name,
-        relativePath: entry.relativePath,
-        mimeType: entry.mimeType,
-        sizeBytes: BigInt(buffer.byteLength),
-        checksumSha256: checksum,
-        blobRelativePath,
-        reason: input.reason,
-        note: input.note ?? null,
-        createdByUserId: input.userId ?? null,
-      },
-      include: {
-        createdBy: { select: { username: true, displayName: true } },
-      },
-    });
-    await enforceRetention(entry.id);
-    return toView(row);
-  } catch (err) {
-    await rm(abs, { force: true }).catch(() => undefined);
-    logError("file-version:create-failed", err);
-    return null;
+    try {
+      const row = await prisma.fileVersion.create({
+        data: {
+          fileEntryId: entry.id,
+          storageNodeId: entry.storageNodeId,
+          versionNumber,
+          name: entry.name,
+          relativePath: entry.relativePath,
+          mimeType: entry.mimeType,
+          sizeBytes: BigInt(buffer.byteLength),
+          checksumSha256: checksum,
+          blobRelativePath,
+          reason: input.reason,
+          note: input.note ?? null,
+          createdByUserId: input.userId ?? null,
+        },
+        include: {
+          createdBy: { select: { username: true, displayName: true } },
+        },
+      });
+      await enforceRetention(entry.id);
+      return toView(row);
+    } catch (err) {
+      await rm(abs, { force: true }).catch(() => undefined);
+      if (isUniqueViolation(err) && attempt < 4) continue;
+      logError("file-version:create-failed", err);
+      return null;
+    }
   }
+  return null;
 }
 
 /**
@@ -331,43 +343,47 @@ export async function createFileVersionFromBuffer(input: {
   if (!entry || entry.isDeleted || entry.entryType !== "FILE") return null;
 
   const checksum = crypto.createHash("sha256").update(input.buffer).digest("hex");
-  const versionNumber = await nextVersionNumber(entry.id);
-  const blobRelativePath = path.posix.join(
-    entry.storageNodeId,
-    entry.id,
-    `v${versionNumber}-${checksum.slice(0, 12)}.bin`,
-  );
-  const abs = blobAbsolutePath(blobRelativePath);
-  await mkdir(path.dirname(abs), { recursive: true });
-  await writeFile(abs, input.buffer);
+  for (let attempt = 0; attempt < 5; attempt++) {
+    const versionNumber = await nextVersionNumber(entry.id);
+    const blobRelativePath = path.posix.join(
+      entry.storageNodeId,
+      entry.id,
+      `v${versionNumber}-${checksum.slice(0, 12)}.bin`,
+    );
+    const abs = blobAbsolutePath(blobRelativePath);
+    await mkdir(path.dirname(abs), { recursive: true });
+    await writeFile(abs, input.buffer);
 
-  try {
-    const row = await prisma.fileVersion.create({
-      data: {
-        fileEntryId: entry.id,
-        storageNodeId: input.storageNodeId ?? entry.storageNodeId,
-        versionNumber,
-        name: input.name ?? entry.name,
-        relativePath: input.relativePath ?? entry.relativePath,
-        mimeType: input.mimeType ?? entry.mimeType,
-        sizeBytes: BigInt(input.buffer.byteLength),
-        checksumSha256: checksum,
-        blobRelativePath,
-        reason: input.reason,
-        note: input.note ?? null,
-        createdByUserId: input.userId ?? null,
-      },
-      include: {
-        createdBy: { select: { username: true, displayName: true } },
-      },
-    });
-    await enforceRetention(entry.id);
-    return toView(row);
-  } catch (err) {
-    await rm(abs, { force: true }).catch(() => undefined);
-    logError("file-version:create-from-buffer-failed", err);
-    return null;
+    try {
+      const row = await prisma.fileVersion.create({
+        data: {
+          fileEntryId: entry.id,
+          storageNodeId: input.storageNodeId ?? entry.storageNodeId,
+          versionNumber,
+          name: input.name ?? entry.name,
+          relativePath: input.relativePath ?? entry.relativePath,
+          mimeType: input.mimeType ?? entry.mimeType,
+          sizeBytes: BigInt(input.buffer.byteLength),
+          checksumSha256: checksum,
+          blobRelativePath,
+          reason: input.reason,
+          note: input.note ?? null,
+          createdByUserId: input.userId ?? null,
+        },
+        include: {
+          createdBy: { select: { username: true, displayName: true } },
+        },
+      });
+      await enforceRetention(entry.id);
+      return toView(row);
+    } catch (err) {
+      await rm(abs, { force: true }).catch(() => undefined);
+      if (isUniqueViolation(err) && attempt < 4) continue;
+      logError("file-version:create-from-buffer-failed", err);
+      return null;
+    }
   }
+  return null;
 }
 
 export async function listFileVersions(input: {

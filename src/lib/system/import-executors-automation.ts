@@ -103,6 +103,11 @@ export async function importQuickServices(
         command: r.command,
         envJson: r.envJson,
         volumesJson: r.volumesJson,
+        // Multi-instance: preserve target (hub-host default if absent)
+        instanceKey: (r as { instanceKey?: string | null }).instanceKey ?? "hub-host",
+        serverId: (r as { serverId?: string | null }).serverId ?? null,
+        // Never restore live runtime state from config package
+        status: "stopped",
       })),
       skipDuplicates: true,
     });
@@ -127,6 +132,8 @@ export async function importQuickServices(
           command: r.command,
           envJson: r.envJson,
           volumesJson: r.volumesJson,
+          instanceKey: (r as { instanceKey?: string | null }).instanceKey ?? "hub-host",
+          serverId: (r as { serverId?: string | null }).serverId ?? null,
         },
       });
     }

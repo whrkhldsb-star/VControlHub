@@ -327,9 +327,11 @@ async function exportCommandTemplates() {
 
 async function exportQuickServices(scope: ExportScope, teamId: string | null) {
   if (scope === "team" && teamId) {
+    // Team scope: hub-host (serverId null) + remote services on this team's servers only.
+    // Do NOT pull server.teamId==null remotes (cross-tenant leak).
     const rows = await prisma.quickService.findMany({
       where: {
-        OR: [{ server: { teamId } }, { server: { teamId: null }, serverId: { not: null } }],
+        OR: [{ serverId: null }, { server: { teamId } }],
       },
       orderBy: { name: "asc" },
       take: 1000,
@@ -357,6 +359,8 @@ function mapQuickService(r: {
   volumesJson: string;
   status: string;
   createdAt: Date;
+  instanceKey?: string;
+  serverId?: string | null;
 }) {
   return {
     id: r.id,
@@ -375,6 +379,8 @@ function mapQuickService(r: {
     volumesJson: r.volumesJson,
     status: r.status,
     createdAt: dateToISO(r.createdAt)!,
+    instanceKey: r.instanceKey ?? "hub-host",
+    serverId: r.serverId ?? null,
   };
 }
 

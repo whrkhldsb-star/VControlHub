@@ -145,6 +145,30 @@ export async function importServers(
 }
 
 // 8. StorageNodes
+
+/** After import, keep a single default storage node per teamId group (null = shared). */
+async function normalizeStorageNodeDefaults(tx: Tx): Promise<void> {
+  const defaults = await tx.storageNode.findMany({
+    where: { isDefault: true },
+    select: { id: true, teamId: true, createdAt: true },
+    orderBy: { createdAt: "asc" },
+    take: 5000,
+  });
+  const winners = new Map<string | null, string>();
+  for (const row of defaults) {
+    const key = row.teamId ?? null;
+    if (!winners.has(key)) winners.set(key, row.id);
+  }
+  const winnerIds = new Set(winners.values());
+  const demote = defaults.filter((d) => !winnerIds.has(d.id)).map((d) => d.id);
+  if (demote.length > 0) {
+    await tx.storageNode.updateMany({
+      where: { id: { in: demote } },
+      data: { isDefault: false },
+    });
+  }
+}
+
 export async function importStorageNodes(
   tx: Tx,
   t: ExportFile["tables"],
@@ -211,6 +235,9 @@ export async function importStorageNodes(
   } else {
     counts.skipped += toUpdate.length;
   }
+
+  // Ensure at most one isDefault=true per team scope (null team = global/legacy pool).
+  await normalizeStorageNodeDefaults(tx);
 }
 
 // 9. UserStorageAccess (FK try/catch on create → pre-filter FK validity)

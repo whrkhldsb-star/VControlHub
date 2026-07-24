@@ -167,6 +167,9 @@ const quickServiceSchema = z.object({
   volumesJson: z.string(),
   status: z.string(),
   createdAt: z.string(),
+  // Multi-instance target (optional for older export packages)
+  instanceKey: z.string().optional(),
+  serverId: z.string().nullable().optional(),
 });
 
 const playbookSchema = z.object({

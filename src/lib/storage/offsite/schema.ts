@@ -29,7 +29,13 @@ export const OffsiteConfigSchema = z.object({
 	bucket: z.string(),
 	accessKeyId: z.string(),
 	secretAccessKey: z.string(),
-	pathPrefix: z.string().transform((s) => s.trim()).transform((s) => s.replace(/\/?$/, "/")),
+	// Empty becomes "" (allowed while disabled). Never coerce blank → "/" which
+	// would make pruneOffsiteObjects list/delete the entire bucket.
+	pathPrefix: z.string().transform((s) => {
+		const trimmed = s.trim();
+		if (!trimmed || trimmed === "/") return "";
+		return trimmed.replace(/\/?$/, "/");
+	}),
 	dailyWindowHour: z.number().int().min(0).max(23),
 	retentionDays: z.number().int().min(1).max(3650),
 	failureAlertRecipient: z.string(),
@@ -45,6 +51,10 @@ export function validateOffsiteConfigForUse(config: OffsiteConfig): string[] {
 	if (!config.bucket.trim()) issues.push("Bucket not configured");
 	if (!config.accessKeyId.trim()) issues.push("AccessKeyId not configured");
 	if (!config.secretAccessKey.trim()) issues.push("SecretAccessKey not configured");
+	// Reject root/empty prefix when offsite is enabled — pathPrefix="/" lists the whole bucket.
+	if (!config.pathPrefix.trim() || config.pathPrefix === "/") {
+		issues.push("pathPrefix must be a non-root key prefix (e.g. vcontrolhub-backups/)");
+	}
 	if (config.dailyWindowHour < 0 || config.dailyWindowHour > 23) {
 		issues.push("dailyWindowHour must be between 0 and 23");
 	}

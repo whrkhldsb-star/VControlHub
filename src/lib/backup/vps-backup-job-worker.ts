@@ -6,7 +6,11 @@
  */
 
 import { claimNextJob, completeJob, failJob, heartbeatJob } from "@/lib/job/service";
-import { runVpsBackupRecord, VPS_BACKUP_CREATE_JOB_TYPE } from "./vps-backup-service";
+import {
+	forceFailVpsBackupRecordIfRunning,
+	runVpsBackupRecord,
+	VPS_BACKUP_CREATE_JOB_TYPE,
+} from "./vps-backup-service";
 import { config } from "@/lib/config/env";
 
 const POLL_INTERVAL_MS = 5000;
@@ -54,6 +58,13 @@ export async function runVpsBackupJobWorkerOnce(): Promise<void> {
 		}
 	} catch (err) {
 		const errMsg = err instanceof Error ? err.message : String(err);
+		const payload = job.payload as { recordId?: string };
+		if (payload?.recordId) {
+			await forceFailVpsBackupRecordIfRunning(
+				payload.recordId,
+				`Job worker failed: ${errMsg}`,
+			).catch(() => undefined);
+		}
 		await failJob(job.id, WORKER_ID, errMsg);
 	}
 }

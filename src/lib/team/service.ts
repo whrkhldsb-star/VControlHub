@@ -62,22 +62,35 @@ export async function createTeam(input: CreateTeamInput, session: SessionPayload
 		throw new ForbiddenError(t("backend.team.missingPermissionToCreateTeamWorkspace"));
 	}
 	const baseSlug = input.slug?.trim() || slugifyTeamName(input.name);
-	const slug = await uniqueTeamSlug(baseSlug);
-	const team = await prisma.$transaction(async (tx) => {
-		const created = await tx.team.create({
-			data: {
-				slug,
-				name: input.name.trim(),
-				description: input.description?.trim() || null,
-				ownerId: session.userId,
-			},
-		});
-		await tx.teamMember.create({ data: { teamId: created.id, userId: session.userId, role: "owner" } });
-		await tx.user.update({ where: { id: session.userId }, data: { currentTeamId: created.id } });
-		return created;
-	});
-	await auditUserAction(session.userId, "team.create", { teamId: team.id, slug: team.slug, name: team.name });
-	return team;
+	let lastError: unknown;
+	for (let attempt = 0; attempt < 5; attempt++) {
+		const slug = await uniqueTeamSlug(attempt === 0 ? baseSlug : `${baseSlug}-${attempt + 1}`);
+		try {
+			const team = await prisma.$transaction(async (tx) => {
+				const created = await tx.team.create({
+					data: {
+						slug,
+						name: input.name.trim(),
+						description: input.description?.trim() || null,
+						ownerId: session.userId,
+					},
+				});
+				await tx.teamMember.create({ data: { teamId: created.id, userId: session.userId, role: "owner" } });
+				await tx.user.update({ where: { id: session.userId }, data: { currentTeamId: created.id } });
+				return created;
+			});
+			await auditUserAction(session.userId, "team.create", { teamId: team.id, slug: team.slug, name: team.name });
+			return team;
+		} catch (error) {
+			lastError = error;
+			const code = typeof error === "object" && error && "code" in error ? String((error as { code?: string }).code) : "";
+			if (code === "P2002") continue; // slug race — retry with another slug
+			throw error;
+		}
+	}
+	throw lastError instanceof Error
+		? lastError
+		: new ValidationError(t("backend.team.unableToGenerateAUniqueTeamIdentifier"));
 }
 
 async function assertCanManageTeam(session: SessionPayload, teamId: string) {
@@ -104,10 +117,23 @@ export async function switchCurrentTeam(teamId: string, session: SessionPayload)
 
 export async function addTeamMember(teamId: string, input: AddTeamMemberInput, session: SessionPayload) {
 	await assertCanManageTeam(session, teamId);
-	const team = await prisma.team.findUnique({ where: { id: teamId }, select: { id: true, slug: true } });
+	const team = await prisma.team.findUnique({ where: { id: teamId }, select: { id: true, slug: true, ownerId: true } });
 	if (!team) throw new NotFoundError(t("backend.team.teamWorkspaceNotFound"));
 	const user = await prisma.user.findUnique({ where: { username: input.username }, select: { id: true, username: true } });
 	if (!user) throw new NotFoundError(t("backend.team.userNotFound"));
+
+	// Never demote the workspace owner via upsert (schema allows only admin|member on this API).
+	if (team.ownerId === user.id) {
+		throw new ForbiddenError(t("backend.team.cannotChangeOwnerRoleViaMemberApi"));
+	}
+	const existing = await prisma.teamMember.findUnique({
+		where: { teamId_userId: { teamId, userId: user.id } },
+		select: { role: true },
+	});
+	if (existing?.role === "owner") {
+		throw new ForbiddenError(t("backend.team.cannotChangeOwnerRoleViaMemberApi"));
+	}
+
 	const member = await prisma.teamMember.upsert({
 		where: { teamId_userId: { teamId, userId: user.id } },
 		update: { role: input.role },
