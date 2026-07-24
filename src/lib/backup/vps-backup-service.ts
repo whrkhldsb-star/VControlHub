@@ -33,15 +33,6 @@ const vpsBackupLogger = createLogger("vps-backup");
 /** Job type for the durable job queue */
 export const VPS_BACKUP_CREATE_JOB_TYPE = "vps-backup.create";
 
-/** Local storage root for VPS backup files */
-function getVpsBackupStorageRoot(): string {
-	return join(
-		config.storage.root || process.cwd(),
-		"storage",
-		"vps-backups",
-	);
-}
-
 /**
  * Validate a portable VPS backup relative path (as stored in DB).
  * Rejects absolute paths, null bytes, backslashes, and `..` segments.
@@ -66,17 +57,6 @@ export function assertPortableVpsBackupPath(localPath: string): string {
 		throw new Error("VPS backup path must be under storage/vps-backups/");
 	}
 	return value;
-}
-
-/** Build the local storage path for a VPS backup record */
-export function buildLocalBackupPath(
-	serverId: string,
-	recordId: string,
-	backupType: string,
-): string {
-	const dir = join(getVpsBackupStorageRoot(), serverId);
-	const filename = `${backupType}-${recordId}.tar.gz`;
-	return join(dir, filename);
 }
 
 /** Build a relative (portable) path for storing in DB */
