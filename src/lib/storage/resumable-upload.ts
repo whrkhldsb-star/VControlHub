@@ -31,6 +31,14 @@ export type CompleteStorageUploadResult = {
   storageNodeId: string;
 };
 
+function isUniqueViolation(error: unknown): boolean {
+  const code =
+    typeof error === "object" && error && "code" in error
+      ? String((error as { code?: string }).code)
+      : "";
+  return code === "P2002" || /Unique constraint/i.test(String(error));
+}
+
 export async function completeStorageFileUpload(params: {
   sessionId: string;
   session: SessionPayload;
@@ -113,28 +121,44 @@ export async function completeStorageFileUpload(params: {
   const mimeType = existing.mimeType || null;
   const byteSize = assembled.byteLength;
 
+  const indexData = {
+    name: fileName,
+    entryType: "FILE" as const,
+    mimeType,
+    size: BigInt(byteSize),
+    isDeleted: false as const,
+  };
+
   if (existingEntry) {
     await prisma.fileEntry.update({
       where: { id: existingEntry.id },
-      data: {
-        name: fileName,
-        entryType: "FILE",
-        mimeType,
-        size: BigInt(byteSize),
-        isDeleted: false,
-      },
+      data: indexData,
     });
   } else {
-    await prisma.fileEntry.create({
-      data: {
-        storageNodeId: existing.storageNodeId,
-        name: fileName,
-        entryType: "FILE",
-        mimeType,
-        size: BigInt(byteSize),
-        relativePath: normalizedRelativePath,
-      },
-    });
+    try {
+      await prisma.fileEntry.create({
+        data: {
+          storageNodeId: existing.storageNodeId,
+          relativePath: normalizedRelativePath,
+          ...indexData,
+        },
+      });
+    } catch (error) {
+      // Concurrent first-time completes both write the blob; the loser updates the winner's index.
+      if (!isUniqueViolation(error)) throw error;
+      const raced = await prisma.fileEntry.findFirst({
+        where: {
+          storageNodeId: existing.storageNodeId,
+          relativePath: normalizedRelativePath,
+        },
+        select: { id: true },
+      });
+      if (!raced) throw error;
+      await prisma.fileEntry.update({
+        where: { id: raced.id },
+        data: indexData,
+      });
+    }
   }
 
   const view = await completeMediaUploadSession({
