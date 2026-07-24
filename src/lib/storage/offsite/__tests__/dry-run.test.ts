@@ -120,4 +120,21 @@ describe("runOffsiteDryRun", () => {
 			globalThis.fetch = originalFetch;
 		}
 	});
+	it("best-effort deletes probe when HEAD fails after PUT", async () => {
+		mocks.loadOffsiteConfig.mockResolvedValue(ENABLED_CONFIG);
+		const { fetchImpl, calls } = makeFetchMock(({ method }) => {
+			if (method === "PUT") return new Response("", { status: 200, headers: { etag: '"e"' } });
+			if (method === "HEAD") return new Response("<Error><Code>InternalError</Code></Error>", { status: 500 });
+			if (method === "DELETE") return new Response(null, { status: 204 });
+			return new Response("", { status: 200 });
+		});
+		const originalFetch = globalThis.fetch;
+		globalThis.fetch = fetchImpl as unknown as typeof fetch;
+		try {
+			await expect(runOffsiteDryRun()).rejects.toBeInstanceOf(S3Error);
+			expect(calls.map((c) => c.method)).toEqual(["PUT", "HEAD", "DELETE"]);
+		} finally {
+			globalThis.fetch = originalFetch;
+		}
+	});
 });

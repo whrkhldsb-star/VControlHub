@@ -49,10 +49,11 @@ export async function runOffsiteDryRun(): Promise<OffsiteDryRunResult> {
 	const probeKey = `${config.pathPrefix}${randomProbeKey("_probe/")}`;
 	const payload = `vcontrolhub-offsite-probe:${new Date().toISOString()}`;
 	const start = Date.now();
+	let putSucceeded = false;
 	try {
 		await client.putObject(probeKey, payload, "text/plain");
+		putSucceeded = true;
 		await client.headObject(probeKey);
-		await client.deleteObject(probeKey);
 	} catch (err) {
 		if (err instanceof S3Error) {
 			throw err;
@@ -62,6 +63,16 @@ export async function runOffsiteDryRun(): Promise<OffsiteDryRunResult> {
 			0,
 			"Dry-run failed",
 		);
+	} finally {
+		// Always best-effort delete after a successful put so head/delete failures
+		// cannot leave orphan probe objects under pathPrefix/_probe/.
+		if (putSucceeded) {
+			try {
+				await client.deleteObject(probeKey);
+			} catch {
+				// Probe cleanup is best-effort; primary error (if any) already surfaces above.
+			}
+		}
 	}
 	const latencyMs = Date.now() - start;
 	return {
