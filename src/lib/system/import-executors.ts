@@ -77,6 +77,8 @@ export async function executeImport(
   const counts: Counts = { created: 0, updated: 0, skipped: 0 };
   const errors: string[] = [];
 
+  // Large multi-table imports easily exceed Prisma's default 5s interactive
+  // transaction timeout (P2028). Give operators a realistic window.
   await prisma.$transaction(async (tx) => {
     // 1. Permissions
     await importPermissions(tx, t, options, counts);
@@ -112,7 +114,7 @@ export async function executeImport(
     await importAnnouncements(tx, t, options, counts);
     // 17. Snippets
     await importSnippets(tx, t, options, counts);
-  }).catch((err: unknown) => {
+  }, { timeout: 120_000, maxWait: 20_000 }).catch((err: unknown) => {
     // 事务失败 → 记录错误，不部分提交
     const msg = err instanceof Error ? err.message : String(err);
     errors.push(`Transaction failed: ${msg}`);
