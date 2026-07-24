@@ -38,7 +38,6 @@ const KNOWN_JOB_TYPES = new Set([
   "alert.evaluate",
   "traffic.sample",
   "cost.snapshot",
-  "ticket.sla",
   "ticket.sla-escalate",
   "ai-ops.scan",
   "ai.ops.scan",
