@@ -45,12 +45,12 @@ export async function GET(request: Request) {
         take: 200,
       });
 
-      const visibleTasks = [];
-      for (const task of tasks) {
-        if (await canAccessDownloadTask({ session, task, operation: "read" })) {
-          visibleTasks.push(task);
-        }
-      }
+      // Parallel ACL checks (still bounded by take:200) — sequential awaits made
+      // list latency grow linearly with storage ACL DB hits.
+      const accessFlags = await Promise.all(
+        tasks.map((task) => canAccessDownloadTask({ session, task, operation: "read" })),
+      );
+      const visibleTasks = tasks.filter((_, i) => accessFlags[i]);
 
       const activeGids = new Map<string, string>();
       for (const t of visibleTasks) {

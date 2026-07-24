@@ -41,12 +41,10 @@ export async function GET(request: Request) {
         take: 8,
       });
 
-      const visibleTasks = [];
-      for (const task of tasks) {
-        if (await canAccessDownloadTask({ session, task, operation: "read" })) {
-          visibleTasks.push(task);
-        }
-      }
+      const accessFlags = await Promise.all(
+        tasks.map((task) => canAccessDownloadTask({ session, task, operation: "read" })),
+      );
+      const visibleTasks = tasks.filter((_, i) => accessFlags[i]);
 
       const downloads = visibleTasks.flatMap((task) => {
         const storageNode = task.server.storageNode;
