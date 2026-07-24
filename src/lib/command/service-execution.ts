@@ -381,6 +381,9 @@ export async function executeTarget(
   return succeeded;
 }
 
+/** Bound concurrent SSH/target fan-out (aligned with RECOVER_*_CONCURRENCY). */
+const EXECUTE_TARGETS_CONCURRENCY = 5;
+
 export async function executeTargets(commandRequestId: string) {
   const targets = await prisma.commandTarget.findMany({
     where: { commandRequestId },
@@ -411,9 +414,17 @@ export async function executeTargets(commandRequestId: string) {
     take: 1000, // P2: 单 request 的 target 数本质有限
   });
 
-  const results = await Promise.allSettled(
-    targets.map((target) => executeTarget(commandRequestId, target)),
-  );
+  // Bounded concurrency: avoid unbounded Promise.allSettled over hundreds of SSH sessions.
+  const results: PromiseSettledResult<boolean>[] = new Array(targets.length);
+  for (let i = 0; i < targets.length; i += EXECUTE_TARGETS_CONCURRENCY) {
+    const chunk = targets.slice(i, i + EXECUTE_TARGETS_CONCURRENCY);
+    const chunkResults = await Promise.allSettled(
+      chunk.map((target) => executeTarget(commandRequestId, target)),
+    );
+    for (let j = 0; j < chunkResults.length; j++) {
+      results[i + j] = chunkResults[j]!;
+    }
+  }
   // Rejected promises leave targets RUNNING with no stderr — surface them as
   // FAILED so finalize counts and UI do not show a permanent "still running".
   const rejectedIndexes: number[] = [];
