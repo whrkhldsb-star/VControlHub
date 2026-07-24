@@ -263,17 +263,19 @@ export default function ImageBedPage({ canWrite, canDelete }: { canWrite: boolea
 				</div>
 			)}
 
-			{/* Preview Modal — TR-036 lazy chunk, only fetched on first open */}
-			<ImagePreviewModalLazy
-				image={previewImage}
-				canDelete={canDelete}
-				onClose={() => setPreviewImage(null)}
-				onCopyLink={copyLink}
-				onCopyMarkdown={copyMarkdown}
-				onCopyHTML={copyHTML}
-				onRequestDelete={requestDelete}
-				formatSize={formatSize}
-			/>
+			{/* Preview Modal — TR-036: mount dynamic chunk only when a preview is open */}
+			{previewImage && (
+				<ImagePreviewModalLazy
+					image={previewImage}
+					canDelete={canDelete}
+					onClose={() => setPreviewImage(null)}
+					onCopyLink={copyLink}
+					onCopyMarkdown={copyMarkdown}
+					onCopyHTML={copyHTML}
+					onRequestDelete={requestDelete}
+					formatSize={formatSize}
+				/>
+			)}
 
 			{/* Publish from Storage Modal */}
 			{showPublishModal && (
