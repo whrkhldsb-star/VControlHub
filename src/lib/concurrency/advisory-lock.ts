@@ -41,6 +41,8 @@ const NAMESPACE_KEYS: Record<string, number> = {
 	"command-template-seed": 45066,
 	/** Serialize concurrent deployment rollback for one source run. */
 	"deployment-rollback": 45067,
+	/** Serialize server profile create/update by host to prevent duplicate VPS rows. */
+	"server-host": 45070,
 };
 
 function connectionStringForPg() {

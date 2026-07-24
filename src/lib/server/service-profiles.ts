@@ -108,6 +108,15 @@ export async function createServerProfile(
     if (!validatedSshKey) throw new NotFoundError(t("backend.server.sshKeyNotFound"));
   }
 
+  // Serialize create/update by host so concurrent onboarding cannot double-insert
+  // the same VPS host between findFirst and server.create (no @@unique on host).
+  let isLocalHost = false;
+  let configuredPath = "";
+  // Assigned under host lock before mkdir/onboarding uses them.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  let server: any;
+  const releaseHostLock = await acquireAdvisoryLock("server-host", normalized.host.toLowerCase());
+  try {
   await assertNoDuplicateServerHost(normalized);
 
   const pendingServerForPreflight: ServerWithRelations = {
@@ -156,16 +165,16 @@ export async function createServerProfile(
 
   // Precompute paths outside the transaction (read-only counts may race slightly
   // for isDefault; server+storage create must be atomic to avoid orphan Server rows).
-  const isLocalHost = isLocalHostLiteral(normalized.host);
+  isLocalHost = isLocalHostLiteral(normalized.host);
   const defaultCount = await prisma.storageNode.count({
     where: { isDefault: true },
   });
   const provisionalName = normalized.name;
-  const configuredPath =
+  configuredPath =
     normalized.storagePath ||
     (isLocalHost ? `/srv/storage/${provisionalName}` : "/root/drive");
 
-  const server = await prisma.$transaction(async (tx) => {
+  server = await prisma.$transaction(async (tx) => {
     const created = await tx.server.create({
       data: {
         name: normalized.name,
@@ -209,6 +218,9 @@ export async function createServerProfile(
     });
     return created;
   });
+  } finally {
+    await releaseHostLock();
+  }
 
   if (isLocalHost) {
     try {
@@ -351,6 +363,10 @@ export async function updateServerProfile(
     if (!updateSshKey) throw new NotFoundError(t("backend.server.sshKeyNotFound"));
   }
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  let updated: any;
+  const releaseHostLock = await acquireAdvisoryLock("server-host", normalized.host.toLowerCase());
+  try {
   await assertNoDuplicateServerHost(normalized, { excludeId: serverId });
 
   const connectionChanged =
@@ -396,7 +412,7 @@ export async function updateServerProfile(
     await verifyServerSshConnectivity(normalized, nextServerForPreflight);
   }
 
-  const updated = await prisma.server.update({
+  updated = await prisma.server.update({
     where: { id: serverId },
     data: {
       name: normalized.name,
@@ -422,6 +438,9 @@ export async function updateServerProfile(
     },
     include: SERVER_PROFILE_INCLUDE,
   });
+  } finally {
+    await releaseHostLock();
+  }
 
   // Optional: update bound SFTP storage root + ensure the remote directory exists.
   // Empty / omitted storagePath leaves the existing basePath alone.
