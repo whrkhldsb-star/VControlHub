@@ -42,6 +42,16 @@ export function remoteVpsDockerScope(serverId: string, serverName: string): Dock
 	};
 }
 
+/** Default timeouts: short for GETs, longer for lifecycle mutations. */
+const DEFAULT_LOCAL_TIMEOUT_MS = 10_000;
+const DEFAULT_REMOTE_TIMEOUT_MS = 30_000;
+const DEFAULT_MUTATION_LOCAL_TIMEOUT_MS = 120_000;
+const DEFAULT_MUTATION_REMOTE_TIMEOUT_MS = 120_000;
+
+function isMutationMethod(method: string): boolean {
+	return !["GET", "HEAD", "OPTIONS"].includes(method.toUpperCase());
+}
+
 /**
  * Request Docker Engine API via local unix socket (original implementation).
  */
@@ -52,9 +62,14 @@ export function requestDockerEngine(
 		body?: string;
 		unavailableData: unknown;
 		loggerScope: string;
+		/** Override HTTP socket timeout (ms). Defaults: 10s GET, 120s mutations. */
+		timeoutMs?: number;
 	},
 ): Promise<DockerEngineResult> {
 	const { method = "GET", body, unavailableData, loggerScope } = options;
+	const timeoutMs =
+		options.timeoutMs ??
+		(isMutationMethod(method) ? DEFAULT_MUTATION_LOCAL_TIMEOUT_MS : DEFAULT_LOCAL_TIMEOUT_MS);
 	const logger = createLogger(loggerScope);
 	return new Promise((resolve) => {
 		const request = http.request({
@@ -62,7 +77,7 @@ export function requestDockerEngine(
 			path: apiPath,
 			method,
 			host: "localhost",
-			timeout: 10_000,
+			timeout: timeoutMs,
 			headers: body ? { "Content-Type": "application/json", "Content-Length": Buffer.byteLength(body) } : {},
 		}, (response) => {
 			const chunks: Buffer[] = [];
@@ -119,9 +134,14 @@ export async function requestRemoteDockerEngine(
 		body?: string;
 		unavailableData: unknown;
 		loggerScope: string;
+		/** Override remote SSH/curl timeout (ms). Defaults: 30s GET, 120s mutations. */
+		timeoutMs?: number;
 	},
 ): Promise<DockerEngineResult> {
 	const { method = "GET", body, unavailableData, loggerScope } = options;
+	const timeoutMs =
+		options.timeoutMs ??
+		(isMutationMethod(method) ? DEFAULT_MUTATION_REMOTE_TIMEOUT_MS : DEFAULT_REMOTE_TIMEOUT_MS);
 	const logger = createLogger(loggerScope);
 
 	// Validate API path to prevent injection
@@ -177,7 +197,7 @@ export async function requestRemoteDockerEngine(
 		const result = await execRemoteCommand({
 			...sshParams,
 			command: curlCmd,
-			timeout: 30_000,
+			timeout: timeoutMs,
 		});
 
 		if (result.exitCode !== 0 && !result.stdout) {
@@ -228,6 +248,8 @@ export async function dockerRequest(
 		unavailableData: unknown;
 		loggerScope: string;
 		serverId?: string;
+		/** Override request timeout (ms); see requestDockerEngine / requestRemoteDockerEngine defaults. */
+		timeoutMs?: number;
 	},
 ): Promise<{ result: DockerEngineResult; scope: DockerScope }> {
 	const { serverId, ...rest } = options;
