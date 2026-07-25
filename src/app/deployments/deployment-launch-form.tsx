@@ -5,6 +5,7 @@ import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { csrfFetch } from "@/lib/auth/csrf-client";
 import { useI18n } from "@/lib/i18n/use-locale";
+import { useToast } from "@/components/toast-provider";
 import { UI_INPUT } from "@/lib/ui/classes";
 
 type DeploymentTemplateOption = {
@@ -37,6 +38,7 @@ function previewCommand(template: DeploymentTemplateOption | undefined, variable
 export function DeploymentLaunchForm({ templates, servers }: { templates: DeploymentTemplateOption[]; servers: DeploymentServerOption[] }) {
 	const { t } = useI18n();
 	const router = useRouter();
+	const { addToast } = useToast();
 	const [templateId, setTemplateId] = useState(templates[0]?.id ?? "");
 	const [pending, setPending] = useState(false);
 	const [error, setError] = useState<string | null>(null);
@@ -89,9 +91,14 @@ export function DeploymentLaunchForm({ templates, servers }: { templates: Deploy
 					reason: reason || undefined,
 				}),
 			});
+			addToast("success", t("deploymentsPage.launch.toast.success"));
+			form.reset();
+			setTemplateId(templates[0]?.id ?? "");
 			router.refresh();
 		} catch (err) {
-			setError(err instanceof Error ? err.message : t("deploymentsPage.launch.errorFallback"));
+			const msg = err instanceof Error ? err.message : t("deploymentsPage.launch.errorFallback");
+			setError(msg);
+			addToast("error", msg);
 		} finally {
 			setPending(false);
 		}
