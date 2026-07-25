@@ -73,8 +73,8 @@ describe("app source catalog bounds", () => {
 		expect(fetchSourceAppsMock).not.toHaveBeenCalled();
 	});
 
-	it("TR-040 R1: syncSource fans out every app upsert in a single Promise.all (no chunking)", async () => {
-		// Generate 20 fake apps so we exercise the full fan-out.
+	it("syncSource upserts with bounded concurrency (cap 8)", async () => {
+		// Generate 20 fake apps so we exercise chunked fan-out past the cap.
 		const fakeApps = Array.from({ length: 20 }, (_, i) => ({
 			slug: `app-${i}`,
 			name: `App ${i}`,
@@ -95,7 +95,6 @@ describe("app source catalog bounds", () => {
 
 		prismaMock.appSource.findUnique.mockResolvedValue({ id: "src1", name: "X", type: "lscr", url: "u", enabled: true });
 		fetchSourceAppsMock.mockResolvedValueOnce(fakeApps);
-		prismaMock.appSourceApp.upsert.mockResolvedValue({});
 		prismaMock.appSourceApp.findMany.mockResolvedValueOnce([]);
 		prismaMock.appSource.update.mockResolvedValue({});
 
@@ -115,8 +114,9 @@ describe("app source catalog bounds", () => {
 		expect(result.synced).toBe(20);
 		expect(result.errors).toBe(0);
 		expect(prismaMock.appSourceApp.upsert).toHaveBeenCalledTimes(20);
-		// All 20 fan out in parallel — concurrency must equal N (chunking removed).
-		expect(maxInFlight).toBe(20);
+		// Cap is 8 — never more concurrent upserts than SYNC_UPSERT_CONCURRENCY.
+		expect(maxInFlight).toBeLessThanOrEqual(8);
+		expect(maxInFlight).toBeGreaterThan(0);
 	});
 
 	it("TR-040: syncSource isolates a single app failure without aborting the chunk", async () => {
