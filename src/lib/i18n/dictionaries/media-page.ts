@@ -19,7 +19,7 @@ export const zh: Record<string, string> = {
 	"mediaPage.workspace.audioDesc": "集中浏览音频文件，支持播放、下载和按标签收藏整理。",
 	"mediaPage.workspace.image": "图片工作区",
 	"mediaPage.workspace.imageDesc": "上传、扫描、整理图片，并把已入库图片发布成可复制的外链。",
-	"mediaPage.workspace.label": "Current Workspace",
+	"mediaPage.workspace.label": "当前工作区",
 	"mediaPage.workspace.video": "视频库",
 	"mediaPage.workspace.videoDesc": "集中浏览视频文件，支持预览播放、下载和跳回源文件位置。",
 
