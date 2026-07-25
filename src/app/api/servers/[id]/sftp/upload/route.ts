@@ -17,6 +17,7 @@ import { GENERAL_WRITE_LIMIT, withRateLimit, rateLimitResponse } from "@/lib/htt
 import { uploadFile, sanitizeRemotePath, sanitizeFileName } from "@/lib/ssh/sftp-service";
 import { assertSftpPathAccess } from "@/lib/ssh/sftp-access-control";
 import { assertServerTeamAccess } from "@/lib/server/team-access";
+import { auditUserAction } from "@/lib/audit/service";
 
 export const dynamic = "force-dynamic";
 // guardMode: manual
@@ -33,9 +34,10 @@ export async function POST(
   // Auth + permission check
   const guard = await enforceApiGuard({ request, permission: "server:ssh" });
   if (guard instanceof Response) return guard;
+  const session = guard as SessionPayload;
 
   const { id } = await params;
-  const teamAccess = await assertServerTeamAccess(guard as SessionPayload, id);
+  const teamAccess = await assertServerTeamAccess(session, id);
   if (!teamAccess.ok) return teamAccess.response;
 
   try {
@@ -66,13 +68,20 @@ export async function POST(
     const safeName = sanitizeFileName(file.name);
     const safeDir = sanitizeRemotePath(remoteDir);
     const fullPath = `${safeDir.replace(/\/$/, "")}/${safeName}`;
-    await assertSftpPathAccess({ session: guard, serverId: id, paths: [fullPath] });
+    await assertSftpPathAccess({ session, serverId: id, paths: [fullPath] });
 
     // Consume the Web File stream directly. Avoid arrayBuffer()/Buffer.from(),
     // which duplicated the complete upload in the Node.js heap.
     const stream = Readable.fromWeb(file.stream() as import("node:stream/web").ReadableStream);
 
     const bytesWritten = await uploadFile(id, fullPath, stream);
+    await auditUserAction(
+      session.userId,
+      "sftp.upload",
+      { serverId: id, path: fullPath, size: bytesWritten },
+      undefined,
+      session.currentTeamId,
+    );
 
     return NextResponse.json({
       success: true,
