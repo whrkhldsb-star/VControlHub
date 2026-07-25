@@ -379,11 +379,15 @@ export async function failJobTerminal(
 }
 
 export async function cancelJob(jobId: string) {
+  const now = new Date();
   const updated = await prisma.job.updateMany({
     where: { id: jobId, status: { in: [JobStatus.PENDING, JobStatus.RUNNING] } },
     data: {
       status: JobStatus.CANCELLED,
-      cancelledAt: new Date(),
+      cancelledAt: now,
+      completedAt: now,
+      // Clear mid-run progress so cancelled rows do not keep a stale "45%" bar.
+      progress: null,
       workerId: null,
       workerHeartbeatAt: null,
       leaseExpiresAt: null,

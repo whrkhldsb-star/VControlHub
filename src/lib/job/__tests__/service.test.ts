@@ -155,7 +155,12 @@ describe("durable job service", () => {
     await cancelJob("job1");
     expect(mockPrisma.job.updateMany).toHaveBeenCalledWith(expect.objectContaining({
       where: { id: "job1", status: { in: ["PENDING", "RUNNING"] } },
-      data: expect.objectContaining({ status: "CANCELLED", workerId: null }),
+      data: expect.objectContaining({
+        status: "CANCELLED",
+        workerId: null,
+        progress: null,
+        completedAt: expect.any(Date),
+      }),
     }));
 
     const now = new Date("2026-06-08T09:00:00Z");
