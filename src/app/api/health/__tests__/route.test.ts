@@ -189,7 +189,7 @@ describe("/api/health", () => {
     });
   });
 
-  it("returns 500 with error message when collectAllHealth throws", async () => {
+  it("returns 500 with apiError envelope when collectAllHealth throws", async () => {
     collectAllHealthMock.mockRejectedValueOnce(
       new Error("Unsupported state or unable to authenticate data"),
     );
@@ -198,13 +198,14 @@ describe("/api/health", () => {
 
     expect(response.status).toBe(500);
     const body = await response.json();
-    expect(body.error).toContain("Failed to collect health data: Unsupported state or unable to authenticate data");
-    expect(body.error).toContain(
-      "Unsupported state or unable to authenticate data",
+    expect(body.code).toBe("INTERNAL_ERROR");
+    expect(body.message).toContain(
+      "Failed to collect health data: Unsupported state or unable to authenticate data",
     );
+    expect(body.error).toBe(body.message);
   });
 
-  it("returns 500 with error message when getMetricHistory throws", async () => {
+  it("returns 500 with apiError envelope when getMetricHistory throws", async () => {
     getMetricHistoryMock.mockRejectedValueOnce(
       new Error("database connection lost"),
     );
@@ -215,7 +216,10 @@ describe("/api/health", () => {
 
     expect(response.status).toBe(500);
     const body = await response.json();
-    expect(body.error).toContain("Failed to fetch health history: database connection lost");
-    expect(body.error).toContain("database connection lost");
+    expect(body.code).toBe("INTERNAL_ERROR");
+    expect(body.message).toContain(
+      "Failed to fetch health history: database connection lost",
+    );
+    expect(body.error).toBe(body.message);
   });
 });

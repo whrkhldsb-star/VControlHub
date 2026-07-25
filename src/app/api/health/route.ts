@@ -99,10 +99,11 @@ async function handleHealthRequest(request: Request, session: SessionPayload | n
       });
     } catch (err) {
       const message = err instanceof Error ? err.message : "Unknown error";
-      return NextResponse.json(
-        { error: `Failed to fetch health history: ${message}` },
-        { status: 500 },
-      );
+      return apiError({
+        code: "INTERNAL_ERROR",
+        message: `Failed to fetch health history: ${message}`,
+        status: 500,
+      });
     }
   }
 
@@ -115,10 +116,11 @@ async function handleHealthRequest(request: Request, session: SessionPayload | n
     overview = await collectAllHealth(session);
   } catch (err) {
     const message = err instanceof Error ? err.message : "Unknown error";
-    return NextResponse.json(
-      { error: `Failed to collect health data: ${message}` },
-      { status: 500 },
-    );
+    return apiError({
+      code: "INTERNAL_ERROR",
+      message: `Failed to collect health data: ${message}`,
+      status: 500,
+    });
   }
 
   return NextResponse.json(overview);
