@@ -212,24 +212,23 @@ export function verifyInboundSignature(input: {
 
 	const provided = header.startsWith("sha256=") ? header.slice("sha256=".length) : header;
 	const expected = createHmac("sha256", secret).update(input.rawBody).digest("hex");
+	// HMAC-only: accept hex digest (binary or hex-string form). Do NOT accept raw secret
+	// as a shared token — that weakens verification to bearer-secret equivalence.
 	try {
 		const a = Buffer.from(provided, "hex");
 		const b = Buffer.from(expected, "hex");
-		if (a.length !== b.length || !timingSafeEqual(a, b)) {
-			return { ok: false, error: "Invalid webhook signature" };
+		if (a.length > 0 && a.length === b.length && timingSafeEqual(a, b)) {
+			return { ok: true };
 		}
 	} catch {
-		// Non-hex signatures: compare utf8 digests of both sides as fallback (shared token)
-		const a = Buffer.from(provided);
-		const b = Buffer.from(expected);
-		if (a.length === b.length && timingSafeEqual(a, b)) return { ok: true };
-		// Also accept exact secret match as simple shared token mode
-		const tokenA = Buffer.from(provided);
-		const tokenB = Buffer.from(secret);
-		if (tokenA.length === tokenB.length && timingSafeEqual(tokenA, tokenB)) return { ok: true };
-		return { ok: false, error: "Invalid webhook signature" };
+		// Invalid hex encoding — fall through to string compare of digests.
 	}
-	return { ok: true };
+	const a = Buffer.from(provided);
+	const b = Buffer.from(expected);
+	if (a.length === b.length && timingSafeEqual(a, b)) {
+		return { ok: true };
+	}
+	return { ok: false, error: "Invalid webhook signature" };
 }
 
 export function normalizeInboundTicket(raw: Record<string, unknown>): {

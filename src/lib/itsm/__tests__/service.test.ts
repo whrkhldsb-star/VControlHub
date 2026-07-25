@@ -210,10 +210,13 @@ describe("ITSM adapters", () => {
 		expect(verifyInboundSignature({ rawBody: raw, headerSignature: `sha256=${sig}`, secret }).ok).toBe(
 			true,
 		);
+		expect(verifyInboundSignature({ rawBody: raw, headerSignature: sig, secret }).ok).toBe(true);
 		expect(verifyInboundSignature({ rawBody: raw, headerSignature: "sha256=dead", secret }).ok).toBe(
 			false,
 		);
 		expect(verifyInboundSignature({ rawBody: raw, headerSignature: null, secret }).ok).toBe(false);
+		// Raw shared-secret-as-token must NOT authenticate (HMAC-only).
+		expect(verifyInboundSignature({ rawBody: raw, headerSignature: secret, secret }).ok).toBe(false);
 	});
 
 	it("normalizes inbound ticket payloads", () => {
