@@ -6,14 +6,14 @@ import {
 } from "@/lib/playbook/service";
 import { createPlaybookSchema } from "@/lib/playbook/schema";
 import { withApiRoute } from "@/lib/http/api-guard";
-import { GENERAL_WRITE_LIMIT } from "@/lib/http/rate-limit-presets";
+import { GENERAL_READ_LIMIT, GENERAL_WRITE_LIMIT } from "@/lib/http/rate-limit-presets";
 
 export const dynamic = "force-dynamic";
 
 export async function GET(request: Request) {
   return withApiRoute(
     request,
-    { permission: "playbook:read", rateLimit: GENERAL_WRITE_LIMIT, errorStatus: 500, errorMessage: "Server error" },
+    { permission: "playbook:read", rateLimit: GENERAL_READ_LIMIT, errorStatus: 500, errorMessage: "Server error" },
     async (ctx) => {
       const playbooks = await listPlaybooks(ctx.session ?? undefined);
       return NextResponse.json({ playbooks });
