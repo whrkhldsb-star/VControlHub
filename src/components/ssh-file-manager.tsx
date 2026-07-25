@@ -141,7 +141,12 @@ export function SshFileManager({ serverId, visible }: SshFileManagerProps) {
   function handleDownload(entry: DirEntry) {
     if (!entry.isFile) return;
     const filePath = currentPath.replace(/\/$/, "") + "/" + entry.name;
-    window.open(`/api/servers/${serverId}/sftp/download?path=${encodeURIComponent(filePath)}&csrf=${getCsrfToken()}`, "_blank");
+    // GET download is session-cookie authenticated (SAFE_METHODS skip CSRF).
+    // Do not put csrf_token in the query string (history / access logs / Referer).
+    window.open(
+      `/api/servers/${serverId}/sftp/download?path=${encodeURIComponent(filePath)}`,
+      "_blank",
+    );
   }
 
   async function handleDelete(entry: DirEntry) {
