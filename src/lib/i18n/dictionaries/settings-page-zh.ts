@@ -35,6 +35,7 @@ export const zh: Record<string, string> = {
 
 	"settingsClient.metadataNoRecord": "暂无记录",
 	"settingsClient.emptyValue": "（空）",
+	"settingsClient.maskedSecret": "••••••••",
 	"settingsClient.noPermission": "当前角色无系统设置权限",
 	"settingsClient.savedWithMessage": "✓ 设置已保存",
 	"settingsClient.categoryTitle": "⚙️ 设置分类",
@@ -285,7 +286,7 @@ export const zh: Record<string, string> = {
 	"settingsTeam.error.update": "更新团队失败",
 	"settingsTeam.message.deleted": "团队已删除",
 	"settingsTeam.error.delete": "删除团队失败",
-	"settingsTeam.eyebrow": "Team Spaces",
+	"settingsTeam.eyebrow": "团队空间",
 	"settingsTeam.title": "团队空间",
 	"settingsTeam.desc": "多租户资源隔离：创建团队、切换当前团队，维护成员并管理服务器归属。切换团队后服务器列表按团队过滤。",
 	"settingsTeam.loading": "加载团队空间中…",

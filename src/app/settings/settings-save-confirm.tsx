@@ -16,7 +16,7 @@
 import { useEffect, useRef, useState } from "react";
 
 import { useI18n } from "@/lib/i18n/use-locale";
-import type { SectionDef } from "./field-schema";
+import type { FieldType, SectionDef } from "./field-schema";
 import { FieldRiskBadge } from "./settings-field-risk";
 
 // TR-014 M01b
@@ -27,6 +27,7 @@ export type PendingChange = {
   newValue: string;
   riskLevel: "low" | "medium" | "high";
   sectionId: string;
+  fieldType: FieldType;
 };
 
 /** Diff current settings against the initial snapshot, returning only
@@ -49,6 +50,7 @@ export function getPendingChanges(
         newValue,
         riskLevel: field.riskLevel ?? "low",
         sectionId: section.id,
+        fieldType: field.type,
       });
     }
   }
@@ -56,13 +58,16 @@ export function getPendingChanges(
 }
 
 /** Truncate + display-safe a value for the diff table. Empty strings
- * display as the localized "（空）" sentinel so it's never blank. */
+ * display as the localized "（空）" sentinel so it's never blank.
+ * Password fields are redacted so secrets never paint into the DOM. */
 export function renderDiffValue(
   value: string,
   t: (key: string) => string,
   max = 60,
+  fieldType?: FieldType,
 ): string {
   if (value === "") return t("settingsClient.emptyValue");
+  if (fieldType === "password") return t("settingsClient.maskedSecret");
   if (value.length <= max) return value;
   return `${value.slice(0, max)}…`;
 }
@@ -176,10 +181,10 @@ export function SaveButtonWithDiff({
                 >
                   <td className="px-3 py-2 font-mono text-[11px] text-[var(--text-primary)]">{t(change.labelKey)}</td>
                   <td className="px-3 py-2 text-[var(--text-muted)] line-through">
-                    {renderDiffValue(change.oldValue, t)}
+                    {renderDiffValue(change.oldValue, t, 60, change.fieldType)}
                   </td>
                   <td className="px-3 py-2 text-[var(--text-primary)] light:text-[var(--accent)]">
-                    {renderDiffValue(change.newValue, t)}
+                    {renderDiffValue(change.newValue, t, 60, change.fieldType)}
                   </td>
                   <td className="px-3 py-2">
                     <FieldRiskBadge level={change.riskLevel} />
@@ -259,13 +264,13 @@ export function HighRiskConfirmModal({
                 <div>
                   <span className="text-[var(--text-muted)]">{t("settingsClient.confirmOriginal")}</span>
                   <span className="text-[var(--text-secondary)] line-through">
-                    {renderDiffValue(change.oldValue, t, 40)}
+                    {renderDiffValue(change.oldValue, t, 40, change.fieldType)}
                   </span>
                 </div>
                 <div>
                   <span className="text-[var(--text-muted)]">{t("settingsClient.confirmNew")}</span>
                   <span className="text-[var(--danger)]">
-                    {renderDiffValue(change.newValue, t, 40)}
+                    {renderDiffValue(change.newValue, t, 40, change.fieldType)}
                   </span>
                 </div>
               </div>

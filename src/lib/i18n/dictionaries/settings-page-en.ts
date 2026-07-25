@@ -25,6 +25,7 @@ export const en: Record<string, string> = {
 
 	"settingsClient.metadataNoRecord": "No record yet",
 	"settingsClient.emptyValue": "(empty)",
+	"settingsClient.maskedSecret": "••••••••",
 	"settingsClient.noPermission": "Current role has no permission to manage system settings",
 	"settingsClient.savedWithMessage": "✓ Settings saved",
 	"settingsClient.categoryTitle": "⚙️ Settings categories",
