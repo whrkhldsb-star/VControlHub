@@ -188,6 +188,7 @@ export function PublishFromStorageModal({
   setPublishForm,
   onClose,
   t,
+  publishing = false,
 }: {
   publishForm: PublishForm;
   storageNodes: StorageNodeOption[];
@@ -195,6 +196,7 @@ export function PublishFromStorageModal({
   setPublishForm: Dispatch<SetStateAction<PublishForm>>;
   onClose: () => void;
   t: ImageBedT;
+  publishing?: boolean;
 }) {
   const dialogRef = useDialogFocus<HTMLDivElement>({ open: true, onClose });
   return (
@@ -303,7 +305,9 @@ export function PublishFromStorageModal({
         </div>
         <div className="mt-5 flex items-center justify-end gap-2">
           <button
+            type="button"
             onClick={onClose}
+            disabled={publishing}
             data-action-button data-variant="ghost" className="!text-sm"
           >
             {t("imageBedPage.publishFromStorage.cancel")}
@@ -311,7 +315,8 @@ export function PublishFromStorageModal({
           <ActionButton
             type="button"
             onClick={handlePublishFromStorage}
-            disabled={!publishForm.storageNodeId || !publishForm.relativePath}
+            disabled={publishing || !publishForm.storageNodeId || !publishForm.relativePath}
+            aria-busy={publishing}
             className="px-4 py-2 text-sm"
           >
             {t("imageBedPage.publishFromStorage.submit")}

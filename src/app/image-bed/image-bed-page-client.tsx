@@ -64,6 +64,8 @@ export default function ImageBedPage({ canWrite, canDelete }: { canWrite: boolea
 		confirmDelete,
 		runBatchAction,
 		handlePublishFromStorage,
+		batchBusy,
+		publishing,
 		toggleSelect,
 		selectAll,
 		toggleBatchMode,
@@ -150,13 +152,13 @@ export default function ImageBedPage({ canWrite, canDelete }: { canWrite: boolea
 						{selectedIds.size === images.length ? t("imageBedPage.batch.deselectAll") : t("imageBedPage.batch.selectAll")}
 					</button>
 					{canDelete && (
-						<button onClick={requestBatchDelete} disabled={selectedIds.size === 0} data-action-button data-variant="danger" className="!min-h-11 !px-3 !text-xs disabled:opacity-30">{t("imageBedPage.batch.delete")}</button>
+						<button onClick={requestBatchDelete} disabled={batchBusy || selectedIds.size === 0} data-action-button data-variant="danger" className="!min-h-11 !px-3 !text-xs disabled:opacity-30">{t("imageBedPage.batch.delete")}</button>
 					)}
 					<div className="flex items-center gap-1">
-						<input type="text" value={batchAlbum} aria-label={t("imageBedPage.batch.albumLabel")} onChange={(e) => setBatchAlbum(e.target.value)} placeholder={t("imageBedPage.batch.albumPlaceholder")} className={cn(UI_INPUT, "min-h-11 w-28 px-2 py-1 text-xs")} />
-						<ActionButton type="button" variant="ghost" onClick={() => runBatchAction("moveAlbum")} disabled={selectedIds.size === 0 || !batchAlbum} className="min-h-11 px-3 text-xs">{t("imageBedPage.batch.move")}</ActionButton>
+						<input type="text" value={batchAlbum} aria-label={t("imageBedPage.batch.albumLabel")} onChange={(e) => setBatchAlbum(e.target.value)} placeholder={t("imageBedPage.batch.albumPlaceholder")} disabled={batchBusy} className={cn(UI_INPUT, "min-h-11 w-28 px-2 py-1 text-xs")} />
+						<ActionButton type="button" variant="ghost" onClick={() => runBatchAction("moveAlbum")} disabled={batchBusy || selectedIds.size === 0 || !batchAlbum} className="min-h-11 px-3 text-xs">{t("imageBedPage.batch.move")}</ActionButton>
 					</div>
-					<button onClick={() => runBatchAction("togglePublic")} disabled={selectedIds.size === 0} data-action-button data-variant="success" className="!min-h-11 !px-3 !text-xs disabled:opacity-30">{t("imageBedPage.batch.togglePublic")}</button>
+					<button onClick={() => runBatchAction("togglePublic")} disabled={batchBusy || selectedIds.size === 0} data-action-button data-variant="success" className="!min-h-11 !px-3 !text-xs disabled:opacity-30">{t("imageBedPage.batch.togglePublic")}</button>
 				</div>
 			)}
 
@@ -284,7 +286,11 @@ export default function ImageBedPage({ canWrite, canDelete }: { canWrite: boolea
 					storageNodes={storageNodes}
 					handlePublishFromStorage={handlePublishFromStorage}
 					setPublishForm={setPublishForm}
-					onClose={() => setShowPublishModal(false)}
+					onClose={() => {
+						if (publishing) return;
+						setShowPublishModal(false);
+					}}
+					publishing={publishing}
 					t={t}
 				/>
 			)}

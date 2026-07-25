@@ -64,12 +64,16 @@ export function useImageBedActions({
 	const [batchAlbum, setBatchAlbum] = useState("");
 	const [showPublishModal, setShowPublishModal] = useState(false);
 	const [deleting, setDeleting] = useState(false);
+	const [batchBusy, setBatchBusy] = useState(false);
+	const [publishing, setPublishing] = useState(false);
 	const [showLegacyUpload, setShowLegacyUpload] = useState(false);
 	const [storageNodes, setStorageNodes] = useState<Array<{ id: string; name: string }>>([]);
 	const [publishForm, setPublishForm] = useState<PublishForm>(EMPTY_PUBLISH_FORM);
 	const [uploadProgress, setUploadProgress] = useState<UploadProgress>(null);
 	const [pendingDelete, setPendingDelete] = useState<PendingDelete | null>(null);
 	const fileInputRef = useRef<HTMLInputElement>(null);
+	const batchBusyRef = useRef(false);
+	const publishingRef = useRef(false);
 
 	const showToast = useCallback((msg: string, tone: ToastTone = "status") => {
 		setToast({ message: msg, tone });
@@ -270,6 +274,9 @@ export function useImageBedActions({
 				showToast(t("imageBed.toast.selectFirst"));
 				return;
 			}
+			if (batchBusyRef.current) return;
+			batchBusyRef.current = true;
+			setBatchBusy(true);
 			try {
 				const body: Record<string, unknown> = { action, ids: Array.from(selectedIds) };
 				if (action === "moveAlbum") body.album = batchAlbum;
@@ -289,6 +296,9 @@ export function useImageBedActions({
 				void fetchImages(page);
 			} catch {
 				showToast(t("imageBed.toast.batchError"));
+			} finally {
+				batchBusyRef.current = false;
+				setBatchBusy(false);
 			}
 		},
 		[batchAlbum, fetchImages, page, selectedIds, showToast, t],
@@ -317,6 +327,9 @@ export function useImageBedActions({
 	}, [deleting, fetchImages, page, pendingDelete, runBatchAction, showToast, t]);
 
 	const handlePublishFromStorage = useCallback(async () => {
+		if (publishingRef.current) return;
+		publishingRef.current = true;
+		setPublishing(true);
 		try {
 			await csrfFetch("/api/images/publish-from-storage", {
 				method: "POST",
@@ -329,6 +342,9 @@ export function useImageBedActions({
 			void fetchImages(1);
 		} catch (err) {
 			showToast(err instanceof Error ? err.message : t("imageBed.toast.publishError"));
+		} finally {
+			publishingRef.current = false;
+			setPublishing(false);
 		}
 	}, [fetchImages, publishForm, showToast, t]);
 
@@ -419,6 +435,8 @@ export function useImageBedActions({
 		showPublishModal,
 		setShowPublishModal,
 		deleting,
+		batchBusy,
+		publishing,
 		showLegacyUpload,
 		setShowLegacyUpload,
 		storageNodes,
