@@ -95,15 +95,15 @@ export function FileVersionHistoryPanel({
   }
 
   async function confirmRestore() {
-    if (!pendingRestore) return;
+    if (!pendingRestore || busyId) return;
     const { id: versionId } = pendingRestore;
-    setPendingRestore(null);
     setBusyId(versionId);
     try {
       await csrfFetch(
         `/api/files/${encodeURIComponent(fileEntryId)}/versions/${encodeURIComponent(versionId)}/restore`,
         { method: "POST" },
       );
+      setPendingRestore(null);
       onNotify("success", t("fileVersionHistory.restoreSuccess"));
       await load();
       onRestored?.();
@@ -136,7 +136,7 @@ export function FileVersionHistoryPanel({
         confirmLabel={t("fileVersionHistory.restoreConfirmBtn")}
         onCancel={() => setPendingRestore(null)}
         onConfirm={() => void confirmRestore()}
-        busy={pendingRestore !== null && busyId === pendingRestore.id}
+        busy={Boolean(pendingRestore && busyId === pendingRestore.id)}
       />
 
       <div className="flex items-center justify-between gap-3">
