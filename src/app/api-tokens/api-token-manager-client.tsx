@@ -46,7 +46,7 @@ function scopeLabel(t: (k: string) => string, scope: string): string {
 }
 
 export function ApiTokenManagerClient({ initialTokens, allowedScopes }: Props) {
-  const { t } = useI18n();
+  const { t, locale } = useI18n();
   const [tokens, setTokens] = useState(initialTokens);
   const [name, setName] = useState("");
   const [selectedScopes, setSelectedScopes] = useState<string[]>(["read"]);
@@ -205,9 +205,9 @@ export function ApiTokenManagerClient({ initialTokens, allowedScopes }: Props) {
                         {token.scopes.map((scope) => <span key={scope} className="rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-subtle)] px-2 py-0.5 font-mono text-[11px] text-[var(--text-secondary)]">{scope}</span>)}
                       </div>
                       <dl className="mt-3 grid gap-2 text-xs text-[var(--text-muted)] sm:grid-cols-3">
-                        <div><dt className="text-[var(--text-muted)]">{t("apiTokensPage.list.createdAt")}</dt><dd>{formatDate(token.createdAt)}</dd></div>
-                        <div><dt className="text-[var(--text-muted)]">{t("apiTokensPage.list.expiresAt")}</dt><dd>{formatDate(token.expiresAt)}</dd></div>
-                        <div><dt className="text-[var(--text-muted)]">{t("apiTokensPage.list.lastUsedAt")}</dt><dd>{formatDate(token.lastUsedAt)}</dd></div>
+                        <div><dt className="text-[var(--text-muted)]">{t("apiTokensPage.list.createdAt")}</dt><dd>{formatDate(token.createdAt, locale)}</dd></div>
+                        <div><dt className="text-[var(--text-muted)]">{t("apiTokensPage.list.expiresAt")}</dt><dd>{formatDate(token.expiresAt, locale)}</dd></div>
+                        <div><dt className="text-[var(--text-muted)]">{t("apiTokensPage.list.lastUsedAt")}</dt><dd>{formatDate(token.lastUsedAt, locale)}</dd></div>
                       </dl>
                     </div>
                     {!token.revokedAt && (
