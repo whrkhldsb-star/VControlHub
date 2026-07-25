@@ -127,7 +127,7 @@ export function DeploymentExportPanel() {
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <p className="text-xs font-semibold uppercase tracking-[0.2em] text-[var(--text-secondary)]/70">
-            Portable Export
+            {t("deploymentsPage.export.eyebrow")}
           </p>
           <h2 className="mt-1 text-sm font-semibold text-[var(--text-primary)]">
             {t("deploymentsPage.export.title")}
