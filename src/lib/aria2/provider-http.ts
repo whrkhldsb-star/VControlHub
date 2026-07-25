@@ -33,7 +33,11 @@ export type Aria2RpcResponseBody = {
 };
 
 function newRpcId(): string {
-  return Date.now().toString();
+  // Prefer a unique id — concurrent RPCs in the same ms collide with Date.now alone.
+  if (typeof globalThis.crypto?.randomUUID === "function") {
+    return globalThis.crypto.randomUUID();
+  }
+  return `${Date.now()}-${Math.random().toString(16).slice(2)}`;
 }
 
 export async function postAria2Rpc(req: Aria2RpcRequest): Promise<unknown> {
