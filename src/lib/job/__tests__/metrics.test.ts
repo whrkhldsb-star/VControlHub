@@ -51,4 +51,25 @@ describe("getJobBacklogMetrics", () => {
     expect(metrics.oldestPendingMs).toBeNull();
     expect(metrics.byType).toEqual([]);
   });
+
+  it("applies teamWhere scope when session is provided", async () => {
+    mockPrisma.job.count.mockReset();
+    mockPrisma.job.findFirst.mockReset();
+    mockPrisma.job.groupBy.mockReset();
+    mockPrisma.job.count.mockResolvedValue(0);
+    mockPrisma.job.findFirst.mockResolvedValue(null);
+    mockPrisma.job.groupBy.mockResolvedValue([]);
+
+    await getJobBacklogMetrics({
+      userId: "u1",
+      roles: ["viewer"],
+      currentTeamId: "team_a",
+    });
+
+    const firstWhere = mockPrisma.job.count.mock.calls[0]?.[0]?.where;
+    expect(firstWhere).toMatchObject({
+      OR: [{ teamId: "team_a" }, { teamId: null }],
+      status: "PENDING",
+    });
+  });
 });

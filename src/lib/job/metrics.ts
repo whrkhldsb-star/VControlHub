@@ -1,5 +1,6 @@
 import { JobStatus } from "@prisma/client";
 
+import { teamWhere, type TeamSession } from "@/lib/auth/team-scope";
 import { prisma } from "@/lib/db";
 import { createLogger } from "@/lib/logging";
 
@@ -16,19 +17,27 @@ export type JobBacklogMetrics = {
   byType: Array<{ type: string; pending: number; running: number; failed: number }>;
 };
 
-export async function getJobBacklogMetrics(): Promise<JobBacklogMetrics> {
+/**
+ * Aggregate job backlog counters. When `session` is provided, applies
+ * {@link teamWhere} so non-global callers only see their team (+ legacy null).
+ * Omitting session keeps the previous global view (workers / internal use).
+ */
+export async function getJobBacklogMetrics(
+  session?: TeamSession | null,
+): Promise<JobBacklogMetrics> {
   const now = new Date();
+  const scope = session ? teamWhere(session) : {};
 
   const [pending, running, expiredLease, failed, completed] = await Promise.all([
-    prisma.job.count({ where: { status: JobStatus.PENDING } }),
-    prisma.job.count({ where: { status: JobStatus.RUNNING } }),
-    prisma.job.count({ where: { status: JobStatus.RUNNING, leaseExpiresAt: { lt: now } } }),
-    prisma.job.count({ where: { status: JobStatus.FAILED } }),
-    prisma.job.count({ where: { status: JobStatus.COMPLETED } }),
+    prisma.job.count({ where: { ...scope, status: JobStatus.PENDING } }),
+    prisma.job.count({ where: { ...scope, status: JobStatus.RUNNING } }),
+    prisma.job.count({ where: { ...scope, status: JobStatus.RUNNING, leaseExpiresAt: { lt: now } } }),
+    prisma.job.count({ where: { ...scope, status: JobStatus.FAILED } }),
+    prisma.job.count({ where: { ...scope, status: JobStatus.COMPLETED } }),
   ]);
 
   const oldestPending = await prisma.job.findFirst({
-    where: { status: JobStatus.PENDING },
+    where: { ...scope, status: JobStatus.PENDING },
     orderBy: { availableAt: "asc" },
     select: { availableAt: true },
   });
@@ -40,7 +49,10 @@ export async function getJobBacklogMetrics(): Promise<JobBacklogMetrics> {
   // Group by type to find the top job types, then run per-status counts for each
   const grouped = await prisma.job.groupBy({
     by: ["type"],
-    where: { status: { in: [JobStatus.PENDING, JobStatus.RUNNING, JobStatus.FAILED] } },
+    where: {
+      ...scope,
+      status: { in: [JobStatus.PENDING, JobStatus.RUNNING, JobStatus.FAILED] },
+    },
     _count: true,
   });
 
@@ -48,9 +60,9 @@ export async function getJobBacklogMetrics(): Promise<JobBacklogMetrics> {
   const byType: Array<{ type: string; pending: number; running: number; failed: number }> = [];
   for (const type of topTypes) {
     const [p, r, f] = await Promise.all([
-      prisma.job.count({ where: { type, status: JobStatus.PENDING } }),
-      prisma.job.count({ where: { type, status: JobStatus.RUNNING } }),
-      prisma.job.count({ where: { type, status: JobStatus.FAILED } }),
+      prisma.job.count({ where: { ...scope, type, status: JobStatus.PENDING } }),
+      prisma.job.count({ where: { ...scope, type, status: JobStatus.RUNNING } }),
+      prisma.job.count({ where: { ...scope, type, status: JobStatus.FAILED } }),
     ]);
     byType.push({ type, pending: p, running: r, failed: f });
   }
