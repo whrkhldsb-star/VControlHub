@@ -15,6 +15,7 @@ import {
 } from "@/lib/storage/sftp-sync";
 import {
   normalizeRemotePath,
+  normalizeRemoteRelativePath,
   toClientStorageError,
 } from "@/lib/storage/remote-path";
 import {
@@ -55,8 +56,12 @@ export async function POST(request: Request) {
         );
       }
 
+      // Normalize once so ACL grants, sync work, and job payload all share the same relative path
+      // (raw body may include leading slashes / redundant segments that diverge from grant matching).
+      let normalizedRelativePath: string;
       try {
         normalizeRemotePath(node.basePath, remotePath);
+        normalizedRelativePath = normalizeRemoteRelativePath(remotePath);
       } catch {
         return NextResponse.json(
           toClientStorageError("Sync path exceeds the storage node root directory"),
@@ -67,7 +72,7 @@ export async function POST(request: Request) {
       const accessDecision = await assertStorageAccess({
         session,
         storageNodeId: node.id,
-        relativePath: remotePath,
+        relativePath: normalizedRelativePath,
         operation: "write",
       });
       if (!accessDecision.allowed) {
@@ -83,7 +88,7 @@ export async function POST(request: Request) {
         try {
           const result = await syncSftpDirectoryEntries({
             node,
-            remotePath,
+            remotePath: normalizedRelativePath,
             recursive,
             maxDepth,
           });
@@ -105,7 +110,7 @@ export async function POST(request: Request) {
         title: `SFTP Sync: ${node.name}`,
         payload: {
           nodeId,
-          remotePath,
+          remotePath: normalizedRelativePath,
           recursive,
           maxDepth,
           teamId: session.currentTeamId ?? node.teamId ?? null,
@@ -114,7 +119,7 @@ export async function POST(request: Request) {
         teamId: session.currentTeamId ?? node.teamId ?? null,
         maxAttempts: 3,
       });
-      await auditUserAction(session.userId, "storage.sftp-sync", { nodeId, remotePath: remotePath ?? null }, undefined, session?.currentTeamId);
+      await auditUserAction(session.userId, "storage.sftp-sync", { nodeId, remotePath: normalizedRelativePath || null }, undefined, session?.currentTeamId);
       return NextResponse.json({
         success: true,
         queued: true,
