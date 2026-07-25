@@ -1,6 +1,7 @@
 "use client";
 
 import { useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 
 import { csrfFetch } from "@/lib/auth/csrf-client";
 import { useI18n } from "@/lib/i18n/use-locale";
@@ -57,6 +58,7 @@ function isImageMime(type: string): boolean {
 
 export function MediaImageUploadPanel() {
 	const { t } = useI18n();
+	const router = useRouter();
 	const fileInputRef = useRef<HTMLInputElement>(null);
 	const [nodes, setNodes] = useState<StorageNodeOption[]>([]);
 	const [nodesLoaded, setNodesLoaded] = useState(false);
@@ -222,6 +224,8 @@ export function MediaImageUploadPanel() {
 		if (success > 0) {
 			const failurePart = failure > 0 ? t("mediaUploadPanel.summaryFailedPart").replace("{failure}", String(failure)) : "";
 			setMessage(t("mediaUploadPanel.summarySuccess").replace("{success}", String(success)).replace("{failureMsg}", failurePart));
+			// Media page is RSC-fed; refresh so newly uploaded images appear without a full reload.
+			router.refresh();
 		} else {
 			setError(t("mediaUploadPanel.summaryFailed").replace("{failure}", String(failure)).replace("{total}", String(uploadItems.length)));
 		}
