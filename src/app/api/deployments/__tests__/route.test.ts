@@ -114,7 +114,7 @@ describe("/api/deployments", () => {
     });
     const res = await route.POST(req);
     expect(res.status).toBe(303);
-    expect(res.headers.get("location")).toBe("http://local/deployments");
+    expect(res.headers.get("location")).toBe("http://local/deployments?success=1");
     expect(mocks.createDeploymentRunFromTemplate).toHaveBeenCalledWith({
       templateId: "tmpl1",
       serverIds: ["srv1", "srv2"],

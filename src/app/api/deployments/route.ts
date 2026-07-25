@@ -40,9 +40,14 @@ function wantsHtmlResponse(request: Request) {
   return (request.headers.get("accept") || "").includes("text/html");
 }
 
-function redirectToDeploymentsWithError(request: Request, message?: string) {
+/** 303 back to /deployments; optional flash via ?error= or ?success=1. */
+function redirectToDeployments(
+  request: Request,
+  options?: { error?: string; success?: boolean },
+) {
   const url = new URL("/deployments", request.url);
-  if (message) url.searchParams.set("error", message);
+  if (options?.error) url.searchParams.set("error", options.error);
+  if (options?.success) url.searchParams.set("success", "1");
   return NextResponse.redirect(url, { status: 303 });
 }
 
@@ -94,7 +99,7 @@ export async function POST(request: Request) {
         if (!parsed.success) {
           const message = parsed.error.issues[0]?.message ?? "Invalid deployment parameters";
           if (wantsHtmlResponse(request))
-            return redirectToDeploymentsWithError(request, message);
+            return redirectToDeployments(request, { error: message });
           throw new ValidationError(message);
         }
         const deployment = await createDeploymentRunFromTemplate({
@@ -108,7 +113,7 @@ export async function POST(request: Request) {
           reason: parsed.data.reason ?? null,
         }, undefined, session?.currentTeamId);
         if (wantsHtmlResponse(request)) {
-          return redirectToDeploymentsWithError(request);
+          return redirectToDeployments(request, { success: true });
         }
         return NextResponse.json({ deployment }, { status: 201 });
       } catch (error) {
@@ -119,7 +124,7 @@ export async function POST(request: Request) {
         if (isAppError(error)) throw error;
         const message = error instanceof Error ? error.message : "Operation failed";
         if (wantsHtmlResponse(request))
-          return redirectToDeploymentsWithError(request, message);
+          return redirectToDeployments(request, { error: message });
         throw new AppError({ code: "INTERNAL_ERROR", message: message, status: 500 });
       }
     },

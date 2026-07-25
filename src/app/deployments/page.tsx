@@ -20,7 +20,7 @@ function deploymentStatusTone(status: string) {
 	return "border-[var(--warning-border)] bg-[var(--warning-bg)] text-[var(--warning)]";
 }
 
-export default async function DeploymentsPage({ searchParams }: { searchParams?: Promise<{ error?: string }> }) {
+export default async function DeploymentsPage({ searchParams }: { searchParams?: Promise<{ error?: string; success?: string }> }) {
 
 	const session = await requireSession("/deployments");
 	const locale = await getServerLocale();
@@ -33,6 +33,7 @@ export default async function DeploymentsPage({ searchParams }: { searchParams?:
 	const canExport = sessionHasPermission(session, "deploy:export");
 	const params = await searchParams;
 	const formError = params?.error;
+	const formSuccess = params?.success === "1" || params?.success === "true";
 	const [runs, templates, servers] = await Promise.all([
 		listDeploymentRuns(session),
 		listDeploymentTemplates(),
@@ -84,6 +85,11 @@ export default async function DeploymentsPage({ searchParams }: { searchParams?:
 			{formError && (
 				<div role="alert" className="mb-6 rounded-xl border border-[var(--danger-border)] bg-[var(--danger-bg)] px-4 py-3 text-sm text-[var(--danger)]">
 					{tr("deploymentsPage.page.submitFailed")}{formError}
+				</div>
+			)}
+			{formSuccess && !formError && (
+				<div role="status" className="mb-6 rounded-xl border border-[var(--success-border)] bg-[var(--success-bg)] px-4 py-3 text-sm text-[var(--success)]">
+					{tr("deploymentsPage.page.submitSuccess")}
 				</div>
 			)}
 			{canExport && <DeploymentExportPanel />}
