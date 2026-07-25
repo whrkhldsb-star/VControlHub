@@ -7,7 +7,6 @@ import { prisma } from "@/lib/db";
 import { withApiRoute } from "@/lib/http/api-guard";
 import { SERVICE_CATALOG } from "@/lib/quick-service/catalog";
 import { getRemoteApps } from "@/lib/quick-service/app-source-sync";
-import { listQuickServices } from "@/lib/quick-service/service";
 
 export const dynamic = "force-dynamic";
 
@@ -55,7 +54,8 @@ export async function GET(request: Request) {
 				id: `server:${server.id}`,
 				label: server.name,
 				description: server.description ?? server.host,
-				href: "/servers",
+				// Deep-link so the servers page can highlight the matched host (same pattern as tickets).
+				href: `/servers?highlight=${encodeURIComponent(server.id)}`,
 				icon: "🖥️",
 				category: "server" as const,
 			})));
@@ -89,11 +89,21 @@ export async function GET(request: Request) {
 		}
 
 		if (session && sessionHasPermission(session, "docker:manage")) {
-			const installed = await listQuickServices();
+			// Search across all instance keys (hub + remote VPS installs), not only hub-host.
+			const installed = await prisma.quickService.findMany({
+				orderBy: [{ category: "asc" }, { name: "asc" }],
+				take: 500,
+				select: { slug: true, name: true, description: true, status: true, instanceKey: true },
+			});
 			const remoteApps = await getRemoteApps();
 			const quickServices = [
 				...SERVICE_CATALOG.map((item) => ({ slug: item.slug, name: item.name, description: item.description, source: "catalog" })),
-				...installed.map((item) => ({ slug: item.slug, name: item.name, description: item.description, source: item.status })),
+				...installed.map((item) => ({
+					slug: item.slug,
+					name: item.name,
+					description: item.description,
+					source: item.instanceKey === "hub-host" ? item.status : `${item.status}@${item.instanceKey}`,
+				})),
 				...remoteApps.map((item) => ({ slug: item.slug, name: item.name, description: item.description, source: item.sourceName })),
 			]
 				.filter((item, index, list) => list.findIndex((candidate) => candidate.slug === item.slug) === index)
