@@ -20,19 +20,31 @@ export function ShareAccessReport() {
   const [report, setReport] = useState<Report | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const loadGenRef = useRef(0);
 
   const load = useCallback(async (nextDays: string, nextAction: string) => {
+    const gen = ++loadGenRef.current;
     setLoading(true); setError(null);
     try {
       const data = await csrfFetch<{ report: Report }>(`/api/shares/access-report?days=${encodeURIComponent(nextDays)}&action=${encodeURIComponent(nextAction)}&limit=100`);
+      // Ignore out-of-order responses from rapid range/action filter changes.
+      if (gen !== loadGenRef.current) return;
       setReport(data.report);
-    } catch (cause) { setError(cause instanceof Error ? cause.message : tRef.current("sharesPage.report.error")); }
-    finally { setLoading(false); }
+    } catch (cause) {
+      if (gen !== loadGenRef.current) return;
+      setError(cause instanceof Error ? cause.message : tRef.current("sharesPage.report.error"));
+    } finally {
+      if (gen === loadGenRef.current) setLoading(false);
+    }
   }, []);
 
   useEffect(() => {
     const timer = window.setTimeout(() => { void load("30", "all"); }, 0);
-    return () => window.clearTimeout(timer);
+    return () => {
+      window.clearTimeout(timer);
+      // Invalidate in-flight load so unmount/remount cannot apply stale state.
+      loadGenRef.current += 1;
+    };
   }, [load]);
 
   const exportHref = `/api/shares/access-report?days=${encodeURIComponent(days)}&action=${encodeURIComponent(action)}&limit=500&format=csv`;
