@@ -191,23 +191,32 @@ export async function getRemoteApps(): Promise<NormalizedApp[]> {
 		include: { source: { select: { name: true } } },
 	});
 
-	return apps.map((app: RemoteAppRow): NormalizedApp => ({
-		slug: app.slug,
-		name: app.name,
-		category: app.category,
-		icon: app.icon,
-		description: app.description,
-		image: app.image,
-		defaultPort: app.defaultPort,
-		internalPort: app.internalPort ?? undefined,
-		path: app.path,
-		envJson: JSON.parse(app.envJson),
-		volumesJson: JSON.parse(app.volumesJson),
-		command: app.command ?? undefined,
-		extraPorts: JSON.parse(app.extraPortsJson || "[]"),
-		sourceVersion: app.sourceVersion ?? undefined,
-		sourceName: app.source.name,
-	}));
+	return apps.flatMap((app: RemoteAppRow): NormalizedApp[] => {
+		try {
+			return [
+				{
+					slug: app.slug,
+					name: app.name,
+					category: app.category,
+					icon: app.icon,
+					description: app.description,
+					image: app.image,
+					defaultPort: app.defaultPort,
+					internalPort: app.internalPort ?? undefined,
+					path: app.path,
+					envJson: JSON.parse(app.envJson) as NormalizedApp["envJson"],
+					volumesJson: JSON.parse(app.volumesJson) as NormalizedApp["volumesJson"],
+					command: app.command ?? undefined,
+					extraPorts: JSON.parse(app.extraPortsJson || "[]") as NormalizedApp["extraPorts"],
+					sourceVersion: app.sourceVersion ?? undefined,
+					sourceName: app.source.name,
+				},
+			];
+		} catch {
+			// Corrupt JSON on one catalog row must not 500 the whole Quick Services list.
+			return [];
+		}
+	});
 }
 
 /**

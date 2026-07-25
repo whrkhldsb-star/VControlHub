@@ -60,6 +60,49 @@ describe("app source catalog bounds", () => {
 		}));
 	});
 
+	it("skips catalog rows with corrupt env/volumes/extraPorts JSON instead of throwing", async () => {
+		prismaMock.appSourceApp.findMany.mockResolvedValueOnce([
+			{
+				slug: "bad",
+				name: "Bad",
+				category: "media",
+				icon: "x",
+				description: "",
+				image: "bad",
+				defaultPort: 1,
+				internalPort: null,
+				path: "/",
+				envJson: "{not-json",
+				volumesJson: "[]",
+				command: null,
+				extraPortsJson: "[]",
+				sourceVersion: null,
+				source: { name: "LinuxServer" },
+			},
+			{
+				slug: "good",
+				name: "Good",
+				category: "media",
+				icon: "x",
+				description: "",
+				image: "good",
+				defaultPort: 2,
+				internalPort: null,
+				path: "/",
+				envJson: "{}",
+				volumesJson: "[]",
+				command: null,
+				extraPortsJson: "[]",
+				sourceVersion: null,
+				source: { name: "LinuxServer" },
+			},
+		]);
+
+		await expect(getRemoteApps()).resolves.toEqual([
+			expect.objectContaining({ slug: "good" }),
+		]);
+	});
+
 	it("limits enabled app-source sync enumeration and processes sources deterministically", async () => {
 		prismaMock.appSource.findMany.mockResolvedValueOnce([]);
 
