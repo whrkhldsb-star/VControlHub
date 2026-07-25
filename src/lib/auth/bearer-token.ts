@@ -32,10 +32,12 @@ export async function verifyBearerToken(
 	const result = await verifyApiToken(token);
 	if (!result) return null;
 
-	// Check scope: wildcard "read" covers all :read scopes; specific scopes override
+	// Check scope: wildcard "read" covers all :read scopes; specific scopes override.
+	// Do NOT honor an "admin" super-scope here — ALLOWED_API_TOKEN_SCOPES never
+	// issues admin tokens, so treating it as wildcard would only reward a
+	// hand-edited DB row / allowlist slip with unintended privilege.
 	const hasScope = result.scopes.includes(requiredScope)
-		|| (requiredScope.endsWith(":read") && result.scopes.includes("read"))
-		|| result.scopes.includes("admin");
+		|| (requiredScope.endsWith(":read") && result.scopes.includes("read"));
 
 	if (!hasScope) return null;
 
