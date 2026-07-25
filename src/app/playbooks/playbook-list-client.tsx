@@ -39,6 +39,7 @@ export function PlaybookListClient({
   const refreshRuns = useCallback(async (playbookId: string) => {
     const data = await csrfFetch<{ runs: RunSummary[] }>(`/api/playbooks/${playbookId}/runs`);
     setRunsByPlaybook((prev) => ({ ...prev, [playbookId]: data.runs ?? [] }));
+    return data.runs ?? [];
   }, []);
 
   const refresh = useCallback(async () => {
@@ -64,6 +65,10 @@ export function PlaybookListClient({
 
   useEffect(() => () => clearRunPolling(), [clearRunPolling]);
 
+  const isTerminalRunStatus = useCallback((status: string) => {
+    return status === "completed" || status === "failed" || status === "cancelled";
+  }, []);
+
   const startRunPolling = useCallback(
     (playbookId: string) => {
       clearRunPolling(playbookId);
@@ -73,15 +78,20 @@ export function PlaybookListClient({
       for (const delay of delaysMs) {
         timers.push(
           window.setTimeout(() => {
-            void refreshRuns(playbookId).then(() => {
-              /* terminal stop is best-effort via later ticks; timers cleared on unmount */
-            }).catch(() => undefined);
+            void refreshRuns(playbookId)
+              .then((runs) => {
+                const latest = runs[0];
+                if (latest && isTerminalRunStatus(latest.status)) {
+                  clearRunPolling(playbookId);
+                }
+              })
+              .catch(() => undefined);
           }, delay),
         );
       }
       runPollTimersRef.current.set(playbookId, timers);
     },
-    [clearRunPolling, refreshRuns],
+    [clearRunPolling, isTerminalRunStatus, refreshRuns],
   );
 
   const handleTrigger = useCallback(
