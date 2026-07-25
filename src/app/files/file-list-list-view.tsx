@@ -25,6 +25,7 @@ import {
   type StorageEntry,
 } from "./file-entry-utils";
 import type { FolderProp } from "./file-list-model";
+import { FileListEmptyState } from "./file-list-empty-state";
 import { FileListListViewMobile } from "./file-list-list-view-mobile";
 
 type ToastFn = (type:"success" |"error" |"info", message: string) => void;
@@ -156,22 +157,7 @@ export function FileListListView(props: FileListListViewProps) {
           </div>
           <div className="divide-y divide-[var(--border-subtle)] light:divide-[var(--border)]">
             {sortedFolders.length === 0 && sortedFiles.length === 0 ? (
-              <div className="px-6 py-16 text-center text-sm text-[var(--text-muted)]">
-                <p>{emptyMessage}</p>
-                {onGoUp ? (
-                  <>
-                    <button
-                      type="button"
-                      onClick={onGoUp}
-                      data-testid="files-empty-up-level"
-                     data-action-button data-variant="secondary" className="mt-4 inline-flex items-center gap-1.5 !px-4 !py-2 !text-sm">
-                      <span aria-hidden="true">↑</span>
-                      {t("fileListClient.upLevel")}
-                    </button>
-                    <p className="mt-2 text-xs text-[var(--text-muted)]">{t("fileListClient.upLevelHint")}</p>
-                  </>
-                ) : null}
-              </div>
+              <FileListEmptyState emptyMessage={emptyMessage} onGoUp={onGoUp} />
             ) : null}
 
             {sortedFolders.map((folder) => (

@@ -23,6 +23,7 @@ import {
   type StorageEntry,
 } from "./file-entry-utils";
 import type { FolderProp } from "./file-list-model";
+import { FileListEmptyState } from "./file-list-empty-state";
 
 type ToastFn = (type: "success" | "error" | "info", message: string) => void;
 type EntryGuard = (entry: { capabilities?: FileProp["capabilities"] }) => boolean;
@@ -67,33 +68,25 @@ export function FileListGridView({
   return (
     <div className="grid grid-cols-2 gap-3 p-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">
       {sortedFolders.length === 0 && sortedFiles.length === 0 ? (
-        <div className="col-span-full py-16 text-center">
-          <svg
-            width="48"
-            height="48"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="1.5"
-            className="mx-auto mb-3 text-[var(--text-muted)]"
-          >
-            <path d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z" />
-          </svg>
-          <p className="text-sm text-[var(--text-muted)]">{emptyMessage}</p>
-          {onGoUp ? (
-            <>
-              <button
-                type="button"
-                onClick={onGoUp}
-                data-testid="files-empty-up-level"
-               data-action-button data-variant="secondary" className="mt-4 inline-flex items-center gap-1.5 !px-4 !py-2 !text-sm">
-                <span aria-hidden="true">↑</span>
-                {t("fileListClient.upLevel")}
-              </button>
-              <p className="mt-2 text-xs text-[var(--text-muted)]">{t("fileListClient.upLevelHint")}</p>
-            </>
-          ) : null}
-        </div>
+        <FileListEmptyState
+          emptyMessage={emptyMessage}
+          onGoUp={onGoUp}
+          className="col-span-full py-16 text-center"
+          messageClassName="text-sm text-[var(--text-muted)]"
+          icon={
+            <svg
+              width="48"
+              height="48"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.5"
+              className="mx-auto mb-3 text-[var(--text-muted)]"
+            >
+              <path d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z" />
+            </svg>
+          }
+        />
       ) : null}
 
       {/* Folder cards */}
