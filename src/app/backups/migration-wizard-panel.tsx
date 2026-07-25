@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useState } from "react";
+import { useRouter } from "next/navigation";
 
 import { csrfFetch } from "@/lib/auth/csrf-client";
 import { useI18n } from "@/lib/i18n/use-locale";
@@ -12,6 +13,7 @@ type Props = {
 };
 
 export function MigrationWizardPanel({ completedBackups, canCreate }: Props) {
+  const router = useRouter();
   const { t } = useI18n();
   const [backupId, setBackupId] = useState(completedBackups[0]?.id ?? "");
   const [packageRef, setPackageRef] = useState("");
@@ -121,13 +123,15 @@ export function MigrationWizardPanel({ completedBackups, canCreate }: Props) {
             .replace("{type}", data.type)
             .replace("{path}", data.filePath),
         );
+        // Parent BackupsPage is an RSC list — refresh so the new imported record appears.
+        router.refresh();
       } catch (cause) {
         setError(cause instanceof Error ? cause.message : t("backupsPage.migration.error"));
       } finally {
         setBusy(null);
       }
     },
-    [backupId, canCreate, note, packageRef, t],
+    [backupId, canCreate, note, packageRef, router, t],
   );
 
   if (!canCreate) {
