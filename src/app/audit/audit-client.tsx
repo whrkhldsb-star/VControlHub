@@ -260,7 +260,7 @@ export function AuditLogClient({ initialActionFilter = "" }: AuditLogClientProps
         <div className="divide-y divide-[var(--border-subtle)] md:hidden">
           {loading ? (
             <EmptyState>{t("audit.loading")}</EmptyState>
-          ) : error ? (
+          ) : error && !data ? (
             <div className="px-4 py-10 text-sm text-[var(--danger)]">{t("audit.load-error")}</div>
           ) : !data || data.logs.length === 0 ? (
             <EmptyState>{t("audit.empty")}</EmptyState>
