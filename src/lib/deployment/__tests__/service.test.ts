@@ -109,6 +109,26 @@ describe("deployment service", () => {
     expect(mockPrisma.deploymentRun.create).not.toHaveBeenCalled();
   });
 
+  it("rejects missing placeholders that appear only in rollbackCommand", async () => {
+    mockPrisma.commandTemplate.findUnique.mockResolvedValueOnce({
+      id: "tmpl_rb",
+      name: "Rollback vars",
+      command: "deploy {{pkg}}",
+      rollbackCommand: "rollback {{pkg}} --tag {{tag}}",
+      variables: ["pkg"],
+    });
+
+    await expect(
+      createDeploymentRunFromTemplate({
+        templateId: "tmpl_rb",
+        serverIds: ["srv1"],
+        variables: { pkg: "nginx" },
+        requesterId: "u1",
+      }),
+    ).rejects.toThrow("Deployment template variables not fully filled in: tag");
+    expect(mockPrisma.deploymentRun.create).not.toHaveBeenCalled();
+  });
+
   it("preserves deployment run failure when command request creation fails", async () => {
     vi.mocked(commandService.createCommandRequest).mockRejectedValueOnce(new Error("Approval chain not available"));
 

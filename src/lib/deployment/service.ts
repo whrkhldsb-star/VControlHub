@@ -100,9 +100,11 @@ function assertTemplateVariables(
   command: string,
   templateVariables: string[] | null | undefined,
   variables: Record<string, string>,
+  rollbackCommand?: string | null,
 ) {
+  const scan = `${command}\n${rollbackCommand ?? ""}`;
   const placeholders = Array.from(
-    command.matchAll(/\{\{([A-Za-z0-9_]+)\}\}/g),
+    scan.matchAll(/\{\{([A-Za-z0-9_]+)\}\}/g),
   ).map((match) => match[1]!);
   const required = Array.from(
     new Set([
@@ -140,6 +142,7 @@ export async function createDeploymentRunFromTemplate(
     template.command,
     template.variables,
     normalized.variables,
+    template.rollbackCommand,
   );
   const renderedCommand = renderCommand(template.command, normalized.variables);
   const renderedRollbackCommand = template.rollbackCommand
