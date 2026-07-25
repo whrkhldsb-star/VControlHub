@@ -102,7 +102,7 @@ export function BatchReviewToolbar({
 		const id = el.props["data-id"];
 		if (!id || !pendingIds.includes(id)) return child;
 		return (
-			<div className="relative">
+			<div key={id} className="relative">
 				<label
 					className="absolute left-2 top-2 z-10 flex h-6 w-6 cursor-pointer items-center justify-center rounded border border-[var(--border)] bg-[var(--modal-bg)] hover:bg-[var(--surface)]"
 					aria-label={`Select ${id}`}
