@@ -24,6 +24,7 @@ import {
   useCallback,
   useEffect,
   useMemo,
+  useRef,
   type SyntheticEvent,
 } from "react";
 
@@ -115,6 +116,16 @@ export function SettingsClient({
   const [saved, setSaved] = useState(false);
   const [savedMessage, setSavedMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const saveBannerTimerRef = useRef<number | null>(null);
+  useEffect(
+    () => () => {
+      if (saveBannerTimerRef.current != null) {
+        window.clearTimeout(saveBannerTimerRef.current);
+        saveBannerTimerRef.current = null;
+      }
+    },
+    [],
+  );
   // TR-014 M01b: second-confirm modal state for saving high-risk fields
   const [highRiskConfirm, setHighRiskConfirm] = useState<{
     changes: PendingChange[];
@@ -306,9 +317,13 @@ export function SettingsClient({
           setSavedMessage(
             section.saveMessageKey ? t(section.saveMessageKey) : t("settingsClient.saveSuccess"),
           );
-          setTimeout(() => {
+          if (saveBannerTimerRef.current != null) {
+            window.clearTimeout(saveBannerTimerRef.current);
+          }
+          saveBannerTimerRef.current = window.setTimeout(() => {
             setSaved(false);
             setSavedMessage(null);
+            saveBannerTimerRef.current = null;
           }, 5000);
         } catch (err) {
           setError(
