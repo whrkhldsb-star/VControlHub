@@ -57,20 +57,49 @@ export default function GlobalError({
 
 	const c = copy[locale];
 
+	// global-error replaces <html> and sits outside the normal layout tree, so
+	// design tokens from globals.css are not applied. Inline dark-theme
+	// fallbacks keep the recovery UI readable until reset remounts the app.
 	return (
 		<html lang={c.lang}>
-			<body className="m-0 bg-[var(--surface-root)] p-0 font-sans text-[var(--text-primary)]">
+			<body
+				className="m-0 bg-[var(--surface-root,#050508)] p-0 font-sans text-[var(--text-primary,#f4f5fb)]"
+				style={{ backgroundColor: "#050508", color: "#f4f5fb" }}
+			>
 				<div className="mx-auto max-w-[600px] px-6 py-20 text-center">
-					<h1 className="mb-3 text-3xl font-semibold text-[var(--text-primary)]">{c.title}</h1>
-					<p className="mb-6 text-base leading-relaxed text-[var(--text-secondary)]">
+					<h1
+						className="mb-3 text-3xl font-semibold text-[var(--text-primary,#f4f5fb)]"
+						style={{ color: "#f4f5fb" }}
+					>
+						{c.title}
+					</h1>
+					<p
+						className="mb-6 text-base leading-relaxed text-[var(--text-secondary,#b8bad0)]"
+						style={{ color: "#b8bad0" }}
+					>
 						{c.description}
 					</p>
 					{error.digest && (
-						<p className="mb-4 text-xs text-[var(--text-muted)]">{c.digestLabel}: {error.digest}</p>
+						<p
+							className="mb-4 text-xs text-[var(--text-muted,#7f8299)]"
+							style={{ color: "#7f8299" }}
+						>
+							{c.digestLabel}: {error.digest}
+						</p>
 					)}
 					<button
 						onClick={reset}
-						data-action-button data-variant="primary" className="px-7 py-2.5 text-sm"
+						data-action-button
+						data-variant="primary"
+						className="px-7 py-2.5 text-sm"
+						style={{
+							backgroundColor: "#22d3ee",
+							color: "#082f49",
+							border: "none",
+							borderRadius: "0.75rem",
+							cursor: "pointer",
+							fontWeight: 600,
+						}}
 					>
 						{c.retry}
 					</button>
