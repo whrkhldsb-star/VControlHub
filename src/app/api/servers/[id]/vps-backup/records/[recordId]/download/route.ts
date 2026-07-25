@@ -7,6 +7,7 @@
 
 import { prisma } from "@/lib/db";
 import { withApiRoute } from "@/lib/http/api-guard";
+import { nodeStreamToWeb } from "@/lib/http/node-to-web-stream";
 import { GENERAL_WRITE_LIMIT } from "@/lib/http/rate-limit-presets";
 import { createLogger } from "@/lib/logging";
 import { getServerLocale, t } from "@/lib/i18n/translations";
@@ -52,7 +53,9 @@ export async function GET(
 				const stream = createReadStream(absPath);
 				const filename = `${record.backupType}-${recordId}.tar.gz`;
 
-				return new Response(stream as unknown as ReadableStream, {
+				// nodeStreamToWeb wires cancel() → stream.destroy() so client aborts
+				// free the fd instead of reading to EOF (cast-as-WebStream does not).
+				return new Response(nodeStreamToWeb(stream), {
 					headers: {
 						"Content-Type": "application/gzip",
 						"Content-Disposition": `attachment; filename="${filename}"`,
