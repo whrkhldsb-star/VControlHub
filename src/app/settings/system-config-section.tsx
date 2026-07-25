@@ -83,6 +83,9 @@ export function SystemConfigSection() {
           setFileError(t("systemConfig.import.schemaVersionMismatch")
             .replace("{fileVersion}", String(json.schemaVersion ?? "?"))
             .replace("{currentVersion}", String(EXPORT_SCHEMA_VERSION)));
+          // Drop any previously selected valid payload so Preview/Execute
+          // cannot run against the old file under the new (invalid) filename.
+          setSelectedFile(null);
           return;
         }
         setSelectedFile(json as ExportFile);
