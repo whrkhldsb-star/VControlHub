@@ -68,6 +68,7 @@ export function WebVitalsReporter() {
 				const webVitals = await import("web-vitals");
 				if (cancelled) return;
 				const report = (metric: { name: string; value: number; rating?: MetricRating; navigationType?: string }) => {
+					if (cancelled) return;
 					if (!["CLS", "LCP", "INP", "FCP", "TTFB"].includes(metric.name)) return;
 					void postVital({
 						name: metric.name as VitalPayload["name"],
@@ -90,6 +91,7 @@ export function WebVitalsReporter() {
 
 			try {
 				const lcpObserver = new PerformanceObserver((list) => {
+					if (cancelled) return;
 					const entries = list.getEntries();
 					const last = entries[entries.length - 1] as PerformanceEntry | undefined;
 					if (last) void postVital({ name: "LCP", value: last.startTime });
@@ -103,6 +105,7 @@ export function WebVitalsReporter() {
 			try {
 				let cls = 0;
 				const clsObserver = new PerformanceObserver((list) => {
+					if (cancelled) return;
 					for (const entry of list.getEntries() as Array<PerformanceEntry & { hadRecentInput?: boolean; value?: number }>) {
 						if (!entry.hadRecentInput && typeof entry.value === "number") cls += entry.value;
 					}
@@ -116,6 +119,7 @@ export function WebVitalsReporter() {
 
 			try {
 				const inpObserver = new PerformanceObserver((list) => {
+					if (cancelled) return;
 					for (const entry of list.getEntries() as Array<PerformanceEntry & { duration?: number; interactionId?: number }>) {
 						if (entry.interactionId && typeof entry.duration === "number") {
 							void postVital({ name: "INP", value: entry.duration });
