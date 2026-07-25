@@ -25,12 +25,43 @@ export async function createSnippet(input: { title: string; content: string; lan
 }
 
 export async function listSnippets(input: { userId?: string; q?: string; language?: string } = {}) {
- const q = input.q?.trim();
- return prisma.snippet.findMany({ take: 500,
-  where: { AND: [input.language ? { language: input.language } : {}, q ? { OR: [{ title: { contains: q, mode: "insensitive" } }, { content: { contains: q, mode: "insensitive" } }, { tags: { has: q } }] } : {}, { OR: [{ isPrivate: false }, input.userId ? { createdBy: input.userId } : {}] }] },
-  orderBy: { updatedAt: "desc" },
-  select: { id: true, title: true, content: true, language: true, description: true, tags: true, isPrivate: true, createdBy: true, createdAt: true, updatedAt: true },
- });
+  const q = input.q?.trim();
+  // Empty Prisma `{}` matches every row — never use it as the private-owner branch.
+  // Without userId, only public snippets; with userId, public + own private.
+  const privacyFilter = input.userId
+    ? { OR: [{ isPrivate: false }, { createdBy: input.userId }] }
+    : { isPrivate: false };
+  return prisma.snippet.findMany({
+    take: 500,
+    where: {
+      AND: [
+        input.language ? { language: input.language } : {},
+        q
+          ? {
+              OR: [
+                { title: { contains: q, mode: "insensitive" } },
+                { content: { contains: q, mode: "insensitive" } },
+                { tags: { has: q } },
+              ],
+            }
+          : {},
+        privacyFilter,
+      ],
+    },
+    orderBy: { updatedAt: "desc" },
+    select: {
+      id: true,
+      title: true,
+      content: true,
+      language: true,
+      description: true,
+      tags: true,
+      isPrivate: true,
+      createdBy: true,
+      createdAt: true,
+      updatedAt: true,
+    },
+  });
 }
 
 export async function updateSnippet(
