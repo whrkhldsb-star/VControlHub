@@ -2,8 +2,9 @@
 
 import { revalidatePath } from "next/cache";
 
-import { requirePermission } from "@/lib/auth/authorization";
+import { requirePermission, sessionHasPermission } from "@/lib/auth/authorization";
 import { createCommandRequest } from "@/lib/command/service";
+import { ForbiddenError } from "@/lib/errors";
 import { getServerLocale, t } from "@/lib/i18n/translations";
 
 export type CommandActionState = {
@@ -19,13 +20,19 @@ export async function createCommandRequestAction(_prev: CommandActionState | nul
   try {
     const serverIds = formData.getAll("serverIds").map((value) => String(value)).filter(Boolean);
     const submissionMode = String(formData.get("submissionMode") ?? "user");
+    const resolvedMode = submissionMode === "assistant" ? "assistant" : "user";
+    if (resolvedMode === "user" && !sessionHasPermission(session, "command:execute")) {
+      throw new ForbiddenError(
+        "command:execute permission is required for direct (user) submission mode",
+      );
+    }
 
     await createCommandRequest(
       {
         title: String(formData.get("title") ?? ""),
         command: String(formData.get("command") ?? ""),
         reason: String(formData.get("reason") ?? ""),
-        submissionMode: submissionMode === "assistant" ? "assistant" : "user",
+        submissionMode: resolvedMode,
         requesterId: session.userId,
         serverIds,
       },
@@ -38,7 +45,7 @@ export async function createCommandRequestAction(_prev: CommandActionState | nul
 
     return {
       success:
-        submissionMode === "assistant"
+        resolvedMode === "assistant"
           ? tr("serversPage.command.actionAssistantSuccess")
           : tr("serversPage.command.actionUserSuccess"),
     } satisfies CommandActionState;

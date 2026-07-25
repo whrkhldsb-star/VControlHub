@@ -22,6 +22,16 @@ vi.mock("@/lib/command/service", () => ({
   cancelCommandRequest: mocks.cancelCommandRequest,
 }));
 vi.mock("@/lib/audit/service", () => ({ auditUserAction: mocks.auditUserAction }));
+// Avoid cross-test 429 from shared COMMAND_LIMIT (5/min) when suite grows.
+vi.mock("@/lib/http/rate-limit-presets", async () => {
+  const actual = await vi.importActual<typeof import("@/lib/http/rate-limit-presets")>(
+    "@/lib/http/rate-limit-presets",
+  );
+  return {
+    ...actual,
+    withRateLimit: async () => ({ allowed: true, retryAfterMs: 0, remaining: 999 }),
+  };
+});
 
 const route = await import("../route");
 
@@ -123,9 +133,9 @@ describe("/api/commands audit coverage", () => {
     }), undefined, null);
   });
 
-  it("forces command submissions without execute permission into approval flow", async () => {
+  it("rejects command submissions without execute permission for user submission mode", async () => {
     mocks.sessionHasPermission.mockImplementation((_session, permission) => permission !== "command:execute");
-    await route.POST(new Request("http://local/api/commands", {
+    const response = await route.POST(new Request("http://local/api/commands", {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({
@@ -137,6 +147,26 @@ describe("/api/commands audit coverage", () => {
       }),
     }));
 
+    expect(response.status).toBe(403);
+    expect(await response.json()).toMatchObject({ code: "FORBIDDEN" });
+    expect(mocks.createCommandRequest).not.toHaveBeenCalled();
+  });
+
+  it("allows assistant submission mode without command:execute", async () => {
+    mocks.sessionHasPermission.mockImplementation((_session, permission) => permission !== "command:execute");
+    const response = await route.POST(new Request("http://local/api/commands", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        title: "Restart nginx",
+        command: "systemctl restart nginx",
+        reason: "routine maintenance",
+        serverIds: ["srv1"],
+        submissionMode: "assistant",
+      }),
+    }));
+
+    expect(response.status).toBe(201);
     expect(mocks.createCommandRequest).toHaveBeenCalledWith(
       expect.objectContaining({ submissionMode: "assistant" }),
       expect.objectContaining({ userId: "u1" }),

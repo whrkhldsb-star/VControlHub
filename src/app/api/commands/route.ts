@@ -3,6 +3,7 @@ import { z } from "zod";
 import { sessionHasPermission } from "@/lib/auth/authorization";
 import { cancelCommandRequest, createCommandRequest, listCommandRequests, recoverStaleRunningCommandRequests } from "@/lib/command/service";
 import { createCommandSchema } from "@/lib/command/schema";
+import { ForbiddenError } from "@/lib/errors";
 import { withApiRoute } from "@/lib/http/api-guard";
 import { COMMAND_LIMIT } from "@/lib/http/rate-limit-presets";
 import { auditUserAction } from "@/lib/audit/service";
@@ -41,7 +42,11 @@ export async function POST(request: Request) {
         submissionMode: body.submissionMode ?? "user",
       });
       if (parsed.submissionMode === "user" && !sessionHasPermission(session!, "command:execute")) {
-        parsed.submissionMode = "assistant";
+        // Do not silently downgrade to assistant/approval — callers that want
+        // the approval path must send submissionMode: "assistant" explicitly.
+        throw new ForbiddenError(
+          "command:execute permission is required for direct (user) submission mode",
+        );
       }
       const command = await createCommandRequest(parsed, session!);
       await auditUserAction(session!.userId, "command.submit", {
