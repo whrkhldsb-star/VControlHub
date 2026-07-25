@@ -33,10 +33,10 @@ export function DeploymentExportPanel() {
   const tree = useMemo(() => buildFileTree(files), [files]);
   const fileNames = useMemo(() => Object.keys(files).sort((a, b) => a.localeCompare(b)), [files]);
   const fileCount = fileNames.length;
-  const totalSize = useMemo(
-    () => Object.values(files).reduce((acc, content) => acc + new Blob([content]).size, 0),
-    [files],
-  );
+  const totalSize = useMemo(() => {
+    const encoder = new TextEncoder();
+    return Object.values(files).reduce((acc, content) => acc + encoder.encode(content).byteLength, 0);
+  }, [files]);
 
   /* eslint-disable react-hooks/set-state-in-effect -- active export file is derived from the latest generated file map; syncing selection here prevents stale previews after a new export. */
   useEffect(() => {
