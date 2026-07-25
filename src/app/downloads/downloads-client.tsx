@@ -26,12 +26,15 @@ export function DownloadsClient({ servers, canManage, canManageNode }: { servers
 	const [showForm, setShowForm] = useState(false);
 	const { state: urlFilters, setField: setUrlFilter } = useUrlQueryState({
 		status: "ALL",
-		category: "",
+		// Default "all" means no category filter. Empty string is reserved for the
+		// uncategorized chip (tasks with null/empty category) so it can round-trip
+		// through the URL without collapsing to "no filter".
+		category: "all",
 	});
 	const filter = urlFilters.status || "ALL";
-	const categoryFilter = urlFilters.category || null;
+	const categoryFilter = urlFilters.category === "all" ? null : urlFilters.category;
 	const setFilter = (value: string) => setUrlFilter("status", value);
-	const setCategoryFilter = (value: string | null) => setUrlFilter("category", value ?? "");
+	const setCategoryFilter = (value: string | null) => setUrlFilter("category", value ?? "all");
 
 	const defaultServer = servers[0];
 	const defaultTargetPath = defaultServer?.storagePath ?? "/root/downloads";
