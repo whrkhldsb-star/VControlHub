@@ -99,9 +99,13 @@ export async function markAsRead(notificationId: string, userId: string) {
 	if (result.count === 0) {
 		throw new NotFoundError(t("backend.notification.notificationNotFoundOrForbidden"));
 	}
-	// Push updated unread count after marking as read
-	const unreadCount = await getUnreadCount(userId);
-	pushUnreadCount(userId, unreadCount);
+	// Push updated unread count after marking as read (best-effort; DB already committed)
+	try {
+		const unreadCount = await getUnreadCount(userId);
+		pushUnreadCount(userId, unreadCount);
+	} catch (err) {
+		logger.warn("WS unread push failed after markAsRead", err);
+	}
 	return result;
 }
 
@@ -110,7 +114,11 @@ export async function markAllAsRead(userId: string) {
 		where: { userId, isRead: false },
 		data: { isRead: true },
 	});
-	pushUnreadCount(userId, 0);
+	try {
+		pushUnreadCount(userId, 0);
+	} catch (err) {
+		logger.warn("WS unread push failed after markAllAsRead", err);
+	}
 	return result;
 }
 
@@ -121,9 +129,13 @@ export async function deleteNotification(notificationId: string, userId: string)
 	if (result.count === 0) {
 		throw new NotFoundError(t("backend.notification.notificationNotFoundOrForbidden"));
 	}
-	// Push updated unread count after deletion
-	const unreadCount = await getUnreadCount(userId);
-	pushUnreadCount(userId, unreadCount);
+	// Push updated unread count after deletion (best-effort; DB already committed)
+	try {
+		const unreadCount = await getUnreadCount(userId);
+		pushUnreadCount(userId, unreadCount);
+	} catch (err) {
+		logger.warn("WS unread push failed after deleteNotification", err);
+	}
 	return result;
 }
 
