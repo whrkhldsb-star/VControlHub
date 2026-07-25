@@ -75,7 +75,30 @@ vi.mock("@/lib/db", () => ({
     storageNode: { findMany: vi.fn().mockResolvedValue([]) },
     userStorageAccess: { findMany: vi.fn().mockResolvedValue([]) },
     commandTemplate: { findMany: vi.fn().mockResolvedValue([]) },
-    quickService: { findMany: vi.fn().mockResolvedValue([]) },
+    quickService: {
+      findMany: vi.fn().mockResolvedValue([
+        {
+          id: "qs1",
+          slug: "redis",
+          name: "Redis",
+          category: "db",
+          icon: "redis",
+          description: "cache",
+          image: "redis:7",
+          port: 6379,
+          path: "/",
+          internalPort: 6379,
+          extraPortsJson: "[]",
+          command: null,
+          envJson: '{"REDIS_PASSWORD":"super-secret","API_TOKEN":"tok"}',
+          volumesJson: '[{"host":"/data","container":"/data"}]',
+          status: "RUNNING",
+          createdAt: new Date("2025-01-01"),
+          instanceKey: "hub-host",
+          serverId: null,
+        },
+      ]),
+    },
     playbook: { findMany: vi.fn().mockResolvedValue([]) },
     alertRule: { findMany: vi.fn().mockResolvedValue([]) },
     setting: {
@@ -149,6 +172,21 @@ describe("export-service sanitization", () => {
     expect(platformName?.value).toBe("VControlHub"); // non-sensitive preserved
   });
 
+  it("should redact QuickService envJson/volumesJson in standard mode", async () => {
+    const result = await buildExportFile("test.example.com");
+    const qs = result.tables.quickServices[0]!;
+    expect(qs.envJson).toBe("{}");
+    expect(qs.volumesJson).toBe("[]");
+    expect(qs.slug).toBe("redis");
+  });
+
+  it("should keep QuickService envJson/volumesJson in full mode", async () => {
+    const result = await buildExportFile("test.example.com", "full");
+    const qs = result.tables.quickServices[0]!;
+    expect(qs.envJson).toContain("super-secret");
+    expect(qs.volumesJson).toContain("/data");
+  });
+
   it("should set correct schema version and metadata", async () => {
     const result = await buildExportFile("test.example.com");
     expect(result.schemaVersion).toBe(1);
@@ -197,6 +235,6 @@ describe("export-service multi-tenant scope", () => {
           currentTeamId: "team_a",
         } as never,
       }),
-    ).rejects.toThrow(/platform admin/i);
+    ).rejects.toThrow(/platform admin|平台管理员/i);
   });
 });

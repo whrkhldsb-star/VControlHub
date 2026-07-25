@@ -325,7 +325,7 @@ async function exportCommandTemplates() {
   }));
 }
 
-async function exportQuickServices(scope: ExportScope, teamId: string | null) {
+async function exportQuickServices(mode: ExportMode, scope: ExportScope, teamId: string | null) {
   if (scope === "team" && teamId) {
     // Team scope: hub-host (serverId null) + remote services on this team's servers only.
     // Do NOT pull server.teamId==null remotes (cross-tenant leak).
@@ -336,32 +336,35 @@ async function exportQuickServices(scope: ExportScope, teamId: string | null) {
       orderBy: { name: "asc" },
       take: 1000,
     });
-    return rows.map(mapQuickService);
+    return rows.map((r) => mapQuickService(r, mode));
   }
   const rows = await prisma.quickService.findMany({ orderBy: { name: "asc" }, take: 1000 });
-  return rows.map(mapQuickService);
+  return rows.map((r) => mapQuickService(r, mode));
 }
 
-function mapQuickService(r: {
-  id: string;
-  slug: string;
-  name: string;
-  category: string;
-  icon: string;
-  description: string;
-  image: string;
-  port: number;
-  path: string;
-  internalPort: number | null;
-  extraPortsJson: string;
-  command: string | null;
-  envJson: string;
-  volumesJson: string;
-  status: string;
-  createdAt: Date;
-  instanceKey?: string;
-  serverId?: string | null;
-}) {
+function mapQuickService(
+  r: {
+    id: string;
+    slug: string;
+    name: string;
+    category: string;
+    icon: string;
+    description: string;
+    image: string;
+    port: number;
+    path: string;
+    internalPort: number | null;
+    extraPortsJson: string;
+    command: string | null;
+    envJson: string;
+    volumesJson: string;
+    status: string;
+    createdAt: Date;
+    instanceKey?: string;
+    serverId?: string | null;
+  },
+  mode: ExportMode = "standard",
+) {
   return {
     id: r.id,
     slug: r.slug,
@@ -375,8 +378,9 @@ function mapQuickService(r: {
     internalPort: r.internalPort,
     extraPortsJson: r.extraPortsJson,
     command: r.command,
-    envJson: r.envJson,
-    volumesJson: r.volumesJson,
+    // Standard exports must not leak service secrets (API tokens, root passwords, etc.).
+    envJson: mode === "full" ? r.envJson : "{}",
+    volumesJson: mode === "full" ? r.volumesJson : "[]",
     status: r.status,
     createdAt: dateToISO(r.createdAt)!,
     instanceKey: r.instanceKey ?? "hub-host",
@@ -609,7 +613,7 @@ export async function buildExportFile(
     exportServers(mode, scope, teamId),
     exportStorageNodes(scope, teamId),
     exportCommandTemplates(),
-    exportQuickServices(scope, teamId),
+    exportQuickServices(mode, scope, teamId),
     exportPlaybooks(scope, teamId),
     exportAlertRules(scope, teamId),
     exportSettings(mode, scope),
