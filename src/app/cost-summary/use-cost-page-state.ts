@@ -3,6 +3,7 @@
 import { useCallback, useMemo, useState } from "react";
 
 import { csrfFetch } from "@/lib/auth/csrf-client";
+import { costAmountSchema } from "@/lib/cost/schema";
 import { toDateLocale } from "@/lib/i18n/locale-format";
 import type {
   CostCurrency,
@@ -185,6 +186,14 @@ export function useCostPageState(options: {
     if (!canManage) return;
     if (!form.provider.trim() || !form.amount.trim() || !isValidDate(form.effectiveDate)) {
       addToast("error", t("costPage.form.error.required"));
+      return;
+    }
+    const amountCheck = costAmountSchema.safeParse(form.amount.trim());
+    if (!amountCheck.success) {
+      addToast(
+        "error",
+        amountCheck.error.issues[0]?.message ?? t("costPage.form.error.required"),
+      );
       return;
     }
     setSaving(true);
