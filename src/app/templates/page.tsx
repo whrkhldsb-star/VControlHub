@@ -22,7 +22,7 @@ export default async function CommandTemplatesPage() {
 
 	const serialized = templates.map((t) => ({
 		id: t.id, name: t.name, description: t.description,
-		command: t.command, variables: t.variables, tags: t.tags,
+		command: t.command, rollbackCommand: t.rollbackCommand, variables: t.variables, tags: t.tags,
 		isBuiltin: t.isBuiltin,
 		createdAt: t.createdAt.toISOString(),
 		creator: t.creator ? { username: t.creator.username, displayName: t.creator.displayName } : null,
