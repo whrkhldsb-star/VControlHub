@@ -78,6 +78,8 @@ export interface ChunkedUploadState {
 
 export interface ChunkedUploaderApi extends ChunkedUploadState {
 	upload: (file: File) => Promise<ChunkedUploadResult>;
+	/** Abort in-flight chunk workers; next worker loop throws "cancelled". */
+	cancel: () => void;
 	reset: () => void;
 }
 
@@ -235,23 +237,32 @@ export function useChunkedMediaUpload(
 		error: null,
 	});
 	const cancelledRef = useRef(false);
+	/** Latest progress for complete/error paths — avoids stale React state closure. */
+	const progressRef = useRef<ChunkedUploadProgress | null>(null);
 
 	const emit = useCallback(
 		(next: ChunkedUploadState) => {
+			progressRef.current = next.progress;
 			setState(next);
 			if (next.progress && onProgress) onProgress(next.progress);
 		},
 		[onProgress],
 	);
 
+	const cancel = useCallback(() => {
+		cancelledRef.current = true;
+	}, []);
+
 	const reset = useCallback(() => {
 		cancelledRef.current = false;
+		progressRef.current = null;
 		setState({ status: "idle", progress: null, error: null });
 	}, []);
 
 	const upload = useCallback(
 		async (file: File): Promise<ChunkedUploadResult> => {
 			cancelledRef.current = false;
+			progressRef.current = null;
 			try {
 				emit({ status: "initialising", progress: null, error: null });
 				const { session, resumed, skipped } = await initOrResumeSession(
@@ -338,7 +349,7 @@ export function useChunkedMediaUpload(
 
 				if (cancelledRef.current) throw new Error("cancelled");
 
-				emit({ status: "completing", progress: state.progress, error: null });
+				emit({ status: "completing", progress: progressRef.current, error: null });
 				const complete = await csrfFetch<{
 					session: MediaUploadSessionView;
 					image: { id: string; publicUrl: string };
@@ -368,14 +379,14 @@ export function useChunkedMediaUpload(
 				const message = err instanceof Error ? err.message : String(err);
 				emit({
 					status: "error",
-					progress: state.progress,
+					progress: progressRef.current,
 					error: message === "cancelled" ? "cancelled" : message,
 				});
 				throw err;
 			}
 		},
-		[emit, relativePath, state.progress, storageNodeId],
+		[emit, relativePath, storageNodeId],
 	);
 
-	return { ...state, upload, reset };
+	return { ...state, upload, cancel, reset };
 }

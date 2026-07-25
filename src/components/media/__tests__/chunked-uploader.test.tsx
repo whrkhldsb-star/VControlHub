@@ -285,4 +285,64 @@ describe("useChunkedMediaUpload", () => {
 			Object.keys(localStorage).filter((k) => k.startsWith("vcMediaUploadSession:")),
 		).toHaveLength(1);
 	});
+
+	it("cancel() aborts workers and surfaces cancelled error with latest progress", async () => {
+		// Single remaining chunk so only one PUT hangs; cancel then resolve it.
+		const totalSize = 3 * 1024 * 1024;
+		const chunkSize = 3 * 1024 * 1024;
+		const file = buildFile("cancel-me.png", totalSize);
+		const initSession = buildSession({ id: "sess_cancel", totalSize, chunkSize });
+
+		let resolveChunk: ((value: Response) => void) | null = null;
+		const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+			const url = String(input);
+			const method = (init?.method ?? "GET").toUpperCase();
+			if (url === "/api/images/upload/init" && method === "POST") {
+				return new Response(JSON.stringify({ session: initSession }), {
+					status: 201,
+					headers: { "content-type": "application/json" },
+				});
+			}
+			if (url.includes("/chunk") && method === "PUT") {
+				return await new Promise<Response>((resolve) => {
+					resolveChunk = resolve;
+				});
+			}
+			throw new Error(`unexpected fetch: ${method} ${url}`);
+		});
+		vi.stubGlobal("fetch", fetchMock);
+
+		const { result } = renderHook(() => useChunkedMediaUpload());
+		let uploadPromise: Promise<unknown> | null = null;
+		await act(async () => {
+			uploadPromise = result.current.upload(file).catch((err: unknown) => err);
+		});
+
+		await vi.waitFor(() => {
+			expect(resolveChunk).not.toBeNull();
+		});
+
+		await act(async () => {
+			result.current.cancel();
+			resolveChunk?.(
+				new Response(
+					JSON.stringify({
+						session: {
+							...initSession,
+							status: "UPLOADING",
+							receivedChunks: [0],
+						},
+					}),
+					{ status: 200, headers: { "content-type": "application/json" } },
+				),
+			);
+		});
+
+		const err = await uploadPromise;
+		expect(err).toBeInstanceOf(Error);
+		expect((err as Error).message).toBe("cancelled");
+		expect(result.current.status).toBe("error");
+		expect(result.current.error).toBe("cancelled");
+		expect(result.current.progress?.percent).toBe(100);
+	});
 });
