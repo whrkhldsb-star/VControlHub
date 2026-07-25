@@ -9,7 +9,7 @@ export async function createAnnouncement(input: { title: string; body: string; l
   if (expiresAt && expiresAt.getTime() <= startsAt.getTime()) {
     throw new ValidationError(t("backend.announcement.expiresAtMustBeAfterStartsAt"));
   }
-  return prisma.announcement.create({ data: { title: input.title.trim(), body: input.body.trim(), level: input.level ?? "info", pinned: input.pinned ?? false, published: input.published ?? true, startsAt, expiresAt, createdBy: input.createdBy ?? null } });
+  return prisma.announcement.create({ data: { title: input.title.trim(), body: input.body.trim(), level: input.level ?? "info", pinned: input.pinned ?? false, published: input.published ?? false, startsAt, expiresAt, createdBy: input.createdBy ?? null } });
 }
 
 export async function listActiveAnnouncements(now = new Date()) {

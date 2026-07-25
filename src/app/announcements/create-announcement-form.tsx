@@ -39,6 +39,7 @@ export function CreateAnnouncementForm() {
 					title: data.title,
 					content: data.content,
 					type: data.type ||"info",
+					published: true,
 					startsAt: toIsoOrUndefined(data.startsAt),
 					expiresAt: toIsoOrUndefined(data.expiresAt),
 				}),
