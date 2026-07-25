@@ -3,6 +3,7 @@ import { z } from "zod";
 
 import { sessionHasPermission } from "@/lib/auth/authorization";
 import { verifyBearerToken } from "@/lib/auth/bearer-token";
+import { teamWhere, type TeamSession } from "@/lib/auth/team-scope";
 import { withCacheHeaders, CachePresets } from "@/lib/cache";
 import { prisma } from "@/lib/db";
 import { withApiRoute } from "@/lib/http/api-guard";
@@ -17,6 +18,8 @@ export async function GET(request: Request) {
       request,
       tokenAuth.userId,
       tokenAuth.scopes.includes("admin"),
+      // Bearer tokens have no team context; non-admin stays user-scoped.
+      null,
     );
   }
 
@@ -31,15 +34,21 @@ export async function GET(request: Request) {
         );
       // showAll must not use broad user:read (many roles have it).
       // Only global team managers or media managers may list everyone's images.
+      // media:manage is still team-scoped (not fleet-wide) via teamWhere.
       const canListAll =
         sessionHasPermission(session, "team:manage") ||
         sessionHasPermission(session, "media:manage");
-      return listImages(request, session.userId, canListAll);
+      return listImages(request, session.userId, canListAll, session);
     },
   );
 }
 
-async function listImages(request: Request, userId: string, isAdmin: boolean) {
+async function listImages(
+  request: Request,
+  userId: string,
+  canListAll: boolean,
+  session: TeamSession | null,
+) {
   const { album, q, page, limit, all: showAll } = parseSearchParams(
     request,
     z.object({
@@ -64,9 +73,14 @@ async function listImages(request: Request, userId: string, isAdmin: boolean) {
     ];
   }
 
-  // Non-admin users only see their own images
-  if (!showAll || !isAdmin) {
+  // Own images only unless showAll + elevated role.
+  if (!showAll || !canListAll) {
     where.userId = userId;
+  } else if (session) {
+    // Elevated list still respects tenant boundary unless global team:manage.
+    // (teamWhere already no-ops for isGlobalTeamManager.)
+    // Bearer admin path (session=null + canListAll) remains fleet-wide by design.
+    Object.assign(where, teamWhere(session));
   }
 
   const [images, total] = await Promise.all([

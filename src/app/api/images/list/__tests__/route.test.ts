@@ -33,7 +33,12 @@ vi.mock("@/lib/db", () => ({
 
 import { GET } from "../route";
 
-const session = { userId: "u1", username: "admin", roles: ["admin"] };
+const session = {
+  userId: "u1",
+  username: "admin",
+  roles: ["admin"],
+  currentTeamId: "team_a",
+};
 
 describe("GET /api/images/list", () => {
   beforeEach(() => {
@@ -77,7 +82,7 @@ describe("GET /api/images/list", () => {
     );
   });
 
-  it("lets team/media managers request all images", async () => {
+  it("lets team managers request all images fleet-wide", async () => {
     sessionHasPermissionMock.mockImplementation(
       (_session, permission) =>
         permission === "image:read" || permission === "team:manage",
@@ -88,8 +93,28 @@ describe("GET /api/images/list", () => {
     );
     expect(response.status).toBe(200);
     expect(sessionHasPermissionMock).toHaveBeenCalledWith(session, "team:manage");
+    // team:manage → teamWhere is empty (global)
     expect(imageFindManyMock).toHaveBeenCalledWith(
       expect.objectContaining({ where: {} }),
+    );
+  });
+
+  it("scopes media managers showAll to current team (no cross-tenant leak)", async () => {
+    sessionHasPermissionMock.mockImplementation(
+      (_session, permission) =>
+        permission === "image:read" || permission === "media:manage",
+    );
+
+    const response = await GET(
+      new Request("http://local/api/images/list?all=true"),
+    );
+    expect(response.status).toBe(200);
+    expect(imageFindManyMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: {
+          OR: [{ teamId: "team_a" }, { teamId: null }],
+        },
+      }),
     );
   });
 

@@ -37,7 +37,12 @@ vi.mock("@/lib/db", () => ({
 
 import { GET } from "../route";
 
-const session = { userId: "u_1", username: "alice" };
+const session = {
+  userId: "u_1",
+  username: "alice",
+  roles: [] as string[],
+  currentTeamId: "team_a" as string | null,
+};
 
 describe("/api/images/stats", () => {
   it("returns user-scoped image stats for non-admin sessions", async () => {
@@ -91,12 +96,12 @@ describe("/api/images/stats", () => {
     expect(imageCountMock).toHaveBeenCalledWith({ where: { userId: "u_1" } });
   });
 
-  it("allows team/media managers to read fleet-wide image stats", async () => {
+  it("allows team managers to read fleet-wide image stats", async () => {
     vi.clearAllMocks();
     requireApiSessionMock.mockResolvedValueOnce(session);
     sessionHasPermissionMock.mockImplementation(
       (_session, permission) =>
-        permission === "image:read" || permission === "media:manage",
+        permission === "image:read" || permission === "team:manage",
     );
     imageCountMock.mockResolvedValueOnce(9);
     imageAggregateMock.mockResolvedValueOnce({ _sum: { sizeBytes: 2048 } });
@@ -108,5 +113,26 @@ describe("/api/images/stats", () => {
     );
     expect(response.status).toBe(200);
     expect(imageCountMock).toHaveBeenCalledWith({ where: {} });
+  });
+
+  it("scopes media managers image stats to current team", async () => {
+    vi.clearAllMocks();
+    requireApiSessionMock.mockResolvedValueOnce(session);
+    sessionHasPermissionMock.mockImplementation(
+      (_session, permission) =>
+        permission === "image:read" || permission === "media:manage",
+    );
+    imageCountMock.mockResolvedValueOnce(3);
+    imageAggregateMock.mockResolvedValueOnce({ _sum: { sizeBytes: 99 } });
+    imageGroupByMock.mockResolvedValueOnce([]);
+    imageFindManyMock.mockResolvedValueOnce([]);
+
+    const response = await GET(
+      new Request("https://example.com/api/images/stats"),
+    );
+    expect(response.status).toBe(200);
+    expect(imageCountMock).toHaveBeenCalledWith({
+      where: { OR: [{ teamId: "team_a" }, { teamId: null }] },
+    });
   });
 });

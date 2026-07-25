@@ -5,6 +5,7 @@
 import { NextResponse } from "next/server";
 
 import { sessionHasPermission } from "@/lib/auth/authorization";
+import { teamWhere } from "@/lib/auth/team-scope";
 import { prisma } from "@/lib/db";
 import { withApiRoute } from "@/lib/http/api-guard";
 import { withCacheHeaders, CachePresets } from "@/lib/cache";
@@ -22,11 +23,13 @@ export async function GET(request: Request) {
           { status: 401 },
         );
       // Same bar as list showAll: user:read is too broad for fleet-wide stats.
+      // media:manage may see others' images but still only within teamWhere
+      // (team:manage remains global via teamWhere no-op).
       const canListAll =
         sessionHasPermission(session, "team:manage") ||
         sessionHasPermission(session, "media:manage");
       const where: Record<string, unknown> = canListAll
-        ? {}
+        ? { ...teamWhere(session) }
         : { userId: session.userId };
 
       // Total count and size
