@@ -17,6 +17,9 @@ export const dynamic = "force-dynamic";
 
 const logger = createLogger("itsm-inbound");
 
+/** Cap public webhook body size before JSON parse / HMAC (DoS guard). */
+const MAX_INBOUND_BODY_BYTES = 1 * 1024 * 1024; // 1 MiB
+
 type RouteContext = { params: Promise<{ connectionId: string }> };
 
 function pickSignature(headers: Headers): string | null {
@@ -37,7 +40,19 @@ export async function POST(request: Request, context: RouteContext) {
 		return NextResponse.json({ error: "Rate limit exceeded" }, { status: 429 });
 	}
 
+	const contentLengthHeader = request.headers.get("content-length");
+	if (contentLengthHeader) {
+		const declared = Number(contentLengthHeader);
+		if (Number.isFinite(declared) && declared > MAX_INBOUND_BODY_BYTES) {
+			return NextResponse.json({ error: "Request body too large" }, { status: 413 });
+		}
+	}
+
 	const rawBody = await request.text();
+	if (Buffer.byteLength(rawBody, "utf8") > MAX_INBOUND_BODY_BYTES) {
+		return NextResponse.json({ error: "Request body too large" }, { status: 413 });
+	}
+
 	let json: Record<string, unknown> = {};
 	try {
 		json = rawBody ? (JSON.parse(rawBody) as Record<string, unknown>) : {};
