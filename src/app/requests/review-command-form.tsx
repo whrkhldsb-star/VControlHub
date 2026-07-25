@@ -34,9 +34,14 @@ export function ReviewCommandForm({ commandRequestId }: { commandRequestId: stri
         >
           <span>{t("requestsPage.review.approve")}</span>
         </SubmitButton>
-        <button type="submit" name="decision" value="reject" data-action-button data-variant="secondary">
-          {t("requestsPage.review.reject")}
-        </button>
+        <SubmitButton
+          pendingLabel={t("requestsPage.review.pending")}
+          name="decision"
+          value="reject"
+          variant="secondary"
+        >
+          <span>{t("requestsPage.review.reject")}</span>
+        </SubmitButton>
       </div>
     </form>
   );
