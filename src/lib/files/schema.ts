@@ -25,7 +25,8 @@ import { z } from "zod";
  * can flip the default without changing this file.
  */
 export const archiveListQuerySchema = z.object({
-  nodeId: z.string().trim().optional(),
+  // Required: handler always loads StorageNode by id; missing id is a 400, not a 404.
+  nodeId: z.string().trim().min(1, "nodeId is required"),
   relativePath: z.string().trim().optional(),
   driver: z.enum(["LOCAL", "SFTP"]).default("LOCAL"),
   name: z.string().trim().min(1).default("archive"),

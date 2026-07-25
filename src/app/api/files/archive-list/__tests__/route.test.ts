@@ -106,4 +106,38 @@ describe("GET /api/files/archive-list", () => {
       error: "没有该存储节点或路径的访问授权",
     });
   });
+
+  it("rejects missing nodeId with validation error", async () => {
+    const response = await GET(
+      new NextRequest(
+        `https://app.example.test/api/files/archive-list?driver=LOCAL&relativePath=${encodeURIComponent("backup.tar.gz")}`,
+      ),
+    );
+
+    expect(response.status).toBe(400);
+    expect(prismaMock.storageNode.findFirst).not.toHaveBeenCalled();
+  });
+
+  it("detects archive format from relativePath even when name is generic", async () => {
+    await createTarGz();
+    prismaMock.storageNode.findFirst.mockResolvedValue({
+      id: "node_1",
+      name: "local",
+      driver: "LOCAL",
+      basePath: tempDir,
+    });
+
+    const response = await GET(
+      new NextRequest(
+        `https://app.example.test/api/files/archive-list?nodeId=node_1&driver=LOCAL&relativePath=${encodeURIComponent("backup.tar.gz")}&name=archive`,
+      ),
+    );
+
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toMatchObject({
+      entries: [
+        expect.objectContaining({ name: "hello.txt", isDirectory: false }),
+      ],
+    });
+  });
 });

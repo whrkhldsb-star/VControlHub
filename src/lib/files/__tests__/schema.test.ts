@@ -8,10 +8,21 @@ import {
 
 describe("files schema", () => {
   describe("archiveListQuerySchema", () => {
-    it("defaults driver to LOCAL and name to 'archive'", () => {
-      const parsed = archiveListQuerySchema.parse({});
+    it("defaults driver to LOCAL and name to 'archive' when nodeId is provided", () => {
+      const parsed = archiveListQuerySchema.parse({ nodeId: "node_1" });
       expect(parsed.driver).toBe("LOCAL");
       expect(parsed.name).toBe("archive");
+      expect(parsed.nodeId).toBe("node_1");
+    });
+
+    it("rejects missing nodeId", () => {
+      const result = archiveListQuerySchema.safeParse({});
+      expect(result.success).toBe(false);
+    });
+
+    it("rejects empty nodeId", () => {
+      const result = archiveListQuerySchema.safeParse({ nodeId: "   " });
+      expect(result.success).toBe(false);
     });
 
     it("accepts an explicit SFTP driver (route rejects with 400)", () => {
@@ -28,7 +39,7 @@ describe("files schema", () => {
     });
 
     it("rejects an unknown driver", () => {
-      const result = archiveListQuerySchema.safeParse({ driver: "NFS" });
+      const result = archiveListQuerySchema.safeParse({ driver: "NFS", nodeId: "node_1" });
       expect(result.success).toBe(false);
     });
 
@@ -44,7 +55,7 @@ describe("files schema", () => {
     });
 
     it("rejects an empty name when explicitly provided", () => {
-      const result = archiveListQuerySchema.safeParse({ name: "" });
+      const result = archiveListQuerySchema.safeParse({ name: "", nodeId: "node_1" });
       expect(result.success).toBe(false);
     });
   });

@@ -82,10 +82,12 @@ export async function GET(request: NextRequest) {
       }
 
       const fullPath = resolvedPath.path;
+      // Prefer on-disk basename for format detection; client `name` is only a fallback.
+      const formatName = path.basename(relativePath) || name;
 
       try {
         const entries = sanitizeArchiveEntries(
-          await listArchiveContents(name, fullPath),
+          await listArchiveContents(formatName, fullPath),
         );
         return NextResponse.json({ entries });
       } catch (err) {
