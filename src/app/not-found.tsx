@@ -1,8 +1,9 @@
 import Link from "next/link";
 
-import { t } from "@/lib/i18n/translations";
+import { getServerLocale, t } from "@/lib/i18n/translations";
 
-export default function NotFoundPage() {
+export default async function NotFoundPage() {
+	const locale = await getServerLocale();
 	return (
 		<main className="relative flex min-h-screen items-center justify-center overflow-hidden px-6 text-[var(--text-primary)]">
 			<div
@@ -14,14 +15,14 @@ export default function NotFoundPage() {
 					🔍
 				</div>
 				<p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-[var(--accent)]">404</p>
-				<h1 className="mt-2 text-3xl font-semibold tracking-tight text-[var(--text-primary)]">{t("notFound.title")}</h1>
-				<p className="mt-3 text-sm leading-6 text-[var(--text-secondary)]">{t("notFound.description")}</p>
+				<h1 className="mt-2 text-3xl font-semibold tracking-tight text-[var(--text-primary)]">{t("notFound.title", locale)}</h1>
+				<p className="mt-3 text-sm leading-6 text-[var(--text-secondary)]">{t("notFound.description", locale)}</p>
 				<Link
 					href="/"
 					data-primary
 					data-action-button data-variant="primary" className="mt-7 inline-flex h-11 items-center justify-center px-6 text-sm"
 				>
-					{t("notFound.returnHome")}
+					{t("notFound.returnHome", locale)}
 				</Link>
 			</div>
 		</main>
