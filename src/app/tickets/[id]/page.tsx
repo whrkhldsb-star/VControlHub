@@ -20,19 +20,22 @@ export default async function TicketDetailPage({ params }: { params: Promise<{ i
   const ticket = await getTicketById(id, session);
   if (!ticket) notFound();
 
-  // Assignee dropdown: team-scoped when the manager has a current team so we
-  // do not enumerate every platform user (cross-tenant username/displayName leak).
-  // Admins with team:manage still see the full roster via unscoped teamWhere.
+  // Assignee dropdown: always team-scoped for ticket:manage unless the actor
+  // also has team:manage (platform admin). Never fall through to an unscoped
+  // findMany when currentTeamId is missing — that enumerated every user.
+  const canManageTeams = sessionHasPermission(session, "team:manage");
   const users: TicketUser[] = canManage
     ? await prisma.user.findMany({
-        where: session.currentTeamId
-          ? {
-              OR: [
-                { teamMemberships: { some: { teamId: session.currentTeamId } } },
-                { id: session.userId },
-              ],
-            }
-          : undefined,
+        where: canManageTeams
+          ? undefined
+          : session.currentTeamId
+            ? {
+                OR: [
+                  { teamMemberships: { some: { teamId: session.currentTeamId } } },
+                  { id: session.userId },
+                ],
+              }
+            : { id: session.userId },
         select: { id: true, username: true, displayName: true },
         orderBy: { username: "asc" },
         take: 200,
