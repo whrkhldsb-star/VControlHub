@@ -10,9 +10,14 @@ import { useEffect } from "react";
 export function SentryProvider() {
 	useEffect(() => {
 		if (process.env.NEXT_PUBLIC_SENTRY_DSN) {
-			import("@/lib/monitoring/sentry.client").then(({ registerClientSentry }) => {
-				registerClientSentry();
-			});
+			import("@/lib/monitoring/sentry.client")
+				.then(({ registerClientSentry }) => {
+					registerClientSentry();
+				})
+				.catch((err) => {
+					// Monitoring bootstrap must never surface as unhandledrejection.
+					console.error("[sentry-provider] failed to load client SDK", err);
+				});
 		}
 	}, []);
 	return null;
