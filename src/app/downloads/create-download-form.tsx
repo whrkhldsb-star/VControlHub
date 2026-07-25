@@ -252,7 +252,12 @@ export function CreateDownloadForm({
 				<button
 					type="button"
 					onClick={onSubmit}
-					disabled={submitting || Boolean(batchModeError) || !form.serverId}
+					disabled={
+						submitting
+						|| Boolean(batchModeError)
+						|| !form.serverId
+						|| (form.batchMode ? !form.batchText.trim() : !form.url.trim())
+					}
 					data-action-button data-variant="primary" className="px-5 text-sm disabled:opacity-60"
 				>
 					{submitting ? t("downloadsPage.form.submitting") : t("downloadsPage.form.submit")}

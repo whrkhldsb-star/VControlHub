@@ -125,6 +125,19 @@ export function DownloadsClient({ servers, canManage, canManageNode }: { servers
 			addToast("error", batchModeError );
 			return;
 		}
+		const isBatch = form.batchMode;
+		const batchUrls = isBatch
+			? form.batchText.split("\n").map((l) => l.trim()).filter(Boolean)
+			: undefined;
+		if (isBatch) {
+			if (!batchUrls || batchUrls.length === 0) {
+				addToast("error", t("downloadsPage.error.emptyBatch"));
+				return;
+			}
+		} else if (!form.url.trim()) {
+			addToast("error", t("downloadsPage.error.emptyUrl"));
+			return;
+		}
 		const trimmedFileName = form.fileName.trim();
 		if (trimmedFileName && (trimmedFileName.includes("/") || trimmedFileName.includes("\\") || trimmedFileName.includes(".."))) {
 			addToast("error", t("downloadsPage.error.invalidFilename") );
@@ -132,8 +145,6 @@ export function DownloadsClient({ servers, canManage, canManageNode }: { servers
 		}
 		setSubmitting(true);
 		try {
-			const isBatch = form.batchMode;
-			const batchUrls = isBatch ? form.batchText.split("\n").map((l) => l.trim()).filter(Boolean) : undefined;
 			const payload: Record<string, unknown> = {
 				url: isBatch ? batchUrls?.[0] ?? "" : form.url,
 				serverId: form.serverId, targetPath: form.targetPath,
