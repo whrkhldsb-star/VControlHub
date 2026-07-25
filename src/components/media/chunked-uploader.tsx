@@ -19,7 +19,7 @@
 
 import { useCallback, useRef, useState } from "react";
 
-import { csrfFetch } from "@/lib/auth/csrf-client";
+import { csrfFetch, getCsrfTokenFromCookie } from "@/lib/auth/csrf-client";
 import {
 	DEFAULT_CHUNK_SIZE,
 	type MediaUploadSessionView,
@@ -128,13 +128,6 @@ function clearPersistedSession(file: File): void {
 	}
 }
 
-function readCsrfToken(): string | null {
-	if (typeof document === "undefined") return null;
-	const cookie = document.cookie.split(";").map((c) => c.trim()).find((c) => c.startsWith("csrf_token="));
-	if (!cookie) return null;
-	return decodeURIComponent(cookie.split("=").slice(1).join("="));
-}
-
 /**
  * PUT a single chunk using raw fetch (csrfFetch is JSON-only). Throws on
  * non-2xx with the server error message extracted.
@@ -145,7 +138,7 @@ async function putChunk(
 	size: number,
 	buffer: ArrayBuffer,
 ): Promise<MediaUploadSessionView> {
-	const csrfToken = readCsrfToken();
+	const csrfToken = getCsrfTokenFromCookie();
 	const resp = await fetch(
 		`/api/images/upload/${encodeURIComponent(sessionId)}/chunk?index=${index}&size=${size}`,
 		{

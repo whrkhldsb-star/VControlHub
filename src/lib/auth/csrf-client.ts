@@ -28,7 +28,7 @@
  * 1. Auto-injects CSRF token header for state-changing requests
  * 2. Auto-sets Content-Type: application/json for JSON bodies
  * 3. Auto-parses JSON responses — returns the parsed data directly
- * 4. Throws on non-ok responses with the server error message
+ * 4. Throws `ApiError` on non-ok responses (TR-034 envelope: code/category/details)
  *
  * Usage:
  *   const data = await csrfFetch("/api/servers");          // GET → parsed JSON
@@ -36,10 +36,15 @@
  *
  * For non-JSON responses (e.g. blobs), use { raw: true } in init:
  *   const response = await csrfFetch("/api/files/download", { raw: true });
+ *
+ * Cookie reading is the single source of truth for `@/lib/http/api-client` as well.
  */
+
+import { ApiError } from "@/lib/http/api-client-error";
+
 /**
  * Read the double-submit `csrf_token` cookie (JS-readable by design).
- * Shared by csrfFetch and non-fetch clients (XHR / query-param download).
+ * Shared by csrfFetch, api-client, and non-fetch clients (XHR / chunk PUT).
  */
 export function getCsrfTokenFromCookie(): string | null {
 	if (typeof document === "undefined") return null;
@@ -81,7 +86,7 @@ export async function csrfFetch<T = Record<string, any>>(
 		headers.set("Content-Type", "application/json");
 	}
 
-	// Raw mode — return the original Response object
+	// Raw mode — return the original Response object (caller handles status)
 	if (init?.raw) {
 		return fetch(input, { ...init, headers }) as unknown as T;
 	}
@@ -89,12 +94,18 @@ export async function csrfFetch<T = Record<string, any>>(
 	const response = await fetch(input, { ...init, headers });
 
 	if (!response.ok) {
-		let message = `Request failed (${response.status})`;
+		let body: Record<string, unknown> = {};
 		try {
-			const errBody = await response.json();
-			message = errBody.error || errBody.message || message;
-		} catch { /* ignore parse failure */ }
-		throw new Error(message);
+			body = (await response.json()) as Record<string, unknown>;
+		} catch {
+			body = { error: response.statusText || `Request failed (${response.status})` };
+		}
+		throw new ApiError(response.status, body);
+	}
+
+	// Handle 204 No Content (align with api-client)
+	if (response.status === 204) {
+		return undefined as T;
 	}
 
 	return response.json();

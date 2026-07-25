@@ -10,7 +10,7 @@
  */
 "use client";
 
-import { csrfFetch } from "@/lib/auth/csrf-client";
+import { csrfFetch, getCsrfTokenFromCookie } from "@/lib/auth/csrf-client";
 import { DEFAULT_CHUNK_SIZE, type MediaUploadSessionView } from "@/lib/upload/types";
 
 export const STORAGE_CHUNKED_THRESHOLD_BYTES = DEFAULT_CHUNK_SIZE;
@@ -102,23 +102,13 @@ function clearPersistedSession(file: File, storageNodeId: string, relativePath: 
   }
 }
 
-function readCsrfToken(): string | null {
-  if (typeof document === "undefined") return null;
-  const cookie = document.cookie
-    .split(";")
-    .map((c) => c.trim())
-    .find((c) => c.startsWith("csrf_token="));
-  if (!cookie) return null;
-  return decodeURIComponent(cookie.split("=").slice(1).join("="));
-}
-
 async function putChunk(
   sessionId: string,
   index: number,
   size: number,
   buffer: ArrayBuffer,
 ): Promise<MediaUploadSessionView> {
-  const csrfToken = readCsrfToken();
+  const csrfToken = getCsrfTokenFromCookie();
   const resp = await fetch(
     `/api/images/upload/${encodeURIComponent(sessionId)}/chunk?index=${index}&size=${size}`,
     {
