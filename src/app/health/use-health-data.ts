@@ -10,7 +10,7 @@
  */
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 import { csrfFetch } from "@/lib/auth/csrf-client";
 import { t } from "@/lib/i18n/translations";
@@ -85,27 +85,45 @@ export function useHealthData({
 		typeof window === "undefined" ? 30 : getRefreshIntervalFromStorage(window.localStorage, 30),
 	);
 	const [autoRefresh, setAutoRefresh] = useState(true);
+	// Separate in-flight counters so fleet + system fetches do not clobber each other.
+	const vpsInFlightRef = useRef(0);
+	const systemInFlightRef = useRef(0);
+	const healthGenRef = useRef(0);
+	const systemGenRef = useRef(0);
+	const historyGenByServerRef = useRef<Record<string, number>>({});
+
+	const syncRefreshing = useCallback(() => {
+		setIsRefreshing(vpsInFlightRef.current + systemInFlightRef.current > 0);
+	}, []);
 
 	const fetchHealth = useCallback(async () => {
 		if (!wantVps) return;
-		setIsRefreshing(true);
+		const gen = ++healthGenRef.current;
+		vpsInFlightRef.current += 1;
+		syncRefreshing();
 		try {
 			const data = (await csrfFetch("/api/health")) as HealthOverview;
+			if (gen !== healthGenRef.current) return;
 			setOverview(data);
 			setLoadError(null);
 			setLastRefresh(new Date().toLocaleTimeString(browserLocale));
 		} catch (error) {
+			if (gen !== healthGenRef.current) return;
 			setLoadError(getErrorMessage(error, t("healthPage.error.loadStatus", locale)));
 		} finally {
-			setIsRefreshing(false);
+			vpsInFlightRef.current = Math.max(0, vpsInFlightRef.current - 1);
+			syncRefreshing();
 		}
-	}, [browserLocale, locale, wantVps]);
+	}, [browserLocale, locale, wantVps, syncRefreshing]);
 
 	const fetchSystemHealth = useCallback(async () => {
 		if (!wantSystem) return;
-		setIsRefreshing(true);
+		const gen = ++systemGenRef.current;
+		systemInFlightRef.current += 1;
+		syncRefreshing();
 		try {
 			const report = await csrfFetch("/api/system-health");
+			if (gen !== systemGenRef.current) return;
 			if (isSystemHealthReport(report)) {
 				setSystemHealth(report);
 				setLoadError(null);
@@ -115,22 +133,27 @@ export function useHealthData({
 				setLoadError(t("healthPage.error.loadStatus", locale));
 			}
 		} catch (error) {
+			if (gen !== systemGenRef.current) return;
 			// On system-only page, surface the error; on combined/vps keep quiet.
 			if (!wantVps) {
 				setLoadError(getErrorMessage(error, t("healthPage.error.loadStatus", locale)));
 			}
 		} finally {
-			setIsRefreshing(false);
+			systemInFlightRef.current = Math.max(0, systemInFlightRef.current - 1);
+			syncRefreshing();
 		}
-	}, [browserLocale, locale, wantSystem, wantVps]);
+	}, [browserLocale, locale, wantSystem, wantVps, syncRefreshing]);
 
 	const fetchHistory = useCallback(
 		async (serverId: string) => {
 			if (!wantVps) return;
+			const gen = (historyGenByServerRef.current[serverId] ?? 0) + 1;
+			historyGenByServerRef.current[serverId] = gen;
 			try {
 				const data = (await csrfFetch(
 					`/api/health?historyFor=${serverId}&hours=24`,
 				)) as { history?: MetricPoint[] };
+				if (historyGenByServerRef.current[serverId] !== gen) return;
 				setHistory((prev) => ({ ...prev, [serverId]: data.history ?? [] }));
 				setHistoryErrors((prev) => {
 					const next = { ...prev };
@@ -138,6 +161,7 @@ export function useHealthData({
 					return next;
 				});
 			} catch (error) {
+				if (historyGenByServerRef.current[serverId] !== gen) return;
 				setHistoryErrors((prev) => ({
 					...prev,
 					[serverId]: getErrorMessage(error, t("healthPage.error.loadHistory", locale)),
@@ -153,7 +177,12 @@ export function useHealthData({
 			if (wantVps) void fetchHealth();
 			if (wantSystem) void fetchSystemHealth();
 		}, 0);
-		return () => window.clearTimeout(timer);
+		return () => {
+			window.clearTimeout(timer);
+			// Invalidate in-flight overview/system fetches on unmount/remount.
+			healthGenRef.current += 1;
+			systemGenRef.current += 1;
+		};
 	}, [fetchHealth, fetchSystemHealth, wantSystem, wantVps]);
 
 	// Keep refresh interval in sync with Settings (storage + in-page event).
