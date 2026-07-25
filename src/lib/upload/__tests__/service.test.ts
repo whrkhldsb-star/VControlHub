@@ -134,6 +134,7 @@ function makePrismaMock() {
 						id: string | { in: string[] };
 						userId?: string;
 						receivedChunks?: { equals: number[] };
+						status?: { in: string[] };
 					};
 					data: Partial<SessionRow>;
 				}) => {
@@ -145,11 +146,13 @@ function makePrismaMock() {
 					}
 					const userIdFilter = where.userId;
 					const expectedChunks = where.receivedChunks?.equals;
+					const statusIn = where.status?.in;
 					let count = 0;
 					for (const id of ids) {
 						const row = store.sessions.get(id);
 						if (!row) continue;
 						if (userIdFilter !== undefined && row.userId !== userIdFilter) continue;
+						if (statusIn && !statusIn.includes(row.status)) continue;
 						if (expectedChunks) {
 							const current = [...row.receivedChunks].sort((a, b) => a - b);
 							const expected = [...expectedChunks].sort((a, b) => a - b);
@@ -500,6 +503,32 @@ describe("completeMediaUploadSession", () => {
 			}),
 		).rejects.toThrow(/not found or does not belong/);
 	});
+
+	it("refuses complete when session is already CANCELLED", async () => {
+		const view = await initMediaUploadSession({
+			userId: TEST_USER,
+			filename: "a.png",
+			mimeType: "image/png",
+			totalSize: 10,
+			chunkSize: 10,
+		});
+		await appendMediaUploadChunk({
+			sessionId: view.id,
+			userId: TEST_USER,
+			index: 0,
+			size: 10,
+			buffer: Buffer.alloc(10, 0xaa),
+		});
+		const buf = await assembleMediaUploadChunks(view.id, TEST_USER);
+		await cancelMediaUploadSession(view.id, TEST_USER);
+		await expect(
+			completeMediaUploadSession({
+				sessionId: view.id,
+				userId: TEST_USER,
+				buffer: buf,
+			}),
+		).rejects.toThrow(/only PENDING\/UPLOADING/);
+	});
 });
 
 describe("cancelMediaUploadSession", () => {
@@ -521,6 +550,32 @@ describe("cancelMediaUploadSession", () => {
 		const after = await cancelMediaUploadSession(view.id, TEST_USER);
 		expect(after.status).toBe("CANCELLED");
 		expect(await readSessionTempDir(view.id)).toEqual([]);
+	});
+
+	it("refuses cancel when session is already COMPLETED", async () => {
+		const view = await initMediaUploadSession({
+			userId: TEST_USER,
+			filename: "a.png",
+			mimeType: "image/png",
+			totalSize: 10,
+			chunkSize: 10,
+		});
+		await appendMediaUploadChunk({
+			sessionId: view.id,
+			userId: TEST_USER,
+			index: 0,
+			size: 10,
+			buffer: Buffer.alloc(10, 0xaa),
+		});
+		const buf = await assembleMediaUploadChunks(view.id, TEST_USER);
+		await completeMediaUploadSession({
+			sessionId: view.id,
+			userId: TEST_USER,
+			buffer: buf,
+		});
+		await expect(cancelMediaUploadSession(view.id, TEST_USER)).rejects.toThrow(
+			/only PENDING\/UPLOADING/,
+		);
 	});
 });
 

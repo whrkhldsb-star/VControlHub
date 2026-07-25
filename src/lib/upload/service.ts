@@ -322,8 +322,13 @@ export async function completeMediaUploadSession(params: {
 }): Promise<MediaUploadSessionView> {
 	const { sessionId, userId, buffer, resultImageId } = params;
 	const checksum = crypto.createHash("sha256").update(buffer).digest("hex");
+	// Only active sessions may complete — refuse terminal/cancelled states.
 	const updateResult = await prisma.mediaUploadSession.updateMany({
-		where: { id: sessionId, userId },
+		where: {
+			id: sessionId,
+			userId,
+			status: { in: ["PENDING", "UPLOADING"] },
+		},
 		data: {
 			status: "COMPLETED",
 			checksum,
@@ -332,7 +337,20 @@ export async function completeMediaUploadSession(params: {
 		},
 	});
 	if (updateResult.count === 0) {
-		throw new MediaUploadError("session_not_found", "Upload session not found or does not belong to the current user");
+		const existing = await prisma.mediaUploadSession.findFirst({
+			where: { id: sessionId, userId },
+			select: { status: true },
+		});
+		if (!existing) {
+			throw new MediaUploadError(
+				"session_not_found",
+				"Upload session not found or does not belong to the current user",
+			);
+		}
+		throw new MediaUploadError(
+			"session_not_active",
+			`Session status is ${existing.status}; only PENDING/UPLOADING sessions can be completed`,
+		);
 	}
 	const row = await prisma.mediaUploadSession.findUniqueOrThrow({
 		where: { id: sessionId },
@@ -349,12 +367,30 @@ export async function cancelMediaUploadSession(
 	sessionId: string,
 	userId: string,
 ): Promise<MediaUploadSessionView> {
+	// Only active sessions may cancel — refuse flipping COMPLETED/FAILED back.
 	const updateResult = await prisma.mediaUploadSession.updateMany({
-		where: { id: sessionId, userId },
+		where: {
+			id: sessionId,
+			userId,
+			status: { in: ["PENDING", "UPLOADING"] },
+		},
 		data: { status: "CANCELLED" },
 	});
 	if (updateResult.count === 0) {
-		throw new MediaUploadError("session_not_found", "Upload session not found or does not belong to the current user");
+		const existing = await prisma.mediaUploadSession.findFirst({
+			where: { id: sessionId, userId },
+			select: { status: true },
+		});
+		if (!existing) {
+			throw new MediaUploadError(
+				"session_not_found",
+				"Upload session not found or does not belong to the current user",
+			);
+		}
+		throw new MediaUploadError(
+			"session_not_active",
+			`Session status is ${existing.status}; only PENDING/UPLOADING sessions can be cancelled`,
+		);
 	}
 	const row = await prisma.mediaUploadSession.findUniqueOrThrow({
 		where: { id: sessionId },
