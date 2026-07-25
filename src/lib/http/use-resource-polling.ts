@@ -54,7 +54,8 @@ function defaultErrorMessage(error: unknown): string {
  *   - While `enabled` and `intervalSeconds > 0`, polls on that interval.
  *   - When `pauseWhenHidden`, stops the interval for hidden tabs and does an
  *     immediate catch-up fetch on re-show.
- *   - De-dupes overlapping fetches: a new tick is skipped if one is in flight.
+ *   - De-dupes overlapping fetches: concurrent ticks coalesce into one
+ *     follow-up after the in-flight request finishes (uses latest fetcher).
  *   - Distinguishes first-load `loading` from subsequent `refreshing`.
  *   - Ignores in-flight responses after unmount (no setState-after-unmount).
  *
@@ -78,6 +79,14 @@ export function useResourcePolling<T>(options: UseResourcePollingOptions<T>): Re
 	const mountedRef = useRef(true);
 	const inFlightRef = useRef(false);
 	const hasDataRef = useRef(false);
+	// When a refresh is requested while a fetch is in flight (filter/page
+	// change, manual refresh, poll tick), queue one follow-up so the latest
+	// fetcher identity is not silently dropped.
+	const pendingRefreshRef = useRef(false);
+	const fetcherRef = useRef(fetcher);
+	const getErrorMessageRef = useRef(getErrorMessage);
+	fetcherRef.current = fetcher;
+	getErrorMessageRef.current = getErrorMessage;
 
 	useEffect(() => {
 		mountedRef.current = true;
@@ -87,34 +96,44 @@ export function useResourcePolling<T>(options: UseResourcePollingOptions<T>): Re
 	}, []);
 
 	const refresh = useCallback(async () => {
-		if (inFlightRef.current) return; // de-dupe overlapping fetches
-		inFlightRef.current = true;
-		if (hasDataRef.current) setRefreshing(true);
-		try {
-			const next = await fetcher();
-			if (!mountedRef.current) return;
-			setData(next);
-			hasDataRef.current = true;
-			setError(null);
-		} catch (err) {
-			if (!mountedRef.current) return;
-			setError(getErrorMessage(err));
-		} finally {
-			if (mountedRef.current) {
-				setLoading(false);
-				setRefreshing(false);
-			}
-			inFlightRef.current = false;
+		if (inFlightRef.current) {
+			pendingRefreshRef.current = true;
+			return;
 		}
-	}, [fetcher, getErrorMessage]);
+
+		do {
+			pendingRefreshRef.current = false;
+			inFlightRef.current = true;
+			if (hasDataRef.current) setRefreshing(true);
+			try {
+				const next = await fetcherRef.current();
+				if (!mountedRef.current) return;
+				setData(next);
+				hasDataRef.current = true;
+				setError(null);
+			} catch (err) {
+				if (!mountedRef.current) return;
+				setError(getErrorMessageRef.current(err));
+			} finally {
+				if (mountedRef.current) {
+					setLoading(false);
+					setRefreshing(false);
+				}
+				inFlightRef.current = false;
+			}
+		} while (pendingRefreshRef.current && mountedRef.current);
+	}, []);
 
 	// Initial fetch + re-fetch when the fetcher identity changes.
+	// refresh is intentionally stable (reads fetcher via ref); depend on
+	// `fetcher` so filter/page identity changes still schedule a load —
+	// and if one is in flight, pendingRefreshRef queues the latest.
 	// refresh() sets state asynchronously (after the await), so the
 	// set-state-in-effect rule is a false positive here.
 	useEffect(() => {
 		// eslint-disable-next-line react-hooks/set-state-in-effect
 		void refresh();
-	}, [refresh]);
+	}, [refresh, fetcher]);
 
 	// Polling interval with optional visibility pause.
 	useEffect(() => {

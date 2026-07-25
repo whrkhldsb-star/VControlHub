@@ -78,26 +78,68 @@ describe("useResourcePolling — refresh", () => {
 		expect(result.current.data).toEqual({ ok: true });
 	});
 
-	it("de-dupes overlapping fetches", async () => {
-		let resolve: ((v: unknown) => void) | null = null;
-		const fetcher = vi.fn().mockImplementation(
-			() =>
-				new Promise((r) => {
-					resolve = r;
-				}),
-		);
+	it("de-dupes overlapping fetches but queues one follow-up", async () => {
+		let resolveFirst: ((v: unknown) => void) | null = null;
+		let resolveSecond: ((v: unknown) => void) | null = null;
+		const fetcher = vi
+			.fn()
+			.mockImplementationOnce(
+				() =>
+					new Promise((r) => {
+						resolveFirst = r;
+					}),
+			)
+			.mockImplementationOnce(
+				() =>
+					new Promise((r) => {
+						resolveSecond = r;
+					}),
+			);
 		const { result } = renderHook(() => useResourcePolling({ fetcher, intervalSeconds: 0 }));
 
-		// first fetch is in flight (from mount); a manual refresh should be skipped
+		// first fetch is in flight (from mount); a manual refresh should queue, not drop
 		await act(async () => {
-			await result.current.refresh();
+			void result.current.refresh();
 		});
 		expect(fetcher).toHaveBeenCalledTimes(1);
 
 		await act(async () => {
-			resolve?.({ done: true });
+			resolveFirst?.({ done: "first" });
 		});
-		await waitFor(() => expect(result.current.data).toEqual({ done: true }));
+		await waitFor(() => expect(fetcher).toHaveBeenCalledTimes(2));
+
+		await act(async () => {
+			resolveSecond?.({ done: "second" });
+		});
+		await waitFor(() => expect(result.current.data).toEqual({ done: "second" }));
+	});
+
+	it("re-fetches with the latest fetcher after an in-flight request when identity changes", async () => {
+		let resolveFirst: ((v: unknown) => void) | null = null;
+		const first = vi.fn(
+			() =>
+				new Promise((r) => {
+					resolveFirst = r;
+				}),
+		);
+		const second = vi.fn().mockResolvedValue({ page: 2 });
+
+		const { result, rerender } = renderHook(
+			({ fetcher }) => useResourcePolling({ fetcher, intervalSeconds: 0 }),
+			{ initialProps: { fetcher: first } },
+		);
+
+		expect(first).toHaveBeenCalledTimes(1);
+
+		rerender({ fetcher: second });
+		// second identity schedules refresh while first is in flight → queued
+		expect(second).toHaveBeenCalledTimes(0);
+
+		await act(async () => {
+			resolveFirst?.({ page: 1 });
+		});
+		await waitFor(() => expect(second).toHaveBeenCalledTimes(1));
+		await waitFor(() => expect(result.current.data).toEqual({ page: 2 }));
 	});
 });
 
