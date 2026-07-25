@@ -19,9 +19,17 @@ export function ResendDeployButton({ templateId, variables, serverIds, reason, l
 	const { t } = useI18n();
 	const { addToast } = useToast();
 	const [pending, setPending] = useState(false);
+	const [confirming, setConfirming] = useState(false);
 	const [error, setError] = useState<string | null>(null);
 
 	async function handleResend() {
+		if (pending) return;
+		if (!confirming) {
+			setError(null);
+			setConfirming(true);
+			return;
+		}
+
 		setPending(true);
 		setError(null);
 		try {
@@ -35,6 +43,7 @@ export function ResendDeployButton({ templateId, variables, serverIds, reason, l
 					reason,
 				}),
 			});
+			setConfirming(false);
 			addToast("success", t("deploymentsPage.resend.toast.success"));
 			router.refresh();
 		} catch (err) {
@@ -48,14 +57,39 @@ export function ResendDeployButton({ templateId, variables, serverIds, reason, l
 
 	return (
 		<div className="flex flex-wrap items-center gap-2">
+			{confirming ? (
+				<span id={`resend-deploy-${templateId}-warning`} className="text-xs text-[var(--warning)]">
+					{t("deploymentsPage.resend.confirmWarning")}
+				</span>
+			) : null}
 			<button
 				type="button"
 				onClick={handleResend}
 				disabled={pending}
+				aria-describedby={confirming ? `resend-deploy-${templateId}-warning` : undefined}
 				data-tone="cyan" data-action-button data-variant="outline" className="!px-3 !py-1.5 !text-xs disabled:opacity-60"
 			>
-				{pending ? t("deploymentsPage.resend.submitting") : (label || t("deploymentsPage.resend.triggerBtn"))}
+				{pending
+					? t("deploymentsPage.resend.submitting")
+					: confirming
+						? t("deploymentsPage.resend.confirmBtn")
+						: (label || t("deploymentsPage.resend.triggerBtn"))}
 			</button>
+			{confirming ? (
+				<button
+					type="button"
+					onClick={() => {
+						setConfirming(false);
+						setError(null);
+					}}
+					disabled={pending}
+					data-action-button
+					data-variant="secondary"
+					className="!px-3 !py-1.5 !text-xs !font-medium disabled:cursor-not-allowed disabled:opacity-60"
+				>
+					{t("common.cancel")}
+				</button>
+			) : null}
 			{error && <span role="alert" className="text-xs text-[var(--danger)]">{error}</span>}
 		</div>
 	);

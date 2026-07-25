@@ -7,6 +7,7 @@ export const zh: Record<string, string> = {
 	"deploymentsPage.launch.submit": "创建并部署",
 	"deploymentsPage.launch.submitting": "部署中…",
 	"deploymentsPage.launch.errorFallback": "部署失败",
+	"deploymentsPage.launch.toast.success": "部署任务已创建",
 	"deploymentsPage.launch.addVps": "去添加 VPS",
 	"deploymentsPage.launch.noServerSelected": "请至少选择一个目标 VPS",
 	"deploymentsPage.launch.noTemplate": "请选择部署模板",
@@ -89,6 +90,8 @@ export const zh: Record<string, string> = {
 
 	// Resend button (TR-026 unified feedback)
 	"deploymentsPage.resend.triggerBtn": "按此记录重发",
+	"deploymentsPage.resend.confirmBtn": "确认重发",
+	"deploymentsPage.resend.confirmWarning": "确认按此记录重新发起部署？将创建新的部署任务并进入审批链路。",
 	"deploymentsPage.resend.reasonLatest": "重新提交部署：{name}",
 	"deploymentsPage.resend.reasonFromRecord": "回退重发：{name}",
 	"deploymentsPage.resend.submitting": "提交中...",
@@ -101,6 +104,7 @@ export const en: Record<string, string> = {
 	"deploymentsPage.launch.submit": "Create and deploy",
 	"deploymentsPage.launch.submitting": "Deploying…",
 	"deploymentsPage.launch.errorFallback": "Deployment failed",
+	"deploymentsPage.launch.toast.success": "Deployment created",
 	"deploymentsPage.launch.addVps": "Add VPS",
 	"deploymentsPage.launch.noServerSelected": "Please select at least one target VPS",
 	"deploymentsPage.launch.noTemplate": "Please select a deployment template",
@@ -183,6 +187,8 @@ export const en: Record<string, string> = {
 
 	// Resend button (TR-026 unified feedback)
 	"deploymentsPage.resend.triggerBtn": "Resend from this record",
+	"deploymentsPage.resend.confirmBtn": "Confirm resend",
+	"deploymentsPage.resend.confirmWarning": "Resend this deployment from the selected record? A new run will be created and may enter the approval flow.",
 	"deploymentsPage.resend.reasonLatest": "Resubmit deployment: {name}",
 	"deploymentsPage.resend.reasonFromRecord": "Rollback resend: {name}",
 	"deploymentsPage.resend.submitting": "Submitting...",
