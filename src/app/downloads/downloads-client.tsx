@@ -321,7 +321,7 @@ export function DownloadsClient({ servers, canManage, canManageNode }: { servers
 
 			<Toolbar className="mb-5 flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
 				<div className="flex flex-wrap items-center gap-2">
-					{["ALL", "RUNNING", "COMPLETED", "FAILED", "CANCELLED"].map((f) => (
+					{["ALL", "PENDING", "RUNNING", "COMPLETED", "FAILED", "CANCELLED"].map((f) => (
 						<button key={f} type="button" onClick={() => setFilter(f)}
 							className={`rounded-full border px-3 py-1.5 text-xs font-medium transition ${
 								filter === f ? "border-[var(--accent-border)] bg-[var(--accent-bg)] text-[var(--text-primary)]" : "border-[var(--border)] bg-[var(--surface)] text-[var(--text-muted)] hover:text-[var(--text-primary)]"
