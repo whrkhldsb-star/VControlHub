@@ -35,8 +35,10 @@ export function RenameInlineForm({
     renameFileEntryAction,
     initialState,
   );
+  const canRename = Boolean(fileEntryId?.trim());
 
   function handleToggle() {
+    if (!canRename) return;
     setEditing(true);
     setNewName(currentName);
     setTimeout(() => inputRef.current?.focus(), 0);
@@ -65,6 +67,10 @@ export function RenameInlineForm({
     if (!state.error) return;
     onNotify?.("error", state.error);
   }, [state.error, onNotify]);
+
+  if (!canRename) {
+    return null;
+  }
 
   if (!editing) {
     return (
