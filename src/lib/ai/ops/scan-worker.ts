@@ -78,12 +78,16 @@ async function hasActiveScanJob(): Promise<boolean> {
 	return row !== null;
 }
 
-async function enqueueScanJob(reason: string) {
+async function enqueueScanJob(reason: string, notes?: string | null) {
 	if (await hasActiveScanJob()) return null;
 	return enqueueJob({
 		type: AI_OPS_SCAN_JOB_TYPE,
 		title: "AI ops daily scan",
-		payload: { reason, requestedAt: new Date().toISOString() },
+		payload: {
+			reason,
+			requestedAt: new Date().toISOString(),
+			...(notes ? { notes } : {}),
+		},
 		priority: -2, // Below user-triggered scans but above nightly snapshots
 		maxAttempts: 2,
 	});
@@ -350,7 +354,10 @@ function buildScan(
 	};
 }
 
-export async function runAiOpsScanWorkerOnce(reason = "manual"): Promise<boolean> {
+export async function runAiOpsScanWorkerOnce(
+	reason = "manual",
+	options?: { notes?: string | null },
+): Promise<boolean> {
 	const state = getWorkerState();
 	if (state.running) {
 		logger.warn("Skipping AI ops scan tick because a previous tick is still running", {
@@ -360,13 +367,31 @@ export async function runAiOpsScanWorkerOnce(reason = "manual"): Promise<boolean
 	}
 	state.running = true;
 	try {
-		await enqueueScanJob(reason);
+		await enqueueScanJob(reason, options?.notes);
 		const job = await claimNextJob({
 			workerId: AI_OPS_SCAN_WORKER_ID,
 			types: [AI_OPS_SCAN_JOB_TYPE],
 			leaseMs: AI_OPS_SCAN_LEASE_MS,
 		});
 		if (!job) return false;
+
+		const jobPayload =
+			job.payload && typeof job.payload === "object" && !Array.isArray(job.payload)
+				? (job.payload as { reason?: unknown; notes?: unknown })
+				: {};
+		const payloadReason =
+			typeof jobPayload.reason === "string" && jobPayload.reason.trim()
+				? jobPayload.reason.trim()
+				: reason;
+		const operatorNotes =
+			typeof jobPayload.notes === "string" && jobPayload.notes.trim()
+				? jobPayload.notes.trim()
+				: typeof options?.notes === "string" && options.notes.trim()
+					? options.notes.trim()
+					: null;
+		const initialNotes = operatorNotes
+			? `scan reason=${payloadReason}; notes=${operatorNotes}`
+			: `scan reason=${payloadReason}`;
 
 		let aiOpsLogId: string | null = null;
 		try {
@@ -377,10 +402,10 @@ export async function runAiOpsScanWorkerOnce(reason = "manual"): Promise<boolean
 
 			const mode = await readModeFromSettings();
 			const log = await createAiOpsLog({
-				triggerType: reason === "interval" || reason === "startup" ? "scheduled" : "manual",
+				triggerType: payloadReason === "interval" || payloadReason === "startup" ? "scheduled" : "manual",
 				mode,
 				triggeredById: null,
-				notes: `scan reason=${reason}`,
+				notes: initialNotes,
 			});
 			aiOpsLogId = log.id;
 
@@ -398,12 +423,17 @@ export async function runAiOpsScanWorkerOnce(reason = "manual"): Promise<boolean
 				)
 				: plannedActions;
 
+			const report = buildExplainableReport(mode, signals, actions);
+			const completedNotes = operatorNotes
+				? `ai.ops.scan reason=${payloadReason}\noperatorNotes=${operatorNotes}\n${report}`
+				: `ai.ops.scan reason=${payloadReason}\n${report}`;
+
 			const completed = await completeScan({
 				logId: log.id,
 				status,
 				findings,
 				actions,
-				notes: `ai.ops.scan reason=${reason}\n${buildExplainableReport(mode, signals, actions)}`,
+				notes: completedNotes,
 			});
 
 			await completeJob(job.id, AI_OPS_SCAN_WORKER_ID, {
@@ -412,7 +442,7 @@ export async function runAiOpsScanWorkerOnce(reason = "manual"): Promise<boolean
 				findingCount: findings.length,
 				actionCount: actions.length,
 				status: completed.status,
-				reason,
+				reason: payloadReason,
 			});
 			logger.info("AI ops daily scan complete", {
 				jobId: job.id,
@@ -470,7 +500,7 @@ export async function runAiOpsScanWorkerOnce(reason = "manual"): Promise<boolean
 				retryAfterMs: 60 * 60 * 1000, // 1h retry
 			});
 			logger.error("AI ops scan failed", {
-				reason,
+				reason: payloadReason,
 				jobId: job.id,
 				error: message,
 			});

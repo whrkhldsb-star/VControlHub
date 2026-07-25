@@ -191,7 +191,9 @@ describe("/api/ai/ops/* routes", () => {
 				}),
 			);
 			expect(res.status).toBe(200);
-			expect(mocks.runAiOpsScanWorkerOnce).toHaveBeenCalledWith("manual");
+			expect(mocks.runAiOpsScanWorkerOnce).toHaveBeenCalledWith("manual", {
+				notes: "investigate",
+			});
 			expect(mocks.auditUserAction).toHaveBeenCalledWith(
 				"u-admin",
 				"ai.ops.scan.manual",

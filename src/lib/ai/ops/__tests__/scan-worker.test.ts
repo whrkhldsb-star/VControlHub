@@ -141,7 +141,10 @@ beforeEach(() => {
 	jobMocks.enqueueJob.mockReset();
 	jobMocks.enqueueJob.mockResolvedValue({ id: "job_1" });
 	jobMocks.claimNextJob.mockReset();
-	jobMocks.claimNextJob.mockResolvedValue({ id: "job_1" });
+	jobMocks.claimNextJob.mockResolvedValue({
+		id: "job_1",
+		payload: { reason: "manual", requestedAt: new Date().toISOString() },
+	});
 	jobMocks.heartbeatJob.mockReset();
 	jobMocks.heartbeatJob.mockResolvedValue(undefined);
 	jobMocks.completeJob.mockReset();

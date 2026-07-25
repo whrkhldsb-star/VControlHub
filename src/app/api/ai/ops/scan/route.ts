@@ -32,7 +32,9 @@ export async function POST(request: Request) {
 			errorMessage: "Failed to trigger scan",
 		},
 		async ({ session, body }) => {
-			const triggered = await runAiOpsScanWorkerOnce("manual");
+			const triggered = await runAiOpsScanWorkerOnce("manual", {
+				notes: body.notes ?? null,
+			});
 			const latest = await listAiOpsLogs({ limit: 1 });
 			await auditUserAction(
 				session?.userId ?? "anonymous",
