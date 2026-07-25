@@ -192,23 +192,50 @@ export async function GET(req: NextRequest) {
         take: 100,
       });
 
-      const servers = await prisma.server.findMany({
-        where: { enabled: true, ...teamFilter },
-        select: {
-          id: true,
-          name: true,
-          host: true,
-          port: true,
-          username: true,
-          password: true,
-          sshKeyId: true,
-          sshKey: { select: { privateKey: true } },
-        },
-        orderBy: { name: "asc" },
-        take: 200,
-      });
+      // Only materialize SSH secrets when remote sampling is requested.
+      // List/metadata polls return id/name/host/port only and must not load credentials.
+      const servers = includeRemote
+        ? await prisma.server.findMany({
+            where: { enabled: true, ...teamFilter },
+            select: {
+              id: true,
+              name: true,
+              host: true,
+              port: true,
+              username: true,
+              password: true,
+              sshKeyId: true,
+              sshKey: { select: { privateKey: true } },
+            },
+            orderBy: { name: "asc" },
+            take: 200,
+          })
+        : await prisma.server.findMany({
+            where: { enabled: true, ...teamFilter },
+            select: {
+              id: true,
+              name: true,
+              host: true,
+              port: true,
+            },
+            orderBy: { name: "asc" },
+            take: 200,
+          });
 
-      const remoteServers = includeRemote ? await sampleRemoteServersTraffic(servers) : null;
+      const remoteServers = includeRemote
+        ? await sampleRemoteServersTraffic(
+            servers as Array<{
+              id: string;
+              name: string;
+              host: string;
+              port: number;
+              username: string;
+              password: string | null;
+              sshKeyId: string | null;
+              sshKey?: { privateKey: string | null } | null;
+            }>,
+          )
+        : null;
 
       // Summarize each local interface once per request. Calling summarize twice
       // for the primary iface advanced the previousSamples cache mid-request and
