@@ -20,7 +20,7 @@ export function PermanentDeleteButton({
  const router = useRouter();
  const { t } = useI18n();
  const [confirming, setConfirming] = useState(false);
- const [state, formAction] = useActionState(permanentDeleteFileEntryAction, initialState);
+ const [state, formAction, pending] = useActionState(permanentDeleteFileEntryAction, initialState);
 
  function handleCancel() {
  setConfirming(false);
@@ -51,14 +51,17 @@ export function PermanentDeleteButton({
       </span>
       <button
         type="submit"
+        disabled={pending}
         data-tone="rose" data-action-button data-variant="danger"
+        className="disabled:cursor-not-allowed disabled:opacity-50"
       >
-        {t("common.confirm")}
+        {pending ? t("common.executing") : t("common.confirm")}
       </button>
       <button
         type="button"
         onClick={handleCancel}
-       data-action-button data-variant="secondary" className="!px-4 !py-2 !text-sm">
+        disabled={pending}
+       data-action-button data-variant="secondary" className="!px-4 !py-2 !text-sm disabled:cursor-not-allowed disabled:opacity-50">
         {t("common.cancel")}
       </button>
       {state.error ? (
