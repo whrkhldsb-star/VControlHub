@@ -120,11 +120,13 @@ export function InstallDialog({
 	const containerPort = getPrimaryContainerPort(open);
 	const envCount = getEnvCount(open);
 	const volumeCount = getVolumeMounts(open).length;
-	const advanceDisabled = portCheck?.checking || (portCheck ? !portCheck.available : false);
+	// Require a successful availability check (not merely "not known busy") before Confirm.
+	const advanceDisabled =
+		!portValid || !portCheck || portCheck.checking || !portCheck.available;
 
 	const handleAdvance = () => {
 		if (!open || !portValid) return;
-		if (portCheck && !portCheck.available) return;
+		if (!portCheck || portCheck.checking || !portCheck.available) return;
 		onAdvance({ slug: open.slug, name: open.name, port });
 	};
 
