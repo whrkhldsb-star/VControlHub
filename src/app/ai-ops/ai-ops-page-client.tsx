@@ -166,7 +166,7 @@ export function AiOpsPageClient({
 		} catch (error) {
 			addToast(
 				"error",
-				`${t("aiOpsPage.actions.executeFailed")}: ${String(error)}`,
+				`${t("aiOpsPage.settings.saveFailed")}: ${String(error)}`,
 			);
 		} finally {
 			setSavingSettings(false);

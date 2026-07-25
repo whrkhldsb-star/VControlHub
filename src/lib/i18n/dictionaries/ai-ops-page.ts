@@ -91,6 +91,7 @@ export const zh: Record<string, string> = {
 	"aiOpsPage.settings.notConfigured": "（使用默认 recommendation 模式）",
 	"aiOpsPage.settings.save": "保存",
 	"aiOpsPage.settings.saved": "设置已保存",
+	"aiOpsPage.settings.saveFailed": "保存设置失败",
 };
 
 export const en: Record<string, string> = {
@@ -173,4 +174,5 @@ export const en: Record<string, string> = {
 	"aiOpsPage.settings.notConfigured": "(using default recommendation mode)",
 	"aiOpsPage.settings.save": "Save",
 	"aiOpsPage.settings.saved": "Settings saved",
+	"aiOpsPage.settings.saveFailed": "Failed to save settings",
 };
