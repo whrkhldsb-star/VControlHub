@@ -7,7 +7,7 @@
 import { useState, useTransition } from "react";
 
 import { csrfFetch } from "@/lib/auth/csrf-client";
-import { t } from "@/lib/i18n/translations";
+import { useI18n } from "@/lib/i18n/use-locale";
 
 type DryRunState =
 	| { kind: "idle" }
@@ -19,6 +19,7 @@ type DryRunState =
 	| { kind: "error"; message: string };
 
 export function OffsiteDryRunButton() {
+	const { t } = useI18n();
 	const [state, setState] = useState<DryRunState>({ kind: "idle" });
 	const [pending, startTransition] = useTransition();
 
@@ -78,12 +79,18 @@ export function OffsiteDryRunButton() {
 			>
 				{isRunning ? t("backupsPage.offsite.dryRunning") : t("backupsPage.offsite.dryRunButton")}
 			</button>
-			<StateView state={state} />
+			<StateView state={state} t={t} />
 		</div>
 	);
 }
 
-function StateView({ state }: { state: DryRunState }) {
+function StateView({
+	state,
+	t,
+}: {
+	state: DryRunState;
+	t: (key: string) => string;
+}) {
 	if (state.kind === "idle") return null;
 	if (state.kind === "running") {
 		return <p className="text-xs text-[var(--text-muted)]">{t("backupsPage.offsite.dryRunning")}</p>;
