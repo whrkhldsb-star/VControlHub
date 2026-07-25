@@ -152,6 +152,9 @@ export const zh: Record<string, string> = {
 	"backend.command.enqueuedFromCreate": "命令已进入后台 SSH 执行队列，可在任务中心查看节点状态。",
 	"backend.command.enqueuedFromApproval": "审批已通过，任务已进入后台 SSH 执行队列。",
 	"backend.command.rejectedSummary": "审批已拒绝，任务不会进入执行队列。",
+	"backend.command.approvalState.pending": "待审批",
+	"backend.command.approvalState.approved": "已批准",
+	"backend.command.approvalState.rejected": "已拒绝",
 
 	"backend.playbook.notFound": "Playbook 不存在",
 	"backend.playbook.cannotDeleteWhileRunning": "Playbook 有进行中的运行，无法删除",
@@ -540,6 +543,9 @@ export const en: Record<string, string> = {
 	"backend.command.enqueuedFromCreate": "Command entered the background SSH execution queue; check node status in the task center.",
 	"backend.command.enqueuedFromApproval": "Approval passed; the task entered the background SSH execution queue.",
 	"backend.command.rejectedSummary": "Approval rejected; the task will not enter the execution queue.",
+	"backend.command.approvalState.pending": "Pending approval",
+	"backend.command.approvalState.approved": "Approved",
+	"backend.command.approvalState.rejected": "Rejected",
 
 
 	"backend.playbook.notFound": "Playbook not found",

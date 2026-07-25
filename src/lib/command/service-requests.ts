@@ -185,11 +185,11 @@ function mapCommandRequest(
     ),
     approvalStateLabel:
       request.status === "PENDING_APPROVAL"
-        ? "Pending approval"
+        ? t("backend.command.approvalState.pending")
         : request.status === "APPROVED"
-          ? "Approved"
+          ? t("backend.command.approvalState.approved")
           : request.status === "REJECTED"
-            ? "Rejected"
+            ? t("backend.command.approvalState.rejected")
             : request.status,
     targetSummary: request.targets.map(
       (
