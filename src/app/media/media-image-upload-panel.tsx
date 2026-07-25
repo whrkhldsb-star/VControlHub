@@ -74,12 +74,15 @@ export function MediaImageUploadPanel() {
 		...(storageNodeId ? { storageNodeId } : {}),
 		...(targetPath.trim() ? { relativePath: targetPath.trim() } : {}),
 		onProgress: (next) => {
+			// Only the actively uploading chunked row should receive progress.
+			// Mapping onto every mode==='chunked' item rewrites completed rows
+			// when a multi-file queue has ≥2 large files.
 			setProgress((prev) =>
 				prev
 					? {
 							...prev,
 							queue: prev.queue.map((item) =>
-								item.mode === "chunked" && item.chunked
+								item.mode === "chunked" && item.status === "uploading"
 									? { ...item, chunked: { progress: next } }
 									: item,
 							),
