@@ -45,7 +45,7 @@ describe("deployment service", () => {
       (where.id.in ?? []).map((id: string) => ({ id })),
     );
     mockPrisma.commandTemplate.findUnique.mockResolvedValue({ id: "tmpl1", name: "Nginx", command: "apt install {{pkg}}", rollbackCommand: "apt remove {{pkg}}", variables: ["pkg"] });
-    mockPrisma.commandTemplate.findMany.mockResolvedValue([{ id: "tmpl1", name: "Nginx", command: "apt install {{pkg}}", rollbackCommand: "apt remove {{pkg}}", variables: ["pkg"], isActive: true }]);
+    mockPrisma.commandTemplate.findMany.mockResolvedValue([{ id: "tmpl1", name: "Nginx", command: "apt install {{pkg}}", rollbackCommand: "apt remove {{pkg}}", variables: ["pkg"], isBuiltin: true }]);
     mockPrisma.commandTemplate.count.mockResolvedValue(1);
     mockPrisma.commandTemplate.create.mockResolvedValue({});
     mockPrisma.deploymentRun.create.mockImplementation(async ({ data }: any) => ({ id: "dep1", ...data }));
@@ -219,7 +219,7 @@ describe("deployment service", () => {
 
   it("lists templates for the deployment page without rendering secrets", async () => {
     const templates = await listDeploymentTemplates();
-    expect(templates).toEqual([{ id: "tmpl1", name: "Nginx", command: "apt install {{pkg}}", rollbackCommand: "apt remove {{pkg}}", variables: ["pkg"], isActive: true }]);
+    expect(templates).toEqual([{ id: "tmpl1", name: "Nginx", command: "apt install {{pkg}}", rollbackCommand: "apt remove {{pkg}}", variables: ["pkg"], isBuiltin: true }]);
     expect(commandTemplateService.seedBuiltinTemplates).toHaveBeenCalled();
     expect(mockPrisma.commandTemplate.findMany).toHaveBeenCalledWith({ orderBy: [{ isBuiltin: "desc" }, { name: "asc" }], take: 200 });
   });

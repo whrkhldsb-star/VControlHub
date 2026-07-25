@@ -51,7 +51,6 @@ export type DeploymentTemplateDto = {
   variables: string[];
   category?: string | null;
   isBuiltin: boolean;
-  isActive: boolean;
   createdAt?: string | Date | null;
   updatedAt?: string | Date | null;
 };
