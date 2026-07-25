@@ -30,6 +30,7 @@ import {
 import { createVerifiedSshConfig } from "@/lib/ssh/client";
 import { getServerLocale, t } from "@/lib/i18n/translations";
 import { assertServerTeamAccess } from "@/lib/server/team-access";
+import { auditUserAction } from "@/lib/audit/service";
 
 export const dynamic = "force-dynamic";
 const FILE_PROXY_TTL_MS = 2 * 60 * 60 * 1000;
@@ -374,6 +375,19 @@ export async function POST(
           },
         });
 
+        await auditUserAction(
+          session.userId,
+          "server.file_proxy.start",
+          {
+            serverId: id,
+            proxyId: proxy.id,
+            port: actualPort,
+            expiresAt: expiresAt.toISOString(),
+          },
+          undefined,
+          session.currentTeamId,
+        );
+
         return NextResponse.json({
           status: "running",
           proxy: {
@@ -454,6 +468,14 @@ export async function DELETE(
           where: { id: proxy.id },
           data: { status: "stopped" },
         });
+
+        await auditUserAction(
+          session.userId,
+          "server.file_proxy.stop",
+          { serverId: id, proxyId: proxy.id, pid: proxy.pid },
+          undefined,
+          session.currentTeamId,
+        );
 
         return NextResponse.json({ status: "stopped" });
       } catch (error) {
