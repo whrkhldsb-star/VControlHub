@@ -32,23 +32,49 @@ export const reviewCommandSchema = z.object({
   comment: z.string().trim().max(500, "Approval comment must be at most 500 characters").optional(),
 });
 
+const commandTemplateNameSchema = z
+  .string()
+  .trim()
+  .min(1, "Name is required")
+  .max(120, "Name must be at most 120 characters");
+const commandTemplateCommandSchema = z
+  .string()
+  .trim()
+  .min(1, "Command is required")
+  .max(10_000, "Command content is too long");
+const commandTemplateRollbackSchema = z
+  .string()
+  .trim()
+  .max(10_000, "Rollback command is too long")
+  .optional()
+  .nullable();
+const commandTemplateDescriptionSchema = z
+  .string()
+  .trim()
+  .max(500, "Description must be at most 500 characters")
+  .optional();
+const commandTemplateStringListSchema = z
+  .array(z.string().trim().min(1).max(120))
+  .max(50)
+  .optional();
+
 export const createCommandTemplateSchema = z.object({
-  name: z.string().min(1),
-  command: z.string().min(1),
-  rollbackCommand: z.string().optional().nullable(),
-  description: z.string().optional(),
-  variables: z.array(z.string()).optional(),
-  tags: z.array(z.string()).optional(),
+  name: commandTemplateNameSchema,
+  command: commandTemplateCommandSchema,
+  rollbackCommand: commandTemplateRollbackSchema,
+  description: commandTemplateDescriptionSchema,
+  variables: commandTemplateStringListSchema,
+  tags: commandTemplateStringListSchema,
 });
 
 export const updateCommandTemplateSchema = z.object({
-  id: z.string().min(1),
-  name: z.string().min(1).optional(),
-  command: z.string().min(1).optional(),
-  rollbackCommand: z.string().optional().nullable(),
-  description: z.string().optional(),
-  variables: z.array(z.string()).optional(),
-  tags: z.array(z.string()).optional(),
+  id: z.string().trim().min(1),
+  name: commandTemplateNameSchema.optional(),
+  command: commandTemplateCommandSchema.optional(),
+  rollbackCommand: commandTemplateRollbackSchema,
+  description: commandTemplateDescriptionSchema,
+  variables: commandTemplateStringListSchema,
+  tags: commandTemplateStringListSchema,
 });
 
 export type CreateCommandInput = z.infer<typeof createCommandSchema>;

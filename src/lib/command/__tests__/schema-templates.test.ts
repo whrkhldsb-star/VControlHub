@@ -63,6 +63,40 @@ describe("command template schemas (T38e)", () => {
       });
       expect(result.success).toBe(false);
     });
+
+    it("trims name/command and rejects oversized payloads", () => {
+      const ok = createCommandTemplateSchema.safeParse({
+        name: "  deploy  ",
+        command: "  systemctl restart app  ",
+        description: "  restart  ",
+      });
+      expect(ok.success).toBe(true);
+      if (ok.success) {
+        expect(ok.data.name).toBe("deploy");
+        expect(ok.data.command).toBe("systemctl restart app");
+        expect(ok.data.description).toBe("restart");
+      }
+
+      expect(
+        createCommandTemplateSchema.safeParse({
+          name: "x".repeat(121),
+          command: "ok",
+        }).success,
+      ).toBe(false);
+      expect(
+        createCommandTemplateSchema.safeParse({
+          name: "ok",
+          command: "x".repeat(10_001),
+        }).success,
+      ).toBe(false);
+      expect(
+        createCommandTemplateSchema.safeParse({
+          name: "ok",
+          command: "ok",
+          tags: Array.from({ length: 51 }, (_, i) => `t${i}`),
+        }).success,
+      ).toBe(false);
+    });
   });
 
   describe("updateCommandTemplateSchema", () => {
