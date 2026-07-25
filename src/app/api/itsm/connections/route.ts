@@ -6,7 +6,7 @@ import { NextResponse } from "next/server";
 
 import { auditUserAction } from "@/lib/audit/service";
 import { withApiRoute } from "@/lib/http/api-guard";
-import { GENERAL_WRITE_LIMIT } from "@/lib/http/rate-limit-presets";
+import { GENERAL_READ_LIMIT, GENERAL_WRITE_LIMIT } from "@/lib/http/rate-limit-presets";
 import { createItsmConnectionSchema } from "@/lib/itsm/schema";
 import { createItsmConnection, listItsmConnections } from "@/lib/itsm/service";
 
@@ -17,7 +17,7 @@ export async function GET(request: Request) {
 		request,
 		{
 			permission: "ticket:manage",
-			rateLimit: GENERAL_WRITE_LIMIT,
+			rateLimit: GENERAL_READ_LIMIT,
 			errorStatus: 500,
 			errorMessage: "Failed to list ITSM connections",
 		},

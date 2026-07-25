@@ -5,7 +5,7 @@ import { NextResponse } from "next/server";
 
 import { auditUserAction } from "@/lib/audit/service";
 import { withApiRoute } from "@/lib/http/api-guard";
-import { GENERAL_WRITE_LIMIT } from "@/lib/http/rate-limit-presets";
+import { GENERAL_READ_LIMIT, GENERAL_WRITE_LIMIT } from "@/lib/http/rate-limit-presets";
 import { updateItsmConnectionSchema } from "@/lib/itsm/schema";
 import {
 	deleteItsmConnection,
@@ -23,7 +23,7 @@ export async function GET(request: Request, context: RouteContext) {
 		request,
 		{
 			permission: "ticket:manage",
-			rateLimit: GENERAL_WRITE_LIMIT,
+			rateLimit: GENERAL_READ_LIMIT,
 			errorStatus: 500,
 			errorMessage: "Failed to load ITSM connection",
 		},
