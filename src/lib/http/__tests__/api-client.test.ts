@@ -91,6 +91,34 @@ describe("lib/http/api-client — ApiError envelope (TR-034 R3)", () => {
 		expect(data).toBeUndefined();
 	});
 
+	it("does not force application/json Content-Type for FormData bodies", async () => {
+		const form = new FormData();
+		form.append("file", new Blob(["x"]), "x.txt");
+		const spy = vi.fn().mockResolvedValue({
+			ok: true,
+			status: 200,
+			json: async () => ({ ok: true }),
+		} as unknown as Response);
+		globalThis.fetch = spy as unknown as typeof fetch;
+		await api.post("/api/upload", form);
+		const headers = spy.mock.calls[0]?.[1]?.headers as Headers | undefined;
+		const sentBody = spy.mock.calls[0]?.[1]?.body;
+		expect(headers?.get("Content-Type")).toBeNull();
+		expect(sentBody).toBe(form);
+	});
+
+	it("still defaults Content-Type to application/json for plain JSON posts", async () => {
+		const spy = vi.fn().mockResolvedValue({
+			ok: true,
+			status: 200,
+			json: async () => ({ ok: true }),
+		} as unknown as Response);
+		globalThis.fetch = spy as unknown as typeof fetch;
+		await api.post("/api/x", { foo: 1 });
+		const headers = spy.mock.calls[0]?.[1]?.headers as Headers | undefined;
+		expect(headers?.get("Content-Type")).toBe("application/json");
+	});
+
 	it("wraps a non-JSON 500 body into a fallback ApiError", async () => {
 		const fn = vi.fn().mockResolvedValueOnce({
 			ok: false,

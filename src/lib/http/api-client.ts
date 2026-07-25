@@ -38,7 +38,18 @@ async function request<T>(
 
 	// Build headers
 	const headers = new Headers(init?.headers);
-	if (!headers.has("Content-Type") && method !== "GET" && method !== "HEAD") {
+	const body = init?.body;
+	const skipDefaultJsonContentType =
+		typeof FormData !== "undefined" && body instanceof FormData
+		|| typeof Blob !== "undefined" && body instanceof Blob
+		|| typeof URLSearchParams !== "undefined" && body instanceof URLSearchParams
+		|| (typeof ReadableStream !== "undefined" && body instanceof ReadableStream);
+	if (
+		!headers.has("Content-Type")
+		&& method !== "GET"
+		&& method !== "HEAD"
+		&& !skipDefaultJsonContentType
+	) {
 		headers.set("Content-Type", "application/json");
 	}
 
@@ -80,36 +91,49 @@ async function request<T>(
 }
 
 // ── Public API ────────────────────────────────────────────────────
+function encodeRequestBody(body: unknown | undefined, initBody: BodyInit | null | undefined): BodyInit | undefined {
+	if (body === undefined || body === null) {
+		return initBody ?? undefined;
+	}
+	if (typeof FormData !== "undefined" && body instanceof FormData) return body;
+	if (typeof Blob !== "undefined" && body instanceof Blob) return body;
+	if (typeof URLSearchParams !== "undefined" && body instanceof URLSearchParams) return body;
+	if (typeof ReadableStream !== "undefined" && body instanceof ReadableStream) return body;
+	if (typeof ArrayBuffer !== "undefined" && body instanceof ArrayBuffer) return body;
+	if (typeof body === "string") return body;
+	return JSON.stringify(body);
+}
+
 export const api = {
 	/** GET request with typed response */
 	get<T>(url: string, init?: RequestInit): Promise<T> {
 		return request<T>(url, { ...init, method: "GET" });
 	},
 
-	/** POST request with JSON body */
+	/** POST request — JSON by default; FormData/Blob/URLSearchParams pass through without forced Content-Type */
 	post<T>(url: string, body?: unknown, init?: RequestInit): Promise<T> {
 		return request<T>(url, {
 			...init,
 			method: "POST",
-			body: body ? JSON.stringify(body) : undefined,
+			body: encodeRequestBody(body, init?.body),
 		});
 	},
 
-	/** PUT request with JSON body */
+	/** PUT request — JSON by default; binary/multipart bodies pass through */
 	put<T>(url: string, body?: unknown, init?: RequestInit): Promise<T> {
 		return request<T>(url, {
 			...init,
 			method: "PUT",
-			body: body ? JSON.stringify(body) : undefined,
+			body: encodeRequestBody(body, init?.body),
 		});
 	},
 
-	/** PATCH request with JSON body */
+	/** PATCH request — JSON by default; binary/multipart bodies pass through */
 	patch<T>(url: string, body?: unknown, init?: RequestInit): Promise<T> {
 		return request<T>(url, {
 			...init,
 			method: "PATCH",
-			body: body ? JSON.stringify(body) : undefined,
+			body: encodeRequestBody(body, init?.body),
 		});
 	},
 
