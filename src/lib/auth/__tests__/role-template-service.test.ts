@@ -30,4 +30,28 @@ describe("role template service", () => {
     const result = await listRoleTemplates();
     expect(result[0]?.storageAccess).toEqual([]);
   });
+
+  it("validates only requested storage node ids (not a global take:500 whitelist)", async () => {
+    mocks.roleFindMany.mockResolvedValue([{ key: "operator" }]);
+    mocks.storageFindMany.mockResolvedValue([{ id: "node-1" }]);
+    mocks.templateCreate.mockImplementation(async ({ data }) => ({
+      id: "tpl-2",
+      ...data,
+      dataScope: data.dataScope,
+      isBuiltin: false,
+      createdAt: new Date("2026-01-01"),
+      updatedAt: new Date("2026-01-01"),
+    }));
+    await createRoleTemplate({
+      name: "Ops2",
+      roleKeys: ["operator"],
+      permissions: ["server:read"],
+      storageAccess: [{ storageNodeId: "node-1", pathPrefix: "/", canRead: true, canWrite: false, canDelete: false }],
+    }, "user-1");
+    expect(mocks.storageFindMany).toHaveBeenCalledWith({
+      where: { id: { in: ["node-1"] } },
+      select: { id: true },
+      take: 1,
+    });
+  });
 });

@@ -71,9 +71,19 @@ async function validateInput(input: unknown) {
   const known = new Set(knownRoles.map((role) => role.key));
   const missingRoles = parsed.roleKeys.filter((key) => !known.has(key));
   if (missingRoles.length > 0) throw new ValidationError(`Unknown roles: ${missingRoles.join(", ")}`);
-  const validNodes = new Set((await prisma.storageNode.findMany({ select: { id: true }, take: 500 })).map((n) => n.id));
-  const invalidNode = parsed.storageAccess.find((grant) => !validNodes.has(grant.storageNodeId));
-  if (invalidNode) throw new ValidationError(`Unknown storage node: ${invalidNode.storageNodeId}`);
+  const requestedNodeIds = Array.from(
+    new Set(parsed.storageAccess.map((grant) => grant.storageNodeId).filter(Boolean)),
+  );
+  if (requestedNodeIds.length > 0) {
+    const knownNodes = await prisma.storageNode.findMany({
+      where: { id: { in: requestedNodeIds } },
+      select: { id: true },
+      take: requestedNodeIds.length,
+    });
+    const validNodes = new Set(knownNodes.map((n) => n.id));
+    const invalidNode = parsed.storageAccess.find((grant) => !validNodes.has(grant.storageNodeId));
+    if (invalidNode) throw new ValidationError(`Unknown storage node: ${invalidNode.storageNodeId}`);
+  }
   return parsed;
 }
 
