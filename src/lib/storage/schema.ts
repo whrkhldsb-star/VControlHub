@@ -1,5 +1,6 @@
 import { z } from "zod";
 
+import { MAX_EDITABLE_FILE_SIZE_BYTES } from "@/lib/storage/mime-constants";
 import { safeNormalizePublicBaseUrl } from "./direct-access-url";
 
 export const storageAccessModeSchema = z.enum(["PROXY", "DIRECT", "AUTO"]);
@@ -111,12 +112,14 @@ export const contentDownloadQuerySchema = storageFileQuerySchema.extend({
 // newPath/content/isDirectory. `action` is exported separately so call
 // sites can narrow types if they want to.
 export const sftpOpsActionSchema = z.enum(["delete", "rename", "read", "write"]);
+// Inline write content is capped to the same editable-file budget used by
+// local storage editors — unbounded strings would OOM the API process.
 export const sftpOpsBodySchema = z.object({
   nodeId: z.string().min(1),
   action: sftpOpsActionSchema,
   path: z.string().min(1),
   newPath: z.string().optional(),
-  content: z.string().optional(),
+  content: z.string().max(MAX_EDITABLE_FILE_SIZE_BYTES).optional(),
   isDirectory: z.boolean().optional(),
 });
 
