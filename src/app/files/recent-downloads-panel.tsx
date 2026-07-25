@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 import { useI18n } from "@/lib/i18n/use-locale";
 
@@ -21,25 +21,34 @@ export function RecentDownloadsPanel({
   const [downloads, setDownloads] = useState<RecentDownload[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const loadGenRef = useRef(0);
 
   const load = useCallback(async () => {
+    const gen = ++loadGenRef.current;
     setLoading(true);
     setError(null);
     try {
       const response = await fetch("/api/downloads/recent", { cache: "no-store" });
       if (!response.ok) throw new Error(t("filesPage.recentDownloads.error"));
       const body = await response.json() as { downloads?: RecentDownload[] };
+      // Ignore out-of-order responses from rapid refresh/remount races.
+      if (gen !== loadGenRef.current) return;
       setDownloads(Array.isArray(body.downloads) ? body.downloads : []);
     } catch (cause) {
+      if (gen !== loadGenRef.current) return;
       setError(cause instanceof Error ? cause.message : t("filesPage.recentDownloads.error"));
     } finally {
-      setLoading(false);
+      if (gen === loadGenRef.current) setLoading(false);
     }
   }, [t]);
 
   useEffect(() => {
     const timer = window.setTimeout(() => { void load(); }, 0);
-    return () => window.clearTimeout(timer);
+    return () => {
+      window.clearTimeout(timer);
+      // Invalidate in-flight load so unmount/remount cannot apply stale state.
+      loadGenRef.current += 1;
+    };
   }, [load]);
 
   return (
