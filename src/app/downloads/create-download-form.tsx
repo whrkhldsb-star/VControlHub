@@ -138,7 +138,11 @@ export function CreateDownloadForm({
 					</label>
 					<input
 						id="download-url"
-						type="url"
+						// text (not type=url): magnet:? and bare paths are valid download sources
+						type="text"
+						inputMode="url"
+						autoComplete="off"
+						spellCheck={false}
 						value={form.url}
 						onChange={(e) => onFormChange({ ...form, url: e.target.value })}
 						placeholder={t("downloadsPage.form.linkPlaceholder")}
