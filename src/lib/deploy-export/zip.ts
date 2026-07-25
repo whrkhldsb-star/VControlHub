@@ -29,6 +29,12 @@ function normaliseEntryName(name: string): string {
   if (cleaned.includes("\0")) {
     throw new Error("zip entry name must not contain NUL");
   }
+  // Reject path traversal and absolute-looking residual segments so extractors
+  // cannot write outside the intended package directory.
+  const segments = cleaned.split("/");
+  if (segments.some((seg) => seg === ".." || seg === "")) {
+    throw new Error("zip entry name must not contain path traversal or empty segments");
+  }
   return cleaned;
 }
 

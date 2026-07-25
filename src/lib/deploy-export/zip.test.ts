@@ -106,6 +106,12 @@ describe("deploy-export zip encoder", () => {
     expect(() => buildZip([{ name: "foo\0bar", content: "x" }])).toThrow(/NUL/);
   });
 
+  it("rejects path traversal and empty segments in entry names", () => {
+    expect(() => buildZip([{ name: "../etc/passwd", content: "x" }])).toThrow(/path traversal/);
+    expect(() => buildZip([{ name: "a/../../b", content: "x" }])).toThrow(/path traversal/);
+    expect(() => buildZip([{ name: "a//b", content: "x" }])).toThrow(/empty segments|path traversal/);
+  });
+
   it("normalises leading slashes and backslashes in entry names", () => {
     const archive = buildZip([{ name: "/systemd/app.service", content: "x" }]);
     const { entries } = decodeZip(archive);
