@@ -36,16 +36,16 @@ const patchDownloadSchema = z.object({
 });
 
 export async function PATCH(request: Request) {
+  const locale = await getServerLocale();
   return withApiRoute(
     request,
     {
       permission: "storage:write",
       rateLimit: GENERAL_WRITE_LIMIT,
-      errorMessage: t("apiDownloads.operationFailed", "zh"),
+      errorMessage: t("apiDownloads.operationFailed", locale),
       bodySchema: patchDownloadSchema,
     },
     async ({ session, body }) => {
-      const locale = await getServerLocale();
       if (!session)
         throw new AuthError(t("apiDownloads.unauthorized", locale));
       const { taskId, action, maxSpeedKb, globalMaxSpeedKb } = body;

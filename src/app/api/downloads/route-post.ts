@@ -24,9 +24,9 @@ import { getServerLocale, t } from "@/lib/i18n/translations";
 /* ── POST: Create download task ───────────────────────────── */
 
 const postDownloadSchema = z.object({
-  url: z.string().url(t("apiDownloads.urlInvalid", "zh")),
-  serverId: z.string().min(1, t("apiDownloads.missingServerId", "zh")),
-  targetPath: z.string().min(1, t("apiDownloads.missingTargetPath", "zh")),
+  url: z.string().url(t("apiDownloads.urlInvalid", "en")),
+  serverId: z.string().min(1, t("apiDownloads.missingServerId", "en")),
+  targetPath: z.string().min(1, t("apiDownloads.missingTargetPath", "en")),
   fileName: z.string().optional(),
   category: z.string().optional(),
   maxSpeedKb: z.number().optional(),
@@ -35,16 +35,16 @@ const postDownloadSchema = z.object({
 });
 
 export async function POST(request: Request) {
+  const locale = await getServerLocale();
   return withApiRoute(
     request,
     {
       permission: "storage:write",
       rateLimit: GENERAL_WRITE_LIMIT,
-      errorMessage: t("apiDownloads.createTaskFailed", "zh"),
+      errorMessage: t("apiDownloads.createTaskFailed", locale),
       bodySchema: postDownloadSchema,
     },
     async ({ session, body }) => {
-      const locale = await getServerLocale();
       if (!session)
         throw new AuthError(t("apiDownloads.unauthorized", locale));
       const {

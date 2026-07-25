@@ -14,11 +14,11 @@ import { canAccessDownloadTask, taskDownloadAccess } from "@/lib/downloads/route
 /* ── GET: List tasks with real-time aria2 progress ────────── */
 
 export async function GET(request: Request) {
+  const locale = await getServerLocale();
   return withApiRoute(
     request,
-    { permission: "storage:read", errorMessage: t("apiDownloads.fetchTasksFailed", "zh") },
+    { permission: "storage:read", errorMessage: t("apiDownloads.fetchTasksFailed", locale) },
     async ({ session }) => {
-      const locale = await getServerLocale();
       if (!session)
         throw new AuthError(t("apiDownloads.unauthorized", locale));
       const { serverId, category } = parseSearchParams(

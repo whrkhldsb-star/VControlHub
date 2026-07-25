@@ -18,15 +18,15 @@ import { canAccessDownloadTask } from "@/lib/downloads/route-helpers";
 /* ── DELETE: Cancel task ──────────────────────────────────── */
 
 export async function DELETE(request: Request) {
+  const locale = await getServerLocale();
   return withApiRoute(
     request,
     {
       permission: "storage:write",
       rateLimit: GENERAL_WRITE_LIMIT,
-      errorMessage: t("apiDownloads.cancelTaskFailed", "zh"),
+      errorMessage: t("apiDownloads.cancelTaskFailed", locale),
     },
     async ({ session }) => {
-      const locale = await getServerLocale();
       if (!session)
         throw new AuthError(t("apiDownloads.unauthorized", locale));
       const { taskId, purge } = parseSearchParams(
