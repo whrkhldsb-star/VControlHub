@@ -122,7 +122,7 @@ export function CreateShareForm({ nodes }: { nodes: StorageNode[] }) {
             </div>
             <div>
               <label htmlFor="share-password" className="block text-xs text-[var(--text-secondary)] mb-1">{t("sharesPage.create.password")}</label>
-              <input id="share-password" type="text" value={password} onChange={(e) => setPassword(e.target.value)} placeholder={t("sharesPage.create.passwordPlaceholder")} data-input className="w-full rounded-xl border border-[var(--input-border)] bg-[var(--input-bg)] px-3 py-2.5 text-sm outline-none" />
+              <input id="share-password" type="password" autoComplete="new-password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder={t("sharesPage.create.passwordPlaceholder")} data-input className="w-full rounded-xl border border-[var(--input-border)] bg-[var(--input-bg)] px-3 py-2.5 text-sm outline-none" />
             </div>
           </div>
 
