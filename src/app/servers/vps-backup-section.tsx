@@ -111,6 +111,7 @@ export function VpsBackupSection({
 
 	const handleTrigger = async (backupType: string) => {
 		setTriggering(backupType);
+		setError(null);
 		try {
 			const res = await csrfFetch<Response>(`/api/servers/${serverId}/vps-backup/records`, {
 				method: "POST",
@@ -136,6 +137,7 @@ export function VpsBackupSection({
 	};
 
 	const handleCreate = async () => {
+		setError(null);
 		try {
 			const res = await csrfFetch<Response>(`/api/servers/${serverId}/vps-backup/schedules`, {
 				method: "POST",
@@ -170,6 +172,7 @@ export function VpsBackupSection({
 	};
 
 	const handleDeleteSchedule = async (scheduleId: string) => {
+		setError(null);
 		try {
 			await csrfFetch(`/api/servers/${serverId}/vps-backup/schedules/${scheduleId}`, {
 				method: "DELETE",
@@ -181,6 +184,7 @@ export function VpsBackupSection({
 	};
 
 	const handleDeleteRecord = async (recordId: string) => {
+		setError(null);
 		try {
 			await csrfFetch(`/api/servers/${serverId}/vps-backup/records/${recordId}`, {
 				method: "DELETE",
