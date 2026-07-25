@@ -178,9 +178,10 @@ export function forecastMetric(
   const nowMs = options.nowMs ?? Date.now();
   const horizonDays = Math.min(Math.max(options.horizonDays, 1), 90);
   const windowHours = Math.min(Math.max(options.windowHours, 1), 30 * 24);
+  const windowStartMs = nowMs - windowHours * 3_600_000;
 
   const sorted = [...samples]
-    .filter((s) => Number.isFinite(s.t) && Number.isFinite(s.value))
+    .filter((s) => Number.isFinite(s.t) && Number.isFinite(s.value) && s.t >= windowStartMs && s.t <= nowMs)
     .map((s) => ({ t: s.t, value: clampUsage(s.value) }))
     .sort((a, b) => a.t - b.t);
 

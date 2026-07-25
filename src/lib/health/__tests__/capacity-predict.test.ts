@@ -108,6 +108,25 @@ describe("forecastMetric", () => {
     expect(result.risk).toBe("ok");
     expect(result.daysUntil85).toBeNull();
   });
+
+  it("filters samples outside the advertised windowHours", () => {
+    // Old history far outside a 24h window should not inflate sampleCount/span.
+    const old = makeSeries(
+      Array.from({ length: 48 }, (_, i) => 10 + i),
+      { startMs: nowMs - 10 * 24 * 3_600_000, stepMs: 3_600_000 },
+    );
+    const recent = makeSeries(
+      Array.from({ length: 12 }, () => 40),
+      { startMs: nowMs - 12 * 3_600_000, stepMs: 3_600_000 },
+    );
+    const result = forecastMetric([...old, ...recent], "cpu", {
+      windowHours: 24,
+      horizonDays: 7,
+      nowMs,
+    });
+    expect(result.sampleCount).toBe(12);
+    expect(result.dataSpanHours).toBeLessThanOrEqual(24);
+  });
 });
 
 describe("buildServerForecast + summarizeFleet", () => {
