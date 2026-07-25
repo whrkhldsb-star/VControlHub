@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import {
   Download,
@@ -39,6 +39,12 @@ export function MediaItemCard({
   const [publishError, setPublishError] = useState<string | null>(null);
   const [mutationError, setMutationError] = useState<string | null>(null);
   const [publishing, setPublishing] = useState(false);
+
+  // Keep local optimistic state aligned when list refresh replaces `item` props.
+  useEffect(() => {
+    setFav(item.favorite);
+    setTags(item.tags || []);
+  }, [item.id, item.favorite, item.tags]);
 
   const toggleFav = async () => {
     const next = !fav;
