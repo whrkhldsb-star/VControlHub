@@ -3,7 +3,7 @@ import { z } from "zod";
 import { NextResponse } from "next/server";
 
 import { withApiRoute } from "@/lib/http/api-guard";
-import { GENERAL_WRITE_LIMIT } from "@/lib/http/rate-limit-presets";
+import { GENERAL_READ_LIMIT, GENERAL_WRITE_LIMIT } from "@/lib/http/rate-limit-presets";
 import { parseSearchParams } from "@/lib/http/parse-search-params";
 import { listMediaItems, scanMediaFromFileEntries } from "@/lib/media/service";
 
@@ -14,7 +14,7 @@ export const dynamic = "force-dynamic";
 export async function GET(request: Request) {
   return withApiRoute(
     request,
-    { permission: "storage:read", errorMessage: "Failed to fetch media list" },
+    { permission: "storage:read", rateLimit: GENERAL_READ_LIMIT, errorMessage: "Failed to fetch media list" },
     async ({ session }) => {
       const { type, q, favorite, tag } = parseSearchParams(
         request,
