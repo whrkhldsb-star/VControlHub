@@ -166,9 +166,19 @@ function readRemoteIntoBuffer(client: Client, remotePath: string, maxBytes: numb
 				if (stats.size > maxBytes) {
 					return reject(new Error("THUMBNAIL_SOURCE_TOO_LARGE"));
 				}
+				// Cap while streaming too — stat can be stale/wrong if the remote
+				// grows between stat and read (or lies about size).
 				const stream = sftp.createReadStream(remotePath);
 				const chunks: Buffer[] = [];
-				stream.on("data", (chunk: Buffer) => chunks.push(chunk));
+				let total = 0;
+				stream.on("data", (chunk: Buffer) => {
+					total += chunk.length;
+					if (total > maxBytes) {
+						stream.destroy(new Error("THUMBNAIL_SOURCE_TOO_LARGE"));
+						return;
+					}
+					chunks.push(chunk);
+				});
 				stream.on("end", () => resolve(Buffer.concat(chunks)));
 				stream.on("error", (e: Error) => reject(e));
 			});
