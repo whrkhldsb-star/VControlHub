@@ -18,15 +18,15 @@ export async function POST(
   { params }: { params: Promise<{ id: string }> },
 ) {
   const { id } = await params;
+  const locale = await getServerLocale();
   return withApiRoute(
     request,
     {
       permission: "storage:write",
       rateLimit: GENERAL_WRITE_LIMIT,
-      errorMessage: t("api.syncJobRunFailed", "zh"),
+      errorMessage: t("api.syncJobRunFailed", locale),
     },
     async ({ session }) => {
-      const locale = await getServerLocale();
       const job = await getSyncJob(id, session ?? undefined);
       if (!job) throw new NotFoundError(t("api.syncJobNotFound", locale));
       const result = await executeSyncJob(id);
