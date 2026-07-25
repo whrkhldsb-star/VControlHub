@@ -195,13 +195,13 @@ export async function renameFileEntryAction(
       return { error: t("storagePage.action.missingFileEntryParam") } satisfies StorageActionState;
     }
 
-    if (!newName) {
-      return { error: t("storagePage.action.missingEntryName") } satisfies StorageActionState;
+    const nameResult = normalizeStorageEntryName(newName);
+    if (!nameResult.ok) {
+      return {
+        error: nameResult.reason || t("storagePage.action.invalidEntryName"),
+      } satisfies StorageActionState;
     }
-
-    if (/[\\/:*?"<>|]/.test(newName)) {
-      return { error: t("storagePage.action.invalidEntryName") } satisfies StorageActionState;
-    }
+    const normalizedNewName = nameResult.path;
 
     const entry = await prisma.fileEntry.findFirst({
       where: {
@@ -248,8 +248,8 @@ export async function renameFileEntryAction(
     const lastSlashIndex = entry.relativePath.lastIndexOf("/");
     const newRelativePath =
       lastSlashIndex >= 0
-        ? entry.relativePath.substring(0, lastSlashIndex + 1) + newName
-        : newName;
+        ? entry.relativePath.substring(0, lastSlashIndex + 1) + normalizedNewName
+        : normalizedNewName;
 
     // Grant-level path ACL (teamWhere alone is insufficient for restricted prefixes).
     // Require write on BOTH source and destination — same model as moveFileAction /
@@ -345,7 +345,7 @@ export async function renameFileEntryAction(
 
       await prisma.fileEntry.update({
         where: { id: fileEntryId },
-        data: { name: newName, relativePath: newRelativePath },
+        data: { name: normalizedNewName, relativePath: newRelativePath },
       });
     } catch (databaseError) {
       // Physical rename already succeeded — roll back so disk and index stay aligned.
@@ -368,7 +368,7 @@ export async function renameFileEntryAction(
     await auditUserAction(session.userId, "storage.file_rename", {
       entryId: entry.id,
       oldName: entry.name,
-      newName,
+      newName: normalizedNewName,
       oldPath: entry.relativePath,
       newPath: newRelativePath,
     });
@@ -377,7 +377,7 @@ export async function renameFileEntryAction(
     revalidatePath("/storage");
     revalidatePath("/files");
 
-    return { success: t("storagePage.action.fileRenamed").replace("{name}", newName) } satisfies StorageActionState;
+    return { success: t("storagePage.action.fileRenamed").replace("{name}", normalizedNewName) } satisfies StorageActionState;
   } catch (error) {
     return {
       error: error instanceof Error ? error.message : t("storagePage.action.fileRenameFailed"),

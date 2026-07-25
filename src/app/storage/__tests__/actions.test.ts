@@ -689,4 +689,16 @@ describe("SFTP file entry actions", () => {
       }),
     );
   });
+
+  it("rejects rename names that normalizeStorageEntryName would block (.. / . / controls)", async () => {
+    const result = await renameFileEntryAction(
+      null,
+      entryForm("entry-1", { newName: ".." }),
+    );
+
+    expect(result.error).toBeTruthy();
+    expect(prismaMock.fileEntry.findFirst).not.toHaveBeenCalled();
+    expect(renameRemoteFileMock).not.toHaveBeenCalled();
+    expect(renameFsMock).not.toHaveBeenCalled();
+  });
 });
