@@ -219,24 +219,28 @@ export async function openOrRefreshAlertIncident(input: AlertFireInput): Promise
     };
   }
 
-  const incident = existing
-    ? await prisma.alertIncident.update({
-        where: { id: existing.id },
-        data: {
-          status: "OPEN",
-          level: 1,
-          value: input.value,
-          title: input.title,
-          message: input.message,
-          serverName: input.serverName,
-          acknowledgedAt: null,
-          acknowledgedById: null,
-          escalatedAt: null,
-          resolvedAt: null,
-          lastNotifiedAt: now,
-        },
-      })
-    : await prisma.alertIncident.create({
+  let incident;
+  let created = false;
+  if (existing) {
+    incident = await prisma.alertIncident.update({
+      where: { id: existing.id },
+      data: {
+        status: "OPEN",
+        level: 1,
+        value: input.value,
+        title: input.title,
+        message: input.message,
+        serverName: input.serverName,
+        acknowledgedAt: null,
+        acknowledgedById: null,
+        escalatedAt: null,
+        resolvedAt: null,
+        lastNotifiedAt: now,
+      },
+    });
+  } else {
+    try {
+      incident = await prisma.alertIncident.create({
         data: {
           fingerprint,
           ruleId: input.ruleId,
@@ -253,6 +257,51 @@ export async function openOrRefreshAlertIncident(input: AlertFireInput): Promise
           lastNotifiedAt: now,
         },
       });
+      created = true;
+    } catch (error) {
+      // Concurrent create on unique fingerprint — re-load and treat as refresh.
+      const code =
+        error && typeof error === "object" && "code" in error
+          ? String((error as { code?: unknown }).code)
+          : "";
+      if (code !== "P2002") throw error;
+      const raced = await prisma.alertIncident.findUnique({ where: { fingerprint } });
+      if (!raced) throw error;
+      if (raced.status === "OPEN" || raced.status === "ACKNOWLEDGED") {
+        await prisma.alertIncident.update({
+          where: { id: raced.id },
+          data: {
+            value: input.value,
+            title: input.title,
+            message: input.message,
+            serverName: input.serverName,
+          },
+        });
+        return {
+          incidentId: raced.id,
+          created: false,
+          notified: false,
+          level: raced.level,
+        };
+      }
+      incident = await prisma.alertIncident.update({
+        where: { id: raced.id },
+        data: {
+          status: "OPEN",
+          level: 1,
+          value: input.value,
+          title: input.title,
+          message: input.message,
+          serverName: input.serverName,
+          acknowledgedAt: null,
+          acknowledgedById: null,
+          escalatedAt: null,
+          resolvedAt: null,
+          lastNotifiedAt: now,
+        },
+      });
+    }
+  }
 
   const userIds = await resolveNotifyUserIds(input.onCallUserIds, input.teamId);
   await dispatchChannels({
@@ -275,7 +324,7 @@ export async function openOrRefreshAlertIncident(input: AlertFireInput): Promise
     teamId: input.teamId ?? null,
   });
 
-  return { incidentId: incident.id, created: !existing, notified: true, level: 1 };
+  return { incidentId: incident.id, created, notified: true, level: 1 };
 }
 
 export async function resolveAlertIncident(input: {
@@ -381,78 +430,92 @@ export async function acknowledgeAlertIncident(input: {
 /**
  * Escalate OPEN incidents that exceeded rule.escalationMinutes without ack.
  * Level increases by 1 (capped at 3) and re-notifies on-call + admins.
+ * Uses conditional updateMany so overlapping workers cannot double-notify the same level.
  */
 export async function escalateOverdueAlertIncidents(): Promise<{ escalated: number }> {
-  const open = await prisma.alertIncident.findMany({
-    where: { status: "OPEN" },
-    include: {
-      rule: {
-        select: {
-          id: true,
-          name: true,
-          teamId: true,
-          escalationMinutes: true,
-          onCallUserIds: true,
-          notifyChannels: true,
-          webhookUrl: true,
-          enabled: true,
+  let escalated = 0;
+  const nowMs = Date.now();
+  // Paginate until a short page so older rows beyond the first 200 are not starved.
+  for (let page = 0; page < 20; page += 1) {
+    const open = await prisma.alertIncident.findMany({
+      where: { status: "OPEN" },
+      include: {
+        rule: {
+          select: {
+            id: true,
+            name: true,
+            teamId: true,
+            escalationMinutes: true,
+            onCallUserIds: true,
+            notifyChannels: true,
+            webhookUrl: true,
+            enabled: true,
+          },
         },
       },
-    },
-    take: 200,
-    orderBy: { createdAt: "asc" },
-  });
+      take: 200,
+      skip: page * 200,
+      orderBy: [{ lastNotifiedAt: "asc" }, { createdAt: "asc" }],
+    });
+    if (open.length === 0) break;
 
-  let escalated = 0;
-  const now = Date.now();
+    for (const incident of open) {
+      if (!incident.rule?.enabled) continue;
+      const minutes = Math.max(1, incident.rule.escalationMinutes ?? 30);
+      const anchor = incident.lastNotifiedAt ?? incident.createdAt;
+      if (nowMs - anchor.getTime() < minutes * 60_000) continue;
+      if (incident.level >= 3) continue;
 
-  for (const incident of open) {
-    if (!incident.rule?.enabled) continue;
-    const minutes = Math.max(1, incident.rule.escalationMinutes ?? 30);
-    const anchor = incident.lastNotifiedAt ?? incident.createdAt;
-    if (now - anchor.getTime() < minutes * 60_000) continue;
-    if (incident.level >= 3) continue;
+      const nextLevel = Math.min(3, incident.level + 1);
+      const threshold = new Date(nowMs - minutes * 60_000);
+      const claimed = await prisma.alertIncident.updateMany({
+        where: {
+          id: incident.id,
+          status: "OPEN",
+          level: incident.level,
+          OR: [{ lastNotifiedAt: null }, { lastNotifiedAt: { lte: threshold } }],
+        },
+        data: {
+          level: nextLevel,
+          escalatedAt: new Date(),
+          lastNotifiedAt: new Date(),
+        },
+      });
+      if (claimed.count !== 1) continue;
 
-    const nextLevel = Math.min(3, incident.level + 1);
-    const updated = await prisma.alertIncident.update({
-      where: { id: incident.id },
-      data: {
+      const userIds = await resolveNotifyUserIds(incident.rule.onCallUserIds, incident.rule.teamId ?? null);
+      // On L2+, also include notification:manage users in the same team scope.
+      const adminIds = await resolveNotifyUserIds([], incident.rule.teamId ?? null);
+      const merged = Array.from(new Set([...userIds, ...adminIds]));
+
+      await dispatchChannels({
+        userIds: merged,
+        type: "server_alert",
+        title: incident.title,
+        message: `${incident.message} — escalated to L${nextLevel} (no acknowledgement within ${minutes}m)`,
+        actionUrl: `/alert-rules?incident=${incident.id}`,
+        notifyChannels: incident.rule.notifyChannels,
+        webhookUrl: incident.rule.webhookUrl,
+        contextLines: [
+          `Server: ${incident.serverName}`,
+          `Metric: ${incident.metric}`,
+          `Level: ${nextLevel}`,
+          `Open since: ${incident.createdAt.toISOString()}`,
+          `Incident: ${incident.id}`,
+        ],
         level: nextLevel,
-        escalatedAt: new Date(),
-        lastNotifiedAt: new Date(),
-      },
-    });
+        teamId: incident.rule.teamId ?? null,
+      });
 
-    const userIds = await resolveNotifyUserIds(incident.rule.onCallUserIds, incident.rule.teamId ?? null);
-    // On L2+, also include notification:manage users in the same team scope.
-    const adminIds = await resolveNotifyUserIds([], incident.rule.teamId ?? null);
-    const merged = Array.from(new Set([...userIds, ...adminIds]));
+      logger.info("alert incident escalated", {
+        incidentId: incident.id,
+        level: nextLevel,
+        ruleId: incident.ruleId,
+      });
+      escalated += 1;
+    }
 
-    await dispatchChannels({
-      userIds: merged,
-      type: "server_alert",
-      title: incident.title,
-      message: `${incident.message} — escalated to L${nextLevel} (no acknowledgement within ${minutes}m)`,
-      actionUrl: `/alert-rules?incident=${incident.id}`,
-      notifyChannels: incident.rule.notifyChannels,
-      webhookUrl: incident.rule.webhookUrl,
-      contextLines: [
-        `Server: ${incident.serverName}`,
-        `Metric: ${incident.metric}`,
-        `Level: ${nextLevel}`,
-        `Open since: ${incident.createdAt.toISOString()}`,
-        `Incident: ${incident.id}`,
-      ],
-      level: nextLevel,
-      teamId: incident.rule.teamId ?? null,
-    });
-
-    logger.info("alert incident escalated", {
-      incidentId: updated.id,
-      level: nextLevel,
-      ruleId: incident.ruleId,
-    });
-    escalated += 1;
+    if (open.length < 200) break;
   }
 
   return { escalated };

@@ -6,6 +6,7 @@ const { prismaMock, createNotificationMock, sendEmailMock, sendTelegramMock, web
       findUnique: vi.fn(),
       create: vi.fn(),
       update: vi.fn(),
+      updateMany: vi.fn(),
       findMany: vi.fn(),
     },
     alertRule: {
@@ -224,7 +225,7 @@ describe("alert incidents", () => {
         },
       },
     ]);
-    prismaMock.alertIncident.update.mockResolvedValue({ id: "inc1", level: 2 });
+    prismaMock.alertIncident.updateMany.mockResolvedValue({ count: 1 });
     prismaMock.user.findMany
       .mockResolvedValueOnce([{ id: "oncall1" }])
       .mockResolvedValueOnce([{ id: "admin1" }]);
@@ -232,11 +233,76 @@ describe("alert incidents", () => {
     const result = await escalateOverdueAlertIncidents();
     expect(result.escalated).toBe(1);
     expect(createNotificationMock).toHaveBeenCalled();
-    expect(prismaMock.alertIncident.update).toHaveBeenCalledWith(
+    expect(prismaMock.alertIncident.updateMany).toHaveBeenCalledWith(
       expect.objectContaining({
+        where: expect.objectContaining({ id: "inc1", status: "OPEN", level: 1 }),
         data: expect.objectContaining({ level: 2 }),
       }),
     );
+  });
+
+  it("skips escalate notify when conditional claim loses the race", async () => {
+    const old = new Date(Date.now() - 60 * 60_000);
+    prismaMock.alertIncident.findMany.mockResolvedValue([
+      {
+        id: "inc1",
+        ruleId: "r1",
+        status: "OPEN",
+        level: 1,
+        title: "Alert",
+        message: "cpu high",
+        serverName: "vps-1",
+        metric: "cpu_usage",
+        createdAt: old,
+        lastNotifiedAt: old,
+        rule: {
+          id: "r1",
+          name: "High CPU",
+          escalationMinutes: 15,
+          onCallUserIds: ["oncall1"],
+          notifyChannels: ["in_app"],
+          webhookUrl: null,
+          enabled: true,
+        },
+      },
+    ]);
+    prismaMock.alertIncident.updateMany.mockResolvedValue({ count: 0 });
+
+    const result = await escalateOverdueAlertIncidents();
+    expect(result.escalated).toBe(0);
+    expect(createNotificationMock).not.toHaveBeenCalled();
+  });
+
+  it("openOrRefresh recovers from concurrent P2002 create races", async () => {
+    prismaMock.alertIncident.findUnique
+      .mockResolvedValueOnce(null)
+      .mockResolvedValueOnce({
+        id: "inc-race",
+        status: "OPEN",
+        level: 1,
+      });
+    prismaMock.alertIncident.create.mockRejectedValue({ code: "P2002" });
+    prismaMock.alertIncident.update.mockResolvedValue({ id: "inc-race" });
+
+    const result = await openOrRefreshAlertIncident({
+      ruleId: "r1",
+      ruleName: "High CPU",
+      serverId: "s1",
+      serverName: "vps-1",
+      metric: "cpu_usage",
+      operator: "gte",
+      threshold: 90,
+      value: 95,
+      notifyChannels: ["in_app"],
+      onCallUserIds: ["oncall1"],
+      title: "Alert: vps-1 cpu usage",
+      message: "High CPU",
+    });
+
+    expect(result.created).toBe(false);
+    expect(result.notified).toBe(false);
+    expect(result.incidentId).toBe("inc-race");
+    expect(createNotificationMock).not.toHaveBeenCalled();
   });
 
   it("listAlertIncidents scopes null-server fleet rows by team rule ids", async () => {
