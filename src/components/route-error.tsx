@@ -25,11 +25,17 @@ export function RouteError({
 
 	useEffect(() => {
 		// TR-030 / 56 multi-tenant (Tick 3): ForbiddenError is an expected,
-		// permission-driven signal, not a defect. Still log it for audit so
+		// permission-driven signal, not a defect. Log at warn for audit so
 		// cron / smoke pipelines can correlate page hits with denial.
-		if (error.name !== "ForbiddenError") {
-			logger.error("route error boundary captured error", error);
+		if (error.name === "ForbiddenError") {
+			logger.warn("route error boundary captured forbidden", {
+				name: error.name,
+				message: error.message,
+				digest: error.digest,
+			});
+			return;
 		}
+		logger.error("route error boundary captured error", error);
 	}, [error]);
 
 	// Second-line guard for `requirePagePermission()`: render the shared
