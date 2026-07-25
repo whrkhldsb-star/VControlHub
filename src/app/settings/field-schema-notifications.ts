@@ -118,7 +118,8 @@ export const NOTIFICATION_SETTINGS_SECTIONS: SectionDef[] = [
 				helperTextKey: (s) => (isTelegramDisabled(s)
 					? "settingsClient.helper.telegram.disabledHint"
 					: "settingsClient.field.telegram.chatId.helper.enabled"),
-				validate: (value) => {
+				validate: (value, settings) => {
+					if (isTelegramDisabled(settings)) return null;
 					const tokens = value
 						.split(/[\n,;，；]+/)
 						.map((item) => item.trim())
