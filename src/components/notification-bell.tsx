@@ -111,21 +111,22 @@ export function NotificationBell() {
 		}
 	}, [lastNotification]);
 
-	// Toast for server alerts
-
+	// Toast for server alerts — depend only on lastServerAlert so locale (t)
+	// identity changes do not re-prepend a synthetic row.
 	useEffect(() => {
-		if (lastServerAlert) {
-			setNotifications((prev) => [{
-				id: `alert-${Date.now()}`,
-				type: "server_alert",
-				title: t("notificationBell.serverAlertTitle").replace("{name}", lastServerAlert.serverName),
-				message: lastServerAlert.message,
-				isRead: false,
-				actionUrl: "/servers",
-				createdAt: new Date().toISOString(),
-			}, ...prev].slice(0, 50));
-		}
-	}, [lastServerAlert, t]);
+		if (!lastServerAlert) return;
+		const createdAt = new Date().toISOString();
+		setNotifications((prev) => [{
+			id: `alert-${lastServerAlert.serverId}-${createdAt}`,
+			type: "server_alert",
+			title: t("notificationBell.serverAlertTitle").replace("{name}", lastServerAlert.serverName),
+			message: lastServerAlert.message,
+			isRead: false,
+			actionUrl: "/servers",
+			createdAt,
+		}, ...prev].slice(0, 50));
+		// eslint-disable-next-line react-hooks/exhaustive-deps -- omit t to avoid duplicate rows on locale switch
+	}, [lastServerAlert]);
 
 	useEffect(() => {
 		const handleClick = (e: MouseEvent) => {
