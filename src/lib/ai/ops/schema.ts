@@ -37,6 +37,11 @@ export const aiOpsRecommendedActionSchema = z.object({
 	requiresApproval: z.boolean().default(true),
 	reason: z.string().max(1000).optional(),
 	approved: z.boolean().optional(),
+	/** Lease marker while executeRecommendation runs (crash-safe claim). */
+	executedAt: z.string().optional(),
+	executed: z.boolean().optional(),
+	result: z.string().max(4000).optional(),
+	errorMessage: z.string().max(4000).optional(),
 });
 
 export const aiOpsExecutedActionSchema = z.object({

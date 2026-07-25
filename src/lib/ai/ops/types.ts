@@ -62,6 +62,11 @@ export interface AiOpsRecommendedAction {
 	reason?: string;
 	/** Set to true after an admin approves this recommendation for execution. */
 	approved?: boolean;
+	/** Lease / terminal marker while or after executeRecommendation runs. */
+	executedAt?: string;
+	executed?: boolean;
+	result?: string;
+	errorMessage?: string;
 }
 
 /** Autonomous execution record (mode=autonomous) — already executed or attempted. */

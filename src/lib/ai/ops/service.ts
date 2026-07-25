@@ -293,7 +293,16 @@ export async function executeRecommendation(
 		return { ok: false, executed: false, errorMessage: "Recommendation not found" };
 	}
 	if ("executedAt" in match && match.executedAt) {
-		return { ok: true, executed: false, errorMessage: "Recommendation has already been executed" };
+		const inProgress =
+			("result" in match && match.result === "in_progress") ||
+			("executed" in match && match.executed === false && !match.errorMessage);
+		return {
+			ok: true,
+			executed: false,
+			errorMessage: inProgress
+				? "Recommendation is already being executed; refresh to view the latest result"
+				: "Recommendation has already been executed",
+		};
 	}
 
 	const safeSet = new Set<string>(AI_OPS_SAFE_AUTONOMOUS_ACTIONS);
@@ -314,9 +323,28 @@ export async function executeRecommendation(
 	}
 
 	const claimedAt = new Date();
+	const claimedAtIso = claimedAt.toISOString();
+	const inProgressLease: AiOpsExecutedAction = {
+		id: match.id,
+		action: match.action,
+		risk: match.risk,
+		executed: false,
+		executedAt: claimedAtIso,
+		result: "in_progress",
+	};
+	const claimedActions: (AiOpsRecommendedAction | AiOpsExecutedAction)[] = (
+		log.mode === "autonomous"
+			? (actions as AiOpsExecutedAction[]).filter((a) => a.id !== match.id)
+			: (actions as AiOpsRecommendedAction[]).filter((a) => a.id !== match.id)
+	).concat(inProgressLease);
+
+	// CAS on updatedAt + write in_progress lease so crash mid-side-effect leaves an auditable marker.
 	const claim = await prisma.aiOpsLog.updateMany({
 		where: { id: log.id, updatedAt: log.updatedAt },
-		data: { updatedAt: claimedAt },
+		data: {
+			updatedAt: claimedAt,
+			actions: claimedActions as unknown as Prisma.InputJsonValue,
+		},
 	});
 	if (claim.count !== 1) {
 		return {
