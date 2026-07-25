@@ -119,6 +119,11 @@ export async function updateRoleTemplate(id: string, input: unknown) {
 
 export async function deleteRoleTemplate(id: string) {
   const template = await prisma.roleTemplate.findUnique({ where: { id }, select: { isBuiltin: true } });
-  if (template?.isBuiltin) throw new ValidationError(t("backend.auth.builtInTemplatesCannotBeDeleted"));
+  if (!template) {
+    throw new NotFoundError(t("backend.auth.roleTemplateNotFound"));
+  }
+  if (template.isBuiltin) {
+    throw new ValidationError(t("backend.auth.builtInTemplatesCannotBeDeleted"));
+  }
   await prisma.roleTemplate.delete({ where: { id } });
 }
