@@ -46,7 +46,10 @@ export async function GET(request: Request) {
           })
         : defaultPreferences;
 
-      return withCacheHeaders(NextResponse.json(prefs), CachePresets.shortLived);
+      // Preferences mutate via PUT and are read immediately after save (multi-tab /
+      // AutoProbe). shortLived would serve stale widgets/probe settings for up to
+      // max-age+swr; use no-store so GET always reflects the latest DB row.
+      return withCacheHeaders(NextResponse.json(prefs), CachePresets.noStore);
     },
   );
 }

@@ -48,6 +48,7 @@ describe("/api/preferences", () => {
     const body = await response.json();
 
     expect(response.status).toBe(200);
+    expect(response.headers.get("cache-control")).toMatch(/no-store/i);
     expect(body).toEqual(expect.objectContaining({
       defaultPage: "/",
       dashboardWidgets: ["analytics", "audit-log"],
