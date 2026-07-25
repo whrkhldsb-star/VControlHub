@@ -95,6 +95,7 @@ describe("ai provider-http adapter", () => {
       expect(url).toBe("https://api.openai.com/v1/models");
       expect(init.method).toBe("GET");
       expect((init.headers as Record<string, string>).Authorization).toBe("Bearer sk-test");
+      expect(init.signal).toBeInstanceOf(AbortSignal);
       expect(models).toEqual([
         { id: "gpt-4o", name: "GPT-4o", owned_by: "openai" },
         { id: "gpt-4.1" },
@@ -176,6 +177,7 @@ describe("ai provider-http adapter", () => {
       expect(init.method).toBe("POST");
       expect((init.headers as Record<string, string>)["Content-Type"]).toBe("application/json");
       expect((init.headers as Record<string, string>).Authorization).toBe("Bearer sk-test");
+      expect(init.signal).toBeInstanceOf(AbortSignal);
       expect(init.body).toBe(
         JSON.stringify({ model: "gpt-4o", messages: [{ role: "user", content: "hi" }] }),
       );

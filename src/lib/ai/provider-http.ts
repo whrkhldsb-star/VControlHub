@@ -37,6 +37,8 @@ export interface ProviderChatRequest {
 const DEFAULT_AI_BASE_URL = "https://api.openai.com/v1";
 const MODELS_PATH = "/models";
 const CHAT_PATH_SUFFIX = "/chat/completions";
+/** Bound hung upstream AI hosts so model-list / chat routes cannot stall until platform kill. */
+const AI_PROVIDER_HTTP_TIMEOUT_MS = 30_000;
 
 function trimTrailingSlash(value: string): string {
 	return value.replace(/\/+$/, "");
@@ -93,6 +95,7 @@ export async function fetchProviderModels(
 	const response = await fetch(`${baseUrl}${MODELS_PATH}`, {
 		method: "GET",
 		headers: { Authorization: `Bearer ${input.apiKey.trim()}` },
+		signal: AbortSignal.timeout(AI_PROVIDER_HTTP_TIMEOUT_MS),
 	});
 	if (!response.ok) {
 		const errText = await response.text().catch(() => "");
@@ -123,6 +126,7 @@ export async function postProviderChat(input: ProviderChatRequest): Promise<Resp
 			...(input.headers ?? {}),
 		},
 		body: JSON.stringify(input.body),
+		signal: AbortSignal.timeout(AI_PROVIDER_HTTP_TIMEOUT_MS),
 	});
 	if (!response.ok) {
 		const errText = await response.text().catch(() => "");
