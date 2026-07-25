@@ -276,6 +276,12 @@ export async function PATCH(request: Request) {
         });
       }
 
+      if (action === "pause" || action === "resume") {
+        throw new ValidationError(
+          t("apiDownloads.pauseResumeRequiresAria2", locale),
+        );
+      }
+
       throw new ValidationError(t("apiDownloads.unknownAction", locale));
     },
   );
