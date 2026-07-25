@@ -9,7 +9,7 @@
  * own a11y wiring (label htmlFor, helper id, runtime summary id, blur
  * warning id) so the main component stays a thin orchestrator.
  */
-import { useId } from "react";
+import { useEffect, useId, useRef } from "react";
 
 import { useI18n } from "@/lib/i18n/use-locale";
 import { CONTROL_CLASS, Switch } from "@/components/ui-primitives";
@@ -185,6 +185,20 @@ export function SelectField({
   const normalizedValue = options.some((opt) => opt.value === value)
     ? value
     : field.defaultValue ?? options[0]?.value ?? "";
+  // One-shot write-back so dirty baseline / save payload match the visible
+  // select when DB holds a removed option (or empty) while UI shows default.
+  const legacySyncKeyRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (normalizedValue === value) {
+      legacySyncKeyRef.current = null;
+      return;
+    }
+    if (disabled) return;
+    const syncKey = `${field.key}:${value}->${normalizedValue}`;
+    if (legacySyncKeyRef.current === syncKey) return;
+    legacySyncKeyRef.current = syncKey;
+    onChange(normalizedValue);
+  }, [disabled, field.key, normalizedValue, onChange, value]);
   return (
     <div
       data-form-field
