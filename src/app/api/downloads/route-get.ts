@@ -58,6 +58,22 @@ export async function GET(request: Request) {
           activeGids.set(t.aria2Gid, t.id);
         }
       }
+      // Merge live aria2 fields into the in-memory rows so this response reflects
+      // COMPLETED/FAILED/progress written below (avoid one-poll lag).
+      type Aria2LiveFields = {
+        status?: "COMPLETED" | "FAILED";
+        progress?: string;
+        errorMessage?: string;
+        completedBytes?: number | null;
+        totalBytes?: number | null;
+        downloadSpeed?: number | null;
+      };
+      const aria2FieldByTaskId = new Map<string, Aria2LiveFields>();
+      const toByteCount = (value: unknown): number | null => {
+        if (value == null || value === "") return null;
+        const n = typeof value === "number" ? value : Number(value);
+        return Number.isFinite(n) ? n : null;
+      };
       let aria2Available = false;
       if (activeGids.size > 0) {
         try {
@@ -68,33 +84,40 @@ export async function GET(request: Request) {
             updates.push(
               tellStatus(gid).then((a) => {
                 const progress = buildProgressText(a);
-                const terminalUpdate =
+                const completedBytes = toByteCount(a.completedLength);
+                const totalBytes = toByteCount(a.totalLength);
+                const downloadSpeed = toByteCount(a.downloadSpeed);
+                const terminalUpdate: Aria2LiveFields =
                   a.status === "complete"
                     ? {
-                        status: "COMPLETED" as const,
+                        status: "COMPLETED",
                         progress: t("apiDownloads.completed", locale),
-                        completedBytes: a.completedLength,
-                        totalBytes: a.totalLength,
-                        downloadSpeed: a.downloadSpeed,
+                        completedBytes,
+                        totalBytes,
+                        downloadSpeed,
                       }
                     : a.status === "error" || a.status === "removed"
                     ? {
-                        status: "FAILED" as const,
+                        status: "FAILED",
                         progress,
                         errorMessage: t("apiDownloads.aria2ErrorWithStatus", locale).replace("{status}", a.status),
-                        completedBytes: a.completedLength,
-                        totalBytes: a.totalLength,
-                        downloadSpeed: a.downloadSpeed,
+                        completedBytes,
+                        totalBytes,
+                        downloadSpeed,
                       }
                     : {
                         progress,
-                        completedBytes: a.completedLength,
-                        totalBytes: a.totalLength,
-                        downloadSpeed: a.downloadSpeed,
+                        completedBytes,
+                        totalBytes,
+                        downloadSpeed,
                       };
+                aria2FieldByTaskId.set(taskId, terminalUpdate);
                 return prisma.downloadTask.update({
                   where: { id: taskId },
-                  data: terminalUpdate,
+                  // Progress-only patch; cast avoids Prisma enum/input narrowing on partial fields.
+                  data: terminalUpdate as Parameters<
+                    typeof prisma.downloadTask.update
+                  >[0]["data"],
                 });
               }),
             );
@@ -107,6 +130,7 @@ export async function GET(request: Request) {
 
       const safe = visibleTasks.map((t) => ({
         ...t,
+        ...(aria2FieldByTaskId.get(t.id) ?? {}),
         pid: t.pid ?? null,
         aria2Gid: t.aria2Gid ?? null,
         category: t.category ?? null,
