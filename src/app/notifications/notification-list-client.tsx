@@ -140,8 +140,18 @@ export function NotificationListClient({ initialNotifications, initialUnreadCoun
 		setError(null);
 		try {
 			await csrfFetch("/api/notifications", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ notificationId: id }) });
-			setNotifications((prev) => prev.map((n) => (n.id === id ? ({ ...n, isRead: true }) : n)));
-			setUnreadCount((c) => Math.max(0, c - 1));
+			// Only decrement when this id was still unread in local state (avoids double-count under concurrent markAll/markOne).
+			let wasUnread = false;
+			setNotifications((prev) =>
+				prev.map((n) => {
+					if (n.id !== id) return n;
+					wasUnread = !n.isRead;
+					return { ...n, isRead: true };
+				}),
+			);
+			if (wasUnread) {
+				setUnreadCount((c) => Math.max(0, c - 1));
+			}
 		} catch (err) {
 			setError(messageFromError(err, t("notificationsPage.error.markOneFailed")));
 		}
