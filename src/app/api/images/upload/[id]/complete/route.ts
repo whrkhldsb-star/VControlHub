@@ -41,7 +41,12 @@ import {
 import { auditUserAction } from "@/lib/audit/service";
 import { ForbiddenError, ValidationError } from "@/lib/errors";
 import { assertStorageAccess, releaseStorageQuotaGuard } from "@/lib/storage/access-control";
-import { storageFileNodeSelect, writeStorageFileBuffer } from "@/lib/storage/file-content";
+import {
+  deleteStorageFileBuffer,
+  storageFileNodeSelect,
+  writeStorageFileBuffer,
+  type StorageFileNode,
+} from "@/lib/storage/file-content";
 
 export const dynamic = "force-dynamic";
 
@@ -117,8 +122,8 @@ export async function POST(
       await mkdir(UPLOAD_DIR, { recursive: true });
 
       const writtenPaths: string[] = [];
-      let linkedStorageCopyPath: string | null = null;
       let linkedStorageRelativePath: string | null = null;
+      let linkedStorageNode: StorageFileNode | null = null;
       try {
         await Promise.all([
           writeFile(originalPath, assembled).then(() => {
@@ -175,16 +180,16 @@ export async function POST(
           throw new ForbiddenError(access.reason ?? "No permission to write to the storage path");
         }
         try {
-        const storageNode = await prisma.storageNode.findFirst({
-          where: { id: existing.storageNodeId, ...teamWhere(session) },
-          select: storageFileNodeSelect,
-        });
-        if (!storageNode || (storageNode.driver !== "LOCAL" && storageNode.driver !== "SFTP")) {
-          throw new ValidationError("Storage node does not support media uploads");
-        }
-        linkedStorageRelativePath = `${existing.relativePath.replace(/\/$/, "")}/${storageKey}`;
-        const written = await writeStorageFileBuffer(storageNode, linkedStorageRelativePath, assembled);
-        if (storageNode.driver === "LOCAL") linkedStorageCopyPath = written;
+          const storageNode = await prisma.storageNode.findFirst({
+            where: { id: existing.storageNodeId, ...teamWhere(session) },
+            select: storageFileNodeSelect,
+          });
+          if (!storageNode || (storageNode.driver !== "LOCAL" && storageNode.driver !== "SFTP")) {
+            throw new ValidationError("Storage node does not support media uploads");
+          }
+          linkedStorageRelativePath = `${existing.relativePath.replace(/\/$/, "")}/${storageKey}`;
+          await writeStorageFileBuffer(storageNode, linkedStorageRelativePath, assembled);
+          linkedStorageNode = storageNode;
         } finally {
           await releaseStorageQuotaGuard(access);
         }
@@ -224,7 +229,11 @@ export async function POST(
             ? prisma.imageUpload.delete({ where: { id: image.id } })
             : Promise.resolve(),
           ...writtenPaths.map((filePath) => rm(filePath, { force: true })),
-          linkedStorageCopyPath ? rm(linkedStorageCopyPath, { force: true }) : Promise.resolve(),
+          linkedStorageNode && linkedStorageRelativePath
+            ? deleteStorageFileBuffer(linkedStorageNode, linkedStorageRelativePath).catch((cleanupErr) => {
+                logError("media-upload:linked-storage-rollback-failed", cleanupErr);
+              })
+            : Promise.resolve(),
         ]);
         throw err;
       }

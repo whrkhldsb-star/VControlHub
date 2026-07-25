@@ -4,15 +4,16 @@ import { tmpdir } from "node:os";
 
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-const { sftpReadFileMock, sftpWriteFileMock, connectMock, sftpStatMock, sftpMkdirMock } = vi.hoisted(() => {
+const { sftpReadFileMock, sftpWriteFileMock, sftpUnlinkMock, connectMock, sftpStatMock, sftpMkdirMock } = vi.hoisted(() => {
 	const sftpReadFileMock = vi.fn();
 	const sftpWriteFileMock = vi.fn();
+	const sftpUnlinkMock = vi.fn();
 	const sftpStatMock = vi.fn((remotePath: string, callback: (error?: Error | null) => void) => {
 		callback(remotePath === "/srv" ? null : new Error("missing"));
 	});
 	const sftpMkdirMock = vi.fn((_remotePath: string, callback: (error?: Error | null) => void) => callback(null));
 	const connectMock = vi.fn();
-	return { sftpReadFileMock, sftpWriteFileMock, connectMock, sftpStatMock, sftpMkdirMock };
+	return { sftpReadFileMock, sftpWriteFileMock, sftpUnlinkMock, connectMock, sftpStatMock, sftpMkdirMock };
 });
 
 vi.mock("ssh2", () => ({
@@ -28,6 +29,7 @@ vi.mock("ssh2", () => ({
 			callback(null, {
 				readFile: sftpReadFileMock,
 				writeFile: sftpWriteFileMock,
+				unlink: sftpUnlinkMock,
 				stat: sftpStatMock,
 				mkdir: sftpMkdirMock,
 			});
@@ -38,6 +40,7 @@ vi.mock("ssh2", () => ({
 
 import {
 	buildStorageFileDownloadUrl,
+	deleteStorageFileBuffer,
 	readStorageFileBuffer,
 	writeStorageFileBuffer,
 	type StorageFileNode,
@@ -103,5 +106,22 @@ describe("storage file content helpers", () => {
 	it("builds node-appropriate download URLs for media source links", () => {
 		expect(buildStorageFileDownloadUrl({ id: "local_1", driver: "LOCAL" }, "gallery/a b.png", true)).toBe("/api/storage/local?nodeId=local_1&path=gallery%2Fa+b.png&download=1");
 		expect(buildStorageFileDownloadUrl({ id: "sftp_1", driver: "SFTP" }, "/gallery/a.png", false)).toBe("/api/storage/sftp-download?nodeId=sftp_1&path=gallery%2Fa.png");
+	});
+
+	it("deletes LOCAL and SFTP files for compensating rollback", async () => {
+		tempRoot = await mkdtemp(path.join(tmpdir(), "vcontrolhub-storage-file-content-"));
+		await writeStorageFileBuffer(localNode(tempRoot), "gallery/orphan.png", Buffer.from("png"));
+		await expect(deleteStorageFileBuffer(localNode(tempRoot), "gallery/orphan.png")).resolves.toBe(
+			path.join(tempRoot, "gallery/orphan.png"),
+		);
+		await expect(readFile(path.join(tempRoot, "gallery/orphan.png"))).rejects.toThrow();
+
+		sftpUnlinkMock.mockImplementation((_remotePath: string, callback: (error?: Error | null) => void) =>
+			callback(null),
+		);
+		await expect(deleteStorageFileBuffer(sftpNode(), "gallery/upload.png")).resolves.toBe(
+			"/srv/media/gallery/upload.png",
+		);
+		expect(sftpUnlinkMock).toHaveBeenCalledWith("/srv/media/gallery/upload.png", expect.any(Function));
 	});
 });

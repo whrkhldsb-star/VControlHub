@@ -24,7 +24,12 @@ import {
 } from "@/lib/image/service";
 import { logError } from "@/lib/logging";
 import { assertStorageAccess, releaseStorageQuotaGuard } from "@/lib/storage/access-control";
-import { writeStorageFileBuffer, storageFileNodeSelect } from "@/lib/storage/file-content";
+import {
+  deleteStorageFileBuffer,
+  storageFileNodeSelect,
+  writeStorageFileBuffer,
+  type StorageFileNode,
+} from "@/lib/storage/file-content";
 import type { SessionPayload } from "@/lib/auth/session";
 
 import { AppError, ForbiddenError, ValidationError, isAppError } from "@/lib/errors";
@@ -193,8 +198,8 @@ async function handleUpload(request: Request, userId: string, session?: SessionP
       })(),
     ]);
 
-    let linkedStorageCopyPath: string | null = null;
     let linkedStorageRelativePath: string | null = null;
+    let linkedStorageNode: StorageFileNode | null = null;
 
     // If linked to a storage node, also copy there (cloud storage integration)
     if (storageNodeId && relativePath) {
@@ -218,8 +223,8 @@ async function handleUpload(request: Request, userId: string, session?: SessionP
         });
         if (storageNode && (storageNode.driver === "LOCAL" || storageNode.driver === "SFTP")) {
           linkedStorageRelativePath = `${relativePath.replace(/\/$/, "")}/${storageKey}`;
-          const writtenStoragePath = await writeStorageFileBuffer(storageNode, linkedStorageRelativePath, buffer);
-          if (storageNode.driver === "LOCAL") linkedStorageCopyPath = writtenStoragePath;
+          await writeStorageFileBuffer(storageNode, linkedStorageRelativePath, buffer);
+          linkedStorageNode = storageNode;
         }
       } catch (e) {
         // Non-fatal: cloud copy is best-effort
@@ -265,8 +270,10 @@ async function handleUpload(request: Request, userId: string, session?: SessionP
           ? prisma.imageUpload.delete({ where: { id: image.id } })
           : Promise.resolve(),
         ...writtenPaths.map((filePath) => rm(filePath, { force: true })),
-        linkedStorageCopyPath
-          ? rm(linkedStorageCopyPath, { force: true })
+        linkedStorageNode && linkedStorageRelativePath
+          ? deleteStorageFileBuffer(linkedStorageNode, linkedStorageRelativePath).catch((cleanupErr) => {
+              logError("image-bed:linked-storage-rollback-failed", cleanupErr);
+            })
           : Promise.resolve(),
       ]);
       throw error;

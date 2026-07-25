@@ -1,4 +1,4 @@
-import { mkdir, readFile, writeFile } from "node:fs/promises";
+import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
 
 import { Client } from "ssh2";
@@ -141,6 +141,18 @@ function sftpWriteFile(client: Client, remotePath: string, buffer: Buffer): Prom
 	});
 }
 
+function sftpUnlink(client: Client, remotePath: string): Promise<void> {
+	return new Promise((resolve, reject) => {
+		client.sftp((err, sftp) => {
+			if (err) return reject(err);
+			sftp.unlink(remotePath, (unlinkErr) => {
+				if (unlinkErr) return reject(unlinkErr);
+				resolve();
+			});
+		});
+	});
+}
+
 export async function writeStorageFileBuffer(node: StorageFileNode, relativePath: string, buffer: Buffer) {
 	if (node.driver === "LOCAL") {
 		const resolved = resolveStoragePathWithinBase(node.basePath, relativePath);
@@ -167,6 +179,43 @@ export async function writeStorageFileBuffer(node: StorageFileNode, relativePath
 			});
 			await sftpMkdir(client, path.posix.dirname(normalizedRemotePath));
 			await sftpWriteFile(client, normalizedRemotePath, buffer);
+			return normalizedRemotePath;
+		} finally {
+			client?.end();
+		}
+	}
+
+	throw new BusinessError(t("backend.storage.unsupportedNodeType"));
+}
+
+/**
+ * Best-effort delete of a previously written storage object (LOCAL or SFTP).
+ * Used for compensating cleanup when DB indexing fails after a successful write.
+ */
+export async function deleteStorageFileBuffer(node: StorageFileNode, relativePath: string) {
+	if (node.driver === "LOCAL") {
+		const resolved = resolveStoragePathWithinBase(node.basePath, relativePath);
+		if (!resolved.ok) throw new ValidationError(resolved.reason);
+		await rm(resolved.path, { force: true });
+		return resolved.path;
+	}
+
+	if (node.driver === "SFTP") {
+		const credentials = resolveStorageSshCredentials(node);
+		const normalizedRemotePath = normalizeRemoteTargetPath(node.basePath, relativePath);
+		let client: Client | null = null;
+		try {
+			client = await connectSsh({
+				host: credentials.host,
+				port: credentials.port,
+				username: credentials.username,
+				hostKeySha256: credentials.hostKeySha256,
+				privateKey: credentials.privateKey,
+				password: credentials.password,
+				readyTimeout: 15000,
+				timeout: 10000,
+			});
+			await sftpUnlink(client, normalizedRemotePath);
 			return normalizedRemotePath;
 		} finally {
 			client?.end();
