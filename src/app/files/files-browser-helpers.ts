@@ -82,10 +82,9 @@ export function treePathMatchesCurrentPath(treePath: string, currentPath: string
   const normalizedTreePath = treePath.replace(/^\/+|\/+$/g, "");
   const normalizedCurrentPath = currentPath.replace(/^\/+|\/+$/g, "");
   if (!normalizedCurrentPath) return false;
-  return (
-    normalizedTreePath === normalizedCurrentPath ||
-    normalizedTreePath.endsWith(`/${normalizedCurrentPath}`)
-  );
+  // Exact match only — endsWith(`/current`) falsely expands unrelated branches
+  // when a segment is a path suffix (e.g. tree `archive/docs` vs current `docs`).
+  return normalizedTreePath === normalizedCurrentPath;
 }
 
 export function getInitialExpandedTreePaths(tree: TreeRootNode, currentPath: string) {
