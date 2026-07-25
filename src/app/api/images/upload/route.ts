@@ -27,7 +27,7 @@ import { assertStorageAccess, releaseStorageQuotaGuard } from "@/lib/storage/acc
 import { writeStorageFileBuffer, storageFileNodeSelect } from "@/lib/storage/file-content";
 import type { SessionPayload } from "@/lib/auth/session";
 
-import { AppError, ForbiddenError, ValidationError } from "@/lib/errors";
+import { AppError, ForbiddenError, ValidationError, isAppError } from "@/lib/errors";
 export const dynamic = "force-dynamic";
 const MAX_FILE_SIZE = 20 * 1024 * 1024; // 20 MB
 // image/* minus SVG: SVG served inline can execute script (stored XSS).
@@ -282,6 +282,9 @@ async function handleUpload(request: Request, userId: string, session?: SessionP
       { status: 201 },
     );
   } catch (error) {
+    if (isAppError(error)) {
+      throw error;
+    }
     logError("image-bed:upload", error);
     throw new AppError({ code: "INTERNAL_ERROR", message: "Upload failed", status: 500 });
   }
