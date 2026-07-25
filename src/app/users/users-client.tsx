@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useUrlQueryState } from "@/lib/hooks/use-url-query-state";
 import { UserPermissionPanel } from "./user-permission-panel";
 import { csrfFetch } from "@/lib/auth/csrf-client";
@@ -44,13 +44,17 @@ export function UserManagementClient({ canManage = false, currentUserId = "" }: 
   const [creating, setCreating] = useState(false);
   const [editingPermissionsUser, setEditingPermissionsUser] = useState<UserInfo | null>(null);
 	const [loadFailed, setLoadFailed] = useState(false);
+	const fetchGenRef = useRef(0);
 
 	const messageFromError = (err: unknown, fallback: string) => (err instanceof Error ? err.message : fallback);
 
 	const fetchUsers = useCallback(async () => {
+		const gen = ++fetchGenRef.current;
 		setLoadFailed(false);
 		try {
 			const data = await csrfFetch(`/api/users?page=${page}&pageSize=50`) as { users?: UserInfo[]; total?: number; totalPages?: number } | UserInfo[];
+			// Ignore out-of-order responses from rapid pagination.
+			if (gen !== fetchGenRef.current) return;
 			if (Array.isArray(data)) {
 				setUsers(data);
 				setTotal(data.length);
@@ -61,16 +65,23 @@ export function UserManagementClient({ canManage = false, currentUserId = "" }: 
 				setTotalPages(data.totalPages ?? 1);
 			}
 		} catch (err) {
+			if (gen !== fetchGenRef.current) return;
 			setUsers([]);
 			setLoadFailed(true);
 			addToast("error", messageFromError(err, t("usersPage.error.loadFailed")) );
 		}
-		finally { setLoading(false); }
-	}, [t, page]);
+		finally {
+			if (gen === fetchGenRef.current) setLoading(false);
+		}
+	}, [t, page, addToast]);
 
 	useEffect(() => {
 		setLoading(true);
 		void fetchUsers();
+		return () => {
+			// Invalidate in-flight list so unmount/page-change cannot apply stale state.
+			fetchGenRef.current += 1;
+		};
 	}, [fetchUsers]);
 
   const handleCreate = async () => {
