@@ -337,19 +337,32 @@ export async function updateMediaTags(input: {
   favorite?: boolean;
   session?: TeamSession | null;
 }) {
-  const existing = await getMediaItem(input.id, input.session);
+  const teamScope = mediaTeamWhere(input.session);
+  const existing = await prisma.mediaItem.findFirst({
+    where: { id: input.id, ...teamScope },
+    select: { id: true },
+  });
   if (!existing) throw new NotFoundError(t("backend.media.mediaItemNotFound"));
   const data: { tags?: string[]; favorite?: boolean } = {};
   if (input.tags !== undefined) data.tags = input.tags;
   if (input.favorite !== undefined) data.favorite = input.favorite;
   if (Object.keys(data).length === 0) {
     return prisma.mediaItem.findFirst({
-      where: { id: input.id, ...mediaTeamWhere(input.session) },
+      where: { id: input.id, ...teamScope },
       select: mediaItemSelect,
     });
   }
-  return prisma.mediaItem.update({
-    where: { id: input.id },
+  // Keep team scope on the write (updateMany) so a concurrent storageNode
+  // reassignment cannot TOCTOU-mutate another team's media metadata.
+  const updated = await prisma.mediaItem.updateMany({
+    where: { id: input.id, ...teamScope },
     data,
+  });
+  if (updated.count === 0) {
+    throw new NotFoundError(t("backend.media.mediaItemNotFound"));
+  }
+  return prisma.mediaItem.findFirst({
+    where: { id: input.id, ...teamScope },
+    select: mediaItemSelect,
   });
 }
