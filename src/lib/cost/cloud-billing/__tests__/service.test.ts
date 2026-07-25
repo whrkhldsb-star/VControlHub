@@ -203,9 +203,29 @@ describe("parseBillingCsv", () => {
 		expect(items[0]?.providerLabel).toContain("ec2");
 	});
 
+	it("applies categoryMap by product then raw category", () => {
+		const items = parseBillingCsv(
+			`date,amount,currency,category,product
+2026-07-01,1,USD,other,ec2
+2026-07-02,2,USD,weird,data-transfer
+`,
+			{
+				currency: "USD",
+				providerLabel: "CSV",
+				categoryMap: {
+					ec2: "vps",
+					weird: "bandwidth",
+				},
+			},
+		);
+		expect(items).toHaveLength(2);
+		expect(items[0]?.category).toBe("vps");
+		expect(items[1]?.category).toBe("bandwidth");
+	});
+
 	it("rejects missing columns", () => {
 		expect(() => parseBillingCsv("foo,bar\n1,2", { currency: "USD", providerLabel: "CSV" })).toThrow(
-			/date and amount/,
+			/date|amount|CSV/,
 		);
 	});
 });

@@ -88,9 +88,28 @@ function parseCsvLine(line: string): string[] {
  * CSV columns (header required):
  * date,amount,currency,category,product,notes
  */
+const COST_CATEGORIES = new Set<CostCategory>(["vps", "bandwidth", "storage", "other"]);
+
+function resolveBillingCategory(
+	categoryRaw: string,
+	product: string,
+	categoryMap?: Record<string, CostCategory>,
+): CostCategory {
+	const mappedProduct = categoryMap?.[product];
+	if (mappedProduct && COST_CATEGORIES.has(mappedProduct)) return mappedProduct;
+	const mappedCategory = categoryMap?.[categoryRaw];
+	if (mappedCategory && COST_CATEGORIES.has(mappedCategory)) return mappedCategory;
+	if (COST_CATEGORIES.has(categoryRaw as CostCategory)) return categoryRaw as CostCategory;
+	return "other";
+}
+
 export function parseBillingCsv(
 	csv: string,
-	defaults: { currency: CostCurrency; providerLabel: string },
+	defaults: {
+		currency: CostCurrency;
+		providerLabel: string;
+		categoryMap?: Record<string, CostCategory>;
+	},
 ): CloudBillingLineItem[] {
 	const lines = csv
 		.split(/\r?\n/u)
@@ -121,12 +140,8 @@ export function parseBillingCsv(
 			(currencyI >= 0 ? cols[currencyI] : "") || defaults.currency
 		).toUpperCase() as CostCurrency;
 		const categoryRaw = (categoryI >= 0 ? cols[categoryI] : "other") || "other";
-		const category = (
-			["vps", "bandwidth", "storage", "other"].includes(categoryRaw)
-				? categoryRaw
-				: "other"
-		) as CostCategory;
 		const product = productI >= 0 ? cols[productI] || "line" : "line";
+		const category = resolveBillingCategory(categoryRaw, product, defaults.categoryMap);
 		const notes = notesI >= 0 ? cols[notesI] || undefined : undefined;
 		const externalId = `csv:${date}:${product}:${amount}:${currency}`;
 		items.push({
@@ -155,6 +170,7 @@ function mockItemsForProvider(
 			items: parseBillingCsv(config.sampleCsv, {
 				currency,
 				providerLabel: provider.toUpperCase(),
+				categoryMap: config.categoryMap,
 			}).filter((i) => i.effectiveDate.startsWith(month)),
 			warnings: ["Imported from sampleCsv config (probe mode)"],
 		};
@@ -183,6 +199,7 @@ async function fetchBillingCsvFromUrl(
 	provider: CloudBillingProvider,
 	month: string,
 	currency: CostCurrency,
+	categoryMap?: Record<string, CostCategory>,
 ): Promise<CloudBillingFetchResult> {
 	// Re-validate stored URL at fetch time (legacy rows / DB drift) + DNS rebind check.
 	let safeUrl: string;
@@ -237,6 +254,7 @@ async function fetchBillingCsvFromUrl(
 			items: parseBillingCsv(text, {
 				currency,
 				providerLabel: provider.toUpperCase(),
+				categoryMap,
 			}).filter((i) => i.effectiveDate.startsWith(month)),
 			warnings: [`Imported from billingCsvUrl (${provider})`],
 		};
@@ -260,7 +278,13 @@ async function fetchLiveItems(
 	// (CUR export, custom bill dump, etc.). Native Cost Explorer / BSS SDKs
 	// remain out of scope until credentials + compliance require them.
 	if (config.billingCsvUrl?.trim()) {
-		return fetchBillingCsvFromUrl(config.billingCsvUrl.trim(), provider, month, currency);
+		return fetchBillingCsvFromUrl(
+			config.billingCsvUrl.trim(),
+			provider,
+			month,
+			currency,
+			config.categoryMap,
+		);
 	}
 	throw new ValidationError(
 		`Live billing API for ${provider} is not enabled without config.billingCsvUrl. Provide an HTTPS CSV export URL, config.sampleCsv, or set VCONTROLHUB_CLOUD_BILLING_MOCK=1 for probe data.`,
@@ -285,7 +309,13 @@ export async function fetchCloudBillingItems(input: {
 	if (provider === "generic_csv") {
 		// Prefer live URL when set; otherwise require sampleCsv (probe/manual paste).
 		if (config.billingCsvUrl?.trim()) {
-			return fetchBillingCsvFromUrl(config.billingCsvUrl.trim(), provider, month, currency);
+			return fetchBillingCsvFromUrl(
+				config.billingCsvUrl.trim(),
+				provider,
+				month,
+				currency,
+				config.categoryMap,
+			);
 		}
 		if (!config.sampleCsv?.trim()) {
 			throw new ValidationError(
@@ -296,6 +326,7 @@ export async function fetchCloudBillingItems(input: {
 			items: parseBillingCsv(config.sampleCsv, {
 				currency,
 				providerLabel: "CSV",
+				categoryMap: config.categoryMap,
 			}).filter((i) => i.effectiveDate.startsWith(month)),
 			warnings: [],
 		};
