@@ -128,12 +128,14 @@ export async function POST(request: NextRequest) {
         throw new NotFoundError("File not found");
       }
 
-      const lowerName = name.toLowerCase();
+      // Prefer remote/relative path basename for format detection; client `name` is fallback only.
+      const formatName = path.basename(relativePath) || name;
+      const lowerName = formatName.toLowerCase();
       const ext = path.extname(lowerName);
 
       try {
         if (ext === ".gz" && !lowerName.endsWith(".tar.gz")) {
-          const outputName = name.replace(/\.gz$/i, "");
+          const outputName = formatName.replace(/\.gz$/i, "");
           const outputRelativePath = path.posix.join(
             path.posix.dirname(relativePath),
             outputName,
