@@ -73,10 +73,21 @@ export function ApiTokenManagerClient({ initialTokens, allowedScopes }: Props) {
     setError(null);
     setCreatedPlaintext(null);
     try {
+      // datetime-local is browser-local without offset; send absolute ISO so the
+      // server does not reinterpret the string under a different TZ.
+      const expiresAtIso = expiresAt
+        ? (() => {
+            const parsed = new Date(expiresAt);
+            if (Number.isNaN(parsed.getTime())) {
+              throw new Error(t("apiTokensPage.create.failed"));
+            }
+            return parsed.toISOString();
+          })()
+        : null;
       const data = await csrfFetch("/api/api-tokens", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name, scopes: selectedScopes, expiresAt: expiresAt || null }),
+        body: JSON.stringify({ name, scopes: selectedScopes, expiresAt: expiresAtIso }),
 		});
 		setTokens((current) => [data.apiToken, ...current]);
       setCreatedPlaintext(data.token);

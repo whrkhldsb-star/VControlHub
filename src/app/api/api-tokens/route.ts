@@ -58,7 +58,16 @@ function validateScopes(scopes: string[]) {
 
 function parseExpiresAt(value?: string | null) {
   if (!value) return null;
-  const expiresAt = new Date(value);
+  const trimmed = value.trim();
+  // Prefer absolute ISO-8601 (with Z or ±offset). Bare datetime-local forms are
+  // ambiguous across browser vs server TZ and should be normalized client-side.
+  const hasTimezone = /([zZ]|[+-]\d{2}:?\d{2})$/.test(trimmed);
+  if (!hasTimezone) {
+    throw new Error(
+      "Expiration time must include a timezone (send ISO-8601, e.g. 2026-07-22T10:00:00.000Z)",
+    );
+  }
+  const expiresAt = new Date(trimmed);
   if (Number.isNaN(expiresAt.getTime())) throw new Error("Invalid expiration time format");
   if (expiresAt.getTime() <= Date.now())
     throw new Error("Expiration time must be in the future");

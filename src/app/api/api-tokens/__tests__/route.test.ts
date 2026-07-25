@@ -177,6 +177,24 @@ describe("/api/api-tokens", () => {
     });
   });
 
+  it("rejects bare datetime-local expiresAt without timezone offset", async () => {
+    const req = new Request("http://local/api/api-tokens", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        name: "cli",
+        scopes: ["read"],
+        expiresAt: "2026-07-22T10:00",
+      }),
+    });
+    const res = await route.POST(req);
+    expect(res.status).toBe(400);
+    expect(await res.json()).toMatchObject({
+      error: expect.stringMatching(/timezone|ISO-8601/i),
+    });
+    expect(mocks.createApiToken).not.toHaveBeenCalled();
+  });
+
   it("revokes a token and records an audit event", async () => {
     const req = new Request("http://local/api/api-tokens?id=tok1", {
       method: "DELETE",
