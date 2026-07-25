@@ -107,6 +107,8 @@ export function useFileBrowserListing<TData extends ListingFilesApiResponse>({
         const json = await csrfFetch<TData>(url, {
           signal: controller.signal,
         });
+        // Aborted request lost the race — do not touch listing state.
+        if (abortRef.current !== controller) return;
         const nextData = json;
         setData(nextData);
         if (shouldResetSelection) {
@@ -129,12 +131,18 @@ export function useFileBrowserListing<TData extends ListingFilesApiResponse>({
         }
       } catch (err) {
         if (err instanceof Error && err.name === "AbortError") return;
+        // Stale abort race: a newer fetch owns loading.
+        if (abortRef.current !== controller) return;
         logError("Failed to fetch files:", err);
         setListError(
           err instanceof Error ? err.message : t("filesPage.listRefreshFailed"),
         );
       } finally {
-        setLoading(false);
+        // Only the latest in-flight request may clear loading; aborted
+        // predecessors must not flip loading false while a newer fetch runs.
+        if (abortRef.current === controller) {
+          setLoading(false);
+        }
       }
     },
     [data.nodeIdFilter, t],
