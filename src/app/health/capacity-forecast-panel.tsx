@@ -5,7 +5,7 @@
  * Loads GET /api/health/capacity and renders risk summary + per-node table.
  */
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 import { csrfFetch } from "@/lib/auth/csrf-client";
 import { useI18n } from "@/lib/i18n/use-locale";
@@ -82,20 +82,25 @@ export function CapacityForecastPanel() {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [horizonDays, setHorizonDays] = useState(14);
+  const loadGenRef = useRef(0);
 
   const load = useCallback(async (horizon: number) => {
+    const gen = ++loadGenRef.current;
     setLoading(true);
     setError(null);
     try {
       const payload = (await csrfFetch(
         `/api/health/capacity?horizonDays=${horizon}&windowHours=168`,
       )) as CapacityPayload;
+      // Ignore stale responses when horizon/refresh races complete out of order.
+      if (gen !== loadGenRef.current) return;
       setData(payload);
     } catch (err) {
+      if (gen !== loadGenRef.current) return;
       setError(err instanceof Error ? err.message : t("healthPage.capacity.error"));
       setData(null);
     } finally {
-      setLoading(false);
+      if (gen === loadGenRef.current) setLoading(false);
     }
   }, [t]);
 
