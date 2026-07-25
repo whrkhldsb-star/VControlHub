@@ -10,7 +10,11 @@ export const dynamic = "force-dynamic";
 
 const patchSchema = z.object({
   favorite: z.boolean().optional(),
-  tags: z.array(z.string()).optional(),
+  // Bound tag payload to prevent DB/response bloat from unbounded arrays.
+  tags: z
+    .array(z.string().trim().min(1).max(64))
+    .max(20, "At most 20 tags are allowed")
+    .optional(),
 });
 
 export async function PATCH(

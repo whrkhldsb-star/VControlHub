@@ -69,4 +69,20 @@ describe("/api/media/[id]", () => {
       session,
     });
   });
+
+  it("rejects unbounded tag payloads", async () => {
+    vi.clearAllMocks();
+    requireApiPermissionMock.mockResolvedValueOnce({ session });
+
+    const response = await PATCH(
+      new Request("https://example.com/api/media/m_1", {
+        method: "PATCH",
+        body: JSON.stringify({ tags: Array.from({ length: 21 }, (_, i) => `tag-${i}`) }),
+      }),
+      { params: Promise.resolve({ id: "m_1" }) },
+    );
+
+    expect(response.status).toBe(400);
+    expect(updateMediaTagsMock).not.toHaveBeenCalled();
+  });
 });
