@@ -4,7 +4,7 @@
 
 import { NextResponse } from "next/server";
 import { withApiRoute } from "@/lib/http/api-guard";
-import { GENERAL_WRITE_LIMIT } from "@/lib/http/rate-limit-presets";
+import { GENERAL_READ_LIMIT } from "@/lib/http/rate-limit-presets";
 import { listDirectory } from "@/lib/ssh/sftp-service";
 import { listDirSchema } from "@/lib/ssh/sftp-schema";
 import { assertSftpPathAccess } from "@/lib/ssh/sftp-access-control";
@@ -20,7 +20,8 @@ export async function POST(
     request,
     {
       permission: "server:ssh",
-      rateLimit: GENERAL_WRITE_LIMIT,
+      // Directory listing is a read path; do not share the write bucket with mkdir/upload.
+      rateLimit: GENERAL_READ_LIMIT,
       errorMessage: "SFTP list failed",
       bodySchema: listDirSchema,
     },
