@@ -28,7 +28,7 @@ describe("csrfFetch Response consumers", () => {
 
 		expect(counts).toEqual({
 			"src/app/ai-ops/ai-ops-page-client.tsx": 6,
-			"src/app/cost-summary/use-cost-page-state.ts": 6,
+			"src/app/cost-summary/use-cost-page-state.ts": 6, // summary/entries/snapshots + mutations still raw
 			"src/app/backups/offsite-dry-run-button.tsx": 1,
 			"src/app/settings/system-config-section.tsx": 1,
 		});

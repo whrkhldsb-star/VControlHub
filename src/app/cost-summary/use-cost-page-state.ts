@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
 
 import { csrfFetch } from "@/lib/auth/csrf-client";
 import { costAmountSchema } from "@/lib/cost/schema";
@@ -58,17 +58,23 @@ export function useCostPageState(options: {
   } | null>(null);
 
   const localeTag = toDateLocale(locale);
+  const summaryReqSeq = useRef(0);
+  const entriesReqSeq = useRef(0);
+  const snapshotsReqSeq = useRef(0);
 
   const fetchSummary = useCallback(
     async (m: string, c: CostCurrency) => {
+      const seq = ++summaryReqSeq.current;
       try {
         const res = await csrfFetch<Response>(`/api/cost/summary?month=${m}&currency=${c}`, {
           raw: true,
         });
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const data = (await res.json()) as { summary: CostSummary };
+        if (seq !== summaryReqSeq.current) return;
         setSummary(data.summary);
       } catch (err) {
+        if (seq !== summaryReqSeq.current) return;
         addToast(
           "error",
           `${t("costPage.error.load")}: ${err instanceof Error ? err.message : String(err)}`,
@@ -79,6 +85,7 @@ export function useCostPageState(options: {
   );
 
   const fetchEntries = useCallback(async (forMonth?: string) => {
+    const seq = ++entriesReqSeq.current;
     try {
       const m = forMonth ?? month;
       const qs = new URLSearchParams({ limit: "200" });
@@ -86,8 +93,10 @@ export function useCostPageState(options: {
       const res = await csrfFetch<Response>(`/api/cost/entries?${qs.toString()}`, { raw: true });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data = (await res.json()) as { entries: CostEntryRecord[] };
+      if (seq !== entriesReqSeq.current) return;
       setEntries(data.entries);
     } catch (err) {
+      if (seq !== entriesReqSeq.current) return;
       addToast(
         "error",
         `${t("costPage.error.load")}: ${err instanceof Error ? err.message : String(err)}`,
@@ -95,13 +104,18 @@ export function useCostPageState(options: {
     }
   }, [addToast, t, month]);
 
-  const fetchSnapshots = useCallback(async () => {
+  const fetchSnapshots = useCallback(async (forCurrency?: CostCurrency) => {
+    const seq = ++snapshotsReqSeq.current;
+    const c = forCurrency ?? currency;
     try {
-      const res = await csrfFetch<Response>(`/api/cost/snapshots?limit=30`, { raw: true });
+      const qs = new URLSearchParams({ limit: "30", currency: c });
+      const res = await csrfFetch<Response>(`/api/cost/snapshots?${qs.toString()}`, { raw: true });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data = (await res.json()) as { snapshots: DailySnapshot[] };
+      if (seq !== snapshotsReqSeq.current) return;
       setSnapshots(data.snapshots);
     } catch (err) {
+      if (seq !== snapshotsReqSeq.current) return;
       // Snapshots power the trend chart only; keep the rest of the page usable
       // but surface the failure so operators are not left with a silent empty chart.
       addToast(
@@ -109,10 +123,10 @@ export function useCostPageState(options: {
         `${t("costPage.error.loadSnapshots")}: ${err instanceof Error ? err.message : String(err)}`,
       );
     }
-  }, [addToast, t]);
+  }, [addToast, t, currency]);
 
   const refreshAll = useCallback(async () => {
-    await Promise.all([fetchSummary(month, currency), fetchEntries(), fetchSnapshots()]);
+    await Promise.all([fetchSummary(month, currency), fetchEntries(), fetchSnapshots(currency)]);
   }, [fetchSummary, fetchEntries, fetchSnapshots, month, currency]);
 
   const syncServerCosts = useCallback(async () => {
@@ -158,9 +172,9 @@ export function useCostPageState(options: {
   const onChangeCurrency = useCallback(
     async (c: CostCurrency) => {
       setCurrency(c);
-      await fetchSummary(month, c);
+      await Promise.all([fetchSummary(month, c), fetchSnapshots(c)]);
     },
-    [month, fetchSummary],
+    [month, fetchSummary, fetchSnapshots],
   );
 
   const openCreate = () => {

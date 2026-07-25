@@ -319,6 +319,7 @@ export async function summarizeMonth(
 export async function listRecentSnapshots(
 	limit = 30,
 	session?: TeamSession | null,
+	currency: CostCurrency = DEFAULT_CURRENCY,
 ): Promise<DailySnapshot[]> {
 	// When a session is provided, derive snapshots from team-scoped cost entries
 	// instead of reading the global CostSnapshot table (which aggregates ALL
@@ -338,7 +339,7 @@ export async function listRecentSnapshots(
 		});
 		const byDay = new Map<string, { total: number; byCategory: Record<string, string>; count: number }>();
 		for (const r of rows) {
-			if (r.currency !== DEFAULT_CURRENCY) continue;
+			if (r.currency !== currency) continue;
 			const dayKey = isoDateOnly(r.effectiveDate);
 			let bucket = byDay.get(dayKey);
 			if (!bucket) {

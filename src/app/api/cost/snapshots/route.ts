@@ -10,7 +10,7 @@ import { NextResponse } from "next/server";
 import { withApiRoute } from "@/lib/http/api-guard";
 import { GENERAL_READ_LIMIT, GENERAL_WRITE_LIMIT } from "@/lib/http/rate-limit-presets";
 import { listRecentSnapshots, syncServerMonthlyCosts } from "@/lib/cost/service";
-import { costMonthSchema } from "@/lib/cost/schema";
+import { costCurrencySchema, costMonthSchema } from "@/lib/cost/schema";
 import { auditUserAction } from "@/lib/audit/service";
 import { z } from "zod";
 
@@ -18,6 +18,7 @@ export const dynamic = "force-dynamic";
 
 const querySchema = z.object({
 	limit: z.coerce.number().int().min(1).max(365).optional(),
+	currency: costCurrencySchema.optional(),
 });
 
 const syncSchema = z.object({
@@ -35,7 +36,11 @@ export async function GET(request: Request) {
 			errorMessage: "Failed to load historical snapshots",
 		},
 		async ({ query, session }) => {
-			const snapshots = await listRecentSnapshots(query.limit ?? 30, session);
+			const snapshots = await listRecentSnapshots(
+				query.limit ?? 30,
+				session,
+				query.currency,
+			);
 			return NextResponse.json({ snapshots });
 		},
 	);
