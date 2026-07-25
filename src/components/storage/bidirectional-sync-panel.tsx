@@ -179,7 +179,11 @@ export function BidirectionalSyncPanel({ servers }: { servers: ServerOption[] })
     }
   };
 
-  const removeJob = async (id: string) => {
+  const removeJob = async (id: string, name?: string) => {
+    const label = name?.trim() || id;
+    if (!window.confirm(t("filesPage.syncJobs.deleteConfirm").replace("{name}", label))) {
+      return;
+    }
     setBusyId(id);
     setError(null);
     try {
@@ -326,7 +330,7 @@ export function BidirectionalSyncPanel({ servers }: { servers: ServerOption[] })
                     type="button"
                     data-action-button data-variant="secondary" className="!rounded-md !px-2 !py-1 !text-xs disabled:opacity-50"
                     disabled={busyId === job.id}
-                    onClick={() => void removeJob(job.id)}
+                    onClick={() => void removeJob(job.id, job.name)}
                   >
                     {t("filesPage.syncJobs.delete")}
                   </button>
