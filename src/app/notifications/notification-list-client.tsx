@@ -151,15 +151,15 @@ export function NotificationListClient({ initialNotifications, initialUnreadCoun
 		setError(null);
 		try {
 			await csrfFetch(`/api/notifications?id=${id}`, { method: "DELETE" });
-			setNotifications((prev) => {
-				const deleted = prev.find((n) => n.id === id);
-				if (deleted && !deleted.isRead) setUnreadCount((c) => Math.max(0, c - 1));
-				return prev.filter((n) => n.id !== id);
-			});
+			const deleted = notifications.find((n) => n.id === id);
+			setNotifications((prev) => prev.filter((n) => n.id !== id));
+			if (deleted && !deleted.isRead) {
+				setUnreadCount((c) => Math.max(0, c - 1));
+			}
 		} catch (err) {
 			setError(messageFromError(err, t("notificationsPage.error.deleteFailed")));
 		}
-	}, [t]);
+	}, [notifications, t]);
 
 	const loadMore = useCallback(async () => {
 		if (loadingMore || !hasMore) return;
