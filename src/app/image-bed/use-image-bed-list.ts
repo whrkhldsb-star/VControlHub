@@ -12,7 +12,7 @@
  */
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 import { csrfFetch } from "@/lib/auth/csrf-client";
 
@@ -46,6 +46,7 @@ export function useImageBedList(opts: { canWrite: boolean }): UseImageBedListRet
 	const [loading, setLoading] = useState(false);
 	const [error, setError] = useState<string | null>(null);
 	const [showAll, setShowAll] = useState(false);
+	const fetchGenRef = useRef(0);
 
 	useEffect(() => {
 		const timer = window.setTimeout(() => {
@@ -55,6 +56,7 @@ export function useImageBedList(opts: { canWrite: boolean }): UseImageBedListRet
 	}, [search]);
 
 	const fetchImages = useCallback(async (p = 1) => {
+		const gen = ++fetchGenRef.current;
 		setLoading(true);
 		try {
 			const params = new URLSearchParams({ page: String(p), limit: String(PAGE_SIZE) });
@@ -65,18 +67,21 @@ export function useImageBedList(opts: { canWrite: boolean }): UseImageBedListRet
 				total?: number;
 				totalPages?: number;
 			};
+			// Ignore out-of-order responses from rapid search/showAll/page races.
+			if (gen !== fetchGenRef.current) return;
 			setImages(data.images ?? []);
 			setTotal(data.total ?? 0);
 			setTotalPages(data.totalPages ?? 1);
 			setPage(p);
 			setError(null);
 		} catch {
+			if (gen !== fetchGenRef.current) return;
 			// Marker error so callers (and auto-fetch) can distinguish list failures.
 			// Hook also exposes `error` so auto-fetch no longer needs a silent catch.
 			setError("list-fetch-failed");
 			throw new Error("list-fetch-failed");
 		} finally {
-			setLoading(false);
+			if (gen === fetchGenRef.current) setLoading(false);
 		}
 	}, [debouncedSearch, showAll]);
 
@@ -87,7 +92,11 @@ export function useImageBedList(opts: { canWrite: boolean }): UseImageBedListRet
 				// error state already set inside fetchImages
 			});
 		}, 0);
-		return () => window.clearTimeout(timer);
+		return () => {
+			window.clearTimeout(timer);
+			// Invalidate in-flight list so unmount/remount cannot apply stale state.
+			fetchGenRef.current += 1;
+		};
 	}, [fetchImages]);
 
 	// `canWrite` is currently unused inside the hook — reserved so the hook
