@@ -341,12 +341,13 @@ export function DeleteImageDialog({
   t: ImageBedT;
 }) {
   
-  const dialogRef = useDialogFocus<HTMLDivElement>({ open: true, onClose });
+  const handleClose = deleting ? () => undefined : onClose;
+  const dialogRef = useDialogFocus<HTMLDivElement>({ open: true, onClose: handleClose });
 
 return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center bg-[var(--overlay-strong)] p-4"
-      onClick={onClose}
+      onClick={handleClose}
     >
       <div
         ref={dialogRef}
@@ -379,8 +380,9 @@ return (
         <div className="mt-6 flex items-center justify-end gap-2">
           <button
             type="button"
-            onClick={onClose}
-            data-action-button data-variant="ghost" className="!text-sm"
+            onClick={handleClose}
+            disabled={deleting}
+            data-action-button data-variant="ghost" className="!text-sm disabled:opacity-50"
           >
             {t("imageBedPage.delete.cancel")}
           </button>

@@ -307,7 +307,9 @@ export default function ImageBedPage({ canWrite, canDelete }: { canWrite: boolea
 					pendingDelete={pendingDelete}
 					deleting={deleting}
 					confirmDelete={confirmDelete}
-					onClose={() => setPendingDelete(null)}
+					onClose={() => {
+						if (!deleting) setPendingDelete(null);
+					}}
 					t={t}
 				/>
 			)}

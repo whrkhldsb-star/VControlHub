@@ -308,12 +308,14 @@ export function useImageBedActions({
 		if (!pendingDelete || deleting) return;
 		setDeleting(true);
 		const target = pendingDelete;
-		setPendingDelete(null);
+		// Keep pendingDelete until the request finishes so DeleteImageDialog
+		// can show the busy label and block backdrop dismiss while in-flight.
 		if (target.type === "single") {
 			try {
 				await csrfFetch(`/api/images/${target.id}`, { method: "DELETE" });
 				showToast(t("imageBed.toast.deleted"));
 				setPreviewImage(null);
+				setPendingDelete(null);
 				void fetchImages(page);
 			} catch {
 				showToast(t("imageBed.toast.deleteError"));
@@ -322,8 +324,12 @@ export function useImageBedActions({
 			}
 			return;
 		}
-		await runBatchAction("delete");
-		setDeleting(false);
+		try {
+			await runBatchAction("delete");
+			setPendingDelete(null);
+		} finally {
+			setDeleting(false);
+		}
 	}, [deleting, fetchImages, page, pendingDelete, runBatchAction, showToast, t]);
 
 	const handlePublishFromStorage = useCallback(async () => {
