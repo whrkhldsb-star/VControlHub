@@ -10,6 +10,7 @@ import { downloadFile } from "@/lib/ssh/sftp-service";
 import { downloadQuerySchema } from "@/lib/ssh/sftp-schema";
 import { assertSftpPathAccess } from "@/lib/ssh/sftp-access-control";
 import { assertServerTeamAccess } from "@/lib/server/team-access";
+import { auditUserAction } from "@/lib/audit/service";
 
 export const dynamic = "force-dynamic";
 
@@ -31,6 +32,13 @@ export async function GET(
       if (!teamAccess.ok) return teamAccess.response;
 			await assertSftpPathAccess({ session: session!, serverId: id, paths: [query.path] });
       const { stream, size } = await downloadFile(id, query.path);
+      await auditUserAction(
+        session!.userId,
+        "sftp.download",
+        { serverId: id, path: query.path, size },
+        undefined,
+        session?.currentTeamId,
+      );
 
       // Extract filename for Content-Disposition
       const filename = query.path.split("/").pop() || "download";
