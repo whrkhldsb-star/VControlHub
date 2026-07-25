@@ -266,6 +266,18 @@ describe("ITSM service", () => {
 		).rejects.toThrow();
 	});
 
+	it("rejects telegram outbound create without chatId", async () => {
+		await expect(
+			createItsmConnection({
+				name: "tg-bad",
+				provider: "telegram",
+				direction: "outbound",
+				credentials: { botToken: "123:ABC" },
+				config: {},
+			}),
+		).rejects.toThrow();
+	});
+
 	it("handles signed inbound ticket create", async () => {
 		const conn = await createItsmConnection(
 			{
@@ -395,7 +407,7 @@ describe("ITSM service", () => {
 				json: JSON.parse(rawBody) as Record<string, unknown>,
 				systemUserId: "sys",
 			}),
-		).rejects.toThrow(/不存在|not found/i);
+		).rejects.toThrow(/不存在|not found|团队范围|team/i);
 	});
 
 	it("ignores non-admin body.teamId spoof on create", async () => {

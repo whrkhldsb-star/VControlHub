@@ -61,6 +61,13 @@ export const createItsmConnectionSchema = z
 				path: ["credentials", "botToken"],
 			});
 		}
+		if (val.provider === "telegram" && needsOutbound && !val.config?.chatId?.trim()) {
+			ctx.addIssue({
+				code: "custom",
+				message: "telegram outbound requires config.chatId",
+				path: ["config", "chatId"],
+			});
+		}
 		if (needsInbound && !val.credentials?.webhookSecret && val.provider !== "telegram") {
 			// Allow missing secret but warn via validation only when inbound is primary without any secret
 			// Soft: require secret for pure inbound to avoid open endpoints.
