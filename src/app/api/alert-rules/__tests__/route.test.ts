@@ -132,6 +132,36 @@ describe("/api/alert-rules", () => {
     );
   });
 
+  it("coerces server_offline rules to operator eq and threshold 1", async () => {
+    mocks.createAlertRule.mockResolvedValueOnce({
+      id: "rule-off",
+      name: "Host offline",
+      metric: "server_offline",
+      webhookUrl: null,
+    });
+    const req = new Request("http://local/api/alert-rules", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        name: "Host offline",
+        metric: "server_offline",
+        operator: "gte",
+        threshold: 85,
+        notifyChannels: ["in_app"],
+      }),
+    });
+    const res = await route.POST(req);
+    expect(res.status).toBe(201);
+    expect(mocks.createAlertRule).toHaveBeenCalledWith(
+      expect.objectContaining({
+        metric: "server_offline",
+        operator: "eq",
+        threshold: 1,
+      }),
+      expect.anything(),
+    );
+  });
+
   it("accepts capacity_* forecast metrics offered by the create-rule UI", async () => {
     mocks.createAlertRule.mockResolvedValueOnce({
       id: "rule-cap",

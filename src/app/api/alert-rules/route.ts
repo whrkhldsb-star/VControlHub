@@ -87,14 +87,25 @@ function requireWebhookUrlWhenEnabled(
   }
 }
 
-const alertRuleSchema = alertRuleSchemaBase.superRefine(
-  requireWebhookUrlWhenEnabled,
-);
+/** Offline rules compare value 1/0 (eq/1). Coerce leftover UI defaults (gte/85). */
+function normalizeOfflineAlertRuleFields<
+  T extends { metric?: string; operator?: string; threshold?: number },
+>(value: T): T {
+  if (value.metric === "server_offline") {
+    return { ...value, operator: "eq", threshold: 1 };
+  }
+  return value;
+}
+
+const alertRuleSchema = alertRuleSchemaBase
+  .superRefine(requireWebhookUrlWhenEnabled)
+  .transform(normalizeOfflineAlertRuleFields);
 
 const updateAlertRuleSchema = alertRuleSchemaBase
   .partial()
   .extend({ id: z.string().trim().min(1) })
-  .superRefine(requireWebhookUrlWhenEnabled);
+  .superRefine(requireWebhookUrlWhenEnabled)
+  .transform(normalizeOfflineAlertRuleFields);
 
 /* ── TR-037 P2: PATCH union schema (toggle / test / update) ─────── */
 const toggleAlertRuleSchema = z.object({
