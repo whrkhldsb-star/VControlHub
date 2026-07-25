@@ -42,13 +42,21 @@ describe("telegram notification delivery", () => {
 		]);
 	});
 
-	it("builds a plain-text body that joins message + context lines", () => {
+	it("builds a plain-text body that joins title + message + context lines", () => {
 		const text = buildAlertTelegramBody({
 			title: "CPU high",
 			message: "Prod CPU 95%",
 			contextLines: ["服务器: prod-1", "阈值: >= 90"],
 		});
-		expect(text).toBe("Prod CPU 95%\n\n服务器: prod-1\n阈值: >= 90");
+		expect(text).toBe("CPU high\nProd CPU 95%\n\n服务器: prod-1\n阈值: >= 90");
+	});
+
+	it("omits duplicate title when it already matches the message", () => {
+		const text = buildAlertTelegramBody({
+			title: "Prod CPU 95%",
+			message: "Prod CPU 95%",
+		});
+		expect(text).toBe("Prod CPU 95%");
 	});
 
 	it("returns enabled config with parsed chat ids", async () => {

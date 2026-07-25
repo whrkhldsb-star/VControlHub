@@ -41,9 +41,15 @@ export function parseAlertTelegramChatIds(value: string | undefined | null): str
 }
 
 export function buildAlertTelegramBody(input: TelegramMessageInput): string {
+	const title = input.title?.trim() ?? "";
+	const message = input.message?.trim() ?? "";
 	const context = (input.contextLines ?? []).filter(Boolean);
-	if (context.length === 0) return input.message;
-	return [input.message, "", ...context].join("\n");
+	const head =
+		title && message && title !== message
+			? [title, message]
+			: [title || message].filter(Boolean);
+	if (context.length === 0) return head.join("\n");
+	return [...head, "", ...context].join("\n");
 }
 
 export async function getTelegramConfig(): Promise<TelegramConfig> {
