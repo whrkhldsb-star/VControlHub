@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useCallback, useContext, useMemo, useState, type ReactNode } from "react";
+import { createContext, useCallback, useContext, useMemo, useReducer, type ReactNode } from "react";
 import { SshTerminalManager, type SshTerminalTab } from "@/components/ssh-terminal-manager";
 import type { TerminalStatus } from "@/components/ssh-terminal-panel";
 
@@ -30,9 +30,88 @@ export function useSshTerminal() {
 
 let tabNonce = 0;
 
+type TerminalState = {
+	tabs: SshTerminalTab[];
+	activeTabIndex: number;
+};
+
+type TerminalAction =
+	| {
+			type: "open";
+			server: {
+				serverId: string;
+				serverName: string;
+				host: string;
+				sessionToken: string;
+			};
+	  }
+	| { type: "close"; index: number }
+	| { type: "closeAll" }
+	| { type: "select"; index: number }
+	| { type: "status"; index: number; status: TerminalStatus };
+
+function terminalReducer(state: TerminalState, action: TerminalAction): TerminalState {
+	switch (action.type) {
+		case "open": {
+			const existingIdx = state.tabs.findIndex((t) => t.serverId === action.server.serverId);
+			if (existingIdx >= 0) {
+				return existingIdx === state.activeTabIndex
+					? state
+					: { ...state, activeTabIndex: existingIdx };
+			}
+			const newTab: SshTerminalTab = {
+				id: `${action.server.serverId}-${++tabNonce}`,
+				serverId: action.server.serverId,
+				serverName: action.server.serverName,
+				host: action.server.host,
+				sessionToken: action.server.sessionToken,
+				status: "connecting",
+			};
+			return {
+				tabs: [...state.tabs, newTab],
+				activeTabIndex: state.tabs.length,
+			};
+		}
+		case "close": {
+			const { index } = action;
+			if (index < 0 || index >= state.tabs.length) return state;
+			const next = state.tabs.filter((_, i) => i !== index);
+			if (next.length === 0) {
+				return { tabs: [], activeTabIndex: 0 };
+			}
+			let activeTabIndex = state.activeTabIndex;
+			if (index < state.activeTabIndex) activeTabIndex = state.activeTabIndex - 1;
+			else if (index === state.activeTabIndex) {
+				activeTabIndex = Math.min(state.activeTabIndex, next.length - 1);
+			}
+			return { tabs: next, activeTabIndex };
+		}
+		case "closeAll":
+			return { tabs: [], activeTabIndex: 0 };
+		case "select": {
+			if (action.index < 0 || action.index >= state.tabs.length) return state;
+			if (action.index === state.activeTabIndex) return state;
+			return { ...state, activeTabIndex: action.index };
+		}
+		case "status": {
+			const { index, status } = action;
+			if (index < 0 || index >= state.tabs.length) return state;
+			const tab = state.tabs[index]!;
+			if (tab.status === status) return state;
+			const next = [...state.tabs];
+			next[index] = { ...tab, status };
+			return { ...state, tabs: next };
+		}
+		default:
+			return state;
+	}
+}
+
 export function SshTerminalProvider({ children }: { children: ReactNode }) {
-	const [tabs, setTabs] = useState<SshTerminalTab[]>([]);
-	const [activeTabIndex, setActiveTabIndex] = useState(0);
+	const [state, dispatch] = useReducer(terminalReducer, {
+		tabs: [] as SshTerminalTab[],
+		activeTabIndex: 0,
+	});
 
 	const openTerminal = useCallback((server: {
 		serverId: string;
@@ -40,75 +119,34 @@ export function SshTerminalProvider({ children }: { children: ReactNode }) {
 		host: string;
 		sessionToken: string;
 	}) => {
-		setTabs((prev) => {
-			// If a tab for this serverId already exists, switch to it
-			const existingIdx = prev.findIndex((t) => t.serverId === server.serverId);
-			if (existingIdx >= 0) {
-				setActiveTabIndex(existingIdx);
-				return prev;
-			}
-			// Create a new tab
-			const newTab: SshTerminalTab = {
-				id: `${server.serverId}-${++tabNonce}`,
-				serverId: server.serverId,
-				serverName: server.serverName,
-				host: server.host,
-				sessionToken: server.sessionToken,
-				status: "connecting",
-			};
-			setActiveTabIndex(prev.length); // switch to the new tab
-			return [...prev, newTab];
-		});
+		dispatch({ type: "open", server });
 	}, []);
 
 	const closeTab = useCallback((index: number) => {
-		// Functional update for active index: closeTab closes over activeTabIndex
-		// would otherwise use a stale value when several tabs close quickly
-		// (Escape spam / multi-close) before the provider re-renders.
-		setTabs((prev) => {
-			if (index < 0 || index >= prev.length) return prev;
-			const next = prev.filter((_, i) => i !== index);
-			setActiveTabIndex((currentActive) => {
-				if (next.length === 0) return 0;
-				if (index < currentActive) return currentActive - 1;
-				if (index === currentActive) {
-					return Math.min(currentActive, next.length - 1);
-				}
-				return currentActive;
-			});
-			return next;
-		});
+		dispatch({ type: "close", index });
 	}, []);
 
 	const closeAll = useCallback(() => {
-		setTabs([]);
-		setActiveTabIndex(0);
+		dispatch({ type: "closeAll" });
 	}, []);
 
 	const handleStatusChange = useCallback((index: number, status: TerminalStatus) => {
-		setTabs((prev) => {
-			if (index < 0 || index >= prev.length) return prev;
-			const tab = prev[index]!;
-			if (tab.status === status) return prev;
-			const next = [...prev];
-			next[index] = { ...tab, status };
-			return next;
-		});
+		dispatch({ type: "status", index, status });
 	}, []);
 
 	const value = useMemo<SshTerminalContextValue>(
-		() => ({ openTerminal, isOpen: tabs.length > 0 }),
-		[openTerminal, tabs.length],
+		() => ({ openTerminal, isOpen: state.tabs.length > 0 }),
+		[openTerminal, state.tabs.length],
 	);
 
 	return (
 		<SshTerminalContext.Provider value={value}>
 			{children}
-			{tabs.length > 0 && (
+			{state.tabs.length > 0 && (
 				<SshTerminalManager
-					tabs={tabs}
-					activeTabIndex={Math.min(activeTabIndex, tabs.length - 1)}
-					onTabSelect={setActiveTabIndex}
+					tabs={state.tabs}
+					activeTabIndex={Math.min(state.activeTabIndex, state.tabs.length - 1)}
+					onTabSelect={(index) => dispatch({ type: "select", index })}
 					onTabClose={closeTab}
 					onClose={closeAll}
 					onStatusChange={handleStatusChange}
