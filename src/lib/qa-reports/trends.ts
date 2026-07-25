@@ -225,7 +225,7 @@ export async function computeQaReportTrends(): Promise<QaReportTrends> {
 						: successRate >= 60
 							? "info"
 							: "warn",
-			caption: totalRuns === 0 ? "No history yet" : `${successCount}/${totalRuns} times deploy_committed_pushed`,
+			caption: totalRuns === 0 ? "No history yet" : `${successCount}/${totalRuns} times deployed_committed_pushed`,
 		},
 		{
 			id: "moduleCoverage",
