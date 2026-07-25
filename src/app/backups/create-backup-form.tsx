@@ -15,13 +15,17 @@ export function CreateBackupForm() {
   const { t } = useI18n();
   const router = useRouter();
   const formRef = useRef<HTMLFormElement | null>(null);
+  const wasPendingRef = useRef(false);
   const [state, formAction, pending] = useActionState(createBackupAction, initialState);
 
+  // Reset/refresh on the pending→settled edge so a second success (state.success stays true) still runs.
   useEffect(() => {
-    if (!state.success) return;
-    formRef.current?.reset();
-    router.refresh();
-  }, [router, state.success]);
+    if (wasPendingRef.current && !pending && state.success) {
+      formRef.current?.reset();
+      router.refresh();
+    }
+    wasPendingRef.current = pending;
+  }, [pending, router, state.success]);
 
   return (
     <form ref={formRef} action={formAction} className="mt-4 grid gap-3 md:grid-cols-[180px_1fr_auto] md:items-end">
