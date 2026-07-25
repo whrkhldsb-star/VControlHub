@@ -312,13 +312,20 @@ export async function POST(request: Request) {
               totalInputTokens = inputTokens;
               totalOutputTokens = outputTokens;
 
+              // OpenAI tool_calls deltas index into a sparse array (holes → null
+              // under JSON.stringify and crash `for…of` + parseToolCall). Compact
+              // to defined entries only before persist / execute.
+              const compactToolCalls = toolCalls.filter(
+                (tc): tc is NonNullable<typeof tc> => Boolean(tc),
+              );
+
               const assistantMsg = await prisma.aiMessage.create({
                 data: {
                   conversationId: conv.id,
                   role: "assistant",
                   content: fullContent || t("apiAiChat.emptyContent", locale),
                   reasoningContent: fullReasoning || undefined,
-                  toolCalls: JSON.stringify(toolCalls),
+                  toolCalls: JSON.stringify(compactToolCalls),
                   model: conv.model,
                   inputTokens,
                   outputTokens,
@@ -327,9 +334,9 @@ export async function POST(request: Request) {
               });
 
               // ── 处理 tool_calls ────────────────────────────────
-              if (toolCalls.length > 0 && isHostingEnabled) {
+              if (compactToolCalls.length > 0 && isHostingEnabled) {
                 // 发送 tool_call 事件给前端
-                for (const tc of toolCalls) {
+                for (const tc of compactToolCalls) {
                   const parsed_tc = parseToolCall(tc);
                   if (parsed_tc) {
                     controller.enqueue(
@@ -342,7 +349,7 @@ export async function POST(request: Request) {
 
                 // 执行每个 tool_call
                 // N+1 acceptable: non-uniform per-item writes (action creation, execution, and status update depend on per-item results)
-                for (const tc of toolCalls) {
+                for (const tc of compactToolCalls) {
                   const parsed_tc = parseToolCall(tc);
                   if (!parsed_tc) continue;
 
