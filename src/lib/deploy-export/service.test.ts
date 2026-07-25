@@ -11,6 +11,8 @@ describe("deployment export service", () => {
 		const text = JSON.stringify(pkg.files);
 		expect(text).toContain("REPLACE_WITH_DATABASE_URL");
 		expect(text).toContain("AUTH_SESSION_SECRET");
+		expect(text).toContain("ENCRYPTION_KEY");
+		expect(text).toContain("SSH_WS_SECRET");
 		expect(text).toContain("REPLACE_WITH_A_RANDOM_SECRET");
 		expect(text).toContain("my-console-next.service");
 		expect(text).toContain("my-console-ssh-ws.service");
