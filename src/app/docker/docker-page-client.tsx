@@ -55,6 +55,7 @@ export default function DockerPage({ initialServers }: { initialServers: { id: s
 	const fetchingStatsRef = useRef<Set<string>>(new Set());
 	const statsServerIdRef = useRef(selectedServerId);
 	statsServerIdRef.current = selectedServerId;
+	const logsReqRef = useRef<{ id: string; serverId: string } | null>(null);
 	const fetchGenRef = useRef(0);
 	const fetchAbortRef = useRef<AbortController | null>(null);
 
@@ -215,13 +216,20 @@ const handleAction = async (container: Container, action:"start" |"stop" |"resta
 
 	const fetchLogs = async (id: string) => {
 		setLogsId(id);
+		setLogs("");
+		const serverAtFetch = selectedServerId;
+		logsReqRef.current = { id, serverId: serverAtFetch };
 		try {
-			const params = new URLSearchParams({ logs: id, tail:"50" });
-		if (selectedServerId) params.set("serverId", selectedServerId);
-		const data = await csrfFetch(`/api/docker/containers?${params}`);
-			setLogs(typeof data.data ==="string" ? data.data : JSON.stringify(data.data, null, 2));
+			const params = new URLSearchParams({ logs: id, tail: "50" });
+			if (serverAtFetch) params.set("serverId", serverAtFetch);
+			const data = await csrfFetch(`/api/docker/containers?${params}`);
+			// Drop stale responses after container switch or host change (mirrors fetchStats).
+			const active = logsReqRef.current;
+			if (!active || active.id !== id || active.serverId !== serverAtFetch) return;
+			setLogs(typeof data.data === "string" ? data.data : JSON.stringify(data.data, null, 2));
 		} catch {
-			// Failed to fetch container logs — show an error message in the logs panel.
+			const active = logsReqRef.current;
+			if (!active || active.id !== id || active.serverId !== serverAtFetch) return;
 			setLogs(t("dockerPage.error.logs"));
 		}
 	};
