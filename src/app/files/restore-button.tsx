@@ -17,7 +17,7 @@ export function RestoreButton({
 }) {
  const router = useRouter();
  const { t } = useI18n();
- const [state, formAction] = useActionState(restoreFileEntryAction, initialState);
+ const [state, formAction, isPending] = useActionState(restoreFileEntryAction, initialState);
 
  useEffect(() => {
  if (!state.success) return;
@@ -29,8 +29,10 @@ export function RestoreButton({
       <input type="hidden" name="fileEntryId" value={fileEntryId} />
       <button
         type="submit"
-       data-action-button data-variant="success" className="!px-4 !py-2 !text-sm">
-        {t("common.restore")}
+        disabled={isPending}
+        aria-busy={isPending || undefined}
+       data-action-button data-variant="success" className="!px-4 !py-2 !text-sm disabled:cursor-not-allowed disabled:opacity-50">
+        {isPending ? t("common.restoring") : t("common.restore")}
       </button>
       {state.error ? (
         <span className="text-xs text-[var(--danger)]">{state.error}</span>
