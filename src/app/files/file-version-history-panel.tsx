@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 import { ConfirmDialog } from "@/components/confirm-dialog";
 import { csrfFetch } from "@/lib/auth/csrf-client";
@@ -42,15 +42,20 @@ export function FileVersionHistoryPanel({
     id: string;
     versionNumber: number;
   } | null>(null);
+  const loadGenRef = useRef(0);
 
   const load = useCallback(async () => {
+    const gen = ++loadGenRef.current;
     setLoading(true);
     try {
       const data = await csrfFetch<{ versions: VersionItem[] }>(
         `/api/files/${encodeURIComponent(fileEntryId)}/versions`,
       );
+      // Drop stale list responses when fileEntryId changes or Refresh races.
+      if (gen !== loadGenRef.current) return;
       setVersions(data.versions ?? []);
     } catch (error) {
+      if (gen !== loadGenRef.current) return;
       onNotify(
         "error",
         error instanceof Error
@@ -58,13 +63,17 @@ export function FileVersionHistoryPanel({
           : t("fileVersionHistory.loadError"),
       );
     } finally {
-      setLoading(false);
+      if (gen === loadGenRef.current) setLoading(false);
     }
   }, [fileEntryId, onNotify, t]);
 
   /* eslint-disable react-hooks/set-state-in-effect -- initial/remote list fetch on file change */
   useEffect(() => {
     void load();
+    return () => {
+      // Invalidate in-flight load for the previous fileEntryId/refresh.
+      loadGenRef.current += 1;
+    };
   }, [load]);
   /* eslint-enable react-hooks/set-state-in-effect */
 
