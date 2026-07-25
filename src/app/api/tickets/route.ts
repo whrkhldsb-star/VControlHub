@@ -5,7 +5,7 @@ import { auditUserAction } from "@/lib/audit/service";
 import { createTicket, listTickets, updateTicketStatus } from "@/lib/ticket/service";
 import { listTicketsAdvanced, getTicketKanban } from "@/lib/ticket/sla";
 import { withApiRoute } from "@/lib/http/api-guard";
-import { GENERAL_WRITE_LIMIT } from "@/lib/http/rate-limit-presets";
+import { GENERAL_READ_LIMIT, GENERAL_WRITE_LIMIT } from "@/lib/http/rate-limit-presets";
 
 import { ForbiddenError } from "@/lib/errors";
 const ticketCreateSchema = z.object({
@@ -45,7 +45,7 @@ function normalizeStatus(status: string) {
 export const dynamic = "force-dynamic";
 
 export async function GET(request: Request) {
-  return withApiRoute(request, { permission: "ticket:read" }, async ({ session }) => {
+  return withApiRoute(request, { permission: "ticket:read", rateLimit: GENERAL_READ_LIMIT }, async ({ session }) => {
     const url = new URL(request.url);
     const view = url.searchParams.get("view");
     const status = url.searchParams.get("status") ?? undefined;
