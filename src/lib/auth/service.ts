@@ -13,7 +13,8 @@ export type AuthenticatedUser = {
  displayName: string | null;
  mustChangePassword: boolean;
  twoFactorEnabled: boolean;
- twoFactorSecret: string | null;
+ /** True when a sealed TOTP seed is present; secret itself is never returned from authenticateUser. */
+ hasTwoFactorSecret: boolean;
  status: string;
  roles: RoleKey[];
  permissions: Permission[];
@@ -65,7 +66,7 @@ export async function authenticateUser(input: LoginInput): Promise<Authenticated
  displayName: user.displayName,
  mustChangePassword: user.mustChangePassword,
  twoFactorEnabled: user.twoFactorEnabled,
- twoFactorSecret: user.twoFactorSecret,
+ hasTwoFactorSecret: Boolean(user.twoFactorSecret),
  status: user.status,
  roles: roleKeys,
  permissions: getPermissionsFromRoles(roleKeys),

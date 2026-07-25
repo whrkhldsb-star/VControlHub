@@ -110,7 +110,7 @@ export async function POST(request: Request) {
 		// ── 2FA Check ──
 		// If the user has 2FA enabled, redirect to the verification page
 		// instead of creating a full session right away.
-		if (user.twoFactorEnabled && user.twoFactorSecret) {
+		if (user.twoFactorEnabled && user.hasTwoFactorSecret) {
 			const pendingToken = await createPending2faToken({
 				userId: user.id,
 				username: user.username,

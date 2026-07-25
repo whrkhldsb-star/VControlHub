@@ -40,6 +40,8 @@ describe("authenticateUser", () => {
  mustChangePassword: true,
  status: "PENDING_PASSWORD_RESET",
  passwordHash,
+ twoFactorEnabled: true,
+ twoFactorSecret: "sealed:TOTP",
  createdAt: new Date(),
  updatedAt: new Date(),
  roles: [{ role: { key: "admin" } }, { role: { key: "viewer" } }],
@@ -53,6 +55,8 @@ describe("authenticateUser", () => {
  expect(result?.roles).toEqual(["admin", "viewer"]);
  expect(result?.permissions).toContain("command:execute");
  expect(result?.mustChangePassword).toBe(true);
+ expect(result?.hasTwoFactorSecret).toBe(true);
+ expect(result).not.toHaveProperty("twoFactorSecret");
  });
 
  it("rejects disabled users even when the password is valid", async () => {

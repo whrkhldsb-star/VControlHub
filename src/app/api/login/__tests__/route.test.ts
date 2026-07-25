@@ -62,7 +62,7 @@ describe("POST /api/login", () => {
       mustChangePassword: false,
       preferences: { defaultPage: "/", dashboardWidgets: ["server-status", "quick-links", "analytics", "audit-log"], notificationsEnabled: true, notificationSound: true, autoRefreshInterval: 30 },
       twoFactorEnabled: false,
-      twoFactorSecret: null,
+      hasTwoFactorSecret: false,
     });
   });
 
@@ -101,7 +101,7 @@ describe("POST /api/login", () => {
       mustChangePassword: false,
       preferences: { defaultPage: "/files", dashboardWidgets: ["server-status"], notificationsEnabled: true, notificationSound: true, autoRefreshInterval: 30 },
       twoFactorEnabled: false,
-      twoFactorSecret: null,
+      hasTwoFactorSecret: false,
     });
 
     const response = await POST(makeLoginRequest({ username: "admin", password: "secret" }));
@@ -118,7 +118,7 @@ describe("POST /api/login", () => {
       mustChangePassword: false,
       preferences: { defaultPage: "/", dashboardWidgets: ["server-status"], notificationsEnabled: true, notificationSound: true, autoRefreshInterval: 30 },
       twoFactorEnabled: true,
-      twoFactorSecret: "secret",
+      hasTwoFactorSecret: true,
       currentTeamId: null,
     });
 
