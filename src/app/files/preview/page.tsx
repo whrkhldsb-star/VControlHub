@@ -151,7 +151,7 @@ export default async function FilePreviewPage({ searchParams }: PreviewPageProps
 								className="max-h-[80vh] max-w-full rounded-2xl object-contain"
 							/>
 						</div>
-					) : isVideo || isAudio ? (
+					) : (isVideo || isAudio) && href ? (
 						<MediaPreviewClient
 							href={href}
 							name={name}
