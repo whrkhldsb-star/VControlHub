@@ -245,7 +245,10 @@ export function GlobalSearch({
 	const handleKeyDown = (e: React.KeyboardEvent) => {
 		if (e.key === "ArrowDown") {
 			e.preventDefault();
-			setSelectedIndex((i) => Math.min(i + 1, filtered.length - 1));
+			// When filtered is empty, length-1 is -1; keep selection at 0 so aria-activedescendant stays valid.
+			setSelectedIndex((i) =>
+				filtered.length === 0 ? 0 : Math.min(i + 1, filtered.length - 1),
+			);
 		} else if (e.key === "ArrowUp") {
 			e.preventDefault();
 			setSelectedIndex((i) => Math.max(i - 1, 0));
