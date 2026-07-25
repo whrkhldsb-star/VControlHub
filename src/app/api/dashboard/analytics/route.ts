@@ -180,10 +180,8 @@ export async function GET(request: Request) {
       const images = await prisma.imageUpload.findMany({
         where: {
           createdAt: { gte: sevenDaysAgo },
-          // ImageUpload has no teamId; non-global managers only see own uploads.
-          ...(sessionHasPermission(session, "team:manage")
-            ? {}
-            : { userId: session.userId }),
+          // ImageUpload.teamId is team-scoped (legacy null still visible via teamWhere).
+          ...teamWhere(session),
         },
         orderBy: { createdAt: "asc" },
         take: 5000,

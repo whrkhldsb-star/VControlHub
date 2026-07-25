@@ -63,7 +63,8 @@ describe("/api/dashboard/analytics", () => {
       (_session, permission: string) =>
         permission === "server:read" ||
         permission === "storage:read" ||
-        permission === "audit:read",
+        permission === "audit:read" ||
+        permission === "image:read",
     );
     mocks.requireApiSession.mockResolvedValue({
       ...session,
@@ -97,6 +98,16 @@ describe("/api/dashboard/analytics", () => {
       }),
     );
     expect(mocks.prisma.auditLog.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          OR: expect.arrayContaining([
+            { teamId: "team_a" },
+            { teamId: null },
+          ]),
+        }),
+      }),
+    );
+    expect(mocks.prisma.imageUpload.findMany).toHaveBeenCalledWith(
       expect.objectContaining({
         where: expect.objectContaining({
           OR: expect.arrayContaining([
