@@ -63,6 +63,7 @@ export function VpsBackupSection({
 	const [loading, setLoading] = useState(true);
 	const [error, setError] = useState<string | null>(null);
 	const [triggering, setTriggering] = useState<string | null>(null);
+	const [creating, setCreating] = useState(false);
 	const [showCreate, setShowCreate] = useState(false);
 	const [manualPaths, setManualPaths] = useState("");
 
@@ -137,6 +138,8 @@ export function VpsBackupSection({
 	};
 
 	const handleCreate = async () => {
+		if (creating) return;
+		setCreating(true);
 		setError(null);
 		try {
 			const res = await csrfFetch<Response>(`/api/servers/${serverId}/vps-backup/schedules`, {
@@ -168,6 +171,8 @@ export function VpsBackupSection({
 			}
 		} catch (err) {
 			setError(err instanceof Error ? err.message : t("vpsBackup.error.create"));
+		} finally {
+			setCreating(false);
 		}
 	};
 
@@ -350,10 +355,10 @@ export function VpsBackupSection({
 							<ActionButton
 								type="button"
 								onClick={handleCreate}
-								disabled={!createForm.name.trim()}
+								disabled={!createForm.name.trim() || creating}
 								className="px-4 py-1.5 text-sm"
 							>
-								{t("vpsBackup.create")}
+								{creating ? t("common.submitting") : t("vpsBackup.create")}
 							</ActionButton>
 						</div>
 					</div>
