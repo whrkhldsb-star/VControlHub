@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useMemo, useState } from "react";
+import { useActionState, useEffect, useMemo, useState } from "react";
 
 import { SubmitButton } from "@/components/submit-button";
 import { useI18n } from "@/lib/i18n/use-locale";
@@ -21,6 +21,14 @@ export function BatchServerActionPanel({
   const [state, formAction] = useActionState(batchToggleServerAction, initialState);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [disableConfirming, setDisableConfirming] = useState(false);
+
+  // After a successful batch toggle, clear multi-select and danger confirm so a
+  // revalidate does not leave a one-click re-disable / stale summary.
+  useEffect(() => {
+    if (!state.success) return;
+    setSelectedIds([]);
+    setDisableConfirming(false);
+  }, [state.success]);
 
   const selectedServers = useMemo(
     () => servers.filter((server) => selectedIds.includes(server.id)),
