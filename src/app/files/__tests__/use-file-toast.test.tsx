@@ -65,4 +65,17 @@ describe("useFileToast", () => {
     });
     expect(result.current.toasts).toEqual([]);
   });
+
+  it("clears pending auto-dismiss timers on unmount", () => {
+    const clearTimeoutSpy = vi.spyOn(window, "clearTimeout");
+    const { result, unmount } = renderHook(() => useFileToast());
+    act(() => {
+      result.current.showToast("info", "stay");
+      result.current.showToast("info", "go");
+    });
+    expect(result.current.toasts).toHaveLength(2);
+    unmount();
+    expect(clearTimeoutSpy).toHaveBeenCalled();
+    clearTimeoutSpy.mockRestore();
+  });
 });

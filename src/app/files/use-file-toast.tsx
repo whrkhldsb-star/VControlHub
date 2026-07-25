@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 export type FileToast = {
   id: number;
@@ -22,14 +22,27 @@ export type FileToastInput = { type: FileToast["type"]; message: string };
  */
 export function useFileToast() {
   const [toasts, setToasts] = useState<FileToast[]>([]);
+  const timeoutIdsRef = useRef<Set<number>>(new Set());
+
+  useEffect(() => {
+    const timeoutIds = timeoutIdsRef.current;
+    return () => {
+      for (const timeoutId of timeoutIds) {
+        window.clearTimeout(timeoutId);
+      }
+      timeoutIds.clear();
+    };
+  }, []);
 
   const showToast = useCallback(
     (type: FileToast["type"], message: string) => {
       const id = Date.now() + Math.floor(Math.random() * 1000);
       setToasts((current) => [...current.slice(-2), { id, type, message }]);
-      window.setTimeout(() => {
+      const timeoutId = window.setTimeout(() => {
+        timeoutIdsRef.current.delete(timeoutId);
         setToasts((current) => current.filter((toast) => toast.id !== id));
       }, 3800);
+      timeoutIdsRef.current.add(timeoutId);
     },
     [],
   );
