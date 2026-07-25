@@ -1,6 +1,12 @@
 import { render, screen } from "@testing-library/react";
+import type { ReactNode } from "react";
 import { describe, expect, it, vi } from "vitest";
 
+import {
+	SessionGateProvider,
+	type SessionGate,
+} from "@/lib/auth/session-context";
+import type { Permission } from "@/lib/auth/rbac";
 import { I18nProvider } from "@/lib/i18n/provider";
 import { ThemeProvider } from "@/lib/theme/provider";
 import { getMobileNavTabs, MobileNav } from "../mobile-nav";
@@ -9,12 +15,38 @@ vi.mock("next/navigation", () => ({
 	usePathname: () => "/settings",
 }));
 
-function renderWithProviders(ui: React.ReactNode) {
-	return render(
-		<ThemeProvider>
-			<I18nProvider>{ui}</I18nProvider>
-		</ThemeProvider>,
-	);
+const SAMPLE_DECLARED = {
+	"/dashboard": [],
+	"/servers": ["server:ssh", "server:write"],
+	"/traffic": ["server:read"],
+	"/files": ["storage:write", "storage:read"],
+	"/settings": [],
+} as const satisfies Record<string, readonly Permission[]>;
+
+const READ_ONLY_GATE: SessionGate = {
+	roles: [],
+	permissions: ["server:read"],
+	authenticated: true,
+};
+
+function renderWithProviders(
+	ui: React.ReactNode,
+	gate: SessionGate = {
+		roles: [],
+		permissions: [],
+		authenticated: true,
+	},
+) {
+	function Wrapper({ children }: { children: ReactNode }) {
+		return (
+			<ThemeProvider>
+				<I18nProvider>
+					<SessionGateProvider value={gate}>{children}</SessionGateProvider>
+				</I18nProvider>
+			</ThemeProvider>
+		);
+	}
+	return render(ui, { wrapper: Wrapper });
 }
 
 describe("MobileNav", () => {
@@ -62,5 +94,17 @@ describe("MobileNav", () => {
 		renderWithProviders(<MobileNav />);
 
 		expect(await screen.findByRole("link", { name: /Settings/ })).toHaveAttribute("href", "/settings");
+	});
+
+	it("filters tabs by declaredPermissionsByHref like the sidebar", () => {
+		renderWithProviders(
+			<MobileNav declaredPermissionsByHref={SAMPLE_DECLARED} />,
+			READ_ONLY_GATE,
+		);
+
+		const hrefs = screen.getAllByRole("link").map((el) => el.getAttribute("href"));
+		expect(hrefs).toEqual(["/dashboard", "/traffic", "/settings"]);
+		expect(hrefs).not.toContain("/servers");
+		expect(hrefs).not.toContain("/files");
 	});
 });

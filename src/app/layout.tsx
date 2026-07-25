@@ -96,7 +96,7 @@ export default async function RootLayout({
 							</main>
 							{shouldRenderAuthenticatedChrome && (
 								<SessionGateProvider value={sessionGate}>
-									<MobileNav />
+									<MobileNav declaredPermissionsByHref={declaredPermissionsByHref} />
 									<GlobalSearch declaredPermissionsByHref={declaredPermissionsByHref} />
 								</SessionGateProvider>
 							)}

@@ -1,8 +1,12 @@
 "use client";
 
+import { useMemo } from "react";
 import { usePathname } from "next/navigation";
 import Link from "next/link";
 
+import { filterByHrefPermissions } from "@/lib/auth/filter-by-href-permissions";
+import type { Permission } from "@/lib/auth/rbac";
+import { useGateRoute } from "@/lib/auth/use-gate-route";
 import { useI18n } from "@/lib/i18n/use-locale";
 import { LanguageToggle } from "./language-toggle";
 import { ThemeToggle } from "./theme-toggle";
@@ -12,9 +16,18 @@ export function getMobileNavTabs() {
 	return mobileNavItems;
 }
 
-export function MobileNav() {
+export function MobileNav({
+	declaredPermissionsByHref = {},
+}: {
+	declaredPermissionsByHref?: Record<string, readonly Permission[]>;
+} = {}) {
 	const pathname = usePathname();
 	const { t } = useI18n();
+	const gate = useGateRoute();
+	const visibleTabs = useMemo(
+		() => filterByHrefPermissions(mobileNavItems, declaredPermissionsByHref, gate.canAny),
+		[declaredPermissionsByHref, gate],
+	);
 
 	return (
 		<nav
@@ -22,8 +35,11 @@ export function MobileNav() {
 			data-i18n-skip
 			className="fixed bottom-0 left-0 right-0 z-50 overflow-hidden border-t border-[var(--border)] bg-[color-mix(in_srgb,var(--modal-bg)_94%,transparent)] px-1.5 pb-[calc(0.4rem+env(safe-area-inset-bottom))] pt-1.5 shadow-[0_-8px_28px_color-mix(in_srgb,var(--text-primary)_8%,transparent)] backdrop-blur-xl light:bg-[color-mix(in_srgb,#ffffff_92%,var(--surface-subtle))] light:shadow-[0_-6px_20px_rgba(99,102,241,0.07)] md:hidden"
 		>
-			<div className="grid w-full grid-cols-[repeat(5,minmax(0,1fr))_auto] items-center gap-0.5">
-				{mobileNavItems.map((tab) => {
+			<div
+				className="grid w-full items-center gap-0.5"
+				style={{ gridTemplateColumns: `repeat(${Math.max(visibleTabs.length, 1)}, minmax(0, 1fr)) auto` }}
+			>
+				{visibleTabs.map((tab) => {
 					const active = tab.href === "/"
 						? pathname === "/"
 						: pathname === tab.href || pathname.startsWith(`${tab.href}/`);
