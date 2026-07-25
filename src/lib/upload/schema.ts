@@ -7,6 +7,11 @@
 import { z } from "zod";
 
 import {
+	normalizeStorageRelativePath,
+	normalizeStorageTargetDirectory,
+} from "@/lib/storage/path-utils";
+
+import {
 	ALLOWED_MIME_PREFIXES,
 	DEFAULT_CHUNK_SIZE,
 	MAX_CHUNK_SIZE,
@@ -14,6 +19,33 @@ import {
 	MIN_CHUNK_SIZE,
 	STORAGE_ALLOWED_MIME_PATTERN,
 } from "./types";
+
+/** Media init stores a target *directory* (filename is joined later). */
+const mediaRelativePathSchema = z
+	.string()
+	.max(512, "relativePath cannot exceed 512 characters")
+	.transform((value, ctx) => {
+		const normalized = normalizeStorageTargetDirectory(value);
+		if (!normalized.ok) {
+			ctx.addIssue({ code: z.ZodIssueCode.custom, message: normalized.reason });
+			return z.NEVER;
+		}
+		return normalized.path;
+	});
+
+/** Storage init stores the full relative file path (including filename). */
+const storageRelativePathSchema = z
+	.string()
+	.min(1, "relativePath is required")
+	.max(512, "relativePath cannot exceed 512 characters")
+	.transform((value, ctx) => {
+		const normalized = normalizeStorageRelativePath(value);
+		if (!normalized.ok) {
+			ctx.addIssue({ code: z.ZodIssueCode.custom, message: normalized.reason });
+			return z.NEVER;
+		}
+		return normalized.path;
+	});
 
 const allowedMimePrefixSchema = z
 	.string()
@@ -61,10 +93,8 @@ export const initMediaUploadSchema = z.object({
 	totalSize: totalSizeSchema,
 	chunkSize: chunkSizeSchema,
 	storageNodeId: z.string().min(1).max(64).optional(),
-	relativePath: z
-		.string()
-		.max(512, "relativePath cannot exceed 512 characters")
-		.optional(),
+	/** Optional target directory; rejects absolute paths, `..`, and illegal segments. */
+	relativePath: mediaRelativePathSchema.optional(),
 });
 
 /** Body for POST /api/storage/upload/init — ordinary file manager uploads. */
@@ -75,10 +105,7 @@ export const initStorageUploadSchema = z.object({
 	chunkSize: chunkSizeSchema,
 	storageNodeId: z.string().min(1).max(64),
 	/** Full relative path of the target file (including filename). */
-	relativePath: z
-		.string()
-		.min(1, "relativePath is required")
-		.max(512, "relativePath cannot exceed 512 characters"),
+	relativePath: storageRelativePathSchema,
 });
 
 /** Per-chunk metadata (sent in query or body, depending on route shape).
