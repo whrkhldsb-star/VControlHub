@@ -316,6 +316,12 @@ export function useBatchCompress(input: UseBatchCompressInput) {
         clearSelection();
       } catch (error) {
         if (controller.signal.aborted || (error instanceof Error && error.name === "AbortError")) {
+          // Only clear UI if this abort still owns the active controller —
+          // a superseding compress already set batchAction/progress itself.
+          if (abortRef.current === controller) {
+            setBatchAction("none");
+            setProgress({ done: 0, total: 0, errors: [] });
+          }
           return;
         }
         const message = error instanceof Error ? error.message : t("filesPage.batch.compressFailed");
