@@ -187,6 +187,28 @@ describe("api guard", () => {
     expect(payload).toMatchObject({ code: "VALIDATION_FAILED" });
   });
 
+  it("rejects oversized JSON body via Content-Length before parse", async () => {
+    const { z } = await import("zod");
+    const response = await withApiRoute(
+      new Request("https://example.test/api/demo", {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          "content-length": String(2 * 1024 * 1024),
+        },
+        body: JSON.stringify({ a: "x" }),
+      }),
+      { bodySchema: z.object({ a: z.string() }), maxBodyBytes: 1024 },
+      async () => Response.json({ ok: true }),
+    );
+
+    expect(response.status).toBe(400);
+    expect(await json(response)).toMatchObject({
+      code: "VALIDATION_FAILED",
+      message: expect.stringMatching(/too large/i),
+    });
+  });
+
   it("TR-037: querySchema parses URL query and rejects on type mismatch", async () => {
     const { z } = await import("zod");
     const querySchema = z.object({

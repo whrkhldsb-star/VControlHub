@@ -15,6 +15,9 @@ import { createLogger } from "@/lib/logging";
 
 const apiLogger = createLogger("api");
 
+/** Default max JSON body size when bodySchema is used (DoS / memory guard). */
+export const DEFAULT_MAX_JSON_BODY_BYTES = 1 * 1024 * 1024; // 1 MiB
+
 export type ApiGuardOptions = {
   request: Request;
   permission?: Permission;
@@ -54,6 +57,11 @@ export type ApiRouteOptions<TBody = unknown, TQuery = unknown> = {
   errorMessage?: string;
   onError?: (error: unknown) => Response;
   bodySchema?: z.ZodType<TBody>;
+  /**
+   * Max raw body bytes when `bodySchema` is set. Rejects oversized Content-Length
+   * early and re-checks after `text()`. Defaults to {@link DEFAULT_MAX_JSON_BODY_BYTES}.
+   */
+  maxBodyBytes?: number;
   querySchema?: z.ZodType<TQuery>;
 };
 
@@ -153,12 +161,30 @@ export async function withApiRoute<TBody = unknown, TQuery = unknown>(
     if (options.bodySchema) {
       let raw: unknown = undefined;
       if (methodMayHaveBody(request.method)) {
+        const maxBodyBytes = options.maxBodyBytes ?? DEFAULT_MAX_JSON_BODY_BYTES;
+        const contentLengthHeader = request.headers.get("content-length");
+        if (contentLengthHeader) {
+          const declared = Number(contentLengthHeader);
+          if (Number.isFinite(declared) && declared > maxBodyBytes) {
+            throw new ValidationError("Request body too large", {
+              field: "body",
+              maxBodyBytes,
+            });
+          }
+        }
         try {
           // .json() on an empty body throws; treat that as undefined so the
           // schema decides whether undefined is acceptable.
           const text = await request.clone().text();
+          if (Buffer.byteLength(text, "utf8") > maxBodyBytes) {
+            throw new ValidationError("Request body too large", {
+              field: "body",
+              maxBodyBytes,
+            });
+          }
           raw = text.length === 0 ? undefined : JSON.parse(text);
-        } catch {
+        } catch (err) {
+          if (err instanceof ValidationError) throw err;
           throw new ValidationError("Request body is not valid JSON", { field: "body" });
         }
       }
