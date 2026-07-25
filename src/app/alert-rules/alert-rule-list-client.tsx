@@ -111,7 +111,7 @@ export function AlertRuleListClient({
 				addToast("success", t("alertRulesPage.incidents.acked"));
 				await loadIncidents();
 			} catch (error) {
-				setActionError(error instanceof Error ? error.message : t("alertRulesPage.error.toggle"));
+				setActionError(error instanceof Error ? error.message : t("alertRulesPage.error.ack"));
 			} finally {
 				endBusy();
 			}
