@@ -147,15 +147,15 @@ async function rpcCall(method: string, params: unknown[] = []): Promise<unknown>
 let daemonStarted = false;
 
 export async function ensureAria2Daemon(): Promise<void> {
-	if (daemonStarted) return;
-
+	// Always re-probe RPC health. A sticky daemonStarted flag would skip restart
+	// after aria2c dies/OOM, leaving downloads permanently broken until process restart.
 	try {
-		// Check if already running
 		await rpcCall("aria2.getVersion");
 		daemonStarted = true;
 		return;
 	} catch {
-		// Not running, start it
+		daemonStarted = false;
+		// Not running — fall through to spawn
 	}
 
 	const config = getAria2RuntimeConfig();
