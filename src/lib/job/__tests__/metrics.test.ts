@@ -24,11 +24,11 @@ describe("getJobBacklogMetrics", () => {
       .mockResolvedValueOnce(3)  // failed
       .mockResolvedValueOnce(100); // completed
     mockPrisma.job.findFirst.mockResolvedValue({ availableAt: new Date(now.getTime() - 30_000) });
-    mockPrisma.job.groupBy.mockResolvedValue([{ type: "backup.create", _count: 3 }]);
-    mockPrisma.job.count
-      .mockResolvedValueOnce(2) // backup.create pending
-      .mockResolvedValueOnce(1) // backup.create running
-      .mockResolvedValueOnce(0); // backup.create failed
+    mockPrisma.job.groupBy.mockResolvedValue([
+      { type: "backup.create", status: "PENDING", _count: 2 },
+      { type: "backup.create", status: "RUNNING", _count: 1 },
+      { type: "backup.create", status: "FAILED", _count: 0 },
+    ]);
 
     const metrics = await getJobBacklogMetrics();
     expect(metrics.pending).toBe(5);
@@ -40,6 +40,9 @@ describe("getJobBacklogMetrics", () => {
     expect(metrics.oldestPendingMs).toBeGreaterThanOrEqual(29_000);
     expect(metrics.byType).toHaveLength(1);
     expect(metrics.byType[0]).toEqual({ type: "backup.create", pending: 2, running: 1, failed: 0 });
+    // One groupBy for byType — no per-type count fan-out after the global counts.
+    expect(mockPrisma.job.groupBy).toHaveBeenCalledTimes(1);
+    expect(mockPrisma.job.count).toHaveBeenCalledTimes(5);
   });
 
   it("returns null oldestPendingMs when no pending jobs exist", async () => {

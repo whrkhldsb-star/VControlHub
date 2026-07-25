@@ -46,9 +46,9 @@ export async function getJobBacklogMetrics(
     ? Math.max(0, now.getTime() - oldestPending.availableAt.getTime())
     : null;
 
-  // Group by type to find the top job types, then run per-status counts for each
-  const grouped = await prisma.job.groupBy({
-    by: ["type"],
+  // Single groupBy on (type, status) — avoids N×3 count queries for top types.
+  const groupedByTypeStatus = await prisma.job.groupBy({
+    by: ["type", "status"],
     where: {
       ...scope,
       status: { in: [JobStatus.PENDING, JobStatus.RUNNING, JobStatus.FAILED] },
@@ -56,17 +56,17 @@ export async function getJobBacklogMetrics(
     _count: true,
   });
 
-  const topTypes = grouped.sort((a, b) => b._count - a._count).slice(0, 20).map((r) => r.type);
-  const byType: Array<{ type: string; pending: number; running: number; failed: number }> = [];
-  for (const type of topTypes) {
-    const [p, r, f] = await Promise.all([
-      prisma.job.count({ where: { ...scope, type, status: JobStatus.PENDING } }),
-      prisma.job.count({ where: { ...scope, type, status: JobStatus.RUNNING } }),
-      prisma.job.count({ where: { ...scope, type, status: JobStatus.FAILED } }),
-    ]);
-    byType.push({ type, pending: p, running: r, failed: f });
+  const byTypeMap = new Map<string, { type: string; pending: number; running: number; failed: number }>();
+  for (const row of groupedByTypeStatus) {
+    const entry = byTypeMap.get(row.type) ?? { type: row.type, pending: 0, running: 0, failed: 0 };
+    if (row.status === JobStatus.PENDING) entry.pending = row._count;
+    else if (row.status === JobStatus.RUNNING) entry.running = row._count;
+    else if (row.status === JobStatus.FAILED) entry.failed = row._count;
+    byTypeMap.set(row.type, entry);
   }
-  byType.sort((a, b) => (b.pending + b.running + b.failed) - (a.pending + a.running + a.failed));
+  const byType = Array.from(byTypeMap.values())
+    .sort((a, b) => (b.pending + b.running + b.failed) - (a.pending + a.running + a.failed))
+    .slice(0, 20);
 
   const total = pending + running + failed + completed;
   logger.debug("job backlog metrics collected", { pending, running, expiredLease, failed, total });
