@@ -103,6 +103,8 @@ export function TicketDetailClient({ initial, canManage, users = [] }: TicketDet
   }, [loadTimeline]);
 
   const updateAssignee = async (newAssigneeId: string) => {
+    const previousAssigneeId = assigneeId;
+    setAssigneeId(newAssigneeId);
     setSaving(true);
     setError("");
     try {
@@ -113,7 +115,10 @@ export function TicketDetailClient({ initial, canManage, users = [] }: TicketDet
       });
       setTicket((prev) => ({ ...prev, ...data.ticket }));
       setAssigneeId(data.ticket.assigneeId ?? "");
-    } catch (e: unknown) { setError(e instanceof Error ? e.message : t("ticketsDetail.error.assignFailed")); }
+    } catch (e: unknown) {
+      setAssigneeId(previousAssigneeId);
+      setError(e instanceof Error ? e.message : t("ticketsDetail.error.assignFailed"));
+    }
     finally { setSaving(false); }
   };
 
@@ -221,7 +226,7 @@ export function TicketDetailClient({ initial, canManage, users = [] }: TicketDet
             <span className="shrink-0 text-[var(--text-muted)]">{t("ticketsDetail.assignTo")}</span>
             <select
               value={assigneeId}
-              onChange={(e) => { setAssigneeId(e.target.value); void updateAssignee(e.target.value); }}
+              onChange={(e) => { void updateAssignee(e.target.value); }}
               disabled={saving}
               aria-label={t("ticketsDetail.assignAria")}
               className="rounded-xl border border-[var(--input-border)] bg-[var(--input-bg)] px-2.5 py-1.5 text-sm text-[var(--text-secondary)] outline-none disabled:opacity-50"
