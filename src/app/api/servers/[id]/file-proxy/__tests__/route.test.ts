@@ -157,6 +157,9 @@ describe("/api/servers/[id]/file-proxy", () => {
     expect(script).toContain('SERVE_DIR = "/srv/vcontrolhub/storage"');
     expect(script).toContain("X-VControlHub-Proxy-Token");
     expect(script).toContain("Authorization");
+    expect(script).toContain("hmac.compare_digest");
+    expect(script).toContain("_token_matches");
+    expect(script).not.toContain("self._request_token() != TOKEN");
     expect(script).toContain('ALLOWED_ORIGIN = "https://hub.example.com"');
     expect(script).not.toContain('SERVE_DIR = "/"');
     expect(script).not.toContain('Access-Control-Allow-Origin", "*"');

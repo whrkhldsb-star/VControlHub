@@ -21,6 +21,8 @@ export function buildFileProxyScript(input: {
   // Generated on the target VPS. Keep all untrusted values JSON-quoted so paths,
   // tokens, and origins cannot break out of the Python source.
   return `
+import hashlib
+import hmac
 import http.server
 import os
 import posixpath
@@ -59,10 +61,17 @@ class AuthHandler(http.server.SimpleHTTPRequestHandler):
         query = urllib.parse.parse_qs(urllib.parse.urlparse(self.path).query)
         return query.get("token", [""])[0]
 
+    def _token_matches(self, provided):
+        # Hash both sides so hmac.compare_digest always runs on equal-length
+        # digests (avoids length-leaking early exits and non-constant !=).
+        expected = hashlib.sha256(TOKEN.encode("utf-8")).digest()
+        actual = hashlib.sha256((provided or "").encode("utf-8")).digest()
+        return hmac.compare_digest(expected, actual)
+
     def _validate(self):
         if int(time.time() * 1000) > EXPIRES_AT_MS:
             return None, (410, "Gone: token expired")
-        if self._request_token() != TOKEN:
+        if not self._token_matches(self._request_token()):
             return None, (403, "Forbidden: invalid token")
         if not self._origin_allowed():
             return None, (403, "Forbidden: origin not allowed")
