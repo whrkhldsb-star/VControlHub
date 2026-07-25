@@ -26,8 +26,12 @@ export function ActiveIncidentsBanner() {
 	const fetchIncidents = useCallback(async () => {
 		try {
 			const result = await csrfFetch<{ announcements: ActiveAnnouncement[] }>("/api/announcements");
+			const now = new Date();
 			const active = (result.announcements ?? []).filter(
-				(a) => INCIDENT_LEVELS.has(a.level) && (!a.expiresAt || new Date(a.expiresAt) > new Date()),
+				(a) =>
+					INCIDENT_LEVELS.has(a.level) &&
+					new Date(a.startsAt) <= now &&
+					(!a.expiresAt || new Date(a.expiresAt) > now),
 			);
 			setIncidents(active);
 		} catch {

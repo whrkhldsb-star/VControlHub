@@ -51,12 +51,26 @@ describe("ActiveIncidentsBanner", () => {
 
   it("does not render when there are no active incidents", async () => {
     csrfFetchMock.mockResolvedValue({
-      announcements: [{ ...incident, id: "info1", level: "info", title: "日常通知" }],
+      announcements: [
+        { ...incident, id: "info1", level: "info", title: "日常通知" },
+        {
+          ...incident,
+          id: "future1",
+          title: "未来维护",
+          level: "maintenance",
+          startsAt: "2099-06-01T00:00:00.000Z",
+          expiresAt: "2099-06-02T00:00:00.000Z",
+        },
+      ],
     });
 
-    const { container } = render(<ActiveIncidentsBanner />, { locale: "en" });
-    await new Promise((r) => setTimeout(r, 200));
-    expect(container.innerHTML).toBe("");
+    render(<ActiveIncidentsBanner />, { locale: "en" });
+    await waitFor(() => {
+      expect(csrfFetchMock).toHaveBeenCalled();
+    });
+    expect(screen.queryByText("日常通知")).not.toBeInTheDocument();
+    expect(screen.queryByText("未来维护")).not.toBeInTheDocument();
+    expect(screen.queryByLabelText(/active incidents|活跃故障/i)).not.toBeInTheDocument();
   });
 
   it("allows dismissing individual incident cards", async () => {
