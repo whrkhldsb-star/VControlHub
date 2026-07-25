@@ -90,10 +90,15 @@ function buildRelease(client: PoolClient, k1: number, k2: number, namespace: str
 	};
 }
 
+/** Cap blocking wait so a hung holder cannot pin the tiny advisory-lock pool forever. */
+const ADVISORY_LOCK_ACQUIRE_TIMEOUT_MS = 30_000;
+
 export async function acquireAdvisoryLock(namespace: string, resourceId: string): Promise<() => Promise<void>> {
 	const { k1, k2 } = getLockKeys(namespace, resourceId);
 	const client = await getLockPool().connect();
 	try {
+		// Session-local only; resets when the client returns to the pool.
+		await client.query(`SET lock_timeout = ${ADVISORY_LOCK_ACQUIRE_TIMEOUT_MS}`);
 		await client.query("SELECT pg_advisory_lock($1, $2)", [k1, k2]);
 		logger.debug("advisory lock acquired", { namespace, resourceId, k1, k2 });
 		return buildRelease(client, k1, k2, namespace, resourceId);

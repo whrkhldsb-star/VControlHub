@@ -24,13 +24,17 @@ describe("advisory-lock service", () => {
   });
 
   it("acquires and releases on the exact same dedicated client", async () => {
-    mocks.query.mockResolvedValueOnce({ rows: [] }).mockResolvedValueOnce({ rows: [{ unlocked: true }] });
+    mocks.query
+      .mockResolvedValueOnce({ rows: [] }) // SET lock_timeout
+      .mockResolvedValueOnce({ rows: [] }) // pg_advisory_lock
+      .mockResolvedValueOnce({ rows: [{ unlocked: true }] });
     const release = await acquireAdvisoryLock("backup-restore", "backup-1");
     expect(mocks.connect).toHaveBeenCalledTimes(1);
-    expect(mocks.query).toHaveBeenNthCalledWith(1, "SELECT pg_advisory_lock($1, $2)", [45057, hashToInt32("backup-1")]);
+    expect(mocks.query).toHaveBeenNthCalledWith(1, "SET lock_timeout = 30000");
+    expect(mocks.query).toHaveBeenNthCalledWith(2, "SELECT pg_advisory_lock($1, $2)", [45057, hashToInt32("backup-1")]);
     expect(mocks.release).not.toHaveBeenCalled();
     await release();
-    expect(mocks.query).toHaveBeenNthCalledWith(2, "SELECT pg_advisory_unlock($1, $2) AS unlocked", [45057, hashToInt32("backup-1")]);
+    expect(mocks.query).toHaveBeenNthCalledWith(3, "SELECT pg_advisory_unlock($1, $2) AS unlocked", [45057, hashToInt32("backup-1")]);
     expect(mocks.release).toHaveBeenCalledTimes(1);
     await release();
     expect(mocks.release).toHaveBeenCalledTimes(1);
