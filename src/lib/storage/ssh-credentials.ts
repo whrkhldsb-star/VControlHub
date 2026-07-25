@@ -31,7 +31,7 @@ export type ResolvedStorageSshCredentials = {
 export function resolveStorageSshCredentials(node: StorageSshCredentialNode): ResolvedStorageSshCredentials {
   const host = node.host ?? node.server?.host;
   const port = node.port ?? node.server?.port ?? 22;
-  const username = node.username ?? node.server?.username ?? "root";
+  const username = (node.username ?? node.server?.username)?.trim() || "";
   const rawConnectionType = node.server?.connectionType ?? (node.server?.password ? "PASSWORD" : "SSH_KEY");
   const connectionType = rawConnectionType === "PASSWORD" ? "PASSWORD" : "SSH_KEY";
   const privateKey = connectionType === "SSH_KEY" && node.server?.sshKey?.privateKey
@@ -43,6 +43,9 @@ export function resolveStorageSshCredentials(node: StorageSshCredentialNode): Re
 
   if (!host) {
     throw new ValidationError(t("backend.storage.missingRemoteHost"));
+  }
+  if (!username) {
+    throw new ValidationError(t("backend.storage.missingUsername"));
   }
   if (connectionType === "SSH_KEY" && !privateKey) {
     throw new ValidationError(t("backend.storage.missingSshKey"));

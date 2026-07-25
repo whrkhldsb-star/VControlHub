@@ -11,6 +11,7 @@ import { encrypt, decrypt, isEncrypted } from "@/lib/crypto/service";
 import { NotFoundError, ValidationError } from "@/lib/errors";
 import { getAiConversationListLimit, getAiProviderListLimit } from "@/lib/runtime-settings/service";
 import { normalizePublicHttpUrl } from "@/lib/storage/direct-access-url";
+import { aiProviderTypeSchema, type AiProviderType } from "./schema";
 import { defaultAiBaseUrl } from "./provider-http";
 import { t } from "@/lib/i18n/translations";
 
@@ -110,6 +111,15 @@ const AI_PROVIDER_LIST_SELECT = {
 
 /* ── Provider CRUD ───────────────────────────────────────────── */
 
+function resolveProviderType(raw: string | undefined): AiProviderType {
+	if (raw === undefined || raw.trim() === "") return "OPENAI_COMPATIBLE";
+	const parsed = aiProviderTypeSchema.safeParse(raw.trim());
+	if (!parsed.success) {
+		throw new ValidationError(t("backend.ai.invalidProviderType"));
+	}
+	return parsed.data;
+}
+
 export async function createProvider(input: CreateProviderInput) {
 	if (!input.name.trim()) throw new ValidationError(t("backend.ai.providerNameIsRequired"));
 	if (!input.apiKey.trim()) throw new ValidationError(t("backend.ai.apiKeyIsRequired"));
@@ -117,6 +127,7 @@ export async function createProvider(input: CreateProviderInput) {
 	const normalizedBaseUrl = normalizeProviderBaseUrl(input.baseUrl);
 	const normalizedModels = normalizeProviderModels(input.availableModels);
 	const encryptedKey = encrypt(input.apiKey.trim());
+	const providerType = resolveProviderType(input.type);
 
 	if (input.isDefault) {
 		await prisma.aiProvider.updateMany({
@@ -128,7 +139,7 @@ export async function createProvider(input: CreateProviderInput) {
 	return prisma.aiProvider.create({
 		data: {
 			name: input.name.trim(),
-			type: (input.type as "OPENAI_COMPATIBLE") || "OPENAI_COMPATIBLE",
+			type: providerType,
 			apiKey: encryptedKey,
 			baseUrl: normalizedBaseUrl,
 			defaultModel: input.defaultModel?.trim() || "gpt-4o",
@@ -164,7 +175,7 @@ export async function getProviderById(id: string, userId: string) {
 export async function updateProvider(id: string, userId: string, input: UpdateProviderInput) {
 	const data: Record<string, unknown> = {};
 	if (input.name !== undefined) data.name = input.name.trim();
-	if (input.type !== undefined) data.type = input.type.trim();
+	if (input.type !== undefined) data.type = resolveProviderType(input.type);
 	if (input.apiKey !== undefined) data.apiKey = encrypt(input.apiKey.trim());
 	if (input.baseUrl !== undefined) data.baseUrl = normalizeProviderBaseUrl(input.baseUrl);
 	if (input.defaultModel !== undefined) data.defaultModel = input.defaultModel.trim() || null;
