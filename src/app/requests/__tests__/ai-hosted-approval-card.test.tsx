@@ -2,11 +2,15 @@ import { describe, expect, it, vi, beforeEach } from "vitest";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
-const { csrfFetch } = vi.hoisted(() => ({
+const { csrfFetch, refreshMock } = vi.hoisted(() => ({
   csrfFetch: vi.fn(),
+  refreshMock: vi.fn(),
 }));
 
 vi.mock("@/lib/auth/csrf-client", () => ({ csrfFetch }));
+vi.mock("next/navigation", () => ({
+  useRouter: () => ({ refresh: refreshMock }),
+}));
 vi.mock("@/lib/i18n/use-locale", () => ({
   useI18n: () => ({
     t: (k: string) => k,
@@ -47,6 +51,7 @@ describe("AiHostedApprovalCard", () => {
         }),
       );
     });
+    expect(refreshMock).toHaveBeenCalled();
   });
 
   it("rejects with a reason payload", async () => {
@@ -74,5 +79,6 @@ describe("AiHostedApprovalCard", () => {
         }),
       );
     });
+    expect(refreshMock).toHaveBeenCalled();
   });
 });

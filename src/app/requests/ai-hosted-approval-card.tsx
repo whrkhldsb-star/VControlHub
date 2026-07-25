@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { useI18n } from "@/lib/i18n/use-locale";
 import { csrfFetch } from "@/lib/auth/csrf-client";
 
@@ -42,6 +43,7 @@ function riskLabel(t: (k: string) => string, riskLevel: string) {
  */
 export function AiHostedApprovalCard({ action }: AiHostedApprovalCardProps) {
   const { t } = useI18n();
+  const router = useRouter();
   const [status, setStatus] = useState<"pending" | "confirming" | "rejecting" | "confirmed" | "rejected">("pending");
   const [error, setError] = useState<string | null>(null);
   const [rejectReason, setRejectReason] = useState("");
@@ -56,6 +58,8 @@ export function AiHostedApprovalCard({ action }: AiHostedApprovalCardProps) {
         body: JSON.stringify({ action: "confirm" }),
       });
       setStatus("confirmed");
+      // Mirror CancelCommandButton: revalidate RSC payload so list/stats drop this row.
+      router.refresh();
     } catch (err) {
       setStatus("pending");
       setError(err instanceof Error ? err.message : t("aiHostedApproval.reviewFailed"));
@@ -73,6 +77,7 @@ export function AiHostedApprovalCard({ action }: AiHostedApprovalCardProps) {
         body: JSON.stringify({ action: "reject", reason }),
       });
       setStatus("rejected");
+      router.refresh();
     } catch (err) {
       setStatus("pending");
       setError(err instanceof Error ? err.message : t("aiHostedApproval.reviewFailed"));
