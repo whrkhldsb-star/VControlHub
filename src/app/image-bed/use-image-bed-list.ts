@@ -27,6 +27,8 @@ export interface UseImageBedListReturn {
 	page: number;
 	totalPages: number;
 	loading: boolean;
+	/** Last list-fetch error message marker, or null when the latest fetch succeeded. */
+	error: string | null;
 	search: string;
 	showAll: boolean;
 	fetchImages: (p?: number) => Promise<void>;
@@ -42,6 +44,7 @@ export function useImageBedList(opts: { canWrite: boolean }): UseImageBedListRet
 	const [search, setSearch] = useState("");
 	const [debouncedSearch, setDebouncedSearch] = useState("");
 	const [loading, setLoading] = useState(false);
+	const [error, setError] = useState<string | null>(null);
 	const [showAll, setShowAll] = useState(false);
 
 	useEffect(() => {
@@ -66,9 +69,11 @@ export function useImageBedList(opts: { canWrite: boolean }): UseImageBedListRet
 			setTotal(data.total ?? 0);
 			setTotalPages(data.totalPages ?? 1);
 			setPage(p);
+			setError(null);
 		} catch {
-			// Show-toast lives in the parent (depends on i18n copy + UI state).
-			// We re-throw so the caller can decide how to surface the error.
+			// Marker error so callers (and auto-fetch) can distinguish list failures.
+			// Hook also exposes `error` so auto-fetch no longer needs a silent catch.
+			setError("list-fetch-failed");
 			throw new Error("list-fetch-failed");
 		} finally {
 			setLoading(false);
@@ -79,7 +84,7 @@ export function useImageBedList(opts: { canWrite: boolean }): UseImageBedListRet
 	useEffect(() => {
 		const timer = window.setTimeout(() => {
 			void fetchImages(1).catch(() => {
-				/* surface handled by parent */
+				// error state already set inside fetchImages
 			});
 		}, 0);
 		return () => window.clearTimeout(timer);
@@ -97,6 +102,7 @@ export function useImageBedList(opts: { canWrite: boolean }): UseImageBedListRet
 		page,
 		totalPages,
 		loading,
+		error,
 		search,
 		showAll,
 		fetchImages,

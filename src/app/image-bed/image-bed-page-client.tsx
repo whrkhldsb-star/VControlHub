@@ -23,6 +23,7 @@ export default function ImageBedPage({ canWrite, canDelete }: { canWrite: boolea
 		page,
 		totalPages,
 		loading,
+		error: listError,
 		search,
 		showAll,
 		fetchImages,
@@ -74,6 +75,12 @@ export default function ImageBedPage({ canWrite, canDelete }: { canWrite: boolea
 		copyHTML,
 		openPublishModal,
 	} = useImageBedActions({ t, search, page, showAll, images, fetchImages });
+
+	const listToast =
+		listError != null
+			? { message: t("imageBed.toast.fetchListFailed"), tone: "alert" as const }
+			: null;
+	const activeToast = toast ?? listToast;
 
 	const formatSize = formatImageSize;
 	const formatDate = (iso: string) => formatImageDate(iso, locale);
@@ -305,7 +312,7 @@ export default function ImageBedPage({ canWrite, canDelete }: { canWrite: boolea
 				/>
 			)}
 
-			<FloatingToast toast={toast} />
+			<FloatingToast toast={activeToast} />
 
 		</PageShell>
 	);

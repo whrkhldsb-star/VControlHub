@@ -81,11 +81,13 @@ describe("useImageBedList", () => {
 		csrfFetchMock.mockRejectedValueOnce(new Error("network"));
 		const { result } = renderHook(() => useImageBedList({ canWrite: true }));
 		await waitFor(() => expect(result.current.loading).toBe(false));
+		await waitFor(() => expect(result.current.error).toBe("list-fetch-failed"));
 		// Subsequent manual fetchImages call should reject with a typed marker
 		// so the parent can distinguish "list fetch failed" from a generic error.
 		await act(async () => {
 			await expect(result.current.fetchImages(2)).rejects.toThrow("list-fetch-failed");
 		});
+		expect(result.current.error).toBe("list-fetch-failed");
 	});
 
 	it("captures total + totalPages and the requested page number", async () => {
