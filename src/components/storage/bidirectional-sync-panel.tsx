@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 
 import { csrfFetch } from "@/lib/auth/csrf-client";
 import { useI18n } from "@/lib/i18n/use-locale";
+import { normalizeSyncEndpointPath } from "@/lib/sync/bidirectional";
 import { UI_INPUT } from "@/lib/ui/classes";
 
 type ServerOption = { id: string; name: string; host: string | null };
@@ -104,8 +105,17 @@ export function BidirectionalSyncPanel({ servers }: { servers: ServerOption[] })
     // eslint-disable-next-line react-hooks/exhaustive-deps -- bootstrap once
   }, []);
 
+  const sameEndpoint =
+    Boolean(sourceServerId) &&
+    sourceServerId === targetServerId &&
+    normalizeSyncEndpointPath(sourcePath) === normalizeSyncEndpointPath(targetPath);
+
   const createJob = async () => {
     setError(null);
+    if (sameEndpoint) {
+      setError(t("filesPage.syncJobs.sameEndpoint"));
+      return;
+    }
     setBusyId("create");
     try {
       // csrfFetch auto-parses JSON and throws on !ok — do not treat result as Response.
@@ -267,7 +277,13 @@ export function BidirectionalSyncPanel({ servers }: { servers: ServerOption[] })
       </div>
       <button
         type="button"
-        disabled={!sourceServerId || !targetServerId || busyId === "create" || servers.length === 0}
+        disabled={
+          !sourceServerId ||
+          !targetServerId ||
+          sameEndpoint ||
+          busyId === "create" ||
+          servers.length === 0
+        }
         onClick={() => void createJob()}
         data-action-button
         data-variant="secondary"
@@ -275,6 +291,9 @@ export function BidirectionalSyncPanel({ servers }: { servers: ServerOption[] })
       >
         {busyId === "create" ? t("filesPage.syncJobs.creating") : t("filesPage.syncJobs.create")}
       </button>
+      {sameEndpoint ? (
+        <p className="text-xs text-[var(--warning)]">{t("filesPage.syncJobs.sameEndpoint")}</p>
+      ) : null}
       {servers.length < 1 ? (
         <p className="text-xs text-[var(--text-muted)]">{t("filesPage.syncJobs.needServers")}</p>
       ) : null}

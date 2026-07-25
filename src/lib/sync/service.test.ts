@@ -97,6 +97,20 @@ describe("createSyncJob team scope", () => {
       }),
     );
   });
+
+  it("rejects identical source/target server+path endpoints", async () => {
+    await expect(
+      createSyncJob({
+        ...baseInput,
+        sourceServerId: "srv-a",
+        targetServerId: "srv-a",
+        sourcePath: "/data/share/",
+        targetPath: "/data/share",
+      }),
+    ).rejects.toThrow(/同一路径|same server path/i);
+    expect(prismaMock.server.findMany).not.toHaveBeenCalled();
+    expect(prismaMock.syncJob.create).not.toHaveBeenCalled();
+  });
 });
 
 describe("sync service command helpers", () => {

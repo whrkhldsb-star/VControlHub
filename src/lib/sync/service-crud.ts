@@ -9,7 +9,7 @@ import { prisma } from "@/lib/db";
 import { teamCreateData, teamWhere } from "@/lib/auth/team-scope";
 import type { SessionPayload } from "@/lib/auth/session";
 import { NotFoundError, ValidationError } from "@/lib/errors";
-import { effectiveDeleteOrphans } from "./bidirectional";
+import { effectiveDeleteOrphans, normalizeSyncEndpointPath } from "./bidirectional";
 import { t } from "@/lib/i18n/translations";
 
 export type SyncSessionScope = Pick<SessionPayload, "userId" | "roles" | "currentTeamId">;
@@ -27,6 +27,15 @@ export type SyncJobInput = {
 	createdBy?: string;
 	session?: SyncSessionScope;
 };
+
+function assertDistinctSyncEndpoints(input: Pick<SyncJobInput, "sourceServerId" | "targetServerId" | "sourcePath" | "targetPath">) {
+	if (
+		input.sourceServerId === input.targetServerId &&
+		normalizeSyncEndpointPath(input.sourcePath) === normalizeSyncEndpointPath(input.targetPath)
+	) {
+		throw new ValidationError(t("backend.sync.sourceAndTargetEndpointsMustDiffer"));
+	}
+}
 
 /**
  * Ensure source/target servers are visible under the caller's teamWhere.
@@ -54,6 +63,7 @@ async function assertSyncServersInScope(
 }
 
 export async function createSyncJob(input: SyncJobInput) {
+	assertDistinctSyncEndpoints(input);
 	await assertSyncServersInScope(
 		[input.sourceServerId, input.targetServerId],
 		input.session ?? null,

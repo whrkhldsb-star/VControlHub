@@ -21,6 +21,14 @@ export function effectiveDeleteOrphans(
   return deleteOrphans;
 }
 
+/** Normalize path for endpoint equality (trim, collapse //, drop trailing slash except root). */
+export function normalizeSyncEndpointPath(raw: string): string {
+  const trimmed = raw.trim().replace(/\\/g, "/");
+  const collapsed = trimmed.replace(/\/{2,}/g, "/");
+  if (collapsed.length <= 1) return collapsed || "/";
+  return collapsed.replace(/\/+$/, "") || "/";
+}
+
 export type OneWaySyncStats = {
   totalFiles: number;
   transferredFiles: number;
