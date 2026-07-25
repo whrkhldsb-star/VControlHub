@@ -75,12 +75,19 @@ export function sanitizeRemotePath(raw: string): string {
   return raw.replace(/\/{2,}/g, "/");
 }
 
-/** Reject filenames that contain path separators or null bytes. */
+/** Reject filenames that contain path separators, traversal, or null bytes. */
 export function sanitizeFileName(raw: string): string {
   if (!raw || typeof raw !== "string") {
     throw new Error("Filename must be a non-empty string");
   }
-  if (raw.includes("\0") || raw.includes("/") || raw.includes("\\..")) {
+  if (
+    raw.includes("\0") ||
+    raw.includes("/") ||
+    raw.includes("\\") ||
+    raw === "." ||
+    raw === ".." ||
+    raw.includes("..")
+  ) {
     throw new Error("Invalid filename");
   }
   if (raw.length > 255) {

@@ -114,6 +114,13 @@ describe("sanitizeFileName", () => {
   it("rejects path separators", () => {
     expect(() => sanitizeFileName("foo/bar")).toThrow("Invalid filename");
     expect(() => sanitizeFileName("foo\\..\\bar")).toThrow("Invalid filename");
+    expect(() => sanitizeFileName("foo\\bar")).toThrow("Invalid filename");
+  });
+
+  it("rejects . and .. traversal names", () => {
+    expect(() => sanitizeFileName(".")).toThrow("Invalid filename");
+    expect(() => sanitizeFileName("..")).toThrow("Invalid filename");
+    expect(() => sanitizeFileName("foo..bar")).toThrow("Invalid filename");
   });
 
   it("rejects null bytes", () => {
