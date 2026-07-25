@@ -41,7 +41,7 @@ export function CreateFolderForm({
     onCreatedRef.current = onCreated;
   }, [onCreated]);
   const inputRef = useRef<HTMLInputElement | null>(null);
-  const [state, formAction] = useActionState(createFolderAction, initialState);
+  const [state, formAction, isPending] = useActionState(createFolderAction, initialState);
 
   function handleToggle() {
     setExpanded((prev) => {
@@ -135,11 +135,11 @@ export function CreateFolderForm({
       ) : null}
       <button
         type="submit"
-        disabled={!folderName.trim()}
+        disabled={!folderName.trim() || isPending}
         data-tone="accent"
         data-action-button data-variant="primary" className="disabled:opacity-50"
       >
-        {t("common.create")}
+        {isPending ? t("common.submitting") : t("common.create")}
       </button>
       <button
         type="button"
