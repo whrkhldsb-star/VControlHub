@@ -1,7 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const { execFileSyncMock } = vi.hoisted(() => ({
+const { execFileSyncMock, spawnSyncMock } = vi.hoisted(() => ({
 	execFileSyncMock: vi.fn(),
+	spawnSyncMock: vi.fn(),
 }));
 
 vi.mock("child_process", async (importOriginal) => {
@@ -9,6 +10,7 @@ vi.mock("child_process", async (importOriginal) => {
 	const mockedModule = {
 		...actual,
 		execFileSync: execFileSyncMock,
+		spawnSync: spawnSyncMock,
 	};
 
 	return {
@@ -111,19 +113,40 @@ describe("quick-service docker-cli adapter", () => {
 
 	describe("getContainerLogTail", () => {
 		it("returns the trimmed last 20 log lines when present", () => {
-			execFileSyncMock.mockReturnValueOnce("line1\nline2\nline3\n");
+			spawnSyncMock.mockReturnValueOnce({
+				error: undefined,
+				stdout: "line1\nline2\nline3\n",
+				stderr: "",
+				status: 0,
+			});
 
 			expect(getContainerLogTail("qs-alist")).toBe("line1\nline2\nline3");
-			expect(execFileSyncMock).toHaveBeenCalledWith(
+			expect(spawnSyncMock).toHaveBeenCalledWith(
 				"docker",
 				["logs", "--tail", "20", "qs-alist"],
-				expect.objectContaining({ timeout: 10_000 }),
+				expect.objectContaining({ timeout: 10_000, encoding: "utf8" }),
 			);
+		});
+
+		it("merges stderr when container logs primarily to stderr", () => {
+			spawnSyncMock.mockReturnValueOnce({
+				error: undefined,
+				stdout: "",
+				stderr: "err1\nerr2\n",
+				status: 0,
+			});
+
+			expect(getContainerLogTail("qs-stderr")).toBe("err1\nerr2");
 		});
 
 		it("truncates the log tail to the last 2000 characters", () => {
 			const long = "x".repeat(3000) + "\nlast";
-			execFileSyncMock.mockReturnValueOnce(long);
+			spawnSyncMock.mockReturnValueOnce({
+				error: undefined,
+				stdout: long,
+				stderr: "",
+				status: 0,
+			});
 
 			const result = getContainerLogTail("qs-long");
 			expect(result?.length).toBe(2000);
@@ -131,15 +154,23 @@ describe("quick-service docker-cli adapter", () => {
 		});
 
 		it("returns null when docker logs throws", () => {
-			execFileSyncMock.mockImplementationOnce(() => {
-				throw new Error("daemon down");
+			spawnSyncMock.mockReturnValueOnce({
+				error: new Error("daemon down"),
+				stdout: "",
+				stderr: "",
+				status: null,
 			});
 
 			expect(getContainerLogTail("qs-broken")).toBeNull();
 		});
 
 		it("returns null when docker logs returns only whitespace", () => {
-			execFileSyncMock.mockReturnValueOnce("\n\n  \n");
+			spawnSyncMock.mockReturnValueOnce({
+				error: undefined,
+				stdout: "\n\n  \n",
+				stderr: "",
+				status: 0,
+			});
 
 			expect(getContainerLogTail("qs-empty")).toBeNull();
 		});

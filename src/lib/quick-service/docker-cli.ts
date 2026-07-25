@@ -5,7 +5,7 @@
  * Remote VPS installs go through SSH (`execRemoteCommand`) via the async
  * target-aware helpers.
  */
-import { execFile, execFileSync } from "child_process";
+import { execFile, execFileSync, spawnSync } from "child_process";
 import { promisify } from "util";
 
 import { prisma } from "@/lib/db";
@@ -221,7 +221,14 @@ export async function getContainerHealthFor(
 /** Local sync log tail (historical API). */
 export function getContainerLogTail(containerName: string, timeoutMs = 10_000): string | null {
   try {
-    const logs = dockerExecSync(["logs", "--tail", "20", containerName], timeoutMs).trim();
+    // docker logs splits container stdout/stderr onto process streams; capture both.
+    const result = spawnSync("docker", ["logs", "--tail", "20", containerName], {
+      encoding: "utf8",
+      timeout: timeoutMs,
+      maxBuffer: 2 * 1024 * 1024,
+    });
+    if (result.error) return null;
+    const logs = `${result.stdout ?? ""}${result.stderr ?? ""}`.trim();
     if (!logs) return null;
     return logs.slice(-2000);
   } catch {
@@ -235,7 +242,19 @@ export async function getContainerLogTailFor(
   timeoutMs = 10_000,
 ): Promise<string | null> {
   try {
-    const logs = (await dockerExec(target, ["logs", "--tail", "20", containerName], timeoutMs)).trim();
+    if (target.kind === "local") {
+      return getContainerLogTail(containerName, timeoutMs);
+    }
+    // Remote path: dockerExec only returns stdout; append 2>&1 so stderr is captured.
+    const { server, ssh } = await loadRemoteSshParams(target.serverId);
+    const command = `${buildDockerCommand(["logs", "--tail", "20", containerName])} 2>&1`;
+    const result = await execRemoteCommand({
+      ...(ssh as object),
+      command,
+      timeout: timeoutMs,
+    } as Parameters<typeof execRemoteCommand>[0]);
+    // logs may exit non-zero when container missing; still return any captured text
+    const logs = (result.stdout || result.stderr || "").trim();
     if (!logs) return null;
     return logs.slice(-2000);
   } catch {
