@@ -6,9 +6,8 @@ import type { Permission } from "@/lib/auth/rbac";
 import { requireApiPermission } from "@/lib/auth/require-api-permission";
 import { requireApiSession, isSessionPayload } from "@/lib/auth/api-session";
 import { sessionHasPermission } from "@/lib/auth/authorization";
-import { NextResponse } from "next/server";
 import { ValidationError } from "@/lib/errors";
-import { apiCatch } from "@/lib/http/api-error";
+import { apiCatch, apiError } from "@/lib/http/api-error";
 import { searchParamsToObject, zodIssueDetails } from "@/lib/http/parse-search-params";
 import { type RateLimitConfig, rateLimitResponse, withRateLimit } from "@/lib/http/rate-limit-presets";
 import { createLogger } from "@/lib/logging";
@@ -130,7 +129,7 @@ export async function withApiRoute<TBody = unknown, TQuery = unknown>(
         const dur = performance.now() - startTime;
         const rejected = apiSession instanceof Response
           ? apiSession
-          : NextResponse.json({ error: "Not authenticated" }, { status: 401 });
+          : apiError({ code: "AUTH_REQUIRED", message: "Not authenticated", status: 401 });
         apiLogger.info("request auth rejected", { method, path, status: rejected.status, durationMs: Math.round(dur), requestId });
         return attachRequestId(rejected, requestId, dur);
       }
@@ -139,7 +138,7 @@ export async function withApiRoute<TBody = unknown, TQuery = unknown>(
         const dur = performance.now() - startTime;
         apiLogger.info("request permission rejected", { method, path, status: 403, durationMs: Math.round(dur), requestId });
         return attachRequestId(
-          NextResponse.json({ error: "Insufficient permissions" }, { status: 403 }),
+          apiError({ code: "FORBIDDEN", message: "Insufficient permissions", status: 403 }),
           requestId,
           dur,
         );
