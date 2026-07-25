@@ -352,6 +352,26 @@ describe("appendMediaUploadChunk", () => {
 		).rejects.toThrow(/does not match/);
 	});
 
+	it("rejects declared size that does not match session plan for index", async () => {
+		const view = await initMediaUploadSession({
+			userId: TEST_USER,
+			filename: "a.png",
+			mimeType: "image/png",
+			totalSize: 1000,
+			chunkSize: 100,
+		});
+		// Mid chunks must be exactly chunkSize (100); last is also 100 here.
+		await expect(
+			appendMediaUploadChunk({
+				sessionId: view.id,
+				userId: TEST_USER,
+				index: 0,
+				size: 50,
+				buffer: Buffer.alloc(50, 0xaa),
+			}),
+		).rejects.toThrow(/expected 100 bytes/);
+	});
+
 	it("rejects out-of-range index", async () => {
 		const view = await initMediaUploadSession({
 			userId: TEST_USER,

@@ -206,6 +206,20 @@ export async function appendMediaUploadChunk(params: {
 		);
 	}
 
+	// Enforce per-index expected length so a client cannot pad/truncate mid-file
+	// chunks (declared size already matches buffer; still must match session plan).
+	const totalSizeNum = Number(existing.totalSize);
+	const isLastChunk = index === existing.totalChunks - 1;
+	const expectedLen = isLastChunk
+		? totalSizeNum - existing.chunkSize * (existing.totalChunks - 1)
+		: existing.chunkSize;
+	if (size !== expectedLen) {
+		throw new MediaUploadError(
+			"chunk_size_unexpected",
+			`chunk index ${index} expected ${expectedLen} bytes, got declared ${size}`,
+		);
+	}
+
 	// Write chunk file (overwrites if duplicate). Disk write is idempotent
 	// per index; the race we care about is the receivedChunks array merge.
 	await mkdir(sessionDir(sessionId), { recursive: true });
