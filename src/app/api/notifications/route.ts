@@ -86,12 +86,33 @@ export async function PATCH(request: Request) {
       switch (body.action) {
         case "markAllAsRead":
           await markAllAsRead(session.userId);
+          await auditUserAction(
+            session.userId,
+            "notification.update",
+            { scope: "markAllAsRead" },
+            undefined,
+            session.currentTeamId,
+          );
           break;
         case "markAsRead":
           await markAsRead(body.notificationId, session.userId);
+          await auditUserAction(
+            session.userId,
+            "notification.update",
+            { scope: "markAsRead", notificationId: body.notificationId },
+            undefined,
+            session.currentTeamId,
+          );
           break;
         case "delete":
           await deleteNotification(body.notificationId, session.userId);
+          await auditUserAction(
+            session.userId,
+            "notification.delete",
+            { notificationId: body.notificationId },
+            undefined,
+            session.currentTeamId,
+          );
           break;
       }
 
