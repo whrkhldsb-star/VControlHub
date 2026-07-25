@@ -77,8 +77,12 @@ export default function DockerPage({ initialServers }: { initialServers: { id: s
 			if (data.dockerScope && typeof data.dockerScope === "object") {
 				setDockerScope(data.dockerScope as DockerScope);
 			}
-			if (data.data && Array.isArray(data.data)) {
-				const nextContainers = data.data as Container[];
+			const nextContainers: Container[] | null = data.data && Array.isArray(data.data)
+				? (data.data as Container[])
+				: Array.isArray(data)
+					? (data as Container[])
+					: null;
+			if (nextContainers) {
 				setContainers(nextContainers);
 
 				const groups = new Map<string, Container[]>();
@@ -100,8 +104,6 @@ export default function DockerPage({ initialServers }: { initialServers: { id: s
 						.map(([project, groupContainers]) => ({ project, containers: groupContainers })),
 				);
 				setUngrouped(loose);
-			} else if (Array.isArray(data)) {
-				setContainers(data);
 			}
 		} catch (err) {
 			if (controller.signal.aborted || gen !== fetchGenRef.current) return;
