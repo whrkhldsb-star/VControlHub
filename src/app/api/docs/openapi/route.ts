@@ -266,7 +266,7 @@ function buildOpenApiSpec(t: TFunction) {
         get: {
           tags: [t("openapiSpec.tags.monitoring.name")],
           summary: t("openapiSpec.paths./monitoring/stats.get.summary"),
-          responses: { "200": { description: t("openapiSpec.paths./servers/monitor.get.responses.200") } },
+          responses: { "200": { description: t("openapiSpec.paths./monitoring/stats.get.responses.200") } },
         },
       },
       "/users": {
