@@ -78,6 +78,7 @@ export function ScheduleBackupForm() {
 	const [loadingList, setLoadingList] = useState(true);
 	const [listError, setListError] = useState<string | null>(null);
 	const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
+	const [rowActionId, setRowActionId] = useState<string | null>(null);
 
 	const cronPreview = useMemo(() => describeCronPreview(cronExpression, t), [cronExpression, t]);
 
@@ -133,6 +134,8 @@ export function ScheduleBackupForm() {
 	};
 
 	const toggleSchedule = async (id: string) => {
+		if (rowActionId) return;
+		setRowActionId(id);
 		setMessage(null);
 		try {
 			await csrfFetch("/api/backup-schedules", {
@@ -143,10 +146,14 @@ export function ScheduleBackupForm() {
 			await fetchSchedules();
 		} catch (error) {
 			setMessage({ type:"error", text: error instanceof Error ? error.message : t("backupsPage.schedule.failFallback") });
+		} finally {
+			setRowActionId(null);
 		}
 	};
 
 	const deleteSchedule = async (id: string) => {
+		if (rowActionId) return;
+		setRowActionId(id);
 		setMessage(null);
 		try {
 			await csrfFetch(`/api/backup-schedules/${id}`, { method:"DELETE" });
@@ -154,6 +161,8 @@ export function ScheduleBackupForm() {
 			await fetchSchedules();
 		} catch (error) {
 			setMessage({ type:"error", text: error instanceof Error ? error.message : t("backupsPage.schedule.failFallback") });
+		} finally {
+			setRowActionId(null);
 		}
 	};
 
@@ -255,15 +264,17 @@ export function ScheduleBackupForm() {
 									<div className="flex shrink-0 gap-2">
 										<button
 											type="button"
-											onClick={() => toggleSchedule(s.id)}
-											className="rounded-lg border border-[var(--border)] px-2 py-1 text-xs text-[var(--text-secondary)] transition hover:border-[var(--border)]/[0.16] hover:text-[var(--text-primary)]"
+											disabled={rowActionId !== null}
+											onClick={() => void toggleSchedule(s.id)}
+											className="rounded-lg border border-[var(--border)] px-2 py-1 text-xs text-[var(--text-secondary)] transition hover:border-[var(--border)]/[0.16] hover:text-[var(--text-primary)] disabled:opacity-60"
 										>
 											{t("backupsPage.schedule.toggle")}
 										</button>
 										<button
 											type="button"
+											disabled={rowActionId !== null}
 											onClick={() => setPendingDeleteId(s.id)}
-											className="rounded-lg border border-[var(--danger-border)] px-2 py-1 text-xs text-[var(--danger)] transition hover:border-[var(--danger-border)]"
+											className="rounded-lg border border-[var(--danger-border)] px-2 py-1 text-xs text-[var(--danger)] transition hover:border-[var(--danger-border)] disabled:opacity-60"
 										>
 											{t("backupsPage.schedule.delete")}
 										</button>
