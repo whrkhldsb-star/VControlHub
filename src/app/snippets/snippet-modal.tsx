@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, type Dispatch, type SetStateAction } from "react";
+import { useRef, useState, type Dispatch, type SetStateAction } from "react";
 
 import { useDialogFocus } from "@/lib/a11y/use-dialog-focus";
 import { csrfFetch } from "@/lib/auth/csrf-client";
@@ -42,7 +42,12 @@ export function SnippetModal({
 	const { t } = useI18n();
 	const { addToast } = useToast();
 	const prefix = mode === "create" ? "create" : "edit";
-	const dialogRef = useDialogFocus<HTMLDivElement>({ open: true, onClose });
+	const savingRef = useRef(false);
+	const requestClose = () => {
+		if (savingRef.current) return;
+		onClose();
+	};
+	const dialogRef = useDialogFocus<HTMLDivElement>({ open: true, onClose: requestClose });
 	const [title, setTitle] = useState(snippet.title);
 	const [content, setContent] = useState(snippet.content);
 	const [language, setLanguage] = useState(snippet.language);
@@ -55,6 +60,8 @@ export function SnippetModal({
 	const fieldId = (name: string) => `${prefix}-snippet-${name}-input`;
 
 	async function handleSave() {
+		if (savingRef.current) return;
+		savingRef.current = true;
 		setSaving(true);
 		setError("");
 		try {
@@ -75,11 +82,14 @@ export function SnippetModal({
 			});
 			onSaved(data.snippet);
 			if (mode === "edit") addToast("success", t("snippetsPage.toast.saved"));
+			// Clear saving gate before close so requestClose is not blocked.
+			savingRef.current = false;
+			setSaving(false);
 			onClose();
 		} catch (cause) {
 			const fallback = mode === "create" ? "snippetsPage.toast.createFailed" : "snippetsPage.toast.saveFailed";
 			setError(cause instanceof Error ? cause.message : t(fallback));
-		} finally {
+			savingRef.current = false;
 			setSaving(false);
 		}
 	}
@@ -137,7 +147,7 @@ export function SnippetModal({
 				</div>
 				{error && <p className="mt-2 text-xs text-[var(--danger)]">{error}</p>}
 				<div className="mt-5 flex justify-end gap-3">
-					<ActionButton type="button" variant="secondary" onClick={onClose} className="min-h-11 text-sm">
+					<ActionButton type="button" variant="secondary" onClick={requestClose} disabled={saving} className="min-h-11 text-sm">
 						{t("snippetsPage.modal.action.cancel")}
 					</ActionButton>
 					<ActionButton type="button" onClick={handleSave} disabled={saving || !title.trim() || !content.trim()} className="min-h-11 text-sm">
