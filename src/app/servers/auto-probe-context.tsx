@@ -81,33 +81,49 @@ export function AutoProbeProvider({ children }: { children: ReactNode }) {
 		};
 	}, []);
 
-	const persist = useCallback(async (next: { autoProbeEnabled?: boolean; autoProbeIntervalSec?: number }) => {
-		try {
-			await csrfFetch("/api/preferences", {
-				method: "PUT",
-				headers: { "Content-Type": "application/json" },
-				body: JSON.stringify(next),
-			});
-		} catch {
-			addToast("error", t("serversPage.autoProbe.saveFailed"));
-		}
-	}, [addToast, t]);
-
 	const setEnabled = useCallback(
 		(next: boolean) => {
-			setEnabledState(next);
-			void persist({ autoProbeEnabled: next });
+			// Optimistic UI + rollback on persist failure so session state
+			// cannot drift from /api/preferences across tabs/reloads.
+			setEnabledState((prev) => {
+				void (async () => {
+					try {
+						await csrfFetch("/api/preferences", {
+							method: "PUT",
+							headers: { "Content-Type": "application/json" },
+							body: JSON.stringify({ autoProbeEnabled: next }),
+						});
+					} catch {
+						setEnabledState(prev);
+						addToast("error", t("serversPage.autoProbe.saveFailed"));
+					}
+				})();
+				return next;
+			});
 		},
-		[persist],
+		[addToast, t],
 	);
 
 	const setIntervalSec = useCallback(
 		(next: number) => {
 			const normalized = normalizeAutoProbeIntervalSec(next, DEFAULT_AUTO_PROBE_INTERVAL_SEC);
-			setIntervalSecState(normalized);
-			void persist({ autoProbeIntervalSec: normalized });
+			setIntervalSecState((prev) => {
+				void (async () => {
+					try {
+						await csrfFetch("/api/preferences", {
+							method: "PUT",
+							headers: { "Content-Type": "application/json" },
+							body: JSON.stringify({ autoProbeIntervalSec: normalized }),
+						});
+					} catch {
+						setIntervalSecState(prev);
+						addToast("error", t("serversPage.autoProbe.saveFailed"));
+					}
+				})();
+				return normalized;
+			});
 		},
-		[persist],
+		[addToast, t],
 	);
 
 	const value = useMemo<AutoProbeContextValue>(
