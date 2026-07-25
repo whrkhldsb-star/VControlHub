@@ -30,7 +30,7 @@ export function MoveInlineForm({
   const [editing, setEditing] = useState(false);
   const [targetDir, setTargetDir] = useState("");
   const inputRef = useRef<HTMLInputElement | null>(null);
-  const [state, formAction] = useActionState(moveFileAction, initialState);
+  const [state, formAction, pending] = useActionState(moveFileAction, initialState);
 
   function handleToggle() {
     setEditing(true);
@@ -121,14 +121,15 @@ export function MoveInlineForm({
       </span>
       <button
         type="submit"
-        disabled={!targetDir.trim() || targetDir.trim() === currentDir}
+        disabled={pending || !targetDir.trim() || targetDir.trim() === currentDir}
        data-action-button data-variant="outline" className="!px-3 !py-1.5 !text-xs disabled:cursor-not-allowed disabled:opacity-50">
-        {t("common.confirm")}
+        {pending ? t("common.executing") : t("common.confirm")}
       </button>
       <button
         type="button"
         onClick={handleCancel}
-       data-action-button data-variant="secondary" className="!px-3 !py-1.5 !text-xs">
+        disabled={pending}
+       data-action-button data-variant="secondary" className="!px-3 !py-1.5 !text-xs disabled:cursor-not-allowed disabled:opacity-50">
         {t("common.cancel")}
       </button>
     </form>
