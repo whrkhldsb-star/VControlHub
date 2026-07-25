@@ -5,7 +5,7 @@ import { OperationTaskListClient } from "./operation-task-list-client";
 import { PageShell, EmptyState, PageHeader } from "@/components/page-shell";
 import { getServerLocale, t } from "@/lib/i18n/translations";
 
-export const revalidate = 30;
+export const dynamic = "force-dynamic";
 
 function firstParam(value: string | string[] | undefined): string | undefined {
 	if (Array.isArray(value)) return value[0];
