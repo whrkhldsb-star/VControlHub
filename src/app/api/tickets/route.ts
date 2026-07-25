@@ -14,6 +14,7 @@ const ticketCreateSchema = z.object({
   description: z.string().min(1),
   priority: z.enum(["low", "medium", "high", "critical", "normal", "urgent", "LOW", "MEDIUM", "HIGH", "CRITICAL", "NORMAL", "URGENT"]).optional(),
   category: z.string().optional(),
+  // serverId is accepted as an alias of relatedServerId (OpenAPI / older clients).
   serverId: z.string().optional(),
   relatedServerId: z.string().optional(),
   relatedCommandId: z.string().optional(),
@@ -28,7 +29,8 @@ const ticketPostSchema = ticketCreateSchema;
 const ticketPatchSchema = z.object({
   id: z.string().min(1),
   status: z.enum(["open", "in_progress", "resolved", "closed", "OPEN", "IN_PROGRESS", "RESOLVED", "CLOSED"]),
-  assigneeId: z.string().optional(),
+  // null clears assignee — align with detail route PatchBodySchema.
+  assigneeId: z.string().nullable().optional(),
   priority: z.enum(["low", "medium", "high", "critical", "normal", "LOW", "MEDIUM", "HIGH", "CRITICAL", "NORMAL"]).optional(),
 });
 
@@ -100,7 +102,8 @@ export async function POST(request: Request) {
       priority: normalizePriority(body.priority),
       category: body.category,
       createdBy: session?.userId ?? "",
-      relatedServerId: body.relatedServerId,
+      // Prefer explicit relatedServerId; fall back to serverId alias so clients are not silently dropped.
+      relatedServerId: body.relatedServerId ?? body.serverId,
       relatedCommandId: body.relatedCommandId,
       session,
     });
