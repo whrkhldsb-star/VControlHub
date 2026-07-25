@@ -1,5 +1,5 @@
 "use client";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { csrfFetch } from "@/lib/auth/csrf-client";
 import { useI18n } from "@/lib/i18n/use-locale";
 import { useDialogFocus } from "@/lib/a11y/use-dialog-focus";
@@ -50,6 +50,8 @@ export function DockerResourcesPanel({ serverId }: { serverId?: string }) {
   const [detail, setDetail] = useState<DetailState>(null);
   const [pendingDelete, setPendingDelete] = useState<PendingDelete>(null);
   const dialogRef = useDialogFocus<HTMLDivElement>({ open: pendingDelete !== null, onClose: () => setPendingDelete(null) });
+  const fetchGenRef = useRef(0);
+  const fetchAbortRef = useRef<AbortController | null>(null);
   const resourceKind = useCallback(
     (type: ResourceType) =>
       t(
@@ -60,13 +62,25 @@ export function DockerResourcesPanel({ serverId }: { serverId?: string }) {
     [t],
   );
   const fetchResources = useCallback(async () => {
+    fetchAbortRef.current?.abort();
+    const controller = new AbortController();
+    fetchAbortRef.current = controller;
+    const gen = ++fetchGenRef.current;
+    const serverAtFetch = serverId;
     setLoading(true);
     setError("");
     try {
       const [networkData, volumeData] = await Promise.all([
-        csrfFetch(`/api/docker/resources?type=networks${serverId ? `&serverId=${serverId}` : ""}`),
-        csrfFetch(`/api/docker/resources?type=volumes${serverId ? `&serverId=${serverId}` : ""}`),
+        csrfFetch(
+          `/api/docker/resources?type=networks${serverAtFetch ? `&serverId=${serverAtFetch}` : ""}`,
+          { signal: controller.signal } as RequestInit,
+        ),
+        csrfFetch(
+          `/api/docker/resources?type=volumes${serverAtFetch ? `&serverId=${serverAtFetch}` : ""}`,
+          { signal: controller.signal } as RequestInit,
+        ),
       ]);
+      if (gen !== fetchGenRef.current) return;
       if (networkData.error) throw new Error(networkData.error);
       if (volumeData.error) throw new Error(volumeData.error);
       setNetworks(Array.isArray(networkData.data) ? networkData.data : []);
@@ -78,18 +92,24 @@ export function DockerResourcesPanel({ serverId }: { serverId?: string }) {
           : (volumePayload?.Volumes ?? []),
       );
     } catch (err) {
+      if (gen !== fetchGenRef.current) return;
+      if (err instanceof DOMException && err.name === "AbortError") return;
+      if (err instanceof Error && err.name === "AbortError") return;
       setError(
         err instanceof Error ? err.message : t("dockerResources.error.load"),
       );
     } finally {
-      setLoading(false);
+      if (gen === fetchGenRef.current) setLoading(false);
     }
   }, [t, serverId]);
   useEffect(() => {
     const timer = window.setTimeout(() => {
       void fetchResources();
     }, 0);
-    return () => window.clearTimeout(timer);
+    return () => {
+      window.clearTimeout(timer);
+      fetchAbortRef.current?.abort();
+    };
   }, [fetchResources]);
   async function createResource() {
     const cleanName = name.trim();
