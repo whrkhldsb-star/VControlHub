@@ -115,7 +115,10 @@ export function DeploymentExportPanel() {
     const ok = await copyTextToClipboard(content);
     if (ok) {
       setCopyState({ path: fullPath, at: Date.now() });
+      setError(null);
+      return;
     }
+    setError(t("deploymentsPage.export.copyFailed"));
   }
 
   function handleDownloadFile(fullPath: string, content: string) {

@@ -76,6 +76,7 @@ export const zh: Record<string, string> = {
 	"deploymentsPage.export.emptyExport": "导出包不包含任何文件。",
 	"deploymentsPage.export.rollbackFile": "单文件回滚",
 	"deploymentsPage.export.copied": "已复制",
+	"deploymentsPage.export.copyFailed": "复制失败：浏览器未授予剪贴板权限，或当前环境不支持写入剪贴板。",
 	"deploymentsPage.export.copyRollback": "复制内容回滚",
 	"deploymentsPage.export.downloadFile": "下载此文件",
 
@@ -173,6 +174,7 @@ export const en: Record<string, string> = {
 	"deploymentsPage.export.emptyExport": "The export bundle contains no files.",
 	"deploymentsPage.export.rollbackFile": "Single-file rollback",
 	"deploymentsPage.export.copied": "Copied",
+	"deploymentsPage.export.copyFailed": "Copy failed: clipboard permission denied or write is unavailable in this context.",
 	"deploymentsPage.export.copyRollback": "Copy rollback content",
 	"deploymentsPage.export.downloadFile": "Download this file",
 
