@@ -113,6 +113,9 @@ async function executeCommandOverSshWithPassword(input: {
     const args = [
     "-p",
     String(input.port),
+    // Match key-auth path: never hang on interactive password/passphrase prompts.
+    "-o",
+    "BatchMode=yes",
     ...hostKeyMode,
     "-o",
     `UserKnownHostsFile=${pin ? knownHostsPath : "/dev/null"}`,
