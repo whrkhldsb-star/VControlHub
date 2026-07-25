@@ -128,7 +128,12 @@ export async function GET(request: Request) {
           },
         },
       }),
-      prisma.role.findMany({ orderBy: { key: "asc" }, take: 200 }),
+      // Exclude per-user auto custom roles (user:{id}:custom) from the assignable roster.
+      prisma.role.findMany({
+        where: { NOT: { key: { startsWith: "user:" } } },
+        orderBy: { key: "asc" },
+        take: 200,
+      }),
       prisma.permission.findMany({ orderBy: { key: "asc" }, take: 500 }),
       prisma.storageNode.findMany({
         where: nodeScope,
@@ -227,8 +232,16 @@ export async function PATCH(request: Request) {
         throw new NotFoundError("User not found");
       }
 
+      // Drop foreign/own auto custom role keys from assignable roleKeys; custom role is preserved below.
       const roleKeys = Array.isArray(parsedData.roleKeys)
-        ? Array.from(new Set(parsedData.roleKeys.map(String).filter(Boolean)))
+        ? Array.from(
+            new Set(
+              parsedData.roleKeys
+                .map(String)
+                .filter(Boolean)
+                .filter((key) => !key.startsWith("user:")),
+            ),
+          )
         : undefined;
       const permissionKeys = Array.isArray(parsedData.permissionKeys)
         ? Array.from(
