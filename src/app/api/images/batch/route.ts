@@ -48,12 +48,9 @@ export async function POST(request: Request) {
 
       switch (action) {
         case "delete": {
-          if (!canManageImages) {
-            return NextResponse.json(
-              { error: "No permission to batch delete images" },
-              { status: 403 },
-            );
-          }
+          // Owners may bulk-delete their own images (whereClause already scopes
+          // non-managers to userId). Managers keep cross-owner delete via canManageImages.
+          // Matches single-image DELETE canDeleteImage (owner OR media/team/role manage).
           const images = await prisma.imageUpload.findMany({
             where: whereClause,
             select: {

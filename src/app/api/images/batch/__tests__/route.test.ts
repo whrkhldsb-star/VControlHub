@@ -96,10 +96,46 @@ describe("/api/images/batch", () => {
 
     const response = await postBatch({ action: "delete", ids: ["img_2"] });
 
+    // image:write is required by withApiRoute; pure viewers never reach delete logic.
     expect(response.status).toBe(403);
     expect(imageFindManyMock).not.toHaveBeenCalled();
     expect(imageDeleteManyMock).not.toHaveBeenCalled();
     await expect(response.json()).resolves.toMatchObject({ error: "Insufficient permissions" });
+  });
+
+  it("allows image owners to batch-delete their own images without media:manage", async () => {
+    vi.clearAllMocks();
+    requireApiSessionMock.mockResolvedValueOnce(ownerSession);
+    sessionHasPermissionMock.mockImplementation(
+      (_session: unknown, permission: string) => permission === "image:write",
+    );
+    imageFindManyMock.mockResolvedValueOnce([
+      { id: "img_1", storageKey: "albums/mine.png", storageNodeId: null, relativePath: null },
+    ]);
+    imageDeleteManyMock.mockResolvedValueOnce({ count: 1 });
+    unlinkMock.mockResolvedValue(undefined);
+
+    const response = await postBatch({ action: "delete", ids: ["img_1", "img_other"] });
+
+    expect(response.status).toBe(200);
+    expect(imageFindManyMock).toHaveBeenCalledWith({
+      where: { id: { in: ["img_1", "img_other"] }, userId: "u_1" },
+      select: {
+        id: true,
+        storageKey: true,
+        storageNodeId: true,
+        relativePath: true,
+      },
+      take: 100,
+    });
+    expect(imageDeleteManyMock).toHaveBeenCalledWith({
+      where: { id: { in: ["img_1"] } },
+    });
+    await expect(response.json()).resolves.toEqual({
+      deleted: 1,
+      filesDeleted: 1,
+      failedFileIds: [],
+    });
   });
 
   it("allows media managers to batch-delete selected images across owners", async () => {
