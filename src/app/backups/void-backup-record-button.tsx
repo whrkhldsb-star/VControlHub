@@ -18,7 +18,9 @@ export function VoidBackupRecordButton({ backupId, status }: Props) {
   const [confirming, setConfirming] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const disabled = pending || status === "COMPLETED" || status === "RUNNING";
+  // Backend CAS only voids PENDING/FAILED; hide/disable for VOIDED and other non-voidable states.
+  const canVoid = status === "PENDING" || status === "FAILED";
+  const disabled = pending || !canVoid;
 
   const handleVoid = async () => {
     if (disabled) return;
