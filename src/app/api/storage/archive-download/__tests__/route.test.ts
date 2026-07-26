@@ -112,7 +112,7 @@ describe("/api/storage/archive-download", () => {
     statMock.mockResolvedValue({ isDirectory: () => true });
     const stdout = new PassThrough();
     const stderr = new PassThrough();
-    spawnMock.mockReturnValue({ stdout, stderr });
+    spawnMock.mockReturnValue({ stdout, stderr, on: vi.fn(), kill: vi.fn(), killed: false, pid: 4242 });
     queueMicrotask(() => stdout.end("archive"));
   });
 

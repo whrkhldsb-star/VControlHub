@@ -43,7 +43,7 @@ describe("/api/backups", () => {
     const res = await route.POST(req);
     expect(res.status).toBe(202);
     expect(mocks.createBackupRecord).toHaveBeenCalledWith({ type: "FULL", createdBy: "u1", note: "before upgrade", teamId: null });
-    expect(mocks.enqueueJob).toHaveBeenCalledWith(expect.objectContaining({ type: "backup.create", payload: { backupId: "bak1" } }));
+    expect(mocks.enqueueJob).toHaveBeenCalledWith(expect.objectContaining({ type: "backup.create", payload: { backupId: "bak1", teamId: null } }));
     await expect(res.json()).resolves.toMatchObject({ backup: { id: "bak1" }, jobId: "job1", taskId: "job:job1" });
   });
 
@@ -91,7 +91,7 @@ describe("/api/backups", () => {
     expect(res.status).toBe(303);
     expect(res.headers.get("location")).toBe("http://local/backups");
     expect(mocks.createBackupRecord).toHaveBeenCalledWith({ type: "DATABASE", createdBy: "u1", note: "pre upgrade", teamId: null });
-    expect(mocks.enqueueJob).toHaveBeenCalledWith(expect.objectContaining({ type: "backup.create", payload: { backupId: "bak1" } }));
+    expect(mocks.enqueueJob).toHaveBeenCalledWith(expect.objectContaining({ type: "backup.create", payload: { backupId: "bak1", teamId: null } }));
   });
 
 });

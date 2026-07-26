@@ -27,6 +27,7 @@ const {
       findFirst: vi.fn(),
       findMany: vi.fn(),
       update: vi.fn(),
+      count: vi.fn(),
     },
   },
   deleteRemoteFileMock: vi.fn(),
@@ -411,6 +412,7 @@ describe("/api/storage/sftp-ops", () => {
     });
     mockSftpNode();
     prismaMock.fileEntry.findFirst.mockResolvedValueOnce({ entryType: "DIRECTORY" });
+    prismaMock.fileEntry.count.mockResolvedValueOnce(3);
 
     const response = await POST(
       request({

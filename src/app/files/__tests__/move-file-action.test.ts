@@ -343,7 +343,7 @@ describe("moveFileAction", () => {
         isDeleted: false,
       },
       select: { id: true, relativePath: true },
-      take: 10_000,
+      take: 10_001,
     });
     expect(fileEntryMock.update).toHaveBeenCalledWith({
       where: { id: "child-live" },

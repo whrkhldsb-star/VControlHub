@@ -22,16 +22,16 @@ describe("resolveDownloadTargetPath", () => {
 
   it("rejects absolute targets outside the storage node basePath", () => {
     expect(() => resolveDownloadTargetPath("/srv/cloud", "/etc")).toThrow(
-      "Download target path exceeds storage node root",
+      "下载目标路径超出存储节点根目录",
     );
   });
 
   it("rejects parent traversal outside the storage node basePath", () => {
     expect(() => resolveDownloadTargetPath("/srv/cloud", "../etc")).toThrow(
-      "Download target path exceeds storage node root",
+      "下载目标路径超出存储节点根目录",
     );
     expect(() => resolveDownloadTargetPath("/srv/cloud", "/srv/cloud/../../etc")).toThrow(
-      "Download target path exceeds storage node root",
+      "下载目标路径超出存储节点根目录",
     );
   });
 

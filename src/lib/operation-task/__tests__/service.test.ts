@@ -305,8 +305,8 @@ describe("operation task service", () => {
     const result = await listOperationTaskResult({ limit: 10, status: "failed" });
 
     expect(result.failureSummary).toEqual([
-      { reason: "Notification delivery failed", total: 1, sources: ["job"], latestTaskId: "job:alert_failed", latestTitle: "Alert rule evaluation", latestAt: "2026-01-04T00:00:00.000Z" },
-      { reason: "File or resource not found", total: 1, sources: ["job"], latestTaskId: "job:backup_failed", latestTitle: "Create backup", latestAt: "2026-01-03T00:00:00.000Z" },
+      { reason: "通知发送失败", total: 1, sources: ["job"], latestTaskId: "job:alert_failed", latestTitle: "Alert rule evaluation", latestAt: "2026-01-04T00:00:00.000Z" },
+      { reason: "文件或资源不存在", total: 1, sources: ["job"], latestTaskId: "job:backup_failed", latestTitle: "Create backup", latestAt: "2026-01-03T00:00:00.000Z" },
     ]);
   });
 

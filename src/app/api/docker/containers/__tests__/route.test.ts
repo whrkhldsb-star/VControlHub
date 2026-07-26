@@ -144,6 +144,7 @@ describe("/api/docker/containers audit coverage", () => {
         ok: true,
       },
       "WARNING",
+      "team-a",
     );
     expect(JSON.stringify(mocks.auditUserAction.mock.calls)).not.toContain(
       "/containers/app_1/logs",
@@ -204,6 +205,7 @@ describe("/api/docker/containers audit coverage", () => {
       "docker.container.start",
       expect.objectContaining({ ok: false, status: 503, dockerAvailable: false }),
       "INFO",
+      "team-a",
     );
   });
 });

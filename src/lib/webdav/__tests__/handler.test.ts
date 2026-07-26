@@ -363,7 +363,7 @@ describe("webdav handlers", () => {
       ),
     ).rejects.toMatchObject({
       name: "ValidationError",
-      message: expect.stringMatching(/same origin/i),
+      message: expect.stringMatching(/same origin|同一来源/i),
     });
     expect(renameBackingMock).not.toHaveBeenCalled();
   });

@@ -203,12 +203,14 @@ describe("moveBackingObject", () => {
     ).rejects.toThrow(/rename failed/);
   });
 
-  it("is a no-op for unsupported drivers", async () => {
-    await moveBackingObject({
-      storageNode: { ...localNode, driver: "WEBDAV" as never },
-      oldRelativePath: "docs/old.txt",
-      newRelativePath: "team/new.txt",
-    });
+  it("fails closed for unsupported drivers instead of silently succeeding", async () => {
+    await expect(
+      moveBackingObject({
+        storageNode: { ...localNode, driver: "WEBDAV" as never },
+        oldRelativePath: "docs/old.txt",
+        newRelativePath: "team/new.txt",
+      }),
+    ).rejects.toThrow(/Unsupported storage driver/);
     expect(mkdirMock).not.toHaveBeenCalled();
     expect(renameFsMock).not.toHaveBeenCalled();
     expect(createRemoteDirectoryMock).not.toHaveBeenCalled();

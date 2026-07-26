@@ -1,6 +1,6 @@
 import React from "react";
 import { renderWithI18n as render } from "@/lib/i18n/__tests__/test-helpers";
-import { screen } from "@testing-library/react";
+import { fireEvent, screen } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const baseStorageOverview = {
@@ -482,11 +482,14 @@ describe("FilesPage", () => {
     );
 
     expect(
-      screen.getByRole("button", { name: "折叠 香港媒体库 (SFTP)" }),
+      screen.getByRole("button", { name: "展开 香港媒体库 (SFTP)" }),
     ).toBeInTheDocument();
+    // 树默认折叠远程节点；逐级展开后应看到远程注册目录 releases。
+    fireEvent.click(screen.getByRole("button", { name: "展开 香港媒体库 (SFTP)" }));
+    fireEvent.click(screen.getByRole("button", { name: "展开 archives" }));
     expect(
-      screen.getByRole("button", { name: "打开 releases" }),
-    ).toBeInTheDocument();
+      screen.getAllByRole("button", { name: /releases/ }).length,
+    ).toBeGreaterThan(0);
     expect(screen.getAllByText(/当前路径：全部节点: \/archives/)[0]).toBeInTheDocument();
     expect(
       screen.getAllByRole("button", { name: "打开" }).length,

@@ -30,6 +30,10 @@ tar --create --gzip --file "${ARCHIVE_PATH}" \
   --transform "s#^#${PACKAGE_ROOT_NAME}/#" \
   --exclude './.git' \
   --exclude './.github' \
+  --exclude './.hermes' \
+  --exclude './.cache' \
+  --exclude './.npm' \
+  --exclude './.config' \
   --exclude './node_modules' \
   --exclude './.next' \
   --exclude './coverage' \

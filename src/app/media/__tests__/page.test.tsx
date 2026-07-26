@@ -73,7 +73,7 @@ describe("MediaPage", () => {
     render(await MediaPage({ searchParams: Promise.resolve({ type: "video", q: "demo" }) }));
 
     expect(screen.getByRole("heading", { name: "媒体库" })).toBeInTheDocument();
-    expect(screen.getByText("Current Workspace")).toBeInTheDocument();
+    expect(screen.getByText("当前工作区")).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "视频库" })).toBeInTheDocument();
     expect(screen.getByRole("link", { name: /全部\s*17 项媒体/ })).toHaveAttribute("href", "/media?q=demo");
     expect(screen.getByRole("link", { name: /🖼️ 图片\s*12\s*上传 \/ 发布外链/ })).toHaveAttribute("href", "/media?type=image&q=demo");

@@ -392,7 +392,7 @@ describe("/api/downloads", () => {
     }));
 
     expect(response.status).toBe(400);
-    await expect(response.json()).resolves.toMatchObject({ error: expect.stringMatching(/filename|name|path/i) });
+    await expect(response.json()).resolves.toMatchObject({ error: expect.stringMatching(/filename|name|path|文件名|路径/i) });
     expect(prismaMock.downloadTask.create).not.toHaveBeenCalled();
     expect(execRemoteCommandMock).not.toHaveBeenCalled();
   });

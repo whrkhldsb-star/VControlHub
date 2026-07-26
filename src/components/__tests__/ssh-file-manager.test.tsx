@@ -48,7 +48,9 @@ describe("SshFileManager", () => {
 
 	it("does not render when visible is false", () => {
 		const { container } = render(<SshFileManager serverId="srv1" visible={false} />);
-		expect(container.firstChild).toBeNull();
+		// The i18n test wrapper mounts a ToastProvider viewport div; the manager
+		// itself must not render any panel or trigger any fetch.
+		expect(container.querySelector('[data-testid="ssh-file-manager-srv1"]')).toBeNull();
 		expect(mocks.csrfFetch).not.toHaveBeenCalled();
 	});
 

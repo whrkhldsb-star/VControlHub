@@ -14,6 +14,7 @@ vi.mock("@/lib/auth/csrf-client", () => ({
 const addToastMock = vi.fn();
 vi.mock("@/components/toast-provider", () => ({
   useToast: () => ({ addToast: addToastMock }),
+  ToastProvider: ({ children }: { children: React.ReactNode }) => children,
 }));
 
 vi.mock("next/image", () => ({

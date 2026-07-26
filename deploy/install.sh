@@ -198,11 +198,9 @@ resolve_node_tool() {
       case "${real_path}" in
         /root/*) ;;
         *)
-          # Prefer a system Node even when PATH has a root-owned Hermes shim first.
-          if [ -x "/usr/bin/${command_name}" ]; then
-            printf '%s\n' "/usr/bin/${command_name}"
-            return 0
-          fi
+          # Both the PATH entry and its symlink target are readable by APP_USER
+          # (e.g. a custom Node prefix). Honor the caller's PATH as-is; the
+          # root-owned Hermes shim case is handled by the /root/* branches.
           printf '%s\n' "${resolved}"
           return 0
           ;;

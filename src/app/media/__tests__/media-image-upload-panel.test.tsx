@@ -8,6 +8,13 @@ import { MediaImageUploadPanel } from "../media-image-upload-panel";
 
 vi.mock("@/lib/auth/csrf-client", () => ({
 	csrfFetch: vi.fn(),
+	getCsrfTokenFromCookie: vi.fn(() => "csrf-test-token"),
+}));
+
+vi.mock("next/navigation", () => ({
+	useRouter: () => ({ refresh: vi.fn(), push: vi.fn(), replace: vi.fn() }),
+	usePathname: () => "/media",
+	useSearchParams: () => new URLSearchParams(),
 }));
 
 describe("MediaImageUploadPanel", () => {

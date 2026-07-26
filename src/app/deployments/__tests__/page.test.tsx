@@ -4,6 +4,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import React from "react";
 
 import { I18nProvider } from "@/lib/i18n/provider";
+import { ToastProvider } from "@/components/toast-provider";
 
 vi.mock("@/lib/auth/csrf-client", () => ({
   csrfFetch: vi.fn(),
@@ -67,7 +68,12 @@ import DeploymentsPage from "../page";
 const csrfFetchMock = vi.mocked(csrfFetch);
 const serverFindManyMock = vi.mocked(prisma.server.findMany);
 
-const wrap = (ui: React.ReactNode) => render(<I18nProvider initialLocale="zh">{ui}</I18nProvider>);
+const wrap = (ui: React.ReactNode) =>
+	render(
+		<I18nProvider initialLocale="zh">
+			<ToastProvider>{ui}</ToastProvider>
+		</I18nProvider>,
+	);
 
 const sampleExport = {
   export: {

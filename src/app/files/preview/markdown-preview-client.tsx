@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useMemo } from "react";
 import { useI18n } from "@/lib/i18n/use-locale";
+import { escapeHtml } from "@/lib/sanitize/escape-html";
 type PreviewState =
   | { loading: true }
   | { loading: false; content: string | null; error: string | null };
@@ -135,15 +136,6 @@ export function renderMarkdown(md: string): string {
 }
 
 /** Escape HTML special characters */
-function escapeHtml(str: string): string {
-  return str
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
-    .replace(/'/g, "&#39;");
-}
-
 function stripDangerousText(text: string): string {
   return text
     .replace(/on\w+\s*=\s*[^\s)]+/gi, "")

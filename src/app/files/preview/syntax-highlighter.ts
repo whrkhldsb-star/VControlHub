@@ -1,3 +1,5 @@
+import { escapeHtml } from "@/lib/sanitize/escape-html";
+
 import type { DiffRow } from "./text-preview-types";
 
 export const LANG_MAP: Record<string, string> = {
@@ -183,9 +185,7 @@ export function highlightJson(line: string): string {
 	return escaped;
 }
 
-export function escapeHtml(s: string): string {
-	return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#39;");
-}
+export { escapeHtml };
 
 export function escapeRegex(s: string): string {
 	return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");

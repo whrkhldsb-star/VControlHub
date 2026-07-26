@@ -101,6 +101,7 @@ describe("/api/docker/resources", () => {
       "docker.volume.create",
       { name: "cache", driver: "local", status: 201, ok: true, serverId: "hub-host" },
       "INFO",
+      "team-a",
     );
   });
 
@@ -125,6 +126,7 @@ describe("/api/docker/resources", () => {
       "docker.network.delete",
       { name: "old_net", driver: "local", status: 204, ok: true, serverId: "hub-host" },
       "WARNING",
+      "team-a",
     );
   });
 

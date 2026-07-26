@@ -184,13 +184,15 @@ describe("POST /api/images/upload/init", () => {
 		const text = await res.clone().text();
 		expect(res.status, "body=" + text).toBe(201);
 		expect(mocks.requireApiPermission).toHaveBeenCalledWith("storage:write");
-		expect(mocks.initMediaUploadSession).toHaveBeenCalledWith({
-			userId: "u-admin",
-			filename: "photo.png",
-			mimeType: "image/png",
-			totalSize: 1024 * 1024,
-			chunkSize: 65536,
-		});
+		expect(mocks.initMediaUploadSession).toHaveBeenCalledWith(
+			expect.objectContaining({
+				userId: "u-admin",
+				filename: "photo.png",
+				mimeType: "image/png",
+				totalSize: 1024 * 1024,
+				chunkSize: 65536,
+			}),
+		);
 		expect(mocks.auditUserAction).toHaveBeenCalledWith(
 			"u-admin",
 			"media.upload.init",

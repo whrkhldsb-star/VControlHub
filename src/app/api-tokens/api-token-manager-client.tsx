@@ -4,7 +4,7 @@ import { EmptyState, StatCard } from "@/components/page-shell";
 import { useMemo, useState } from "react";
 import { csrfFetch } from "@/lib/auth/csrf-client";
 import { useI18n } from "@/lib/i18n/use-locale";
-import { toDateLocale } from "@/lib/i18n/locale-format";
+import { formatDateTime } from "@/lib/datetime/format";
 import type { Locale } from "@/lib/i18n/translations";
 import { useDialogFocus } from "@/lib/a11y/use-dialog-focus";
 
@@ -26,10 +26,7 @@ type Props = {
 };
 
 function formatDate(value: Date | string | null, locale?: Locale) {
-  if (!value) return "—";
-  const date = value instanceof Date ? value : new Date(value);
-  if (Number.isNaN(date.getTime())) return "—";
-  return date.toLocaleString(toDateLocale(locale ?? "zh"), { hour12: false });
+  return formatDateTime(value, locale ?? "zh");
 }
 
 function tokenStatus(t: (k: string) => string, token: SafeApiToken) {

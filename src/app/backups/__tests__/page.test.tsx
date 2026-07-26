@@ -136,6 +136,6 @@ describe("BackupsPage", () => {
     expect(screen.getAllByRole("button", { name: "恢复" })).toHaveLength(5);
     expect(screen.getAllByRole("button", { name: "标记作废" })).toHaveLength(2);
     expect(screen.getByRole("button", { name: "重试备份" })).toBeInTheDocument();
-    expect(screen.getAllByText("对历史 PENDING/FAILED 记录写入作废说明，不删除备份审计记录。")).toHaveLength(2);
+    expect(screen.getAllByText("对历史 PENDING/FAILED 记录写入作废（状态变为 VOIDED）说明，不删除备份审计记录。")).toHaveLength(2);
   });
 });

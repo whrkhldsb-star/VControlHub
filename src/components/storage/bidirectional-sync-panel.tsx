@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 
 import { csrfFetch } from "@/lib/auth/csrf-client";
+import { ConfirmDialog } from "@/components/confirm-dialog";
 import { useI18n } from "@/lib/i18n/use-locale";
 import { normalizeSyncEndpointPath } from "@/lib/sync/bidirectional";
 import { UI_INPUT } from "@/lib/ui/classes";
@@ -59,6 +60,7 @@ export function BidirectionalSyncPanel({ servers }: { servers: ServerOption[] })
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
+  const [pendingDelete, setPendingDelete] = useState<{ id: string; label: string } | null>(null);
   const [name, setName] = useState("");
   const [sourceServerId, setSourceServerId] = useState(servers[0]?.id ?? "");
   const [targetServerId, setTargetServerId] = useState(servers[1]?.id ?? servers[0]?.id ?? "");
@@ -189,11 +191,7 @@ export function BidirectionalSyncPanel({ servers }: { servers: ServerOption[] })
     }
   };
 
-  const removeJob = async (id: string, name?: string) => {
-    const label = name?.trim() || id;
-    if (!window.confirm(t("filesPage.syncJobs.deleteConfirm").replace("{name}", label))) {
-      return;
-    }
+  const removeJob = async (id: string) => {
     setBusyId(id);
     setError(null);
     try {
@@ -207,6 +205,7 @@ export function BidirectionalSyncPanel({ servers }: { servers: ServerOption[] })
       setError(e instanceof Error ? e.message : t("filesPage.syncJobs.deleteFailed"));
     } finally {
       setBusyId(null);
+      setPendingDelete(null);
     }
   };
 
@@ -349,7 +348,7 @@ export function BidirectionalSyncPanel({ servers }: { servers: ServerOption[] })
                     type="button"
                     data-action-button data-variant="secondary" className="!rounded-md !px-2 !py-1 !text-xs disabled:opacity-50"
                     disabled={busyId === job.id}
-                    onClick={() => void removeJob(job.id, job.name)}
+                    onClick={() => setPendingDelete({ id: job.id, label: job.name?.trim() || job.id })}
                   >
                     {t("filesPage.syncJobs.delete")}
                   </button>
@@ -397,6 +396,18 @@ export function BidirectionalSyncPanel({ servers }: { servers: ServerOption[] })
           ))
         )}
       </div>
+      <ConfirmDialog
+        open={Boolean(pendingDelete)}
+        title={t("filesPage.syncJobs.delete")}
+        description={t("filesPage.syncJobs.deleteConfirm").replace("{name}", pendingDelete?.label ?? "")}
+        cancelLabel={t("common.cancel")}
+        confirmLabel={t("filesPage.syncJobs.delete")}
+        busy={Boolean(pendingDelete && busyId === pendingDelete.id)}
+        onCancel={() => setPendingDelete(null)}
+        onConfirm={() => {
+          if (pendingDelete) void removeJob(pendingDelete.id);
+        }}
+      />
     </div>
   );
 }

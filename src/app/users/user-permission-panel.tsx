@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { csrfFetch } from "@/lib/auth/csrf-client";
+import { formatBytes as formatBytesShared } from "@/lib/format/bytes";
 import { EmptyState } from "@/components/page-shell";
 import { useI18n } from "@/lib/i18n/use-locale";
 import { useDialogFocus } from "@/lib/a11y/use-dialog-focus";
@@ -58,14 +59,7 @@ function formatBytes(value: string | null | undefined, t: (k: string) => string)
   if (!value) return t("usersPerm.bytes.unlimited");
   const bytes = Number(value);
   if (!Number.isFinite(bytes) || bytes <= 0) return t("usersPerm.bytes.unlimited");
-  const units = ["B", "KB", "MB", "GB", "TB"];
-  let size = bytes;
-  let index = 0;
-  while (size >= 1024 && index < units.length - 1) {
-    size /= 1024;
-    index += 1;
-  }
-  return `${size.toFixed(size >= 10 || index === 0 ? 0 : 1)} ${units[index]}`;
+  return formatBytesShared(bytes);
 }
 
 function toBytes(value: string): { ok: true; value: string | null } | { ok: false } {

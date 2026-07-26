@@ -48,6 +48,16 @@ const MAX_WEBDAV_PUT_BYTES = 100 * 1024 * 1024;
 /** Page size for descendant index walks — never leave overflow rows unprocessed. */
 const FILE_ENTRY_PAGE_SIZE = 5000;
 
+type WebDavFileEntryItem = {
+  id?: string | null;
+  name: string;
+  relativePath: string;
+  entryType: string;
+  size?: bigint | number | null;
+  mimeType?: string | null;
+  updatedAt?: Date | null;
+};
+
 async function forEachFileEntryPage<T extends { id: string }>(
   query: (cursorId: string | undefined) => Promise<T[]>,
   visit: (rows: T[]) => Promise<void>,
@@ -174,6 +184,30 @@ function weakEtag(input: { id?: string | null; size?: bigint | number | null; up
   return `W/"${hash}"`;
 }
 
+function toPropFindItem(storageNodeId: string, entry: WebDavFileEntryItem): PropFindItem {
+  const isCollection = entry.entryType === "DIRECTORY";
+  return {
+    href: buildWebDavHref(storageNodeId, entry.relativePath, isCollection),
+    displayName: entry.name,
+    isCollection,
+    contentLength: entry.size == null ? null : Number(entry.size),
+    contentType: entry.mimeType,
+    lastModified: entry.updatedAt,
+    etag: weakEtag(entry),
+  };
+}
+
+function isRootDirectChild(entry: Pick<WebDavFileEntryItem, "relativePath">): boolean {
+  return entry.relativePath.split("/").filter(Boolean).length === 1;
+}
+
+function isDirectChildOf(entry: Pick<WebDavFileEntryItem, "relativePath">, parentPath: string): boolean {
+  const prefix = `${parentPath}/`;
+  if (!entry.relativePath.startsWith(prefix)) return false;
+  const rest = entry.relativePath.slice(prefix.length);
+  return Boolean(rest) && !rest.includes("/");
+}
+
 
 async function ensureDirectoryIndexAndBacking(input: {
   session: SessionPayload;
@@ -260,43 +294,18 @@ export async function handleWebDavPropFind(ctx: WebDavContext, depthHeader: stri
             // root children by path depth 1
           ],
         },
-        orderBy: [{ entryType: "asc" }, { name: "asc" }],
-        take: 2000,
+        orderBy: [{ entryType: "asc" }, { name: "asc" }, { id: "asc" }],
+        take: FILE_ENTRY_PAGE_SIZE,
       });
       for (const child of children) {
-        const depthOf = child.relativePath.split("/").filter(Boolean).length;
-        if (depthOf !== 1) continue;
-        items.push({
-          href: buildWebDavHref(
-            ctx.storageNodeId,
-            child.relativePath,
-            child.entryType === "DIRECTORY",
-          ),
-          displayName: child.name,
-          isCollection: child.entryType === "DIRECTORY",
-          contentLength: child.size == null ? null : Number(child.size),
-          contentType: child.mimeType,
-          lastModified: child.updatedAt,
-          etag: weakEtag(child),
-        });
+        if (!isRootDirectChild(child)) continue;
+        items.push(toPropFindItem(ctx.storageNodeId, child));
       }
     }
   } else {
     const entry = await findEntry(ctx.storageNodeId, ctx.relativePath);
     if (!entry) throw new NotFoundError(t("backend.webdav.resourceNotFound"));
-    items.push({
-      href: buildWebDavHref(
-        ctx.storageNodeId,
-        entry.relativePath,
-        entry.entryType === "DIRECTORY",
-      ),
-      displayName: entry.name,
-      isCollection: entry.entryType === "DIRECTORY",
-      contentLength: entry.size == null ? null : Number(entry.size),
-      contentType: entry.mimeType,
-      lastModified: entry.updatedAt,
-      etag: weakEtag(entry),
-    });
+    items.push(toPropFindItem(ctx.storageNodeId, entry));
     if (depth === 1 && entry.entryType === "DIRECTORY") {
       const children = await prisma.fileEntry.findMany({
         where: {
@@ -309,27 +318,12 @@ export async function handleWebDavPropFind(ctx: WebDavContext, depthHeader: stri
             },
           ],
         },
-        orderBy: [{ entryType: "asc" }, { name: "asc" }],
-        take: 2000,
+        orderBy: [{ entryType: "asc" }, { name: "asc" }, { id: "asc" }],
+        take: FILE_ENTRY_PAGE_SIZE,
       });
-      const prefix = `${entry.relativePath}/`;
       for (const child of children) {
-        if (!child.relativePath.startsWith(prefix)) continue;
-        const rest = child.relativePath.slice(prefix.length);
-        if (!rest || rest.includes("/")) continue;
-        items.push({
-          href: buildWebDavHref(
-            ctx.storageNodeId,
-            child.relativePath,
-            child.entryType === "DIRECTORY",
-          ),
-          displayName: child.name,
-          isCollection: child.entryType === "DIRECTORY",
-          contentLength: child.size == null ? null : Number(child.size),
-          contentType: child.mimeType,
-          lastModified: child.updatedAt,
-          etag: weakEtag(child),
-        });
+        if (!isDirectChildOf(child, entry.relativePath)) continue;
+        items.push(toPropFindItem(ctx.storageNodeId, child));
       }
     }
   }

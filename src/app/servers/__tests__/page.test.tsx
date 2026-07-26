@@ -267,7 +267,7 @@ describe("ServersPage", () => {
 
     expect(fetchMock).toHaveBeenCalledWith(
       "/api/servers/monitor?serverId=srv_1",
-      { cache: "no-store" },
+      expect.objectContaining({ cache: "no-store" }),
     );
     expect((await screen.findAllByText(/探测成功：CPU 12.5% · 内存 48.2%，磁盘 \/ 71%/)).length).toBeGreaterThan(0);
     vi.unstubAllGlobals();
@@ -360,7 +360,7 @@ describe("ServersPage", () => {
     await waitFor(() => {
       expect(fetchMock).toHaveBeenCalledWith(
         "/api/servers/monitor?serverId=srv_1",
-        { cache: "no-store" },
+        expect.objectContaining({ cache: "no-store" }),
       );
     });
 

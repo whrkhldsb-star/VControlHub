@@ -3,14 +3,7 @@
 import type React from "react";
 
 /* ── Escape HTML to prevent XSS ──────────────────────────────── */
-export function escapeHtml(text: string): string {
-  return text
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
-    .replace(/'/g, "&#039;");
-}
+export { escapeHtml } from "@/lib/sanitize/escape-html";
 
 /** Only allow safe navigable schemes for markdown links (blocks javascript:/data: XSS). */
 export function safeMarkdownHref(raw: string): string | null {

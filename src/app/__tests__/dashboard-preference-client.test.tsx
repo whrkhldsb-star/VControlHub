@@ -51,7 +51,9 @@ describe("DashboardPreferenceClient", () => {
     expect(screen.getByText("数据趋势")).toBeInTheDocument();
     expect(screen.getByText("最近操作日志")).toBeInTheDocument();
     await waitFor(() => expect(csrfFetchMock).toHaveBeenCalledWith("/api/preferences"));
-    expect(document.querySelector("style")?.textContent ?? "").toBe("");
+    // Saved order is applied via CSS `order` even outside edit mode; the key
+    // invariant for "all widgets by default" is that nothing is display:none.
+    expect(document.querySelector("style")?.textContent ?? "").not.toContain("display:none");
   });
 
   it("applies local dashboard widget preferences before the server round trip", () => {

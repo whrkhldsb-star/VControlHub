@@ -46,13 +46,14 @@ describe("createBackupAction", () => {
 
     await expect(createBackupAction({ success: false }, formData)).resolves.toEqual({ success: true });
 
-    expect(mocks.createBackupRecord).toHaveBeenCalledWith({ type: "FULL", createdBy: "u1", note: "upgrade canary" });
+    expect(mocks.createBackupRecord).toHaveBeenCalledWith({ type: "FULL", createdBy: "u1", note: "upgrade canary", teamId: null });
     expect(mocks.enqueueJob).toHaveBeenCalledWith({
       type: "backup.create",
       title: "创建完整备份",
-      payload: { backupId: "bak1" },
+      payload: { backupId: "bak1", teamId: null },
       createdBy: "u1",
       maxAttempts: 1,
+      teamId: null,
     });
     expect(revalidatePath).toHaveBeenCalledWith("/backups");
   });

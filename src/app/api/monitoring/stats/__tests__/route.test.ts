@@ -59,7 +59,7 @@ describe("monitoring stats route", () => {
     expect(response.status).toBe(200);
     expect(requireApiSessionMock).toHaveBeenCalled();
     expect(body.cpu.usage).toMatch(/^\d+(?:\.\d)?%$|^N\/A%$/);
-    expect(body.disk).toMatch(/^\d+(?:\.\d)? [KMGT]B\/\d+(?:\.\d)? [KMGT]B \(\d+% used\)$/);
+    expect(body.disk).toMatch(/^\d+(?:\.\d+)? [KMGT]B\/\d+(?:\.\d+)? [KMGT]B \(\d+% used\)$/);
     expect(Array.isArray(body.network)).toBe(true);
     expect(body.timestamp).toEqual(expect.any(String));
   });

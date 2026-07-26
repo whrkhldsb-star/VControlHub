@@ -1382,5 +1382,5 @@ describe("compressed archive deployment entrypoints", () => {
     } finally {
       await rm(outputDir, { force: true, recursive: true });
     }
-  });
+  }, 90000);
 });

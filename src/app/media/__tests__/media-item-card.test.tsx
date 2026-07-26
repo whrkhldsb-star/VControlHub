@@ -34,7 +34,11 @@ describe("MediaItemCard", () => {
 
     const cover = screen.getByRole("link", { name: /movie\.mp4 视频预览/ });
     expect(cover).toHaveAttribute("href", "/media/m_1?from=%2Fmedia");
-    expect(screen.getByLabelText("movie.mp4 视频封面")).toHaveAttribute("src", "/api/media/m_1/stream#t=0.1");
+    // Video covers intentionally render the icon fallback instead of an
+    // <img src=/api/media/:id/stream#t=…> poster — N concurrent stream opens
+    // per grid page were a resource leak (thumbnail API is image-only).
+    expect(cover.querySelector('img')).toBeNull();
+    expect(screen.getByText(/视频预览/)).toBeInTheDocument();
   });
 
   it("renders image thumbnails and audio icon covers with one visual style", () => {

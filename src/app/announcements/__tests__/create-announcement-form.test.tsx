@@ -44,6 +44,7 @@ describe("CreateAnnouncementForm", () => {
         title: "维护公告",
         content: "今晚 23:00 维护",
         type: "warning",
+        published: true,
         startsAt: undefined,
         expiresAt: undefined,
       }),

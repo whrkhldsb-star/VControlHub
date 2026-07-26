@@ -1,6 +1,6 @@
 import { describe, expect, it, vi, beforeEach } from "vitest";
 
-const { prismaMock, execFileSyncMock, execFileMock, mkdirSyncMock, rmSyncMock, writeAuditLogMock } = vi.hoisted(() => ({
+const { prismaMock, execFileSyncMock, execFileMock, spawnSyncMock, mkdirSyncMock, rmSyncMock, writeAuditLogMock } = vi.hoisted(() => ({
 	prismaMock: {
 		quickService: {
 			findMany: vi.fn(),
@@ -15,6 +15,7 @@ const { prismaMock, execFileSyncMock, execFileMock, mkdirSyncMock, rmSyncMock, w
 	},
 	execFileSyncMock: vi.fn(),
 	execFileMock: vi.fn(),
+	spawnSyncMock: vi.fn(),
 	mkdirSyncMock: vi.fn(),
 	rmSyncMock: vi.fn(),
 	writeAuditLogMock: vi.fn(),
@@ -27,9 +28,10 @@ vi.mock("node:fs", async (importOriginal) => {
 	return { ...actual, default: { ...actual, mkdirSync: mkdirSyncMock, rmSync: rmSyncMock }, mkdirSync: mkdirSyncMock, rmSync: rmSyncMock };
 });
 vi.mock("child_process", () => ({
-	default: { execFileSync: execFileSyncMock, execFile: execFileMock },
+	default: { execFileSync: execFileSyncMock, execFile: execFileMock, spawnSync: spawnSyncMock },
 	execFileSync: execFileSyncMock,
 	execFile: execFileMock,
+	spawnSync: spawnSyncMock,
 }));
 
 import { checkPort, installService, listQuickServiceHistory, resetQuickServiceProcessStateForTests, startService, stopService, syncServiceStatus, uninstallService, updateService } from "../service";
@@ -54,6 +56,17 @@ describe("quick service docker lifecycle", () => {
 		vi.clearAllMocks();
 		resetQuickServiceProcessStateForTests();
 		execFileSyncMock.mockReturnValue("");
+		spawnSyncMock.mockImplementation((file: string, args: string[]) => {
+			// Route docker logs through the same fixture surface as execFileSync
+			// so tests that mock docker CLI output keep working after the
+			// implementation switched log tailing to spawnSync.
+			try {
+				const stdout = execFileSyncMock(file, args, { encoding: "utf8" }) ?? "";
+				return { stdout, stderr: "", status: 0 };
+			} catch (error) {
+				return { error, stdout: "", stderr: "", status: 1 };
+			}
+		});
 		execFileMock.mockImplementation((_file: string, _args: string[], _opts: unknown, cb: (error: Error | null, result?: { stdout: string; stderr: string }) => void) => {
 			cb(null, { stdout: "abcdef1234567890\n", stderr: "" });
 			return {};
