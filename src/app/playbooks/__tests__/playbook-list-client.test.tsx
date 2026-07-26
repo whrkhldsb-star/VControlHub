@@ -1,5 +1,6 @@
 import { screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import type { ReactNode } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { csrfFetch } from "@/lib/auth/csrf-client";
@@ -15,6 +16,7 @@ vi.mock("@/lib/auth/csrf-client", () => ({
 
 vi.mock("@/components/toast-provider", () => ({
 	useToast: () => ({ addToast: addToastMock }),
+	ToastProvider: ({ children }: { children: ReactNode }) => children,
 }));
 
 const stepA = { id: "a", name: "第一步", type: "run_command" as const, config: { command: "echo first", serverIds: ["srv1"] }, retry: 0, timeoutSec: 60 };

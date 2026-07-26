@@ -12,6 +12,8 @@ import { CreatePlaybookForm } from "./create-playbook-form";
 import { PlaybookCard } from "./playbook-card";
 import { PlaybookDeleteDialog } from "./playbook-delete-dialog";
 
+const RUN_POLL_DELAYS_MS = [2_000, 5_000, 10_000, 20_000, 30_000, 45_000, 60_000, 90_000, 120_000, 180_000, 240_000, 300_000] as const;
+
 type Props = {
   playbooks: SerializedPlaybook[];
   runsByPlaybook: Record<string, RunSummary[]>;
@@ -48,18 +50,17 @@ export function PlaybookListClient({
   }, []);
 
 
-  const runPollTimersRef = useRef<Map<string, number[]>>(new Map());
+  const runPollTimersRef = useRef<Map<string, number>>(new Map());
 
   const clearRunPolling = useCallback((playbookId?: string) => {
     const map = runPollTimersRef.current;
     if (playbookId) {
-      for (const timer of map.get(playbookId) ?? []) window.clearTimeout(timer);
+      const timer = map.get(playbookId);
+      if (timer !== undefined) window.clearTimeout(timer);
       map.delete(playbookId);
       return;
     }
-    for (const timers of map.values()) {
-      for (const timer of timers) window.clearTimeout(timer);
-    }
+    for (const timer of map.values()) window.clearTimeout(timer);
     map.clear();
   }, []);
 
@@ -72,24 +73,33 @@ export function PlaybookListClient({
   const startRunPolling = useCallback(
     (playbookId: string) => {
       clearRunPolling(playbookId);
-      // Poll up to ~5 minutes for long playbooks (was fixed 15s → stuck queued/running).
-      const delaysMs = [2_000, 5_000, 10_000, 20_000, 30_000, 45_000, 60_000, 90_000, 120_000, 180_000, 240_000, 300_000];
-      const timers: number[] = [];
-      for (const delay of delaysMs) {
-        timers.push(
-          window.setTimeout(() => {
-            void refreshRuns(playbookId)
-              .then((runs) => {
-                const latest = runs[0];
-                if (latest && isTerminalRunStatus(latest.status)) {
-                  clearRunPolling(playbookId);
-                }
-              })
-              .catch(() => undefined);
-          }, delay),
-        );
-      }
-      runPollTimersRef.current.set(playbookId, timers);
+      let attempt = 0;
+
+      const scheduleNext = () => {
+        if (attempt >= RUN_POLL_DELAYS_MS.length) {
+          clearRunPolling(playbookId);
+          return;
+        }
+        const delay = RUN_POLL_DELAYS_MS[attempt];
+        attempt += 1;
+        const timer = window.setTimeout(() => {
+          void refreshRuns(playbookId)
+            .then((runs) => {
+              const latest = runs[0];
+              if (latest && isTerminalRunStatus(latest.status)) {
+                clearRunPolling(playbookId);
+                return;
+              }
+              scheduleNext();
+            })
+            .catch(() => {
+              scheduleNext();
+            });
+        }, delay);
+        runPollTimersRef.current.set(playbookId, timer);
+      };
+
+      scheduleNext();
     },
     [clearRunPolling, isTerminalRunStatus, refreshRuns],
   );
@@ -145,7 +155,7 @@ export function PlaybookListClient({
         setBusyAction((prev) => (prev === actionKey ? null : prev));
       }
     },
-    [addToast, refreshRuns, startRunPolling, t],
+    [addToast, startRunPolling, t],
   );
 
   const handleToggle = useCallback(

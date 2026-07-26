@@ -12,7 +12,6 @@ import { useI18n } from "@/lib/i18n/use-locale";
 import { useVisibilityInterval } from "@/lib/hooks/use-visibility-interval";
 import { DockerResourcesPanel } from "./docker-resources-panel";
 import {
-	type ComposeGroup,
 	type Container,
 	type ContainerStats,
 	type DockerScope,
@@ -39,8 +38,6 @@ export default function DockerPage({ initialServers }: { initialServers: { id: s
 	const [pendingRemoval, setPendingRemoval] = useState<Container | null>(null);
 	const [pendingProjectDown, setPendingProjectDown] = useState<string | null>(null);
 	const refreshIntervalSeconds = useRefreshInterval(30);
-	const [grouped, setGrouped] = useState<ComposeGroup[]>([]);
-	const [ungrouped, setUngrouped] = useState<Container[]>([]);
 	const [dockerScope, setDockerScope] = useState<DockerScope | null>(null);
 	const [serverList] = useState<ServerOption[]>(initialServers);
 	const { state: dockerUrl, setField: setDockerUrlField } = useUrlQueryState({ serverId: "" });
@@ -54,12 +51,36 @@ export default function DockerPage({ initialServers }: { initialServers: { id: s
 	const logsDialogRef = useDialogFocus<HTMLDivElement>({ open: logsId !== null, onClose: closeLogsDialog, initialFocusRef: logsCloseButtonRef });
 	const fetchingStatsRef = useRef<Set<string>>(new Set());
 	const statsServerIdRef = useRef(selectedServerId);
-	statsServerIdRef.current = selectedServerId;
 	const logsReqRef = useRef<{ id: string; serverId: string } | null>(null);
 	const fetchGenRef = useRef(0);
 	const fetchAbortRef = useRef<AbortController | null>(null);
 
-		const fetchContainers = useCallback(async () => {
+	useEffect(() => {
+		statsServerIdRef.current = selectedServerId;
+	}, [selectedServerId]);
+
+	const { grouped, ungrouped } = useMemo(() => {
+		const groups = new Map<string, Container[]>();
+		const loose: Container[] = [];
+		for (const container of containers) {
+			const project = container.Labels?.["com.docker.compose.project"];
+			if (project) {
+				const list = groups.get(project) ?? [];
+				list.push(container);
+				groups.set(project, list);
+			} else {
+				loose.push(container);
+			}
+		}
+		return {
+			grouped: Array.from(groups.entries())
+				.sort(([a], [b]) => a.localeCompare(b))
+				.map(([project, groupContainers]) => ({ project, containers: groupContainers })),
+			ungrouped: loose,
+		};
+	}, [containers]);
+
+	const fetchContainers = useCallback(async () => {
 		fetchAbortRef.current?.abort();
 		const controller = new AbortController();
 		fetchAbortRef.current = controller;
@@ -85,28 +106,8 @@ export default function DockerPage({ initialServers }: { initialServers: { id: s
 					: null;
 			if (nextContainers) {
 				setContainers(nextContainers);
-
-				const groups = new Map<string, Container[]>();
-				const loose: Container[] = [];
-				for (const container of nextContainers) {
-					const project = container.Labels?.["com.docker.compose.project"];
-					if (project) {
-						const list = groups.get(project) ?? [];
-						list.push(container);
-						groups.set(project, list);
-					} else {
-						loose.push(container);
-					}
-				}
-
-				setGrouped(
-					Array.from(groups.entries())
-						.sort(([a], [b]) => a.localeCompare(b))
-						.map(([project, groupContainers]) => ({ project, containers: groupContainers })),
-				);
-				setUngrouped(loose);
 			}
-		} catch (err) {
+		} catch (_err) {
 			if (controller.signal.aborted || gen !== fetchGenRef.current) return;
 			setError(t("dockerPage.error.fetch"));
 		} finally {
@@ -257,8 +258,6 @@ const handleAction = async (container: Container, action:"start" |"stop" |"resta
 			setLoading(true);
 			setContainers([]);
 			setStats({});
-			setGrouped([]);
-			setUngrouped([]);
 			void fetchContainers();
 		}, 0);
 		return () => window.clearTimeout(timer);

@@ -85,8 +85,14 @@ export function useResourcePolling<T>(options: UseResourcePollingOptions<T>): Re
 	const pendingRefreshRef = useRef(false);
 	const fetcherRef = useRef(fetcher);
 	const getErrorMessageRef = useRef(getErrorMessage);
-	fetcherRef.current = fetcher;
-	getErrorMessageRef.current = getErrorMessage;
+
+	useEffect(() => {
+		fetcherRef.current = fetcher;
+	}, [fetcher]);
+
+	useEffect(() => {
+		getErrorMessageRef.current = getErrorMessage;
+	}, [getErrorMessage]);
 
 	useEffect(() => {
 		mountedRef.current = true;
@@ -131,7 +137,6 @@ export function useResourcePolling<T>(options: UseResourcePollingOptions<T>): Re
 	// refresh() sets state asynchronously (after the await), so the
 	// set-state-in-effect rule is a false positive here.
 	useEffect(() => {
-		// eslint-disable-next-line react-hooks/set-state-in-effect
 		void refresh();
 	}, [refresh, fetcher]);
 
