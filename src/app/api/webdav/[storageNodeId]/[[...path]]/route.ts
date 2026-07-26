@@ -135,3 +135,4 @@ export const PUT = withParams;
 export const DELETE = withParams;
 export const POST = withParams;
 export const OPTIONS = withParams;
+// guardMode: public (WebDAV Basic auth via authenticateWebDavRequest)

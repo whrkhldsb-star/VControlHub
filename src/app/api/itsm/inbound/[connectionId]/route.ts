@@ -108,3 +108,4 @@ export async function POST(request: Request, context: RouteContext) {
 		return apiCatch(err);
 	}
 }
+// guardMode: public (signature-verified inbound webhook; no session)

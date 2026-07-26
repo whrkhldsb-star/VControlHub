@@ -1,331 +1,68 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { PageShell, PageHeader, EmptyState } from "@/components/page-shell";
-import { ConfirmDialog } from "@/components/confirm-dialog";
-import { csrfFetch } from "@/lib/auth/csrf-client";
-import { useDialogFocus } from "@/lib/a11y/use-dialog-focus";
-import { getRefreshIntervalLabel } from "@/lib/preferences/refresh-interval";
-import { useRefreshInterval } from "@/lib/preferences/use-refresh-interval";
-import { useUrlQueryState } from "@/lib/hooks/use-url-query-state";
-import { useI18n } from "@/lib/i18n/use-locale";
-import { useVisibilityInterval } from "@/lib/hooks/use-visibility-interval";
-import { DockerResourcesPanel } from "./docker-resources-panel";
-import {
-	type Container,
-	type ContainerStats,
-	type DockerScope,
-	type ServerOption,
-	formatBytes,
-	getContainerName,
-	stateColors,
-	stateLabel,
-} from "./docker-helpers";
-import { getErrorMessage } from "@/lib/http/error-message";
-import { ActionButton } from "@/components/action-button";
+/**
+ * DockerPage — orchestration shell.
+ *
+ * Split (pure move):
+ *   - use-docker-page.ts        → all state + actions + polling effects
+ *   - docker-container-card.tsx → single container card (badges, stats, actions)
+ *   - docker-container-list.tsx → grouped/ungrouped list + project actions
+ *   - docker-dialogs.tsx        → removal confirm dialog + logs dialog
+ */
 
+import { PageShell, PageHeader } from "@/components/page-shell";
+import { ConfirmDialog } from "@/components/confirm-dialog";
+import { getRefreshIntervalLabel } from "@/lib/preferences/refresh-interval";
+import { useI18n } from "@/lib/i18n/use-locale";
+import { ActionButton } from "@/components/action-button";
+import { DockerResourcesPanel } from "./docker-resources-panel";
+import { DockerContainerList } from "./docker-container-list";
+import { DockerRemovalDialog, DockerLogsDialog } from "./docker-dialogs";
+import { useDockerPage } from "./use-docker-page";
 
 export default function DockerPage({ initialServers }: { initialServers: { id: string; name: string; host: string }[] }) {
 	const { t } = useI18n();
-	const [containers, setContainers] = useState<Container[]>([]);
-	const [loading, setLoading] = useState(true);
-	const [error, setError] = useState("");
-	const [logsId, setLogsId] = useState<string | null>(null);
-	const [logs, setLogs] = useState("");
-	const [actionLoading, setActionLoading] = useState<string | null>(null);
-	const [projectActionLoading, setProjectActionLoading] = useState<string | null>(null);
-	const [projectMessage, setProjectMessage] = useState<string>("");
-	const [stats, setStats] = useState<Record<string, ContainerStats>>({});
-	const [statsAutoRefresh, setStatsAutoRefresh] = useState(false);
-	const [pendingRemoval, setPendingRemoval] = useState<Container | null>(null);
-	const [pendingProjectDown, setPendingProjectDown] = useState<string | null>(null);
-	const refreshIntervalSeconds = useRefreshInterval(30);
-	const [dockerScope, setDockerScope] = useState<DockerScope | null>(null);
-	const [serverList] = useState<ServerOption[]>(initialServers);
-	const { state: dockerUrl, setField: setDockerUrlField } = useUrlQueryState({ serverId: "" });
-	const selectedServerId = dockerUrl.serverId || "";
-	const setSelectedServerId = (value: string) => setDockerUrlField("serverId", value);
-	const closeRemovalDialog = useCallback(() => setPendingRemoval(null), []);
-	const closeLogsDialog = useCallback(() => setLogsId(null), []);
-	const removeCancelButtonRef = useRef<HTMLButtonElement | null>(null);
-	const logsCloseButtonRef = useRef<HTMLButtonElement | null>(null);
-	const removalDialogRef = useDialogFocus<HTMLDivElement>({ open: pendingRemoval !== null, onClose: closeRemovalDialog, initialFocusRef: removeCancelButtonRef });
-	const logsDialogRef = useDialogFocus<HTMLDivElement>({ open: logsId !== null, onClose: closeLogsDialog, initialFocusRef: logsCloseButtonRef });
-	const fetchingStatsRef = useRef<Set<string>>(new Set());
-	const statsServerIdRef = useRef(selectedServerId);
-	const logsReqRef = useRef<{ id: string; serverId: string } | null>(null);
-	const fetchGenRef = useRef(0);
-	const fetchAbortRef = useRef<AbortController | null>(null);
+	const {
+		containers,
+		loading,
+		setLoading,
+		error,
+		logsId,
+		logs,
+		actionLoading,
+		projectActionLoading,
+		projectMessage,
+		stats,
+		statsAutoRefresh,
+		setStatsAutoRefresh,
+		pendingRemoval,
+		pendingProjectDown,
+		setPendingProjectDown,
+		refreshIntervalSeconds,
+		dockerScope,
+		serverList,
+		selectedServerId,
+		setSelectedServerId,
+		closeRemovalDialog,
+		closeLogsDialog,
+		removeCancelButtonRef,
+		logsCloseButtonRef,
+		removalDialogRef,
+		logsDialogRef,
+		grouped,
+		ungrouped,
+		fetchContainers,
+		handleAction,
+		requestRemoval,
+		confirmRemoval,
+		handleProjectAction,
+		confirmProjectDown,
+		fetchLogs,
+		fetchStats,
+		runningContainers,
+		projectCount,
+	} = useDockerPage(initialServers);
 
-	useEffect(() => {
-		statsServerIdRef.current = selectedServerId;
-	}, [selectedServerId]);
-
-	const { grouped, ungrouped } = useMemo(() => {
-		const groups = new Map<string, Container[]>();
-		const loose: Container[] = [];
-		for (const container of containers) {
-			const project = container.Labels?.["com.docker.compose.project"];
-			if (project) {
-				const list = groups.get(project) ?? [];
-				list.push(container);
-				groups.set(project, list);
-			} else {
-				loose.push(container);
-			}
-		}
-		return {
-			grouped: Array.from(groups.entries())
-				.sort(([a], [b]) => a.localeCompare(b))
-				.map(([project, groupContainers]) => ({ project, containers: groupContainers })),
-			ungrouped: loose,
-		};
-	}, [containers]);
-
-	const fetchContainers = useCallback(async () => {
-		fetchAbortRef.current?.abort();
-		const controller = new AbortController();
-		fetchAbortRef.current = controller;
-		const gen = ++fetchGenRef.current;
-		try {
-			const url = selectedServerId
-				? `/api/docker/containers?serverId=${encodeURIComponent(selectedServerId)}`
-				: "/api/docker/containers";
-			const data = await csrfFetch(url, { signal: controller.signal } as RequestInit);
-			if (gen !== fetchGenRef.current) return;
-			if (data.error) {
-				setError(data.error);
-				return;
-			}
-			setError("");
-			if (data.dockerScope && typeof data.dockerScope === "object") {
-				setDockerScope(data.dockerScope as DockerScope);
-			}
-			const nextContainers: Container[] | null = data.data && Array.isArray(data.data)
-				? (data.data as Container[])
-				: Array.isArray(data)
-					? (data as Container[])
-					: null;
-			if (nextContainers) {
-				setContainers(nextContainers);
-			}
-		} catch (_err) {
-			if (controller.signal.aborted || gen !== fetchGenRef.current) return;
-			setError(t("dockerPage.error.fetch"));
-		} finally {
-			if (gen === fetchGenRef.current) setLoading(false);
-		}
-	}, [t, selectedServerId]);
-
-	useEffect(() => () => {
-		fetchAbortRef.current?.abort();
-	}, []);
-
-const handleAction = async (container: Container, action:"start" |"stop" |"restart" |"remove") => {
-		const id = container.Id;
-		setActionLoading(id);
-		setError("");
-		try {
-			const data = await csrfFetch<Record<string, unknown>>("/api/docker/containers", {
-				method:"POST",
-				headers: {"Content-Type":"application/json" },
-				body: JSON.stringify({ id, action, ...(selectedServerId ? { serverId: selectedServerId } : {}) }),
-			});
-			if (data && typeof data ==="object" && data.ok === false) {
-				const msg =
-					typeof data.message ==="string"
-						? data.message
-						: t("dockerPage.error.action");
-				setError(msg);
-				return;
-			}
-			await fetchContainers();
-		} catch (err) {
-			setError(getErrorMessage(err, t("dockerPage.error.action")));
-		} finally {
-			setActionLoading(null);
-		}
-	};
-
-	const requestRemoval = (container: Container) => {
-		setPendingRemoval(container);
-		setError("");
-	};
-
-	const confirmRemoval = async () => {
-		if (!pendingRemoval) return;
-		const container = pendingRemoval;
-		setPendingRemoval(null);
-		await handleAction(container,"remove");
-	};
-
-	const handleProjectAction = async (
-		project: string,
-		action:"up" |"down" |"start" |"stop" |"restart" |"ps",
-	) => {
-		if (action ==="down") {
-			// Destructive: use in-app ConfirmDialog (not browser window.confirm).
-			setPendingProjectDown(project);
-			setError("");
-			return;
-		}
-		await runProjectAction(project, action);
-	};
-
-	const runProjectAction = async (
-		project: string,
-		action:"up" |"down" |"start" |"stop" |"restart" |"ps",
-	) => {
-		setProjectActionLoading(`${project}:${action}`);
-		setError("");
-		setProjectMessage("");
-		try {
-			const data = await csrfFetch("/api/docker/compose", {
-				method:"POST",
-				headers: {"Content-Type":"application/json" },
-				body: JSON.stringify({
-					project,
-					action,
-					...(selectedServerId ? { serverId: selectedServerId } : {}),
-				}),
-			});
-			const modeLabel =
-				data.mode ==="compose-cli"
-					? t("dockerPage.project.modeCli")
-					: t("dockerPage.project.modeFallback");
-			const actionLabelKey = `dockerPage.project.${action}` as const;
-			const actionLabel = t(actionLabelKey) !== actionLabelKey ? t(actionLabelKey) : action;
-			const msg = typeof data.message ==="string" ? data.message : t("dockerPage.project.success")
-				.replace("{project}", project)
-				.replace("{message}", actionLabel);
-			setProjectMessage(`${msg} (${modeLabel})`);
-			if (action !=="ps") {
-				await fetchContainers();
-			}
-		} catch (err) {
-			setError(getErrorMessage(err, t("dockerPage.project.failed")));
-		} finally {
-			setProjectActionLoading(null);
-		}
-	};
-
-	const confirmProjectDown = async () => {
-		if (!pendingProjectDown) return;
-		const project = pendingProjectDown;
-		setPendingProjectDown(null);
-		await runProjectAction(project,"down");
-	};
-
-
-	const fetchLogs = async (id: string) => {
-		setLogsId(id);
-		setLogs("");
-		const serverAtFetch = selectedServerId;
-		logsReqRef.current = { id, serverId: serverAtFetch };
-		try {
-			const params = new URLSearchParams({ logs: id, tail: "50" });
-			if (serverAtFetch) params.set("serverId", serverAtFetch);
-			const data = await csrfFetch(`/api/docker/containers?${params}`);
-			// Drop stale responses after container switch or host change (mirrors fetchStats).
-			const active = logsReqRef.current;
-			if (!active || active.id !== id || active.serverId !== serverAtFetch) return;
-			setLogs(typeof data.data === "string" ? data.data : JSON.stringify(data.data, null, 2));
-		} catch {
-			const active = logsReqRef.current;
-			if (!active || active.id !== id || active.serverId !== serverAtFetch) return;
-			setLogs(t("dockerPage.error.logs"));
-		}
-	};
-
-	const fetchStats = async (id: string) => {
-		if (fetchingStatsRef.current.has(id)) return;
-		fetchingStatsRef.current.add(id);
-		const serverAtFetch = selectedServerId;
-		try {
-			const statsParams = new URLSearchParams({ stats: id });
-			if (serverAtFetch) statsParams.set("serverId", serverAtFetch);
-			const data = await csrfFetch(`/api/docker/containers?${statsParams}`);
-			// Drop stale results after server switch.
-			if (statsServerIdRef.current !== serverAtFetch) return;
-			if (data.data) {
-				setStats((prev) => ({ ...prev, [id]: data.data as ContainerStats }));
-			}
-		} finally {
-			fetchingStatsRef.current.delete(id);
-		}
-	};
-
-	useEffect(() => {
-		const timer = window.setTimeout(() => {
-			setLoading(true);
-			setContainers([]);
-			setStats({});
-			void fetchContainers();
-		}, 0);
-		return () => window.clearTimeout(timer);
-	}, [fetchContainers]);
-
-	const runningContainers = useMemo(() => containers.filter((container) => container.State ==="running").slice(0, 12), [containers]);
-
-	useEffect(() => {
-		for (const container of runningContainers) {
-			// Skip if stats already fetched for this container
-			if (stats[container.Id]) continue;
-			void fetchStats(container.Id);
-		}
-	}, [runningContainers]); // eslint-disable-line react-hooks/exhaustive-deps
-
-	useVisibilityInterval(() => {
-			for (const container of runningContainers) {
-				void fetchStats(container.Id);
-			}
-	}, statsAutoRefresh && refreshIntervalSeconds > 0 && runningContainers.length > 0 ? refreshIntervalSeconds * 1000 : null);
-
-	const renderContainerCard = (c: Container, options?: { showComposeLabels?: boolean }) => {
-		const showComposeLabels = options?.showComposeLabels ?? false;
-		const stat = stats[c.Id];
-		return (
-			<div key={c.Id} className="rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-subtle)] p-4">
-				<div className="mb-2 flex items-center justify-between gap-3">
-					<div className="flex min-w-0 items-center gap-3">
-						<span className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${stateColors[c.State] ||"bg-[var(--surface-hover)]/50 text-[var(--text-muted)]"}`}>
-							{stateLabel(t, c.State)}
-						</span>
-						<span className="truncate text-sm font-medium text-[var(--text-primary)]">{(c.Names?.[0] || c.Id?.slice(0, 12)).replace(/^\//,"")}</span>
-					</div>
-					<span className="ml-3 truncate text-[10px] text-[var(--text-muted)]">{c.Image}</span>
-				</div>
-				<div className="mb-3 flex flex-wrap items-center gap-2 text-[11px] text-[var(--text-muted)]">
-					<span>{c.Status}</span>
-					{showComposeLabels && c.Labels?.["com.docker.compose.service"] ? <span>{t("dockerPage.label.service").replace("{name}", c.Labels["com.docker.compose.service"])}</span> : null}
-					{showComposeLabels && c.Labels?.["com.docker.compose.version"] ? <span>{t("dockerPage.label.version").replace("{version}", c.Labels["com.docker.compose.version"])}</span> : null}
-				</div>
-				{stat && (
-					<div className="mb-3 grid grid-cols-2 gap-2 text-[11px] md:grid-cols-4">
-						<div className="rounded-lg bg-[var(--accent-bg)] px-2 py-1.5 text-[var(--accent)]">{t("dockerPage.stat.cpu").replace("{percent}", stat.cpuPercent.toFixed(1))}</div>
-						<div className="rounded-lg bg-[var(--accent-bg)] px-2 py-1.5 text-[var(--accent)]">{t("dockerPage.stat.memory").replace("{used}", formatBytes(stat.memoryUsageBytes)).replace("{percent}", stat.memoryPercent.toFixed(1))}</div>
-						<div className="rounded-lg bg-[var(--success-bg)] px-2 py-1.5 text-[var(--success)]">{t("dockerPage.stat.netRx").replace("{bytes}", formatBytes(stat.networkRxBytes))}</div>
-						<div className="rounded-lg bg-[var(--warning-bg)] px-2 py-1.5 text-[var(--warning)]">{t("dockerPage.stat.netTx").replace("{bytes}", formatBytes(stat.networkTxBytes))}</div>
-					</div>
-				)}
-				<div className="flex flex-wrap items-center gap-2">
-					{c.State !=="running" && (
-						<ActionButton type="submit" variant="success" onClick={() => handleAction(c,"start")} disabled={actionLoading === c.Id} className="!min-h-11 !px-2.5 !py-1 !text-[10px] disabled:opacity-50">{t("dockerPage.action.start")}</ActionButton>
-					)}
-					{c.State ==="running" && (
-						<>
-							<ActionButton type="submit" variant="outline" onClick={() => handleAction(c,"stop")} disabled={actionLoading === c.Id} className="!min-h-11 !px-2.5 !py-1 !text-[10px] disabled:opacity-50">{t("dockerPage.action.stop")}</ActionButton>
-							<ActionButton type="submit" variant="outline" onClick={() => handleAction(c,"restart")} disabled={actionLoading === c.Id} className="!min-h-11 !px-2.5 !py-1 !text-[10px] disabled:opacity-50">{t("dockerPage.action.restart")}</ActionButton>
-						</>
-					)}
-					<ActionButton type="submit" variant="secondary" onClick={() => fetchLogs(c.Id)} className="!min-h-11 !px-2.5 !py-1 !text-[10px]">{t("dockerPage.action.logs")}</ActionButton>
-					<ActionButton type="submit" variant="danger" onClick={() => requestRemoval(c)} disabled={actionLoading === c.Id} className="!min-h-11 !px-2.5 !py-1 !text-[10px] disabled:opacity-50">{t("dockerPage.action.remove")}</ActionButton>
-				</div>
-			</div>
-		);
-	};
-
-	const projectCount = useMemo(() => grouped.length, [grouped]);
 	const refreshLabel = getRefreshIntervalLabel(refreshIntervalSeconds);
 	const defaultSocket = t("dockerPage.scope.defaultSocket");
 	const defaultWarning = t("dockerPage.scope.warning");
@@ -411,99 +148,30 @@ const handleAction = async (container: Container, action:"start" |"stop" |"resta
 
 			<DockerResourcesPanel serverId={selectedServerId} />
 
-			{loading ? (
-				<div className="text-sm text-[var(--text-muted)]">{t("dockerPage.loading")}</div>
-			) : containers.length === 0 ? (
-				<EmptyState text={t("dockerPage.empty")} variant="boxed" />
-			) : (
-				<div className="space-y-4">
-					{grouped.map((group) => (
-						<section key={group.project} data-card className="p-4">
-							<div className="mb-3 flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
-								<div>
-									<h2 className="text-sm font-medium text-[var(--text-primary)]">{group.project}</h2>
-									<p className="text-[11px] text-[var(--text-muted)]">
-										{t("dockerPage.group.subtitle").replace("{count}", String(group.containers.length))}
-										{" ·"}
-									{t("dockerPage.project.runningOf")
-										.replace("{running}", String(group.containers.filter((c) => c.State ==="running").length))
-										.replace("{total}", String(group.containers.length))}
-									</p>
-								</div>
-								<div className="flex flex-wrap items-center gap-2" aria-label={t("dockerPage.project.actions")}>
-									{(
-										[
-											["ps","dockerPage.project.ps","secondary"],
-											["up","dockerPage.project.up","success"],
-											["start","dockerPage.project.start","success"],
-											["stop","dockerPage.project.stop","outline"],
-											["restart","dockerPage.project.restart","primary"],
-											["down","dockerPage.project.down","danger"],
-										] as const
-									).map(([action, labelKey, variant]) => {
-										const busyKey = `${group.project}:${action}`;
-										const busy = projectActionLoading === busyKey;
-										return (
-											<ActionButton variant={variant}
-												key={action}
-												onClick={() => void handleProjectAction(group.project, action)}
-												disabled={projectActionLoading !== null}
-											
-												className="!min-h-11 !rounded-lg !px-2.5 !py-1 !text-[10px] !font-medium disabled:opacity-50"
-											>
-												{busy ? t("dockerPage.project.busy") : t(labelKey)}
-											</ActionButton>
-										);
-									})}
-								</div>
-							</div>
-							<div className="space-y-3">
-								{group.containers.map((c) => renderContainerCard(c, { showComposeLabels: true }))}
-							</div>
-						</section>
-					))}
+			<DockerContainerList
+				loading={loading}
+				containers={containers}
+				grouped={grouped}
+				ungrouped={ungrouped}
+				t={t}
+				stats={stats}
+				actionLoading={actionLoading}
+				projectActionLoading={projectActionLoading}
+				handleAction={handleAction}
+				handleProjectAction={handleProjectAction}
+				fetchLogs={fetchLogs}
+				requestRemoval={requestRemoval}
+			/>
 
-					{ungrouped.length > 0 && (
-						<section data-card className="p-4">
-							<h2 className="text-sm font-medium text-[var(--text-primary)] mb-3">{t("dockerPage.ungrouped.title")}</h2>
-							<div className="space-y-3">
-								{ungrouped.map((c) => renderContainerCard(c))}
-							</div>
-						</section>
-					)}
-				</div>
-			)}
-
-			{pendingRemoval && (
-				<div className="fixed inset-0 z-50 flex items-end justify-center overflow-y-auto bg-[var(--overlay)] p-0 backdrop-blur-sm sm:items-center sm:p-4" role="presentation" onClick={closeRemovalDialog}>
-					<div
-						ref={removalDialogRef}
-						role="dialog"
-						aria-modal="true"
-						aria-labelledby="docker-remove-confirm-title"
-						className="w-full max-w-md mx-0 rounded-t-2xl border border-[var(--danger-border)] bg-[var(--modal-bg)] p-5 shadow-2xl sm:mx-4 sm:rounded-2xl"
-						onClick={(event) => event.stopPropagation()}
-					>
-						<h3 id="docker-remove-confirm-title" className="text-base font-semibold text-[var(--text-primary)]">{t("dockerPage.removeDialog.title")}</h3>
-						<p className="mt-3 text-sm text-[var(--text-secondary)]">
-							{t("dockerPage.removeDialog.confirm").replace("{name}", getContainerName(t, pendingRemoval))}
-						</p>
-						<div className="mt-5 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
-							<ActionButton variant="secondary"
-								ref={removeCancelButtonRef}
-								onClick={closeRemovalDialog} className="min-h-11 !px-3 !py-1.5 !text-xs">
-								{t("dockerPage.removeDialog.cancel")}
-							</ActionButton>
-							<ActionButton variant="danger-solid"
-								onClick={() => void confirmRemoval()}
-								disabled={actionLoading === pendingRemoval.Id} className="!min-h-11 !px-3 !py-1.5 !text-xs !font-medium disabled:cursor-not-allowed disabled:opacity-50"
-							>
-								{t("dockerPage.removeDialog.confirmBtn")}
-							</ActionButton>
-						</div>
-					</div>
-				</div>
-			)}
+			<DockerRemovalDialog
+				pendingRemoval={pendingRemoval}
+				t={t}
+				actionLoading={actionLoading}
+				removalDialogRef={removalDialogRef}
+				removeCancelButtonRef={removeCancelButtonRef}
+				closeRemovalDialog={closeRemovalDialog}
+				confirmRemoval={confirmRemoval}
+			/>
 
 			<ConfirmDialog
 				open={pendingProjectDown !== null}
@@ -518,31 +186,14 @@ const handleAction = async (container: Container, action:"start" |"stop" |"resta
 				busy={pendingProjectDown !== null && projectActionLoading === `${pendingProjectDown}:down`}
 			/>
 
-			{logsId && (
-				<div className="fixed inset-0 z-50 flex items-end justify-center overflow-y-auto bg-[var(--overlay)] p-0 backdrop-blur-sm sm:items-center sm:p-4" role="presentation" onClick={closeLogsDialog}>
-					<div
-						ref={logsDialogRef}
-						role="dialog"
-						aria-modal="true"
-						aria-labelledby="docker-logs-dialog-title"
-						tabIndex={-1}
-						className="flex w-full max-w-2xl mx-0 max-h-[92vh] flex-col rounded-t-2xl border border-[var(--border)] bg-[var(--modal-bg)] p-5 shadow-2xl sm:mx-4 sm:max-h-[80vh] sm:rounded-2xl"
-						onClick={(e) => e.stopPropagation()}
-					>
-						<div className="flex items-center justify-between mb-3">
-							<h3 id="docker-logs-dialog-title" className="text-sm font-medium text-[var(--text-primary)]">{t("dockerPage.logsDialog.title").replace("{id}", logsId.slice(0, 12))}</h3>
-							<ActionButton variant="ghost"
-								ref={logsCloseButtonRef}
-								onClick={closeLogsDialog}
-								aria-label={t("dockerPage.logsDialog.closeAria")} className="!min-h-11 !min-w-11 !p-1"
-							>
-								<svg className="w-5 h-5" aria-hidden="true" fill="none" stroke="currentColor" width="24" height="24" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
-							</ActionButton>
-						</div>
-						<pre className="flex-1 overflow-auto text-[11px] text-[var(--text-secondary)] bg-[color-mix(in_srgb,var(--surface-subtle)_85%,#000)] rounded-lg p-3 font-mono whitespace-pre-wrap">{logs}</pre>
-					</div>
-				</div>
-			)}
+			<DockerLogsDialog
+				logsId={logsId}
+				logs={logs}
+				t={t}
+				logsDialogRef={logsDialogRef}
+				logsCloseButtonRef={logsCloseButtonRef}
+				closeLogsDialog={closeLogsDialog}
+			/>
 		</PageShell>
 	);
 }
