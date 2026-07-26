@@ -77,8 +77,9 @@ describe("/api/storage/sftp-sync", () => {
     expect(enqueueJobMock).toHaveBeenCalledWith({
       type: "storage.sftp-sync",
       title: "SFTP Sync: remote",
-      payload: { nodeId: "node_1", remotePath: "/", recursive: true, maxDepth: 5 },
+      payload: { nodeId: "node_1", remotePath: "", recursive: true, maxDepth: 5, teamId: null },
       createdBy: "u_1",
+      teamId: null,
       maxAttempts: 3,
     });
     expect(syncSftpDirectoryEntriesMock).not.toHaveBeenCalled();
@@ -103,12 +104,12 @@ describe("/api/storage/sftp-sync", () => {
     });
     expect(assertStorageAccessMock).toHaveBeenCalledWith(expect.objectContaining({
       storageNodeId: "node_1",
-      relativePath: "/",
+      relativePath: "",
       operation: "write",
     }));
     expect(syncSftpDirectoryEntriesMock).toHaveBeenCalledWith({
       node,
-      remotePath: "/",
+      remotePath: "",
       recursive: true,
       maxDepth: 5,
     });

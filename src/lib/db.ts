@@ -14,6 +14,15 @@ export function isDatabaseUnavailableError(error: unknown) {
   );
 }
 
+/** Prisma unique-constraint helper shared by storage upsert/create races. */
+export function isUniqueViolation(error: unknown): boolean {
+  const code =
+    typeof error === "object" && error && "code" in error
+      ? String((error as { code?: string }).code)
+      : "";
+  return code === "P2002" || /Unique constraint/i.test(String(error));
+}
+
 declare global {
 	var __appPrisma__: PrismaClient | undefined;
 	var __appPrismaAdapter__: PrismaPg | undefined;

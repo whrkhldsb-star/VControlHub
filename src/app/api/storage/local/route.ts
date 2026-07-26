@@ -31,14 +31,7 @@ import { MAX_STORAGE_UPLOAD_BYTES } from "@/lib/storage/mime-constants";
 import { parseStorageRange, storageStreamResponse } from "@/lib/storage/streaming";
 
 import { AuthError, ValidationError } from "@/lib/errors";
-
-function isUniqueViolation(error: unknown): boolean {
-  const code =
-    typeof error === "object" && error && "code" in error
-      ? String((error as { code?: string }).code)
-      : "";
-  return code === "P2002" || /Unique constraint/i.test(String(error));
-}
+import { isUniqueViolation } from "@/lib/db";
 
 type UploadLike = {
   arrayBuffer(): Promise<ArrayBuffer>;

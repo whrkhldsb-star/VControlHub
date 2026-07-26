@@ -2,7 +2,7 @@ import { Prisma } from "@prisma/client";
 
 import type { SessionPayload } from "@/lib/auth/session";
 import { teamWhere } from "@/lib/auth/team-scope";
-import { prisma } from "@/lib/db";
+import { prisma, isUniqueViolation } from "@/lib/db";
 import { guessMimeType } from "@/lib/image-bed/constants";
 import { listRemoteDirectory, type SftpListEntry } from "@/lib/ssh/client";
 import { normalizeRemotePath } from "@/lib/storage/remote-path";
@@ -41,14 +41,6 @@ export interface SftpSyncResult {
   updated: number;
   deleted: number;
   errors: string[];
-}
-
-function isUniqueViolation(error: unknown): boolean {
-  const code =
-    typeof error === "object" && error && "code" in error
-      ? String((error as { code?: string }).code)
-      : "";
-  return code === "P2002" || /Unique constraint/i.test(String(error));
 }
 
 async function upsertRemoteEntry(nodeId: string, entry: SftpListEntry, relativePath: string) {

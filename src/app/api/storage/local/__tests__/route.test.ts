@@ -69,6 +69,13 @@ vi.mock("@/lib/storage/access-control", () => ({
 
 vi.mock("@/lib/db", () => ({
   prisma: prismaMock,
+  isUniqueViolation: (error: unknown) => {
+    const code =
+      typeof error === "object" && error && "code" in error
+        ? String((error as { code?: string }).code)
+        : "";
+    return code === "P2002" || /Unique constraint/i.test(String(error));
+  },
 }));
 
 vi.mock("@/lib/ssh/client", () => ({
@@ -117,9 +124,21 @@ describe("/api/storage/local", () => {
     });
   });
 
+  it("rejects download without nodeId before path normalization", async () => {
+    const response = await GET(
+      new Request("https://example.com/api/storage/local?path=docs%2Fnotes.txt"),
+    );
+
+    expect(response.status).toBe(400);
+    await expect(response.json()).resolves.toMatchObject({
+      error: "Missing nodeId parameter",
+    });
+    expect(prismaMock.fileEntry.findFirst).not.toHaveBeenCalled();
+  });
+
   it("rejects unsafe download paths before DB lookup", async () => {
     const response = await GET(
-      new Request("https://example.com/api/storage/local?path=..%2Fsecret.txt"),
+      new Request("https://example.com/api/storage/local?path=..%2Fsecret.txt&nodeId=node_1"),
     );
 
     expect(response.status).toBe(400);
@@ -134,7 +153,7 @@ describe("/api/storage/local", () => {
 
     const response = await GET(
       new Request(
-        "https://example.com/api/storage/local?path=docs%2Fnotes.txt",
+        "https://example.com/api/storage/local?path=docs%2Fnotes.txt&nodeId=node_1",
       ),
     );
 
@@ -142,6 +161,7 @@ describe("/api/storage/local", () => {
       expect.objectContaining({
         where: expect.objectContaining({
           relativePath: "docs/notes.txt",
+          storageNodeId: "node_1",
           storageNode: expect.objectContaining({
             driver: "LOCAL",
           }),
@@ -168,13 +188,14 @@ describe("/api/storage/local", () => {
 
     await GET(
       new Request(
-        "https://example.com/api/storage/local?path=docs%2Fnotes.txt",
+        "https://example.com/api/storage/local?path=docs%2Fnotes.txt&nodeId=node_1",
       ),
     );
 
     expect(prismaMock.fileEntry.findFirst).toHaveBeenCalledWith(
       expect.objectContaining({
         where: expect.objectContaining({
+          storageNodeId: "node_1",
           storageNode: expect.objectContaining({
             driver: "LOCAL",
             OR: [{ teamId: "team_a" }, { teamId: null }],
@@ -511,7 +532,7 @@ describe("/api/storage/local", () => {
     });
 
     const response = await GET(
-      new Request("https://example.com/api/storage/local?path=videos%2Fdemo.mp4", {
+      new Request("https://example.com/api/storage/local?path=videos%2Fdemo.mp4&nodeId=node_1", {
         headers: { range: "bytes=2-5" },
       }),
     );
@@ -538,7 +559,7 @@ describe("/api/storage/local", () => {
     });
 
     const response = await GET(
-      new Request("https://example.com/api/storage/local?path=videos%2Fdemo.mp4", {
+      new Request("https://example.com/api/storage/local?path=videos%2Fdemo.mp4&nodeId=node_1", {
         headers: { range: "bytes=99-100" },
       }),
     );
@@ -564,7 +585,7 @@ describe("/api/storage/local", () => {
 
     const response = await GET(
       new Request(
-        "https://example.com/api/storage/local?path=%E6%96%B0%E5%BB%BA%E6%96%87%E6%A1%A3.docx",
+        "https://example.com/api/storage/local?path=%E6%96%B0%E5%BB%BA%E6%96%87%E6%A1%A3.docx&nodeId=node_1",
       ),
     );
 

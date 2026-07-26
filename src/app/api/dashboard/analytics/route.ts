@@ -21,7 +21,24 @@ const logger = createLogger("api:dashboard:analytics");
 
 export const dynamic = "force-dynamic";
 
-function canReadAnalyticsDomain(session: SessionPayload, type: "servers" | "downloads" | "audit" | "image-bed") {
+const ANALYTICS_DOMAINS = ["servers", "downloads", "audit", "image-bed"] as const;
+type AnalyticsDomain = (typeof ANALYTICS_DOMAINS)[number];
+const ANALYTICS_DOMAIN_SET = new Set<string>(ANALYTICS_DOMAINS);
+
+const HOUR_MS = 60 * 60 * 1000;
+const DAY_MS = 24 * HOUR_MS;
+
+function startOfUtcHour(value: Date) {
+  const hour = new Date(value);
+  hour.setMinutes(0, 0, 0);
+  return hour.toISOString();
+}
+
+function startOfUtcDay(value: Date) {
+  return value.toISOString().slice(0, 10);
+}
+
+function canReadAnalyticsDomain(session: SessionPayload, type: AnalyticsDomain) {
   if (type === "servers") return sessionHasPermission(session, "server:read") || sessionHasPermission(session, "health:read");
   if (type === "downloads") return sessionHasPermission(session, "storage:read");
   if (type === "audit") return sessionHasPermission(session, "audit:read");
@@ -29,14 +46,18 @@ function canReadAnalyticsDomain(session: SessionPayload, type: "servers" | "down
   return false;
 }
 
-function shouldIncludeAnalytics(session: SessionPayload, requested: string, type: "servers" | "downloads" | "audit" | "image-bed") {
+function isAnalyticsDomain(value: string): value is AnalyticsDomain {
+  return ANALYTICS_DOMAIN_SET.has(value);
+}
+
+function shouldIncludeAnalytics(session: SessionPayload, requested: string, type: AnalyticsDomain) {
   return (requested === "all" || requested === type) && canReadAnalyticsDomain(session, type);
 }
 
 function requestedDomainForbidden(session: SessionPayload, requested: string) {
   if (requested === "all") return false;
-  if (!["servers", "downloads", "audit", "image-bed"].includes(requested)) return false;
-  return !canReadAnalyticsDomain(session, requested as "servers" | "downloads" | "audit" | "image-bed");
+  if (!isAnalyticsDomain(requested)) return false;
+  return !canReadAnalyticsDomain(session, requested);
 }
 
 export async function GET(request: Request) {
@@ -61,19 +82,21 @@ export async function GET(request: Request) {
     }
 
     const results: Record<string, unknown> = {};
+    const metricTeamFilter = teamWhere(session);
+    const resourceTeamFilter = teamWhere(session);
 
-    // Server metrics trend (last 24h)
+    // Server metrics trend (last 24h). Use denormalized teamId on metric_snapshots
+    // so we do not join Server for every snapshot row.
     if (shouldIncludeAnalytics(session, type, "servers")) {
-      const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
+      const twentyFourHoursAgo = new Date(Date.now() - 24 * HOUR_MS);
       const metrics = await prisma.metricSnapshot.findMany({
         where: {
           createdAt: { gte: twentyFourHoursAgo },
-          server: teamWhere(session),
+          ...metricTeamFilter,
         },
         orderBy: { createdAt: "asc" },
         take: 5000,
         select: {
-          serverId: true,
           cpuUsage: true,
           memUsage: true,
           diskUsage: true,
@@ -86,9 +109,7 @@ export async function GET(request: Request) {
         { cpu: number[]; memory: number[]; disk: number[] }
       >();
       for (const m of metrics) {
-        const hour = new Date(m.createdAt);
-        hour.setMinutes(0, 0, 0);
-        const key = hour.toISOString();
+        const key = startOfUtcHour(m.createdAt);
         if (!buckets.has(key))
           buckets.set(key, { cpu: [], memory: [], disk: [] });
         const bucket = buckets.get(key)!;
@@ -114,11 +135,11 @@ export async function GET(request: Request) {
 
     // Download task trend (last 7 days)
     if (shouldIncludeAnalytics(session, type, "downloads")) {
-      const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+      const sevenDaysAgo = new Date(Date.now() - 7 * DAY_MS);
       const downloads = await prisma.downloadTask.findMany({
         where: {
           createdAt: { gte: sevenDaysAgo },
-          ...teamWhere(session),
+          ...resourceTeamFilter,
         },
         orderBy: { createdAt: "asc" },
         take: 5000,
@@ -129,7 +150,7 @@ export async function GET(request: Request) {
         { completed: number; failed: number; running: number; pending: number }
       >();
       for (const d of downloads) {
-        const day = new Date(d.createdAt).toISOString().slice(0, 10);
+        const day = startOfUtcDay(d.createdAt);
         if (!dayBuckets.has(day))
           dayBuckets.set(day, {
             completed: 0,
@@ -148,11 +169,11 @@ export async function GET(request: Request) {
 
     // Audit log activity (last 30 days, grouped by day)
     if (shouldIncludeAnalytics(session, type, "audit")) {
-      const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+      const thirtyDaysAgo = new Date(Date.now() - 30 * DAY_MS);
       const audits = await prisma.auditLog.findMany({
         where: {
           createdAt: { gte: thirtyDaysAgo },
-          ...teamWhere(session),
+          ...resourceTeamFilter,
         },
         orderBy: { createdAt: "asc" },
         take: 10000,
@@ -163,7 +184,7 @@ export async function GET(request: Request) {
         { total: number; actions: Record<string, number> }
       >();
       for (const a of audits) {
-        const day = new Date(a.createdAt).toISOString().slice(0, 10);
+        const day = startOfUtcDay(a.createdAt);
         if (!dayBuckets.has(day))
           dayBuckets.set(day, { total: 0, actions: {} });
         const bucket = dayBuckets.get(day)!;
@@ -178,12 +199,12 @@ export async function GET(request: Request) {
 
     // Image bed storage trend (last 7 days)
     if (shouldIncludeAnalytics(session, type, "image-bed")) {
-      const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+      const sevenDaysAgo = new Date(Date.now() - 7 * DAY_MS);
       const images = await prisma.imageUpload.findMany({
         where: {
           createdAt: { gte: sevenDaysAgo },
           // ImageUpload.teamId is team-scoped (legacy null still visible via teamWhere).
-          ...teamWhere(session),
+          ...resourceTeamFilter,
         },
         orderBy: { createdAt: "asc" },
         take: 5000,
@@ -191,7 +212,7 @@ export async function GET(request: Request) {
       });
       const dayBuckets = new Map<string, { count: number; size: number }>();
       for (const img of images) {
-        const day = new Date(img.createdAt).toISOString().slice(0, 10);
+        const day = startOfUtcDay(img.createdAt);
         if (!dayBuckets.has(day)) dayBuckets.set(day, { count: 0, size: 0 });
         const bucket = dayBuckets.get(day)!;
         bucket.count++;

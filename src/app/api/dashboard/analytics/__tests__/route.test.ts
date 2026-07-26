@@ -58,7 +58,7 @@ describe("/api/dashboard/analytics", () => {
   });
 });
 
-  it("scopes metric snapshots through server.teamWhere and downloads/audit by teamId", async () => {
+  it("scopes metric snapshots through denormalized teamId and downloads/audit/image-bed by teamId", async () => {
     mocks.sessionHasPermission.mockImplementation(
       (_session, permission: string) =>
         permission === "server:read" ||
@@ -78,12 +78,10 @@ describe("/api/dashboard/analytics", () => {
     expect(mocks.prisma.metricSnapshot.findMany).toHaveBeenCalledWith(
       expect.objectContaining({
         where: expect.objectContaining({
-          server: expect.objectContaining({
-            OR: expect.arrayContaining([
-              { teamId: "team_a" },
-              { teamId: null },
-            ]),
-          }),
+          OR: expect.arrayContaining([
+            { teamId: "team_a" },
+            { teamId: null },
+          ]),
         }),
       }),
     );

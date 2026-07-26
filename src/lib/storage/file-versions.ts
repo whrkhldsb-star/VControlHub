@@ -18,7 +18,7 @@ import path from "node:path";
 import type { FileVersionReason } from "@prisma/client";
 
 import type { SessionPayload } from "@/lib/auth/session";
-import { prisma } from "@/lib/db";
+import { prisma, isUniqueViolation } from "@/lib/db";
 import {
   BusinessError,
   ForbiddenError,
@@ -169,14 +169,6 @@ async function nextVersionNumber(fileEntryId: string): Promise<number> {
     select: { versionNumber: true },
   });
   return (latest?.versionNumber ?? 0) + 1;
-}
-
-function isUniqueViolation(error: unknown): boolean {
-  const code =
-    typeof error === "object" && error && "code" in error
-      ? String((error as { code?: string }).code)
-      : "";
-  return code === "P2002" || /Unique constraint/i.test(String(error));
 }
 
 async function enforceRetention(fileEntryId: string, keep = DEFAULT_FILE_VERSION_KEEP) {

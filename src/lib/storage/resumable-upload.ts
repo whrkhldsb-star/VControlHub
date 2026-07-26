@@ -6,7 +6,7 @@
  */
 import path from "node:path";
 
-import { prisma } from "@/lib/db";
+import { prisma, isUniqueViolation } from "@/lib/db";
 import { ForbiddenError, ValidationError } from "@/lib/errors";
 import { assertStorageAccess, releaseStorageQuotaGuard } from "@/lib/storage/access-control";
 import {
@@ -30,14 +30,6 @@ export type CompleteStorageUploadResult = {
   size: number;
   storageNodeId: string;
 };
-
-function isUniqueViolation(error: unknown): boolean {
-  const code =
-    typeof error === "object" && error && "code" in error
-      ? String((error as { code?: string }).code)
-      : "";
-  return code === "P2002" || /Unique constraint/i.test(String(error));
-}
 
 export async function completeStorageFileUpload(params: {
   sessionId: string;
