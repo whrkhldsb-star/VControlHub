@@ -1,8 +1,8 @@
 "use client";
 
 import type { ReactNode } from "react";
-import { useDialogFocus } from "@/lib/a11y/use-dialog-focus";
 import { ActionButton } from "@/components/action-button";
+import { ModalShell } from "@/components/modal-shell";
 import { UI_MODAL_PANEL, UI_OVERLAY } from "@/lib/ui/classes";
 import { cn } from "@/lib/ui/cn";
 
@@ -29,23 +29,16 @@ export function ConfirmDialog({
 	busy = false,
 	closeOnBackdrop = true,
 }: ConfirmDialogProps) {
-	const dialogRef = useDialogFocus<HTMLDivElement>({ open, onClose: onCancel });
-	if (!open) return null;
-
 	return (
-		<div
-			className={cn(UI_OVERLAY, "flex items-center justify-center px-4")}
-			role="presentation"
-			onClick={closeOnBackdrop ? onCancel : undefined}
+		<ModalShell
+			open={open}
+			onClose={onCancel}
+			labelledBy="confirm-dialog-title"
+			overlayClassName={cn(UI_OVERLAY, "flex items-center justify-center px-4")}
+			panelClassName={cn(UI_MODAL_PANEL, "w-full max-w-md border-[var(--danger-border)] p-6 shadow-[0_24px_100px_rgba(244,63,94,0.16)]")}
+			closeOnBackdrop={closeOnBackdrop}
+			as="section"
 		>
-			<section
-				ref={dialogRef}
-				role="dialog"
-				aria-modal="true"
-				aria-labelledby="confirm-dialog-title"
-				onClick={(event) => event.stopPropagation()}
-				className={cn(UI_MODAL_PANEL, "w-full max-w-md border-[var(--danger-border)] p-6 shadow-[0_24px_100px_rgba(244,63,94,0.16)]")}
-			>
 				<h2 id="confirm-dialog-title" className="text-lg font-semibold text-[var(--text-primary)]">{title}</h2>
 				<div className="mt-3 text-sm leading-6 text-[var(--text-secondary)]">{description}</div>
 				<div className="mt-6 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
@@ -56,7 +49,6 @@ export function ConfirmDialog({
 						{confirmLabel}
 					</ActionButton>
 				</div>
-			</section>
-		</div>
+		</ModalShell>
 	);
 }

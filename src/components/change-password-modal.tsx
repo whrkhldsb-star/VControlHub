@@ -2,7 +2,7 @@
 import { useActionState, useEffect, useId, useRef } from "react";
 import { ActionButton } from "@/components/action-button";
 import { SubmitButton } from "@/components/submit-button";
-import { useDialogFocus } from "@/lib/a11y/use-dialog-focus";
+import { ModalShell } from "@/components/modal-shell";
 import { PasswordField } from "@/components/password-field";
 import {
   changePasswordAction,
@@ -25,7 +25,6 @@ export function ChangePasswordModal({
   const titleId = useId();
   const descriptionId = useId();
   const { t } = useI18n();
-  const dialogRef = useDialogFocus<HTMLDivElement>({ open: open, onClose: onClose });
   const formKeyRef = useRef(0);
 
   // Close after a short success flash so password fields are not left filled in an open modal.
@@ -41,22 +40,15 @@ export function ChangePasswordModal({
   const closeModalLabel = t("common.closeChangePasswordModal");
   const changePasswordDescription = t("common.changePasswordDescription");
   const titleText = t("common.editPassword");
-  if (!open) return null;
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center">
-      {" "}
-      <div
-        className="absolute inset-0 bg-[var(--overlay)] backdrop-blur-sm"
-        onClick={onClose}
-      />{" "}
-      <div
-        ref={dialogRef}
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby={titleId}
-        aria-describedby={descriptionId}
-        className="relative z-10 w-full max-w-md mx-4 rounded-3xl border border-[var(--border)] bg-[var(--modal-bg)] p-6 shadow-2xl"
-      >
+    <ModalShell
+      open={open}
+      onClose={onClose}
+      labelledBy={titleId}
+      describedBy={descriptionId}
+      overlayClassName="fixed inset-0 z-[100] flex items-center justify-center bg-[var(--overlay)] backdrop-blur-sm"
+      panelClassName="relative z-10 w-full max-w-md mx-4 rounded-3xl border border-[var(--border)] bg-[var(--modal-bg)] p-6 shadow-2xl"
+    >
         {" "}
         <div className="flex items-center justify-between mb-4">
           {" "}
@@ -161,8 +153,7 @@ export function ChangePasswordModal({
             </SubmitButton>
           </div>
         </form>{" "}
-      </div>{" "}
-    </div>
+    </ModalShell>
   );
 }
 

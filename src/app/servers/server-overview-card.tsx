@@ -6,11 +6,11 @@ import { createPortal } from "react-dom";
 import { toDateLocale } from "@/lib/i18n/locale-format";
 
 import { useI18n } from "@/lib/i18n/use-locale";
-import { useDialogFocus } from "@/lib/a11y/use-dialog-focus";
 import { useVisibilityInterval } from "@/lib/hooks/use-visibility-interval";
 import { ServerCardActions } from "./server-card-actions";
 import { useAutoProbeSettings } from "./auto-probe-context";
 import { ActionButton } from "@/components/action-button";
+import { ModalShell } from "@/components/modal-shell";
 
 // TR-036: defer ServerCardActions/form wiring until the details portal expands.
 const ServerOverviewDetails = dynamic(
@@ -88,7 +88,6 @@ export function ServerOverviewCard({
   const openDialog = useCallback(() => {
     setExpanded(true);
   }, []);
-  const dialogRef = useDialogFocus<HTMLDivElement>({ open: expanded, onClose: closeDialog });
   const [diagnosticRun, setDiagnosticRun] = useState<DiagnosticRunState>({ status: "idle" });
   const directLabel = server.directGateway?.statusLabel ?? t("serverOverviewCard.websiteRelay");
   const detailsId = `server-details-${server.id}`;
@@ -319,19 +318,14 @@ export function ServerOverviewCard({
 
       {portalReady && expanded
         ? createPortal(
-            <div
-              className="fixed inset-0 z-[60] flex items-start justify-center overflow-y-auto bg-[var(--overlay-strong)] px-3 py-6 backdrop-blur-md sm:px-6"
-              onClick={closeDialog}
-              data-server-details-modal={server.id}
+            <ModalShell
+              open={expanded}
+              onClose={closeDialog}
+              labelledBy={`${detailsId}-title`}
+              overlayClassName="fixed inset-0 z-[60] flex items-start justify-center overflow-y-auto bg-[var(--overlay-strong)] px-3 py-6 backdrop-blur-md sm:px-6"
+              panelClassName="w-full max-w-5xl rounded-3xl border border-[var(--border)] bg-[var(--surface)] p-4 text-[var(--text-primary)] shadow-2xl sm:p-5"
+              panelProps={{ "data-server-details-modal": server.id }}
             >
-              <div
-                ref={dialogRef}
-                role="dialog"
-                aria-modal="true"
-                aria-labelledby={`${detailsId}-title`}
-                className="w-full max-w-5xl rounded-3xl border border-[var(--border)] bg-[var(--surface)] p-4 text-[var(--text-primary)] shadow-2xl sm:p-5"
-                onClick={(event) => event.stopPropagation()}
-              >
                 <div className="mb-3 flex items-center justify-between gap-3 border-b border-[var(--border)] pb-3">
                   <div className="min-w-0">
                     <p className="text-[11px] uppercase tracking-[0.22em] text-[var(--text-muted)]">{t("serverOverviewCard.eyebrow")}</p>
@@ -359,8 +353,7 @@ export function ServerOverviewCard({
                     onRunRealtimeDiagnostics={runRealtimeDiagnostics}
                   />
                 </div>
-              </div>
-            </div>,
+            </ModalShell>,
             document.body,
           )
         : null}

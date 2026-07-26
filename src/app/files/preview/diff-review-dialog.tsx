@@ -1,7 +1,7 @@
 "use client";
 
 import { useI18n } from "@/lib/i18n/use-locale";
-import { useDialogFocus } from "@/lib/a11y/use-dialog-focus";
+import { ModalShell } from "@/components/modal-shell";
 import type { DiffRow } from "./text-preview-types";
 import { ActionButton } from "@/components/action-button";
 
@@ -30,12 +30,19 @@ export function DiffReviewDialog({
 }: DiffReviewDialogProps) {
 	const { t } = useI18n();
 	const busy = saveStatus === "saving" || saveStatus === "reloading";
-	const dialogRef = useDialogFocus<HTMLDivElement>({ open: true, onClose });
 	return (
-		<div ref={dialogRef} role="dialog" aria-modal="true" aria-label={t("textPreview.diffDialog.title")} data-tone="amber" className="rounded-2xl border border-[var(--warning-border)] p-4 shadow-2xl shadow-black/20">
+		<ModalShell
+			open
+			onClose={onClose}
+			labelledBy="diff-review-dialog-title"
+			overlayClassName="contents"
+			panelClassName="rounded-2xl border border-[var(--warning-border)] p-4 shadow-2xl shadow-black/20"
+			closeOnBackdrop={false}
+			panelProps={{ "data-tone": "amber" }}
+		>
 			<div className="flex flex-wrap items-start justify-between gap-3">
 				<div>
-					<h3 className="text-sm font-semibold text-[var(--warning)]">{t("textPreview.diffDialog.title")}</h3>
+					<h3 id="diff-review-dialog-title" className="text-sm font-semibold text-[var(--warning)]">{t("textPreview.diffDialog.title")}</h3>
 					<p className="mt-1 text-xs text-[var(--warning)]/80">
 						{t("textPreview.diffDialog.summary", { added: diffSummary.added, removed: diffSummary.removed, changed: diffSummary.changed })}
 					</p>
@@ -92,6 +99,6 @@ export function DiffReviewDialog({
 					</ul>
 				)}
 			</div>
-		</div>
+		</ModalShell>
 	);
 }

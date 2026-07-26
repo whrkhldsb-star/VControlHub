@@ -47,8 +47,6 @@ export default function DockerPage({ initialServers }: { initialServers: { id: s
 		closeLogsDialog,
 		removeCancelButtonRef,
 		logsCloseButtonRef,
-		removalDialogRef,
-		logsDialogRef,
 		grouped,
 		ungrouped,
 		fetchContainers,
@@ -167,7 +165,6 @@ export default function DockerPage({ initialServers }: { initialServers: { id: s
 				pendingRemoval={pendingRemoval}
 				t={t}
 				actionLoading={actionLoading}
-				removalDialogRef={removalDialogRef}
 				removeCancelButtonRef={removeCancelButtonRef}
 				closeRemovalDialog={closeRemovalDialog}
 				confirmRemoval={confirmRemoval}
@@ -188,7 +185,6 @@ export default function DockerPage({ initialServers }: { initialServers: { id: s
 				logsId={logsId}
 				logs={logs}
 				t={t}
-				logsDialogRef={logsDialogRef}
 				logsCloseButtonRef={logsCloseButtonRef}
 				closeLogsDialog={closeLogsDialog}
 			/>

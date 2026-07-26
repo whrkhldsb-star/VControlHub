@@ -2,7 +2,6 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { csrfFetch } from "@/lib/auth/csrf-client";
-import { useDialogFocus } from "@/lib/a11y/use-dialog-focus";
 import { useRefreshInterval } from "@/lib/preferences/use-refresh-interval";
 import { useUrlQueryState } from "@/lib/hooks/use-url-query-state";
 import { useI18n } from "@/lib/i18n/use-locale";
@@ -42,8 +41,6 @@ export function useDockerPage(initialServers: { id: string; name: string; host: 
 	const closeLogsDialog = useCallback(() => setLogsId(null), []);
 	const removeCancelButtonRef = useRef<HTMLButtonElement | null>(null);
 	const logsCloseButtonRef = useRef<HTMLButtonElement | null>(null);
-	const removalDialogRef = useDialogFocus<HTMLDivElement>({ open: pendingRemoval !== null, onClose: closeRemovalDialog, initialFocusRef: removeCancelButtonRef });
-	const logsDialogRef = useDialogFocus<HTMLDivElement>({ open: logsId !== null, onClose: closeLogsDialog, initialFocusRef: logsCloseButtonRef });
 	const fetchingStatsRef = useRef<Set<string>>(new Set());
 	const statsServerIdRef = useRef(selectedServerId);
 	const logsReqRef = useRef<{ id: string; serverId: string } | null>(null);
@@ -299,8 +296,6 @@ export function useDockerPage(initialServers: { id: string; name: string; host: 
 		closeLogsDialog,
 		removeCancelButtonRef,
 		logsCloseButtonRef,
-		removalDialogRef,
-		logsDialogRef,
 		grouped,
 		ungrouped,
 		fetchContainers,

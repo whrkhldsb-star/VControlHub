@@ -25,7 +25,7 @@ export default async function DeploymentsPage({ searchParams }: { searchParams?:
 	const session = await requireSession("/deployments");
 	const locale = await getServerLocale();
 	const dateLocale = toDateLocale(locale);
-	const tr = (key: string) => t(key, locale);
+	const tr = (key: string, vars?: Record<string, string | number>) => t(key, locale, vars);
 	const trTpl = (key: string, vars: Record<string, string>) =>
 		Object.entries(vars).reduce((s, [k, v]) => s.replaceAll(`{${k}}`, v), tr(key));
 	if (!sessionHasPermission(session, "deploy:read")) return <PageShell><EmptyState text={tr("deploymentsPage.page.noPermission")} variant="boxed" /></PageShell>;

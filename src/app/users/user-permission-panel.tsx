@@ -5,7 +5,7 @@ import { csrfFetch } from "@/lib/auth/csrf-client";
 import { formatBytes as formatBytesShared } from "@/lib/format/bytes";
 import { EmptyState } from "@/components/page-shell";
 import { useI18n } from "@/lib/i18n/use-locale";
-import { useDialogFocus } from "@/lib/a11y/use-dialog-focus";
+import { ModalShell } from "@/components/modal-shell";
 import { getErrorMessage } from "@/lib/http/error-message";
 import { ActionButton } from "@/components/action-button";
 
@@ -79,7 +79,6 @@ function toBytes(value: string): { ok: true; value: string | null } | { ok: fals
 
 export function UserPermissionPanel({ userId, username, onClose, onSaved }: Props) {
   const { t } = useI18n();
-  const dialogRef = useDialogFocus<HTMLDivElement>({ open: true, onClose });
   const [payload, setPayload] = useState<PermissionsPayload | null>(null);
   const [roleKeys, setRoleKeys] = useState<string[]>([]);
   const [permissionKeys, setPermissionKeys] = useState<string[]>([]);
@@ -219,8 +218,14 @@ const _data = await csrfFetch("/api/users/permissions", {
   };
 
   return (
-    <div className="fixed inset-0 z-50 overflow-y-auto bg-[var(--overlay)] p-4 backdrop-blur">
-      <div ref={dialogRef} role="dialog" aria-modal="true" aria-label={t("usersPerm.title")} className="mx-auto max-w-5xl rounded-3xl border border-[var(--border)] bg-[var(--modal-bg)] p-6 shadow-2xl shadow-[var(--color-action)]/40">
+    <ModalShell
+      open
+      onClose={onClose}
+      label={t("usersPerm.title")}
+      closeOnBackdrop={false}
+      overlayClassName="fixed inset-0 z-50 overflow-y-auto bg-[var(--overlay)] p-4 backdrop-blur"
+      panelClassName="mx-auto max-w-5xl rounded-3xl border border-[var(--border)] bg-[var(--modal-bg)] p-6 shadow-2xl shadow-[var(--color-action)]/40"
+    >
         <div className="mb-5 flex items-start justify-between gap-4">
           <div>
             <p className="text-xs uppercase tracking-[0.3em] text-[var(--color-action)]/70">{t("usersPerm.title")}</p>
@@ -336,7 +341,6 @@ const _data = await csrfFetch("/api/users/permissions", {
             </div>
           </div>
         )}
-      </div>
-    </div>
+    </ModalShell>
   );
 }

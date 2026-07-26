@@ -23,7 +23,7 @@ export type BatchReviewActionState = {
 export async function reviewCommandAction(_prevState: ReviewActionState | null, formData: FormData) {
   const session = await requirePermission("command:approve");
   const locale = await getServerLocale();
-  const tr = (key: string) => t(key, locale);
+  const tr = (key: string, vars?: Record<string, string | number>) => t(key, locale, vars);
 
   try {
     const approved = String(formData.get("decision") ?? "approve") === "approve";
@@ -78,7 +78,7 @@ export async function batchReviewCommandAction(
 ): Promise<BatchReviewActionState> {
   const session = await requirePermission("command:approve");
   const locale = await getServerLocale();
-  const tr = (key: string) => t(key, locale);
+  const tr = (key: string, vars?: Record<string, string | number>) => t(key, locale, vars);
 
   const approved = String(formData.get("decision") ?? "approve") === "approve";
   const comment = String(formData.get("comment") ?? "");
@@ -126,18 +126,18 @@ export async function batchReviewCommandAction(
   const verb = approved ? tr("requestsPage.batch.verbApprove") : tr("requestsPage.batch.verbReject");
   if (failCount === 0) {
     return {
-      success: tr("requestsPage.batch.successAll").replace("{verb}", verb).replace("{count}", String(okCount)),
+      success: tr("requestsPage.batch.successAll", { verb, count: okCount }),
       results,
     } satisfies BatchReviewActionState;
   }
   if (okCount === 0) {
     return {
-      error: tr("requestsPage.batch.errorAllFailed").replace("{verb}", verb).replace("{count}", String(failCount)),
+      error: tr("requestsPage.batch.errorAllFailed", { verb, count: failCount }),
       results,
     } satisfies BatchReviewActionState;
   }
   return {
-    success: tr("requestsPage.batch.successPartial").replace("{verb}", verb).replace("{okCount}", String(okCount)).replace("{failCount}", String(failCount)),
+    success: tr("requestsPage.batch.successPartial", { verb, okCount, failCount }),
     results,
   } satisfies BatchReviewActionState;
 }

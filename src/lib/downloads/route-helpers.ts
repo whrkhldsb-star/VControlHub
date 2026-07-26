@@ -93,9 +93,7 @@ export function taskDownloadAccess(task: {
   const description = storageNode.driver !== "SFTP"
     ? t("downloadsPage.access.localDesc", locale)
     : isDirect
-      ? t(storageNode.directAccessMode === "AUTO" ? "downloadsPage.access.directAutoDesc" : "downloadsPage.access.directModeDesc", locale)
-        .replace("{host}", host)
-        .replace("{port}", String(port))
+      ? t(storageNode.directAccessMode === "AUTO" ? "downloadsPage.access.directAutoDesc" : "downloadsPage.access.directModeDesc", locale, { host, port })
       : t("downloadsPage.access.relayDesc", locale, { host, port });
   return {
     mode: strategy.mode,

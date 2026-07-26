@@ -6,9 +6,9 @@ import { csrfFetch } from "@/lib/auth/csrf-client";
 import { useI18n } from "@/lib/i18n/use-locale";
 import { formatDateTime } from "@/lib/datetime/format";
 import type { Locale } from "@/lib/i18n/translations";
-import { useDialogFocus } from "@/lib/a11y/use-dialog-focus";
 import { getErrorMessage } from "@/lib/http/error-message";
 import { ActionButton } from "@/components/action-button";
+import { ModalShell } from "@/components/modal-shell";
 
 export type SafeApiToken = {
   id: string;
@@ -55,7 +55,6 @@ export function ApiTokenManagerClient({ initialTokens, allowedScopes }: Props) {
   const [error, setError] = useState<string | null>(null);
   const [createdPlaintext, setCreatedPlaintext] = useState<string | null>(null);
   const [tokenPendingRevoke, setTokenPendingRevoke] = useState<SafeApiToken | null>(null);
-  const revokeDialogRef = useDialogFocus({ open: !!tokenPendingRevoke, onClose: () => setTokenPendingRevoke(null) });
 
   const activeCount = useMemo(() => tokens.filter((token) => !token.revokedAt).length, [tokens]);
 
@@ -222,10 +221,14 @@ export function ApiTokenManagerClient({ initialTokens, allowedScopes }: Props) {
         )}
       </section>
       {tokenPendingRevoke && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-[var(--surface)]/70 px-4 backdrop-blur-sm" role="presentation" onClick={(event) => {
-          if (event.target === event.currentTarget) setTokenPendingRevoke(null);
-        }}>
-          <section ref={revokeDialogRef} role="dialog" aria-modal="true" aria-labelledby="revoke-api-token-title" className="w-full max-w-md rounded-2xl border border-[var(--danger-border)] bg-[var(--modal-bg)] p-6 shadow-[0_24px_100px_rgba(244,63,94,0.16)]">
+        <ModalShell
+          open
+          onClose={() => setTokenPendingRevoke(null)}
+          labelledBy="revoke-api-token-title"
+          as="section"
+          overlayClassName="fixed inset-0 z-50 flex items-center justify-center bg-[var(--surface)]/70 px-4 backdrop-blur-sm"
+          panelClassName="w-full max-w-md rounded-2xl border border-[var(--danger-border)] bg-[var(--modal-bg)] p-6 shadow-[0_24px_100px_rgba(244,63,94,0.16)]"
+        >
             <h2 id="revoke-api-token-title" className="text-lg font-semibold text-[var(--text-primary)]">{t("apiTokensPage.revoke.confirmTitle")}</h2>
             <p className="mt-3 text-sm leading-6 text-[var(--text-secondary)]">
               {t("apiTokensPage.revoke.confirmBody", { name: tokenPendingRevoke.name })}
@@ -238,8 +241,7 @@ export function ApiTokenManagerClient({ initialTokens, allowedScopes }: Props) {
                 {t("apiTokensPage.revoke.confirm")}
               </ActionButton>
             </div>
-          </section>
-        </div>
+        </ModalShell>
       )}
     </div>
   );

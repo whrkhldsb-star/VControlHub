@@ -4,6 +4,7 @@ import { SurfacePanel } from "@/components/page-shell";
 import { UI_INPUT } from "@/lib/ui/classes";
 import { cn } from "@/lib/ui/cn";
 import { ActionButton } from "@/components/action-button";
+import { ModalShell } from "@/components/modal-shell";
 
 export const ROLE_KEYS = ["admin","operator","storage_manager","viewer"] as const;
 export type RoleKey = (typeof ROLE_KEYS)[number];
@@ -135,7 +136,6 @@ export function UsersCreateForm({
 export function UsersResetPasswordDialog({
   t,
   username,
-  dialogRef,
   password,
   setPassword,
   resetting,
@@ -144,7 +144,6 @@ export function UsersResetPasswordDialog({
 }: {
   t: (k: string, vars?: Record<string, string | number>) => string;
   username: string;
-  dialogRef: React.RefObject<HTMLDivElement | null>;
   password: string;
   setPassword: (value: string) => void;
   resetting: boolean;
@@ -152,19 +151,14 @@ export function UsersResetPasswordDialog({
   onConfirm: () => void;
 }) {
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-[var(--overlay)] px-4 backdrop-blur-sm"
-      role="presentation"
-      onClick={onCancel}
+    <ModalShell
+      open
+      onClose={onCancel}
+      labelledBy="reset-password-title"
+      overlayClassName="fixed inset-0 z-50 flex items-center justify-center bg-[var(--overlay)] px-4 backdrop-blur-sm"
+      panelClassName="w-full max-w-md rounded-2xl border border-[var(--warning-border)] bg-[var(--modal-bg)] p-6 shadow-lg"
+      as="section"
     >
-      <section
-        ref={dialogRef}
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="reset-password-title"
-        onClick={(event) => event.stopPropagation()}
-        className="w-full max-w-md rounded-2xl border border-[var(--warning-border)] bg-[var(--modal-bg)] p-6 shadow-lg"
-      >
         <h2 id="reset-password-title" className="text-lg font-semibold text-[var(--text-primary)]">
           {t("usersPage.resetPassword.title", { name: username })}
         </h2>
@@ -194,7 +188,6 @@ export function UsersResetPasswordDialog({
             {resetting ? t("usersPage.action.resetting") : t("usersPage.action.confirmReset")}
           </button>
         </div>
-      </section>
-    </div>
+    </ModalShell>
   );
 }

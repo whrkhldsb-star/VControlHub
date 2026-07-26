@@ -12,7 +12,7 @@ export const dynamic = "force-dynamic";
 export default async function ScheduledTasksPage() {
 	const session = await requireSession();
 	const locale = await getServerLocale();
-	const tr = (key: string) => t(key, locale);
+	const tr = (key: string, vars?: Record<string, string | number>) => t(key, locale, vars);
 	const canCreate = sessionHasPermission(session, "command:create");
 	const canManage = sessionHasPermission(session, "command:execute");
 

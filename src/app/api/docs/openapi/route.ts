@@ -400,7 +400,7 @@ function buildOpenApiSpec(t: TFunction) {
 export async function GET(request: Request) {
   return withApiRoute(request, { requireAuth: true }, async () => {
     const locale = await getServerLocale();
-    const tr = (key: string) => t(key, locale);
+    const tr = (key: string, vars?: Record<string, string | number>) => t(key, locale, vars);
     return NextResponse.json(buildOpenApiSpec(tr));
   });
 }

@@ -4,11 +4,11 @@ import { useCallback, useEffect, useRef, useState } from "react";
 
 import { csrfFetch } from "@/lib/auth/csrf-client";
 import { useI18n } from "@/lib/i18n/use-locale";
-import { useDialogFocus } from "@/lib/a11y/use-dialog-focus";
 import { toDateLocale } from "@/lib/i18n/locale-format";
 import type { Locale } from "@/lib/i18n/translations";
 import { getErrorMessage } from "@/lib/http/error-message";
 import { ActionButton } from "@/components/action-button";
+import { ModalShell } from "@/components/modal-shell";
 
 type JobEventLevel = "info" | "warn" | "error";
 
@@ -82,7 +82,6 @@ export function JobEventsDialog({ jobId, open, onClose }: JobEventsDialogProps) 
   const [error, setError] = useState<string | null>(null);
   const [hasMore, setHasMore] = useState(false);
   const closeButtonRef = useRef<HTMLButtonElement | null>(null);
-  const dialogRef = useDialogFocus<HTMLDivElement>({ open, onClose, initialFocusRef: closeButtonRef });
 
   const load = useCallback(
     async (append: boolean) => {
@@ -129,19 +128,14 @@ export function JobEventsDialog({ jobId, open, onClose }: JobEventsDialogProps) 
   if (!open || !jobId) return null;
 
   return (
-    <div
-      className="fixed inset-0 z-[60] flex items-start justify-center bg-[var(--overlay)] backdrop-blur-sm px-4 pt-[10vh] pb-8"
-      onClick={onClose}
-      role="presentation"
+    <ModalShell
+      open={open}
+      onClose={onClose}
+      labelledBy="job-events-dialog-title"
+      initialFocusRef={closeButtonRef}
+      overlayClassName="fixed inset-0 z-[60] flex items-start justify-center bg-[var(--overlay)] backdrop-blur-sm px-4 pt-[10vh] pb-8"
+      panelClassName="w-full max-w-3xl rounded-2xl border border-[var(--border)] bg-[var(--modal-bg)] shadow-2xl"
     >
-      <div
-        ref={dialogRef}
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="job-events-dialog-title"
-        onClick={(event) => event.stopPropagation()}
-        className="w-full max-w-3xl rounded-2xl border border-[var(--border)] bg-[var(--modal-bg)] shadow-2xl"
-      >
         <div className="flex items-center justify-between border-b border-[var(--border)] px-5 py-4">
           <div>
             <h2 id="job-events-dialog-title" className="text-sm font-semibold text-[var(--text-primary)]">
@@ -230,7 +224,6 @@ export function JobEventsDialog({ jobId, open, onClose }: JobEventsDialogProps) 
             ) : null}
           </div>
         </div>
-      </div>
-    </div>
+    </ModalShell>
   );
 }

@@ -15,7 +15,7 @@ export function BackupDrillButton({ backupId, disabled }: { backupId: string; di
     setPending(true); setMessage(null); setError(null);
     try {
       const result = await csrfFetch<{ taskId: string; deduped: boolean }>(`/api/backups/${encodeURIComponent(backupId)}/drill`, { method: "POST" });
-      setMessage(`${t(result.deduped ? "backupsPage.drill.deduped" : "backupsPage.drill.queued").replace("{taskId}", result.taskId)} (${result.taskId})`);
+      setMessage(`${t(result.deduped ? "backupsPage.drill.deduped" : "backupsPage.drill.queued", { taskId: result.taskId })} (${result.taskId})`);
     } catch (cause) { setError(getErrorMessage(cause, t("backupsPage.drill.error"))); }
     finally { setPending(false); }
   }

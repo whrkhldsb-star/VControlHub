@@ -2,7 +2,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { csrfFetch } from "@/lib/auth/csrf-client";
 import { useI18n } from "@/lib/i18n/use-locale";
-import { useDialogFocus } from "@/lib/a11y/use-dialog-focus";
+import { ModalShell } from "@/components/modal-shell";
 import { ActionButton } from "@/components/action-button";
 import { getErrorMessage } from "@/lib/http/error-message";
 type ResourceType = "networks" | "volumes";
@@ -50,7 +50,7 @@ export function DockerResourcesPanel({ serverId }: { serverId?: string }) {
   const [error, setError] = useState("");
   const [detail, setDetail] = useState<DetailState>(null);
   const [pendingDelete, setPendingDelete] = useState<PendingDelete>(null);
-  const dialogRef = useDialogFocus<HTMLDivElement>({ open: pendingDelete !== null, onClose: () => setPendingDelete(null) });
+
   const fetchGenRef = useRef(0);
   const fetchAbortRef = useRef<AbortController | null>(null);
   const resourceKind = useCallback(
@@ -358,19 +358,16 @@ export function DockerResourcesPanel({ serverId }: { serverId?: string }) {
         </div>{" "}
       </div>{" "}
       {pendingDelete ? (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-[var(--surface)]/70 px-4 backdrop-blur-sm"
-          role="presentation"
+        <ModalShell
+          open={pendingDelete !== null}
+          onClose={() => setPendingDelete(null)}
+          labelledBy="docker-resource-delete-title"
+          overlayClassName="fixed inset-0 z-50 flex items-center justify-center bg-[var(--surface)]/70 px-4 backdrop-blur-sm"
+          panelClassName="w-full max-w-md rounded-2xl border border-[var(--danger-border)] bg-[var(--modal-bg)] p-6 shadow-[0_24px_100px_rgba(244,63,94,0.16)]"
+          closeOnBackdrop={false}
+          as="section"
         >
           {" "}
-          <section
-            ref={dialogRef}
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="docker-resource-delete-title"
-            className="w-full max-w-md rounded-2xl border border-[var(--danger-border)] bg-[var(--modal-bg)] p-6 shadow-[0_24px_100px_rgba(244,63,94,0.16)]"
-          >
-            {" "}
             <h3
               id="docker-resource-delete-title"
               className="text-lg font-semibold text-[var(--text-primary)]"
@@ -397,8 +394,7 @@ export function DockerResourcesPanel({ serverId }: { serverId?: string }) {
                 {t("dockerResources.confirm")}
               </ActionButton>{" "}
             </div>{" "}
-          </section>{" "}
-        </div>
+        </ModalShell>
       ) : null}{" "}
       {detail ? (
         <div className="mt-4 rounded-xl border border-[var(--border)] bg-[color-mix(in_srgb,var(--surface-subtle)_85%,#000)] p-3">

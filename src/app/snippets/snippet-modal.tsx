@@ -2,7 +2,7 @@
 
 import { useRef, useState, type Dispatch, type SetStateAction } from "react";
 
-import { useDialogFocus } from "@/lib/a11y/use-dialog-focus";
+import { ModalShell } from "@/components/modal-shell";
 import { csrfFetch } from "@/lib/auth/csrf-client";
 import { useI18n } from "@/lib/i18n/use-locale";
 import { useToast } from "@/components/toast-provider";
@@ -48,7 +48,6 @@ export function SnippetModal({
 		if (savingRef.current) return;
 		onClose();
 	};
-	const dialogRef = useDialogFocus<HTMLDivElement>({ open: true, onClose: requestClose });
 	const [title, setTitle] = useState(snippet.title);
 	const [content, setContent] = useState(snippet.content);
 	const [language, setLanguage] = useState(snippet.language);
@@ -110,15 +109,14 @@ export function SnippetModal({
 	];
 
 	return (
-		<div className="fixed inset-0 z-50 flex items-center justify-center bg-[var(--overlay)] backdrop-blur-sm">
-			<div
-				ref={dialogRef}
-				role="dialog"
-				aria-modal="true"
-				aria-labelledby={`${prefix}-snippet-title`}
-				className="w-full max-w-lg rounded-2xl border border-[var(--border)] bg-[var(--modal-bg)] p-6 shadow-2xl"
-				onClick={(event) => event.stopPropagation()}
-			>
+		<ModalShell
+			open
+			onClose={requestClose}
+			labelledBy={`${prefix}-snippet-title`}
+			closeOnBackdrop={false}
+			overlayClassName="fixed inset-0 z-50 flex items-center justify-center bg-[var(--overlay)] backdrop-blur-sm"
+			panelClassName="w-full max-w-lg rounded-2xl border border-[var(--border)] bg-[var(--modal-bg)] p-6 shadow-2xl"
+		>
 				<h3 id={`${prefix}-snippet-title`} className="text-lg font-semibold text-[var(--text-primary)]">
 					{t(`snippetsPage.modal.${prefix}Title`)}
 				</h3>
@@ -155,7 +153,6 @@ export function SnippetModal({
 						{t(`snippetsPage.modal.action.${saving ? (mode === "create" ? "creating" : "saving") : mode === "create" ? "create" : "save"}`)}
 					</ActionButton>
 				</div>
-			</div>
-		</div>
+		</ModalShell>
 	);
 }

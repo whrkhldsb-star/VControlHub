@@ -19,7 +19,7 @@ export default async function OperationTasksPage({
 }) {
 	const session = await requireSession("/operation-tasks");
 	const locale = await getServerLocale();
-	const tr = (key: string) => t(key, locale);
+	const tr = (key: string, vars?: Record<string, string | number>) => t(key, locale, vars);
 	if (!sessionHasPermission(session, "task:read")) {
 		return <PageShell maxW="max-w-7xl"><EmptyState text={tr("operationTasksPage.noPermission")} variant="boxed" /></PageShell>;
 	}

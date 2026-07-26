@@ -50,7 +50,13 @@ export function useFileAttachments({
   onReject,
   t,
 }: UseFileAttachmentsOptions): UseFileAttachmentsReturn {
-  const tr = useMemo(() => t ?? ((key: string) => key), [t]);
+  const tr = useMemo(
+    () =>
+      t ??
+      ((key: string, vars?: Record<string, string | number>) =>
+        vars ? Object.entries(vars).reduce((s, [k, v]) => s.split(`{${k}}`).join(String(v)), key) : key),
+    [t],
+  );
   const [fileAttachments, setFileAttachments] = useState<FileAttachment[]>([]);
   const [fileRejectionMsg, setFileRejectionMsg] = useState<string | null>(null);
 
@@ -69,7 +75,7 @@ export function useFileAttachments({
       for (const file of fileArr) {
         try {
           if (file.size > MAX_FILE_SIZE_BYTES) {
-            showRejection(tr("aiPage.fileTooLarge").replace("{name}", file.name));
+            showRejection(tr("aiPage.fileTooLarge", { name: file.name }));
             continue;
           }
 
@@ -79,7 +85,7 @@ export function useFileAttachments({
             case "image": {
               if (!currentModelCaps.vision && !enableVision) {
                 showRejection(
-                  tr("aiPage.unsupportedImageModel").replace("{model}", modelName ?? "-")
+                  tr("aiPage.unsupportedImageModel", { model: modelName ?? "-" })
                 );
                 continue;
               }
@@ -101,7 +107,7 @@ export function useFileAttachments({
             case "video": {
               if (!currentModelCaps.video) {
                 showRejection(
-                  tr("aiPage.unsupportedVideoModel").replace("{model}", modelName ?? "-")
+                  tr("aiPage.unsupportedVideoModel", { model: modelName ?? "-" })
                 );
                 continue;
               }
@@ -123,7 +129,7 @@ export function useFileAttachments({
             case "audio": {
               if (!currentModelCaps.audio) {
                 showRejection(
-                  tr("aiPage.unsupportedAudioModel").replace("{model}", modelName ?? "-")
+                  tr("aiPage.unsupportedAudioModel", { model: modelName ?? "-" })
                 );
                 continue;
               }
@@ -146,12 +152,12 @@ export function useFileAttachments({
               if (!currentModelCaps.document) {
                 if (file.name.toLowerCase().endsWith(".pdf")) {
                   showRejection(
-                    tr("aiPage.unsupportedPdfModel").replace("{model}", modelName ?? "-")
+                    tr("aiPage.unsupportedPdfModel", { model: modelName ?? "-" })
                   );
                   continue;
                 }
                 showRejection(
-                  tr("aiPage.unsupportedOfficeModel").replace("{model}", modelName ?? "-")
+                  tr("aiPage.unsupportedOfficeModel", { model: modelName ?? "-" })
                 );
                 continue;
               }
@@ -189,12 +195,12 @@ export function useFileAttachments({
             }
             default: {
               showRejection(
-                tr("aiPage.unsupportedFileType").replace("{name}", file.name).replace("{types}", formatAllowedTypes(currentModelCaps, tr))
+                tr("aiPage.unsupportedFileType", { name: file.name, types: formatAllowedTypes(currentModelCaps, tr) })
               );
             }
           }
         } catch {
-          showRejection(tr("aiPage.fileReadFailed").replace("{name}", file.name));
+          showRejection(tr("aiPage.fileReadFailed", { name: file.name }));
         }
       }
     },

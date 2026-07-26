@@ -16,7 +16,7 @@ export type CommandActionState = {
 export async function createCommandRequestAction(_prev: CommandActionState | null, formData: FormData) {
   const session = await requirePermission("command:create");
   const locale = await getServerLocale();
-  const tr = (key: string) => t(key, locale);
+  const tr = (key: string, vars?: Record<string, string | number>) => t(key, locale, vars);
 
   try {
     const serverIds = formData.getAll("serverIds").map((value) => String(value)).filter(Boolean);

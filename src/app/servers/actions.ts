@@ -32,7 +32,7 @@ function parseTags(raw: string) {
 
 async function serverActionTranslator() {
   const locale = await getServerLocale();
-  return (key: string) => t(key, locale);
+  return (key: string, vars?: Record<string, string | number>) => t(key, locale, vars);
 }
 
 export async function createServerAction(
@@ -100,7 +100,7 @@ export async function createServerAction(
     return {
       success:
         created.onboardingWarnings.length > 0
-          ? tr("serversPage.action.createWithWarnings").replace("{warnings}", created.onboardingWarnings.join(" "))
+          ? tr("serversPage.action.createWithWarnings", { warnings: created.onboardingWarnings.join(" ") })
           : tr("serversPage.action.createSuccess"),
     } as ServerActionState;
   } catch (error) {
@@ -169,7 +169,7 @@ export async function updateServerAction(
     return {
       success:
         warnings.length > 0
-          ? tr("serversPage.action.updateWithWarnings").replace("{warnings}", warnings.join(" "))
+          ? tr("serversPage.action.updateWithWarnings", { warnings: warnings.join(" ") })
           : tr("serversPage.action.updateSuccess"),
     } as ServerActionState;
   } catch (error) {
@@ -327,8 +327,8 @@ export async function batchToggleServerAction(
 
     return {
       success: enabled
-        ? tr("serversPage.action.batchEnabled").replace("{count}", String(result.count))
-        : tr("serversPage.action.batchDisabled").replace("{count}", String(result.count)),
+        ? tr("serversPage.action.batchEnabled", { count: result.count })
+        : tr("serversPage.action.batchDisabled", { count: result.count }),
     } as ServerActionState;
   } catch (error) {
     return {
@@ -373,7 +373,7 @@ export async function deleteServerAction(
     if (confirmName !== current.name) {
       return {
         relatedStorageCount,
-        error: tr("serversPage.action.deleteConfirmName").replace("{name}", current.name),
+        error: tr("serversPage.action.deleteConfirmName", { name: current.name }),
       } as ServerActionState;
     }
 

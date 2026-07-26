@@ -18,7 +18,7 @@ export async function changePasswordAction(
 ) {
   const session = await requireSession("/account/password");
   const locale = await getServerLocale();
-  const tr = (key: string) => t(key, locale);
+  const tr = (key: string, vars?: Record<string, string | number>) => t(key, locale, vars);
 
   try {
     const result = await changePassword({

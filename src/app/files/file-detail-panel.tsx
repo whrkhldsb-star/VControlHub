@@ -13,7 +13,7 @@
  */
 import Link from "next/link";
 import { useI18n } from "@/lib/i18n/use-locale";
-import { useDialogFocus } from "@/lib/a11y/use-dialog-focus";
+import { ModalShell } from "@/components/modal-shell";
 
 import {
   DeleteConfirmButton,
@@ -58,20 +58,15 @@ export function FileDetailPanel({
   entryCanDelete,
 }: FileDetailPanelProps) {
   const { t, locale } = useI18n();
-  const dialogRef = useDialogFocus<HTMLDivElement>({ open: true, onClose });
   return (
-    <div
-      ref={dialogRef}
-      className="fixed inset-0 z-50 flex justify-end bg-[var(--surface-subtle)] p-3 backdrop-blur-sm"
-      role="dialog"
-      aria-modal="true"
-      aria-labelledby="file-detail-panel-title"
-      onClick={onClose}
+    <ModalShell
+      open
+      onClose={onClose}
+      labelledBy="file-detail-panel-title"
+      overlayClassName="fixed inset-0 z-50 flex justify-end bg-[var(--surface-subtle)] p-3 backdrop-blur-sm"
+      panelClassName="flex h-full w-full max-w-xl flex-col overflow-hidden rounded-3xl border border-[var(--border)] bg-[var(--modal-bg)] text-[var(--text-primary)] shadow-2xl"
+      as="aside"
     >
-      <aside
-        className="flex h-full w-full max-w-xl flex-col overflow-hidden rounded-3xl border border-[var(--border)] bg-[var(--modal-bg)] text-[var(--text-primary)] shadow-2xl"
-        onClick={(event) => event.stopPropagation()}
-      >
         <div className="flex items-start justify-between gap-4 border-b border-[var(--border)] px-5 py-4">
           <div className="min-w-0">
             <p className="text-xs font-medium uppercase tracking-[0.2em] text-[var(--accent)]">
@@ -213,7 +208,6 @@ export function FileDetailPanel({
             </div>
           </div>
         </div>
-      </aside>
-    </div>
+    </ModalShell>
   );
 }

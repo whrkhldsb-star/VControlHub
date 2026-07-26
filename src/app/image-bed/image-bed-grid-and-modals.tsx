@@ -2,8 +2,8 @@
 
 import Image from "next/image";
 import type { Dispatch, SetStateAction } from "react";
+import { ModalShell } from "@/components/modal-shell";
 import { Card } from "@/components/page-shell";
-import { useDialogFocus } from "@/lib/a11y/use-dialog-focus";
 import type { ImageItem, PendingDelete } from "./image-bed-types";
 import { formatImageSize, type ImageBedT } from "./image-bed-sections";
 
@@ -194,20 +194,14 @@ export function PublishFromStorageModal({
   t: ImageBedT;
   publishing?: boolean;
 }) {
-  const dialogRef = useDialogFocus<HTMLDivElement>({ open: true, onClose });
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-[var(--overlay-strong)] p-4"
-      onClick={onClose}
+    <ModalShell
+      open
+      onClose={onClose}
+      labelledBy="imageBedPublishTitle"
+      overlayClassName="fixed inset-0 z-50 flex items-center justify-center bg-[var(--overlay-strong)] p-4"
+      panelClassName="w-full max-w-md rounded-xl border border-[var(--border)] bg-[var(--modal-bg)] p-6"
     >
-      <div
-        ref={dialogRef}
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="imageBedPublishTitle"
-        className="w-full max-w-md rounded-xl border border-[var(--border)] bg-[var(--modal-bg)] p-6"
-        onClick={(e) => e.stopPropagation()}
-      >
         <h3 id="imageBedPublishTitle" className="mb-4 text-lg font-semibold text-[var(--text-primary)]">
           {t("imageBedPage.publishFromStorage.title")}
         </h3>
@@ -316,8 +310,7 @@ export function PublishFromStorageModal({
             {t("imageBedPage.publishFromStorage.submit")}
           </ActionButton>
         </div>
-      </div>
-    </div>
+    </ModalShell>
   );
 }
 
@@ -336,25 +329,19 @@ export function DeleteImageDialog({
 }) {
   
   const handleClose = deleting ? () => undefined : onClose;
-  const dialogRef = useDialogFocus<HTMLDivElement>({ open: true, onClose: handleClose });
 
 return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-[var(--overlay-strong)] p-4"
-      onClick={handleClose}
+    <ModalShell
+      open
+      onClose={handleClose}
+      label={
+        pendingDelete.type === "single"
+          ? t("imageBedPage.delete.ariaLabel.single")
+          : t("imageBedPage.delete.ariaLabel.batch")
+      }
+      overlayClassName="fixed inset-0 z-50 flex items-center justify-center bg-[var(--overlay-strong)] p-4"
+      panelClassName="w-full max-w-md rounded-xl border border-[var(--danger-border)] bg-[var(--modal-bg)] p-6 shadow-2xl"
     >
-      <div
-        ref={dialogRef}
-        role="dialog"
-        aria-modal="true"
-        aria-label={
-          pendingDelete.type === "single"
-            ? t("imageBedPage.delete.ariaLabel.single")
-            : t("imageBedPage.delete.ariaLabel.batch")
-        }
-        className="w-full max-w-md rounded-xl border border-[var(--danger-border)] bg-[var(--modal-bg)] p-6 shadow-2xl"
-        onClick={(e) => e.stopPropagation()}
-      >
         <h3 className="mb-2 text-lg font-semibold text-[var(--text-primary)]">
           {pendingDelete.type === "single"
             ? t("imageBedPage.delete.title.single")
@@ -387,7 +374,6 @@ return (
               : t("common.confirmDelete")}
           </ActionButton>
         </div>
-      </div>
-    </div>
+    </ModalShell>
   );
 }

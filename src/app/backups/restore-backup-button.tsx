@@ -6,9 +6,9 @@ import { useRouter } from "next/navigation";
 import { csrfFetch } from "@/lib/auth/csrf-client";
 import { toDateLocale } from "@/lib/i18n/locale-format";
 import { useI18n } from "@/lib/i18n/use-locale";
-import { useDialogFocus } from "@/lib/a11y/use-dialog-focus";
 import { getErrorMessage } from "@/lib/http/error-message";
 import { ActionButton } from "@/components/action-button";
+import { ModalShell } from "@/components/modal-shell";
 
 type Props = {
   backupId: string;
@@ -22,7 +22,6 @@ export function RestoreBackupButton({ backupId, backupType, disabled = false }: 
   const router = useRouter();
   const [pending, setPending] = useState(false);
   const [confirmOpen, setConfirmOpen] = useState(false);
-  const dialogRef = useDialogFocus<HTMLDivElement>({ open: confirmOpen, onClose: () => setConfirmOpen(false) });
   const [confirmText, setConfirmText] = useState("");
   const [component, setComponent] = useState<"all" | "database" | "files">("all");
   const [message, setMessage] = useState<string | null>(null);
@@ -73,7 +72,7 @@ export function RestoreBackupButton({ backupId, backupType, disabled = false }: 
       } else if (result.taskId || result.jobId) {
         const taskId = result.taskId ?? (result.jobId ? `job:${result.jobId}` : "");
         const key = result.deduped ? "backupsPage.restore.deduped" : "backupsPage.restore.queued";
-        setMessage(t(key).replace("{taskId}", taskId));
+        setMessage(t(key, { taskId }));
         setQueuedTaskLink(true);
       } else {
         // Unknown 2xx shape — do not claim restore completed.
@@ -109,15 +108,15 @@ export function RestoreBackupButton({ backupId, backupType, disabled = false }: 
       )}
       {error && <p className="text-xs text-[var(--danger)]">{error}</p>}
       {confirmOpen && (
-        <div className="fixed inset-0 z-50 flex items-end justify-center overflow-y-auto bg-[var(--surface)]/75 p-0 backdrop-blur-sm sm:items-center sm:p-4" role="presentation">
-          <div
-            ref={dialogRef}
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="restore-backup-title"
-            aria-describedby="restore-backup-description"
-            className="mx-0 w-full max-w-md rounded-t-2xl border border-[var(--danger-border)] bg-[var(--modal-bg)] p-5 shadow-2xl shadow-black/30 sm:mx-4 sm:rounded-2xl"
-          >
+        <ModalShell
+          open
+          onClose={() => setConfirmOpen(false)}
+          labelledBy="restore-backup-title"
+          describedBy="restore-backup-description"
+          closeOnBackdrop={false}
+          overlayClassName="fixed inset-0 z-50 flex items-end justify-center overflow-y-auto bg-[var(--surface)]/75 p-0 backdrop-blur-sm sm:items-center sm:p-4"
+          panelClassName="mx-0 w-full max-w-md rounded-t-2xl border border-[var(--danger-border)] bg-[var(--modal-bg)] p-5 shadow-2xl shadow-black/30 sm:mx-4 sm:rounded-2xl"
+        >
             <h3 id="restore-backup-title" className="text-base font-semibold text-[var(--text-primary)]">{t("backupsPage.restore.confirmTitle")}</h3>
             <p id="restore-backup-description" className="mt-2 text-sm leading-6 text-[var(--text-secondary)]">
               {t("backupsPage.restore.warningPrefix")} <span className="font-semibold text-[var(--text-primary)]">{backupType}</span> {t("backupsPage.restore.warningSuffix")} <span className="font-mono font-semibold text-[var(--danger)]">{CONFIRM_TEXT}</span> {t("backupsPage.restore.warningContinue")}
@@ -167,8 +166,7 @@ export function RestoreBackupButton({ backupId, backupType, disabled = false }: 
                 {pending ? t("backupsPage.restore.pending") : t("backupsPage.restore.confirm")}
               </ActionButton>
             </div>
-          </div>
-        </div>
+        </ModalShell>
       )}
     </div>
   );

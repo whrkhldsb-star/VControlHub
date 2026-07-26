@@ -1,6 +1,7 @@
 "use client";
 
 import { ActionButton } from "@/components/action-button";
+import { ModalShell } from "@/components/modal-shell";
 /**
  * `InstallDialog` — port-picker modal shown when the user clicks
  * "一键安装" on a Quick Service card. Lets the user override the
@@ -18,7 +19,6 @@ import { ActionButton } from "@/components/action-button";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { csrfFetch } from "@/lib/auth/csrf-client";
 import { useI18n } from "@/lib/i18n/use-locale";
-import { useDialogFocus } from "@/lib/a11y/use-dialog-focus";
 import { getErrorMessage } from "@/lib/http/error-message";
 
 type InstallDialogItem = {
@@ -56,7 +56,6 @@ export function InstallDialog({
 	getPrimaryContainerPort,
 }: InstallDialogProps) {
 	const { t } = useI18n();
-	const dialogRef = useDialogFocus<HTMLDivElement>({ open: open !== null, onClose });
 	const [customPort, setCustomPort] = useState<string>("");
 	const [portCheck, setPortCheck] = useState<PortCheckState | null>(null);
 	const portCheckTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -145,17 +144,13 @@ export function InstallDialog({
 	};
 
 	return (
-		<div
-			className="fixed inset-0 z-50 flex items-center justify-center bg-[var(--overlay)] backdrop-blur-sm"
-			onClick={onClose}
+		<ModalShell
+			open
+			onClose={onClose}
+			label={t("qsPage.installTitle", { name: open.name })}
+			overlayClassName="fixed inset-0 z-50 flex items-center justify-center bg-[var(--overlay)] backdrop-blur-sm"
+			panelClassName="w-full max-w-md mx-4 rounded-2xl border border-[var(--border)] bg-[var(--surface-root)] p-6 shadow-2xl"
 		>
-			<div
-				ref={dialogRef}
-				role="dialog"
-				aria-modal="true"
-				className="w-full max-w-md mx-4 rounded-2xl border border-[var(--border)] bg-[var(--surface-root)] p-6 shadow-2xl"
-				onClick={(e) => e.stopPropagation()}
-			>
 				<h3 className="text-lg font-semibold text-[var(--text-primary)] mb-1">{t("qsPage.installTitle", { name: open.name })}</h3>
 				<p className="text-xs text-[var(--text-muted)] mb-4">{t("qsPage.installSubtitle")}</p>
 
@@ -233,7 +228,6 @@ export function InstallDialog({
 						{t("qsPage.confirmInstall")}
 					</ActionButton>
 				</div>
-			</div>
-		</div>
+		</ModalShell>
 	);
 }

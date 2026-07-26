@@ -8,7 +8,7 @@ import { t as translate, type Locale } from "@/lib/i18n/translations";
 import { type Permission } from "@/lib/auth/rbac";
 import { filterByHrefPermissions } from "@/lib/auth/filter-by-href-permissions";
 import { useGateRoute } from "@/lib/auth/use-gate-route";
-import { useDialogFocus } from "@/lib/a11y/use-dialog-focus";
+import { ModalShell } from "@/components/modal-shell";
 
 export interface SearchItem {
 	label: string;
@@ -159,7 +159,6 @@ export function GlobalSearch({
 		setTimeout(() => returnTarget?.focus(), 0);
 	}, []);
 
-	const dialogRef = useDialogFocus<HTMLDivElement>({ open, onClose: closeSearch, initialFocusRef: inputRef });
 
 	const openSearch = useCallback(() => {
 		const activeElement = document.activeElement;
@@ -257,21 +256,15 @@ export function GlobalSearch({
 		}
 	};
 
-	if (!open) return null;
-
 	return (
-		<div
-			className="fixed inset-0 z-[70] flex items-start justify-center bg-[var(--overlay)] pb-[env(safe-area-inset-bottom)] pt-[12vh] backdrop-blur-sm sm:pt-[15vh]"
-			onClick={closeSearch}
+		<ModalShell
+			open={open}
+			onClose={closeSearch}
+			label={t("search.dialog")}
+			overlayClassName="fixed inset-0 z-[70] flex items-start justify-center bg-[var(--overlay)] pb-[env(safe-area-inset-bottom)] pt-[12vh] backdrop-blur-sm sm:pt-[15vh]"
+			panelClassName="mx-4 w-full max-w-lg overflow-hidden rounded-2xl border border-[var(--border)] bg-[var(--modal-bg)] shadow-[var(--shadow-lg)]"
+			initialFocusRef={inputRef}
 		>
-			<div
-				ref={dialogRef}
-				role="dialog"
-				aria-modal="true"
-				aria-label={t("search.dialog")}
-				className="mx-4 w-full max-w-lg overflow-hidden rounded-2xl border border-[var(--border)] bg-[var(--modal-bg)] shadow-[var(--shadow-lg)]"
-				onClick={(e) => e.stopPropagation()}
-			>
 				<div className="flex items-center gap-2 border-b border-[var(--border)] px-4">
 					<svg
 						className="h-4 w-4 shrink-0 text-[var(--text-muted)]"
@@ -353,7 +346,6 @@ export function GlobalSearch({
 					<span>{t("search.shortcut-confirm")}</span>
 					<span>{t("search.shortcut-close")}</span>
 				</div>
-			</div>
-		</div>
+		</ModalShell>
 	);
 }

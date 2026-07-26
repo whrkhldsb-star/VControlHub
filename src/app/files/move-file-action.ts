@@ -23,7 +23,7 @@ export async function moveFileAction(
 ) {
   const session = await requirePermission("storage:write");
   const locale = await getServerLocale();
-  const tr = (key: string) => t(key, locale);
+  const tr = (key: string, vars?: Record<string, string | number>) => t(key, locale, vars);
 
   try {
     const fileEntryId = String(formData.get("fileEntryId") ?? "").trim();
@@ -141,7 +141,7 @@ export async function moveFileAction(
 
     if (existing) {
       return {
-        error: tr("filesPage.move.errorTargetExists").replace("{path}", `/${newRelativePath}`),
+        error: tr("filesPage.move.errorTargetExists", { path: `/${newRelativePath}` }),
       } satisfies MoveFileActionState;
     }
 
@@ -156,7 +156,7 @@ export async function moveFileAction(
       const driverLabel =
         entry.storageNode.driver === "LOCAL" ? tr("filesPage.move.driverLocal") : tr("filesPage.move.driverRemote");
       return {
-        error: tr("filesPage.move.errorBackingMoveFailed").replace("{driver}", driverLabel).replace("{message}", getErrorMessage(error, tr("filesPage.move.errorUnknown"))),
+        error: tr("filesPage.move.errorBackingMoveFailed", { driver: driverLabel, message: getErrorMessage(error, tr("filesPage.move.errorUnknown")) }),
       } satisfies MoveFileActionState;
     }
 
@@ -219,7 +219,7 @@ export async function moveFileAction(
     revalidatePath("/files");
 
     return {
-      success: tr("filesPage.move.success").replace("{path}", `/${newRelativePath}`),
+      success: tr("filesPage.move.success", { path: `/${newRelativePath}` }),
     } satisfies MoveFileActionState;
   } catch (error) {
     return {

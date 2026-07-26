@@ -8,7 +8,6 @@ import { EmptyState, ListPanel, ListRow, Toolbar } from "@/components/page-shell
 import { toDateLocale } from "@/lib/i18n/locale-format";
 import { useI18n } from "@/lib/i18n/use-locale";
 import { useToast } from "@/components/toast-provider";
-import { useDialogFocus } from "@/lib/a11y/use-dialog-focus";
 import {
   UsersCreateForm,
   UsersResetPasswordDialog,
@@ -114,16 +113,15 @@ export function UserManagementClient({ canManage = false, currentUserId = "" }: 
         body: JSON.stringify({ userId, action }),
       });
       const successKey = action === "enable" ? "usersPage.success.enabled" : "usersPage.success.disabled";
-      addToast("success", t(successKey).replace("{name}", username));
+      addToast("success", t(successKey, { name: username }));
       await fetchUsers();
     } catch (err) {
       const errKey = action === "enable" ? "usersPage.error.enableFailed" : "usersPage.error.disableFailed";
-      addToast("error", messageFromError(err, t(errKey).replace("{name}", username)));
+      addToast("error", messageFromError(err, t(errKey, { name: username })));
     }
   };
 
   const [resetPasswordUser, setResetPasswordUser] = useState<UserInfo | null>(null);
-  const dialogRef = useDialogFocus<HTMLDivElement>({ open: resetPasswordUser !== null, onClose: () => setResetPasswordUser(null) });
   const [resetPasswordValue, setResetPasswordValue] = useState("");
   const [resetting, setResetting] = useState(false);
 
@@ -287,7 +285,6 @@ export function UserManagementClient({ canManage = false, currentUserId = "" }: 
         <UsersResetPasswordDialog
           t={t}
           username={resetPasswordUser.username}
-          dialogRef={dialogRef}
           password={resetPasswordValue}
           setPassword={setResetPasswordValue}
           resetting={resetting}

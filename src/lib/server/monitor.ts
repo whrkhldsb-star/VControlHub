@@ -127,7 +127,7 @@ export function parseMonitorScriptOutput(stdout: string): ServerMetrics {
 
 export async function collectServerMetrics(serverId: string): Promise<ServerMetrics | MonitorError> {
 	const locale = await getServerLocale();
-	const tr = (key: string) => t(key, locale);
+	const tr = (key: string, vars?: Record<string, string | number>) => t(key, locale, vars);
 	try {
 		const server = await prisma.server.findUnique({
 			where: { id: serverId },
@@ -148,7 +148,7 @@ export async function collectServerMetrics(serverId: string): Promise<ServerMetr
 	} catch (err) {
 		const message = err instanceof Error ? err.message : tr("backend.server.monitor.unknownError");
 		return {
-			error: tr("backend.server.monitor.connectionFailed").replace("{message}", message),
+			error: tr("backend.server.monitor.connectionFailed", { message }),
 			serverId,
 		};
 	}

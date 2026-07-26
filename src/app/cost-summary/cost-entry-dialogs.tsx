@@ -3,23 +3,23 @@
 import type { Dispatch, SetStateAction } from "react";
 import type { CostCategory, CostCurrency } from "@/lib/cost/types";
 import { CATEGORIES, buttonGhost, buttonPrimary, cardClass, inputClass, labelClass } from "./cost-page-shared";
-import { useDialogFocus } from "@/lib/a11y/use-dialog-focus";
 import { ActionButton } from "@/components/action-button";
+import { ModalShell } from "@/components/modal-shell";
 
 type T = (key: string, vars?: Record<string, string | number>) => string;
 type CostForm = { category: CostCategory; provider: string; amount: string; currency: CostCurrency; effectiveDate: string; notes: string };
 
 export function CostEntryFormModal({ open, editingId, form, availableCurrencies, saving, setForm, setShowForm, setEditingId, submitForm, t }: { open: boolean; editingId: string | null; form: CostForm; availableCurrencies: CostCurrency[]; saving: boolean; setForm: Dispatch<SetStateAction<CostForm>>; setShowForm: Dispatch<SetStateAction<boolean>>; setEditingId: Dispatch<SetStateAction<string | null>>; submitForm: () => void; t: T }) {
-	const dialogRef = useDialogFocus<HTMLDivElement>({ open, onClose: () => setShowForm(false) });
-	return open ? (
-				<div
-					ref={dialogRef}
-					className="fixed inset-0 z-50 flex items-center justify-center bg-[var(--overlay)] p-4"
-					role="dialog"
-					aria-modal="true"
-				>
-					<div className={`${cardClass} w-full max-w-md space-y-4`}>
-						<h3 className="text-base font-semibold text-[var(--text-primary)]">
+	return (
+		<ModalShell
+			open={open}
+			onClose={() => setShowForm(false)}
+			labelledBy="cost-entry-form-title"
+			overlayClassName="fixed inset-0 z-50 flex items-center justify-center bg-[var(--overlay)] p-4"
+			panelClassName={`${cardClass} w-full max-w-md space-y-4`}
+			closeOnBackdrop={false}
+		>
+						<h3 id="cost-entry-form-title" className="text-base font-semibold text-[var(--text-primary)]">
 							{editingId ? t("costPage.form.editTitle") : t("costPage.form.title")}
 						</h3>
 						<div>
@@ -122,24 +122,24 @@ export function CostEntryFormModal({ open, editingId, form, availableCurrencies,
 								disabled={saving}
 							>
 								{saving ? t("costPage.actions.saving") : t("costPage.form.submit")}
-							</ActionButton>
-						</div>
-					</div>
-				</div>
-			) : null;
-}
+								</ActionButton>
+								</div>
+								</ModalShell>
+								);
+								}
 
 export function CostDeleteDialog({ confirmDelete, deletingId, setConfirmDelete, onConfirmDelete, t }: { confirmDelete: { id: string; provider: string; amount: string } | null; deletingId: string | null; setConfirmDelete: Dispatch<SetStateAction<{ id: string; provider: string; amount: string } | null>>; onConfirmDelete: () => void; t: T }) {
-	const dialogRef = useDialogFocus<HTMLDivElement>({ open: confirmDelete !== null, onClose: () => setConfirmDelete(null) });
 	return confirmDelete ? (
-				<div
-					ref={dialogRef}
-					className="fixed inset-0 z-50 flex items-center justify-center bg-[var(--overlay)] p-4"
-					role="alertdialog"
-					aria-modal="true"
-				>
-					<div className={`${cardClass} w-full max-w-sm space-y-4`}>
-						<h3 className="text-base font-semibold text-[var(--text-primary)]">
+		<ModalShell
+			open={confirmDelete !== null}
+			onClose={() => setConfirmDelete(null)}
+			labelledBy="cost-delete-dialog-title"
+			overlayClassName="fixed inset-0 z-50 flex items-center justify-center bg-[var(--overlay)] p-4"
+			panelClassName={`${cardClass} w-full max-w-sm space-y-4`}
+			closeOnBackdrop={false}
+			role="alertdialog"
+		>
+						<h3 id="cost-delete-dialog-title" className="text-base font-semibold text-[var(--text-primary)]">
 							{t("costPage.delete.title")}
 						</h3>
 						<p className="text-sm text-[var(--text-primary)]/70">
@@ -159,9 +159,8 @@ export function CostDeleteDialog({ confirmDelete, deletingId, setConfirmDelete, 
 								{deletingId === confirmDelete.id
 									? t("costPage.actions.deleting")
 									: t("costPage.delete.confirmBtn")}
-							</ActionButton>
-						</div>
-					</div>
-				</div>
-			) : null;
-}
+									</ActionButton>
+									</div>
+									</ModalShell>
+									) : null;
+									}

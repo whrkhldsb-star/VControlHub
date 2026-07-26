@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
-import { useDialogFocus } from "@/lib/a11y/use-dialog-focus";
+import { ModalShell } from "@/components/modal-shell";
 
 import { useI18n } from "@/lib/i18n/use-locale";
 import {
@@ -45,7 +45,6 @@ export function DashboardWidgetDetailDialog({
 }) {
 	const { t } = useI18n();
 	const closeRef = useRef<HTMLButtonElement | null>(null);
-	const dialogRef = useDialogFocus<HTMLDivElement>({ open: openId !== null, onClose, initialFocusRef: closeRef });
 	const [widgetEl, setWidgetEl] = useState<HTMLElement | null>(null);
 
 	// Resolve the widget DOM node in a layout effect (not during render)
@@ -67,22 +66,15 @@ export function DashboardWidgetDetailDialog({
 	if (!DASHBOARD_WIDGET_IDS.includes(openId)) return null;
 
 	return (
-		<div
-			role="presentation"
-			className="fixed inset-0 z-50 flex items-center justify-center bg-[var(--overlay)] p-4 backdrop-blur-sm"
-			data-testid="dashboard-widget-detail-dialog"
-			onClick={(e) => {
-				// Click on backdrop closes; clicks on the dialog body do not.
-				if (e.target === e.currentTarget) onClose();
-			}}
+		<ModalShell
+			open={openId !== null}
+			onClose={onClose}
+			labelledBy="dashboard-widget-detail-title"
+			overlayClassName="fixed inset-0 z-50 flex items-center justify-center bg-[var(--overlay)] p-4 backdrop-blur-sm"
+			panelClassName="relative max-h-[88vh] w-full max-w-3xl overflow-auto rounded-2xl border border-[var(--border)] bg-[var(--modal-bg)] p-5 shadow-[var(--shadow-lg)] sm:p-6"
+			initialFocusRef={closeRef}
+			panelProps={{ "data-testid": "dashboard-widget-detail-dialog" }}
 		>
-			<div
-				ref={dialogRef}
-				role="dialog"
-				aria-modal="true"
-				aria-labelledby="dashboard-widget-detail-title"
-				className="relative max-h-[88vh] w-full max-w-3xl overflow-auto rounded-2xl border border-[var(--border)] bg-[var(--modal-bg)] p-5 shadow-[var(--shadow-lg)] sm:p-6"
-				>
 				<div className="mb-4 flex items-center justify-between">
 					<h2
 						id="dashboard-widget-detail-title"
@@ -109,8 +101,7 @@ export function DashboardWidgetDetailDialog({
 						<p className="text-[var(--text-secondary)]">{t("common.noContent")}</p>
 						)}
 				</div>
-			</div>
-		</div>
+		</ModalShell>
 	);
 }
 

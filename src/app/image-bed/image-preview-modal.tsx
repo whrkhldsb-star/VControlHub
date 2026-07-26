@@ -17,9 +17,9 @@
 
 import Image from "next/image";
 import { useI18n } from "@/lib/i18n/use-locale";
-import { useDialogFocus } from "@/lib/a11y/use-dialog-focus";
 import type { ImageItem } from "./image-bed-types";
 import { ActionButton } from "@/components/action-button";
+import { ModalShell } from "@/components/modal-shell";
 
 export interface ImagePreviewModalProps {
 	image: ImageItem | null;
@@ -43,23 +43,17 @@ export function ImagePreviewModal({
 	formatSize,
 }: ImagePreviewModalProps) {
 	const { t } = useI18n();
-  const dialogRef = useDialogFocus<HTMLDivElement>({ open: image !== null, onClose });
 
 	if (!image) return null;
 
 	return (
-		<div
-			ref={dialogRef}
-			className="fixed inset-0 z-50 bg-[var(--overlay-strong)] flex items-center justify-center p-4"
-			onClick={onClose}
-			role="dialog"
-			aria-modal="true"
-			aria-label={`Preview ${image.filename}`}
+		<ModalShell
+			open
+			onClose={onClose}
+			label={`Preview ${image.filename}`}
+			overlayClassName="fixed inset-0 z-50 bg-[var(--overlay-strong)] flex items-center justify-center p-4"
+			panelClassName="relative max-w-4xl max-h-[90vh]"
 		>
-			<div
-				className="relative max-w-4xl max-h-[90vh]"
-				onClick={(e) => e.stopPropagation()}
-			>
 				<Image
 					src={image.publicUrl}
 					alt={image.filename}
@@ -116,7 +110,6 @@ export function ImagePreviewModal({
 				>
 					✕
 				</button>
-			</div>
-		</div>
+		</ModalShell>
 	);
 }

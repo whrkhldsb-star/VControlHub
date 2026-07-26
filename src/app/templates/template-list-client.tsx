@@ -5,7 +5,7 @@ import { useCallback, useState } from "react";
 import { ActionButton } from "@/components/action-button";
 import { EmptyState, SurfacePanel, Toolbar } from "@/components/page-shell";
 import { useToast } from "@/components/toast-provider";
-import { useDialogFocus } from "@/lib/a11y/use-dialog-focus";
+import { ModalShell } from "@/components/modal-shell";
 import { csrfFetch } from "@/lib/auth/csrf-client";
 import { useI18n } from "@/lib/i18n/use-locale";
 import type { Locale } from "@/lib/i18n/translations";
@@ -39,10 +39,6 @@ export function TemplateListClient({
 	const [templatePendingDelete, setTemplatePendingDelete] = useState<Template | null>(null);
 
 	const closeDeleteDialog = useCallback(() => setTemplatePendingDelete(null), []);
-	const dialogRef = useDialogFocus<HTMLDivElement>({
-		open: templatePendingDelete !== null,
-		onClose: closeDeleteDialog,
-	});
 
 	const allTags = [...new Set(templates.flatMap((item) => item.tags))].sort();
 	const filtered = filterTag
@@ -108,14 +104,14 @@ export function TemplateListClient({
 	return (
 		<div className="space-y-6">
 			{templatePendingDelete && (
-				<div
-					ref={dialogRef}
-					className="fixed inset-0 z-50 flex items-center justify-center bg-[var(--overlay)] p-4 backdrop-blur-sm"
-					role="dialog"
-					aria-modal="true"
-					aria-labelledby="delete-template-title"
+				<ModalShell
+					open
+					onClose={closeDeleteDialog}
+					labelledBy="delete-template-title"
+					closeOnBackdrop={false}
+					overlayClassName="fixed inset-0 z-50 flex items-center justify-center bg-[var(--overlay)] p-4 backdrop-blur-sm"
+					panelClassName="w-full max-w-md rounded-2xl border border-[var(--border)] bg-[var(--modal-bg)] p-5 shadow-2xl shadow-black/30"
 				>
-					<div className="w-full max-w-md rounded-2xl border border-[var(--border)] bg-[var(--modal-bg)] p-5 shadow-2xl shadow-black/30">
 						<h3
 							id="delete-template-title"
 							className="text-base font-semibold text-[var(--text-primary)]"
@@ -146,8 +142,7 @@ export function TemplateListClient({
 								{t("templatesPage.delete.confirm2")}
 							</ActionButton>
 						</div>
-					</div>
-				</div>
+				</ModalShell>
 			)}
 
 			<Toolbar className="justify-between">

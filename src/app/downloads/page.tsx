@@ -59,9 +59,7 @@ export default async function DownloadsPage() {
 		const accessDescription = s.storageNode?.driver === "LOCAL"
 			? t("downloadsPage.access.localDesc", locale)
 			: isDirect
-				? t(s.storageNode?.directAccessMode === "AUTO" ? "downloadsPage.access.directAutoDesc" : "downloadsPage.access.directModeDesc", locale)
-					.replace("{host}", host)
-					.replace("{port}", String(port))
+				? t(s.storageNode?.directAccessMode === "AUTO" ? "downloadsPage.access.directAutoDesc" : "downloadsPage.access.directModeDesc", locale, { host, port })
 				: t("downloadsPage.access.relayDesc", locale, { host, port });
 		void strategy;
 		return {

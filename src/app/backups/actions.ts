@@ -20,7 +20,7 @@ export type BackupActionState = {
 export async function createBackupAction(_prev: BackupActionState, formData: FormData): Promise<BackupActionState> {
   const session = await requireSession("/backups");
   const locale = await getServerLocale();
-  const tr = (key: string) => t(key, locale);
+  const tr = (key: string, vars?: Record<string, string | number>) => t(key, locale, vars);
   if (!sessionHasPermission(session, "backup:create")) {
     return { success: false, error: tr("backupsPage.action.noPermission") };
   }
@@ -43,7 +43,7 @@ export async function createBackupAction(_prev: BackupActionState, formData: For
   try {
     job = await enqueueJob({
       type: BACKUP_CREATE_JOB_TYPE,
-      title: tr("backupsPage.action.jobTitle").replace("{type}", tr(`backupsPage.action.typeLabel.${parsed.data.type}`)),
+      title: tr("backupsPage.action.jobTitle", { type: tr(`backupsPage.action.typeLabel.${parsed.data.type}`) }),
       payload: { backupId: backup.id, teamId: session.currentTeamId ?? backup.teamId ?? null },
       createdBy: session.userId,
       teamId: session.currentTeamId ?? null,
